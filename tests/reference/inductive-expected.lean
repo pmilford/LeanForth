@@ -1350,7 +1350,7 @@ def hiddenFive : Declaration :=
              value := reflC 1 nat (lit 5) }
 
 def onBase : List Chain := [
-  { id := "axiom.declared-and-used", decls := secretUse,
+  { id := "postulate.declared-and-used", decls := secretUse,
     lean := "accepted", leanforth := "accepted", rule := "A1", task := "5.3.1" },
   { id := "opaque.accepted", decls := [opaqueD `IE.hidden (lit 5)],
     lean := "accepted", leanforth := "accepted", rule := "O1", task := "4.2.6" },
@@ -1374,7 +1374,7 @@ def onBase : List Chain := [
 
 -- Axioms in an empty environment, where `propext` is free to take another statement.
 def axiomChains : List Chain := [
-  { id := "axiom.propext-altered", decls := alteredPropext,
+  { id := "postulate.propext-altered", decls := alteredPropext,
     lean := "accepted", leanforth := "accepted", rule := "A1", task := "5.3.1" }
 ]
 

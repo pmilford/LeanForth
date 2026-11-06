@@ -153,7 +153,7 @@ lf-env-serial @ constant serial-before
 T{ 8 ' lf-env-new rs-checked swap constant env-a -> outcome-ok }T
 lf-env-serial @ constant id-a
 T{ id-a serial-before 1+ = env-a lf-envh-identity @ id-a = -> true true }T
-T{ env-a lf-env-length env-a lf-envh-allowed @ env-a lf-envh-mode @ -> main-count 0 lf-mode-final }T
+T{ env-a lf-env-length env-a lf-envh-allowed @ env-a lf-envh-mode @ -> main-count lf-allowlist-bits lf-mode-final }T
 \ Every slot starts not final with outcome invalid, never ok (the round-4
 \ review's L4), though nothing reads a slot before it is final.
 : slot-unpublished? ( env d -- flag )
@@ -843,8 +843,9 @@ lf-env-view drop
 T{ axioms-none? 2 lf-env-axioms 3 lf-env-axioms -> true 0 outcome-invalid 0 outcome-invalid }T
 env-free
 \ With a test-only allowlist bit on a synthetic record, the union reaches
-\ every user, directly or not; without it in the allowlist, a user is a
-\ fault (invalid) and its own users unknown.
+\ every user, directly or not; without it in the allowlist, every user is
+\ still accepted, as Lean accepts it (owner decision 4 as amended), its
+\ set holding the bit that makes it NOT PROVED (lf-env-unproved).
 : rest ( -- ) main-count 1 ?do ['] syn-check i checked-step drop loop lf-env-view drop ;
 : axiom-trial ( allowed -- )
   8 fresh-env lf-env lf-envh-allowed ! ['] syn-check 1 checked-run 1 0 slot@ lf-slot-axioms ! rest ;
@@ -853,7 +854,8 @@ T{ 1 lf-env-axioms 8 lf-env-axioms 23 lf-env-axioms 26 lf-env-axioms -> 1 outcom
 T{ 0 lf-env-axioms 11 lf-env-axioms -> 1 outcome-ok 0 outcome-ok }T
 env-free
 0 axiom-trial
-T{ 1 lf-env-outcome 8 lf-env-outcome 23 lf-env-outcome 11 lf-env-outcome 26 lf-env-outcome -> outcome-invalid outcome-unknown outcome-unknown outcome-ok outcome-ok }T
+T{ 1 lf-env-outcome 8 lf-env-outcome 23 lf-env-outcome 11 lf-env-outcome 26 lf-env-outcome -> outcome-ok outcome-ok outcome-ok outcome-ok outcome-ok }T
+T{ 1 lf-env-axioms drop lf-env-unproved 11 lf-env-axioms drop lf-env-unproved -> 1 0 }T
 env-free
 \ A check that drops a dependency's bit is caught by the publisher.
 : lossy-check ( -- ) syn-check 0 lf-env-cand lf-cand-axioms ! ;

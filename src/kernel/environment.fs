@@ -794,13 +794,14 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
 \ declarations it uses, directly or not, given to xt ( d' -- ) in
 \ ascending order, within this context's snapshot. A dependency is always
 \ an earlier slot, so one pass from d down marks them all (no recursion),
-\ one byte per slot in a heap block freed before the word returns. ok;
+\ one cell per slot in a heap block freed before the word returns. ok;
 \ full when the heap has no room; invalid when slot d is not readable and
 \ accepted.
 : lf-dep-at ( k slot -- d ) lf-slot-deps @ + lf-env lf-env-pool store-slot @ ;
+: lf-mark ( marks d -- ) cells + true swap ! ;
 : lf-marks-of ( marks slot -- )
-  dup lf-slot-count @ 0 ?do 2dup i swap lf-dep-at + true swap c! loop 2drop ;
-: lf-marked? ( marks d -- flag ) + c@ 0<> ;
+  dup lf-slot-count @ 0 ?do 2dup i swap lf-dep-at lf-mark loop 2drop ;
+: lf-marked? ( marks d -- flag ) cells + @ 0<> ;
 : lf-mark-down ( marks d -- )
   0 swap do dup i lf-marked? if dup i lf-env lf-env-slot lf-marks-of then -1 +loop drop ;
 : lf-axiom-slot? ( d -- flag )
@@ -808,10 +809,13 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
 : lf-marks-give ( marks d xt -- )
   swap 1+ 0 ?do over i lf-marked? if i lf-axiom-slot? if i over execute then then loop 2drop ;
 : lf-marks-new ( d -- marks outcome )
-  1+ dup allocate if 2drop 0 outcome-full exit then tuck swap erase outcome-ok ;
+  1+ cells dup allocate if 2drop 0 outcome-full exit then tuck swap erase outcome-ok ;
 : lf-marks-run ( d xt marks -- )
-  dup >r dup 3 pick + true swap c! dup 3 pick lf-mark-down -rot lf-marks-give
-  r> free drop ;
+  dup >r dup 3 pick lf-mark dup 3 pick lf-mark-down -rot lf-marks-give r> free drop ;
 : lf-env-axiom-deps ( d xt -- outcome )
   over lf-env-accepted nip ok? 0= if 2drop outcome-invalid exit then
   over lf-marks-new ok-then? 0= if nip nip exit then lf-marks-run outcome-ok ;
+\ Whether axiom slot d (one lf-env-axiom-deps gives) is outside the
+\ allowlist, its own bit one that does not count as proved.
+: lf-env-unlisted? ( d -- flag )
+  lf-env lf-env-slot lf-slot-decl lf-own-axiom drop lf-env-unproved 0<> ;

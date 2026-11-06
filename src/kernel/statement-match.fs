@@ -41,6 +41,7 @@
 \ context; the entries are read-only data made while loading.
 
 require ../lib/lib.fs
+require ../lib/bytes.fs
 require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
 require ../core/input.fs
@@ -68,8 +69,7 @@ end-structure
 \ Texts: the next token, up to a space, each costing one unit of fuel.
 : lf-stmt-text ( -- c-addr u ) lf-stmt-state dup lf-stmt-at @ swap lf-stmt-len @ ;
 : lf-stmt-text! ( c-addr u -- ) lf-stmt-state tuck lf-stmt-len ! lf-stmt-at ! ;
-: lf-stmt-span ( c-addr u -- n )
-  dup >r 0 ?do dup i + c@ bl = if drop i unloop r> drop exit then loop drop r> ;
+: lf-stmt-span ( c-addr u -- n ) tuck bl byte-scan nip - ;
 : lf-stmt-token ( -- c-addr u )
   -1 lf-stmt-fuel +!
   lf-stmt-text 2dup lf-stmt-span >r 2dup r@ 1+ over min /string lf-stmt-text! drop r> ;
@@ -79,12 +79,14 @@ end-structure
 \ The number of tokens of a text; a text with more than lf-stmt-room
 \ cannot be kept.
 : lf-stmt-tokens ( c-addr u -- n )
-  1 -rot 0 ?do dup i + c@ bl = if swap 1+ swap then loop drop ;
+  1 -rot begin bl byte-scan dup while 1 /string rot 1+ -rot repeat 2drop ;
 
 \ Names, from the last part back: each string part matches, and the text
-\ ends where the name does (the anonymous name, ID 0).
+\ ends where the name does (the anonymous name, ID 0). The last dot's
+\ offset, -1 for none.
 : lf-stmt-dot ( c-addr u -- k|-1 )
-  begin dup while 1- 2dup + c@ [char] . = if nip exit then repeat 2drop -1 ;
+  over -1 2swap begin [char] . byte-scan dup while
+    2swap drop 2 pick over - 2swap 1 /string repeat 2drop nip ;
 : lf-stmt-split ( c-addr u -- c-addr k part-addr part-u )
   2dup lf-stmt-dot dup 0< if drop over 0 2swap exit then
   >r over r@ 2swap r> 1+ /string ;
@@ -130,18 +132,21 @@ end-structure
 : lf-stmt-const? ( node -- flag )
   dup lf-tag-constant lf-stmt-tag? if lf-term-first@ lf-cref-slot lf-stmt-const
   else drop false then ;
-: lf-stmt-letter ( node char -- flag )
-  case [char] P of lf-tag-pi lf-stmt-binary endof
-    [char] L of lf-tag-lam lf-stmt-binary endof
-    [char] A of lf-tag-app lf-stmt-binary endof
-    [char] S of lf-stmt-sort endof
-    [char] C of lf-stmt-const? endof
-    nip false swap endcase ;
+\ Whether a token (not empty) is the text given, or starts with it.
+: lf-stmt-token? ( c-addr u c-addr2 u2 -- c-addr u flag ) 2over compare 0= ;
+: lf-stmt-prefix? ( c-addr u c-addr2 u2 -- c-addr u flag )
+  2over drop over 2swap compare 0= ;
+: lf-stmt-letter ( node c-addr u -- flag )
+  s" P" lf-stmt-token? if 2drop lf-tag-pi lf-stmt-binary exit then
+  s" L" lf-stmt-token? if 2drop lf-tag-lam lf-stmt-binary exit then
+  s" A" lf-stmt-token? if 2drop lf-tag-app lf-stmt-binary exit then
+  s" S" lf-stmt-token? if 2drop lf-stmt-sort exit then
+  s" C" compare 0= if lf-stmt-const? else drop false then ;
+: lf-stmt-bvar-token ( node c-addr u -- flag )
+  1 /string lf-stmt-number if lf-stmt-bvar? else 2drop false then ;
 : lf-stmt-term-token ( node c-addr u -- flag )
   dup 0= if 2drop drop false exit then
-  over c@ [char] # = if
-    1 /string lf-stmt-number if lf-stmt-bvar? else 2drop false then exit then
-  1 <> if 2drop false exit then c@ lf-stmt-letter ;
+  s" #" lf-stmt-prefix? if lf-stmt-bvar-token else lf-stmt-letter then ;
 
 \ A level token for level.
 : lf-stmt-ltag? ( level tag -- flag ) swap lf-level-tag@ = ;
@@ -157,17 +162,16 @@ end-structure
   lf-stmt-state lf-stmt-decl @ lf-idecl-params@ 2 pick swap u< 0=
   if 2drop drop false exit then
   swap lf-param@ swap lf-level-first@ lf-name-same? ;
-: lf-stmt-lletter ( level char -- flag )
-  case [char] z of lf-level-tag-zero lf-stmt-ltag? endof
-    [char] s of lf-stmt-succ endof
-    [char] m of lf-level-tag-max lf-stmt-lbinary endof
-    [char] i of lf-level-tag-imax lf-stmt-lbinary endof
-    nip false swap endcase ;
+: lf-stmt-lletter ( level c-addr u -- flag )
+  s" z" lf-stmt-token? if 2drop lf-level-tag-zero lf-stmt-ltag? exit then
+  s" s" lf-stmt-token? if 2drop lf-stmt-succ exit then
+  s" m" lf-stmt-token? if 2drop lf-level-tag-max lf-stmt-lbinary exit then
+  s" i" compare 0= if lf-level-tag-imax lf-stmt-lbinary else drop false then ;
+: lf-stmt-param-token ( level c-addr u -- flag )
+  1 /string lf-stmt-number if lf-stmt-param else 2drop false then ;
 : lf-stmt-level-token ( level c-addr u -- flag )
   dup 0= if 2drop drop false exit then
-  over c@ [char] u = if
-    1 /string lf-stmt-number if lf-stmt-param else 2drop false then exit then
-  1 <> if 2drop false exit then c@ lf-stmt-lletter ;
+  s" u" lf-stmt-prefix? if lf-stmt-param-token else lf-stmt-lletter then ;
 
 \ The comparison: one token per pending node until none is left; then the
 \ text must be used up.
@@ -195,8 +199,11 @@ end-structure
 : lf-text, ( c-addr u -- ) dup , here over allot swap move align ;
 : lf-next-token ( -- c-addr u )
   begin parse-name dup 0= while 2drop refill 0= abort" statement: no end" repeat ;
+: lf-keep ( count-addr c-addr u -- count-addr )
+  dup 3 pick +! here over allot swap move ;
+: lf-space ( -- c-addr u ) s"  " ;   \ one space: S" skips only the first
 : lf-keep-token ( count-addr c-addr u -- count-addr )
-  2 pick @ if bl c, 1 3 pick +! then dup 3 pick +! here over allot swap move ;
+  2>r dup @ if lf-space lf-keep then 2r> lf-keep ;
 : lf-kept-fits ( count-addr -- )
   dup cell+ swap @ lf-stmt-tokens lf-stmt-room > abort" statement: too many tokens" ;
 : lf-statement: ( "tokens end-statement" -- )

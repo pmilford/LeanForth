@@ -104,8 +104,14 @@ require ./check-run.fs
 : cj-diagnostic ( d -- )
   s" diagnostic" cj-key ck-kept dup kept-code @ lf-diag-none =
   if drop cj-null else cj-reason then ;
+\ The axiom set's bits; NOT PROVED when one does not count as proved, with
+\ the axioms outside the allowlist that make it so (notProvedBy).
+: cj-unlisted ( d -- ) dup lf-env-unlisted? if cj-name-text cj-string else drop then ;
+: cj-not-proved-by ( d -- )
+  s" notProvedBy" cj-key cj-array ['] cj-unlisted lf-env-axiom-deps drop cj-end-array ;
 : cj-axioms ( d -- )
-  lf-env-axioms drop dup s" axiomBits" cj-number 0<> s" notProved" cj-flag ;
+  dup lf-env-axioms drop dup s" axiomBits" cj-number
+  lf-env-unproved 0<> dup s" notProved" cj-flag if cj-not-proved-by else drop then ;
 : cj-accepted ( d -- ) cj-label s" label" cj-text cj-axioms ;
 \ What follows the verdict: the label and axioms of an accepted one, the
 \ diagnostic of any other that began.

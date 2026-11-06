@@ -90,15 +90,15 @@ REQUIRED.update({row: "task 5.2.4's Q1 and Q2 (add_quot and quot_reduce_rec, quo
                              "quot.lift-stuck-on-variable", "quotinit.with-eq",
                              "quotinit.eq-wrong-shape")})
 REQUIRED.update({row: "tasks 5.3.1 and 4.2.6 (axioms and opaque declarations)"
-                 for row in ("axiom.declared-and-used", "axiom.propext-altered",
+                 for row in ("postulate.declared-and-used", "postulate.propext-altered",
                              "opaque.accepted", "opaque.wrong-value", "opaque.never-unfolds",
                              "opaque.unfolds-as-definition")})
 # The axiom bits (src/kernel/axiom-allowlist.fs) LeanForth must report for
 # declarations of these rows: 8 is an axiom outside the allowlist, so NOT
 # PROVED (a file's own axiom; propext with another statement).
 AXIOM_BITS = {
-    "axiom.declared-and-used": {"IE.Secret": 8, "IE.secret": 8, "IE.usesSecret": 8},
-    "axiom.propext-altered": {"propext": 8, "IE.anything": 8},
+    "postulate.declared-and-used": {"IE.Secret": 8, "IE.secret": 8, "IE.usesSecret": 8},
+    "postulate.propext-altered": {"propext": 8, "IE.anything": 8},
     "opaque.accepted": {"IE.hidden": 0},
 }
 OUTCOME = {"accepted": "ok"}

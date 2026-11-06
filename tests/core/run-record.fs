@@ -75,7 +75,11 @@ T{ composition run-ok run-holds? -> outcome-ok true }T
 T{ wrong-argument rejected-59 run-holds? -> outcome-ok true }T
 T{ wrong-argument numbers-step run-holds? -> outcome-ok true }T
 T{ wrong-argument no-manifest run-holds? -> outcome-ok true }T
-T{ postulate-case unsupported-42 run-holds? -> outcome-ok true }T
+\ An axiom (plan task 5.3.1): accepted as Lean accepts it, its own name
+\ among its axioms.
+: postulate-accepted ( -- c-addr u )
+  s\" \"verdict\":\"accepted\",\"label\":\"experimental, not independently audited\",\"axioms\":[\"composition\"]" ;
+T{ postulate-case postulate-accepted run-holds? -> outcome-ok true }T
 T{ literal-case unsupported-43 run-holds? -> outcome-ok true }T
 T{ loose-case invalid-23 run-holds? -> outcome-ok true }T
 T{ wrong-argument s" accepted" run-holds? -> outcome-ok false }T

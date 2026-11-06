@@ -48,14 +48,12 @@ fc-case whnf-theorem
 fc-decl before thm safe dqThmW 0 TYPE P S z P V 0 V 1 VALUE L S z L V 0 V 0
 fc-decl check thm safe probe 0 TYPE P S z P V 0 V 1 VALUE C dqThmW 0
 T{ probe-run probe-node @ 0 value-of = probe-outcome @ -> true outcome-ok }T
-\ whnf.opaque: Lean's whnf leaves it (opaque declarations never unfold);
-\ LeanForth cannot hold an opaque declaration yet (U1: unsupported, plan
-\ task 4.2.6), so a constant naming one is unsupported (K5): a temporary
-\ gap, never a guess. is_delta itself refuses the kind (lf-whnf-valued?).
+\ whnf.opaque: Lean's whnf leaves it (opaque declarations never unfold,
+\ plan task 4.2.6): is_delta refuses the kind (lf-whnf-valued?).
 fc-case whnf-opaque
 fc-decl before opq safe dqOpaqueW 0 TYPE P S z S z VALUE L S z P V 0 V 1
 fc-decl check def safe probe 0 TYPE P S z S z VALUE C dqOpaqueW 0
-T{ probe-run probe-node @ probe-outcome @ -> -1 outcome-unsupported }T
+T{ probe-run unfolds? -> false outcome-ok }T
 create a-decl /lf-idecl allot
 a-decl /lf-idecl erase  lf-kind-opaque a-decl lf-idecl-kind !
 T{ a-decl 0 lf-whnf-valued? -> false }T
@@ -63,11 +61,11 @@ lf-kind-definition a-decl lf-idecl-kind !
 T{ a-decl 0 lf-whnf-valued? a-decl 1 lf-whnf-valued? -> true false }T
 lf-kind-theorem a-decl lf-idecl-kind !
 T{ a-decl 0 lf-whnf-valued? -> true }T
-\ An axiom never unfolds; LeanForth holds none yet (U1): unsupported.
+\ An axiom never unfolds (plan task 5.3.1).
 fc-case whnf-axiom
 fc-decl before ax safe dqAx 0 TYPE P S z S z VALUE none
 fc-decl check def safe probe 0 TYPE P S z S z VALUE C dqAx 0
-T{ probe-run probe-outcome @ -> outcome-unsupported }T
+T{ probe-run unfolds? -> false outcome-ok }T
 
 \ The arguments applied again, then beta: dqDefW Prop is Prop → Prop.
 fc-case whnf-applied
