@@ -3,10 +3,10 @@
 \ the input, as the check word ( -- ) of lf-env-run or lf-env-step
 \ (env-publish.fs). It checks the declaration of its context's snapshot
 \ and ends with lf-env-finish, in ADR 0011's order ("Order"), step by step:
-\   1 the audit, before any typing: a definition or theorem, safe, with a
-\     value (U1: every other kind is unsupported, axioms too, owner gate
-\     answer G3; a definition or theorem without a value is invalid; one
-\     named Nat.pow or Nat.shiftLeft unsupported until plan task 5.2.3); no
+\   1 the audit, before any typing: a definition, theorem or opaque
+\     declaration with a value, or an axiom or quotient record without one,
+\     safe (U1: an unsafe or partial declaration is unsupported; a value
+\     missing or present against its kind is invalid); no
 \     unsupported term form in its type or value (U2, the leaves of
 \     core/unsupported-forms.fs); both terms closed and well formed (V1,
 \     lf-constant-term-scope: invalid);
@@ -23,12 +23,16 @@
 \   7 the value's type, inferred the same way, after the scratch of steps
 \     4-6 is discarded (nothing made there is needed again);
 \   8 the value's type converts to the declared type (D1-D5 reject).
+\ An opaque declaration takes these steps (add_opaque). An axiom
+\ (add_axiom, plan task 5.3.1) takes steps 1-6, then 7 joins its own bit
+\ (core/axiom-allowlist.fs) to its axiom set. A quotient record (add_quot,
+\ plan task 5.2.4; quot.fs) takes steps 1-3, then 4 Eq's shape and 5 its
+\ type, Lean's own; nothing is inferred.
 \ The first step that does not succeed ends the check with its outcome
 \ (ADR 0008), and lf-check-step@ tells which; only a check whose every
 \ step succeeded ends ok. Its candidate then holds its dependencies, the
 \ accepted declarations its type and value name, recorded as inference
-\ meets them, with their joined axiom set, which is always empty here
-\ (axioms are unsupported, and so is everything that uses one, K5); the
+\ meets them, with their joined axiom set (and an axiom's own bit); the
 \ publisher re-checks the candidate before anything becomes visible. A
 \ comparison that is undecided stays unknown unless a rule of ADR 0011
 \ shows Lean's kernel certainly fails it. The audit, then inference, run
@@ -39,7 +43,8 @@
 \ lf-check-input checks every declaration of this context's input in a
 \ new environment; lf-check-verdict. prints a slot's verdict afterwards,
 \ an accepted one as "accepted (experimental, not independently audited);
-\ axioms: none", the axiom set read from the slot (AGENTS.md, ADR 0011).
+\ axioms: none" or the axioms' names, from the set the slot holds
+\ (AGENTS.md, ADR 0011).
 \ The printing words run after a check, never inside one.
 \
 \ [kernel] code: experimental, not through the review gate, not

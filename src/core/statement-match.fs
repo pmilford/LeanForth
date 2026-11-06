@@ -5,8 +5,10 @@
 \ of binders and the binder information, which Lean's expression
 \ equality ignores (quot.cpp 33 and 41 compare with operator==), and up
 \ to the names of universe parameters, which a constant's users never
-\ see (they instantiate parameters by position). [kernel] code:
-\ experimental, not through the review gate, not independently audited.
+\ see (they instantiate parameters by position). Part of the first
+\ checker's [kernel] path (in core/ so that the presentation can name the
+\ allowlist's axioms): experimental, not through the review gate, not
+\ independently audited.
 \
 \ A statement is a text: the term in prefix form, tokens separated by one
 \ space.
@@ -32,8 +34,10 @@
 \ lf-stmt-name? ( id c-addr u -- flag ): whether name id is the dotted
 \ text (an audited name).
 \ Entries: lf-stmt: ( code arity "name" -- ) makes a statement entry,
-\ followed by its constant's name and its statement, each kept with
-\ lf-text, ( c-addr u -- ); lf-stmt-is? ( decl entry -- flag outcome )
+\ followed by its constant's name, kept with lf-text, ( c-addr u -- ), and
+\ its statement, kept with lf-statement: ( "tokens end-statement" -- )
+\ from the tokens that follow, over several lines; lf-stmt-is? ( decl
+\ entry -- flag outcome )
 \ says whether decl has the entry's name, number of universe parameters
 \ and statement.
 \ State: one module record, lf-stmt-state (the text left, the

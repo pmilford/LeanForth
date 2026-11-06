@@ -87,7 +87,7 @@ written on one line and shown here indented:
   "settings": {"fuel": 100000, "dependencyPool": 64, "terms": 64, "levels": 64,
                "names": 64, "declarations": 32, "dependenciesPerCheck": 16,
                "parameters": 64, "referenceLevels": 64},
-  "check": {"read": "ok", "run": "ok", "mode": "final", "allowlistVersion": 0},
+  "check": {"read": "ok", "run": "ok", "mode": "final", "allowlistVersion": 1},
   "declarations": [
     {"index": 0, "name": "composition", "verdict": "rejected",
      "diagnostic": {"code": 59, "reason": "rejected: argument type mismatch (D1-D5)",
@@ -115,10 +115,13 @@ what a check said about itself:
 - **accepted** only for a slot made final with outcome ok, which only the
   publisher's full success can make ([ADR 0012, E4](../adr/0012-checked-environment.md#e4-staging-then-publishing-only-after-full-success)).
   It always has the label *experimental, not independently audited* and the
-  axiom set read from the slot (`lf-env-axioms`). The first checker's
-  allowlist (version 0) names no axiom, so the set must be empty; a slot
-  with any axiom bit fails the record (`rr-write` gives invalid) rather
-  than be written.
+  axioms it depends on, read from the slots (`lf-env-axiom-deps`: the
+  accepted axioms among it and its dependencies, directly or not, in file
+  order). Since allowlist version 1 (`src/core/axiom-allowlist.fs`, plan
+  task 5.3.1) an axiom is accepted as Lean accepts it; one outside the
+  allowlist makes the declaration NOT PROVED. The axioms' own bits must
+  make up the slot's axiom set, else the record fails (`rr-write` gives
+  invalid); records of allowlist version 0 list none.
 - **rejected, unknown, unsupported, invalid, exhausted, full**: the slot's
   outcome ([ADR 0008](../adr/0008-outcome-vocabulary.md)), with the
   diagnostic the check left: its code and catalogue name
