@@ -1320,7 +1320,46 @@ def projDef (n : Name) (value : Expr) : Declaration :=
   .defnDecl { name := n, levelParams := [], type := .proj `Prod 0 pair, value,
               hints := .regular 1, safety := .safe }
 
+/-! ### Axioms and opaque declarations (plan tasks 5.3.1 and 4.2.6)
+
+`add_axiom` accepts an axiom whose type is well formed; `add_opaque` checks the value
+against the type, and the kernel never unfolds an opaque constant. LeanForth gives the
+same verdicts; an axiom outside its allowlist (a file's own, or `propext` with another
+statement) marks its users NOT PROVED, which tests/core/inductive-table.py checks from
+the axiom bits LeanForth reports. -/
+def axiomD (n : Name) (type : Expr) : Declaration :=
+  .axiomDecl { name := n, levelParams := [], type := type, isUnsafe := false }
+def secretUse : List Declaration :=
+  [axiomD `IE.Secret (.sort 0), axiomD `IE.secret (mkConst `IE.Secret),
+   .thmDecl { name := `IE.usesSecret, levelParams := [], type := mkConst `IE.Secret,
+              value := mkConst `IE.secret }]
+-- `propext` with the statement `∀ a : Prop, a`, and a theorem proved by it.
+def alteredPropext : List Declaration :=
+  [axiomD `propext (foralls [(`a, .sort 0)] (v `a)),
+   .thmDecl { name := `IE.anything, levelParams := [], type := foralls [(`a, .sort 0)] (v `a),
+              value := mkConst `propext }]
+def opaqueD (n : Name) (value : Expr) : Declaration :=
+  .opaqueDecl { name := n, levelParams := [], type := nat, value := value, isUnsafe := false, all := [n] }
+-- The twin: `IE.hidden` a definition, which the kernel unfolds.
+def hiddenDef : Declaration :=
+  .defnDecl { name := `IE.hidden, levelParams := [], type := nat, value := lit 5,
+              hints := .regular 1, safety := .safe }
+-- `IE.hidden = 5` by `Eq.refl 5`: true only if `IE.hidden` unfolds.
+def hiddenFive : Declaration :=
+  .thmDecl { name := `IE.hiddenFive, levelParams := [], type := eqC 1 nat (mkConst `IE.hidden) (lit 5),
+             value := reflC 1 nat (lit 5) }
+
 def onBase : List Chain := [
+  { id := "axiom.declared-and-used", decls := secretUse,
+    lean := "accepted", leanforth := "accepted", rule := "A1", task := "5.3.1" },
+  { id := "opaque.accepted", decls := [opaqueD `IE.hidden (lit 5)],
+    lean := "accepted", leanforth := "accepted", rule := "O1", task := "4.2.6" },
+  { id := "opaque.wrong-value", decls := [opaqueD `IE.hiddenWrong (mkConst `Bool.true)],
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "O1", task := "4.2.6" },
+  { id := "opaque.never-unfolds", decls := [opaqueD `IE.hidden (lit 5), hiddenFive],
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "O1", task := "4.2.6" },
+  { id := "opaque.unfolds-as-definition", decls := [hiddenDef, hiddenFive],
+    lean := "accepted", leanforth := "accepted", rule := "O1", task := "4.2.6" },
   { id := "names.reserved-nested-prefix", decls := [reservedPrefix],
     lean := "reservedNestedPrefix", leanforth := "rejected", rule := "T0", task := "5.2.5b" },
   { id := "names.reserved-nested-prefix-declared", decls := [nestedAux, usesNestedAux],
@@ -1331,6 +1370,12 @@ def onBase : List Chain := [
     lean := "accepted", leanforth := "accepted", rule := "J1", task := "5.2.2" },
   { id := "proj.reduces-wrong", decls := [projDef `IE.projReducesWrong (mkConst `Nat.zero)],
     lean := "declTypeMismatch", leanforth := "rejected", rule := "J1", task := "5.2.2" }
+]
+
+-- Axioms in an empty environment, where `propext` is free to take another statement.
+def axiomChains : List Chain := [
+  { id := "axiom.propext-altered", decls := alteredPropext,
+    lean := "accepted", leanforth := "accepted", rule := "A1", task := "5.3.1" }
 ]
 
 /-! ## A declaration after a block
@@ -2085,7 +2130,7 @@ run_cmd do
   row twice.id got twice.leanforth twice.rule twice.task ""
   -- 5. Primitive names and quotient initialisation, from an empty environment.
   let empty := (← mkEmptyEnvironment).toKernelEnv
-  for c in chains ++ k7Chains do
+  for c in chains ++ k7Chains ++ axiomChains do
     let got := verdict (addAll empty c.decls)
     unless got == c.lean do throwError "{c.id}: Lean's verdict is {got}, expected {c.lean}"
     row c.id got c.leanforth c.rule c.task ""
@@ -2119,7 +2164,7 @@ run_cmd do
   for c in onBase do
     writeSegments base baseRecs c.id (chainSegments add base base c.decls)
   writeSegments base baseRecs twice.id (chainSegments add base base [twiceDecl, twiceDecl])
-  for c in chains ++ k7Chains do
+  for c in chains ++ k7Chains ++ axiomChains do
     writeSegments empty {} c.id (chainSegments add base empty c.decls)
   writeCase env0 (← recursorsOf env0) forgedId (forgedCs.foldl add env0)
     (forgedCs.map (·.name)) [`Nat.add]

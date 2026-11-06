@@ -85,6 +85,22 @@ UNCLOSED = {
 REQUIRED = {row: "task 5.2.1c's K part (Lean's to_cnstr_when_K, iota.fs)" for row in (
     "iota.eq-refl", "k.eq-variable-proof", "k.eq-different-ends", "k.eq-ends-defeq",
     "k.type-through-definition", "k.true-variable-proof", "k.eq-different-ends-wrong")}
+REQUIRED.update({row: "task 5.2.4's Q1 and Q2 (add_quot and quot_reduce_rec, quot.fs)"
+                 for row in ("quot.lift-on-mk", "quot.lift-on-mk-wrong",
+                             "quot.lift-stuck-on-variable", "quotinit.with-eq",
+                             "quotinit.eq-wrong-shape")})
+REQUIRED.update({row: "tasks 5.3.1 and 4.2.6 (axioms and opaque declarations)"
+                 for row in ("axiom.declared-and-used", "axiom.propext-altered",
+                             "opaque.accepted", "opaque.wrong-value", "opaque.never-unfolds",
+                             "opaque.unfolds-as-definition")})
+# The axiom bits (src/kernel/axiom-allowlist.fs) LeanForth must report for
+# declarations of these rows: 8 is an axiom outside the allowlist, so NOT
+# PROVED (a file's own axiom; propext with another statement).
+AXIOM_BITS = {
+    "axiom.declared-and-used": {"IE.Secret": 8, "IE.secret": 8, "IE.usesSecret": 8},
+    "axiom.propext-altered": {"propext": 8, "IE.anything": 8},
+    "opaque.accepted": {"IE.hidden": 0},
+}
 OUTCOME = {"accepted": "ok"}
 
 
@@ -137,7 +153,7 @@ def run_forth(gforth, folder, paths):
 
 
 def parse_forth(text):
-    results, feed, decls, checks = [], None, [], {}
+    results, feed, decls, checks, bits = [], None, [], {}, {}
     for line in text.splitlines():
         part = line.split("\t")
         if part[0] == "feed":
@@ -146,14 +162,22 @@ def parse_forth(text):
             checks[int(part[1])] = (int(part[2]), int(part[3]))
         elif part[0] == "decl":
             decls.append((int(part[1]), part[2], part[3]))
+            bits[part[2]] = int(part[4])
         elif part[0] == "case-end":
-            results.append((feed, decls, checks))
-            feed, decls, checks = None, [], {}
+            results.append((feed, decls, checks, bits))
+            feed, decls, checks, bits = None, [], {}, {}
     return results
 
 
+def axiom_differences(case_id, result):
+    """The axiom bits of a row of AXIOM_BITS: exactly those given."""
+    return [f"{case_id}: {name} has axiom bits {result[3].get(name)}, required {want}"
+            for name, want in AXIOM_BITS.get(case_id, {}).items()
+            if result[3].get(name) != want]
+
+
 def row_outcome(case_id, own, result):
-    feed, decls, checks = result
+    feed, decls, checks, _ = result
     if feed is not None:
         return feed, ""
     if not own:
@@ -235,6 +259,7 @@ def main():
                             f" LeanForth {got} {why}, required {want}")
         elif got not in ("unsupported", "unknown") or task in DONE_TASKS:
             print(f"{case_id}\t{task}\t{rule}\tLean {lean_verdict}\tLeanForth {got}")
+        failures += axiom_differences(case_id, result)
     missing = set(rows) - {c[0] for c in cases}
     failures += [f"{r}: a row without a case" for r in sorted(missing)]
     failures += stale_fixtures(cases)
