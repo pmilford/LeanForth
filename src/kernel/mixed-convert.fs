@@ -59,7 +59,8 @@ end-structure
 \ rejected, recorded as not definitionally equal with both terms (a
 \ caller that knows the step records its own rule in its place).
 : lf-mconvert-no ( left right -- outcome )
-  true lf-mconvert-said c" mixed-convert lf-mixed-convert" lf-diag-not-defeq lf-diag-note outcome-rejected ;
+  true lf-mconvert-said
+  c" mixed-convert lf-mixed-convert" lf-diag-not-defeq lf-diag-note outcome-rejected ;
 : lf-mconvert-answer ( left right flag outcome -- outcome )
   dup ok? if drop if 2drop outcome-ok else lf-mconvert-no then else nip nip nip then ;
 : lf-mconvert-defeq ( left right -- outcome )

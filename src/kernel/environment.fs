@@ -789,7 +789,8 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
 \ diagnostic a failed lookup notes is put back.
 : lf-env-allow-slot ( d -- decl|0 bits )
   dup 0< if drop 0 0 exit then
-  lf-env-usable ok-then? 0= if drop 0 0 exit then dup lf-slot-decl swap lf-slot-warnings @ ;
+  lf-env-usable ok-then? 0= if drop 0 0 exit then
+  dup lf-slot-decl swap lf-slot-warnings @ ;
 :noname ( id -- decl|0 bits )
   >r lf-diag@ r> lf-env-lookup-pass ok-then? if lf-env-allow-slot else drop 0 0 then
   2>r lf-diag! 2r> ; is lf-allow-found

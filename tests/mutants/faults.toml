@@ -5431,12 +5431,94 @@ test = "$GFORTH tests/core/check-declaration.fs"
 reason = "the re-check expects no own bit, so every axiom is published invalid"
 
 [[fault]]
-id = "quot-builtin-unchecked"
+id = "quot-builtin-unwarned"
 file = "src/kernel/quot.fs"
-old = '''  if outcome-ok else lf-quot-forged then ;'''
+old = '''  0= if lf-warn-quot-record lf-env-warnings! then outcome-ok ;'''
 new = '''  drop outcome-ok ;'''
-test = "python3 tests/cli/test_leanforth.py"
-reason = "a quotient record with another type than Lean's own is accepted (forged Quot.mk)"
+test = "$GFORTH tests/core/check-block.fs"
+reason = "a quotient record with another type than Lean's own is accepted without its warning (replay-quot.mk-given-quot-type)"
+
+[[fault]]
+id = "envsig-quot-record-type"
+file = "src/kernel/env-signature.fs"
+old = '''  dup lf-envsig-entry ?dup if lf-envsig-lean exit then'''
+new = '''  dup lf-envsig-entry ?dup if drop then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "a use of a quotient constant is typed with the exported record's type, not Lean's (IE.mkUse after Quot.mk given Quot's type is rejected)"
+
+[[fault]]
+id = "stmt-build-children-swapped"
+file = "src/core/statement-match.fs"
+old = ''': lf-stmt-b-binary ( xt -- flag ) >r lf-stmt-pop2 lf-stmt-pop2 r> execute lf-stmt-put ;'''
+new = ''': lf-stmt-b-binary ( xt -- flag ) >r lf-stmt-pop2 lf-stmt-pop2 2swap r> execute lf-stmt-put ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "Lean's quotient types are built with each binder's domain and body swapped: quot.lift-on-mk and IE.mkUse are no longer typed"
+
+[[fault]]
+id = "stmt-build-param-shifted"
+file = "src/core/statement-match.fs"
+old = '''  lf-stmt-state lf-stmt-pairs @ swap lf-cref-pair@ lf-stmt-push2 true ;'''
+new = '''  lf-stmt-state lf-stmt-pairs @ swap 1+ lf-cref-pair@ lf-stmt-push2 true ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "a built quotient type's universe parameter N is the use's argument N+1, not N"
+
+[[fault]]
+id = "allow-own-constants-unchecked"
+file = "src/core/axiom-allowlist.fs"
+old = '''    ?dup if nip lf-allow-checked unloop exit then'''
+new = '''    ?dup if nip outcome-ok unloop exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "propext counts as proved with an Iff that is not Lean's (postulate.propext-forged-iff)"
+
+[[fault]]
+id = "allow-constructor-unchecked"
+file = "src/core/axiom-allowlist.fs"
+old = '''  swap lf-idecl-data swap lf-lean-ctor? ;'''
+new = '''  2drop true outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "an Iff whose constructor needs no proof passes as Lean's (postulate.propext-forged-iff)"
+
+[[fault]]
+id = "allow-names-not-met"
+file = "src/core/statement-match.fs"
+old = '''  dup lf-crec-name @ lf-stmt-meet'''
+new = '''  dup drop'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "the matcher records no constant, so no statement's constants are checked (postulate.propext-forged-iff)"
+
+[[fault]]
+id = "allow-lookup-none"
+file = "src/kernel/environment.fs"
+old = '''  >r lf-diag@ r> lf-env-lookup-pass ok-then? if lf-env-allow-slot else drop 0 0 then'''
+new = '''  >r lf-diag@ r> lf-env-lookup-pass ok-then? if drop 0 0 else drop 0 0 then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "the allowlist finds no constant, so Lean's own propext is NOT PROVED (axioms.ndjson)"
+
+[[fault]]
+id = "convert-no-unmarked"
+file = "src/kernel/mixed-convert.fs"
+old = '''  true lf-mconvert-said
+'''
+new = '''  false lf-mconvert-said
+'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "Lean's no is taken for an exception: a declared type mismatch keeps the comparison's own record (90) instead of 60"
+
+[[fault]]
+id = "verdict-exception-as-no"
+file = "src/kernel/mixed-infer.fs"
+old = ''': lf-minfer-no? ( status -- flag ) outcome-rejected = lf-mixed-convert-no? and ;'''
+new = ''': lf-minfer-no? ( status -- flag ) outcome-rejected = ;'''
+test = 'test -n "$LEAN" && GFORTH=$GFORTH python3 tests/core/lean-differential.py definitional-equality'
+reason = "an unknown constant inside a comparison is reported as a declared type mismatch, not Lean's unknownConstant (names.nat-zero-becomes-a-literal)"
+
+[[fault]]
+id = "dq-named-absent-is-none"
+file = "src/kernel/defeq.fs"
+old = '''  lf-env-lookup-pass ok-then? 0= if 0 swap exit then'''
+new = '''  lf-whnf-find ok-then? 0= if 0 swap exit then'''
+test = 'test -n "$LEAN" && GFORTH=$GFORTH python3 tests/core/lean-differential.py definitional-equality'
+reason = "structure eta answers no for an unknown constructor where Lean's env().get throws unknownConstant (names.bool-true-looked-up-by-eta)"
 
 [[fault]]
 id = "quot-eq-shape-unchecked"

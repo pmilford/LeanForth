@@ -115,3 +115,12 @@
 {"forallE":{"binderInfo":"implicit","body":84,"name":13,"type":5},"ie":85}
 {"forallE":{"binderInfo":"implicit","body":85,"name":3,"type":0},"ie":86}
 {"quot":{"kind":"ind","levelParams":[2],"name":19,"type":86}}
+{"in":22,"str":{"pre":0,"str":"IE"}}
+{"in":23,"str":{"pre":22,"str":"mkUse"}}
+{"app":{"arg":13,"fn":73},"ie":87}
+{"app":{"arg":2,"fn":87},"ie":88}
+{"app":{"arg":1,"fn":88},"ie":89}
+{"ie":90,"lam":{"binderInfo":"default","body":89,"name":4,"type":2}}
+{"ie":91,"lam":{"binderInfo":"default","body":90,"name":13,"type":5}}
+{"ie":92,"lam":{"binderInfo":"default","body":91,"name":3,"type":0}}
+{"def":{"all":[23],"hints":{"regular":1},"levelParams":[2],"name":23,"safety":"safe","type":49,"value":92}}

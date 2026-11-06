@@ -210,7 +210,8 @@ end-structure
     lf-stmt-step 0= if false exit then lf-stmt-spent? if false exit then
   repeat lf-stmt-text nip 0= ;
 : lf-stmt-start ( term decl c-addr u -- )
-  lf-stmt-text! lf-stmt-state tuck lf-stmt-decl ! 0 over lf-stmt-met ! 0 swap lf-stmt-depth !
+  lf-stmt-text! lf-stmt-state tuck lf-stmt-decl !
+  0 over lf-stmt-met ! 0 swap lf-stmt-depth !
   lf-stmt-term lf-stmt-push drop ;
 : lf-stmt-match ( term decl c-addr u -- flag outcome )
   lf-stmt-start lf-stmt-loop
@@ -333,7 +334,8 @@ end-structure
   lf-stmt-ntoks@ begin dup while 1- dup lf-stmt-b-token 0= if drop false exit then repeat
   drop true ;
 : lf-stmt-b-start ( entry pairs -- )
-  lf-stmt-state tuck lf-stmt-pairs ! dup lf-stmt-vals lf-stmt-room 2* cells + swap lf-stmt-sp !
+  lf-stmt-state tuck lf-stmt-pairs !
+  dup lf-stmt-vals lf-stmt-room 2* cells + swap lf-stmt-sp !
   lf-stmt-statement lf-stmt-split-all lf-stmt-marks ;
 : lf-stmt-build ( entry pairs -- root outcome )
   lf-stmt-b-start lf-stmt-spent? if -1 outcome-exhausted exit then

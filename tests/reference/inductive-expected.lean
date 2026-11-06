@@ -2238,4 +2238,6 @@ run_cmd do
   writeCase env0 (← recursorsOf env0) forgedId (forgedCs.foldl add env0)
     (forgedCs.map (·.name)) [`Nat.add]
   let eqRecs ← recursorsOf envEq
-  for m in quotMutations do writeMutation add envEq eqRecs `Quot qcs m
+  for m in quotMutations do
+    let cs' := qcs.filterMap m.change
+    writeCase envEq eqRecs m.id (cs'.foldl add envEq) (cs'.map (·.name)) [`Quot, `IE.mkUse]
