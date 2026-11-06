@@ -48,8 +48,9 @@ let.chain	accepted	-	unsupported	accepted	zeta
 let.type-not-a-type	typeExpected	n/a	unsupported	rejected	zeta
 names.nat-succ-matched-by-name	declTypeMismatch	n/a	unknown	rejected	offset
 names.ordinary-name-twin	accepted	dqSucc:2	unknown	accepted	delta-args
-names.nat-zero-becomes-a-literal	unknownConstant Nat	n/a	unsupported	unknown	K7
+names.nat-zero-becomes-a-literal	unknownConstant Nat	n/a	unsupported	rejected	N1
 names.ordinary-zero-twin	accepted	dqSucc:1	unsupported	accepted	delta
+names.bool-true-looked-up-by-eta	unknownConstant Bool.true	n/a	unsupported	rejected	N1
 later.structure-eta	accepted	Prod.fst:1,Prod.snd:1	unsupported	unsupported	U1
 later.unit-like	accepted	Unit:2	unsupported	unsupported	U1
 later.nat-literal	accepted	Add.add:1,HAdd.hAdd:1,OfNat.ofNat:2,instAddNat:1,instHAdd:1,instOfNatNat:2,outParam:1	unsupported	unsupported	U2

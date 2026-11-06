@@ -86,10 +86,15 @@ require ./whnf.fs
   dup lf-idecl-kind @ lf-kind-inductive = if nip outcome-ok else drop lf-iproj-bad then ;
 : lf-iproj-named? ( leaf const -- flag )
   lf-whnf-cref lf-crec-name @ swap lf-proj-name lf-name-same? ;
+\ Lean's env().get (259): no such constant is unknownConstant, the
+\ lookup's rejection (N1); one the check declares itself stays absent.
+: lf-iproj-get ( const -- d outcome )
+  lf-whnf-cref lf-crec-name @ dup lf-envsig-local
+  if 2drop lf-whnf-absent outcome-ok else lf-env-lookup-pass then ;
 : lf-iproj-struct ( leaf Ty -- decl outcome )
   lf-iproj-head dup lf-whnf-const? 0= if drop lf-iproj-bad exit then
   2dup lf-iproj-named? 0= if drop lf-iproj-bad exit then
-  lf-whnf-lookup ok-then? 0= if nip no-result exit then lf-iproj-slot ;
+  lf-iproj-get ok-then? 0= if nip no-result exit then lf-iproj-slot ;
 : lf-iproj-checked ( leaf Ty -- decl outcome )
   2dup lf-iproj-struct ok-then? 0= if nip nip no-result exit then
   dup 2 pick lf-iproj-n lf-iproj-shape? 0= if drop nip lf-iproj-bad exit then

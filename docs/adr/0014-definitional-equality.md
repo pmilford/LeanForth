@@ -463,6 +463,16 @@ with `B` and rejects a claim that is true by unfolding) and
 the literal `1`, whose type `Nat` does not exist, and fails with
 `unknownConstant Nat`); the same declarations under other names are
 accepted. Recorded as BL-4 in [BEYOND_LEAN.md](../project/BEYOND_LEAN.md).
+*Follow-up (2026-11-05, agent LE; plan tasks 5.2.3 and 4.2.5):* a lookup
+that throws inside Lean's `is_def_eq` ends the check with Lean's
+exception, never a no: the typer's `infer_constant` (N1, L1), structure
+eta's and unit-like types' `env().get` (`try_eta_struct_core`,
+`is_non_rec_structure`; `defeq.fs` `lf-dq-named`) and `infer_proj`'s
+(`infer-proj.fs`). `mixed-convert.fs` tells Lean's no from such an
+exception (`lf-mixed-convert-no?`), and `lf-minfer-verdict` keeps the
+exception's own diagnostic. Rows `names.nat-zero-becomes-a-literal` and
+`names.bool-true-looked-up-by-eta` (`Nat.beq Nat.zero Nat.zero` computes
+`Bool.true`, which the file lacks) give Lean's `unknownConstant`.
 
 ### Theorems: G5 answered
 

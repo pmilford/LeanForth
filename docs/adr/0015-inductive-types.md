@@ -397,14 +397,20 @@ route is tried, so LeanForth keeps them.
 
   *Implemented (task 5.2.4, 2026-11-05, `src/kernel/quot.fs`; not through
   the gate):* each quotient record is checked for its name (N2), then
-  `check_eq_type` (diagnostic 95), then its type against Lean's own, as a
-  statement text (`src/core/statement-match.fs`). **Temporary gap**, closed
-  by a follow-up of task 5.2.4 (build Lean's four types at import and use
-  them, a differing record accepted with a B4 warning, as designed above):
-  a record whose name, universe parameters or type are not Lean's is
-  *rejected* (diagnostic 96), and so is a declaration naming it, where
-  Lean's replay would accept. lean4export writes the kernel's own
-  constants, so no export Lean makes reaches it.
+  `check_eq_type` (diagnostic 95), then its name: one of the four.
+  *Follow-up (2026-11-05, agent LE):* a record with another type or other
+  universe parameters than Lean's is accepted with the warning
+  `lf-warn-quot-record` (32, beside the B4 bits), its parameters are not
+  checked, and every use is typed with Lean's own type, built from the
+  statement text at the use's universe arguments (`lf-stmt-build`,
+  `env-signature.fs`), never the record's. Rows `replay-quot.original`,
+  `replay-quot.mk-given-quot-type`, `replay-quot.lift-universe-dropped`
+  (Lean's replay accepts each; so does LeanForth). **Remaining gaps**, a
+  follow-up of task 5.2.4, none reachable by an export Lean writes: a
+  quotient record named otherwise is rejected (diagnostic 96) where replay
+  ignores it; Lean adds all four constants at the first record, LeanForth
+  one per record (a file lacking one of the four records cannot name it);
+  `check_name` is run on the record's own name only, not on all four.
 - **Q2 Reduction.** `Quot.lift f h q` (argument 5 the quotient, 3 the
   function) and `Quot.ind h q` (argument 4, 3): when `whnf q` is
   `Quot.mk r a` with exactly three arguments, the result is `f a` applied

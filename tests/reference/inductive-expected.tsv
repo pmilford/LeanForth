@@ -295,4 +295,9 @@ k7.whnf-sort	typeExpected	rejected	K7	5.2.3
 k7.whnf-sort-twin	accepted	accepted	whnf	4.2.2c	
 k7.rec-on-succ-variable	accepted	accepted	R1	5.2.1b	
 postulate.propext-altered	accepted	accepted	A1	5.3.1	
+postulate.propext-forged-iff	accepted	accepted	A1	5.3.1	
+postulate.propext-own-iff	accepted	accepted	A1	5.3.1	
 forged.type-named-nat-add-recursor-with-hypothesis	invalidRecursor	rejected	L1 L5 B3	5.2.3	
+replay-quot.original	accepted	accepted	Q1	5.2.4	
+replay-quot.mk-given-quot-type	accepted	accepted	Q1	5.2.4	
+replay-quot.lift-universe-dropped	accepted	accepted	Q1	5.2.4	

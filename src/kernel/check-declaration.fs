@@ -206,8 +206,10 @@ lf-walk-room context-walk: lf-check-walker
 : lf-check-own-axiom ( -- outcome )
   lf-check-decl lf-axiom-bit ok-then? if lf-env-axiom! outcome-ok then ;
 : lf-check-axiom ( -- outcome ) ['] lf-check-own-axiom lf-check-matched ;
-\ A quotient record (add_quot, quot.cpp 47-100; quot.fs): steps 1-3, then
-\ 4 Eq's shape and 5 the record's type, Lean's own; no inference, as
+\ A quotient record (add_quot, quot.cpp 47-100; quot.fs): steps 1 and 2,
+\ then Eq's shape and the record's name, one of Lean's four (another type
+\ or other universe parameters only warn: Lean's replay ignores the
+\ record, so its parameters are not checked either); no inference, as
 \ Lean's kernel infers nothing there.
 : lf-check-quot-eq ( -- outcome ) ['] lf-quot-eq lf-check-matched ;
 : lf-check-builtin ( -- outcome ) lf-check-decl lf-quot-builtin ;
@@ -222,9 +224,8 @@ create lf-check-steps 8 ,
 create lf-axiom-steps 7 ,
   ' lf-check-audit , ' lf-env-own-name , ' lf-env-own-params , ' lf-check-type ,
   ' lf-check-sort , ' lf-check-prop , ' lf-check-axiom ,
-create lf-quot-steps 5 ,
-  ' lf-check-audit , ' lf-env-own-name , ' lf-env-own-params , ' lf-check-quot-eq ,
-  ' lf-check-quot-type ,
+create lf-quot-steps 4 ,
+  ' lf-check-audit , ' lf-env-own-name , ' lf-check-quot-eq , ' lf-check-quot-type ,
 8 constant lf-check-steps#
 lf-check-steps# 1+ constant lf-step-done
 : lf-check-table ( -- steps )

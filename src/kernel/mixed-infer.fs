@@ -378,11 +378,13 @@ defer lf-minfer-walk ( node -- type status )
 \ recorded with its own record (lf-minfer-reject). The helpers report ok
 \ or a failure, and a failure leaves no fuel.
 : lf-minfer-reject ( n1 site code -- outcome ) 0 -rot lf-diag! outcome-rejected ;
-\ The rejection of a comparison: (mask rejected) is recorded at site
-\ with code and the mask (0 since plan task 4.2.2d); any other outcome
-\ passes.
+\ The rejection of a comparison: Lean's no, (mask rejected), is recorded
+\ at site with code and the mask (0 since plan task 4.2.2d); any other
+\ outcome passes, among them the exception Lean's is_def_eq throws inside
+\ (lf-mixed-convert-no? false: an unknown constant, ...) with its own record.
+: lf-minfer-no? ( status -- flag ) outcome-rejected = lf-mixed-convert-no? and ;
 : lf-minfer-verdict ( mask status site code -- status )
-  2swap dup outcome-rejected = if drop -rot lf-minfer-reject else nip nip nip then ;
+  2swap dup lf-minfer-no? if drop -rot lf-minfer-reject else nip nip nip then ;
 : lf-minfer-take ( status addr -- status )
   over ok? if lf-minfer-refuel else drop 0 lf-minfer-fuel ! then ;
 \ whnfB (ADR 0003 step 1) of a live node, with the job's fuel (for

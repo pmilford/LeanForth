@@ -522,6 +522,22 @@ def zeroClaim (n z s : Name) : Declaration :=
   thm n (foralls [(`P, propFn), (`h, app (v `P) [at1 s (c z)])] (app (v `P) [c z]))
     (funs [(`P, propFn), (`h, app (v `P) [at1 s (c z)])] (v `h))
 
+def axm (n : Name) (t : Expr) : Declaration :=
+  .axiomDecl { name := n, levelParams := [], type := t, isUnsafe := false }
+
+/-- `Nat.beq Nat.zero Nat.zero` computes to `Bool.true` by name, which the
+file lacks: compared with `y`, structure eta (`try_eta_struct_core`) looks
+`Bool.true` up and throws. -/
+def beqBase : List Declaration :=
+  [axm `Nat (.sort 1), axm `X (.sort 1), axm `y (c `X), axm `Nat.zero (c `Nat),
+   axm `Nat.beq (arrow (c `Nat) (arrow (c `Nat) (c `X)))]
+
+def beqClaim (n : Name) : Declaration :=
+  let xFn := arrow (c `X) prop
+  let beq := app (c `Nat.beq) [c `Nat.zero, c `Nat.zero]
+  thm n (foralls [(`P, xFn), (`h, app (v `P) [c `y])] (app (v `P) [beq]))
+    (funs [(`P, xFn), (`h, app (v `P) [c `y])] (v `h))
+
 def nameCases : List Case := [
   { id := "names.nat-succ-matched-by-name",
     subject := .declare (.fresh [natSuccLike `Nat.succ]) (succClaim `t37 `Nat.succ),
@@ -535,14 +551,19 @@ def nameCases : List Case := [
   { id := "names.nat-zero-becomes-a-literal",
     subject := .declare (.fresh [zeroLike `Nat.zero, idLike `Nat.succ])
       (zeroClaim `t39 `Nat.zero `Nat.succ),
-    lean := "unknownConstant Nat", adr0011 := "unsupported", adr0014 := "unknown", rule := "K7",
+    lean := "unknownConstant Nat", adr0011 := "unsupported", adr0014 := "rejected", rule := "N1",
     what := "Nat.succ Nat.zero is turned into the literal 1, whose type Nat does not exist" },
   { id := "names.ordinary-zero-twin",
     subject := .declare (.fresh [zeroLike `dqZero, idLike `dqSucc])
       (zeroClaim `t40 `dqZero `dqSucc),
     lean := "accepted", counts := "dqSucc:1", adr0011 := "unsupported", adr0014 := "accepted",
     rule := "delta",
-    what := "the same under other names: dqSucc unfolds" }
+    what := "the same under other names: dqSucc unfolds" },
+  { id := "names.bool-true-looked-up-by-eta",
+    subject := .declare (.fresh beqBase) (beqClaim `t50),
+    lean := "unknownConstant Bool.true", adr0011 := "unsupported", adr0014 := "rejected",
+    rule := "N1",
+    what := "Nat.beq Nat.zero Nat.zero computes to Bool.true, which structure eta looks up" }
 ]
 
 def laterCases : List Case := [
