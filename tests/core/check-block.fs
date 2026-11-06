@@ -781,6 +781,25 @@ T{ s" quot.lift-stuck-on-variable" used -> outcome-rejected lf-diag-value-apart 
 \ add_quot: Eq with Lean's shape, or rejected (check_eq_type, 95).
 T{ s" quotinit.with-eq" used -> outcome-ok 0 }T
 T{ s" quotinit.eq-wrong-shape" used -> outcome-rejected lf-diag-quot-eq }T
+\ A quotient record with another type or other universe parameters than
+\ Lean's own is accepted with a warning, as Lean's replay ignores it, and
+\ Lean's types are used: IE.mkUse := Quot.mk r a is accepted (ADR 0015 Q1).
+: named ( c-addr u -- d )
+  lf-input-count 0 ?do
+    i lf-input-name 2 pick 2 pick lf-stmt-name? if 2drop i unloop exit then
+  loop 2drop -1 ;
+: warned-at ( c-addr u name-addr name-u -- bits outcome )
+  2swap case-path staged ok? must fuel checked named lf-env-warnings finish ;
+: quot-forged ( -- c-addr u ) s" replay-quot.mk-given-quot-type" ;
+: mk-warned ( -- bits outcome ) quot-forged s" Quot.mk" warned-at ;
+: quot-warned ( -- bits outcome ) quot-forged s" Quot" warned-at ;
+: lift-warned ( -- bits outcome )
+  s" replay-quot.lift-universe-dropped" s" Quot.lift" warned-at ;
+T{ mk-warned quot-warned -> lf-warn-quot-record outcome-ok 0 outcome-ok }T
+T{ lift-warned -> lf-warn-quot-record outcome-ok }T
+T{ quot-forged used -> outcome-ok 0 }T
+\ propext with Lean's statement about an Iff that is not Lean's: NOT PROVED.
+T{ s" postulate.propext-forged-iff" bits-of -> outcome-ok 8 }T
 
 \ 8. The statement matcher (core/statement-match.fs) and the allowlist
 \ (core/axiom-allowlist.fs) on Lean's own export of propext,

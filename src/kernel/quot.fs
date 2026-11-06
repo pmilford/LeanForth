@@ -121,14 +121,24 @@ create lf-quot-entries lf-quot-type , lf-quot-mk , lf-quot-lift , lf-quot-ind ,
   lf-quot-eq-name ok-then? 0= if exit then
   lf-quot-slot ok-then? if lf-quot-eq-shape then ;
 
-\ The record is one of Lean's four constants, by name.
-: lf-quot-entry ( decl -- entry|0 )
-  4 0 ?do i cells lf-quot-entries + @ 2dup lf-stmt-own? if nip unloop exit then drop
-  loop drop 0 ;
+\ The entry of Lean's constant a record names, by name alone; it also
+\ gives inference the constant's type (env-signature.fs).
+: lf-quot-at ( k -- entry ) cells lf-quot-entries + @ ;
+: lf-quot-named? ( decl entry -- flag ) lf-stmt-named rot lf-idecl-name @ -rot lf-stmt-name? ;
+: lf-quot-named ( decl -- entry|0 )
+  4 0 ?do dup i lf-quot-at lf-quot-named? if drop i lf-quot-at unloop exit then loop
+  drop 0 ;
+:noname ( decl -- entry|0 )
+  dup lf-idecl-kind @ lf-kind-quotient = if lf-quot-named else drop 0 then
+  ; is lf-envsig-builtin
+\ The record is one of Lean's four constants by name; with other universe
+\ parameters or another type it is accepted with a warning, as Lean's
+\ replay ignores the record (B4; ADR 0015 Q1, owner answer Q2).
+32 constant lf-warn-quot-record   \ beside inductive-block.fs's B4 bits
 : lf-quot-builtin ( decl -- outcome )
-  dup lf-quot-entry ?dup 0= if drop lf-quot-forged exit then
+  dup lf-quot-named ?dup 0= if drop lf-quot-forged exit then
   lf-stmt-is? ok-then? 0= if exit then
-  if outcome-ok else lf-quot-forged then ;
+  0= if lf-warn-quot-record lf-env-warnings! then outcome-ok ;
 
 \ ---------------------------------------------------------------------------
 \ Q2, quot_reduce_rec. mk_pos by the head's name, arg_pos always 3.

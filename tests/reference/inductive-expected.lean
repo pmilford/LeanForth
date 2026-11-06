@@ -1404,6 +1404,36 @@ def axiomChains : List Chain := [
     lean := "accepted", leanforth := "accepted", rule := "A1", task := "5.3.1" }
 ]
 
+/-! ### Quotient records replayed (ADR 0015 Q1)
+
+Lean's replay adds `Declaration.quotDecl` for an exported quotient record and ignores the
+record itself (`Replay.lean`; `add_quot` builds the four types): a record with another type
+or other universe parameters is accepted, and a later definition is checked against Lean's
+own `Quot.mk`. LeanForth accepts such a record with a warning and uses Lean's types. -/
+def quotRel (u : Level) : List (Name × Expr) :=
+  [(`α, .sort u), (`r, .forallE `x (v `α) (.forallE `y (v `α) (.sort 0) .default) .default)]
+-- `IE.mkUse.{u} {α : Sort u} (r : α → α → Prop) (a : α) : Quot r := Quot.mk r a`
+def quotUse : ConstantInfo :=
+  let u := Level.param `u
+  let bs := quotRel u ++ [(`a, v `α)]
+  .defnInfo { name := `IE.mkUse, levelParams := [`u],
+              type := foralls bs (mkAppN (.const `Quot [u]) #[v `α, v `r]),
+              value := funs bs (mkAppN (.const `Quot.mk [u]) #[v `α, v `r, v `a]),
+              hints := .regular 1, safety := .safe, all := [`IE.mkUse] }
+def onQuot (n : Name) (f : QuotVal → QuotVal) : ConstantInfo → Option ConstantInfo
+  | .quotInfo q => some (.quotInfo (if q.name == n then f q else q))
+  | c => some c
+def quotMutations : List Mutation := [
+  { id := "replay-quot.original", change := some,
+    lean := "accepted", leanforth := "accepted", rule := "Q1" },
+  { id := "replay-quot.mk-given-quot-type",
+    change := onQuot `Quot.mk fun q => { q with type := foralls (quotRel (.param `u)) (.sort (.param `u)) },
+    lean := "accepted", leanforth := "accepted", rule := "Q1" },
+  { id := "replay-quot.lift-universe-dropped",
+    change := onQuot `Quot.lift fun q => { q with levelParams := [`u] },
+    lean := "accepted", leanforth := "accepted", rule := "Q1" }
+]
+
 /-! ## A declaration after a block
 
 Each case adds declarations after a block, in order, each where the kernel
@@ -2168,6 +2198,17 @@ run_cmd do
   let got ← replayVerdict env0 forgedCs
   unless got == "invalidRecursor" do throwError "{forgedId}: Lean's verdict is {got}"
   row forgedId got "rejected" "L1 L5 B3" "5.2.3" ""
+  -- 5c. The quotient records replayed, unchanged and changed, then a definition.
+  let .ok envEq := empty.addDeclCore 0 0 (eqDecl) none | throwError "no Eq"
+  let .ok envQ := envEq.addDeclCore 0 0 .quotDecl none | throwError "no quotients"
+  let qcs ← [`Quot, `Quot.mk, `Quot.lift, `Quot.ind].mapM fun n => match envQ.find? n with
+    | some c => pure c
+    | none => throwError "missing {n}"
+  let qcs := qcs ++ [quotUse]
+  for m in quotMutations do
+    let got ← replayVerdict envEq (qcs.filterMap m.change)
+    unless got == m.lean do throwError "{m.id}: Lean's verdict is {got}, expected {m.lean}"
+    row m.id got m.leanforth m.rule "5.2.4" ""
   -- 6. Every case as a file, after the rows (see `writeCase`).
   let .ok add := kernelAddFn env | throwError "no Kernel.Environment.add"
   let baseRecs ← recursorsOf base
@@ -2196,3 +2237,5 @@ run_cmd do
     writeSegments empty {} c.id (chainSegments add base empty c.decls)
   writeCase env0 (← recursorsOf env0) forgedId (forgedCs.foldl add env0)
     (forgedCs.map (·.name)) [`Nat.add]
+  let eqRecs ← recursorsOf envEq
+  for m in quotMutations do writeMutation add envEq eqRecs `Quot qcs m

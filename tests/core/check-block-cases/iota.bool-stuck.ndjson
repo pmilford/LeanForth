@@ -58,10 +58,10 @@
 {"in":18,"str":{"pre":17,"str":"tests"}}
 {"in":19,"str":{"pre":18,"str":"reference"}}
 {"in":20,"str":{"pre":19,"str":"inductive-expected"}}
-{"in":21,"num":{"i":4077965736,"pre":20}}
+{"in":21,"num":{"i":3688084221,"pre":20}}
 {"in":22,"str":{"pre":21,"str":"_hygCtx"}}
 {"in":23,"str":{"pre":22,"str":"_hyg"}}
-{"in":24,"num":{"i":9119,"pre":23}}
+{"in":24,"num":{"i":9408,"pre":23}}
 {"ie":35,"lam":{"binderInfo":"default","body":0,"name":24,"type":15}}
 {"app":{"arg":35,"fn":34},"ie":36}
 {"app":{"arg":1,"fn":36},"ie":37}
