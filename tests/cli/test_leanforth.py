@@ -138,11 +138,10 @@ class ExitCodes(unittest.TestCase):
     def test_1_forged_quotient(self):
         """Lean's export of propext, Classical.choice and Quot.sound
         (tests/reference/inductive/axioms.ndjson) is accepted, the three
-        counted as proved; with Quot.mk's record given Quot's type, that
-        record is rejected (Q1, diagnostic 96: not Lean's own constant)
-        and so is Quot.sound, which names it. Lean's replay ignores a
-        quotient record's type (a gap of plan task 5.2.4; no export Lean
-        writes has another)."""
+        counted as proved; with Quot.mk's record given Quot's type, all
+        are still accepted and Quot.sound proved, as Lean's replay
+        ignores a quotient record's type and uses its own (ADR 0015 Q1:
+        the record gets a warning, Quot.mk Lean's type)."""
         source = ROOT / "tests" / "reference" / "inductive" / "axioms.ndjson"
         status, out, _ = run("check", "--no-manifest", str(source))
         self.assertEqual((status, out.splitlines()[-2]), (0, "16 declarations: 16 accepted"))
@@ -156,12 +155,9 @@ class ExitCodes(unittest.TestCase):
             path.write_text(forged, encoding="utf-8")
             status, out, _ = run("check", "--no-manifest", str(path))
         lines = out.splitlines()
-        self.assertEqual((status, lines[-2]), (1, "16 declarations: 14 accepted, 2 rejected"))
-        at = lines.index("Quot.mk: rejected")
-        self.assertTrue(lines[at + 1].startswith(
-            "  rejected: not one of Lean's four quotient constants (Q1); diagnostic 96 at quot "
-            "lf-quot-check: "), lines[at + 1])
-        self.assertIn("Quot.sound: rejected", lines)
+        self.assertEqual((status, lines[-2]), (0, "16 declarations: 16 accepted"))
+        self.assertIn("Quot.sound: accepted (experimental, not independently audited); "
+                      "axioms: Quot.sound", lines)
 
     def test_1_rejected(self):
         self.expect(["check", "--no-manifest", f"{CASES}/composition-wrong-argument.ndjson"], 1,

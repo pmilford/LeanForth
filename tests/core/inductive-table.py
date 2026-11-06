@@ -88,17 +88,23 @@ REQUIRED = {row: "task 5.2.1c's K part (Lean's to_cnstr_when_K, iota.fs)" for ro
 REQUIRED.update({row: "task 5.2.4's Q1 and Q2 (add_quot and quot_reduce_rec, quot.fs)"
                  for row in ("quot.lift-on-mk", "quot.lift-on-mk-wrong",
                              "quot.lift-stuck-on-variable", "quotinit.with-eq",
-                             "quotinit.eq-wrong-shape")})
+                             "quotinit.eq-wrong-shape", "replay-quot.original",
+                             "replay-quot.mk-given-quot-type",
+                             "replay-quot.lift-universe-dropped")})
 REQUIRED.update({row: "tasks 5.3.1 and 4.2.6 (axioms and opaque declarations)"
                  for row in ("postulate.declared-and-used", "postulate.propext-altered",
+                             "postulate.propext-forged-iff", "postulate.propext-own-iff",
                              "opaque.accepted", "opaque.wrong-value", "opaque.never-unfolds",
                              "opaque.unfolds-as-definition")})
 # The axiom bits (src/core/axiom-allowlist.fs) LeanForth must report for
 # declarations of these rows: 8 is an axiom outside the allowlist, so NOT
-# PROVED (a file's own axiom; propext with another statement).
+# PROVED (a file's own axiom; propext with another statement, or with
+# Lean's statement about an Iff that is not Lean's); 1 is propext proved.
 AXIOM_BITS = {
     "postulate.declared-and-used": {"IE.Secret": 8, "IE.secret": 8, "IE.usesSecret": 8},
     "postulate.propext-altered": {"propext": 8, "IE.anything": 8},
+    "postulate.propext-forged-iff": {"propext": 8, "IE.collapse": 8},
+    "postulate.propext-own-iff": {"propext": 1},
     "opaque.accepted": {"IE.hidden": 0},
 }
 OUTCOME = {"accepted": "ok"}

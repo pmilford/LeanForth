@@ -65,10 +65,10 @@
 {"in":19,"str":{"pre":18,"str":"tests"}}
 {"in":20,"str":{"pre":19,"str":"reference"}}
 {"in":21,"str":{"pre":20,"str":"inductive-expected"}}
-{"in":22,"num":{"i":4077965736,"pre":21}}
+{"in":22,"num":{"i":1675924527,"pre":21}}
 {"in":23,"str":{"pre":22,"str":"_hygCtx"}}
 {"in":24,"str":{"pre":23,"str":"_hyg"}}
-{"in":25,"num":{"i":9088,"pre":24}}
+{"in":25,"num":{"i":9401,"pre":24}}
 {"in":26,"str":{"pre":0,"str":"a"}}
 {"in":27,"str":{"pre":26,"str":"_@"}}
 {"in":28,"str":{"pre":27,"str":"_internal"}}
@@ -80,7 +80,7 @@
 {"in":31,"str":{"pre":0,"str":"p"}}
 {"ie":43,"lam":{"binderInfo":"default","body":5,"name":31,"type":0}}
 {"app":{"arg":43,"fn":42},"ie":44}
-{"in":32,"num":{"i":9103,"pre":24}}
+{"in":32,"num":{"i":9416,"pre":24}}
 {"ie":45,"lam":{"binderInfo":"default","body":1,"name":32,"type":0}}
 {"app":{"arg":45,"fn":44},"ie":46}
 {"app":{"arg":23,"fn":46},"ie":47}

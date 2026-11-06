@@ -489,16 +489,18 @@ defer lf-ap-arg ( frames -- ... frames next )
   tuck lf-dq-typed ok-then? 0= if nip lf-dq-unproved exit then swap lf-dq-proof-of ;
 
 \ Inductive types (ADR 0015), for steps 12 and 14: the declaration a name
-\ has in the check's snapshot, or 0 for none that could matter (no such
-\ constant, Lean's generated recursor); unknown for a constant the check
+\ has in the check's snapshot, or 0 for Lean's generated recursor (no
+\ inductive type or constructor); unknown for a constant the check
 \ declares itself (an inductive block's own, whose data is not yet
 \ checked) and outside a check, where LeanForth cannot look (plan task
-\ 5.2.2); or the lookup's failure. Accepted inductive data is Lean's: the
-\ block's check compared it (check-block.fs).
+\ 5.2.2); or the lookup's failure, rejected (N1) for no such constant:
+\ Lean's env().get throws unknownConstant there (try_eta_struct_core 859,
+\ is_non_rec_structure, inductive.cpp 29). Accepted inductive data is
+\ Lean's: the block's check compared it (check-block.fs).
 : lf-dq-named ( name -- decl outcome )
   lf-whnf-env? 0= if drop 0 outcome-unknown exit then
   dup lf-envsig-local if 2drop 0 outcome-unknown exit then
-  lf-whnf-find ok-then? 0= if 0 swap exit then
+  lf-env-lookup-pass ok-then? 0= if 0 swap exit then
   dup 0< if drop 0 outcome-ok else lf-whnf-decl then ;
 : lf-dq-head-named ( node -- decl outcome )
   lf-whnf-head dup lf-whnf-const? 0= if drop 0 outcome-ok exit then

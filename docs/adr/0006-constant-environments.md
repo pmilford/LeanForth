@@ -442,9 +442,16 @@ which replace "keep the initial allowlist empty" above.
   (exit 0 as Lean, 6 under `--strict-axioms`). `Lean.ofReduceBool` and
   `Lean.trustCompiler` are never listed. The publisher re-checks the set as
   the union of the dependencies' with the axiom's own bit, computed again.
-  The statements name `Iff`, `Eq`, `Nonempty`, `Quot` and `Quot.mk`; `Eq`
-  and the quotient constants are checked against Lean's shapes (ADR 0015
-  Q1), `Iff` and `Nonempty` only by the kernel (a gap of task 5.3.1).
+  The statements name `Iff`, `Eq`, `Nonempty`, `Quot` and `Quot.mk`, and a
+  listed axiom counts as proved only when each constant its statement
+  names is Lean's own (follow-up of 2026-11-05, agent LE): `Quot` and
+  `Quot.mk` quotient constants, whose types are always Lean's (ADR 0015
+  Q1); `Eq`, `Iff` and `Nonempty` inductive types with Lean 4.35.0's
+  universe parameters, type, `numParams`, a block of their own and one
+  constructor of Lean's name and type, accepted without a B4 warning. Else
+  the axiom is unlisted (Lean's verdict, NOT PROVED). Rows
+  `postulate.propext-forged-iff` (NOT PROVED) and
+  `postulate.propext-own-iff` (proved) of the inductive table.
 - **Reports**: the axioms' names follow `axioms:` (listed bits, then
   `unlisted`); the command line names the unlisted axioms behind NOT PROVED
   and run records list every axiom, through the slots' dependencies (the

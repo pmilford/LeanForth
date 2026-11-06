@@ -139,10 +139,30 @@ defer lf-envsig-local ( name -- decl true | false )
   lf-envsig-gen-arity ok-then? 0= if exit then
   lf-envsig-scoped ok-then? 0= if exit then lf-envsig-record ok-then? 0= if exit then
   lf-envsig-gen-type ;
+\ A quotient constant (plan task 5.2.4; ADR 0015 Q1): Lean's add_quot
+\ ignores the exported record and builds the four types itself, so the
+\ slot's record is not read. The hook, set by quot.fs, gives the
+\ statement entry (core/statement-match.fs) of a quotient record's name,
+\ else 0; then L1 against the entry's universe parameters, L2 and the
+\ dependency as for any constant, and the entry's statement built at the
+\ request's universe arguments (lf-stmt-build, on the request's fuel).
+defer lf-envsig-builtin ( decl -- entry|0 )
+:noname ( decl -- 0 ) drop 0 ; is lf-envsig-builtin
+: lf-envsig-entry ( d -- entry|0 )
+  lf-env-usable ok? if lf-slot-decl lf-envsig-builtin else drop 0 then ;
+: lf-envsig-built ( entry -- root identity fuel' 0 | status )
+  lf-envsig-fuel @ lf-stmt-fuel ! lf-envsig-request lf-esreq-pairs @ lf-stmt-build
+  lf-stmt-fuel @ 0 max lf-envsig-fuel ! ok-then? 0= if exit then
+  dup lf-term-identity 0= if drop outcome-invalid exit then lf-envsig-fuel @ outcome-ok ;
+: lf-envsig-lean ( d entry -- root identity fuel' 0 | status )
+  lf-envsig-count over lf-stmt-arity 2dup = 0= if lf-env-arity-rejected nip nip exit then
+  2drop swap lf-envsig-scoped ok-then? 0= if nip exit then
+  lf-envsig-record ok-then? 0= if nip exit then drop lf-envsig-built ;
 : lf-envsig-run ( -- root identity fuel' 0 | status )
   lf-envsig-request lf-esreq-name @ dup lf-envsig-local if nip lf-envsig-own exit then
   lf-env-lookup ok-then? 0= if exit then
   dup 0< if drop lf-env-genrec-of lf-envsig-generated exit then
+  dup lf-envsig-entry ?dup if lf-envsig-lean exit then
   lf-envsig-arity ok-then? 0= if exit then lf-envsig-scoped ok-then? 0= if exit then
   lf-envsig-record ok-then? 0= if exit then lf-envsig-type ;
 

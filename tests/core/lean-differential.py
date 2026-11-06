@@ -677,18 +677,11 @@ def universe_scope_fed():
 # accepts, rejected only for the exception Lean raised.
 DQ_DECIDED = ("sort.", "pi.", "whnf.", "delta.", "opaque.", "names.", "eta.",
               "proof-irrelevance.", "let.")
-# Opaque declarations and axioms are checked since plan tasks 4.2.6 and
-# 5.3.1, which brought this row into reach. Temporary gap: Lean rejects it
-# when it infers the type of the literal 1 (Nat.succ Nat.zero, matched by
-# name), Nat, which the file lacks (unknownConstant, thrown inside
-# is_def_eq); LeanForth rejects it too, but as a declared type mismatch,
-# its comparison answering no where Lean's throws. The only row whose
-# rejection may give another reason than Lean's; closed by a follow-up of
-# plan tasks 5.2.3 and 4.2.5 (a lookup's failure inside a comparison ends
-# the check with it, as Lean's exception does).
-DQ_KNOWN = {"names.nat-zero-becomes-a-literal": (
-    "rejected", "rejected as Lean, for another reason (declared type mismatch, not the "
-                "literal's missing type Nat): a follow-up of plan task 5.2.3")}
+# None since a lookup's failure inside a comparison ends the check with
+# Lean's exception (unknownConstant: names.nat-zero-becomes-a-literal,
+# names.bool-true-looked-up-by-eta; a follow-up of plan tasks 5.2.3 and
+# 4.2.5). A rejection must give Lean's exception, its name aside.
+DQ_KNOWN = {}
 
 
 def definitional_equality_cases():
@@ -750,7 +743,7 @@ def dq_row(case, lean, adr0014, answer):
     outcome, code = answer
     if outcome == "accepted" and lean != "accepted":
         raise Mismatch(f"{case}: accepted where Lean says {lean}")
-    if (outcome == "rejected" and REJECTION_CODES.get(code, ("", ""))[1] != lean
+    if (outcome == "rejected" and REJECTION_CODES.get(code, ("", ""))[1] != lean.split()[0]
             and DQ_KNOWN.get(case, ("", ""))[0] != "rejected"):
         raise Mismatch(f"{case}: rejected (code {code}) where Lean says {lean}")
     if outcome in ("unfolds", "stays") and outcome != lean:
