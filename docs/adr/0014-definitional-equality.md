@@ -1330,6 +1330,76 @@ approval.** `let` terms (Q7) leave U2:
    variable opaque; a non-symmetric success cache; caches kept across
    checks. Each must fail a test.
 
+## Amendment 1: the caches as built (plan task 4.2.7, 2026-11-05, proposed)
+
+Status: proposed; [kernel] gate owed (review, owner). Code:
+`src/kernel/caches.fs`, hooks in `whnf.fs`, `defeq.fs`, `mixed-infer.fs`,
+`mixed-convert.fs`, `mixed-open.fs`.
+
+**What is cached** — Lean 4.35.0's `type_checker::state` (Q10), filled
+and read where Lean fills and reads it: inferred types per mode
+(`m_infer_type[infer_only]`, tc 332–334, 356), `whnf_core` (490–493,
+547–549, also at each recursive call), `whnf` (724–739), `m_unfold`
+(573–579), successes (804, 1211; both orders) and same-head failures
+(1004–1009). 4.35.0 has **no equivalence manager** (`type_checker.h`
+33–39: `is_def_eq` is not transitive); none is added. Also Lean's cached
+node data (`loose_bvar_range`, `has_fvar`): the `has_loose_bvars` and
+`has_fvar` walks are answered from it, `instantiate` and `abstract` skip
+unchanged subterms as `replace` does (instantiate.cpp 103, abstract.cpp
+19), and `==` holds at once for one skeleton.
+
+**Keys** — Q3's skeletons, computed per check in a table instead of per
+tier: a node's skeleton is its tag with its children's skeletons, or for
+a leaf the data `mixed-compare.fs`'s `==` compares (bound-variable index,
+free-variable node, level syntax by skeleton, constant name and
+universe-argument skeletons, literal value, projection name and index,
+let flag); a literal of several limbs keys by its own node. Equal
+skeletons imply Lean's `==`; the converse can fail only for such
+literals and for equal names with two numbers (a miss, never a false
+hit). An inferred type's key adds the scope (Q2 note): 0 for a node
+without loose bound variables, else the identity of the scope's
+innermost free variable, which fixes the scope; a chained lambda (whose
+type is not closed) is not cached. The pair caches take closed terms
+only. Values are nodes checked by identity: a discarded node misses.
+
+**Invalidation** — every table empties when a check begins and when an
+inference job starts (a new local context: an inductive block starts
+several without discarding scratch). A node whose leaf is a free
+variable not live in this job, a malformed bound variable or an unknown
+tag has no skeleton, so the passes meet it uncached and fail as before.
+
+**Why sound** — each cached function is a function of its key within one
+snapshot and one local context (Q10's argument); only definite results
+are kept (no *unknown*, *exhausted*, *full*, *invalid*, *rejected*);
+pair caches run only with a typer, so the doubt record cannot arise, and
+a failure is kept only without doubt. Scratch is kept until the job ends
+while the term, level and reference stores have ample room (2^18, 2^14,
+2^16 records); a smaller store discards as before, so tests that measure
+room are unchanged.
+
+**Fuel** — entering a pass costs one unit as before, a hit too, and a hit
+ends it; a miss costs nothing extra (the wrapper's unit is given back);
+lookups, skeletons and node data cost nothing, like Lean's hashes and
+node flags. Skipped walks and subterms are no longer charged, so a check
+needs less fuel; less fuel still only ever gives *exhausted* (or
+*unknown* for a dependency out of fuel).
+
+**Off** — with the derivation log on (a hit would skip logged steps:
+plan task 4.2.7b, log it as Q11's rule 23), outside a check, and under
+`false lf-caches-enable` (tests). Off reproduces the previous checker
+exactly (Init's first 50,000 lines: identical verdicts and total fuel).
+
+**Evidence** — caches on and off give identical verdicts on all 285 NDJSON
+fixtures (2,010 declarations) at fuel 2,000,000 and on Init's first
+50,000 lines (1,230 declarations: 1,216 accepted, 14 unknown, both); a
+randomized fuel run (seed 4207, fuel below 3,000) gave no verdict other
+than the final one, *exhausted* or *unknown*; eight planted faults (mode
+ignored, tables never emptied, success kept on a no, Sort skeleton
+without its level, skip one binder early, scope ignored, value identity
+unchecked, dead free variable kept) are all caught. Init's first 50,000
+lines at the default fuel: 971 accepted, 251 unknown, 8 exhausted before;
+1,164 accepted, 63 unknown, 3 exhausted after.
+
 ## Consequences
 
 - **ADR 0003**: its candidate algorithm and Amendment 1 become one part of

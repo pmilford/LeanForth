@@ -40,9 +40,12 @@
 \   unknown (K1, diagnostic 64); such constants are never recursors;
 \ - in a check, a constant whose lookup is undecided or unsupported (K5)
 \   gives the lookup's outcome.
-\ Not yet as Lean (no verdict depends on them): the caches m_whnf_core,
-\ m_whnf and m_unfold, and the unfold counts of kernel diagnostics (plan
-\ tasks 4.2.7, 4.3.1); string literals and metadata are unsupported
+\ Lean's caches m_whnf_core, m_whnf and m_unfold, and the node data Lean
+\ reads instead of the has_loose_bvars and has_fvar walks, are
+\ kernel/caches.fs's, through the hooks lf-wc-entry, lf-whnf-entry,
+\ lf-whnf-valued and lf-whnf-known (plan task 4.2.7); without it every
+\ pass runs as here. Not yet as Lean (no verdict depends on them): the
+\ unfold counts of kernel diagnostics (plan task 4.3.1); string literals and metadata are unsupported
 \ forms (U2) that never reach these passes; the derivation log records
 \ nothing new here (plan task 4.2.2e). A projection (core/projections.fs) is an
 \ application of a projection leaf, which the iota hook reduces

@@ -31,7 +31,8 @@
 \ abstract.cpp 19); the term store keeps no such data, but the caches do
 \ while they are on (kernel/caches.fs, ADR 0014 Q12, through the hook
 \ lf-open-unchanged?), and the passes then skip such a node as Lean does;
-\ otherwise they visit it, keep it and pay fuel for it. A new bound variable reuses the live leaf of its index that a
+\ otherwise they visit it, keep it and pay fuel for it. A new bound
+\ variable reuses the live leaf of its index that a
 \ pass made before, if any: leaves never change, so this shares an equal
 \ term (it saves room in a small term store).
 \ Each visit costs one unit of fuel and one frame, on a stack that grows

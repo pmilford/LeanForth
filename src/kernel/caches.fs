@@ -67,15 +67,14 @@
 \ variables are unique with fixed types (type_checker.h 33-39), so
 \ inference, whnf_core, whnf, unfolding and is_def_eq are functions of
 \ their arguments within one check's environment snapshot and one local
-\ context. The result tables are emptied when either changes: when a
-\ check begins (check-declaration.fs) and when an inference job starts,
-\ which empties the local context (mixed-infer.fs; an inductive block's
-\ check starts several jobs without discarding scratch). Skeletons are
-\ kept for the whole check (they describe structure only) and emptied
-\ when it begins. Within a job the local context only grows. While the
-\ caches are on, inference and comparison keep their scratch until the
-\ job ends (mixed-infer.fs's discard and mixed-convert.fs's restore do
-\ nothing), so entries stay useful, as Lean's live for the whole check.
+\ context. Every table is emptied when either changes: when a check
+\ begins (check-declaration.fs) and when an inference job starts, which
+\ empties the local context (mixed-infer.fs; an inductive block's check
+\ starts several jobs without discarding scratch). Within a job the local
+\ context only grows. While the caches are on, inference and comparison
+\ keep their scratch until the job ends (mixed-infer.fs's discard and
+\ mixed-convert.fs's restore do nothing) where the stores have ample room
+\ (below), so entries stay useful, as Lean's live for the whole check.
 \ Only definite results are kept: a pass that ends unknown, exhausted,
 \ full, invalid or rejected keeps nothing. LeanForth's doubt record
 \ (defeq.fs) cannot arise where the pair caches work: they work only
@@ -99,13 +98,20 @@
 \ the check has. A table or stack that cannot grow (no heap) keeps
 \ nothing more: a miss, never a verdict.
 \
+\ Lean's cached node data. The skeleton table also keeps, per node, what
+\ Lean keeps in each node: its loose bound variables and whether it has a
+\ free variable. whnf.fs's has_loose_bvars and has_fvar walks are then
+\ answered from it, mixed-open.fs's instantiate and abstract keep a node
+\ that cannot change without visiting it (Lean's replace), and defeq.fs's
+\ == holds at once for one skeleton.
+\
 \ Interface: lf-caches-enable ( flag -- ), lf-caches-on? ( -- flag ),
-\ lf-caches-clear ( -- ) (a job), lf-caches-reset ( -- ) (a check),
+\ lf-caches-clear ( -- ), lf-term-facts ( node -- id bits true | false ),
 \ lf-cache-stats ( cache -- hits misses ) with the caches lf-cache-infer,
 \ lf-cache-infer-only, lf-cache-whnf-core, lf-cache-whnf,
 \ lf-cache-unfold, lf-cache-success and lf-cache-failure ( -- cache ).
-\ Loading this module sets the hooks of whnf.fs, defeq.fs, mixed-infer.fs
-\ and mixed-convert.fs.
+\ Loading this module sets the hooks of whnf.fs, defeq.fs, mixed-infer.fs,
+\ mixed-convert.fs and mixed-open.fs.
 \ State: one record, lf-caches (the switch, the key being looked up, the
 \ next skeleton, two stacks' depths, and nine tables: each a hash table
 \ of lib/htab.fs over a slab of entries), and two growable stacks
@@ -124,6 +130,7 @@ require ./whnf.fs
 require ./defeq.fs
 require ./mixed-convert.fs
 require ./mixed-infer.fs
+require ./mixed-open.fs
 
 \ ---------------------------------------------------------------------------
 \ A cache: a hash table first (its hooks find the cache at its address),
@@ -177,9 +184,11 @@ create lf-cache-hooks /htab-hooks allot
 \ then keeps nothing), and freed with the context.
 : lf-cache-table-init ( cache -- ) 4 lf-cache-hooks rot lf-cache-table htab-init drop ;
 : lf-cache-make ( cache -- )
-  dup lf-cache-table-init /lf-cent dup slab-limit-max rot lf-cache-entries slab-init drop ;
+  dup lf-cache-table-init
+  /lf-cent dup slab-limit-max rot lf-cache-entries slab-init drop ;
 : lf-cache-release ( cache -- ) dup lf-cache-table htab-free lf-cache-entries slab-free ;
-: lf-caches-some ( xt n -- ) 0 lf-cache-nth swap 0 ?do 2dup swap execute /lf-cache + loop 2drop ;
+: lf-caches-some ( xt n -- )
+  0 lf-cache-nth swap 0 ?do 2dup swap execute /lf-cache + loop 2drop ;
 : lf-caches-each ( xt -- ) lf-caches# lf-caches-some ;
 :noname ( -- ) ['] lf-cache-release lf-caches-each ; context-teardown
 
@@ -188,7 +197,8 @@ create lf-cache-hooks /htab-hooks allot
 1024 constant lf-cache-small
 : lf-cache-small? ( cache -- flag )
   lf-cache-table dup htab-live? if htab-slots lf-cache-small <= else drop false then ;
-: lf-cache-trim ( slab -- ) dup slab-capacity lf-cache-small > if dup slab-trim drop then drop ;
+: lf-cache-trim ( slab -- )
+  dup slab-capacity lf-cache-small > if dup slab-trim drop then drop ;
 : lf-cache-empty ( cache -- )
   dup lf-cache-table htab-live? 0= if lf-cache-make exit then
   dup lf-cache-entries dup slab-clear lf-cache-trim
@@ -326,7 +336,8 @@ lf-tag-let lf-skel-level < lf-tag-lit lf-skel-level < and lf-tag-proj lf-skel-le
 : lf-tk-const ( node tag -- kind a b true | false )
   swap lf-term-first@ lf-cref-slot dup lf-crec-name @ swap lf-cref-list
   if true else 2drop false then ;
-: lf-tk-pair ( node tag -- kind a b true ) swap dup lf-term-first@ swap lf-term-second@ true ;
+: lf-tk-pair ( node tag -- kind a b true )
+  swap dup lf-term-first@ swap lf-term-second@ true ;
 : lf-tk-lit ( node tag -- kind a b true | false )
   over lf-term-second@ 2 < if lf-tk-pair else lf-tk-own then ;
 : lf-tk-leaf ( node tag -- kind a b true | false )
@@ -360,7 +371,8 @@ lf-tag-let lf-skel-level < lf-tag-lit lf-skel-level < and lf-tag-proj lf-skel-le
   3 pick lf-term-second@ lf-tf-child 0= if >r 2drop 2drop r> exit then
   rot swap 4 pick -rot lf-tf-bits lf-tf-done ;
 : lf-ts-step ( -- flag )
-  lf-ts-sp lf-caches-stack lf-sk-top dup lf-term-facts@ if 2drop drop true lf-ts-pop exit then
+  lf-ts-sp lf-caches-stack lf-sk-top
+  dup lf-term-facts@ if 2drop drop true lf-ts-pop exit then
   dup lf-term-tag@ dup lf-term-binary-tag? if lf-tf-binary else lf-tf-leaf then ;
 : lf-ts-run ( -- flag )
   begin lf-ts-sp @ while lf-ts-step 0= if 0 lf-ts-sp ! false exit then repeat true ;
@@ -441,7 +453,8 @@ lf-tag-let lf-skel-level < lf-tag-lit lf-skel-level < and lf-tag-proj lf-skel-le
   lf-caches-on? 0= if drop false exit then
   dup lf-term-valid? if lf-whnf-easy? 0= else drop false then ;
 : lf-cw-store ( r outcome frames -- r outcome frames 0 )
-  >r r@ frame-restore over ok? if 2 pick lf-cache-whnf lf-cache-node! else drop then r> 0 ;
+  >r r@ frame-restore over ok?
+  if 2 pick lf-cache-whnf lf-cache-node! else drop then r> 0 ;
 : lf-cw-visit ( node frames -- ... frames next )
   over lf-cw-cacheable? 0= if lf-whnf-visit exit then
   over lf-cache-whnf lf-cache-node@ if lf-cache-hit exit then
@@ -454,7 +467,8 @@ lf-tag-let lf-skel-level < lf-tag-lit lf-skel-level < and lf-tag-proj lf-skel-le
 : lf-cu-value ( decl const frames -- value outcome )
   over lf-cu-cacheable? 0= if lf-whnf-value exit then
   over lf-cache-unfold lf-cache-node@ if >r drop 2drop r> outcome-ok exit then
-  over >r lf-whnf-value dup ok? if r> 2 pick lf-cache-unfold lf-cache-node! else r> drop then ;
+  over >r lf-whnf-value dup ok?
+  if r> 2 pick lf-cache-unfold lf-cache-node! else r> drop then ;
 ' lf-cu-value is lf-whnf-valued
 
 \ ---------------------------------------------------------------------------
@@ -509,7 +523,8 @@ lf-tag-let lf-skel-level < lf-tag-lit lf-skel-level < and lf-tag-proj lf-skel-le
   lf-caches-on? 0= if drop false exit then
   lf-minfer-chain @ 0< 0= if drop false exit then
   lf-term-facts 0= if false exit then 2/ lf-ci-scope dup 0= if nip then ;
-: lf-ci-table ( -- cache ) lf-minfer-aside @ if lf-cache-infer-only else lf-cache-infer then ;
+: lf-ci-table ( -- cache )
+  lf-minfer-aside @ if lf-cache-infer-only else lf-cache-infer then ;
 : lf-ci-key ( id scope -- ) 0 0 lf-key! ;
 \ The visit keeps the scope and the skeleton.
 : lf-ci-store ( type status frames -- type status frames 0 )

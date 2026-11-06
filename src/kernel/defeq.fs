@@ -18,9 +18,10 @@
 \   compare.fs, lf-expr-equal); two lambdas or two Pis by
 \   is_def_eq_binding; two Sorts by Lean's is_equivalent on their levels
 \   (level-compare.fs, ADR 0011 Amendment 1); otherwise undecided. Lean's
-\   success cache (succeeded_before, 804) waits for plan task 4.2.7: it
-\   changes no answer, since is_def_eq is a function of its arguments
-\   (type_checker.h 33-39).
+\   success cache (succeeded_before, 804, filled by is_def_eq 1211) is
+\   kernel/caches.fs's, through the hooks lf-qk-other and lf-dq-entry
+\   (plan task 4.2.7), as are == by skeleton (lf-dq-known-same?) and the
+\   failure cache below (lf-lz-failed?, lf-lz-failure).
 \ - is_def_eq_binding walks both telescopes while both are binders of the
 \   first's kind: a pair of domains that are not == must be is_def_eq
 \   (else no), the domains read with the free variables of the binders
@@ -81,8 +82,8 @@
 \   answer yes. Each unfolded side goes through whnf_core; then
 \   quick_is_def_eq answers yes, no, or the loop goes on. Lean's failure
 \   cache (failed_before, 1004-1009) only skips an argument test that
-\   failed before, which would fail again: it changes no answer and waits
-\   for plan task 4.2.7 with the success cache. try_unfold_proj_app needs
+\   failed before, which would fail again (kernel/caches.fs keeps it).
+\   try_unfold_proj_app needs
 \   projections (U2).
 \ - is_def_eq_app: both applications, the functions is_def_eq and the
 \   argument counts equal, then the arguments left to right; the first
