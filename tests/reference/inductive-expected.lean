@@ -1616,6 +1616,8 @@ def asConstants : Declaration → List ConstantInfo
         isReflexive := false }
       ty :: ctorConstants lps np t
   | .thmDecl v => [.thmInfo v]
+  | .opaqueDecl v => [.opaqueInfo v]
+  | .axiomDecl v => [.axiomInfo v]
   | .defnDecl v => [.defnInfo v]
   | _ => []
 

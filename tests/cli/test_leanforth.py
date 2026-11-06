@@ -135,6 +135,34 @@ class ExitCodes(unittest.TestCase):
                      f"Two.rec: {LABEL}", f"Two.cases: {LABEL}", f"Two.swap: {LABEL}",
                      "6 declarations: 6 accepted", accepted(6)])
 
+    def test_1_forged_quotient(self):
+        """Lean's export of propext, Classical.choice and Quot.sound
+        (tests/reference/inductive/axioms.ndjson) is accepted, the three
+        counted as proved; with Quot.mk's record given Quot's type, that
+        record is rejected (Q1, diagnostic 96: not Lean's own constant)
+        and so is Quot.sound, which names it. Lean's replay ignores a
+        quotient record's type (a gap of plan task 5.2.4; no export Lean
+        writes has another)."""
+        source = ROOT / "tests" / "reference" / "inductive" / "axioms.ndjson"
+        status, out, _ = run("check", "--no-manifest", str(source))
+        self.assertEqual((status, out.splitlines()[-2]), (0, "16 declarations: 16 accepted"))
+        self.assertIn("Quot.sound: accepted (experimental, not independently audited); "
+                      "axioms: Quot.sound", out.splitlines())
+        text = source.read_text(encoding="utf-8")
+        forged = text.replace('"name":31,"type":121}', '"name":31,"type":115}')
+        self.assertNotEqual(forged, text)
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "forged.ndjson"
+            path.write_text(forged, encoding="utf-8")
+            status, out, _ = run("check", "--no-manifest", str(path))
+        lines = out.splitlines()
+        self.assertEqual((status, lines[-2]), (1, "16 declarations: 14 accepted, 2 rejected"))
+        at = lines.index("Quot.mk: rejected")
+        self.assertTrue(lines[at + 1].startswith(
+            "  rejected: not one of Lean's four quotient constants (Q1); diagnostic 96 at quot "
+            "lf-quot-check: "), lines[at + 1])
+        self.assertIn("Quot.sound: rejected", lines)
+
     def test_1_rejected(self):
         self.expect(["check", "--no-manifest", f"{CASES}/composition-wrong-argument.ndjson"], 1,
                     [NO_MANIFEST, "composition: rejected",
@@ -161,6 +189,19 @@ class ExitCodes(unittest.TestCase):
                 "note: makes it 6"]
         self.expect(["check", "--no-manifest", postulate], 0, lines + note)
         self.expect(["check", "--no-manifest", "--strict-axioms", postulate], 6, lines)
+        # Every axiom a declaration rests on, through its type and value, as
+        # Lean's #print axioms lists them; propext with another statement
+        # than Lean's is no allowlisted axiom (inductive-table rows).
+        blocks = "tests/core/check-block-cases"
+        for case, line in [
+                ("postulate.declared-and-used", "IE.usesSecret: accepted (experimental, not "
+                 "independently audited); axioms: unlisted; NOT PROVED: depends on IE.Secret, "
+                 "IE.secret"),
+                ("postulate.propext-altered", "IE.anything: accepted (experimental, not "
+                 "independently audited); axioms: unlisted; NOT PROVED: depends on propext")]:
+            status, out, _ = run("check", "--no-manifest", f"{blocks}/{case}.ndjson")
+            self.assertEqual(status, 0, case)
+            self.assertIn(line, out.splitlines(), case)
 
     def test_2_unsupported_and_unknown(self):
         status, out, _ = run("check", "--no-manifest", f"{CASES}/composition-literal.ndjson")

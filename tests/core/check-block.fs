@@ -759,5 +759,71 @@ T{ claimed-type -> outcome-invalid outcome-invalid }T
 T{ s" replay-bool.recursor-left-out" slot-warned -> lf-warn-no-recursor outcome-ok }T
 T{ s" ind.bool" slot-warned -> 0 outcome-ok }T
 
+\ 7. Axioms, opaque declarations and quotients (plan tasks 5.3.1, 4.2.6,
+\ 5.2.4; rows of the inductive table): Lean's verdicts, and the axiom bits
+\ of the case's last declaration (8: an axiom outside the allowlist, so
+\ NOT PROVED; the file's own, or propext with another statement).
+: bits-of ( c-addr u -- outcome bits )
+  case-path staged ok? must fuel checked final-decl dup lf-env-outcome
+  swap lf-env-axioms drop finish ;
+T{ s" postulate.declared-and-used" bits-of -> outcome-ok 8 }T
+T{ s" postulate.propext-altered" bits-of -> outcome-ok 8 }T
+T{ s" opaque.accepted" bits-of -> outcome-ok 0 }T
+T{ s" opaque.wrong-value" used -> outcome-rejected lf-diag-value-apart }T
+\ An opaque declaration never unfolds (Lean's is_delta); its twin, a
+\ definition, does.
+T{ s" opaque.never-unfolds" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" opaque.unfolds-as-definition" used -> outcome-ok 0 }T
+\ Quot.lift on Quot.mk reduces (quot_reduce_rec), on a variable it stays.
+T{ s" quot.lift-on-mk" used -> outcome-ok 0 }T
+T{ s" quot.lift-on-mk-wrong" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" quot.lift-stuck-on-variable" used -> outcome-rejected lf-diag-value-apart }T
+\ add_quot: Eq with Lean's shape, or rejected (check_eq_type, 95).
+T{ s" quotinit.with-eq" used -> outcome-ok 0 }T
+T{ s" quotinit.eq-wrong-shape" used -> outcome-rejected lf-diag-quot-eq }T
+
+\ 8. The statement matcher (core/statement-match.fs) and the allowlist
+\ (core/axiom-allowlist.fs) on Lean's own export of propext,
+\ Classical.choice, Quot.sound and the quotient constants: each listed
+\ axiom is its entry, with its bit; each quotient constant is Lean's own
+\ (quot.fs's entries); another entry, or an altered text, differs.
+s" tests/reference/inductive/axioms.ndjson" staged ok? must
+: decl-named ( c-addr u -- decl )
+  lf-input-count 0 ?do
+    i lf-input-name 2 pick 2 pick lf-stmt-name? if 2drop i lf-input-decl unloop exit then
+  loop 2drop 0 ;
+: bit-of ( c-addr u -- bit outcome ) decl-named 100000 lf-stmt-fuel ! lf-axiom-bit ;
+T{ s" propext" bit-of s" Classical.choice" bit-of s" Quot.sound" bit-of
+  -> 1 outcome-ok 2 outcome-ok 4 outcome-ok }T
+: is? ( c-addr u entry -- flag outcome ) >r decl-named r> 100000 lf-stmt-fuel ! lf-stmt-is? ;
+T{ s" Quot" lf-quot-type is? s" Quot.mk" lf-quot-mk is? -> true outcome-ok true outcome-ok }T
+T{ s" Quot.lift" lf-quot-lift is? s" Quot.ind" lf-quot-ind is? -> true outcome-ok true outcome-ok }T
+T{ s" Quot.mk" lf-quot-type is? s" Quot.ind" lf-quot-lift is? -> false outcome-ok false outcome-ok }T
+\ A text against a declaration's type, with fuel.
+: typed ( c-addr u -- term decl ) decl-named dup lf-idecl-type @ swap ;
+: fueled ( c-addr u text-addr text-u fuel -- flag outcome )
+  lf-stmt-fuel ! 2>r typed 2r> lf-stmt-match ;
+: matches? ( c-addr u text-addr text-u -- flag ) 100000 fueled drop ;
+: choice ( -- c-addr u ) s" Classical.choice" ;
+T{ choice s" P S u0 P A C Nonempty 1 u0 #0 #1" matches? -> true }T
+T{ choice s" P S u0 P A C Nonempty 1 u0 #0 #0" matches? -> false }T     \ a variable
+T{ choice s" P S u0 P A C Nonempty 1 u0 #0 #1 #1" matches? -> false }T  \ text left over
+T{ choice s" P S u0 P A C Nonempty 1 u0 #0" matches? -> false }T        \ nodes left over
+T{ choice s" P S z P A C Nonempty 1 u0 #0 #1" matches? -> false }T      \ a level
+T{ choice s" P S s u0 P A C Nonempty 1 u0 #0 #1" matches? -> false }T   \ a level
+T{ choice s" P S u0 P A C Inhabited 1 u0 #0 #1" matches? -> false }T    \ a name
+T{ choice s" P S u0 P A C Nonempty 0 #0 #1" matches? -> false }T        \ an arity
+T{ choice s" P S u0 L A C Nonempty 1 u0 #0 #1" matches? -> false }T     \ a binder
+T{ choice s" P S u0 P A C Nonempty 1 u0 #0 #1" 5 fueled -> false outcome-exhausted }T
+\ Universe parameters by position: Quot.lift's two swapped differ.
+: lift-swapped ( -- c-addr u )
+  s" P S u1 P P #0 P #1 S z P S u0 P P #2 #1 P P #3 P #4 P A A #4 #1 #0 A A A C Eq 1 u0 #4 A #3 #2 A #3 #1 P A A C Quot 1 u1 #4 #3 #3" ;
+T{ s" Quot.lift" lift-swapped matches? -> false }T
+\ Dotted names, part by part from the last.
+: mk-name ( -- id ) s" Quot.mk" decl-named lf-idecl-name @ ;
+T{ mk-name s" Quot.mk" lf-stmt-name? mk-name s" Quit.mk" lf-stmt-name? -> true false }T
+T{ mk-name s" mk" lf-stmt-name? mk-name s" A.Quot.mk" lf-stmt-name? -> false false }T
+unstage
+
 cases-done
 bye

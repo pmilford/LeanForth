@@ -36,12 +36,12 @@ FAULTS = [
      " if lf-env-recorded then"),
     ("publish before the final step: accepted before the comparison (step 8)",
      "src/kernel/check-declaration.fs",
-     "  lf-check-steps# 0 ?do i lf-check-do",
-     "  lf-check-steps# 1- 0 ?do i lf-check-do"),
+     "  lf-check-table dup @ 0 ?do",
+     "  lf-check-table dup @ 1- 0 ?do"),
     ("map full to ok: a step that runs out of room lets the check go on",
      "src/kernel/check-declaration.fs",
-     "lf-check-step! cells lf-check-steps + @ execute ;",
-     "lf-check-step! cells lf-check-steps + @ execute\n"
+     "dup 1+ lf-check-step! 1+ cells + @ execute ;",
+     "dup 1+ lf-check-step! 1+ cells + @ execute\n"
      "  dup outcome-full = if drop outcome-ok then ;"),
     ("forget one store's rollback: the level store after each check",
      "src/core/input.fs",

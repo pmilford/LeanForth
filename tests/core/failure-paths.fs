@@ -231,9 +231,17 @@ variable printed#
 create wanted text-room allot
 variable wanted#
 : want ( c-addr u -- ) tuck wanted wanted# @ + swap move wanted# +! ;
+\ The axiom set: none, or the allowlist's names of the listed bits, then
+\ unlisted, comma-separated (core/axiom-allowlist.fs).
+: want-bit ( bits bit -- bits )
+  2dup and 0= if drop exit then
+  dup lf-axiom-unlisted = if s" unlisted" else dup lf-axiom-name then want
+  2* 1- invert over and if s" , " want then ;
 : want-accepted ( bits -- )
   lf-check-label want s" ; axioms: " want
-  ?dup if s" bits " want 0 <# #s #> want else s" none" want then ;
+  ?dup 0= if s" none" want exit then
+  lf-axiom-propext want-bit lf-axiom-choice want-bit lf-axiom-sound want-bit
+  lf-axiom-unlisted want-bit drop ;
 : wanted-text ( d -- c-addr u )
   0 wanted# ! dup lf-env-outcome dup ok? if drop lf-env-axioms drop want-accepted
   else nip outcome-text want then wanted wanted# @ ;
@@ -426,8 +434,9 @@ T{ outcome-invalid outcome-unknown 2 ' k5-value s" k5-value" fp-case -> }T
 T{ outcome-ok 1 ' k4-level s" k4" fp-case -> }T
 T{ outcome-ok outcome-unknown 2 ' k6-level s" k6" fp-case -> }T
 
-\ Unsupported: an axiom (U1) and a let (U2) in the audit (1); a use of an
-\ axiom in the declared type (4) and in the value (7).
+\ Axioms (plan task 5.3.1): one whose type names nothing (N1, rejected),
+\ a use of one in a declared type (rejected: the value has another type)
+\ and in a value (accepted). A let (U2): unsupported in the audit (1).
 : postulate ( -- )
   fc-world s" fc-decl before ax safe postulate 0 TYPE S z VALUE none" evaluate ;
 : axiom ( -- ) s" fc-decl check ax safe postulate 0 TYPE C missing 0 VALUE none" fc-text ;
@@ -436,18 +445,35 @@ T{ outcome-ok outcome-unknown 2 ' k6-level s" k6" fp-case -> }T
   postulate s" fc-decl check def safe user 0 TYPE C postulate 0 VALUE S z" evaluate fc-end ;
 : uses-axiom ( -- )
   postulate s" fc-decl check def safe user 0 TYPE S z VALUE C postulate 0" evaluate fc-end ;
-\ And N2 after an unsupported declaration of the same name (K5, 2).
+\ And N2 after an axiom of the same name (rejected, 2).
 : n2-unsupported ( -- )
   fc-world s" fc-decl before ax safe idProp 0 TYPE S z VALUE none" evaluate
   s" fc-decl check thm safe idProp 0 TYPE P S z P V 0 V 1 VALUE L S z L V 0 V 0" evaluate
   fc-end ;
-T{ outcome-unsupported 1 ' axiom s" axiom" fp-case -> }T
+T{ outcome-rejected 1 ' axiom s" axiom" fp-case -> }T
 T{ outcome-unsupported 1 ' let-form s" let" fp-case -> }T
-T{ outcome-unsupported outcome-unsupported 2 ' uses-axiom-type s" uses-axiom-type"
+T{ outcome-ok outcome-rejected 2 ' uses-axiom-type s" uses-axiom-type"
   fp-case -> }T
-T{ outcome-unsupported outcome-unsupported 2 ' uses-axiom s" uses-axiom" fp-case -> }T
-T{ outcome-unsupported outcome-unsupported 2 ' n2-unsupported s" n2-unsupported"
+T{ outcome-ok outcome-ok 2 ' uses-axiom s" uses-axiom" fp-case -> }T
+T{ outcome-ok outcome-rejected 2 ' n2-unsupported s" n2-unsupported"
   fp-case -> }T
+\ K5: a use of an unsupported declaration (an unsafe definition, U1) in a
+\ declared type (4) and in a value (7), and N2 after one of the same name
+\ (2).
+: risky ( -- )
+  fc-world s" fc-decl before def unsafe risky 0 TYPE S s z VALUE S z" evaluate ;
+: uses-unsafe-type ( -- )
+  risky s" fc-decl check def safe user 0 TYPE C risky 0 VALUE S z" evaluate fc-end ;
+: uses-unsafe ( -- )
+  risky s" fc-decl check def safe user 0 TYPE S s z VALUE C risky 0" evaluate fc-end ;
+: n2-unsafe ( -- )
+  fc-world s" fc-decl before def unsafe idProp 0 TYPE S s z VALUE S z" evaluate
+  s" fc-decl check thm safe idProp 0 TYPE P S z P V 0 V 1 VALUE L S z L V 0 V 0" evaluate
+  fc-end ;
+T{ outcome-unsupported outcome-unsupported 2 ' uses-unsafe-type s" uses-unsafe-type"
+  fp-case -> }T
+T{ outcome-unsupported outcome-unsupported 2 ' uses-unsafe s" uses-unsafe" fp-case -> }T
+T{ outcome-unsupported outcome-unsupported 2 ' n2-unsafe s" n2-unsafe" fp-case -> }T
 
 \ Invalid: a variable without a binder (V1, 1). Full: the term store fills
 \ while the declared type is inferred (4): a telescope of 40 binders,
