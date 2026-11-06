@@ -128,6 +128,9 @@ require ../lib/lib.fs
 93 constant lf-diag-nat-size           \ full: the operation's head, 0
 \ Let terms (plan task 4.2.3, kernel/mixed-infer.fs).
 94 constant lf-diag-let-value-apart    \ rejected (letTypeMismatch): 0, 0
+\ Quotients (plan task 5.2.4, kernel/quot.fs).
+95 constant lf-diag-quot-eq            \ Q1 (rejected): the declaration, 0
+96 constant lf-diag-quot-type          \ Q1 (rejected): the declaration, 0
 
 begin-structure /lf-diag
   field: lf-diag-code       \ reason code; lf-diag-none while clear
@@ -305,6 +308,10 @@ create lf-diag-catalogue
   lf-diag-nat-size
     s" full: a Nat over the size limit, or no memory to compute it" lf-diag-entry,
   lf-diag-let-value-apart s" rejected: let value type mismatch" lf-diag-entry,
+  lf-diag-quot-eq
+    s" rejected: Eq is not the type quotients need (Q1)" lf-diag-entry,
+  lf-diag-quot-type
+    s" rejected: not one of Lean's four quotient constants (Q1)" lf-diag-entry,
   lf-diag-none s" unknown code" lf-diag-entry,
 : lf-diag-end? ( code entry -- flag ) lf-diag-entry-code tuck = swap lf-diag-none = or ;
 \ The entry of code, or the last entry.

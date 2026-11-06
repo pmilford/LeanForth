@@ -31,8 +31,9 @@
 \ cannot expand; and Lean's generated recursor that no slot holds (ADR
 \ 0015 decision 12). A literal major premise (L2; plan task
 \ 5.2.3) becomes a constructor first, as nat_lit_to_constructor makes
-\ it: 0 as Nat.zero, n + 1 as Nat.succ n (reduce-nat.fs). Quotients are
-\ unsupported (U1).
+\ it: 0 as Nat.zero, n + 1 as Nat.succ n (reduce-nat.fs). Before any of
+\ this, as reduce_recursor (393-398), quot_reduce_rec (quot.fs: Quot.lift
+\ and Quot.ind on Quot.mk, plan task 5.2.4).
 \ State: none of its own; the work arrays and the frames are whnf.fs's,
 \ each array filled and used within one step; K lends a comparison
 \ defeq.fs's typer cell, restored when the comparison returns.
@@ -53,6 +54,7 @@ require ./mixed-head.fs
 require ./mixed-infer.fs
 require ./reduce-nat.fs
 require ./whnf.fs
+require ./quot.fs
 
 \ ---------------------------------------------------------------------------
 \ The recursor's record (core/input.fs): its numbers, k and rules.
@@ -385,8 +387,12 @@ require ./whnf.fs
   over over frame-save swap dup lf-iota-n 0 lf-iota-arg swap
   ['] lf-iota-proj-back lf-whnf-call ;
 
+\ reduce_recursor (type_checker.cpp 393-407): quot_reduce_rec first
+\ (quot.fs), then inductive_reduce_rec.
 : lf-iota ( app frames -- ... frames next )
   over lf-whnf-head lf-proj-leaf? if lf-iota-proj exit then
+  over lf-quot-rule ok-then? 0= if rot drop swap lf-whnf-failed exit then
+  dup 0< 0= if swap lf-quot-reduce exit then drop
   over lf-iota-recursor ok-then? 0= if rot drop swap lf-whnf-failed exit then
   dup 0< if lf-iota-none exit then
   2 pick lf-iota-n over lf-iota-major-idx > 0= if lf-iota-none exit then

@@ -8,10 +8,11 @@
 \ invariants against the environment (E4 step 1, as amended 2026-11-02):
 \ every slot below it with the same name is final and rejected (N2, K5,
 \ G-P5); its dependencies are ascending, distinct, below it, final and
-\ accepted; its axiom set is the union of theirs and within the
-\ allowlist, its provenance the union of theirs and "checked" in a final
-\ run; its kind is a definition or theorem, safe, with a value and
-\ distinct universe parameters. A failure is a fault in LeanForth and
+\ accepted; its axiom set is the union of theirs with, for an axiom, its
+\ own bit (axiom-allowlist.fs), its provenance the union of theirs and
+\ "checked" in a final run; its kind is a definition, theorem or opaque
+\ declaration with a value, or an axiom or quotient record without one,
+\ safe, with distinct universe parameters. A failure is a fault in LeanForth and
 \ makes the outcome invalid. Then it appends the dependencies to the pool
 \ (full, with nothing appended or written, when there is no room: the
 \ pool grew before the hand-over marked it, so only when the heap
@@ -196,10 +197,14 @@ defer lf-env-before-final
 : lf-dep-slot ( k -- slot ) lf-dep@ lf-env lf-env-slot ;
 : lf-deps-union ( field -- bits )
   0 lf-cand-count@ 0 ?do over i lf-dep-slot swap execute @ or loop nip ;
-: lf-allowed? ( bits -- flag ) lf-env lf-envh-allowed @ invert and 0= ;
+\ The axiom set: the union of the dependencies' and, for an axiom, its
+\ own bit, computed again (environment.fs lf-own-axiom). Any bit may be
+\ set: an axiom outside the allowlist is accepted as Lean accepts it and
+\ marked NOT PROVED where results are reported (owner decision 4 as
+\ amended).
+: lf-recheck-own ( -- bits ) lf-env-limit lf-input-decl lf-own-axiom ok? 0= if drop -1 then ;
 : lf-recheck-axioms? ( -- flag )
-  ['] lf-slot-axioms lf-deps-union
-  dup lf-env-cand lf-cand-axioms @ = swap lf-allowed? and ;
+  ['] lf-slot-axioms lf-deps-union lf-recheck-own or lf-env-cand lf-cand-axioms @ = ;
 : lf-final-run? ( -- flag ) lf-env lf-envh-mode @ lf-mode-final = ;
 : lf-provenance-ok? ( bits -- flag ) lf-provenance-checked = lf-final-run? 0= or ;
 : lf-recheck-provenance? ( -- flag )
@@ -223,11 +228,14 @@ defer lf-env-before-final
   0 lf-cand-span@ 0 ?do ['] lf-slot-conflict? i lf-own-matches + i lf-own-held + loop ;
 : lf-recheck-name? ( -- flag )
   lf-name-storage-valid? if lf-span-conflicts 0= else false then ;
-\ Kind and safety in scope (ADR 0011), a value, distinct parameters (L3).
-: lf-scope-kind? ( kind -- flag ) dup lf-kind-definition = swap lf-kind-theorem = or ;
+\ Kind and safety in scope (ADR 0011), a value exactly for the kinds that
+\ have one (environment.fs lf-kind-valued?), distinct parameters (L3).
+: lf-recheck-value? ( decl -- flag )
+  dup lf-idecl-value @ swap lf-idecl-kind @ lf-kind-valued?
+  if lf-term-valid? else -1 = then ;
 : lf-recheck-kind? ( decl -- flag )
-  dup lf-idecl-kind @ lf-scope-kind? over lf-idecl-safety @ lf-safety-safe = and
-  swap lf-idecl-value @ lf-term-valid? and ;
+  dup lf-idecl-kind @ dup lf-kind-valued? swap lf-kind-bare? or
+  over lf-idecl-safety @ lf-safety-safe = and swap lf-recheck-value? and ;
 \ A block's member (ADR 0015): an inductive type, constructor or recursor,
 \ safe, without a value, in the same block as the first member, which the
 \ block's header names, and the span exactly the header's members.

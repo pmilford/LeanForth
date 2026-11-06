@@ -77,6 +77,7 @@ require ../core/names.fs
 require ../core/name-equal.fs
 require ../core/terms.fs
 require ../core/input.fs
+require ./axiom-allowlist.fs
 
 65536 constant lf-env-pool-start    \ the pool room `check` starts with; it grows
 1 constant lf-state-final           \ the state of a published slot
@@ -103,8 +104,8 @@ begin-structure /lf-env
   field: lf-envh-identity   \ never repeats; 0 once freed
   field: lf-envh-input      \ the input's fingerprint when made
   field: lf-envh-length     \ number of slots: the input's declarations
-  field: lf-envh-allowed    \ axiom bits the allowlist permits; none in version 0
-                            \ (a test may set one on a synthetic environment)
+  field: lf-envh-allowed    \ axiom bits that count as proved (axiom-allowlist.fs;
+                            \ a test may set others on a synthetic environment)
   field: lf-envh-version    \ allowlist version
   field: lf-envh-mode       \ run mode
   field: lf-envh-pool       \ the pool's current block
@@ -133,6 +134,11 @@ end-structure
 \ for the block can be built again from its input (generated-recursor.fs);
 \ it eliminates into every universe (its motive universe its first
 \ universe parameter).
+\ The kinds a declaration's own check covers (check-declaration.fs): with
+\ a value (definition, theorem, opaque) or without (axiom, quotient).
+: lf-kind-valued? ( kind -- flag )
+  dup lf-kind-definition = over lf-kind-theorem = or swap lf-kind-opaque = or ;
+: lf-kind-bare? ( kind -- flag ) dup lf-kind-axiom = swap lf-kind-quotient = or ;
 1 constant lf-recipe-raw
 2 constant lf-recipe-large
 
@@ -246,7 +252,7 @@ end-structure
 \ Making, freeing and choosing environments, only outside jobs (G-P1).
 \ lf-env-new gives a new environment over this context's intact input,
 \ its pool starting with room for deps dependencies (it grows), and the
-\ empty allowlist of version 0, in final mode: (env ok); (0 invalid)
+\ axiom allowlist (lf-env-allowlist), in final mode: (env ok); (0 invalid)
 \ inside a job, for an input that is not intact or a negative deps or
 \ one too large for a store (lf-pool-plan?); (0 full) when the
 \ identities are spent or memory cannot be allocated.
@@ -267,10 +273,14 @@ end-structure
 : lf-env-pooled ( deps env -- env outcome )
   swap lf-pool-block dup ok? if drop over lf-envh-pool ! outcome-ok exit then
   >r drop free drop 0 r> ;
+\ The axiom allowlist (axiom-allowlist.fs): its version, and the bits
+\ that count as proved.
+: lf-env-allowlist ( env -- env )
+  lf-allowlist-bits over lf-envh-allowed ! lf-allowlist-version over lf-envh-version ! ;
 \ Format the slots, make the pool and give the environment its
 \ identity: (env ok), or as lf-env-pooled.
 : lf-env-made ( deps env -- env outcome )
-  lf-env-may-write lf-env-fields lf-env-unpublished lf-env-pooled
+  lf-env-may-write lf-env-fields lf-env-allowlist lf-env-unpublished lf-env-pooled
   dup ok? if drop lf-env-identity+ outcome-ok then ;
 : lf-env-new-ok? ( deps -- flag )
   lf-pool-plan? lf-input-intact? and context-in-job? 0= and ;
@@ -668,6 +678,9 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
 : lf-cand-insert ( d -- )
   dup lf-cand-place dup lf-cand-open lf-cand-dep ! 1 lf-env-cand lf-cand-count +! ;
 : lf-or! ( bits addr -- ) tuck @ or swap ! ;
+\ An axiom's own bit (axiom-allowlist.fs), joined to the candidate's set
+\ by its check (check-declaration.fs).
+: lf-env-axiom! ( bits -- ) lf-env-cand lf-cand-axioms lf-or! ;
 : lf-cand-union ( slot -- )
   dup lf-slot-axioms @ lf-env-cand lf-cand-axioms lf-or!
   lf-slot-provenance @ lf-env-cand lf-cand-provenance lf-or! ;
@@ -765,3 +778,40 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
   lf-env-readable 0= if 0 outcome-invalid exit then
   dup lf-slot-accepted? if lf-slot-warnings @ outcome-ok
   else drop 0 outcome-invalid then ;
+
+\ Axioms (plan task 5.3.1; owner decision 4 as amended). The bits of an
+\ axiom set that do not count as proved: an accepted declaration with any
+\ is NOT PROVED (Lean's verdict, marked).
+: lf-env-unproved ( bits -- bits' ) lf-env lf-envh-allowed @ invert and ;
+\ A declaration's own axiom bit: an axiom's (axiom-allowlist.fs, whose
+\ comparison is bounded by its texts, so its fuel is not limited here), 0
+\ for any other kind; ok, or the comparison's failure.
+: lf-own-axiom ( decl -- bit outcome )
+  dup lf-idecl-kind @ lf-kind-axiom = 0= if drop 0 outcome-ok exit then
+  max-n lf-stmt-fuel ! lf-axiom-bit ;
+\ The axioms declaration d depends on (plan task 5.3.2 in part: the set
+\ Lean's #print axioms lists): every accepted axiom among d and the
+\ declarations it uses, directly or not, given to xt ( d' -- ) in
+\ ascending order, within this context's snapshot. A dependency is always
+\ an earlier slot, so one pass from d down marks them all (no recursion),
+\ one byte per slot in a heap block freed before the word returns. ok;
+\ full when the heap has no room; invalid when slot d is not readable and
+\ accepted.
+: lf-dep-at ( k slot -- d ) lf-slot-deps @ + lf-env lf-env-pool store-slot @ ;
+: lf-marks-of ( marks slot -- )
+  dup lf-slot-count @ 0 ?do 2dup i swap lf-dep-at + true swap c! loop 2drop ;
+: lf-marked? ( marks d -- flag ) + c@ 0<> ;
+: lf-mark-down ( marks d -- )
+  0 swap do dup i lf-marked? if dup i lf-env lf-env-slot lf-marks-of then -1 +loop drop ;
+: lf-axiom-slot? ( d -- flag )
+  lf-env lf-env-slot dup lf-slot-accepted? swap lf-slot-decl lf-idecl-kind @ lf-kind-axiom = and ;
+: lf-marks-give ( marks d xt -- )
+  swap 1+ 0 ?do over i lf-marked? if i lf-axiom-slot? if i over execute then then loop 2drop ;
+: lf-marks-new ( d -- marks outcome )
+  1+ dup allocate if 2drop 0 outcome-full exit then tuck swap erase outcome-ok ;
+: lf-marks-run ( d xt marks -- )
+  dup >r dup 3 pick + true swap c! dup 3 pick lf-mark-down -rot lf-marks-give
+  r> free drop ;
+: lf-env-axiom-deps ( d xt -- outcome )
+  over lf-env-accepted nip ok? 0= if 2drop outcome-invalid exit then
+  over lf-marks-new ok-then? 0= if nip nip exit then lf-marks-run outcome-ok ;
