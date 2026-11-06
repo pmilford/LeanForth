@@ -783,6 +783,16 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
 \ axiom set that do not count as proved: an accepted declaration with any
 \ is NOT PROVED (Lean's verdict, marked).
 : lf-env-unproved ( bits -- bits' ) lf-env lf-envh-allowed @ invert and ;
+\ The allowlist's lookup (core/axiom-allowlist.fs lf-allow-found): the
+\ accepted declaration named id within this context's snapshot and its
+\ slot's warning bits, else 0 0; it records no dependency, and the
+\ diagnostic a failed lookup notes is put back.
+: lf-env-allow-slot ( d -- decl|0 bits )
+  dup 0< if drop 0 0 exit then
+  lf-env-usable ok-then? 0= if drop 0 0 exit then dup lf-slot-decl swap lf-slot-warnings @ ;
+:noname ( id -- decl|0 bits )
+  >r lf-diag@ r> lf-env-lookup-pass ok-then? if lf-env-allow-slot else drop 0 0 then
+  2>r lf-diag! 2r> ; is lf-allow-found
 \ A declaration's own axiom bit: an axiom's (core/axiom-allowlist.fs, whose
 \ comparison is bounded by its texts, so its fuel is not limited here), 0
 \ for any other kind; ok, or the comparison's failure.

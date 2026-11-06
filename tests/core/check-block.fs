@@ -788,12 +788,19 @@ T{ s" quotinit.eq-wrong-shape" used -> outcome-rejected lf-diag-quot-eq }T
 \ axiom is its entry, with its bit; each quotient constant is Lean's own
 \ (quot.fs's entries); another entry, or an altered text, differs.
 s" tests/reference/inductive/axioms.ndjson" staged ok? must
-: decl-named ( c-addr u -- decl )
+: decl-index ( c-addr u -- d )
   lf-input-count 0 ?do
-    i lf-input-name 2 pick 2 pick lf-stmt-name? if 2drop i lf-input-decl unloop exit then
-  loop 2drop 0 ;
+    i lf-input-name 2 pick 2 pick lf-stmt-name? if 2drop i unloop exit then
+  loop 2drop -1 ;
+: decl-named ( c-addr u -- decl ) decl-index lf-input-decl ;
+\ Each listed axiom's set is its own bit: the constants its statement
+\ names (Iff, Eq, Nonempty, Quot, Quot.mk) are Lean's own. Outside a
+\ check nothing can be looked up, so every axiom is unlisted there.
 : bit-of ( c-addr u -- bit outcome ) decl-named 100000 lf-stmt-fuel ! lf-axiom-bit ;
-T{ s" propext" bit-of s" Classical.choice" bit-of s" Quot.sound" bit-of
+T{ s" propext" bit-of -> 8 outcome-ok }T
+fuel checked
+: set-of ( c-addr u -- bits outcome ) decl-index lf-env-axioms ;
+T{ s" propext" set-of s" Classical.choice" set-of s" Quot.sound" set-of
   -> 1 outcome-ok 2 outcome-ok 4 outcome-ok }T
 : is? ( c-addr u entry -- flag outcome ) >r decl-named r> 100000 lf-stmt-fuel ! lf-stmt-is? ;
 T{ s" Quot" lf-quot-type is? s" Quot.mk" lf-quot-mk is? -> true outcome-ok true outcome-ok }T
@@ -823,7 +830,7 @@ T{ s" Quot.lift" lift-swapped matches? -> false }T
 : mk-name ( -- id ) s" Quot.mk" decl-named lf-idecl-name @ ;
 T{ mk-name s" Quot.mk" lf-stmt-name? mk-name s" Quit.mk" lf-stmt-name? -> true false }T
 T{ mk-name s" mk" lf-stmt-name? mk-name s" A.Quot.mk" lf-stmt-name? -> false false }T
-unstage
+finish
 
 cases-done
 bye

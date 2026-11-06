@@ -1372,9 +1372,35 @@ def onBase : List Chain := [
     lean := "declTypeMismatch", leanforth := "rejected", rule := "J1", task := "5.2.2" }
 ]
 
--- Axioms in an empty environment, where `propext` is free to take another statement.
+-- `Iff` as Lean's Init/Core.lean declares it, or forged: a constructor without fields,
+-- so that `Iff a b` holds for any `a b`.
+open K7Rows in
+def iffDecl (forged : Bool := false) : Declaration :=
+  let fields := if forged then [] else [(`mp, arr (v `a) (v `b)), (`mpr, arr (v `b) (v `a))]
+  .inductDecl [] 2 [⟨`Iff, arr prop (arr prop prop),
+    [⟨`Iff.intro, foralls ([(`a, prop), (`b, prop)] ++ fields) (ap (k `Iff) [v `a, v `b])⟩]⟩] false
+-- `propext` with Lean's statement: ∀ {a b : Prop}, (a ↔ b) → a = b.
+open K7Rows in
+def propextDecl : Declaration :=
+  axiomD `propext (foralls [(`a, prop), (`b, prop)]
+    (arr (ap (k `Iff) [v `a, v `b]) (eqC 1 prop (v `a) (v `b))))
+-- Any two propositions equal, by `propext` on the forged `Iff`.
+open K7Rows in
+def collapse : Declaration :=
+  .thmDecl { name := `IE.collapse, levelParams := [],
+             type := foralls [(`a, prop), (`b, prop)] (eqC 1 prop (v `a) (v `b)),
+             value := funs [(`a, prop), (`b, prop)]
+               (ap (k `propext) [v `a, v `b, ap (k `Iff.intro) [v `a, v `b]]) }
+
+-- Axioms in an empty environment, where `propext` is free to take another statement,
+-- or Lean's statement about another `Iff` (NOT PROVED), or about Lean's own (proved).
 def axiomChains : List Chain := [
   { id := "postulate.propext-altered", decls := alteredPropext,
+    lean := "accepted", leanforth := "accepted", rule := "A1", task := "5.3.1" },
+  { id := "postulate.propext-forged-iff",
+    decls := [eqDecl, iffDecl (forged := true), propextDecl, collapse],
+    lean := "accepted", leanforth := "accepted", rule := "A1", task := "5.3.1" },
+  { id := "postulate.propext-own-iff", decls := [eqDecl, iffDecl, propextDecl],
     lean := "accepted", leanforth := "accepted", rule := "A1", task := "5.3.1" }
 ]
 

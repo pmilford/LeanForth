@@ -30,7 +30,10 @@
 \
 \ lf-stmt-match ( term decl c-addr u -- flag outcome ): ok with whether
 \ term, read with decl's universe parameters, is the text; exhausted
-\ (false) when the fuel ran out. term is an audited root (V1).
+\ (false) when the fuel ran out. term is an audited root (V1). Then
+\ lf-stmt-met@ ( -- n ) and lf-stmt-id ( k -- addr ) give the names of
+\ the constants it met, in the text's order (the allowlist checks that
+\ they are Lean's own).
 \ lf-stmt-name? ( id c-addr u -- flag ): whether name id is the dotted
 \ text (an audited name).
 \ Entries: lf-stmt: ( code arity "name" -- ) makes a statement entry,
@@ -41,8 +44,8 @@
 \ says whether decl has the entry's name, number of universe parameters
 \ and statement.
 \ State: one module record, lf-stmt-state (the text left, the
-\ declaration, the fuel and the pending nodes), a member of the checker
-\ context; the entries are read-only data made while loading.
+\ declaration, the fuel, the pending nodes and the constants met), a
+\ member of the checker context; the entries are read-only data made while loading.
 
 require ../lib/lib.fs
 require ../lib/bytes.fs
@@ -66,6 +69,8 @@ begin-structure /lf-stmt
   field: lf-stmt-budget   \ fuel left
   field: lf-stmt-depth    \ pending nodes
   lf-stmt-room 2* cells +field lf-stmt-items   \ pending (node kind) pairs
+  field: lf-stmt-met      \ constants met so far
+  lf-stmt-room cells +field lf-stmt-ids        \ their names, in the text's order
 end-structure
 /lf-stmt context-record: lf-stmt-state
 : lf-stmt-fuel ( -- addr ) lf-stmt-state lf-stmt-budget ;
@@ -131,8 +136,16 @@ end-structure
 : lf-stmt-args ( slot -- flag )
   lf-cref-pairs true swap begin dup while 1- >r over r@ lf-stmt-arg and r> repeat
   drop nip ;
+\ The names of the constants a comparison met, in the text's order: one
+\ per C token at most, so never more than lf-stmt-room.
+: lf-stmt-id ( k -- addr ) cells lf-stmt-state lf-stmt-ids + ;
+: lf-stmt-met@ ( -- n ) lf-stmt-state lf-stmt-met @ ;
+: lf-stmt-meet ( id -- )
+  lf-stmt-met@ dup lf-stmt-room < 0= if 2drop exit then
+  tuck lf-stmt-id ! 1+ lf-stmt-state lf-stmt-met ! ;
 : lf-stmt-const ( slot -- flag )
   lf-stmt-token 2 pick lf-crec-name @ -rot lf-stmt-name? 0= if drop false exit then
+  dup lf-crec-name @ lf-stmt-meet
   lf-stmt-token lf-stmt-number 0= if 2drop false exit then
   over lf-crec-arity @ = if lf-stmt-args else drop false then ;
 : lf-stmt-const? ( node -- flag )
@@ -191,7 +204,7 @@ end-structure
     lf-stmt-step 0= if false exit then lf-stmt-spent? if false exit then
   repeat lf-stmt-text nip 0= ;
 : lf-stmt-start ( term decl c-addr u -- )
-  lf-stmt-text! lf-stmt-state tuck lf-stmt-decl ! 0 swap lf-stmt-depth !
+  lf-stmt-text! lf-stmt-state tuck lf-stmt-decl ! 0 over lf-stmt-met ! 0 swap lf-stmt-depth !
   lf-stmt-term lf-stmt-push drop ;
 : lf-stmt-match ( term decl c-addr u -- flag outcome )
   lf-stmt-start lf-stmt-loop
