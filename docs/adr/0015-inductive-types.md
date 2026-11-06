@@ -394,13 +394,26 @@ route is tried, so LeanForth keeps them.
   (owner question Q2: accepted with a diagnostic, as Lean). Rows
   `quotinit.with-eq`, `quotinit.without-eq` (`unknownConstant`),
   `quotinit.eq-wrong-shape`.
+
+  *Implemented (task 5.2.4, 2026-11-05, `src/kernel/quot.fs`; not through
+  the gate):* each quotient record is checked for its name (N2), then
+  `check_eq_type` (diagnostic 95), then its type against Lean's own, as a
+  statement text (`src/core/statement-match.fs`). **Temporary gap**, closed
+  by a follow-up of task 5.2.4 (build Lean's four types at import and use
+  them, a differing record accepted with a B4 warning, as designed above):
+  a record whose name, universe parameters or type are not Lean's is
+  *rejected* (diagnostic 96), and so is a declaration naming it, where
+  Lean's replay would accept. lean4export writes the kernel's own
+  constants, so no export Lean makes reaches it.
 - **Q2 Reduction.** `Quot.lift f h q` (argument 5 the quotient, 3 the
   function) and `Quot.ind h q` (argument 4, 3): when `whnf q` is
   `Quot.mk r a` with exactly three arguments, the result is `f a` applied
   to any further arguments (`quot_reduce_rec`, `quot.h` 39–70), tried
   before inductive recursors and only once quotients are initialised
   (`reduce_recursor` 394–398). Rows `quot.lift-on-mk`, `-wrong`,
-  `quot.lift-stuck-on-variable`.
+  `quot.lift-stuck-on-variable`. *Implemented (task 5.2.4, 2026-11-05):*
+  `quot.fs`'s rule, tried first by iota.fs's hook, for a head the check's
+  environment holds as a quotient record.
 - **Q3 `Quot.sound`** is not a kernel constant: it is an ordinary axiom,
   declared in `Init/Prelude.lean` (543) after `init_quot` (450) has made
   the four quotient constants:

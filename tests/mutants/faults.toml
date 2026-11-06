@@ -51,8 +51,8 @@ reason = "CD: V1 skipped; a loose bound variable is no longer refused by the aud
 [[fault]]
 id = "cd-audit-value-only-type"
 file = "src/kernel/check-declaration.fs"
-old = '''  >r lf-check-claim r@ execute dup ok? if drop lf-check-value-root r@ execute then'''
-new = '''  >r lf-check-claim r@ execute'''
+old = '''  >r lf-check-claim r@ execute dup ok? lf-check-valued? and'''
+new = '''  >r lf-check-claim r@ execute dup ok? false and'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "CD: the audit looks at the type only, never at the value"
 
@@ -93,24 +93,28 @@ quick = true
 [[fault]]
 id = "cd-skip-name-step"
 file = "src/kernel/check-declaration.fs"
-old = '''' lf-check-audit , ' lf-env-own-name ,'''
-new = '''' lf-check-audit , ' outcome-ok ,'''
+old = '''create lf-check-steps 8 ,
+  ' lf-check-audit , ' lf-env-own-name ,'''
+new = '''create lf-check-steps 8 ,
+  ' lf-check-audit , ' outcome-ok ,'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "CD: step 2 (N2) skipped; a second declaration of an accepted name is accepted"
 
 [[fault]]
 id = "cd-skip-params-step"
 file = "src/kernel/check-declaration.fs"
-old = '''' lf-env-own-params , ' lf-check-type ,'''
-new = '''' outcome-ok , ' lf-check-type ,'''
+old = '''' lf-env-own-params , ' lf-check-type ,
+  ' lf-check-sort , ' lf-check-prop , ' lf-check-value ,'''
+new = '''' outcome-ok , ' lf-check-type ,
+  ' lf-check-sort , ' lf-check-prop , ' lf-check-value ,'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "CD: step 3 (L3) skipped; repeated universe parameters are accepted"
 
 [[fault]]
 id = "cd-last-step-skipped"
 file = "src/kernel/check-declaration.fs"
-old = '''  lf-check-steps# 0 ?do i lf-check-do'''
-new = '''  lf-check-steps# 1- 0 ?do i lf-check-do'''
+old = '''  lf-check-table dup @ 0 ?do'''
+new = '''  lf-check-table dup @ 1- 0 ?do'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "CD: the step loop stops one short and never compares the value's type"
 
@@ -183,8 +187,8 @@ reason = "CD/L2: a constant's universe arguments may name universes that are no 
 [[fault]]
 id = "env-slots-start-ok"
 file = "src/kernel/environment.fs"
-old = '''lf-env-fields lf-env-unpublished lf-env-pooled'''
-new = '''lf-env-fields lf-env-pooled'''
+old = '''lf-env-fields lf-env-allowlist lf-env-unpublished lf-env-pooled'''
+new = '''lf-env-fields lf-env-allowlist lf-env-pooled'''
 test = "$GFORTH tests/core/environment.fs"
 reason = "X5 L4: a new environment's slots start with outcome 0, which reads as ok"
 quick = true
@@ -2388,7 +2392,7 @@ reason = "a run whose last check threw ends ok: the report says run ok and stopp
 [[fault]]
 id = "cli-not-proved-never"
 file = "src/cli/tally.fs"
-old = ''': not-proved? ( outcome bits -- flag ) 0<> swap ok? and ;'''
+old = ''': not-proved? ( outcome bits -- flag ) lf-allowlist-bits invert and 0<> swap ok? and ;'''
 new = ''': not-proved? ( outcome bits -- flag ) 2drop false ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "an accepted declaration with an axiom is never marked NOT PROVED (owner's axiom rule)"
@@ -2934,10 +2938,10 @@ quick = true
 [[fault]]
 id = "rr-axioms-unread"
 file = "src/import/run-record.fs"
-old = '''  lf-env-axioms ok? 0= or if outcome-invalid rr-fail then'''
-new = '''  drop'''
+old = '''  run-record rr-axiom-bits @ <> if outcome-invalid rr-fail then ;'''
+new = '''  drop ;'''
 test = "$GFORTH tests/core/run-record.fs"
-reason = "an accepted slot's axiom set is not read, so a nonempty one is written as axioms: []"
+reason = "an accepted slot's axiom set is not compared with its axioms, so a planted bit is written as axioms: []"
 
 [[fault]]
 id = "rr-no-label"
@@ -5374,3 +5378,94 @@ old = '''  swap if lf-iota-k else false swap lf-iota-whnf then ;'''
 new = '''  swap if lf-iota-k else true swap lf-iota-whnf then ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.1c: a recursor without k is taken as K-undecided; Bool.rec stuck on a variable is unknown where Lean rejects (iota.bool-stuck)"
+
+# --- axioms, opaque declarations and quotients (plan tasks 5.3.1, 4.2.6,
+# 5.2.4: src/core/statement-match.fs, src/core/axiom-allowlist.fs,
+# src/kernel/quot.fs and their callers) ------------------------------------
+[[fault]]
+id = "stmt-param-any-position"
+file = "src/core/statement-match.fs"
+old = '''  swap lf-param@ swap lf-level-first@ lf-name-same? ;'''
+new = '''  drop 2drop true ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "uN matches any universe parameter: Quot.lift's u and v swapped would be Lean's"
+
+[[fault]]
+id = "stmt-text-left-over"
+file = "src/core/statement-match.fs"
+old = '''  repeat lf-stmt-text nip 0= ;'''
+new = '''  repeat true ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "a term that is only the start of the statement matches it"
+
+[[fault]]
+id = "stmt-name-prefix-ignored"
+file = "src/core/statement-match.fs"
+old = '''  repeat 2drop 0= ;'''
+new = '''  repeat 2drop drop true ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "A.Quot.mk is taken for Quot.mk: a name with more parts matches"
+
+[[fault]]
+id = "allow-bit-unchecked"
+file = "src/core/axiom-allowlist.fs"
+old = '''  if lf-stmt-code else drop 0 then outcome-ok ;'''
+new = '''  drop lf-stmt-code outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "an allowlisted name counts as proved whatever its statement (propext altered)"
+
+[[fault]]
+id = "check-own-axiom-dropped"
+file = "src/kernel/check-declaration.fs"
+old = '''  lf-check-decl lf-axiom-bit ok-then? if lf-env-axiom! outcome-ok then ;'''
+new = '''  lf-check-decl lf-axiom-bit ok-then? if drop outcome-ok then ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "an axiom's own bit is not joined to its set (the publisher's re-check then refuses it)"
+
+[[fault]]
+id = "recheck-own-axiom-ignored"
+file = "src/kernel/env-publish.fs"
+old = '''  ['] lf-slot-axioms lf-deps-union lf-recheck-own or lf-env-cand lf-cand-axioms @ = ;'''
+new = '''  ['] lf-slot-axioms lf-deps-union lf-env-cand lf-cand-axioms @ = ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "the re-check expects no own bit, so every axiom is published invalid"
+
+[[fault]]
+id = "quot-builtin-unchecked"
+file = "src/kernel/quot.fs"
+old = '''  if outcome-ok else lf-quot-forged then ;'''
+new = '''  drop outcome-ok ;'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "a quotient record with another type than Lean's own is accepted (forged Quot.mk)"
+
+[[fault]]
+id = "quot-eq-shape-unchecked"
+file = "src/kernel/quot.fs"
+old = '''  ok-then? if if outcome-ok else lf-quot-not-eq then then ;'''
+new = '''  ok-then? if drop outcome-ok then ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "check_eq_type accepts an Eq of another type (quotinit.eq-wrong-shape)"
+
+[[fault]]
+id = "quot-reduce-off"
+file = "src/kernel/iota.fs"
+old = '''  dup 0< 0= if swap lf-quot-reduce exit then drop'''
+new = '''  drop'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "quot_reduce_rec never runs: Quot.lift f h (Quot.mk r a) = f a is rejected"
+
+[[fault]]
+id = "env-axiom-deps-direct-only"
+file = "src/kernel/environment.fs"
+old = '''  dup lf-slot-count @ 0 ?do 2dup i swap lf-dep-at lf-mark loop 2drop ;'''
+new = '''  2drop ;'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "the axioms a declaration rests on through its dependencies are not named"
+
+[[fault]]
+id = "opaque-unfolds"
+file = "src/kernel/whnf.fs"
+old = '''  dup lf-kind-definition = swap lf-kind-theorem = or and ;'''
+new = '''  dup lf-kind-definition = over lf-kind-theorem = or swap lf-kind-opaque = or and ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "an opaque declaration unfolds: IE.hidden = 5 by rfl is accepted, Lean rejects it"

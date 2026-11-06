@@ -58,9 +58,10 @@
 \ them; staging, parsing and printing here can hand the checker a wrong
 \ claim or misreport a failure, never make a declaration accepted. Names
 \ are printed as cli/name-text.fs shows them, escaped, so a crafted name
-\ cannot forge a line. An accepted declaration whose axiom set is not
-\ empty is marked NOT PROVED on its line and counted apart (the owner's
-\ rule; the first checker accepts no axiom, so none is yet). check
+\ cannot forge a line. An accepted declaration that depends on an axiom
+\ outside the allowlist (core/axiom-allowlist.fs) is marked NOT PROVED
+\ on its line, with those axioms named, and counted apart (the owner's
+\ rule). check
 \ --record and replay hold small exports only (64 names, levels and term
 \ nodes, 32 declarations): anything larger ends full, exit 3, and the
 \ output says so. Untrusted, like everything in src/ until the review gate.
@@ -143,6 +144,7 @@ begin-structure /cli-run
   2 cells +field arg-culprit    \ the argument of the first mistake, or 0 0
   field: arg-mistake            \ counted string: the first mistake, or 0
   field: run-ops                \ the run the last check made: its words (/cli-ops)
+  field: run-named              \ axioms named so far on a NOT PROVED line
 end-structure
 /cli-run context-record: cli-state
 manifest: cli-manifest
@@ -241,10 +243,17 @@ end-structure
   dup kept-code @ dup lf-diag-none = if 2drop exit then
   ."   " dup lf-diag-name type ." ; diagnostic " .decimal cli-at. cr ;
 : cli-why. ( d -- ) cli-kept cli-reason. ;
-\ An accepted declaration that depends on an axiom is NOT PROVED.
+\ An accepted declaration that depends on an axiom outside the allowlist
+\ is NOT PROVED, each such axiom named (in file order, separated by
+\ commas; cli-axioms-named counts the names printed).
+: cli-axioms-named ( -- addr ) cli-state run-named ;
+: cli-axiom-named ( d -- )
+  dup lf-env-unlisted? 0= if drop exit then
+  cli-axioms-named @ if ." , " then 1 cli-axioms-named +! cli-name. ;
 : cli-not-proved. ( d -- )
-  dup lf-env-outcome swap cli-bits not-proved?
-  if ." ; NOT PROVED (it depends on an axiom)" then ;
+  dup lf-env-outcome over cli-bits not-proved? 0= if drop exit then
+  ." ; NOT PROVED: depends on " 0 cli-axioms-named !
+  ['] cli-axiom-named lf-env-axiom-deps drop cli-axioms-named @ 0= if ." an axiom" then ;
 \ Declaration d's line: its name and the verdict its slot holds.
 : cli-verdict ( d -- )
   dup cli-name. ." : " dup lf-check-verdict. dup cli-not-proved. cr
@@ -706,9 +715,9 @@ create cli-fed-ops
   ." supported:" cr cli-check-input. cli-check-rules. cli-other-commands. ;
 : cli-lacks. ( -- )
   ." not yet supported (check answers unsupported or unknown, exit 2):" cr
-  ."   axioms (5.3.1), opaque declarations (4.2.6), unsafe and partial definitions;" cr
+  ."   unsafe and partial declarations;" cr
   ."   let (4.2.3), literals (5.2.3), projections (5.2.2) and metadata (4.1.3)" cr
-  ."   in a term; the rest of indexed families (5.2.1c), quotients (5.2.4)," cr
+  ."   in a term; the rest of indexed families (5.2.1c)," cr
   ."   mutual and nested blocks (5.2.5); unfolding definitions" cr
   ."   (4.2.2), so some correct proofs end unknown; check --record and replay" cr
   ."   refuse inductive types while reading" cr ;
@@ -729,7 +738,8 @@ create cli-fed-ops
   cli-fuel-most cli-number-text type ." )" cr ;
 : cli-planned. ( -- )
   ." planned, not built: program, serve and --record on any size," cr
-  ."   the axiom names of each accepted declaration (plan task 5.3.2)" cr ;
+  ."   every axiom name of each accepted declaration, as #print axioms" cr
+  ."     (plan task 5.3.2; today: the allowlist's names and NOT PROVED's)" cr ;
 : capabilities-command ( -- code )
   ." leanforth " cli-version-text type ." : what this build can do" cr
   cli-checks. cli-lacks. cli-limits. cli-planned. exit-accepted ;

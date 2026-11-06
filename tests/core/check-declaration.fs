@@ -171,25 +171,31 @@ fc-decl check def safe S5 1 u TYPE S s i s z s p u VALUE C T5 1 p u
 T{ check-last -> outcome-unknown lf-diag-shared-level value-step }T
 
 \ ---------------------------------------------------------------------------
-\ Unsupported. U1: every kind but a safe definition or theorem, before any
-\ typing (so even a type that would fail N1). K5: a use of an unsupported
-\ declaration. U2: each form, wherever it is.
+\ Axioms and opaque declarations (plan tasks 5.3.1, 4.2.6): an axiom's
+\ type is checked as a definition's (here N1 rejects it), and its own bit
+\ joins its axiom set at step 7; an opaque declaration is checked as a
+\ definition; a use of an axiom is accepted, its set the axiom's.
 fc-case axiom
 fc-decl check ax safe postulate 0 TYPE C missing 0 VALUE none
-T{ check-last -> outcome-unsupported lf-diag-unsupported-kind audit }T
+T{ check-last -> outcome-rejected lf-diag-unknown-constant type-step }T
 fc-case opaque
 fc-decl check opq safe hidden 0 TYPE S s z VALUE S z
-T{ check-last -> outcome-unsupported lf-diag-unsupported-kind audit }T
+T{ check-last -> outcome-ok 0 lf-step-done }T
+fc-case opaque-wrong
+fc-decl check opq safe hiddenWrong 0 TYPE S z VALUE S z
+T{ check-last -> outcome-rejected lf-diag-value-apart compare-step }T
+fc-case uses-axiom
+fc-decl before ax safe postulate 0 TYPE S z VALUE none
+fc-decl check def safe user 0 TYPE S z VALUE C postulate 0
+T{ check-last -> outcome-ok 0 lf-step-done }T
+\ Unsupported. U1: an unsafe or partial declaration, before any typing.
+\ U2: each form, wherever it is.
 fc-case unsafe
 fc-decl check def unsafe risky 0 TYPE S s z VALUE S z
 T{ check-last -> outcome-unsupported lf-diag-unsupported-kind audit }T
 fc-case partial
 fc-decl check def partial looping 0 TYPE S s z VALUE S z
 T{ check-last -> outcome-unsupported lf-diag-unsupported-kind audit }T
-fc-case uses-axiom
-fc-decl before ax safe postulate 0 TYPE S z VALUE none
-fc-decl check def safe user 0 TYPE S z VALUE C postulate 0
-T{ check-last -> outcome-unsupported lf-diag-dependency-unsupported value-step }T
 fc-case let
 fc-decl check def safe withLet 0 TYPE S s z VALUE Xlet
 T{ check-last -> outcome-unsupported lf-diag-unsupported-form audit }T

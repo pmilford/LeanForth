@@ -190,9 +190,10 @@ variable fc-id#
   fc-token dup fc-id# ! fc-id swap move fc-world ;
 
 \ Every slot of the run: an accepted one has a handle valid in a view
-\ and an empty axiom set; any other has no handle.
+\ and a readable axiom set (an axiom's own bit since plan task 5.3.1);
+\ any other has no handle.
 : fc-accepted-slot ( d -- )
-  dup lf-env-handle ok? must lf-env-handle? ok? must lf-env-axioms ok? must 0= must ;
+  dup lf-env-handle ok? must lf-env-handle? ok? must lf-env-axioms ok? must drop ;
 : fc-other-slot ( d -- ) lf-env-handle outcome-invalid = must 2drop ;
 : fc-slot ( d -- ) dup lf-env-outcome ok? if fc-accepted-slot else fc-other-slot then ;
 : fc-slots ( -- ) lf-input-count 0 ?do i fc-slot loop ;

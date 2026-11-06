@@ -51,8 +51,8 @@
 \   to the file named c-addr u, then a line feed. rr-write is full when
 \   the text passes rr-text-room bytes, a name rr-name-room or a host
 \   text rr-note-room; invalid when a final slot's outcome is not the one
-\   its step published, when an accepted slot's axiom set is unreadable
-\   or not empty (allowlist version 0 names no axiom), when the run made
+\   its step published, when an accepted slot's axiom set is unreadable,
+\   when its axioms cannot be listed (full: no heap), when the run made
 \   its environment but that is freed or not the current one (compared by
 \   identity, which never repeats, not by address), when the checks ran
 \   although the read was not ok, when a text breaks the text rule
@@ -177,6 +177,7 @@ begin-structure /rr
   rr-file-room +field rr-file-buf
   field: rr-run             \ the run's outcome
   field: rr-fault           \ the first failure rr-write found itself, or ok
+  field: rr-axiom-bits      \ the own bits of the axioms listed for a declaration
   lf-input-default /rr-step * +field rr-kept   \ at most lf-input-default declarations
   field: rr-name-size
   rr-name-room +field rr-name-buf
@@ -556,12 +557,21 @@ rr-power 2constant rr-exact
   0 run-record rr-name-size ! lf-input-name ['] rr-name-sink lf-pp-name-to
   rr-name rr-name-room rr-shown ;
 
-\ A declaration's verdict. Accepted: the label and the axiom set read from
-\ the slot, which must be empty. Any other: its name and the diagnostic its
-\ check left (null when there is none).
+\ A declaration's verdict. Accepted: the label and the axioms it depends
+\ on, read from the slots (kernel/environment.fs lf-env-axiom-deps), in
+\ file order; their own bits must make up the slot's axiom set, else the
+\ text is invalid. Any other: its name and the diagnostic its check left
+\ (null when there is none).
+: rr-axiom-out ( d -- )
+  dup lf-env lf-env-slot lf-slot-decl lf-own-axiom drop
+  run-record rr-axiom-bits dup @ rot or swap ! rr-name-out ;
+: rr-axioms-agree ( bits -- )
+  run-record rr-axiom-bits @ <> if outcome-invalid rr-fail then ;
 : rr-axioms-out ( d -- )
-  lf-env-axioms ok? 0= or if outcome-invalid rr-fail then
-  s" axioms" rr-key rr-array rr-end-array ;
+  dup lf-env-axioms ok? 0= if 2drop outcome-invalid rr-fail exit then
+  0 run-record rr-axiom-bits ! s" axioms" rr-key rr-array
+  swap ['] rr-axiom-out lf-env-axiom-deps ok? 0= if outcome-full rr-fail then
+  rr-end-array rr-axioms-agree ;
 : rr-accepted-out ( d -- )
   s" verdict" rr-key s" accepted" rr-string
   s" label" rr-key rr-label rr-string rr-axioms-out ;

@@ -3,10 +3,10 @@
 \ the input, as the check word ( -- ) of lf-env-run or lf-env-step
 \ (env-publish.fs). It checks the declaration of its context's snapshot
 \ and ends with lf-env-finish, in ADR 0011's order ("Order"), step by step:
-\   1 the audit, before any typing: a definition or theorem, safe, with a
-\     value (U1: every other kind is unsupported, axioms too, owner gate
-\     answer G3; a definition or theorem without a value is invalid; one
-\     named Nat.pow or Nat.shiftLeft unsupported until plan task 5.2.3); no
+\   1 the audit, before any typing: a definition, theorem or opaque
+\     declaration with a value, or an axiom or quotient record without one,
+\     safe (U1: an unsafe or partial declaration is unsupported; a value
+\     missing or present against its kind is invalid); no
 \     unsupported term form in its type or value (U2, the leaves of
 \     core/unsupported-forms.fs); both terms closed and well formed (V1,
 \     lf-constant-term-scope: invalid);
@@ -23,12 +23,16 @@
 \   7 the value's type, inferred the same way, after the scratch of steps
 \     4-6 is discarded (nothing made there is needed again);
 \   8 the value's type converts to the declared type (D1-D5 reject).
+\ An opaque declaration takes these steps (add_opaque). An axiom
+\ (add_axiom, plan task 5.3.1) takes steps 1-6, then 7 joins its own bit
+\ (core/axiom-allowlist.fs) to its axiom set. A quotient record (add_quot,
+\ plan task 5.2.4; quot.fs) takes steps 1-3, then 4 Eq's shape and 5 its
+\ type, Lean's own; nothing is inferred.
 \ The first step that does not succeed ends the check with its outcome
 \ (ADR 0008), and lf-check-step@ tells which; only a check whose every
 \ step succeeded ends ok. Its candidate then holds its dependencies, the
 \ accepted declarations its type and value name, recorded as inference
-\ meets them, with their joined axiom set, which is always empty here
-\ (axioms are unsupported, and so is everything that uses one, K5); the
+\ meets them, with their joined axiom set (and an axiom's own bit); the
 \ publisher re-checks the candidate before anything becomes visible. A
 \ comparison that is undecided stays unknown unless a rule of ADR 0011
 \ shows Lean's kernel certainly fails it. The audit, then inference, run
@@ -39,7 +43,8 @@
 \ lf-check-input checks every declaration of this context's input in a
 \ new environment; lf-check-verdict. prints a slot's verdict afterwards,
 \ an accepted one as "accepted (experimental, not independently audited);
-\ axioms: none", the axiom set read from the slot (AGENTS.md, ADR 0011).
+\ axioms: none" or the axioms' names, from the set the slot holds
+\ (AGENTS.md, ADR 0011).
 \ The printing words run after a check, never inside one.
 \
 \ [kernel] code: experimental, not through the review gate, not
@@ -63,6 +68,8 @@ require ./environment.fs
 require ./env-publish.fs
 require ./mixed-infer.fs
 require ./check-block.fs
+require ../core/axiom-allowlist.fs
+require ./quot.fs
 
 begin-structure /lf-chk
   field: lf-chk-budget   \ fuel each check in this context starts with
@@ -92,20 +99,24 @@ lf-walk-room context-walk: lf-check-walker
 \ Keep a step's result, passing its outcome on.
 : lf-check-keep ( x outcome -- outcome ) swap lf-check-found ! ;
 
-\ U1: a definition or theorem, safe; recorded with its kind and safety.
-\ One without a value is malformed input (invalid).
-: lf-check-kind? ( kind -- flag ) dup lf-kind-definition = swap lf-kind-theorem = or ;
+\ U1: a definition, theorem, opaque declaration, axiom or quotient
+\ record, safe; recorded with its kind and safety. A value is malformed
+\ input (invalid) when it is missing for the first three kinds, which
+\ have one, or present for the last two, which have none.
+: lf-check-kind? ( kind -- flag ) dup lf-kind-valued? swap lf-kind-bare? or ;
 : lf-check-in-scope? ( decl -- flag )
   dup lf-idecl-kind @ lf-check-kind? swap lf-idecl-safety @ lf-safety-safe = and ;
 : lf-check-out-of-scope ( decl -- outcome )
   dup lf-idecl-kind @ swap lf-idecl-safety @ lf-check-site lf-diag-unsupported-kind
   lf-diag-note outcome-unsupported ;
-: lf-check-no-value ( decl -- outcome )
+: lf-check-bad-value ( decl -- outcome )
   lf-idecl-value @ lf-env-limit lf-check-site lf-diag-bad-argument lf-diag-note
   outcome-invalid ;
+: lf-check-value? ( decl -- flag )
+  dup lf-idecl-value @ 0< 0= swap lf-idecl-kind @ lf-kind-valued? = ;
 : lf-check-u1 ( -- outcome )
   lf-check-decl dup lf-check-in-scope? 0= if lf-check-out-of-scope exit then
-  dup lf-idecl-value @ 0< if lf-check-no-value else drop outcome-ok then ;
+  dup lf-check-value? if drop outcome-ok else lf-check-bad-value then ;
 
 \ U2: no leaf of an unsupported form reachable from a root, each visit one
 \ unit of the audit's fuel; recorded with the form and the node. Any other
@@ -132,10 +143,12 @@ lf-walk-room context-walk: lf-check-walker
   dup lf-term-identity 0= if lf-check-bad-root exit then
   0 lf-check-left @ lf-constant-term-scope lf-cts-fuel @ lf-check-left ! ;
 
-\ Step 1, the audit: U1, then U2 and V1, each on the type, then the value.
+\ Step 1, the audit: U1, then U2 and V1, each on the type, then on the
+\ value when there is one.
+: lf-check-valued? ( -- flag ) lf-check-value-root 0< 0= ;
 : lf-check-both ( xt -- outcome )
-  >r lf-check-claim r@ execute dup ok? if drop lf-check-value-root r@ execute then
-  r> drop ;
+  >r lf-check-claim r@ execute dup ok? lf-check-valued? and
+  if drop lf-check-value-root r@ execute then r> drop ;
 : lf-check-u2 ( -- outcome ) ['] lf-check-forms lf-check-both ;
 : lf-check-v1 ( -- outcome ) ['] lf-check-closed lf-check-both ;
 : lf-check-audit ( -- outcome )
@@ -182,22 +195,56 @@ lf-walk-room context-walk: lf-check-walker
   lf-check-found @ lf-check-claim lf-minfer-agree
   lf-check-site lf-diag-value-apart lf-minfer-verdict ;
 
-\ The steps ( -- outcome ), in order.
-create lf-check-steps
+\ Steps that compare with a statement Lean fixes (core/statement-match.fs), on
+\ the audit's fuel.
+: lf-check-matched ( xt -- outcome )
+  lf-check-left @ lf-stmt-fuel ! execute lf-stmt-fuel @ 0 max lf-check-left ! ;
+\ An axiom (add_axiom, environment.cpp 152-158: steps 1-6 as for a
+\ definition), then step 7: its own bit joins the candidate's axiom set
+\ (core/axiom-allowlist.fs): a listed one when it is the allowlist's
+\ statement, else unlisted, which reports mark NOT PROVED.
+: lf-check-own-axiom ( -- outcome )
+  lf-check-decl lf-axiom-bit ok-then? if lf-env-axiom! outcome-ok then ;
+: lf-check-axiom ( -- outcome ) ['] lf-check-own-axiom lf-check-matched ;
+\ A quotient record (add_quot, quot.cpp 47-100; quot.fs): steps 1-3, then
+\ 4 Eq's shape and 5 the record's type, Lean's own; no inference, as
+\ Lean's kernel infers nothing there.
+: lf-check-quot-eq ( -- outcome ) ['] lf-quot-eq lf-check-matched ;
+: lf-check-builtin ( -- outcome ) lf-check-decl lf-quot-builtin ;
+: lf-check-quot-type ( -- outcome ) ['] lf-check-builtin lf-check-matched ;
+
+\ The steps ( -- outcome ), in order: of a definition, theorem or opaque
+\ declaration (add_definition, add_theorem, add_opaque), of an axiom and
+\ of a quotient record; each table a count and its steps.
+create lf-check-steps 8 ,
   ' lf-check-audit , ' lf-env-own-name , ' lf-env-own-params , ' lf-check-type ,
   ' lf-check-sort , ' lf-check-prop , ' lf-check-value , ' lf-check-compare ,
-here lf-check-steps - 1 cells / constant lf-check-steps#
+create lf-axiom-steps 7 ,
+  ' lf-check-audit , ' lf-env-own-name , ' lf-env-own-params , ' lf-check-type ,
+  ' lf-check-sort , ' lf-check-prop , ' lf-check-axiom ,
+create lf-quot-steps 5 ,
+  ' lf-check-audit , ' lf-env-own-name , ' lf-env-own-params , ' lf-check-quot-eq ,
+  ' lf-check-quot-type ,
+8 constant lf-check-steps#
 lf-check-steps# 1+ constant lf-step-done
+: lf-check-table ( -- steps )
+  lf-check-decl lf-idecl-kind @ case
+    lf-kind-axiom of lf-axiom-steps endof  lf-kind-quotient of lf-quot-steps endof
+    lf-check-steps swap endcase ;
 : lf-check-step! ( step -- ) lf-check-state lf-chk-step ! ;
-: lf-check-do ( k -- outcome ) dup 1+ lf-check-step! cells lf-check-steps + @ execute ;
+: lf-check-do ( steps k -- outcome ) dup 1+ lf-check-step! 1+ cells + @ execute ;
 : lf-check-steps-run ( -- outcome )
-  lf-check-steps# 0 ?do i lf-check-do dup ok? 0= if unloop exit then drop loop
-  lf-step-done lf-check-step! outcome-ok ;
+  lf-check-table dup @ 0 ?do
+    dup i lf-check-do dup ok? 0= if nip unloop exit then drop
+  loop drop lf-step-done lf-check-step! outcome-ok ;
 \ The derivation log (ADR 0013): with it on, the steps are one declaration
-\ step of the claim and the value, closed with the check's outcome (and
-\ any rule left open by a step that failed with it).
+\ step of the claim and the value (none for an axiom or a quotient),
+\ closed with the check's outcome (and any rule left open by a step that
+\ failed with it).
+: lf-check-logged-value ( -- term )
+  lf-check-valued? if lf-check-value-root else lf-log-none then ;
 : lf-check-logged ( -- outcome )
-  lf-check-claim lf-check-value-root lf-rule-declaration lf-log-open
+  lf-check-claim lf-check-logged-value lf-rule-declaration lf-log-open
   lf-check-steps-run lf-log-close-all ;
 : lf-check-run ( -- outcome )
   lf-log? if lf-check-logged else lf-check-steps-run then ;
@@ -245,10 +292,21 @@ lf-check-steps# 1+ constant lf-step-done
 
 \ Reports, after a run (within lf-env-view's snapshot) or within a later
 \ check's: declaration d's verdict, an accepted one labelled, with the
-\ axiom set its slot holds (none in the first checker; anything else
-\ prints its bits).
+\ axiom set its slot holds: none, or the allowlist's names of its listed
+\ bits (in Lean's order of names, as #print axioms sorts them), then
+\ "unlisted" for any axiom outside the allowlist, which makes the
+\ declaration NOT PROVED (the command line names those axioms: their
+\ names are file text, which only its printer shows safely).
 : lf-check-label ( -- c-addr u ) s" accepted (experimental, not independently audited)" ;
-: lf-check-axioms. ( bits -- ) ." axioms: " ?dup if ." bits " 0 .r else ." none" then ;
+\ Bit's name when bits holds it, then a comma when a higher bit follows.
+: lf-check-axiom. ( bits bit -- bits )
+  2dup and 0= if drop exit then
+  dup lf-axiom-unlisted = if ." unlisted" else dup lf-axiom-name type then
+  2* 1- invert over and if ." , " then ;
+: lf-check-axioms. ( bits -- )
+  ." axioms: " dup 0= if drop ." none" exit then
+  lf-axiom-propext lf-check-axiom. lf-axiom-choice lf-check-axiom.
+  lf-axiom-sound lf-check-axiom. lf-axiom-unlisted lf-check-axiom. drop ;
 : lf-check-accepted. ( d -- )
   lf-check-label type ." ; "
   lf-env-axioms ok? if lf-check-axioms. else drop ." axioms: ?" then ;

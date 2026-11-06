@@ -256,6 +256,11 @@ after.indexed-mixed-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1c
 after.reflexive-indexed-dependent-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1c	
 after.annotated-binders-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1b	
 after.redex-parameter-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1b	
+postulate.declared-and-used	accepted	accepted	A1	5.3.1	
+opaque.accepted	accepted	accepted	O1	4.2.6	
+opaque.wrong-value	declTypeMismatch	rejected	O1	4.2.6	
+opaque.never-unfolds	declTypeMismatch	rejected	O1	4.2.6	
+opaque.unfolds-as-definition	accepted	accepted	O1	4.2.6	
 names.reserved-nested-prefix	reservedNestedPrefix	rejected	T0	5.2.5b	
 names.reserved-nested-prefix-declared	reservedNestedPrefix	rejected	T0	5.2.1a	
 names.constructor-already-declared	alreadyDeclared	rejected	N2	5.2.1a	
@@ -289,4 +294,5 @@ k7.with-free-variable	accepted	accepted	delta	4.2.2d
 k7.whnf-sort	typeExpected	rejected	K7	5.2.3	
 k7.whnf-sort-twin	accepted	accepted	whnf	4.2.2c	
 k7.rec-on-succ-variable	accepted	accepted	R1	5.2.1b	
+postulate.propext-altered	accepted	accepted	A1	5.3.1	
 forged.type-named-nat-add-recursor-with-hypothesis	invalidRecursor	rejected	L1 L5 B3	5.2.3	

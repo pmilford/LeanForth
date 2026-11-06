@@ -90,8 +90,8 @@
 \ default, answers unknown (diagnostic 81) for a constant head that names
 \ a recursor -- a usable slot of that kind, or Lean's generated recursor
 \ of an accepted type (lf-env-genrec-of) -- in a check, and no rule
-\ otherwise. Quotients (Quot.lift, Quot.ind) are unsupported declarations
-\ (U1), so Lean's quot_reduce_rec never applies to a checked term.
+\ otherwise. iota.fs's hook tries Lean's quot_reduce_rec (quot.fs) first,
+\ as reduce_recursor does.
 \
 \ For plan task 5.2.1b, the words to call: lf-whnf-iota (set it with
 \ IS), lf-whnf-call and lf-whnf-core-call from inside it, lf-whnf-on and

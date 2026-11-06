@@ -1,0 +1,231 @@
+\ Statements Lean 4.35.0 fixes (plan tasks 5.3.1 and 5.2.4; ADR 0015 Q1,
+\ ADR 0006 amendment 2026-11-05): whether a declaration's type is exactly
+\ a fixed statement -- an allowlisted axiom's (axiom-allowlist.fs), one
+\ of the four quotient constants' or Eq's (quot.fs) -- up to the names
+\ of binders and the binder information, which Lean's expression
+\ equality ignores (quot.cpp 33 and 41 compare with operator==), and up
+\ to the names of universe parameters, which a constant's users never
+\ see (they instantiate parameters by position). Part of the first
+\ checker's [kernel] path (in core/ so that the presentation can name the
+\ allowlist's axioms): experimental, not through the review gate, not
+\ independently audited.
+\
+\ A statement is a text: the term in prefix form, tokens separated by one
+\ space.
+\   P d b  a Pi           L d b  a lambda        A f a  an application
+\   #n     bound variable n                      S l    a Sort of level l
+\   C name k l1 .. lk    a constant: its dotted name (string parts only)
+\                        and its k universe arguments
+\ Levels: z zero, s l its successor, m l l max, i l l imax, uN the
+\ declaration's universe parameter number N (from 0).
+\ Any other node (a literal, projection, let term, free variable or
+\ unsupported form) differs. The comparison is driven by the text: each
+\ token is matched with the next pending node, whose children it then
+\ pushes, and it stops at the first difference. Its work is therefore
+\ bounded by the text, never by the term: a larger term differs as soon
+\ as the text runs out. A pending node needs at least one token, so more
+\ pending nodes than lf-stmt-room (at least any text's tokens, checked
+\ when a text is made) means a difference, not a limit on terms. Each
+\ token costs one unit of fuel (lf-stmt-fuel); out of fuel is exhausted.
+\
+\ lf-stmt-match ( term decl c-addr u -- flag outcome ): ok with whether
+\ term, read with decl's universe parameters, is the text; exhausted
+\ (false) when the fuel ran out. term is an audited root (V1).
+\ lf-stmt-name? ( id c-addr u -- flag ): whether name id is the dotted
+\ text (an audited name).
+\ Entries: lf-stmt: ( code arity "name" -- ) makes a statement entry,
+\ followed by its constant's name, kept with lf-text, ( c-addr u -- ), and
+\ its statement, kept with lf-statement: ( "tokens end-statement" -- )
+\ from the tokens that follow, over several lines; lf-stmt-is? ( decl
+\ entry -- flag outcome )
+\ says whether decl has the entry's name, number of universe parameters
+\ and statement.
+\ State: one module record, lf-stmt-state (the text left, the
+\ declaration, the fuel and the pending nodes), a member of the checker
+\ context; the entries are read-only data made while loading.
+
+require ../lib/lib.fs
+require ../lib/bytes.fs
+require ./constant-references.fs
+require ./constant-term-boundary.fs
+require ./input.fs
+require ./levels.fs
+require ./name-equal.fs
+require ./names.fs
+require ./tagged-sort-boundary.fs
+require ./terms.fs
+
+96 constant lf-stmt-room   \ pending nodes, at least any text's tokens
+0 constant lf-stmt-term    \ the kinds of a pending node
+1 constant lf-stmt-level
+
+begin-structure /lf-stmt
+  field: lf-stmt-at       \ the text left: its address
+  field: lf-stmt-len      \ and length
+  field: lf-stmt-decl     \ the declaration whose parameters uN names
+  field: lf-stmt-budget   \ fuel left
+  field: lf-stmt-depth    \ pending nodes
+  lf-stmt-room 2* cells +field lf-stmt-items   \ pending (node kind) pairs
+end-structure
+/lf-stmt context-record: lf-stmt-state
+: lf-stmt-fuel ( -- addr ) lf-stmt-state lf-stmt-budget ;
+
+\ Texts: the next token, up to a space, each costing one unit of fuel.
+: lf-stmt-text ( -- c-addr u ) lf-stmt-state dup lf-stmt-at @ swap lf-stmt-len @ ;
+: lf-stmt-text! ( c-addr u -- ) lf-stmt-state tuck lf-stmt-len ! lf-stmt-at ! ;
+: lf-stmt-span ( c-addr u -- n ) tuck bl byte-scan nip - ;
+: lf-stmt-token ( -- c-addr u )
+  -1 lf-stmt-fuel +!
+  lf-stmt-text 2dup lf-stmt-span >r 2dup r@ 1+ over min /string lf-stmt-text! drop r> ;
+\ A decimal number filling the token.
+: lf-stmt-number ( c-addr u -- n flag )
+  dup 0= if nip false exit then 0 0 2swap >number nip or 0= ;
+\ The number of tokens of a text; a text with more than lf-stmt-room
+\ cannot be kept.
+: lf-stmt-tokens ( c-addr u -- n )
+  1 -rot begin bl byte-scan dup while 1 /string rot 1+ -rot repeat 2drop ;
+
+\ Names, from the last part back: each string part matches, and the text
+\ ends where the name does (the anonymous name, ID 0). The last dot's
+\ offset, -1 for none.
+: lf-stmt-dot ( c-addr u -- k|-1 )
+  over -1 2swap begin [char] . byte-scan dup while
+    2swap drop 2 pick over - 2swap 1 /string repeat 2drop nip ;
+: lf-stmt-split ( c-addr u -- c-addr k part-addr part-u )
+  2dup lf-stmt-dot dup 0< if drop over 0 2swap exit then
+  >r over r@ 2swap r> 1+ /string ;
+: lf-stmt-part? ( id c-addr u -- flag )
+  rot dup lf-name-tag@ lf-name-tag-str =
+  if lf-name-text compare 0= else drop 2drop false then ;
+: lf-stmt-name? ( id c-addr u -- flag )
+  begin dup while
+    lf-stmt-split 2>r 2 pick 2r> lf-stmt-part? 0= if 2drop drop false exit then
+    rot lf-name-prefix@ -rot
+  repeat 2drop 0= ;
+
+\ Pending nodes: pushed in the reverse of the text's order.
+: lf-stmt-item ( k -- addr ) 2* cells lf-stmt-state lf-stmt-items + ;
+: lf-stmt-depth@ ( -- n ) lf-stmt-state lf-stmt-depth @ ;
+: lf-stmt-push ( x kind -- flag )
+  lf-stmt-depth@ dup lf-stmt-room < 0= if drop 2drop false exit then
+  dup 1+ lf-stmt-state lf-stmt-depth ! lf-stmt-item 2! true ;
+: lf-stmt-pop ( -- x kind )
+  -1 lf-stmt-state lf-stmt-depth +! lf-stmt-depth@ lf-stmt-item 2@ ;
+: lf-stmt-lpush ( level -- flag ) lf-stmt-level lf-stmt-push ;
+
+\ A term token for node: whether they agree, the node's children pushed.
+: lf-stmt-tag? ( node tag -- flag ) swap lf-term-tag@ = ;
+: lf-stmt-children ( node -- flag )
+  dup lf-term-second@ lf-stmt-term lf-stmt-push
+  swap lf-term-first@ lf-stmt-term lf-stmt-push and ;
+: lf-stmt-binary ( node tag -- flag )
+  over swap lf-stmt-tag? if lf-stmt-children else drop false then ;
+: lf-stmt-bvar? ( node n -- flag )
+  over lf-tag-bvar lf-stmt-tag? if swap lf-term-first@ = else 2drop false then ;
+: lf-stmt-sort ( node -- flag )
+  dup lf-tag-symbolic-sort lf-stmt-tag? 0= if drop false exit then
+  lf-term-first@ lf-stmt-lpush ;
+\ A constant: its name, then its number of universe arguments, each then
+\ pushed, the first matched first.
+: lf-stmt-arg ( addr k -- flag ) lf-cref-pair@ drop lf-stmt-lpush ;
+: lf-stmt-args ( slot -- flag )
+  lf-cref-pairs true swap begin dup while 1- >r over r@ lf-stmt-arg and r> repeat
+  drop nip ;
+: lf-stmt-const ( slot -- flag )
+  lf-stmt-token 2 pick lf-crec-name @ -rot lf-stmt-name? 0= if drop false exit then
+  lf-stmt-token lf-stmt-number 0= if 2drop false exit then
+  over lf-crec-arity @ = if lf-stmt-args else drop false then ;
+: lf-stmt-const? ( node -- flag )
+  dup lf-tag-constant lf-stmt-tag? if lf-term-first@ lf-cref-slot lf-stmt-const
+  else drop false then ;
+\ Whether a token (not empty) is the text given, or starts with it.
+: lf-stmt-token? ( c-addr u c-addr2 u2 -- c-addr u flag ) 2over compare 0= ;
+: lf-stmt-prefix? ( c-addr u c-addr2 u2 -- c-addr u flag )
+  2over drop over 2swap compare 0= ;
+: lf-stmt-letter ( node c-addr u -- flag )
+  s" P" lf-stmt-token? if 2drop lf-tag-pi lf-stmt-binary exit then
+  s" L" lf-stmt-token? if 2drop lf-tag-lam lf-stmt-binary exit then
+  s" A" lf-stmt-token? if 2drop lf-tag-app lf-stmt-binary exit then
+  s" S" lf-stmt-token? if 2drop lf-stmt-sort exit then
+  s" C" compare 0= if lf-stmt-const? else drop false then ;
+: lf-stmt-bvar-token ( node c-addr u -- flag )
+  1 /string lf-stmt-number if lf-stmt-bvar? else 2drop false then ;
+: lf-stmt-term-token ( node c-addr u -- flag )
+  dup 0= if 2drop drop false exit then
+  s" #" lf-stmt-prefix? if lf-stmt-bvar-token else lf-stmt-letter then ;
+
+\ A level token for level.
+: lf-stmt-ltag? ( level tag -- flag ) swap lf-level-tag@ = ;
+: lf-stmt-lchildren ( level -- flag )
+  dup lf-level-second@ lf-stmt-lpush swap lf-level-first@ lf-stmt-lpush and ;
+: lf-stmt-lbinary ( level tag -- flag )
+  over swap lf-stmt-ltag? if lf-stmt-lchildren else drop false then ;
+: lf-stmt-succ ( level -- flag )
+  dup lf-level-tag-succ lf-stmt-ltag? 0= if drop false exit then
+  lf-level-first@ lf-stmt-lpush ;
+\ uN: the declaration's parameter number N, compared by name.
+: lf-stmt-param ( level n -- flag )
+  over lf-level-tag-param lf-stmt-ltag? 0= if 2drop false exit then
+  lf-stmt-state lf-stmt-decl @ lf-idecl-params@ 2 pick swap u< 0=
+  if 2drop drop false exit then
+  swap lf-param@ swap lf-level-first@ lf-name-same? ;
+: lf-stmt-lletter ( level c-addr u -- flag )
+  s" z" lf-stmt-token? if 2drop lf-level-tag-zero lf-stmt-ltag? exit then
+  s" s" lf-stmt-token? if 2drop lf-stmt-succ exit then
+  s" m" lf-stmt-token? if 2drop lf-level-tag-max lf-stmt-lbinary exit then
+  s" i" compare 0= if lf-level-tag-imax lf-stmt-lbinary else drop false then ;
+: lf-stmt-param-token ( level c-addr u -- flag )
+  1 /string lf-stmt-number if lf-stmt-param else 2drop false then ;
+: lf-stmt-level-token ( level c-addr u -- flag )
+  dup 0= if 2drop drop false exit then
+  s" u" lf-stmt-prefix? if lf-stmt-param-token else lf-stmt-lletter then ;
+
+\ The comparison: one token per pending node until none is left; then the
+\ text must be used up.
+: lf-stmt-step ( -- flag )
+  lf-stmt-pop >r lf-stmt-token r> lf-stmt-term =
+  if lf-stmt-term-token else lf-stmt-level-token then ;
+: lf-stmt-spent? ( -- flag ) lf-stmt-fuel @ 0< ;
+: lf-stmt-loop ( -- flag )
+  begin lf-stmt-depth@ 0> while
+    lf-stmt-step 0= if false exit then lf-stmt-spent? if false exit then
+  repeat lf-stmt-text nip 0= ;
+: lf-stmt-start ( term decl c-addr u -- )
+  lf-stmt-text! lf-stmt-state tuck lf-stmt-decl ! 0 swap lf-stmt-depth !
+  lf-stmt-term lf-stmt-push drop ;
+: lf-stmt-match ( term decl c-addr u -- flag outcome )
+  lf-stmt-start lf-stmt-loop
+  lf-stmt-spent? if drop false outcome-exhausted else outcome-ok then ;
+
+\ Entries: the code (an axiom's bit, a quotient constant's number), the
+\ number of universe parameters, then two kept texts, the constant's name
+\ (lf-text,) and its statement (lf-statement:), each a count followed by
+\ its bytes. A statement is written as the tokens that follow
+\ lf-statement:, over as many lines as needed, up to end-statement; it is
+\ kept with one space between tokens.
+: lf-stmt: ( code arity "name" -- ) create swap , , ;
+: lf-text, ( c-addr u -- ) dup , here over allot swap move align ;
+: lf-next-token ( -- c-addr u )
+  begin parse-name dup 0= while 2drop refill 0= abort" statement: no end" repeat ;
+: lf-keep ( count-addr c-addr u -- count-addr )
+  dup 3 pick +! here over allot swap move ;
+: lf-space ( -- c-addr u ) s"  " ;   \ one space: S" skips only the first
+: lf-keep-token ( count-addr c-addr u -- count-addr )
+  2>r dup @ if lf-space lf-keep then 2r> lf-keep ;
+: lf-kept-fits ( count-addr -- )
+  dup cell+ swap @ lf-stmt-tokens lf-stmt-room > abort" statement: too many tokens" ;
+: lf-statement: ( "tokens end-statement" -- )
+  here 0 , begin lf-next-token 2dup s" end-statement" compare while lf-keep-token repeat
+  2drop lf-kept-fits align ;
+: lf-stmt-code ( entry -- code ) @ ;
+: lf-stmt-arity ( entry -- n ) cell+ @ ;
+: lf-stmt-kept ( addr -- c-addr u ) dup cell+ swap @ ;
+: lf-stmt-named ( entry -- c-addr u ) 2 cells + lf-stmt-kept ;
+: lf-stmt-statement ( entry -- c-addr u ) lf-stmt-named + aligned lf-stmt-kept ;
+\ Whether decl is the entry's constant: name, universe parameters, statement.
+: lf-stmt-own? ( decl entry -- flag )
+  2dup lf-stmt-arity swap lf-idecl-arity @ =
+  >r lf-stmt-named rot lf-idecl-name @ -rot lf-stmt-name? r> and ;
+: lf-stmt-is? ( decl entry -- flag outcome )
+  2dup lf-stmt-own? 0= if 2drop false outcome-ok exit then
+  >r dup lf-idecl-type @ swap r> lf-stmt-statement lf-stmt-match ;

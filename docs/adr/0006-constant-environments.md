@@ -417,3 +417,43 @@ its dependency. These narrow experiments do not approve the transaction model.
 The diagnostic does not create checked declarations, and its finite tests do
 not establish general Lean compatibility or kernel soundness. Human review
 is still required for any trusted implementation or declaration import.
+
+## Amendment (2026-11-05): axioms, opaque declarations, allowlist v1
+
+Status: **implemented, not through the review gate** [kernel][import][format]
+(plan tasks 5.3.1, 4.2.6; agent AX, branch `ax-axioms-quot`). It follows the
+owner's decisions of 2026-11-03 and 2026-11-04 (decision 4 as amended: Lean's
+verdict, NOT PROVED marked; [owner decisions](../project/OWNER_DECISIONS.md)),
+which replace "keep the initial allowlist empty" above.
+
+- **Axioms** are checked as Lean's `add_axiom` (`environment.cpp` 152–158):
+  safe, no value, name fresh (N2), universe parameters distinct (L3), type
+  well formed and a Sort (steps 1–6 of `check-declaration.fs`); then step 7
+  joins the axiom's own bit to its axiom set. An unsafe axiom stays
+  *unsupported* (U1).
+- **Allowlist v1** (`src/core/axiom-allowlist.fs`, version 1, run records'
+  `allowlistVersion`): `propext`, `Classical.choice` and `Quot.sound`, each
+  with its name, number of universe parameters and Lean 4.35.0's statement
+  as a prefix text that `src/core/statement-match.fs` compares with the
+  declared type, binder and universe parameter names aside (Lean's
+  `operator==` ignores them). Bits 1, 2 and 4 count as proved; bit 8 is any
+  other axiom (`sorryAx`, a file's own, a listed name with another
+  statement), and a declaration whose set holds it is marked **NOT PROVED**
+  (exit 0 as Lean, 6 under `--strict-axioms`). `Lean.ofReduceBool` and
+  `Lean.trustCompiler` are never listed. The publisher re-checks the set as
+  the union of the dependencies' with the axiom's own bit, computed again.
+  The statements name `Iff`, `Eq`, `Nonempty`, `Quot` and `Quot.mk`; `Eq`
+  and the quotient constants are checked against Lean's shapes (ADR 0015
+  Q1), `Iff` and `Nonempty` only by the kernel (a gap of task 5.3.1).
+- **Reports**: the axioms' names follow `axioms:` (listed bits, then
+  `unlisted`); the command line names the unlisted axioms behind NOT PROVED
+  and run records list every axiom, through the slots' dependencies (the
+  set `#print axioms` lists, plan task 5.3.2 in part; in file order, where
+  Lean sorts by name).
+- **Opaque declarations** are checked as `add_opaque` (`environment.cpp`
+  211–223: type, then the value's type against it) and never unfold
+  (`is_delta` takes definitions and theorems only).
+- Evidence: inductive-table rows `postulate.*` and `opaque.*` (pinned Lean),
+  tests/core/check-block.fs §7–8, the CLI tests, 18 planted faults; the first
+  50,000 lines of Init: every axiom's set as Lean's `#print axioms` on six
+  theorems (`WellFounded.extrinsicFix₂`, `Classical.em`: all three).

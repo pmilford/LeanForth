@@ -251,6 +251,9 @@ OUTCOMES = {"ok": "accepted", "rejected": "rejected", "unknown": "unknown",
             "exhausted": "exhausted", "full": "full"}
 # What an accepted declaration prints (src/kernel/check-declaration.fs).
 ACCEPTED_LABEL = "accepted (experimental, not independently audited); axioms: none"
+# Rows that rest on an axiom outside the allowlist (plan task 5.3.1): NOT PROVED.
+UNLISTED_ROWS = {"scope.postulate", "scope.uses-postulate"}
+UNLISTED_LABEL = "accepted (experimental, not independently audited); axioms: unlisted"
 # The steps of check-declaration (lf-check-step@), and the steps at which
 # each rule may end a check, in Lean's order (ADR 0011, "Order"): the audit
 # before any typing; then the name, the universe parameters, the declared
@@ -261,7 +264,7 @@ STEPS = {0: "begin", 1: "audit", 2: "name", 3: "params", 4: "type", 5: "sort",
          6: "proposition", 7: "value", 8: "comparison", 9: "done"}
 INSIDE = {"type", "value"}
 TYPING = {"type", "sort", "proposition", "value", "comparison"}
-RULE_STEPS = {"A1": {"done"}, "B1": {"done"}, "U1": {"audit"}, "U2": {"audit"},
+RULE_STEPS = {"A1": {"done"}, "B1": {"done"}, "O1": {"done"}, "U1": {"audit"}, "U2": {"audit"},
               "V1": {"audit"}, "N2": {"name"}, "L3": {"params"}, "S1": {"sort"},
               "S3": {"proposition"}, "S4": INSIDE, "N1": INSIDE, "L1": INSIDE, "L2": INSIDE,
               "S2": INSIDE, "F1": INSIDE, "K5": INSIDE | {"name"},
@@ -445,7 +448,8 @@ def checker_row(case, lean, expected, rule, measured, verdict, known):
         raise Mismatch(f"{case}: LeanForth gave {outcome}, the table says {expected}")
     if outcome == expected and step not in rule_steps(rule):
         raise Mismatch(f"{case}: ended at step {step}, where rule {rule} cannot")
-    label = ACCEPTED_LABEL if outcome == "accepted" else [o for o, n in OUTCOMES.items()
+    accepted = UNLISTED_LABEL if case in UNLISTED_ROWS else ACCEPTED_LABEL
+    label = accepted if outcome == "accepted" else [o for o, n in OUTCOMES.items()
                                                           if n == outcome][0]
     if verdict != label:
         raise Mismatch(f"{case}: printed {verdict!r}, not {label!r}")
@@ -673,12 +677,18 @@ def universe_scope_fed():
 # accepts, rejected only for the exception Lean raised.
 DQ_DECIDED = ("sort.", "pi.", "whnf.", "delta.", "opaque.", "names.", "eta.",
               "proof-irrelevance.", "let.")
-DQ_OPAQUE = ("unsupported", "an opaque declaration: unsupported (U1, so K5 at its lookup) "
-                            "until plan task 4.2.6")
-DQ_KNOWN = {case: DQ_OPAQUE for case in (
-    "whnf.opaque", "delta.same-head-levels-differ-opaque", "opaque.never-unfolds",
-    "opaque.declaration-accepted", "opaque.declaration-wrong-value",
-    "names.nat-zero-becomes-a-literal", "names.ordinary-zero-twin")}
+# Opaque declarations and axioms are checked since plan tasks 4.2.6 and
+# 5.3.1, which brought this row into reach. Temporary gap: Lean rejects it
+# when it infers the type of the literal 1 (Nat.succ Nat.zero, matched by
+# name), Nat, which the file lacks (unknownConstant, thrown inside
+# is_def_eq); LeanForth rejects it too, but as a declared type mismatch,
+# its comparison answering no where Lean's throws. The only row whose
+# rejection may give another reason than Lean's; closed by a follow-up of
+# plan tasks 5.2.3 and 4.2.5 (a lookup's failure inside a comparison ends
+# the check with it, as Lean's exception does).
+DQ_KNOWN = {"names.nat-zero-becomes-a-literal": (
+    "rejected", "rejected as Lean, for another reason (declared type mismatch, not the "
+                "literal's missing type Nat): a follow-up of plan task 5.2.3")}
 
 
 def definitional_equality_cases():
@@ -740,7 +750,8 @@ def dq_row(case, lean, adr0014, answer):
     outcome, code = answer
     if outcome == "accepted" and lean != "accepted":
         raise Mismatch(f"{case}: accepted where Lean says {lean}")
-    if outcome == "rejected" and REJECTION_CODES.get(code, ("", ""))[1] != lean:
+    if (outcome == "rejected" and REJECTION_CODES.get(code, ("", ""))[1] != lean
+            and DQ_KNOWN.get(case, ("", ""))[0] != "rejected"):
         raise Mismatch(f"{case}: rejected (code {code}) where Lean says {lean}")
     if outcome in ("unfolds", "stays") and outcome != lean:
         raise Mismatch(f"{case}: whnf {outcome} where Lean's {lean}")
@@ -772,8 +783,9 @@ def definitional_equality():
     beyond = [f"{case} {answers[case][0]}" for case in printed
               if not case.startswith(DQ_DECIDED) and answers[case][0] in ("accepted", "rejected")]
     print(f"definitional equality: other rows decided as Lean: {', '.join(beyond) or 'none'}")
+    known = ", ".join(case + ": " + why for case, (_, why) in sorted(DQ_KNOWN.items())) or "none"
     print(f"definitional equality: {len(decided)} rows of {', '.join(DQ_DECIDED)} as Lean "
-          f"(known gaps: {', '.join(sorted(DQ_KNOWN))}: {DQ_OPAQUE[1]}); "
+          f"(known gaps: {known}); "
           f"all {len(printed)} rows: {', '.join(f'{n} {o}' for o, n in sorted(mix.items()))}; "
           f"{len(skipped)} rows of Lean's own library not run (phase 5): {', '.join(skipped)}")
     return len(printed)

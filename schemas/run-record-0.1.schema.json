@@ -170,7 +170,7 @@
         "read": {"$ref": "#/$defs/outcome"},
         "run": {"anyOf": [{"$ref": "#/$defs/outcome"}, {"const": "not-run"}]},
         "mode": {"enum": [null, "final"]},
-        "allowlistVersion": {"enum": [null, 0]}
+        "allowlistVersion": {"enum": [null, 0, 1]}
       },
       "allOf": [
         {
@@ -181,7 +181,7 @@
         {
           "if": {"properties": {"mode": {"const": null}}},
           "then": {"properties": {"allowlistVersion": {"const": null}}},
-          "else": {"properties": {"allowlistVersion": {"const": 0}}}
+          "else": {"properties": {"allowlistVersion": {"enum": [0, 1]}}}
         },
         {
           "if": {"properties": {"run": {"const": "not-run"}}},
@@ -230,9 +230,9 @@
         },
         "label": {"const": "experimental, not independently audited"},
         "axioms": {
-          "description": "The axiom set read from the accepted slot; the first checker's allowlist (version 0) is empty.",
+          "description": "The axioms the accepted declaration depends on, read from the slots, in file order: each name as the term printer writes it. Allowlist version 0 had none; version 1 (src/core/axiom-allowlist.fs) lists propext, Classical.choice and Quot.sound with Lean's statements as proved, and any other axiom makes the declaration NOT PROVED.",
           "type": "array",
-          "maxItems": 0
+          "items": {"allOf": [{"$ref": "#/$defs/shown"}, {"pattern": "^.{1,1024}$"}]}
         },
         "diagnostic": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/diagnostic"}]}
       },

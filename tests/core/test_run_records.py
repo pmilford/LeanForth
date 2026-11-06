@@ -79,10 +79,13 @@ INPUTS = {
         [("fixtureId", "accepted", None, None), ("fixturePoly", "accepted", None, None),
          ("fixtureUse", "accepted", None, None)], True),
     CASES + "wrong-argument.ndjson": ([("composition", "rejected", 59, 7)], False),
-    CASES + "postulate.ndjson": ([("composition", "unsupported", 42, 1)], False),
+    CASES + "postulate.ndjson": ([("composition", "accepted", None, None)], False),
     CASES + "literal.ndjson": ([("composition", "unsupported", 43, 1)], False),
     CASES + "loose.ndjson": ([("composition", "invalid", 23, 1)], False),
 }
+# The axioms an accepted declaration of an input lists (none unless given):
+# composition declared as an axiom (outside the allowlist, so NOT PROVED).
+AXIOMS = {CASES + "postulate.ndjson": ["composition"]}
 PINNED = {"exporter": "lean4export", "exporterVersion": "3.1.0", "format": "3.1.0",
           "lean": "4.35.0", "leanGithash": "eb6cafb7290e8bd5f2937522d8d804f58f02bafc"}
 
@@ -290,7 +293,7 @@ class Checks:
         self.expect(facts["manifest"]["enforced"] is False,
                     f"{export}: the driver reads without the manifest, never enforced")
         self.expect(data["check"] == {"read": "ok", "run": "ok", "mode": "final",
-                                      "allowlistVersion": 0}, f"{export}: check")
+                                      "allowlistVersion": 1}, f"{export}: check")
         self.expect(data["settings"]["fuel"] == FUEL, f"{export}: fuel")
         got = [(d["name"], d["verdict"], (d.get("diagnostic") or {}).get("code"),
                 (d.get("diagnostic") or {}).get("step")) for d in data["declarations"]]
@@ -299,7 +302,7 @@ class Checks:
                     f"{export}: indices")
         for item in data["declarations"]:
             if item["verdict"] == "accepted":
-                self.expect(item["label"] == LABEL and item["axioms"] == [],
+                self.expect(item["label"] == LABEL and item["axioms"] == AXIOMS.get(export, []),
                             f"{export}: accepted without its label or with axioms")
         return data
 
@@ -435,8 +438,8 @@ class Checks:
             self.expect(RECORD_SCHEMA.errors(data), f"schema accepts {name}")
 
         refused("accepted without label", comp, lambda d: d["declarations"][0].pop("label"))
-        refused("accepted with axioms", comp,
-                lambda d: d["declarations"][0].update(axioms=["propext"]))
+        refused("accepted with an axiom that is no name", comp,
+                lambda d: d["declarations"][0].update(axioms=["", 1]))
         refused("accepted with diagnostic", comp,
                 lambda d: d["declarations"][0].update(diagnostic=None))
         refused("label on rejection", wrong, lambda d: d["declarations"][0].update(label=LABEL))

@@ -67,17 +67,18 @@ create stated  0 , 6 , 2 , 3 , 1 , 4 , 5 ,
 : all-pairs? ( -- flag ) true 7 0 do 7 0 do i j pair-ok? and loop loop ;
 T{ all-pairs? -> true }T
 
-\ NOT PROVED: an accepted declaration with an axiom, and only that; it is
+\ NOT PROVED: an accepted declaration with an axiom outside the allowlist
+\ (bit 8; 7 holds the three listed ones), and only that; it is
 \ counted apart and keeps Lean's code (0) by default; under
 \ --strict-axioms it has code 6, which every other failure outranks.
-T{ outcome-ok 0 not-proved? outcome-ok 4 not-proved? -> false true }T
-T{ outcome-rejected 4 not-proved? outcome-unknown 0 not-proved? -> false false }T
+T{ outcome-ok 0 not-proved? outcome-ok 8 not-proved? outcome-ok 7 not-proved? -> false true false }T
+T{ outcome-rejected 8 not-proved? outcome-unknown 0 not-proved? -> false false }T
 cli-start
-T{ outcome-ok 4 cli-tally-proved outcome-ok 0 cli-tally-proved cli-not-proved @ cli-worst @
+T{ outcome-ok 8 cli-tally-proved outcome-ok 0 cli-tally-proved cli-not-proved @ cli-worst @
   -> 1 0 }T
 T{ outcome-rejected 1 cli-tally-proved cli-not-proved @ cli-worst @ -> 1 0 }T
 cli-start true cli-strict-axioms!
-T{ outcome-ok 4 cli-tally-proved cli-not-proved @ cli-worst @ -> 1 6 }T
+T{ outcome-ok 9 cli-tally-proved cli-not-proved @ cli-worst @ -> 1 6 }T
 T{ outcome-unknown cli-tally cli-worst @ -> 2 }T
 cli-start
 T{ cli-strict-axioms? -> false }T
@@ -161,15 +162,17 @@ T{ s" tests/cli/no-such.ndjson" cli-check -> 4 }T
 T{ s" tests/cli/leanforth.fs" cli-check -> 4 }T
 cli-no-manifest
 T{ wrong cli-check outcome-rejected tally outcome-ok tally -> 1 1 0 }T
-T{ postulate cli-check outcome-unsupported tally -> 2 1 }T
+\ An axiom (plan task 5.3.1): accepted as Lean accepts it, NOT PROVED.
+T{ postulate cli-check outcome-ok tally cli-not-proved @ -> 0 1 1 }T
 T{ with-literal cli-check outcome-unsupported tally -> 2 1 }T
-\ Every record kind (tests/core/reexport/kinds.lean): 80 accepted, among
+\ Every record kind (tests/core/reexport/kinds.lean): 89 accepted, among
 \ them inductive blocks, Nat and List (plan task 5.2.1b), projections
-\ (plan task 5.2.2), literals (plan task 5.2.3) and what uses them, with
-\ Lean's lazy delta reduction (plan task 4.2.2d); the rest unsupported
-\ (plan phases 4, 5).
+\ (plan task 5.2.2), literals (plan task 5.2.3), axioms, opaque
+\ declarations and quotients (plan tasks 5.3.1, 4.2.6, 5.2.4) and what
+\ uses them, with Lean's lazy delta reduction (plan task 4.2.2d); the rest
+\ unsupported (plan phases 4, 5).
 T{ kinds cli-check outcome-ok tally outcome-unknown tally outcome-unsupported tally
-  -> 2 80 0 26 }T
+  -> 2 89 0 17 }T
 T{ loose cli-check outcome-invalid tally -> 4 1 }T
 T{ s" tests/cli/leanforth.fs" cli-check -> 4 }T
 0 cli-fuel!
@@ -207,7 +210,7 @@ cli-options
 T{ inductive run-facts inductive run-facts -> 0 6 1184 0 6 1184 }T
 cli-no-manifest
 kinds run-facts constant kinds-fuel drop drop
-T{ kinds run-facts -> 2 80 kinds-fuel }T
+T{ kinds run-facts -> 2 89 kinds-fuel }T
 cli-options
 
 \ --record keeps the small path: an inductive type is refused while
@@ -275,7 +278,7 @@ cli-options
 \ (proof irrelevance, plan task 4.2.5).
 T{ wrong cli-print s" tests/cli/irrelevance.ndjson" cli-print -> 4 0 }T
 cli-no-manifest
-T{ wrong cli-print postulate cli-print loose cli-print -> 1 2 4 }T
+T{ wrong cli-print postulate cli-print loose cli-print -> 1 0 4 }T
 T{ undecided cli-print -> 2 }T
 cli-options 0 cli-fuel!
 T{ fixture cli-print -> 3 }T
@@ -332,13 +335,14 @@ T{ stopped -> 5 outcome-invalid 1 1 1 }T
 ' lf-env-no-fault is lf-env-before-final
 
 \ NOT PROVED from a slot: composition checked as check --record checks
-\ it, then its accepted slot given an axiom bit before the verdicts are
-\ read (no check can make one yet): counted, and said in its line and the
-\ summary; code 0, Lean's, with a note, or 6 under --strict-axioms.
+\ it, then its accepted slot given the unlisted axiom bit before the
+\ verdicts are read (no axiom slot names it): counted, and said in its
+\ line and the summary; code 0, Lean's, with a note, or 6 under
+\ --strict-axioms.
 : planted-run ( strict? -- )
   cli-options composition 0 cli-file! cli-start cli-strict-axioms!
   cli-recorded-ops cli-state run-ops ! cli-settings cli-record-start drop cli-import drop
-  rr-check 4 0 lf-env lf-env-slot lf-slot-axioms ! ;
+  rr-check 8 0 lf-env lf-env-slot lf-slot-axioms ! ;
 : planted ( strict? -- code not-proved# )
   planted-run cli-results rr-release cli-worst @ cli-not-proved @ ;
 T{ false planted true planted -> 0 1 6 1 }T
@@ -347,8 +351,8 @@ T{ false planted true planted -> 0 1 6 1 }T
   planted-run ['] cli-results >string-execute rr-release ;
 : says? ( c-addr u c-addr2 u2 -- c-addr u flag ) 2over 2swap search nip nip ;
 : planted-line ( -- c-addr u )
-  s" composition: accepted (experimental, not independently audited); axioms: bits 4; "
-  s" NOT PROVED (it depends on an axiom)" s+ ;
+  s" composition: accepted (experimental, not independently audited); axioms: unlisted; "
+  s" NOT PROVED: depends on an axiom" s+ ;
 : noted? ( c-addr u -- c-addr u flag )
   s" note: NOT PROVED declarations keep Lean's exit status; --strict-axioms" says? ;
 : planted-says ( strict? -- line? summary? note? )

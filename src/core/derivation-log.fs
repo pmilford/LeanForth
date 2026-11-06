@@ -832,8 +832,10 @@ create lf-log-term-copier
   dup lf-log-term-copier lf-copier-input? if true exit then
   lf-log-state lf-logs-copy-depth @ lf-log-term-copier lf-log-scratch ;
 
-\ A reference of a kind: (ref true), or false with the log truncated.
+\ A reference of a kind: (ref true), or false with the log truncated. A
+\ term input may be none: an axiom's or a quotient record's value.
 : lf-log-keep ( x id kind -- ref true | false )
+  2 pick lf-log-none = if drop lf-ref-none then
   case lf-ref-none of 2drop lf-log-none true endof
     lf-ref-number of drop true endof
     lf-ref-term of lf-log-term-ref endof

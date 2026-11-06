@@ -50,7 +50,7 @@ T{ s" tests/reference/constant-fixture.ndjson" checked verdicts -> outcome-ok 3 
 T{ s" tests/core/check-declaration-cases/composition-wrong-argument.ndjson" case-file
   -> outcome-rejected lf-diag-argument-apart 7 }T
 T{ s" tests/core/check-declaration-cases/composition-postulate.ndjson" case-file
-  -> outcome-unsupported lf-diag-unsupported-kind 1 }T
+  -> outcome-ok 0 lf-step-done }T
 T{ s" tests/core/check-declaration-cases/composition-literal.ndjson" case-file
   -> outcome-unsupported lf-diag-unsupported-form 1 }T
 T{ s" tests/core/check-declaration-cases/composition-loose.ndjson" case-file
@@ -120,7 +120,7 @@ T{ s" tests/reference/identity.ndjson" fed-checked verdicts unstage -> outcome-o
 T{ s" tests/core/check-declaration-cases/composition-wrong-argument.ndjson" fed-case
   -> outcome-rejected lf-diag-argument-apart 7 }T
 T{ s" tests/core/check-declaration-cases/composition-postulate.ndjson" fed-case
-  -> outcome-unsupported lf-diag-unsupported-kind 1 }T
+  -> outcome-ok 0 lf-step-done }T
 T{ s" tests/core/check-declaration-cases/composition-literal.ndjson" fed-case
   -> outcome-unsupported lf-diag-unsupported-form 1 }T
 T{ s" tests/core/check-declaration-cases/composition-loose.ndjson" fed-case

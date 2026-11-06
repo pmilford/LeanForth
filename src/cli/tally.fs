@@ -22,6 +22,7 @@
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
+require ../core/axiom-allowlist.fs
 
 0 constant exit-accepted     \ every declaration accepted, or the command done
 1 constant exit-rejected     \ something rejected
@@ -84,10 +85,10 @@ end-structure
 \ Count a verdict, and its code.
 : cli-tally ( outcome -- ) dup outcome>code cli-code! cli-count-of 1 swap +! ;
 \ Whether a verdict with the axiom set bits is NOT PROVED: accepted, and
-\ depending on an axiom. The first checker's allowlist (version 0) names
-\ none, so any axiom counts (an axiom outside propext, Classical.choice
-\ and Quot.sound, the owner's rule).
-: not-proved? ( outcome bits -- flag ) 0<> swap ok? and ;
+\ depending on an axiom outside the allowlist (core/axiom-allowlist.fs:
+\ propext, Classical.choice and Quot.sound with Lean's statements count as
+\ proved; the owner's rule).
+: not-proved? ( outcome bits -- flag ) lf-allowlist-bits invert and 0<> swap ok? and ;
 \ Count a NOT PROVED declaration apart; under --strict-axioms, with code 6.
 : cli-not-proved-code ( -- ) cli-strict-axioms? if exit-not-proved cli-code! then ;
 : cli-tally-proved ( outcome bits -- )
