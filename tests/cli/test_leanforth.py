@@ -1130,11 +1130,11 @@ class Resources(unittest.TestCase):
         self.assertEqual(rest[6], "  engine: " + os.path.basename(GFORTH))
         self.assertEqual(rest[7:], [
             "  input: 6 declarations, 46 term nodes, 3 levels, 5 constant references, 31 names",
-            "  fuel: 1184 steps in all, at most 100000 per declaration",
+            "  fuel: 1039 steps in all, at most 100000 per declaration",
             "  most fuel used:",
-            "       576 Two.cases (accepted)",
+            "       496 Two.cases (accepted)",
             "       336 Two (accepted)",
-            "       272 Two.swap (accepted)"])
+            "       207 Two.swap (accepted)"])
 
     def test_stable_but_for_time_and_memory(self):
         def steady(out):

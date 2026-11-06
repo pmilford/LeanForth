@@ -18,9 +18,10 @@
 \   compare.fs, lf-expr-equal); two lambdas or two Pis by
 \   is_def_eq_binding; two Sorts by Lean's is_equivalent on their levels
 \   (level-compare.fs, ADR 0011 Amendment 1); otherwise undecided. Lean's
-\   success cache (succeeded_before, 804) waits for plan task 4.2.7: it
-\   changes no answer, since is_def_eq is a function of its arguments
-\   (type_checker.h 33-39).
+\   success cache (succeeded_before, 804, filled by is_def_eq 1211) is
+\   kernel/caches.fs's, through the hooks lf-qk-other and lf-dq-entry
+\   (plan task 4.2.7), as are == by skeleton (lf-dq-known-same?) and the
+\   failure cache below (lf-lz-failed?, lf-lz-failure).
 \ - is_def_eq_binding walks both telescopes while both are binders of the
 \   first's kind: a pair of domains that are not == must be is_def_eq
 \   (else no), the domains read with the free variables of the binders
@@ -81,8 +82,8 @@
 \   answer yes. Each unfolded side goes through whnf_core; then
 \   quick_is_def_eq answers yes, no, or the loop goes on. Lean's failure
 \   cache (failed_before, 1004-1009) only skips an argument test that
-\   failed before, which would fail again: it changes no answer and waits
-\   for plan task 4.2.7 with the success cache. try_unfold_proj_app needs
+\   failed before, which would fail again (kernel/caches.fs keeps it).
+\   try_unfold_proj_app needs
 \   projections (U2).
 \ - is_def_eq_app: both applications, the functions is_def_eq and the
 \   argument counts equal, then the arguments left to right; the first
@@ -206,9 +207,14 @@ end-structure
 
 \ ---------------------------------------------------------------------------
 \ Leaves of the comparison, each paid from the frames' fuel.
-\ Lean's ==, recording nothing when the terms differ.
+\ Lean's ==, recording nothing when the terms differ. Two terms the
+\ caches know equal (one skeleton, kernel/caches.fs, which sets the hook)
+\ are equal at no cost; otherwise the walk decides.
+defer lf-dq-known-same? ( t s -- flag )
+:noname ( t s -- flag ) 2drop false ; is lf-dq-known-same?
 : lf-dq-same ( t s frames -- flag outcome )
-  >r r@ frame-fuel @ lf-expr-equal r> lf-mcompare-fuel lf-dq-repay ;
+  >r 2dup lf-dq-known-same? if 2drop r> drop true outcome-ok exit then
+  r@ frame-fuel @ lf-expr-equal r> lf-mcompare-fuel lf-dq-repay ;
 \ is_def_eq(level, level), Lean's is_equivalent (781-787) on level-
 \ compare's fuel: yes, no (an undecided comparison that level-compare.fs
 \ found apart), or a failure; names it cannot order are unknown.
@@ -266,7 +272,11 @@ defer lf-bd-visit ( t s frames -- ... frames next )
 defer lf-ap-visit ( t s frames -- ... frames next )
 defer lf-ar-visit ( t s frames -- ... frames next )
 defer lf-es-visit ( t s frames -- ... frames next )
-: lf-dq-call ( t s frames cont -- ... frames next ) ['] lf-dq-visit lf-dq-open ;
+\ The first step of an is_def_eq visit: lf-dq-visit, or the success
+\ cache's step around it (kernel/caches.fs sets it).
+defer lf-dq-entry ( t s frames -- ... frames next )
+' lf-dq-visit is lf-dq-entry
+: lf-dq-call ( t s frames cont -- ... frames next ) ['] lf-dq-entry lf-dq-open ;
 : lf-qk-call ( t s frames cont -- ... frames next ) ['] lf-qk-visit lf-dq-open ;
 : lf-bd-call ( t s frames cont -- ... frames next ) ['] lf-bd-visit lf-dq-open ;
 : lf-ap-call ( t s frames cont -- ... frames next ) ['] lf-ap-visit lf-dq-open ;
@@ -288,9 +298,13 @@ defer lf-es-visit ( t s frames -- ... frames next )
   over lf-dq-tag lf-tag-lit = if 2drop lf-dq-no outcome-ok r> 0 exit then
   over lf-dq-binder? if r> ['] lf-qk-bound lf-bd-call exit then
   over lf-dq-tag lf-tag-symbolic-sort = if r> lf-qk-sorts else r> lf-qk-undecided then ;
+\ After ==: lf-qk-kinds, or Lean's succeeded_before (804) first
+\ (kernel/caches.fs sets it).
+defer lf-qk-other ( t s frames -- ... frames next )
+' lf-qk-kinds is lf-qk-other
 :noname ( t s frames -- ... frames next )
   >r 2dup r@ lf-dq-same ok-then? 0= if nip nip lf-dq-undef swap r> 0 exit then
-  if 2drop lf-dq-yes outcome-ok r> 0 else r> lf-qk-kinds then ; is lf-qk-visit
+  if 2drop lf-dq-yes outcome-ok r> 0 else r> lf-qk-other then ; is lf-qk-visit
 
 \ ---------------------------------------------------------------------------
 \ is_def_eq_binding (752-779). The visit keeps the stack's depth when it
@@ -733,15 +747,24 @@ defer lf-lz-loop ( frames -- ... frames next )
 \ The same declaration with a regular hint, both applications (998-1011):
 \ equivalent universe arguments and is_def_eq_args, yes; otherwise both
 \ unfold.
+\ Lean's failure cache (failed_before and cache_failure, 1004-1009) on the
+\ visit's tn and sn: whether the test failed before, and recording that
+\ it failed; by default never, and nothing (kernel/caches.fs sets them).
+defer lf-lz-failed? ( frames -- frames flag )
+:noname ( frames -- frames flag ) false ; is lf-lz-failed?
+defer lf-lz-failure ( frames -- frames )
+:noname ( frames -- frames ) ; is lf-lz-failure
 : lf-lz-args-back ( flag outcome frames -- ... frames next )
   >r ok-then? 0= if r> lf-dq-end-failed exit then
-  if true r> lf-dq-end else r> lf-lz-unfold-both then ;
+  if true r> lf-dq-end else r> lf-lz-failure lf-lz-unfold-both then ;
 : lf-lz-levels ( tn sn frames -- flag outcome )
   >r lf-whnf-head swap lf-whnf-head swap r@ lf-lcmp-fuel lf-dq-lend lf-dq-level-lists
   r> lf-lcmp-fuel lf-dq-repay ;
 : lf-lz-arguments ( frames -- ... frames next )
+  lf-lz-failed? if lf-lz-unfold-both exit then
   >r r@ lf-dq-sides r@ lf-lz-levels ok-then? 0= if r> lf-dq-end-failed exit then
-  if r@ lf-dq-sides r> ['] lf-lz-args-back lf-ar-call else r> lf-lz-unfold-both then ;
+  if r@ lf-dq-sides r> ['] lf-lz-args-back lf-ar-call
+  else r> lf-lz-failure lf-lz-unfold-both then ;
 : lf-lz-same? ( dt ds frames -- flag )
   >r over = swap lf-idecl-hint @ lf-hint-regular = and r> lf-dq-sides lf-dq-apps? and ;
 \ The step's choice, from is_delta of each side: a declaration or

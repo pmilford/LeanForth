@@ -179,11 +179,15 @@ end-structure
 \ setting the term count back to the mark taken before it. A measure for
 \ small term stores (the default holds 64 terms), so that free variables
 \ (plan task 4.2.2a) fit where the binder context did; it changes no
-\ result, as nothing made after the mark is used again. It must go when
-\ the caches of ADR 0014 Q10 come, which keep scratch until the check
-\ ends. After a failure the job's own rollback discards everything.
+\ result, as nothing made after the mark is used again. With the caches
+\ of ADR 0014 Q10 on, which keep scratch until the job ends, it discards
+\ nothing. After a failure the job's own rollback discards everything.
+\ While the caches keep scratch until the job ends (kernel/caches.fs sets
+\ the hook), nothing is discarded.
+defer lf-minfer-keeps? ( -- flag )
+:noname ( -- flag ) false ; is lf-minfer-keeps?
 : lf-minfer-discard ( outcome mark -- outcome )
-  over ok? if dup lf-term-count ! lf-lctx-drop else drop then ;
+  over ok? lf-minfer-keeps? 0= and if dup lf-term-count ! lf-lctx-drop else drop then ;
 : lf-minfer-note ( n1 n2 code -- ) lf-minfer-site swap lf-diag-note ;
 
 \ The scope: the free variables of the binders opened around the node
@@ -757,7 +761,11 @@ defer lf-minfer-let-one ( v lam frames -- ... frames next )
 ' lf-minfer-walk-run is lf-minfer-walk
 \ The frames and their visitor, set up once in every context; their stack
 \ is freed with the context.
-: lf-minfer-setup ( -- ) ['] lf-minfer-visit-step lf-minfer-frames frame-init ;
+\ The visitor: lf-minfer-visit-step, or the inference cache's step around
+\ it (kernel/caches.fs sets the hook).
+defer lf-minfer-entry ( node frames -- ... frames next )
+' lf-minfer-visit-step is lf-minfer-entry
+: lf-minfer-setup ( -- ) ['] lf-minfer-entry lf-minfer-frames frame-init ;
 ' lf-minfer-setup context-setup
 : lf-minfer-release ( -- ) lf-minfer-frames frame-free ;
 ' lf-minfer-release context-teardown
@@ -791,9 +799,13 @@ defer lf-minfer-let-one ( v lam frames -- ... frames next )
 \ local context, and the arena counts to roll back to. Neither preflight
 \ allocates, so the counts are the same before and after it; the
 \ definition probe starts a job after its own preflight.
+\ A new job empties the caches (kernel/caches.fs sets the hook), as its
+\ local context starts empty.
+defer lf-minfer-fresh ( -- )
+:noname ( -- ) ; is lf-minfer-fresh
 : lf-minfer-start ( token fuel -- )
   lf-minfer-job tuck lf-ijob-fuel ! tuck lf-ijob-token !
-  dup lf-minfer-idle lf-minfer-mark lf-lctx-reset ;
+  dup lf-minfer-idle lf-minfer-mark lf-lctx-reset lf-minfer-fresh ;
 \ Start a job in environment mode (check-declaration.fs), inside a check
 \ of the checked environment: as lf-minfer-start, with no index token.
 : lf-minfer-start-env ( fuel -- )

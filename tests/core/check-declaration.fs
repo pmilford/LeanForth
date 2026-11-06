@@ -38,6 +38,44 @@ variable the-env
 7 constant value-step   8 constant compare-step
 
 \ ---------------------------------------------------------------------------
+\ The caches (kernel/caches.fs; plan task 4.2.7), word by word: equal
+\ terms built twice share a skeleton, Sorts of different levels do not; a
+\ node's loose bound variables and free-variable bit; a kept value whose
+\ node was discarded misses, and so does every key after emptying; each
+\ mode of inference has its own table; a success answers both orders; a
+\ free variable of an emptied local context has no skeleton. Each test
+\ catches a planted fault (.claude/work/CA/faults.py, review CA).
+lf-term-count @ lf-level-count @ 2constant cache-marks
+lf-caches-clear
+: cz ( -- level ) lf-level-tag-zero 0 0 lf-level-add must ;
+: csort ( level -- term ) lf-term-symbolic-sort must ;
+: cb ( i -- term ) lf-term-bvar must ;
+: capp ( f a -- term ) lf-term-app must ;
+: cskel ( term -- id ) lf-term-facts must drop ;
+: cbits ( term -- bits ) lf-term-facts must nip ;
+T{ 1 cb 0 cb capp cskel  1 cb 0 cb capp cskel = -> true }T
+T{ cz csort cskel  cz lf-level-succ must csort cskel = -> false }T
+T{ 1 cb 0 cb capp cbits  cz csort 0 cb lf-term-lam must cbits  0 cb 0 cb lf-term-lam must cbits
+   -> 4 0 2 }T
+0 cb constant ckey
+lf-term-count @ constant cbefore
+3 cb constant cval
+T{ ckey cval lf-cache-whnf lf-cache-node!  ckey lf-cache-whnf lf-cache-node@ -> cval true }T
+cbefore lf-term-count !  4 cb constant cnew
+T{ cnew cval =  ckey lf-cache-whnf lf-cache-node@ -> true false }T
+T{ ckey cnew lf-cache-whnf lf-cache-node!  lf-caches-clear  ckey lf-cache-whnf lf-cache-node@
+   -> false }T
+: cmode ( flag -- cache ) lf-minfer-aside @ swap lf-minfer-aside ! lf-ci-table swap lf-minfer-aside ! ;
+T{ true cmode false cmode -> lf-cache-infer-only lf-cache-infer }T
+cz csort constant ctype0   cz lf-level-succ must csort constant ctype1
+T{ ctype0 ctype1 lf-cache-success lf-pair!  ctype1 ctype0 lf-cache-success lf-pair@ -> true }T
+T{ ctype0 lf-lctx-local ok? swap constant cfvar -> true }T
+T{ cfvar cbits -> 1 }T
+lf-lctx-reset lf-caches-clear
+T{ cfvar lf-term-facts -> false }T
+cache-marks lf-level-count ! lf-term-count ! lf-caches-clear
+
+\ ---------------------------------------------------------------------------
 \ Accepted (A1): idProp : ∀ (P : Prop), P → P := fun P h => h. Its verdict
 \ is labelled; nothing is recorded.
 fc-case accepted
@@ -450,7 +488,8 @@ fc-decl check thm safe wrong 0 TYPE P S z P S z P V 1 V 2 VALUE L S z L S z L V 
 T{ 700 swept -> outcome-rejected true true }T
 \ CLI2's case (tests/cli/unfold.lean): Implies A A against A → A needs
 \ Implies unfolded by lazy delta reduction: accepted, as Lean does, from
-\ 138, the fuel the whole check takes since plan task 4.2.2d, and at every
+\ 131, the fuel the whole check takes since plan task 4.2.7 (Lean's
+\ caches and cached node data; 138 since plan task 4.2.2d), and at every
 \ fuel below exhausted (or unknown for Implies itself out of fuel). Before,
 \ it was unknown: K1, then the interim guard of review rvU4 B1 (diagnostic
 \ 64); and at every fuel from 151 to 280 unknown, code 30, before 4.2.2c,
@@ -458,7 +497,7 @@ T{ 700 swept -> outcome-rejected true true }T
 fc-case sweep-unfolding
 fc-decl before def safe Implies 0 TYPE P S z P S z S z VALUE L S z L S z P V 1 V 1
 fc-decl check thm safe impliesSelf 0 TYPE P S z A A C Implies 0 V 0 V 0 VALUE L S z L V 0 V 0
-T{ 400 sweep -> outcome-ok 138 true }T
+T{ 400 sweep -> outcome-ok 131 true }T
 
 cases-done
 bye

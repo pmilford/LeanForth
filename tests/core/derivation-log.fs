@@ -16,6 +16,10 @@ require ../../src/import/checker-input.fs
 require ../../src/kernel/check-declaration.fs
 require ../../src/present/log-view.fs
 require ../support/log-check.fs
+\ With the log on the caches are off (kernel/caches.fs; plan task 4.2.7b
+\ would log a cache hit), so the runs with the log off that these compare
+\ with run without them too.
+false lf-caches-enable
 
 : must ( flag -- ) 0= abort" derivation-log: refused" ;
 100000 constant fuel

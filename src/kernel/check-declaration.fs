@@ -70,6 +70,7 @@ require ./mixed-infer.fs
 require ./check-block.fs
 require ../core/axiom-allowlist.fs
 require ./quot.fs
+require ./caches.fs
 
 begin-structure /lf-chk
   field: lf-chk-budget   \ fuel each check in this context starts with
@@ -254,7 +255,7 @@ lf-check-steps# 1+ constant lf-step-done
 \ and the budget: ok, or invalid without a check's snapshot of the valid
 \ current environment (recorded by lf-env-checking) or an intact input.
 : lf-check-begin ( -- outcome )
-  0 lf-check-step! lf-check-state lf-chk-budget @ lf-check-left !
+  lf-caches-clear 0 lf-check-step! lf-check-state lf-chk-budget @ lf-check-left !
   lf-env-checking 0= if outcome-invalid exit then nip
   lf-input-read ok-then? if lf-check-state lf-chk-decl ! outcome-ok then ;
 \ A member of an inductive block is checked with its block, all members

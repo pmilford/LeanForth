@@ -38,7 +38,12 @@ with `quick_is_def_eq`, `is_def_eq_binding`, `is_def_eq_app`,
 irrelevance and eta, tasks 4.2.5 and 4.2.4; structure eta and
 unit-like types answer *unknown* where they may decide, task 5.2.2; Lean's names
 matched by name are K7 only where `reduce_nat` computes a literal).
-Lean's `==` is `lf-expr-equal` (`mixed-compare.fs`). Conversion
+Lean's `==` is `lf-expr-equal` (`mixed-compare.fs`). Lean's caches
+(`caches.fs`, plan task 4.2.7, ADR 0014 Amendment 1): inferred types per
+mode, `whnf_core`, `whnf`, unfolded values, success and failure pairs,
+keyed by skeletons that stand for `==`, and Lean's cached node data
+(loose bound variables, free variables), set into the passes through
+hooks; off with the derivation log on. Conversion
 (`mixed-convert.fs`) is `defeq.fs` after its audits, its no
 *rejected*; inference lends it a typer (`lf-minfer-typed`, Lean's
 infer-only `infer_type`), and its `ensure_sort` and `ensure_pi` put a
