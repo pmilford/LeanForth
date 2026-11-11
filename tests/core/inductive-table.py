@@ -128,6 +128,13 @@ REQUIRED.update({row: "task 4.2.7 (the result caches; review rvCACHE: universe a
                              "cache.universe-arguments-differ-twin",
                              "cache.projection-index-differs",
                              "cache.projection-index-differs-twin")})
+REQUIRED.update({row: "task 5.2.2's projection steps of the comparison (defeq.fs: Lean's"
+                      " is_app, steps 8 and 9, try_unfold_proj_app, cheap_proj)"
+                 for row in ("proj.index-differs", "proj.app-eta", "proj.app-eta-wrong",
+                             "proj.lazy-terms", "proj.lazy-terms-wrong", "proj.lazy-fields",
+                             "proj.lazy-fields-wrong", "proj.whnf-term", "proj.whnf-term-wrong",
+                             "proj.unfold-proj-app", "proj.unfold-proj-app-wrong",
+                             "proj.unfold-proj-app-stuck", "proj.unfold-proj-app-stuck-wrong")})
 REQUIRED.update({row: "tasks 5.3.1 and 4.2.6 (axioms and opaque declarations)"
                  for row in ("postulate.declared-and-used", "postulate.propext-altered",
                              "postulate.propext-forged-iff", "postulate.propext-own-iff",

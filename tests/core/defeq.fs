@@ -158,6 +158,30 @@ create no-levels 1 cells allot
 T{ lf-diag-clear s" c" name-of const whnf lf-diag-code@ -> -1 outcome-unknown lf-diag-needs-unfolding }T
 T{ s" c" name-of const 0 make-sort make-app dup core drop = -> true }T
 
+\ cheap_proj (whnf.fs; plan task 5.2.2): reduce_proj's visit of a
+\ projection's term is whnf_core in a cheap whnf_core visit's mode, else
+\ whnf -- told apart by a constant: whnf_core keeps it, whnf is unknown
+\ (K1). A visit that changes the mode pushes the step that puts it back
+\ (one cell), one that keeps it pushes nothing; after a cheap visit the
+\ mode is put back.
+: proj-term ( node flag -- node' outcome )
+  lf-whnf-cheap ! 100000 fuelled dq ['] lf-whnf-proj-call frame-through drop lf-whnf-reset ;
+T{ s" c" name-of const dup true proj-term -rot = -> outcome-ok true }T
+T{ s" c" name-of const false proj-term nip -> outcome-unknown }T
+T{ dq frame-reset dq true lf-whnf-mode frame-used @ lf-whnf-cheap? -> 1 true }T
+T{ 0 outcome-ok dq dq frame-restore execute nip nip nip lf-whnf-cheap? -> 0 false }T
+T{ dq frame-reset dq false lf-whnf-mode frame-used @ lf-whnf-cheap? -> 0 false }T
+: cheap-core ( node -- node' outcome )
+  100000 fuelled dq ['] lf-whnf-cheap-call frame-through drop ;
+T{ s" c" name-of const cheap-core nip lf-whnf-cheap? -> outcome-ok false }T
+\ Lean's is_proj, is_app and get_app_fn (defeq.fs): a projection, the
+\ application of a projection leaf to its term, is no application; the
+\ function of (p.0 a) is p.0, with one argument.
+: proj-of ( node -- node' ) s" P" name-of 0 lf-hterm-proj must drop swap make-app ;
+T{ 0 make-var proj-of dup lf-dq-proj? swap lf-dq-app? -> true false }T
+T{ 0 make-var proj-of dup 1 make-var make-app lf-dq-fn -rot = -> 1 true }T
+T{ 0 make-var proj-of 1 make-var make-app dup lf-dq-proj? swap lf-dq-app? -> false true }T
+
 \ K7 (ADR 0014 Q8): Nat.succ with one argument, a binary Nat operation
 \ with two, by name and without universe arguments; not with another
 \ count, another name, or Nat.succ as one component.
