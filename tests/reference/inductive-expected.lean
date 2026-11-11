@@ -491,6 +491,13 @@ def checks : List Block := [
   { id := "uniform.result-other-argument", nparams := 1,
     types := [⟨"T", "Type → Type", [("mk", "(α : Type) → T Nat")]⟩],
     lean := "nonUniformOccurrence", leanforth := "rejected", rule := "C1", task := "5.2.1a" },
+  -- A let in a constructor type: the uniformity walk reads its value (review rvS5B T1).
+  { id := "uniform.let-other-argument", nparams := 1,
+    types := [⟨"T", "Type → Type", [("mk", "(α : Type) → (let y : Type := T Nat; Nat) → T α")]⟩],
+    lean := "nonUniformOccurrence", leanforth := "rejected", rule := "C1", task := "5.2.1b" },
+  { id := "uniform.let-uniform", nparams := 1,
+    types := [⟨"T", "Type → Type", [("mk", "(α : Type) → (let y : Type := T α; Nat) → T α")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "C1", task := "5.2.1b" },
   -- Universe constraints on constructor fields.
   { id := "universe.field-too-big", types := [⟨"Big", "Type", [("mk", "Type → Big")]⟩],
     lean := "universeTooBig", leanforth := "rejected", rule := "U1", task := "5.2.1a" },

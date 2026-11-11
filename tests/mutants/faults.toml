@@ -3969,6 +3969,24 @@ quick = true
 # each caught by tests/core/check-block.fs.
 
 [[fault]]
+id = "let-data-counts-lambda"
+file = "src/core/terms.fs"
+old = '''  lf-let-lam-data false lf-data-pair ;'''
+new = '''  false lf-data-pair ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "M1: a store let's depth counts its lambda, so == meets it apart from the equal input let"
+quick = true
+
+[[fault]]
+id = "ind-uniform-skips-let"
+file = "src/kernel/inductive-block.fs"
+old = '''    lf-tag-let of lf-c1-same endof  lf-tag-let-nondep of lf-c1-same endof'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "C1: the uniformity walk skips a let's value; a non-uniform occurrence there is accepted"
+quick = true
+
+[[fault]]
 id = "ind-skip-compare"
 file = "src/kernel/check-block.fs"
 old = '''  lf-blk-shapes ['] lf-blk-ctors-b3 lf-blk-then ['] lf-blk-recs-b3 lf-blk-then ;'''

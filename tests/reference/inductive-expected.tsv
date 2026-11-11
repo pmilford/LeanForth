@@ -65,6 +65,8 @@ pos.non-valid-index-of-other	nonValidOccurrence	rejected	P2	5.2.1b
 uniform.other-argument	nonUniformOccurrence	rejected	C1	5.2.1b	
 uniform.definitionally-equal-argument	nonUniformOccurrence	rejected	C1	5.2.1b	
 uniform.result-other-argument	nonUniformOccurrence	rejected	C1	5.2.1a	
+uniform.let-other-argument	nonUniformOccurrence	rejected	C1	5.2.1b	
+uniform.let-uniform	accepted	accepted	C1	5.2.1b	T: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[1]
 universe.field-too-big	universeTooBig	rejected	U1	5.2.1a	
 universe.field-too-big-param	universeTooBig	rejected	U1	5.2.1a	
 universe.field-fits	accepted	accepted	A1 U1	5.2.1a	Fits: idx=0 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[1]

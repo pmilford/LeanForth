@@ -244,6 +244,10 @@ T{ s" k.field-variable" verdict -> outcome-unknown lf-diag-iota-pending 12 }T
 T{ s" k.field-after-binder-variable" verdict -> outcome-unknown lf-diag-iota-pending 12 }T
 T{ s" uniform.other-argument" verdict -> outcome-rejected lf-diag-nonuniform 3 }T
 T{ s" uniform.definitionally-equal-argument" verdict -> outcome-rejected lf-diag-nonuniform 3 }T
+\ A let in a constructor type: its value is walked like any child (Lean's
+\ check_uniform_ind_occs); pinned Lean agrees on both (review rvS5B T1).
+T{ s" uniform.let-other-argument" verdict -> outcome-rejected lf-diag-nonuniform 3 }T
+T{ s" uniform.let-uniform" verdict -> outcome-ok 0 all-steps }T
 
 \ Lean's replay of the Bool block (B3, B4).
 T{ s" replay-bool.original" verdict -> outcome-ok 0 all-steps }T
