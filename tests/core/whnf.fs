@@ -32,6 +32,18 @@ variable probe-node  variable probe-outcome  variable probe-same  variable probe
   -1 probe-node ! outcome-invalid probe-outcome ! false probe-same !
   lf-input-end ok? must 64 lf-env-new ok? must dup lf-env-use ok? must
   ['] probing ['] fc-no-maker lf-env-run ok? must lf-env-free ok? must ;
+\ Review rvCACHE L2: in a check, the caches on, inference refuses a node
+\ made during its job (no source node) as invalid, even when a source node
+\ of the same skeleton, the probe's value Sort 0, already has a cached type.
+variable fresh-out
+: probe-fresh ( -- )
+  100000 lf-minfer-start-env lf-env-limit value-of lf-minfer-walk nip probe-outcome !
+  0 lf-term-symbolic-sort must lf-minfer-walk nip fresh-out ! ;
+: fresh-probing ( -- ) lf-env-limit fc-last = if probe-fresh then lf-check-declaration ;
+: fresh-run ( -- )
+  outcome-invalid probe-outcome ! outcome-ok fresh-out !
+  lf-input-end ok? must 64 lf-env-new ok? must dup lf-env-use ok? must
+  ['] fresh-probing ['] fc-no-maker lf-env-run ok? must lf-env-free ok? must ;
 \ The probe's result: whether it unfolded (another node), and whether it
 \ equals the expected term.
 : unfolds? ( -- flag outcome ) probe-node @ fc-last value-of <> probe-outcome @ ;
@@ -97,6 +109,9 @@ T{ probe-run unfolds? -> false outcome-ok }T
 fc-case whnf-absent
 fc-decl check def safe probe 0 TYPE S s z VALUE C absent 0
 T{ probe-run unfolds? probe-diag @ -> false outcome-ok lf-diag-none }T
+fc-case fresh-node
+fc-decl check def safe probe 0 TYPE S s z VALUE S z
+T{ fresh-run probe-outcome @ fresh-out @ -> outcome-ok outcome-invalid }T
 
 \ ensure_sort and ensure_pi through whnf, with the rows' verdicts:
 \ sort.after-unfolding (A : dqProp, accepted), sort.not-after-unfolding

@@ -148,7 +148,7 @@ file = "src/kernel/env-signature.fs"
 old = '''  lf-envsig-deciding? if dup lf-env-depend else outcome-ok then ;'''
 new = '''  dup lf-env-depend ;'''
 test = "$GFORTH tests/core/check-declaration.fs"
-reason = "CD: inference run aside (rejection test P2) records the constants it meets as dependencies: in case aside-deps, P2 meets a 17th, the dependencies are full and the rejection Lean's kernel makes stays unknown"
+reason = "CD: inference run aside (rejection test P2) records the constants it meets as dependencies: in case aside-deps-app, P2 types the application K B aside and meets K, which then counts as a third dependency of the rejected bad (dependencies hold no room limit now, so the old aside-deps case shows nothing)"
 
 [[fault]]
 id = "cd-uses-unaccepted"
@@ -1001,8 +1001,8 @@ id = "conv-keeps-fuel"
 file = "src/kernel/mixed-convert.fs"
 old = '''  false lf-mconvert-keep ! lf-mconvert-checked ;'''
 new = '''  true lf-mconvert-keep ! lf-mconvert-checked ;'''
-test = "$GFORTH tests/core/definite-rejection.fs"
-reason = "lf-mixed-convert keeps the fuel of an undecided level comparison, as only the keeping variant may"
+test = "$GFORTH tests/core/mixed-convert.fs"
+reason = "lf-mixed-convert keeps the fuel of an undecided comparison, as only the keeping variant may; the unknown comparison 0 = 3 of tests/core/mixed-convert.fs is left with fuel"
 
 # --- Lean's whnf and is_def_eq (plan tasks 4.2.2b-c, ADR 0014 Q3-Q5;
 # src/kernel/whnf.fs, defeq.fs, and their use in mixed-infer.fs)
@@ -3810,8 +3810,8 @@ quick = true
 [[fault]]
 id = "ind-skip-compare"
 file = "src/kernel/check-block.fs"
-old = ''': lf-blk-compare ( -- outcome ) lf-blk-ctors-b3 ['] lf-blk-recs-b3 lf-blk-then ;'''
-new = ''': lf-blk-compare ( -- outcome ) outcome-ok ;'''
+old = '''  lf-blk-shapes ['] lf-blk-ctors-b3 lf-blk-then ['] lf-blk-recs-b3 lf-blk-then ;'''
+new = '''  lf-blk-shapes ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "B3 skipped: an exported recursor with swapped rules or k set is accepted"
 quick = true
@@ -4854,6 +4854,7 @@ old = '''  lf-rcr-frames frame-fuel @ lf-ind-fuel ! dup ok? if drop else nip lf-
 new = '''  lf-rcr-frames frame-fuel @ lf-ind-fuel ! drop ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvN1 L2: a refused allocation in the builder's whnf ignored; the refusal test (part 5) finds the block not full"
+equivalent = "the builder's whnf only revisits fields positivity already put in whnf, so it allocates no new term (none in 13 ind.* cases: no refused allocation reaches it, part 5 sweeps) and a fuel exhaustion in it ends the block exhausted either way (identical outcomes for every budget 0-1499 on 11 recursive cases); found by a sweep, not proved"
 
 [[fault]]
 id = "rv-positivity-whnf-failure-ignored"
@@ -4942,8 +4943,8 @@ gap = "the default hook is replaced by iota.fs (task 5.2.1b) whenever the checke
 [[fault]]
 id = "rv-k7-off"
 file = "src/kernel/whnf.fs"
-old = '''  if over over frame-save ['] lf-whnf-nat-back lf-whnf-nat-call exit then'''
-new = '''  drop'''
+old = '''  over lf-whnf-k7? if 2dup frame-save ['] lf-whnf-nat-back lf-whnf-nat-call exit then'''
+new = ''''''
 test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
 reason = "whnf never asks reduce_nat: Nat.succ Nat.zero, which Lean's reduce_nat turns into a literal, unfolds (review rvU4 L5)"
 
@@ -5080,8 +5081,9 @@ reason = "step 12 projects field i of the arguments, not i - nparams: Prod's fie
 [[fault]]
 id = "dq-eta-struct-any-inductive"
 file = "src/kernel/defeq.fs"
-old = '''  lf-dq-structure? 0= if drop 0 then outcome-ok ;'''
-new = '''  drop outcome-ok ;'''
+old = '''  dup lf-dq-induct lf-dq-structure ok-then? 0= if nip 0 swap exit then
+  0= if drop 0 then outcome-ok ;'''
+new = '''  outcome-ok ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "step 12 takes a constructor of any inductive type: p's second projection against true, both of type Bool, is a yes where Lean says no (eta.structure-wrong-field)"
 
@@ -5164,7 +5166,7 @@ reason = "rvN1 round 2 / R3: a structure's major premise that is no constructor 
 [[fault]]
 id = "proj-structure-name-unchecked"
 file = "src/kernel/infer-proj.fs"
-old = '''  2dup lf-iproj-named? 0= if drop lf-iproj-bad exit then'''
+old = '''  2 pick over lf-iproj-named? 0= if 2drop lf-iproj-bad exit then'''
 new = ''''''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.2 J2: a projection of the wrong structure is typed by the term's own structure; proj.wrong-structure is no longer invalidProj"
@@ -5575,8 +5577,8 @@ reason = "an unknown constant inside a comparison is reported as a declared type
 [[fault]]
 id = "dq-named-absent-is-none"
 file = "src/kernel/defeq.fs"
-old = '''  lf-env-lookup-pass ok-then? 0= if 0 swap exit then'''
-new = '''  lf-whnf-find ok-then? 0= if 0 swap exit then'''
+old = '''  lf-env-lookup-pass ;'''
+new = '''  lf-whnf-find ;'''
 test = 'test -n "$LEAN" && GFORTH=$GFORTH python3 tests/core/lean-differential.py definitional-equality'
 reason = "structure eta answers no for an unknown constructor where Lean's env().get throws unknownConstant (names.bool-true-looked-up-by-eta)"
 
@@ -5808,3 +5810,163 @@ old = '''  dup lf-kind-definition = swap lf-kind-theorem = or and ;'''
 new = '''  dup lf-kind-definition = over lf-kind-theorem = or swap lf-kind-opaque = or and ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "an opaque declaration unfolds: IE.hidden = 5 by rfl is accepted, Lean rejects it"
+
+# --- Review fixes FX1 (reviews rvCONV and rvCACHE) ---------------------------
+
+[[fault]]
+id = "rv-whnf-nat-skips-free-variables"
+file = "src/kernel/whnf.fs"
+old = '''  over lf-whnf-k7? if 2dup frame-save ['] lf-whnf-nat-back lf-whnf-nat-call exit then'''
+new = '''  over lf-whnf-k7? 2 pick 2 pick lf-whnf-free? drop 0= and
+  if 2dup frame-save ['] lf-whnf-nat-back lf-whnf-nat-call exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvCONV B1: whnf's reduce_nat skips a term with a free variable, a test Lean 4.35.0 does not make: Nat.add ((fun _ => 2) x) 3 unfolds the forged Nat.add to Nat.zero and IE.A, then a proof of the empty IE.F, is accepted (k7.free-variable-computes)"
+
+[[fault]]
+id = "env-structure-file-fields"
+file = "src/kernel/environment.fs"
+old = '''  dup lf-slot-decl swap lf-slot-shape @ lf-env-shaped ;'''
+new = '''  lf-slot-decl dup lf-idecl-data dup lf-ity-indices lf-more-field
+  swap lf-ity-flags lf-more-field lf-ity-rec-bit and 0<> lf-shape lf-env-shaped ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvCONV B2: is_non_rec_structure reads the file's numIndices and isRec, which Lean's replay ignores: an indexed type said unindexed is unit-like, all its values equal (lie.indexed-said-unindexed-then-unit-like accepted)"
+
+[[fault]]
+id = "env-structure-no-shape-is-structure"
+file = "src/kernel/environment.fs"
+old = '''  dup lf-shape-known and 0= if 2drop 0 outcome-unknown exit then'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "an inductive type without a computed shape (lf-shape-known clear) counts as a non-recursive structure without index"
+equivalent = "every usable inductive type gets its shape before B3 (lf-blk-shapes), so no input reaches a type without one; the guard fails closed for a future path that publishes types otherwise"
+
+[[fault]]
+id = "blk-shapes-not-published"
+file = "src/kernel/env-publish.fs"
+old = '''  2dup lf-slot-shape! rot over lf-slot-deps! tuck lf-slot-input! lf-slot-sets! ;'''
+new = '''  rot over lf-slot-deps! tuck lf-slot-input! lf-slot-sets! ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "the publisher leaves the computed shapes off the slots: every structure is unknown to R3, R4, R5 and projections (eta.structure, unit.punit no longer accepted)"
+
+[[fault]]
+id = "blk-shape-rec-ignored"
+file = "src/kernel/check-block.fs"
+old = '''  dup lf-ind-n lf-ind-state lf-ind-is-rec @ lf-shape swap lf-env-shape! ;'''
+new = '''  dup lf-ind-n false lf-shape swap lf-env-shape! ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "the shape says no type is recursive: r = IE.RR.mk r.1 by structure eta is accepted, Lean rejects it (lie.recursive-then-eta)"
+
+[[fault]]
+id = "iproj-file-indices"
+file = "src/kernel/infer-proj.fs"
+old = '''  lf-idecl-data lf-ity-params lf-more-field swap lf-env-shape
+  ok-then? 0= if nip no-result exit then
+  dup lf-shape-known and 0= if 2drop lf-iproj-unknown exit then
+  lf-shape-indices + outcome-ok ;'''
+new = '''  nip lf-idecl-data dup lf-ity-params lf-more-field swap lf-ity-indices lf-more-field +
+  outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvCONV B2: infer_proj counts the file's numIndices: a structure said indexed refuses s.1 (lie.structure-said-indexed-then-eta rejected, Lean accepts)"
+
+[[fault]]
+id = "iota-any-inductive-structure"
+file = "src/kernel/iota.fs"
+old = '''  lf-env-structure ok-then? 0= if >r 2drop drop r> no-result false exit then'''
+new = '''  lf-whnf-decl ok-then? 0= if >r 2drop drop r> no-result false exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvCONV B2: iota's structure eta takes any inductive type for a structure: the recursive IE.RR's recursor reduces on a variable, IE.RR.rec ... r = 0 accepted (lie.recursive-said-not-then-iota)"
+
+[[fault]]
+id = "rn-pow-scratch-small"
+file = "src/kernel/reduce-nat.fs"
+old = '''  limb-bits / 1+ 6 * >r >r lf-rn-operand-cells r> swap r> + 4096 +'''
+new = '''  limb-bits / 4 * 16 +'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvCONV M1: Nat.pow's scratch is sized as before (4 cells per result limb): a 12,800-bit power of a three-limb base is full where Lean computes it (lit.pow-multi-limb-base)"
+
+[[fault]]
+id = "dq-core-call-cached"
+file = "src/kernel/defeq.fs"
+old = ''': lf-dq-core-call ( t s frames cont -- ... frames next ) ['] lf-dq-visit lf-dq-open ;'''
+new = ''': lf-dq-core-call ( t s frames cont -- ... frames next ) ['] lf-dq-entry lf-dq-open ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvCONV L1: is_def_eq_core's direct calls keep their successes, which Lean keeps only in is_def_eq"
+equivalent = "a pair kept is one is_def_eq_core showed equal, and is_def_eq answers it the same (its success is the core's); a verdict could differ only where Lean's is_def_eq is not symmetric on such a pair, which no known case shows (review rvCONV L1)"
+
+[[fault]]
+id = "cache-const-universes-dropped"
+file = "src/kernel/caches.fs"
+old = '''  swap lf-term-first@ lf-cref-slot dup lf-crec-name @ swap lf-cref-list
+  if true else 2drop false then ;'''
+new = '''  swap lf-term-first@ lf-cref-slot lf-crec-name @ 0 true ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvCACHE: a constant's key leaves out its universe arguments: PUnit.{2} gets PUnit.{1}'s type, so a Type 1 is accepted as a Type (cache.universe-arguments-differ)"
+
+[[fault]]
+id = "cache-proj-index-dropped"
+file = "src/kernel/caches.fs"
+old = '''    lf-tag-proj of lf-tk-pair endof'''
+new = '''    lf-tag-proj of swap lf-term-first@ 0 true endof'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvCACHE: a projection's key leaves out its index: p.2 gets p.1's type (cache.projection-index-differs)"
+
+[[fault]]
+id = "cache-lit-value-dropped"
+file = "src/kernel/caches.fs"
+old = '''  over lf-term-second@ 2 < if lf-tk-pair else lf-tk-own then ;'''
+new = '''  over lf-term-second@ 2 < if swap lf-term-second@ 0 swap true else lf-tk-own then ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvCACHE: a literal's key leaves out its value: 10 and 11 share a skeleton and are equal by == (iota.nat-literal-major-wrong accepted)"
+
+[[fault]]
+id = "cache-fvar-entry-number"
+file = "src/kernel/caches.fs"
+old = '''  swap lf-term-identity if 0 true else drop false then ;'''
+new = '''  swap lf-term-first@ 0 true ;'''
+test = "$GFORTH tests/core/check-block.fs && $GFORTH tests/core/check-declaration.fs"
+reason = "rvCACHE: a free variable keyed by its entry number, which a discarded entry's successor reuses within a job"
+gap = "entries are reused only after a discard, which the caches make only when a store has less than its keep threshold left (lf-caches-keep?); no test checks a declaration near that threshold whose cached value is a source node keyed by a reused entry (plan task 4.2.7, review rvCACHE test gaps)"
+
+[[fault]]
+id = "cache-pair-open-terms"
+file = "src/kernel/caches.fs"
+old = '''  lf-term-facts if 2/ if drop false else true then else false then ;'''
+new = '''  lf-term-facts if 2/ drop true else false then ;'''
+test = "$GFORTH tests/core/check-block.fs && $GFORTH tests/core/check-declaration.fs"
+reason = "rvCACHE: the pair caches keep terms with loose bound variables, whose meaning depends on binders the comparison did not open"
+gap = "only check-block.fs's comparisons under binders they did not open give open pairs; no test compares one open pair of skeletons twice under binders of different types within one job (plan task 4.2.7, review rvCACHE test gaps)"
+
+[[fault]]
+id = "cache-failure-with-doubt"
+file = "src/kernel/caches.fs"
+old = '''  lf-cp-on? 0= if exit then lf-dq-state lf-dqs-doubt @ if exit then'''
+new = '''  lf-cp-on? 0= if exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvCACHE: a failure is kept although the comparison doubted a step"
+equivalent = "the pair caches work only with a typer in a check of the checked environment, where defeq.fs never doubts (its header: doubt arises outside a check or without a typer), so no doubt is ever set here"
+
+[[fault]]
+id = "cache-keep-threshold"
+file = "src/kernel/caches.fs"
+old = '''262144 constant lf-caches-term-room'''
+new = '''0 constant lf-caches-term-room'''
+test = "$GFORTH tests/core/check-block.fs && $GFORTH tests/core/check-declaration.fs"
+reason = "rvCACHE: scratch is kept until the term store is full, so a small store (a test's) fills where the uncached run decides"
+gap = "no test checks a declaration in a store whose room lies between the run's live nodes and all the nodes it makes (the resource gap of ADR 0014 Amendment 1, plan task 4.2.7c)"
+
+[[fault]]
+id = "cache-bvar-index-unbounded"
+file = "src/kernel/caches.fs"
+old = '''  over dup lf-term-first@ swap lf-term-second@ lf-repr-leaf? 2 pick lf-tk-index? and'''
+new = '''  over dup lf-term-first@ swap lf-term-second@ lf-repr-leaf?'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "rvCACHE L1: a bound variable of index 2^62 or more gets facts whose loose count overflowed (2^63 - 1 reads as closed)"
+
+[[fault]]
+id = "cache-infer-not-source"
+file = "src/kernel/caches.fs"
+old = '''  dup lf-minfer-source? 0= if drop false exit then
+  lf-term-facts 0= if false exit then 2/ lf-ci-scope dup 0= if nip then ;'''
+new = '''  lf-term-facts 0= if false exit then 2/ lf-ci-scope dup 0= if nip then ;'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "rvCACHE L2: a node inference refuses as no source node gets a cached type in deciding mode (whnf.fs's fresh-node probe)"

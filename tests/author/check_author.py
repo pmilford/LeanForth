@@ -45,6 +45,7 @@ Usage (from the repository root; GFORTH and LEAN name the toolchains):
    refuse counts as a difference.
 Finite evidence about these files; it never accepts a theorem.
 """
+import json
 import os
 import pathlib
 import re
@@ -285,7 +286,8 @@ def check_corpus():
 
 LF_EXPORTS = [f"tests/reference/{name}.ndjson" for name in
               ("identity", "composition", "type-identity", "poly-identity",
-               "constant-fixture")] + ["tests/reference/inductive/nat-add-zero.ndjson"]
+               "constant-fixture")] + ["tests/reference/inductive/nat-add-zero.ndjson",
+                                    "tests/author/lf-root-constants.ndjson"]
 LF_LINE_START = ("\\ ", "  ", ":=", "theorem ", "def ", "axiom ", "import-stub ", "end ", "protected ")
 
 
@@ -359,7 +361,35 @@ def craft(source, work):
     return path
 
 
+def named(source, work, spelling):
+    """The identity export with its declaration named by the JSON string spelling."""
+    text = pathlib.Path(source).read_text(encoding="utf-8")
+    assert '"str":"identity"' in text
+    path = pathlib.Path(work) / "named.ndjson"
+    path.write_text(text.replace('"str":"identity"', f'"str":"{spelling}"'), encoding="utf-8")
+    return path
+
+
+def check_lf_names():
+    """A part between guillemets («1», «ab») has no spelling: listed as not written, never
+    printed as text the reader takes for another name or stops at. A Zs space or filler
+    in a name is written and read back exactly. Constants of a dotted declaration are
+    written with root: (lf-root-constants.ndjson, in LF_EXPORTS)."""
+    with tempfile.TemporaryDirectory() as work:
+        for spelling in ("\u00ab1\u00bb", "\u00abab\u00bb", "A.\u00ab12\u00bb.f"):
+            text, listing = print_lf(named("tests/reference/identity.ndjson", work, spelling))
+            if "not written: " not in text or "\nend " in text:
+                raise Failure(f"name {spelling}: written as text instead of listed")
+            lf_terms(text)
+        for spelling in ("a\u00a0b", "a\u3164b", "a\u0301"):
+            text, _ = print_lf(named("tests/reference/identity.ndjson", work, spelling))
+            name = json.loads(f'"{spelling}"')
+            if name not in lf_terms(text):
+                raise Failure(f"name {spelling}: not read back as the same name")
+
+
 def check_lf_crafted():
+    check_lf_names()
     with tempfile.TemporaryDirectory() as work:
         text, listing = print_lf(craft("tests/reference/identity.ndjson", work))
     check_lf_text("crafted names", text)

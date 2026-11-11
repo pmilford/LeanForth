@@ -88,6 +88,9 @@ create visibles most cells allot
   case-path staged ok? must fuel checked final-decl result final-decl warned finish ;
 \ Declaration d's outcome and code.
 : used ( c-addr u -- outcome code ) verdict drop ;
+\ The same for the declaration before a case file's last.
+: before-last ( c-addr u -- outcome code )
+  case-path staged ok? must fuel checked final-decl 1- result drop finish ;
 : decl-verdict ( c-addr u d -- outcome code )
   >r case-path staged ok? must fuel checked r> result drop finish ;
 15 constant all-steps
@@ -340,6 +343,51 @@ T{ s" lit.pow-direct" used -> outcome-ok 0 }T
 T{ s" lit.pow-direct-wrong" used -> outcome-rejected lf-diag-value-apart }T
 T{ s" lit.pow-count-too-big" used drop -> outcome-rejected }T
 T{ s" lit.pow-count-limit" used -> outcome-ok 0 }T
+\ Review rvCONV B1: whnf's reduce_nat computes under a variable, as Lean's
+\ (no free-variable test: type_checker.cpp 672-703, 732): 0 ^ 2^32 and
+\ 2 <<< 2^32 refused, 0 ^ 4 computed. With a Nat.add that gives Nat.zero,
+\ Nat.add ((fun _ => 2) x) 3 is 5: IE.A, whose type then needs the empty
+\ IE.F, is rejected, and IE.bad, the proof of IE.F after it, too; the
+\ twin IE.A, for IE.T, accepted.
+T{ s" lit.free-variable-pow-refused" used drop -> outcome-rejected }T
+T{ s" lit.free-variable-pow" used -> outcome-ok 0 }T
+T{ s" lit.free-variable-shift-refused" used drop -> outcome-rejected }T
+T{ s" k7.free-variable-computes" before-last -> outcome-rejected lf-diag-value-apart }T
+T{ s" k7.free-variable-computes" used drop -> outcome-rejected }T
+T{ s" k7.free-variable-computes-twin" used -> outcome-ok 0 }T
+\ Review rvCONV M1: a power of a three-limb base, 12,800 bits, computed
+\ (the scratch estimate once left it full), against two halves' product.
+T{ s" lit.pow-multi-limb-base" used -> outcome-ok 0 }T
+T{ s" lit.pow-multi-limb-base-wrong" used -> outcome-rejected lf-diag-value-apart }T
+\ Review rvCONV B2: structure eta (R4) and unit-like types (R5) read the
+\ numIndices and isRec the block check computed (lf-env-shape), never the
+\ file's, which Lean's replay ignores (B4: a warning only). An indexed
+\ type said unindexed is no unit-like type, a recursive one said not
+\ recursive no structure: rejected, as with the true file; a unit type
+\ said indexed, and a structure said recursive, still are: accepted.
+T{ s" lie.indexed-then-unit-like" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" lie.indexed-said-unindexed-then-unit-like" used
+   -> outcome-rejected lf-diag-value-apart }T
+T{ s" lie.unit-said-indexed-then-unit-like" used -> outcome-ok 0 }T
+T{ s" lie.recursive-then-eta" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" lie.recursive-said-not-then-eta" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" lie.structure-said-recursive-then-eta" used -> outcome-ok 0 }T
+\ The same for projections (J1: a structure said indexed takes no index
+\ argument) and for iota's structure eta (R3: a structure said recursive
+\ still expands, a recursive type said not recursive does not).
+T{ s" lie.structure-said-indexed-then-eta" used -> outcome-ok 0 }T
+T{ s" lie.structure-said-recursive-then-iota" used -> outcome-ok 0 }T
+T{ s" lie.recursive-said-not-then-iota" used -> outcome-rejected lf-diag-value-apart }T
+\ Review rvCACHE: a definition whose value, (fun _ : PUnit.{1} =>
+\ PUnit.{2}) PUnit.unit.{1}, is a Type 1: declared a Type, rejected (a
+\ cache key without universe arguments would reuse PUnit.{1}'s type for
+\ PUnit.{2}), declared a Type 1, accepted. And fun p : Bool x Nat => (fun
+\ (_ : Bool) (b : t) => b) p.1 p.2: rejected for t Bool, accepted for t
+\ Nat (a key without the projection's index would give p.2 p.1's type).
+T{ s" cache.universe-arguments-differ" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" cache.universe-arguments-differ-twin" used -> outcome-ok 0 }T
+T{ s" cache.projection-index-differs" used drop -> outcome-rejected }T
+T{ s" cache.projection-index-differs-twin" used -> outcome-ok 0 }T
 \ Review rvN1 round 2 (L1): a reduct that keeps the recursor's universe
 \ arguments in its recursive call; iota on Lean's generated recursor
 \ after B3 refused the block's swapped rules (not ported yet: unknown,
@@ -526,6 +574,11 @@ T{ least-ok dup 1- bool-at swap bool-at -> outcome-exhausted outcome-ok }T
 s" ind.list" fuel-case 2!
 T{ doubling? -> true }T
 T{ least-ok dup 1- bool-at swap bool-at -> outcome-exhausted outcome-ok }T
+\ A field put in whnf by beta (the recursor builder's own whnf): running out
+\ of fuel there ends the block exhausted, not full or ok.
+s" ind.recursive-through-beta" fuel-case 2!
+T{ doubling? -> true }T
+T{ least-ok dup 1- bool-at swap bool-at -> outcome-exhausted outcome-ok }T
 
 \ 5. Room: with the term store's capacity cut to the records in use, the
 \ check runs out of room: full, never ok.
@@ -636,6 +689,11 @@ T{ s" rec_1" s" ind.nat" held-as -> outcome-rejected }T
 T{ s" rec_1" s" ind.bool" held-as -> outcome-rejected }T
 T{ s" recOn" s" ind.bool" held-as -> outcome-rejected }T
 T{ s" rec_x" s" ind.nat" held-as -> outcome-rejected }T
+\ Not digits, so no auxiliary recursor of the unsupported nested.tree: the
+\ name is held by no type (letters, a digit then a letter, nothing).
+T{ s" rec_x" s" nested.tree" 4 held-at -> outcome-rejected }T
+T{ s" rec_1x" s" nested.tree" 4 held-at -> outcome-rejected }T
+T{ s" rec_" s" nested.tree" 4 held-at -> outcome-rejected }T
 \ A block rejected only by B3 (review rvI21 R2-1; ADR 0015 decision 11):
 \ Lean's replay compares after its kernel added the block, so the type's,
 \ the constructors' and T.rec's names are taken (a later definition of one
@@ -720,6 +778,22 @@ T{ s" after.reflexive-parameter-at-renamed" used -> outcome-ok 0 }T
 \ this field's whnf needs iota on a recursor no slot holds: unknown (81)
 \ until that follow-up of task 5.2.1b, as is the row before.
 T{ s" after.list-left-out-then-lookup-during-param-block" used -> outcome-unknown lf-diag-iota-pending }T
+\ A rebuild gives back what the interrupted block's check had in its three
+\ slabs (domains, type records, constructors' records): their bytes after
+\ save, clobber and restore are the bytes before. (The row above stops
+\ before the check goes on with its constructors, so it cannot see this.)
+: bytes-sum ( addr u -- n ) 0 -rot bounds ?do i c@ + loop ;
+: slab-sum ( xt -- n ) execute dup slab-base swap slab-bytes bytes-sum ;
+: slab-clobbered ( xt -- ) execute dup slab-base swap slab-bytes 255 fill ;
+\ True when the clobbering changed the slab and the restore undid it.
+: slab-back? ( xt -- flag )
+  dup slab-sum >r lf-genrec-save ok? must dup slab-clobbered
+  dup slab-sum r@ <> lf-genrec-restore swap slab-sum r> = and ;
+: given-back ( xt -- flag )
+  s" ind.nat" case-path staged ok? must fuel checked slab-back? finish ;
+T{ ' lf-ind-domains given-back -> true }T
+T{ ' lf-ind-type-cells given-back -> true }T
+T{ ' lf-ind-ctor-cells given-back -> true }T
 \ Mutual blocks (task 5.2.5a): the generated recursor of the first type and
 \ of a later one, with indices, and at concrete and renamed universes.
 T{ s" after.mutual-left-out-then-use-rec" used -> outcome-ok 0 }T

@@ -530,7 +530,29 @@ T{ s" a b" lf-note-label noted -> outcome-unsupported }T
 T{ s" " lf-note-label noted -> outcome-unsupported }T
 T{ s" fine, (really)" lf-note-person noted -> outcome-ok }T
 T{ s" a-b" lf-note-label noted -> outcome-ok }T
+\ Both pass the text rule too: a bidirectional control would make the runner refuse the line.
+T{ s\" a\xe2\x80\xaeb" lf-note-label noted -> outcome-unsupported }T
+T{ s\" a\xe2\x80\xaeb" lf-note-person noted -> outcome-unsupported }T
 ' type lf-print-unicode lf-print-setup
+
+\ A search order of more wordlists than a run can save is an outcome (error 47,
+\ full), not an abort; the caller's order is left as it was.
+: wid-push ( -- ) get-order forth-wordlist swap 1+ set-order ;
+: wid-pop ( -- ) get-order swap drop 1- set-order ;
+: wide-run ( c-addr u -- outcome ) 17 0 ?do wid-push loop run 17 0 ?do wid-pop loop ;
+T{ s" Prop" wide-run -> outcome-full }T
+T{ lf-author-code -> 47 }T
+T{ same-order? -> true true }T
+T{ s" theorem t Prop explicit: p p := p end t" run -> outcome-ok }T
+
+\ Names the words cannot spell: a part between guillemets reads back as another
+\ part, or stops the run (plan task 8.6.3), so the printer refuses it; a Zs space
+\ in a name is spelt and read back exactly.
+T{ s\" \xc2\xab1\xc2\xbb" lf-pf-plain? -> false }T
+T{ s\" \xc2\xabab\xc2\xbb" lf-pf-plain? -> false }T
+T{ s\" \xc2\xab\xc2\xbb" lf-pf-plain? -> true }T
+T{ s\" \xc2\xabab" lf-pf-plain? -> true }T
+T{ s\" a\xc2\xa0b" lf-pf-plain? -> true }T
 
 \ The dictionary reserve (p05): with fewer than lfa-dictionary-reserve
 \ address units unused, no group word is made (error 66, full), while
