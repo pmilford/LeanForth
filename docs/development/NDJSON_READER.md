@@ -570,7 +570,9 @@ lib stage-free
   one before it, so ADR 0012 E5 sees every declaration of a name;
 - constants resolved when sealed (C4): `stage-resolved ( e stage -- d true
   | false )` gives a constant's declaration when exactly one declaration
-  has its name; with several, false, and the array and chain decide.
+  has its name; with several, false, and the array and chain decide. The
+  checker does not read it yet: the feed builds references by name and the
+  environment's chain resolves them (C9 steps 4-6).
 
 **Life cycle.** `stage-init ( log2 stage -- outcome )` makes an empty
 stage whose expression table starts at 2^log2 slots (about 59 bytes of
@@ -593,6 +595,8 @@ rollback or sealing failed is broken, and only `stage-free` applies.
 | An export index no map holds (a bad reference), a name, level, list or expression that is not a record of the tier, a declaration field missing or present against its kind | invalid | handler refused the record, at its line |
 | A constant whose name no declaration has | invalid, at sealing | unknown constant, line 0; `stage-culprit@` gives the name |
 | A number beyond 32 bits where a field holds it (a numeric name component, a projection's index, a count of an inductive type, constructor or recursor, a rule's field count) | full | number beyond 32 bits |
+| A number beyond 32 bits in a numeric *name* part, where pinned Lean 4.35.0 accepts the file (`tests/core/wide-cases/big-name.lean`) | full | number beyond 32 bits; **temporary gap**, closed by plan task 5.2.6 (per-declaration verdicts) |
+| A bound variable's index of 2^32 or more (pinned Lean panics from 1048575, "too many bound variables": a refusal either way) | invalid | handler refused the record |
 | The stage's heap blocks past `stage-limit!` | full | memory limit of the stage reached |
 | The limits of C1 (2^27 names, a bound variable's range 2^20 − 1, 2^32 − 1 records per family), more than 2^27 − 1 declarations, no heap | full | handler refused the record |
 | An `mdata` expression | ok: staged but marked | — |

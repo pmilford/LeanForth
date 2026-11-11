@@ -114,6 +114,28 @@ def cases(folder):
     path = write(folder, "wide-type.ndjson", wide)
     out.append(("parameter count beyond 32 bits", path, False, None,
                 ["number beyond 32 bits", "outcome=6"], ["ok decls"]))
+    # Lean-checked reproducer of a TEMPORARY GAP (review rvKC L1; plan task
+    # 5.2.6 closes it): pinned Lean 4.35.0 accepts def Big.<n> : Sort 1 :=
+    # Sort 0 for a numeric name part n = 2^32 (wide-cases/big-name.lean,
+    # exported by the pinned leanexport), where the stage is full. With
+    # 2^32 - 1 the file is staged. Never describe the first as a difference
+    # from Lean: when the gap is closed, its expected outcome becomes ok.
+    for name, expected, refused in (
+            ("big-name", ["number beyond 32 bits", "outcome=6"], ["ok decls"]),
+            ("big-name-2p32m1", ["ok decls=1"], ["outcome="])):
+        out.append((f"Lean-accepted name part, {name}",
+                    ROOT / f"tests/core/wide-cases/{name}.ndjson", False, None,
+                    expected, refused))
+    # A bound variable's index: the range of C1 (2^20 - 1 and more) is full; one
+    # beyond 32 bits no field could hold is invalid (not full). Pinned Lean
+    # has no verdict for either: it panics ("too many bound variables",
+    # expr.cpp:107-109) at 1048575 (review rvKC L2), so both are refusals.
+    for index, name, outcome in ((1048575, "bvar-range", "outcome=6"),
+                                 (4294967296, "bvar-wide", "outcome=1")):
+        path = write(folder, name + ".ndjson",
+                     [line.replace('"bvar":0', f'"bvar":{index}') for line in identity])
+        out.append((f"bound variable index {index}", path, False, None,
+                    ["handler refused the record", outcome], ["ok decls"]))
     path = write(folder, "lean.ndjson",
                  [identity[0].replace("4.35.0", "4.36.0")] + identity[1:])
     out.append(("another Lean version", path, False, None,

@@ -5970,3 +5970,11 @@ old = '''  dup lf-minfer-source? 0= if drop false exit then
 new = '''  lf-term-facts 0= if false exit then 2/ lf-ci-scope dup 0= if nip then ;'''
 test = "$GFORTH tests/core/whnf.fs"
 reason = "rvCACHE L2: a node inference refuses as no source node gets a cached type in deciding mode (whnf.fs's fresh-node probe)"
+
+[[fault]]
+id = "feed-room-not-raised"
+file = "src/import/feed.fs"
+old = '''  drop lf-term-count @ feed-term-room + lf-term-capacity max lf-term-capacity! ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "rvKC M1: the nodes of lets and projections eat the checks' term room"
