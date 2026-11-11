@@ -1079,7 +1079,13 @@ needed (Rejected alternatives).
     stage 13.1 → 16.4 s, feed 2.1 → 2.5 s, check 1,078 → 1,437 s wall
     on a loaded machine (the 1M-line prefix run alternately with main:
     check 194 and 149 s CPU on main, 192 and 158 s here).
-    Mathlib's first sixth (same command): ML-NUMBERS.
+    Mathlib's first sixth (same command, 119,472 declarations): the same
+    verdict for every declaration (119,374 accepted, 96 unknown, 2
+    exhausted, before and after); fuel 3,385,277,118 → 3,384,047,970
+    (−0.04%), 29,105 declarations using less and 4 more (36, 7, 4 and 1
+    steps); peak resident memory 1,795 → 1,835 MB (+2%: the leaf entries
+    of lets and projections and their audit units); stage 50.7 → 34.5 s,
+    feed 7.2 → 5.3 s, check 6,420 → 5,034 s wall (machine load varied).
 - Step S6 (b) and (c) are their own tasks.
 
 ## Amendment 1 (2026-11-04): constants Lean's kernel generates
