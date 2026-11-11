@@ -236,6 +236,17 @@ T{ 9 refused-at -> outcome-full true }T
 : capped ( -- outcome flag )
   fresh-b tiny-exprs file-a sb tf tier-load sb fresh? sb stage-free gap @ free throw ;
 T{ capped -> outcome-full true }T
+\ A table that must grow: built once, at the size sealing gives the
+\ records loaded (the smallest power of two at least twice as many, 16 at
+\ least), so that sealing does not build it again.
+: pow2 ( u -- p ) 1 begin 2dup u> while 2* repeat nip ;
+: exprs-table ( stage -- cons ) stage-tier tier-exprs ;
+: sized? ( -- flag )
+  sb exprs-table dup cons-table htab-slots swap cons-numbers 2* 16 max pow2 = ;
+: grown ( -- outcome flag )
+  fresh-b sb exprs-table cons-table dup htab-free 4 expr-class rot htab-init ok? must
+  file-a sb tf tier-load sized? sb stage-free gap @ free throw ;
+T{ grown -> outcome-ok true }T
 \ Misuse: saving a stage not sealed; loading into a stage read before.
 T{ 16 sb stage-init s" tests/reference/identity.ndjson" sb stage-read file-b sb tf tier-save
    sb stage-free -> outcome-ok outcome-ok outcome-invalid }T
