@@ -239,9 +239,11 @@ REQUIRE = re.compile(r"^\s*(?:require|include)\s+(\S+)", re.M)
 
 
 def loads(path, seen):
-    """Every source file path loads, transitively, including itself."""
+    """Every source file path loads, transitively, including itself. A
+    target that is not a file of the checkout is a file of the Forth host
+    (tasker.fs, which src/lib/task.fs loads on Gforth 0.7.3)."""
     path = path.resolve()
-    if path in seen:
+    if path in seen or not path.exists():
         return seen
     seen.add(path)
     for target in REQUIRE.findall(path.read_text(encoding="utf-8")):
