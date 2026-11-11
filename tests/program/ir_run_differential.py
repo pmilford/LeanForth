@@ -35,7 +35,6 @@ import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from check_program_ir import copy_problems  # noqa: E402
-TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
 EVALUATOR = Path("tests/reference/program-ir-run.lean")
 TABLE = Path("tests/program/ir-run-table.fs")
@@ -170,7 +169,7 @@ def random_cases(directory, seed, count, ir02=False):
 
 
 def run(command):
-    done = subprocess.run(command, capture_output=True, text=True, timeout=TEST_LIMIT, stdin=subprocess.DEVNULL)
+    done = subprocess.run(command, capture_output=True, text=True, timeout=600, stdin=subprocess.DEVNULL)
     if done.returncode != 0:
         raise SystemExit(f"{' '.join(command)} failed ({done.returncode}):\n{done.stdout}{done.stderr}")
     return done.stdout.splitlines()
