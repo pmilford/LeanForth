@@ -103,7 +103,10 @@ T{ 0 lf-level-identity -> false }T
 -1 lf-level-generation !
 lf-level-reset
 T{ lf-level-generation @ lf-level-count-valid? -> -1 false }T
-T{ 0 lf-level-read -> false }T
+\ Every root refuses it; a read after a checked root checks only that the
+\ index is allocated (compact-store plan step S2), so it still reads.
+T{ 0 lf-level-root? 0 0 lf-level-pair-valid? -> false false }T
+T{ 0 lf-level-read 0 lf-level-valid? -> lf-level-tag-zero 0 0 true true }T
 T{ 1 lf-level-param -> false }T
 0 lf-level-generation !
 lf-level-reset

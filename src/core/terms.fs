@@ -61,10 +61,22 @@ store-header context-record: lf-terms
 
 \ Empty the store and advance its generation (see store-clear).
 : lf-term-reset ( -- ) lf-terms store-clear ;
+
+\ Checked roots, range-checked reads (compact-store plan step S2; ADR
+\ 0016 C8). The whole header (shape, seal, generation, count) is checked
+\ once where a pass takes a term from outside: lf-term-count-valid?, or
+\ lf-term-root? (lf-term-pair-valid? for two) for its root, or a handle
+\ (generation-handles.fs). Every
+\ read after that (lf-term-valid?, lf-term-identity, lf-term-read and the
+\ walks' visits) checks only that the index is allocated (store-at?), so
+\ a corrupted shape, seal or generation is refused at the root, never
+\ found by a read; a corrupted count still refuses every read.
 : lf-term-count-valid? ( -- flag ) lf-terms store-count-valid? ;
-: lf-term-valid? ( index -- flag ) lf-terms store-valid? ;
+: lf-term-root? ( index -- flag ) lf-terms store-valid? ;
+: lf-term-valid? ( index -- flag ) lf-terms store-at? ;
 \ A live node's identity; identities never roll back and never wrap.
-: lf-term-identity ( index -- identity true | false ) lf-terms store-identity@ ;
+: lf-term-identity ( index -- identity true | false )
+  dup lf-term-valid? if lf-terms store-identity @ true else drop false then ;
 
 \ Append a node whose tag and fields the caller validated, first growing
 \ the store and its columns when every record is in use. An invalid
@@ -100,6 +112,7 @@ store-header context-record: lf-terms
 lf-tag-bvar lf-tag-sort 1+ = lf-tag-lam lf-tag-app 1+ = and lf-tag-pi lf-tag-lam 1+ = and
 0= [if] .( terms.fs: term tags must be consecutive) cr abort [then]
 : lf-term-binary-tag? ( tag -- flag ) lf-tag-app lf-tag-pi 1+ within ;
+\ Two checked roots with one header check (and a new node's children).
 : lf-term-pair-valid? ( left right -- flag ) lf-terms store-pair-valid? ;
 : lf-term-binary ( left right tag -- index true | false )
   >r 2dup lf-term-pair-valid? r@ lf-term-binary-tag? and
@@ -111,11 +124,12 @@ lf-tag-bvar lf-tag-sort 1+ = lf-tag-lam lf-tag-app 1+ = and lf-tag-pi lf-tag-lam
 \ Dependent function type: domain, then body. Nothing is typed.
 : lf-term-pi ( domain body -- index true | false ) lf-tag-pi lf-term-binary ;
 
-\ Read a node's tag and fields. An invalid index returns only false and no
-\ memory is read.
+\ Read a node's tag and fields. An index that is not allocated returns
+\ only false and no memory is read (the header is the root's to check).
 : lf-term-read ( index -- tag first second true | false ) lf-terms node-read ;
 \ One field of a node. Unchecked: the index must already be validated,
-\ for instance by an earlier lf-term-read of the same node.
+\ for instance by an earlier lf-term-read of the same node, under a
+\ checked root; no field read checks the header.
 : lf-term-tag@ ( index -- tag ) lf-term-slot node-tag @ ;
 : lf-term-first@ ( index -- first ) lf-term-slot node-first @ ;
 : lf-term-second@ ( index -- second ) lf-term-slot node-second @ ;

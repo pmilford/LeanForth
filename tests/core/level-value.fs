@@ -167,5 +167,7 @@ lf-level-reset
 T{ lf-level-generation @ -> -1 }T
 lf-level-reset
 T{ lf-level-generation @ -> -1 }T
-T{ 0 lf-level-read -> false }T
+\ A poisoned store is refused at a pass's root, its reads check only the
+\ index (compact-store plan step S2).
+T{ 0 lf-level-root? 0 100 lf-level-value -> false -1 outcome-invalid }T
 bye
