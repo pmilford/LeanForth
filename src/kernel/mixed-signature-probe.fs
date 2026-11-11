@@ -13,10 +13,10 @@
 \ generations), its candidate arrays and formal pool (context slabs, which
 \ grow: no fixed number of candidates since plan task 6.2.0), and the
 \ request record lf-msp-request (one put or specialize call's arguments
-\ and the zero actuals used by coverage), all members of the checker
-\ context (lib/context.fs): the index refers to its own context's
-\ stores. Single-threaded within one context: exclude resets, raw writes,
-\ callbacks and concurrent calls.
+\ and the zero actuals used by coverage), and coverage's scratch mark
+\ lf-msp-mark, all members of the checker context (lib/context.fs): the
+\ index refers to its own context's stores. Single-threaded within one
+\ context: exclude resets, raw writes, callbacks and concurrent calls.
 
 require ../lib/lib.fs
 require ../core/constant-references.fs
@@ -24,6 +24,7 @@ require ../core/diagnostics.fs
 require ../core/level-scope.fs
 require ../core/levels.fs
 require ../core/names.fs
+require ../core/scratch-marks.fs
 require ../core/symbolic-session.fs
 require ../core/terms.fs
 require ./mixed-level-substitute.fs
@@ -65,6 +66,7 @@ end-structure
 
 /lf-sigs context-record: lf-msp-index
 /lf-sigreq context-record: lf-msp-request
+/lf-scratch context-record: lf-msp-mark   \ the stores before coverage
 
 \ Failures are recorded as diagnostics at the module's one site, whose
 \ name gives the prefix of its public words: a full index (lf-msp-put) and
@@ -156,13 +158,13 @@ here lf-msp-arrays - 1 cells / constant lf-msp-arrays#
 
 \ Coverage uses one complete mixed substitution with every actual the zero
 \ level, which fails unless every source parameter is a formal. Even on
-\ success all temporary allocations are discarded, never their serials.
-\ This can fill arena space or spend identity serials (full) for an
-\ otherwise valid list.
-: lf-msp-marks ( -- terms levels crefs )
-  lf-term-count @ lf-level-count @ lf-cref-count @ ;
-: lf-msp-rewind ( terms levels crefs -- )
-  lf-cref-count ! lf-level-count ! lf-term-count ! ;
+\ success all temporary allocations are discarded, never their serials:
+\ the stores go back to a scratch mark (core/scratch-marks.fs). This can
+\ fill arena space or spend identity serials (full) for an otherwise
+\ valid list. LIFO: the mark is taken before the substitution and given
+\ back after it, whose own mark is younger and given back first; coverage
+\ never runs inside another. A mark that cannot be taken is invalid,
+\ nothing run; a refused rollback makes the outcome invalid.
 : lf-msp-zeros-at ( -- addr ) 0 lf-msp-zero-pairs slab-at ;
 : lf-msp-zeros ( identity req -- )
   lf-msp-zeros-at swap lf-sigreq-arity @
@@ -175,7 +177,8 @@ here lf-msp-arrays - 1 cells / constant lf-msp-arrays#
   dup lf-msp-zero-room ok-then? 0= if nip exit then
   0 lf-level-identity if over lf-msp-zeros lf-msp-cover else drop-invalid then ;
 : lf-msp-coverage ( req -- status )
-  lf-msp-marks 2>r >r lf-msp-zero-actuals r> 2r> lf-msp-rewind ;
+  lf-msp-mark lf-scratch-mark ok-then? 0= if exit then
+  lf-msp-zero-actuals lf-msp-mark lf-scratch-rollback lf-scratch-settled ;
 
 \ Insertion: a well-formed request for a new name, room in the index, then
 \ coverage; only then are the record and its formal IDs copied in. An index

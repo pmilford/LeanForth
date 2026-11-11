@@ -10,7 +10,7 @@
 \ Inference rejects by F1, S2 and D1-D5 inside the terms. Rejection is
 \ [kernel] code, not yet through the review gate.
 \ State: one request record, lf-mdefinition-request: the claim, the value,
-\ whether it is a theorem, the index token, the fuel and the arena marks of
+\ whether it is a theorem, the index token, the fuel and the scratch mark of
 \ the current call; a member of the checker context (lib/context.fs). The
 \ inference itself runs on mixed-infer's state, as a job this module starts
 \ with lf-minfer-start. Single-threaded within one context.
@@ -19,6 +19,7 @@ require ../lib/lib.fs
 require ../core/constant-references.fs
 require ../core/constant-term-scope.fs
 require ../core/levels.fs
+require ../core/scratch-marks.fs
 require ../core/terms.fs
 require ./mixed-infer.fs
 require ./mixed-signature-audit.fs
@@ -31,9 +32,7 @@ begin-structure /lf-mdreq
   field: lf-mdreq-value-id
   field: lf-mdreq-fuel        \ fuel left; the result once a call returns
   field: lf-mdreq-theorem     \ true for a theorem: its type must be a proposition
-  field: lf-mdreq-terms       \ arena counts when the call began
-  field: lf-mdreq-levels
-  field: lf-mdreq-crefs
+  /lf-scratch +field lf-mdreq-scratch  \ the stores when the call began
 end-structure
 /lf-mdreq context-record: lf-mdefinition-request
 
@@ -46,13 +45,14 @@ end-structure
 : lf-mdreq-claim@ ( req -- type tid ) dup lf-mdreq-claim-root @ swap lf-mdreq-claim-id @ ;
 : lf-mdreq-value@ ( req -- value id ) dup lf-mdreq-value-root @ swap lf-mdreq-value-id @ ;
 
-\ Arena counts when the check begins; inference restores them.
-: lf-mdreq-mark ( req -- )
-  lf-term-count @ over lf-mdreq-terms ! lf-level-count @ over lf-mdreq-levels !
-  lf-cref-count @ swap lf-mdreq-crefs ! ;
-: lf-mdreq-rewind ( req -- )
-  dup lf-mdreq-terms @ lf-term-count ! dup lf-mdreq-levels @ lf-level-count !
-  lf-mdreq-crefs @ lf-cref-count ! ;
+\ A scratch mark (core/scratch-marks.fs) when the check begins: ok, or
+\ invalid (nothing run); the stores go back to it once inference is done,
+\ whatever its outcome. LIFO: the probe's mark is taken first and given
+\ back last; the job inference runs takes its own mark after it, and every
+\ other mark inside is younger still. A refused rollback is invalid.
+: lf-mdreq-mark ( req -- outcome ) lf-mdreq-scratch lf-scratch-mark ;
+: lf-mdreq-rewind ( status req -- status )
+  lf-mdreq-scratch lf-scratch-rollback lf-scratch-settled ;
 
 \ Both closed source graphs and the entire index must be audited before any
 \ allocation: otherwise a stale second root or index handle could revive.
@@ -74,8 +74,8 @@ end-structure
 
 \ Internal inference consumes the original preflighted roots only. One
 \ mixed-infer job, started once with the fuel the preflight left, covers
-\ the pair; the preflight allocated nothing, so the job's arena marks are
-\ the request's.
+\ the pair; the preflight allocated nothing, so the job's scratch mark
+\ marks where the request's does.
 : lf-mdefinition-start ( req -- )
   dup lf-mdreq-token @ swap lf-mdreq-fuel @ lf-minfer-start ;
 \ The claim's own type must be a Sort (S1); for a theorem its level must be
@@ -105,11 +105,13 @@ end-structure
 : lf-mdefinition-walk ( req -- status )
   dup lf-mdefinition-start lf-mdefinition-pair outcome-sane ;
 
-\ Infer, keep the fuel inference left, and restore the arena counts.
+\ Infer, keep the fuel inference left, and roll the stores back.
 : lf-mdefinition-infer ( req -- status )
   dup lf-mdefinition-walk lf-minfer-fuel @ rot tuck lf-mdreq-fuel ! lf-mdreq-rewind ;
+: lf-mdefinition-checked ( req -- status )
+  dup lf-mdefinition-preflight ok-then? if lf-mdefinition-infer then ;
 : lf-mdefinition-check ( req -- status )
-  dup lf-mdreq-mark dup lf-mdefinition-preflight ok-then? if lf-mdefinition-infer then ;
+  dup lf-mdreq-mark ok-then? if lf-mdefinition-checked then ;
 : lf-mdefinition-ready? ( req -- flag )
   lf-mdreq-fuel @ 0< 0= lf-term-count-valid? and lf-level-count-valid? and
   lf-cref-state-valid? and ;
@@ -119,8 +121,8 @@ end-structure
 
 \ One shared visit fuel; all failures conservatively report zero in
 \ lf-mdefinition-fuel. Success reports the remaining fuel. Every result
-\ leaves all three arena counts as they were; allocation serials never
-\ rewind. No generated handles escape this word. The definition probe
+\ leaves the term, level and reference stores as they were, and none of
+\ the probe's local-context entries; allocation serials never rewind. No generated handles escape this word. The definition probe
 \ allows a claim in any Sort; the theorem probe also requires the claim to
 \ be a proposition (rule S3).
 : lf-mdefinition-probe ( token type tid value vid fuel theorem -- status )

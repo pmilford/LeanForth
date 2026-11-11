@@ -83,7 +83,7 @@ require ./mixed-rebuild.fs
 begin-structure /lf-openjob
   /frames +field lf-openjob-frames     \ fuel, nesting, the offset as context
   field: lf-openjob-mode               \ one of the lf-open-mode-* constants
-  field: lf-openjob-start              \ term count before the pass
+  /store-mark +field lf-openjob-start  \ the term store before the pass
   field: lf-openjob-count              \ n
   lf-open-leaves 2* cells +field lf-openjob-leaves  \ per index: node, identity
 end-structure
@@ -102,9 +102,12 @@ end-structure
 : lf-open-mode ( frames -- mode ) lf-openjob-mode @ ;
 : lf-open-abstract? ( frames -- flag ) lf-open-mode lf-open-mode-abstract = ;
 
-\ Only nodes older than the pass, with children before them, are read.
+\ Only nodes older than the pass, with children before them, are read:
+\ nodes below the term store's mark taken when the pass starts (a store
+\ mark, lib/store.fs: a boundary to read below, never rolled back to; the
+\ pass's rollback is the rebuild's scratch mark, mixed-rebuild.fs).
 : lf-open-readable? ( node frames -- flag )
-  lf-openjob-start @ over 0 rot within swap lf-term-valid? and ;
+  lf-openjob-start mark-count @ over 0 rot within swap lf-term-valid? and ;
 : lf-open-below? ( child node -- flag ) 0 swap within ;
 : lf-open-children? ( node -- flag )
   dup lf-term-first@ over lf-open-below?
@@ -224,9 +227,10 @@ defer lf-open-unchanged? ( node frames -- flag )
 : lf-open-ready ( subst n mode -- outcome )
   lf-open-frames frame-busy? if drop 2drop outcome-invalid exit then
   dup lf-open-job lf-openjob-mode ! lf-open-load ;
+: lf-open-marked ( -- outcome ) lf-open-job lf-openjob-start lf-terms store-mark ;
 : lf-open-run ( node subst n mode -- node' outcome )
   lf-open-ready dup ok? 0= if nip no-result exit then drop
-  lf-term-count @ lf-open-job lf-openjob-start !
+  lf-open-marked dup ok? 0= if nip no-result exit then drop
   0 lf-open-frames lf-rebuild-run nip lf-open-explain ;
 : lf-open-pass ( node subst n mode -- node' outcome )
   over 0= if 2drop drop outcome-ok else lf-open-run then ;
