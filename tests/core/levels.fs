@@ -52,6 +52,8 @@ T{ 2 lf-level-param lf-level-count @ -> 5 true 6 }T
 true lf-term-sharing!
 T{ 2 lf-level-param -> 1 true }T
 T{ level-mark lf-level-rollback lf-level-count @ -> outcome-ok 5 }T
+\ The table holds the five records left, and after a reset the zero level.
+T{ lf-level-table htab-count -> 5 }T
 
 \ Fill storage, then confirm exhausted constructors preserve existing nodes;
 \ an equal level is not given where a new one would be refused.
@@ -84,7 +86,7 @@ T{ 0 lf-level-read -> false }T
 T{ 0 0 lf-level-imax -> false }T
 T{ lf-level-count @ -> lf-level-capacity 1+ }T
 lf-level-reset
-T{ lf-level-count @ -> 1 }T
+T{ lf-level-count @ lf-level-table htab-count -> 1 1 }T
 T{ 0 lf-level-read -> lf-level-tag-zero 0 0 true }T
 T{ 1 lf-level-read -> false }T
 
@@ -95,6 +97,11 @@ lf-level-generation @ constant level-generation0
 T{ 0 lf-level-identity -> level-serial0 true }T
 T{ 1 lf-level-param -> 1 true }T
 T{ 1 lf-level-identity -> level-serial0 1+ true }T
+\ An equal level is not given where a new one would be refused (here a
+\ spent serial).
+level-serial max-n level-serial!
+T{ 1 lf-level-param -> false }T
+level-serial!
 lf-level-reset
 T{ 0 lf-level-identity -> level-serial0 2 + true }T
 T{ lf-level-generation @ -> level-generation0 1+ }T

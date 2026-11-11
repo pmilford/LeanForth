@@ -273,4 +273,18 @@ T{ 0 cid @ cterm-fuel drop 0 cid @ cterm-fuel -> outcome-ok outcome-ok 100 }T
 lf-cref-reset
 T{ 0 cid @ 10 lf-cterm-check -> outcome-invalid }T
 lf-memo-auto lf-audit-memo!
+
+\ A constant or Sort the term table finds is given again only while its
+\ stamps hold (plan step S4): for a reference made again at the index of
+\ a reset one, lf-cterm-new makes a node of its own; and a Sort whose
+\ level index was reset is not given again (a session begins
+\ only on an empty term store, so the reset is a raw one here).
+fresh
+: fresh-sort ( -- node ) 0 dup lf-level-identity drop lf-hterm-sort 0= abort" sort" drop ;
+fresh-sort constant fsort
+T{ 0 lf-term-reusable? fsort lf-term-reusable? -> true true }T
+lf-cref-reset reuse-cref
+T{ 0 lf-term-reusable? 0 dup lf-cref-current lf-cterm-new nip swap 0= -> false true false }T
+lf-level-reset
+T{ fsort lf-term-reusable? -> false }T
 bye

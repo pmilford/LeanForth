@@ -185,6 +185,12 @@ T{ args 1 ref 0 0 ref args 2 ref lf-cref-count @ -> 1 2 true 2 3 true 0 1 true 3
 create other-args 4 cells allot   \ the two levels in the other order
 args 2 cells + other-args 2 cells move   args other-args 2 cells + 2 cells move
 T{ other-args 2 ref other-args 1 ref -> 3 4 true 4 5 true }T
+\ The table's equality hook compares the level pairs too (a hash only
+\ leads to a candidate).
+name-id @ lf-name-generation @ args 2 lf-cref-key!
+T{ 0 lf-cref-key lf-cref-table lf-cref-same -> true }T
+name-id @ lf-name-generation @ other-args 2 lf-cref-key!
+T{ 0 lf-cref-key lf-cref-table lf-cref-same -> false }T
 create cref-mark /store-mark allot
 T{ cref-mark lf-crefs store-mark -> outcome-ok }T
 T{ args 2 ref other-args 2 ref -> 0 1 true 3 4 true }T
@@ -192,7 +198,7 @@ T{ args 2 ref other-args 2 ref -> 0 1 true 3 4 true }T
 T{ args 2 ref args 2 ref -> 5 6 true 5 6 true }T
 T{ cref-mark lf-cref-rollback lf-cref-count @ -> outcome-ok 5 }T
 T{ args 2 ref -> 5 7 true }T
-T{ cref-mark lf-cref-rollback -> outcome-ok }T
+T{ cref-mark lf-cref-rollback lf-cref-table htab-count -> outcome-ok 5 }T
 lf-cref-reset
 T{ args 2 ref -> 0 8 true }T
 \ An equal record is not given where a new one would be refused.

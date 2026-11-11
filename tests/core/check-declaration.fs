@@ -80,6 +80,14 @@ T{ cbefore lf-scratch-rollback -> outcome-ok }T  4 cb constant cnew
 T{ cnew cval =  ckey lf-cache-whnf lf-cache-node@ -> true false }T
 T{ ckey cnew lf-cache-whnf lf-cache-node!  lf-caches-clear  ckey lf-cache-whnf lf-cache-node@
    -> false }T
+\ A key is its node's identity (compact-store plan step S4): a key given
+\ back, its index made again as another node, misses (by index it would
+\ hit the stale entry).
+T{ cbefore lf-scratch-mark -> outcome-ok }T
+5 cb 6 cb capp constant ckey2
+T{ ckey2 ckey lf-cache-whnf lf-cache-node!  cbefore lf-scratch-rollback -> outcome-ok }T
+6 cb 5 cb capp constant ckey3
+T{ ckey3 ckey2 =  ckey3 lf-cache-whnf lf-cache-node@ -> true false }T
 : cmode ( flag -- cache ) lf-minfer-aside @ swap lf-minfer-aside ! lf-ci-table swap lf-minfer-aside ! ;
 T{ true cmode false cmode -> lf-cache-infer-only lf-cache-infer }T
 cz csort constant ctype0   cz lf-level-succ must csort constant ctype1
@@ -88,6 +96,8 @@ T{ ctype0 lf-lctx-local ok? swap constant cfvar -> true }T
 T{ cfvar cbits -> 1 }T
 lf-lctx-reset lf-caches-clear
 T{ cfvar lf-term-facts -> false }T
+\ Nor has a node above it (the free-variable memo walks to the leaf).
+T{ cfvar 1 cb capp lf-term-facts -> false }T
 \ m_whnf_core keeps the result of a whnf_core visit without cheap_proj,
 \ never with it (type_checker.cpp 547; whnf.fs, plan task 5.2.2): the
 \ storing step at the end of a visit, its key saved on the frames.
