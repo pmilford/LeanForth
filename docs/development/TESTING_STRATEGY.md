@@ -58,7 +58,7 @@ compiler and runtime correctness.
   allowlist in `scripts/check-lean-sources.py`, or if a script runs Lean on a
   file without the strict flag.
 - **Timeouts.** Every Make recipe runs its command under
-  `timeout $(TEST_TIMEOUT)` (default 600 s), and each CI job has a
+  `timeout $(TEST_TIMEOUT)` (default 1,800 s; 600 s until 2026-11-10, when loaded machines hit it), and each CI job has a
   `timeout-minutes` limit, so a looping test fails instead of hanging.
 - **Size guards.** Differential scripts check both tables' line counts and
   exit on mismatch before comparing them.
