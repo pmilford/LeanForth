@@ -29,6 +29,8 @@ require ./generation-handles.fs
 require ./terms.fs
 
 11 constant lf-tag-lit
+\ An input literal of a term view (terms.fs) has its limbs in the leaf table.
+lf-tag-lit tag-nat lf-term-input-leaf-tag
 1 cells context-slab: lf-lit-limbs
 
 : lf-lit-leaf? ( node -- flag ) lf-term-tag@ lf-tag-lit = ;
@@ -90,3 +92,10 @@ require ./terms.fs
 : lf-hterm-decimal ( addr u -- index identity true | false )
   dup 9 / 8 + lf-lit-arena ok? 0= if drop 2drop false exit then
   >r r@ decimal>big ok? if lf-hterm-big else drop false then r> lf-lit-arena-free ;
+\ The same literal's fields, its limbs kept in the slab but no node made:
+\ an input literal of a term view (terms.fs), whose node is the tier's.
+: lf-lit-fields-big ( big -- first n true | false )
+  big-vector tuck lf-lit-first ok? if swap true else 2drop false then ;
+: lf-lit-decimal ( addr u -- first n true | false )
+  dup 9 / 8 + lf-lit-arena ok? 0= if drop 2drop false exit then
+  >r r@ decimal>big ok? if lf-lit-fields-big else drop false then r> lf-lit-arena-free ;

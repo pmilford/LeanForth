@@ -5518,8 +5518,9 @@ reason = "5.2.3 L2: iota leaves a literal major premise stuck; Nat.rec on 3 (iot
 [[fault]]
 id = "str-new-any-bytes"
 file = "src/core/string-literals.fs"
-old = '''  2dup utf8-valid? 0= if 2drop 0 0 outcome-invalid exit then'''
-new = ''''''
+old = '''  2dup utf8-valid? 0= if 2drop 0 0 outcome-invalid exit then
+  tuck lf-str-keep ok-then?'''
+new = '''  tuck lf-str-keep ok-then?'''
 test = "$GFORTH tests/core/defeq.fs"
 reason = "5.2.3 strings: a literal of bytes that are no UTF-8 is kept, not refused as invalid"
 
@@ -5640,8 +5641,16 @@ id = "str-feed-refused"
 file = "src/import/feed.fs"
 old = '''    tag-str of feed-str endof'''
 new = ''''''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py BothWays"
+reason = "5.2.3 strings: the copying feed (behind its switch since S5) refuses a string literal as invalid, so kinds.ndjson's report differs from the one read in place"
+
+[[fault]]
+id = "s5-feed-str-leaf-refused"
+file = "src/import/feed.fs"
+old = '''    tag-nat of feed-nat-leaf endof  tag-str of feed-str-leaf endof'''
+new = '''    tag-nat of feed-nat-leaf endof'''
 test = "$GFORTH tests/core/check-block.fs"
-reason = "5.2.3 strings: the feed refuses a string literal as invalid; the primitive.string-opaque files are refused"
+reason = "5.2.3 strings, S5: the feed in place refuses a string literal as invalid; the primitive.string-opaque files are refused"
 
 [[fault]]
 id = "str-print-banned-raw"
@@ -6361,7 +6370,8 @@ reason = "rvCACHE L2: a node inference refuses as no source node gets a cached t
 [[fault]]
 id = "feed-room-not-raised"
 file = "src/import/feed.fs"
-old = '''  drop lf-term-count @ feed-term-room + lf-term-capacity max lf-term-capacity! ;'''
+old = '''  lf-term-count @ feed-term-room + swap feed-placing @ 0= if lf-term-capacity max then
+  lf-term-capacity! ;'''
 new = '''  drop outcome-ok ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "rvKC M1: the nodes of lets and projections eat the checks' term room"
@@ -6984,16 +6994,16 @@ reason = "S2: node-read (every walk's visit) reads an index the store does not h
 [[fault]]
 id = "s2-term-root-range-only"
 file = "src/core/terms.fs"
-old = ''': lf-term-root? ( index -- flag ) lf-terms store-valid? ;'''
-new = ''': lf-term-root? ( index -- flag ) lf-terms store-at? ;'''
+old = '''  lf-term-count-valid? if lf-term-valid? else drop false then ;'''
+new = '''  lf-term-valid? ;'''
 test = "$GFORTH tests/core/terms.fs && $GFORTH tests/core/tagged-sort-boundary.fs"
 reason = "S2: a root not checked: a term store with a broken seal is taken at a pass's root"
 
 [[fault]]
 id = "s2-term-pair-range-only"
 file = "src/core/terms.fs"
-old = ''': lf-term-pair-valid? ( left right -- flag ) lf-terms store-pair-valid? ;'''
-new = ''': lf-term-pair-valid? ( left right -- flag ) lf-term-valid? swap lf-term-valid? and ;'''
+old = '''  lf-term-count-valid? if lf-term-valid? swap lf-term-valid? and else 2drop false then ;'''
+new = '''  lf-term-valid? swap lf-term-valid? and ;'''
 test = "$GFORTH tests/core/terms.fs && $GFORTH tests/core/tagged-sort-boundary.fs"
 reason = "S2: a root not checked: two roots are taken from a term store with a broken seal"
 
@@ -7670,3 +7680,185 @@ old = '''  lf-audit-on? 0= if drop false exit then
 new = ''''''
 test = "$GFORTH tests/core/level-compare.fs"
 reason = "S4: a level kept in scope while the memo was on counts as kept after it is off"
+
+# --- the input read in place (compact-store plan step S5; src/core/terms.fs's
+# view, src/import/feed.fs's "In place"), and review rvS4's M1 and L1 -----
+
+[[fault]]
+id = "s5-input-identity-serial"
+file = "src/core/terms.fs"
+old = ''': lf-term-input-identity ( index -- identity ) invert ;'''
+new = ''': lf-term-input-identity ( index -- identity ) 1+ ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5: an input node's identity is a number a birth serial of a scratch node may have"
+
+[[fault]]
+id = "s5-leaf-without-entry"
+file = "src/core/terms.fs"
+old = '''  lf-tin-leaf? if lf-tin-leaf 0<> else drop true then ;'''
+new = '''  2drop true ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5: an input Sort or constant without its leaf entry reads as a term with fields 0 0"
+
+[[fault]]
+id = "s5-app-not-found"
+file = "src/core/terms.fs"
+old = '''  if tag-app 0 pack-head -rot lf-tin-probe else 2drop false then ;'''
+new = '''  drop 2drop false ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5: an application made equal to an input node is a second node, not the input one"
+
+[[fault]]
+id = "s5-binder-not-found"
+file = "src/core/terms.fs"
+old = '''  if lf-tin-binder-find else 2drop drop false then ;'''
+new = '''  drop 2drop drop false ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5: a binder made equal to an input binder is a second node (more fuel than copying)"
+
+[[fault]]
+id = "s5-leaf-not-found"
+file = "src/core/terms.fs"
+old = '''    lf-tin-leaf-tag? if lf-tin-leaf-find else 2drop drop false then 0 endcase ;'''
+new = '''    drop 2drop drop false 0 endcase ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5: a constant or Sort made over an input one's reference or level is a second node"
+
+[[fault]]
+id = "s5-mark-end-relative"
+file = "src/core/terms.fs"
+old = ''': lf-term-mark-end ( mark -- n ) mark-count @ lf-term-base + ;'''
+new = ''': lf-term-mark-end ( mark -- n ) mark-count @ ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5: instantiation and opening count input nodes as newer than their pass"
+
+[[fault]]
+id = "s5-input-stamp-lost"
+file = "src/core/generation-handles.fs"
+old = '''  lf-term-leaf-stamp r@ lf-stamp-level ! r> ;'''
+new = '''  drop 0 r@ lf-stamp-level ! r> ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5: an input Sort or constant loses its level's or reference's stamp, so every audit refuses it"
+
+[[fault]]
+id = "s5-input-marks-spare"
+file = "src/core/constant-term-boundary.fs"
+old = '''  dup lf-term-input? if lf-input-mark-at exit then'''
+new = '''  dup lf-term-input? if drop lf-mark-spare dup 2 cells erase exit then'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py BothWays"
+reason = "S5: input nodes keep no audit marks, so each audit walks them again (more fuel than copying)"
+
+[[fault]]
+id = "s5-fingerprint-no-view"
+file = "src/core/input.fs"
+old = '''  lf-term-viewed? if lf-term-base fnv-step lf-term-tier fnv-step then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5: the input's fingerprint does not cover the view"
+
+[[fault]]
+id = "s5-detach-keeps-view"
+file = "src/core/names.fs"
+old = ''': lf-name-detach ( -- ) lf-name-unview lf-name-detach-hook ;'''
+new = ''': lf-name-detach ( -- ) lf-name-unview ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5: detaching a stage's names leaves its term view, which reads the stage after it is freed"
+
+[[fault]]
+id = "s5-feed-reads-above-let"
+file = "src/import/feed.fs"
+old = '''  2dup feed-tier expr-a@ over feed-dirty?
+  >r tuck feed-tier expr-b@ swap feed-dirty? r> or ;'''
+new = '''  2drop false ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py BothWays"
+reason = "S5: an application or binder above a let or projection is read in place, its child no term of the view"
+
+[[fault]]
+id = "s5-feed-copy-not-found"
+file = "src/import/feed.fs"
+old = '''    2dup swap feed-copy-at dup @ 4 pick = if nip nip nip cell+ 2@ exit then drop'''
+new = '''    2dup swap feed-copy-at dup @ 4 pick <> if nip nip nip cell+ 2@ exit then drop'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5: a copied expression's term is looked up wrongly"
+
+[[fault]]
+id = "s5-feed-room-in-place"
+file = "src/import/feed.fs"
+old = '''  lf-term-count @ feed-term-room + swap feed-placing @ 0= if lf-term-capacity max then'''
+new = '''  lf-term-count @ feed-term-room + swap drop lf-term-capacity max'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5: in place a check gets more term room than when copying (the capacity was raised for every expression)"
+
+[[fault]]
+id = "s5-feed-always-copies"
+file = "src/import/feed.fs"
+old = '''  dup feed-binder-hook @ 0= lf-feed-copy? 0= and swap feed-placing ! ;'''
+new = '''  false swap feed-placing ! drop ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5: the switch is ignored: every feed copies"
+
+[[fault]]
+id = "s5-store-back-levels-plain"
+file = "src/core/input.fs"
+old = '''  dup lf-levels = if drop lf-level-rollback exit then
+'''
+new = ''''''
+test = "$GFORTH tests/core/environment.fs"
+reason = "rvS4 M1: after a check the level table keeps an entry for every level given back"
+
+[[fault]]
+id = "s5-store-back-crefs-plain"
+file = "src/core/input.fs"
+old = '''  dup lf-crefs = if drop lf-cref-rollback exit then store-rollback ;'''
+new = '''  store-rollback ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "rvS4 M1: after a check the reference table keeps an entry for every reference given back"
+
+[[fault]]
+id = "s5-lcmp-memo-count-unchecked"
+file = "src/kernel/level-compare.fs"
+old = '''  dup lf-level-valid? lf-lscope-count-valid? and 0= if drop false exit then'''
+new = '''  dup lf-level-valid? 0= if drop false exit then'''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "rvS4 L1: a kept level is trusted from the memo under a corrupted parameter context"
+
+[[fault]]
+id = "s5-lit-fields-swapped"
+file = "src/core/literals.fs"
+old = '''  big-vector tuck lf-lit-first ok? if swap true else 2drop false then ;'''
+new = '''  big-vector tuck lf-lit-first ok? if true else 2drop false then ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5: an input natural-number literal gets its limb count and slab index swapped"
+
+[[fault]]
+id = "s5-str-fields-any-bytes"
+file = "src/core/string-literals.fs"
+old = '''  2dup utf8-valid? 0= if 2drop 0 0 outcome-invalid exit then
+  tuck lf-str-keep >r swap r> ;'''
+new = '''  tuck lf-str-keep >r swap r> ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5: an input string literal of bytes that are no UTF-8 is kept, not refused as invalid"
+
+[[fault]]
+id = "s5-room-setting-ignored"
+file = "src/import/feed.fs"
+old = ''': feed-scratch ( -- n ) lf-input-room ?dup 0= if feed-most then ;'''
+new = ''': feed-scratch ( -- n ) feed-most ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5: the context's room setting is ignored, so a configured limit does not hold"
+
+[[fault]]
+id = "s5-room-fixed"
+file = "src/import/feed.fs"
+old = ''': feed-scratch ( -- n ) lf-input-room ?dup 0= if feed-most then ;'''
+new = ''': feed-scratch ( -- n ) lf-input-room ?dup 0= if 1048576 then ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5: with no setting the scratch room stays fixed (1,048,576 term nodes) instead of growing"
+
+[[fault]]
+id = "s5-feed-binders-not-entered"
+file = "src/import/feed.fs"
+old = '''  r> binder-tag? if drop lf-term-input-binder else 2drop outcome-ok then ;'''
+new = '''  r> drop 2drop outcome-ok ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5: binders read in place are not entered first, so a let's lambda and the equal input lambda after it are two nodes (more fuel than copying)"

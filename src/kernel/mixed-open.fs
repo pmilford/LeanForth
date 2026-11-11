@@ -134,7 +134,7 @@ end-structure
 \ mark, lib/store.fs: a boundary to read below, never rolled back to; the
 \ pass's rollback is the rebuild's scratch mark, mixed-rebuild.fs).
 : lf-open-readable? ( node frames -- flag )
-  lf-openjob-start mark-count @ over 0 rot within swap lf-term-valid? and ;
+  lf-openjob-start lf-term-mark-end over 0 rot within swap lf-term-valid? and ;
 : lf-open-below? ( child node -- flag ) 0 swap within ;
 : lf-open-children? ( node -- flag )
   dup lf-term-first@ over lf-open-below?

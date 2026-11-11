@@ -61,9 +61,11 @@ end-structure
 : lf-lcmp-unit ( level -- addr ) lf-lcmp-scoped column-at ;
 : lf-lcmp-stamp ( level -- identity generation )
   lf-level-identity drop lf-lscope-generation @ ;
+\ A context whose count is not valid (corrupted) is never trusted from the
+\ memo: the walk then refuses it (review rvS4 L1).
 : lf-lcmp-scoped? ( level -- flag )
   lf-audit-on? 0= if drop false exit then
-  dup lf-level-valid? 0= if drop false exit then
+  dup lf-level-valid? lf-lscope-count-valid? and 0= if drop false exit then
   dup lf-lcmp-unit 2@ rot lf-lcmp-stamp d= ;
 : lf-lcmp-keep-scope ( level -- )
   lf-audit-on? if dup lf-lcmp-stamp rot lf-lcmp-unit 2! else drop then ;

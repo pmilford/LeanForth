@@ -942,7 +942,63 @@ needed (Rejected alternatives).
   taken as met, the parameter skip everywhere, the level memo without
   generation, identity or switch), all caught; three stale faults
   re-targeted; the nine on the retired skeleton memo removed.
-- Steps 4 and 5 not started; S6 (b) and (c) are their own tasks.
+- The input read in place (2026-11-11, step S5 of the compact-store
+  plan, parts 1-3 of 5, agent S5, branch `s5-in-place`; plan task 6.2.2;
+  no verdict moves, its [kernel] review pending). The term store has an
+  *input view* (`src/core/terms.fs`): `lf-term-attach` makes a sealed
+  stage tier's expressions the term numbers 0 .. N - 1, each the number
+  the stage gave it, read in place from its C1 record, and the store's
+  own records follow at N + r. A read translates the tag (the
+  four binder tags of each kind to the checker's lambda or Pi: binder
+  name and information are ignored, as Lean's kernel ignores them); the
+  data word is the tier's (C1's, the same facts); a Sort, constant or
+  literal takes the fields this context gave it (its level, reference,
+  limbs or bytes) from a leaf table the feed fills. An input node is
+  sealed: its identity is `invert` of its number (a negative number, no
+  birth serial), its stamps are those the leaf table records, and the
+  audit's marks for it are in a slab of the context. A node a check makes
+  equal to an input node is that node: an application or bound variable
+  is found in the tier's own table (C3's probe, through a set extending
+  the tier that is never committed to), a binder in a name-blind binder
+  table, a leaf in the leaf table by its fields. The feed
+  (`src/import/feed.fs`) reads the stage in place by default and copies
+  only what the view does not read -- a let, a projection, an `mdata`
+  expression and every node above one, 2.7% of `Init`'s term numbers
+  (167,638 records above 6,110,313 input numbers) -- in the checker's
+  old shapes; a first pass enters every binder it reads in place, so
+  that a let's lambda copied earlier than an equal input lambda is that
+  lambda, as copying merged them (47 pairs in `Init`; without the pass
+  22 declarations used more fuel in place, +920 in all). The copy of
+  every expression stays behind a switch of each context
+  (`lf-feed-copy!`, `src/core/input.fs`) and is forced for a feed with a
+  binder hook: the print command keeps a column of binder names per term
+  number. Part 3: the fixed scratch rooms above the input (1,048,576
+  term nodes, 65,536 levels, 262,144 references) became a setting,
+  `lf-input-room!` (0, the default: a check's scratch grows up to about
+  2^31 records of each, *full* only when the heap refuses). Not done
+  (parts 4-5, each its own task): native C1 shapes for lets and
+  projections, so that nothing is copied; retiring the symbolic-Sort and
+  constant stamps and the scratch identities under one tier mark (levels
+  and references keep their own stores); the printer reading C1 records;
+  deleting the copy. A cost added per input node: the audit's marks, 16
+  bytes (about 1.7 GB for all of Mathlib), until step S6 (c) retires the
+  marking audits; the binder table adds about 4 to 8 bytes per input
+  binder. Also review rvS4's M1: rolling the input back takes the
+  levels' and references' table entries out too (before, the tables
+  kept one per record given back, growing with every declaration).
+  Evidence: `make check`; every fed Lean table agrees; the CLI test
+  `BothWays` compares the copied and in-place reports of 22 exports;
+  the trial digest is unchanged (`f78118062cf9`, the trials use no
+  feed). All of `Init` at the default 20,000,000 fuel, before the binder
+  pass, with the fixed rooms: copied and in place both accept all
+  59,349 declarations, and differ only in the fuel of those 22; peak
+  resident memory 1,061 MB copied, 546 MB in place; feed 18.0 s copied,
+  2.5 s in place; stage 13-15 s; check 998 s and 1,118 s (`gforth-fast`,
+  a loaded machine). 23 planted faults `s5-*` (identity, leaf entry,
+  probes, marks, stamps, fingerprint, detaching, copies, rooms, the
+  binder pass, the literals' fields, rvS4 M1 and L1) are caught, and
+  the faults of the code S5 changed are re-targeted.
+- Step S5's parts 4 and 5, and S6 (b) and (c), are their own tasks.
 
 ## Amendment 1 (2026-11-04): constants Lean's kernel generates
 

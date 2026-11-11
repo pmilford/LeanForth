@@ -181,14 +181,14 @@ lf-term-reset
 \ already made, with its identity; a rollback takes the records it gives
 \ back out of the table, so an equal record made after it is new; a tag
 \ marked unshared, or a context with sharing off, makes new nodes.
-create cons-mark /store-mark allot
+create hc-mark /store-mark allot
 T{ 3 lf-term-bvar 3 lf-term-bvar 0 0 lf-term-app 0 0 lf-term-app -> 0 true 0 true 1 true 1 true }T
 T{ 0 lf-term-identity 1 lf-term-identity lf-term-count @ -> term-serial 1- true term-serial true 2 }T
-T{ cons-mark lf-terms store-mark 4 lf-term-bvar 1 2 lf-term-lam -> outcome-ok 2 true 3 true }T
+T{ hc-mark lf-terms store-mark 4 lf-term-bvar 1 2 lf-term-lam -> outcome-ok 2 true 3 true }T
 T{ 1 2 lf-term-lam 4 lf-term-bvar lf-term-count @ -> 3 true 2 true 4 }T
-T{ cons-mark lf-term-rollback lf-term-count @ lf-term-table htab-count -> outcome-ok 2 2 }T
+T{ hc-mark lf-term-rollback lf-term-count @ lf-term-table htab-count -> outcome-ok 2 2 }T
 T{ 1 2 lf-term-lam 5 lf-term-bvar 4 lf-term-bvar 3 lf-term-bvar -> false 2 true 3 true 0 true }T
-T{ cons-mark lf-term-rollback lf-term-count @ 4 lf-term-bvar -> outcome-ok 2 2 true }T
+T{ hc-mark lf-term-rollback lf-term-count @ 4 lf-term-bvar -> outcome-ok 2 2 true }T
 T{ false lf-term-sharing! 3 lf-term-bvar 0 0 lf-term-app true lf-term-sharing!
    -> 3 true 4 true }T
 T{ 3 lf-term-bvar 0 0 lf-term-app lf-term-count @ -> 0 true 1 true 5 }T

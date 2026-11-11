@@ -321,13 +321,15 @@ end-structure
   lf-term-capacity .decimal ."  term nodes and " lf-input-capacity .decimal
   ."  declarations per export; check without --record holds any size" cr ;
 \ What can end a check full besides memory: the scratch each check has
-\ above the input (import/feed.fs; plan task 6.2.2). A check's
-\ dependencies, the pool and a block's constructors grow (plan task
-\ 6.2.0). The second line begins with the text prefix.
+\ above the input (import/feed.fs; plan task 6.2.2), which grows, up to
+\ about 2^31 term nodes, levels and constant references each, unless the
+\ context's setting (core/input.fs's lf-input-room!) sets a limit; before
+\ compact-store plan step S5 it was fixed. A check's dependencies, the
+\ pool and a block's constructors grow (plan task 6.2.0). The second line
+\ begins with the text prefix.
 : cli-scratch. ( prefix-addr prefix-u -- )
-  ." each check's scratch above the input: " feed-term-room .decimal ."  term nodes, "
-  feed-level-room .decimal ."  levels," cr
-  type feed-cref-room .decimal ."  constant references (plan task 6.2.2)" cr ;
+  ." each check's scratch above the input grows, up to " feed-term-room .decimal cr
+  type ." term nodes, levels and constant references each (plan task 6.2.2)" cr ;
 : cli-room-note ( -- )
   ." note: a check ran out of room; its diagnostic names the limit: memory, or" cr
   ." note: " s" note: " cli-scratch. ;
@@ -768,8 +770,9 @@ create cli-fed-ops
   ."   check --record and replay (the old reader) refuse inductive types, and" cr
   ."   answer unsupported for let, literals, projections and metadata;" cr
   ."   the checker has not yet checked a Mathlib declaration" cr
-  ."   (0 of 729,263); the parallel job pool and the compact store are not" cr
-  ."   used by check (it stages the input, then copies it into its own stores)" cr ;
+  ."   (0 of 729,263); the parallel job pool is not used by check (it reads" cr
+  ."   the staged input in place, copying only lets, projections and the" cr
+  ."   terms above them, plan task 6.2.2)" cr ;
 : cli-check-limits. ( -- )
   ."   check: stores, walks and lists that grow with the export (memory), any" cr
   ."     depth and number of dependencies or constructors (plan task 6.2.0);" cr

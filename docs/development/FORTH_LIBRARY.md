@@ -651,10 +651,12 @@ record, keeps it; the prototype did the same work without the checks.
   (`lf-term-capacity!` and the like; defaults 64, 64, 64, 32 and 32), and
   per-index side data lives in columns that grow with them
   (`src/lib/store-columns.fs`). A staged export's names stay in its
-  shared input tier (`lf-name-attach`); its levels, terms and declarations
-  are still copied into the context's stores (`src/import/feed.fs`), about
-  80 bytes per term node with the columns, because the checker reads terms
-  through handles with identities. Walk stacks, frames and binder contexts
+  shared input tier (`lf-name-attach`); since compact-store plan step S5
+  its expressions are read in place too (the term store's input view,
+  `src/core/terms.fs`), only lets, projections and the terms above them
+  copied, while its levels and declarations are copied into the context's
+  stores (`src/import/feed.fs`; the copy of every expression, about 80
+  bytes per term node with the columns, stays behind `lf-feed-copy!`). Walk stacks, frames and binder contexts
   grow in the heap (plan task 6.2.0): no pass recurses on the Forth stacks,
   and `lf-walk-room` is only a walk's first room.
 - **Hashing and hash-consing.** Under a name view the checker's names are

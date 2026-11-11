@@ -34,7 +34,8 @@ lf-level-walk-room context-walk2: lf-mcompare-level-walker
 : lf-mcompare-level-fuel ( -- addr ) lf-mcompare-level-walker walk-fuel ;
 
 \ Visiting a pair of nodes of one store, the left in walk-node and the
-\ right in walk-context: an unallocated node is invalid, different tags are
+\ right in walk-context: an unallocated node is invalid (valid ( left
+\ right -- flag ) checks both, with one header check), different tags are
 \ unknown, and otherwise xt ( a b walk tag -- outcome ) gets both nodes as
 \ records of three cells (lib/node.fs) and their tag: fetch ( left right
 \ -- a b ) gives them, a level's in its store, a term's copied into two
@@ -45,19 +46,19 @@ lf-level-walk-room context-walk2: lf-mcompare-level-walker
 : lf-mcompare-pair@ ( walk -- left right ) dup walk-node @ swap walk-context @ ;
 : lf-mcompare-slots ( left right store -- a b ) tuck store-slot >r store-slot r> ;
 : lf-mcompare-level-slots ( left right -- a b ) lf-levels lf-mcompare-slots ;
-: lf-mcompare-copy ( index record -- ) >r lf-term-slot lf-term-fields@ r> node! ;
+: lf-mcompare-copy ( index record -- ) >r lf-term-fields r> node! ;
 : lf-mcompare-term-slots ( left right -- a b )
   lf-mcompare-right lf-mcompare-copy lf-mcompare-left lf-mcompare-copy
   lf-mcompare-left lf-mcompare-right ;
-: lf-mcompare-nodes ( walk store fetch -- a b true | false )
-  >r >r lf-mcompare-pair@ 2dup r> store-pair-valid?
+: lf-mcompare-nodes ( walk valid fetch -- a b true | false )
+  >r >r lf-mcompare-pair@ 2dup r> execute
   if r> execute true else 2drop r> drop false then ;
 : lf-mcompare-tags? ( a b -- flag ) node-tag @ swap node-tag @ = ;
 : lf-mcompare-tagged ( a b walk xt -- outcome )
   >r >r over node-tag @ r> swap r> execute ;
 : lf-mcompare-match ( a b walk xt -- outcome )
   2over lf-mcompare-tags? if lf-mcompare-tagged else 2drop 2drop outcome-unknown then ;
-: lf-mcompare-visit-pair ( walk store fetch xt -- outcome )
+: lf-mcompare-visit-pair ( walk valid fetch xt -- outcome )
   >r >r over swap r> lf-mcompare-nodes
   if rot r> lf-mcompare-match else drop r> drop outcome-invalid then ;
 
@@ -110,7 +111,7 @@ lf-level-walk-room context-walk2: lf-mcompare-level-walker
     lf-level-tag-param of lf-mcompare-same-first endof
     lf-level-tag-succ of lf-mcompare-first endof walk-bad-tag endcase ;
 : lf-mcompare-level-visit ( walk -- outcome )
-  lf-levels ['] lf-mcompare-level-slots ['] lf-mcompare-level-dispatch
+  ['] lf-level-pair-valid? ['] lf-mcompare-level-slots ['] lf-mcompare-level-dispatch
   lf-mcompare-visit-pair ;
 : lf-mcompare-site ( -- site ) c" mixed-compare lf-mixed-compare" ;
 : lf-mcompare-level-run ( a b -- outcome )
@@ -181,7 +182,8 @@ lf-level-walk-room context-walk2: lf-mcompare-level-walker
     lf-tag-lit of lf-mcompare-lit endof  lf-tag-str of lf-mcompare-str endof
     lf-tag-let of lf-mcompare-same-first endof walk-bad-tag endcase ;
 : lf-mcompare-visit ( walk -- outcome )
-  lf-terms ['] lf-mcompare-term-slots ['] lf-mcompare-dispatch lf-mcompare-visit-pair ;
+  ['] lf-term-pair-valid? ['] lf-mcompare-term-slots ['] lf-mcompare-dispatch
+  lf-mcompare-visit-pair ;
 : lf-mcompare-run ( left right -- outcome )
   ['] lf-mcompare-visit lf-mcompare-walker walk-run-pair
   lf-mcompare-walker lf-mcompare-site lf-diag-walk ;
@@ -255,7 +257,8 @@ create lf-meq-hooks /htab-hooks allot
   2over 2 pick lf-meq-one-head? if 2drop 2drop outcome-ok exit then
   lf-mcompare-dispatch ;
 : lf-meq-visit ( walk -- outcome )
-  lf-terms ['] lf-mcompare-term-slots ['] lf-meq-dispatch lf-mcompare-visit-pair ;
+  ['] lf-term-pair-valid? ['] lf-mcompare-term-slots ['] lf-meq-dispatch
+  lf-mcompare-visit-pair ;
 : lf-mcompare-equal ( outcome -- flag outcome )
   dup outcome-unknown = if drop false outcome-ok exit then
   dup ok? if true swap exit then

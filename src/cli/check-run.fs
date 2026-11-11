@@ -313,8 +313,11 @@ create ck-line ck-line-room 2 + allot
 : ck-stage-facts ( -- )
   ck-stage stage-unmap ck-stage stage-allocated ck-state ck-stage-bytes !
   ck-stage stage-tier tier-names cons-numbers ck-state ck-names# ! ;
+\ The terms: the input's term numbers, those read in place from the
+\ stage (core/terms.fs) and the store's (the feed's copies).
 : ck-input-facts ( -- )
-  lf-input-count ck-state ck-declarations# ! lf-term-count @ ck-state ck-terms# !
+  lf-input-count ck-state ck-declarations# !
+  lf-term-base lf-term-count @ + ck-state ck-terms# !
   lf-level-count @ ck-state ck-levels# ! lf-cref-count @ ck-state ck-references# ! ;
 \ The feed, after the capacities are kept: from here on the names are
 \ attached to the stage (feed.fs's first step), whatever its outcome.

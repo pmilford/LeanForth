@@ -49,8 +49,10 @@
 \ fingerprint also covers the references' universe arguments (their
 \ pool) and, under a name view (names.fs), every input name's hash.
 \ State: the declaration store lf-inputs (a heap store), the name index
-\ lf-input-names and the inductive data lf-input-more (heap slabs) and one
-\ record, lf-input-state, all members of the checker context; written only
+\ lf-input-names and the inductive data lf-input-more (heap slabs), one
+\ record, lf-input-state, and the importer's two settings
+\ lf-input-copying and lf-input-room-cell (below), all members of the
+\ checker context; written only
 \ while loading and by
 \ lf-input-reset, then read by every check in that context. The layout is
 \ host-specific and never serialized.
@@ -199,13 +201,34 @@ begin-structure /lf-inrec
 end-structure
 /lf-inrec context-record: lf-input-state
 
+\ How an importer gives this context its terms (compact-store plan step
+\ S5; import/feed.fs): read in place from the stage (false, the default
+\ of a new context) or copied into the term store (true, the way before
+\ the input view, kept for comparing the two). A member of the checker
+\ context.
+1 cells context-record: lf-input-copying
+: lf-input-copy! ( flag -- ) lf-input-copying ! ;
+: lf-input-copy? ( -- flag ) lf-input-copying @ ;
+\ The room each check gets above the input (plan task 6.2.2; compact-store
+\ plan step S5; import/feed.fs): the most term nodes, levels and constant
+\ references, each, that a check may make; 0, the default of a new
+\ context, sets no limit but memory's (and the 32-bit term numbers'), so a
+\ check's scratch grows as it needs and is full only when the heap
+\ refuses. A member of the checker context.
+1 cells context-record: lf-input-room-cell
+: lf-input-room! ( n -- ) lf-input-room-cell ! ;
+: lf-input-room ( -- n ) lf-input-room-cell @ ;
+
 \ The input stores, in the order of their marks.
 create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf-inputs ,
 : lf-input-store ( k -- store ) cells lf-input-stores + @ execute ;
 : lf-input-mark ( k -- mark ) /store-mark * lf-input-state lf-inrec-marks + ;
 \ Its count, as a value: objects of input store k lie below it (for
 \ readers such as the derivation log, which may not hold an address).
-: lf-input-mark-count ( k -- n ) lf-input-mark mark-count @ ;
+\ For the terms (k = 0) it is a term number: under an input view the
+\ input nodes are below the store's own records (terms.fs).
+: lf-input-mark-count ( k -- n )
+  dup lf-input-mark mark-count @ swap 0= if lf-term-base + then ;
 \ Whether test ( mark store -- flag ) holds for every input store.
 : lf-input-all? ( test -- flag )
   true lf-input-stores# 0 ?do over i lf-input-mark i lf-input-store rot execute and loop
@@ -236,7 +259,11 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 : lf-fp-pool ( h -- h' ) 0 lf-cref-pool slab-at lf-cref-top 2* lf-fp-cells ;
 : lf-fp-view-names ( h -- h' )
   lf-name-numbers tuck fnv-step swap 0 ?do i lf-name-hash fnv-step loop ;
-: lf-fp-view ( h -- h' ) lf-name-viewed? if lf-fp-view-names then ;
+\ Under a term view (terms.fs), the input nodes' count and the tier read
+\ in place (its address: within one run of one host only).
+: lf-fp-terms ( h -- h' )
+  lf-term-viewed? if lf-term-base fnv-step lf-term-tier fnv-step then ;
+: lf-fp-view ( h -- h' ) lf-name-viewed? if lf-fp-view-names then lf-fp-terms ;
 \ The inductive data: its count, then its cells.
 : lf-fp-more ( h -- h' )
   lf-more-count tuck fnv-step swap ?dup if 0 lf-more-cell swap lf-fp-cells then ;
@@ -393,10 +420,15 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 
 \ After a check: every input store back to its mark and the name bytes
 \ back to their count; ok, or invalid with nothing changed when the input
-\ is not intact. The terms go back through lf-term-rollback, which takes
-\ their entries out of the hash-consing table too (terms.fs).
+\ is not intact. The terms, levels and references go back through their
+\ own rollbacks, which take their entries out of the hash-consing and
+\ interning tables too (terms.fs, levels.fs, constant-references.fs;
+\ review rvS4 M1: with plain store-rollback the tables kept an entry for
+\ every record given back and grew with every declaration).
 : lf-store-back ( mark store -- outcome )
-  dup lf-terms = if drop lf-term-rollback else store-rollback then ;
+  dup lf-terms = if drop lf-term-rollback exit then
+  dup lf-levels = if drop lf-level-rollback exit then
+  dup lf-crefs = if drop lf-cref-rollback exit then store-rollback ;
 : lf-mark-back ( mark store -- flag ) lf-store-back ok? ;
 : lf-input-rollback ( -- outcome )
   lf-input-intact? 0= if outcome-invalid exit then

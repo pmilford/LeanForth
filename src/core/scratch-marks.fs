@@ -86,7 +86,7 @@ end-structure
     dup i lf-scratch-pair store-mark-valid? 0= if drop false unloop exit then
   loop drop true ;
 \ The term count marked: the terms below it are older than the mark.
-: lf-scratch-terms ( scratch -- n ) 0 lf-scratch-part mark-count @ ;
+: lf-scratch-terms ( scratch -- n ) 0 lf-scratch-part lf-term-mark-end ;
 
 \ Family k back to its part of a valid mark (store-rollback cannot refuse
 \ it then), and the local context's entries above the terms marked. The

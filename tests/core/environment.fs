@@ -99,6 +99,18 @@ lf-name-used @ constant bytes-then
 T{ lf-term-count @ terms-then 1+ = lf-name-used @ bytes-then > -> true true }T
 T{ ' lf-input-rollback rs-checked lf-term-count @ lf-name-used @ -> outcome-ok terms-then bytes-then }T
 T{ lf-input-intact? -> true }T
+\ Levels and references go back through their own rollbacks, which take
+\ the given-back records out of their tables too (review rvS4 M1: before,
+\ the tables kept an entry for each and grew with every declaration).
+lf-level-table htab-count constant levels-then
+lf-cref-table htab-count constant crefs-then
+: deep-level ( -- index ) 0 6 0 do lf-level-succ drop loop ;
+create new-pair 2 cells allot
+deep-level dup new-pair ! lf-level-identity drop new-pair cell+ !
+n.A lf-name-generation @ new-pair 1 lf-cref-new drop 2drop
+T{ lf-level-table htab-count levels-then > lf-cref-table htab-count crefs-then - -> true 1 }T
+T{ lf-input-rollback lf-level-table htab-count lf-cref-table htab-count
+   -> outcome-ok levels-then crefs-then }T
 \ The name bytes are part of the input: with fewer in use than when
 \ loading ended, it is not intact.
 lf-name-used @ 1- lf-name-used !

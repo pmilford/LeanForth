@@ -300,7 +300,13 @@ create lf-name-viewed-ops /lf-nops allot
 : lf-name-attach ( input -- outcome )
   lf-name-unview dup lf-name-tier tier-extend dup ok?
   if drop lf-name-viewing outcome-ok else nip lf-name-tier tier-free then ;
-: lf-name-detach ( -- ) lf-name-unview ;
+\ Detaching also runs lf-name-detach-hook ( -- ), which import/feed.fs
+\ sets while loading to end a term view of the same stage (core/terms.fs,
+\ compact-store plan step S5), so that a caller that detaches the names
+\ before freeing the stage leaves nothing that reads it.
+defer lf-name-detach-hook ( -- )
+:noname ( -- ) ; is lf-name-detach-hook
+: lf-name-detach ( -- ) lf-name-unview lf-name-detach-hook ;
 
 \ Intern a numeric component; invalid input changes nothing.
 : lf-name-num-args? ( prefix number -- flag )

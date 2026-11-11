@@ -434,6 +434,14 @@ lf-memo-on lf-audit-memo!
 T{ cmp-fuel cmp-fuel -> 26 30 }T
 99 lf-lscope-context-add must
 T{ cmp-fuel cmp-fuel -> 26 30 }T
+\ A parameter context whose count is corrupted is never trusted from the
+\ memo: the kept roots are walked again, and the walk refuses them
+\ (review rvS4 L1).
+lf-lscope-context-count @ constant ctx-count
+lf-lscope-ids slab-capacity 1+ lf-lscope-context-count !
+T{ mu+1 m1 30 lf-level-compare ok? -> false }T
+ctx-count lf-lscope-context-count !
+T{ cmp-fuel -> 30 }T
 create memo-mark /store-mark allot
 : memo-pair ( -- a b ) u-id @ param succ u-id @ param succ ;
 : pair-fuel ( a b -- fuel ) 30 lf-level-compare drop lf-lcmp-fuel @ ;
