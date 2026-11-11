@@ -272,7 +272,8 @@ defer lf-dq-known-same? ( t s -- flag )
   dup lf-dq-tag lf-tag-app = if dup lf-let? swap lf-dq-proj? or 0= else drop false then ;
 : lf-dq-apps? ( t s -- flag ) lf-dq-app? swap lf-dq-app? and ;
 : lf-dq-both? ( t s tag -- flag ) tuck swap lf-dq-tag = -rot swap lf-dq-tag = and ;
-: lf-dq-fn ( node -- fn n ) 0 begin over lf-dq-app? while 1+ swap lf-term-first@ swap repeat ;
+: lf-dq-fn ( node -- fn n )
+  0 begin over lf-dq-app? while 1+ swap lf-term-first@ swap repeat ;
 : lf-dq-head ( node -- fn ) lf-dq-fn drop ;
 : lf-dq-count ( node -- n ) lf-dq-fn nip ;
 

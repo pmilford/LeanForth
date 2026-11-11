@@ -632,8 +632,10 @@ defer lf-whnf-entry ( node frames -- ... frames next )
 \ else whnf.
 : lf-wc-full-entry ( node frames -- ... frames next ) false lf-whnf-mode lf-wc-entry ;
 : lf-wc-cheap-entry ( node frames -- ... frames next ) true lf-whnf-mode lf-wc-entry ;
-: lf-whnf-core-call ( node frames cont -- ... frames next ) ['] lf-wc-full-entry lf-whnf-open ;
-: lf-whnf-cheap-call ( node frames cont -- ... frames next ) ['] lf-wc-cheap-entry lf-whnf-open ;
+: lf-whnf-core-call ( node frames cont -- ... frames next )
+  ['] lf-wc-full-entry lf-whnf-open ;
+: lf-whnf-cheap-call ( node frames cont -- ... frames next )
+  ['] lf-wc-cheap-entry lf-whnf-open ;
 : lf-whnf-call ( node frames cont -- ... frames next ) ['] lf-whnf-entry lf-whnf-open ;
 : lf-whnf-proj-call ( node frames cont -- ... frames next )
   lf-whnf-cheap? if lf-wc-call else lf-whnf-call then ;
