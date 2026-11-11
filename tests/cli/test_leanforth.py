@@ -2149,5 +2149,105 @@ class Imports(unittest.TestCase):
         self.assertEqual(status, 4)
 
 
+class Layers(unittest.TestCase):
+    """Layered snapshots (ADR 0020 amendment 1, F5; plan step SN4): check
+    --snapshot BASE --save-snapshot LAYER EXPORT writes only what the run
+    added to BASE, with BASE's identity; --snapshot BASE --snapshot LAYER
+    ... loads them in order: base and layer report what base and the
+    dependent export checked against it did; two layers written on one
+    base load together, sharing what both hold; a layer on another base, a
+    layer given first, and a name two layers declare with other content are
+    refused."""
+
+    def setUp(self):
+        self.dir = Path(tempfile.mkdtemp(prefix="leanforth-layers-"))
+        self.base = self.dir / "base.lfsnap"
+        self.assertEqual(run("check", "--save-snapshot", str(self.base), INDUCTIVE)[0], 0)
+
+    def tearDown(self):
+        shutil.rmtree(self.dir)
+
+    def layer(self, name, *args):
+        path = self.dir / name
+        status, got, _ = report("--snapshot", str(self.base), "--save-snapshot", str(path),
+                                *args)
+        self.assertTrue(path.exists(), (status, args))
+        return path, got
+
+    def test_layer_as_its_run(self):
+        layer, got = self.layer("dependent.lfsnap", DEPENDENT)
+        data, table = sectioned(layer)
+        base, _ = sectioned(self.base)
+        self.assertEqual((u32(data, 24 + 4 * 7), data[56:88]),
+                         (1, hashlib.sha256(bytes(base[:4064])).digest()))
+        self.assertEqual(table[SLOTS][2], 7)          # Eq's block, rfl and the three new ones
+        status, loaded, _ = report("--snapshot", str(self.base), "--snapshot", str(layer))
+        self.assertEqual(Imports.schema.errors(loaded), [])
+        def fields(report):
+            return {d["name"]: {k: v for k, v in d.items() if k not in ("index", "provenance")}
+                    for d in report["declarations"]}
+        self.assertEqual(fields(loaded), fields(got))
+        self.assertEqual({d["provenance"] for d in loaded["declarations"]}, {"snapshot"})
+        again, imported, _ = report("--snapshot", str(self.base), "--snapshot", str(layer),
+                                    DEPENDENT)
+        keys = ("schemaVersion", "measured", "mode", "snapshot", "input")
+        self.assertEqual((again, Snapshots.plain(imported, keys)),
+                         (status, Snapshots.plain(got, keys)))
+        self.assertEqual(imported["snapshot"]["import"]["checked"], 0)
+
+    def test_siblings(self):
+        one, _ = self.layer("dependent.lfsnap", DEPENDENT)
+        two, sib = self.layer("sibling.lfsnap", SIBLING)
+        status, got, _ = report("--snapshot", str(self.base), "--snapshot", str(one),
+                                "--snapshot", str(two))
+        names = [d["name"] for d in got["declarations"]]
+        self.assertEqual((status, len(names), len(set(names))), (0, 15, 15))
+        self.assertEqual(names[-2:], ["Two.swap_first", "Two.swap_second"])
+        status, both, _ = report("--snapshot", str(self.base), "--snapshot", str(two),
+                                 "--snapshot", str(one), SIBLING)
+        self.assertEqual((status, both["snapshot"]["import"]["checked"]), (0, 0))
+
+    def test_refused(self):
+        one, _ = self.layer("dependent.lfsnap", DEPENDENT)
+        other = self.dir / "other.lfsnap"
+        run("check", "--save-snapshot", str(other), DEPENDENT)
+        clash, _ = self.layer("clash.lfsnap", *Imports.edited(
+            self, swapped_minors(records(DEPENDENT), "swap_swap"), "altered.ndjson"))
+        for args, why in [
+                ([one, self.base], "unsupported: the snapshot was refused: layer"),
+                ([other, one], "invalid: the snapshot was refused: base snapshot of the layer"),
+                ([self.base, one, clash], "invalid: the snapshot was refused: a name of two "
+                                          "snapshots with other content (record 5)")]:
+            options = [x for path in args for x in ("--snapshot", str(path))]
+            status, out, _ = run("check", *options)
+            self.assertEqual((status, out.splitlines()[0]), (2 if "unsupported" in why else 4,
+                                                             f"error: {why}"), args)
+            status, got, _ = report(*options)
+            self.assertEqual(got["declarations"], [], args)
+        status, out, _ = run("check", "--snapshot", str(self.base), "--snapshot", str(one),
+                             "--save-snapshot", str(self.dir / "x"), DEPENDENT)
+        self.assertEqual((status, out.splitlines()[0]),
+                         (4, "error: --save-snapshot writes a layer on one snapshot only"))
+        # The base with another information text: the same records and
+        # counts, another identity.
+        data, table = sectioned(self.base)
+        _, _, _, info, length = table[16]
+        data[info + length - 2] ^= 0x20
+        renamed = self.dir / "renamed.lfsnap"
+        renamed.write_bytes(bytes(resealed(data, table, 16)))
+        status, out, _ = run("check", "--snapshot", str(renamed), "--snapshot", str(one))
+        self.assertEqual((status, out.splitlines()[0]), (4, "error: invalid: the snapshot was "
+                         "refused: base snapshot of the layer"))
+        # Eq's block, which both layers hold, with another fuel in one.
+        two, _ = self.layer("sibling.lfsnap", SIBLING)
+        data, table = sectioned(two)
+        put32(data, table[SLOTS][3] + 4 * 7, u32(data, table[SLOTS][3] + 4 * 7) + 1)
+        two.write_bytes(bytes(resealed(data, table, SLOTS)))
+        status, out, _ = run("check", "--snapshot", str(self.base), "--snapshot", str(one),
+                             "--snapshot", str(two))
+        self.assertEqual((status, out.splitlines()[0]), (4, "error: invalid: the snapshot was "
+                         "refused: a declaration of two snapshots with other verdicts (record 0)"))
+
+
 if __name__ == "__main__":
     unittest.main()

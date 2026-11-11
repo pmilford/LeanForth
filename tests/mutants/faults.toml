@@ -8596,3 +8596,46 @@ new = ''''''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
 reason = "SN4: a member the snapshot published with its block's first is taken alone, when that first is checked here"
 equivalent = "defence in depth: first-taken? already keeps back a member whose block's first was not taken here, and a first taken with its span publishes the member with it"
+
+# --- layered snapshots (ADR 0020 amendment 1, F5; plan step SN4;
+# src/kernel/env-layers.fs, src/import/snapshot-layer.fs)
+
+[[fault]]
+id = "sn4-layer-any-base"
+file = "src/kernel/env-snapshot.fs"
+old = '''  sh-layers over head@ 1 = swap dup snap-expect @ sh-base rot sum-head? and ;'''
+new = '''  sh-layers swap head@ 1 = ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
+reason = "SN4: a layer written on another base loads on this one (its records numbered against other counts)"
+
+[[fault]]
+id = "sn4-layer-clash-entered"
+file = "src/kernel/env-layers.fs"
+old = '''  if drop c" a name of two snapshots with other content" swap lay-refuse exit then'''
+new = '''  if drop lay-enter exit then'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
+reason = "SN4: a name two snapshots declare with other content is loaded twice, which Lean refuses as an import clash"
+
+[[fault]]
+id = "sn4-layer-verdicts-uncompared"
+file = "src/kernel/env-layers.fs"
+old = '''  swap >r true r> 0 ?do 3 pick i + 3 pick i + 3 pick verdict-same? and loop nip nip nip ;'''
+new = '''  2drop 2drop true ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
+reason = "SN4: a declaration two layers hold is loaded once though their verdicts differ"
+
+[[fault]]
+id = "sn4-layer-shared-twice"
+file = "src/kernel/env-layers.fs"
+old = '''  over 0< 0= if drop swap lay-same exit then'''
+new = '''  over 0< 0= if 2drop lay-enter exit then'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
+reason = "SN4: what two sibling layers both hold is entered twice, so its name has two usable declarations"
+
+[[fault]]
+id = "sn4-layer-deps-unsorted"
+file = "src/kernel/env-snapshot.fs"
+old = '''  loop 2drop 2r> swap dep-sort ;'''
+new = '''  loop 2drop 2r> 2drop ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
+reason = "SN4: a layer's dependencies written in the order of the run's slots, not ascending as numbered in the layer"
