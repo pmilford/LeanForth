@@ -5,6 +5,7 @@
 \ is in print-cases.golden (check_golden.py).
 include ../support/heap-watch.fs
 require ./build.fs
+require ../support/store-faults.fs
 
 variable t1   variable t2   variable t3
 
@@ -87,7 +88,7 @@ T{ t1 @ fuel lf-print-term -> outcome-ok }T
 \ A stale constant reference, a corrupted tag and a level parameter that
 \ is not a name are invalid.
 T{ args{ s" k" t-const t2 ! lf-cref-reset t2 @ fuel lf-print-term -> outcome-invalid }T
-T{ t-prop t3 ! 99 t3 @ lf-term-slot node-tag ! t3 @ fuel lf-print-term -> outcome-invalid
+T{ t-prop t3 ! 99 t3 @ term-tag! t3 @ fuel lf-print-term -> outcome-invalid
   }T
 T{ 999 lf-level-param must ssort fuel lf-print-term -> outcome-invalid }T
 
@@ -348,6 +349,6 @@ T{ s\" a_b\\{}~ c" t-str
    s\" \\texttt{\"a\\_b\\textbackslash{}\\textbackslash{}\\{\\}\\textasciitilde{} c\"}"
    shows -> }T
 0 mode
-T{ s\" \xc3\xa9" t-str t1 ! 1 t1 @ lf-term-slot node-second ! t1 @ fuel lf-print-term
+T{ s\" \xc3\xa9" t-str t1 ! 1 t1 @ term-second! t1 @ fuel lf-print-term
    -> outcome-invalid }T
 bye

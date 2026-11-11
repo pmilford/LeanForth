@@ -6,6 +6,7 @@ require ../../src/core/levels.fs
 require ../../src/core/symbolic-session.fs
 require ../../src/core/tagged-sort-boundary.fs
 require ../../src/core/terms.fs
+require ../support/store-faults.fs
 
 \ A session can start only with an empty term arena. New terms and levels
 \ may then be allocated without invalidating the snapshot.
@@ -78,18 +79,18 @@ T{ 6 100 lf-ssession-check -> outcome-invalid }T
 T{ 7 100 lf-ssession-check -> outcome-invalid }T
 
 \ Corrupted tags, reserved fields, child links and level nodes fail closed.
-99 0 lf-term-slot !
+99 0 term-tag!
 T{ 0 100 lf-ssession-check -> outcome-invalid }T
-lf-tag-symbolic-sort 0 lf-term-slot !
-1 0 lf-term-slot 2 cells + !
+lf-tag-symbolic-sort 0 term-tag!
+1 0 term-second!
 T{ 0 100 lf-ssession-check -> outcome-invalid }T
-0 0 lf-term-slot 2 cells + !
-4 4 lf-term-slot cell+ !
+0 0 term-second!
+4 4 term-first!
 T{ 4 100 lf-ssession-check -> outcome-invalid }T
-0 4 lf-term-slot cell+ !
-1 0 lf-level-slot cell+ !
+0 4 term-first!
+1 0 level-first!
 T{ 0 100 lf-ssession-check -> outcome-invalid }T
-0 0 lf-level-slot cell+ !
+0 0 level-first!
 T{ 0 100 lf-ssession-check -> outcome-ok }T
 
 \ A valid shared DAG requires fuel across term and level traversals. Checks

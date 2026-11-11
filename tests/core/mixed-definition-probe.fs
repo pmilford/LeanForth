@@ -14,6 +14,7 @@ require ../../src/core/terms.fs
 require ../../src/kernel/mixed-definition-probe.fs
 require ../../src/kernel/mixed-infer.fs
 require ../../src/kernel/mixed-signature-probe.fs
+require ../support/store-faults.fs
 
 \ Helpers adapted from mixed-convert.fs and mixed-signature-audit.fs.
 create ids 64 cells allot
@@ -30,13 +31,13 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
 : new-name ( addr len -- id ) 0 -rot lf-name-str 0= abort" name" ;
 : snapshot ( -- )
   lf-term-count @ terms-before ! lf-level-count @ levels-before !
-  lf-cref-count @ crefs-before ! lf-term-serial @ term-serial-before !
-  lf-level-serial @ level-serial-before ! lf-cref-serial @ cref-serial-before ! ;
+  lf-cref-count @ crefs-before ! term-serial term-serial-before !
+  level-serial level-serial-before ! lf-cref-serial @ cref-serial-before ! ;
 : counts-unchanged? ( -- flag )
   lf-term-count @ terms-before @ = lf-level-count @ levels-before @ = and
   lf-cref-count @ crefs-before @ = and ;
 : serials-unchanged? ( -- flag )
-  lf-term-serial @ term-serial-before @ = lf-level-serial @ level-serial-before @ = and
+  term-serial term-serial-before @ = level-serial level-serial-before @ = and
   lf-cref-serial @ cref-serial-before @ = and ;
 : infer ( root fuel -- type identity status )
   >r h token @ -rot r> ['] lf-mixed-infer rs-checked ;
@@ -97,7 +98,7 @@ T{ statuses -> outcome-ok outcome-invalid outcome-exhausted outcome-unknown }T
 : basic-case ( -- )
   setup snapshot 4 9 50000 probe outcome-ok expect-status assert-rollback
   lf-mdefinition-fuel @ 49879 <> abort" success fuel"
-  lf-term-serial @ term-serial-before @ <= abort" expected allocations"
+  term-serial term-serial-before @ <= abort" expected allocations"
   snapshot 0 10 50000 probe outcome-rejected expect-status assert-rollback
   lf-mdefinition-fuel @ 0<> abort" rejected fuel"
   lf-diag-argument-apart rejected-code? 0= abort" D1 in the value"
@@ -130,8 +131,8 @@ variable other-name variable value-name
   lf-cterm-new save
   lf-term-count @ 1- snapshot 0 swap 50000 probe outcome-unknown expect-status
   assert-rollback lf-mdefinition-fuel @ 0<> abort" unknown fuel"
-  lf-term-serial @ term-serial-before @ <= abort" no term allocation"
-  lf-level-serial @ level-serial-before @ <= abort" no level allocation"
+  term-serial term-serial-before @ <= abort" no term allocation"
+  level-serial level-serial-before @ <= abort" no level allocation"
   lf-cref-serial @ cref-serial-before @ <= abort" no reference allocation" ;
 : distinct-case ( -- )
   setup s" other" new-name other-name ! s" value" new-name value-name !
@@ -179,11 +180,11 @@ create two-u-args 4 cells allot
 : future-handle-case ( -- )
   \ A forged future identity would become live after the first allocation if
   \ the second source or later index record were checked too late.
-  setup snapshot token @ 4 h lf-term-count @ lf-term-serial @ 1+ 50000
+  setup snapshot token @ 4 h lf-term-count @ term-serial 1+ 50000
   lf-mixed-definition-probe outcome-invalid expect-status
   assert-rollback serials-unchanged? 0= abort" future value allocated"
   setup lf-term-count @ 1 cells lf-msp-roots + !
-  lf-term-serial @ 1+ 1 cells lf-msp-ids + ! snapshot
+  term-serial 1+ 1 cells lf-msp-ids + ! snapshot
   4 9 50000 probe outcome-invalid expect-status
   assert-rollback serials-unchanged? 0= abort" future index allocated" ;
 variable saw-exhaustion variable saw-success variable saw-partial
@@ -222,13 +223,13 @@ variable saw-invalid
 : corrupt-node-case ( -- )
   \ A raw corrupted tag, or a node that is its own child, in the claim (node
   \ 3) or the value (node 7) is invalid; restored, the pair checks again.
-  setup 3 lf-term-slot @ 99 3 lf-term-slot !
+  setup 3 lf-term-tag@ 99 3 term-tag!
   snapshot 4 9 50000 probe outcome-invalid expect-status assert-rollback
-  3 lf-term-slot ! 7 lf-term-slot cell+ @ 7 7 lf-term-slot cell+ !
+  3 term-tag! 7 lf-term-first@ 7 7 term-first!
   snapshot 4 9 50000 probe outcome-invalid expect-status assert-rollback
-  7 lf-term-slot cell+ ! 3 lf-term-slot cell+ @ 3 3 lf-term-slot cell+ !
+  7 term-first! 3 lf-term-first@ 3 3 term-first!
   snapshot 4 9 50000 probe outcome-invalid expect-status assert-rollback
-  3 lf-term-slot cell+ !
+  3 term-first!
   snapshot 4 9 50000 probe outcome-ok expect-status assert-rollback ;
 : stale-value-non-type-case ( -- )
   \ A lambda claim with a stale value: invalid before any allocation.

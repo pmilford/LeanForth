@@ -10,6 +10,7 @@ require ../../src/core/names.fs
 require ../../src/core/symbolic-session.fs
 require ../../src/core/tagged-sort-boundary.fs
 require ../../src/core/terms.fs
+require ../support/store-faults.fs
 
 variable rid variable rindex variable cid variable sid variable bid variable aid variable lid variable pid
 create args 2 cells allot
@@ -33,18 +34,18 @@ T{ 5 pid @ 1 lf-cterm-check -> outcome-exhausted }T
 T{ 0 rid @ 1+ lf-cterm-new -> false }T
 \ Malformed child, payload, tag and unstamped raw constant fail closed.
 variable saved-child
-5 lf-term-slot cell+ @ saved-child ! 5 5 lf-term-slot cell+ !
+5 lf-term-first@ saved-child ! 5 5 term-first!
 T{ 5 pid @ 100 lf-cterm-check -> outcome-invalid }T
-saved-child @ 5 lf-term-slot cell+ !
-2 lf-term-slot 2 cells + 1 swap !
+saved-child @ 5 term-first!
+1 2 term-second!
 T{ 5 pid @ 100 lf-cterm-check -> outcome-invalid }T
-0 2 lf-term-slot 2 cells + !
-99 2 lf-term-slot !
+0 2 term-second!
+99 2 term-tag!
 T{ 5 pid @ 100 lf-cterm-check -> outcome-invalid }T
-lf-tag-bvar 2 lf-term-slot !
+lf-tag-bvar 2 term-tag!
 : raw-constant ( -- ) lf-tag-constant 0 rid @ lf-term-add 0= abort" raw" drop ;
 raw-constant
-T{ 6 lf-term-identities 6 cells + @ 10 lf-cterm-check -> outcome-invalid }T
+T{ 6 6 term-identity@ 10 lf-cterm-check -> outcome-invalid }T
 \ Reusing a reference slot never revives the captured reference.
 lf-cref-reset
 : reuse-cref ( -- ) 0 lf-name-generation @ 0 0 lf-cref-new 0= abort" reuse cref" 2drop ;
@@ -102,10 +103,10 @@ T{ lf-ssession-begin -> true }T
 rindex @ rid @ lf-cterm-new drop cid ! drop
 T{ 0 sid @ 2 lf-cterm-check -> outcome-ok }T
 T{ 1 cid @ 2 lf-cterm-check -> outcome-ok }T
-1 lf-level-slot 2 cells + 1 swap !
+1 1 level-second!
 T{ 0 sid @ 10 lf-cterm-check -> outcome-invalid }T
 T{ 1 cid @ 10 lf-cterm-check -> outcome-invalid }T
-0 1 lf-level-slot 2 cells + !
+0 1 level-second!
 \ Reusing the level slot invalidates both captured identities without a reset.
 1 lf-level-count !
 : reuse-level ( -- ) 42 lf-hlevel-param 0= abort" reuse level" 2drop ;
@@ -121,7 +122,7 @@ fresh
 0 lf-term-count !
 : raw-reuse ( -- ) lf-tag-constant 0 rid @ lf-term-add 0= abort" raw reuse" drop ;
 raw-reuse
-T{ 0 lf-term-identities @ 10 lf-cterm-check -> outcome-invalid }T
+T{ 0 0 term-identity@ 10 lf-cterm-check -> outcome-invalid }T
 T{ 0 cid @ 10 lf-cterm-check -> outcome-invalid }T
 \ The fuel a check leaves, which seven kernel callers continue with:
 \ what remains on success, zero on exhaustion, the given fuel for an
@@ -155,7 +156,7 @@ variable stray  variable oks  variable fulls
   65 -1 do 13 -1 do j cterm-identity i cterm-try j 77 i cterm-try loop loop ;
 0 stray !  0 oks !  0 fulls !  0 dup lf-term-identity drop lf-cterm-stamp  cterm-sweep
 T{ stray @ oks @ 0> -> 0 true }T
-99 3 lf-term-slot !  -5 4 lf-term-slot cell+ !  cterm-sweep
+99 3 term-tag!  -5 4 term-first!  cterm-sweep
 lf-cref-reset cterm-sweep  lf-level-reset cterm-sweep
 T{ stray @ fulls @ -> 0 0 }T
 \ The predicate itself: those four pass, nothing else.

@@ -16,6 +16,7 @@ require ../../src/core/tagged-sort-boundary.fs
 require ../../src/core/terms.fs
 require ../../src/kernel/level-substitute.fs
 require ../../src/kernel/mixed-level-substitute.fs
+require ../support/store-faults.fs
 
 \ Level scope. Levels: 1 = param 1, 2 = succ 1, 3 = max 2 1, 4 = param 2.
 \ Root 3 visits 3, 1, 2, 1: four units. Parameter 2 is not in the context.
@@ -92,13 +93,13 @@ T{ 2 term-app-id 1+ 30 lf-hterm-check -> outcome-invalid }T
 create mls-formals 1 ,
 create mls-actuals 0 , 0 lf-level-identity drop ,
 T{ 2 term-app-id @ mls-formals mls-actuals 1 30 lf-mixed-level-substitute
-   rot drop lf-mls-fuel @ -> lf-term-serial @ outcome-ok 16 }T
+   rot drop lf-mls-fuel @ -> term-serial outcome-ok 16 }T
 T{ 2 term-app-id @ mls-formals mls-actuals 1 14 lf-mixed-level-substitute
-   rot drop lf-mls-fuel @ -> lf-term-serial @ outcome-ok 0 }T
+   rot drop lf-mls-fuel @ -> term-serial outcome-ok 0 }T
 T{ 2 term-app-id @ mls-formals mls-actuals 1 13 lf-mixed-level-substitute
    lf-mls-fuel @ -> outcome-exhausted 0 }T
 T{ 2 term-app-id @ mls-formals mls-actuals 1 30 ' lf-mixed-level-substitute rs-checked
-   rot drop -> lf-term-serial @ outcome-ok }T
+   rot drop -> term-serial outcome-ok }T
 T{ 2 mls-formals 1 30 lf-mls-audit-formals -> 25 outcome-ok }T
 \ The substitution walks its own record, not the handle audit's stack.
 0 lf-href-walker walk-pending !  9 lf-href-walker walk-push drop

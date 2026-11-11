@@ -8,6 +8,7 @@ include ../support/checks.fs
 require ../../src/main.fs
 include ../support/plain-terms.fs
 include ../support/plain-cases.fs
+require ../support/store-faults.fs
 
 : infer ( root -- type identity status ) >r empty-token r> handle 50000 lf-mixed-infer ;
 : inferred ( root -- type ) infer ok? must drop ;
@@ -86,9 +87,9 @@ variable earlier variable earlier-id variable token variable before-serial
 : crowded ( room -- root ) >r build-composition keep-earlier r> fill-terms ;
 T{ 0 crowded save-counts status-of counts-kept? earlier-ok?
   -> outcome-full true true }T
-2 crowded sweep-root ! save-counts lf-term-serial @ before-serial !
+2 crowded sweep-root ! save-counts term-serial before-serial !
 T{ sweep-root @ status-of counts-kept? earlier-ok? -> outcome-full true true }T
-T{ lf-term-serial @ before-serial @ > -> true }T
+T{ term-serial before-serial @ > -> true }T
 0 make-var drop
 T{ saved-terms @ before-serial @ 1+ lf-hterm-valid? -> false }T
 T{ fresh-session keep-earlier 0 make-sort fill-levels save-counts status-of counts-kept?
@@ -238,7 +239,7 @@ T{ 0 make-sort 0 make-var make-lam 0 make-sort convert-terms -> outcome-unknown 
 \ T1.3 (last, because a spent serial poisons the level store): when the
 \ level serial is spent, inferring Sort 0 is full and keeps the counts.
 fresh-session keep-earlier 0 make-sort sweep-root ! save-counts
-lf-level-serial @ max-n lf-level-serial !
+level-serial max-n level-serial!
 T{ sweep-root @ status-of counts-kept? earlier-ok? -> outcome-full true true }T
-lf-level-serial !
+level-serial!
 bye

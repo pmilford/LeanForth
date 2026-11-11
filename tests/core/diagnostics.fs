@@ -17,6 +17,7 @@ require ../../src/kernel/mixed-definition-probe.fs
 include ../support/plain-terms.fs
 include ../support/plain-cases.fs
 include ../support/checker-trial.fs
+require ../support/store-faults.fs
 
 : begin-check ( -- ) context-new throw context-use fresh-session open-index ;
 : end-check ( -- ) lf-context @ context-main context-use context-free throw ;
@@ -72,7 +73,7 @@ begin-check fill-terms lf-diag-clear
 T{ 0 lf-term-bvar diag -> false 64 64 lf-diag-terms-full }T
 T{ s" terms lf-term-add" at? -> true }T
 end-check
-begin-check lf-term-reset max-n lf-term-serial ! lf-diag-clear
+begin-check lf-term-reset max-n term-serial! lf-diag-clear
 T{ 0 lf-term-bvar diag -> false max-n 1 lf-diag-serial-spent }T
 end-check
 begin-check -1 lf-term-count ! lf-diag-clear
@@ -277,7 +278,7 @@ begin-check succ-u fill-levels lf-diag-clear
 T{ substitute-u diag -> outcome-full 64 64 lf-diag-levels-full }T
 T{ s" level-substitute lf-lsubst" at? -> true }T
 end-check
-begin-check succ-u max-n lf-level-serial ! lf-diag-clear
+begin-check succ-u max-n level-serial! lf-diag-clear
 T{ substitute-u diag -> outcome-full max-n 1 lf-diag-serial-spent }T
 end-check
 \ A rebuilding pass that fills the term store is explained by the store.

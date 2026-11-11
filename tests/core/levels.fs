@@ -2,6 +2,7 @@
 include ../support/tester.fs
 require ../../src/lib/lib.fs
 require ../../src/core/levels.fs
+require ../support/store-faults.fs
 
 \ Zero, parameters and operations retain distinct syntax and child order.
 lf-level-reset
@@ -65,7 +66,7 @@ T{ 1 lf-level-read -> false }T
 
 \ Each reset gives the zero level a fresh identity and advances the
 \ generation; identities are never reused.
-lf-level-serial @ constant level-serial0
+level-serial constant level-serial0
 lf-level-generation @ constant level-generation0
 T{ 0 lf-level-identity -> level-serial0 true }T
 T{ 1 lf-level-param -> 1 true }T
@@ -76,24 +77,24 @@ T{ lf-level-generation @ -> level-generation0 1+ }T
 T{ 1 lf-level-identity -> false }T
 
 \ A spent serial at reset poisons the store instead of reusing an identity.
-max-n lf-level-serial !
+max-n level-serial!
 lf-level-reset
 T{ lf-level-count @ lf-level-generation @ -> 0 -1 }T
 T{ 0 lf-level-read -> false }T
 T{ 1 lf-level-param -> false }T
-0 lf-level-serial !
+0 level-serial!
 0 lf-level-generation !
 lf-level-reset
 T{ lf-level-count @ 0 lf-level-read -> 1 lf-level-tag-zero 0 0 true }T
 
 \ Failed constructors leave the serial unchanged; identities are unreadable
 \ under a corrupted count.
-lf-level-serial @ constant level-serial1
+level-serial constant level-serial1
 T{ 0 0 99 lf-level-binary -> false }T
 T{ 5 0 lf-level-max -> false }T
 T{ 5 0 99 lf-level-binary -> false }T
 T{ 0 lf-level-param -> false }T
-T{ lf-level-serial @ lf-level-count @ -> level-serial1 1 }T
+T{ level-serial lf-level-count @ -> level-serial1 1 }T
 -1 lf-level-count !
 T{ 0 lf-level-identity -> false }T
 1 lf-level-count !

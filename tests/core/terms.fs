@@ -3,6 +3,7 @@
 include ../support/tester.fs
 require ../../src/lib/lib.fs
 require ../../src/core/terms.fs
+require ../support/store-faults.fs
 
 lf-term-reset
 T{ 0 lf-term-sort -> 0 true }T
@@ -77,7 +78,7 @@ T{ lf-term-count @ -> lf-term-capacity 1+ }T
 \ Identities are fresh for each allocation and never reused after a reset;
 \ each reset advances the generation by one. Handles rely on both.
 lf-term-reset
-lf-term-serial @ constant term-serial0
+term-serial constant term-serial0
 lf-term-generation @ constant term-generation0
 T{ 0 lf-term-sort -> 0 true }T
 T{ 0 lf-term-identity -> term-serial0 1+ true }T
@@ -90,15 +91,15 @@ T{ 0 lf-term-bvar -> 0 true }T
 T{ 0 lf-term-identity -> term-serial0 2 + true }T
 
 \ A spent identity serial refuses every constructor and changes nothing.
-max-n lf-term-serial !
+max-n term-serial!
 T{ 0 lf-term-sort -> false }T
 T{ 0 0 lf-term-app -> false }T
-T{ lf-term-count @ lf-term-serial @ -> 1 max-n }T
+T{ lf-term-count @ term-serial -> 1 max-n }T
 T{ 0 lf-term-read -> lf-tag-bvar 0 0 true }T
 
 \ A saturated generation poisons the store: nothing is readable or allocated,
 \ and further resets do not revive it.
-0 lf-term-serial !
+0 term-serial!
 max-n lf-term-generation !
 lf-term-reset
 T{ lf-term-generation @ lf-term-count-valid? -> -1 false }T
@@ -116,12 +117,12 @@ T{ 0 99 lf-term-leaf -> false }T
 T{ 0 lf-tag-bvar lf-term-leaf -> 0 true }T
 
 \ Failed constructors leave the serial and count unchanged.
-lf-term-serial @ constant term-serial1
+term-serial constant term-serial1
 T{ 0 0 99 lf-term-binary -> false }T
 T{ 0 5 lf-term-app -> false }T
 T{ 5 0 99 lf-term-binary -> false }T
 T{ -1 lf-term-sort -> false }T
-T{ lf-term-serial @ lf-term-count @ -> term-serial1 1 }T
+T{ term-serial lf-term-count @ -> term-serial1 1 }T
 
 \ Identities are unreadable under a corrupted count.
 -1 lf-term-count !
@@ -141,7 +142,7 @@ lf-term-reset
 T{ lf-term-capacity lf-term-default -> 64 64 }T
 T{ 999 lf-term-capacity! lf-term-capacity -> outcome-ok 999 }T
 : fill-to ( n -- ) begin lf-term-count @ over < while 7 lf-term-bvar 2drop repeat drop ;
-lf-term-serial @ constant serial0
+term-serial constant serial0
 T{ 300 fill-to lf-term-count @ lf-terms store-capacity @ 299 lf-term-read -> 300 512
    lf-tag-bvar 7 0 true }T
 T{ 0 lf-term-identity 299 lf-term-identity -> serial0 1+ true serial0 300 + true }T

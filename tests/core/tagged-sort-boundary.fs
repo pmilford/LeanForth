@@ -3,6 +3,7 @@
 include ../support/tester.fs
 require ../../src/core/tagged-sort-boundary.fs
 require ../../src/core/terms.fs
+require ../support/store-faults.fs
 
 lf-term-reset
 T{ 1 lf-term-sort -> 0 true }T
@@ -75,25 +76,25 @@ T{ 17 lf-repr-symbolic 2 lf-repr-check -> outcome-ok }T
 
 \ Malformed leaf fields, cycles and forward references fail closed. Unrelated
 \ corrupt nodes do not change the result for an otherwise valid root.
-7 1 lf-term-slot 2 cells + !
+7 1 term-second!
 T{ 1 lf-repr-symbolic 10 lf-repr-check -> outcome-invalid }T
 T{ 0 lf-repr-concrete 10 lf-repr-check -> outcome-ok }T
-0 1 lf-term-slot 2 cells + !
-99 1 lf-term-slot !
+0 1 term-second!
+99 1 term-tag!
 T{ 777 1 lf-repr-symbolic 10 lf-repr-check -> 777 outcome-invalid }T
-lf-tag-symbolic-sort 1 lf-term-slot !
--1 1 lf-term-slot cell+ !
+lf-tag-symbolic-sort 1 term-tag!
+-1 1 term-first!
 T{ 1 lf-repr-symbolic 10 lf-repr-check -> outcome-invalid }T
-1 1 lf-term-slot cell+ !
--1 2 lf-term-slot cell+ !
+1 1 term-first!
+-1 2 term-first!
 T{ 2 lf-repr-concrete 10 lf-repr-check -> outcome-invalid }T
-0 2 lf-term-slot cell+ !
-1 2 lf-term-slot 2 cells + !
+0 2 term-first!
+1 2 term-second!
 T{ 2 lf-repr-concrete 10 lf-repr-check -> outcome-invalid }T
-0 2 lf-term-slot 2 cells + !
-3 3 lf-term-slot cell+ !
+0 2 term-second!
+3 3 term-first!
 T{ 3 lf-repr-symbolic 10 lf-repr-check -> outcome-invalid }T
-4 3 lf-term-slot cell+ !
+4 3 term-first!
 T{ 3 lf-repr-symbolic 10 lf-repr-check -> outcome-invalid }T
 T{ 777 0 1 -1 10 lf-repr-check-pair -> 777 outcome-invalid }T
 T{ 777 0 1 lf-repr-symbolic -1 lf-repr-check-pair -> 777 outcome-invalid }T
