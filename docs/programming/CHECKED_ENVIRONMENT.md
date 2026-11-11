@@ -276,6 +276,21 @@ verdict comes from: `lf-origin-saved` (taken from a snapshot),
 `lf-origin-checked`. In a final environment the publisher refuses a
 saved candidate.
 
+**Dependent exports and layers** (`src/kernel/env-import.fs`,
+`src/kernel/env-layers.fs`, `src/import/snapshot-layer.fs`; plan step
+SN4, [ADR 0020's amendment
+2](../adr/0020-checked-snapshot.md#amendment-2-2026-11-11-step-sn4-dependent-exports-and-layers)).
+`imp-pass` takes from a snapshot, before any check, each input
+declaration for which the import rule I1 holds: the same staged content
+(a block whole), a reproducible verdict, and the same answer to every
+saved lookup, asked again with `lf-env-replay ( key -- flag )` in the
+declaration's snapshot (a query that meets a slot not final below it sets
+`lf-env-early?`: no match). A taken slot is published by `lf-env-step`
+with `imp-fill` as its check, provenance saved; the scheduler treats
+slots final before the run as done (`lf-sch-taken`). A layer holds what a
+run added to its base; `lay-load` merges it into the loaded base: equal
+declarations of equal verdicts once, a name of other content refused.
+
 ### The parallel scheduler (`src/kernel/env-schedule.fs`, plan task 7.3.1)
 
 `check --jobs N` ([command line](../user/COMMAND_LINE.md)) checks with N

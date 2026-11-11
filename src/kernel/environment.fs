@@ -51,8 +51,11 @@
 \ import can never match. Nothing reads the list back into a check: the
 \ verdicts do not change, except that a check whose list the heap cannot
 \ hold is published full. A test build (lf-env-i2-checks defined before
-\ loading) counts every slot a check reads through lf-env-readable that
-\ no recorded query answered (lf-i2-misses).
+\ loading) counts every slot a check reads through lf-env-readable, or
+\ reads directly after a query (generated-recursor.fs), that no recorded
+\ query answered (lf-i2-misses); a query's own reads are what its answer
+\ records. The import pass of a dependent export (env-import.fs, plan
+\ step SN4) asks a saved key's query again with lf-env-replay.
 \
 \ Handles (E3): (identity, d) of an accepted slot. In a snapshot
 \ (identity', i) one is valid only when identity = identity', d < i and

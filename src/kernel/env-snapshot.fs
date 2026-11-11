@@ -32,11 +32,13 @@
 \ (snap-version), 2 the verdict version (kernel/verdict-version.fs), 3-4
 \ the fuel per declaration, 5 the allowlist's version, 6 its bits, 7 the
 \ layers below this one (0: a base snapshot), 8-15 the base's identity (its
-\ header's SHA-256, 0 for none). A layered snapshot (plan steps SN4/SN5)
-\ holds only its own records and slots, numbered on from its base's
-\ counts (identity 21-28 and the slots' first number), and is loaded after
-\ its base: this step writes and reads base snapshots only, and refuses a
-\ layer as unsupported. Nothing a build derives is written: no hash table,
+\ header's SHA-256, 0 for none). A layer (plan step SN4; snap-layer-base!,
+\ snap-layer-slots!, snap-layer-decls!) holds only its own records and
+\ slots, numbered on from its base's counts (identity 21-28 and the slots'
+\ first number), field 7 1 (a layer on a base alone); it is opened with
+\ snap-layer-open on the base it names and merged into it by
+\ env-layers.fs. A layer given where a base is expected is refused as
+\ unsupported. Nothing a build derives is written: no hash table,
 \ address or hash value (ADR 0020 F1: lookup tables are rebuilt on load).
 \
 \ Writing (snap-save): after a run in which every slot became final, the
