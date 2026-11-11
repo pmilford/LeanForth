@@ -1727,7 +1727,32 @@ and U2 of a root with a data word cost nothing; every failure costs as
 before. A check needs less fuel, so only *exhausted* (or *unknown* for a
 dependency out of fuel) can become a decided verdict.
 
-**Evidence.** `make test` and `make check`. The first 1M lines of `Init`
+**Evidence.** `make test` and `make check`. On top of Amendment 3 (main
+3578de5 against the merge, `check --fast --no-manifest`, default fuel
+2,000,000): full `Init` 55,587 → 55,750 accepted, 27 → 16 exhausted,
+3,735 → 3,583 unknown; all 163 moves are to Lean's verdict (Lean accepts
+all of `Init`): 11 declarations that ran out of fuel and 152 that were
+unknown only through such a dependency are accepted, none moved away and
+no accepted declaration uses more fuel (list:
+`.claude/work/S6C/init-moves2.txt` of the agent's worktree); fuel
+1,187,033,444 → 791,610,006 (−33%); whole run's CPU 1,175 → 1,073 s
+(`gforth-fast`, a loaded machine); peak resident memory 1,072 → 1,051
+MB. The first 1M lines: 8,695 → 8,696 accepted, 6 → 5 exhausted
+(`Array.extract_append._proof_1_3` accepted), fuel 161,723,424 →
+109,613,586 (−32%), check CPU 147.9 → 147.7 s, peak memory 302 → 313 MB
+(the run's list of reached nodes). `Array.extract_append._proof_1_1`,
+which blocks most of `Init`'s remaining unknowns, with its dependencies
+alone (DX's cut, fuel 40M): 15,767,375 → 8,368,183 (Amendment 3's
+measurement put 6.3M of it in the per-comparison audits); still above
+the default 2,000,000. Over that cut the audits now take 5% of the fuel
+(633,132 of 12,531,033), `==` 6.5%, the level-scope checks of level
+comparison 4.8%. The 2,000 checker trials: `670bff75d128` →
+`056b65372109`, re-baselined; 1,989 trials differ, each trial's later
+random choices following the fuel left (ok 1,168,012 → 1,171,229,
+invalid 356,575 → 357,089, exhausted 474,875 → 467,820, unknown 405,130
+→ 407,009, rejected 90,014 → 91,459, full 4 → 4).
+
+Measured first on main b4c6935 (before Amendment 3). The first 1M lines of `Init`
 (`check --fast --no-manifest`, default fuel 2,000,000): 8,672 → 8,674
 accepted, 12 → 10 exhausted, 518 unknown, the two moves to Lean's verdict
 (`Array.extract_append._proof_1_2`,
@@ -1750,10 +1775,9 @@ before, accepted with 18,453,088 after (over its cut the audits' fuel
 `Array.extract_append_extract._proof_1_1` 17,824,836 → 10,787,727;
 `IterM.toList_filterMapWithPostcondition_filterMapWithPostcondition'`
 13,430,006 → 8,847,858; `Std.Iter.step_flatMapAfterM` 13,103,450 →
-8,300,367 (all still above the default 2,000,000: steps S6 (a), (e) and
-`==` below). The 2,000
+8,300,367 (all still above the default 2,000,000). The 2,000
 checker trials (`scripts/trial-digest.sh`): `902a42ce549d` →
-`f3019867dbc3`, re-baselined; 1,990 trials differ because each trial's
+`f3019867dbc3`; 1,989 trials differ because each trial's
 later random choices follow the fuel left (outcomes over all trials: ok
 1,166,038 → 1,169,256, invalid 356,574 → 357,087, exhausted 476,867 →
 469,809, unknown 405,110 → 406,991, rejected 90,017 → 91,463, full 4 →
@@ -1768,10 +1792,12 @@ nine earlier faults on the audits' code re-run, all caught.
 **Left.** Lean's `==` checks pointer identity at every pair, rejects at
 once on different hashes and caches pairs (`expr_eq_fn.cpp` 44-58);
 `lf-expr-equal` checks identity only at its roots and walks the rest (13-20%
-of the stuck roots' fuel, DX): a follow-up, as a structural hash needs room
-the 16-byte record lacks (a column or step S4's interning). Inference's
-cache key and argument closing (plan step S6 (a), (e)) are the rest of
-6.5.5.
+of the stuck roots' fuel before Amendment 3, DX; 6.5% of the cut above):
+a follow-up, as a structural hash needs room the 16-byte record lacks (a
+column or step S4's interning). The level-scope check that level
+comparison and level value run on both levels per call (4.8% of the cut)
+could keep its own memo per level node in the same way; levels are not
+hash-consed before step S4. `instantiate_lparams` per node is step S6 (b).
 
 ## Note: the projection steps (plan task 5.2.2, 2026-11-10)
 
