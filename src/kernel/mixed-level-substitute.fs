@@ -268,7 +268,8 @@ create lf-mls-set-hooks /htab-hooks allot
 : lf-mls-image ( node -- index outcome )
   dup lf-term-read if rot lf-mls-image-of else drop 0 outcome-invalid then ;
 : lf-mls-build-at ( i -- outcome )
-  dup lf-mls-node lf-mls-image ok-then? if swap lf-mls-image-cell ! outcome-ok else nip then ;
+  dup lf-mls-node lf-mls-image ok-then?
+  if swap lf-mls-image-cell ! outcome-ok else nip then ;
 \ The reached terms, sorted: the order of every index up to the root,
 \ skipping the terms not reached, at a cost of the terms reached. Room
 \ for their images first (none is full).

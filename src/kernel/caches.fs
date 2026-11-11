@@ -28,8 +28,11 @@
 \ does LeanForth.
 \
 \ Keys: Lean's == by skeletons (ADR 0014 Q3). Lean compares keys with ==
-\ (structural equality, expr_eq_fn). LeanForth's term store is not hash-
-\ consed (a rebuilt term is a new node), so every node a cache meets gets
+\ (structural equality, expr_eq_fn). LeanForth's term store hash-conses
+\ since compact-store plan step S3 (core/terms.fs), but not constants and
+\ symbolic Sorts, whose references and levels are made anew by each
+\ universe substitution (until plan step S4 interns them), so two equal
+\ terms can still be two nodes, and every node a cache meets gets
 \ a skeleton: a number that two nodes share only when they are Lean's ==
 \ -- the same tag, and the skeletons of their children (application,
 \ lambda, Pi), or, for a leaf, the same bound-variable index, the same
@@ -115,9 +118,10 @@
 \ free variable or a universe parameter. whnf.fs's has_loose_bvars and
 \ has_fvar walks are then answered from it, mixed-open.fs's instantiate
 \ and abstract keep a node that cannot change without visiting it (Lean's
-\ replace), defeq.fs's == holds at once for one skeleton, and
-\ core/terms.fs's lf-term-data@ gives the three as one data word (until
-\ the compact store keeps it in each record: plan step S3).
+\ replace), defeq.fs's == holds at once for one skeleton. Since plan step
+\ S3 each term record keeps these facts in its data word
+\ (core/terms.fs's lf-term-data@), and the hooks read the memo only for a
+\ node whose word has no data or names a free variable (see lf-cs-word).
 \
 \ Interface: lf-caches-enable ( flag -- ), lf-caches-on? ( -- flag ),
 \ lf-caches-clear ( -- ), lf-term-facts ( node -- id bits true | false ),
@@ -125,7 +129,7 @@
 \ lf-cache-infer-only, lf-cache-whnf-core, lf-cache-whnf,
 \ lf-cache-unfold, lf-cache-success and lf-cache-failure ( -- cache ).
 \ Loading this module sets the hooks of whnf.fs, defeq.fs, mixed-infer.fs,
-\ mixed-convert.fs, mixed-open.fs and core/terms.fs (lf-term-data@).
+\ mixed-convert.fs and mixed-open.fs.
 \ State: one record, lf-caches (the switch, the key being looked up, the
 \ next skeleton, two stacks' depths, and nine tables: each a hash table
 \ of lib/htab.fs over a slab of entries), and two growable stacks

@@ -55,7 +55,8 @@ create lf-stamp-hooks /htab-hooks allot
 : lf-stamp-none ( index -- unit ) drop lf-stamp-spare dup /lf-stamp erase ;
 : lf-stamp-find ( index -- n true | slot false ) dup hash-fmix lf-stamp-table htab-find ;
 \ A new zero unit for index, entered at the empty slot the find gave.
-: lf-stamp-fill ( index n -- unit ) lf-stamp-unit dup /lf-stamp erase tuck lf-stamp-term ! ;
+: lf-stamp-fill ( index n -- unit )
+  lf-stamp-unit dup /lf-stamp erase tuck lf-stamp-term ! ;
 : lf-stamp-new ( index slot -- unit )
   1 lf-stamp-units slab-claim ok? 0= if 2drop lf-stamp-none exit then
   tuck swap lf-stamp-table htab-put lf-stamp-fill ;

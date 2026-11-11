@@ -28,9 +28,10 @@
 \ free variables (checked). n = 0 gives the term itself, unvisited, as
 \ in Lean. Lean skips the subterms whose cached loose-bound-variable range
 \ or free-variable flag shows them unchanged (instantiate.cpp 103,
-\ abstract.cpp 19); the term store keeps no such data, but the caches do
-\ while they are on (kernel/caches.fs, ADR 0014 Q12, through the hook
-\ lf-open-unchanged?), and the passes then skip such a node as Lean does;
+\ abstract.cpp 19); the term store's data words keep that data (since
+\ compact-store plan step S3), and while the caches are on
+\ (kernel/caches.fs, ADR 0014 Q12, through the hook lf-open-unchanged?)
+\ the passes skip such a node as Lean does;
 \ otherwise they visit it, keep it and pay fuel for it. As Lean's replace
 \ keeps each shared node's result per offset for the rest of the pass
 \ (replace_fn.cpp 26-40), a pass keeps every binary node's result and
