@@ -79,7 +79,8 @@ lf-walk-room context-walk: lf-mls-walker
 \ invalid.
 : lf-mls-scratch ( -- scratch ) lf-mls-job lf-mlsrec-mark ;
 : lf-mls-snapshot ( -- outcome ) lf-mls-scratch lf-scratch-mark ;
-: lf-mls-rollback ( status -- status ) lf-mls-scratch lf-scratch-rollback lf-scratch-settled ;
+: lf-mls-rollback ( status -- status )
+  lf-mls-scratch lf-scratch-rollback lf-scratch-settled ;
 
 \ Level passes of level-substitute, charging this module's fuel. The full
 \ substitution revalidates every actual on each call, as metered work.

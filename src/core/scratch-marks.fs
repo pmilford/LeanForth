@@ -44,8 +44,9 @@
 \ lf-scratch-state (depth and last number), members of the checker context
 \ (lib/context.fs), where the stores are too. Single-threaded within one
 \ context; a mark means something only in its own context. A THROW out of
-\ a pass leaves its stack marks behind: later marks stack above them, and
-\ lf-scratch-reset (input.fs, after each check) empties the stack.
+\ a pass leaves its stack marks behind, as it leaves the pass's frames
+\ busy: later marks stack above them, LIFO, and lf-scratch-reset empties
+\ the stack for code that catches the THROW and holds no mark of its own.
 \ Example:
 \   create m /lf-scratch allot
 \   m lf-scratch-mark drop    \ ok
@@ -118,6 +119,8 @@ end-structure
 \ Entry k's address, valid until the stack next grows (lf-scratch-push).
 : lf-scratch-entry ( k -- entry ) lf-scratch-stack slab-at ;
 : lf-scratch-newest ( -- entry ) lf-scratch-depth @ 1- lf-scratch-entry ;
+\ The marks on the stack and the room it has (for a full stack's record).
+: lf-scratch-size ( -- depth room ) lf-scratch-depth @ lf-scratch-stack slab-capacity ;
 \ Empty the stack: every mark on it is refused from then on.
 : lf-scratch-reset ( -- ) 0 lf-scratch-depth ! ;
 

@@ -122,9 +122,10 @@ end-structure
 \ One shared visit fuel; all failures conservatively report zero in
 \ lf-mdefinition-fuel. Success reports the remaining fuel. Every result
 \ leaves the term, level and reference stores as they were, and none of
-\ the probe's local-context entries; allocation serials never rewind. No generated handles escape this word. The definition probe
-\ allows a claim in any Sort; the theorem probe also requires the claim to
-\ be a proposition (rule S3).
+\ the probe's local-context entries; allocation serials never rewind. No
+\ generated handles escape this word. The definition probe allows a claim
+\ in any Sort; the theorem probe also requires the claim to be a
+\ proposition (rule S3).
 : lf-mdefinition-probe ( token type tid value vid fuel theorem -- status )
   lf-mdefinition-request >r r@ lf-mdreq-theorem ! r@ lf-mdreq-fuel ! r@ lf-mdreq-value!
   r@ lf-mdreq-claim! r@ lf-mdreq-token ! r> lf-mdefinition-run ;

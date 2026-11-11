@@ -465,10 +465,9 @@ defer lf-minfer-walk ( node -- type status )
 \ saved on the frames where the step finds it: ok; or full (the stack
 \ cannot grow: recorded with its depth and room) or invalid (a store's
 \ count is not valid), with number 0 saved.
+: lf-minfer-stack-full ( -- ) lf-scratch-size lf-diag-work-stack-full lf-minfer-note ;
 : lf-minfer-unmarked ( outcome -- outcome )
-  dup outcome-full = if
-    lf-scratch-depth @ lf-scratch-stack slab-capacity lf-diag-work-stack-full lf-minfer-note
-  then ;
+  dup outcome-full = if lf-minfer-stack-full then ;
 : lf-minfer-marked ( frames -- outcome )
   >r lf-scratch-push dup ok? 0= if lf-minfer-unmarked then swap r> frame-save ;
 \ The visit of node once the step's mark is taken; when it could not be,
@@ -859,8 +858,9 @@ defer lf-minfer-fresh ( -- )
 
 \ ( token root identity fuel -- type identity status ) Full source and global
 \ index preflight precede allocation. All failures roll the stores back to
-\ the job's scratch mark; serials never rewind. The input is the root's graph, which preflight
-\ found closed. Every failure reports zero remaining fuel conservatively.
+\ the job's scratch mark; serials never rewind. The input is the root's
+\ graph, which preflight found closed. Every failure reports zero
+\ remaining fuel conservatively.
 : lf-minfer-negative ( token root identity fuel -- type identity status )
   0 lf-diag-bad-argument lf-minfer-note drop 2drop outcome-invalid lf-minfer-failed ;
 : lf-mixed-infer ( token root identity fuel -- type identity status )

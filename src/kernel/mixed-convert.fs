@@ -86,7 +86,8 @@ end-structure
 defer lf-mconvert-keeps? ( -- flag )
 :noname ( -- flag ) false ; is lf-mconvert-keeps?
 : lf-mconvert-done ( outcome -- outcome )
-  lf-mconvert-keeps? if exit then lf-mconvert-mark lf-scratch-rollback lf-scratch-settled ;
+  lf-mconvert-keeps? if exit then
+  lf-mconvert-mark lf-scratch-rollback lf-scratch-settled ;
 : lf-mconvert-marked ( -- outcome )
   lf-mconvert-frames frame-busy? if outcome-invalid exit then
   lf-mconvert-mark lf-scratch-mark ;

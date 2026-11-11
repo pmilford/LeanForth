@@ -344,14 +344,14 @@ sm-push constant m3  sm-all
 T{ m3 lf-scratch-drop sm-counts lf-scratch-depth @ -> outcome-ok 3 3 2 1 0 }T
 \ A push on a corrupt store, with spent numbers or on a stack the heap
 \ cannot grow pushes nothing: invalid, full, full.
-T{ lf-term-count @ -1 lf-term-count ! lf-scratch-push rot lf-term-count ! lf-scratch-depth @
-   -> 0 outcome-invalid 0 }T
+T{ lf-term-count @ -1 lf-term-count ! lf-scratch-push rot lf-term-count !
+   lf-scratch-depth @ -> 0 outcome-invalid 0 }T
 lf-scratch-number @ constant sm-number  max-n lf-scratch-number !
 T{ lf-scratch-push lf-scratch-depth @ -> 0 outcome-full 0 }T
 sm-number lf-scratch-number !
-: sm-fill ( -- ) begin lf-scratch-depth @ lf-scratch-stack slab-capacity < while sm-push drop repeat ;
+: sm-fill ( -- ) begin lf-scratch-size < while sm-push drop repeat ;
 sm-fill  1 heap-refusals !
-T{ lf-scratch-push lf-scratch-depth @ lf-scratch-stack slab-capacity = -> 0 outcome-full true }T
+T{ lf-scratch-push lf-scratch-size = -> 0 outcome-full true }T
 0 heap-refusals !  lf-scratch-reset
 T{ lf-scratch-depth @ sm-push lf-scratch-drop -> 0 outcome-ok }T
 bye

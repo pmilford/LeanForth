@@ -71,7 +71,8 @@ store-header context-record: lf-crefs
 :noname ( -- ) lf-cref-pool slab-free ; context-teardown
 
 \ The store's fields under their established names (kernel modules roll
-\ back lf-cref-count; tests corrupt the count and serial).
+\ the store back through scratch marks, core/scratch-marks.fs; tests
+\ corrupt the count and serial).
 : lf-cref-count ( -- addr ) lf-crefs store-count ;
 : lf-cref-serial ( -- addr ) lf-crefs store-serial ;
 : lf-cref-storage ( -- addr ) lf-crefs store-records ;
