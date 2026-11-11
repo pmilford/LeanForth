@@ -7,11 +7,18 @@
 \ contexts and module data. Handles are forgeable. On failure all three
 \ store counts roll back, but identities never rewind.
 \ State: one walk record, lf-mls-walker (the source audit and the fuel left,
-\ shared by every pass), and one job record, lf-mls-job (the substitution,
-\ the counts to roll back to, reached terms and their images), both
-\ members of the checker context (lib/context.fs). Single-threaded within
-\ one context. mixed-signature-audit runs the source audit alone through
+\ shared by every pass), one job record, lf-mls-job (the substitution, the
+\ counts to roll back to, the audit's stamp and count of reached terms),
+\ the replacement levels, new level pairs and reached terms
+\ (lf-mls-actual-cells, lf-mls-arg-pairs, lf-mls-reached-cells), and two
+\ columns of the term store (each term's stamp and image), all members of
+\ the checker context (lib/context.fs). Single-threaded within one
+\ context. mixed-signature-audit runs the source audit alone through
 \ lf-mls-audit-formals.
+\ Cost (plan task 6.5.5; step S0 of the compact-store plan): a call's work
+\ is proportional to the terms it reaches, not to the store's size: an
+\ audit takes a new stamp instead of erasing a column, and the build visits
+\ only the reached terms, sorted, instead of every index up to the root.
 
 require ../lib/lib.fs
 require ../lib/slab.fs
@@ -32,16 +39,19 @@ begin-structure /lf-mlsrec
   field: lf-mlsrec-terms       \ store counts to roll back to
   field: lf-mlsrec-levels
   field: lf-mlsrec-crefs
+  field: lf-mlsrec-stamp       \ the audit's stamp, 0 before the first
+  field: lf-mlsrec-reached     \ terms it reached (lf-mls-reached-cells)
 end-structure
 lf-walk-room context-walk: lf-mls-walker
 /lf-mlsrec context-record: lf-mls-job
-\ The replacement levels, and a rebuilt reference's new level pairs:
-\ growable arrays with no fixed limit (plan task 6.2.0); one the heap
-\ cannot grow is full.
+\ The replacement levels, a rebuilt reference's new level pairs, and the
+\ terms the audit reached, each listed once: growable arrays with no fixed
+\ limit (plan task 6.2.0); one the heap cannot grow is full.
 1 cells context-slab: lf-mls-actual-cells
 2 cells context-slab: lf-mls-arg-pairs
-\ Per term, columns of the term store (lib/store-columns.fs): whether the
-\ audit reached it, and its image.
+1 cells context-slab: lf-mls-reached-cells
+\ Per term, columns of the term store (lib/store-columns.fs): the stamp of
+\ the last audit that reached it, and its image.
 /slab context-record: lf-mls-seen-column
 1 cells ' lf-mls-seen-column lf-term-columns column-add
 /slab context-record: lf-mls-results-column
@@ -85,15 +95,31 @@ lf-walk-room context-walk: lf-mls-walker
 \ against the formals before anything is allocated: a symbolic Sort's level
 \ and each level of a constant's reference. The whole graph was validated
 \ first, so children are earlier nodes. Occurrences, including repeated DAG
-\ edges, each consume fuel.
-: lf-mls-mark ( walk -- ) true swap walk-node @ lf-mls-seen ! ;
+\ edges, each consume fuel. A term is marked as reached by giving it the
+\ audit's stamp, and listed the first time.
+: lf-mls-site ( -- site ) c" mixed-level-substitute lf-mixed-level-substitute" ;
+: lf-mls-stamp ( -- addr ) lf-mls-job lf-mlsrec-stamp ;
+: lf-mls-reached ( -- addr ) lf-mls-job lf-mlsrec-reached ;
+: lf-mls-reached? ( index -- flag ) lf-mls-seen @ lf-mls-stamp @ = ;
+\ A list the heap cannot grow is full, recorded with its count and room.
+: lf-mls-crowded ( n -- n )
+  dup dup lf-mls-reached-cells slab-capacity lf-mls-site
+  lf-diag-work-stack-full lf-diag-note ;
+: lf-mls-list ( index -- outcome )
+  lf-mls-reached @ lf-mls-reached-cells lf-cells-add
+  dup outcome-full = if swap lf-mls-crowded swap then swap lf-mls-reached ! ;
+: lf-mls-mark ( walk -- outcome )
+  walk-node @ dup lf-mls-reached? if drop outcome-ok exit then
+  lf-mls-stamp @ over lf-mls-seen ! lf-mls-list ;
 : lf-mls-sources ( addr count walk -- outcome )
   swap 0 ?do over i lf-cref-pair@ drop over lf-lsubst-walk-source dup ok? 0=
     if nip nip unloop exit then drop loop 2drop outcome-ok ;
 : lf-mls-reference ( cref identity walk -- outcome )
   >r lf-cref-levels if r> lf-mls-sources else r> drop outcome-invalid then ;
+: lf-mls-refused ( first second walk tag outcome -- outcome ) >r 2drop 2drop r> ;
 : lf-mls-dispatch ( first second walk tag -- outcome )
-  over lf-mls-mark dup lf-term-binary-tag? if drop walk-children exit then
+  over lf-mls-mark dup ok? 0= if lf-mls-refused exit then drop
+  dup lf-term-binary-tag? if drop walk-children exit then
   case lf-tag-symbolic-sort of nip lf-lsubst-walk-source endof
     lf-tag-constant of lf-mls-reference endof
     lf-tag-bvar of drop 2drop outcome-ok endof
@@ -102,8 +128,12 @@ lf-walk-room context-walk: lf-mls-walker
     lf-tag-str of drop 2drop outcome-ok endof
     lf-tag-let of drop 2drop outcome-ok endof walk-bad-tag endcase ;
 : lf-mls-visit ( walk -- outcome ) lf-terms ['] lf-mls-dispatch walk-visit ;
-: lf-mls-unseen ( -- ) lf-mls-seen-column column-erase ;
-: lf-mls-site ( -- site ) c" mixed-level-substitute lf-mixed-level-substitute" ;
+\ A new audit takes a new stamp, so that no term counts as reached, and
+\ lists nothing yet. Stamps start at 1 (a new unit is 0); only when they
+\ would run out is the column erased and they restart.
+: lf-mls-restamp ( -- ) lf-mls-seen-column column-erase 0 lf-mls-stamp ! ;
+: lf-mls-unseen ( -- )
+  lf-mls-stamp @ max-n = if lf-mls-restamp then 1 lf-mls-stamp +! 0 lf-mls-reached ! ;
 \ The formals and count are those last given to lf-lsubst-use.
 : lf-mls-audit-from ( root -- status )
   lf-mls-unseen ['] lf-mls-visit lf-mls-walker walk-run
@@ -186,10 +216,14 @@ lf-walk-room context-walk: lf-mls-walker
   dup lf-term-read if rot lf-mls-image-of else drop 0 outcome-invalid then ;
 : lf-mls-build-node ( node -- outcome )
   dup lf-mls-image ok-then? if swap lf-mls-result ! outcome-ok else nip then ;
-: lf-mls-build-at ( node -- outcome )
-  dup lf-mls-seen @ if lf-mls-build-node else drop outcome-ok then ;
-: lf-mls-build ( root -- outcome )
-  1+ 0 ?do i lf-mls-build-at dup ok? 0= if unloop exit then drop loop outcome-ok ;
+\ The reached terms, sorted: the order of every index up to the root,
+\ skipping the terms not reached, at a cost of the terms reached.
+: lf-mls-node ( i -- node ) lf-mls-reached-cells slab-at @ ;
+: lf-mls-sorted ( -- ) 0 lf-mls-reached-cells slab-at lf-mls-reached @ lf-cells-sort ;
+: lf-mls-build ( -- outcome )
+  lf-mls-sorted lf-mls-reached @ 0 ?do
+    i lf-mls-node lf-mls-build-node dup ok? 0= if unloop exit then drop
+  loop outcome-ok ;
 
 \ The passes in order: the root handle and stores, the replacements (live,
 \ and in level scope), the whole graph (lf-cterm-check), the source audit,
@@ -211,7 +245,7 @@ lf-walk-room context-walk: lf-mls-walker
   lf-mls-result @ dup lf-term-identity
   if outcome-ok else drop outcome-invalid lf-mls-rollback then ;
 : lf-mls-apply ( index -- index id 0 | status )
-  dup lf-mls-build dup ok? if drop lf-mls-finish else nip lf-mls-rollback then ;
+  lf-mls-build dup ok? if drop lf-mls-finish else nip lf-mls-rollback then ;
 : lf-mls-run ( index id -- index id 0 | status )
   lf-mls-checks dup ok? if 2drop lf-mls-apply else nip nip then ;
 : lf-mls-use ( formals pairs count -- pairs count )
