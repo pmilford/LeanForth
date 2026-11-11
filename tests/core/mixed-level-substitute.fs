@@ -1,4 +1,5 @@
 include ../support/tester.fs
+include ../support/heap-watch.fs
 require ../../src/core/constant-references.fs
 require ../../src/core/constant-term-boundary.fs
 require ../../src/core/generation-handles.fs
@@ -91,6 +92,18 @@ T{ 500 run-substitution -> outcome-invalid }T
 2 actuals pair!
 T{ 0 run-substitution -> outcome-exhausted }T
 T{ -1 run-substitution -> outcome-invalid }T
+\ A count larger than the replacement array's room, with the heap refusing its
+\ growth: one cell, full, and the stores as they were (a stray nip in
+\ lf-mls-prepare's refusal path once left two cells); then the heap works.
+: big-count ( -- n ) lf-mls-actual-cells slab-capacity 1000 + ;
+lf-term-count @ constant hf-terms
+lf-level-count @ constant hf-levels
+lf-cref-count @ constant hf-crefs
+1 heap-refusals !
+T{ fixture-root @ root-id @ formals actuals big-count 500 lf-mixed-level-substitute
+   -> outcome-full }T
+0 heap-refusals !
+T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> hf-terms hf-levels hf-crefs }T
 11 formals cell+ !
 T{ 500 run-substitution -> outcome-invalid }T
 22 formals cell+ !

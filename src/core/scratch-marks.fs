@@ -15,8 +15,11 @@
 \ nothing changed, a mark that is no longer valid for its store: of
 \ another store or generation, above the count, or stale because a
 \ rollback to an older mark went below it and records were made again
-\ (store-mark-valid?). So a mark restored out of order is refused wherever
-\ it would give back what a younger owner made; a refusal is never ok.
+\ (store-mark-valid?). A mark held in a record is LIFO by construction (one
+\ owner, used once), not by a check: store marks cannot tell apart two
+\ marks taken at the same position, so giving back the older and then the
+\ younger one acts as a rollback to that position and gives back what was
+\ made in between (tests/core/mixed-infer.fs). A refusal is never ok.
 \
 \ Two ways to hold a mark. A pass with a record of its own keeps a
 \ /lf-scratch record in it (lf-scratch-mark, lf-scratch-rollback). A pass

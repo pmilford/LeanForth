@@ -332,6 +332,16 @@ T{ sm-a lf-scratch-rollback sm-b lf-scratch-rollback sm-counts
    -> outcome-ok outcome-invalid 1 1 0 0 }T
 T{ sm-all sm-b lf-scratch-rollback sm-counts -> outcome-invalid 3 2 1 1 }T
 T{ sm-b lf-scratch-discard sm-counts -> outcome-invalid 3 2 1 1 }T
+\ Documented limit (rvS12 L1): two record marks taken at the SAME position are
+\ not told apart. A (older) and B (younger) with nothing made between them; x
+\ is made, A is given back, y is made, and B is then accepted and also gives
+\ back y: an out-of-order mark acts as a rollback to that position. Marks in
+\ records are LIFO by construction (one owner, used once), not by a check.
+sm-reset
+T{ sm-a lf-scratch-mark sm-b lf-scratch-mark -> outcome-ok outcome-ok }T
+T{ sm-term sm-a lf-scratch-rollback sm-counts -> outcome-ok 1 1 0 0 }T
+T{ sm-term sm-counts -> 2 1 0 0 }T
+T{ sm-b lf-scratch-rollback sm-counts -> outcome-ok 1 1 0 0 }T
 \ Each family's mark is checked: a corrupt count of any store refuses the
 \ rollback, and a mark taken then is refused even after the repair.
 : sm-corrupt ( count-addr -- outcome outcome )
