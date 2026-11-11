@@ -96,9 +96,16 @@ lf-walk-room context-walk: lf-mls-walker
 \ The audit marks every reachable term and checks every source level
 \ against the formals before anything is allocated: a symbolic Sort's level
 \ and each level of a constant's reference. The whole graph was validated
-\ first, so children are earlier nodes. Occurrences, including repeated DAG
-\ edges, each consume fuel. A term is marked as reached by giving it the
-\ audit's stamp, and listed the first time.
+\ first, so children are earlier nodes. A term is marked as reached by
+\ giving it the audit's stamp, and listed, the first time the audit
+\ reaches it; then its levels are checked and its children pushed. Every
+\ occurrence costs a unit of fuel, but a term reached again by another
+\ path is skipped: its checks read only the term, never the path or the
+\ binders around it, and were made at its first visit. So a shared term
+\ costs its nodes and edges, not its paths, as in Lean's
+\ instantiate_lparams (instantiate.cpp 236-253), whose replace caches a
+\ shared node's result per binder offset (replace_fn.cpp 16-40); the
+\ offset changes nothing here, so one visit per node is enough.
 : lf-mls-site ( -- site ) c" mixed-level-substitute lf-mixed-level-substitute" ;
 : lf-mls-stamp ( -- addr ) lf-mls-job lf-mlsrec-stamp ;
 : lf-mls-reached ( -- addr ) lf-mls-job lf-mlsrec-reached ;
@@ -110,8 +117,8 @@ lf-walk-room context-walk: lf-mls-walker
 : lf-mls-list ( index -- outcome )
   lf-mls-reached @ lf-mls-reached-cells lf-cells-add
   dup outcome-full = if swap lf-mls-crowded swap then swap lf-mls-reached ! ;
-: lf-mls-mark ( walk -- outcome )
-  walk-node @ dup lf-mls-reached? if drop outcome-ok exit then
+\ Marking a term not reached before.
+: lf-mls-mark ( index -- outcome )
   lf-mls-stamp @ over lf-mls-seen ! lf-mls-list ;
 : lf-mls-sources ( addr count walk -- outcome )
   swap 0 ?do over i lf-cref-pair@ drop over lf-lsubst-walk-source dup ok? 0=
@@ -119,8 +126,9 @@ lf-walk-room context-walk: lf-mls-walker
 : lf-mls-reference ( cref identity walk -- outcome )
   >r lf-cref-levels if r> lf-mls-sources else r> drop outcome-invalid then ;
 : lf-mls-refused ( first second walk tag outcome -- outcome ) >r 2drop 2drop r> ;
-: lf-mls-dispatch ( first second walk tag -- outcome )
-  over lf-mls-mark dup ok? 0= if lf-mls-refused exit then drop
+\ The first visit of a term: mark it, check it, push its children.
+: lf-mls-first ( first second walk tag -- outcome )
+  over walk-node @ lf-mls-mark dup ok? 0= if lf-mls-refused exit then drop
   dup lf-term-binary-tag? if drop walk-children exit then
   case lf-tag-symbolic-sort of nip lf-lsubst-walk-source endof
     lf-tag-constant of lf-mls-reference endof
@@ -129,6 +137,9 @@ lf-walk-room context-walk: lf-mls-walker
     lf-tag-lit of drop 2drop outcome-ok endof
     lf-tag-str of drop 2drop outcome-ok endof
     lf-tag-let of drop 2drop outcome-ok endof walk-bad-tag endcase ;
+: lf-mls-again? ( walk -- flag ) walk-node @ lf-mls-reached? ;
+: lf-mls-dispatch ( first second walk tag -- outcome )
+  over lf-mls-again? if lf-walk-skip else lf-mls-first then ;
 : lf-mls-visit ( walk -- outcome ) lf-terms ['] lf-mls-dispatch walk-visit ;
 \ A new audit takes a new stamp, so that no term counts as reached, and
 \ lists nothing yet. Stamps start at 1 (a new unit is 0); only when they
@@ -260,8 +271,9 @@ lf-walk-room context-walk: lf-mls-walker
 \ Substitute count actual (index identity) level pairs for count formal IDs
 \ in a live term. All syntax, source levels and replacements are audited
 \ before allocation.
-\ Audit and substitution share fuel; each term/level occurrence consumes fuel,
-\ including repeated replacement validation. Bounded list scans, identity
+\ Audit and substitution share fuel; each term/level occurrence consumes fuel
+\ (one reached before only its unit), and so does each repeated replacement
+\ validation. Bounded list scans, identity
 \ checks and topological staging are additional bounded work. Status is invalid
 \ for malformed, stale or out-of-scope input, exhausted when the fuel runs
 \ out, and full for a full work stack or store or a spent identity serial.

@@ -4,10 +4,12 @@
    0 every declaration accepted (composition; the constant fixture's three;
      tests/cli/chain.ndjson, larger than --record holds; tests/cli/
      inductive.ndjson, an inductive type and a theorem by its recursor;
-     tests/cli/sharing.ndjson, proofs shared along 2^40 paths, in little fuel),
+     tests/cli/sharing.ndjson, proofs shared along 2^40 paths, in little fuel,
+     and sharing-universe.ndjson, such a statement at a universe argument),
      or skipped (composition as an unsafe definition, plan task 5.2.7);
-   1 rejected (composition with the wrong argument; sharing.ndjson's wrong
-     twins, which Lean's kernel rejects too);
+   1 rejected (composition with the wrong argument; the wrong twins of
+     sharing.ndjson and sharing-universe.ndjson, which Lean's kernel rejects
+     too);
    2 unsupported (an axiom; a literal; with --record an inductive type,
      refused while reading) and unknown (UNKNOWN, a block whose check needs
      a recursor reduction the checker does not port yet; tests/cli/
@@ -133,6 +135,40 @@ def shared_twins(text):
     return "".join(json.dumps(r, ensure_ascii=False, separators=(",", ":")) + "\n" for r in kept)
 
 
+# A statement shared along 2^40 paths, instantiated at a universe argument
+# (tests/cli/sharing-universe.lean).
+SHARING_UNIVERSE = "tests/cli/sharing-universe.ndjson"
+
+
+def universe_twin(text, twin):
+    """sharing-universe.ndjson with useU made a wrong twin that
+    sharing-universe.lean shows Lean's kernel rejects (declTypeMismatch):
+    "argument" proves it by sharedAndU.{1}, "leaves" states its leaves
+    ∀ (β : Sort 1), P. Either needs the level 1, a new record (with a new
+    sort for the leaves) written just before the record that uses it."""
+    records = [json.loads(line) for line in text.splitlines()]
+    exprs = {r["ie"]: r for r in records if "ie" in r}
+    names = {r["in"]: r["str"]["str"] for r in records if "str" in r and "in" in r}
+    use = next(r["thm"] for r in records if "thm" in r and names[r["thm"]["name"]] == "useU")
+    one = {"il": 1 + max(r["il"] for r in records if "il" in r), "succ": 0}
+    if twin == "argument":
+        target, new = exprs[use["value"]], [one]
+        target["const"]["us"] = [one["il"]]
+    else:
+        target = exprs[use["type"]]
+        for _ in range(3):                    # under α, P and h
+            target = exprs[target["forallE"]["body"]]
+        while "app" in target:                # T (k+1) = And (T k) (T k)
+            target = exprs[target["app"]["arg"]]
+        sort = {"ie": 1 + max(exprs), "sort": one["il"]}
+        target["forallE"]["type"] = sort["ie"]
+        new = [one, sort]
+    at = records.index(target)
+    records[at:at] = new
+    return "".join(json.dumps(r, ensure_ascii=False, separators=(",", ":")) + "\n"
+                   for r in records)
+
+
 def accepted(n, axioms="none"):
     """The summary line of n accepted declarations, none NOT PROVED: they use
     no axiom, or only the allowlisted ones given."""
@@ -249,6 +285,32 @@ class ExitCodes(unittest.TestCase):
                          *[f"{name}: {LABEL}" for name in ["True", "True.intro", "True.rec"]],
                          "sharedBeta: rejected", mismatch, f"trivial: {LABEL}",
                          "9 declarations: 7 accepted, 2 rejected", accepted(7)])
+
+    def test_1_shared_universe(self):
+        """A statement shared along 2^40 paths, instantiated at a universe
+        argument (tests/cli/sharing-universe.lean; review rvPSE M1): Lean's
+        verdicts, accepted, and on both wrong twins rejected, as Lean's
+        kernel rejects them; the level substitution checks and rebuilds
+        each shared node once, so the fuel stays small (useU ran out at
+        2,000,000 before, agent FX7, 2026-11-11)."""
+        own = ["And", "And.intro", "And.rec", "sharedAndU"]
+        self.expect(["check", SHARING_UNIVERSE], 0,
+                    [f"{name}: {LABEL}" for name in own + ["useU"]]
+                    + ["5 declarations: 5 accepted", accepted(5)])
+        status, out, _ = run("check", "--json", SHARING_UNIVERSE)
+        fuel = {d["name"]: d["fuel"] for d in json.loads(out)["declarations"]}
+        self.assertLess(fuel["useU"], 20000, fuel)
+        mismatch = ("  rejected: declared type mismatch (D1-D5); diagnostic 60 at "
+                    "check-declaration lf-check-declaration: 0 0")
+        text = (ROOT / SHARING_UNIVERSE).read_text(encoding="utf-8")
+        for twin in ("argument", "leaves"):
+            with self.subTest(twin=twin), tempfile.TemporaryDirectory() as folder:
+                path = Path(folder) / "twin.ndjson"
+                path.write_text(universe_twin(text, twin), encoding="utf-8")
+                self.expect(["check", "--no-manifest", str(path)], 1,
+                            [NO_MANIFEST, *[f"{name}: {LABEL}" for name in own],
+                             "useU: rejected", mismatch,
+                             "5 declarations: 4 accepted, 1 rejected", accepted(4)])
 
     def test_0_not_proved(self):
         """An axiom (plan task 5.3.1): Lean's verdict, accepted, marked NOT

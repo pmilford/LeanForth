@@ -118,10 +118,15 @@ lf-level-walk-room context-walk: lf-lsubst-walker
     i over lf-lsubst-input dup ok? 0= if nip unloop exit then drop loop drop outcome-ok ;
 
 \ The source walk: shape as in level-scope, except that a parameter must be
-\ a formal, and children are visited first child first. Every node read is
-\ marked as reached: its stamp becomes the walk's, and the first time it is
-\ listed. Each occurrence costs fuel; the work stack is bounded
-\ independently of fuel.
+\ a formal, and children are visited first child first. The first time
+\ the walk reaches a node, the node is marked as reached (its stamp
+\ becomes the walk's) and listed, then checked and its children pushed.
+\ Every occurrence costs a unit of fuel, but a node reached again by
+\ another path is skipped: its checks read only the node and were made at
+\ its first visit. So a shared level costs its nodes, not its paths, never
+\ more than Lean, whose level walks have no cache and descend every path
+\ to a node with a parameter (for_each, replace; level.cpp 247-277). The
+\ work stack is bounded independently of fuel.
 : lf-lsubst-seen ( index -- addr ) lf-lsubst-seen-column column-at ;
 : lf-lsubst-stamp ( -- addr ) lf-lsubst-job lf-lsrec-stamp ;
 : lf-lsubst-reached ( -- addr ) lf-lsubst-job lf-lsrec-reached ;
@@ -134,20 +139,25 @@ lf-level-walk-room context-walk: lf-lsubst-walker
 : lf-lsubst-list ( index -- outcome )
   lf-lsubst-reached @ lf-lsubst-reached-cells lf-cells-add
   dup outcome-full = if swap lf-lsubst-crowded swap then swap lf-lsubst-reached ! ;
-: lf-lsubst-mark ( walk -- outcome )
-  walk-node @ dup lf-lsubst-reached? if drop outcome-ok exit then
+\ Marking a node not reached before.
+: lf-lsubst-mark ( index -- outcome )
   lf-lsubst-stamp @ over lf-lsubst-seen ! lf-lsubst-list ;
 : lf-lsubst-formal? ( id -- flag ) lf-lsubst-count @ lf-lsubst-in? ;
 : lf-lsubst-param ( first second walk -- outcome )
   drop 0= over 0> and if lf-lsubst-formal? flag>outcome else drop-invalid then ;
 : lf-lsubst-binary ( first second walk -- outcome ) >r swap r> walk-children ;
 : lf-lsubst-refused ( first second walk tag outcome -- outcome ) >r 2drop 2drop r> ;
-: lf-lsubst-dispatch ( first second walk tag -- outcome )
-  over lf-lsubst-mark dup ok? 0= if lf-lsubst-refused exit then drop
+\ The first visit of a node: mark it, check it, push its children.
+: lf-lsubst-first ( first second walk tag -- outcome )
+  over walk-node @ lf-lsubst-mark dup ok? 0= if lf-lsubst-refused exit then drop
   dup lf-level-binary-tag? if drop lf-lsubst-binary exit then
   case lf-level-tag-zero of lf-lscope-zero endof
     lf-level-tag-param of lf-lsubst-param endof
     lf-level-tag-succ of lf-lscope-succ endof walk-bad-tag endcase ;
+: lf-lsubst-again? ( walk -- flag ) walk-node @ lf-lsubst-reached? ;
+: lf-lsubst-skip ( first second walk tag -- outcome ) 2drop 2drop outcome-ok ;
+: lf-lsubst-dispatch ( first second walk tag -- outcome )
+  over lf-lsubst-again? if lf-lsubst-skip else lf-lsubst-first then ;
 : lf-lsubst-visit ( walk -- outcome ) lf-levels ['] lf-lsubst-dispatch walk-visit ;
 
 \ Check the DAG reachable from root against the formals, with the fuel in

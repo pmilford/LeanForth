@@ -49,15 +49,17 @@ T{ 1 lf-cref-serial @ 0 lf-cref-level -> 5 level-serial true }T
 T{ 5 lf-level-read -> lf-level-tag-max 2 3 true }T
 T{ 1 lf-cref-serial @ 1 lf-cref-level -> 3 3 lf-level-identity drop true }T
 \ The source audit alone, as mixed-signature-audit runs it, against the
-\ formals 11 and 22. Term 3 = app (app C C) (Sort 1): terms 3, 1, 2, 0, 0
-\ cost five units, level 1 one unit, and each C's levels 4 = max 1 2 and
-\ 2 four units: 14 in all. With only formal 11 the audit stops at level 2,
-\ the second child of level 4, after eight units. Nothing is allocated.
+\ formals 11 and 22. Term 3 = app (app C C) (Sort 1): terms 3, 1, 2, 0
+\ and 0 again cost five units, level 1 one unit, and C's levels 4 = max 1 2
+\ and 2 four units, checked at C's first visit only (a term reached again
+\ is skipped, as Lean's replace caches a shared node): 10 in all. With only
+\ formal 11 the audit stops at level 2, the second child of level 4, after
+\ eight units. Nothing is allocated.
 lf-term-count @ constant source-terms
 lf-level-count @ lf-cref-count @ 2constant source-counts
-T{ 3 formals 2 100 lf-mls-audit-formals -> 86 outcome-ok }T
-T{ 3 formals 2 14 lf-mls-audit-formals -> 0 outcome-ok }T
-T{ 3 formals 2 13 lf-mls-audit-formals -> 0 outcome-exhausted }T
+T{ 3 formals 2 100 lf-mls-audit-formals -> 90 outcome-ok }T
+T{ 3 formals 2 10 lf-mls-audit-formals -> 0 outcome-ok }T
+T{ 3 formals 2 9 lf-mls-audit-formals -> 0 outcome-exhausted }T
 T{ 3 formals 1 100 lf-mls-audit-formals -> 92 outcome-invalid }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> source-terms source-counts }T
 \ Negative fuel and a negative count spend nothing. There is no other
@@ -70,7 +72,7 @@ create many-formals 1000 cells allot
   formals many-formals 2 cells move
   1000 2 do i 1000 + i cells many-formals + ! loop ;
 many-formals!
-T{ 3 many-formals 1000 100 lf-mls-audit-formals -> 86 outcome-ok }T
+T{ 3 many-formals 1000 100 lf-mls-audit-formals -> 90 outcome-ok }T
 \ Source must be audited in its real session context, not merely formals.
 33 formals cell+ !
 T{ 500 run-substitution -> outcome-invalid }T
@@ -178,7 +180,7 @@ T{ 500 run-substitution -> 7 term-serial outcome-ok }T
 T{ lf-mls-stamp @ lf-mls-reached @ -> 1 4 }T
 \ The audit alone lists each reached term once (term 3, then 2, 1 and 0;
 \ the repeated edges to term 0 add nothing), with a new stamp.
-T{ 3 formals 2 100 lf-mls-audit-formals -> 86 outcome-ok }T
+T{ 3 formals 2 100 lf-mls-audit-formals -> 90 outcome-ok }T
 T{ lf-mls-stamp @ lf-mls-reached @ -> 2 4 }T
 \ A count below zero is invalid before any allocation, and so is a stale or out-of-range actual, even when the source
 \ is a bare variable that has no level to substitute.

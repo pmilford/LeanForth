@@ -55,6 +55,43 @@ universe u v
 unfolding (row `universe.type-a-sort-by-definition`). -/
 def PSortDef : Type 1 := Type
 
+-- Structures and values of the projection rows `proj.step8-*`, `proj.cheap-step3` and
+-- `proj.unfold-proj-app-delta` (review rvPSE's probes of the comparison's projection
+-- steps): each wrong twin differs from its row in one constant.
+namespace IEProj
+
+structure P where
+  a : Nat
+  b : Nat
+
+def p1 : P := ⟨11, 22⟩
+def p2 : P := ⟨10, 22⟩
+/-- Field `a` as `p1`'s, field `b` not. -/
+def p3 : P := ⟨11, 33⟩
+
+def r1 : Nat × Nat := (11, 22)
+def r2 : Nat × Nat := (10, 22)
+def r3 : Nat × Nat := (11, 33)
+
+structure F where
+  fn : Nat → Nat
+
+def F1 : F := ⟨fun n => n + 1⟩
+def F2 : F := ⟨fun n => n + 2⟩
+def k (n : Nat) : Nat := n + 1
+
+structure Q where
+  inner : P
+  c : Nat
+
+def q1 : Q := ⟨p1, 5⟩
+def q2 : Q := ⟨p2, 5⟩
+def q3 : Q := ⟨p3, 5⟩
+
+def g (n : Nat) : P := ⟨0, n⟩
+
+end IEProj
+
 namespace InductiveExpected
 
 /-! ## Lean's verdict -/
@@ -767,6 +804,50 @@ def reductions : List Red := [
     lean := "accepted", leanforth := "accepted", rule := "J1", task := "5.2.2" },
   { id := "proj.unfold-proj-app-stuck-wrong",
     type := "∀ (p : Nat × Nat), id p.1 = p.2", value := "fun (p : Nat × Nat) => Eq.refl p.2",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "J1", task := "5.2.2" },
+  -- Review rvPSE's probes (IEProj, above). Step 8 after lazy delta unfolds P.b on both
+  -- sides, then reduce_proj_core of field 1 (b); the twin's p3 agrees in field a only.
+  { id := "proj.step8-second-field",
+    type := "IEProj.p1.b = IEProj.p2.b", value := "Eq.refl IEProj.p1.b",
+    lean := "accepted", leanforth := "accepted", rule := "J1", task := "5.2.2" },
+  { id := "proj.step8-second-field-wrong",
+    type := "IEProj.p1.b = IEProj.p3.b", value := "Eq.refl IEProj.p1.b",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "J1", task := "5.2.2" },
+  -- Prod has two parameters: field 1 is argument 3 of Prod.mk.
+  { id := "proj.step8-pair-params",
+    type := "IEProj.r1.2 = IEProj.r2.2", value := "Eq.refl IEProj.r1.2",
+    lean := "accepted", leanforth := "accepted", rule := "J1", task := "5.2.2" },
+  { id := "proj.step8-pair-params-wrong",
+    type := "IEProj.r1.2 = IEProj.r3.2", value := "Eq.refl IEProj.r1.2",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "J1", task := "5.2.2" },
+  -- try_unfold_proj_app: k 5 (delta) against F1.fn 5, a projection's application.
+  { id := "proj.unfold-proj-app-delta",
+    type := "IEProj.k 5 = IEProj.F1.fn 5", value := "Eq.refl (IEProj.k 5)",
+    lean := "accepted", leanforth := "accepted", rule := "J1", task := "5.2.2" },
+  { id := "proj.unfold-proj-app-delta-wrong",
+    type := "IEProj.k 5 = IEProj.F2.fn 5", value := "Eq.refl (IEProj.k 5)",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "J1", task := "5.2.2" },
+  -- whnf_core with cheap_proj at step 3 leaves p1.a; step 9 decides.
+  { id := "proj.cheap-step3",
+    type := "IEProj.p1.a = 11", value := "Eq.refl IEProj.p1.a",
+    lean := "accepted", leanforth := "accepted", rule := "J1", task := "5.2.2" },
+  { id := "proj.cheap-step3-wrong",
+    type := "IEProj.p2.a = 11", value := "Eq.refl IEProj.p2.a",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "J1", task := "5.2.2" },
+  -- Nested projections: step 8 at two levels.
+  { id := "proj.step8-nested",
+    type := "IEProj.q1.inner.b = IEProj.q2.inner.b", value := "Eq.refl IEProj.q1.inner.b",
+    lean := "accepted", leanforth := "accepted", rule := "J1", task := "5.2.2" },
+  { id := "proj.step8-nested-wrong",
+    type := "IEProj.q1.inner.b = IEProj.q3.inner.b", value := "Eq.refl IEProj.q1.inner.b",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "J1", task := "5.2.2" },
+  -- Step 8 where lazy delta's test of g's arguments fails (1 against 2, a failure
+  -- cached), then reduce_proj_core; the twin projects onto field b instead of a.
+  { id := "proj.step8-args-differ",
+    type := "(IEProj.g 1).a = (IEProj.g 2).a", value := "Eq.refl (IEProj.g 1).a",
+    lean := "accepted", leanforth := "accepted", rule := "J1", task := "5.2.2" },
+  { id := "proj.step8-args-differ-wrong",
+    type := "(IEProj.g 1).b = (IEProj.g 2).b", value := "Eq.refl (IEProj.g 1).b",
     lean := "declTypeMismatch", leanforth := "rejected", rule := "J1", task := "5.2.2" },
   { id := "iota.prop-structure-stuck",
     type := "∀ (a b : Prop) (h : a ∧ b), @And.rec a b (fun _ => Nat) (fun _ _ => 5) h = 5",

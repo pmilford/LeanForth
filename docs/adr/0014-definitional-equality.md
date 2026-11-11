@@ -1493,6 +1493,19 @@ their wrong twins (`appTypeMismatch`); LeanForth before: `sharedAnd`
 *exhausted* (its twin too); after: Lean's verdicts, 61,647 fuel.
 Planted faults `ex-*` in `tests/mutants/faults.toml`, all caught.
 
+**A constant with universe arguments** (review rvPSE M1, agent FX7,
+2026-11-11, [kernel] gate open). The level substitution's source audit
+(`mixed-level-substitute.fs`) and its level walk (`level-substitute.fs`)
+now check a node and push its children only at its first visit in a walk;
+a repeat costs its unit. The checks read only the node, never the path or
+depth. Lean's `instantiate_lparams` rebuilds a shared node once per offset
+(`instantiate.cpp` 236–253, `replace_fn.cpp` 16–40); its level walks have
+no cache (`level.cpp` 247–277). `tests/cli/sharing-universe.lean`: pinned
+Lean accepts `sharedAndU.{u}` (2^40 paths, `u` in every leaf) and
+`useU := sharedAndU.{0}` and rejects two wrong twins (`declTypeMismatch`);
+LeanForth before: `useU` *exhausted*; after: Lean's verdicts, 8,419 fuel.
+Planted faults `fx7-*`, all caught.
+
 **Left (plan task 6.5.5).** Inference still closes each application
 argument with all the scope's free variables, where Lean instantiates a
 binder's body once, and every comparison audits both types in full; on

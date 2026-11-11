@@ -140,6 +140,15 @@ REQUIRED.update({row: "task 5.2.2's projection steps of the comparison (defeq.fs
                              "proj.lazy-fields-wrong", "proj.whnf-term", "proj.whnf-term-wrong",
                              "proj.unfold-proj-app", "proj.unfold-proj-app-wrong",
                              "proj.unfold-proj-app-stuck", "proj.unfold-proj-app-stuck-wrong")})
+REQUIRED.update({row: "task 5.2.2's projection steps (review rvPSE's probes: step 8 with"
+                      " a second field, Prod's parameters, nested and failing arguments;"
+                      " try_unfold_proj_app against delta; cheap_proj at step 3)"
+                 for row in ("proj.step8-second-field", "proj.step8-second-field-wrong",
+                             "proj.step8-pair-params", "proj.step8-pair-params-wrong",
+                             "proj.unfold-proj-app-delta", "proj.unfold-proj-app-delta-wrong",
+                             "proj.cheap-step3", "proj.cheap-step3-wrong",
+                             "proj.step8-nested", "proj.step8-nested-wrong",
+                             "proj.step8-args-differ", "proj.step8-args-differ-wrong")})
 REQUIRED.update({row: "tasks 5.3.1 and 4.2.6 (axioms and opaque declarations)"
                  for row in ("postulate.declared-and-used", "postulate.propext-altered",
                              "postulate.propext-forged-iff", "postulate.propext-own-iff",

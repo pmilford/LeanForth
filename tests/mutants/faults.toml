@@ -7075,3 +7075,61 @@ old = '''  lf-data-ranges 2* and swap lf-data-ranges and or or ;'''
 new = '''  lf-data-ranges and swap lf-data-ranges 2* and or or ;'''
 test = "$GFORTH tests/core/terms.fs"
 reason = "S2: the parameter and free-variable bits of the data word are swapped (not ADR 0016 C1's layout)"
+
+# Review rvPSE M1 (agent FX7): the level passes check and push a shared node's
+# children only the first time a walk reaches it.
+[[fault]]
+id = "fx7-mls-every-path"
+file = "src/kernel/mixed-level-substitute.fs"
+old = ''': lf-mls-again? ( walk -- flag ) walk-node @ lf-mls-reached? ;'''
+new = ''': lf-mls-again? ( walk -- flag ) drop false ;'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "FX7: a term reached again is checked again and its children pushed, so the audit costs every path (C's levels twice)"
+
+[[fault]]
+id = "fx7-mls-every-path-cli"
+file = "src/kernel/mixed-level-substitute.fs"
+old = ''': lf-mls-again? ( walk -- flag ) walk-node @ lf-mls-reached? ;'''
+new = ''': lf-mls-again? ( walk -- flag ) drop false ;'''
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_1_shared_universe"
+reason = "FX7: the audit walks the 2^40 paths of sharedAndU's type, so useU runs out of fuel where Lean accepts"
+
+[[fault]]
+id = "fx7-mls-again-any-stamp"
+file = "src/kernel/mixed-level-substitute.fs"
+old = ''': lf-mls-again? ( walk -- flag ) walk-node @ lf-mls-reached? ;'''
+new = ''': lf-mls-again? ( walk -- flag ) walk-node @ lf-mls-seen @ 0<> ;'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "FX7: a term an earlier audit reached is skipped, so it is neither checked nor listed nor rebuilt"
+
+[[fault]]
+id = "fx7-mls-skip-first"
+file = "src/kernel/mixed-level-substitute.fs"
+old = '''  over lf-mls-again? if lf-walk-skip else lf-mls-first then ;'''
+new = '''  over lf-mls-again? if lf-mls-first else lf-walk-skip then ;'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "FX7: a term is skipped the first time and checked only when reached again"
+
+[[fault]]
+id = "fx7-lsubst-every-path"
+file = "src/kernel/level-substitute.fs"
+old = ''': lf-lsubst-again? ( walk -- flag ) walk-node @ lf-lsubst-reached? ;'''
+new = ''': lf-lsubst-again? ( walk -- flag ) drop false ;'''
+test = "$GFORTH tests/core/level-substitute.fs"
+reason = "FX7: a level node reached again is walked again, so max (max p q) (max p q) needs 9 units, not 7"
+
+[[fault]]
+id = "fx7-lsubst-again-any-stamp"
+file = "src/kernel/level-substitute.fs"
+old = ''': lf-lsubst-again? ( walk -- flag ) walk-node @ lf-lsubst-reached? ;'''
+new = ''': lf-lsubst-again? ( walk -- flag ) walk-node @ lf-lsubst-seen @ 0<> ;'''
+test = "$GFORTH tests/core/level-substitute.fs"
+reason = "FX7: a level an earlier walk reached is skipped, so it is neither checked nor listed nor rebuilt"
+
+[[fault]]
+id = "fx7-lsubst-skip-first"
+file = "src/kernel/level-substitute.fs"
+old = '''  over lf-lsubst-again? if lf-lsubst-skip else lf-lsubst-first then ;'''
+new = '''  over lf-lsubst-again? if lf-lsubst-first else lf-lsubst-skip then ;'''
+test = "$GFORTH tests/core/level-substitute.fs"
+reason = "FX7: a level node is skipped the first time and checked only when reached again"
