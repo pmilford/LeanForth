@@ -91,6 +91,22 @@ REQUIRED.update({row: "task 5.2.4's Q1 and Q2 (add_quot and quot_reduce_rec, quo
                              "quotinit.eq-wrong-shape", "replay-quot.original",
                              "replay-quot.mk-given-quot-type",
                              "replay-quot.lift-universe-dropped")})
+REQUIRED.update({row: "review rvCONV B2 (R4 and R5 read the numIndices and isRec LeanForth"
+                      " computed, lf-env-shape, never the file's)"
+                 for row in ("lie.indexed-then-unit-like",
+                             "lie.indexed-said-unindexed-then-unit-like",
+                             "lie.unit-said-indexed-then-unit-like", "lie.recursive-then-eta",
+                             "lie.recursive-said-not-then-eta",
+                             "lie.structure-said-recursive-then-eta",
+                             "lie.structure-said-indexed-then-eta",
+                             "lie.structure-said-recursive-then-iota",
+                             "lie.recursive-said-not-then-iota")})
+REQUIRED.update({row: "task 4.2.7 (the result caches; review rvCACHE: universe arguments"
+                      " and projection indices in the keys)"
+                 for row in ("cache.universe-arguments-differ",
+                             "cache.universe-arguments-differ-twin",
+                             "cache.projection-index-differs",
+                             "cache.projection-index-differs-twin")})
 REQUIRED.update({row: "tasks 5.3.1 and 4.2.6 (axioms and opaque declarations)"
                  for row in ("postulate.declared-and-used", "postulate.propext-altered",
                              "postulate.propext-forged-iff", "postulate.propext-own-iff",

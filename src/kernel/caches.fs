@@ -71,7 +71,10 @@
 \ begins (check-declaration.fs) and when an inference job starts, which
 \ empties the local context (mixed-infer.fs; an inductive block's check
 \ starts several jobs without discarding scratch). Within a job the local
-\ context only grows. While the caches are on, inference and comparison
+\ context only grows. A block's recursor builder (inductive-recursor.fs)
+\ runs whnf outside any job, on the last job's tables: its terms name no
+\ free variable, so no key they meet depends on that context (ADR 0014
+\ Amendment 1, review rvCACHE L4). While the caches are on, inference and comparison
 \ keep their scratch until the job ends (mixed-infer.fs's discard and
 \ mixed-convert.fs's restore do nothing) where the stores have ample room
 \ (below), so entries stay useful, as Lean's live for the whole check.

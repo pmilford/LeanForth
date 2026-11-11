@@ -811,6 +811,20 @@ def reductions : List Red := [
     lean := "natCountTooBig", leanforth := "rejected", rule := "L1", task := "5.2.3" },
   { id := "lit.pow-count-limit", type := "Nat.pow 1 4294967295 = 1", value := "Eq.refl 1",
     lean := "accepted", leanforth := "accepted", rule := "L1", task := "5.2.3" },
+  -- Review rvCONV M1: a power of a three-limb base, 12,800 bits, which LeanForth's scratch
+  -- estimate once left full, against the product of two halves.
+  { id := "lit.pow-multi-limb-base",
+    type := "Nat.pow 340282366920938463463374607431768223801 100 = " ++
+      "Nat.mul (Nat.pow 340282366920938463463374607431768223801 50) " ++
+      "(Nat.pow 340282366920938463463374607431768223801 50)",
+    value := "Eq.refl (Nat.pow 340282366920938463463374607431768223801 100)",
+    lean := "accepted", leanforth := "accepted", rule := "L1", task := "5.2.3" },
+  { id := "lit.pow-multi-limb-base-wrong",
+    type := "Nat.pow 340282366920938463463374607431768223801 100 = " ++
+      "Nat.mul (Nat.pow 340282366920938463463374607431768223801 50) " ++
+      "(Nat.pow 340282366920938463463374607431768223801 49)",
+    value := "Eq.refl (Nat.pow 340282366920938463463374607431768223801 100)",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "L1", task := "5.2.3" },
   { id := "lit.string-expansion", type := "\"ab\" = String.ofList ['a', 'b']",
     value := "Eq.refl \"ab\"",
     lean := "accepted", leanforth := "accepted", rule := "L4", task := "5.2.3" },
@@ -1253,6 +1267,28 @@ def sortUse (zero succ : Name) : List Declaration :=
   let dom := .app (k succ) (k zero)
   [empty zero typ, defn succ (arr typ typ) (lam typ prop),
    defn `kk (pi dom (pi (.bvar 0) (.bvar 1))) (lam dom (lam (.bvar 0) (.bvar 0)))]
+/-- `IE.T : Prop` with one constructor. -/
+def tProp : Declaration := .inductDecl [] 0 [⟨`IE.T, prop, [⟨`IE.T.intro, k `IE.T⟩]⟩] false
+/-- `Nat.add := fun _ _ => Nat.zero`, an abbreviation that is not addition. -/
+def zeroAdd : Declaration :=
+  defn `Nat.add (arr (k `Nat) (arr (k `Nat) (k `Nat))) (lam (k `Nat) (lam (k `Nat) (k `Nat.zero)))
+    .abbrev
+/-- `@Nat.rec.{1} (fun _ => Prop) z (fun _ _ => s) m`. -/
+def recTo (z s m : Expr) : Expr :=
+  ap (.const `Nat.rec [.succ .zero]) [lam (k `Nat) prop, z, lam (k `Nat) (lam prop s), m]
+/-- `theorem IE.A : ∀ x : Nat, recTo z s (Nat.add ((fun _ => 2) x) 3) := fun _ => IE.T.intro`:
+whnf's reduce_nat computes 5 under the variable `x` (Lean has no free-variable test there,
+type_checker.cpp 672-703, 732; review rvCONV B1), so the succ case `s` is the type. -/
+def addUnder (z s : Expr) : Declaration :=
+  let two : Expr := .app (lam (k `Nat) (.lit (.natVal 2))) (.bvar 0)
+  .thmDecl { name := `IE.A, levelParams := [],
+             type := pi (k `Nat) (recTo z s (ap (k `Nat.add) [two, .lit (.natVal 3)])),
+             value := lam (k `Nat) (k `IE.T.intro) }
+/-- `theorem IE.bad : IE.F := IE.A Nat.zero`, a proof of the empty `IE.F`, were `IE.A`
+accepted: its closed instance computes 5. -/
+def badUse : Declaration :=
+  .thmDecl { name := `IE.bad, levelParams := [], type := k `IE.F,
+             value := .app (k `IE.A) (k `Nat.zero) }
 
 end K7Rows
 
@@ -1286,7 +1322,16 @@ def k7Chains : List Chain := [
   -- nothing, and iota takes Nat.succ n as a constructor (K7 only where
   -- reduce_nat computes; N1's observation).
   { id := "k7.rec-on-succ-variable", decls := [natInd, recSuccVariable],
-    lean := "accepted", leanforth := "accepted", rule := "R1", task := "5.2.1b" }
+    lean := "accepted", leanforth := "accepted", rule := "R1", task := "5.2.1b" },
+  -- Review rvCONV B1: whnf's reduce_nat computes under a variable, whatever `Nat.add`'s
+  -- value says; with the old free-variable test LeanForth unfolded to `Nat.zero`,
+  -- accepted `IE.A` and then `IE.bad`, a proof of the empty `IE.F`.
+  { id := "k7.free-variable-computes",
+    decls := [natInd, tProp, empty `IE.F, zeroAdd, addUnder (k `IE.T) (k `IE.F), badUse],
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "K7", task := "5.2.3" },
+  { id := "k7.free-variable-computes-twin",
+    decls := [natInd, tProp, empty `IE.F, zeroAdd, addUnder (k `IE.F) (k `IE.T)],
+    lean := "accepted", leanforth := "accepted", rule := "K7", task := "5.2.3" }
 ]
 
 /-- A constructor that names `_nested.T`, a name only the kernel's nested
@@ -1349,7 +1394,55 @@ def hiddenFive : Declaration :=
   .thmDecl { name := `IE.hiddenFive, levelParams := [], type := eqC 1 nat (mkConst `IE.hidden) (lit 5),
              value := reflC 1 nat (lit 5) }
 
+/-- `theorem n : ∀ x : Nat, @Nat.rec (fun _ => Prop) z (fun _ _ => s) (op ((fun _ => a) x) b)
+:= fun _ => True.intro` (review rvCONV B1, its probes P2 and P3): whnf's reduce_nat runs
+under the variable, Lean's refusals included. -/
+def underVar (n : Name) (z s : Expr) (op : Name) (a b : Nat) : Declaration :=
+  let arg : Expr := .app (.lam `y nat (lit a) .default) (.bvar 0)
+  let r := mkAppN (.const `Nat.rec [1]) #[.lam `n nat (.sort 0) .default, z,
+    .lam `n nat (.lam `ih (.sort 0) s .default) .default, mkAppN (mkConst op) #[arg, lit b]]
+  .thmDecl { name := n, levelParams := [], type := .forallE `x nat r .default,
+             value := .lam `x nat (mkConst `True.intro) .default }
+def trueC : Expr := mkConst `True
+def falseC : Expr := mkConst `False
+
+/-- `def n : t := (fun _ : PUnit.{1} => PUnit.{2}) PUnit.unit.{1}`, whose value is a
+`Type 1` (review rvCACHE: a result cache keyed without universe arguments would take
+`PUnit.{2}`'s type for `PUnit.{1}`'s, `Type`, and accept the `Type` one). -/
+def punitPick (n : Name) (t : Expr) : Declaration :=
+  .defnDecl { name := n, levelParams := [], type := t,
+              value := .app (.lam `x (mkConst `PUnit [1]) (mkConst `PUnit [2]) .default)
+                (mkConst `PUnit.unit [1]),
+              hints := .regular 1, safety := .safe }
+/-- `def n : Bool × Nat → t := fun p => (fun (_ : Bool) (b : t) => b) p.1 p.2`, the
+projections Lean's `Expr.proj`: `p.2` is a `Nat` (review rvCACHE: a result cache keyed
+without the projection's index would take `p.1`'s type for it). -/
+def projPick (n : Name) (t : Expr) : Declaration :=
+  let pt := mkAppN (.const `Prod [0, 0]) #[.const `Bool [], nat]
+  let f : Expr := .lam `a (.const `Bool []) (.lam `b t (.bvar 0) .default) .default
+  .defnDecl { name := n, levelParams := [], type := .forallE `p pt t .default,
+              value := .lam `p pt (mkAppN f #[.proj `Prod 0 (.bvar 0), .proj `Prod 1 (.bvar 0)])
+                .default,
+              hints := .regular 1, safety := .safe }
+
 def onBase : List Chain := [
+  { id := "lit.free-variable-pow-refused",
+    decls := [underVar `IE.powZeroBig trueC falseC `Nat.pow 0 4294967296],
+    lean := "natCountTooBig", leanforth := "rejected", rule := "L1", task := "5.2.3" },
+  { id := "lit.free-variable-pow",
+    decls := [underVar `IE.powZero trueC falseC `Nat.pow 0 4],
+    lean := "accepted", leanforth := "accepted", rule := "L1", task := "5.2.3" },
+  { id := "lit.free-variable-shift-refused",
+    decls := [underVar `IE.shlBig falseC trueC `Nat.shiftLeft 2 4294967296],
+    lean := "natCountTooBig", leanforth := "rejected", rule := "L1", task := "5.2.3" },
+  { id := "cache.universe-arguments-differ", decls := [punitPick `IE.badType (.sort 1)],
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "Q10", task := "4.2.7" },
+  { id := "cache.universe-arguments-differ-twin", decls := [punitPick `IE.goodType (.sort 2)],
+    lean := "accepted", leanforth := "accepted", rule := "Q10", task := "4.2.7" },
+  { id := "cache.projection-index-differs", decls := [projPick `IE.badPick (.const `Bool [])],
+    lean := "appTypeMismatch", leanforth := "rejected", rule := "Q10 J1", task := "4.2.7" },
+  { id := "cache.projection-index-differs-twin", decls := [projPick `IE.goodPick nat],
+    lean := "accepted", leanforth := "accepted", rule := "Q10 J1", task := "4.2.7" },
   { id := "postulate.declared-and-used", decls := secretUse,
     lean := "accepted", leanforth := "accepted", rule := "A1", task := "5.3.1" },
   { id := "opaque.accepted", decls := [opaqueD `IE.hidden (lit 5)],
@@ -2112,6 +2205,120 @@ def writeMutation (add : KernelAdd) (base : Kernel.Environment) (baseRecs : Name
   let cs' := cs.filterMap m.change
   writeCase base baseRecs m.id (cs'.foldl add base) (cs'.map (·.name)) [root]
 
+/-! ### A block's ignored fields changed, then a use (review rvCONV B2)
+
+Lean's replay ignores an exported type's `numIndices` and `isRec` (B4): its kernel computes
+its own, and the declarations after the block meet those (`is_non_rec_structure`,
+inductive.cpp 28-33, for structure eta R4 and unit-like types R5). So a file that says the
+indexed `IE.IU` has no index, or the recursive `IE.RR` is not recursive, changes no verdict;
+nor does one that says the unit type `IE.UU` has an index, or the structure `IE.SS` is
+recursive. Each case replays the block, changed, then checks the use; the row's verdict is
+the use's. LeanForth reads the values its block check computed (`lf-env-shape`). -/
+structure Lie where
+  id : String
+  block : Declaration
+  change : ConstantInfo → Option ConstantInfo
+  use : Declaration
+  lean : String
+  leanforth : String
+  rule : String
+  task : String := "5.2.2"
+
+open K7Rows in
+def oneType (n : Name) (t : Expr) (ctor : Name) (ct : Expr) : Declaration :=
+  .inductDecl [] 0 [⟨n, t, [⟨ctor, ct⟩]⟩] false
+open K7Rows in
+def indexedUnit : Declaration := oneType `IE.IU (arr nat typ) `IE.IU.zero (.app (k `IE.IU) (lit 0))
+open K7Rows in
+def plainUnit : Declaration := oneType `IE.UU typ `IE.UU.u (k `IE.UU)
+open K7Rows in
+def recursiveOne : Declaration := oneType `IE.RR typ `IE.RR.mk (arr (k `IE.RR) (k `IE.RR))
+open K7Rows in
+def natBox : Declaration := oneType `IE.SS typ `IE.SS.mk (arr nat (k `IE.SS))
+/-- `theorem n : ∀ a b : t, a = b := fun a _ => Eq.refl a`: only a unit-like `t` (R5). -/
+def allEqual (n : Name) (t : Expr) : Declaration :=
+  .thmDecl { name := n, levelParams := [],
+             type := .forallE `a t (.forallE `b t (eqC 1 t (.bvar 1) (.bvar 0)) .default) .default,
+             value := .lam `a t (.lam `b t (reflC 1 t (.bvar 1)) .default) .default }
+/-- `theorem n : ∀ r : S, r = S.mk r.1 := fun r => Eq.refl r`: only by structure eta (R4). -/
+def etaOne (n s : Name) : Declaration :=
+  let t : Expr := .const s []
+  .thmDecl { name := n, levelParams := [],
+             type := .forallE `r t (eqC 1 t (.bvar 0) (.app (.const (s ++ `mk) []) (.proj s 0 (.bvar 0))))
+               .default,
+             value := .lam `r t (reflC 1 t (.bvar 0)) .default }
+/-- `theorem n : ∀ s : IE.SS, @IE.SS.rec.{1} (fun _ => Nat) (fun m => m) s = s.1 :=
+fun s => Eq.refl s.1`: iota on `s` by structure eta (R3). -/
+def iotaBox (n : Name) : Declaration :=
+  let t : Expr := .const `IE.SS []
+  let p : Expr := .proj `IE.SS 0 (.bvar 0)
+  let r := mkAppN (.const `IE.SS.rec [1]) #[.lam `x t nat .default, .lam `m nat (.bvar 0) .default,
+    .bvar 0]
+  .thmDecl { name := n, levelParams := [], type := .forallE `s t (eqC 1 nat r p) .default,
+             value := .lam `s t (reflC 1 nat p) .default }
+/-- `theorem n : ∀ r : IE.RR, @IE.RR.rec.{1} (fun _ => Nat) (fun _ _ => 0) r = 0 :=
+fun _ => Eq.refl 0`: iota by structure eta would need `IE.RR` non-recursive (R3). -/
+def iotaRec (n : Name) : Declaration :=
+  let t : Expr := .const `IE.RR []
+  let r := mkAppN (.const `IE.RR.rec [1]) #[.lam `x t nat .default,
+    .lam `a t (.lam `ih nat (lit 0) .default) .default, .bvar 0]
+  .thmDecl { name := n, levelParams := [], type := .forallE `r t (eqC 1 nat r (lit 0)) .default,
+             value := .lam `r t (reflC 1 nat (lit 0)) .default }
+
+def lies : List Lie := [
+  { id := "lie.indexed-then-unit-like", block := indexedUnit, change := some,
+    use := allEqual `IE.iuAllEqual (.app (mkConst `IE.IU) (lit 0)),
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "B4 R5" },
+  { id := "lie.indexed-said-unindexed-then-unit-like", block := indexedUnit,
+    change := onType fun i => { i with numIndices := 0 },
+    use := allEqual `IE.iuAllEqual (.app (mkConst `IE.IU) (lit 0)),
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "B4 R5" },
+  { id := "lie.unit-said-indexed-then-unit-like", block := plainUnit,
+    change := onType fun i => { i with numIndices := 1 },
+    use := allEqual `IE.uuAllEqual (mkConst `IE.UU),
+    lean := "accepted", leanforth := "accepted", rule := "B4 R5" },
+  { id := "lie.recursive-then-eta", block := recursiveOne, change := some,
+    use := etaOne `IE.rrEta `IE.RR,
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "B4 R4" },
+  { id := "lie.recursive-said-not-then-eta", block := recursiveOne,
+    change := onType fun i => { i with isRec := false },
+    use := etaOne `IE.rrEta `IE.RR,
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "B4 R4" },
+  { id := "lie.structure-said-recursive-then-eta", block := natBox,
+    change := onType fun i => { i with isRec := true },
+    use := etaOne `IE.ssEta `IE.SS,
+    lean := "accepted", leanforth := "accepted", rule := "B4 R4" },
+  { id := "lie.structure-said-indexed-then-eta", block := natBox,
+    change := onType fun i => { i with numIndices := 1 },
+    use := etaOne `IE.ssEta `IE.SS,
+    lean := "accepted", leanforth := "accepted", rule := "B4 R4 J1" },
+  { id := "lie.structure-said-recursive-then-iota", block := natBox,
+    change := onType fun i => { i with isRec := true },
+    use := iotaBox `IE.ssIota,
+    lean := "accepted", leanforth := "accepted", rule := "B4 R3" },
+  { id := "lie.recursive-said-not-then-iota", block := recursiveOne,
+    change := onType fun i => { i with isRec := false },
+    use := iotaRec `IE.rrIota,
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "B4 R3" }
+]
+
+/-- A lie's block constants, changed, and the environment Lean's replay of them makes. -/
+def lieStart (base : Kernel.Environment) (l : Lie) :
+    CommandElabM (List ConstantInfo × Kernel.Environment) := do
+  let cs := (← ownConstants base l.block).filterMap l.change
+  let map := cs.foldl (fun (m : Std.HashMap Name ConstantInfo) c => m.insert c.name c) {}
+  match ← (base.replay map).toBaseIO with
+  | .ok env => pure (cs, env)
+  | .error e => throwError "{l.id}: not replayed: {e}"
+
+/-- A lie as a file holds it: the changed block, then the use. -/
+def writeLie (add : KernelAdd) (base : Kernel.Environment) (baseRecs : NameMap NameSet)
+    (cs : List ConstantInfo) (l : Lie) : IO Unit :=
+  let e := cs.foldl add base
+  let root := (cs.head?.map (·.name)).getD .anonymous
+  writeSegments base baseRecs l.id
+    ([(⟨e, cs.map (·.name), [root]⟩ : Segment)] ++ chainSegments add base e [l.use])
+
 end InductiveExpected
 
 open InductiveExpected in
@@ -2177,6 +2384,12 @@ run_cmd do
     let got := lastVerdict start (s.uses r)
     unless got == s.lean do throwError "{s.id}: Lean's verdict is {got}, expected {s.lean}"
     row s.id got s.leanforth s.rule s.task ""
+  -- 3f. A block's ignored fields changed, then a use (review rvCONV B2).
+  for l in lies do
+    let (_, start) ← lieStart base l
+    let got := lastVerdict start [l.use]
+    unless got == l.lean do throwError "{l.id}: Lean's verdict is {got}, expected {l.lean}"
+    row l.id got l.leanforth l.rule l.task ""
   -- 4. Hand-built declarations, in the `import Lean` environment.
   for c in onBase do
     let got := verdict (addAll base c.decls)
@@ -2230,6 +2443,9 @@ run_cmd do
   for s in stripped do
     let (kept, _, r) ← strippedStart base s
     writeStripped add base baseRecs kept r s
+  for l in lies do
+    let (cs, _) ← lieStart base l
+    writeLie add base baseRecs cs l
   for c in onBase do
     writeSegments base baseRecs c.id (chainSegments add base base c.decls)
   writeSegments base baseRecs twice.id (chainSegments add base base [twiceDecl, twiceDecl])
