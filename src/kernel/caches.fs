@@ -52,13 +52,16 @@
 \ (equal names share one in the stage's tier: import/feed.fs), so names
 \ equal by text with two numbers are a miss.
 \ A cached value is a node with its identity; an entry whose node no
-\ longer has it (its scratch was discarded) is a miss. An inferred type's
-\ key also names the scope: inference reads a source node under the
-\ scope (mixed-infer.fs), a loose bound variable k being the scope's
-\ free variable k places from the top, so the key is the skeleton with 0
-\ when the node has no loose bound variable, else with the identity of
-\ the scope's innermost free variable, which fixes the whole scope (each
-\ binder gets a new free variable over an unchanged scope). A lambda read
+\ longer has it (its scratch was discarded) is a miss. Inference reads a
+\ source node under the scope (mixed-infer.fs), a loose bound variable k
+\ being the scope's free variable k places from the top; Lean infers the
+\ term with those free variables put in, and keys its type by that term
+\ (type_checker.h 26-30). So an inferred type's key is the skeleton of
+\ the node closed with the scope (the closing is remembered per scope,
+\ mixed-open.fs; plan task 6.5.5), the node's own when it has no loose
+\ bound variable, with 0 for the scope (until plan task 6.5.5 the key was
+\ the node's skeleton with the identity of the scope's innermost free
+\ variable, which missed under every new binder). A lambda read
 \ as the body of a lambda (mixed-infer.fs's chain) has a type over the
 \ chain's bound variables, not closed: it is neither looked up nor kept.
 \ The pair caches take closed terms only (as Lean compares only closed
@@ -110,8 +113,10 @@
 \ step gives back the unit of the visit it opens around the pass. Looking
 \ up, keeping and skeletons cost no fuel (Lean's caches, hashes and
 \ cached node data cost no steps either); each is bounded by the nodes
-\ the check has. A table or stack that cannot grow (no heap) keeps
-\ nothing more: a miss, never a verdict.
+\ the check has. Closing an open node for its inferred type's key is
+\ substitution work, paid as mixed-open.fs pays it (Lean's instantiate
+\ when it opens a binder). A table or stack that cannot grow (no heap)
+\ keeps nothing more: a miss, never a verdict.
 \
 \ Lean's cached node data. The skeleton table also keeps, per node, what
 \ Lean keeps in each node: its loose bound variables and whether it has a
@@ -120,8 +125,11 @@
 \ and abstract keep a node that cannot change without visiting it (Lean's
 \ replace), defeq.fs's == holds at once for one skeleton. Since plan step
 \ S3 each term record keeps these facts in its data word
-\ (core/terms.fs's lf-term-data@), and the hooks read the memo only for a
-\ node whose word has no data or names a free variable (see lf-cs-word).
+\ (core/terms.fs's lf-term-data@); since plan task 6.5.5 whnf.fs,
+\ mixed-infer.fs and mixed-open.fs read the word themselves, with or
+\ without the caches, and the hooks here are asked only for a node whose
+\ word has no data, or (mixed-open.fs) names a free variable (see
+\ lf-cs-word).
 \
 \ Interface: lf-caches-enable ( flag -- ), lf-caches-on? ( -- flag ),
 \ lf-caches-clear ( -- ), lf-term-facts ( node -- id bits true | false ),
