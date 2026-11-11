@@ -4,8 +4,9 @@
 \ stamp table binds it to this exact term allocation, so a reset cannot
 \ resurrect it. Binary constructors capture child indices, not identities;
 \ their safety relies on backward edges and no raw mutation or count edits.
-\ State: the stamp column lf-cterm-stamps of the term store (indexed by
-\ term index; lib/store-columns.fs), the marks column lf-term-marks with
+\ State: the stamps of generation-handles.fs (a map from term index to
+\ stamp unit; a constant's stamp is its own identity, as a symbolic Sort's
+\ term stamp is), the marks column lf-term-marks with
 \ its run counter lf-mark-runs (below), and one
 \ walk record, lf-cterm-walker, all members of the checker context
 \ (lib/context.fs). Each constant and symbolic Sort visit also runs a
@@ -32,9 +33,38 @@ require ./tagged-sort-boundary.fs
 require ./terms.fs
 
 7 constant lf-tag-constant
-/slab context-record: lf-cterm-stamps
-1 cells ' lf-cterm-stamps lf-term-columns column-add
+\ A constant node is never shared (terms.fs): it carries a stamp of its
+\ own identity.
+lf-tag-constant lf-term-unshare
 lf-walk-room context-walk: lf-cterm-walker
+
+\ The data words of the checker's leaves (terms.fs's hook lf-term-leaf-data;
+\ ADR 0016 C1, compact-store plan step S3), the facts kernel/caches.fs's
+\ memo finds for them: a bound variable its index plus one; a free
+\ variable the free-variable bit; a symbolic Sort and a constant the
+\ parameter bit of their levels (levels.fs keeps it per level), when the
+\ level, or the reference and its levels, are valid when the node is
+\ made, else no data; a projection, literal, string literal or let leaf
+\ nothing (0); any other leaf (a concrete Sort, an unsupported form) no
+\ data.
+: lf-data-params ( flag -- data ) 0 swap false lf-data ;
+: lf-cterm-sort-data ( level second -- data )
+  drop dup lf-level-valid? 0= if drop lf-data-unknown exit then
+  lf-level-params? lf-data-params ;
+: lf-cterm-params? ( addr count -- flag )
+  false swap 0 ?do over i lf-cref-pair@ drop lf-level-params? or loop nip ;
+: lf-cterm-const-data ( cref identity -- data )
+  lf-cref-levels if lf-cterm-params? lf-data-params else lf-data-unknown then ;
+: lf-cterm-leaf-data ( tag first second -- data )
+  rot case
+    lf-tag-bvar of lf-bvar-data endof
+    lf-tag-symbolic-sort of lf-cterm-sort-data endof
+    lf-tag-constant of lf-cterm-const-data endof
+    lf-tag-fvar of 2drop 0 false true lf-data endof
+    lf-tag-proj of 2drop 0 endof  lf-tag-lit of 2drop 0 endof
+    lf-tag-str of 2drop 0 endof  lf-tag-let of 2drop 0 endof
+    >r 2drop lf-data-unknown r> endcase ;
+' lf-cterm-leaf-data is lf-term-leaf-data
 
 \ Marks: audits that check each node once, however many paths reach it.
 \ Lean keeps a node's closedness data in the node itself, computed once
@@ -79,7 +109,7 @@ lf-walk-room context-walk: lf-cterm-walker
 : lf-cterm-fuel ( -- addr ) lf-cterm-walker walk-fuel ;
 
 \ Stamp cell of a constant node at a valid term index.
-: lf-cterm-stamp-cell ( index -- addr ) lf-cterm-stamps column-at ;
+: lf-cterm-stamp-cell ( index -- addr ) lf-term-stamps lf-stamp-own ;
 
 : lf-cterm-stamp ( term identity -- ) swap lf-cterm-stamp-cell ! ;
 
@@ -125,7 +155,7 @@ lf-walk-room context-walk: lf-cterm-walker
     lf-tag-str of lf-str-check endof
     lf-tag-let of lf-let-check endof  walk-bad-tag endcase ;
 : lf-cterm-once ( first second walk tag -- outcome ) ['] lf-cterm-dispatch lf-walk-once ;
-: lf-cterm-visit ( walk -- outcome ) lf-terms ['] lf-cterm-once walk-visit ;
+: lf-cterm-visit ( walk -- outcome ) ['] lf-cterm-once lf-term-visit ;
 
 \ Validate a live root and its reachable mixed symbolic graph, each node
 \ once (the marks above). Each term and level visit costs one unit of

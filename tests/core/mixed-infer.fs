@@ -201,7 +201,9 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
   term-serial term-serial-before @ <= abort" no term allocation"
   level-serial level-serial-before @ <= abort" no level allocation"
   lf-cref-serial @ cref-serial-before @ <= abort" no cref allocation"
-  \ Reuse each first rolled-back slot and reject its discarded identity.
+  \ Reuse each first rolled-back slot and reject its discarded identity
+  \ (the term a bound variable no node of the test has: the term store
+  \ gives an equal node back, compact-store plan step S3).
   0 dup lf-level-identity 0= abort" zero" lf-hlevel-succ 0= abort" reuse level"
   over levels-before @ <> abort" level slot"
   2dup lf-hlevel-valid? 0= abort" new level identity"
@@ -210,7 +212,7 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
   over crefs-before @ <> abort" cref slot"
   2dup lf-cref-valid? 0= abort" new cref identity"
   over cref-serial-before @ 1+ lf-cref-valid? abort" stale cref revived" 2drop
-  0 lf-hterm-bvar 0= abort" reuse term"
+  9999 lf-hterm-bvar 0= abort" reuse term"
   over terms-before @ <> abort" term slot"
   2dup lf-hterm-valid? 0= abort" new term identity"
   over term-serial-before @ 1+ lf-hterm-valid? abort" stale term revived" 2drop ;
@@ -301,9 +303,12 @@ variable sm-name
   lf-name-reset lf-level-reset lf-term-reset lf-cref-reset lf-lctx-reset
   s" sm" new-name sm-name !  0 lf-term-bvar 0= abort" base" drop ;
 \ One of each: a term, a level, a reference and a local-context entry
-\ (whose free variable is a second term).
+\ (whose free variable is a second term). The term is a bound variable
+\ whose index no other node has, so a new node: the term store gives an
+\ equal node back (compact-store plan step S3).
+: sm-term ( -- ) lf-term-count @ 100000 + lf-term-bvar 0= abort" term" drop ;
 : sm-all ( -- )
-  0 lf-term-bvar 0= abort" term" drop  0 lf-level-succ 0= abort" level" drop
+  sm-term  0 lf-level-succ 0= abort" level" drop
   sm-name @ lf-name-generation @ actuals 0 lf-cref-new 0= abort" cref" 2drop
   0 lf-lctx-local ok? 0= abort" local" drop ;
 sm-reset

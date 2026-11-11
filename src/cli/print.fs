@@ -62,8 +62,11 @@ end-structure
 \ Stage and feed the export c-addr u (cli/check-run.fs's ck-load, after
 \ ck-start), its manifest checked when checked? is true, the hooks on:
 \ the outcome of the stage or the feed.
+\ The side table keeps a binder's name per node, so the term store's
+\ hash-consing (core/terms.fs, compact-store plan step S3), which would
+\ make two binders that differ only in their names one node, is off.
 : pr-load ( c-addr u checked? -- outcome )
-  pr-reset ['] pr-binder-hook ['] pr-decl-hook ck-hooks! ck-load ;
+  false lf-term-sharing! pr-reset ['] pr-binder-hook ['] pr-decl-hook ck-hooks! ck-load ;
 
 \ Whether the text c-addr u spells the name id: components joined by dots,
 \ numeric ones in decimal (as the printer spells a name), compared from the

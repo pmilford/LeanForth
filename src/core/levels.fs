@@ -84,8 +84,26 @@ store-header context-record: lf-levels
 : lf-level-room? ( -- flag )
   lf-level-steady? if true exit then
   lf-levels store-ready ok? if lf-level-covered lf-level-columns columns-ready else false then ;
+\ Whether a universe parameter occurs in a level (Lean's has_param_univ),
+\ kept per level in a column when the level is made, from its children's
+\ (compact-store plan step S3: the term store's data words read it,
+\ core/terms.fs). A record changed in place later (only tests do that)
+\ keeps the flag it was made with; a child that is not allocated (a raw
+\ caller's) counts as none.
+/slab context-record: lf-level-param-flags
+1 cells ' lf-level-param-flags lf-level-columns column-add
+: lf-level-params? ( level -- flag ) lf-level-param-flags column-at @ 0<> ;
+: lf-level-child-params? ( child -- flag )
+  dup lf-level-valid? if lf-level-params? else drop false then ;
+: lf-level-params-of ( tag first second -- flag )
+  rot case lf-level-tag-param of 2drop true endof
+    lf-level-tag-succ of drop lf-level-child-params? endof
+    lf-level-tag-max of lf-level-child-params? swap lf-level-child-params? or endof
+    lf-level-tag-imax of lf-level-child-params? swap lf-level-child-params? or endof
+    >r 2drop false r> endcase ;
 : lf-level-new ( tag first second -- index true | false )
-  lf-levels node-new dup 0= if drop lf-level-refused then ;
+  2 pick 2 pick 2 pick lf-level-params-of >r lf-levels node-new
+  if r> over lf-level-param-flags column-at ! true else r> drop lf-level-refused then ;
 : lf-level-add ( tag first second -- index true | false )
   lf-level-room? if lf-level-new else 2drop drop lf-level-refused then ;
 

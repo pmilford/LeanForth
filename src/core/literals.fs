@@ -2,9 +2,11 @@
 \ Lean's Expr.lit (.natVal n). LeanForth stores one as a leaf, tag
 \ lf-tag-lit, whose second field is the number of limbs of n (lib/
 \ bignum.fs's limbs: cells, least significant first, the top one not
-\ zero, so 0 has none) and whose first field is n itself when it has at
-\ most one limb, else the index of its limbs in this context's limb slab
-\ (lf-lit-limbs). The representation is unique, so two literals are
+\ zero, so 0 has none) and whose first field is the index of its limbs
+\ in this context's limb slab (lf-lit-limbs), or 0 for n = 0. Term fields
+\ are 32 bits wide (terms.fs), so even a one-limb n is kept in the slab
+\ (compact-store plan step S3; before, it was the first field). The
+\ representation is unique, so two literals are
 \ Lean's == exactly when their counts and limbs are (lf-lit-same?). A
 \ literal is a leaf of its own: every pass treats it as a closed term
 \ without levels, as Lean's passes treat Expr.lit. The limbs live in the
@@ -33,8 +35,7 @@ require ./terms.fs
 \ The limbs of a literal leaf: their address (valid until the slab grows)
 \ and count.
 : lf-lit-vector ( leaf -- addr n )
-  dup lf-term-second@ dup 2 < if swap lf-term-slot node-first swap exit then
-  swap lf-term-first@ lf-lit-limbs slab-at swap ;
+  dup lf-term-first@ lf-lit-limbs slab-at swap lf-term-second@ ;
 \ Lean's ==, Nat.beq: the same count and limbs.
 : lf-lit-limbs= ( a1 a2 n -- flag ) cells tuck compare 0= ;
 : lf-lit-same? ( a b -- flag )
@@ -42,34 +43,36 @@ require ./terms.fs
   lf-lit-limbs= ;
 \ The value of a literal of at most one limb.
 : lf-lit-small? ( leaf -- flag ) lf-term-second@ 2 < ;
-: lf-lit-cell ( leaf -- u ) lf-term-first@ ;
+: lf-lit-cell ( leaf -- u )
+  dup lf-term-second@ if lf-term-first@ lf-lit-limbs slab-at @ else drop 0 then ;
 
-\ A literal from n normalized limbs at addr: the first field, kept in the
-\ slab when n is 2 or more (ok, or full).
+\ A literal from n normalized limbs at addr: the first field, the limbs
+\ kept in the slab when n is 1 or more (ok, or full).
 : lf-lit-kept ( addr n -- first outcome )
   dup lf-lit-limbs slab-claim ok-then? 0= if >r 2drop r> no-result exit then
   >r r@ lf-lit-limbs slab-at swap cells move r> outcome-ok ;
 : lf-lit-first ( addr n -- first outcome )
-  dup 2 < if if @ else drop 0 then outcome-ok exit then lf-lit-kept ;
+  dup 0= if 2drop 0 outcome-ok exit then lf-lit-kept ;
 : lf-hterm-lit ( addr n -- index identity true | false )
   tuck lf-lit-first ok-then? 0= if 2drop false exit then
   lf-tag-lit swap rot lf-term-add lf-hterm-result ;
 \ A literal from a number of lib/bignum.fs.
 : lf-hterm-big ( big -- index identity true | false ) big-vector lf-hterm-lit ;
-\ A literal of one cell's value.
+\ A literal of one cell's value, its limb passed through a cell of the
+\ context.
+1 cells context-record: lf-lit-one
 : lf-hterm-cell ( u -- index identity true | false )
-  dup if 1 else 0 then lf-tag-lit -rot lf-term-add lf-hterm-result ;
+  lf-lit-one ! lf-lit-one dup @ 0<> 1 and lf-hterm-lit ;
 
 \ Fields of a well-formed literal leaf (the audit,
-\ core/constant-term-boundary.fs): a count of 0 with 0, of 1 with a
-\ nonzero limb, or of 2 and more limbs in the slab, the top one not 0.
+\ core/constant-term-boundary.fs): a count of 0 with 0, or of 1 and more
+\ limbs in the slab, the top one not 0.
 : lf-lit-span? ( first n -- flag )
   2dup + lf-lit-limbs slab-count 1+ < >r over 0< 0= r> and
   if + 1- lf-lit-limbs slab-at @ 0<> else 2drop false then ;
 : lf-lit-fields? ( first second -- flag )
   dup 0< if 2drop false exit then
-  dup 0= if drop 0= exit then
-  dup 1 = if drop 0<> exit then lf-lit-span? ;
+  dup 0= if drop 0= exit then lf-lit-span? ;
 : lf-lit-check ( first second walk -- outcome ) drop lf-lit-fields? flag>outcome ;
 
 \ Scratch arenas on the heap for one computation (kernel/reduce-nat.fs,

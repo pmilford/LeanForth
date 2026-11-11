@@ -5,6 +5,10 @@ require ../../src/core/tagged-sort-boundary.fs
 require ../../src/core/terms.fs
 require ../support/store-faults.fs
 
+\ These cases number their nodes, and some build an equal node again as a
+\ node of its own: the term store's hash-consing (compact-store plan step
+\ S3) is off here, so each constructor makes a new node.
+false lf-term-sharing!
 lf-term-reset
 T{ 1 lf-term-sort -> 0 true }T
 T{ 1 lf-term-symbolic-sort -> 1 true }T
@@ -83,12 +87,12 @@ T{ 0 lf-repr-concrete 10 lf-repr-check -> outcome-ok }T
 99 1 term-tag!
 T{ 777 1 lf-repr-symbolic 10 lf-repr-check -> 777 outcome-invalid }T
 lf-tag-symbolic-sort 1 term-tag!
+\ A field is 32 bits wide and unsigned (core/terms.fs, compact-store plan
+\ step S3): -1 written reads back as 2^32 - 1, a nonnegative payload, so
+\ a negative leaf field, which these lines once planted, cannot be stored.
 -1 1 term-first!
-T{ 1 lf-repr-symbolic 10 lf-repr-check -> outcome-invalid }T
+T{ 1 lf-term-first@ 1 lf-repr-symbolic 10 lf-repr-check -> u32-mask outcome-ok }T
 1 1 term-first!
--1 2 term-first!
-T{ 2 lf-repr-concrete 10 lf-repr-check -> outcome-invalid }T
-0 2 term-first!
 1 2 term-second!
 T{ 2 lf-repr-concrete 10 lf-repr-check -> outcome-invalid }T
 0 2 term-second!

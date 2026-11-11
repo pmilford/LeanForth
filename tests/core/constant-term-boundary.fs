@@ -59,9 +59,9 @@ reuse-term
 T{ 0 cid @ 10 lf-cterm-check -> outcome-invalid }T
 \ Construct at the final slot after prior allocations made identity exceed
 \ capacity. This catches indexing the stamp array by identity instead of slot.
-: fill-terms ( -- ) begin lf-term-count @ 63 < while
+: fill-terms ( -- ) false lf-term-sharing! begin lf-term-count @ 63 < while
   0 lf-hterm-bvar 0= abort" fill" 2drop
-repeat ;
+repeat true lf-term-sharing! ;
 fill-terms
 0 lf-name-generation @ 0 0 lf-cref-new drop rid ! rindex !
 63 lf-cterm-stamp-cell @ saved-child !
@@ -79,7 +79,7 @@ create term-start /store-mark allot   create level-start /store-mark allot
 : fresh-marked ( -- )
   term-start lf-terms store-mark ok? 0= abort" term mark"
   level-start lf-levels store-mark ok? 0= abort" level mark" ;
-: terms-back ( -- outcome ) term-start lf-terms store-rollback ;
+: terms-back ( -- outcome ) term-start lf-term-rollback ;
 : levels-back ( -- outcome ) level-start lf-levels store-rollback ;
 \ A shared constant is visited twice but checked once, with its level:
 \ the second visit costs its own unit only (the marks).

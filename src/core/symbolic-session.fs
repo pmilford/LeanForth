@@ -60,7 +60,7 @@ lf-walk-room context-walk: lf-ssession-walker
   dup lf-term-binary-tag? if drop walk-push2 exit then
   case lf-tag-symbolic-sort of lf-ssession-sort endof
     lf-tag-bvar of drop 2drop outcome-ok endof walk-bad-tag endcase ;
-: lf-ssession-visit ( walk -- outcome ) lf-terms ['] lf-ssession-dispatch walk-visit ;
+: lf-ssession-visit ( walk -- outcome ) ['] lf-ssession-dispatch lf-term-visit ;
 
 \ Check one root: representation and shape first, then the level of every
 \ reachable Sort. Both passes and every level visit share one budget, and

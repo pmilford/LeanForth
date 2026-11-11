@@ -19,7 +19,11 @@ include ../support/plain-cases.fs
 include ../support/checker-trial.fs
 require ../support/store-faults.fs
 
-: begin-check ( -- ) context-new throw context-use fresh-session open-index ;
+\ The cases number their fixture nodes and fill stores with equal leaves:
+\ each runs with the term store's hash-consing off (compact-store plan
+\ step S3); the random checks below run with it on.
+: begin-check ( -- )
+  context-new throw context-use false lf-term-sharing! fresh-session open-index ;
 : end-check ( -- ) lf-context @ context-main context-use context-free throw ;
 \ The numbers and code recorded, and whether the site's name is text.
 : diag ( -- n1 n2 code ) lf-diag@ nip ;
@@ -110,8 +114,13 @@ end-check
 \ The index grows (plan task 6.2.0); one the heap cannot grow
 \ (heap-watch.fs) is full and keeps its count.
 : fill-index ( n -- ) 0 ?do 0 i 1+ lf-name-num must put ok? must loop ;
-begin-check 16 fill-index 0 99 lf-name-num must constant n99 lf-diag-clear 1 heap-refusals !
-T{ n99 put diag -> outcome-full 16 16 lf-diag-signatures-full }T
+\ The Sort is made before the heap refuses, so that the refusal meets the
+\ index's growth, not the stamps' (core/generation-handles.fs keeps them
+\ in a growable map since compact-store plan step S3).
+: put-sort ( name node identity -- status ) 2>r >r token r> 2r> formals 0 1000 lf-msp-put ;
+begin-check 16 fill-index 0 99 lf-name-num must constant n99 sort0 2constant s99
+lf-diag-clear 1 heap-refusals !
+T{ n99 s99 put-sort diag -> outcome-full 16 16 lf-diag-signatures-full }T
 T{ s" mixed-signature-probe lf-msp" at? -> true }T
 T{ heap-refusals @ lf-msp-count @ n99 put lf-msp-count @ -> 0 16 outcome-ok 17 }T
 end-check

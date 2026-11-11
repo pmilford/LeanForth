@@ -75,9 +75,9 @@ T{ 7 lf-term-read -> lf-tag-app 6 4 true }T
 \ Capacity exhaustion aborts the batch without losing earlier nodes.
 lf-term-reset
 : fill-load-arena ( -- )
-  begin lf-term-count @ lf-term-capacity 1- < while
+  false lf-term-sharing! begin lf-term-count @ lf-term-capacity 1- < while
     0 lf-term-sort 0= if -1 throw then drop
-  repeat ;
+  repeat true lf-term-sharing! ;
 fill-load-arena
 T{ lf-load-begin -> true }T
 T{ 0 lf-tag-sort 0 0 lf-load-node -> true }T
@@ -92,11 +92,14 @@ T{ lf-load-finish -> false }T
 \ and aborted there rolls back only that context's store, and the main
 \ batch stays open.
 lf-term-reset
-: bvars ( n -- ) 0 ?do 0 lf-term-bvar 0= abort" bvar" drop loop ;
+\ n equal leaves, each a node of its own (the store's hash-consing off,
+\ compact-store plan step S3).
+: bvars ( n -- )
+  false lf-term-sharing! 0 ?do 0 lf-term-bvar 0= abort" bvar" drop loop true lf-term-sharing! ;
 context-new throw constant other
 create other-mark /store-mark allot   \ the other context's terms after 2 nodes
 other context-use 2 bvars
-T{ other-mark lf-terms store-mark 6 bvars other-mark lf-terms store-rollback
+T{ other-mark lf-terms store-mark 6 bvars other-mark lf-term-rollback
    -> outcome-ok outcome-ok }T
 context-main context-use 10 bvars
 T{ lf-load-begin -> true }T

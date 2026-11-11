@@ -16,6 +16,11 @@ require ../../src/kernel/mixed-instantiate.fs
 require ../../src/kernel/mixed-shift.fs
 require ../support/store-faults.fs
 
+\ These cases number their nodes and identity serials: the term store's
+\ hash-consing (compact-store plan step S3) is off here, so that each
+\ constructor and each rebuilt node is a new node, as the cases count.
+false lf-term-sharing!
+
 variable cid variable sid variable rootid variable count-before variable serial-before
 create args 2 cells allot
 create beta-mark /lf-scratch allot   \ the stores before a probe's pass

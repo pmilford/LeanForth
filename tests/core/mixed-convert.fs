@@ -12,6 +12,11 @@ require ../../src/core/terms.fs
 require ../../src/kernel/mixed-compare.fs
 require ../../src/kernel/mixed-convert.fs
 require ../support/store-faults.fs
+
+\ These cases number their nodes and identity serials: the term store's
+\ hash-consing (compact-store plan step S3) is off here, so that each
+\ constructor and each rebuilt node is a new node, as the cases count.
+false lf-term-sharing!
 create ids 32 cells allot
 create args 4 cells allot
 variable name-x variable name-y variable num-root variable num-child

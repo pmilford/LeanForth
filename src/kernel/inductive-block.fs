@@ -336,7 +336,7 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 \ push their children, which must be earlier nodes.
 : lf-ind-dispatch ( first second walk tag -- outcome )
   dup lf-term-binary-tag? if drop walk-children exit then over walk-arg @ execute ;
-: lf-ind-visit ( walk -- outcome ) lf-terms ['] lf-ind-dispatch walk-visit ;
+: lf-ind-visit ( walk -- outcome ) ['] lf-ind-dispatch lf-term-visit ;
 : lf-ind-walked ( outcome -- outcome )
   lf-ind-walker walk-fuel @ lf-ind-fuel ! lf-ind-walker lf-ind-site lf-diag-walk ;
 \ A walk of root by the visitor visit-xt ( walk -- outcome ).
@@ -370,7 +370,7 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 \ (lf-ind-inner-walker), whose fuel goes back to the outer walk; whether
 \ root mentions the type. A budget the walk refuses (negative, which the
 \ outer walk's fuel never is) is invalid, as for lf-ind-run.
-: lf-ind-inner-visit ( walk -- outcome ) lf-terms ['] lf-ind-dispatch walk-visit ;
+: lf-ind-inner-visit ( walk -- outcome ) ['] lf-ind-dispatch lf-term-visit ;
 : lf-ind-inner-run ( root -- outcome )
   ['] lf-ind-occurrence lf-ind-inner-walker walk-arg !
   lf-ind-walker walk-fuel @ lf-ind-inner-walker walk-budget 0=
@@ -430,7 +430,7 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   if 2drop drop lf-ind-maybe! outcome-ok else walk-children then ;
 : lf-ind-nest-dispatch ( first second walk tag -- outcome )
   dup lf-tag-app = if drop lf-ind-nest-app else lf-ind-dispatch then ;
-: lf-ind-nest-visit ( walk -- outcome ) lf-terms ['] lf-ind-nest-dispatch walk-visit ;
+: lf-ind-nest-visit ( walk -- outcome ) ['] lf-ind-nest-dispatch lf-term-visit ;
 : lf-ind-no-leaf ( first second walk tag -- outcome ) 2drop 2drop outcome-ok ;
 : lf-ind-nests ( root -- outcome )
   ['] lf-ind-no-leaf lf-ind-walker walk-arg ! ['] lf-ind-nest-visit lf-ind-run ;
@@ -605,7 +605,7 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   case lf-tag-app of lf-c1-app endof  lf-tag-constant of lf-c1-const endof
     lf-tag-lam of lf-c1-binder endof  lf-tag-pi of lf-c1-binder endof
     >r 2drop drop outcome-ok r> endcase ;
-: lf-c1-visit ( walk -- outcome ) lf-terms ['] lf-c1-dispatch walk-visit ;
+: lf-c1-visit ( walk -- outcome ) ['] lf-c1-dispatch lf-term-visit ;
 : lf-c1-walked ( outcome -- outcome )
   lf-ind-pair-walker walk-fuel @ lf-ind-fuel !
   lf-ind-pair-walker lf-ind-site lf-diag-walk ;

@@ -95,7 +95,7 @@ lf-walk-room context-walk2: lf-pp-scan-walk
 : lf-pp-var-is ( i walk -- outcome ) dup walk-context @ swap walk-arg @ + = lf-pp-hit ;
 : lf-pp-loose-dispatch ( first second walk tag -- outcome )
   dup lf-tag-bvar = if drop nip lf-pp-var-is else lf-pp-scan-other then ;
-: lf-pp-loose-visit ( walk -- outcome ) lf-terms ['] lf-pp-loose-dispatch walk-visit ;
+: lf-pp-loose-visit ( walk -- outcome ) ['] lf-pp-loose-dispatch lf-term-visit ;
 \ Variable i mentions a binder of the scope that shows the text pending at
 \ mark (walk-arg). A variable beyond the scope is left to the printer.
 : lf-pp-outer ( i d -- j true | false ) - 1- dup 0< if drop false else true then ;
@@ -107,7 +107,7 @@ lf-walk-room context-walk2: lf-pp-scan-walk
   swap walk-arg @ lf-pp-shows-pending? lf-pp-hit ;
 : lf-pp-uses-dispatch ( first second walk tag -- outcome )
   dup lf-tag-bvar = if drop nip lf-pp-var-shows else lf-pp-scan-other then ;
-: lf-pp-uses-visit ( walk -- outcome ) lf-terms ['] lf-pp-uses-dispatch walk-visit ;
+: lf-pp-uses-visit ( walk -- outcome ) ['] lf-pp-uses-dispatch lf-term-visit ;
 : lf-pp-scan ( term arg xt -- flag outcome )
   >r lf-pp-scan-walk dup lf-pp-lend walk-arg !
   0 r> lf-pp-scan-walk walk-run-pair lf-pp-scan-walk lf-pp-repay lf-pp-hit? ;

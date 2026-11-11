@@ -61,10 +61,13 @@ T{ 1 cb 0 cb capp cbits  cz csort 0 cb lf-term-lam must cbits  0 cb 0 cb lf-term
 \ A bound variable whose loose count would overflow a cell has no facts
 \ (review rvCACHE L1): every pass meets it uncached, never as closed. The
 \ bits are four times the loose count (compact-store plan step S2: a
-\ universe-parameter bit joined the free-variable bit).
-T{ max-n cb lf-term-facts  max-n 2/ cb lf-term-facts  max-n 2 rshift 1- cb lf-term-facts
+\ universe-parameter bit joined the free-variable bit). Since step S3 a
+\ term's fields are 32 bits wide (core/terms.fs): such an index cannot be
+\ stored (the store refuses it, full), and the largest one it holds has
+\ facts.
+T{ max-n lf-term-bvar  max-n 2/ lf-term-bvar  max-n 2 rshift 1- lf-term-bvar
    -> false false false }T
-T{ max-n 2 rshift 2 - cb cbits -> max-n 2 rshift 1- 2 lshift }T
+T{ u32-mask cb cbits -> u32-mask 1+ 2 lshift }T
 0 cb constant ckey
 create cbefore /lf-scratch allot
 T{ cbefore lf-scratch-mark -> outcome-ok }T
@@ -624,7 +627,18 @@ T{ 7 lf-cd-word drop dup lf-data-loose over lf-data-params? rot lf-data-fvar?
    -> 1 true true }T
 T{ lf-data-ranges 1- 2 lshift lf-cd-word -> lf-data-ranges 1- false false lf-data true }T
 T{ lf-data-ranges 2 lshift lf-cd-word -> false }T
-T{ false lf-caches-enable  cu csort lf-term-data@  true lf-caches-enable -> false }T
+\ Since step S3 every record keeps its data word, caches on or off.
+T{ false lf-caches-enable  cu csort lf-term-data@  true lf-caches-enable
+   -> 0 true false lf-data true }T
+\ The term store hash-conses (step S3), but never a free variable: one
+\ made after the local context was emptied is a new node, and the dead
+\ one does not come back as its variable.
+cz csort constant ctype
+lf-lctx-reset
+T{ ctype lf-lctx-local nip  lf-lctx-count @ -> outcome-ok 1 }T
+lf-term-count @ 1- constant cdead
+lf-lctx-reset
+T{ ctype lf-lctx-local swap cdead <> cdead lf-fvar-live? -> outcome-ok true false }T
 
 cases-done
 bye

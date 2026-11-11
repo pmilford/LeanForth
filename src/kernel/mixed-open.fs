@@ -28,9 +28,10 @@
 \ free variables (checked). n = 0 gives the term itself, unvisited, as
 \ in Lean. Lean skips the subterms whose cached loose-bound-variable range
 \ or free-variable flag shows them unchanged (instantiate.cpp 103,
-\ abstract.cpp 19); the term store keeps no such data, but the caches do
-\ while they are on (kernel/caches.fs, ADR 0014 Q12, through the hook
-\ lf-open-unchanged?), and the passes then skip such a node as Lean does;
+\ abstract.cpp 19); the term store's data words keep that data (since
+\ compact-store plan step S3), and while the caches are on
+\ (kernel/caches.fs, ADR 0014 Q12, through the hook lf-open-unchanged?)
+\ the passes skip such a node as Lean does;
 \ otherwise they visit it, keep it and pay fuel for it. As Lean's replace
 \ keeps each shared node's result per offset for the rest of the pass
 \ (replace_fn.cpp 26-40), a pass keeps every binary node's result and
@@ -164,14 +165,18 @@ end-structure
   ['] lf-open-second lf-rebuild-first ;
 
 \ A bound-variable leaf of index i: the live one an earlier pass made for
-\ i, else a new one, then kept for i; no room is full.
+\ i, else a new one, then kept for i; no room is full. While the term
+\ store hash-conses (core/terms.fs, compact-store plan step S3) it gives
+\ the live leaf back itself, so the leaves are not kept: what a pass makes
+\ then never depends on what an earlier check left in this record.
 : lf-open-slot ( i -- addr ) 2* cells lf-open-job lf-openjob-leaves + ;
 : lf-open-kept? ( addr -- node true | false )
   dup @ dup lf-term-identity if rot cell+ @ = dup 0= if nip then else 2drop false then ;
 : lf-open-remember ( node i -- node )
   over dup lf-term-identity drop rot lf-open-slot tuck cell+ ! ! ;
 : lf-open-leaf-at ( i -- node outcome )
-  dup 0 lf-open-leaves within 0= if lf-term-bvar lf-rebuild-allocated exit then
+  dup 0 lf-open-leaves within 0= lf-term-sharing? or
+  if lf-term-bvar lf-rebuild-allocated exit then
   dup lf-open-slot lf-open-kept? if nip outcome-ok exit then
   dup lf-term-bvar if swap lf-open-remember outcome-ok else drop lf-rebuild-full then ;
 

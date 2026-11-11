@@ -78,7 +78,8 @@ T{ sweep-result @ 1 make-sort 1 make-sort make-pi convert-terms -> outcome-ok }T
 \ the corrupted count), keeps all counts and leaves an earlier result
 \ readable. A rolled-back identity is not revived by reusing its slot.
 : fill-terms ( room -- )
-  lf-term-capacity swap - begin dup lf-term-count @ > while 0 make-var drop repeat drop ;
+  false lf-term-sharing! lf-term-capacity swap -
+  begin dup lf-term-count @ > while 0 make-var drop repeat drop true lf-term-sharing! ;
 : fill-levels ( -- )
   begin lf-level-count @ lf-level-capacity < while 0 succ-of drop repeat ;
 variable earlier variable earlier-id variable token variable before-serial

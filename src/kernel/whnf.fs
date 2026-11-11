@@ -202,7 +202,7 @@ lf-walk-room context-walk2: lf-whnf-scan
 : lf-whnf-scan-dispatch ( first second walk tag -- outcome )
   dup lf-term-binary-tag? if lf-whnf-scan-binary exit then
   lf-tag-bvar = if lf-whnf-scan-bvar else drop 2drop outcome-ok then ;
-: lf-whnf-scan-visit ( walk -- outcome ) lf-terms ['] lf-whnf-scan-dispatch walk-visit ;
+: lf-whnf-scan-visit ( walk -- outcome ) ['] lf-whnf-scan-dispatch lf-term-visit ;
 : lf-whnf-scanned ( outcome -- flag outcome )
   dup outcome-unknown = if drop true outcome-ok exit then
   dup ok? 0= if lf-whnf-scan lf-whnf-site lf-diag-walk then false swap ;
@@ -224,7 +224,7 @@ defer lf-whnf-known ( node visit -- flag true | false )
 \ free variable.
 : lf-whnf-free-dispatch ( first second walk tag -- outcome )
   dup lf-tag-fvar = if drop 2drop drop outcome-unknown exit then lf-whnf-scan-dispatch ;
-: lf-whnf-free-visit ( walk -- outcome ) lf-terms ['] lf-whnf-free-dispatch walk-visit ;
+: lf-whnf-free-visit ( walk -- outcome ) ['] lf-whnf-free-dispatch lf-term-visit ;
 : lf-whnf-free? ( node frames -- flag outcome ) ['] lf-whnf-free-visit lf-whnf-scan-run ;
 
 \ ---------------------------------------------------------------------------

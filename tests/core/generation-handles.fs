@@ -64,7 +64,7 @@ create rollback-mark /store-mark allot
 T{ rollback-mark lf-terms store-mark -> outcome-ok }T
 T{ 0 lf-hterm-bvar -> 1 term-serial true }T
 term-serial rolled-term-identity !
-T{ rollback-mark lf-terms store-rollback lf-term-count @ -> outcome-ok 1 }T
+T{ rollback-mark lf-term-rollback lf-term-count @ -> outcome-ok 1 }T
 T{ 1 lf-hterm-bvar -> 1 term-serial true }T
 T{ 1 rolled-term-identity @ lf-hterm-valid? -> false }T
 T{ 1 term-serial lf-hterm-valid? -> true }T

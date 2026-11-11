@@ -12,6 +12,9 @@ require ./diagnostics.fs
 require ./terms.fs
 
 6 constant lf-tag-symbolic-sort
+\ A symbolic Sort is never shared (terms.fs): generation-handles.fs stamps
+\ it with its own identity and its level's.
+lf-tag-symbolic-sort lf-term-unshare
 0 constant lf-repr-concrete
 1 constant lf-repr-symbolic
 lf-walk-room context-walk: lf-repr-walker
@@ -38,7 +41,7 @@ lf-walk-room context-walk: lf-repr-walker
   case lf-tag-sort of lf-repr-sort endof
     lf-tag-symbolic-sort of lf-repr-symbolic-sort endof
     lf-tag-bvar of lf-repr-bvar endof walk-bad-tag endcase ;
-: lf-repr-visit ( walk -- outcome ) lf-terms ['] lf-repr-dispatch walk-visit ;
+: lf-repr-visit ( walk -- outcome ) ['] lf-repr-dispatch lf-term-visit ;
 
 \ Walk one root with the current mode and the fuel left.
 : lf-repr-site ( -- site ) c" tagged-sort-boundary lf-repr-check" ;

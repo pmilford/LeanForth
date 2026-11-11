@@ -66,8 +66,8 @@ include ../support/env-cases.fs
 \ kept by hand; part (d) finds state left outside the context without one.
 create state-words
   ' lf-terms , ' lf-levels , ' lf-names , ' lf-name-pool , ' lf-crefs ,
-  ' lf-lscope-state , ' lf-lscope-walk , ' lf-cterm-stamps , ' lf-cterm-walker ,
-  ' lf-cts-walker , ' lf-hsort-term-identities , ' lf-hsort-level-identities ,
+  ' lf-lscope-state , ' lf-lscope-walk , ' lf-stamp-table , ' lf-cterm-walker ,
+  ' lf-cts-walker , ' lf-stamp-units , ' lf-stamp-spare ,
   ' lf-href-walker , ' lf-ssession , ' lf-ssession-walker , ' lf-repr-walker ,
   ' lf-lvalue-state , ' lf-lcmp-state , ' lf-lsubst-walker , ' lf-lsubst-job ,
   ' lf-mshift-job , ' lf-minst-job , ' lf-mbeta-frames , ' lf-mcompare-walker ,

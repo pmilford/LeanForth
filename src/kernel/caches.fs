@@ -28,8 +28,11 @@
 \ does LeanForth.
 \
 \ Keys: Lean's == by skeletons (ADR 0014 Q3). Lean compares keys with ==
-\ (structural equality, expr_eq_fn). LeanForth's term store is not hash-
-\ consed (a rebuilt term is a new node), so every node a cache meets gets
+\ (structural equality, expr_eq_fn). LeanForth's term store hash-conses
+\ since compact-store plan step S3 (core/terms.fs), but not constants and
+\ symbolic Sorts, whose references and levels are made anew by each
+\ universe substitution (until plan step S4 interns them), so two equal
+\ terms can still be two nodes, and every node a cache meets gets
 \ a skeleton: a number that two nodes share only when they are Lean's ==
 \ -- the same tag, and the skeletons of their children (application,
 \ lambda, Pi), or, for a leaf, the same bound-variable index, the same
@@ -115,9 +118,10 @@
 \ free variable or a universe parameter. whnf.fs's has_loose_bvars and
 \ has_fvar walks are then answered from it, mixed-open.fs's instantiate
 \ and abstract keep a node that cannot change without visiting it (Lean's
-\ replace), defeq.fs's == holds at once for one skeleton, and
-\ core/terms.fs's lf-term-data@ gives the three as one data word (until
-\ the compact store keeps it in each record: plan step S3).
+\ replace), defeq.fs's == holds at once for one skeleton. Since plan step
+\ S3 each term record keeps these facts in its data word
+\ (core/terms.fs's lf-term-data@), and the hooks read the memo only for a
+\ node whose word has no data or names a free variable (see lf-cs-word).
 \
 \ Interface: lf-caches-enable ( flag -- ), lf-caches-on? ( -- flag ),
 \ lf-caches-clear ( -- ), lf-term-facts ( node -- id bits true | false ),
@@ -125,7 +129,7 @@
 \ lf-cache-infer-only, lf-cache-whnf-core, lf-cache-whnf,
 \ lf-cache-unfold, lf-cache-success and lf-cache-failure ( -- cache ).
 \ Loading this module sets the hooks of whnf.fs, defeq.fs, mixed-infer.fs,
-\ mixed-convert.fs, mixed-open.fs and core/terms.fs (lf-term-data@).
+\ mixed-convert.fs and mixed-open.fs.
 \ State: one record, lf-caches (the switch, the key being looked up, the
 \ next skeleton, two stacks' depths, and nine tables: each a hash table
 \ of lib/htab.fs over a slab of entries), and two growable stacks
@@ -381,8 +385,10 @@ lf-tag-str lf-skel-level < and
   if true else 2drop false then ;
 : lf-tk-pair ( node tag -- kind a b true )
   swap dup lf-term-first@ swap lf-term-second@ true ;
+\ A literal of at most one limb by its value and count (its limb is kept
+\ in the slab, core/literals.fs), any other by its own node.
 : lf-tk-lit ( node tag -- kind a b true | false )
-  over lf-term-second@ 2 < if lf-tk-pair else lf-tk-own then ;
+  over lf-lit-small? if over lf-lit-cell rot lf-term-second@ true else lf-tk-own then ;
 : lf-tk-leaf ( node tag -- kind a b true | false )
   dup case
     lf-tag-bvar of lf-tk-bvar endof
@@ -445,14 +451,30 @@ lf-tag-str lf-skel-level < and
 \ node unchanged without visiting it as Lean's replace does
 \ (instantiate.cpp 103: no loose bound variable at or beyond the offset;
 \ abstract.cpp 19: no free variable). defeq.fs's ==: one skeleton.
+\ Since compact-store plan step S3 each record keeps these facts in its
+\ data word (core/terms.fs); the memo is asked only for a node whose
+\ word has no data, or names a free variable: the memo knows a free
+\ variable only while it is live in this job's local context, and the
+\ passes then meet a dead one as before. For every other node the word
+\ holds exactly the memo's facts (the same leaves known, the same rules
+\ for the range and the bits, checked when the node was made, as a level
+\ or reference stays valid while a term names it), so each answer, and
+\ the fuel, is the memo's.
+: lf-cs-word ( node -- data true | false )
+  lf-term-data@ 0= if false exit then
+  dup lf-data-fvar? if drop false else true then ;
+: lf-cs-bits ( data -- bits ) dup lf-data-loose 2 lshift swap lf-data-params? 2 and or ;
+: lf-cs-facts ( node -- bits true | false )
+  dup lf-cs-word if nip lf-cs-bits true exit then
+  lf-term-facts if nip true else false then ;
 : lf-cs-known ( node visit -- flag true | false )
   lf-caches-on? 0= if 2drop false exit then
-  swap lf-term-facts 0= if drop false exit then nip
+  swap lf-cs-facts 0= if drop false exit then
   swap ['] lf-whnf-scan-visit = if lf-bits-loose 0<> else lf-bits-open? then true ;
 ' lf-cs-known is lf-whnf-known
 : lf-co-unchanged? ( node frames -- flag )
   lf-caches-on? 0= if 2drop false exit then
-  swap lf-term-facts 0= if drop false exit then nip
+  swap lf-cs-facts 0= if drop false exit then
   over lf-open-abstract? if nip lf-bits-fvar 0= exit then
   lf-bits-loose swap frame-context @ > 0= ;
 ' lf-co-unchanged? is lf-open-unchanged?
@@ -460,22 +482,24 @@ lf-tag-str lf-skel-level < and
 \ names: its loose_bvar_range (expr.cpp 102-103).
 : lf-ci-range ( node -- m true | false )
   lf-caches-on? 0= if drop false exit then
-  lf-term-facts if nip lf-bits-loose true else false then ;
+  lf-cs-facts if lf-bits-loose true else false then ;
 ' lf-ci-range is lf-minfer-range
+\ ==: one node is one skeleton (when it has facts); two nodes, the
+\ memo's skeletons.
+: lf-cs-one? ( t -- flag )
+  dup lf-cs-word if 2drop true exit then lf-term-facts if 2drop true else false then ;
 : lf-cs-same? ( t s -- flag )
   lf-caches-on? 0= if 2drop false exit then
+  2dup = if drop lf-cs-one? exit then
   lf-term-facts 0= if drop false exit then drop
   swap lf-term-facts 0= if drop false exit then drop = ;
 ' lf-cs-same? is lf-dq-known-same?
-\ lf-term-data@ (core/terms.fs): the facts as ADR 0016 C1's data word,
-\ while the caches are on and the range fits its 20 bits.
+\ The memo's facts as ADR 0016 C1's data word, when the range fits its
+\ 20 bits: what core/terms.fs's lf-term-data@ gives from each record
+\ (since compact-store plan step S3; the tests compare the two).
 : lf-cd-word ( bits -- data true | false )
   dup lf-bits-loose dup lf-data-ranges u< 0= if 2drop false exit then
   over lf-bits-params 0<> rot lf-bits-fvar 0<> lf-data true ;
-: lf-cd-data ( node -- data true | false )
-  lf-caches-on? 0= if drop false exit then
-  lf-term-facts if nip lf-cd-word else false then ;
-' lf-cd-data is lf-term-data@
 
 \ ---------------------------------------------------------------------------
 \ Nodes as keys (by skeleton) and values (a live node and its identity).

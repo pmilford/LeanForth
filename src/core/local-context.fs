@@ -48,6 +48,10 @@ require ./diagnostics.fs
 require ./terms.fs
 
 9 constant lf-tag-fvar
+\ A free variable's node is never shared (terms.fs): its entry names it
+\ by its identity, and a dead node must never come back as a new
+\ entry's free variable.
+lf-tag-fvar lf-term-unshare
 64 constant lf-lctx-default          \ entries a new context's block holds at first
 
 begin-structure /lf-ldecl
