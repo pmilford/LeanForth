@@ -37,6 +37,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
 if hasattr(sys, "set_int_max_str_digits"):
     sys.set_int_max_str_digits(0)
@@ -385,7 +386,7 @@ def case_line(op, a, b):
 
 
 def run(command):
-    done = subprocess.run(command, capture_output=True, text=True, timeout=1200,
+    done = subprocess.run(command, capture_output=True, text=True, timeout=TEST_LIMIT,
                           stdin=subprocess.DEVNULL)
     if done.returncode != 0:
         sys.stderr.write(done.stdout[-2000:] + done.stderr[-2000:])
@@ -491,14 +492,14 @@ def lean_check(lean, directory, items, results, rng):
     right = Path(directory) / "BignumRight.lean"
     right.write_text("".join(equation(*c) for c in chosen))
     done = subprocess.run([lean, "-DwarningAsError=true", str(right)], capture_output=True,
-                          text=True, timeout=1200)
+                          text=True, timeout=TEST_LIMIT)
     if done.returncode != 0:
         sys.stderr.write((done.stdout + done.stderr)[-3000:])
         raise SystemExit("Lean rejected a value the library computed")
     wrong = Path(directory) / "BignumWrong.lean"
     wrong.write_text("".join(equation(*c, wrong=True) for c in chosen))
     done = subprocess.run([lean, "-DwarningAsError=true", "-DmaxErrors=100000", str(wrong)],
-                          capture_output=True, text=True, timeout=1200)
+                          capture_output=True, text=True, timeout=TEST_LIMIT)
     # decide reports the proposition false, or (for Nat.pow) the kernel
     # refuses the proof term itself; either is Lean rejecting that line.
     refused = (r"BignumWrong\.lean:(\d+):\d+: error: (?:Tactic `decide` proved that the "

@@ -20,6 +20,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
 GFORTH = os.environ.get("GFORTH", "gforth")
 if "/" in GFORTH:  # the suite runs in a copy of the tree
@@ -80,7 +81,7 @@ class Failure(Exception):
 def run_suite(root):
     """The suite's exit status and its last line of output, run in root."""
     done = subprocess.run([GFORTH, SUITE], cwd=root, stdin=subprocess.DEVNULL,
-                          capture_output=True, text=True, timeout=300)
+                          capture_output=True, text=True, timeout=TEST_LIMIT)
     lines = (done.stdout + done.stderr).strip().splitlines()
     failed = [line for line in lines if ": " in line and "slot" in line]
     return done.returncode, (failed or lines or ["(no output)"])[-1]

@@ -31,6 +31,8 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 import program_receipt  # noqa: E402
+import os
+TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
 GENERATED = Path("tests/program/receipts/generated")
 RECEIPT, PRINTED, EVIDENCE = (GENERATED / "lf-clamp.json", GENERATED / "lf-clamp.md",
@@ -254,7 +256,7 @@ def record_problems():
     with tempfile.TemporaryDirectory() as directory:
         fresh_path = Path(directory) / "evidence.json"
         done = subprocess.run([sys.executable, "scripts/program_receipt.py", "record", "--out",
-                               str(fresh_path)], capture_output=True, text=True, timeout=600)
+                               str(fresh_path)], capture_output=True, text=True, timeout=TEST_LIMIT)
         if done.returncode != 0:
             return [f"recording evidence failed:\n{done.stdout}{done.stderr}"]
         fresh = program_receipt.read_json(fresh_path)

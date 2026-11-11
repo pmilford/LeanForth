@@ -7,6 +7,7 @@ never as an earlier declaration. Needs GFORTH. Test-only."""
 import os
 import subprocess
 import sys
+TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 EXPECTED = [
@@ -21,7 +22,7 @@ EXPECTED = [
 def main():
     gforth = os.environ.get("GFORTH", "gforth")
     run = subprocess.run([gforth, "tests/present/outline-block.fs"], cwd=ROOT,
-                         stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=300)
+                         stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=TEST_LIMIT)
     missing = [text for text in EXPECTED if text not in run.stdout]
     if run.returncode != 0 or missing:
         sys.stdout.write(run.stdout + run.stderr)

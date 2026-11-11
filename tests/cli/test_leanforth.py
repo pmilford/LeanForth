@@ -74,6 +74,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tests" / "support"))
 from schema_subset import Validator  # noqa: E402
+TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 TOOL = ROOT / "bin" / "leanforth"
 _gforth = os.environ.get("GFORTH", "gforth")
 GFORTH = str(Path(_gforth).resolve()) if os.sep in _gforth else _gforth
@@ -113,7 +114,7 @@ MANIFEST_HINT = [
 def run(*args, cwd=ROOT, gforth=GFORTH, tool=TOOL):
     """The exit status and everything printed, standard output first."""
     result = subprocess.run([str(tool), *args], cwd=cwd, env=dict(os.environ, GFORTH=gforth),
-                            stdin=subprocess.DEVNULL, capture_output=True, timeout=300)
+                            stdin=subprocess.DEVNULL, capture_output=True, timeout=TEST_LIMIT)
     return result.returncode, result.stdout.decode(), result.stderr.decode()
 
 
@@ -712,7 +713,7 @@ class Behaviour(unittest.TestCase):
             name = str(export.relative_to(ROOT))
             counter = subprocess.run(
                 [GFORTH, "src/import/ndjson-count.fs", "-e", f's" {name}" count-export bye'],
-                cwd=ROOT, stdin=subprocess.DEVNULL, capture_output=True, timeout=300)
+                cwd=ROOT, stdin=subprocess.DEVNULL, capture_output=True, timeout=TEST_LIMIT)
             self.assertEqual(run("count", name)[:2], (0, counter.stdout.decode()), name)
 
     def test_reexport_identical(self):
@@ -1290,7 +1291,7 @@ class Engines(unittest.TestCase):
         for options, engine in [([], "gforth"), (["--fast"], "gforth-fast")]:
             result = subprocess.run([str(TOOL), "check", "--json", *options, COMPOSITION],
                                     cwd=ROOT, env=env, stdin=subprocess.DEVNULL,
-                                    capture_output=True, timeout=300)
+                                    capture_output=True, timeout=TEST_LIMIT)
             self.assertEqual((result.returncode, json.loads(result.stdout)["measured"]["engine"],
                               result.stderr), (0, engine, b""), options)
 

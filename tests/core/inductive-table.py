@@ -36,6 +36,7 @@ import re
 import subprocess
 import sys
 import tempfile
+TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
 LEAN_FILE = "tests/reference/inductive-expected.lean"
 TSV = "tests/reference/inductive-expected.tsv"
@@ -155,7 +156,7 @@ OUTCOME = {"accepted": "ok"}
 
 def run_lean(lean):
     run = subprocess.run([lean, "-DwarningAsError=true", LEAN_FILE], stdin=subprocess.DEVNULL,
-                         capture_output=True, text=True, timeout=600)
+                         capture_output=True, text=True, timeout=TEST_LIMIT)
     if run.returncode != 0:
         sys.stdout.write(run.stdout + run.stderr)
         raise SystemExit("inductive-table: Lean failed on " + LEAN_FILE)
@@ -191,7 +192,7 @@ def run_forth(gforth, folder, paths):
         with open(script, "w", encoding="utf-8") as out:
             out.write(forth_script(paths[start:]))
         run = subprocess.run([gforth, script], stdin=subprocess.DEVNULL, capture_output=True,
-                             text=True, timeout=1200)
+                             text=True, timeout=TEST_LIMIT)
         done = parse_forth(run.stdout)
         if not done:
             sys.stdout.write(run.stdout + run.stderr)

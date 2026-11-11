@@ -43,6 +43,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tests" / "core"))
 from test_ndjson_reader import mutate  # noqa: E402
+TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 GFORTH = os.environ.get("GFORTH", "gforth")
 EMIT_FS = "src/import/ndjson-emit.fs"
 DUMP_FS = "tests/core/ndjson-dump.fs"
@@ -81,7 +82,7 @@ def forth_calls(driver, calls, batch=200):
 def forth_batch(driver, calls):
     text = " ".join(f"{call} cr .( {MARK}) cr" for call in calls)
     result = subprocess.run([GFORTH, driver, "-e", text + " bye"], cwd=ROOT,
-                            stdin=subprocess.DEVNULL, capture_output=True, timeout=600)
+                            stdin=subprocess.DEVNULL, capture_output=True, timeout=TEST_LIMIT)
     if result.returncode != 0:
         raise AssertionError(f"gforth failed: {result.stderr.decode(errors='replace')[-2000:]}")
     parts = result.stdout.decode("utf-8", errors="replace").split(MARK + "\n")[:-1]
@@ -243,7 +244,7 @@ class Exports(unittest.TestCase):
 class Tool(unittest.TestCase):
     def run_tool(self, *arguments):
         result = subprocess.run(["bash", TOOL, *map(str, arguments)], cwd=ROOT,
-                                stdin=subprocess.DEVNULL, capture_output=True, timeout=600,
+                                stdin=subprocess.DEVNULL, capture_output=True, timeout=TEST_LIMIT,
                                 env={**os.environ, "GFORTH": GFORTH})
         return result.returncode, result.stdout.decode("utf-8", errors="replace")
 

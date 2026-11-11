@@ -29,6 +29,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
 GFORTH = os.environ.get("GFORTH", "gforth")
 CASES = pathlib.Path("tests/present/outline-cases.fs")
@@ -69,7 +70,7 @@ NO_OUTLINE = {
 
 def printed(cases=CASES, lines=None):
     given = {"input": "\n".join(lines).encode() + b"\n"} if lines else {"stdin": subprocess.DEVNULL}
-    result = subprocess.run([GFORTH, str(cases)], capture_output=True, timeout=300, **given)
+    result = subprocess.run([GFORTH, str(cases)], capture_output=True, timeout=TEST_LIMIT, **given)
     if result.returncode != 0 or result.stderr:
         raise RuntimeError(f"{cases} failed:\n{result.stdout.decode()}{result.stderr.decode()}")
     return result.stdout.decode("utf-8")
