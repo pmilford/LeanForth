@@ -19,10 +19,10 @@
 \ Where a whnf or a lookup cannot follow Lean, its failure passes on
 \ (unknown, K5, exhausted, full). Not yet as Lean: a structure that is a
 \ type of the block being checked (Lean's environment holds it, but not
-\ its constructor yet) is unknown; so is one whose exported numIndices
-\ B4 found different from Lean's. The lookups record no dependency, as
-\ whnf.fs's do not: the structure is in the closure of what e's type
-\ names.
+\ its constructor yet) is unknown. numIndices is the one LeanForth
+\ computed (lf-env-shape), never the file's. The lookups record no
+\ dependency, as whnf.fs's do not: the structure is in the closure of
+\ what e's type names.
 \ State: none of its own; every value stays on the data stack, as the
 \ is_prop tests run inference again (aside, which may meet projections).
 \ The computation keeps a frame on the stack: the leaf L, e closed E,
@@ -71,19 +71,24 @@ require ./whnf.fs
 
 \ The structure's input declaration: Ty's head a constant named as the
 \ leaf, which a usable slot holds as an inductive type with one
-\ constructor, its numIndices Lean's (B4), and as many arguments as
-\ parameters and indices. (decl ok), the leaf rejected, or a failure.
-: lf-iproj-warned? ( d -- flag )
-  lf-env-warnings ok? if lf-warn-indices and 0<> else drop true then ;
-: lf-iproj-shape? ( decl n -- flag )
-  over lf-idecl-data dup lf-ity-params lf-more-field swap lf-ity-indices lf-more-field + =
-  swap lf-idecl-data lf-ity-ctors@ nip 1 = and ;
-: lf-iproj-slot ( leaf d -- decl outcome )
-  dup lf-whnf-absent = if 2drop lf-iproj-unknown exit then
-  dup 0< if drop lf-iproj-bad exit then
-  dup lf-iproj-warned? if 2drop lf-iproj-unknown exit then
-  lf-whnf-decl ok-then? 0= if nip no-result exit then
-  dup lf-idecl-kind @ lf-kind-inductive = if nip outcome-ok else drop lf-iproj-bad then ;
+\ constructor and Ty's n arguments as its parameters and indices -- its
+\ numIndices as LeanForth's block check computed it (lf-env-shape; review
+\ rvCONV B2), never the file's, which Lean's replay ignores; a type
+\ without a shape is unknown. (decl ok), the leaf rejected, or a failure.
+: lf-iproj-arity ( d decl -- n outcome )
+  lf-idecl-data lf-ity-params lf-more-field swap lf-env-shape
+  ok-then? 0= if nip no-result exit then
+  dup lf-shape-known and 0= if 2drop lf-iproj-unknown exit then
+  lf-shape-indices + outcome-ok ;
+: lf-iproj-fits ( leaf n d decl -- decl outcome )
+  tuck lf-iproj-arity ok-then? 0= if >r 2drop drop r> no-result exit then
+  rot = over lf-env-one-ctor? and if nip outcome-ok else drop lf-iproj-bad then ;
+: lf-iproj-slot ( leaf n d -- decl outcome )
+  dup lf-whnf-absent = if drop 2drop lf-iproj-unknown exit then
+  dup 0< if 2drop lf-iproj-bad exit then
+  dup lf-whnf-decl ok-then? 0= if nip nip nip no-result exit then
+  dup lf-idecl-kind @ lf-kind-inductive =
+  if lf-iproj-fits else 2drop drop lf-iproj-bad then ;
 : lf-iproj-named? ( leaf const -- flag )
   lf-whnf-cref lf-crec-name @ swap lf-proj-name lf-name-same? ;
 \ Lean's env().get (259): no such constant is unknownConstant, the
@@ -91,14 +96,11 @@ require ./whnf.fs
 : lf-iproj-get ( const -- d outcome )
   lf-whnf-cref lf-crec-name @ dup lf-envsig-local
   if 2drop lf-whnf-absent outcome-ok else lf-env-lookup-pass then ;
-: lf-iproj-struct ( leaf Ty -- decl outcome )
-  lf-iproj-head dup lf-whnf-const? 0= if drop lf-iproj-bad exit then
-  2dup lf-iproj-named? 0= if drop lf-iproj-bad exit then
-  lf-iproj-get ok-then? 0= if nip no-result exit then lf-iproj-slot ;
-: lf-iproj-checked ( leaf Ty -- decl outcome )
-  2dup lf-iproj-struct ok-then? 0= if nip nip no-result exit then
-  dup 2 pick lf-iproj-n lf-iproj-shape? 0= if drop nip lf-iproj-bad exit then
-  nip nip outcome-ok ;
+: lf-iproj-struct ( leaf n Ty -- decl outcome )
+  lf-iproj-head dup lf-whnf-const? 0= if 2drop lf-iproj-bad exit then
+  2 pick over lf-iproj-named? 0= if 2drop lf-iproj-bad exit then
+  lf-iproj-get ok-then? 0= if nip nip no-result exit then lf-iproj-slot ;
+: lf-iproj-checked ( leaf Ty -- decl outcome ) dup lf-iproj-n swap lf-iproj-struct ;
 
 \ The constructor, and its type at Ty's universe arguments
 \ (instantiate_type_lparams: the stored type itself without any).

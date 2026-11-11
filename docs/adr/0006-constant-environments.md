@@ -430,7 +430,12 @@ which replace "keep the initial allowlist empty" above.
   safe, no value, name fresh (N2), universe parameters distinct (L3), type
   well formed and a Sort (steps 1–6 of `check-declaration.fs`); then step 7
   joins the axiom's own bit to its axiom set. An unsafe axiom stays
-  *unsupported* (U1).
+  *unsupported* (U1) for now: a gap (review rvAX L3), as Lean's kernel
+  accepts it with its unsafe checker (`environment.cpp` 152–158) and
+  rejects a safe declaration that uses it (`type_checker.cpp` 110–112);
+  a follow-up of plan tasks 5.3.1 and 4.2.6 gives Lean's verdicts for
+  unsafe axioms and opaque declarations. The pinned exporter and Lean's
+  replay skip unsafe constants, so no export Lean writes holds one.
 - **Allowlist v1** (`src/core/axiom-allowlist.fs`, version 1, run records'
   `allowlistVersion`): `propext`, `Classical.choice` and `Quot.sound`, each
   with its name, number of universe parameters and Lean 4.35.0's statement

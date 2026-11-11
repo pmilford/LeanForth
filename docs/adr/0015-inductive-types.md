@@ -405,12 +405,29 @@ route is tried, so LeanForth keeps them.
   statement text at the use's universe arguments (`lf-stmt-build`,
   `env-signature.fs`), never the record's. Rows `replay-quot.original`,
   `replay-quot.mk-given-quot-type`, `replay-quot.lift-universe-dropped`
-  (Lean's replay accepts each; so does LeanForth). **Remaining gaps**, a
-  follow-up of task 5.2.4, none reachable by an export Lean writes: a
-  quotient record named otherwise is rejected (diagnostic 96) where replay
-  ignores it; Lean adds all four constants at the first record, LeanForth
-  one per record (a file lacking one of the four records cannot name it);
-  `check_name` is run on the record's own name only, not on all four.
+  (Lean's replay accepts each; so does LeanForth).
+  *Follow-up (2026-11-10, review rvAX, agent FX3):* `check_name` on all
+  four names, as `add_quot` runs it (`quot.cpp` 53–56): while no earlier
+  quotient record is accepted, a record is rejected when any of the four
+  names is declared, so a user's `Quot.mk` declared first leaves every
+  quotient record rejected and `quot_reduce_rec`'s by-name match never
+  meets it (before, `Quot.lift f h (Quot.mk α (Quot r) a) = f a` was
+  accepted there; Lean says `unknownConstant`); once one is accepted, the
+  four names are held against every other declaration (`alreadyDeclared`,
+  `environment.fs` `lf-env-quot-holding`, also in the publisher's
+  re-check). A record's universe parameters are not re-checked by the
+  publisher (M1), and a type the audit refuses (a loose variable, an
+  `mdata` node) only warns (L1). Rows `quotinit.name-taken`,
+  `after.quot-*`, `replay-quot.lift-params-repeated`, `-mk-loose-bvar`,
+  `-mk-mdata-type`. **Remaining gaps**, a follow-up of task 5.2.4, none
+  reachable by an export Lean writes: a quotient record named otherwise is
+  rejected (diagnostic 96) where replay ignores it; Lean adds all four
+  constants at the first record, LeanForth one per record, so a use of one
+  no slot holds while the quotient is initialised, and a second record of
+  a name, are unknown (diagnostic 77; rows `quotinit.twice`,
+  `after.quot-then-mk-declared-then-used`); a record whose type names an
+  undeclared constant is refused by the importer (row
+  `replay-quot.ind-unknown-constant`, task 5.2.6).
 - **Q2 Reduction.** `Quot.lift f h q` (argument 5 the quotient, 3 the
   function) and `Quot.ind h q` (argument 4, 3): when `whnf q` is
   `Quot.mk r a` with exactly three arguments, the result is `f a` applied
@@ -876,13 +893,20 @@ and its members' exported data into the input (`core/input.fs`,
    `check --record`, `replay` and `print` still read with
    `import/checker-input.fs`, which refuses inductive types: a temporary
    gap, closed by a run record version for any size (6.5.2) and by
-   moving `print` onto the feed (3.4.1). B5's generated values are not
-   yet published: the slots hold the file's data, whose recursor and
-   constructor numbers B3 proved equal to LeanForth's, but whose type
-   fields `numIndices`, `isRec`,
-   `isReflexive`, `numNested` are the file's and untrusted (the warning
-   bits say which differ from LeanForth's); tasks 5.2.1b and 5.2.2, the
-   first to read them, must use LeanForth's values.
+   moving `print` onto the feed (3.4.1). The slots hold the file's data,
+   whose recursor and constructor numbers B3 proved equal to LeanForth's,
+   but whose type fields `numIndices`, `isRec`, `isReflexive`,
+   `numNested` are the file's and untrusted (the warning bits say which
+   differ from LeanForth's). Since review rvCONV B2 (2026-11-10) each
+   type's slot also holds its *shape*, the `numIndices` and `is_rec`
+   LeanForth computed (inductive.cpp 263-281, 308-329), published before
+   B3 so that a block only B3 refuses has it too (`lf-env-shape`,
+   `lf-env-structure`); every reader uses it, never the file's fields:
+   structure eta (R4) and unit-like types (R5) in `defeq.fs`, iota's
+   structure eta (R3, `iota.fs`) and projections (J1, `infer-proj.fs`),
+   which answered *unknown* on a warning before. Rows `lie.*` of the
+   table check a file whose fields lie both ways. `isReflexive` and
+   `numNested` are read by nothing yet.
 9. *A recursor missing from the block* (B4) is accepted, as Lean's replay
    accepts it. Lean's kernel then holds the recursor it generated. Its
    name is reserved (review rvI21 B2): N2, the publisher's re-check and the
@@ -1353,7 +1377,7 @@ open.
 structure eta in `is_def_eq` (`try_eta_struct_core` 856–872), and R5,
 unit-like types (`is_def_eq_unit_like` 1119–1130), belong inside the
 ported comparison, with `lazy_delta_proj_reduction`; the words they need
-are here (`lf-iota-structure`, `lf-iproj-ctor`, `lf-iota-proj-of`). Until
+are here (`lf-env-structure`, `lf-iproj-ctor`, `lf-iota-proj-of`). Until
 then a comparison either may decide is *unknown* (diagnostic 89). So
 are the comparison's projection steps: two projections of the same
 field (`is_def_eq` of their terms, 1185), `whnf_core` with projections

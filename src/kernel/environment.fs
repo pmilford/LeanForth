@@ -66,9 +66,13 @@
 \ written only by the publisher, which keeps its pool mark in the
 \ header, read by every check), two context records, one per context
 \ (ADR 0009): the candidate lf-env-cand and the worker record
-\ lf-env-worker, and the candidate's list of dependencies, the context
-\ slab lf-cand-deps. An environment must be freed only when no task uses
-\ it. The layout is host-specific and never serialized.
+\ lf-env-worker, and the candidate's list of dependencies and its block's
+\ shapes, the context slabs lf-cand-deps and lf-cand-shapes; for the
+\ reports, the axiom sets each slot rests on, kept per context
+\ (lf-axd-state and the slabs lf-axd-rows, -row-of, -number and -axioms;
+\ lf-env-axiom-deps), and lf-env-gen-state. An environment must be freed
+\ only when no task uses it. The layout is host-specific and never
+\ serialized.
 
 require ../lib/lib.fs
 require ../core/derivation-log.fs
@@ -129,6 +133,8 @@ begin-structure /lf-slot
   field: lf-slot-added      \ true on the type and constructors of a block
                             \ rejected only by B3: Lean's kernel added them
   field: lf-slot-recipe     \ a block's generated recursor: lf-recipe-... bits
+  field: lf-slot-shape      \ an accepted inductive type's computed shape
+                            \ (lf-shape-...); else 0
 end-structure
 \ The recipe bits (ADR 0015 decision 12): the recursor LeanForth generated
 \ for the block can be built again from its input (generated-recursor.fs);
@@ -141,6 +147,15 @@ end-structure
 : lf-kind-bare? ( kind -- flag ) dup lf-kind-axiom = swap lf-kind-quotient = or ;
 1 constant lf-recipe-raw
 2 constant lf-recipe-large
+\ The shape of an inductive type as LeanForth's block check computed it
+\ (ADR 0015 section 8, owner answer Q2: its own values, never the file's,
+\ which Lean's replay ignores): Lean's numIndices and is_rec, and a bit
+\ saying it was computed; 0, no shape, on any other slot.
+1 constant lf-shape-known
+2 constant lf-shape-rec
+: lf-shape ( nindices rec -- shape ) lf-shape-rec and swap 4 * or lf-shape-known or ;
+: lf-shape-indices ( shape -- n ) 4 / ;
+: lf-shape-rec? ( shape -- flag ) lf-shape-rec and 0<> ;
 
 \ A check's snapshot and candidate, in its context.
 begin-structure /lf-cand
@@ -155,11 +170,15 @@ begin-structure /lf-cand
   field: lf-cand-warnings   \ a block's B4 warning bits, published with it
   field: lf-cand-added      \ a block rejected only by B3 (lf-env-added!)
   field: lf-cand-recipe     \ its generated recursor's recipe (lf-env-recipe!)
+  field: lf-cand-shaped     \ members with a shape in lf-cand-shapes, from 0
 end-structure
 /lf-cand context-record: lf-env-cand
 \ The dependencies' slots, ascending: a growable array, as long as the
 \ check needs (plan task 6.2.0).
 1 cells context-slab: lf-cand-deps
+\ The shapes of a block's types (lf-env-shape!), by member: a growable
+\ array, as long as the block has types.
+1 cells context-slab: lf-cand-shapes
 \ The candidate's span: how many slots, from the declaration checked on,
 \ its outcome and record are for. A block's check sets it to the block's
 \ members (kernel/check-block.fs); every other check leaves it 1.
@@ -183,6 +202,17 @@ end-structure
 \ a later lookup of T.rec that no slot holds finds it (ADR 0015 decision
 \ 12).
 : lf-env-recipe! ( bits -- ) lf-env-cand lf-cand-recipe ! ;
+\ A block's check sets the shape it computed for member k, a type of the
+\ block (lf-shape): ok, or full when the array cannot grow. The publisher
+\ keeps it on the member's slot (lf-env-shape); a member without one
+\ gets 0.
+: lf-cand-shaped@ ( -- n ) lf-env-cand lf-cand-shaped @ ;
+: lf-env-shape! ( shape k -- outcome )
+  dup 1+ lf-cand-shapes slab-hold ok-then? 0= if nip exit then
+  dup 1+ lf-cand-shaped@ max lf-env-cand lf-cand-shaped !
+  lf-cand-shapes slab-at ! outcome-ok ;
+: lf-cand-shape@ ( k -- shape )
+  dup lf-cand-shaped@ < if lf-cand-shapes slab-at @ else drop 0 then ;
 
 \ A context as a worker (G-P6). Zero in a new context; never cleared.
 begin-structure /lf-worker
@@ -543,11 +573,66 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
   over lf-env-rec-kind >r swap lf-env-type-name ?dup 0=
   if r> 2drop -1 outcome-rejected exit then
   swap lf-env-holding r> lf-rec-aux = if lf-env-aux-held then ;
-\ Whether a type that may hold name below i is not final (the scheduler's
-\ readiness, lf-env-ready?).
-: lf-env-held-open? ( name i -- flag )
+
+\ Lean's quotient (ADR 0015 Q1; review rvAX). add_quot (quot.cpp 47-104)
+\ checks that none of Quot, Quot.mk, Quot.lift and Quot.ind is declared
+\ (check_name, 53-56), then adds all four at once and marks the quotient
+\ initialised; a later quotient declaration changes nothing (48-49). So
+\ once one is initialised, those names are declared whatever the file
+\ holds, and check_name refuses any other declaration of one of them.
+\ LeanForth publishes one quotient record per slot, so the quotient
+\ records below limit hold the four names (lf-env-quot-held) -- declared
+\ when one is accepted (the quotient is initialised), K5 when one is
+\ undecided or unsupported, too early when one is not final -- (d class)
+\ as lf-env-holding gives them; (-1 rejected) when none holds them, or
+\ (lf-env-quot-holding) for a name not one of the four; (-1 full) when a
+\ name cannot be made. A quotient record of another name is never
+\ accepted (quot.fs), so the slots of the four names are all there is to
+\ scan. Lean's quot_reduce_rec (quot.fs) can then match Quot.mk by name,
+\ as Lean does.
+: lf-env-quot-text ( k -- c-addr u )
+  case 0 of s" Quot" endof  1 of s" Quot.mk" endof  2 of s" Quot.lift" endof
+    s" Quot.ind" rot endcase ;
+: lf-env-quot-name? ( name -- flag )
+  false 4 0 ?do over i lf-env-quot-text lf-stmt-name? or loop nip ;
+: lf-slot-quot? ( slot -- flag )
+  lf-slot-index lf-input-decl lf-idecl-kind @ lf-kind-quotient = ;
+: lf-slot-quot-open? ( slot -- flag ) dup lf-slot-open? swap lf-slot-quot? and ;
+: lf-slot-quot-accepted? ( slot -- flag ) dup lf-slot-accepted? swap lf-slot-quot? and ;
+: lf-slot-quot-undecided? ( slot -- flag )
+  dup lf-slot-final? over lf-slot-undecided? and swap lf-slot-quot? and ;
+: lf-slot-quot-unsupported? ( slot -- flag )
+  dup lf-slot-final? over lf-slot-unsupported? and swap lf-slot-quot? and ;
+create lf-env-quot-holders
+  ' lf-slot-quot-open? , outcome-invalid ,  ' lf-slot-quot-accepted? , outcome-ok ,
+  ' lf-slot-quot-undecided? , outcome-unknown ,
+  ' lf-slot-quot-unsupported? , outcome-unsupported ,
+here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
+\ The first slot below limit of one of the four names that passes test:
+\ (d ok), (-1 ok) when there is none, (-1 full) when a name cannot be made.
+: lf-env-quot-found ( limit test -- d|-1 outcome )
+  4 0 ?do
+    i lf-env-quot-text lf-stmt-intern 0= if drop 2drop -1 outcome-full unloop exit then
+    over 3 pick lf-env-first dup 0< 0= if nip nip outcome-ok unloop exit then drop
+  loop 2drop -1 outcome-ok ;
+: lf-env-quot-held ( limit -- d class )
+  lf-env-quot-holders lf-env-quot-holders# 2* cells bounds ?do
+    dup i @ lf-env-quot-found ok-then? 0= if nip -1 swap unloop exit then
+    dup 0< 0= if nip i cell+ @ unloop exit then drop
+  2 cells +loop drop -1 outcome-rejected ;
+: lf-env-quot-holding ( name limit -- d class )
+  swap lf-env-quot-name? if lf-env-quot-held else drop -1 outcome-rejected then ;
+
+\ Whether a type that may hold name below i, or a quotient record that
+\ holds it, is not final (the scheduler's readiness, lf-env-ready?); a
+\ quotient name that cannot be made counts as not final.
+: lf-env-type-open? ( name i -- flag )
   swap lf-env-type-name ?dup 0= if drop false exit then
   swap ['] lf-slot-type-open? lf-env-any? ;
+: lf-env-quot-open? ( name i -- flag )
+  lf-env-quot-holding nip dup outcome-invalid = swap outcome-full = or ;
+: lf-env-held-open? ( name i -- flag )
+  2dup lf-env-quot-open? >r lf-env-type-open? r> or ;
 
 \ N1 for a lookup that found no declaration of name below limit: rejected
 \ (an unknown constant); unknown when an accepted type reserves the name
@@ -578,9 +663,20 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
     outcome-unknown of nip nip lf-env-k5-unknown no-result endof
     outcome-unsupported of nip nip lf-env-k5-unsupported no-result endof
     >r lf-env-absent-early no-result r> endcase ;
+\ One of the four quotient names with no slot of it usable while the
+\ quotient is initialised (its record comes later in the file or is
+\ missing, or a declaration of that name was refused): Lean's kernel
+\ holds the constant add_quot made, no slot does; unknown (diagnostic 77,
+\ the name and the quotient record's slot) until such a use is typed from
+\ quot.fs's entry (a follow-up of plan task 5.2.4). Otherwise as a name
+\ no type holds.
+: lf-env-quot-absent ( name limit -- -1 outcome )
+  2dup lf-env-quot-holding dup ok? if drop nip lf-env-generated no-result exit then
+  dup outcome-full = if 2swap 2drop exit then lf-env-absent-as ;
 : lf-env-n1 ( name limit outcome -- -1 outcome )
   dup outcome-rejected = 0= if nip nip no-result exit then
-  drop 2dup lf-env-reserving lf-env-absent-as ;
+  drop 2dup lf-env-reserving dup outcome-rejected =
+  if 2drop lf-env-quot-absent else lf-env-absent-as then ;
 \ Find the constant named name for the check in this context: (d ok) for
 \ the usable earlier declaration of that name (accepted, or added with a
 \ block rejected only by B3); (-1 ok) for the recursor Lean's kernel
@@ -627,14 +723,22 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
     outcome-unknown of lf-env-k5-unknown endof
     outcome-unsupported of lf-env-k5-unsupported endof
     >r lf-env-held-early r> endcase ;
+: lf-env-n2-quot ( d class -- outcome )
+  dup outcome-full = if nip else lf-env-n2-held then ;
 \ N2 for name below limit: no usable declaration of it (the slots of that
 \ name: accepted, or added by Lean's kernel with a block rejected only by
 \ B3, R2-1), and no accepted or added type T with name T.rec (Lean's
-\ generated recursor, review rvI21 B2). ok, rejected, unknown,
-\ unsupported or invalid, as lf-env-n2 and lf-env-n2-held say.
-: lf-env-fresh ( name limit -- outcome )
+\ generated recursor, review rvI21 B2) (lf-env-unheld); for any
+\ declaration but a quotient record (quot.fs checks those as add_quot
+\ does), also not one of the four quotient names once the quotient is
+\ initialised (lf-env-fresh). ok, rejected, unknown, unsupported,
+\ invalid or full, as lf-env-n2 and lf-env-n2-held say.
+: lf-env-unheld ( name limit -- outcome )
   2dup lf-env-find lf-env-n2 dup ok? 0= if nip nip exit then drop
   lf-env-reserving lf-env-n2-held ;
+: lf-env-fresh ( name limit -- outcome )
+  2dup lf-env-unheld dup ok? 0= if nip nip exit then drop
+  lf-env-quot-holding lf-env-n2-quot ;
 : lf-env-own-name-pass ( -- outcome )
   lf-env-checking 0= if outcome-invalid exit then nip
   lf-name-storage-valid? 0= if drop outcome-invalid exit then
@@ -771,6 +875,28 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
 : lf-env-axioms ( d -- bits outcome )
   lf-env-readable 0= if 0 outcome-invalid exit then
   dup lf-slot-accepted? if lf-slot-axioms @ outcome-ok else drop 0 outcome-invalid then ;
+\ The shape of a usable declaration, (shape ok): an accepted inductive
+\ type's (lf-shape-...), 0 for any other; else (0 invalid).
+: lf-env-shape ( d -- shape outcome )
+  lf-env-usable ok-then? if lf-slot-shape @ outcome-ok else 0 swap then ;
+\ is_non_rec_structure (inductive.cpp 28-33) of usable slot d: (decl ok)
+\ for an inductive type with one constructor (its declaration's list, the
+\ block's own) and, as its shape says, no index and not recursive -- never
+\ as the file's fields say (review rvCONV B2); (0 ok) for any other
+\ declaration; unknown for an inductive type without a shape; or the
+\ slot's failure. Structure eta and unit-like types (defeq.fs) and iota's
+\ structure eta (iota.fs) ask this; projections read the shape's
+\ numIndices (infer-proj.fs).
+: lf-env-one-ctor? ( decl -- flag )
+  lf-idecl-data ?dup if lf-ity-ctors@ nip 1 = else false then ;
+: lf-env-flat? ( shape -- flag ) dup lf-shape-indices 0= swap lf-shape-rec? 0= and ;
+: lf-env-shaped ( decl shape -- decl|0 outcome )
+  dup lf-shape-known and 0= if 2drop 0 outcome-unknown exit then
+  lf-env-flat? over lf-env-one-ctor? and 0= if drop 0 then outcome-ok ;
+: lf-env-structure ( d -- decl|0 outcome )
+  lf-env-usable ok-then? 0= if 0 swap exit then
+  dup lf-slot-decl lf-idecl-kind @ lf-kind-inductive <> if drop 0 outcome-ok exit then
+  dup lf-slot-decl swap lf-slot-shape @ lf-env-shaped ;
 \ The warnings of an accepted declaration, (bits ok): an inductive block
 \ member's B4 bits (check-block.fs lf-warn-...), 0 for any other; else
 \ (0 invalid).
@@ -803,32 +929,118 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
 \ The axioms declaration d depends on (plan task 5.3.2 in part: the set
 \ Lean's #print axioms lists): every accepted axiom among d and the
 \ declarations it uses, directly or not, given to xt ( d' -- ) in
-\ ascending order, within this context's snapshot. A dependency is always
-\ an earlier slot, so one pass from d down marks them all (no recursion),
-\ one cell per slot in a heap block freed before the word returns. ok;
-\ full when the heap has no room; invalid when slot d is not readable and
-\ accepted.
+\ ascending order, within this context's snapshot. ok; full when the heap
+\ has no room; invalid when slot d is not readable and accepted.
+\ Each slot's set is worked out once per environment and snapshot, in
+\ ascending order up to the slot asked for, and kept in this context, so
+\ a report that asks for every declaration's set takes time linear in the
+\ dependencies, not in the export per declaration (review rvAX L5). The
+\ accepted axioms below the snapshot's limit are numbered in file order;
+\ a slot's set is a row of bits over those numbers: its dependencies'
+\ rows joined (a dependency is always an earlier slot, so no recursion),
+\ with its own bit for an axiom. A row equal to the empty one (row 0) or
+\ to a dependency's is shared, so rows are only made where a set grows.
+begin-structure /lf-axd
+  field: lf-axd-env     \ the identity of the environment rows are kept for, 0 none
+  field: lf-axd-limit   \ its snapshot's limit
+  field: lf-axd-done    \ slots whose row is known: those below done
+  field: lf-axd-width   \ cells per row
+end-structure
+/lf-axd context-record: lf-axd-state
+1 cells context-slab: lf-axd-rows      \ the rows, width cells each
+1 cells context-slab: lf-axd-row-of    \ per slot: its row's number
+1 cells context-slab: lf-axd-number    \ per axiom slot: its number
+1 cells context-slab: lf-axd-axioms    \ per number: the axiom's slot
+: lf-axd-cell-bits ( -- n ) 0 max-n begin ?dup while 1 rshift swap 1+ swap repeat 1+ ;
+lf-axd-cell-bits constant lf-axd-bits   \ bits per cell
+: lf-axd-width@ ( -- n ) lf-axd-state lf-axd-width @ ;
+: lf-axd-row ( r -- addr ) lf-axd-width@ * lf-axd-rows slab-at ;
+: lf-axd-top ( -- addr ) lf-axd-rows slab-top ;
+: lf-axd-row-of@ ( d -- r ) lf-axd-row-of slab-at @ ;
 : lf-dep-at ( k slot -- d ) lf-slot-deps @ + lf-env lf-env-pool store-slot @ ;
-: lf-mark ( marks d -- ) cells + true swap ! ;
-: lf-marks-of ( marks slot -- )
-  dup lf-slot-count @ 0 ?do 2dup i swap lf-dep-at lf-mark loop 2drop ;
-: lf-marked? ( marks d -- flag ) cells + @ 0<> ;
-: lf-mark-down ( marks d -- )
-  0 swap do dup i lf-marked? if dup i lf-env lf-env-slot lf-marks-of then -1 +loop drop ;
-: lf-axiom-slot? ( d -- flag )
-  lf-env lf-env-slot dup lf-slot-accepted?
-  swap lf-slot-decl lf-idecl-kind @ lf-kind-axiom = and ;
-: lf-marks-give ( marks d xt -- )
-  swap 1+ 0 ?do
-    over i lf-marked? if i lf-axiom-slot? if i over execute then then
+\ Numbering: the accepted axioms below the limit; room for the per-slot
+\ arrays; row 0, empty; the key the rows are kept for.
+: lf-axd-axiom? ( d -- flag )
+  lf-env-readable 0= if false exit then
+  dup lf-slot-accepted? swap lf-slot-decl lf-idecl-kind @ lf-kind-axiom = and ;
+: lf-axd-number! ( d -- outcome )
+  1 lf-axd-axioms slab-claim ok-then? 0= if nip exit then
+  2dup lf-axd-axioms slab-at ! swap lf-axd-number slab-at ! outcome-ok ;
+: lf-axd-numbered ( -- outcome )
+  lf-env-limit 0 ?do
+    i lf-axd-axiom? if i lf-axd-number! dup ok? 0= if unloop exit then drop then
+  loop outcome-ok ;
+: lf-axd-arrays ( -- outcome )
+  lf-env-limit lf-axd-row-of slab-hold dup ok? 0= if exit then drop
+  lf-env-limit lf-axd-number slab-hold ;
+: lf-axd-width! ( -- )
+  lf-axd-axioms slab-count lf-axd-bits /mod swap 0<> - 1 max lf-axd-state lf-axd-width ! ;
+: lf-axd-empty ( -- outcome )
+  lf-axd-width! lf-axd-width@ lf-axd-rows slab-claim nip
+  dup ok? if 0 lf-axd-row lf-axd-width@ cells erase then ;
+: lf-axd-key! ( -- )
+  lf-env lf-envh-identity @ lf-axd-state lf-axd-env !
+  lf-env-limit lf-axd-state lf-axd-limit !  0 lf-axd-state lf-axd-done ! ;
+: lf-axd-reset ( -- outcome )
+  0 lf-axd-state lf-axd-env ! lf-axd-rows slab-clear lf-axd-axioms slab-clear
+  lf-axd-arrays dup ok? 0= if exit then drop
+  lf-axd-numbered dup ok? 0= if exit then drop
+  lf-axd-empty dup ok? if lf-axd-key! then ;
+: lf-axd-current? ( -- flag )
+  lf-axd-state dup lf-axd-env @ lf-env lf-envh-identity @ =
+  swap lf-axd-limit @ lf-env-limit = and ;
+: lf-axd-ready ( -- outcome ) lf-axd-current? if outcome-ok else lf-axd-reset then ;
+\ Slot j's row: the empty row when it is not accepted; else, in the free
+\ space above the rows, its dependencies' rows joined and its own bit,
+\ then shared with an equal row or kept.
+: lf-axd-or ( r -- )
+  lf-axd-row lf-axd-top lf-axd-width@ cells bounds ?do
+    dup @ i @ or i ! cell+
+  1 cells +loop drop ;
+: lf-axd-bit! ( k -- )
+  lf-axd-bits /mod cells lf-axd-top + swap 1 swap lshift over @ or swap ! ;
+: lf-axd-deps-or ( slot -- )
+  dup lf-slot-count @ 0 ?do i over lf-dep-at lf-axd-row-of@ lf-axd-or loop drop ;
+: lf-axd-join ( slot j -- )
+  lf-axd-top lf-axd-width@ cells erase
+  over lf-axd-deps-or swap lf-slot-decl lf-idecl-kind @ lf-kind-axiom =
+  if lf-axd-number slab-at @ lf-axd-bit! else drop then ;
+: lf-axd-same? ( r -- flag )
+  lf-axd-row lf-axd-width@ cells lf-axd-top lf-axd-width@ cells compare 0= ;
+: lf-axd-shared ( slot -- r|-1 )
+  0 lf-axd-same? if drop 0 exit then
+  dup lf-slot-count @ 0 ?do
+    i over lf-dep-at lf-axd-row-of@ dup lf-axd-same? if nip unloop exit then drop
+  loop drop -1 ;
+: lf-axd-kept ( -- r outcome )
+  lf-axd-width@ lf-axd-rows slab-claim ok-then?
+  if lf-axd-width@ / outcome-ok else no-result then ;
+: lf-axd-made ( j -- r outcome )
+  dup lf-env-readable 0= if drop 0 outcome-ok exit then
+  dup lf-slot-accepted? 0= if 2drop 0 outcome-ok exit then
+  lf-axd-width@ lf-axd-rows slab-room ok-then? 0= if nip no-result exit then
+  dup >r swap lf-axd-join r> lf-axd-shared
+  dup 0< if drop lf-axd-kept else outcome-ok then ;
+: lf-axd-upto ( d -- outcome )
+  1+ lf-axd-state lf-axd-done @ over min ?do
+    i lf-axd-made ok-then? 0= if unloop exit then i lf-axd-row-of slab-at !
+    i 1+ lf-axd-state lf-axd-done !
+  loop outcome-ok ;
+\ The axioms of row r's bits, in order: those of one cell (x, its first
+\ number k), then of each cell; no address is held while xt runs.
+: lf-axd-cell ( xt x k -- xt )
+  swap begin ?dup while
+    dup 1 and if over lf-axd-axioms slab-at @ 3 pick execute then
+    1 rshift swap 1+ swap
+  repeat drop ;
+: lf-axd-give ( d xt -- )
+  swap lf-axd-row-of@ lf-axd-width@ 0 ?do
+    dup lf-axd-row i cells + @ ?dup if rot swap i lf-axd-bits * lf-axd-cell swap then
   loop 2drop ;
-: lf-marks-new ( d -- marks outcome )
-  1+ cells dup allocate if 2drop 0 outcome-full exit then tuck swap erase outcome-ok ;
-: lf-marks-run ( d xt marks -- )
-  dup >r dup 3 pick lf-mark dup 3 pick lf-mark-down -rot lf-marks-give r> free drop ;
 : lf-env-axiom-deps ( d xt -- outcome )
   over lf-env-accepted nip ok? 0= if 2drop outcome-invalid exit then
-  over lf-marks-new ok-then? 0= if nip nip exit then lf-marks-run outcome-ok ;
+  lf-axd-ready dup ok? 0= if nip nip exit then drop
+  over lf-axd-upto dup ok? 0= if nip nip exit then drop lf-axd-give outcome-ok ;
 \ Whether axiom slot d (one lf-env-axiom-deps gives) is outside the
 \ allowlist, its own bit one that does not count as proved.
 : lf-env-unlisted? ( d -- flag )

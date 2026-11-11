@@ -22,6 +22,8 @@ Required of each row:
     (each with the reason and the task that will give the table's column);
   - a row of REQUIRED (a later task's row that a part done decides): exactly
     the table's column;
+  - a row of GAPS (a later task's row Lean accepts, unknown here): exactly the
+    outcome recorded there, with the task that closes the gap;
   - any other row: unsupported or unknown, or exactly the table's column;
     never another decided outcome, never accepted where the table does not
     say accepted.
@@ -74,6 +76,21 @@ UNCLOSED = {
         " Closed by task 5.2.6 (verdicts per declaration for a file not closed)",
     "quotinit.without-eq": "the quotient records' types name Eq, absent from the file."
         " Closed by task 5.2.6 (verdicts per declaration for a file not closed)",
+    "replay-quot.ind-unknown-constant": "Quot.ind's type names IE.nowhere, declared"
+        " nowhere (add_quot never reads it). Closed by task 5.2.6 (verdicts per"
+        " declaration for a file not closed)",
+}
+# Rows of a later task where LeanForth answers unknown and Lean accepts, a gap
+# with its reason and the task that closes it (owner, 2026-11-04: never a
+# difference; each must give exactly this outcome until then).
+GAPS = {
+    "quotinit.twice": ("unknown",
+        "a second quotient record of a name, which add_quot accepts unchanged (quot.cpp"
+        " 48-49): LeanForth holds one constant per slot (diagnostic 77). Closed by the"
+        " follow-up of task 5.2.4 (all four constants at the first record)"),
+    "after.quot-then-mk-declared-then-used": ("unknown",
+        "Lean's Quot.mk used where no slot holds it (the file's only Quot.mk refused):"
+        " diagnostic 77. Closed by the same follow-up of task 5.2.4"),
 }
 # Rows of a later task that a part of it already done decides: each must give
 # exactly the table's column (id -> the part that decides it).
@@ -85,10 +102,37 @@ REQUIRED.update({row: "task 5.2.4's Q1 and Q2 (add_quot and quot_reduce_rec, quo
                              "quot.lift-stuck-on-variable", "quotinit.with-eq",
                              "quotinit.eq-wrong-shape", "replay-quot.original",
                              "replay-quot.mk-given-quot-type",
-                             "replay-quot.lift-universe-dropped")})
+                             "replay-quot.lift-universe-dropped",
+                             "replay-quot.lift-params-repeated",
+                             "replay-quot.mk-loose-bvar", "replay-quot.mk-mdata-type",
+                             "quot.lift-extra-argument", "quot.lift-extra-argument-wrong",
+                             "quot.lift-unapplied-eta", "quot.ind-on-mk",
+                             "after.user-quot-lift-not-reduced")})
+REQUIRED.update({row: "task 5.2.4's add_quot check_name on all four names (review rvAX)"
+                 for row in ("quotinit.name-taken", "after.quot-mk-declared-then-lift-on-it",
+                             "after.quot-then-mk-declared", "after.quot-then-lift-declared",
+                             "after.quot-then-ind-declared")})
+REQUIRED.update({row: "review rvCONV B2 (R4 and R5 read the numIndices and isRec LeanForth"
+                      " computed, lf-env-shape, never the file's)"
+                 for row in ("lie.indexed-then-unit-like",
+                             "lie.indexed-said-unindexed-then-unit-like",
+                             "lie.unit-said-indexed-then-unit-like", "lie.recursive-then-eta",
+                             "lie.recursive-said-not-then-eta",
+                             "lie.structure-said-recursive-then-eta",
+                             "lie.structure-said-indexed-then-eta",
+                             "lie.structure-said-recursive-then-iota",
+                             "lie.recursive-said-not-then-iota")})
+REQUIRED.update({row: "task 4.2.7 (the result caches; review rvCACHE: universe arguments"
+                      " and projection indices in the keys)"
+                 for row in ("cache.universe-arguments-differ",
+                             "cache.universe-arguments-differ-twin",
+                             "cache.projection-index-differs",
+                             "cache.projection-index-differs-twin")})
 REQUIRED.update({row: "tasks 5.3.1 and 4.2.6 (axioms and opaque declarations)"
                  for row in ("postulate.declared-and-used", "postulate.propext-altered",
                              "postulate.propext-forged-iff", "postulate.propext-own-iff",
+                             "postulate.propext-iff-one-param", "postulate.propext-iff-mutual",
+                             "postulate.sound-own-quot-names", "replay-iff.flagged-then-propext",
                              "opaque.accepted", "opaque.wrong-value", "opaque.never-unfolds",
                              "opaque.unfolds-as-definition")})
 # The axiom bits (src/core/axiom-allowlist.fs) LeanForth must report for
@@ -100,6 +144,10 @@ AXIOM_BITS = {
     "postulate.propext-altered": {"propext": 8, "IE.anything": 8},
     "postulate.propext-forged-iff": {"propext": 8, "IE.collapse": 8},
     "postulate.propext-own-iff": {"propext": 1},
+    "postulate.propext-iff-one-param": {"propext": 8},
+    "postulate.propext-iff-mutual": {"propext": 8},
+    "postulate.sound-own-quot-names": {"Quot.sound": 8},
+    "replay-iff.flagged-then-propext": {"propext": 8},
     "opaque.accepted": {"IE.hidden": 0},
 }
 OUTCOME = {"accepted": "ok"}
@@ -253,6 +301,9 @@ def main():
         elif case_id in UNCLOSED:
             ok = got in ("invalid", "unsupported", "unknown", want)
             print(f"unclosed {case_id}: {got} ({UNCLOSED[case_id]})")
+        elif case_id in GAPS:
+            ok = got == GAPS[case_id][0]
+            print(f"gap {case_id}: {got} ({GAPS[case_id][1]})")
         else:
             ok = got in ("unsupported", "unknown") or got == want
         if not ok:

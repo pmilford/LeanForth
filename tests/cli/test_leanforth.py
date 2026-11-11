@@ -25,9 +25,10 @@
      the real Gforth with an allocation made to throw, while feeding and
      inside a check, or with the publisher made to throw mid-run);
    6 all accepted but some NOT PROVED, only with --strict-axioms (by
-     default NOT PROVED keeps Lean's 0): no check can make one yet, so
-     tests/cli/leanforth.fs plants an axiom in a slot, and the schema is
-     tested here with planted reports.
+     default NOT PROVED keeps Lean's 0): an export's own axiom
+     (composition-postulate.ndjson); tests/cli/leanforth.fs also plants
+     an axiom in a slot, and the schema is tested here with planted
+     reports too.
 2. "accepted" is printed only on a declaration's line, each with the
    experimental label and its axioms, and only when the code is 0 or that
    line's declaration is accepted while another is not.
@@ -89,9 +90,10 @@ EMPTY_BLOCK = "tests/core/check-block-cases/names.empty-block.ndjson"
 UNKNOWN = "tests/core/check-block-cases/after.list-left-out-then-lookup-during-param-block.ndjson"
 
 
-def accepted(n):
-    """The summary line of n accepted declarations, none NOT PROVED."""
-    return f"accepted: {n} (experimental, not independently audited); axioms: none"
+def accepted(n, axioms="none"):
+    """The summary line of n accepted declarations, none NOT PROVED: they use
+    no axiom, or only the allowlisted ones given."""
+    return f"accepted: {n} (experimental, not independently audited); axioms: {axioms}"
 
 
 
@@ -147,6 +149,10 @@ class ExitCodes(unittest.TestCase):
         self.assertEqual((status, out.splitlines()[-2]), (0, "16 declarations: 16 accepted"))
         self.assertIn("Quot.sound: accepted (experimental, not independently audited); "
                       "axioms: Quot.sound", out.splitlines())
+        # The summary names the allowlisted axioms used (review rvAX L4).
+        self.assertEqual(out.splitlines()[-1], "accepted: 16 (experimental, not independently "
+                         "audited); axioms: propext, Classical.choice, Quot.sound "
+                         "(allowlisted); none NOT PROVED")
         text = source.read_text(encoding="utf-8")
         forged = text.replace('"name":31,"type":121}', '"name":31,"type":115}')
         self.assertNotEqual(forged, text)
@@ -205,7 +211,7 @@ class ExitCodes(unittest.TestCase):
         status, out, _ = run("check", "--no-manifest", "tests/core/reexport/kinds.ndjson")
         self.assertEqual((status, out.splitlines()[-2:]),
                          (2, ["106 declarations: 89 accepted, 17 unsupported",
-                              accepted(89)]))
+                              accepted(89, "propext (allowlisted); none NOT PROVED")]))
         self.expect(["check", "--no-manifest", "--record", "/dev/null",
                      "tests/core/reexport/kinds.ndjson"], 2,
                     [NO_MANIFEST,
@@ -903,7 +909,7 @@ class JsonReport(unittest.TestCase):
 
     def test_strict_axioms(self):
         """settings records --strict-axioms; with no NOT PROVED declaration
-        (none can be yet) it changes nothing else."""
+        (inductive.ndjson uses no axiom) it changes nothing else."""
         status, got, _ = report(INDUCTIVE)
         strict_status, strict, _ = report("--strict-axioms", INDUCTIVE)
         self.assertEqual((got["settings"]["strictAxioms"], strict["settings"]["strictAxioms"],

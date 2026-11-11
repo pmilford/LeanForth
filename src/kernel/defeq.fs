@@ -74,7 +74,8 @@
 \   answer as the predecessors compare; then, while neither side has a
 \   free variable or in eager mode, a side reduce_nat computes (K7,
 \   reduce-nat.fs; plan task 5.2.3) is replaced by its value, compared
-\   with the other side, and that is the answer. Then one step
+\   with the other side, and that is the answer (whnf's own reduce_nat,
+\   whnf.fs, has no such test: Lean's whnf has none, 732). Then one step
 \   (lazy_delta_reduction_step): is_delta of each side (whnf.fs); neither,
 \   the loop ends undecided; one, it unfolds; both, compare's hints decide
 \   (declaration.cpp 24-49): the greater regular height first, the
@@ -279,6 +280,11 @@ defer lf-es-visit ( t s frames -- ... frames next )
 defer lf-dq-entry ( t s frames -- ... frames next )
 ' lf-dq-visit is lf-dq-entry
 : lf-dq-call ( t s frames cont -- ... frames next ) ['] lf-dq-entry lf-dq-open ;
+\ Lean's is_def_eq_core called directly (is_def_eq_offset 1049, lazy
+\ delta's reduce_nat 1062 and 1064, is_def_eq_unit_like 1129): the visit
+\ itself, so the success cache keeps nothing (review rvCONV L1), as Lean's
+\ cache_success runs only in is_def_eq (1211).
+: lf-dq-core-call ( t s frames cont -- ... frames next ) ['] lf-dq-visit lf-dq-open ;
 : lf-qk-call ( t s frames cont -- ... frames next ) ['] lf-qk-visit lf-dq-open ;
 : lf-bd-call ( t s frames cont -- ... frames next ) ['] lf-bd-visit lf-dq-open ;
 : lf-ap-call ( t s frames cont -- ... frames next ) ['] lf-ap-visit lf-dq-open ;
@@ -501,24 +507,30 @@ defer lf-ap-arg ( frames -- ... frames next )
 \ checked) and outside a check, where LeanForth cannot look (plan task
 \ 5.2.2); or the lookup's failure, rejected (N1) for no such constant:
 \ Lean's env().get throws unknownConstant there (try_eta_struct_core 859,
-\ is_non_rec_structure, inductive.cpp 29). Accepted inductive data is
-\ Lean's: the block's check compared it (check-block.fs).
-: lf-dq-named ( name -- decl outcome )
+\ is_non_rec_structure, inductive.cpp 29). A found constant is its slot
+\ d, or -1 for Lean's generated recursor that no slot holds.
+: lf-dq-found ( name -- d outcome )
   lf-whnf-env? 0= if drop 0 outcome-unknown exit then
   dup lf-envsig-local if 2drop 0 outcome-unknown exit then
-  lf-env-lookup-pass ok-then? 0= if 0 swap exit then
+  lf-env-lookup-pass ;
+: lf-dq-named ( name -- decl outcome )
+  lf-dq-found ok-then? 0= if 0 swap exit then
   dup 0< if drop 0 outcome-ok else lf-whnf-decl then ;
 : lf-dq-head-named ( node -- decl outcome )
   lf-whnf-head dup lf-whnf-const? 0= if drop 0 outcome-ok exit then
   lf-whnf-cref lf-crec-name @ lf-dq-named ;
-\ is_non_rec_structure (inductive.cpp 28-33): an inductive type with one
-\ constructor, no index and not recursive; 0 (no declaration) is none.
-: lf-dq-structure? ( decl|0 -- flag )
-  dup 0= if exit then
-  dup lf-idecl-kind @ lf-kind-inductive <> if drop false exit then
-  lf-idecl-data ?dup 0= if false exit then
-  dup lf-ity-ctors@ nip 1 = over lf-ity-indices lf-more-field 0= and
-  swap lf-ity-flags lf-more-field lf-ity-rec-bit and 0= and ;
+\ is_non_rec_structure (inductive.cpp 28-33) of the type named name, with
+\ the numIndices and is_rec LeanForth's block check computed, never the
+\ file's (lf-env-structure; ADR 0015 section 8, owner answer Q2; review
+\ rvCONV B2: Lean's replay ignores the file's, its kernel uses its own):
+\ (decl ok) for such a type, (0 ok) for any other constant, or a failure
+\ (unknown, diagnostic 89, for an inductive type without a shape).
+: lf-dq-structure ( name -- decl|0 outcome )
+  lf-dq-found ok-then? 0= if 0 swap exit then
+  dup 0< if drop 0 outcome-ok else lf-env-structure then ;
+: lf-dq-head-structure ( node -- decl|0 outcome )
+  lf-whnf-head dup lf-whnf-const? 0= if drop 0 outcome-ok exit then
+  lf-whnf-cref lf-crec-name @ lf-dq-structure ;
 : lf-dq-ctor? ( decl -- flag )
   dup if dup lf-idecl-kind @ lf-kind-constructor = swap lf-idecl-data 0<> and then ;
 
@@ -566,8 +578,8 @@ defer lf-ap-arg ( frames -- ... frames next )
   dup lf-dq-head-named ok-then? 0= if nip 0 swap exit then
   dup lf-dq-ctor? 0= if 2drop 0 outcome-ok exit then
   tuck lf-dq-full-ctor? 0= if drop 0 outcome-ok exit then
-  dup lf-dq-induct lf-dq-named ok-then? 0= if nip 0 swap exit then
-  lf-dq-structure? 0= if drop 0 then outcome-ok ;
+  dup lf-dq-induct lf-dq-structure ok-then? 0= if nip 0 swap exit then
+  0= if drop 0 then outcome-ok ;
 \ try_eta_struct_core(t, s) is a visit of its own, ( flag outcome ). It
 \ keeps t, s, I's name, nparams and the next argument i (pick 4 to 0).
 : lf-es-fail ( outcome frames -- 0 outcome frames 0 ) 5 lf-dq-drop-failed ;
@@ -614,8 +626,8 @@ defer lf-es-field ( frames -- ... frames next )
 \ no field, is_def_eq_core of that type and s's type is the answer, yes
 \ or no; otherwise no. A type that cannot be had without a typer: a doubt
 \ (diagnostic 89), and no.
-: lf-dq-no-field? ( decl|0 -- flag outcome )
-  dup lf-dq-structure? 0= if drop false outcome-ok exit then
+: lf-dq-no-field? ( sdecl|0 -- flag outcome )
+  dup 0= if outcome-ok exit then
   lf-idecl-data lf-ity-ctors@ drop @ lf-dq-named ok-then? 0= if false swap exit then
   dup lf-dq-ctor? if lf-idecl-data lf-ict-fields lf-more-field 0= else drop false then
   outcome-ok ;
@@ -624,7 +636,7 @@ defer lf-es-field ( frames -- ... frames next )
 : lf-dq-unit-type ( t frames -- type lbool outcome )
   lf-dq-whnf-type dup ok? 0= if exit then drop
   dup lf-dq-yes <> if outcome-ok exit then drop
-  dup lf-dq-head-named ok-then? 0= if nip lf-dq-unproved exit then
+  dup lf-dq-head-structure ok-then? 0= if nip lf-dq-unproved exit then
   lf-dq-no-field? ok-then? 0= if nip lf-dq-unproved exit then lf-dq-kept outcome-ok ;
 
 \ Steps 12 to 15. A lookup that cannot tell is unknown, recorded as
@@ -639,7 +651,7 @@ defer lf-es-field ( frames -- ... frames next )
 : lf-dq-unit-compare ( type frames -- ... frames next )
   >r r@ lf-dq-sides nip dup lf-dq-typable? 0= if 2drop r> lf-dq-unit-doubt exit then
   r@ lf-dq-type-of ok-then? 0= if nip r> lf-dq-end-failed exit then
-  r> ['] lf-dq-unit-back lf-dq-call ;
+  r> ['] lf-dq-unit-back lf-dq-core-call ;
 : lf-dq-unit-step ( frames -- ... frames next )
   >r r@ lf-dq-sides drop r@ lf-dq-unit-type ok-then? 0= if nip r> lf-dq-gap exit then
   dup lf-dq-yes = if drop r> lf-dq-unit-compare exit then
@@ -813,7 +825,7 @@ defer lf-lz-failure ( frames -- frames )
 : lf-lz-offset ( t s frames -- ... frames next )
   >r lf-dq-pred ok-then? 0= if nip r> lf-dq-end-failed exit then
   swap lf-dq-pred ok-then? 0= if nip r> lf-dq-end-failed exit then
-  swap r> ['] lf-dq-final lf-dq-call ;
+  swap r> ['] lf-dq-final lf-dq-core-call ;
 : lf-lz-closed? ( tn sn frames -- flag outcome )
   >r swap r@ lf-whnf-free? ok-then? 0= if nip r> drop false swap exit then
   if drop r> drop false outcome-ok exit then
@@ -821,14 +833,14 @@ defer lf-lz-failure ( frames -- frames )
 : lf-lz-nat-s-back ( r outcome frames -- ... frames next )
   >r ok-then? 0= if r> lf-dq-end-failed exit then
   dup lf-whnf-none = if drop r> lf-lz-step exit then
-  r@ lf-dq-sides drop swap r> ['] lf-dq-final lf-dq-call ;
+  r@ lf-dq-sides drop swap r> ['] lf-dq-final lf-dq-core-call ;
 : lf-lz-nat-s ( frames -- ... frames next )
   dup lf-dq-sides nip dup lf-whnf-k7?
   if swap ['] lf-lz-nat-s-back lf-whnf-nat-call else drop lf-lz-step then ;
 : lf-lz-nat-t-back ( r outcome frames -- ... frames next )
   >r ok-then? 0= if r> lf-dq-end-failed exit then
   dup lf-whnf-none = if drop r> lf-lz-nat-s exit then
-  r@ lf-dq-sides nip r> ['] lf-dq-final lf-dq-call ;
+  r@ lf-dq-sides nip r> ['] lf-dq-final lf-dq-core-call ;
 : lf-lz-nat-t ( frames -- ... frames next )
   dup lf-dq-sides drop dup lf-whnf-k7?
   if swap ['] lf-lz-nat-t-back lf-whnf-nat-call else drop lf-lz-nat-s then ;

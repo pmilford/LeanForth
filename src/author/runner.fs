@@ -86,8 +86,7 @@ end-structure
 : lfa-saved-wid ( i -- addr ) cells lfa-run lfa-run-order + ;
 : lfa-save ( -- )
   base @ lfa-run lfa-run-base ! get-current lfa-run lfa-run-current !
-  get-order dup lfa-order-capacity > abort" lf-author: search order too long"
-  dup lfa-run lfa-run-order# ! 0 ?do i lfa-saved-wid ! loop lfa-recognizer! ;
+  get-order dup lfa-run lfa-run-order# ! 0 ?do i lfa-saved-wid ! loop lfa-recognizer! ;
 : lfa-restore ( -- )
   lfa-recognizer-back
   lfa-run lfa-run-order# @ dup 0 ?do dup 1- i - lfa-saved-wid @ swap loop set-order
@@ -166,9 +165,15 @@ end-structure
 \ Refused before anything runs: Forth is compiling.
 : lfa-compiling ( -- outcome )
   0 0 0 lfa-e-compiling lfa-record lfa-e-compiling lf-author-outcome ;
+\ Refused before anything runs: the caller's search order is too long to save
+\ (an outcome, not an abort: the caller's own order is left alone).
+: lfa-order-fits? ( -- flag ) get-order dup >r 0 ?do drop loop r> lfa-order-capacity > 0= ;
+: lfa-order-full ( -- outcome )
+  0 0 0 lfa-e-search-order lfa-record lfa-e-search-order lf-author-outcome ;
 \ A run: the lines of a new text, counted from 1.
 : lfa-go ( -- outcome )
   lfa-error-reset lfa-interpreting? 0= if lfa-compiling exit then
+  lfa-order-fits? 0= if lfa-order-full exit then
   lfa-lines-restart lfa-save decimal depth lfa-floor! ['] lfa-lines catch
     lfa-restore lfa-caught ;
 
@@ -187,6 +192,10 @@ end-structure
 : lf-author-decl ( i -- decl ) lfa-decl ;
 : lf-author-notes ( i -- first end ) lfa-decl dup lfa-decl-notes @ swap
   lfa-decl-notes-end @ ;
+\ The printer asks whether a name is a constant: any declaration of the run.
+: lfa-name-declared? ( name -- flag )
+  false lfa-decl-count 0 ?do over i lfa-decl lf-fdecl-name @ = or loop nip ;
+' lfa-name-declared? is lf-pf-const-exists?
 create lfa-blank-line 10 c,
 : lfa-print-one ( fuel i -- outcome )
   dup if lfa-blank-line 1 lf-pp-emit then lfa-decl swap lf-print-forth-decl ;

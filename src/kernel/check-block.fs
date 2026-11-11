@@ -576,7 +576,18 @@ here lf-b3-rec - 2 cells / constant lf-b3-rec#
   ?dup if lf-blk-rec-differs else drop outcome-ok then ;
 : lf-blk-recs-b3 ( -- outcome )
   lf-ind-recs@ 0 ?do i lf-blk-rec-b3 dup ok? 0= if unloop exit then drop loop outcome-ok ;
-: lf-blk-compare ( -- outcome ) lf-blk-ctors-b3 ['] lf-blk-recs-b3 lf-blk-then ;
+\ Before B3, each type's shape (ADR 0015 section 8, owner answer Q2;
+\ review rvCONV B2): its computed numIndices and the block's is_rec, as
+\ Lean's kernel computed them (inductive.cpp 263-281, 308-329, 372), never
+\ the file's. The publisher keeps them on the type's slot (lf-env-shape),
+\ also for a block that only B3 refuses, whose type stays usable; R3, R4,
+\ R5 and projections read them.
+: lf-blk-shape ( d -- outcome )
+  dup lf-ind-n lf-ind-state lf-ind-is-rec @ lf-shape swap lf-env-shape! ;
+: lf-blk-shapes ( -- outcome )
+  lf-ind-types@ 0 ?do i lf-blk-shape dup ok? 0= if unloop exit then drop loop outcome-ok ;
+: lf-blk-compare ( -- outcome )
+  lf-blk-shapes ['] lf-blk-ctors-b3 lf-blk-then ['] lf-blk-recs-b3 lf-blk-then ;
 
 \ Step 14, B4: each type's fields Lean's replay ignores, against what
 \ LeanForth computed (its numIndices; isRec and isReflexive, the audit's

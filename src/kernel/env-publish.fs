@@ -221,10 +221,16 @@ defer lf-env-before-final
 : lf-own-matches ( test k -- n )
   lf-env-limit + lf-input-name swap lf-env-limit lf-env-matches ;
 \ A name Lean's generated recursor of an earlier type holds (environment.fs,
-\ lf-env-reserving) is a conflict too, unless nothing holds it.
+\ lf-env-reserving) is a conflict too, unless nothing holds it; and so is
+\ one of the four quotient names that an earlier quotient record holds
+\ (lf-env-quot-holding), for any declaration but a quotient record
+\ (quot.fs checks those as add_quot does).
+: lf-own-quot ( d -- n )
+  dup lf-input-decl lf-idecl-kind @ lf-kind-quotient = if drop 0 exit then
+  lf-input-name lf-env-limit lf-env-quot-holding nip outcome-rejected <> 1 and ;
 : lf-own-held ( k -- n )
-  lf-env-limit + lf-input-name lf-env-limit lf-env-reserving nip
-  outcome-rejected <> 1 and ;
+  lf-env-limit + dup lf-input-name lf-env-limit lf-env-reserving nip
+  outcome-rejected <> 1 and swap lf-own-quot + ;
 : lf-span-conflicts ( -- n )
   0 lf-cand-span@ 0 ?do ['] lf-slot-conflict? i lf-own-matches + i lf-own-held + loop ;
 : lf-recheck-name? ( -- flag )
@@ -257,10 +263,13 @@ defer lf-env-before-final
 \ A block rejected only by B3 (lf-env-added!) publishes its type's and
 \ constructors' slots with the type's universe parameters, as Lean's
 \ kernel declares them (its file records may differ: B3 field 1); only
-\ the type's are re-checked then.
+\ the type's are re-checked then. A quotient record's never are: add_quot
+\ never reads the record (quot.cpp 47-104), so its check takes no L3 step
+\ either (check-declaration.fs; review rvAX M1).
 : lf-cand-added? ( -- flag ) lf-env-cand lf-cand-added @ 0<> ;
 : lf-member-kind ( k -- kind ) lf-env-limit + lf-input-decl lf-idecl-kind @ ;
 : lf-member-checked? ( k -- flag )
+  dup lf-member-kind lf-kind-quotient = if drop false exit then
   lf-cand-added? if lf-member-kind lf-kind-inductive = else drop true then ;
 : lf-recheck-params? ( -- flag )
   true lf-cand-span@ 0 ?do i lf-member-checked? if
@@ -359,8 +368,11 @@ lf-rechecks# 1+ constant lf-recheck-moved
   lf-env-cand lf-cand-provenance @ swap lf-slot-provenance ! ;
 : lf-slot-deps! ( first slot -- )
   lf-env-may-write tuck lf-slot-deps ! lf-cand-count@ swap lf-slot-count ! ;
+\ Member k's shape, which the block's check computed (lf-env-shape!).
+: lf-slot-shape! ( k slot -- )
+  lf-env-may-write swap lf-cand-shape@ swap lf-slot-shape ! ;
 : lf-slot-fill ( first k slot -- )
-  rot over lf-slot-deps! tuck lf-slot-input! lf-slot-sets! ;
+  2dup lf-slot-shape! rot over lf-slot-deps! tuck lf-slot-input! lf-slot-sets! ;
 : lf-span-fill ( first slot -- )
   lf-env-may-write lf-cand-span@ 0 ?do 2dup i swap i lf-slot+ lf-slot-fill loop 2drop ;
 \ The record of an accepted declaration, or of every member of an

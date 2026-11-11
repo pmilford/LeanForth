@@ -22,12 +22,17 @@
 \ 6. After a block (review rvI21 B2, M1): Lean's generated recursor
 \    T.rec held when the file leaves it out; the type visible only within
 \    its own check; the publisher's re-check of members and of T.rec.
+\ 7. Axioms, opaque declarations and quotients: Lean's verdicts; the four
+\    quotient names add_quot holds (review rvAX). 8. The statement matcher
+\    and the allowlist. 9. The fuel axioms and quotient records use, as
+\    cli/check-run.fs reports it: exact.
 \ Test-only; nothing here accepts a theorem outside the code under test.
 include ../support/tester.fs
 include ../support/checks.fs
 require ../support/alloc-fail.fs
 require ../../src/import/feed.fs
 require ../../src/kernel/check-declaration.fs
+require ../../src/cli/check-run.fs
 
 create stg /stage allot
 create fdd /feed allot
@@ -83,6 +88,9 @@ create visibles most cells allot
   case-path staged ok? must fuel checked final-decl result final-decl warned finish ;
 \ Declaration d's outcome and code.
 : used ( c-addr u -- outcome code ) verdict drop ;
+\ The same for the declaration before a case file's last.
+: before-last ( c-addr u -- outcome code )
+  case-path staged ok? must fuel checked final-decl 1- result drop finish ;
 : decl-verdict ( c-addr u d -- outcome code )
   >r case-path staged ok? must fuel checked r> result drop finish ;
 15 constant all-steps
@@ -347,6 +355,51 @@ T{ s" primitive.string-opaque-expansion-wrong" used -> outcome-rejected lf-diag-
 T{ s" primitive.string-major-two-constructors" used -> outcome-ok 0 }T
 T{ s" primitive.string-major-two-constructors-wrong" used
    -> outcome-rejected lf-diag-value-apart }T
+\ Review rvCONV B1: whnf's reduce_nat computes under a variable, as Lean's
+\ (no free-variable test: type_checker.cpp 672-703, 732): 0 ^ 2^32 and
+\ 2 <<< 2^32 refused, 0 ^ 4 computed. With a Nat.add that gives Nat.zero,
+\ Nat.add ((fun _ => 2) x) 3 is 5: IE.A, whose type then needs the empty
+\ IE.F, is rejected, and IE.bad, the proof of IE.F after it, too; the
+\ twin IE.A, for IE.T, accepted.
+T{ s" lit.free-variable-pow-refused" used drop -> outcome-rejected }T
+T{ s" lit.free-variable-pow" used -> outcome-ok 0 }T
+T{ s" lit.free-variable-shift-refused" used drop -> outcome-rejected }T
+T{ s" k7.free-variable-computes" before-last -> outcome-rejected lf-diag-value-apart }T
+T{ s" k7.free-variable-computes" used drop -> outcome-rejected }T
+T{ s" k7.free-variable-computes-twin" used -> outcome-ok 0 }T
+\ Review rvCONV M1: a power of a three-limb base, 12,800 bits, computed
+\ (the scratch estimate once left it full), against two halves' product.
+T{ s" lit.pow-multi-limb-base" used -> outcome-ok 0 }T
+T{ s" lit.pow-multi-limb-base-wrong" used -> outcome-rejected lf-diag-value-apart }T
+\ Review rvCONV B2: structure eta (R4) and unit-like types (R5) read the
+\ numIndices and isRec the block check computed (lf-env-shape), never the
+\ file's, which Lean's replay ignores (B4: a warning only). An indexed
+\ type said unindexed is no unit-like type, a recursive one said not
+\ recursive no structure: rejected, as with the true file; a unit type
+\ said indexed, and a structure said recursive, still are: accepted.
+T{ s" lie.indexed-then-unit-like" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" lie.indexed-said-unindexed-then-unit-like" used
+   -> outcome-rejected lf-diag-value-apart }T
+T{ s" lie.unit-said-indexed-then-unit-like" used -> outcome-ok 0 }T
+T{ s" lie.recursive-then-eta" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" lie.recursive-said-not-then-eta" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" lie.structure-said-recursive-then-eta" used -> outcome-ok 0 }T
+\ The same for projections (J1: a structure said indexed takes no index
+\ argument) and for iota's structure eta (R3: a structure said recursive
+\ still expands, a recursive type said not recursive does not).
+T{ s" lie.structure-said-indexed-then-eta" used -> outcome-ok 0 }T
+T{ s" lie.structure-said-recursive-then-iota" used -> outcome-ok 0 }T
+T{ s" lie.recursive-said-not-then-iota" used -> outcome-rejected lf-diag-value-apart }T
+\ Review rvCACHE: a definition whose value, (fun _ : PUnit.{1} =>
+\ PUnit.{2}) PUnit.unit.{1}, is a Type 1: declared a Type, rejected (a
+\ cache key without universe arguments would reuse PUnit.{1}'s type for
+\ PUnit.{2}), declared a Type 1, accepted. And fun p : Bool x Nat => (fun
+\ (_ : Bool) (b : t) => b) p.1 p.2: rejected for t Bool, accepted for t
+\ Nat (a key without the projection's index would give p.2 p.1's type).
+T{ s" cache.universe-arguments-differ" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" cache.universe-arguments-differ-twin" used -> outcome-ok 0 }T
+T{ s" cache.projection-index-differs" used drop -> outcome-rejected }T
+T{ s" cache.projection-index-differs-twin" used -> outcome-ok 0 }T
 \ Review rvN1 round 2 (L1): a reduct that keeps the recursor's universe
 \ arguments in its recursive call; iota on Lean's generated recursor
 \ after B3 refused the block's swapped rules (not ported yet: unknown,
@@ -533,6 +586,11 @@ T{ least-ok dup 1- bool-at swap bool-at -> outcome-exhausted outcome-ok }T
 s" ind.list" fuel-case 2!
 T{ doubling? -> true }T
 T{ least-ok dup 1- bool-at swap bool-at -> outcome-exhausted outcome-ok }T
+\ A field put in whnf by beta (the recursor builder's own whnf): running out
+\ of fuel there ends the block exhausted, not full or ok.
+s" ind.recursive-through-beta" fuel-case 2!
+T{ doubling? -> true }T
+T{ least-ok dup 1- bool-at swap bool-at -> outcome-exhausted outcome-ok }T
 
 \ 5. Room: with the term store's capacity cut to the records in use, the
 \ check runs out of room: full, never ok.
@@ -643,6 +701,11 @@ T{ s" rec_1" s" ind.nat" held-as -> outcome-rejected }T
 T{ s" rec_1" s" ind.bool" held-as -> outcome-rejected }T
 T{ s" recOn" s" ind.bool" held-as -> outcome-rejected }T
 T{ s" rec_x" s" ind.nat" held-as -> outcome-rejected }T
+\ Not digits, so no auxiliary recursor of the unsupported nested.tree: the
+\ name is held by no type (letters, a digit then a letter, nothing).
+T{ s" rec_x" s" nested.tree" 4 held-at -> outcome-rejected }T
+T{ s" rec_1x" s" nested.tree" 4 held-at -> outcome-rejected }T
+T{ s" rec_" s" nested.tree" 4 held-at -> outcome-rejected }T
 \ A block rejected only by B3 (review rvI21 R2-1; ADR 0015 decision 11):
 \ Lean's replay compares after its kernel added the block, so the type's,
 \ the constructors' and T.rec's names are taken (a later definition of one
@@ -727,6 +790,22 @@ T{ s" after.reflexive-parameter-at-renamed" used -> outcome-ok 0 }T
 \ this field's whnf needs iota on a recursor no slot holds: unknown (81)
 \ until that follow-up of task 5.2.1b, as is the row before.
 T{ s" after.list-left-out-then-lookup-during-param-block" used -> outcome-unknown lf-diag-iota-pending }T
+\ A rebuild gives back what the interrupted block's check had in its three
+\ slabs (domains, type records, constructors' records): their bytes after
+\ save, clobber and restore are the bytes before. (The row above stops
+\ before the check goes on with its constructors, so it cannot see this.)
+: bytes-sum ( addr u -- n ) 0 -rot bounds ?do i c@ + loop ;
+: slab-sum ( xt -- n ) execute dup slab-base swap slab-bytes bytes-sum ;
+: slab-clobbered ( xt -- ) execute dup slab-base swap slab-bytes 255 fill ;
+\ True when the clobbering changed the slab and the restore undid it.
+: slab-back? ( xt -- flag )
+  dup slab-sum >r lf-genrec-save ok? must dup slab-clobbered
+  dup slab-sum r@ <> lf-genrec-restore swap slab-sum r> = and ;
+: given-back ( xt -- flag )
+  s" ind.nat" case-path staged ok? must fuel checked slab-back? finish ;
+T{ ' lf-ind-domains given-back -> true }T
+T{ ' lf-ind-type-cells given-back -> true }T
+T{ ' lf-ind-ctor-cells given-back -> true }T
 \ Mutual blocks (task 5.2.5a): the generated recursor of the first type and
 \ of a later one, with indices, and at concrete and renamed universes.
 T{ s" after.mutual-left-out-then-use-rec" used -> outcome-ok 0 }T
@@ -790,6 +869,13 @@ T{ s" opaque.unfolds-as-definition" used -> outcome-ok 0 }T
 T{ s" quot.lift-on-mk" used -> outcome-ok 0 }T
 T{ s" quot.lift-on-mk-wrong" used -> outcome-rejected lf-diag-value-apart }T
 T{ s" quot.lift-stuck-on-variable" used -> outcome-rejected lf-diag-value-apart }T
+\ An argument after the major premise goes to the reduct; Quot.lift with
+\ five arguments has no rule (eta decides); Quot.ind on Quot.mk; a user's
+\ Quot.lift and Quot.mk, with no quotient, are never reduced (review rvAX).
+T{ s" quot.lift-extra-argument" used -> outcome-ok 0 }T
+T{ s" quot.lift-extra-argument-wrong" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" quot.lift-unapplied-eta" used s" quot.ind-on-mk" used -> outcome-ok 0 outcome-ok 0 }T
+T{ s" after.user-quot-lift-not-reduced" used -> outcome-rejected lf-diag-value-apart }T
 \ add_quot: Eq with Lean's shape, or rejected (check_eq_type, 95).
 T{ s" quotinit.with-eq" used -> outcome-ok 0 }T
 T{ s" quotinit.eq-wrong-shape" used -> outcome-rejected lf-diag-quot-eq }T
@@ -810,8 +896,86 @@ T{ s" quotinit.eq-wrong-shape" used -> outcome-rejected lf-diag-quot-eq }T
 T{ mk-warned quot-warned -> lf-warn-quot-record outcome-ok 0 outcome-ok }T
 T{ lift-warned -> lf-warn-quot-record outcome-ok }T
 T{ quot-forged used -> outcome-ok 0 }T
+\ Fields add_quot never reads (review rvAX M1, L1) only warn too: Quot.lift
+\ with universe parameters u, u (no L3 step, and none in the publisher's
+\ re-check); Quot.mk whose type is a loose variable (V1) or under mdata
+\ (U2), never given to the matcher.
+T{ s" replay-quot.lift-params-repeated" s" Quot.lift" warned-at
+  -> lf-warn-quot-record outcome-ok }T
+T{ s" replay-quot.lift-params-repeated" used -> outcome-ok 0 }T
+T{ s" replay-quot.mk-loose-bvar" s" Quot.mk" warned-at -> lf-warn-quot-record outcome-ok }T
+T{ s" replay-quot.mk-mdata-type" s" Quot.mk" warned-at -> lf-warn-quot-record outcome-ok }T
+T{ s" replay-quot.mk-loose-bvar" used s" replay-quot.mk-mdata-type" used
+  -> outcome-ok 0 outcome-ok 0 }T
+\ The refused audit's diagnostic is put back: that Quot.mk record (4) is
+\ accepted with none left; renamed after the feed (IE.mkUse's name, 7), it
+\ is rejected as no constant of Lean's quotient (96), not for its type.
+T{ s" replay-quot.mk-loose-bvar" 4 decl-verdict -> outcome-ok 0 }T
+: mk-renamed ( -- outcome code )
+  s" replay-quot.mk-loose-bvar" case-path staged ok? must
+  7 lf-input-name 4 lf-input-decl lf-idecl-name ! fuel checked 4 result drop finish ;
+T{ mk-renamed -> outcome-rejected lf-diag-quot-type }T
+\ Lean's quotient names (review rvAX): add_quot's check_name on all four
+\ (quot.cpp 53-56). A user's Quot.mk (3) before the quotient leaves every
+\ quotient record rejected (4-7), so Quot.lift on that Quot.mk is an
+\ unknown constant (Lean's unknownConstant), never reduced by name; so
+\ with Quot.ind taken. One of the four after the quotient is already
+\ declared, its record first or not. A second record of a name, which
+\ Lean accepts (add_quot changes nothing), and a use of Quot.mk after a
+\ refused declaration of it are unknown (77; a follow-up of task 5.2.4).
+: on-user-mk ( -- c-addr u ) s" after.quot-mk-declared-then-lift-on-it" ;
+T{ on-user-mk used -> outcome-rejected lf-diag-unknown-constant }T
+T{ on-user-mk 3 decl-verdict on-user-mk 4 decl-verdict
+  -> outcome-ok 0 outcome-rejected lf-diag-already-declared }T
+T{ on-user-mk 5 decl-verdict on-user-mk 6 decl-verdict
+  -> outcome-rejected lf-diag-already-declared outcome-rejected lf-diag-already-declared }T
+T{ s" quotinit.name-taken" 4 decl-verdict -> outcome-rejected lf-diag-already-declared }T
+T{ s" after.quot-then-mk-declared" used -> outcome-rejected lf-diag-already-declared }T
+T{ s" after.quot-then-lift-declared" used -> outcome-rejected lf-diag-already-declared }T
+T{ s" quotinit.twice" 6 decl-verdict s" quotinit.twice" 7 decl-verdict
+  -> outcome-ok 0 outcome-unknown lf-diag-generated-recursor }T
+T{ s" after.quot-then-mk-declared-then-used" used
+  -> outcome-unknown lf-diag-generated-recursor }T
+\ A scheduler waits for the quotient record that holds Quot.mk (3, before
+\ the user's Quot.mk, 4).
+: quot-ready ( -- flag flag )
+  s" after.quot-then-mk-declared" case-path staged ok? must fuel fresh
+  4 lf-input-name 4 lf-env-ready? ['] record 0 lf-env-step 2drop ['] record 3 lf-env-step 2drop
+  4 lf-input-name 4 lf-env-ready? lf-env-view ok? must finish ;
+T{ quot-ready -> false true }T
+\ The publisher's re-check: the user's Quot.mk (4), an axiom, claimed ok
+\ with its own bit after the quotient record Quot was accepted, is
+\ refused (its name, part 4).
+: claim-axiom ( d -- outcome )
+  lf-env-begin drop lf-axiom-unlisted lf-env-axiom! outcome-ok lf-env-finish
+  lf-env-hand-over drop ;
+: claimed-mk ( -- outcome outcome )
+  s" after.quot-then-mk-declared" case-path staged ok? must
+  fuel fresh ['] record 0 lf-env-step 2drop ['] record 3 lf-env-step 2drop
+  4 claim-axiom lf-env-view ok? must 4 lf-env-outcome finish ;
+T{ claimed-mk -> outcome-invalid outcome-invalid }T
 \ propext with Lean's statement about an Iff that is not Lean's: NOT PROVED.
 T{ s" postulate.propext-forged-iff" bits-of -> outcome-ok 8 }T
+\ So with an Iff of one parameter, in a block with another type, or
+\ accepted with a warning (isRec forged, which replay ignores); and
+\ Quot.sound about a Quot and Quot.mk that are axioms, not the quotient's
+\ (review rvAX test gaps).
+T{ s" postulate.propext-iff-one-param" bits-of -> outcome-ok 8 }T
+T{ s" postulate.propext-iff-mutual" bits-of -> outcome-ok 8 }T
+T{ s" replay-iff.flagged-then-propext" bits-of -> outcome-ok 8 }T
+T{ s" postulate.sound-own-quot-names" bits-of -> outcome-ok 8 }T
+T{ s" postulate.propext-own-iff" bits-of -> outcome-ok 1 }T
+\ The axioms a declaration rests on, in file order (lf-env-axiom-deps, each
+\ slot's set worked out once and kept; review rvAX L5), asked for the last
+\ declaration first: IE.Secret (0), IE.secret (1, its type IE.Secret),
+\ IE.usesSecret (2); each slot number given is one decimal digit here.
+variable seen-axioms
+: seen ( d -- ) seen-axioms @ 10 * + 1+ seen-axioms ! ;
+: rests-on ( d -- n outcome ) 0 seen-axioms ! ['] seen lf-env-axiom-deps seen-axioms @ swap ;
+: secret-axioms ( -- n n n outcome )
+  s" postulate.declared-and-used" case-path staged ok? must fuel checked
+  2 rests-on drop 1 rests-on drop 0 rests-on finish ;
+T{ secret-axioms -> 12 12 1 outcome-ok }T
 
 \ 8. The statement matcher (core/statement-match.fs) and the allowlist
 \ (core/axiom-allowlist.fs) on Lean's own export of propext,
@@ -862,6 +1026,32 @@ T{ s" Quot.lift" lift-swapped matches? -> false }T
 T{ mk-name s" Quot.mk" lf-stmt-name? mk-name s" Quit.mk" lf-stmt-name? -> true false }T
 T{ mk-name s" mk" lf-stmt-name? mk-name s" A.Quot.mk" lf-stmt-name? -> false false }T
 finish
+
+\ 9. Fuel of axioms and quotient records (review rvAX L2): a quotient
+\ record's steps all run on the audit's counter, an axiom's step 7 on
+\ inference's, and cli/check-run.fs reads that counter (ck-left). Every
+\ other declaration of axioms.ndjson gets the full budget and declaration
+\ d budget b; d checked with the fuel it used is ok, with one unit less
+\ exhausted: propext (6), Classical.choice (10), Quot (11) to Quot.ind
+\ (14), Quot.sound (15).
+variable at-d  variable at-budget  variable at-left  variable at-step
+: at-kept ( -- ) at-d @ ck-left at-left ! lf-check-step@ at-step ! ;
+: at-check ( -- )
+  lf-env-limit at-d @ = dup if at-budget @ else fuel then lf-check-budget
+  record if at-kept then ;
+: at-run ( d b -- outcome left )
+  at-budget ! at-d ! s" tests/reference/inductive/axioms.ndjson" staged ok? must
+  fuel ['] at-check checked-by at-d @ lf-env-outcome at-left @ finish ;
+: used-by ( d -- u ) fuel at-run nip fuel swap - ;
+: used-exactly? ( d -- flag )
+  dup used-by 2dup at-run drop ok? >r 1- at-run drop outcome-exhausted = r> and ;
+T{ 6 used-exactly? 10 used-exactly? 15 used-exactly? -> true true true }T
+\ One unit short, an axiom runs out in step 7, its statement's comparison,
+\ which is charged too.
+: short-step ( d -- step ) dup used-by 1- at-run 2drop at-step @ ;
+T{ 6 short-step 10 short-step 15 short-step -> 7 7 7 }T
+T{ 11 used-exactly? 12 used-exactly? 13 used-exactly? 14 used-exactly?
+  -> true true true true }T
 
 cases-done
 bye

@@ -56,8 +56,9 @@
 \ left, read after the check from the checker's own counters, as the
 \ tests of mixed-infer read lf-minfer-fuel: an inductive block's
 \ (lf-ind-fuel) once the block began its steps, the audit's
-\ (lf-check-left) up to step 3 of check-declaration, inference's
-\ (lf-minfer-fuel) from step 4 on; a check that began no step used none.
+\ (lf-check-left) up to step 3 of check-declaration and in every step of
+\ a quotient record, inference's (lf-minfer-fuel) from step 4 on, an
+\ axiom's step 7 included; a check that began no step used none.
 \ So a declaration accepted with fuel used u is accepted with a budget of
 \ u and exhausted with u - 1 (tests/cli/leanforth.fs and
 \ test_leanforth.py check it), and one exhausted used the budget. A
@@ -326,10 +327,13 @@ create ck-line ck-line-room 2 + allot
 4 constant ck-inference-step
 : ck-block-left ( d -- n )
   lf-ind-first@ = lf-block-step@ 0> and if lf-ind-fuel @ else ck-fuel-budget then ;
-: ck-decl-left ( -- n )
-  lf-check-step@ ck-inference-step < if lf-check-left @ else lf-minfer-fuel @ then ;
+\ A quotient record runs no inference: its steps all use the audit's.
+: ck-quot? ( d -- flag ) lf-input-decl lf-idecl-kind @ lf-kind-quotient = ;
+: ck-decl-left ( d -- n )
+  ck-quot? lf-check-step@ ck-inference-step < or
+  if lf-check-left @ else lf-minfer-fuel @ then ;
 : ck-member? ( d -- flag ) lf-input-decl lf-ind-member? ;
-: ck-left ( d -- n ) dup ck-member? if ck-block-left else drop ck-decl-left then ;
+: ck-left ( d -- n ) dup ck-member? if ck-block-left else ck-decl-left then ;
 \ No fuel left by a check that failed without running out: a failure gave
 \ the counter up (an accepted one used exactly its budget).
 : ck-ran-out? ( outcome -- flag ) dup ok? swap outcome-exhausted = or ;

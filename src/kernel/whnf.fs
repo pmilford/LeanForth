@@ -347,8 +347,9 @@ defer lf-whnf-valued ( decl const frames -- value outcome )
 \ argument, or one of the fourteen binary operations with two
 \ (lf-whnf-k7?), and computes a literal when the whnf of each argument is
 \ a literal or the constant Nat.zero (is_nat_lit_ext, 607; the first
-\ argument first, the second only then), and node has no free variable
-\ (672). Since plan task 5.2.3 it computes as Lean does (reduce-nat.fs:
+\ argument first, the second only then), whether or not node has a free
+\ variable (Lean tests none here). Since plan task 5.2.3 it computes as
+\ Lean does (reduce-nat.fs:
 \ the literal, or Bool.true or Bool.false for Nat.beq and Nat.ble, with
 \ Lean's refusals); otherwise reduce_nat gives nothing and Lean goes on,
 \ as LeanForth does (a Nat.succ of a variable, say, which iota then takes
@@ -524,15 +525,13 @@ defer lf-whnf-cored ( t1 outcome frames -- ... frames next )
 : lf-whnf-nat-back ( r outcome frames -- ... frames next )
   >r r@ frame-restore -rot ok-then? 0= if nip r> lf-whnf-failed exit then
   dup lf-whnf-none = if drop r> lf-whnf-delta-step else nip outcome-ok r> 0 then ;
-\ reduce_nat applies to t1: the head and arity (lf-whnf-k7?), and no free
-\ variable (has_fvar, 672).
-: lf-whnf-nat-applies? ( t1 frames -- flag outcome )
-  over lf-whnf-k7? 0= if 2drop false outcome-ok exit then
-  lf-whnf-free? ok-then? if 0= outcome-ok else false swap then ;
+\ reduce_nat is tried on t1 when its head and arity match (lf-whnf-k7?),
+\ whether or not t1 has a free variable: Lean's reduce_nat (672-703) has
+\ no such test, nor has whnf's call of it (732). Only lazy delta (1060)
+\ and is_def_eq_core's Bool.true step (1142) test has_fvar (defeq.fs).
 :noname ( t1 outcome frames -- ... frames next )
   over ok? 0= if 0 exit then nip
-  2dup lf-whnf-nat-applies? ok-then? 0= if rot drop swap lf-whnf-failed exit then
-  if over over frame-save ['] lf-whnf-nat-back lf-whnf-nat-call exit then
+  over lf-whnf-k7? if 2dup frame-save ['] lf-whnf-nat-back lf-whnf-nat-call exit then
   lf-whnf-delta-step ; is lf-whnf-cored
 : lf-whnf-easy? ( node -- flag )
   dup lf-term-tag@ dup lf-tag-bvar = over lf-tag-pi = or over lf-literal-tag? or

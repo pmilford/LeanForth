@@ -137,6 +137,10 @@ proj.index-out-of-range	invalidProj	rejected	J2	5.2.2
 quot.lift-on-mk	accepted	accepted	Q2	5.2.4	
 quot.lift-on-mk-wrong	declTypeMismatch	rejected	Q2	5.2.4	
 quot.lift-stuck-on-variable	declTypeMismatch	rejected	Q2	5.2.4	
+quot.lift-extra-argument	accepted	accepted	Q2	5.2.4	
+quot.lift-extra-argument-wrong	declTypeMismatch	rejected	Q2	5.2.4	
+quot.lift-unapplied-eta	accepted	accepted	Q2	5.2.4	
+quot.ind-on-mk	accepted	accepted	Q2	5.2.4	
 lit.succ-of-literal	accepted	accepted	L1	5.2.3	
 lit.offset-with-variable	accepted	accepted	L3	5.2.3	
 lit.literal-against-constructors	accepted	accepted	L3	5.2.3	
@@ -264,6 +268,24 @@ after.indexed-mixed-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1c
 after.reflexive-indexed-dependent-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1c	
 after.annotated-binders-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1b	
 after.redex-parameter-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1b	
+lie.indexed-then-unit-like	declTypeMismatch	rejected	B4 R5	5.2.2	
+lie.indexed-said-unindexed-then-unit-like	declTypeMismatch	rejected	B4 R5	5.2.2	
+lie.unit-said-indexed-then-unit-like	accepted	accepted	B4 R5	5.2.2	
+lie.recursive-then-eta	declTypeMismatch	rejected	B4 R4	5.2.2	
+lie.recursive-said-not-then-eta	declTypeMismatch	rejected	B4 R4	5.2.2	
+lie.structure-said-recursive-then-eta	accepted	accepted	B4 R4	5.2.2	
+lie.structure-said-indexed-then-eta	accepted	accepted	B4 R4 J1	5.2.2	
+lie.structure-said-recursive-then-iota	accepted	accepted	B4 R3	5.2.2	
+lie.recursive-said-not-then-iota	declTypeMismatch	rejected	B4 R3	5.2.2	
+lit.free-variable-pow-refused	natCountTooBig	rejected	L1	5.2.3	
+lit.free-variable-pow	accepted	accepted	L1	5.2.3	
+lit.free-variable-shift-refused	natCountTooBig	rejected	L1	5.2.3	
+lit.pow-multi-limb-base	accepted	accepted	L1	5.2.3	
+lit.pow-multi-limb-base-wrong	declTypeMismatch	rejected	L1	5.2.3	
+cache.universe-arguments-differ	declTypeMismatch	rejected	Q10	4.2.7	
+cache.universe-arguments-differ-twin	accepted	accepted	Q10	4.2.7	
+cache.projection-index-differs	appTypeMismatch	rejected	Q10 J1	4.2.7	
+cache.projection-index-differs-twin	accepted	accepted	Q10 J1	4.2.7	
 postulate.declared-and-used	accepted	accepted	A1	5.3.1	
 opaque.accepted	accepted	accepted	O1	4.2.6	
 opaque.wrong-value	declTypeMismatch	rejected	O1	4.2.6	
@@ -290,6 +312,8 @@ forged.type-named-nat-pow	accepted	accepted	L1 L5	5.2.3
 quotinit.with-eq	accepted	accepted	Q1	5.2.4	
 quotinit.without-eq	unknownConstant	rejected	Q1	5.2.4	
 quotinit.eq-wrong-shape	quotEqShape	rejected	Q1	5.2.4	
+quotinit.name-taken	alreadyDeclared	rejected	Q1	5.2.4	
+quotinit.twice	accepted	accepted	Q1	5.2.4	
 k7.unknown-nat	unknownConstant	rejected	K7	5.2.3	
 k7.nat-is-prop	declTypeMismatch	rejected	K7	5.2.3	
 k7.beq-bool	unknownConstant	rejected	K7	5.2.3	
@@ -302,9 +326,14 @@ k7.with-free-variable	accepted	accepted	delta	4.2.2d
 k7.whnf-sort	typeExpected	rejected	K7	5.2.3	
 k7.whnf-sort-twin	accepted	accepted	whnf	4.2.2c	
 k7.rec-on-succ-variable	accepted	accepted	R1	5.2.1b	
+k7.free-variable-computes	declTypeMismatch	rejected	K7	5.2.3	
+k7.free-variable-computes-twin	accepted	accepted	K7	5.2.3	
 postulate.propext-altered	accepted	accepted	A1	5.3.1	
 postulate.propext-forged-iff	accepted	accepted	A1	5.3.1	
 postulate.propext-own-iff	accepted	accepted	A1	5.3.1	
+postulate.propext-iff-one-param	accepted	accepted	A1	5.3.1	
+postulate.propext-iff-mutual	accepted	accepted	A1	5.3.1	
+postulate.sound-own-quot-names	accepted	accepted	A1	5.3.1	
 primitive.string-opaque-expansion	accepted	accepted	L4 L5	5.2.3	
 primitive.string-opaque-expansion-reversed	accepted	accepted	L4 L5	5.2.3	
 primitive.string-opaque-expansion-wrong	declTypeMismatch	rejected	L4 L5	5.2.3	
@@ -314,3 +343,14 @@ forged.type-named-nat-add-recursor-with-hypothesis	invalidRecursor	rejected	L1 L
 replay-quot.original	accepted	accepted	Q1	5.2.4	
 replay-quot.mk-given-quot-type	accepted	accepted	Q1	5.2.4	
 replay-quot.lift-universe-dropped	accepted	accepted	Q1	5.2.4	
+replay-quot.lift-params-repeated	accepted	accepted	Q1	5.2.4	
+replay-quot.mk-loose-bvar	accepted	accepted	Q1	5.2.4	
+replay-quot.mk-mdata-type	accepted	accepted	Q1	5.2.4	
+replay-quot.ind-unknown-constant	accepted	accepted	Q1	5.2.4	
+after.quot-mk-declared-then-lift-on-it	unknownConstant	rejected	Q1 N2	5.2.4	
+after.quot-then-mk-declared	alreadyDeclared	rejected	Q1 N2	5.2.4	
+after.quot-then-lift-declared	alreadyDeclared	rejected	Q1 N2	5.2.4	
+after.quot-then-ind-declared	alreadyDeclared	rejected	Q1 N2	5.2.4	
+after.quot-then-mk-declared-then-used	accepted	accepted	Q1 N2	5.2.4	
+after.user-quot-lift-not-reduced	declTypeMismatch	rejected	Q2	5.2.4	
+replay-iff.flagged-then-propext	accepted	accepted	A1 B4	5.3.1	

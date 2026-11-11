@@ -3,8 +3,10 @@
 \ that running the printed words (src/author/) gives the identical term:
 \ the same nodes, levels, constants and universe arguments, binder names
 \ and kinds, labels and notes. Constants are written by their full names,
-\ with root: where a variable or universe parameter has the same spelling
-\ or the name is a syntax word; a variable by its name, or as n var# when
+\ with root: where a namespace around a dotted declaration holds a constant
+\ the reader would find first (it looks names up there first), and where a
+\ variable or universe parameter has the same spelling or the name is a
+\ syntax word; a variable by its name, or as n var# when
 \ an inner binder hides the name, it has none, or the name could be read
 \ as something else (a syntax word, a number). A Pi prints as A B -> when
 \ its binder is explicit, unused and anonymous or hygienic (Lean's
@@ -33,7 +35,7 @@
 \   lf-print-forth-decl ( decl fuel -- outcome )  a declaration (/lf-fdecl)
 \ ok: printed. invalid: malformed input, as for lf-print-term, or a
 \ variable bound by an arrow. unsupported: a name the words cannot spell
-\ (a part with a dot, a space or only digits; a universe parameter named
+\ (a part with a dot, a space, only digits or between guillemets; a universe parameter named
 \ like a syntax word), or a label or note that would not read back as
 \ itself (from lf-note-add, not the words), which is never printed as
 \ live words. exhausted and full: as for lf-print-term. On a failure the
@@ -42,6 +44,7 @@
 require ./term-printer.fs
 require ./note-table.fs
 require ../lib/text-rule.fs
+require ../core/input.fs
 
 \ Declarations, as the authoring program records them.
 0 constant lf-decl-theorem
@@ -97,8 +100,17 @@ lf-pf-reserve protected export lit# proj#
 : lf-pf-odd? ( c-addr u -- flag )
   false -rot chars over + swap ?do i c@ lf-pf-odd-char? or loop ;
 : lf-pf-anonymous ( -- c-addr u ) s" [anonymous]" ;
+: lf-pf-open-quote ( -- c-addr u ) s\" \xC2\xAB" ;
+: lf-pf-close-quote ( -- c-addr u ) s\" \xC2\xBB" ;
+\ A part of 5 or more bytes between guillemets: the reader takes it as «digits»
+\ (src/author/declarations.fs, lfa-quoted?), so as text it would read back as
+\ another part or stop the file; such a part is not written (plan task 8.6.3).
+: lf-pf-guillemets? ( c-addr u -- flag )
+  dup 4 > 0= if 2drop false exit then
+  2dup 2 min lf-pf-open-quote compare 0= -rot + 2 - 2 lf-pf-close-quote compare 0= and ;
 : lf-pf-plain? ( c-addr u -- flag )
   dup 0= if 2drop false exit then 2dup lf-pf-odd? if 2drop false exit then
+  2dup lf-pf-guillemets? if 2drop false exit then
   2dup tr-rule? 0= if 2drop false exit then
   2dup lf-pf-digits? if 2drop false exit then lf-pf-anonymous compare 0<> ;
 \ A numeric part is writable up to the digits a cell holds exactly, which
@@ -157,8 +169,6 @@ create lf-pf-eol 10 c,
 \ The next word starts a new line.
 : lf-pf-end-line ( -- ) lf-pf-width lf-pf-column ! ;
 : lf-pf-mark ( -- mark ) lf-pp-used @ ;
-: lf-pf-open-quote ( -- c-addr u ) s\" \xC2\xAB" ;
-: lf-pf-close-quote ( -- c-addr u ) s\" \xC2\xBB" ;
 \ A part: a string part of digits between guillemets (it stays a string
 \ when read back), a numeric part as its digits.
 : lf-pf-put-part ( id -- )
@@ -177,13 +187,17 @@ create lf-pf-eol 10 c,
 
 \ Labels and notes after their term. A label reads back as one token, so
 \ it is not empty and has no blank or control character; a note's text
-\ has no " and no line end, which would end it early. Any other text
+\ has no " and no line end, which would end it early. Both pass the text
+\ rule (lib/text-rule.fs), as the reader applies it to a line. Any other text
 \ would print as live words: unsupported.
 : lf-pf-blank-in? ( c-addr u -- flag )
   false -rot chars over + swap ?do i c@ bl 1+ < or loop ;
-: lf-pf-label? ( c-addr u -- flag ) dup 0= if 2drop false exit then lf-pf-blank-in? 0= ;
+: lf-pf-label? ( c-addr u -- flag )
+  dup 0= if 2drop false exit then 2dup tr-rule? 0= if 2drop false exit then
+  lf-pf-blank-in? 0= ;
 : lf-pf-note-end? ( char -- flag ) dup [char] " = over 10 = or swap 13 = or ;
 : lf-pf-note? ( c-addr u -- flag )
+  2dup tr-rule? invert if 2drop false exit then
   true -rot chars over + swap ?do i c@ lf-pf-note-end? 0= and loop ;
 : lf-pf-spellable-note? ( i -- flag )
   dup lf-note-text@ rot lf-note-kind@ lf-note-label =
@@ -292,14 +306,44 @@ defer lf-pf-level-step ( level x frames -- ... frames next )
 
 \ Constants: the full name, with root: when the words would find something
 \ else under it (a variable or universe parameter, a syntax word, a
-\ number), then each universe argument and ^.
+\ number) or, in a declaration with a dotted name, when a namespace around it
+\ holds a constant of the same relative name: the reader looks a name up in
+\ the namespaces around the declaration first (Lean's rule), so A.t would
+\ find A.c for c; root: is an exact full-name lookup. Then each universe argument and ^.
 : lf-pf-universe-ids ( -- addr n )
   lf-pforth lf-pforth-decl @ ?dup 0= if 0 0 exit then
   dup lf-fdecl-universe swap lf-fdecl-universes @ 0 max lf-decl-universe-capacity min ;
 : lf-pf-decl-universe? ( id -- flag )
   lf-pf-universe-ids 0 ?do 2dup i cells + @ = if 2drop true unloop exit then loop
   2drop false ;
+: lf-pf-dotted-decl? ( -- flag )
+  lf-pforth lf-pforth-decl @ ?dup 0= if false exit then
+  lf-fdecl-name @ ?dup 0= if false exit then lf-name-prefix@ 0<> ;
+\ Whether a constant is named: the input's (print --lf, the outline); the
+\ authoring words set their own (src/author/runner.fs).
+defer lf-pf-const-exists? ( name -- flag )
+: lf-pf-input-const? ( name -- flag ) lf-input-newest 0< 0= ;
+' lf-pf-input-const? is lf-pf-const-exists?
+\ The name id with base put in front of its components (base.c for c); false
+\ when the name store refuses it (the caller then assumes the worst).
+: lf-pf-graft-part ( base id -- id' flag )
+  dup lf-name-tag@ lf-name-tag-str =
+  if swap >r lf-name-text r> -rot lf-name-str
+  else swap >r lf-name-payload r> swap lf-name-num then ;
+: lf-pf-graft ( base id -- id' flag )
+  dup 0= if drop true exit then
+  dup >r lf-name-prefix@ recurse 0= if r> drop 0 false exit then r> lf-pf-graft-part ;
+\ Whether namespace P around the declaration holds a constant P.c, which the
+\ reader would find first for c.
+: lf-pf-captured-in? ( id P -- flag )
+  swap lf-pf-graft if lf-pf-const-exists? else drop true then ;
+: lf-pf-captured? ( id -- flag )
+  lf-pforth lf-pforth-decl @ lf-fdecl-name @ lf-name-prefix@
+  begin dup while 2dup lf-pf-captured-in? if 2drop true exit then lf-name-prefix@ repeat
+  2drop false ;
+: lf-pf-capturable? ( id -- flag ) lf-pf-dotted-decl? if lf-pf-captured? else drop false then ;
 : lf-pf-root? ( id -- flag )
+  dup lf-pf-capturable? if drop true exit then
   dup lf-pf-decl-universe? if drop true exit then
   lf-pf-mark swap lf-pf-put-name dup lf-pp-pending 2dup lf-pf-token? 0= -rot 0 lf-pp-any?
     or
