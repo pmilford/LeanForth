@@ -63,6 +63,21 @@ T{ fresh s\" {\"meta\":{\"exporter\":{\"name\":\"lean4export\",\"version\":\"3.1
    -> outcome-unsupported true }T
 T{ fresh s\" {\"meta\":{\"exporter\":{\"name\":\"lean4import\",\"version\":\"3.1.0\"},\"format\":{\"version\":\"3.1.0\"},\"lean\":{\"githash\":\"eb6cafb7290e8bd5f2937522d8d804f58f02bafc\",\"version\":\"4.35.0\"}}}" unpinned
    -> outcome-unsupported true }T
+\ With export-any-version! any exporter and Lean version of format 3.1.0
+\ are read, and the handler sees them (pinned? false); another format
+\ still is not; export-init turns it off again.
+: other-meta ( -- c-addr u )
+  s\" {\"meta\":{\"exporter\":{\"name\":\"handcrafted\",\"version\":\"0.1.0\"},\"format\":{\"version\":\"3.1.0\"},\"lean\":{\"githash\":\"2fcce7258eeb6e324366bc25f9058293b04b7547\",\"version\":\"4.29.1\"}}}" ;
+T{ ex export-any-version? true ex export-any-version! ex export-any-version? -> false true }T
+T{ fresh other-meta feed kind@ snap pinned? -> outcome-ok kind-meta false }T
+T{ snap meta-lean-version text@ s" 4.29.1" compare snap meta-exporter text@ s" handcrafted" compare
+   -> 0 0 }T
+T{ fresh s\" {\"meta\":{\"exporter\":{\"name\":\"x\",\"version\":\"1\"},\"format\":{\"version\":\"3.2.0\"},\"lean\":{\"githash\":\"0\",\"version\":\"4.36.0\"}}}" unpinned
+   -> outcome-unsupported true }T
+T{ started snap pinned? -> outcome-ok true }T
+T{ false ex export-any-version! fresh other-meta unpinned -> outcome-unsupported true }T
+T{ true ex export-any-version! ex export-init ex export-any-version? -> outcome-ok false }T
+capture-all
 T{ fresh s\" {\"meta\":{\"exporter\":{\"name\":\"lean4export\",\"version\":3},\"format\":{\"version\":\"3.1.0\"},\"lean\":{\"githash\":\"0\",\"version\":\"4.35.0\"}}}" feed
    failed-field s" version" compare -> outcome-invalid 0 }T
 T{ fresh s\" {\"meta\":{\"exporter\":{\"name\":\"lean4export\",\"version\":\"3.1.0\"},\"format\":{\"version\":\"3.1.0\"}}}" feed

@@ -1342,11 +1342,84 @@ reason = "plan task 6.2.0: the merge of a long argument list never takes the rig
 [[fault]]
 id = "ndjson-self-reference"
 file = "src/import/ndjson.fs"
-old = ''': ref-below? ( count n outcome -- n flag ) ok? if tuck u> else nip false then ;'''
-new = ''': ref-below? ( count n outcome -- n flag ) ok? if tuck 1+ u> else nip false then ;'''
+old = ''': imap-dense? ( i map -- n true | false ) over swap imap-dense @ u< dup 0= if nip then ;'''
+new = ''': imap-dense? ( i map -- n true | false ) over swap imap-dense @ 1+ u< dup 0= if nip then ;'''
 test = "$GFORTH tests/core/ndjson.fs"
-reason = "a record may refer to its own index (a forward reference by one)"
+reason = "a record may refer to its own index before it has it (a forward reference by one), which Lean's Export.Parse refuses"
 quick = true
+
+[[fault]]
+id = "ndjson-index-taken-as-ordinal"
+file = "src/import/ndjson.fs"
+old = '''  dup imap-sparse? 0= if >r 2dup = if 2drop 1 r> imap-dense +! outcome-ok exit then r> then'''
+new = '''  dup imap-sparse? 0= if >r 2dup 2drop true if 2drop 1 r> imap-dense +! outcome-ok exit then r> then'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "a sparse index is taken as its ordinal: a reference to it then names no record, or the wrong one"
+
+[[fault]]
+id = "ndjson-index-repeat-ignored"
+file = "src/import/ndjson.fs"
+old = '''  >r over r@ imap-pair if rot drop r> ordinal! outcome-ok else r> pair-add then ;'''
+new = '''  >r over r@ imap-pair if 2drop drop r> drop outcome-ok else r> pair-add then ;'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "an index given again keeps naming the first record, where Lean's Export.Parse takes the later one"
+
+[[fault]]
+id = "ndjson-index-refused-defined"
+file = "src/import/ndjson.fs"
+old = '''  3 pick ok? if index-define nip else drop 2drop then ;'''
+new = '''  3 pick ok? 0= 3 pick drop if index-define nip else drop 2drop then ;'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "a record its handler refused gives its index the ordinal no record took, while an accepted one gives none"
+
+[[fault]]
+id = "ndjson-any-version-default"
+file = "src/import/ndjson.fs"
+old = '''  dup export-any-version? swap export-record format-read? and ;'''
+new = '''  true swap export-record format-read? and ;'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "an export of another Lean version is read without export-any-version!, not refused as unsupported"
+quick = true
+
+[[fault]]
+id = "ndjson-any-version-format-unchecked"
+file = "src/import/ndjson.fs"
+old = ''': format-read? ( record -- flag ) meta-format-version pinned-format-version text= ;'''
+new = ''': format-read? ( record -- flag ) drop true ;'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "with export-any-version! an export of another format version is read, not refused as unsupported"
+
+[[fault]]
+id = "ndjson-any-version-kept-by-init"
+file = "src/import/ndjson.fs"
+old = '''  dup export-untap false over export-any-version!'''
+new = '''  dup export-untap'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "export-init leaves export-any-version! on: a reused export reads other Lean versions unasked"
+
+[[fault]]
+id = "manifest-any-version-format-loose"
+file = "src/import/manifest.fs"
+old = '''  manifest-export @ export-any-version? swap @ ['] pinned-format-version <> and ;'''
+new = '''  manifest-export @ export-any-version? nip ;'''
+test = "$GFORTH tests/core/manifest.fs"
+reason = "with export-any-version! a manifest naming another export format passes its version check"
+
+[[fault]]
+id = "stage-other-meta-dropped"
+file = "src/import/stage-records.fs"
+old = '''  dup pinned? if drop outcome-ok exit then'''
+new = '''  true if drop outcome-ok exit then'''
+test = "$GFORTH tests/core/stage.fs"
+reason = "the stage forgets what another Lean version's metadata named, so no note or exportMeta can say it"
+
+[[fault]]
+id = "cli-other-lean-note-missing"
+file = "src/cli/leanforth.fs"
+old = '''  cli-other-note ck-loaded? if cli-results. else ck-read-outcome cli-fed-unread then'''
+new = '''  ck-loaded? if cli-results. else ck-read-outcome cli-fed-unread then'''
+test = "python3 tests/cli/test_leanforth.py OtherLean"
+reason = "check --any-lean-version on another Lean version's export prints no note that its verdicts are Lean 4.35.0's"
 
 [[fault]]
 id = "ndjson-anonymous-name"
@@ -1441,10 +1514,10 @@ reason = "an export written by another exporter is read instead of refused as un
 [[fault]]
 id = "ndjson-index-unchecked"
 file = "src/import/ndjson.fs"
-old = ''': index-is? ( count n outcome -- flag ) ok? -rot = and ;'''
-new = ''': index-is? ( count n outcome -- flag ) ok? -rot 2drop ;'''
+old = '''  dup index-pair? 0= if nip nip bad-index nip exit then'''
+new = '''  false if nip nip bad-index nip exit then'''
 test = "$GFORTH tests/core/ndjson.fs"
-reason = "an index out of order (a gap or a repeat) is accepted"
+reason = "a name, level or expression record with members besides its index and kind is read, the extra ones ignored"
 
 [[fault]]
 id = "ndjson-repeated-meta"
