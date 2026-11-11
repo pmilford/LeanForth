@@ -172,4 +172,14 @@ T{ 0 lf-term-sort -> 7 true }T
 T{ 7 7 lf-term-identity drop 100 lf-cterm-check -> outcome-invalid }T
 T{ 7 7 lf-term-identity drop 0 1 100 lf-mixed-shift -> -1 0 outcome-invalid }T
 T{ lf-term-count @ -> 8 }T
+\ The shift keeps its results by node and cutoff (kernel/replace-memo.fs,
+\ plan task 6.5.5): N = #0 #1 outside a binder becomes #1 #2 (nodes 10 to
+\ 12), under one #0 #2 (13, 14), in N (fun _ : Sort => N) shifted by 1.
+setup
+T{ 2 3 lf-term-app -> 7 true }T
+T{ 1 7 lf-term-lam -> 8 true }T
+T{ 7 8 lf-term-app -> 9 true }T
+T{ 9 term-serial 0 1 100 lf-mixed-shift -> 16 term-serial outcome-ok }T
+T{ 12 lf-term-read 14 lf-term-read -> lf-tag-app 10 11 true lf-tag-app 2 13 true }T
+T{ 11 lf-term-read 13 lf-term-read -> lf-tag-bvar 2 0 true lf-tag-bvar 2 0 true }T
 bye

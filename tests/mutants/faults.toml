@@ -709,7 +709,7 @@ reason = "4.2.2a: abstract makes free variable i bound variable d + n - i, one t
 
 [[fault]]
 id = "open-update-half-changed"
-file = "src/kernel/mixed-open.fs"
+file = "src/kernel/replace-memo.fs"
 old = '''  >r 2dup lf-term-first@ = over lf-term-second@ r@ = and'''
 new = '''  >r 2dup lf-term-first@ = over lf-term-second@ r@ = or'''
 test = "$GFORTH tests/core/mixed-instantiate.fs"
@@ -783,8 +783,8 @@ reason = "4.2.2a (review rvD2A F3): discarded scratch keeps its local-context en
 [[fault]]
 id = "open-reset-idle"
 file = "src/kernel/mixed-open.fs"
-old = ''': lf-open-reset ( -- ) lf-open-frames frame-reset ;'''
-new = ''': lf-open-reset ( -- ) ;'''
+old = ''': lf-open-reset ( -- ) lf-open-frames frame-reset lf-open-memo lf-rmemo-empty ;'''
+new = ''': lf-open-reset ( -- ) lf-open-memo lf-rmemo-empty ;'''
 test = "$GFORTH tests/core/mixed-instantiate.fs"
 reason = "4.2.2a (review rvD2A F4): after a THROW out of a mixed-open pass the record stays busy, so every later instantiate, instantiate_rev and abstract refuses"
 
@@ -1064,10 +1064,10 @@ reason = "instantiate keeps a node whose loose bound variable it should replace"
 [[fault]]
 id = "cache-scope-ignored"
 file = "src/kernel/caches.fs"
-old = '''  ?dup 0= if 0 true exit then lf-minfer-context-depth @ > if false else lf-ci-top then ;'''
-new = '''  drop 0 true ;'''
+old = '''  lf-bits-loose if drop lf-ci-copy else nip true then ;'''
+new = '''  drop nip true ;'''
 test = "$GFORTH tests/core/check-declaration.fs"
-reason = "an open source node's type is reused under another scope"
+reason = "6.5.5: an open source node is keyed by its own skeleton, not its closed copy, so its type is reused under another scope"
 
 [[fault]]
 id = "cache-identity-unchecked"
@@ -6413,9 +6413,9 @@ reason = "rvCACHE L1: a bound variable of index 2^61 or more gets facts whose lo
 [[fault]]
 id = "cache-infer-not-source"
 file = "src/kernel/caches.fs"
-old = '''  dup lf-minfer-source? 0= if drop false exit then
-  lf-term-facts 0= if false exit then lf-bits-loose lf-ci-scope dup 0= if nip then ;'''
-new = '''  lf-term-facts 0= if false exit then lf-bits-loose lf-ci-scope dup 0= if nip then ;'''
+old = '''  dup lf-minfer-source? 0= if lf-ci-none exit then
+  lf-ci-skeleton if 0 true else false then ;'''
+new = '''  lf-ci-skeleton if 0 true else false then ;'''
 test = "$GFORTH tests/core/whnf.fs"
 reason = "rvCACHE L2: a node inference refuses as no source node gets a cached type in deciding mode (whnf.fs's fresh-node probe)"
 
@@ -6849,24 +6849,24 @@ reason = "EX: U2 runs on run 0, which every unwritten unit holds: each node is s
 [[fault]]
 id = "ex-open-ignore-offset"
 file = "src/kernel/mixed-open.fs"
-old = ''': lf-open-held? ( offset run unit -- flag ) tuck @ = if cell+ @ = else 2drop false then ;'''
-new = ''': lf-open-held? ( offset run unit -- flag ) tuck @ = if 2drop true else 2drop false then ;'''
+old = '''  frame-context @ lf-open-memo lf-rmemo@ ;'''
+new = '''  drop 0 lf-open-memo lf-rmemo@ ;'''
 test = "$GFORTH tests/core/mixed-instantiate.fs"
 reason = "EX: a node rebuilt under a binder is given back outside it, its bound variable not replaced"
 
 [[fault]]
 id = "ex-open-no-keep"
 file = "src/kernel/mixed-open.fs"
-old = ''': lf-open-keep ( result node frames -- ) lf-open-key tuck ! tuck cell+ ! 2 cells + ! ;'''
+old = ''': lf-open-keep ( result node frames -- ) frame-context @ lf-open-memo lf-rmemo! ;'''
 new = ''': lf-open-keep ( result node frames -- ) 2drop drop ;'''
 test = "$GFORTH tests/core/mixed-instantiate.fs"
 reason = "EX: no result is kept, so a shared node is rebuilt per path (seven visits, two copies)"
 
 [[fault]]
 id = "ex-open-same-run"
-file = "src/kernel/mixed-open.fs"
-old = '''  lf-open-job lf-openjob-run dup @ 1+'''
-new = '''  lf-open-job lf-openjob-run dup @'''
+file = "src/kernel/replace-memo.fs"
+old = '''  tuck lf-rmemo-keeps? if drop else lf-rmemo-drop then ;'''
+new = '''  2drop ;'''
 test = "$GFORTH tests/core/mixed-instantiate.fs"
 reason = "EX: every pass after the first shares one number, so a pass with y gets the results of an earlier pass with x"
 
@@ -7277,3 +7277,136 @@ old = '''    2dup lf-mls-half dup lf-mls-node 4 pick < if 1+ rot drop swap else 
 new = '''    2dup lf-mls-half dup lf-mls-node 4 pick <= if 1+ rot drop swap else nip then'''
 test = "$GFORTH tests/core/mixed-level-substitute.fs"
 reason = "S3: a child's image is read one place past it in the sorted list"
+
+# --- plan task 6.5.5, agent S6A: substitution as Lean's replace
+# (src/kernel/replace-memo.fs, mixed-open.fs, mixed-shift.fs,
+# mixed-instantiate.fs), Lean's node data read from the data word (whnf.fs,
+# mixed-infer.fs), inferred types keyed by the closed term (caches.fs)
+
+[[fault]]
+id = "s6a-memo-no-offset"
+file = "src/kernel/replace-memo.fs"
+old = '''  r@ lf-rmemo-key ! r@ lf-rmemo-key cell+ ! r@ lf-rmemo-stamp @ r> lf-rmemo-key 2 cells + !'''
+new = '''  r@ lf-rmemo-key ! drop 0 r@ lf-rmemo-key cell+ ! r@ lf-rmemo-stamp @ r> lf-rmemo-key 2 cells + !'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "6.5.5: the memo keyed without the offset gives a node met under a binder the result of its visit outside it"
+
+[[fault]]
+id = "s6a-memo-no-stamp"
+file = "src/kernel/replace-memo.fs"
+old = '''  r@ lf-rmemo-key ! r@ lf-rmemo-key cell+ ! r@ lf-rmemo-stamp @ r> lf-rmemo-key 2 cells + !'''
+new = '''  r@ lf-rmemo-key ! r@ lf-rmemo-key cell+ ! 0 r> lf-rmemo-key 2 cells + !'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "6.5.5: the memo keyed without the call's stamp gives a closing under one scope the results kept under another"
+
+[[fault]]
+id = "s6a-memo-identity-unchecked"
+file = "src/kernel/replace-memo.fs"
+old = '''  3 cells + dup @ swap cell+ @ over lf-term-identity if = else drop false then'''
+new = '''  3 cells + dup @ swap cell+ @ over lf-term-identity if 2drop true else drop false then'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "6.5.5: a kept result is given back after it was discarded and its index taken by another node"
+
+[[fault]]
+id = "s6a-open-skip-reaches"
+file = "src/kernel/mixed-open.fs"
+old = '''  over lf-data-loose < if drop false true exit then'''
+new = '''  over lf-data-loose 1- < if drop false true exit then'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "6.5.5: instantiate keeps a node whose loose range reaches the offset, its outermost loose variable not replaced"
+
+[[fault]]
+id = "s6a-open-skip-fvar"
+file = "src/kernel/mixed-open.fs"
+old = '''  lf-data-fvar? if false else true true then ;'''
+new = '''  drop true true ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "6.5.5: instantiate keeps a node with a free variable unvisited, so a dead free variable is not refused"
+
+[[fault]]
+id = "s6a-abstract-skip-fvar"
+file = "src/kernel/mixed-open.fs"
+old = ''': lf-open-abs-word ( data -- flag true ) lf-data-fvar? 0= true ;'''
+new = ''': lf-open-abs-word ( data -- flag true ) drop true true ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "6.5.5: abstract keeps a node with free variables unvisited, so they are not made bound variables"
+
+[[fault]]
+id = "s6a-shift-skip-reaches"
+file = "src/kernel/mixed-shift.fs"
+old = '''  swap lf-term-data@ if lf-data-loose swap frame-context @ > 0= else drop false then ;'''
+new = '''  swap lf-term-data@ if lf-data-loose 1- swap frame-context @ > 0= else drop false then ;'''
+test = "$GFORTH tests/core/mixed-shift.fs"
+reason = "6.5.5: lift_loose_bvars keeps a node whose loose range reaches the cutoff, its variable not lifted"
+
+[[fault]]
+id = "s6a-shift-zero-skips-all"
+file = "src/kernel/mixed-shift.fs"
+old = '''  over 0= if 2drop outcome-ok exit then'''
+new = '''  2drop outcome-ok exit'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "6.5.5: the replacement is never lifted, so it is captured under a binder"
+
+[[fault]]
+id = "s6a-shift-memo-no-offset"
+file = "src/kernel/mixed-shift.fs"
+old = '''  frame-context @ lf-mshift-memo lf-rmemo@ ;'''
+new = '''  drop 0 lf-mshift-memo lf-rmemo@ ;'''
+test = "$GFORTH tests/core/mixed-shift.fs"
+reason = "6.5.5: the shift's memo keyed without the cutoff gives a node under a binder the result it had outside"
+
+[[fault]]
+id = "s6a-inst-skip-reaches"
+file = "src/kernel/mixed-instantiate.fs"
+old = '''  swap lf-term-data@ if lf-data-loose swap frame-context @ > 0= else drop false then ;'''
+new = '''  swap lf-term-data@ if lf-data-loose 1- swap frame-context @ > 0= else drop false then ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "6.5.5: instantiate keeps a node whose loose range reaches the binder depth, its target not replaced"
+
+[[fault]]
+id = "s6a-inst-memo-no-offset"
+file = "src/kernel/mixed-instantiate.fs"
+old = '''  frame-context @ lf-minst-memo lf-rmemo@ ;'''
+new = '''  drop 0 lf-minst-memo lf-rmemo@ ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "6.5.5: the instantiate memo keyed without the depth gives a node under a binder the result it had outside"
+
+[[fault]]
+id = "s6a-scope-one-stamp"
+file = "src/kernel/mixed-open.fs"
+old = '''  dup lf-fvar-live? if lf-term-identity drop 1+ else drop 0 then ;'''
+new = '''  drop 1 ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "6.5.5: every closing shares one stamp, so a closing under one scope gets another scope's results"
+
+[[fault]]
+id = "s6a-whnf-word-no-fvar"
+file = "src/kernel/whnf.fs"
+old = '''  dup lf-data-loose 0<> swap lf-data-fvar? or ;'''
+new = '''  lf-data-loose 0<> ;'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "6.5.5: has_fvar read from the data word misses a free variable"
+
+[[fault]]
+id = "s6a-whnf-word-loose-fvar"
+file = "src/kernel/whnf.fs"
+old = '''  ['] lf-whnf-scan-visit = if lf-data-loose 0<> exit then'''
+new = '''  ['] lf-whnf-scan-visit = if dup lf-data-loose 0<> swap lf-data-fvar? or exit then'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "6.5.5: has_loose_bvars read from the data word counts a free variable as a loose bound variable"
+
+[[fault]]
+id = "s6a-infer-word-short"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-term-data@ if lf-data-loose true else false then ;'''
+new = '''  lf-term-data@ if lf-data-loose 1- 0 max true else false then ;'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "6.5.5: inference closes a term with one free variable too few, leaving its outermost loose variable"
+
+[[fault]]
+id = "s6a-infer-key-failure-ignored"
+file = "src/kernel/caches.fs"
+old = '''  lf-minfer-close ok-then? 0= if lf-ci-short false exit then'''
+new = '''  lf-minfer-close ok-then? 0= if drop outcome-ok false exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "6.5.5: a closing for a key that runs out of room lets inference go on uncached, so a refused allocation does not end the block full"

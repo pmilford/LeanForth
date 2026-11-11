@@ -654,6 +654,7 @@ defer lf-ci-room? ( -- flag )
 : lf-ci-ready? ( node -- id scope true | outcome false )
   lf-caches-on? 0= if lf-ci-none exit then
   lf-minfer-chain @ 0< 0= if lf-ci-none exit then
+  lf-minfer-inner @ if lf-ci-none exit then
   dup lf-minfer-source? 0= if lf-ci-none exit then
   lf-ci-skeleton if 0 true else false then ;
 : lf-ci-table ( -- cache )

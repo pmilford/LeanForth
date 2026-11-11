@@ -221,7 +221,7 @@ cli-options
 \ A second run in the same process gives the same verdicts and fuel.
 : run-facts ( c-addr u -- code ok# fuel )
   cli-check outcome-ok tally ck-fuel-total drop ;
-\ (1017 since inference keys a type by the term closed with its scope, as
+\ (996 since inference keys a type by the term closed with its scope, as
 \ Lean keys it by the opened term, and the substitutions are Lean's
 \ replace, plan task 6.5.5; 979 since the audits check each shared node
 \ once and a constant without
@@ -229,7 +229,7 @@ cli-options
 \ caches and cached node data, plan task 4.2.7; 1184
 \ since the block check uses Lean's whnf, plan task 5.2.1b; 1187 since
 \ conversion is Lean's is_def_eq, plan task 4.2.2b; 1520 before.)
-T{ inductive run-facts inductive run-facts -> 0 6 1017 0 6 1017 }T
+T{ inductive run-facts inductive run-facts -> 0 6 996 0 6 996 }T
 cli-no-manifest
 kinds run-facts constant kinds-fuel drop drop
 T{ kinds run-facts -> 2 94 kinds-fuel }T

@@ -364,4 +364,50 @@ T{ 1000 lf-open-fuel ! pair subst cell+ 1 lf-instantiate drop halves drop fields
 : shared-parts ( node -- inner outer ) halves >r halves nip r> ;
 T{ beta-pair 1 inst drop shared-parts drop -> twice-0 }T
 T{ beta-pair 1 inst drop shared-parts nip fields -> lf-tag-app x x }T
+\ The replace memo (kernel/replace-memo.fs, plan task 6.5.5) keys a result
+\ by the node and its offset: N = #1 #1 met first outside, then under a
+\ binder, in N (fun _ : Sort => N), with x for #0: outside #0 #0 (#1 is
+\ lowered), inside x x.
+3 3 lf-term-app drop constant n11
+1 n11 lf-term-lam drop constant lam-n11
+n11 lam-n11 lf-term-app drop constant outer-first
+T{ outer-first 1 inst drop halves drop fields rot drop index-of swap index-of -> 0 0 }T
+T{ outer-first 1 inst drop halves nip fields nip nip fields -> lf-tag-app x x }T
+\ instantiate_rev with an inference scope (lf-instantiate-scope): a node
+\ closed before under the same scope comes back for no fuel; another
+\ scope, named by its innermost free variable, gets its own result.
+: scoped ( node addr -- node' outcome ) 1 lf-instantiate-scope ;
+T{ 1000 lf-open-fuel ! twice-0 subst scoped drop fields lf-open-fuel @
+   -> lf-tag-app x x 997 }T
+T{ 1000 lf-open-fuel ! twice-0 subst scoped drop fields lf-open-fuel @
+   -> lf-tag-app x x 1000 }T
+T{ 1000 lf-open-fuel ! twice-0 subst cell+ scoped drop fields -> lf-tag-app y y }T
+\ A kept result discarded since is a miss, never the node that takes its
+\ index: #1 #0 closed with x and y, its result rolled back and its index
+\ taken by #0 #0, is closed again.
+3 2 lf-term-app drop constant n10
+term-marked constant before-close
+T{ 1000 lf-open-fuel ! n10 subst 2 lf-instantiate-scope drop fields -> lf-tag-app x y }T
+T{ terms-back -> outcome-ok }T
+T{ 2 2 lf-term-app 2drop 1000 lf-open-fuel ! n10 subst 2 lf-instantiate-scope drop fields
+   -> lf-tag-app x y }T
+\ A free variable no longer live is met even in a node with no loose bound
+\ variable, which instantiate keeps unvisited only when no free variable
+\ hides in it: invalid.
+term-marked constant before-gone
+T{ 1 lf-lctx-local -> before-gone outcome-ok }T
+T{ terms-back -> outcome-ok }T
+T{ lf-tag-fvar 2 0 lf-term-add -> before-gone true }T
+T{ before-gone 1 lf-term-app -> before-gone 1+ true }T
+T{ before-gone 1+ 1 inst -> -1 outcome-invalid }T
+\ The single-binder pass keeps its results by node and depth too: in N
+\ (fun _ : c => N), N = #0 #1, with c for the target, N is c #0 outside
+\ and #0 c under the binder.
+2 3 lf-term-app drop constant n01
+0 n01 lf-term-lam drop constant lam-n01
+n01 lam-n01 lf-term-app drop constant inst-pair
+: inst1 ( node -- node' outcome )
+  dup lf-term-identity drop 0 dup lf-term-identity drop 100 lf-mixed-instantiate nip ;
+T{ inst-pair inst1 drop halves drop fields rot drop index-of -> 0 0 }T
+T{ inst-pair inst1 drop halves nip fields nip nip fields -> lf-tag-app 2 0 }T
 bye

@@ -132,6 +132,7 @@ begin-structure /lf-ijob
   field: lf-ijob-env       \ true in environment mode (lf-minfer-start-env)
   field: lf-ijob-argument  \ the argument an application's type is instantiated with
   field: lf-ijob-chain     \ for a lambda's lambda body, where the chain began, else -1
+  field: lf-ijob-inner     \ true while a Pi's Pi body is entered (no cache key)
   /lf-scratch +field lf-ijob-mark  \ the stores before the call (scratch-marks.fs)
 end-structure
 0 lf-ijob-frames 0<> [if] .( mixed-infer.fs: frames must come first) cr abort [then]
@@ -663,11 +664,21 @@ defer lf-minfer-proj ( leaf e frames -- ... frames next )
 \ A step mark let go on a failure path, where the step's own failure is
 \ the outcome.
 : lf-minfer-let-go ( mark -- ) lf-scratch-drop drop ;
+\ Lean's infer_pi opens a chain of Pis at once (type_checker.cpp
+\ 144-166): an inner Pi is never inferred on its own, so never looked up
+\ or kept in the inferred-type cache (type_checker.cpp 332-334, 356). The
+\ chain is entered one Pi at a time here; a Pi's body that is a Pi is
+\ marked as inner while it is entered (lf-minfer-inner, which the caches
+\ read, kernel/caches.fs), and its own visit takes the mark off.
+: lf-minfer-inner ( -- addr ) lf-minfer-job lf-ijob-inner ;
+: lf-minfer-pi-node? ( node -- flag ) lf-minfer-read if nip nip lf-tag-pi = else false then ;
+: lf-minfer-pi-inner ( body -- body ) dup lf-minfer-pi-node? lf-minfer-inner ! ;
 : lf-minfer-pi-domain ( D status frames -- ... frames next )
   >r r@ frame-restore r@ frame-restore 2swap lf-minfer-bound
   dup ok? 0= if no-result 1 r@ frame-pick lf-minfer-let-go 3 r@ frame-drop r> 0 exit then
-  drop r@ frame-restore r> ['] lf-minfer-pi-body lf-minfer-call ;
+  drop r@ frame-restore lf-minfer-pi-inner r> ['] lf-minfer-pi-body lf-minfer-call ;
 : lf-minfer-pi ( domain body frames -- ... frames next )
+  false lf-minfer-inner !
   >r lf-minfer-context-depth @ r@ frame-save r@ lf-minfer-marked
   swap r@ frame-save r@ lf-minfer-marked lf-scratch-settled
   over r@ frame-save r> ['] lf-minfer-pi-domain lf-minfer-call-marked ;
@@ -843,7 +854,7 @@ defer lf-minfer-entry ( node frames -- ... frames next )
   lf-minfer-job lf-ijob-mark lf-scratch-rollback lf-scratch-settled ;
 : lf-minfer-idle ( job -- )
   dup lf-ijob-frames frame-reset 0 over lf-ijob-binders !
-  -1 over lf-ijob-chain !
+  -1 over lf-ijob-chain ! false over lf-ijob-inner !
   false over lf-ijob-aside ! false swap lf-ijob-env ! ;
 
 \ Start a job on lf-minfer-job: the index token and nonnegative fuel, no
