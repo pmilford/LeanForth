@@ -8165,7 +8165,7 @@ reason = "S5B: the parallel scheduler's walk does not look inside lets and proje
 [[fault]]
 id = "io-k-unscoped"
 file = "src/kernel/iota.fs"
-old = '''  lf-minfer-frames = dup if lf-whnf-scope-use then ;'''
+old = '''  lf-iota-in-range? dup if lf-whnf-scope-use then ;'''
 new = '''  drop false ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "IO: K and structure eta never type a variable of a block's telescope: k.block-index-variable unknown (diagnostic 81), as before"
@@ -8174,8 +8174,8 @@ quick = true
 [[fault]]
 id = "io-scope-use-uncounted"
 file = "src/kernel/iota.fs"
-old = '''  lf-minfer-frames = dup if lf-whnf-scope-use then ;'''
-new = '''  lf-minfer-frames = ;'''
+old = '''  lf-iota-in-range? dup if lf-whnf-scope-use then ;'''
+new = '''  lf-iota-in-range? ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "IO: a whnf result that typed an open term under the scope is cached by its open key; the recursor builder, under no scope, hits positivity's entry (k.field-variable accepted by a cache hit, not by a port)"
 
@@ -8231,8 +8231,10 @@ reason = "FX12 (rvIO M1): R3 trusts the inference job's frames alone: a major pr
 [[fault]]
 id = "io-eta-unscoped"
 file = "src/kernel/iota.fs"
-old = '''  lf-minfer-env? if lf-iota-scoped? else 2drop false outcome-ok then ;'''
-new = '''  lf-minfer-env? if lf-whnf-loose? swap 0= swap else 2drop false outcome-ok then ;'''
+old = ''': lf-iota-eta-ready? ( major frames -- flag outcome )
+  lf-minfer-env? if lf-iota-scoped? else 2drop false outcome-ok then ;'''
+new = ''': lf-iota-eta-ready? ( major frames -- flag outcome )
+  lf-minfer-env? if lf-whnf-loose? swap 0= swap else 2drop false outcome-ok then ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "IO: structure eta in iota (R3) only on closed major premises: eta.block-index-variable unknown"
 
