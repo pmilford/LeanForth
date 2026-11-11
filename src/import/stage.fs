@@ -23,6 +23,10 @@
 \ unless it names a recursor Lean's kernel generates for an inductive type
 \ of the file (ADR 0016 amendment 1: P.rec or P.rec_<digits>, P a type
 \ declaration's name), which resolves as several do, at the check.
+\ The payload is not yet read by the checker: the feed (import/feed.fs)
+\ builds each reference by name, which the environment's chain resolves
+\ (ADR 0016 C9 steps 4-6 will read the payload). Today its only effect is
+\ the unknown-constant refusal (plan task 5.2.6), so nothing may rely on it.
 \
 \ Life cycle, the reading and sealing steps refused (invalid) out of order:
 \   stage-init     an empty stage; the expression table starts at 2^log2
@@ -46,7 +50,11 @@
 \ an unknown constant (at sealing), a manifest that is missing or differs,
 \ or a step out of order; unsupported for other exporter, format or Lean
 \ versions; full for a limit (a C1 limit, a number beyond 32 bits, more
-\ than 2^27 - 1 declarations), no heap, or the memory limit. A kind not
+\ than 2^27 - 1 declarations), no heap, or the memory limit. A bound
+\ variable's index of 2^32 or more is invalid, not full (no field holds it;
+\ pinned Lean panics from 1048575, so both are refusals; review rvKC L2).
+\ A number beyond 32 bits in a name is full where pinned Lean accepts the
+\ file: a temporary gap, closed by plan task 5.2.6 (review rvKC L1). A kind not
 \ yet supported is staged but marked: an mdata expression (written only
 \ when the exporter is asked to) is kept without its key-value data, under
 \ its own tag (core/compact-exprs.fs), and every declaration whose type,
