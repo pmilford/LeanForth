@@ -3,8 +3,10 @@
 \ first checker's own importer (import/checker-input.fs) only, a
 \ projection; the feed stages a projection as such since plan task 5.2.2
 \ (core/projections.fs), a natural-number literal since plan task 5.2.3
-\ (core/literals.fs) and a let since plan task 4.2.3 (core/let-terms.fs),
-\ so only checker-input.fs still makes a let's leaf. An importer that
+\ (core/literals.fs), a string literal since that task's string part
+\ (core/string-literals.fs) and a let since plan task 4.2.3
+\ (core/let-terms.fs), so only checker-input.fs still makes the leaf of a
+\ let, a literal or a projection. An importer that
 \ meets one in a declaration stages it as a
 \ leaf of its own tag that records only which form it was, so that the
 \ declaration audit (kernel/check-declaration.fs) finds it and answers

@@ -154,6 +154,14 @@ lit.pow-count-too-big	natCountTooBig	rejected	L1	5.2.3
 lit.pow-count-limit	accepted	accepted	L1	5.2.3	
 lit.string-expansion	accepted	accepted	L4	5.2.3	
 lit.string-expansion-wrong	declTypeMismatch	rejected	L4	5.2.3	
+lit.string-empty	accepted	accepted	L4	5.2.3	
+lit.string-non-ascii	accepted	accepted	L4	5.2.3	
+lit.string-after-whnf	accepted	accepted	L4	5.2.3	
+lit.string-literals-apart	declTypeMismatch	rejected	L4	5.2.3	
+lit.string-projected	accepted	accepted	L4	5.2.3	
+lit.string-major	accepted	accepted	L2	5.2.3	
+lit.string-major-wrong	declTypeMismatch	rejected	L2	5.2.3	
+lit.string-decide	accepted	accepted	L4	5.2.3	
 replay.original	accepted	accepted	A1 B3	5.2.1b	
 replay.rule-right-sides-swapped	invalidRecursor	rejected	B3	5.2.1b	
 replay.recursor-k-set	invalidRecursor	rejected	B3	5.2.1b	

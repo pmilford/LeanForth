@@ -31,7 +31,10 @@
 \ cannot expand; and Lean's generated recursor that no slot holds (ADR
 \ 0015 decision 12). A literal major premise (L2; plan task
 \ 5.2.3) becomes a constructor first, as nat_lit_to_constructor makes
-\ it: 0 as Nat.zero, n + 1 as Nat.succ n (reduce-nat.fs). Before any of
+\ it: 0 as Nat.zero, n + 1 as Nat.succ n (reduce-nat.fs); a string
+\ literal becomes String.ofList of its characters, put in whnf
+\ (string_lit_to_constructor, kernel/string-literals.fs), and so does a
+\ string literal projected (reduce_proj_core). Before any of
 \ this, as reduce_recursor (393-398), quot_reduce_rec (quot.fs: Quot.lift
 \ and Quot.ind on Quot.mk, plan task 5.2.4).
 \ State: none of its own; the work arrays and the frames are whnf.fs's,
@@ -53,6 +56,7 @@ require ./infer-proj.fs
 require ./mixed-head.fs
 require ./mixed-infer.fs
 require ./reduce-nat.fs
+require ./string-literals.fs
 require ./whnf.fs
 require ./quot.fs
 
@@ -256,8 +260,20 @@ require ./quot.fs
   dup lf-lit-leaf? if lf-reduce-nat-constructor else outcome-ok then ;
 : lf-iota-saved ( frames -- app decl pending )
   dup frame-restore >r dup frame-restore >r frame-restore r> swap r> ;
+\ A string literal major premise (L2, inductive.h 96-97): its constructor
+\ form in whnf (kernel/string-literals.fs, a child visit) takes its place,
+\ and the rule for its head applies or none does; Lean's structure eta
+\ (R3) is not tried on it.
+: lf-iota-string-major ( app decl major pending frames -- reduct outcome )
+  >r over lf-iota-ctor? ok-then? 0= if >r 2drop 2drop r> no-result r> drop exit then
+  if r> lf-iota-reduce exit then
+  r> drop nip nip if lf-iota-not-ported else drop -1 outcome-ok then ;
+: lf-iota-stringed ( major outcome frames -- ... frames next )
+  >r ok-then? 0= if 3 r@ frame-drop r> lf-whnf-failed exit then
+  r@ lf-iota-saved >r rot r> r@ lf-iota-string-major r> 0 ;
 : lf-iota-majored ( major outcome frames -- ... frames next )
   >r ok-then? 0= if 3 r@ frame-drop r> lf-whnf-failed exit then
+  dup lf-str-leaf? if r> ['] lf-iota-stringed lf-str-whnf-call exit then
   lf-iota-lit ok-then? 0= if 3 r@ frame-drop r> lf-whnf-failed exit then
   r@ lf-iota-saved >r rot r> r@ lf-iota-reduce r> 0 ;
 : lf-iota-whnf ( e pending frames -- ... frames next )
@@ -376,13 +392,19 @@ require ./quot.fs
   dup lf-idecl-data lf-ict-induct lf-more-field 3 pick lf-proj-name lf-name-same?
   0= if 2drop drop -1 exit then
   lf-idecl-data lf-ict-params lf-more-field rot lf-proj-idx + lf-iota-field-of ;
-: lf-iota-proj-back ( c outcome frames -- ... frames next )
+: lf-iota-proj-made ( c outcome frames -- ... frames next )
   >r r@ frame-restore -rot ok-then? 0= if nip r> lf-whnf-failed exit then
   dup lf-iota-ctor ok-then? 0= if nip nip r> lf-whnf-failed exit then
   ?dup 0= if 2drop -1 outcome-ok r> 0 exit then
   >r over lf-whnf-head swap r> lf-iota-projected-to
   dup 0< if 2drop -1 outcome-ok r> 0 exit then
   swap dup lf-iota-n 1- lf-iota-extra r> 0 ;
+\ A string literal c first becomes its constructor form in whnf
+\ (reduce_proj_core 421-422; kernel/string-literals.fs, a child visit).
+: lf-iota-proj-string? ( c outcome -- flag ) ok? if lf-str-leaf? else drop false then ;
+: lf-iota-proj-back ( c outcome frames -- ... frames next )
+  2 pick 2 pick lf-iota-proj-string?
+  if nip ['] lf-iota-proj-made lf-str-whnf-call else lf-iota-proj-made then ;
 : lf-iota-proj ( app frames -- ... frames next )
   over over frame-save swap dup lf-iota-n 0 lf-iota-arg swap
   ['] lf-iota-proj-back lf-whnf-call ;

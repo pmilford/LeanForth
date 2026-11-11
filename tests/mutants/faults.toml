@@ -5236,6 +5236,160 @@ new = '''  outcome-ok ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.3 L2: iota leaves a literal major premise stuck; Nat.rec on 3 (iota.nat-literal-major) is no longer accepted"
 
+# --- string literals (plan task 5.2.3, strings) ----------------------------
+
+[[fault]]
+id = "str-new-any-bytes"
+file = "src/core/string-literals.fs"
+old = '''  2dup utf8-valid? 0= if 2drop 0 0 outcome-invalid exit then'''
+new = ''''''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "5.2.3 strings: a literal of bytes that are no UTF-8 is kept, not refused as invalid"
+
+[[fault]]
+id = "str-same-always"
+file = "src/core/string-literals.fs"
+old = ''': lf-str-same? ( a b -- flag ) lf-str-text rot lf-str-text compare 0= ;'''
+new = ''': lf-str-same? ( a b -- flag ) 2drop true ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "5.2.3 strings: Lean's == takes any two string literals for equal; \"ab\" and \"ac\" quick-compare yes"
+
+[[fault]]
+id = "str-fields-any"
+file = "src/core/string-literals.fs"
+old = '''  swap lf-str-bytes slab-count swap - swap - 0< 0= ;'''
+new = '''  2drop true ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "5.2.3 strings: the audit passes a leaf whose bytes lie past the slab's units in use"
+
+[[fault]]
+id = "str-expand-skips-characters"
+file = "src/kernel/string-literals.fs"
+old = '''  1- tuck lf-sx-codes slab-at @ swap lf-sx-cell >r swap r> ;'''
+new = '''  1- outcome-ok ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "5.2.3 L2: string_lit_to_constructor builds an empty list whatever the literal holds"
+
+[[fault]]
+id = "str-expand-free"
+file = "src/kernel/string-literals.fs"
+old = '''  lf-sx lf-sx-frames @ dup frame-fuel @ 0> if -1 swap frame-fuel +! outcome-ok exit then'''
+new = '''  lf-sx lf-sx-frames @ dup frame-fuel @ 0> 0= if drop outcome-ok exit then'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "5.2.3 L2: the expansion spends no fuel, so a long literal is never exhausted"
+
+[[fault]]
+id = "str-step13-one-way"
+file = "src/kernel/string-literals.fs"
+old = '''  swap 2dup lf-sx-applies? if rot lf-sx-expand-try exit then'''
+new = ''''''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "5.2.3 L4: try_string_lit_expansion tries (t, s) only, never (s, t)"
+
+[[fault]]
+id = "str-step13-off"
+file = "src/kernel/string-literals.fs"
+old = '''  dup lf-dq-sides 2dup lf-sx-applies? if rot lf-sx-expand-try exit then'''
+new = '''  dup lf-dq-sides 2dup 2drop false if rot lf-sx-expand-try exit then'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "5.2.3 L4: step 13 skipped for a string literal on the left; String.ofList x against it never expands"
+
+[[fault]]
+id = "str-of-list-any-levels"
+file = "src/kernel/string-literals.fs"
+old = '''  lf-whnf-cref dup lf-crec-arity @ if drop false exit then lf-crec-name @ lf-sx-of-list? ;'''
+new = '''  lf-whnf-cref lf-crec-name @ lf-sx-of-list? ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "5.2.3 L4: step 13 takes String.ofList.{u} x for Lean's String.ofList x"
+
+[[fault]]
+id = "str-quick-kinds"
+file = "src/kernel/defeq.fs"
+old = '''  >r 2dup lf-dq-literals? if 2drop lf-dq-no outcome-ok r> 0 exit then'''
+new = '''  >r'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "5.2.3 strings: quick_is_def_eq leaves a string and a natural-number literal undecided, and two string literals apart too"
+
+[[fault]]
+id = "str-whnf-core-not-normal"
+file = "src/kernel/whnf.fs"
+old = '''  over lf-tag-bvar = or over lf-literal-tag? or swap lf-tag-symbolic-sort = or ;'''
+new = '''  over lf-tag-bvar = or over lf-tag-lit = or swap lf-tag-symbolic-sort = or ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "5.2.3 strings: whnf_core takes a string literal for malformed (invalid) instead of normal"
+
+[[fault]]
+id = "str-compare-always"
+file = "src/kernel/mixed-compare.fs"
+old = '''  nip nip lf-mcompare-pair@ lf-str-same? lf-mcompare-verdict ;'''
+new = '''  drop 2drop outcome-ok ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "5.2.3 strings: Lean's == takes any two string literals for equal"
+
+[[fault]]
+id = "str-typed-nat"
+file = "src/kernel/mixed-infer.fs"
+old = '''    lf-tag-str of drop lf-str-type endof'''
+new = '''    lf-tag-str of drop lf-reduce-nat-type endof'''
+test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
+reason = "5.2.3 L4: a string literal is typed Nat; \"ab\" = String.ofList ['a', 'b'] (lit.string-expansion) is no longer accepted"
+
+[[fault]]
+id = "str-cons-no-level"
+file = "src/kernel/string-literals.fs"
+old = '''  lf-sx-zero! ok-then? if 1 lf-sx-const else no-result then ;'''
+new = '''  lf-sx-zero! ok-then? if 0 lf-sx-const else no-result then ;'''
+test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
+reason = "5.2.3 L2: List.cons and List.nil without Lean's universe argument zero; String.rec on \"ab\" (lit.string-major) is no longer accepted"
+
+[[fault]]
+id = "str-projection-not-expanded"
+file = "src/kernel/iota.fs"
+old = '''  if nip ['] lf-iota-proj-made lf-str-whnf-call else lf-iota-proj-made then ;'''
+new = '''  drop lf-iota-proj-made ;'''
+test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
+reason = "5.2.3 L4: reduce_proj_core leaves a string literal stuck; \"é\".utf8ByteSize = 2 (lit.string-projected) is no longer accepted"
+
+[[fault]]
+id = "str-major-not-expanded"
+file = "src/kernel/iota.fs"
+old = '''  dup lf-str-leaf? if r> ['] lf-iota-stringed lf-str-whnf-call exit then'''
+new = ''''''
+test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
+reason = "5.2.3 L2: iota leaves a string literal major premise stuck; String.rec on \"ab\" (lit.string-major) is no longer accepted"
+
+[[fault]]
+id = "str-feed-refused"
+file = "src/import/feed.fs"
+old = '''    tag-str of feed-str endof'''
+new = ''''''
+test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
+reason = "5.2.3 strings: the feed refuses a string literal as invalid; every lit.string row's file is refused"
+
+[[fault]]
+id = "str-print-banned-raw"
+file = "src/present/print-strings.fs"
+old = '''  dup lf-pq-banned? if >r 2drop r@ s" u" 4 lf-pq-coded r> exit then'''
+new = ''''''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "5.2.3 strings: a bidirectional control in a literal is printed as itself, not as \\u202e"
+
+[[fault]]
+id = "str-print-controls-raw"
+file = "src/present/print-strings.fs"
+old = '''  dup lf-pq-control? if >r 2drop r@ s" x" 2 lf-pq-coded r> exit then'''
+new = ''''''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "5.2.3 strings: a control character is printed as itself, not as Lean's \\x escape"
+
+[[fault]]
+id = "str-print-latex-raw"
+file = "src/present/print-strings.fs"
+old = '''  lf-pp-latex? 0= if lf-pp-emit exit then'''
+new = '''  lf-pp-emit exit'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "5.2.3 strings: in LaTeX a literal's _ { } \\ are written unescaped"
+
 # --- let terms (plan task 4.2.3) -------------------------------------------
 
 [[fault]]

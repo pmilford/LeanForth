@@ -328,4 +328,26 @@ fresh 0 mode
 T{ s" u" lparam ssort t1 ! t1 @ s" Sort u" shows -> }T
 T{ lf-level-reset t1 @ fuel lf-print-term -> outcome-invalid }T
 T{ s" v" lparam drop t1 @ s" Sort v" shows -> }T
+
+\ String literals (plan task 5.2.3, strings; print-strings.fs): Lean's
+\ String.quote, as pinned Lean 4.35.0 prints "a\"b\\c\nd\te\x0d\x01\x7f"
+\ and "é😀"; a character text-rule bans as \u (Lean prints U+202E and
+\ U+0085 as themselves); in LaTeX inside \texttt, escaped for text mode;
+\ bytes that are no UTF-8 character (a corrupted leaf) invalid.
+: t-str ( c-addr u -- t ) lf-str-new must-ok drop ;
+fresh 0 mode
+T{ s" ab" t-str s\" \"ab\"" shows -> }T
+T{ s" " t-str s\" \"\"" shows -> }T
+T{ s\" a\"b\\c\nd\te\x0d\x01\x7f'" t-str
+   s\" \"a\\\"b\\\\c\\nd\\te\\x0d\\x01\\x7f'\"" shows -> }T
+T{ s\" \xc3\xa9\xf0\x9f\x98\x80" t-str s\" \"\xc3\xa9\xf0\x9f\x98\x80\"" shows -> }T
+T{ s\" a\xe2\x80\xaeb\xc2\x85" t-str s\" \"a\\u202eb\\u0085\"" shows -> }T
+T{ args{ s" f" t-const s" x y" t-str t-app s\" f \"x y\"" shows -> }T
+lf-print-latex mode
+T{ s\" a_b\\{}~ c" t-str
+   s\" \\texttt{\"a\\_b\\textbackslash{}\\textbackslash{}\\{\\}\\textasciitilde{} c\"}"
+   shows -> }T
+0 mode
+T{ s\" \xc3\xa9" t-str t1 ! 1 t1 @ lf-term-slot node-second ! t1 @ fuel lf-print-term
+   -> outcome-invalid }T
 bye

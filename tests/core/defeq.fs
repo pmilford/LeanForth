@@ -207,6 +207,72 @@ T{ fresh-session 1 make-sort 5000 pis 2 make-sort 5000 pis 1000000 fuelled dq lf
    -> false outcome-ok }T
 
 \ ---------------------------------------------------------------------------
+\ String literals (plan task 5.2.3, strings; core/string-literals.fs and
+\ kernel/string-literals.fs): leaves of valid UTF-8 only; == by their
+\ bytes; quick_is_def_eq's no for two literals apart, also against a
+\ natural-number literal; whnf keeps a literal; string_lit_to_constructor
+\ over the code points, last built first, one unit of fuel a character;
+\ step 13 only against String.ofList x (here outside a check, where whnf
+\ cannot unfold String.ofList: unknown, K1), either way round.
+fresh-session
+: str ( c-addr u -- node ) lf-str-new ok? must drop ;
+T{ s\" a\xc3" lf-str-new -> 0 0 outcome-invalid }T
+T{ s\" \xed\xa0\x80" lf-str-new -> 0 0 outcome-invalid }T
+T{ s\" \xc0\xaf" lf-str-new -> 0 0 outcome-invalid }T
+: twins ( -- t s ) s" ab" str s" ab" str ;
+T{ twins = -> false }T
+T{ twins quick -> lf-dq-yes outcome-ok }T
+T{ s" ab" str s" ac" str quick -> lf-dq-no outcome-ok }T
+T{ s" " str s" " str quick -> lf-dq-yes outcome-ok }T
+T{ s" " str 0 lf-hterm-cell must drop quick -> lf-dq-no outcome-ok }T
+T{ 0 lf-hterm-cell must drop s" " str quick -> lf-dq-no outcome-ok }T
+T{ s" ab" str dup whnf drop = -> true }T
+T{ s" ab" str dup core drop = -> true }T
+\ The audit's field check: inside the bytes in use, both nonnegative.
+T{ 0 lf-str-bytes slab-count lf-str-fields? -> true }T
+T{ 1 lf-str-bytes slab-count lf-str-fields? -> false }T
+T{ -1 1 lf-str-fields? 0 -1 lf-str-fields? -> false false }T
+\ The constructor form: String.ofList, then List.cons.{0} Char (Char.ofNat
+\ c) .. ending in List.nil.{0} Char.
+: expanded ( leaf fuel -- node outcome ) fuelled dq lf-str-expand ;
+: str-list ( node -- list ) lf-term-second@ ;
+: code-of ( list -- u ) lf-term-first@ lf-term-second@ lf-term-second@ lf-lit-cell ;
+: tail-of ( list -- list' ) lf-term-second@ ;
+: length-of ( list -- n )
+  0 swap begin dup lf-mhead-spine nip 3 = while tail-of swap 1+ swap repeat
+  lf-mhead-spine nip 1 = and ;
+: form-of ( c-addr u -- list flag )
+  str 100 expanded ok? must dup str-list swap lf-sx-string-app? ;
+: codes-of ( list -- u1 u2 u3 ) dup code-of swap tail-of dup code-of swap tail-of code-of ;
+T{ s\" a\xc3\xa9\xf0\x9f\x98\x80" form-of swap dup length-of swap codes-of
+   -> true 3 $61 $e9 $1f600 }T
+T{ s" " form-of swap length-of -> true 0 }T
+T{ s" abc" str 2 expanded -> -1 outcome-exhausted }T
+T{ s" abc" str 3 expanded nip dq frame-fuel @ -> outcome-ok 0 }T
+\ Bytes that are no UTF-8 character (a corrupted leaf): invalid.
+: cut ( leaf -- leaf ) 1 over lf-term-slot node-second ! ;
+T{ s\" \xc3\xa9" str cut 100 expanded -> -1 outcome-invalid }T
+\ Step 13 applies against String.ofList x alone, either way round: the
+\ expansion spends a unit of fuel a character before its whnf meets
+\ String.ofList, which outside a check is unknown (K1); against another
+\ head the literal's length costs nothing (step 14 doubts without a
+\ typer). Every case here ends unknown, as no check can unfold.
+: of-list-name ( -- name )
+  s" ofList" 0 s" String" lf-name-str must -rot lf-name-str must ;
+: of-list ( -- node ) of-list-name const ;
+T{ of-list 0 make-sort make-app lf-sx-string-app? -> true }T
+T{ of-list-name leveled 0 make-sort make-app lf-sx-string-app? -> false }T
+T{ s" ofList" name-of const 0 make-sort make-app lf-sx-string-app? -> false }T
+T{ of-list lf-sx-string-app? -> false }T
+T{ of-list 0 make-sort make-app 0 make-sort make-app lf-sx-string-app? -> false }T
+: spent ( t s -- n ) defeq 0 outcome-unknown d= must 100000 dq frame-fuel @ - ;
+: x-of-list ( -- node ) of-list 0 make-sort make-app ;
+: x-other ( -- node ) s" c" name-of const 0 make-sort make-app ;
+T{ s" abcd" str x-of-list spent s" ab" str x-of-list spent - -> 2 }T
+T{ x-of-list s" abcd" str spent x-of-list s" ab" str spent - -> 2 }T
+T{ s" abcd" str x-other spent s" ab" str x-other spent - -> 0 }T
+
+\ ---------------------------------------------------------------------------
 \ Every failure outcome, and a fuel sweep: with less fuel a comparison is
 \ exhausted until it gives its answer, never another one.
 T{ 0 make-sort 1 redex 0 make-sort 0 fuelled dq lf-defeq-on -> 0 outcome-exhausted }T

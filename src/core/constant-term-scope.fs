@@ -42,6 +42,7 @@ lf-walk-room context-walk2: lf-cts-walker
     lf-tag-symbolic-sort of lf-cts-leaf endof
     lf-tag-constant of lf-cts-leaf endof
     lf-tag-proj of lf-cts-leaf endof  lf-tag-lit of lf-cts-leaf endof
+    lf-tag-str of lf-cts-leaf endof
     lf-tag-let of lf-cts-leaf endof  walk-bad-tag endcase ;
 : lf-cts-visit ( walk -- outcome ) lf-terms ['] lf-cts-dispatch walk-visit ;
 : lf-cts-run ( root depth -- outcome )

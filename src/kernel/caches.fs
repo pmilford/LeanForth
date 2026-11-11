@@ -38,8 +38,8 @@
 \ succ, max or imax of the same skeletons), the same constant name and
 \ universe-argument skeletons, the same literal value, the same
 \ projection name and index, or the same let flag (mixed-compare.fs
-\ compares exactly these). A literal of several limbs, or any other
-\ leaf, has a skeleton of its own node, so it equals itself only: a miss
+\ compares exactly these). A literal of several limbs, a string literal,
+\ or any other leaf, has a skeleton of its own node, so it equals itself only: a miss
 \ where Lean might hit, never a false hit. A skeleton is found in a table
 \ of (kind, part, part) keys, and kept per node with its identity
 \ (identities never repeat, so a rolled-back index is a new node), with
@@ -243,6 +243,7 @@ create lf-cache-hooks /htab-hooks allot
 128 constant lf-skel-cons
 129 constant lf-skel-node
 lf-tag-let lf-skel-level < lf-tag-lit lf-skel-level < and lf-tag-proj lf-skel-level < and
+lf-tag-str lf-skel-level < and
 0= [if] .( caches.fs: term tags must be below 64) cr abort [then]
 \ The skeleton of the key (kind a b), a new one when the key is new; 0 is
 \ none (an empty list).
@@ -348,6 +349,7 @@ lf-tag-let lf-skel-level < lf-tag-lit lf-skel-level < and lf-tag-proj lf-skel-le
     lf-tag-symbolic-sort of lf-tk-sort endof
     lf-tag-constant of lf-tk-const endof
     lf-tag-lit of lf-tk-lit endof
+    lf-tag-str of lf-tk-own endof
     lf-tag-proj of lf-tk-pair endof
     drop 2drop false 0 endcase ;
 \ A node's skeleton and bits from its key: kept, and the node off the

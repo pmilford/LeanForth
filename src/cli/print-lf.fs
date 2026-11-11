@@ -72,8 +72,7 @@ end-structure
     fl-unsafe of s" an unsafe or partial declaration" endof
     fl-arity of s" more than 8 universe parameters" endof
     fl-unsupported of s" a name, literal or term form the words cannot write" endof
-    fl-invalid of s" a term the input does not hold (let, metadata, a string literal) or malformed"
-      endof
+    fl-invalid of s" a term the input does not hold (let, metadata) or malformed" endof
     fl-fuel of s" the printer ran out of fuel or room" endof
     s" ?" rot endcase ;
 

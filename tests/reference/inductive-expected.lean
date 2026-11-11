@@ -816,7 +816,32 @@ def reductions : List Red := [
     lean := "accepted", leanforth := "accepted", rule := "L4", task := "5.2.3" },
   { id := "lit.string-expansion-wrong", type := "\"ab\" = String.ofList ['a', 'c']",
     value := "Eq.refl \"ab\"",
-    lean := "declTypeMismatch", leanforth := "rejected", rule := "L4", task := "5.2.3" }
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "L4", task := "5.2.3" },
+  -- The string part of task 5.2.3: the empty literal, characters of two and four bytes,
+  -- a literal reached by whnf, two literals apart (quick_is_def_eq), a projection of a
+  -- literal (reduce_proj_core), a literal major premise right and wrong (inductive.h),
+  -- and decide on two literals.
+  { id := "lit.string-empty", type := "\"\" = String.ofList []", value := "Eq.refl \"\"",
+    lean := "accepted", leanforth := "accepted", rule := "L4", task := "5.2.3" },
+  { id := "lit.string-non-ascii", type := "\"é😀\" = String.ofList ['é', '😀']",
+    value := "Eq.refl \"é😀\"",
+    lean := "accepted", leanforth := "accepted", rule := "L4", task := "5.2.3" },
+  { id := "lit.string-after-whnf",
+    type := "(fun s : String => s) \"ab\" = String.ofList ['a', 'b']", value := "Eq.refl \"ab\"",
+    lean := "accepted", leanforth := "accepted", rule := "L4", task := "5.2.3" },
+  { id := "lit.string-literals-apart", type := "\"ab\" = \"ac\"", value := "Eq.refl \"ab\"",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "L4", task := "5.2.3" },
+  { id := "lit.string-projected", type := "\"é\".utf8ByteSize = 2", value := "Eq.refl 2",
+    lean := "accepted", leanforth := "accepted", rule := "L4", task := "5.2.3" },
+  { id := "lit.string-major",
+    type := "@String.rec (fun _ => Nat) (fun b _ => b.size) \"ab\" = 2", value := "Eq.refl 2",
+    lean := "accepted", leanforth := "accepted", rule := "L2", task := "5.2.3" },
+  { id := "lit.string-major-wrong",
+    type := "@String.rec (fun _ => Nat) (fun b _ => b.size) \"ab\" = 3", value := "Eq.refl 3",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "L2", task := "5.2.3" },
+  { id := "lit.string-decide", type := "\"ab\" ≠ \"ac\"",
+    value := "of_decide_eq_true (p := \"ab\" ≠ \"ac\") (Eq.refl true)",
+    lean := "accepted", leanforth := "accepted", rule := "L4", task := "5.2.3" }
 ]
 
 /-! ## Lean's replay of an exported block -/
