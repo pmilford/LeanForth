@@ -26,8 +26,10 @@ rejected; the rest are 7 checks that filled a fixed room since made to grow
 and the 627 that depend on them. The whole of Mathlib is the next run. On one
 thread `Init` takes about 23 times as long as Lean's official export checker.
 The owner approved the Lean rules, speed work and formats merged so far on
-2026-11-11. Two steps are being built: S5B (the checker reads the compact input
-without any copy) and S7 (`check --jobs N`, parallel checking). Every accepted
+2026-11-11. Parallel checking (`check --jobs N`, step S7) is merged: on 8 workers
+Mathlib's first sixth checks in 1,130 s (119,374 accepted, 99.92%; 2
+exhausted and 96 that depend on them). Being built: S5B (no copy of the
+input at all) and the checked-environment snapshot (plan 6.2.5). Every accepted
 result is *experimental — not independently audited*. Details:
 [Limitations](#limitations), [Full Mathlib](#full-mathlib); the sections below
 are the 2026-11-04 snapshot except where dated.
@@ -573,9 +575,14 @@ through the import review gate.
 
 ## Parallel checking groundwork
 
-**Status (2026-11-10): written and tested on synthetic jobs only; not used by
-`leanforth check`, never run on a real export, no `--jobs` option, no use to a
-user yet.** Each worker would also load its own copy of the input (about 27 GB
+**Status (2026-11-11): `check --jobs N` merged (agent S7, `41a3157`); default
+1 worker, the owner chooses the default; gate owed [kernel][runtime].** All of
+`Init` at 2-10 workers gives output identical to one worker (59,349 accepted);
+check wall time 1,136 s on 1 worker, 536 s on 2, 183 s on 8 (6.2 times; machine
+shared with other runs). Each worker still gets its own copy of the input
+(about 210 MB per worker for `Init`; Mathlib's first sixth peaked at 7.8 GB on
+8 workers; plan 7.2.1 shares it). Before S7 the status was: **written and
+tested on synthetic jobs only; not used by `leanforth check`.** Each worker would also load its own copy of the input (about 27 GB
 for Mathlib today), so parallel checking waits for the checker on the compact
 store (plan 6.2.1-6.2.3); the checker modules added since 2026-11-02 (caches,
 unfolding, inductive types, quotients, literals) are not yet verified safe to
@@ -756,10 +763,10 @@ independently audited*; no outside Lean expert has audited the checker.
   the checker on the large store without a depth limit.
 - **Coded and used, gate owed**: compact-store step S5 parts 1-3 (the
   checker reads the input in place); its approval round comes after S5B.
-- **Coded, not used by `leanforth check`**: the parallel job pool
-  (`lib/task.fs`, job submission, context claim and release: a library
-  exercised by tests; agent S7 is building `check --jobs N`, not merged);
-  `src/author/` (not loaded by `src/main.fs`; no `check FILE.lf`, plan
+- **Coded and used, gate owed**: `check --jobs N` (step S7, default 1
+  worker; the publisher's re-check of each job's dependencies and the level
+  memo that now lasts one check).
+- **Coded, not used by `leanforth check`**: `src/author/` (not loaded by `src/main.fs`; no `check FILE.lf`, plan
   8.2.1); the program track (runs through tests and Python scripts; there is
   no `leanforth program` command, plan 3.4.1, 2.5.x); the record and replay
   reader (`check --record`, `replay`: 32 declarations, no inductive types,
