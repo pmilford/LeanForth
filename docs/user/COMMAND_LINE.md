@@ -96,7 +96,7 @@ theorem composition {A B C : Prop} (f : A → B) (g : B → C) : A → C :=
 
 | Command | What it does |
 | --- | --- |
-| `check [--no-manifest] [--fuel N] [--resources] [--json] [--fast] [--strict-axioms] [--any-lean-version] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text |
+| `check [--no-manifest] [--fuel N] [--resources] [--json] [--fast] [--strict-axioms] [--any-lean-version] [--jobs N] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text; with `--jobs N`, check with [N workers at once](#parallel-checking---jobs) |
 | `check [--no-manifest] [--fuel N] [--fast] [--strict-axioms] --record RECORD EXPORT` | Check a small export (read straight into the checker's stores) and also write its [run record](#run-records-and-replay) |
 | `replay [--no-manifest] [--fuel N] [--fast] EXPORT RECORD` | Check the export again and compare the new run record with RECORD; print the replay report |
 | `print [--no-manifest] [--fuel N] [--fast] [--detail] [--name NAME] [--latex] [--statement FORMS] [--any-lean-version] EXPORT`, or `print --lf [--no-manifest] [--fuel N] [--fast] [--any-lean-version] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration; `--lf` writes the whole export as one [LeanForth text](#writing-an-export-as-leanforth-text) |
@@ -149,6 +149,10 @@ Options:
   and, when the metadata named other versions, `exportMeta`.
 - `--fast` (`check`, `replay`, `print`) runs on `gforth-fast` instead of
   Gforth's checking engine ([the engine](#the-engine)).
+- `--jobs N` (`check` only, not with `--record`) checks with N workers at
+  once ([parallel checking](#parallel-checking---jobs)); N is at least 1,
+  and 1, the default, checks one declaration at a time. The output is the
+  same whatever N is.
 - `--detail` (`print` only) prints every step of the checker's log
   instead of the outline; `--name NAME` (`print` only) prints only the
   declaration named NAME.

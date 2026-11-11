@@ -30,11 +30,16 @@
 \ module stated (task-stacks-small); and, on the cooperative host, every
 \ submission after an overflow that left a guard zone (task-overflow).
 \
+\ job-wait-any ( addr n -- k ) waits until the first of the n jobs whose
+\ handles are the cells at addr (0 for none) has finished and gives its
+\ position, for job-wait (a scheduler keeping one job per worker).
+\
 \ The pool starts at the first job-submit, or at pool-start, with
-\ task-workers workers (at least 1, at most task-cores), and runs until
-\ pool-stop, which lets the workers finish every queued job first. One
-\ task outside the pool (normally the main task) drives it: it alone
-\ submits, waits, and starts and stops the pool.
+\ task-workers workers (at least 1, at most task-cores; pool-workers!
+\ sets it, stopping a running pool), and runs until pool-stop, which lets
+\ the workers finish every queued job first. One task outside the pool
+\ (normally the main task) drives it: it alone submits, waits, and starts
+\ and stops the pool.
 \
 \ Rules for a job's word: it reaches mutable state only through its own
 \ context; it may read data that no task changes while jobs run; it never

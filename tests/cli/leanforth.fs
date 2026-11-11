@@ -449,6 +449,10 @@ variable throw-at  -1 throw-at !
 : nested ( -- c-addr u ) s" tests/cli/nested.ndjson" ;
 T{ composition same? kinds same? nested same? -> true true true }T
 nested 1 facts-of 2drop drop constant serial-nested
+\ A stress run: the nested export, many small interleaved checks, at 8
+\ workers five times, each time the serial run's facts.
+: stress ( -- n ) 0 5 0 ?do nested 8 facts-of 2drop drop serial-nested = - loop ;
+T{ stress -> 5 }T
 40 throw-at !
 nested 1 facts-of 2drop drop constant serial-thrown
 T{ nested 3 facts-of nip nip swap serial-thrown = -> 1 true }T
