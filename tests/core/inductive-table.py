@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LeanForth against the inductive table (plan tasks 5.2.1a, 5.2.1b and 5.2.5a; ADR
+"""LeanForth against the inductive table (plan tasks 5.2.1a, 5.2.1b, 5.2.5a, 5.2.5b; ADR
 0015 §13, test plan 1).
 
 Runs pinned Lean on tests/reference/inductive-expected.lean, which prints
@@ -41,7 +41,7 @@ import tempfile
 LEAN_FILE = "tests/reference/inductive-expected.lean"
 TSV = "tests/reference/inductive-expected.tsv"
 FIXTURES = "tests/core/check-block-cases"
-DONE_TASKS = {"5.2.1a", "5.2.1b", "5.2.3", "5.2.5a"}
+DONE_TASKS = {"5.2.1a", "5.2.1b", "5.2.3", "5.2.5a", "5.2.5b"}
 # Rows of the tasks done (DONE_TASKS) that LeanForth cannot decide yet: id ->
 # (outcome now, reason, ending with the task that closes it). Each needs
 # something outside those tasks; the same rule reached without the dependency
@@ -174,8 +174,11 @@ OUTCOME = {"accepted": "ok"}
 
 
 def run_lean(lean):
+    # The Makefile's TEST_TIMEOUT bounds the whole run; this bound only stops
+    # a Lean left running without it (the table takes about 7 minutes on an
+    # idle machine, three times that on a loaded one: the cache never holds it).
     run = subprocess.run([lean, "-DwarningAsError=true", LEAN_FILE], stdin=subprocess.DEVNULL,
-                         capture_output=True, text=True, timeout=1800)
+                         capture_output=True, text=True, timeout=3600)
     if run.returncode != 0:
         sys.stdout.write(run.stdout + run.stderr)
         raise SystemExit("inductive-table: Lean failed on " + LEAN_FILE)
@@ -311,16 +314,18 @@ def main():
         got, why = row_outcome(case_id, own, result)
         want = OUTCOME.get(leanforth, leanforth)
         tally[(task in DONE_TASKS, got)] = tally.get((task in DONE_TASKS, got), 0) + 1
-        if task in DONE_TASKS:
+        if case_id in UNCLOSED:
+            # the importer's refusal stands whatever task the row has, a done
+            # one too (names.reserved-nested-prefix, task 5.2.5b), until 5.2.6
+            ok = got in ("invalid", "unsupported", "unknown", want)
+            print(f"unclosed {case_id}: {got} ({UNCLOSED[case_id]})")
+        elif task in DONE_TASKS:
             expected = PENDING.get(case_id, (want, ""))[0]
             ok = got == expected
             if case_id in PENDING and ok:
                 print(f"pending {case_id}: {got} ({PENDING[case_id][1]})")
         elif case_id in REQUIRED:
             ok = got == want
-        elif case_id in UNCLOSED:
-            ok = got in ("invalid", "unsupported", "unknown", want)
-            print(f"unclosed {case_id}: {got} ({UNCLOSED[case_id]})")
         elif case_id in GAPS:
             ok = got == GAPS[case_id][0]
             print(f"gap {case_id}: {got} ({GAPS[case_id][1]})")
@@ -337,7 +342,7 @@ def main():
     failures += stale_fixtures(cases)
     done = sum(n for (d, _), n in tally.items() if d)
     later = sum(n for (d, _), n in tally.items() if not d)
-    print(f"inductive-table: {len(cases)} cases; tasks 5.2.1a-b, 5.2.3, 5.2.5a rows {done}:",
+    print(f"inductive-table: {len(cases)} cases; tasks 5.2.1a-b, 5.2.3, 5.2.5a-b rows {done}:",
           ", ".join(f"{o} {n}" for (d, o), n in sorted(tally.items()) if d),
           f"(pending {len(PENDING)}); later tasks' rows {later}:",
           ", ".join(f"{o} {n}" for (d, o), n in sorted(tally.items()) if not d))

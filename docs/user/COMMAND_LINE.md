@@ -401,14 +401,14 @@ and leaves 0. An export that uses every kind of record Lean writes,
 today: blocks such as `Prod`, `Eq` and `Iff`, recursive types such as
 `Nat` and `List` (plan task 5.2.1b), projections (plan task 5.2.2) and
 natural-number literals (plan task 5.2.3), axioms (5.3.1), opaque
-declarations (4.2.6) and quotients (5.2.4) are accepted; the unsafe
-definition `risky` is skipped, as Lean's replay skips it (below); nested
-types and string literals and what uses them are not yet:
+declarations (4.2.6), quotients (5.2.4) and nested types (5.2.5b) are
+accepted; the unsafe definition `risky` is skipped, as Lean's replay skips it
+(below); string literals and what uses them are not yet:
 
 ```console
 $ bin/leanforth check --no-manifest tests/core/reexport/kinds.ndjson | tail -n 2; echo "exit status ${PIPESTATUS[0]}"
-106 declarations: 89 accepted, 1 skipped, 16 unsupported
-accepted: 89 (experimental, not independently audited); axioms: propext (allowlisted); none NOT PROVED
+106 declarations: 94 accepted, 1 skipped, 11 unsupported
+accepted: 94 (experimental, not independently audited); axioms: propext (allowlisted); none NOT PROVED
 exit status 2
 ```
 

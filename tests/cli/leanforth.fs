@@ -180,15 +180,15 @@ T{ postulate cli-check outcome-ok tally cli-not-proved @ -> 0 1 1 }T
 \ A proof that is a string literal, typed String, which the file does not
 \ declare: rejected, as pinned Lean's kernel rejects it (plan task 5.2.3).
 T{ with-literal cli-check outcome-rejected tally -> 1 1 }T
-\ Every record kind (tests/core/reexport/kinds.lean): 89 accepted, among
+\ Every record kind (tests/core/reexport/kinds.lean): 94 accepted, among
 \ them inductive blocks, Nat and List (plan task 5.2.1b), projections
 \ (plan task 5.2.2), literals (plan task 5.2.3), axioms, opaque
-\ declarations and quotients (plan tasks 5.3.1, 4.2.6, 5.2.4) and what
-\ uses them, with Lean's lazy delta reduction (plan task 4.2.2d); the
-\ unsafe definition risky skipped (plan task 5.2.7); the rest unsupported
-\ (plan phases 4, 5).
+\ declarations and quotients (plan tasks 5.3.1, 4.2.6, 5.2.4), the nested
+\ Tree with Tree.rec_1 (plan task 5.2.5b) and what uses them, with Lean's
+\ lazy delta reduction (plan task 4.2.2d); the unsafe definition risky
+\ skipped (plan task 5.2.7); the rest unsupported (plan phases 4, 5).
 T{ kinds cli-check outcome-ok tally skipped tally outcome-unknown tally
-  outcome-unsupported tally -> 2 89 1 0 16 }T
+  outcome-unsupported tally -> 2 94 1 0 11 }T
 T{ loose cli-check outcome-invalid tally -> 4 1 }T
 T{ s" tests/cli/leanforth.fs" cli-check -> 4 }T
 0 cli-fuel!
@@ -229,7 +229,7 @@ cli-options
 T{ inductive run-facts inductive run-facts -> 0 6 979 0 6 979 }T
 cli-no-manifest
 kinds run-facts constant kinds-fuel drop drop
-T{ kinds run-facts -> 2 89 kinds-fuel }T
+T{ kinds run-facts -> 2 94 kinds-fuel }T
 cli-options
 
 \ --record keeps the small path: an inductive type is refused while

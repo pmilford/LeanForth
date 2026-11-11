@@ -150,6 +150,11 @@ end-structure
 : lf-kind-bare? ( kind -- flag ) dup lf-kind-axiom = swap lf-kind-quotient = or ;
 1 constant lf-recipe-raw
 2 constant lf-recipe-large
+\ A nested block's recipe (plan task 5.2.5b) is its number of auxiliary
+\ types shifted by lf-recipe-aux-shift, without lf-recipe-raw: its
+\ recursors are not built again (unknown), and its first type holds the
+\ names T.rec_1 .. T.rec_n.
+8 constant lf-recipe-aux-shift
 \ The shape of an inductive type as LeanForth's block check computed it
 \ (ADR 0015 section 8, owner answer Q2: its own values, never the file's,
 \ which Lean's replay ignores): Lean's numIndices and is_rec, and a bit
@@ -541,9 +546,10 @@ end-structure
 \ final -- (d class), d that type's slot, class ok, unknown, unsupported
 \ or invalid; (-1 rejected) when nothing holds it. No diagnostic.
 \ P.rec_<digits>, the auxiliary recursors Lean generates for a nested
-\ block (named after its first type), is held the same way except by an
-\ accepted type: LeanForth accepts no nested block yet (plan task 5.2.2
-\ must hold these names for the nested blocks it accepts).
+\ block (named after its first type), is held the same way, by an
+\ accepted (or added) type only when it is its block's first and the
+\ block has an auxiliary type for that number (k from 1, no leading
+\ zero; the recipe, plan task 5.2.5b).
 : lf-env-number-rest ( c-addr u -- u' ) 0 0 2swap >number >r 2drop drop r> ;
 : lf-env-digits? ( c-addr u -- flag )
   dup 0> >r base @ >r decimal lf-env-number-rest r> base ! 0= r> and ;
@@ -581,14 +587,27 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
   lf-env-holders lf-env-holders# 2* cells bounds ?do
     2dup i lf-env-held if 2swap 2drop unloop exit then
   2 cells +loop 2drop -1 outcome-rejected ;
-: lf-env-aux-held ( d class -- d class ) dup ok? if 2drop -1 outcome-rejected then ;
+: lf-env-aux-k ( name -- k )
+  lf-name-text 4 /string 2dup 1 min s" 0" compare 0= if 2drop 0 exit then
+  base @ >r decimal 0 0 2swap >number 2drop drop r> base ! ;
+: lf-env-first-type? ( d -- flag )
+  dup lf-input-decl lf-idecl-header ?dup
+  if lf-hdr-first lf-more-field = else drop false then ;
+: lf-env-aux-count ( d -- n )
+  lf-env lf-env-slot lf-slot-recipe @ lf-recipe-aux-shift rshift ;
+: lf-env-aux-has? ( name d -- flag )
+  dup lf-env-first-type? 0= if 2drop false exit then
+  lf-env-aux-count swap lf-env-aux-k tuck >= swap 0> and ;
+: lf-env-aux-held ( name d class -- d class )
+  dup ok? 0= if rot drop exit then
+  >r tuck lf-env-aux-has? if r> else r> 2drop -1 outcome-rejected then ;
 \ The name of the types that may hold name, 0 when no type can.
 : lf-env-type-name ( name -- prefix|0 )
   dup lf-env-rec-kind if lf-name-prefix@ else drop 0 then ;
 : lf-env-reserving ( name limit -- d class )
-  over lf-env-rec-kind >r swap lf-env-type-name ?dup 0=
-  if r> 2drop -1 outcome-rejected exit then
-  swap lf-env-holding r> lf-rec-aux = if lf-env-aux-held then ;
+  over lf-env-rec-kind >r over lf-env-type-name ?dup 0=
+  if r> drop 2drop -1 outcome-rejected exit then
+  swap lf-env-holding r> lf-rec-aux = if lf-env-aux-held else rot drop then ;
 
 \ Lean's quotient (ADR 0015 Q1; review rvAX). add_quot (quot.cpp 47-104)
 \ checks that none of Quot, Quot.mk, Quot.lift and Quot.ind is declared

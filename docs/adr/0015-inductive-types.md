@@ -691,7 +691,7 @@ table is read off the terms, not traced from Lean's kernel.
 | 5.2.2 | Structures and projections: `infer_proj`, `reduce_proj`, R3, R4, R5 in Lean's order | J1, J2, R3–R5 | every `5.2.2` row; BL-7 and BL-8 rows rejected as by Lean | 5.2.1a; phase 4 | [kernel], [import] | M |
 | 5.2.3 | Literals: `bignum.fs` in `reduce_nat` with Lean's size exceptions, L2–L4, and the primitive check of Q1 | L1–L5 | every `5.2.3` row; bignum differential (exists) | 5.2.1b; Q1 | [kernel] | M |
 | 5.2.4 | Quotients: Q1 initialisation and comparison, Q2 reduction | Q1, Q2 | every `5.2.4` row | 5.2.1c, 5.3.1 | [kernel], [axiom] | S |
-| 5.2.5 | Mutual and nested blocks: shared motives, auxiliary types, restoration, `T.rec_k`. *In two parts: 5.2.5a mutual blocks, implemented 2026-11-04, gate open; 5.2.5b nested blocks, planned (below)*; the table's rows carry `5.2.5a` and `5.2.5b` | N1–N3, T3, T4 | every `5.2.5` row; all of `Init`'s blocks, then Std's and Mathlib's 7,013 | 5.2.1c | [kernel] | L (two M) |
+| 5.2.5 | Mutual and nested blocks: shared motives, auxiliary types, restoration, `T.rec_k`. *In two parts: 5.2.5a mutual blocks, implemented 2026-11-04, gate open; 5.2.5b nested blocks, implemented 2026-11-10 (below), gate open*; the table's rows carry `5.2.5a` and `5.2.5b` | N1–N3, T3, T4 | every `5.2.5` row; all of `Init`'s blocks, then Std's and Mathlib's 7,013 | 5.2.1c | [kernel] | L (two M) |
 | 5.3.1 | Allowlist v1 from `axioms.ndjson` | Q3 | altered and unlisted axioms not accepted | Q5 | [axiom], [owner] | S |
 | 5.4.1 | Corpus C-Nat: `nat-add-zero.ndjson` | all above | 44 constants accepted; mutants rejected | 5.2.1a–5.2.3, 4.2.2 | — | M |
 
@@ -1684,6 +1684,102 @@ the auxiliary block's construction and the restoring pass are new
 term-rewriting passes, and the steps must read types and constructors
 that are not input declarations. Until it is done a nested block, and
 everything that uses it, is *unsupported* (diagnostic 63, reason 3).
+
+## Implementation (plan task 5.2.5b)
+
+Written 2026-11-10 by agent NI; experimental [kernel] code, **not through
+its gate**. A nested block is checked as Lean's `add_inductive` checks it
+(`inductive.cpp` 1235–1349), in `src/kernel/inductive-nested.fs` with
+small hooks in `inductive-block.fs`, `check-block.fs`,
+`generated-recursor.fs` and `environment.fs`; diagnostic 63 is no longer
+given.
+
+**What.** The audit only notes that a block *may* be nested (its old
+test, which finds at least Lean's occurrences). At step 4, after T1, the
+translation (`elim_nested_inductive_fn`, 985–1180) rewrites every
+constructor's type, and each auxiliary type's as it is made (Lean's
+queue), top-down after its parameters: an application `I Ds is` whose
+head names an inductive type of the environment (`lf-env-find`: K5 when
+Lean may hold it), whose first `numParams(I)` arguments mention a type
+of the block (auxiliary ones included) and contain no local variable
+(else N2, `nestedLocalVariable`), becomes `Iaux As is`, its indices `is`
+kept as they are. A key `I Ds` new to the block (Lean's `==`,
+`mixed-compare.fs`, on `Ds` lowered to the parameters' depth) makes one
+auxiliary type per type `J` of `I`'s block, named `_nested.J_k`
+(`mk_unique_name`), with `J`'s type and constructor types at `I`'s
+universe levels (`lf-mixed-level-substitute`; a level count that differs
+is N3), their first `numParams(I)` binders instantiated with `Ds` (a
+binder that is no Pi is N3, `throw_ill_formed`) under the constructor's
+own parameter binders; constructor names have their prefix `J` replaced
+(`replace_prefix`). The declarations of the auxiliary types and of every
+constructor (the input's with their translated types) are records of the
+input's layout in two slabs, which the steps read in place of the input
+(`lf-ind-type-at`, `lf-ind-ctor`); the block's counts include them from
+then on, its input counts (`lf-ind-in-types@`, `lf-ind-in-ctors@`) stay
+for the members. Steps 5 to 12 then run unchanged on the auxiliary block,
+a mutual one (task 5.2.5a): N2 on `_nested.J_k`, its `rec` and its
+constructors; the auxiliary types visible to inference from step 9 as
+the block's own; Lean's `is_rec` and `is_reflexive` recomputed on it.
+At step 12 the auxiliary recursors get the names `T.rec_1`, `T.rec_2`, ...
+(`mk_aux_rec_name_map`, 1191–1217) before they are built, which gives
+the terms Lean's renaming gives; after the build, `restore_nested`
+(927–975) rewrites every recursor type and rule: an auxiliary type applied
+to at least the parameters becomes its key under the term's own outer
+binders, applied to the rest; an auxiliary constructor becomes `J.c` at
+`I`'s levels applied to `Ds` and the rest (fewer arguments than
+parameters: N3); a replaced application's arguments are kept, as Lean's
+`replace` keeps them. Each `T.rec_i` must be a name Lean's `new_env`
+had not declared (1283: no type, constructor or `T.rec` of the block, and
+N2), and each key is typed under the first type's raw parameter domains
+(1315–1324), the block's constructors and recursors visible as in
+`new_env`. B3 compares each exported recursor by name — `T.rec` and each
+`T.rec_i`, whose rules name the constructors `J.c`
+(`restore_constructor_name`) — and B4 the type's `numNested` with the
+auxiliary types counted. Every pass runs on frame steps with the block's
+fuel; every table grows in the heap.
+
+**Decisions**, none of which adds or widens a rule beyond Lean's:
+
+22. *The aux recursors are named `T.rec_i` before they are built*, not
+    renamed after: the same terms, one rewriting less.
+23. *A constructor's restored type is not compared*: the translation keeps
+    the parameter binders and replaces each occurrence by one that restores
+    to it, so Lean's restored constructor type is the input's (B3 compares
+    the constructor's numbers as before).
+24. *Lean's re-check of the restored terms (1333–1347) is not run*: it is
+    defensive, as G4 is (decision 7); B3 compares them with the file's.
+25. *`mk_unique_name` counts any earlier declaration of a name as taken*
+    (Lean's environment holds only accepted ones); the names never leave
+    the check, and an undecided earlier `_nested.*` declaration is the only
+    case where the numbering could differ.
+26. *A nested block leaves no recipe*: a use of its `T.rec` or `T.rec_i`
+    that no slot holds is unknown (diagnostic 77) — a temporary gap, closed
+    by a follow-up of task 5.2.5b (the rebuild with the translation). Its
+    first type holds `T.rec_1` .. `T.rec_n` (`lf-env-reserving`: the recipe
+    keeps n), so a later declaration of such a name is rejected.
+
+**Evidence** (2026-11-10, Gforth 1.0.0, Lean 4.35.0): the inductive table
+has 28 new Lean-checked rows, every one with Lean's verdict (`nested.*`:
+`Array`, `List (List _)`, `Option`, `Prod` with two parameters, a block
+parameter, a universe, under a binder, inside a mutual block, `Thunk`
+(reflexive only as the auxiliary block), a parameter the auxiliary block
+drops, typed and ill-typed (`funExpected`, only the typing of the
+occurrences sees it), `_nested.List_1` and `_nested.List_1.rec` declared
+before, a constructor named `rec_1`, `Array (Bad → Nat)`;
+`iota.nested-syntax-rec` and its wrong twin: iota with `Lean.Syntax.rec`
+through `rec_1` and `rec_2`, as `Init` exports them;
+`replay-nested.*`: Lean's replay of `Tree` with `Tree.rec_1` mutated);
+`make test-check-block` checks them with their diagnostics and steps,
+and 14 new planted faults (`nest-*`) are caught;
+the arena's `bad/bugs/nested-rec-rule-nfields`, `nested-unused-param` and
+`rec-rule-proof-irrel-nested` are rejected and `good/init-prelude`
+accepted (2,106 declarations, `Lean.Syntax`, its `rec`, `rec_1`,
+`rec_2` among them). `Init`'s first 1,000,000 export lines (9,202
+declarations, `--fast`, fuel 2,000,000 each): 6,838 accepted, 2,347
+unknown, none unsupported, 17 exhausted (before: 6,488, 1,686, 1,011,
+17); 350 declarations moved from unsupported to accepted, 661 to unknown
+(each also depends on one of 23 whnf gaps, diagnostic 30), no other
+verdict changed.
 
 ## Reproduction
 
