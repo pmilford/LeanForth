@@ -65,8 +65,11 @@
 \   lf-sched-launched, lf-sched-edges ( -- n ): counts for reports and
 \   tests (unready and forced are 0 unless the plan is wrong);
 \ - lf-sched-free ( -- ): the worker contexts and every block freed.
-\ A planted fault in a test can make lf-sched-ready-test skip the
-\ readiness test (lf-sched-trust!).
+\ Planted faults, for tests only: a test that defines lf-sched-fault-hooks
+\ before this file loads gets lf-sched-faults, a variable of bits
+\ (lf-fault-hasty: every declaration is ready at once; lf-fault-trusting:
+\ no readiness test at hand-out; lf-fault-careless: a check that began too
+\ early is handed over), each of which a guard above must catch.
 \
 \ [kernel] [runtime] code: experimental, not through the review gate.
 \ Memory: per declaration about 8 cells; per readiness slot 2 cells; per
@@ -111,7 +114,6 @@ begin-structure /lf-sched
   field: lf-sch-frontier    \ every slot below it is final
   field: lf-sch-running#    \ jobs running
   field: lf-sch-stamp       \ the plan's stamp: one per declaration planned
-  field: lf-sch-trusting    \ a planted fault: readiness not tested (tests)
   field: lf-sch-launched#   \ checks handed out as jobs
   field: lf-sch-reruns#     \ checks run again: they began too early
   field: lf-sch-unready#    \ hand-outs lf-env-ready? refused
@@ -217,8 +219,14 @@ here lf-sch-cell-slabs - 1 cells / constant lf-sch-cell-slabs#
 : lf-sched-forced ( -- n ) lf-sched lf-sch-forced# @ ;
 : lf-sched-renewed ( -- n ) lf-sched lf-sch-renewed# @ ;
 : lf-sched-edges ( -- n ) lf-sched lf-sch-deps slab-count ;
-\ A planted fault (tests only): true skips the readiness test at hand-out.
-: lf-sched-trust! ( flag -- ) lf-sched lf-sch-trusting ! ;
+\ Planted faults (see the header), compiled only into tests.
+1 constant lf-fault-hasty  2 constant lf-fault-trusting  4 constant lf-fault-careless
+[defined] lf-sched-fault-hooks [if]
+variable lf-sched-faults  0 lf-sched-faults !
+: lf-sch-fault? ( bit -- flag ) lf-sched-faults @ and 0<> ;
+[else]
+: lf-sch-fault? ( bit -- false ) drop false ;
+[then]
 
 \ ---- The plan. The checker's own lookups by name: literals' types and
 \ reductions (literals.fs, reduce-nat.fs, string-literals.fs), the
@@ -480,7 +488,7 @@ here lf-sch-cell-slabs - 1 cells / constant lf-sch-cell-slabs#
     i lf-sch-name@ over lf-env-ready? rot and swap
   loop drop ;
 : lf-sch-test? ( d -- flag )
-  dup lf-sch-front@ > lf-sched lf-sch-trusting @ 0= and
+  dup lf-sch-front@ > lf-fault-trusting lf-sch-fault? 0= and
   if lf-sch-names-ready? else drop true then ;
 : lf-sch-unready ( d -- ) lf-sched lf-sch-unready# lf-sch-count+ lf-sch-later! ;
 \ Begin d's check in worker k's context and submit it; a refused
@@ -522,8 +530,8 @@ here lf-sch-cell-slabs - 1 cells / constant lf-sch-cell-slabs#
   lf-sch-done lf-sch-checked or r@ lf-sch-state! r> lf-sch-published ;
 : lf-sch-hand ( ior k -- renew? )
   lf-sch-at @ tuck lf-env-hand-over-job rot lf-sch-handed ;
-: lf-sch-settled ( ior k -- renew? )
-  lf-env-early? if lf-sch-rerun else lf-sch-hand then ;
+: lf-sch-early? ( -- flag ) lf-env-early? lf-fault-careless lf-sch-fault? 0= and ;
+: lf-sch-settled ( ior k -- renew? ) lf-sch-early? if lf-sch-rerun else lf-sch-hand then ;
 : lf-sch-settle ( k -- )
   dup lf-sch-job @ job-wait 0 2 pick lf-sch-job ! -1 lf-sched lf-sch-running# +!
   over lf-sch-in over lf-sch-settled lf-sch-home if lf-sch-renew else drop then ;
@@ -559,9 +567,12 @@ here lf-sch-cell-slabs - 1 cells / constant lf-sch-cell-slabs#
 : lf-sch-force ( -- more? )
   lf-sch-stuck dup 0< if drop false exit then
   lf-sched lf-sch-forced# lf-sch-count+ lf-sch-ready! true ;
+: lf-sch-free? ( d -- flag ) lf-sch-wait @ 0= lf-fault-hasty lf-sch-fault? or ;
+: lf-sch-first ( d -- )
+  dup lf-sch-state@ lf-sch-waiting = over lf-sch-free? and if lf-sch-ready! else drop then ;
 : lf-sch-start ( -- )
   lf-context @ lf-sched lf-sch-home-ctx ! lf-sch-workers pool-workers!
-  lf-sch-n 0 ?do i lf-sch-state@ lf-sch-waiting = if i lf-sch-wait @ 0= if i lf-sch-ready! then then loop ;
+  lf-sch-n 0 ?do i lf-sch-first loop ;
 \ Run every declaration (see the header); the driving context is current
 \ again afterwards and the pool stopped.
 : lf-sched-run ( check keep maker -- )

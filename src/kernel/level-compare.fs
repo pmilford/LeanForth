@@ -50,25 +50,35 @@ end-structure
 \ A memo per level (compact-store plan step S4; ADR 0014 Amendment 4's
 \ note): while the audit memo is on (core/constant-term-boundary.fs's
 \ lf-audit-on?, in a check), a root found in scope is kept in a column
-\ of the level store with its identity and the parameter context's
-\ generation, and is not walked again while both hold: its graph cannot
-\ change (records are never written, children come earlier, a rollback
-\ gives back a suffix, an index made again has a new identity) and every
-\ change of the parameter context advances the generation. A kept root
-\ costs no fuel; a check that fails keeps nothing.
+\ of the level store with its identity, the parameter context's
+\ generation and the audit memo's closed epoch, and is not walked again
+\ while all three hold: its graph cannot change (records are never
+\ written, children come earlier, a rollback gives back a suffix, an
+\ index made again has a new identity) and every change of the parameter
+\ context advances the generation. The epoch is new with every check
+\ (lf-audit-renew), so the memo lasts one check, as the audit memo does:
+\ a check's fuel never depends on which checks its context ran before
+\ (plan task 7.3.1: a parallel check's worker runs other declarations
+\ than the serial run's context; before, an input level checked in an
+\ earlier check cost no fuel in later ones). A kept root costs no fuel;
+\ a check that fails keeps nothing.
 /slab context-record: lf-lcmp-scoped
-2 cells ' lf-lcmp-scoped lf-level-columns column-add
+3 cells ' lf-lcmp-scoped lf-level-columns column-add
 : lf-lcmp-unit ( level -- addr ) lf-lcmp-scoped column-at ;
+: lf-lcmp-epoch ( -- epoch ) lf-audit-state lf-aud-closed @ ;
 : lf-lcmp-stamp ( level -- identity generation )
   lf-level-identity drop lf-lscope-generation @ ;
+: lf-lcmp-held? ( level unit -- flag )
+  dup 2 cells + @ lf-lcmp-epoch = if 2@ rot lf-lcmp-stamp d= else 2drop false then ;
 \ A context whose count is not valid (corrupted) is never trusted from the
 \ memo: the walk then refuses it (review rvS4 L1).
 : lf-lcmp-scoped? ( level -- flag )
   lf-audit-on? 0= if drop false exit then
   dup lf-level-valid? lf-lscope-count-valid? and 0= if drop false exit then
-  dup lf-lcmp-unit 2@ rot lf-lcmp-stamp d= ;
+  dup lf-lcmp-unit lf-lcmp-held? ;
 : lf-lcmp-keep-scope ( level -- )
-  lf-audit-on? if dup lf-lcmp-stamp rot lf-lcmp-unit 2! else drop then ;
+  lf-audit-on? 0= if drop exit then
+  dup lf-lcmp-stamp rot lf-lcmp-unit dup >r 2! lf-lcmp-epoch r> 2 cells + ! ;
 : lf-lcmp-scope ( root -- status )
   dup lf-lcmp-scoped? if drop outcome-ok exit then
   dup lf-lcmp-fuel @ lf-lscope-check lf-lscope-fuel @ lf-lcmp-fuel !

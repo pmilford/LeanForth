@@ -29,6 +29,8 @@ include ../support/checks.fs
 require ../support/alloc-fail.fs
 \ The publisher's test-only fault hook, lf-env-before-final, to stop a run.
 : lf-env-fault-hooks ( -- ) ;
+\ The parallel scheduler's planted faults (kernel/env-schedule.fs).
+: lf-sched-fault-hooks ( -- ) ;
 require ../../src/cli/leanforth.fs
 decimal
 
@@ -412,6 +414,54 @@ print-allocations constant printed#
 : print-bad? ( k -- flag ) print-fault 0<> swap 0<> or swap 5 <> or ;
 : print-faults ( -- n ) 0 printed# 1+ 1 ?do i print-bad? if 1+ then loop ;
 T{ printed# staged# > print-faults -> true 0 }T
+
+\ Parallel checking (check --jobs; kernel/env-schedule.fs, plan task
+\ 7.3.1): with 3 workers every fact of the run is the serial run's --
+\ each declaration's published outcome and kept step (outcome, diagnostic,
+\ step, fuel) up to where the run stopped, the steps begun, the run's
+\ outcome and whether it stopped -- on composition, the kinds export and
+\ nested blocks (107 declarations); also when a check throws (the run
+\ stops at that declaration, as the serial run does, and the worker is
+\ replaced). Planted faults are caught: with every declaration ready at
+\ once, the readiness test refuses those whose slots are not final
+\ (G-P5); with that test skipped too, the checks that began too early
+\ find a slot not final and are run again; handed over anyway, the facts
+\ differ from the serial run's.
+variable facts
+: mix ( x -- ) facts @ swap fnv-step facts ! ;
+: fact-step ( d -- )
+  dup lf-env-outcome mix ck-kept dup kept-outcome @ mix dup kept-code @ mix
+  dup kept-first @ mix dup kept-second @ mix dup kept-site @ mix dup kept-step @ mix
+  cks-fuel @ mix ;
+: sched-facts ( -- h )
+  2166136261 facts ! ck-verdicts? if ck-steps-begun 0 ?do i fact-step loop then
+  ck-steps-begun mix ck-outcome mix ck-faulted? mix lf-input-count mix facts @ ;
+variable throw-at  -1 throw-at !
+: throwing-check ( -- ) lf-env-limit throw-at @ = if -77 throw then lf-check-declaration ;
+: run-with ( c-addr u jobs -- )
+  >r 20000000 ck-start r> ck-jobs! ['] throwing-check ck-check-word!
+  false ck-load ok? if ck-check then ;
+: sched-counts ( -- unready reruns renewed ) lf-sched-unready lf-sched-reruns lf-sched-renewed ;
+: facts-of ( c-addr u jobs -- h unready reruns renewed )
+  fresh >r run-with sched-facts sched-counts ck-release r> back ;
+: same? ( c-addr u -- flag )
+  2dup 1 facts-of 2drop drop >r 3 facts-of 2drop drop r> = ;
+: nested ( -- c-addr u ) s" tests/cli/nested.ndjson" ;
+T{ composition same? kinds same? nested same? -> true true true }T
+nested 1 facts-of 2drop drop constant serial-nested
+40 throw-at !
+nested 1 facts-of 2drop drop constant serial-thrown
+T{ nested 3 facts-of nip nip swap serial-thrown = -> 1 true }T
+T{ serial-thrown serial-nested <> -> true }T
+-1 throw-at !
+lf-fault-hasty lf-sched-faults !
+T{ nested 3 facts-of 2drop 0> swap serial-nested = -> true true }T
+lf-fault-hasty lf-fault-trusting or lf-sched-faults !
+T{ nested 3 facts-of drop nip 0> swap serial-nested = -> true true }T
+lf-fault-hasty lf-fault-trusting or lf-fault-careless or lf-sched-faults !
+T{ nested 3 facts-of drop 2drop serial-nested = -> false }T
+0 lf-sched-faults !
+T{ depth lf-context @ context-main = -> 0 true }T
 
 cases-done
 bye

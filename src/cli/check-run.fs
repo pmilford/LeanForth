@@ -157,6 +157,7 @@ begin-structure /ck
   field: ck-any-lean             \ true: an export of any Lean version (ck-any-version!)
   field: ck-jobs-asked           \ worker contexts of a parallel check (ck-jobs!); 0 or 1: serial
   field: ck-print                \ the fed input's fingerprint, which every worker's must be
+  field: ck-checker              \ the check word ( -- ) (ck-check-word!)
   ck-switches# cells +field ck-switched    \ the checker's switches, copied into each worker
   ck-capacities# cells +field ck-saved   \ capacities before the feed
   field: ck-restored-outcome     \ giving them back: ok, or the first refusal
@@ -427,9 +428,13 @@ create ck-line ck-line-room 2 + allot
 \ publisher or a THROW in the check (the context is then spent); a stop
 \ is kept (ck-faulted?).
 : ck-stop! ( stop? -- stop? ) dup if true ck-state ck-faulted ! then ;
+\ The check word ( -- ): lf-check-declaration, which ck-start sets; a
+\ test may set another after ck-start (ck-check-word!), such as one that
+\ throws for a chosen declaration.
+: ck-check-word ( -- xt ) ck-state ck-checker @ ;
+: ck-check-word! ( xt -- ) ck-state ck-checker ! ;
 : ck-step ( d -- stop? )
-  dup >r ['] lf-check-declaration swap lf-env-step swap r> ck-keep lf-env-spent? or
-  ck-stop! ;
+  dup >r ck-check-word swap lf-env-step swap r> ck-keep lf-env-spent? or ck-stop! ;
 \ A member after its block's first, published with it: the first's facts,
 \ no fuel of its own.
 : ck-first-member ( d -- first )
@@ -509,7 +514,7 @@ create ck-line ck-line-room 2 + allot
   ck-jobs-stepped dup ck-state ck-stepped ! dup lf-input-count < ck-stop! drop
   dup 0 ?do i ck-jobs-trail loop ck-unkeep ;
 : ck-jobs-run ( -- )
-  ['] lf-check-declaration ['] ck-keep ['] ck-worker-new ['] lf-sched-run context-catch
+  ck-check-word ['] ck-keep ['] ck-worker-new ['] lf-sched-run context-catch
   throw ck-jobs-facts ;
 : ck-steps-any ( n -- )
   ck-parallel? if lf-sched-plan ok? if drop ck-jobs-run exit then then ck-steps-run ;
@@ -535,6 +540,7 @@ create ck-line ck-line-room 2 + allot
   ck-worker-feed dup feed-free /feed erase ck-stage stage-free ck-state ck-steps slab-free ;
 : ck-start ( fuel -- )
   ck-release ck-state /ck erase ck-state ck-budget ! -1 ck-state ck-failed !
-  outcome-invalid dup ck-outcome! ck-state ck-loaded ! ck-clock-start ;
+  outcome-invalid dup ck-outcome! ck-state ck-loaded ! ['] lf-check-declaration ck-check-word!
+  ck-clock-start ;
 
 base !   \ the BASE this file was loaded with
