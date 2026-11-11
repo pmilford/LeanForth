@@ -126,7 +126,7 @@ require ./name-text.fs
 require ./check-run.fs
 require ./check-json.fs
 
-2000000 constant cli-default-fuel   \ fuel of each declaration's check
+20000000 constant cli-default-fuel   \ fuel of each declaration's check
 \ The most fuel --fuel takes: 2^53 - 1, the largest integer every JSON
 \ reader holds exactly (I-JSON), so that reports and records hold it; on
 \ a host whose cells are smaller, the largest cell.
