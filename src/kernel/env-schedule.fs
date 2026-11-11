@@ -63,11 +63,18 @@
 \ - lf-sched-stop ( -- d ): the declaration at which the serial run would
 \   have stopped, or the input's count; lf-sched-broken? ( -- flag ): the
 \   run could not go on (a job refused, no worker left), so its verdicts
-\   are incomplete; lf-sched-reached ( -- n ): every slot below it final;
+\   are incomplete, and lf-sched-cause ( -- n ) why (0 not said, 1 no worker
+\   left, 2 a job refused, 3 waiting failed); lf-sched-reached ( -- n ): every slot below it final;
 \   lf-sched-checked? ( d -- flag ): d was handed over (checked itself);
 \ - lf-sched-reruns, lf-sched-unready, lf-sched-forced, lf-sched-renewed,
 \   lf-sched-launched, lf-sched-edges ( -- n ): counts for reports and
 \   tests (unready and forced are 0 unless the plan is wrong);
+\ - lf-sched-host-ok ( -- flag ): whether this host may run workers at once:
+\   threads only on x86-64, whose stores become visible in program order
+\   (ADR 0009, Amendment 2; no memory barriers are used); cooperative and
+\   serial hosts always may;
+\ - lf-sched-pool-start ( -- ior ): size and start the pool before the run,
+\   so that a refusal (no threads) leaves the run to the serial one;
 \ - lf-sched-workers ( -- n ): the workers added;
 \ - lf-sched-free ( -- ): the worker contexts and every block freed.
 \ Planted faults, for tests only: a test that defines lf-sched-fault-hooks
@@ -118,6 +125,7 @@ begin-structure /lf-sched
   field: lf-sch-home-ctx    \ the driving context
   field: lf-sch-stop-at     \ where the serial run would stop, or the count
   field: lf-sch-broken      \ true once the run cannot go on
+  field: lf-sch-cause       \ why: 0 unknown, 1 no worker left, 2 job refused, 3 wait failed
   field: lf-sch-frontier    \ every slot below it is final
   field: lf-sch-running#    \ jobs running
   field: lf-sch-stamp       \ the plan's stamp: one per declaration planned
@@ -220,6 +228,8 @@ here lf-sch-cell-slabs - 1 cells / constant lf-sch-cell-slabs#
 : lf-sch-count+ ( field-addr -- ) 1 swap +! ;
 : lf-sched-stop ( -- d ) lf-sched lf-sch-stop-at @ ;
 : lf-sched-broken? ( -- flag ) lf-sched lf-sch-broken @ ;
+: lf-sched-cause ( -- n ) lf-sched lf-sch-cause @ ;
+: lf-sch-break ( cause -- ) lf-sched lf-sch-cause ! true lf-sched lf-sch-broken ! ;
 : lf-sched-reached ( -- n ) lf-sched lf-sch-frontier @ ;
 : lf-sched-checked? ( d -- flag ) lf-sch-checked swap lf-sch-flag? ;
 : lf-sched-launched ( -- n ) lf-sched lf-sch-launched# @ ;
@@ -533,7 +543,7 @@ variable lf-sched-faults  0 lf-sched-faults !
   lf-sched lf-sch-launched# lf-sch-count+ ;
 : lf-sch-submit ( d k -- )
   dup lf-sch-ctx @ lf-sched lf-sch-check @ job-submit
-  ?dup if 2drop 2drop true lf-sched lf-sch-broken ! exit then
+  ?dup if 2drop 2drop 2 lf-sch-break exit then
   -rot over lf-sch-running swap lf-sch-state! lf-sch-submitted ;
 : lf-sch-launch ( d k -- )
   over lf-sch-test? 0= if drop lf-sch-unready exit then
@@ -572,7 +582,7 @@ variable lf-sched-faults  0 lf-sched-faults !
 : lf-sch-wait-one ( -- )
   lf-sched lf-sch-jobs slab-base lf-sch-workers job-wait-any
   dup 0< 0= if lf-sch-settle exit then
-  drop true lf-sched lf-sch-broken ! 0 lf-sched lf-sch-running# ! ;
+  drop 3 lf-sch-break 0 lf-sched lf-sch-running# ! ;
 
 \ ---- The run. Fill every idle worker from the ready heap (dropping
 \ declarations beyond a stop), wait for one job, repeat while jobs run.
@@ -603,16 +613,41 @@ variable lf-sched-faults  0 lf-sched-faults !
 \ After the jobs ran out: more to do when declarations became due (the
 \ frontier passed them), or when one is stuck and so is handed out.
 : lf-sch-forced ( d -- ) lf-sched lf-sch-forced# lf-sch-count+ lf-sch-ready! ;
+\ Declarations at or past the stop, or no longer queued, are dropped from
+\ the ready heap first, so that only a takable one counts as more work.
+: lf-sch-prune ( -- )
+  begin lf-sched lf-sch-ready lf-sch-heap-any? dup if drop
+    lf-sched lf-sch-ready lf-sch-heap-min lf-sch-takable? 0= then while
+    lf-sched lf-sch-ready lf-sch-heap-pop drop repeat ;
+\ Whether some worker still has a context (one lost to a THROW and not
+\ replaced has none).
+: lf-sch-worker? ( -- flag )
+  false lf-sch-workers 0 ?do i lf-sch-ctx @ 0<> or loop ;
+\ More work with no worker to do it ends the run, broken, as the serial
+\ run's stop at the THROW leaves the rest unchecked.
+: lf-sch-more ( more? -- more? )
+  dup if lf-sch-worker? 0= if drop 1 lf-sch-break false then then ;
 : lf-sch-force ( -- more? )
-  lf-sched-broken? if false exit then lf-sch-release
-  lf-sched lf-sch-ready lf-sch-heap-any? if true exit then
-  lf-sch-stuck dup 0< if drop false exit then lf-sch-forced true ;
+  lf-sched-broken? if false exit then lf-sch-release lf-sch-prune
+  lf-sched lf-sch-ready lf-sch-heap-any? if true lf-sch-more exit then
+  lf-sch-stuck dup 0< if drop false exit then lf-sch-forced true lf-sch-more ;
 : lf-sch-free? ( d -- flag ) lf-sch-wait @ 0= lf-fault-hasty lf-sch-fault? or ;
 : lf-sch-first ( d -- )
   dup lf-sch-state@ lf-sch-waiting = over lf-sch-free? and
   if lf-sch-ready! else drop then ;
+: lf-sch-pool-size ( -- )
+  lf-sch-workers 1 max task-cores min task-workers <> if lf-sch-workers pool-workers! then ;
+\ Start the pool for the run before it begins: 0, or the pool's refusal.
+: lf-sched-pool-start ( -- ior ) lf-sch-pool-size pool-start ;
+\ Threads only where stores become visible in program order (x86-64,
+\ from /proc/sys/kernel/arch; unreadable: not known, so serial).
+: lf-sch-arch-read ( -- c-addr u )
+  s" /proc/sys/kernel/arch" r/o open-file if drop pad 0 exit then
+  >r pad dup 40 r@ read-line 0= and and r> close-file drop ;
+lf-sch-arch-read s" x86_64" compare 0= constant lf-sch-x86?
+task-host task-threads <> lf-sch-x86? or constant lf-sched-host-ok
 : lf-sch-start ( -- )
-  lf-context @ lf-sched lf-sch-home-ctx ! lf-sch-workers pool-workers!
+  lf-context @ lf-sched lf-sch-home-ctx ! lf-sch-pool-size
   lf-sch-n 0 ?do i lf-sch-first loop ;
 \ Run every declaration (see the header); the driving context is current
 \ again afterwards and the pool stopped.

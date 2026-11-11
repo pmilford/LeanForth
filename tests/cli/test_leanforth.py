@@ -1563,7 +1563,8 @@ class Jobs(unittest.TestCase):
     number of at least 1 and does not go with --record (status 4)."""
 
     MORE = [["tests/cli/sharing.ndjson"], ["tests/cli/nested.ndjson"],
-            ["tests/cli/irrelevance.ndjson"], ["--fuel", "3000", "tests/cli/nested.ndjson"]]
+            ["tests/cli/irrelevance.ndjson"], ["--fuel", "3000", "tests/cli/nested.ndjson"],
+            ["tests/cli/jobs/wide60.ndjson"], ["tests/cli/jobs/dupl80.ndjson"]]
 
     def text(self, *args):
         return run("check", *args)[:2]
@@ -1585,6 +1586,22 @@ class Jobs(unittest.TestCase):
                               r"out [1-9]\d*, run again 0, not ready 0, forced 0, workers "
                               r"replaced 0\n")
         self.assertNotIn("workers:", run("check", "--resources", CHAIN)[1])
+
+    def test_large_counts(self):
+        """The count is cut to the cores and the pool's queue of 1024: a larger
+        one used to refuse a job (exit 5, declarations "not checked") or make
+        a copy of the input per worker. Same output as --jobs 1, and no more
+        workers than cores in the report."""
+        args = ["--no-manifest", "tests/cli/jobs/wide60.ndjson"]
+        serial = self.text(*args)
+        self.assertEqual(serial[0], 0)
+        for value in ["1100", "9223372036854775807"]:
+            self.assertEqual(self.text("--jobs", value, *args), serial, value)
+            status, out, _ = run("check", "--resources", "--jobs", value, *args)
+            self.assertEqual(status, 0, value)
+            workers = int(re.search(r"\n  workers: (\d+) \(--jobs\)", out).group(1))
+            self.assertTrue(1 < workers <= max(os.cpu_count(), 2) and workers <= 1024, workers)
+            self.assertIn("60 declarations: 60 accepted", out)
 
     def test_4_mistakes(self):
         for value in ["0", "x", "-1", ""]:

@@ -22,7 +22,8 @@
 \ - ck-any-version! ( flag -- ), after ck-start: true lets the stage read
 \   an export of any exporter and Lean version, only its format pinned
 \   (stage-any-version!; --any-lean-version), false (ck-start's) not;
-\ - ck-jobs! ( n -- ), after ck-start: with n above 1 (--jobs), ck-load
+\ - ck-jobs! ( n -- ), after ck-start: n is cut to the cores and the pool's
+\   queue size (ck-jobs-most); with n above 1 (--jobs), ck-load
 \   also makes n worker contexts, each fed the same stage, and ck-check
 \   checks in parallel (kernel/env-schedule.fs), keeping exactly the facts
 \   the serial run keeps (see "The parallel run" below); 0 or 1, ck-start's,
@@ -162,6 +163,7 @@ begin-structure /ck
   field: ck-began-feed           \ true once the feed began: names attached
   field: ck-any-lean             \ true: an export of any Lean version (ck-any-version!)
   field: ck-jobs-asked           \ workers of a parallel check (ck-jobs!); 0, 1: serial
+  field: ck-serial-why           \ why workers were asked for but not used (ck-why-*), or 0
   field: ck-print                \ the fed input's fingerprint: every worker's must be it
   field: ck-checker              \ the check word ( -- ) (ck-check-word!)
   ck-switches# cells +field ck-switched    \ the checker's switches, for each worker
@@ -210,7 +212,14 @@ create ck-worker-feed /feed allot  ck-worker-feed /feed erase
 : ck-staged-bytes ( -- u ) ck-state ck-stage-bytes @ ;
 \ Workers of a parallel check (--jobs): set after ck-start, before
 \ ck-load; 0 or 1 checks one declaration at a time in this context.
-: ck-jobs! ( n -- ) ck-state ck-jobs-asked ! ;
+\ At most one worker per core and per queued job: more could not run at once,
+\ and each worker holds its own copy of the input.
+: ck-jobs-most ( -- n ) task-cores task-queue-jobs min ;
+: ck-jobs! ( n -- ) ck-jobs-most min ck-state ck-jobs-asked ! ;
+\ Why the run is serial though workers were asked for: 1, or the pool's
+\ (negative) refusal.
+1 constant ck-why-host         \ threads here need an x86-64 host (ADR 0009)
+: ck-why ( -- n ) ck-state ck-serial-why @ ;
 : ck-jobs ( -- n ) ck-state ck-jobs-asked @ ;
 : ck-parallel? ( -- flag ) ck-jobs 1 > ;
 : ck-staged-names ( -- n ) ck-state ck-names# @ ;
@@ -397,6 +406,7 @@ create ck-line ck-line-room 2 + allot
   outcome-ok ck-jobs 0 ?do dup ok? 0= if unloop exit then drop ck-worker-add loop ;
 : ck-workers ( -- )
   ck-parallel? 0= if exit then
+  lf-sched-host-ok 0= if ck-why-host ck-state ck-serial-why ! exit then
   lf-sched-init ok? if ck-workers-made ok? if exit then then lf-sched-free ;
 \ A failed phase is kept as the one that failed.
 : ck-fail ( outcome phase -- outcome ) over ok? if drop else ck-state ck-failed ! then ;
@@ -532,8 +542,15 @@ create ck-line ck-line-room 2 + allot
   throw ck-jobs-facts ;
 \ Whether the run checks in parallel: workers asked for and made.
 : ck-jobs-run? ( -- flag ) ck-parallel? lf-sched-workers 0> and ;
+\ The pool is started before the run, so that a refusal (no threads, as
+\ near the process limit) leaves the whole run to the serial one, with the
+\ workers freed and the cause kept for the report.
+: ck-pool-started? ( -- flag )
+  lf-sched-pool-start ?dup if ck-state ck-serial-why ! lf-sched-free false
+  else true then ;
 : ck-steps-any ( n -- )
-  ck-jobs-run? if lf-sched-plan ok? if drop ck-jobs-run exit then then ck-steps-run ;
+  ck-jobs-run? if lf-sched-plan ok? if ck-pool-started? if drop ck-jobs-run exit then then then
+  ck-steps-run ;
 
 \ Check every declaration (see the header): the facts, the environment,
 \ the run.
