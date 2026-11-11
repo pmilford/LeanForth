@@ -145,7 +145,7 @@ begin-structure /cli-run
   field: opt-lf                 \ true: print writes the export as LeanForth text (--lf)
   field: opt-strict             \ true: NOT PROVED gives exit 6 (--strict-axioms)
   field: opt-any-lean           \ true: an export of any Lean version (--any-lean-version)
-  field: opt-jobs               \ workers that check at once (--jobs); 0 or 1: one at a time
+  field: opt-jobs               \ workers that check at once (--jobs); 0, 1: one
   4 cells +field arg-files      \ the file names given, in order (two c-addr u)
   field: arg-count              \ how many were given
   field: arg-set                \ the options the command takes, as bits
@@ -602,7 +602,8 @@ create cli-fed-ops
 \ 1 does not go with --record.
 : cli-jobs-misused? ( -- flag ) cli-record? cli-jobs 1 > and ;
 : cli-misuse-jobs ( -- code )
-  ." error: --jobs does not go with --record" cr ." try: leanforth help" cr exit-malformed ;
+  ." error: --jobs does not go with --record" cr
+  ." try: leanforth help" cr exit-malformed ;
 : check-command ( -- code )
   cli-start cli-strict? cli-strict-axioms! cli-misused? if cli-misuse-record exit then
   cli-any-misused? if cli-misuse-any exit then
@@ -967,7 +968,8 @@ end-structure
 : cli-any-lean-option ( c-addr u -- ) 2drop cli-any-lean ;
 \ --jobs N, N at least 1 (more than the cores runs as many threads as cores).
 : cli-jobs-value ( c-addr u n -- )
-  dup 1 < if drop c" not a number of jobs" cli-wrong exit then cli-state opt-jobs ! 2drop ;
+  dup 1 < if drop c" not a number of jobs" cli-wrong exit then
+  cli-state opt-jobs ! 2drop ;
 : cli-jobs-option ( c-addr u -- )
   cli-value 0= if exit then 2dup cli-decimal
   if cli-jobs-value else c" not a number of jobs" cli-wrong then ;

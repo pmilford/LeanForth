@@ -155,10 +155,10 @@ begin-structure /ck
   field: ck-faulted              \ true when the run stopped on a fault
   field: ck-began-feed           \ true once the feed began: names attached
   field: ck-any-lean             \ true: an export of any Lean version (ck-any-version!)
-  field: ck-jobs-asked           \ worker contexts of a parallel check (ck-jobs!); 0 or 1: serial
-  field: ck-print                \ the fed input's fingerprint, which every worker's must be
+  field: ck-jobs-asked           \ workers of a parallel check (ck-jobs!); 0, 1: serial
+  field: ck-print                \ the fed input's fingerprint: every worker's must be it
   field: ck-checker              \ the check word ( -- ) (ck-check-word!)
-  ck-switches# cells +field ck-switched    \ the checker's switches, copied into each worker
+  ck-switches# cells +field ck-switched    \ the checker's switches, for each worker
   ck-capacities# cells +field ck-saved   \ capacities before the feed
   field: ck-restored-outcome     \ giving them back: ok, or the first refusal
   field: ck-stage-bytes          \ heap bytes the stage holds once staged
@@ -361,11 +361,13 @@ create ck-line ck-line-room 2 + allot
 \ fingerprint); every context made is freed with the scheduler
 \ (ck-release, lf-sched-free).
 : ck-switch ( k -- addr ) cells ck-switches + @ execute ;
-: ck-switched! ( -- ) ck-switches# 0 ?do i ck-switch @ i cells ck-state ck-switched + ! loop ;
-: ck-switches! ( -- ) ck-switches# 0 ?do i cells ck-state ck-switched + @ i ck-switch ! loop ;
+: ck-switch-saved ( k -- addr ) cells ck-state ck-switched + ;
+: ck-switched! ( -- ) ck-switches# 0 ?do i ck-switch @ i ck-switch-saved ! loop ;
+: ck-switches! ( -- ) ck-switches# 0 ?do i ck-switch-saved @ i ck-switch ! loop ;
 : ck-print! ( -- ) lf-input-fingerprint ck-state ck-print ! ck-switched! ;
 : ck-worker-fed ( -- outcome )
-  ck-worker-feed dup /feed erase ck-stage swap 0 0 lf-feed-hooked ck-worker-feed feed-free ;
+  ck-worker-feed dup /feed erase ck-stage swap 0 0 lf-feed-hooked
+  ck-worker-feed feed-free ;
 : ck-worker-fill ( context -- outcome )
   context-use ck-switches! ck-worker-fed dup ok? 0= if exit then drop
   ck-fuel-budget lf-check-budget lf-input-fingerprint ck-state ck-print @ = flag>outcome ;
@@ -537,10 +539,11 @@ create ck-line ck-line-room 2 + allot
   false ck-state ck-began-feed ! ;
 : ck-release ( -- )
   lf-sched-free ck-env-free ck-unfeed ck-feeding-record dup feed-free /feed erase
-  ck-worker-feed dup feed-free /feed erase ck-stage stage-free ck-state ck-steps slab-free ;
+  ck-worker-feed dup feed-free /feed erase ck-stage stage-free
+  ck-state ck-steps slab-free ;
 : ck-start ( fuel -- )
   ck-release ck-state /ck erase ck-state ck-budget ! -1 ck-state ck-failed !
-  outcome-invalid dup ck-outcome! ck-state ck-loaded ! ['] lf-check-declaration ck-check-word!
-  ck-clock-start ;
+  outcome-invalid dup ck-outcome! ck-state ck-loaded !
+  ['] lf-check-declaration ck-check-word! ck-clock-start ;
 
 base !   \ the BASE this file was loaded with

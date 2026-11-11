@@ -423,7 +423,8 @@ task-host task-serial = [if]
 \ The pool's size for the next start: n workers, kept between 1 and
 \ task-cores; a running pool is stopped first (its queued jobs finish).
 \ Outside jobs only, as pool-stop.
-: pool-workers! ( n -- ) pool-running? if pool-stop then 1 max task-cores min to task-workers ;
+: pool-workers! ( n -- )
+  pool-running? if pool-stop then 1 max task-cores min to task-workers ;
 
 \ On Gforth 1.0 the program's end first stops the pool (outside a job),
 \ so that no worker thread is still running while the process exits.

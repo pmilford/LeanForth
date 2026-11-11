@@ -28,8 +28,10 @@
 \   every slot below it is final (lf-sched-reruns). So no check depends on
 \   a slot that is not final (G-P7).
 \ - Independence. Each check begins in a context rolled back to the
-\   input's marks, with empty caches (check-declaration.fs), and so does
-\   not depend on which checks its worker ran before.
+\   input's marks, with empty caches and memos (check-declaration.fs; the
+\   level scope memo lasts one check too, level-compare.fs), and so its
+\   verdict, diagnostic and fuel do not depend on which checks its worker
+\   ran before.
 \ - Stops (G-P6). The serial run stops at the first declaration whose
 \   check throws or whose publication fails. Here such a declaration
 \   lowers lf-sched-stop; nothing after the stop is handed out, every
@@ -44,6 +46,8 @@
 \
 \ Interface, in the driving task outside jobs, the environment current
 \ and valid over the driving context's input:
+\ - lf-sched-init ( -- outcome ): frees an earlier run's workers and
+\   blocks and starts empty; ok, or full;
 \ - lf-sched-plan ( -- outcome ): the readiness sets of the current
 \   context's input; ok, or full (no heap), or invalid (a corrupted
 \   name or term read);
@@ -180,15 +184,16 @@ here lf-sch-cell-slabs - 1 cells / constant lf-sch-cell-slabs#
 \ The smaller child of i, or -1 for none.
 : lf-sch-heap-child ( i heap -- j )
   >r 2* 1+ dup r@ slab-count < 0= if r> 2drop -1 exit then
-  dup 1+ dup r@ slab-count < if 2dup r@ lf-sch-heap-less? if drop else nip then else drop then
-  r> drop ;
+  dup 1+ dup r@ slab-count < 0= if drop r> drop exit then
+  2dup r@ lf-sch-heap-less? if drop else nip then r> drop ;
 : lf-sch-heap-down ( i heap -- )
   >r begin dup r@ lf-sch-heap-child dup 0< 0= while
     2dup swap r@ lf-sch-heap-less? 0= if 2drop r> drop exit then
     tuck r@ lf-sch-heap-swap
   repeat 2drop r> drop ;
 : lf-sch-heap-push ( x heap -- outcome )
-  tuck lf-sch-push ok-then? 0= if exit then dup slab-count 1- swap lf-sch-heap-up outcome-ok ;
+  tuck lf-sch-push ok-then? 0= if exit then
+  dup slab-count 1- swap lf-sch-heap-up outcome-ok ;
 : lf-sch-heap-min ( heap -- x ) 0 swap lf-sch-cell@ ;
 : lf-sch-heap-pop ( heap -- x )
   dup lf-sch-heap-min swap dup lf-sch-pop over slab-count if
@@ -254,8 +259,9 @@ variable lf-sched-faults  0 lf-sched-faults !
 
 \ A name the current declaration's set takes, once: added to its names.
 : lf-sch-named@ ( name -- addr ) lf-sched lf-sch-named slab-at ;
-: lf-sch-fresh-name? ( name -- flag )
-  lf-sch-named@ dup @ lf-sch-stamp@ = if drop false else lf-sch-stamp@ swap ! true then ;
+: lf-sch-stamped? ( addr -- flag )
+  dup @ lf-sch-stamp@ = if drop false else lf-sch-stamp@ swap ! true then ;
+: lf-sch-fresh-name? ( name -- flag ) lf-sch-named@ lf-sch-stamped? ;
 : lf-sch-name ( name -- outcome )
   dup 0> 0= if drop outcome-ok exit then
   dup 1+ lf-sched lf-sch-named lf-sch-hold ok-then? 0= if exit then
@@ -267,9 +273,11 @@ variable lf-sched-faults  0 lf-sched-faults !
 : lf-sch-seen@ ( t -- addr ) lf-sched lf-sch-seen slab-at ;
 : lf-sch-fresh-term? ( t -- flag )
   dup lf-sched lf-sch-seen slab-count u< 0= if drop false exit then
-  lf-sch-seen@ dup u32@ lf-sch-stamp@ = if drop false else lf-sch-stamp@ swap u32! true then ;
+  lf-sch-seen@ dup u32@ lf-sch-stamp@ = if drop false exit then
+  lf-sch-stamp@ swap u32! true ;
 : lf-sch-term ( t -- outcome ) lf-sched lf-sch-stack lf-sch-push ;
-: lf-sch-two ( first second -- outcome ) lf-sch-term ok-then? 0= if exit then lf-sch-term ;
+: lf-sch-two ( first second -- outcome )
+  lf-sch-term ok-then? 0= if exit then lf-sch-term ;
 : lf-sch-const ( cref -- outcome ) lf-cref-slot lf-crec-name @ lf-sch-name ;
 : lf-sch-visit ( tag first second -- outcome )
   rot case
@@ -278,9 +286,11 @@ variable lf-sched-faults  0 lf-sched-faults !
     lf-tag-proj of drop lf-sch-name endof
     >r 2drop outcome-ok r> endcase ;
 : lf-sch-step ( -- outcome )
-  lf-sched lf-sch-stack lf-sch-pop dup lf-sch-fresh-term? 0= if drop outcome-ok exit then
+  lf-sched lf-sch-stack lf-sch-pop
+  dup lf-sch-fresh-term? 0= if drop outcome-ok exit then
   lf-term-read if lf-sch-visit else outcome-invalid then ;
-: lf-sch-more? ( outcome -- outcome flag ) dup ok? lf-sched lf-sch-stack slab-count 0> and ;
+: lf-sch-more? ( outcome -- outcome flag )
+  dup ok? lf-sched lf-sch-stack slab-count 0> and ;
 : lf-sch-walk ( root -- outcome )
   lf-sch-term begin lf-sch-more? while drop lf-sch-step repeat ;
 : lf-sch-root ( t -- outcome ) dup 0< if drop outcome-ok else lf-sch-walk then ;
@@ -313,22 +323,25 @@ variable lf-sched-faults  0 lf-sched-faults !
 : lf-sch-type ( decl -- decl outcome ) dup lf-idecl-type @ lf-sch-root ;
 : lf-sch-value ( decl -- decl outcome ) dup lf-idecl-value @ lf-sch-root ;
 : lf-sch-member ( m -- outcome )
-  lf-input-decl lf-sch-own ok-then? 0= if exit then lf-sch-type ok-then? 0= if exit then
-  lf-sch-value ok-then? 0= if exit then lf-sch-data ;
+  lf-input-decl lf-sch-own ok-then? 0= if exit then
+  lf-sch-type ok-then? 0= if exit then lf-sch-value ok-then? 0= if exit then lf-sch-data ;
 
 \ A block's members: its first u, then each later declaration whose
 \ block header names u as its first.
 : lf-sch-member-of? ( m u -- flag )
   over lf-sch-n < 0= if 2drop false exit then
-  swap lf-input-decl lf-idecl-header ?dup if lf-hdr-first lf-more-field = else drop false then ;
-: lf-sch-span ( u -- n ) dup 1+ begin 2dup swap lf-sch-member-of? while 1+ repeat swap - ;
+  swap lf-input-decl lf-idecl-header ?dup 0= if drop false exit then
+  lf-hdr-first lf-more-field = ;
+: lf-sch-span ( u -- n )
+  dup 1+ begin 2dup swap lf-sch-member-of? while 1+ repeat swap - ;
 : lf-sch-members ( u -- outcome )
   dup lf-sch-span over + swap outcome-ok -rot ?do
     dup ok? 0= if unloop exit then drop i lf-sch-member
   loop ;
 : lf-sch-builtins-add ( -- outcome )
   outcome-ok lf-sched lf-sch-builtins slab-count 0 ?do
-    dup ok? 0= if unloop exit then drop i lf-sched lf-sch-builtins lf-sch-cell@ lf-sch-name
+    dup ok? 0= if unloop exit then drop
+    i lf-sched lf-sch-builtins lf-sch-cell@ lf-sch-name
   loop ;
 
 \ The slots a name gives the set of declaration u: every declaration of
@@ -368,7 +381,9 @@ variable lf-sched-faults  0 lf-sched-faults !
   dup lf-sch-starts! dup lf-env-trailing?
   if lf-sch-trailing swap lf-sch-state! outcome-ok else lf-sch-unit then ;
 : lf-sch-plan-all ( -- outcome )
-  outcome-ok lf-sch-n 0 ?do dup ok? 0= if unloop exit then drop i lf-sch-plan-one loop ;
+  outcome-ok lf-sch-n 0 ?do
+    dup ok? 0= if unloop exit then drop i lf-sch-plan-one
+  loop ;
 \ The ends: entry n of the starts.
 : lf-sch-ends! ( -- ) lf-sch-n lf-sch-starts! ;
 
@@ -389,9 +404,11 @@ variable lf-sched-faults  0 lf-sched-faults !
 : lf-sch-fill ( -- ) lf-sch-n 0 ?do i lf-sch-place-set loop ;
 : lf-sch-waits! ( -- )
   lf-sch-n 0 ?do i 1+ lf-sch-from@ i lf-sch-from@ - i lf-sch-wait ! loop ;
+: lf-sch-turn-room ( -- outcome )
+  lf-sch-n 1+ lf-sched lf-sch-rfroms lf-sch-hold
+  lf-sched lf-sch-deps slab-count lf-sched lf-sch-rdeps lf-sch-hold or ok? room>outcome ;
 : lf-sch-turn ( -- outcome )
-  lf-sch-n 1+ lf-sched lf-sch-rfroms lf-sch-hold dup ok? 0= if exit then drop
-  lf-sched lf-sch-deps slab-count lf-sched lf-sch-rdeps lf-sch-hold dup ok? 0= if exit then drop
+  lf-sch-turn-room dup ok? 0= if exit then drop
   lf-sch-count-deps lf-sch-sum lf-sch-cursors lf-sch-fill lf-sch-waits! outcome-ok ;
 
 \ Room for every array the plan fills: ok, or full.
@@ -419,11 +436,13 @@ variable lf-sched-faults  0 lf-sched-faults !
 \ list cannot grow.
 : lf-sched-add ( context -- outcome )
   lf-sched lf-sch-ctxs lf-sch-push dup ok? 0= if exit then drop
-  0 lf-sched lf-sch-jobs lf-sch-push -1 lf-sched lf-sch-ats lf-sch-push or ok? room>outcome ;
+  0 lf-sched lf-sch-jobs lf-sch-push -1 lf-sched lf-sch-ats lf-sch-push or
+  ok? room>outcome ;
 : lf-sch-in ( k -- ) lf-sch-ctx @ context-use ;
 : lf-sch-home ( -- ) lf-sched lf-sch-home-ctx @ context-use ;
 : lf-sch-idle? ( k -- flag ) dup lf-sch-ctx @ 0<> swap lf-sch-job @ 0= and ;
-: lf-sch-idle ( -- k|-1 ) lf-sch-workers 0 ?do i lf-sch-idle? if i unloop exit then loop -1 ;
+: lf-sch-idle ( -- k|-1 )
+  lf-sch-workers 0 ?do i lf-sch-idle? if i unloop exit then loop -1 ;
 \ Each worker's job waited for (after a THROW in the driving task), then
 \ its context freed.
 : lf-sch-free-worker ( k -- )
@@ -452,10 +471,12 @@ variable lf-sched-faults  0 lf-sched-faults !
   repeat ;
 \ Declarations waiting for every slot below them, once that holds.
 : lf-sch-due? ( -- flag )
-  lf-sched lf-sch-laters dup lf-sch-heap-any? if lf-sch-heap-min lf-sch-front@ > 0= else drop false then ;
+  lf-sched lf-sch-laters dup lf-sch-heap-any? 0= if drop false exit then
+  lf-sch-heap-min lf-sch-front@ > 0= ;
 : lf-sch-due ( d -- ) dup lf-sch-state@ lf-sch-later = if lf-sch-ready! else drop then ;
 : lf-sch-release ( -- )
-  lf-sch-advance begin lf-sch-due? while lf-sched lf-sch-laters lf-sch-heap-pop lf-sch-due repeat ;
+  lf-sch-advance begin lf-sch-due? while lf-sched lf-sch-laters lf-sch-heap-pop lf-sch-due
+  repeat ;
 
 \ A slot seen final: each declaration whose set holds it waits for one
 \ slot less, and is ready when none is left.
@@ -472,7 +493,8 @@ variable lf-sched-faults  0 lf-sched-faults !
 \ that are final now; a member its first left open is checked alone,
 \ once every slot below it is final.
 : lf-sch-trail ( m -- )
-  dup lf-sch-final? if lf-sch-done over lf-sch-state! lf-sch-note else lf-sch-later! then ;
+  dup lf-sch-final? 0= if lf-sch-later! exit then
+  lf-sch-done over lf-sch-state! lf-sch-note ;
 : lf-sch-members-of ( d -- )
   dup lf-sch-span over + over 1+ ?do
     i lf-sch-state@ lf-sch-trailing = if i lf-sch-trail then
@@ -531,7 +553,8 @@ variable lf-sched-faults  0 lf-sched-faults !
 : lf-sch-hand ( ior k -- renew? )
   lf-sch-at @ tuck lf-env-hand-over-job rot lf-sch-handed ;
 : lf-sch-early? ( -- flag ) lf-env-early? lf-fault-careless lf-sch-fault? 0= and ;
-: lf-sch-settled ( ior k -- renew? ) lf-sch-early? if lf-sch-rerun else lf-sch-hand then ;
+: lf-sch-settled ( ior k -- renew? )
+  lf-sch-early? if lf-sch-rerun else lf-sch-hand then ;
 : lf-sch-settle ( k -- )
   dup lf-sch-job @ job-wait 0 2 pick lf-sch-job ! -1 lf-sched lf-sch-running# +!
   over lf-sch-in over lf-sch-settled lf-sch-home if lf-sch-renew else drop then ;
@@ -556,20 +579,27 @@ variable lf-sched-faults  0 lf-sched-faults !
     lf-sch-take dup 0< if 2drop exit then swap lf-sch-launch
   repeat drop ;
 : lf-sch-busy? ( -- flag ) lf-sched lf-sch-running# @ 0> ;
-: lf-sch-loop ( -- ) begin lf-sch-fill-workers lf-sch-busy? while lf-sch-wait-one repeat ;
+: lf-sch-loop ( -- )
+  begin lf-sch-fill-workers lf-sch-busy? while lf-sch-wait-one repeat ;
 : lf-sch-owner ( d -- u )
   dup lf-input-decl lf-idecl-header ?dup 0= if exit then
   over lf-sch-state@ lf-sch-trailing = if nip lf-hdr-first lf-more-field else drop then ;
+: lf-sch-waiting? ( u -- flag )
+  lf-sch-state@ dup lf-sch-waiting = swap lf-sch-later = or ;
 : lf-sch-stuck ( -- d|-1 )
-  lf-sched-broken? if -1 exit then lf-sch-release
-  lf-sch-front@ dup lf-sched-stop < 0= if drop -1 exit then lf-sch-owner
-  dup lf-sch-state@ dup lf-sch-waiting = swap lf-sch-later = or 0= if drop -1 then ;
+  lf-sch-front@ dup lf-sched-stop < 0= if drop -1 exit then
+  lf-sch-owner dup lf-sch-waiting? 0= if drop -1 then ;
+\ After the jobs ran out: more to do when declarations became due (the
+\ frontier passed them), or when one is stuck and so is handed out.
+: lf-sch-forced ( d -- ) lf-sched lf-sch-forced# lf-sch-count+ lf-sch-ready! ;
 : lf-sch-force ( -- more? )
-  lf-sch-stuck dup 0< if drop false exit then
-  lf-sched lf-sch-forced# lf-sch-count+ lf-sch-ready! true ;
+  lf-sched-broken? if false exit then lf-sch-release
+  lf-sched lf-sch-ready lf-sch-heap-any? if true exit then
+  lf-sch-stuck dup 0< if drop false exit then lf-sch-forced true ;
 : lf-sch-free? ( d -- flag ) lf-sch-wait @ 0= lf-fault-hasty lf-sch-fault? or ;
 : lf-sch-first ( d -- )
-  dup lf-sch-state@ lf-sch-waiting = over lf-sch-free? and if lf-sch-ready! else drop then ;
+  dup lf-sch-state@ lf-sch-waiting = over lf-sch-free? and
+  if lf-sch-ready! else drop then ;
 : lf-sch-start ( -- )
   lf-context @ lf-sched lf-sch-home-ctx ! lf-sch-workers pool-workers!
   lf-sch-n 0 ?do i lf-sch-first loop ;
@@ -577,4 +607,5 @@ variable lf-sched-faults  0 lf-sched-faults !
 \ again afterwards and the pool stopped.
 : lf-sched-run ( check keep maker -- )
   lf-sched lf-sch-maker ! lf-sched lf-sch-keep ! lf-sched lf-sch-check !
-  lf-sch-start begin lf-sch-loop lf-sch-force 0= until lf-sch-advance lf-sch-home pool-stop ;
+  lf-sch-start begin lf-sch-loop lf-sch-force 0= until
+  lf-sch-advance lf-sch-home pool-stop ;
