@@ -112,10 +112,12 @@
 \
 \ Lean's cached node data. The skeleton table also keeps, per node, what
 \ Lean keeps in each node: its loose bound variables and whether it has a
-\ free variable. whnf.fs's has_loose_bvars and has_fvar walks are then
-\ answered from it, mixed-open.fs's instantiate and abstract keep a node
-\ that cannot change without visiting it (Lean's replace), and defeq.fs's
-\ == holds at once for one skeleton.
+\ free variable or a universe parameter. whnf.fs's has_loose_bvars and
+\ has_fvar walks are then answered from it, mixed-open.fs's instantiate
+\ and abstract keep a node that cannot change without visiting it (Lean's
+\ replace), defeq.fs's == holds at once for one skeleton, and
+\ core/terms.fs's lf-term-data@ gives the three as one data word (until
+\ the compact store keeps it in each record: plan step S3).
 \
 \ Interface: lf-caches-enable ( flag -- ), lf-caches-on? ( -- flag ),
 \ lf-caches-clear ( -- ), lf-term-facts ( node -- id bits true | false ),
@@ -123,7 +125,7 @@
 \ lf-cache-infer-only, lf-cache-whnf-core, lf-cache-whnf,
 \ lf-cache-unfold, lf-cache-success and lf-cache-failure ( -- cache ).
 \ Loading this module sets the hooks of whnf.fs, defeq.fs, mixed-infer.fs,
-\ mixed-convert.fs and mixed-open.fs.
+\ mixed-convert.fs, mixed-open.fs and core/terms.fs (lf-term-data@).
 \ State: one record, lf-caches (the switch, the key being looked up, the
 \ next skeleton, two stacks' depths, and nine tables: each a hash table
 \ of lib/htab.fs over a slab of entries), and two growable stacks
@@ -271,19 +273,34 @@ lf-tag-str lf-skel-level < and
 : lf-sk-top ( sp slab -- x ) swap @ 1- swap slab-at @ ;
 : lf-sk-pop ( flag sp -- flag ) over if -1 swap +! else drop then ;
 
-\ Levels: kept per level index with its identity (kind 2 of the memo).
+\ Levels: kept per level index with its identity (kind 2 of the memo),
+\ with the skeleton and whether a universe parameter occurs in the level
+\ (1, else 0: Lean's has_param_univ).
 : lf-lmemo-key ( level -- flag )
   dup lf-level-identity if >r 2 swap r> 0 lf-key! true else drop false then ;
-: lf-level-id@ ( level -- id true | false )
+: lf-level-memo@ ( level -- id params true | false )
   lf-lmemo-key 0= if false exit then
-  lf-cache-memo lf-cache-entry ?dup if 4 cells + @ true else false then ;
-: lf-level-id! ( level id -- flag )
-  swap lf-lmemo-key if 0 lf-cache-memo lf-cache-put else drop false then ;
+  lf-cache-memo lf-cache-entry ?dup if lf-cent-values true else false then ;
+: lf-level-id@ ( level -- id true | false ) lf-level-memo@ if drop true else false then ;
+: lf-level-id! ( level id params -- flag )
+  rot lf-lmemo-key if lf-cache-memo lf-cache-put else 2drop false then ;
 : lf-cl-sp ( -- addr ) lf-caches lf-caches-lsp ;
 : lf-cl-push ( level -- flag ) lf-cl-sp lf-caches-lstack lf-sk-push ;
 : lf-cl-pop ( flag -- flag ) lf-cl-sp lf-sk-pop ;
+\ Whether a parameter occurs in a level whose children are kept: 1 or 0,
+\ or -1 when a child has no entry (then the level gets none either).
+: lf-cl-child ( level -- params ) lf-level-memo@ if nip else -1 then ;
+: lf-cl-either ( p1 p2 -- params ) 2dup min 0< if 2drop -1 else or then ;
+: lf-cl-pair ( level -- params )
+  dup lf-level-first@ lf-cl-child swap lf-level-second@ lf-cl-child lf-cl-either ;
+: lf-cl-params ( level -- params )
+  dup lf-level-tag@ case
+    lf-level-tag-param of drop 1 endof  lf-level-tag-zero of drop 0 endof
+    lf-level-tag-succ of lf-level-first@ lf-cl-child endof  swap lf-cl-pair swap endcase ;
+: lf-cl-keep ( level id -- flag )
+  over lf-cl-params dup 0< if drop 2drop false else lf-level-id! then ;
 : lf-cl-done ( level kind a b -- flag )
-  lf-skel if lf-level-id! else drop false then lf-cl-pop ;
+  lf-skel if lf-cl-keep else drop false then lf-cl-pop ;
 : lf-cl-succ ( level -- flag )
   dup lf-level-first@ lf-level-id@ if lf-skel-level lf-level-tag-succ + swap 0 lf-cl-done
   else lf-level-first@ lf-cl-push then ;
@@ -317,13 +334,21 @@ lf-tag-str lf-skel-level < and
   r> repeat drop nip true ;
 
 \ Terms: kept per node with its identity (kind 1 of the memo), with the
-\ data Lean caches in each node (expr.h): bits, twice its loose bound
-\ variables (loose_bvar_range: 1 + the largest index beyond its own
-\ binders, or 0), plus 1 when it has a free variable (has_fvar). Only a
+\ data Lean caches in each node (expr.h): bits, four times its loose
+\ bound variables (loose_bvar_range: 1 + the largest index beyond its
+\ own binders, or 0), plus 2 when a universe parameter occurs in it
+\ (has_param_univ: in a Sort's level or a constant's universe
+\ arguments), plus 1 when it has a free variable (has_fvar). Only a
 \ node every pass takes has facts: a leaf of a known tag, a well-formed
 \ bound variable, a free variable live in this job's local context (the
 \ tables are emptied when a job starts); any other node, and every node
 \ above it, has none, and the passes then meet it as without the caches.
+: lf-bits-loose ( bits -- n ) 2 rshift ;
+: lf-bits-params ( bits -- 0|1 ) 1 rshift 1 and ;
+: lf-bits-fvar ( bits -- 0|1 ) 1 and ;
+\ Some loose bound variable or free variable (whnf.fs's has_fvar test,
+\ which counts a loose bound variable too).
+: lf-bits-open? ( bits -- flag ) dup lf-bits-loose 0<> swap lf-bits-fvar 0<> or ;
 : lf-tmemo-key ( node -- flag )
   dup lf-term-identity if >r 1 swap r> 0 lf-key! true else drop false then ;
 : lf-term-facts@ ( node -- id bits true | false )
@@ -338,11 +363,11 @@ lf-tag-str lf-skel-level < and
 : lf-tk-first ( node tag -- kind a b true ) swap lf-term-first@ 0 true ;
 : lf-tk-own ( node tag -- kind a b true | false )
   drop lf-skel-node swap lf-term-identity if 0 true else drop false then ;
-\ A bound variable whose index would overflow its bits (twice 1 + the
-\ index, in a cell: lf-leaf-bits) has no facts, so every pass meets it
-\ uncached (review rvCACHE L1; unreachable today: the audit bounds every
-\ index by the binders around it).
-: lf-tk-index? ( node -- flag ) lf-term-first@ 0 max-n 2/ 1- within ;
+\ A bound variable whose index would overflow its bits (four times 1 +
+\ the index, in a cell: lf-leaf-bits) has no facts, so every pass meets
+\ it uncached (review rvCACHE L1; unreachable today: the audit bounds
+\ every index by the binders around it).
+: lf-tk-index? ( node -- flag ) lf-term-first@ 0 max-n 2 rshift 1- within ;
 : lf-tk-bvar ( node tag -- kind a b true | false )
   over dup lf-term-first@ swap lf-term-second@ lf-repr-leaf? 2 pick lf-tk-index? and
   if lf-tk-first else 2drop false then ;
@@ -373,18 +398,29 @@ lf-tag-str lf-skel-level < and
 \ stack.
 : lf-tf-done ( node kind a b bits -- flag )
   >r lf-skel if r> lf-term-facts! else r> 2drop false then lf-ts-pop ;
+\ Whether a parameter occurs in a constant's universe arguments, whose
+\ levels lf-tk-const has kept: 1, 0, or -1 when one has no entry.
+: lf-const-params ( node -- params )
+  lf-term-first@ lf-cref-slot lf-cref-pairs 0 swap 0 ?do
+    over i lf-cref-pair@ drop lf-cl-child lf-cl-either loop nip ;
+\ A leaf's bits, or -1 when its level facts are missing.
+: lf-param-bits ( params -- bits ) dup 0< if exit then 2* ;
 : lf-leaf-bits ( node kind -- bits )
-  dup lf-tag-bvar = if drop lf-term-first@ 1+ 2* exit then
-  nip lf-tag-fvar = if 1 else 0 then ;
+  case lf-tag-bvar of lf-term-first@ 1+ 2 lshift endof  lf-tag-fvar of drop 1 endof
+    lf-tag-symbolic-sort of lf-term-first@ lf-cl-child lf-param-bits endof
+    lf-tag-constant of lf-const-params lf-param-bits endof  nip 0 swap endcase ;
 : lf-tf-leaf ( node tag -- flag )
-  over swap lf-tk-leaf 0= if drop false exit then 2over lf-leaf-bits lf-tf-done ;
+  over swap lf-tk-leaf 0= if drop false exit then
+  2over lf-leaf-bits dup 0< if 2drop 2drop drop false else lf-tf-done then ;
 \ A child's facts, or the child pushed (false, with the push's flag).
 : lf-tf-child ( child -- id bits true | flag false )
   dup lf-term-facts@ if rot drop true else lf-ts-push false then ;
 \ An application's loose bound variables are its children's largest, a
-\ binder's body counts one less; a free variable in either is one in it.
+\ binder's body counts one less; a free variable or a universe parameter
+\ in either is one in it.
 : lf-tf-loose ( tag l1 l2 -- loose ) rot lf-tag-app <> if 1- 0 max then max ;
-: lf-tf-bits ( tag b1 b2 -- bits ) 2dup or 1 and >r 2/ swap 2/ swap lf-tf-loose 2* r> or ;
+: lf-tf-bits ( tag b1 b2 -- bits )
+  2dup or 3 and >r lf-bits-loose swap lf-bits-loose swap lf-tf-loose 2 lshift r> or ;
 : lf-tf-binary ( node tag -- flag )
   over lf-term-first@ lf-tf-child 0= if nip nip exit then
   3 pick lf-term-second@ lf-tf-child 0= if >r 2drop 2drop r> exit then
@@ -412,25 +448,34 @@ lf-tag-str lf-skel-level < and
 : lf-cs-known ( node visit -- flag true | false )
   lf-caches-on? 0= if 2drop false exit then
   swap lf-term-facts 0= if drop false exit then nip
-  swap ['] lf-whnf-scan-visit = if 2/ then 0<> true ;
+  swap ['] lf-whnf-scan-visit = if lf-bits-loose 0<> else lf-bits-open? then true ;
 ' lf-cs-known is lf-whnf-known
 : lf-co-unchanged? ( node frames -- flag )
   lf-caches-on? 0= if 2drop false exit then
   swap lf-term-facts 0= if drop false exit then nip
-  over lf-open-abstract? if nip 1 and 0= exit then
-  2/ swap frame-context @ > 0= ;
+  over lf-open-abstract? if nip lf-bits-fvar 0= exit then
+  lf-bits-loose swap frame-context @ > 0= ;
 ' lf-co-unchanged? is lf-open-unchanged?
 \ mixed-infer.fs's scan of how many of the scope's variables a term
 \ names: its loose_bvar_range (expr.cpp 102-103).
 : lf-ci-range ( node -- m true | false )
   lf-caches-on? 0= if drop false exit then
-  lf-term-facts if nip 2/ true else false then ;
+  lf-term-facts if nip lf-bits-loose true else false then ;
 ' lf-ci-range is lf-minfer-range
 : lf-cs-same? ( t s -- flag )
   lf-caches-on? 0= if 2drop false exit then
   lf-term-facts 0= if drop false exit then drop
   swap lf-term-facts 0= if drop false exit then drop = ;
 ' lf-cs-same? is lf-dq-known-same?
+\ lf-term-data@ (core/terms.fs): the facts as ADR 0016 C1's data word,
+\ while the caches are on and the range fits its 20 bits.
+: lf-cd-word ( bits -- data true | false )
+  dup lf-bits-loose dup lf-data-ranges u< 0= if 2drop false exit then
+  over lf-bits-params 0<> rot lf-bits-fvar 0<> lf-data true ;
+: lf-cd-data ( node -- data true | false )
+  lf-caches-on? 0= if drop false exit then
+  lf-term-facts if nip lf-cd-word else false then ;
+' lf-cd-data is lf-term-data@
 
 \ ---------------------------------------------------------------------------
 \ Nodes as keys (by skeleton) and values (a live node and its identity).
@@ -502,7 +547,7 @@ lf-tag-str lf-skel-level < and
 \ pair's key: the two skeletons, the smaller first, both closed.
 : lf-cp-on? ( -- flag ) lf-caches-on? if lf-dq-typer @ 0<> else false then ;
 : lf-closed-id ( node -- id true | false )
-  lf-term-facts if 2/ if drop false else true then else false then ;
+  lf-term-facts if lf-bits-loose if drop false else true then else false then ;
 : lf-pair-key ( t s -- flag )
   lf-closed-id 0= if drop false exit then
   swap lf-closed-id 0= if drop false exit then
@@ -552,7 +597,7 @@ lf-tag-str lf-skel-level < and
   lf-caches-on? 0= if drop false exit then
   lf-minfer-chain @ 0< 0= if drop false exit then
   dup lf-minfer-source? 0= if drop false exit then
-  lf-term-facts 0= if false exit then 2/ lf-ci-scope dup 0= if nip then ;
+  lf-term-facts 0= if false exit then lf-bits-loose lf-ci-scope dup 0= if nip then ;
 : lf-ci-table ( -- cache )
   lf-minfer-aside @ if lf-cache-infer-only else lf-cache-infer then ;
 : lf-ci-key ( id scope -- ) 0 0 lf-key! ;

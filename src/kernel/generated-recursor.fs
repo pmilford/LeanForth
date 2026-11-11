@@ -103,8 +103,11 @@ end-structure
 : lf-genrec-raw? ( -- flag ) true lf-ind-types@ 0 ?do i lf-genrec-type-raw? and loop ;
 \ The recipe the block check publishes: lf-recipe-raw, with
 \ lf-recipe-large when the motive has a universe of its own; 0 when the
-\ telescope is not raw.
+\ telescope is not raw; for a nested block (task 5.2.5b), whose
+\ recursors are not built again here (a use of one no slot holds is
+\ unknown), its number of auxiliary types (environment.fs).
 : lf-genrec-recipe ( -- bits )
+  lf-ind-aux@ ?dup if lf-recipe-aux-shift lshift exit then
   lf-genrec-raw? 0= if 0 exit then
   lf-recipe-raw lf-ind-state lf-ind-elim-name @ if lf-recipe-large or then ;
 

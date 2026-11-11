@@ -11,6 +11,7 @@ require ../../src/core/tagged-sort-boundary.fs
 require ../../src/core/terms.fs
 require ../../src/kernel/mixed-compare.fs
 require ../../src/kernel/mixed-convert.fs
+require ../support/store-faults.fs
 create ids 32 cells allot
 create args 4 cells allot
 variable name-x variable name-y variable num-root variable num-child
@@ -93,10 +94,10 @@ variable term-start variable level-start variable serial-start variable saw-allo
   lf-term-count @ term-start ! lf-level-count @ level-start !
   0 saw-allocated !
   700 0 do
-    lf-term-serial @ serial-start !
+    term-serial serial-start !
     19 h 20 h i lf-mixed-convert
     dup outcome-exhausted = if
-      lf-term-serial @ serial-start @ > if true saw-allocated ! then
+      term-serial serial-start @ > if true saw-allocated ! then
     else dup outcome-ok <> abort" unexpected sweep result" then drop
     lf-term-count @ term-start @ <> abort" term leak"
     lf-level-count @ level-start @ <> abort" level leak"
@@ -106,9 +107,9 @@ sweep
 T{ 18 h 0 h -1 lf-mixed-convert -> outcome-invalid }T
 T{ 18 h 0 h 0 lf-mixed-convert -> outcome-exhausted }T
 \ Later stale input must be caught before the reducible first input allocates.
-lf-term-serial @ serial-start !
+term-serial serial-start !
 T{ 18 h 0 0 10000 lf-mixed-convert -> outcome-invalid }T
-T{ lf-term-serial @ -> serial-start @ }T
+T{ term-serial -> serial-start @ }T
 \ Capture avoidance under a binder: (fun x => fun y => x) z.
 : capture-fixtures ( -- )
   0 h 9 h lf-hterm-lam save
@@ -141,10 +142,10 @@ T{ 6 h 7 h 20000 lf-mixed-convert -> outcome-ok }T
 0 lf-term-symbolic-sort 0= abort" malformed sort" drop
 16 30 lf-term-app 0= abort" application" drop ;
 malformed-fixture
-lf-term-serial @ serial-start !
+term-serial serial-start !
 T{ 31 dup lf-term-identity drop 18 h 20000 lf-mixed-convert -> outcome-invalid }T
 T{ 18 h 31 dup lf-term-identity drop 20000 lf-mixed-convert -> outcome-invalid }T
-T{ lf-term-serial @ -> serial-start @ }T
+T{ term-serial -> serial-start @ }T
 \ Visit order. app(bvar 0, P) against app(bvar 1, P), with P a nested Pi
 \ shared by both sides: the first children differ (unknown), so a
 \ pre-order walk stops before the shared second children. Both conversion

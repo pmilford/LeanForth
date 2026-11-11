@@ -132,7 +132,7 @@ lf-level-walk-room context-walk: lf-lscope-walk
 \ only structural evidence, not a level equality judgment.
 : lf-lscope-zero-ok? ( -- flag ) 0 lf-level-read if or or 0= else false then ;
 : lf-lscope-ready? ( root -- flag )
-  lf-lscope-context-valid? swap lf-level-valid? and lf-lscope-zero-ok? and ;
+  lf-lscope-context-valid? swap lf-level-root? and lf-lscope-zero-ok? and ;
 : lf-lscope-run ( root -- status )
   ['] lf-lscope-visit lf-lscope-walk walk-run lf-lscope-walk lf-lscope-site lf-diag-walk ;
 : lf-lscope-check ( root fuel -- status )

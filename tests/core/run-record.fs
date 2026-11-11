@@ -31,6 +31,8 @@ require ../support/run-records.fs
   s" tests/core/check-declaration-cases/composition-loose.ndjson" ;
 : no-export ( -- c-addr u ) s" tests/core/no-such-export.ndjson" ;
 : not-export ( -- c-addr u ) s" tests/core/run-record.fs" ;
+: unsafe-copy ( -- c-addr u )
+  s" tests/core/check-declaration-cases/composition-unsafe.ndjson" ;
 
 \ Whether the record text holds c-addr u.
 : holds? ( c-addr u -- flag ) rr-text 2swap search nip nip ;
@@ -73,6 +75,10 @@ T{ composition run-ok run-holds? -> outcome-ok true }T
   s\" \"verdict\":\"unsupported\",\"diagnostic\":{\"code\":43," ;
 : invalid-23 ( -- c-addr u ) s\" \"verdict\":\"invalid\",\"diagnostic\":{\"code\":23," ;
 T{ wrong-argument rejected-59 run-holds? -> outcome-ok true }T
+\ An unsafe definition: skipped, as Lean's replay skips it (plan task
+\ 5.2.7), with its diagnostic.
+: skipped-97 ( -- c-addr u ) s\" \"verdict\":\"skipped\",\"diagnostic\":{\"code\":97," ;
+T{ unsafe-copy skipped-97 run-holds? -> outcome-ok true }T
 T{ wrong-argument numbers-step run-holds? -> outcome-ok true }T
 T{ wrong-argument no-manifest run-holds? -> outcome-ok true }T
 \ An axiom (plan task 5.3.1): accepted as Lean accepts it, its own name

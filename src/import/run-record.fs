@@ -9,7 +9,9 @@
 \ the run made (lf-env-readable, lf-env-axioms), never from another one
 \ that happens to be current (rr-ours?). Accepted only for a final slot whose
 \ outcome is ok, and then labelled "experimental, not independently
-\ audited", with the axiom set that slot holds; a slot that is not final
+\ audited", with the axiom set that slot holds; skipped for a rejected
+\ slot of a declaration Lean's replay skips (unsafe or partial, plan task
+\ 5.2.7); a slot that is not final
 \ is invalid when its check began (it or its publication failed, and the
 \ run stopped there, ADR 0012 E4) and not-checked when it never began.
 \
@@ -593,8 +595,12 @@ rr-power 2constant rr-exact
 : rr-diagnostic-out ( step -- )
   s" diagnostic" rr-key
   dup kept-code @ lf-diag-none = if drop rr-null else rr-reason-out then ;
+\ A rejected declaration that Lean's replay skips (lf-env-skipped?) is
+\ written skipped.
+: rr-failed-verdict ( d outcome -- d )
+  over lf-env-skipped? if drop s" skipped" rr-string else rr-outcome then ;
 : rr-failed-out ( d outcome -- )
-  s" verdict" rr-key rr-outcome rr-step-of rr-diagnostic-out ;
+  s" verdict" rr-key rr-failed-verdict rr-step-of rr-diagnostic-out ;
 \ The slot's outcome must be the one the step published.
 : rr-agrees ( d outcome -- d outcome )
   2dup swap rr-step-of kept-outcome @ <> if outcome-invalid rr-fail then ;

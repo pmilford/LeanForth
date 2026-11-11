@@ -82,6 +82,7 @@ INPUTS = {
     CASES + "postulate.ndjson": ([("composition", "accepted", None, None)], False),
     CASES + "literal.ndjson": ([("composition", "unsupported", 43, 1)], False),
     CASES + "loose.ndjson": ([("composition", "invalid", 23, 1)], False),
+    CASES + "unsafe.ndjson": ([("composition", "skipped", 97, 1)], False),
 }
 # The axioms an accepted declaration of an input lists (none unless given):
 # composition declared as an axiom (outside the allowlist, so NOT PROVED).

@@ -13,6 +13,7 @@ require ../../src/core/symbolic-session.fs
 require ../../src/core/terms.fs
 require ../../src/kernel/mixed-signature-audit.fs
 require ../../src/kernel/mixed-signature-probe.fs
+require ../support/store-faults.fs
 
 create formals 1 cells allot
 create actuals 2 cells allot
@@ -36,21 +37,21 @@ variable candidate variable token variable root-id variable level-id
 
 \ The old root identity must not revive when the same slot gets a new term.
 begin-fixture
-T{ 1 level-id @ lf-hterm-sort -> 0 lf-term-serial @ true }T
-lf-term-serial @ root-id !
+T{ 1 level-id @ lf-hterm-sort -> 0 term-serial true }T
+term-serial root-id !
 T{ 0 root-id @ put-root -> outcome-ok }T
 0 lf-term-count !
-T{ 1 level-id @ lf-hterm-sort -> 0 lf-term-serial @ true }T
+T{ 1 level-id @ lf-hterm-sort -> 0 term-serial true }T
 T{ specialize -> outcome-invalid }T
 T{ token @ 5000 lf-mixed-signature-audit -> outcome-invalid }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> 1 2 0 }T
 
 \ A reused level index cannot validate the old Sort's captured level stamp.
 begin-fixture
-T{ 1 level-id @ lf-hterm-sort -> 0 lf-term-serial @ true }T
-T{ 0 lf-term-serial @ put-root -> outcome-ok }T
+T{ 1 level-id @ lf-hterm-sort -> 0 term-serial true }T
+T{ 0 term-serial put-root -> outcome-ok }T
 1 lf-level-count !
-T{ 11 lf-hlevel-param -> 1 lf-level-serial @ true }T
+T{ 11 lf-hlevel-param -> 1 level-serial true }T
 T{ specialize -> outcome-invalid }T
 T{ token @ 5000 lf-mixed-signature-audit -> outcome-invalid }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> 1 2 0 }T
@@ -59,10 +60,10 @@ T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> 1 2 0 }T
 begin-fixture
 1 args pair!
 T{ candidate @ lf-name-generation @ args 1 lf-cref-new -> 0 lf-cref-serial @ true }T
-T{ 0 lf-cref-serial @ lf-cterm-new -> 0 lf-term-serial @ true }T
-T{ 0 lf-term-serial @ put-root -> outcome-ok }T
+T{ 0 lf-cref-serial @ lf-cterm-new -> 0 term-serial true }T
+T{ 0 term-serial put-root -> outcome-ok }T
 1 lf-level-count !
-T{ 11 lf-hlevel-param -> 1 lf-level-serial @ true }T
+T{ 11 lf-hlevel-param -> 1 level-serial true }T
 T{ specialize -> outcome-invalid }T
 T{ token @ 5000 lf-mixed-signature-audit -> outcome-invalid }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> 1 2 1 }T
@@ -73,8 +74,8 @@ T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> 1 2 1 }T
 : specialize-with ( name count fuel -- index identity 0 | status )
   2>r token @ swap actuals 2r> ['] lf-msp-specialize rs-checked ;
 begin-fixture
-T{ 1 level-id @ lf-hterm-sort -> 0 lf-term-serial @ true }T
-lf-term-serial @ root-id !
+T{ 1 level-id @ lf-hterm-sort -> 0 term-serial true }T
+term-serial root-id !
 T{ candidate @ 1 -1 put-with -> outcome-invalid }T
 T{ candidate @ -1 5000 put-with -> outcome-invalid }T
 T{ 0 1 5000 put-with -> outcome-invalid }T
@@ -131,8 +132,8 @@ T{ lf-msp-count @ -> 0 }T
 
 \ A forged or stale root identity is invalid and changes nothing.
 begin-fixture
-T{ 1 level-id @ lf-hterm-sort -> 0 lf-term-serial @ true }T
-lf-term-serial @ root-id !
+T{ 1 level-id @ lf-hterm-sort -> 0 term-serial true }T
+term-serial root-id !
 T{ 0 root-id @ 1+ put-root -> outcome-invalid }T
 T{ 0 root-id @ 1- put-root -> outcome-invalid }T
 T{ lf-msp-count @ lf-term-count @ lf-level-count @ lf-cref-count @ -> 0 1 2 0 }T
@@ -141,8 +142,8 @@ T{ lf-msp-count @ lf-term-count @ lf-level-count @ lf-cref-count @ -> 0 1 2 0 }T
 \ specialize gives back the identical root handle and allocates nothing; a
 \ request with an argument for it is invalid.
 T{ token @ candidate @ 0 root-id @ formals 0 5000 lf-msp-put -> outcome-invalid }T
-T{ 0 0 lf-level-identity drop lf-hterm-sort -> 1 lf-term-serial @ true }T
-lf-term-serial @ root-id !
+T{ 0 0 lf-level-identity drop lf-hterm-sort -> 1 term-serial true }T
+term-serial root-id !
 T{ token @ candidate @ 1 root-id @ formals 0 5000 lf-msp-put -> outcome-ok }T
 T{ token @ candidate @ actuals 0 5000 lf-msp-specialize -> 1 root-id @ outcome-ok }T
 T{ token @ candidate @ actuals 1 5000 lf-msp-specialize -> outcome-invalid }T

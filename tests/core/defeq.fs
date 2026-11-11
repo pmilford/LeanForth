@@ -19,6 +19,7 @@ include ../support/checks.fs
 include ../support/heap-watch.fs
 require ../../src/main.fs
 include ../support/plain-terms.fs
+require ../support/store-faults.fs
 
 \ Room for every case of this file in one session.
 4096 lf-term-capacity! ok? must  1024 lf-level-capacity! ok? must
@@ -273,7 +274,7 @@ T{ s" " form-of swap length-of -> true 0 }T
 T{ s" abc" str 2 expanded -> -1 outcome-exhausted }T
 T{ s" abc" str 3 expanded nip dq frame-fuel @ -> outcome-ok 0 }T
 \ Bytes that are no UTF-8 character (a corrupted leaf): invalid.
-: cut ( leaf -- leaf ) 1 over lf-term-slot node-second ! ;
+: cut ( leaf -- leaf ) 1 over term-second! ;
 T{ s\" \xc3\xa9" str cut 100 expanded -> -1 outcome-invalid }T
 \ Step 13 applies to a literal t and String.ofList x as s alone: not to a
 \ String.ofList with a universe argument, with two arguments, or of

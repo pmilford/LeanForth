@@ -17,6 +17,7 @@ require ../../src/kernel/mixed-definition-probe.fs
 include ../support/plain-terms.fs
 include ../support/plain-cases.fs
 include ../support/checker-trial.fs
+require ../support/store-faults.fs
 
 : begin-check ( -- ) context-new throw context-use fresh-session open-index ;
 : end-check ( -- ) lf-context @ context-main context-use context-free throw ;
@@ -51,6 +52,7 @@ create codes 1 , 2 , 3 , 4 , 5 , 6 , 7 , 8 , 9 , 10 , 11 , 12 , 13 , 14 , 15 , 1
   40 , 41 , 42 , 43 , 50 , 51 , 52 , 53 , 54 , 55 , 56 , 57 , 58 , 59 , 60 , 61 ,
   62 , 63 , 64 , 65 , 66 , 67 , 68 , 69 , 70 , 71 , 72 , 73 , 74 , 75 , 76 , 77 , 78 ,
   79 , 80 , 81 , 82 , 83 , 84 , 85 , 86 , 87 , 88 , 89 , 90 , 91 , 92 , 93 , 94 , 95 , 96 ,
+  97 , 98 , 99 ,
 here codes - 1 cells / constant code-count
 : named? ( code -- flag ) lf-diag-name s" unknown code" compare 0<> ;
 : all-named? ( -- flag ) true code-count 0 ?do i cells codes + @ named? and loop ;
@@ -64,7 +66,7 @@ T{ lf-diag-fuel lf-diag-name s" fuel exhausted" compare -> 0 }T
   lf-diag-catalogue true code-count 0 ?do swap i listed? rot and loop
   swap lf-diag-entry-code lf-diag-none = and ;
 T{ catalogue-codes? -> true }T
-T{ 99 lf-diag-name s" unknown code" compare -> 0 }T
+T{ 100 lf-diag-name s" unknown code" compare -> 0 }T
 
 \ Stores: full, a spent serial, and a store that fails its own checks.
 : fill-terms ( -- ) lf-term-capacity lf-term-count @ ?do 0 lf-term-bvar must drop loop ;
@@ -72,7 +74,7 @@ begin-check fill-terms lf-diag-clear
 T{ 0 lf-term-bvar diag -> false 64 64 lf-diag-terms-full }T
 T{ s" terms lf-term-add" at? -> true }T
 end-check
-begin-check lf-term-reset max-n lf-term-serial ! lf-diag-clear
+begin-check lf-term-reset max-n term-serial! lf-diag-clear
 T{ 0 lf-term-bvar diag -> false max-n 1 lf-diag-serial-spent }T
 end-check
 begin-check -1 lf-term-count ! lf-diag-clear
@@ -277,7 +279,7 @@ begin-check succ-u fill-levels lf-diag-clear
 T{ substitute-u diag -> outcome-full 64 64 lf-diag-levels-full }T
 T{ s" level-substitute lf-lsubst" at? -> true }T
 end-check
-begin-check succ-u max-n lf-level-serial ! lf-diag-clear
+begin-check succ-u max-n level-serial! lf-diag-clear
 T{ substitute-u diag -> outcome-full max-n 1 lf-diag-serial-spent }T
 end-check
 \ A rebuilding pass that fills the term store is explained by the store.

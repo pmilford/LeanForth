@@ -18,6 +18,7 @@ require ../../src/kernel/level-make.fs
 require ../../src/kernel/level-normalize.fs
 require ../../src/kernel/level-compare.fs
 require ../../src/kernel/level-value.fs
+require ../support/store-faults.fs
 decimal
 
 : must ( flag -- ) 0= abort" level-compare test: refused" ;
@@ -208,10 +209,10 @@ T{ lu lv -1 lf-level-compare lf-lcmp-fuel @ -> outcome-invalid 0 }T
 T{ -1 lu 100 lf-level-compare 99 lu 100 lf-level-compare -> outcome-invalid outcome-invalid }T
 T{ lu lu -1 lf-level-equivalent lu 99 100 lf-level-equivalent
   -> false outcome-invalid false outcome-invalid }T
-lu lf-level-slot node-tag @ constant saved-tag
-99 lu lf-level-slot node-tag !
+lu lf-level-tag@ constant saved-tag
+99 lu level-tag!
 T{ lu lv 100 lf-level-compare lv lu 100 lf-level-compare -> outcome-invalid outcome-invalid }T
-saved-tag lu lf-level-slot node-tag !
+saved-tag lu level-tag!
 lf-lscope-context-reset
 T{ lu lu 100 lf-level-compare -> outcome-invalid }T
 T{ lu lu 20 ' lf-level-compare rs-checked -> outcome-invalid }T
