@@ -1505,8 +1505,8 @@ reason = "the stage forgets what another Lean version's metadata named, so no no
 [[fault]]
 id = "cli-other-lean-note-missing"
 file = "src/cli/leanforth.fs"
-old = '''  cli-other-note ck-loaded? if cli-results. else ck-read-outcome cli-fed-unread then'''
-new = '''  ck-loaded? if cli-results. else ck-read-outcome cli-fed-unread then'''
+old = '''cli-noted ( -- ) cli-other-note true cli-state run-noted ! ;'''
+new = '''cli-noted ( -- ) true cli-state run-noted ! ;'''
 test = "python3 tests/cli/test_leanforth.py OtherLean"
 reason = "check --any-lean-version on another Lean version's export prints no note that its verdicts are Lean 4.35.0's"
 

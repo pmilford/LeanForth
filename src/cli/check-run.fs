@@ -562,7 +562,10 @@ create ck-line ck-line-room 2 + allot
 \ ends; the parallel one: below the scheduler's frontier, after each job):
 \ ck-advance ( n -- ) gives out those below n, counting each one's outcome
 \ (accepted or other) and passing it to the line word (ck-lines!), which
-\ writes its line; then flushes stdout when 2000 lines or ten seconds (the
+\ writes its line and gives true, or gives false for a declaration whose
+\ line needs the finished environment (a NOT PROVED one: the axiom
+\ dependencies are tabulated once, over all slots); from there on the run
+\ writes no line and the report writes the rest; then flushes stdout when 2000 lines or ten seconds (the
 \ progress interval, if less) have passed since, so that a stopped run
 \ keeps the lines of every declaration up to its last flush; and writes
 \ a progress line on stderr when the interval (ck-progress!) has passed
@@ -588,7 +591,7 @@ create ck-line ck-line-room 2 + allot
   1 swap +! ;
 : ck-lined ( d -- )
   ck-lines-on? 0= if drop exit then
-  1 ck-state ck-unflushed +! ck-state ck-line-xt @ execute ;
+  ck-state ck-line-xt @ execute if 1 ck-state ck-unflushed +! else 0 ck-state ck-line-xt ! then ;
 : ck-take ( d -- )
   ck-jobs-run? if dup ck-jobs-trail then dup ck-counted ck-lined 1 ck-state ck-cursor +! ;
 \ Whether secs seconds have passed since the wall time kept at addr.
