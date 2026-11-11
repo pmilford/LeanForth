@@ -700,6 +700,29 @@ needed (Rejected alternatives).
     accepted, 15 unsupported); fed in 11-14 s, checked in 9 s (38 s
     before M2), 1.27 GB peak. The 2,000 checker trials keep their digest
     in 5% fewer instructions than the code before the heap stores.
+  - Marks instead of saved counts (2026-11-11, step S1 of the
+    compact-store plan; no behaviour change, its [kernel] review pending):
+    no module sets a store's count by hand any more. Every rollback point
+    takes one joint mark (`src/core/scratch-marks.fs`): a store mark of
+    the term, level and reference stores each, the local context's
+    entries following their terms (they are made in node order). A
+    rollback checks every family's mark first and refuses, *invalid* and
+    nothing changed, a mark restored out of order (C3). Passes with a
+    record keep the mark in it (inference's job, conversion, universe
+    substitution, the probes); passes that hold only a number across
+    their work (inference's steps on frames, the rebuild passes) push it
+    on a mark stack per context that is strictly LIFO, so only the newest
+    mark can be used. One difference from a tier mark: an inference step
+    whose result is a Sort level it made gives back only its terms
+    (`lf-scratch-discard`), checking every family's mark; once levels
+    share the terms' tier (step S4) such a step must make its level again
+    or keep its terms. Instantiation and opening read only nodes below a
+    term-store mark instead of a saved count. Evidence: the first 1M
+    lines of `Init` (`check --fast --fuel 100000`) give the same verdict
+    and fuel lines and the same store capacities and allocation serials;
+    the trial digest is unchanged (`abe54a7c0598`); 13 planted faults
+    (a family left out, a mark out of order, a mark left on the stack)
+    are caught.
 - Steps 4–6 not started.
 
 ## Amendment 1 (2026-11-04): constants Lean's kernel generates

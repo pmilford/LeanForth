@@ -49,9 +49,10 @@ store-header context-record: lf-terms
 \ unsound one; full when shrinking the block finds no heap.
 : lf-term-capacity! ( n -- outcome ) lf-terms store-limit! ;
 
-\ The store's fields under their established names. Other modules save and
-\ restore lf-term-count to roll back a failed transaction, and tests corrupt
-\ these cells on purpose to check that every operation fails closed.
+\ The store's fields under their established names. Other modules roll a
+\ failed transaction back through marks (core/scratch-marks.fs), never by
+\ setting the count; tests corrupt these cells on purpose to check that
+\ every operation fails closed.
 : lf-term-count ( -- addr ) lf-terms store-count ;
 : lf-term-generation ( -- addr ) lf-terms store-generation ;
 : lf-term-serial ( -- addr ) lf-terms store-serial ;

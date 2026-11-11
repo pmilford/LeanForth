@@ -4,11 +4,11 @@
 \ formal list; actuals are not recursively substituted. This is not type or
 \ proof checking. Exclude reset, raw mutation and callbacks during a call.
 \ Caller arrays must be aligned, readable and disjoint from the stores,
-\ contexts and module data. Handles are forgeable. On failure all three
-\ store counts roll back, but identities never rewind.
+\ contexts and module data. Handles are forgeable. On failure the stores
+\ roll back to a scratch mark, but identities never rewind.
 \ State: one walk record, lf-mls-walker (the source audit and the fuel left,
 \ shared by every pass), one job record, lf-mls-job (the substitution, the
-\ counts to roll back to, the audit's stamp and count of reached terms),
+\ mark to roll back to, the audit's stamp and count of reached terms),
 \ the replacement levels, new level pairs and reached terms
 \ (lf-mls-actual-cells, lf-mls-arg-pairs, lf-mls-reached-cells), and two
 \ columns of the term store (each term's stamp and image), all members of
@@ -29,6 +29,7 @@ require ../core/derivation-log.fs
 require ../core/diagnostics.fs
 require ../core/generation-handles.fs
 require ../core/levels.fs
+require ../core/scratch-marks.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
 require ./level-substitute.fs
@@ -36,9 +37,7 @@ require ./level-substitute.fs
 begin-structure /lf-mlsrec
   field: lf-mlsrec-formals     \ address of the formal parameter IDs
   field: lf-mlsrec-count       \ number of formals
-  field: lf-mlsrec-terms       \ store counts to roll back to
-  field: lf-mlsrec-levels
-  field: lf-mlsrec-crefs
+  /lf-scratch +field lf-mlsrec-mark  \ the stores to roll back to
   field: lf-mlsrec-stamp       \ the audit's stamp, 0 before the first
   field: lf-mlsrec-reached     \ terms it reached (lf-mls-reached-cells)
 end-structure
@@ -70,15 +69,18 @@ lf-walk-room context-walk: lf-mls-walker
 : lf-mls-seen ( index -- addr ) lf-mls-seen-column column-at ;
 : lf-mls-result ( index -- addr ) lf-mls-results-column column-at ;
 
-\ The rollback point: the counts of the term, level and reference stores.
-: lf-mls-snapshot ( -- )
-  lf-term-count @ lf-mls-job lf-mlsrec-terms !
-  lf-level-count @ lf-mls-job lf-mlsrec-levels !
-  lf-cref-count @ lf-mls-job lf-mlsrec-crefs ! ;
+\ The rollback point: a scratch mark of the term, level and reference
+\ stores (core/scratch-marks.fs), taken before the replacements are read
+\ and given back after a failed build: ok, or invalid. LIFO: nothing this
+\ module calls between the two takes a mark of its own except level
+\ substitution, whose level mark is younger and given back first, and a
+\ substitution never runs inside another (its walk is busy: refused
+\ before the mark is taken). A refused rollback makes the outcome
+\ invalid.
+: lf-mls-scratch ( -- scratch ) lf-mls-job lf-mlsrec-mark ;
+: lf-mls-snapshot ( -- outcome ) lf-mls-scratch lf-scratch-mark ;
 : lf-mls-rollback ( status -- status )
-  lf-mls-job lf-mlsrec-terms @ lf-term-count !
-  lf-mls-job lf-mlsrec-levels @ lf-level-count !
-  lf-mls-job lf-mlsrec-crefs @ lf-cref-count ! ;
+  lf-mls-scratch lf-scratch-rollback lf-scratch-settled ;
 
 \ Level passes of level-substitute, charging this module's fuel. The full
 \ substitution revalidates every actual on each call, as metered work.
@@ -238,7 +240,7 @@ lf-walk-room context-walk: lf-mls-walker
 
 \ The passes in order: the root handle and stores, the replacements (live,
 \ and in level scope), the whole graph (lf-cterm-check), the source audit,
-\ then the build. A failed build rolls the counts back to the snapshot.
+\ then the build. A failed build rolls the stores back to the snapshot.
 : lf-mls-serials? ( -- flag ) lf-term-serial @ 0< 0= lf-level-serial @ 0< 0= and ;
 : lf-mls-ready? ( index id -- flag )
   lf-hterm-valid? lf-cref-state-valid? and lf-mls-serials? and ;
@@ -263,8 +265,8 @@ lf-walk-room context-walk: lf-mls-walker
   dup lf-mls-count ! rot lf-mls-formals ! ;
 : lf-mls-prepare ( index id pairs count -- index id outcome )
   2over lf-mls-ready? 0= if 2drop outcome-invalid exit then
-  dup lf-mls-actual-cells slab-hold ok-then? 0= if nip nip exit then
-  lf-mls-snapshot lf-mls-actuals! flag>outcome ;
+  dup lf-mls-actual-cells slab-hold ok-then? 0= if nip exit then
+  lf-mls-snapshot ok-then2? if lf-mls-actuals! flag>outcome then ;
 
 \ Substitute count actual (index identity) level pairs for count formal IDs
 \ in a live term. All syntax, source levels and replacements are audited

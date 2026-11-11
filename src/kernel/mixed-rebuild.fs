@@ -2,8 +2,9 @@
 \ instantiate and beta): visit results, the audit before allocation,
 \ binary-node rebuilding and rollback. Structural transformation only; no
 \ proof judgment.
-\ State: none. Every word works on the frames record (lib/frame.fs) that its
-\ pass passes on the stack.
+\ State: none of its own. Every word works on the frames record
+\ (lib/frame.fs) that its pass passes on the stack; a pass's rollback
+\ mark is on the scratch mark stack (core/scratch-marks.fs).
 
 \ Visit results. Each node occurrence costs one unit of fuel and one frame
 \ on the pass's explicit stack (lib/frame.fs), which grows with the
@@ -16,6 +17,7 @@
 require ../lib/lib.fs
 require ../core/constant-term-boundary.fs
 require ../core/diagnostics.fs
+require ../core/scratch-marks.fs
 require ../core/terms.fs
 
 : lf-rebuild-invalid ( -- -1 outcome ) outcome-invalid no-result ;
@@ -94,17 +96,27 @@ require ../core/terms.fs
   >r r@ frame-fuel @ lf-cterm-check
   dup ok? if lf-cterm-fuel @ else 0 then r> frame-fuel ! ;
 
-\ Run a pass on a root from the current term count, which stays on the
-\ return stack meanwhile. Success gives a live result and its identity; any
-\ failure, or a result without an identity, restores the count, discarding
-\ every node the pass appended (allocation serials are never rewound), and
-\ gives -1 0 and the outcome.
+\ Run a pass on a root from a mark on the scratch mark stack, whose number
+\ stays on the return stack meanwhile. Success gives a live result and its
+\ identity, and lets the mark go; any failure, or a result without an
+\ identity, rolls the stores back to the mark, discarding every node the
+\ pass appended (allocation serials are never rewound), and gives -1 0 and
+\ the outcome. LIFO: the mark is taken here and used once, here, after
+\ the pass, so every mark taken inside the pass is used first; a mark the
+\ stack refuses (out of order) makes the result invalid. A mark that
+\ cannot be taken refuses the pass: full or invalid, nothing run.
 : lf-rebuild-none ( outcome -- -1 0 outcome ) -1 0 rot ;
-: lf-rebuild-discard ( outcome start -- -1 0 outcome ) lf-term-count ! lf-rebuild-none ;
-: lf-rebuild-identify ( result start -- index identity outcome )
-  over lf-term-identity if nip outcome-ok exit then
+: lf-rebuild-discard ( outcome mark -- -1 0 outcome )
+  lf-scratch-back lf-scratch-settled lf-rebuild-none ;
+: lf-rebuild-kept ( result identity mark -- index identity outcome )
+  lf-scratch-drop dup ok? if exit then nip nip lf-rebuild-none ;
+: lf-rebuild-identify ( result mark -- index identity outcome )
+  over lf-term-identity if swap lf-rebuild-kept exit then
   nip outcome-invalid swap lf-rebuild-discard ;
-: lf-rebuild-finish ( result outcome start -- index identity outcome )
+: lf-rebuild-finish ( result outcome mark -- index identity outcome )
   over ok? if nip lf-rebuild-identify else rot drop lf-rebuild-discard then ;
+: lf-rebuild-unmarked ( root context frames outcome -- -1 0 outcome )
+  >r drop 2drop r> lf-rebuild-none ;
 : lf-rebuild-run ( root context frames -- index identity outcome )
-  lf-term-count @ >r frame-run r> lf-rebuild-finish ;
+  lf-scratch-push dup ok? 0= if nip lf-rebuild-unmarked exit then drop
+  >r frame-run r> lf-rebuild-finish ;
