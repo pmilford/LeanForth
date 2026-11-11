@@ -70,7 +70,8 @@ success.
 - **Parallel runs must equal serial runs.** The job pool's tests compare
   jobs on 1, 2 and all workers with serial runs; the planned checker is
   required to give the same verdicts and library whatever the number of
-  workers ([ADR 0012](../adr/0012-checked-environment.md)).
+  workers (`check` has no worker option yet: the pool is a library, used
+  by tests only) ([ADR 0012](../adr/0012-checked-environment.md)).
 - **Times and memory are not deterministic**; measurements in the
   documentation name the machine, tools and date.
 - **Fuel is part of the input.** A check given less fuel can end

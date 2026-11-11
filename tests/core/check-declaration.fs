@@ -77,6 +77,17 @@ T{ ctype0 lf-lctx-local ok? swap constant cfvar -> true }T
 T{ cfvar cbits -> 1 }T
 lf-lctx-reset lf-caches-clear
 T{ cfvar lf-term-facts -> false }T
+\ m_whnf_core keeps the result of a whnf_core visit without cheap_proj,
+\ never with it (type_checker.cpp 547; whnf.fs, plan task 5.2.2): the
+\ storing step at the end of a visit, its key saved on the frames.
+' lf-mconvert-no-visit frames: cframes
+: cstored? ( key r flag -- found )
+  lf-whnf-cheap !  cframes frame-reset  4 cframes frame-room? must
+  over cframes frame-save  outcome-ok cframes lf-cwc-store 2drop 2drop
+  lf-whnf-reset  lf-cache-whnf-core lf-cache-node@ dup if nip then ;
+T{ 5 cb 6 cb true cstored? -> false }T
+T{ 7 cb 8 cb false cstored? -> true }T
+cframes frame-free
 cache-marks lf-level-count ! lf-term-count ! lf-caches-clear
 
 \ ---------------------------------------------------------------------------

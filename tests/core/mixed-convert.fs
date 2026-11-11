@@ -51,15 +51,17 @@ setup
 \ unit per node, on mixed-compare's walk, whose fuel it leaves in
 \ lf-mcompare-fuel), each visit one unit; the keeping variant keeps what an
 \ unknown comparison left (lf-mixed-convert leaves none). Before, the
-\ walk of beta-reduced pairs left 985, 979, 993, 991 and 993 here.
+\ walk of beta-reduced pairs left 985, 979, 993, 991 and 993 here. Since
+\ plan task 5.2.2's step 9 (whnf_core of both sides, two visits) an
+\ undecided pair leaves 2 units less (990 and 991 before).
 : convert-fuel ( a aid b bid -- status fuel )
   1000 ['] lf-mixed-convert-keeping rs-checked lf-mconvert-fuel @ ;
 T{ 0 h 1 h 1000 lf-mixed-compare -> outcome-ok }T
 T{ 0 h 1 h convert-fuel -> outcome-ok 990 }T
 T{ 4 h 5 h convert-fuel -> outcome-ok 987 }T
 T{ 8 h 8 h convert-fuel -> outcome-ok 996 }T
-T{ 0 h 3 h convert-fuel -> outcome-unknown 990 }T
-T{ 8 h 9 h convert-fuel -> outcome-unknown 991 }T
+T{ 0 h 3 h convert-fuel -> outcome-unknown 988 }T
+T{ 8 h 9 h convert-fuel -> outcome-unknown 989 }T
 T{ lf-mcompare-fuel @ -> 995 }T
 T{ 0 h 3 h 1000 lf-mixed-convert lf-mconvert-fuel @ -> outcome-unknown 0 }T
 
@@ -149,8 +151,10 @@ T{ lf-term-serial @ -> serial-start @ }T
 \ and comparison pin the fuel this leaves (values from the code before the
 \ paired-walk refactor; visiting second children first gives 643 and 925;
 \ conversion left 890 before Lean's is_def_eq, plan task 4.2.2b, whose
-\ is_def_eq_app compares the functions first and stops there; 933 and 948
-\ before the audits checked the shared P once, agent EX).
+\ is_def_eq_app compares the functions first and stops there; 933 before
+\ plan task 5.2.2's step 9, two whnf_core visits in each of the three
+\ comparisons that reach it; 927 and 948 before the audits checked the
+\ shared P once, agent EX).
 : order-setup ( -- )
   lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
   42 lf-lscope-context-add 0= abort" ctx" 42 lf-level-param 0= abort" level" drop
@@ -160,6 +164,6 @@ T{ lf-term-serial @ -> serial-start @ }T
   0 h 0 h lf-hterm-pi save 3 h 3 h lf-hterm-pi save 4 h 4 h lf-hterm-pi save
   1 h 5 h lf-hterm-app save 2 h 5 h lf-hterm-app save ;
 order-setup
-T{ 6 h 7 h 1000 lf-mixed-convert-keeping lf-mconvert-fuel @ -> outcome-unknown 963 }T
+T{ 6 h 7 h 1000 lf-mixed-convert-keeping lf-mconvert-fuel @ -> outcome-unknown 957 }T
 T{ 6 h 7 h 1000 lf-mixed-compare lf-mcompare-fuel @ -> outcome-unknown 978 }T
 bye

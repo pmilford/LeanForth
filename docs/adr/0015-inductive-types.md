@@ -1423,7 +1423,8 @@ table has 287 cases; `eta.structure`, `eta.structure-left`,
 `eta.psigma-extrinsic-fix` (the shape of `Init`'s
 `WellFounded.extrinsicFix₂`), `unit.punit` and `unit.punit-variables`
 accepted, `eta.structure-wrong-field` rejected, as by Lean. Still
-*unknown*, not ported: the comparison's projection steps 8 and 9
+*unknown*, not ported then (ported since, next paragraph): the
+comparison's projection steps 8 and 9
 (`lazy_delta_proj_reduction` 1077–1100, `whnf_core` with projections
 reduced by `whnf`, 1188–1191), `try_unfold_proj_app` (950–957) in lazy
 delta and `cheap_proj` (row `proj.index-differs`, diagnostic 30; plan
@@ -1432,6 +1433,60 @@ declarations) only `WellFounded.extrinsicFix₂` changed: from *unknown*
 (89) to *unsupported* through its dependency `WellFounded.extrinsicFix`,
 which uses `Classical.choice`, an axiom the command line does not take
 yet (U1, diagnostic 42); its own comparison is now Lean's.
+
+**The comparison's projection steps** (agent PJ, 2026-11-10; [kernel],
+review owed). Evidence first: on `Init`'s first 1,000,000 export lines
+(main `cc09b87`) 22 roots were *unknown* with diagnostic 30 at `whnf
+lf-whnf`. Traced with pinned Lean's exports of `UInt8.toNat_toUInt32`,
+`BitVec.cast_eq`, `List.getElem?_eq_getElem` and
+`Int.ofNat_mul_subNatNat`, all four stopped in `is_def_eq_app`, which
+took a projection (the application of its leaf) for an application and
+compared its leaf with another function (`UInt8.1` against
+`BitVec.ofFin`, `PProd.1` against `Nat.succ`). In Lean `Expr.proj` is no
+application: `is_def_eq_app` answers no (878–895) and steps 11–14 go on
+(structure eta decides `UInt8.toNat_toUInt32`). Ported now, in
+`defeq.fs`, `whnf.fs`, `iota.fs` and a hook in `caches.fs`:
+- Lean's `is_app`, `get_app_fn` and `get_app_num_args` for
+  `is_def_eq_app` and `is_def_eq_args`: a projection, and a let term,
+  are no applications.
+- Step 8 (1177–1183) and `lazy_delta_proj_reduction` (1084–1102): two
+  projections of one field of one structure (names and indices equal):
+  `lazy_delta_reduction_step` on their terms, a visit of its own that
+  shares the step with lazy delta's loop; yes is yes, otherwise
+  `reduce_proj_core` of both (`iota.fs`, through `lf-dq-reduce-proj`)
+  and `is_def_eq_core` of the fields, else of the terms.
+- Step 9 (1185–1188): `whnf_core` of both sides without `cheap_proj`;
+  either a new node (Lean's `is_eqp`): `is_def_eq_core` of the two.
+- `try_unfold_proj_app` (950–957) where only one side unfolds (971–991):
+  the other side, when its head is a projection, in `whnf_core`; a
+  result not `==` to it takes its place.
+- `cheap_proj` (468, 444–454): steps 3 and lazy delta's unfoldings run
+  `whnf_core` with it, so a projection's term goes through `whnf_core`
+  only; `whnf.fs` keeps the mode of the innermost `whnf_core` visit (a
+  `whnf` visit and each public `whnf_core` visit set theirs), and
+  `caches.fs` keeps no `m_whnf_core` entry of a cheap visit (547) while
+  still reading the cache, as Lean does.
+- `whnf.fs`'s stopgap `lf-wc-proj` is retired: a projection leaf alone
+  is malformed (invalid), never reached by the comparison now.
+Rows (pinned Lean 4.35.0, `inductive-expected.lean`; each accepted and
+its wrong twin rejected, as by Lean): `proj.app-eta`, `proj.lazy-terms`,
+`proj.lazy-fields`, `proj.whnf-term`, `proj.unfold-proj-app`,
+`proj.unfold-proj-app-stuck`; `proj.index-differs` is now *rejected*
+(Lean's `declTypeMismatch`), no longer *unknown* (30). All 43 rows of
+task 5.2.2 give the table's column. 15 planted faults on the new words,
+all caught. `Init`'s first 1,000,000 lines (9,202 declarations, `--fast`,
+default fuel): before 6,488 accepted, 1,686 unknown, 1,011 unsupported,
+17 exhausted; after 6,712 accepted, 162 unknown, 2,309 unsupported, 19
+exhausted. 21 of the 22 roots are accepted; the 22nd,
+`Std.Iter.toArray_eq_match_step`, and all 162 unknowns now wait only on
+two declarations exhausted at the default 2,000,000 steps
+(`Array.foldlM_toList.aux._unary` 2.55 M, `Std.IterM.step_map` 3.59 M;
+both accepted with more fuel); 1,298 moved from *unknown* to
+*unsupported* only because their first undecided dependency is now
+decided and an unsupported one comes next. On the 501 declarations of
+those two exports accepted before and after, the fuel spent grew by
+1.2 % (step 9's extra `whnf_core` visits). `cheap_proj` changes paths
+and fuel, not verdicts, in every row (Lean's own aim: avoid unfolding).
 
 ## Implementation (plan task 5.2.1c, K part: R2)
 

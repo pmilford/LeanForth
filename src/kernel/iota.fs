@@ -372,19 +372,24 @@ require ./quot.fs
 \ structure with more than numParams + i arguments gives argument
 \ numParams + i, the field, applied to the spine's arguments after e, and
 \ whnf_core goes on with that; anything else leaves the spine as it is.
-\ Lean's whnf_core with cheap_proj puts e in whnf_core only; this hook
-\ has no such flag and always uses whnf.
+\ In a whnf_core visit with cheap_proj (whnf.fs), e is put in whnf_core,
+\ still cheap, instead of whnf (lf-whnf-proj-call, 450-453).
 : lf-iota-field-of ( c k -- field|-1 )
   over lf-iota-n 2dup < if swap lf-iota-arg else 2drop drop -1 then ;
 : lf-iota-projected-to ( leaf c decl -- field|-1 )
   dup lf-idecl-data lf-ict-induct lf-more-field 3 pick lf-proj-name lf-name-same?
   0= if 2drop drop -1 exit then
   lf-idecl-data lf-ict-params lf-more-field rot lf-proj-idx + lf-iota-field-of ;
+\ reduce_proj_core (423-440) of c, no string literal: its field of leaf
+\ when c is an application of a constructor of leaf's structure with
+\ more than numParams + i arguments, else -1; or a lookup's failure.
+: lf-iota-proj-field ( c leaf -- field|-1 outcome )
+  over lf-iota-ctor ok-then? 0= if nip nip no-result exit then
+  ?dup 0= if 2drop -1 outcome-ok exit then
+  >r swap r> lf-iota-projected-to outcome-ok ;
 : lf-iota-proj-made ( c outcome frames -- ... frames next )
   >r r@ frame-restore -rot ok-then? 0= if nip r> lf-whnf-failed exit then
-  dup lf-iota-ctor ok-then? 0= if nip nip r> lf-whnf-failed exit then
-  ?dup 0= if 2drop -1 outcome-ok r> 0 exit then
-  >r over lf-whnf-head swap r> lf-iota-projected-to
+  over lf-whnf-head lf-iota-proj-field ok-then? 0= if nip r> lf-whnf-failed exit then
   dup 0< if 2drop -1 outcome-ok r> 0 exit then
   swap dup lf-iota-n 1- lf-iota-extra r> 0 ;
 \ A string literal c first becomes its constructor form in whnf
@@ -395,7 +400,19 @@ require ./quot.fs
   if nip ['] lf-iota-proj-made lf-str-whnf-call else lf-iota-proj-made then ;
 : lf-iota-proj ( app frames -- ... frames next )
   over over frame-save swap dup lf-iota-n 0 lf-iota-arg swap
-  ['] lf-iota-proj-back lf-whnf-call ;
+  ['] lf-iota-proj-back lf-whnf-proj-call ;
+
+\ reduce_proj_core for defeq.fs's step 8 (lazy_delta_proj_reduction,
+\ 1089-1098; lf-dq-reduce-proj), the first step of a visit of its own:
+\ c's field of leaf, or -1, with c as it is -- a string literal first put
+\ in its constructor form in whnf (421-422), a child visit, leaf kept.
+: lf-iota-core-back ( c outcome frames -- field|-1 outcome frames 0 )
+  >r r@ frame-restore -rot ok-then? if swap lf-iota-proj-field else nip no-result then
+  r> 0 ;
+: lf-iota-core ( c leaf frames -- ... frames next )
+  2 pick lf-str-leaf? if tuck frame-save ['] lf-iota-core-back lf-str-whnf-call exit then
+  >r lf-iota-proj-field r> 0 ;
+' lf-iota-core is lf-dq-reduce-proj
 
 \ reduce_recursor (type_checker.cpp 393-407): quot_reduce_rec first
 \ (quot.fs), then inductive_reduce_rec.

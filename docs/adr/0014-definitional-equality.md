@@ -1489,6 +1489,20 @@ binder's body once, and every comparison audits both types in full; on
 the Array.Extract `omega` proofs this costs 10–20 million fuel (9 of the
 17). Both are 6.5.5's "work linear in a term's depth".
 
+## Note: the projection steps (plan task 5.2.2, 2026-11-10)
+
+The Q8 row "Projections: `reduce_proj`, step 8, `try_unfold_proj_app`"
+is closed: `defeq.fs` runs steps 8 and 9 (1177–1183, 1185–1188;
+`lazy_delta_proj_reduction` 1084–1102, sharing lazy delta's step) and
+`try_unfold_proj_app` (950–957) where only one side unfolds, and steps 3
+and lazy delta's unfoldings run `whnf_core` with `cheap_proj` (`whnf.fs`
+keeps the mode; `caches.fs` keeps no `m_whnf_core` entry of a cheap
+visit, as Lean, 547). `is_def_eq_app` and `is_def_eq_args` use Lean's
+`is_app` and `get_app_fn`: a projection (`Expr.proj`, here the
+application of a projection leaf) is no application. Evidence, rows and
+the `Init` counts: ADR 0015, "The comparison's projection steps".
+[kernel] code; review gate owed.
+
 ## Consequences
 
 - **ADR 0003**: its candidate algorithm and Amendment 1 become one part of
