@@ -5,9 +5,9 @@
 \   the audit, before any typing, as check-declaration's audit of a
 \     definition: unsafe members (Lean's replay skips them) and the term
 \     forms the checker lacks (U2) unsupported; loose variables invalid
-\     (V1); and the scope of tasks 5.2.1a, 5.2.1b and 5.2.5a: one type, or
-\     several (a mutual block), with no nested occurrence (task 5.2.5b),
-\     else unsupported; on the way, Lean's is_rec and is_reflexive;
+\     (V1); whether the block may be nested (task 5.2.5b: translated at
+\     step 4, inductive-nested.fs); on the way, Lean's is_rec and
+\     is_reflexive;
 \   T0 no constant named under the reserved prefix _nested
 \     (check_no_nested_aux, inductive.cpp 1222-1233, from 1241, 1244);
 \   C1 every occurrence of the type in a constructor type applied to the
@@ -25,10 +25,11 @@
 \ independently audited. The exported numbers and flags are read here
 \ only for the shape; check-block.fs compares the rest (B3, B4).
 \ State: one record, lf-ind-state (the block, the facts computed so far,
-\ the step reached, the fuel, the warnings), three slabs, lf-ind-ctor-cells
-\ (per constructor its field count, minor premise and rule),
-\ lf-ind-type-cells (per type its facts) and the types' binder domains
-\ lf-ind-domains, and the walk records lf-ind-walker (U2, T0,
+\ the step reached, the fuel, the warnings), five slabs, lf-ind-ctor-cells
+\ (per constructor its field count, minor premise, rule and restored
+\ name), lf-ind-type-cells (per type its facts), the types' binder domains
+\ lf-ind-domains, and a nested block's declarations lf-ind-aux-decls and
+\ lf-ind-ctor-decls, and the walk records lf-ind-walker (U2, T0,
 \ occurrences, nested occurrences), lf-ind-inner-walker (occurrences
 \ within an argument, during a walk of lf-ind-walker) and
 \ lf-ind-pair-walker (C1, with binder depths), all members of the
@@ -65,15 +66,22 @@ begin-structure /lf-ind
   field: lf-ind-is-rec       \ computed: Lean's is_rec (a field mentions the type)
   field: lf-ind-is-refl      \ computed: Lean's is_reflexive
   field: lf-ind-large        \ the recursor has a motive universe of its own
+  field: lf-ind-in-types     \ the input's types, constructors (the header's)
+  field: lf-ind-in-ctors
+  field: lf-ind-maybe        \ the audit met an occurrence that may be nested
+  field: lf-ind-xlated       \ the constructors read are the translated ones
+  field: lf-ind-aux          \ auxiliary types of a nested block (task 5.2.5b)
 end-structure
 /lf-ind context-record: lf-ind-state
-\ Per constructor of the block, numbered across all its types, three
-\ cells: its fields, its minor premise and its rule; as many as the block
-\ has constructors (plan task 6.2.0).
+\ Per constructor of the block, numbered across all its types, four
+\ cells: its fields, its minor premise, its rule and, for B3, its name as
+\ Lean's restored recursor names it; as many as the block has
+\ constructors (plan task 6.2.0).
 begin-structure /lf-ind-ctor
   field: lf-ictor-fields
   field: lf-ictor-minor
   field: lf-ictor-rule
+  field: lf-ictor-name
 end-structure
 /lf-ind-ctor context-slab: lf-ind-ctor-cells
 \ The B4 warning bits (check-block.fs step 14; on an accepted block's
@@ -93,8 +101,15 @@ begin-structure /lf-ty
   field: lf-ty-motive        \ generated: its motive's type
   field: lf-ty-rec-type      \ generated: its recursor's type
   field: lf-ty-rec-name      \ the name T.rec
+  field: lf-ty-key           \ an auxiliary type's nested occurrence I Ds
 end-structure
 /lf-ty context-slab: lf-ind-type-cells
+\ A nested block (task 5.2.5b, inductive-nested.fs): the declarations
+\ its auxiliary types stand for, and every constructor's with its
+\ translated type, records of the input's layout (core/input.fs) that
+\ the steps read in place of the input's; as many as it has.
+/lf-idecl context-slab: lf-ind-aux-decls
+/lf-idecl context-slab: lf-ind-ctor-decls
 \ The types' binder domains: the first type's parameters and indices, then
 \ each other type's indices; as many as the telescopes have (plan task
 \ 6.2.0); one the heap cannot hold is full.
@@ -108,14 +123,23 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 : lf-ind-types@ ( -- n ) lf-ind-state lf-ind-types @ ;
 : lf-ind-ctors@ ( -- n ) lf-ind-state lf-ind-ctors @ ;
 : lf-ind-recs@ ( -- n ) lf-ind-state lf-ind-recs @ ;
-: lf-ind-members ( -- n ) lf-ind-types@ lf-ind-ctors@ + lf-ind-recs@ + ;
+\ The block's types and constructors are the input's (lf-ind-in-types@,
+\ lf-ind-in-ctors@), and for a nested block, from step 4 on, also its
+\ auxiliary types' (lf-ind-types@, lf-ind-ctors@; inductive-nested.fs).
+: lf-ind-in-types@ ( -- n ) lf-ind-state lf-ind-in-types @ ;
+: lf-ind-in-ctors@ ( -- n ) lf-ind-state lf-ind-in-ctors @ ;
+: lf-ind-aux@ ( -- n ) lf-ind-state lf-ind-aux @ ;
+: lf-ind-members ( -- n ) lf-ind-in-types@ lf-ind-in-ctors@ + lf-ind-recs@ + ;
 : lf-ind-fuel ( -- addr ) lf-ind-state lf-ind-fuel-left ;
 \ Member k of the block (from 0), the type, constructor j and recursor r.
-\ Unchecked: k is below lf-ind-members, which lf-ind-open checked.
+\ Unchecked: k is below lf-ind-members, which lf-ind-open checked. A
+\ constructor of a translated block is its record in lf-ind-ctor-decls.
 : lf-ind-member ( k -- decl ) lf-ind-first@ + lf-input-decl ;
 : lf-ind-type ( -- decl ) 0 lf-ind-member ;
-: lf-ind-ctor ( j -- decl ) lf-ind-types@ + lf-ind-member ;
-: lf-ind-rec ( r -- decl ) lf-ind-types@ + lf-ind-ctors@ + lf-ind-member ;
+: lf-ind-xlated? ( -- flag ) lf-ind-state lf-ind-xlated @ ;
+: lf-ind-ctor ( j -- decl )
+  lf-ind-xlated? if lf-ind-ctor-decls slab-at exit then lf-ind-in-types@ + lf-ind-member ;
+: lf-ind-rec ( r -- decl ) lf-ind-in-types@ + lf-ind-in-ctors@ + lf-ind-member ;
 : lf-ind-type-data ( -- data ) lf-ind-type lf-idecl-data ;
 : lf-ind-name ( -- name ) lf-ind-type lf-idecl-name @ ;
 : lf-ind-nparams ( -- n ) lf-ind-type-data lf-ity-params lf-more-field ;
@@ -128,9 +152,12 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 : lf-ind-nfields ( j -- addr ) lf-ind-ctor-cells slab-at lf-ictor-fields ;
 : lf-ind-minor-type ( j -- addr ) lf-ind-ctor-cells slab-at lf-ictor-minor ;
 : lf-ind-rule ( j -- addr ) lf-ind-ctor-cells slab-at lf-ictor-rule ;
-\ Type d of the block (from 0): its declaration, name, type, record, its
-\ number of indices and the domain of its index i.
-: lf-ind-type-at ( d -- decl ) lf-ind-member ;
+\ Type d of the block (from 0): its declaration (an auxiliary type's in
+\ lf-ind-aux-decls), name, type, record, its number of indices and the
+\ domain of its index i.
+: lf-ind-aux-decl ( d -- decl ) lf-ind-in-types@ - lf-ind-aux-decls slab-at ;
+: lf-ind-type-at ( d -- decl )
+  dup lf-ind-in-types@ < if lf-ind-member else lf-ind-aux-decl then ;
 : lf-ind-tname ( d -- name ) lf-ind-type-at lf-idecl-name @ ;
 : lf-ind-ty ( d -- addr ) lf-ind-type-cells slab-at ;
 : lf-ind-n ( d -- n ) lf-ind-ty lf-ty-indices @ ;
@@ -177,8 +204,10 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 : lf-ind-take ( header -- )
   lf-ind-state /lf-ind erase
   dup lf-hdr-first lf-more-field lf-ind-state lf-ind-first !
-  dup lf-hdr-types lf-more-field lf-ind-state lf-ind-types !
-  dup lf-hdr-ctors lf-more-field lf-ind-state lf-ind-ctors !
+  dup lf-hdr-types lf-more-field dup lf-ind-state lf-ind-types !
+  lf-ind-state lf-ind-in-types !
+  dup lf-hdr-ctors lf-more-field dup lf-ind-state lf-ind-ctors !
+  lf-ind-state lf-ind-in-ctors !
   lf-hdr-recs lf-more-field lf-ind-state lf-ind-recs ! ;
 : lf-ind-count? ( n -- flag ) lf-input-count upto? ;
 : lf-ind-counts? ( -- flag )
@@ -215,8 +244,8 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 \ names the first type in its all list; the member names are distinct.
 \ Anything else cannot come from lean4export: invalid.
 : lf-ind-kind-at ( k -- kind )
-  dup lf-ind-types@ < if drop lf-kind-inductive exit then
-  lf-ind-types@ lf-ind-ctors@ + < if lf-kind-constructor else lf-kind-recursor then ;
+  dup lf-ind-in-types@ < if drop lf-kind-inductive exit then
+  lf-ind-in-types@ lf-ind-in-ctors@ + < if lf-kind-constructor else lf-kind-recursor then ;
 : lf-ind-member-ok? ( k -- flag )
   dup lf-ind-kind-at swap lf-ind-member
   dup lf-idecl-more @ 0<> over lf-idecl-block @ lf-ind-type lf-idecl-block @ = and
@@ -264,7 +293,7 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 \ one name are left to rule C4 (step 9 of check-block.fs): Lean's replay
 \ looks both up by name and its kernel rejects the duplicate.
 : lf-ind-name-at ( k -- name ) lf-ind-member lf-idecl-name @ ;
-: lf-ind-ctor-at? ( k -- flag ) lf-ind-types@ dup lf-ind-ctors@ + within ;
+: lf-ind-ctor-at? ( k -- flag ) lf-ind-in-types@ dup lf-ind-in-ctors@ + within ;
 : lf-ind-clash? ( k i -- flag )
   2dup lf-ind-ctor-at? swap lf-ind-ctor-at? and if 2drop false exit then
   lf-ind-name-at swap lf-ind-name-at lf-name-same? ;
@@ -348,21 +377,22 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   0 lf-ind-state lf-ind-count ! lf-ind-inner-run
   lf-ind-state lf-ind-count @ 0<> swap ;
 
-\ The scope of tasks 5.2.1a, 5.2.1b and 5.2.5a: one type or several (a
-\ mutual block), and no nested occurrence (5.2.5b). Lean's elim_nested_inductive
+\ Nested occurrences (task 5.2.5b). Lean's elim_nested_inductive
 \ (inductive.cpp 1023-1055, 1133-1176) replaces, anywhere in a
 \ constructor's type after its parameters, each application I Ds is of an
 \ inductive type I of its environment whose parametric arguments Ds
 \ mention a type being declared, and checks the block as a mutual one
-\ with I's types copied in. The test is Lean's, syntactic, on every
-\ application node there (Lean's replace descends into a function that
-\ is no such occurrence, so its partial applications are tested too):
-\ its head a constant naming an earlier inductive type of the input
-\ (Lean's environment holds at most those), the block's type in one of
-\ its first numParams arguments -- in any argument when that type is not
-\ usable, its numParams then not known to be Lean's -- so a nested block
-\ is never checked as another one; the test may only find more.
-\ Occurrences in a parameter's domain are left to C1, which rejects them.
+\ with I's types copied in (inductive-nested.fs, at step 4). The audit
+\ only notes whether the block may have one (lf-ind-maybe), by a test
+\ that may find more than Lean's, never less: on every application node
+\ there (Lean's replace descends into a function that is no such
+\ occurrence, so its partial applications are tested too), its head a
+\ constant naming an earlier inductive type of the input (Lean's
+\ environment holds at most those), the block's type in one of its first
+\ numParams arguments -- in any argument when that type is not usable,
+\ its numParams then not known to be Lean's. A block without one is
+\ checked as before, unchanged. Occurrences in a parameter's domain are
+\ left to C1, which rejects them.
 \ An earlier inductive type named name: its declaration, or -1.
 : lf-ind-earlier ( name -- d ) ['] lf-slot-type? lf-env-limit lf-env-first ;
 \ The leading arguments of an application of n arguments, headed by the
@@ -386,11 +416,13 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   over lf-ind-type-node? if 2drop lf-ind-no-nest exit then
   swap lf-ind-const-name lf-ind-earlier dup 0< if 2drop lf-ind-no-nest exit then
   over swap lf-ind-parametric lf-ind-some-arg? ;
-\ The walk: an application node that is a nested occurrence ends it,
-\ unsupported; every node's children are visited.
+\ The walk: at an application node that may be a nested occurrence, the
+\ block is noted and the node's children are not visited; every other
+\ node's are.
+: lf-ind-maybe! ( -- ) true lf-ind-state lf-ind-maybe ! ;
 : lf-ind-nest-app ( first second walk -- outcome )
   dup walk-node @ lf-ind-nested? ok-then? 0= if >r 2drop drop r> exit then
-  if 2drop drop outcome-unsupported else walk-children then ;
+  if 2drop drop lf-ind-maybe! outcome-ok else walk-children then ;
 : lf-ind-nest-dispatch ( first second walk tag -- outcome )
   dup lf-tag-app = if drop lf-ind-nest-app else lf-ind-dispatch then ;
 : lf-ind-nest-visit ( walk -- outcome ) lf-terms ['] lf-ind-nest-dispatch walk-visit ;
@@ -419,7 +451,7 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   lf-ind-after-params dup lf-ind-fields-flags dup ok? 0= if nip exit then
   drop lf-ind-nests ;
 \ A block whose constructors mention the type at most once each, as the
-\ head of their result, is in scope at once (task 5.2.1a's test): no
+\ head of their result, is not nested at once (task 5.2.1a's test): no
 \ field mentions the type, and no other occurrence can be nested.
 : lf-ind-plain? ( j -- flag outcome )
   lf-ind-ctor-type dup lf-ind-occurrences ok-then? 0= if nip false swap exit then
@@ -430,18 +462,25 @@ lf-walk-room context-walk2: lf-ind-pair-walker
     i lf-ind-plain? ok-then? 0= if false swap unloop exit then
     0= if false outcome-ok unloop exit then
   loop true outcome-ok ;
-: lf-ind-out-of-scope ( reason -- outcome )
-  lf-ind-first@ swap lf-ind-site lf-diag-block-scope lf-diag-note outcome-unsupported ;
-3 constant lf-scope-nested
 : lf-ind-ctors-scoped ( -- outcome )
   lf-ind-ctors@ 0 ?do i lf-ind-ctor-scoped dup ok? 0= if unloop exit then drop loop
   outcome-ok ;
 : lf-ind-scoped ( -- outcome )
   lf-ind-ctors-plain? ok-then? 0= if exit then if outcome-ok exit then
-  lf-ind-ctors-scoped dup outcome-unsupported =
-  if drop lf-scope-nested lf-ind-out-of-scope then ;
+  lf-ind-ctors-scoped ;
+\ Whether the audit noted a possible nested occurrence.
+: lf-ind-maybe? ( -- flag ) lf-ind-state lf-ind-maybe @ ;
 \ Whether some field of the block mentions its type (after the audit).
 : lf-ind-recursive? ( -- flag ) lf-ind-state lf-ind-is-rec @ ;
+\ The same flags again on a translated block (task 5.2.5b), as Lean's
+\ add_inductive_fn computes them on the auxiliary block: every
+\ constructor's fields, the auxiliary types' too, mentioning any of its
+\ types.
+: lf-ind-ctor-flags ( j -- outcome ) lf-ind-after-params lf-ind-fields-flags ;
+: lf-ind-flags-again ( -- outcome )
+  false lf-ind-state lf-ind-is-rec ! false lf-ind-state lf-ind-is-refl !
+  lf-ind-ctors@ 0 ?do i lf-ind-ctor-flags dup ok? 0= if unloop exit then drop loop
+  outcome-ok ;
 
 \ The audit, in this order: B0; unsafe members; U2, then V1, on every
 \ term; the scope. (A member named Nat.pow or Nat.shiftLeft was

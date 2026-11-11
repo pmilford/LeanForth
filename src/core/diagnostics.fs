@@ -83,8 +83,8 @@ require ../lib/lib.fs
 \ unfolding (unknown), and Lean's rejections of inductive.cpp and of
 \ Lean's replay (rejected).
 62 constant lf-diag-block-shape        \ B0 (invalid): the block's first member, 0
-63 constant lf-diag-block-scope        \ unsupported: the first member, 3 nested
-                                       \ (1 and 2 are no longer given)
+63 constant lf-diag-block-scope        \ unsupported: the first member, a reason
+                                       \ (1, 2 and 3 are no longer given)
 64 constant lf-diag-needs-unfolding    \ K1 (unknown): the node Lean may unfold, 0
 65 constant lf-diag-reserved-prefix    \ T0: the block's first member, 0
 66 constant lf-diag-nonuniform         \ C1: the occurrence's node, its binder depth
@@ -131,6 +131,9 @@ require ../lib/lib.fs
 \ Quotients (plan task 5.2.4, kernel/quot.fs).
 95 constant lf-diag-quot-eq            \ Q1 (rejected): the declaration, 0
 96 constant lf-diag-quot-type          \ Q1 (rejected): the declaration, 0
+\ Nested inductive blocks (plan task 5.2.5b, kernel/inductive-nested.fs).
+97 constant lf-diag-nested-local       \ N2 (rejected): the occurrence's node, its binders
+98 constant lf-diag-nested-shape       \ N3 (rejected): the node or name, 0
 
 begin-structure /lf-diag
   field: lf-diag-code       \ reason code; lf-diag-none while clear
@@ -312,6 +315,10 @@ create lf-diag-catalogue
     s" rejected: Eq is not the type quotients need (Q1)" lf-diag-entry,
   lf-diag-quot-type
     s" rejected: not one of Lean's four quotient constants (Q1)" lf-diag-entry,
+  lf-diag-nested-local
+    s" rejected: a nested occurrence's parameter has a local variable (N2)" lf-diag-entry,
+  lf-diag-nested-shape
+    s" rejected: ill-formed nested inductive declaration (N3)" lf-diag-entry,
   lf-diag-none s" unknown code" lf-diag-entry,
 : lf-diag-end? ( code entry -- flag ) lf-diag-entry-code tuck = swap lf-diag-none = or ;
 \ The entry of code, or the last entry.
