@@ -125,6 +125,18 @@ proj.unfold-proj-app	accepted	accepted	J1	5.2.2
 proj.unfold-proj-app-wrong	declTypeMismatch	rejected	J1	5.2.2	
 proj.unfold-proj-app-stuck	accepted	accepted	J1	5.2.2	
 proj.unfold-proj-app-stuck-wrong	declTypeMismatch	rejected	J1	5.2.2	
+proj.step8-second-field	accepted	accepted	J1	5.2.2	
+proj.step8-second-field-wrong	declTypeMismatch	rejected	J1	5.2.2	
+proj.step8-pair-params	accepted	accepted	J1	5.2.2	
+proj.step8-pair-params-wrong	declTypeMismatch	rejected	J1	5.2.2	
+proj.unfold-proj-app-delta	accepted	accepted	J1	5.2.2	
+proj.unfold-proj-app-delta-wrong	declTypeMismatch	rejected	J1	5.2.2	
+proj.cheap-step3	accepted	accepted	J1	5.2.2	
+proj.cheap-step3-wrong	declTypeMismatch	rejected	J1	5.2.2	
+proj.step8-nested	accepted	accepted	J1	5.2.2	
+proj.step8-nested-wrong	declTypeMismatch	rejected	J1	5.2.2	
+proj.step8-args-differ	accepted	accepted	J1	5.2.2	
+proj.step8-args-differ-wrong	declTypeMismatch	rejected	J1	5.2.2	
 iota.prop-structure-stuck	declTypeMismatch	rejected	R1 R3	5.2.2	
 k.eq-variable-proof	accepted	accepted	R2	5.2.1c	
 k.eq-different-ends	declTypeMismatch	rejected	R2	5.2.1c	

@@ -82,10 +82,19 @@
 \ full, invalid or rejected keeps nothing. LeanForth's doubt record
 \ (defeq.fs) cannot arise where the pair caches work: they work only
 \ when the comparison has a typer (in a check it always has), and a
-\ failure is kept only without doubt. Beyond Lean's, LeanForth also
-\ keeps a whnf_core result reached by iota or quotient reduction or from
-\ a let variable (Lean returns at 533 and 503 without keeping): a memo
-\ of the same function, which changes no answer.
+\ failure is kept only without doubt. The whnf_core table's entries are
+\ not quite Lean's: LeanForth also keeps a result reached by iota or
+\ quotient reduction or from a let variable (Lean returns at 533 and 503
+\ without keeping), and keeps none for the head of an application whose
+\ whole spine its iota hook reduces (Lean's whnf_core of the head, 513,
+\ keeps one at 547). Every entry is the full whnf_core of its key, so a
+\ full visit gets the same result either way. A cheap visit (cheap_proj,
+\ plan task 5.2.2) reads the table too, as Lean's does (490-493), so where
+\ the tables differ it may get the full result where Lean computes the
+\ cheap one, or the reverse: the comparison then takes another path
+\ through is_def_eq_core's steps 5-9, with other fuel. Every probe gave
+\ Lean's verdict (review rvPSE L1, its projection probes t1-t6 and wrong
+\ twins); the table is left as it is until a verdict differs.
 \
 \ When the caches are on: in a check of the checked environment
 \ (lf-whnf-env?), with the derivation log off (with it on every step is
