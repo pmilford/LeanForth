@@ -609,19 +609,45 @@ lf-tag-str lf-skel-level < and
 \ ---------------------------------------------------------------------------
 \ Inference (mixed-infer.fs): the key's skeleton and scope (see the
 \ header), or false for a node read beyond the scope, a chained lambda,
-\ or one whose skeleton cannot be kept.
-: lf-ci-top ( -- identity true | false )
-  lf-minfer-context-depth @ 1- lf-minfer-fvar-cell @ lf-term-identity ;
-: lf-ci-scope ( loose -- scope true | false )
-  ?dup 0= if 0 true exit then lf-minfer-context-depth @ > if false else lf-ci-top then ;
+\ or one whose skeleton cannot be kept. Lean keys an inferred type by the
+\ term inferred, which infer_lambda, infer_pi and infer_let instantiated
+\ with the free variables of the binders they opened (type_checker.cpp
+\ 125-171, 208-230; looked up 332-334, kept 356, in an expr_map compared
+\ with ==, type_checker.h 26-30): so a term that names only outer binders
+\ hits under any inner one. A node read under the scope is keyed so: by
+\ its copy closed with the scope's free variables (mixed-infer.fs's
+\ closing, on the job's fuel, which mixed-open.fs remembers per scope, so
+\ that a node's closing costs about one visit once its parent's is done;
+\ plan task 6.5.5), a closed node by itself; the scope part of the key is
+\ then 0. A closing that runs out of fuel or room ends the visit so, as
+\ every step of inference does; one that fails otherwise (a dead free
+\ variable) keys nothing, and inference meets the node uncached. So does
+\ every open node while scratch is not kept (lf-caches-keep?, below: a
+\ small store, whose room the copies would take, and whose discarded
+\ scratch the entries would miss anyway), and a loose bound variable,
+\ whose type inference reads from its free variable's entry at once
+\ (infer_fvar, 93-99), as Lean's would after opening. A node without a
+\ key gives ( ok false ), a failed closing ( outcome false ).
+defer lf-ci-room? ( -- flag )
+: lf-ci-short ( outcome -- outcome )
+  dup outcome-exhausted = over outcome-full = or 0= if drop outcome-ok then ;
+: lf-ci-copy ( node -- id true | outcome false )
+  lf-ci-room? 0= if drop outcome-ok false exit then
+  dup lf-term-tag@ lf-tag-bvar = if drop outcome-ok false exit then
+  lf-minfer-close ok-then? 0= if lf-ci-short false exit then
+  lf-closed-id if true else outcome-ok false then ;
+: lf-ci-skeleton ( node -- id true | outcome false )
+  dup lf-term-facts 0= if drop outcome-ok false exit then
+  lf-bits-loose if drop lf-ci-copy else nip true then ;
 \ Only a node inference may read (lf-minfer-source?: a source node, or
 \ any node aside) is looked up or kept, so a node it refuses as invalid
 \ meets that refusal, never a cached type (review rvCACHE L2).
-: lf-ci-ready? ( node -- id scope true | false )
-  lf-caches-on? 0= if drop false exit then
-  lf-minfer-chain @ 0< 0= if drop false exit then
-  dup lf-minfer-source? 0= if drop false exit then
-  lf-term-facts 0= if false exit then lf-bits-loose lf-ci-scope dup 0= if nip then ;
+: lf-ci-none ( node -- ok false ) drop outcome-ok false ;
+: lf-ci-ready? ( node -- id scope true | outcome false )
+  lf-caches-on? 0= if lf-ci-none exit then
+  lf-minfer-chain @ 0< 0= if lf-ci-none exit then
+  dup lf-minfer-source? 0= if lf-ci-none exit then
+  lf-ci-skeleton if 0 true else false then ;
 : lf-ci-table ( -- cache )
   lf-minfer-aside @ if lf-cache-infer-only else lf-cache-infer then ;
 : lf-ci-key ( id scope -- ) 0 0 lf-key! ;
@@ -634,8 +660,11 @@ lf-tag-str lf-skel-level < and
 : lf-ci-miss ( node frames id scope -- ... frames next )
   2 pick tuck frame-save frame-save lf-cache-refund
   ['] lf-ci-store ['] lf-minfer-visit-step lf-ci-open ;
+: lf-ci-fail ( node frames outcome -- -1 outcome frames 0 ) rot drop no-result rot 0 ;
+: lf-ci-uncached ( node frames outcome -- ... frames next )
+  dup ok? if drop lf-minfer-visit-step else lf-ci-fail then ;
 : lf-ci-visit ( node frames -- ... frames next )
-  over lf-ci-ready? 0= if lf-minfer-visit-step exit then
+  over lf-ci-ready? 0= if lf-ci-uncached exit then
   2dup lf-ci-key lf-ci-table lf-cache-found if >r 2drop r> lf-cache-hit exit then
   lf-ci-miss ;
 ' lf-ci-visit is lf-minfer-entry
@@ -657,5 +686,6 @@ lf-tag-str lf-skel-level < and
   lf-cref-count @ lf-cref-capacity lf-caches-cref-room lf-room? and ;
 ' lf-caches-keep? is lf-minfer-keeps?
 ' lf-caches-keep? is lf-mconvert-keeps?
+' lf-caches-keep? is lf-ci-room?
 \ The result tables emptied when a job starts.
 ' lf-caches-clear is lf-minfer-fresh

@@ -1,9 +1,19 @@
 \ Untrusted mixed-term shift: add an amount to every bound variable at or
 \ above a cutoff, rebuilding the term. Structural transformation only; no
-\ proof judgment.
+\ proof judgment. It is Lean's lift_loose_bvars (expr.cpp 448-463, a
+\ replace; compact-store plan step S6, plan task 6.5.5): a zero amount
+\ gives the term itself (449), a binary node whose data word
+\ (core/terms.fs) shows no loose bound variable at or above the cutoff
+\ comes back unchanged without a visit below it (455), and every other
+\ binary node's result is kept for the rest of the call in the replace
+\ memo (replace-memo.fs, keyed by the node and its cutoff) and given back
+\ when the node is met again there; a node whose children come back
+\ unchanged is kept (update_app, update_binding). Each visit costs one
+\ unit of fuel, a kept or remembered node only its own.
 \ State: one job record, lf-mshift-job (fields lf-shiftjob-*): the pass's
-\ frames (fuel, nesting, and the cutoff as context) and the amount; a
-\ member of the checker context (lib/context.fs), whose frames a set-up
+\ frames (fuel, nesting, and the cutoff as context) and the amount, and
+\ the replace memo lf-mshift-memo; members of the checker context
+\ (lib/context.fs), whose frames a set-up
 \ word prepares in every context. Single-threaded within one context: the
 \ instantiate pass shifts its replacement on this record, which a shift in
 \ progress refuses. Exclude raw mutation, resets and concurrent access
@@ -17,6 +27,7 @@ require ../core/local-context.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
 require ./mixed-rebuild.fs
+require ./replace-memo.fs
 
 max-n constant lf-mshift-max
 
@@ -29,6 +40,9 @@ begin-structure /lf-shiftjob
 end-structure
 0 lf-shiftjob-frames 0<> [if] .( mixed-shift.fs: frames must come first) cr abort [then]
 /lf-shiftjob context-record: lf-mshift-job
+\ The replace memo, freed with the context.
+/lf-rmemo context-record: lf-mshift-memo
+:noname ( -- ) lf-mshift-memo lf-rmemo-release ; context-teardown
 
 : lf-mshift-frames ( -- frames ) lf-mshift-job lf-shiftjob-frames ;
 \ Fuel left after a shift; mixed-infer continues with it.
@@ -59,10 +73,29 @@ end-structure
     lf-tag-str of lf-rebuild-keep endof
     lf-tag-symbolic-sort of lf-rebuild-keep endof
     >r lf-rebuild-bad r> endcase ;
+\ Binary nodes (see the header): unchanged by the data word, given back
+\ by the memo, or rebuilt as mixed-rebuild.fs's passes are, then kept.
+: lf-mshift-clean? ( node frames -- flag )
+  swap lf-term-data@ if lf-data-loose swap frame-context @ > 0= else drop false then ;
+: lf-mshift-known? ( node frames -- result true | false )
+  frame-context @ lf-mshift-memo lf-rmemo@ ;
+: lf-mshift-keep ( result node frames -- ) frame-context @ lf-mshift-memo lf-rmemo! ;
+: lf-mshift-update ( r1 node r2 -- result outcome )
+  over >r lf-replace-update dup ok? if over r@ lf-mshift-frames lf-mshift-keep then r> drop ;
+: lf-mshift-updated ( r2 outcome frames -- result outcome frames 0 )
+  ['] lf-mshift-update lf-rebuild-joined ;
+: lf-mshift-second ( r1 outcome frames -- second frames next | -1 outcome frames 0 )
+  ['] lf-mshift-updated lf-rebuild-next ;
+: lf-mshift-rebuild ( node frames -- ... frames next )
+  2dup lf-rebuild-stuck? if nip >r lf-rebuild-deep r> 0 exit then
+  ['] lf-mshift-second lf-rebuild-first ;
+: lf-mshift-pair ( node frames -- ... frames next )
+  2dup lf-mshift-clean? if lf-replace-same exit then
+  2dup lf-mshift-known? if lf-replace-recall else lf-mshift-rebuild then ;
 \ The visit's first step (lib/frame.fs).
 : lf-mshift-visit ( node frames -- ... frames next )
   over lf-term-valid? lf-rebuild-tag
-  dup lf-term-binary-tag? if drop lf-rebuild-binary else over >r lf-mshift-leaf r> 0 then ;
+  dup lf-term-binary-tag? if drop lf-mshift-pair else over >r lf-mshift-leaf r> 0 then ;
 \ The frames and their visitor, set up once in every context; their stack
 \ is freed with the context.
 : lf-mshift-setup ( -- ) ['] lf-mshift-visit lf-mshift-frames frame-init ;
@@ -77,11 +110,18 @@ end-structure
 \ recorded as a diagnostic.
 : lf-mshift-explain ( outcome -- outcome )
   lf-mshift-frames lf-mshift-site lf-diag-frames ;
+\ A zero amount gives the node itself, unvisited, as Lean's
+\ lift_loose_bvars does (expr.cpp 449). Each call begins and ends the
+\ memo's call.
 : lf-mshift-borrow ( frames -- flag ) frame-fuel @ lf-mshift-frames frame-budget ;
+: lf-mshift-begin ( -- ) 0 lf-mshift-memo lf-rmemo-begin ;
+: lf-mshift-end ( outcome -- outcome ) dup lf-mshift-memo lf-rmemo-end ;
+: lf-mshift-run ( node -- result outcome )
+  lf-mshift-begin 0 lf-mshift-frames frame-run lf-mshift-explain lf-mshift-end ;
 : lf-mshift-inside ( node amount frames -- result outcome )
+  over 0= if 2drop outcome-ok exit then
   dup lf-mshift-borrow 0= if drop 2drop lf-rebuild-invalid exit then
-  >r lf-mshift-amount ! 0 lf-mshift-frames frame-run lf-mshift-explain
-  lf-mshift-fuel @ r> frame-fuel ! ;
+  >r lf-mshift-amount ! lf-mshift-run lf-mshift-fuel @ r> frame-fuel ! ;
 
 \ Shift a live mixed root. Validation and traversal share fuel; invalid
 \ input, running out of fuel (exhausted) and running out of room (full) are
@@ -96,7 +136,7 @@ end-structure
 : lf-mshift-args? ( cutoff amount -- flag ) 0< swap 0< or 0= ;
 : lf-mshift-copy ( index identity cutoff -- index identity status )
   lf-mshift-amount @ 0= if drop outcome-ok exit then
-  nip lf-mshift-frames lf-rebuild-run ;
+  nip lf-mshift-begin lf-mshift-frames lf-rebuild-run lf-mshift-end ;
 : lf-mshift-root ( index identity cutoff -- index identity status )
   >r 2dup lf-mshift-frames lf-rebuild-audit dup ok?
   if drop r> lf-mshift-copy else r> drop nip nip lf-rebuild-none then ;

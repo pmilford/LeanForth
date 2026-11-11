@@ -81,12 +81,15 @@ T{ term-serial -> serial-before @ }T
 T{ 0 cid @ 9 rid @ 100 lf-mixed-instantiate -> -1 0 outcome-invalid }T
 0 2 term-second!
 T{ lf-term-count @ -> rootid @ }T
-\ Exhaust after allocations, discard output, and never reuse the old identity.
+\ Exhaust after allocations, discard output, and never reuse the old identity:
+\ the audit takes 4, the root's visit 1, the lowered variable's 1 (a new
+\ leaf), and the target's visit finds no fuel (its replacement, lifted by
+\ 0, would be the replacement itself: expr.cpp 449).
 setup
-T{ 2 3 lf-term-app -> 7 true }T
+T{ 3 2 lf-term-app -> 7 true }T
 term-serial rootid !
 term-serial serial-before !
-T{ 7 rootid @ 2 2 lf-term-identity drop 7 lf-mixed-instantiate -> -1 0 outcome-exhausted }T
+T{ 7 rootid @ 2 2 lf-term-identity drop 6 lf-mixed-instantiate -> -1 0 outcome-exhausted }T
 T{ lf-term-count @ -> 8 }T
 T{ term-serial serial-before @ > -> true }T
 term-serial outid !
@@ -160,13 +163,19 @@ T{ 8 rootid @ 9 rid @ 18 lf-mixed-instantiate lf-minst-fuel @ ->
   13 term-serial outcome-ok 0 }T
 \ A chain that fills the store (node 0 is bvar 0, node k is lam(k-1, 0)) is
 \ visited 64 frames deep down to node 0, the target, whose replacement
-\ cannot be copied into the full store (full): audits 127 and 1 visits, the
-\ walk 64, the shift 1.
+\ node 1, lifted by 0 (itself: expr.cpp 449), makes node 1 a new lambda
+\ that the full store cannot hold (full): audits 127 and 3 visits, the
+\ walk 64 and node 1's body.
 : chain ( -- root identity )
   lf-term-reset lf-ssession-begin 0= abort" session" 0 lf-term-bvar 2drop
   63 0 do i 0 lf-term-lam 0= abort" chain" drop loop 63 dup lf-term-identity drop ;
-T{ chain 0 0 lf-term-identity drop 1000 lf-mixed-instantiate
-  lf-minst-fuel @ lf-mshift-fuel @ lf-term-count @ -> -1 0 outcome-full 807 807 64 }T
+T{ chain 1 1 lf-term-identity drop 1000 lf-mixed-instantiate
+  lf-minst-fuel @ lf-term-count @ -> -1 0 outcome-full 805 64 }T
+\ With bound variable 0 for itself every node comes back unchanged
+\ (update_app, update_binding): the root, after 128 audit visits and 127
+\ walk visits (each lambda's body once).
+T{ chain 0 0 lf-term-identity drop 1000 lf-mixed-instantiate nip lf-minst-fuel @
+  -> 63 outcome-ok 745 }T
 \ A loose variable above the target under a binder is lowered there too:
 \ fun _ : c => #0 #2 with #0 replaced by #0 becomes fun _ : c => #0 #1.
 setup

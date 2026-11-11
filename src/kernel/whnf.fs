@@ -206,12 +206,23 @@ lf-walk-room context-walk2: lf-whnf-scan
 : lf-whnf-scanned ( outcome -- flag outcome )
   dup outcome-unknown = if drop true outcome-ok exit then
   dup ok? 0= if lf-whnf-scan lf-whnf-site lf-diag-walk then false swap ;
-\ The answer Lean reads from a node's cached data, when known (the caches
-\ keep it, kernel/caches.fs, which sets the hook): the walk is then not
-\ run and costs nothing, as Lean's flag.
+\ The answer Lean reads from a node's cached data (expr.h:
+\ has_loose_bvars, has_fvar), as the term store keeps it in the node's
+\ data word (core/terms.fs, ADR 0016 C1; plan task 6.5.5): a loose bound
+\ variable for both walks, a free variable for has_fvar's. The walk is
+\ then not run and costs nothing, as Lean's flag; the walks read no
+\ entry of a free variable, so a dead one counts as the word counts it.
+\ A node without data asks the hook (the caches' memo, kernel/caches.fs;
+\ by default never known), and only then is walked.
 defer lf-whnf-known ( node visit -- flag true | false )
 :noname ( node visit -- false ) 2drop false ; is lf-whnf-known
+: lf-whnf-open-word? ( data visit -- flag )
+  ['] lf-whnf-scan-visit = if lf-data-loose 0<> exit then
+  dup lf-data-loose 0<> swap lf-data-fvar? or ;
+: lf-whnf-word ( node visit -- flag true | false )
+  swap lf-term-data@ if swap lf-whnf-open-word? true else drop false then ;
 : lf-whnf-scan-run ( node frames visit -- flag outcome )
+  2 pick over lf-whnf-word if >r 2drop drop r> outcome-ok exit then
   2 pick over lf-whnf-known if >r 2drop drop r> outcome-ok exit then
   swap >r r@ frame-fuel @ lf-whnf-scan walk-budget drop
   0 swap lf-whnf-scan walk-run-pair lf-whnf-scanned

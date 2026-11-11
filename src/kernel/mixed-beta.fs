@@ -106,10 +106,12 @@ require ./mixed-shift.fs
 \ their records busy, so that every later pass refuses as invalid, and
 \ leaves in the term store whatever the pass appended. The code that
 \ catches it must discard those nodes (reset the store, or restore
-\ lf-term-count) and then make the records idle again.
+\ lf-term-count) and then make the records idle again; their replace
+\ memos (replace-memo.fs) are emptied, as the failed call's entries are
+\ stale.
 : lf-mixed-rebuild-reset ( -- )
   lf-mbeta-frames frame-reset lf-minst-frames frame-reset lf-mshift-frames frame-reset
-  lf-open-reset ;
+  lf-minst-memo lf-rmemo-empty lf-mshift-memo lf-rmemo-empty lf-open-reset ;
 
 \ Host stacks. The three passes run on their frames' explicit stacks
 \ (lib/frame.fs), whatever the depth (plan task 6.2.0): a beta step runs
