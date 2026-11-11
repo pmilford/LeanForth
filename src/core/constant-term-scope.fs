@@ -4,8 +4,9 @@
 \ diagnostics.
 \ State: one paired walk record, lf-cts-walker, whose items are a node and
 \ the number of binders available at it; a member of the checker context
-\ (lib/context.fs). Single-threaded within one context; raw mutation and
-\ lifecycle changes during a call are excluded.
+\ (lib/context.fs); its marks are constant-term-boundary.fs's.
+\ Single-threaded within one context; raw mutation and lifecycle changes
+\ during a call are excluded.
 
 require ../lib/lib.fs
 require ./constant-term-boundary.fs
@@ -21,9 +22,10 @@ lf-walk-room context-walk2: lf-cts-walker
 
 \ Visiting a node at the depth in walk-context. Pi and lambda bind in their
 \ body (second child) only, so a node shared under different binders is
-\ revisited at each depth. A depth that cannot grow (max-n) is full, like a
-\ push without room, whatever fuel is left (ADR 0008). An unbound variable
-\ and a full binder depth are recorded as diagnostics.
+\ checked again only at a smaller depth than any it was checked at (the
+\ marks of constant-term-boundary.fs). A depth that cannot grow (max-n) is
+\ full, like a push without room, whatever fuel is left (ADR 0008). An
+\ unbound variable and a full binder depth are recorded as diagnostics.
 : lf-cts-unbound ( index depth -- outcome )
   lf-cts-site lf-diag-out-of-scope lf-diag-note outcome-invalid ;
 : lf-cts-bvar ( first second walk -- outcome )
@@ -44,8 +46,10 @@ lf-walk-room context-walk2: lf-cts-walker
     lf-tag-proj of lf-cts-leaf endof  lf-tag-lit of lf-cts-leaf endof
     lf-tag-str of lf-cts-leaf endof
     lf-tag-let of lf-cts-leaf endof  walk-bad-tag endcase ;
-: lf-cts-visit ( walk -- outcome ) lf-terms ['] lf-cts-dispatch walk-visit ;
+: lf-cts-once ( first second walk tag -- outcome ) ['] lf-cts-dispatch lf-walk-once ;
+: lf-cts-visit ( walk -- outcome ) lf-terms ['] lf-cts-once walk-visit ;
 : lf-cts-run ( root depth -- outcome )
+  lf-cts-walker lf-walk-marking
   ['] lf-cts-visit lf-cts-walker walk-run-pair lf-cts-walker lf-cts-site lf-diag-walk ;
 
 \ The whole graph is first validated by lf-cterm-check; the scope walk then
@@ -58,8 +62,9 @@ lf-walk-room context-walk2: lf-cts-walker
 
 \ Check a live root whose outer depth (binders available around it) is
 \ nonnegative (no fixed limit: plan task 6.2.0); the walk may enter
-\ further binders. Each visit costs one unit of fuel, including repeated
-\ DAG visits. Negative fuel or a negative depth is invalid. Unknown names and declaration
+\ further binders. Each visit costs one unit of fuel, a repeated DAG visit
+\ too, though a node is checked again only at a smaller depth. Negative
+\ fuel or a negative depth is invalid. Unknown names and declaration
 \ types are not examined; nothing is allocated and nothing is accepted.
 : lf-cts-depth? ( depth -- flag ) 0< 0= ;
 : lf-constant-term-scope ( index identity depth fuel -- status )

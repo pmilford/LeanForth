@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# The command line's four Lean fixtures with pinned Lean: Lean accepts
+# The command line's five Lean fixtures with pinned Lean: Lean accepts
 # tests/cli/chain.lean (larger than check --record holds), unfold.lean (a
 # proof that needs a definition unfolded), irrelevance.lean (one that needs proof
-# irrelevance) and inductive.lean (an inductive
+# irrelevance), inductive.lean (an inductive
 # type, a theorem proved with its recursor and a definition computed with
-# it), each without axioms, and scripts/export.sh reproduces the committed
+# it) and sharing.lean (proofs that share subterms along 2^40 paths, whose
+# wrong twins it rejects), each without axioms, and scripts/export.sh reproduces the committed
 # exports and their manifests byte for byte. LEAN names the pinned Lean
 # 4.35.0 binary.
 set -eu
@@ -15,10 +16,11 @@ temporary=$(mktemp -d)
 cleanup() {
   local name
   for name in LeanForthChain.olean LeanForthUnfold.olean LeanForthInductive.olean \
-    LeanForthIrrelevance.olean \
+    LeanForthIrrelevance.olean LeanForthSharing.olean \
     chain.ndjson chain.ndjson.manifest.json unfold.ndjson unfold.ndjson.manifest.json \
     inductive.ndjson inductive.ndjson.manifest.json \
-    irrelevance.ndjson irrelevance.ndjson.manifest.json; do
+    irrelevance.ndjson irrelevance.ndjson.manifest.json \
+    sharing.ndjson sharing.ndjson.manifest.json; do
     rm -f "$temporary/$name"
   done
   rmdir "$temporary"
@@ -44,5 +46,7 @@ reproduce chain LeanForthChain chain chain
 reproduce unfold LeanForthUnfold impliesSelf Implies impliesSelf
 reproduce inductive LeanForthInductive Two.cases Two.cases Two.swap
 reproduce irrelevance LeanForthIrrelevance irrelevant irrelevant
-printf '%s\n' 'Lean accepts chain, impliesSelf, Two.cases, Two.swap and irrelevant;' \
-  'scripts/export.sh reproduces the four exports and their manifests.'
+reproduce sharing LeanForthSharing sharing sharedAnd sharedBeta sharing
+printf '%s\n' 'Lean accepts chain, impliesSelf, Two.cases, Two.swap, irrelevant,' \
+  'sharedAnd, sharedBeta and sharing, and rejects their wrong twins;' \
+  'scripts/export.sh reproduces the five exports and their manifests.'

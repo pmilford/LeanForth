@@ -249,6 +249,9 @@ REJECTION_CODES = {
 OUTCOMES = {"ok": "accepted", "rejected": "rejected", "unknown": "unknown",
             "unsupported": "unsupported", "invalid": "invalid",
             "exhausted": "exhausted", "full": "full"}
+# The diagnostic of a declaration Lean's replay skips (plan task 5.2.7):
+# rejected in its slot, printed and counted as skipped.
+SKIPPED_CODE = 97
 # What an accepted declaration prints (src/kernel/check-declaration.fs).
 ACCEPTED_LABEL = "accepted (experimental, not independently audited); axioms: none"
 # Rows that rest on an axiom outside the allowlist (plan task 5.3.1): NOT PROVED.
@@ -426,7 +429,13 @@ def checker_row(case, lean, expected, rule, measured, verdict, known):
     """Check one row against Lean's verdict and the table (known: the rows
     allowed another failure); give its line for the summary."""
     outcome, code, first, _, step = measured
-    if outcome == "rejected":
+    if verdict == "skipped" or code == SKIPPED_CODE:
+        # Skipped (plan task 5.2.7): rejected unchecked, as Lean's replay
+        # skips an unsafe or partial declaration, which Lean's kernel accepts.
+        if (outcome, code, verdict, lean) != ("rejected", SKIPPED_CODE, "skipped", "accepted"):
+            raise Mismatch(f"{case}: skipped as {outcome}, code {code}, printed {verdict!r}")
+        outcome = "skipped"
+    elif outcome == "rejected":
         if code not in REJECTION_CODES:
             raise Mismatch(f"{case}: rejected without a rejection rule (code {code})")
         named, kind = REJECTION_CODES[code]
@@ -449,8 +458,12 @@ def checker_row(case, lean, expected, rule, measured, verdict, known):
     if outcome == expected and step not in rule_steps(rule):
         raise Mismatch(f"{case}: ended at step {step}, where rule {rule} cannot")
     accepted = UNLISTED_LABEL if case in UNLISTED_ROWS else ACCEPTED_LABEL
-    label = accepted if outcome == "accepted" else [o for o, n in OUTCOMES.items()
-                                                          if n == outcome][0]
+    if outcome == "accepted":
+        label = accepted
+    elif outcome == "skipped":
+        label = "skipped"
+    else:
+        label = [o for o, n in OUTCOMES.items() if n == outcome][0]
     if verdict != label:
         raise Mismatch(f"{case}: printed {verdict!r}, not {label!r}")
     return f"{case} {outcome} {rule} {step}"

@@ -52,6 +52,7 @@ create codes 1 , 2 , 3 , 4 , 5 , 6 , 7 , 8 , 9 , 10 , 11 , 12 , 13 , 14 , 15 , 1
   40 , 41 , 42 , 43 , 50 , 51 , 52 , 53 , 54 , 55 , 56 , 57 , 58 , 59 , 60 , 61 ,
   62 , 63 , 64 , 65 , 66 , 67 , 68 , 69 , 70 , 71 , 72 , 73 , 74 , 75 , 76 , 77 , 78 ,
   79 , 80 , 81 , 82 , 83 , 84 , 85 , 86 , 87 , 88 , 89 , 90 , 91 , 92 , 93 , 94 , 95 , 96 ,
+  97 , 98 , 99 ,
 here codes - 1 cells / constant code-count
 : named? ( code -- flag ) lf-diag-name s" unknown code" compare 0<> ;
 : all-named? ( -- flag ) true code-count 0 ?do i cells codes + @ named? and loop ;
@@ -65,7 +66,7 @@ T{ lf-diag-fuel lf-diag-name s" fuel exhausted" compare -> 0 }T
   lf-diag-catalogue true code-count 0 ?do swap i listed? rot and loop
   swap lf-diag-entry-code lf-diag-none = and ;
 T{ catalogue-codes? -> true }T
-T{ 99 lf-diag-name s" unknown code" compare -> 0 }T
+T{ 100 lf-diag-name s" unknown code" compare -> 0 }T
 
 \ Stores: full, a spent serial, and a store that fails its own checks.
 : fill-terms ( -- ) lf-term-capacity lf-term-count @ ?do 0 lf-term-bvar must drop loop ;

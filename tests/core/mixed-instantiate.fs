@@ -320,4 +320,24 @@ T{ made @ pi-parts nip pi-parts nip fields -> lf-tag-bvar 0 0 }T
 \ A let variable would need a let term: unsupported.
 T{ 1 0 lf-lctx-let drop subst ! 1000 lf-open-fuel ! 1 subst 1 lf-mk-pi
   -> -1 outcome-unsupported }T
+\ A shared node is rebuilt once per offset, as Lean's replace caches it
+\ (replace_fn.cpp): M = #0 #0 shared twice in M M, with x for #0, gives
+\ one node x x for both, in five visits (M M, M, #0, #0, then M again: its
+\ result), not seven; the result shares as the input does.
+open-setup
+2 2 lf-term-app drop constant twice-0
+twice-0 twice-0 lf-term-app drop constant pair
+: halves ( node -- first second ) fields rot drop ;
+T{ pair 1 inst nip lf-open-fuel @ -> outcome-ok 995 }T
+T{ pair 1 inst drop halves = -> true }T
+T{ pair 1 inst drop halves drop fields -> lf-tag-app x x }T
+\ What a pass kept is its own: the next pass, with y for #0, gets y y.
+T{ 1000 lf-open-fuel ! pair subst cell+ 1 lf-instantiate drop halves drop fields
+  -> lf-tag-app y y }T
+\ The same node at another offset is another result: in (fun _ : Sort =>
+\ M) M, M under the binder keeps its #0 (bound there), M outside gets x.
+1 twice-0 lf-term-lam drop twice-0 lf-term-app drop constant beta-pair
+: shared-parts ( node -- inner outer ) halves >r halves nip r> ;
+T{ beta-pair 1 inst drop shared-parts drop -> twice-0 }T
+T{ beta-pair 1 inst drop shared-parts nip fields -> lf-tag-app x x }T
 bye
