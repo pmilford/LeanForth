@@ -263,6 +263,7 @@ below it).
 | 44 | invalid | protected declarations must be in a namespace |
 | 45 | invalid | LeanForth text runs only while Forth interprets, never while it compiles |
 | 46 | invalid | a character no line may hold (a control or format character, or no UTF-8) |
+| 47 | full | out of room: the search order holds more wordlists than a run can save |
 | 50 | unsupported | not supported yet: natural-number literals need literal nodes (ADR 0017 section 14) |
 | 51 | unsupported | not supported yet: designed in ADR 0017 but not built yet |
 | 52 | unsupported | not supported yet: holes are filled by the elaborator (plan task 8.3.1) |
@@ -290,17 +291,32 @@ reachable; on Gforth 1.0, `->x` then threw −21.
 ## Limits
 
 Measured on Gforth 1.0 and 0.7.3, which give byte-identical results.
-Per run: the term store's 64 nodes (equal subterms share a node, except a
-step with a label or note), 64 levels, 64 names in 2,048 bytes, 32
-constant references, 1,024 declarations, 1,024 name entries in 65,536 bytes,
-64 open binders, 512 values per declaration, 64 labels and notes in
-4,096 bytes, 16 namespace scopes and open namespaces at once, 1,024 known
-namespaces in 32,768 bytes, 8 universe parameters per declaration and 8
-universe arguments per constant, numbers of at most 9 digits (numeric parts of names: 18 on a 64-bit host), lines of
-at most 1,023 characters in a file. A source position is the line times
-65,536 plus the column; on a 32-bit host lines beyond 32,767 wrap. Group
-words leave at least 65,536 address units of dictionary unused (a margin
-before the host's end, not a capacity).
+There are two kinds of limit.
+
+The checker's stores (terms, levels, names, constant references) live in
+the heap and grow up to a limit that each context sets
+(`lf-term-capacity!`, `lf-level-capacity!`, `lf-name-capacity!`,
+`lf-cref-capacity!`). A new context's limit is 64 terms (equal subterms
+share a node, except a step with a label or note), 64 levels, 64 names and
+32 constant references; `tests/author/terms.fs`, the harness the round
+trips use, raises each to 1,000,000. Going over a limit is outcome full,
+never accepted.
+
+The authoring words' own tables are fixed per run, and making them
+growable is plan task 8.2.1b: 1,024 declarations, 1,024 name entries in
+65,536 bytes of spelling, 1,024 known namespaces in 32,768 bytes, 16
+namespace scopes and open namespaces at once, names of at most 256 bytes
+(a group name 240), 512 values per declaration, 64 open binders, 64 labels
+and notes in 4,096 bytes, 8 universe parameters per declaration and 8
+universe arguments per constant, a search order of at most 16 wordlists at
+the start of a run (error 47), numbers of at most 9 digits (numeric parts
+of names: 18 on a 64-bit host), lines of at most 1,023 characters in a
+file. So a Lean export of more than 1,024 declarations does not read back
+through `print --lf` text yet (error 66 at the declaration that overflows).
+A source position is the line times 65,536 plus the column; on a 32-bit
+host lines beyond 32,767 wrap. Group words leave at least 65,536 address
+units of dictionary unused (a margin before the host's end, not a
+capacity).
 
 ## Tests
 

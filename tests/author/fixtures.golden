@@ -836,7 +836,7 @@ end q
 def N.t1
   0 Type
 :=
-  bar
+  root: bar
 end N.t1
 
 def N.t2
@@ -854,7 +854,7 @@ end N.t3
 def N.t4
   0 Type
 :=
-  bar
+  root: bar
 end N.t4
 
 def M.t5
@@ -878,6 +878,6 @@ end A.B.t7
 def P.t8
   0 Type
 :=
-  q
+  root: q
 end P.t8
 round trip: terms, names, kinds, labels and notes same; printed text same
