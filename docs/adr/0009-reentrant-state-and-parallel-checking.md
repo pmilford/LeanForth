@@ -224,6 +224,25 @@ Still global by design and read-only during checks: catalogues, rule
 tables, `htab` hook records, the derivation log's options (set only
 outside jobs), deferred words set while loading.
 
+**Amendment 2, review rvS7 (2026-11-11).** The worker count is cut to the
+cores and the pool's queue (`ck-jobs!`); the pool is started before the
+run, so a refusal leaves the whole run to the serial one, with the cause
+in the resource report; a run with no worker left ends as the serial run
+stops (declarations past the stop are dropped from the ready heap first).
+Threads run only on x86-64 (`lf-sched-host-ok`, read once from
+`/proc/sys/kernel/arch`; unreadable counts as another architecture): the
+publisher writes a slot's fields and then its final state, and checks read
+the state first, which is correct with x86-64's store order but has no
+memory barrier; cooperative and serial hosts are not affected. Known and
+left: (m1) the early-read test runs before the hand-over, so an early read
+first noted during the publisher's re-checks is published as invalid
+(fail closed, never accepted; not reached by any test), a rerun would
+need a test between the re-checks and the publication; (m3) a declaration
+has about 23 readiness edges for builtin names, about 400 MB on all of
+Mathlib, one barrier would replace them; (m4) the scratch name tier is not
+rolled back per check, so name ids differ between workers and the tier
+grows, harmless because only equality uses them, found by `lookups.
+
 **Evidence.** Output (text and JSON but `measured`) identical to `--jobs
 1` on all 388 test exports at 3 workers and on the first 1M lines of
 `Init` (9,202 declarations) at 4; full `Init`: see ADR 0012 Amendment 2.

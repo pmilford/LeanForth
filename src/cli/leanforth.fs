@@ -987,7 +987,8 @@ end-structure
 : cli-fast-option ( c-addr u -- ) 2drop ;
 : cli-lf-option ( c-addr u -- ) 2drop true cli-state opt-lf ! ;
 : cli-any-lean-option ( c-addr u -- ) 2drop cli-any-lean ;
-\ --jobs N, N at least 1 (more than the cores runs as many threads as cores).
+\ --jobs N, N at least 1; check-run.fs cuts it to the cores. Each worker holds a
+\ copy of the input, so memory grows with the workers made.
 : cli-jobs-value ( c-addr u n -- )
   dup 1 < if drop c" not a number of jobs" cli-wrong exit then
   cli-state opt-jobs ! 2drop ;
