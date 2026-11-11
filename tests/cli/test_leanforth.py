@@ -66,6 +66,7 @@
 
 Run with GFORTH set to the Forth binary (the Makefile does this).
 """
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -384,7 +385,7 @@ class ExitCodes(unittest.TestCase):
                      "RvNest.R.count_mk"):
             self.assertIn(f"{name}: {LABEL}", lines)
         recursor = ("  undecided: a recursor reduction LeanForth does not port yet; "
-                    "diagnostic 81 at whnf lf-whnf: 17 0")
+                    "diagnostic 81 at whnf lf-whnf: 35 0")
         self.expect(["check", "--no-manifest", UNKNOWN], 2,
                     [NO_MANIFEST, f"IE.L: {LABEL}", f"IE.L.nil: {LABEL}", f"IE.L.cons: {LABEL}",
                      "IE.W: unknown", recursor, "IE.W.mk: unknown", recursor,
@@ -1401,7 +1402,7 @@ class Resources(unittest.TestCase):
         # The engine bin/leanforth ran: the file name of GFORTH here.
         self.assertEqual(rest[6], "  engine: " + os.path.basename(GFORTH))
         self.assertEqual(rest[7:], [
-            "  input: 6 declarations, 46 term nodes, 3 levels, 5 constant references, 31 names",
+            "  input: 6 declarations, 92 term nodes, 3 levels, 5 constant references, 31 names",
             "  fuel: 518 steps in all, at most 20000000 per declaration",
             "  most fuel used:",
             "         252 Two.cases (accepted)",
@@ -1519,40 +1520,67 @@ class Fuel(unittest.TestCase):
         self.assertEqual(run("check", "--fuel", str(2**53), INDUCTIVE)[0], 4)
 
 
-def both_ways(copy, *args):
-    """check --json with the feed's switch (src/import/feed.fs, lf-feed-copy!)
-    set: True copies every expression into the term store, False (the
-    default) reads the stage in place. The report without "measured", and
-    without what only the way of feeding sets: the count of term numbers,
-    and the numbers of a diagnostic, which may name a term by its number."""
-    flag = "true" if copy else "false"
-    result = subprocess.run([GFORTH, "src/main.fs", "-e", f"{flag} lf-feed-copy! cli-main",
-                             "check", "--json", *args], cwd=ROOT, stdin=subprocess.DEVNULL,
-                            capture_output=True, timeout=300)
+def pinned_digest(*args):
+    """check --json's report as a digest: without "measured", and without
+    what depends on how the input is numbered (the count of term numbers,
+    and the numbers of a diagnostic, which may name a term by its
+    number); with the exit status."""
+    result = subprocess.run([GFORTH, "src/main.fs", "-e", "cli-main", "check", "--json", *args],
+                            cwd=ROOT, stdin=subprocess.DEVNULL, capture_output=True,
+                            timeout=300)
     got = json.loads(result.stdout.decode())
     got.pop("measured")
     if got["input"]:
         got["input"].pop("terms")
     for declaration in got["declarations"]:
         declaration.get("diagnostic", {}).pop("numbers", None)
-    return result.returncode, got
+    blob = json.dumps([result.returncode, got], sort_keys=True).encode()
+    return hashlib.sha256(blob).hexdigest()[:16]
 
 
-class BothWays(unittest.TestCase):
+# The digests of these exports' reports when every expression was copied
+# into the term store (src/import/feed.fs's lf-feed-copy!, compact-store
+# plan step S5 parts 1-3, removed by parts 4-5 once the input read in
+# place gave the same report for each: every declaration's verdict, fuel
+# and diagnostic, the counts and the exit status; agent S5B, 2026-11-11).
+# nested.ndjson is re-pinned after merging main 5a3b68d, whose parallel
+# checking (step S7) gave List.brecOn.go 2,669 fuel instead of 2,656 on
+# main itself; the rest of its report is unchanged.
+PINNED = {
+    "tests/reference/composition.ndjson": "53507f9eebd13ee8",
+    "tests/reference/constant-fixture.ndjson": "1ae9a75744aa7830",
+    "tests/cli/chain.ndjson": "5f268f6342014eed",
+    "tests/cli/inductive.ndjson": "cb594a9d697af8f9",
+    "tests/cli/unfold.ndjson": "84920fb18c4506f5",
+    f"{CASES}/composition-wrong-argument.ndjson": "e283b4fe171d6bbf",
+    f"--no-manifest {CASES}/composition-wrong-argument.ndjson": "2d3176886b7884ef",
+    f"--no-manifest {CASES}/composition-postulate.ndjson": "1f4d8a5a677428b3",
+    f"--no-manifest {CASES}/composition-loose.ndjson": "e5669e82c7613d92",
+    f"--no-manifest {CASES}/composition-unsafe.ndjson": "8a350adcc9f9ff88",
+    "--no-manifest README.md": "32fd051f20a34f99",
+    "tests/cli/no-such.ndjson": "a6ff9a5e43c01e00",
+    "--no-manifest tests/cli/composition-huge-number.ndjson": "610a34eed3aa4777",
+    "--no-manifest tests/core/reexport/kinds.ndjson": "da50c52cd51dc76f",
+    f"--fuel 0 {FIXTURE}": "7ab8e9fa317ce0a5",
+    f"--no-manifest {EMPTY_BLOCK}": "09614e87bede9e1b",
+    "tests/cli/sharing.ndjson": "68363e141b2e8738",
+    "tests/cli/sharing-universe.ndjson": "97cc7be21885e626",
+    "tests/cli/nested.ndjson": "f3c312b3d9c8d6de",  # re-pinned, see above
+    "tests/cli/irrelevance.ndjson": "7e969559755d7151",
+    f"--no-manifest {CASES}/composition-literal.ndjson": "fc105a0a3fbe0c49",
+    "--no-manifest tests/core/check-block-cases/primitive.string-opaque-expansion.ndjson":
+        "b00d24d1acac23df",
+}
+
+
+class AsCopied(unittest.TestCase):
     """The input read in place (compact-store plan step S5; core/terms.fs's
-    view) and copied into the term store, the way before it, give the same
-    report for every export: each declaration's verdict, fuel and
-    diagnostic, the counts and the exit status. Only the count of term
-    numbers differs (the copies of lets and projections)."""
+    view) gives the report the copy into the term store, the way before
+    it, gave for each export (PINNED)."""
 
     def test_same(self):
-        more = [["tests/cli/sharing.ndjson"], ["tests/cli/sharing-universe.ndjson"],
-                ["tests/cli/nested.ndjson"], ["tests/cli/irrelevance.ndjson"],
-                ["--no-manifest", f"{CASES}/composition-literal.ndjson"],
-                ["--no-manifest",
-                 "tests/core/check-block-cases/primitive.string-opaque-expansion.ndjson"]]
-        for args in CASES_ALL + more:
-            self.assertEqual(both_ways(True, *args), both_ways(False, *args), args)
+        for args, want in PINNED.items():
+            self.assertEqual(pinned_digest(*args.split()), want, args)
 
 
 class Jobs(unittest.TestCase):

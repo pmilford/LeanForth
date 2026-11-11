@@ -78,6 +78,8 @@ defer dump-sub ( term -- )
     lf-tag-constant of dump-const endof
     lf-tag-app of s" (app " d dup lf-term-first@ dump-sub s"  " d lf-term-second@ dump-sub
       s" )" d endof
+    lf-tag-projection of s" (projection " d dup lf-term-first@ dump-sub s"  " d
+      lf-term-second@ dump-sub s" )" d endof
     lf-tag-lam of s" (lam" d dup dump-binder s"  " d dup lf-term-first@ dump-sub s"  " d
       lf-term-second@ dump-sub s" )" d endof
     lf-tag-pi of s" (pi" d dup dump-pi-binder s"  " d dup lf-term-first@ dump-sub s"  " d

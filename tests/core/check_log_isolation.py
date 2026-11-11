@@ -111,16 +111,12 @@ STORES = {
     # for (lf-log-fvar).
     "lf-tag-fvar", "lf-fvar-live?", "lf-fvar-depth",
     # Projections (plan task 5.2.2), read only: a projection leaf's tag, so
-    # that the copier keeps the leaf and a projection's step has the rule
-    # form (lf-log-node-rule).
-    "lf-tag-proj", "lf-proj-leaf?",
+    # that the copier keeps the leaf (a projection node, like a let term's,
+    # is a binary node whose step has the rule form, lf-log-node-rule).
+    "lf-tag-proj",
     # Literals (plan task 5.2.3), read only: the leaves' tags, natural-number
     # and string, kept by the copier.
     "lf-tag-lit", "lf-tag-str",
-    # Let terms (plan task 4.2.3), read only: the leaf's tag, kept by the
-    # copier, and whether an application's function applies a let leaf, so
-    # that a let term's step has the rule form (lf-log-node-rule).
-    "lf-tag-let", "lf-let-fn?",
 }
 LOG_USES = FORTH | CONTEXT | STORES
 LOAD_TIME = {None, "lf-log-entry,"}

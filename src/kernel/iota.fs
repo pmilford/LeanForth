@@ -367,11 +367,12 @@ require ./quot.fs
 \ ---------------------------------------------------------------------------
 \ Projection reduction (plan task 5.2.2, ADR 0015 J1; reduce_proj
 \ 444-454, reduce_proj_core 420-441, from whnf_core 504-510): a spine
-\ whose head is a projection leaf (core/projections.fs) has its first
-\ argument e put in Lean's whnf; a constructor application of the leaf's
-\ structure with more than numParams + i arguments gives argument
-\ numParams + i, the field, applied to the spine's arguments after e, and
-\ whnf_core goes on with that; anything else leaves the spine as it is.
+\ whose head is a projection (core/projections.fs; alone, a spine of no
+\ arguments) has the projection's term e put in Lean's whnf; a
+\ constructor application of its leaf's structure with more than
+\ numParams + i arguments gives argument numParams + i, the field,
+\ applied to the spine's arguments, and whnf_core goes on with that;
+\ anything else leaves the spine as it is.
 \ In a whnf_core visit with cheap_proj (whnf.fs), e is put in whnf_core,
 \ still cheap, instead of whnf (lf-whnf-proj-call, 450-453).
 : lf-iota-field-of ( c k -- field|-1 )
@@ -389,9 +390,10 @@ require ./quot.fs
   >r swap r> lf-iota-projected-to outcome-ok ;
 : lf-iota-proj-made ( c outcome frames -- ... frames next )
   >r r@ frame-restore -rot ok-then? 0= if nip r> lf-whnf-failed exit then
-  over lf-whnf-head lf-iota-proj-field ok-then? 0= if nip r> lf-whnf-failed exit then
+  over lf-whnf-head lf-proj-leaf lf-iota-proj-field ok-then?
+  0= if nip r> lf-whnf-failed exit then
   dup 0< if 2drop -1 outcome-ok r> 0 exit then
-  swap dup lf-iota-n 1- lf-iota-extra r> 0 ;
+  swap dup lf-iota-n lf-iota-extra r> 0 ;
 \ A string literal c first becomes its constructor form in whnf
 \ (reduce_proj_core 421-422; kernel/string-literals.fs, a child visit).
 : lf-iota-proj-string? ( c outcome -- flag ) ok? if lf-str-leaf? else drop false then ;
@@ -399,7 +401,7 @@ require ./quot.fs
   2 pick 2 pick lf-iota-proj-string?
   if nip ['] lf-iota-proj-made lf-str-whnf-call else lf-iota-proj-made then ;
 : lf-iota-proj ( app frames -- ... frames next )
-  over over frame-save swap dup lf-iota-n 0 lf-iota-arg swap
+  over over frame-save swap lf-whnf-head lf-proj-struct swap
   ['] lf-iota-proj-back lf-whnf-proj-call ;
 
 \ reduce_proj_core for defeq.fs's step 8 (lazy_delta_proj_reduction,
@@ -417,7 +419,7 @@ require ./quot.fs
 \ reduce_recursor (type_checker.cpp 393-407): quot_reduce_rec first
 \ (quot.fs), then inductive_reduce_rec.
 : lf-iota ( app frames -- ... frames next )
-  over lf-whnf-head lf-proj-leaf? if lf-iota-proj exit then
+  over lf-whnf-head lf-proj? if lf-iota-proj exit then
   over lf-quot-rule ok-then? 0= if rot drop swap lf-whnf-failed exit then
   dup 0< 0= if swap lf-quot-reduce exit then drop
   over lf-iota-recursor ok-then? 0= if rot drop swap lf-whnf-failed exit then

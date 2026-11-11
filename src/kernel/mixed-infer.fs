@@ -242,7 +242,7 @@ lf-walk-room context-walk2: lf-minfer-scan
 : lf-minfer-scan-bvar ( first second walk -- outcome )
   nip tuck walk-context @ - over walk-arg @ max swap walk-arg ! outcome-ok ;
 : lf-minfer-scan-binary ( first second walk tag -- outcome )
-  over walk-context @ swap lf-tag-app <> - swap walk-children-at ;
+  over walk-context @ swap lf-term-binder-tag? - swap walk-children-at ;
 : lf-minfer-scan-dispatch ( first second walk tag -- outcome )
   dup lf-term-binary-tag? if lf-minfer-scan-binary exit then
   lf-tag-bvar = if lf-minfer-scan-bvar else drop 2drop outcome-ok then ;
@@ -529,15 +529,14 @@ defer lf-minfer-walk ( node -- type status )
   lf-minfer-aside @ if nip swap lf-minfer-instantiate r> 0 exit then
   r@ frame-save swap dup r@ frame-save swap r@ frame-save r@ lf-minfer-marked
   r> ['] lf-minfer-app-arg lf-minfer-call-marked ;
-\ A projection (plan task 5.2.2): the application of a projection leaf
-\ to its structure term (core/projections.fs), typed by Lean's infer_proj
-\ in infer-proj.fs, which sets this hook while loading; unknown before.
+\ A projection (plan task 5.2.2): a projection leaf and its structure
+\ term (core/projections.fs), typed by Lean's infer_proj in
+\ infer-proj.fs, which sets this hook while loading; unknown before.
 : lf-minfer-proj-unset ( leaf e frames -- -1 status frames 0 )
   nip nip outcome-unknown no-result rot 0 ;
 defer lf-minfer-proj ( leaf e frames -- ... frames next )
 ' lf-minfer-proj-unset is lf-minfer-proj
 : lf-minfer-app ( function argument frames -- ... frames next )
-  2 pick lf-proj-leaf? if lf-minfer-proj exit then
   tuck frame-save ['] lf-minfer-app-fn lf-minfer-call ;
 
 \ Source nodes lie below the term count at the start, as the job's mark
@@ -769,34 +768,33 @@ defer lf-minfer-let-one ( v lam frames -- ... frames next )
 :noname ( v lam frames -- ... frames next )
   over lf-term-tag@ lf-tag-lam <> if lf-minfer-let-bad exit then
   lf-minfer-deciding? if lf-minfer-let-check else lf-minfer-let-open then ; is lf-minfer-let-one
-: lf-minfer-let ( fn lam frames -- ... frames next )
-  >r lf-minfer-context-depth @ r@ frame-save swap lf-term-second@ swap r> lf-minfer-let-one ;
-\ An application, or a let term: an application of an application of a
-\ let leaf.
-: lf-minfer-application ( function argument frames -- ... frames next )
-  2 pick lf-let-fn? if lf-minfer-let else lf-minfer-app then ;
+: lf-minfer-let ( v lam frames -- ... frames next )
+  >r lf-minfer-context-depth @ r@ frame-save r> lf-minfer-let-one ;
 
 \ Infer an original source node; nodes made by this inference are output
 \ data, never input. Constructors outside this subset are unknown, and
 \ recorded as unsupported with their tag.
 : lf-minfer-unsupported ( tag -- tag -1 status )
   dup 0 lf-diag-unsupported lf-minfer-note -1 outcome-unknown ;
-\ A let leaf is never a term of its own (core/let-terms.fs): malformed.
+\ A projection leaf is never a term of its own (core/projections.fs):
+\ malformed.
 : lf-minfer-stray ( first -- -1 status ) 0 lf-diag-malformed lf-minfer-note -1 outcome-invalid ;
 : lf-minfer-leaf ( first tag -- type status )
   case lf-tag-symbolic-sort of lf-minfer-sort-type endof
     lf-tag-constant of lf-minfer-constant endof
     lf-tag-bvar of lf-minfer-bvar endof
     lf-tag-lit of drop lf-reduce-nat-type endof
-    lf-tag-let of lf-minfer-stray endof
+    lf-tag-proj of lf-minfer-stray endof
     lf-tag-str of drop lf-str-type endof
     nip lf-minfer-unsupported rot endcase ;
 : lf-minfer-other ( first second frames tag -- -1 status frames 0 tag )
   >r >r 2drop r> r> lf-minfer-unsupported 2swap 0 swap ;
 : lf-minfer-binary ( first second tag frames -- ... frames next )
-  swap case lf-tag-app of lf-minfer-application endof
+  swap case lf-tag-app of lf-minfer-app endof
     lf-tag-lam of lf-minfer-lam endof
     lf-tag-pi of lf-minfer-pi endof
+    lf-tag-let of lf-minfer-let endof  lf-tag-let-nondep of lf-minfer-let endof
+    lf-tag-projection of lf-minfer-proj endof
     lf-minfer-other endcase ;
 : lf-minfer-dispatch ( first second tag frames -- ... frames next )
   over lf-term-binary-tag? if lf-minfer-binary else >r nip lf-minfer-leaf r> 0 then ;

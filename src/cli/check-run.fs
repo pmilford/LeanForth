@@ -126,14 +126,14 @@ create ck-capacities
 here ck-capacities - /ck-capacity / constant ck-capacities#
 
 \ The checker's switches in the context a run starts in, each a cell
-\ ( -- addr ): term sharing, the scratch room, copying the input, the
-\ audit memo's mode, the caches. A parallel check copies them into each
-\ worker, so that its checks run as the serial run's would.
+\ ( -- addr ): term sharing, the scratch room, the audit memo's mode,
+\ the caches. A parallel check copies them into each worker, so that its
+\ checks run as the serial run's would. (The switch that copied the input
+\ was retired with the copy, compact-store plan step S5's parts 4-5.)
 : ck-memo-mode ( -- addr ) lf-audit-state lf-aud-mode ;
 : ck-caches-off ( -- addr ) lf-caches lf-caches-off ;
 create ck-switches
-  ' lf-term-share-off , ' lf-input-room-cell , ' lf-input-copying , ' ck-memo-mode ,
-  ' ck-caches-off ,
+  ' lf-term-share-off , ' lf-input-room-cell , ' ck-memo-mode , ' ck-caches-off ,
 here ck-switches - 1 cells / constant ck-switches#
 
 \ A clock reading: wall and CPU time, doubles.

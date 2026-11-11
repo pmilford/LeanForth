@@ -814,11 +814,12 @@ declarations through the input's name index (ADR 0012 E5, ADR 0016 C4;
 `tests/core/check-declaration-ndjson.fs` checks every lookup of the
 fixtures against the scan). The expressions are read in place since
 compact-store plan step S5 (the term store's input view,
-`src/core/terms.fs`; ADR 0016's note): only a let, a projection, an mdata
-expression and the terms above one are copied, as are the levels and
-declarations, into the context's stores, whose capacity settings the
-feed raises to fit; the copy of every expression, the way before, stays
-behind `lf-feed-copy!`. An inductive block gives
+`src/core/terms.fs`; ADR 0016's note), lets and projections too since
+its parts 4-5: only an mdata expression and the terms above one are
+copied, as are the levels and declarations, into the context's stores,
+whose capacity settings the feed raises to fit; the copy of every
+expression, the way before, is gone (`tests/cli/test_leanforth.py`'s
+AsCopied pins the reports it gave). An inductive block gives
 no declaration; its types, constructors and recursors do (refused by the
 audit, U1). Universe parameters join the session's level context first
 (at most 64: `Init` uses 62). Outcomes: ok; invalid for a stage that is

@@ -14,6 +14,10 @@ require ./print-levels.fs
 \ A node's tag when it is a valid term; a term with a given tag.
 : lf-pp-tag ( term -- tag true | false ) lf-term-read if 2drop true else false then ;
 : lf-pp-is? ( term tag -- flag ) swap lf-pp-tag if = else drop false then ;
+\ An application, or a projection, which prints as its leaf applied to
+\ the projected term (core/projections.fs): Prod.1 p for Lean's p.1.
+: lf-pp-app-tag? ( tag -- flag ) dup lf-tag-app = swap lf-tag-projection = or ;
+: lf-pp-applied? ( term -- flag ) lf-pp-tag if lf-pp-app-tag? else false then ;
 \ Unchecked: k bodies down a chain, k functions down a spine. A negative
 \ k (only after a forbidden reset from a sink) counts as none.
 : lf-pp-bodies ( node k -- node' ) 0 max 0 ?do lf-term-second@ loop ;
@@ -154,7 +158,7 @@ defer lf-pp-same-step ( a b frames -- ... frames next )
   0 swap begin lf-pp-spend 0= if drop outcome-exhausted exit then
     >r r@ lf-pp-chain-step r> swap 0= until drop outcome-ok ;
 : lf-pp-spine-step ( node n -- node' n' true | node n false )
-  over lf-tag-app lf-pp-is? if swap lf-term-first@ swap 1+ true else false then ;
+  over lf-pp-applied? if swap lf-term-first@ swap 1+ true else false then ;
 : lf-pp-spine ( term -- head n outcome )
   0 begin lf-pp-spend 0=
   if outcome-exhausted exit then lf-pp-spine-step 0= until outcome-ok ;
@@ -205,7 +209,7 @@ defer lf-pp-same-step ( a b frames -- ... frames next )
 \ are unknown or too few, or when the parameter after the last argument is
 \ implicit or instance implicit; otherwise show only explicit arguments.
 \ Unchecked: app's spine was read by lf-pp-spine.
-: lf-pp-head ( app -- head n ) 0 begin over lf-term-tag@ lf-tag-app = while swap
+: lf-pp-head ( app -- head n ) 0 begin over lf-term-tag@ lf-pp-app-tag? while swap
   lf-term-first@ swap 1+ repeat ;
 : lf-pp-loud? ( kind -- flag ) dup lf-binder-implicit = swap lf-binder-instance = or ;
 : lf-pp-explicit? ( head n -- flag )

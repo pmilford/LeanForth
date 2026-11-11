@@ -156,24 +156,28 @@ fc-case zeta-head
 fc-decl before def safe expect 0 TYPE S s z VALUE S z
 fc-decl check def safe probe 0 TYPE S s z VALUE A E 0 P S s z S s z L S s z V 0 V 0 S z
 T{ probe-run expected? -> true outcome-ok }T
-\ Malformed let terms are invalid in whnf and in inference: a let leaf
-\ applied to a Sort and a Pi (no lambda), applied to one Sort, and alone;
-\ the audit refuses a leaf whose flag is not 0 or 1.
+\ Malformed let terms are invalid in whnf and in inference: a let whose
+\ second child is a Pi (no lambda), of either flag; so is a projection
+\ leaf alone. The audit refuses such lets, and a projection whose first
+\ child is no projection leaf, but passes a well-formed one.
 : sort0 ( -- node ) 0 fc-sort ;
 : sort1 ( -- node ) lf-level-tag-succ 0 0 fc-level fc-sort ;
-: leaf ( -- node ) 0 fc-let-leaf ;
-: bad-let ( -- node )
-  leaf sort0 lf-tag-app fc-binary sort0 sort0 lf-tag-pi fc-binary lf-tag-app fc-binary ;
-: half-let ( -- node ) leaf sort0 lf-tag-app fc-binary ;
+: pi00 ( -- node ) sort0 sort0 lf-tag-pi fc-binary ;
+: bad-let ( -- node ) sort0 pi00 lf-tag-let fc-binary ;
+: bad-let-nd ( -- node ) sort0 pi00 lf-tag-let-nondep fc-binary ;
+: leaf ( -- node ) lf-tag-proj 0 0 lf-term-add must ;
+: bad-proj ( -- node ) sort0 sort0 lf-tag-projection fc-binary ;
+: good-proj ( -- node ) leaf sort0 lf-tag-projection fc-binary ;
 : whnf-of ( node -- outcome ) 1000 lf-minfer-start-env lf-minfer-frames lf-whnf-on nip ;
 : infer-of ( node -- outcome ) 1000 lf-minfer-start-env lf-minfer-walk nip ;
 : audit-of ( node -- outcome ) dup lf-term-identity must 1000 lf-cterm-check ;
 fc-case malformed-let
-T{ bad-let whnf-of half-let whnf-of leaf whnf-of
+T{ bad-let whnf-of bad-let-nd whnf-of leaf whnf-of
    -> outcome-invalid outcome-invalid outcome-invalid }T
-T{ bad-let infer-of half-let infer-of leaf infer-of
+T{ bad-let infer-of bad-let-nd infer-of leaf infer-of
    -> outcome-invalid outcome-invalid outcome-invalid }T
-T{ leaf audit-of lf-tag-let 2 0 lf-term-add must audit-of -> outcome-ok outcome-invalid }T
+T{ bad-let audit-of bad-let-nd audit-of bad-proj audit-of good-proj audit-of
+   -> outcome-invalid outcome-invalid outcome-invalid outcome-ok }T
 \ Inference (infer_let): the type of let x : Sort 1 := Sort 0; fun y : x
 \ => y is the let term let x := Sort 0; x -> x (mk_pi keeps a variable
 \ the type mentions); of let x : Sort 1 := Sort 0; Sort 0 it is Sort 1
@@ -194,6 +198,16 @@ T{ wrong-let type-of nip lf-diag-code@ -> outcome-rejected lf-diag-let-value-apa
 T{ wrong-let aside-of ok? swap sort0 same? -> true true }T
 T{ 0 sort1 sort0 sort0 fc-let 1 sort1 sort0 sort0 fc-let same? dead-let dead-let same?
    -> false true }T
+\ A let and a projection end a spine (Lean's get_app_fn stops at
+\ Expr.letE and Expr.proj); their data words count both children at the
+\ node's own depth: let x : Sort 1 := Sort 0; #1 and the projection of #0
+\ each have the loose range 1 (the let's body sees one binder more).
+: range-of ( node -- range ) lf-term-data@ must lf-data-loose ;
+: outer-let ( -- node ) 0 sort1 sort0 1 fc-bvar fc-let ;
+: var-proj ( -- node ) leaf 0 fc-bvar lf-tag-projection fc-binary ;
+T{ dead-let sort0 lf-tag-app fc-binary lf-mhead-spine -> dead-let 1 }T
+T{ var-proj sort0 lf-tag-app fc-binary lf-mhead-spine -> var-proj 1 }T
+T{ outer-let range-of var-proj range-of dead-let range-of -> 1 1 0 }T
 
 \ has_loose_bvars and has_fvar, as is_def_eq_core and lazy delta ask them,
 \ read from the node's data word for no fuel (plan task 6.5.5; Lean's

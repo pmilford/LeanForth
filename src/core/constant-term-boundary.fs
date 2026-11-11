@@ -73,7 +73,7 @@ lf-walk-room context-walk: lf-cterm-walker
     lf-tag-constant of lf-cterm-const-data endof
     lf-tag-fvar of 2drop 0 false true lf-data endof
     lf-tag-proj of 2drop 0 endof  lf-tag-lit of 2drop 0 endof
-    lf-tag-str of 2drop 0 endof  lf-tag-let of 2drop 0 endof
+    lf-tag-str of 2drop 0 endof
     >r 2drop lf-data-unknown r> endcase ;
 ' lf-cterm-leaf-data is lf-term-leaf-data
 
@@ -102,13 +102,18 @@ lf-walk-room context-walk: lf-cterm-walker
 \ time, so it is never held: more visits, never another outcome.
 2 cells context-slab: lf-input-marks
 2 cells context-record: lf-mark-spare
-: lf-input-marks-erase ( -- ) 0 lf-input-marks slab-at lf-term-base 2 cells * erase ;
+: lf-input-marks-erase ( -- )
+  0 lf-input-marks slab-at lf-term-input-units 2 cells * erase ;
 : lf-input-marks-ready ( -- outcome )
-  lf-term-base lf-input-marks slab-reserve dup ok? if lf-input-marks-erase then ;
+  lf-term-input-units lf-input-marks slab-reserve dup ok? if lf-input-marks-erase then ;
 ' lf-input-marks-ready is lf-term-view-hook
+\ One unit per tier record (terms.fs's lf-term-input-unit); a projection's
+\ leaf, which has none, gets the spare.
+: lf-mark-spared ( -- unit ) lf-mark-spare dup 2 cells erase ;
 : lf-input-mark-at ( node -- unit )
+  lf-term-input-unit 0= if lf-mark-spared exit then
   dup lf-input-marks slab-capacity u<
-  if lf-input-marks slab-at else drop lf-mark-spare dup 2 cells erase then ;
+  if lf-input-marks slab-at else drop lf-mark-spared then ;
 \ A node's unit (two cells), input or store.
 : lf-mark-at ( node -- unit )
   dup lf-term-input? if lf-input-mark-at exit then
@@ -341,14 +346,25 @@ end-structure
 : lf-cterm-children ( first second walk -- outcome )
   >r 2dup r@ walk-child? swap r@ walk-child? and
   if r> lf-cterm-pushed else 2drop r> drop outcome-invalid then ;
+\ The children of a let (core/let-terms.fs) and of a projection
+\ (core/projections.fs) are checked as any binary node's, and their
+\ shape too: a let's second child is a lambda, a projection's first a
+\ projection leaf; anything else is malformed.
+: lf-cterm-shaped ( first second walk child tag -- outcome )
+  >r dup 2 pick walk-child? if lf-term-tag@ r> = else drop r> drop false then
+  if lf-cterm-children else drop 2drop outcome-invalid then ;
+: lf-cterm-binary ( first second walk tag -- outcome )
+  case lf-tag-projection of 2 pick lf-tag-proj lf-cterm-shaped endof
+    lf-tag-let of over lf-tag-lam lf-cterm-shaped endof
+    lf-tag-let-nondep of over lf-tag-lam lf-cterm-shaped endof
+    drop lf-cterm-children 0 endcase ;
 : lf-cterm-dispatch ( first second walk tag -- outcome )
-  dup lf-term-binary-tag? if drop lf-cterm-children exit then
+  dup lf-term-binary-tag? if lf-cterm-binary exit then
   case lf-tag-constant of lf-cterm-reference endof
     lf-tag-bvar of lf-repr-bvar endof  lf-tag-fvar of lf-cterm-fvar endof
     lf-tag-symbolic-sort of lf-cterm-sort endof
     lf-tag-proj of lf-proj-check endof  lf-tag-lit of lf-lit-check endof
-    lf-tag-str of lf-str-check endof
-    lf-tag-let of lf-let-check endof  walk-bad-tag endcase ;
+    lf-tag-str of lf-str-check endof  walk-bad-tag endcase ;
 \ A node first reached in this run goes on the memo's list.
 : lf-cterm-first ( first second walk tag -- outcome )
   over walk-node @ lf-audit-reach lf-cterm-dispatch ;

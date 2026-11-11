@@ -1,5 +1,6 @@
 \ Bounded storage for the syntax of a small Lean expression subset: Sort,
-\ bound variable, application, lambda and Pi nodes. Untrusted; not a kernel
+\ bound variable, application, lambda and Pi nodes, and the binary nodes
+\ of lets and projections (and leaves other modules define). Untrusted; not a kernel
 \ API. Constructors validate indices and payload ranges only; they do not
 \ check scope, types, universe semantics, declarations or proofs.
 \ Each term is a record of four 32-bit fields (lib/u32.fs; ADR 0016 C1,
@@ -56,27 +57,34 @@
 \ The input view (compact-store plan step S5; ADR 0016 C3). A context
 \ may read a sealed compact input tier (core/compact.fs, filled by
 \ import/stage.fs) in place: lf-term-attach makes the tier's expressions
-\ the first term numbers, 0 .. lf-term-base - 1, each the number the
-\ stage gave it, and the store's own records follow them, record r being
-\ term lf-term-base + r. Every reader below takes a term number and reads
-\ an input node from the tier's 16-byte record (C1), its tag translated
-\ to the checker's: a bound variable, application, lambda or Pi (binder
-\ name and information ignored, as Lean's kernel ignores them) with the
-\ record's own fields; a Sort, constant or literal with the fields the
-\ importer gave it in the view's leaf table (lf-term-input-leaf: the
-\ level, reference or literal it became in this context, and the stamp a
-\ symbolic Sort or constant carries, generation-handles.fs); any other
-\ kind (a let, projection, metadata or free variable, a let's body
-\ record) is no term of the view, so a node above one is copied into the
-\ store instead (import/feed.fs). An input node is sealed: never rolled
-\ back or reset, its data word the tier's (computed when it was staged,
-\ C8, the same facts as this store's), and its identity is the negative
-\ number invert index, which no birth serial is. Making a node equal to
-\ an input node gives that node (lf-term-add finds an application or
-\ bound variable in the tier's table, a Sort or constant in the leaf
-\ table), so equal terms are one number across the two parts. Without a
-\ view lf-term-base is 0 and everything is as before. The tier must
-\ outlive the view: lf-term-detach (or freeing the context) first.
+\ the first term numbers, 0 .. lf-term-base - 1, record u of the stage
+\ being term 2u + 1 and what it carries term 2u (see "Term numbers of the
+\ view" below; lets and projections since step S5's parts 4-5), and the
+\ store's own records follow them, record r being term lf-term-base + r.
+\ Every reader below takes a term number and reads an input node from the
+\ tier's 16-byte record (C1), its tag translated to the checker's: a
+\ bound variable, application, lambda or Pi (binder name and information
+\ ignored, as Lean's kernel ignores them) with the record's own fields,
+\ its children's records as term numbers; a let's lambda from the let's
+\ two records; a Sort, constant, literal, let, projection or projection
+\ leaf with the fields the importer gave it in the view's leaf table
+\ (lf-term-input-leaf: the level, reference or literal it became in this
+\ context, and the stamp a symbolic Sort or constant carries,
+\ generation-handles.fs; a let's value and lambda; a projection's leaf
+\ and term); any other kind
+\ (metadata, a free variable, a let's body record) is no term of the
+\ view, so a node above one is copied into the store instead
+\ (import/feed.fs). An input node is sealed: never rolled back or reset,
+\ its data word the tier's (computed when it was staged, C8, the same
+\ facts as this store's; a let's lambda's computed from its children's),
+\ and its identity is the negative number invert index, which no birth
+\ serial is. Making a node equal to an input node gives that node
+\ (lf-term-add finds an application or bound variable in the tier's
+\ table, a binder in the binder table, a Sort, constant, literal, let,
+\ projection or projection leaf in the leaf table), so
+\ equal terms are one number across the two parts. Without a view
+\ lf-term-base is 0 and everything is as before. The tier must outlive
+\ the view: lf-term-detach (or freeing the context) first.
 \
 \ State: the store header lf-terms, the hash table lf-term-table, the
 \ candidate record lf-term-key, the switch lf-term-share-off and the view
@@ -109,6 +117,21 @@ require ../lib/store-columns.fs
 3 constant lf-tag-app
 4 constant lf-tag-lam
 5 constant lf-tag-pi
+\ The other binary nodes (compact-store plan step S5, parts 4-5): a let,
+\ LET(v, fun x : T => b) (core/let-terms.fs), one tag for each value of
+\ Lean's nonDep flag; a projection, PROJECTION(leaf, e)
+\ (core/projections.fs). Their children are at the node's own depth.
+12 constant lf-tag-let
+14 constant lf-tag-projection
+15 constant lf-tag-let-nondep
+\ A tag's bit (tags above 31 share bit 31, which no binary tag has).
+: lf-tag-bit ( tag -- mask ) 1 swap 31 min lshift ;
+lf-tag-app lf-tag-bit lf-tag-lam lf-tag-bit or lf-tag-pi lf-tag-bit or
+lf-tag-let lf-tag-bit or lf-tag-projection lf-tag-bit or lf-tag-let-nondep lf-tag-bit or
+constant lf-binary-tags
+\ Binary nodes: two children; binders: the second under one more binder.
+: lf-term-binary-tag? ( tag -- flag ) lf-tag-bit lf-binary-tags and 0<> ;
+: lf-term-binder-tag? ( tag -- flag ) dup lf-tag-lam = swap lf-tag-pi = or ;
 
 \ A record: the tag, the first and second fields, the data word, each a
 \ 32-bit field read and written only through u32@ and u32! (C7).
@@ -167,32 +190,69 @@ end-structure
 \ names a record of the store (lf-term-valid?, not an input node).
 : lf-term-slot ( index -- addr ) lf-term-base - lf-terms store-slot ;
 
-\ The input tags: per tag of the tier (compact-exprs.fs) the checker's
-\ tag, plus lf-tin-leaf-bit when its fields come from the leaf table; 0
-\ for a kind that is no term of the view. A module that defines a leaf
-\ tag registers it while loading (lf-term-input-leaf-tag), read-only
-\ afterwards.
+\ Term numbers of the view (compact-store plan step S5, parts 4-5): the
+\ tier's record u is term 2u + 1, and term 2u is the node the record
+\ carries besides itself, if any: a letE record's lambda (its type and the
+\ body its second record holds) and a proj record's leaf (its structure's
+\ name and its field index); every child stays below its parent, as the
+\ store's own nodes, and nothing is copied. A let, a projection and a
+\ projection's leaf are leaves of the leaf table, whose entries the
+\ importer gives, so that equal nodes are one node, as when copied: a
+\ let is LET(v, lam), lam the first input binder equal to its lambda
+\ (2u, or an earlier lambda of the same type and body); a projection is
+\ PROJECTION(leaf, e), the leaf the first input one of its name and index
+\ (2u, or an earlier projection's).
+: lf-tin-child ( u -- index ) 2* 1+ ;
+\ The input codes: per tag of the tier (compact-exprs.fs) and parity of
+\ the term number (the record itself, odd, or what it carries, even) the
+\ checker's tag (bits 0-5), lf-tin-leaf-bit when its fields come from
+\ the leaf table, and how its fields are read (bits 7-9): a pair of
+\ children (app, binders), the raw fields (a bound variable), a let's
+\ lambda; a projection's leaf has a mode of its own for its data word
+\ (0, closed); 0 for no term of the view. A module that defines a leaf
+\ tag registers it while loading (lf-term-input-leaf-tag,
+\ lf-term-input-leaf-twin), read-only afterwards.
+63 constant lf-tin-tag-mask
 64 constant lf-tin-leaf-bit
-create lf-term-input-tags head-tag-mask 1+ cells allot
-lf-term-input-tags head-tag-mask 1+ cells erase
-: lf-term-input-tag! ( lftag tag -- ) cells lf-term-input-tags + ! ;
+0 constant lf-tin-pair
+128 constant lf-tin-raw
+384 constant lf-tin-let-lam
+512 constant lf-tin-proj-leaf
+896 constant lf-tin-modes
+create lf-term-input-codes head-tag-mask 1+ 2* cells allot
+lf-term-input-codes head-tag-mask 1+ 2* cells erase
+: lf-tin-entry ( tag parity -- addr ) swap 2* + cells lf-term-input-codes + ;
+: lf-term-input-tag! ( code tag -- ) 1 lf-tin-entry ! ;
+: lf-term-input-twin! ( code tag -- ) 0 lf-tin-entry ! ;
 \ The checker's tags whose input nodes are in the leaf table, a bit each.
 variable lf-tin-leaf-tags   0 lf-tin-leaf-tags !
+: lf-tin-leaf-tags+ ( lftag -- ) 1 swap lshift lf-tin-leaf-tags @ or lf-tin-leaf-tags ! ;
 : lf-term-input-leaf-tag ( lftag tag -- )
-  over 1 swap lshift lf-tin-leaf-tags @ or lf-tin-leaf-tags !
-  >r lf-tin-leaf-bit or r> lf-term-input-tag! ;
-lf-tag-bvar tag-bvar lf-term-input-tag!   lf-tag-app tag-app lf-term-input-tag!
+  over lf-tin-leaf-tags+ >r lf-tin-leaf-bit or r> lf-term-input-tag! ;
+\ The same for what a record of tag carries, read in mode.
+: lf-term-input-leaf-twin ( lftag mode tag -- )
+  2 pick lf-tin-leaf-tags+ >r or lf-tin-leaf-bit or r> lf-term-input-twin! ;
+lf-tag-bvar lf-tin-raw or tag-bvar lf-term-input-tag!
+lf-tag-app tag-app lf-term-input-tag!
 : lf-tin-binders ( -- )
   4 0 do
     lf-tag-lam tag-lam i + lf-term-input-tag!  lf-tag-pi tag-pi i + lf-term-input-tag!
   loop ;
 lf-tin-binders
+: lf-tin-lets ( -- )
+  lf-tag-let tag-let lf-term-input-leaf-tag
+  lf-tag-let-nondep tag-let-nondep lf-term-input-leaf-tag
+  lf-tag-lam lf-tin-let-lam or dup tag-let lf-term-input-twin!
+  tag-let-nondep lf-term-input-twin!
+  lf-tag-projection tag-proj lf-term-input-leaf-tag ;
+lf-tin-lets
 
 \ An input record and its parts. Unchecked: index < lf-term-base.
-: lf-tin-at ( index -- addr ) /quad * lf-term-view lf-tview-records @ + ;
+: lf-tin-at ( index -- addr ) 1 rshift /quad * lf-term-view lf-tview-records @ + ;
 : lf-tin-code ( index -- x )
-  lf-tin-at quad-head u32@ head-tag cells lf-term-input-tags + @ ;
+  dup 1 and swap lf-tin-at quad-head u32@ head-tag swap lf-tin-entry @ ;
 : lf-tin-leaf? ( x -- flag ) lf-tin-leaf-bit and 0<> ;
+: lf-tin-plain? ( x -- flag ) lf-tin-leaf-bit lf-tin-modes or and 0= ;
 
 \ The leaf table: entry n is a unit of four cells; it is found by its
 \ node, or by the checker's tag and fields of that node.
@@ -203,7 +263,7 @@ begin-structure /lf-tleaf
   field: lf-tleaf-stamp
 end-structure
 : lf-tleaf ( n -- entry ) lf-term-view lf-tview-leaves slab-at ;
-: lf-tleaf-tag ( entry -- tag ) lf-tleaf-node @ lf-tin-code lf-tin-leaf-bit 1- and ;
+: lf-tleaf-tag ( entry -- tag ) lf-tleaf-node @ lf-tin-code lf-tin-tag-mask and ;
 : lf-tleaf-fields ( entry -- tag first second )
   dup lf-tleaf-tag over lf-tleaf-first @ rot lf-tleaf-second @ ;
 : lf-tnode-rehash ( n htab -- h ) drop lf-tleaf lf-tleaf-node @ hash-fmix ;
@@ -235,16 +295,58 @@ create lf-tfields-hooks /htab-hooks allot
 : lf-tin-valid? ( index -- flag )
   dup lf-tin-code ?dup 0= if drop false exit then
   lf-tin-leaf? if lf-tin-leaf 0<> else drop true then ;
-: lf-tin-tag@ ( index -- tag ) lf-tin-code lf-tin-leaf-bit 1- and ;
+: lf-tin-tag@ ( index -- tag ) lf-tin-code lf-tin-tag-mask and ;
 : lf-tin-leaf@ ( index -- first second )
   lf-tin-leaf ?dup if dup lf-tleaf-first @ swap lf-tleaf-second @ else 0 0 then ;
-: lf-tin-ab@ ( index -- first second ) lf-tin-at dup quad-a u32@ swap quad-b u32@ ;
+\ The fields by how the code reads them (see above): a pair of children;
+\ the raw fields; a let's lambda's type and body (the let's second
+\ record).
+: lf-tin-pair@ ( index -- first second )
+  lf-tin-at dup quad-a u32@ lf-tin-child swap quad-b u32@ lf-tin-child ;
+: lf-tin-raw@ ( index -- first second ) lf-tin-at dup quad-a u32@ swap quad-b u32@ ;
+: lf-tin-let-lam@ ( index -- first second )
+  lf-tin-at dup quad-a u32@ lf-tin-child swap /quad + quad-a u32@ lf-tin-child ;
+: lf-tin-moded@ ( index x -- first second )
+  lf-tin-modes and case lf-tin-raw of lf-tin-raw@ endof
+    lf-tin-let-lam of lf-tin-let-lam@ endof  >r lf-tin-pair@ r> endcase ;
+: lf-tin-other@ ( index x -- first second )
+  dup lf-tin-leaf? if drop lf-tin-leaf@ else lf-tin-moded@ then ;
 : lf-tin-fields@ ( index -- first second )
-  dup lf-tin-code lf-tin-leaf? if lf-tin-leaf@ else lf-tin-ab@ then ;
+  dup lf-tin-code dup lf-tin-plain? if drop lf-tin-pair@ else lf-tin-other@ then ;
 : lf-tin-first@ ( index -- first )
-  dup lf-tin-code lf-tin-leaf? if lf-tin-leaf@ drop else lf-tin-at quad-a u32@ then ;
+  dup lf-tin-code dup lf-tin-plain?
+  if drop lf-tin-at quad-a u32@ lf-tin-child else lf-tin-other@ drop then ;
 : lf-tin-second@ ( index -- second )
-  dup lf-tin-code lf-tin-leaf? if lf-tin-leaf@ nip else lf-tin-at quad-b u32@ then ;
+  dup lf-tin-code dup lf-tin-plain?
+  if drop lf-tin-at quad-b u32@ lf-tin-child else lf-tin-other@ nip then ;
+\ The binder name and information (0 explicit .. 3 instance implicit) of
+\ an input lambda or Pi, from its record (C1 keeps them for printing; the
+\ checker's rules ignore them); a let's lambda has the let's name and is
+\ explicit. False for any other number. Unchecked: the view is attached.
+: lf-tin-head ( index -- head ) lf-tin-at quad-head u32@ ;
+: lf-tin-binder-kind ( head -- name kind )
+  dup head-payload swap head-tag tag-lam - 3 and ;
+: lf-term-input-binder@ ( index -- name kind true | false )
+  dup lf-term-input? 0= if drop false exit then
+  dup lf-tin-code lf-tin-modes and lf-tin-let-lam =
+  if lf-tin-head head-payload 0 true exit then
+  dup 1 and if lf-tin-head dup head-tag binder-tag? else 0 then
+  if lf-tin-binder-kind true else drop false then ;
+\ The entry number of an input leaf node, or false.
+: lf-tin-leaf# ( index -- n true | false )
+  dup hash-fmix lf-term-view lf-tview-nodes htab-find dup 0= if nip then ;
+\ The unit of an input node in a table of one unit per tier record and
+\ one per leaf entry (the audit's marks, constant-term-boundary.fs): a
+\ record's own; for a let's lambda that of the let's second record,
+\ which is no term; for a projection's leaf, the record count plus its
+\ entry number; none for any other number.
+: lf-term-input-records ( -- n ) lf-term-base 1 rshift ;
+: lf-term-input-units ( -- n )
+  lf-term-input-records lf-term-view lf-tview-leaves slab-count + ;
+: lf-term-input-unit ( index -- u true | false )
+  dup 1 and if 1 rshift true exit then
+  dup lf-tin-code lf-tin-modes and lf-tin-let-lam = if 1 rshift 1+ true exit then
+  lf-tin-leaf# if lf-term-input-records + true else false then ;
 \ The stamp an input leaf carries (its level's or reference's identity
 \ in this context, generation-handles.fs), 0 for none.
 : lf-term-leaf-stamp ( index -- stamp )
@@ -255,7 +357,7 @@ create lf-tfields-hooks /htab-hooks allot
 \ The binder table: input lambdas and Pis that the importer enters
 \ (lf-term-input-binder), found by tag and children, binder name and
 \ information ignored, as Lean's == ignores them. A slot holds the node.
-: lf-tbind-fields ( n -- tag first second ) dup lf-tin-tag@ swap lf-tin-ab@ ;
+: lf-tbind-fields ( n -- tag first second ) dup lf-tin-tag@ swap lf-tin-fields@ ;
 : lf-tbind-rehash ( n htab -- h ) drop lf-tbind-fields lf-tfields-hash ;
 : lf-tbind-same ( n key htab -- flag ) drop >r lf-tbind-fields r> lf-tfields= ;
 create lf-tbind-hooks /htab-hooks allot
@@ -344,9 +446,20 @@ lf-data-ranges 3 * constant lf-data-flags
   >r 2dup lf-data-known? swap lf-data-known? and 0=
   if 2drop r> drop lf-data-unknown exit then
   2dup lf-data-both -rot r> lf-data-loose2 or ;
+\ An input node's data word: its record's (C1's, computed when it was
+\ staged); a let's lambda's from its type's and body's, as made here; a
+\ projection leaf's 0 (closed, no parameter), as constant-term-boundary.fs
+\ gives a store leaf.
+: lf-tin-data@ ( index -- data ) lf-tin-at quad-data u32@ ;
+: lf-tin-lam-data ( index -- data )
+  lf-tin-let-lam@ swap lf-tin-data@ swap lf-tin-data@ true lf-data-pair ;
+: lf-tin-data ( index -- data )
+  dup lf-tin-code lf-tin-modes and
+  dup lf-tin-let-lam = if drop lf-tin-lam-data exit then
+  lf-tin-proj-leaf = if drop 0 else lf-tin-data@ then ;
 \ A node's data word as made. Unchecked: the index is valid.
 : lf-term-data-word ( index -- data )
-  dup lf-term-input? if lf-tin-at quad-data u32@ exit then
+  dup lf-term-input? if lf-tin-data exit then
   lf-term-slot lf-term-data-at + u32@ ;
 \ Lean's cached node data, or false for a node without (see the header)
 \ or an index that is not allocated.
@@ -369,7 +482,7 @@ defer lf-term-leaf-data ( tag first second -- data )
 1 cells context-record: lf-term-share-off   \ true when this context does not share
 \ Tags whose leaves are never shared, a bit each; set while loading.
 variable lf-term-unshared-tags   0 lf-term-unshared-tags !
-: lf-term-tag-bit ( tag -- mask ) 1 swap 31 min lshift ;
+: lf-term-tag-bit ( tag -- mask ) lf-tag-bit ;
 : lf-term-unshare ( tag -- )
   lf-term-tag-bit lf-term-unshared-tags @ or lf-term-unshared-tags ! ;
 : lf-term-shared-tag? ( tag -- flag ) lf-term-tag-bit lf-term-unshared-tags @ and 0= ;
@@ -445,7 +558,7 @@ defer lf-term-view-hook ( -- outcome )
   4 lf-tbind-hooks lf-term-view lf-tview-binders htab-init dup ok? 0= if exit then drop
   /lf-tleaf dup slab-limit-max lf-term-view lf-tview-leaves slab-init ;
 : lf-tview-place ( exprs -- )
-  lf-term-view >r dup cons-numbers r@ lf-tview-base !
+  lf-term-view >r dup cons-numbers 2* r@ lf-tview-base !
   0 swap cons-at r> lf-tview-records ! ;
 : lf-tview-make ( tier -- outcome )
   dup lf-term-view lf-tview-tier ! tier-exprs
@@ -460,6 +573,11 @@ defer lf-term-view-hook ( -- outcome )
 : lf-term-attach ( tier -- outcome )
   lf-term-detach drop dup tier-exprs cons-sealed? 0= if drop outcome-invalid exit then
   lf-tview-make dup ok? if drop lf-tview-hooked exit then lf-term-detach drop ;
+\ After the importer has given the leaves their entries (below), the hook
+\ again, so that other modules' per-node data covers the leaves that
+\ have units of their own (lf-term-input-unit): ok, or the hook's failure
+\ (full when the heap has no room), the view kept.
+: lf-term-view-grown ( -- outcome ) lf-term-view-hook ;
 
 \ Give input leaf node index its fields and stamp (the importer, after
 \ attaching; see the header): ok; invalid for a number that is no input
@@ -530,13 +648,12 @@ defer lf-term-view-hook ( -- outcome )
 \ At most 2^32 - 2 records, so that a table slot holds every index plus
 \ one (ADR 0016 C4).
 : lf-term-numbered? ( -- flag ) lf-term-count @ lf-term-base + u32-mask 1- u< ;
-: lf-term-binary-tag? ( tag -- flag ) lf-tag-app lf-tag-pi 1+ within ;
 \ Data of a child; a child that is not allocated (a raw caller's) has none.
 : lf-term-child-data ( index -- data )
   dup lf-term-valid? if lf-term-data-word else drop lf-data-unknown then ;
 : lf-term-data-of ( tag first second -- data )
   2 pick lf-term-binary-tag? 0= if lf-term-leaf-data exit then
-  lf-term-child-data swap lf-term-child-data swap rot lf-tag-app <> lf-data-pair ;
+  lf-term-child-data swap lf-term-child-data swap rot lf-term-binder-tag? lf-data-pair ;
 : lf-term-store! ( tag first second data addr -- )
   tuck lf-term-data-at + u32! tuck lf-term-second-at + u32!
   tuck lf-term-first-at + u32! u32! ;
@@ -572,21 +689,25 @@ defer lf-term-reusable? ( n -- flag )
 :noname ( n -- flag ) drop true ; is lf-term-reusable?
 
 \ An input node equal to the record (see the header): an application of
-\ two input nodes or a bound variable in the tier's expression table,
+\ two input records or a bound variable in the tier's expression table,
 \ through the view's set over it (the candidate written at its free end
 \ and sought there, never kept); a leaf (a Sort, constant or literal) in
-\ the leaf table by its fields. No other record is sought: it equals no
+\ the leaf table by its fields (a let, a projection and its leaf among
+\ them); a binder in the binder table. No other record is sought: it
+\ equals no
 \ input node of the view (the importer copies the kinds the view does
 \ not read, and every node above one, into the store). A found leaf is
 \ given again only while its stamps hold (lf-term-reusable?).
+: lf-tin-record? ( index -- flag ) dup 1 and 0<> swap lf-term-input? and ;
 : lf-tin-probe ( head a b -- n true | false )
   lf-term-view lf-tview-probe >r 1 0 r@ cons-room ok? 0=
   if 2drop drop r> drop false exit then
   r@ cand! r@ cons-top expr-hash true r> cons-find
-  if dup lf-term-input? dup 0= if nip then else drop false then ;
+  if lf-tin-child dup lf-term-input? dup 0= if nip then else drop false then ;
 : lf-tin-app ( first second -- n true | false )
-  2dup lf-term-input? swap lf-term-input? and
-  if tag-app 0 pack-head -rot lf-tin-probe else 2drop false then ;
+  2dup lf-tin-record? swap lf-tin-record? and
+  if 1 rshift swap 1 rshift swap tag-app 0 pack-head -rot lf-tin-probe
+  else 2drop false then ;
 : lf-tin-bvar ( first second -- n true | false )
   over bvar-fits? over 0= and
   if tag-bvar 0 pack-head -rot lf-tin-probe else 2drop false then ;

@@ -48,10 +48,11 @@
 \ unfold counts of kernel diagnostics (plan task 4.3.1); metadata is an unsupported
 \ form (U2) that never reaches these passes; a literal, natural-number or
 \ string, is normal (Lean's Lit, 476 and 710); the derivation log records
-\ nothing new here (plan task 4.2.2e). A projection (core/projections.fs) is an
-\ application of a projection leaf, which the iota hook reduces
-\ (iota.fs, reduce_proj); a leaf alone is never a term (defeq.fs takes
-\ Lean's Expr.proj whole, never its leaf): malformed, invalid.
+\ nothing new here (plan task 4.2.2e). A projection (core/projections.fs), a
+\ node of its own over a projection leaf and its term, alone or at the
+\ head of a spine, goes to the iota hook, which reduces it (iota.fs,
+\ reduce_proj); a leaf alone is never a term (defeq.fs takes Lean's
+\ Expr.proj whole, never its leaf): malformed, invalid.
 \ cheap_proj (468, 444-454; plan task 5.2.2): is_def_eq_core asks
 \ whnf_core with it (lf-whnf-cheap-call; type_checker.cpp 983-1014 and
 \ 1155-1156): a projection's term is then put in whnf_core, still cheap,
@@ -198,7 +199,7 @@ lf-walk-room context-walk2: lf-whnf-scan
 : lf-whnf-scan-bvar ( first second walk -- outcome )
   nip walk-context @ < if outcome-ok else outcome-unknown then ;
 : lf-whnf-scan-binary ( first second walk tag -- outcome )
-  over walk-context @ swap lf-tag-app <> - swap walk-children-at ;
+  over walk-context @ swap lf-term-binder-tag? - swap walk-children-at ;
 : lf-whnf-scan-dispatch ( first second walk tag -- outcome )
   dup lf-term-binary-tag? if lf-whnf-scan-binary exit then
   lf-tag-bvar = if lf-whnf-scan-bvar else drop 2drop outcome-ok then ;
@@ -498,15 +499,16 @@ defer lf-wc-entry ( node frames -- ... frames next )
   >r 2dup swap lf-whnf-head = r> swap if lf-wc-iota else lf-wc-rebuild then ;
 \ An application: its head is visited first only when it is a let term
 \ or a let variable (or no live variable), as Lean's whnf_core reduces
-\ the head first (514), node saved across that visit. A let leaf at the
-\ head of a spine is no let term: malformed (core/let-terms.fs).
+\ the head first (514), node saved across that visit.
 : lf-wc-invalid ( node frames -- -1 outcome frames 0 ) nip outcome-invalid swap lf-whnf-failed ;
 : lf-wc-headed ( f outcome frames -- ... frames next )
   >r r@ frame-restore -rot ok-then? if r> lf-wc-head else nip r> lf-whnf-failed then ;
 : lf-wc-app ( node frames -- ... frames next )
-  over lf-whnf-head dup lf-let-leaf? if drop lf-wc-invalid exit then
-  dup lf-whnf-plain-head? if swap lf-wc-head exit then
+  over lf-whnf-head dup lf-whnf-plain-head? if swap lf-wc-head exit then
   -rot tuck frame-save ['] lf-wc-headed lf-wc-call ;
+\ A projection alone (reduce_proj, 504-510) goes to the iota hook as a
+\ spine of no arguments whose head is itself, as one applied does.
+: lf-wc-proj ( node frames -- ... frames next ) >r dup r> lf-wc-iota ;
 \ Zeta (542-544): a let term (core/let-terms.fs) is its body with its
 \ value put for the bound variable, Lean's instantiate on the frames'
 \ fuel (a value with a loose bound variable is lifted, as beta lifts an
@@ -534,8 +536,9 @@ defer lf-wc-entry ( node frames -- ... frames next )
 : lf-wc-leaf ( node frames tag -- ... frames next )
   lf-whnf-normal? if lf-whnf-keep else nip outcome-invalid swap lf-whnf-failed then ;
 : lf-wc-tagged ( node frames tag -- ... frames next )
-  dup lf-tag-app = if drop over lf-let? if lf-wc-zeta else lf-wc-app then exit then
-  dup lf-tag-fvar = if drop lf-wc-fvar exit then lf-wc-leaf ;
+  case lf-tag-app of lf-wc-app endof  lf-tag-fvar of lf-wc-fvar endof
+    lf-tag-let of lf-wc-zeta endof  lf-tag-let-nondep of lf-wc-zeta endof
+    lf-tag-projection of lf-wc-proj endof  lf-wc-leaf 0 endcase ;
 :noname ( node frames -- ... frames next )
   over lf-term-valid? 0= if nip outcome-invalid swap lf-whnf-failed exit then
   over lf-term-tag@ lf-wc-tagged ; is lf-wc-visit

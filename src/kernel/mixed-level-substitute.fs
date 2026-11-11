@@ -176,7 +176,7 @@ create lf-mls-set-hooks /htab-hooks allot
     lf-tag-proj of drop 2drop outcome-ok endof
     lf-tag-lit of drop 2drop outcome-ok endof
     lf-tag-str of drop 2drop outcome-ok endof
-    lf-tag-let of drop 2drop outcome-ok endof walk-bad-tag endcase ;
+    walk-bad-tag endcase ;
 : lf-mls-again? ( walk -- flag ) walk-node @ lf-mls-reached? ;
 : lf-mls-skip? ( walk -- flag ) walk-node @ dup lf-mls-reached? swap lf-mls-closed? or ;
 : lf-mls-dispatch ( first second walk tag -- outcome )
@@ -289,7 +289,7 @@ create lf-mls-set-hooks /htab-hooks allot
   case lf-tag-symbolic-sort of drop lf-mls-sort endof
     lf-tag-constant of lf-mls-constant endof
     lf-tag-bvar of 2drop outcome-ok endof  lf-tag-proj of 2drop outcome-ok endof
-    lf-tag-lit of 2drop outcome-ok endof  lf-tag-let of 2drop outcome-ok endof
+    lf-tag-lit of 2drop outcome-ok endof
     lf-tag-str of 2drop outcome-ok endof
     dup >r lf-mls-binary r> endcase ;
 : lf-mls-image ( node -- index outcome )

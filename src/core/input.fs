@@ -50,9 +50,8 @@
 \ pool) and, under a name view (names.fs), every input name's hash.
 \ State: the declaration store lf-inputs (a heap store), the name index
 \ lf-input-names and the inductive data lf-input-more (heap slabs), one
-\ record, lf-input-state, and the importer's two settings
-\ lf-input-copying and lf-input-room-cell (below), all members of the
-\ checker context; written only
+\ record, lf-input-state, and the importer's setting lf-input-room-cell
+\ (below), all members of the checker context; written only
 \ while loading and by
 \ lf-input-reset, then read by every check in that context. The layout is
 \ host-specific and never serialized.
@@ -201,14 +200,6 @@ begin-structure /lf-inrec
 end-structure
 /lf-inrec context-record: lf-input-state
 
-\ How an importer gives this context its terms (compact-store plan step
-\ S5; import/feed.fs): read in place from the stage (false, the default
-\ of a new context) or copied into the term store (true, the way before
-\ the input view, kept for comparing the two). A member of the checker
-\ context.
-1 cells context-record: lf-input-copying
-: lf-input-copy! ( flag -- ) lf-input-copying ! ;
-: lf-input-copy? ( -- flag ) lf-input-copying @ ;
 \ The room each check gets above the input (plan task 6.2.2; compact-store
 \ plan step S5; import/feed.fs): the most term nodes, levels and constant
 \ references, each, that a check may make; 0, the default of a new

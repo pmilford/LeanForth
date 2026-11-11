@@ -51,7 +51,7 @@ require ../core/terms.fs
 \ the node and the first result while its second is: three steps, the
 \ visit (lf-rebuild-first), then each child's continuation
 \ (lf-rebuild-next, lf-rebuild-joined), shared with mixed-open.fs.
-: lf-rebuild-binder? ( node -- flag ) lf-term-tag@ lf-tag-app <> ;
+: lf-rebuild-binder? ( node -- flag ) lf-term-tag@ lf-term-binder-tag? ;
 : lf-rebuild-stuck? ( node frames -- flag )
   frame-context @ max-n = swap lf-rebuild-binder? and ;
 : lf-rebuild-site ( -- site ) c" mixed-rebuild lf-rebuild-binary" ;

@@ -216,7 +216,7 @@ end-structure
 : lf-open-leaf ( node frames tag -- result outcome )
   case lf-tag-bvar of lf-open-bvar endof  lf-tag-fvar of lf-open-free endof
     lf-tag-constant of lf-rebuild-keep endof  lf-tag-proj of lf-rebuild-keep endof
-    lf-tag-lit of lf-rebuild-keep endof  lf-tag-let of lf-rebuild-keep endof
+    lf-tag-lit of lf-rebuild-keep endof
     lf-tag-str of lf-rebuild-keep endof
     lf-tag-symbolic-sort of lf-rebuild-keep endof
     >r lf-rebuild-bad r> endcase ;

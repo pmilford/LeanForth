@@ -1,6 +1,6 @@
 \ Lean's infer_proj (type_checker.cpp 247-292; plan task 5.2.2, ADR 0015
-\ rules J1, J2): the type of a projection e.i of the structure S, the
-\ application of a projection leaf to e (core/projections.fs), behind
+\ rules J1, J2): the type of a projection e.i of the structure S, a node
+\ over a projection leaf and e (core/projections.fs), behind
 \ mixed-infer.fs's hook lf-minfer-proj (set here, while loading).
 \ [kernel] code: experimental, not through the review gate, not
 \ independently audited.
@@ -135,10 +135,9 @@ require ./whnf.fs
   over 0= if drop outcome-ok exit then
   lf-iproj-prop? ok-then? 0= if exit then if outcome-ok exit then
   3 pick lf-iproj-bad nip ;
-\ mk_proj(S, i, e): the leaf of the same structure and index i, applied to E.
-: lf-iproj-mk ( L E i -- node outcome )
-  rot lf-proj-name swap lf-hterm-proj 0= if drop -1 outcome-full exit then
-  drop swap lf-term-app if outcome-ok else -1 outcome-full then ;
+\ mk_proj(S, i, e): the projection of E with a leaf of the same structure
+\ and index i.
+: lf-iproj-mk ( L E i -- node outcome ) rot lf-proj-name swap lf-proj-of ;
 \ Field i before the projected one: r's whnf a Pi (else invalidProj); a
 \ body that depends on it is instantiated with E.i, else taken as it is.
 : lf-iproj-field ( L E Ty P r i -- L E Ty P r' outcome )

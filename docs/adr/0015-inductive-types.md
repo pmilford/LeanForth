@@ -1343,6 +1343,9 @@ open.
   `iota.fs`, behind `whnf.fs`'s hook: a spine headed by a projection leaf
   has its term put in whnf, and a constructor application of the leaf's
   structure gives its field, applied to the spine's further arguments.
+  (Since compact-store plan step S5, parts 4-5, 2026-11-11, a projection
+  is a node of its own, `PROJECTION(leaf, e)`, read in place from the
+  export's `proj` record, and heads the spine; ADR 0016's note.)
 - *R3, structure eta in iota* (`to_cnstr_when_structure`,
   `expand_eta_struct`): a closed major premise of a non-recursive
   structure, its type inferred aside and in whnf the structure applied

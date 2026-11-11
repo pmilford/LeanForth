@@ -283,8 +283,10 @@ variable lf-sched-faults  0 lf-sched-faults !
   dup lf-sch-fresh-name? if lf-sched lf-sch-names lf-sch-push else drop outcome-ok then ;
 
 \ The walk over a declaration's terms, each node once per declaration:
-\ an application's and a binder's two children, a constant's name and a
-\ projection's structure name; any other node names nothing.
+\ the two children of a binary node (an application, a binder, and since
+\ compact-store plan step S5's parts 4-5 a let and a projection), a
+\ constant's name and a projection leaf's structure name; any other node
+\ names nothing.
 : lf-sch-seen@ ( t -- addr ) lf-sched lf-sch-seen slab-at ;
 : lf-sch-fresh-term? ( t -- flag )
   dup lf-sched lf-sch-seen slab-count u< 0= if drop false exit then
@@ -295,9 +297,8 @@ variable lf-sched-faults  0 lf-sched-faults !
   lf-sch-term ok-then? 0= if exit then lf-sch-term ;
 : lf-sch-const ( cref -- outcome ) lf-cref-slot lf-crec-name @ lf-sch-name ;
 : lf-sch-visit ( tag first second -- outcome )
-  rot case
-    lf-tag-app of lf-sch-two endof  lf-tag-lam of lf-sch-two endof
-    lf-tag-pi of lf-sch-two endof  lf-tag-constant of drop lf-sch-const endof
+  rot dup lf-term-binary-tag? if drop lf-sch-two exit then
+  case lf-tag-constant of drop lf-sch-const endof
     lf-tag-proj of drop lf-sch-name endof
     >r 2drop outcome-ok r> endcase ;
 : lf-sch-step ( -- outcome )

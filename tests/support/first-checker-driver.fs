@@ -109,13 +109,11 @@ create fc-pairs 4096 2* cells allot   \ a constant's levels (no checker limit)
 : fc-unsupported ( c-addr u -- node )
   fc-form lf-tag-unsupported over 0 fc-key! fc-term-find if nip exit then
   lf-hterm-unsupported must drop ;
-\ A let, E flag T v b (plan task 4.2.3): its leaf applied to v, then to
-\ fun x : T => b, as core/let-terms.fs stores it; shared like the rest.
-: fc-let-leaf ( flag -- node )
-  lf-tag-let over 0 fc-key! fc-term-find if nip exit then lf-let-leaf must ;
+\ A let, E flag T v b (plan task 4.2.3): the let of v and fun x : T => b,
+\ its tag from the flag, as core/let-terms.fs stores it; shared like the
+\ rest.
 : fc-let ( flag T v b -- node )
-  rot swap lf-tag-lam fc-binary >r swap fc-let-leaf swap lf-tag-app fc-binary
-  r> lf-tag-app fc-binary ;
+  rot swap lf-tag-lam fc-binary rot lf-let-tag fc-binary ;
 : fc-read-term ( -- node )
   fc-token over c@ case
     [char] E of 2drop fc-number recurse recurse recurse fc-let endof
