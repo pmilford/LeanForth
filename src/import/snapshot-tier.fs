@@ -159,7 +159,8 @@ end-structure
 \ always copied and cleaned.
 : tf-span ( addr units i -- addr n units ) tier-per-unit over * swap ;
 : tf-raw-out ( addr units i tf -- addr units outcome ) 2drop outcome-ok ;
-: tf-le-out ( addr units i tf -- addr' units outcome ) >r tf-span r> swap >r tf-le r> swap ;
+: tf-le-out ( addr units i tf -- addr' units outcome )
+  >r tf-span r> swap >r tf-le r> swap ;
 : tf-copy-out ( addr units i tf -- addr' units outcome )
   >r tf-span r> swap >r tf-copy r> swap ;
 : tf-exprs-out ( addr units i tf -- addr' units outcome )
@@ -221,7 +222,8 @@ create tf-outs ' tf-raw-out , ' tf-le-out , ' tf-le-out , ' tf-le-out , ' tf-raw
 : tf-save-first ( slab tf -- ) >r tf-first-bytes r> tf-first swap move ;
 : tf-same-first? ( slab tf -- flag ) >r tf-first-bytes r> tf-first over compare 0= ;
 : tf-restore-first ( slab tf -- ) >r tf-first-bytes r> tf-first -rot move ;
-: tf-first-checked ( outcome flag -- outcome ) 0= over ok? and if drop outcome-invalid then ;
+: tf-first-checked ( outcome flag -- outcome )
+  0= over ok? and if drop outcome-invalid then ;
 : tf-records ( i slab tf -- outcome )
   2dup tf-save-first 2dup 2>r tf-into 2r@ tf-same-first? tf-first-checked
   2r> tf-restore-first ;
@@ -256,7 +258,8 @@ create tf-outs ' tf-raw-out , ' tf-le-out , ' tf-le-out , ' tf-le-out , ' tf-raw
   stage-tier dup tier-names cand-data >r tuck name-hash! tier-names cand-data r> = ;
 : name-prefix-ok? ( stage -- flag ) tf-names-of dup cand-a swap cons-in? ;
 : name-str-ok? ( stage tf -- flag )
-  over name-prefix-ok? >r >r tf-names-of dup name-span@ rot cons-bytes r> pool-next? r> and ;
+  over name-prefix-ok? >r >r tf-names-of dup name-span@ rot cons-bytes r> pool-next?
+  r> and ;
 : name-str-check ( stage tf -- flag )
   over >r name-str-ok? 0= if r> drop false exit then
   r@ tf-names-of name-keyed r> name-hash-same? ;
@@ -282,7 +285,8 @@ create tf-outs ' tf-raw-out , ' tf-le-out , ' tf-le-out , ' tf-le-out , ' tf-raw
 : level-checked? ( levels -- flag )
   dup cand-data >r 0 over cand-data! dup check-level nip swap cand-data r> = and ;
 : level-step ( stage tf -- outcome )
-  drop tf-levels-of dup level-checked? if 1 swap cons-adopt nip else drop outcome-invalid then ;
+  drop tf-levels-of dup level-checked?
+  if 1 swap cons-adopt nip else drop outcome-invalid then ;
 : tf-exprs-of ( stage -- exprs ) stage-tier tier-exprs ;
 : expr-let-top? ( exprs -- flag ) cand-head head-tag let-tag? ;
 : expr-run-check ( exprs -- outcome )
@@ -347,7 +351,8 @@ create kind-flags
 : draft-d ( stage -- d stage ) dup stage-decls swap ;
 : more-length? ( n stage -- flag ) draft-d staged-items = ;
 : more-item ( i stage -- u ) draft-d staged-item ;
-: item-name? ( i t stage -- flag ) dup >r stage-tuples tuple-item r> stage-tier name-valid? ;
+: item-name? ( i t stage -- flag )
+  dup >r stage-tuples tuple-item r> stage-tier name-valid? ;
 : names-tuple? ( t stage -- flag )
   2dup tuple-ok? 0= if 2drop false exit then
   2dup stage-tuples tuple-length 0 ?do
@@ -485,7 +490,8 @@ create tf-loads   \ by position, from 1
   >r r@ tf-info-bytes 0 r@ tf-read
   dup ok? if r@ tf-info-bytes r@ tf-info ti-fields# le>u32s then r> drop ;
 : tf-count-ok? ( i tf -- flag ) 2dup tf-units -rot swap ti-decls min swap ti@ = ;
-: tf-counts? ( tf -- flag ) true tier-sections# 1 do over i swap tf-count-ok? and loop nip ;
+: tf-counts? ( tf -- flag )
+  true tier-sections# 1 do over i swap tf-count-ok? and loop nip ;
 : tf-info-check ( tf -- outcome )
   ti-version over ti@ tier-version <> if drop outcome-unsupported exit then
   tf-counts? flag>outcome ;
@@ -501,7 +507,8 @@ create tf-loads   \ by position, from 1
 \ stage-init made and nothing was read into: filled, or rolled back to
 \ empty on any failure or THROW (passed on).
 : tier-read ( stage tf -- outcome )
-  dup tf-unnote over tf-fresh? 0= if 2drop outcome-invalid exit then over >r ['] tf-reading catch
+  dup tf-unnote over tf-fresh? 0= if 2drop outcome-invalid exit then
+  over >r ['] tf-reading catch
   ?dup if nip nip r> stage-rollback drop throw then r> stage-after ;
 : tf-open ( c-addr u tf -- outcome )
   dup >r tf-sf sections-open dup ok? 0= if c" header or section table" r@ tf-why ! then

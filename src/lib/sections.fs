@@ -164,14 +164,16 @@ end-structure
   sections-align swap dup sec-n @ 0 ?do
     i over sec-entry rot swap sec-assign 0= if drop unloop false exit then swap
   loop drop true ;
-: sec-layout ( sf -- outcome ) sec-assign-all if drop outcome-ok else outcome-invalid then ;
+: sec-layout ( sf -- outcome )
+  sec-assign-all if drop outcome-ok else outcome-invalid then ;
 
 \ ---- the header
 \ SHA-256 of bytes, in the record's digest buffer.
 : sec-digest-of ( sf -- digest ) dup sec-digest tuck swap sec-hash sha256-final ;
 : sec-sum-of ( c-addr u sf -- digest )
   dup >r sec-hash dup sha256-init sha256-update r> sec-digest-of ;
-: sec-body ( sf -- c-addr u ) sec-hdr 0 head-sum ;   \ the bytes the header's SHA-256 covers
+\ The bytes the header's SHA-256 covers.
+: sec-body ( sf -- c-addr u ) sec-hdr 0 head-sum ;
 : sec-body-sum ( sf -- digest ) dup sec-body rot sec-sum-of ;
 : sec-seal ( sf -- ) dup sec-body-sum swap sec-hdr head-sum 32 chars move ;
 \ Entry e to its table slot p (writing) and slot p to entry e (reading).
@@ -276,7 +278,8 @@ create sec-writing
   ['] sec-parse-one swap sec-each outcome-ok ;
 \ The layout rule, applied to the entries' unit sizes and counts, ends
 \ exactly at the end of the file.
-: sec-ends? ( sf -- flag ) dup sec-assign-all if swap sec-filesize @ = else drop false then ;
+: sec-ends? ( sf -- flag )
+  dup sec-assign-all if swap sec-filesize @ = else drop false then ;
 : sec-keep-copy ( sf -- ) dup sec-hdr swap sec-copy sections-align chars move ;
 \ The header rebuilt from the record equals the one read: every offset and
 \ length is what the layout rule gives (so the -1 of an unfit field never
@@ -334,7 +337,8 @@ create sec-reading
 : sec-sized? ( e -- flag ) sec-size dup if nip then ;
 : sec-entry-ok? ( e -- flag ) dup sec-sized? swap sec-kind @ u32-mask u> 0= and ;
 : sec-admit ( sf -- outcome )
-  dup sec-next sec-entry-ok? if 1 swap sec-n +! outcome-ok else drop outcome-invalid then ;
+  dup sec-next sec-entry-ok?
+  if 1 swap sec-n +! outcome-ok else drop outcome-invalid then ;
 
 lf-lib set-current
 \ The record's size in address units; a named record; reset a record (also
