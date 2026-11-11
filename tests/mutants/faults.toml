@@ -8251,3 +8251,110 @@ old = '''  0 lf-dq-site lf-diag-type-expected lf-diag! -1 outcome-rejected ;'''
 new = '''  0 lf-dq-site lf-diag-not-sort lf-diag-note -1 outcome-unknown ;'''
 test = "$GFORTH tests/core/defeq.fs"
 reason = "IO: proof irrelevance's is_prop of a type whose type is stuck answers unknown instead of Lean's typeExpected (no arena export reaches it first; the stub typer of defeq.fs does)"
+
+# --- the input tier saved and loaded (plan step SN2; src/import/snapshot-tier.fs,
+# lib/cons.fs cons-load-room and cons-adopt, import/stage.fs stage-continue) ---
+
+[[fault]]
+id = "sn2-data-word-trusted"
+file = "src/import/snapshot-tier.fs"
+old = '''  dup cand-data >r 0 over cand-data! dup expr-run-check ok? swap cand-data r> = and ;'''
+new = '''  dup cand-data >r 0 over cand-data! dup expr-run-check ok? swap r> swap cand-data! ;'''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "SN2: an expression's data word is taken from the file, not computed again and compared"
+
+[[fault]]
+id = "sn2-pool-offset-unchecked"
+file = "src/import/snapshot-tier.fs"
+old = '''  tuck pool-left >r tf-pos @ rot = swap r> u> 0= and ;'''
+new = '''  tuck pool-left >r drop swap drop true swap r> u> 0= and ;'''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "SN2: a name's or text's byte offset is not required to be the next of its pool"
+
+[[fault]]
+id = "sn2-chain-unchecked"
+file = "src/import/snapshot-tier.fs"
+old = '''  over chain-expected ok-then? 0= if nip exit then swap draft-prev = flag>outcome ;'''
+new = '''  over chain-expected ok-then? 0= if nip exit then 2drop outcome-ok ;'''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "SN2: a declaration's chain is not compared with the newest earlier declaration of its name"
+
+[[fault]]
+id = "sn2-head-bits-unchecked"
+file = "src/import/snapshot-tier.fs"
+old = '''  kind-axiom - cells kind-flags + @ head-tag-mask or invert and 0= ;'''
+new = '''  2drop true ;'''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "SN2: a declaration's head may carry any flag, the mdata mark among them"
+
+[[fault]]
+id = "sn2-list-past-section"
+file = "src/import/snapshot-tier.fs"
+old = '''  >r tf-tuples-of dup r> tuple-room over cons-top u32@ u>'''
+new = '''  >r tf-tuples-of dup r> tuple-room drop true'''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "SN2: a list's length is not checked against what is left of its section"
+
+[[fault]]
+id = "sn2-table-one-size-short"
+file = "src/lib/cons.fs"
+old = ''': cons-load-log2 ( units cons -- log2 ) cons-numbers + 2* 16 max log2-ceiling ;'''
+new = ''': cons-load-log2 ( units cons -- log2 ) cons-numbers + 2* 16 max log2-ceiling 1- ;'''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "SN2: a loaded set's table is built one size short; adopting refuses it as full (never a probe that does not end)"
+
+[[fault]]
+id = "sn2-counts-unchecked"
+file = "src/import/snapshot-tier.fs"
+old = '''  tf-counts? flag>outcome ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "SN2: a family's count in the information section is not compared with its section's"
+
+[[fault]]
+id = "sn2-payload-written"
+file = "src/import/snapshot-tier.fs"
+old = '''  tf-copy-out dup ok? if >r 2dup exprs-unresolve r> then ;'''
+new = '''  tf-copy-out ;'''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "SN2: constants are written with their resolved payloads, which a dependent run numbers differently (the loader refuses them)"
+
+[[fault]]
+id = "sn2-mark-written"
+file = "src/import/snapshot-tier.fs"
+old = '''  tf-copy-out dup ok? if >r 2dup decls-unmark r> then ;'''
+new = '''  tf-copy-out ;'''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "SN2: declarations are written with their mdata marks, which sealing derives (the loader refuses them)"
+
+[[fault]]
+id = "sn2-lines-unchecked"
+file = "src/import/snapshot-tier.fs"
+old = '''    over i u32s + u32@ tuck u> over staged-none = or if 2drop false unloop exit then'''
+new = '''    over i u32s + u32@ nip false if 2drop false unloop exit then'''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "SN2: lines going back are not refused"
+
+[[fault]]
+id = "sn2-first-record-unchecked"
+file = "src/import/snapshot-tier.fs"
+old = '''  0= over ok? and if drop outcome-invalid then ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "SN2: a family's first record in the file (the anonymous name, level zero) is not compared with the one the stage made"
+
+[[fault]]
+id = "sn2-continue-refuses-none"
+file = "src/import/stage.fs"
+old = '''  dup stage-continued @ if noted? 0= else 2drop false then ;'''
+new = '''  dup stage-continued @ if 2drop true else 2drop false then ;'''
+test = "GFORTH=$GFORTH python3 tests/core/test_stage.py"
+reason = "SN2: after a continued read, an unknown constant of that read is not refused"
+
+[[fault]]
+id = "sn2-continue-refuses-earlier"
+file = "src/import/stage.fs"
+old = '''  dup stage-continued @ if noted? 0= else 2drop false then ;'''
+new = '''  2drop false ;'''
+test = "GFORTH=$GFORTH python3 tests/core/test_stage.py"
+reason = "SN2: after a continued read, a constant only an earlier read contained is refused as unknown"

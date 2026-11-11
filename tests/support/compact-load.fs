@@ -23,11 +23,19 @@
 \ the array; compact-free ( -- ); the drivers compact-dump and
 \ compact-dump-unchecked ( c-addr u -- ), used by
 \ tests/core/compact-verify.sh, and compact-measure ( c-addr u log2 -- ).
+\ Continued reads and the saved tier (plan step SN2; tests/core/test_stage.py):
+\ compact-continue-try and compact-continue-dump ( a-addr a-u b-addr b-u -- )
+\ stage export A unsealed, continue it with B, seal, and report or dump;
+\ compact-snap-continue-try and -dump ( a b f-addr f-u -- ) save A's sealed
+\ tier to the file f, load it into a fresh stage, then continue with B;
+\ compact-save ( f-addr f-u -- ) saves the loaded stage's tier;
+\ compact-resave ( f1 f2 -- ) loads the tier file f1, seals and saves f2.
 \ Name a manifest file first with `s" FILE" compact-manifest-use`. Uses Gforth's utime for
 \ timings. Usage, for example:
 \   gforth-fast tests/support/compact-load.fs -e 's" init.ndjson" 24 compact-measure bye'
 
 require ../../src/import/stage.fs
+require ../../src/import/snapshot-tier.fs
 
 create compact-stage /stage allot
 create compact-scratch /tier allot
@@ -301,14 +309,17 @@ variable decl-top  variable types-seen  variable ctors-seen  variable recs-seen
 
 \ ---- Resolutions: every constant of the input against the array. One
 \ declaration of its name: the payload names it; several: payload 0;
-\ none: payload 0, a recursor Lean generates (ADR 0016 amendment 1).
+\ none: payload 0, a recursor Lean generates (ADR 0016 amendment 1), or,
+\ after a continued read, a name only an earlier read contained.
 : decls-named ( n -- k )
   compact-stage stage-find 0= if 0 exit then
   1 begin swap compact-stage stage-previous while swap 1+ repeat ;
+: named-elsewhere? ( n -- flag )
+  dup compact-stage generated-name? swap compact-stage earlier-name? or ;
 : resolution-ok? ( e -- flag )
   dup compact-tier expr-a@ dup decls-named rot compact-tier expr-payload@
   over 1 = if nip ?dup if 1- compact-stage staged-name@ = else drop false then
-  else 0= swap ?dup if 1 > and nip else swap compact-stage generated-name? and then then ;
+  else 0= swap ?dup if 1 > and nip else swap named-elsewhere? and then then ;
 : resolutions ( -- constants wrong )
   0 0 compact-tier tier-exprs cons-numbers 0 ?do
     i compact-tier expr-tag@ tag-const = if
@@ -356,3 +367,31 @@ variable decl-top  variable types-seen  variable ctors-seen  variable recs-seen
   now >r compact-load now r> - swap dup ok? 0= if ." error: " . drop cr exit then drop
   ." load, manifest check and seal: " .ms cr compact-stats compact-lookups
   compact-resolutions compact-free ;
+
+\ ---- Continued reads and the saved tier (see the header).
+create compact-tf /tier-file allot  compact-tf tier-file-init
+: continued ( b-addr b-u outcome -- outcome )
+  dup ok? 0= if nip nip exit then drop compact-stage stage-continue-unchecked
+  dup ok? if drop compact-stage stage-seal then loaded ;
+: compact-continue-load ( a-addr a-u b-addr b-u -- outcome )
+  12 compact-start dup ok? 0= if nip nip nip nip exit then drop
+  2swap compact-stage stage-read-unchecked loaded continued ;
+: compact-saved ( f-addr f-u -- outcome ) compact-stage compact-tf tier-save ;
+: compact-reload ( c-addr u f-addr f-u -- outcome )
+  2swap 12 compact-load-unchecked dup ok? 0= if nip nip exit then drop
+  2dup compact-saved dup ok? 0= if nip nip exit then drop
+  compact-free 12 compact-start dup ok? 0= if nip nip exit then drop
+  compact-stage compact-tf tier-load loaded ;
+: compact-snap-continue-load ( a-addr a-u b-addr b-u f-addr f-u -- outcome )
+  2rot 2swap compact-reload continued ;
+: dumped ( outcome -- )
+  dup ok? 0= if ." error: " . cr exit then drop compact-emit compact-free ;
+: compact-continue-try ( a-addr a-u b-addr b-u -- ) compact-continue-load tried ;
+: compact-continue-dump ( a-addr a-u b-addr b-u -- ) compact-continue-load dumped ;
+: compact-snap-continue-try ( a b f -- ) compact-snap-continue-load tried ;
+: compact-snap-continue-dump ( a b f -- ) compact-snap-continue-load dumped ;
+: compact-save ( f-addr f-u -- ) compact-saved ." saved=" 0 .r cr ;
+: compact-resave ( f1-addr f1-u f2-addr f2-u -- )
+  2swap 12 compact-start drop compact-stage compact-tf tier-load
+  dup ." loaded=" 0 .r cr ok? if compact-stage stage-seal ." sealed=" 0 .r cr compact-save
+  else 2drop then compact-free ;

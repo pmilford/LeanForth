@@ -45,6 +45,10 @@
 \ exactly for its kind; every name and expression in its data is checked
 \ as it is gathered; a number beyond 32 bits is full.
 \
+\ A read that continues a tier (stage-continue, import/stage.fs) notes the
+\ name of every constant it hands over (put-const-noted, a bitset in the
+\ stage), so that sealing refuses an unknown constant only among them.
+\
 \ State: none of its own. Every word takes a stage record (/stage); the
 \ handlers find it from their record's export, the stage's first field.
 \ The tables below are constant after loading. Loads in decimal whatever
@@ -118,6 +122,8 @@ begin-structure /stage
   8 cells +field stage-items
   field: stage-other                 \ true: the metadata names other versions
   5 cells +field stage-meta          \ then its texts, numbers in the tier's texts
+  field: stage-continued             \ true: reads continue a tier (stage-continue)
+  /slab +field stage-noted           \ then: the read's constant names, a bitset
 end-structure
 : export>stage ( export -- stage ) 0 stage-export - ;
 : record>stage ( record -- stage ) record-export @ export>stage ;
@@ -143,7 +149,7 @@ end-structure
   over stage-tier tier-allocated + over stage-name-map slab-bytes +
   over stage-level-map slab-bytes + over stage-expr-map slab-bytes +
   over stage-decl-records slab-bytes + over stage-by-name slab-bytes +
-  swap stage-lines slab-bytes + ;
+  over stage-lines slab-bytes + swap stage-noted slab-bytes + ;
 : stage-over? ( stage -- flag )
   dup stage-limit @ ?dup if swap stage-allocated u< else drop false then ;
 \ After a record is kept: full, with the reason, once past the limit.
@@ -232,6 +238,26 @@ here meta-fields - cell / constant #meta
   dup record>stage >r dup const-name @ r@ export>name swap dup const-levels @ swap
   levels>tuple ok-then? if r@ stage-tier expr-const else nip no-result then
   r> exprs-kept ;
+\ The constant names of a read that continues a tier (stage-continue): a
+\ bitset of 32-bit fields, one bit per name number, grown as names come;
+\ the unknown-constant refusal is limited to the names it holds. A fresh
+\ read keeps none (put-const is its handler).
+: fields-cover ( i slab -- outcome )   \ fields 0 .. i in use, new ones 0
+  >r 1+ r@ slab-count - dup 0> if
+    dup r@ slab-claim dup ok? if drop r@ slab-at swap u32s erase outcome-ok
+    else nip nip then
+  else drop outcome-ok then r> drop ;
+: noted-bit ( n -- mask i ) dup 31 and 1 swap lshift swap 5 rshift ;
+: noted! ( n stage -- outcome )
+  stage-noted >r noted-bit dup r@ fields-cover ok-then?
+  if r@ slab-at dup u32@ rot or swap u32! outcome-ok else nip then r> drop ;
+: noted? ( n stage -- flag )
+  stage-noted >r noted-bit dup r@ slab-count u<
+  if r@ slab-at u32@ and 0<> else 2drop false then r> drop ;
+: const-noted ( record -- outcome )
+  dup record>stage >r const-name @ r@ export>name r> noted! ;
+: put-const-noted ( record -- outcome )
+  dup put-const dup ok? if drop const-noted else nip then ;
 : put-app ( record -- outcome )
   dup record>stage >r dup app-fn @ r@ export>expr swap app-arg @ r@ export>expr
   r@ stage-tier expr-app r> exprs-kept ;
@@ -429,11 +455,7 @@ create kind-steps axiom-steps , def-steps , thm-steps , opaque-steps , quot-step
 \ entries 0), the draft's prev field takes the name's newest declaration,
 \ then the draft is counted and becomes the newest. A block has no name.
 : stage-decls ( stage -- n ) stage-decl-records slab-count ;
-: by-name-cover ( n stage -- outcome )
-  stage-by-name >r 1+ r@ slab-count - dup 0> if
-    dup r@ slab-claim dup ok? if drop r@ slab-at swap u32s erase outcome-ok
-    else nip nip then
-  else drop outcome-ok then r> drop ;
+: by-name-cover ( n stage -- outcome ) stage-by-name fields-cover ;
 : draft-chain ( n stage -- outcome )
   2dup by-name-cover dup ok? 0= if nip nip exit then drop
   tuck stage-by-name fields@ swap draft staged-prev u32! outcome-ok ;
