@@ -292,6 +292,7 @@ create lf-rechecks
 here lf-rechecks - 1 cells / constant lf-rechecks#
 lf-rechecks# 1+ constant lf-recheck-moved
 lf-recheck-moved 1+ constant lf-recheck-skipped
+lf-recheck-skipped 1+ constant lf-recheck-early
 : lf-recheck@ ( k -- xt ) cells lf-rechecks + @ ;
 \ The first re-check that fails, (part true), or false when all pass.
 : lf-recheck ( -- part true | false )
@@ -318,8 +319,15 @@ lf-recheck-moved 1+ constant lf-recheck-skipped
 : lf-recheck-skip ( outcome -- outcome )
   dup lf-cand-skipped? lf-span-unsafe? 0= and 0= if exit then
   drop lf-recheck-skipped lf-recheck-failed false lf-env-skipped! ;
+\ A claim to record from a check that found a slot below it not final
+\ (environment.fs, lf-env-early?: it began too early, G-P5) is a fault
+\ (part lf-recheck-early): invalid, nothing added. The parallel scheduler
+\ never hands such a check over; a serial run never makes one.
+: lf-recheck-in-time ( outcome -- outcome )
+  dup lf-env-recorded? lf-env-early? and 0= if exit then
+  drop lf-recheck-early lf-recheck-failed false lf-env-added! ;
 : lf-env-verdict ( -- outcome )
-  lf-cand-outcome@ lf-recheck-skip dup lf-env-recorded? 0= if exit then
+  lf-cand-outcome@ lf-recheck-skip lf-recheck-in-time dup lf-env-recorded? 0= if exit then
   lf-recheck if nip lf-recheck-failed false lf-env-added! then ;
 
 \ E4 step 2 for an ok outcome. The pool has room for n more when both its

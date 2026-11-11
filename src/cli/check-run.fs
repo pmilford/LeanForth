@@ -93,6 +93,7 @@ require ../core/diagnostics.fs
 require ../kernel/environment.fs
 require ../kernel/env-publish.fs
 require ../kernel/check-declaration.fs
+require ../kernel/env-schedule.fs
 require ../import/stage.fs
 require ../import/feed.fs
 require ../import/run-record.fs
@@ -116,6 +117,17 @@ create ck-capacities
   ' lf-term-capacity , ' lf-term-capacity! ,  ' lf-level-capacity , ' lf-level-capacity! ,
   ' lf-cref-capacity , ' lf-cref-capacity! ,  ' lf-input-capacity , ' lf-input-capacity! ,
 here ck-capacities - /ck-capacity / constant ck-capacities#
+
+\ The checker's switches in the context a run starts in, each a cell
+\ ( -- addr ): term sharing, the scratch room, copying the input, the
+\ audit memo's mode, the caches. A parallel check copies them into each
+\ worker, so that its checks run as the serial run's would.
+: ck-memo-mode ( -- addr ) lf-audit-state lf-aud-mode ;
+: ck-caches-off ( -- addr ) lf-caches lf-caches-off ;
+create ck-switches
+  ' lf-term-share-off , ' lf-input-room-cell , ' lf-input-copying , ' ck-memo-mode ,
+  ' ck-caches-off ,
+here ck-switches - 1 cells / constant ck-switches#
 
 \ A clock reading: wall and CPU time, doubles.
 begin-structure /ck-clock
@@ -143,6 +155,9 @@ begin-structure /ck
   field: ck-faulted              \ true when the run stopped on a fault
   field: ck-began-feed           \ true once the feed began: names attached
   field: ck-any-lean             \ true: an export of any Lean version (ck-any-version!)
+  field: ck-jobs-asked           \ worker contexts of a parallel check (ck-jobs!); 0 or 1: serial
+  field: ck-print                \ the fed input's fingerprint, which every worker's must be
+  ck-switches# cells +field ck-switched    \ the checker's switches, copied into each worker
   ck-capacities# cells +field ck-saved   \ capacities before the feed
   field: ck-restored-outcome     \ giving them back: ok, or the first refusal
   field: ck-stage-bytes          \ heap bytes the stage holds once staged
@@ -163,6 +178,7 @@ end-structure
 create ck-state /ck allot  ck-state /ck erase
 create ck-stage /stage allot  ck-stage /stage erase
 create ck-feeding-record /feed allot  ck-feeding-record /feed erase
+create ck-worker-feed /feed allot  ck-worker-feed /feed erase
 
 : ck-fuel-budget ( -- n ) ck-state ck-budget @ ;
 : ck-outcome ( -- outcome ) ck-state ck-run @ ;
@@ -185,6 +201,11 @@ create ck-feeding-record /feed allot  ck-feeding-record /feed erase
 -1 constant ck-fuel-unknown   \ a check's fuel used, when it is not known
 \ The stage's heap bytes, and the input as fed.
 : ck-staged-bytes ( -- u ) ck-state ck-stage-bytes @ ;
+\ Workers of a parallel check (--jobs): set after ck-start, before
+\ ck-load; 0 or 1 checks one declaration at a time in this context.
+: ck-jobs! ( n -- ) ck-state ck-jobs-asked ! ;
+: ck-jobs ( -- n ) ck-state ck-jobs-asked @ ;
+: ck-parallel? ( -- flag ) ck-jobs 1 > ;
 : ck-staged-names ( -- n ) ck-state ck-names# @ ;
 : ck-input-declarations ( -- n ) ck-state ck-declarations# @ ;
 : ck-input-terms ( -- n ) ck-state ck-terms# @ ;
@@ -328,12 +349,47 @@ create ck-line ck-line-room 2 + allot
 : ck-fed ( -- outcome )
   ck-save true ck-state ck-began-feed ! ck-stage ck-feeding-record
   ck-state ck-binder-hook @ ck-state ck-decl-hook @ lf-feed-hooked ;
+\ The workers of a parallel check (plan task 7.3.1; kernel/env-schedule.fs),
+\ made after the feed: each a new context with this context's switches,
+\ fed the same stage, its input's fingerprint this context's (so the
+\ run's environment is valid in it), and the check's budget. In v0 the
+\ input is per context (core/input.fs), so each worker holds its own
+\ copy of what the feed makes (the leaf table, copied terms, levels,
+\ references, declarations); the stage is shared, read only. A worker
+\ that cannot be made is full (no heap) or invalid (another
+\ fingerprint); every context made is freed with the scheduler
+\ (ck-release, lf-sched-free).
+: ck-switch ( k -- addr ) cells ck-switches + @ execute ;
+: ck-switched! ( -- ) ck-switches# 0 ?do i ck-switch @ i cells ck-state ck-switched + ! loop ;
+: ck-switches! ( -- ) ck-switches# 0 ?do i cells ck-state ck-switched + @ i ck-switch ! loop ;
+: ck-print! ( -- ) lf-input-fingerprint ck-state ck-print ! ck-switched! ;
+: ck-worker-fed ( -- outcome )
+  ck-worker-feed dup /feed erase ck-stage swap 0 0 lf-feed-hooked ck-worker-feed feed-free ;
+: ck-worker-fill ( context -- outcome )
+  context-use ck-switches! ck-worker-fed dup ok? 0= if exit then drop
+  ck-fuel-budget lf-check-budget lf-input-fingerprint ck-state ck-print @ = flag>outcome ;
+: ck-worker-filled ( context -- outcome )
+  ['] ck-worker-fill context-catch ?dup if 2drop outcome-invalid then ;
+\ A new worker, filled: (context 0), or (0 ior) with nothing kept: the
+\ scheduler's maker too, for a worker replaced after a THROW.
+: ck-worker-new ( -- context ior )
+  context-new ?dup if exit then
+  dup ck-worker-filled ok? if 0 exit then context-free drop 0 -1 ;
+: ck-worker-add ( -- outcome )
+  context-new if drop outcome-full exit then
+  dup ck-worker-filled dup ok? 0= if swap context-free drop exit then drop
+  dup lf-sched-add dup ok? if nip exit then swap context-free drop ;
+: ck-workers ( -- outcome )
+  ck-parallel? 0= if outcome-ok exit then
+  lf-sched-init dup ok? 0= if exit then
+  ck-jobs 0 ?do dup ok? 0= if unloop exit then drop ck-worker-add loop ;
 \ A failed phase is kept as the one that failed.
 : ck-fail ( outcome phase -- outcome ) over ok? if drop else ck-state ck-failed ! then ;
 : ck-stage-phase ( c-addr u checked? -- outcome )
   ck-phase-begin ck-staged ck-staging ck-phase-end ck-staging ck-fail ;
+: ck-fed-all ( -- outcome ) ck-fed dup ok? if drop ck-print! ck-workers then ;
 : ck-feed-phase ( -- outcome )
-  ck-phase-begin ck-fed ck-feeding ck-phase-end ck-feeding ck-fail ;
+  ck-phase-begin ck-fed-all ck-feeding ck-phase-end ck-feeding ck-fail ;
 \ Stage and feed the export c-addr u (see the header).
 : ck-loading ( c-addr u checked? -- outcome )
   ck-stage-phase dup ok? 0= if exit then drop ck-stage-facts
@@ -433,10 +489,35 @@ create ck-line ck-line-room 2 + allot
   ck-state ck-fuel-sum 2@ rot m+ ck-state ck-fuel-sum 2! ;
 : ck-tally ( -- ) lf-input-count 0 ?do i ck-add i ck-offer loop ;
 
+\ ---- The parallel run (--jobs; kernel/env-schedule.fs): the same checks,
+\ each in a worker, kept by ck-keep in its worker's context after its
+\ hand-over and rollback, as ck-step keeps a serial one. Then the facts
+\ are made the serial run's: where the serial run would have stopped (a
+\ THROW, a publisher's fault), the declarations after it are unkept and
+\ the run stopped there; a block's members published with their first
+\ take its facts. A run the scheduler could not finish (a job refused, no
+\ worker left) stops at the first slot not final. A scheduler that cannot
+\ make its plan (no heap) leaves the run to the serial one.
+: ck-unkeep ( n -- ) lf-input-count swap ?do i ck-kept dup /ck-step erase
+  outcome-invalid swap kept-outcome ! loop ;
+: ck-jobs-stepped ( -- n )
+  lf-sched-stop lf-input-count < if lf-sched-stop 1+ exit then
+  lf-sched-broken? if lf-sched-reached else lf-input-count then ;
+: ck-jobs-trail ( d -- )
+  dup lf-env-published? over lf-sched-checked? 0= and if ck-trailing else drop then ;
+: ck-jobs-facts ( -- )
+  ck-jobs-stepped dup ck-state ck-stepped ! dup lf-input-count < ck-stop! drop
+  dup 0 ?do i ck-jobs-trail loop ck-unkeep ;
+: ck-jobs-run ( -- )
+  ['] lf-check-declaration ['] ck-keep ['] ck-worker-new ['] lf-sched-run context-catch
+  throw ck-jobs-facts ;
+: ck-steps-any ( n -- )
+  ck-parallel? if lf-sched-plan ok? if drop ck-jobs-run exit then then ck-steps-run ;
+
 \ Check every declaration (see the header): the facts, the environment,
 \ the run.
 : ck-facts ( -- outcome ) lf-input-count ck-steps-make dup ok? ck-state ck-facts-made ! ;
-: ck-run-all ( -- outcome ) lf-input-count ck-steps-run ck-confirm ck-tally ;
+: ck-run-all ( -- outcome ) lf-input-count ck-steps-any ck-confirm ck-tally ;
 : ck-checking-run ( -- outcome )
   ck-facts dup ok? if drop ck-env then dup ok? if drop ck-run-all then ;
 : ck-check ( -- ) ck-phase-begin ck-checking-run ck-outcome! ck-checking ck-phase-end ;
@@ -450,8 +531,8 @@ create ck-line ck-line-room 2 + allot
   lf-name-detach ck-empty ck-restore ck-state ck-restored-outcome !
   false ck-state ck-began-feed ! ;
 : ck-release ( -- )
-  ck-env-free ck-unfeed ck-feeding-record dup feed-free /feed erase ck-stage stage-free
-  ck-state ck-steps slab-free ;
+  lf-sched-free ck-env-free ck-unfeed ck-feeding-record dup feed-free /feed erase
+  ck-worker-feed dup feed-free /feed erase ck-stage stage-free ck-state ck-steps slab-free ;
 : ck-start ( fuel -- )
   ck-release ck-state /ck erase ck-state ck-budget ! -1 ck-state ck-failed !
   outcome-invalid dup ck-outcome! ck-state ck-loaded ! ck-clock-start ;

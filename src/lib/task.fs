@@ -402,6 +402,29 @@ task-host task-serial = [if]
   lf-owner @ if drop task-refused exit then
   dup job-await job-unclaim dup job-ior @ swap free ior-first ;
 
+\ Waiting for the first of several jobs (a scheduler that keeps one job
+\ per worker): job-wait-any ( addr n -- k ) waits until one of the jobs
+\ whose handles are the n cells from addr (0 for none) has returned or
+\ thrown, and gives the lowest position of one that has, which the
+\ caller then gives job-wait (it returns at once); -1 when every cell is
+\ 0, and inside a job, where it waits for nothing. It frees nothing.
+\ The flags are read under the pool lock, and the caller sleeps on the
+\ same condition job-finish signals, so no finish is missed.
+: jobs-done ( addr n -- k|-1 )
+  0 ?do dup i cells + @ ?dup if job-done @ if drop i unloop exit then then loop
+  drop -1 ;
+: jobs-any? ( addr n -- flag ) cells bounds false -rot ?do i @ 0<> or 1 cells +loop ;
+: jobs-await ( addr n -- k )
+  pool-lock begin 2dup jobs-done dup 0< while drop change-wait repeat nip nip
+  pool-unlock ;
+: job-wait-any ( addr n -- k )
+  lf-owner @ if 2drop -1 exit then 2dup jobs-any? if jobs-await else 2drop -1 then ;
+
+\ The pool's size for the next start: n workers, kept between 1 and
+\ task-cores; a running pool is stopped first (its queued jobs finish).
+\ Outside jobs only, as pool-stop.
+: pool-workers! ( n -- ) pool-running? if pool-stop then 1 max task-cores min to task-workers ;
+
 \ On Gforth 1.0 the program's end first stops the pool (outside a job),
 \ so that no worker thread is still running while the process exits.
 task-host task-threads = [if]
