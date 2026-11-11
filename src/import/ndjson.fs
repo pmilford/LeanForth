@@ -420,8 +420,11 @@ end-structure
 \ and ok; invalid when it is not a natural; full when the digits would
 \ not fit the scratch. An integer token's digits are its own text.
 : skip-text ( addr u key-addr key-u -- addr' u' flag )
-  2>r dup if over 1 2r@ compare 0= if 1 /string 2r> 2drop true exit then then 2r> 2drop false ;
-: skip-e ( addr u -- addr' u' flag ) s" e" skip-text dup if exit then drop s" E" skip-text ;
+  2>r dup 0= if 2r> 2drop false exit then
+  over 1 2r@ compare if 2r> 2drop false exit then
+  1 /string 2r> 2drop true ;
+: skip-e ( addr u -- addr' u' flag )
+  s" e" skip-text dup if exit then drop s" E" skip-text ;
 : digit-run ( addr u -- n ) over + over digits-end nip swap - ;
 : take-digits ( addr u -- addr' u' digits-addr n )
   2dup digit-run >r 2dup r@ /string 2swap drop r> ;
@@ -568,9 +571,10 @@ end-shape
   dup 10 > if 2drop false exit then dup 10 < if 2drop true exit then
   s" 4294967295" compare 1 < ;
 : height-big ( export -- -1 outcome ) c" height beyond UInt32" export-bad no-result ;
+: height-value ( addr u export -- u outcome )
+  >r 2dup uint32? if decimal>u r> drop outcome-ok else 2drop r> height-big then ;
 : height-of ( value export -- u outcome )
-  dup >r natural-digits dup ok?
-  if drop 2dup uint32? if decimal>u r> drop outcome-ok exit then 2drop r> height-big exit then
+  dup >r natural-digits dup ok? if drop r> height-value exit then
   nip nip outcome-full = if r> height-big else r> not-natural then ;
 ' height-of slot-check: v-height
 
