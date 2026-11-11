@@ -212,8 +212,8 @@ class ExitCodes(unittest.TestCase):
         self.assertEqual((status, out.splitlines()[1]), (1, "composition: rejected"))
         status, out, _ = run("check", "--no-manifest", "tests/core/reexport/kinds.ndjson")
         self.assertEqual((status, out.splitlines()[-2:]),
-                         (2, ["106 declarations: 89 accepted, 17 unsupported",
-                              accepted(89, "propext (allowlisted); none NOT PROVED")]))
+                         (2, ["106 declarations: 94 accepted, 12 unsupported",
+                              accepted(94, "propext (allowlisted); none NOT PROVED")]))
         self.expect(["check", "--no-manifest", "--record", "/dev/null",
                      "tests/core/reexport/kinds.ndjson"], 2,
                     [NO_MANIFEST,
