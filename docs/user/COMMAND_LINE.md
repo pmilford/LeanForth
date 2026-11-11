@@ -11,9 +11,12 @@ exports of any size: it stages the export with the importer stage and
 feeds it to the checker, whose stores grow to fit, so a whole library is
 checked from the command line — all of Lean's `Init`, 59,349
 declarations, in [about twelve minutes with `--fast`](#a-whole-library-leans-init). Most
-of a real library still ends *unsupported* or *unknown*, because
-unfolding definitions (plan task 4.2.2), recursive data types and
-literals (phase 5) are not built yet. Two commands keep the first,
+of a real library may still end *unsupported* or *unknown*: nested
+inductive types, metadata, unsafe and partial declarations and some
+projection steps are not built yet (`capabilities` lists them). The
+counts of Init below are a snapshot of 2026-11-04, before `let`,
+literals, projections, quotients and mutual blocks were merged; no
+Mathlib declaration has been checked (0 of 729,263). Two commands keep the first,
 small path —
 `check --record` and `replay` hold 64 names, 64 levels, 64 term
 nodes and 32 declarations per export ([small exports](#small-exports-check---record-and-replay)).
@@ -384,10 +387,12 @@ exit status 2
 ### A whole library: Lean's `Init`
 
 `check` holds an export of any size: the importer stage reads it once,
-with its manifest, into a compact store, and the checker's stores grow to
-take the staged declarations. Lean's own `Init` library, exported with
+with its manifest, into a compact store (a loading stage only: the
+checker does not read it in place, it copies the staged names, levels,
+terms and declarations into its own stores, which grow to take them). Lean's own `Init` library, exported with
 `scripts/export.sh` (345.7 MB, 59,349 declarations), checked on
-2026-11-04 with the default fuel:
+2026-11-04 with the default fuel (a snapshot; later merges changed some verdicts and the
+numbers were not re-measured since):
 
 ```text
 $ bin/leanforth check --fast --resources init.ndjson | tail -n 29
@@ -896,23 +901,28 @@ supported:
     all of Lean's Init, staged and fed in Forth; the manifest checked unless
     --no-manifest; a summary, --resources (time, memory, fuel), --json;
     Gforth's checking engine, or gforth-fast with --fast
-  check: definitions and theorems built from Sort, variables, application, fun,
-    forall and earlier accepted declarations (the first checker, ADR 0011),
-    and inductive blocks that are not mutual or nested: non-recursive ones
-    (5.2.1a) and recursive ones such as Nat and List (5.2.1b, its review
-    gate open); an accepted one is labelled experimental, not independently
-    audited
+  check: Lean's kernel rules as built so far, each result labelled
+    experimental, not independently audited: definitions, theorems, opaque
+    declarations and axioms (an axiom outside Lean's standard three is NOT
+    PROVED, as Lean's exit status 0); fun, forall, application, let,
+    number and string literals, projections, unfolding of definitions;
+    proof irrelevance and eta; quotients; inductive types, recursive,
+    indexed and mutual ones, with their recursors; several of these are
+    merged but their review gates are open (docs/project/PROJECT_PROGRESS.md)
   check --record, replay: run records 0.1 and their replay (plan task 2.2.5)
   print: a readable proof outline of each accepted declaration, from the
     checker's derivation log (plan tasks 2.4.1, 2.4.4; untrusted presentation)
   count, reexport: exports of any size, up to all of Mathlib
 not yet supported (check answers unsupported or unknown, exit 2):
-  unsafe and partial declarations;
-  let (4.2.3), literals (5.2.3), projections (5.2.2) and metadata (4.1.3)
-  in a term; the rest of indexed families (5.2.1c),
-  mutual and nested blocks (5.2.5); unfolding definitions
-  (4.2.2), so some correct proofs end unknown; check --record and replay
-  refuse inductive types while reading
+  nested inductive types (5.2.5b), unsafe and partial declarations
+  (proposed 5.2.7), metadata (mdata) in a term (4.1.3);
+  some projection comparisons and recursor reductions on a variable
+  (5.2.2), so a correct proof can still end unknown;
+  check --record and replay (the old reader) refuse inductive types, and
+  answer unsupported for let, literals, projections and metadata;
+  the checker has not yet checked a Mathlib declaration
+  (0 of 729,263); the parallel job pool and the compact store are not
+  used by check (it stages the input, then copies it into its own stores)
 limits (check answers full or exhausted, exit 3):
   check: stores, walks and lists that grow with the export (memory), any
     depth and number of dependencies or constructors (plan task 6.2.0);

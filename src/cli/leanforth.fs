@@ -735,12 +735,14 @@ create cli-fed-ops
   ."     --no-manifest; a summary, --resources (time, memory, fuel), --json;" cr
   ."     Gforth's checking engine, or gforth-fast with --fast" cr ;
 : cli-check-rules. ( -- )
-  ."   check: definitions and theorems built from Sort, variables, application, fun," cr
-  ."     forall and earlier accepted declarations (the first checker, ADR 0011)," cr
-  ."     and inductive blocks that are not mutual or nested: non-recursive ones" cr
-  ."     (5.2.1a) and recursive ones such as Nat and List (5.2.1b, its review" cr
-  ."     gate open); an accepted one is labelled experimental, not independently" cr
-  ."     audited" cr ;
+  ."   check: Lean's kernel rules as built so far, each result labelled" cr
+  ."     experimental, not independently audited: definitions, theorems, opaque" cr
+  ."     declarations and axioms (an axiom outside Lean's standard three is NOT" cr
+  ."     PROVED, as Lean's exit status 0); fun, forall, application, let," cr
+  ."     number and string literals, projections, unfolding of definitions;" cr
+  ."     proof irrelevance and eta; quotients; inductive types, recursive," cr
+  ."     indexed and mutual ones, with their recursors; several of these are" cr
+  ."     merged but their review gates are open (docs/project/PROJECT_PROGRESS.md)" cr ;
 : cli-other-commands. ( -- )
   ."   check --record, replay: run records 0.1 and their replay (plan task 2.2.5)" cr
   ."   print: a readable proof outline of each accepted declaration, from the" cr
@@ -750,12 +752,15 @@ create cli-fed-ops
   ." supported:" cr cli-check-input. cli-check-rules. cli-other-commands. ;
 : cli-lacks. ( -- )
   ." not yet supported (check answers unsupported or unknown, exit 2):" cr
-  ."   unsafe and partial declarations;" cr
-  ."   let (4.2.3), literals (5.2.3), projections (5.2.2) and metadata (4.1.3)" cr
-  ."   in a term; the rest of indexed families (5.2.1c)," cr
-  ."   mutual and nested blocks (5.2.5); unfolding definitions" cr
-  ."   (4.2.2), so some correct proofs end unknown; check --record and replay" cr
-  ."   refuse inductive types while reading" cr ;
+  ."   nested inductive types (5.2.5b), unsafe and partial declarations" cr
+  ."   (proposed 5.2.7), metadata (mdata) in a term (4.1.3);" cr
+  ."   some projection comparisons and recursor reductions on a variable" cr
+  ."   (5.2.2), so a correct proof can still end unknown;" cr
+  ."   check --record and replay (the old reader) refuse inductive types, and" cr
+  ."   answer unsupported for let, literals, projections and metadata;" cr
+  ."   the checker has not yet checked a Mathlib declaration" cr
+  ."   (0 of 729,263); the parallel job pool and the compact store are not" cr
+  ."   used by check (it stages the input, then copies it into its own stores)" cr ;
 : cli-check-limits. ( -- )
   ."   check: stores, walks and lists that grow with the export (memory), any" cr
   ."     depth and number of dependencies or constructors (plan task 6.2.0);" cr
