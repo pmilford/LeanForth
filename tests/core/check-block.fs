@@ -238,6 +238,11 @@ T{ s" eta.block-index-variable" verdict -> outcome-ok 0 all-steps }T
 T{ s" k.block-index-stuck" verdict -> outcome-rejected lf-diag-block-not-sort 8 }T
 T{ s" k.mutual-index-stuck" verdict -> outcome-rejected lf-diag-block-not-sort 8 }T
 T{ s" eta.block-index-prop-stuck" verdict -> outcome-rejected lf-diag-block-not-sort 8 }T
+\ The same with a parameter before the index (review rvIO G3).
+T{ s" k.param-index-variable" verdict -> outcome-ok 0 all-steps }T
+T{ s" eta.param-index-variable" verdict -> outcome-ok 0 all-steps }T
+T{ s" k.param-index-stuck" verdict -> outcome-rejected lf-diag-block-not-sort 8 }T
+T{ s" eta.param-index-prop-stuck" verdict -> outcome-rejected lf-diag-block-not-sort 8 }T
 T{ s" k.field-stuck" verdict-field -> outcome-rejected lf-diag-non-valid 9 1 }T
 T{ s" k.field-under-binder-stuck" verdict-field -> outcome-rejected lf-diag-non-valid 9 2 }T
 T{ s" k.field-variable" verdict -> outcome-unknown lf-diag-iota-pending 12 }T

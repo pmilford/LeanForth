@@ -187,9 +187,9 @@ end-structure
 
 \ ---------------------------------------------------------------------------
 \ Lean's whnf (whnf.fs, with delta, and iota from iota.fs) of a term read
-\ under binders the check did not open, on the step's inference job:
-\ where it cannot follow Lean yet it fails (unknown: K7, a recursor
-\ reduction not ported, K5), never a guess.
+\ under the binders the check opened on the step's inference job's scope
+\ (lf-blk-open), on that job: where it cannot follow Lean yet it fails
+\ (unknown: K7, a recursor reduction not ported, K5), never a guess.
 : lf-blk-whnf ( node -- node' outcome ) lf-minfer-whnf-job ;
 \ The recursor builder's whnf, the same (inductive-recursor.fs).
 ' lf-whnf-on is lf-rcr-reduce
