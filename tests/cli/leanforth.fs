@@ -237,9 +237,7 @@ cli-options
 \ caches and cached node data, plan task 4.2.7; 1184
 \ since the block check uses Lean's whnf, plan task 5.2.1b; 1187 since
 \ conversion is Lean's is_def_eq, plan task 4.2.2b; 1520 before.)
-\ (532 since Lean's == leaves the depth out of the data words it compares,
-\ review rvS5B M1.)
-T{ inductive run-facts inductive run-facts -> 0 6 532 0 6 532 }T
+T{ inductive run-facts inductive run-facts -> 0 6 518 0 6 518 }T
 cli-no-manifest
 kinds run-facts constant kinds-fuel drop drop
 T{ kinds run-facts -> 2 94 kinds-fuel }T
