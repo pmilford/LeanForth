@@ -157,17 +157,17 @@ variable snap-loading   \ the record snap-fill reads
 : snap-damaged ( outcome -- outcome' ) dup outcome-rejected = if drop outcome-invalid then ;
 
 \ ---- Fields, little-endian at addr: 32-bit, and 64-bit as lo, hi.
-: f@ ( k addr -- u ) swap u32s + u32-le@ ;
-: f! ( u k addr -- ) swap u32s + u32-le! ;
+: fld@ ( k addr -- u ) swap u32s + u32-le@ ;
+: fld! ( u k addr -- ) swap u32s + u32-le! ;
 1 cells 4 > constant snap-wide?
 : cell-hi ( n -- hi ) snap-wide? if 32 rshift u32-mask and else 0< u32-mask and then ;
 : hi-cell ( lo hi -- n ) snap-wide? if 32 lshift or else drop then ;
-: f2@ ( k addr -- n ) 2dup f@ -rot swap 1+ swap f@ hi-cell ;
-: f2! ( n k addr -- ) 2>r dup u32-mask and 2r@ f! cell-hi 2r> swap 1+ swap f! ;
+: fld2@ ( k addr -- n ) 2dup fld@ -rot swap 1+ swap fld@ hi-cell ;
+: fld2! ( n k addr -- ) 2>r dup u32-mask and 2r@ fld! cell-hi 2r> swap 1+ swap fld! ;
 \ The identity's fields, in its block.
 : snap-id ( snap -- addr ) ss-identity swap snap-block ;
-: id@ ( k snap -- u ) snap-id f@ ;
-: id! ( u k snap -- ) snap-id f! ;
+: id@ ( k snap -- u ) snap-id fld@ ;
+: id! ( u k snap -- ) snap-id fld! ;
 : id-sha ( k snap -- c-addr ) snap-id swap u32s + ;
 : id-sha! ( c-addr k snap -- ) id-sha 32 move ;
 : snap-slot ( d snap -- addr ) ss-slots swap snap-block swap sl-fields# u32s * + ;
@@ -182,7 +182,7 @@ variable snap-loading   \ the record snap-fill reads
 : snap-begin ( snap -- outcome ) dup snap-init si-fields# u32s ss-identity rot snap-alloc ;
 \ The export: its SHA-256, bytes, lines and flags (snap-enforced ...).
 : snap-export! ( sha-addr bytes lines flags snap -- )
-  >r si-flags r@ id! si-lines r@ snap-id f2! si-bytes r@ snap-id f2! si-export r> id-sha! ;
+  >r si-flags r@ id! si-lines r@ snap-id fld2! si-bytes r@ snap-id fld2! si-export r> id-sha! ;
 : snap-manifest-sha! ( sha-addr snap -- ) si-manifest swap id-sha! ;
 \ The manifest's bytes and the information text, which the caller keeps
 \ until snap-save has written them.
@@ -208,14 +208,14 @@ variable snap-loading   \ the record snap-fill reads
   dup lf-slot-provenance @ lf-provenance-saved and 0<> 1 and
   swap lf-slot-saved @ 0<> prov-taken and or ;
 : put-env ( addr slot -- addr )
-  dup lf-slot-outcome @ sl-outcome 3 pick f! dup slot-marks sl-marks 3 pick f!
-  dup slot-prov sl-provenance 3 pick f! dup lf-slot-axioms @ sl-axioms 3 pick f!
-  dup lf-slot-warnings @ sl-warnings 3 pick f! dup lf-slot-recipe @ sl-recipe 3 pick f!
-  dup lf-slot-shape @ sl-shape 3 pick f! dup lf-slot-count @ sl-deps 3 pick f!
-  lf-slot-looked @ sl-looks 2 pick f! ;
+  dup lf-slot-outcome @ sl-outcome 3 pick fld! dup slot-marks sl-marks 3 pick fld!
+  dup slot-prov sl-provenance 3 pick fld! dup lf-slot-axioms @ sl-axioms 3 pick fld!
+  dup lf-slot-warnings @ sl-warnings 3 pick fld! dup lf-slot-recipe @ sl-recipe 3 pick fld!
+  dup lf-slot-shape @ sl-shape 3 pick fld! dup lf-slot-count @ sl-deps 3 pick fld!
+  lf-slot-looked @ sl-looks 2 pick fld! ;
 : put-step ( addr step -- addr )
-  dup kept-code @ sl-code 3 pick f! dup kept-first @ sl-first 3 pick f2!
-  dup kept-second @ sl-second 3 pick f2! kept-step @ sl-step 2 pick f! ;
+  dup kept-code @ sl-code 3 pick fld! dup kept-first @ sl-first 3 pick fld2!
+  dup kept-second @ sl-second 3 pick fld2! kept-step @ sl-step 2 pick fld! ;
 
 \ The site texts, once each, in slot order: a slab of counted strings and
 \ one of (site, its offset + 1) pairs seen so far. Shared, one save at a
@@ -248,11 +248,11 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
   drop r@ site-paired r> swap ;
 : site-of ( site -- n outcome )
   ?dup 0= if 0 outcome-ok exit then dup site-seen ?dup if nip outcome-ok else site-add then ;
-: put-site ( addr step -- addr outcome ) kept-site @ site-of >r sl-site 2 pick f! r> ;
+: put-site ( addr step -- addr outcome ) kept-site @ site-of >r sl-site 2 pick fld! r> ;
 \ One slot's record, from its environment slot and the caller's facts.
 : put-slot ( d snap -- outcome )
   2dup snap-slot 2 pick slot-env put-env -rot snap-facts @ execute >r
-  sl-fuel 2 pick f2! r@ put-step r> put-site nip ;
+  sl-fuel 2 pick fld2! r@ put-step r> put-site nip ;
 : put-slots ( snap -- outcome )
   lf-env lf-env-length 0 ?do
     i over put-slot dup ok? 0= if nip unloop exit then drop
@@ -386,9 +386,9 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
 \ A slot's own fields: an outcome, marks, provenance, axiom bits within
 \ the allowlist's, fuel used or -1 (not known).
 : sl-sane? ( addr -- flag )
-  sl-outcome over f@ outcome-full u> 0= sl-marks 2 pick f@ 8 u< and
-  sl-provenance 2 pick f@ 4 u< and sl-axioms 2 pick f@ snap-axiom-bits invert and 0= and
-  sl-fuel rot f2@ -1 < 0= and ;
+  sl-outcome over fld@ outcome-full u> 0= sl-marks 2 pick fld@ 8 u< and
+  sl-provenance 2 pick fld@ 4 u< and sl-axioms 2 pick fld@ snap-axiom-bits invert and 0= and
+  sl-fuel rot fld2@ -1 < 0= and ;
 \ Its site: none, or a counted string inside the site texts.
 : site-room ( snap -- base size ) ss-sites over snap-block swap ss-sites swap snap-size ;
 : site-ok? ( n snap -- flag )
@@ -414,16 +414,16 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
     r> and and
   loop nip ;
 : slot-lists? ( addr snap -- flag )
-  over sl-deps swap f@ over deps-ok? >r swap sl-looks swap f@ swap looks-ok? r> and ;
+  over sl-deps swap fld@ over deps-ok? >r swap sl-looks swap fld@ swap looks-ok? r> and ;
 : slot-fine? ( addr snap -- flag )
-  over sl-sane? >r over sl-site swap f@ over site-ok? >r slot-lists? r> r> and and ;
+  over sl-sane? >r over sl-site swap fld@ over site-ok? >r slot-lists? r> r> and and ;
 \ The slot's place: its span's first slot, where its lists start.
 : span-head! ( d snap -- )
-  2dup snap-slot sl-marks swap f@ mark-with and if 2drop else snap-head ! then ;
+  2dup snap-slot sl-marks swap fld@ mark-with and if 2drop else snap-head ! then ;
 : start! ( d snap -- )
   dup snap-starts @ rot 2* cells + >r dup snap-dk @ r@ ! snap-lk @ r> cell+ ! ;
 : slot-pass ( addr snap -- )
-  over sl-deps swap f@ over snap-dk +! swap sl-looks swap f@ swap snap-lk +! ;
+  over sl-deps swap fld@ over snap-dk +! swap sl-looks swap fld@ swap snap-lk +! ;
 : slot-read ( d snap -- flag )
   2dup span-head! 2dup start! tuck snap-slot swap 2dup slot-fine? >r slot-pass r> ;
 : snap-slot-bad ( d snap -- outcome ) c" slots" -rot snap-note outcome-invalid ;
@@ -446,8 +446,8 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
 \ publisher's serial steps (env-publish.fs lf-env-step), run in a
 \ development environment (lf-env-develop) with snap-loading the record.
 : snap@ ( -- snap ) snap-loading @ ;
-: saved ( k d -- u ) snap@ snap-slot f@ ;
-: saved2 ( k d -- n ) snap@ snap-slot f2@ ;
+: saved ( k d -- u ) snap@ snap-slot fld@ ;
+: saved2 ( k d -- n ) snap@ snap-slot fld2@ ;
 : start@ ( d -- dk lk ) 2* cells snap@ snap-starts @ + 2@ swap ;
 : fill-looks ( d -- )
   dup start@ nip swap sl-looks swap saved 0 ?do
@@ -512,8 +512,8 @@ here same-fields - 2 cells / constant same-fields#
   sl-fuel swap saved2 ;
 : snap-export-sha ( snap -- c-addr ) si-export swap id-sha ;
 : snap-manifest-sha ( snap -- c-addr ) si-manifest swap id-sha ;
-: snap-export-bytes ( snap -- n ) si-bytes swap snap-id f2@ ;
-: snap-export-lines ( snap -- n ) si-lines swap snap-id f2@ ;
+: snap-export-bytes ( snap -- n ) si-bytes swap snap-id fld2@ ;
+: snap-export-lines ( snap -- n ) si-lines swap snap-id fld2@ ;
 : snap-flags ( snap -- u ) si-flags swap id@ ;
 : snap-info ( snap -- c-addr u ) ss-info over snap-block swap ss-info swap snap-size ;
 

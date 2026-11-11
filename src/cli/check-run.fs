@@ -188,6 +188,7 @@ begin-structure /ck
   field: ck-checked-read         \ true: its manifest was checked
   field: ck-snapped              \ true: a run of a loaded snapshot (ck-snapshot-load)
   field: ck-snap-saved           \ the snapshot save's outcome, invalid before it
+  2 cells +field ck-snap-file    \ the snapshot file's name, as ck-snapshot-load was given it
 end-structure
 create ck-state /ck allot  ck-state /ck erase
 create ck-snap /snap allot  ck-snap snap-init   \ the snapshot written or loaded
@@ -696,8 +697,9 @@ create ck-manifest-path manifest-name-room 16 + allot
 \ declaration; a refusal is the snapshot's, as staging's.
 : ck-snap-slots ( outcome -- outcome' )
   drop lf-input-count ck-snap snap-read dup ok? 0= if ck-staging ck-state ck-failed ! then ;
+: ck-snap-file@ ( -- c-addr u ) ck-state ck-snap-file 2@ ;
 : ck-snapshot-load ( c-addr u fuel -- outcome )
-  true ck-state ck-snapped ! 0 ck-state ck-jobs-asked ! ck-snap snap-loading !
+  >r 2dup ck-state ck-snap-file 2! r> true ck-state ck-snapped ! 0 ck-state ck-jobs-asked ! ck-snap snap-loading !
   ['] snap-fill ck-check-word! ck-snap-phase dup ok? if drop ck-stage-facts
   ck-feed-phase dup ok? if ck-input-facts ck-snap-slots then then dup ck-state ck-loaded ! ;
 

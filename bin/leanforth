@@ -35,14 +35,14 @@ root=$(cd "$(dirname "$self")/.." && pwd -P) || {
 }
 
 # --fast among the options of check, replay or print (not the value of
-# --record, --fuel, --name or --statement).
+# --record, --fuel, --name, --statement, --save-snapshot or --snapshot).
 fast=false
 case ${1:-} in
   check | replay | print)
     previous=
     for argument in "${@:2}"; do
       case $previous in
-        --record | --fuel | --name | --statement) ;;
+        --record | --fuel | --name | --statement | --save-snapshot | --snapshot) ;;
         *) if [ "$argument" = --fast ]; then fast=true; fi ;;
       esac
       previous=$argument
@@ -98,20 +98,22 @@ fi
 LEANFORTH_ENGINE=${GFORTH##*/}
 export LEANFORTH_ENGINE
 
-# reexport writes COPY and check --record writes RECORD: refuse one that
+# reexport writes COPY, check --record RECORD and check --save-snapshot
+# FILE: refuse one that
 # names the export under another name before anything is written (the
 # Forth side compares the names only as text).
 if [ "${1:-}" = reexport ] || [ "${1:-}" = check ]; then
-  files=() target= previous=
+  files=() target= previous= what=
   for argument in "${@:2}"; do
     case $previous in
       --record) target=$argument ;;
-      --fuel) ;;
+      --save-snapshot) target=$argument what=FILE ;;
+      --fuel | --snapshot) ;;
       *) case $argument in -*) ;; *) files+=("$argument") ;; esac ;;
     esac
     previous=$argument
   done
-  what=RECORD
+  what=${what:-RECORD}
   if [ "$1" = reexport ] && [ "${#files[@]}" -eq 2 ]; then target=${files[1]} what=COPY; fi
   if [ -n "$target" ] && [ "${#files[@]}" -ge 1 ] && [ -e "$target" ] &&
     [ "${files[0]}" -ef "$target" ]; then

@@ -1,7 +1,13 @@
 \ The JSON report of `leanforth check --json` (plan tasks 3.4.3 and, the
 \ command line's part, 6.5.2): one JSON text in the format
 \ leanforth-check-report, version 0.2 (schemas/check-report-0.2.schema.json;
-\ docs/user/COMMAND_LINE.md, "JSON output"), then a line feed, written to
+\ docs/user/COMMAND_LINE.md, "JSON output") for a final run, or 0.3
+\ (schemas/check-report-0.3.schema.json; plan step SN3) for a run of a
+\ loaded snapshot (check --snapshot): 0.2's members, the export null, and
+\ "mode" development, a "snapshot" member (the file, its identity, its
+\ versions, the export it was written from, the information of the build
+\ that wrote it) and on each declaration its "provenance" (checked,
+\ snapshot or uses-snapshot; ADR 0020 D4, OQ-3). Then a line feed, written to
 \ standard output with the project's JSON writer after a run of
 \ cli/check-run.fs and before ck-release. Every verdict is read from the
 \ slots of the run's own environment (ck-verdicts?), never from what the
@@ -39,7 +45,7 @@ require ./check-run.fs
 
 8 0 json-writer: cj-writer
 : cj-schema ( -- c-addr u ) s" leanforth-check-report" ;
-: cj-version ( -- c-addr u ) s" 0.2" ;
+: cj-version ( -- c-addr u ) ck-snapped? if s" 0.3" else s" 0.2" then ;
 : cj-label ( -- c-addr u ) s" experimental, not independently audited" ;
 
 \ Writing values and members.
@@ -77,8 +83,13 @@ require ./check-run.fs
   s" feed" s" phase" cj-text cj-nowhere
   s" the staged export could not be fed to the checker" s" reason" cj-text
   ck-feeding-record feed-at s" at" cj-number ;
+\ A snapshot refused (0.3): what was refused, and the record.
+: cj-snap-refused ( -- )
+  s" snapshot" s" phase" cj-text cj-nowhere ck-snap snap-error >r
+  s" reason" cj-text r> dup 0< if drop s" at" cj-null-member else s" at" cj-number then ;
+: cj-staged ( -- ) ck-snapped? if cj-snap-refused else cj-staging then ;
 : cj-where ( -- )
-  ck-phase-failed case ck-staging of cj-staging endof ck-feeding of cj-feeding endof
+  ck-phase-failed case ck-staging of cj-staged endof ck-feeding of cj-feeding endof
     ck-opening of cj-unopened endof cj-ok-read endcase ;
 : cj-read ( -- )
   s" read" cj-key cj-object ck-read-outcome outcome-text s" outcome" cj-text cj-where
@@ -133,9 +144,16 @@ require ./check-run.fs
   dup lf-env-outcome ok? if cj-accepted else cj-diagnostic then ;
 \ A check's fuel used, null when it is not known (cli/check-run.fs).
 : cj-fuel-used ( d -- ) s" fuel" cj-key ck-fuel-of dup 0< if drop cj-null else cj-n then ;
+\ Where its verdict comes from (0.3): checked, snapshot, uses-snapshot.
+: cj-origin-text ( origin -- c-addr u )
+  case lf-origin-saved of s" snapshot" endof lf-origin-uses of s" uses-snapshot" endof
+    s" checked" rot endcase ;
+: cj-provenance ( d -- )
+  ck-snapped? if lf-env-origin cj-origin-text s" provenance" cj-text else drop then ;
 : cj-decl ( d -- )
   cj-object dup s" index" cj-number dup cj-name-text s" name" cj-text
-  dup cj-verdict-text s" verdict" cj-text dup cj-detail cj-fuel-used cj-end-object ;
+  dup cj-verdict-text s" verdict" cj-text dup cj-detail dup cj-provenance cj-fuel-used
+  cj-end-object ;
 : cj-decls ( -- )
   s" declarations" cj-key cj-array
   ck-verdicts? if lf-input-count 0 ?do i cj-decl loop then cj-end-array ;
@@ -191,12 +209,36 @@ require ./check-run.fs
 : cj-measured ( -- )
   s" measured" cj-key cj-object cj-times cj-peak cj-stage-bytes cj-engine cj-end-object ;
 
+\ ---- The snapshot of a 0.3 report: the file, its identity (its header's
+\ SHA-256), its format and verdict versions, the export it was written
+\ from, the manifest's SHA-256 (null without one), the base (null: a base
+\ snapshot) and the information text of the build that wrote it.
+create cj-hex 64 allot
+: cj-sha ( c-addr key-addr key-u -- ) rot cj-hex sha256-hex cj-hex 64 2swap cj-text ;
+: cj-snap-export ( -- )
+  s" export" cj-key cj-object ck-snap snap-export-sha s" sha256" cj-sha
+  ck-snap snap-export-bytes s" bytes" cj-number ck-snap snap-export-lines s" lines" cj-number
+  ck-snap snap-flags dup snap-enforced and 0<> s" manifestChecked" cj-flag
+  snap-any-lean and 0<> s" anyLeanVersion" cj-flag cj-end-object ;
+: cj-snap-manifest ( -- )
+  ck-snap snap-flags snap-enforced and
+  if ck-snap snap-manifest-sha s" manifestSha256" cj-sha
+  else s" manifestSha256" cj-null-member then ;
+: cj-snap-file ( -- ) ck-snap-file@ nt-text cj-shown s" file" cj-text ;
+: cj-snap-info ( -- ) ck-snap snap-info nt-text cj-shown s" information" cj-text ;
+: cj-snapshot ( -- )
+  ck-snapped? 0= if exit then
+  s" development" s" mode" cj-text s" snapshot" cj-key cj-object cj-snap-file
+  ck-snap snap-sum s" sha256" cj-sha snap-version s" formatVersion" cj-number
+  lf-verdict-version s" verdictVersion" cj-number cj-snap-export cj-snap-manifest
+  s" base" cj-null-member cj-snap-info cj-end-object ;
 \ ---- The report.
-: cj-export ( c-addr u -- ) nt-text cj-shown s" export" cj-text ;
+: cj-export ( c-addr u -- )
+  ck-snapped? if 2drop s" export" cj-null-member exit then nt-text cj-shown s" export" cj-text ;
 : cj-head ( c-addr u checked? -- )
   cj-schema s" schema" cj-text cj-version s" schemaVersion" cj-text >r cj-export
   r> if s" checked" else s" not-checked" then s" manifest" cj-text
-  cj-label s" label" cj-text ;
+  cj-label s" label" cj-text cj-snapshot ;
 \ anyLeanVersion only with --any-lean-version, so that a report without it
 \ is as before.
 : cj-any-lean ( -- ) ck-any-version? if true s" anyLeanVersion" cj-flag then ;
