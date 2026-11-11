@@ -360,7 +360,7 @@ not yet:
 ```console
 $ bin/leanforth check --no-manifest tests/core/reexport/kinds.ndjson | tail -n 2; echo "exit status ${PIPESTATUS[0]}"
 106 declarations: 89 accepted, 17 unsupported
-accepted: 89 (experimental, not independently audited); axioms: none
+accepted: 89 (experimental, not independently audited); axioms: propext (allowlisted); none NOT PROVED
 exit status 2
 ```
 
