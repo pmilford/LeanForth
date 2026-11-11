@@ -405,14 +405,20 @@ T{ composition rp-replay-text -> outcome-invalid }T
 T{ 0 finding@ total -> rp-not-json 1 }T
 T{ s" [1]" rp-replay-text -> outcome-invalid }T
 T{ 0 finding@ -> rp-unknown-schema }T
+\ A record of another version, the earlier 0.1 (schemas/run-record-0.1)
+\ or a later one: replay compares a record only with one of its own.
 : other-version ( -- c-addr u )
-  s\" {\"schema\":\"leanforth-run-record\",\"schemaVersion\":\"0.2\"}" ;
+  s\" {\"schema\":\"leanforth-run-record\",\"schemaVersion\":\"0.1\"}" ;
 T{ other-version rp-replay-text -> outcome-invalid }T
+T{ 0 finding@ -> rp-unknown-schema }T
+: later-version ( -- c-addr u )
+  s\" {\"schema\":\"leanforth-run-record\",\"schemaVersion\":\"0.3\"}" ;
+T{ later-version rp-replay-text -> outcome-invalid }T
 T{ 0 finding@ -> rp-unknown-schema }T
 \ A record of the format with nothing in it: every member is missing,
 \ within the sections as at the top.
 : hollow ( -- c-addr u )
-  s\" {\"schema\":\"leanforth-run-record\",\"schemaVersion\":\"0.1\",\"input\":{}}" ;
+  s\" {\"schema\":\"leanforth-run-record\",\"schemaVersion\":\"0.2\",\"input\":{}}" ;
 T{ hollow rp-replay-text -> outcome-rejected }T
 T{ total 0 finding@ 9 finding@ -> 10 rp-missing-field rp-missing-field }T
 T{ 0 finding-path@ s" $.input.sha256" compare -> 0 }T

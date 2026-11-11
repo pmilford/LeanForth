@@ -520,6 +520,26 @@ T{ s" nested.aux-name-taken" verdict -> outcome-ok 0 all-steps }T
 T{ s" nested.aux-rec-name-taken" verdict -> outcome-rejected lf-diag-already-declared 6 }T
 T{ s" nested.constructor-named-rec-1" verdict
    -> outcome-rejected lf-diag-already-declared 12 }T
+\ Review rvUNNI, each with the official checker's verdict (lean4export's
+\ parser, then Lean's replay): a definition named T.rec_1 after a nested
+\ block (N2); one named T.rec_18446744073709551617, never read modulo
+\ 2^64 as rec_1 (L1); a constructor with a projection of a structure
+\ named under _nested (T0, M3), and its twin with Prod.
+T{ s" nested.def-named-rec-1" used -> outcome-rejected lf-diag-already-declared }T
+T{ s" nested.def-named-rec-huge" used -> outcome-ok 0 }T
+T{ s" names.reserved-nested-prefix-proj" verdict -> outcome-rejected lf-diag-reserved-prefix 2 }T
+T{ s" names.reserved-nested-prefix-proj-twin" verdict -> outcome-ok 0 all-steps }T
+\ A skipped definition named like the recursor Lean's kernel generates
+\ for a later block that leaves it out (M1): the block is accepted, for
+\ T.rec and for a nested block's T.rec_1; when the block holds that
+\ recursor, its name is given twice (step 6). An unsafe block whose two
+\ constructors have one name, as the exporter writes it (B1): rejected.
+T{ s" unsafe.rec-name-before-block" verdict -> outcome-ok 0 all-steps }T
+T{ s" partial.rec-name-before-block" verdict -> outcome-ok 0 all-steps }T
+T{ s" unsafe.aux-rec-name-before-nested-block" verdict -> outcome-ok 0 all-steps }T
+T{ s" unsafe.rec-name-before-block-holding-it" verdict
+   -> outcome-rejected lf-diag-already-declared 6 }T
+T{ s" unsafe.block-constructor-twice" verdict -> outcome-rejected lf-diag-already-declared 1 }T
 \ A local variable in Ds (N2, step 4); Array (Bad -> Nat) (P1 in the
 \ auxiliary List_2.cons); an ill-typed Ds only the typing of the nested
 \ occurrences sees (step 12).
@@ -636,6 +656,23 @@ T{ ' all-unsafe 4 block-verdict -> outcome-rejected lf-diag-skipped lf-safety-un
   blocks staged ok? must all-unsafe fuel checked
   4 lf-env-skipped? 5 lf-env-skipped? 6 lf-env-skipped? 7 lf-env-skipped? finish ;
 T{ members-skipped -> true true true false }T
+\ Two constructors of one name in an unsafe block (review rvUNNI B1):
+\ Either's inr named inl, in its ctors list too. lean4export's parser
+\ refuses the file, so the block is rejected as already declared (the
+\ name, inl's declaration), never skipped, also with only some members
+\ unsafe; safe, C4 rejects it at step 9.
+: either-unsafe ( -- ) 14 10 do lf-safety-unsafe i lf-input-decl lf-idecl-safety ! loop ;
+: inr-named-inl ( -- )
+  11 lf-input-name dup 12 lf-input-decl lf-idecl-name !
+  10 data lf-ity-ctors@ drop cell+ ! ;
+: either-twice ( -- ) either-unsafe inr-named-inl ;
+T{ ' either-twice 10 block-verdict -> outcome-rejected lf-diag-already-declared 11 }T
+: either-twice-skipped? ( -- flag )
+  blocks staged ok? must either-twice fuel checked 12 lf-env-skipped? finish ;
+T{ either-twice-skipped? -> false }T
+: inr-unsafe-twice ( -- ) lf-safety-unsafe 12 lf-input-decl lf-idecl-safety ! inr-named-inl ;
+T{ ' inr-unsafe-twice 10 block-verdict -> outcome-rejected lf-diag-already-declared 11 }T
+T{ ' inr-named-inl 10 block-verdict drop -> outcome-rejected lf-diag-duplicate-ctor }T
 T{ s" mutual.even-odd" used -> outcome-ok 0 }T
 : a-variable ( -- node ) 0 begin dup lf-term-tag@ lf-tag-bvar <> while 1+ repeat ;
 : loose ( -- ) a-variable 6 0 rhs ! ;

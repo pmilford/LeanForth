@@ -4106,7 +4106,7 @@ reason = "T5 skipped: a block with the universe parameters u, u passes"
 id = "ind-skip-names"
 file = "src/kernel/check-block.fs"
 old = '''  dup lf-ind-tname lf-blk-fresh ok-then? 0= if exit then
-  dup lf-blk-rec-name! ok-then? 0= if exit then lf-blk-rec-id lf-blk-fresh ;'''
+  dup lf-blk-rec-name! ok-then? 0= if exit then lf-blk-rec-id lf-blk-rec-fresh ;'''
 new = '''  lf-blk-rec-name! ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "N2 skipped for a block: a type declared twice in one input is accepted twice"
@@ -6084,8 +6084,8 @@ reason = "a second quotient record of a name is published beside the first (quot
 [[fault]]
 id = "env-quot-not-held"
 file = "src/kernel/environment.fs"
-old = '''  lf-env-quot-holding lf-env-n2-quot ;'''
-new = '''  2drop outcome-ok ;'''
+old = '''  dup ok? 0= if nip nip exit then drop lf-env-quot-holding lf-env-n2-quot ;'''
+new = '''  dup ok? 0= if nip nip exit then drop 2drop outcome-ok ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "N2 ignores the initialised quotient: a user's Quot.mk after the Quot record is accepted (after.quot-then-mk-declared)"
 
@@ -6541,6 +6541,90 @@ old = '''  over lf-env-skipped? if drop s" skipped" rr-string else rr-outcome th
 new = '''  rr-outcome ;'''
 test = "$GFORTH tests/core/run-record.fs"
 reason = "5.2.7: a run record calls a skipped declaration rejected"
+
+# Review rvUNNI's findings (agent FX8): names and the reserved prefix as the
+# official checker (lean4export's parser, then Lean's replay) decides them,
+# and the report formats' version 0.2.
+
+[[fault]]
+id = "fx8-unsafe-ctor-twice-skipped"
+file = "src/kernel/inductive-block.fs"
+old = '''  lf-ind-ctors-once dup ok? 0= if exit then drop'''
+new = '''  outcome-ok drop'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvUNNI B1: an unsafe block with two constructors of one name is skipped, exit 0, where the parser refuses the file"
+
+[[fault]]
+id = "fx8-ctor-twin-misses-first"
+file = "src/kernel/inductive-block.fs"
+old = '''  dup lf-ind-ctor-named swap 0 ?do'''
+new = '''  dup lf-ind-ctor-named swap 1 ?do'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvUNNI B1: a constructor named as the block's first one is not found given twice"
+
+[[fault]]
+id = "fx8-rec-name-skipped-taken"
+file = "src/kernel/check-block.fs"
+old = '''  dup lf-b4-held? if lf-blk-fresh exit then lf-env-limit lf-env-fresh-generated ;'''
+new = '''  lf-blk-fresh ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvUNNI M1: a skipped declaration takes the name of the T.rec a later block leaves out; Lean accepts the block"
+
+[[fault]]
+id = "fx8-rec-name-held-ignored"
+file = "src/kernel/check-block.fs"
+old = '''  dup lf-b4-held? if lf-blk-fresh exit then lf-env-limit lf-env-fresh-generated ;'''
+new = '''  lf-env-limit lf-env-fresh-generated ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvUNNI M1: a block holding T.rec after a skipped declaration of that name is accepted, where the parser refuses the name given twice"
+
+[[fault]]
+id = "fx8-aux-rec-name-skipped-taken"
+file = "src/kernel/check-block.fs"
+old = '''  lf-blk-rec-fresh ;'''
+new = '''  lf-blk-fresh ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvUNNI M1: a skipped declaration takes the name of the T.rec_1 a later nested block leaves out; Lean accepts the block"
+
+[[fault]]
+id = "fx8-rec-k-wraps"
+file = "src/kernel/environment.fs"
+old = '''  dup lf-env-k-digits > if 2drop 0 exit then'''
+new = ''''''
+test = "$GFORTH tests/core/environment.fs"
+reason = "rvUNNI L1: T.rec_<digits> beyond a double is read modulo 2^128 as a small k"
+
+[[fault]]
+id = "fx8-t0-proj-ignored"
+file = "src/kernel/inductive-block.fs"
+old = '''    lf-tag-proj of drop endof  >r 2drop 0 r> endcase ;'''
+new = '''    >r 2drop 0 r> endcase ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvUNNI M3: a projection of a structure named under _nested passes T0 (check_no_nested_aux's proj clause)"
+
+[[fault]]
+id = "fx8-unreached-line-plain"
+file = "src/cli/leanforth.fs"
+old = ''': cli-unreached ( d -- ) cli-name. ." : not checked (not reached: the run stopped)" cr ;'''
+new = ''': cli-unreached ( d -- ) cli-name. ." : not checked" cr ;'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "rvUNNI L5: a declaration a stopped run never reached reads like the skipped verdict's line"
+
+[[fault]]
+id = "fx8-report-version-0-1"
+file = "src/cli/check-json.fs"
+old = ''': cj-version ( -- c-addr u ) s" 0.2" ;'''
+new = ''': cj-version ( -- c-addr u ) s" 0.1" ;'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "rvUNNI M2: a report with the verdict skipped claims version 0.1, whose consumers refuse skipped"
+
+[[fault]]
+id = "fx8-record-version-0-1"
+file = "src/import/run-record.fs"
+old = ''': rr-version ( -- c-addr u ) s" 0.2" ;'''
+new = ''': rr-version ( -- c-addr u ) s" 0.1" ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvUNNI M2: a run record with the verdict skipped claims version 0.1"
 
 # Step S0 of the compact-store plan (plan task 6.5.5): the level passes mark
 # reached nodes with a per-call stamp and build only the sorted list of them.

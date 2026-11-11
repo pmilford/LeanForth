@@ -72,7 +72,7 @@ rp-path-room 6 * 64 + rp-kept * 256 + constant rp-report-room
 \ Finding codes, and the names the report gives them.
 0 constant rp-unreadable           \ the old record cannot be read, or is too large
 1 constant rp-not-json             \ not one JSON text within the limits
-2 constant rp-unknown-schema       \ not a leanforth-run-record of version 0.1
+2 constant rp-unknown-schema       \ not a leanforth-run-record of rr-version
 3 constant rp-rerun-failed         \ the input could not be checked again
 4 constant rp-missing-field
 5 constant rp-unknown-field

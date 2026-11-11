@@ -24,7 +24,7 @@
 \       the export read into the checker's input at its default sizes
 \       (import/checker-input.fs, which refuses inductive types), checked
 \       by import/run-record.fs's run (rr-check), and printed as above;
-\       run records 0.1 hold at most 32 declarations, so --record keeps
+\       run records 0.2 hold at most 32 declarations, so --record keeps
 \       this path (docs/programming/RUN_RECORDS.md, "Version 0.2");
 \   replay [--no-manifest] [--fuel N] [--fast] EXPORT RECORD
 \       check the export again and compare the new run record with RECORD
@@ -272,10 +272,13 @@ end-structure
 : cli-verdict ( d -- )
   dup cli-name. ." : " dup lf-check-verdict. dup cli-not-proved. cr
   dup lf-env-outcome ok? if drop else cli-why. then ;
-: cli-skipped ( d -- ) cli-name. ." : not checked" cr ;
+\ A declaration the stopped run never reached: verdict not checked, said
+\ so that it cannot be read as skipped, the verdict of an unsafe or
+\ partial declaration (review rvUNNI L5).
+: cli-unreached ( d -- ) cli-name. ." : not checked (not reached: the run stopped)" cr ;
 : cli-stopped ( -- )
   ." internal fault: the run stopped: a check threw, or publishing failed" cr
-  lf-input-count cli-stepped ?do i cli-skipped loop ;
+  lf-input-count cli-stepped ?do i cli-unreached loop ;
 : cli-verdicts ( -- )
   cli-stepped 0 ?do i cli-verdict loop cli-faulted? if cli-stopped then ;
 
@@ -568,7 +571,7 @@ create cli-fed-ops
 : cli-misuse-record ( -- code )
   ." error: --json and --resources do not go with --record" cr
   ." try: leanforth help" cr exit-malformed ;
-\ Run records 0.1 hold the pinned versions only: --any-lean-version does
+\ Run records 0.2 hold the pinned versions only: --any-lean-version does
 \ not go with --record either.
 : cli-any-misused? ( -- flag ) cli-record? cli-any-lean? and ;
 : cli-misuse-any ( -- code )
@@ -750,7 +753,7 @@ create cli-fed-ops
   ."     these are merged but their review gates are open" cr
   ."     (docs/project/PROJECT_PROGRESS.md)" cr ;
 : cli-other-commands. ( -- )
-  ."   check --record, replay: run records 0.1 and their replay (plan task 2.2.5)" cr
+  ."   check --record, replay: run records 0.2 and their replay (plan task 2.2.5)" cr
   ."   print: a readable proof outline of each accepted declaration, from the" cr
   ."     checker's derivation log (plan tasks 2.4.1, 2.4.4; untrusted presentation)" cr
   ."   count, reexport: exports of any size, up to all of Mathlib" cr ;

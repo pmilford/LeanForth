@@ -1,7 +1,7 @@
 \ Run records (plan task 2.2.5; ADR 0012 E8): the evidence of one check of
 \ a Lean export by the first checker, written as one JSON text in the
-\ format leanforth-run-record, version 0.1
-\ (schemas/run-record-0.1.schema.json; fields, rules and use:
+\ format leanforth-run-record, version 0.2
+\ (schemas/run-record-0.2.schema.json; fields, rules and use:
 \ docs/programming/RUN_RECORDS.md). LeanForth-specific and untrusted: it
 \ decides no verdict, and the checker never reads a record. A record
 \ claims no more than the checker established: every verdict is read
@@ -115,7 +115,7 @@ rr-internal order+
 4096 constant rr-block-room       \ bytes read at a time while hashing
 8 constant rr-depth               \ deepest nesting the writer allows
 : rr-schema ( -- c-addr u ) s" leanforth-run-record" ;
-: rr-version ( -- c-addr u ) s" 0.1" ;
+: rr-version ( -- c-addr u ) s" 0.2" ;
 : rr-label ( -- c-addr u ) s" experimental, not independently audited" ;
 
 \ A note: a text of at most rr-note-room bytes, its length first; a
@@ -520,7 +520,7 @@ rr-power 2constant rr-exact
 \ Since plan task 6.2.0 universe parameters and arguments, and a check's
 \ dependencies, have no fixed limit; dependenciesPerCheck, parameters and
 \ referenceLevels are not limits since plan task 6.2.0 and record 16, 64
-\ and 64, the old limits, legacy values the 0.1 schema requires, until
+\ and 64, the old limits, legacy values schemas 0.1 and 0.2 require, until
 \ the record's next version (RUN_RECORDS.md, item 3). dependencyPool is
 \ the room the pool starts with; it grows.
 : rr-limits ( -- )

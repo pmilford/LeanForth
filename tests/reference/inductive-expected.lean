@@ -1638,6 +1638,15 @@ def usesNestedAux : Declaration :=
   let t : Expr := mkConst `IE.T0
   .inductDecl [] 0 [⟨`IE.T0, .sort 1, [⟨`IE.T0.mk, .forallE `x (mkConst `_nested.X) t .default⟩]⟩] false
 
+/-- `IE.n : Type 1 | mk : (p : Type × Type) → p.1 → IE.n`, the projection `p.1`
+naming the structure `s` (review rvUNNI M3). With `Prod`, accepted; with a name under
+`_nested`, which only a nested block's auxiliary types have, check_no_nested_aux's
+projection clause (inductive.cpp 1228) refuses it before anything is typed. -/
+def projBlock (n s : Name) : Declaration :=
+  let pair : Expr := mkAppN (mkConst `Prod [1, 1]) #[.sort 1, .sort 1]
+  .inductDecl [] 0 [⟨n, .sort 2, [⟨n ++ `mk,
+    .forallE `p pair (.forallE `x (.proj s 0 (.bvar 0)) (mkConst n) .default) .default⟩]⟩] false
+
 /-- A definition `IE.C.mk`, then a block `IE.C` whose constructor has that name (N2 on
 the constructors, check_constructors; review rvI21 M1). -/
 def takenName : Declaration :=
@@ -1790,6 +1799,15 @@ def onBase : List Chain := [
     lean := "reservedNestedPrefix", leanforth := "rejected", rule := "T0", task := "5.2.5b" },
   { id := "names.reserved-nested-prefix-declared", decls := [nestedAux, usesNestedAux],
     lean := "reservedNestedPrefix", leanforth := "rejected", rule := "T0", task := "5.2.1a" },
+  { id := "names.reserved-nested-prefix-proj", decls := [projBlock `IE.TPn `_nested.Prod_1],
+    lean := "reservedNestedPrefix", leanforth := "rejected", rule := "T0", task := "5.2.5b" },
+  { id := "names.reserved-nested-prefix-proj-twin", decls := [projBlock `IE.TPp `Prod],
+    lean := "accepted", leanforth := "accepted", rule := "A1 T0 J1", task := "5.2.5b" },
+  { id := "nested.def-named-rec-1", decls := [listTree, typeNamed `IE.Tree.rec_1],
+    lean := "alreadyDeclared", leanforth := "rejected", rule := "N1 N2", task := "5.2.5b" },
+  { id := "nested.def-named-rec-huge",
+    decls := [listTree, typeNamed `IE.Tree.rec_18446744073709551617],
+    lean := "accepted", leanforth := "accepted", rule := "A1 N1 N2", task := "5.2.5b" },
   { id := "names.constructor-already-declared", decls := [takenName, takenBlock],
     lean := "alreadyDeclared", leanforth := "rejected", rule := "N2", task := "5.2.1a" },
   { id := "proj.reduces", decls := [projDef `IE.projReduces (mkConst `Bool.true)],
@@ -2935,6 +2953,9 @@ structure Skipped where
   cs : List ConstantInfo
   /-- The declarations the row judges, when not all of the case's own. -/
   judged : Option (List Name) := none
+  /-- Constants the file holds before `cs`, each written from its own environment
+  (so one may have the name of a constant of `cs`, review rvUNNI M1). -/
+  apart : List ConstantInfo := []
   lean : String
   leanforth : String
   rule : String
@@ -2981,6 +3002,65 @@ def skippedCases (bad ubox : List ConstantInfo) : List Skipped := [
     lean := "accepted", leanforth := "unsupported", rule := "SK B3" }
 ]
 
+/-- `IE.Emp : Prop`, no constructor. -/
+def empBlock : Declaration := .inductDecl [] 0 [⟨`IE.Emp, .sort 0, []⟩] false
+/-- `unsafe inductive IE.UTwo | a | b`. -/
+def utwoBlock : Declaration :=
+  let t : Expr := mkConst `IE.UTwo
+  .inductDecl [] 0 [⟨`IE.UTwo, .sort 1, [⟨`IE.UTwo.a, t⟩, ⟨`IE.UTwo.b, t⟩]⟩] true
+/-- A constant of `IE.UTwo`'s block with `IE.UTwo.b` renamed `IE.UTwo.a`, in the
+type's constructor list, the constructor, and the recursor's type and rules. -/
+def aForB (e : Expr) : Expr :=
+  e.replace fun e => if e.isConstOf `IE.UTwo.b then some (mkConst `IE.UTwo.a) else none
+def bNamedA : ConstantInfo → ConstantInfo
+  | .inductInfo i => .inductInfo { i with ctors := i.ctors.map fun n =>
+      if n == `IE.UTwo.b then `IE.UTwo.a else n }
+  | .ctorInfo c => .ctorInfo { c with name := `IE.UTwo.a }
+  | .recInfo r => .recInfo { r with
+      type := aForB r.type
+      rules := r.rules.map fun rl => { rl with ctor := `IE.UTwo.a, rhs := aForB rl.rhs } }
+  | c => c
+def notNamed (n : Name) (cs : List ConstantInfo) : List ConstantInfo := cs.filter (·.name != n)
+
+/-- Names, review rvUNNI (B1, M1). The file's names as `LeanExport` writes them (a
+block's constructors from its types' `ctors` lists, so a name given twice there is
+written twice), and the official checker's verdict on it: lean4export's parser refuses
+a name given twice before any replay (`Export/Parse.lean` 78–80, `addConst`:
+"Duplicate declaration"), else `replayVerdict`. -/
+def fileNames (cs : List ConstantInfo) : List Name := cs.flatMap fun c => match c with
+  | .inductInfo i => c.name :: i.ctors
+  | .ctorInfo _ => []
+  | c => [c.name]
+def fileVerdict (base : Kernel.Environment) (cs : List ConstantInfo) : IO String :=
+  let ns := fileNames cs
+  if ns.eraseDups.length != ns.length then pure "duplicateDeclaration"
+  else replayVerdict base cs
+
+/-- A skipped declaration named like a recursor Lean's kernel generates for a later
+block that leaves it out (`IE.Emp.rec`; a nested block's `IE.Tree.rec_1`) is no name
+the file gives twice, and replay never adds it: the block is accepted (M1); when the
+block holds that recursor, the parser refuses the name given twice. An unsafe block
+whose two constructors have one name is refused by the parser (B1). -/
+def nameSkippedCases (emp tree utwo : List ConstantInfo) : List Skipped := [
+  { id := "unsafe.rec-name-before-block",
+    cs := defnC `IE.Emp.rec .unsafe nat (lit 5) :: notNamed `IE.Emp.rec emp,
+    judged := some [`IE.Emp],
+    lean := "accepted", leanforth := "accepted", rule := "SK N2" },
+  { id := "unsafe.rec-name-before-block-holding-it",
+    apart := [defnC `IE.Emp.rec .unsafe nat (lit 5)], cs := emp, judged := some [`IE.Emp],
+    lean := "duplicateDeclaration", leanforth := "rejected", rule := "SK N2" },
+  { id := "partial.rec-name-before-block",
+    cs := defnC `IE.Emp.rec .partial nat (lit 5) :: notNamed `IE.Emp.rec emp,
+    judged := some [`IE.Emp],
+    lean := "accepted", leanforth := "accepted", rule := "SK N2" },
+  { id := "unsafe.aux-rec-name-before-nested-block",
+    cs := defnC `IE.Tree.rec_1 .unsafe nat (lit 5) :: notNamed `IE.Tree.rec_1 tree,
+    judged := some [`IE.Tree, `IE.Tree.node, `IE.Tree.rec],
+    lean := "accepted", leanforth := "accepted", rule := "SK N1 N2" },
+  { id := "unsafe.block-constructor-twice", cs := utwo.map bNamedA,
+    lean := "duplicateDeclaration", leanforth := "rejected", rule := "SK N2" }
+]
+
 /-- A skipped case as a file holds it: its constants, unsafe ones too, each added
 without any check; written from the first and from each later one not in a block. -/
 def writeSkipped (add : KernelAdd) (base : Kernel.Environment) (baseRecs : NameMap NameSet)
@@ -2989,8 +3069,9 @@ def writeSkipped (add : KernelAdd) (base : Kernel.Environment) (baseRecs : NameM
   let roots := s.cs.filterMap fun c => match c with
     | .ctorInfo _ | .recInfo _ => none
     | c => some c.name
-  writeSegments base baseRecs s.id [⟨e, s.cs.map (·.name), roots⟩] (judged := s.judged)
-    (unsafeToo := true)
+  let apart := s.apart.map fun c => (⟨add base c, [c.name], [c.name]⟩ : Segment)
+  writeSegments base baseRecs s.id (apart ++ [⟨e, s.cs.map (·.name), roots⟩])
+    (judged := s.judged) (unsafeToo := true)
 
 end InductiveExpected
 
@@ -3124,8 +3205,10 @@ run_cmd do
   -- 5f. Unsafe and partial declarations, replayed (plan task 5.2.7).
   let bad ← ownConstants base badBlock
   let ubox ← ownConstants base uboxBlock
-  for s in skippedCases bad ubox do
-    let got ← replayVerdict base s.cs
+  let skips := skippedCases bad ubox ++ nameSkippedCases (← ownConstants base empBlock)
+    (← ownConstants base listTree) (← ownConstants base utwoBlock)
+  for s in skips do
+    let got ← fileVerdict base (s.apart ++ s.cs)
     unless got == s.lean do throwError "{s.id}: Lean's verdict is {got}, expected {s.lean}"
     row s.id got s.leanforth s.rule "5.2.7" ""
   -- 6. Every case as a file, after the rows (see `writeCase`).
@@ -3168,4 +3251,4 @@ run_cmd do
   for c in quotNameCases do writeQuotName add base c
   writeCase envEq eqRecs flaggedId (flagged.foldl add envEq) (flagged.map (·.name))
     [`Iff, `propext]
-  for s in skippedCases bad ubox do writeSkipped add base baseRecs s
+  for s in skips do writeSkipped add base baseRecs s

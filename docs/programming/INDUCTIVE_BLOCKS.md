@@ -389,7 +389,7 @@ accepts them). `check --record`, `replay` and `print` still read with
 `import/checker-input.fs`, which refuses an inductive type while reading
 (*unsupported*): a temporary gap, closed for `check --record` and
 `replay` by a run record version for exports of any size (plan task
-6.5.2, [run records, version 0.2](RUN_RECORDS.md#version-02-records-of-any-size))
+6.5.2, [run records, version 0.3](RUN_RECORDS.md#version-03-records-of-any-size))
 and for `print` by moving it onto the feed (plan task 3.4.1).
 
 ## Limits
