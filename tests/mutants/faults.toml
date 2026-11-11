@@ -1351,8 +1351,8 @@ quick = true
 [[fault]]
 id = "ndjson-index-taken-as-ordinal"
 file = "src/import/ndjson.fs"
-old = '''  dup imap-sparse? 0= if >r 2dup = if 2drop 1 r> imap-dense +! outcome-ok exit then r> then'''
-new = '''  dup imap-sparse? 0= if >r 2dup 2drop true if 2drop 1 r> imap-dense +! outcome-ok exit then r> then'''
+old = '''  >r 2dup = r@ imap-sparse? 0= and if 2drop 1 r> imap-dense +! outcome-ok exit then'''
+new = '''  >r 2dup 2drop true r@ imap-sparse? 0= and if 2drop 1 r> imap-dense +! outcome-ok exit then'''
 test = "$GFORTH tests/core/ndjson.fs"
 reason = "a sparse index is taken as its ordinal: a reference to it then names no record, or the wrong one"
 
@@ -1375,8 +1375,8 @@ reason = "a record its handler refused gives its index the ordinal no record too
 [[fault]]
 id = "ndjson-list-items-untranslated"
 file = "src/import/ndjson.fs"
-old = '''  2dup 2>r list-raw dup 0< if 2r> 2drop else 2r> list-ordinal then ;'''
-new = '''  2dup 2>r list-raw dup 0< if 2r> 2drop else 2r> 2drop then ;'''
+old = '''  2dup 2>r refs-raw dup 0< if 2r> 2drop else 2r> refs-ordinal then ;'''
+new = '''  2dup 2>r refs-raw dup 0< if 2r> 2drop else 2r> 2drop then ;'''
 test = "$GFORTH tests/core/ndjson.fs"
 reason = "a list of references (levelParams, all, a constant's levels) gives the file's indices, not the ordinals every other reference gives"
 

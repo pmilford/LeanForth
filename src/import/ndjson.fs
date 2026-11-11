@@ -258,12 +258,13 @@ create pair-hooks /htab-hooks allot  ' pair-rehash ' pair-same? pair-hooks htab-
 \ Index i takes ordinal c, the family's next: ok, or full when the map
 \ finds no heap.
 : imap-define ( i c map -- outcome )
-  dup imap-sparse? 0= if >r 2dup = if 2drop 1 r> imap-dense +! outcome-ok exit then r> then
-  imap-keep ;
+  >r 2dup = r@ imap-sparse? 0= and if 2drop 1 r> imap-dense +! outcome-ok exit then
+  r> imap-keep ;
 : imap-restart ( dense map -- )
   tuck imap-dense ! dup imap-made @ if dup imap-table htab-clear imap-pairs slab-clear
   else drop then ;
-: imap-free ( map -- ) dup imap-table htab-free dup imap-pairs slab-free 0 swap imap-made ! ;
+: imap-free ( map -- )
+  dup imap-table htab-free dup imap-pairs slab-free 0 swap imap-made ! ;
 : imap-bytes ( map -- u )
   dup imap-made @ 0= if drop 0 exit then
   dup imap-table htab-slots u32s swap imap-pairs slab-bytes + ;
@@ -1116,16 +1117,16 @@ here families - cell / constant #families
 \ was checked whole when its record was decoded, and its family's map
 \ has not changed since: a constant's `us` holds levels, every other list
 \ of references names.
-: list-levels? ( list record -- flag )
+: refs-levels? ( list record -- flag )
   dup record-kind @ kind-const = if const-levels @ = else 2drop false then ;
-: list-map ( list record -- map )
-  tuck list-levels? swap record-export @ swap
+: refs-map ( list record -- map )
+  tuck refs-levels? swap record-export @ swap
   if export-level-map else export-name-map then ;
-: list-ordinal ( u list record -- n ) list-map imap-ordinal 0= if -1 then ;
-: list-raw ( i list record -- u )
+: refs-ordinal ( u list record -- n ) refs-map imap-ordinal 0= if -1 then ;
+: refs-raw ( i list record -- u )
   flat-array 0= if drop -1 exit then nth-token if item-u else -1 then ;
 : list-item ( i list record -- u )
-  2dup 2>r list-raw dup 0< if 2r> 2drop else 2r> list-ordinal then ;
+  2dup 2>r refs-raw dup 0< if 2r> 2drop else 2r> refs-ordinal then ;
 \ Rule i of a recursor record, decoded into the export's rule record and
 \ valid until the next call. Its header has kind-rule, index i, the line,
 \ the export and the generation. 0 when the record is not a recursor,
