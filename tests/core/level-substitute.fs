@@ -3,6 +3,7 @@ require ../../src/lib/lib.fs
 require ../../src/core/level-scope.fs
 require ../../src/core/levels.fs
 require ../../src/kernel/level-substitute.fs
+require ../support/store-faults.fs
 
 create formals 2 cells allot
 create actuals 2 cells allot
@@ -32,21 +33,21 @@ T{ tree formals actuals 2 20 lf-lsubst -> outcome-invalid }T
 lf-lscope-context-reset
 T{ tree formals actuals 2 20 lf-lsubst -> outcome-invalid }T
 11 lf-lscope-context-add drop 22 lf-lscope-context-add drop
-99 tree lf-level-slot !
+99 tree level-tag!
 T{ tree formals actuals 2 20 lf-lsubst -> outcome-invalid }T
-lf-level-tag-imax tree lf-level-slot !
-tree tree lf-level-slot cell+ !
+lf-level-tag-imax tree level-tag!
+tree tree level-first!
 T{ tree formals actuals 2 20 lf-lsubst -> outcome-invalid }T
-pq tree lf-level-slot cell+ !
-1 0 lf-level-slot cell+ !
+pq tree level-first!
+1 0 level-first!
 T{ tree formals actuals 2 20 lf-lsubst -> outcome-invalid }T
-0 0 lf-level-slot cell+ !
+0 0 level-first!
 T{ lf-level-count @ -> 7 }T
 
 \ Actuals are validated even when their formal is unused.
-99 q lf-level-slot !
+99 q level-tag!
 T{ p formals actuals 2 20 lf-lsubst -> outcome-invalid }T
-lf-level-tag-param q lf-level-slot !
+lf-level-tag-param q level-tag!
 T{ lf-level-count @ -> 7 }T
 \ Identity substitution reuses nodes and leaves the allocation identity intact.
 p actuals ! q actuals cell+ !
@@ -66,17 +67,17 @@ T{ 8 lf-level-read -> lf-level-tag-max q p true }T
 T{ lf-level-count @ -> 9 }T
 \ Running out of allocation identities or storage (full, not exhausted)
 \ cannot append partial results.
-lf-level-serial @ constant saved-serial
--1 1 rshift lf-level-serial !
+level-serial constant saved-serial
+-1 1 rshift level-serial!
 T{ tree formals actuals 2 20 lf-lsubst -> outcome-full }T
 T{ lf-level-count @ -> 9 }T
-saved-serial lf-level-serial !
+saved-serial level-serial!
 \ A build that fails part way appends nothing: tree needs two new nodes
 \ (max q p, then imax over it); with one identity left the first is added,
 \ the second refused, and the store is rolled back.
--1 1 rshift 1- lf-level-serial !
+-1 1 rshift 1- level-serial!
 T{ tree formals actuals 2 20 lf-lsubst lf-level-count @ -> outcome-full 9 }T
-saved-serial lf-level-serial !
+saved-serial level-serial!
 : fill-arena ( -- )
   begin lf-level-count @ lf-level-capacity < while
     0 lf-level-succ 0= if -1 throw then drop

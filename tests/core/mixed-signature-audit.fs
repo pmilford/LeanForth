@@ -10,6 +10,7 @@ require ../../src/core/symbolic-session.fs
 require ../../src/core/terms.fs
 require ../../src/kernel/mixed-signature-audit.fs
 require ../../src/kernel/mixed-signature-probe.fs
+require ../support/store-faults.fs
 
 create formals 2 cells allot
 create actuals 4 cells allot
@@ -61,10 +62,10 @@ make-binders
 variable tc variable lc variable cc variable ts variable ls variable cs
 variable saved-value
 : snapshot ( -- ) lf-term-count @ tc ! lf-level-count @ lc ! lf-cref-count @ cc !
-  lf-term-serial @ ts ! lf-level-serial @ ls ! lf-cref-serial @ cs ! ;
+  term-serial ts ! level-serial ls ! lf-cref-serial @ cs ! ;
 : unchanged? ( -- flag )
   lf-term-count @ tc @ = lf-level-count @ lc @ = and lf-cref-count @ cc @ = and
-  lf-term-serial @ ts @ = and lf-level-serial @ ls @ = and lf-cref-serial @ cs @ = and ;
+  term-serial ts @ = and level-serial ls @ = and lf-cref-serial @ cs @ = and ;
 snapshot
 T{ token 1000 lf-mixed-signature-audit -> outcome-ok }T
 T{ unchanged? -> true }T

@@ -3,6 +3,7 @@
 include ../support/tester.fs
 require ../../src/lib/lib.fs
 require ../../src/core/terms.fs
+require ../support/store-faults.fs
 
 lf-term-reset
 T{ 0 lf-term-sort -> 0 true }T
@@ -77,7 +78,7 @@ T{ lf-term-count @ -> lf-term-capacity 1+ }T
 \ Identities are fresh for each allocation and never reused after a reset;
 \ each reset advances the generation by one. Handles rely on both.
 lf-term-reset
-lf-term-serial @ constant term-serial0
+term-serial constant term-serial0
 lf-term-generation @ constant term-generation0
 T{ 0 lf-term-sort -> 0 true }T
 T{ 0 lf-term-identity -> term-serial0 1+ true }T
@@ -90,15 +91,15 @@ T{ 0 lf-term-bvar -> 0 true }T
 T{ 0 lf-term-identity -> term-serial0 2 + true }T
 
 \ A spent identity serial refuses every constructor and changes nothing.
-max-n lf-term-serial !
+max-n term-serial!
 T{ 0 lf-term-sort -> false }T
 T{ 0 0 lf-term-app -> false }T
-T{ lf-term-count @ lf-term-serial @ -> 1 max-n }T
+T{ lf-term-count @ term-serial -> 1 max-n }T
 T{ 0 lf-term-read -> lf-tag-bvar 0 0 true }T
 
 \ A saturated generation poisons the store: nothing is readable or allocated,
 \ and further resets do not revive it.
-0 lf-term-serial !
+0 term-serial!
 max-n lf-term-generation !
 lf-term-reset
 T{ lf-term-generation @ lf-term-count-valid? -> -1 false }T
@@ -116,12 +117,12 @@ T{ 0 99 lf-term-leaf -> false }T
 T{ 0 lf-tag-bvar lf-term-leaf -> 0 true }T
 
 \ Failed constructors leave the serial and count unchanged.
-lf-term-serial @ constant term-serial1
+term-serial constant term-serial1
 T{ 0 0 99 lf-term-binary -> false }T
 T{ 0 5 lf-term-app -> false }T
 T{ 5 0 99 lf-term-binary -> false }T
 T{ -1 lf-term-sort -> false }T
-T{ lf-term-serial @ lf-term-count @ -> term-serial1 1 }T
+T{ term-serial lf-term-count @ -> term-serial1 1 }T
 
 \ Identities are unreadable under a corrupted count.
 -1 lf-term-count !
@@ -130,6 +131,34 @@ lf-term-capacity 1+ lf-term-count !
 T{ 0 lf-term-identity -> false }T
 1 lf-term-count !
 T{ 0 lf-term-identity -> term-serial1 true }T
+lf-term-reset
+
+\ Checked roots, reads by index (compact-store plan step S2). A root
+\ checks the whole header; a read checks only index < count <= capacity,
+\ so nothing past the count is read. With the seal broken and the count
+\ sound, every root refuses the store, an allocation too, and a read by
+\ index still reads.
+T{ 0 lf-term-sort drop 0 lf-term-bvar drop -> 0 1 }T
+T{ 1 lf-term-root? 2 lf-term-root? -1 lf-term-root? 1 lf-term-valid?
+   -> true false false true }T
+T{ 2 lf-term-valid? 2 lf-term-read 2 lf-term-identity -1 lf-term-valid?
+   -> false false false false }T
+T{ 2 lf-terms store-at? 1 lf-terms store-at? -> false true }T
+term-seal-flip
+T{ lf-term-count-valid? 0 lf-term-root? 0 1 lf-term-pair-valid? 0 lf-term-sort
+   -> false false false false }T
+T{ 1 lf-term-valid? 1 lf-term-read 2 lf-term-read -> true lf-tag-bvar 0 0 true false }T
+term-seal-flip
+T{ lf-term-count-valid? 0 lf-term-root? 0 1 lf-term-pair-valid? -> true true true }T
+lf-term-reset
+
+\ The data word of lf-term-data@ is ADR 0016 C1's: the range in bits
+\ 0-19, the parameter bit 20, the free-variable bit 21. Without
+\ kernel/caches.fs (not loaded here) nothing is known.
+T{ 5 true false lf-data  5 false true lf-data -> 1 20 lshift 5 +  1 21 lshift 5 + }T
+T{ 1 20 lshift 1- true true lf-data dup lf-data-loose over lf-data-params? rot lf-data-fvar?
+   -> 1 20 lshift 1- true true }T
+T{ 0 lf-term-sort drop lf-term-data@ -> false }T
 lf-term-reset
 
 \ The capacity is a setting of the context (plan task 3.3.1; ADR 0016
@@ -141,7 +170,7 @@ lf-term-reset
 T{ lf-term-capacity lf-term-default -> 64 64 }T
 T{ 999 lf-term-capacity! lf-term-capacity -> outcome-ok 999 }T
 : fill-to ( n -- ) begin lf-term-count @ over < while 7 lf-term-bvar 2drop repeat drop ;
-lf-term-serial @ constant serial0
+term-serial constant serial0
 T{ 300 fill-to lf-term-count @ lf-terms store-capacity @ 299 lf-term-read -> 300 512
    lf-tag-bvar 7 0 true }T
 T{ 0 lf-term-identity 299 lf-term-identity -> serial0 1+ true serial0 300 + true }T

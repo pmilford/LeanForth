@@ -2,6 +2,7 @@
 include ../support/tester.fs
 require ../../src/core/level-scope.fs
 require ../../src/core/levels.fs
+require ../support/store-faults.fs
 
 \ Zero and a parameterized expression are structurally valid in context.
 lf-level-reset lf-lscope-context-reset
@@ -17,6 +18,13 @@ T{ 3 3 lf-lscope-check -> outcome-exhausted }T
 T{ 3 -1 lf-lscope-check -> outcome-invalid }T
 T{ -1 10 lf-lscope-check -> outcome-invalid }T
 T{ 4 10 lf-lscope-check -> outcome-invalid }T
+\ The check is refused at its root when the store's seal is broken, the
+\ count still sound (compact-store plan step S2: its reads check the index).
+level-seal-flip
+T{ 3 10 lf-lscope-check 3 lf-level-root? 3 lf-level-valid?
+   -> outcome-invalid false true }T
+level-seal-flip
+T{ 3 10 lf-lscope-check 3 lf-level-root? 4 lf-level-valid? -> outcome-ok true false }T
 lf-lscope-context-reset
 T{ 3 10 lf-lscope-check -> outcome-invalid }T
 T{ 2 lf-lscope-context-add -> true }T
@@ -30,21 +38,21 @@ T{ 2 7 lf-lscope-check -> outcome-ok }T
 T{ 2 6 lf-lscope-check -> outcome-exhausted }T
 
 \ Corrupt tags, reserved fields, self references and zero node are rejected.
-99 2 lf-level-slot !
+99 2 level-tag!
 T{ 2 20 lf-lscope-check -> outcome-invalid }T
-lf-level-tag-max 2 lf-level-slot !
-2 2 lf-level-slot cell+ !
+lf-level-tag-max 2 level-tag!
+2 2 level-first!
 T{ 2 20 lf-lscope-check -> outcome-invalid }T
-1 2 lf-level-slot cell+ !
-1 0 lf-level-slot cell+ !
+1 2 level-first!
+1 0 level-first!
 T{ 2 20 lf-lscope-check -> outcome-invalid }T
-0 0 lf-level-slot cell+ !
+0 0 level-first!
 T{ 2 20 lf-lscope-check -> outcome-ok }T
 lf-level-reset
 T{ 0 lf-level-succ -> 1 true }T
-1 1 lf-level-slot 2 cells + !
+1 1 level-second!
 T{ 1 20 lf-lscope-check -> outcome-invalid }T
-0 1 lf-level-slot 2 cells + !
+0 1 level-second!
 T{ 1 20 lf-lscope-check -> outcome-ok }T
 
 \ Corrupt context counts, identifiers and duplicate entries are invalid.
@@ -69,12 +77,12 @@ T{ 0 1 lf-lscope-check -> outcome-ok }T
 lf-level-reset lf-lscope-context-reset
 T{ 2 lf-lscope-context-add -> true }T
 T{ 2 lf-level-param -> 1 true }T
-0 1 lf-level-slot cell+ !
+0 1 level-first!
 T{ 1 10 lf-lscope-check -> outcome-invalid }T
-2 1 lf-level-slot cell+ !
-1 1 lf-level-slot 2 cells + !
+2 1 level-first!
+1 1 level-second!
 T{ 1 10 lf-lscope-check -> outcome-invalid }T
-0 1 lf-level-slot 2 cells + !
+0 1 level-second!
 T{ 1 10 lf-lscope-check -> outcome-ok }T
 
 \ The parameter context has no fixed limit (plan task 6.2.0): it grows to

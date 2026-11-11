@@ -288,9 +288,9 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 : lf-input-params-ok? ( decl -- flag )
   dup lf-idecl-arity @ dup 0< 0=
   if swap lf-idecl-params @ swap lf-params-ok? else 2drop false then ;
-: lf-input-value-ok? ( value -- flag ) dup -1 = if drop true else lf-term-valid? then ;
+: lf-input-value-ok? ( value -- flag ) dup -1 = if drop true else lf-term-root? then ;
 : lf-input-roots-ok? ( decl -- flag )
-  dup lf-idecl-type @ lf-term-valid? swap lf-idecl-value @ lf-input-value-ok? and ;
+  dup lf-idecl-type @ lf-term-root? swap lf-idecl-value @ lf-input-value-ok? and ;
 \ The inductive data, when present: a record of the declaration's kind
 \ that lies wholly within lf-input-more, its lists' counts nonnegative;
 \ the block header likewise. Nothing else about the data is checked here.

@@ -17,6 +17,7 @@ require ../../src/core/terms.fs
 require ../../src/kernel/mixed-instantiate.fs
 require ../../src/kernel/mixed-open.fs
 require ../../src/kernel/mixed-shift.fs
+require ../support/store-faults.fs
 
 variable rid variable cid variable sid variable rootid variable outid variable serial-before
 create args 2 cells allot
@@ -33,24 +34,24 @@ create args 2 cells allot
   0 3 lf-term-app 0= abort" app" drop
   2 4 lf-term-app 0= abort" app" drop
   1 5 lf-term-lam 0= abort" lam" drop
-  lf-term-serial @ rootid ! ;
+  term-serial rootid ! ;
 \ Source lambda: domain constant, body app(local 0, target 1).
 setup
 T{ 2 3 lf-term-app -> 7 true }T
 T{ 0 7 lf-term-lam -> 8 true }T
-lf-term-serial @ rootid !
+term-serial rootid !
 \ Replacement app(Sort, bvar 0): the free variable shifts under lambda.
 T{ 1 2 lf-term-app -> 9 true }T
-lf-term-serial @ rid !
-T{ 8 rootid @ 9 rid @ 100 lf-mixed-instantiate -> 13 lf-term-serial @ outcome-ok }T
-lf-term-serial @ outid !
+term-serial rid !
+T{ 8 rootid @ 9 rid @ 100 lf-mixed-instantiate -> 13 term-serial outcome-ok }T
+term-serial outid !
 T{ 10 lf-term-read -> lf-tag-bvar 1 0 true }T
 T{ 11 lf-term-read -> lf-tag-app 1 10 true }T
 T{ 12 lf-term-read -> lf-tag-app 2 11 true }T
 T{ 13 lf-term-read -> lf-tag-lam 0 12 true }T
 T{ 13 outid @ 100 lf-cterm-check -> outcome-ok }T
 \ Free variables above the target are lowered; leaves keep identities.
-T{ 3 3 lf-term-identity drop 0 cid @ 100 lf-mixed-instantiate -> 14 lf-term-serial @ outcome-ok }T
+T{ 3 3 lf-term-identity drop 0 cid @ 100 lf-mixed-instantiate -> 14 term-serial outcome-ok }T
 T{ 14 lf-term-read -> lf-tag-bvar 0 0 true }T
 T{ 0 cid @ 1 sid @ 100 lf-mixed-instantiate -> 0 cid @ outcome-ok }T
 T{ 2 2 lf-term-identity drop 0 cid @ 100 lf-mixed-instantiate -> 0 cid @ outcome-ok }T
@@ -63,27 +64,27 @@ T{ 0 cid @ 1 sid @ 4 lf-mixed-instantiate -> -1 0 outcome-exhausted }T
 T{ 0 cid @ 1 sid @ 5 lf-mixed-instantiate -> 0 cid @ outcome-ok }T
 T{ lf-minst-fuel @ -> 0 }T
 \ Even unused invalid or exhausted replacements are audited first.
-lf-term-count @ rootid ! lf-term-serial @ serial-before !
+lf-term-count @ rootid ! term-serial serial-before !
 T{ 0 cid @ 9 0 100 lf-mixed-instantiate lf-minst-fuel @ -> -1 0 outcome-invalid 0 }T
 T{ 0 cid @ 9 rid @ -1 lf-mixed-instantiate -> -1 0 outcome-invalid }T
 T{ 0 cid @ 9 rid @ 2 lf-mixed-instantiate -> -1 0 outcome-exhausted }T
 T{ lf-minst-fuel @ -> 0 }T
 T{ lf-term-count @ -> rootid @ }T
-T{ lf-term-serial @ -> serial-before @ }T
+T{ term-serial -> serial-before @ }T
 \ A malformed unused replacement must fail without allocations.
-1 2 lf-term-slot 2 cells + !
+1 2 term-second!
 T{ 0 cid @ 9 rid @ 100 lf-mixed-instantiate -> -1 0 outcome-invalid }T
-0 2 lf-term-slot 2 cells + !
+0 2 term-second!
 T{ lf-term-count @ -> rootid @ }T
 \ Exhaust after allocations, discard output, and never reuse the old identity.
 setup
 T{ 2 3 lf-term-app -> 7 true }T
-lf-term-serial @ rootid !
-lf-term-serial @ serial-before !
+term-serial rootid !
+term-serial serial-before !
 T{ 7 rootid @ 2 2 lf-term-identity drop 7 lf-mixed-instantiate -> -1 0 outcome-exhausted }T
 T{ lf-term-count @ -> 8 }T
-T{ lf-term-serial @ serial-before @ > -> true }T
-lf-term-serial @ outid !
+T{ term-serial serial-before @ > -> true }T
+term-serial outid !
 T{ 0 lf-term-bvar -> 8 true }T
 T{ 8 outid @ lf-hterm-valid? -> false }T
 \ A stale constant reference invalidates either complete input.
@@ -95,21 +96,21 @@ T{ 0 cid @ 2 2 lf-term-identity drop 100 lf-mixed-instantiate -> -1 0 outcome-in
 setup
 T{ 2 3 lf-term-app -> 7 true }T
 T{ 1 7 lf-term-lam -> 8 true }T
-lf-term-serial @ rid !
+term-serial rid !
 T{ 0 3 lf-term-pi -> 9 true }T
-lf-term-serial @ rootid !
-T{ 9 rootid @ 8 rid @ 100 lf-mixed-instantiate -> 13 lf-term-serial @ outcome-ok }T
+term-serial rootid !
+T{ 9 rootid @ 8 rid @ 100 lf-mixed-instantiate -> 13 term-serial outcome-ok }T
 T{ 10 lf-term-read -> lf-tag-bvar 2 0 true }T
 T{ 11 lf-term-read -> lf-tag-app 2 10 true }T
 T{ 12 lf-term-read -> lf-tag-lam 1 11 true }T
 T{ 13 lf-term-read -> lf-tag-pi 0 12 true }T
-T{ 13 lf-term-serial @ 100 lf-cterm-check -> outcome-ok }T
+T{ 13 term-serial 100 lf-cterm-check -> outcome-ok }T
 \ Shifting a maximum index fails after the audits, with rollback: the
 \ index has no room to grow, which is full.
 setup
 T{ lf-mshift-max lf-term-bvar -> 7 true }T
 T{ 0 3 lf-term-lam -> 8 true }T
-lf-term-serial @ rootid !
+term-serial rootid !
 T{ 8 rootid @ 7 7 lf-term-identity drop 100 lf-mixed-instantiate -> -1 0 outcome-full }T
 T{ lf-term-count @ -> 9 }T
 \ Rebuilding in a full arena is full, without changing count.
@@ -124,11 +125,11 @@ T{ lf-term-count @ -> lf-term-capacity }T
 setup
 T{ 2 3 lf-term-app -> 7 true }T
 T{ 0 7 lf-term-lam -> 8 true }T
-lf-term-serial @ rootid !
+term-serial rootid !
 T{ 1 2 lf-term-app -> 9 true }T
-lf-term-serial @ rid !
+term-serial rid !
 T{ 8 rootid @ 9 rid @ 100 ' lf-mixed-instantiate rs-checked lf-minst-fuel @ lf-mshift-fuel @ ->
-  13 lf-term-serial @ outcome-ok 82 82 }T
+  13 term-serial outcome-ok 82 82 }T
 \ The fuel runs out inside the lent shift: with the replacement app(bvar 0,
 \ Sort) and 17 units, the shift moves the variable (one allocation) and
 \ cannot visit the Sort. Both fuel cells end at zero, the count is
@@ -136,12 +137,12 @@ T{ 8 rootid @ 9 rid @ 100 ' lf-mixed-instantiate rs-checked lf-minst-fuel @ lf-m
 setup
 T{ 2 3 lf-term-app -> 7 true }T
 T{ 0 7 lf-term-lam -> 8 true }T
-lf-term-serial @ rootid !
+term-serial rootid !
 T{ 2 1 lf-term-app -> 9 true }T
-lf-term-serial @ rid !  lf-term-serial @ serial-before !
+term-serial rid !  term-serial serial-before !
 : inst-fuels ( -- inst shift count ) lf-minst-fuel @ lf-mshift-fuel @ lf-term-count @ ;
 T{ 8 rootid @ 9 rid @ 17 lf-mixed-instantiate inst-fuels -> -1 0 outcome-exhausted 0 0 10 }T
-T{ lf-term-serial @ serial-before @ - -> 1 }T
+T{ term-serial serial-before @ - -> 1 }T
 \ A shift record already in use refuses the replacement's shift: the
 \ instantiation fails as invalid and rolls back, and the shift's fuel and
 \ amount stay as they were.
@@ -150,7 +151,7 @@ T{ 8 rootid @ 9 rid @ 100 lf-mixed-instantiate lf-term-count @ lf-mshift-fuel @
   lf-mshift-amount @ -> -1 0 outcome-invalid 10 77 5 }T
 lf-mshift-frames frame-reset
 T{ 8 rootid @ 9 rid @ 18 lf-mixed-instantiate lf-minst-fuel @ ->
-  13 lf-term-serial @ outcome-ok 0 }T
+  13 term-serial outcome-ok 0 }T
 \ A chain that fills the store (node 0 is bvar 0, node k is lam(k-1, 0)) is
 \ visited 64 frames deep down to node 0, the target, whose replacement
 \ cannot be copied into the full store (full): audits 127 and 1 visits, the
@@ -167,7 +168,7 @@ T{ 2 lf-term-bvar -> 7 true }T
 T{ 2 7 lf-term-app -> 8 true }T
 T{ 0 8 lf-term-lam -> 9 true }T
 T{ 9 9 lf-term-identity drop 2 2 lf-term-identity drop 100 lf-mixed-instantiate
-  -> 12 lf-term-serial @ outcome-ok }T
+  -> 12 term-serial outcome-ok }T
 T{ 10 lf-term-read -> lf-tag-bvar 1 0 true }T
 T{ 11 lf-term-read -> lf-tag-app 2 10 true }T
 T{ 12 lf-term-read -> lf-tag-lam 0 11 true }T

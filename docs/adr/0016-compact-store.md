@@ -528,6 +528,22 @@ export).
   disabled and compare verdicts.
 - No host address, cell layout or hash value is ever serialised.
 
+*Note (2026-11-11, compact-store plan step S2, [kernel] review pending):*
+today's term and level stores already read this way. A pass checks a
+store's whole header (shape, seal, generation, count) once, at its root:
+a handle (`lf-hterm-valid?`, `lf-hlevel-valid?`), `lf-term-root?`,
+`lf-level-root?`, the pair checks or the count checks. Every read after
+that (`lf-term-read`, `lf-term-valid?`, `lf-term-identity`, their level
+twins and every walk's visit through `node-read`) checks only that the
+index is allocated, `store-at?`: index < count <= capacity, which keeps
+a read inside the block even when the count alone is corrupted. A pass
+on a store with a broken seal or a poisoned generation is refused at its
+root. C1's data word exists as an interface, `lf-term-data@`
+(`src/core/terms.fs`), served by `src/kernel/caches.fs`'s skeleton memo
+until step S3 keeps it in each record; tests reach records and identity
+serials only through `tests/support/store-faults.fs`, so S3 can change
+the layout in one file.
+
 ### C9 Migration and the plan tasks it covers
 
 1. `src/lib/u32.fs` (done here) and a heap arena and hash-table library in

@@ -18,6 +18,7 @@ require ../../src/kernel/mixed-convert.fs
 require ../../src/kernel/mixed-infer.fs
 require ../../src/kernel/mixed-signature-audit.fs
 require ../../src/kernel/mixed-signature-probe.fs
+require ../support/store-faults.fs
 
 \ Helpers adapted from mixed-convert.fs and mixed-signature-audit.fs.
 create ids 64 cells allot
@@ -34,13 +35,13 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
 : new-name ( addr len -- id ) 0 -rot lf-name-str 0= abort" name" ;
 : snapshot ( -- )
   lf-term-count @ terms-before ! lf-level-count @ levels-before !
-  lf-cref-count @ crefs-before ! lf-term-serial @ term-serial-before !
-  lf-level-serial @ level-serial-before ! lf-cref-serial @ cref-serial-before ! ;
+  lf-cref-count @ crefs-before ! term-serial term-serial-before !
+  level-serial level-serial-before ! lf-cref-serial @ cref-serial-before ! ;
 : counts-unchanged? ( -- flag )
   lf-term-count @ terms-before @ = lf-level-count @ levels-before @ = and
   lf-cref-count @ crefs-before @ = and ;
 : serials-unchanged? ( -- flag )
-  lf-term-serial @ term-serial-before @ = lf-level-serial @ level-serial-before @ = and
+  term-serial term-serial-before @ = level-serial level-serial-before @ = and
   lf-cref-serial @ cref-serial-before @ = and ;
 : infer ( root fuel -- type identity status )
   >r h token @ -rot r> ['] lf-mixed-infer rs-checked ;
@@ -197,8 +198,8 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
   outer-root @ outer-id @ 0 h lf-hterm-app save
   lf-term-count @ 1- snapshot 50000 infer outcome-unknown expect-status 2drop
   counts-unchanged? 0= abort" generated rollback"
-  lf-term-serial @ term-serial-before @ <= abort" no term allocation"
-  lf-level-serial @ level-serial-before @ <= abort" no level allocation"
+  term-serial term-serial-before @ <= abort" no term allocation"
+  level-serial level-serial-before @ <= abort" no level allocation"
   lf-cref-serial @ cref-serial-before @ <= abort" no cref allocation"
   \ Reuse each first rolled-back slot and reject its discarded identity.
   0 dup lf-level-identity 0= abort" zero" lf-hlevel-succ 0= abort" reuse level"

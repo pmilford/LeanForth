@@ -57,11 +57,14 @@ lf-caches-clear
 T{ 1 cb 0 cb capp cskel  1 cb 0 cb capp cskel = -> true }T
 T{ cz csort cskel  cz lf-level-succ must csort cskel = -> false }T
 T{ 1 cb 0 cb capp cbits  cz csort 0 cb lf-term-lam must cbits  0 cb 0 cb lf-term-lam must cbits
-   -> 4 0 2 }T
+   -> 8 0 4 }T
 \ A bound variable whose loose count would overflow a cell has no facts
-\ (review rvCACHE L1): every pass meets it uncached, never as closed.
-T{ max-n cb lf-term-facts  max-n 2/ cb lf-term-facts -> false false }T
-T{ max-n 2/ 3 - cb cbits -> max-n 5 - }T
+\ (review rvCACHE L1): every pass meets it uncached, never as closed. The
+\ bits are four times the loose count (compact-store plan step S2: a
+\ universe-parameter bit joined the free-variable bit).
+T{ max-n cb lf-term-facts  max-n 2/ cb lf-term-facts  max-n 2 rshift 1- cb lf-term-facts
+   -> false false false }T
+T{ max-n 2 rshift 2 - cb cbits -> max-n 2 rshift 1- 2 lshift }T
 0 cb constant ckey
 create cbefore /lf-scratch allot
 T{ cbefore lf-scratch-mark -> outcome-ok }T
@@ -581,6 +584,47 @@ fc-case sweep-unfolding
 fc-decl before def safe Implies 0 TYPE P S z P S z S z VALUE L S z L S z P V 1 V 1
 fc-decl check thm safe impliesSelf 0 TYPE P S z A A C Implies 0 V 0 V 0 VALUE L S z L V 0 V 0
 T{ 400 sweep -> outcome-ok 114 true }T
+\ In a check, with the caches on, lf-term-data@ (core/terms.fs) is the
+\ skeleton memo's facts as one data word (compact-store plan step S2):
+\ every node whnf.fs asks about (its lf-whnf-known hook, spied on here)
+\ is compared, in the check above run once more.
+variable cd-asked  variable cd-known  variable cd-wrong
+: cd-pack ( x true | false -- x | -1 ) 0= if -1 then ;
+: cd-facts ( node -- data | -1 ) lf-term-facts if nip lf-cd-word cd-pack else -1 then ;
+: cd-note ( node -- )
+  1 cd-asked +!  dup lf-term-data@ cd-pack  dup 0< 0= 1 and cd-known +!
+  swap cd-facts <> 1 and cd-wrong +! ;
+: cd-spy ( node visit -- flag true | false ) over cd-note lf-cs-known ;
+' cd-spy is lf-whnf-known
+T{ 400 sweep-run -> outcome-ok }T
+' lf-cs-known is lf-whnf-known
+T{ cd-asked @ 0> cd-known @ 0> cd-wrong @ -> true true 0 }T
+
+\ ---------------------------------------------------------------------------
+\ Lean's cached node data as one data word (compact-store plan step S2):
+\ the skeleton memo's bits also keep whether a universe parameter occurs
+\ (has_param_univ: in a Sort's level, a constant's universe arguments or
+\ either child), and lf-term-data@ gives the loose range and the two bits
+\ as ADR 0016 C1's data word while the caches are on.
+lf-caches-clear
+lf-term-reset
+T{ lf-ssession-begin -> true }T
+7 lf-level-param must constant cu
+T{ cu csort cbits  cu csort 0 cb capp cbits
+   cz cu lf-level-max must csort 1 cb lf-term-lam must cbits  cz lf-level-succ must csort cbits
+   -> 2 6 6 0 }T
+create cpairs 2 cells allot
+: cconst ( level -- term )
+  dup lf-level-identity must cpairs cell+ ! cpairs !
+  0 s" cc" lf-name-str must lf-name-generation @ cpairs 1 lf-cref-new must
+  lf-cterm-new must drop ;
+T{ cu cconst cbits  cz cconst cbits  cu cconst 2 cb capp cbits -> 2 0 14 }T
+T{ 6 lf-cd-word -> 1 true false lf-data true }T
+T{ 7 lf-cd-word drop dup lf-data-loose over lf-data-params? rot lf-data-fvar?
+   -> 1 true true }T
+T{ lf-data-ranges 1- 2 lshift lf-cd-word -> lf-data-ranges 1- false false lf-data true }T
+T{ lf-data-ranges 2 lshift lf-cd-word -> false }T
+T{ false lf-caches-enable  cu csort lf-term-data@  true lf-caches-enable -> false }T
 
 cases-done
 bye
