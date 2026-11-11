@@ -83,5 +83,8 @@ variable nl-second
   nl-byte 1 stdin read-file throw 0<> if -1 throw then
   nl-left @ nl-right @ 50000 lf-level-compare . cr
   nl-names @ 0 do i . i cells nl-name-map + @ . cr loop ;
+\ The stream numbers its level rows, a node each: hash-consing (compact-
+\ store plan step S4) is off.
+false lf-term-sharing!
 nl-run
 bye

@@ -35,10 +35,14 @@ variable probe-node  variable probe-outcome  variable probe-same  variable probe
 \ Review rvCACHE L2: in a check, the caches on, inference refuses a node
 \ made during its job (no source node) as invalid, even when a source node
 \ of the same skeleton, the probe's value Sort 0, already has a cached type.
+\ With sharing on the store would give the source node back (compact-store
+\ plan step S4), so the fresh node is made with it off.
 variable fresh-out
+: fresh-sort ( -- node )
+  false lf-term-sharing! 0 lf-term-symbolic-sort must true lf-term-sharing! ;
 : probe-fresh ( -- )
   100000 lf-minfer-start-env lf-env-limit value-of lf-minfer-walk nip probe-outcome !
-  0 lf-term-symbolic-sort must lf-minfer-walk nip fresh-out ! ;
+  fresh-sort lf-minfer-walk nip fresh-out ! ;
 : fresh-probing ( -- ) lf-env-limit fc-last = if probe-fresh then lf-check-declaration ;
 : fresh-run ( -- )
   outcome-invalid probe-outcome ! outcome-ok fresh-out !

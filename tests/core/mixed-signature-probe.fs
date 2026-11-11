@@ -12,6 +12,9 @@ require ../../src/kernel/mixed-level-substitute.fs
 require ../../src/kernel/mixed-signature-probe.fs
 require ../support/store-faults.fs
 
+\ The rows count the nodes each probe makes and gives back: hash-consing
+\ (compact-store plan steps S3, S4) is off.
+false lf-term-sharing!
 create formals 2 cells allot
 create actuals 4 cells allot
 create args 4 cells allot

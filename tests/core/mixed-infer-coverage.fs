@@ -81,7 +81,8 @@ T{ sweep-result @ 1 make-sort 1 make-sort make-pi convert-terms -> outcome-ok }T
   false lf-term-sharing! lf-term-capacity swap -
   begin dup lf-term-count @ > while 0 make-var drop repeat drop true lf-term-sharing! ;
 : fill-levels ( -- )
-  begin lf-level-count @ lf-level-capacity < while 0 succ-of drop repeat ;
+  false lf-term-sharing!
+  begin lf-level-count @ lf-level-capacity < while 0 succ-of drop repeat true lf-term-sharing! ;
 variable earlier variable earlier-id variable token variable before-serial
 : keep-earlier ( -- ) 0 make-sort inferred handle earlier-id ! earlier ! ;
 : earlier-ok? ( -- flag ) earlier @ earlier-id @ 1000 lf-cterm-check ok? ;
@@ -98,7 +99,8 @@ T{ fresh-session keep-earlier 0 make-sort fill-levels save-counts status-of coun
 \ Room for one more level only: Pi (A : Sort u), A takes it for the
 \ domain's type (succ u), and its universe imax (succ u) u is then full.
 : fill-levels-but-one ( -- )
-  begin lf-level-count @ lf-level-capacity 1- < while 0 succ-of drop repeat ;
+  false lf-term-sharing! begin lf-level-count @ lf-level-capacity 1- < while
+    0 succ-of drop repeat true lf-term-sharing! ;
 T{ fresh-session keep-earlier level-u make-sort 0 make-var make-pi fill-levels-but-one
   save-counts status-of counts-kept? earlier-ok? -> outcome-full true true }T
 fresh-session keep-earlier 0 make-sort handle sweep-result ! sweep-root !

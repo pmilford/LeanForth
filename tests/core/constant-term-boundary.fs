@@ -43,9 +43,26 @@ T{ 5 pid @ 100 lf-cterm-check -> outcome-invalid }T
 99 2 term-tag!
 T{ 5 pid @ 100 lf-cterm-check -> outcome-invalid }T
 lf-tag-bvar 2 term-tag!
-: raw-constant ( -- ) lf-tag-constant 0 rid @ lf-term-add 0= abort" raw" drop ;
+\ A raw node with a constant's fields is a forgery only while sharing is
+\ off: with it on, the term table gives the stamped constant back
+\ (compact-store plan step S4), which is that constant.
+T{ lf-tag-constant 0 rid @ lf-term-add -> 0 true }T
+: raw-constant ( -- )
+  false lf-term-sharing! lf-tag-constant 0 rid @ lf-term-add 0= abort" raw" drop
+  true lf-term-sharing! ;
 raw-constant
 T{ 6 6 term-identity@ 10 lf-cterm-check -> outcome-invalid }T
+\ An unstamped node in the table is never given out as a constant: for a
+\ new reference, a raw node with its fields is entered while sharing, and
+\ lf-cterm-new then makes and stamps a node of its own.
+: forged-make ( -- ref rid node )
+  0 lf-name-generation @ args 0 lf-cref-new 0= abort" cref"
+  2dup lf-tag-constant -rot lf-term-add 0= abort" forged" ;
+forged-make constant forged 2constant forged-ref
+T{ forged forged term-identity@ 10 lf-cterm-check -> outcome-invalid }T
+T{ forged-ref lf-cterm-new rot forged - -> term-serial true 1 }T
+T{ forged 1+ dup term-identity@ 10 lf-cterm-check -> outcome-ok }T
+T{ forged-ref lf-cterm-new -> forged 1+ term-serial true }T
 \ Reusing a reference slot never revives the captured reference.
 lf-cref-reset
 : reuse-cref ( -- ) 0 lf-name-generation @ 0 0 lf-cref-new 0= abort" reuse cref" 2drop ;

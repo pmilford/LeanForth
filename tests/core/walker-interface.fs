@@ -121,7 +121,8 @@ create subst-actuals 2 , 1 ,
 T{ 3 subst-formals subst-actuals 2 20 lf-lsubst lf-lsubst-fuel @ -> 6 outcome-ok 15 }T
 T{ 3 subst-formals subst-actuals 2 4 lf-lsubst lf-lsubst-fuel @ -> outcome-exhausted 0 }T
 T{ 5 subst-formals subst-actuals 2 20 lf-lsubst lf-lsubst-fuel @ -> outcome-invalid 16 }T
-T{ 3 subst-formals subst-actuals 2 20 ' lf-lsubst rs-checked -> 7 outcome-ok }T
+\ The same substitution again gives the same level (hash-consed levels).
+T{ 3 subst-formals subst-actuals 2 20 ' lf-lsubst rs-checked -> 6 outcome-ok }T
 
 \ A handle audit starts from an empty work stack, even when the last walk
 \ left it full. A checker's walk grows past its first room (plan task

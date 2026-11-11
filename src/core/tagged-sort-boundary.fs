@@ -12,9 +12,10 @@ require ./diagnostics.fs
 require ./terms.fs
 
 6 constant lf-tag-symbolic-sort
-\ A symbolic Sort is never shared (terms.fs): generation-handles.fs stamps
-\ it with its own identity and its level's.
-lf-tag-symbolic-sort lf-term-unshare
+\ A symbolic Sort is shared (terms.fs) only while its stamps hold:
+\ generation-handles.fs stamps it with its own identity and its level's,
+\ and constant-term-boundary.fs's lf-term-reusable? checks them (compact-
+\ store plan step S4: levels are hash-consed, so equal Sorts are one node).
 0 constant lf-repr-concrete
 1 constant lf-repr-symbolic
 lf-walk-room context-walk: lf-repr-walker

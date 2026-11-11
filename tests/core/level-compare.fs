@@ -21,6 +21,10 @@ require ../../src/kernel/level-value.fs
 require ../support/store-faults.fs
 decimal
 
+\ The rule rows below need equal levels as distinct nodes (one, one'; u,
+\ u'): hash-consing is off (one switch with the terms, compact-store plan
+\ step S4; tests/core/levels.fs).
+false lf-term-sharing!
 : must ( flag -- ) 0= abort" level-compare test: refused" ;
 : intern ( c-addr u -- id ) 0 -rot lf-name-str must ;
 : param ( id -- level ) lf-level-param must ;

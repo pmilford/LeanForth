@@ -10,6 +10,10 @@ require ../../src/core/names.fs
 require ../../src/core/symbolic-session.fs
 require ../../src/core/terms.fs
 require ../../src/kernel/mixed-compare.fs
+\ The rows compare equal terms made as nodes of their own, indexed by the
+\ order they are made in: hash-consing (compact-store plan steps S3, S4)
+\ is off.
+false lf-term-sharing!
 create ids 32 cells allot
 create args 4 cells allot
 variable name-x variable name-y variable num-root variable num-child

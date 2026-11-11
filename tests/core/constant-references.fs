@@ -7,6 +7,10 @@ require ../../src/core/levels.fs
 require ../../src/core/names.fs
 require ../support/store-faults.fs
 
+\ These rows make equal references as records of their own: interning (one
+\ switch with the terms, compact-store plan step S4) is off until its rows
+\ at the end.
+false lf-term-sharing!
 create args 4 cells allot
 variable name-id
 variable ref-id
@@ -167,4 +171,31 @@ T{ 0 live-id 1 ' lf-cref-level rs-checked -> 1 level-id @ true }T
 T{ 0 live-id ' lf-cref-levels rs-checked rot drop -> 2 true }T
 lf-cref-reset 0 lf-cref-serial !
 T{ name-id @ lf-name-generation @ args 2 ' lf-cref-new rs-checked -> 0 1 true }T
+
+\ Interning (compact-store plan step S4): an equal live reference is the
+\ same record with its identity; another name, generation, arity or level
+\ is a new one; a rollback takes the records it gives back out of the
+\ table, and a reset empties it.
+true lf-term-sharing!
+setup 0 lf-cref-serial !
+: ref ( addr count -- index identity true | false )
+  name-id @ lf-name-generation @ 2swap lf-cref-new ;
+T{ args 2 ref args 2 ref -> 0 1 true 0 1 true }T
+T{ args 1 ref 0 0 ref args 2 ref lf-cref-count @ -> 1 2 true 2 3 true 0 1 true 3 }T
+create other-args 4 cells allot   \ the two levels in the other order
+args 2 cells + other-args 2 cells move   args other-args 2 cells + 2 cells move
+T{ other-args 2 ref other-args 1 ref -> 3 4 true 4 5 true }T
+create cref-mark /store-mark allot
+T{ cref-mark lf-crefs store-mark -> outcome-ok }T
+T{ args 2 ref other-args 2 ref -> 0 1 true 3 4 true }T
+0 s" beta" lf-name-str drop name-id !
+T{ args 2 ref args 2 ref -> 5 6 true 5 6 true }T
+T{ cref-mark lf-cref-rollback lf-cref-count @ -> outcome-ok 5 }T
+T{ args 2 ref -> 5 7 true }T
+T{ cref-mark lf-cref-rollback -> outcome-ok }T
+lf-cref-reset
+T{ args 2 ref -> 0 8 true }T
+\ An equal record is not given where a new one would be refused.
+max-n lf-cref-serial !
+T{ args 2 ref -> false }T
 bye

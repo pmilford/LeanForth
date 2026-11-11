@@ -22,6 +22,10 @@ require ../support/store-faults.fs
 
 \ Helpers adapted from mixed-convert.fs and mixed-signature-audit.fs.
 create ids 64 cells allot
+\ The fixtures are indexed by the order their nodes are made in, equal
+\ ones included, and rows count what a job makes: hash-consing
+\ (compact-store plan steps S3, S4) is off.
+false lf-term-sharing!
 create actuals 2 cells allot
 create formals 1 cells allot
 variable token variable id-name variable missing-name variable later-name

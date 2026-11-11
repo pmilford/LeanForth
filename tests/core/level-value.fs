@@ -6,6 +6,9 @@ require ../../src/core/levels.fs
 require ../../src/kernel/level-value.fs
 require ../support/store-faults.fs
 
+\ These rows count nodes made one by one: hash-consing is off (one switch
+\ with the terms, compact-store plan step S4; tests/core/levels.fs).
+false lf-term-sharing!
 lf-level-reset lf-lscope-context-reset
 T{ 0 lf-level-succ -> 1 true }T
 T{ 1 lf-level-succ -> 2 true }T

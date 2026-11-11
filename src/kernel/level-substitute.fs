@@ -264,7 +264,7 @@ lf-level-walk-room context-walk: lf-lsubst-walker
 \ reused); a refused rollback is invalid.
 : lf-lsubst-store-mark ( -- addr ) lf-lsubst-job lf-lsrec-mark ;
 : lf-lsubst-undo ( outcome -- outcome )
-  lf-lsubst-store-mark lf-levels store-rollback ok? 0= if drop outcome-invalid then ;
+  lf-lsubst-store-mark lf-level-rollback ok? 0= if drop outcome-invalid then ;
 : lf-lsubst-finish ( root outcome -- result ok | status )
   dup ok? if drop lf-lsubst-image outcome-ok else nip lf-lsubst-undo then ;
 : lf-lsubst-prepare ( root -- root outcome )

@@ -36,9 +36,6 @@ require ./tagged-sort-boundary.fs
 require ./terms.fs
 
 7 constant lf-tag-constant
-\ A constant node is never shared (terms.fs): it carries a stamp of its
-\ own identity.
-lf-tag-constant lf-term-unshare
 lf-walk-room context-walk: lf-cterm-walker
 
 \ The data words of the checker's leaves (terms.fs's hook lf-term-leaf-data;
@@ -232,6 +229,25 @@ end-structure
 
 : lf-cterm-stamp ( term identity -- ) swap lf-cterm-stamp-cell ! ;
 
+\ Sharing constants and symbolic Sorts (compact-store plan step S4). With
+\ levels hash-consed and references interned, equal constants have equal
+\ fields (an interned reference) and so do equal Sorts (a hash-consed
+\ level), so the term table finds them. A found node is given again only
+\ while it is stamped as lf-cterm-new or lf-hterm-sort stamps it: a
+\ constant with its own identity, a Sort with its own and its level's
+\ current identity. So a raw node with those fields, or a Sort whose
+\ level index was reset and made again, is never given out under a new
+\ stamp: lf-term-add makes a new node instead (terms.fs's
+\ lf-term-reusable?). Re-stamping a node given again writes what it holds.
+: lf-cterm-stamped? ( node -- flag )
+  dup lf-term-identity if swap lf-cterm-stamp-cell @ = else drop false then ;
+: lf-cterm-reusable? ( n -- flag )
+  dup lf-term-tag@ case
+    lf-tag-constant of lf-cterm-stamped? endof
+    lf-tag-symbolic-sort of dup lf-term-first@ swap lf-hsort-stamped? endof
+    nip true swap endcase ;
+' lf-cterm-reusable? is lf-term-reusable?
+
 \ Allocate a constant node for a live reference in the current session and
 \ stamp it with its own identity. Failure leaves the term store unchanged.
 : lf-cterm-source? ( cref identity -- flag ) lf-cref-valid? lf-ssession-current? and ;
@@ -253,8 +269,6 @@ end-structure
 \ stamps (lf-hterm-sort) and a level that passes; a free variable must be
 \ live, named by its own entry of the local context (local-context.fs), so
 \ only a check's scratch can hold one; binary children must come earlier.
-: lf-cterm-stamped? ( node -- flag )
-  dup lf-term-identity if swap lf-cterm-stamp-cell @ = else drop false then ;
 : lf-cterm-reference ( first second walk -- outcome )
   dup walk-node @ lf-cterm-stamped? 0= if drop 2drop outcome-invalid exit then
   >r lf-cref-levels if r> lf-cterm-levels else r> drop outcome-invalid then ;
