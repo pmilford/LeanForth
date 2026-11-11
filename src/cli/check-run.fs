@@ -375,23 +375,25 @@ create ck-line ck-line-room 2 + allot
   ck-state ck-binder-hook @ ck-state ck-decl-hook @ lf-feed-hooked ;
 \ The workers of a parallel check (plan task 7.3.1; kernel/env-schedule.fs),
 \ made after the feed: each a new context with this context's switches,
-\ fed the same stage, its input's fingerprint this context's (so the
-\ run's environment is valid in it), and the check's budget. In v0 the
-\ input is per context (core/input.fs), so each worker holds its own
-\ copy of what the feed makes (the leaf table, copied terms, levels,
-\ references, declarations); the stage is shared, read only. Making a
-\ worker gives full (no heap) or invalid (another fingerprint); every
-\ context made is freed with the scheduler (ck-release, lf-sched-free).
+\ fed by sharing this context's input (import/feed.fs's lf-feed-shared;
+\ ADR 0016 S8): it reads this context's declarations, view tables and
+\ references in place and keeps only its levels, its scratch, caches,
+\ memos and marks; its input's fingerprint must be this context's (so the
+\ run's environment is valid in it), and it gets the check's budget. So
+\ this context must outlive the workers and make nothing in its input's
+\ stores while they run: it publishes, and every check runs in a worker.
+\ Making a worker gives full (no heap) or invalid (another fingerprint,
+\ or an input that cannot be shared); every context made is freed with
+\ the scheduler (ck-release, lf-sched-free).
 : ck-switch ( k -- addr ) cells ck-switches + @ execute ;
 : ck-switch-saved ( k -- addr ) cells ck-state ck-switched + ;
 : ck-switched! ( -- ) ck-switches# 0 ?do i ck-switch @ i ck-switch-saved ! loop ;
 : ck-switches! ( -- ) ck-switches# 0 ?do i ck-switch-saved @ i ck-switch ! loop ;
 : ck-print! ( -- ) lf-input-fingerprint ck-state ck-print ! ck-switched! ;
-: ck-worker-fed ( -- outcome )
-  ck-worker-feed dup /feed erase ck-stage swap 0 0 lf-feed-hooked
-  ck-worker-feed feed-free ;
+: ck-worker-fed ( source -- outcome )
+  ck-stage ck-worker-feed rot lf-feed-shared ck-worker-feed feed-free ;
 : ck-worker-fill ( context -- outcome )
-  context-use ck-switches! ck-worker-fed dup ok? 0= if exit then drop
+  lf-context @ swap context-use ck-switches! ck-worker-fed dup ok? 0= if exit then drop
   ck-fuel-budget lf-check-budget lf-input-fingerprint ck-state ck-print @ = flag>outcome ;
 : ck-worker-filled ( context -- outcome )
   ['] ck-worker-fill context-catch ?dup if 2drop outcome-invalid then ;

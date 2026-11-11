@@ -196,9 +196,19 @@ begin-structure /lf-inrec
   field: lf-inrec-sealed        \ true once loading has ended
   field: lf-inrec-name-bytes    \ name bytes in use when it ended
   field: lf-inrec-fingerprint   \ the input region's fingerprint then
+  field: lf-inrec-borrowed      \ true: the declarations are another context's
   lf-input-stores# /store-mark * +field lf-inrec-marks
 end-structure
 /lf-inrec context-record: lf-input-state
+\ Declarations read in place from another context (lf-input-borrow below):
+\ the copies of its headers are erased, never freed, here first -- at a
+\ reset, and before the teardown words above, which then find nothing.
+: lf-input-borrowed? ( -- flag ) lf-input-state lf-inrec-borrowed @ ;
+: lf-input-unborrow ( -- )
+  lf-input-borrowed? 0= if exit then
+  lf-inputs store-header erase lf-input-names /slab erase lf-input-more /slab erase
+  false lf-input-state lf-inrec-borrowed ! ;
+' lf-input-unborrow context-teardown
 
 \ The room each check gets above the input (plan task 6.2.2; compact-store
 \ plan step S5; import/feed.fs): the most term nodes, levels and constant
@@ -217,9 +227,13 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 \ Its count, as a value: objects of input store k lie below it (for
 \ readers such as the derivation log, which may not hold an address).
 \ For the terms (k = 0) it is a term number: under an input view the
-\ input nodes are below the store's own records (terms.fs).
+\ input nodes are below the store's own records (terms.fs); for the
+\ references (k = 3) a reference number: a context that reads another's
+\ (constant-references.fs's lf-cref-under) numbers its own above them.
+3 constant lf-input-cref-k
 : lf-input-mark-count ( k -- n )
-  dup lf-input-mark mark-count @ swap 0= if lf-term-base + then ;
+  dup lf-input-mark mark-count @ swap case
+    0 of lf-term-base + endof  lf-input-cref-k of lf-cref-base + endof endcase ;
 \ Whether test ( mark store -- flag ) holds for every input store.
 : lf-input-all? ( test -- flag )
   true lf-input-stores# 0 ?do over i lf-input-mark i lf-input-store rot execute and loop
@@ -240,14 +254,16 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 \ One store below count, with its count and generation.
 : lf-fp-store ( h count store -- h' )
   rot over lf-fp-state -rot 2dup 2>r lf-fp-records 2r> lf-fp-identities ;
+\ The references: the source's, for a context that reads them in place.
 : lf-input-marked ( k -- count store )
-  dup lf-input-mark mark-count @ swap lf-input-store ;
+  dup lf-input-mark mark-count @ over lf-input-store rot lf-input-cref-k =
+  if lf-cref-input-of then ;
 \ The name bytes in use when loading ended, and their count. Unchecked:
 \ the count is within the pool (lf-input-end checks it).
 : lf-fp-names ( h -- h' ) lf-input-bytes @ tuck fnv-step lf-name-bytes rot bytes-mix ;
 \ The universe arguments of the references, in their pool, and under a
 \ name view the count and stored hash of every name.
-: lf-fp-pool ( h -- h' ) 0 lf-cref-pool slab-at lf-cref-top 2* lf-fp-cells ;
+: lf-fp-pool ( h -- h' ) lf-cref-input-pairs 2* lf-fp-cells ;
 : lf-fp-view-names ( h -- h' )
   lf-name-numbers tuck fnv-step swap 0 ?do i lf-name-hash fnv-step loop ;
 \ Under a term view (terms.fs), the input nodes' count and the tier read
@@ -429,6 +445,43 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 \ end the sealed state. Every environment made over the old input then
 \ fails closed: its fingerprint covers the declarations' identities, which
 \ never repeat.
+: lf-input-remake ( -- )
+  lf-input-borrowed? if lf-input-unborrow lf-inputs-make lf-input-names-make
+  lf-input-more-make then ;
 : lf-input-reset ( -- )
+  lf-input-remake
   lf-inputs store-clear lf-input-state /lf-inrec erase lf-input-names column-erase
   lf-input-more slab-clear ;
+
+\ Sharing a fed input (ADR 0016 S8; plan task 7.2.1; import/feed.fs's
+\ lf-feed-shared, which makes a parallel check's workers): this context
+\ reads the declarations, their name index and their inductive data of
+\ the source context in place, through copies of their headers, its own
+\ empty ones freed first; nothing of the source is written or freed here
+\ (lf-input-unborrow). The source fed and sealed them and must outlive
+\ this context; lf-input-pristine? tells whether it is sealed, reads no
+\ other context's input and has made no reference since it sealed (the
+\ references' count at its mark), whose table others read
+\ (constant-references.fs's lf-cref-borrow); a source must make none while
+\ others read it. lf-input-borrow: ok; invalid, nothing changed, when the
+\ source is this context or is not pristine, or this context's input is
+\ sealed, borrowed or holds a declaration. lf-input-end seals it
+\ afterwards, as after a feed.
+: lf-input-in ( k source -- count mark-count )
+  >r dup lf-input-store r@ lf-member-in store-count @
+  swap lf-input-mark r> lf-member-in mark-count @ ;
+: lf-input-pristine? ( source -- flag )
+  lf-input-state over lf-member-in dup lf-inrec-sealed @ true =
+  swap lf-inrec-borrowed @ 0= and
+  if lf-input-cref-k swap lf-input-in = else drop false then ;
+: lf-input-lendable? ( source -- flag )
+  dup lf-context @ <> swap lf-input-pristine? and
+  lf-input-sealed? 0= and lf-input-borrowed? 0= and lf-input-count 0= and ;
+: lf-input-copy-in ( source -- )
+  lf-inputs store-heap-free lf-input-names slab-free lf-input-more slab-free
+  >r lf-inputs r@ lf-member-in lf-inputs store-header move
+  lf-input-names r@ lf-member-in lf-input-names /slab move
+  lf-input-more r> lf-member-in lf-input-more /slab move
+  true lf-input-state lf-inrec-borrowed ! ;
+: lf-input-borrow ( source -- outcome )
+  dup lf-input-lendable? if lf-input-copy-in outcome-ok else drop outcome-invalid then ;

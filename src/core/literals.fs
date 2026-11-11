@@ -33,6 +33,12 @@ require ./terms.fs
 lf-tag-lit tag-nat lf-term-input-leaf-tag
 1 cells context-slab: lf-lit-limbs
 
+\ A worker sharing another context's fed input (shared input, ADR 0016
+\ S8; import/feed.fs's lf-feed-shared) copies that context's limbs into
+\ its own empty slab, so that the input literals' fields name the same
+\ limbs (a few kilobytes: 261 cells for Mathlib's first sixth); ok,
+\ invalid or full as terms.fs's lf-slab-copy-in.
+: lf-lit-copy ( source -- outcome ) lf-lit-limbs swap lf-slab-copy-in ;
 : lf-lit-leaf? ( node -- flag ) lf-term-tag@ lf-tag-lit = ;
 \ The limbs of a literal leaf: their address (valid until the slab grows)
 \ and count.
