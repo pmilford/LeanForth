@@ -2,7 +2,7 @@
 \ bin/leanforth runs as `gforth src/main.fs -e cli-main COMMAND ...`.
 \ Commands, documented in docs/user/COMMAND_LINE.md:
 \   check [--no-manifest] [--fuel N] [--resources] [--json] [--fast]
-\         [--strict-axioms] [--any-lean-version] EXPORT
+\         [--strict-axioms] [--any-lean-version] [--jobs N] EXPORT
 \       stage the Lean export with the importer stage (its manifest
 \       checked unless --no-manifest says not to; with --any-lean-version
 \       its metadata may name any exporter and Lean version of format
@@ -17,7 +17,9 @@
 \       CPU of each phase, peak memory, the input's size, fuel in all and
 \       the ten declarations that used the most); with --json all of it
 \       as one JSON text instead (cli/check-json.fs); with
-\       --strict-axioms a NOT PROVED declaration gives exit 6;
+\       --strict-axioms a NOT PROVED declaration gives exit 6; with
+\       --jobs N, N workers check at once (cli/check-run.fs,
+\       kernel/env-schedule.fs), the output the same as one's;
 \   check [--no-manifest] [--fuel N] [--fast] [--strict-axioms]
 \         --record RECORD EXPORT
 \       the check of small exports that writes a run record (plan 2.2.5):

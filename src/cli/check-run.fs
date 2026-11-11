@@ -22,6 +22,11 @@
 \ - ck-any-version! ( flag -- ), after ck-start: true lets the stage read
 \   an export of any exporter and Lean version, only its format pinned
 \   (stage-any-version!; --any-lean-version), false (ck-start's) not;
+\ - ck-jobs! ( n -- ), after ck-start: with n above 1 (--jobs), ck-load
+\   also makes n worker contexts, each fed the same stage, and ck-check
+\   checks in parallel (kernel/env-schedule.fs), keeping exactly the facts
+\   the serial run keeps (see "The parallel run" below); 0 or 1, ck-start's,
+\   checks one declaration at a time in this context;
 \ - ck-load ( c-addr u checked? -- outcome ) stages the export file
 \   c-addr u, its manifest checked when checked? is true, frees the
 \   stage's loading aids (stage-unmap), then feeds it to this context's
@@ -78,11 +83,12 @@
 \ /proc/self/status (Linux), where a host without that file reports none;
 \ getenv reads the engine bin/leanforth ran, where a host without it
 \ reports none.
-\ State: three shared globals, ck-stage (/stage), ck-feeding-record
-\ (/feed) and ck-state (the run's facts and settings), not context
-\ records, because they own heap blocks, as checker-input.fs's records
-\ do: one run at a time, in any context, its input and environment
-\ landing in the context current while it runs. The command line's own
+\ State: four shared globals, ck-stage (/stage), ck-feeding-record and
+\ ck-worker-feed (/feed) and ck-state (the run's facts and settings), not
+\ context records, because they own heap blocks, as checker-input.fs's
+\ records do: one run at a time, in any context, its input and environment
+\ landing in the context current while it runs (a parallel run's workers
+\ are the scheduler's, lf-sched). Only the driving task writes them. The command line's own
 \ options and counts are context records (cli/leanforth.fs, tally.fs).
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end

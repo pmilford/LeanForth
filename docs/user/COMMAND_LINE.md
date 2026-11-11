@@ -933,7 +933,8 @@ supported:
   check: Lean 4.35.0 exports (lean4export 3.1.0 NDJSON) of any size, such as
     all of Lean's Init, staged and fed in Forth; the manifest checked unless
     --no-manifest; a summary, --resources (time, memory, fuel), --json;
-    Gforth's checking engine, or gforth-fast with --fast
+    Gforth's checking engine, or gforth-fast with --fast; --jobs N checks
+    with N workers (threads on Gforth 1.0), the same output as one
   check: Lean's kernel rules as built so far, each result labelled
     experimental, not independently audited: definitions, theorems, opaque
     declarations and axioms (an axiom outside Lean's standard three is NOT
@@ -956,9 +957,8 @@ not yet supported (check answers unsupported or unknown, exit 2):
   check --record and replay (the old reader) refuse inductive types, and
   answer unsupported for let, literals, projections and metadata;
   the checker has not yet checked a Mathlib declaration
-  (0 of 729,263); the parallel job pool is not used by check (it reads
-  the staged input in place, copying only lets, projections and the
-  terms above them, plan task 6.2.2)
+  (0 of 729,263); check --jobs feeds each worker its own copy of the
+  input's per-context part (the stage is shared; plan task 7.2.1)
 limits (check answers full or exhausted, exit 3):
   check: stores, walks and lists that grow with the export (memory), any
     depth and number of dependencies or constructors (plan task 6.2.0);
