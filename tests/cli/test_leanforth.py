@@ -60,7 +60,8 @@
 8. Names are shown as Lean's Name.toString shows them, with escapes for
    control, format and separator characters, so that no name can forge a
    line; of any depth; the export's file name with the same escapes.
-9. The engine: Gforth's checking engine by default; --fast runs the
+9. The engine: gforth-fast by default; --checked runs Gforth's checking
+   engine; with GFORTH set it is the engine, and --fast runs the
    gforth-fast beside it, with the same text and the same JSON report but
    for "measured", which names the engine; with no gforth-fast the run
    says so on standard error and uses the default.
@@ -1455,7 +1456,7 @@ def fast_engine():
 
 
 class Engines(unittest.TestCase):
-    """Gforth's checking engine by default; --fast runs gforth-fast with the
+    """gforth-fast by default (the tests set GFORTH); --fast looks beside GFORTH, with the
     same verdicts, the same report but for "measured" (owner, 2026-11-04)."""
 
     def test_fast_same_reports(self):
@@ -1474,7 +1475,7 @@ class Engines(unittest.TestCase):
                                                         os.path.basename(fast)), ""), args)
             else:   # no gforth-fast beside GFORTH (such as Gforth 0.7.3's wrapper)
                 self.assertEqual(engines, (os.path.basename(GFORTH),) * 2, args)
-                self.assertRegex(fast_err, r"^leanforth: note: --fast: no .* found; "
+                self.assertRegex(fast_err, r"^leanforth: note: no .* found; "
                                            r"checking with .*\n$")
 
     def test_fast_missing(self):
@@ -1485,14 +1486,14 @@ class Engines(unittest.TestCase):
             stub.write_text(f'#!/bin/sh\nexec "{GFORTH}" "$@"\n')
             stub.chmod(stub.stat().st_mode | stat.S_IXUSR)
             status, out, err = run("check", "--fast", "--json", COMPOSITION, gforth=str(stub))
-            note = (f"leanforth: note: --fast: no {folder}/gforth-fast found; "
+            note = (f"leanforth: note: no {folder}/gforth-fast found; "
                     f"checking with {stub}\n")
             self.assertEqual((status, json.loads(out)["measured"]["engine"], err),
                              (0, "myforth", note))
 
     def test_gforth_unset(self):
         """With GFORTH unset the wrapper finds the engines itself, in this
-        checkout's .tools or on PATH: gforth, and gforth-fast with --fast."""
+        checkout's .tools or on PATH: gforth-fast, and gforth with --checked."""
         tools = ROOT / ".tools" / "gforth" / "bin"
 
         def found(name):
@@ -1500,7 +1501,7 @@ class Engines(unittest.TestCase):
         if not (found("gforth") and found("gforth-fast")):
             self.skipTest("no gforth and gforth-fast to find without GFORTH")
         env = {key: value for key, value in os.environ.items() if key != "GFORTH"}
-        for options, engine in [([], "gforth"), (["--fast"], "gforth-fast")]:
+        for options, engine in [([], "gforth-fast"), (["--fast"], "gforth-fast"), (["--checked"], "gforth")]:
             result = subprocess.run([str(TOOL), "check", "--json", *options, COMPOSITION],
                                     cwd=ROOT, env=env, stdin=subprocess.DEVNULL,
                                     capture_output=True, timeout=TEST_LIMIT)
@@ -1510,8 +1511,11 @@ class Engines(unittest.TestCase):
     def test_options(self):
         """--fast goes with check, replay and print; it is no file name,
         and the value of --fuel is not the option."""
-        for args in [["check", "--fast", COMPOSITION], ["print", "--fast", COMPOSITION]]:
+        for args in [["check", "--fast", COMPOSITION], ["print", "--fast", COMPOSITION],
+                     ["check", "--checked", COMPOSITION], ["print", "--checked", COMPOSITION]]:
             self.assertEqual(run(*args)[0], 0, args)
+        self.assertEqual(run("check", "--fast", "--checked", COMPOSITION)[:2],
+                         (4, "error: --fast and --checked together\ntry: leanforth help\n"))
         self.assertEqual(run("count", "--fast", COMPOSITION)[:2],
                          (4, "error: an option this command does not take: --fast\n"
                              "try: leanforth help\n"))

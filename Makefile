@@ -929,6 +929,16 @@ test-cli:
 reference-cli:
 	LEAN=$(LEAN) $(RUN) bash tests/cli/export-check.sh
 
+# The default engine of bin/leanforth, gforth-fast, against Gforth's checking
+# engine (--checked): all of Init (--jobs 8) and the arena tests, verdict lines
+# and exit codes compared; exit 0 only if identical. About 15 minutes; needs
+# the machine-local Init export and arena tests (scripts/engine-gate.sh). Not
+# part of make check.
+engine-gate: RUN := timeout 7200
+engine-gate:
+	$(RUN) bash scripts/engine-gate.sh $(ENGINE_GATE_INIT) $(ENGINE_GATE_ARENA)
+
+.PHONY: engine-gate
 .PHONY: test-cli reference-cli
 test: test-cli
 test-differential: reference-cli
