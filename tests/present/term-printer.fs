@@ -91,6 +91,10 @@ T{ args{ s" k" t-const t2 ! lf-cref-reset t2 @ fuel lf-print-term -> outcome-inv
 T{ t-prop t3 ! 99 t3 @ term-tag! t3 @ fuel lf-print-term -> outcome-invalid
   }T
 T{ 999 lf-level-param must ssort fuel lf-print-term -> outcome-invalid }T
+\ A print is refused at its root when a store's seal is broken, the count
+\ still sound (compact-store plan step S2: its reads check the index).
+T{ t-prop t3 ! term-seal-flip t3 @ fuel lf-print-term term-seal-flip -> outcome-invalid }T
+T{ t-prop t3 ! level-seal-flip t3 @ fuel lf-print-term level-seal-flip -> outcome-invalid }T
 
 \ A sink that breaks the rules: sink-calls sets one that runs xt at its
 \ n-th call and captures the text.

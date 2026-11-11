@@ -124,6 +124,26 @@ lf-tag-bvar lf-tag-sort 1+ = lf-tag-lam lf-tag-app 1+ = and lf-tag-pi lf-tag-lam
 \ Dependent function type: domain, then body. Nothing is typed.
 : lf-term-pi ( domain body -- index true | false ) lf-tag-pi lf-term-binary ;
 
+\ Lean's cached node data (compact-store plan step S2): the data word of
+\ ADR 0016 C1, bits 0-19 the loose bound-variable range (1 + the largest
+\ loose index, or 0: Lean's loose_bvar_range), bit 20 set when a universe
+\ parameter occurs (has_param_univ), bit 21 when a free variable occurs
+\ (has_fvar). lf-term-data@ gives it when it is known, else false; a
+\ caller then finds what it needs by walking, as before. Until the
+\ compact store keeps it in each record (plan step S3), kernel/caches.fs
+\ serves it from its skeleton memo while the caches are on; without that
+\ module, or with the caches off, nothing is known, nor is a range of
+\ 20 bits or more. The hook is set once, at load time, and shared.
+defer lf-term-data@ ( node -- data true | false )
+:noname ( node -- false ) drop false ; is lf-term-data@
+1 20 lshift constant lf-data-ranges   \ the ranges a data word holds
+: lf-data-loose ( data -- range ) lf-data-ranges 1- and ;
+: lf-data-params? ( data -- flag ) lf-data-ranges and 0<> ;
+: lf-data-fvar? ( data -- flag ) lf-data-ranges 2* and 0<> ;
+\ The data word of a range below lf-data-ranges and two flags.
+: lf-data ( range params? fvar? -- data )
+  lf-data-ranges 2* and swap lf-data-ranges and or or ;
+
 \ Read a node's tag and fields. An index that is not allocated returns
 \ only false and no memory is read (the header is the root's to check).
 : lf-term-read ( index -- tag first second true | false ) lf-terms node-read ;

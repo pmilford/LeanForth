@@ -133,6 +133,31 @@ T{ 0 lf-term-identity -> false }T
 T{ 0 lf-term-identity -> term-serial1 true }T
 lf-term-reset
 
+\ Checked roots, reads by index (compact-store plan step S2). A root
+\ checks the whole header; a read checks only index < count <= capacity,
+\ so nothing past the count is read. With the seal broken and the count
+\ sound, every root refuses the store, an allocation too, and a read by
+\ index still reads.
+T{ 0 lf-term-sort drop 0 lf-term-bvar drop -> 0 1 }T
+T{ 1 lf-term-root? 2 lf-term-root? -1 lf-term-root? 1 lf-term-valid? -> true false false true }T
+T{ 2 lf-term-valid? 2 lf-term-read 2 lf-term-identity -1 lf-term-valid? -> false false false false }T
+T{ 2 lf-terms store-at? 1 lf-terms store-at? -> false true }T
+term-seal-flip
+T{ lf-term-count-valid? 0 lf-term-root? 0 1 lf-term-pair-valid? 0 lf-term-sort -> false false false false }T
+T{ 1 lf-term-valid? 1 lf-term-read 2 lf-term-read -> true lf-tag-bvar 0 0 true false }T
+term-seal-flip
+T{ lf-term-count-valid? 0 lf-term-root? 0 1 lf-term-pair-valid? -> true true true }T
+lf-term-reset
+
+\ The data word of lf-term-data@ is ADR 0016 C1's: the range in bits
+\ 0-19, the parameter bit 20, the free-variable bit 21. Without
+\ kernel/caches.fs (not loaded here) nothing is known.
+T{ 5 true false lf-data  5 false true lf-data -> 1 20 lshift 5 +  1 21 lshift 5 + }T
+T{ 1 20 lshift 1- true true lf-data dup lf-data-loose over lf-data-params? rot lf-data-fvar?
+   -> 1 20 lshift 1- true true }T
+T{ 0 lf-term-sort drop lf-term-data@ -> false }T
+lf-term-reset
+
 \ The capacity is a setting of the context (plan task 3.3.1; ADR 0016
 \ C9 step 3): raised, the store and its columns grow as terms are added,
 \ every node and identity kept; at the new limit it is full again, with

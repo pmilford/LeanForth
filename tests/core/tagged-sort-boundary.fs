@@ -112,6 +112,12 @@ T{ 1 lf-repr-concrete 3 lf-repr-check -> outcome-ok }T
 T{ 1 1 lf-repr-concrete 5 lf-repr-check-pair -> outcome-exhausted }T
 T{ 1 1 lf-repr-concrete 6 lf-repr-check-pair -> outcome-ok }T
 T{ lf-term-count @ -> 2 }T
+\ A walk is refused at its root when the store's seal is broken, the
+\ count still sound (compact-store plan step S2: its reads check the index).
+term-seal-flip
+T{ 1 lf-repr-concrete 3 lf-repr-check  1 1 lf-repr-concrete 6 lf-repr-check-pair
+   -> outcome-invalid outcome-invalid }T
+term-seal-flip
 -1 lf-term-count !
 T{ 0 lf-repr-concrete 10 lf-repr-check -> outcome-invalid }T
 T{ lf-term-count @ -> -1 }T

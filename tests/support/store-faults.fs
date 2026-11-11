@@ -26,6 +26,13 @@ require ../../src/core/levels.fs
 : term-identity@ ( index -- identity ) lf-terms store-identity @ ;
 : level-identity@ ( index -- identity ) lf-levels store-identity @ ;
 
+\ Break a store's seal, or mend it by flipping it again: the count stays
+\ sound, so reads by index still read, and every checked root (a handle,
+\ lf-term-root?, a count check) must refuse the store.
+: seal-flip ( store -- ) store-seal dup @ invert swap ! ;
+: term-seal-flip ( -- ) lf-terms seal-flip ;
+: level-seal-flip ( -- ) lf-levels seal-flip ;
+
 \ The identity a store issued last (that of its newest record, unless a
 \ rollback removed it), and setting it, for instance to max-n to spend
 \ the serial.

@@ -18,6 +18,12 @@ T{ 3 3 lf-lscope-check -> outcome-exhausted }T
 T{ 3 -1 lf-lscope-check -> outcome-invalid }T
 T{ -1 10 lf-lscope-check -> outcome-invalid }T
 T{ 4 10 lf-lscope-check -> outcome-invalid }T
+\ The check is refused at its root when the store's seal is broken, the
+\ count still sound (compact-store plan step S2: its reads check the index).
+level-seal-flip
+T{ 3 10 lf-lscope-check 3 lf-level-root? 3 lf-level-valid? -> outcome-invalid false true }T
+level-seal-flip
+T{ 3 10 lf-lscope-check 3 lf-level-root? 4 lf-level-valid? -> outcome-ok true false }T
 lf-lscope-context-reset
 T{ 3 10 lf-lscope-check -> outcome-invalid }T
 T{ 2 lf-lscope-context-add -> true }T

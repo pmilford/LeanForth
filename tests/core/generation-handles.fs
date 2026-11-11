@@ -72,6 +72,17 @@ level-serial rolled-level-identity !
 T{ 0 0 level-identity@ lf-hlevel-succ -> 2 level-serial true }T
 T{ 2 rolled-level-identity @ lf-hlevel-valid? -> false }T
 T{ 2 level-serial lf-hlevel-valid? -> true }T
+\ A handle is a checked root (compact-store plan step S2): with the seal
+\ broken, the count still sound, the node's identity still reads, but no
+\ handle of the store is valid and none is made.
+term-seal-flip
+T{ 1 lf-term-identity nip 1 term-serial lf-hterm-valid? 0 lf-hterm-bvar -> true false false }T
+term-seal-flip
+T{ 1 term-serial lf-hterm-valid? -> true }T
+level-seal-flip
+T{ 2 lf-level-identity nip 2 level-serial lf-hlevel-valid? lf-hlevel-zero -> true false false }T
+level-seal-flip
+T{ 2 level-serial lf-hlevel-valid? -> true }T
 \ The final serial is usable once; then allocation fails without wrapping or
 \ damaging the existing handle. Level reset at saturation also fails closed.
 -1 1 rshift 1- term-serial!
