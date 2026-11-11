@@ -217,6 +217,73 @@ unstage
 T{ 16 stg stage-init stg fdd lf-feed -> outcome-ok outcome-invalid }T
 stg stage-free
 
+\ ---------------------------------------------------------------------------
+\ The input view (compact-store plan step S5; src/core/terms.fs). By default
+\ the feed reads the stage in place: input node e is term number e, read
+\ with the checker's tag and fields (binder names and information
+\ ignored), its identity the negative number invert e, which no birth
+\ serial is; a Sort, constant or literal has its fields in the view's leaf
+\ table; the store's own records (copies of lets, projections and the
+\ nodes above them, then each check's scratch) follow from lf-term-base.
+\ composition.ndjson has 21 expressions and no let or projection.
+T{ s" tests/reference/composition.ndjson" fed lf-term-viewed? lf-term-base lf-term-count @
+   -> outcome-ok true 21 0 }T
+T{ 0 lf-term-read 13 lf-term-read 15 lf-term-read
+   -> lf-tag-symbolic-sort 0 0 true lf-tag-app 1 12 true lf-tag-lam 3 14 true }T
+T{ 0 lf-term-identity 20 lf-term-identity 21 lf-term-valid? 0 lf-input-mark-count
+   -> -1 true -21 true false 21 }T
+\ The input's fingerprint covers the view (its count of input nodes).
+: view-base ( -- addr ) lf-term-view lf-tview-base ;
+T{ lf-input-print lf-input-fingerprint = -> true }T
+1 view-base +!
+T{ lf-input-print lf-input-fingerprint = -> false }T
+-1 view-base +!
+\ Making a node equal to an input node gives that node: an application
+\ and a bound variable found in the tier's table, a binder in the view's
+\ binder table, a Sort in its leaf table; a new node is the store's.
+T{ 1 12 lf-term-app 3 14 lf-term-lam 2 lf-term-bvar 0 lf-term-symbolic-sort lf-term-count @
+   -> 13 true 15 true 1 true 0 true 0 }T
+T{ 13 13 lf-term-app over lf-term-identity nip lf-term-count @
+   -> 21 true true 1 }T
+T{ 21 lf-term-identity drop 0> lf-input-rollback lf-term-count @ -> true outcome-ok 0 }T
+unstage
+T{ lf-term-viewed? lf-term-base -> false 0 }T
+\ A constant read in place: its reference is the one the feed made, and a
+\ constant made over that reference is the input node.
+T{ s" tests/reference/constant-fixture.ndjson" fed 7 lf-term-tag@ 7 lf-term-second@
+   -> outcome-ok lf-tag-constant 0 }T
+T{ 7 lf-cterm-ref lf-cterm-new -> 7 -8 true }T
+\ Attached without the feed, a leaf has no fields until it is given them,
+\ once; a node that is no input leaf is refused.
+T{ stg stage-tier lf-term-attach 7 lf-term-valid? 13 lf-term-valid? -> outcome-ok false true }T
+T{ 5 0 1 7 lf-term-input-leaf 7 lf-term-read -> outcome-ok lf-tag-constant 5 0 true }T
+T{ 5 0 1 7 lf-term-input-leaf 0 0 1 13 lf-term-input-leaf 0 0 1 99 lf-term-input-leaf
+   -> outcome-invalid outcome-invalid outcome-invalid }T
+T{ lf-term-detach lf-term-viewed? 7 lf-term-valid? -> outcome-ok false false }T
+unstage
+\ The switch: copied, as before the view, no input node; a binder hook
+\ (the print command's) copies too.
+T{ true lf-feed-copy! s" tests/reference/composition.ndjson" fed lf-term-viewed?
+   lf-term-count @ 21 >= -> outcome-ok false true }T
+unstage false lf-feed-copy!
+:noname ( term name kind -- ) 2drop drop ; constant no-binders
+T{ s" tests/reference/composition.ndjson" staged stg fdd no-binders 0 lf-feed-hooked
+   lf-term-viewed? -> outcome-ok false }T
+unstage
+\ The fields the feed gives an input literal (core/literals.fs,
+\ core/string-literals.fs): no node made, the limbs or bytes kept in the
+\ context's slab; text that is no number, or no UTF-8, is refused.
+: one-limb ( first n -- n limb ) swap lf-lit-limbs slab-at @ ;
+T{ s" 12" lf-lit-decimal -rot one-limb -> true 1 12 }T
+T{ s" 0" lf-lit-decimal s" 1x" lf-lit-decimal -> 0 0 true false }T
+create bad-utf8 255 c,
+T{ bad-utf8 1 lf-str-fields nip nip s" ab" lf-str-fields rot drop
+   -> outcome-invalid 2 outcome-ok }T
+\ A let and the nodes above it are copied, at lf-term-base and after.
+T{ let-file fed 0 lf-input-decl lf-idecl-value @ lf-term-base >= lf-term-count @ 0>
+   -> outcome-ok true true }T
+unstage
+
 \ ADR 0012 E5 against the name-to-declaration array (ADR 0016 C4): with
 \ names interned in the input tier, the environment reads a name's chain;
 \ for every name, every limit and each slot test the chain gives what the

@@ -199,6 +199,15 @@ begin-structure /lf-inrec
 end-structure
 /lf-inrec context-record: lf-input-state
 
+\ How an importer gives this context its terms (compact-store plan step
+\ S5; import/feed.fs): read in place from the stage (false, the default
+\ of a new context) or copied into the term store (true, the way before
+\ the input view, kept for comparing the two). A member of the checker
+\ context.
+1 cells context-record: lf-input-copying
+: lf-input-copy! ( flag -- ) lf-input-copying ! ;
+: lf-input-copy? ( -- flag ) lf-input-copying @ ;
+
 \ The input stores, in the order of their marks.
 create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf-inputs ,
 : lf-input-store ( k -- store ) cells lf-input-stores + @ execute ;
@@ -400,10 +409,15 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 
 \ After a check: every input store back to its mark and the name bytes
 \ back to their count; ok, or invalid with nothing changed when the input
-\ is not intact. The terms go back through lf-term-rollback, which takes
-\ their entries out of the hash-consing table too (terms.fs).
+\ is not intact. The terms, levels and references go back through their
+\ own rollbacks, which take their entries out of the hash-consing and
+\ interning tables too (terms.fs, levels.fs, constant-references.fs;
+\ review rvS4 M1: with plain store-rollback the tables kept an entry for
+\ every record given back and grew with every declaration).
 : lf-store-back ( mark store -- outcome )
-  dup lf-terms = if drop lf-term-rollback else store-rollback then ;
+  dup lf-terms = if drop lf-term-rollback exit then
+  dup lf-levels = if drop lf-level-rollback exit then
+  dup lf-crefs = if drop lf-cref-rollback exit then store-rollback ;
 : lf-mark-back ( mark store -- flag ) lf-store-back ok? ;
 : lf-input-rollback ( -- outcome )
   lf-input-intact? 0= if outcome-invalid exit then

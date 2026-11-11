@@ -1518,5 +1518,38 @@ class Fuel(unittest.TestCase):
         self.assertEqual(run("check", "--fuel", str(2**53), INDUCTIVE)[0], 4)
 
 
+def both_ways(copy, *args):
+    """check --json with the feed's switch (src/import/feed.fs, lf-feed-copy!)
+    set: True copies every expression into the term store, False (the
+    default) reads the stage in place. The report without "measured", and
+    without what only the way of feeding sets: the count of term numbers,
+    and the numbers of a diagnostic, which may name a term by its number."""
+    flag = "true" if copy else "false"
+    result = subprocess.run([GFORTH, "src/main.fs", "-e", f"{flag} lf-feed-copy! cli-main",
+                             "check", "--json", *args], cwd=ROOT, stdin=subprocess.DEVNULL,
+                            capture_output=True, timeout=300)
+    got = json.loads(result.stdout.decode())
+    got.pop("measured")
+    if got["input"]:
+        got["input"].pop("terms")
+    for declaration in got["declarations"]:
+        declaration.get("diagnostic", {}).pop("numbers", None)
+    return result.returncode, got
+
+
+class BothWays(unittest.TestCase):
+    """The input read in place (compact-store plan step S5; core/terms.fs's
+    view) and copied into the term store, the way before it, give the same
+    report for every export: each declaration's verdict, fuel and
+    diagnostic, the counts and the exit status. Only the count of term
+    numbers differs (the copies of lets and projections)."""
+
+    def test_same(self):
+        more = [["tests/cli/sharing.ndjson"], ["tests/cli/sharing-universe.ndjson"],
+                ["tests/cli/nested.ndjson"], ["tests/cli/irrelevance.ndjson"]]
+        for args in CASES_ALL + more:
+            self.assertEqual(both_ways(True, *args), both_ways(False, *args), args)
+
+
 if __name__ == "__main__":
     unittest.main()

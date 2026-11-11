@@ -148,8 +148,9 @@ create lf-mls-set-hooks /htab-hooks allot
 : lf-mls-reference ( first second walk -- outcome )
   >r lf-cterm-pair lf-cref-levels if r> lf-mls-sources else r> drop outcome-invalid then ;
 : lf-mls-refused ( first second walk tag outcome -- outcome ) >r 2drop 2drop r> ;
-\ Lean's has_param_univ test (instantiate.cpp 248-253; compact-store plan
-\ step S4): a term without universe parameters is its own image, so the
+\ Lean's has_param_univ test (instantiate.cpp 232-237, the skip at line
+\ 236; compact-store plan step S4): a term without universe parameters
+\ is its own image, so the
 \ audit neither visits nor lists it (it costs no unit as a child, one as
 \ the root) and the build gives it back unchanged (lf-mls-image@). Its
 \ data word tells (core/terms.fs: the parameter bit, from its levels when

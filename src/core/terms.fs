@@ -155,6 +155,7 @@ begin-structure /lf-tview
   /htab +field lf-tview-nodes    \ leaf entries by node
   /htab +field lf-tview-fields   \ leaf entries by tag and fields
   /slab +field lf-tview-leaves   \ the entries: node, first, second, stamp
+  /htab +field lf-tview-binders  \ input binders by tag and children
 end-structure
 /lf-tview context-record: lf-term-view
 : lf-term-base ( -- n ) lf-term-view lf-tview-base @ ;
@@ -182,7 +183,9 @@ variable lf-tin-leaf-tags   0 lf-tin-leaf-tags !
   >r lf-tin-leaf-bit or r> lf-term-input-tag! ;
 lf-tag-bvar tag-bvar lf-term-input-tag!   lf-tag-app tag-app lf-term-input-tag!
 : lf-tin-binders ( -- )
-  4 0 do lf-tag-lam tag-lam i + lf-term-input-tag! lf-tag-pi tag-pi i + lf-term-input-tag! loop ;
+  4 0 do
+    lf-tag-lam tag-lam i + lf-term-input-tag!  lf-tag-pi tag-pi i + lf-term-input-tag!
+  loop ;
 lf-tin-binders
 
 \ An input record and its parts. Unchecked: index < lf-term-base.
@@ -208,7 +211,7 @@ end-structure
 : lf-tfields-hash ( tag first second -- h ) rot hash-fmix rot hash-step swap hash-step ;
 : lf-tfields-rehash ( n htab -- h ) drop lf-tleaf lf-tleaf-fields lf-tfields-hash ;
 : lf-tfields= ( tag first second addr -- flag )
-  >r r@ 2 cells + @ = swap r@ cell+ @ = and swap r> @ = and ;
+  >r r@ 2 cells + @ = rot r@ @ = rot r> cell+ @ = and and ;
 : lf-tfields-same ( n key htab -- flag ) drop >r lf-tleaf lf-tleaf-fields r> lf-tfields= ;
 create lf-tnode-hooks /htab-hooks allot
 ' lf-tnode-rehash ' lf-tnode-same lf-tnode-hooks htab-hooks!
@@ -217,10 +220,13 @@ create lf-tfields-hooks /htab-hooks allot
 \ The entry of an input leaf node, or 0.
 : lf-tin-leaf ( index -- entry | 0 )
   dup hash-fmix lf-term-view lf-tview-nodes htab-find if lf-tleaf else drop 0 then ;
+\ The record sought, and its hash, for a table's find.
 3 cells context-record: lf-tin-key
-: lf-tin-leaf-find ( tag first second -- node true | false )
+: lf-tin-key! ( tag first second -- key h )
   lf-tin-key tuck 2 cells + ! tuck cell+ ! tuck ! dup >r @ r@ cell+ @ r@ 2 cells + @
-  lf-tfields-hash r> swap lf-term-view lf-tview-fields htab-find
+  lf-tfields-hash r> swap ;
+: lf-tin-leaf-find ( tag first second -- node true | false )
+  lf-tin-key! lf-term-view lf-tview-fields htab-find
   if lf-tleaf lf-tleaf-node @ true else drop false then ;
 
 \ Reading an input node. Unchecked, but a leaf without an entry reads as
@@ -244,6 +250,17 @@ create lf-tfields-hooks /htab-hooks allot
   lf-tin-leaf ?dup if lf-tleaf-stamp @ else 0 then ;
 \ An input node's identity: a negative number, which no serial is.
 : lf-term-input-identity ( index -- identity ) invert ;
+
+\ The binder table: input lambdas and Pis that the importer enters
+\ (lf-term-input-binder), found by tag and children, binder name and
+\ information ignored, as Lean's == ignores them. A slot holds the node.
+: lf-tbind-fields ( n -- tag first second ) dup lf-tin-tag@ swap lf-tin-ab@ ;
+: lf-tbind-rehash ( n htab -- h ) drop lf-tbind-fields lf-tfields-hash ;
+: lf-tbind-same ( n key htab -- flag ) drop >r lf-tbind-fields r> lf-tfields= ;
+create lf-tbind-hooks /htab-hooks allot
+' lf-tbind-rehash ' lf-tbind-same lf-tbind-hooks htab-hooks!
+: lf-tin-binder-find ( tag first second -- node true | false )
+  lf-tin-key! lf-term-view lf-tview-binders htab-find dup 0= if nip then ;
 
 \ Checked roots, range-checked reads (compact-store plan step S2; ADR
 \ 0016 C8). The whole header (shape, seal, generation, count) is checked
@@ -417,11 +434,13 @@ defer lf-term-view-hook ( -- outcome )
 ' outcome-ok is lf-term-view-hook
 : lf-tview-free ( -- )
   lf-term-view dup lf-tview-probe cons-free dup lf-tview-nodes htab-free
-  dup lf-tview-fields htab-free dup lf-tview-leaves slab-free /lf-tview erase ;
+  dup lf-tview-fields htab-free dup lf-tview-leaves slab-free
+  dup lf-tview-binders htab-free /lf-tview erase ;
 :noname ( -- ) lf-tview-free ; context-teardown
 : lf-tview-tables ( -- outcome )
   4 lf-tnode-hooks lf-term-view lf-tview-nodes htab-init dup ok? 0= if exit then drop
   4 lf-tfields-hooks lf-term-view lf-tview-fields htab-init dup ok? 0= if exit then drop
+  4 lf-tbind-hooks lf-term-view lf-tview-binders htab-init dup ok? 0= if exit then drop
   /lf-tleaf dup slab-limit-max lf-term-view lf-tview-leaves slab-init ;
 : lf-tview-place ( exprs -- )
   lf-term-view >r dup cons-numbers r@ lf-tview-base ! 0 swap cons-at r> lf-tview-records ! ;
@@ -466,6 +485,19 @@ defer lf-term-view-hook ( -- outcome )
 : lf-term-input-leaf ( first second stamp index -- outcome )
   dup lf-tin-leaf-node? if dup lf-tin-leaf 0= else false then
   if lf-tleaf-new else 2drop 2drop outcome-invalid then ;
+
+\ Enter input binder index in the binder table (the importer, for each
+\ binder it reads in place): ok; invalid for a number that is no input
+\ lambda or Pi; full when the heap has no room. When another binder has
+\ the same tag and children, the first stays.
+: lf-tin-binder? ( index -- flag )
+  dup lf-term-input? if lf-tin-tag@ dup lf-tag-lam = swap lf-tag-pi = or else drop false then ;
+: lf-tbind-put ( index -- )
+  dup lf-tbind-fields lf-tin-key! lf-term-view lf-tview-binders htab-find
+  if 2drop else lf-term-view lf-tview-binders htab-put then ;
+: lf-term-input-binder ( index -- outcome )
+  dup lf-tin-binder? 0= if drop outcome-invalid exit then
+  lf-term-view lf-tview-binders htab-ready dup ok? if drop lf-tbind-put outcome-ok else nip then ;
 
 \ ---------------------------------------------------------------------------
 \ Making nodes. Append a node whose tag and fields the caller validated,
@@ -551,10 +583,14 @@ defer lf-term-reusable? ( n -- flag )
 : lf-tin-bvar ( first second -- n true | false )
   over bvar-fits? over 0= and if tag-bvar 0 pack-head -rot lf-tin-probe else 2drop false then ;
 : lf-tin-leaf-tag? ( tag -- flag ) lf-term-tag-bit lf-tin-leaf-tags @ and 0<> ;
+: lf-tin-binder ( tag first second -- n true | false )
+  2dup lf-term-input? swap lf-term-input? and
+  if lf-tin-binder-find else 2drop drop false then ;
 : lf-tin-sought ( tag first second -- n true | false )
   2 pick case
     lf-tag-app of rot drop lf-tin-app endof
     lf-tag-bvar of rot drop lf-tin-bvar endof
+    lf-tag-lam of lf-tin-binder endof  lf-tag-pi of lf-tin-binder endof
     lf-tin-leaf-tag? if lf-tin-leaf-find else 2drop drop false then 0 endcase ;
 : lf-tin-given ( tag first second -- n true | false )
   lf-term-viewed? 0= if 2drop drop false exit then

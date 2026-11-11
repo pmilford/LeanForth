@@ -44,6 +44,11 @@ lf-tag-str tag-str lf-term-input-leaf-tag
 : lf-str-keep ( addr u -- first outcome )
   dup lf-str-bytes slab-claim ok-then? 0= if >r 2drop r> no-result exit then
   >r r@ lf-str-bytes slab-at swap move r> outcome-ok ;
+\ The same literal's fields, its bytes kept in the slab but no node made:
+\ an input literal of a term view (terms.fs), whose node is the tier's.
+: lf-str-fields ( addr u -- first u outcome )
+  2dup utf8-valid? 0= if 2drop 0 0 outcome-invalid exit then
+  tuck lf-str-keep >r swap r> ;
 : lf-str-new ( addr u -- index identity outcome )
   2dup utf8-valid? 0= if 2drop 0 0 outcome-invalid exit then
   tuck lf-str-keep ok-then? 0= if nip 0 0 rot exit then

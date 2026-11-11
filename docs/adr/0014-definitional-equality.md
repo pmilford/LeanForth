@@ -1836,7 +1836,7 @@ an *unknown* behind one) that becomes Lean's.
    node before this step lost 142 accepted declarations on the first 1M
    lines of `Init`; after it none is lost (below).
 3. *`instantiate_lparams`' `has_param_univ` test* (`instantiate.cpp`
-   248-253): universe substitution neither audits nor rebuilds a term
+   232-237, the skip at line 236): universe substitution neither audits nor rebuilds a term
    whose data word shows no universe parameter; it is its own image.
 4. *Level comparison's scope checks per level*: in a check, a root
    level found in scope is kept with its identity and the parameter

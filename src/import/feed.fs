@@ -83,14 +83,24 @@ begin-structure /feed
   field: feed-members      \ members of the current block still to come
   2 cells +field feed-pair-buf   \ heap: a constant's level pairs, and their room
   2 cells +field feed-param-buf  \ heap: a declaration's parameters, and their room
+  field: feed-placing      \ true: the terms are read in place (see "In place")
+  field: feed-dirty        \ heap, in place: a bit per stage expression copied
+  2 cells +field feed-copy-buf   \ heap, in place: the copies, and their room
+  field: feed-copies#      \ in place: the copies made
   /lf-idecl +field feed-decl
 end-structure
 
 : feed-tier ( feed -- tier ) feed-stage @ stage-tier ;
 : feed-at ( feed -- n ) feed-where @ ;
+\ The switch of each context (compact-store plan step S5; core/input.fs's
+\ lf-input-copy!): true copies every expression into the term store, as
+\ before the input view; false, the default, reads them in place (see "In
+\ place").
+: lf-feed-copy! ( flag -- ) lf-input-copy! ;
+: lf-feed-copy? ( -- flag ) lf-input-copy? ;
 : feed-free ( feed -- )
-  dup feed-levels heap-release dup feed-exprs heap-release
-  dup feed-pair-buf heap-release feed-param-buf heap-release ;
+  dup feed-levels heap-release dup feed-exprs heap-release dup feed-dirty heap-release
+  dup feed-copy-buf heap-release dup feed-pair-buf heap-release feed-param-buf heap-release ;
 \ A heap buffer of the feed's (its address, then its room in units):
 \ room for n units of u address units, grown, never shrunk, freed by
 \ feed-free. There is no other limit (plan task 6.2.0); no heap is full.
@@ -129,31 +139,82 @@ here feed-settings - /feed-setting / constant feed-settings#
 \ The term store's hash-consing table is sized for the stage's
 \ expressions too, so that feeding them never doubles it (compact-store
 \ plan step S3; core/terms.fs).
+\ In place, the term store holds only the copies (see "In place"): its
+\ table is not sized for every expression, and feed-room sets its
+\ capacity to what the copies left.
 : feed-capacities ( feed -- outcome )
   outcome-ok feed-settings# 0 do
     over i /feed-setting * feed-settings + feed-setting
-  loop over feed-exprs# lf-term-table-room nip ;
+  loop over feed-placing @ if nip exit then over feed-exprs# lf-term-table-room nip ;
 
 \ The feed's own term nodes: a let becomes 4 nodes for its 2 numbers and a
 \ projection 2 for its 1, so after the expressions are fed the term store
 \ is raised again, to the nodes in use plus the room: each check gets the
 \ whole of feed-term-room, however many lets and projections the file has.
+\ In place it is set to exactly that, the copies plus the room, so a
+\ check has the same room in both ways.
 : feed-room ( feed -- outcome )
-  drop lf-term-count @ feed-term-room + lf-term-capacity max lf-term-capacity! ;
+  lf-term-count @ feed-term-room + swap feed-placing @ 0= if lf-term-capacity max then
+  lf-term-capacity! ;
 
 \ ---- Maps: heap blocks of cells, zeroed, freed by feed-free.
 : feed-block ( cells addr -- outcome )
   >r cells 1 max dup allocate if 2drop r> drop outcome-full exit then
   tuck swap erase r> ! outcome-ok ;
+\ In place (see "In place" below) the expressions need no map, only a
+\ bit each, set for the ones copied.
+1 cells 8 * constant feed-cell-bits
+: feed-expr-map ( feed -- outcome )
+  dup feed-placing @ if dup feed-exprs# feed-cell-bits / 1+ swap feed-dirty feed-block exit then
+  dup feed-exprs# 2* swap feed-exprs feed-block ;
 : feed-maps ( feed -- outcome )
   dup feed-levels# over feed-levels feed-block dup ok? 0= if nip exit then
-  drop dup feed-exprs# 2* swap feed-exprs feed-block ;
+  drop feed-expr-map ;
 : feed-level! ( index l feed -- ) feed-levels @ swap cells + ! ;
 : feed-level@ ( l feed -- index ) feed-levels @ swap cells + @ ;
 : feed-handle ( l feed -- index identity )
   feed-level@ dup lf-level-identity 0= if 0 then ;
 : feed-expr-at ( e feed -- addr ) feed-exprs @ swap 2* cells + ;
-: feed-term@ ( e feed -- index identity ) feed-expr-at 2@ ;
+
+\ ---- In place (compact-store plan step S5; core/terms.fs's input view).
+\ The term store reads the stage's expressions in place, so the feed
+\ copies only those the view does not read: a let, a projection or an
+\ mdata expression, and every application or binder above one (2.4% of
+\ Init's expressions). A copied expression's bit is set, and its term
+\ handle kept with it in a list in ascending expression order (copies are
+\ made in number order), found by binary search; any other expression's
+\ term is the input node of its own number. Leaves whose fields are this
+\ context's get them in the view's leaf table: a Sort its level, a
+\ constant its reference (made as when copying), a literal its limbs or
+\ bytes in the context's slabs. Levels, references and declarations are
+\ as when copying.
+: feed-bit ( e feed -- addr mask )
+  feed-dirty @ over feed-cell-bits / cells + swap feed-cell-bits mod 1 swap lshift ;
+: feed-dirty? ( e feed -- flag ) feed-bit swap @ and 0<> ;
+: feed-dirty! ( e feed -- ) feed-bit over @ or swap ! ;
+3 cells constant /feed-copy   \ the expression, then its term handle
+: feed-copy-at ( k feed -- addr ) feed-copy-buf @ swap /feed-copy * + ;
+: feed-copy-e ( k feed -- e ) feed-copy-at @ ;
+: feed-copy+ ( index identity e feed -- outcome )
+  dup feed-copies# @ 1+ /feed-copy 2 pick feed-copy-buf feed-grow ok? 0=
+  if 2drop 2drop outcome-full exit then
+  dup feed-copies# @ over feed-copy-at >r 1 swap feed-copies# +!
+  r@ ! r> cell+ 2! outcome-ok ;
+\ Binary search: the first copy whose expression is not below e.
+: feed-copy-below? ( e feed k -- flag ) swap feed-copy-e > ;
+: feed-narrow ( e feed lo hi -- e feed lo' hi' )
+  2dup + 2/ >r 2over r@ feed-copy-below? if nip r> 1+ swap else drop r> then ;
+: feed-seek ( e feed -- e feed k )
+  0 over feed-copies# @ begin 2dup < while feed-narrow repeat drop ;
+\ A copied expression's handle; 0 0, no handle, for one not in the list.
+: feed-copy@ ( e feed -- index identity )
+  feed-seek 2dup swap feed-copies# @ < if
+    2dup swap feed-copy-at dup @ 4 pick = if nip nip nip cell+ 2@ exit then drop
+  then 2drop drop 0 0 ;
+: feed-placed@ ( e feed -- index identity )
+  2dup feed-dirty? if feed-copy@ else drop dup lf-term-input-identity then ;
+: feed-term@ ( e feed -- index identity )
+  dup feed-placing @ if feed-placed@ else feed-expr-at 2@ then ;
 : feed-root ( e feed -- index ) feed-term@ drop ;
 
 \ ---- The level context: every parameter a level names.
@@ -209,8 +270,12 @@ here feed-settings - /feed-setting / constant feed-settings#
 \ do not hold (a free or meta variable) is invalid.
 : feed-built ( index identity true | false -- index identity outcome )
   if outcome-ok else 0 0 outcome-full then ;
+\ The term made for expression e kept: in its map, or in place in the
+\ list of copies (full when the heap cannot hold it).
+: feed-keep ( index identity e feed -- outcome )
+  dup feed-placing @ if feed-copy+ else feed-expr-at 2! outcome-ok then ;
 : feed-kept ( index identity outcome e feed -- outcome )
-  2>r dup ok? if drop 2r> feed-expr-at 2! outcome-ok else nip nip 2r> 2drop then ;
+  2>r dup ok? if drop 2r> feed-keep else nip nip 2r> 2drop then ;
 : feed-a-term ( e feed -- index identity ) tuck feed-tier expr-a@ swap feed-term@ ;
 : feed-b-term ( e feed -- index identity ) tuck feed-tier expr-b@ swap feed-term@ ;
 : feed-children ( e feed -- l lid r rid ) 2dup feed-a-term 2swap feed-b-term ;
@@ -224,10 +289,11 @@ here feed-settings - /feed-setting / constant feed-settings#
   if >r 2drop drop r> outcome-full exit then
   dup >r 0 ?do i 2 pick 2 pick tuple-item i 4 pick feed-pair! loop
   2drop drop r> outcome-ok ;
-: feed-const ( e feed -- index identity true | false )
+: feed-cref ( e feed -- cref identity true | false )
   2dup feed-tier expr-b@ over feed-args ok? 0= if drop 2drop false exit then
-  >r tuck feed-tier expr-a@ lf-name-generation @ rot feed-pairs r> lf-cref-new
-  if lf-cterm-new else false then ;
+  >r tuck feed-tier expr-a@ lf-name-generation @ rot feed-pairs r> lf-cref-new ;
+: feed-const ( e feed -- index identity true | false )
+  feed-cref if lf-cterm-new else false then ;
 \ The unsupported form of each expression tag, 0 for a supported one
 \ (core/unsupported-forms.fs); a table filled while loading.
 tag-mdata 1+ constant feed-tags#
@@ -243,12 +309,11 @@ lf-form-mdata tag-mdata feed-form!
   0= if 2drop false exit then
   2swap feed-a-term lf-hterm-app ;
 \ A natural-number literal (plan task 5.2.3): its decimal text, read.
-: feed-nat ( e feed -- index identity true | false )
-  feed-tier tuck expr-a@ swap tier-texts text@ lf-hterm-decimal ;
+: feed-text ( e feed -- addr u ) feed-tier tuck expr-a@ swap tier-texts text@ ;
+: feed-nat ( e feed -- index identity true | false ) feed-text lf-hterm-decimal ;
 \ A string literal (plan task 5.2.3, strings): its UTF-8 bytes; text that
 \ is not UTF-8 is invalid (core/string-literals.fs).
-: feed-str ( e feed -- index identity outcome )
-  feed-tier tuck expr-a@ swap tier-texts text@ lf-str-new ;
+: feed-str ( e feed -- index identity outcome ) feed-text lf-str-new ;
 \ A let (plan task 4.2.3): let x : T := v; b as its leaf, with the
 \ nonDep flag, applied to v and then to fun x : T => b
 \ (core/let-terms.fs); the body is the letE's second record.
@@ -280,11 +345,48 @@ lf-form-mdata tag-mdata feed-form!
   2dup >r >r 2dup feed-tier expr-tag@ feed-term-made r> r> 2dup 2>r feed-kept
   dup ok? if 2r> feed-binder-noted else 2r> 2drop then ;
 : feed-span ( e feed -- units ) feed-tier expr-tag@ let-tag? if 2 else 1 then ;
+\ In place (see "In place" above): a copied expression is made as when
+\ copying; any other is read in place, a leaf whose fields are this
+\ context's given them in the view's leaf table, with the same outcomes
+\ as when copying (full when a level is not live or a store refuses,
+\ invalid for text that is not UTF-8 or a kind the checker does not
+\ hold).
+: feed-copied-kind? ( tag -- flag ) dup let-tag? over tag-proj = or swap tag-mdata = or ;
+: feed-child-copied? ( e feed -- flag )
+  2dup feed-tier expr-a@ over feed-dirty? >r tuck feed-tier expr-b@ swap feed-dirty? r> or ;
+: feed-to-copy? ( e feed tag -- flag )
+  dup feed-copied-kind? if drop 2drop true exit then
+  dup tag-app = swap binder-tag? or if feed-child-copied? else 2drop false then ;
+: feed-leaf! ( first second stamp e -- outcome ) lf-term-input-leaf ;
+: feed-sort-leaf ( e feed -- outcome )
+  over >r tuck feed-tier expr-a@ swap feed-handle
+  2dup lf-hlevel-valid? 0= if 2drop r> drop outcome-full exit then 0 swap r> feed-leaf! ;
+: feed-const-leaf ( e feed -- outcome )
+  over >r feed-cref 0= if r> drop outcome-full exit then 0 swap r> feed-leaf! ;
+: feed-nat-leaf ( e feed -- outcome )
+  over >r feed-text lf-lit-decimal 0= if r> drop outcome-full exit then 0 r> feed-leaf! ;
+: feed-str-leaf ( e feed -- outcome )
+  over >r feed-text lf-str-fields dup ok? 0= if nip nip r> drop exit then
+  drop 0 r> feed-leaf! ;
+: feed-read-kind? ( tag -- flag ) dup tag-bvar = swap tag-app = or ;
+\ A binder read in place is entered in the view's binder table, so that a
+\ binder a check makes equal to it is it (core/terms.fs).
+: feed-leaf ( e feed tag -- outcome )
+  dup binder-tag? if 2drop lf-term-input-binder exit then
+  dup feed-read-kind? if drop 2drop outcome-ok exit then
+  case tag-sort of feed-sort-leaf endof  tag-const of feed-const-leaf endof
+    tag-nat of feed-nat-leaf endof  tag-str of feed-str-leaf endof
+    >r 2drop outcome-invalid r> endcase ;
+: feed-place ( e feed -- outcome )
+  2dup feed-tier expr-tag@ >r 2dup r@ feed-to-copy?
+  if r> drop 2dup feed-dirty! feed-expr else r> feed-leaf then ;
+: feed-each ( feed xt -- outcome )
+  >r 0 begin over feed-exprs# over > while
+    dup 2 pick feed-where ! 2dup swap r@ execute dup ok? 0= if r> drop nip nip exit then
+    drop 2dup swap feed-span +
+  repeat r> drop 2drop outcome-ok ;
 : feed-exprs-all ( feed -- outcome )
-  0 begin over feed-exprs# over > while
-    dup 2 pick feed-where ! 2dup swap feed-expr dup ok? 0= if nip nip exit then drop
-    2dup swap feed-span +
-  repeat 2drop outcome-ok ;
+  dup feed-placing @ if ['] feed-place else ['] feed-expr then feed-each ;
 
 \ ---- Declarations, in file order: the one being fed is feed-d. Kinds as
 \ the reader codes them (import/ndjson.fs, kind-axiom on), the checker's
@@ -455,10 +557,16 @@ here feed-kinds - 1 cells / constant feed-kinds#
     i over feed-where ! i over feed-decl-one dup ok? 0= if nip unloop exit then drop
   loop drop outcome-ok ;
 
-\ ---- The whole feed: the steps ( feed -- outcome ), in order.
+\ ---- The whole feed: the steps ( feed -- outcome ), in order. The first
+\ ends any earlier term view and, in place, attaches the stage's tier as
+\ the terms' view (core/terms.fs) after its names.
+: feed-unview ( -- ) lf-term-viewed? if lf-term-detach drop then ;
+: feed-view ( feed -- outcome )
+  dup feed-placing @ if feed-tier lf-term-attach else drop outcome-ok then ;
 : feed-fresh ( feed -- outcome )
-  lf-input-reset lf-term-reset lf-level-reset lf-cref-reset lf-lscope-context-reset
-  feed-tier lf-name-attach ;
+  feed-unview lf-input-reset lf-term-reset lf-level-reset lf-cref-reset
+  lf-lscope-context-reset dup feed-tier lf-name-attach dup ok? 0= if nip exit then
+  drop feed-view ;
 : feed-session ( feed -- outcome ) drop lf-ssession-begin flag>outcome ;
 : feed-end ( feed -- outcome ) feed-members @ if outcome-invalid else lf-input-end then ;
 create feed-steps
@@ -478,9 +586,16 @@ here feed-steps - 1 cells / constant feed-steps#
 \ are freed; the names stay attached to the stage, as after any THROW in a
 \ feed, so the caller detaches them (lf-name-detach; cli/check-run.fs's
 \ ck-release does).
+\ In place unless the context's switch says to copy (lf-feed-copy!) or a
+\ binder hook is given (the print command's binder table is a column of
+\ the term store, which covers only its own records).
+: feed-placing! ( feed -- )
+  dup feed-binder-hook @ 0= lf-feed-copy? 0= and swap feed-placing ! ;
 : lf-feed-hooked ( stage feed binder-hook decl-hook -- outcome )
   2>r dup /feed erase tuck feed-stage !
-  2r> 2 pick feed-decl-hook ! over feed-binder-hook !
+  2r> 2 pick feed-decl-hook ! over feed-binder-hook ! dup feed-placing!
   dup feed-stage @ stage-sealed? 0= if drop outcome-invalid exit then
   dup ['] feed-run catch ?dup if >r drop feed-free r> throw then swap feed-free ;
 : lf-feed ( stage feed -- outcome ) 0 0 lf-feed-hooked ;
+\ Detaching the names of a stage ends its term view too (core/names.fs).
+:noname ( -- ) feed-unview ; is lf-name-detach-hook
