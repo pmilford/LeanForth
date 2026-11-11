@@ -206,7 +206,9 @@ lf-level-walk-room context-walk2: lf-mcompare-level-walker
   2dup = if 2drop true outcome-ok else lf-mcompare-same? then ;
 
 \ Audit both roots completely, left first, with the walk's fuel; a failed
-\ audit leaves no fuel. lf-cterm-check fails only as invalid, exhausted or
+\ audit leaves no fuel. In a check each node is audited once per check
+\ (core/constant-term-boundary.fs's memo, compact-store plan step S6 (c)):
+\ a root audited before costs nothing. lf-cterm-check fails only as invalid, exhausted or
 \ full. Five inputs: two handles and the walk. Shared with mixed-convert.fs,
 \ as is the refusal of negative fuel, which also leaves no fuel.
 : lf-mcompare-refuel ( outcome walk -- )

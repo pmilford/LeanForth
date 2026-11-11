@@ -544,6 +544,20 @@ until step S3 keeps it in each record; tests reach records and identity
 serials only through `tests/support/store-faults.fs`, so S3 can change
 the layout in one file.
 
+*Note (2026-11-11, compact-store plan step S6 (c), [kernel] review
+pending; ADR 0014 Amendment 3):* "every record is checked when it is
+built" does not yet cover all the structural audit reads (a constant's
+stamp and live reference, the parameter context, a free variable's
+entry), so the audit keeps every call site and drops only its repetition:
+in a check a node is audited once per epoch, kept in its marks unit with
+its identity (a rolled-back index made again is a new node), the epoch
+following the generations the audit reads and, for nodes with a free
+variable, the local context's. V1 and U2 now read the root's data word,
+which S3 computes from the children at build, and walk only a root it
+does not clear. The per-call graph walks of the audits are gone in the
+common case; the call sites go when S4 and S5 make the remaining facts
+part of the record (C1's constant payload, the tier's seal).
+
 ### C9 Migration and the plan tasks it covers
 
 1. `src/lib/u32.fs` (done here) and a heap arena and hash-table library in
@@ -781,7 +795,9 @@ needed (Rejected alternatives).
       substitution's columns (over the small level store) stay until
       S4; the marking audits' marks and the open passes' results stay
       until S6 replaces those passes (audits only where input enters, a
-      replace memo per call); the printer's binder table
+      replace memo per call; since step S6 (c) the marks' units also
+      hold the audit memo, plus a list of one run's nodes: C8's note);
+      the printer's binder table
       (`src/present/binder-table.fs`, 40 bytes per node in every
       context of `bin/leanforth`) is not the checker's and stays a
       column (a candidate for the same map).

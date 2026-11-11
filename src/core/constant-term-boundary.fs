@@ -11,7 +11,8 @@
 \ lf-audit-state and its list lf-audit-reached (below), and one
 \ walk record, lf-cterm-walker, all members of the checker context
 \ (lib/context.fs). The hook lf-audit-checking? is set while loading
-\ (kernel/check-declaration.fs) and read-only afterwards. Each constant and symbolic Sort visit also runs a
+\ (kernel/check-declaration.fs) and read-only afterwards, as is the table
+\ lf-audit-facts. Each constant and symbolic Sort visit also runs a
 \ level-scope check on level-scope's walk record (lf-lscope-walk), so this
 \ check must not run while another module borrows that record.
 \ Single-threaded within one context. Identities are forgeable,
