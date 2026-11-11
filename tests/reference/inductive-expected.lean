@@ -933,6 +933,7 @@ def replayCode (msg : String) : String :=
   if has msg "Invalid recursor" then "invalidRecursor"
   else if has msg "Invalid constructor" then "invalidConstructor"
   else if has msg "No such recursor" then "noSuchRecursor"
+  else if has msg "(kernel) unknown constant" then "unknownConstant"
   else match otherCodes.find? (fun (p, _) => has msg p) with
     | some (_, c) => "kernel " ++ c
     | none => "other: " ++ msg
@@ -2152,16 +2153,17 @@ structure Segment where
 /-- Print one case as an export between marker lines: the meta record, what the
 segments use from `base`, then each segment from its own environment. The marker
 names the case's own constants, or only `judged` when given (a sequel's last
-declaration). -/
+declaration). With `unsafeToo`, unsafe constants are written too, as
+`leanexport --export-unsafe` writes them (plan task 5.2.7). -/
 def writeSegments (base : Kernel.Environment) (baseRecs : NameMap NameSet) (id : String)
-    (segs : List Segment) (judged : Option (List Name) := none) (mdata := false) :
-    IO Unit := do
+    (segs : List Segment) (judged : Option (List Name) := none) (mdata := false)
+    (unsafeToo := false) : IO Unit := do
   let own := segs.flatMap (·.own)
   let named := judged.getD own
   IO.println s!"ndjson-begin\t{id}\t{",".intercalate (named.map (·.toString false))}"
   LeanExport.M.run (Environment.ofKernelEnv base) do
     modify fun st => { st with recursorMap := baseRecs, ignoreMissing := true,
-                                exportMData := mdata }
+                                exportMData := mdata, exportUnsafe := unsafeToo }
     LeanExport.dumpMetadata
     if own.isEmpty then IO.println emptyBlockLine
     for s in segs do
@@ -2670,6 +2672,109 @@ def writeLie (add : KernelAdd) (base : Kernel.Environment) (baseRecs : NameMap N
   writeSegments base baseRecs l.id
     ([(⟨e, cs.map (·.name), [root]⟩ : Segment)] ++ chainSegments add base e [l.use])
 
+/-! ### Unsafe and partial declarations (plan task 5.2.7)
+
+Lean's replay skips every unsafe constant and every partial definition, checking
+nothing of them (`Lean/Replay.lean` 180–183): a file that holds one is accepted however
+wrong it is, and a later declaration that uses one meets an unknown constant. The
+constants are written by hand, as `leanexport --export-unsafe` writes them, and replayed;
+the kernel never sees them. LeanForth must report each one *skipped* (rule SK), and the
+user rejected. A block with both safe and unsafe members, which Lean never writes, stays
+*unsupported* in LeanForth: replay adds it when one of its types is safe (a gap, task
+5.2.7 part b). -/
+
+def falseT : Expr := mkConst `False
+def defnC (n : Name) (s : DefinitionSafety) (t v : Expr) : ConstantInfo :=
+  .defnInfo { name := n, levelParams := [], type := t, value := v, hints := .opaque,
+              safety := s, all := [n] }
+def thmC (n : Name) (t v : Expr) : ConstantInfo :=
+  .thmInfo { name := n, levelParams := [], type := t, value := v, all := [n] }
+/-- `unsafe def IE.unsafeLoop : False := IE.unsafeLoop` (the arena's 140), and its
+partial twin (the arena's 141, added in Lean with `Declaration.mutualDefnDecl`). -/
+def unsafeLoopC : ConstantInfo := defnC `IE.unsafeLoop .unsafe falseT (mkConst `IE.unsafeLoop)
+def partialLoopC : ConstantInfo :=
+  defnC `IE.partialLoop .partial falseT (mkConst `IE.partialLoop)
+def unsafeAxC : ConstantInfo :=
+  .axiomInfo { name := `IE.unsafeAx, levelParams := [], type := falseT, isUnsafe := true }
+def unsafeOpqC : ConstantInfo :=
+  .opaqueInfo { name := `IE.unsafeOpq, levelParams := [], type := nat, value := lit 5,
+                isUnsafe := true, all := [`IE.unsafeOpq] }
+/-- `unsafe inductive IE.Bad | mk : (IE.Bad → Nat) → IE.Bad`: not positive, which an
+unsafe block need not be (`inductive.cpp` 486). -/
+def badBlock : Declaration :=
+  let bad : Expr := mkConst `IE.Bad
+  .inductDecl [] 0 [⟨`IE.Bad, .sort 1,
+    [⟨`IE.Bad.mk, .forallE `f (.forallE `x bad nat .default) bad .default⟩]⟩] true
+/-- `unsafe inductive IE.UBox | mk : Nat → IE.UBox`, positive. -/
+def uboxBlock : Declaration :=
+  .inductDecl [] 0 [⟨`IE.UBox, .sort 1, [⟨`IE.UBox.mk, .forallE `n nat (mkConst `IE.UBox) .default⟩]⟩] true
+/-- A block's constants with the type's unsafe flag cleared (the others kept). -/
+def typeMadeSafe : ConstantInfo → ConstantInfo
+  | .inductInfo i => .inductInfo { i with isUnsafe := false }
+  | c => c
+
+structure Skipped where
+  id : String
+  cs : List ConstantInfo
+  /-- The declarations the row judges, when not all of the case's own. -/
+  judged : Option (List Name) := none
+  lean : String
+  leanforth : String
+  rule : String
+
+def skippedCases (bad ubox : List ConstantInfo) : List Skipped := [
+  { id := "unsafe.def", cs := [defnC `IE.unsafeFive .unsafe nat (lit 5)],
+    lean := "accepted", leanforth := "skipped", rule := "SK" },
+  { id := "unsafe.def-recursive", cs := [unsafeLoopC],
+    lean := "accepted", leanforth := "skipped", rule := "SK" },
+  { id := "unsafe.def-ill-typed", cs := [defnC `IE.unsafeWrong .unsafe nat (mkConst `Bool.true)],
+    lean := "accepted", leanforth := "skipped", rule := "SK" },
+  { id := "unsafe.def-then-safe-user",
+    cs := [unsafeLoopC, thmC `IE.fromUnsafe falseT (mkConst `IE.unsafeLoop)],
+    judged := some [`IE.fromUnsafe],
+    lean := "unknownConstant", leanforth := "rejected", rule := "SK N1" },
+  { id := "unsafe.def-then-unsafe-user",
+    cs := [unsafeLoopC, defnC `IE.unsafeUser .unsafe falseT (mkConst `IE.unsafeLoop)],
+    lean := "accepted", leanforth := "skipped", rule := "SK" },
+  { id := "partial.def-recursive", cs := [partialLoopC],
+    lean := "accepted", leanforth := "skipped", rule := "SK" },
+  { id := "partial.def-then-safe-user",
+    cs := [partialLoopC, thmC `IE.fromPartial falseT (mkConst `IE.partialLoop)],
+    judged := some [`IE.fromPartial],
+    lean := "unknownConstant", leanforth := "rejected", rule := "SK N1" },
+  { id := "unsafe.postulate", cs := [unsafeAxC],
+    lean := "accepted", leanforth := "skipped", rule := "SK" },
+  { id := "unsafe.postulate-then-safe-user",
+    cs := [unsafeAxC, thmC `IE.fromUnsafeAx falseT (mkConst `IE.unsafeAx)],
+    judged := some [`IE.fromUnsafeAx],
+    lean := "unknownConstant", leanforth := "rejected", rule := "SK N1" },
+  { id := "unsafe.opaque", cs := [unsafeOpqC],
+    lean := "accepted", leanforth := "skipped", rule := "SK" },
+  { id := "unsafe.opaque-then-safe-user",
+    cs := [unsafeOpqC, defnC `IE.fromUnsafeOpq .safe nat (mkConst `IE.unsafeOpq)],
+    judged := some [`IE.fromUnsafeOpq],
+    lean := "unknownConstant", leanforth := "rejected", rule := "SK N1" },
+  { id := "unsafe.inductive-not-positive", cs := bad,
+    lean := "accepted", leanforth := "skipped", rule := "SK" },
+  { id := "unsafe.inductive-then-safe-user",
+    cs := bad ++ [defnC `IE.badType .safe (.sort 2) (mkConst `IE.Bad)],
+    judged := some [`IE.badType],
+    lean := "unknownConstant", leanforth := "rejected", rule := "SK N1" },
+  { id := "unsafe.inductive-type-safe", cs := ubox.map typeMadeSafe,
+    lean := "accepted", leanforth := "unsupported", rule := "SK B3" }
+]
+
+/-- A skipped case as a file holds it: its constants, unsafe ones too, each added
+without any check; written from the first and from each later one not in a block. -/
+def writeSkipped (add : KernelAdd) (base : Kernel.Environment) (baseRecs : NameMap NameSet)
+    (s : Skipped) : IO Unit :=
+  let e := s.cs.foldl add base
+  let roots := s.cs.filterMap fun c => match c with
+    | .ctorInfo _ | .recInfo _ => none
+    | c => some c.name
+  writeSegments base baseRecs s.id [⟨e, s.cs.map (·.name), roots⟩] (judged := s.judged)
+    (unsafeToo := true)
+
 end InductiveExpected
 
 open InductiveExpected in
@@ -2793,6 +2898,13 @@ run_cmd do
   let got ← replayVerdict envEq flagged
   unless got == "accepted" do throwError "{flaggedId}: Lean's verdict is {got}"
   row flaggedId got "accepted" "A1 B4" "5.3.1" ""
+  -- 5f. Unsafe and partial declarations, replayed (plan task 5.2.7).
+  let bad ← ownConstants base badBlock
+  let ubox ← ownConstants base uboxBlock
+  for s in skippedCases bad ubox do
+    let got ← replayVerdict base s.cs
+    unless got == s.lean do throwError "{s.id}: Lean's verdict is {got}, expected {s.lean}"
+    row s.id got s.leanforth s.rule "5.2.7" ""
   -- 6. Every case as a file, after the rows (see `writeCase`).
   let .ok add := kernelAddFn env | throwError "no Kernel.Environment.add"
   let baseRecs ← recursorsOf base
@@ -2832,3 +2944,4 @@ run_cmd do
   for c in quotNameCases do writeQuotName add base c
   writeCase envEq eqRecs flaggedId (flagged.foldl add envEq) (flagged.map (·.name))
     [`Iff, `propext]
+  for s in skippedCases bad ubox do writeSkipped add base baseRecs s

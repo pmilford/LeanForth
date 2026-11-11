@@ -59,8 +59,8 @@ scope.number-literal	accepted	unsupported	U2
 scope.postulate	accepted	accepted	A1
 scope.uses-postulate	accepted	accepted	A1
 scope.opaque	accepted	accepted	O1
-scope.unsafe-definition	accepted	unsupported	U1
-scope.partial-definition	accepted	unsupported	U1
+scope.unsafe-definition	accepted	skipped	U1
+scope.partial-definition	accepted	skipped	U1
 pi-body.variable	typeExpected	rejected	S4
 pi-body.lambda	typeExpected	rejected	S4
 pi-body.in-claim	typeExpected	rejected	S4

@@ -12,7 +12,9 @@
 \                                       step check-block's for a block);
 \   decl TAB d TAB name TAB outcome TAB bits
 \                                       for every declaration, afterwards,
-\                                       with its axiom bits (0 unless accepted);
+\                                       with its axiom bits (0 unless accepted;
+\                                       outcome skipped for one Lean's replay
+\                                       skips);
 \   case-end
 \ A check that throws spends the main context (env-publish.fs, G-P6):
 \ then "spent" is printed and Gforth ends, and the Python side starts a
@@ -37,9 +39,13 @@ create table-feed /feed allot
 : table-check ( -- )
   lf-check-declaration
   ." check" tab lf-env-limit 0 .r tab lf-diag-code@ 0 .r tab lf-block-step@ 0 .r cr ;
+\ Its verdict: skipped for one Lean's replay skips (plan task 5.2.7), else
+\ its outcome's name.
+: table-verdict ( d -- )
+  dup lf-env-skipped? if drop ." skipped" else lf-env-outcome outcome-text type then ;
 : table-decl ( d -- )
   ." decl" tab dup 0 .r tab dup lf-input-name table-name tab
-  dup lf-env-outcome outcome-text type tab lf-env-axioms drop 0 .r cr ;
+  dup table-verdict tab lf-env-axioms drop 0 .r cr ;
 : table-decls ( -- ) lf-env-view drop lf-input-count 0 ?do i table-decl loop ;
 : table-run ( -- )
   table-fuel lf-check-budget table-deps lf-env-new ok? table-must

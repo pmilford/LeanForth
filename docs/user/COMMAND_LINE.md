@@ -12,8 +12,9 @@ feeds it to the checker, whose stores grow to fit, so a whole library is
 checked from the command line — all of Lean's `Init`, 59,349
 declarations, in [about twelve minutes with `--fast`](#a-whole-library-leans-init). Most
 of a real library may still end *unsupported* or *unknown*: nested
-inductive types, metadata, unsafe and partial declarations and some
-projection steps are not built yet (`capabilities` lists them). The
+inductive types, metadata and some projection steps are not built yet
+(`capabilities` lists them); unsafe and partial declarations are
+*skipped*, as Lean's own checker skips them (below). The
 counts of Init below are a snapshot of 2026-11-04, before `let`,
 literals, projections, quotients and mutual blocks were merged; no
 Mathlib declaration has been checked (0 of 729,263). Two commands keep the first,
@@ -278,6 +279,32 @@ failure ([exit status](#exit-status)), and the JSON report's
 `settings.strictAxioms` is true. `make test` reaches both with an
 export's own axiom and by planting an axiom in an accepted slot.
 
+**Unsafe and partial declarations: skipped.** Lean's own checker for
+exports, its replay (`Lean/Replay.lean` 180–183), never checks an
+unsafe constant (a definition marked `unsafe`, or an axiom, opaque
+constant, inductive type, constructor or recursor with `isUnsafe`) or a
+`partial` definition: it skips them, so a file that holds one is still
+accepted, and a later declaration that uses one meets an unknown
+constant. LeanForth does the same (plan task 5.2.7): such a declaration
+is *skipped*, nothing of it checked, with Lean's exit status 0; it is
+never labelled accepted, nothing can use it (a use is *rejected*, as
+Lean's checker rejects it), and its name stays taken. Here `composition`
+is declared as an unsafe definition:
+
+```console
+$ bin/leanforth check --no-manifest tests/core/check-declaration-cases/composition-unsafe.ndjson; echo "exit status $?"
+note: the export's manifest is not checked (--no-manifest)
+composition: skipped
+  skipped: unsafe or partial, as Lean's replay skips it; diagnostic 97 at environment lf-env-skip: 1 1
+1 declaration: 1 skipped
+exit status 0
+```
+
+An inductive block whose members are all unsafe is skipped the same way;
+one with both safe and unsafe members, which Lean never writes, is still
+*unsupported* (task 5.2.7, part b). `print` shows a skipped declaration's
+slot as *rejected*, with diagnostic 97.
+
 A broken copy of `composition`, whose proof applies `g` to `value`
 instead of to `f value`, is rejected for the reason Lean's kernel gives
 (Lean's definitional equality says no: the argument has type `A`, `g`
@@ -374,13 +401,13 @@ and leaves 0. An export that uses every kind of record Lean writes,
 today: blocks such as `Prod`, `Eq` and `Iff`, recursive types such as
 `Nat` and `List` (plan task 5.2.1b), projections (plan task 5.2.2) and
 natural-number literals (plan task 5.2.3), axioms (5.3.1), opaque
-declarations (4.2.6) and quotients (5.2.4) are accepted; nested types,
-string literals, unsafe and partial declarations and what uses them are
-not yet:
+declarations (4.2.6) and quotients (5.2.4) are accepted; the unsafe
+definition `risky` is skipped, as Lean's replay skips it (below); nested
+types and string literals and what uses them are not yet:
 
 ```console
 $ bin/leanforth check --no-manifest tests/core/reexport/kinds.ndjson | tail -n 2; echo "exit status ${PIPESTATUS[0]}"
-106 declarations: 89 accepted, 17 unsupported
+106 declarations: 89 accepted, 1 skipped, 16 unsupported
 accepted: 89 (experimental, not independently audited); axioms: propext (allowlisted); none NOT PROVED
 exit status 2
 ```
@@ -438,13 +465,9 @@ each a gap to close, not an answer that differs from Lean's, which
 accepts all of `Init`: literals, projections and other term forms
 (5.2.3, 5.2.2, 4.2.3; 25,703 declarations), axioms, opaque, unsafe and
 partial declarations and quotients (252; axioms, opaque declarations
-and quotients since 5.3.1, 4.2.6 and 5.2.4; unsafe and partial ones are
-still unsupported, a gap that a follow-up of 5.3.1 and 4.2.6 closes:
-Lean's kernel accepts an unsafe axiom with its unsafe checker and an
-unsafe opaque declaration with the safe one, `environment.cpp` 152-158
-and 211-222, and rejects a safe declaration that uses either,
-`type_checker.cpp` 110-112; Lean's replay and the pinned exporter skip
-unsafe constants, and replay skips partial ones too), mutual
+and quotients since 5.3.1, 4.2.6 and 5.2.4; unsafe and partial ones
+were unsupported in that run and are skipped, as Lean's replay skips
+them, since plan task 5.2.7), mutual
 and nested inductive blocks (5.2.5; 8), comparisons that need
 definitions unfolded (4.2.2; 951 *unknown*, codes 30–32), and
 everything that uses one of those (25,616 *unsupported* and 4,105
@@ -553,7 +576,7 @@ member is cut off:
 
 ```console
 $ bin/leanforth check --json tests/cli/unfold.ndjson | sed "s/,\"measured\":.*/}/"; echo "exit status ${PIPESTATUS[0]}"
-{"schema":"leanforth-check-report","schemaVersion":"0.1","export":"tests/cli/unfold.ndjson","manifest":"checked","label":"experimental, not independently audited","settings":{"fuel":2000000,"dependencyPool":65536,"strictAxioms":false},"read":{"outcome":"ok","phase":null,"line":null,"field":null,"reason":null,"at":null},"run":"ok","stopped":false,"declarations":[{"index":0,"name":"Implies","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":71},{"index":1,"name":"impliesSelf","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":114}],"counts":{"declarations":2,"accepted":2,"rejected":0,"unknown":0,"unsupported":0,"invalid":0,"exhausted":0,"full":0,"notChecked":0,"notProved":0},"fuel":{"perDeclaration":2000000,"total":185,"unknown":0,"top":[{"index":1,"name":"impliesSelf","fuel":114,"verdict":"accepted"},{"index":0,"name":"Implies","fuel":71,"verdict":"accepted"}]},"input":{"declarations":2,"terms":14,"levels":1,"references":1,"names":10},"exitStatus":0}
+{"schema":"leanforth-check-report","schemaVersion":"0.1","export":"tests/cli/unfold.ndjson","manifest":"checked","label":"experimental, not independently audited","settings":{"fuel":2000000,"dependencyPool":65536,"strictAxioms":false},"read":{"outcome":"ok","phase":null,"line":null,"field":null,"reason":null,"at":null},"run":"ok","stopped":false,"declarations":[{"index":0,"name":"Implies","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":71},{"index":1,"name":"impliesSelf","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":114}],"counts":{"declarations":2,"accepted":2,"skipped":0,"rejected":0,"unknown":0,"unsupported":0,"invalid":0,"exhausted":0,"full":0,"notChecked":0,"notProved":0},"fuel":{"perDeclaration":2000000,"total":185,"unknown":0,"top":[{"index":1,"name":"impliesSelf","fuel":114,"verdict":"accepted"},{"index":0,"name":"Implies","fuel":71,"verdict":"accepted"}]},"input":{"declarations":2,"terms":14,"levels":1,"references":1,"names":10},"exitStatus":0}
 exit status 0
 ```
 
@@ -567,8 +590,8 @@ exit status 0
 | `exportMeta` | only when the export's metadata named another exporter or Lean version (with `--any-lean-version`) and it was staged: `exporter` (`name`, `version`), `format` (`version`) and `lean` (`githash`, `version`), as the export's own metadata record has them, each as escaped display text. Optional members added within version 0.1 (2026-11-10): a report without the option is as before |
 | `run` | the run's outcome: `ok` when every slot ended final and the run did not stop, `invalid` when it stopped, `not-run` when the export was not read |
 | `stopped` | true when the run stopped on an internal fault (a check threw, or publishing failed), as the text's `internal fault: the run stopped` line says; the run is then `invalid` and the status 5 |
-| `declarations` | each declaration in file order: `index` (its place in the export, which identifies it), `name` (escaped display text, as the text shows it), `verdict` (`accepted`, an outcome, or `not-checked`), `fuel` (null when not known); an accepted one's `label`, `axiomBits` (0: none; 1 `propext`, 2 `Classical.choice`, 4 `Quot.sound`, each with Lean's statement, 8 any other axiom) and `notProved` (bit 8 set), with `notProvedBy`, the unlisted axioms' names, when it is true; any other's `diagnostic` (code, reason, site, two numbers, step) |
-| `counts` | the declarations by verdict, `notChecked` and `notProved`; null when no verdict could be read |
+| `declarations` | each declaration in file order: `index` (its place in the export, which identifies it), `name` (escaped display text, as the text shows it), `verdict` (`accepted`, `skipped`, an outcome, or `not-checked`), `fuel` (null when not known); an accepted one's `label`, `axiomBits` (0: none; 1 `propext`, 2 `Classical.choice`, 4 `Quot.sound`, each with Lean's statement, 8 any other axiom) and `notProved` (bit 8 set), with `notProvedBy`, the unlisted axioms' names, when it is true; any other's `diagnostic` (code, reason, site, two numbers, step) |
+| `counts` | the declarations by verdict (`skipped` among them, added within version 0.1 on 2026-11-10), `notChecked` and `notProved`; null when no verdict could be read |
 | `fuel` | `perDeclaration`, `total` (of the known), `unknown` (how many are not known) and `top` (the ten that used the most) |
 | `input` | declarations, term nodes, levels and constant references fed, and the stage's names; null when nothing was fed |
 | `exitStatus` | the command's [exit status](#exit-status), 0 to 6 |
@@ -580,14 +603,14 @@ check on either engine the same but for `measured`.
 
 The parts of a report agree, and the schema states what its keywords
 can: status 0 only for a run that ended `ok`, did not stop and listed at
-least one declaration, every one accepted, with every other count 0 and
+least one declaration, every one accepted or skipped, with every other count 0 and
 every fuel known, and under `--strict-axioms` none NOT PROVED; status 6
 only under `--strict-axioms`, when every declaration was accepted and at
 least one is NOT PROVED; a rejected or invalid declaration, or one not
 checked, never leaves the status 0. What it
 cannot state, `make test` checks on every report it makes (the schema's
 `$comment` lists it): `counts.declarations` is the number of
-`declarations` and the sum of the eight verdict counts, each count the
+`declarations` and the sum of the nine verdict counts, each count the
 number of declarations with that verdict, `notProved` the number marked
 so, and `input.declarations` the same number; `fuel.unknown` is the
 number of declarations whose fuel is null and `fuel.total` the sum of
@@ -788,7 +811,7 @@ both reads check it.
 
 | Status | Meaning | Comes from |
 | --- | --- | --- |
-| 0 | Every declaration accepted (or, for the other commands, done); NOT PROVED ones too, as Lean, unless `--strict-axioms` | every verdict *ok* |
+| 0 | Every declaration accepted or skipped (or, for the other commands, done); NOT PROVED ones too, as Lean, unless `--strict-axioms` | every verdict *ok* or *skipped* |
 | 1 | Something rejected: Lean's kernel rejects it too | *rejected* |
 | 2 | Unsupported or unknown: LeanForth cannot decide it yet | *unsupported*, *unknown* |
 | 3 | A resource limit: out of fuel or out of room | *exhausted*, *full* |
@@ -908,15 +931,17 @@ supported:
     PROVED, as Lean's exit status 0); fun, forall, application, let,
     number and string literals, projections, unfolding of definitions;
     proof irrelevance and eta; quotients; inductive types, recursive,
-    indexed and mutual ones, with their recursors; several of these are
-    merged but their review gates are open (docs/project/PROJECT_PROGRESS.md)
+    indexed and mutual ones, with their recursors; unsafe and partial
+    declarations skipped, as Lean's replay skips them (5.2.7); several of
+    these are merged but their review gates are open
+    (docs/project/PROJECT_PROGRESS.md)
   check --record, replay: run records 0.1 and their replay (plan task 2.2.5)
   print: a readable proof outline of each accepted declaration, from the
     checker's derivation log (plan tasks 2.4.1, 2.4.4; untrusted presentation)
   count, reexport: exports of any size, up to all of Mathlib
 not yet supported (check answers unsupported or unknown, exit 2):
-  nested inductive types (5.2.5b), unsafe and partial declarations
-  (5.2.7), metadata (mdata) in a term (4.1.3);
+  nested inductive types (5.2.5b), a block with both safe and unsafe
+  members (5.2.7 part b), metadata (mdata) in a term (4.1.3);
   recursor reductions on a variable (a follow-up of 5.2.2),
   so a correct proof can still end unknown;
   check --record and replay (the old reader) refuse inductive types, and

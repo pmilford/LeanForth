@@ -9,7 +9,8 @@ here too) and then every case as the lean4export file of what Lean checked
 own constants). Each file is checked by LeanForth (tests/core/inductive-table.fs:
 staged, fed, every declaration checked); a row's LeanForth outcome is the first
 outcome that is not accepted among the case's own declarations, in input order,
-else accepted; a file the feed refuses gives the feed's outcome. A row `after.*`
+else accepted (skipped is the verdict of a declaration Lean's replay skips, plan
+task 5.2.7); a file the feed refuses gives the feed's outcome. A row `after.*`
 (declarations after a block, whose verdict is the last one's) is judged on the
 file's last declarations, those its marker names: an earlier declaration of the
 file may have the same name. A case whose marker names nothing (the empty block,
@@ -91,6 +92,10 @@ GAPS = {
     "after.quot-then-mk-declared-then-used": ("unknown",
         "Lean's Quot.mk used where no slot holds it (the file's only Quot.mk refused):"
         " diagnostic 77. Closed by the same follow-up of task 5.2.4"),
+    "unsafe.inductive-type-safe": ("unsupported",
+        "a block whose type is safe and whose constructor and recursor are unsafe, which"
+        " Lean never writes: replay adds the block and compares only its safe members"
+        " (diagnostic 42). Closed by task 5.2.7 part b"),
 }
 # Rows of a later task that a part of it already done decides: each must give
 # exactly the table's column (id -> the part that decides it).
@@ -142,6 +147,14 @@ REQUIRED.update({row: "tasks 5.3.1 and 4.2.6 (axioms and opaque declarations)"
                              "postulate.sound-own-quot-names", "replay-iff.flagged-then-propext",
                              "opaque.accepted", "opaque.wrong-value", "opaque.never-unfolds",
                              "opaque.unfolds-as-definition")})
+REQUIRED.update({row: "task 5.2.7 (unsafe and partial declarations skipped as Lean's"
+                      " replay skips them: reported skipped, a use rejected)"
+                 for row in ("unsafe.def", "unsafe.def-recursive", "unsafe.def-ill-typed",
+                             "unsafe.def-then-safe-user", "unsafe.def-then-unsafe-user",
+                             "partial.def-recursive", "partial.def-then-safe-user",
+                             "unsafe.postulate", "unsafe.postulate-then-safe-user", "unsafe.opaque",
+                             "unsafe.opaque-then-safe-user", "unsafe.inductive-not-positive",
+                             "unsafe.inductive-then-safe-user")})
 # The axiom bits (src/core/axiom-allowlist.fs) LeanForth must report for
 # declarations of these rows: 8 is an axiom outside the allowlist, so NOT
 # PROVED (a file's own axiom; propext with another statement, or with

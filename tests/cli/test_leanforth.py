@@ -4,7 +4,8 @@
    0 every declaration accepted (composition; the constant fixture's three;
      tests/cli/chain.ndjson, larger than --record holds; tests/cli/
      inductive.ndjson, an inductive type and a theorem by its recursor;
-     tests/cli/sharing.ndjson, proofs shared along 2^40 paths, in little fuel);
+     tests/cli/sharing.ndjson, proofs shared along 2^40 paths, in little fuel),
+     or skipped (composition as an unsafe definition, plan task 5.2.7);
    1 rejected (composition with the wrong argument; sharing.ndjson's wrong
      twins, which Lean's kernel rejects too);
    2 unsupported (an axiom; a literal; with --record an inductive type,
@@ -275,6 +276,21 @@ class ExitCodes(unittest.TestCase):
             self.assertEqual(status, 0, case)
             self.assertIn(line, out.splitlines(), case)
 
+    def test_0_skipped(self):
+        """An unsafe or partial declaration (plan task 5.2.7): skipped, as Lean's
+        replay skips it, with Lean's status 0; a safe declaration that uses one
+        is rejected, as the official checker rejects it (unknown constant)."""
+        skip = ("  skipped: unsafe or partial, as Lean's replay skips it; diagnostic 97 at "
+                "environment lf-env-skip: 1 1")
+        self.expect(["check", "--no-manifest", f"{CASES}/composition-unsafe.ndjson"], 0,
+                    [NO_MANIFEST, "composition: skipped", skip, "1 declaration: 1 skipped"])
+        status, out, _ = run("check", "--no-manifest",
+                             "tests/core/check-block-cases/unsafe.def-then-safe-user.ndjson")
+        lines = out.splitlines()
+        self.assertEqual(status, 1)
+        self.assertIn("IE.unsafeLoop: skipped", lines)
+        self.assertIn("IE.fromUnsafe: rejected", lines)
+
     def test_2_unsupported_and_unknown(self):
         # A proof that is a string literal, typed String, which the file does not
         # declare: rejected, as pinned Lean's kernel rejects it (plan task 5.2.3).
@@ -282,7 +298,7 @@ class ExitCodes(unittest.TestCase):
         self.assertEqual((status, out.splitlines()[1]), (1, "composition: rejected"))
         status, out, _ = run("check", "--no-manifest", "tests/core/reexport/kinds.ndjson")
         self.assertEqual((status, out.splitlines()[-2:]),
-                         (2, ["106 declarations: 89 accepted, 17 unsupported",
+                         (2, ["106 declarations: 89 accepted, 1 skipped, 16 unsupported",
                               accepted(89, "propext (allowlisted); none NOT PROVED")]))
         self.expect(["check", "--no-manifest", "--record", "/dev/null",
                      "tests/core/reexport/kinds.ndjson"], 2,
@@ -894,6 +910,7 @@ CASES_ALL = [
     ["--no-manifest", f"{CASES}/composition-wrong-argument.ndjson"],
     ["--no-manifest", f"{CASES}/composition-postulate.ndjson"],
     ["--no-manifest", f"{CASES}/composition-loose.ndjson"],
+    ["--no-manifest", f"{CASES}/composition-unsafe.ndjson"],
     ["--no-manifest", "README.md"], ["tests/cli/no-such.ndjson"],
     ["--no-manifest", "tests/cli/composition-huge-number.ndjson"],
     ["--no-manifest", "tests/core/reexport/kinds.ndjson"], ["--fuel", "0", FIXTURE],
@@ -906,7 +923,8 @@ class JsonReport(unittest.TestCase):
     says what the text says, the same on every run but for "measured"."""
 
     schema = Validator(json.loads((ROOT / "schemas/check-report-0.1.schema.json").read_text()))
-    VERDICTS = {"accepted": "accepted", "rejected": "rejected", "unknown": "unknown",
+    VERDICTS = {"accepted": "accepted", "skipped": "skipped", "rejected": "rejected",
+                "unknown": "unknown",
                 "unsupported": "unsupported", "invalid": "invalid", "exhausted": "exhausted",
                 "full": "full", "notChecked": "not-checked"}
 
@@ -964,7 +982,8 @@ class JsonReport(unittest.TestCase):
             counts = got["counts"]
             self.assertEqual(len(shown), int(counts is not None), args)
             if counts is not None:
-                words = {"accepted": "accepted", "rejected": "rejected", "unknown": "unknown",
+                words = {"accepted": "accepted", "skipped": "skipped", "rejected": "rejected",
+                         "unknown": "unknown",
                          "unsupported": "unsupported", "invalid": "invalid",
                          "exhausted": "exhausted", "full": "full", "notChecked": "not checked"}
                 summary = ", ".join(f"{counts[k]} {w}" for k, w in words.items() if counts[k])

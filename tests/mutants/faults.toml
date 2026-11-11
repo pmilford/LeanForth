@@ -481,10 +481,10 @@ reason = "a pool with a corrupted count is grown, and the copy repairs it, inste
 [[fault]]
 id = "pub-final-before-outcome"
 file = "src/kernel/env-publish.fs"
-old = '''  lf-env-may-write 2dup lf-span-outcome! over lf-span-added! lf-env-before-final
-  swap lf-span-final! ;'''
-new = '''  lf-env-may-write over lf-span-final! 2dup lf-span-outcome! over lf-span-added!
-  lf-env-before-final nip ;'''
+old = '''  lf-env-may-write 2dup lf-span-outcome! 2dup lf-span-skipped! over lf-span-added!
+  lf-env-before-final swap lf-span-final! ;'''
+new = '''  lf-env-may-write over lf-span-final! 2dup lf-span-outcome! 2dup lf-span-skipped!
+  over lf-span-added! lf-env-before-final nip ;'''
 test = "$GFORTH tests/core/environment.fs"
 reason = "E4 step 3: the slot is marked final before its outcome is written"
 
@@ -2500,8 +2500,8 @@ reason = "check ignores --strict-axioms: the report says strictAxioms false and 
 [[fault]]
 id = "cli-verdicts-not-in-code"
 file = "src/cli/tally.fs"
-old = ''': cli-tally ( outcome -- ) dup outcome>code cli-code! cli-count-of 1 swap +! ;'''
-new = ''': cli-tally ( outcome -- ) cli-count-of 1 swap +! ;'''
+old = ''': cli-tally ( verdict -- ) dup verdict>code cli-code! cli-count-of 1 swap +! ;'''
+new = ''': cli-tally ( verdict -- ) cli-count-of 1 swap +! ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "the declarations' verdicts never reach the exit status, so every check exits 0"
 
@@ -2617,7 +2617,7 @@ quick = true
 [[fault]]
 id = "cli-json-all-accepted"
 file = "src/cli/check-json.fs"
-old = '''  dup cj-began? if lf-env-outcome else drop not-checked then verdict-name ;'''
+old = '''  dup cj-began? if verdict-of else drop not-checked then verdict-name ;'''
 new = '''  drop outcome-ok verdict-name ;'''
 test = "python3 tests/cli/test_leanforth.py"
 reason = "trust boundary: the JSON report calls every declaration accepted, not its slot's verdict"
@@ -4197,8 +4197,8 @@ reason = "rvI21 R2-1: a block the kernel rejects (U1) takes its names; def IE.Bi
 [[fault]]
 id = "pub-added-not-written"
 file = "src/kernel/env-publish.fs"
-old = '''  lf-env-may-write 2dup lf-span-outcome! over lf-span-added! lf-env-before-final'''
-new = '''  lf-env-may-write 2dup lf-span-outcome! lf-env-before-final'''
+old = '''  lf-env-may-write 2dup lf-span-outcome! 2dup lf-span-skipped! over lf-span-added!'''
+new = '''  lf-env-may-write 2dup lf-span-outcome! 2dup lf-span-skipped!'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 R2-1: a B3-rejected block's marks are never published; def IE.B after it is accepted"
 
@@ -4229,8 +4229,8 @@ reason = "rvI21 R2-1: T.rec of a B3-rejected T is free; def IE.B.rec after it is
 [[fault]]
 id = "pub-added-no-conflict"
 file = "src/kernel/env-publish.fs"
-old = '''  dup lf-slot-open? over lf-slot-added? or swap lf-slot-outcome@ outcome-rejected <> or ;'''
-new = '''  dup lf-slot-open? swap lf-slot-outcome@ outcome-rejected <> or ;'''
+old = '''  dup lf-slot-open? over lf-slot-added? or over lf-slot-skipped? or'''
+new = '''  dup lf-slot-open? over lf-slot-skipped? or'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 R2-1: the publisher's name re-check ignores the marks; def IE.B claimed ok after the B3-rejected block is published"
 
@@ -6327,6 +6327,121 @@ old = '''  drop lf-term-count @ feed-term-room + lf-term-capacity max lf-term-ca
 new = '''  drop outcome-ok ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "rvKC M1: the nodes of lets and projections eat the checks' term room"
+
+# --- unsafe and partial declarations, skipped as Lean's replay skips them
+# (plan task 5.2.7) ---------------------------------------------------------
+
+[[fault]]
+id = "skip-u1-unsafe-checked"
+file = "src/kernel/check-declaration.fs"
+old = '''  dup lf-idecl-safety @ lf-safety-safe = if drop outcome-ok else lf-check-skip then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "5.2.7: an unsafe or partial declaration is checked as a safe one, never skipped as Lean's replay skips it"
+
+[[fault]]
+id = "skip-not-marked"
+file = "src/kernel/environment.fs"
+old = '''  c" environment lf-env-skip" lf-diag-skipped lf-diag-note true lf-env-skipped!'''
+new = '''  c" environment lf-env-skip" lf-diag-skipped lf-diag-note false lf-env-skipped!'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "5.2.7: a skipped declaration is rejected but not marked: reports say rejected and exit 1 where Lean's checker exits 0"
+
+[[fault]]
+id = "skip-name-twice-ignored"
+file = "src/kernel/environment.fs"
+old = ''': lf-env-twin ( k -- d d'|-1 ) lf-env-limit + dup lf-env-earlier ;'''
+new = ''': lf-env-twin ( k -- d d'|-1 ) lf-env-limit + -1 ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "5.2.7: an unsafe declaration whose name an earlier one has is skipped, where lean4export's parser refuses the file"
+
+[[fault]]
+id = "skip-name-not-taken"
+file = "src/kernel/environment.fs"
+old = '''  dup 0< if drop outcome-ok else lf-env-declared then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "5.2.7: N2 ignores a skipped declaration of the name; a later safe one of it is accepted, where lean4export's parser refuses the file"
+
+[[fault]]
+id = "skip-span-unmarked"
+file = "src/kernel/env-publish.fs"
+old = '''  lf-env-may-write lf-cand-skipped? swap'''
+new = '''  lf-env-may-write drop false swap'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.7: the publisher never marks a skipped declaration's slots"
+
+[[fault]]
+id = "skip-claim-unchecked"
+file = "src/kernel/env-publish.fs"
+old = '''  dup lf-cand-skipped? lf-span-unsafe? 0= and 0= if exit then'''
+new = '''  exit'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.7: a check that claims a safe declaration skipped is published so, status 0 where it must be refused"
+
+[[fault]]
+id = "skip-conflict-ignored"
+file = "src/kernel/env-publish.fs"
+old = '''  dup lf-slot-open? over lf-slot-added? or over lf-slot-skipped? or'''
+new = '''  dup lf-slot-open? over lf-slot-added? or'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "5.2.7: the publisher's name re-check ignores a skipped slot; a declaration of its name claimed ok is published"
+
+[[fault]]
+id = "skip-block-mixed-skipped"
+file = "src/kernel/inductive-block.fs"
+old = ''': lf-ind-any-safe? ( -- flag ) false lf-ind-members 0 ?do i lf-ind-safe-at? or loop ;'''
+new = ''': lf-ind-any-safe? ( -- flag ) false ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.7: a block with safe and unsafe members is skipped whole, where replay adds it when a type is safe (part b)"
+
+[[fault]]
+id = "skip-block-unsafe-checked"
+file = "src/kernel/inductive-block.fs"
+old = '''  lf-ind-safe? 0= if lf-ind-unsafe exit then'''
+new = '''  lf-ind-any-safe? 0= if lf-ind-unsafe exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.7: a block with one unsafe member is checked as a safe block"
+
+[[fault]]
+id = "skip-status-one"
+file = "src/cli/tally.fs"
+old = '''  dup skipped = if drop exit-accepted else outcome>code then ;'''
+new = '''  dup skipped = if drop exit-rejected else outcome>code then ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "5.2.7: a skipped declaration makes the status 1, where Lean's checker exits 0"
+
+[[fault]]
+id = "skip-counted-rejected"
+file = "src/cli/tally.fs"
+old = '''  dup lf-env-skipped? if drop skipped else lf-env-outcome then ;'''
+new = '''  lf-env-outcome ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "5.2.7: reports count a skipped declaration as rejected, status 1"
+
+[[fault]]
+id = "skip-line-says-rejected"
+file = "src/kernel/check-declaration.fs"
+old = '''  swap lf-env-skipped? if drop ." skipped" else outcome-text type then ;'''
+new = '''  nip outcome-text type ;'''
+test = "$GFORTH tests/core/failure-paths.fs"
+reason = "5.2.7: a skipped declaration's line says rejected"
+
+[[fault]]
+id = "skip-json-says-rejected"
+file = "src/cli/check-json.fs"
+old = '''  dup cj-began? if verdict-of else drop not-checked then verdict-name ;'''
+new = '''  dup cj-began? if lf-env-outcome else drop not-checked then verdict-name ;'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "5.2.7: the JSON report calls a skipped declaration rejected, against its counts and status 0"
+
+[[fault]]
+id = "skip-record-says-rejected"
+file = "src/import/run-record.fs"
+old = '''  over lf-env-skipped? if drop s" skipped" rr-string else rr-outcome then ;'''
+new = '''  rr-outcome ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "5.2.7: a run record calls a skipped declaration rejected"
 
 # Step S0 of the compact-store plan (plan task 6.5.5): the level passes mark
 # reached nodes with a per-call stamp and build only the sorted list of them.
