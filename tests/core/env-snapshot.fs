@@ -25,7 +25,8 @@ decimal
 : snap-file ( -- c-addr u ) s" /tmp/leanforth-env-snapshot-test.lfsnap" ;
 \ The exports: the pinned ones with their manifests, then the fixtures.
 create checked-exports
-  s" tests/reference/composition.ndjson" 2,  s" tests/reference/constant-fixture.ndjson" 2,
+  s" tests/reference/composition.ndjson" 2,  s" tests/reference/constant-fixture.ndjson"
+  2,
   s" tests/reference/identity.ndjson" 2,  s" tests/reference/poly-identity.ndjson" 2,
   s" tests/reference/type-identity.ndjson" 2,  s" tests/cli/chain.ndjson" 2,
   s" tests/cli/inductive.ndjson" 2,  s" tests/cli/irrelevance.ndjson" 2,
@@ -122,7 +123,8 @@ T{ 0 lf-env-outcome 0 own-name? -> outcome-rejected true }T
 \ ---- A lookup list that cannot grow: full (diagnostic 100), here the
 \ fixture's third declaration, which looks up two names, the context's
 \ slab limited to one entry; then the slab is given back its limit.
-: looks-limited ( n -- ) lf-cand-looks slab-free 2 cells swap lf-cand-looks slab-init drop ;
+: looks-limited ( n -- ) lf-cand-looks slab-free 2 cells swap lf-cand-looks slab-init drop
+  ;
 1 looks-limited
 20000000 ck-start s" tests/reference/constant-fixture.ndjson" true ck-load drop ck-check
 ck-verdicts? drop

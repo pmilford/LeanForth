@@ -320,7 +320,8 @@ u32-mask constant lf-look-outside   \ the key of names beyond the input (publish
   lf-name-viewed? 0= if exit then
   lf-look-input# lf-look-kinds * lf-look-place nip
   dup lf-cand-looked@ < if lf-look-outside! else drop then ;
-: lf-env-seal ( -- ) lf-look-on? if lf-look-collapse then true lf-env-cand lf-cand-sealed ! ;
+: lf-env-seal ( -- ) lf-look-on? if lf-look-collapse then true lf-env-cand lf-cand-sealed
+  ! ;
 \ The snapshot's loader (env-snapshot.fs) gives a candidate a saved
 \ lookup with lf-env-look!.
 : lf-env-look! ( answer key -- ) lf-look-add ;
@@ -427,11 +428,14 @@ end-structure
 \ (0 invalid) for an unsound deps, (0 full) when the heap has no room,
 \ the environment's memory freed.
 : lf-env-block ( room env field -- env outcome )
-  >r swap lf-pool-block dup ok? if drop over r> execute ! outcome-ok else nip r> drop then ;
+  >r swap lf-pool-block dup ok? if drop over r> execute ! outcome-ok else nip r> drop then
+  ;
 : lf-env-scrap ( env outcome -- 0 outcome ) >r free drop 0 r> ;
-: lf-env-unpool ( env outcome -- 0 outcome ) over lf-envh-pool @ lf-pool-release lf-env-scrap ;
+: lf-env-unpool ( env outcome -- 0 outcome ) over lf-envh-pool @ lf-pool-release
+  lf-env-scrap ;
 : lf-env-pooled ( deps env -- env outcome )
-  over over ['] lf-envh-pool lf-env-block dup ok? 0= if >r nip nip r> lf-env-scrap exit then
+  over over ['] lf-envh-pool lf-env-block dup ok? 0= if >r nip nip r> lf-env-scrap exit
+  then
   2drop ['] lf-envh-looks lf-env-block dup ok? 0= if lf-env-unpool then ;
 \ The axiom allowlist (core/axiom-allowlist.fs): its version, and the bits
 \ that count as proved.
@@ -557,7 +561,8 @@ end-structure
 \ A snapshot of every slot, for queries once a run has ended: ok, or
 \ invalid without a valid current environment. It is not a check.
 : lf-env-view ( -- outcome )
-  lf-env-clear true lf-env-cand lf-cand-sealed ! lf-env-current 0= if outcome-invalid exit then
+  lf-env-clear true lf-env-cand lf-cand-sealed ! lf-env-current 0= if outcome-invalid exit
+  then
   dup lf-env-length swap lf-env-snap! outcome-ok ;
 \ End the check with its outcome.
 : lf-env-finish ( outcome -- ) outcome-sane lf-env-cand lf-cand-outcome ! ;
@@ -962,7 +967,8 @@ here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
 \ A scan's first slot d (-1 none), recorded under name with kind.
 : lf-look-first ( d name kind -- d ) >r outcome-ok swap r> lf-look-noted drop ;
 : lf-env-earlier ( d -- d'|-1 )
-  lf-input-name dup ['] lf-slot-any lf-env-limit lf-env-earliest swap lf-look-any lf-look-first ;
+  lf-input-name dup ['] lf-slot-any lf-env-limit lf-env-earliest swap lf-look-any
+  lf-look-first ;
 : lf-env-twin ( k -- d d'|-1 ) lf-env-limit + dup lf-env-earlier ;
 : lf-env-twice ( n -- d d' | -1 -1 )
   0 ?do i lf-env-twin dup 0< 0= if unloop exit then 2drop loop -1 -1 ;
@@ -985,13 +991,15 @@ here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
 \ which a later import cannot replay).
 : lf-env-unheld ( name limit -- outcome )
   over >r lf-env-unheld-pass r> swap lf-look-unheld lf-look-n2 ;
-: lf-env-find ( name limit -- d outcome ) over >r lf-env-seek r> lf-look-seek lf-look-noted ;
+: lf-env-find ( name limit -- d outcome ) over >r lf-env-seek r> lf-look-seek
+  lf-look-noted ;
 : lf-look-test ( test -- kind )
   dup ['] lf-slot-type? = if drop lf-look-type exit then
   ['] lf-slot-any = if lf-look-any else lf-look-other then ;
 : lf-env-first ( name test limit -- d|-1 )
   >r 2dup r> lf-env-earliest -rot lf-look-test lf-look-first ;
-: lf-env-quot-held ( limit -- d class ) lf-env-quot-held-pass 0 lf-look-quot lf-look-noted ;
+: lf-env-quot-held ( limit -- d class ) lf-env-quot-held-pass 0 lf-look-quot lf-look-noted
+  ;
 \ G-P5, for a scheduler outside any check: whether every declaration
 \ before i named name has a final slot in the current environment, and,
 \ for a name a generated recursor may hold (lf-env-reserving), every type
@@ -1033,7 +1041,8 @@ here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
 \ slot: lf-env-saved! marks it as taken from saved results (ADR 0012 E8:
 \ provenance saved, which every user joins; the slot is marked saved).
 : lf-env-saved! ( -- )
-  true lf-env-cand lf-cand-saved ! lf-provenance-saved lf-env-cand lf-cand-provenance lf-or! ;
+  true lf-env-cand lf-cand-saved ! lf-provenance-saved lf-env-cand lf-cand-provenance
+  lf-or! ;
 : lf-cand-room? ( -- flag ) lf-cand-count@ 1+ lf-cand-deps slab-hold ok? ;
 : lf-cand-full ( d slot -- outcome )
   2drop lf-cand-count@ lf-cand-deps slab-capacity c" environment lf-env-depend"

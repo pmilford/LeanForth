@@ -92,10 +92,12 @@ require ./verdict-version.fs
 $4E53464C constant snap-mark          \ "LFSN" as little-endian bytes
 \ The caller's header fields.
 0 constant sh-mark  1 constant sh-version  2 constant sh-verdict  3 constant sh-fuel
-5 constant sh-allow-version  6 constant sh-allow-bits  7 constant sh-layers  8 constant sh-base
+5 constant sh-allow-version  6 constant sh-allow-bits
+7 constant sh-layers  8 constant sh-base
 \ The sections after the tier's, by position.
 10 constant ss-identity  11 constant ss-slots  12 constant ss-deps  13 constant ss-looks
-14 constant ss-sites  15 constant ss-manifest  16 constant ss-info  17 constant snap-sections#
+14 constant ss-sites  15 constant ss-manifest  16 constant ss-info
+17 constant snap-sections#
 create snap-unit-table 4 , 72 , 4 , 8 , 1 , 1 , 1 ,
 : snap-unit ( i -- au ) tier-sections# - cells snap-unit-table + @ ;
 \ The identity's fields.
@@ -140,10 +142,12 @@ variable snap-loading   \ the record snap-fill reads
 : snap-size ( i snap -- u ) ['] snap-sizes snap-cell @ ;
 : snap-block! ( addr u i snap -- )
   2dup ['] snap-sizes snap-cell >r ['] snap-blocks snap-cell r> rot swap ! ! ;
-: snap-own ( i snap -- ) swap tier-sections# - 1 swap lshift swap snap-owned dup @ rot or swap ! ;
+: snap-own ( i snap -- ) swap tier-sections# - 1 swap lshift swap snap-owned dup @ rot or
+  swap ! ;
 : snap-owns? ( k snap -- flag ) snap-owned @ 1 rot lshift and 0<> ;
 \ A refusal's reason, the first only (the tier's own, when it refused).
-: snap-note ( c-addr d snap -- ) dup snap-why @ if drop 2drop exit then tuck snap-at ! snap-why ! ;
+: snap-note ( c-addr d snap -- ) dup snap-why @ if drop 2drop exit then tuck snap-at !
+  snap-why ! ;
 : snap-refuse ( outcome c-addr snap -- outcome ) -1 swap snap-note ;
 : snap-error ( snap -- c-addr u d )
   dup snap-why @ ?dup if count rot snap-at @ else snap-tf tier-file-error then ;
@@ -154,7 +158,8 @@ variable snap-loading   \ the record snap-fill reads
   dup snap-starts @ ?dup if free drop then snap-init ;
 : snap-close ( snap -- ) snap-sf sections-close drop ;
 \ The container's rejected (a SHA-256 that differs) is a damaged file.
-: snap-damaged ( outcome -- outcome' ) dup outcome-rejected = if drop outcome-invalid then ;
+: snap-damaged ( outcome -- outcome' ) dup outcome-rejected = if drop outcome-invalid then
+  ;
 
 \ ---- Fields, little-endian at addr: 32-bit, and 64-bit as lo, hi.
 : fld@ ( k addr -- u ) swap u32s + u32-le@ ;
@@ -179,10 +184,12 @@ variable snap-loading   \ the record snap-fill reads
   >r over 1 max allocate if drop 2drop r> drop outcome-full exit then
   dup 3 pick erase -rot dup r@ snap-own r> snap-block! outcome-ok ;
 \ Start writing: a blank record with its identity block.
-: snap-begin ( snap -- outcome ) dup snap-init si-fields# u32s ss-identity rot snap-alloc ;
+: snap-begin ( snap -- outcome ) dup snap-init si-fields# u32s ss-identity rot snap-alloc
+  ;
 \ The export: its SHA-256, bytes, lines and flags (snap-enforced ...).
 : snap-export! ( sha-addr bytes lines flags snap -- )
-  >r si-flags r@ id! si-lines r@ snap-id fld2! si-bytes r@ snap-id fld2! si-export r> id-sha! ;
+  >r si-flags r@ id! si-lines r@ snap-id fld2! si-bytes r@ snap-id fld2! si-export r>
+  id-sha! ;
 : snap-manifest-sha! ( sha-addr snap -- ) si-manifest swap id-sha! ;
 \ The manifest's bytes and the information text, which the caller keeps
 \ until snap-save has written them.
@@ -210,7 +217,8 @@ variable snap-loading   \ the record snap-fill reads
 : put-env ( addr slot -- addr )
   dup lf-slot-outcome @ sl-outcome 3 pick fld! dup slot-marks sl-marks 3 pick fld!
   dup slot-prov sl-provenance 3 pick fld! dup lf-slot-axioms @ sl-axioms 3 pick fld!
-  dup lf-slot-warnings @ sl-warnings 3 pick fld! dup lf-slot-recipe @ sl-recipe 3 pick fld!
+  dup lf-slot-warnings @ sl-warnings 3 pick fld! dup lf-slot-recipe @ sl-recipe 3 pick
+  fld!
   dup lf-slot-shape @ sl-shape 3 pick fld! dup lf-slot-count @ sl-deps 3 pick fld!
   lf-slot-looked @ sl-looks 2 pick fld! ;
 : put-step ( addr step -- addr )
@@ -236,7 +244,7 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
   site-pairs slab-count 0 ?do
     dup i seen-at @ = if drop i seen-at cell+ @ unloop exit then
   loop drop 0 ;
-: site-text ( site -- c-addr u ) dup c@ 1+ ;
+: site-text ( site -- c-addr u ) dup count nip 1+ ;
 : site-copied ( site -- outcome )
   dup site-text nip site-bytes slab-claim ok-then? 0= if nip exit then
   site-bytes slab-at swap site-text rot swap move outcome-ok ;
@@ -247,7 +255,8 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
   site-bytes slab-count 1+ >r dup site-copied dup ok? 0= if nip r> drop 0 swap exit then
   drop r@ site-paired r> swap ;
 : site-of ( site -- n outcome )
-  ?dup 0= if 0 outcome-ok exit then dup site-seen ?dup if nip outcome-ok else site-add then ;
+  ?dup 0= if 0 outcome-ok exit then dup site-seen ?dup if nip outcome-ok else site-add
+  then ;
 : put-site ( addr step -- addr outcome ) kept-site @ site-of >r sl-site 2 pick fld! r> ;
 \ One slot's record, from its environment slot and the caller's facts.
 : put-slot ( d snap -- outcome )
@@ -259,7 +268,8 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
   loop drop outcome-ok ;
 \ The dependencies and lookups, each slot's in turn.
 : put-deps ( addr d -- addr' )
-  slot-env dup lf-slot-count @ 0 ?do i over lf-dep-at 2 pick u32-le! swap 4 + swap loop drop ;
+  slot-env dup lf-slot-count @ 0 ?do i over lf-dep-at 2 pick u32-le! swap 4 + swap loop
+  drop ;
 : put-looks ( addr d -- addr' )
   slot-env dup lf-slot-looked @ 0 ?do
     i over lf-slot-look >r 2 pick u32-le! r> 2 pick 4 + u32-le! swap 8 + swap
@@ -270,7 +280,8 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
 : put-sites ( snap -- outcome )
   >r site-bytes dup slab-count dup 1 max allocate
   if drop 2drop r> drop outcome-full exit then
-  rot slab-base over 3 pick move swap ss-sites r@ snap-block! ss-sites r> snap-own outcome-ok ;
+  rot slab-base over 3 pick move swap ss-sites r@ snap-block! ss-sites r> snap-own
+  outcome-ok ;
 
 \ The header fields, then every section, then the file.
 : head! ( u k snap -- ) snap-sf sections-field! drop ;
@@ -278,7 +289,8 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
   >r snap-mark sh-mark r@ head! snap-version sh-version r@ head!
   lf-verdict-version sh-verdict r@ head!
   dup u32-mask and sh-fuel r@ head! cell-hi sh-fuel 1+ r@ head!
-  lf-allowlist-version sh-allow-version r@ head! lf-allowlist-bits sh-allow-bits r> head! ;
+  lf-allowlist-version sh-allow-version r@ head! lf-allowlist-bits sh-allow-bits r> head!
+  ;
 : snap-count ( i snap -- n ) over snap-unit >r snap-size r> / ;
 : snap-shape ( i snap -- addr unit count )
   2dup snap-block >r 2dup snap-count >r drop snap-unit r> r> -rot ;
@@ -320,15 +332,18 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
 : snap-allowed? ( snap -- flag )
   dup sh-allow-version swap head@ lf-allowlist-version =
   swap sh-allow-bits swap head@ lf-allowlist-bits = and ;
-: snap-fuel? ( snap -- flag ) dup snap-asked @ dup 0< if 2drop true else swap snap-fuel = then ;
+: snap-fuel? ( snap -- flag ) dup snap-asked @ dup 0< if 2drop true else swap snap-fuel =
+  then ;
 : snap-base? ( snap -- flag ) false 16 sh-layers do over i swap head@ or loop nip 0<> ;
 : snap-header ( snap -- outcome )
-  dup snap-marked? 0= if outcome-invalid c" not a LeanForth snapshot" rot snap-refuse exit then
+  dup snap-marked? 0= if outcome-invalid c" not a LeanForth snapshot" rot snap-refuse exit
+  then
   dup snap-current? 0= if outcome-unsupported c" format version" rot snap-refuse exit then
   dup snap-fresh? 0= if outcome-unsupported c" verdict version" rot snap-refuse exit then
   dup snap-fuel? 0= if outcome-invalid c" fuel" rot snap-refuse exit then
   dup snap-allowed? 0= if outcome-invalid c" axiom allowlist" rot snap-refuse exit then
-  dup snap-base? if outcome-unsupported c" layer" rot snap-refuse exit then drop outcome-ok ;
+  dup snap-base? if outcome-unsupported c" layer" rot snap-refuse exit then drop
+  outcome-ok ;
 \ The table: the tier's ten sections (tier-read checks them) and these.
 : snap-shaped? ( i snap -- flag )
   over swap snap-sf sections-info 2drop rot dup snap-unit rot = -rot 1+ = and ;
@@ -348,7 +363,8 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
   ss-identity swap snap-load ;
 \ The header's SHA-256, the file's identity, read from the file.
 : sum-read ( fid snap -- outcome )
-  >r dup sections-align 32 - 0 rot reposition-file if drop r> drop outcome-invalid exit then
+  >r dup sections-align 32 - 0 rot reposition-file if drop r> drop outcome-invalid exit
+  then
   r> snap-sum 32 rot read-file swap 32 <> or if outcome-invalid else outcome-ok then ;
 : snap-sum-read ( c-addr u snap -- outcome )
   >r r/o bin open-file if drop r> drop outcome-invalid exit then
@@ -387,14 +403,15 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
 \ the allowlist's, fuel used or -1 (not known).
 : sl-sane? ( addr -- flag )
   sl-outcome over fld@ outcome-full u> 0= sl-marks 2 pick fld@ 8 u< and
-  sl-provenance 2 pick fld@ 4 u< and sl-axioms 2 pick fld@ snap-axiom-bits invert and 0= and
+  sl-provenance 2 pick fld@ 4 u< and sl-axioms 2 pick fld@ snap-axiom-bits invert and 0=
+  and
   sl-fuel rot fld2@ -1 < 0= and ;
 \ Its site: none, or a counted string inside the site texts.
 : site-room ( snap -- base size ) ss-sites over snap-block swap ss-sites swap snap-size ;
 : site-ok? ( n snap -- flag )
   over 0= if 2drop true exit then
   site-room >r swap 1- r@ over u> 0= if r> drop 2drop false exit then
-  tuck + c@ + 1+ r> u> 0= ;
+  tuck + count nip + 1+ r> u> 0= ;
 \ Its dependencies ascending, each below the first slot of its span; its
 \ lookups of a known kind (or the one key of names beyond the input), each
 \ answer an outcome and a slot below that first slot. (Their order and
@@ -459,11 +476,13 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
   loop nip ;
 \ The span: the slot and every next one published with it.
 : with-next? ( d -- flag )
-  dup lf-env lf-env-length < if sl-marks swap saved mark-with and 0<> else drop false then ;
+  dup lf-env lf-env-length < if sl-marks swap saved mark-with and 0<> else drop false then
+  ;
 : fill-span ( d -- n ) 1 begin 2dup + with-next? while 1+ repeat nip ;
 : fill-shapes ( d n -- ) 0 ?do sl-shape over i + saved i lf-env-shape! drop loop drop ;
 : fill-marks ( d -- )
-  sl-marks over saved dup mark-skipped and 0<> lf-env-skipped! mark-added and 0<> lf-env-added!
+  sl-marks over saved dup mark-skipped and 0<> lf-env-skipped! mark-added and 0<>
+  lf-env-added!
   sl-warnings over saved lf-env-warnings! sl-recipe over saved lf-env-recipe!
   sl-axioms swap saved lf-env-axiom! ;
 : snap-fill ( -- )
@@ -479,7 +498,8 @@ create same-fields
   sl-warnings , ' lf-slot-warnings ,  sl-recipe , ' lf-slot-recipe ,
   sl-shape , ' lf-slot-shape ,  sl-deps , ' lf-slot-count ,  sl-looks , ' lf-slot-looked ,
 here same-fields - 2 cells / constant same-fields#
-: field-same? ( d slot entry -- flag ) dup cell+ @ rot swap execute @ >r @ swap saved r> = ;
+: field-same? ( d slot entry -- flag ) dup cell+ @ rot swap execute @ >r @ swap saved r> =
+  ;
 : fields-same? ( d slot -- flag )
   true same-fields# 0 do same-fields i 2* cells + 2over rot field-same? and loop nip nip ;
 : deps-same? ( d slot -- flag )

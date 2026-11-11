@@ -596,19 +596,23 @@ create cli-hex 64 allot
 : cli-saved. ( -- )
   cli-save? 0= if exit then
   ck-snap-saved@ ?dup if ." error: the snapshot was not written: " outcome-text type cr
-  else ." snapshot: written to " cli-state opt-save 2@ nt-text if type else cli-unshown then cr
+  else ." snapshot: written to " cli-state opt-save 2@ nt-text if type else cli-unshown
+  then cr
   then ;
-: cli-from-snapshot# ( -- n ) 0 lf-input-count 0 ?do i lf-env-origin lf-origin-saved = - loop ;
+: cli-from-snapshot# ( -- n ) 0 lf-input-count 0 ?do i lf-env-origin lf-origin-saved = -
+  loop ;
 \ The commit the snapshot's information names, or "unknown".
 : cli-commit-key ( -- c-addr u ) s\" \"commit\":\"" ;
 : cli-quote-at ( c-addr u -- n )
-  dup >r 0 ?do dup i + c@ [char] " = if drop i unloop r> drop exit then loop drop r> ;
+  dup >r 0 ?do dup i + count nip [char] " = if drop i unloop r> drop exit then loop drop
+  r> ;
 : cli-written-by ( -- c-addr u )
   ck-snap snap-info cli-commit-key search 0= if 2drop s" unknown" exit then
   cli-commit-key nip /string 2dup cli-quote-at nip ;
 : cli-snapshot. ( -- )
   ." snapshot: " cli-state opt-snapshot 2@ nt-text if type else cli-unshown then
-  ."  (sha256 " ck-snap snap-sum cli-sha. ." ), export sha256 " ck-snap snap-export-sha cli-sha.
+  ."  (sha256 " ck-snap snap-sum cli-sha. ." ), export sha256 " ck-snap snap-export-sha
+  cli-sha.
   ." , verdict version " lf-verdict-version .decimal ." , written by LeanForth "
   cli-written-by type ." : " cli-from-snapshot# .decimal
   ."  results taken from it, not re-checked in this run" cr
@@ -639,14 +643,15 @@ variable cli-info#
   tuck cli-info cli-info# @ + swap move cli-info# +! ;
 : cli-plain? ( c-addr u -- flag )
   true -rot bounds ?do
-    i c@ dup [char] a [char] z 1+ within over [char] A [char] Z 1+ within or
+    i count nip dup [char] a [char] z 1+ within over [char] A [char] Z 1+ within or
     over [char] 0 [char] 9 1+ within or over [char] . = or over [char] - = or
     over [char] _ = or swap bl = or and
   loop ;
 : cli-info-text ( c-addr u -- )
   2dup cli-plain? over 0<> and
   if s\" \"" cli-info+ cli-info+ s\" \"" cli-info+ else 2drop s" null" cli-info+ then ;
-: cli-info-host ( -- c-addr u ) [defined] version-string [if] version-string [else] 0 0 [then] ;
+: cli-info-host ( -- c-addr u ) [defined] version-string [if] version-string [else] 0 0
+  [then] ;
 : cli-info-build ( -- c-addr u )
   0 cli-info# ! s\" {\"leanforth\":" cli-info+ cli-version-text cli-info-text
   s\" ,\"commit\":" cli-info+ s" LEANFORTH_COMMIT" cli-env cli-info-text
@@ -743,7 +748,8 @@ variable cli-info#
 : cli-snap-misuse ( -- code|0 )
   cli-snap-misused? if s" --snapshot and --save-snapshot do not go with --record"
     cli-misuse-snap exit then
-  cli-snap-both? if s" --snapshot and --save-snapshot do not go together yet (plan step SN4)"
+  cli-snap-both? if
+  s" --snapshot and --save-snapshot do not go together yet (plan step SN4)"
     cli-misuse-snap exit then
   cli-snap-export? if s" --snapshot with an export is not supported yet (plan step SN4)"
     cli-misuse-snap exit then 0 ;

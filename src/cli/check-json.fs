@@ -217,7 +217,8 @@ create cj-hex 64 allot
 : cj-sha ( c-addr key-addr key-u -- ) rot cj-hex sha256-hex cj-hex 64 2swap cj-text ;
 : cj-snap-export ( -- )
   s" export" cj-key cj-object ck-snap snap-export-sha s" sha256" cj-sha
-  ck-snap snap-export-bytes s" bytes" cj-number ck-snap snap-export-lines s" lines" cj-number
+  ck-snap snap-export-bytes s" bytes" cj-number ck-snap snap-export-lines s" lines"
+  cj-number
   ck-snap snap-flags dup snap-enforced and 0<> s" manifestChecked" cj-flag
   snap-any-lean and 0<> s" anyLeanVersion" cj-flag cj-end-object ;
 : cj-snap-manifest ( -- )
@@ -235,7 +236,8 @@ create cj-hex 64 allot
   s" base" cj-null-member cj-snap-info cj-end-object ;
 \ ---- The report.
 : cj-export ( c-addr u -- )
-  ck-snapped? if 2drop s" export" cj-null-member exit then nt-text cj-shown s" export" cj-text ;
+  ck-snapped? if 2drop s" export" cj-null-member exit then nt-text cj-shown s" export"
+  cj-text ;
 : cj-head ( c-addr u checked? -- )
   cj-schema s" schema" cj-text cj-version s" schemaVersion" cj-text >r cj-export
   r> if s" checked" else s" not-checked" then s" manifest" cj-text

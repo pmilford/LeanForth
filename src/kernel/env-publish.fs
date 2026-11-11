@@ -428,7 +428,8 @@ lf-recheck-skipped 1+ constant lf-recheck-early
 \ Every slot of the span gets the one list of lookups from first.
 : lf-slot-looks! ( first slot -- )
   lf-env-may-write tuck lf-slot-looks ! lf-cand-looked@ swap lf-slot-looked ! ;
-: lf-span-looks ( first slot -- ) lf-cand-span@ 0 ?do 2dup i lf-slot+ lf-slot-looks! loop 2drop ;
+: lf-span-looks ( first slot -- ) lf-cand-span@ 0 ?do 2dup i lf-slot+ lf-slot-looks! loop
+  2drop ;
 \ The record of an accepted declaration, or of every member of an
 \ accepted block, sharing one list of dependencies and one of lookups:
 \ (slot ok), or (slot full) with nothing appended or written.

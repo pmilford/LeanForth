@@ -314,7 +314,8 @@ create tf-outs ' tf-raw-out , ' tf-le-out , ' tf-le-out , ' tf-le-out , ' tf-raw
 : mdata-count ( stage -- )
   dup tf-exprs-of cand-head head-tag tag-mdata = if 1 swap stage-mdata +! else drop then ;
 : text-bytes ( t stage -- c-addr u )
-  stage-tier tier-texts tuck cons-at dup u32@ swap 1 u32s + u32@ >r swap cons-bytes slab-at r> ;
+  stage-tier tier-texts tuck cons-at dup u32@ swap 1 u32s + u32@ >r swap cons-bytes
+  slab-at r> ;
 : nat-ok? ( stage -- flag )
   dup tf-exprs-of cand-head head-tag tag-nat <> if drop true exit then
   dup tf-exprs-of cons-top quad-a u32@ swap text-bytes canonical-natural? ;

@@ -188,7 +188,8 @@ begin-structure /ck
   field: ck-checked-read         \ true: its manifest was checked
   field: ck-snapped              \ true: a run of a loaded snapshot (ck-snapshot-load)
   field: ck-snap-saved           \ the snapshot save's outcome, invalid before it
-  2 cells +field ck-snap-file    \ the snapshot file's name, as ck-snapshot-load was given it
+  2 cells +field ck-snap-file
+  \ the snapshot file's name, as ck-snapshot-load was given it
 end-structure
 create ck-state /ck allot  ck-state /ck erase
 create ck-snap /snap allot  ck-snap snap-init   \ the snapshot written or loaded
@@ -428,7 +429,8 @@ create ck-line ck-line-room 2 + allot
   ck-feed-phase dup ok? if ck-input-facts then ;
 : ck-export! ( c-addr u checked? -- c-addr u checked? )
   dup ck-state ck-checked-read ! >r 2dup ck-state ck-export 2! r> ;
-: ck-load ( c-addr u checked? -- outcome ) ck-export! ck-loading dup ck-state ck-loaded ! ;
+: ck-load ( c-addr u checked? -- outcome ) ck-export! ck-loading dup ck-state ck-loaded !
+  ;
 
 \ ---- Fuel used (see the header). Step 4 of check-declaration, the
 \ declared type's type, is the first that runs inference.
@@ -571,13 +573,15 @@ create ck-line ck-line-room 2 + allot
 \ After a snapshot's run: every slot as saved (snap-same?), and each
 \ declaration's fuel and diagnostic the saved ones; else the snapshot is
 \ refused as if loading had failed, and the run stopped.
-: ck-snap-facts ( -- ) lf-input-count 0 ?do i dup ck-kept snap-fact i ck-kept cks-fuel ! loop ;
+: ck-snap-facts ( -- ) lf-input-count 0 ?do i dup ck-kept snap-fact i ck-kept cks-fuel !
+  loop ;
 : ck-snap-refused ( outcome -- )
   ck-state ck-loaded ! ck-staging ck-state ck-failed ! true ck-state ck-faulted ! ;
 : ck-snap-after ( -- )
   ck-snapped? 0= if exit then
   ck-snap snap-same? dup ok? if drop ck-snap-facts else ck-snap-refused then ;
-: ck-run-all ( -- outcome ) lf-input-count ck-steps-any ck-snap-after ck-confirm ck-tally ;
+: ck-run-all ( -- outcome ) lf-input-count ck-steps-any ck-snap-after ck-confirm ck-tally
+  ;
 : ck-checking-run ( -- outcome )
   ck-facts dup ok? if drop ck-env then dup ok? if drop ck-run-all then ;
 : ck-check ( -- ) ck-phase-begin ck-checking-run ck-outcome! ck-checking ck-phase-end ;
@@ -660,22 +664,27 @@ create ck-manifest-path manifest-name-room 16 + allot
   dup 1 max allocate if r> drop 2drop 0 0 outcome-full exit then
   swap 2dup r> read-file nip if drop free drop 0 0 outcome-invalid exit then outcome-ok ;
 : ck-manifest-read ( -- outcome )
-  0 0 ck-manifest-text 2! ck-manifest-name r/o bin open-file if drop outcome-invalid exit then
+  0 0 ck-manifest-text 2! ck-manifest-name r/o bin open-file if drop outcome-invalid exit
+  then
   dup ck-whole >r ck-manifest-text 2! close-file drop r> ;
 : ck-manifest-sha ( -- )
-  ck-hash sha256-init ck-manifest-text 2@ ck-hash sha256-update ck-digest ck-hash sha256-final ;
+  ck-hash sha256-init ck-manifest-text 2@ ck-hash sha256-update ck-digest ck-hash
+  sha256-final ;
 : ck-snap-manifest ( -- outcome )
   ck-state ck-checked-read @ 0= if outcome-ok exit then
   ck-manifest-read dup ok? 0= if exit then drop ck-manifest-sha
-  ck-digest ck-snap snap-manifest-sha! ck-manifest-text 2@ ck-snap snap-manifest! outcome-ok ;
+  ck-digest ck-snap snap-manifest-sha! ck-manifest-text 2@ ck-snap snap-manifest!
+  outcome-ok ;
 : ck-manifest-free ( -- )
   ck-manifest-text 2@ drop ?dup if free drop then 0 0 ck-manifest-text 2! ;
 \ A declaration's facts for the snapshot: its fuel used and kept step.
 : ck-fact ( d -- fuel step ) dup ck-fuel-of swap ck-kept ;
-: ck-saveable? ( -- flag ) ck-loaded? ck-outcome ok? and ck-stopped? 0= and ck-snapped? 0= and ;
+: ck-saveable? ( -- flag ) ck-loaded? ck-outcome ok? and ck-stopped? 0= and ck-snapped? 0=
+  and ;
 : ck-snap-prepared ( info-addr info-u -- outcome )
   ck-snap snap-begin dup ok? 0= if nip nip exit then drop ck-snap snap-info!
-  ck-snap-export dup ok? 0= if exit then drop ['] ck-fact ck-snap snap-facts! ck-snap-manifest ;
+  ck-snap-export dup ok? 0= if exit then drop ['] ck-fact ck-snap snap-facts!
+  ck-snap-manifest ;
 : ck-snap-written ( file-addr file-u info-addr info-u -- outcome )
   ck-snap-prepared dup ok? 0= if nip nip exit then drop
   ck-fuel-budget ck-stage ck-snap snap-save ;
@@ -697,11 +706,14 @@ create ck-manifest-path manifest-name-room 16 + allot
 \ After the feed: the environment's sections, one slot per input
 \ declaration; a refusal is the snapshot's, as staging's.
 : ck-snap-slots ( outcome -- outcome' )
-  drop lf-input-count ck-snap snap-read dup ok? 0= if ck-staging ck-state ck-failed ! then ;
+  drop lf-input-count ck-snap snap-read dup ok? 0= if ck-staging ck-state ck-failed ! then
+  ;
 : ck-snap-file@ ( -- c-addr u ) ck-state ck-snap-file 2@ ;
 : ck-snapshot-load ( c-addr u fuel -- outcome )
-  >r 2dup ck-state ck-snap-file 2! r> true ck-state ck-snapped ! 0 ck-state ck-jobs-asked ! ck-snap snap-loading !
+  >r 2dup ck-state ck-snap-file 2! r> true ck-state ck-snapped ! 0 ck-state ck-jobs-asked
+  ! ck-snap snap-loading !
   ['] snap-fill ck-check-word! ck-snap-phase dup ok? if drop ck-stage-facts
-  ck-feed-phase dup ok? if ck-input-facts ck-snap-slots then then dup ck-state ck-loaded ! ;
+  ck-feed-phase dup ok? if ck-input-facts ck-snap-slots then then dup ck-state ck-loaded !
+  ;
 
 base !   \ the BASE this file was loaded with
