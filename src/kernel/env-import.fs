@@ -83,6 +83,15 @@ begin-structure /imp
   field: imp-seen        \ imp-unit: a declaration of the same content was met
   field: imp-k           \ imp-fill: the declaration taking
   field: imp-d           \ and the S slot taken
+  8 cells +field imp-firsts   \ the first number of tier sections 1-8 after S's
+  field: imp-renum       \ a layer: per input declaration, its number in S and the layer
+  field: imp-lslots      \ per slot of the layer: its input declaration
+  field: imp-ln          \ the layer's slots
+  field: imp-ldecls      \ its declarations, /staged each
+  field: imp-ldn         \ how many
+  field: imp-llines      \ their lines
+  field: imp-lnewest     \ per name: its newest layer declaration + 1, numbered after S's
+  field: imp-blk         \ while writing: the block met is in the layer
 end-structure
 variable imp-current
 : imp@ ( -- imp ) imp-current @ ;
@@ -97,7 +106,8 @@ variable imp-current
 : imp-free ( imp -- )
   dup imp-sdecls heap-release dup imp-slot-of heap-release dup imp-newest heap-release
   dup imp-staged-of heap-release dup imp-from heap-release dup imp-to heap-release
-  /imp erase ;
+  dup imp-renum heap-release dup imp-lslots heap-release dup imp-ldecls heap-release
+  dup imp-llines heap-release dup imp-lnewest heap-release /imp erase ;
 
 \ ---- S kept aside, from a stage tier-read filled, before the export is
 \ read into it: its declarations, each one's slot, and each name's newest
@@ -129,8 +139,12 @@ variable imp-current
   dup s-count 0 ?do i over keep-name loop drop outcome-ok ;
 \ Keep S's declarations of stage aside (see above): ok, or full. S's slots
 \ are then imp-sn, the count the snapshot's own sections must have.
+\ The first number of each tier section 1-8 after S's (a layer's own
+\ records are numbered on from them).
+: keep-firsts ( imp -- )
+  8 0 do i 1+ over imp-stage @ tier-slab slab-count over imp-firsts i cells + ! loop drop ;
 : imp-keep ( stage imp -- outcome )
-  dup /imp erase tuck imp-stage !
+  dup /imp erase tuck imp-stage ! dup keep-firsts
   dup keep-copy dup ok? 0= if nip exit then drop
   dup keep-slots dup ok? 0= if nip exit then drop keep-names ;
 : imp-sn@ ( imp -- n ) imp-sn @ ;
@@ -286,5 +300,63 @@ variable imp-current
 : imp-other# ( imp -- n ) imp-other @ ;
 \ The S slot input declaration k was taken from, or -1.
 : imp-source ( k imp -- d|-1 ) imp-from @ ?dup if ua@ 1- else drop -1 then ;
+: imp-firsts@ ( imp -- addr ) imp-firsts ;
+
+\ ---- A layer of this run (ADR 0020 amendment 1, F5; plan step SN4),
+\ after a run whose every slot is final: the input declarations not
+\ taken from S, its slots numbered on from S's (imp-renumber gives every
+\ input declaration's number in S and the layer, imp-which a layer slot's
+\ input declaration), and their staged declarations, each block with its
+\ block record, in input order, their chains numbered on from S's
+\ declarations, with their lines. A block whose first member was taken
+\ but not every member (S checked them apart) cannot be written: invalid.
+: lslot! ( k imp -- ) dup >r imp-ln @ r@ imp-lslots @ ua! 1 r> imp-ln +! ;
+: layer-number ( imp -- n ) dup imp-sn @ swap imp-ln @ + ;
+: renum! ( s k imp -- ) imp-renum @ ua! ;
+: lkept? ( k imp -- flag ) imp-source 0< ;
+: renum-one ( k imp -- )
+  2dup imp-source dup 0< 0= if -rot renum! exit then drop
+  2dup dup layer-number -rot renum! lslot! ;
+: imp-which ( j -- k ) imp@ imp-lslots @ ua@ ;
+: imp-renumber ( k -- s ) imp@ imp-renum @ ua@ ;
+: ldecl ( ld imp -- addr ) imp-ldecls @ swap /staged * + ;
+: base-newest ( name imp -- u )
+  2dup imp-names# @ u< if imp-newest @ ua@ else 2drop 0 then ;
+: lchain ( name imp -- u ) 2dup imp-lnewest @ ua@ ?dup if nip nip exit then base-newest ;
+: lname! ( ld name imp -- ) >r swap r@ imp-sdecls# @ + 1+ swap r> imp-lnewest @ ua! ;
+: ldecl-add ( ie imp -- )
+  >r dup r@ e-decl r@ imp-ldn @ r@ ldecl /staged move
+  r@ imp-stage @ staged-line@ r@ imp-ldn @ r@ imp-llines @ ua!
+  r@ imp-ldn @ r@ ldecl dup staged-name u32@ dup if dup r@ lchain else 0 then
+  rot staged-prev u32! ?dup if r@ imp-ldn @ swap r@ lname! then 1 r> imp-ldn +! ;
+\ Input declaration ie of the stage, slot k next.
+: lblock ( k ie imp -- k outcome )
+  2 pick over lkept? dup >r over imp-blk ! r> if ldecl-add else 2drop then outcome-ok ;
+: lmember ( k ie imp -- k' outcome )
+  2 pick over lkept? over imp-blk @ <> if 2drop 1+ outcome-invalid exit then
+  2 pick over lkept? if ldecl-add else 2drop then 1+ outcome-ok ;
+: llone ( k ie imp -- k' outcome )
+  2 pick over lkept? if ldecl-add else 2drop then 1+ outcome-ok ;
+: lstep ( k ie imp -- k' outcome )
+  2dup e-kind dup block? if drop lblock exit then member-kind? if lmember else llone then ;
+: layer-decls ( imp -- outcome )
+  0 over e-count 0 ?do i 2 pick lstep dup ok? 0= if nip nip unloop exit then drop loop
+  2drop outcome-ok ;
+: imp-block ( u addr -- outcome )
+  >r 1 max dup allocate if 2drop r> drop outcome-full exit then
+  tuck swap erase r> ! outcome-ok ;
+: layer-room ( imp -- outcome )
+  dup imp-n @ over imp-renum ua-new dup ok? 0= if nip exit then drop
+  dup imp-n @ over imp-lslots ua-new dup ok? 0= if nip exit then drop
+  dup e-count /staged * over imp-ldecls imp-block dup ok? 0= if nip exit then drop
+  dup e-count over imp-llines ua-new dup ok? 0= if nip exit then drop
+  dup imp-stage @ stage-tier tier-names cons-numbers swap imp-lnewest ua-new ;
+: imp-layer ( imp -- outcome )
+  dup imp-current ! dup layer-room dup ok? 0= if nip exit then drop
+  0 over imp-ln ! 0 over imp-ldn ! dup imp-n @ 0 ?do i over renum-one loop layer-decls ;
+\ The layer's slots and declarations, as env-snapshot.fs's snap-layer-slots!
+\ and snap-layer-decls! take them.
+: imp-layer-slots ( imp -- n which renum ) imp-ln @ ['] imp-which ['] imp-renumber ;
+: imp-layer-decls ( imp -- decls n lines ) dup imp-ldecls @ over imp-ldn @ rot imp-llines @ ;
 
 base !   \ the BASE this file was loaded with

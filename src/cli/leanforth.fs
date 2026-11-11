@@ -152,6 +152,8 @@ begin-structure /cli-run
   field: opt-fuel-given         \ true: --fuel was given
   2 cells +field opt-save       \ the snapshot to write (--save-snapshot), or 0 0
   2 cells +field opt-snapshot   \ the snapshot to read (--snapshot), or 0 0
+  field: opt-layers             \ the layers on it (--snapshot again): (c-addr u) each
+  field: opt-layers#            \ how many
   4 cells +field arg-files      \ the file names given, in order (two c-addr u)
   field: arg-count              \ how many were given
   field: arg-set                \ the options the command takes, as bits
@@ -685,16 +687,19 @@ variable cli-info#
   0 cli-file cli-checked? ck-load ok? if ck-check cli-snapshot-save then
   cli-fed-tally cli-fed-report ;
 \ check --snapshot FILE: the snapshot's verdicts, published again from it
-\ (cli/check-run.fs ck-snapshot-load), no export read.
+\ (cli/check-run.fs ck-snapshot-load), no export read; each further
+\ --snapshot LAYER a layer loaded on it (kernel/env-layers.fs).
+: cli-layers ( -- ) cli-state opt-layers @ cli-state opt-layers# @ ck-layers! ;
 : cli-snapshot-run ( -- )
-  cli-state opt-snapshot 2@ cli-asked-fuel ck-snapshot-load ok? if ck-check then
+  cli-layers cli-state opt-snapshot 2@ cli-asked-fuel ck-snapshot-load ok? if ck-check then
   cli-fed-tally cli-fed-report ;
 \ check --snapshot FILE EXPORT: the export read on into the snapshot's
 \ tier, what is the snapshot's taken from it, the rest checked (plan step
-\ SN4; cli/check-run.fs ck-snapshot-import, kernel/env-import.fs).
+\ SN4; cli/check-run.fs ck-snapshot-import, kernel/env-import.fs); with
+\ --save-snapshot, what was checked written as a layer of the snapshot.
 : cli-import-run ( -- )
-  cli-state opt-snapshot 2@ cli-asked-fuel ck-snapshot-import ok?
-  if 0 cli-file cli-checked? ck-load ok? if ck-check then then
+  cli-layers cli-state opt-snapshot 2@ cli-asked-fuel ck-snapshot-import ok?
+  if 0 cli-file cli-checked? ck-load ok? if ck-check cli-snapshot-save then then
   cli-fed-tally cli-fed-report ;
 \ After the run: stores that could not be given back their sizes are an
 \ internal fault (later checks in this context would hold more).
@@ -764,17 +769,21 @@ variable cli-info#
   ." error: --jobs does not go with --record" cr
   ." try: leanforth help" cr exit-malformed ;
 \ Snapshots (ADR 0020 D6): neither --snapshot nor --save-snapshot goes
-\ with --record; a snapshot is not yet both read and written in one run.
+\ with --record; both together write a layer, so only with an export.
 : cli-snap-misused? ( -- flag ) cli-record? cli-snapshot? cli-save? or and ;
-: cli-snap-both? ( -- flag ) cli-snapshot? cli-save? and ;
+: cli-snap-both? ( -- flag ) cli-snapshot? cli-save? and cli-files @ 0= and ;
 : cli-misuse-snap ( c-addr u -- code )
   ." error: " type cr ." try: leanforth help" cr exit-malformed ;
 : cli-snap-misuse ( -- code|0 )
   cli-snap-misused? if s" --snapshot and --save-snapshot do not go with --record"
     cli-misuse-snap exit then
   cli-snap-both? if
-  s" --snapshot and --save-snapshot do not go together yet (plan step SN4)"
-    cli-misuse-snap exit then 0 ;
+  s" --snapshot and --save-snapshot go together only with an export (a layer)"
+    cli-misuse-snap exit then
+  cli-save? cli-snapshot? and if cli-state opt-save 2@ cli-state opt-snapshot 2@ compare 0=
+    if s" FILE must not be the snapshot read" cli-misuse-snap exit then then
+  cli-save? cli-state opt-layers# @ 0<> and
+  if s" --save-snapshot writes a layer on one snapshot only" cli-misuse-snap exit then 0 ;
 \ With an export (it must open), the export checked against the snapshot.
 : cli-snapshot-check ( -- code )
   cli-files @ 0= if ['] cli-snapshot-run cli-fed-run exit then
@@ -1138,7 +1147,17 @@ end-structure
   if cli-fuel-value else c" not a fuel amount" cli-wrong then ;
 : cli-record-option ( c-addr u -- ) cli-value if cli-record! then ;
 : cli-save-option ( c-addr u -- ) cli-value if cli-save! then ;
-: cli-snapshot-option ( c-addr u -- ) cli-value if cli-snapshot! then ;
+\ The first --snapshot names the base, each further one a layer on it, in
+\ order (plan step SN4); their names are kept in a heap block that grows.
+: cli-layers-room ( n -- addr ior )
+  2* cells cli-state opt-layers @ ?dup if swap resize else allocate then ;
+: cli-layer+ ( c-addr u -- )
+  cli-state opt-layers# @ 1+ cli-layers-room if drop c" no room for the layers" cli-wrong
+    exit then
+  dup cli-state opt-layers ! cli-state opt-layers# @ 2* cells + 2! 1 cli-state opt-layers# +!
+  ;
+: cli-snapshot-option ( c-addr u -- )
+  cli-value if cli-snapshot? if cli-layer+ else cli-snapshot! then then ;
 : cli-manifest-option ( c-addr u -- ) 2drop cli-no-manifest ;
 : cli-detail-option ( c-addr u -- ) 2drop true cli-state opt-detail ! ;
 : cli-name-option ( c-addr u -- ) cli-value if cli-state opt-name 2! then ;
