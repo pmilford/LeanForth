@@ -439,11 +439,14 @@ the default is exactly Lean):
   ports Lean's `inductive_reduce_rec` for a recursor a slot holds and a
   major premise that is a constructor application, rows `iota.bool-true`,
   `iota.list-*`, `iota.argument-after-major`, `iota.nat-zero`,
-  `iota.eq-refl`): a major premise that is no constructor application
-  when the recursor has `k` set (Lean's `to_cnstr_when_K`, task 5.2.1c)
-  or when its type may be a non-recursive structure (Lean's structure
-  eta in iota, projections, task 5.2.2); Lean's generated recursor that
-  no slot holds (decision 12; a follow-up). Literal majors (L2) and
+  `iota.eq-refl`; K and structure eta since tasks 5.2.1c and 5.2.2, on a
+  variable of the block's own telescope since the follow-up of 5.2.1b,
+  rows `k.block-index-*`, `k.mutual-index-*`, `k.field-*-stuck`,
+  `eta.block-index-*`): K or structure eta on a variable of a recursive
+  field's own binders in the recursor builder, which opens none (rows
+  `k.field-variable`, `k.field-after-binder-variable`; a follow-up of
+  5.2.1b); Lean's generated recursor that no slot holds (decision 12; a
+  follow-up). Literal majors (L2) and
   `Nat.succ` majors, which Lean's `reduce_nat` turns into literals first
   (K7, row `iota.nat-succ`), are task 5.2.3's. A comparison Lean refuses
   after iota, or on a stuck major premise, is *unknown* until the port's
