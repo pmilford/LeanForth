@@ -120,6 +120,40 @@ create lf-quot-entries lf-quot-type , lf-quot-mk , lf-quot-lift , lf-quot-ind ,
   lf-quot-eq-name ok-then? 0= if exit then
   lf-quot-slot ok-then? if lf-quot-eq-shape then ;
 
+\ check_name in add_quot (quot.cpp 53-56): none of the four names is
+\ declared below the record (environment.fs lf-env-unheld, with K5 and
+\ Lean's generated recursors); a name that cannot be made is full.
+: lf-quot-fresh ( limit -- outcome )
+  4 0 ?do
+    i lf-env-quot-text lf-stmt-intern 0= if 2drop outcome-full unloop exit then
+    over lf-env-unheld dup ok? 0= if nip unloop exit then drop
+  loop drop outcome-ok ;
+\ Once the quotient is initialised (an earlier quotient record accepted)
+\ add_quot returns at once (48-49) and checks nothing. LeanForth holds one
+\ constant per slot, so it checks the record's own name: ok when no slot
+\ of it is usable; a second record of a name, which Lean accepts, is
+\ unknown (diagnostic 77; a gap of the follow-up of plan task 5.2.4).
+: lf-quot-own ( limit -- outcome )
+  dup lf-input-name swap 2dup lf-env-find
+  dup ok? if drop nip lf-env-generated exit then lf-env-n2 nip nip ;
+\ The quotient below limit (environment.fs lf-env-quot-holding, d class)
+\ decides: initialised, the record's own name; not, the four names; K5,
+\ too early or full as the quotient records below say (an earlier record
+\ not rejected holds its own name, so the four names' check could not
+\ pass then).
+: lf-quot-held-as ( limit d class -- outcome )
+  dup ok? if 2drop lf-quot-own exit then
+  dup outcome-rejected = if 2drop lf-quot-fresh exit then
+  rot drop lf-env-n2-quot ;
+: lf-quot-names-pass ( -- outcome )
+  lf-env-checking 0= if outcome-invalid exit then nip
+  lf-name-storage-valid? 0= if drop outcome-invalid exit then
+  dup dup lf-input-name swap lf-env-quot-holding lf-quot-held-as ;
+\ Step 2 of a quotient record (check-declaration.fs), logged as N2.
+: lf-quot-names ( -- outcome )
+  lf-log? 0= if lf-quot-names-pass exit then
+  lf-env-limit lf-log-none lf-rule-fresh-name ['] lf-quot-names-pass lf-env-logged ;
+
 \ The entry of Lean's constant a record names, by name alone; it also
 \ gives inference the constant's type (env-signature.fs).
 : lf-quot-at ( k -- entry ) cells lf-quot-entries + @ ;
@@ -133,11 +167,16 @@ create lf-quot-entries lf-quot-type , lf-quot-mk , lf-quot-lift , lf-quot-ind ,
   ; is lf-envsig-builtin
 \ The record is one of Lean's four constants by name; with other universe
 \ parameters or another type it is accepted with a warning, as Lean's
-\ replay ignores the record (B4; ADR 0015 Q1, owner answer Q2).
+\ replay ignores the record (B4; ADR 0015 Q1, owner answer Q2). A type the
+\ audit refused (well? false: a loose variable, an unsupported form) is
+\ another type, never given to the matcher, which needs an audited root
+\ (review rvAX L1).
 32 constant lf-warn-quot-record   \ beside inductive-block.fs's B4 bits
-: lf-quot-builtin ( decl -- outcome )
-  dup lf-quot-named ?dup 0= if drop lf-quot-forged exit then
-  lf-stmt-is? ok-then? 0= if exit then
+: lf-quot-compared ( decl entry well? -- flag outcome )
+  if lf-stmt-is? else 2drop false outcome-ok then ;
+: lf-quot-builtin ( decl well? -- outcome )
+  over lf-quot-named ?dup 0= if 2drop lf-quot-forged exit then
+  swap lf-quot-compared ok-then? 0= if exit then
   0= if lf-warn-quot-record lf-env-warnings! then outcome-ok ;
 
 \ ---------------------------------------------------------------------------

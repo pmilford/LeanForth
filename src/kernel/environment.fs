@@ -543,11 +543,64 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
   over lf-env-rec-kind >r swap lf-env-type-name ?dup 0=
   if r> 2drop -1 outcome-rejected exit then
   swap lf-env-holding r> lf-rec-aux = if lf-env-aux-held then ;
-\ Whether a type that may hold name below i is not final (the scheduler's
-\ readiness, lf-env-ready?).
-: lf-env-held-open? ( name i -- flag )
+
+\ Lean's quotient (ADR 0015 Q1; review rvAX). add_quot (quot.cpp 47-104)
+\ checks that none of Quot, Quot.mk, Quot.lift and Quot.ind is declared
+\ (check_name, 53-56), then adds all four at once and marks the quotient
+\ initialised; a later quotient declaration changes nothing (48-49). So
+\ once one is initialised, those names are declared whatever the file
+\ holds, and check_name refuses any other declaration of one of them.
+\ LeanForth publishes one quotient record per slot, so the four names
+\ are held by the quotient records below limit -- declared when one is
+\ accepted (the quotient is initialised), K5 when one is undecided or
+\ unsupported, too early when one is not final -- (d class) as
+\ lf-env-holding gives them; (-1 rejected) when none holds them or name
+\ is not one of the four; (-1 full) when a name cannot be made. A
+\ quotient record of another name is never accepted (quot.fs), so the
+\ slots of the four names are all there is to scan. Lean's
+\ quot_reduce_rec (quot.fs) can then match Quot.mk by name, as Lean does.
+: lf-env-quot-text ( k -- c-addr u )
+  case 0 of s" Quot" endof  1 of s" Quot.mk" endof  2 of s" Quot.lift" endof
+    s" Quot.ind" rot endcase ;
+: lf-env-quot-name? ( name -- flag )
+  false 4 0 ?do over i lf-env-quot-text lf-stmt-name? or loop nip ;
+: lf-slot-quot? ( slot -- flag )
+  lf-slot-index lf-input-decl lf-idecl-kind @ lf-kind-quotient = ;
+: lf-slot-quot-open? ( slot -- flag ) dup lf-slot-open? swap lf-slot-quot? and ;
+: lf-slot-quot-accepted? ( slot -- flag ) dup lf-slot-accepted? swap lf-slot-quot? and ;
+: lf-slot-quot-undecided? ( slot -- flag )
+  dup lf-slot-final? over lf-slot-undecided? and swap lf-slot-quot? and ;
+: lf-slot-quot-unsupported? ( slot -- flag )
+  dup lf-slot-final? over lf-slot-unsupported? and swap lf-slot-quot? and ;
+create lf-env-quot-holders
+  ' lf-slot-quot-open? , outcome-invalid ,  ' lf-slot-quot-accepted? , outcome-ok ,
+  ' lf-slot-quot-undecided? , outcome-unknown ,
+  ' lf-slot-quot-unsupported? , outcome-unsupported ,
+here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
+\ The first slot below limit of one of the four names that passes test:
+\ (d ok), (-1 ok) when there is none, (-1 full) when a name cannot be made.
+: lf-env-quot-found ( limit test -- d|-1 outcome )
+  4 0 ?do
+    i lf-env-quot-text lf-stmt-intern 0= if drop 2drop -1 outcome-full unloop exit then
+    over 3 pick lf-env-first dup 0< 0= if nip nip outcome-ok unloop exit then drop
+  loop 2drop -1 outcome-ok ;
+: lf-env-quot-holding ( name limit -- d class )
+  swap lf-env-quot-name? 0= if drop -1 outcome-rejected exit then
+  lf-env-quot-holders lf-env-quot-holders# 2* cells bounds ?do
+    dup i @ lf-env-quot-found ok-then? 0= if nip -1 swap unloop exit then
+    dup 0< 0= if nip i cell+ @ unloop exit then drop
+  2 cells +loop drop -1 outcome-rejected ;
+
+\ Whether a type that may hold name below i, or a quotient record that
+\ holds it, is not final (the scheduler's readiness, lf-env-ready?); a
+\ quotient name that cannot be made counts as not final.
+: lf-env-type-open? ( name i -- flag )
   swap lf-env-type-name ?dup 0= if drop false exit then
   swap ['] lf-slot-type-open? lf-env-any? ;
+: lf-env-quot-open? ( name i -- flag )
+  lf-env-quot-holding nip dup outcome-invalid = swap outcome-full = or ;
+: lf-env-held-open? ( name i -- flag )
+  2dup lf-env-quot-open? >r lf-env-type-open? r> or ;
 
 \ N1 for a lookup that found no declaration of name below limit: rejected
 \ (an unknown constant); unknown when an accepted type reserves the name
@@ -578,9 +631,20 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
     outcome-unknown of nip nip lf-env-k5-unknown no-result endof
     outcome-unsupported of nip nip lf-env-k5-unsupported no-result endof
     >r lf-env-absent-early no-result r> endcase ;
+\ One of the four quotient names with no slot of it usable while the
+\ quotient is initialised (its record comes later in the file or is
+\ missing, or a declaration of that name was refused): Lean's kernel
+\ holds the constant add_quot made, no slot does; unknown (diagnostic 77,
+\ the name and the quotient record's slot) until such a use is typed from
+\ quot.fs's entry (a follow-up of plan task 5.2.4). Otherwise as a name
+\ no type holds.
+: lf-env-quot-absent ( name limit -- -1 outcome )
+  2dup lf-env-quot-holding dup ok? if drop nip lf-env-generated no-result exit then
+  dup outcome-full = if 2swap 2drop exit then lf-env-absent-as ;
 : lf-env-n1 ( name limit outcome -- -1 outcome )
   dup outcome-rejected = 0= if nip nip no-result exit then
-  drop 2dup lf-env-reserving lf-env-absent-as ;
+  drop 2dup lf-env-reserving dup outcome-rejected =
+  if 2drop lf-env-quot-absent else lf-env-absent-as then ;
 \ Find the constant named name for the check in this context: (d ok) for
 \ the usable earlier declaration of that name (accepted, or added with a
 \ block rejected only by B3); (-1 ok) for the recursor Lean's kernel
@@ -627,14 +691,22 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
     outcome-unknown of lf-env-k5-unknown endof
     outcome-unsupported of lf-env-k5-unsupported endof
     >r lf-env-held-early r> endcase ;
+: lf-env-n2-quot ( d class -- outcome )
+  dup outcome-full = if nip else lf-env-n2-held then ;
 \ N2 for name below limit: no usable declaration of it (the slots of that
 \ name: accepted, or added by Lean's kernel with a block rejected only by
 \ B3, R2-1), and no accepted or added type T with name T.rec (Lean's
-\ generated recursor, review rvI21 B2). ok, rejected, unknown,
-\ unsupported or invalid, as lf-env-n2 and lf-env-n2-held say.
-: lf-env-fresh ( name limit -- outcome )
+\ generated recursor, review rvI21 B2) (lf-env-unheld); for any
+\ declaration but a quotient record (quot.fs checks those as add_quot
+\ does), also not one of the four quotient names once the quotient is
+\ initialised (lf-env-fresh). ok, rejected, unknown, unsupported,
+\ invalid or full, as lf-env-n2 and lf-env-n2-held say.
+: lf-env-unheld ( name limit -- outcome )
   2dup lf-env-find lf-env-n2 dup ok? 0= if nip nip exit then drop
   lf-env-reserving lf-env-n2-held ;
+: lf-env-fresh ( name limit -- outcome )
+  2dup lf-env-unheld dup ok? 0= if nip nip exit then drop
+  lf-env-quot-holding lf-env-n2-quot ;
 : lf-env-own-name-pass ( -- outcome )
   lf-env-checking 0= if outcome-invalid exit then nip
   lf-name-storage-valid? 0= if drop outcome-invalid exit then

@@ -282,6 +282,8 @@ forged.type-named-nat-pow	accepted	accepted	L1 L5	5.2.3
 quotinit.with-eq	accepted	accepted	Q1	5.2.4	
 quotinit.without-eq	unknownConstant	rejected	Q1	5.2.4	
 quotinit.eq-wrong-shape	quotEqShape	rejected	Q1	5.2.4	
+quotinit.name-taken	alreadyDeclared	rejected	Q1	5.2.4	
+quotinit.twice	accepted	accepted	Q1	5.2.4	
 k7.unknown-nat	unknownConstant	rejected	K7	5.2.3	
 k7.nat-is-prop	declTypeMismatch	rejected	K7	5.2.3	
 k7.beq-bool	unknownConstant	rejected	K7	5.2.3	
@@ -301,3 +303,12 @@ forged.type-named-nat-add-recursor-with-hypothesis	invalidRecursor	rejected	L1 L
 replay-quot.original	accepted	accepted	Q1	5.2.4	
 replay-quot.mk-given-quot-type	accepted	accepted	Q1	5.2.4	
 replay-quot.lift-universe-dropped	accepted	accepted	Q1	5.2.4	
+replay-quot.lift-params-repeated	accepted	accepted	Q1	5.2.4	
+replay-quot.mk-loose-bvar	accepted	accepted	Q1	5.2.4	
+replay-quot.mk-mdata-type	accepted	accepted	Q1	5.2.4	
+replay-quot.ind-unknown-constant	accepted	accepted	Q1	5.2.4	
+after.quot-mk-declared-then-lift-on-it	unknownConstant	rejected	Q1 N2	5.2.4	
+after.quot-then-mk-declared	alreadyDeclared	rejected	Q1 N2	5.2.4	
+after.quot-then-lift-declared	alreadyDeclared	rejected	Q1 N2	5.2.4	
+after.quot-then-ind-declared	alreadyDeclared	rejected	Q1 N2	5.2.4	
+after.quot-then-mk-declared-then-used	accepted	accepted	Q1 N2	5.2.4	

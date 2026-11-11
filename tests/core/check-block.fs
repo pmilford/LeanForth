@@ -798,6 +798,52 @@ T{ s" quotinit.eq-wrong-shape" used -> outcome-rejected lf-diag-quot-eq }T
 T{ mk-warned quot-warned -> lf-warn-quot-record outcome-ok 0 outcome-ok }T
 T{ lift-warned -> lf-warn-quot-record outcome-ok }T
 T{ quot-forged used -> outcome-ok 0 }T
+\ Fields add_quot never reads (review rvAX M1, L1) only warn too: Quot.lift
+\ with universe parameters u, u (no L3 step, and none in the publisher's
+\ re-check); Quot.mk whose type is a loose variable (V1) or under mdata
+\ (U2), never given to the matcher.
+T{ s" replay-quot.lift-params-repeated" s" Quot.lift" warned-at
+  -> lf-warn-quot-record outcome-ok }T
+T{ s" replay-quot.lift-params-repeated" used -> outcome-ok 0 }T
+T{ s" replay-quot.mk-loose-bvar" s" Quot.mk" warned-at -> lf-warn-quot-record outcome-ok }T
+T{ s" replay-quot.mk-mdata-type" s" Quot.mk" warned-at -> lf-warn-quot-record outcome-ok }T
+T{ s" replay-quot.mk-loose-bvar" used s" replay-quot.mk-mdata-type" used
+  -> outcome-ok 0 outcome-ok 0 }T
+\ Lean's quotient names (review rvAX): add_quot's check_name on all four
+\ (quot.cpp 53-56). A user's Quot.mk (3) before the quotient leaves every
+\ quotient record rejected (4-7), so Quot.lift on that Quot.mk is an
+\ unknown constant (Lean's unknownConstant), never reduced by name; so
+\ with Quot.ind taken. One of the four after the quotient is already
+\ declared, its record first or not. A second record of a name, which
+\ Lean accepts (add_quot changes nothing), and a use of Quot.mk after a
+\ refused declaration of it are unknown (77; a follow-up of task 5.2.4).
+: on-user-mk ( -- c-addr u ) s" after.quot-mk-declared-then-lift-on-it" ;
+T{ on-user-mk used -> outcome-rejected lf-diag-unknown-constant }T
+T{ on-user-mk 3 decl-verdict on-user-mk 4 decl-verdict
+  -> outcome-ok 0 outcome-rejected lf-diag-already-declared }T
+T{ on-user-mk 5 decl-verdict on-user-mk 6 decl-verdict
+  -> outcome-rejected lf-diag-already-declared outcome-rejected lf-diag-already-declared }T
+T{ s" quotinit.name-taken" 4 decl-verdict -> outcome-rejected lf-diag-already-declared }T
+T{ s" after.quot-then-mk-declared" used -> outcome-rejected lf-diag-already-declared }T
+T{ s" after.quot-then-lift-declared" used -> outcome-rejected lf-diag-already-declared }T
+T{ s" quotinit.twice" 6 decl-verdict s" quotinit.twice" 7 decl-verdict
+  -> outcome-ok 0 outcome-unknown lf-diag-generated-recursor }T
+T{ s" after.quot-then-mk-declared-then-used" used
+  -> outcome-unknown lf-diag-generated-recursor }T
+\ A scheduler waits for the quotient record that holds Quot.mk (3, before
+\ the user's Quot.mk, 4).
+: quot-ready ( -- flag flag )
+  s" after.quot-then-mk-declared" case-path staged ok? must fuel fresh
+  4 lf-input-name 4 lf-env-ready? ['] record 0 lf-env-step 2drop ['] record 3 lf-env-step 2drop
+  4 lf-input-name 4 lf-env-ready? lf-env-view ok? must finish ;
+T{ quot-ready -> false true }T
+\ The publisher's re-check: the user's Quot.mk (4) claimed ok after the
+\ quotient record Quot was accepted is refused (its name, part 4).
+: claimed-mk ( -- outcome outcome )
+  s" after.quot-then-mk-declared" case-path staged ok? must
+  fuel fresh ['] record 0 lf-env-step 2drop ['] record 3 lf-env-step 2drop
+  4 claim lf-env-view ok? must 4 lf-env-outcome finish ;
+T{ claimed-mk -> outcome-invalid outcome-invalid }T
 \ propext with Lean's statement about an Iff that is not Lean's: NOT PROVED.
 T{ s" postulate.propext-forged-iff" bits-of -> outcome-ok 8 }T
 

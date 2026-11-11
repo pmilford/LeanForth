@@ -1177,7 +1177,15 @@ def chains : List Chain := [
   { id := "quotinit.without-eq", decls := [.quotDecl],
     lean := "unknownConstant", leanforth := "rejected", rule := "Q1", task := "5.2.4" },
   { id := "quotinit.eq-wrong-shape", decls := [eqDecl (wrong := true), .quotDecl],
-    lean := "quotEqShape", leanforth := "rejected", rule := "Q1", task := "5.2.4" }
+    lean := "quotEqShape", leanforth := "rejected", rule := "Q1", task := "5.2.4" },
+  -- `add_quot`'s `check_name` on all four names (review rvAX): `Quot.ind` taken first.
+  { id := "quotinit.name-taken",
+    decls := [eqDecl, .axiomDecl { name := `Quot.ind, levelParams := [], type := .sort 0
+                                   isUnsafe := false }, .quotDecl],
+    lean := "alreadyDeclared", leanforth := "rejected", rule := "Q1", task := "5.2.4" },
+  -- A second `quotDecl` changes nothing (quot.cpp 48-49): the file holds the records twice.
+  { id := "quotinit.twice", decls := [eqDecl, .quotDecl, .quotDecl],
+    lean := "accepted", leanforth := "accepted", rule := "Q1", task := "5.2.4" }
 ]
 
 /-! ## Names Lean's kernel matches inside a comparison (K7; review rvU4 B1)
@@ -1431,7 +1439,87 @@ def quotMutations : List Mutation := [
     lean := "accepted", leanforth := "accepted", rule := "Q1" },
   { id := "replay-quot.lift-universe-dropped",
     change := onQuot `Quot.lift fun q => { q with levelParams := [`u] },
+    lean := "accepted", leanforth := "accepted", rule := "Q1" },
+  -- Review rvAX M1: universe parameters `[u, u]`, which `add_quot` never reads.
+  { id := "replay-quot.lift-params-repeated",
+    change := onQuot `Quot.lift fun q => { q with levelParams := [`u, `u] },
+    lean := "accepted", leanforth := "accepted", rule := "Q1" },
+  -- Review rvAX L1: a type that is no term of the record's own, never read either.
+  { id := "replay-quot.mk-loose-bvar",
+    change := onQuot `Quot.mk fun q => { q with type := .bvar 5 },
+    lean := "accepted", leanforth := "accepted", rule := "Q1" },
+  -- Written with the exporter's `--export-mdata`, which keeps the node.
+  { id := "replay-quot.mk-mdata-type",
+    change := onQuot `Quot.mk fun q => { q with type := .mdata {} q.type },
+    lean := "accepted", leanforth := "accepted", rule := "Q1" },
+  { id := "replay-quot.ind-unknown-constant",
+    change := onQuot `Quot.ind fun q => { q with type := mkConst `IE.nowhere },
     lean := "accepted", leanforth := "accepted", rule := "Q1" }
+]
+
+/-! ### Lean's quotient names (ADR 0015 Q1; review rvAX)
+
+`add_quot` (`quot.cpp` 47-104) checks that none of `Quot`, `Quot.mk`, `Quot.lift` and
+`Quot.ind` is declared (`check_name`, 53-56), then adds all four at once and marks the
+quotient initialised; a later `quotDecl` changes nothing (48-49). So a declaration of one
+of those names before `quotDecl` makes it fail (`alreadyDeclared`) and the quotient is
+never initialised, and one after it is itself `alreadyDeclared`; `quot_reduce_rec` (quot.h
+39-66), which matches `Quot.mk` by name, never meets another `Quot.mk`. Each case is
+judged on its last declaration, every earlier one added where the kernel accepts it
+(`lastVerdict`, as the `after.*` rows). Its file holds the quotient records as Lean's
+exporter writes them (all four, from Lean's own environment when `quotDecl` fails), or,
+with `kept`, only those kept, in the exporter's order, before the declarations that
+follow `quotDecl`: a file Lean's exporter does not write (it writes the four together),
+whose verdict is the kernel's on its declarations in order. -/
+structure QuotNameCase where
+  id : String
+  decls : List Declaration
+  kept : Option (List Name) := none
+  lean : String
+
+-- `axiom Quot.mk.{u, v} {α : Sort u} (β : Sort v) (a : α) : β`: three arguments, as
+-- Lean's `Quot.mk`, the last one of type α.
+def userMk : Declaration :=
+  let type := Expr.forallE `α (.sort (.param `u))
+    (.forallE `β (.sort (.param `v)) (.forallE `a (.bvar 1) (.bvar 1) .default) .default)
+    .implicit
+  .axiomDecl { name := `Quot.mk, levelParams := [`u, `v], type := type, isUnsafe := false }
+-- `theorem IE.liftOnUserMk.{u, v} {α : Sort u} {β : Sort v} (r : α → α → Prop)
+--   (f : α → β) (h : ∀ a b, r a b → f a = f b) (a : α) :
+--   Quot.lift f h (@Quot.mk.{u, u} α (Quot r) a) = f a := Eq.refl (f a)`,
+-- true only if `quot_reduce_rec` took the user's `Quot.mk` for Lean's.
+def liftOnUserMk : Declaration :=
+  let u := Level.param `u
+  let w := Level.param `v
+  let fa := Expr.app (v `f) (v `a)
+  let hType := foralls [(`a, v `α), (`b, v `α)]
+    (.forallE `p (mkAppN (v `r) #[v `a, v `b]) (eqC w (v `β) fa (.app (v `f) (v `b))) .default)
+  let bs := [(`α, .sort u), (`β, .sort w)] ++ (quotRel u).drop 1 ++
+    [(`f, .forallE `x (v `α) (v `β) .default), (`h, hType), (`a, v `α)]
+  let mk := mkAppN (.const `Quot.mk [u, u]) #[v `α, mkAppN (.const `Quot [u]) #[v `α, v `r], v `a]
+  let lift := mkAppN (.const `Quot.lift [u, w]) #[v `α, v `r, v `β, v `f, v `h, mk]
+  .thmDecl { name := `IE.liftOnUserMk, levelParams := [`u, `v],
+             type := foralls bs (eqC w (v `β) lift fa), value := funs bs (reflC w (v `β) fa) }
+def propAxiom (n : Name) : Declaration :=
+  .axiomDecl { name := n, levelParams := [], type := .sort 0, isUnsafe := false }
+
+def mkUseDecl : Declaration := match quotUse with
+  | .defnInfo d => .defnDecl d
+  | _ => .quotDecl
+
+def quotNameCases : List QuotNameCase := [
+  { id := "after.quot-mk-declared-then-lift-on-it",
+    decls := [eqDecl, userMk, .quotDecl, liftOnUserMk], lean := "unknownConstant" },
+  { id := "after.quot-then-mk-declared", decls := [eqDecl, .quotDecl, propAxiom `Quot.mk],
+    kept := some [`Quot], lean := "alreadyDeclared" },
+  { id := "after.quot-then-lift-declared", decls := [eqDecl, .quotDecl, propAxiom `Quot.lift],
+    kept := some [`Quot, `Quot.mk], lean := "alreadyDeclared" },
+  { id := "after.quot-then-ind-declared", decls := [eqDecl, .quotDecl, propAxiom `Quot.ind],
+    lean := "alreadyDeclared" },
+  -- Lean's own `Quot.mk` used after a declaration of that name was refused.
+  { id := "after.quot-then-mk-declared-then-used",
+    decls := [eqDecl, .quotDecl, propAxiom `Quot.mk, mkUseDecl], kept := some [`Quot],
+    lean := "accepted" }
 ]
 
 /-! ## A declaration after a block
@@ -1730,12 +1818,14 @@ segments use from `base`, then each segment from its own environment. The marker
 names the case's own constants, or only `judged` when given (a sequel's last
 declaration). -/
 def writeSegments (base : Kernel.Environment) (baseRecs : NameMap NameSet) (id : String)
-    (segs : List Segment) (judged : Option (List Name) := none) : IO Unit := do
+    (segs : List Segment) (judged : Option (List Name) := none) (mdata := false) :
+    IO Unit := do
   let own := segs.flatMap (·.own)
   let named := judged.getD own
   IO.println s!"ndjson-begin\t{id}\t{",".intercalate (named.map (·.toString false))}"
   LeanExport.M.run (Environment.ofKernelEnv base) do
-    modify fun st => { st with recursorMap := baseRecs, ignoreMissing := true }
+    modify fun st => { st with recursorMap := baseRecs, ignoreMissing := true,
+                                exportMData := mdata }
     LeanExport.dumpMetadata
     if own.isEmpty then IO.println emptyBlockLine
     for s in segs do
@@ -1753,8 +1843,8 @@ def writeSegments (base : Kernel.Environment) (baseRecs : NameMap NameSet) (id :
   IO.println "ndjson-end"
 
 def writeCase (base : Kernel.Environment) (baseRecs : NameMap NameSet) (id : String)
-    (caseEnv : Kernel.Environment) (own roots : List Name) : IO Unit :=
-  writeSegments base baseRecs id [⟨caseEnv, own, roots⟩]
+    (caseEnv : Kernel.Environment) (own roots : List Name) (mdata := false) : IO Unit :=
+  writeSegments base baseRecs id [⟨caseEnv, own, roots⟩] (mdata := mdata)
 
 /-- The recursor map of an environment, as `LeanExport.initState` makes it. -/
 def recursorsOf (env : Kernel.Environment) : IO (NameMap NameSet) :=
@@ -2106,6 +2196,24 @@ def writeStripped (add : KernelAdd) (base : Kernel.Environment) (baseRecs : Name
   let segs := [(⟨e, kept.map (·.name), [root]⟩ : Segment)] ++ chainSegments add base e (s.uses r)
   writeSegments base baseRecs s.id segs (some ((segs.getLast?.map (·.own)).getD []))
 
+/-- A case of `quotNameCases` as a file holds it (see there): the declarations as
+`chainSegments` writes them, or, with `kept`, `Eq`, then only the quotient records kept
+(from `quot`, Lean's own environment; the exporter stops at the first one missing),
+then the declarations after `quotDecl`. The marker names the last declaration. -/
+def writeQuotName (add : KernelAdd) (quot : Kernel.Environment) (c : QuotNameCase) :
+    IO Unit := do
+  let empty := (← mkEmptyEnvironment).toKernelEnv
+  let segs := match c.kept, c.decls with
+    | some ks, eq :: _ :: rest =>
+      let first := chainSegments add quot empty [eq]
+      let e := (first.getLast?.map (·.env)).getD empty
+      let eQ := ks.foldl (fun e n => match quot.find? n with
+        | some ci => add e ci
+        | none => e) e
+      first ++ [⟨eQ, ks, [`Quot]⟩] ++ chainSegments add quot eQ rest
+    | _, _ => chainSegments add quot empty c.decls
+  writeSegments empty {} c.id segs (some ((c.decls.getLast?.map (·.getNames)).getD []))
+
 /-- A replayed set of constants as a file holds it. -/
 def writeMutation (add : KernelAdd) (base : Kernel.Environment) (baseRecs : NameMap NameSet)
     (root : Name) (cs : List ConstantInfo) (m : Mutation) : IO Unit :=
@@ -2209,6 +2317,11 @@ run_cmd do
     let got ← replayVerdict envEq (qcs.filterMap m.change)
     unless got == m.lean do throwError "{m.id}: Lean's verdict is {got}, expected {m.lean}"
     row m.id got m.leanforth m.rule "5.2.4" ""
+  -- 5d. Lean's quotient names declared before or after the quotient: the last one's verdict.
+  for c in quotNameCases do
+    let got := lastVerdict empty c.decls
+    unless got == c.lean do throwError "{c.id}: Lean's verdict is {got}, expected {c.lean}"
+    row c.id got (if got == "accepted" then "accepted" else "rejected") "Q1 N2" "5.2.4" ""
   -- 6. Every case as a file, after the rows (see `writeCase`).
   let .ok add := kernelAddFn env | throwError "no Kernel.Environment.add"
   let baseRecs ← recursorsOf base
@@ -2241,3 +2354,5 @@ run_cmd do
   for m in quotMutations do
     let cs' := qcs.filterMap m.change
     writeCase envEq eqRecs m.id (cs'.foldl add envEq) (cs'.map (·.name)) [`Quot, `IE.mkUse]
+      (mdata := m.id == "replay-quot.mk-mdata-type")
+  for c in quotNameCases do writeQuotName add base c
