@@ -949,6 +949,10 @@ T{ lf-env-hand-over -> outcome-invalid false }T
 \ invalid.
 3 lf-env-begin drop 99 lf-env-cand lf-cand-outcome !
 T{ lf-env-hand-over lf-env-view 3 lf-env-outcome -> outcome-invalid false outcome-ok outcome-invalid }T
+\ A skip (lf-env-skip, plan task 5.2.7) needs a check's snapshot: in a
+\ view it is invalid and claims nothing.
+T{ lf-kind-definition lf-safety-unsafe 1 lf-env-skip lf-env-cand lf-cand-skipped @
+   -> outcome-invalid 0 }T
 env-free
 
 \ ---------------------------------------------------------------------------

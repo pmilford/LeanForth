@@ -242,9 +242,12 @@ variable wanted#
   ?dup 0= if s" none" want exit then
   lf-axiom-propext want-bit lf-axiom-choice want-bit lf-axiom-sound want-bit
   lf-axiom-unlisted want-bit drop ;
+\ Any other: skipped (plan task 5.2.7), or the outcome's name.
+: want-failed ( d outcome -- )
+  swap lf-env-skipped? if drop s" skipped" else outcome-text then want ;
 : wanted-text ( d -- c-addr u )
   0 wanted# ! dup lf-env-outcome dup ok? if drop lf-env-axioms drop want-accepted
-  else nip outcome-text want then wanted wanted# @ ;
+  else want-failed then wanted wanted# @ ;
 : verdict-ok? ( d -- flag ) dup captured rot wanted-text compare 0= ;
 : handle-ok? ( d -- flag )
   dup lf-env-outcome ok? swap lf-env-handle ok? >r lf-env-handle? ok? r> and = ;
@@ -457,23 +460,42 @@ T{ outcome-ok outcome-rejected 2 ' uses-axiom-type s" uses-axiom-type"
 T{ outcome-ok outcome-ok 2 ' uses-axiom s" uses-axiom" fp-case -> }T
 T{ outcome-ok outcome-rejected 2 ' n2-unsupported s" n2-unsupported"
   fp-case -> }T
-\ K5: a use of an unsupported declaration (an unsafe definition, U1) in a
-\ declared type (4) and in a value (7), and N2 after one of the same name
-\ (2).
+\ K5: a use of an unsupported declaration (a definition with a form U2
+\ refuses) in a declared type (4) and in a value (7), and N2 after one of
+\ the same name (2).
 : risky ( -- )
-  fc-world s" fc-decl before def unsafe risky 0 TYPE S s z VALUE S z" evaluate ;
-: uses-unsafe-type ( -- )
+  fc-world s" fc-decl before def safe risky 0 TYPE S s z VALUE Xlet" evaluate ;
+: uses-risky-type ( -- )
   risky s" fc-decl check def safe user 0 TYPE C risky 0 VALUE S z" evaluate fc-end ;
-: uses-unsafe ( -- )
+: uses-risky ( -- )
   risky s" fc-decl check def safe user 0 TYPE S s z VALUE C risky 0" evaluate fc-end ;
+: n2-risky ( -- )
+  fc-world s" fc-decl before def safe idProp 0 TYPE S s z VALUE Xlet" evaluate
+  s" fc-decl check thm safe idProp 0 TYPE P S z P V 0 V 1 VALUE L S z L V 0 V 0" evaluate
+  fc-end ;
+T{ outcome-unsupported outcome-unsupported 2 ' uses-risky-type s" uses-risky-type"
+  fp-case -> }T
+T{ outcome-unsupported outcome-unsupported 2 ' uses-risky s" uses-risky" fp-case -> }T
+T{ outcome-unsupported outcome-unsupported 2 ' n2-risky s" n2-risky" fp-case -> }T
+\ A skipped declaration (an unsafe definition; plan task 5.2.7), rejected
+\ unchecked, and a use of it in a declared type (4) and in a value (7):
+\ no constant (N1); N2 after one of the same name (2): its name is taken.
+: unsafe-world ( -- )
+  fc-world s" fc-decl before def unsafe unsafe 0 TYPE S s z VALUE S z" evaluate ;
+: uses-unsafe-type ( -- )
+  unsafe-world s" fc-decl check def safe user 0 TYPE C unsafe 0 VALUE S z" evaluate
+  fc-end ;
+: uses-unsafe ( -- )
+  unsafe-world s" fc-decl check def safe user 0 TYPE S s z VALUE C unsafe 0" evaluate
+  fc-end ;
 : n2-unsafe ( -- )
   fc-world s" fc-decl before def unsafe idProp 0 TYPE S s z VALUE S z" evaluate
   s" fc-decl check thm safe idProp 0 TYPE P S z P V 0 V 1 VALUE L S z L V 0 V 0" evaluate
   fc-end ;
-T{ outcome-unsupported outcome-unsupported 2 ' uses-unsafe-type s" uses-unsafe-type"
+T{ outcome-rejected outcome-rejected 2 ' uses-unsafe-type s" uses-unsafe-type"
   fp-case -> }T
-T{ outcome-unsupported outcome-unsupported 2 ' uses-unsafe s" uses-unsafe" fp-case -> }T
-T{ outcome-unsupported outcome-unsupported 2 ' n2-unsafe s" n2-unsafe" fp-case -> }T
+T{ outcome-rejected outcome-rejected 2 ' uses-unsafe s" uses-unsafe" fp-case -> }T
+T{ outcome-rejected outcome-rejected 2 ' n2-unsafe s" n2-unsafe" fp-case -> }T
 
 \ Invalid: a variable without a binder (V1, 1). Full: the term store fills
 \ while the declared type is inferred (4): a telescope of 40 binders,
@@ -556,7 +578,8 @@ T{ lied -> outcome-invalid false lf-step-done lf-diag-recheck outcome-invalid ou
 \ audit, or a failed publication after step 8); and step 8 allocates, in
 \ terms-grown, while it reduces (a refused growth of the term store: full).
 \ No case ends unknown at step 8 since terms-grown's eta comparison is
-\ decided (plan task 4.2.4).
+\ decided (plan task 4.2.4). Step 1 rejects a skipped declaration (plan
+\ task 5.2.7).
 : outcome-named ( c-addr u -- outcome )
   7 0 do 2dup i outcome-text compare 0= if 2drop i unloop exit then loop
   true abort" failure-paths: not an outcome" ;
@@ -565,7 +588,7 @@ T{ lied -> outcome-invalid false lf-step-done lf-diag-recheck outcome-invalid ou
 create expected-reach steps# cells allot  expected-reach steps# cells erase
 : reaches: ( step "name ...<eol>" -- ) names>set swap cells expected-reach + ! ;
 0 reaches: invalid
-1 reaches: invalid exhausted unsupported
+1 reaches: invalid exhausted rejected unsupported
 2 reaches: unknown rejected unsupported
 3 reaches: rejected
 4 reaches: invalid exhausted unknown rejected unsupported full

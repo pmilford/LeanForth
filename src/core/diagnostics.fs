@@ -131,6 +131,8 @@ require ../lib/lib.fs
 \ Quotients (plan task 5.2.4, kernel/quot.fs).
 95 constant lf-diag-quot-eq            \ Q1 (rejected): the declaration, 0
 96 constant lf-diag-quot-type          \ Q1 (rejected): the declaration, 0
+\ Unsafe and partial declarations (plan task 5.2.7, kernel/environment.fs).
+97 constant lf-diag-skipped            \ rejected, reported skipped: the kind, the safety
 
 begin-structure /lf-diag
   field: lf-diag-code       \ reason code; lf-diag-none while clear
@@ -312,6 +314,7 @@ create lf-diag-catalogue
     s" rejected: Eq is not the type quotients need (Q1)" lf-diag-entry,
   lf-diag-quot-type
     s" rejected: not one of Lean's four quotient constants (Q1)" lf-diag-entry,
+  lf-diag-skipped s" skipped: unsafe or partial, as Lean's replay skips it" lf-diag-entry,
   lf-diag-none s" unknown code" lf-diag-entry,
 : lf-diag-end? ( code entry -- flag ) lf-diag-entry-code tuck = swap lf-diag-none = or ;
 \ The entry of code, or the last entry.

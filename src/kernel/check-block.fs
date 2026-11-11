@@ -7,7 +7,8 @@
 \ Lean's replay does (Lean/Replay.lean 102-164), and ends with one
 \ outcome for every member:
 \    1 the audit (inductive-block.fs): B0 shape (invalid), unsafe members
-\      and U2 forms (unsupported), V1 (invalid), the scope (unsupported:
+\      (all: skipped as Lean's replay skips them, rejected; some:
+\      unsupported), U2 forms (unsupported), V1 (invalid), the scope (unsupported:
 \      nested, task 5.2.5b);
 \    2 T0 the reserved prefix _nested (1241, 1244);
 \    3 C1 uniform occurrences (check_uniform_ind_occs, 134-164);

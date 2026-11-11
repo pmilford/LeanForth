@@ -3,7 +3,9 @@
 \ 4.35.0's inductive.cpp, commit eb6cafb7):
 \   B0 the block's shape, as lean4export writes it (invalid otherwise);
 \   the audit, before any typing, as check-declaration's audit of a
-\     definition: unsafe members (Lean's replay skips them) and the term
+\     definition: a block of unsafe members skipped, as Lean's replay
+\     skips them (rejected, reported skipped; with safe ones too,
+\     unsupported), and the term
 \     forms the checker lacks (U2) unsupported; loose variables invalid
 \     (V1); and the scope of tasks 5.2.1a, 5.2.1b and 5.2.5a: one type, or
 \     several (a mutual block), with no nested occurrence (task 5.2.5b),
@@ -447,11 +449,21 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 \ term; the scope. (A member named Nat.pow or Nat.shiftLeft was
 \ unsupported until plan task 5.2.3 computed Lean's refusal,
 \ kernel/reduce-nat.fs.)
-: lf-ind-safe? ( -- flag )
-  true lf-ind-members 0 ?do i lf-ind-member lf-idecl-safety @ lf-safety-safe = and loop ;
-: lf-ind-unsafe ( -- outcome )
+\ Unsafe members (plan task 5.2.7): a block whose members are all unsafe,
+\ as Lean writes one, is skipped as Lean's replay skips it (Replay.lean
+\ 180-183; environment.fs lf-env-skip); one with both kinds, which Lean
+\ never writes, stays unsupported (diagnostic 42): replay would add the
+\ block when one type is safe, compare only its safe members, and refuse
+\ a safe constructor or recursor of a skipped type (task 5.2.7, part b).
+: lf-ind-safe-at? ( k -- flag ) lf-ind-member lf-idecl-safety @ lf-safety-safe = ;
+: lf-ind-safe? ( -- flag ) true lf-ind-members 0 ?do i lf-ind-safe-at? and loop ;
+: lf-ind-any-safe? ( -- flag ) false lf-ind-members 0 ?do i lf-ind-safe-at? or loop ;
+: lf-ind-mixed ( -- outcome )
   lf-kind-inductive lf-safety-unsafe lf-ind-site lf-diag-unsupported-kind lf-diag-note
   outcome-unsupported ;
+: lf-ind-unsafe ( -- outcome )
+  lf-ind-any-safe? if lf-ind-mixed exit then
+  lf-kind-inductive lf-safety-unsafe lf-ind-members lf-env-skip ;
 : lf-ind-audit ( -- outcome )
   lf-ind-b0 dup ok? 0= if exit then drop
   lf-ind-safe? 0= if lf-ind-unsafe exit then

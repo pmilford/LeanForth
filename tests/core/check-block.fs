@@ -582,6 +582,14 @@ T{ ' induct 4 block-verdict drop -> outcome-invalid lf-diag-block-shape }T
 \ projections), a loose variable (V1).
 : unsafe ( -- ) lf-safety-unsafe 5 lf-input-decl lf-idecl-safety ! ;
 T{ ' unsafe 4 block-verdict drop -> outcome-unsupported lf-diag-unsupported-kind }T
+\ Every member unsafe, as Lean writes an unsafe block (plan task 5.2.7):
+\ skipped as Lean's replay skips it, rejected, each member marked.
+: all-unsafe ( -- ) 7 4 do lf-safety-unsafe i lf-input-decl lf-idecl-safety ! loop ;
+T{ ' all-unsafe 4 block-verdict -> outcome-rejected lf-diag-skipped lf-safety-unsafe }T
+: members-skipped ( -- flag flag flag flag )
+  blocks staged ok? must all-unsafe fuel checked
+  4 lf-env-skipped? 5 lf-env-skipped? 6 lf-env-skipped? 7 lf-env-skipped? finish ;
+T{ members-skipped -> true true true false }T
 T{ s" mutual.even-odd" used -> outcome-ok 0 }T
 : a-variable ( -- node ) 0 begin dup lf-term-tag@ lf-tag-bvar <> while 1+ repeat ;
 : loose ( -- ) a-variable 6 0 rhs ! ;
@@ -694,6 +702,16 @@ T{ leaked -> outcome-rejected }T
   fuel fresh 0 lf-env-begin drop 4 lf-env-span! outcome-ok lf-env-finish
   lf-env-hand-over drop lf-env-view ok? must 0 lf-env-outcome finish ;
 T{ claimed-unsafe -> outcome-invalid outcome-invalid }T
+\ A check that claims its block skipped (plan task 5.2.7): marked when
+\ every member is unsafe; refused when they are safe (part 7), invalid
+\ and not marked.
+: claim-skip ( safety -- outcome flag )
+  s" ind.bool" case-path staged ok? must 4 0 do dup i lf-input-decl lf-idecl-safety ! loop
+  drop fuel fresh 0 lf-env-begin drop 4 lf-env-span! true lf-env-skipped!
+  outcome-rejected lf-env-finish lf-env-hand-over 2drop
+  lf-env-view ok? must 0 lf-env-outcome 3 lf-env-skipped? finish ;
+T{ lf-safety-unsafe claim-skip -> outcome-rejected true }T
+T{ lf-safety-safe claim-skip -> outcome-invalid false }T
 : claimed-rec ( -- outcome outcome )
   s" after.recursor-left-out-then-def-rec" case-path staged ok? must
   fuel fresh ['] record 0 lf-env-step 2drop

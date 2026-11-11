@@ -58,7 +58,9 @@
 \ Trust boundary: "accepted" is printed only by lf-check-verdict.
 \ (kernel/check-declaration.fs) from a declaration's published slot, and
 \ the exit code comes from the slots' outcomes as lf-env-outcome reads
-\ them; staging, parsing and printing here can hand the checker a wrong
+\ them, a rejected one marked skipped (an unsafe or partial declaration,
+\ which Lean's replay skips: lf-env-skipped?) with Lean's code 0; staging,
+\ parsing and printing here can hand the checker a wrong
 \ claim or misreport a failure, never make a declaration accepted. Names
 \ are printed as cli/name-text.fs shows them, escaped, so a crafted name
 \ cannot forge a line. An accepted declaration that depends on an axiom
@@ -236,8 +238,10 @@ end-structure
 : full-or-fault ( outcome -- code ) outcome-full = if exit-limit else exit-fault then ;
 
 \ Counting: each declaration whose check began by the verdict its slot
-\ holds (and NOT PROVED apart), the rest not checked after a fault.
-: cli-tally-one ( d -- ) dup lf-env-outcome dup cli-tally swap cli-bits cli-tally-proved ;
+\ holds (skipped, or its outcome; and NOT PROVED apart), the rest not
+\ checked after a fault.
+: cli-tally-one ( d -- )
+  dup verdict-of cli-tally dup lf-env-outcome swap cli-bits cli-tally-proved ;
 : cli-tally-stopped ( -- )
   exit-fault cli-code! lf-input-count cli-stepped - not-checked cli-count-of +! ;
 : cli-tally-verdicts ( -- )
@@ -474,7 +478,7 @@ create cli-fed-ops
   ck-fuel-budget cli-number-text nip >r cli-number-text r> cli-column ;
 : cli-top. ( k -- )
   ck-top@ ."     " dup ck-fuel-of cli-fuel-column space dup cli-name. ."  ("
-  lf-env-outcome verdict-name type ." )" cr ;
+  verdict-of verdict-name type ." )" cr ;
 : cli-tops. ( -- )
   ck-tops 0= if exit then ."   most fuel used:" cr ck-tops 0 ?do i cli-top. loop ;
 : cli-resources. ( -- )

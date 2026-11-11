@@ -241,14 +241,59 @@ fc-case uses-axiom
 fc-decl before ax safe postulate 0 TYPE S z VALUE none
 fc-decl check def safe user 0 TYPE S z VALUE C postulate 0
 T{ check-last -> outcome-ok 0 lf-step-done }T
-\ Unsupported. U1: an unsafe or partial declaration, before any typing.
-\ U2: each form, wherever it is.
+\ Skipped (plan task 5.2.7). U1: an unsafe or partial definition, an
+\ unsafe axiom or opaque declaration is skipped as Lean's replay skips it
+\ (Replay.lean 180-183), nothing of it checked, so an ill-typed or
+\ self-referring one too: rejected at the audit, its slot marked skipped;
+\ a safe declaration that uses one meets no constant (N1), and one of a
+\ skipped one's name is refused (N2), as lean4export's parser refuses a
+\ name given twice, which also rejects a skipped one after another of its
+\ name, before anything else; an unsafe use of a skipped one is skipped.
+: last-skipped? ( -- flag ) lf-env-view ok? must fc-last lf-env-skipped? ;
+: check-skip ( -- outcome code step skipped? )
+  check-run last-result last-skipped? env-done ;
 fc-case unsafe
 fc-decl check def unsafe risky 0 TYPE S s z VALUE S z
-T{ check-last -> outcome-unsupported lf-diag-unsupported-kind audit }T
+T{ check-skip -> outcome-rejected lf-diag-skipped audit true }T
 fc-case partial
 fc-decl check def partial looping 0 TYPE S s z VALUE S z
-T{ check-last -> outcome-unsupported lf-diag-unsupported-kind audit }T
+T{ check-skip -> outcome-rejected lf-diag-skipped audit true }T
+fc-case unsafe-ill-typed
+fc-decl check def unsafe wrong 0 TYPE S z VALUE S z
+T{ check-skip -> outcome-rejected lf-diag-skipped audit true }T
+fc-case unsafe-recursive
+fc-decl check def unsafe loop 0 TYPE S z VALUE C loop 0
+T{ check-skip -> outcome-rejected lf-diag-skipped audit true }T
+fc-case unsafe-axiom
+fc-decl check ax unsafe postulate 0 TYPE S z VALUE none
+T{ check-skip -> outcome-rejected lf-diag-skipped audit true }T
+fc-case unsafe-opaque
+fc-decl check opq unsafe hidden 0 TYPE S s z VALUE S z
+T{ check-skip -> outcome-rejected lf-diag-skipped audit true }T
+fc-case safe-uses-unsafe
+fc-decl before def unsafe risky 0 TYPE S s z VALUE S z
+fc-decl check def safe user 0 TYPE S s z VALUE C risky 0
+T{ check-skip -> outcome-rejected lf-diag-unknown-constant value-step false }T
+fc-case safe-uses-partial
+fc-decl before def partial looping 0 TYPE S s z VALUE S z
+fc-decl check thm safe user 0 TYPE C looping 0 VALUE S z
+T{ check-skip -> outcome-rejected lf-diag-unknown-constant type-step false }T
+fc-case unsafe-uses-unsafe
+fc-decl before def unsafe risky 0 TYPE S s z VALUE S z
+fc-decl check def unsafe user 0 TYPE S s z VALUE C risky 0
+T{ check-skip -> outcome-rejected lf-diag-skipped audit true }T
+fc-case safe-after-skipped
+fc-decl before ax unsafe twice 0 TYPE S z VALUE none
+fc-decl check def safe twice 0 TYPE S s z VALUE S z
+T{ check-skip -> outcome-rejected lf-diag-already-declared name-step false }T
+fc-case skipped-after-safe
+fc-decl before def safe twice 0 TYPE S s z VALUE S z
+fc-decl check def unsafe twice 0 TYPE S s z VALUE S z
+T{ check-skip -> outcome-rejected lf-diag-already-declared audit false }T
+fc-case skipped-after-rejected
+fc-decl before def safe twice 0 TYPE S z VALUE S z
+fc-decl check def partial twice 0 TYPE S s z VALUE S z
+T{ check-skip -> outcome-rejected lf-diag-already-declared audit false }T
 fc-case let
 fc-decl check def safe withLet 0 TYPE S s z VALUE Xlet
 T{ check-last -> outcome-unsupported lf-diag-unsupported-form audit }T
