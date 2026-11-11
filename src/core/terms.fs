@@ -22,8 +22,10 @@
 \ appends a new one and enters it. So a node rebuilt equal to an existing
 \ one is that older node, with its older identity. Leaves whose meaning
 \ is more than their fields are never shared: a module that makes such a
-\ leaf names its tag with lf-term-unshare while loading (symbolic Sorts
-\ and constants carry stamps, free variables their local-context entry).
+\ leaf names its tag with lf-term-unshare while loading (free variables:
+\ their local-context entry). Symbolic Sorts and constants, whose stamps
+\ say more than their fields, are shared only while those stamps hold
+\ (the hook lf-term-reusable?, compact-store plan step S4).
 \ Hash-consing only saves room and time: a missing entry costs a
 \ duplicate, never a verdict, and no answer depends on it (C8). A
 \ context may turn it off (lf-term-sharing!), as the authoring words do,
@@ -311,9 +313,19 @@ create lf-term-hooks /htab-hooks allot
 \ lib/store.fs), so a store that would refuse a new node refuses alike.
 : lf-term-found ( n -- n true | false )
   lf-terms store-open? if true else drop lf-term-refused then ;
+\ Whether a found node may be given again: a leaf whose meaning is more
+\ than its fields (a symbolic Sort's or a constant's stamps,
+\ generation-handles.fs) only while those still hold; the hook is set
+\ while loading (core/constant-term-boundary.fs). A node it refuses is
+\ taken out of the table, and the record is sought again, so a new node
+\ is made and entered in its place (compact-store plan step S4).
+defer lf-term-reusable? ( n -- flag )
+:noname ( n -- flag ) drop true ; is lf-term-reusable?
 : lf-term-cons ( tag first second -- index true | false )
   lf-term-table htab-ready ok? 0= if lf-term-append exit then
-  lf-term-find if lf-term-found exit then lf-term-key@ lf-term-append lf-term-enter ;
+  lf-term-find 0= if lf-term-key@ lf-term-append lf-term-enter exit then
+  dup lf-term-reusable? if lf-term-found exit then
+  lf-term-forget lf-term-key@ recurse ;
 : lf-term-shares? ( tag -- flag ) lf-term-shared-tag? lf-term-sharing? and ;
 : lf-term-add ( tag first second -- index true | false )
   2dup lf-term-fits? 0= if lf-term-too-wide nip exit then

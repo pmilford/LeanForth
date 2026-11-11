@@ -867,6 +867,78 @@ needed (Rejected alternatives).
   unstamped call ends) replaces the open passes' result column (24 bytes
   per term index), and every pass skips a node its data word shows
   unchanged.
+- Interned levels, universe lists and constants (2026-11-11, step S4 of
+  the compact-store plan, agent S4, branch `s4-levels`; ADR 0014
+  Amendment 5; no verdict moves away from Lean's, its [kernel] review
+  pending). Levels are hash-consed as terms are since S3: a table per
+  context beside the level store (`src/core/levels.fs`), entries taken
+  out by Algorithm R when a rollback gives records back
+  (`lf-level-rollback`, used by the joint scratch marks and by level
+  substitution's and normalization's own marks), the zero level entered
+  at every reset. A constant reference is a name with its interned
+  universe list (`src/core/constant-references.fs`): `lf-cref-new` gives
+  back the live record of the same name, generation and level pairs, so
+  the per-occurrence records are gone (one record per distinct constant
+  of a check). Constants and symbolic Sorts are shared in the term table
+  again, a found one given only while its stamps hold
+  (`lf-term-reusable?`). So equal constants and Sorts are one node and a
+  node's number is its class under Lean's `==`: the caches' skeleton
+  memo and key table are retired and the result caches key a node by its
+  identity (ADR 0014 Amendment 5). One switch, `lf-term-sharing!`,
+  governs all three tables. Differences from the plan's row, each for a
+  reason:
+  - Levels and references keep their own `store.fs` stores beside the
+    terms, not one tier, as S3 kept the terms' (identities, S1's joint
+    marks, fail-closed header tests); the C2 list arena is not separate:
+    a list is interned with its name, which is all equality of constants
+    needs. One tier for all families is step S5.
+  - So the symbolic-Sort and constant stamps stay: a store can still be
+    reset or rolled back alone (tests, a level pass's own mark), and the
+    stamps are what refuses a node whose level or reference went. They
+    now also guard sharing: a found Sort or constant is given again only
+    while its stamps hold, else it is made anew.
+  - A constant's fields are (reference index, 0); the reference's
+    identity is in its stamp unit, a full cell (review rvS36 L1: since
+    S3 the 32-bit field made every constant *full* after 2^32 - 1
+    references in a context). The audit reads the stamped identity.
+  - Universe substitution skips a term whose data word shows no universe
+    parameter (Lean's `has_param_univ`), and level comparison keeps its
+    scope checks per level in a check (ADR 0014 Amendment 5); its own
+    graph check stays (memoised per check since S6 (c)) until S5.
+  Evidence: `make test`, `make check` (all Lean-compared tables the same
+  verdicts) and `make test` on Gforth 0.7.3. The first 1M lines of
+  `Init` (`check --fast --no-manifest`, default fuel, against main
+  af93afb): with the caches keyed by node, every declaration keeps its
+  verdict (S3 measured 142 fewer accepted when keyed by node before
+  interning); with every part of the step 8,696 → 8,699 accepted, 501 →
+  499 unknown, 5 → 4 exhausted, the 3 moves to Lean's verdict
+  (`Array.extract_extract._proof_1_1` ran out of fuel, `Array.extract_extract`
+  and `ByteArray.extract_extract` depended on it); fuel 109,613,586 →
+  91,658,129 (−16%); check CPU 147.7 → 108.2 s (−27%); peak resident
+  memory 313 → 266 MB. All of `Init` (same command, `--json`): 55,750 →
+  55,772 accepted, 3,583 → 3,570 unknown, 16 → 7 exhausted; all 22 moves
+  are to Lean's verdict (Lean accepts all of `Init`): 9 declarations that
+  ran out of fuel and 13 that were unknown only through such a dependency
+  are accepted, none moved away and no accepted declaration uses more
+  fuel (53,419 use less; list `.claude/work/S4/init-moves.txt` of the
+  agent's worktree); fuel 791,610,006 → 631,935,941 (−20%); check CPU
+  1,045.7 → 807.4 s (−23%, `gforth-fast`, a loaded machine); peak
+  resident memory 1,077 → 1,058 MB. The 2,000 checker trials:
+  `056b65372109` → `e19c6368813f`, re-baselined: the trials' later random
+  choices follow node indices and fuel, both of which move (fewer level
+  and reference records, == and substitution spend less); outcomes over
+  all trials ok 1,171,229 → 1,175,302, invalid 357,088 → 367,208,
+  exhausted 467,820 → 457,164, unknown 407,009 → 406,080, rejected 91,459
+  → 88,851, full 4 → 4. 29 planted faults `s4-*` (a level or reference
+  hash collision taken as equal, a list interned twice, rollbacks and
+  resets that keep entries, an equal record given where a new one would
+  be refused, a found constant or Sort given again without its stamps or
+  with a level or reference made again, a constant's identity in a
+  32-bit field, a cache keyed by a stale node, a dead free variable under
+  a node, == identity skipped, equal words taken as apart, a first pair
+  taken as met, the parameter skip everywhere, the level memo without
+  generation, identity or switch), all caught; three stale faults
+  re-targeted; the nine on the retired skeleton memo removed.
 - Steps 4 and 5 not started; S6 (b) and (c) are their own tasks.
 
 ## Amendment 1 (2026-11-04): constants Lean's kernel generates

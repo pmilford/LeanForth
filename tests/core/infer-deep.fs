@@ -83,7 +83,8 @@ variable deep-root  variable deep-status
 : at-most ( n limit -- flag ) > 0= ;
 : difference ( r1 d1 r2 d2 -- r d ) rot swap - >r - r> ;
 25 59 painted-infer 2constant with-normalize
-\ Fuel left: 98490 and 99080 since the scope audit reads its root's data
+\ Fuel left: 98490 and 99081 since == is Lean's at every pair (plan step
+\ S4), 98490 and 99080 since the scope audit reads its root's data
 \ word (plan step S6 (c)), 98433 and 99023 since the audits check a
 \ shared node once
 \ (agent EX), 98432 and 99022 since conversion is Lean's is_def_eq (plan
@@ -91,7 +92,7 @@ variable deep-root  variable deep-status
 T{ deep-status @ lf-minfer-fuel @ lf-term-count @ lf-level-count @
    -> outcome-ok 98490 60 64 }T
 25 0 painted-infer 2constant without-normalize
-T{ deep-status @ lf-minfer-fuel @ lf-term-count @ -> outcome-ok 99080 60 }T
+T{ deep-status @ lf-minfer-fuel @ lf-term-count @ -> outcome-ok 99081 60 }T
 : added ( -- return-cells data-cells ) with-normalize without-normalize difference ;
 T{ added lf-lnorm-data-cells at-most swap lf-lnorm-return-cells at-most -> true true }T
 T{ added drop 64 at-most -> true }T

@@ -370,7 +370,7 @@ defer lf-lnorm-flatten ( i frames -- ... frames next )
   max-n lf-lnorm-frames frame-fuel ! lf-lnorm-clear
   lf-lmk-sync lf-lnorm-store-mark lf-levels store-mark ;
 : lf-lnorm-end ( -- )
-  lf-lnorm-store-mark lf-levels store-rollback lf-lnorm-fail
+  lf-lnorm-store-mark lf-level-rollback lf-lnorm-fail
   lf-level-count @ lf-lmk-truncate ;
 : lf-lnorm-result ( flag -- flag outcome )
   lf-lnorm-status @ dup ok? 0= if nip false swap then ;

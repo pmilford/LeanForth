@@ -49,7 +49,8 @@ variable cref-id
 : emit-term ( node -- )
   lf-term-read 0= if -1 throw then rot case
     lf-tag-symbolic-sort of 0<> swap 0<> or if -1 throw then s" S " type endof
-    lf-tag-constant of cref-id @ <> swap cref-index @ <> or if -1 throw then s" C " type endof
+    lf-tag-constant of lf-cterm-pair cref-id @ <> swap cref-index @ <> or if -1 throw then
+      s" C " type endof
     lf-tag-bvar of drop s" V " type . endof
     lf-tag-app of s" A " type swap recurse recurse endof
     lf-tag-lam of s" L " type swap recurse recurse endof

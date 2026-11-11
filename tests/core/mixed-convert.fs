@@ -67,8 +67,10 @@ T{ 0 h 1 h convert-fuel -> outcome-ok 990 }T
 T{ 4 h 5 h convert-fuel -> outcome-ok 987 }T
 T{ 8 h 8 h convert-fuel -> outcome-ok 996 }T
 T{ 0 h 3 h convert-fuel -> outcome-unknown 988 }T
-T{ 8 h 9 h convert-fuel -> outcome-unknown 989 }T
-T{ lf-mcompare-fuel @ -> 995 }T
+\ Two bound variables of different index: their data words differ, so ==
+\ answers at once, no unit (Lean's hash test, plan step S4; 989 before).
+T{ 8 h 9 h convert-fuel -> outcome-unknown 990 }T
+T{ lf-mcompare-fuel @ -> 996 }T
 T{ 0 h 3 h 1000 lf-mixed-convert lf-mconvert-fuel @ -> outcome-unknown 0 }T
 
 T{ 0 h 1 h 10000 lf-mixed-convert -> outcome-ok }T
@@ -93,9 +95,10 @@ T{ 18 h 0 h 10000 lf-mixed-convert -> outcome-ok }T
 T{ 19 h 20 h 10000 lf-mixed-convert -> outcome-ok }T
 \ (The audits check a shared node once: fuel left 972 and 939 before; 976
 \ and 947 before plan task 6.5.5, whose lift by 0 puts fun x => x in
-\ unvisited, expr.cpp 449.)
-T{ 18 h 0 h convert-fuel -> outcome-ok 980 }T
-T{ 19 h 20 h convert-fuel -> outcome-ok 957 }T
+\ unvisited, expr.cpp 449; 980 and 957 before == is Lean's at every
+\ pair, plan step S4.)
+T{ 18 h 0 h convert-fuel -> outcome-ok 981 }T
+T{ 19 h 20 h convert-fuel -> outcome-ok 964 }T
 variable term-start variable level-start variable serial-start variable saw-allocated
 : sweep ( -- )
   lf-term-count @ term-start ! lf-level-count @ level-start !
@@ -162,7 +165,8 @@ T{ term-serial -> serial-start @ }T
 \ is_def_eq_app compares the functions first and stops there; 933 before
 \ plan task 5.2.2's step 9, two whnf_core visits in each of the three
 \ comparisons that reach it; 927 and 948 before the audits checked the
-\ shared P once, agent EX).
+\ shared P once, agent EX; conversion 957 before == was Lean's at every
+\ pair, plan step S4: the shared P is one node, equal at once).
 : order-setup ( -- )
   lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
   42 lf-lscope-context-add 0= abort" ctx" 42 lf-level-param 0= abort" level" drop
@@ -172,6 +176,6 @@ T{ term-serial -> serial-start @ }T
   0 h 0 h lf-hterm-pi save 3 h 3 h lf-hterm-pi save 4 h 4 h lf-hterm-pi save
   1 h 5 h lf-hterm-app save 2 h 5 h lf-hterm-app save ;
 order-setup
-T{ 6 h 7 h 1000 lf-mixed-convert-keeping lf-mconvert-fuel @ -> outcome-unknown 957 }T
+T{ 6 h 7 h 1000 lf-mixed-convert-keeping lf-mconvert-fuel @ -> outcome-unknown 960 }T
 T{ 6 h 7 h 1000 lf-mixed-compare lf-mcompare-fuel @ -> outcome-unknown 978 }T
 bye

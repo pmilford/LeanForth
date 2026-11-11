@@ -22,6 +22,10 @@ require ../support/store-faults.fs
 
 \ Helpers adapted from mixed-convert.fs and mixed-signature-audit.fs.
 create ids 64 cells allot
+\ The fixtures are indexed by the order their nodes are made in, equal
+\ ones included, and rows count what a job makes: hash-consing
+\ (compact-store plan steps S3, S4) is off.
+false lf-term-sharing!
 create actuals 2 cells allot
 create formals 1 cells allot
 variable token variable id-name variable missing-name variable later-name
@@ -95,7 +99,9 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
 \ no audit when an application's type is instantiated, a chain of lambdas
 \ closed once), 84 since conversion is Lean's is_def_eq (plan task
 \ 4.2.2b: equal arguments are decided by Lean's == at once), 69 since the
-\ scope audit reads its root's data word (plan step S6 (c)).
+\ scope audit reads its root's data word (plan step S6 (c)), 63 since
+\ universe substitution skips the terms without a universe parameter
+\ (Lean's has_param_univ test, plan step S4).
 \ fun (A : Sort u) => id (A -> A) (fun (x : A) => x): the inner lambda,
 \ an argument, begins a chain of lambdas under A's binder, so its type is
 \ closed there (A's bound variable becomes A's free variable; plan task
@@ -108,7 +114,7 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
   4 h 50000 lf-mixed-convert outcome-ok <> abort" chain argument type" ;
 : poly-case ( -- )
   setup 9 50000 infer outcome-ok expect-status
-  lf-minfer-fuel @ 49931 <> abort" poly fuel"
+  lf-minfer-fuel @ 49937 <> abort" poly fuel"
   4 h 50000 lf-mixed-convert outcome-ok <> abort" poly type" ;
 : invalid-argument-case ( -- )
   \ id.{u} (Sort u): the argument has type Sort (u+1) where id.{u} wants a
@@ -186,7 +192,7 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
   2dup 50000 lf-cterm-check outcome-ok expect-status
   drop lf-term-read 0= abort" generated term"
   rot lf-tag-constant <> abort" generated constant"
-  generated-ref-id ! generated-ref !
+  lf-cterm-pair generated-ref-id ! generated-ref !
   generated-ref @ generated-ref-id @ lf-cref-read 0= abort" generated cref"
   1 <> abort" generated arity" lf-name-generation @ <> abort" generated generation"
   id-name @ <> abort" generated name"

@@ -98,7 +98,7 @@ create infer-mark /lf-scratch allot   \ the stores before the inferences
   16 15 expect-app-head
   15 lf-tag-app 14 2 expect-node
   7 lf-term-read 0= if -1 throw then
-  rot lf-tag-constant <> if 2drop -1 throw then
+  rot lf-tag-constant <> if 2drop -1 throw then lf-cterm-pair
   2dup lf-cref-read 0= if 2drop -1 throw then
   1 <> if 2drop 2drop -1 throw then
   lf-name-generation @ <> if 2drop drop -1 throw then
@@ -107,7 +107,7 @@ create infer-mark /lf-scratch allot   \ the stores before the inferences
   lids cell+ @ <> if drop -1 throw then
   levels cell+ @ <> if -1 throw then
   14 lf-term-read 0= if -1 throw then
-  rot lf-tag-constant <> if 2drop -1 throw then
+  rot lf-tag-constant <> if 2drop -1 throw then lf-cterm-pair
   2dup lf-cref-read 0= if 2drop -1 throw then
   1 <> if 2drop 2drop -1 throw then
   lf-name-generation @ <> if 2drop drop -1 throw then

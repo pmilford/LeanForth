@@ -1,12 +1,15 @@
 \ Constant nodes in symbolic terms, and the structural check of a whole
 \ constant-bearing term graph. Untrusted: no lookup, typing, binder scope or
-\ proof checking. A constant node's fields hold a full reference pair, and a
-\ stamp table binds it to this exact term allocation, so a reset cannot
+\ proof checking. A constant node's fields hold its reference's index and
+\ 0 (compact-store plan step S4: no 32-bit identity field, so no count of
+\ references made limits a context), and a stamp table binds it to this
+\ exact term allocation and that reference's identity, so a reset cannot
 \ resurrect it. Binary constructors capture child indices, not identities;
 \ their safety relies on backward edges and no raw mutation or count edits.
 \ State: the stamps of generation-handles.fs (a map from term index to
-\ stamp unit; a constant's stamp is its own identity, as a symbolic Sort's
-\ term stamp is), the marks column lf-term-marks with
+\ stamp unit; a constant's stamps are its own identity, as a symbolic
+\ Sort's term stamp is, and its reference's, as a Sort's level stamp is,
+\ both full cells), the marks column lf-term-marks with
 \ its run counter lf-mark-runs (below), the audit memo's record
 \ lf-audit-state and its list lf-audit-reached (below), and one
 \ walk record, lf-cterm-walker, all members of the checker context
@@ -36,9 +39,6 @@ require ./tagged-sort-boundary.fs
 require ./terms.fs
 
 7 constant lf-tag-constant
-\ A constant node is never shared (terms.fs): it carries a stamp of its
-\ own identity.
-lf-tag-constant lf-term-unshare
 lf-walk-room context-walk: lf-cterm-walker
 
 \ The data words of the checker's leaves (terms.fs's hook lf-term-leaf-data;
@@ -56,8 +56,12 @@ lf-walk-room context-walk: lf-cterm-walker
   lf-level-params? lf-data-params ;
 : lf-cterm-params? ( addr count -- flag )
   false swap 0 ?do over i lf-cref-pair@ drop lf-level-params? or loop nip ;
-: lf-cterm-const-data ( cref identity -- data )
-  lf-cref-levels if lf-cterm-params? lf-data-params else lf-data-unknown then ;
+\ A constant's reference by its index (its second field is 0): the record
+\ there, which lf-cterm-new checked just before making the node.
+: lf-cterm-const-data ( cref second -- data )
+  if drop lf-data-unknown exit then
+  dup lf-cref-current lf-cref-levels
+  if lf-cterm-params? lf-data-params else lf-data-unknown then ;
 : lf-cterm-leaf-data ( tag first second -- data )
   rot case
     lf-tag-bvar of lf-bvar-data endof
@@ -227,18 +231,56 @@ end-structure
 \ fuel leaves it unchanged; an invalid root leaves the fuel given.
 : lf-cterm-fuel ( -- addr ) lf-cterm-walker walk-fuel ;
 
-\ Stamp cell of a constant node at a valid term index.
+\ Stamp cells of a constant node at a valid term index: its own identity
+\ and its reference's.
 : lf-cterm-stamp-cell ( index -- addr ) lf-term-stamps lf-stamp-own ;
-
+: lf-cterm-ref-cell ( index -- addr ) lf-term-stamps lf-stamp-ref ;
 : lf-cterm-stamp ( term identity -- ) swap lf-cterm-stamp-cell ! ;
+\ The reference a constant node was made for: its index and the identity
+\ stamped with the node (0 for a node made raw).
+: lf-cterm-ref ( node -- cref identity ) dup lf-term-first@ swap lf-cterm-ref-cell @ ;
+\ The reference of a constant's fields (first second) from the record at
+\ the index: what lf-cterm-ref gives for an audited node, whose stamped
+\ identity the audit found the record's.
+: lf-cterm-pair ( first second -- cref identity ) drop dup lf-cref-current ;
 
-\ Allocate a constant node for a live reference in the current session and
-\ stamp it with its own identity. Failure leaves the term store unchanged.
+\ Sharing constants and symbolic Sorts (compact-store plan step S4). With
+\ levels hash-consed and references interned, equal constants have equal
+\ fields (an interned reference) and so do equal Sorts (a hash-consed
+\ level), so the term table finds them. A found node is given again only
+\ while it is stamped as lf-cterm-new or lf-hterm-sort stamps it: a
+\ constant with its own identity, a Sort with its own and its level's
+\ current identity. So a raw node with those fields, or a Sort whose
+\ level index was reset and made again, is never given out under a new
+\ stamp: lf-term-add makes a new node instead (terms.fs's
+\ lf-term-reusable?). Re-stamping a node given again writes what it holds.
+\ A constant's reference, like a Sort's level, must still be the record
+\ it was made for.
+: lf-cterm-stamped? ( node -- flag )
+  dup lf-term-identity if swap lf-cterm-stamp-cell @ = else drop false then ;
+: lf-cterm-ref-live? ( node -- flag )
+  lf-cterm-ref swap lf-cref-current dup 0<> -rot = and ;
+: lf-cterm-made? ( node -- flag )
+  dup lf-cterm-stamped? if lf-cterm-ref-live? else drop false then ;
+: lf-cterm-reusable? ( n -- flag )
+  dup lf-term-tag@ case
+    lf-tag-constant of lf-cterm-made? endof
+    lf-tag-symbolic-sort of dup lf-term-first@ swap lf-hsort-stamped? endof
+    nip true swap endcase ;
+' lf-cterm-reusable? is lf-term-reusable?
+
+\ Allocate a constant node, fields (reference index, 0), for a live
+\ reference in the current session and stamp it with its own identity and
+\ the reference's. Failure leaves the term store unchanged.
 : lf-cterm-source? ( cref identity -- flag ) lf-cref-valid? lf-ssession-current? and ;
+: lf-cterm-stamps ( ref-identity term identity -- )
+  swap lf-term-stamps tuck lf-stamp-own ! lf-stamp-ref ! ;
+: lf-cterm-made ( ref-identity term identity -- term identity true )
+  2dup 2>r lf-cterm-stamps 2r> true ;
 : lf-cterm-new ( cref identity -- term identity true | false )
   2dup lf-cterm-source? 0= if 2drop false exit then
-  lf-tag-constant -rot lf-term-add lf-hterm-result
-  if 2dup lf-cterm-stamp true else false then ;
+  >r lf-tag-constant swap 0 lf-term-add lf-hterm-result
+  if r> -rot lf-cterm-made else r> drop false then ;
 
 \ Check each level of a reference's (index identity) pairs in the current
 \ context from inside this walk, with its fuel. The pairs come from
@@ -253,11 +295,12 @@ end-structure
 \ stamps (lf-hterm-sort) and a level that passes; a free variable must be
 \ live, named by its own entry of the local context (local-context.fs), so
 \ only a check's scratch can hold one; binary children must come earlier.
-: lf-cterm-stamped? ( node -- flag )
-  dup lf-term-identity if swap lf-cterm-stamp-cell @ = else drop false then ;
+\ A constant's second field is 0, and its stamped reference must be live.
 : lf-cterm-reference ( first second walk -- outcome )
-  dup walk-node @ lf-cterm-stamped? 0= if drop 2drop outcome-invalid exit then
-  >r lf-cref-levels if r> lf-cterm-levels else r> drop outcome-invalid then ;
+  swap if 2drop outcome-invalid exit then nip
+  dup walk-node @ lf-cterm-stamped? 0= if drop outcome-invalid exit then
+  >r r@ walk-node @ lf-cterm-ref lf-cref-levels
+  if r> lf-cterm-levels else r> drop outcome-invalid then ;
 : lf-cterm-sort? ( first second node -- flag )
   >r over swap lf-repr-leaf? if r> lf-hsort-stamped? else r> 2drop false then ;
 : lf-cterm-sort ( first second walk -- outcome )

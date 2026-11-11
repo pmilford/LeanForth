@@ -259,7 +259,7 @@ T{ s" import-stub A.B.c end A.B.c namespace A open B theorem t c := c end t end 
 \ every open O. Each case was run in Lean; make check compares the same
 \ cases with Lean's terms (16-namespaces.lf).
 : const-of ( term -- name )
-  dup lf-term-first@ swap lf-term-second@ lf-cref-read 0= abort" ref" 2drop ;
+  lf-term-first@ dup lf-cref-current lf-cref-read 0= abort" ref" 2drop ;
 : value-const ( i -- name ) lf-author-decl lf-fdecl-value @ const-of ;
 : name1 ( c-addr u -- name ) 0 -rot lf-name-str drop ;
 : name+ ( name c-addr u -- name' ) lf-name-str drop ;

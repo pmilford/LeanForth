@@ -89,8 +89,8 @@ end-structure
 \ it then), and the local context's entries above the terms marked. The
 \ terms go back through lf-term-rollback, which also takes their entries
 \ out of the hash-consing table (terms.fs).
-: lf-scratch-level-back ( mark -- outcome ) lf-levels store-rollback ;
-: lf-scratch-cref-back ( mark -- outcome ) lf-crefs store-rollback ;
+: lf-scratch-level-back ( mark -- outcome ) lf-level-rollback ;
+: lf-scratch-cref-back ( mark -- outcome ) lf-cref-rollback ;
 create lf-scratch-backs
   ' lf-term-rollback , ' lf-scratch-level-back , ' lf-scratch-cref-back ,
 : lf-scratch-back-to ( scratch k -- )

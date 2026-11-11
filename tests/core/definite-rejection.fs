@@ -97,8 +97,10 @@ variable level-seed
   3 level-rnd case 0 of some-level lf-level-succ endof
     1 of some-level some-level lf-level-max endof
     drop some-level some-level lf-level-imax 0 endcase 2drop ;
-: grow-levels ( -- ) begin lf-level-count @ lf-level-capacity < while
-    lf-level-count @ grow lf-level-count @ = if exit then repeat ;
+\ Levels are hash-consed (compact-store plan step S4): a level grown equal
+\ to an existing one adds none, so a round tries a bounded number of times.
+: grow-levels ( -- )
+  1000 0 do lf-level-count @ lf-level-capacity < 0= if leave then grow loop ;
 \ A shared DAG can stand for a tree too large for the fuel given: such a
 \ level is exhausted and skipped (the models would take as long).
 variable model-checks

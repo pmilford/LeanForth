@@ -74,7 +74,7 @@ require ./errors.fs
   >r lf-tag-symbolic-sort over 0 lfa-seek lfa-find if nip r> drop false exit then
   lfa-new-sort r> lfa-span true ;
 : lfa-const ( cref identity pos -- term fresh )
-  >r 2dup lf-tag-constant -rot lfa-seek lfa-find if nip nip r> drop false exit then
+  >r over lf-tag-constant swap 0 lfa-seek lfa-find if nip nip r> drop false exit then
   lfa-new-const r> lfa-span true ;
 
 \ A literal leaf of one cell's value, and a projection leaf (name, index).
@@ -103,7 +103,7 @@ require ./errors.fs
     lf-tag-app of lfa-fields lfa-new-app endof
     lf-tag-bvar of lf-term-first@ lfa-new-bvar endof
     lf-tag-symbolic-sort of lf-term-first@ lfa-new-sort endof
-    lf-tag-constant of lfa-fields lfa-new-const endof
+    lf-tag-constant of lf-term-first@ dup lf-cref-current lfa-new-const endof
     lf-tag-lit of lf-lit-cell lfa-new-lit endof
     lf-tag-proj of lfa-fields lfa-new-proj endof
   endcase ;

@@ -813,9 +813,9 @@ create lf-log-level-copier
 : lf-log-sort-level ( tag level second -- tag ref second true | false )
   swap dup lf-level-identity 0= if nip lf-log-unreadable nip exit then
   lf-log-level-ref if swap true else 2drop false then ;
-: lf-log-cref ( tag cref id -- tag cref' id' true | false )
+: lf-log-cref ( tag cref 0 -- tag cref' 0 true | false )
   over lf-log-cref-input? if true exit then
-  lf-log-cref-copy if 0 true else drop false then ;
+  drop dup lf-cref-current lf-log-cref-copy if 0 true else drop false then ;
 : lf-log-term-leaf ( tag first second -- tag first' second' true | false )
   2 pick case lf-tag-sort of true endof lf-tag-bvar of true endof
     lf-tag-proj of true endof  lf-tag-lit of true endof  lf-tag-let of true endof

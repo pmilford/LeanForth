@@ -7,6 +7,9 @@ require ../support/store-faults.fs
 
 create formals 2 cells allot
 create actuals 2 cells allot
+\ These rows count nodes made one by one: hash-consing (one switch with the
+\ terms, compact-store plan step S4) is off until its rows at the end.
+false lf-term-sharing!
 lf-level-reset lf-lscope-context-reset
 11 formals ! 22 formals cell+ !
 11 lf-lscope-context-add drop 22 lf-lscope-context-add drop
@@ -163,4 +166,28 @@ create sort-cells 6 cells allot
 : arrangements-sorted? ( -- flag )
   true 7 0 do 729 0 do i j arrangement-sorted? and loop loop ;
 T{ arrangements-sorted? -> true }T
+
+\ Hash-consed levels (compact-store plan step S4): a substitution whose
+\ image exists gives that level and appends nothing; a build that fails
+\ part way gives back what it made, with its table entries, so the same
+\ substitution then makes its levels again at the same indices.
+true lf-term-sharing!
+lf-level-reset lf-lscope-context-reset
+11 lf-lscope-context-add must 22 lf-lscope-context-add must
+11 lf-level-param must constant sp   22 lf-level-param must constant sq
+sp sq lf-level-max must constant spq   spq sp lf-level-imax must constant stree
+sq sp lf-level-max must constant sqp
+11 formals ! 22 formals cell+ !
+T{ spq sq sp sub lf-level-count @ -> sqp outcome-ok sqp 1+ }T
+T{ stree sq sp sub -> sqp 1+ outcome-ok }T
+T{ sqp 1+ lf-level-read lf-level-count @ -> lf-level-tag-imax sqp sq true sqp 2 + }T
+lf-level-reset lf-lscope-context-reset
+11 lf-lscope-context-add must 22 lf-lscope-context-add must
+11 lf-level-param must drop   22 lf-level-param must drop
+sp sq lf-level-max must drop   spq sp lf-level-imax must drop
+level-serial constant sserial   -1 1 rshift 1- level-serial!
+T{ stree sq sp sub lf-level-count @ -> outcome-full 5 }T
+sserial level-serial!
+T{ stree sq sp sub lf-level-count @ -> 6 outcome-ok 7 }T
+T{ 5 lf-level-read 6 lf-level-read -> lf-level-tag-max sq sp true lf-level-tag-imax 5 sq true }T
 bye

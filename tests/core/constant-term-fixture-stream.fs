@@ -60,10 +60,10 @@ variable n variable k variable a variable b variable count-n
     i . i lf-term-read 0= if -1 throw then >r >r . r> . r> . cr
   loop
   \ Inspect the name and first level of each constant reference.
-  7 lf-term-read 0= if -1 throw then rot drop
+  7 lf-term-read 0= if -1 throw then rot drop lf-cterm-pair
   2dup lf-cref-read 0= if -1 throw then drop drop .
   0 lf-cref-level 0= if -1 throw then drop . cr
-  14 lf-term-read 0= if -1 throw then rot drop
+  14 lf-term-read 0= if -1 throw then rot drop lf-cterm-pair
   2dup lf-cref-read 0= if -1 throw then drop drop .
   0 lf-cref-level 0= if -1 throw then drop . cr
   count-n @ n !

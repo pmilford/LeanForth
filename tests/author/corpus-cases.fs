@@ -31,7 +31,7 @@ create params most cells allot  variable params#
     nip endcase ;
 : scan-term-levels ( addr n -- ) 0 ?do dup i lf-cref-pair@ drop scan-term-level loop drop ;
 : scan-term-const ( term -- )
-  dup lf-term-first@ swap lf-term-second@ 2dup lf-cref-read 0= abort" corpus: reference"
+  lf-term-first@ dup lf-cref-current 2dup lf-cref-read 0= abort" corpus: reference"
   nip add-const lf-cref-levels drop scan-term-levels ;
 : scan-term ( term -- )
   dup lf-term-tag@ case

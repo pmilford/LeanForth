@@ -71,7 +71,9 @@ class Fixture(unittest.TestCase):
                 # Constant payload is a live reference pair, checked by boundary.
                 self.assertEqual(actual[:2], (i, 7))
                 self.assertEqual(actual[2], (0 if i == 7 else 1))
-                self.assertGreater(actual[3], 0)
+                # A constant holds its reference by index; its identity is
+                # stamped beside it (compact-store plan step S4).
+                self.assertEqual(actual[3], 0)
             else:
                 self.assertEqual(actual, (i, 6 if row[0] == 1 else row[0], *row[1:]))
         self.assertEqual([list(map(int, line.split())) for line in lines[19:21]], [[1, 1], [1, 0]])

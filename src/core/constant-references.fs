@@ -16,9 +16,21 @@
 \ capacity, 64, is no limit: only the number run records 0.1 report. The
 \ records grow up to a capacity that is a setting
 \ of each context, as for terms (terms.fs), starting at lf-cref-default.
+\ Interning (ADR 0016 C2, C4; compact-store plan step S4): a reference is
+\ a constant's name with its interned universe list, so lf-cref-new gives
+\ back the live record with the same name, generation and level pairs
+\ when there is one (found through a hash table of the context, a hash
+\ only a hint, an entry equal only when its allocated record is, field by
+\ field), else it makes one and enters it. With levels hash-consed
+\ (levels.fs), equal constants are one reference, and their term nodes
+\ one node (constant-term-boundary.fs). Interning follows the context's
+\ switch for terms (lf-term-sharing?). A rollback (lf-cref-rollback, which
+\ the joint scratch marks use) takes the given-back records' entries out
+\ by Knuth's Algorithm R; a reset empties the table.
 \ State: the reference records, a heap store whose header lf-crefs is a
-\ member of the checker context (lib/context.fs), and the pairs pool, a
-\ heap slab whose record lf-cref-pool is another; both are freed by their
+\ member of the checker context (lib/context.fs), the pairs pool, a
+\ heap slab whose record lf-cref-pool is another, and the interning table
+\ lf-cref-table with its candidate lf-cref-key; all are freed by their
 \ teardown words. Single-threaded within one context; callers exclude raw
 \ mutation, and input arrays must be aligned, readable and disjoint from
 \ this module's data.
@@ -26,6 +38,8 @@
 require ../lib/lib.fs
 require ../lib/store-columns.fs
 require ../lib/slab.fs
+require ../lib/hash32.fs
+require ../lib/htab.fs
 require ./diagnostics.fs
 require ./generation-handles.fs
 require ./names.fs
@@ -89,11 +103,67 @@ store-header context-record: lf-crefs
 \ A valid store also needs a nonnegative serial.
 : lf-cref-state-valid? ( -- flag )
   lf-crefs store-count-valid? lf-cref-serial @ 0< 0= and ;
+
+\ ---------------------------------------------------------------------------
+\ The interning table (see the header). A record's hash: its name,
+\ generation and arity, and its levels' indices; a record whose pairs lie
+\ outside the pool (corrupted) hashes without them, a hint only.
+/htab context-record: lf-cref-table
+4 cells context-record: lf-cref-key   \ the reference sought: name generation addr count
+: lf-cref-span? ( slot -- flag )
+  dup lf-crec-offset @ swap lf-crec-arity @ over + 0 lf-cref-pool slab-capacity between?
+  swap 0< 0= and ;
+: lf-cref-hash-levels ( h addr count -- h' )
+  0 ?do dup i lf-cref-pair@ drop rot swap hash-step swap loop drop ;
+: lf-cref-hash ( name generation addr count -- h )
+  2swap swap hash-fmix swap hash-step over hash-step -rot lf-cref-hash-levels ;
+: lf-cref-fields ( slot -- name generation addr count )
+  dup lf-cref-name@ rot dup lf-cref-span? if lf-cref-pairs else drop 0 0 then ;
+: lf-cref-rehash ( n htab -- h ) drop lf-cref-slot lf-cref-fields lf-cref-hash ;
+\ Whether allocated record n has the name, generation, arity and level
+\ pairs sought.
+: lf-cref-head= ( slot key -- flag )
+  2dup @ swap lf-crec-name @ = >r 2dup cell+ @ swap lf-crec-generation @ = r> and
+  >r 3 cells + @ swap lf-crec-arity @ = r> and ;
+: lf-cref-pairs= ( addr addr' count -- flag ) 2* cells tuck compare 0= ;
+: lf-cref-same ( n key htab -- flag )
+  drop over lf-crefs store-at? 0= if 2drop false exit then
+  swap lf-cref-slot swap 2dup lf-cref-head= 0= if 2drop false exit then
+  over lf-cref-span? 0= if 2drop false exit then
+  swap lf-cref-pairs rot 2 cells + @ swap lf-cref-pairs= ;
+create lf-cref-hooks /htab-hooks allot
+' lf-cref-rehash ' lf-cref-same lf-cref-hooks htab-hooks!
+: lf-cref-table-make ( -- ) 4 lf-cref-hooks lf-cref-table htab-init drop ;
+' lf-cref-table-make context-setup
+:noname ( -- ) lf-cref-table htab-free ; context-teardown
+1024 constant lf-cref-table-small
+: lf-cref-table-empty ( -- )
+  lf-cref-table dup htab-live? if dup htab-slots lf-cref-table-small <= else false then
+  if htab-clear else htab-free lf-cref-table-make then ;
+: lf-cref-key! ( name generation addr count -- )
+  lf-cref-key 3 cells + ! lf-cref-key 2 cells + ! lf-cref-key cell+ ! lf-cref-key ! ;
+: lf-cref-find ( name generation addr count -- n true | i false )
+  2over 2over lf-cref-hash >r lf-cref-key! lf-cref-key r> lf-cref-table htab-find ;
+\ Take record index out of the table, if it is there, and every record
+\ from count up to the store's count.
+: lf-cref-forget ( index -- )
+  dup lf-cref-slot lf-cref-fields lf-cref-hash lf-cref-table htab-remove drop ;
+: lf-cref-unlist ( count -- )
+  lf-cref-table htab-live? 0= if drop exit then
+  lf-cref-count @ swap ?do i lf-cref-forget loop ;
+
 \ Invalidate every reference and advance the store's generation, as a
 \ term or level reset does (saturating to poisoned, lib/store.fs), so
 \ whatever was derived from the old references sees the reset (the audit
 \ memo, constant-term-boundary.fs). The serial is deliberately not rewound.
-: lf-cref-reset ( -- ) 0 lf-cref-count ! lf-crefs store-epoch+ ;
+\ The interning table is emptied.
+: lf-cref-reset ( -- ) 0 lf-cref-count ! lf-crefs store-epoch+ lf-cref-table-empty ;
+\ Roll the store back to a mark of it (lib/store.fs's store-mark): ok,
+\ the records made since and their table entries given back; or invalid
+\ with nothing changed for a mark that store-rollback refuses.
+: lf-cref-rollback ( mark -- outcome )
+  dup lf-crefs store-mark-valid? if dup mark-count @ lf-cref-unlist then
+  lf-crefs store-rollback ;
 
 \ A live name pair binds the index to the current name-table generation.
 : lf-cref-name-valid? ( index generation -- flag )
@@ -110,11 +180,8 @@ store-header context-record: lf-crefs
 \ identity matches, and its name and every level pair are still live.
 : lf-cref-index? ( index -- flag ) 0 lf-cref-count @ within lf-cref-state-valid? and ;
 : lf-cref-name-ok? ( slot -- flag ) lf-cref-name@ lf-cref-name-valid? ;
-\ A record's pairs lie within the pool (a corrupted offset is refused
-\ before anything is read).
-: lf-cref-span? ( slot -- flag )
-  dup lf-crec-offset @ swap lf-crec-arity @ over + 0 lf-cref-pool slab-capacity between?
-  swap 0< 0= and ;
+\ A record's pairs lie within the pool (lf-cref-span?, above: a corrupted
+\ offset is refused before anything is read).
 : lf-cref-args-ok? ( slot -- flag )
   dup lf-cref-span? if lf-cref-pairs lf-cref-input-ok? else drop false then ;
 : lf-cref-valid? ( index identity -- flag )
@@ -161,9 +228,31 @@ store-header context-record: lf-crefs
   lf-crefs store-new-slot 0= if drop 2drop 2drop lf-cref-refused exit then
   >r >r r@ lf-cref-levels! r@ lf-cref-name! r> lf-cref-stamp r> swap true ;
 : lf-cref-source? ( name generation -- flag ) lf-cref-name-valid? lf-cref-state-valid? and ;
+\ Interned (see the header): the equal live record, given only where a
+\ new record would be allowed (store-open? after growth, as for terms),
+\ or a new record entered at the empty slot the find gave. A table that
+\ cannot grow only costs sharing.
+: lf-cref-found ( n -- index identity true | false )
+  lf-crefs store-ready drop lf-crefs store-open?
+  if dup lf-cref-slot lf-crec-identity @ true else drop lf-cref-refused then ;
+: lf-cref-enter ( index identity true i | false i -- index identity true | false )
+  swap if >r over r> lf-cref-table htab-put true else drop false then ;
+: lf-cref-intern ( name generation addr count -- index identity true | false )
+  lf-cref-table htab-ready ok? 0= if lf-cref-store exit then
+  2over 2over lf-cref-find if >r 2drop 2drop r> lf-cref-found exit then
+  >r lf-cref-store r> lf-cref-enter ;
+: lf-cref-make ( name generation addr count -- index identity true | false )
+  lf-term-sharing? if lf-cref-intern else lf-cref-store then ;
 : lf-cref-new ( name generation addr count -- index identity true | false )
   2over lf-cref-source? if 2dup lf-cref-input-ok? else false then
-  if lf-cref-store else 2drop 2drop false then ;
+  if lf-cref-make else 2drop 2drop false then ;
+
+\ The identity of the record at an index, or 0 when the index is not
+\ allocated (identities start at 1). A constant node holds only its
+\ reference's index (constant-term-boundary.fs; compact-store plan step
+\ S4): readers of an audited node take the record's identity here.
+: lf-cref-current ( index -- identity )
+  dup lf-crefs store-at? if lf-cref-slot lf-crec-identity @ else drop 0 then ;
 
 \ Name, generation and number of levels of a live reference.
 : lf-cref-read ( index identity -- name generation count true | false )

@@ -11,6 +11,10 @@ require ../../src/core/terms.fs
 require ../../src/kernel/mixed-level-substitute.fs
 require ../support/store-faults.fs
 
+\ The rows count the nodes each substitution makes and gives back, the
+\ same substitution again included: hash-consing (compact-store plan
+\ steps S3, S4) is off.
+false lf-term-sharing!
 create formals 2 cells allot
 create actuals 4 cells allot
 create args 4 cells allot
@@ -44,7 +48,7 @@ T{ 500 run-substitution -> 7 term-serial outcome-ok }T
 T{ 7 term-serial 500 lf-cterm-check -> outcome-ok }T
 T{ 7 lf-term-read -> lf-tag-app 6 5 true }T
 T{ 6 lf-term-read -> lf-tag-app 4 4 true }T
-T{ 4 lf-term-read -> lf-tag-constant 1 lf-cref-serial @ true }T
+T{ 4 lf-term-read -> lf-tag-constant 1 0 true }T
 T{ 1 lf-cref-serial @ 0 lf-cref-level -> 5 level-serial true }T
 T{ 5 lf-level-read -> lf-level-tag-max 2 3 true }T
 T{ 1 lf-cref-serial @ 1 lf-cref-level -> 3 3 lf-level-identity drop true }T
@@ -108,7 +112,7 @@ kept-first-fixture 2constant kept-first
 lf-term-count @ constant kept-index
 T{ kept-first formals actuals 2 500 lf-mixed-level-substitute
    -> kept-index term-serial outcome-ok }T
-T{ kept-index lf-term-read -> lf-tag-constant 3 lf-cref-serial @ true }T
+T{ kept-index lf-term-read -> lf-tag-constant 3 0 true }T
 T{ 3 lf-cref-serial @ 1 lf-cref-level -> 3 3 lf-level-identity drop true }T
 2 actuals pair! 3 actuals 2 cells + pair!
 \ Formal membership alone must not bless an out-of-context input level.

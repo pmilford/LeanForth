@@ -41,6 +41,9 @@ begin-structure /lf-stamp
   field: lf-stamp-own        \ the node's own identity, stamped when made
   field: lf-stamp-level      \ a symbolic Sort's level identity
 end-structure
+\ A constant's unit holds its reference's identity where a Sort's holds
+\ its level's (constant-term-boundary.fs; compact-store plan step S4).
+: lf-stamp-ref ( unit -- addr ) lf-stamp-level ;
 /lf-stamp context-slab: lf-stamp-units
 /htab context-record: lf-stamp-table
 /lf-stamp context-record: lf-stamp-spare

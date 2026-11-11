@@ -10,6 +10,10 @@ require ../../src/core/names.fs
 require ../../src/core/symbolic-session.fs
 require ../../src/core/terms.fs
 require ../../src/kernel/mixed-compare.fs
+\ The rows compare equal terms made as nodes of their own, indexed by the
+\ order they are made in: hash-consing (compact-store plan steps S3, S4)
+\ is off.
+false lf-term-sharing!
 create ids 32 cells allot
 create args 4 cells allot
 variable name-x variable name-y variable num-root variable num-child
@@ -54,6 +58,20 @@ T{ 10 h 11 h 1000 lf-mixed-compare -> outcome-ok }T
 T{ 12 h 13 h 1000 lf-mixed-compare -> outcome-ok }T
 T{ 14 h 15 h 1000 lf-mixed-compare -> outcome-unknown }T
 T{ 10 h 12 h 1000 lf-mixed-compare -> outcome-unknown }T
+\ Lean's == at every pair (expr_eq_fn.cpp 44-58; plan step S4): one node
+\ is equal at once, at no cost, wherever the pair is met. app(fun, x a)
+\ against app(fun, x' a) with fun one node and x, x' two equal constants:
+\ the pair of fun is not walked; the other pair costs its app, its
+\ constants and their names (lf-mixed-compare, which walks every pair, a
+\ unit per node, is the walk before step S4).
+: eq-fuel ( a b -- flag outcome fuel ) 1000 lf-expr-equal lf-mcompare-fuel @ ;
+: eq-app ( f a -- node ) lf-term-app 0= abort" app" ;
+create eq-mark /store-mark allot   eq-mark lf-terms store-mark drop
+12 h drop 10 h drop eq-app constant eq-left
+12 h drop 11 h drop eq-app constant eq-right
+T{ eq-left eq-right eq-fuel -> true outcome-ok 994 }T
+T{ eq-left eq-left eq-fuel -> true outcome-ok 1000 }T
+T{ eq-mark lf-term-rollback -> outcome-ok }T
 \ Fuel left, pinned against the previous implementation: each audit visit
 \ and each term, level and name-component comparison costs one unit; the
 \ arity check costs nothing.

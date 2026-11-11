@@ -39,17 +39,25 @@ create canon-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf-in
 : canon-listed ( dst -- dst )
   context-slabs @ begin ?dup while >r dup r@ canon-listed-at canon-slab r> @ repeat ;
 \ Hash tables (lib/htab.fs; compact-store plan step S3): the term store's
-\ hash-consing table (core/terms.fs), the stamps' table
-\ (core/generation-handles.fs) and, when loaded, the reached set of
-\ universe substitution (kernel/mixed-level-substitute.fs): the block
-\ address, a table record's first field.
+\ hash-consing table (core/terms.fs), the level store's and the
+\ references' (core/levels.fs, core/constant-references.fs; step S4), the
+\ stamps' table (core/generation-handles.fs) and, when loaded, the reached
+\ set of universe substitution (kernel/mixed-level-substitute.fs): the
+\ block address, a table record's first field.
 : canon-htab ( dst htab -- ) canon-at 0 swap ! ;
 : canon-core-htabs ( dst -- dst )
-  dup lf-term-table canon-htab dup lf-stamp-table canon-htab ;
-[defined] lf-mls-set [if]
-: canon-htabs ( dst -- dst ) canon-core-htabs dup lf-mls-set canon-htab ;
+  dup lf-term-table canon-htab dup lf-stamp-table canon-htab
+  dup lf-level-table canon-htab dup lf-cref-table canon-htab ;
+\ And, when loaded, the pairs == met (kernel/mixed-compare.fs, step S4).
+[defined] lf-meq-table [if]
+: canon-kernel-htabs ( dst -- dst ) dup lf-meq-table canon-htab ;
 [else]
-: canon-htabs ( dst -- dst ) canon-core-htabs ;
+: canon-kernel-htabs ( dst -- dst ) ;
+[then]
+[defined] lf-mls-set [if]
+: canon-htabs ( dst -- dst ) canon-core-htabs canon-kernel-htabs dup lf-mls-set canon-htab ;
+[else]
+: canon-htabs ( dst -- dst ) canon-core-htabs canon-kernel-htabs ;
 [then]
 \ Blank every heap field in the copy at dst.
 : canon-zero ( dst -- )
@@ -77,11 +85,18 @@ create canon-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf-in
 \ The table's size and entries (its slots' order follows its history).
 : canon-htab-digest ( h htab -- h' ) dup htab-slots rot swap canon-mix swap htab-count canon-mix ;
 : canon-core-digest ( h -- h' )
-  lf-term-table canon-htab-digest lf-stamp-table canon-htab-digest ;
-[defined] lf-mls-set [if]
-: canon-htabs-digest ( h -- h' ) canon-core-digest lf-mls-set canon-htab-digest ;
+  lf-term-table canon-htab-digest lf-stamp-table canon-htab-digest
+  lf-level-table canon-htab-digest lf-cref-table canon-htab-digest ;
+[defined] lf-meq-table [if]
+: canon-kernel-digest ( h -- h' ) lf-meq-table canon-htab-digest ;
 [else]
-: canon-htabs-digest ( h -- h' ) canon-core-digest ;
+: canon-kernel-digest ( h -- h' ) ;
+[then]
+[defined] lf-mls-set [if]
+: canon-htabs-digest ( h -- h' )
+  canon-core-digest canon-kernel-digest lf-mls-set canon-htab-digest ;
+[else]
+: canon-htabs-digest ( h -- h' ) canon-core-digest canon-kernel-digest ;
 [then]
 : canon-digest ( -- h )
   0 canon-stores# 0 do i canon-store# canon-store-digest loop

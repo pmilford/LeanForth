@@ -12,6 +12,9 @@ require ../../src/kernel/mixed-level-substitute.fs
 require ../../src/kernel/mixed-signature-probe.fs
 require ../support/store-faults.fs
 
+\ The rows count the nodes each probe makes and gives back: hash-consing
+\ (compact-store plan steps S3, S4) is off.
+false lf-term-sharing!
 create formals 2 cells allot
 create actuals 4 cells allot
 create args 4 cells allot
@@ -74,7 +77,7 @@ T{ token 1+ candidate actuals 2 500 lf-msp-specialize -> outcome-invalid }T
 T{ 2 500 specialize -> 7 term-serial outcome-ok }T
 T{ 7 lf-term-read -> lf-tag-app 6 5 true }T
 T{ 6 lf-term-read -> lf-tag-app 4 4 true }T
-T{ 4 lf-term-read -> lf-tag-constant 1 lf-cref-serial @ true }T
+T{ 4 lf-term-read -> lf-tag-constant 1 0 true }T
 T{ 1 lf-cref-serial @ 0 lf-cref-level -> 5 level-serial true }T
 T{ 5 lf-level-read -> lf-level-tag-max 2 3 true }T
 actuals cell+ @ constant good-id

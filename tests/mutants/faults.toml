@@ -1046,14 +1046,6 @@ test = "$GFORTH tests/core/check-declaration.fs"
 reason = "entries outlive their check and their job's local context"
 
 [[fault]]
-id = "cache-sort-level-ignored"
-file = "src/kernel/caches.fs"
-old = '''  swap lf-term-first@ lf-level-id if 0 true else drop false then ;'''
-new = '''  nip 0 0 true ;'''
-test = "$GFORTH tests/core/check-declaration.fs"
-reason = "Sorts of different levels share a skeleton: a false =="
-
-[[fault]]
 id = "cache-skip-early"
 file = "src/kernel/caches.fs"
 old = '''  lf-bits-loose swap frame-context @ > 0= ;'''
@@ -1076,15 +1068,6 @@ old = '''  lf-cent-values over lf-term-identity if = else drop false then dup 0=
 new = '''  lf-cent-values drop true ;'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "a cached value whose node was discarded is used"
-
-[[fault]]
-id = "cache-dead-fvar"
-file = "src/kernel/caches.fs"
-old = '''  over lf-fvar-live? 0= if 2drop false exit then
-'''
-new = ''''''
-test = "$GFORTH tests/core/check-declaration.fs"
-reason = "a free variable of an emptied local context gets a skeleton"
 
 [[fault]]
 id = "conv-no-as-equal"
@@ -1412,7 +1395,6 @@ old = '''  lf-lmk-offset nip swap lf-lmk-offset nip > if 2 else 1 then ;'''
 new = '''  lf-lmk-offset nip swap lf-lmk-offset nip < if 1 else 2 then ;'''
 test = "$GFORTH tests/core/level-compare.fs"
 reason = "mk_max of two explicit levels of equal depth gives the second, where Lean gives the first"
-
 
 [[fault]]
 id = "lmk-facts-never-stale"
@@ -3110,7 +3092,6 @@ test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "the review's L1: a failed attach keeps the generation, so the input fed before still looks intact"
 
 # --- the release hook of checker contexts, continued (src/lib/context.fs)
-
 
 [[fault]]
 id = "input-index-unhooked"
@@ -6342,40 +6323,6 @@ reason = "rvCONV L1: is_def_eq_core's direct calls keep their successes, which L
 equivalent = "a pair kept is one is_def_eq_core showed equal, and is_def_eq answers it the same (its success is the core's); a verdict could differ only where Lean's is_def_eq is not symmetric on such a pair, which no known case shows (review rvCONV L1)"
 
 [[fault]]
-id = "cache-const-universes-dropped"
-file = "src/kernel/caches.fs"
-old = '''  swap lf-term-first@ lf-cref-slot dup lf-crec-name @ swap lf-cref-list
-  if true else 2drop false then ;'''
-new = '''  swap lf-term-first@ lf-cref-slot lf-crec-name @ 0 true ;'''
-test = "$GFORTH tests/core/check-block.fs"
-reason = "rvCACHE: a constant's key leaves out its universe arguments: PUnit.{2} gets PUnit.{1}'s type, so a Type 1 is accepted as a Type (cache.universe-arguments-differ)"
-
-[[fault]]
-id = "cache-proj-index-dropped"
-file = "src/kernel/caches.fs"
-old = '''    lf-tag-proj of lf-tk-pair endof'''
-new = '''    lf-tag-proj of swap lf-term-first@ 0 true endof'''
-test = "$GFORTH tests/core/check-block.fs"
-reason = "rvCACHE: a projection's key leaves out its index: p.2 gets p.1's type (cache.projection-index-differs)"
-
-[[fault]]
-id = "cache-lit-value-dropped"
-file = "src/kernel/caches.fs"
-old = '''  over lf-lit-small? if over lf-lit-cell rot lf-term-second@ true else lf-tk-own then ;'''
-new = '''  over lf-lit-small? if swap lf-term-second@ 0 swap true else lf-tk-own then ;'''
-test = "$GFORTH tests/core/check-block.fs"
-reason = "rvCACHE: a literal's key leaves out its value: 10 and 11 share a skeleton and are equal by == (iota.nat-literal-major-wrong accepted)"
-
-[[fault]]
-id = "cache-fvar-entry-number"
-file = "src/kernel/caches.fs"
-old = '''  swap lf-term-identity if 0 true else drop false then ;'''
-new = '''  swap lf-term-first@ 0 true ;'''
-test = "$GFORTH tests/core/check-block.fs && $GFORTH tests/core/check-declaration.fs"
-reason = "rvCACHE: a free variable keyed by its entry number, which a discarded entry's successor reuses within a job"
-gap = "entries are reused only after a discard, which the caches make only when a store has less than its keep threshold left (lf-caches-keep?); no test checks a declaration near that threshold whose cached value is a source node keyed by a reused entry (plan task 4.2.7, review rvCACHE test gaps)"
-
-[[fault]]
 id = "cache-pair-open-terms"
 file = "src/kernel/caches.fs"
 old = '''  lf-term-facts if lf-bits-loose if drop false else true then else false then ;'''
@@ -6401,14 +6348,6 @@ new = '''0 constant lf-caches-term-room'''
 test = "$GFORTH tests/core/check-block.fs && $GFORTH tests/core/check-declaration.fs"
 reason = "rvCACHE: scratch is kept until the term store is full, so a small store (a test's) fills where the uncached run decides"
 gap = "no test checks a declaration in a store whose room lies between the run's live nodes and all the nodes it makes (the resource gap of ADR 0014 Amendment 1, plan task 4.2.7c)"
-
-[[fault]]
-id = "cache-bvar-index-unbounded"
-file = "src/kernel/caches.fs"
-old = '''  over dup lf-term-first@ swap lf-term-second@ lf-repr-leaf? 2 pick lf-tk-index? and'''
-new = '''  over dup lf-term-first@ swap lf-term-second@ lf-repr-leaf?'''
-test = "$GFORTH tests/core/check-declaration.fs"
-reason = "rvCACHE L1: a bound variable of index 2^61 or more gets facts whose loose count overflowed (the bits are four times it since plan step CS S2)"
 
 [[fault]]
 id = "cache-infer-not-source"
@@ -7107,30 +7046,6 @@ test = "$GFORTH tests/present/term-printer.fs"
 reason = "S2: a root not checked: a print reads term and level stores whose seals are broken"
 
 [[fault]]
-id = "s2-params-of-parameter"
-file = "src/kernel/caches.fs"
-old = '''    lf-level-tag-param of drop 1 endof'''
-new = '''    lf-level-tag-param of drop 0 endof'''
-test = "$GFORTH tests/core/check-declaration.fs"
-reason = "S2: a universe parameter is not counted in its level's facts (has_param_univ false)"
-
-[[fault]]
-id = "s2-params-of-children"
-file = "src/kernel/caches.fs"
-old = '''  2dup or 3 and >r lf-bits-loose swap lf-bits-loose swap lf-tf-loose 2 lshift r> or ;'''
-new = '''  2dup or 1 and >r lf-bits-loose swap lf-bits-loose swap lf-tf-loose 2 lshift r> or ;'''
-test = "$GFORTH tests/core/check-declaration.fs"
-reason = "S2: a parameter in a child is not one in its parent"
-
-[[fault]]
-id = "s2-params-of-constant"
-file = "src/kernel/caches.fs"
-old = '''    lf-tag-constant of lf-const-params lf-param-bits endof'''
-new = '''    lf-tag-constant of drop 0 endof'''
-test = "$GFORTH tests/core/check-declaration.fs"
-reason = "S2: a constant's universe arguments are not looked at for parameters"
-
-[[fault]]
 id = "s2-data-range-unbounded"
 file = "src/kernel/caches.fs"
 old = '''  dup lf-bits-loose dup lf-data-ranges u< 0= if 2drop false exit then'''
@@ -7171,14 +7086,6 @@ old = '''  lf-mls-unseen ok-then? 0= if nip exit then lf-mls-walk lf-mls-forget 
 new = '''  lf-mls-walk lf-mls-forget ;'''
 test = "$GFORTH tests/core/mixed-level-substitute.fs"
 reason = "FX7/S3: a term an earlier audit reached is skipped (the set is not emptied first), so it is neither checked nor listed nor rebuilt"
-
-[[fault]]
-id = "fx7-mls-skip-first"
-file = "src/kernel/mixed-level-substitute.fs"
-old = '''  over lf-mls-again? if lf-walk-skip else lf-mls-first then ;'''
-new = '''  over lf-mls-again? if lf-mls-first else lf-walk-skip then ;'''
-test = "$GFORTH tests/core/mixed-level-substitute.fs"
-reason = "FX7: a term is skipped the first time and checked only when reached again"
 
 [[fault]]
 id = "fx7-lsubst-every-path"
@@ -7336,14 +7243,6 @@ old = '''  over lf-audited? if 2drop outcome-ok else walk-push-outcome then ;'''
 new = '''  2drop outcome-ok ;'''
 test = "$GFORTH tests/core/constant-term-boundary.fs"
 reason = "S6C: no child is pushed, as if every one were kept: only roots are checked"
-
-[[fault]]
-id = "s6c-cref-reset-same-generation"
-file = "src/core/constant-references.fs"
-old = ''': lf-cref-reset ( -- ) 0 lf-cref-count ! lf-crefs store-epoch+ ;'''
-new = ''': lf-cref-reset ( -- ) 0 lf-cref-count ! ;'''
-test = "$GFORTH tests/core/constant-term-boundary.fs"
-reason = "S6C: a reference reset leaves the generation, so the memo keeps a constant whose reference went"
 
 [[fault]]
 id = "s6c-check-no-renew"
@@ -7509,3 +7408,238 @@ old = '''  lf-minfer-close ok-then? 0= if lf-ci-short false exit then'''
 new = '''  lf-minfer-close ok-then? 0= if drop outcome-ok false exit then'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "6.5.5: a closing for a key that runs out of room lets inference go on uncached, so a refused allocation does not end the block full"
+
+# --- compact-store plan step S4 (agent S4) ---------------------------------
+[[fault]]
+id = "cache-dead-fvar"
+file = "src/kernel/caches.fs"
+old = '''  dup dup lf-term-tag@ lf-tag-fvar = if lf-fvar-live? else drop false then lf-live! ;'''
+new = '''  dup dup lf-term-tag@ lf-tag-fvar = if drop true else drop false then lf-live! ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "a free variable of an emptied local context gets facts (since S4 the free-variable memo's leaf)"
+
+[[fault]]
+id = "fx7-mls-skip-first"
+file = "src/kernel/mixed-level-substitute.fs"
+old = '''  over lf-mls-skip? if lf-walk-skip else lf-mls-first then ;'''
+new = '''  over lf-mls-skip? if lf-mls-first else lf-walk-skip then ;'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "FX7: a term is skipped the first time and checked only when reached again"
+
+[[fault]]
+id = "s6c-cref-reset-same-generation"
+file = "src/core/constant-references.fs"
+old = ''': lf-cref-reset ( -- ) 0 lf-cref-count ! lf-crefs store-epoch+ lf-cref-table-empty ;'''
+new = ''': lf-cref-reset ( -- ) 0 lf-cref-count ! lf-cref-table-empty ;'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S6C: a reference reset leaves the generation, so the memo keeps a constant whose reference went"
+
+[[fault]]
+id = "s4-levels-collision-equal"
+file = "src/core/levels.fs"
+old = '''  >r lf-level-slot node@ r> lf-term-key= ;'''
+new = '''  2drop drop true ;'''
+test = "$GFORTH tests/core/levels.fs"
+reason = "S4: a level found under the same hash run is taken as equal without comparing its fields"
+
+[[fault]]
+id = "s4-levels-rollback-keeps-entries"
+file = "src/core/levels.fs"
+old = '''  dup lf-levels store-mark-valid? if dup mark-count @ lf-level-unlist then'''
+new = ''''''
+test = "$GFORTH tests/core/levels.fs"
+reason = "S4: a level rollback leaves the given-back records' table entries"
+
+[[fault]]
+id = "s4-levels-reset-keeps-table"
+file = "src/core/levels.fs"
+old = '''  lf-level-table-empty
+'''
+new = ''''''
+test = "$GFORTH tests/core/levels.fs"
+reason = "S4: a level reset keeps the table's entries of the records it discarded"
+
+[[fault]]
+id = "s4-levels-zero-not-entered"
+file = "src/core/levels.fs"
+old = '''  lf-level-restart lf-levels store-epoch+ lf-level-enter-zero ;'''
+new = '''  lf-level-restart lf-levels store-epoch+ ;'''
+test = "$GFORTH tests/core/levels.fs"
+reason = "S4: the zero level is not in the table, so a zero made by lf-level-add is a second zero"
+
+[[fault]]
+id = "s4-levels-found-unchecked"
+file = "src/core/levels.fs"
+old = '''  lf-levels store-open? if true else drop lf-level-refused then ;'''
+new = '''  true ;'''
+test = "$GFORTH tests/core/levels.fs"
+reason = "S4: an equal level is given where a new one would be refused"
+
+[[fault]]
+id = "s4-crefs-list-interned-twice"
+file = "src/core/constant-references.fs"
+old = '''  lf-term-sharing? if lf-cref-intern else lf-cref-store then ;'''
+new = '''  lf-cref-store ;'''
+test = "$GFORTH tests/core/constant-references.fs"
+reason = "S4: an equal reference (name and level list) is made again as a record of its own"
+
+[[fault]]
+id = "s4-crefs-pairs-ignored"
+file = "src/core/constant-references.fs"
+old = '''  swap lf-cref-pairs rot 2 cells + @ swap lf-cref-pairs= ;'''
+new = '''  2drop true ;'''
+test = "$GFORTH tests/core/constant-references.fs"
+reason = "S4: references of one name and arity are taken as equal whatever their levels"
+
+[[fault]]
+id = "s4-crefs-rollback-keeps-entries"
+file = "src/core/constant-references.fs"
+old = '''  dup lf-crefs store-mark-valid? if dup mark-count @ lf-cref-unlist then'''
+new = ''''''
+test = "$GFORTH tests/core/constant-references.fs"
+reason = "S4: a reference rollback leaves the given-back records' table entries"
+
+[[fault]]
+id = "s4-crefs-found-unchecked"
+file = "src/core/constant-references.fs"
+old = '''  lf-crefs store-ready drop lf-crefs store-open?'''
+new = '''  true'''
+test = "$GFORTH tests/core/constant-references.fs"
+reason = "S4: an equal reference is given where a new one would be refused"
+
+[[fault]]
+id = "s4-reusable-always"
+file = "src/core/terms.fs"
+old = '''  dup lf-term-reusable? if lf-term-found exit then'''
+new = '''  lf-term-found exit'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S4: a found node is given again unasked, so a raw unstamped node is given out as a constant"
+
+[[fault]]
+id = "s4-reusable-constant-unstamped"
+file = "src/core/constant-term-boundary.fs"
+old = '''    lf-tag-constant of lf-cterm-made? endof'''
+new = '''    lf-tag-constant of drop true endof'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S4: a found constant is given again without its stamps"
+
+[[fault]]
+id = "s4-reusable-ref-ignored"
+file = "src/core/constant-term-boundary.fs"
+old = '''  dup lf-cterm-stamped? if lf-cterm-ref-live? else drop false then ;'''
+new = '''  lf-cterm-stamped? ;'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S4: a found constant whose reference was reset and made again at its index is given again"
+
+[[fault]]
+id = "s4-reusable-sort-level-ignored"
+file = "src/core/constant-term-boundary.fs"
+old = '''    lf-tag-symbolic-sort of dup lf-term-first@ swap lf-hsort-stamped? endof'''
+new = '''    lf-tag-symbolic-sort of drop true endof'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S4: a found Sort whose level was reset and made again at its index is given again"
+
+[[fault]]
+id = "s4-const-audit-current-ref"
+file = "src/core/constant-term-boundary.fs"
+old = '''  >r r@ walk-node @ lf-cterm-ref lf-cref-levels'''
+new = '''  >r r@ walk-node @ lf-term-first@ dup lf-cref-current lf-cref-levels'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S4: the audit takes the record now at a constant's index instead of the stamped reference"
+
+[[fault]]
+id = "s4-const-ref-in-field"
+file = "src/core/constant-term-boundary.fs"
+old = '''  >r lf-tag-constant swap 0 lf-term-add lf-hterm-result'''
+new = '''  >r lf-tag-constant swap r@ lf-term-add lf-hterm-result'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "rvS36 L1: a constant keeps its reference's identity in a 32-bit field (full past 2^32 - 1)"
+
+[[fault]]
+id = "s4-cache-key-stale-node"
+file = "src/kernel/caches.fs"
+old = '''  swap lf-term-identity 0= if drop false exit then swap lf-data-bits true ;'''
+new = '''  over lf-term-identity nip 0= if drop false exit then lf-data-bits true ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S4: a cache keys a node by its index, so a stale entry answers a new node"
+
+[[fault]]
+id = "s4-fvmemo-children-live"
+file = "src/kernel/caches.fs"
+old = '''  dup lf-term-data-word lf-data-fvar? 0= if drop true true exit then lf-live@ ;'''
+new = '''  drop true true ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S4: a node over a dead free variable gets facts (the memo does not walk to the leaf)"
+
+[[fault]]
+id = "s4-eq-identity-skipped"
+file = "src/kernel/mixed-compare.fs"
+old = '''  >r 2dup = if 2drop r> drop outcome-ok exit then'''
+new = '''  >r'''
+test = "$GFORTH tests/core/mixed-compare.fs"
+reason = "S4: == walks a pair of one node instead of answering at once (Lean's is_eqp)"
+
+[[fault]]
+id = "s4-eq-apart-equal"
+file = "src/kernel/mixed-compare.fs"
+old = '''  lf-meq-word swap lf-meq-word over -1 = over -1 = or if 2drop false else <> then ;'''
+new = '''  lf-meq-word swap lf-meq-word over -1 = over -1 = or if 2drop false else = then ;'''
+test = "$GFORTH tests/core/mixed-convert.fs"
+reason = "S4: == takes equal data words for a difference"
+
+[[fault]]
+id = "s4-eq-seen-first"
+file = "src/kernel/mixed-compare.fs"
+old = '''  if drop 2drop true else lf-meq-keep false then ;'''
+new = '''  if drop 2drop true else lf-meq-keep true then ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S4: == takes a pair met for the first time as met before, never walking it"
+
+[[fault]]
+id = "s4-eq-one-head-any"
+file = "src/kernel/mixed-compare.fs"
+old = '''  if lf-mcompare-firsts = else 2drop false then ;'''
+new = '''  2drop true ;'''
+test = "$GFORTH tests/core/mixed-convert.fs"
+reason = "S4: == takes any two constants or Sorts as one"
+
+[[fault]]
+id = "s4-mls-closed-always"
+file = "src/kernel/mixed-level-substitute.fs"
+old = ''': lf-mls-closed? ( node -- flag ) lf-term-data@ if lf-data-params? 0= else false then ;'''
+new = ''': lf-mls-closed? ( node -- flag ) drop true ;'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "S4: universe substitution skips every term, parameters or not"
+
+[[fault]]
+id = "s4-mls-image-unlisted"
+file = "src/kernel/mixed-level-substitute.fs"
+old = '''  if nip lf-mls-image-cell @ else drop then ;'''
+new = '''  drop nip lf-mls-image-cell @ ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S4: a term the audit skipped takes the image of the term listed where it would be"
+
+[[fault]]
+id = "s4-lcmp-memo-no-generation"
+file = "src/kernel/level-compare.fs"
+old = '''  lf-level-identity drop lf-lscope-generation @ ;'''
+new = '''  lf-level-identity drop 1 ;'''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "S4: a level kept in scope stays kept when the parameter context changes"
+
+[[fault]]
+id = "s4-lcmp-memo-no-identity"
+file = "src/kernel/level-compare.fs"
+old = '''  dup lf-lcmp-unit 2@ rot lf-lcmp-stamp d= ;'''
+new = '''  dup lf-lcmp-unit 2@ nip swap lf-lcmp-stamp nip = ;'''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "S4: a level index made again after a rollback counts as kept in scope"
+
+[[fault]]
+id = "s4-lcmp-memo-always"
+file = "src/kernel/level-compare.fs"
+old = '''  lf-audit-on? 0= if drop false exit then
+'''
+new = ''''''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "S4: a level kept in scope while the memo was on counts as kept after it is off"

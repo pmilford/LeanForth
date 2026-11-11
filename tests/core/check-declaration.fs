@@ -63,11 +63,14 @@ T{ 1 cb 0 cb capp cbits  cz csort 0 cb lf-term-lam must cbits  0 cb 0 cb lf-term
 \ bits are four times the loose count (compact-store plan step S2: a
 \ universe-parameter bit joined the free-variable bit). Since step S3 a
 \ term's fields are 32 bits wide (core/terms.fs): such an index cannot be
-\ stored (the store refuses it, full), and the largest one it holds has
-\ facts.
+\ stored (the store refuses it, full). Since step S4 the facts are the
+\ data word's (no skeleton memo): an index whose range is 2^20 - 1 or
+\ more (Lean's own limit, expr.cpp 107-109) has none, the largest below
+\ it has.
 T{ max-n lf-term-bvar  max-n 2/ lf-term-bvar  max-n 2 rshift 1- lf-term-bvar
    -> false false false }T
-T{ u32-mask cb cbits -> u32-mask 1+ 2 lshift }T
+T{ u32-mask cb lf-term-facts  lf-data-unknown 1- cb lf-term-facts -> false false }T
+T{ lf-data-unknown 2 - cb cbits -> lf-data-unknown 1- 2 lshift }T
 0 cb constant ckey
 create cbefore /lf-scratch allot
 T{ cbefore lf-scratch-mark -> outcome-ok }T
@@ -77,6 +80,14 @@ T{ cbefore lf-scratch-rollback -> outcome-ok }T  4 cb constant cnew
 T{ cnew cval =  ckey lf-cache-whnf lf-cache-node@ -> true false }T
 T{ ckey cnew lf-cache-whnf lf-cache-node!  lf-caches-clear  ckey lf-cache-whnf lf-cache-node@
    -> false }T
+\ A key is its node's identity (compact-store plan step S4): a key given
+\ back, its index made again as another node, misses (by index it would
+\ hit the stale entry).
+T{ cbefore lf-scratch-mark -> outcome-ok }T
+5 cb 6 cb capp constant ckey2
+T{ ckey2 ckey lf-cache-whnf lf-cache-node!  cbefore lf-scratch-rollback -> outcome-ok }T
+6 cb 5 cb capp constant ckey3
+T{ ckey3 ckey2 =  ckey3 lf-cache-whnf lf-cache-node@ -> true false }T
 : cmode ( flag -- cache ) lf-minfer-aside @ swap lf-minfer-aside ! lf-ci-table swap lf-minfer-aside ! ;
 T{ true cmode false cmode -> lf-cache-infer-only lf-cache-infer }T
 cz csort constant ctype0   cz lf-level-succ must csort constant ctype1
@@ -85,6 +96,8 @@ T{ ctype0 lf-lctx-local ok? swap constant cfvar -> true }T
 T{ cfvar cbits -> 1 }T
 lf-lctx-reset lf-caches-clear
 T{ cfvar lf-term-facts -> false }T
+\ Nor has a node above it (the free-variable memo walks to the leaf).
+T{ cfvar 1 cb capp lf-term-facts -> false }T
 \ m_whnf_core keeps the result of a whnf_core visit without cheap_proj,
 \ never with it (type_checker.cpp 547; whnf.fs, plan task 5.2.2): the
 \ storing step at the end of a visit, its key saved on the frames.
@@ -597,7 +610,9 @@ fc-decl check thm safe wrong 0 TYPE P S z P S z P V 1 V 2 VALUE L S z L S z L V 
 T{ 700 swept -> outcome-rejected true true }T
 \ CLI2's case (tests/cli/unfold.lean): Implies A A against A → A needs
 \ Implies unfolded by lazy delta reduction: accepted, as Lean does, from
-\ 67, the fuel the whole check takes since the audits check each node
+\ 62, the fuel the whole check takes since == is Lean's at every pair
+\ (plan step S4: one node is equal and differing data words apart, at
+\ no cost); 67 since the audits check each node
 \ once per check and read V1 and U2 from data words (plan step S6 (c);
 \ 114 since agent EX's audits check each shared node once per audit,
 \ 131 since plan task 4.2.7, Lean's caches and cached
@@ -609,7 +624,7 @@ T{ 700 swept -> outcome-rejected true true }T
 fc-case sweep-unfolding
 fc-decl before def safe Implies 0 TYPE P S z P S z S z VALUE L S z L S z P V 1 V 1
 fc-decl check thm safe impliesSelf 0 TYPE P S z A A C Implies 0 V 0 V 0 VALUE L S z L V 0 V 0
-T{ 400 sweep -> outcome-ok 67 true }T
+T{ 400 sweep -> outcome-ok 62 true }T
 \ In a check, with the caches on, lf-term-data@ (core/terms.fs) is the
 \ skeleton memo's facts as one data word (compact-store plan step S2),
 \ its depth aside: every node inference visits (its lf-minfer-entry hook,

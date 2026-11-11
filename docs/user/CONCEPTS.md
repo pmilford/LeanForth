@@ -100,7 +100,7 @@ defer .term
     lf-tag-app      of ." (" swap .term space .term ." )" endof
     lf-tag-lam      of ." (fun " .binder endof
     lf-tag-pi       of ." (Pi " .binder endof
-    lf-tag-constant of .constant endof
+    lf-tag-constant of lf-cterm-pair .constant endof
     nip nip ." ?" endcase ;
 :noname ( term -- ) lf-term-read made .term-node ; is .term
 

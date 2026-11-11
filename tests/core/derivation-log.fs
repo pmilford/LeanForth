@@ -198,7 +198,7 @@ create one-pair 2 cells allot
 : copied-ref ( -- slot ) 0 lf-log-cref-slot ;
 : rebuilt ( -- name count )
   lf-lv-open must
-  1 lf-log-record logrec-a @ lf-lv-term must dup lf-term-first@ swap lf-term-second@
+  1 lf-log-record logrec-a @ lf-lv-term must lf-term-first@ dup lf-cref-current
   lf-cref-read must nip lf-lv-release lf-lv-close throw ;
 lf-log-terms lf-log-start
 T{ scratch-constant 0 1 100 lf-mixed-shift nip nip lf-log-count lf-log-cref-copies
