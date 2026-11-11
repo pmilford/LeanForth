@@ -9,13 +9,13 @@
 \ first; this module only reads the reduced node and its application
 \ spine. A spine ends at a let term (core/let-terms.fs), as Lean's
 \ get_app_fn stops at Expr.letE: the let term is the head, of no kind
-\ here (lf-head-none), never rigid. Untrusted; part of the first checker's [kernel] path,
-\ not yet through the review gate.
+\ here (lf-head-none), never rigid; at a projection
+\ (core/projections.fs), flexible as a constant is. Untrusted; part of
+\ the first checker's [kernel] path, not yet through the review gate.
 \ State: none. The tag constants are shared and read-only.
 
 require ../lib/lib.fs
 require ../core/constant-term-boundary.fs
-require ../core/let-terms.fs
 require ../core/local-context.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
@@ -34,10 +34,10 @@ require ../core/terms.fs
 \ The head of a node's application spine and the number of arguments.
 \ Unchecked: node is valid. Children come earlier in the store, so the
 \ spine ends within lf-term-capacity steps (the bound only guards a
-\ corrupted store). A let term is an application that ends the spine.
+\ corrupted store). A let term or a projection is no application: it
+\ ends the spine.
 : lf-mhead-app? ( node -- flag ) lf-term-tag@ lf-tag-app = ;
-: lf-mhead-step? ( node -- flag ) dup lf-mhead-app? if lf-let? 0= else drop false then ;
-: lf-mhead-more? ( node count -- flag ) lf-term-capacity < swap lf-mhead-step? and ;
+: lf-mhead-more? ( node count -- flag ) lf-term-capacity < swap lf-mhead-app? and ;
 : lf-mhead-spine ( node -- head count )
   0 begin 2dup lf-mhead-more? while 1+ swap lf-term-first@ swap repeat ;
 
@@ -47,7 +47,7 @@ require ../core/terms.fs
     lf-tag-pi of lf-head-pi endof  lf-tag-lam of lf-head-lam endof
     lf-tag-bvar of lf-head-var endof  lf-tag-fvar of lf-head-var endof
     lf-tag-constant of lf-head-constant endof
-    lf-tag-proj of lf-head-constant endof  lf-head-none swap endcase ;
+    lf-tag-projection of lf-head-constant endof  lf-head-none swap endcase ;
 : lf-mhead-applied ( kind -- kind' )
   case lf-head-sort of lf-head-applied endof
     lf-head-pi of lf-head-applied endof

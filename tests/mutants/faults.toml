@@ -5359,8 +5359,8 @@ reason = "5.2.2: Lean's == takes two projections of one term that differ in the 
 [[fault]]
 id = "pj-proj-is-app"
 file = "src/kernel/defeq.fs"
-old = '''  dup lf-dq-tag lf-tag-app = if dup lf-let? swap lf-dq-proj? or 0= else drop false then ;'''
-new = '''  dup lf-dq-tag lf-tag-app = if lf-let? 0= else drop false then ;'''
+old = ''': lf-dq-app? ( node -- flag ) lf-dq-tag lf-tag-app = ;'''
+new = ''': lf-dq-app? ( node -- flag ) lf-dq-tag dup lf-tag-app = swap lf-tag-projection = or ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.2 (agent PJ): is_def_eq_app takes a projection for an application of its leaf again; proj.app-eta (Init's UInt8.toNat_toUInt32) is no longer accepted"
 
@@ -5679,42 +5679,42 @@ reason = "5.2.3 strings: in LaTeX a literal's _ { } \\ are written unescaped"
 # --- let terms (plan task 4.2.3) -------------------------------------------
 
 [[fault]]
-id = "let-audit-any-flag"
-file = "src/core/let-terms.fs"
-old = ''': lf-let-check ( first second walk -- outcome ) drop 0= swap 0 2 within and flag>outcome ;'''
-new = ''': lf-let-check ( first second walk -- outcome ) drop 2drop outcome-ok ;'''
+id = "let-audit-any-shape"
+file = "src/core/constant-term-boundary.fs"
+old = '''    lf-tag-let of over lf-tag-lam lf-cterm-shaped endof'''
+new = '''    lf-tag-let of lf-cterm-children endof'''
 test = "$GFORTH tests/core/whnf.fs"
-reason = "4.2.3: the audit takes a let leaf whose nonDep flag is 2, a field no export can hold"
+reason = "4.2.3, S5: the audit takes a let whose second child is no lambda, a shape no export can give"
 
 [[fault]]
 id = "let-audit-refused"
 file = "src/core/constant-term-boundary.fs"
-old = '''    lf-tag-let of lf-let-check endof  walk-bad-tag endcase ;'''
-new = '''    walk-bad-tag endcase ;'''
+old = '''    lf-tag-let of over lf-tag-lam lf-cterm-shaped endof'''
+new = '''    lf-tag-let of drop 2drop outcome-invalid endof'''
 test = "$GFORTH tests/core/check-declaration.fs"
-reason = "4.2.3: the audit refuses every let leaf; a declaration with a let is invalid, not accepted"
+reason = "4.2.3, S5: the audit refuses every let; a declaration with a let is invalid, not accepted"
 
 [[fault]]
 id = "let-compare-ignores-flag"
-file = "src/kernel/mixed-compare.fs"
-old = '''    lf-tag-let of lf-mcompare-same-first endof walk-bad-tag endcase ;'''
-new = '''    lf-tag-let of drop 2drop outcome-ok endof walk-bad-tag endcase ;'''
+file = "src/core/let-terms.fs"
+old = ''': lf-let-tag ( nondep -- tag ) if lf-tag-let-nondep else lf-tag-let then ;'''
+new = ''': lf-let-tag ( nondep -- tag ) drop lf-tag-let ;'''
 test = "$GFORTH tests/core/whnf.fs"
-reason = "4.2.3: == takes two lets that differ in their nonDep flag for equal, where Lean's Expr.eqv does not"
+reason = "4.2.3, S5: a let's nonDep flag (its tag) is lost when it is made, so == takes two lets that differ in it for equal, where Lean's Expr.eqv does not"
 
 [[fault]]
 id = "let-spine-through"
 file = "src/kernel/mixed-head.fs"
-old = ''': lf-mhead-step? ( node -- flag ) dup lf-mhead-app? if lf-let? 0= else drop false then ;'''
-new = ''': lf-mhead-step? ( node -- flag ) lf-mhead-app? ;'''
+old = ''': lf-mhead-app? ( node -- flag ) lf-term-tag@ lf-tag-app = ;'''
+new = ''': lf-mhead-app? ( node -- flag ) lf-term-tag@ dup lf-tag-app = swap lf-tag-let = or ;'''
 test = "$GFORTH tests/core/whnf.fs"
 reason = "4.2.3: a spine runs through a let term to its leaf (Lean's get_app_fn stops at the let); whnf of (let f := fun X => X; f) Sort 0 is invalid"
 
 [[fault]]
 id = "let-no-zeta"
 file = "src/kernel/whnf.fs"
-old = '''  dup lf-tag-app = if drop over lf-let? if lf-wc-zeta else lf-wc-app then exit then'''
-new = '''  dup lf-tag-app = if drop lf-wc-app exit then'''
+old = '''    lf-tag-let of lf-wc-zeta endof  lf-tag-let-nondep of lf-wc-zeta endof'''
+new = '''    lf-tag-let of lf-whnf-keep endof  lf-tag-let-nondep of lf-whnf-keep endof'''
 test = "$GFORTH tests/core/whnf.fs"
 reason = "4.2.3: whnf_core never applies zeta to a let term; let x := Sort 0; x is not reduced to Sort 0"
 
@@ -5736,14 +5736,13 @@ test = "$GFORTH tests/core/whnf.fs"
 reason = "4.2.3: a let at the head of an application is not reduced first (whnf_core 514); the application stays"
 
 [[fault]]
-id = "let-leaf-head-normal"
+id = "proj-leaf-normal"
 file = "src/kernel/whnf.fs"
-old = '''  over lf-whnf-head dup lf-let-leaf? if drop lf-wc-invalid exit then
-  dup lf-whnf-plain-head?'''
-new = '''  over lf-whnf-head
-  dup lf-whnf-plain-head?'''
+old = '''  over lf-tag-bvar = or over lf-literal-tag? or swap lf-tag-symbolic-sort = or ;'''
+new = '''  over lf-tag-bvar = or over lf-literal-tag? or over lf-tag-proj = or
+  swap lf-tag-symbolic-sort = or ;'''
 test = "$GFORTH tests/core/whnf.fs"
-reason = "4.2.3: a let leaf applied to one argument, malformed, is taken as a normal form instead of invalid"
+reason = "5.2.2, S5: a projection leaf alone, malformed, is taken as a normal form instead of invalid (was let-leaf-head-normal: let leaves are gone)"
 
 [[fault]]
 id = "let-zeta-malformed"
@@ -5757,8 +5756,8 @@ reason = "4.2.3: zeta reads the body of a let term whose second argument is no l
 [[fault]]
 id = "let-inferred-as-app"
 file = "src/kernel/mixed-infer.fs"
-old = '''  2 pick lf-let-fn? if lf-minfer-let else lf-minfer-app then ;'''
-new = '''  lf-minfer-app ;'''
+old = '''    lf-tag-let of lf-minfer-let endof  lf-tag-let-nondep of lf-minfer-let endof'''
+new = '''    lf-tag-let of lf-minfer-app endof  lf-tag-let-nondep of lf-minfer-app endof'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "4.2.3: a let term is inferred as an application of its leaf; the let declarations are not accepted"
 
@@ -5805,21 +5804,22 @@ test = "$GFORTH tests/core/whnf.fs"
 reason = "4.2.3: mk_pi writes the let variable's value as its type in the let term it makes"
 
 [[fault]]
-id = "let-stray-leaf-unknown"
+id = "proj-stray-leaf-unknown"
 file = "src/kernel/mixed-infer.fs"
 old = '''    lf-tag-lit of drop lf-reduce-nat-type endof
-    lf-tag-let of lf-minfer-stray endof'''
+    lf-tag-proj of lf-minfer-stray endof'''
 new = '''    lf-tag-lit of drop lf-reduce-nat-type endof'''
 test = "$GFORTH tests/core/whnf.fs"
-reason = "4.2.3: a let leaf alone, malformed, is inferred as unknown (unsupported construct) instead of invalid"
+reason = "5.2.2, S5: a projection leaf alone, malformed, is inferred as unknown (unsupported construct) instead of invalid (was let-stray-leaf-unknown: let leaves are gone)"
 
 [[fault]]
-id = "let-open-refuses-leaf"
+id = "let-open-refuses-let"
 file = "src/kernel/mixed-open.fs"
-old = '''    lf-tag-lit of lf-rebuild-keep endof  lf-tag-let of lf-rebuild-keep endof'''
-new = '''    lf-tag-lit of lf-rebuild-keep endof'''
+old = '''  dup lf-term-binary-tag? if drop lf-open-pair else over >r lf-open-leaf r> 0 then ;'''
+new = '''  dup lf-term-binder-tag? over lf-tag-app = or
+  if drop lf-open-pair else over >r lf-open-leaf r> 0 then ;'''
 test = "$GFORTH tests/core/check-declaration.fs"
-reason = "4.2.3: abstract refuses a let leaf; a lambda whose body's type is a let term (let-dependent-body) is invalid"
+reason = "4.2.3, S5: abstract refuses a let (and a projection) as no node it knows; a lambda whose body's type is a let term (let-dependent-body) is invalid"
 
 [[fault]]
 id = "let-feed-flag-lost"
@@ -7862,3 +7862,104 @@ old = '''  r> binder-tag? if drop lf-term-input-binder else 2drop outcome-ok the
 new = '''  r> drop 2drop outcome-ok ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "S5: binders read in place are not entered first, so a let's lambda and the equal input lambda after it are two nodes (more fuel than copying)"
+
+# --- native let and projection nodes (compact-store plan step S5, parts
+# 4-5, agent S5B; src/core/let-terms.fs, projections.fs, terms.fs) --------
+
+[[fault]]
+id = "s5b-let-binder-depth"
+file = "src/core/terms.fs"
+old = ''': lf-term-binder-tag? ( tag -- flag ) dup lf-tag-lam = swap lf-tag-pi = or ;'''
+new = ''': lf-term-binder-tag? ( tag -- flag ) lf-tag-app <> ;'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "S5B: a let or projection node counts as a binder, so its second child (a let's lambda) is read one binder too deep"
+
+[[fault]]
+id = "s5b-projection-not-binary"
+file = "src/core/terms.fs"
+old = '''lf-tag-let lf-tag-bit or lf-tag-projection lf-tag-bit or lf-tag-let-nondep lf-tag-bit or'''
+new = '''lf-tag-let lf-tag-bit or lf-tag-let-nondep lf-tag-bit or'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5B: a projection is no binary node, so the passes treat it as an unknown leaf"
+
+[[fault]]
+id = "s5b-proj-of-swapped"
+file = "src/core/projections.fs"
+old = '''  drop swap lf-tag-projection lf-term-binary if outcome-ok else -1 outcome-full then ;'''
+new = '''  drop lf-tag-projection lf-term-binary if outcome-ok else -1 outcome-full then ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "S5B: mk_proj puts the term first and the leaf second, a malformed projection"
+
+[[fault]]
+id = "s5b-whnf-proj-kept"
+file = "src/kernel/whnf.fs"
+old = ''': lf-wc-proj ( node frames -- ... frames next ) >r dup r> lf-wc-iota ;'''
+new = ''': lf-wc-proj ( node frames -- ... frames next ) lf-whnf-keep ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "S5B: whnf_core never reduces a projection alone (reduce_proj), only one applied to arguments"
+
+[[fault]]
+id = "s5b-iota-proj-extra-lost"
+file = "src/kernel/iota.fs"
+old = '''  swap dup lf-iota-n lf-iota-extra r> 0 ;'''
+new = '''  swap dup lf-iota-n 1- 0 max lf-iota-extra r> 0 ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "S5B: a projection applied to arguments reduces to its field without the last argument"
+
+[[fault]]
+id = "s5b-iota-proj-wrong-child"
+file = "src/kernel/iota.fs"
+old = '''  over over frame-save swap lf-whnf-head lf-proj-struct swap'''
+new = '''  over over frame-save swap lf-whnf-head lf-proj-leaf swap'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "S5B: reduce_proj puts the projection's leaf, not its structure term, in whnf"
+
+[[fault]]
+id = "s5b-infer-proj-as-app"
+file = "src/kernel/mixed-infer.fs"
+old = '''    lf-tag-projection of lf-minfer-proj endof'''
+new = '''    lf-tag-projection of lf-minfer-app endof'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "S5B: a projection is inferred as an application of its leaf, not by infer_proj"
+
+[[fault]]
+id = "s5b-audit-proj-any-first"
+file = "src/core/constant-term-boundary.fs"
+old = '''  case lf-tag-projection of 2 pick lf-tag-proj lf-cterm-shaped endof'''
+new = '''  case lf-tag-projection of drop lf-cterm-children 0 endof'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "S5B: the audit takes a projection whose first child is no projection leaf"
+
+[[fault]]
+id = "s5b-dq-proj-head-missed"
+file = "src/kernel/defeq.fs"
+old = ''': lf-lz-proj-head? ( node -- flag ) lf-whnf-head lf-proj? ;'''
+new = ''': lf-lz-proj-head? ( node -- flag ) lf-whnf-head lf-proj-leaf? ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "S5B: try_unfold_proj_app never sees a projection at the head of a spine"
+gap = "the unfold-proj-app rows of check-block.fs reach the same verdicts when the other side unfolds instead (their fuel is not compared); a gap since task 5.2.2, which had no fault here"
+
+[[fault]]
+id = "s5b-c1-skips-let"
+file = "src/kernel/inductive-block.fs"
+old = '''    lf-tag-let of lf-c1-same endof  lf-tag-let-nondep of lf-c1-same endof'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "S5B: the parameter-uniformity walk does not look inside a let in a constructor's type"
+gap = "no table row has a let in a constructor's type that hides a nonuniform occurrence; Lean rejects such a block (C1)"
+
+[[fault]]
+id = "s5b-author-proj-as-app"
+file = "src/author/build.fs"
+old = ''': lfa-app-tag ( f -- tag ) lf-term-tag@ lf-tag-proj = if lf-tag-projection else lf-tag-app then ;'''
+new = ''': lfa-app-tag ( f -- tag ) drop lf-tag-app ;'''
+test = "python3 tests/author/check_author.py"
+reason = "S5B: the authors' $ applies a projection leaf as a function instead of making a projection"
+
+[[fault]]
+id = "s5b-printer-proj-unknown"
+file = "src/present/print-analysis.fs"
+old = ''': lf-pp-app-tag? ( tag -- flag ) dup lf-tag-app = swap lf-tag-projection = or ;'''
+new = ''': lf-pp-app-tag? ( tag -- flag ) lf-tag-app = ;'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "S5B: the printer no longer prints a projection as its leaf applied to the term"

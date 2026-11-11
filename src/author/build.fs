@@ -51,7 +51,10 @@ require ./errors.fs
 
 \ New nodes; a refused allocation stops the run (the term store is full).
 : lfa-made ( index true | false -- term ) 0= if lfa-e-terms-full lfa-fail then ;
-: lfa-new-app ( f a -- term ) lf-term-app lfa-made ;
+\ An application, or a projection when f is a projection leaf
+\ (core/projections.fs): the authors' $ applies a leaf to its term.
+: lfa-app-tag ( f -- tag ) lf-term-tag@ lf-tag-proj = if lf-tag-projection else lf-tag-app then ;
+: lfa-new-app ( f a -- term ) over lfa-app-tag lf-term-binary lfa-made ;
 : lfa-new-bvar ( i -- term ) lf-term-bvar lfa-made ;
 : lfa-new-sort ( level -- term )
   dup lf-level-identity drop lf-hterm-sort if drop else lfa-e-terms-full lfa-fail then ;
@@ -65,7 +68,7 @@ require ./errors.fs
 
 \ Shared nodes: the term and true when it is new, false when it existed.
 : lfa-app ( f a pos -- term fresh )
-  >r 2dup lf-tag-app -rot lfa-seek lfa-find if nip nip r> drop false exit then
+  >r 2dup over lfa-app-tag -rot lfa-seek lfa-find if nip nip r> drop false exit then
   lfa-new-app r> lfa-span true ;
 : lfa-bvar ( i pos -- term fresh )
   >r lf-tag-bvar over 0 lfa-seek lfa-find if nip r> drop false exit then
@@ -101,6 +104,7 @@ require ./errors.fs
 : lfa-copy ( term -- term' )
   dup lf-term-tag@ case
     lf-tag-app of lfa-fields lfa-new-app endof
+    lf-tag-projection of lfa-fields lfa-new-app endof
     lf-tag-bvar of lf-term-first@ lfa-new-bvar endof
     lf-tag-symbolic-sort of lf-term-first@ lfa-new-sort endof
     lf-tag-constant of lf-term-first@ dup lf-cref-current lfa-new-const endof
@@ -190,7 +194,7 @@ defer lfa-shift ( term cutoff -- term' )
 : lfa-shift-node ( term cutoff -- term' )
   over lf-term-tag@ case
     lf-tag-bvar of lfa-shift-var endof
-    lf-tag-app of lfa-shift-app endof
+    lf-tag-app of lfa-shift-app endof  lf-tag-projection of lfa-shift-app endof
     lf-tag-lam of lfa-shift-binder endof
     lf-tag-pi of lfa-shift-binder endof
     >r drop r> endcase ;

@@ -165,8 +165,9 @@ here feed-settings - /feed-setting / constant feed-settings#
     over i /feed-setting * feed-settings + feed-setting
   loop over feed-placing @ if nip exit then over feed-exprs# lf-term-table-room nip ;
 
-\ The feed's own term nodes: a let becomes 4 nodes for its 2 numbers and a
-\ projection 2 for its 1, so after the expressions are fed the term store
+\ The feed's own term nodes: a let becomes 2 nodes for its 2 numbers (the
+\ let and its lambda) and a projection 2 for its 1 (the projection and
+\ its leaf), so after the expressions are fed the term store
 \ is raised again, to the nodes in use plus the room: each check gets the
 \ whole of feed-term-room, however many lets and projections the file has.
 \ In place it is set to exactly that, the copies plus the room, so a
@@ -322,26 +323,26 @@ lf-form-mdata tag-mdata feed-form!
 : feed-form@ ( tag -- form )
   dup 0 feed-tags# within if cells feed-forms + @ else drop 0 then ;
 \ A projection (plan task 5.2.2): the leaf of its structure's name and
-\ field index (core/projections.fs) applied to its structure term.
+\ field index with its structure term (core/projections.fs).
 : feed-proj ( e feed -- index identity true | false )
   2dup feed-tier expr-payload@ >r 2dup feed-tier expr-b@ r> swap lf-hterm-proj
   0= if 2drop false exit then
-  2swap feed-a-term lf-hterm-app ;
+  2swap feed-a-term lf-hterm-projection ;
 \ A natural-number literal (plan task 5.2.3): its decimal text, read.
 : feed-text ( e feed -- addr u ) feed-tier tuck expr-a@ swap tier-texts text@ ;
 : feed-nat ( e feed -- index identity true | false ) feed-text lf-hterm-decimal ;
 \ A string literal (plan task 5.2.3, strings): its UTF-8 bytes; text that
 \ is not UTF-8 is invalid (core/string-literals.fs).
 : feed-str ( e feed -- index identity outcome ) feed-text lf-str-new ;
-\ A let (plan task 4.2.3): let x : T := v; b as its leaf, with the
-\ nonDep flag, applied to v and then to fun x : T => b
-\ (core/let-terms.fs); the body is the letE's second record.
+\ A let (plan task 4.2.3): let x : T := v; b as the let of v and
+\ fun x : T => b, with the nonDep flag (core/let-terms.fs); the body is
+\ the letE's second record.
 : feed-let-body ( e feed -- index identity ) tuck feed-tier expr-body@ swap feed-term@ ;
 : feed-let-lam ( e feed -- index identity true | false )
   2dup feed-a-term 2swap feed-let-body lf-hterm-lam ;
 : feed-let ( e feed nondep -- index identity true | false )
   >r 2dup feed-let-lam 0= if 2drop r> drop false exit then
-  2swap feed-b-term r> lf-hterm-let-fn 0= if 2drop false exit then 2swap lf-hterm-app ;
+  2swap feed-b-term 2swap r> lf-hterm-let ;
 : feed-binder ( e feed tag -- index identity true | false )
   >r feed-children r> tag-pi < if lf-hterm-lam else lf-hterm-pi then ;
 : feed-sort ( e feed -- index identity true | false )

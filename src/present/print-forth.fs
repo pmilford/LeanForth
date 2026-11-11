@@ -465,7 +465,7 @@ defer lf-pf-term-step ( term x frames -- ... frames next )
   case lf-tag-bvar of ['] lf-pf-var-step endof
     lf-tag-sort of ['] lf-pf-sort-step endof
     lf-tag-symbolic-sort of ['] lf-pf-symbolic-step endof
-    lf-tag-app of ['] lf-pf-app endof
+    lf-tag-app of ['] lf-pf-app endof  lf-tag-projection of ['] lf-pf-app endof
     lf-tag-lam of ['] lf-pf-lam endof
     lf-tag-pi of ['] lf-pf-pi endof
     lf-tag-constant of ['] lf-pf-const endof

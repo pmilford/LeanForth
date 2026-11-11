@@ -175,10 +175,11 @@ T{ dq frame-reset dq false lf-whnf-mode frame-used @ lf-whnf-cheap? -> 0 false }
 : cheap-core ( node -- node' outcome )
   100000 fuelled dq ['] lf-whnf-cheap-call frame-through drop ;
 T{ s" c" name-of const cheap-core nip lf-whnf-cheap? -> outcome-ok false }T
-\ Lean's is_proj, is_app and get_app_fn (defeq.fs): a projection, the
-\ application of a projection leaf to its term, is no application; the
+\ Lean's is_proj, is_app and get_app_fn (defeq.fs): a projection, a node
+\ of its own over a projection leaf and its term, is no application; the
 \ function of (p.0 a) is p.0, with one argument.
-: proj-of ( node -- node' ) s" P" name-of 0 lf-hterm-proj must drop swap make-app ;
+: proj-of ( node -- node' )
+  s" P" name-of 0 lf-hterm-proj must drop swap lf-tag-projection lf-term-binary must ;
 T{ 0 make-var proj-of dup lf-dq-proj? swap lf-dq-app? -> true false }T
 T{ 0 make-var proj-of dup 1 make-var make-app lf-dq-fn -rot = -> 1 true }T
 T{ 0 make-var proj-of 1 make-var make-app dup lf-dq-proj? swap lf-dq-app? -> false true }T

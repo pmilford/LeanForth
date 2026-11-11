@@ -368,7 +368,7 @@ defer lf-pp-lam-groups ( node frames -- ... frames next )
 \ application printer, which decides on @ for them too; a CASE with one
 \ arm for each other tag (read as a table) gives the visit's first step.
 : lf-pp-applied-tag? ( tag -- flag )
-  dup lf-tag-app = over lf-tag-bvar = or swap lf-tag-constant = or ;
+  dup lf-pp-app-tag? over lf-tag-bvar = or swap lf-tag-constant = or ;
 \ A projection leaf (core/projections.fs; plan task 5.2.2) prints as its
 \ structure's name and Lean's field number from 1, the head of an
 \ application to the projected term: Prod.1 p for Lean's p.1. Not Lean's

@@ -264,12 +264,9 @@ defer lf-dq-known-same? ( t s -- flag )
 : lf-dq-tags? ( t s -- flag ) lf-dq-tag swap lf-dq-tag = ;
 : lf-dq-binder? ( node -- flag ) lf-dq-tag dup lf-tag-lam = swap lf-tag-pi = or ;
 \ Lean's is_proj, is_app, get_app_fn and get_app_num_args (see the
-\ header): a projection, the application of a projection leaf, and a let
-\ term are no applications.
-: lf-dq-proj? ( node -- flag )
-  dup lf-dq-tag lf-tag-app = if lf-term-first@ lf-proj-leaf? else drop false then ;
-: lf-dq-app? ( node -- flag )
-  dup lf-dq-tag lf-tag-app = if dup lf-let? swap lf-dq-proj? or 0= else drop false then ;
+\ header): a projection and a let term are no applications.
+: lf-dq-proj? ( node -- flag ) lf-proj? ;
+: lf-dq-app? ( node -- flag ) lf-dq-tag lf-tag-app = ;
 : lf-dq-apps? ( t s -- flag ) lf-dq-app? swap lf-dq-app? and ;
 : lf-dq-both? ( t s tag -- flag ) tuck swap lf-dq-tag = -rot swap lf-dq-tag = and ;
 : lf-dq-fn ( node -- fn n )
@@ -879,7 +876,7 @@ is lf-dq-reduce-proj
 \ is_proj), its whnf_core without cheap_proj, a child visit; a result
 \ that is not == to it (Lean's !=: a new node is walked, lf-dq-same)
 \ takes its place, then quick_is_def_eq; otherwise the side unfolds.
-: lf-lz-proj-head? ( node -- flag ) lf-whnf-head lf-proj-leaf? ;
+: lf-lz-proj-head? ( node -- flag ) lf-whnf-head lf-proj? ;
 : lf-lz-new? ( old new frames -- flag outcome )
   >r 2dup = if 2drop r> drop false outcome-ok exit then
   r> lf-dq-same ok-then? if 0= outcome-ok else false swap then ;

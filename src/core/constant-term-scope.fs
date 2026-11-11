@@ -32,7 +32,7 @@ lf-walk-room context-walk2: lf-cts-walker
   nip walk-context @ 2dup < if 2drop outcome-ok else lf-cts-unbound then ;
 : lf-cts-leaf ( first second walk -- outcome ) drop 2drop outcome-ok ;
 : lf-cts-inner ( depth tag -- depth' true | false )
-  lf-tag-app = if true exit then dup max-n = if drop false else 1+ true then ;
+  lf-term-binder-tag? 0= if true exit then dup max-n = if drop false else 1+ true then ;
 : lf-cts-deep ( -- outcome )
   max-n dup lf-cts-site lf-diag-binders-full lf-diag-note outcome-full ;
 : lf-cts-binary ( first second walk tag -- outcome )
@@ -44,8 +44,7 @@ lf-walk-room context-walk2: lf-cts-walker
     lf-tag-symbolic-sort of lf-cts-leaf endof
     lf-tag-constant of lf-cts-leaf endof
     lf-tag-proj of lf-cts-leaf endof  lf-tag-lit of lf-cts-leaf endof
-    lf-tag-str of lf-cts-leaf endof
-    lf-tag-let of lf-cts-leaf endof  walk-bad-tag endcase ;
+    lf-tag-str of lf-cts-leaf endof  walk-bad-tag endcase ;
 : lf-cts-once ( first second walk tag -- outcome ) ['] lf-cts-dispatch lf-walk-once ;
 : lf-cts-visit ( walk -- outcome ) ['] lf-cts-once lf-term-visit ;
 : lf-cts-run ( root depth -- outcome )

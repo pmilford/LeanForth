@@ -109,6 +109,21 @@ require ../lib/store-columns.fs
 3 constant lf-tag-app
 4 constant lf-tag-lam
 5 constant lf-tag-pi
+\ The other binary nodes (compact-store plan step S5, parts 4-5): a let,
+\ LET(v, fun x : T => b) (core/let-terms.fs), one tag for each value of
+\ Lean's nonDep flag; a projection, PROJECTION(leaf, e)
+\ (core/projections.fs). Their children are at the node's own depth.
+12 constant lf-tag-let
+14 constant lf-tag-projection
+15 constant lf-tag-let-nondep
+\ A tag's bit (tags above 31 share bit 31, which no binary tag has).
+: lf-tag-bit ( tag -- mask ) 1 swap 31 min lshift ;
+lf-tag-app lf-tag-bit lf-tag-lam lf-tag-bit or lf-tag-pi lf-tag-bit or
+lf-tag-let lf-tag-bit or lf-tag-projection lf-tag-bit or lf-tag-let-nondep lf-tag-bit or
+constant lf-binary-tags
+\ Binary nodes: two children; binders: the second under one more binder.
+: lf-term-binary-tag? ( tag -- flag ) lf-tag-bit lf-binary-tags and 0<> ;
+: lf-term-binder-tag? ( tag -- flag ) dup lf-tag-lam = swap lf-tag-pi = or ;
 
 \ A record: the tag, the first and second fields, the data word, each a
 \ 32-bit field read and written only through u32@ and u32! (C7).
@@ -369,7 +384,7 @@ defer lf-term-leaf-data ( tag first second -- data )
 1 cells context-record: lf-term-share-off   \ true when this context does not share
 \ Tags whose leaves are never shared, a bit each; set while loading.
 variable lf-term-unshared-tags   0 lf-term-unshared-tags !
-: lf-term-tag-bit ( tag -- mask ) 1 swap 31 min lshift ;
+: lf-term-tag-bit ( tag -- mask ) lf-tag-bit ;
 : lf-term-unshare ( tag -- )
   lf-term-tag-bit lf-term-unshared-tags @ or lf-term-unshared-tags ! ;
 : lf-term-shared-tag? ( tag -- flag ) lf-term-tag-bit lf-term-unshared-tags @ and 0= ;
@@ -530,13 +545,12 @@ defer lf-term-view-hook ( -- outcome )
 \ At most 2^32 - 2 records, so that a table slot holds every index plus
 \ one (ADR 0016 C4).
 : lf-term-numbered? ( -- flag ) lf-term-count @ lf-term-base + u32-mask 1- u< ;
-: lf-term-binary-tag? ( tag -- flag ) lf-tag-app lf-tag-pi 1+ within ;
 \ Data of a child; a child that is not allocated (a raw caller's) has none.
 : lf-term-child-data ( index -- data )
   dup lf-term-valid? if lf-term-data-word else drop lf-data-unknown then ;
 : lf-term-data-of ( tag first second -- data )
   2 pick lf-term-binary-tag? 0= if lf-term-leaf-data exit then
-  lf-term-child-data swap lf-term-child-data swap rot lf-tag-app <> lf-data-pair ;
+  lf-term-child-data swap lf-term-child-data swap rot lf-term-binder-tag? lf-data-pair ;
 : lf-term-store! ( tag first second data addr -- )
   tuck lf-term-data-at + u32! tuck lf-term-second-at + u32!
   tuck lf-term-first-at + u32! u32! ;

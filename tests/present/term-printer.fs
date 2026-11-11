@@ -355,4 +355,12 @@ T{ s\" a_b\\{}~ c" t-str
 0 mode
 T{ s\" \xc3\xa9" t-str t1 ! 1 t1 @ term-second! t1 @ fuel lf-print-term
    -> outcome-invalid }T
+
+\ A projection (core/projections.fs) prints as its leaf, the structure's
+\ name and Lean's field number from 1, applied to the projected term, and
+\ so does one applied to more arguments (not Lean's syntax yet).
+: t-proj ( t c-addr u i -- t' ) >r nm r> lf-proj-of must-ok ;
+fresh 0 mode
+T{ args{ s" p" t-const s" Prod" 0 t-proj s" Prod.1 p" shows -> }T
+T{ args{ s" f" t-const s" Prod" 1 t-proj args{ s" a" t-const t-app s" Prod.2 f a" shows -> }T
 bye

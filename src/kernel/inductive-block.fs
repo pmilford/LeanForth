@@ -604,6 +604,8 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 : lf-c1-dispatch ( first second walk tag -- outcome )
   case lf-tag-app of lf-c1-app endof  lf-tag-constant of lf-c1-const endof
     lf-tag-lam of lf-c1-binder endof  lf-tag-pi of lf-c1-binder endof
+    lf-tag-let of lf-c1-same endof  lf-tag-let-nondep of lf-c1-same endof
+    lf-tag-projection of lf-c1-same endof
     >r 2drop drop outcome-ok r> endcase ;
 : lf-c1-visit ( walk -- outcome ) ['] lf-c1-dispatch lf-term-visit ;
 : lf-c1-walked ( outcome -- outcome )
