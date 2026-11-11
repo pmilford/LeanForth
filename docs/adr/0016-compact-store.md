@@ -704,7 +704,7 @@ needed (Rejected alternatives).
     term-store mark instead of a saved count. Evidence: the first 1M
     lines of `Init` (`check --fast --fuel 100000`) give the same verdict
     and fuel lines and the same store capacities and allocation serials;
-    the trial digest is unchanged (`0d3ab6e99221`); 13 planted faults
+    the trial digest is unchanged (`abe54a7c0598`); 13 planted faults
     (a family left out, a mark out of order, a mark left on the stack)
     are caught.
 - Steps 4–6 not started.
