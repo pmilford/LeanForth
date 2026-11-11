@@ -4541,8 +4541,8 @@ reason = "R2-L2: the slot-count guard accepts a count that is not a power of two
 [[fault]]
 id = "rec-skip-positivity"
 file = "src/kernel/check-block.fs"
-old = ''': lf-blk-positivity ( node i -- outcome ) dup lf-blk-state lf-blkrec-field ! lf-blk-positive ;'''
-new = ''': lf-blk-positivity ( node i -- outcome ) 2drop outcome-ok ;'''
+old = '''  lf-blk-positive r> lf-minfer-unbind ;'''
+new = '''  2drop r> lf-minfer-unbind outcome-ok ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.1b: positivity skipped; (Bad -> Nat) -> Bad is accepted"
 quick = true
@@ -5319,8 +5319,8 @@ reason = "rvN1 round 2: Lean's generated recursor (no slot) treated as stuck whe
 [[fault]]
 id = "rvn1r2-structure-major-stuck"
 file = "src/kernel/iota.fs"
-old = '''  ?dup 0= if 2drop drop -1 outcome-ok false exit then'''
-new = '''  ?dup if drop then 2drop drop -1 outcome-ok false exit'''
+old = '''  ?dup 0= if r> drop 2drop drop -1 outcome-ok false exit then'''
+new = '''  ?dup if drop then r> drop 2drop drop -1 outcome-ok false exit'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvN1 round 2 / R3: a structure's major premise that is no constructor application treated as stuck; iota.punit-eta is no longer accepted"
 
@@ -5473,8 +5473,8 @@ reason = "5.2.2 (agent PJ): whnf runs its whnf_core in the caller's cheap_proj m
 [[fault]]
 id = "pj-cache-cheap-kept"
 file = "src/kernel/caches.fs"
-old = '''  >r r@ frame-restore over ok? 0= lf-whnf-cheap? or if drop r> 0 exit then'''
-new = '''  >r r@ frame-restore over ok? 0= if drop r> 0 exit then'''
+old = '''  >r r@ lf-cache-restore 0= 2 pick ok? 0= or lf-whnf-cheap? or if drop r> 0 exit then'''
+new = '''  >r r@ lf-cache-restore 0= 2 pick ok? 0= or if drop r> 0 exit then'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "5.2.2 (agent PJ): m_whnf_core keeps results of whnf_core with cheap_proj, which a later whnf_core without it would read"
 
@@ -6309,8 +6309,8 @@ reason = "rvCONV B2: infer_proj counts the file's numIndices: a structure said i
 [[fault]]
 id = "iota-any-inductive-structure"
 file = "src/kernel/iota.fs"
-old = '''  lf-env-structure ok-then? 0= if >r 2drop drop r> no-result false exit then'''
-new = '''  lf-whnf-decl ok-then? 0= if >r 2drop drop r> no-result false exit then'''
+old = '''  dup 0< if drop -1 outcome-ok exit then lf-env-structure ;'''
+new = '''  dup 0< if drop -1 outcome-ok exit then lf-whnf-decl ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvCONV B2: iota's structure eta takes any inductive type for a structure: the recursive IE.RR's recursor reduces on a variable, IE.RR.rec ... r = 0 accepted (lie.recursive-said-not-then-iota)"
 
@@ -8139,3 +8139,97 @@ old = '''  rot dup lf-term-binary-tag? if drop lf-sch-two exit then'''
 new = '''  rot dup lf-term-binder-tag? over lf-tag-app = or if drop lf-sch-two exit then'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "S5B: the parallel scheduler's walk does not look inside lets and projections, so a declaration is handed out before a constant it names there is final (refused by readiness, run again)"
+
+# --- K and structure eta on a block's opened binders; is_prop's typeExpected
+# (follow-up of plan task 5.2.1b, agent IO; src/kernel/iota.fs, check-block.fs,
+# caches.fs, infer-proj.fs, defeq.fs) ---
+
+[[fault]]
+id = "io-k-unscoped"
+file = "src/kernel/iota.fs"
+old = '''  lf-minfer-frames = dup if lf-whnf-scope-use then ;'''
+new = '''  drop false ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "IO: K and structure eta never type a variable of a block's telescope: k.block-index-variable unknown (diagnostic 81), as before"
+quick = true
+
+[[fault]]
+id = "io-scope-use-uncounted"
+file = "src/kernel/iota.fs"
+old = '''  lf-minfer-frames = dup if lf-whnf-scope-use then ;'''
+new = '''  lf-minfer-frames = ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "IO: a whnf result that typed an open term under the scope is cached by its open key; the recursor builder, under no scope, hits positivity's entry (k.field-variable accepted by a cache hit, not by a port)"
+
+[[fault]]
+id = "io-cache-keeps-scoped"
+file = "src/kernel/caches.fs"
+old = '''  dup frame-restore lf-whnf-scope-uses = swap frame-restore tuck lf-cache-open? 0= or ;'''
+new = '''  dup frame-restore drop frame-restore true ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "IO: whnf and whnf_core keep a scope-dependent result for an open key (k.field-variable accepted by a cache hit)"
+
+[[fault]]
+id = "io-step8-unopened"
+file = "src/kernel/check-block.fs"
+old = '''    swap lf-blk-enter ok-then? 0= if nip exit then'''
+new = '''    swap lf-blk-bind'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "IO: step 8 walks the type's telescope without opening its binders (Lean's mk_local_decl_for): K on the index h cannot type it, k.block-index-variable unknown"
+
+[[fault]]
+id = "io-index-unopened"
+file = "src/kernel/check-block.fs"
+old = '''  drop dup lf-blk-index! ok-then? 0= if exit then lf-blk-open ;'''
+new = '''  drop lf-blk-index! ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "IO: a mutual block's later type leaves its indices unopened: k.mutual-index-variable unknown"
+
+[[fault]]
+id = "io-positivity-pi-unopened"
+file = "src/kernel/check-block.fs"
+old = '''  over lf-blk-open ok-then? 0= if nip false exit then'''
+new = '''  \ the binder left unopened'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "IO: positivity enters a Pi's body without opening its binder: K closes h with the wrong variable (k.field-under-binder-stuck not rejected)"
+
+[[fault]]
+id = "io-positivity-not-unbound"
+file = "src/kernel/check-block.fs"
+old = '''  lf-blk-positive r> lf-minfer-unbind ;'''
+new = '''  lf-blk-positive r> drop ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "IO: the binders positivity opened stay on the scope: a later field's h is typed as Nat, k.field-after-binder-variable rejected (Lean accepts; unknown here until the builder's gap closes)"
+
+[[fault]]
+id = "io-eta-unscoped"
+file = "src/kernel/iota.fs"
+old = '''  lf-minfer-env? if lf-iota-scoped? drop else 2drop false then ;'''
+new = '''  lf-minfer-env? if lf-whnf-loose? drop 0= else 2drop false then ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "IO: structure eta in iota (R3) only on closed major premises: eta.block-index-variable unknown"
+
+[[fault]]
+id = "io-eta-prop-unknown"
+file = "src/kernel/iota.fs"
+old = '''  dup outcome-unknown = if drop lf-iota-not-ported else nip no-result then ;'''
+new = '''  drop lf-iota-not-ported ;'''
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_1_arena_bugs"
+reason = "IO: R3's is_prop that throws typeExpected (a stuck sort) becomes the route not ported: the arena's rec-of-subst-prop unknown, not rejected"
+
+[[fault]]
+id = "io-iproj-not-sort-unknown"
+file = "src/kernel/infer-proj.fs"
+old = '''  0 lf-iproj-site lf-diag-type-expected lf-diag! false outcome-rejected ;'''
+new = '''  drop false outcome-unknown ;'''
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_1_arena_bugs"
+reason = "IO: is_prop of a type whose type is stuck answers unknown instead of Lean's typeExpected: the arena's proj-of-subst-prop and rec-of-subst-prop unknown"
+quick = true
+
+[[fault]]
+id = "io-dq-sorted-unknown"
+file = "src/kernel/defeq.fs"
+old = '''  0 lf-dq-site lf-diag-type-expected lf-diag! -1 outcome-rejected ;'''
+new = '''  0 lf-dq-site lf-diag-not-sort lf-diag-note -1 outcome-unknown ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "IO: proof irrelevance's is_prop of a type whose type is stuck answers unknown instead of Lean's typeExpected (no arena export reaches it first; the stub typer of defeq.fs does)"

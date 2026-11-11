@@ -239,8 +239,9 @@ T{ s" k.block-index-stuck" verdict -> outcome-rejected lf-diag-block-not-sort 8 
 T{ s" k.mutual-index-stuck" verdict -> outcome-rejected lf-diag-block-not-sort 8 }T
 T{ s" eta.block-index-prop-stuck" verdict -> outcome-rejected lf-diag-block-not-sort 8 }T
 T{ s" k.field-stuck" verdict-field -> outcome-rejected lf-diag-non-valid 9 1 }T
-T{ s" k.field-under-binder-stuck" verdict-field -> outcome-rejected lf-diag-non-valid 9 1 }T
+T{ s" k.field-under-binder-stuck" verdict-field -> outcome-rejected lf-diag-non-valid 9 2 }T
 T{ s" k.field-variable" verdict -> outcome-unknown lf-diag-iota-pending 12 }T
+T{ s" k.field-after-binder-variable" verdict -> outcome-unknown lf-diag-iota-pending 12 }T
 T{ s" uniform.other-argument" verdict -> outcome-rejected lf-diag-nonuniform 3 }T
 T{ s" uniform.definitionally-equal-argument" verdict -> outcome-rejected lf-diag-nonuniform 3 }T
 

@@ -103,6 +103,10 @@ GAPS = {
         " under binders no inference scope holds, so K there is undecided (diagnostic 81)."
         " Closed by the follow-up of task 5.2.1b that opens the builder's binders (Lean's"
         " is_rec_argument, mk_local_decl_for)"),
+    "k.field-after-binder-variable": ("unknown",
+        "as k.field-variable, after a field whose positivity opened a binder (which must"
+        " leave the scope: else K types h as Nat and the block is rejected). Closed by the"
+        " same follow-up of task 5.2.1b"),
 }
 # Rows of a later task that a part of it already done decides: each must give
 # exactly the table's column (id -> the part that decides it).

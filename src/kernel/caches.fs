@@ -73,10 +73,10 @@
 \ free variable, so no key they meet depends on that context (ADR 0014
 \ Amendment 1, review rvCACHE L4). An open term's whnf depends on no
 \ context either, except where iota's K or structure eta types an open
-\ major premise under the inference job's scope (iota.fs; ADR 0015
-\ Amendment 3): whnf.fs counts each, and no whnf or whnf_core result
-\ reached through one is kept for an open key (lf-cache-restore). While the caches are on, inference and comparison
-\ keep their scratch until the job ends (mixed-infer.fs's discard and
+\ major premise under the inference job's scope (iota.fs; ADR 0015's
+\ amendment by agent IO): whnf.fs counts each, and no whnf or whnf_core result
+\ reached through one is kept for an open key (lf-cache-restore). While
+\ the caches are on, inference and comparison keep their scratch until the job ends (mixed-infer.fs's discard and
 \ mixed-convert.fs's restore do nothing) where the stores have ample room
 \ (below), so entries stay useful, as Lean's live for the whole check.
 \ Only definite results are kept: a pass that ends unknown, exhausted,

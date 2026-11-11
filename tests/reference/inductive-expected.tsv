@@ -58,6 +58,7 @@ k.mutual-index-stuck	typeExpected	rejected	T2 R2	5.2.1c
 k.field-variable	accepted	accepted	A1 P2 R2 G1	5.2.1c	T: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 2]
 k.field-stuck	nonValidOccurrence	rejected	P2 R2	5.2.1c	
 k.field-under-binder-stuck	nonValidOccurrence	rejected	P2 R2	5.2.1c	
+k.field-after-binder-variable	accepted	accepted	A1 P2 R2 G1	5.2.1c	T: idx=0 rec=1 refl=1 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 3]
 eta.block-index-variable	accepted	accepted	A1 T2 R3	5.2.2	T: idx=1 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[1]
 eta.block-index-prop-stuck	typeExpected	rejected	T2 R3	5.2.2	
 pos.non-valid-index-of-other	nonValidOccurrence	rejected	P2	5.2.1b	

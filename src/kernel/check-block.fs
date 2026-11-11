@@ -66,7 +66,11 @@
 \ Where Lean's add_inductive puts a term in whnf (steps 8, 9's
 \ positivity, the recursor's recursive fields), LeanForth uses Lean's
 \ whnf (whnf.fs, plan task 4.2.2c, with iota from iota.fs); where that
-\ cannot follow Lean yet it fails unknown, and so does the block.
+\ cannot follow Lean yet it fails unknown, and so does the block. Each
+\ binder steps 8 and 9 walk into (positivity's too) is first opened on
+\ the step's inference scope, as Lean's mk_local_decl_for opens it, so
+\ that K and structure eta can type a variable there (follow-up of task
+\ 5.2.1b); the recursor builder opens none (K on a field there: unknown).
 \ [kernel] code: experimental, not through the review gate; not
 \ independently audited.
 \ State: one record, lf-blk-state (the T.rec name, the constructor and
@@ -215,8 +219,8 @@ end-structure
   2dup swap lf-term-first@ swap lf-ind-domain ! 1+ swap lf-term-second@ swap ;
 \ A binder walked into is opened on the job's scope first, as Lean opens
 \ it with mk_local_decl_for (268-279; check_positivity 444-447): the
-\ terms whnf meets below are read under the scope (iota.fs, plan task
-\ 5.2.1d: K and structure eta type their major premise there).
+\ terms whnf meets below are read under the scope (iota.fs, follow-up of
+\ task 5.2.1b: K and structure eta type their major premise there).
 : lf-blk-open ( binder -- outcome ) lf-term-first@ lf-rcr-consume lf-blk-push ;
 : lf-blk-enter ( pi i -- body i+1 outcome ) over lf-blk-open >r lf-blk-bind r> ;
 : lf-blk-tele ( node i -- outcome )

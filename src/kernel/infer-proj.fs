@@ -63,7 +63,7 @@ require ./whnf.fs
 \ is_prop (383-389), aside: x's type's whnf a Sort whose level is zero.
 \ A whnf that is no Sort is Lean's typeExpected, which is_prop's
 \ ensure_sort throws in infer-only mode too: rejected (diagnostic 55,
-\ the type's type reduced; plan task 5.2.1d). An inference that fails as
+\ the type's type reduced; follow-up of task 5.2.1b). An inference that fails as
 \ invalid is unknown here.
 : lf-iproj-not-sort ( reduced -- flag outcome )
   0 lf-iproj-site lf-diag-type-expected lf-diag! false outcome-rejected ;

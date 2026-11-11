@@ -23,13 +23,17 @@
 \ many as the recursor's parameters -- each as in Lean.
 \ For k set, Lean's to_cnstr_when_K (R2, plan task 5.2.1c; section
 \ below) first puts the nullary constructor in the major premise's place
-\ when the types agree. Not ported, so unknown (diagnostic 81, as
-\ whnf.fs's default): a major premise that is no constructor application
-\ when K could not run (outside environment mode, a major premise with
-\ loose bound variables, an inference, whnf or comparison that is
-\ unknown) or when its type may be a non-recursive structure that R3
-\ cannot expand; and Lean's generated recursor that no slot holds (ADR
-\ 0015 decision 12). A literal major premise (L2; plan task
+\ when the types agree. K and R3 type a major premise with loose bound
+\ variables under the inference job's scope when it is read there
+\ (lf-iota-scoped?: a block's telescope, whose binders check-block.fs
+\ opens as Lean's mk_local_decl_for does; follow-up of task 5.2.1b).
+\ Not ported, so unknown (diagnostic 81, as whnf.fs's default): a major
+\ premise that is no constructor application when K could not run
+\ (outside environment mode, a major premise read under binders no scope
+\ holds -- the recursor builder's --, an inference, whnf or comparison
+\ that is unknown) or when its type may be a non-recursive structure that
+\ R3 cannot expand there; and Lean's generated recursor that no slot
+\ holds (ADR 0015 decision 12). A literal major premise (L2; plan task
 \ 5.2.3) becomes a constructor first, as nat_lit_to_constructor makes
 \ it: 0 as Nat.zero, n + 1 as Nat.succ n (reduce-nat.fs); a string
 \ literal becomes String.ofList of its characters, put in whnf
@@ -151,7 +155,7 @@ require ./quot.fs
 \ The type's type whose whnf is no Sort is Lean's typeExpected (is_prop's
 \ ensure_sort, type_checker.cpp 383-389): rejected. The inference runs
 \ inside an inference job in environment mode, on a major premise that
-\ is scoped (above; plan task 5.2.1d): elsewhere, and wherever that
+\ is scoped (above; follow-up of task 5.2.1b): elsewhere, and wherever that
 \ inference cannot follow Lean, unknown. Aside, inference compares
 \ nothing (Lean's infer_type here is infer_only), so it runs inside a
 \ comparison too: is_prop of Prod Bool Bool, met in one (iota.prod-eta).
@@ -209,6 +213,7 @@ require ./quot.fs
   lf-iota-induct ?dup 0= if -1 outcome-ok exit then
   lf-whnf-find ok-then? 0= if no-result exit then
   dup 0< if drop -1 outcome-ok exit then lf-env-structure ;
+: lf-iota-nip3 ( x1 x2 x3 y -- y ) >r 2drop drop r> ;
 : lf-iota-eta-at ( app decl m sdecl frames -- app decl m' true | reduct outcome false )
   >r >r 2 pick swap r> r> lf-iota-eta 0= if >r >r 2drop r> r> false exit then true ;
 \ A major premise that is no constructor application (inductive.h 90-99):
@@ -216,7 +221,7 @@ require ./quot.fs
 \ above; any other type, no rule (-1 ok).
 : lf-iota-no-ctor ( app decl m pending frames -- app decl m' true | reduct outcome false )
   swap if drop 2drop lf-iota-not-ported false exit then
-  >r over lf-iota-structure ok-then? 0= if r> drop >r 2drop drop r> no-result false exit then
+  >r over lf-iota-structure ok-then? 0= if r> drop lf-iota-nip3 no-result false exit then
   dup 0< if r> 2drop 2drop lf-iota-not-ported false exit then
   ?dup 0= if r> drop 2drop drop -1 outcome-ok false exit then
   r> lf-iota-eta-at ;
@@ -311,7 +316,7 @@ require ./quot.fs
 \ type without constructors, a no). Either way the major premise is then
 \ put in whnf and reduced as above, as in Lean.
 \ An e with loose bound variables is typed under the inference job's
-\ scope when it is scoped (lf-iota-scoped?; plan task 5.2.1d: a block's
+\ scope when it is scoped (lf-iota-scoped?; follow-up of task 5.2.1b: a block's
 \ type or field read under binders check-block.fs opened, as Lean's
 \ mk_local_decl_for opens them).
 \ K cannot run as Lean (undecided, e stays): outside environment mode,

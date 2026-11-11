@@ -500,8 +500,8 @@ defer lf-ap-arg ( frames -- ... frames next )
 \ ensure_sort (62-70) of a type's type, as is_prop calls it: its whnf a
 \ Sort, its level; else Lean's typeExpected, thrown out of the comparison
 \ (a well-typed term's type may have a type whose whnf is stuck, as in
-\ Lean's tests bugs/*-subst-prop): rejected, diagnostic 55 (plan task
-\ 5.2.1d).
+\ Lean's tests bugs/*-subst-prop): rejected, diagnostic 55 (follow-up
+\ of task 5.2.1b).
 : lf-dq-sorted ( type frames -- level outcome )
   lf-whnf-on ok-then? 0= if no-result exit then
   dup lf-dq-sort? if lf-term-first@ outcome-ok exit then

@@ -100,11 +100,12 @@ T{ cfvar lf-term-facts -> false }T
 T{ cfvar 1 cb capp lf-term-facts -> false }T
 \ m_whnf_core keeps the result of a whnf_core visit without cheap_proj,
 \ never with it (type_checker.cpp 547; whnf.fs, plan task 5.2.2): the
-\ storing step at the end of a visit, its key saved on the frames.
+\ storing step at the end of a visit, its key (and the count of open
+\ terms typed under the scope, lf-cache-save) saved on the frames.
 ' lf-mconvert-no-visit frames: cframes
 : cstored? ( key r flag -- found )
   lf-whnf-cheap !  cframes frame-reset  4 cframes frame-room? must
-  over cframes frame-save  outcome-ok cframes lf-cwc-store 2drop 2drop
+  over cframes lf-cache-save 2drop  outcome-ok cframes lf-cwc-store 2drop 2drop
   lf-whnf-reset  lf-cache-whnf-core lf-cache-node@ dup if nip then ;
 T{ 5 cb 6 cb true cstored? -> false }T
 T{ 7 cb 8 cb false cstored? -> true }T

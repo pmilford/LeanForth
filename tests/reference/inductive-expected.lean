@@ -462,8 +462,14 @@ def checks : List Block := [
     lean := "nonValidOccurrence", leanforth := "rejected", rule := "P2 R2", task := "5.2.1c" },
   { id := "k.field-under-binder-stuck",
     types := [⟨"T", "Type", [("z", "T"), ("mk", "(h : Bool.true = Bool.false) → " ++
+      "(g : Bool.true = Bool.true) → " ++
       "(Nat → @Eq.rec Bool Bool.true (fun _ _ => Type) T Bool.false h) → T")]⟩],
     lean := "nonValidOccurrence", leanforth := "rejected", rule := "P2 R2", task := "5.2.1c" },
+  { id := "k.field-after-binder-variable",
+    types := [⟨"T", "Type", [("z", "T"), ("mk", "(h : Bool.true = Bool.true) → " ++
+      "(Nat → @Eq.rec Bool Bool.true (fun _ _ => Type) T Bool.true h) → " ++
+      "@Eq.rec Bool Bool.true (fun _ _ => Type) T Bool.true h → T")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 P2 R2 G1", task := "5.2.1c" },
   { id := "eta.block-index-variable",
     types := [⟨"T", "(p : Bool × Bool) → @Prod.rec Bool Bool (fun _ => Type) (fun _ _ => Prop) p",
       [("mk", "(p : Bool × Bool) → T p")]⟩],

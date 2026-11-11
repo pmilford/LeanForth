@@ -297,6 +297,15 @@ T{ x-of-list s" ab" str lf-sx-applies? -> false }T
 T{ s" ab" str x-other lf-sx-applies? -> false }T
 T{ 0 lf-hterm-cell must drop x-of-list lf-sx-applies? -> false }T
 
+\ is_prop's ensure_sort in step 4 (proof irrelevance; follow-up of task
+\ 5.2.1b): a typer that gives a type whose own type's whnf is no Sort (a
+\ lambda; Lean's tests bugs/*-subst-prop reach a stuck sort so) makes the
+\ comparison throw Lean's typeExpected: rejected, diagnostic 55.
+: stuck-typer ( node frames -- type outcome ) 2drop 0 id-on outcome-ok ;
+: stuck-defeq ( t s -- flag outcome code )
+  lf-diag-clear ['] stuck-typer lf-dq-typer ! defeq 0 lf-dq-typer ! lf-diag-code@ ;
+T{ 0 make-var 1 make-var stuck-defeq -> 0 outcome-rejected lf-diag-type-expected }T
+
 \ ---------------------------------------------------------------------------
 \ Every failure outcome, and a fuel sweep: with less fuel a comparison is
 \ exhausted until it gives its answer, never another one.

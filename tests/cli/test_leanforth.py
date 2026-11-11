@@ -1572,7 +1572,11 @@ def pinned_digest(*args):
 # and diagnostic, the counts and the exit status; agent S5B, 2026-11-11).
 # nested.ndjson is re-pinned after merging main 5a3b68d, whose parallel
 # checking (step S7) gave List.brecOn.go 2,669 fuel instead of 2,656 on
-# main itself; the rest of its report is unchanged.
+# main itself; the rest of its report is unchanged. Those marked IO are
+# re-pinned after the follow-up of task 5.2.1b (agent IO, 2026-11-11): a
+# block's check opens each binder of its type's telescope on the inference
+# scope, as Lean does, for 1 or 2 more fuel per block (nested.ndjson: 7
+# blocks, +11); every verdict and diagnostic is unchanged.
 PINNED = {
     "tests/reference/composition.ndjson": "53507f9eebd13ee8",
     "tests/reference/constant-fixture.ndjson": "1ae9a75744aa7830",
@@ -1587,16 +1591,16 @@ PINNED = {
     "--no-manifest README.md": "32fd051f20a34f99",
     "tests/cli/no-such.ndjson": "a6ff9a5e43c01e00",
     "--no-manifest tests/cli/composition-huge-number.ndjson": "610a34eed3aa4777",
-    "--no-manifest tests/core/reexport/kinds.ndjson": "da50c52cd51dc76f",
+    "--no-manifest tests/core/reexport/kinds.ndjson": "079a8fa59adb3aa3",  # IO
     f"--fuel 0 {FIXTURE}": "7ab8e9fa317ce0a5",
     f"--no-manifest {EMPTY_BLOCK}": "09614e87bede9e1b",
-    "tests/cli/sharing.ndjson": "68363e141b2e8738",
-    "tests/cli/sharing-universe.ndjson": "97cc7be21885e626",
-    "tests/cli/nested.ndjson": "f3c312b3d9c8d6de",  # re-pinned, see above
+    "tests/cli/sharing.ndjson": "aae5c66549dbee32",  # re-pinned (IO)
+    "tests/cli/sharing-universe.ndjson": "3b5cfb8c359e5cf6",  # re-pinned (IO)
+    "tests/cli/nested.ndjson": "37c23b3975e6884c",  # re-pinned twice, see above
     "tests/cli/irrelevance.ndjson": "7e969559755d7151",
     f"--no-manifest {CASES}/composition-literal.ndjson": "fc105a0a3fbe0c49",
     "--no-manifest tests/core/check-block-cases/primitive.string-opaque-expansion.ndjson":
-        "b00d24d1acac23df",
+        "0837e252defd9a74",  # re-pinned (IO)
 }
 
 
