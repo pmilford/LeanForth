@@ -3,7 +3,8 @@
 1. Every exit code, with the exact text printed:
    0 every declaration accepted (composition; the constant fixture's three;
      tests/cli/chain.ndjson, larger than --record holds; tests/cli/
-     inductive.ndjson, an inductive type and a theorem by its recursor);
+     inductive.ndjson, an inductive type and a theorem by its recursor),
+     or skipped (composition as an unsafe definition, plan task 5.2.7);
    1 rejected (composition with the wrong argument);
    2 unsupported (an axiom; a literal; with --record an inductive type,
      refused while reading) and unknown (UNKNOWN, a block whose check needs
@@ -204,6 +205,21 @@ class ExitCodes(unittest.TestCase):
             status, out, _ = run("check", "--no-manifest", f"{blocks}/{case}.ndjson")
             self.assertEqual(status, 0, case)
             self.assertIn(line, out.splitlines(), case)
+
+    def test_0_skipped(self):
+        """An unsafe or partial declaration (plan task 5.2.7): skipped, as Lean's
+        replay skips it, with Lean's status 0; a safe declaration that uses one
+        is rejected, as the official checker rejects it (unknown constant)."""
+        skip = ("  skipped: unsafe or partial, as Lean's replay skips it; diagnostic 97 at "
+                "environment lf-env-skip: 1 1")
+        self.expect(["check", "--no-manifest", f"{CASES}/composition-unsafe.ndjson"], 0,
+                    [NO_MANIFEST, "composition: skipped", skip, "1 declaration: 1 skipped"])
+        status, out, _ = run("check", "--no-manifest",
+                             "tests/core/check-block-cases/unsafe.def-then-safe-user.ndjson")
+        lines = out.splitlines()
+        self.assertEqual(status, 1)
+        self.assertIn("IE.unsafeLoop: skipped", lines)
+        self.assertIn("IE.fromUnsafe: rejected", lines)
 
     def test_2_unsupported_and_unknown(self):
         # A proof that is a string literal, typed String, which the file does not
@@ -824,6 +840,7 @@ CASES_ALL = [
     ["--no-manifest", f"{CASES}/composition-wrong-argument.ndjson"],
     ["--no-manifest", f"{CASES}/composition-postulate.ndjson"],
     ["--no-manifest", f"{CASES}/composition-loose.ndjson"],
+    ["--no-manifest", f"{CASES}/composition-unsafe.ndjson"],
     ["--no-manifest", "README.md"], ["tests/cli/no-such.ndjson"],
     ["--no-manifest", "tests/cli/composition-huge-number.ndjson"],
     ["--no-manifest", "tests/core/reexport/kinds.ndjson"], ["--fuel", "0", FIXTURE],

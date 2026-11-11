@@ -745,8 +745,10 @@ create cli-fed-ops
   ."     PROVED, as Lean's exit status 0); fun, forall, application, let," cr
   ."     number and string literals, projections, unfolding of definitions;" cr
   ."     proof irrelevance and eta; quotients; inductive types, recursive," cr
-  ."     indexed and mutual ones, with their recursors; several of these are" cr
-  ."     merged but their review gates are open (docs/project/PROJECT_PROGRESS.md)" cr ;
+  ."     indexed and mutual ones, with their recursors; unsafe and partial" cr
+  ."     declarations skipped, as Lean's replay skips them (5.2.7); several of" cr
+  ."     these are merged but their review gates are open" cr
+  ."     (docs/project/PROJECT_PROGRESS.md)" cr ;
 : cli-other-commands. ( -- )
   ."   check --record, replay: run records 0.1 and their replay (plan task 2.2.5)" cr
   ."   print: a readable proof outline of each accepted declaration, from the" cr
@@ -756,8 +758,8 @@ create cli-fed-ops
   ." supported:" cr cli-check-input. cli-check-rules. cli-other-commands. ;
 : cli-lacks. ( -- )
   ." not yet supported (check answers unsupported or unknown, exit 2):" cr
-  ."   nested inductive types (5.2.5b), unsafe and partial declarations" cr
-  ."   (5.2.7), metadata (mdata) in a term (4.1.3);" cr
+  ."   nested inductive types (5.2.5b), a block with both safe and unsafe" cr
+  ."   members (5.2.7 part b), metadata (mdata) in a term (4.1.3);" cr
   ."   recursor reductions on a variable (a follow-up of 5.2.2)," cr
   ."   so a correct proof can still end unknown;" cr
   ."   check --record and replay (the old reader) refuse inductive types, and" cr

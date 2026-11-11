@@ -12,8 +12,9 @@ feeds it to the checker, whose stores grow to fit, so a whole library is
 checked from the command line — all of Lean's `Init`, 59,349
 declarations, in [about twelve minutes with `--fast`](#a-whole-library-leans-init). Most
 of a real library may still end *unsupported* or *unknown*: nested
-inductive types, metadata, unsafe and partial declarations and some
-projection steps are not built yet (`capabilities` lists them). The
+inductive types, metadata and some projection steps are not built yet
+(`capabilities` lists them); unsafe and partial declarations are
+*skipped*, as Lean's own checker skips them (below). The
 counts of Init below are a snapshot of 2026-11-04, before `let`,
 literals, projections, quotients and mutual blocks were merged; no
 Mathlib declaration has been checked (0 of 729,263). Two commands keep the first,
@@ -276,6 +277,32 @@ With `--strict-axioms` the same run exits with status 6, below every real
 failure ([exit status](#exit-status)), and the JSON report's
 `settings.strictAxioms` is true. `make test` reaches both with an
 export's own axiom and by planting an axiom in an accepted slot.
+
+**Unsafe and partial declarations: skipped.** Lean's own checker for
+exports, its replay (`Lean/Replay.lean` 180–183), never checks an
+unsafe constant (a definition marked `unsafe`, or an axiom, opaque
+constant, inductive type, constructor or recursor with `isUnsafe`) or a
+`partial` definition: it skips them, so a file that holds one is still
+accepted, and a later declaration that uses one meets an unknown
+constant. LeanForth does the same (plan task 5.2.7): such a declaration
+is *skipped*, nothing of it checked, with Lean's exit status 0; it is
+never labelled accepted, nothing can use it (a use is *rejected*, as
+Lean's checker rejects it), and its name stays taken. Here `composition`
+is declared as an unsafe definition:
+
+```console
+$ bin/leanforth check --no-manifest tests/core/check-declaration-cases/composition-unsafe.ndjson; echo "exit status $?"
+note: the export's manifest is not checked (--no-manifest)
+composition: skipped
+  skipped: unsafe or partial, as Lean's replay skips it; diagnostic 97 at environment lf-env-skip: 1 1
+1 declaration: 1 skipped
+exit status 0
+```
+
+An inductive block whose members are all unsafe is skipped the same way;
+one with both safe and unsafe members, which Lean never writes, is still
+*unsupported* (task 5.2.7, part b). `print` shows a skipped declaration's
+slot as *rejected*, with diagnostic 97.
 
 A broken copy of `composition`, whose proof applies `g` to `value`
 instead of to `f value`, is rejected for the reason Lean's kernel gives
@@ -903,15 +930,17 @@ supported:
     PROVED, as Lean's exit status 0); fun, forall, application, let,
     number and string literals, projections, unfolding of definitions;
     proof irrelevance and eta; quotients; inductive types, recursive,
-    indexed and mutual ones, with their recursors; several of these are
-    merged but their review gates are open (docs/project/PROJECT_PROGRESS.md)
+    indexed and mutual ones, with their recursors; unsafe and partial
+    declarations skipped, as Lean's replay skips them (5.2.7); several of
+    these are merged but their review gates are open
+    (docs/project/PROJECT_PROGRESS.md)
   check --record, replay: run records 0.1 and their replay (plan task 2.2.5)
   print: a readable proof outline of each accepted declaration, from the
     checker's derivation log (plan tasks 2.4.1, 2.4.4; untrusted presentation)
   count, reexport: exports of any size, up to all of Mathlib
 not yet supported (check answers unsupported or unknown, exit 2):
-  nested inductive types (5.2.5b), unsafe and partial declarations
-  (5.2.7), metadata (mdata) in a term (4.1.3);
+  nested inductive types (5.2.5b), a block with both safe and unsafe
+  members (5.2.7 part b), metadata (mdata) in a term (4.1.3);
   recursor reductions on a variable (a follow-up of 5.2.2),
   so a correct proof can still end unknown;
   check --record and replay (the old reader) refuse inductive types, and
