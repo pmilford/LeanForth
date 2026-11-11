@@ -663,6 +663,14 @@ T{ s\" {\"app\":{\"arg\":4294967295,\"fn\":4},\"ie\":0}" feed snap app-arg @ -> 
 \ A record its handler refuses gives its index nothing.
 T{ refuse-app s\" {\"app\":{\"arg\":4,\"fn\":4},\"ie\":8}" feed allow-app
    s\" {\"app\":{\"arg\":8,\"fn\":4},\"ie\":9}" feed -> outcome-unsupported outcome-invalid }T
+\ Lists of references give ordinals too: a constant's levels, and names.
+T{ s\" {\"const\":{\"name\":9,\"us\":[0,5]},\"ie\":7}" feed snap const-name @
+   0 snap const-levels @ snap list-item 1 snap const-levels @ snap list-item
+   -> outcome-ok 4 2 1 }T
+T{ s\" {\"thm\":{\"all\":[9,0],\"levelParams\":[3],\"name\":7,\"type\":0,\"value\":0}}" feed
+   snap decl-name @ snap decl-type @ 0 snap decl-all @ snap list-item
+   1 snap decl-all @ snap list-item 0 snap decl-params @ snap list-item
+   -> outcome-ok 3 4 4 5 2 }T
 \ export-restart empties the maps: 7 is no name's index again, and
 \ indices that are their ordinals keep nothing.
 T{ started s\" {\"in\":1,\"str\":{\"pre\":7,\"str\":\"x\"}}" feed -> outcome-ok outcome-invalid }T

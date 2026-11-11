@@ -1110,10 +1110,22 @@ here families - cell / constant #families
 \ when the array has no item i.
 : nth-token ( i index view -- token view true | false )
   >r 2dup r@ json-items@ u< if + 1+ r> true else 2drop r> drop false then ;
-\ Item i of a list of references; -1 when the field holds no flat list,
-\ the list has no item i or the record is not of the current line.
-: list-item ( i list record -- u )
+\ Item i of a list of references, as an ordinal, as every reference is
+\ handed over (see the header); -1 when the field holds no flat list, the
+\ list has no item i or the record is not of the current line. The list
+\ was checked whole when its record was decoded, and its family's map
+\ has not changed since: a constant's `us` holds levels, every other list
+\ of references names.
+: list-levels? ( list record -- flag )
+  dup record-kind @ kind-const = if const-levels @ = else 2drop false then ;
+: list-map ( list record -- map )
+  tuck list-levels? swap record-export @ swap
+  if export-level-map else export-name-map then ;
+: list-ordinal ( u list record -- n ) list-map imap-ordinal 0= if -1 then ;
+: list-raw ( i list record -- u )
   flat-array 0= if drop -1 exit then nth-token if item-u else -1 then ;
+: list-item ( i list record -- u )
+  2dup 2>r list-raw dup 0< if 2r> 2drop else 2r> list-ordinal then ;
 \ Rule i of a recursor record, decoded into the export's rule record and
 \ valid until the next call. Its header has kind-rule, index i, the line,
 \ the export and the generation. 0 when the record is not a recursor,

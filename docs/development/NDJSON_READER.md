@@ -297,9 +297,10 @@ the family's index map (`src/import/ndjson.fs`, a hash table of
 latest ordinal, so its memory grows with the records, never with the
 largest index (`export-map-bytes` gives it; the stage counts it against
 its limit). An index above `max-n` (2^63 − 1 on a 64-bit host), which
-Lean accepts, ends the read as *full*, a resource limit, never a verdict;
-a reference above `max-n` is a bad reference, since no record can have
-it. Measured on 2026-11-10 with crafted files against the arena's official
+Lean accepts, ends the read as *full*, a resource limit, never a verdict:
+a temporary gap like the other wide numbers of plan task 5.2.6 (proposed
+there, 2026-11-10); a reference above `max-n` is a bad reference, since
+no record can have it. Measured on 2026-11-10 with crafted files against the arena's official
 checker built with Lean 4.35.0 (machine-local): forward, missing and self references
 are refused by both; repeated indices (later record wins, earlier
 records keep their values), redefined name 0 and level 0, and sparse
