@@ -133,10 +133,12 @@ end-structure
 : export>level ( i stage -- l ) stage-level-map map> ;
 : export>expr ( i stage -- e ) stage-expr-map map> ;
 
-\ Heap blocks the stage holds (the tier, the maps, the declarations and their lines;
+\ Heap blocks the stage holds (the tier, the maps, the reader's index maps of
+\ an export whose indices are not dense, the declarations and their lines;
 \ not the reader's line buffer and JSON view), and its limit.
 : stage-allocated ( stage -- u )
-  dup stage-tier tier-allocated over stage-name-map slab-bytes +
+  dup stage-export export-map-bytes
+  over stage-tier tier-allocated + over stage-name-map slab-bytes +
   over stage-level-map slab-bytes + over stage-expr-map slab-bytes +
   over stage-decl-records slab-bytes + over stage-by-name slab-bytes +
   swap stage-lines slab-bytes + ;
