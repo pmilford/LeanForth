@@ -283,8 +283,16 @@ end-structure
 \ so that it cannot be read as skipped, the verdict of an unsafe or
 \ partial declaration (review rvUNNI L5).
 : cli-unreached ( d -- ) cli-name. ." : not checked (not reached: the run stopped)" cr ;
+\ Why a run stopped, as far as the parallel scheduler knows (its cause).
+: cli-reason ( -- c-addr u )
+  lf-sched-cause CASE
+    1 OF s" every worker was lost after a check threw and none could be made again" ENDOF
+    2 OF s" the job pool refused a check" ENDOF
+    3 OF s" waiting for a worker failed" ENDOF
+    >r s" a check threw, or publishing failed" r>
+  ENDCASE ;
 : cli-stopped ( -- )
-  ." internal fault: the run stopped: a check threw, or publishing failed" cr
+  ." internal fault: the run stopped: " cli-reason type cr
   lf-input-count cli-stepped ?do i cli-unreached loop ;
 : cli-verdicts ( -- )
   cli-stepped 0 ?do i cli-verdict loop cli-faulted? if cli-stopped then ;
@@ -502,11 +510,19 @@ create cli-fed-ops
   .decimal ." , not ready " lf-sched-unready .decimal ." , forced " lf-sched-forced
   .decimal ." , workers replaced " lf-sched-renewed .decimal cr ;
 : cli-no-workers. ( -- )
+  ck-why ck-why-host = if
+    ."   workers: not used: threads need an x86-64 host (ADR 0009): checked one" cr
+    ."     at a time" cr exit then
+  ck-why if
+    ."   workers: not used: the thread pool could not start (code " ck-why .decimal ." ):" cr
+    ."     checked one at a time" cr exit then
   ."   workers: none could be made (no heap, or this context's input differs" cr
   ."     from a new one's): checked one at a time" cr ;
+\ Cores that run workers at once: all on threads, one when they take turns.
+: cli-cores ( -- n ) task-host task-threads = if task-cores else 1 then ;
 : cli-jobs. ( -- )
   ck-parallel? 0= if exit then ck-jobs-run? 0= if cli-no-workers. exit then
-  ."   workers: " ck-jobs .decimal ."  (--jobs), on " task-cores .decimal ."  cores" cr
+  ."   workers: " ck-jobs .decimal ."  (--jobs), on " cli-cores .decimal ."  cores" cr
   cli-sched. ;
 : cli-resources. ( -- )
   ." resources:" cr cli-times. cli-memory. cli-engine. cli-jobs. cli-input. cli-fuel.
@@ -659,7 +675,7 @@ create cli-fed-ops
 : cli-shown? ( chosen i -- flag ) over 0< if 2drop true else = then ;
 : cli-print-one ( i -- ) >r 0 cli-file r> cli-detail? pr-print outcome>code cli-code! ;
 : cli-print-stopped ( -- )
-  c" the run stopped: a check threw, or publishing failed" cli-fault ;
+  ." internal fault: the run stopped: " cli-reason type cr exit-fault cli-code! ;
 : cli-print-due ( chosen i -- chosen fault? )
   dup pr-step if drop true exit then over over cli-shown? if cli-print-one else drop then
   false ;
@@ -971,7 +987,8 @@ end-structure
 : cli-fast-option ( c-addr u -- ) 2drop ;
 : cli-lf-option ( c-addr u -- ) 2drop true cli-state opt-lf ! ;
 : cli-any-lean-option ( c-addr u -- ) 2drop cli-any-lean ;
-\ --jobs N, N at least 1 (more than the cores runs as many threads as cores).
+\ --jobs N, N at least 1; check-run.fs cuts it to the cores. Each worker holds a
+\ copy of the input, so memory grows with the workers made.
 : cli-jobs-value ( c-addr u n -- )
   dup 1 < if drop c" not a number of jobs" cli-wrong exit then
   cli-state opt-jobs ! 2drop ;

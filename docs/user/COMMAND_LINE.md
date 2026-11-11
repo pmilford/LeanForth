@@ -152,7 +152,12 @@ Options:
 - `--jobs N` (`check` only, not with `--record`) checks with N workers at
   once ([parallel checking](#parallel-checking---jobs)); N is at least 1,
   and 1, the default, checks one declaration at a time. The output is the
-  same whatever N is.
+  same whatever N is. N is cut to the number of cores (and to the job
+  pool's queue of 1024): more workers could not run at once, and each
+  holds its own copy of the input, so memory grows with the workers made
+  (the resource report says how many). On a host that is not x86-64
+  (threads without memory barriers) or where the thread pool cannot start,
+  the check runs one declaration at a time and the resource report says why.
 - `--detail` (`print` only) prints every step of the checker's log
   instead of the outline; `--name NAME` (`print` only) prints only the
   declaration named NAME.

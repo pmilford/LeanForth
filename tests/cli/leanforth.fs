@@ -504,5 +504,54 @@ T{ fuel-run fuel-misses @ -> 0 }T
   1 stale-facts nested 3 run-with sched-facts ck-jobs-run? lf-sched-workers or ck-release ;
 T{ stale-jobs -rot = swap -> true 0 }T
 
+\ FX10 (review rvS7): the worker count is cut to the cores and the pool's
+\ queue (a count above 1024 refused the first job and left "not checked"
+\ declarations; a huge one copied the input per worker); a pool that
+\ cannot start leaves the whole run to the serial one, naming the cause;
+\ a run whose workers are all lost ends, broken, as the serial run stops;
+\ a duplicate met by unfolding is checked at the declaration's own slot.
+: wide ( -- c-addr u ) s" tests/cli/jobs/wide60.ndjson" ;
+: dupl ( -- c-addr u ) s" tests/cli/jobs/dupl80.ndjson" ;
+: clamped ( n -- n' ) 20000000 ck-start ck-jobs! ck-jobs ck-release ;
+T{ 3 clamped -> 3 }T
+T{ 1100 clamped ck-jobs-most = -> true }T
+T{ 1100 clamped 1025 < -> true }T
+T{ 9223372036854775807 clamped ck-jobs-most = -> true }T
+T{ ck-jobs-most task-cores <= -> true }T
+\ The serial run's facts, at a count above the queue, and a huge one.
+wide 1 facts-of 2drop drop constant serial-wide
+dupl 1 facts-of 2drop drop constant serial-dupl
+T{ wide 1100 facts-of 2drop drop serial-wide = -> true }T
+T{ wide 9223372036854775807 facts-of 2drop drop serial-wide = -> true }T
+\ A duplicate met by unfolding (def D twice; the theorems mention only C),
+\ at several worker counts, three times each.
+: dupl-same ( jobs -- flag ) dupl rot facts-of 2drop drop serial-dupl = ;
+T{ 2 dupl-same 4 dupl-same and 7 dupl-same and -> true }T
+T{ 2 dupl-same 4 dupl-same and 7 dupl-same and -> true }T
+T{ 3 dupl-same 10 dupl-same and -> true }T
+\ A pool that cannot start (worker stacks below the contexts' need): the
+\ serial run's facts, no workers in the report, the pool's refusal named.
+: need-cell ( -- addr ) context-layout layout-data-need ;
+: refused-run ( jobs -- h why run? )
+  fresh >r need-cell @ >r 1000000000 need-cell !
+  wide rot run-with sched-facts ck-why ck-jobs-run? ck-release
+  r> need-cell ! r> back ;
+T{ 3 refused-run -> serial-wide task-stacks-small false }T
+T{ 10 refused-run -> serial-wide task-stacks-small false }T
+\ Every worker lost: each check of the two first declarations throws and
+\ no replacement can be made. The run ends (it spun forever with entries
+\ past the stop left in the ready heap), stopped at the second declaration
+\ as the serial run, with its cause said.
+: two-throwing ( -- ) lf-env-limit 2 < if -77 throw then lf-check-declaration ;
+: no-maker ( -- context ior ) 0 -1 ;
+: lost-run ( maker-xt -- stop broken? cause stepped )
+  fresh >r 20000000 ck-start 2 ck-jobs! ['] two-throwing ck-check-word!
+  wide false ck-load drop ck-facts drop ck-env drop lf-sched-plan drop
+  ck-check-word ['] ck-keep rot ['] lf-sched-run context-catch throw ck-jobs-facts
+  lf-sched-stop lf-sched-broken? lf-sched-cause ck-steps-begun ck-release r> back ;
+T{ ' no-maker lost-run -> 0 false 0 1 }T
+T{ ' ck-worker-new lost-run -> 0 false 0 1 }T
+T{ depth lf-context @ context-main = -> 0 true }T
+
 cases-done
 bye
