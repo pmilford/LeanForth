@@ -366,3 +366,17 @@ after.quot-then-ind-declared	alreadyDeclared	rejected	Q1 N2	5.2.4
 after.quot-then-mk-declared-then-used	accepted	accepted	Q1 N2	5.2.4	
 after.user-quot-lift-not-reduced	declTypeMismatch	rejected	Q2	5.2.4	
 replay-iff.flagged-then-propext	accepted	accepted	A1 B4	5.3.1	
+unsafe.def	accepted	skipped	SK	5.2.7	
+unsafe.def-recursive	accepted	skipped	SK	5.2.7	
+unsafe.def-ill-typed	accepted	skipped	SK	5.2.7	
+unsafe.def-then-safe-user	unknownConstant	rejected	SK N1	5.2.7	
+unsafe.def-then-unsafe-user	accepted	skipped	SK	5.2.7	
+partial.def-recursive	accepted	skipped	SK	5.2.7	
+partial.def-then-safe-user	unknownConstant	rejected	SK N1	5.2.7	
+unsafe.axiom	accepted	skipped	SK	5.2.7	
+unsafe.axiom-then-safe-user	unknownConstant	rejected	SK N1	5.2.7	
+unsafe.opaque	accepted	skipped	SK	5.2.7	
+unsafe.opaque-then-safe-user	unknownConstant	rejected	SK N1	5.2.7	
+unsafe.inductive-not-positive	accepted	skipped	SK	5.2.7	
+unsafe.inductive-then-safe-user	unknownConstant	rejected	SK N1	5.2.7	
+unsafe.inductive-type-safe	accepted	unsupported	SK B3	5.2.7	
