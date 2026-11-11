@@ -1909,7 +1909,7 @@ class Snapshots(unittest.TestCase):
                 (["--record", "r.json", "--snapshot", str(path)],
                  "--snapshot and --save-snapshot do not go with --record"),
                 (["--snapshot", str(path), "--save-snapshot", "x"],
-                 "--snapshot and --save-snapshot do not go together yet (plan step SN4)")]:
+                 "--snapshot and --save-snapshot go together only with an export (a layer)")]:
             status, out, _ = run("check", *args)
             self.assertEqual((status, out.splitlines()[0]), (4, f"error: {why}"), args)
         status, out, _ = run("check", "--save-snapshot", CHAIN, CHAIN)
@@ -1955,7 +1955,7 @@ def swapped_minors(lines, name):
 
 def kept_back(snapshot):
     """Per slot of a snapshot checked against its own export: whether the
-    import rule I1 keeps it back -- an outcome invalid or full; a lookup of
+    import rule I1 keeps it back -- an outcome invalid, exhausted or full; a lookup of
     a name beyond the input (key 2^32 - 1) or of another module's test (kind
     7), which no import replays; a lookup answered or a dependency met by a
     slot kept back; a slot published with the one before, as that one."""
@@ -1973,7 +1973,7 @@ def kept_back(snapshot):
               [(a >> 4) - 1 for _, a in pairs if a >> 4]
         j, k = j + nd, k + nl
         back.append(back[-1] if marks & 4 else
-                    outcome in (1, 6) or any(key == 0xFFFFFFFF or key & 15 == 7
+                    outcome in (1, 2, 6) or any(key == 0xFFFFFFFF or key & 15 == 7
                                              for key, _ in pairs) or any(back[s] for s in met))
     return back
 
@@ -2106,6 +2106,15 @@ class Imports(unittest.TestCase):
         put32(data, table[SLOTS][3] + 72 * 4, 6)   # Two.cases: full
         snap.write_bytes(bytes(resealed(data, table, SLOTS)))
         self.both_ways(snap, [INDUCTIVE], TWO + ["Two.swap"])
+
+    def test_exhausted(self):
+        """A slot saved exhausted is checked again: fuel used depends on how
+        the tier numbers its records too (measured on a Mathlib prefix
+        against Init's snapshot), so an exhausted verdict is not taken."""
+        snap = self.snapshot("--fuel", "200", INDUCTIVE)
+        self.assertEqual(kept_back(snap), [False] * 4 + [True, False])
+        got = self.both_ways(snap, [INDUCTIVE], TWO + ["Two.swap"], extra=("--fuel", "200"))
+        self.assertEqual(got["declarations"][4]["verdict"], "exhausted")
 
     def test_undecided_slot(self):
         """A lookup that meets a slot not taken is no match, even when its

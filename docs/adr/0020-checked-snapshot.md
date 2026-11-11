@@ -634,11 +634,33 @@ declaration with other verdicts. Thirteen planted faults are caught;
 one (a member published with its first taken alone) is equivalent to
 the first-member rule.
 
-**Open** (for the review): an imported slot's diagnostic is S's, so a
-slot number it names is S's; N2 queries record no slot (the outcome is
-compared, which decides the verdict); answers are compared exactly, so a
-declaration whose lookups reach a re-checked one is checked again even
-when that one's verdict did not change (sound, slower).
+**Measured** (`gforth-fast`, `--jobs 4`, a loaded 10-core machine). All
+of `Init` checked against its own snapshot: every field of all 59,349
+declarations equal to the fresh check (fuel included); 37,142 taken,
+22,207 checked again -- exactly those whose lookups reach `Lean.Syntax`'s
+nested block, the 8 declarations whose checks make names beyond the
+input (the model in `test_leanforth.py`, `kept_back`, predicts the set);
+392 s against 460 s fresh. Mathlib's first million lines (13,023
+declarations, 5,231 of them named as in `Init`) checked against `Init`'s
+snapshot: every verdict, the counts and the exit status equal to its
+fresh check's, 1,108 taken, 805 sharing a name with `Init` but not its
+content; but **fuel used differs on 2,151 declarations** (a few percent,
+e.g. `LE` 326 fresh, 330 here, both checked in their run), so a check's
+fuel depends on how the tier numbers its records, not only on its
+content and lookups: I2 does not hold for fuel. Hence I1.2 also refuses
+*exhausted* (a verdict that depends on fuel), and a taken slot reports
+its snapshot run's fuel. 59 s against 41 s fresh (staging `Init`'s tier
+and the larger feed cost more than the 1,108 checks saved).
+
+**Open** (for the review): (1) fuel independent of the tier's numbering
+(a kernel task; until then a declaration accepted near its budget could
+be exhausted in another numbering); (2) nested blocks' scratch names
+recorded so that an import can replay them (today they keep 37% of
+`Init` from being taken); (3) an imported slot's diagnostic is S's, so a
+slot number it names is S's, and N2 queries record no slot (the outcome
+is compared, which decides the verdict); (4) answers are compared
+exactly, so a declaration whose lookups reach a re-checked one is checked
+again even when that one's verdict did not change (sound, slower).
 
 ## Questions for the owner
 

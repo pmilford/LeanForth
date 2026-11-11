@@ -764,7 +764,7 @@ create ck-lay /lay allot  ck-lay /lay erase   \ the layer being loaded
   12 ck-stage stage-init dup ok? 0= if exit then drop
   ck-any-version? ck-stage stage-any-version! ck-stage ck-snap snap-tier ;
 : ck-stage-slots ( -- n )
-  0 ck-stage stage-decls 0 ?do i ck-stage staged-kind@ kind-inductive <> 1 and + loop ;
+  0 ck-stage stage-decls 0 ?do i ck-stage staged-at ck-stage slot-record? 1 and + loop ;
 : ck-firsts! ( -- )
   8 0 do i 1+ ck-stage tier-slab slab-count ck-firsts i cells + ! loop ;
 \ The layers to load on the base, as (c-addr u) pairs (ck-layers!).

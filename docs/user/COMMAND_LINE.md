@@ -790,14 +790,19 @@ The export is read on into the snapshot's records, so that a record equal
 to one of the snapshot is the same number; then, before any check, each
 declaration is **taken** from the snapshot when one of the snapshot's
 declarations of its name has exactly its content (an inductive block
-only whole), a verdict that does not depend on memory (not *full* or
-*invalid*), and gives the same answer to every lookup its check made,
-each asked again here by the checker's own code over what was taken so
-far (a lookup that meets a declaration not taken is no match). Every
-other declaration is checked as in a final run (with `--jobs N` too), and
-labelled as resting on the snapshot when it uses a taken one. The
-verdicts, fuel and counts are those of a final check of the export (the
-tests compare both, field by field); only the labels differ:
+only whole), a verdict that does not depend on memory or fuel (not
+*full*, *invalid* or *exhausted*), and gives the same answer to every
+lookup its check made, each asked again here by the checker's own code
+over what was taken so far (a lookup that meets a declaration not taken
+is no match). Every other declaration is checked as in a final run (with
+`--jobs N` too), and labelled as resting on the snapshot when it uses a
+taken one. The verdicts and counts are those of a final check of the
+export (the tests compare both, field by field, and so did all of `Init`
+against its own snapshot); only the labels differ. The fuel a check uses
+also depends on how the run numbers the export's records, so a taken
+declaration reports the fuel of the run that wrote the snapshot, which
+can differ from a final check's by a few percent (measured on Mathlib's
+first million lines against `Init`'s snapshot):
 
 ```text
 Two: accepted (experimental, not independently audited; from snapshot, not re-checked in this run); axioms: none

@@ -19,7 +19,8 @@
 \    value, hint, kind data), as numbers of the one tier; a block's
 \    member only when the whole block is equal (its block record and every
 \    member) and k and d hold the same place in it;
-\ 2. a reproducible verdict: d's outcome is neither full nor invalid;
+\ 2. a reproducible verdict: d's outcome is neither full nor invalid, nor
+\    exhausted (fuel used depends on the tier's numbering too; below);
 \ 3. the same answers: every lookup S recorded for d, asked again in k's
 \    snapshot by the environment's own code (environment.fs
 \    lf-env-replay), gives the recorded answer, every slot it returns
@@ -46,7 +47,13 @@
 \ answers with the slots they return; by induction over the input's order
 \ every slot those answers return was taken from the one S's check saw.
 \ It vouches for nothing more than ADR 0020 D4 says a snapshot does. A
-\ taken slot's diagnostic is S's (information only, never compared).
+\ taken slot's diagnostic is S's (information only, never compared). I2
+\ does not hold for fuel used today: checked against Init's snapshot, a
+\ Mathlib prefix's checks used a few percent more or less fuel than in its
+\ fresh check (the tier numbers its records otherwise), with the same
+\ verdicts; so a taken slot reports S's run's fuel, and an exhausted one
+\ is never taken (I1.2). Making fuel independent of the numbering is a
+\ kernel task for the review.
 \
 \ Counts: imp-taken# (slots taken), imp-other# (declarations that share a
 \ name with one of S and match none of S's of that name in content).
@@ -119,6 +126,14 @@ variable imp-current
 : s-prev ( sd imp -- u ) s-decl staged-prev u32@ ;
 : s-slot ( sd imp -- d ) imp-slot-of @ ua@ 1- ;
 : block? ( kind -- flag ) kind-inductive = ;
+\ A staged record that has a slot: any but a block record, and an empty
+\ block's (no type, constructor or recursor), which the feed makes one
+\ declaration (import/feed.fs feed-empty-block).
+: block-empty? ( addr stage -- flag )
+  swap staged-more u32@ swap stage-tuples 0 3 0 do i 3 pick 3 pick tuple-item + loop
+  nip nip 0= ;
+: slot-record? ( addr stage -- flag )
+  over staged-head u32@ head-tag block? if block-empty? else 2drop true then ;
 : s-bytes ( imp -- u ) s-count /staged * ;
 : s-source ( imp -- addr ) 0 swap imp-stage @ staged-at ;
 : keep-copy ( imp -- outcome )
@@ -127,7 +142,8 @@ variable imp-current
   over imp-sdecls ! dup s-source over imp-sdecls @ rot s-bytes move outcome-ok ;
 \ Declaration sd gets slot n, unless it is a block record (no slot).
 : keep-slot ( n sd imp -- n' )
-  2dup s-kind block? if 2drop exit then >r over 1+ swap r> imp-slot-of @ ua! 1+ ;
+  2dup s-decl over imp-stage @ slot-record? 0= if 2drop exit then
+  >r over 1+ swap r> imp-slot-of @ ua! 1+ ;
 : keep-slots ( imp -- outcome )
   dup s-count over imp-slot-of ua-new dup ok? 0= if nip exit then drop
   0 over s-count 0 ?do i 2 pick keep-slot loop swap imp-sn ! outcome-ok ;
@@ -157,7 +173,8 @@ variable imp-current
 : e-staged ( k imp -- ie ) imp-staged-of @ ua@ ;
 : e-kind ( ie imp -- kind ) imp-stage @ staged-kind@ ;
 : input-slot ( n ie imp -- n' )
-  2dup e-kind block? if 2drop exit then >r over r> imp-staged-of @ ua! 1+ ;
+  2dup imp-stage @ staged-at over imp-stage @ slot-record? 0= if 2drop exit then
+  >r over r> imp-staged-of @ ua! 1+ ;
 : e-count ( imp -- n ) imp-stage @ stage-decls ;
 : imp-input ( imp -- outcome )
   dup e-count over imp-staged-of ua-new dup ok? 0= if nip exit then drop
@@ -202,7 +219,12 @@ variable imp-current
 \ ---- I1.2 and I1.3, in k's snapshot. S's fields are read through
 \ env-snapshot.fs (saved, start@, dep@, look-key, look-answer).
 : d-outcome ( d -- outcome ) sl-outcome swap saved ;
-: reproducible? ( d -- flag ) d-outcome dup outcome-full <> swap outcome-invalid <> and ;
+\ Full and invalid depend on memory or a fault; exhausted on fuel, which
+\ (measured on a Mathlib prefix against Init's snapshot) also depends on
+\ the tier's numbering, not only on content and lookups.
+: unrepeatable? ( outcome -- flag )
+  dup outcome-full = over outcome-invalid = or swap outcome-exhausted = or ;
+: reproducible? ( d -- flag ) d-outcome unrepeatable? 0= ;
 : d-trailing? ( d -- flag ) sl-marks swap saved mark-with and 0<> ;
 \ Slots k .. k+n-1 in the input and not final.
 : e-final? ( k -- flag ) lf-env lf-env-slot lf-slot-state @ lf-state-final = ;
@@ -342,7 +364,7 @@ variable imp-current
 : llone ( k ie imp -- k' outcome )
   2 pick over lkept? if ldecl-add else 2drop then 1+ outcome-ok ;
 : lstep ( k ie imp -- k' outcome )
-  2dup e-kind dup block? if drop lblock exit then
+  2dup e-decl over imp-stage @ slot-record? 0= if lblock exit then 2dup e-kind
   member-kind? if lmember else llone then ;
 : layer-decls ( imp -- outcome )
   0 over e-count 0 ?do i 2 pick lstep dup ok? 0= if nip nip unloop exit then drop loop

@@ -8566,8 +8566,8 @@ reason = "SN4: a lookup that met a slot not taken (to be checked in this run) is
 [[fault]]
 id = "sn4-full-taken"
 file = "src/kernel/env-import.fs"
-old = ''': reproducible? ( d -- flag ) d-outcome dup outcome-full <> swap outcome-invalid <> and ;'''
-new = ''': reproducible? ( d -- flag ) d-outcome outcome-invalid <> ;'''
+old = '''  dup outcome-full = over outcome-invalid = or swap outcome-exhausted = or ;'''
+new = '''  dup outcome-invalid = swap outcome-exhausted = or ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
 reason = "SN4: a slot the snapshot saved full (no heap then) is taken instead of checked again"
 

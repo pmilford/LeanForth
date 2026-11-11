@@ -89,7 +89,7 @@ end-structure
 \ The layer's slots: its declarations but block records.
 : lay-count ( lay -- n )
   lay-ly 0 over ly-decls# 0 ?do
-    i 2 pick ly-decl ly-kind kind-inductive <> 1 and +
+    i 2 pick ly-decl 2 pick ly-stage @ slot-record? 1 and +
   loop nip ;
 : lay-sections ( lay -- outcome )
   dup lay-sn @ over lay-snap snap-first !
@@ -111,7 +111,7 @@ end-structure
 : lay-slot-of ( sd lay -- s ) lay-slots @ ly@ 1- ;
 : lay-slots-fill ( lay -- )
   0 over lay-old @ 0 ?do
-    i 2 pick lay-stage @ staged-kind@ kind-inductive <> if
+    i 2 pick lay-stage @ staged-at 2 pick lay-stage @ slot-record? if
       1+ dup i 3 pick lay-slots @ ly! then
   loop drop drop ;
 
@@ -136,7 +136,7 @@ end-structure
   loop nip nip nip ;
 : verdicts-same? ( j s n lay -- flag )
   swap >r true r> 0 ?do 3 pick i + 3 pick i + 3 pick verdict-same? and loop nip nip nip ;
-: lay-block? ( i lay -- flag ) lay-decl ly-kind kind-inductive = ;
+: lay-block? ( i lay -- flag ) tuck lay-decl swap lay-stage @ slot-record? 0= ;
 : unit-members ( i lay -- m )
   tuck lay-decl staged-more u32@ swap lay-stage @ stage-tuples
   0 3 0 do i 3 pick 3 pick tuple-item + loop nip nip ;
