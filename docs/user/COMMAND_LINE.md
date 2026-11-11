@@ -605,10 +605,13 @@ output changes):
   lines.txt` keeps the prefix. The summary, the notes and the resource
   report come at the end, so a stopped run has no summary: count the
   lines (`grep -c ': accepted'`). `--json` is one text, written at the
-  end, and is not affected. With `--jobs`, a check that throws stops the
-  run at its declaration as before, but declarations after it may already
-  have been written (they were checked and final); the run still ends with
-  the internal-fault message and code 5.
+  end, and is not affected. With `--jobs` the lines written are always a prefix of the
+  serial run's: nothing at or after a declaration whose check threw is written
+  while the run goes (the run then ends with the internal-fault message and code 5).
+  Gforth does not flush its output when it is killed by SIGTERM (`timeout`): the
+  lines since the last flush are lost, at most 2000 lines or ten seconds' worth.
+  Measured: `timeout 60` on all of Init left 3354 lines, a byte-for-byte prefix
+  of the full output, ending at a line end.
 - **`--progress[=SECONDS]`** writes one line to standard error each time
   SECONDS seconds (default 60) have passed when a declaration becomes final
   (a single check longer than the interval delays its line), and one when

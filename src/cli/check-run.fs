@@ -45,6 +45,13 @@
 \   context, or publishing failed; ck-steps-begun tells how far it came);
 \   ck-stopped?, which the text and JSON reports both read, is true when
 \   the run's verdicts can be read and it stopped or did not end ok;
+\ - ck-progress! ( seconds -- ) and ck-lines! ( xt -- ), after ck-start: a
+\   progress line on stderr every that many seconds (0: after every report;
+\   the cli's --progress), and xt ( d -- ), the cli's text line of declaration
+\   d, called in file order as each declaration is final, in the serial run
+\   and (from the scheduler's tick, lf-sched-tick!) the parallel one, so
+\   that a stopped run keeps the lines so far (see "Progress lines" below);
+\   ck-done tells how many were given out;
 \ - ck-finish ( -- ) takes the run's total time so far (phase ck-total);
 \ - then, before ck-release, the verdicts are read in a snapshot of the
 \   run's own environment (ck-verdicts?, then lf-env-outcome), and the
@@ -562,7 +569,11 @@ create ck-line ck-line-room 2 + allot
 \ since the last one. Nothing is done unless one of the two is set, and
 \ neither changes a verdict, a fuel or the output a finished run has.
 \ A parallel run's stopping rule (a THROW) is the scheduler's: nothing at
-\ or beyond lf-sched-stop is given out while it runs.
+\ or beyond lf-sched-stop is given out while it runs (lf-sched-final), and
+\ the stop is lowered at the faulting declaration's hand-over, before the
+\ frontier can pass its slot, so the lines written are always a prefix of
+\ the serial run's; the faulting declaration's own line is written by the
+\ report (cli-verdicts), as the serial run's is, and nothing after it.
 : ck-marks! ( -- ) ck-wall-now 2dup ck-state ck-prog-mark 2! ck-state ck-flush-mark 2! ;
 : ck-lines! ( xt -- ) ck-state ck-line-xt ! ck-marks! ;
 : ck-progress! ( seconds -- ) ck-state ck-prog-secs ! true ck-state ck-prog-on ! ck-marks! ;
