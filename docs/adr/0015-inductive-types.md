@@ -405,12 +405,29 @@ route is tried, so LeanForth keeps them.
   statement text at the use's universe arguments (`lf-stmt-build`,
   `env-signature.fs`), never the record's. Rows `replay-quot.original`,
   `replay-quot.mk-given-quot-type`, `replay-quot.lift-universe-dropped`
-  (Lean's replay accepts each; so does LeanForth). **Remaining gaps**, a
-  follow-up of task 5.2.4, none reachable by an export Lean writes: a
-  quotient record named otherwise is rejected (diagnostic 96) where replay
-  ignores it; Lean adds all four constants at the first record, LeanForth
-  one per record (a file lacking one of the four records cannot name it);
-  `check_name` is run on the record's own name only, not on all four.
+  (Lean's replay accepts each; so does LeanForth).
+  *Follow-up (2026-11-10, review rvAX, agent FX3):* `check_name` on all
+  four names, as `add_quot` runs it (`quot.cpp` 53–56): while no earlier
+  quotient record is accepted, a record is rejected when any of the four
+  names is declared, so a user's `Quot.mk` declared first leaves every
+  quotient record rejected and `quot_reduce_rec`'s by-name match never
+  meets it (before, `Quot.lift f h (Quot.mk α (Quot r) a) = f a` was
+  accepted there; Lean says `unknownConstant`); once one is accepted, the
+  four names are held against every other declaration (`alreadyDeclared`,
+  `environment.fs` `lf-env-quot-holding`, also in the publisher's
+  re-check). A record's universe parameters are not re-checked by the
+  publisher (M1), and a type the audit refuses (a loose variable, an
+  `mdata` node) only warns (L1). Rows `quotinit.name-taken`,
+  `after.quot-*`, `replay-quot.lift-params-repeated`, `-mk-loose-bvar`,
+  `-mk-mdata-type`. **Remaining gaps**, a follow-up of task 5.2.4, none
+  reachable by an export Lean writes: a quotient record named otherwise is
+  rejected (diagnostic 96) where replay ignores it; Lean adds all four
+  constants at the first record, LeanForth one per record, so a use of one
+  no slot holds while the quotient is initialised, and a second record of
+  a name, are unknown (diagnostic 77; rows `quotinit.twice`,
+  `after.quot-then-mk-declared-then-used`); a record whose type names an
+  undeclared constant is refused by the importer (row
+  `replay-quot.ind-unknown-constant`, task 5.2.6).
 - **Q2 Reduction.** `Quot.lift f h q` (argument 5 the quotient, 3 the
   function) and `Quot.ind h q` (argument 4, 3): when `whnf q` is
   `Quot.mk r a` with exactly three arguments, the result is `f a` applied

@@ -275,11 +275,19 @@ end-structure
 : cli-summary ( -- )
   lf-input-count dup .decimal ."  declaration" 1 <> if ." s" then ." : "
   true verdict-kinds 0 do i verdict-kind cli-item loop drop cr ;
-\ The accepted ones' label and axioms, read from their slots: none, or
-\ how many are NOT PROVED.
-: cli-axioms. ( -- )
-  ." axioms: " cli-not-proved @ ?dup 0= if ." none" exit then
+\ The accepted ones' label and axioms, read from their slots: none when
+\ they use no axiom; else the allowlisted axioms they use (which count as
+\ proved, docs/user/COMMAND_LINE.md), then how many are NOT PROVED, or
+\ none (review rvAX L4).
+: cli-listed. ( bits -- )
+  lf-axiom-propext lf-check-axiom. lf-axiom-choice lf-check-axiom.
+  lf-axiom-sound lf-check-axiom. drop ."  (allowlisted); " ;
+: cli-unproved. ( -- )
+  cli-not-proved @ ?dup 0= if ." none NOT PROVED" exit then
   .decimal ."  NOT PROVED (they depend on an axiom)" ;
+: cli-axioms. ( -- )
+  ." axioms: " cli-axioms-used @ ?dup 0= if ." none" exit then
+  lf-allowlist-bits and ?dup if cli-listed. then cli-unproved. ;
 : cli-accepted. ( -- )
   outcome-ok cli-count-of @ ?dup 0= if exit then
   ." accepted: " .decimal ."  (experimental, not independently audited); "

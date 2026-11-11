@@ -26,8 +26,9 @@
 \ An opaque declaration takes these steps (add_opaque). An axiom
 \ (add_axiom, plan task 5.3.1) takes steps 1-6, then 7 joins its own bit
 \ (core/axiom-allowlist.fs) to its axiom set. A quotient record (add_quot,
-\ plan task 5.2.4; quot.fs) takes steps 1-3, then 4 Eq's shape and 5 its
-\ type, Lean's own; nothing is inferred.
+\ plan task 5.2.4; quot.fs) takes 1 U1 alone, 2 its names (add_quot's
+\ check_name), 3 Eq's shape, 4 its type's audit (U2, V1: only a warning
+\ when it fails) and 5 its name, one of Lean's four; nothing is inferred.
 \ The first step that does not succeed ends the check with its outcome
 \ (ADR 0008), and lf-check-step@ tells which; only a check whose every
 \ step succeeded ends ok. Its candidate then holds its dependencies, the
@@ -103,7 +104,10 @@ lf-walk-room context-walk: lf-check-walker
 \ U1: a definition, theorem, opaque declaration, axiom or quotient
 \ record, safe; recorded with its kind and safety. A value is malformed
 \ input (invalid) when it is missing for the first three kinds, which
-\ have one, or present for the last two, which have none.
+\ have one, or present for the last two, which have none. An unsafe or
+\ partial one is unsupported, a gap where Lean's kernel decides (an
+\ unsafe axiom or opaque declaration it accepts, environment.cpp 152-158
+\ and 211-222): a follow-up of plan tasks 5.3.1 and 4.2.6 (review rvAX L3).
 : lf-check-kind? ( kind -- flag ) dup lf-kind-valued? swap lf-kind-bare? or ;
 : lf-check-in-scope? ( decl -- flag )
   dup lf-idecl-kind @ lf-check-kind? swap lf-idecl-safety @ lf-safety-safe = and ;
@@ -196,24 +200,39 @@ lf-walk-room context-walk: lf-check-walker
   lf-check-found @ lf-check-claim lf-minfer-agree
   lf-check-site lf-diag-value-apart lf-minfer-verdict ;
 
-\ Steps that compare with a statement Lean fixes (core/statement-match.fs), on
-\ the audit's fuel.
-: lf-check-matched ( xt -- outcome )
-  lf-check-left @ lf-stmt-fuel ! execute lf-stmt-fuel @ 0 max lf-check-left ! ;
+\ Steps that compare with a statement Lean fixes (core/statement-match.fs),
+\ on the fuel the counter at addr holds, which gets what they leave: the
+\ audit's for a quotient record, inference's for an axiom's step 7, so
+\ that the fuel a check reports used is exact (cli/check-run.fs; review
+\ rvAX L2).
+: lf-check-matched-on ( xt addr -- outcome )
+  dup >r @ lf-stmt-fuel ! execute lf-stmt-fuel @ 0 max r> ! ;
+: lf-check-matched ( xt -- outcome ) lf-check-left lf-check-matched-on ;
 \ An axiom (add_axiom, environment.cpp 152-158: steps 1-6 as for a
 \ definition), then step 7: its own bit joins the candidate's axiom set
 \ (core/axiom-allowlist.fs): a listed one when it is the allowlist's
 \ statement, else unlisted, which reports mark NOT PROVED.
 : lf-check-own-axiom ( -- outcome )
   lf-check-decl lf-axiom-bit ok-then? if lf-env-axiom! outcome-ok then ;
-: lf-check-axiom ( -- outcome ) ['] lf-check-own-axiom lf-check-matched ;
-\ A quotient record (add_quot, quot.cpp 47-100; quot.fs): steps 1 and 2,
-\ then Eq's shape and the record's name, one of Lean's four (another type
-\ or other universe parameters only warn: Lean's replay ignores the
-\ record, so its parameters are not checked either); no inference, as
-\ Lean's kernel infers nothing there.
+: lf-check-axiom ( -- outcome )
+  ['] lf-check-own-axiom lf-minfer-fuel lf-check-matched-on ;
+\ A quotient record (add_quot, quot.cpp 47-100; quot.fs), on the audit's
+\ fuel: U1; its names (check_name on all four, or its own once the
+\ quotient is initialised); Eq's shape; its type, which add_quot never
+\ reads, audited as any type (U2, V1), where a refusal only makes it
+\ another type than Lean's, its diagnostic put back (review rvAX L1), but
+\ running out of fuel or room stands; then its name, one of Lean's four,
+\ and its type, Lean's or not (another type or other universe parameters
+\ only warn: Lean's replay ignores the record, so its parameters are not
+\ checked either); no inference, as Lean's kernel infers nothing there.
 : lf-check-quot-eq ( -- outcome ) ['] lf-quot-eq lf-check-matched ;
-: lf-check-builtin ( -- outcome ) lf-check-decl lf-quot-builtin ;
+: lf-check-short? ( outcome -- flag ) dup outcome-exhausted = swap outcome-full = or ;
+: lf-check-quot-form ( -- outcome )
+  lf-diag@ 2>r 2>r lf-check-claim lf-check-forms
+  dup ok? if drop lf-check-claim lf-check-closed then
+  dup lf-check-short? if 2r> 2r> 2drop 2drop exit then
+  2r> 2r> lf-diag! ok? outcome-ok lf-check-keep ;
+: lf-check-builtin ( -- outcome ) lf-check-decl lf-check-found @ lf-quot-builtin ;
 : lf-check-quot-type ( -- outcome ) ['] lf-check-builtin lf-check-matched ;
 
 \ The steps ( -- outcome ), in order: of a definition, theorem or opaque
@@ -225,8 +244,9 @@ create lf-check-steps 8 ,
 create lf-axiom-steps 7 ,
   ' lf-check-audit , ' lf-env-own-name , ' lf-env-own-params , ' lf-check-type ,
   ' lf-check-sort , ' lf-check-prop , ' lf-check-axiom ,
-create lf-quot-steps 4 ,
-  ' lf-check-audit , ' lf-env-own-name , ' lf-check-quot-eq , ' lf-check-quot-type ,
+create lf-quot-steps 5 ,
+  ' lf-check-u1 , ' lf-quot-names , ' lf-check-quot-eq , ' lf-check-quot-form ,
+  ' lf-check-quot-type ,
 8 constant lf-check-steps#
 lf-check-steps# 1+ constant lf-step-done
 : lf-check-table ( -- steps )

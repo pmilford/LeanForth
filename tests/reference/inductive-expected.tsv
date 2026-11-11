@@ -137,6 +137,10 @@ proj.index-out-of-range	invalidProj	rejected	J2	5.2.2
 quot.lift-on-mk	accepted	accepted	Q2	5.2.4	
 quot.lift-on-mk-wrong	declTypeMismatch	rejected	Q2	5.2.4	
 quot.lift-stuck-on-variable	declTypeMismatch	rejected	Q2	5.2.4	
+quot.lift-extra-argument	accepted	accepted	Q2	5.2.4	
+quot.lift-extra-argument-wrong	declTypeMismatch	rejected	Q2	5.2.4	
+quot.lift-unapplied-eta	accepted	accepted	Q2	5.2.4	
+quot.ind-on-mk	accepted	accepted	Q2	5.2.4	
 lit.succ-of-literal	accepted	accepted	L1	5.2.3	
 lit.offset-with-variable	accepted	accepted	L3	5.2.3	
 lit.literal-against-constructors	accepted	accepted	L3	5.2.3	
@@ -300,6 +304,8 @@ forged.type-named-nat-pow	accepted	accepted	L1 L5	5.2.3
 quotinit.with-eq	accepted	accepted	Q1	5.2.4	
 quotinit.without-eq	unknownConstant	rejected	Q1	5.2.4	
 quotinit.eq-wrong-shape	quotEqShape	rejected	Q1	5.2.4	
+quotinit.name-taken	alreadyDeclared	rejected	Q1	5.2.4	
+quotinit.twice	accepted	accepted	Q1	5.2.4	
 k7.unknown-nat	unknownConstant	rejected	K7	5.2.3	
 k7.nat-is-prop	declTypeMismatch	rejected	K7	5.2.3	
 k7.beq-bool	unknownConstant	rejected	K7	5.2.3	
@@ -317,7 +323,21 @@ k7.free-variable-computes-twin	accepted	accepted	K7	5.2.3
 postulate.propext-altered	accepted	accepted	A1	5.3.1	
 postulate.propext-forged-iff	accepted	accepted	A1	5.3.1	
 postulate.propext-own-iff	accepted	accepted	A1	5.3.1	
+postulate.propext-iff-one-param	accepted	accepted	A1	5.3.1	
+postulate.propext-iff-mutual	accepted	accepted	A1	5.3.1	
+postulate.sound-own-quot-names	accepted	accepted	A1	5.3.1	
 forged.type-named-nat-add-recursor-with-hypothesis	invalidRecursor	rejected	L1 L5 B3	5.2.3	
 replay-quot.original	accepted	accepted	Q1	5.2.4	
 replay-quot.mk-given-quot-type	accepted	accepted	Q1	5.2.4	
 replay-quot.lift-universe-dropped	accepted	accepted	Q1	5.2.4	
+replay-quot.lift-params-repeated	accepted	accepted	Q1	5.2.4	
+replay-quot.mk-loose-bvar	accepted	accepted	Q1	5.2.4	
+replay-quot.mk-mdata-type	accepted	accepted	Q1	5.2.4	
+replay-quot.ind-unknown-constant	accepted	accepted	Q1	5.2.4	
+after.quot-mk-declared-then-lift-on-it	unknownConstant	rejected	Q1 N2	5.2.4	
+after.quot-then-mk-declared	alreadyDeclared	rejected	Q1 N2	5.2.4	
+after.quot-then-lift-declared	alreadyDeclared	rejected	Q1 N2	5.2.4	
+after.quot-then-ind-declared	alreadyDeclared	rejected	Q1 N2	5.2.4	
+after.quot-then-mk-declared-then-used	accepted	accepted	Q1 N2	5.2.4	
+after.user-quot-lift-not-reduced	declTypeMismatch	rejected	Q2	5.2.4	
+replay-iff.flagged-then-propext	accepted	accepted	A1 B4	5.3.1	

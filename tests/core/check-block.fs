@@ -22,12 +22,17 @@
 \ 6. After a block (review rvI21 B2, M1): Lean's generated recursor
 \    T.rec held when the file leaves it out; the type visible only within
 \    its own check; the publisher's re-check of members and of T.rec.
+\ 7. Axioms, opaque declarations and quotients: Lean's verdicts; the four
+\    quotient names add_quot holds (review rvAX). 8. The statement matcher
+\    and the allowlist. 9. The fuel axioms and quotient records use, as
+\    cli/check-run.fs reports it: exact.
 \ Test-only; nothing here accepts a theorem outside the code under test.
 include ../support/tester.fs
 include ../support/checks.fs
 require ../support/alloc-fail.fs
 require ../../src/import/feed.fs
 require ../../src/kernel/check-declaration.fs
+require ../../src/cli/check-run.fs
 
 create stg /stage allot
 create fdd /feed allot
@@ -852,6 +857,13 @@ T{ s" opaque.unfolds-as-definition" used -> outcome-ok 0 }T
 T{ s" quot.lift-on-mk" used -> outcome-ok 0 }T
 T{ s" quot.lift-on-mk-wrong" used -> outcome-rejected lf-diag-value-apart }T
 T{ s" quot.lift-stuck-on-variable" used -> outcome-rejected lf-diag-value-apart }T
+\ An argument after the major premise goes to the reduct; Quot.lift with
+\ five arguments has no rule (eta decides); Quot.ind on Quot.mk; a user's
+\ Quot.lift and Quot.mk, with no quotient, are never reduced (review rvAX).
+T{ s" quot.lift-extra-argument" used -> outcome-ok 0 }T
+T{ s" quot.lift-extra-argument-wrong" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" quot.lift-unapplied-eta" used s" quot.ind-on-mk" used -> outcome-ok 0 outcome-ok 0 }T
+T{ s" after.user-quot-lift-not-reduced" used -> outcome-rejected lf-diag-value-apart }T
 \ add_quot: Eq with Lean's shape, or rejected (check_eq_type, 95).
 T{ s" quotinit.with-eq" used -> outcome-ok 0 }T
 T{ s" quotinit.eq-wrong-shape" used -> outcome-rejected lf-diag-quot-eq }T
@@ -872,8 +884,86 @@ T{ s" quotinit.eq-wrong-shape" used -> outcome-rejected lf-diag-quot-eq }T
 T{ mk-warned quot-warned -> lf-warn-quot-record outcome-ok 0 outcome-ok }T
 T{ lift-warned -> lf-warn-quot-record outcome-ok }T
 T{ quot-forged used -> outcome-ok 0 }T
+\ Fields add_quot never reads (review rvAX M1, L1) only warn too: Quot.lift
+\ with universe parameters u, u (no L3 step, and none in the publisher's
+\ re-check); Quot.mk whose type is a loose variable (V1) or under mdata
+\ (U2), never given to the matcher.
+T{ s" replay-quot.lift-params-repeated" s" Quot.lift" warned-at
+  -> lf-warn-quot-record outcome-ok }T
+T{ s" replay-quot.lift-params-repeated" used -> outcome-ok 0 }T
+T{ s" replay-quot.mk-loose-bvar" s" Quot.mk" warned-at -> lf-warn-quot-record outcome-ok }T
+T{ s" replay-quot.mk-mdata-type" s" Quot.mk" warned-at -> lf-warn-quot-record outcome-ok }T
+T{ s" replay-quot.mk-loose-bvar" used s" replay-quot.mk-mdata-type" used
+  -> outcome-ok 0 outcome-ok 0 }T
+\ The refused audit's diagnostic is put back: that Quot.mk record (4) is
+\ accepted with none left; renamed after the feed (IE.mkUse's name, 7), it
+\ is rejected as no constant of Lean's quotient (96), not for its type.
+T{ s" replay-quot.mk-loose-bvar" 4 decl-verdict -> outcome-ok 0 }T
+: mk-renamed ( -- outcome code )
+  s" replay-quot.mk-loose-bvar" case-path staged ok? must
+  7 lf-input-name 4 lf-input-decl lf-idecl-name ! fuel checked 4 result drop finish ;
+T{ mk-renamed -> outcome-rejected lf-diag-quot-type }T
+\ Lean's quotient names (review rvAX): add_quot's check_name on all four
+\ (quot.cpp 53-56). A user's Quot.mk (3) before the quotient leaves every
+\ quotient record rejected (4-7), so Quot.lift on that Quot.mk is an
+\ unknown constant (Lean's unknownConstant), never reduced by name; so
+\ with Quot.ind taken. One of the four after the quotient is already
+\ declared, its record first or not. A second record of a name, which
+\ Lean accepts (add_quot changes nothing), and a use of Quot.mk after a
+\ refused declaration of it are unknown (77; a follow-up of task 5.2.4).
+: on-user-mk ( -- c-addr u ) s" after.quot-mk-declared-then-lift-on-it" ;
+T{ on-user-mk used -> outcome-rejected lf-diag-unknown-constant }T
+T{ on-user-mk 3 decl-verdict on-user-mk 4 decl-verdict
+  -> outcome-ok 0 outcome-rejected lf-diag-already-declared }T
+T{ on-user-mk 5 decl-verdict on-user-mk 6 decl-verdict
+  -> outcome-rejected lf-diag-already-declared outcome-rejected lf-diag-already-declared }T
+T{ s" quotinit.name-taken" 4 decl-verdict -> outcome-rejected lf-diag-already-declared }T
+T{ s" after.quot-then-mk-declared" used -> outcome-rejected lf-diag-already-declared }T
+T{ s" after.quot-then-lift-declared" used -> outcome-rejected lf-diag-already-declared }T
+T{ s" quotinit.twice" 6 decl-verdict s" quotinit.twice" 7 decl-verdict
+  -> outcome-ok 0 outcome-unknown lf-diag-generated-recursor }T
+T{ s" after.quot-then-mk-declared-then-used" used
+  -> outcome-unknown lf-diag-generated-recursor }T
+\ A scheduler waits for the quotient record that holds Quot.mk (3, before
+\ the user's Quot.mk, 4).
+: quot-ready ( -- flag flag )
+  s" after.quot-then-mk-declared" case-path staged ok? must fuel fresh
+  4 lf-input-name 4 lf-env-ready? ['] record 0 lf-env-step 2drop ['] record 3 lf-env-step 2drop
+  4 lf-input-name 4 lf-env-ready? lf-env-view ok? must finish ;
+T{ quot-ready -> false true }T
+\ The publisher's re-check: the user's Quot.mk (4), an axiom, claimed ok
+\ with its own bit after the quotient record Quot was accepted, is
+\ refused (its name, part 4).
+: claim-axiom ( d -- outcome )
+  lf-env-begin drop lf-axiom-unlisted lf-env-axiom! outcome-ok lf-env-finish
+  lf-env-hand-over drop ;
+: claimed-mk ( -- outcome outcome )
+  s" after.quot-then-mk-declared" case-path staged ok? must
+  fuel fresh ['] record 0 lf-env-step 2drop ['] record 3 lf-env-step 2drop
+  4 claim-axiom lf-env-view ok? must 4 lf-env-outcome finish ;
+T{ claimed-mk -> outcome-invalid outcome-invalid }T
 \ propext with Lean's statement about an Iff that is not Lean's: NOT PROVED.
 T{ s" postulate.propext-forged-iff" bits-of -> outcome-ok 8 }T
+\ So with an Iff of one parameter, in a block with another type, or
+\ accepted with a warning (isRec forged, which replay ignores); and
+\ Quot.sound about a Quot and Quot.mk that are axioms, not the quotient's
+\ (review rvAX test gaps).
+T{ s" postulate.propext-iff-one-param" bits-of -> outcome-ok 8 }T
+T{ s" postulate.propext-iff-mutual" bits-of -> outcome-ok 8 }T
+T{ s" replay-iff.flagged-then-propext" bits-of -> outcome-ok 8 }T
+T{ s" postulate.sound-own-quot-names" bits-of -> outcome-ok 8 }T
+T{ s" postulate.propext-own-iff" bits-of -> outcome-ok 1 }T
+\ The axioms a declaration rests on, in file order (lf-env-axiom-deps, each
+\ slot's set worked out once and kept; review rvAX L5), asked for the last
+\ declaration first: IE.Secret (0), IE.secret (1, its type IE.Secret),
+\ IE.usesSecret (2); each slot number given is one decimal digit here.
+variable seen-axioms
+: seen ( d -- ) seen-axioms @ 10 * + 1+ seen-axioms ! ;
+: rests-on ( d -- n outcome ) 0 seen-axioms ! ['] seen lf-env-axiom-deps seen-axioms @ swap ;
+: secret-axioms ( -- n n n outcome )
+  s" postulate.declared-and-used" case-path staged ok? must fuel checked
+  2 rests-on drop 1 rests-on drop 0 rests-on finish ;
+T{ secret-axioms -> 12 12 1 outcome-ok }T
 
 \ 8. The statement matcher (core/statement-match.fs) and the allowlist
 \ (core/axiom-allowlist.fs) on Lean's own export of propext,
@@ -924,6 +1014,32 @@ T{ s" Quot.lift" lift-swapped matches? -> false }T
 T{ mk-name s" Quot.mk" lf-stmt-name? mk-name s" Quit.mk" lf-stmt-name? -> true false }T
 T{ mk-name s" mk" lf-stmt-name? mk-name s" A.Quot.mk" lf-stmt-name? -> false false }T
 finish
+
+\ 9. Fuel of axioms and quotient records (review rvAX L2): a quotient
+\ record's steps all run on the audit's counter, an axiom's step 7 on
+\ inference's, and cli/check-run.fs reads that counter (ck-left). Every
+\ other declaration of axioms.ndjson gets the full budget and declaration
+\ d budget b; d checked with the fuel it used is ok, with one unit less
+\ exhausted: propext (6), Classical.choice (10), Quot (11) to Quot.ind
+\ (14), Quot.sound (15).
+variable at-d  variable at-budget  variable at-left  variable at-step
+: at-kept ( -- ) at-d @ ck-left at-left ! lf-check-step@ at-step ! ;
+: at-check ( -- )
+  lf-env-limit at-d @ = dup if at-budget @ else fuel then lf-check-budget
+  record if at-kept then ;
+: at-run ( d b -- outcome left )
+  at-budget ! at-d ! s" tests/reference/inductive/axioms.ndjson" staged ok? must
+  fuel ['] at-check checked-by at-d @ lf-env-outcome at-left @ finish ;
+: used-by ( d -- u ) fuel at-run nip fuel swap - ;
+: used-exactly? ( d -- flag )
+  dup used-by 2dup at-run drop ok? >r 1- at-run drop outcome-exhausted = r> and ;
+T{ 6 used-exactly? 10 used-exactly? 15 used-exactly? -> true true true }T
+\ One unit short, an axiom runs out in step 7, its statement's comparison,
+\ which is charged too.
+: short-step ( d -- step ) dup used-by 1- at-run 2drop at-step @ ;
+T{ 6 short-step 10 short-step 15 short-step -> 7 7 7 }T
+T{ 11 used-exactly? 12 used-exactly? 13 used-exactly? 14 used-exactly?
+  -> true true true true }T
 
 cases-done
 bye
