@@ -1616,7 +1616,15 @@ accepted, 12 → 10 exhausted, 518 unknown, the two moves to Lean's verdict
 `Array.extract_append_extract._proof_1_2`), no other verdict moved; fuel
 202,224,048 → 145,072,524 steps (−28%); check CPU 170.7 → 162.2 s;
 peak resident memory 323 → 331 MB (the run's list of reached nodes).
-Full `Init`: see the plan's status line (6.5.5). Four of the stuck roots
+Full `Init` (same command, against main b4c6935): 54,556 → 54,920
+accepted, 90 → 52 exhausted, 4,703 → 4,377 unknown; all 364 moves are to
+Lean's verdict (Lean accepts all of `Init`): 38 declarations that ran out
+of fuel and 326 that were unknown only through such a dependency are
+accepted, none moved away (list:
+`.claude/work/S6C/init-moves.txt` of the agent's worktree); fuel
+1,521,467,121 → 1,107,410,988 (−27%); check CPU 1,385.8 → 1,332.1 s
+(−4%, `gforth-fast`, a loaded machine); peak resident memory 1,279 →
+1,275 MB. Four of the stuck roots
 of `Init` with their dependencies alone (DX's cuts, fuel 20M):
 `WellFounded.partialExtrinsicFix₃_eq_partialExtrinsicFix` exhausted
 before, accepted with 18,453,088 after (over its cut the audits' fuel
