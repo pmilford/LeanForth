@@ -102,7 +102,8 @@ lf-walk-room context-walk: lf-cterm-walker
 \ time, so it is never held: more visits, never another outcome.
 2 cells context-slab: lf-input-marks
 2 cells context-record: lf-mark-spare
-: lf-input-marks-erase ( -- ) 0 lf-input-marks slab-at lf-term-input-units 2 cells * erase ;
+: lf-input-marks-erase ( -- )
+  0 lf-input-marks slab-at lf-term-input-units 2 cells * erase ;
 : lf-input-marks-ready ( -- outcome )
   lf-term-input-units lf-input-marks slab-reserve dup ok? if lf-input-marks-erase then ;
 ' lf-input-marks-ready is lf-term-view-hook
@@ -111,7 +112,8 @@ lf-walk-room context-walk: lf-cterm-walker
 : lf-mark-spared ( -- unit ) lf-mark-spare dup 2 cells erase ;
 : lf-input-mark-at ( node -- unit )
   lf-term-input-unit 0= if lf-mark-spared exit then
-  dup lf-input-marks slab-capacity u< if lf-input-marks slab-at else drop lf-mark-spared then ;
+  dup lf-input-marks slab-capacity u<
+  if lf-input-marks slab-at else drop lf-mark-spared then ;
 \ A node's unit (two cells), input or store.
 : lf-mark-at ( node -- unit )
   dup lf-term-input? if lf-input-mark-at exit then

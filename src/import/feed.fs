@@ -358,7 +358,8 @@ lf-form-mdata tag-mdata feed-form!
 \ A projection: its leaf the first input leaf of the same structure name
 \ and field index, else the record's own (term 2e), entered; then the
 \ projection of that leaf and its structure term (core/terms.fs).
-: feed-proj-fields ( e feed -- name idx ) 2dup feed-tier expr-payload@ -rot feed-tier expr-b@ ;
+: feed-proj-fields ( e feed -- name idx )
+  2dup feed-tier expr-payload@ -rot feed-tier expr-b@ ;
 : feed-proj-leaf ( e feed -- leaf outcome )
   over >r feed-proj-fields 2dup lf-tag-proj -rot lf-tin-leaf-find
   if nip nip r> drop outcome-ok exit then

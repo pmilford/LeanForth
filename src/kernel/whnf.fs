@@ -48,10 +48,11 @@
 \ unfold counts of kernel diagnostics (plan task 4.3.1); metadata is an unsupported
 \ form (U2) that never reaches these passes; a literal, natural-number or
 \ string, is normal (Lean's Lit, 476 and 710); the derivation log records
-\ nothing new here (plan task 4.2.2e). A projection (core/projections.fs) is an
-\ application of a projection leaf, which the iota hook reduces
-\ (iota.fs, reduce_proj); a leaf alone is never a term (defeq.fs takes
-\ Lean's Expr.proj whole, never its leaf): malformed, invalid.
+\ nothing new here (plan task 4.2.2e). A projection (core/projections.fs), a
+\ node of its own over a projection leaf and its term, alone or at the
+\ head of a spine, goes to the iota hook, which reduces it (iota.fs,
+\ reduce_proj); a leaf alone is never a term (defeq.fs takes Lean's
+\ Expr.proj whole, never its leaf): malformed, invalid.
 \ cheap_proj (468, 444-454; plan task 5.2.2): is_def_eq_core asks
 \ whnf_core with it (lf-whnf-cheap-call; type_checker.cpp 983-1014 and
 \ 1155-1156): a projection's term is then put in whnf_core, still cheap,

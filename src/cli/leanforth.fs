@@ -771,8 +771,8 @@ create cli-fed-ops
   ."   answer unsupported for let, literals, projections and metadata;" cr
   ."   the checker has not yet checked a Mathlib declaration" cr
   ."   (0 of 729,263); the parallel job pool is not used by check (it reads" cr
-  ."   the staged input in place, copying only lets, projections and the" cr
-  ."   terms above them, plan task 6.2.2)" cr ;
+  ."   the staged input in place, copying only metadata and the terms" cr
+  ."   above it, plan task 6.2.2)" cr ;
 : cli-check-limits. ( -- )
   ."   check: stores, walks and lists that grow with the export (memory), any" cr
   ."     depth and number of dependencies or constructors (plan task 6.2.0);" cr

@@ -1,6 +1,6 @@
 \ Lean's infer_proj (type_checker.cpp 247-292; plan task 5.2.2, ADR 0015
-\ rules J1, J2): the type of a projection e.i of the structure S, the
-\ application of a projection leaf to e (core/projections.fs), behind
+\ rules J1, J2): the type of a projection e.i of the structure S, a node
+\ over a projection leaf and e (core/projections.fs), behind
 \ mixed-infer.fs's hook lf-minfer-proj (set here, while loading).
 \ [kernel] code: experimental, not through the review gate, not
 \ independently audited.

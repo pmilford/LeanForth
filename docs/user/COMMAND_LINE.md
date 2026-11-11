@@ -953,8 +953,8 @@ not yet supported (check answers unsupported or unknown, exit 2):
   answer unsupported for let, literals, projections and metadata;
   the checker has not yet checked a Mathlib declaration
   (0 of 729,263); the parallel job pool is not used by check (it reads
-  the staged input in place, copying only lets, projections and the
-  terms above them, plan task 6.2.2)
+  the staged input in place, copying only metadata and the terms
+  above it, plan task 6.2.2)
 limits (check answers full or exhausted, exit 3):
   check: stores, walks and lists that grow with the export (memory), any
     depth and number of dependencies or constructors (plan task 6.2.0);

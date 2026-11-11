@@ -101,8 +101,8 @@
 \   pair that is not equal ends it, false. is_def_eq_args: the arguments
 \   last first, then both spines must end together. Applications,
 \   functions and counts are Lean's (is_app, get_app_fn): a projection
-\   (core/projections.fs, the application of a projection leaf to its
-\   term) is Lean's Expr.proj, no application, and so is a let term.
+\   (core/projections.fs, a node over a projection leaf and its term) is
+\   Lean's Expr.proj, no application, and so is a let term.
 \ Doubt. Where the port cannot tell whether a step it passes would have
 \ answered yes, it goes on, records the first such step (the doubt
 \ record), and lf-defeq-on reports a final no as unknown with it: outside

@@ -1,5 +1,6 @@
 \ Bounded storage for the syntax of a small Lean expression subset: Sort,
-\ bound variable, application, lambda and Pi nodes. Untrusted; not a kernel
+\ bound variable, application, lambda and Pi nodes, and the binary nodes
+\ of lets and projections (and leaves other modules define). Untrusted; not a kernel
 \ API. Constructors validate indices and payload ranges only; they do not
 \ check scope, types, universe semantics, declarations or proofs.
 \ Each term is a record of four 32-bit fields (lib/u32.fs; ADR 0016 C1,
@@ -56,27 +57,33 @@
 \ The input view (compact-store plan step S5; ADR 0016 C3). A context
 \ may read a sealed compact input tier (core/compact.fs, filled by
 \ import/stage.fs) in place: lf-term-attach makes the tier's expressions
-\ the first term numbers, 0 .. lf-term-base - 1, each the number the
-\ stage gave it, and the store's own records follow them, record r being
-\ term lf-term-base + r. Every reader below takes a term number and reads
-\ an input node from the tier's 16-byte record (C1), its tag translated
-\ to the checker's: a bound variable, application, lambda or Pi (binder
-\ name and information ignored, as Lean's kernel ignores them) with the
-\ record's own fields; a Sort, constant or literal with the fields the
-\ importer gave it in the view's leaf table (lf-term-input-leaf: the
-\ level, reference or literal it became in this context, and the stamp a
-\ symbolic Sort or constant carries, generation-handles.fs); any other
-\ kind (a let, projection, metadata or free variable, a let's body
-\ record) is no term of the view, so a node above one is copied into the
-\ store instead (import/feed.fs). An input node is sealed: never rolled
-\ back or reset, its data word the tier's (computed when it was staged,
-\ C8, the same facts as this store's), and its identity is the negative
-\ number invert index, which no birth serial is. Making a node equal to
-\ an input node gives that node (lf-term-add finds an application or
-\ bound variable in the tier's table, a Sort or constant in the leaf
-\ table), so equal terms are one number across the two parts. Without a
-\ view lf-term-base is 0 and everything is as before. The tier must
-\ outlive the view: lf-term-detach (or freeing the context) first.
+\ the first term numbers, 0 .. lf-term-base - 1, record u of the stage
+\ being term 2u + 1 and what it carries term 2u (see "Term numbers of the
+\ view" below; lets and projections since step S5's parts 4-5), and the
+\ store's own records follow them, record r being term lf-term-base + r.
+\ Every reader below takes a term number and reads an input node from the
+\ tier's 16-byte record (C1), its tag translated to the checker's: a
+\ bound variable, application, lambda or Pi (binder name and information
+\ ignored, as Lean's kernel ignores them) with the record's own fields,
+\ its children's records as term numbers; a let and its lambda from the
+\ let's two records; a Sort, constant, literal, projection or projection
+\ leaf with the fields the importer gave it in the view's leaf table
+\ (lf-term-input-leaf: the level, reference or literal it became in this
+\ context, and the stamp a symbolic Sort or constant carries,
+\ generation-handles.fs; a projection's leaf and term); any other kind
+\ (metadata, a free variable, a let's body record) is no term of the
+\ view, so a node above one is copied into the store instead
+\ (import/feed.fs). An input node is sealed: never rolled back or reset,
+\ its data word the tier's (computed when it was staged, C8, the same
+\ facts as this store's; a let's lambda's computed from its children's),
+\ and its identity is the negative number invert index, which no birth
+\ serial is. Making a node equal to an input node gives that node
+\ (lf-term-add finds an application or bound variable in the tier's
+\ table, a binder in the binder table, a let of an input let's lambda, a
+\ Sort, constant, projection or projection leaf in the leaf table), so
+\ equal terms are one number across the two parts. Without a view
+\ lf-term-base is 0 and everything is as before. The tier must outlive
+\ the view: lf-term-detach (or freeing the context) first.
 \
 \ State: the store header lf-terms, the hash table lf-term-table, the
 \ candidate record lf-term-key, the switch lf-term-share-off and the view
@@ -223,7 +230,8 @@ variable lf-tin-leaf-tags   0 lf-tin-leaf-tags !
 \ The same for what a record of tag carries, read in mode.
 : lf-term-input-leaf-twin ( lftag mode tag -- )
   2 pick lf-tin-leaf-tags+ >r or lf-tin-leaf-bit or r> lf-term-input-twin! ;
-lf-tag-bvar lf-tin-raw or tag-bvar lf-term-input-tag!   lf-tag-app tag-app lf-term-input-tag!
+lf-tag-bvar lf-tin-raw or tag-bvar lf-term-input-tag!
+lf-tag-app tag-app lf-term-input-tag!
 : lf-tin-binders ( -- )
   4 0 do
     lf-tag-lam tag-lam i + lf-term-input-tag!  lf-tag-pi tag-pi i + lf-term-input-tag!
@@ -232,7 +240,8 @@ lf-tin-binders
 : lf-tin-lets ( -- )
   lf-tag-let lf-tin-let or tag-let lf-term-input-tag!
   lf-tag-let-nondep lf-tin-let or tag-let-nondep lf-term-input-tag!
-  lf-tag-lam lf-tin-let-lam or dup tag-let lf-term-input-twin! tag-let-nondep lf-term-input-twin!
+  lf-tag-lam lf-tin-let-lam or dup tag-let lf-term-input-twin!
+  tag-let-nondep lf-term-input-twin!
   lf-tag-projection tag-proj lf-term-input-leaf-tag ;
 lf-tin-lets
 
@@ -315,7 +324,8 @@ create lf-tfields-hooks /htab-hooks allot
 \ checker's rules ignore them); a let's lambda has the let's name and is
 \ explicit. False for any other number. Unchecked: the view is attached.
 : lf-tin-head ( index -- head ) lf-tin-at quad-head u32@ ;
-: lf-tin-binder-kind ( head -- name kind ) dup head-payload swap head-tag tag-lam - 3 and ;
+: lf-tin-binder-kind ( head -- name kind )
+  dup head-payload swap head-tag tag-lam - 3 and ;
 : lf-term-input-binder@ ( index -- name kind true | false )
   dup lf-term-input? 0= if drop false exit then
   dup lf-tin-code lf-tin-modes and lf-tin-let-lam =
@@ -331,7 +341,8 @@ create lf-tfields-hooks /htab-hooks allot
 \ which is no term; for a projection's leaf, the record count plus its
 \ entry number; none for any other number.
 : lf-term-input-records ( -- n ) lf-term-base 1 rshift ;
-: lf-term-input-units ( -- n ) lf-term-input-records lf-term-view lf-tview-leaves slab-count + ;
+: lf-term-input-units ( -- n )
+  lf-term-input-records lf-term-view lf-tview-leaves slab-count + ;
 : lf-term-input-unit ( index -- u true | false )
   dup 1 and if 1 rshift true exit then
   dup lf-tin-code lf-tin-modes and lf-tin-let-lam = if 1 rshift 1+ true exit then

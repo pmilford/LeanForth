@@ -1269,7 +1269,10 @@ approval.** `let` terms (Q7) leave U2:
   `b` one binder deeper, as Lean's do, with no new binary tag; the passes
   that treat `letE` specially recognise the outer application. The audit
   checks the leaf's fields; a leaf elsewhere, or a let whose second
-  argument is no λ, is invalid where a pass interprets it. The feed
+  argument is no λ, is invalid where a pass interprets it. (Since
+  compact-store plan step S5, parts 4-5, 2026-11-11: a let is a binary
+  node of its own, `LET(v, fun x : T => b)`, its tag the `nonDep` flag,
+  read in place from the export's `letE` record; ADR 0016's note.) The feed
   stages `letE` records so (`import/feed.fs`); the first importer
   (`checker-input.fs`) still makes the U2 leaf, as for projections.
 - *Spine*: `get_app_fn` stops at a let (`mixed-head.fs`), so a let at
@@ -1877,7 +1880,9 @@ and lazy delta's unfoldings run `whnf_core` with `cheap_proj` (`whnf.fs`
 keeps the mode; `caches.fs` keeps no `m_whnf_core` entry of a cheap
 visit, as Lean, 547). `is_def_eq_app` and `is_def_eq_args` use Lean's
 `is_app` and `get_app_fn`: a projection (`Expr.proj`, here the
-application of a projection leaf) is no application. Evidence, rows and
+application of a projection leaf; since compact-store plan step S5,
+parts 4-5, a node of its own over the leaf and the term, ADR 0016's
+note) is no application. Evidence, rows and
 the `Init` counts: ADR 0015, "The comparison's projection steps".
 [kernel] code; review gate owed.
 

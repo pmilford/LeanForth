@@ -7950,8 +7950,8 @@ gap = "no table row has a let in a constructor's type that hides a nonuniform oc
 [[fault]]
 id = "s5b-author-proj-as-app"
 file = "src/author/build.fs"
-old = ''': lfa-app-tag ( f -- tag ) lf-term-tag@ lf-tag-proj = if lf-tag-projection else lf-tag-app then ;'''
-new = ''': lfa-app-tag ( f -- tag ) drop lf-tag-app ;'''
+old = '''  lf-term-tag@ lf-tag-proj = if lf-tag-projection else lf-tag-app then ;'''
+new = '''  drop lf-tag-app ;'''
 test = "python3 tests/author/check_author.py"
 reason = "S5B: the authors' $ applies a projection leaf as a function instead of making a projection"
 
