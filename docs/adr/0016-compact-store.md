@@ -721,7 +721,10 @@ needed (Rejected alternatives).
     the term, level and reference stores each, the local context's
     entries following their terms (they are made in node order). A
     rollback checks every family's mark first and refuses, *invalid* and
-    nothing changed, a mark restored out of order (C3). Passes with a
+    nothing changed, a mark that is stale or of another store (C3); marks
+    held in records are LIFO by construction, and two marks at the same
+    position are not told apart (an out-of-order one then acts as a
+    rollback to that position; pinned by a test row). Passes with a
     record keep the mark in it (inference's job, conversion, universe
     substitution, the probes); passes that hold only a number across
     their work (inference's steps on frames, the rebuild passes) push it
