@@ -38,13 +38,20 @@ create canon-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf-in
 : canon-listed-at ( node -- slab ) cell+ @ lf-context @ + ;
 : canon-listed ( dst -- dst )
   context-slabs @ begin ?dup while >r dup r@ canon-listed-at canon-slab r> @ repeat ;
-\ The term store's hash-consing table (core/terms.fs, compact-store plan
-\ step S3; lib/htab.fs): its block address, the record's first field.
+\ Hash tables (lib/htab.fs; compact-store plan step S3): the term store's
+\ hash-consing table (core/terms.fs) and, when loaded, the reached set of
+\ universe substitution (kernel/mixed-level-substitute.fs): the block
+\ address, a table record's first field.
 : canon-htab ( dst htab -- ) canon-at 0 swap ! ;
+[defined] lf-mls-set [if]
+: canon-htabs ( dst -- ) dup lf-term-table canon-htab dup lf-mls-set canon-htab ;
+[else]
+: canon-htabs ( dst -- ) dup lf-term-table canon-htab ;
+[then]
 \ Blank every heap field in the copy at dst.
 : canon-zero ( dst -- )
   canon-stores# 0 do dup i canon-store# canon-store loop
-  dup lf-term-table canon-htab
+  canon-htabs
   dup lf-cref-pool canon-slab
   ['] canon-column lf-term-columns columns-each ['] canon-column lf-level-columns columns-each
   canon-listed canon-log ;
@@ -66,9 +73,14 @@ create canon-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf-in
   context-slabs @ begin ?dup while >r r@ canon-listed-at canon-shape-digest r> @ repeat ;
 \ The table's size and entries (its slots' order follows its history).
 : canon-htab-digest ( h htab -- h' ) dup htab-slots rot swap canon-mix swap htab-count canon-mix ;
+[defined] lf-mls-set [if]
+: canon-htabs-digest ( h -- h' ) lf-term-table canon-htab-digest lf-mls-set canon-htab-digest ;
+[else]
+: canon-htabs-digest ( h -- h' ) lf-term-table canon-htab-digest ;
+[then]
 : canon-digest ( -- h )
   0 canon-stores# 0 do i canon-store# canon-store-digest loop
-  lf-term-table canon-htab-digest
+  canon-htabs-digest
   lf-cref-pool canon-slab-digest
   ['] canon-column-digest lf-term-columns columns-each
   ['] canon-column-digest lf-level-columns columns-each canon-listed-digest

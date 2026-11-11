@@ -447,14 +447,30 @@ lf-tag-str lf-skel-level < and
 \ node unchanged without visiting it as Lean's replace does
 \ (instantiate.cpp 103: no loose bound variable at or beyond the offset;
 \ abstract.cpp 19: no free variable). defeq.fs's ==: one skeleton.
+\ Since compact-store plan step S3 each record keeps these facts in its
+\ data word (core/terms.fs); the memo is asked only for a node whose
+\ word has no data, or names a free variable: the memo knows a free
+\ variable only while it is live in this job's local context, and the
+\ passes then meet a dead one as before. For every other node the word
+\ holds exactly the memo's facts (the same leaves known, the same rules
+\ for the range and the bits, checked when the node was made, as a level
+\ or reference stays valid while a term names it), so each answer, and
+\ the fuel, is the memo's.
+: lf-cs-word ( node -- data true | false )
+  lf-term-data@ 0= if false exit then
+  dup lf-data-fvar? if drop false else true then ;
+: lf-cs-bits ( data -- bits ) dup lf-data-loose 2 lshift swap lf-data-params? 2 and or ;
+: lf-cs-facts ( node -- bits true | false )
+  dup lf-cs-word if nip lf-cs-bits true exit then
+  lf-term-facts if nip true else false then ;
 : lf-cs-known ( node visit -- flag true | false )
   lf-caches-on? 0= if 2drop false exit then
-  swap lf-term-facts 0= if drop false exit then nip
+  swap lf-cs-facts 0= if drop false exit then
   swap ['] lf-whnf-scan-visit = if lf-bits-loose 0<> else lf-bits-open? then true ;
 ' lf-cs-known is lf-whnf-known
 : lf-co-unchanged? ( node frames -- flag )
   lf-caches-on? 0= if 2drop false exit then
-  swap lf-term-facts 0= if drop false exit then nip
+  swap lf-cs-facts 0= if drop false exit then
   over lf-open-abstract? if nip lf-bits-fvar 0= exit then
   lf-bits-loose swap frame-context @ > 0= ;
 ' lf-co-unchanged? is lf-open-unchanged?
@@ -462,10 +478,15 @@ lf-tag-str lf-skel-level < and
 \ names: its loose_bvar_range (expr.cpp 102-103).
 : lf-ci-range ( node -- m true | false )
   lf-caches-on? 0= if drop false exit then
-  lf-term-facts if nip lf-bits-loose true else false then ;
+  lf-cs-facts if lf-bits-loose true else false then ;
 ' lf-ci-range is lf-minfer-range
+\ ==: one node is one skeleton (when it has facts); two nodes, the
+\ memo's skeletons.
+: lf-cs-one? ( t -- flag )
+  dup lf-cs-word if 2drop true exit then lf-term-facts if 2drop true else false then ;
 : lf-cs-same? ( t s -- flag )
   lf-caches-on? 0= if 2drop false exit then
+  2dup = if drop lf-cs-one? exit then
   lf-term-facts 0= if drop false exit then drop
   swap lf-term-facts 0= if drop false exit then drop = ;
 ' lf-cs-same? is lf-dq-known-same?

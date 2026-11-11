@@ -8,21 +8,26 @@
 \ roll back to a scratch mark, but identities never rewind.
 \ State: one walk record, lf-mls-walker (the source audit and the fuel left,
 \ shared by every pass), one job record, lf-mls-job (the substitution, the
-\ mark to roll back to, the audit's stamp and count of reached terms),
-\ the replacement levels, new level pairs and reached terms
-\ (lf-mls-actual-cells, lf-mls-arg-pairs, lf-mls-reached-cells), and two
-\ columns of the term store (each term's stamp and image), all members of
-\ the checker context (lib/context.fs). Single-threaded within one
-\ context. mixed-signature-audit runs the source audit alone through
+\ mark to roll back to and the count of reached terms), the replacement
+\ levels, new level pairs, reached terms and their images
+\ (lf-mls-actual-cells, lf-mls-arg-pairs, lf-mls-reached-cells,
+\ lf-mls-image-cells), and the set of reached terms, a hash table
+\ lf-mls-set (lib/htab.fs), all members of the checker context
+\ (lib/context.fs). Single-threaded within one context.
+\ mixed-signature-audit runs the source audit alone through
 \ lf-mls-audit-formals.
-\ Cost (plan task 6.5.5; step S0 of the compact-store plan): a call's work
-\ is proportional to the terms it reaches, not to the store's size: an
-\ audit takes a new stamp instead of erasing a column, and the build visits
-\ only the reached terms, sorted, instead of every index up to the root.
+\ Cost (plan task 6.5.5; steps S0 and S3 of the compact-store plan): a
+\ call's work and room are proportional to the terms it reaches, not to
+\ the store's size: the audit keeps the terms it reached in a set of the
+\ call, emptied after it, and the build visits only the reached terms,
+\ sorted, finding a child's image by binary search, instead of every index
+\ up to the root. Nothing is kept per index of the whole store (before
+\ step S3, two columns of it).
 
 require ../lib/lib.fs
 require ../lib/slab.fs
-require ../lib/store-columns.fs
+require ../lib/hash32.fs
+require ../lib/htab.fs
 require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
 require ../core/derivation-log.fs
@@ -38,23 +43,30 @@ begin-structure /lf-mlsrec
   field: lf-mlsrec-formals     \ address of the formal parameter IDs
   field: lf-mlsrec-count       \ number of formals
   /lf-scratch +field lf-mlsrec-mark  \ the stores to roll back to
-  field: lf-mlsrec-stamp       \ the audit's stamp, 0 before the first
   field: lf-mlsrec-reached     \ terms it reached (lf-mls-reached-cells)
 end-structure
 lf-walk-room context-walk: lf-mls-walker
 /lf-mlsrec context-record: lf-mls-job
-\ The replacement levels, a rebuilt reference's new level pairs, and the
-\ terms the audit reached, each listed once: growable arrays with no fixed
-\ limit (plan task 6.2.0); one the heap cannot grow is full.
+\ The replacement levels, a rebuilt reference's new level pairs, the
+\ terms the audit reached, each listed once, and their images, in the
+\ same order: growable arrays with no fixed limit (plan task 6.2.0); one
+\ the heap cannot grow is full.
 1 cells context-slab: lf-mls-actual-cells
 2 cells context-slab: lf-mls-arg-pairs
 1 cells context-slab: lf-mls-reached-cells
-\ Per term, columns of the term store (lib/store-columns.fs): the stamp of
-\ the last audit that reached it, and its image.
-/slab context-record: lf-mls-seen-column
-1 cells ' lf-mls-seen-column lf-term-columns column-add
-/slab context-record: lf-mls-results-column
-1 cells ' lf-mls-results-column lf-term-columns column-add
+1 cells context-slab: lf-mls-image-cells
+\ The set of the terms an audit reached: entry n is the n-th listed term,
+\ found by its index (a hash is only a hint, an entry is equal only when
+\ its term is the one sought).
+/htab context-record: lf-mls-set
+: lf-mls-node ( i -- node ) lf-mls-reached-cells slab-at @ ;
+: lf-mls-set-rehash ( n htab -- h ) drop lf-mls-node hash-fmix ;
+: lf-mls-set-same ( n key htab -- flag ) drop swap lf-mls-node = ;
+create lf-mls-set-hooks /htab-hooks allot
+' lf-mls-set-rehash ' lf-mls-set-same lf-mls-set-hooks htab-hooks!
+: lf-mls-set-make ( -- ) 4 lf-mls-set-hooks lf-mls-set htab-init drop ;
+' lf-mls-set-make context-setup
+:noname ( -- ) lf-mls-set htab-free ; context-teardown
 
 \ Fuel left after a call; the signature probe continues with it, and tests
 \ read it. Every helper this module calls reports only ok, invalid,
@@ -66,8 +78,6 @@ lf-walk-room context-walk: lf-mls-walker
 \ pass, which reserves first).
 : lf-mls-actuals ( -- addr ) 0 lf-mls-actual-cells slab-at ;
 : lf-mls-args ( -- addr ) 0 lf-mls-arg-pairs slab-at ;
-: lf-mls-seen ( index -- addr ) lf-mls-seen-column column-at ;
-: lf-mls-result ( index -- addr ) lf-mls-results-column column-at ;
 
 \ The rollback point: a scratch mark of the term, level and reference
 \ stores (core/scratch-marks.fs), taken before the replacements are read
@@ -97,7 +107,7 @@ lf-walk-room context-walk: lf-mls-walker
 \ against the formals before anything is allocated: a symbolic Sort's level
 \ and each level of a constant's reference. The whole graph was validated
 \ first, so children are earlier nodes. A term is marked as reached by
-\ giving it the audit's stamp, and listed, the first time the audit
+\ listing it and entering it in the set, the first time the audit
 \ reaches it; then its levels are checked and its children pushed. Every
 \ occurrence costs a unit of fuel, but a term reached again by another
 \ path is skipped: its checks read only the term, never the path or the
@@ -107,19 +117,29 @@ lf-walk-room context-walk: lf-mls-walker
 \ shared node's result per binder offset (replace_fn.cpp 16-40); the
 \ offset changes nothing here, so one visit per node is enough.
 : lf-mls-site ( -- site ) c" mixed-level-substitute lf-mixed-level-substitute" ;
-: lf-mls-stamp ( -- addr ) lf-mls-job lf-mlsrec-stamp ;
 : lf-mls-reached ( -- addr ) lf-mls-job lf-mlsrec-reached ;
-: lf-mls-reached? ( index -- flag ) lf-mls-seen @ lf-mls-stamp @ = ;
-\ A list the heap cannot grow is full, recorded with its count and room.
+: lf-mls-find ( index -- n true | slot false ) dup hash-fmix lf-mls-set htab-find ;
+: lf-mls-reached? ( index -- flag ) lf-mls-find nip ;
+\ A list or set the heap cannot grow is full, recorded with its count and
+\ room.
 : lf-mls-crowded ( n -- n )
   dup dup lf-mls-reached-cells slab-capacity lf-mls-site
   lf-diag-work-stack-full lf-diag-note ;
 : lf-mls-list ( index -- outcome )
   lf-mls-reached @ lf-mls-reached-cells lf-cells-add
   dup outcome-full = if swap lf-mls-crowded swap then swap lf-mls-reached ! ;
-\ Marking a term not reached before.
+: lf-mls-set-full ( -- outcome )
+  lf-mls-reached @ lf-mls-set htab-slots lf-mls-site lf-diag-work-stack-full
+  lf-diag-note outcome-full ;
+\ Marking a term not reached before: listed as entry n, entered at the
+\ set's empty slot that the find gave (the list's growth leaves the set
+\ alone).
+: lf-mls-enter ( slot n outcome -- outcome )
+  dup ok? if drop swap lf-mls-set htab-put outcome-ok else nip nip then ;
 : lf-mls-mark ( index -- outcome )
-  lf-mls-stamp @ over lf-mls-seen ! lf-mls-list ;
+  lf-mls-set htab-ready ok? 0= if drop lf-mls-set-full exit then
+  dup lf-mls-find if 2drop outcome-ok exit then
+  lf-mls-reached @ rot lf-mls-list lf-mls-enter ;
 : lf-mls-sources ( addr count walk -- outcome )
   swap 0 ?do over i lf-cref-pair@ drop over lf-lsubst-walk-source dup ok? 0=
     if nip nip unloop exit then drop loop 2drop outcome-ok ;
@@ -141,16 +161,27 @@ lf-walk-room context-walk: lf-mls-walker
 : lf-mls-dispatch ( first second walk tag -- outcome )
   over lf-mls-again? if lf-walk-skip else lf-mls-first then ;
 : lf-mls-visit ( walk -- outcome ) ['] lf-mls-dispatch lf-term-visit ;
-\ A new audit takes a new stamp, so that no term counts as reached, and
-\ lists nothing yet. Stamps start at 1 (a new unit is 0); only when they
-\ would run out is the column erased and they restart.
-: lf-mls-restamp ( -- ) lf-mls-seen-column column-erase 0 lf-mls-stamp ! ;
-: lf-mls-unseen ( -- )
-  lf-mls-stamp @ max-n = if lf-mls-restamp then 1 lf-mls-stamp +! 0 lf-mls-reached ! ;
+\ A new audit starts with an empty set and lists nothing yet; it empties
+\ the set when it ends, each entry taken out (Algorithm R) or, when the
+\ set has few slots for its entries, the whole table cleared, so that an
+\ audit costs the terms it reaches. A set an audit left with entries (a
+\ THROW out of it) is cleared when the next one starts; a set without a
+\ table (no heap at its making) is made again, or the audit is full.
+: lf-mls-set-ready ( -- outcome )
+  lf-mls-set htab-live? 0= if lf-mls-set-make then
+  lf-mls-set htab-live? 0= if lf-mls-set-full exit then
+  lf-mls-set htab-count if lf-mls-set htab-clear then outcome-ok ;
+: lf-mls-unseen ( -- outcome ) 0 lf-mls-reached ! lf-mls-set-ready ;
+: lf-mls-unlist ( i -- ) dup lf-mls-node hash-fmix lf-mls-set htab-remove drop ;
+: lf-mls-forget ( -- )
+  lf-mls-set htab-slots lf-mls-reached @ 4 * <
+  if lf-mls-set htab-clear exit then
+  lf-mls-reached @ 0 ?do i lf-mls-unlist loop ;
 \ The formals and count are those last given to lf-lsubst-use.
+: lf-mls-walk ( root -- status )
+  ['] lf-mls-visit lf-mls-walker walk-run lf-mls-walker lf-mls-site lf-diag-walk ;
 : lf-mls-audit-from ( root -- status )
-  lf-mls-unseen ['] lf-mls-visit lf-mls-walker walk-run
-  lf-mls-walker lf-mls-site lf-diag-walk ;
+  lf-mls-unseen ok-then? 0= if nip exit then lf-mls-walk lf-mls-forget ;
 
 \ The source audit alone, as mixed-signature-audit runs it on a candidate
 \ signature: every term reachable from root and every source level against
@@ -210,9 +241,18 @@ lf-walk-room context-walk: lf-mls-walker
   if nip lf-mls-new-constant else drop outcome-ok then ;
 : lf-mls-constant ( node cref identity -- index outcome )
   lf-cref-record if lf-mls-rebuild else drop 0 outcome-invalid then ;
-\ An application, lambda or Pi over the images of its children.
+\ An application, lambda or Pi over the images of its children. A child
+\ of a reached term is reached, so it is in the sorted list: found by
+\ binary search, its image at the same place.
+: lf-mls-image-cell ( i -- addr ) lf-mls-image-cells slab-at ;
+: lf-mls-half ( lo hi -- mid ) over - 2/ + ;
+: lf-mls-search ( node lo hi -- i )
+  begin 2dup < while
+    2dup lf-mls-half dup lf-mls-node 4 pick < if 1+ rot drop swap else nip then
+  repeat drop nip ;
+: lf-mls-image@ ( node -- image ) 0 lf-mls-reached @ lf-mls-search lf-mls-image-cell @ ;
 : lf-mls-images ( first second -- first' second' )
-  lf-mls-result @ swap lf-mls-result @ swap ;
+  lf-mls-image@ swap lf-mls-image@ swap ;
 : lf-mls-kept? ( first second -- flag ) 2dup lf-mls-images rot = >r = r> and ;
 : lf-mls-binary ( node first second tag -- index outcome )
   >r 2dup lf-mls-kept? if 2drop r> drop outcome-ok exit then
@@ -227,15 +267,20 @@ lf-walk-room context-walk: lf-mls-walker
     dup >r lf-mls-binary r> endcase ;
 : lf-mls-image ( node -- index outcome )
   dup lf-term-read if rot lf-mls-image-of else drop 0 outcome-invalid then ;
-: lf-mls-build-node ( node -- outcome )
-  dup lf-mls-image ok-then? if swap lf-mls-result ! outcome-ok else nip then ;
+: lf-mls-build-at ( i -- outcome )
+  dup lf-mls-node lf-mls-image ok-then? if swap lf-mls-image-cell ! outcome-ok else nip then ;
 \ The reached terms, sorted: the order of every index up to the root,
-\ skipping the terms not reached, at a cost of the terms reached.
-: lf-mls-node ( i -- node ) lf-mls-reached-cells slab-at @ ;
+\ skipping the terms not reached, at a cost of the terms reached. Room
+\ for their images first (none is full).
 : lf-mls-sorted ( -- ) 0 lf-mls-reached-cells slab-at lf-mls-reached @ lf-cells-sort ;
+: lf-mls-image-room ( -- outcome )
+  lf-mls-reached @ lf-mls-image-cells slab-hold dup outcome-full = if
+    lf-mls-reached @ dup lf-mls-image-cells slab-capacity lf-mls-site
+    lf-diag-work-stack-full lf-diag-note then ;
 : lf-mls-build ( -- outcome )
+  lf-mls-image-room dup ok? 0= if exit then drop
   lf-mls-sorted lf-mls-reached @ 0 ?do
-    i lf-mls-node lf-mls-build-node dup ok? 0= if unloop exit then drop
+    i lf-mls-build-at dup ok? 0= if unloop exit then drop
   loop outcome-ok ;
 
 \ The passes in order: the root handle and stores, the replacements (live,
@@ -255,7 +300,7 @@ lf-walk-room context-walk: lf-mls-walker
   lf-mls-inputs dup ok? if drop 2dup lf-mls-graph then
   dup ok? if drop over lf-mls-audit-from then ;
 : lf-mls-finish ( index -- index id 0 | status )
-  lf-mls-result @ dup lf-term-identity
+  lf-mls-image@ dup lf-term-identity
   if outcome-ok else drop outcome-invalid lf-mls-rollback then ;
 : lf-mls-apply ( index -- index id 0 | status )
   lf-mls-build dup ok? if drop lf-mls-finish else nip lf-mls-rollback then ;
