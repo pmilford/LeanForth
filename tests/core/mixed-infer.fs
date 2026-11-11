@@ -190,7 +190,7 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
   2dup 50000 lf-cterm-check outcome-ok expect-status
   drop lf-term-read 0= abort" generated term"
   rot lf-tag-constant <> abort" generated constant"
-  generated-ref-id ! generated-ref !
+  lf-cterm-pair generated-ref-id ! generated-ref !
   generated-ref @ generated-ref-id @ lf-cref-read 0= abort" generated cref"
   1 <> abort" generated arity" lf-name-generation @ <> abort" generated generation"
   id-name @ <> abort" generated name"

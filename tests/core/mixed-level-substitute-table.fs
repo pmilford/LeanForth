@@ -63,7 +63,7 @@ variable result-root
 : emit-term ( term -- )
   lf-term-read 0= if -1 throw then rot case
     lf-tag-symbolic-sort of drop s" T " type emit-level endof
-    lf-tag-constant of emit-constant endof
+    lf-tag-constant of lf-cterm-pair emit-constant endof
     lf-tag-bvar of drop s" V " type . endof
     lf-tag-app of s" A " type swap recurse recurse endof
     lf-tag-lam of s" L " type swap recurse recurse endof

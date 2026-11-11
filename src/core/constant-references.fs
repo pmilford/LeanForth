@@ -247,6 +247,13 @@ create lf-cref-hooks /htab-hooks allot
   2over lf-cref-source? if 2dup lf-cref-input-ok? else false then
   if lf-cref-make else 2drop 2drop false then ;
 
+\ The identity of the record at an index, or 0 when the index is not
+\ allocated (identities start at 1). A constant node holds only its
+\ reference's index (constant-term-boundary.fs; compact-store plan step
+\ S4): readers of an audited node take the record's identity here.
+: lf-cref-current ( index -- identity )
+  dup lf-crefs store-at? if lf-cref-slot lf-crec-identity @ else drop 0 then ;
+
 \ Name, generation and number of levels of a live reference.
 : lf-cref-read ( index identity -- name generation count true | false )
   lf-cref-record if dup lf-cref-name@ rot lf-crec-arity @ true else false then ;

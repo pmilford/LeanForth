@@ -46,7 +46,10 @@ lf-tag-bvar 2 term-tag!
 \ A raw node with a constant's fields is a forgery only while sharing is
 \ off: with it on, the term table gives the stamped constant back
 \ (compact-store plan step S4), which is that constant.
-T{ lf-tag-constant 0 rid @ lf-term-add -> 0 true }T
+T{ lf-tag-constant 0 0 lf-term-add -> 0 true }T
+\ A constant's fields are its reference's index and 0; the reference's
+\ identity is stamped beside it, a full cell (step S4).
+T{ 0 lf-term-read 0 lf-cterm-ref -> lf-tag-constant 0 0 true 0 rid @ }T
 : raw-constant ( -- )
   false lf-term-sharing! lf-tag-constant 0 rid @ lf-term-add 0= abort" raw" drop
   true lf-term-sharing! ;
@@ -57,12 +60,29 @@ T{ 6 6 term-identity@ 10 lf-cterm-check -> outcome-invalid }T
 \ lf-cterm-new then makes and stamps a node of its own.
 : forged-make ( -- ref rid node )
   0 lf-name-generation @ args 0 lf-cref-new 0= abort" cref"
-  2dup lf-tag-constant -rot lf-term-add 0= abort" forged" ;
+  over lf-tag-constant swap 0 lf-term-add 0= abort" forged" ;
 forged-make constant forged 2constant forged-ref
 T{ forged forged term-identity@ 10 lf-cterm-check -> outcome-invalid }T
 T{ forged-ref lf-cterm-new rot forged - -> term-serial true 1 }T
 T{ forged 1+ dup term-identity@ 10 lf-cterm-check -> outcome-ok }T
 T{ forged-ref lf-cterm-new -> forged 1+ term-serial true }T
+\ No 32-bit identity on constants (review rvS36 L1): a reference whose
+\ identity is past 2^32 - 1 makes a constant that is not full and passes
+\ the audit (before step S4 its identity filled a 32-bit field, and every
+\ constant after the 2^32 - 1st reference was full). Run where a cell is
+\ wider than 32 bits; the serial is then put back.
+lf-cref-serial @ constant saved-cref-serial
+: wide-ref ( -- ref rid )
+  u32-mask lf-cref-serial !  0 s" wide" lf-name-str 0= abort" wide name"
+  lf-name-generation @ args 1 lf-cref-new 0= abort" wide cref" ;
+u32-mask max-n u< [if]
+wide-ref 2constant wide
+T{ wide nip u32-mask u> wide lf-cterm-new -> true lf-term-count @ 1- term-serial true }T
+T{ lf-term-count @ 1- dup term-identity@ 10 lf-cterm-check -> outcome-ok }T
+T{ lf-term-count @ 1- lf-term-read lf-term-count @ 1- lf-cterm-ref
+  -> lf-tag-constant wide drop 0 true wide }T
+[then]
+saved-cref-serial lf-cref-serial !
 \ Reusing a reference slot never revives the captured reference.
 lf-cref-reset
 : reuse-cref ( -- ) 0 lf-name-generation @ 0 0 lf-cref-new 0= abort" reuse cref" 2drop ;

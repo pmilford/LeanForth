@@ -143,8 +143,8 @@ create lf-mls-set-hooks /htab-hooks allot
 : lf-mls-sources ( addr count walk -- outcome )
   swap 0 ?do over i lf-cref-pair@ drop over lf-lsubst-walk-source dup ok? 0=
     if nip nip unloop exit then drop loop 2drop outcome-ok ;
-: lf-mls-reference ( cref identity walk -- outcome )
-  >r lf-cref-levels if r> lf-mls-sources else r> drop outcome-invalid then ;
+: lf-mls-reference ( first second walk -- outcome )
+  >r lf-cterm-pair lf-cref-levels if r> lf-mls-sources else r> drop outcome-invalid then ;
 : lf-mls-refused ( first second walk tag outcome -- outcome ) >r 2drop 2drop r> ;
 \ The first visit of a term: mark it, check it, push its children.
 : lf-mls-first ( first second walk tag -- outcome )
@@ -239,8 +239,8 @@ create lf-mls-set-hooks /htab-hooks allot
 : lf-mls-rebuild ( node slot -- index outcome )
   dup lf-mls-substituted ok-then? 0= if lf-mls-failed exit then
   if nip lf-mls-new-constant else drop outcome-ok then ;
-: lf-mls-constant ( node cref identity -- index outcome )
-  lf-cref-record if lf-mls-rebuild else drop 0 outcome-invalid then ;
+: lf-mls-constant ( node first second -- index outcome )
+  lf-cterm-pair lf-cref-record if lf-mls-rebuild else drop 0 outcome-invalid then ;
 \ An application, lambda or Pi over the images of its children. A child
 \ of a reached term is reached, so it is in the sorted list: found by
 \ binary search, its image at the same place.

@@ -99,7 +99,8 @@ CONTEXT = {"context-in-job?", "context-record:", "context-setup", "context-teard
 STORES = {
     "lf-term-read", "lf-term-identity", "lf-term-binary-tag?", "lf-level-read",
     "lf-level-identity", "lf-level-binary-tag?", "lf-level-tag-succ", "lf-level-tag-zero",
-    "lf-level-tag-param", "lf-cref-read", "lf-cref-level", "lf-input-intact?",
+    "lf-level-tag-param", "lf-cref-read", "lf-cref-level", "lf-cref-current",
+    "lf-input-intact?",
     "lf-input-mark-count", "lf-input-fingerprint", "/node", "node!", "node@", "ok?",
     "upto?", "lf-tag-sort", "lf-tag-symbolic-sort", "lf-tag-bvar", "lf-tag-constant",
     "lf-tag-app", "lf-tag-lam", "lf-tag-pi", "lf-log-preset-level", "lf-log-preset-records",

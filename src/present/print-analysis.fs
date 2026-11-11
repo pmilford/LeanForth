@@ -59,7 +59,7 @@ defer lf-pp-lsame-step ( l1 l2 frames -- ... frames next )
 ' lf-pp-lsame is lf-pp-lsame-step
 
 \ Constants: name and universe arguments of a constant node.
-: lf-pp-cref ( term -- index identity ) dup lf-term-first@ swap lf-term-second@ ;
+: lf-pp-cref ( term -- index identity ) lf-term-first@ dup lf-cref-current ;
 : lf-pp-const-name ( term -- name true | false )
   lf-pp-cref lf-cref-read if 2drop true else false then ;
 : lf-pp-const-levels ( term -- addr count true | false ) lf-pp-cref lf-cref-levels ;
