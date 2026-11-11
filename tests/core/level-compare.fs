@@ -421,6 +421,29 @@ lf-level-reset
 T{ 40 up-chain 40 down-chain 100000 lf-level-equivalent -> true outcome-ok }T
 T{ 40 up-chain 39 down-chain 41 nparam lf-level-max must 100000 lf-level-equivalent
    -> false outcome-ok }T
+\ The scope checks' memo (compact-store plan step S4): off (outside a
+\ check), each comparison walks both roots; on, a root found in scope is
+\ not walked again while its identity and the parameter context's
+\ generation hold, so it costs no fuel; a change of the context, or the
+\ index given back and made again, walks it again.
+session
+u-id @ param succ constant mu+1   u-id @ param succ constant m1
+: cmp-fuel ( -- fuel ) mu+1 m1 30 lf-level-compare drop lf-lcmp-fuel @ ;
+T{ cmp-fuel cmp-fuel -> 26 26 }T
+lf-memo-on lf-audit-memo!
+T{ cmp-fuel cmp-fuel -> 26 30 }T
+99 lf-lscope-context-add must
+T{ cmp-fuel cmp-fuel -> 26 30 }T
+create memo-mark /store-mark allot
+: memo-pair ( -- a b ) u-id @ param succ u-id @ param succ ;
+: pair-fuel ( a b -- fuel ) 30 lf-level-compare drop lf-lcmp-fuel @ ;
+memo-mark lf-levels store-mark drop
+T{ memo-pair 2dup pair-fuel -rot pair-fuel -> 26 30 }T
+memo-mark lf-level-rollback drop
+T{ memo-pair pair-fuel -> 26 }T
+lf-memo-off lf-audit-memo!
+T{ cmp-fuel -> 26 }T
+lf-memo-auto lf-audit-memo!
 lf-level-reset
 T{ lf-level-default lf-level-capacity! -> outcome-ok }T
 bye

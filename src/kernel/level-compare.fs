@@ -11,13 +11,15 @@
 \ same Lean name and different IDs different names.
 \ State: one record, lf-lcmp-state, holding the fuel left after a
 \ comparison, which mixed-convert reads, whether an undecided comparison
-\ keeps that fuel, and whether the last comparison was decided unequal; a
-\ member of the checker context (lib/context.fs). Single-threaded within
-\ one context.
+\ keeps that fuel, and whether the last comparison was decided unequal;
+\ and the column lf-lcmp-scoped of the level store (the scope checks'
+\ memo, below); members of the checker context (lib/context.fs).
+\ Single-threaded within one context.
 
 require ../lib/lib.fs
 require ../core/derivation-log.fs
 require ../core/diagnostics.fs
+require ../core/constant-term-boundary.fs
 require ../core/level-scope.fs
 require ../core/levels.fs
 require ./level-normalize.fs
@@ -45,8 +47,30 @@ end-structure
 : lf-lcmp-settle ( status -- status ) dup lf-lcmp-kept? 0= if lf-lcmp-fail then ;
 
 \ Scope-check a root with the fuel left, continuing with what it leaves.
+\ A memo per level (compact-store plan step S4; ADR 0014 Amendment 4's
+\ note): while the audit memo is on (core/constant-term-boundary.fs's
+\ lf-audit-on?, in a check), a root found in scope is kept in a column
+\ of the level store with its identity and the parameter context's
+\ generation, and is not walked again while both hold: its graph cannot
+\ change (records are never written, children come earlier, a rollback
+\ gives back a suffix, an index made again has a new identity) and every
+\ change of the parameter context advances the generation. A kept root
+\ costs no fuel; a check that fails keeps nothing.
+/slab context-record: lf-lcmp-scoped
+2 cells ' lf-lcmp-scoped lf-level-columns column-add
+: lf-lcmp-unit ( level -- addr ) lf-lcmp-scoped column-at ;
+: lf-lcmp-stamp ( level -- identity generation )
+  lf-level-identity drop lf-lscope-generation @ ;
+: lf-lcmp-scoped? ( level -- flag )
+  lf-audit-on? 0= if drop false exit then
+  dup lf-level-valid? 0= if drop false exit then
+  dup lf-lcmp-unit 2@ rot lf-lcmp-stamp d= ;
+: lf-lcmp-keep-scope ( level -- )
+  lf-audit-on? if dup lf-lcmp-stamp rot lf-lcmp-unit 2! else drop then ;
 : lf-lcmp-scope ( root -- status )
-  lf-lcmp-fuel @ lf-lscope-check lf-lscope-fuel @ lf-lcmp-fuel ! ;
+  dup lf-lcmp-scoped? if drop outcome-ok exit then
+  dup lf-lcmp-fuel @ lf-lscope-check lf-lscope-fuel @ lf-lcmp-fuel !
+  dup ok? if over lf-lcmp-keep-scope then nip ;
 : lf-lcmp-scopes ( left right -- status )
   swap lf-lcmp-scope ok-then? if lf-lcmp-scope then ;
 \ An undecided comparison is recorded with both roots (unless something
