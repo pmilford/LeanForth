@@ -104,7 +104,11 @@ write-other
 : stage-another ( -- outcome )
   16 sa stage-init ok? must true sa stage-any-version! other-file sa stage-load-unchecked ;
 : meta-is? ( k c-addr u -- flag ) rot sb stage-meta-text compare 0= ;
-T{ stage-another save-a load-b sb stage-seal file-b sb tf tier-save stages= files=
+\ Loaded only into a stage that reads any version, as the reader takes
+\ such an export (review rvSN2 m2); else unsupported.
+: load-b-any ( -- outcome ) fresh-b true sb stage-any-version! file-a sb tf tier-load ;
+T{ stage-another save-a load-b both-free -> 0 0 outcome-unsupported }T
+T{ stage-another save-a load-b-any sb stage-seal file-b sb tf tier-save stages= files=
    sb stage-other? 0 s" otherexport" meta-is? 3 s" 4.99.0" meta-is? both-free
    -> 0 0 0 0 0 true true true true true }T
 T{ live-blocks @ blocks-at-start - -> 0 }T
@@ -215,6 +219,35 @@ T{ fresh-img tag-app a-let 1+ 7 0 poke 7 forged attempted -> outcome-invalid tru
 T{ fresh-img 1 0 2 12 poke 2 forged attempted -> outcome-invalid true }T
 T{ fresh-img sa stage-decls 1- 9 0 peek 1+ 0 9 0 poke 9 forged attempted
    -> outcome-invalid true }T
+\ Review rvSN2's findings, each a record the reader would refuse: a
+\ natural literal's text not canonical decimal (m1: a leading zero); a
+\ name's text not UTF-8 (m3: a byte $FF, its data word made again); a
+\ declaration on the line of the one before that is not a member of its
+\ block (m4); a constant's universe list holding no level; a
+\ declaration's type the body record of a letE.
+tag-nat first-of constant a-nat
+: nat-text ( -- t ) a-nat 7 4 peek ;
+: text-at ( t -- addr ) 6 0 peek 5 sec-off + img + ;
+T{ a-nat 0> fresh-img nat-text text-at c@ char 3 = -> true true }T
+T{ fresh-img char 0 nat-text text-at c! 5 forged attempted -> outcome-invalid true }T
+: name-word ( k -- h )   \ the data word name-hash! gives name k as it is now
+  dup 2 0 peek head-tag hash-fmix over 2 4 peek hash-step
+  over 2 8 peek 1 sec-off + img + rot 2 0 peek head-payload hash-bytes hash-step ;
+: name-at ( k -- addr ) 2 8 peek 1 sec-off + img + ;
+T{ fresh-img 1 2 0 peek head-tag tag-name-str = -> true }T
+T{ fresh-img $FF 1 name-at c! 1 name-word 1 2 12 poke 1 forged 2 forged attempted
+   -> outcome-invalid true }T
+T{ fresh-img a-def 1- 9 0 peek a-def 9 0 poke 9 forged attempted -> outcome-invalid true }T
+: levelled-const ( -- e )
+  sa stage-tier tier-exprs cons-numbers 0 ?do
+    i sa stage-tier expr-tag@ tag-const =
+    if i sa stage-tier expr-b@ sa stage-tuples tuple-length if i unloop exit then then
+  loop -1 ;
+levelled-const constant a-levelled
+T{ a-levelled 0> -> true }T
+T{ fresh-img 1000000 a-levelled 7 8 peek 1+ 4 0 poke 4 forged attempted
+   -> outcome-invalid true }T
+T{ fresh-img a-let 1+ a-def 8 12 poke 8 forged attempted -> outcome-invalid true }T
 \ A byte changed, the SHA-256s left: rejected; the file cut: invalid.
 T{ fresh-img an-app 7 rec dup c@ 1 xor swap c! attempted -> outcome-rejected true }T
 T{ fresh-img img good nip 1- file-c spit fresh-b file-c sb tf tier-load sb fresh?

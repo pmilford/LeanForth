@@ -601,6 +601,7 @@ test-environment:
 	$(RUN) $(GFORTH) tests/core/environment.fs
 	$(RUN) $(GFORTH) tests/core/environment-tasks.fs
 	$(RUN) $(GFORTH) tests/core/environment-tasks-serial.fs
+	$(RUN) $(GFORTH) tests/core/env-snapshot.fs
 	$(RUN) $(GFORTH) tests/core/check-declaration.fs
 	$(RUN) $(GFORTH) tests/core/check-declaration-ndjson.fs
 	$(RUN) $(GFORTH) tests/core/failure-paths.fs

@@ -687,6 +687,7 @@ create ck-manifest-path manifest-name-room 16 + allot
 \ environment's sections read; then the feed.
 : ck-snap-tier ( -- outcome )
   12 ck-stage stage-init dup ok? 0= if exit then drop
+  ck-any-version? ck-stage stage-any-version!
   ck-stage ck-snap snap-tier dup ok? 0= if exit then drop ck-stage stage-seal ;
 : ck-snap-stage ( c-addr u fuel -- outcome )
   ck-snap snap-open dup ok? 0= if exit then drop ck-snap-tier dup ok? 0= if exit then drop

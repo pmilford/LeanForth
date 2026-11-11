@@ -1672,5 +1672,205 @@ class Jobs(unittest.TestCase):
                          (4, "error: --jobs does not go with --record"))
 
 
+def sectioned(path):
+    """A sectioned file's bytes and its table (lib/sections.fs): per section
+    (kind, unit, count, offset, length)."""
+    data = bytearray(Path(path).read_bytes())
+    table = []
+    for i in range(int.from_bytes(data[16:20], "little")):
+        base = 96 + 64 * i
+        kind, unit = int.from_bytes(data[base:base + 4], "little"), int.from_bytes(
+            data[base + 4:base + 8], "little")
+        count, offset, length = (int.from_bytes(data[base + 8 + 8 * k:base + 16 + 8 * k], "little")
+                                 for k in range(3))
+        table.append((kind, unit, count, offset, length))
+    return data, table
+
+
+def resealed(data, table, section=None):
+    """The bytes with section's SHA-256 (when given) and the header's made
+    again, so that only the snapshot's own checks can refuse a change."""
+    if section is not None:
+        _, _, _, offset, length = table[section]
+        base = 96 + 64 * section + 32
+        data[base:base + 32] = hashlib.sha256(bytes(data[offset:offset + length])).digest()
+    data[4064:4096] = hashlib.sha256(bytes(data[:4064])).digest()
+    return data
+
+
+def u32(data, at):
+    return int.from_bytes(data[at:at + 4], "little")
+
+
+def put32(data, at, value):
+    data[at:at + 4] = value.to_bytes(4, "little")
+
+
+SLOTS, DEPS, LOOKS = 11, 12, 13   # the environment's sections (kernel/env-snapshot.fs)
+
+
+class Snapshots(unittest.TestCase):
+    """check --save-snapshot FILE and check --snapshot FILE (plan task 6.2.5,
+    step SN3; ADR 0020): a snapshot read back reports what the run that
+    wrote it reported -- every verdict, axiom set, diagnostic and fuel --
+    each labelled as taken from the snapshot (text, and report 0.3, which
+    the schema accepts); --jobs 1 and --jobs 4, and two runs, write the
+    same bytes; a damaged, altered or stale snapshot is refused (planted
+    faults, each file's SHA-256s made again so that only the snapshot's own
+    checks can refuse it); the misuses are refused (status 4)."""
+
+    schema = Validator(json.loads((ROOT / "schemas/check-report-0.3.schema.json").read_text()))
+    final = Validator(json.loads((ROOT / "schemas/check-report-0.2.schema.json").read_text()))
+
+    def setUp(self):
+        self.dir = Path(tempfile.mkdtemp(prefix="leanforth-snapshots-"))
+
+    def tearDown(self):
+        shutil.rmtree(self.dir)
+
+    def saved(self, *args, name="s.lfsnap"):
+        path = self.dir / name
+        status, got, _ = report("--save-snapshot", str(path), *args)
+        return path, status, got
+
+    @staticmethod
+    def plain(got, keys=("schemaVersion", "export", "measured", "mode", "snapshot")):
+        got = dict(got)
+        for key in keys:
+            got.pop(key, None)
+        got["declarations"] = [{k: v for k, v in d.items() if k != "provenance"}
+                               for d in got["declarations"]]
+        return got
+
+    def test_both_ways(self):
+        for k, args in enumerate(CASES_ALL + [["tests/cli/nested.ndjson"], [SHARING]]):
+            path, status, fresh = self.saved(*args, name=f"s{k}.lfsnap")
+            self.assertEqual(self.final.errors(fresh), [], args)
+            if fresh["run"] != "ok" or fresh["stopped"]:
+                self.assertFalse(path.exists(), args)
+                continue
+            again, loaded, _ = report("--snapshot", str(path))
+            self.assertEqual(self.schema.errors(loaded), [], args)
+            self.assertEqual((again, self.plain(loaded)), (status, self.plain(fresh)), args)
+            self.assertEqual({d["provenance"] for d in loaded["declarations"]}, {"snapshot"})
+            self.assertEqual(loaded["mode"], "development")
+            self.assertEqual(loaded["snapshot"]["sha256"],
+                             hashlib.sha256(path.read_bytes()[:4064]).hexdigest(), args)
+
+    def test_text(self):
+        path, _, _ = self.saved(FIXTURE)
+        status, out, _ = run("check", "--snapshot", str(path))
+        self.assertEqual(status, 0)
+        lines = out.splitlines()
+        self.assertEqual(lines[0], "fixtureId: accepted (experimental, not independently "
+                                   "audited; from snapshot, not re-checked in this run); "
+                                   "axioms: none")
+        self.assertRegex(lines[-3], r"^snapshot: .*s\.lfsnap \(sha256 [0-9a-f]{64}\), export "
+                                    r"sha256 [0-9a-f]{64}, verdict version 1, written by "
+                                    r"LeanForth \S+: 3 results taken from it, not re-checked "
+                                    r"in this run$")
+        self.assertEqual(lines[-2:], [
+            "note: development and research mode: a final run re-checks everything from the",
+            "note: export and reads no snapshot; only its results support a claim"])
+        status, out, _ = run("check", "--save-snapshot", str(self.dir / "t"), FIXTURE)
+        self.assertEqual(out.splitlines()[-1], f"snapshot: written to {self.dir / 't'}")
+
+    def test_same_bytes(self):
+        for args in [[INDUCTIVE], ["tests/cli/nested.ndjson"],
+                     ["--no-manifest", "tests/cli/jobs/dupl80.ndjson"]]:
+            one, _, _ = self.saved(*args, name="one")
+            four, _, _ = self.saved("--jobs", "4", *args, name="four")
+            again, _, _ = self.saved(*args, name="again")
+            self.assertEqual(one.read_bytes(), four.read_bytes(), args)
+            self.assertEqual(one.read_bytes(), again.read_bytes(), args)
+
+    def refused(self, path, status, text, *args):
+        got, out, _ = run("check", "--snapshot", str(path), *args)
+        self.assertEqual((got, out.splitlines()[0]),
+                         (status, f"error: {text}"), (path, args))
+
+    def test_planted_faults(self):
+        path, _, _ = self.saved(FIXTURE)
+        data, table = sectioned(path)
+        tampered = self.dir / "x.lfsnap"
+
+        def write(changed):
+            tampered.write_bytes(bytes(changed))
+            return tampered
+        for field, value, status, why in [
+                (0, 0, 4, "invalid: the snapshot was refused: not a LeanForth snapshot"),
+                (1, 2, 2, "unsupported: the snapshot was refused: format version"),
+                (2, 2, 2, "unsupported: the snapshot was refused: verdict version"),
+                (5, 2, 4, "invalid: the snapshot was refused: axiom allowlist"),
+                (6, 1, 4, "invalid: the snapshot was refused: axiom allowlist"),
+                (8, 1, 2, "unsupported: the snapshot was refused: layer")]:
+            changed = bytearray(data)
+            put32(changed, 24 + 4 * field, value)
+            self.refused(write(resealed(changed, table)), status, why)
+        changed = bytearray(data)
+        put32(changed, 24 + 4 * 2, 2)
+        status, got, _ = report("--snapshot", str(write(resealed(changed, table))))
+        self.assertEqual((status, self.schema.errors(got), got["read"]["phase"],
+                          got["read"]["reason"], got["run"]),
+                         (2, [], "snapshot", "verdict version", "not-run"))
+        self.refused(path, 4, "invalid: the snapshot was refused: fuel", "--fuel", "5")
+        self.assertEqual(run("check", "--snapshot", str(path), "--fuel", "20000000")[0], 0)
+        # A dependency past its slot: fixturePoly (slot 1) on itself.
+        _, _, _, deps, _ = table[DEPS]
+        changed = bytearray(data)
+        put32(changed, deps, 1)
+        self.refused(write(resealed(changed, table, DEPS)), 4,
+                     "invalid: the snapshot was refused: slots (record 1)")
+        # A lookup list out of order: fixtureUse's first two lookups swapped.
+        _, _, _, slots, _ = table[SLOTS]
+        before = sum(u32(data, slots + 72 * d + 40) for d in range(2))
+        _, _, _, looks, _ = table[LOOKS]
+        at = looks + 8 * before
+        self.assertGreaterEqual(u32(data, slots + 72 * 2 + 40), 2)
+        changed = bytearray(data)
+        changed[at:at + 16] = data[at + 8:at + 16] + data[at:at + 8]
+        self.refused(write(resealed(changed, table, LOOKS)), 4,
+                     "invalid: the snapshot was refused: slot published otherwise (record 2)")
+        # A byte changed without its SHA-256; a cut file.
+        changed = bytearray(data)
+        changed[slots] ^= 1
+        self.refused(write(changed), 4, "invalid: the snapshot was refused: sections")
+        self.refused(write(data[:len(data) - 4096]), 4,
+                     "invalid: the snapshot was refused: header or section table")
+
+    def test_outcome_changed(self):
+        """A rejected verdict made accepted, every SHA-256 made again: the
+        loader cannot tell, and reports it as the snapshot's verdict, never as
+        one checked in this run (a snapshot vouches for no forgery, ADR 0020
+        D4)."""
+        args = ["--no-manifest", f"{CASES}/composition-wrong-argument.ndjson"]
+        path, status, fresh = self.saved(*args)
+        self.assertEqual((status, fresh["declarations"][0]["verdict"]), (1, "rejected"))
+        data, table = sectioned(path)
+        put32(data, table[SLOTS][3], 0)
+        path.write_bytes(bytes(resealed(data, table, SLOTS)))
+        status, got, _ = report("--snapshot", str(path))
+        self.assertEqual((status, got["declarations"][0]["verdict"],
+                          got["declarations"][0]["provenance"]), (0, "accepted", "snapshot"))
+
+    def test_4_misuses(self):
+        path, _, _ = self.saved(CHAIN)
+        for args, why in [
+                (["--record", "r.json", "--snapshot", str(path)],
+                 "--snapshot and --save-snapshot do not go with --record"),
+                (["--snapshot", str(path), "--save-snapshot", "x"],
+                 "--snapshot and --save-snapshot do not go together yet (plan step SN4)"),
+                (["--snapshot", str(path), CHAIN],
+                 "--snapshot with an export is not supported yet (plan step SN4)")]:
+            status, out, _ = run("check", *args)
+            self.assertEqual((status, out.splitlines()[0]), (4, f"error: {why}"), args)
+        status, out, _ = run("check", "--save-snapshot", CHAIN, CHAIN)
+        self.assertEqual((status, out), (4, "error: FILE must not be EXPORT\n"))
+        status, out, _ = run("check", "--save-snapshot", str(self.dir / "u"), "--no-manifest",
+                             "README.md")
+        self.assertEqual(status, 4)
+        self.assertFalse((self.dir / "u").exists())
+
+
 if __name__ == "__main__":
     unittest.main()

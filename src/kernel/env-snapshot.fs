@@ -514,7 +514,7 @@ here same-fields - 2 cells / constant same-fields#
 : snap-manifest-sha ( snap -- c-addr ) si-manifest swap id-sha ;
 : snap-export-bytes ( snap -- n ) si-bytes swap snap-id fld2@ ;
 : snap-export-lines ( snap -- n ) si-lines swap snap-id fld2@ ;
-: snap-flags ( snap -- u ) si-flags swap id@ ;
+: snap-flags ( snap -- u ) dup snap-id if si-flags swap id@ else drop 0 then ;
 : snap-info ( snap -- c-addr u ) ss-info over snap-block swap ss-info swap snap-size ;
 
 base !   \ the BASE this file was loaded with

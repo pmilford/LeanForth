@@ -895,6 +895,22 @@ env-free
 lf-mode-final provenance-trial
 T{ 1 lf-env-outcome 11 lf-env-outcome 11 provenance -> outcome-invalid outcome-ok 0 }T
 env-free
+\ The snapshot's loader (plan step SN3, kernel/env-snapshot.fs) fills a
+\ candidate marked saved (lf-env-saved!): in a development run it is
+\ published saved and its users, directly or not, rest on it
+\ (lf-env-origin: snapshot, uses-snapshot, checked); in a final run the
+\ publisher refuses it (invalid).
+: saved-check ( -- ) me 0= if lf-env-saved! then syn-check ;
+: origin-trial ( mode -- )
+  8 fresh-env lf-env lf-envh-mode ! ['] saved-check main-count checked-run lf-env-view drop ;
+: origins ( -- o0 o1 o23 o11 )
+  0 lf-env-origin 1 lf-env-origin 23 lf-env-origin 11 lf-env-origin ;
+lf-mode-development origin-trial
+T{ origins 0 lf-env-outcome -> lf-origin-saved lf-origin-uses lf-origin-uses lf-origin-checked outcome-ok }T
+env-free
+lf-mode-final origin-trial
+T{ 0 lf-env-outcome 11 lf-env-origin -> outcome-invalid lf-origin-checked }T
+env-free
 T{ step-failures @ -> 0 }T
 
 \ ---------------------------------------------------------------------------

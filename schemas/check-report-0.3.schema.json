@@ -51,7 +51,15 @@
       "const": "development"
     },
     "snapshot": {
-      "$ref": "#/$defs/snapshot"
+      "description": "The snapshot read, or null when it was refused before its identity was read.",
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/snapshot"
+        }
+      ]
     },
     "settings": {
       "type": "object",

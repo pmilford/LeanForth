@@ -76,11 +76,16 @@ require ../lib/slab.fs
 require ../lib/cons.fs
 require ../lib/hash32.fs
 require ../lib/sections.fs
+require ../lib/bytes.fs
+require ../lib/json.fs
 require ../core/compact.fs
 require ./stage.fs
 
 1 constant tier-version
 10 constant tier-sections#
+\ Section positions the record checks name.
+4 constant tp-lists  6 constant tp-texts  7 constant tp-exprs  8 constant tp-decls
+9 constant tp-lines
 \ The information fields.
 0 constant ti-version  8 constant ti-decls  9 constant ti-other  10 constant ti-meta
 15 constant ti-fields#
@@ -104,11 +109,13 @@ create tier-slab-xts ' tf-name-bytes , ' tf-names , ' tf-levels , ' tf-tuples ,
 \ A family's set from its records slab (the table comes first in a set).
 : records>cons ( slab -- cons ) 0 cons-records - ;
 \ The section's name, for a refusal.
+create tier-titles   \ counted strings, each aligned (lib/bytes.fs counted,)
+  s" information" counted,  s" name bytes" counted,  s" names" counted,
+  s" levels" counted,  s" lists" counted,  s" text bytes" counted,  s" texts" counted,
+  s" expressions" counted,  s" declarations" counted,  s" lines" counted,
 : tier-title ( i -- c-addr )
-  case 0 of c" information" endof 1 of c" name bytes" endof 2 of c" names" endof
-    3 of c" levels" endof 4 of c" lists" endof 5 of c" text bytes" endof
-    6 of c" texts" endof 7 of c" expressions" endof 8 of c" declarations" endof
-    9 of c" lines" endof c" section table" swap endcase ;
+  dup tier-sections# u< 0= if drop c" section table" exit then
+  tier-titles swap 0 ?do count + aligned loop ;
 
 12 constant tf-blocks#   \ heap blocks one record may own: at most 7 are used
 begin-structure /tier-file
@@ -207,8 +214,7 @@ create tf-outs ' tf-raw-out , ' tf-le-out , ' tf-le-out , ' tf-le-out , ' tf-raw
 \ ---- Reading: sections into slabs, then records entered one by one.
 \ After reading 32-bit fields as bytes: n fields at addr packed, in place
 \ (nothing to do where packed memory is little-endian).
-: le-packed ( addr n -- )
-  u32-block? if 2drop exit then 0 ?do dup u32-le@ over u32! 1 u32s + loop drop ;
+: le-packed ( addr n -- ) over swap le>u32s ;
 : tf-read ( addr i tf -- outcome ) 2dup tf-length -rot tf-sf sections-read ;
 : tf-fields-read ( addr i tf -- outcome )
   >r 2dup r@ tf-read ok-then2? 0= if r> drop exit then
@@ -260,8 +266,10 @@ create tf-outs ' tf-raw-out , ' tf-le-out , ' tf-le-out , ' tf-le-out , ' tf-raw
 : name-str-ok? ( stage tf -- flag )
   over name-prefix-ok? >r >r tf-names-of dup name-span@ rot cons-bytes r> pool-next?
   r> and ;
+: name-utf8? ( stage -- flag ) tf-names-of name-text utf8-valid? ;
 : name-str-check ( stage tf -- flag )
   over >r name-str-ok? 0= if r> drop false exit then
+  r@ name-utf8? 0= if r> drop false exit then
   r@ tf-names-of name-keyed r> name-hash-same? ;
 : name-adopt ( stage -- outcome ) tf-names-of 1 swap cons-adopt nip ;
 : name-str-step ( stage tf -- outcome )
@@ -296,7 +304,7 @@ create tf-outs ' tf-raw-out , ' tf-le-out , ' tf-le-out , ' tf-le-out , ' tf-raw
   dup cand-data >r 0 over cand-data! dup expr-run-check ok? swap cand-data r> = and ;
 \ A letE's second record, inside the section: the body record as
 \ let-body! writes it (the body itself is checked by check-let).
-: exprs-left ( exprs tf -- u ) 7 swap tf-units swap cons-records slab-count - ;
+: exprs-left ( exprs tf -- u ) tp-exprs swap tf-units swap cons-records slab-count - ;
 : body-record-ok? ( addr -- flag )
   dup quad-head u32@ tag-let-body = over quad-b u32@ 0= and swap quad-data u32@ 0= and ;
 : let-shape? ( exprs tf -- flag )
@@ -305,15 +313,21 @@ create tf-outs ' tf-raw-out , ' tf-le-out , ' tf-le-out , ' tf-le-out , ' tf-raw
 : expr-units ( exprs -- units ) expr-let-top? if 2 else 1 then ;
 : mdata-count ( stage -- )
   dup tf-exprs-of cand-head head-tag tag-mdata = if 1 swap stage-mdata +! else drop then ;
+: text-bytes ( t stage -- c-addr u )
+  stage-tier tier-texts tuck cons-at dup u32@ swap 1 u32s + u32@ >r swap cons-bytes slab-at r> ;
+: nat-ok? ( stage -- flag )
+  dup tf-exprs-of cand-head head-tag tag-nat <> if drop true exit then
+  dup tf-exprs-of cons-top quad-a u32@ swap text-bytes canonical-natural? ;
 : expr-step ( stage tf -- outcome )
   over tf-exprs-of swap expr-shape? 0= if drop outcome-invalid exit then
   dup tf-exprs-of expr-checked? 0= if drop outcome-invalid exit then
+  dup nat-ok? 0= if drop outcome-invalid exit then
   dup mdata-count tf-exprs-of dup expr-units swap cons-adopt nip ;
 
 \ Lists: a length and that many items, inside the section (what the
 \ items are, their users check). Texts: the next bytes of their pool.
 : tf-tuples-of ( stage -- tuples ) stage-tier tier-tuples ;
-: tuple-room ( tuples tf -- u ) 4 swap tf-units swap cons-records slab-count - ;
+: tuple-room ( tuples tf -- u ) tp-lists swap tf-units swap cons-records slab-count - ;
 : tuple-step ( stage tf -- outcome )
   >r tf-tuples-of dup r> tuple-room over cons-top u32@ u>
   if dup cons-top u32@ 1+ swap cons-adopt nip else drop outcome-invalid then ;
@@ -412,14 +426,24 @@ create kind-flags
   drop dup decl-ok? 0= if drop outcome-invalid exit then
   dup draft-chained ok-then? 0= if exit then decl-keep ;
 
-\ Lines: below staged-none, none smaller than the one before.
-: lines-ok? ( addr n -- flag )
-  0 swap 0 ?do
-    over i u32s + u32@ tuck u> over staged-none = or if 2drop false unloop exit then
-  loop 2drop true ;
-: lines-commit ( n slab -- outcome )
-  0 over slab-at rot dup >r lines-ok?
-  if r> swap slab-commit outcome-ok else r> 2drop outcome-invalid then ;
+\ Lines: below staged-none, each above the one before, except that the
+\ members of a block (its types, constructors and recursors) are on its
+\ block's line, as the reader keeps them.
+: member-kind? ( kind -- flag ) kind-type kind-recursor 1+ within ;
+: line-ok? ( prev line d stage -- flag )
+  >r >r dup staged-none = if 2drop r> r> 2drop false exit then
+  2dup = if 2drop r> r> staged-kind@ member-kind? exit then
+  u< r> r> 2drop ;
+: line-at ( addr i -- line ) u32s + u32@ ;
+: lines-ok? ( addr n stage -- flag )
+  -rot dup 0= if 2drop drop true exit then
+  over 0 line-at dup staged-none = if 2drop 2drop false exit then
+  swap 1 ?do
+    over i line-at tuck i 5 pick line-ok? 0= if 2drop drop false unloop exit then
+  loop 2drop drop true ;
+: lines-commit ( n slab stage -- outcome )
+  >r 0 over slab-at 2 pick r> lines-ok?
+  if slab-commit outcome-ok else 2drop outcome-invalid then ;
 
 \ ---- The sections in order.
 create tf-steps   \ the step ( stage tf -- outcome ) entering one record
@@ -442,7 +466,7 @@ create tf-steps   \ the step ( stage tf -- outcome ) entering one record
   >r 2dup r@ tf-plain ok-then2? 0= if r> drop exit then r> tf-adopt-all ;
 : tf-lines ( i stage tf -- outcome )
   >r 2dup r@ tf-plain ok-then2? 0= if r> drop exit then
-  swap r> tf-units swap stage-lines lines-commit ;
+  swap r> tf-units over stage-lines rot lines-commit ;
 create tf-loads   \ by position, from 1
   ' tf-pool , ' tf-pooled , ' tf-family , ' tf-family , ' tf-pool , ' tf-pooled ,
   ' tf-family , ' tf-decls , ' tf-lines ,
@@ -467,16 +491,32 @@ create tf-loads   \ by position, from 1
   if -rot meta-slot ! true else drop 2drop false then ;
 : metas-take ( stage tf -- flag )
   true -rot #meta 0 do 2dup i -rot meta-take >r rot r> and -rot loop 2drop ;
+\ Other versions (other 1) as the reader takes them (ndjson.fs
+\ header-taken?): only into a stage that reads any version
+\ (stage-any-version!), with the pinned format, and not all five pinned
+\ (a file that says other for the pinned versions is malformed).
+: meta-pinned? ( k stage -- flag )
+  over >r stage-meta-text r> cells pinned-meta + @ execute compare 0= ;
+: metas-pinned? ( stage -- flag ) true #meta 0 do over i swap meta-pinned? and loop nip ;
+: metas-taken ( stage -- outcome )
+  dup metas-pinned? if drop outcome-invalid exit then
+  dup stage-export export-any-version? 0= if drop outcome-unsupported exit then
+  2 swap meta-pinned? if outcome-ok else outcome-unsupported then ;
+: tf-other ( stage tf -- outcome )
+  over swap metas-take 0= if drop outcome-invalid exit then
+  true over stage-other ! dup metas-taken dup ok? if nip exit then
+  false rot stage-other ! ;
 : tf-metas ( stage tf -- outcome )
   ti-other over ti@ case
-    0 of nip metas-zero? endof
-    1 of 2dup metas-take if drop true swap stage-other ! true else 2drop false then endof
-    >r 2drop false r> endcase flag>outcome ;
+    0 of nip metas-zero? flag>outcome endof
+    1 of tf-other endof
+    >r 2drop outcome-invalid r> endcase ;
 
 \ The start: a fresh stage, this format's ten sections, the information
 \ with this version and every section's count.
 : tf-fresh? ( stage -- flag )
   dup staging-empty stage-in? 0= if drop false exit then
+  dup stage-continued @ if drop false exit then
   stage-tier dup tier-names cons-numbers 1 = over tier-levels cons-numbers 1 = and
   over tier-tuples cons-numbers 0= and over tier-texts cons-numbers 0= and
   swap tier-exprs cons-numbers 0= and ;

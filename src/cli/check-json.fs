@@ -227,8 +227,9 @@ create cj-hex 64 allot
 : cj-snap-file ( -- ) ck-snap-file@ nt-text cj-shown s" file" cj-text ;
 : cj-snap-info ( -- ) ck-snap snap-info nt-text cj-shown s" information" cj-text ;
 : cj-snapshot ( -- )
-  ck-snapped? 0= if exit then
-  s" development" s" mode" cj-text s" snapshot" cj-key cj-object cj-snap-file
+  ck-snapped? 0= if exit then s" development" s" mode" cj-text
+  ck-snap snap-id 0= if s" snapshot" cj-null-member exit then
+  s" snapshot" cj-key cj-object cj-snap-file
   ck-snap snap-sum s" sha256" cj-sha snap-version s" formatVersion" cj-number
   lf-verdict-version s" verdictVersion" cj-number cj-snap-export cj-snap-manifest
   s" base" cj-null-member cj-snap-info cj-end-object ;

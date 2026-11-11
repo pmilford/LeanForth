@@ -618,8 +618,12 @@ create cli-hex 64 allot
   cli-other-note ck-loaded? if cli-results. else ck-read-outcome cli-fed-unread then
   ck-snapped? ck-loaded? and if cli-snapshot. then cli-saved.
   cli-resources? if cli-resources. then ;
+\ Whether the export's manifest was checked: for a snapshot run, when the
+\ run that wrote the snapshot checked it.
+: cli-manifest-checked? ( -- flag )
+  ck-snapped? if ck-snap snap-flags snap-enforced and 0<> else cli-checked? then ;
 : cli-fed-json ( -- )
-  0 cli-file cli-checked? cj-report dup ok? if drop exit then
+  0 cli-file cli-manifest-checked? cj-report dup ok? if drop exit then
   cr ." internal fault: the JSON report could not be written: " outcome-text type cr
   exit-fault cli-code! ;
 : cli-fed-report ( -- ) cli-json? if cli-fed-json else cli-fed-text then ;
