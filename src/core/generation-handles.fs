@@ -38,10 +38,12 @@ lf-walk-room context-walk: lf-href-walker
 \ is where a pass takes a node from outside, so these are checked roots:
 \ they check the store's whole header (terms.fs), the reads after them
 \ only the index.
-: lf-hlevel-id? ( index identity -- flag ) swap lf-level-identity if = else drop false then ;
+: lf-hlevel-id? ( index identity -- flag )
+  swap lf-level-identity if = else drop false then ;
 : lf-hlevel-valid? ( index identity -- flag )
   lf-level-count-valid? if lf-hlevel-id? else 2drop false then ;
-: lf-hterm-id? ( index identity -- flag ) swap lf-term-identity if = else drop false then ;
+: lf-hterm-id? ( index identity -- flag )
+  swap lf-term-identity if = else drop false then ;
 \ The session's check covers both stores' headers (symbolic-session.fs).
 : lf-hterm-valid? ( index identity -- flag )
   lf-ssession-current? if lf-hterm-id? else 2drop false then ;

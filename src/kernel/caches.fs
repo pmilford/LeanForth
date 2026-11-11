@@ -286,10 +286,8 @@ lf-tag-str lf-skel-level < and
   dup lf-level-first@ lf-cl-child swap lf-level-second@ lf-cl-child lf-cl-either ;
 : lf-cl-params ( level -- params )
   dup lf-level-tag@ case
-    lf-level-tag-param of drop 1 endof
-    lf-level-tag-zero of drop 0 endof
-    lf-level-tag-succ of lf-level-first@ lf-cl-child endof
-    swap lf-cl-pair swap endcase ;
+    lf-level-tag-param of drop 1 endof  lf-level-tag-zero of drop 0 endof
+    lf-level-tag-succ of lf-level-first@ lf-cl-child endof  swap lf-cl-pair swap endcase ;
 : lf-cl-keep ( level id -- flag )
   over lf-cl-params dup 0< if drop 2drop false else lf-level-id! then ;
 : lf-cl-done ( level kind a b -- flag )
@@ -399,11 +397,9 @@ lf-tag-str lf-skel-level < and
 \ A leaf's bits, or -1 when its level facts are missing.
 : lf-param-bits ( params -- bits ) dup 0< if exit then 2* ;
 : lf-leaf-bits ( node kind -- bits )
-  case lf-tag-bvar of lf-term-first@ 1+ 2 lshift endof
-    lf-tag-fvar of drop 1 endof
+  case lf-tag-bvar of lf-term-first@ 1+ 2 lshift endof  lf-tag-fvar of drop 1 endof
     lf-tag-symbolic-sort of lf-term-first@ lf-cl-child lf-param-bits endof
-    lf-tag-constant of lf-const-params lf-param-bits endof
-    nip 0 swap endcase ;
+    lf-tag-constant of lf-const-params lf-param-bits endof  nip 0 swap endcase ;
 : lf-tf-leaf ( node tag -- flag )
   over swap lf-tk-leaf 0= if drop false exit then
   2over lf-leaf-bits dup 0< if 2drop 2drop drop false else lf-tf-done then ;

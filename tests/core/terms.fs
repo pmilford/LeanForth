@@ -139,11 +139,14 @@ lf-term-reset
 \ sound, every root refuses the store, an allocation too, and a read by
 \ index still reads.
 T{ 0 lf-term-sort drop 0 lf-term-bvar drop -> 0 1 }T
-T{ 1 lf-term-root? 2 lf-term-root? -1 lf-term-root? 1 lf-term-valid? -> true false false true }T
-T{ 2 lf-term-valid? 2 lf-term-read 2 lf-term-identity -1 lf-term-valid? -> false false false false }T
+T{ 1 lf-term-root? 2 lf-term-root? -1 lf-term-root? 1 lf-term-valid?
+   -> true false false true }T
+T{ 2 lf-term-valid? 2 lf-term-read 2 lf-term-identity -1 lf-term-valid?
+   -> false false false false }T
 T{ 2 lf-terms store-at? 1 lf-terms store-at? -> false true }T
 term-seal-flip
-T{ lf-term-count-valid? 0 lf-term-root? 0 1 lf-term-pair-valid? 0 lf-term-sort -> false false false false }T
+T{ lf-term-count-valid? 0 lf-term-root? 0 1 lf-term-pair-valid? 0 lf-term-sort
+   -> false false false false }T
 T{ 1 lf-term-valid? 1 lf-term-read 2 lf-term-read -> true lf-tag-bvar 0 0 true false }T
 term-seal-flip
 T{ lf-term-count-valid? 0 lf-term-root? 0 1 lf-term-pair-valid? -> true true true }T

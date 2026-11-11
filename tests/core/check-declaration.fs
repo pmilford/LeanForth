@@ -562,15 +562,18 @@ lf-caches-clear
 lf-term-reset
 T{ lf-ssession-begin -> true }T
 7 lf-level-param must constant cu
-T{ cu csort cbits  cu csort 0 cb capp cbits  cz cu lf-level-max must csort 1 cb lf-term-lam must cbits
-   cz lf-level-succ must csort cbits -> 2 6 6 0 }T
+T{ cu csort cbits  cu csort 0 cb capp cbits
+   cz cu lf-level-max must csort 1 cb lf-term-lam must cbits  cz lf-level-succ must csort cbits
+   -> 2 6 6 0 }T
 create cpairs 2 cells allot
 : cconst ( level -- term )
   dup lf-level-identity must cpairs cell+ ! cpairs !
-  0 s" cc" lf-name-str must lf-name-generation @ cpairs 1 lf-cref-new must lf-cterm-new must drop ;
+  0 s" cc" lf-name-str must lf-name-generation @ cpairs 1 lf-cref-new must
+  lf-cterm-new must drop ;
 T{ cu cconst cbits  cz cconst cbits  cu cconst 2 cb capp cbits -> 2 0 14 }T
 T{ 6 lf-cd-word -> 1 true false lf-data true }T
-T{ 7 lf-cd-word drop dup lf-data-loose over lf-data-params? rot lf-data-fvar? -> 1 true true }T
+T{ 7 lf-cd-word drop dup lf-data-loose over lf-data-params? rot lf-data-fvar?
+   -> 1 true true }T
 T{ lf-data-ranges 1- 2 lshift lf-cd-word -> lf-data-ranges 1- false false lf-data true }T
 T{ lf-data-ranges 2 lshift lf-cd-word -> false }T
 T{ false lf-caches-enable  cu csort lf-term-data@  true lf-caches-enable -> false }T
