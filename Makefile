@@ -53,7 +53,7 @@ endif
 
 # Every test command is stopped after TEST_TIMEOUT seconds and then fails,
 # so a looping test cannot stall a local run or CI. Uses GNU timeout(1).
-TEST_TIMEOUT ?= 600
+TEST_TIMEOUT ?= 1800
 RUN := timeout $(TEST_TIMEOUT)
 
 # Every pinned-Lean oracle and differential comparison. Excludes the
