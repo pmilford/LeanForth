@@ -1683,7 +1683,12 @@ and 14 new planted faults (`nest-*`) are caught;
 the arena's `bad/bugs/nested-rec-rule-nfields`, `nested-unused-param` and
 `rec-rule-proof-irrel-nested` are rejected and `good/init-prelude`
 accepted (2,106 declarations, `Lean.Syntax`, its `rec`, `rec_1`,
-`rec_2` among them).
+`rec_2` among them). `Init`'s first 1,000,000 export lines (9,202
+declarations, `--fast`, fuel 2,000,000 each): 6,838 accepted, 2,347
+unknown, none unsupported, 17 exhausted (before: 6,488, 1,686, 1,011,
+17); 350 declarations moved from unsupported to accepted, 661 to unknown
+(each also depends on one of 23 whnf gaps, diagnostic 30), no other
+verdict changed.
 
 ## Reproduction
 
