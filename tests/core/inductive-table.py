@@ -152,7 +152,7 @@ REQUIRED.update({row: "task 5.2.7 (unsafe and partial declarations skipped as Le
                  for row in ("unsafe.def", "unsafe.def-recursive", "unsafe.def-ill-typed",
                              "unsafe.def-then-safe-user", "unsafe.def-then-unsafe-user",
                              "partial.def-recursive", "partial.def-then-safe-user",
-                             "unsafe.axiom", "unsafe.axiom-then-safe-user", "unsafe.opaque",
+                             "unsafe.postulate", "unsafe.postulate-then-safe-user", "unsafe.opaque",
                              "unsafe.opaque-then-safe-user", "unsafe.inductive-not-positive",
                              "unsafe.inductive-then-safe-user")})
 # The axiom bits (src/core/axiom-allowlist.fs) LeanForth must report for

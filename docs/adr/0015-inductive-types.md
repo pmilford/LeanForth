@@ -1604,10 +1604,10 @@ one added in a mutual block (`add_mutual`, which can; the arena's 141).
 **Evidence.** Fourteen rows of `inductive-expected.lean`, each Lean's
 replay of hand-written constants (`replayVerdict`, the official checker's
 call): `unsafe.def`, `unsafe.def-recursive`, `unsafe.def-ill-typed`,
-`unsafe.def-then-unsafe-user`, `partial.def-recursive`, `unsafe.axiom`,
+`unsafe.def-then-unsafe-user`, `partial.def-recursive`, `unsafe.postulate`,
 `unsafe.opaque`, `unsafe.inductive-not-positive` accepted (LeanForth:
 skipped); `unsafe.def-then-safe-user`, `partial.def-then-safe-user`,
-`unsafe.axiom-then-safe-user`, `unsafe.opaque-then-safe-user`,
+`unsafe.postulate-then-safe-user`, `unsafe.opaque-then-safe-user`,
 `unsafe.inductive-then-safe-user` unknown constant (LeanForth: rejected,
 code 50); `unsafe.inductive-type-safe` accepted (LeanForth: unsupported,
 the gap above). The arena's `140_falseFromUnsafe` and

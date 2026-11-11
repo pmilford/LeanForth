@@ -373,8 +373,8 @@ unsafe.def-then-safe-user	unknownConstant	rejected	SK N1	5.2.7
 unsafe.def-then-unsafe-user	accepted	skipped	SK	5.2.7	
 partial.def-recursive	accepted	skipped	SK	5.2.7	
 partial.def-then-safe-user	unknownConstant	rejected	SK N1	5.2.7	
-unsafe.axiom	accepted	skipped	SK	5.2.7	
-unsafe.axiom-then-safe-user	unknownConstant	rejected	SK N1	5.2.7	
+unsafe.postulate	accepted	skipped	SK	5.2.7	
+unsafe.postulate-then-safe-user	unknownConstant	rejected	SK N1	5.2.7	
 unsafe.opaque	accepted	skipped	SK	5.2.7	
 unsafe.opaque-then-safe-user	unknownConstant	rejected	SK N1	5.2.7	
 unsafe.inductive-not-positive	accepted	skipped	SK	5.2.7	
