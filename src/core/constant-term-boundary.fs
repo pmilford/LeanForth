@@ -4,8 +4,9 @@
 \ stamp table binds it to this exact term allocation, so a reset cannot
 \ resurrect it. Binary constructors capture child indices, not identities;
 \ their safety relies on backward edges and no raw mutation or count edits.
-\ State: the stamp column lf-cterm-stamps of the term store (indexed by
-\ term index; lib/store-columns.fs), the marks column lf-term-marks with
+\ State: the stamps of generation-handles.fs (a map from term index to
+\ stamp unit; a constant's stamp is its own identity, as a symbolic Sort's
+\ term stamp is), the marks column lf-term-marks with
 \ its run counter lf-mark-runs (below), and one
 \ walk record, lf-cterm-walker, all members of the checker context
 \ (lib/context.fs). Each constant and symbolic Sort visit also runs a
@@ -35,8 +36,6 @@ require ./terms.fs
 \ A constant node is never shared (terms.fs): it carries a stamp of its
 \ own identity.
 lf-tag-constant lf-term-unshare
-/slab context-record: lf-cterm-stamps
-1 cells ' lf-cterm-stamps lf-term-columns column-add
 lf-walk-room context-walk: lf-cterm-walker
 
 \ The data words of the checker's leaves (terms.fs's hook lf-term-leaf-data;
@@ -110,7 +109,7 @@ lf-walk-room context-walk: lf-cterm-walker
 : lf-cterm-fuel ( -- addr ) lf-cterm-walker walk-fuel ;
 
 \ Stamp cell of a constant node at a valid term index.
-: lf-cterm-stamp-cell ( index -- addr ) lf-cterm-stamps column-at ;
+: lf-cterm-stamp-cell ( index -- addr ) lf-term-stamps lf-stamp-own ;
 
 : lf-cterm-stamp ( term identity -- ) swap lf-cterm-stamp-cell ! ;
 

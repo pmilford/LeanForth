@@ -39,14 +39,17 @@ create canon-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf-in
 : canon-listed ( dst -- dst )
   context-slabs @ begin ?dup while >r dup r@ canon-listed-at canon-slab r> @ repeat ;
 \ Hash tables (lib/htab.fs; compact-store plan step S3): the term store's
-\ hash-consing table (core/terms.fs) and, when loaded, the reached set of
+\ hash-consing table (core/terms.fs), the stamps' table
+\ (core/generation-handles.fs) and, when loaded, the reached set of
 \ universe substitution (kernel/mixed-level-substitute.fs): the block
 \ address, a table record's first field.
 : canon-htab ( dst htab -- ) canon-at 0 swap ! ;
+: canon-core-htabs ( dst -- dst )
+  dup lf-term-table canon-htab dup lf-stamp-table canon-htab ;
 [defined] lf-mls-set [if]
-: canon-htabs ( dst -- ) dup lf-term-table canon-htab dup lf-mls-set canon-htab ;
+: canon-htabs ( dst -- dst ) canon-core-htabs dup lf-mls-set canon-htab ;
 [else]
-: canon-htabs ( dst -- ) dup lf-term-table canon-htab ;
+: canon-htabs ( dst -- dst ) canon-core-htabs ;
 [then]
 \ Blank every heap field in the copy at dst.
 : canon-zero ( dst -- )
@@ -73,10 +76,12 @@ create canon-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf-in
   context-slabs @ begin ?dup while >r r@ canon-listed-at canon-shape-digest r> @ repeat ;
 \ The table's size and entries (its slots' order follows its history).
 : canon-htab-digest ( h htab -- h' ) dup htab-slots rot swap canon-mix swap htab-count canon-mix ;
+: canon-core-digest ( h -- h' )
+  lf-term-table canon-htab-digest lf-stamp-table canon-htab-digest ;
 [defined] lf-mls-set [if]
-: canon-htabs-digest ( h -- h' ) lf-term-table canon-htab-digest lf-mls-set canon-htab-digest ;
+: canon-htabs-digest ( h -- h' ) canon-core-digest lf-mls-set canon-htab-digest ;
 [else]
-: canon-htabs-digest ( h -- h' ) lf-term-table canon-htab-digest ;
+: canon-htabs-digest ( h -- h' ) canon-core-digest ;
 [then]
 : canon-digest ( -- h )
   0 canon-stores# 0 do i canon-store# canon-store-digest loop
