@@ -368,7 +368,7 @@
       }
     },
     "measured": {
-      "description": "Not deterministic, or how the run was made rather than what it found: wall and CPU time of each phase and of the whole run so far, in microseconds (null on a host without clocks; 0 for a phase that did not run), the peak resident memory of the process in bytes (VmHWM of /proc/self/status; null where the host does not give it), the bytes of heap blocks the stage held (null when nothing was staged) and the engine bin/leanforth ran. The engine is here, not in settings, so that the same check on either engine gives the same report but for this member.",
+      "description": "Not deterministic, or how the run was made rather than what it found: wall and CPU time of each phase and of the whole run so far, in microseconds (null on a host without clocks; 0 for a phase that did not run, and a wall time of 0, not a negative one, when the host clock was set back during the phase), the peak resident memory of the process in bytes (VmHWM of /proc/self/status; null where the host does not give it), the bytes of heap blocks the stage held (null when nothing was staged) and the engine bin/leanforth ran. The engine is here, not in settings, so that the same check on either engine gives the same report but for this member.",
       "type": "object",
       "additionalProperties": false,
       "required": ["microseconds", "peakResidentBytes", "stageBytes", "engine"],

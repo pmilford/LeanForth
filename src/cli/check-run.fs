@@ -202,7 +202,10 @@ false constant ck-timed?
 : ck-cpu-now ( -- d ) 0 0 ;
 [then]
 : ck-clock! ( clock -- ) >r ck-wall-now r@ clock-wall 2! ck-cpu-now r> clock-cpu 2! ;
-: ck-since ( d addr -- d' ) 2@ d- ;
+\ The time since the mark at addr; 0, never negative, when the wall clock
+\ (utime is gettimeofday, not monotonic) was set back in between, as
+\ WSL's clock sync does several times a day.
+: ck-since ( d addr -- d' ) 2@ d- 0 0 dmax ;
 \ Clock gets the time since mark.
 : ck-wall-lap ( mark clock -- ) >r clock-wall ck-wall-now rot ck-since r> clock-wall 2! ;
 : ck-cpu-lap ( mark clock -- ) >r clock-cpu ck-cpu-now rot ck-since r> clock-cpu 2! ;
