@@ -332,9 +332,17 @@ end-structure
 : cli-item ( first? verdict -- first? )
   dup cli-count-of @ ?dup 0= if drop exit then
   rot 0= if ." , " then .decimal space cli-kind. false ;
+\ In a run with a snapshot (development mode), how many verdicts came
+\ from it (review rvSN3 m6).
+: cli-from-snapshot# ( -- n ) 0 lf-input-count 0 ?do i lf-env-origin lf-origin-saved = -
+  loop ;
+: cli-summary-label ( -- )
+  ck-snapped? 0= if exit then
+  ." ; " cli-from-snapshot# dup .decimal ."  from the snapshot, " lf-input-count swap -
+  .decimal ."  checked in this run" ;
 : cli-summary ( -- )
   lf-input-count dup .decimal ."  declaration" 1 <> if ." s" then ." : "
-  true verdict-kinds 0 do i verdict-kind cli-item loop drop cr ;
+  true verdict-kinds 0 do i verdict-kind cli-item loop drop cli-summary-label cr ;
 \ The accepted ones' label and axioms, read from their slots: none when
 \ they use no axiom; else the allowlisted axioms they use (which count as
 \ proved, docs/user/COMMAND_LINE.md), then how many are NOT PROVED, or
@@ -490,7 +498,7 @@ create cli-fed-ops
   ." error: " ck-read-outcome outcome-text type ." : the snapshot was refused: "
   ck-snap snap-error >r type r> dup 0< if drop else ."  (record " .decimal ." )" then cr ;
 : cli-fed-unread ( outcome -- )
-  ck-snapped? ck-phase-failed ck-staging = and if drop cli-snap-error exit then
+  ck-snap-bad? if drop cli-snap-error exit then
   ck-phase-failed ck-staging = 0= if cli-feed-error exit then
   dup cli-stage-error cli-stage-manifest? if cli-manifest-hint then ;
 
@@ -599,8 +607,6 @@ create cli-hex 64 allot
   else ." snapshot: written to " cli-state opt-save 2@ nt-text if type else cli-unshown
   then cr
   then ;
-: cli-from-snapshot# ( -- n ) 0 lf-input-count 0 ?do i lf-env-origin lf-origin-saved = -
-  loop ;
 \ Whether a text is plain: letters, digits, ".", "-", "_", " " only.
 : cli-plain? ( c-addr u -- flag )
   true -rot bounds ?do
@@ -620,23 +626,31 @@ create cli-hex 64 allot
 : cli-written-by ( -- c-addr u )
   ck-snap snap-info cli-commit-key search 0= if 2drop s" unknown" exit then
   cli-commit-key nip /string 2dup cli-quote-at nip cli-shown-commit ;
+\ With an export (plan step SN4): how many of its declarations were
+\ checked in this run, and how many share a name with a declaration of the
+\ snapshot but the content of none.
+: cli-import. ( -- )
+  ck-importing? 0= if exit then
+  ." import: " lf-input-count cli-from-snapshot# - .decimal ."  checked in this run; "
+  ck-other# .decimal ."  with the name of a declaration of the snapshot, not its content"
+  cr ;
 : cli-snapshot. ( -- )
   ." snapshot: " cli-state opt-snapshot 2@ nt-text if type else cli-unshown then
   ."  (sha256 " ck-snap snap-sum cli-sha. ." ), export sha256 " ck-snap snap-export-sha
   cli-sha.
   ." , verdict version " lf-verdict-version .decimal ." , written by LeanForth "
   cli-written-by type ." : " cli-from-snapshot# .decimal
-  ."  results taken from it, not re-checked in this run" cr
+  ."  results taken from it, not re-checked in this run" cr cli-import.
   ." note: development and research mode: a final run re-checks everything from the" cr
   ." note: export and reads no snapshot; only its results support a claim" cr ;
 : cli-fed-text ( -- )
   cli-other-note ck-loaded? if cli-results. else ck-read-outcome cli-fed-unread then
   ck-snapped? ck-loaded? and if cli-snapshot. then cli-saved.
   cli-resources? if cli-resources. then ;
-\ Whether the export's manifest was checked: for a snapshot run, when the
-\ run that wrote the snapshot checked it.
+\ Whether the export's manifest was checked: for a snapshot run without an
+\ export, when the run that wrote the snapshot checked it.
 : cli-manifest-checked? ( -- flag )
-  ck-snapped? if ck-snap snap-flags snap-enforced and 0<> else cli-checked? then ;
+  ck-snap-only? if ck-snap snap-flags snap-enforced and 0<> else cli-checked? then ;
 : cli-fed-json ( -- )
   0 cli-file cli-manifest-checked? cj-report dup ok? if drop exit then
   cr ." internal fault: the JSON report could not be written: " outcome-text type cr
@@ -674,6 +688,13 @@ variable cli-info#
 \ (cli/check-run.fs ck-snapshot-load), no export read.
 : cli-snapshot-run ( -- )
   cli-state opt-snapshot 2@ cli-asked-fuel ck-snapshot-load ok? if ck-check then
+  cli-fed-tally cli-fed-report ;
+\ check --snapshot FILE EXPORT: the export read on into the snapshot's
+\ tier, what is the snapshot's taken from it, the rest checked (plan step
+\ SN4; cli/check-run.fs ck-snapshot-import, kernel/env-import.fs).
+: cli-import-run ( -- )
+  cli-state opt-snapshot 2@ cli-asked-fuel ck-snapshot-import ok?
+  if 0 cli-file cli-checked? ck-load ok? if ck-check then then
   cli-fed-tally cli-fed-report ;
 \ After the run: stores that could not be given back their sizes are an
 \ internal fault (later checks in this context would hold more).
@@ -743,11 +764,9 @@ variable cli-info#
   ." error: --jobs does not go with --record" cr
   ." try: leanforth help" cr exit-malformed ;
 \ Snapshots (ADR 0020 D6): neither --snapshot nor --save-snapshot goes
-\ with --record; a snapshot is not yet both read and written in one run,
-\ nor read with an export (dependent exports: plan step SN4).
+\ with --record; a snapshot is not yet both read and written in one run.
 : cli-snap-misused? ( -- flag ) cli-record? cli-snapshot? cli-save? or and ;
 : cli-snap-both? ( -- flag ) cli-snapshot? cli-save? and ;
-: cli-snap-export? ( -- flag ) cli-snapshot? cli-files @ 0<> and ;
 : cli-misuse-snap ( c-addr u -- code )
   ." error: " type cr ." try: leanforth help" cr exit-malformed ;
 : cli-snap-misuse ( -- code|0 )
@@ -755,10 +774,11 @@ variable cli-info#
     cli-misuse-snap exit then
   cli-snap-both? if
   s" --snapshot and --save-snapshot do not go together yet (plan step SN4)"
-    cli-misuse-snap exit then
-  cli-snap-export? if s" --snapshot with an export is not supported yet (plan step SN4)"
     cli-misuse-snap exit then 0 ;
-: cli-snapshot-check ( -- code ) ['] cli-snapshot-run cli-fed-run ;
+\ With an export (it must open), the export checked against the snapshot.
+: cli-snapshot-check ( -- code )
+  cli-files @ 0= if ['] cli-snapshot-run cli-fed-run exit then
+  cli-opens? 0= if cli-not-opened exit then ['] cli-import-run cli-fed-run ;
 : check-command ( -- code )
   cli-start cli-strict? cli-strict-axioms! cli-misused? if cli-misuse-record exit then
   cli-any-misused? if cli-misuse-any exit then
@@ -992,8 +1012,11 @@ variable cli-info#
   ."       exporter version in format 3.1.0, its verdicts still Lean 4.35.0's;" cr
   ."       --save-snapshot FILE writes the checked environment to FILE" cr
   ."   check --snapshot FILE [--fuel N] [--resources] [--json] [--fast]" cr
+  ."         [--no-manifest] [--jobs N] [EXPORT]" cr
   ."       the verdicts a snapshot holds, labelled, not re-checked (development" cr
-  ."       and research only: a final run re-checks the export)" cr
+  ."       and research only: a final run re-checks the export); with EXPORT," cr
+  ."       its declarations the snapshot holds unchanged taken from it, the rest" cr
+  ."       checked" cr
   ."   check [--no-manifest] [--fuel N] [--fast] [--strict-axioms]" cr
   ."         --record RECORD EXPORT" cr
   ."       the same for a small export, and write its run record to RECORD" cr ;

@@ -497,10 +497,9 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
   dup start@ drop swap sl-deps swap saved true swap 0 ?do
     over i + snap@ dep@ lf-env-depend ok? and
   loop nip ;
-\ The span: the slot and every next one published with it.
+\ The span: the slot and every next one of the snapshot published with it.
 : with-next? ( d -- flag )
-  dup lf-env lf-env-length < if sl-marks swap saved mark-with and 0<> else drop false then
-  ;
+  dup snap@ snap-n @ < if sl-marks swap saved mark-with and 0<> else drop false then ;
 : fill-span ( d -- n ) 1 begin 2dup + with-next? while 1+ repeat nip ;
 : fill-shapes ( d n -- ) 0 ?do sl-shape over i + saved i lf-env-shape! drop loop drop ;
 : fill-marks ( d -- )

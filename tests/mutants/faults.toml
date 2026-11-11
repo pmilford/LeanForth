@@ -8480,9 +8480,8 @@ reason = "rvSN3 M1: a slot's list counts past their sections are read (a THROW, 
 [[fault]]
 id = "rvsn3-refused-verdicts-listed"
 file = "src/cli/check-run.fs"
-old = '''  ck-state ck-loaded ! ck-staging ck-state ck-failed ! true ck-state ck-faulted !
-  ck-env-free ;'''
-new = '''  ck-state ck-loaded ! ck-staging ck-state ck-failed ! true ck-state ck-faulted ! ;'''
+old = '''  true ck-state ck-snap-bad ! ck-env-free ;'''
+new = '''  true ck-state ck-snap-bad ! ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_review_faults"
 reason = "rvSN3 M2: a refused snapshot's JSON report still lists its verdicts"
 
@@ -8525,3 +8524,75 @@ old = '''  over key-name swap snap-names @ u< over key-kind lf-look-quot u> 0= a
 new = '''  nip dup key-kind lf-look-quot u> 0='''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_review_faults"
 reason = "rvSN3 m5: a saved lookup key of a name beyond the tier loads"
+
+# --- dependent exports checked against a snapshot (plan step SN4;
+# src/kernel/env-import.fs): each fault is caught by a both-ways difference
+# (the report against the export's fresh check, and which declarations
+# were taken) or a refusal.
+
+[[fault]]
+id = "sn4-content-by-name"
+file = "src/kernel/env-import.fs"
+old = '''  staged-name 6 u32s rot staged-name 6 u32s compare 0= r> and ;'''
+new = '''  2drop r> drop true ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
+reason = "SN4: content compared by name only; a declaration of the snapshot's name but another proof is taken"
+
+[[fault]]
+id = "sn4-block-not-whole"
+file = "src/kernel/env-import.fs"
+old = '''  2 pick over e-kind member-kind? if block-same? else decls-alike? then ;'''
+new = '''  decls-alike? ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
+reason = "SN4: a block's member compared alone, not the whole block; the block's first is taken with a changed member in its span"
+
+[[fault]]
+id = "sn4-answer-untranslated"
+file = "src/kernel/env-import.fs"
+old = '''  1- swap imp-from @ ua@ ?dup 0= if drop false exit then
+  4 lshift swap 15 and or true ;'''
+new = '''  2drop true ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
+reason = "SN4: a lookup's answer compared without translating its slot to the snapshot's; a slot at another place in the export is never taken"
+
+[[fault]]
+id = "sn4-undecided-matched"
+file = "src/kernel/env-import.fs"
+old = '''  over replay-all if lf-env-early? 0= if answers-same? exit then then 2drop false ;'''
+new = '''  over replay-all if answers-same? exit then 2drop false ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
+reason = "SN4: a lookup that met a slot not taken (to be checked in this run) is not refused as no match"
+
+[[fault]]
+id = "sn4-full-taken"
+file = "src/kernel/env-import.fs"
+old = ''': reproducible? ( d -- flag ) d-outcome dup outcome-full <> swap outcome-invalid <> and ;'''
+new = ''': reproducible? ( d -- flag ) d-outcome outcome-invalid <> ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
+reason = "SN4: a slot the snapshot saved full (no heap then) is taken instead of checked again"
+
+[[fault]]
+id = "sn4-own-name-unasked"
+file = "src/kernel/environment.fs"
+old = ''': lf-replay-fresh ( name -- ) lf-env-limit lf-env-fresh drop ;'''
+new = ''': lf-replay-fresh ( name -- ) lf-look-fresh lf-look-key 0 swap lf-env-noted ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
+reason = "SN4: the own-name lookup (N2) not asked again, its answer taken as found free; of two equal declarations of one name the wrong one is taken"
+
+[[fault]]
+id = "sn4-provenance-unspread"
+file = "src/kernel/env-import.fs"
+old = '''  drop dup fill-marks dup fill-span dup lf-env-span! over swap fill-shapes lf-env-saved!'''
+new = '''  drop dup fill-marks dup fill-span dup lf-env-span! over swap fill-shapes'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
+reason = "SN4: a taken slot not labelled as taken from the snapshot, nor its users as resting on it"
+
+[[fault]]
+id = "sn4-trailing-alone"
+file = "src/kernel/env-import.fs"
+old = '''  over d-trailing? if 2drop drop false exit then
+'''
+new = ''''''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
+reason = "SN4: a member the snapshot published with its block's first is taken alone, when that first is checked here"
+equivalent = "defence in depth: first-taken? already keeps back a member whose block's first was not taken here, and a first taken with its span publishes the member with it"
