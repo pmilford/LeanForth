@@ -7436,6 +7436,25 @@ new = '''  lf-minfer-close ok-then? 0= if drop outcome-ok false exit then'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "6.5.5: a closing for a key that runs out of room lets inference go on uncached, so a refused allocation does not end the block full"
 
+# --- plan task 6.5.5, agent PF: an application's argument is not closed for
+# a Pi body without loose bound variables (Lean's instantiate, instantiate.cpp 22)
+
+[[fault]]
+id = "pf-put-always-closes"
+file = "src/kernel/mixed-infer.fs"
+old = '''  over lf-minfer-closed-body? if lf-minfer-substitute exit then'''
+new = '''  over lf-minfer-closed-body? drop'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "6.5.5 (PF): the argument is closed for a body Lean's instantiate gives back unread, five units more"
+
+[[fault]]
+id = "pf-put-dependent-unclosed"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-term-data@ if lf-data-loose 0= else false then ;'''
+new = '''  lf-term-data@ if lf-data-loose 2 < else false then ;'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "6.5.5 (PF): a dependent body gets the argument unclosed, its loose bound variables read under the wrong scope"
+
 # --- compact-store plan step S4 (agent S4) ---------------------------------
 [[fault]]
 id = "cache-dead-fvar"

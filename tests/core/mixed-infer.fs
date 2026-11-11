@@ -101,7 +101,9 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
 \ 4.2.2b: equal arguments are decided by Lean's == at once), 69 since the
 \ scope audit reads its root's data word (plan step S6 (c)), 63 since
 \ universe substitution skips the terms without a universe parameter
-\ (Lean's has_param_univ test, plan step S4).
+\ (Lean's has_param_univ test, plan step S4), 62 since x is not closed to
+\ be put into the body A of id A's type, which Lean's instantiate gives
+\ back without reading x (agent PF; the case below).
 \ fun (A : Sort u) => id (A -> A) (fun (x : A) => x): the inner lambda,
 \ an argument, begins a chain of lambdas under A's binder, so its type is
 \ closed there (A's bound variable becomes A's free variable; plan task
@@ -114,7 +116,7 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
   4 h 50000 lf-mixed-convert outcome-ok <> abort" chain argument type" ;
 : poly-case ( -- )
   setup 9 50000 infer outcome-ok expect-status
-  lf-minfer-fuel @ 49937 <> abort" poly fuel"
+  lf-minfer-fuel @ 49938 <> abort" poly fuel"
   4 h 50000 lf-mixed-convert outcome-ok <> abort" poly type" ;
 : invalid-argument-case ( -- )
   \ id.{u} (Sort u): the argument has type Sort (u+1) where id.{u} wants a
@@ -292,6 +294,22 @@ T{ 0 0 lf-minfer-bind lf-minfer-context-depth @ -> outcome-full scope-room }T
 0 lf-minfer-fuel !  1 heap-refusals !
 T{ 0 0 lf-minfer-bind lf-minfer-fuel @ lf-lctx-count @ -> outcome-full 0 locals-before }T
 0 heap-refusals !  0 lf-minfer-context-depth !
+
+\ An application's type is its Pi body with the argument put in, Lean's
+\ instantiate (type_checker.cpp 187), which gives back a body without
+\ loose bound variables at once, never reading the argument
+\ (instantiate.cpp 22): the argument, read under the scope, is then not
+\ closed, and the call costs the substitution's one unit (agent PF, plan
+\ task 6.5.5; it cost the closing's five more before). A dependent body
+\ gets the argument closed with the scope first. Scope: A : Sort u,
+\ x : A; the argument is node 7, id #1 #0, so id A x once closed.
+setup token @ 500 lf-minfer-start
+T{ 0 0 lf-minfer-bind 0 lf-minfer-fvar-cell @ 0 lf-minfer-bind -> outcome-ok outcome-ok }T
+lf-open-forget
+T{ 0 7 lf-minfer-put-closed 500 lf-minfer-fuel @ - -> 0 outcome-ok 1 }T
+T{ 1 7 lf-minfer-put-closed 499 lf-minfer-fuel @ - -> lf-term-count @ 1- outcome-ok 6 }T
+T{ lf-term-count @ 1- lf-term-read -> lf-tag-app lf-term-count @ 2 - 1 lf-minfer-fvar-cell @ true }T
+0 lf-minfer-context-depth !
 
 \ ---------------------------------------------------------------------------
 \ Scratch marks (core/scratch-marks.fs; compact-store plan step S1). Every

@@ -318,7 +318,18 @@ defer lf-minfer-typer ( node frames -- type outcome )
 : lf-minfer-substitute ( body argument -- type status )
   lf-minfer-put ! lf-minfer-lend lf-minfer-put 1 lf-instantiate lf-minfer-repay
   outcome-sane ;
+\ Lean's instantiate gives back a body without loose bound variables at
+\ once, never reading the argument (instantiate.cpp 22: offset 0 at least
+\ the body's loose_bvar_range), as for a non-dependent arrow's body. So
+\ the argument is then not closed (plan task 6.5.5, agent PF): the
+\ substitution runs with the argument as it is, which it never reads, as
+\ no loose bound variable remains to put it for; it keeps the body by its
+\ data word (mixed-open.fs) for one unit, or walks it and meets a dead
+\ free variable as before.
+: lf-minfer-closed-body? ( body -- flag )
+  lf-term-data@ if lf-data-loose 0= else false then ;
 : lf-minfer-put-closed ( body argument -- type status )
+  over lf-minfer-closed-body? if lf-minfer-substitute exit then
   lf-minfer-close ok-then? if lf-minfer-substitute else nip no-result then ;
 : lf-minfer-instantiate ( body argument -- type status )
   lf-log? if 2dup lf-rule-instantiate lf-log-open lf-minfer-put-closed lf-log-close

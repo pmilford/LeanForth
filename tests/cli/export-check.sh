@@ -57,7 +57,7 @@ reproduce sharing LeanForthSharing sharing sharedAnd sharedBeta sharing
 reproduce sharing-universe LeanForthSharingUniverse useU sharedAndU useU
 reproduce nested LeanForthNested RvNest.VT.size_two RvNest.VT.size_leaf RvNest.VT.size_two \
   RvNest.R.count_mk RvNest.AT RvNest.Q   # the theorem #print axioms names, then the roots
-# shared-depths.lean: 19 rows (rvS36 P1, P2) checked by pinned Lean's kernel; the
+# shared-depths.lean: 25 rows (rvS36 P1, P2; agent PF P3) checked by pinned Lean's kernel; the
 # script compares LeanForth's verdict on each export, with the audit memo on and off.
 python3 -I tests/cli/shared_depths.py "$lean"
 printf '%s\n' 'Lean accepts chain, impliesSelf, Two.cases, Two.swap, irrelevant,' \

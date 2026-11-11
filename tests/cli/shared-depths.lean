@@ -196,4 +196,80 @@ run_cmd do
   for (id, e, ns) in outs do writeCase e id ns
 end P2
 
+namespace P3
+
+-- Agent PF (plan task 6.5.5): small copies of three Lean Kernel Arena perf
+-- tests, whose source nodes are read under every depth of a binder ladder.
+-- * let: n lets, each body `x + (next let)`, over a sum naming every
+--   binding (let-ladder); the bad twin's innermost value is `true`.
+-- * beta: `(fun x => … ((fun x => x₁ + (… + (xₙ + 0))) 0) …) 0 = 0`
+--   (beta-ladder); the bad twin claims `= 1`.
+-- * app: n levels of `wrap2 L L`, one shared lambda L whose body is the next
+--   level, over a sum naming every binder (app-lam); the bad twin adds
+--   `True` to the sum.
+-- `Nat.add x a` and `wrap2 L` have the body of a non-dependent Pi as their
+-- type, which Lean's instantiate gives back without reading the argument
+-- (instantiate.cpp 22): LeanForth no longer closes such an argument
+-- (mixed-infer.fs, lf-minfer-put-closed). tests/cli/shared_depths.py also
+-- bounds the fuel of the good rows.
+
+def nat : Expr := mkConst ``Nat
+def lit (k : Nat) : Expr := .lit (.natVal k)
+def add (a b : Expr) : Expr := mkApp2 (mkConst ``Nat.add) a b
+def dfn (n : Name) (ty val : Expr) : Declaration :=
+  .defnDecl { name := n, levelParams := [], type := ty, value := val, hints := .regular 0,
+              safety := .safe, all := [n] }
+def thm (n : Name) (ty val : Expr) : Declaration :=
+  .thmDecl { name := n, levelParams := [], type := ty, value := val, all := [n] }
+
+/-- x₁ + (x₂ + (… + (xₙ + last))) under n binders, x₁ the outermost. -/
+def sumAll (n : Nat) (last : Expr) : Expr := Id.run do
+  let mut b := last
+  for i in [:n] do b := add (.bvar i) b
+  return b
+
+def letLadder (n : Nat) (bad : Bool) : Expr := Id.run do
+  let mut body := sumAll n (lit 0)
+  for k in [:n] do
+    let v := if bad && k == 0 then mkConst ``Bool.true else lit 0
+    body := .letE `x nat v (add (.bvar 0) body) false
+  return body
+
+def betaLadder (n : Nat) : Expr := Id.run do
+  let mut e := sumAll n (lit 0)
+  for _ in [:n] do e := .app (.lam `x nat e .default) (lit 0)
+  return e
+
+def wrap2 (f g : Nat → Nat) : Nat := Nat.add (f 0) (g 0)
+
+def appLam (n : Nat) (bad : Bool) : Expr := Id.run do
+  let mut body := sumAll n (if bad then mkConst ``True else lit 0)
+  for _ in [:n] do
+    let l := Expr.lam `x nat body .default
+    body := mkApp2 (mkConst ``SharedDepths.P3.wrap2) l l
+  return body
+
+def eqNat (a b : Expr) : Expr := mkApp3 (mkConst ``Eq [Level.one]) nat a b
+def reflNat (a : Expr) : Expr := mkApp2 (mkConst ``Eq.refl [Level.one]) nat a
+
+run_cmd do
+  let base := (← getEnv).toKernelEnv
+  let n := 48
+  let cases : List (String × Declaration) := [
+    ("letgood", dfn `PF_letgood nat (letLadder n false)),
+    ("letbad", dfn `PF_letbad nat (letLadder n true)),
+    ("betagood", thm `PF_betagood (eqNat (betaLadder n) (lit 0)) (reflNat (lit 0))),
+    ("betabad", thm `PF_betabad (eqNat (betaLadder n) (lit 1)) (reflNat (lit 0))),
+    ("appgood", dfn `PF_appgood nat (appLam n false)),
+    ("appbad", dfn `PF_appbad nat (appLam n true))]
+  let mut rows : Array String := #[]
+  let mut outs : Array (String × Kernel.Environment × List Name) := #[]
+  for (id, d) in cases do
+    let (verdict, e) ← liftM (checkAll base [d])
+    rows := rows.push s!"row\t{id}\t{verdict}"
+    outs := outs.push (id, e, d.getNames)
+  for r in rows do IO.println r
+  for (id, e, ns) in outs do writeCase e id ns
+end P3
+
 end SharedDepths
