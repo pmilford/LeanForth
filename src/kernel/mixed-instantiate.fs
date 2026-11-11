@@ -2,7 +2,7 @@
 \ This is syntax transformation, not type checking or theorem acceptance.
 \ State: one job record, lf-minst-job (fields lf-instjob-*): the pass's
 \ frames (fuel, nesting, and the binder depth as context), the replacement
-\ and the term count before the pass; a member of the checker context
+\ and a mark of the term store before the pass; a member of the checker context
 \ (lib/context.fs), whose frames a set-up word prepares in every context.
 \ The replacement is shifted on mixed-shift's record. Single-threaded
 \ within one context; callers must not mutate the stores concurrently.
@@ -22,7 +22,7 @@ require ./mixed-shift.fs
 begin-structure /lf-instjob
   /frames +field lf-instjob-frames   \ fuel, nesting, the binder depth as context
   field: lf-instjob-replacement      \ the term put in for the target variable
-  field: lf-instjob-start            \ term count before the pass
+  /store-mark +field lf-instjob-start  \ the term store before the pass
 end-structure
 0 lf-instjob-frames 0<> [if] .( mixed-instantiate.fs: frames come first) cr abort [then]
 /lf-instjob context-record: lf-minst-job
@@ -34,9 +34,12 @@ end-structure
 : lf-minst-replacement ( -- addr ) lf-minst-job lf-instjob-replacement ;
 : lf-minst-start ( -- addr ) lf-minst-job lf-instjob-start ;
 
-\ Only nodes of the original input, below the starting count, are visited,
-\ and a child must precede its parent (so it is old too).
-: lf-minst-old? ( node frames -- flag ) lf-instjob-start @ 0 swap within ;
+\ Only nodes of the original input, below the term store's mark taken when
+\ the pass starts, are visited, and a child must precede its parent (so it
+\ is old too). The mark (lib/store.fs) is a boundary to read below, never
+\ rolled back to; the pass's rollback is the rebuild's scratch mark
+\ (mixed-rebuild.fs).
+: lf-minst-old? ( node frames -- flag ) lf-instjob-start mark-count @ 0 swap within ;
 : lf-minst-readable? ( node frames -- flag )
   over swap lf-minst-old? swap lf-term-valid? and ;
 : lf-minst-below? ( child node -- flag ) 0 swap within ;
@@ -99,14 +102,16 @@ end-structure
   >r 2drop 2drop r> lf-rebuild-none ;
 : lf-minst-unfueled ( source sid replacement rid -- -1 0 status )
   0 lf-minst-fuel ! outcome-invalid lf-minst-refuse ;
+: lf-minst-marked ( -- outcome ) lf-minst-start lf-terms store-mark ;
 : lf-minst-begin ( source replacement -- source context frames )
-  lf-minst-replacement ! lf-term-count @ lf-minst-start ! 0 lf-minst-frames ;
+  lf-minst-replacement ! 0 lf-minst-frames ;
 \ Running out of fuel or frames is recorded as a diagnostic.
 : lf-minst-site ( -- site ) c" mixed-instantiate lf-mixed-instantiate" ;
 : lf-minst-explain ( outcome -- outcome ) lf-minst-frames lf-minst-site lf-diag-frames ;
 : lf-minst-pass ( source sid replacement rid fuel -- result id status )
   lf-minst-frames frame-budget 0= if lf-minst-unfueled exit then
-  lf-minst-audit dup ok? 0= if lf-minst-refuse exit then
+  lf-minst-audit dup ok? 0= if lf-minst-refuse exit then drop
+  lf-minst-marked dup ok? 0= if lf-minst-refuse exit then
   2drop nip lf-minst-begin lf-rebuild-run lf-minst-explain ;
 \ The derivation log (ADR 0013): with it on, the pass is one instantiate
 \ step of the source and the replacement; both paths run the same pass.

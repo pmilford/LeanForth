@@ -18,6 +18,7 @@ require ../support/store-faults.fs
 
 variable cid variable sid variable rootid variable count-before variable serial-before
 create args 2 cells allot
+create beta-mark /lf-scratch allot   \ the stores before a probe's pass
 : setup ( -- )
   lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
   lf-ssession-begin 0= abort" session"
@@ -61,22 +62,27 @@ T{ 6 rootid @ -1 lf-mixed-beta -> -1 0 outcome-invalid }T
 T{ 6 rootid @ 0 lf-mixed-beta -> -1 0 outcome-exhausted }T
 \ A failed audit leaves no fuel.
 T{ 6 0 500 lf-mixed-beta lf-mbeta-fuel @ -> -1 0 outcome-invalid 0 }T
-\ Find exhaustion after allocation and check atomic rollback and serial use.
+\ Find exhaustion after allocation and check atomic rollback and serial use;
+\ a pass that succeeds is given back through a scratch mark.
+: probe-marked ( -- flag )
+  lf-term-count @ count-before ! term-serial serial-before !
+  beta-mark lf-scratch-mark ok? ;
+: probe-back ( -- flag ) beta-mark lf-scratch-rollback ok? ;
 : rollback-probe ( -- flag )
   500 1 do
-    lf-term-count @ count-before ! term-serial serial-before !
+    probe-marked 0= if false unloop exit then
     6 rootid @ i lf-mixed-beta
     dup outcome-exhausted = term-serial serial-before @ > and if
       2drop drop lf-term-count @ count-before @ = unloop exit
     then
-    2drop drop count-before @ lf-term-count !
+    2drop drop probe-back 0= if false unloop exit then
   loop false ;
 T{ rollback-probe -> true }T
 \ Reuse the first rolled-back slot; its prior allocation identity stays stale.
 T{ 0 lf-term-bvar -> count-before @ true }T
 T{ count-before @ serial-before @ 1+ lf-hterm-valid? -> false }T
 T{ count-before @ term-serial lf-hterm-valid? -> true }T
-count-before @ lf-term-count !
+T{ probe-back -> true }T
 \ Omega never ends: with 200 units it runs out of fuel (exhausted), and with
 \ 300 it fills the store first, 52 units to spare (full; the audit checks the
 \ shared lambda once). Both roll back all generated terms.

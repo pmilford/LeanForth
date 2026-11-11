@@ -45,7 +45,8 @@ variable the-env
 \ mode of inference has its own table; a success answers both orders; a
 \ free variable of an emptied local context has no skeleton. Each test
 \ catches a planted fault (.claude/work/CA/faults.py, review CA).
-lf-term-count @ lf-level-count @ 2constant cache-marks
+create cache-mark /lf-scratch allot
+T{ cache-mark lf-scratch-mark -> outcome-ok }T
 lf-caches-clear
 : cz ( -- level ) lf-level-tag-zero 0 0 lf-level-add must ;
 : csort ( level -- term ) lf-term-symbolic-sort must ;
@@ -65,10 +66,11 @@ T{ max-n cb lf-term-facts  max-n 2/ cb lf-term-facts  max-n 2 rshift 1- cb lf-te
    -> false false false }T
 T{ max-n 2 rshift 2 - cb cbits -> max-n 2 rshift 1- 2 lshift }T
 0 cb constant ckey
-lf-term-count @ constant cbefore
+create cbefore /lf-scratch allot
+T{ cbefore lf-scratch-mark -> outcome-ok }T
 3 cb constant cval
 T{ ckey cval lf-cache-whnf lf-cache-node!  ckey lf-cache-whnf lf-cache-node@ -> cval true }T
-cbefore lf-term-count !  4 cb constant cnew
+T{ cbefore lf-scratch-rollback -> outcome-ok }T  4 cb constant cnew
 T{ cnew cval =  ckey lf-cache-whnf lf-cache-node@ -> true false }T
 T{ ckey cnew lf-cache-whnf lf-cache-node!  lf-caches-clear  ckey lf-cache-whnf lf-cache-node@
    -> false }T
@@ -91,7 +93,7 @@ T{ cfvar lf-term-facts -> false }T
 T{ 5 cb 6 cb true cstored? -> false }T
 T{ 7 cb 8 cb false cstored? -> true }T
 cframes frame-free
-cache-marks lf-level-count ! lf-term-count ! lf-caches-clear
+T{ cache-mark lf-scratch-rollback -> outcome-ok }T lf-caches-clear
 
 \ ---------------------------------------------------------------------------
 \ Accepted (A1): idProp : ∀ (P : Prop), P → P := fun P h => h. Its verdict

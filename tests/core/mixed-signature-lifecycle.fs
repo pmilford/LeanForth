@@ -22,8 +22,17 @@ variable candidate variable token variable root-id variable level-id
 
 : pair! ( level addr -- )
   >r dup r@ ! lf-level-identity 0= abort" level identity" r> cell+ ! ;
+\ Where a fixture's terms and levels begin, as store marks (lib/store.fs):
+\ a test gives slots back through them, never by setting a count.
+create term-start /store-mark allot   create level-start /store-mark allot
+: fixture-marked ( -- )
+  term-start lf-terms store-mark ok? 0= abort" term mark"
+  level-start lf-levels store-mark ok? 0= abort" level mark" ;
+: terms-back ( -- ) term-start lf-terms store-rollback ok? 0= abort" terms back" ;
+: levels-back ( -- ) level-start lf-levels store-rollback ok? 0= abort" levels back" ;
 : begin-fixture ( -- )
   lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
+  fixture-marked
   11 lf-lscope-context-add 0= abort" context"
   lf-ssession-begin 0= abort" session"
   0 s" candidate" lf-name-str 0= abort" name" candidate !
@@ -40,7 +49,7 @@ begin-fixture
 T{ 1 level-id @ lf-hterm-sort -> 0 term-serial true }T
 term-serial root-id !
 T{ 0 root-id @ put-root -> outcome-ok }T
-0 lf-term-count !
+terms-back
 T{ 1 level-id @ lf-hterm-sort -> 0 term-serial true }T
 T{ specialize -> outcome-invalid }T
 T{ token @ 5000 lf-mixed-signature-audit -> outcome-invalid }T
@@ -50,7 +59,7 @@ T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> 1 2 0 }T
 begin-fixture
 T{ 1 level-id @ lf-hterm-sort -> 0 term-serial true }T
 T{ 0 term-serial put-root -> outcome-ok }T
-1 lf-level-count !
+levels-back
 T{ 11 lf-hlevel-param -> 1 level-serial true }T
 T{ specialize -> outcome-invalid }T
 T{ token @ 5000 lf-mixed-signature-audit -> outcome-invalid }T
@@ -62,7 +71,7 @@ begin-fixture
 T{ candidate @ lf-name-generation @ args 1 lf-cref-new -> 0 lf-cref-serial @ true }T
 T{ 0 lf-cref-serial @ lf-cterm-new -> 0 term-serial true }T
 T{ 0 term-serial put-root -> outcome-ok }T
-1 lf-level-count !
+levels-back
 T{ 11 lf-hlevel-param -> 1 level-serial true }T
 T{ specialize -> outcome-invalid }T
 T{ token @ 5000 lf-mixed-signature-audit -> outcome-invalid }T

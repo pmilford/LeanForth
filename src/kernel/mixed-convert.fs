@@ -33,6 +33,7 @@ require ../core/derivation-log.fs
 require ../core/diagnostics.fs
 require ../core/levels.fs
 require ../core/local-context.fs
+require ../core/scratch-marks.fs
 require ../core/terms.fs
 require ./defeq.fs
 require ./mixed-compare.fs
@@ -41,6 +42,7 @@ lf-walk-room context-walk2: lf-mconvert-walker
 begin-structure /lf-mcvs
   field: lf-mcvs-keep       \ true: an unknown comparison keeps its fuel
   field: lf-mcvs-no         \ true: the last comparison answered Lean's no
+  /lf-scratch +field lf-mcvs-mark   \ the stores before the comparison
 end-structure
 /lf-mcvs context-record: lf-mconvert-state
 \ The frames' visitor is never run: every visit of the port is opened
@@ -68,22 +70,30 @@ end-structure
   2dup lf-mconvert-frames lf-defeq-on lf-mconvert-answer
   lf-mconvert-frames frame-fuel @ lf-mconvert-fuel ! ;
 
-\ Compare after both audits; the term, level and reference counts are
-\ restored on every result, and the local context entries of the free
-\ variables the comparison made dropped, discarding all temporary
-\ allocations (serials never rewind).
-: lf-mconvert-marks ( -- terms levels crefs )
-  lf-term-count @ lf-level-count @ lf-cref-count @ ;
-: lf-mconvert-restore ( terms levels crefs -- )
-  lf-cref-count ! lf-level-count ! dup lf-term-count ! lf-lctx-drop ;
+\ Compare after both audits; the stores go back to a scratch mark
+\ (core/scratch-marks.fs) on every result, discarding every term, level,
+\ reference and local-context entry the comparison made (serials never
+\ rewind). LIFO: the mark is taken here and given back before the
+\ comparison returns, and every mark taken inside it is younger and given
+\ back first; a refused rollback (a mark out of order) makes the result
+\ invalid. The mark lives in this module's record: a comparison never
+\ runs inside another, and a busy record is refused before the mark is
+\ taken (as frame-budget would refuse it), so no mark in use is
+\ overwritten.
+: lf-mconvert-mark ( -- scratch ) lf-mconvert-state lf-mcvs-mark ;
 \ While the caches keep scratch until the job ends (kernel/caches.fs sets
 \ the hook), nothing is restored.
 defer lf-mconvert-keeps? ( -- flag )
 :noname ( -- flag ) false ; is lf-mconvert-keeps?
-: lf-mconvert-done ( terms levels crefs -- )
-  lf-mconvert-keeps? if 2drop drop else lf-mconvert-restore then ;
+: lf-mconvert-done ( outcome -- outcome )
+  lf-mconvert-keeps? if exit then
+  lf-mconvert-mark lf-scratch-rollback lf-scratch-settled ;
+: lf-mconvert-marked ( -- outcome )
+  lf-mconvert-frames frame-busy? if outcome-invalid exit then
+  lf-mconvert-mark lf-scratch-mark ;
 : lf-mconvert-run ( left right -- outcome )
-  lf-mconvert-marks 2>r >r lf-mconvert-defeq r> 2r> lf-mconvert-done ;
+  lf-mconvert-marked dup ok? 0= if nip nip exit then drop
+  lf-mconvert-defeq lf-mconvert-done ;
 \ An outcome but ok leaves no fuel, unless the comparison keeps it (an
 \ unknown one, lf-mixed-convert-keeping).
 : lf-mconvert-kept? ( outcome -- flag ) outcome-unknown = lf-mconvert-keep @ and ;

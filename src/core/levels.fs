@@ -38,8 +38,9 @@ store-header context-record: lf-levels
 : lf-level-capacity ( -- n ) lf-levels store-limit @ ;
 : lf-level-capacity! ( n -- outcome ) lf-levels store-limit! ;
 
-\ The store's fields under their established names; other modules roll back
-\ lf-level-count, and tests corrupt these cells to check fail-closed behavior.
+\ The store's fields under their established names; other modules roll the
+\ store back through marks (core/scratch-marks.fs, or a level-store mark),
+\ and tests corrupt these cells to check fail-closed behavior.
 : lf-level-count ( -- addr ) lf-levels store-count ;
 : lf-level-generation ( -- addr ) lf-levels store-generation ;
 : lf-level-serial ( -- addr ) lf-levels store-serial ;

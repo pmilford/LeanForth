@@ -13,7 +13,12 @@ require ../support/store-faults.fs
 variable saved-level-id
 variable saved-sort-id
 variable saved-root-id
+\ The level slot is given back through a mark of the level store
+\ (lib/store.fs), taken where the parameters begin.
+create level-start /store-mark allot
+: levels-back ( -- outcome ) level-start lf-levels store-rollback ;
 lf-term-reset lf-level-reset lf-lscope-context-reset
+T{ level-start lf-levels store-mark -> outcome-ok }T
 T{ 42 lf-lscope-context-add -> true }T
 T{ 43 lf-lscope-context-add -> true }T
 T{ 42 lf-hlevel-param -> 1 level-serial true }T
@@ -26,7 +31,7 @@ T{ 0 saved-sort-id @ 1 term-serial lf-hterm-pi -> 2 term-serial true }T
 term-serial saved-root-id !
 T{ 0 saved-sort-id @ 100 lf-hterm-check -> outcome-ok }T
 T{ 2 saved-root-id @ 100 lf-hterm-check -> outcome-ok }T
-1 lf-level-count !
+T{ levels-back lf-level-count @ -> outcome-ok 1 }T
 T{ 0 saved-sort-id @ 100 lf-hterm-check -> outcome-invalid }T
 T{ 43 lf-hlevel-param -> 1 level-serial true }T
 T{ 0 saved-sort-id @ 100 lf-hterm-check -> outcome-invalid }T
@@ -53,7 +58,7 @@ T{ 0 term-serial 0 lf-hterm-check -> outcome-exhausted }T
 T{ 0 term-serial -1 lf-hterm-check -> outcome-invalid }T
 \ Replacing a level with byte-for-byte identical syntax still changes its
 \ allocation identity; the surviving Sort must fail its audit.
-1 lf-level-count !
+T{ levels-back lf-level-count @ -> outcome-ok 1 }T
 T{ 43 lf-hlevel-param -> 1 level-serial true }T
 T{ 0 term-serial 100 lf-hterm-check -> outcome-invalid }T
 bye

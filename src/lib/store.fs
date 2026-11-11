@@ -304,9 +304,8 @@ dup set-current
 \ generation identities grow with the index, so two identities show it.
 \ That argument assumes the count only moves by store-new, store-clear
 \ and store-rollback: code that saves a count and later restores it by
-\ hand (as some older modules still do for the term store) can raise it
-\ over records rolled back and allocated again, and a stale mark may then
-\ pass. Converting those modules to marks is a follow-up. A mark of an
+\ hand can raise it over records rolled back and allocated again, and a
+\ stale mark may then pass; roll back through marks only. A mark of an
 \ invalid store names no store and is always refused. Marks are not
 \ capabilities: a forged record that passes these checks is accepted.
 \ Like the store, a mark is host-specific memory.

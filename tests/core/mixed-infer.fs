@@ -153,6 +153,11 @@ variable term-serial-before variable level-serial-before variable cref-serial-be
   setup 13 h 1 h lf-hterm-lam save 0 h 12 h lf-hterm-pi save \ 14, 15
   14 rejected-rolled-back 15 rejected-rolled-back
   lf-diag-code@ lf-diag-body-type <> abort" S4 code" ;
+: pi-domain-case ( -- )
+  \ (x : fun A => A) -> #0: the Pi's domain is no type (S2), so its domain
+  \ step fails, and both of the Pi's marks leave the scratch mark stack.
+  setup 13 h 1 h lf-hterm-lam save 14 h 1 h lf-hterm-pi save \ 14, 15
+  15 rejected-rolled-back  lf-scratch-depth @ 0<> abort" Pi marks left" ;
 : preflight-fuel-case ( -- )
   setup
   9 -1 infer outcome-invalid expect-status 2drop
@@ -252,6 +257,7 @@ variable saw-exhaustion variable saw-success variable saw-partial
 ' stale-case s" stale later candidate" run-case
 ' context-case s" binder context" run-case
 ' non-type-case s" non-type binder domain and Pi body" run-case
+' pi-domain-case s" non-type Pi domain" run-case
 ' preflight-fuel-case s" preflight fuel" run-case
 ' generated-reference-case s" generated reference and rollback" run-case
 ' start-case s" job started directly" run-case
@@ -277,4 +283,76 @@ T{ 0 0 lf-minfer-bind lf-minfer-context-depth @ -> outcome-full scope-room }T
 0 lf-minfer-fuel !  1 heap-refusals !
 T{ 0 0 lf-minfer-bind lf-minfer-fuel @ lf-lctx-count @ -> outcome-full 0 locals-before }T
 0 heap-refusals !  0 lf-minfer-context-depth !
+
+\ ---------------------------------------------------------------------------
+\ Scratch marks (core/scratch-marks.fs; compact-store plan step S1). Every
+\ inference, conversion and rebuild above used the mark stack LIFO: it is
+\ empty again. A joint mark gives back terms, levels, references and the
+\ local context's entries; a discard only the terms and entries. A mark
+\ restored out of order, one taken on a corrupt store, a store corrupt at
+\ rollback, and a stack mark that is not the newest are refused, nothing
+\ changed (fail-closed: invalid, never ok).
+T{ lf-scratch-depth @ -> 0 }T
+create sm-a /lf-scratch allot   create sm-b /lf-scratch allot
+variable sm-name
+: sm-counts ( -- terms levels crefs locals )
+  lf-term-count @ lf-level-count @ lf-cref-count @ lf-lctx-count @ ;
+: sm-reset ( -- )
+  lf-name-reset lf-level-reset lf-term-reset lf-cref-reset lf-lctx-reset
+  s" sm" new-name sm-name !  0 lf-term-bvar 0= abort" base" drop ;
+\ One of each: a term, a level, a reference and a local-context entry
+\ (whose free variable is a second term).
+: sm-all ( -- )
+  0 lf-term-bvar 0= abort" term" drop  0 lf-level-succ 0= abort" level" drop
+  sm-name @ lf-name-generation @ actuals 0 lf-cref-new 0= abort" cref" 2drop
+  0 lf-lctx-local ok? 0= abort" local" drop ;
+sm-reset
+T{ sm-counts -> 1 1 0 0 }T
+T{ sm-a lf-scratch-mark sm-all sm-all sm-counts -> outcome-ok 5 3 2 2 }T
+T{ sm-a lf-scratch-rollback sm-counts -> outcome-ok 1 1 0 0 }T
+\ The same mark again (a Pi's), and a discard keeping levels and references.
+T{ sm-all sm-a lf-scratch-discard sm-counts -> outcome-ok 1 2 1 0 }T
+\ Out of order: A, then B, then back to A below B. B is then refused both
+\ above the count and once its records are made again; nothing changes.
+sm-reset
+T{ sm-a lf-scratch-mark sm-all sm-b lf-scratch-mark sm-all -> outcome-ok outcome-ok }T
+T{ sm-a lf-scratch-rollback sm-b lf-scratch-rollback sm-counts
+   -> outcome-ok outcome-invalid 1 1 0 0 }T
+T{ sm-all sm-b lf-scratch-rollback sm-counts -> outcome-invalid 3 2 1 1 }T
+T{ sm-b lf-scratch-discard sm-counts -> outcome-invalid 3 2 1 1 }T
+\ Each family's mark is checked: a corrupt count of any store refuses the
+\ rollback, and a mark taken then is refused even after the repair.
+: sm-corrupt ( count-addr -- outcome outcome )
+  dup @ >r -1 over ! sm-b lf-scratch-mark sm-a lf-scratch-rollback rot r> swap ! ;
+sm-reset
+T{ sm-a lf-scratch-mark sm-all -> outcome-ok }T
+T{ lf-term-count sm-corrupt -> outcome-invalid outcome-invalid }T
+T{ lf-level-count sm-corrupt -> outcome-invalid outcome-invalid }T
+T{ lf-cref-count sm-corrupt -> outcome-invalid outcome-invalid }T
+T{ sm-b lf-scratch-rollback sm-counts -> outcome-invalid 3 2 1 1 }T
+T{ sm-a lf-scratch-rollback sm-counts -> outcome-ok 1 1 0 0 }T
+\ The mark stack: only the newest mark is given back (lf-scratch-back,
+\ every family; lf-scratch-cut, the terms and entries) or let go
+\ (lf-scratch-drop); a mark off the stack, or number 0, is refused.
+: sm-push ( -- mark ) lf-scratch-push ok? 0= abort" push" ;
+sm-push constant m1  sm-all  sm-push constant m2  sm-all
+T{ lf-scratch-depth @ m1 lf-scratch-back sm-counts -> 2 outcome-invalid 5 3 2 2 }T
+T{ m2 lf-scratch-back sm-counts -> outcome-ok 3 2 1 1 }T
+T{ m2 lf-scratch-drop m2 lf-scratch-back m2 lf-scratch-cut 0 lf-scratch-drop
+   -> outcome-invalid outcome-invalid outcome-invalid outcome-invalid }T
+T{ m1 lf-scratch-cut sm-counts lf-scratch-depth @ -> outcome-ok 1 2 1 0 0 }T
+sm-push constant m3  sm-all
+T{ m3 lf-scratch-drop sm-counts lf-scratch-depth @ -> outcome-ok 3 3 2 1 0 }T
+\ A push on a corrupt store, with spent numbers or on a stack the heap
+\ cannot grow pushes nothing: invalid, full, full.
+T{ lf-term-count @ -1 lf-term-count ! lf-scratch-push rot lf-term-count !
+   lf-scratch-depth @ -> 0 outcome-invalid 0 }T
+lf-scratch-number @ constant sm-number  max-n lf-scratch-number !
+T{ lf-scratch-push lf-scratch-depth @ -> 0 outcome-full 0 }T
+sm-number lf-scratch-number !
+: sm-fill ( -- ) begin lf-scratch-size < while sm-push drop repeat ;
+sm-fill  1 heap-refusals !
+T{ lf-scratch-push lf-scratch-size = -> 0 outcome-full true }T
+0 heap-refusals !  lf-scratch-reset
+T{ lf-scratch-depth @ sm-push lf-scratch-drop -> 0 outcome-ok }T
 bye
