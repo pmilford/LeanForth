@@ -87,7 +87,13 @@ bound variable `k` is the scope's free variable `k` places from the top),
 which infers Lean's opened body without copying it, so that each binder
 stays one step with its source node in the derivation log; a chain of λs
 gets the type `mk_pi` gives it, built once from the inside out
-(`lf-minfer-lam`).
+(`lf-minfer-lam`). The substitutions (`mixed-open.fs`, `mixed-shift.fs`,
+`mixed-instantiate.fs`) are Lean's `replace` (plan task 6.5.5, ADR 0014
+Amendment 3): a node whose data word shows it unchanged is kept unvisited,
+and each result is kept per node and offset for the call in the replace
+memo (`replace-memo.fs`); a closing with the scope's free variables keeps
+its results for the job, and inference keys an inferred type by the node
+closed with its scope, as Lean keys the opened term.
 
 Rules a new kernel module must keep:
 

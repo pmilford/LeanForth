@@ -132,6 +132,7 @@ begin-structure /lf-ijob
   field: lf-ijob-env       \ true in environment mode (lf-minfer-start-env)
   field: lf-ijob-argument  \ the argument an application's type is instantiated with
   field: lf-ijob-chain     \ for a lambda's lambda body, where the chain began, else -1
+  field: lf-ijob-inner     \ true while a Pi's Pi body is entered (no cache key)
   /lf-scratch +field lf-ijob-mark  \ the stores before the call (scratch-marks.fs)
 end-structure
 0 lf-ijob-frames 0<> [if] .( mixed-infer.fs: frames must come first) cr abort [then]
@@ -254,12 +255,17 @@ lf-walk-room context-walk2: lf-minfer-scan
   0 ['] lf-minfer-scan-visit lf-minfer-scan walk-run-pair ok?
   if lf-minfer-scan walk-arg @ r@ 1- min 1+ r> drop else r> then ;
 \ That number is Lean's loose_bvar_range, which Lean reads from the node
-\ (expr.cpp 102-103, computed once when the node is made): when the
-\ caches know it (kernel/caches.fs sets the hook), it is taken, at most
-\ n, and no scan runs; by default never known.
+\ (expr.cpp 102-103, computed once when the node is made), as the term
+\ store keeps it in the node's data word (core/terms.fs, ADR 0016 C1;
+\ plan task 6.5.5): it is taken from there, at most n, and no scan runs.
+\ A node without data asks the hook (the caches' memo, kernel/caches.fs;
+\ by default never known), and only then is scanned.
 defer lf-minfer-range ( node -- m true | false )
 :noname ( node -- m true | false ) drop false ; is lf-minfer-range
+: lf-minfer-word ( node -- m true | false )
+  lf-term-data@ if lf-data-loose true else false then ;
 : lf-minfer-loose ( node n -- m )
+  over lf-minfer-word if min nip exit then
   over lf-minfer-range if min nip else lf-minfer-scanned then ;
 \ Of n free variables, the innermost that node needs, at least one: the
 \ pass then visits and pays for node as with all n, and gives the same
@@ -269,17 +275,20 @@ defer lf-minfer-range ( node -- m true | false )
   dup 2 < if exit then
   2 pick over lf-minfer-loose 1 max tuck - cells rot + swap ;
 
-\ Opening on the job's fuel (mixed-open.fs), which continues with what it
-\ leaves: node with the free variables opened since base put for its
-\ loose bound variables (instantiate_rev); ok, invalid, exhausted or full.
+\ Closing on the job's fuel (mixed-open.fs), which continues with what it
+\ leaves: a term read under the scope, with the scope's free variables put
+\ for its loose bound variables (instantiate_rev; the scope's binders);
+\ ok, invalid, exhausted or full. A closing under the whole scope is a
+\ function of the scope, which its innermost free variable names, so
+\ mixed-open.fs keeps its results for every later closing under it
+\ (lf-instantiate-scope): an argument closed once is not closed again
+\ inside a larger argument, which inference closes after it (plan task
+\ 6.5.5; ADR 0014, Amendment 3).
 : lf-minfer-lend ( -- ) lf-minfer-fuel @ lf-open-fuel ! ;
 : lf-minfer-repay ( -- ) lf-open-fuel @ lf-minfer-fuel ! ;
-: lf-minfer-open ( node base -- node' status )
-  lf-minfer-lend lf-minfer-opened lf-minfer-needed lf-instantiate-rev lf-minfer-repay
+: lf-minfer-close ( node -- node' status )
+  lf-minfer-lend 0 lf-minfer-opened lf-minfer-needed lf-instantiate-scope lf-minfer-repay
   outcome-sane ;
-\ A term read under the scope, closed with every free variable of the
-\ scope (its loose bound variables are the scope's binders).
-: lf-minfer-close ( node -- node' status ) 0 lf-minfer-open ;
 
 \ Live nodes as handles; the right one is checked first.
 : lf-minfer-handle ( node -- node identity true | false )
@@ -655,11 +664,22 @@ defer lf-minfer-proj ( leaf e frames -- ... frames next )
 \ A step mark let go on a failure path, where the step's own failure is
 \ the outcome.
 : lf-minfer-let-go ( mark -- ) lf-scratch-drop drop ;
+\ Lean's infer_pi opens a chain of Pis at once (type_checker.cpp
+\ 144-166): an inner Pi is never inferred on its own, so never looked up
+\ or kept in the inferred-type cache (type_checker.cpp 332-334, 356). The
+\ chain is entered one Pi at a time here; a Pi's body that is a Pi is
+\ marked as inner while it is entered (lf-minfer-inner, which the caches
+\ read, kernel/caches.fs), and its own visit takes the mark off.
+: lf-minfer-inner ( -- addr ) lf-minfer-job lf-ijob-inner ;
+: lf-minfer-pi-node? ( node -- flag )
+  lf-minfer-read if nip nip lf-tag-pi = else false then ;
+: lf-minfer-pi-inner ( body -- body ) dup lf-minfer-pi-node? lf-minfer-inner ! ;
 : lf-minfer-pi-domain ( D status frames -- ... frames next )
   >r r@ frame-restore r@ frame-restore 2swap lf-minfer-bound
   dup ok? 0= if no-result 1 r@ frame-pick lf-minfer-let-go 3 r@ frame-drop r> 0 exit then
-  drop r@ frame-restore r> ['] lf-minfer-pi-body lf-minfer-call ;
+  drop r@ frame-restore lf-minfer-pi-inner r> ['] lf-minfer-pi-body lf-minfer-call ;
 : lf-minfer-pi ( domain body frames -- ... frames next )
+  false lf-minfer-inner !
   >r lf-minfer-context-depth @ r@ frame-save r@ lf-minfer-marked
   swap r@ frame-save r@ lf-minfer-marked lf-scratch-settled
   over r@ frame-save r> ['] lf-minfer-pi-domain lf-minfer-call-marked ;
@@ -835,7 +855,7 @@ defer lf-minfer-entry ( node frames -- ... frames next )
   lf-minfer-job lf-ijob-mark lf-scratch-rollback lf-scratch-settled ;
 : lf-minfer-idle ( job -- )
   dup lf-ijob-frames frame-reset 0 over lf-ijob-binders !
-  -1 over lf-ijob-chain !
+  -1 over lf-ijob-chain ! false over lf-ijob-inner !
   false over lf-ijob-aside ! false swap lf-ijob-env ! ;
 
 \ Start a job on lf-minfer-job: the index token and nonnegative fuel, no
@@ -844,12 +864,12 @@ defer lf-minfer-entry ( node frames -- ... frames next )
 \ allocates, so the stores stand the same before and after it; the
 \ definition probe starts a job after its own preflight.
 \ A new job empties the caches (kernel/caches.fs sets the hook), as its
-\ local context starts empty.
+\ local context starts empty, and the memo of closings (mixed-open.fs).
 defer lf-minfer-fresh ( -- )
 :noname ( -- ) ; is lf-minfer-fresh
 : lf-minfer-start ( token fuel -- )
   lf-minfer-job tuck lf-ijob-fuel ! tuck lf-ijob-token !
-  dup lf-minfer-idle lf-minfer-mark lf-lctx-reset lf-minfer-fresh ;
+  dup lf-minfer-idle lf-minfer-mark lf-lctx-reset lf-minfer-fresh lf-open-forget ;
 \ Start a job in environment mode (check-declaration.fs), inside a check
 \ of the checked environment: as lf-minfer-start, with no index token.
 : lf-minfer-start-env ( fuel -- )

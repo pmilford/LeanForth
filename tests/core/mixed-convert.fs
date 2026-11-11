@@ -91,9 +91,11 @@ T{ 3 h 0 h 10000 ' lf-mixed-convert rs-checked -> outcome-unknown }T
 more
 T{ 18 h 0 h 10000 lf-mixed-convert -> outcome-ok }T
 T{ 19 h 20 h 10000 lf-mixed-convert -> outcome-ok }T
-\ (The audits check a shared node once: fuel left 972 and 939 before.)
-T{ 18 h 0 h convert-fuel -> outcome-ok 976 }T
-T{ 19 h 20 h convert-fuel -> outcome-ok 947 }T
+\ (The audits check a shared node once: fuel left 972 and 939 before; 976
+\ and 947 before plan task 6.5.5, whose lift by 0 puts fun x => x in
+\ unvisited, expr.cpp 449.)
+T{ 18 h 0 h convert-fuel -> outcome-ok 980 }T
+T{ 19 h 20 h convert-fuel -> outcome-ok 957 }T
 variable term-start variable level-start variable serial-start variable saw-allocated
 : sweep ( -- )
   lf-term-count @ term-start ! lf-level-count @ level-start !

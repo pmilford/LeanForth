@@ -588,19 +588,21 @@ fc-decl before def safe Implies 0 TYPE P S z P S z S z VALUE L S z L S z P V 1 V
 fc-decl check thm safe impliesSelf 0 TYPE P S z A A C Implies 0 V 0 V 0 VALUE L S z L V 0 V 0
 T{ 400 sweep -> outcome-ok 114 true }T
 \ In a check, with the caches on, lf-term-data@ (core/terms.fs) is the
-\ skeleton memo's facts as one data word (compact-store plan step S2):
-\ every node whnf.fs asks about (its lf-whnf-known hook, spied on here)
-\ is compared, in the check above run once more.
+\ skeleton memo's facts as one data word (compact-store plan step S2),
+\ its depth aside: every node inference visits (its lf-minfer-entry hook,
+\ spied on here; whnf.fs reads the words itself since plan task 6.5.5) is
+\ compared, in the check above run once more.
 variable cd-asked  variable cd-known  variable cd-wrong
 : cd-pack ( x true | false -- x | -1 ) 0= if -1 then ;
+: cd-bits ( data true | false -- x | -1 ) if lf-data-ranges 4 * 1- and else -1 then ;
 : cd-facts ( node -- data | -1 ) lf-term-facts if nip lf-cd-word cd-pack else -1 then ;
 : cd-note ( node -- )
-  1 cd-asked +!  dup lf-term-data@ cd-pack  dup 0< 0= 1 and cd-known +!
+  1 cd-asked +!  dup lf-term-data@ cd-bits  dup 0< 0= 1 and cd-known +!
   swap cd-facts <> 1 and cd-wrong +! ;
-: cd-spy ( node visit -- flag true | false ) over cd-note lf-cs-known ;
-' cd-spy is lf-whnf-known
+: cd-spy ( node frames -- ... frames next ) over cd-note lf-ci-visit ;
+' cd-spy is lf-minfer-entry
 T{ 400 sweep-run -> outcome-ok }T
-' lf-cs-known is lf-whnf-known
+' lf-ci-visit is lf-minfer-entry
 T{ cd-asked @ 0> cd-known @ 0> cd-wrong @ -> true true 0 }T
 
 \ ---------------------------------------------------------------------------

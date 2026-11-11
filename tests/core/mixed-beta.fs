@@ -50,16 +50,16 @@ setup
 T{ 3 0 lf-term-app -> 4 true }T
 T{ 3 2 lf-term-app -> 5 true }T
 T{ 5 4 lf-term-app -> 6 true }T
-T{ 6 term-serial 500 lf-mixed-beta -> 8 term-serial outcome-ok }T
-T{ 8 lf-term-read -> lf-tag-app 7 4 true }T
-T{ 8 term-serial 100 lf-cterm-check -> outcome-ok }T
+T{ 6 term-serial 500 lf-mixed-beta -> 7 term-serial outcome-ok }T
+T{ 7 lf-term-read -> lf-tag-app 2 4 true }T
+T{ 7 term-serial 100 lf-cterm-check -> outcome-ok }T
 T{ 3 3 lf-term-identity drop 100 lf-mixed-beta -> 3 3 lf-term-identity drop outcome-ok }T
 \ A malformed discarded argument must fail before any allocations.
-T{ 0 lf-term-symbolic-sort -> 9 true }T
-T{ 0 0 lf-term-lam -> 10 true }T
-T{ 10 9 lf-term-app -> 11 true }T
+T{ 0 lf-term-symbolic-sort -> 8 true }T
+T{ 0 0 lf-term-lam -> 9 true }T
+T{ 9 8 lf-term-app -> 10 true }T
 lf-term-count @ count-before ! term-serial serial-before !
-T{ 11 term-serial 200 lf-mixed-beta -> -1 0 outcome-invalid }T
+T{ 10 term-serial 200 lf-mixed-beta -> -1 0 outcome-invalid }T
 T{ lf-term-count @ -> count-before @ }T
 T{ term-serial -> serial-before @ }T
 6 lf-term-identity drop rootid !
@@ -68,7 +68,17 @@ T{ 6 rootid @ 0 lf-mixed-beta -> -1 0 outcome-exhausted }T
 \ A failed audit leaves no fuel.
 T{ 6 0 500 lf-mixed-beta lf-mbeta-fuel @ -> -1 0 outcome-invalid 0 }T
 \ Find exhaustion after allocation and check atomic rollback and serial use;
-\ a pass that succeeds is given back through a scratch mark.
+\ a pass that succeeds is given back through a scratch mark. The root
+\ (fun x => fun y => x y) c c allocates in its first contraction and
+\ visits more after it (contracting #0 with #0 allocates nothing since
+\ plan task 6.5.5: lift_loose_bvars by 0 is the term itself).
+T{ 1 lf-term-bvar -> 11 true }T
+T{ 11 2 lf-term-app -> 12 true }T
+T{ 0 12 lf-term-lam -> 13 true }T
+T{ 0 13 lf-term-lam -> 14 true }T
+T{ 14 0 lf-term-app -> 15 true }T
+T{ 15 0 lf-term-app -> 16 true }T
+16 lf-term-identity drop rootid !
 : probe-marked ( -- flag )
   lf-term-count @ count-before ! term-serial serial-before !
   beta-mark lf-scratch-mark ok? ;
@@ -76,7 +86,7 @@ T{ 6 0 500 lf-mixed-beta lf-mbeta-fuel @ -> -1 0 outcome-invalid 0 }T
 : rollback-probe ( -- flag )
   500 1 do
     probe-marked 0= if false unloop exit then
-    6 rootid @ i lf-mixed-beta
+    16 rootid @ i lf-mixed-beta
     dup outcome-exhausted = term-serial serial-before @ > and if
       2drop drop lf-term-count @ count-before @ = unloop exit
     then
@@ -89,16 +99,17 @@ T{ count-before @ serial-before @ 1+ lf-hterm-valid? -> false }T
 T{ count-before @ term-serial lf-hterm-valid? -> true }T
 T{ probe-back -> true }T
 \ Omega never ends: with 200 units it runs out of fuel (exhausted), and with
-\ 300 it fills the store first, 52 units to spare (full; the audit checks the
-\ shared lambda once). Both roll back all generated terms.
-T{ 2 2 lf-term-app -> 12 true }T
-T{ 0 12 lf-term-lam -> 13 true }T
-T{ 13 13 lf-term-app -> 14 true }T
+\ 3000 it fills the store first, 2362 units to spare (full; the audit checks
+\ the shared lambda once; each contraction makes one node, the lambda put
+\ in unlifted: expr.cpp 449). Both roll back all generated terms.
+T{ 2 2 lf-term-app -> 17 true }T
+T{ 0 17 lf-term-lam -> 18 true }T
+T{ 18 18 lf-term-app -> 19 true }T
 lf-term-count @ count-before !
-T{ 14 term-serial 200 lf-mixed-beta lf-mbeta-fuel @ -> -1 0 outcome-exhausted 0 }T
+T{ 19 term-serial 200 lf-mixed-beta lf-mbeta-fuel @ -> -1 0 outcome-exhausted 0 }T
 T{ lf-term-count @ -> count-before @ }T
-T{ 14 dup lf-term-identity drop 300 lf-mixed-beta lf-mbeta-fuel @ ->
-  -1 0 outcome-full 52 }T
+T{ 19 dup lf-term-identity drop 3000 lf-mixed-beta lf-mbeta-fuel @ ->
+  -1 0 outcome-full 2362 }T
 T{ lf-term-count @ -> count-before @ }T
 \ Capture avoidance under a binder preserves the constant annotation.
 setup
@@ -147,10 +158,11 @@ T{ lf-term-count @ term-serial -> 7 serial-before @ }T
 
 \ The deepest nesting found for a 64-node store: from a store holding only
 \ the constant c, R = app(T, T) with T = 61 lambdas over bvar 60. The
-\ contraction instantiates T's body (61 frames) and shifts T inside it (62
-\ frames), 124 frames in all; the store fills and the shift is full at the
-\ bottom without overflowing the host's stacks (about 700 return-stack and
-\ 500 data-stack cells, measured). The audit checks the shared T once.
+\ contraction instantiates T's body (61 frames) and shifted T inside it (62
+\ frames) until plan task 6.5.5; T is closed, so lift_loose_bvars now puts
+\ it in itself (expr.cpp 455, its root's one visit), and the store fills
+\ at the first lambda rebuilt over it (full), without overflowing the
+\ host's stacks. The audit checks the shared T once.
 : setup1 ( -- )
   lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
   lf-ssession-begin 0= abort" session" 0 s" x" lf-name-str 0= abort" name" drop
@@ -161,9 +173,9 @@ T{ lf-term-count @ term-serial -> 7 serial-before @ }T
   setup1 dup 1- lf-term-bvar 0= abort" bvar" swap lams
   dup lf-term-app 0= abort" R" dup lf-term-identity drop ;
 T{ 61 twin 100000 ' lf-mixed-beta rs-checked fuels lf-term-count @ ->
-  -1 0 outcome-full 99382 99382 99382 64 }T
+  -1 0 outcome-full 99504 99504 99504 64 }T
 T{ 60 twin 100000 lf-mixed-beta fuels lf-term-count @ ->
-  -1 0 outcome-full 99392 99392 99392 63 }T
+  -1 0 outcome-full 99512 99512 99512 63 }T
 
 \ Records in use. A record left busy (by a THROW out of a pass, or a pass
 \ asked again from inside itself) refuses its pass as invalid, changing
