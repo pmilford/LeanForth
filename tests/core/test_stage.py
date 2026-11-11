@@ -22,6 +22,19 @@ compared with the expected one:
   index, an inductive type's parameter count): full;
 - the pinned Lean version changed: unsupported.
 
+Then the input tier saved and loaded (src/import/snapshot-tier.fs; plan
+step SN2), each step in its own Gforth process:
+
+- every reference export (manifest checked) and three other fixtures
+  staged and saved by one process, loaded, sealed and saved again by
+  another: the same bytes; with LF_OTHER_GFORTH set (for example Gforth
+  0.7.3), also written by GFORTH and loaded by the other, and the reverse;
+- stage-continue, after a read and after a loaded snapshot: an unknown
+  constant of the second read is refused, constants only the first read
+  contained are not, and the second read dumps exactly as when staged
+  alone; a prefix of an export continued by the whole export gives the
+  whole export's saved tier byte for byte.
+
 Usage: GFORTH=path/to/gforth python3 tests/core/test_stage.py [-v]
 """
 import os
@@ -169,6 +182,94 @@ def cases(folder):
     return out
 
 
+def forth(words, engine=None):
+    """Run words after loading tests/support/compact-load.fs; its output."""
+    run = subprocess.run(
+        [engine or GFORTH, "tests/support/compact-load.fs", "-e", words + " bye"],
+        cwd=ROOT, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=300)
+    if run.returncode != 0 or run.stderr:
+        raise AssertionError(f"gforth failed on {words}: {run.stderr.strip()}")
+    return run.stdout
+
+
+SAVED_EXPORTS = sorted((ROOT / "tests/reference").glob("*.ndjson"))
+OTHER_EXPORTS = [BLOCK, ROOT / "tests/core/reexport/kinds.ndjson",
+                 ROOT / "tests/core/stage-cases/marks.ndjson"]
+
+
+def saved(export, path, engine=None, checked=True):
+    load = "compact-load" if checked else "compact-load-unchecked"
+    text = forth(f's" {export}" 12 {load} drop s" {path}" compact-save', engine)
+    if "saved=0" not in text:
+        raise AssertionError(f"not saved: {export}: {text}")
+
+
+def resaved(first, second, engine=None):
+    return forth(f's" {first}" s" {second}" compact-resave', engine)
+
+
+def declaration_line(line):
+    return not any(key in line for key in ('"in":', '"il":', '"ie":', '"meta"'))
+
+
+def tier_cases(folder):
+    """The input tier saved and loaded, and stage-continue (plan step SN2):
+    (name, ok?, detail), each run in its own Gforth process."""
+    out = []
+    # Saved by one process, loaded, sealed and saved again by another: the
+    # same bytes (every section and its SHA-256). LF_OTHER_GFORTH (for
+    # example Gforth 0.7.3) loads what GFORTH wrote and the reverse.
+    engines = [(None, None)]
+    other = os.environ.get("LF_OTHER_GFORTH")
+    if other:
+        engines += [(None, other), (other, None)]
+    exports = [(e, True) for e in SAVED_EXPORTS] + [(e, False) for e in OTHER_EXPORTS]
+    for writer, loader in engines:
+        for export, checked in exports:
+            first, second = folder / "first.tier", folder / "second.tier"
+            saved(export, first, writer, checked)
+            text = resaved(first, second, loader)
+            same = first.read_bytes() == second.read_bytes()
+            out.append((f"saved and loaded {export.name} ({writer or 'GFORTH'} -> "
+                        f"{loader or 'GFORTH'})", same and "sealed=0" in text, text))
+    # stage-continue: an unknown constant of the second read is refused; a
+    # constant of the first read the second never contains is not.
+    identity, fixture = lines(IDENTITY), lines(FIXTURE)
+    unknown = write(folder, "unknown2.ndjson",
+                    identity + ['{"const":{"name":2,"us":[]},"ie":7}\n'])
+    tier = folder / "a.tier"
+    for how, word, extra in (("read", "compact-continue-try", ""),
+                             ("snapshot", "compact-snap-continue-try", f' s" {tier}"')):
+        text = forth(f's" {FIXTURE}" s" {unknown}"{extra} {word}')
+        out.append((f"continued ({how}): unknown constant refused",
+                    "outcome=1" in text and "culprit=P" in text, text))
+        text = forth(f's" {FIXTURE}" s" {IDENTITY}"{extra} {word}')
+        out.append((f"continued ({how}): earlier constants kept",
+                    "ok decls=1" in text and "found=1" in text and "wrong=0" in text, text))
+        # The second read's records and declarations are its own: dumped
+        # through its export maps, as when it is staged alone.
+        dump = word.replace("-try", "-dump")
+        alone = forth(f's" {IDENTITY}" compact-dump-unchecked')
+        text = forth(f's" {FIXTURE}" s" {IDENTITY}"{extra} {dump}')
+        out.append((f"continued ({how}): the second read dumps as alone",
+                    text == alone and "decl." in text, text))
+    # A prefix of an export, then the whole export: the same tier, byte for
+    # byte, as the whole staged alone (equal records keep their numbers).
+    for export in (BLOCK, ROOT / "tests/core/reexport/kinds.ndjson"):
+        whole = lines(export)
+        cut = next(i for i, line in enumerate(whole) if declaration_line(line)) + 1
+        prefix = write(folder, "prefix.ndjson", whole[:cut])
+        alone, joined, snapped = (folder / n for n in ("alone.tier", "joined.tier",
+                                                         "snapped.tier"))
+        saved(export, alone, checked=False)
+        forth(f's" {prefix}" s" {export}" compact-continue-load drop s" {joined}" compact-save')
+        forth(f's" {prefix}" s" {export}" s" {tier}" compact-snap-continue-load drop '
+              f's" {snapped}" compact-save')
+        out.append((f"prefix then whole {export.name}",
+                    alone.read_bytes() == joined.read_bytes() == snapped.read_bytes(), ""))
+    return out
+
+
 def main():
     failures = 0
     with tempfile.TemporaryDirectory() as tmp:
@@ -183,10 +284,18 @@ def main():
                 print(f"FAIL {name}: missing {missing}, unexpected {present}\n{text}")
             elif VERBOSE:
                 print(f"ok   {name}\n{text}")
+        tiers = tier_cases(folder)
+        for name, good, text in tiers:
+            if not good:
+                failures += 1
+                print(f"FAIL {name}\n{text}")
+            elif VERBOSE:
+                print(f"ok   {name}")
     if failures:
-        print(f"{failures} of {len(all_cases)} stage cases failed")
+        print(f"{failures} of {len(all_cases) + len(tiers)} stage cases failed")
         return 1
-    print(f"All {len(all_cases)} changed-export cases of the stage behave as expected.")
+    print(f"All {len(all_cases)} changed-export cases of the stage and {len(tiers)} "
+          "saved-tier and continued-read cases behave as expected.")
     return 0
 
 

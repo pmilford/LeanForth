@@ -827,12 +827,18 @@ test-compact:
 # (unknown constants, duplicate names, truncated files, 32-bit limits), and
 # every other fixture export of tests/, which have no manifest (loaded
 # unchecked, explicitly), re-emitted as the reader dumps it, with every
-# declaration found by name and every constant's resolution checked.
+# declaration found by name and every constant's resolution checked. The
+# input tier saved and loaded (src/import/snapshot-tier.fs, plan step SN2):
+# round trips record by record and byte for byte, the checker fed both ways,
+# the planted file faults (tests/core/snapshot-tier.fs); saved and loaded in
+# two processes, stage-continue (tests/core/test_stage.py; LF_OTHER_GFORTH
+# names a second engine to load what the first wrote, and the reverse).
 # Gforth and Python 3 only.
 STAGE_FIXTURES := tests/core/check-declaration-cases/*.ndjson tests/core/ndjson-block.ndjson \
 	tests/core/reexport/kinds.ndjson tests/core/stage-cases/*.ndjson
 test-stage:
 	$(RUN) $(GFORTH) tests/core/stage.fs
+	$(RUN) $(GFORTH) tests/core/snapshot-tier.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_stage.py
 	@for f in $(STAGE_FIXTURES); do \
 	  $(RUN) bash tests/core/compact-verify.sh --unchecked $$f $(GFORTH) >/dev/null \
