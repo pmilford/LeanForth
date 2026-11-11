@@ -491,6 +491,14 @@ T{ s" nested.mutual" verdict-warned -> outcome-ok 0 all-steps 0 }T
 T{ s" nested.thunk" verdict-warned -> outcome-ok 0 all-steps 0 }T
 T{ s" nested.tree" verdict-warned -> outcome-ok 0 all-steps 0 }T
 T{ s" nested.phantom-parameter" verdict -> outcome-ok 0 all-steps }T
+\ Names: _nested.List_1 declared before, so the auxiliary type is
+\ _nested.List_2 (mk_unique_name); _nested.List_1.rec declared before
+\ (step 6, N2); a constructor named Tree.rec_1, the restored auxiliary
+\ recursor's name (step 12, check_name).
+T{ s" nested.aux-name-taken" verdict -> outcome-ok 0 all-steps }T
+T{ s" nested.aux-rec-name-taken" verdict -> outcome-rejected lf-diag-already-declared 6 }T
+T{ s" nested.constructor-named-rec-1" verdict
+   -> outcome-rejected lf-diag-already-declared 12 }T
 \ A local variable in Ds (N2, step 4); Array (Bad -> Nat) (P1 in the
 \ auxiliary List_2.cons); an ill-typed Ds only the typing of the nested
 \ occurrences sees (step 12).

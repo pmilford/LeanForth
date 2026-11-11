@@ -691,7 +691,7 @@ table is read off the terms, not traced from Lean's kernel.
 | 5.2.2 | Structures and projections: `infer_proj`, `reduce_proj`, R3, R4, R5 in Lean's order | J1, J2, R3–R5 | every `5.2.2` row; BL-7 and BL-8 rows rejected as by Lean | 5.2.1a; phase 4 | [kernel], [import] | M |
 | 5.2.3 | Literals: `bignum.fs` in `reduce_nat` with Lean's size exceptions, L2–L4, and the primitive check of Q1 | L1–L5 | every `5.2.3` row; bignum differential (exists) | 5.2.1b; Q1 | [kernel] | M |
 | 5.2.4 | Quotients: Q1 initialisation and comparison, Q2 reduction | Q1, Q2 | every `5.2.4` row | 5.2.1c, 5.3.1 | [kernel], [axiom] | S |
-| 5.2.5 | Mutual and nested blocks: shared motives, auxiliary types, restoration, `T.rec_k`. *In two parts: 5.2.5a mutual blocks, implemented 2026-11-04, gate open; 5.2.5b nested blocks, planned (below)*; the table's rows carry `5.2.5a` and `5.2.5b` | N1–N3, T3, T4 | every `5.2.5` row; all of `Init`'s blocks, then Std's and Mathlib's 7,013 | 5.2.1c | [kernel] | L (two M) |
+| 5.2.5 | Mutual and nested blocks: shared motives, auxiliary types, restoration, `T.rec_k`. *In two parts: 5.2.5a mutual blocks, implemented 2026-11-04, gate open; 5.2.5b nested blocks, implemented 2026-11-10 (below), gate open*; the table's rows carry `5.2.5a` and `5.2.5b` | N1–N3, T3, T4 | every `5.2.5` row; all of `Init`'s blocks, then Std's and Mathlib's 7,013 | 5.2.1c | [kernel] | L (two M) |
 | 5.3.1 | Allowlist v1 from `axioms.ndjson` | Q3 | altered and unlisted axioms not accepted | Q5 | [axiom], [owner] | S |
 | 5.4.1 | Corpus C-Nat: `nat-add-zero.ndjson` | all above | 44 constants accepted; mutants rejected | 5.2.1a–5.2.3, 4.2.2 | — | M |
 
