@@ -753,9 +753,9 @@ create cli-fed-ops
 : cli-lacks. ( -- )
   ." not yet supported (check answers unsupported or unknown, exit 2):" cr
   ."   nested inductive types (5.2.5b), unsafe and partial declarations" cr
-  ."   (proposed 5.2.7), metadata (mdata) in a term (4.1.3);" cr
-  ."   some projection comparisons and recursor reductions on a variable" cr
-  ."   (5.2.2), so a correct proof can still end unknown;" cr
+  ."   (5.2.7), metadata (mdata) in a term (4.1.3);" cr
+  ."   recursor reductions on a variable (a follow-up of 5.2.2)," cr
+  ."   so a correct proof can still end unknown;" cr
   ."   check --record and replay (the old reader) refuse inductive types, and" cr
   ."   answer unsupported for let, literals, projections and metadata;" cr
   ."   the checker has not yet checked a Mathlib declaration" cr

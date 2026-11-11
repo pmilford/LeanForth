@@ -915,9 +915,9 @@ supported:
   count, reexport: exports of any size, up to all of Mathlib
 not yet supported (check answers unsupported or unknown, exit 2):
   nested inductive types (5.2.5b), unsafe and partial declarations
-  (proposed 5.2.7), metadata (mdata) in a term (4.1.3);
-  some projection comparisons and recursor reductions on a variable
-  (5.2.2), so a correct proof can still end unknown;
+  (5.2.7), metadata (mdata) in a term (4.1.3);
+  recursor reductions on a variable (a follow-up of 5.2.2),
+  so a correct proof can still end unknown;
   check --record and replay (the old reader) refuse inductive types, and
   answer unsupported for let, literals, projections and metadata;
   the checker has not yet checked a Mathlib declaration

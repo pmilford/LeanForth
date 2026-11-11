@@ -438,7 +438,7 @@ tasks, not the plan's.
 | --- | --- |
 | 5.2.1b recursive types (agent N1) | **in progress**: merged, two wrong acceptances found by review being fixed; gate not passed |
 | 4.2.2b-c `whnf`, delta, quick equality check (agent U4) | **in progress**: merged, gate review running (2 of 4 steps b-e merged) |
-| 4.2.2d the full lazy strategy (agent U4); 4.2.4 function eta and 4.2.5 proof irrelevance (agent PE, 2026-11-05); 4.2.3 `let` (agent LT, 2026-11-05); K-like recursor reduction, part of 5.2.1c (agent KL, 2026-11-05); structure eta and unit-like types, part of 5.2.2 (agent SE, 2026-11-05); axioms with allowlist v1, opaque declarations and Lean's quotient, 5.3.1-5.3.2, 5.2.4, 4.2.6 (agent AX, 2026-11-05; allowlist v1 awaits the owner's approval; fixes by agent LE); result caches, 4.2.7 (agent CA, 2026-11-05); review fixes rvCONV (2 blocking) and rvCACHE (agent FX1), rvPARSE (FX2), rvAX (FX3: quotient names reserved), five planted faults repaired (FX4), rvKC (FX5), 2026-11-10; string literals, 5.2.3's string part (agent ST, 2026-11-10); importer index numbering as lean4export's Export/Parse.lean v4.35.0 reads it (sparse, any order, a repeated index overwrites) and the opt-in `--any-lean-version` (agent IMP, 2026-11-10; [import][format]) | **merged**, gate review owed [kernel] (4.2.3 also [import]); only the first importer (checker-input.fs) still refuses `let` |
+| 4.2.2d the full lazy strategy (agent U4); 4.2.4 function eta and 4.2.5 proof irrelevance (agent PE, 2026-11-05); 4.2.3 `let` (agent LT, 2026-11-05); K-like recursor reduction, part of 5.2.1c (agent KL, 2026-11-05); structure eta and unit-like types, part of 5.2.2 (agent SE, 2026-11-05); axioms with allowlist v1, opaque declarations and Lean's quotient, 5.3.1-5.3.2, 5.2.4, 4.2.6 (agent AX, 2026-11-05; allowlist v1 awaits the owner's approval; fixes by agent LE); result caches, 4.2.7 (agent CA, 2026-11-05); review fixes rvCONV (2 blocking) and rvCACHE (agent FX1), rvPARSE (FX2), rvAX (FX3: quotient names reserved), five planted faults repaired (FX4), rvKC (FX5), 2026-11-10; string literals, 5.2.3's string part (agent ST, 2026-11-10); the comparison's projection steps, 5.2.2 (agent PJ, 2026-11-10); importer index numbering as lean4export's Export/Parse.lean v4.35.0 reads it (sparse, any order, a repeated index overwrites) and the opt-in `--any-lean-version` (agent IMP, 2026-11-10; [import][format]) | **merged**, gate review owed [kernel] (4.2.3 also [import]); only the first importer (checker-input.fs) still refuses `let` |
 | 5.2.1c indexed families, 5.2.2 structures and projections, 5.2.3 literals, 5.2.5 mutual and nested blocks, 5.2.6 per-declaration verdict for unclosed files | not started; they close the temporary gaps of 5.2.1a-b and are on the way to `n + 0 = n` |
 | 3.4.3 `--json` report (`check-report-0.1`) | **done**: [format] gate approved 2026-11-04; `--strict-axioms` and `--fast` implemented (`84725e6`) |
 | 6.5.5 work linear in a term's depth | not started (the quadratic cost is the temporary price of 6.2.0 part b) |
@@ -513,7 +513,7 @@ tasks, not the plan's.
 | Record kinds of lean4export format 3.1.0 decoded by the Forth reader | 24 of 24 (100%), plus the 3 element kinds of inductive blocks | the format's record kinds ([reader guide](../development/NDJSON_READER.md)) |
 | Records of the pinned Mathlib export decoded and checked for shape and references | 110,895,826 of 110,895,826 (100%), field for field equal to Python's `json` module | lines of export SHA-256 `18448e5d…59c6` |
 | Expression nodes staged into the compact store | all of Mathlib's 105,894,257 (staging only: a loading stage; the checker copies the staged data into its own stores and does not read the compact store in place; **0 of 729,263 Mathlib declarations checked**) | nodes of the pinned export |
-| Expression nodes fed into the checker's own stores | `Init` only: 6,099,054 nodes of its 59,349 declarations; none of Mathlib | the checker's stores grow, default 64 (the held [kernel] gate) |
+| Expression nodes fed into the checker's own stores | `Init`: 6,099,054 nodes of its 59,349 declarations; Mathlib: prefixes of 1/6 (119,472 declarations) and 1/3 (217,032) staged and fed at fuel 1 on 2026-11-10 (loading only, no check) | the checker's stores grow, default 64 (the held [kernel] gate) |
 | Declarations checked by LeanForth | **0 of 729,263 (0%)** of Mathlib; for `Init`, **1,618 of 59,349 (2.7%)** accepted by the command line at `9df4fa3` and, after recursive types (`13b9a65`), 261 of 604 data-type blocks plus 1,609 other declarations (experimental, not independently audited), none rejected; the rest *unknown*, *unsupported*, *exhausted* or *full* (counts per kind in [ADR 0015](../adr/0015-inductive-types.md) and the [command-line page](../user/COMMAND_LINE.md#a-whole-library-leans-init)); the earlier 37 of 59,349 at 100,000 fuel is superseded | constants of the pinned Mathlib export with its dependencies; `Init`'s own count |
 | Share of Mathlib the first checker could accept | **unknown** | not measured; most declarations depend on recursive types, structures or literals, which are *unsupported* until phase 5 |
 | T6 importer acceptance tasks done | 0 of 4 | roadmap T6 |
@@ -694,7 +694,7 @@ independently audited*; no outside Lean expert has audited the checker.
   read the compact store in place; plan 6.2.1-6.2.3) and speed (depth-quadratic,
   one thread; plan 6.5.5, phase 7) come first.
 - **Coded and used, gate approval owed (merged)**: `let` (4.2.3), number and
-  string literals (5.2.3), projections and structure eta (part of 5.2.2),
+  string literals (5.2.3), projections, structure eta and the comparison's projection steps (5.2.2),
   indexed families and K-like recursors, mutual blocks (5.2.5a), quotients
   (5.2.4), axioms with allowlist v1 and opaque declarations (5.3.1-5.3.2,
   4.2.6), the full lazy strategy, eta, proof irrelevance (4.2.2d, 4.2.4,
@@ -717,15 +717,12 @@ independently audited*; no outside Lean expert has audited the checker.
   and 64 term nodes); the test-only probe-mode inference (`lf-mixed-infer`
   probes, signature probe and audit, `mixed-definition-probe.fs`,
   `lf-mixed-convert`) and the old `import/load.fs` batch staging, both
-  candidates for retirement (proposed plan task 5.2.8, not yet in the plan
-  document; diagnostics 33 and 64 appear only in the probes); derivation log and `print` run only when asked, with caches off.
+  candidates for retirement (plan task 5.2.8; diagnostics 33 and 64 appear only in the probes); derivation log and `print` run only when asked, with caches off.
 - **Still unsupported or unknown in `check`** (each *unsupported*, *unknown* or
   *full*, exit 2 or 3, never accepted): nested inductive types (diagnostic 63,
   plan 5.2.5b, branch NI not merged; Init has 8 such roots, such as
-  `Lean.Syntax`); unsafe and partial declarations (diagnostic 42, proposed plan task 5.2.7,
-  not yet in the plan document); metadata `mdata` in a term (diagnostic 43, plan 4.1.3; `Nat.add`
-  of `tests/core/reexport/kinds.ndjson` ends unsupported for it); projection
-  steps in some comparisons (diagnostic 30, plan 5.2.2, branch PJ) and iota
+  `Lean.Syntax`); unsafe and partial declarations (diagnostic 42, plan task 5.2.7); metadata `mdata` in a term (diagnostic 43, plan 4.1.3; `Nat.add`
+  of `tests/core/reexport/kinds.ndjson` ends unsupported for it); iota
   with an open major premise (diagnostic 81, follow-up 5.2.1b/5.2.2); a
   recursor or quotient constant with no declared slot (diagnostic 77,
   5.2.4); a file that uses an undeclared constant is invalid as a whole
