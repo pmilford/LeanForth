@@ -43,9 +43,9 @@
 \   count [--no-manifest] EXPORT          the record counts (ndjson-count.fs);
 \   reexport [--no-manifest] EXPORT COPY  the byte-exact copy (ndjson-emit.fs);
 \   version, capabilities, help (also --version, --help and -h).
-\ --fast is bin/leanforth's: it runs gforth-fast instead of Gforth's
-\ checking engine, gforth (owner, 2026-11-04); the Forth side only takes
-\ it. Exit codes (cli/tally.fs): 0 all accepted (or the command done), 1
+\ --fast and --checked are bin/leanforth's: gforth-fast is the default engine,
+\ --checked runs Gforth's checking engine, gforth (owner, 2026-11-11); the
+\ Forth side only takes them. Exit codes (cli/tally.fs): 0 all accepted (or the command done), 1
 \ something rejected, 2 unsupported or unknown, 3 a resource limit (out of
 \ fuel or room), 4 malformed input (also a malformed command line, or a
 \ file that cannot be opened or created), 5 an internal fault (a Forth
@@ -919,7 +919,7 @@ variable cli-info#
   ."   check: Lean 4.35.0 exports (lean4export 3.1.0 NDJSON) of any size, such as" cr
   ."     all of Lean's Init, staged and fed in Forth; the manifest checked unless" cr
   ."     --no-manifest; a summary, --resources (time, memory, fuel), --json;" cr
-  ."     Gforth's checking engine, or gforth-fast with --fast; --jobs N checks" cr
+  ."     gforth-fast, or Gforth's checking engine with --checked; --jobs N checks" cr
   ."     with N workers (threads on Gforth 1.0), the same output as one" cr ;
 : cli-check-rules. ( -- )
   ."   check: Lean's kernel rules as built so far, each result labelled" cr
@@ -993,8 +993,10 @@ variable cli-info#
   ."         --record RECORD EXPORT" cr
   ."       the same for a small export, and write its run record to RECORD" cr ;
 : cli-engine-usage. ( -- )
-  ."   --fast (check, replay, print) runs gforth-fast, about 2.4 times quicker" cr
-  ."       than Gforth's checking engine, the default, with the same verdicts" cr ;
+  ."   check, replay and print run on gforth-fast, the default engine; --checked" cr
+  ."       runs Gforth's checking engine instead, about 2.4 times slower, which" cr
+  ."       stops at a stack or memory fault where it happens (same verdicts);" cr
+  ."       --fast is accepted and changes nothing" cr ;
 : cli-other-usage. ( -- )
   ."   replay [--no-manifest] [--fuel N] [--fast] EXPORT RECORD" cr
   ."       check the export again and compare the run record with RECORD" cr
@@ -1090,6 +1092,7 @@ end-structure
 1024 constant takes-fast
 2048 constant takes-lf
 4096 constant takes-any-lean
+16384 constant takes-checked
 8192 constant takes-jobs
 16384 constant takes-save
 32768 constant takes-snapshot
@@ -1124,6 +1127,7 @@ end-structure
 : cli-strict-option ( c-addr u -- ) 2drop cli-strict ;
 \ --fast: bin/leanforth chose the engine before Forth ran; nothing to do.
 : cli-fast-option ( c-addr u -- ) 2drop ;
+: cli-checked-option ( c-addr u -- ) 2drop ;
 : cli-lf-option ( c-addr u -- ) 2drop true cli-state opt-lf ! ;
 : cli-any-lean-option ( c-addr u -- ) 2drop cli-any-lean ;
 \ --jobs N, N at least 1; check-run.fs cuts it to the cores. Each worker holds a
@@ -1146,6 +1150,7 @@ create cli-option-table
   ' cli-statement-option takes-statement 0 cli-entry, --statement
   ' cli-strict-option takes-strict 0 cli-entry, --strict-axioms
   ' cli-fast-option takes-fast 0 cli-entry, --fast
+  ' cli-checked-option takes-checked 0 cli-entry, --checked
   ' cli-lf-option takes-lf 0 cli-entry, --lf
   ' cli-any-lean-option takes-any-lean 0 cli-entry, --any-lean-version
   ' cli-jobs-option takes-jobs 0 cli-entry, --jobs
@@ -1170,7 +1175,7 @@ create cli-option-table
 
 \ The commands: each one's word ( -- code ), the number of file names it
 \ needs and the options it takes.
-takes-no-manifest takes-fuel or takes-fast or constant checking-set
+takes-no-manifest takes-fuel or takes-fast or takes-checked or constant checking-set
 checking-set takes-record or takes-resources or takes-json or takes-strict or
 takes-any-lean or takes-jobs or takes-save or takes-snapshot or constant check-set
 checking-set constant replay-set

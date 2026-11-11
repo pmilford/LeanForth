@@ -10,7 +10,7 @@ approves the checker, Lean's own kernel is the referee. `check` takes
 exports of any size: it stages the export with the importer stage and
 feeds it to the checker, whose stores grow to fit, so a whole library is
 checked from the command line — all of Lean's `Init`, 59,349
-declarations, in [about twelve minutes with `--fast`](#a-whole-library-leans-init). Most
+declarations, in [about twelve minutes](#a-whole-library-leans-init). Most
 of a real library may still end *unsupported* or *unknown*: nested
 inductive types, metadata and some projection steps are not built yet
 (`capabilities` lists them); unsafe and partial declarations are
@@ -96,11 +96,11 @@ theorem composition {A B C : Prop} (f : A → B) (g : B → C) : A → C :=
 
 | Command | What it does |
 | --- | --- |
-| `check [--no-manifest] [--fuel N] [--resources] [--json] [--fast] [--strict-axioms] [--any-lean-version] [--jobs N] [--save-snapshot FILE] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text; with `--jobs N`, check with [N workers at once](#parallel-checking---jobs); with `--save-snapshot FILE`, also write the checked environment to FILE ([snapshots](#snapshots---save-snapshot-and---snapshot)) |
-| `check --snapshot FILE [--fuel N] [--resources] [--json] [--fast] [--strict-axioms] [--any-lean-version]` | Report the verdicts a [snapshot](#snapshots---save-snapshot-and---snapshot) holds, each labelled as taken from it and not re-checked: for development and research only |
-| `check [--no-manifest] [--fuel N] [--fast] [--strict-axioms] --record RECORD EXPORT` | Check a small export (read straight into the checker's stores) and also write its [run record](#run-records-and-replay) |
-| `replay [--no-manifest] [--fuel N] [--fast] EXPORT RECORD` | Check the export again and compare the new run record with RECORD; print the replay report |
-| `print [--no-manifest] [--fuel N] [--fast] [--detail] [--name NAME] [--latex] [--statement FORMS] [--any-lean-version] EXPORT`, or `print --lf [--no-manifest] [--fuel N] [--fast] [--any-lean-version] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration; `--lf` writes the whole export as one [LeanForth text](#writing-an-export-as-leanforth-text) |
+| `check [--no-manifest] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--jobs N] [--save-snapshot FILE] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text; with `--jobs N`, check with [N workers at once](#parallel-checking---jobs); with `--save-snapshot FILE`, also write the checked environment to FILE ([snapshots](#snapshots---save-snapshot-and---snapshot)) |
+| `check --snapshot FILE [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version]` | Report the verdicts a [snapshot](#snapshots---save-snapshot-and---snapshot) holds, each labelled as taken from it and not re-checked: for development and research only |
+| `check [--no-manifest] [--fuel N] [--checked] [--strict-axioms] --record RECORD EXPORT` | Check a small export (read straight into the checker's stores) and also write its [run record](#run-records-and-replay) |
+| `replay [--no-manifest] [--fuel N] [--checked] EXPORT RECORD` | Check the export again and compare the new run record with RECORD; print the replay report |
+| `print [--no-manifest] [--fuel N] [--checked] [--detail] [--name NAME] [--latex] [--statement FORMS] [--any-lean-version] EXPORT`, or `print --lf [--no-manifest] [--fuel N] [--checked] [--any-lean-version] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration; `--lf` writes the whole export as one [LeanForth text](#writing-an-export-as-leanforth-text) |
 | `count [--no-manifest] EXPORT` | Count the export's records by kind ([the reader's counter](../development/NDJSON_READER.md#using-it)), for exports of any size |
 | `reexport [--no-manifest] EXPORT COPY` | Write the export again into COPY, byte for byte as Lean's exporter writes it ([re-export](../development/NDJSON_READER.md#re-export)); after an error COPY is incomplete and must be discarded |
 | `version` (or `--version`) | Versions of LeanForth, its Forth host, the export format it reads, and the git commit |
@@ -148,8 +148,10 @@ Options:
   compared with the export's own header, and the SHA-256 binds the manifest
   to the file); `export_format` must still be 3.1.0. The [JSON report](#json-output) adds `settings.anyLeanVersion`
   and, when the metadata named other versions, `exportMeta`.
-- `--fast` (`check`, `replay`, `print`) runs on `gforth-fast` instead of
-  Gforth's checking engine ([the engine](#the-engine)).
+- `--checked` (`check`, `replay`, `print`) runs on Gforth's checking engine,
+  `gforth`, instead of the default `gforth-fast` ([the engine](#the-engine)).
+  `--fast` is still accepted and changes nothing (it cannot be combined with
+  `--checked`).
 - `--jobs N` (`check` only, not with `--record`) checks with N workers at
   once ([parallel checking](#parallel-checking---jobs)); N is at least 1,
   and 1, the default, checks one declaration at a time. The output is the
@@ -170,27 +172,29 @@ Options:
 
 ### The engine
 
-`check`, `replay` and `print` run on Gforth's checking engine, `gforth`,
-by default (owner's decision of 2026-11-04): it stops at a stack or
-memory fault where it happens, so a fault in LeanForth's own Forth is
-reported as an internal fault at its source. `--fast` runs them on
-`gforth-fast`, which leaves out those checks and is about 2.4 times
-quicker: all of Lean's `Init` in 4 minutes 5 seconds instead of 9
-minutes 59 seconds, for one build of 2026-11-04
+`check`, `replay` and `print` run on `gforth-fast` by default (owner's
+decision of 2026-11-11, replacing that of 2026-11-04), which leaves out
+Gforth's stack and memory checks and is about 2.4 times quicker than the
+checking engine, `gforth`. `--checked` runs them on `gforth`, which stops
+at a stack or memory fault where it happens, so a fault in LeanForth's
+own Forth is reported as an internal fault at its source; use it to
+investigate a surprising result. `make test` and `make check` run on the
+checking engine, and `make engine-gate` compares both engines on all of
+`Init` and the arena tests. For reference, all of Lean's `Init` took all of Lean's `Init` in 4 minutes 5 seconds instead of 9
+minutes 59 seconds, on the checking engine and 4 minutes 5 seconds on `gforth-fast`, for one build of 2026-11-04
 ([below](#a-whole-library-leans-init)). Both engines give the same
 verdicts in every test (`make test` compares the text and the JSON
 reports of the command-line fixtures on both), and the JSON report is
 the same but for `measured`, which names the engine. `count` and
 `reexport`, which check no proof, use `gforth-fast` (about 3.3 times
 faster on large exports). The engine is the one `GFORTH` names when it
-is set — with `--fast`, the `gforth-fast` in the same folder (on `PATH`
-when `GFORTH` names no folder) — else the pinned one in `.tools/gforth`,
-else one on `PATH`. When `--fast` finds no
-`gforth-fast`, the run uses the checking engine and says so on standard
-error:
+is set, used as it is (with `--fast`, the `gforth-fast` in the same
+folder, on `PATH` when `GFORTH` names no folder) — else the pinned one
+in `.tools/gforth`, else one on `PATH`. When no `gforth-fast` is found,
+the run uses `gforth` and says so on standard error:
 
 ```text
-leanforth: note: --fast: no /opt/forth/gforth-fast found; checking with /opt/forth/myforth
+leanforth: note: no /opt/forth/gforth-fast found; checking with /opt/forth/myforth
 ```
 
 `EXPORT` and `COPY` are file names relative to the current folder; the
@@ -514,11 +518,11 @@ now *unknown* (a comparison that needs a definition unfolded, plan task
 `Sum.isRight_iff`), and every other declaration kept its verdict and
 diagnostic.
 
-The run above used `--fast`, the `gforth-fast` engine
+The run above used the `gforth-fast` engine
 ([the engine](#the-engine)), on a 10-core WSL2 machine that other agents'
 test runs shared; its checks took 11 minutes, against under 4 for the
 build of the morning, which accepted 1,618 declarations and checked
-fewer that far. The default engine, Gforth's checking engine, gives the
+fewer that far. The checking engine (`--checked`) gives the
 same output, byte for byte but for the times, memory and engine lines,
 in about 2.4 times as long (9 min 59 s against 4 min 5 s for the
 morning's build; not yet measured on this one). Freeing the stage's
@@ -1070,7 +1074,7 @@ supported:
   check: Lean 4.35.0 exports (lean4export 3.1.0 NDJSON) of any size, such as
     all of Lean's Init, staged and fed in Forth; the manifest checked unless
     --no-manifest; a summary, --resources (time, memory, fuel), --json;
-    Gforth's checking engine, or gforth-fast with --fast; --jobs N checks
+    gforth-fast, or Gforth's checking engine with --checked; --jobs N checks
     with N workers (threads on Gforth 1.0), the same output as one
   check: Lean's kernel rules as built so far, each result labelled
     experimental, not independently audited: definitions, theorems, opaque
@@ -1218,9 +1222,9 @@ records without the manifest check, so replay those with `--no-manifest`.
 variable; otherwise the pinned one in `.tools/gforth` of its checkout
 (`scripts/install-gforth.sh`), otherwise `gforth` on the `PATH`. `count`
 and `reexport` prefer `gforth-fast`, about 3.3 times faster on large
-exports; `check`, `replay` and `print` use Gforth's checking engine,
-whose stack and memory checks turn a fault in the checker into an
-internal fault where it happens, and `--fast` runs them on `gforth-fast`
+exports; `check`, `replay` and `print` use `gforth-fast` too, and `--checked` runs
+them on Gforth's checking engine, whose stack and memory checks turn a
+fault in the checker into an internal fault where it happens
 ([the engine](#the-engine)). Standard input is closed.
 `bin/leanforth version` adds the checkout's git commit to the versions:
 
