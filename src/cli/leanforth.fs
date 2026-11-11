@@ -767,7 +767,8 @@ create cli-fed-ops
   ."   check: Lean 4.35.0 exports (lean4export 3.1.0 NDJSON) of any size, such as" cr
   ."     all of Lean's Init, staged and fed in Forth; the manifest checked unless" cr
   ."     --no-manifest; a summary, --resources (time, memory, fuel), --json;" cr
-  ."     Gforth's checking engine, or gforth-fast with --fast" cr ;
+  ."     Gforth's checking engine, or gforth-fast with --fast; --jobs N checks" cr
+  ."     with N workers (threads on Gforth 1.0), the same output as one" cr ;
 : cli-check-rules. ( -- )
   ."   check: Lean's kernel rules as built so far, each result labelled" cr
   ."     experimental, not independently audited: definitions, theorems, opaque" cr
@@ -795,9 +796,8 @@ create cli-fed-ops
   ."   check --record and replay (the old reader) refuse inductive types, and" cr
   ."   answer unsupported for let, literals, projections and metadata;" cr
   ."   the checker has not yet checked a Mathlib declaration" cr
-  ."   (0 of 729,263); the parallel job pool is not used by check (it reads" cr
-  ."   the staged input in place, copying only lets, projections and the" cr
-  ."   terms above them, plan task 6.2.2)" cr ;
+  ."   (0 of 729,263); check --jobs feeds each worker its own copy of the" cr
+  ."   input's per-context part (the stage is shared; plan task 7.2.1)" cr ;
 : cli-check-limits. ( -- )
   ."   check: stores, walks and lists that grow with the export (memory), any" cr
   ."     depth and number of dependencies or constructors (plan task 6.2.0);" cr
@@ -825,8 +825,9 @@ create cli-fed-ops
 \ help, one part per kind of command.
 : cli-check-usage. ( -- )
   ."   check [--no-manifest] [--fuel N] [--resources] [--json] [--fast]" cr
-  ."         [--strict-axioms] [--any-lean-version] EXPORT" cr
+  ."         [--strict-axioms] [--any-lean-version] [--jobs N] EXPORT" cr
   ."       check every declaration of a Lean export, in file order, any size;" cr
+  ."       --jobs N checks with N workers at once (default 1), same output;" cr
   ."       --resources adds time, memory and fuel, --json prints it all as JSON;" cr
   ."       --strict-axioms makes a NOT PROVED declaration exit 6;" cr
   ."       --any-lean-version (check, print) reads an export of another Lean or" cr
