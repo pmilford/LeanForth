@@ -594,7 +594,9 @@ test-differential: reference-program-ir-run
 # checked end to end. The failure-path suite (plan tasks 2.2.4, 1.4.6):
 # every allocation of every check refused and thrown in turn, fuel swept,
 # and the outcomes reached per check step; then nine planted faults, each
-# in a temporary copy of the tree, must each make it fail. Gforth and
+# in a temporary copy of the tree, must each make it fail. The lookup
+# lists, the I2 assertion and the snapshot's round trip on every pinned
+# export (tests/core/env-snapshot.fs, plan step SN3). Gforth and
 # Python 3 only.
 test-environment:
 	$(RUN) $(GFORTH) tests/lib/store-mark.fs

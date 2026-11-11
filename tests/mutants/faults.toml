@@ -8398,8 +8398,8 @@ reason = "SN3: a snapshot of another verdict version (stale) is loaded"
 [[fault]]
 id = "sn3-fuel-unchecked"
 file = "src/kernel/env-snapshot.fs"
-old = ''': snap-fuel? ( snap -- flag ) dup snap-asked @ dup 0< if 2drop true else swap snap-fuel = then ;'''
-new = ''': snap-fuel? ( snap -- flag ) drop true ;'''
+old = '''  dup snap-fuel? 0= if outcome-invalid c" fuel" rot snap-refuse exit then'''
+new = ''''''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots"
 reason = "SN3: a snapshot written with other fuel is loaded for a run with --fuel N"
 
@@ -8433,9 +8433,8 @@ reason = "rvSN2 m1: a natural literal's text not canonical decimal (\"03\") load
 [[fault]]
 id = "sn2-name-utf8-unchecked"
 file = "src/import/snapshot-tier.fs"
-old = '''  r@ name-utf8? 0= if r> drop false exit then
-'''
-new = ''''''
+old = '''  dup name-utf8? 0= if drop false exit then dup tf-names-of name-keyed swap name-hash-same? ;'''
+new = '''  dup tf-names-of name-keyed swap name-hash-same? ;'''
 test = "$GFORTH tests/core/snapshot-tier.fs"
 reason = "rvSN2 m3: a name whose text is not UTF-8 loads, which the reader refuses"
 
