@@ -32,6 +32,9 @@
 \   stage-init     an empty stage; the expression table starts at 2^log2
 \                  slots (pre-size it from the export, about 59 bytes per
 \                  expression, so that it seldom doubles), the others at 2^12
+\   stage-any-version!  true: before a read, accept metadata of any exporter
+\                  and Lean version, only the format pinned (stage-other?
+\                  and stage-meta-text tell what it named); false: pinned
 \   stage-read     read the export with its manifest, "<file>.manifest.json"
 \                  or the file stage-manifest-use names (the default);
 \   stage-read-unchecked   read it without one: the caller's explicit choice
@@ -49,7 +52,8 @@
 \ Outcomes (ADR 0008): ok; invalid for malformed input, a bad reference,
 \ an unknown constant (at sealing), a manifest that is missing or differs,
 \ or a step out of order; unsupported for other exporter, format or Lean
-\ versions; full for a limit (a C1 limit, a number beyond 32 bits, more
+\ versions (after stage-any-version!, other formats); full for a limit (an
+\ export index above max-n, a C1 limit, a number beyond 32 bits, more
 \ than 2^27 - 1 declarations), no heap, or the memory limit. A bound
 \ variable's index of 2^32 or more is invalid, not full (no field holds it;
 \ pinned Lean panics from 1048575, so both are refusals; review rvKC L2).
@@ -110,6 +114,20 @@ require ./stage-records.fs
   over ok? if nip over swap execute else drop then ;
 : stage-limit! ( bytes stage -- ) stage-limit ! ;
 : stage-manifest-use ( c-addr u stage -- ) stage-manifest manifest-use ;
+\ Read an export of any exporter and Lean version, only its format
+\ pinned, when flag is true (after stage-init, which sets it false).
+: stage-any-version! ( flag stage -- ) stage-export export-any-version! ;
+\ Whether the staged export's metadata names other versions than the
+\ pinned ones; and its text k (0 the exporter's name, 1 its version, 2
+\ the format version, 3 the Lean version, 4 Lean's githash), the pinned
+\ one's when it names those.
+: stage-other? ( stage -- flag ) stage-other @ ;
+create pinned-meta
+  ' pinned-exporter , ' pinned-exporter-version , ' pinned-format-version ,
+  ' pinned-lean-version , ' pinned-lean-githash ,
+: stage-meta-text ( k stage -- c-addr u )
+  dup stage-other? if tuck meta-slot @ swap stage-tier tier-texts text@ exit then
+  drop cells pinned-meta + @ execute ;
 \ The name sealing failed on, and why.
 : stage-culprit@ ( stage -- n ) stage-culprit @ ;
 : stage-error ( stage -- line key-addr key-u why-addr why-u )
@@ -161,7 +179,7 @@ require ./stage-records.fs
   dup stage-name-map slab-clear dup stage-level-map slab-clear
   dup stage-expr-map slab-clear dup stage-decl-records slab-clear
   dup stage-by-name slab-clear dup stage-lines slab-clear
-  0 over stage-mdata ! 0 over stage-marks !
+  0 over stage-mdata ! 0 over stage-marks ! 0 over stage-other !
   0 over stage-why ! maps-start ;
 : stage-rollback ( stage -- outcome )
   dup stage-start over stage-tier tier-rollback ['] own-clear and-then

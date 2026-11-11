@@ -6,11 +6,13 @@ NDJSON_READER.md, "Re-export").
    tests/ that starts with lean4export's metadata, is re-exported through
    files with the command-line word: the copy must equal the file byte for
    byte, and the reader must read the copy back into the same
-   field-by-field dump (tests/core/ndjson-dump.fs) as the file. The one
-   NDJSON file that is not an export, tests/lib/json-write-corpus.ndjson
+   field-by-field dump (tests/core/ndjson-dump.fs) as the file. The
+   NDJSON files that are not such exports, tests/lib/json-write-corpus.ndjson
    (lines of every record kind without metadata or the records they refer
-   to, for the JSON writer's tests), is listed apart; any other file
-   without metadata fails the test.
+   to, for the JSON writer's tests) and tests/core/other-lean.ndjson
+   (another Lean version's metadata, read with --any-lean-version), are
+   listed apart; any other file without lean4export's metadata fails the
+   test.
 2. A seeded spelling sweep: each export rewritten line by line in other
    JSON spellings of the same records (white space, members in another
    order, other escapes) must re-export to the original bytes, which are
@@ -49,6 +51,9 @@ META = b'{"meta":{"exporter":{"name":"lean4export","version":"3.1.0"}'
 NOT_EXPORTS = {
     "tests/lib/json-write-corpus.ndjson":
         "the JSON writer's corpus: record lines without metadata or the records they name",
+    "tests/core/other-lean.ndjson":
+        "another exporter's and Lean version's metadata, with sparse and repeated indices "
+        "(--any-lean-version): the re-exporter reads the pinned versions only",
 }
 SEED = 20261103
 SPELLINGS = int(os.environ.get("LF_REEXPORT_SPELLINGS", "2"))

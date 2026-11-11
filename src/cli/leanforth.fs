@@ -2,9 +2,12 @@
 \ bin/leanforth runs as `gforth src/main.fs -e cli-main COMMAND ...`.
 \ Commands, documented in docs/user/COMMAND_LINE.md:
 \   check [--no-manifest] [--fuel N] [--resources] [--json] [--fast]
-\         [--strict-axioms] EXPORT
+\         [--strict-axioms] [--any-lean-version] EXPORT
 \       stage the Lean export with the importer stage (its manifest
-\       checked unless --no-manifest says not to) and feed it to the
+\       checked unless --no-manifest says not to; with --any-lean-version
+\       its metadata may name any exporter and Lean version of format
+\       3.1.0, and a note says what it named: the verdicts stay those of
+\       Lean 4.35.0's rules) and feed it to the
 \       checker, whose stores grow to fit (cli/check-run.fs: any size, all
 \       of Lean's Init), check every declaration in file order with
 \       check-declaration through the checked environment's publisher,
@@ -28,7 +31,7 @@
 \       (import/run-replay.fs): the replay report, exit 0 confirmed, 1
 \       refused (a difference), 4 when it cannot be compared;
 \   print [--no-manifest] [--fuel N] [--fast] [--detail] [--name NAME]
-\         [--latex] [--statement FORMS] EXPORT
+\         [--latex] [--statement FORMS] [--any-lean-version] EXPORT
 \       check the export as check does, one declaration at a time with the
 \       derivation log on, and print each one's proof outline right after
 \       its check (cli/print.fs, present/proof-outline.fs), or with
@@ -73,8 +76,9 @@
 \ in-u out-addr out-u ), cli-version, cli-capabilities, cli-help. They use
 \ the options in force: cli-options restores the defaults (manifest
 \ checked, fuel cli-default-fuel, no record, text without the resource
-\ report, NOT PROVED with Lean's code), cli-no-manifest, cli-fuel!,
-\ cli-record!, cli-resources, cli-json and cli-strict change them. A
+\ report, NOT PROVED with Lean's code, the pinned versions only),
+\ cli-no-manifest, cli-fuel!, cli-record!, cli-resources, cli-json,
+\ cli-strict and cli-any-lean change them. A
 \ THROW inside a command is caught and reported: code 5. A check that
 \ threw spends its context (ADR 0012, G-P6): every
 \ later check in that context ends invalid, with diagnostic 29, so a
@@ -138,6 +142,7 @@ begin-structure /cli-run
   field: opt-forms              \ print's statement forms (--statement), 0: all
   field: opt-lf                 \ true: print writes the export as LeanForth text (--lf)
   field: opt-strict             \ true: NOT PROVED gives exit 6 (--strict-axioms)
+  field: opt-any-lean           \ true: an export of any Lean version (--any-lean-version)
   4 cells +field arg-files      \ the file names given, in order (two c-addr u)
   field: arg-count              \ how many were given
   field: arg-set                \ the options the command takes, as bits
@@ -172,6 +177,11 @@ manifest: cli-manifest
 \ check's exit code: NOT PROVED gives 6 (--strict-axioms), not Lean's code.
 : cli-strict ( -- ) true cli-state opt-strict ! ;
 : cli-strict? ( -- flag ) cli-state opt-strict @ ;
+\ check and print: read an export whose metadata names another exporter
+\ or Lean version, only its format pinned (--any-lean-version); the
+\ verdicts stay those of Lean 4.35.0's rules, and a note says so.
+: cli-any-lean ( -- ) true cli-state opt-any-lean ! ;
+: cli-any-lean? ( -- flag ) cli-state opt-any-lean @ ;
 : cli-checked? ( -- flag ) cli-unchecked @ 0= ;
 
 \ Numbers in decimal, whatever BASE is: xt runs with BASE decimal.
@@ -470,13 +480,22 @@ create cli-fed-ops
 : cli-resources. ( -- )
   ." resources:" cr cli-times. cli-memory. cli-engine. cli-input. cli-fuel. cli-tops. ;
 
+\ An export whose metadata names another exporter or Lean version (read
+\ with --any-lean-version): what it names, escaped as names are, so it
+\ cannot forge a line; the verdicts are those of Lean 4.35.0's rules.
+: cli-meta. ( k -- ) ck-stage stage-meta-text nt-text if type else cli-unshown then ;
+: cli-made-by. ( -- )
+  ." export made by Lean " 3 cli-meta. ."  (githash " 4 cli-meta. ." ), written by "
+  0 cli-meta. space 1 cli-meta. ." ; verdicts are Lean " pinned-lean-version type ." 's" ;
+: cli-other-note ( -- ) ck-other-lean? if ." note: " cli-made-by. cr then ;
+
 \ The report: counted first, then printed, as text or as JSON
 \ (cli/check-json.fs); a JSON text the writer refuses is an internal
 \ fault, after the part already written.
 : cli-fed-tally ( -- )
   ck-loaded? if cli-tally-run else ck-read-outcome outcome>code cli-code! then ;
 : cli-fed-text ( -- )
-  ck-loaded? if cli-results. else ck-read-outcome cli-fed-unread then
+  cli-other-note ck-loaded? if cli-results. else ck-read-outcome cli-fed-unread then
   cli-resources? if cli-resources. then ;
 : cli-fed-json ( -- )
   0 cli-file cli-checked? cj-report dup ok? if drop exit then
@@ -495,7 +514,7 @@ create cli-fed-ops
 \ can be written from this run.
 : cli-fed-run ( xt -- code )
   cli-fed-ops cli-state run-ops ! rr-release rr-reset cli-fuel @ ck-start
-  catch ck-release throw cli-restored cli-worst @ ;
+  cli-any-lean? ck-any-version! catch ck-release throw cli-restored cli-worst @ ;
 : cli-library ( -- code )
   cli-json? 0= if cli-unchecked-note then ['] cli-library-run cli-fed-run ;
 \ An export that does not open: the JSON report says so too.
@@ -545,8 +564,15 @@ create cli-fed-ops
 : cli-misuse-record ( -- code )
   ." error: --json and --resources do not go with --record" cr
   ." try: leanforth help" cr exit-malformed ;
+\ Run records 0.1 hold the pinned versions only: --any-lean-version does
+\ not go with --record either.
+: cli-any-misused? ( -- flag ) cli-record? cli-any-lean? and ;
+: cli-misuse-any ( -- code )
+  ." error: --any-lean-version does not go with --record" cr
+  ." try: leanforth help" cr exit-malformed ;
 : check-command ( -- code )
   cli-start cli-strict? cli-strict-axioms! cli-misused? if cli-misuse-record exit then
+  cli-any-misused? if cli-misuse-any exit then
   cli-opens? 0= if cli-not-opened exit then
   cli-over-export? if ." error: RECORD must not be EXPORT" cr exit-malformed exit then
   cli-record? if cli-checks else cli-library then ;
@@ -637,7 +663,8 @@ create cli-fed-ops
   ." error: --lf does not go with --detail, --name, --latex or --statement" cr
   exit-malformed cli-code! ;
 : cli-lf-note ( -- )
-  cli-unchecked @ if s" \ note: the export's manifest was not checked (--no-manifest)" type cr then ;
+  cli-unchecked @ if s" \ note: the export's manifest was not checked (--no-manifest)" type cr then
+  ck-other-lean? if ." \ note: " cli-made-by. cr then ;
 : cli-lf-run ( -- )
   cli-lf-misused? if cli-lf-misuse exit then
   s" \ LeanForth text written by leanforth print --lf; untrusted presentation, not a proof" type cr
@@ -645,7 +672,7 @@ create cli-fed-ops
   cli-fuel @ lf-file-write drop ;
 : cli-print-library ( -- )
   0 cli-file cli-checked? pr-load dup ok? 0= if cli-print-unread exit then drop
-  cli-lf? if cli-lf-run else cli-printing then ;
+  cli-lf? if cli-lf-run else cli-other-note cli-printing then ;
 \ The run, then everything it holds freed, after a THROW too (passed on).
 : print-command ( -- code )
   cli-start cli-opens? 0= if cli-unopened exit then
@@ -756,10 +783,12 @@ create cli-fed-ops
 \ help, one part per kind of command.
 : cli-check-usage. ( -- )
   ."   check [--no-manifest] [--fuel N] [--resources] [--json] [--fast]" cr
-  ."         [--strict-axioms] EXPORT" cr
+  ."         [--strict-axioms] [--any-lean-version] EXPORT" cr
   ."       check every declaration of a Lean export, in file order, any size;" cr
   ."       --resources adds time, memory and fuel, --json prints it all as JSON;" cr
-  ."       --strict-axioms makes a NOT PROVED declaration exit 6" cr
+  ."       --strict-axioms makes a NOT PROVED declaration exit 6;" cr
+  ."       --any-lean-version (check, print) reads an export of another Lean or" cr
+  ."       exporter version in format 3.1.0, its verdicts still Lean 4.35.0's" cr
   ."   check [--no-manifest] [--fuel N] [--fast] [--strict-axioms]" cr
   ."         --record RECORD EXPORT" cr
   ."       the same for a small export, and write its run record to RECORD" cr ;
@@ -770,7 +799,7 @@ create cli-fed-ops
   ."   replay [--no-manifest] [--fuel N] [--fast] EXPORT RECORD" cr
   ."       check the export again and compare the run record with RECORD" cr
   ."   print [--no-manifest] [--fuel N] [--fast] [--detail] [--name NAME]" cr
-  ."         [--latex] [--statement FORMS] EXPORT" cr
+  ."         [--latex] [--statement FORMS] [--any-lean-version] EXPORT" cr
   ."       check the export and print each accepted declaration's proof outline;" cr
   ."       FORMS: lean, mathematics, leanforth, all (default), joined by commas" cr
   ."   print --lf [--no-manifest] [--fuel N] [--fast] EXPORT" cr
@@ -860,6 +889,7 @@ end-structure
 512 constant takes-strict
 1024 constant takes-fast
 2048 constant takes-lf
+4096 constant takes-any-lean
 : cli-value ( c-addr u -- c-addr' u' true | false )
   cli-arg if 2swap 2drop true else c" an option without its value" cli-wrong false then ;
 \ A decimal number from 0 to max-n with nothing else: (n true) or false.
@@ -890,6 +920,7 @@ end-structure
 \ --fast: bin/leanforth chose the engine before Forth ran; nothing to do.
 : cli-fast-option ( c-addr u -- ) 2drop ;
 : cli-lf-option ( c-addr u -- ) 2drop true cli-state opt-lf ! ;
+: cli-any-lean-option ( c-addr u -- ) 2drop cli-any-lean ;
 create cli-option-table
   ' cli-manifest-option takes-no-manifest 0 cli-entry, --no-manifest
   ' cli-fuel-option takes-fuel 0 cli-entry, --fuel
@@ -903,6 +934,7 @@ create cli-option-table
   ' cli-strict-option takes-strict 0 cli-entry, --strict-axioms
   ' cli-fast-option takes-fast 0 cli-entry, --fast
   ' cli-lf-option takes-lf 0 cli-entry, --lf
+  ' cli-any-lean-option takes-any-lean 0 cli-entry, --any-lean-version
   0 ,
 : cli-takes? ( entry -- flag ) cli-entry-first @ cli-state arg-set @ and 0<> ;
 : cli-taken ( c-addr u entry -- )
@@ -924,10 +956,10 @@ create cli-option-table
 \ needs and the options it takes.
 takes-no-manifest takes-fuel or takes-fast or constant checking-set
 checking-set takes-record or takes-resources or takes-json or takes-strict or
-constant check-set
+takes-any-lean or constant check-set
 checking-set constant replay-set
 checking-set takes-detail or takes-name or takes-latex or takes-statement or
-takes-lf or constant print-set
+takes-lf or takes-any-lean or constant print-set
 create cli-commands
   ' check-command 1 check-set cli-entry, check
   ' replay-command 2 replay-set cli-entry, replay

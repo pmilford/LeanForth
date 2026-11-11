@@ -2,7 +2,8 @@
 \ format the pinned exporter writes (see docs/development/NDJSON_READER.md).
 \ Untrusted and fail-closed: it decodes records, it checks nothing about
 \ types or proofs, and nothing it hands over is a checked declaration.
-\ Requires: lib/json.fs (and through it lib/bytes.fs and lib/lib.fs).
+\ Requires: lib/json.fs (and through it lib/bytes.fs and lib/lib.fs),
+\ lib/u32.fs, lib/hash32.fs, lib/slab.fs and lib/htab.fs (index maps).
 \ State: none of its own. Every word takes an export record made by
 \ export:, which holds the line reader, the JSON view, the decoded records,
 \ the handler table and the counters, so separate exports are independent;
@@ -60,27 +61,45 @@
 \ the export idle.
 \
 \ What is checked: exact field sets (no field missing, unknown or repeated);
-\ value kinds; enumerations; index fields dense and in order (names and
-\ levels from 1, after the implicit anonymous name and level zero;
-\ expressions from 0); every name, level and expression reference to an
-\ earlier record, and names that must not be anonymous; natural number
-\ literals in canonical decimal; heights within UInt32; metadata naming the
-\ pinned exporter 3.1.0, format 3.1.0 and Lean 4.35.0 (else unsupported).
+\ value kinds; enumerations; index fields natural numbers; every name,
+\ level and expression reference to an index an earlier record has, and
+\ names that must not be anonymous; natural number literals in canonical
+\ decimal; heights within UInt32; metadata naming the pinned exporter
+\ 3.1.0, format 3.1.0 and Lean 4.35.0 (else unsupported), or with
+\ export-any-version! only format 3.1.0.
 \ Not checked, left to the consumer: distinct names in lists, a
 \ declaration's presence in its own `all` list, universe parameter scope,
 \ duplicate declaration names, and everything about types.
+\
+\ Indices as Lean's own reader takes them (lean4export's Export.Parse,
+\ the rule here): a name, level or expression record may have any natural
+\ number as its index, in any order, and an index given again names the
+\ new record from then on, while a record read before keeps what its
+\ references named when it was read; index 0 of names and of levels is
+\ the anonymous name and level zero until a record gives it again. The
+\ reader hands each record over under its family's next ordinal
+\ (record-index: names and levels from 1, after the anonymous name and
+\ level zero, which are ordinal 0; expressions from 0) and translates
+\ every reference to the ordinal its index has when it is read, so a
+\ handler sees each family dense and in order, whatever the file's
+\ numbering. The index maps (below) hold nothing while every index is
+\ the ordinal it gets, as in every export lean4export writes.
 \
 \ Outcomes: ok; invalid for malformed input; unsupported for other format,
 \ exporter or Lean versions and for kinds without a handler; full for a
 \ limit (a line past the reader's limit, nesting past the JSON depth
 \ limit, more JSON tokens on one line than the token limit, a natural
-\ number field beyond a cell, no heap). export-error reports the line, the
-\ field and the reason.
+\ number field beyond a cell, an index above max-n, no heap).
+\ export-error reports the line, the field and the reason.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../lib/bytes.fs
 require ../lib/json.fs
+require ../lib/u32.fs
+require ../lib/hash32.fs
+require ../lib/slab.fs
+require ../lib/htab.fs
 
 \ Record kinds, the index of each kind's handler.
 0 constant kind-meta
@@ -189,6 +208,67 @@ layout-fits
   field: rule-ctor field: rule-fields field: rule-rhs
 layout-fits
 
+\ Index maps, one per family: the ordinal of each index (see the header).
+\ While every index is the ordinal it gets, a map holds nothing: the
+\ indices below imap-dense are their own ordinals. From the first index
+\ that is not, it keeps that index and every later one, each with its
+\ latest ordinal, as a pair in a slab (lib/slab.fs) found by a hash table
+\ (lib/htab.fs) before the dense ones, so its memory grows with the
+\ records, never with the largest index. Made on the first pair, emptied
+\ by export-restart, freed by export-free.
+begin-structure /imap
+  /htab +field imap-table          \ first: its hooks reach the map from it
+  /slab +field imap-pairs          \ the pairs: an index, then its ordinal
+  field: imap-dense                \ indices below it, if not paired, are ordinals
+  field: imap-made                 \ true once the table and slab are made
+end-structure
+2 cells constant /index-pair
+: pair-at ( n map -- addr ) imap-pairs slab-at ;
+: pair-ordinal ( n map -- ordinal ) pair-at cell+ @ ;
+: ordinal! ( c n map -- ) pair-at cell+ ! ;
+: pair-set ( i c n map -- ) pair-at tuck cell+ ! ! ;
+\ A cell's hash, both halves on a 64-bit host (two shifts: one by the
+\ cell's width would be ambiguous on a 32-bit host).
+: index-hash ( i -- h ) dup u32-mask and hash-fmix swap 16 rshift 16 rshift hash-step ;
+: pair-rehash ( n map -- h ) pair-at @ index-hash ;
+: pair-same? ( n i map -- flag ) rot swap pair-at @ = ;
+create pair-hooks /htab-hooks allot  ' pair-rehash ' pair-same? pair-hooks htab-hooks!
+: imap-sparse? ( map -- flag ) imap-table htab-count 0<> ;
+\ The pair of index i: its number and true, or a slot and false.
+: imap-pair ( i map -- n true | slot false ) >r dup index-hash r> imap-table htab-find ;
+: imap-dense? ( i map -- n true | false ) over swap imap-dense @ u< dup 0= if nip then ;
+\ The ordinal of index i; false when no record has it.
+: imap-ordinal ( i map -- n true | false )
+  dup imap-sparse? if 2dup imap-pair if swap pair-ordinal nip true exit then drop then
+  imap-dense? ;
+\ Make the table and the slab on the first pair: ok, or full with none.
+: imap-make ( map -- outcome )
+  dup imap-made @ if drop outcome-ok exit then
+  /index-pair dup slab-limit-max 2 pick imap-pairs slab-init drop
+  4 pair-hooks 2 pick imap-table htab-init dup ok? if true rot imap-made ! else nip then ;
+: imap-room ( map -- outcome ) dup imap-make ok-then? if imap-table htab-ready then ;
+\ A new pair for index i, with ordinal c, at the empty slot imap-pair gave.
+: pair-add ( i c slot map -- outcome )
+  >r 1 r@ imap-pairs slab-claim dup ok? 0= if nip nip nip nip r> drop exit then drop
+  tuck swap r@ imap-table htab-put r> pair-set outcome-ok ;
+: pair-keep ( i c map -- outcome )
+  >r over r@ imap-pair if rot drop r> ordinal! outcome-ok else r> pair-add then ;
+: imap-keep ( i c map -- outcome )
+  dup imap-room dup ok? if drop pair-keep else nip nip nip then ;
+\ Index i takes ordinal c, the family's next: ok, or full when the map
+\ finds no heap.
+: imap-define ( i c map -- outcome )
+  >r 2dup = r@ imap-sparse? 0= and if 2drop 1 r> imap-dense +! outcome-ok exit then
+  r> imap-keep ;
+: imap-restart ( dense map -- )
+  tuck imap-dense ! dup imap-made @ if dup imap-table htab-clear imap-pairs slab-clear
+  else drop then ;
+: imap-free ( map -- )
+  dup imap-table htab-free dup imap-pairs slab-free 0 swap imap-made ! ;
+: imap-bytes ( map -- u )
+  dup imap-made @ 0= if drop 0 exit then
+  dup imap-table htab-slots u32s swap imap-pairs slab-bytes + ;
+
 begin-structure /export
   /reader +field export-reader
   /json +field export-json
@@ -198,6 +278,10 @@ begin-structure /export
   kind-count cells +field export-handlers
   field: export-tap                \ xt ( c-addr u x -- ) shown each line read, or 0
   field: export-tap-x              \ the cell given to it
+  field: export-any                \ true: metadata of any version of format 3.1.0
+  /imap +field export-name-map     \ the index maps, kept by export-restart,
+  /imap +field export-level-map    \ which empties them
+  /imap +field export-expr-map
   field: export-busy               \ true while a handler runs; before export-names,
                                    \ so that export-restart never clears it
   field: export-generation         \ lines counted since export:, never reset
@@ -294,18 +378,23 @@ end-structure
 : nat-of ( value export -- n outcome )
   tuck export-json json-natural 0= if not-natural exit then
   digits>u if nip outcome-ok else too-large then ;
-\ References: the index of one of count earlier records.
+\ References: an index an earlier record of the family has, as the
+\ ordinal it has now (see the header). An index above max-n is no
+\ record's (giving one is full), so it is a bad reference.
 : bad-ref ( export -- -1 outcome ) c" bad reference" export-bad no-result ;
-: ref-below? ( count n outcome -- n flag ) ok? if tuck u> else nip false then ;
-: ref-of ( value count export -- n outcome )
-  >r swap r@ nat-of ref-below? if r> drop outcome-ok else drop r> bad-ref then ;
-: name-of ( value export -- n outcome ) dup export-names @ swap ref-of ;
+: index-of ( value export -- i true | false )
+  export-json json-natural if digits>u else false then ;
+: ref-at ( value map export -- n true | false )
+  rot swap index-of if swap imap-ordinal else drop false then ;
+: ref-of ( value map export -- n outcome )
+  dup >r ref-at if r> drop outcome-ok else r> bad-ref then ;
+: name-of ( value export -- n outcome ) dup export-name-map swap ref-of ;
 : anonymous? ( n outcome -- flag ) ok? swap 0= and ;
-\ A name that is not the anonymous name 0.
+\ A name that is not the anonymous name, ordinal 0.
 : name+-of ( value export -- n outcome )
   tuck name-of 2dup anonymous? if 2drop bad-ref else rot drop then ;
-: level-of ( value export -- n outcome ) dup export-levels @ swap ref-of ;
-: expr-of ( value export -- n outcome ) dup export-exprs @ swap ref-of ;
+: level-of ( value export -- n outcome ) dup export-level-map swap ref-of ;
+: expr-of ( value export -- n outcome ) dup export-expr-map swap ref-of ;
 : bool-of ( value export -- flag outcome )
   tuck export-json json-bool if nip outcome-ok exit then
   c" expected a boolean" export-bad no-result ;
@@ -624,17 +713,18 @@ inductive-shape nd-nested v-inductive
   0 ' v-quot kind-quot nd-variant quot
 end-shape
 
-\ Families of indexed records: the index key, the counter the index must
-\ equal, and the table of kinds.
+\ Families of indexed records: the index key, the counter of its
+\ ordinals, its index map, and the table of kinds.
 begin-structure /family
   field: family-kinds
   field: family-count              \ export offset of its counter
+  field: family-map                \ export offset of its index map
   0 +field family-key              \ counted string
 end-structure
-: nd-family ( kinds count "key" -- ) create swap , , parse-name counted, ;
-expr-kinds 0 export-exprs nd-family expr-family ie
-name-kinds 0 export-names nd-family name-family in
-level-kinds 0 export-levels nd-family level-family il
+: nd-family ( kinds count map "key" -- ) create rot , swap , , parse-name counted, ;
+expr-kinds 0 export-exprs 0 export-expr-map nd-family expr-family ie
+name-kinds 0 export-names 0 export-name-map nd-family name-family in
+level-kinds 0 export-levels 0 export-level-map nd-family level-family il
 create families expr-family , name-family , level-family ,   \ most frequent first
 here families - cell / constant #families
 
@@ -723,7 +813,10 @@ here families - cell / constant #families
   if swap 1+ swap r> export-payload else drop r> c" unknown record kind" export-bad then ;
 
 \ The metadata record must come first, exactly once, naming the pinned
-\ versions.
+\ versions; with export-any-version! (the caller's explicit choice, off
+\ by export:, export-init and an erased record) any exporter and Lean,
+\ only the format version pinned, and the handler sees what it names
+\ (pinned? tells whether that is the pinned one).
 : pinned-exporter ( -- c-addr u ) s" lean4export" ;
 : pinned-exporter-version ( -- c-addr u ) s" 3.1.0" ;
 : pinned-format-version ( -- c-addr u ) s" 3.1.0" ;
@@ -737,33 +830,57 @@ here families - cell / constant #families
   dup meta-exporter pinned-exporter text=
   over meta-exporter-version pinned-exporter-version text= and
   over meta-format-version pinned-format-version text= and swap pinned-lean? and ;
+: export-any-version! ( flag export -- ) export-any ! ;
+: export-any-version? ( export -- flag ) export-any @ ;
+: format-read? ( record -- flag ) meta-format-version pinned-format-version text= ;
+: header-taken? ( export -- flag )
+  dup export-record pinned? if drop true exit then
+  dup export-any-version? swap export-record format-read? and ;
 : export-pinned ( export -- outcome )
-  dup export-record pinned? if dup export-metas swap export-deliver exit then
+  dup header-taken? if dup export-metas swap export-deliver exit then
   0 over export-key ! c" unsupported exporter, format or Lean version" export-refuse ;
 : export-first ( export -- outcome )
   0 over export-json json-items@ 1 <>
   if c" first record is not metadata" export-bad exit then
   dup >r 1 meta-kinds r> export-kind ok-then? if export-pinned then ;
 
-\ Names, levels and expressions: one index member, which must be the
-\ family's next index, and one kind member. Records are top-level
-\ objects, so the object is token 0; when the index member comes first,
-\ its value is token 2 and the kind's key token 3, else the key is token 1.
+\ Names, levels and expressions: one index member, any natural number
+\ up to max-n, and one kind member. Records are top-level objects, so
+\ the object is token 0; when the index member comes first, its value is
+\ token 2 and the kind's key token 3, else the key is token 1. The record
+\ is decoded (its references translated first, so one to its own index
+\ is to the record that had it before), handed over as its family's next
+\ ordinal, and once its handler accepts it, its index takes that ordinal.
 : key-value ( c-addr export -- value true | false ) 0 swap export-json json-find ;
 : export-family ( export -- value family true | false )
   #families 0 do families i cells + @ 2dup family-key swap key-value
     if rot drop swap true unloop exit then drop
   loop drop false ;
 : family-count@ ( family export -- n ) swap family-count @ + @ ;
-: index-is? ( count n outcome -- flag ) ok? -rot = and ;
-: export-next-index? ( value family export -- flag )
-  >r r@ family-count@ swap r@ nat-of index-is? 0 r> export-json json-items@ 2 = and ;
+: family-map@ ( family export -- map ) swap family-map @ + ;
+: index-pair? ( export -- flag ) 0 swap export-json json-items@ 2 = ;
+: bad-index ( export -- -1 outcome ) c" bad index" export-bad no-result ;
+: index-own ( value export -- i outcome )
+  tuck export-json json-natural 0= if bad-index exit then
+  digits>u if nip outcome-ok else c" index too large" export-over no-result then ;
 : kind-key ( value -- key ) 2 = if 3 else 1 then ;
-: export-indexed ( value family export -- outcome )
-  >r 2dup r@ export-next-index?
-  0= if 2drop r> c" bad or out-of-order index" export-bad exit then
-  swap kind-key over family-kinds @ r@ export-kind
+\ Decode the kind member and hand the record over.
+: export-member ( value family export -- outcome )
+  >r swap kind-key over family-kinds @ r@ export-kind
   ok-then? if family-count @ r@ + r> export-deliver else r> drop then ;
+\ After the record was counted: index i takes its ordinal, the count - 1.
+: index-room ( outcome export -- outcome )
+  over ok? if drop else nip c" no room for an index map" export-over then ;
+: index-define ( i family export -- outcome )
+  >r dup r@ family-count@ 1- swap r@ family-map@ imap-define r> index-room ;
+: and-define ( outcome i family export -- outcome )
+  3 pick ok? if index-define nip else drop 2drop then ;
+\ The index, family and export wait on the return stack meanwhile.
+: indexed-member ( value i family export -- outcome )
+  2dup 2>r rot >r export-member r> 2r> and-define ;
+: export-indexed ( value family export -- outcome )
+  dup index-pair? 0= if nip nip bad-index nip exit then
+  >r over r@ index-own ok-then? if swap r> indexed-member else nip nip r> drop then ;
 
 \ Declarations: one kind member. An inductive block is followed by its
 \ types, constructors and recursors, each as a record of its own kind
@@ -895,10 +1012,17 @@ here families - cell / constant #families
 \ handlers, where the export is in use: that throws.
 : ?export-idle ( export -- export )
   dup export-busy @ abort" ndjson: export in use by its handler" ;
-\ Start counting from the beginning of a file.
+\ Start counting from the beginning of a file, the index maps empty.
+: export-maps-restart ( export -- )
+  1 over export-name-map imap-restart 1 over export-level-map imap-restart
+  0 swap export-expr-map imap-restart ;
 : export-restart ( export -- )
   ?export-idle dup export-names /export-progress erase
-  1 over export-names ! 1 swap export-levels ! ;
+  1 over export-names ! 1 over export-levels ! export-maps-restart ;
+\ The heap bytes of the index maps (none for dense indices).
+: export-map-bytes ( export -- u )
+  dup export-name-map imap-bytes over export-level-map imap-bytes +
+  swap export-expr-map imap-bytes + ;
 
 1048576 constant export-buffer-size   \ initial line buffer; it grows for longer lines
 67108864 constant export-line-limit   \ longest line accepted: 64 MiB
@@ -909,19 +1033,23 @@ here families - cell / constant #families
 
 \ Defining word: name ( -- export ), zeroed; export-init prepares it.
 : export: ( "name" -- ) create /export store-zeroed, drop ;
-\ Allocate the buffers, freeing those of an earlier export-init, and
-\ refuse every kind until handlers are set. Full when the heap has no
-\ room; export-free then releases what was allocated.
+\ Allocate the buffers, freeing those and the index maps of an earlier
+\ export-init, refuse every kind until handlers are set, and read only the
+\ pinned versions until export-any-version! says otherwise. Full when the
+\ heap has no room; export-free then releases what was allocated.
 : export-buffers ( export -- outcome )
   export-buffer-size export-line-limit rot export-reader reader-init ;
 : export-json-init ( export -- outcome )
   export-json export-depth-limit over json-init
   export-token-limit rot json-token-limit ! ;
+: export-maps-free ( export -- )
+  dup export-name-map imap-free dup export-level-map imap-free export-expr-map imap-free ;
 : export-init ( export -- outcome )
-  ?export-idle dup export-restart dup export-handlers-clear dup export-untap
+  ?export-idle dup export-maps-free dup export-restart dup export-handlers-clear
+  dup export-untap false over export-any-version!
   dup export-buffers ok-then? if export-json-init then ;
 : export-free ( export -- )
-  ?export-idle dup export-reader reader-free export-json json-free ;
+  ?export-idle dup export-maps-free dup export-reader reader-free export-json json-free ;
 \ Read every line, closing the file if a handler throws; the exception
 \ then passes on, and the export is idle again. The export waits on the
 \ return stack.
@@ -983,10 +1111,22 @@ here families - cell / constant #families
 \ when the array has no item i.
 : nth-token ( i index view -- token view true | false )
   >r 2dup r@ json-items@ u< if + 1+ r> true else 2drop r> drop false then ;
-\ Item i of a list of references; -1 when the field holds no flat list,
-\ the list has no item i or the record is not of the current line.
-: list-item ( i list record -- u )
+\ Item i of a list of references, as an ordinal, as every reference is
+\ handed over (see the header); -1 when the field holds no flat list, the
+\ list has no item i or the record is not of the current line. The list
+\ was checked whole when its record was decoded, and its family's map
+\ has not changed since: a constant's `us` holds levels, every other list
+\ of references names.
+: refs-levels? ( list record -- flag )
+  dup record-kind @ kind-const = if const-levels @ = else 2drop false then ;
+: refs-map ( list record -- map )
+  tuck refs-levels? swap record-export @ swap
+  if export-level-map else export-name-map then ;
+: refs-ordinal ( u list record -- n ) refs-map imap-ordinal 0= if -1 then ;
+: refs-raw ( i list record -- u )
   flat-array 0= if drop -1 exit then nth-token if item-u else -1 then ;
+: list-item ( i list record -- u )
+  2dup 2>r refs-raw dup 0< if 2r> 2drop else 2r> refs-ordinal then ;
 \ Rule i of a recursor record, decoded into the export's rule record and
 \ valid until the next call. Its header has kind-rule, index i, the line,
 \ the export and the generation. 0 when the record is not a recursor,
