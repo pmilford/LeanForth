@@ -1614,11 +1614,17 @@ fuel; every table grows in the heap.
     keeps n), so a later declaration of such a name is rejected.
 
 **Evidence** (2026-11-10, Gforth 1.0.0, Lean 4.35.0): the inductive table
-has new Lean-checked rows (`nested.*`: `Array`, `List (List _)`, `Option`,
-`Prod` with two parameters, a block parameter, a universe, under a binder,
-inside a mutual block, `Array (Bad → Nat)`; `iota.nested-syntax-*`: iota
-with `Lean.Syntax.rec`, `rec_1`, `rec_2`; `replay-nested.*`: Lean's replay
-of `Tree` with `Tree.rec_1` mutated), every one with Lean's verdict;
+has 31 new Lean-checked rows, every one with Lean's verdict (`nested.*`:
+`Array`, `List (List _)`, `Option`, `Prod` with two parameters, a block
+parameter, a universe, under a binder, inside a mutual block, `Thunk`
+(reflexive only as the auxiliary block), a parameter the auxiliary block
+drops, typed and ill-typed (`funExpected`, only the typing of the
+occurrences sees it), `_nested.List_1` and `_nested.List_1.rec` declared
+before, a constructor named `rec_1`, `Array (Bad → Nat)`;
+`iota.nested-syntax-*`: iota with `Lean.Syntax.rec`, `rec_1`, `rec_2`;
+`replay-nested.*`: Lean's replay of `Tree` with `Tree.rec_1` mutated);
+`make test-check-block` checks them with their diagnostics and steps,
+and 14 new planted faults (`nest-*`) are caught;
 the arena's `bad/bugs/nested-rec-rule-nfields`, `nested-unused-param` and
 `rec-rule-proof-irrel-nested` are rejected and `good/init-prelude`
 accepted (2,106 declarations, `Lean.Syntax`, its `rec`, `rec_1`,
