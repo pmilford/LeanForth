@@ -116,6 +116,16 @@ T{ s" tests/reference/poly-identity.ndjson" fed-checked verdicts unstage
 T{ s" tests/reference/constant-fixture.ndjson" fed-checked verdicts unstage
    -> outcome-ok 3 true }T
 T{ s" tests/reference/identity.ndjson" fed-checked verdicts unstage -> outcome-ok 1 true }T
+\ The room left for the checks (review rvKC M1): a let becomes 4 term nodes
+\ and a projection 2, but each check still gets the whole feed-term-room
+\ above the nodes the feed made. kinds.ndjson has 2 lets and 8 projections.
+: term-room ( -- n ) lf-term-capacity lf-term-count @ - ;
+T{ s" tests/core/reexport/kinds.ndjson" fed term-room unstage
+   -> outcome-ok feed-term-room }T
+\ A file without lets or projections never gets less (the expressions may
+\ share nodes, so it may get more).
+T{ s" tests/reference/composition.ndjson" fed term-room feed-term-room < unstage
+   -> outcome-ok false }T
 : fed-case ( c-addr u -- outcome code step ) fed-checked ok? must last-outcome env-done unstage ;
 T{ s" tests/core/check-declaration-cases/composition-wrong-argument.ndjson" fed-case
   -> outcome-rejected lf-diag-argument-apart 7 }T

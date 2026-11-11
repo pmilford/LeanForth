@@ -14,7 +14,8 @@
 \ after the context is freed.
 \ Levels, expressions and declarations are copied into the context's
 \ stores, whose capacities lf-feed raises to fit the stage plus room for
-\ the checks' scratch: the checker reads terms through handles and
+\ the checks' scratch (the term store's once more after the expressions, for
+\ the nodes of lets and projections: feed-room): the checker reads terms through handles and
 \ identities, which the input tier does not have (ADR 0016 C9 step 3
 \ keeps them until the environment's handles replace them). Copied as
 \ ndjson-input.fs (tests/support) stages a file: a Sort as a symbolic
@@ -125,6 +126,13 @@ here feed-settings - /feed-setting / constant feed-settings#
   outcome-ok feed-settings# 0 do
     over i /feed-setting * feed-settings + feed-setting
   loop nip ;
+
+\ The feed's own term nodes: a let becomes 4 nodes for its 2 numbers and a
+\ projection 2 for its 1, so after the expressions are fed the term store
+\ is raised again, to the nodes in use plus the room: each check gets the
+\ whole of feed-term-room, however many lets and projections the file has.
+: feed-room ( feed -- outcome )
+  drop lf-term-count @ feed-term-room + lf-term-capacity max lf-term-capacity! ;
 
 \ ---- Maps: heap blocks of cells, zeroed, freed by feed-free.
 : feed-block ( cells addr -- outcome )
@@ -443,7 +451,7 @@ here feed-kinds - 1 cells / constant feed-kinds#
 : feed-end ( feed -- outcome ) feed-members @ if outcome-invalid else lf-input-end then ;
 create feed-steps
   ' feed-fresh , ' feed-capacities , ' feed-maps , ' feed-context , ' feed-session ,
-  ' feed-levels-all , ' feed-exprs-all , ' feed-decls-all , ' feed-end ,
+  ' feed-levels-all , ' feed-exprs-all , ' feed-room , ' feed-decls-all , ' feed-end ,
 here feed-steps - 1 cells / constant feed-steps#
 : feed-step ( feed k -- outcome ) cells feed-steps + @ execute ;
 : feed-run ( feed -- outcome )
