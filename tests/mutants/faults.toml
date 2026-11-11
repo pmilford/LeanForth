@@ -3969,6 +3969,24 @@ quick = true
 # each caught by tests/core/check-block.fs.
 
 [[fault]]
+id = "meq-compares-depth"
+file = "src/kernel/mixed-compare.fs"
+old = '''  lf-term-data@ 0= if -1 else lf-meq-nodepth and then ;'''
+new = '''  lf-term-data@ 0= if -1 then ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "M1: == compares the depth, so an input let and an equal store let are apart"
+quick = true
+
+[[fault]]
+id = "ind-uniform-skips-let"
+file = "src/kernel/inductive-block.fs"
+old = '''    lf-tag-let of lf-c1-same endof  lf-tag-let-nondep of lf-c1-same endof'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "C1: the uniformity walk skips a let's value; a non-uniform occurrence there is accepted"
+quick = true
+
+[[fault]]
 id = "ind-skip-compare"
 file = "src/kernel/check-block.fs"
 old = '''  lf-blk-shapes ['] lf-blk-ctors-b3 lf-blk-then ['] lf-blk-recs-b3 lf-blk-then ;'''

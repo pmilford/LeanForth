@@ -204,14 +204,18 @@ lf-level-walk-room context-walk2: lf-mcompare-level-walker
 \ As Lean's apply (expr_eq_fn.cpp 44-58; ADR 0014, compact-store plan
 \ step S4), at every pair, the root included: the same node is equal at
 \ once (is_eqp); two nodes whose data words (core/terms.fs: loose range,
-\ the two flags and the depth, each a function of the term's structure,
+\ the two flags, each a function of the term's structure,
 \ as Lean's hash is) are known and differ are apart at once (Lean's
 \ hash test); a pair met before in this call is not walked again (Lean's
 \ per-call cache, check_cache: had it differed, the call would have
 \ ended); two constants of one interned reference, or two Sorts of one
 \ hash-consed level, are equal at once (is_eqp on the name and levels).
 \ None of these is pushed, so none costs a unit.
-: lf-meq-word ( node -- data|-1 ) lf-term-data@ 0= if -1 then ;
+\ The depth is left out: Lean's hash does not hold it, and an input let and
+\ an equal let the store builds count it differently (review rvS5B M1).
+1 22 lshift 1- constant lf-meq-nodepth   \ the data word without its depth
+: lf-meq-word ( node -- data|-1 )
+  lf-term-data@ 0= if -1 else lf-meq-nodepth and then ;
 : lf-meq-apart? ( x y -- flag )
   lf-meq-word swap lf-meq-word over -1 = over -1 = or if 2drop false else <> then ;
 \ The pairs met in this call: a hash table over a slab of (left right)

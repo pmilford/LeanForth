@@ -1058,8 +1058,19 @@ needed (Rejected alternatives).
     constants: planted fault `s5b-sched-skips-let`); its stamp array per
     term number (4 bytes) now spans twice the expressions, about 0.42 GB
     more for all of Mathlib, until it is indexed per record (as the
-    audit's units are); the worker contexts no longer copy the retired
-    switch.
+    audit's units are; plan task 7.2.1, "not done"); the worker contexts
+    no longer copy the retired switch.
+    Review rvS5B (agent FX11): Lean's `==` now leaves the depth out of
+    the data word it compares (`lf-meq-word`): Lean's hash does not hold
+    it, and an input let (the stage's depth) and an equal let the store
+    builds (`lf-data-pair`'s depth) count it differently. Chosen over
+    giving the input let the store's word because the depth is used by
+    no other pass and every other field is a function of structure.
+    Pinned as `tests/core/check-declaration-ndjson.fs` and planted
+    fault `meq-compares-depth`. The let arm of the uniformity walk is
+    pinned by rows `uniform.let-other-argument` (rejected) and
+    `uniform.let-uniform` (accepted) of `inductive-expected.lean`, both
+    Lean's verdicts, and fault `ind-uniform-skips-let`.
   - *Stamps and scratch identities (part 2 of the step): none retired.*
     Symbolic-Sort stamps: level substitution and normalization roll the
     level store back alone by their own marks, and an inference step
