@@ -547,7 +547,7 @@ Two.swap: accepted (experimental, not independently audited); axioms: none
 accepted: 6 (experimental, not independently audited); axioms: none
 resources:
   time (s)     wall      cpu
-  input: 6 declarations, 46 term nodes, 3 levels, 5 constant references, 31 names
+  input: 6 declarations, 92 term nodes, 3 levels, 5 constant references, 31 names
   fuel: 518 steps in all, at most 20000000 per declaration
   most fuel used:
          252 Two.cases (accepted)
@@ -580,7 +580,7 @@ member is cut off:
 
 ```console
 $ bin/leanforth check --json tests/cli/unfold.ndjson | sed "s/,\"measured\":.*/}/"; echo "exit status ${PIPESTATUS[0]}"
-{"schema":"leanforth-check-report","schemaVersion":"0.2","export":"tests/cli/unfold.ndjson","manifest":"checked","label":"experimental, not independently audited","settings":{"fuel":20000000,"dependencyPool":65536,"strictAxioms":false},"read":{"outcome":"ok","phase":null,"line":null,"field":null,"reason":null,"at":null},"run":"ok","stopped":false,"declarations":[{"index":0,"name":"Implies","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":34},{"index":1,"name":"impliesSelf","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":67}],"counts":{"declarations":2,"accepted":2,"skipped":0,"rejected":0,"unknown":0,"unsupported":0,"invalid":0,"exhausted":0,"full":0,"notChecked":0,"notProved":0},"fuel":{"perDeclaration":20000000,"total":101,"unknown":0,"top":[{"index":1,"name":"impliesSelf","fuel":67,"verdict":"accepted"},{"index":0,"name":"Implies","fuel":34,"verdict":"accepted"}]},"input":{"declarations":2,"terms":14,"levels":1,"references":1,"names":10},"exitStatus":0}
+{"schema":"leanforth-check-report","schemaVersion":"0.2","export":"tests/cli/unfold.ndjson","manifest":"checked","label":"experimental, not independently audited","settings":{"fuel":20000000,"dependencyPool":65536,"strictAxioms":false},"read":{"outcome":"ok","phase":null,"line":null,"field":null,"reason":null,"at":null},"run":"ok","stopped":false,"declarations":[{"index":0,"name":"Implies","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":34},{"index":1,"name":"impliesSelf","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":67}],"counts":{"declarations":2,"accepted":2,"skipped":0,"rejected":0,"unknown":0,"unsupported":0,"invalid":0,"exhausted":0,"full":0,"notChecked":0,"notProved":0},"fuel":{"perDeclaration":20000000,"total":101,"unknown":0,"top":[{"index":1,"name":"impliesSelf","fuel":67,"verdict":"accepted"},{"index":0,"name":"Implies","fuel":34,"verdict":"accepted"}]},"input":{"declarations":2,"terms":28,"levels":1,"references":1,"names":10},"exitStatus":0}
 exit status 0
 ```
 
@@ -597,7 +597,7 @@ exit status 0
 | `declarations` | each declaration in file order: `index` (its place in the export, which identifies it), `name` (escaped display text, as the text shows it), `verdict` (`accepted`, `skipped`, an outcome, or `not-checked`), `fuel` (null when not known); an accepted one's `label`, `axiomBits` (0: none; 1 `propext`, 2 `Classical.choice`, 4 `Quot.sound`, each with Lean's statement, 8 any other axiom) and `notProved` (bit 8 set), with `notProvedBy`, the unlisted axioms' names, when it is true; any other's `diagnostic` (code, reason, site, two numbers, step) |
 | `counts` | the declarations by verdict (`skipped` among them since version 0.2), `notChecked` and `notProved`; null when no verdict could be read |
 | `fuel` | `perDeclaration`, `total` (of the known), `unknown` (how many are not known) and `top` (the ten that used the most) |
-| `input` | declarations, term nodes, levels and constant references fed, and the stage's names; null when nothing was fed |
+| `input` | declarations, term numbers (two per expression record read in place: the record and the lambda or leaf a let or projection carries; then the store's own nodes), levels and constant references fed, and the stage's names; null when nothing was fed |
 | `exitStatus` | the command's [exit status](#exit-status), 0 to 6 |
 | `measured` | `microseconds` (wall and CPU of `stage`, `feed`, `check` and `total`; null on a host without clocks), `peakResidentBytes` and `stageBytes` (null when not known), and `engine`, the file name of the Gforth program that ran ([the engine](#the-engine); null outside `bin/leanforth`) |
 

@@ -7703,7 +7703,8 @@ reason = "S5: an input Sort or constant without its leaf entry reads as a term w
 [[fault]]
 id = "s5-app-not-found"
 file = "src/core/terms.fs"
-old = '''  if tag-app 0 pack-head -rot lf-tin-probe else 2drop false then ;'''
+old = '''  if 1 rshift swap 1 rshift swap tag-app 0 pack-head -rot lf-tin-probe
+  else 2drop false then ;'''
 new = '''  drop 2drop false ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "S5: an application made equal to an input node is a second node, not the input one"
@@ -7767,11 +7768,10 @@ reason = "S5: detaching a stage's names leaves its term view, which reads the st
 [[fault]]
 id = "s5-feed-reads-above-let"
 file = "src/import/feed.fs"
-old = '''  2dup feed-tier expr-a@ over feed-dirty?
-  >r tuck feed-tier expr-b@ swap feed-dirty? r> or ;'''
-new = '''  2drop false ;'''
-test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py BothWays"
-reason = "S5: an application or binder above a let or projection is read in place, its child no term of the view"
+old = ''': feed-child-copied? ( e feed -- flag ) 2dup feed-a-copied? >r feed-b-copied? r> or ;'''
+new = ''': feed-child-copied? ( e feed -- flag ) 2drop false ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5, S5B: an application or binder above an mdata expression is read in place, its child no term of the view (invalid, not unsupported)"
 
 [[fault]]
 id = "s5-feed-copy-not-found"
@@ -7858,10 +7858,10 @@ reason = "S5: with no setting the scratch room stays fixed (1,048,576 term nodes
 [[fault]]
 id = "s5-feed-binders-not-entered"
 file = "src/import/feed.fs"
-old = '''  r> binder-tag? if drop lf-term-input-binder else 2drop outcome-ok then ;'''
-new = '''  r> drop 2drop outcome-ok ;'''
+old = '''  dup binder-tag? if 2drop lf-tin-child lf-term-input-binder exit then'''
+new = '''  dup binder-tag? if 2drop drop outcome-ok exit then'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
-reason = "S5: binders read in place are not entered first, so a let's lambda and the equal input lambda after it are two nodes (more fuel than copying)"
+reason = "S5: binders read in place are not entered first, so a binder made equal to one is a second node (more fuel than copying)"
 
 # --- native let and projection nodes (compact-store plan step S5, parts
 # 4-5, agent S5B; src/core/let-terms.fs, projections.fs, terms.fs) --------
@@ -7963,3 +7963,67 @@ old = ''': lf-pp-app-tag? ( tag -- flag ) dup lf-tag-app = swap lf-tag-projectio
 new = ''': lf-pp-app-tag? ( tag -- flag ) lf-tag-app = ;'''
 test = "$GFORTH tests/present/term-printer.fs"
 reason = "S5B: the printer no longer prints a projection as its leaf applied to the term"
+
+[[fault]]
+id = "s5b-view-let-value-raw"
+file = "src/core/terms.fs"
+old = ''': lf-tin-let@ ( index -- first second ) dup lf-tin-at quad-b u32@ lf-tin-child swap 1- ;'''
+new = ''': lf-tin-let@ ( index -- first second ) dup lf-tin-at quad-b u32@ swap 1- ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5B: an input let's value is read as a record number, not as its term number"
+
+[[fault]]
+id = "s5b-view-let-lam-body"
+file = "src/core/terms.fs"
+old = '''  lf-tin-at dup quad-a u32@ lf-tin-child swap /quad + quad-a u32@ lf-tin-child ;'''
+new = '''  lf-tin-at dup quad-a u32@ lf-tin-child swap quad-b u32@ lf-tin-child ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5B: an input let's lambda takes the let's value for its body instead of the second record's body"
+
+[[fault]]
+id = "s5b-view-lam-data-unlowered"
+file = "src/core/terms.fs"
+old = '''  lf-tin-let-lam@ swap lf-tin-data@ swap lf-tin-data@ true lf-data-pair ;'''
+new = '''  lf-tin-let-lam@ swap lf-tin-data@ swap lf-tin-data@ false lf-data-pair ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5B: an input let's lambda's data word counts its body's bound variable as loose"
+
+[[fault]]
+id = "s5b-view-let-probe-any-tag"
+file = "src/core/terms.fs"
+old = '''  1+ >r r@ lf-tin-fields@ drop = swap r@ lf-tin-tag@ = and'''
+new = '''  1+ >r r@ lf-tin-fields@ drop = nip'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5B: a let made with the other nonDep flag is taken for the input let of the same value and lambda"
+
+[[fault]]
+id = "s5b-view-proj-leaf-unshared"
+file = "src/import/feed.fs"
+old = '''  over >r feed-proj-fields 2dup lf-tag-proj -rot lf-tin-leaf-find'''
+new = '''  over >r feed-proj-fields 2dup lf-tag-proj -rot 2drop drop false'''
+test = "python3 tests/cli/test_leanforth.py BothWays"
+reason = "S5B: every input projection has a leaf of its own, so equal leaves are two nodes (more fuel in place than copied)"
+
+[[fault]]
+id = "s5b-view-leaf-units-spared"
+file = "src/core/terms.fs"
+old = '''  lf-tin-leaf# if lf-term-input-records + true else false then ;'''
+new = '''  drop false ;'''
+test = "python3 tests/cli/test_leanforth.py BothWays"
+reason = "S5B: a projection's leaf has no audit unit, so it is audited again under each projection (more fuel in place)"
+
+[[fault]]
+id = "s5b-view-grown-skipped"
+file = "src/import/feed.fs"
+old = '''  dup ok? if drop lf-term-view-grown then ;'''
+new = ''' ;'''
+test = "python3 tests/cli/test_leanforth.py BothWays"
+reason = "S5B: the audit's units are not grown for the leaves the feed entered, so those leaves are audited again (more fuel in place)"
+
+[[fault]]
+id = "s5b-feed-let-body-ignored"
+file = "src/import/feed.fs"
+old = '''  2dup feed-child-copied? >r tuck feed-tier expr-body@ swap feed-dirty? r> or ;'''
+new = '''  feed-child-copied? ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5B: a let whose body holds an mdata expression is read in place, its lambda's body no term of the view"

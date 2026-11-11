@@ -25,6 +25,9 @@ require ./names.fs
 require ./terms.fs
 
 10 constant lf-tag-proj
+\ An input proj record carries its leaf, a leaf of the view's table
+\ (core/terms.fs's input view).
+lf-tag-proj lf-tin-proj-leaf tag-proj lf-term-input-leaf-twin
 \ A leaf for field idx of the structure named name (a name ID of this
 \ context), as a handle: (index identity true), or false for a negative
 \ name or index, a full store or a spent serial.

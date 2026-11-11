@@ -225,19 +225,23 @@ stg stage-free
 
 \ ---------------------------------------------------------------------------
 \ The input view (compact-store plan step S5; src/core/terms.fs). By default
-\ the feed reads the stage in place: input node e is term number e, read
-\ with the checker's tag and fields (binder names and information
-\ ignored), its identity the negative number invert e, which no birth
-\ serial is; a Sort, constant or literal has its fields in the view's leaf
-\ table; the store's own records (copies of lets, projections and the
-\ nodes above them, then each check's scratch) follow from lf-term-base.
-\ composition.ndjson has 21 expressions and no let or projection.
+\ the feed reads the stage in place: input expression e is term number
+\ 2e + 1, read with the checker's tag and fields (binder names and
+\ information ignored), its identity the negative number invert 2e + 1,
+\ which no birth serial is; term 2e is the lambda of a let or the leaf of
+\ a projection e (none here: no term); a Sort, constant or literal has
+\ its fields in the view's leaf table; the store's own records (copies of
+\ mdata expressions and the nodes above them, then each check's scratch)
+\ follow from lf-term-base. composition.ndjson has 21 expressions and no
+\ let or projection.
 T{ s" tests/reference/composition.ndjson" fed lf-term-viewed? lf-term-base lf-term-count @
-   -> outcome-ok true 21 0 }T
-T{ 0 lf-term-read 13 lf-term-read 15 lf-term-read
-   -> lf-tag-symbolic-sort 0 0 true lf-tag-app 1 12 true lf-tag-lam 3 14 true }T
-T{ 0 lf-term-identity 20 lf-term-identity 21 lf-term-valid? 0 lf-input-mark-count
-   -> -1 true -21 true false 21 }T
+   -> outcome-ok true 42 0 }T
+T{ 1 lf-term-read 27 lf-term-read 31 lf-term-read
+   -> lf-tag-symbolic-sort 0 0 true lf-tag-app 3 25 true lf-tag-lam 7 29 true }T
+T{ 1 lf-term-identity 41 lf-term-identity 42 lf-term-valid? 0 lf-input-mark-count
+   -> -2 true -42 true false 42 }T
+T{ 0 lf-term-valid? 26 lf-term-valid? 1 lf-term-input-unit 41 lf-term-input-unit 2 lf-term-input-unit
+   -> false false 0 true 20 true false }T
 \ The input's fingerprint covers the view (its count of input nodes).
 : view-base ( -- addr ) lf-term-view lf-tview-base ;
 T{ lf-input-print lf-input-fingerprint = -> true }T
@@ -247,25 +251,53 @@ T{ lf-input-print lf-input-fingerprint = -> false }T
 \ Making a node equal to an input node gives that node: an application
 \ and a bound variable found in the tier's table, a binder in the view's
 \ binder table, a Sort in its leaf table; a new node is the store's.
-T{ 1 12 lf-term-app 3 14 lf-term-lam 2 lf-term-bvar 0 lf-term-symbolic-sort lf-term-count @
-   -> 13 true 15 true 1 true 0 true 0 }T
-T{ 13 13 lf-term-app over lf-term-identity nip lf-term-count @
-   -> 21 true true 1 }T
-T{ 21 lf-term-identity drop 0> lf-input-rollback lf-term-count @ -> true outcome-ok 0 }T
+T{ 3 25 lf-term-app 7 29 lf-term-lam 2 lf-term-bvar 0 lf-term-symbolic-sort lf-term-count @
+   -> 27 true 31 true 3 true 1 true 0 }T
+T{ 27 27 lf-term-app over lf-term-identity nip lf-term-count @
+   -> 42 true true 1 }T
+T{ 42 lf-term-identity drop 0> lf-input-rollback lf-term-count @ -> true outcome-ok 0 }T
 unstage
 T{ lf-term-viewed? lf-term-base -> false 0 }T
 \ A constant read in place: its reference is the one the feed made, and a
 \ constant made over that reference is the input node.
-T{ s" tests/reference/constant-fixture.ndjson" fed 7 lf-term-tag@ 7 lf-term-second@
+T{ s" tests/reference/constant-fixture.ndjson" fed 15 lf-term-tag@ 15 lf-term-second@
    -> outcome-ok lf-tag-constant 0 }T
-T{ 7 lf-cterm-ref lf-cterm-new -> 7 -8 true }T
+T{ 15 lf-cterm-ref lf-cterm-new -> 15 -16 true }T
 \ Attached without the feed, a leaf has no fields until it is given them,
 \ once; a node that is no input leaf is refused.
-T{ stg stage-tier lf-term-attach 7 lf-term-valid? 13 lf-term-valid? -> outcome-ok false true }T
-T{ 5 0 1 7 lf-term-input-leaf 7 lf-term-read -> outcome-ok lf-tag-constant 5 0 true }T
-T{ 5 0 1 7 lf-term-input-leaf 0 0 1 13 lf-term-input-leaf 0 0 1 99 lf-term-input-leaf
-   -> outcome-invalid outcome-invalid outcome-invalid }T
-T{ lf-term-detach lf-term-viewed? 7 lf-term-valid? -> outcome-ok false false }T
+T{ stg stage-tier lf-term-attach 15 lf-term-valid? 27 lf-term-valid? -> outcome-ok false true }T
+T{ 5 0 1 15 lf-term-input-leaf 15 lf-term-read -> outcome-ok lf-tag-constant 5 0 true }T
+T{ 5 0 1 15 lf-term-input-leaf 0 0 1 27 lf-term-input-leaf 0 0 1 9999 lf-term-input-leaf
+   0 0 1 14 lf-term-input-leaf
+   -> outcome-invalid outcome-invalid outcome-invalid outcome-invalid }T
+T{ lf-term-detach lf-term-viewed? 15 lf-term-valid? -> outcome-ok false false }T
+unstage
+\ A let read in place (step S5, parts 4-5): withLet's value, expression
+\ 3, is term 7, LET(Sort 0, its lambda 6) of the nonDep tag, the lambda
+\ fun x : Sort 1 => x of the let's type and the body its second record
+\ holds (whose own numbers 8 and 9 are no terms); its data word has the
+\ lambda's range. Made again, the let, the lambda and an application of
+\ input records are those input nodes.
+T{ let-file fed 7 lf-term-read 6 lf-term-read 8 lf-term-valid? 9 lf-term-valid?
+   -> outcome-ok lf-tag-let-nondep 3 6 true lf-tag-lam 1 5 true false false }T
+T{ 6 lf-term-data@ drop lf-data-loose 7 lf-term-data@ drop lf-data-loose -> 0 0 }T
+T{ 1 5 lf-term-lam 3 6 lf-tag-let-nondep lf-term-binary 3 6 lf-tag-let lf-term-binary
+   lf-term-count @ -> 6 true 7 true 10 true 1 }T
+unstage
+\ A projection read in place: the record is PROJECTION(its leaf, its
+\ structure term), the leaf the even number just below it, of field 0;
+\ made again of that leaf and term it is the input node; a new leaf is a
+\ store node, a projection of it too.
+: proj-file ( -- c-addr u ) s" tests/core/check-block-cases/proj.data.ndjson" ;
+: first-proj ( -- node )
+  -1 lf-term-base 0 ?do i lf-term-valid? if i lf-term-tag@ lf-tag-projection =
+    if drop i leave then then loop ;
+: proj-parts ( node -- leaf e ) dup lf-proj-leaf swap lf-proj-struct ;
+T{ proj-file fed first-proj 1 and first-proj lf-proj-leaf 1+ first-proj =
+   -> outcome-ok 1 true }T
+T{ first-proj proj-parts drop dup lf-term-tag@ swap lf-term-second@ -> lf-tag-proj 0 }T
+T{ first-proj proj-parts lf-tag-projection lf-term-binary -> first-proj true }T
+T{ first-proj lf-proj-struct 0 0 lf-proj-of ok? swap lf-term-base >= -> true true }T
 unstage
 \ The switch: copied, as before the view, no input node; a binder hook
 \ (the print command's) copies too.
@@ -285,21 +317,32 @@ T{ s" 0" lf-lit-decimal s" 1x" lf-lit-decimal -> 0 0 true false }T
 create bad-utf8 255 c,
 T{ bad-utf8 1 lf-str-fields nip nip s" ab" lf-str-fields rot drop
    -> outcome-invalid 2 outcome-ok }T
-\ A let's lambda is the input lambda of the same type and body that comes
-\ later in the file, as when copying (one node either way; before the
-\ feed entered every binder first, Init had 47 such pairs, which cost 22
-\ declarations more fuel in place): def withLet : Sort 1 := let x :
-\ Sort 1 := Sort 0; x, then def idSort : Sort 1 -> Sort 1 := fun x :
-\ Sort 1 => x.
+\ A let's lambda and the input lambda of the same type and body that
+\ comes later in the file: one node when copied, and since step S5's
+\ parts 4-5 two input nodes in place (the let's lambda is read in place
+\ from the let's records), equal under Lean's ==: def withLet : Sort 1 :=
+\ let x : Sort 1 := Sort 0; x, then def idSort : Sort 1 -> Sort 1 :=
+\ fun x : Sort 1 => x. A lambda made equal to both is the first entered,
+\ the let's.
 : let-lam-file ( -- c-addr u ) s" tests/core/check-declaration-cases/let-lambda.ndjson" ;
 : lams ( -- let-lam input-lam )
   0 lf-input-decl lf-idecl-value @ lf-let-binder 1 lf-input-decl lf-idecl-value @ ;
-T{ let-lam-file fed lams = unstage -> outcome-ok true }T
+T{ let-lam-file fed lams 2dup = -rot 1000 lf-expr-equal ok? -> outcome-ok false true true }T
+T{ lams drop dup lf-term-first@ swap lf-term-second@ lf-term-lam swap lams drop = -> true true }T
+unstage
 T{ true lf-feed-copy! let-lam-file fed lams = unstage false lf-feed-copy! -> outcome-ok true }T
 T{ let-lam-file fed-checked verdicts unstage -> outcome-ok 2 true }T
-\ A let and the nodes above it are copied, at lf-term-base and after.
-T{ let-file fed 0 lf-input-decl lf-idecl-value @ lf-term-base >= lf-term-count @ 0>
-   -> outcome-ok true true }T
+\ An mdata expression and every node above it are copied, the rest read
+\ in place: in stage-cases/marks.ndjson an mdata, an application and a
+\ lambda over it, a let whose body it is and a projection of it (theorem
+\ t's value): five expressions, seven store nodes (the let's lambda and
+\ the projection's leaf besides).
+T{ s" tests/core/stage-cases/marks.ndjson" fed lf-input-count 1- lf-input-decl lf-idecl-value @
+   dup lf-term-base >= swap lf-term-tag@ lf-term-count @ -> outcome-ok true lf-tag-projection 7 }T
+unstage
+\ A let and the nodes above it are read in place, nothing copied.
+T{ let-file fed 0 lf-input-decl lf-idecl-value @ lf-term-base < lf-term-count @
+   -> outcome-ok true 0 }T
 unstage
 
 \ ADR 0012 E5 against the name-to-declaration array (ADR 0016 C4): with

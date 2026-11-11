@@ -384,7 +384,7 @@ class ExitCodes(unittest.TestCase):
                      "RvNest.R.count_mk"):
             self.assertIn(f"{name}: {LABEL}", lines)
         recursor = ("  undecided: a recursor reduction LeanForth does not port yet; "
-                    "diagnostic 81 at whnf lf-whnf: 17 0")
+                    "diagnostic 81 at whnf lf-whnf: 35 0")
         self.expect(["check", "--no-manifest", UNKNOWN], 2,
                     [NO_MANIFEST, f"IE.L: {LABEL}", f"IE.L.nil: {LABEL}", f"IE.L.cons: {LABEL}",
                      "IE.W: unknown", recursor, "IE.W.mk: unknown", recursor,
@@ -1401,7 +1401,7 @@ class Resources(unittest.TestCase):
         # The engine bin/leanforth ran: the file name of GFORTH here.
         self.assertEqual(rest[6], "  engine: " + os.path.basename(GFORTH))
         self.assertEqual(rest[7:], [
-            "  input: 6 declarations, 46 term nodes, 3 levels, 5 constant references, 31 names",
+            "  input: 6 declarations, 92 term nodes, 3 levels, 5 constant references, 31 names",
             "  fuel: 518 steps in all, at most 20000000 per declaration",
             "  most fuel used:",
             "         252 Two.cases (accepted)",

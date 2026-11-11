@@ -197,17 +197,17 @@ here feed-settings - /feed-setting / constant feed-settings#
 : feed-expr-at ( e feed -- addr ) feed-exprs @ swap 2* cells + ;
 
 \ ---- In place (compact-store plan step S5; core/terms.fs's input view).
-\ The term store reads the stage's expressions in place, so the feed
-\ copies only those the view does not read: a let, a projection or an
-\ mdata expression, and every application or binder above one (2.4% of
-\ Init's expressions). A copied expression's bit is set, and its term
-\ handle kept with it in a list in ascending expression order (copies are
-\ made in number order), found by binary search; any other expression's
-\ term is the input node of its own number. Leaves whose fields are this
-\ context's get them in the view's leaf table: a Sort its level, a
-\ constant its reference (made as when copying), a literal its limbs or
-\ bytes in the context's slabs. Levels, references and declarations are
-\ as when copying.
+\ The term store reads the stage's expressions in place, lets and
+\ projections too (parts 4-5), so the feed copies only what the view does
+\ not read: an mdata expression and every node above one (none in an
+\ export written without --export-mdata). A copied expression's bit is
+\ set, and its term handle kept with it in a list in ascending expression
+\ order (copies are made in number order), found by binary search; any
+\ other expression e's term is the input node 2e + 1 (terms.fs's
+\ numbering). Leaves whose fields are this context's get them in the
+\ view's leaf table: a Sort its level, a constant its reference (made as
+\ when copying), a literal its limbs or bytes in the context's slabs.
+\ Levels, references and declarations are as when copying.
 : feed-bit ( e feed -- addr mask )
   feed-dirty @ over feed-cell-bits / cells + swap feed-cell-bits mod 1 swap lshift ;
 : feed-dirty? ( e feed -- flag ) feed-bit swap @ and 0<> ;
@@ -232,7 +232,7 @@ here feed-settings - /feed-setting / constant feed-settings#
     2dup swap feed-copy-at dup @ 4 pick = if nip nip nip cell+ 2@ exit then drop
   then 2drop drop 0 0 ;
 : feed-placed@ ( e feed -- index identity )
-  2dup feed-dirty? if feed-copy@ else drop dup lf-term-input-identity then ;
+  2dup feed-dirty? if feed-copy@ else drop lf-tin-child dup lf-term-input-identity then ;
 : feed-term@ ( e feed -- index identity )
   dup feed-placing @ if feed-placed@ else feed-expr-at 2@ then ;
 : feed-root ( e feed -- index ) feed-term@ drop ;
@@ -371,14 +371,17 @@ lf-form-mdata tag-mdata feed-form!
 \ as when copying (full when a level is not live or a store refuses,
 \ invalid for text that is not UTF-8 or a kind the checker does not
 \ hold).
-: feed-copied-kind? ( tag -- flag ) dup let-tag? over tag-proj = or swap tag-mdata = or ;
-: feed-child-copied? ( e feed -- flag )
-  2dup feed-tier expr-a@ over feed-dirty?
-  >r tuck feed-tier expr-b@ swap feed-dirty? r> or ;
+: feed-a-copied? ( e feed -- flag ) tuck feed-tier expr-a@ swap feed-dirty? ;
+: feed-b-copied? ( e feed -- flag ) tuck feed-tier expr-b@ swap feed-dirty? ;
+: feed-child-copied? ( e feed -- flag ) 2dup feed-a-copied? >r feed-b-copied? r> or ;
+: feed-let-copied? ( e feed -- flag )
+  2dup feed-child-copied? >r tuck feed-tier expr-body@ swap feed-dirty? r> or ;
 : feed-to-copy? ( e feed tag -- flag )
-  dup feed-copied-kind? if drop 2drop true exit then
+  dup tag-mdata = if drop 2drop true exit then
+  dup let-tag? if drop feed-let-copied? exit then
+  dup tag-proj = if drop feed-a-copied? exit then
   dup tag-app = swap binder-tag? or if feed-child-copied? else 2drop false then ;
-: feed-leaf! ( first second stamp e -- outcome ) lf-term-input-leaf ;
+: feed-leaf! ( first second stamp e -- outcome ) lf-tin-child lf-term-input-leaf ;
 : feed-sort-leaf ( e feed -- outcome )
   over >r tuck feed-tier expr-a@ swap feed-handle
   2dup lf-hlevel-valid? 0= if 2drop r> drop outcome-full exit then 0 swap r> feed-leaf! ;
@@ -389,24 +392,39 @@ lf-form-mdata tag-mdata feed-form!
 : feed-str-leaf ( e feed -- outcome )
   over >r feed-text lf-str-fields dup ok? 0= if nip nip r> drop exit then
   drop 0 r> feed-leaf! ;
+\ A projection: its leaf the first input leaf of the same structure name
+\ and field index, else the record's own (term 2e), entered; then the
+\ projection of that leaf and its structure term (core/terms.fs).
+: feed-proj-fields ( e feed -- name idx ) 2dup feed-tier expr-payload@ -rot feed-tier expr-b@ ;
+: feed-proj-leaf ( e feed -- leaf outcome )
+  over >r feed-proj-fields 2dup lf-tag-proj -rot lf-tin-leaf-find
+  if nip nip r> drop outcome-ok exit then
+  0 r@ 2* lf-term-input-leaf r> 2* swap ;
+: feed-projection ( e feed -- outcome )
+  2dup feed-proj-leaf dup ok? 0= if nip nip nip exit then drop
+  >r over swap feed-tier expr-a@ lf-tin-child r> swap 0 3 roll lf-tin-child
+  lf-term-input-leaf ;
 : feed-read-kind? ( tag -- flag )
-  dup tag-bvar = over tag-app = or swap binder-tag? or ;
+  dup tag-bvar = over tag-app = or over let-tag? or swap binder-tag? or ;
 : feed-leaf ( e feed tag -- outcome )
   dup feed-read-kind? if drop 2drop outcome-ok exit then
   case tag-sort of feed-sort-leaf endof  tag-const of feed-const-leaf endof
     tag-nat of feed-nat-leaf endof  tag-str of feed-str-leaf endof
+    tag-proj of feed-projection endof
     >r 2drop outcome-invalid r> endcase ;
 \ Two passes. The first marks the expressions to copy and enters every
-\ binder read in place in the view's binder table (core/terms.fs), so
-\ that a binder made equal to it is it -- also a let's lambda that a copy
-\ makes before the binder's own number comes up: copying merges the two
-\ into one node, and so must reading in place (47 such binders in Init;
-\ without this pass they cost 22 of its declarations more fuel in place,
-\ +920 in all). The second makes the copies and the leaves' fields.
+\ binder read in place, and every let's lambda, in the view's binder
+\ table (core/terms.fs), so that a binder made equal to it is it (a
+\ binder a copy or a check makes; before step S5's parts 4-5 a let's
+\ lambda copied before the binder's own number came up: 47 such binders
+\ in Init cost 22 of its declarations more fuel without this pass). The
+\ second makes the copies and the leaves' fields.
+: feed-enter ( e feed tag -- outcome )
+  dup binder-tag? if 2drop lf-tin-child lf-term-input-binder exit then
+  let-tag? if drop 2* lf-term-input-binder else 2drop outcome-ok then ;
 : feed-mark ( e feed -- outcome )
   2dup feed-tier expr-tag@ >r 2dup r@ feed-to-copy?
-  if r> drop feed-dirty! outcome-ok exit then
-  r> binder-tag? if drop lf-term-input-binder else 2drop outcome-ok then ;
+  if r> drop feed-dirty! outcome-ok exit then r> feed-enter ;
 : feed-place ( e feed -- outcome )
   2dup feed-dirty? if feed-expr exit then 2dup feed-tier expr-tag@ feed-leaf ;
 : feed-each ( feed xt -- outcome )
@@ -415,7 +433,8 @@ lf-form-mdata tag-mdata feed-form!
     drop 2dup swap feed-span +
   repeat r> drop 2drop outcome-ok ;
 : feed-placed ( feed -- outcome )
-  dup ['] feed-mark feed-each dup ok? 0= if nip exit then drop ['] feed-place feed-each ;
+  dup ['] feed-mark feed-each dup ok? 0= if nip exit then drop ['] feed-place feed-each
+  dup ok? if drop lf-term-view-grown then ;
 : feed-exprs-all ( feed -- outcome )
   dup feed-placing @ if feed-placed else ['] feed-expr feed-each then ;
 
