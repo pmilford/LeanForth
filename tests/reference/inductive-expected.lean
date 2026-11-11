@@ -3079,9 +3079,14 @@ open InductiveExpected in
 run_cmd do
   let env ← getEnv
   let base := env.toKernelEnv
-  IO.println "id\tlean\tleanforth\trule\ttask\tfacts"
+  logInfo "id\tlean\tleanforth\trule\ttask\tfacts"
+  -- Each row and each case is its own message: Lean takes time quadratic in the size of
+  -- a message (one message of all the cases, 11 MB, took 340 s; as 430 messages, a few s).
+  let emit (act : IO Unit) : CommandElabM Unit := do
+    let (out, _) ← IO.FS.withIsolatedStreams act
+    logInfo out
   let row (id got lf rule task facts : String) : CommandElabM Unit :=
-    IO.println s!"{id}\t{got}\t{lf}\t{rule}\t{task}\t{facts}"
+    logInfo s!"{id}\t{got}\t{lf}\t{rule}\t{task}\t{facts}"
   -- 1. Inductive declarations.
   for b in accepted ++ checks do
     let d ← liftTermElabM b.decl
@@ -3217,38 +3222,38 @@ run_cmd do
   for b in accepted ++ checks do
     let d ← liftTermElabM b.decl
     let e := addOrHold add base base d
-    writeCase base baseRecs b.id e (b.kept e (ownOf base e d)) ((typeNames d).take 1)
+    emit <| writeCase base baseRecs b.id e (b.kept e (ownOf base e d)) ((typeNames d).take 1)
   for r in reductions do
     let n := `IE ++ r.id.toName
     let d ← liftTermElabM (r.decl n)
-    writeCase base baseRecs r.id (addOrHold add base base d) [n] [n]
-  for m in mutations do writeMutation add base baseRecs `IE.N cs m
-  for m in boolMutations do writeMutation add base baseRecs `IE.B bcs m
+    emit <| writeCase base baseRecs r.id (addOrHold add base base d) [n] [n]
+  for m in mutations do emit <| writeMutation add base baseRecs `IE.N cs m
+  for m in boolMutations do emit <| writeMutation add base baseRecs `IE.B bcs m
   for (blockId, ms) in blockReplays do
     let cs ← blockConstants base blockId
     let root := (cs.head?.map (·.name)).getD .anonymous
-    for m in ms do writeMutation add base baseRecs root cs m
-  for m in nestedMutations do writeMutation add base baseRecs `IE.Tree ncs m
-  for s in sequels bRec.type do writeSequel add base baseRecs bcs s
+    for m in ms do emit <| writeMutation add base baseRecs root cs m
+  for m in nestedMutations do emit <| writeMutation add base baseRecs `IE.Tree ncs m
+  for s in sequels bRec.type do emit <| writeSequel add base baseRecs bcs s
   for s in stripped do
     let (kept, _, r) ← strippedStart base s
-    writeStripped add base baseRecs kept r s
+    emit <| writeStripped add base baseRecs kept r s
   for l in lies do
     let (cs, _) ← lieStart base l
-    writeLie add base baseRecs cs l
+    emit <| writeLie add base baseRecs cs l
   for c in onBase do
-    writeSegments base baseRecs c.id (chainSegments add base base c.decls)
-  writeSegments base baseRecs twice.id (chainSegments add base base [twiceDecl, twiceDecl])
+    emit <| writeSegments base baseRecs c.id (chainSegments add base base c.decls)
+  emit <| writeSegments base baseRecs twice.id (chainSegments add base base [twiceDecl, twiceDecl])
   for c in chains ++ k7Chains ++ axiomChains ++ stringChains do
-    writeSegments empty {} c.id (chainSegments add base empty c.decls)
-  writeCase env0 (← recursorsOf env0) forgedId (forgedCs.foldl add env0)
+    emit <| writeSegments empty {} c.id (chainSegments add base empty c.decls)
+  emit <| writeCase env0 (← recursorsOf env0) forgedId (forgedCs.foldl add env0)
     (forgedCs.map (·.name)) [`Nat.add]
   let eqRecs ← recursorsOf envEq
   for m in quotMutations do
     let cs' := qcs.filterMap m.change
-    writeCase envEq eqRecs m.id (cs'.foldl add envEq) (cs'.map (·.name)) [`Quot, `IE.mkUse]
+    emit <| writeCase envEq eqRecs m.id (cs'.foldl add envEq) (cs'.map (·.name)) [`Quot, `IE.mkUse]
       (mdata := m.id == "replay-quot.mk-mdata-type")
-  for c in quotNameCases do writeQuotName add base c
-  writeCase envEq eqRecs flaggedId (flagged.foldl add envEq) (flagged.map (·.name))
+  for c in quotNameCases do emit <| writeQuotName add base c
+  emit <| writeCase envEq eqRecs flaggedId (flagged.foldl add envEq) (flagged.map (·.name))
     [`Iff, `propext]
-  for s in skips do writeSkipped add base baseRecs s
+  for s in skips do emit <| writeSkipped add base baseRecs s

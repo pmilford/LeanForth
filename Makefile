@@ -184,8 +184,21 @@ reference-export:
 # blocks, primitive names and quotients (ADR 0015): 118 kernel cases; the
 # exports of tests/reference/inductive/ reproduced byte for byte and staged
 # by the Forth importer.
-reference-inductive:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/reference/inductive-check.sh
+reference-inductive: inductive-expected-output
+	INDUCTIVE_EXPECTED_OUT=$(INDUCTIVE_OUT) LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) \
+	  bash tests/reference/inductive-check.sh
+
+# Pinned Lean runs inductive-expected.lean once per make: this target (it
+# always runs, as a test must) leaves the output where reference-inductive
+# and test-inductive-table read it, instead of each running Lean (27 s) again.
+# The two scripts run Lean themselves when INDUCTIVE_EXPECTED_OUT is not set.
+INDUCTIVE_OUT := $(CURDIR)/build/inductive-expected.out
+inductive-expected-output:
+	mkdir -p build
+	LEAN=$(LEAN) $(RUN) sh -c '"$$LEAN" -DwarningAsError=true \
+	  tests/reference/inductive-expected.lean >$(INDUCTIVE_OUT) 2>&1' \
+	  || { cat $(INDUCTIVE_OUT) >&2; echo 'Lean failed on inductive-expected.lean' >&2; exit 1; }
+.PHONY: inductive-expected-output
 
 # LeanForth against that table (plan task 5.2.1a; ADR 0015 §13, test plan
 # 1): every case as the export Lean printed for it, staged, fed and checked;
@@ -193,8 +206,9 @@ reference-inductive:
 # need Nat or unfolding, the outcome named in the script, with the reason),
 # every later task's row stays unsupported or unknown, or gives the table's
 # verdict, never another. Also part of test-differential.
-test-inductive-table:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/core/inductive-table.py
+test-inductive-table: inductive-expected-output
+	INDUCTIVE_EXPECTED_OUT=$(INDUCTIVE_OUT) LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) \
+	  python3 tests/core/inductive-table.py
 test-differential: test-inductive-table
 .PHONY: test-inductive-table
 
