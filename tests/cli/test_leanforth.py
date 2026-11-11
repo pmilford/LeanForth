@@ -570,6 +570,12 @@ class RunRecords(unittest.TestCase):
             self.assertEqual((got["input"]["manifest"]["enforced"],
                               golden["input"]["manifest"]["enforced"]), (True, False))
             golden["input"]["manifest"]["enforced"] = True
+            # The command line's default fuel is 2,000,000 (since
+            # 2026-11-10); the driver that wrote the golden records gives
+            # 100,000. Fuel used is the same either way.
+            self.assertEqual((got["settings"]["fuel"], golden["settings"]["fuel"]),
+                             (2000000, 100000))
+            golden["settings"]["fuel"] = 2000000
             for section in ["input", "export", "settings", "check", "declarations"]:
                 self.assertEqual(got[section], golden[section], f"{name} {section}")
 
@@ -1130,11 +1136,11 @@ class Resources(unittest.TestCase):
         self.assertEqual(rest[6], "  engine: " + os.path.basename(GFORTH))
         self.assertEqual(rest[7:], [
             "  input: 6 declarations, 46 term nodes, 3 levels, 5 constant references, 31 names",
-            "  fuel: 1039 steps in all, at most 100000 per declaration",
+            "  fuel: 1039 steps in all, at most 2000000 per declaration",
             "  most fuel used:",
-            "       496 Two.cases (accepted)",
-            "       336 Two (accepted)",
-            "       207 Two.swap (accepted)"])
+            "        496 Two.cases (accepted)",
+            "        336 Two (accepted)",
+            "        207 Two.swap (accepted)"])
 
     def test_stable_but_for_time_and_memory(self):
         def steady(out):

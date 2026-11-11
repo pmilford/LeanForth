@@ -721,10 +721,10 @@ test-differential: reference-author
 # no longer found once); test-mutants, part of make test, tests the runner.
 MUTANTS_TIMEOUT ?= 3600
 mutants:
-	timeout $(MUTANTS_TIMEOUT) python3 scripts/mutants.py --gforth $(GFORTH)
+	LEAN=$(LEAN) timeout $(MUTANTS_TIMEOUT) python3 scripts/mutants.py --gforth $(GFORTH)
 
 mutants-quick:
-	$(RUN) python3 scripts/mutants.py --gforth $(GFORTH) --quick
+	LEAN=$(LEAN) $(RUN) python3 scripts/mutants.py --gforth $(GFORTH) --quick
 
 mutants-check:
 	$(RUN) python3 scripts/mutants.py --check
