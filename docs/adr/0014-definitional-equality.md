@@ -1595,8 +1595,10 @@ Lean-compared tables: the same verdicts). Planted faults: 16 new
 reaching the offset in each pass, a skipped free variable, abstract
 skipping, no lift at all, one stamp for every scope, has_fvar or
 has_loose_bvars misread, a loose count one short, a key failure dropped)
-and 7 stale ones re-targeted, all 23 caught. Checker trials (2,000 × 300):
-1,482 trials keep their outcome mix; the 518 that change move only
+and 7 stale ones re-targeted, all 23 caught. Checker trials (2,000 × 300;
+trial digest `902a42ce549d` → `670bff75d128`, as fuel is folded in; outcomes
+ok 1,166,038 → 1,168,012, exhausted 476,867 → 474,875, invalid +1,
+unknown +20, rejected −3): 1,482 trials keep their outcome mix; the 518 that change move only
 between *exhausted* and *ok* except 39, and in each of those 39 the first
 call that differs went from *exhausted* to *ok* (36) or *unknown* (3) on
 the same store, the rest following from the different store; no trial
@@ -1604,7 +1606,15 @@ has more *exhausted*. `Init`'s first 1M lines (`check --fast
 --no-manifest`, default fuel): 8,672 → 8,695 accepted, 518 → 501 unknown,
 12 → 6 exhausted, every move to *accepted* (Lean's verdict); fuel
 202,224,048 → 161,723,424 (1,751 declarations use more, at most 8.6%
-more, 5,880 less); check CPU 163 → 159 s. INIT_RESULTS.
+more, 5,880 less); check CPU 163 → 159 s. All of `Init` (`check --fast
+--no-manifest --resources`, default fuel): 54,556 → 55,587 accepted,
+4,703 → 3,735 unknown, 90 → 27 exhausted; 65 *exhausted* and 966
+*unknown* (a dependency out of fuel) are now accepted, Lean's verdict,
+and 2 that were *unknown* for a dependency now run themselves and run out
+of fuel (`Array.cons_lex_cons`'s private lemma, `Std.Iter.step_flatMapAfterM`);
+no other move; fuel 1,521,467,121 → 1,187,033,444 (8,864 declarations use
+more, at most 9% more, 41,923 less); check CPU 1,384 → 1,147 s; peak
+memory 1,280 → 1,098 MB.
 `_private.Init.Data.Array.Extract.0.Array.extract_append._proof_1_1`
 (blocks about 3,290 unknowns, agent DX): 21,299,931 → 15,767,375 fuel
 (cut of its dependencies, `--fuel 60000000`): 6.3 M of it is the
@@ -1612,7 +1622,8 @@ per-conversion audit (`lf-mcompare-roots`, plan row S6 (c)), and with the
 check's scratch room raised from 2^20 to 2^22 terms (`feed.fs`, not
 changed here) it needs 9.0 M: past about 786,000 scratch nodes the caches
 stop keeping (`lf-caches-keep?`), and its comparisons rise from about
-21,000 to 533,000. DEEP_RESULTS.
+21,000 to 533,000. `make test-depth-deep-differential` (six rows 10,000
+deep, fed; Lean's verdicts before and after): 162 s → 6.1 s.
 
 **Left.** The audits at every comparison and rebuild (S6 (c), agent S6C),
 `instantiate_lparams` per node (S6 (b)), Lean's == by hash (agent DX's
