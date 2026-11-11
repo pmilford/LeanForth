@@ -298,16 +298,18 @@ def main():
         got, why = row_outcome(case_id, own, result)
         want = OUTCOME.get(leanforth, leanforth)
         tally[(task in DONE_TASKS, got)] = tally.get((task in DONE_TASKS, got), 0) + 1
-        if task in DONE_TASKS:
+        if case_id in UNCLOSED:
+            # the importer's refusal stands whatever task the row has, a done
+            # one too (names.reserved-nested-prefix, task 5.2.5b), until 5.2.6
+            ok = got in ("invalid", "unsupported", "unknown", want)
+            print(f"unclosed {case_id}: {got} ({UNCLOSED[case_id]})")
+        elif task in DONE_TASKS:
             expected = PENDING.get(case_id, (want, ""))[0]
             ok = got == expected
             if case_id in PENDING and ok:
                 print(f"pending {case_id}: {got} ({PENDING[case_id][1]})")
         elif case_id in REQUIRED:
             ok = got == want
-        elif case_id in UNCLOSED:
-            ok = got in ("invalid", "unsupported", "unknown", want)
-            print(f"unclosed {case_id}: {got} ({UNCLOSED[case_id]})")
         elif case_id in GAPS:
             ok = got == GAPS[case_id][0]
             print(f"gap {case_id}: {got} ({GAPS[case_id][1]})")
@@ -324,7 +326,7 @@ def main():
     failures += stale_fixtures(cases)
     done = sum(n for (d, _), n in tally.items() if d)
     later = sum(n for (d, _), n in tally.items() if not d)
-    print(f"inductive-table: {len(cases)} cases; tasks 5.2.1a-b, 5.2.3, 5.2.5a rows {done}:",
+    print(f"inductive-table: {len(cases)} cases; tasks 5.2.1a-b, 5.2.3, 5.2.5a-b rows {done}:",
           ", ".join(f"{o} {n}" for (d, o), n in sorted(tally.items()) if d),
           f"(pending {len(PENDING)}); later tasks' rows {later}:",
           ", ".join(f"{o} {n}" for (d, o), n in sorted(tally.items()) if not d))
