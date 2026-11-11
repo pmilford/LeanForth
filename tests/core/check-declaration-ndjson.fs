@@ -133,6 +133,12 @@ T{ s" tests/core/reexport/kinds.ndjson" fed term-room unstage
 \ share nodes, so it may get more).
 T{ s" tests/reference/composition.ndjson" fed term-room feed-term-room < unstage
    -> outcome-ok false }T
+\ The room is a setting of the context (core/input.fs's lf-input-room!,
+\ compact-store plan step S5): 0, the default, lets a check's scratch
+\ grow up to feed-most; a limit set is the room each check gets.
+T{ feed-term-room feed-most = feed-most 1 31 lshift u< -> true true }T
+T{ 5000 lf-input-room! s" tests/core/reexport/kinds.ndjson" fed term-room unstage
+   0 lf-input-room! -> outcome-ok 5000 }T
 : fed-case ( c-addr u -- outcome code step ) fed-checked ok? must last-outcome env-done unstage ;
 T{ s" tests/core/check-declaration-cases/composition-wrong-argument.ndjson" fed-case
   -> outcome-rejected lf-diag-argument-apart 7 }T

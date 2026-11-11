@@ -7837,3 +7837,19 @@ old = '''  2dup utf8-valid? 0= if 2drop 0 0 outcome-invalid exit then
 new = '''  tuck lf-str-keep >r swap r> ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "S5: an input string literal of bytes that are no UTF-8 is kept, not refused as invalid"
+
+[[fault]]
+id = "s5-room-setting-ignored"
+file = "src/import/feed.fs"
+old = ''': feed-scratch ( -- n ) lf-input-room ?dup 0= if feed-most then ;'''
+new = ''': feed-scratch ( -- n ) feed-most ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5: the context's room setting is ignored, so a configured limit does not hold"
+
+[[fault]]
+id = "s5-room-fixed"
+file = "src/import/feed.fs"
+old = ''': feed-scratch ( -- n ) lf-input-room ?dup 0= if feed-most then ;'''
+new = ''': feed-scratch ( -- n ) lf-input-room ?dup 0= if 1048576 then ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5: with no setting the scratch room stays fixed (1,048,576 term nodes) instead of growing"

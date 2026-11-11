@@ -12,12 +12,19 @@
 \ The context's scratch tier then points into the stage's input tier, so
 \ the stage must outlive the view: free it only after lf-name-detach, or
 \ after the context is freed.
-\ Levels, expressions and declarations are copied into the context's
+\ The expressions are read in place by default (compact-store plan step
+\ S5; see "In place" below): the stage's tier is the term store's input
+\ view (core/terms.fs), so an expression's term is the input node of its
+\ own number, and only the kinds the view does not read (a let, a
+\ projection, an mdata expression) and every node above one are copied;
+\ lf-name-detach ends that view too. The copy of every expression, the
+\ way before, stays behind a switch of each context (lf-feed-copy!), used
+\ when the two are compared, and for a feed with a binder hook (the print
+\ command's table of binder names is a column of the term store).
+\ Levels and declarations, and copied expressions, go into the context's
 \ stores, whose capacities lf-feed raises to fit the stage plus room for
 \ the checks' scratch (the term store's once more after the expressions, for
-\ the nodes of lets and projections: feed-room): the checker reads terms through handles and
-\ identities, which the input tier does not have (ADR 0016 C9 step 3
-\ keeps them until the environment's handles replace them). Copied as
+\ the nodes of lets and projections: feed-room). Copied as
 \ ndjson-input.fs (tests/support) stages a file: a Sort as a symbolic
 \ Sort, a constant through its reference, a projection as its leaf
 \ applied to its structure term (core/projections.fs; plan task 5.2.2),
@@ -53,7 +60,8 @@
 \
 \ State: none of its own; every word takes a feed record (/feed), which
 \ owns its heap blocks (the export-to-store maps, zeroed, so that an
-\ entry never set is no handle) only during lf-feed.
+\ entry never set is no handle; in place a bit per expression and the
+\ list of copies) only during lf-feed. The switch is core/input.fs's.
 
 require ../lib/bytes.fs
 require ../core/compact.fs
@@ -66,10 +74,18 @@ require ../core/string-literals.fs
 require ../core/projections.fs
 require ./stage.fs
 
-\ Room for the checks' scratch above the input, in each store.
-1048576 constant feed-term-room
-65536 constant feed-level-room
-262144 constant feed-cref-room
+\ Room for the checks' scratch above the input, in each store (plan task
+\ 6.2.2; compact-store plan step S5): the context's setting
+\ (core/input.fs's lf-input-room!), or with none the most a store may
+\ hold, about 2^31 records, so that term numbers stay below 2^32 above an
+\ input of up to 2^31 nodes (fewer on a host whose cells address less).
+\ The block grows only as records are made. Before step S5 the rooms were
+\ fixed: 1,048,576 term nodes, 65,536 levels, 262,144 references.
+: feed-most ( -- n ) max-n 256 / 1 31 lshift 1- min ;
+: feed-scratch ( -- n ) lf-input-room ?dup 0= if feed-most then ;
+: feed-term-room ( -- n ) feed-scratch ;
+: feed-level-room ( -- n ) feed-scratch ;
+: feed-cref-room ( -- n ) feed-scratch ;
 
 begin-structure /feed
   field: feed-stage        \ the sealed stage
@@ -120,21 +136,22 @@ end-structure
 : feed-decls# ( feed -- n ) feed-stage @ stage-decls ;
 begin-structure /feed-setting
   field: setting-records   \ xt ( feed -- n )
-  field: setting-room
+  field: setting-room      \ xt ( -- n )
   field: setting-get       \ xt ( -- n )
   field: setting-set       \ xt ( n -- outcome )
 end-structure
+: feed-no-room ( -- 0 ) 0 ;
 create feed-settings
-  ' feed-exprs# , feed-term-room , ' lf-term-capacity , ' lf-term-capacity! ,
-  ' feed-levels# , feed-level-room , ' lf-level-capacity , ' lf-level-capacity! ,
-  ' feed-exprs# , feed-cref-room , ' lf-cref-capacity , ' lf-cref-capacity! ,
-  ' feed-decls# , 0 , ' lf-input-capacity , ' lf-input-capacity! ,
+  ' feed-exprs# , ' feed-term-room , ' lf-term-capacity , ' lf-term-capacity! ,
+  ' feed-levels# , ' feed-level-room , ' lf-level-capacity , ' lf-level-capacity! ,
+  ' feed-exprs# , ' feed-cref-room , ' lf-cref-capacity , ' lf-cref-capacity! ,
+  ' feed-decls# , ' feed-no-room , ' lf-input-capacity , ' lf-input-capacity! ,
 here feed-settings - /feed-setting / constant feed-settings#
 \ Raise a setting to n, after an earlier ok; the first failure stays.
 : feed-raise ( outcome n get-xt set-xt -- outcome )
   >r execute max r> rot dup ok? if drop execute else nip nip then ;
 : feed-setting ( outcome feed row -- outcome )
-  >r r@ setting-records @ execute r@ setting-room @ +
+  >r r@ setting-records @ execute r@ setting-room @ execute +
   r@ setting-get @ r> setting-set @ feed-raise ;
 \ The term store's hash-consing table is sized for the stage's
 \ expressions too, so that feeding them never doubles it (compact-store

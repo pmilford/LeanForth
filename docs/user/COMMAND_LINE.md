@@ -484,9 +484,13 @@ Since part (c) of plan task 6.2.0 (2026-11-04) nothing in a check has a
 fixed number any more: a declaration's dependencies, the environment's
 dependency pool and an inductive block's constructors grow with the heap,
 like its terms and its depth. A check is *full* only when the heap
-refuses, or when it needs more than its scratch above the input (1,048,576
-term nodes, 65,536 levels and 262,144 constant references, plan task
-6.2.2), as the note after the summary then says. The same build with
+refuses, or when it needs more than its scratch above the input, as the
+note after the summary then says. That scratch grows since step S5 of the
+compact-store plan (2026-11-11; plan task 6.2.2), up to about 2^31 term
+nodes, levels and constant references each, or the limit a context sets
+with the Forth word `lf-input-room!` (`src/core/input.fs`); before, it
+was fixed at 1,048,576 term nodes, 65,536 levels and 262,144 constant
+references. The same build with
 part (c), checked with `--resources --json` and `gforth-fast`, gave
 2,503 accepted, 5,083 *unknown*, 51,583 *unsupported*, 180 *exhausted*
 and none *full*: of the 31 declarations above that ended *full*, 27 are
@@ -948,13 +952,14 @@ not yet supported (check answers unsupported or unknown, exit 2):
   check --record and replay (the old reader) refuse inductive types, and
   answer unsupported for let, literals, projections and metadata;
   the checker has not yet checked a Mathlib declaration
-  (0 of 729,263); the parallel job pool and the compact store are not
-  used by check (it stages the input, then copies it into its own stores)
+  (0 of 729,263); the parallel job pool is not used by check (it reads
+  the staged input in place, copying only lets, projections and the
+  terms above them, plan task 6.2.2)
 limits (check answers full or exhausted, exit 3):
   check: stores, walks and lists that grow with the export (memory), any
     depth and number of dependencies or constructors (plan task 6.2.0);
-    each check's scratch above the input: 1048576 term nodes, 65536 levels,
-    262144 constant references (plan task 6.2.2)
+    each check's scratch above the input grows, up to 2147483647
+    term nodes, levels and constant references each (plan task 6.2.2)
   check --record, replay: 64 names, 64 levels, 64 term nodes,
     32 declarations per export
   universe parameters per declaration and universe arguments per constant:

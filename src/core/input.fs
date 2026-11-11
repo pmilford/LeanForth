@@ -207,6 +207,15 @@ end-structure
 1 cells context-record: lf-input-copying
 : lf-input-copy! ( flag -- ) lf-input-copying ! ;
 : lf-input-copy? ( -- flag ) lf-input-copying @ ;
+\ The room each check gets above the input (plan task 6.2.2; compact-store
+\ plan step S5; import/feed.fs): the most term nodes, levels and constant
+\ references, each, that a check may make; 0, the default of a new
+\ context, sets no limit but memory's (and the 32-bit term numbers'), so a
+\ check's scratch grows as it needs and is full only when the heap
+\ refuses. A member of the checker context.
+1 cells context-record: lf-input-room-cell
+: lf-input-room! ( n -- ) lf-input-room-cell ! ;
+: lf-input-room ( -- n ) lf-input-room-cell @ ;
 
 \ The input stores, in the order of their marks.
 create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf-inputs ,
