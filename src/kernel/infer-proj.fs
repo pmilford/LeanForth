@@ -87,7 +87,8 @@ require ./whnf.fs
   dup lf-whnf-absent = if drop 2drop lf-iproj-unknown exit then
   dup 0< if 2drop lf-iproj-bad exit then
   dup lf-whnf-decl ok-then? 0= if nip nip nip no-result exit then
-  dup lf-idecl-kind @ lf-kind-inductive = if lf-iproj-fits else 2drop drop lf-iproj-bad then ;
+  dup lf-idecl-kind @ lf-kind-inductive =
+  if lf-iproj-fits else 2drop drop lf-iproj-bad then ;
 : lf-iproj-named? ( leaf const -- flag )
   lf-whnf-cref lf-crec-name @ swap lf-proj-name lf-name-same? ;
 \ Lean's env().get (259): no such constant is unknownConstant, the

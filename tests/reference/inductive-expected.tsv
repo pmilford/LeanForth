@@ -152,8 +152,6 @@ lit.pow-direct	accepted	accepted	L1	5.2.3
 lit.pow-direct-wrong	declTypeMismatch	rejected	L1	5.2.3	
 lit.pow-count-too-big	natCountTooBig	rejected	L1	5.2.3	
 lit.pow-count-limit	accepted	accepted	L1	5.2.3	
-lit.pow-multi-limb-base	accepted	accepted	L1	5.2.3	
-lit.pow-multi-limb-base-wrong	declTypeMismatch	rejected	L1	5.2.3	
 lit.string-expansion	accepted	accepted	L4	5.2.3	
 lit.string-expansion-wrong	declTypeMismatch	rejected	L4	5.2.3	
 replay.original	accepted	accepted	A1 B3	5.2.1b	
@@ -270,6 +268,8 @@ lie.recursive-said-not-then-iota	declTypeMismatch	rejected	B4 R3	5.2.2
 lit.free-variable-pow-refused	natCountTooBig	rejected	L1	5.2.3	
 lit.free-variable-pow	accepted	accepted	L1	5.2.3	
 lit.free-variable-shift-refused	natCountTooBig	rejected	L1	5.2.3	
+lit.pow-multi-limb-base	accepted	accepted	L1	5.2.3	
+lit.pow-multi-limb-base-wrong	declTypeMismatch	rejected	L1	5.2.3	
 cache.universe-arguments-differ	declTypeMismatch	rejected	Q10	4.2.7	
 cache.universe-arguments-differ-twin	accepted	accepted	Q10	4.2.7	
 cache.projection-index-differs	appTypeMismatch	rejected	Q10 J1	4.2.7	

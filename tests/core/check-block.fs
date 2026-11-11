@@ -361,7 +361,8 @@ T{ s" lit.pow-multi-limb-base-wrong" used -> outcome-rejected lf-diag-value-apar
 \ recursive no structure: rejected, as with the true file; a unit type
 \ said indexed, and a structure said recursive, still are: accepted.
 T{ s" lie.indexed-then-unit-like" used -> outcome-rejected lf-diag-value-apart }T
-T{ s" lie.indexed-said-unindexed-then-unit-like" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" lie.indexed-said-unindexed-then-unit-like" used
+   -> outcome-rejected lf-diag-value-apart }T
 T{ s" lie.unit-said-indexed-then-unit-like" used -> outcome-ok 0 }T
 T{ s" lie.recursive-then-eta" used -> outcome-rejected lf-diag-value-apart }T
 T{ s" lie.recursive-said-not-then-eta" used -> outcome-rejected lf-diag-value-apart }T

@@ -95,7 +95,8 @@ require ../core/terms.fs
 \ (about 4m, and a few cells per level), so about 9m, 4.5 cells per
 \ result limb; shiftLeft needs the result and the operands (review rvCONV
 \ M1: 4 cells per limb left a 12,800-bit power full).
-: lf-rn-operand-cells ( a b -- a b cells ) over lf-term-second@ over lf-term-second@ + 2* ;
+: lf-rn-operand-cells ( a b -- a b cells )
+  over lf-term-second@ over lf-term-second@ + 2* ;
 : lf-rn-sized ( a b op bits -- node outcome )
   limb-bits / 1+ 6 * >r >r lf-rn-operand-cells r> swap r> + 4096 +
   ['] lf-rn-literal lf-rn-in-arena ;

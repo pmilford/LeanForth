@@ -811,20 +811,6 @@ def reductions : List Red := [
     lean := "natCountTooBig", leanforth := "rejected", rule := "L1", task := "5.2.3" },
   { id := "lit.pow-count-limit", type := "Nat.pow 1 4294967295 = 1", value := "Eq.refl 1",
     lean := "accepted", leanforth := "accepted", rule := "L1", task := "5.2.3" },
-  -- Review rvCONV M1: a power of a three-limb base, 12,800 bits, which LeanForth's scratch
-  -- estimate once left full, against the product of two halves.
-  { id := "lit.pow-multi-limb-base",
-    type := "Nat.pow 340282366920938463463374607431768223801 100 = " ++
-      "Nat.mul (Nat.pow 340282366920938463463374607431768223801 50) " ++
-      "(Nat.pow 340282366920938463463374607431768223801 50)",
-    value := "Eq.refl (Nat.pow 340282366920938463463374607431768223801 100)",
-    lean := "accepted", leanforth := "accepted", rule := "L1", task := "5.2.3" },
-  { id := "lit.pow-multi-limb-base-wrong",
-    type := "Nat.pow 340282366920938463463374607431768223801 100 = " ++
-      "Nat.mul (Nat.pow 340282366920938463463374607431768223801 50) " ++
-      "(Nat.pow 340282366920938463463374607431768223801 49)",
-    value := "Eq.refl (Nat.pow 340282366920938463463374607431768223801 100)",
-    lean := "declTypeMismatch", leanforth := "rejected", rule := "L1", task := "5.2.3" },
   { id := "lit.string-expansion", type := "\"ab\" = String.ofList ['a', 'b']",
     value := "Eq.refl \"ab\"",
     lean := "accepted", leanforth := "accepted", rule := "L4", task := "5.2.3" },
@@ -1405,6 +1391,15 @@ def underVar (n : Name) (z s : Expr) (op : Name) (a b : Nat) : Declaration :=
              value := .lam `x nat (mkConst `True.intro) .default }
 def trueC : Expr := mkConst `True
 def falseC : Expr := mkConst `False
+/-- `theorem n : Nat.pow a 100 = Nat.mul (Nat.pow a 50) (Nat.pow a e) := Eq.refl _`, `a`
+the three-limb `2^128 + 12345`: a 12,800-bit power, which LeanForth's scratch estimate
+once left full (review rvCONV M1), against the product of two halves. Built as terms,
+not elaborated, so the other rows' hygienic names stay as they were. -/
+def powHalves (n : Name) (e : Nat) : Declaration :=
+  let pw (k : Nat) : Expr := mkAppN (.const `Nat.pow []) #[lit 340282366920938463463374607431768223801, lit k]
+  .thmDecl { name := n, levelParams := [],
+             type := eqC 1 nat (pw 100) (mkAppN (.const `Nat.mul []) #[pw 50, pw e]),
+             value := reflC 1 nat (pw 100) }
 
 /-- `def n : t := (fun _ : PUnit.{1} => PUnit.{2}) PUnit.unit.{1}`, whose value is a
 `Type 1` (review rvCACHE: a result cache keyed without universe arguments would take
@@ -1435,6 +1430,10 @@ def onBase : List Chain := [
   { id := "lit.free-variable-shift-refused",
     decls := [underVar `IE.shlBig falseC trueC `Nat.shiftLeft 2 4294967296],
     lean := "natCountTooBig", leanforth := "rejected", rule := "L1", task := "5.2.3" },
+  { id := "lit.pow-multi-limb-base", decls := [powHalves `IE.powHalves 50],
+    lean := "accepted", leanforth := "accepted", rule := "L1", task := "5.2.3" },
+  { id := "lit.pow-multi-limb-base-wrong", decls := [powHalves `IE.powHalvesWrong 49],
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "L1", task := "5.2.3" },
   { id := "cache.universe-arguments-differ", decls := [punitPick `IE.badType (.sort 1)],
     lean := "declTypeMismatch", leanforth := "rejected", rule := "Q10", task := "4.2.7" },
   { id := "cache.universe-arguments-differ-twin", decls := [punitPick `IE.goodType (.sort 2)],
