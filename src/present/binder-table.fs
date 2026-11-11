@@ -51,7 +51,9 @@ end-structure
 /slab context-record: lf-pres-terms
 /lf-pterm ' lf-pres-terms lf-term-columns column-add
 
-: lf-pres-entry ( term -- entry ) lf-pres-terms column-at ;
+\ A store record's entry (the column covers the term store's own records,
+\ which follow the input nodes of a view, core/terms.fs).
+: lf-pres-entry ( term -- entry ) lf-term-base - lf-pres-terms column-at ;
 : lf-pres-decl ( i -- decl ) /lf-pdecl * lf-pres lf-pres-decls + ;
 \ The number of declaration records, clamped into range so that a
 \ corrupted count can never address outside the table.
@@ -62,16 +64,19 @@ end-structure
 
 \ Term entries. A live term's entry is claimed for it: an entry stamped for
 \ an earlier term at the same index is cleared first. Term identities start
-\ at 1, so an empty entry never matches.
+\ at 1, so an empty entry never matches. An input node of a view has no
+\ entry: its record holds its binder's name and kind (lf-pres-binder@).
 : lf-pres-blank ( identity entry -- )
   dup /lf-pterm erase -1 over lf-pterm-name ! -1 over lf-pterm-source ! lf-pterm-identity
   ! ;
+: lf-pres-live ( term -- identity true | false )
+  dup lf-term-input? if drop false else lf-term-identity then ;
 : lf-pres-claim ( term -- entry true | false )
-  dup lf-term-identity 0= if drop false exit then
+  dup lf-pres-live 0= if drop false exit then
   swap lf-pres-entry 2dup lf-pterm-identity @ = if nip else tuck lf-pres-blank then true ;
 \ The entry of a live term, only when it was recorded for that term.
 : lf-pres-current ( term -- entry true | false )
-  dup lf-term-identity 0= if drop false exit then
+  dup lf-pres-live 0= if drop false exit then
   swap lf-pres-entry tuck lf-pterm-identity @ = dup 0= if nip then ;
 : lf-pres-known ( n -- n true | false ) dup 0< if drop false else true then ;
 
@@ -92,10 +97,16 @@ end-structure
   2dup lf-pres-naming? if rot lf-pres-binder-to else 2drop drop-invalid then ;
 
 \ A binder's name ID and kind, when recorded for this term and the name is
-\ still live in the same name-store generation.
+\ still live in the same name-store generation; for an input binder of a
+\ view, read from its record (compact-store plan step S5; terms.fs's
+\ lf-term-input-binder@), when the name is valid.
 : lf-pres-name-live? ( entry -- flag )
   dup lf-pterm-names @ lf-name-generation @ = swap lf-pterm-name @ lf-name-valid? and ;
+: lf-pres-input-binder@ ( term -- name kind true | false )
+  lf-term-input-binder@ 0= if false exit then
+  over lf-name-valid? if true else 2drop false then ;
 : lf-pres-binder@ ( term -- name kind true | false )
+  dup lf-term-input? if lf-pres-input-binder@ exit then
   lf-pres-current 0= if false exit then
   dup lf-pres-name-live?
   if dup lf-pterm-name @ swap lf-pterm-kind @ true else drop false then ;

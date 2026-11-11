@@ -5639,10 +5639,10 @@ reason = "5.2.3 L2: iota leaves a string literal major premise stuck; primitive.
 [[fault]]
 id = "str-feed-refused"
 file = "src/import/feed.fs"
-old = '''    tag-str of feed-str endof'''
-new = ''''''
-test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py BothWays"
-reason = "5.2.3 strings: the copying feed (behind its switch since S5) refuses a string literal as invalid, so kinds.ndjson's report differs from the one read in place"
+old = '''    tag-nat of feed-nat-leaf endof  tag-str of feed-str-leaf endof'''
+new = '''    tag-nat of feed-nat-leaf endof'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py AsCopied"
+reason = "5.2.3 strings, S5B: the feed refuses a string literal as invalid (the copying feed's string case is gone with the copy), so kinds.ndjson's report differs from the one pinned"
 
 [[fault]]
 id = "s5-feed-str-leaf-refused"
@@ -6370,11 +6370,10 @@ reason = "rvCACHE L2: a node inference refuses as no source node gets a cached t
 [[fault]]
 id = "feed-room-not-raised"
 file = "src/import/feed.fs"
-old = '''  lf-term-count @ feed-term-room + swap feed-placing @ 0= if lf-term-capacity max then
-  lf-term-capacity! ;'''
-new = '''  drop outcome-ok ;'''
+old = ''': feed-room ( feed -- outcome ) drop lf-term-count @ feed-term-room + lf-term-capacity! ;'''
+new = ''': feed-room ( feed -- outcome ) drop outcome-ok ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
-reason = "rvKC M1: the nodes of lets and projections eat the checks' term room"
+reason = "rvKC M1, S5B: the term store's capacity is not set to the copies plus the checks' room"
 
 # --- unsafe and partial declarations, skipped as Lean's replay skips them
 # (plan task 5.2.7) ---------------------------------------------------------
@@ -7746,7 +7745,7 @@ id = "s5-input-marks-spare"
 file = "src/core/constant-term-boundary.fs"
 old = '''  dup lf-term-input? if lf-input-mark-at exit then'''
 new = '''  dup lf-term-input? if drop lf-mark-spare dup 2 cells erase exit then'''
-test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py BothWays"
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py AsCopied"
 reason = "S5: input nodes keep no audit marks, so each audit walks them again (more fuel than copying)"
 
 [[fault]]
@@ -7784,18 +7783,18 @@ reason = "S5: a copied expression's term is looked up wrongly"
 [[fault]]
 id = "s5-feed-room-in-place"
 file = "src/import/feed.fs"
-old = '''  lf-term-count @ feed-term-room + swap feed-placing @ 0= if lf-term-capacity max then'''
-new = '''  lf-term-count @ feed-term-room + swap drop lf-term-capacity max'''
+old = ''': feed-room ( feed -- outcome ) drop lf-term-count @ feed-term-room + lf-term-capacity! ;'''
+new = ''': feed-room ( feed -- outcome ) drop lf-term-count @ feed-term-room + lf-term-capacity max lf-term-capacity! ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
-reason = "S5: in place a check gets more term room than when copying (the capacity was raised for every expression)"
+reason = "S5: a check gets more term room than the setting (the capacity raised for every expression stays)"
 
 [[fault]]
-id = "s5-feed-always-copies"
-file = "src/import/feed.fs"
-old = '''  dup feed-binder-hook @ 0= lf-feed-copy? 0= and swap feed-placing ! ;'''
-new = '''  false swap feed-placing ! drop ;'''
-test = "$GFORTH tests/core/check-declaration-ndjson.fs"
-reason = "S5: the switch is ignored: every feed copies"
+id = "s5b-print-input-binders-unnamed"
+file = "src/present/binder-table.fs"
+old = '''  dup lf-term-input? if lf-pres-input-binder@ exit then'''
+new = '''  dup lf-term-input? if drop false exit then'''
+test = "python3 tests/cli/test_leanforth.py Print"
+reason = "S5B (was s5-feed-always-copies; the full copy is gone): the printer finds no name for a binder read in place"
 
 [[fault]]
 id = "s5-store-back-levels-plain"
@@ -8001,7 +8000,7 @@ id = "s5b-view-proj-leaf-unshared"
 file = "src/import/feed.fs"
 old = '''  over >r feed-proj-fields 2dup lf-tag-proj -rot lf-tin-leaf-find'''
 new = '''  over >r feed-proj-fields 2dup lf-tag-proj -rot 2drop drop false'''
-test = "python3 tests/cli/test_leanforth.py BothWays"
+test = "python3 tests/cli/test_leanforth.py AsCopied"
 reason = "S5B: every input projection has a leaf of its own, so equal leaves are two nodes (more fuel in place than copied)"
 
 [[fault]]
@@ -8009,7 +8008,7 @@ id = "s5b-view-leaf-units-spared"
 file = "src/core/terms.fs"
 old = '''  lf-tin-leaf# if lf-term-input-records + true else false then ;'''
 new = '''  drop false ;'''
-test = "python3 tests/cli/test_leanforth.py BothWays"
+test = "python3 tests/cli/test_leanforth.py AsCopied"
 reason = "S5B: a projection's leaf has no audit unit, so it is audited again under each projection (more fuel in place)"
 
 [[fault]]
@@ -8017,7 +8016,7 @@ id = "s5b-view-grown-skipped"
 file = "src/import/feed.fs"
 old = '''  dup ok? if drop lf-term-view-grown then ;'''
 new = ''' ;'''
-test = "python3 tests/cli/test_leanforth.py BothWays"
+test = "python3 tests/cli/test_leanforth.py AsCopied"
 reason = "S5B: the audit's units are not grown for the leaves the feed entered, so those leaves are audited again (more fuel in place)"
 
 [[fault]]

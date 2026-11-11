@@ -310,6 +310,18 @@ create lf-tfields-hooks /htab-hooks allot
 : lf-tin-second@ ( index -- second )
   dup lf-tin-code dup lf-tin-plain?
   if drop lf-tin-at quad-b u32@ lf-tin-child else lf-tin-other@ nip then ;
+\ The binder name and information (0 explicit .. 3 instance implicit) of
+\ an input lambda or Pi, from its record (C1 keeps them for printing; the
+\ checker's rules ignore them); a let's lambda has the let's name and is
+\ explicit. False for any other number. Unchecked: the view is attached.
+: lf-tin-head ( index -- head ) lf-tin-at quad-head u32@ ;
+: lf-tin-binder-kind ( head -- name kind ) dup head-payload swap head-tag tag-lam - 3 and ;
+: lf-term-input-binder@ ( index -- name kind true | false )
+  dup lf-term-input? 0= if drop false exit then
+  dup lf-tin-code lf-tin-modes and lf-tin-let-lam =
+  if lf-tin-head head-payload 0 true exit then
+  dup 1 and if lf-tin-head dup head-tag binder-tag? else 0 then
+  if lf-tin-binder-kind true else drop false then ;
 \ The entry number of an input leaf node, or false.
 : lf-tin-leaf# ( index -- n true | false )
   dup hash-fmix lf-term-view lf-tview-nodes htab-find dup 0= if nip then ;

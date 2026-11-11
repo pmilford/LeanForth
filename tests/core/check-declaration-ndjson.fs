@@ -299,14 +299,16 @@ T{ first-proj proj-parts drop dup lf-term-tag@ swap lf-term-second@ -> lf-tag-pr
 T{ first-proj proj-parts lf-tag-projection lf-term-binary -> first-proj true }T
 T{ first-proj lf-proj-struct 0 0 lf-proj-of ok? swap lf-term-base >= -> true true }T
 unstage
-\ The switch: copied, as before the view, no input node; a binder hook
-\ (the print command's) copies too.
-T{ true lf-feed-copy! s" tests/reference/composition.ndjson" fed lf-term-viewed?
-   lf-term-count @ 21 >= -> outcome-ok false true }T
-unstage false lf-feed-copy!
-:noname ( term name kind -- ) 2drop drop ; constant no-binders
-T{ s" tests/reference/composition.ndjson" staged stg fdd no-binders 0 lf-feed-hooked
-   lf-term-viewed? -> outcome-ok false }T
+\ A feed with a binder hook (the print command's) reads in place too
+\ (step S5, parts 4-5): the hook is called for no input binder, whose
+\ record keeps its name and kind: composition's term 31, its expression
+\ 15, an explicit lambda named "value" (lf-term-input-binder@).
+variable hooked   0 hooked !
+:noname ( term name kind -- ) 2drop drop 1 hooked +! ; constant count-binders
+T{ s" tests/reference/composition.ndjson" staged stg fdd count-binders 0 lf-feed-hooked
+   lf-term-viewed? lf-term-count @ hooked @ -> outcome-ok true 0 0 }T
+T{ 31 lf-term-input-binder@ rot lf-name-text s" value" compare 30 lf-term-input-binder@
+   1 lf-term-input-binder@ -> 0 true 0 false false }T
 unstage
 \ The fields the feed gives an input literal (core/literals.fs,
 \ core/string-literals.fs): no node made, the limbs or bytes kept in the
@@ -318,19 +320,18 @@ create bad-utf8 255 c,
 T{ bad-utf8 1 lf-str-fields nip nip s" ab" lf-str-fields rot drop
    -> outcome-invalid 2 outcome-ok }T
 \ A let's lambda and the input lambda of the same type and body that
-\ comes later in the file: one node when copied, and since step S5's
-\ parts 4-5 two input nodes in place (the let's lambda is read in place
-\ from the let's records), equal under Lean's ==: def withLet : Sort 1 :=
-\ let x : Sort 1 := Sort 0; x, then def idSort : Sort 1 -> Sort 1 :=
-\ fun x : Sort 1 => x. A lambda made equal to both is the first entered,
-\ the let's.
+\ comes later in the file: one node when every expression was copied (the
+\ way before step S5's parts 4-5), two input nodes read in place (the
+\ let's lambda is read from the let's records), equal under Lean's ==:
+\ def withLet : Sort 1 := let x : Sort 1 := Sort 0; x, then def idSort :
+\ Sort 1 -> Sort 1 := fun x : Sort 1 => x. A lambda made equal to both is
+\ the first entered, the let's.
 : let-lam-file ( -- c-addr u ) s" tests/core/check-declaration-cases/let-lambda.ndjson" ;
 : lams ( -- let-lam input-lam )
   0 lf-input-decl lf-idecl-value @ lf-let-binder 1 lf-input-decl lf-idecl-value @ ;
 T{ let-lam-file fed lams 2dup = -rot 1000 lf-expr-equal ok? -> outcome-ok false true true }T
 T{ lams drop dup lf-term-first@ swap lf-term-second@ lf-term-lam swap lams drop = -> true true }T
 unstage
-T{ true lf-feed-copy! let-lam-file fed lams = unstage false lf-feed-copy! -> outcome-ok true }T
 T{ let-lam-file fed-checked verdicts unstage -> outcome-ok 2 true }T
 \ An mdata expression and every node above it are copied, the rest read
 \ in place: in stage-cases/marks.ndjson an mdata, an application and a
