@@ -148,7 +148,7 @@ file = "src/kernel/env-signature.fs"
 old = '''  lf-envsig-deciding? if dup lf-env-depend else outcome-ok then ;'''
 new = '''  dup lf-env-depend ;'''
 test = "$GFORTH tests/core/check-declaration.fs"
-reason = "CD: inference run aside (rejection test P2) records the constants it meets as dependencies: in case aside-deps, P2 meets a 17th, the dependencies are full and the rejection Lean's kernel makes stays unknown"
+reason = "CD: inference run aside (rejection test P2) records the constants it meets as dependencies: in case aside-deps-app, P2 types the application K B aside and meets K, which then counts as a third dependency of the rejected bad (dependencies hold no room limit now, so the old aside-deps case shows nothing)"
 
 [[fault]]
 id = "cd-uses-unaccepted"
@@ -1001,8 +1001,8 @@ id = "conv-keeps-fuel"
 file = "src/kernel/mixed-convert.fs"
 old = '''  false lf-mconvert-keep ! lf-mconvert-checked ;'''
 new = '''  true lf-mconvert-keep ! lf-mconvert-checked ;'''
-test = "$GFORTH tests/core/definite-rejection.fs"
-reason = "lf-mixed-convert keeps the fuel of an undecided level comparison, as only the keeping variant may"
+test = "$GFORTH tests/core/mixed-convert.fs"
+reason = "lf-mixed-convert keeps the fuel of an undecided comparison, as only the keeping variant may; the unknown comparison 0 = 3 of tests/core/mixed-convert.fs is left with fuel"
 
 # --- Lean's whnf and is_def_eq (plan tasks 4.2.2b-c, ADR 0014 Q3-Q5;
 # src/kernel/whnf.fs, defeq.fs, and their use in mixed-infer.fs)
@@ -4854,6 +4854,7 @@ old = '''  lf-rcr-frames frame-fuel @ lf-ind-fuel ! dup ok? if drop else nip lf-
 new = '''  lf-rcr-frames frame-fuel @ lf-ind-fuel ! drop ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvN1 L2: a refused allocation in the builder's whnf ignored; the refusal test (part 5) finds the block not full"
+equivalent = "the builder's whnf only revisits fields positivity already put in whnf, so it allocates no new term (none in 13 ind.* cases: no refused allocation reaches it, part 5 sweeps) and a fuel exhaustion in it ends the block exhausted either way (identical outcomes for every budget 0-1499 on 11 recursive cases); found by a sweep, not proved"
 
 [[fault]]
 id = "rv-positivity-whnf-failure-ignored"

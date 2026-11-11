@@ -398,13 +398,12 @@ fc-decl check thm safe cites 0 TYPE P S z P V 0 V 1 VALUE L S z L V 0 A A C fixt
   check-run lf-env-view ok? must 0 slot-deps nip 1 slot-deps nip 2 deps@
   2 lf-env-axioms ok? must env-done ;
 T{ dependencies -> 0 1 0 1 2 0 }T
-\ Inference run aside (rule P2, in the search for a rejection) records no
-\ dependency. bad : (fun _ : Prop => Prop) D := f, with f : B -> B and
-\ D = c0 -> ... -> c14 (each : Prop := forall p, p), records D's 15
-\ constants and f, the 16 a check may hold; P2 then infers the type of
-\ B -> B aside and meets B. Were B recorded, the dependencies would be
-\ full, P2 would fail and the check stay unknown. Lean's kernel rejects
-\ it (declTypeMismatch).
+\ A rejection records the dependencies its check met. bad : (fun _ : Prop
+\ => Prop) D := f, with f : B -> B and D = c0 -> ... -> c14 (each : Prop :=
+\ forall p, p), meets D's 15 constants and f (16; once the most a check
+\ could hold). Lean's kernel rejects it (declTypeMismatch). A Pi is never
+\ typed by P2 (it cannot be a proof), so B stays unmet; see aside-deps-app
+\ for inference run aside.
 fc-case aside-deps
 fc-decl before def safe B 0 TYPE S z VALUE P S z V 0
 fc-decl before def safe c0 0 TYPE S z VALUE P S z V 0
@@ -424,7 +423,28 @@ fc-decl before def safe c13 0 TYPE S z VALUE P S z V 0
 fc-decl before def safe c14 0 TYPE S z VALUE P S z V 0
 fc-decl before def safe f 0 TYPE P C B 0 C B 0 VALUE L C B 0 V 0
 fc-decl check def safe bad 0 TYPE A L S z S z P C c0 0 P C c1 0 P C c2 0 P C c3 0 P C c4 0 P C c5 0 P C c6 0 P C c7 0 P C c8 0 P C c9 0 P C c10 0 P C c11 0 P C c12 0 P C c13 0 C c14 0 VALUE C f 0
-T{ check-last -> outcome-rejected lf-diag-value-apart compare-step }T
+\ The dependencies have no room limit of their own now (they grow in the
+\ heap), so a rejection no longer shows an extra dependency by itself: the
+\ candidate's dependency count when the last check ends does.
+variable last-dep-count
+: counting-check ( ... ) lf-check-declaration lf-cand-count@ last-dep-count ! ;
+: check-counting ( -- outcome code step count )
+  lf-input-end ok? must 64 lf-env-new ok? must dup the-env ! lf-env-use ok? must
+  ['] counting-check ['] fc-no-maker lf-env-run ok? must
+  last-result last-dep-count @ env-done ;
+T{ check-counting -> outcome-rejected lf-diag-value-apart compare-step 16 }T
+\ Where P2 meets a constant by the type of an application (a Pi or a Sort
+\ is not typed: it cannot be a proof): bad : Prop := G u, G : Prop -> Prop,
+\ u : K B an axiom, K : Prop -> Prop, B : Prop. Lean rejects it (the
+\ argument's type K B is not Prop; appTypeMismatch). P2 infers K B aside
+\ and meets K, which is no dependency of bad: G and u only.
+fc-case aside-deps-app
+fc-decl before def safe B 0 TYPE S z VALUE P S z V 0
+fc-decl before def safe K 0 TYPE P S z S z VALUE L S z V 0
+fc-decl before ax safe u 0 TYPE A C K 0 C B 0 VALUE none
+fc-decl before def safe G 0 TYPE P S z S z VALUE L S z V 0
+fc-decl check def safe bad 0 TYPE S z VALUE A C G 0 C u 0
+T{ check-counting -> outcome-rejected lf-diag-argument-apart value-step 2 }T
 
 \ The input is unchanged by every check: its fingerprint, computed again,
 \ is the one recorded when loading ended.
