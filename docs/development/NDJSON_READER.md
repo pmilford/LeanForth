@@ -812,10 +812,13 @@ context attaches the tier as its names (`lf-name-attach`), so a name's ID
 is its number in the stage, and the environment finds a name's
 declarations through the input's name index (ADR 0012 E5, ADR 0016 C4;
 `tests/core/check-declaration-ndjson.fs` checks every lookup of the
-fixtures against the scan). Levels, expressions and declarations are
-copied into the context's stores, whose capacity settings the feed raises
-to fit (never lowers): the checker reads terms through handles and
-identities, which the input tier does not keep. An inductive block gives
+fixtures against the scan). The expressions are read in place since
+compact-store plan step S5 (the term store's input view,
+`src/core/terms.fs`; ADR 0016's note): only a let, a projection, an mdata
+expression and the terms above one are copied, as are the levels and
+declarations, into the context's stores, whose capacity settings the
+feed raises to fit; the copy of every expression, the way before, stays
+behind `lf-feed-copy!`. An inductive block gives
 no declaration; its types, constructors and recursors do (refused by the
 audit, U1). Universe parameters join the session's level context first
 (at most 64: `Init` uses 62). Outcomes: ok; invalid for a stage that is
