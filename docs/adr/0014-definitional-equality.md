@@ -1628,7 +1628,8 @@ deep, fed; Lean's verdicts before and after): 162 s → 6.1 s.
 **Left.** The audits at every comparison and rebuild (S6 (c), agent S6C),
 `instantiate_lparams` per node (S6 (b)), Lean's == by hash (agent DX's
 finding 2), and the check's fixed scratch room above (a temporary gap:
-*exhausted* where Lean decides).
+*exhausted* where Lean decides; plan task 6.2.2 removes the fixed 2^20-term
+scratch room, as it does `feed-term-room`).
 
 ## Amendment 4: each node audited once per check (compact-store plan step S6 (c), agent S6C, 2026-11-11, proposed)
 

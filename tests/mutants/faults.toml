@@ -7604,6 +7604,14 @@ test = "$GFORTH tests/core/mixed-convert.fs"
 reason = "S4: == takes any two constants or Sorts as one"
 
 [[fault]]
+id = "fx9-mls-prepare-nip-nip"
+file = "src/kernel/mixed-level-substitute.fs"
+old = '''  dup lf-mls-actual-cells slab-hold ok-then? 0= if nip exit then'''
+new = '''  dup lf-mls-actual-cells slab-hold ok-then? 0= if nip nip exit then'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "rvS12 L2: a full heap in lf-mls-prepare leaves two cells (an index and an id) with the refusal"
+
+[[fault]]
 id = "s4-mls-closed-always"
 file = "src/kernel/mixed-level-substitute.fs"
 old = ''': lf-mls-closed? ( node -- flag ) lf-term-data@ if lf-data-params? 0= else false then ;'''
