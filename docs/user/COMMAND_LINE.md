@@ -878,7 +878,8 @@ inside a check, and checks that the stage is freed either way.
 A check that throws *spends* its checker context for good
 ([ADR 0012](../adr/0012-checked-environment.md), G-P6): the run stops,
 its declaration is *invalid* (diagnostic 29) and the ones after it are
-`not checked`, and every later check in that context also ends *invalid*
+`not checked (not reached: the run stopped)` (verdict *not checked*,
+never to be read as *skipped*), and every later check in that context also ends *invalid*
 with diagnostic 29. `bin/leanforth` runs one command per process, so this
 matters only in a Forth session, which runs its next command in a new
 context (`context-new`, `context-use`). It fails closed: nothing is ever

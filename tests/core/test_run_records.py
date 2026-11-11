@@ -9,7 +9,7 @@ The records are written and replayed by Forth alone
 (tests/support/run-records.fs, src/import/run-record.fs and run-replay.fs);
 Python only drives Gforth and reads what it wrote. For the five pinned
 exports and the four broken copies of the composition export: each record
-is strict JSON valid against schemas/run-record-0.1.schema.json, with the
+is strict JSON valid against schemas/run-record-0.2.schema.json, with the
 input's SHA-256, bytes and lines as Python computes them, the manifest's
 outcome, the pinned versions and the expected verdict, label, axioms and
 diagnostic of every declaration; two runs in two processes write the same
@@ -59,7 +59,7 @@ import text_rule_tables  # noqa: E402
 GFORTH = os.environ.get("GFORTH", "gforth")
 DRIVER = "tests/support/run-records.fs"
 GOLDEN = Path("tests/core/run-records")
-RECORD_SCHEMA = Validator(json.loads(Path("schemas/run-record-0.1.schema.json").read_text()))
+RECORD_SCHEMA = Validator(json.loads(Path("schemas/run-record-0.2.schema.json").read_text()))
 REPORT_SCHEMA = Validator(json.loads(Path("schemas/replay-report-0.1.schema.json").read_text()))
 FUEL = 100000
 LABEL = "experimental, not independently audited"
@@ -407,7 +407,9 @@ class Checks:
             ("escaped-verdict", comp, comp_record,
              lambda t: t.replace('"verdict":"accepted"', '"verdict":"\\u0061ccepted"', 1), []),
             ("schema-version", comp, comp_record,
-             edit(lambda d: d.update(schemaVersion="0.2")), [("unknown-schema", "$")]),
+             edit(lambda d: d.update(schemaVersion="0.3")), [("unknown-schema", "$")]),
+            ("schema-version-earlier", comp, comp_record,
+             edit(lambda d: d.update(schemaVersion="0.1")), [("unknown-schema", "$")]),
         ]
         for name, export, base, change, expected in cases:
             self.tampered(name, export, base, change, expected)
@@ -455,6 +457,17 @@ class Checks:
         refused("manifest failure without reason", wrong,
                 lambda d: d["input"]["manifest"].update(reason=""))
         refused("modified without commit", comp, lambda d: d["leanforth"].update(modified=True))
+        # Records are version 0.2 since the verdict skipped (plan task 5.2.7;
+        # review rvUNNI M2); schema 0.1 stays unchanged for earlier records:
+        # a golden record without a skipped verdict, set back to 0.1, is valid
+        # under it, composition-unsafe's (skipped) is not, nor a 0.2 record.
+        old = Validator(json.loads(Path("schemas/run-record-0.1.schema.json").read_text()))
+        for golden in sorted(GOLDEN.glob("*.json")):
+            data = load_strict(golden.read_text())
+            back = dict(data, schemaVersion="0.1")
+            skips = any(d.get("verdict") == "skipped" for d in data["declarations"] or [])
+            self.expect(data["schemaVersion"] == "0.2" and old.errors(data)
+                        and bool(old.errors(back)) == skips, f"schema 0.1 and {golden.name}")
         # Review F3: the receipts' text rule, the stated limits, the real
         # mode and allowlist version, and runs that cannot list a verdict.
         host = lambda **kw: lambda d: d["host"].update(**kw)  # noqa: E731

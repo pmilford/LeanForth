@@ -224,9 +224,9 @@
           "allOf": [{"$ref": "#/$defs/shown"}, {"pattern": "^.{1,1024}$"}]
         },
         "verdict": {
-          "description": "accepted only for a slot made final with outcome ok; skipped for a rejected slot of an unsafe or partial declaration, which Lean's replay skips unchecked and nothing can use (plan task 5.2.7); invalid also for a slot whose check began but did not end final; not-checked for a slot the run never reached.",
-          "enum": ["accepted", "skipped", "rejected", "unknown", "unsupported", "invalid",
-            "exhausted", "full", "not-checked"]
+          "description": "accepted only for a slot made final with outcome ok; invalid also for a slot whose check began but did not end final; not-checked for a slot the run never reached.",
+          "enum": ["accepted", "rejected", "unknown", "unsupported", "invalid", "exhausted",
+            "full", "not-checked"]
         },
         "label": {"const": "experimental, not independently audited"},
         "axioms": {

@@ -1,6 +1,6 @@
 \ The JSON report of `leanforth check --json` (plan tasks 3.4.3 and, the
 \ command line's part, 6.5.2): one JSON text in the format
-\ leanforth-check-report, version 0.1 (schemas/check-report-0.1.schema.json;
+\ leanforth-check-report, version 0.2 (schemas/check-report-0.2.schema.json;
 \ docs/user/COMMAND_LINE.md, "JSON output"), then a line feed, written to
 \ standard output with the project's JSON writer after a run of
 \ cli/check-run.fs and before ck-release. Every verdict is read from the
@@ -39,7 +39,7 @@ require ./check-run.fs
 
 8 0 json-writer: cj-writer
 : cj-schema ( -- c-addr u ) s" leanforth-check-report" ;
-: cj-version ( -- c-addr u ) s" 0.1" ;
+: cj-version ( -- c-addr u ) s" 0.2" ;
 : cj-label ( -- c-addr u ) s" experimental, not independently audited" ;
 
 \ Writing values and members.

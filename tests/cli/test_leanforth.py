@@ -48,7 +48,7 @@
    with its outcome's code, and no outline appears except below the
    experimental label; a name no declaration has, and print's command-line
    mistakes, are 4.
-7. --json prints one report that the schema (schemas/check-report-0.1)
+7. --json prints one report that the schema (schemas/check-report-0.2)
    accepts, for every case of 1, with the exit status, every verdict and
    the counts the text gives; it is the same on every run but for
    "measured", and its counts and fuel add up as the schema's $comment
@@ -508,7 +508,7 @@ class ExitCodes(unittest.TestCase):
                     continue
                 got = json.loads(out)
                 schema = Validator(json.loads(
-                    (ROOT / "schemas/check-report-0.1.schema.json").read_text()))
+                    (ROOT / "schemas/check-report-0.2.schema.json").read_text()))
                 self.assertEqual((status, schema.errors(got), got["stopped"], got["exitStatus"],
                                   got["declarations"][0]["diagnostic"]["code"]),
                                  (5, [], True, 5, 29))
@@ -531,7 +531,7 @@ class ExitCodes(unittest.TestCase):
             self.assertEqual((status, lines[0], lines[1], lines[-4:], err),
                              (5, f"fixtureId: {LABEL}", "fixturePoly: invalid",
                               ["internal fault: the run stopped: a check threw, or publishing "
-                               "failed", "fixtureUse: not checked",
+                               "failed", "fixtureUse: not checked (not reached: the run stopped)",
                                "3 declarations: 1 accepted, 1 invalid, 1 not checked",
                                accepted(1)], ""))
             status, out, err = run("check", "--json", FIXTURE, gforth=str(stub))
@@ -597,7 +597,7 @@ class OtherLean(unittest.TestCase):
                         lines[1])
 
     def test_json(self):
-        schema = Validator(json.loads((ROOT / "schemas/check-report-0.1.schema.json").read_text()))
+        schema = Validator(json.loads((ROOT / "schemas/check-report-0.2.schema.json").read_text()))
         status, out, _ = run("check", "--json", "--no-manifest", "--any-lean-version", OTHER_LEAN)
         got = json.loads(out)
         self.assertEqual((status, schema.errors(got), got["settings"]["anyLeanVersion"]),
@@ -785,7 +785,7 @@ class RunRecords(unittest.TestCase):
         return status, out, json.loads(path.read_text())
 
     def test_record_as_the_driver(self):
-        schema = Validator(json.loads((ROOT / "schemas/run-record-0.1.schema.json").read_text()))
+        schema = Validator(json.loads((ROOT / "schemas/run-record-0.2.schema.json").read_text()))
         commit, modified = git_source()
         for name in ["composition", "constant-fixture", "identity"]:
             with tempfile.TemporaryDirectory() as folder:
@@ -984,7 +984,7 @@ class JsonReport(unittest.TestCase):
     """check --json (plan task 3.4.3): one report the schema accepts, which
     says what the text says, the same on every run but for "measured"."""
 
-    schema = Validator(json.loads((ROOT / "schemas/check-report-0.1.schema.json").read_text()))
+    schema = Validator(json.loads((ROOT / "schemas/check-report-0.2.schema.json").read_text()))
     VERDICTS = {"accepted": "accepted", "skipped": "skipped", "rejected": "rejected",
                 "unknown": "unknown",
                 "unsupported": "unsupported", "invalid": "invalid", "exhausted": "exhausted",
@@ -1028,7 +1028,7 @@ class JsonReport(unittest.TestCase):
             # An accepted one's line names its axioms and, when NOT PROVED,
             # says so (plan task 5.3.1).
             words = {"accepted": "accepted (experimental, not independently audited); axioms: ",
-                     "not-checked": "not checked"}
+                     "not-checked": "not checked (not reached: the run stopped)"}
             lines = text.splitlines()
             at = 0
             for d in got["declarations"]:
@@ -1052,6 +1052,26 @@ class JsonReport(unittest.TestCase):
                 plural = "" if counts["declarations"] == 1 else "s"
                 self.assertEqual(shown[0], f"{counts['declarations']} declaration{plural}: "
                                            f"{summary}", args)
+
+    def test_version_0_1_kept(self):
+        """Reports are version 0.2 since the verdict skipped (plan task 5.2.7;
+        review rvUNNI M2); schema 0.1 is kept unchanged for earlier reports. A
+        report without a skipped declaration, set back to 0.1 (its version, no
+        skipped count), is valid under 0.1; one with a skipped declaration is
+        not, nor is any 0.2 report as written."""
+        old = Validator(json.loads((ROOT / "schemas/check-report-0.1.schema.json").read_text()))
+
+        def as_0_1(got):
+            back = json.loads(json.dumps(got))
+            back["schemaVersion"] = "0.1"
+            if back["counts"] is not None:
+                del back["counts"]["skipped"]
+            return back
+        _, plain, _ = report(INDUCTIVE)
+        _, skipped, _ = report("--no-manifest", f"{CASES}/composition-unsafe.ndjson")
+        self.assertEqual((plain["schemaVersion"], old.errors(as_0_1(plain))), ("0.2", []))
+        self.assertNotEqual(old.errors(as_0_1(skipped)), [])
+        self.assertNotEqual(old.errors(plain), [])
 
     def test_schema_refuses(self):
         """The schema refuses a report whose parts disagree."""

@@ -3,7 +3,7 @@
   "$id": "https://github.com/pmilford/LeanForth/schemas/check-report-0.1.schema.json",
   "title": "LeanForth check report, schema version 0.1",
   "description": "What `leanforth check --json EXPORT` prints: one JSON text, then a line feed. The export staged and fed to the checker, every declaration's verdict in input order, read after the run from the slots of the checked environment the run made, the counts, the exit status, the fuel used, the input's size and, apart in `measured`, the times and memory. Written by src/cli/check-json.fs; documented in docs/user/COMMAND_LINE.md, section JSON output. A report, not a record: it names no commit and no SHA-256 (run records do, docs/programming/RUN_RECORDS.md), and nothing ever reads it back into a check.",
-  "$comment": "Uses only the keywords that tests/support/schema_subset.py implements; it refuses any other keyword. Every member but `measured` is deterministic: the same on every run of the same export with the same options and the same build, on either engine (--fast changes only `measured`). Numbers are integers within I-JSON's exact range. Version 0.1 is untrusted and has not passed the [format] gate. Rules no keyword of the subset can state, which tests/cli/test_leanforth.py checks on every report it makes: when `counts` is an object, `counts.declarations` equals the number of items of `declarations` and the sum of the nine verdict counts (accepted to notChecked), each verdict count equals the number of declarations with that verdict, and `counts.notProved` the number with `notProved` true; `fuel.unknown` equals the number of declarations whose fuel is null and `fuel.total` the sum of the others' fuel; `fuel.top` is in order of fuel, most first, each entry's fuel and verdict those of the declaration at its index; `input.declarations` equals `counts.declarations`.",
+  "$comment": "Uses only the keywords that tests/support/schema_subset.py implements; it refuses any other keyword. Every member but `measured` is deterministic: the same on every run of the same export with the same options and the same build, on either engine (--fast changes only `measured`). Numbers are integers within I-JSON's exact range. Version 0.1 is untrusted and has not passed the [format] gate. Rules no keyword of the subset can state, which tests/cli/test_leanforth.py checks on every report it makes: when `counts` is an object, `counts.declarations` equals the number of items of `declarations` and the sum of the eight verdict counts (accepted to notChecked), each verdict count equals the number of declarations with that verdict, and `counts.notProved` the number with `notProved` true; `fuel.unknown` equals the number of declarations whose fuel is null and `fuel.total` the sum of the others' fuel; `fuel.top` is in order of fuel, most first, each entry's fuel and verdict those of the declaration at its index; `input.declarations` equals `counts.declarations`.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -110,7 +110,7 @@
       "then": {"properties": {"declarations": {"items": {"properties": {"verdict": {"not": {"const": "not-checked"}}}}}}}
     },
     {
-      "description": "Exit status 0 only when the run ended ok, did not stop, listed at least one declaration and every declaration was accepted or skipped (an unsafe or partial declaration, which Lean's replay skips: status 0 as Lean): every other count is 0, and every fuel is known. NOT PROVED ones keep Lean's status 0 by default.",
+      "description": "Exit status 0 only when the run ended ok, did not stop, listed at least one declaration and every declaration was accepted: every other count is 0, and every fuel is known. NOT PROVED ones keep Lean's status 0 by default.",
       "if": {"properties": {"exitStatus": {"const": 0}}},
       "then": {
         "properties": {
@@ -119,7 +119,7 @@
           "counts": {"$ref": "#/$defs/allAccepted"},
           "declarations": {
             "minItems": 1,
-            "items": {"properties": {"verdict": {"enum": ["accepted", "skipped"]}}}
+            "items": {"properties": {"verdict": {"const": "accepted"}}}
           },
           "fuel": {"properties": {"unknown": {"const": 0}}}
         }
@@ -143,7 +143,7 @@
           "settings": {"properties": {"strictAxioms": {"const": true}}},
           "run": {"const": "ok"},
           "stopped": {"const": false},
-          "counts": {"allOf": [{"$ref": "#/$defs/allAccepted"}, {"properties": {"accepted": {"minimum": 1}, "notProved": {"minimum": 1}}}]},
+          "counts": {"allOf": [{"$ref": "#/$defs/allAccepted"}, {"properties": {"notProved": {"minimum": 1}}}]},
           "declarations": {
             "minItems": 1,
             "contains": {"properties": {"notProved": {"const": true}}},
@@ -176,10 +176,10 @@
   "$defs": {
     "count": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
     "allAccepted": {
-      "description": "Counts in which every declaration was accepted or skipped: at least one, and none with another verdict.",
+      "description": "Counts in which every declaration was accepted: at least one, and none with another verdict.",
       "type": "object",
       "properties": {
-        "declarations": {"minimum": 1}, "rejected": {"const": 0},
+        "declarations": {"minimum": 1}, "accepted": {"minimum": 1}, "rejected": {"const": 0},
         "unknown": {"const": 0}, "unsupported": {"const": 0}, "invalid": {"const": 0},
         "exhausted": {"const": 0}, "full": {"const": 0}, "notChecked": {"const": 0}
       }
@@ -190,8 +190,8 @@
       "enum": ["ok", "invalid", "exhausted", "unknown", "rejected", "unsupported", "full"]
     },
     "verdict": {
-      "description": "accepted for a slot made final with outcome ok; skipped for a rejected slot of an unsafe or partial declaration, which Lean's replay skips unchecked and nothing can use (plan task 5.2.7); another outcome's name for any other final slot, and invalid for one whose check began but did not end final; not-checked for one the run never reached.",
-      "enum": ["accepted", "skipped", "rejected", "unknown", "unsupported", "invalid", "exhausted", "full", "not-checked"]
+      "description": "accepted for a slot made final with outcome ok; another outcome's name for any other final slot, and invalid for one whose check began but did not end final; not-checked for one the run never reached.",
+      "enum": ["accepted", "rejected", "unknown", "unsupported", "invalid", "exhausted", "full", "not-checked"]
     },
     "name": {
       "description": "Escaped display text, not the name's bytes: a declaration's name as the text output shows it (src/cli/name-text.fs; docs/user/COMMAND_LINE.md, Names): Lean's Name.toString, with every component that is not an identifier between « and », and inside it what the text rule bans and » as \\u{X}, a byte that is not UTF-8 as \\x{X}, a backslash as \\\\. Two declarations can show the same text; index identifies a declaration.",
@@ -303,13 +303,12 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "declarations", "accepted", "skipped", "rejected", "unknown", "unsupported", "invalid",
-        "exhausted", "full", "notChecked", "notProved"
+        "declarations", "accepted", "rejected", "unknown", "unsupported", "invalid", "exhausted",
+        "full", "notChecked", "notProved"
       ],
       "properties": {
         "declarations": {"$ref": "#/$defs/count"},
         "accepted": {"$ref": "#/$defs/count"},
-        "skipped": {"description": "Unsafe or partial declarations, which Lean's replay skips (plan task 5.2.7).", "$ref": "#/$defs/count"},
         "rejected": {"$ref": "#/$defs/count"},
         "unknown": {"$ref": "#/$defs/count"},
         "unsupported": {"$ref": "#/$defs/count"},

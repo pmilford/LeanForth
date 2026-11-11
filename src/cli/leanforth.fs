@@ -272,10 +272,13 @@ end-structure
 : cli-verdict ( d -- )
   dup cli-name. ." : " dup lf-check-verdict. dup cli-not-proved. cr
   dup lf-env-outcome ok? if drop else cli-why. then ;
-: cli-skipped ( d -- ) cli-name. ." : not checked" cr ;
+\ A declaration the stopped run never reached: verdict not checked, said
+\ so that it cannot be read as skipped, the verdict of an unsafe or
+\ partial declaration (review rvUNNI L5).
+: cli-unreached ( d -- ) cli-name. ." : not checked (not reached: the run stopped)" cr ;
 : cli-stopped ( -- )
   ." internal fault: the run stopped: a check threw, or publishing failed" cr
-  lf-input-count cli-stepped ?do i cli-skipped loop ;
+  lf-input-count cli-stepped ?do i cli-unreached loop ;
 : cli-verdicts ( -- )
   cli-stepped 0 ?do i cli-verdict loop cli-faulted? if cli-stopped then ;
 
