@@ -116,7 +116,7 @@ def cases(folder):
                 ["number beyond 32 bits", "outcome=6"], ["ok decls"]))
     # Lean-checked reproducer of a TEMPORARY GAP (review rvKC L1; plan task
     # 5.2.6 closes it): pinned Lean 4.35.0 accepts def Big.<n> : Sort 1 :=
-    # Sort 0 for a numeric name part n = 2^32 (stage-cases/big-name.lean,
+    # Sort 0 for a numeric name part n = 2^32 (wide-cases/big-name.lean,
     # exported by the pinned leanexport), where the stage is full. With
     # 2^32 - 1 the file is staged. Never describe the first as a difference
     # from Lean: when the gap is closed, its expected outcome becomes ok.
@@ -124,7 +124,7 @@ def cases(folder):
             ("big-name", ["number beyond 32 bits", "outcome=6"], ["ok decls"]),
             ("big-name-2p32m1", ["ok decls=1"], ["outcome="])):
         out.append((f"Lean-accepted name part, {name}",
-                    ROOT / f"tests/core/stage-cases/{name}.ndjson", False, None,
+                    ROOT / f"tests/core/wide-cases/{name}.ndjson", False, None,
                     expected, refused))
     # A bound variable's index: the range of C1 (2^20 - 1 and more) is full; one
     # beyond 32 bits no field could hold is invalid (not full). Pinned Lean
