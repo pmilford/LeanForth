@@ -22,8 +22,10 @@
 \ appends a new one and enters it. So a node rebuilt equal to an existing
 \ one is that older node, with its older identity. Leaves whose meaning
 \ is more than their fields are never shared: a module that makes such a
-\ leaf names its tag with lf-term-unshare while loading (symbolic Sorts
-\ and constants carry stamps, free variables their local-context entry).
+\ leaf names its tag with lf-term-unshare while loading (free variables:
+\ their local-context entry). Symbolic Sorts and constants, whose stamps
+\ say more than their fields, are shared only while those stamps hold
+\ (the hook lf-term-reusable?, compact-store plan step S4).
 \ Hash-consing only saves room and time: a missing entry costs a
 \ duplicate, never a verdict, and no answer depends on it (C8). A
 \ context may turn it off (lf-term-sharing!), as the authoring words do,

@@ -1799,6 +1799,73 @@ comparison and level value run on both levels per call (4.8% of the cut)
 could keep its own memo per level node in the same way; levels are not
 hash-consed before step S4. `instantiate_lparams` per node is step S6 (b).
 
+## Amendment 5: == at every pair, caches keyed by node (compact-store plan step S4, agent S4, 2026-11-11, proposed)
+
+Status: proposed; [kernel] gate owed. Code: `src/kernel/mixed-compare.fs`
+(`lf-expr-equal`), `src/kernel/caches.fs`,
+`src/kernel/mixed-level-substitute.fs`, `src/kernel/level-compare.fs`;
+the storage side is ADR 0016's S4 note. No typing, reduction or
+conversion rule changes; every verdict that moves is an *exhausted* (or
+an *unknown* behind one) that becomes Lean's.
+
+**Ported.**
+1. *Lean's `==` at every pair* (`expr_eq_fn.cpp` 44-58, `apply`): one
+   node is equal at once (`is_eqp`), at the root and at every child
+   pair; two nodes whose data words (ADR 0016 C1: loose range, the
+   parameter and free-variable bits and the depth, each a function of
+   the term's structure as Lean's hash is) are known and differ are
+   apart at once (Lean's `hash(a) != hash(b)`); a pair met before in the
+   call is not walked again (Lean's per-call `check_cache`: had it
+   differed, the call would have ended); two constants of one interned
+   reference, or two Sorts of one hash-consed level, are equal at once
+   (`is_eqp` on the name and levels). None of these is pushed, so none
+   costs a unit. Before, `lf-expr-equal` checked identity only at its
+   roots and walked the rest (6.5% of the fuel of a stuck root after
+   Amendment 4, agent S6C).
+2. *Caches keyed by node* (Amendment 1's keys). With levels hash-consed
+   and references interned (ADR 0016's S4 note), equal constants and
+   Sorts are one node, so a node's number is its class under `==` and
+   the result caches key a node by its identity; the skeleton memo and
+   its key table are retired. Lean's node facts are the data word; the
+   memo left checks only, for a node whose word names a free variable,
+   that every free variable in it is live in this job (Amendment 1's
+   dead free variable). Two nodes that are `==` but not one node (made
+   while sharing was off, two literals of one value, a constant or Sort
+   made again because its stamps no longer held) are two keys: a miss
+   where Lean hits, never a false hit. Step S3 measured that keying by
+   node before this step lost 142 accepted declarations on the first 1M
+   lines of `Init`; after it none is lost (below).
+3. *`instantiate_lparams`' `has_param_univ` test* (`instantiate.cpp`
+   248-253): universe substitution neither audits nor rebuilds a term
+   whose data word shows no universe parameter; it is its own image.
+4. *Level comparison's scope checks per level*: in a check, a root
+   level found in scope is kept with its identity and the parameter
+   context's generation (a column of the level store) and is not walked
+   again while both hold (Amendment 4's note: 4.8% of a stuck root).
+
+**Why sound.** `==`: a node is equal to itself; data words are computed
+from the children when a node is made (never read from input, C8) and
+are equal for equal structure, so a difference proves a difference; the
+pair set only skips pairs already being compared in the same call; a
+constant's interned reference fixes its name and levels, a Sort's
+hash-consed level fixes its level. Keys: a cached function is a
+function of its argument within one job (Amendment 1), and a node's
+identity names exactly one node, never reused. `has_param_univ`: a term
+without universe parameters is unchanged by the substitution, and its
+levels need no check against the formals (none is a parameter); the
+graph audit still runs on the whole root. Level memo: a level's graph
+never changes while its identity holds, and every change of the
+parameter context advances its generation.
+
+**Fuel.** Fewer units: a pair answered at once, a skipped term, a kept
+level cost none. Less fuel can only turn *exhausted* (or *unknown* for a
+dependency out of fuel) into a decided verdict.
+
+**Evidence.** See ADR 0016's S4 note: the first 1M lines of `Init` and
+all of `Init` before and after, every move to Lean's verdict; `make
+check`; planted faults `s4-eq-*`, `s4-cache-key-stale-node`,
+`s4-fvmemo-children-live`, `s4-mls-*`, `s4-lcmp-memo-*`, all caught.
+
 ## Note: the projection steps (plan task 5.2.2, 2026-11-10)
 
 The Q8 row "Projections: `reduce_proj`, step 8, `try_unfold_proj_app`"

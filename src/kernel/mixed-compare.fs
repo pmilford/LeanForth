@@ -5,7 +5,9 @@
 \ Equal opaque level parameter IDs are assumed to denote the same Lean name.
 \ State: two paired walk records, lf-mcompare-walker (left and right terms)
 \ and lf-mcompare-level-walker (left and right levels); level comparisons
-\ charge the term walk's fuel. Both are members of the checker context
+\ charge the term walk's fuel; and Lean's == per-call pair set (the table
+\ lf-meq-table over the slab lf-meq-pairs, its count lf-meq-count and
+\ candidate lf-meq-key). All are members of the checker context
 \ (lib/context.fs). Single-threaded within one context; exclude arena,
 \ parameter-context and name mutation during a call. mixed-convert.fs
 \ reuses the pair-visiting, name, reference and audit words with its own

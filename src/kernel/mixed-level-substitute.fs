@@ -22,7 +22,9 @@
 \ call, emptied after it, and the build visits only the reached terms,
 \ sorted, finding a child's image by binary search, instead of every index
 \ up to the root. Nothing is kept per index of the whole store (before
-\ step S3, two columns of it).
+\ step S3, two columns of it). Since step S4 a term whose data word shows
+\ no universe parameter is neither audited nor rebuilt (Lean's
+\ has_param_univ test, lf-mls-closed?).
 
 require ../lib/lib.fs
 require ../lib/slab.fs

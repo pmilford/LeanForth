@@ -27,46 +27,37 @@
 \ successes would make answers depend on the order of evaluation; nor
 \ does LeanForth.
 \
-\ Keys: Lean's == by skeletons (ADR 0014 Q3). Lean compares keys with ==
-\ (structural equality, expr_eq_fn). LeanForth's term store hash-conses
-\ since compact-store plan step S3 (core/terms.fs), but not constants and
-\ symbolic Sorts, whose references and levels are made anew by each
-\ universe substitution (until plan step S4 interns them), so two equal
-\ terms can still be two nodes, and every node a cache meets gets
-\ a skeleton: a number that two nodes share only when they are Lean's ==
-\ -- the same tag, and the skeletons of their children (application,
-\ lambda, Pi), or, for a leaf, the same bound-variable index, the same
-\ free-variable node (one per local-context entry), the same level
-\ syntax (levels get skeletons the same way: zero, the same parameter,
-\ succ, max or imax of the same skeletons), the same constant name and
-\ universe-argument skeletons, the same literal value, the same
-\ projection name and index, or the same let flag (mixed-compare.fs
-\ compares exactly these). A literal of several limbs, a string literal,
-\ or any other leaf, has a skeleton of its own node, so it equals itself only: a miss
-\ where Lean might hit, never a false hit. A skeleton is found in a table
-\ of (kind, part, part) keys, and kept per node with its identity
-\ (identities never repeat, so a rolled-back index is a new node), with
-\ the node's loose bound variables (1 + the largest index beyond its own
-\ binders, or 0: Lean's loose_bvar_range), computed once from its
-\ children's on a growable stack. Names are compared by their number
-\ (equal names share one in the stage's tier: import/feed.fs), so names
-\ equal by text with two numbers are a miss.
+\ Keys: Lean's == by node (ADR 0014 Q3, Amendment 5). Lean compares keys
+\ with == (structural equality, expr_eq_fn). Since compact-store plan
+\ step S4 the term store hash-conses every node but a free variable (one
+\ per local-context entry), levels are hash-consed and references
+\ interned (core/terms.fs, levels.fs, constant-references.fs), so equal
+\ constants and Sorts are one node too, and a node's number is its class
+\ under ==: a key is the node's identity (identities never repeat, so a
+\ rolled-back index made again is another key). Two nodes that are ==
+\ but not one node (made while sharing was off, two literals of one
+\ value, a Sort or constant made again because its stamps no longer
+\ held) are two keys: a miss where Lean hits, never a false hit. (Until
+\ step S4 a skeleton memo gave every node a structural class number,
+\ since constants and Sorts were made anew by each universe
+\ substitution.) A node has a key only when it has Lean's node facts
+\ (below).
 \ A cached value is a node with its identity; an entry whose node no
 \ longer has it (its scratch was discarded) is a miss. Inference reads a
 \ source node under the scope (mixed-infer.fs), a loose bound variable k
 \ being the scope's free variable k places from the top; Lean infers the
 \ term with those free variables put in, and keys its type by that term
-\ (type_checker.h 26-30). So an inferred type's key is the skeleton of
+\ (type_checker.h 26-30). So an inferred type's key is the identity of
 \ the node closed with the scope (the closing is remembered per scope,
 \ mixed-open.fs; plan task 6.5.5), the node's own when it has no loose
 \ bound variable, with 0 for the scope (until plan task 6.5.5 the key was
-\ the node's skeleton with the identity of the scope's innermost free
+\ the node's class with the identity of the scope's innermost free
 \ variable, which missed under every new binder). A lambda read
 \ as the body of a lambda (mixed-infer.fs's chain) has a type over the
 \ chain's bound variables, not closed: it is neither looked up nor kept.
 \ The pair caches take closed terms only (as Lean compares only closed
 \ terms; check-block.fs compares open ones, whose types the typer reads
-\ under the scope), ordered by skeleton, so a success on (t, s) answers
+\ under the scope), ordered by identity, so a success on (t, s) answers
 \ (s, t).
 \
 \ Why each is sound. Kernel terms have no metavariables and free
@@ -111,25 +102,19 @@
 \ Fuel (ADR 0014 Q9). Entering a pass costs one unit, a hit too, as
 \ before; a hit then ends the pass. A miss costs nothing more: the cache's
 \ step gives back the unit of the visit it opens around the pass. Looking
-\ up, keeping and skeletons cost no fuel (Lean's caches, hashes and
+\ up, keeping and node facts cost no fuel (Lean's caches, hashes and
 \ cached node data cost no steps either); each is bounded by the nodes
 \ the check has. Closing an open node for its inferred type's key is
 \ substitution work, paid as mixed-open.fs pays it (Lean's instantiate
 \ when it opens a binder). A table or stack that cannot grow (no heap)
 \ keeps nothing more: a miss, never a verdict.
 \
-\ Lean's cached node data. The skeleton table also keeps, per node, what
-\ Lean keeps in each node: its loose bound variables and whether it has a
-\ free variable or a universe parameter. whnf.fs's has_loose_bvars and
-\ has_fvar walks are then answered from it, mixed-open.fs's instantiate
-\ and abstract keep a node that cannot change without visiting it (Lean's
-\ replace), defeq.fs's == holds at once for one skeleton. Since plan step
-\ S3 each term record keeps these facts in its data word
-\ (core/terms.fs's lf-term-data@); since plan task 6.5.5 whnf.fs,
-\ mixed-infer.fs and mixed-open.fs read the word themselves, with or
-\ without the caches, and the hooks here are asked only for a node whose
-\ word has no data, or (mixed-open.fs) names a free variable (see
-\ lf-cs-word).
+\ Lean's cached node data: what Lean keeps in each node, its loose bound
+\ variables and whether it has a free variable or a universe parameter,
+\ is each term record's data word (core/terms.fs's lf-term-data@, since
+\ plan step S3). whnf.fs, mixed-infer.fs and mixed-open.fs read the word
+\ themselves (plan task 6.5.5); the hooks here answer for a node whose
+\ word names a free variable, from the free-variable memo (lf-term-facts).
 \
 \ Interface: lf-caches-enable ( flag -- ), lf-caches-on? ( -- flag ),
 \ lf-caches-clear ( -- ), lf-term-facts ( node -- id bits true | false ),
@@ -138,12 +123,11 @@
 \ lf-cache-unfold, lf-cache-success and lf-cache-failure ( -- cache ).
 \ Loading this module sets the hooks of whnf.fs, defeq.fs, mixed-infer.fs,
 \ mixed-convert.fs and mixed-open.fs.
-\ State: one record, lf-caches (the switch, the key being looked up, the
-\ next skeleton, two stacks' depths, and nine tables: each a hash table
-\ of lib/htab.fs over a slab of entries), and two growable stacks
-\ (lf-caches-stack, lf-caches-lstack), members of the checker context
-\ (lib/context.fs), freed with it. The tables' hooks are shared and
-\ read-only.
+\ State: one record, lf-caches (the switch, the key being looked up, a
+\ stack's depth, and eight tables: each a hash table of lib/htab.fs over
+\ a slab of entries), and a growable stack (lf-caches-stack), members of
+\ the checker context (lib/context.fs), freed with it. The tables' hooks
+\ are shared and read-only.
 
 require ../lib/lib.fs
 require ../lib/hash32.fs
@@ -368,7 +352,7 @@ create lf-cache-hooks /htab-hooks allot
   dup lf-bits-loose dup lf-data-ranges u< 0= if 2drop false exit then
   over lf-bits-params 0<> rot lf-bits-fvar 0<> lf-data true ;
 \ ---------------------------------------------------------------------------
-\ Nodes as keys (by skeleton) and values (a live node and its identity).
+\ Nodes as keys (by identity) and values (a live node and its identity).
 : lf-node-key ( node -- flag ) lf-term-facts if drop 0 0 0 lf-key! true else false then ;
 : lf-cache-count ( flag cache -- flag )
   over if lf-cache-hits else lf-cache-misses then 1 swap +! ;
@@ -434,7 +418,7 @@ create lf-cache-hooks /htab-hooks allot
 
 \ ---------------------------------------------------------------------------
 \ The pair caches (defeq.fs), on only with a typer (see the header). A
-\ pair's key: the two skeletons, the smaller first, both closed.
+\ pair's key: the two identities, the smaller first, both closed.
 : lf-cp-on? ( -- flag ) lf-caches-on? if lf-dq-typer @ 0<> else false then ;
 : lf-closed-id ( node -- id true | false )
   lf-term-facts if lf-bits-loose if drop false else true then else false then ;
@@ -473,9 +457,9 @@ create lf-cache-hooks /htab-hooks allot
 ' lf-cf-failure is lf-lz-failure
 
 \ ---------------------------------------------------------------------------
-\ Inference (mixed-infer.fs): the key's skeleton and scope (see the
+\ Inference (mixed-infer.fs): the key's identity and scope (see the
 \ header), or false for a node read beyond the scope, a chained lambda,
-\ or one whose skeleton cannot be kept. Lean keys an inferred type by the
+\ or one that has no key. Lean keys an inferred type by the
 \ term inferred, which infer_lambda, infer_pi and infer_let instantiated
 \ with the free variables of the binders they opened (type_checker.cpp
 \ 125-171, 208-230; looked up 332-334, kept 356, in an expr_map compared
@@ -518,7 +502,7 @@ defer lf-ci-room? ( -- flag )
 : lf-ci-table ( -- cache )
   lf-minfer-aside @ if lf-cache-infer-only else lf-cache-infer then ;
 : lf-ci-key ( id scope -- ) 0 0 lf-key! ;
-\ The visit keeps the scope and the skeleton.
+\ The visit keeps the scope and the key.
 : lf-ci-store ( type status frames -- type status frames 0 )
   >r r@ frame-restore r@ frame-restore 2 pick ok?
   if lf-ci-key over lf-ci-table lf-cache-value! else 2drop then r> 0 ;
