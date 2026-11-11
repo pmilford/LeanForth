@@ -9,6 +9,9 @@ require ../../src/core/names.fs
 require ../../src/kernel/level-compare.fs
 decimal
 
+\ The table names its levels by the order they are made in, equal ones
+\ included: hash-consing (compact-store plan step S4) is off.
+false lf-term-sharing!
 : must ( flag -- ) 0= if -1 throw then ;
 variable u-id variable v-id
 \ Construct the two scoped parameters and corresponding test level DAGs.
