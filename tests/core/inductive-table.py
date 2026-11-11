@@ -190,10 +190,14 @@ OUTCOME = {"accepted": "ok"}
 
 
 def run_lean(lean):
+    # make runs Lean once and names its output (Makefile, inductive-expected-output).
+    shared = os.environ.get("INDUCTIVE_EXPECTED_OUT")
+    if shared:
+        with open(shared, encoding="utf-8") as out:
+            return out.read()
     # The Makefile's TEST_TIMEOUT bounds the whole run; this bound only stops
-    # a Lean left running without it (the table takes about 7 minutes on an
-    # idle machine, three times that on a loaded one; the cache holds it since the
-    # scan for `initialize` skips strings).
+    # a Lean left running without it (the table takes about 30 s;
+    # the cache holds it).
     run = subprocess.run([lean, "-DwarningAsError=true", LEAN_FILE], stdin=subprocess.DEVNULL,
                          capture_output=True, text=True, timeout=TEST_LIMIT)
     if run.returncode != 0:
