@@ -33,6 +33,7 @@ import pathlib
 import re
 import subprocess
 import sys
+TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
 LEAN_VERSION = {"version": "4.35.0", "githash": "eb6cafb7290e8bd5f2937522d8d804f58f02bafc"}
 EXPORTER = {"name": "lean4export", "version": "3.1.0"}
@@ -234,7 +235,7 @@ def lean_dump(lean, prefix, module, names, workdir):
     program.write_text(f"import Lean\nimport {module}\n{LEAN_DUMP}\n{calls}\n", encoding="utf-8")
     env = dict(os.environ, LEAN_PATH=f"{workdir}:{prefix}/lib/lean")
     run = subprocess.run([lean, "-DwarningAsError=true", str(program)], capture_output=True,
-                         text=True, timeout=300, env=env)
+                         text=True, timeout=TEST_LIMIT, env=env)
     program.unlink()
     if run.returncode != 0:
         raise ExportError(f"Lean's dump failed:\n{run.stdout}{run.stderr}")
@@ -264,7 +265,7 @@ def compile_and_export(lean, source, names, workdir):
     module = "AuthorFixture"
     olean = workdir / f"{module}.olean"
     run = subprocess.run([lean, "-DwarningAsError=true", "-o", str(olean), str(source)],
-                         capture_output=True, text=True, timeout=300)
+                         capture_output=True, text=True, timeout=TEST_LIMIT)
     if run.returncode != 0:
         raise ExportError(f"Lean failed on {source}:\n{run.stdout}{run.stderr}")
     printed = run.stdout.splitlines()
@@ -276,7 +277,7 @@ def compile_and_export(lean, source, names, workdir):
                    PATH=f"{prefix}/bin:{os.environ.get('PATH', '')}")
         exporter = os.environ.get("LEANEXPORT") or f"{prefix}/bin/leanexport"  # may be cached
         export = subprocess.run([exporter, module, "--", *names],
-                                capture_output=True, text=True, timeout=300, env=env)
+                                capture_output=True, text=True, timeout=TEST_LIMIT, env=env)
     finally:
         for made in workdir.glob(f"{module}.*"):
             made.unlink()

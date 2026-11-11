@@ -36,6 +36,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "tests" / "support"))
 import export_manifest  # noqa: E402
 from schema_subset import Validator, load_strict  # noqa: E402
+TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
 GFORTH = os.environ.get("GFORTH", "gforth")
 COUNT_FS = "src/import/ndjson-count.fs"
@@ -51,7 +52,7 @@ def forth(calls):
     """Run Forth calls, each printing one output followed by MARK."""
     text = " ".join(f"{call} .( {MARK}) cr" for call in calls) + " bye"
     result = subprocess.run([GFORTH, COUNT_FS, "-e", text], cwd=ROOT, stdin=subprocess.DEVNULL,
-                            capture_output=True, timeout=600)
+                            capture_output=True, timeout=TEST_LIMIT)
     if result.returncode != 0:
         raise AssertionError(result.stderr.decode(errors="replace")[-2000:])
     parts = result.stdout.decode("utf-8", errors="replace").split(MARK + "\n")[:-1]
@@ -73,7 +74,7 @@ def error(output):
 
 def count_py(path):
     result = subprocess.run([sys.executable, "-I", str(COUNT_PY), str(path)],
-                            capture_output=True, check=True, timeout=600)
+                            capture_output=True, check=True, timeout=TEST_LIMIT)
     return result.stdout.decode()
 
 

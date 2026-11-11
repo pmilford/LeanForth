@@ -60,6 +60,7 @@ sys.path.insert(0, str(ROOT / "tests" / "support"))
 import program_vc  # noqa: E402
 from schema_subset import (MAX_SAFE_INTEGER, InstanceError, Validator,  # noqa: E402
                            load_strict)
+TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
 VERSION = "0.2"
 SCHEMA_VERSION = "0.2"
@@ -382,7 +383,7 @@ def markdown(receipt):
 
 def command(args, both=False):
     """A command's standard output (and error, when both), or stop on failure."""
-    done = subprocess.run(args, capture_output=True, text=True, timeout=600,
+    done = subprocess.run(args, capture_output=True, text=True, timeout=TEST_LIMIT,
                           stdin=subprocess.DEVNULL)
     if done.returncode != 0:
         raise SystemExit(f"{' '.join(args)} failed:\n{done.stdout}{done.stderr}")

@@ -31,6 +31,7 @@ import random
 import subprocess
 import sys
 import unittest
+TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
 ROOT = Path(__file__).resolve().parents[2]
 GFORTH = os.environ.get("GFORTH", "gforth")
@@ -149,7 +150,7 @@ def run_cases(lines):
     """Run the driver on lines of Forth; one (bytes, outcome) per case."""
     program = "".join(line + "\n" for line in lines).encode("ascii")
     result = subprocess.run([GFORTH, DRIVER, "-e", "run-cases bye"], cwd=ROOT, input=program,
-                            capture_output=True, timeout=600)
+                            capture_output=True, timeout=TEST_LIMIT)
     if result.returncode != 0 or result.stderr:
         raise AssertionError(f"gforth failed: {result.stderr.decode(errors='replace')[-2000:]}")
     out = result.stdout.split(b"\n")

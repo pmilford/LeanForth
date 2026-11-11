@@ -79,7 +79,10 @@ FORMAT = 1
 IO_INPUTS = [b"IO.FS", b"readFile", b"readBinFile", b"FS.lines", b"getStdin", b"IO.getEnv",
              b"IO.Process", b"include_str", b"monoMsNow", b"monoNanosNow", b"IO.rand",
              b"getRandomBytes", b"currentDir", b"appPath", b"appDir", b"pathExists",
-             b"readDir", b"FilePath.metadata", b"isDir", b"initialize"]
+             b"readDir", b"FilePath.metadata", b"isDir"]
+# Code Lean runs when it imports the module or elaborates the file, wherever it
+# stands outside a string or comment (see code_only).
+CODE_INPUTS = [b"initialize"]
 STORED_STATUS = (0, 1)
 RESOURCE_FAILURES = [b"out of memory", b"stack overflow", b"deep recursion"]
 MAX_PATH_FILES, MAX_PATH_BYTES = 1000, 512 * 1024 * 1024
@@ -99,6 +102,45 @@ BLOCK = 1 << 20
 
 class Uncacheable(Exception):
     """This call must run the real tool; the message says why."""
+
+
+def code_only(text):
+    """text with its comments, string literals and the characters '"' blanked.
+
+    Conservative: a doubt keeps text rather than blanking it, and a file that
+    ends inside a string or comment is returned whole, so that a word is only
+    ever hidden when it certainly stands inside a string or a comment.
+    """
+    out, i, n = bytearray(), 0, len(text)
+    while i < n:
+        two = text[i:i + 2]
+        if two == b"--":
+            end = text.find(b"\n", i)
+            i = n if end < 0 else end
+        elif two == b"/-":
+            depth, i = 1, i + 2
+            while i < n and depth:
+                pair = text[i:i + 2]
+                depth += (pair == b"/-") - (pair == b"-/")
+                i += 2 if pair in (b"/-", b"-/") else 1
+            if depth:
+                return text
+        elif text[i:i + 3] in (b"'\"'", b"'\\\"") or text[i:i + 4] == b"'\\\"'":
+            i += 3 if text[i + 1:i + 2] == b'"' else 4
+        elif text[i:i + 1] == b'"' or text[i:i + 3] == b'r#"' or text[i:i + 2] == b'r"':
+            hashes = 1 if text[i:i + 3] == b'r#"' else 0
+            raw = text[i:i + 1] == b"r"
+            i += 1 + raw + hashes
+            closer = b'"' + b"#" * hashes
+            while i < n and text[i:i + len(closer)] != closer:
+                i += 2 if (text[i:i + 1] == b"\\" and not raw) else 1
+            if i >= n:
+                return text
+            i += len(closer)
+        else:
+            out.append(text[i])
+            i += 1
+    return bytes(out)
 
 
 def sha256_file(path):
@@ -414,7 +456,9 @@ class Call:
 def lean_call(lean, args, cache):
     options, out, run, source = parse(args)
     text = read(source)
+    code = code_only(text)
     inputs = [word.decode() for word in IO_INPUTS if word in text]
+    inputs += [word.decode() for word in CODE_INPUTS if word in code]
     if inputs:
         raise Uncacheable(f"source names {inputs[0]}")
     fingerprint, prefix = toolchain(lean, cache)

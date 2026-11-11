@@ -243,6 +243,19 @@ class CacheTest(unittest.TestCase):
         name = self.source("Io.lean", "def main : IO Unit := do let _ <- IO.FS.readFile \"x\"")
         self.assert_runs(name)
 
+    def test_initialize_command_runs(self):
+        for text in ["initialize r : IO.Ref Nat <- IO.mkRef 0",
+                     "def a := 1 initialize r : IO.Ref Nat <- IO.mkRef 0",
+                     "/- unterminated initialize"]:
+            self.assert_runs(self.source("Init.lean", text))
+
+    def test_initialize_in_string_or_comment_is_cached(self):
+        for text in ['def a := "failed to initialize quot"',
+                     'def a := 1 -- initialize it\n',
+                     '/- a /- nested -/ initialize -/ def a := 1',
+                     'def a := "x\\" initialize"']:
+            self.assert_cached(self.source("Word.lean", text))
+
     def test_statuses(self):
         self.assert_cached(self.source("Bad.lean", "ERROR"))
         self.assert_runs(self.source("Three.lean", "EXIT3"))

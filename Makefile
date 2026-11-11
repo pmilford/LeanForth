@@ -55,6 +55,8 @@ endif
 # so a looping test cannot stall a local run or CI. Uses GNU timeout(1).
 TEST_TIMEOUT ?= 1800
 RUN := timeout $(TEST_TIMEOUT)
+# The tests' own subprocess limits (TEST_LIMIT in tests/*.py) follow it.
+export TEST_TIMEOUT
 
 # Every pinned-Lean oracle and differential comparison. Excludes the
 # profiling targets.
