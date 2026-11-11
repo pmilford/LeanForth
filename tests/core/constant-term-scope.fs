@@ -37,13 +37,17 @@ T{ 0 const-id @ 0 100 lf-constant-term-scope -> outcome-ok }T
 T{ 2 var-id @ 0 100 lf-constant-term-scope -> outcome-invalid }T
 T{ 2 var-id @ 1 100 lf-constant-term-scope -> outcome-ok }T
 T{ 4 lambda-id @ 0 100 lf-constant-term-scope -> outcome-ok }T
-\ Fuel left, which kernel passes continue with: what remains after both
-\ passes, zero on exhaustion, the given fuel when validation or the depth
-\ fails, two visits used when only the scope pass fails, and unchanged for
-\ negative fuel.
-T{ 4 lambda-id @ 0 100 lf-constant-term-scope lf-cts-fuel @ -> outcome-ok 89 }T
-T{ 2 var-id @ 1 2 lf-constant-term-scope lf-cts-fuel @ -> outcome-ok 0 }T
-T{ 2 var-id @ 1 1 lf-constant-term-scope lf-cts-fuel @ -> outcome-exhausted 0 }T
+\ Fuel left, which kernel passes continue with: what remains after the
+\ structural audit when the root's data word shows the scope (no walk:
+\ compact-store plan step S6 (c), before 89, 0 and exhausted), zero on
+\ exhaustion of either pass (the scope walk runs only for a root that
+\ fails), the given fuel when validation or the depth fails, two visits
+\ used when only the scope pass fails, and unchanged for negative fuel.
+T{ 4 lambda-id @ 0 100 lf-constant-term-scope lf-cts-fuel @ -> outcome-ok 94 }T
+T{ 2 var-id @ 1 2 lf-constant-term-scope lf-cts-fuel @ -> outcome-ok 1 }T
+T{ 2 var-id @ 1 1 lf-constant-term-scope lf-cts-fuel @ -> outcome-ok 0 }T
+T{ 2 var-id @ 1 0 lf-constant-term-scope lf-cts-fuel @ -> outcome-exhausted 0 }T
+T{ 2 var-id @ 0 1 lf-constant-term-scope lf-cts-fuel @ -> outcome-exhausted 0 }T
 T{ 2 var-id @ -1 30 lf-constant-term-scope lf-cts-fuel @ -> outcome-invalid 30 }T
 T{ 2 var-id @ 0 30 lf-constant-term-scope lf-cts-fuel @ -> outcome-invalid 28 }T
 T{ 4 lambda-id @ 1+ 0 40 lf-constant-term-scope lf-cts-fuel @ -> outcome-invalid 40 }T
@@ -65,13 +69,16 @@ T{ 8 term-serial 1 100 lf-constant-term-scope -> outcome-ok }T
 \ The Pi body does bind #0 when its domain is closed.
 T{ 1 sort-id @ 2 var-id @ lf-hterm-pi -> 9 term-serial true }T
 T{ 9 term-serial 0 100 lf-constant-term-scope -> outcome-ok }T
-\ A shared constant is visited twice by both structural and scope passes.
+\ A shared constant is visited twice by the structural pass (the second
+\ visit costs its unit only); the data word shows the scope, so no scope
+\ pass runs (before plan step S6 (c) it visited both, 6 in all).
 T{ 0 const-id @ 0 const-id @ lf-hterm-app -> 10 term-serial true }T
-T{ 10 term-serial 0 5 lf-constant-term-scope -> outcome-exhausted }T
-T{ 10 term-serial 0 6 lf-constant-term-scope -> outcome-ok }T
-\ A single variable costs one structural and one scope visit.
-T{ 2 var-id @ 1 1 lf-constant-term-scope -> outcome-exhausted }T
-T{ 2 var-id @ 1 2 lf-constant-term-scope -> outcome-ok }T
+T{ 10 term-serial 0 2 lf-constant-term-scope -> outcome-exhausted }T
+T{ 10 term-serial 0 3 lf-constant-term-scope -> outcome-ok }T
+\ A single variable costs one structural visit (and one scope visit only
+\ out of scope, above).
+T{ 2 var-id @ 1 0 lf-constant-term-scope -> outcome-exhausted }T
+T{ 2 var-id @ 1 1 lf-constant-term-scope -> outcome-ok }T
 T{ 2 var-id @ lf-walk-room 2 lf-constant-term-scope -> outcome-ok }T
 T{ 2 var-id @ 1 -1 lf-constant-term-scope -> outcome-invalid }T
 \ Malformed edges and stale Sort stamps fail before scope is accepted.
@@ -85,10 +92,12 @@ T{ 4 lambda-id @ 0 100 lf-constant-term-scope -> outcome-invalid }T
 saved-sort-stamp @ 1 lf-hsort-level-stamp !
 T{ lf-term-count @ lf-level-count @ -> 11 1 }T
 T{ 4 lambda-id @ -1 100 lf-constant-term-scope -> outcome-invalid }T
-\ Any nonnegative outer depth is taken (plan task 6.2.0); at max-n the
-\ lambda's binder cannot be entered: full.
+\ Any nonnegative outer depth is taken (plan task 6.2.0), max-n too: the
+\ lambda's data word shows its scope, so no binder is entered (before plan
+\ step S6 (c) the walk could not enter it there: full; the walk's full
+\ binder depth is pinned below, on lf-cts-binary).
 T{ 4 lambda-id @ lf-walk-room 1+ 100 lf-constant-term-scope -> outcome-ok }T
-T{ 4 lambda-id @ max-n 100 lf-constant-term-scope -> outcome-full }T
+T{ 4 lambda-id @ max-n 100 lf-constant-term-scope -> outcome-ok }T
 T{ 4 lambda-id @ 0 0 lf-constant-term-scope -> outcome-exhausted }T
 T{ 4 lambda-id @ 0 100 ' lf-constant-term-scope rs-checked -> outcome-ok }T
 T{ 4 lambda-id @ 1+ 0 100 lf-constant-term-scope -> outcome-invalid }T

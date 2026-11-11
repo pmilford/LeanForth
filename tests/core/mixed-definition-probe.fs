@@ -92,7 +92,8 @@ T{ statuses -> outcome-ok outcome-invalid outcome-exhausted outcome-unknown }T
 \ == are decided at once, without beta-reducing each pair first), 115 since
 \ the term store is hash-consed (compact-store plan step S3: a term rebuilt
 \ equal to one already made is that node, which the marking audits check
-\ once and == finds at once).
+\ once and == finds at once), 95 since the scope audit reads its root's
+\ data word (plan step S6 (c)).
 \ The rejections are ADR 0011's, each as Lean's kernel decides: the value
 \ id.{u} (Sort u) applies id to an argument of the wrong universe (D1 in
 \ the value: appTypeMismatch); a function claimed to be a Sort u (D2:
@@ -100,7 +101,7 @@ T{ statuses -> outcome-ok outcome-invalid outcome-exhausted outcome-unknown }T
 : rejected-code? ( code -- flag ) lf-diag-code@ = ;
 : basic-case ( -- )
   setup snapshot 4 9 50000 probe outcome-ok expect-status assert-rollback
-  lf-mdefinition-fuel @ 49885 <> abort" success fuel"
+  lf-mdefinition-fuel @ 49905 <> abort" success fuel"
   term-serial term-serial-before @ <= abort" expected allocations"
   snapshot 0 10 50000 probe outcome-rejected expect-status assert-rollback
   lf-mdefinition-fuel @ 0<> abort" rejected fuel"

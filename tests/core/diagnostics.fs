@@ -144,7 +144,9 @@ variable wrong
 : redex ( -- node ) 0 make-sort 0 make-var make-lam 0 make-sort make-app ;
 : samples ( -- ) pair-app drop sorts redex drop ;
 : f-cterm ( fuel -- outcome ) >r 2 handle r> lf-cterm-check ;
-: f-scope ( fuel -- outcome ) >r 2 handle 1 r> lf-constant-term-scope ;
+\ At depth 0, out of scope: the data word shows it (plan step S6 (c)), so
+\ the scope walk runs and can run out of fuel at its own site.
+: f-scope ( fuel -- outcome ) >r 2 handle 0 r> lf-constant-term-scope ;
 : f-hterm ( fuel -- outcome ) >r 3 handle r> lf-hterm-check ;
 : f-session ( fuel -- outcome ) 3 swap lf-ssession-check ;
 : f-repr ( fuel -- outcome ) 2 lf-repr-symbolic rot lf-repr-check ;
@@ -369,8 +371,10 @@ end-check
   dup lf-diag-undecided lf-diag-dependency-undecided 1+ within
   over lf-diag-unsupported = or swap whnf-undecided? or ;
 : or-none ( code flag -- flag ) swap lf-diag-none = or ;
+\ S4 (a Pi body's type) too: the random checks reach it since plan step
+\ S6 (c) left them more fuel.
 : rejection-code? ( code -- flag )
-  dup lf-diag-unknown-constant lf-diag-value-apart 1+ within swap lf-diag-not-defeq = or ;
+  dup lf-diag-unknown-constant lf-diag-body-type 1+ within swap lf-diag-not-defeq = or ;
 : explained? ( outcome -- flag )
   lf-diag-code@ swap case
     outcome-ok of lf-diag-none = endof

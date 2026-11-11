@@ -221,12 +221,14 @@ cli-options
 \ A second run in the same process gives the same verdicts and fuel.
 : run-facts ( c-addr u -- code ok# fuel )
   cli-check outcome-ok tally ck-fuel-total drop ;
-\ (979 since the audits check each shared node once and a constant without
+\ (590 since the audits check each node once per check and read V1 and U2
+\ from data words, plan step S6 (c); 979 since the audits check each
+\ shared node once and a constant without
 \ universe arguments has its stored type, agent EX; 1039 with Lean's
 \ caches and cached node data, plan task 4.2.7; 1184
 \ since the block check uses Lean's whnf, plan task 5.2.1b; 1187 since
 \ conversion is Lean's is_def_eq, plan task 4.2.2b; 1520 before.)
-T{ inductive run-facts inductive run-facts -> 0 6 979 0 6 979 }T
+T{ inductive run-facts inductive run-facts -> 0 6 590 0 6 590 }T
 cli-no-manifest
 kinds run-facts constant kinds-fuel drop drop
 T{ kinds run-facts -> 2 94 kinds-fuel }T

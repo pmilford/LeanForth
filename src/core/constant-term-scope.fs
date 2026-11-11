@@ -57,8 +57,23 @@ lf-walk-room context-walk2: lf-cts-walker
 \ keeps the fuel given.
 : lf-cts-audit ( index identity -- outcome )
   lf-cts-fuel @ lf-cterm-check dup ok? if lf-cterm-fuel @ lf-cts-fuel ! then ;
+\ The scope from the root's data word (compact-store plan step S6 (c);
+\ ADR 0014 Amendment 3), as Lean reads loose_bvar_range and has_fvar
+\ (expr.h; infer_type_core 326, check_no_metavar_no_fvar): every bound
+\ variable lies under its binder at depth when the range is at most the
+\ depth, and no free variable occurs when the bit is clear. The word was
+\ computed from the children when the node was made (core/terms.fs), and
+\ lf-cterm-check has just found the graph well formed. Such a root passes
+\ at once; any other (a variable out of scope, a free variable, a node
+\ without a data word) takes the walk, which finds the same verdict with
+\ the same diagnostic and fuel as before.
+: lf-cts-word? ( root depth -- flag )
+  swap lf-term-data@ 0= if drop false exit then
+  dup lf-data-fvar? if 2drop false else lf-data-loose < 0= then ;
+: lf-cts-judge ( root depth -- outcome )
+  2dup lf-cts-word? if 2drop outcome-ok else lf-cts-run then ;
 : lf-cts-scope ( index identity depth -- outcome )
-  >r over >r lf-cts-audit r> r> rot dup ok? if drop lf-cts-run else nip nip then ;
+  >r over >r lf-cts-audit r> r> rot dup ok? if drop lf-cts-judge else nip nip then ;
 
 \ Check a live root whose outer depth (binders available around it) is
 \ nonnegative (no fixed limit: plan task 6.2.0); the walk may enter
