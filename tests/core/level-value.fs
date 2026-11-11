@@ -4,6 +4,7 @@ include ../support/checks.fs
 require ../../src/core/level-scope.fs
 require ../../src/core/levels.fs
 require ../../src/kernel/level-value.fs
+require ../support/store-faults.fs
 
 lf-level-reset lf-lscope-context-reset
 T{ 0 lf-level-succ -> 1 true }T
@@ -68,10 +69,10 @@ T{ 7 100 lf-level-value-assigned -> 0 outcome-ok }T
 T{ 0 lf-level-succ -> 8 true }T
 T{ 6 8 lf-level-max -> 9 true }T
 T{ 8 6 lf-level-imax -> 10 true }T
-99 8 lf-level-slot !
+99 8 level-tag!
 T{ 9 100 lf-level-value -> -1 outcome-invalid }T
 T{ 10 100 lf-level-value -> -1 outcome-invalid }T
-lf-level-tag-succ 8 lf-level-slot !
+lf-level-tag-succ 8 level-tag!
 T{ 9 100 lf-level-value -> -1 outcome-unknown }T
 T{ 10 100 lf-level-value -> -1 outcome-unknown }T
 lf-lscope-context-reset
@@ -80,9 +81,9 @@ T{ 6 100 lf-level-value-assigned -> -1 outcome-invalid }T
 lf-lassign-reset
 
 \ Corrupted reachable nodes fail before evaluation and a valid retry works.
-99 2 lf-level-slot !
+99 2 level-tag!
 T{ 5 100 lf-level-value -> -1 outcome-invalid }T
-lf-level-tag-succ 2 lf-level-slot !
+lf-level-tag-succ 2 level-tag!
 T{ 5 100 lf-level-value -> 2 outcome-ok }T
 T{ lf-level-count @ -> 11 }T
 
@@ -167,5 +168,7 @@ lf-level-reset
 T{ lf-level-generation @ -> -1 }T
 lf-level-reset
 T{ lf-level-generation @ -> -1 }T
-T{ 0 lf-level-read -> false }T
+\ A poisoned store is refused at a pass's root, its reads check only the
+\ index (compact-store plan step S2).
+T{ 0 lf-level-root? 0 100 lf-level-value -> false -1 outcome-invalid }T
 bye

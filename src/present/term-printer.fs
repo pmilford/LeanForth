@@ -409,8 +409,11 @@ defer lf-pp-lam-groups ( node frames -- ... frames next )
 : lf-pp-finish ( outcome -- outcome )
   lf-pp-frames frame-busy? lf-pp-broken @ or if drop lf-pp-reset outcome-invalid exit then
   false lf-pp-printing ! outcome-sane dup ok? lf-pp-full? and if drop outcome-full then ;
-: lf-print-ready? ( fuel -- flag )
-  lf-name-storage-valid? if lf-pp-start else drop false then ;
+\ The stores' headers are checked here, at the print's root; its reads
+\ check only their indices (core/terms.fs).
+: lf-print-stores? ( -- flag )
+  lf-name-storage-valid? lf-term-count-valid? and lf-level-count-valid? and ;
+: lf-print-ready? ( fuel -- flag ) lf-print-stores? if lf-pp-start else drop false then ;
 : lf-print-run ( term pos fuel -- outcome )
   lf-print-ready? if ['] lf-pp-term-step lf-pp-run lf-pp-finish else 2drop outcome-invalid
   then ;

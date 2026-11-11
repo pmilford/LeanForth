@@ -58,10 +58,16 @@ store-header context-record: lf-levels
 
 \ Count and index checks; a valid store always holds the zero level. They
 \ cannot detect stale indices reused after a reset, or corrupted fields.
+\ As for terms (terms.fs, compact-store plan step S2), the whole header
+\ is checked at a pass's root (lf-level-count-valid?, lf-level-root?,
+\ lf-level-pair-valid? or a handle), and every read after that only
+\ checks that the index is allocated (store-at?).
 : lf-level-count-valid? ( -- flag ) lf-levels store-count-valid? ;
-: lf-level-valid? ( index -- flag ) lf-levels store-valid? ;
+: lf-level-root? ( index -- flag ) lf-levels store-valid? ;
+: lf-level-valid? ( index -- flag ) lf-levels store-at? ;
 \ A live node's identity, including the zero level's; never repeats.
-: lf-level-identity ( index -- identity true | false ) lf-levels store-identity@ ;
+: lf-level-identity ( index -- identity true | false )
+  dup lf-level-valid? if lf-levels store-identity @ true else drop false then ;
 
 \ Append a node whose tag and fields the caller validated; a failed
 \ allocation returns false, changes nothing and is recorded as a
@@ -94,6 +100,7 @@ store-header context-record: lf-levels
 lf-level-tag-imax lf-level-tag-max 1+ <>
 [if] .( levels.fs: max and imax tags must be consecutive) cr abort [then]
 : lf-level-binary-tag? ( tag -- flag ) lf-level-tag-max lf-level-tag-imax 1+ within ;
+\ Two checked roots with one header check (and a new node's children).
 : lf-level-pair-valid? ( left right -- flag ) lf-levels store-pair-valid? ;
 : lf-level-binary ( left right tag -- index true | false )
   >r 2dup lf-level-pair-valid? r@ lf-level-binary-tag? and
@@ -101,10 +108,12 @@ lf-level-tag-imax lf-level-tag-max 1+ <>
 : lf-level-max ( left right -- index true | false ) lf-level-tag-max lf-level-binary ;
 : lf-level-imax ( left right -- index true | false ) lf-level-tag-imax lf-level-binary ;
 
-\ Read an allocated node. A valid index alone does not authenticate fields.
+\ Read an allocated node. A valid index alone does not authenticate fields;
+\ the header is the root's to check.
 : lf-level-read ( index -- tag first second true | false ) lf-levels node-read ;
 \ One field of a node. Unchecked: the index must already be validated,
-\ for instance by an earlier lf-level-read of the same node.
+\ for instance by an earlier lf-level-read of the same node, under a
+\ checked root.
 : lf-level-tag@ ( index -- tag ) lf-level-slot node-tag @ ;
 : lf-level-first@ ( index -- first ) lf-level-slot node-first @ ;
 : lf-level-second@ ( index -- second ) lf-level-slot node-second @ ;

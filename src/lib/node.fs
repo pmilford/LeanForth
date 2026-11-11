@@ -18,6 +18,10 @@ end-structure
 \ tag and fields; a failed allocation (see store-new) changes nothing.
 : node-new ( tag first second store -- index true | false )
   store-new-slot if >r node! r> true else 2drop drop false then ;
-\ Read an allocated node; an invalid index returns only false, unread.
+\ Read an allocated node; an index the store does not hold returns only
+\ false, unread. Only the index is checked (store-at?: index < count <=
+\ capacity), not the rest of the header: a pass checks that once, at its
+\ root (store-count-valid?), so every visit of a walk costs one range
+\ check (compact-store plan step S2).
 : node-read ( index store -- tag first second true | false )
-  2dup store-valid? if store-slot node@ true else 2drop false then ;
+  2dup store-at? if store-slot node@ true else 2drop false then ;

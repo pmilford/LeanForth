@@ -241,7 +241,7 @@ defer lf-env-before-final
 \ have one (environment.fs lf-kind-valued?), distinct parameters (L3).
 : lf-recheck-value? ( decl -- flag )
   dup lf-idecl-value @ swap lf-idecl-kind @ lf-kind-valued?
-  if lf-term-valid? else -1 = then ;
+  if lf-term-root? else -1 = then ;
 : lf-recheck-kind? ( decl -- flag )
   dup lf-idecl-kind @ dup lf-kind-valued? swap lf-kind-bare? or
   over lf-idecl-safety @ lf-safety-safe = and swap lf-recheck-value? and ;

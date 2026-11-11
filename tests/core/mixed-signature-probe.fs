@@ -10,6 +10,7 @@ require ../../src/core/symbolic-session.fs
 require ../../src/core/terms.fs
 require ../../src/kernel/mixed-level-substitute.fs
 require ../../src/kernel/mixed-signature-probe.fs
+require ../support/store-faults.fs
 
 create formals 2 cells allot
 create actuals 4 cells allot
@@ -53,11 +54,11 @@ lf-cref-count @ constant initial-crefs
   >r >r token candidate actuals r> r> lf-msp-specialize ;
 \ Unerased serials demonstrate that a missing later formal is caught before
 \ allocation, even though an earlier constant could require rebuilding.
-lf-term-serial @ constant pre-term-serial
-lf-level-serial @ constant pre-level-serial
+term-serial constant pre-term-serial
+level-serial constant pre-level-serial
 lf-cref-serial @ constant pre-cref-serial
 T{ 1 500 put-candidate -> outcome-invalid }T
-T{ lf-term-serial @ lf-level-serial @ lf-cref-serial @ -> pre-term-serial pre-level-serial pre-cref-serial }T
+T{ term-serial level-serial lf-cref-serial @ -> pre-term-serial pre-level-serial pre-cref-serial }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> initial-terms initial-levels initial-crefs }T
 T{ 2 0 put-candidate -> outcome-exhausted }T
 T{ 2 500 put-candidate -> outcome-ok }T
@@ -70,11 +71,11 @@ T{ token second actuals 2 500 lf-msp-specialize -> outcome-unknown }T
 T{ token 1+ candidate actuals 2 500 lf-msp-specialize -> outcome-invalid }T
 \ Formal IDs are copied. The nested repeated constants and sort all specialize.
 99 formals ! 99 formals cell+ !
-T{ 2 500 specialize -> 7 lf-term-serial @ outcome-ok }T
+T{ 2 500 specialize -> 7 term-serial outcome-ok }T
 T{ 7 lf-term-read -> lf-tag-app 6 5 true }T
 T{ 6 lf-term-read -> lf-tag-app 4 4 true }T
 T{ 4 lf-term-read -> lf-tag-constant 1 lf-cref-serial @ true }T
-T{ 1 lf-cref-serial @ 0 lf-cref-level -> 5 lf-level-serial @ true }T
+T{ 1 lf-cref-serial @ 0 lf-cref-level -> 5 level-serial true }T
 T{ 5 lf-level-read -> lf-level-tag-max 2 3 true }T
 actuals cell+ @ constant good-id
 good-id 1+ actuals cell+ !
@@ -98,9 +99,9 @@ variable saw-allocation variable sfuel
   false saw-allocation !
   500 0 do
     i sfuel ! lf-term-count @ >r lf-level-count @ >r lf-cref-count @ >r
-    lf-level-serial @ >r
+    level-serial >r
     2 sfuel @ specialize dup outcome-exhausted = if
-      drop lf-level-serial @ r> > if true saw-allocation ! then
+      drop level-serial r> > if true saw-allocation ! then
       lf-cref-count @ r> <> lf-level-count @ r> <> or
       lf-term-count @ r> <> or if false unloop exit then
     else
@@ -127,15 +128,15 @@ T{ lf-msp-count @ -> 2 }T
 lf-term-count @ constant cover-terms
 lf-level-count @ constant cover-levels
 lf-cref-count @ constant cover-crefs
-lf-level-serial @ constant cover-level-serial
+level-serial constant cover-level-serial
 lf-cref-serial @ constant cover-cref-serial
--1 1 rshift 1- lf-term-serial !
+-1 1 rshift 1- term-serial!
 T{ token second fixture-root @ root-id @ formals 2 500 lf-msp-put -> outcome-full }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> cover-terms cover-levels cover-crefs }T
 \ Coverage substitutes zero for p and q: C.{max p q, q} becomes C.{0, 0},
 \ since Lean's mk_max gives 0 for max 0 0 (ADR 0011, Amendment 1), so no
 \ level is allocated, only the reference.
-T{ lf-level-serial @ cover-level-serial = lf-cref-serial @ cover-cref-serial > and -> true }T
+T{ level-serial cover-level-serial = lf-cref-serial @ cover-cref-serial > and -> true }T
 T{ lf-msp-count @ -> 2 }T
 \ A reset invalidates captured reference identities, even if its slot is reused.
 lf-cref-reset

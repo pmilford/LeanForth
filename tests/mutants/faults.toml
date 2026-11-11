@@ -957,8 +957,8 @@ reason = "Sorts of different levels share a skeleton: a false =="
 [[fault]]
 id = "cache-skip-early"
 file = "src/kernel/caches.fs"
-old = '''  2/ swap frame-context @ > 0= ;'''
-new = '''  2/ swap frame-context @ 1+ > 0= ;'''
+old = '''  lf-bits-loose swap frame-context @ > 0= ;'''
+new = '''  lf-bits-loose swap frame-context @ 1+ > 0= ;'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "instantiate keeps a node whose loose bound variable it should replace"
 
@@ -6279,8 +6279,8 @@ gap = "entries are reused only after a discard, which the caches make only when 
 [[fault]]
 id = "cache-pair-open-terms"
 file = "src/kernel/caches.fs"
-old = '''  lf-term-facts if 2/ if drop false else true then else false then ;'''
-new = '''  lf-term-facts if 2/ drop true else false then ;'''
+old = '''  lf-term-facts if lf-bits-loose if drop false else true then else false then ;'''
+new = '''  lf-term-facts if lf-bits-loose drop true else false then ;'''
 test = "$GFORTH tests/core/check-block.fs && $GFORTH tests/core/check-declaration.fs"
 reason = "rvCACHE: the pair caches keep terms with loose bound variables, whose meaning depends on binders the comparison did not open"
 gap = "only check-block.fs's comparisons under binders they did not open give open pairs; no test compares one open pair of skeletons twice under binders of different types within one job (plan task 4.2.7, review rvCACHE test gaps)"
@@ -6309,14 +6309,14 @@ file = "src/kernel/caches.fs"
 old = '''  over dup lf-term-first@ swap lf-term-second@ lf-repr-leaf? 2 pick lf-tk-index? and'''
 new = '''  over dup lf-term-first@ swap lf-term-second@ lf-repr-leaf?'''
 test = "$GFORTH tests/core/check-declaration.fs"
-reason = "rvCACHE L1: a bound variable of index 2^62 or more gets facts whose loose count overflowed (2^63 - 1 reads as closed)"
+reason = "rvCACHE L1: a bound variable of index 2^61 or more gets facts whose loose count overflowed (the bits are four times it since plan step CS S2)"
 
 [[fault]]
 id = "cache-infer-not-source"
 file = "src/kernel/caches.fs"
 old = '''  dup lf-minfer-source? 0= if drop false exit then
-  lf-term-facts 0= if false exit then 2/ lf-ci-scope dup 0= if nip then ;'''
-new = '''  lf-term-facts 0= if false exit then 2/ lf-ci-scope dup 0= if nip then ;'''
+  lf-term-facts 0= if false exit then lf-bits-loose lf-ci-scope dup 0= if nip then ;'''
+new = '''  lf-term-facts 0= if false exit then lf-bits-loose lf-ci-scope dup 0= if nip then ;'''
 test = "$GFORTH tests/core/whnf.fs"
 reason = "rvCACHE L2: a node inference refuses as no source node gets a cached type in deciding mode (whnf.fs's fresh-node probe)"
 
@@ -6695,8 +6695,8 @@ reason = "EX: every pass after the first shares one number, so a pass with y get
 [[fault]]
 id = "ex-range-one-short"
 file = "src/kernel/caches.fs"
-old = '''  lf-term-facts if nip 2/ true else false then ;'''
-new = '''  lf-term-facts if nip 2/ 1- 0 max true else false then ;'''
+old = '''  lf-term-facts if nip lf-bits-loose true else false then ;'''
+new = '''  lf-term-facts if nip lf-bits-loose 1- 0 max true else false then ;'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "EX: a term read under the scope is closed with one free variable too few, so a bound variable stays loose"
 
@@ -6834,3 +6834,145 @@ old = '''  lf-ind-aux@ ?dup if lf-recipe-aux-shift lshift exit then'''
 new = ''''''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.5b: a nested block's recipe says rebuild (without its auxiliary types) and holds no T.rec_1"
+
+# --- one read layer (compact-store plan step S2: src/lib/store.fs store-at?,
+# src/lib/node.fs, src/core/terms.fs, levels.fs, generation-handles.fs, the
+# roots of tagged-sort-boundary.fs, level-scope.fs and the printer, and
+# src/kernel/caches.fs's parameter bit and data word)
+
+[[fault]]
+id = "s2-read-past-count"
+file = "src/lib/store.fs"
+old = '''  dup store-capacity @ swap store-count @ tuck u< 0= -rot u< and ;'''
+new = '''  dup store-capacity @ swap store-count @ tuck u< 0= -rot 1+ u< and ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "S2: a read by index reads the record at the count, which is not allocated"
+
+[[fault]]
+id = "s2-read-count-unbounded"
+file = "src/lib/store.fs"
+old = '''  dup store-capacity @ swap store-count @ tuck u< 0= -rot u< and ;'''
+new = '''  store-count @ u< ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "S2: a count corrupted beyond the capacity lets a read by index leave the block"
+
+[[fault]]
+id = "s2-node-read-unchecked"
+file = "src/lib/node.fs"
+old = '''  2dup store-at? if store-slot node@ true else 2drop false then ;'''
+new = '''  store-slot node@ true ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "S2: node-read (every walk's visit) reads an index the store does not hold"
+
+[[fault]]
+id = "s2-term-root-range-only"
+file = "src/core/terms.fs"
+old = ''': lf-term-root? ( index -- flag ) lf-terms store-valid? ;'''
+new = ''': lf-term-root? ( index -- flag ) lf-terms store-at? ;'''
+test = "$GFORTH tests/core/terms.fs && $GFORTH tests/core/tagged-sort-boundary.fs"
+reason = "S2: a root not checked: a term store with a broken seal is taken at a pass's root"
+
+[[fault]]
+id = "s2-term-pair-range-only"
+file = "src/core/terms.fs"
+old = ''': lf-term-pair-valid? ( left right -- flag ) lf-terms store-pair-valid? ;'''
+new = ''': lf-term-pair-valid? ( left right -- flag ) lf-term-valid? swap lf-term-valid? and ;'''
+test = "$GFORTH tests/core/terms.fs && $GFORTH tests/core/tagged-sort-boundary.fs"
+reason = "S2: a root not checked: two roots are taken from a term store with a broken seal"
+
+[[fault]]
+id = "s2-level-root-range-only"
+file = "src/core/levels.fs"
+old = ''': lf-level-root? ( index -- flag ) lf-levels store-valid? ;'''
+new = ''': lf-level-root? ( index -- flag ) lf-levels store-at? ;'''
+test = "$GFORTH tests/core/levels.fs && $GFORTH tests/core/level-scope.fs && $GFORTH tests/core/level-value.fs"
+reason = "S2: a root not checked: a poisoned level store is taken at a pass's root"
+
+[[fault]]
+id = "s2-term-handle-unchecked"
+file = "src/core/generation-handles.fs"
+old = '''  lf-ssession-current? if lf-hterm-id? else 2drop false then ;'''
+new = '''  lf-hterm-id? ;'''
+test = "$GFORTH tests/core/generation-handles.fs"
+reason = "S2: a root not checked: a term handle is valid in a store whose seal is broken"
+
+[[fault]]
+id = "s2-level-handle-unchecked"
+file = "src/core/generation-handles.fs"
+old = '''  lf-level-count-valid? if lf-hlevel-id? else 2drop false then ;'''
+new = '''  lf-hlevel-id? ;'''
+test = "$GFORTH tests/core/generation-handles.fs"
+reason = "S2: a root not checked: a level handle is valid in a store whose seal is broken"
+
+[[fault]]
+id = "s2-repr-root-unchecked"
+file = "src/core/tagged-sort-boundary.fs"
+old = '''  dup lf-term-root? if lf-repr-walk else drop-invalid then ;'''
+new = '''  dup lf-term-valid? if lf-repr-walk else drop-invalid then ;'''
+test = "$GFORTH tests/core/tagged-sort-boundary.fs"
+reason = "S2: a root not checked: the representation walk runs on a term store whose seal is broken"
+
+[[fault]]
+id = "s2-lscope-root-unchecked"
+file = "src/core/level-scope.fs"
+old = '''  lf-lscope-context-valid? swap lf-level-root? and lf-lscope-zero-ok? and ;'''
+new = '''  lf-lscope-context-valid? swap lf-level-valid? and lf-lscope-zero-ok? and ;'''
+test = "$GFORTH tests/core/level-scope.fs && $GFORTH tests/core/level-value.fs"
+reason = "S2: a root not checked: the level-scope walk runs on a level store whose seal is broken"
+
+[[fault]]
+id = "s2-print-root-unchecked"
+file = "src/present/term-printer.fs"
+old = '''  lf-name-storage-valid? lf-term-count-valid? and lf-level-count-valid? and ;'''
+new = '''  lf-name-storage-valid? ;'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "S2: a root not checked: a print reads term and level stores whose seals are broken"
+
+[[fault]]
+id = "s2-params-of-parameter"
+file = "src/kernel/caches.fs"
+old = '''    lf-level-tag-param of drop 1 endof'''
+new = '''    lf-level-tag-param of drop 0 endof'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S2: a universe parameter is not counted in its level's facts (has_param_univ false)"
+
+[[fault]]
+id = "s2-params-of-children"
+file = "src/kernel/caches.fs"
+old = '''  2dup or 3 and >r lf-bits-loose swap lf-bits-loose swap lf-tf-loose 2 lshift r> or ;'''
+new = '''  2dup or 1 and >r lf-bits-loose swap lf-bits-loose swap lf-tf-loose 2 lshift r> or ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S2: a parameter in a child is not one in its parent"
+
+[[fault]]
+id = "s2-params-of-constant"
+file = "src/kernel/caches.fs"
+old = '''    lf-tag-constant of lf-const-params lf-param-bits endof'''
+new = '''    lf-tag-constant of drop 0 endof'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S2: a constant's universe arguments are not looked at for parameters"
+
+[[fault]]
+id = "s2-data-range-unbounded"
+file = "src/kernel/caches.fs"
+old = '''  dup lf-bits-loose dup lf-data-ranges u< 0= if 2drop false exit then'''
+new = '''  dup lf-bits-loose'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S2: a loose range of 20 bits or more is cut to 20 bits in the data word"
+
+[[fault]]
+id = "s2-data-caches-off"
+file = "src/kernel/caches.fs"
+old = '''  lf-caches-on? 0= if drop false exit then
+  lf-term-facts if nip lf-cd-word else false then ;'''
+new = '''  lf-term-facts if nip lf-cd-word else false then ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S2: lf-term-data@ answers from the memo with the caches off"
+
+[[fault]]
+id = "s2-data-bits-swapped"
+file = "src/core/terms.fs"
+old = '''  lf-data-ranges 2* and swap lf-data-ranges and or or ;'''
+new = '''  lf-data-ranges and swap lf-data-ranges 2* and or or ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "S2: the parameter and free-variable bits of the data word are swapped (not ADR 0016 C1's layout)"

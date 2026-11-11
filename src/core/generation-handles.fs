@@ -34,10 +34,19 @@ lf-walk-room context-walk: lf-href-walker
 : lf-href-fuel ( -- addr ) lf-href-walker walk-fuel ;
 
 \ A pair names a live slot with that identity. Level pairs say nothing about
-\ shape or scope; term pairs also need the session to be current.
-: lf-hlevel-valid? ( index identity -- flag ) swap lf-level-identity if = else drop false then ;
+\ shape or scope; term pairs also need the session to be current. A handle
+\ is where a pass takes a node from outside, so these are checked roots:
+\ they check the store's whole header (terms.fs), the reads after them
+\ only the index.
+: lf-hlevel-id? ( index identity -- flag )
+  swap lf-level-identity if = else drop false then ;
+: lf-hlevel-valid? ( index identity -- flag )
+  lf-level-count-valid? if lf-hlevel-id? else 2drop false then ;
+: lf-hterm-id? ( index identity -- flag )
+  swap lf-term-identity if = else drop false then ;
+\ The session's check covers both stores' headers (symbolic-session.fs).
 : lf-hterm-valid? ( index identity -- flag )
-  swap lf-term-identity if = else drop false then lf-ssession-current? and ;
+  lf-ssession-current? if lf-hterm-id? else 2drop false then ;
 : lf-hterms-valid? ( left lid right rid -- flag ) lf-hterm-valid? >r lf-hterm-valid? r> and ;
 
 \ Turn an allocator's result into a handle.
@@ -49,7 +58,7 @@ lf-walk-room context-walk: lf-href-walker
 \ Level handles: zero, an opaque parameter, or the successor of a live level.
 \ Parameters must still be in the session context when checked.
 : lf-hlevel-zero ( -- index identity true | false )
-  0 lf-level-valid? if 0 dup lf-level-identity else false then ;
+  0 lf-level-root? if 0 dup lf-level-identity else false then ;
 : lf-hlevel-param ( name-id -- index identity true | false ) lf-level-param lf-hlevel-result ;
 : lf-hlevel-succ ( index identity -- index identity true | false )
   2dup lf-hlevel-valid? if drop lf-level-succ lf-hlevel-result else 2drop false then ;

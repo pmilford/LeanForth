@@ -55,7 +55,7 @@ lf-walk-room context-walk: lf-repr-walker
 \ node shape; nothing else, and never theorem validity.
 : lf-repr-check ( root mode fuel -- status )
   lf-repr-start 0= if drop-invalid exit then
-  dup lf-term-valid? if lf-repr-walk else drop-invalid then ;
+  dup lf-term-root? if lf-repr-walk else drop-invalid then ;
 
 \ Check two roots against one budget, even when the first is Sort-free.
 \ Counts and nodes are never changed.
