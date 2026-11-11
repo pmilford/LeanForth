@@ -1510,7 +1510,114 @@ Planted faults `fx7-*`, all caught.
 argument with all the scope's free variables, where Lean instantiates a
 binder's body once, and every comparison audits both types in full; on
 the Array.Extract `omega` proofs this costs 10–20 million fuel (9 of the
-17). Both are 6.5.5's "work linear in a term's depth".
+17). Both are 6.5.5's "work linear in a term's depth". (The first is
+Amendment 3's, 2026-11-11.)
+
+## Amendment 3: substitution as Lean's replace, node facts from the data word, inferred types keyed by the opened term (agent S6A, 2026-11-11, proposed)
+
+Status: proposed; [kernel] gate owed (review, owner's approval of the fuel
+model below). Plan task 6.5.5, parts (a), (d) and (e) of compact-store
+plan step S6 (`.claude` plan row S6; parts (b) and (c) are elsewhere).
+Code: `src/kernel/replace-memo.fs` (new), `mixed-open.fs`,
+`mixed-shift.fs`, `mixed-instantiate.fs`, `mixed-beta.fs` (reset only),
+`whnf.fs`, `mixed-infer.fs`, `caches.fs`. Lean's files at the referee
+commit `eb6cafb7`.
+
+**Ported.**
+1. *Replace* (`replace_fn.cpp` 16–40; `instantiate.cpp` 15–37, 99–118;
+   `abstract.cpp` 14–32; `expr.cpp` 448–463). Every substitution
+   (instantiate, instantiate_rev, abstract, lift_loose_bvars, and the
+   single-binder instantiate that beta uses) keeps a binary node's result
+   per node and offset for the rest of the call, in one table per pass and
+   context (`replace-memo.fs`, ADR 0016 C4's substitution memo; keys are
+   identities, values checked by identity), and gives a node back
+   unvisited when its data word (ADR 0016 C1) shows the function returns
+   it: loose range at most the offset (`instantiate.cpp` 22, 103;
+   `expr.cpp` 455), or no free variable for abstract (`abstract.cpp` 19);
+   a lift by 0 is the term itself (`expr.cpp` 449); a node whose children
+   come back unchanged is kept (update_app, update_binding). A node whose
+   word names a free variable is kept unvisited by instantiate only on the
+   caches' memo, which knows a free variable only while it is live (as
+   since step S3), so a dead one is still refused. Lean keeps only shared
+   nodes' results; keeping every one changes work, never a result.
+2. *Node facts read, not scanned.* has_loose_bvars, has_fvar (`whnf.fs`)
+   and loose_bvar_range (`mixed-infer.fs`'s count of the scope variables a
+   term needs) read the data word, with or without the caches; a node
+   without data asks the caches' memo, then is walked.
+3. *Inferred types keyed by the opened term.* Lean infers the term that
+   infer_lambda, infer_pi and infer_let instantiated with their free
+   variables and keys its type by that term (`type_checker.h` 26–30,
+   `expr_map` with ==; `type_checker.cpp` 125–171, 208–230, 332–334, 356),
+   so a term that names only outer binders hits under any inner one.
+   LeanForth reads source nodes under the scope (Q2); the key of an open
+   node is now the skeleton of its copy closed with the scope (before: the
+   node with the scope's innermost free variable, which missed under every
+   new binder: agent DX measured 2.8–11.5 times Lean's inferences on the
+   exhausted roots of `Init`). The closing is remembered per scope for the
+   job: a closing under the whole scope is a function of the scope, which
+   its innermost free variable names (each binder makes a new one;
+   identities never repeat), so `lf-instantiate-scope` stamps its results
+   with that identity and a later closing under the same scope finds them,
+   at its root for no fuel. Inference closes an application's argument
+   after inferring it, so the argument's subterms were closed already: no
+   argument is closed in full again. As Lean's infer_pi opens a whole chain
+   (144–166), an inner Pi of a chain is neither looked up nor kept (inner
+   λs were not, Amendment 1); a loose bound variable is not keyed (its
+   type is its entry's, 93–99). A closing that runs out of fuel or room
+   ends the visit so; any other failure leaves the node uncached. While a
+   check keeps no scratch (a small store: `lf-caches-keep?`) open nodes are
+   not keyed.
+
+**Fuel model** (Q9, changed by design; the owner approves it at the
+gate). A substitution visit costs one unit, as before; a node given back
+by its data word or by the memo ends its visit for that unit, so a call
+expands each node at most once per offset ("a unit per distinct node per
+call", plus one per edge into an expanded node); a closing found
+remembered at its root costs nothing, as do memo lookups and keeps, the
+data-word reads that replace the scans (Lean's flags and hash lookups cost
+no steps); the closing of an open node for its key is paid as any
+substitution (Lean's instantiate when it opens a binder). Less fuel can
+still only give *exhausted* or *unknown*, never another verdict.
+
+**Why sound.** Within a call the substitution is fixed, so a result is a
+function of node and offset; across calls only closings stamped by a live
+innermost free variable share entries, and the closing of a node at an
+offset with the scope's innermost n' variables equals its closing with
+the whole scope whenever n' covers its loose range (inference passes
+exactly that, `lf-minfer-needed`). A memo entry is used only while its
+key node and its result keep the identities kept with them. The inferred-
+type key is Lean's: types are functions of the closed term within one
+local context, and every table is emptied when a job starts (Amendment 1).
+
+**Evidence.** `make test` and `make check` on the final commit (all
+Lean-compared tables: the same verdicts). Planted faults: 16 new
+(`s6a-*`: memo without offset or stamp, value identity unchecked, a skip
+reaching the offset in each pass, a skipped free variable, abstract
+skipping, no lift at all, one stamp for every scope, has_fvar or
+has_loose_bvars misread, a loose count one short, a key failure dropped)
+and 7 stale ones re-targeted, all 23 caught. Checker trials (2,000 × 300):
+1,482 trials keep their outcome mix; the 518 that change move only
+between *exhausted* and *ok* except 39, and in each of those 39 the first
+call that differs went from *exhausted* to *ok* (36) or *unknown* (3) on
+the same store, the rest following from the different store; no trial
+has more *exhausted*. `Init`'s first 1M lines (`check --fast
+--no-manifest`, default fuel): 8,672 → 8,695 accepted, 518 → 501 unknown,
+12 → 6 exhausted, every move to *accepted* (Lean's verdict); fuel
+202,224,048 → 161,723,424 (1,751 declarations use more, at most 8.6%
+more, 5,880 less); check CPU 163 → 159 s. INIT_RESULTS.
+`_private.Init.Data.Array.Extract.0.Array.extract_append._proof_1_1`
+(blocks about 3,290 unknowns, agent DX): 21,299,931 → 15,767,375 fuel
+(cut of its dependencies, `--fuel 60000000`): 6.3 M of it is the
+per-conversion audit (`lf-mcompare-roots`, plan row S6 (c)), and with the
+check's scratch room raised from 2^20 to 2^22 terms (`feed.fs`, not
+changed here) it needs 9.0 M: past about 786,000 scratch nodes the caches
+stop keeping (`lf-caches-keep?`), and its comparisons rise from about
+21,000 to 533,000. DEEP_RESULTS.
+
+**Left.** The audits at every comparison and rebuild (S6 (c), agent S6C),
+`instantiate_lparams` per node (S6 (b)), Lean's == by hash (agent DX's
+finding 2), and the check's fixed scratch room above (a temporary gap:
+*exhausted* where Lean decides).
 
 ## Note: the projection steps (plan task 5.2.2, 2026-11-10)
 
