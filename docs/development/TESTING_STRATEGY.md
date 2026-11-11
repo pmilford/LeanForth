@@ -242,7 +242,7 @@ average 1–8). *Before*: commit `8148f3f`, before these changes. *No cache*:
 | `test-binder-domains-differential` | check | 3.5 | 4.0 | 0.3 |
 | `test-universe-scope-differential` | check | 2.6 | 3.0 | 1.2 |
 | `test-depth-differential`, `test-depth-fed-differential` (plan task 6.2.0, 2026-11-04; listed first in `check`) | check | — | about 40 each | about 40 each |
-| `test-depth-deep-differential` (not in `check`) | — | — | about 770 | about 770 |
+| `test-depth-deep-differential` (in `check` since 2026-11-11) | — | — | about 9 (770 until the depth work) | about 9 |
 | `test-program-differential` | check | 0.8 | 0.9 | 0.1 |
 | `test-program-stack-differential` | check | 1.2 | 1.5 | 0.2 |
 | `test-program-values-differential` | check | 0.9 | 1.1 | 0.2 |
@@ -293,6 +293,49 @@ the Makefile); before that change the same runs took 89.5 s without the
 cache, 93.7 s with an empty one and 55.6 s with a full one. Each run
 passed. The longest target, `reference-compact-init`, now bounds `make
 check`.
+
+**Measured again, 2026-11-11** (agents TT and TT2; per-target tables in
+`.claude/work/TT/times.tsv` and `.claude/work/TT2/{nocache,warm}.tsv`, one
+target at a time with `JOBS=1`; CPU is user plus system time of the target
+and its children, which stays comparable when other agents load the machine).
+The 99 targets and the 430 inductive cases are the same before and after.
+
+- Cause of the slowdown. `tests/reference/inductive-expected.lean` printed
+  its 430 rows and 430 cases (11 MB) inside one `run_cmd`, that is as one
+  Lean message, and Lean's handling of a message takes time quadratic in its
+  size: 366 s for the run, of which the checking of all cases takes 3 s and
+  the writing of the exports 16 s. Both `reference-inductive` and
+  `test-inductive-table` ran that file, each 650-700 s CPU. Printing each row
+  and each case as its own message (`logInfo`) gives the same output text in
+  27 s; no file was split, as the cases were never the cost. The text of
+  the file is part of the hygienic names in Lean's exports (module name
+  hash and macro-scope counter), so the 27 check-block fixtures that hold
+  such names were rewritten from Lean's own output (`inductive-table.py`
+  checks all 353 fixtures against it). The file may not contain `IO.FS`,
+  which the Lean cache treats as an input (hence `isolated`).
+- Under `LEAN_CACHE=0` (CI), `make` now runs that Lean once: the target
+  `inductive-expected-output` writes `build/inductive-expected.out` (ignored
+  by git), which `reference-inductive` and `test-inductive-table` read
+  through `INDUCTIVE_EXPECTED_OUT`; run alone, the two scripts still run
+  Lean themselves.
+- `make check` lists its slowest targets first (new order in the Makefile)
+  and now includes `test-depth-deep-differential`, which takes 9 s since
+  the depth work (it took about 770 s before); its 6 rows are 10,000-deep
+  terms.
+- Results. All targets one at a time without the cache: 3,940 s wall and
+  3,187 s CPU (11-10, loaded machine) before, 670 s and 710 s after. With
+  a filled cache: 441 s wall (about 385 s with the two inductive targets
+  replayed: 1 s and 16 s) after. `make check LEAN_CACHE=0` (8 jobs): 171 s
+  wall, 965 s CPU; `make check` with the cache filled: 93-114 s wall, 540 s
+  CPU (a loaded machine; the time left is the Forth side). Largest
+  targets now (no cache, seconds wall): `reference-author` 67,
+  `reference` 61, `test-cli` 56, `reference-compact-init` 53,
+  `reference-program-ir-run` 33, `reference-inductive` 29 (shares the Lean
+  run with `test-inductive-table`, which takes 43 alone).
+- Not changed: `reference-program-ir` (55 s CPU before) and
+  `reference-program-ir-run` run many small Lean files whose text is
+  hashed by receipts (`tests/program/ir_run_differential.py`); they stay
+  whole. No checker change was found to have slowed a test.
 
 **Testing while you work.** The inner loop is the focused test of what you
 change; `make test` before each commit; `make check` once, at the end of a

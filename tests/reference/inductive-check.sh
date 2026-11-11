@@ -44,7 +44,9 @@ trap 'rm -f "$work/out" "$work/rows" "$work/LeanForthBlocks.olean" "$work/LeanFo
 
 # 1. Kernel verdicts: the rows, before the cases written as exports (which
 #    tests/core/inductive-table.py reads; plan task 5.2.1a).
-if ! "$lean" -DwarningAsError=true tests/reference/inductive-expected.lean >"$work/out" 2>&1; then
+if [ -n "${INDUCTIVE_EXPECTED_OUT:-}" ]; then   # Lean's run, made once by make
+  cp "$INDUCTIVE_EXPECTED_OUT" "$work/out"
+elif ! "$lean" -DwarningAsError=true tests/reference/inductive-expected.lean >"$work/out" 2>&1; then
   cat "$work/out" >&2
   printf '%s\n' 'A Lean kernel answer differs from inductive-expected.lean' >&2
   exit 1
