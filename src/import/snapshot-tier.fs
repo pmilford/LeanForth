@@ -447,9 +447,11 @@ create tf-loads   \ by position, from 1
   over >r rot dup >r -rot r> 1- cells tf-loads + @ execute r> tf-limited ;
 : tf-note ( i stage tf -- )
   >r over swap tier-slab slab-count r@ tf-at ! tier-title r> tf-why ! ;
+: tf-load-noted ( i stage tf -- outcome )
+  >r 2dup r@ tf-load dup ok? if nip nip r> drop exit then -rot r> tf-note ;
 : tf-loads-all ( stage tf -- outcome )
   tier-sections# 1 do
-    2dup i -rot tf-load dup ok? 0= if >r i -rot tf-note r> unloop exit then drop
+    2dup i -rot tf-load-noted dup ok? 0= if nip nip unloop exit then drop
   loop 2drop outcome-ok ;
 
 \ The metadata: none (every field 0), or five texts of the tier.
@@ -459,7 +461,7 @@ create tf-loads   \ by position, from 1
   >r over r> tf-meta@ 2dup swap stage-tier tier-texts cons-entry?
   if -rot meta-slot ! true else drop 2drop false then ;
 : metas-take ( stage tf -- flag )
-  true #meta 0 do >r 2dup i -rot meta-take r> and loop nip nip ;
+  true -rot #meta 0 do 2dup i -rot meta-take >r rot r> and -rot loop 2drop ;
 : tf-metas ( stage tf -- outcome )
   ti-other over ti@ case
     0 of nip metas-zero? endof
