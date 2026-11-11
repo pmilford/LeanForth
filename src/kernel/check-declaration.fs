@@ -104,7 +104,10 @@ lf-walk-room context-walk: lf-check-walker
 \ U1: a definition, theorem, opaque declaration, axiom or quotient
 \ record, safe; recorded with its kind and safety. A value is malformed
 \ input (invalid) when it is missing for the first three kinds, which
-\ have one, or present for the last two, which have none.
+\ have one, or present for the last two, which have none. An unsafe or
+\ partial one is unsupported, a gap where Lean's kernel decides (an
+\ unsafe axiom or opaque declaration it accepts, environment.cpp 152-158
+\ and 211-222): a follow-up of plan tasks 5.3.1 and 4.2.6 (review rvAX L3).
 : lf-check-kind? ( kind -- flag ) dup lf-kind-valued? swap lf-kind-bare? or ;
 : lf-check-in-scope? ( decl -- flag )
   dup lf-idecl-kind @ lf-check-kind? swap lf-idecl-safety @ lf-safety-safe = and ;

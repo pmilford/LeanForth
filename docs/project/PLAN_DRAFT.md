@@ -471,7 +471,7 @@ Declaration kinds, for orientation:
 | number and string literals | `37`, `"abc"` | 5 |
 | quotient | building new types from equivalence classes (fractions) | 5 |
 | mutual and nested inductive types | several data types defined together | 5 (last) |
-| unsafe and partial definitions | code Lean itself does not trust logically | never accepted; unsupported |
+| unsafe and partial definitions | code Lean itself does not trust logically | unsupported for now, a gap: Lean's kernel accepts an unsafe axiom or opaque declaration and rejects a safe one that uses it; a follow-up of 5.3.1 and 4.2.6 gives Lean's verdicts (the pinned exporter and Lean's replay skip unsafe constants) |
 
 | ID | Task | Acceptance | Needs | Gates | Size |
 | --- | --- | --- | --- | --- | --- |

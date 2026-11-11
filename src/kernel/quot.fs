@@ -7,11 +7,20 @@
 \
 \ Q1. Lean's Declaration.quotDecl carries no data: add_quot checks Eq
 \ (check_eq_type) and the four names (check_name), then adds Quot,
-\ Quot.mk, Quot.lift and Quot.ind with types it builds itself. An export
-\ holds the four constants as quotient records, each with its type; Lean's
-\ replay adds quotDecl for each (Replay.lean 129-133; a second add_quot
-\ changes nothing). check-declaration.fs checks each record: its name
-\ (N2, Lean's check_name), then lf-quot-eq, then lf-quot-builtin. Steps:
+\ Quot.mk, Quot.lift and Quot.ind with types it builds itself and marks
+\ the quotient initialised; a second add_quot changes nothing (48-49). An
+\ export holds the four constants as quotient records, each with its
+\ type; Lean's replay adds quotDecl for each (Replay.lean 129-133).
+\ check-declaration.fs checks each record: U1, lf-quot-names, lf-quot-eq,
+\ the type's audit, then lf-quot-builtin. Steps:
+\ - lf-quot-names ( -- outcome ), check_name (review rvAX): while no
+\   earlier quotient record is accepted, none of the four names is
+\   declared (N2 with K5 on each); once one is (the quotient initialised),
+\   only the record's own name, as LeanForth holds one constant per slot.
+\   environment.fs holds the four names against every other declaration
+\   once the quotient is initialised (lf-env-quot-holding), so a user's
+\   Quot.mk is refused then, or, declared first, leaves every quotient
+\   record rejected, as in Lean.
 \ - lf-quot-eq ( -- outcome ), check_eq_type: Eq, looked up and recorded
 \   as a dependency, is an inductive type with one universe parameter and
 \   one constructor; its type is {alpha : Sort u} -> alpha -> alpha ->
@@ -20,25 +29,30 @@
 \   first universe parameter; any other Eq is rejected (diagnostic 95),
 \   none is the lookup's rejection (N1), and an undecided or unsupported
 \   one the lookup's outcome (K5).
-\ - lf-quot-builtin ( decl -- outcome ): the record is one of the four
-\   by name (the entries below); with other universe parameters or
-\   another type than Lean's (core/statement-match.fs) it is accepted
-\   with the warning lf-warn-quot-record, as replay ignores the record,
-\   and every use is typed with Lean's own type, built from the entry
-\   (lf-envsig-builtin, env-signature.fs). Not yet as Lean (a gap of plan
-\   task 5.2.4, no export Lean writes reaches it): a record of another
-\   name is rejected (diagnostic 96) where replay ignores it.
-\ Both read their fuel from lf-stmt-fuel (exhausted when it runs out).
+\ - lf-quot-builtin ( decl well? -- outcome ): the record is one of the
+\   four by name (the entries below); with other universe parameters or
+\   another type than Lean's (core/statement-match.fs; a type the audit
+\   refused, well? false, is another) it is accepted with the warning
+\   lf-warn-quot-record, as replay ignores the record, and every use is
+\   typed with Lean's own type, built from the entry (lf-envsig-builtin,
+\   env-signature.fs). Not yet as Lean (gaps of a follow-up of plan task
+\   5.2.4, no export Lean writes reaches them): a record of another name
+\   is rejected (diagnostic 96) where replay ignores it; a second record
+\   of a name, and a use of one of the four constants that no slot holds
+\   while the quotient is initialised, are unknown (diagnostic 77).
+\ The comparisons read their fuel from lf-stmt-fuel (exhausted when it
+\ runs out).
 \
 \ Q2. lf-quot-rule ( app -- mk outcome ): the reduction rule for an
 \ application whose head is a constant named Quot.lift (mk 5) or Quot.ind
 \ (mk 4) that the check's environment holds as a quotient record (Lean's
-\ is_quot_initialized, given that no other declaration can take the
-\ name), with more than mk arguments; -1 for none (any other head, fewer
+\ is_quot_initialized: no other declaration can then hold the name, Q1),
+\ with more than mk arguments; -1 for none (any other head, fewer
 \ arguments, outside a check); or the head's lookup's failure. Then
 \ lf-quot-reduce ( app mk frames -- ... frames next ), a step of whnf.fs's
 \ pass that ends the iota hook's visit: argument mk is put in Lean's whnf
-\ (a child visit); when that is Quot.mk (by name, as Lean) applied to
+\ (a child visit); when that is Quot.mk (by name, as Lean: with the
+\ quotient initialised the name is Lean's constant, Q1) applied to
 \ exactly three arguments, argument 3 of app, the function, applied to
 \ the third, then to app's arguments after mk, is the reduct; otherwise
 \ no rule applies (-1 ok).

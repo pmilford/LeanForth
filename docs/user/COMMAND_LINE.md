@@ -224,14 +224,25 @@ declaration uses (plan task 5.3.1). An axiom gets Lean's verdict: Lean's
 kernel accepts any axiom whose type is well formed, and so does
 LeanForth. Only `propext`, `Classical.choice` and `Quot.sound`, each with
 exactly Lean 4.35.0's statement (the versioned allowlist,
-`src/core/axiom-allowlist.fs`, version 1), count as proved; their
-names follow `axioms:` on the line, in the order `#print axioms` sorts
-them, and `unlisted` stands for any other axiom. Under the owner's rule,
+`src/core/axiom-allowlist.fs`, version 1), count as proved, and only
+when the constants their statements name are Lean's own: `Quot` and
+`Quot.mk` the quotient constants, and `Eq`, `Iff` and `Nonempty` the
+inductive types exactly as Lean's `Init` declares them (universe
+parameters, type, parameters, a block of their own, one constructor of
+Lean's name and type, accepted without a warning). `propext` with
+Lean's exact statement about an `Iff` the file declares otherwise is
+therefore unlisted. The allowlisted names follow `axioms:` on the line,
+in the order `#print axioms` sorts them, and `unlisted` stands for any
+other axiom. Under the owner's rule,
 an accepted declaration that depends on an unlisted axiom -- `sorryAx`,
 an axiom the file declares, or `propext` with another statement -- is
 marked `NOT PROVED: depends on` with those axioms named (in file order)
-and counted apart in the summary (`axioms: N NOT PROVED`), never as
-proved. The mark is presentation, never a different verdict. So, by the
+and counted apart in the summary, never as proved. The summary names
+the allowlisted axioms the accepted declarations use, then the count:
+`axioms: none` when they use no axiom, else for example `axioms:
+propext, Classical.choice, Quot.sound (allowlisted); none NOT PROVED`
+or `axioms: 2 NOT PROVED (they depend on an axiom)`. The mark is
+presentation, never a different verdict. So, by the
 owner's decision of 2026-11-04, a
 run whose declarations are all accepted, some of them NOT PROVED, keeps
 Lean's exit status, 0, and says so in a note after the summary:
@@ -243,8 +254,8 @@ note: makes it 6
 
 With `--strict-axioms` the same run exits with status 6, below every real
 failure ([exit status](#exit-status)), and the JSON report's
-`settings.strictAxioms` is true. `make test` reaches both by planting an
-axiom in an accepted slot.
+`settings.strictAxioms` is true. `make test` reaches both with an
+export's own axiom and by planting an axiom in an accepted slot.
 
 A broken copy of `composition`, whose proof applies `g` to `value`
 instead of to `f value`, is rejected for the reason Lean's kernel gives
@@ -403,7 +414,14 @@ and `Array` with their recursors. Almost everything else is
 each a gap to close, not an answer that differs from Lean's, which
 accepts all of `Init`: literals, projections and other term forms
 (5.2.3, 5.2.2, 4.2.3; 25,703 declarations), axioms, opaque, unsafe and
-partial declarations and quotients (5.3.1, 4.2.6, 5.2.4; 252), mutual
+partial declarations and quotients (252; axioms, opaque declarations
+and quotients since 5.3.1, 4.2.6 and 5.2.4; unsafe and partial ones are
+still unsupported, a gap that a follow-up of 5.3.1 and 4.2.6 closes:
+Lean's kernel accepts an unsafe axiom with its unsafe checker and an
+unsafe opaque declaration with the safe one, `environment.cpp` 152-158
+and 211-222, and rejects a safe declaration that uses either,
+`type_checker.cpp` 110-112; Lean's replay and the pinned exporter skip
+unsafe constants, and replay skips partial ones too), mutual
 and nested inductive blocks (5.2.5; 8), comparisons that need
 definitions unfolded (4.2.2; 951 *unknown*, codes 30–32), and
 everything that uses one of those (25,616 *unsupported* and 4,105

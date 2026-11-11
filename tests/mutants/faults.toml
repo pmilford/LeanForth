@@ -140,7 +140,7 @@ file = "src/kernel/check-declaration.fs"
 old = '''  lf-env-axioms ok? if lf-check-axioms. else drop ." axioms: ?" then ;'''
 new = '''  lf-env-axioms ok? if drop ." axioms: none" else drop ." axioms: ?" then ;'''
 test = "$GFORTH tests/core/failure-paths.fs"
-reason = "CD: the label prints axioms: none without reading the slot's axiom set; no input can show it in phase 2 (axioms are unsupported, and so is every user, K5), so the failure-path suite plants a bit in each accepted slot and reads its verdict"
+reason = "CD: the label prints axioms: none without reading the slot's axiom set; the failure-path suite plants a bit in each accepted slot and reads its verdict (an export's own axiom shows it too, test_leanforth.py test_0_not_proved)"
 
 [[fault]]
 id = "cd-dependency-recorded-aside"
@@ -5599,8 +5599,8 @@ reason = "quot_reduce_rec never runs: Quot.lift f h (Quot.mk r a) = f a is rejec
 [[fault]]
 id = "env-axiom-deps-direct-only"
 file = "src/kernel/environment.fs"
-old = '''  dup lf-slot-count @ 0 ?do 2dup i swap lf-dep-at lf-mark loop 2drop ;'''
-new = '''  2drop ;'''
+old = '''  over lf-axd-deps-or swap lf-slot-decl lf-idecl-kind @ lf-kind-axiom ='''
+new = '''  swap lf-slot-decl lf-idecl-kind @ lf-kind-axiom ='''
 test = "python3 tests/cli/test_leanforth.py"
 reason = "the axioms a declaration rests on through its dependencies are not named"
 

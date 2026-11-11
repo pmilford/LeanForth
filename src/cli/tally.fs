@@ -14,11 +14,12 @@
 \ The counts are the declarations by verdict, in the order reports show
 \ them (verdict-order): the seven outcomes (ADR 0008), not-checked (a run
 \ that stopped before them) and, apart, not-proved: accepted declarations
-\ whose axiom set is not empty. The first checker accepts no axiom, so
-\ none occurs yet. LeanForth-specific; untrusted (it reports, it decides
-\ no verdict).
+\ that depend on an axiom outside the allowlist (core/axiom-allowlist.fs;
+\ an axiom gets Lean's verdict, plan task 5.3.1); and the axioms the
+\ accepted ones use, joined (cli-axioms-used), which the summary names.
+\ LeanForth-specific; untrusted (it reports, it decides no verdict).
 \ State: one record in the checker context, cli-tally-state (the code so
-\ far, the counts and whether NOT PROVED gives code 6).
+\ far, the counts, the axioms used and whether NOT PROVED gives code 6).
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
@@ -70,11 +71,13 @@ begin-structure /cli-tally
   not-checked 1+ cells +field tallied-counts   \ declarations by verdict
   field: tallied-not-proved                    \ accepted, with an axiom
   field: tallied-strict                        \ true: NOT PROVED gives code 6
+  field: tallied-axioms                        \ the accepted ones' axiom sets, joined
 end-structure
 /cli-tally context-record: cli-tally-state
 : cli-worst ( -- addr ) cli-tally-state tallied-worst ;
 : cli-count-of ( k -- addr ) cells cli-tally-state tallied-counts + ;
 : cli-not-proved ( -- addr ) cli-tally-state tallied-not-proved ;
+: cli-axioms-used ( -- addr ) cli-tally-state tallied-axioms ;
 \ A command's start: nothing counted, nothing failed, NOT PROVED with
 \ Lean's code.
 : cli-start ( -- ) cli-tally-state /cli-tally erase exit-accepted cli-worst ! ;
@@ -90,8 +93,12 @@ end-structure
 \ proved; the owner's rule).
 : not-proved? ( outcome bits -- flag ) lf-allowlist-bits invert and 0<> swap ok? and ;
 \ Count a NOT PROVED declaration apart; under --strict-axioms, with code 6.
+\ An accepted declaration's axiom set joins the axioms used.
 : cli-not-proved-code ( -- ) cli-strict-axioms? if exit-not-proved cli-code! then ;
+: cli-axioms-join ( outcome bits -- outcome bits )
+  over ok? if dup cli-axioms-used dup @ rot or swap ! then ;
 : cli-tally-proved ( outcome bits -- )
+  cli-axioms-join
   not-proved? if 1 cli-not-proved +! cli-not-proved-code then ;
 
 base !   \ the BASE this file was loaded with

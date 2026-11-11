@@ -772,6 +772,34 @@ def reductions : List Red := [
     value := "fun (r : Nat → Nat → Prop) (h : ∀ a b, r a b → (0 : Nat) = 0) (q : Quot r) => " ++
       "Eq.refl (0 : Nat)",
     lean := "declTypeMismatch", leanforth := "rejected", rule := "Q2", task := "5.2.4" },
+  -- Review rvAX: an argument after the major premise goes to the reduct (quot.h 61-63).
+  { id := "quot.lift-extra-argument",
+    type := "∀ (r : Nat → Nat → Prop) (f : Nat → Nat → Nat) (h : ∀ a b, r a b → f a = f b) " ++
+      "(a x : Nat), Quot.lift f h (Quot.mk r a) x = f a x",
+    value := "fun (r : Nat → Nat → Prop) (f : Nat → Nat → Nat) (h : ∀ a b, r a b → f a = f b) " ++
+      "(a x : Nat) => Eq.refl (f a x)",
+    lean := "accepted", leanforth := "accepted", rule := "Q2", task := "5.2.4" },
+  { id := "quot.lift-extra-argument-wrong",
+    type := "∀ (r : Nat → Nat → Prop) (f : Nat → Nat → Nat) (h : ∀ a b, r a b → f a = f b) " ++
+      "(a x y : Nat), Quot.lift f h (Quot.mk r a) x = f a y",
+    value := "fun (r : Nat → Nat → Prop) (f : Nat → Nat → Nat) (h : ∀ a b, r a b → f a = f b) " ++
+      "(a x y : Nat) => Eq.refl (f a x)",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "Q2", task := "5.2.4" },
+  -- Quot.lift with five arguments, no quotient: no rule (quot.h 50-51); eta decides.
+  { id := "quot.lift-unapplied-eta",
+    type := "∀ (r : Nat → Nat → Prop) (f : Nat → Nat) (h : ∀ a b, r a b → f a = f b), " ++
+      "(fun q => Quot.lift f h q) = Quot.lift f h",
+    value := "fun (r : Nat → Nat → Prop) (f : Nat → Nat) (h : ∀ a b, r a b → f a = f b) => " ++
+      "Eq.refl (Quot.lift f h)",
+    lean := "accepted", leanforth := "accepted", rule := "Q2", task := "5.2.4" },
+  -- Quot.ind on Quot.mk (the quotient at 4, the function at 3). Its reduct is a
+  -- proof, so proof irrelevance would accept it too: the row covers the rule's path.
+  { id := "quot.ind-on-mk",
+    type := "∀ (r : Nat → Nat → Prop) (β : Quot r → Prop) (h : ∀ a, β (Quot.mk r a)) " ++
+      "(a : Nat), (Quot.ind h (Quot.mk r a) : β (Quot.mk r a)) = h a",
+    value := "fun (r : Nat → Nat → Prop) (β : Quot r → Prop) (h : ∀ a, β (Quot.mk r a)) " ++
+      "(a : Nat) => Eq.refl (h a)",
+    lean := "accepted", leanforth := "accepted", rule := "Q2", task := "5.2.4" },
   { id := "lit.succ-of-literal", type := "Nat.succ 41 = 42", value := "Eq.refl 42",
     lean := "accepted", leanforth := "accepted", rule := "L1", task := "5.2.3" },
   { id := "lit.offset-with-variable", type := "∀ n : Nat, n + 1 = Nat.succ n",
@@ -1400,6 +1428,39 @@ def collapse : Declaration :=
              value := funs [(`a, prop), (`b, prop)]
                (ap (k `propext) [v `a, v `b, ap (k `Iff.intro) [v `a, v `b]]) }
 
+-- `{α : Sort u} (r : α → α → Prop)`, the binders the quotient constants start with.
+def quotRel (u : Level) : List (Name × Expr) :=
+  [(`α, .sort u), (`r, .forallE `x (v `α) (.forallE `y (v `α) (.sort 0) .default) .default)]
+-- Lean's `Iff` but with one parameter (`b` an index), or in a block with another type:
+-- each is another type than Lean's (`numParams`, a block of its own), so `propext`
+-- about it is not Lean's (review rvAX: the allowlist's `lf-lean-data?`).
+open K7Rows in
+def iffOther (oneParam : Bool) : Declaration :=
+  let ctor := foralls [(`a, prop), (`b, prop)]
+    (arr (arr (v `a) (v `b)) (arr (arr (v `b) (v `a)) (ap (k `Iff) [v `a, v `b])))
+  let iff : InductiveType := ⟨`Iff, arr prop (arr prop prop), [⟨`Iff.intro, ctor⟩]⟩
+  let other : InductiveType := ⟨`IE.Other, arr prop (arr prop prop),
+    [⟨`IE.Other.mk, foralls [(`a, prop), (`b, prop)] (ap (k `IE.Other) [v `a, v `b])⟩]⟩
+  if oneParam then .inductDecl [] 1 [iff] false else .inductDecl [] 2 [iff, other] false
+-- `Quot` and `Quot.mk` declared as axioms, no quotient, then `Quot.sound` with Lean's
+-- statement about them: not Lean's own constants (`lf-lean-quot?`).
+def userQuot : Declaration :=
+  let u := Level.param `u
+  .axiomDecl { name := `Quot, levelParams := [`u], isUnsafe := false,
+               type := foralls (quotRel u) (.sort u) }
+def userQuotMk : Declaration :=
+  let u := Level.param `u
+  .axiomDecl { name := `Quot.mk, levelParams := [`u], isUnsafe := false,
+               type := foralls (quotRel u ++ [(`a, v `α)]) (mkAppN (.const `Quot [u]) #[v `α, v `r]) }
+open K7Rows in
+def soundDecl : Declaration :=
+  let u := Level.param `u
+  let mk (x : Expr) := mkAppN (.const `Quot.mk [u]) #[v `α, v `r, x]
+  let type := foralls (quotRel u ++ [(`a, v `α), (`b, v `α)])
+    (arr (mkAppN (v `r) #[v `a, v `b])
+      (eqC u (mkAppN (.const `Quot [u]) #[v `α, v `r]) (mk (v `a)) (mk (v `b))))
+  .axiomDecl { name := `Quot.sound, levelParams := [`u], type := type, isUnsafe := false }
+
 -- Axioms in an empty environment, where `propext` is free to take another statement,
 -- or Lean's statement about another `Iff` (NOT PROVED), or about Lean's own (proved).
 def axiomChains : List Chain := [
@@ -1409,6 +1470,13 @@ def axiomChains : List Chain := [
     decls := [eqDecl, iffDecl (forged := true), propextDecl, collapse],
     lean := "accepted", leanforth := "accepted", rule := "A1", task := "5.3.1" },
   { id := "postulate.propext-own-iff", decls := [eqDecl, iffDecl, propextDecl],
+    lean := "accepted", leanforth := "accepted", rule := "A1", task := "5.3.1" },
+  { id := "postulate.propext-iff-one-param", decls := [eqDecl, iffOther true, propextDecl],
+    lean := "accepted", leanforth := "accepted", rule := "A1", task := "5.3.1" },
+  { id := "postulate.propext-iff-mutual", decls := [eqDecl, iffOther false, propextDecl],
+    lean := "accepted", leanforth := "accepted", rule := "A1", task := "5.3.1" },
+  { id := "postulate.sound-own-quot-names",
+    decls := [eqDecl, userQuot, userQuotMk, soundDecl],
     lean := "accepted", leanforth := "accepted", rule := "A1", task := "5.3.1" }
 ]
 
@@ -1418,8 +1486,6 @@ Lean's replay adds `Declaration.quotDecl` for an exported quotient record and ig
 record itself (`Replay.lean`; `add_quot` builds the four types): a record with another type
 or other universe parameters is accepted, and a later definition is checked against Lean's
 own `Quot.mk`. LeanForth accepts such a record with a warning and uses Lean's types. -/
-def quotRel (u : Level) : List (Name × Expr) :=
-  [(`α, .sort u), (`r, .forallE `x (v `α) (.forallE `y (v `α) (.sort 0) .default) .default)]
 -- `IE.mkUse.{u} {α : Sort u} (r : α → α → Prop) (a : α) : Quot r := Quot.mk r a`
 def quotUse : ConstantInfo :=
   let u := Level.param `u
@@ -1476,6 +1542,7 @@ structure QuotNameCase where
   decls : List Declaration
   kept : Option (List Name) := none
   lean : String
+  rule : String := "Q1 N2"
 
 -- `axiom Quot.mk.{u, v} {α : Sort u} (β : Sort v) (a : α) : β`: three arguments, as
 -- Lean's `Quot.mk`, the last one of type α.
@@ -1500,6 +1567,31 @@ def liftOnUserMk : Declaration :=
   let lift := mkAppN (.const `Quot.lift [u, w]) #[v `α, v `r, v `β, v `f, v `h, mk]
   .thmDecl { name := `IE.liftOnUserMk, levelParams := [`u, `v],
              type := foralls bs (eqC w (v `β) lift fa), value := funs bs (reflC w (v `β) fa) }
+-- `axiom Quot.lift.{u, v} {α : Sort u} {β : Sort v} (r : α → α → Prop) (f : α → β)
+--   (h : Prop) (q : α) : β`: f third, q fifth, as Lean's `Quot.lift`.
+def userLift : Declaration :=
+  let u := Level.param `u
+  let w := Level.param `v
+  let bs := [(`α, .sort u), (`β, .sort w)] ++ (quotRel u).drop 1 ++
+    [(`f, .forallE `x (v `α) (v `β) .default), (`h, .sort 0), (`q, v `α)]
+  .axiomDecl { name := `Quot.lift, levelParams := [`u, `v], type := foralls bs (v `β),
+               isUnsafe := false }
+-- `axiom Quot.mk.{u} {α : Sort u} (r : α → α → Prop) (a : α) : α`.
+def userMk3 : Declaration :=
+  let u := Level.param `u
+  .axiomDecl { name := `Quot.mk, levelParams := [`u], isUnsafe := false,
+               type := foralls (quotRel u ++ [(`a, v `α)]) (v `α) }
+-- `Quot.lift r f h (Quot.mk r a) = f a`, with the user's constants above.
+def liftOnUserMk3 : Declaration :=
+  let u := Level.param `u
+  let w := Level.param `v
+  let fa := Expr.app (v `f) (v `a)
+  let bs := [(`α, .sort u), (`β, .sort w)] ++ (quotRel u).drop 1 ++
+    [(`f, .forallE `x (v `α) (v `β) .default), (`h, .sort 0), (`a, v `α)]
+  let mk := mkAppN (.const `Quot.mk [u]) #[v `α, v `r, v `a]
+  let lift := mkAppN (.const `Quot.lift [u, w]) #[v `α, v `β, v `r, v `f, v `h, mk]
+  .thmDecl { name := `IE.userLiftOnMk, levelParams := [`u, `v],
+             type := foralls bs (eqC w (v `β) lift fa), value := funs bs (reflC w (v `β) fa) }
 def propAxiom (n : Name) : Declaration :=
   .axiomDecl { name := n, levelParams := [], type := .sort 0, isUnsafe := false }
 
@@ -1519,7 +1611,12 @@ def quotNameCases : List QuotNameCase := [
   -- Lean's own `Quot.mk` used after a declaration of that name was refused.
   { id := "after.quot-then-mk-declared-then-used",
     decls := [eqDecl, .quotDecl, propAxiom `Quot.mk, mkUseDecl], kept := some [`Quot],
-    lean := "accepted" }
+    lean := "accepted" },
+  -- No quotient: a user's Quot.lift and Quot.mk of the right arity are never reduced
+  -- (`reduce_recursor` tries `quot_reduce_rec` only once it is initialised, tc 394).
+  { id := "after.user-quot-lift-not-reduced",
+    decls := [eqDecl, userLift, userMk3, liftOnUserMk3], lean := "declTypeMismatch",
+    rule := "Q2" }
 ]
 
 /-! ## A declaration after a block
@@ -2321,7 +2418,22 @@ run_cmd do
   for c in quotNameCases do
     let got := lastVerdict empty c.decls
     unless got == c.lean do throwError "{c.id}: Lean's verdict is {got}, expected {c.lean}"
-    row c.id got (if got == "accepted" then "accepted" else "rejected") "Q1 N2" "5.2.4" ""
+    row c.id got (if got == "accepted" then "accepted" else "rejected") c.rule "5.2.4" ""
+  -- 5e. Lean's `Iff` replayed with a field replay ignores changed (isRec), then
+  -- `propext` with Lean's statement: accepted. LeanForth accepts `Iff` with a warning
+  -- (B4), so it is not Lean's own and `propext` about it is no allowlisted axiom.
+  let .ok envIff := envEq.addDeclCore 0 0 iffDecl none | throwError "no Iff"
+  let .ok envP := envIff.addDeclCore 0 0 propextDecl none | throwError "no propext"
+  let iffCs ← [`Iff, `Iff.intro, `Iff.rec, `propext].mapM fun n => match envP.find? n with
+    | some c => pure c
+    | none => throwError "missing {n}"
+  let flagged := iffCs.map fun c => match c with
+    | .inductInfo i => .inductInfo { i with isRec := true }
+    | c => c
+  let flaggedId := "replay-iff.flagged-then-propext"
+  let got ← replayVerdict envEq flagged
+  unless got == "accepted" do throwError "{flaggedId}: Lean's verdict is {got}"
+  row flaggedId got "accepted" "A1 B4" "5.3.1" ""
   -- 6. Every case as a file, after the rows (see `writeCase`).
   let .ok add := kernelAddFn env | throwError "no Kernel.Environment.add"
   let baseRecs ← recursorsOf base
@@ -2356,3 +2468,5 @@ run_cmd do
     writeCase envEq eqRecs m.id (cs'.foldl add envEq) (cs'.map (·.name)) [`Quot, `IE.mkUse]
       (mdata := m.id == "replay-quot.mk-mdata-type")
   for c in quotNameCases do writeQuotName add base c
+  writeCase envEq eqRecs flaggedId (flagged.foldl add envEq) (flagged.map (·.name))
+    [`Iff, `propext]

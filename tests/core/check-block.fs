@@ -22,12 +22,17 @@
 \ 6. After a block (review rvI21 B2, M1): Lean's generated recursor
 \    T.rec held when the file leaves it out; the type visible only within
 \    its own check; the publisher's re-check of members and of T.rec.
+\ 7. Axioms, opaque declarations and quotients: Lean's verdicts; the four
+\    quotient names add_quot holds (review rvAX). 8. The statement matcher
+\    and the allowlist. 9. The fuel axioms and quotient records use, as
+\    cli/check-run.fs reports it: exact.
 \ Test-only; nothing here accepts a theorem outside the code under test.
 include ../support/tester.fs
 include ../support/checks.fs
 require ../support/alloc-fail.fs
 require ../../src/import/feed.fs
 require ../../src/kernel/check-declaration.fs
+require ../../src/cli/check-run.fs
 
 create stg /stage allot
 create fdd /feed allot
@@ -778,6 +783,13 @@ T{ s" opaque.unfolds-as-definition" used -> outcome-ok 0 }T
 T{ s" quot.lift-on-mk" used -> outcome-ok 0 }T
 T{ s" quot.lift-on-mk-wrong" used -> outcome-rejected lf-diag-value-apart }T
 T{ s" quot.lift-stuck-on-variable" used -> outcome-rejected lf-diag-value-apart }T
+\ An argument after the major premise goes to the reduct; Quot.lift with
+\ five arguments has no rule (eta decides); Quot.ind on Quot.mk; a user's
+\ Quot.lift and Quot.mk, with no quotient, are never reduced (review rvAX).
+T{ s" quot.lift-extra-argument" used -> outcome-ok 0 }T
+T{ s" quot.lift-extra-argument-wrong" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" quot.lift-unapplied-eta" used s" quot.ind-on-mk" used -> outcome-ok 0 outcome-ok 0 }T
+T{ s" after.user-quot-lift-not-reduced" used -> outcome-rejected lf-diag-value-apart }T
 \ add_quot: Eq with Lean's shape, or rejected (check_eq_type, 95).
 T{ s" quotinit.with-eq" used -> outcome-ok 0 }T
 T{ s" quotinit.eq-wrong-shape" used -> outcome-rejected lf-diag-quot-eq }T
@@ -846,6 +858,26 @@ T{ quot-ready -> false true }T
 T{ claimed-mk -> outcome-invalid outcome-invalid }T
 \ propext with Lean's statement about an Iff that is not Lean's: NOT PROVED.
 T{ s" postulate.propext-forged-iff" bits-of -> outcome-ok 8 }T
+\ So with an Iff of one parameter, in a block with another type, or
+\ accepted with a warning (isRec forged, which replay ignores); and
+\ Quot.sound about a Quot and Quot.mk that are axioms, not the quotient's
+\ (review rvAX test gaps).
+T{ s" postulate.propext-iff-one-param" bits-of -> outcome-ok 8 }T
+T{ s" postulate.propext-iff-mutual" bits-of -> outcome-ok 8 }T
+T{ s" replay-iff.flagged-then-propext" bits-of -> outcome-ok 8 }T
+T{ s" postulate.sound-own-quot-names" bits-of -> outcome-ok 8 }T
+T{ s" postulate.propext-own-iff" bits-of -> outcome-ok 1 }T
+\ The axioms a declaration rests on, in file order (lf-env-axiom-deps, each
+\ slot's set worked out once and kept; review rvAX L5), asked for the last
+\ declaration first: IE.Secret (0), IE.secret (1, its type IE.Secret),
+\ IE.usesSecret (2); each slot number given is one decimal digit here.
+variable seen-axioms
+: seen ( d -- ) seen-axioms @ 10 * + 1+ seen-axioms ! ;
+: rests-on ( d -- n outcome ) 0 seen-axioms ! ['] seen lf-env-axiom-deps seen-axioms @ swap ;
+: secret-axioms ( -- n n n outcome )
+  s" postulate.declared-and-used" case-path staged ok? must fuel checked
+  2 rests-on drop 1 rests-on drop 0 rests-on finish ;
+T{ secret-axioms -> 12 12 1 outcome-ok }T
 
 \ 8. The statement matcher (core/statement-match.fs) and the allowlist
 \ (core/axiom-allowlist.fs) on Lean's own export of propext,
@@ -896,6 +928,27 @@ T{ s" Quot.lift" lift-swapped matches? -> false }T
 T{ mk-name s" Quot.mk" lf-stmt-name? mk-name s" Quit.mk" lf-stmt-name? -> true false }T
 T{ mk-name s" mk" lf-stmt-name? mk-name s" A.Quot.mk" lf-stmt-name? -> false false }T
 finish
+
+\ 9. Fuel of axioms and quotient records (review rvAX L2): a quotient
+\ record's steps all run on the audit's counter, an axiom's step 7 on
+\ inference's, and cli/check-run.fs reads that counter (ck-left). Every
+\ other declaration of axioms.ndjson gets the full budget and declaration
+\ d budget b; d checked with the fuel it used is ok, with one unit less
+\ exhausted: propext (6), Classical.choice (10), Quot (11) to Quot.ind
+\ (14), Quot.sound (15).
+variable at-d  variable at-budget  variable at-left
+: at-check ( -- )
+  lf-env-limit at-d @ = dup if at-budget @ else fuel then lf-check-budget
+  record if at-d @ ck-left at-left ! then ;
+: at-run ( d b -- outcome left )
+  at-budget ! at-d ! s" tests/reference/inductive/axioms.ndjson" staged ok? must
+  fuel ['] at-check checked-by at-d @ lf-env-outcome at-left @ finish ;
+: used-by ( d -- u ) fuel at-run nip fuel swap - ;
+: used-exactly? ( d -- flag )
+  dup used-by 2dup at-run drop ok? >r 1- at-run drop outcome-exhausted = r> and ;
+T{ 6 used-exactly? 10 used-exactly? 15 used-exactly? -> true true true }T
+T{ 11 used-exactly? 12 used-exactly? 13 used-exactly? 14 used-exactly?
+  -> true true true true }T
 
 cases-done
 bye

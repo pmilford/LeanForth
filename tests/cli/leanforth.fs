@@ -82,19 +82,26 @@ T{ outcome-ok 9 cli-tally-proved cli-not-proved @ cli-worst @ -> 1 6 }T
 T{ outcome-unknown cli-tally cli-worst @ -> 2 }T
 cli-start
 T{ cli-strict-axioms? -> false }T
-\ The summary's line of the accepted, from planted counts (no check can
-\ make one NOT PROVED yet); where the host can capture output (Gforth 1.0).
+\ The summary's line of the accepted, from planted counts and axioms used
+\ (review rvAX L4: the allowlisted ones named, then the NOT PROVED count);
+\ where the host can capture output (Gforth 1.0).
 [defined] >string-execute [if]
-: accepted-line ( accepted not-proved -- c-addr u )
-  cli-start cli-not-proved ! outcome-ok cli-count-of ! ['] cli-accepted. >string-execute ;
+: accepted-line ( accepted not-proved bits -- c-addr u )
+  cli-start cli-axioms-used ! cli-not-proved ! outcome-ok cli-count-of !
+  ['] cli-accepted. >string-execute ;
 : label-text ( -- c-addr u )
   s" accepted: 3 (experimental, not independently audited); axioms: " ;
 : after-label ( c-addr u -- c-addr' u' ) label-text search drop label-text nip /string ;
 : not-proved-text ( -- c-addr u ) s\" 2 NOT PROVED (they depend on an axiom)\n" ;
-T{ 3 0 accepted-line drop label-text tuck compare -> 0 }T
-T{ 3 0 accepted-line after-label s\" none\n" compare -> 0 }T
-T{ 3 2 accepted-line after-label not-proved-text compare -> 0 }T
-T{ 0 0 accepted-line nip -> 0 }T
+: listed-text ( -- c-addr u )
+  s\" propext, Quot.sound (allowlisted); 2 NOT PROVED (they depend on an axiom)\n" ;
+: choice-text ( -- c-addr u ) s\" Classical.choice (allowlisted); none NOT PROVED\n" ;
+T{ 3 0 0 accepted-line drop label-text tuck compare -> 0 }T
+T{ 3 0 0 accepted-line after-label s\" none\n" compare -> 0 }T
+T{ 3 2 8 accepted-line after-label not-proved-text compare -> 0 }T
+T{ 3 2 13 accepted-line after-label listed-text compare -> 0 }T
+T{ 3 0 2 accepted-line after-label choice-text compare -> 0 }T
+T{ 0 0 0 accepted-line nip -> 0 }T
 [then]
 
 \ Fuel amounts: decimal digits only, at most max-n.

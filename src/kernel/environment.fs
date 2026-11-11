@@ -67,8 +67,11 @@
 \ header, read by every check), two context records, one per context
 \ (ADR 0009): the candidate lf-env-cand and the worker record
 \ lf-env-worker, and the candidate's list of dependencies, the context
-\ slab lf-cand-deps. An environment must be freed only when no task uses
-\ it. The layout is host-specific and never serialized.
+\ slab lf-cand-deps; for the reports, the axiom sets each slot rests on,
+\ kept per context (lf-axd-state and the slabs lf-axd-rows, -row-of,
+\ -number and -axioms; lf-env-axiom-deps), and lf-env-gen-state. An
+\ environment must be freed only when no task uses it. The layout is
+\ host-specific and never serialized.
 
 require ../lib/lib.fs
 require ../core/derivation-log.fs
@@ -875,32 +878,117 @@ here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
 \ The axioms declaration d depends on (plan task 5.3.2 in part: the set
 \ Lean's #print axioms lists): every accepted axiom among d and the
 \ declarations it uses, directly or not, given to xt ( d' -- ) in
-\ ascending order, within this context's snapshot. A dependency is always
-\ an earlier slot, so one pass from d down marks them all (no recursion),
-\ one cell per slot in a heap block freed before the word returns. ok;
-\ full when the heap has no room; invalid when slot d is not readable and
-\ accepted.
+\ ascending order, within this context's snapshot. ok; full when the heap
+\ has no room; invalid when slot d is not readable and accepted.
+\ Each slot's set is worked out once per environment and snapshot, in
+\ ascending order up to the slot asked for, and kept in this context, so
+\ a report that asks for every declaration's set takes time linear in the
+\ dependencies, not in the export per declaration (review rvAX L5). The
+\ accepted axioms below the snapshot's limit are numbered in file order;
+\ a slot's set is a row of bits over those numbers: its dependencies'
+\ rows joined (a dependency is always an earlier slot, so no recursion),
+\ with its own bit for an axiom. A row equal to the empty one (row 0) or
+\ to a dependency's is shared, so rows are only made where a set grows.
+begin-structure /lf-axd
+  field: lf-axd-env     \ the identity of the environment rows are kept for, 0 none
+  field: lf-axd-limit   \ its snapshot's limit
+  field: lf-axd-done    \ slots whose row is known: those below done
+  field: lf-axd-width   \ cells per row
+end-structure
+/lf-axd context-record: lf-axd-state
+1 cells context-slab: lf-axd-rows      \ the rows, width cells each
+1 cells context-slab: lf-axd-row-of    \ per slot: its row's number
+1 cells context-slab: lf-axd-number    \ per axiom slot: its number
+1 cells context-slab: lf-axd-axioms    \ per number: the axiom's slot
+: lf-axd-cell-bits ( -- n ) 0 max-n begin ?dup while 1 rshift swap 1+ swap repeat 1+ ;
+lf-axd-cell-bits constant lf-axd-bits   \ bits per cell
+: lf-axd-width@ ( -- n ) lf-axd-state lf-axd-width @ ;
+: lf-axd-row ( r -- addr ) lf-axd-width@ * lf-axd-rows slab-at ;
+: lf-axd-top ( -- addr ) lf-axd-rows slab-top ;
+: lf-axd-row-of@ ( d -- r ) lf-axd-row-of slab-at @ ;
 : lf-dep-at ( k slot -- d ) lf-slot-deps @ + lf-env lf-env-pool store-slot @ ;
-: lf-mark ( marks d -- ) cells + true swap ! ;
-: lf-marks-of ( marks slot -- )
-  dup lf-slot-count @ 0 ?do 2dup i swap lf-dep-at lf-mark loop 2drop ;
-: lf-marked? ( marks d -- flag ) cells + @ 0<> ;
-: lf-mark-down ( marks d -- )
-  0 swap do dup i lf-marked? if dup i lf-env lf-env-slot lf-marks-of then -1 +loop drop ;
-: lf-axiom-slot? ( d -- flag )
-  lf-env lf-env-slot dup lf-slot-accepted?
-  swap lf-slot-decl lf-idecl-kind @ lf-kind-axiom = and ;
-: lf-marks-give ( marks d xt -- )
-  swap 1+ 0 ?do
-    over i lf-marked? if i lf-axiom-slot? if i over execute then then
+\ Numbering: the accepted axioms below the limit; room for the per-slot
+\ arrays; row 0, empty; the key the rows are kept for.
+: lf-axd-axiom? ( d -- flag )
+  lf-env-readable 0= if false exit then
+  dup lf-slot-accepted? swap lf-slot-decl lf-idecl-kind @ lf-kind-axiom = and ;
+: lf-axd-number! ( d -- outcome )
+  1 lf-axd-axioms slab-claim ok-then? 0= if nip exit then
+  2dup lf-axd-axioms slab-at ! swap lf-axd-number slab-at ! outcome-ok ;
+: lf-axd-numbered ( -- outcome )
+  lf-env-limit 0 ?do
+    i lf-axd-axiom? if i lf-axd-number! dup ok? 0= if unloop exit then drop then
+  loop outcome-ok ;
+: lf-axd-arrays ( -- outcome )
+  lf-env-limit lf-axd-row-of slab-hold dup ok? 0= if exit then drop
+  lf-env-limit lf-axd-number slab-hold ;
+: lf-axd-width! ( -- )
+  lf-axd-axioms slab-count lf-axd-bits /mod swap 0<> - 1 max lf-axd-state lf-axd-width ! ;
+: lf-axd-empty ( -- outcome )
+  lf-axd-width! lf-axd-width@ lf-axd-rows slab-claim nip
+  dup ok? if 0 lf-axd-row lf-axd-width@ cells erase then ;
+: lf-axd-key! ( -- )
+  lf-env lf-envh-identity @ lf-axd-state lf-axd-env !
+  lf-env-limit lf-axd-state lf-axd-limit !  0 lf-axd-state lf-axd-done ! ;
+: lf-axd-reset ( -- outcome )
+  0 lf-axd-state lf-axd-env ! lf-axd-rows slab-clear lf-axd-axioms slab-clear
+  lf-axd-arrays dup ok? 0= if exit then drop
+  lf-axd-numbered dup ok? 0= if exit then drop
+  lf-axd-empty dup ok? if lf-axd-key! then ;
+: lf-axd-current? ( -- flag )
+  lf-axd-state dup lf-axd-env @ lf-env lf-envh-identity @ =
+  swap lf-axd-limit @ lf-env-limit = and ;
+: lf-axd-ready ( -- outcome ) lf-axd-current? if outcome-ok else lf-axd-reset then ;
+\ Slot j's row: the empty row when it is not accepted; else, in the free
+\ space above the rows, its dependencies' rows joined and its own bit,
+\ then shared with an equal row or kept.
+: lf-axd-or ( r -- )
+  lf-axd-row lf-axd-top lf-axd-width@ cells bounds ?do
+    dup @ i @ or i ! cell+
+  1 cells +loop drop ;
+: lf-axd-bit! ( k -- )
+  lf-axd-bits /mod cells lf-axd-top + swap 1 swap lshift over @ or swap ! ;
+: lf-axd-deps-or ( slot -- )
+  dup lf-slot-count @ 0 ?do i over lf-dep-at lf-axd-row-of@ lf-axd-or loop drop ;
+: lf-axd-join ( slot j -- )
+  lf-axd-top lf-axd-width@ cells erase
+  over lf-axd-deps-or swap lf-slot-decl lf-idecl-kind @ lf-kind-axiom =
+  if lf-axd-number slab-at @ lf-axd-bit! else drop then ;
+: lf-axd-same? ( r -- flag )
+  lf-axd-row lf-axd-width@ cells lf-axd-top lf-axd-width@ cells compare 0= ;
+: lf-axd-shared ( slot -- r|-1 )
+  0 lf-axd-same? if drop 0 exit then
+  dup lf-slot-count @ 0 ?do
+    i over lf-dep-at lf-axd-row-of@ dup lf-axd-same? if nip unloop exit then drop
+  loop drop -1 ;
+: lf-axd-kept ( -- r outcome )
+  lf-axd-width@ lf-axd-rows slab-claim ok-then?
+  if lf-axd-width@ / outcome-ok else no-result then ;
+: lf-axd-made ( j -- r outcome )
+  dup lf-env-readable 0= if drop 0 outcome-ok exit then
+  dup lf-slot-accepted? 0= if 2drop 0 outcome-ok exit then
+  lf-axd-width@ lf-axd-rows slab-room ok-then? 0= if nip no-result exit then
+  dup >r swap lf-axd-join r> lf-axd-shared dup 0< if drop lf-axd-kept else outcome-ok then ;
+: lf-axd-upto ( d -- outcome )
+  1+ lf-axd-state lf-axd-done @ over min ?do
+    i lf-axd-made ok-then? 0= if unloop exit then i lf-axd-row-of slab-at !
+    i 1+ lf-axd-state lf-axd-done !
+  loop outcome-ok ;
+\ The axioms of row r's bits, in order: those of one cell (x, its first
+\ number k), then of each cell; no address is held while xt runs.
+: lf-axd-cell ( xt x k -- xt )
+  swap begin ?dup while
+    dup 1 and if over lf-axd-axioms slab-at @ 3 pick execute then
+    1 rshift swap 1+ swap
+  repeat drop ;
+: lf-axd-give ( d xt -- )
+  swap lf-axd-row-of@ lf-axd-width@ 0 ?do
+    dup lf-axd-row i cells + @ ?dup if rot swap i lf-axd-bits * lf-axd-cell swap then
   loop 2drop ;
-: lf-marks-new ( d -- marks outcome )
-  1+ cells dup allocate if 2drop 0 outcome-full exit then tuck swap erase outcome-ok ;
-: lf-marks-run ( d xt marks -- )
-  dup >r dup 3 pick lf-mark dup 3 pick lf-mark-down -rot lf-marks-give r> free drop ;
 : lf-env-axiom-deps ( d xt -- outcome )
   over lf-env-accepted nip ok? 0= if 2drop outcome-invalid exit then
-  over lf-marks-new ok-then? 0= if nip nip exit then lf-marks-run outcome-ok ;
+  lf-axd-ready dup ok? 0= if nip nip exit then drop
+  over lf-axd-upto dup ok? 0= if nip nip exit then drop lf-axd-give outcome-ok ;
 \ Whether axiom slot d (one lf-env-axiom-deps gives) is outside the
 \ allowlist, its own bit one that does not count as proved.
 : lf-env-unlisted? ( d -- flag )
