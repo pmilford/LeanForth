@@ -66,6 +66,7 @@ require ./source.fs
 44 constant lfa-e-protected-root \ a protected declaration outside every namespace
 45 constant lfa-e-compiling      \ a run started, or a line ended, while Forth compiles
 46 constant lfa-e-character      \ a character no line may hold
+47 constant lfa-e-search-order   \ the caller's search order is too long to save
 50 constant lfa-e-literal        \ unsupported: natural-number literals
 51 constant lfa-e-sketch
   \ unsupported: let, have, projections, strings, by, import
@@ -158,6 +159,8 @@ create lfa-catalogue
   lfa-e-character
   s" a character no line may hold (a control or format character, or no UTF-8)"
   lfa-invalid,
+  lfa-e-search-order
+  s" out of room: the search order holds more wordlists than a run can save" lfa-full,
   lfa-e-literal
   s" not supported yet: natural-number literals need literal nodes (ADR 0017 section 14)"
   lfa-unsupported,

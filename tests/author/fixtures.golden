@@ -228,8 +228,8 @@ import-stub HAdd.hAdd
   universe w
   u Type implicit: α
   v Type implicit: β
-  outParam w 2 level+ ^ w Type $ implicit: γ
-  HAdd u ^ v ^ w ^ α $ β $ γ $ instance: self
+  root: outParam w 2 level+ ^ w Type $ implicit: γ
+  root: HAdd u ^ v ^ w ^ α $ β $ γ $ instance: self
   α β γ -> ->
 end HAdd.hAdd
 
@@ -286,33 +286,35 @@ end Eq
 import-stub MyMonoid.mul
   universe u
   u Type implicit: M
-  MyMonoid u ^ M $ instance: self
+  root: MyMonoid u ^ M $ instance: self
   M M M -> ->
 end MyMonoid.mul
 
 import-stub MyMonoid.one
   universe u
   u Type implicit: M
-  MyMonoid u ^ M $ instance: self
+  root: MyMonoid u ^ M $ instance: self
   M
 end MyMonoid.one
 
 import-stub MyMonoid.mul_one
   universe u
   u Type implicit: M
-  MyMonoid u ^ M $ instance: self
+  root: MyMonoid u ^ M $ instance: self
   M explicit: a
-  Eq u 1 level+ ^ M $ MyMonoid.mul u ^ M $ self $ a $ MyMonoid.one u ^ M $ self $ $ $ a $
+  root: Eq u 1 level+ ^ M $ root: MyMonoid.mul u ^ M $ self $ a $ root: MyMonoid.one u ^ M
+    $ self $ $ $ a $
 end MyMonoid.mul_one
 
 theorem MyMonoid.mul_one'
   universe u
   u Type implicit: M
-  MyMonoid u ^ M $ instance: inst
+  root: MyMonoid u ^ M $ instance: inst
   M explicit: a
-  Eq u 1 level+ ^ M $ MyMonoid.mul u ^ M $ inst $ a $ MyMonoid.one u ^ M $ inst $ $ $ a $
+  root: Eq u 1 level+ ^ M $ root: MyMonoid.mul u ^ M $ inst $ a $ root: MyMonoid.one u ^ M
+    $ inst $ $ $ a $
 :=
-  MyMonoid.mul_one u ^ M $ inst $ a $
+  root: MyMonoid.mul_one u ^ M $ inst $ a $
 end MyMonoid.mul_one'
 round trip: terms, names, kinds, labels and notes same; printed text same
 == 09a-chain-draft
@@ -456,8 +458,8 @@ import-stub MyMonoid.mk
   u Type implicit: M
   M M M -> -> explicit: mul
   M explicit: one
-  M explicit: a Eq u 1 level+ ^ M $ mul a $ one $ $ a $ forall explicit: mul_one
-  MyMonoid u ^ M $
+  M explicit: a root: Eq u 1 level+ ^ M $ mul a $ one $ $ a $ forall explicit: mul_one
+  root: MyMonoid u ^ M $
 end MyMonoid.mk
 round trip: terms, names, kinds, labels and notes same; printed text same
 == 14-case
@@ -660,55 +662,55 @@ end Y.Z.h
 def A.t1
   0 Type
 :=
-  A.c
+  root: A.c
 end A.t1
 
 def A.t2
   0 Type
 :=
-  A.c
+  root: A.c
 end A.t2
 
 def A.B.t3
   0 Type
 :=
-  A.B.c
+  root: A.B.c
 end A.B.t3
 
 def A.B.t4
   0 Type
 :=
-  A.B.c
+  root: A.B.c
 end A.B.t4
 
 def A.B.t5
   0 Type
 :=
-  A.B.c
+  root: A.B.c
 end A.B.t5
 
 def A.t6
   0 Type
 :=
-  A.c
+  root: A.c
 end A.t6
 
 def A.t7
   0 Type
 :=
-  A.c
+  root: A.c
 end A.t7
 
 def A.t8
   0 Type
 :=
-  X.d
+  root: X.d
 end A.t8
 
 def W.t9
   0 Type
 :=
-  Y.Z.h
+  root: Y.Z.h
 end W.t9
 round trip: terms, names, kinds, labels and notes same; printed text same
 == 17-long-line
@@ -836,48 +838,48 @@ end q
 def N.t1
   0 Type
 :=
-  bar
+  root: bar
 end N.t1
 
 def N.t2
   0 Type
 :=
-  N.bar
+  root: N.bar
 end N.t2
 
 def N.t3
   0 Type
 :=
-  N.baz
+  root: N.baz
 end N.t3
 
 def N.t4
   0 Type
 :=
-  bar
+  root: bar
 end N.t4
 
 def M.t5
   0 Type
 :=
-  N.baz
+  root: N.baz
 end M.t5
 
 def M.t6
   0 Type
 :=
-  bar
+  root: bar
 end M.t6
 
 def A.B.t7
   0 Type
 :=
-  A.x
+  root: A.x
 end A.B.t7
 
 def P.t8
   0 Type
 :=
-  q
+  root: q
 end P.t8
 round trip: terms, names, kinds, labels and notes same; printed text same

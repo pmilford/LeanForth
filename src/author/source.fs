@@ -16,8 +16,11 @@
 \ (ADR 0017 Amendment 1, A5 row 7): one that text-rule.fs bans, a control
 \ or format character, a line or paragraph separator, or bytes that are
 \ not UTF-8; TAB aside, which separates tokens as a space does. Forth
-\ splits tokens at TAB, LF, VT, FF, CR and space only, so with such
-\ characters refused, a token is what an editor shows as one.
+\ splits tokens at TAB, LF, VT, FF, CR and space only. So a token is the
+\ text between those, which an editor shows as one word unless it holds a
+\ character the rule allows that looks blank or joins: a Zs space (NBSP,
+\ U+3000), a filler (U+3164, U+2800, U+115F) or a combining mark. Reading
+\ back is exact either way; only the look of such a name can mislead.
 \ Untrusted authoring code.
 \ State: one context record, lfa-source (ADR 0009).
 
