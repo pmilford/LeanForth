@@ -699,7 +699,10 @@ no typing rule and changes no verdict; how it keeps G-P1 to G-P7:
    the worker's context selected, calls `lf-env-hand-over-job`, rolls the
    scratch back and keeps the facts, as `lf-env-step` and the serial
    command line do (G-P1: one writer, outside every job). A worker in
-   which a check threw is freed and replaced.
+   which a check threw is freed and replaced. When the workers cannot all
+   be made (no heap, or a driving context whose stores were used before,
+   so that a new context's input has another fingerprint), none is kept
+   and the run is the serial one.
 2. **Readiness (G-P5).** Before any check, each declaration (a block as
    its first member) gets a readiness set: the earlier slots of every name
    its check may look up -- constants and projections' structures in its
