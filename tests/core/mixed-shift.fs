@@ -51,21 +51,33 @@ T{ 0 cid @ 0 0 1 lf-mixed-shift -> -1 0 outcome-exhausted }T
 T{ 6 rootid @ -1 0 100 lf-mixed-shift -> -1 0 outcome-invalid }T
 T{ 6 rootid @ 0 -1 100 lf-mixed-shift -> -1 0 outcome-invalid }T
 T{ 6 rootid @ 0 0 -1 lf-mixed-shift -> -1 0 outcome-invalid }T
-\ A lambda at the largest cutoff cannot put its body one binder deeper; it
-\ is full (out of room, not fuel) before its first child is visited: the
-\ audit spends 9 and the root's visit 1.
+\ Lean's lift_loose_bvars gives a term with no loose bound variable at or
+\ above the cutoff back at once (expr.cpp 455; its data word's range, plan
+\ task 6.5.5): at the largest cutoff the root itself, for the audit's 9
+\ and the root's visit. With fuel 9 the audit takes it all and the root's
+\ visit is exhausted.
 T{ 6 rootid @ lf-mshift-max 1 100 lf-mixed-shift lf-mshift-fuel @ ->
-  -1 0 outcome-full 90 }T
-T{ lf-term-count @ -> 11 }T
-\ That binder check is independent of fuel (ADR 0008): when the root's
-\ visit takes the last unit (fuel 10) the lambda is still full, with no
-\ fuel left. With fuel 9 the audit takes it all and the root's visit is
-\ exhausted.
+  6 rootid @ outcome-ok 90 }T
 T{ 6 rootid @ lf-mshift-max 1 10 lf-mixed-shift lf-mshift-fuel @ ->
-  -1 0 outcome-full 0 }T
+  6 rootid @ outcome-ok 0 }T
 T{ 6 rootid @ lf-mshift-max 1 9 lf-mixed-shift lf-mshift-fuel @ ->
   -1 0 outcome-exhausted 0 }T
 T{ lf-term-count @ -> 11 }T
+\ A node without data (a bound variable past the data word's ranges,
+\ core/terms.fs) is visited: a lambda at the largest cutoff cannot put its
+\ body one binder deeper; it is full (out of room, not fuel) before its
+\ first child is visited. That binder check is independent of fuel (ADR
+\ 0008): when the root's visit takes the last unit the lambda is still
+\ full, with no fuel left.
+T{ lf-data-unknown lf-term-bvar -> 11 true }T
+T{ 1 11 lf-term-lam -> 12 true }T
+T{ 12 dup lf-term-data@ -> 12 false }T
+T{ 12 term-serial lf-mshift-max 1 100 lf-mixed-shift lf-mshift-fuel @ ->
+  -1 0 outcome-full 95 }T
+T{ 12 term-serial lf-mshift-max 1 5 lf-mixed-shift lf-mshift-fuel @ ->
+  -1 0 outcome-full 0 }T
+T{ lf-term-count @ -> 13 }T
+setup
 \ A failed audit leaves no fuel.
 T{ 6 0 0 1 100 lf-mixed-shift lf-mshift-fuel @ -> -1 0 outcome-invalid 0 }T
 \ Force failure after the first child has allocated a shifted variable.
@@ -85,13 +97,17 @@ T{ 8 term-serial lf-hterm-valid? -> true }T
 T{ 3 term-serial 0 lf-mshift-max 100 lf-mixed-shift -> -1 0 outcome-invalid }T
 T{ 7 7 term-identity@ 0 lf-mshift-max 100 lf-mixed-shift -> -1 0 outcome-full }T
 T{ lf-term-count @ -> 9 }T
-\ Shared constant occurrences each consume audit and traversal fuel; the
-\ audit checks the constant's level once (constant-term-boundary's marks).
+\ Shared constant occurrences each consume audit fuel; the audit checks
+\ the constant's level once (constant-term-boundary's marks). The shift
+\ then gives the closed node back at once, for its root's visit (Lean's
+\ lift_loose_bvars, expr.cpp 449: no loose bound variable at or above the
+\ cutoff).
 setup
 T{ 0 0 lf-term-pi -> 7 true }T
-T{ 7 term-serial 0 1 6 lf-mixed-shift -> -1 0 outcome-exhausted }T
-T{ 7 term-serial 0 1 7 lf-mixed-shift -> 8 term-serial outcome-ok }T
-T{ 8 lf-term-read -> lf-tag-pi 0 0 true }T
+term-serial outid !
+T{ 7 outid @ 0 1 4 lf-mixed-shift -> -1 0 outcome-exhausted }T
+T{ 7 outid @ 0 1 5 lf-mixed-shift -> 7 outid @ outcome-ok }T
+T{ lf-term-count @ -> 8 }T
 \ A malformed leaf fails before allocation.
 1 3 term-second!
 T{ 6 rootid @ 0 1 100 lf-mixed-shift -> -1 0 outcome-invalid }T
@@ -136,14 +152,16 @@ T{ 6 rootid @ 0 1 100 lf-mixed-shift -> 11 term-serial outcome-ok }T
 \ The frame limit equals the store capacity, so a chain that fills the store
 \ is visited all the way down: node 0 is bvar 0 and node k is lam(k-1, 0).
 \ The audit costs 127 visits and the shift 64 more, reaching node 0 at the
-\ 64th frame; with cutoff 1 the variable is kept and node 1, after one more
-\ visit, cannot be rebuilt in the full store.
+\ 64th frame, whose shifted variable cannot be made in the full store.
 : chain ( -- root identity )
   lf-term-reset lf-ssession-begin 0= abort" session" 0 lf-term-bvar 2drop
   63 0 do i 0 lf-term-lam 0= abort" chain" drop loop 63 dup lf-term-identity drop ;
 T{ chain 0 1 1000 lf-mixed-shift lf-mshift-fuel @ lf-term-count @ ->
   -1 0 outcome-full 809 64 }T
-T{ chain 1 1 1000 lf-mixed-shift lf-mshift-fuel @ -> -1 0 outcome-full 808 }T
+\ With cutoff 1 no node has a loose bound variable at or above it (each
+\ node's range is 1): the root comes back at once (Lean's
+\ lift_loose_bvars, expr.cpp 449), for its visit after the audit.
+T{ chain 1 1 1000 lf-mixed-shift lf-mshift-fuel @ -> 63 63 term-identity@ outcome-ok 872 }T
 \ An audit failure (stale root) or negative fuel leaves zero fuel, and a raw
 \ concrete Sort, which the current passes do not accept (ADR 0007), is
 \ invalid for the audit and for the shift.
@@ -154,4 +172,14 @@ T{ 0 lf-term-sort -> 7 true }T
 T{ 7 7 lf-term-identity drop 100 lf-cterm-check -> outcome-invalid }T
 T{ 7 7 lf-term-identity drop 0 1 100 lf-mixed-shift -> -1 0 outcome-invalid }T
 T{ lf-term-count @ -> 8 }T
+\ The shift keeps its results by node and cutoff (kernel/replace-memo.fs,
+\ plan task 6.5.5): N = #0 #1 outside a binder becomes #1 #2 (nodes 10 to
+\ 12), under one #0 #2 (13, 14), in N (fun _ : Sort => N) shifted by 1.
+setup
+T{ 2 3 lf-term-app -> 7 true }T
+T{ 1 7 lf-term-lam -> 8 true }T
+T{ 7 8 lf-term-app -> 9 true }T
+T{ 9 term-serial 0 1 100 lf-mixed-shift -> 16 term-serial outcome-ok }T
+T{ 12 lf-term-read 14 lf-term-read -> lf-tag-app 10 11 true lf-tag-app 2 13 true }T
+T{ 11 lf-term-read 13 lf-term-read -> lf-tag-bvar 2 0 true lf-tag-bvar 2 0 true }T
 bye

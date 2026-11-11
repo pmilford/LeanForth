@@ -213,7 +213,11 @@ T{ outcome-unknown lf-cterm-walker test-site lf-diag-walk diag
 end-check
 \ A pass's frames grow their stack (plan task 6.2.0); a growth the heap
 \ refuses is full, recorded with the cells in use and the capacity.
-: refused-frames ( frames -- ) frame-free 1 heap-refusals ! lf-diag-clear ;
+\ The replace memos (kernel/replace-memo.fs) are made at their first call;
+\ made here first, so that the heap's refusal meets the frames.
+: memo-made ( memo -- ) 0 over lf-rmemo-begin outcome-ok swap lf-rmemo-end ;
+: memos-made ( -- ) lf-mshift-memo memo-made lf-minst-memo memo-made lf-open-memo memo-made ;
+: refused-frames ( frames -- ) memos-made frame-free 1 heap-refusals ! lf-diag-clear ;
 begin-check samples lf-mbeta-frames refused-frames
 T{ 9 handle 1000 lf-mixed-beta nip nip diag -> outcome-full 0 0 lf-diag-frame-limit }T
 T{ s" mixed-beta lf-mixed-beta" at? -> true }T
@@ -276,7 +280,10 @@ T{ 0 handle 0 max-n 100 lf-mixed-shift nip nip diag
   -> outcome-full 1 max-n lf-diag-cell-maximum }T
 T{ s" mixed-shift lf-mixed-shift" at? -> true }T
 end-check
-begin-check 0 make-sort 0 make-var make-lam drop lf-diag-clear
+\ (A lambda over a bound variable past the data words' ranges, which has
+\ no data: one with data and no loose variable would come back at once,
+\ as Lean's lift_loose_bvars, expr.cpp 455.)
+begin-check 0 make-sort lf-data-unknown make-var make-lam drop lf-diag-clear
 T{ 2 handle max-n 1 100 lf-mixed-shift nip nip diag
   -> outcome-full max-n max-n lf-diag-binders-full }T
 T{ s" mixed-rebuild lf-rebuild-binary" at? -> true }T

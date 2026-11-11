@@ -107,7 +107,7 @@ lf-walk-room context-walk: lf-cterm-walker
 : lf-walk-once ( first second walk tag xt -- outcome )
   >r over lf-walk-seen? if r> drop lf-walk-skip else r> execute then ;
 
-\ The audit memo (compact-store plan step S6 (c); ADR 0014 Amendment 3):
+\ The audit memo (compact-store plan step S6 (c); ADR 0014 Amendment 4):
 \ in a check, the structural audit below checks a node once, not once per
 \ comparison, rebuilding pass or substitution that takes it as a root.
 \ Lean runs no such audit (its terms are well formed by construction);

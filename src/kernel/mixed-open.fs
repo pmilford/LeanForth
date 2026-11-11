@@ -26,34 +26,49 @@
 \ lift_loose_bvars then changes nothing and is not needed. That is the
 \ callers' invariant, as it is Lean's; for abstract the n must be live
 \ free variables (checked). n = 0 gives the term itself, unvisited, as
-\ in Lean. Lean skips the subterms whose cached loose-bound-variable range
-\ or free-variable flag shows them unchanged (instantiate.cpp 103,
-\ abstract.cpp 19); the term store's data words keep that data (since
-\ compact-store plan step S3), and while the caches are on
-\ (kernel/caches.fs, ADR 0014 Q12, through the hook lf-open-unchanged?)
-\ the passes skip such a node as Lean does;
-\ otherwise they visit it, keep it and pay fuel for it. As Lean's replace
-\ keeps each shared node's result per offset for the rest of the pass
-\ (replace_fn.cpp 26-40), a pass keeps every binary node's result and
-\ gives it back when it meets the node again at the same offset: a pass
-\ grows with the nodes, not the paths, and a node shared in the input is
-\ shared in the result. A new bound
-\ variable reuses the live leaf of its index that a
-\ pass made before, if any: leaves never change, so this shares an equal
-\ term (it saves room in a small term store).
-\ Each visit costs one unit of fuel and one frame, on a stack that grows
+\ in Lean.
+\
+\ The passes are Lean's replace (replace_fn.cpp 16-75; compact-store plan
+\ step S6, plan task 6.5.5). A binary node whose data word (core/terms.fs,
+\ ADR 0016 C1: Lean's loose_bvar_range and has_fvar, kept in each node)
+\ shows that the pass gives it back unchanged is kept without a visit
+\ below it, as Lean's function returns it at once (instantiate.cpp 103:
+\ no loose bound variable at or beyond the offset; abstract.cpp 19: no
+\ free variable). A node whose word names a free variable is kept so by
+\ instantiate only when the hook lf-open-unchanged? says so
+\ (kernel/caches.fs, while the caches are on: its memo knows a free
+\ variable only while it is live in this job's local context), and is
+\ otherwise visited, as is a node without data: so a dead free variable
+\ is met and refused as before. Every other result is kept for the rest
+\ of the call in the replace memo (replace-memo.fs: Lean's m_cache, keyed
+\ by the node and its offset) and given back when the node is met again
+\ at that offset: a pass grows with the nodes and their offsets, never
+\ with the paths, and a node shared in the input is shared in the result.
+\ Closing a term with an inference scope's free variables
+\ (lf-instantiate-scope, mixed-infer.fs) keeps its results beyond the
+\ call, for every later closing under the same scope: the result for a
+\ node and offset is then a function of the scope, which its innermost
+\ free variable names (each binder gets a new one), so an argument that
+\ inference closed is not closed again inside a larger one (ADR 0014,
+\ Amendment 3). A new bound variable reuses the live leaf of its index
+\ that a pass made before, if any: leaves never change, so this shares an
+\ equal term (it saves room in a small term store).
+\ Fuel: each visit costs one unit and one frame, on a stack that grows
 \ with the depth (plan task 6.2.0): no fuel left is exhausted, a stack the
-\ heap cannot grow full. Only nodes older than
+\ heap cannot grow full. A node kept by its data word or given back by the
+\ memo ends its visit there, for its one unit. Only nodes older than
 \ the pass are read, children before parents; a bound variable must be a
 \ well-formed leaf and a free variable live, else the pass is invalid. Any
 \ failure discards the nodes the pass made. n may be as large as the heap
 \ holds a copy of (no room is full; negative invalid), and each of the n a
 \ live node.
 \
-\ Words: lf-instantiate, lf-instantiate-rev, lf-abstract ( node subst n --
-\ node' outcome ) and lf-mk-pi ( body fvars n -- pi outcome ), each
-\ running on the fuel in lf-open-fuel and leaving there what is left;
-\ subst and fvars are the address of n cells. Outcomes: ok, invalid,
+\ Words: lf-instantiate, lf-instantiate-rev, lf-instantiate-scope,
+\ lf-abstract ( node subst n -- node' outcome ) and lf-mk-pi ( body fvars
+\ n -- pi outcome ), each running on the fuel in lf-open-fuel and leaving
+\ there what is left; subst and fvars are the address of n cells;
+\ lf-open-forget ( -- ) empties the memo of closings (inference does when
+\ a job starts). Outcomes: ok, invalid,
 \ exhausted, full, and unsupported from lf-mk-pi for a let variable
 \ (inference closes its let variables itself, as infer_let's mk_pi with
 \ remove_dead_let does: mixed-infer.fs, plan task 4.2.3; lf-mk-pi has no
@@ -65,9 +80,9 @@
 \ Untrusted; [kernel] code, not yet through the review gate.
 \ State: one job record, lf-open-job (fields lf-openjob-*): the pass's
 \ frames (fuel, nesting, the offset as context), its mode, the term count
-\ before it, its number and the bound-variable leaves it made, its copy of
-\ the n terms in a growable array (lf-open-terms), and the results it
-\ kept, a column of the term store (lf-open-results); members of the checker
+\ before it, the bound-variable leaves it made, its copy of the n terms in
+\ a growable array (lf-open-terms), and the replace memo lf-open-memo
+\ (replace-memo.fs); members of the checker
 \ context (lib/context.fs), whose frames a set-up word prepares in every
 \ context. Single-threaded within one
 \ context; a pass refuses to start inside another (invalid).
@@ -79,10 +94,12 @@ require ../core/local-context.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
 require ./mixed-rebuild.fs
+require ./replace-memo.fs
 
 0 constant lf-open-mode-instantiate
 1 constant lf-open-mode-rev
 2 constant lf-open-mode-abstract
+3 constant lf-open-mode-scope   \ instantiate_rev with an inference scope
 128 constant lf-open-leaves   \ bound-variable indices whose leaf is kept
 
 \ The frames come first, so the visitor finds the job record at the
@@ -92,17 +109,15 @@ begin-structure /lf-openjob
   field: lf-openjob-mode               \ one of the lf-open-mode-* constants
   /store-mark +field lf-openjob-start  \ the term store before the pass
   field: lf-openjob-count              \ n
-  field: lf-openjob-run                \ the pass's number, for its results
   lf-open-leaves 2* cells +field lf-openjob-leaves  \ per index: node, identity
 end-structure
 0 lf-openjob-frames 0<> [if] .( mixed-open.fs: frames come first) cr abort [then]
 /lf-openjob context-record: lf-open-job
 \ s0 .. s(n-1), copied: as many as there are (no fixed limit).
 1 cells context-slab: lf-open-terms
-\ Per term, a column of the term store (lib/store-columns.fs): the pass
-\ that last rebuilt it, at which offset, and the result.
-/slab context-record: lf-open-results
-3 cells ' lf-open-results lf-term-columns column-add
+\ The replace memo, freed with the context.
+/lf-rmemo context-record: lf-open-memo
+:noname ( -- ) lf-open-memo lf-rmemo-release ; context-teardown
 
 : lf-open-frames ( -- frames ) lf-open-job lf-openjob-frames ;
 \ The fuel of the next pass, and what the last one left.
@@ -125,34 +140,18 @@ end-structure
   dup lf-term-first@ over lf-open-below?
   swap dup lf-term-second@ swap lf-open-below? and ;
 
-\ Lean's replace keeps the result of each shared node per offset for the
-\ rest of the pass and gives it back when the node is met again at that
-\ offset (replace_fn.cpp 26-40, m_cache), so a pass grows with the nodes
-\ and their offsets, never with the paths, and a node shared in the input
-\ is shared in the result. Here every binary node's result is kept, in
-\ its unit of lf-open-results: the pass's number, the offset, the result
-\ (a node of the input or one this pass made, live until the pass ends).
-\ A node keeps one offset, its last: met at another, it is rebuilt.
-: lf-open-unit ( node -- unit ) lf-open-results column-at ;
-: lf-open-key ( node frames -- offset run unit )
-  dup frame-context @ swap lf-openjob-run @ rot lf-open-unit ;
-: lf-open-held? ( offset run unit -- flag ) tuck @ = if cell+ @ = else 2drop false then ;
+\ Lean's replace keeps the result of each node per offset for the rest of
+\ the call and gives it back when the node is met again at that offset
+\ (replace_fn.cpp 26-40, m_cache): the replace memo (replace-memo.fs),
+\ keyed by the node and the offset of its visit.
 : lf-open-known? ( node frames -- result true | false )
-  lf-open-key dup >r lf-open-held? if r> 2 cells + @ true else r> drop false then ;
-: lf-open-keep ( result node frames -- ) lf-open-key tuck ! tuck cell+ ! 2 cells + ! ;
-\ A pass's number: the next, after a wrap to 0 with every unit erased.
-: lf-open-next ( -- )
-  lf-open-job lf-openjob-run dup @ 1+
-  dup 0= if lf-open-results column-erase 1+ then swap ! ;
+  frame-context @ lf-open-memo lf-rmemo@ ;
+: lf-open-keep ( result node frames -- ) frame-context @ lf-open-memo lf-rmemo! ;
 
-\ update_app and update_binding (Lean's expr.cpp): the node itself when
-\ both children came back unchanged, otherwise a new node of its tag;
-\ kept for the node at the offset of its visit.
-: lf-open-built ( r1 node r2 -- result outcome )
-  >r 2dup lf-term-first@ = over lf-term-second@ r@ = and
-  if nip r> drop outcome-ok else r> lf-rebuild-build then ;
+\ update_app and update_binding (replace-memo.fs), the result kept for
+\ the node at the offset of its visit.
 : lf-open-update ( r1 node r2 -- result outcome )
-  over >r lf-open-built dup ok? if over r@ lf-open-frames lf-open-keep then r> drop ;
+  over >r lf-replace-update dup ok? if over r@ lf-open-frames lf-open-keep then r> drop ;
 \ A binary node: the first child at this offset, the second one binder
 \ deeper for a lambda or Pi (mixed-rebuild.fs's limits apply).
 : lf-open-updated ( r2 outcome frames -- result outcome frames 0 )
@@ -183,7 +182,8 @@ end-structure
 \ instantiate and instantiate_rev on bound variable i at offset d
 \ (instantiate.cpp 22-33, 103-114): kept below d; for k = i - d < n the
 \ term s(k), or s(n - k - 1) reversed; else bound variable i - n.
-: lf-open-rev? ( frames -- flag ) lf-open-mode lf-open-mode-rev = ;
+: lf-open-rev? ( frames -- flag )
+  lf-open-mode dup lf-open-mode-rev = swap lf-open-mode-scope = or ;
 : lf-open-k ( k frames -- j ) dup lf-open-rev? if lf-open-n swap - 1- else drop then ;
 : lf-open-put ( k frames -- result outcome ) tuck lf-open-k swap lf-open-s outcome-ok ;
 : lf-open-outer ( i frames -- result outcome )
@@ -220,20 +220,32 @@ end-structure
     lf-tag-str of lf-rebuild-keep endof
     lf-tag-symbolic-sort of lf-rebuild-keep endof
     >r lf-rebuild-bad r> endcase ;
-\ Whether the cached data of a node shows the pass would give it back
-\ unchanged, as Lean's replace skips it (instantiate.cpp 103, abstract.cpp
-\ 19): by default never known; the caches set the hook
-\ (kernel/caches.fs), and then the node is kept without a visit below it.
+\ Whether a binary node comes back unchanged, so that Lean's replace
+\ keeps it without a visit below it (instantiate.cpp 103: its
+\ loose_bvar_range at most the offset; abstract.cpp 19: no free
+\ variable), read from its data word (see the header): decided (flag
+\ true), or false when the word has no data, or names a free variable a
+\ kept node would hide from instantiate's liveness check. Undecided, the
+\ hook answers: by default never unchanged; the caches set it
+\ (kernel/caches.fs), whose memo checks that the free variables are live.
+: lf-open-inst-word ( data offset -- flag true | false )
+  over lf-data-loose < if drop false true exit then
+  lf-data-fvar? if false else true true then ;
+: lf-open-abs-word ( data -- flag true ) lf-data-fvar? 0= true ;
+: lf-open-mode-word ( data frames -- flag true | false )
+  dup lf-open-abstract? if drop lf-open-abs-word else frame-context @ lf-open-inst-word then ;
+: lf-open-word ( node frames -- flag true | false )
+  swap lf-term-data@ 0= if drop false exit then swap lf-open-mode-word ;
 defer lf-open-unchanged? ( node frames -- flag )
 :noname ( node frames -- flag ) 2drop false ; is lf-open-unchanged?
-\ A node rebuilt before at this offset in this pass: its result again,
+: lf-open-skip? ( node frames -- flag )
+  2dup lf-open-word if nip nip else lf-open-unchanged? then ;
+\ A node rebuilt before at this offset in this call: its result again,
 \ for the visit's unit of fuel only.
-: lf-open-recall ( node frames result -- result outcome frames 0 )
-  rot drop outcome-ok rot 0 ;
 : lf-open-again ( node frames -- ... frames next )
-  2dup lf-open-known? if lf-open-recall else lf-open-binary then ;
+  2dup lf-open-known? if lf-replace-recall else lf-open-binary then ;
 : lf-open-pair ( node frames -- ... frames next )
-  2dup lf-open-unchanged? if dup >r lf-rebuild-keep r> 0 else lf-open-again then ;
+  2dup lf-open-skip? if lf-replace-same else lf-open-again then ;
 \ The visit's first step (lib/frame.fs).
 : lf-open-visit ( node frames -- ... frames next )
   2dup lf-open-readable? lf-rebuild-tag
@@ -247,7 +259,10 @@ defer lf-open-unchanged? ( node frames -- flag )
 \ Recovery after a THROW out of a pass (which leaves the record busy, so
 \ that every later pass refuses as invalid): the record made idle again;
 \ lf-mixed-rebuild-reset (mixed-beta.fs) resets all four rebuilding passes.
-: lf-open-reset ( -- ) lf-open-frames frame-reset ;
+\ The memo is emptied too: the pass's own entries are stale.
+: lf-open-reset ( -- ) lf-open-frames frame-reset lf-open-memo lf-rmemo-empty ;
+\ Emptying the memo of closings (a new inference job's scope is new).
+: lf-open-forget ( -- ) lf-open-memo lf-rmemo-empty ;
 
 \ Running a pass: the n terms checked (live nodes, or live free variables
 \ for abstract) and copied into the job, then the root visited at offset
@@ -273,16 +288,45 @@ defer lf-open-unchanged? ( node frames -- flag )
   lf-open-frames frame-busy? if drop 2drop outcome-invalid exit then
   dup lf-open-job lf-openjob-mode ! lf-open-load ;
 : lf-open-marked ( -- outcome ) lf-open-job lf-openjob-start lf-terms store-mark ;
+\ The call's stamp in the memo (replace-memo.fs): 0, so that the call
+\ keeps nothing beyond itself; a closing with a scope's free variables,
+\ the innermost of which is live, is stamped with its identity plus one.
+: lf-open-top ( -- fvar ) lf-open-job lf-openjob-count @ 1- lf-open-job lf-open-s ;
+: lf-open-stamp-of ( fvar -- stamp )
+  dup lf-fvar-live? if lf-term-identity drop 1+ else drop 0 then ;
+: lf-open-scope-stamp ( -- stamp ) lf-open-top lf-open-stamp-of ;
+: lf-open-stamp ( -- stamp )
+  lf-open-job lf-open-mode lf-open-mode-scope = if lf-open-scope-stamp else 0 then ;
+: lf-open-begin ( -- ) lf-open-stamp lf-open-memo lf-rmemo-begin ;
+: lf-open-end ( node' outcome -- node' outcome ) dup lf-open-memo lf-rmemo-end ;
 : lf-open-run ( node subst n mode -- node' outcome )
   lf-open-ready dup ok? 0= if nip no-result exit then drop
   lf-open-marked dup ok? 0= if nip no-result exit then drop
-  lf-open-next 0 lf-open-frames lf-rebuild-run nip lf-open-explain ;
+  lf-open-begin 0 lf-open-frames lf-rebuild-run nip lf-open-explain lf-open-end ;
 : lf-open-pass ( node subst n mode -- node' outcome )
   over 0= if 2drop drop outcome-ok else lf-open-run then ;
 \ instantiate: node with s(k) for its loose bound variable k.
 : lf-instantiate ( node subst n -- node' outcome ) lf-open-mode-instantiate lf-open-pass ;
 \ instantiate_rev: node with s(n - k - 1) for its loose bound variable k.
 : lf-instantiate-rev ( node subst n -- node' outcome ) lf-open-mode-rev lf-open-pass ;
+\ instantiate_rev with the free variables of an inference scope, from its
+\ outermost (mixed-infer.fs's closing), or only its innermost n when the
+\ node needs no more: the result for a node and offset is then that of
+\ the whole scope, which its innermost free variable names, and the call
+\ keeps its results in the memo for later closings under that scope (see
+\ the header). The caller promises this; for any other substitution it
+\ must use lf-instantiate-rev. A node closed before under the same scope
+\ is given back before any pass runs, for no fuel, as Lean has the term
+\ it opened at hand (the memo's lookups cost nothing); not while a pass is
+\ in progress, which then refuses the call.
+: lf-open-scope-top ( subst n -- fvar ) 1- cells + @ ;
+: lf-open-remembered ( node subst n -- node' true | false )
+  dup 1 < lf-open-frames frame-busy? or if 2drop drop false exit then
+  lf-open-scope-top lf-open-stamp-of ?dup 0= if drop false exit then
+  lf-open-memo lf-rmemo-stamp ! 0 lf-open-memo lf-rmemo@ ;
+: lf-instantiate-scope ( node subst n -- node' outcome )
+  2 pick 2 pick 2 pick lf-open-remembered if >r 2drop drop r> outcome-ok exit then
+  lf-open-mode-scope lf-open-pass ;
 \ abstract: node with the n free variables at fvars made bound variables.
 : lf-abstract ( node fvars n -- node' outcome ) lf-open-mode-abstract lf-open-pass ;
 

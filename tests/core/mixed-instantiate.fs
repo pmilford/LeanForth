@@ -81,12 +81,15 @@ T{ term-serial -> serial-before @ }T
 T{ 0 cid @ 9 rid @ 100 lf-mixed-instantiate -> -1 0 outcome-invalid }T
 0 2 term-second!
 T{ lf-term-count @ -> rootid @ }T
-\ Exhaust after allocations, discard output, and never reuse the old identity.
+\ Exhaust after allocations, discard output, and never reuse the old identity:
+\ the audit takes 4, the root's visit 1, the lowered variable's 1 (a new
+\ leaf), and the target's visit finds no fuel (its replacement, lifted by
+\ 0, would be the replacement itself: expr.cpp 449).
 setup
-T{ 2 3 lf-term-app -> 7 true }T
+T{ 3 2 lf-term-app -> 7 true }T
 term-serial rootid !
 term-serial serial-before !
-T{ 7 rootid @ 2 2 lf-term-identity drop 7 lf-mixed-instantiate -> -1 0 outcome-exhausted }T
+T{ 7 rootid @ 2 2 lf-term-identity drop 6 lf-mixed-instantiate -> -1 0 outcome-exhausted }T
 T{ lf-term-count @ -> 8 }T
 T{ term-serial serial-before @ > -> true }T
 term-serial outid !
@@ -160,13 +163,19 @@ T{ 8 rootid @ 9 rid @ 18 lf-mixed-instantiate lf-minst-fuel @ ->
   13 term-serial outcome-ok 0 }T
 \ A chain that fills the store (node 0 is bvar 0, node k is lam(k-1, 0)) is
 \ visited 64 frames deep down to node 0, the target, whose replacement
-\ cannot be copied into the full store (full): audits 127 and 1 visits, the
-\ walk 64, the shift 1.
+\ node 1, lifted by 0 (itself: expr.cpp 449), makes node 1 a new lambda
+\ that the full store cannot hold (full): audits 127 and 3 visits, the
+\ walk 64 and node 1's body.
 : chain ( -- root identity )
   lf-term-reset lf-ssession-begin 0= abort" session" 0 lf-term-bvar 2drop
   63 0 do i 0 lf-term-lam 0= abort" chain" drop loop 63 dup lf-term-identity drop ;
-T{ chain 0 0 lf-term-identity drop 1000 lf-mixed-instantiate
-  lf-minst-fuel @ lf-mshift-fuel @ lf-term-count @ -> -1 0 outcome-full 807 807 64 }T
+T{ chain 1 1 lf-term-identity drop 1000 lf-mixed-instantiate
+  lf-minst-fuel @ lf-term-count @ -> -1 0 outcome-full 805 64 }T
+\ With bound variable 0 for itself every node comes back unchanged
+\ (update_app, update_binding): the root, after 128 audit visits and 127
+\ walk visits (each lambda's body once).
+T{ chain 0 0 lf-term-identity drop 1000 lf-mixed-instantiate nip lf-minst-fuel @
+  -> 63 outcome-ok 745 }T
 \ A loose variable above the target under a binder is lowered there too:
 \ fun _ : c => #0 #2 with #0 replaced by #0 becomes fun _ : c => #0 #1.
 setup
@@ -355,4 +364,50 @@ T{ 1000 lf-open-fuel ! pair subst cell+ 1 lf-instantiate drop halves drop fields
 : shared-parts ( node -- inner outer ) halves >r halves nip r> ;
 T{ beta-pair 1 inst drop shared-parts drop -> twice-0 }T
 T{ beta-pair 1 inst drop shared-parts nip fields -> lf-tag-app x x }T
+\ The replace memo (kernel/replace-memo.fs, plan task 6.5.5) keys a result
+\ by the node and its offset: N = #1 #1 met first outside, then under a
+\ binder, in N (fun _ : Sort => N), with x for #0: outside #0 #0 (#1 is
+\ lowered), inside x x.
+3 3 lf-term-app drop constant n11
+1 n11 lf-term-lam drop constant lam-n11
+n11 lam-n11 lf-term-app drop constant outer-first
+T{ outer-first 1 inst drop halves drop fields rot drop index-of swap index-of -> 0 0 }T
+T{ outer-first 1 inst drop halves nip fields nip nip fields -> lf-tag-app x x }T
+\ instantiate_rev with an inference scope (lf-instantiate-scope): a node
+\ closed before under the same scope comes back for no fuel; another
+\ scope, named by its innermost free variable, gets its own result.
+: scoped ( node addr -- node' outcome ) 1 lf-instantiate-scope ;
+T{ 1000 lf-open-fuel ! twice-0 subst scoped drop fields lf-open-fuel @
+   -> lf-tag-app x x 997 }T
+T{ 1000 lf-open-fuel ! twice-0 subst scoped drop fields lf-open-fuel @
+   -> lf-tag-app x x 1000 }T
+T{ 1000 lf-open-fuel ! twice-0 subst cell+ scoped drop fields -> lf-tag-app y y }T
+\ A kept result discarded since is a miss, never the node that takes its
+\ index: #1 #0 closed with x and y, its result rolled back and its index
+\ taken by #0 #0, is closed again.
+3 2 lf-term-app drop constant n10
+term-marked constant before-close
+T{ 1000 lf-open-fuel ! n10 subst 2 lf-instantiate-scope drop fields -> lf-tag-app x y }T
+T{ terms-back -> outcome-ok }T
+T{ 2 2 lf-term-app 2drop 1000 lf-open-fuel ! n10 subst 2 lf-instantiate-scope drop fields
+   -> lf-tag-app x y }T
+\ A free variable no longer live is met even in a node with no loose bound
+\ variable, which instantiate keeps unvisited only when no free variable
+\ hides in it: invalid.
+term-marked constant before-gone
+T{ 1 lf-lctx-local -> before-gone outcome-ok }T
+T{ terms-back -> outcome-ok }T
+T{ lf-tag-fvar 2 0 lf-term-add -> before-gone true }T
+T{ before-gone 1 lf-term-app -> before-gone 1+ true }T
+T{ before-gone 1+ 1 inst -> -1 outcome-invalid }T
+\ The single-binder pass keeps its results by node and depth too: in N
+\ (fun _ : c => N), N = #0 #1, with c for the target, N is c #0 outside
+\ and #0 c under the binder.
+2 3 lf-term-app drop constant n01
+0 n01 lf-term-lam drop constant lam-n01
+n01 lam-n01 lf-term-app drop constant inst-pair
+: inst1 ( node -- node' outcome )
+  dup lf-term-identity drop 0 dup lf-term-identity drop 100 lf-mixed-instantiate nip ;
+T{ inst-pair inst1 drop halves drop fields rot drop index-of -> 0 0 }T
+T{ inst-pair inst1 drop halves nip fields nip nip fields -> lf-tag-app 2 0 }T
 bye

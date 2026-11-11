@@ -150,7 +150,7 @@ lf-walk-room context-walk: lf-check-walker
   lf-check-walker lf-walk-marking
   ['] lf-check-forms-visit lf-check-walker walk-run lf-check-walked ;
 \ A root with a data word holds no unsupported leaf (compact-store plan
-\ step S6 (c); ADR 0014 Amendment 3): such a leaf has none, and neither
+\ step S6 (c); ADR 0014 Amendment 4): such a leaf has none, and neither
 \ has any node above one (core/terms.fs computes the word from the
 \ children when the node is made), so it passes at once; a root without
 \ one takes the walk, which finds the form (or passes the graph on to V1).

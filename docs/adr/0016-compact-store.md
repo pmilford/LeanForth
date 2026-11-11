@@ -545,7 +545,7 @@ serials only through `tests/support/store-faults.fs`, so S3 can change
 the layout in one file.
 
 *Note (2026-11-11, compact-store plan step S6 (c), [kernel] review
-pending; ADR 0014 Amendment 3):* "every record is checked when it is
+pending; ADR 0014 Amendment 4):* "every record is checked when it is
 built" does not yet cover all the structural audit reads (a constant's
 stamp and live reference, the parameter context, a free variable's
 entry), so the audit keeps every call site and drops only its repetition:
@@ -860,7 +860,14 @@ needed (Rejected alternatives).
     variables, a literal read from its slab index, the reached set
     kept, the binary search off by one); the faults of the code S3
     changed are re-targeted.
-- Steps 4–6 not started.
+- Step S6 parts (a), (d), (e) (2026-11-11, agent S6A; ADR 0014
+  Amendment 3, [kernel] review pending): C4's substitution memo
+  (`src/kernel/replace-memo.fs`: one table per pass and context, entries
+  keyed by node identity, offset and the call's stamp, taken out when an
+  unstamped call ends) replaces the open passes' result column (24 bytes
+  per term index), and every pass skips a node its data word shows
+  unchanged.
+- Steps 4 and 5 not started; S6 (b) and (c) are their own tasks.
 
 ## Amendment 1 (2026-11-04): constants Lean's kernel generates
 

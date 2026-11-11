@@ -58,7 +58,7 @@ lf-walk-room context-walk2: lf-cts-walker
 : lf-cts-audit ( index identity -- outcome )
   lf-cts-fuel @ lf-cterm-check dup ok? if lf-cterm-fuel @ lf-cts-fuel ! then ;
 \ The scope from the root's data word (compact-store plan step S6 (c);
-\ ADR 0014 Amendment 3), as Lean reads loose_bvar_range and has_fvar
+\ ADR 0014 Amendment 4), as Lean reads loose_bvar_range and has_fvar
 \ (expr.h; infer_type_core 326, check_no_metavar_no_fvar): every bound
 \ variable lies under its binder at depth when the range is at most the
 \ depth, and no free variable occurs when the bit is clear. The word was

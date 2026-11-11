@@ -175,7 +175,7 @@ T{ stray @ fulls @ -> 0 0 }T
 T{ outcome-full cterm-outcome? outcome-unknown cterm-outcome? cterm-set -> true false 4 }T
 
 \ ---------------------------------------------------------------------------
-\ The audit memo (compact-store plan step S6 (c); ADR 0014 Amendment 3).
+\ The audit memo (compact-store plan step S6 (c); ADR 0014 Amendment 4).
 \ On, a node a run checked is not visited again in its epoch and a checked
 \ root costs no fuel; off, and outside a check (lf-memo-auto: this file
 \ loads no checker), every audit runs in full.
