@@ -571,7 +571,10 @@ T{ lied -> outcome-invalid false lf-step-done lf-diag-recheck outcome-invalid ou
 \ ---------------------------------------------------------------------------
 \ Coverage. Each step must reach exactly these outcomes; a cell that is
 \ empty is reached by no run of these cases: steps 2, 3, 5 and 6 make no
-\ allocation and steps 2 and 3 use no fuel (step 5 runs out of fuel only
+\ allocation but the growth of the check's lookup list (plan step SN3;
+\ kernel/environment.fs, "Lookups": a THROW there is invalid, a refusal
+\ leaves the check's outcome and makes the publisher's full, tested in
+\ tests/core/env-snapshot.fs) and steps 2 and 3 use no fuel (step 5 runs out of fuel only
 \ while Lean's whnf reduces the type's type: exhausted, since plan task
 \ 4.2.2c; before, in ADR 0011's search for a rejection, unknown); a THROW is
 \ injected only at an allocation, so invalid needs one (or V1 in the
@@ -589,11 +592,11 @@ create expected-reach steps# cells allot  expected-reach steps# cells erase
 : reaches: ( step "name ...<eol>" -- ) names>set swap cells expected-reach + ! ;
 0 reaches: invalid
 1 reaches: invalid exhausted rejected unsupported
-2 reaches: unknown rejected unsupported
-3 reaches: rejected
+2 reaches: invalid unknown rejected unsupported
+3 reaches: invalid rejected
 4 reaches: invalid exhausted unknown rejected unsupported full
-5 reaches: exhausted rejected
-6 reaches: exhausted rejected
+5 reaches: invalid exhausted rejected
+6 reaches: invalid exhausted rejected
 7 reaches: invalid exhausted unknown rejected unsupported full
 8 reaches: invalid exhausted rejected full
 9 reaches: ok invalid

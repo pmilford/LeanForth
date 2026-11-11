@@ -208,8 +208,10 @@ defer lf-env-before-final
   ['] lf-slot-axioms lf-deps-union lf-recheck-own or lf-env-cand lf-cand-axioms @ = ;
 : lf-final-run? ( -- flag ) lf-env lf-envh-mode @ lf-mode-final = ;
 : lf-provenance-ok? ( bits -- flag ) lf-provenance-checked = lf-final-run? 0= or ;
+\ A candidate the snapshot's loader filled (lf-env-saved!) adds saved.
+: lf-cand-own ( -- bits ) lf-env-cand lf-cand-saved @ 0<> lf-provenance-saved and ;
 : lf-recheck-provenance? ( -- flag )
-  ['] lf-slot-provenance lf-deps-union
+  ['] lf-slot-provenance lf-deps-union lf-cand-own or
   dup lf-env-cand lf-cand-provenance @ = swap lf-provenance-ok? and ;
 \ N2 and K5 (as amended): every slot below the declaration with its name
 \ is final (G-P5) and rejected, not skipped. One that is open, accepted,
@@ -327,7 +329,15 @@ lf-recheck-skipped 1+ constant lf-recheck-early
 : lf-recheck-in-time ( outcome -- outcome )
   lf-env-early? 0= if exit then
   drop lf-recheck-early lf-recheck-failed false lf-env-added! ;
+\ A check whose lookup list lost an entry (no heap; environment.fs,
+\ "Lookups") is full whatever it found: a snapshot must never store an
+\ incomplete list.
+: lf-cand-lost? ( -- flag ) lf-env-cand lf-cand-lost @ 0<> ;
+: lf-looks-lost ( -- outcome )
+  lf-env-limit lf-cand-looked@ c" env-publish lf-env-hand-over" lf-diag-lookups-full
+  lf-diag-note outcome-full ;
 : lf-env-verdict ( -- outcome )
+  lf-cand-lost? if lf-looks-lost exit then
   lf-cand-outcome@ lf-recheck-skip dup lf-env-recorded? 0= if exit then
   lf-recheck if nip lf-recheck-failed false lf-env-added! exit then lf-recheck-in-time ;
 
@@ -357,17 +367,22 @@ lf-recheck-skipped 1+ constant lf-recheck-early
   over store-count @ dup >r ['] store-identities lf-pool-area r> ['] store-records lf-pool-area
   ['] store-serial lf-pool-field ['] store-generation lf-pool-field
   ['] store-count lf-pool-field 2drop ;
-: lf-pool-install ( block -- )
-  lf-env-may-write lf-env lf-envh-pool @ over ! lf-env lf-envh-pool ! ;
-: lf-pool-grow ( n store -- )
-  lf-env-may-write tuck lf-pool-wanted lf-pool-block ok? 0= if 2drop exit then
-  tuck cell+ lf-pool-copy lf-pool-install ;
+\ The two pools (environment.fs): the dependencies' and the lookups',
+\ each named by its header field ( env -- addr ), grown the same way.
+: lf-pool-install ( block field -- )
+  lf-env-may-write lf-env swap execute dup @ rot tuck ! swap ! ;
+: lf-pool-grow ( n store field -- )
+  lf-env-may-write >r tuck lf-pool-wanted lf-pool-block ok? 0= if r> drop 2drop exit then
+  tuck cell+ lf-pool-copy r> lf-pool-install ;
 : lf-pool-short? ( n store -- flag )
   2dup lf-pool-free upto? 0= -rot lf-pool-ids upto? and ;
-: lf-pool-sound ( -- store true | false ) lf-env lf-env-pool dup store-count-valid? ?keep ;
+\ Grow the pool of field for n more records when it is sound and short.
+: lf-pool-sized ( n field -- )
+  >r lf-env r@ execute @ cell+ dup store-count-valid? 0= if 2drop r> drop exit then
+  2dup lf-pool-short? if r> lf-pool-grow else 2drop r> drop then ;
 : lf-pool-ready ( -- )
-  lf-cand-count? 0= if exit then lf-pool-sound 0= if exit then
-  lf-cand-count@ swap 2dup lf-pool-short? if lf-pool-grow else 2drop then ;
+  lf-cand-count? 0= if exit then lf-cand-count@ ['] lf-envh-pool lf-pool-sized
+  lf-cand-looked@ 2* ['] lf-envh-looks lf-pool-sized ;
 : lf-pool-put ( d store -- )
   lf-env-may-write dup store-new 0= abort" lf-env: pool refused" swap store-slot ! ;
 : lf-pool-append ( store -- )
@@ -376,12 +391,22 @@ lf-recheck-skipped 1+ constant lf-recheck-early
 \ nothing appended.
 : lf-pool-take ( store -- first outcome )
   dup store-count @ swap lf-pool-append outcome-ok ;
-: lf-pool-full ( store -- -1 outcome )
-  dup store-count @ lf-cand-count@ + swap store-capacity @ c" env-publish lf-env-append"
+: lf-pool-full ( n store -- -1 outcome )
+  dup store-count @ rot + swap store-capacity @ c" env-publish lf-env-append"
   lf-diag-pool-full lf-diag-note -1 outcome-full ;
 : lf-env-append ( -- first outcome )
   lf-env lf-env-pool lf-cand-count@ over lf-pool-room?
-  if lf-pool-take else lf-pool-full then ;
+  if lf-pool-take else lf-cand-count@ swap lf-pool-full then ;
+\ The candidate's lookups into the lookup pool, key then answer:
+\ (first ok), or (-1 full) with nothing appended.
+: lf-pool-pair ( answer key store -- store ) tuck lf-pool-put tuck lf-pool-put ;
+: lf-looks-put ( store -- )
+  lf-cand-looked@ 0 ?do i lf-look-at 2@ rot lf-pool-pair loop drop ;
+: lf-looks-room? ( -- flag ) lf-cand-looked@ 2* lf-env lf-env-looks lf-pool-room? ;
+: lf-looks-full ( -- -1 outcome ) lf-cand-looked@ 2* lf-env lf-env-looks lf-pool-full ;
+: lf-looks-append ( -- first outcome )
+  lf-looks-room? 0= if lf-looks-full exit then
+  lf-env lf-env-looks dup store-count @ swap lf-looks-put outcome-ok ;
 \ Slot k of the span gets declaration limit+k, copied whole.
 : lf-slot-input! ( k slot -- )
   lf-env-may-write swap lf-env-limit + lf-input-decl swap lf-slot-decl /lf-idecl move ;
@@ -400,11 +425,22 @@ lf-recheck-skipped 1+ constant lf-recheck-early
   2dup lf-slot-shape! rot over lf-slot-deps! tuck lf-slot-input! lf-slot-sets! ;
 : lf-span-fill ( first slot -- )
   lf-env-may-write lf-cand-span@ 0 ?do 2dup i swap i lf-slot+ lf-slot-fill loop 2drop ;
+\ Every slot of the span gets the one list of lookups from first.
+: lf-slot-looks! ( first slot -- )
+  lf-env-may-write tuck lf-slot-looks ! lf-cand-looked@ swap lf-slot-looked ! ;
+: lf-span-looks ( first slot -- ) lf-cand-span@ 0 ?do 2dup i lf-slot+ lf-slot-looks! loop 2drop ;
 \ The record of an accepted declaration, or of every member of an
-\ accepted block, sharing one list of dependencies: (slot ok), or (slot
-\ full) with nothing appended or written.
+\ accepted block, sharing one list of dependencies and one of lookups:
+\ (slot ok), or (slot full) with nothing appended or written.
 : lf-env-record ( slot -- slot outcome )
-  lf-env-append dup ok? 0= if nip exit then drop over lf-span-fill outcome-ok ;
+  lf-looks-room? 0= if lf-looks-full nip exit then
+  lf-env-append dup ok? 0= if nip exit then drop over lf-span-fill
+  lf-looks-append drop over lf-span-looks outcome-ok ;
+\ Any other outcome keeps the lookups alone (a later import replays them,
+\ ADR 0020 D5): (slot outcome), or (slot full) with nothing appended.
+: lf-env-looked ( slot outcome -- slot outcome' )
+  lf-cand-looked@ 0= if exit then
+  >r lf-looks-append ok? if over lf-span-looks r> else drop r> drop outcome-full then ;
 \ E4 step 3: the outcome of every slot of the span, the fault-injection
 \ point, then, last, the marks.
 : lf-span-outcome! ( slot outcome -- )
@@ -434,17 +470,22 @@ lf-recheck-skipped 1+ constant lf-recheck-early
 : lf-span-skipped! ( slot outcome -- )
   lf-env-may-write lf-cand-skipped? swap
   lf-cand-span@ 0 ?do 2dup i lf-slot+ lf-slot-skipped ! loop 2drop ;
+\ A candidate of the snapshot's loader (lf-env-saved!): each slot of the
+\ span marked saved.
+: lf-span-saved! ( slot -- )
+  lf-env-may-write lf-env-cand lf-cand-saved @ 0<>
+  lf-cand-span@ 0 ?do over i lf-slot+ over swap lf-slot-saved ! loop 2drop ;
 : lf-env-final ( slot outcome -- outcome )
   lf-env-may-write 2dup lf-span-outcome! 2dup lf-span-skipped! over lf-span-added!
-  lf-env-before-final swap lf-span-final! ;
+  over lf-span-saved! lf-env-before-final swap lf-span-final! ;
 \ Publish the candidate in this context into its slot: the outcome
 \ recorded. Internal: only lf-env-hand-over calls it, outside jobs, under
 \ CATCH, with the slot its target.
 : lf-env-recorded ( slot outcome -- slot outcome' )
   >r lf-env-record dup ok? if drop r> else r> drop then ;
 : lf-env-write ( slot -- outcome )
-  lf-env-may-write lf-env-verdict dup lf-env-recorded? if lf-env-recorded then
-  lf-env-final ;
+  lf-env-may-write lf-env-verdict dup lf-env-recorded?
+  if lf-env-recorded else lf-env-looked then lf-env-final ;
 
 \ After a THROW in the publisher: the diagnostic and, while the slot is
 \ not final, the pool back to its mark and the slot cleared: not final,
@@ -454,6 +495,7 @@ lf-recheck-skipped 1+ constant lf-recheck-early
 \ either way, so a refused rollback, which leaves pool entries that no
 \ slot points to, needs no status of its own.
 : lf-env-pub-mark ( -- mark store ) lf-env lf-envh-pub-mark lf-env lf-env-pool ;
+: lf-env-look-mark ( -- mark store ) lf-env lf-envh-look-mark lf-env lf-env-looks ;
 : lf-env-pub-fault ( ior -- )
   lf-env-limit swap c" env-publish lf-env-hand-over"
   lf-diag-publisher-fault lf-diag-note ;
@@ -462,13 +504,15 @@ lf-recheck-skipped 1+ constant lf-recheck-early
 \ so only a fault gets here). The pool goes back to its mark only when no
 \ slot of the span became final, as a final one keeps its dependencies.
 : lf-slot-clear ( slot -- ) lf-env-may-write dup /lf-slot erase lf-slot-invalid! ;
+: lf-pools-back ( -- )
+  lf-env-pub-mark store-rollback drop lf-env-look-mark store-rollback drop ;
 : lf-span-clear ( slot -- )
   lf-env-may-write lf-cand-span@ 0 ?do
     dup i lf-slot+ dup lf-slot-open? if lf-slot-clear else drop then
   loop drop ;
 : lf-env-undo ( slot -- )
   lf-env-may-write dup lf-span-open? 0= abort" lf-env: undo of a final slot"
-  dup lf-span-all-open? if lf-env-pub-mark store-rollback drop then lf-span-clear ;
+  dup lf-span-all-open? if lf-pools-back then lf-span-clear ;
 : lf-env-unpublish ( slot ior -- )
   lf-env-may-write lf-env-pub-fault dup lf-span-open? if lf-env-undo else drop then ;
 \ The end of a publication that did not throw: (outcome false) when every
@@ -483,7 +527,8 @@ lf-recheck-skipped 1+ constant lf-recheck-early
 \ true) when the pool cannot be marked (nothing written), after a THROW
 \ (undone as above), or when the slot is still not final. CATCH may leave
 \ its argument cell undefined, so a copy of the slot stays below it.
-: lf-env-marked? ( -- flag ) lf-env-may-write lf-env-pub-mark store-mark ok? ;
+: lf-env-marked? ( -- flag )
+  lf-env-may-write lf-env-pub-mark store-mark ok? lf-env-look-mark store-mark ok? and ;
 : lf-env-guarded ( slot -- outcome fault? )
   lf-env-may-write lf-pool-ready lf-env-marked? 0= if drop outcome-invalid true exit then
   dup ['] lf-env-write catch ?dup if nip lf-env-unpublish outcome-invalid true exit then
@@ -495,7 +540,7 @@ lf-recheck-skipped 1+ constant lf-recheck-early
 \ and as lf-env-guarded says.
 : lf-env-hand-over ( -- outcome fault? )
   context-in-job? if outcome-invalid true exit then
-  lf-env-target if lf-env-guarded else outcome-invalid true then ;
+  lf-env-target if lf-env-seal lf-env-guarded else outcome-invalid true then ;
 
 \ A check in this context threw ior (G-P6): the declaration is invalid,
 \ recorded as an internal fault, and the context is spent. lf-env-step

@@ -207,42 +207,57 @@ defer syn-pause
 \ in the pool, which depends on the order in which slots were published.
 : cells-between ( from to -- addr n ) over - 1 cells / ;
 : head-digest ( h slot -- h' ) dup lf-slot-deps cells-between digest-cells ;
-: tail-digest ( h slot -- h' ) dup lf-slot-count swap /lf-slot + cells-between digest-cells ;
+: tail-digest ( h slot -- h' ) dup lf-slot-count swap lf-slot-looks cells-between digest-cells ;
+: end-digest ( h slot -- h' ) dup lf-slot-looked swap /lf-slot + cells-between digest-cells ;
 : deps-digest ( h slot -- h' )
   dup lf-slot-deps @ swap lf-slot-count @ over + swap ?do i pool store-slot @ digest-mix loop ;
+\ Its lookups (environment.fs, "Lookups") by value too, from the lookup pool.
+: looks-digest ( h slot -- h' )
+  dup lf-slot-looked @ 0 ?do
+    i over lf-slot-look >r >r swap r> digest-mix r> digest-mix swap
+  loop drop ;
 : slot-content ( d -- h )
   slot@ dup lf-slot-final? 0= if drop 0 exit then
-  0 over head-digest over tail-digest swap deps-digest ;
+  0 over head-digest over tail-digest over end-digest over deps-digest swap looks-digest ;
 : env-content ( -- h ) 0 lf-env lf-env-length 0 ?do i slot-content digest-mix loop ;
 
 \ ---------------------------------------------------------------------------
 \ Steps checked against ADR 0012 test row 2: whatever the outcome, only
 \ slot i changes and the input region is unchanged; after a failure the
-\ slot holds only its state and outcome and the pool is unchanged; after
-\ an acceptance the pool grew by exactly the slot's dependencies, which
-\ are its candidate's.
+\ slot holds only its state, outcome and lookups and the pool is
+\ unchanged; after an acceptance the pool grew by exactly the slot's
+\ dependencies, which are its candidate's; either way the lookup pool grew
+\ by exactly the slot's lookups, two records each.
 create slot-digests decls cells allot
 variable pool-before   variable input-before   variable pool-count-before
+variable looks-count-before
 variable step-failures  0 step-failures !
 : bad ( -- ) 1 step-failures +! ;
 : check-that ( flag -- ) 0= if bad then ;
 : slots# ( -- n ) lf-env lf-env-length ;
 : before@ ( d -- h ) cells slot-digests + @ ;
+: looks-count ( -- n ) lf-env lf-env-looks store-count @ ;
 : snap ( -- )
   slots# 0 ?do i slot-digest i cells slot-digests + ! loop
-  pool-digest pool-before ! input-digest input-before ! pool-count pool-count-before ! ;
+  pool-digest pool-before ! input-digest input-before ! pool-count pool-count-before !
+  looks-count looks-count-before ! ;
 : changed ( -- n ) 0 slots# 0 ?do i slot-digest i before@ <> - loop ;
-: slot-tail ( d -- addr n ) slot@ dup lf-slot-decl tuck swap - /lf-slot swap - 1 cells / ;
+\ The record up to its lookups.
+: slot-tail ( d -- addr n )
+  slot@ dup lf-slot-decl tuck swap - 0 lf-slot-looks swap - 1 cells / ;
 : after-fail ( i -- )
   dup slot-tail cells-zero? check-that slot@ lf-slot-final? check-that
   pool-digest pool-before @ = check-that ;
 : after-accept ( i -- )
   slot@ dup lf-slot-count @ pool-count-before @ + pool-count = check-that
   lf-slot-deps @ pool-count-before @ = check-that ;
+: after-looks ( i -- )
+  slot@ dup lf-slot-looked @ 2* looks-count-before @ + looks-count = check-that
+  dup lf-slot-looked @ if lf-slot-looks @ looks-count-before @ = check-that else drop then ;
 : scratch-gone? ( -- flag ) lf-term-count @ 0 lf-input-mark mark-count @ = ;
 : after-step ( i outcome -- )
   changed 1 = check-that input-digest input-before @ = check-that
-  scratch-gone? check-that ok? if after-accept else after-fail then ;
+  scratch-gone? check-that over after-looks ok? if after-accept else after-fail then ;
 \ Run step i with xt and check it: the outcome.
 : checked-step ( xt i -- outcome )
   snap tuck lf-env-step 0= check-that tuck after-step ;

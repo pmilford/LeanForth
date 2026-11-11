@@ -136,6 +136,8 @@ require ../lib/lib.fs
 \ Nested inductive blocks (plan task 5.2.5b, kernel/inductive-nested.fs).
 98 constant lf-diag-nested-local       \ N2 (rejected): the occurrence's node, its binders
 99 constant lf-diag-nested-shape       \ N1, N3 (rejected): the node or name, 0
+\ The lookup list (plan task 6.2.5, step SN3; kernel/environment.fs).
+100 constant lf-diag-lookups-full      \ full: the declaration, the lookups recorded
 
 begin-structure /lf-diag
   field: lf-diag-code       \ reason code; lf-diag-none while clear
@@ -322,6 +324,7 @@ create lf-diag-catalogue
     s" rejected: nested occurrence's parameter has a local variable (N2)" lf-diag-entry,
   lf-diag-nested-shape
     s" rejected: ill-formed nested inductive declaration (N1, N3)" lf-diag-entry,
+  lf-diag-lookups-full s" lookup list full" lf-diag-entry,
   lf-diag-none s" unknown code" lf-diag-entry,
 : lf-diag-end? ( code entry -- flag ) lf-diag-entry-code tuck = swap lf-diag-none = or ;
 \ The entry of code, or the last entry.
