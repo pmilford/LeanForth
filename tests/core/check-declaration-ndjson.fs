@@ -10,7 +10,8 @@
 \ (rejected; Lean's appTypeMismatch, row composition.wrong-argument of the
 \ expected-results table), the statement assumed as an axiom
 \ (unsupported, U1), a natural-number literal as the value (unsupported,
-\ U2), and a variable without a binder (invalid, V1). A fifth copy, with
+\ U2), a variable without a binder (invalid, V1), and the statement as an
+\ unsafe definition (skipped, plan task 5.2.7). A further copy, with
 \ a numeric name part of 2^64 (tests/cli/composition-huge-number.ndjson),
 \ must stop reading as full.
 \ Test-only; nothing here accepts a theorem outside the code under test.
@@ -55,6 +56,12 @@ T{ s" tests/core/check-declaration-cases/composition-literal.ndjson" case-file
   -> outcome-unsupported lf-diag-unsupported-form 1 }T
 T{ s" tests/core/check-declaration-cases/composition-loose.ndjson" case-file
   -> outcome-invalid lf-diag-out-of-scope 1 }T
+\ The statement as an unsafe definition: skipped, as Lean's replay skips
+\ it (plan task 5.2.7): rejected unchecked, its slot marked skipped.
+: skipped-file ( c-addr u -- outcome code step flag )
+  checked ok? must last-outcome lf-input-count 1- lf-env-skipped? env-done ;
+T{ s" tests/core/check-declaration-cases/composition-unsafe.ndjson" skipped-file
+  -> outcome-rejected lf-diag-skipped 1 true }T
 
 \ The reader fails closed on a file that is not an export.
 T{ s" tests/core/check-declaration-ndjson.fs" cin-read ok? -> false }T

@@ -7,11 +7,15 @@
 \ Lean's replay does (Lean/Replay.lean 102-164), and ends with one
 \ outcome for every member:
 \    1 the audit (inductive-block.fs): B0 shape (invalid), unsafe members
-\      and U2 forms (unsupported), V1 (invalid), the scope (unsupported:
-\      nested, task 5.2.5b);
+\      (all: skipped as Lean's replay skips them, rejected; some:
+\      unsupported), U2 forms (unsupported), V1 (invalid), whether it may be
+\      nested;
 \    2 T0 the reserved prefix _nested (1241, 1244);
 \    3 C1 uniform occurrences (check_uniform_ind_occs, 134-164);
-\    4 T1 at least numParams binders (get_params, 1138-1146);
+\    4 T1 at least numParams binders (get_params, 1138-1146); then a
+\      nested block translated into its auxiliary mutual block
+\      (elim_nested_inductive_fn 985-1180, inductive-nested.fs: N2, N3),
+\      which steps 5 to 12 check;
 \    5 T5 universe parameters distinct (check_duplicated_univ_params, 869);
 \    then steps 6 to 8 for each type in order (check_inductive_types
 \    254-299):
@@ -36,7 +40,9 @@
 \      its universe u, or u_1, u_2, ... when taken, 579-592) and K
 \      (init_K_target 594-616);
 \   11 N2 for each T.rec against the names the block declared (813);
-\   12 the recursors and their rules (inductive-recursor.fs, G1, G2);
+\   12 the recursors and their rules (inductive-recursor.fs, G1, G2); for
+\      a nested block restored (restore_nested, 1257-1314: T.rec_1, ...),
+\      their names checked and the nested occurrences typed (1315-1324);
 \   13 B3: each constructor and each exported recursor equal to the one
 \      generated, by Lean's ==: every field, universe parameter names
 \      included, terms structurally (mixed-compare.fs: binder names and
@@ -62,7 +68,8 @@
 \ [kernel] code: experimental, not through the review gate; not
 \ independently audited.
 \ State: one record, lf-blk-state (the T.rec name, the constructor and
-\ binder being checked, the fields of the elimination test), and the
+\ binder being checked, the fields of the elimination test, whether the
+\ nested occurrences are being typed), and the
 \ slab lf-blk-positions, members of the checker context, beside the
 \ block's record lf-ind-state.
 
@@ -77,6 +84,7 @@ require ./environment.fs
 require ./env-signature.fs
 require ./generated-recursor.fs
 require ./inductive-block.fs
+require ./inductive-nested.fs
 require ./inductive-recursor.fs
 require ./infer-proj.fs
 require ./iota.fs
@@ -92,6 +100,7 @@ begin-structure /lf-blkrec
   field: lf-blkrec-field     \ its binder whose positivity is checked
   field: lf-blkrec-arity     \ the arguments of the application being tested
   field: lf-blkrec-checks    \ fields whose type is no proposition (E3)
+  field: lf-blkrec-keys      \ the nested occurrences are being typed (step 12)
 end-structure
 /lf-blkrec context-record: lf-blk-state
 \ Their binders' positions, as many as there are (plan task 6.2.0).
@@ -125,12 +134,21 @@ end-structure
 \ finds (Lean's declare_inductive_types), through env-signature's hook:
 \ only within the block's own check (the flag, cleared at its end, and,
 \ in depth, the declaration checked being the block's first member;
-\ review rvI21 M1).
+\ review rvI21 M1); a nested block's auxiliary types too. While its
+\ nested occurrences are typed (step 12, in Lean's new_env), also the
+\ block's constructors and recursors, as the file holds them (a
+\ constructor's type is Lean's; a recursor's B3 compares).
 : lf-blk-visible? ( -- flag ) lf-ind-state lf-ind-visible @ ;
 : lf-blk-own? ( -- flag ) lf-blk-visible? lf-env-limit lf-ind-first@ = and ;
+: lf-blk-keys? ( -- flag ) lf-blk-state lf-blkrec-keys @ ;
+: lf-blk-member-named ( name -- decl true | false )
+  lf-ind-members lf-ind-in-types@ ?do
+    dup i lf-ind-name-at lf-name-same? if drop i lf-ind-member true unloop exit then
+  loop drop false ;
 : lf-blk-local ( name -- decl true | false )
   lf-blk-own? 0= if drop false exit then
-  lf-ind-which-name dup 0< if drop false else lf-ind-type-at true then ;
+  dup lf-ind-which-name dup 0< 0= if nip lf-ind-type-at true exit then drop
+  lf-blk-keys? if lf-blk-member-named else drop false then ;
 ' lf-blk-local is lf-envsig-local
 
 \ ---------------------------------------------------------------------------
@@ -211,7 +229,12 @@ end-structure
 : lf-blk-dbinder ( node i -- outcome )
   dup lf-ind-nparams < if lf-diag-mutual-params lf-blk-param-as exit then
   drop lf-blk-index! ;
-: lf-blk-member-d ( -- k ) lf-blk-type@ ;
+\ The member a diagnostic names for type d or constructor j: its own, or
+\ for an auxiliary one (task 5.2.5b) the block's first.
+: lf-blk-type-member ( d -- k ) dup lf-ind-in-types@ < and ;
+: lf-blk-ctor-member ( j -- k )
+  dup lf-ind-in-ctors@ < if lf-ind-in-types@ + else drop 0 then ;
+: lf-blk-member-d ( -- k ) lf-blk-type@ lf-blk-type-member ;
 : lf-blk-few-params ( node i -- level outcome )
   nip lf-blk-member-d swap lf-diag-param-count lf-blk-reject no-result ;
 : lf-blk-dsort ( node -- level outcome )
@@ -251,7 +274,7 @@ end-structure
 \ domains, as their locals have them (consume_type_annotations,
 \ inductive-recursor.fs: lf-blk-param-dom).
 : lf-blk-ctor-name ( j -- name ) lf-ind-ctor lf-idecl-name @ ;
-: lf-blk-member ( -- k ) lf-blk-ctor@ lf-ind-types@ + ;
+: lf-blk-member ( -- k ) lf-blk-ctor@ lf-blk-ctor-member ;
 \ C4: an earlier constructor of its own type with the same name (Lean's
 \ name set is per type, 459-465).
 : lf-blk-dup ( -- outcome ) lf-blk-member 0 lf-diag-duplicate-ctor lf-blk-reject ;
@@ -370,7 +393,7 @@ end-structure
 \ name an earlier constructor of another type has is declared already
 \ (one of its own type was C4's).
 : lf-blk-declared ( j -- outcome )
-  lf-ind-types@ + dup lf-ind-name-at swap lf-diag-already-declared lf-blk-reject ;
+  dup lf-blk-ctor-name swap lf-blk-ctor-member lf-diag-already-declared lf-blk-reject ;
 : lf-blk-ctor-fresh ( j -- outcome )
   dup lf-blk-ctor-name over 0 ?do dup i lf-blk-ctor-name lf-name-same?
     if drop lf-blk-declared unloop exit then
@@ -455,21 +478,61 @@ end-structure
   lf-blk-elim! lf-blk-k ;
 
 \ Step 11: each type's T.rec, in order, is no name the block declared
-\ before it (declare_recursors 813: its types and constructors).
+\ before it (declare_recursors 813: its types and constructors, k from
+\ 0 over both, an auxiliary type's and constructor's included).
 : lf-blk-rec-clash ( d k -- outcome )
   swap lf-blk-rec-id swap lf-diag-already-declared lf-blk-reject ;
+: lf-blk-declared-name ( k -- name )
+  dup lf-ind-types@ < if lf-ind-tname else lf-ind-types@ - lf-blk-ctor-name then ;
 : lf-blk-rec-name-of ( d -- outcome )
   lf-ind-types@ lf-ind-ctors@ + 0 ?do
-    dup lf-blk-rec-id i lf-ind-name-at lf-name-same?
+    dup lf-blk-rec-id i lf-blk-declared-name lf-name-same?
     if i lf-blk-rec-clash unloop exit then
   loop drop outcome-ok ;
 : lf-blk-rec-name ( -- outcome )
   lf-ind-types@ 0 ?do i lf-blk-rec-name-of dup ok? 0= if unloop exit then drop loop
   outcome-ok ;
 \ Step 12: the recursor (inductive-recursor.fs), and the recipe that lets
-\ a later declaration build it again (generated-recursor.fs).
-: lf-blk-build ( -- outcome )
+\ a later declaration build it again (generated-recursor.fs). For a
+\ nested block (task 5.2.5b, inductive-nested.fs): its auxiliary types'
+\ recursors named T.rec_i first; after the build, every recursor
+\ restored, each T.rec_i a name Lean's new_env had not declared
+\ (check_name, 1283: no type, constructor or T.rec of the block, and N2
+\ against the environment), and the nested occurrences typed.
+: lf-blk-built ( -- outcome )
   lf-recursor-build dup ok? if lf-genrec-recipe lf-env-recipe! then ;
+: lf-blk-earlier? ( name -- flag )
+  false lf-ind-in-types@ 0 ?do
+    over i lf-ind-tname lf-name-same? or over i lf-blk-rec-id lf-name-same? or
+  loop lf-ind-in-ctors@ 0 ?do over i lf-blk-ctor-name lf-name-same? or loop nip ;
+: lf-blk-aux-fresh-at ( a -- outcome )
+  lf-blk-rec-id dup lf-blk-earlier? if 0 lf-diag-already-declared lf-blk-reject exit then
+  lf-blk-fresh ;
+: lf-blk-aux-fresh ( -- outcome )
+  lf-ind-types@ lf-ind-in-types@ ?do
+    i lf-blk-aux-fresh-at dup ok? 0= if unloop exit then drop
+  loop outcome-ok ;
+\ Lean's typing of the nested occurrences I Ds (1315-1324), which the
+\ auxiliary block does not contain: each auxiliary type's, under the
+\ first type's parameters as get_params made them (their raw domains,
+\ 1138-1146), the block's constructors and recursors visible.
+: lf-blk-raw-param ( i -- node )
+  lf-ind-type lf-idecl-type @ swap lf-rcr-skip lf-term-first@ ;
+: lf-blk-key-params ( -- outcome )
+  lf-ind-nparams 0 ?do i lf-blk-raw-param lf-blk-push dup ok? 0= if unloop exit then drop
+  loop outcome-ok ;
+: lf-blk-key ( a -- outcome ) lf-ind-ty lf-ty-key @ lf-minfer-walk nip ;
+: lf-blk-keys-typed ( -- outcome )
+  lf-blk-key-params dup ok? 0= if exit then drop
+  lf-ind-types@ lf-ind-in-types@ ?do i lf-blk-key dup ok? 0= if unloop exit then drop loop
+  outcome-ok ;
+: lf-blk-keys! ( flag -- ) lf-blk-state lf-blkrec-keys ! ;
+: lf-blk-keys ( -- outcome )
+  lf-ind-aux@ 0= if outcome-ok exit then
+  true lf-blk-keys! lf-blk-job lf-blk-keys-typed lf-blk-refuel false lf-blk-keys! ;
+: lf-blk-build ( -- outcome )
+  lf-nest-rec-names ['] lf-blk-built lf-blk-then ['] lf-nest-restore-all lf-blk-then
+  ['] lf-blk-aux-fresh lf-blk-then ['] lf-blk-keys lf-blk-then ;
 
 \ ---------------------------------------------------------------------------
 \ Step 13, B3. Name lists equal name by name.
@@ -499,9 +562,9 @@ create lf-b3-ctor
 here lf-b3-ctor - 2 cells / constant lf-b3-ctor#
 : lf-blk-ctor-diff ( j -- field ) lf-b3-ctor lf-b3-ctor# lf-b3-scan ;
 : lf-blk-ctor-differs ( j field -- outcome )
-  swap lf-ind-types@ + swap lf-diag-invalid-constructor lf-blk-replace ;
+  swap lf-ind-in-types@ + swap lf-diag-invalid-constructor lf-blk-replace ;
 : lf-blk-ctors-b3 ( -- outcome )
-  lf-ind-ctors@ 0 ?do
+  lf-ind-in-ctors@ 0 ?do
     i lf-blk-ctor-diff ?dup if i swap lf-blk-ctor-differs unloop exit then
   loop outcome-ok ;
 \ Two terms by Lean's ==: (equal ok); a structural difference is (false
@@ -537,9 +600,12 @@ create lf-b3-rec
 here lf-b3-rec - 2 cells / constant lf-b3-rec#
 : lf-blk-k= ( data -- flag ) lf-irc-k lf-more-field 0<> lf-ind-state lf-ind-k @ 0<> = ;
 \ Rule t (field 9), for type d's constructor j = ctor(d) + t: its
-\ constructor, its fields, then its right side.
+\ constructor (in a nested block as Lean's restoration names it), its
+\ fields, then its right side.
+: lf-blk-rule-ctor ( j -- name )
+  lf-ind-aux@ if lf-ind-ctor-cells slab-at lf-ictor-name @ else lf-blk-ctor-name then ;
 : lf-b3-rule-head? ( rule j -- flag )
-  over lf-irule-ctor over lf-blk-ctor-name lf-name-same? 0=
+  over lf-irule-ctor over lf-blk-rule-ctor lf-name-same? 0=
   -rot lf-ind-nfields @ swap lf-irule-nfields <> or ;
 : lf-blk-rule-diff ( rules t -- differs? outcome )
   tuck lf-irc-rule swap lf-blk-type@ lf-ind-ty lf-ty-ctor @ +
@@ -561,7 +627,7 @@ here lf-b3-rec - 2 cells / constant lf-b3-rec#
   dup lf-idecl-type @ lf-blk-type@ lf-ind-ty lf-ty-rec-type @ swap lf-blk-same
   ok-then? 0= if nip 0 swap exit then 0= if drop 3 outcome-ok exit then
   lf-idecl-data lf-blk-data-diff ;
-: lf-blk-rec-member ( r -- k ) lf-ind-types@ + lf-ind-ctors@ + ;
+: lf-blk-rec-member ( r -- k ) lf-ind-in-types@ + lf-ind-in-ctors@ + ;
 : lf-blk-no-such ( r -- outcome )
   lf-blk-rec-member 0 lf-diag-no-such-recursor lf-blk-reject ;
 : lf-blk-rec-differs ( r field -- outcome )
@@ -585,14 +651,16 @@ here lf-b3-rec - 2 cells / constant lf-b3-rec#
 : lf-blk-shape ( d -- outcome )
   dup lf-ind-n lf-ind-state lf-ind-is-rec @ lf-shape swap lf-env-shape! ;
 : lf-blk-shapes ( -- outcome )
-  lf-ind-types@ 0 ?do i lf-blk-shape dup ok? 0= if unloop exit then drop loop outcome-ok ;
+  lf-ind-in-types@ 0 ?do i lf-blk-shape dup ok? 0= if unloop exit then drop loop
+  outcome-ok ;
 : lf-blk-compare ( -- outcome )
   lf-blk-shapes ['] lf-blk-ctors-b3 lf-blk-then ['] lf-blk-recs-b3 lf-blk-then ;
 
 \ Step 14, B4: each type's fields Lean's replay ignores, against what
 \ LeanForth computed (its numIndices; isRec and isReflexive, the audit's
-\ is_rec and is_reflexive of the block; numNested 0, the block not being
-\ nested), and a type whose T.rec the block does not hold, as warning
+\ is_rec and is_reflexive of the block, of the translated block when
+\ nested; numNested, its auxiliary types), and a type whose T.rec the
+\ block does not hold, as warning
 \ bits; never a failure. The bits go to the candidate, and so onto the
 \ accepted block's slots (lf-env-warnings). The type tested is
 \ lf-blk-type@ meanwhile.
@@ -604,7 +672,7 @@ here lf-b3-rec - 2 cells / constant lf-b3-rec#
   lf-ity-rec-bit lf-blk-flag lf-ind-state lf-ind-is-rec @ lf-blk-differs? ;
 : lf-b4-reflexive? ( data -- flag )
   lf-ity-reflexive-bit lf-blk-flag lf-ind-state lf-ind-is-refl @ lf-blk-differs? ;
-: lf-b4-nested? ( data -- flag ) lf-ity-nested lf-more-field 0<> ;
+: lf-b4-nested? ( data -- flag ) lf-ity-nested lf-more-field lf-ind-aux@ <> ;
 : lf-b4-held? ( name -- flag )
   false lf-ind-recs@ 0 ?do over i lf-ind-rec lf-idecl-name @ lf-name-same? or loop nip ;
 : lf-b4-no-recursor? ( data -- flag ) drop lf-blk-type@ lf-blk-rec-id lf-b4-held? 0= ;
@@ -619,7 +687,7 @@ here lf-b4-tests - 2 cells / constant lf-b4-tests#
 : lf-b4-type ( bits d -- bits' )
   dup lf-blk-type! lf-ind-type-at lf-idecl-data lf-b4-bits or ;
 : lf-blk-b4 ( -- outcome )
-  0 lf-ind-types@ 0 ?do i lf-b4-type loop dup lf-env-warnings!
+  0 lf-ind-in-types@ 0 ?do i lf-b4-type loop dup lf-env-warnings!
   lf-ind-state lf-ind-warned ! outcome-ok ;
 
 \ ---------------------------------------------------------------------------
@@ -628,8 +696,11 @@ here lf-b4-tests - 2 cells / constant lf-b4-tests#
 \ which sets the step it reaches); the entries of 7 and 8 have nothing
 \ left to do.
 : lf-blk-done ( -- outcome ) outcome-ok ;
+\ Step 4: T1, then a nested block's translation (elim_nested_inductive_fn,
+\ whose get_params is T1).
+: lf-blk-t1 ( -- outcome ) lf-ind-t1 ['] lf-nest-translate lf-blk-then ;
 create lf-blk-steps
-  ' lf-ind-audit , ' lf-ind-t0 , ' lf-ind-c1 , ' lf-ind-t1 , ' lf-blk-t5 ,
+  ' lf-ind-audit , ' lf-ind-t0 , ' lf-ind-c1 , ' lf-blk-t1 , ' lf-blk-t5 ,
   ' lf-blk-types , ' lf-blk-done , ' lf-blk-done , ' lf-blk-ctors ,
   ' lf-blk-elim , ' lf-blk-rec-name , ' lf-blk-build , ' lf-blk-compare , ' lf-blk-b4 ,
 here lf-blk-steps - 1 cells / constant lf-blk-steps#
@@ -660,5 +731,5 @@ here lf-blk-steps - 1 cells / constant lf-blk-steps#
 : lf-blk-checked ( -- outcome )
   lf-ind-empty? if lf-blk-empty else lf-blk-run lf-blk-added then ;
 : lf-block-check ( fuel -- outcome )
-  lf-blk-begin dup ok? if drop lf-blk-checked then
+  false lf-blk-keys! lf-blk-begin dup ok? if drop lf-blk-checked then
   false lf-ind-state lf-ind-visible ! ;

@@ -122,6 +122,10 @@ what a check said about itself:
   allowlist makes the declaration NOT PROVED. The axioms' own bits must
   make up the slot's axiom set, else the record fails (`rr-write` gives
   invalid); records of allowlist version 0 list none.
+- **skipped** for a rejected slot of an unsafe or partial declaration,
+  which Lean's replay skips unchecked (`Lean/Replay.lean` 180–183; plan
+  task 5.2.7): nothing of it was checked, nothing can use it, and the
+  diagnostic is code 97.
 - **rejected, unknown, unsupported, invalid, exhausted, full**: the slot's
   outcome ([ADR 0008](../adr/0008-outcome-vocabulary.md)), with the
   diagnostic the check left: its code and catalogue name

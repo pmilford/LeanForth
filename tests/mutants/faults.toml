@@ -481,10 +481,10 @@ reason = "a pool with a corrupted count is grown, and the copy repairs it, inste
 [[fault]]
 id = "pub-final-before-outcome"
 file = "src/kernel/env-publish.fs"
-old = '''  lf-env-may-write 2dup lf-span-outcome! over lf-span-added! lf-env-before-final
-  swap lf-span-final! ;'''
-new = '''  lf-env-may-write over lf-span-final! 2dup lf-span-outcome! over lf-span-added!
-  lf-env-before-final nip ;'''
+old = '''  lf-env-may-write 2dup lf-span-outcome! 2dup lf-span-skipped! over lf-span-added!
+  lf-env-before-final swap lf-span-final! ;'''
+new = '''  lf-env-may-write over lf-span-final! 2dup lf-span-outcome! 2dup lf-span-skipped!
+  over lf-span-added! lf-env-before-final nip ;'''
 test = "$GFORTH tests/core/environment.fs"
 reason = "E4 step 3: the slot is marked final before its outcome is written"
 
@@ -2500,8 +2500,8 @@ reason = "check ignores --strict-axioms: the report says strictAxioms false and 
 [[fault]]
 id = "cli-verdicts-not-in-code"
 file = "src/cli/tally.fs"
-old = ''': cli-tally ( outcome -- ) dup outcome>code cli-code! cli-count-of 1 swap +! ;'''
-new = ''': cli-tally ( outcome -- ) cli-count-of 1 swap +! ;'''
+old = ''': cli-tally ( verdict -- ) dup verdict>code cli-code! cli-count-of 1 swap +! ;'''
+new = ''': cli-tally ( verdict -- ) cli-count-of 1 swap +! ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "the declarations' verdicts never reach the exit status, so every check exits 0"
 
@@ -2617,7 +2617,7 @@ quick = true
 [[fault]]
 id = "cli-json-all-accepted"
 file = "src/cli/check-json.fs"
-old = '''  dup cj-began? if lf-env-outcome else drop not-checked then verdict-name ;'''
+old = '''  dup cj-began? if verdict-of else drop not-checked then verdict-name ;'''
 new = '''  drop outcome-ok verdict-name ;'''
 test = "python3 tests/cli/test_leanforth.py"
 reason = "trust boundary: the JSON report calls every declaration accepted, not its slot's verdict"
@@ -4107,9 +4107,9 @@ reason = "rvI21 M1: the publisher never re-checks a block's members; a block cla
 [[fault]]
 id = "ind-visible-never-reset"
 file = "src/kernel/check-block.fs"
-old = '''  lf-blk-begin dup ok? if drop lf-blk-checked then
+old = '''  false lf-blk-keys! lf-blk-begin dup ok? if drop lf-blk-checked then
   false lf-ind-state lf-ind-visible ! ;'''
-new = '''  lf-blk-begin dup ok? if drop lf-blk-checked then ;'''
+new = '''  false lf-blk-keys! lf-blk-begin dup ok? if drop lf-blk-checked then ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 M1: the type stays visible to inference after its block's check (the flag is still set afterwards)"
 
@@ -4165,8 +4165,8 @@ reason = "rvI21 B2: T.rec_1, an auxiliary recursor of a nested (unsupported) blo
 [[fault]]
 id = "env-aux-rec-held-by-accepted"
 file = "src/kernel/environment.fs"
-old = ''': lf-env-aux-held ( d class -- d class ) dup ok? if 2drop -1 outcome-rejected then ;'''
-new = ''': lf-env-aux-held ( d class -- d class ) ;'''
+old = '''  lf-env-aux-count swap lf-env-aux-k tuck >= swap 0> and ;'''
+new = '''  2drop true ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 B2: T.rec_1 held by an accepted non-nested T, for which Lean generates no such recursor; a definition of it would be rejected"
 
@@ -4197,8 +4197,8 @@ reason = "rvI21 R2-1: a block the kernel rejects (U1) takes its names; def IE.Bi
 [[fault]]
 id = "pub-added-not-written"
 file = "src/kernel/env-publish.fs"
-old = '''  lf-env-may-write 2dup lf-span-outcome! over lf-span-added! lf-env-before-final'''
-new = '''  lf-env-may-write 2dup lf-span-outcome! lf-env-before-final'''
+old = '''  lf-env-may-write 2dup lf-span-outcome! 2dup lf-span-skipped! over lf-span-added!'''
+new = '''  lf-env-may-write 2dup lf-span-outcome! 2dup lf-span-skipped!'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 R2-1: a B3-rejected block's marks are never published; def IE.B after it is accepted"
 
@@ -4229,8 +4229,8 @@ reason = "rvI21 R2-1: T.rec of a B3-rejected T is free; def IE.B.rec after it is
 [[fault]]
 id = "pub-added-no-conflict"
 file = "src/kernel/env-publish.fs"
-old = '''  dup lf-slot-open? over lf-slot-added? or swap lf-slot-outcome@ outcome-rejected <> or ;'''
-new = '''  dup lf-slot-open? swap lf-slot-outcome@ outcome-rejected <> or ;'''
+old = '''  dup lf-slot-open? over lf-slot-added? or over lf-slot-skipped? or'''
+new = '''  dup lf-slot-open? over lf-slot-skipped? or'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 R2-1: the publisher's name re-check ignores the marks; def IE.B claimed ok after the B3-rejected block is published"
 
@@ -4520,7 +4520,7 @@ reason = "5.2.1b: B4 never compares isRec and isReflexive; N's cleared isRec giv
 [[fault]]
 id = "rec-nested-not-detected"
 file = "src/kernel/inductive-block.fs"
-old = '''  if 2drop drop outcome-unsupported else walk-children then ;'''
+old = '''  if 2drop drop lf-ind-maybe! outcome-ok else walk-children then ;'''
 new = '''  drop walk-children ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.1b: a nested block (List Tree) is checked as a recursive one and rejected where Lean accepts it"
@@ -6328,6 +6328,121 @@ new = '''  drop outcome-ok ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "rvKC M1: the nodes of lets and projections eat the checks' term room"
 
+# --- unsafe and partial declarations, skipped as Lean's replay skips them
+# (plan task 5.2.7) ---------------------------------------------------------
+
+[[fault]]
+id = "skip-u1-unsafe-checked"
+file = "src/kernel/check-declaration.fs"
+old = '''  dup lf-idecl-safety @ lf-safety-safe = if drop outcome-ok else lf-check-skip then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "5.2.7: an unsafe or partial declaration is checked as a safe one, never skipped as Lean's replay skips it"
+
+[[fault]]
+id = "skip-not-marked"
+file = "src/kernel/environment.fs"
+old = '''  c" environment lf-env-skip" lf-diag-skipped lf-diag-note true lf-env-skipped!'''
+new = '''  c" environment lf-env-skip" lf-diag-skipped lf-diag-note false lf-env-skipped!'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "5.2.7: a skipped declaration is rejected but not marked: reports say rejected and exit 1 where Lean's checker exits 0"
+
+[[fault]]
+id = "skip-name-twice-ignored"
+file = "src/kernel/environment.fs"
+old = ''': lf-env-twin ( k -- d d'|-1 ) lf-env-limit + dup lf-env-earlier ;'''
+new = ''': lf-env-twin ( k -- d d'|-1 ) lf-env-limit + -1 ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "5.2.7: an unsafe declaration whose name an earlier one has is skipped, where lean4export's parser refuses the file"
+
+[[fault]]
+id = "skip-name-not-taken"
+file = "src/kernel/environment.fs"
+old = '''  dup 0< if drop outcome-ok else lf-env-declared then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "5.2.7: N2 ignores a skipped declaration of the name; a later safe one of it is accepted, where lean4export's parser refuses the file"
+
+[[fault]]
+id = "skip-span-unmarked"
+file = "src/kernel/env-publish.fs"
+old = '''  lf-env-may-write lf-cand-skipped? swap'''
+new = '''  lf-env-may-write drop false swap'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.7: the publisher never marks a skipped declaration's slots"
+
+[[fault]]
+id = "skip-claim-unchecked"
+file = "src/kernel/env-publish.fs"
+old = '''  dup lf-cand-skipped? lf-span-unsafe? 0= and 0= if exit then'''
+new = '''  exit'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.7: a check that claims a safe declaration skipped is published so, status 0 where it must be refused"
+
+[[fault]]
+id = "skip-conflict-ignored"
+file = "src/kernel/env-publish.fs"
+old = '''  dup lf-slot-open? over lf-slot-added? or over lf-slot-skipped? or'''
+new = '''  dup lf-slot-open? over lf-slot-added? or'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "5.2.7: the publisher's name re-check ignores a skipped slot; a declaration of its name claimed ok is published"
+
+[[fault]]
+id = "skip-block-mixed-skipped"
+file = "src/kernel/inductive-block.fs"
+old = ''': lf-ind-any-safe? ( -- flag ) false lf-ind-members 0 ?do i lf-ind-safe-at? or loop ;'''
+new = ''': lf-ind-any-safe? ( -- flag ) false ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.7: a block with safe and unsafe members is skipped whole, where replay adds it when a type is safe (part b)"
+
+[[fault]]
+id = "skip-block-unsafe-checked"
+file = "src/kernel/inductive-block.fs"
+old = '''  lf-ind-safe? 0= if lf-ind-unsafe exit then'''
+new = '''  lf-ind-any-safe? 0= if lf-ind-unsafe exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.7: a block with one unsafe member is checked as a safe block"
+
+[[fault]]
+id = "skip-status-one"
+file = "src/cli/tally.fs"
+old = '''  dup skipped = if drop exit-accepted else outcome>code then ;'''
+new = '''  dup skipped = if drop exit-rejected else outcome>code then ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "5.2.7: a skipped declaration makes the status 1, where Lean's checker exits 0"
+
+[[fault]]
+id = "skip-counted-rejected"
+file = "src/cli/tally.fs"
+old = '''  dup lf-env-skipped? if drop skipped else lf-env-outcome then ;'''
+new = '''  lf-env-outcome ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "5.2.7: reports count a skipped declaration as rejected, status 1"
+
+[[fault]]
+id = "skip-line-says-rejected"
+file = "src/kernel/check-declaration.fs"
+old = '''  swap lf-env-skipped? if drop ." skipped" else outcome-text type then ;'''
+new = '''  nip outcome-text type ;'''
+test = "$GFORTH tests/core/failure-paths.fs"
+reason = "5.2.7: a skipped declaration's line says rejected"
+
+[[fault]]
+id = "skip-json-says-rejected"
+file = "src/cli/check-json.fs"
+old = '''  dup cj-began? if verdict-of else drop not-checked then verdict-name ;'''
+new = '''  dup cj-began? if lf-env-outcome else drop not-checked then verdict-name ;'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "5.2.7: the JSON report calls a skipped declaration rejected, against its counts and status 0"
+
+[[fault]]
+id = "skip-record-says-rejected"
+file = "src/import/run-record.fs"
+old = '''  over lf-env-skipped? if drop s" skipped" rr-string else rr-outcome then ;'''
+new = '''  rr-outcome ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "5.2.7: a run record calls a skipped declaration rejected"
+
 # Step S0 of the compact-store plan (plan task 6.5.5): the level passes mark
 # reached nodes with a per-call stamp and build only the sorted list of them.
 [[fault]]
@@ -6602,3 +6717,120 @@ old = ''': lf-envsig-bare? ( -- flag ) lf-envsig-count 0= lf-log? 0= and ;'''
 new = ''': lf-envsig-bare? ( -- flag ) lf-envsig-count 0= ;'''
 test = "python3 tests/present/check_outline.py"
 reason = "EX: with the derivation log on, a constant without universe arguments loses its instantiate-levels step"
+
+# --- nested inductive blocks (plan task 5.2.5b; src/kernel/inductive-nested.fs) --
+# Each caught by tests/core/check-block.fs (the nested.* and replay-nested.*
+# rows, Lean's verdicts).
+
+[[fault]]
+id = "nest-no-translation"
+file = "src/kernel/inductive-nested.fs"
+old = '''  lf-ind-maybe? 0= if outcome-ok exit then'''
+new = '''  outcome-ok exit'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: a nested block is checked as it stands; List Tree is no valid occurrence and nested.tree is rejected"
+quick = true
+
+[[fault]]
+id = "nest-local-variable-allowed"
+file = "src/kernel/inductive-nested.fs"
+old = '''  lf-nest-amount@ < if lf-nest-loose else lf-nest-down then ;'''
+new = '''  drop lf-nest-down ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: Ds with a local variable is lowered as if it had none; nested.local-variable is not Lean's nestedLocalVariable"
+
+[[fault]]
+id = "nest-key-not-lowered"
+file = "src/kernel/inductive-nested.fs"
+old = '''  lf-nest-partial lf-nest-depth@ lf-nest-lower dup outcome-rejected ='''
+new = '''  lf-nest-partial 0 lf-nest-lower dup outcome-rejected ='''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: an occurrence under a binder keeps its depth; nested.under-binder's auxiliary type names the wrong parameter"
+
+[[fault]]
+id = "nest-key-never-shared"
+file = "src/kernel/inductive-nested.fs"
+old = '''    if i outcome-ok unloop exit then'''
+new = '''    if -1 outcome-ok unloop exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: every occurrence makes new auxiliary types; the queue never ends and the fuel runs out (nested.tree)"
+
+[[fault]]
+id = "nest-levels-not-substituted"
+file = "src/kernel/inductive-nested.fs"
+old = '''  lf-nest-at-levels ok-then? 0= if no-result exit then'''
+new = '''  lf-idecl-type @ outcome-ok ok-then? 0= if no-result exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: an auxiliary type keeps List's universe parameter; nested.universe (v) is rejected"
+
+[[fault]]
+id = "nest-not-restored"
+file = "src/kernel/inductive-nested.fs"
+old = '''  lf-ind-aux@ 0= if outcome-ok exit then'''
+new = '''  outcome-ok exit'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: the recursors keep the auxiliary types; B3 rejects Lean's"
+
+[[fault]]
+id = "nest-key-not-shifted"
+file = "src/kernel/inductive-nested.fs"
+old = '''  lf-ind-ty lf-ty-key @ 0 lf-nest-depth@ lf-nest-p - lf-rcr-shift ;'''
+new = '''  lf-ind-ty lf-ty-key @ ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: a restored occurrence names the wrong parameter under the recursor's binders (nested.parameter)"
+
+[[fault]]
+id = "nest-constructor-not-restored"
+file = "src/kernel/inductive-nested.fs"
+old = '''  dup lf-ind-ctor lf-idecl-name @ swap dup lf-ind-in-ctors@ < if drop true exit then'''
+new = '''  lf-ind-ctor lf-idecl-name @ true exit'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: T.rec_1's rules name _nested.List_1.cons, not List.cons; B3 rejects Lean's"
+
+[[fault]]
+id = "nest-flags-not-recomputed"
+file = "src/kernel/inductive-nested.fs"
+old = '''  lf-ind-aux@ if drop lf-ind-flags-again exit then false lf-ind-state lf-ind-xlated ! ;'''
+new = '''  lf-ind-aux@ if exit then false lf-ind-state lf-ind-xlated ! ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: isReflexive from the input, not the auxiliary block; nested.thunk gets a B4 warning"
+
+[[fault]]
+id = "nest-aux-recursors-unnamed"
+file = "src/kernel/check-block.fs"
+old = '''  lf-nest-rec-names ['] lf-blk-built lf-blk-then'''
+new = '''  outcome-ok ['] lf-blk-built lf-blk-then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: the auxiliary recursor stays _nested.List_1.rec; the file's Tree.rec_1 is no such recursor"
+
+[[fault]]
+id = "nest-aux-recursor-name-unchecked"
+file = "src/kernel/check-block.fs"
+old = '''  ['] lf-blk-aux-fresh lf-blk-then ['] lf-blk-keys lf-blk-then ;'''
+new = '''  ['] lf-blk-keys lf-blk-then ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: T.rec_1 declared beside a constructor of that name (nested.constructor-named-rec-1, Lean's alreadyDeclared)"
+
+[[fault]]
+id = "nest-occurrences-untyped"
+file = "src/kernel/check-block.fs"
+old = '''  true lf-blk-keys! lf-blk-job lf-blk-keys-typed lf-blk-refuel false lf-blk-keys! ;'''
+new = '''  outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: an ill-typed Ds the auxiliary block drops is accepted (nested.ill-typed-parameter, Lean's funExpected)"
+
+[[fault]]
+id = "nest-numnested-zero"
+file = "src/kernel/check-block.fs"
+old = ''': lf-b4-nested? ( data -- flag ) lf-ity-nested lf-more-field lf-ind-aux@ <> ;'''
+new = ''': lf-b4-nested? ( data -- flag ) lf-ity-nested lf-more-field 0<> ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: Lean's numNested is warned as a difference (B4) on every nested block"
+
+[[fault]]
+id = "nest-recipe-raw"
+file = "src/kernel/generated-recursor.fs"
+old = '''  lf-ind-aux@ ?dup if lf-recipe-aux-shift lshift exit then'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: a nested block's recipe says rebuild (without its auxiliary types) and holds no T.rec_1"
