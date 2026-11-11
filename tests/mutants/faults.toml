@@ -1351,8 +1351,8 @@ quick = true
 [[fault]]
 id = "ndjson-index-taken-as-ordinal"
 file = "src/import/ndjson.fs"
-old = '''  >r 2dup = r@ imap-sparse? 0= and if 2drop 1 r> imap-dense +! outcome-ok exit then'''
-new = '''  >r 2dup 2drop true r@ imap-sparse? 0= and if 2drop 1 r> imap-dense +! outcome-ok exit then'''
+old = '''  >r 2dup = over r@ imap-dense @ = and r@ imap-sparse? 0= and'''
+new = '''  >r 2dup 2drop true r@ imap-sparse? 0= and'''
 test = "$GFORTH tests/core/ndjson.fs"
 reason = "a sparse index is taken as its ordinal: a reference to it then names no record, or the wrong one"
 
@@ -6327,3 +6327,93 @@ old = '''  drop lf-term-count @ feed-term-room + lf-term-capacity max lf-term-ca
 new = '''  drop outcome-ok ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "rvKC M1: the nodes of lets and projections eat the checks' term room"
+
+# --- FX6: the reader's numbers, members and index maps (src/import/ndjson.fs) ---
+
+[[fault]]
+id = "nd-exponent-below-fraction"
+file = "src/import/ndjson.fs"
+old = '''  over frac-length over u> if 2drop 0 0 outcome-invalid exit then'''
+new = '''  over frac-length over u>= if 2drop 0 0 outcome-invalid exit then'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "FX6: 1.5e1 (fraction digits equal to the exponent) is refused though Lean reads it as 15"
+
+[[fault]]
+id = "nd-negative-nonzero-natural"
+file = "src/import/ndjson.fs"
+old = '''  over num-negative @ if 2drop 0 0 outcome-invalid exit then'''
+new = '''  over num-negative @ if 2drop 0 0 outcome-ok exit then'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "FX6: -5e1 would be read as a natural (an empty one) instead of refused"
+
+[[fault]]
+id = "nd-exponent-above-2-64"
+file = "src/import/ndjson.fs"
+old = '''dup 20 = if 2dup s" 18446744073709551616" compare 0> if 2drop false exit then then'''
+new = '''dup 20 = if 2dup s" 18446744073709551616" compare 0> drop 0 if 2drop false exit then then'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "FX6: an exponent above 2^64, which Lean does not parse, is read"
+
+[[fault]]
+id = "nd-minus-exponent-fraction"
+file = "src/import/ndjson.fs"
+old = '''  dup num-exp 2@ strip-zeros nip over frac-length or'''
+new = '''  dup num-exp 2@ strip-zeros nip over frac-length drop or'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "FX6: 1.5e-0 (a fraction left in place by a zero minus exponent) is read as a natural"
+
+[[fault]]
+id = "nd-huge-number-not-full"
+file = "src/import/ndjson.fs"
+old = '''  2dup scratch-fits? 0= if 2drop 0 0 outcome-full exit then'''
+new = '''  2dup scratch-fits? 0= if 2drop 0 0 outcome-invalid exit then'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "FX6: a natural too large for the scratch is reported invalid instead of full"
+
+[[fault]]
+id = "nd-index-map-dense-shortcut"
+file = "src/import/ndjson.fs"
+old = '''  >r 2dup = over r@ imap-dense @ = and r@ imap-sparse? 0= and'''
+new = '''  >r 2dup = r@ imap-sparse? 0= and'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "FX6 L1: after a full the next index would be taken for its own ordinal and the failed one for another's"
+
+[[fault]]
+id = "nd-member-first-not-last"
+file = "src/import/ndjson.fs"
+old = '''entry-key swap r@ export-json json-find-last'''
+new = '''entry-key swap r@ export-json json-find'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "FX6: a repeated key reads as its first value, not Lean's last"
+
+[[fault]]
+id = "nd-optional-member-required"
+file = "src/import/ndjson.fs"
+old = '''  dup entry-kind @ 0= if drop c" missing field" export-bad exit then'''
+new = '''  drop c" missing field" export-bad exit'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "FX6 L4: an opaque without isUnsafe is refused though Lean reads it as false"
+
+[[fault]]
+id = "nd-missing-member-default"
+file = "src/import/ndjson.fs"
+old = '''  dup entry-kind @ 0= if drop c" missing field" export-bad exit then'''
+new = '''  dup entry-kind @ 0= if entry-offset @ + 0 swap ! outcome-ok exit then'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "FX6 L4: any missing member reads as 0 instead of being refused (an axiom without isUnsafe)"
+
+[[fault]]
+id = "json-find-last-first"
+file = "src/lib/json.fs"
+old = '''    2 pick 2 pick 2r@ nip json-key= if drop dup 1+ then'''
+new = '''    2 pick 2 pick 2r@ nip json-key= if dup 0= if drop dup 1+ then then'''
+test = "$GFORTH tests/lib/json.fs"
+reason = "FX6: json-find-last keeps the first match"
+
+[[fault]]
+id = "stage-reader-maps-kept"
+file = "src/import/stage.fs"
+old = '''  dup stage-sealed? if dup reader-maps-free maps-free else drop then ;'''
+new = '''  dup stage-sealed? if maps-free else drop then ;'''
+test = "$GFORTH tests/core/stage.fs"
+reason = "FX6 L2: the reader's index maps stay allocated through the check"
