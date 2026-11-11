@@ -611,7 +611,10 @@ fc-decl check thm safe wrong 0 TYPE P S z P S z P V 1 V 2 VALUE L S z L S z L V 
 T{ 700 swept -> outcome-rejected true true }T
 \ CLI2's case (tests/cli/unfold.lean): Implies A A against A → A needs
 \ Implies unfolded by lazy delta reduction: accepted, as Lean does, from
-\ 62, the fuel the whole check takes since == is Lean's at every pair
+\ 60, the fuel the whole check takes since an application's argument is
+\ not closed to be put into a Pi body without loose bound variables
+\ (agent PF: Lean's instantiate never reads it); 62 since == is Lean's
+\ at every pair
 \ (plan step S4: one node is equal and differing data words apart, at
 \ no cost); 67 since the audits check each node
 \ once per check and read V1 and U2 from data words (plan step S6 (c);
@@ -625,7 +628,7 @@ T{ 700 swept -> outcome-rejected true true }T
 fc-case sweep-unfolding
 fc-decl before def safe Implies 0 TYPE P S z P S z S z VALUE L S z L S z P V 1 V 1
 fc-decl check thm safe impliesSelf 0 TYPE P S z A A C Implies 0 V 0 V 0 VALUE L S z L V 0 V 0
-T{ 400 sweep -> outcome-ok 62 true }T
+T{ 400 sweep -> outcome-ok 60 true }T
 \ In a check, with the caches on, lf-term-data@ (core/terms.fs) is the
 \ skeleton memo's facts as one data word (compact-store plan step S2),
 \ its depth aside: every node inference visits (its lf-minfer-entry hook,
