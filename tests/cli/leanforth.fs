@@ -436,7 +436,8 @@ variable facts
   cks-fuel @ mix ;
 : sched-facts ( -- h )
   2166136261 facts ! ck-verdicts? if ck-steps-begun 0 ?do i fact-step loop then
-  ck-steps-begun mix ck-outcome mix ck-faulted? mix lf-input-count mix facts @ ;
+  ck-steps-begun mix ck-outcome mix ck-faulted? mix lf-input-count mix
+  ck-fuel-total mix mix ck-fuel-unknowns mix facts @ ;
 variable throw-at  -1 throw-at !
 : throwing-check ( -- ) lf-env-limit throw-at @ = if -77 throw then lf-check-declaration ;
 : run-with ( c-addr u jobs -- )
@@ -449,6 +450,8 @@ variable throw-at  -1 throw-at !
   2dup 1 facts-of 2drop drop >r 3 facts-of 2drop drop r> = ;
 : nested ( -- c-addr u ) s" tests/cli/nested.ndjson" ;
 T{ composition same? kinds same? nested same? -> true true true }T
+\ Nothing refused by readiness, nothing run again: the readiness sets hold.
+T{ nested 3 facts-of drop rot drop -> 0 0 }T
 nested 1 facts-of 2drop drop constant serial-nested
 \ A stress run: the nested export, many small interleaved checks, at 8
 \ workers five times, each time the serial run's facts.
@@ -469,6 +472,37 @@ lf-fault-unordered lf-sched-faults !
 T{ nested 3 facts-of drop 2drop serial-nested = -> false }T
 0 lf-sched-faults !
 T{ depth lf-context @ context-main = -> 0 true }T
+
+\ A check's fuel does not depend on the checks its context ran before
+\ (each starts with empty caches and memos; the level scope memo lasts
+\ one check, kernel/level-compare.fs): in the serial run of the nested
+\ export, each declaration it checks is first checked twice more in a
+\ fresh worker, unpublished, and the three use the same fuel.
+variable fuel-misses
+: worker-fuel ( d -- n )
+  dup lf-env-begin drop lf-check-declaration lf-env-cand lf-cand-outcome @ swap ck-used
+  lf-input-rollback drop ;
+: twice-fuel ( d w -- n1 n2 ) context-use dup worker-fuel swap worker-fuel ;
+variable fuel-home
+: fuel-back ( -- ) fuel-home @ context-use ;
+: fuel-step ( d w -- )
+  over lf-env-published? if drop ck-next drop exit then
+  over swap twice-fuel fuel-back rot dup ck-next drop ck-fuel-of
+  tuck <> -rot <> or if 1 fuel-misses +! then ;
+: fuel-checks ( -- )
+  20000000 ck-start nested false ck-load drop ck-facts drop ck-env drop
+  ck-worker-new throw lf-input-count 0 ?do i over fuel-step loop
+  fuel-back context-free drop ck-release ;
+: fuel-run ( -- ) 0 fuel-misses ! fresh dup fuel-home ! fuel-checks back ;
+T{ fuel-run fuel-misses @ -> 0 }T
+\ The main context here has run checks before, so its stores' identities
+\ and generations moved on and a new worker's input has another
+\ fingerprint: --jobs 3 then makes no worker and checks one declaration
+\ at a time, with the facts of a serial run in the same context.
+: stale-facts ( jobs -- h ) nested rot run-with sched-facts ck-release ;
+: stale-jobs ( -- h1 h3 workers )
+  1 stale-facts nested 3 run-with sched-facts ck-jobs-run? lf-sched-workers or ck-release ;
+T{ stale-jobs -rot = swap -> true 0 }T
 
 cases-done
 bye

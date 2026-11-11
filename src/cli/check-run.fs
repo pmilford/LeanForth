@@ -362,10 +362,9 @@ create ck-line ck-line-room 2 + allot
 \ run's environment is valid in it), and the check's budget. In v0 the
 \ input is per context (core/input.fs), so each worker holds its own
 \ copy of what the feed makes (the leaf table, copied terms, levels,
-\ references, declarations); the stage is shared, read only. A worker
-\ that cannot be made is full (no heap) or invalid (another
-\ fingerprint); every context made is freed with the scheduler
-\ (ck-release, lf-sched-free).
+\ references, declarations); the stage is shared, read only. Making a
+\ worker gives full (no heap) or invalid (another fingerprint); every
+\ context made is freed with the scheduler (ck-release, lf-sched-free).
 : ck-switch ( k -- addr ) cells ck-switches + @ execute ;
 : ck-switch-saved ( k -- addr ) cells ck-state ck-switched + ;
 : ck-switched! ( -- ) ck-switches# 0 ?do i ck-switch @ i ck-switch-saved ! loop ;
@@ -388,15 +387,22 @@ create ck-line ck-line-room 2 + allot
   context-new if drop outcome-full exit then
   dup ck-worker-filled dup ok? 0= if swap context-free drop exit then drop
   dup lf-sched-add dup ok? if nip exit then swap context-free drop ;
-: ck-workers ( -- outcome )
-  ck-parallel? 0= if outcome-ok exit then
-  lf-sched-init dup ok? 0= if exit then
-  ck-jobs 0 ?do dup ok? 0= if unloop exit then drop ck-worker-add loop ;
+\ Workers that cannot all be made -- no heap, or a context whose input's
+\ fingerprint is not this context's (this context's stores were used
+\ before, so their identities and generations moved on, as in a Forth
+\ session's main context; bin/leanforth's never was) -- are all freed,
+\ and the run checks one declaration at a time (ck-jobs-run?), as the
+\ resource report then says: the same output, only slower.
+: ck-workers-made ( -- outcome )
+  outcome-ok ck-jobs 0 ?do dup ok? 0= if unloop exit then drop ck-worker-add loop ;
+: ck-workers ( -- )
+  ck-parallel? 0= if exit then
+  lf-sched-init ok? if ck-workers-made ok? if exit then then lf-sched-free ;
 \ A failed phase is kept as the one that failed.
 : ck-fail ( outcome phase -- outcome ) over ok? if drop else ck-state ck-failed ! then ;
 : ck-stage-phase ( c-addr u checked? -- outcome )
   ck-phase-begin ck-staged ck-staging ck-phase-end ck-staging ck-fail ;
-: ck-fed-all ( -- outcome ) ck-fed dup ok? if drop ck-print! ck-workers then ;
+: ck-fed-all ( -- outcome ) ck-fed dup ok? if ck-print! ck-workers then ;
 : ck-feed-phase ( -- outcome )
   ck-phase-begin ck-fed-all ck-feeding ck-phase-end ck-feeding ck-fail ;
 \ Stage and feed the export c-addr u (see the header).
@@ -524,8 +530,10 @@ create ck-line ck-line-room 2 + allot
 : ck-jobs-run ( -- )
   ck-check-word ['] ck-keep ['] ck-worker-new ['] lf-sched-run context-catch
   throw ck-jobs-facts ;
+\ Whether the run checks in parallel: workers asked for and made.
+: ck-jobs-run? ( -- flag ) ck-parallel? lf-sched-workers 0> and ;
 : ck-steps-any ( n -- )
-  ck-parallel? if lf-sched-plan ok? if drop ck-jobs-run exit then then ck-steps-run ;
+  ck-jobs-run? if lf-sched-plan ok? if drop ck-jobs-run exit then then ck-steps-run ;
 
 \ Check every declaration (see the header): the facts, the environment,
 \ the run.

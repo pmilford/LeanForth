@@ -562,7 +562,11 @@ as the serial one but for `measured`):
 The run with 6 workers met the heaviest load from other runs; the times
 vary by that much from run to run on a shared machine. Each worker costs
 about 210 MB and its feeding about 2.5 seconds, one worker after another
-(the "feed" phase: 25 seconds for 10 workers). With `--resources` the
+(the "feed" phase: 25 seconds for 10 workers). When no worker can be
+made (no memory; or, from a Forth session, a context that ran checks
+before, whose input then has another fingerprint than a new worker's),
+the run checks one declaration at a time, and the resource report says
+so. With `--resources` the
 report adds a line naming the workers and how many checks were handed
 out, run again, refused by readiness or forced (the last two are 0 unless
 LeanForth's plan of which declaration needs which is wrong).

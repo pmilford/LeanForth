@@ -501,8 +501,11 @@ create cli-fed-ops
   ."     checks handed out " lf-sched-launched .decimal ." , run again " lf-sched-reruns
   .decimal ." , not ready " lf-sched-unready .decimal ." , forced " lf-sched-forced
   .decimal ." , workers replaced " lf-sched-renewed .decimal cr ;
+: cli-no-workers. ( -- )
+  ."   workers: none could be made (no heap, or this context's input differs" cr
+  ."     from a new one's): checked one at a time" cr ;
 : cli-jobs. ( -- )
-  ck-parallel? 0= if exit then
+  ck-parallel? 0= if exit then ck-jobs-run? 0= if cli-no-workers. exit then
   ."   workers: " ck-jobs .decimal ."  (--jobs), on " task-cores .decimal ."  cores" cr
   cli-sched. ;
 : cli-resources. ( -- )

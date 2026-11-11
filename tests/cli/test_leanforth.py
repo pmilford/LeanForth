@@ -1582,7 +1582,7 @@ class Jobs(unittest.TestCase):
         status, out, _ = run("check", "--resources", "--jobs", "2", "tests/cli/nested.ndjson")
         self.assertEqual(status, 0)
         self.assertRegex(out, r"\n  workers: 2 \(--jobs\), on \d+ cores\n    checks handed "
-                              r"out \d+, run again \d+, not ready 0, forced 0, workers "
+                              r"out [1-9]\d*, run again 0, not ready 0, forced 0, workers "
                               r"replaced 0\n")
         self.assertNotIn("workers:", run("check", "--resources", CHAIN)[1])
 

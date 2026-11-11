@@ -68,6 +68,7 @@
 \ - lf-sched-reruns, lf-sched-unready, lf-sched-forced, lf-sched-renewed,
 \   lf-sched-launched, lf-sched-edges ( -- n ): counts for reports and
 \   tests (unready and forced are 0 unless the plan is wrong);
+\ - lf-sched-workers ( -- n ): the workers added;
 \ - lf-sched-free ( -- ): the worker contexts and every block freed.
 \ Planted faults, for tests only: a test that defines lf-sched-fault-hooks
 \ before this file loads gets lf-sched-faults, a variable of bits
@@ -433,6 +434,7 @@ variable lf-sched-faults  0 lf-sched-faults !
 
 \ ---- Workers.
 : lf-sch-workers ( -- n ) lf-sched lf-sch-ctxs slab-count ;
+: lf-sched-workers ( -- n ) lf-sch-workers ;
 : lf-sch-ctx ( k -- addr ) lf-sched lf-sch-ctxs slab-at ;
 : lf-sch-job ( k -- addr ) lf-sched lf-sch-jobs slab-at ;
 : lf-sch-at ( k -- addr ) lf-sched lf-sch-ats slab-at ;
