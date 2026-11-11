@@ -99,7 +99,7 @@ theorem composition {A B C : Prop} (f : A → B) (g : B → C) : A → C :=
 | `check [--no-manifest] [--fuel N] [--resources] [--json] [--fast] [--strict-axioms] [--any-lean-version] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text |
 | `check [--no-manifest] [--fuel N] [--fast] [--strict-axioms] --record RECORD EXPORT` | Check a small export (read straight into the checker's stores) and also write its [run record](#run-records-and-replay) |
 | `replay [--no-manifest] [--fuel N] [--fast] EXPORT RECORD` | Check the export again and compare the new run record with RECORD; print the replay report |
-| `print [--no-manifest] [--fuel N] [--fast] [--detail] [--name NAME] [--latex] [--statement FORMS] [--any-lean-version] EXPORT`, or `print --lf [--no-manifest] [--fuel N] [--fast] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration; `--lf` writes the whole export as one [LeanForth text](#writing-an-export-as-leanforth-text) |
+| `print [--no-manifest] [--fuel N] [--fast] [--detail] [--name NAME] [--latex] [--statement FORMS] [--any-lean-version] EXPORT`, or `print --lf [--no-manifest] [--fuel N] [--fast] [--any-lean-version] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration; `--lf` writes the whole export as one [LeanForth text](#writing-an-export-as-leanforth-text) |
 | `count [--no-manifest] EXPORT` | Count the export's records by kind ([the reader's counter](../development/NDJSON_READER.md#using-it)), for exports of any size |
 | `reexport [--no-manifest] EXPORT COPY` | Write the export again into COPY, byte for byte as Lean's exporter writes it ([re-export](../development/NDJSON_READER.md#re-export)); after an error COPY is incomplete and must be discarded |
 | `version` (or `--version`) | Versions of LeanForth, its Forth host, the export format it reads, and the git commit |
@@ -143,8 +143,9 @@ Options:
 
   The texts are escaped as names are, so a crafted version cannot forge a
   line. With a manifest, its `exporter`, `exporter_version`, `lean_version`
-  and `lean_githash` then need only be strings; `export_format` must still
-  be 3.1.0. The [JSON report](#json-output) adds `settings.anyLeanVersion`
+  and `lean_githash` then need only be strings (they are labels: they are not
+  compared with the export's own header, and the SHA-256 binds the manifest
+  to the file); `export_format` must still be 3.1.0. The [JSON report](#json-output) adds `settings.anyLeanVersion`
   and, when the metadata named other versions, `exportMeta`.
 - `--fast` (`check`, `replay`, `print`) runs on `gforth-fast` instead of
   Gforth's checking engine ([the engine](#the-engine)).

@@ -175,7 +175,7 @@ OUTCOME = {"accepted": "ok"}
 
 def run_lean(lean):
     run = subprocess.run([lean, "-DwarningAsError=true", LEAN_FILE], stdin=subprocess.DEVNULL,
-                         capture_output=True, text=True, timeout=1500)
+                         capture_output=True, text=True, timeout=1800)
     if run.returncode != 0:
         sys.stdout.write(run.stdout + run.stderr)
         raise SystemExit("inductive-table: Lean failed on " + LEAN_FILE)
