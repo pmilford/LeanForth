@@ -5641,8 +5641,16 @@ id = "str-feed-refused"
 file = "src/import/feed.fs"
 old = '''    tag-str of feed-str endof'''
 new = ''''''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py BothWays"
+reason = "5.2.3 strings: the copying feed (behind its switch since S5) refuses a string literal as invalid, so kinds.ndjson's report differs from the one read in place"
+
+[[fault]]
+id = "s5-feed-str-leaf-refused"
+file = "src/import/feed.fs"
+old = '''    tag-nat of feed-nat-leaf endof  tag-str of feed-str-leaf endof'''
+new = '''    tag-nat of feed-nat-leaf endof'''
 test = "$GFORTH tests/core/check-block.fs"
-reason = "5.2.3 strings: the feed refuses a string literal as invalid; the primitive.string-opaque files are refused"
+reason = "5.2.3 strings, S5: the feed in place refuses a string literal as invalid; the primitive.string-opaque files are refused"
 
 [[fault]]
 id = "str-print-banned-raw"

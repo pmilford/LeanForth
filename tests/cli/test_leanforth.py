@@ -1546,7 +1546,10 @@ class BothWays(unittest.TestCase):
 
     def test_same(self):
         more = [["tests/cli/sharing.ndjson"], ["tests/cli/sharing-universe.ndjson"],
-                ["tests/cli/nested.ndjson"], ["tests/cli/irrelevance.ndjson"]]
+                ["tests/cli/nested.ndjson"], ["tests/cli/irrelevance.ndjson"],
+                ["--no-manifest", f"{CASES}/composition-literal.ndjson"],
+                ["--no-manifest",
+                 "tests/core/check-block-cases/primitive.string-opaque-expansion.ndjson"]]
         for args in CASES_ALL + more:
             self.assertEqual(both_ways(True, *args), both_ways(False, *args), args)
 
