@@ -462,9 +462,11 @@ lf-recheck-skipped 1+ constant lf-recheck-early
   if lf-slot-type-params! else 2drop then ;
 : lf-span-added! ( slot -- )
   lf-env-may-write lf-cand-span@ 0 ?do dup i lf-member-added! loop drop ;
+\ Slot k of the span: its place in it, then, last, final.
+: lf-slot-final! ( slot k -- )
+  tuck lf-slot+ tuck lf-slot-member ! lf-state-final swap lf-slot-state ! ;
 : lf-span-final! ( slot -- )
-  lf-env-may-write lf-cand-span@ 0 ?do lf-state-final over i lf-slot+ lf-slot-state ! loop
-  drop ;
+  lf-env-may-write lf-cand-span@ 0 ?do dup i lf-slot-final! loop drop ;
 \ A skipped declaration (lf-cand-skipped?): each slot of the span marked;
 \ any other's marks cleared.
 : lf-span-skipped! ( slot outcome -- )

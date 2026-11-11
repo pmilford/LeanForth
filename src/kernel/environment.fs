@@ -159,6 +159,7 @@ begin-structure /lf-slot
   field: lf-slot-looks      \ index in the pool of its first lookup (two cells each)
   field: lf-slot-looked     \ its number of lookups, on every slot published
   field: lf-slot-saved      \ true: published from a snapshot, not checked here
+  field: lf-slot-member     \ its place in the span it was published with (0: first)
 end-structure
 \ The recipe bits (ADR 0015 decision 12): the recursor LeanForth generated
 \ for the block can be built again from its input (generated-recursor.fs);
@@ -1117,6 +1118,18 @@ here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
 \ axioms: none" (ADR 0011).
 : lf-env-outcome ( d -- outcome )
   lf-env-readable if lf-slot-outcome@ else outcome-invalid then ;
+\ Where declaration d's verdict comes from (ADR 0020 D4, OQ-3; ADR 0012
+\ E8): lf-origin-checked in this run, lf-origin-uses when checked here
+\ but resting on saved results, lf-origin-saved when taken from a
+\ snapshot and not checked here; checked when unreadable.
+0 constant lf-origin-checked  1 constant lf-origin-uses  2 constant lf-origin-saved
+: lf-slot-origin ( slot -- n )
+  dup lf-slot-saved @ if drop lf-origin-saved exit then
+  lf-slot-provenance @ lf-provenance-saved and 0<> lf-origin-uses and ;
+: lf-env-origin ( d -- n ) lf-env-readable if lf-slot-origin else lf-origin-checked then ;
+\ A run of saved results is a development run (E8): the environment's
+\ mode, set by the snapshot's loader before any slot is published.
+: lf-env-develop ( env -- ) lf-env-may-write lf-mode-development swap lf-envh-mode ! ;
 \ Whether declaration d is one Lean's replay skips (lf-env-skipped!): its
 \ outcome rejected, which reports call skipped; false when unreadable.
 : lf-env-skipped? ( d -- flag ) lf-env-readable if lf-slot-skipped? else false then ;
