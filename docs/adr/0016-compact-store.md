@@ -723,6 +723,106 @@ needed (Rejected alternatives).
     the trial digest is unchanged (`abe54a7c0598`); 13 planted faults
     (a family left out, a mark out of order, a mark left on the stack)
     are caught.
+  - Hash-consed compact term records (2026-11-11, step S3 of the
+    compact-store plan, plan task 6.2.1; verdicts unchanged, its
+    [kernel] review pending). A term is a record of four 32-bit fields
+    (`src/core/terms.fs`): the checker's tag (its 13 tags, as before:
+    a constant's fields a reference, a Sort's a level index), its
+    first and second fields, and C1's data word, computed when the node
+    is made (range, parameter bit, free-variable bit, depth; a range of
+    all ones means no data: a leaf whose level or reference is not valid
+    then, a concrete Sort, an unsupported form, and every node above
+    one). `lf-term-data@` reads it. `lf-term-add` finds an equal record
+    through a per-context table of `lib/htab.fs` and gives back the
+    older node, or appends a new one and enters it; a rollback
+    (`lf-term-rollback`, which the joint scratch mark and the input
+    rollback use) takes the entries of the records it gives back out
+    by Algorithm R, as `cons.fs` does; a reset empties the table; the
+    feed sizes it from the stage's expressions. Differences from the
+    plan's row, each for a reason:
+    - The store stays a `store.fs` heap store with its 8-byte identity
+      cells (the birth serials), seal, generation, capacity setting,
+      marks and columns, with the table beside it, rather than a
+      `cons.fs` set: a set's slab has no per-record identities and its
+      marks are a mark stack, while handles, S1's joint marks and the
+      fail-closed header tests need the store's. The table follows
+      `cons.fs`'s rules (a hash is a hint; an entry is equal only when
+      its allocated record is, field by field), so no answer depends
+      on it. Moving onto `cons-extend` over the stage's tier is step
+      S5, when identities retire.
+    - Symbolic Sorts, constants and free variables are never shared
+      (`lf-term-unshare`): their meaning is more than their fields (a
+      Sort's and a constant's stamps, a free variable's local-context
+      entry, which names its node by identity; a shared free variable
+      would bring a dead one back as a new entry's). Contexts that keep
+      data per node turn sharing off (`lf-term-sharing!`): the
+      authoring words, the print command (binder names per node) and
+      the old batch loader (a node per record).
+    - The skeleton memo and key table are not retired. A node's number
+      is its skeleton class only once levels and universe lists are
+      interned (step S4): each universe substitution makes a new
+      reference, and level nodes, per call, so two equal constants
+      are two nodes and caches keyed by numbers would miss where
+      skeletons hit (more fuel, verdicts at risk). Lean's node facts
+      come from the data word: the caches' hooks ask the memo only for
+      a node without data or with a free variable, whose liveness only
+      the memo checks; for the others the word is the memo's facts (the
+      same leaves known, the same rules, checked when the node is made).
+      == of a node with itself no longer asks the memo.
+    - Columns over every index of the term store: universe
+      substitution's two (reached stamp, image) became a hash set of
+      the call, emptied when its audit ends, and the sorted reached
+      list with binary search for a child's image; the three stamp
+      columns of constants and Sorts became a map from term index to a
+      stamp unit, kept only for the nodes that have stamps. Level
+      substitution's columns (over the small level store) stay until
+      S4; the marking audits' marks and the open passes' results stay
+      until S6 replaces those passes (audits only where input enters, a
+      replace memo per call); the printer's binder table
+      (`src/present/binder-table.fs`, 40 bytes per node in every
+      context of `bin/leanforth`) is not the checker's and stays a
+      column (a candidate for the same map).
+    - Natural literals keep every limb in their slab (a field is 32
+      bits); a value, index or identity beyond 2³² − 1 is refused as
+      *full* (C1's limits), so a negative or wider field cannot be
+      stored any more.
+    Identity under hash-consing (plan risk 3): a node rebuilt equal to
+    an existing one is that older node. Rebuilding passes need only a
+    live result with its identity (`lf-rebuild-identify`): a node the
+    table gives back is allocated (rollbacks take their records'
+    entries out), so live, and one made inside the pass is above its
+    mark and goes with it on failure. Instantiation and opening read
+    only nodes below their start mark: a node found below it is
+    genuinely older, one the pass made is above it, as before. A store
+    mark is checked by counts and identities, which a found node
+    changes neither of. The caches keep a value with its identity, as
+    before. The local context's entries stay in node order (free
+    variables are never shared). The open passes no longer keep their
+    bound-variable leaves while sharing (the store gives the live leaf
+    back), so what a pass makes does not depend on an earlier check's
+    leftovers. The derivation log copies an equal node once.
+    Evidence: `make test` and `make check`; the 2,000 checker trials
+    give main's digest (`6b6163500b54`) with sharing off, so the
+    records, data words, literals, stamp map and reached set change
+    nothing, and `902a42ce549d` with it on: 1,998 trials differ because
+    node indices move and the trials' random choices follow them
+    (outcomes over all trials: ok 1,165,166 → 1,166,038, invalid
+    367,435 → 356,574, exhausted 470,759 → 476,867, unknown 403,346 →
+    405,110, rejected 87,361 → 90,017, full 543 → 4). The first 1M
+    lines of `Init` (`check --fast --no-manifest`, default fuel): the
+    same verdicts (8,672 accepted, 518 unknown, 12 exhausted), FUELP1M;
+    fed nodes 946,412 → 943,884 (let and projection leaves shared);
+    peak resident memory MEMP1M; check CPU CPUP1M. Full `Init`: INITLINE.
+    Memory per term index, the printer's table aside: about 112 bytes
+    before (24 record, 8 identity, 80 in columns) and 64 after (16
+    record, 8 identity, 40 in columns: marks and open results), plus
+    the table (4 bytes a slot, at most 3/4 full) and stamp units for
+    about 1.4% of nodes. 9 new planted faults are caught (a collision
+    taken for equality, an undo skipped, an equal node from a refusing
+    store, a wrong data word, leaves without data words, shared free
+    variables, a literal read from its slab index, the reached set
+    kept, the binary search off by one); the faults of the code S3
+    changed are re-targeted.
 - Steps 4–6 not started.
 
 ## Amendment 1 (2026-11-04): constants Lean's kernel generates
