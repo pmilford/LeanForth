@@ -128,6 +128,32 @@ audit marks, caches), environment identities and addresses. These are what
 S5B, S7 and later steps change; leaving them out is what keeps a snapshot
 valid across builds.
 
+*Note (2026-11-11, plan step SN2, agent SN2; [format][import] review
+pending):* the input tier's part is implemented, `src/import/snapshot-tier.fs`
+(its header gives the layout): the first ten sections of the file are an
+information section (format version 1, every section's count, the
+metadata flag and texts), the name bytes, names, levels, lists, text
+bytes, texts, expressions (a constant's payload written as 0),
+declarations (the mdata mark written clear) and lines. Loading fills a
+fresh stage, every record checked by its builder's own check with its data
+word computed again and compared, pool offsets exactly consecutive, no
+record twice, each declaration checked as a draft (flags, codes, kind
+data, chain); the tables are built once at their sealed size
+(`cons-load-room`, `cons-adopt` in `lib/cons.fs`). `stage-continue`
+(`import/stage.fs`) reads a further export into a filled tier, equal
+records keeping their numbers, the unknown-constant refusal limited to the
+constants that read contains. Measured on all of `Init` (`gforth-fast`,
+a loaded machine): file 106,688,512 bytes; saved in 1.7 s; loaded in 4.9 s
+and sealed in 0.17 s, against 20.0 s to stage the NDJSON with its manifest;
+peak resident memory 297 MB for load, seal and saving again (219 MB for
+staging alone); saved again from the loaded stage, the same bytes; checked
+from the loaded stage (`--jobs 3`), the same outcome and fuel for all
+59,349 declarations as checked from the staged export
+(`tests/support/tier-both-ways.fs`). A fresh check runs none of it: `check
+--json` of `Init`'s first million lines is the same before and after.
+Writing copies the expressions (to zero the payloads) and the
+declarations, so a save holds those families twice for a moment.
+
 ### D2 The file layout
 
 - **Little-endian fixed-width integers**, 32 bits, or 64 bits for file
