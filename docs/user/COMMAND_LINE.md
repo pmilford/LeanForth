@@ -685,8 +685,8 @@ reasons today (the gaps are follow-ups of plan task 8.6.3):
 | an inductive type, constructor, recursor, quotient constant, block header | no inductive declarations in the words yet (ADR 0017, section 14); the stub stands in |
 | an opaque constant, an unsafe or partial declaration | the words make safe, regular definitions only |
 | more than 8 universe parameters | `lf-decl-universe-capacity` |
-| a name, literal or term form the words cannot write | a numeric part in the name of a declaration (Lean's `_private.Init.Prelude.0.x`), a part with a dot, a literal beyond one cell, a name the text rule bans |
-| a term the input does not hold | `let`, metadata and string literals, which the checker's input does not store yet (the checker says unsupported) |
+| a name, literal or term form the words cannot write | a numeric part in the name of a declaration (Lean's `_private.Init.Prelude.0.x`), a part with a dot, a literal beyond one cell, a string literal (no authoring word for one yet, a follow-up of plan task 5.2.3), a name the text rule bans |
+| a term the input does not hold | `let` and metadata, which the checker's input does not store yet (the checker says unsupported) |
 | the printer ran out of fuel or room | try a larger `--fuel` |
 
 A declaration that uses a constant with neither text nor stub (a private
@@ -782,8 +782,9 @@ Lean, flag for 6"), a NOT PROVED declaration keeps Lean's status — 0
 when everything is accepted — and is marked on its line, in the summary,
 in a note and in the JSON report; `--strict-axioms` gives such a run
 status 6, so that a script can refuse anything resting on an axiom. Here
-`composition` is declared as an axiom, so it rests on itself; then one
-example of each other status:
+`composition` is declared as an axiom, so it rests on itself; then
+examples of other statuses, the first a proof that is the string literal
+`"3"`, which Lean's kernel rejects too (the file declares no `String`):
 
 ```console
 $ bin/leanforth check --no-manifest --strict-axioms tests/core/check-declaration-cases/composition-postulate.ndjson; echo "exit status $?"
@@ -794,10 +795,10 @@ accepted: 1 (experimental, not independently audited); axioms: 1 NOT PROVED (the
 exit status 6
 $ bin/leanforth check --no-manifest tests/core/check-declaration-cases/composition-literal.ndjson; echo "exit status $?"
 note: the export's manifest is not checked (--no-manifest)
-composition: unsupported
-  unsupported: term form (U2); diagnostic 43 at check-declaration lf-check-declaration: 3 21
-1 declaration: 1 unsupported
-exit status 2
+composition: rejected
+  rejected: unknown constant; diagnostic 50 at environment lf-env-lookup: 13 0
+1 declaration: 1 rejected
+exit status 1
 $ bin/leanforth check --fuel 30 tests/reference/composition.ndjson; echo "exit status $?"
 composition: exhausted
   fuel exhausted; diagnostic 1 at check-declaration lf-check-declaration: 0 0

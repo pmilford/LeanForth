@@ -206,8 +206,10 @@ class ExitCodes(unittest.TestCase):
             self.assertIn(line, out.splitlines(), case)
 
     def test_2_unsupported_and_unknown(self):
+        # A proof that is a string literal, typed String, which the file does not
+        # declare: rejected, as pinned Lean's kernel rejects it (plan task 5.2.3).
         status, out, _ = run("check", "--no-manifest", f"{CASES}/composition-literal.ndjson")
-        self.assertEqual((status, out.splitlines()[1]), (2, "composition: unsupported"))
+        self.assertEqual((status, out.splitlines()[1]), (1, "composition: rejected"))
         status, out, _ = run("check", "--no-manifest", "tests/core/reexport/kinds.ndjson")
         self.assertEqual((status, out.splitlines()[-2:]),
                          (2, ["106 declarations: 89 accepted, 17 unsupported",
