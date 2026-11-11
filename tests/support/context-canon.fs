@@ -48,10 +48,16 @@ create canon-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf-in
 : canon-core-htabs ( dst -- dst )
   dup lf-term-table canon-htab dup lf-stamp-table canon-htab
   dup lf-level-table canon-htab dup lf-cref-table canon-htab ;
-[defined] lf-mls-set [if]
-: canon-htabs ( dst -- dst ) canon-core-htabs dup lf-mls-set canon-htab ;
+\ And, when loaded, the pairs == met (kernel/mixed-compare.fs, step S4).
+[defined] lf-meq-table [if]
+: canon-kernel-htabs ( dst -- dst ) dup lf-meq-table canon-htab ;
 [else]
-: canon-htabs ( dst -- dst ) canon-core-htabs ;
+: canon-kernel-htabs ( dst -- dst ) ;
+[then]
+[defined] lf-mls-set [if]
+: canon-htabs ( dst -- dst ) canon-core-htabs canon-kernel-htabs dup lf-mls-set canon-htab ;
+[else]
+: canon-htabs ( dst -- dst ) canon-core-htabs canon-kernel-htabs ;
 [then]
 \ Blank every heap field in the copy at dst.
 : canon-zero ( dst -- )
@@ -81,10 +87,16 @@ create canon-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf-in
 : canon-core-digest ( h -- h' )
   lf-term-table canon-htab-digest lf-stamp-table canon-htab-digest
   lf-level-table canon-htab-digest lf-cref-table canon-htab-digest ;
-[defined] lf-mls-set [if]
-: canon-htabs-digest ( h -- h' ) canon-core-digest lf-mls-set canon-htab-digest ;
+[defined] lf-meq-table [if]
+: canon-kernel-digest ( h -- h' ) lf-meq-table canon-htab-digest ;
 [else]
-: canon-htabs-digest ( h -- h' ) canon-core-digest ;
+: canon-kernel-digest ( h -- h' ) ;
+[then]
+[defined] lf-mls-set [if]
+: canon-htabs-digest ( h -- h' )
+  canon-core-digest canon-kernel-digest lf-mls-set canon-htab-digest ;
+[else]
+: canon-htabs-digest ( h -- h' ) canon-core-digest canon-kernel-digest ;
 [then]
 : canon-digest ( -- h )
   0 canon-stores# 0 do i canon-store# canon-store-digest loop
