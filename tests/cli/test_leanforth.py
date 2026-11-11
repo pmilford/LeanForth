@@ -1543,6 +1543,9 @@ def pinned_digest(*args):
 # plan step S5 parts 1-3, removed by parts 4-5 once the input read in
 # place gave the same report for each: every declaration's verdict, fuel
 # and diagnostic, the counts and the exit status; agent S5B, 2026-11-11).
+# nested.ndjson is re-pinned after merging main 5a3b68d, whose parallel
+# checking (step S7) gave List.brecOn.go 2,669 fuel instead of 2,656 on
+# main itself; the rest of its report is unchanged.
 PINNED = {
     "tests/reference/composition.ndjson": "53507f9eebd13ee8",
     "tests/reference/constant-fixture.ndjson": "1ae9a75744aa7830",
@@ -1562,7 +1565,7 @@ PINNED = {
     f"--no-manifest {EMPTY_BLOCK}": "09614e87bede9e1b",
     "tests/cli/sharing.ndjson": "68363e141b2e8738",
     "tests/cli/sharing-universe.ndjson": "97cc7be21885e626",
-    "tests/cli/nested.ndjson": "34e5f34ce69fc2e8",
+    "tests/cli/nested.ndjson": "f3c312b3d9c8d6de",  # re-pinned, see above
     "tests/cli/irrelevance.ndjson": "7e969559755d7151",
     f"--no-manifest {CASES}/composition-literal.ndjson": "fc105a0a3fbe0c49",
     "--no-manifest tests/core/check-block-cases/primitive.string-opaque-expansion.ndjson":
@@ -1578,6 +1581,64 @@ class AsCopied(unittest.TestCase):
     def test_same(self):
         for args, want in PINNED.items():
             self.assertEqual(pinned_digest(*args.split()), want, args)
+
+
+class Jobs(unittest.TestCase):
+    """check --jobs N (plan tasks 6.5.4, 7.3.1; src/kernel/env-schedule.fs)
+    prints exactly what --jobs 1 prints, text and JSON (but for "measured"),
+    with the same exit status, on every export of the JSON tests and on
+    larger ones; the resource report names the workers. --jobs takes a
+    number of at least 1 and does not go with --record (status 4)."""
+
+    MORE = [["tests/cli/sharing.ndjson"], ["tests/cli/nested.ndjson"],
+            ["tests/cli/irrelevance.ndjson"], ["--fuel", "3000", "tests/cli/nested.ndjson"],
+            ["tests/cli/jobs/wide60.ndjson"], ["tests/cli/jobs/dupl80.ndjson"]]
+
+    def text(self, *args):
+        return run("check", *args)[:2]
+
+    def json(self, *args):
+        status, got, _ = report(*args)
+        got.pop("measured")
+        return status, got
+
+    def test_same_output(self):
+        for args in CASES_ALL + self.MORE:
+            self.assertEqual(self.text(*args), self.text("--jobs", "3", *args), args)
+            self.assertEqual(self.json(*args), self.json("--jobs", "4", *args), args)
+
+    def test_resources(self):
+        status, out, _ = run("check", "--resources", "--jobs", "2", "tests/cli/nested.ndjson")
+        self.assertEqual(status, 0)
+        self.assertRegex(out, r"\n  workers: 2 \(--jobs\), on \d+ cores\n    checks handed "
+                              r"out [1-9]\d*, run again 0, not ready 0, forced 0, workers "
+                              r"replaced 0\n")
+        self.assertNotIn("workers:", run("check", "--resources", CHAIN)[1])
+
+    def test_large_counts(self):
+        """The count is cut to the cores and the pool's queue of 1024: a larger
+        one used to refuse a job (exit 5, declarations "not checked") or make
+        a copy of the input per worker. Same output as --jobs 1, and no more
+        workers than cores in the report."""
+        args = ["--no-manifest", "tests/cli/jobs/wide60.ndjson"]
+        serial = self.text(*args)
+        self.assertEqual(serial[0], 0)
+        for value in ["1100", "9223372036854775807"]:
+            self.assertEqual(self.text("--jobs", value, *args), serial, value)
+            status, out, _ = run("check", "--resources", "--jobs", value, *args)
+            self.assertEqual(status, 0, value)
+            workers = int(re.search(r"\n  workers: (\d+) \(--jobs\)", out).group(1))
+            self.assertTrue(1 < workers <= max(os.cpu_count(), 2) and workers <= 1024, workers)
+            self.assertIn("60 declarations: 60 accepted", out)
+
+    def test_4_mistakes(self):
+        for value in ["0", "x", "-1", ""]:
+            status, out, _ = run("check", "--jobs", value, CHAIN)
+            self.assertEqual(status, 4, value)
+            self.assertIn("error: not a number of jobs", out)
+        status, out, _ = run("check", "--jobs", "2", "--record", "r.json", CHAIN)
+        self.assertEqual((status, out.splitlines()[0]),
+                         (4, "error: --jobs does not go with --record"))
 
 
 if __name__ == "__main__":

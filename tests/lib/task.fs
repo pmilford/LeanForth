@@ -292,6 +292,25 @@ c3 context-free throw
 T{ depth -> 0 }T
 [then]
 
+\ job-wait-any, a scheduler's wait for the first of several jobs: -1 when
+\ every cell is 0; else the lowest position of a finished job, which
+\ job-wait then gives back at once. pool-workers! sets the size of the
+\ next start, stopping a running pool first.
+create any-jobs 3 cells allot  any-jobs 3 cells erase
+context-new throw constant a1  context-new throw constant a2
+: any-cell ( k -- addr ) cells any-jobs + ;
+: any-wait ( -- k ) any-jobs 3 job-wait-any dup any-cell dup @ job-wait throw 0 swap ! ;
+T{ any-jobs 3 job-wait-any -> -1 }T
+a1 ' noop job-submit throw 1 any-cell !
+T{ any-wait any-jobs 3 job-wait-any -> 1 -1 }T
+a1 ' noop job-submit throw 0 any-cell !  a2 ' noop job-submit throw 2 any-cell !
+T{ any-wait any-wait + any-jobs 3 job-wait-any -> 2 -1 }T
+T{ 2 pool-workers! task-workers pool-running? -> 2 task-cores min false }T
+T{ a1 ' noop job-submit throw job-wait pool-size -> 0 pooled? 2 task-cores min and }T
+task-cores pool-workers!
+T{ a1 context-free a2 context-free -> 0 0 }T
+T{ depth -> 0 }T
+
 ." task host " task-host . ." (0 serial, 1 cooperative, 2 threads), " pool-size .
 ." workers; recursive pass used "
 fresh 0 0 dag-job dag-run dag-state dag-deep @ . ." return and "

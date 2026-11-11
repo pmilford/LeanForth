@@ -685,6 +685,89 @@ the changes below adds or changes a rule of this design.
     given, so there it gives false for any address, as documented,
     instead of a memory fault for one that cannot be read.
 
+## Amendment 2 (2026-11-11): the parallel scheduler
+
+E7's scheduler is built (`src/kernel/env-schedule.fs`, plan task 7.3.1;
+`check --jobs N`, default 1; [kernel] [runtime] review pending). It adds
+no typing rule and changes no verdict; how it keeps G-P1 to G-P7:
+
+1. **Workers (E1, G-P6).** The input is still per context: each of N
+   worker contexts is fed the same sealed stage and must have the run's
+   input fingerprint (`cli/check-run.fs`). A check is a job of the job
+   pool; `lf-env-begin` runs in the worker's context in the driving task
+   before the job is submitted, and after the job the driving task, with
+   the worker's context selected, calls `lf-env-hand-over-job`, rolls the
+   scratch back and keeps the facts, as `lf-env-step` and the serial
+   command line do (G-P1: one writer, outside every job). A worker in
+   which a check threw is freed and replaced. When the workers cannot all
+   be made (no heap, or a driving context whose stores were used before,
+   so that a new context's input has another fingerprint), none is kept
+   and the run is the serial one.
+2. **Readiness (G-P5).** Before any check, each declaration (a block as
+   its first member) gets a readiness set: the earlier slots of every name
+   its check may look up -- constants and projections' structures in its
+   type, value and recursor rules, its inductive data's names, its own and
+   its block's members' names, and the names the checker looks up itself
+   (`Nat`, `Bool`, `Char`, `List`, `String` and their constructors, `Eq`,
+   `Eq.refl`, the quotient's names, the allowlisted axioms) -- and of every
+   earlier type whose generated recursor may hold such a name. A
+   declaration is handed out (lowest first) once its whole set is final,
+   and then `lf-env-ready?` must also hold for each of its names; a
+   refusal is a fault of the plan (counted; the declaration then waits for
+   every earlier slot).
+3. **In time (G-P5, G-P7).** A name a check meets only after unfolding a
+   definition is in no set. So `lf-slot-final?` notes, in the candidate,
+   every slot of the current environment below the check's declaration
+   that it finds not final (`lf-env-early?`), whatever word asked. A check
+   that noted one is never handed over: it is rolled back and run again
+   once every earlier slot is final. The publisher also refuses a claim of
+   ok from such a candidate after its re-checks pass (re-check part 8,
+   `lf-recheck-early`): a serial run never makes one. So every check that
+   is published read only final slots, which are the serial run's (G-P4).
+4. **Independence.** A check begins in a context rolled back to the
+   input's marks with empty caches and memos, so its verdict, diagnostic
+   and fuel do not depend on which checks its worker ran before. One memo
+   did outlive its check (the level scope memo of `level-compare.fs`, a
+   fuel difference of 1-8 units in 63 of 9,202 declarations); it now lasts
+   one check (ADR 0009 Amendment 2).
+5. **Stops (G-P6).** The serial run stops at the first declaration whose
+   check throws or whose publication fails. The parallel run stops handing
+   out declarations after the lowest such one, finishes every earlier
+   one, and the command line keeps only the serial run's part (the later
+   kept facts cleared, the steps begun set as the serial run's).
+6. **Order and memory (G-P2).** The verdicts are printed from the slots
+   after the run, in file order. A publication happens in the driving task
+   between jobs; `job-submit`'s lock orders it before every check handed
+   out later. A check may read a slot published while it runs only after
+   reading its final mark, whose fields were written first; x86-64 keeps
+   stores and loads in program order, a weakly ordered host would need
+   barriers (not done; the parallel host is Gforth 1.0 on x86-64), and item
+   3 catches a slot read before it is final.
+
+**Measured** (2026-11-11, `check --fast --json`, a 10-core WSL2 machine
+shared with other agents' runs; [COMMAND_LINE.md](../user/COMMAND_LINE.md#parallel-checking---jobs)):
+all of `Init` (59,349 declarations, all accepted) checks in 1,136 s
+serially and 536, 334, 374, 183 and 209 s with 2, 4, 6, 8 and 10 workers
+(the 6-worker run met the heaviest outside load), every JSON report equal
+to the serial one but for `measured`; peak memory 543 MB serially, about
+210 MB more per worker; feeding is serial, about 2.5 s per worker. The
+first sixth of Mathlib (119,472 declarations) with 8 workers: 1,130 s
+wall (check 1,025 s, CPU 7,303 s, feeding 9 contexts 64 s), peak 7.8 GB;
+119,374 accepted, 96 unknown, 2 exhausted. No serial run of the same
+build was made for it (a serial run of an earlier build, e3399df, took
+8,685 s to check on the same machine).
+
+Planted faults, each caught: every declaration handed out at once
+(readiness refuses), readiness skipped too (the in-time witness reruns
+them, the output stays the serial one), early checks handed over anyway
+(the output differs: caught by the comparison), facts kept in the order
+checks ended instead of file order (caught by the comparison), a check
+that writes a shared cell (the dictionary check), and a check that throws
+(the run stops where the serial run stops, the worker replaced). Tests:
+`tests/cli/leanforth.fs`, `tests/cli/test_leanforth.py` (`Jobs`),
+`tests/core/contexts-main.fs`, `tests/core/environment.fs`,
+`tests/lib/task.fs`.
+
 ## Reproduction
 
 The Lean files were read from

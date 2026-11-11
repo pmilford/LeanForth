@@ -143,10 +143,15 @@ test-differential: $(DIFFERENTIAL_TARGETS)
 
 # With parallel jobs make starts targets in the order listed: the slowest
 # first (each is also named again below), so that none of them starts last.
-check: test-depth-differential test-depth-fed-differential \
-	reference-compact-init reference-author reference reference-program-ir-run \
-	reference-bignum test-doc-examples-lean test-compact-faults
-check: test test-differential mutants-check
+# Order of the measurement of 2026-11-11 (JOBS=1, no cache, seconds): reference-author 67,
+# reference 61, test-cli 56, reference-compact-init 53, test-inductive-table 43 (it and
+# reference-inductive share the 27 s Lean run of inductive-expected-output),
+# reference-program-ir-run 33, reference-inductive 29, reference-cli 19, ...
+check: reference-author reference test-cli reference-compact-init test-inductive-table \
+	reference-program-ir-run reference-inductive reference-cli test-doc-examples-lean \
+	test-depth-differential test-depth-fed-differential test-universe-many-differential \
+	reference-bignum test-compact-faults
+check: test test-differential mutants-check test-depth-deep-differential
 
 # src/main.fs must load silently: a "redefined" warning means two modules
 # define the same word. Then one word from each loaded layer must run.
@@ -184,8 +189,21 @@ reference-export:
 # blocks, primitive names and quotients (ADR 0015): 118 kernel cases; the
 # exports of tests/reference/inductive/ reproduced byte for byte and staged
 # by the Forth importer.
-reference-inductive:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/reference/inductive-check.sh
+reference-inductive: inductive-expected-output
+	INDUCTIVE_EXPECTED_OUT=$(INDUCTIVE_OUT) LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) \
+	  bash tests/reference/inductive-check.sh
+
+# Pinned Lean runs inductive-expected.lean once per make: this target (it
+# always runs, as a test must) leaves the output where reference-inductive
+# and test-inductive-table read it, instead of each running Lean (27 s) again.
+# The two scripts run Lean themselves when INDUCTIVE_EXPECTED_OUT is not set.
+INDUCTIVE_OUT := $(CURDIR)/build/inductive-expected.out
+inductive-expected-output:
+	mkdir -p build
+	LEAN=$(LEAN) $(RUN) sh -c '"$$LEAN" -DwarningAsError=true \
+	  tests/reference/inductive-expected.lean >$(INDUCTIVE_OUT) 2>&1' \
+	  || { cat $(INDUCTIVE_OUT) >&2; echo 'Lean failed on inductive-expected.lean' >&2; exit 1; }
+.PHONY: inductive-expected-output
 
 # LeanForth against that table (plan task 5.2.1a; ADR 0015 §13, test plan
 # 1): every case as the export Lean printed for it, staged, fed and checked;
@@ -193,8 +211,9 @@ reference-inductive:
 # need Nat or unfolding, the outcome named in the script, with the reason),
 # every later task's row stays unsupported or unknown, or gives the table's
 # verdict, never another. Also part of test-differential.
-test-inductive-table:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/core/inductive-table.py
+test-inductive-table: inductive-expected-output
+	INDUCTIVE_EXPECTED_OUT=$(INDUCTIVE_OUT) LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) \
+	  python3 tests/core/inductive-table.py
 test-differential: test-inductive-table
 .PHONY: test-inductive-table
 
@@ -388,9 +407,9 @@ test-universe-many-fed-differential:
 
 # No depth limit (plan task 6.2.0, part (b)): lambda, application and
 # successor chains 2,000 deep, by checker input and fed; 10,000 deep, fed,
-# in test-depth-deep-differential, which takes about 13 minutes (the work
-# grows with the square of the depth: plan task 6.5.5) and is not part of
-# make check.
+# in test-depth-deep-differential, part of make check since compact-store
+# step S6 made the work linear in the depth (13 minutes before, about 6 s
+# since 2026-11-11; plan task 6.5.5).
 test-depth-differential:
 	$(LEAN_TABLE) depth
 
@@ -673,6 +692,14 @@ test-sha256:
 	$(RUN) $(GFORTH) tests/lib/sha256-plain.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/lib/test_sha256.py
 
+# Sectioned binary files (src/lib/sections.fs; plan step SN1): round trips, every
+# planted fault with its outcome, then Python's independent reader, the block
+# and field-by-field paths byte for byte, and the header's example outside
+# the project (tests/lib/test_sections.py).
+test-sections:
+	$(RUN) $(GFORTH) tests/lib/sections.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/lib/test_sections.py
+
 test-manifest:
 	$(RUN) $(GFORTH) tests/core/manifest.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_export_manifest.py
@@ -683,8 +710,8 @@ test-manifest:
 reference-manifest:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/reference/manifest-check.sh
 
-.PHONY: test-sha256 test-manifest reference-manifest
-test: test-sha256 test-manifest
+.PHONY: test-sha256 test-sections test-manifest reference-manifest
+test: test-sha256 test-sections test-manifest
 test-differential: reference-manifest
 
 # The LeanForth authoring words (plan task 8.1.2, ADR 0017; untrusted, not

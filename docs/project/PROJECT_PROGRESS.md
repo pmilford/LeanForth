@@ -19,6 +19,21 @@ speed before parallelism adds more.
 
 ## Where things stand, in plain words
 
+**Current state, 2026-11-11 (main `04eb136`).** LeanForth accepts **all
+59,349 declarations of Lean's `Init`** (exit 0) and, on **Mathlib's first
+sixth** (119,472 of 729,263 declarations), **118,838 (99.47%)**, with none
+rejected; the rest are 7 checks that filled a fixed room since made to grow
+and the 627 that depend on them. The whole of Mathlib is the next run. On one
+thread `Init` takes about 23 times as long as Lean's official export checker.
+The owner approved the Lean rules, speed work and formats merged so far on
+2026-11-11. Parallel checking (`check --jobs N`, step S7) is merged: on 8 workers
+Mathlib's first sixth checks in 1,130 s (119,374 accepted, 99.92%; 2
+exhausted and 96 that depend on them). Being built: S5B (no copy of the
+input at all) and the checked-environment snapshot (plan 6.2.5). Every accepted
+result is *experimental — not independently audited*. Details:
+[Limitations](#limitations), [Full Mathlib](#full-mathlib); the sections below
+are the 2026-11-04 snapshot except where dated.
+
 **LeanForth can now check its first declarations, experimentally.** Given
 a small definition or theorem — built from universes, variables, functions,
 "for all" and earlier checked declarations — it decides *accepted*,
@@ -184,10 +199,11 @@ the 32-bit access words exist in `src/`; building it is plan tasks
 | Importer stage (staging into the compact store; ADR 0016 C9 steps 1, 2, 5) | [import] | **approved** 2026-11-03 (late night); independent re-review clean, minor limits documented. **The importer stage gate is passed.** |
 | Heap stores and the stage feed; the checker on the large store (ADR 0016 C9 step 3 in part; plan 1.1.5, 3.2.2) | [kernel] | **approved** 2026-11-04 (owner), after the fixed limits became dynamic: plan 6.2.0 part (a) universe lists and part (b) no depth limit (agent KC, `215a406`); re-review rvKC REVIEW-B nothing blocking ([decisions](OWNER_DECISIONS.md#checker-on-the-large-store-approved-resource-settings-2026-11-04-late)) |
 | Data types, ADR 0015 (inductive types) | design | **accepted as a design** 2026-11-03; each implementation task has its own gate |
-| Recursive data types (plan 5.2.1b; agent N1, `13b9a65`) | [kernel], [import] | **not passed**: merged, independent review found two wrong acceptances on hand-made files (Lean rejects them); fixes in progress, then a re-review, then the owner |
-| Unfolding: `whnf`, delta, the quick equality check (plan 4.2.2b-c; agent U4, `998b89d`) | [kernel] | **not passed**: merged; the gate review is running |
+| Recursive data types (plan 5.2.1b; agent N1, `13b9a65`) | [kernel], [import] | **approved** 2026-11-04 (owner), after review rvN1 found two wrong acceptances on hand-made files, both fixed, and a second round found none; mutual blocks (5.2.5a) with it |
+| Unfolding: `whnf`, delta, the quick equality check (plan 4.2.2b-c; agent U4, `998b89d`) | [kernel] | **approved** 2026-11-11 (owner) with the full lazy strategy (4.2.2d), after review rvCONV's two blocking findings were fixed (FX1) |
 | Report format `check-report-0.1` (`--json`, schema `schemas/check-report-0.1.schema.json`; plan 3.4.3) | [format] | **approved** 2026-11-04 (owner); review fixes merged (`dd38dee`: inconsistent exit-0 reports refused, `--fuel` bounded, a run that stops is never ok); `--strict-axioms` and `--fast` merged (`84725e6`) |
-| Report format `check-report-0.2` and run records `run-record-0.2` (the *skipped* verdict of unsafe and partial declarations, plan 5.2.7; schemas `schemas/check-report-0.2.schema.json`, `schemas/run-record-0.2.schema.json`; the 0.1 files kept unchanged, and reports without *skipped* still validate under 0.1) | [format] | **merged 2026-11-11, owner decision pending** (review rvUNNI M2 recommended a version bump over changing 0.1 in place; agent FX8) |
+| Report format `check-report-0.2` and run records `run-record-0.2` (the *skipped* verdict of unsafe and partial declarations, plan 5.2.7; schemas `schemas/check-report-0.2.schema.json`, `schemas/run-record-0.2.schema.json`; the 0.1 files kept unchanged, and reports without *skipped* still validate under 0.1) | [format] | **approved** 2026-11-11 (owner; review rvUNNI M2 recommended a version bump over changing 0.1 in place; agent FX8) |
+| Approval round of 2026-11-11 ([OWNER_DECISIONS.md](OWNER_DECISIONS.md#approval-round-of-2026-11-11)): unfolding and the lazy strategy, `let`, eta, proof irrelevance, structures and projections, K-like recursors, literals, axioms with allowlist v1, opaque declarations and quotients, nested inductive types, unsafe and partial declarations skipped; result caches, compact-store steps S0-S4 and S6, the fuel model of ADR 0014 Amendments 3-5; importer numbering, `--any-lean-version`, Lean's JSON spellings, `print --lf` numeric name parts, print hooks | [kernel], [import], [format] | **approved** 2026-11-11 (owner), each after Lean-compared tests and an independent review with its blocking findings fixed; the export header stays strict by default, and Lean's official export checker is the referee for hand-made export files. Not yet asked: compact-store S5 (with S5B) and S7 |
 | Native and inline LeanForth, ADR 0017 Amendment 1 (plan 8.2.1) | design | **accepted** 2026-11-04 with the owner's answers (OQ-1 revised, `lf[ ]lf` with `param:`, libraries as vocabularies, case rules); each step 8.2.1a-g has its own gate ([parser], [bypass]; 8.2.1g [kernel]) |
 | Printer review fixes (names escaped in every form, growable lines; plan 8.6.2) | untrusted presentation | merged `bba87db` after independent review; no owner gate |
 | Non-recursive data types (plan 5.2.1a) | [kernel], [import] | **approved** 2026-11-04 after three review rounds, the last clean. **Condition (owner):** its temporary differences from Lean close to 100% compatibility, any stricter behaviour only behind an opt-in flag: (1) a file using `T.rec` without declaring it gets LeanForth's own generated recursor, as in Lean; (2) a block rejected at the final comparison (B3) keeps its type and constructors usable afterwards, as in Lean's environment; (3) the guard on unit-like structures closes with task 5.2.2. **Condition met** 2026-11-04 after rounds 4–6: (1) and (2) done, an empty block now rejected as in Lean; every remaining gap temporary with its task ([decisions](OWNER_DECISIONS.md#data-types-first-step-condition-met-2026-11-04-late)) |
@@ -203,7 +219,7 @@ the 32-bit access words exist in `src/`; building it is plan tasks
 | Program receipt schema 0.2 (2.5.1) | [format] | **approved** 2026-11-03 (schema pinned by hash; any change is a new version) |
 | Run-record format 0.1 (environment identity, manifest-enforced field tied to the bytes read, both import passes compared, blank-looking names refused) | [format] | **approved** 2026-11-04 after three independent review rounds (`docs/programming/RUN_RECORDS.md`) |
 | Axiom policy and defaults (owner, 2026-11-03) | policy | decided: `sorryAx` and any axiom outside the three standard ones get Lean's verdict, labelled **NOT PROVED** (the flag `--standard-axioms-only` refuses them); with no flags LeanForth is always Lean. **Exit status (owner, 2026-11-04 late): 0 like Lean by default, 6 with `--strict-axioms`.** The label and the exit status are not implemented in full yet (plan 5.3.1); the owner asked on 2026-11-04 to consider changing the rule (plan 5.3.3, options to be brought in plain words) |
-| Big-number library (`lib/bignum.fs`, for literals) | [forth-review] | review found one serious memory bug in printing; fixed and merged 2026-11-03 (`ed4dab7`, merge `4c714f5`); its owner gate comes with literals (plan 5.2.3) |
+| Big-number library (`lib/bignum.fs`, for literals) | [forth-review] | review found one serious memory bug in printing; fixed and merged 2026-11-03 (`ed4dab7`, merge `4c714f5`); **approved** 2026-11-11 (owner) with literals (plan 5.2.3) |
 
 ### Test tooling (2026-11-03)
 
@@ -439,7 +455,7 @@ tasks, not the plan's.
 | --- | --- |
 | 5.2.1b recursive types (agent N1) | **in progress**: merged, two wrong acceptances found by review being fixed; gate not passed |
 | 4.2.2b-c `whnf`, delta, quick equality check (agent U4) | **in progress**: merged, gate review running (2 of 4 steps b-e merged) |
-| 4.2.2d the full lazy strategy (agent U4); 4.2.4 function eta and 4.2.5 proof irrelevance (agent PE, 2026-11-05); 4.2.3 `let` (agent LT, 2026-11-05); K-like recursor reduction, part of 5.2.1c (agent KL, 2026-11-05); structure eta and unit-like types, part of 5.2.2 (agent SE, 2026-11-05); axioms with allowlist v1, opaque declarations and Lean's quotient, 5.3.1-5.3.2, 5.2.4, 4.2.6 (agent AX, 2026-11-05; allowlist v1 awaits the owner's approval; fixes by agent LE); result caches, 4.2.7 (agent CA, 2026-11-05); review fixes rvCONV (2 blocking) and rvCACHE (agent FX1), rvPARSE (FX2), rvAX (FX3: quotient names reserved), five planted faults repaired (FX4), rvKC (FX5), 2026-11-10; string literals, 5.2.3's string part (agent ST, 2026-11-10); the comparison's projection steps, 5.2.2 (agent PJ, 2026-11-10); level substitution that costs what it reaches, compact-store plan step S0 (agent S0, 2026-11-10; no rule change; Init 1M-line prefix check CPU 363 s -> 54.5 s, verdicts and fuel identical); audits and opening once per node, not per path, part of 6.5.5 (agent EX, 2026-11-10; ADR 0014 Amendment 2; Init 1M-line prefix: exhausted 17 -> 0, fuel 93M -> 39M); unsafe and partial declarations skipped as Lean's replay skips them, 5.2.7 (agent UN, 2026-11-10; new verdict *skipped*, [kernel][format]); nested inductive blocks, 5.2.5b (agent NI, 2026-11-10; Init 1M-line prefix after all merges: 8,672 of 9,202 accepted, 518 unknown, 12 exhausted, 0 unsupported; arena tests435 no wrong verdict); compact-store plan steps S1 (one joint scratch mark instead of hand-saved counts) and S2 (store headers checked at pass roots, nodes read by index; `lf-term-data@`) (agents S1, S2, 2026-11-11; no rule change; verdicts, fuel and trial digests identical); review rvPSE (PJ, S0, EX) not blocking, its fix FX7: level substitution per node with universe arguments too (2026-11-11); compact-store plan step S3, the hash-consed term store: 16-byte records with Lean's node facts, equal records one node (agent S3, 2026-11-11; no rule change; all of Init: 21 verdicts move to Lean's, peak memory 1,580 -> 1,279 MB, CPU +2-5%; the skeleton memo stays until S4; the store is not yet the compact tier itself, so the feed's copy remains until S5); compact-store plan step S6 parts a, d, e: instantiation as Lean's replace, node facts from the data word, Lean's infer-cache key (agent S6A, 2026-11-11; all of Init at default fuel: 55,587 of 59,349 accepted, 27 exhausted roots, every moved verdict to Lean's; CPU -17%; the 10,000-deep table 162 s -> 6.1 s; new fuel model in ADR 0014 Amendment 3 for the owner); step S6 part c: LeanForth's own audits once per node per check, every audit site kept (agent S6C, 2026-11-11; a defence change argued in ADR 0014 Amendment 4; all of Init at default fuel: 55,750 of 59,349 accepted (93.9%), 16 exhausted roots, 3,583 unknown that depend on them, fuel -33%); step S4: levels hash-consed, references interned, caches keyed by node (skeleton memo retired), Lean's == at every pair (agent S4, 2026-11-11; all of Init: 55,772 accepted (94.0%), 7 exhausted roots, check CPU 807 s, fuel -20%; the stamps stay until S5); default fuel raised from 2,000,000 to 20,000,000 per declaration (owner's approval to raise the default fuel, 2026-11-10): at 20,000,000 all of `Init` (59,349 declarations) is accepted with exit 0 on main af93afb (1,162 s, 1.15 GB), and Mathlib's first sixth gives 117,068 of 119,472 accepted (98.0%; 69 exhausted roots, 68 of them in the comparison; 5,715 s, 3.4 GB); compact-store step S5 parts 1-3: the checker reads the stage tier's expressions in place, copying only let, projection and mdata nodes and those above them (2.4% of Init); the full copy stays behind a switch (print uses it); scratch grows instead of fixed rooms (agent S5, 2026-11-11; all of Init both ways: same verdicts, feed 18.0 -> 2.5 s, peak memory 1,061 -> 546 MB; not yet: native let/projection shapes, retiring stamps and scratch identities, the printer reading the tier, deleting the copy; a full-Init rerun of both ways after the let-lambda fuel fix is pending); importer index numbering as lean4export's Export/Parse.lean v4.35.0 reads it (sparse, any order, a repeated index overwrites) and the opt-in `--any-lean-version` (agent IMP, 2026-11-10; [import][format]; review rvIMP not blocking, its findings fixed by agent FX6: Lean's JSON number spellings, unknown record members ignored, index maps freed) | **merged**, gate review owed [kernel] (4.2.3 also [import]); only the first importer (checker-input.fs) still refuses `let` |
+| 4.2.2d the full lazy strategy (agent U4); 4.2.4 function eta and 4.2.5 proof irrelevance (agent PE, 2026-11-05); 4.2.3 `let` (agent LT, 2026-11-05); K-like recursor reduction, part of 5.2.1c (agent KL, 2026-11-05); structure eta and unit-like types, part of 5.2.2 (agent SE, 2026-11-05); axioms with allowlist v1, opaque declarations and Lean's quotient, 5.3.1-5.3.2, 5.2.4, 4.2.6 (agent AX, 2026-11-05; allowlist v1 awaits the owner's approval; fixes by agent LE); result caches, 4.2.7 (agent CA, 2026-11-05); review fixes rvCONV (2 blocking) and rvCACHE (agent FX1), rvPARSE (FX2), rvAX (FX3: quotient names reserved), five planted faults repaired (FX4), rvKC (FX5), 2026-11-10; string literals, 5.2.3's string part (agent ST, 2026-11-10); the comparison's projection steps, 5.2.2 (agent PJ, 2026-11-10); level substitution that costs what it reaches, compact-store plan step S0 (agent S0, 2026-11-10; no rule change; Init 1M-line prefix check CPU 363 s -> 54.5 s, verdicts and fuel identical); audits and opening once per node, not per path, part of 6.5.5 (agent EX, 2026-11-10; ADR 0014 Amendment 2; Init 1M-line prefix: exhausted 17 -> 0, fuel 93M -> 39M); unsafe and partial declarations skipped as Lean's replay skips them, 5.2.7 (agent UN, 2026-11-10; new verdict *skipped*, [kernel][format]); nested inductive blocks, 5.2.5b (agent NI, 2026-11-10; Init 1M-line prefix after all merges: 8,672 of 9,202 accepted, 518 unknown, 12 exhausted, 0 unsupported; arena tests435 no wrong verdict); compact-store plan steps S1 (one joint scratch mark instead of hand-saved counts) and S2 (store headers checked at pass roots, nodes read by index; `lf-term-data@`) (agents S1, S2, 2026-11-11; no rule change; verdicts, fuel and trial digests identical); review rvPSE (PJ, S0, EX) not blocking, its fix FX7: level substitution per node with universe arguments too (2026-11-11); compact-store plan step S3, the hash-consed term store: 16-byte records with Lean's node facts, equal records one node (agent S3, 2026-11-11; no rule change; all of Init: 21 verdicts move to Lean's, peak memory 1,580 -> 1,279 MB, CPU +2-5%; the skeleton memo stays until S4; the store is not yet the compact tier itself, so the feed's copy remains until S5); compact-store plan step S6 parts a, d, e: instantiation as Lean's replace, node facts from the data word, Lean's infer-cache key (agent S6A, 2026-11-11; all of Init at default fuel: 55,587 of 59,349 accepted, 27 exhausted roots, every moved verdict to Lean's; CPU -17%; the 10,000-deep table 162 s -> 6.1 s; new fuel model in ADR 0014 Amendment 3 for the owner); step S6 part c: LeanForth's own audits once per node per check, every audit site kept (agent S6C, 2026-11-11; a defence change argued in ADR 0014 Amendment 4; all of Init at default fuel: 55,750 of 59,349 accepted (93.9%), 16 exhausted roots, 3,583 unknown that depend on them, fuel -33%); step S4: levels hash-consed, references interned, caches keyed by node (skeleton memo retired), Lean's == at every pair (agent S4, 2026-11-11; all of Init: 55,772 accepted (94.0%), 7 exhausted roots, check CPU 807 s, fuel -20%; the stamps stay until S5); default fuel raised from 2,000,000 to 20,000,000 per declaration (owner's approval to raise the default fuel, 2026-11-10): at 20,000,000 all of `Init` (59,349 declarations) is accepted with exit 0 on main af93afb (1,162 s, 1.15 GB), and Mathlib's first sixth gives 117,068 of 119,472 accepted (98.0%; 69 exhausted roots, 68 of them in the comparison; 5,715 s, 3.4 GB); compact-store step S5 parts 1-3: the checker reads the stage tier's expressions in place, copying only let, projection and mdata nodes and those above them (2.4% of Init); the full copy stays behind a switch (print uses it); scratch grows instead of fixed rooms (agent S5, 2026-11-11; all of Init both ways: same verdicts, feed 18.0 -> 2.5 s, peak memory 1,061 -> 546 MB; not yet: native let/projection shapes, retiring stamps and scratch identities, the printer reading the tier, deleting the copy; confirmed after the let-lambda fix: all of Init in place gives 0 verdict and 0 fuel differences against the copying main on all 59,349 declarations, peak 530 MB; Mathlib's first sixth loaded with fuel 1, to time the loading alone: in place 51.6 s and 1.06 GB, copied 131.8 s and 3.72 GB, main before S5 124 s and 3.37 GB); importer index numbering as lean4export's Export/Parse.lean v4.35.0 reads it (sparse, any order, a repeated index overwrites) and the opt-in `--any-lean-version` (agent IMP, 2026-11-10; [import][format]; review rvIMP not blocking, its findings fixed by agent FX6: Lean's JSON number spellings, unknown record members ignored, index maps freed) | **merged**; approved by the owner 2026-11-11 except compact-store step S5, whose round follows S5B [kernel] (4.2.3 also [import]); only the first importer (checker-input.fs) still refuses `let` |
 | 5.2.1c indexed families, 5.2.2 structures and projections, 5.2.3 literals, 5.2.5 mutual and nested blocks, 5.2.6 per-declaration verdict for unclosed files | not started; they close the temporary gaps of 5.2.1a-b and are on the way to `n + 0 = n` |
 | 3.4.3 `--json` report (`check-report-0.1`) | **done**: [format] gate approved 2026-11-04; `--strict-axioms` and `--fast` implemented (`84725e6`) |
 | 6.5.5 work linear in a term's depth | not started (the quadratic cost is the temporary price of 6.2.0 part b) |
@@ -513,10 +529,10 @@ tasks, not the plan's.
 | --- | --- | --- |
 | Record kinds of lean4export format 3.1.0 decoded by the Forth reader | 24 of 24 (100%), plus the 3 element kinds of inductive blocks | the format's record kinds ([reader guide](../development/NDJSON_READER.md)) |
 | Records of the pinned Mathlib export decoded and checked for shape and references | 110,895,826 of 110,895,826 (100%), field for field equal to Python's `json` module | lines of export SHA-256 `18448e5d…59c6` |
-| Expression nodes staged into the compact store | all of Mathlib's 105,894,257 (staging only: a loading stage; the checker copies the staged data into its own stores and does not read the compact store in place; **0 of 729,263 Mathlib declarations checked**) | nodes of the pinned export |
-| Expression nodes fed into the checker's own stores | `Init`: 6,099,054 nodes of its 59,349 declarations; Mathlib: prefixes of 1/6 (119,472 declarations) and 1/3 (217,032) staged and fed at fuel 1 on 2026-11-10 (loading only, no check) | the checker's stores grow, default 64 (the held [kernel] gate) |
-| Declarations checked by LeanForth | **0 of 729,263 (0%)** of Mathlib; for `Init`, **1,618 of 59,349 (2.7%)** accepted by the command line at `9df4fa3` and, after recursive types (`13b9a65`), 261 of 604 data-type blocks plus 1,609 other declarations (experimental, not independently audited), none rejected; the rest *unknown*, *unsupported*, *exhausted* or *full* (counts per kind in [ADR 0015](../adr/0015-inductive-types.md) and the [command-line page](../user/COMMAND_LINE.md#a-whole-library-leans-init)); the earlier 37 of 59,349 at 100,000 fuel is superseded | constants of the pinned Mathlib export with its dependencies; `Init`'s own count |
-| Share of Mathlib the first checker could accept | **unknown** | not measured; most declarations depend on recursive types, structures or literals, which are *unsupported* until phase 5 |
+| Expression nodes staged into the compact store | all of Mathlib's 105,894,257; since compact-store step S5 (2026-11-11) the checker reads them in place, copying only `let`, projection and metadata nodes and the nodes above them (2.4% of `Init`'s) | nodes of the pinned export |
+| Expression nodes fed into the checker's own stores | `Init`: 6,099,054 nodes of its 59,349 declarations; Mathlib: the first sixth (119,472 declarations) checked, the first third (217,032) staged and fed at fuel 1 on 2026-11-10 (loading only, no check); since step S5 only `let`, projection and metadata nodes and those above them are copied | the checker's stores grow with memory |
+| Declarations checked by LeanForth | Mathlib: **119,472 of 729,263 (16.4%) checked** — the first sixth in file order, on `e3399df` (2026-11-11, default fuel): 118,838 accepted (99.47% of the sixth), 0 rejected, 0 exhausted, 7 *full* (a fixed room since made to grow), 627 *unknown* (each depends on one of the 7); the whole not yet run. `Init`: **59,349 of 59,349 (100%) accepted**, exit 0 (`af93afb`). Experimental, not independently audited | constants of the pinned Mathlib export with its dependencies; `Init`'s own count |
+| Share of Mathlib the first checker could accept | 99.47% of the first sixth; **unknown** for the whole until it is run | the first sixth's declarations; the whole after the run on main with step S5 |
 | T6 importer acceptance tasks done | 0 of 4 | roadmap T6 |
 | Other Lean libraries imported (plan 6.1.6) | 0 | planned: a few small ones and the largest |
 
@@ -537,10 +553,17 @@ through the import review gate.
 - **Storage:** the compact store (ADR 0016, accepted 2026-11-03) holds all
   of Mathlib in 2.94 GB (4.16 GB peak while loading) in a measurement
   prototype and, since the importer stage was approved, in `src/import/`.
-  The checker's own stores now grow on the heap and copy what they are fed
-  (about 80 bytes per node); reading the staged input in place is still to
-  come.
-- **Independently checked declarations: 0 of 729,263** in the full export
+  Since compact-store step S5 (2026-11-11) the checker reads it in place,
+  copying only `let`, projection and metadata nodes and those above them
+  (Mathlib's first sixth loads in 52 s and 1.06 GB, against 124 s and
+  3.37 GB copied); agent S5B is removing the remaining copy.
+- **Checked so far: the first sixth** (119,472 declarations in file order,
+  `e3399df`, 2026-11-11, default fuel, before step S5): 118,838 accepted
+  (99.47%), 0 rejected, 0 exhausted, 7 *full* in a fixed room that step S5
+  has since made to grow, 627 *unknown* that depend on those 7; 8,810 s,
+  3.7 GB peak. The whole of Mathlib has not been run yet; it is the next
+  measurement, on main with step S5.
+- **Declarations checked: 119,472 of 729,263 (16.4%; 118,838 accepted)** in the full export
   of Mathlib `v4.35.0` (commit `56a0058`) with its dependencies, sha256
   `18448e5d…59c6` ([measurements](../development/measurements/mathlib-2026-11-02/README.md)):
   184,355 definitions, 517,916 theorems, 2,913 opaque declarations, 4
@@ -552,9 +575,14 @@ through the import review gate.
 
 ## Parallel checking groundwork
 
-**Status (2026-11-10): written and tested on synthetic jobs only; not used by
-`leanforth check`, never run on a real export, no `--jobs` option, no use to a
-user yet.** Each worker would also load its own copy of the input (about 27 GB
+**Status (2026-11-11): `check --jobs N` merged (agent S7, `41a3157`); default
+1 worker, the owner chooses the default; gate owed [kernel][runtime].** All of
+`Init` at 2-10 workers gives output identical to one worker (59,349 accepted);
+check wall time 1,136 s on 1 worker, 536 s on 2, 183 s on 8 (6.2 times; machine
+shared with other runs). Each worker still gets its own copy of the input
+(about 210 MB per worker for `Init`; Mathlib's first sixth peaked at 7.8 GB on
+8 workers; plan 7.2.1 shares it). Before S7 the status was: **written and
+tested on synthetic jobs only; not used by `leanforth check`.** Each worker would also load its own copy of the input (about 27 GB
 for Mathlib today), so parallel checking waits for the checker on the compact
 store (plan 6.2.1-6.2.3); the checker modules added since 2026-11-02 (caches,
 unfolding, inductive types, quotients, literals) are not yet verified safe to
@@ -660,6 +688,14 @@ and the checker under development — are 3,882 + 6,558 = 10,440 lines.
 
 ## Verification and CI
 
+**Since 2026-11-11 GitHub CI is off** at the owner's request (its runs
+failed for billing, before any test ran). Before every push its two jobs run
+locally under `ulimit -u 500`: `make check` with pinned Gforth 1.0.0 and Lean
+4.35.0 (Lean cache on for merges; `LEAN_CACHE=0` once a day: exit 0 in 170 s
+on 2026-11-11) and `make test` with Gforth 0.7.3 (exit 0 in 125 s). Pinned
+Lean's outputs are replayed from the Lean cache (`scripts/lean-cache.py`,
+keyed by the SHA-256 of every input) instead of rerun.
+
 The runs below are those of the earlier snapshots; this snapshot's runs
 were not looked up (see the 2026-11-04 entry at the end).
 
@@ -686,10 +722,10 @@ will be completed and compatible with Lean 4.35.0 (owner, 2026-11-04), and
 each item names the plan task that closes it. Where it differs today, it is
 cautious (refuses or says *unknown*), never more permissive than Lean.
 
-State on main at `408839a` (2026-11-10), from the call-graph inventory of
-that commit (`.claude/work/INV/REPORT.md`, "no caller" found by name search)
-and from running `bin/leanforth check --fast` on the cases of
-`tests/core/check-block-cases` and `check-declaration-cases` on 2026-11-10.
+State on main at `04eb136` (2026-11-11): `bin/leanforth check` on all of Lean's
+`Init` and on Mathlib's first sixth (the first 119,472 declarations of the
+pinned export, in file order), the cases of `tests/core/check-block-cases` and
+`check-declaration-cases`, and the merged review reports.
 
 **Status words.** *Coded and used*: `leanforth check` runs it by default.
 *Coded, not used*: code and tests exist, `check` does not run it.
@@ -697,66 +733,81 @@ and from running `bin/leanforth check --fast` on the cases of
 passed. *Planned*: not coded. Every accepted result stays *experimental, not
 independently audited*; no outside Lean expert has audited the checker.
 
-- **Mathlib: 0 of 729,263 declarations checked.** Nothing larger than Lean's
-  `Init` has been fed to the checker. Memory (about 80 bytes per node, so an
-  estimated 27 GB for Mathlib on the old stores, against about 3.5 GB if it
-  read the compact store in place; plan 6.2.1-6.2.3) and speed (depth-quadratic,
-  one thread; plan 6.5.5, phase 7) come first.
-- **Coded and used, gate approval owed (merged)**: `let` (4.2.3), number and
-  string literals (5.2.3), projections, structure eta and the comparison's projection steps (5.2.2),
-  indexed families and K-like recursors, mutual blocks (5.2.5a), quotients
-  (5.2.4), axioms with allowlist v1 and opaque declarations (5.3.1-5.3.2,
-  4.2.6), the full lazy strategy, eta, proof irrelevance (4.2.2d, 4.2.4,
-  4.2.5), the result caches (4.2.7; off under a derivation log), and the
-  importer's index numbering and `--any-lean-version` ([import][format]).
-  Earlier parts approved one by one: rejection rules, environment,
-  declaration check, free variables, the first data types, the derivation
-  log, the checker on the large store without a depth limit.
-- **Coded, not used by `leanforth check`**: the compact store beyond the
-  loading stage (the expression data word, name search and tier counts are
-  built but not read; `feed.fs` copies levels, terms and declarations into
-  the old 32-byte stores, plan 6.2.1-6.2.3); the parallel job pool
-  (`lib/task.fs`, job submission, context claim and release: a library
-  exercised by tests, no worker option, plan 6.5.4 and 7.3.1); `src/author/`
-  (not loaded by `src/main.fs`; no `check FILE.lf`, plan 8.2.1); the program
-  track (runs through tests and Python scripts; there is no `leanforth
-  program` command, plan 3.4.1, 2.5.x); the record and replay reader
-  (`check --record`, `replay`: 32 declarations, no inductive types, `let`,
-  literals, projections or metadata; its old limits are 64 names, 64 levels
-  and 64 term nodes); the test-only probe-mode inference (`lf-mixed-infer`
-  probes, signature probe and audit, `mixed-definition-probe.fs`,
-  `lf-mixed-convert`) and the old `import/load.fs` batch staging, both
-  candidates for retirement (plan task 5.2.8; diagnostics 33 and 64 appear only in the probes); derivation log and `print` run only when asked, with caches off.
-- **Still unsupported or unknown in `check`** (each *unsupported*, *unknown* or
-  *full*, exit 2 or 3, never accepted): nested inductive types (diagnostic 63,
-  plan 5.2.5b, branch NI not merged; Init has 8 such roots, such as
-  `Lean.Syntax`); unsafe and partial declarations (diagnostic 42, plan task 5.2.7); metadata `mdata` in a term (diagnostic 43, plan 4.1.3; `Nat.add`
-  of `tests/core/reexport/kinds.ndjson` ends unsupported for it); iota
-  with an open major premise (diagnostic 81, follow-up 5.2.1b/5.2.2); a
-  recursor or quotient constant with no declared slot (diagnostic 77,
-  5.2.4); a file that uses an undeclared constant is invalid as a whole
-  (5.2.6); numbers of 2^32 and more in names, projections and counts are
-  *full* (5.2.6); fuel runs out on large declarations (diagnostic 1; raise
-  `--fuel`); where Lean's verdict depends on how its levels share memory (rule
-  K6, BEYOND_LEAN BL-3) LeanForth answers *unknown*.
-- **Fixed capacities** (each *full*; plan 6.2.2, 6.2.4, 6.5.7): per check,
-  1,048,576 terms, 65,536 levels and 262,144 constant references, about 1,020
-  constructors in a block; 65,536 tokens per line, JSON nesting 64, a line of
-  64 MiB; the log and printer tables.
+- **Mathlib: the first sixth checked; the whole not yet run.** On `e3399df`
+  (2026-11-11, default fuel 20,000,000 per declaration, before step S5) the
+  first 119,472 of Mathlib's 729,263 declarations gave 118,838 accepted
+  (99.47%), 0 rejected, 0 exhausted, 7 *full* (each filled the fixed room of
+  1,048,576 terms a check had then; step S5 has since made that room grow)
+  and 627 *unknown*, every one because it depends on one of the 7: 8,810 s
+  wall on a machine running other checks, 3.7 GB peak. On `af93afb` the same
+  sixth gave 117,068 accepted (98.0%), 69 exhausted. All of Mathlib needs
+  step S5's in-place reading (loading the first sixth: 52 s and 1.06 GB in
+  place, 124 s and 3.37 GB copied) and is the next measurement.
+- **`Init`: all accepted.** All 59,349 declarations at the default fuel, exit
+  0 (`af93afb`: 1,162 s, 1.15 GB peak; read in place since step S5: same
+  verdicts and fuel, 530 MB peak). Lean's official export checker takes
+  50.7 s and 572 MB for the same file: LeanForth is about 23 times slower on
+  one thread.
+- **Coded and used, approved by the owner on 2026-11-11** ([round](OWNER_DECISIONS.md#approval-round-of-2026-11-11)):
+  `let` (4.2.3), number and string literals (5.2.3), projections, structure
+  eta and the comparison's projection steps (5.2.2), indexed families and
+  K-like recursors, quotients (5.2.4), axioms with allowlist v1 and opaque
+  declarations (5.3.1-5.3.2, 4.2.6), the full lazy strategy, eta, proof
+  irrelevance (4.2.2b-d, 4.2.4, 4.2.5), nested inductive types (5.2.5b),
+  unsafe and partial declarations skipped as Lean's export checker skips them
+  (5.2.7), the result caches (4.2.7; off under a derivation log),
+  compact-store steps S0-S4 and S6, and the importer's index numbering and
+  `--any-lean-version` ([import][format]). Earlier parts approved one by
+  one: rejection rules, environment, declaration check, free variables, the
+  first data types, recursive types and mutual blocks, the derivation log,
+  the checker on the large store without a depth limit.
+- **Coded and used, gate owed**: compact-store step S5 parts 1-3 (the
+  checker reads the input in place); its approval round comes after S5B.
+- **Coded and used, gate owed**: `check --jobs N` (step S7, default 1
+  worker; the publisher's re-check of each job's dependencies and the level
+  memo that now lasts one check).
+- **Coded, not used by `leanforth check`**: `src/author/` (not loaded by `src/main.fs`; no `check FILE.lf`, plan
+  8.2.1); the program track (runs through tests and Python scripts; there is
+  no `leanforth program` command, plan 3.4.1, 2.5.x); the record and replay
+  reader (`check --record`, `replay`: 32 declarations, no inductive types,
+  `let`, literals, projections or metadata; its old limits are 64 names, 64
+  levels and 64 term nodes); the test-only probe-mode inference
+  (`lf-mixed-infer` probes, signature probe and audit,
+  `mixed-definition-probe.fs`, `lf-mixed-convert`) and the old
+  `import/load.fs` batch staging, both candidates for retirement (plan task
+  5.2.8; diagnostics 33 and 64 appear only in the probes). The derivation log
+  and `print` run only when asked, with caches off; `print` still makes the
+  full copy of every expression (agent S5B is retiring it).
+- **Still unsupported or unknown in `check`** (each *unsupported*, *unknown*
+  or *full*, exit 2 or 3, never accepted): a block with both safe and unsafe
+  members (5.2.7 part b); metadata `mdata` in a term (diagnostic 43, plan
+  4.1.3; none in Mathlib's first sixth); iota on a major premise that is not
+  a constructor application, in the routes not yet ported (diagnostic 81,
+  follow-up of 5.2.1b/5.2.2), so a correct proof can still end *unknown*; a
+  recursor or quotient constant no slot holds (diagnostic 77, 5.2.4); a file
+  that uses an undeclared constant is invalid as a whole (5.2.6); numbers of
+  2^32 and more in names, projections and counts are *full* (5.2.6); fuel can
+  run out on a very large declaration (diagnostic 1; raise `--fuel`), though
+  none did in `Init` or Mathlib's first sixth at the default; where Lean's
+  verdict depends on how its levels share memory (rule K6, BEYOND_LEAN BL-3)
+  LeanForth answers *unknown*.
+- **Capacities** (each *full*; plan 6.2.2, 6.2.4, 6.5.7): a check's scratch
+  above the input grows with memory up to about 2^31 terms, levels and
+  constant references each (fixed at 1,048,576, 65,536 and 262,144 before
+  step S5); 65,536 tokens per line, JSON nesting 64, a line of 64 MiB; the
+  log and printer tables.
 - **Resource refusals are not verdicts** (owner, BL-9): running out of fuel
   (*exhausted*) or memory (*full*) says nothing about whether a declaration
   is right.
-- **Init counts are a dated snapshot**: the 2026-11-04 run (2,503 accepted of
-  59,349, none rejected, dominated by features merged since) has not been
-  repeated; no newer Init total is recorded here.
-- **Speed.** Time grows with the square of a term's depth (plan 6.5.5, not
-  started); speed against Lean is not yet measured, and the owner's
-  one-thread speed goal is open.
-- **Axiom policy**: an axiom outside `propext`, `Classical.choice` and
-  `Quot.sound` (allowlist v1, awaiting the owner's approval) or with an
-  altered statement gets Lean's verdict, labelled NOT PROVED, exit status 0 as
-  Lean's (`--strict-axioms`: 6); the full axiom list of a theorem as
-  `#print axioms` is planned (5.3.2, 5.3.3).
+- **Speed.** Work is linear in a term's depth since step S6 (the 10,000-deep
+  test: about 13 minutes before steps S0-S6, 162 s before S6, about 6 s now). One thread: `Init` takes about 23
+  times as long as Lean's official export checker. Parallel checking (S7) is
+  being built; profiling the hot words (plan 6.5.8) waits for the owner's go.
+- **Axiom policy** (allowlist v1, approved 2026-11-11): an axiom outside
+  `propext`, `Classical.choice` and `Quot.sound` or with an altered statement
+  gets Lean's verdict, labelled NOT PROVED, exit status 0 as Lean's
+  (`--strict-axioms`: 6); the full axiom list of a theorem as `#print axioms`
+  is planned (5.3.2, 5.3.3).
 - Not yet reported per check: large proofs have no splitting guidance (6.5.3);
   the worker count is not a setting (6.5.4); Lean's own test suites and other
   Lean libraries are not yet run (6.4.2, 6.1.6).

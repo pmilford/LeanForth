@@ -833,3 +833,38 @@ digits; a text part made of digits is written `«0»`, so the two stay distinct 
 ever made whose name is a number, so `0`, `1`, `-1` keep reading as numbers. A name whose first part is a
 number stays unsupported (the whole token would read as a number); no export seen so far has one. The reader
 change is a [parser] item: an independent review is owed.
+
+## Approval round of 2026-11-11
+
+Asked in plain language with a recommendation for each item (the full list with its evidence and reviews:
+`.claude/work/APPROVALS-2026-11-11.md`); the owner chose every recommendation ("Approve all", "Strict + official",
+"Change the rule"). Every item was already merged and used by `leanforth check`; every accepted result stays
+*experimental — not independently audited*.
+
+- **Lean rules [kernel], approved**: unfolding definitions in Lean's lazy order (4.2.2b-d); `let`, function eta and
+  proof irrelevance (4.2.3-4.2.5); structures, projections and the comparison's projection steps (5.2.2); K-like
+  recursor reduction (5.2.1c); number and string literals (5.2.3); axioms with **allowlist v1** — exactly `propext`,
+  `Classical.choice` and `Quot.sound` with Lean's statements, any other axiom reported NOT PROVED — opaque
+  declarations and Lean's quotient (5.3.1-5.3.2, 5.2.4, 4.2.6); nested inductive types (5.2.5b); unsafe and partial
+  declarations skipped as Lean's official export checker skips them, verdict *skipped*, and any safe declaration
+  that uses one rejected (5.2.7).
+- **Speed and memory, no Lean rule changed, approved**: result caches (4.2.7); compact-store steps S0-S4 and S6
+  (a, c, d, e); the fuel model of ADR 0014 Amendments 3-5 (a unit per distinct node, not per path) and LeanForth's
+  own audits once per node per check (Amendment 4). The default fuel of 20,000,000 per declaration follows the
+  owner's approval of 2026-11-10 to raise it.
+- **Formats and inputs [import][format], approved**: the importer's index numbering as Lean's reader allows (sparse,
+  any order); the opt-in `--any-lean-version`; report format `check-report-0.2` and run records `run-record-0.2`
+  (the *skipped* verdict; 0.1 kept unchanged); Lean's JSON number spellings and unknown record members ignored;
+  `print --lf` with numeric name parts; print hooks through the safe line sink.
+- **Export header (owner's choice)**: kept strict in the default mode (format 3.1.0, Lean 4.35.0); only
+  `--any-lean-version` relaxes it. Lean's own checker does not read the header; LeanForth uses it to know the file
+  is a Lean 4.35.0 export.
+- **Referee for hand-made export files (owner's choice)**: where Lean's kernel order and Lean's official export
+  checker (lean4export v4.35.0's replay, which checks in name order) disagree, the official export checker decides.
+- **Continuous integration (owner's choice)**: GitHub CI stays off (turned off 2026-11-11 at the owner's request:
+  its runs failed for billing, not tests). Before every push both of its jobs run locally — `make check` on the
+  pinned tools and `make test` on Gforth 0.7.3 — and their outcomes are recorded; `AGENTS.md` and
+  `.claude/CLAUDE.md` say so. GitHub CI is re-enabled only when the owner asks.
+
+Not in this round (no approval asked yet): compact-store step S5 (the checker reading the input in place; parts 1-3
+merged) with its follow-up S5B, and step S7 (parallel checking).

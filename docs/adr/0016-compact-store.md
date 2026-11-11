@@ -1051,8 +1051,15 @@ needed (Rejected alternatives).
     (`lf-term-input-binder@`; a let's lambda has the let's name), so a
     feed with a binder hook reads in place too; the derivation log
     needed nothing (it names input objects by term number). The CLI's
-    "term nodes" (`src/cli/check-run.fs`, agent S7's file, not changed)
-    now counts term numbers, about twice the expressions.
+    "term nodes" (`src/cli/check-run.fs`) now counts term numbers, about
+    twice the expressions. After merging step S7 (parallel checking):
+    its scheduler's dependency walk (`src/kernel/env-schedule.fs`) walks
+    every binary node, lets and projections included (it missed their
+    constants: planted fault `s5b-sched-skips-let`); its stamp array per
+    term number (4 bytes) now spans twice the expressions, about 0.42 GB
+    more for all of Mathlib, until it is indexed per record (as the
+    audit's units are); the worker contexts no longer copy the retired
+    switch.
   - *Stamps and scratch identities (part 2 of the step): none retired.*
     Symbolic-Sort stamps: level substitution and normalization roll the
     level store back alone by their own marks, and an inference step

@@ -96,7 +96,7 @@ theorem composition {A B C : Prop} (f : A → B) (g : B → C) : A → C :=
 
 | Command | What it does |
 | --- | --- |
-| `check [--no-manifest] [--fuel N] [--resources] [--json] [--fast] [--strict-axioms] [--any-lean-version] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text |
+| `check [--no-manifest] [--fuel N] [--resources] [--json] [--fast] [--strict-axioms] [--any-lean-version] [--jobs N] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text; with `--jobs N`, check with [N workers at once](#parallel-checking---jobs) |
 | `check [--no-manifest] [--fuel N] [--fast] [--strict-axioms] --record RECORD EXPORT` | Check a small export (read straight into the checker's stores) and also write its [run record](#run-records-and-replay) |
 | `replay [--no-manifest] [--fuel N] [--fast] EXPORT RECORD` | Check the export again and compare the new run record with RECORD; print the replay report |
 | `print [--no-manifest] [--fuel N] [--fast] [--detail] [--name NAME] [--latex] [--statement FORMS] [--any-lean-version] EXPORT`, or `print --lf [--no-manifest] [--fuel N] [--fast] [--any-lean-version] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration; `--lf` writes the whole export as one [LeanForth text](#writing-an-export-as-leanforth-text) |
@@ -149,6 +149,15 @@ Options:
   and, when the metadata named other versions, `exportMeta`.
 - `--fast` (`check`, `replay`, `print`) runs on `gforth-fast` instead of
   Gforth's checking engine ([the engine](#the-engine)).
+- `--jobs N` (`check` only, not with `--record`) checks with N workers at
+  once ([parallel checking](#parallel-checking---jobs)); N is at least 1,
+  and 1, the default, checks one declaration at a time. The output is the
+  same whatever N is. N is cut to the number of cores (and to the job
+  pool's queue of 1024): more workers could not run at once, and each
+  holds its own copy of the input, so memory grows with the workers made
+  (the resource report says how many). On a host that is not x86-64
+  (threads without memory barriers) or where the thread pool cannot start,
+  the check runs one declaration at a time and the resource report says why.
 - `--detail` (`print` only) prints every step of the checker's log
   instead of the outline; `--name NAME` (`print` only) prints only the
   declaration named NAME.
@@ -515,6 +524,57 @@ declarations that used the most fuel all ran out of it. Half the declarations' f
 failed inside inference, which gives its counter up, so neither the
 total nor the list counts them ([fuel](#the-resource-report)); a later
 step of plan task 6.5.2 can keep it, with a change to the checker.
+
+### Parallel checking (`--jobs`)
+
+`check --jobs N` checks with N workers at once (plan tasks 6.5.4 and
+7.3.1, 2026-11-11; its [kernel] review is pending). The output is the
+same as with `--jobs 1`, the default, byte for byte but for the resource
+report's times, memory and workers line, and the JSON report but for
+`measured`: every verdict, diagnostic and fuel count, the counts and the
+exit status. How:
+
+- each worker is a context of its own, fed the same staged export (the
+  stage is shared and read only; the rest of the input is, for now, copied
+  into every worker: plan task 7.2.1), and checks one declaration at a
+  time as a thread of Gforth 1.0 (cooperative tasks on Gforth 0.7.3, which
+  gives the same output, no faster);
+- a declaration is handed to a worker only when every earlier declaration
+  its check may look up by name is published, and results are published
+  by one task, in the order checks end, into the checked environment's
+  slots, from which the report is printed afterwards in file order;
+- a check that still finds an earlier declaration it needs unpublished
+  (a name met only after unfolding a definition) is thrown away and run
+  again later, never published; each check starts from the input alone,
+  with empty caches, so its fuel does not depend on the other checks its
+  worker ran.
+
+All of `Init` (59,349 declarations, all accepted), `check --fast --json
+--jobs N`, on this 10-core WSL2 machine, which other agents' runs shared
+(load average 10-13), 2026-11-11 (wall and CPU seconds of the whole run,
+the check phase's wall time, peak resident memory; every report the same
+as the serial one but for `measured`):
+
+| workers | wall | check wall | speed-up (check) | CPU | peak memory |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 1,157 | 1,136 | 1.0 | 1,146 | 543 MB |
+| 2 | 557 | 536 | 2.1 | 1,088 | 1,030 MB |
+| 4 | 367 | 334 | 3.4 | 1,307 | 1,478 MB |
+| 6 | 407 | 374 | 3.0 | 1,481 | 1,809 MB |
+| 8 | 215 | 183 | 6.2 | 1,400 | 2,219 MB |
+| 10 | 249 | 209 | 5.4 | 1,512 | 2,564 MB |
+
+The run with 6 workers met the heaviest load from other runs; the times
+vary by that much from run to run on a shared machine. Each worker costs
+about 210 MB and its feeding about 2.5 seconds, one worker after another
+(the "feed" phase: 25 seconds for 10 workers). When no worker can be
+made (no memory; or, from a Forth session, a context that ran checks
+before, whose input then has another fingerprint than a new worker's),
+the run checks one declaration at a time, and the resource report says
+so. With `--resources` the
+report adds a line naming the workers and how many checks were handed
+out, run again, refused by readiness or forced (the last two are 0 unless
+LeanForth's plan of which declaration needs which is wrong).
 
 ### The resource report
 
@@ -929,7 +989,8 @@ supported:
   check: Lean 4.35.0 exports (lean4export 3.1.0 NDJSON) of any size, such as
     all of Lean's Init, staged and fed in Forth; the manifest checked unless
     --no-manifest; a summary, --resources (time, memory, fuel), --json;
-    Gforth's checking engine, or gforth-fast with --fast
+    Gforth's checking engine, or gforth-fast with --fast; --jobs N checks
+    with N workers (threads on Gforth 1.0), the same output as one
   check: Lean's kernel rules as built so far, each result labelled
     experimental, not independently audited: definitions, theorems, opaque
     declarations and axioms (an axiom outside Lean's standard three is NOT
@@ -952,9 +1013,8 @@ not yet supported (check answers unsupported or unknown, exit 2):
   check --record and replay (the old reader) refuse inductive types, and
   answer unsupported for let, literals, projections and metadata;
   the checker has not yet checked a Mathlib declaration
-  (0 of 729,263); the parallel job pool is not used by check (it reads
-  the staged input in place, copying only metadata and the terms
-  above it, plan task 6.2.2)
+  (0 of 729,263); check --jobs feeds each worker its own copy of the
+  input's per-context part (the stage is shared; plan task 7.2.1)
 limits (check answers full or exhausted, exit 3):
   check: stores, walks and lists that grow with the export (memory), any
     depth and number of dependencies or constructors (plan task 6.2.0);

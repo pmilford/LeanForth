@@ -2,7 +2,7 @@
 \ bin/leanforth runs as `gforth src/main.fs -e cli-main COMMAND ...`.
 \ Commands, documented in docs/user/COMMAND_LINE.md:
 \   check [--no-manifest] [--fuel N] [--resources] [--json] [--fast]
-\         [--strict-axioms] [--any-lean-version] EXPORT
+\         [--strict-axioms] [--any-lean-version] [--jobs N] EXPORT
 \       stage the Lean export with the importer stage (its manifest
 \       checked unless --no-manifest says not to; with --any-lean-version
 \       its metadata may name any exporter and Lean version of format
@@ -17,7 +17,9 @@
 \       CPU of each phase, peak memory, the input's size, fuel in all and
 \       the ten declarations that used the most); with --json all of it
 \       as one JSON text instead (cli/check-json.fs); with
-\       --strict-axioms a NOT PROVED declaration gives exit 6;
+\       --strict-axioms a NOT PROVED declaration gives exit 6; with
+\       --jobs N, N workers check at once (cli/check-run.fs,
+\       kernel/env-schedule.fs), the output the same as one's;
 \   check [--no-manifest] [--fuel N] [--fast] [--strict-axioms]
 \         --record RECORD EXPORT
 \       the check of small exports that writes a run record (plan 2.2.5):
@@ -145,6 +147,7 @@ begin-structure /cli-run
   field: opt-lf                 \ true: print writes the export as LeanForth text (--lf)
   field: opt-strict             \ true: NOT PROVED gives exit 6 (--strict-axioms)
   field: opt-any-lean           \ true: an export of any Lean version (--any-lean-version)
+  field: opt-jobs               \ workers that check at once (--jobs); 0, 1: one
   4 cells +field arg-files      \ the file names given, in order (two c-addr u)
   field: arg-count              \ how many were given
   field: arg-set                \ the options the command takes, as bits
@@ -184,6 +187,10 @@ manifest: cli-manifest
 \ verdicts stay those of Lean 4.35.0's rules, and a note says so.
 : cli-any-lean ( -- ) true cli-state opt-any-lean ! ;
 : cli-any-lean? ( -- flag ) cli-state opt-any-lean @ ;
+\ check: how many workers check declarations at once (--jobs; plan task
+\ 6.5.4); 0 or 1, the default, checks one at a time.
+: cli-jobs ( -- n ) cli-state opt-jobs @ ;
+: cli-jobs! ( n -- ) cli-state opt-jobs ! ;
 : cli-checked? ( -- flag ) cli-unchecked @ 0= ;
 
 \ Numbers in decimal, whatever BASE is: xt runs with BASE decimal.
@@ -276,8 +283,16 @@ end-structure
 \ so that it cannot be read as skipped, the verdict of an unsafe or
 \ partial declaration (review rvUNNI L5).
 : cli-unreached ( d -- ) cli-name. ." : not checked (not reached: the run stopped)" cr ;
+\ Why a run stopped, as far as the parallel scheduler knows (its cause).
+: cli-reason ( -- c-addr u )
+  lf-sched-cause CASE
+    1 OF s" every worker was lost after a check threw and none could be made again" ENDOF
+    2 OF s" the job pool refused a check" ENDOF
+    3 OF s" waiting for a worker failed" ENDOF
+    >r s" a check threw, or publishing failed" r>
+  ENDCASE ;
 : cli-stopped ( -- )
-  ." internal fault: the run stopped: a check threw, or publishing failed" cr
+  ." internal fault: the run stopped: " cli-reason type cr
   lf-input-count cli-stepped ?do i cli-unreached loop ;
 : cli-verdicts ( -- )
   cli-stepped 0 ?do i cli-verdict loop cli-faulted? if cli-stopped then ;
@@ -486,8 +501,32 @@ create cli-fed-ops
   verdict-of verdict-name type ." )" cr ;
 : cli-tops. ( -- )
   ck-tops 0= if exit then ."   most fuel used:" cr ck-tops 0 ?do i cli-top. loop ;
+\ A parallel check's workers (--jobs; kernel/env-schedule.fs): checks
+\ handed out, run again because they began too early, refused by
+\ readiness, handed out only because nothing else could run (the last
+\ two are 0 unless the plan is wrong), workers replaced after a THROW.
+: cli-sched. ( -- )
+  ."     checks handed out " lf-sched-launched .decimal ." , run again " lf-sched-reruns
+  .decimal ." , not ready " lf-sched-unready .decimal ." , forced " lf-sched-forced
+  .decimal ." , workers replaced " lf-sched-renewed .decimal cr ;
+: cli-no-workers. ( -- )
+  ck-why ck-why-host = if
+    ."   workers: not used: threads need an x86-64 host (ADR 0009): checked one" cr
+    ."     at a time" cr exit then
+  ck-why if
+    ."   workers: not used: the thread pool could not start (code " ck-why .decimal ." ):" cr
+    ."     checked one at a time" cr exit then
+  ."   workers: none could be made (no heap, or this context's input differs" cr
+  ."     from a new one's): checked one at a time" cr ;
+\ Cores that run workers at once: all on threads, one when they take turns.
+: cli-cores ( -- n ) task-host task-threads = if task-cores else 1 then ;
+: cli-jobs. ( -- )
+  ck-parallel? 0= if exit then ck-jobs-run? 0= if cli-no-workers. exit then
+  ."   workers: " ck-jobs .decimal ."  (--jobs), on " cli-cores .decimal ."  cores" cr
+  cli-sched. ;
 : cli-resources. ( -- )
-  ." resources:" cr cli-times. cli-memory. cli-engine. cli-input. cli-fuel. cli-tops. ;
+  ." resources:" cr cli-times. cli-memory. cli-engine. cli-jobs. cli-input. cli-fuel.
+  cli-tops. ;
 
 \ An export whose metadata names another exporter or Lean version (read
 \ with --any-lean-version): what it names, escaped as names are, so it
@@ -523,7 +562,8 @@ create cli-fed-ops
 \ can be written from this run.
 : cli-fed-run ( xt -- code )
   cli-fed-ops cli-state run-ops ! rr-release rr-reset cli-fuel @ ck-start
-  cli-any-lean? ck-any-version! catch ck-release throw cli-restored cli-worst @ ;
+  cli-any-lean? ck-any-version! cli-jobs ck-jobs! catch ck-release throw cli-restored
+  cli-worst @ ;
 : cli-library ( -- code )
   cli-json? 0= if cli-unchecked-note then ['] cli-library-run cli-fed-run ;
 \ An export that does not open: the JSON report says so too.
@@ -579,9 +619,16 @@ create cli-fed-ops
 : cli-misuse-any ( -- code )
   ." error: --any-lean-version does not go with --record" cr
   ." try: leanforth help" cr exit-malformed ;
+\ The run of small exports checks one declaration at a time: --jobs above
+\ 1 does not go with --record.
+: cli-jobs-misused? ( -- flag ) cli-record? cli-jobs 1 > and ;
+: cli-misuse-jobs ( -- code )
+  ." error: --jobs does not go with --record" cr
+  ." try: leanforth help" cr exit-malformed ;
 : check-command ( -- code )
   cli-start cli-strict? cli-strict-axioms! cli-misused? if cli-misuse-record exit then
   cli-any-misused? if cli-misuse-any exit then
+  cli-jobs-misused? if cli-misuse-jobs exit then
   cli-opens? 0= if cli-not-opened exit then
   cli-over-export? if ." error: RECORD must not be EXPORT" cr exit-malformed exit then
   cli-record? if cli-checks else cli-library then ;
@@ -628,7 +675,7 @@ create cli-fed-ops
 : cli-shown? ( chosen i -- flag ) over 0< if 2drop true else = then ;
 : cli-print-one ( i -- ) >r 0 cli-file r> cli-detail? pr-print outcome>code cli-code! ;
 : cli-print-stopped ( -- )
-  c" the run stopped: a check threw, or publishing failed" cli-fault ;
+  ." internal fault: the run stopped: " cli-reason type cr exit-fault cli-code! ;
 : cli-print-due ( chosen i -- chosen fault? )
   dup pr-step if drop true exit then over over cli-shown? if cli-print-one else drop then
   false ;
@@ -742,7 +789,8 @@ create cli-fed-ops
   ."   check: Lean 4.35.0 exports (lean4export 3.1.0 NDJSON) of any size, such as" cr
   ."     all of Lean's Init, staged and fed in Forth; the manifest checked unless" cr
   ."     --no-manifest; a summary, --resources (time, memory, fuel), --json;" cr
-  ."     Gforth's checking engine, or gforth-fast with --fast" cr ;
+  ."     Gforth's checking engine, or gforth-fast with --fast; --jobs N checks" cr
+  ."     with N workers (threads on Gforth 1.0), the same output as one" cr ;
 : cli-check-rules. ( -- )
   ."   check: Lean's kernel rules as built so far, each result labelled" cr
   ."     experimental, not independently audited: definitions, theorems, opaque" cr
@@ -770,9 +818,8 @@ create cli-fed-ops
   ."   check --record and replay (the old reader) refuse inductive types, and" cr
   ."   answer unsupported for let, literals, projections and metadata;" cr
   ."   the checker has not yet checked a Mathlib declaration" cr
-  ."   (0 of 729,263); the parallel job pool is not used by check (it reads" cr
-  ."   the staged input in place, copying only metadata and the terms" cr
-  ."   above it, plan task 6.2.2)" cr ;
+  ."   (0 of 729,263); check --jobs feeds each worker its own copy of the" cr
+  ."   input's per-context part (the stage is shared; plan task 7.2.1)" cr ;
 : cli-check-limits. ( -- )
   ."   check: stores, walks and lists that grow with the export (memory), any" cr
   ."     depth and number of dependencies or constructors (plan task 6.2.0);" cr
@@ -800,8 +847,9 @@ create cli-fed-ops
 \ help, one part per kind of command.
 : cli-check-usage. ( -- )
   ."   check [--no-manifest] [--fuel N] [--resources] [--json] [--fast]" cr
-  ."         [--strict-axioms] [--any-lean-version] EXPORT" cr
+  ."         [--strict-axioms] [--any-lean-version] [--jobs N] EXPORT" cr
   ."       check every declaration of a Lean export, in file order, any size;" cr
+  ."       --jobs N checks with N workers at once (default 1), same output;" cr
   ."       --resources adds time, memory and fuel, --json prints it all as JSON;" cr
   ."       --strict-axioms makes a NOT PROVED declaration exit 6;" cr
   ."       --any-lean-version (check, print) reads an export of another Lean or" cr
@@ -907,6 +955,7 @@ end-structure
 1024 constant takes-fast
 2048 constant takes-lf
 4096 constant takes-any-lean
+8192 constant takes-jobs
 : cli-value ( c-addr u -- c-addr' u' true | false )
   cli-arg if 2swap 2drop true else c" an option without its value" cli-wrong false then ;
 \ A decimal number from 0 to max-n with nothing else: (n true) or false.
@@ -938,6 +987,14 @@ end-structure
 : cli-fast-option ( c-addr u -- ) 2drop ;
 : cli-lf-option ( c-addr u -- ) 2drop true cli-state opt-lf ! ;
 : cli-any-lean-option ( c-addr u -- ) 2drop cli-any-lean ;
+\ --jobs N, N at least 1; check-run.fs cuts it to the cores. Each worker holds a
+\ copy of the input, so memory grows with the workers made.
+: cli-jobs-value ( c-addr u n -- )
+  dup 1 < if drop c" not a number of jobs" cli-wrong exit then
+  cli-state opt-jobs ! 2drop ;
+: cli-jobs-option ( c-addr u -- )
+  cli-value 0= if exit then 2dup cli-decimal
+  if cli-jobs-value else c" not a number of jobs" cli-wrong then ;
 create cli-option-table
   ' cli-manifest-option takes-no-manifest 0 cli-entry, --no-manifest
   ' cli-fuel-option takes-fuel 0 cli-entry, --fuel
@@ -952,6 +1009,7 @@ create cli-option-table
   ' cli-fast-option takes-fast 0 cli-entry, --fast
   ' cli-lf-option takes-lf 0 cli-entry, --lf
   ' cli-any-lean-option takes-any-lean 0 cli-entry, --any-lean-version
+  ' cli-jobs-option takes-jobs 0 cli-entry, --jobs
   0 ,
 : cli-takes? ( entry -- flag ) cli-entry-first @ cli-state arg-set @ and 0<> ;
 : cli-taken ( c-addr u entry -- )
@@ -973,7 +1031,7 @@ create cli-option-table
 \ needs and the options it takes.
 takes-no-manifest takes-fuel or takes-fast or constant checking-set
 checking-set takes-record or takes-resources or takes-json or takes-strict or
-takes-any-lean or constant check-set
+takes-any-lean or takes-jobs or constant check-set
 checking-set constant replay-set
 checking-set takes-detail or takes-name or takes-latex or takes-statement or
 takes-lf or takes-any-lean or constant print-set

@@ -40,10 +40,11 @@ OpenAI Codex. Codex-era docs (`docs/project/CODEX_HANDOFF.md`, `prompts/FIRST_CO
   (`.claude/work/lean-cache` of the main checkout), about 70 s with an empty
   cache, about 75 s with `LEAN_CACHE=0` (as CI runs it); 345 s one target at
   a time without the cache. Run it once, at the end of a task.
-- CI runs `make test` on Ubuntu's Gforth 0.7.3 and `make check LEAN_CACHE=0`
-  on pinned Gforth 1.0.0 and Lean 4.35.0. After pushing, check
-  `gh run list --limit 3` and record the run URL and outcome, as `AGENTS.md`
-  requires.
+- GitHub CI is off at the owner's request (2026-11-11). Before every push run
+  its two jobs locally under `ulimit -u 500`: `make check` (Lean cache on for
+  merges, `LEAN_CACHE=0` once a day) and
+  `make test GFORTH=$PWD/.claude/work/A/gforth073.sh` (Gforth 0.7.3); check
+  both exit codes and record them, as `AGENTS.md` requires.
 
 ## Reviews
 
@@ -65,7 +66,7 @@ OpenAI Codex. Codex-era docs (`docs/project/CODEX_HANDOFF.md`, `prompts/FIRST_CO
 
 - Commit and push to `main` automatically after each work session and at safe
   checkpoints once `make test` passes (owner instruction, 2026-11-02; see
-  `AGENTS.md`). Then check CI. Never force-push or rewrite pushed history.
+  `AGENTS.md`), after CI's two jobs pass locally. Never force-push or rewrite pushed history.
   Remote changes and new tags still need the user's approval.
 - Commit subjects follow the existing style: short imperative sentence, no
   prefix (for example "Diagnose mixed definition type and value pairs").
