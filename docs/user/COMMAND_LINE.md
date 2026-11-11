@@ -544,11 +544,11 @@ accepted: 6 (experimental, not independently audited); axioms: none
 resources:
   time (s)     wall      cpu
   input: 6 declarations, 46 term nodes, 3 levels, 5 constant references, 31 names
-  fuel: 546 steps in all, at most 2000000 per declaration
+  fuel: 518 steps in all, at most 2000000 per declaration
   most fuel used:
-        266 Two.cases (accepted)
+        252 Two.cases (accepted)
         157 Two (accepted)
-        123 Two.swap (accepted)
+        109 Two.swap (accepted)
 ```
 
 **Fuel**, a check's unit of work, is read from the checker's own counters

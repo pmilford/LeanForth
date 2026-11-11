@@ -221,7 +221,8 @@ cli-options
 \ A second run in the same process gives the same verdicts and fuel.
 : run-facts ( c-addr u -- code ok# fuel )
   cli-check outcome-ok tally ck-fuel-total drop ;
-\ (546 since == is Lean's at every pair, plan step S4; 581 since levels
+\ (518 since universe substitution skips terms without a universe
+\ parameter, 546 since == is Lean's at every pair, plan step S4; 581 since levels
 \ and references are hash-consed and equal constants and Sorts are one
 \ node, plan step S4, so the audits and == meet fewer distinct nodes; 607
 \ since the audits check each node once per check and read V1
@@ -234,7 +235,7 @@ cli-options
 \ caches and cached node data, plan task 4.2.7; 1184
 \ since the block check uses Lean's whnf, plan task 5.2.1b; 1187 since
 \ conversion is Lean's is_def_eq, plan task 4.2.2b; 1520 before.)
-T{ inductive run-facts inductive run-facts -> 0 6 546 0 6 546 }T
+T{ inductive run-facts inductive run-facts -> 0 6 518 0 6 518 }T
 cli-no-manifest
 kinds run-facts constant kinds-fuel drop drop
 T{ kinds run-facts -> 2 94 kinds-fuel }T

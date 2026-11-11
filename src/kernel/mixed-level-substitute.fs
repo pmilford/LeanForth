@@ -146,10 +146,27 @@ create lf-mls-set-hooks /htab-hooks allot
 : lf-mls-reference ( first second walk -- outcome )
   >r lf-cterm-pair lf-cref-levels if r> lf-mls-sources else r> drop outcome-invalid then ;
 : lf-mls-refused ( first second walk tag outcome -- outcome ) >r 2drop 2drop r> ;
+\ Lean's has_param_univ test (instantiate.cpp 248-253; compact-store plan
+\ step S4): a term without universe parameters is its own image, so the
+\ audit neither visits nor lists it (it costs no unit as a child, one as
+\ the root) and the build gives it back unchanged (lf-mls-image@). Its
+\ data word tells (core/terms.fs: the parameter bit, from its levels when
+\ they were made); a term without a data word is walked as before. Its
+\ levels need no check against the formals (none is a parameter); their
+\ shape, and the rest of its graph, the graph audit (lf-cterm-check)
+\ checked before.
+: lf-mls-closed? ( node -- flag ) lf-term-data@ if lf-data-params? 0= else false then ;
+: lf-mls-push ( index walk -- outcome )
+  over lf-mls-closed? if 2drop outcome-ok else walk-push-outcome then ;
+: lf-mls-pushed ( first second walk -- outcome )
+  rot over lf-mls-push dup ok? if drop lf-mls-push else nip nip then ;
+: lf-mls-children ( first second walk -- outcome )
+  >r 2dup r@ walk-child? swap r@ walk-child? and
+  if r> lf-mls-pushed else 2drop r> drop outcome-invalid then ;
 \ The first visit of a term: mark it, check it, push its children.
 : lf-mls-first ( first second walk tag -- outcome )
   over walk-node @ lf-mls-mark dup ok? 0= if lf-mls-refused exit then drop
-  dup lf-term-binary-tag? if drop walk-children exit then
+  dup lf-term-binary-tag? if drop lf-mls-children exit then
   case lf-tag-symbolic-sort of nip lf-lsubst-walk-source endof
     lf-tag-constant of lf-mls-reference endof
     lf-tag-bvar of drop 2drop outcome-ok endof
@@ -158,8 +175,9 @@ create lf-mls-set-hooks /htab-hooks allot
     lf-tag-str of drop 2drop outcome-ok endof
     lf-tag-let of drop 2drop outcome-ok endof walk-bad-tag endcase ;
 : lf-mls-again? ( walk -- flag ) walk-node @ lf-mls-reached? ;
+: lf-mls-skip? ( walk -- flag ) walk-node @ dup lf-mls-reached? swap lf-mls-closed? or ;
 : lf-mls-dispatch ( first second walk tag -- outcome )
-  over lf-mls-again? if lf-walk-skip else lf-mls-first then ;
+  over lf-mls-skip? if lf-walk-skip else lf-mls-first then ;
 : lf-mls-visit ( walk -- outcome ) ['] lf-mls-dispatch lf-term-visit ;
 \ A new audit starts with an empty set and lists nothing yet; it empties
 \ the set when it ends, each entry taken out (Algorithm R) or, when the
@@ -250,7 +268,13 @@ create lf-mls-set-hooks /htab-hooks allot
   begin 2dup < while
     2dup lf-mls-half dup lf-mls-node 4 pick < if 1+ rot drop swap else nip then
   repeat drop nip ;
-: lf-mls-image@ ( node -- image ) 0 lf-mls-reached @ lf-mls-search lf-mls-image-cell @ ;
+\ A reached term's image, or the term itself when the audit did not list
+\ it (no universe parameter, lf-mls-closed?).
+: lf-mls-listed? ( node i -- flag )
+  dup lf-mls-reached @ < if lf-mls-node = else 2drop false then ;
+: lf-mls-image@ ( node -- image )
+  dup 0 lf-mls-reached @ lf-mls-search 2dup lf-mls-listed?
+  if nip lf-mls-image-cell @ else drop then ;
 : lf-mls-images ( first second -- first' second' )
   lf-mls-image@ swap lf-mls-image@ swap ;
 : lf-mls-kept? ( first second -- flag ) 2dup lf-mls-images rot = >r = r> and ;
