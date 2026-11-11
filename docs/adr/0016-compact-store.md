@@ -998,7 +998,89 @@ needed (Rejected alternatives).
   probes, marks, stamps, fingerprint, detaching, copies, rooms, the
   binder pass, the literals' fields, rvS4 M1 and L1) are caught, and
   the faults of the code S5 changed are re-targeted.
-- Step S5's parts 4 and 5, and S6 (b) and (c), are their own tasks.
+- Lets and projections read in place, the copy retired (2026-11-11, step
+  S5's parts 4-5, agent S5B, branch `s5b-native`; plan task 6.2.2; no
+  verdict moves away from Lean's, its [kernel][import] review pending).
+  - *Shapes.* A let is a binary node of its own, `LET(v, fun x : T =>
+    b)`, tag `lf-tag-let` or `lf-tag-let-nondep` (Lean's `nonDep` flag,
+    which `==` compares); a projection is `PROJECTION(leaf, e)`, tag
+    `lf-tag-projection`, over today's projection leaf (name, index).
+    Their children sit at the node's own depth (a binder is now a lambda
+    or Pi only, `lf-term-binder-tag?`), so every pass that does not look
+    at them walks them as binary nodes, and the places where Lean treats
+    `Expr.letE` and `Expr.proj` specially (zeta and `reduce_proj` in
+    `whnf_core`, `infer_let`, `infer_proj`, `is_app`/`get_app_fn`,
+    `try_unfold_proj_app`, the parameter-uniformity walk, the printers,
+    the authors' `$`) read them by tag; the audit also checks that a
+    let's second child is a lambda and a projection's first a projection
+    leaf. Before, a let was `app(app(leaf, v), lam)` (4 nodes for 2
+    numbers) and a projection `app(leaf, e)`.
+  - *Difference from C1's text and the plan row* (a letE record with
+    three children, a proj record with one child and a payload): the
+    checker's nodes keep two children each, a let's lambda being the
+    third child's home. Every one of the checker's walkers and
+    rebuilding passes (about 25, most of them frame steps) already
+    handles binary nodes; ternary and unary nodes would need a third
+    child path in each, for 0.27% of Mathlib's nodes. Lean's rules see
+    the same terms either way.
+  - *In place.* So that every child stays below its parent (the walks'
+    `walk-child?`, rebuilding in ascending order), the view numbers the
+    tier's record u as term 2u + 1 and what it carries as term 2u: a
+    letE record's lambda (its type and the body its second record holds)
+    and a proj record's leaf; `lf-term-base` is twice the expression
+    count, and a let's body record and an mdata record are no term. A
+    let, a projection and its leaf are leaves of the view's table, whose
+    entries the feed gives: the let's lambda is the first input binder
+    equal to it (an earlier input lambda, or its own), the projection's
+    leaf the first input leaf of its name and index, so that equal nodes
+    are one node as when copied and a check that makes one finds it (an
+    equal lambda later in the file stays a node of its own: it comes
+    after the let). The audit's units are one per tier record (a let's
+    lambda uses its let's second record's) and one per leaf entry (a
+    projection's leaf; about 24 MB for Mathlib, every leaf entry
+    counted). The feed copies only an mdata expression and the nodes
+    above it.
+  - *The copy retired.* The copy of every expression and its switch
+    (`lf-feed-copy!`, `lf-input-copy!`) are deleted, after the 22
+    exports of the CLI's BothWays gave the same report both ways (now
+    pinned as digests, AsCopied) and the 1M-line `Init` prefix the same
+    9,202 verdicts (all accepted; fuel 98,211,787 copied, 98,211,880 in
+    place: 11 declarations differ, 5 more and 6 less, an equal lambda
+    after a let among the causes). The print command's side table reads
+    an input binder's name and kind from its record
+    (`lf-term-input-binder@`; a let's lambda has the let's name), so a
+    feed with a binder hook reads in place too; the derivation log
+    needed nothing (it names input objects by term number). The CLI's
+    "term nodes" (`src/cli/check-run.fs`, agent S7's file, not changed)
+    now counts term numbers, about twice the expressions.
+  - *Stamps and scratch identities (part 2 of the step): none retired.*
+    Symbolic-Sort stamps: level substitution and normalization roll the
+    level store back alone by their own marks, and an inference step
+    whose result is a Sort level gives back only its terms (S1), so a
+    Sort node can outlive its level; constant stamps: the reference
+    store is reset and rolled back apart from the terms (authoring and
+    replay contexts, the input's rollback); scratch identities: handles
+    (`generation-handles.fs`), the caches' values, the replace and audit
+    memos and S1's mark checks read them. One tier mark covers all
+    families only once levels and references are kept in the terms'
+    tier, a step of its own.
+  - *Evidence.* `make check` and `make test` on Gforth 0.7.3; every
+    Lean-compared table the same verdicts; 22 new planted faults `s5b-*`
+    (one replacing a fault on the retired switch) and 15 earlier ones
+    re-targeted, all caught but two listed gaps (a let in a
+    constructor type's uniformity walk; `try_unfold_proj_app`'s rows,
+    whose fuel is not compared, a gap since task 5.2.2). All of `Init`
+    (`check --fast --no-manifest`, default fuel, against main `6b3a518`):
+    the same verdict for every declaration (59,349 accepted, as by
+    Lean); fuel 664,030,007 → 663,857,513 (−0.03%), 7,194 declarations
+    using less (at most 7,948 less) and 3 more (6 or 7 steps:
+    `BitVec.zero_width_append`, `Std.Rio.toList_eq_ite_roo`,
+    `Std.Ric.toList_eq_ite_roc`); peak resident memory 543 → 507 MB;
+    stage 13.1 → 16.4 s, feed 2.1 → 2.5 s, check 1,078 → 1,437 s wall
+    on a loaded machine (the 1M-line prefix run alternately with main:
+    check 194 and 149 s CPU on main, 192 and 158 s here).
+    Mathlib's first sixth (same command): ML-NUMBERS.
+- Step S6 (b) and (c) are their own tasks.
 
 ## Amendment 1 (2026-11-04): constants Lean's kernel generates
 
