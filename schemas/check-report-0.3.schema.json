@@ -1,0 +1,1353 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/pmilford/LeanForth/schemas/check-report-0.3.schema.json",
+  "title": "LeanForth check report, schema version 0.3",
+  "description": "What `leanforth check --snapshot FILE --json` prints: one JSON text, then a line feed. Version 0.2's report (schemas/check-report-0.2.schema.json) of a development run (ADR 0012 E8, ADR 0020 D4): the verdicts a checked-environment snapshot holds, published again from it and not re-checked in this run, labelled on every declaration with where its verdict comes from. A final run, which reads no snapshot, keeps writing version 0.2. Saved verdicts support no claim: a final run re-checks everything from the export (the owner's answer to OQ-3).",
+  "$comment": "Plan task 6.2.5, step SN3; a [format] decision for the owner. The members of 0.2, with export null (no export is read), read.phase snapshot for a refused snapshot, and mode, snapshot and each declaration's provenance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schemaVersion",
+    "export",
+    "manifest",
+    "label",
+    "mode",
+    "snapshot",
+    "settings",
+    "read",
+    "run",
+    "stopped",
+    "declarations",
+    "counts",
+    "fuel",
+    "input",
+    "exitStatus",
+    "measured"
+  ],
+  "properties": {
+    "schema": {
+      "const": "leanforth-check-report"
+    },
+    "schemaVersion": {
+      "const": "0.3"
+    },
+    "export": {
+      "description": "null: a run of a snapshot reads no export (its identity is in snapshot.export).",
+      "type": "null"
+    },
+    "manifest": {
+      "description": "checked: the export was read only if it matched EXPORT.manifest.json (the default); not-checked: --no-manifest.",
+      "enum": [
+        "checked",
+        "not-checked"
+      ]
+    },
+    "label": {
+      "const": "experimental, not independently audited"
+    },
+    "mode": {
+      "description": "development: a run of saved results, for development and research only (ADR 0012 E8); a final run writes report 0.2.",
+      "const": "development"
+    },
+    "snapshot": {
+      "description": "The snapshot read, or null when it was refused before its identity was read.",
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/snapshot"
+        }
+      ]
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fuel",
+        "dependencyPool",
+        "strictAxioms"
+      ],
+      "properties": {
+        "fuel": {
+          "description": "Fuel each declaration's check starts with (--fuel).",
+          "$ref": "#/$defs/count"
+        },
+        "dependencyPool": {
+          "description": "The room the run's dependency pool starts with; it grows (not a limit since plan task 6.2.0).",
+          "$ref": "#/$defs/count"
+        },
+        "strictAxioms": {
+          "description": "true with --strict-axioms: a NOT PROVED declaration makes the exit status 6; false by default, when NOT PROVED keeps Lean's exit status (owner, 2026-11-04).",
+          "type": "boolean"
+        },
+        "anyLeanVersion": {
+          "description": "Present, true, only with --any-lean-version: the export's metadata could name any exporter and Lean version of format 3.1.0 (an optional member added within version 0.1, 2026-11-10; a report without the option is as before).",
+          "const": true
+        }
+      }
+    },
+    "read": {
+      "$ref": "#/$defs/read"
+    },
+    "exportMeta": {
+      "description": "Present only when the export's metadata names another exporter or Lean version than the pinned lean4export 3.1.0 and Lean 4.35.0 (possible only with --any-lean-version), and the export was staged: what it names, in the shape of the export's own meta record, each text as escaped display text (see `export`). The verdicts are still those of Lean 4.35.0's rules. An optional member added within version 0.1 (2026-11-10).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "exporter",
+        "format",
+        "lean"
+      ],
+      "properties": {
+        "exporter": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "version"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        },
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version"
+          ],
+          "properties": {
+            "version": {
+              "const": "3.1.0"
+            }
+          }
+        },
+        "lean": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "githash",
+            "version"
+          ],
+          "properties": {
+            "githash": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "run": {
+      "description": "The run's outcome: ok when every declaration's slot ended final; not-run when the export was not read.",
+      "enum": [
+        "ok",
+        "invalid",
+        "exhausted",
+        "unknown",
+        "rejected",
+        "unsupported",
+        "full",
+        "not-run"
+      ]
+    },
+    "stopped": {
+      "description": "true when the run stopped on an internal fault (a check threw, or publishing failed): the declaration where it stopped is invalid, and those after it are not checked.",
+      "type": "boolean"
+    },
+    "declarations": {
+      "description": "Every declaration in input order, when the run's environment could be read; none otherwise.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/declaration"
+      }
+    },
+    "counts": {
+      "description": "The declarations by verdict; null when no verdict could be read.",
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/counts"
+        }
+      ]
+    },
+    "fuel": {
+      "$ref": "#/$defs/fuel"
+    },
+    "input": {
+      "description": "The input as fed to the checker; null when it was not.",
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/input"
+        }
+      ]
+    },
+    "exitStatus": {
+      "description": "The command's exit status: 0 all accepted (NOT PROVED ones too, as Lean, unless settings.strictAxioms), 1 something rejected, 2 unsupported or unknown, 3 a resource limit, 4 malformed input, 5 an internal fault, 6 all accepted but some NOT PROVED (only with settings.strictAxioms); the most severe of 5, 4, 1, 3, 2, 6, 0 wins.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 6
+    },
+    "measured": {
+      "$ref": "#/$defs/measured"
+    }
+  },
+  "allOf": [
+    {
+      "description": "An export that was not read was not checked.",
+      "if": {
+        "properties": {
+          "read": {
+            "properties": {
+              "outcome": {
+                "not": {
+                  "const": "ok"
+                }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "run": {
+            "const": "not-run"
+          },
+          "declarations": {
+            "maxItems": 0
+          },
+          "counts": {
+            "type": "null"
+          },
+          "input": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "run": {
+            "not": {
+              "const": "not-run"
+            }
+          },
+          "input": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "description": "Declarations are listed exactly when they are counted.",
+      "if": {
+        "properties": {
+          "counts": {
+            "type": "null"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "declarations": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "description": "A run that ended ok made every slot final: no declaration is not-checked.",
+      "if": {
+        "properties": {
+          "run": {
+            "const": "ok"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "declarations": {
+            "items": {
+              "properties": {
+                "verdict": {
+                  "not": {
+                    "const": "not-checked"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Exit status 0 only when the run ended ok, did not stop, listed at least one declaration and every declaration was accepted or skipped (an unsafe or partial declaration, which Lean's replay skips: status 0 as Lean): every other count is 0, and every fuel is known. NOT PROVED ones keep Lean's status 0 by default.",
+      "if": {
+        "properties": {
+          "exitStatus": {
+            "const": 0
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "run": {
+            "const": "ok"
+          },
+          "stopped": {
+            "const": false
+          },
+          "counts": {
+            "$ref": "#/$defs/allAccepted"
+          },
+          "declarations": {
+            "minItems": 1,
+            "items": {
+              "properties": {
+                "verdict": {
+                  "enum": [
+                    "accepted",
+                    "skipped"
+                  ]
+                }
+              }
+            }
+          },
+          "fuel": {
+            "properties": {
+              "unknown": {
+                "const": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Under --strict-axioms, exit status 0 only when no declaration is NOT PROVED.",
+      "if": {
+        "properties": {
+          "exitStatus": {
+            "const": 0
+          },
+          "settings": {
+            "properties": {
+              "strictAxioms": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "counts": {
+            "properties": {
+              "notProved": {
+                "const": 0
+              }
+            }
+          },
+          "declarations": {
+            "items": {
+              "properties": {
+                "notProved": {
+                  "const": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Exit status 6 only under --strict-axioms, when every declaration was accepted and at least one is NOT PROVED.",
+      "if": {
+        "properties": {
+          "exitStatus": {
+            "const": 6
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "settings": {
+            "properties": {
+              "strictAxioms": {
+                "const": true
+              }
+            }
+          },
+          "run": {
+            "const": "ok"
+          },
+          "stopped": {
+            "const": false
+          },
+          "counts": {
+            "allOf": [
+              {
+                "$ref": "#/$defs/allAccepted"
+              },
+              {
+                "properties": {
+                  "accepted": {
+                    "minimum": 1
+                  },
+                  "notProved": {
+                    "minimum": 1
+                  }
+                }
+              }
+            ]
+          },
+          "declarations": {
+            "minItems": 1,
+            "contains": {
+              "properties": {
+                "notProved": {
+                  "const": true
+                }
+              }
+            },
+            "items": {
+              "properties": {
+                "verdict": {
+                  "const": "accepted"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "A rejected declaration makes the status 1 unless a worse one (4, 5) wins.",
+      "if": {
+        "properties": {
+          "declarations": {
+            "contains": {
+              "properties": {
+                "verdict": {
+                  "const": "rejected"
+                }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "exitStatus": {
+            "enum": [
+              1,
+              4,
+              5
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "An invalid declaration makes the status 4, or 5.",
+      "if": {
+        "properties": {
+          "declarations": {
+            "contains": {
+              "properties": {
+                "verdict": {
+                  "const": "invalid"
+                }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "exitStatus": {
+            "enum": [
+              4,
+              5
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "A declaration not checked means the run stopped on an internal fault.",
+      "if": {
+        "properties": {
+          "declarations": {
+            "contains": {
+              "properties": {
+                "verdict": {
+                  "const": "not-checked"
+                }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "stopped": {
+            "const": true
+          }
+        }
+      }
+    },
+    {
+      "description": "A run that stopped on an internal fault has status 5 and did not end ok; one that never ran did not stop.",
+      "if": {
+        "properties": {
+          "stopped": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "exitStatus": {
+            "const": 5
+          },
+          "counts": {
+            "type": "object"
+          },
+          "run": {
+            "not": {
+              "const": "ok"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "allAccepted": {
+      "description": "Counts in which every declaration was accepted or skipped: at least one, and none with another verdict.",
+      "type": "object",
+      "properties": {
+        "declarations": {
+          "minimum": 1
+        },
+        "rejected": {
+          "const": 0
+        },
+        "unknown": {
+          "const": 0
+        },
+        "unsupported": {
+          "const": 0
+        },
+        "invalid": {
+          "const": 0
+        },
+        "exhausted": {
+          "const": 0
+        },
+        "full": {
+          "const": 0
+        },
+        "notChecked": {
+          "const": 0
+        }
+      }
+    },
+    "signed": {
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    },
+    "outcome": {
+      "description": "ADR 0008's outcome vocabulary.",
+      "enum": [
+        "ok",
+        "invalid",
+        "exhausted",
+        "unknown",
+        "rejected",
+        "unsupported",
+        "full"
+      ]
+    },
+    "verdict": {
+      "description": "accepted for a slot made final with outcome ok; skipped for a rejected slot of an unsafe or partial declaration, which Lean's replay skips unchecked and nothing can use (plan task 5.2.7); another outcome's name for any other final slot, and invalid for one whose check began but did not end final; not-checked for one the run never reached.",
+      "enum": [
+        "accepted",
+        "skipped",
+        "rejected",
+        "unknown",
+        "unsupported",
+        "invalid",
+        "exhausted",
+        "full",
+        "not-checked"
+      ]
+    },
+    "name": {
+      "description": "Escaped display text, not the name's bytes: a declaration's name as the text output shows it (src/cli/name-text.fs; docs/user/COMMAND_LINE.md, Names): Lean's Name.toString, with every component that is not an identifier between « and », and inside it what the text rule bans and » as \\u{X}, a byte that is not UTF-8 as \\x{X}, a backslash as \\\\. Two declarations can show the same text; index identifies a declaration.",
+      "type": "string",
+      "minLength": 1
+    },
+    "read": {
+      "description": "Reading the export: its outcome and, for a failure, the phase that failed (open: the file did not open; stage: the importer stage, with the line, field and reason of the NDJSON reader or the manifest check, line 0 for the manifest and for sealing; feed: giving the stage to the checker, with the number of the expression or declaration where it stopped). For a run of a snapshot: snapshot, the snapshot refused, with the reason (the section or check) and at the record (a slot, or a tier record), or null.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outcome",
+        "phase",
+        "line",
+        "field",
+        "reason",
+        "at"
+      ],
+      "properties": {
+        "outcome": {
+          "$ref": "#/$defs/outcome"
+        },
+        "phase": {
+          "enum": [
+            null,
+            "open",
+            "stage",
+            "feed",
+            "snapshot"
+          ]
+        },
+        "line": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/count"
+            }
+          ]
+        },
+        "field": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "reason": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "at": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/count"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "const": "ok"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "phase": {
+                "const": null
+              },
+              "line": {
+                "const": null
+              },
+              "field": {
+                "const": null
+              },
+              "reason": {
+                "const": null
+              },
+              "at": {
+                "const": null
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "phase": {
+                "not": {
+                  "const": null
+                }
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "phase": {
+                "const": "stage"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "line": {
+                "type": "integer"
+              },
+              "field": {
+                "type": "string"
+              },
+              "at": {
+                "const": null
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "phase": {
+                "const": "feed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "line": {
+                "const": null
+              },
+              "field": {
+                "const": null
+              },
+              "at": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "phase": {
+                "const": "open"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "outcome": {
+                "const": "invalid"
+              },
+              "line": {
+                "const": null
+              },
+              "field": {
+                "const": null
+              },
+              "at": {
+                "const": null
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "phase": {
+                "const": "snapshot"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "line": {
+                "const": null
+              },
+              "field": {
+                "const": null
+              }
+            }
+          }
+        }
+      ]
+    },
+    "diagnostic": {
+      "description": "What the failed check recorded: the reason code and its name (docs/programming/DIAGNOSTICS.md), the site (module and word, or empty), its two numbers, and the step reached: check-block's for a member of an inductive block, else check-declaration's.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "reason",
+        "site",
+        "numbers",
+        "step"
+      ],
+      "properties": {
+        "code": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "site": {
+          "type": "string"
+        },
+        "numbers": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "$ref": "#/$defs/signed"
+          }
+        },
+        "step": {
+          "$ref": "#/$defs/count"
+        }
+      }
+    },
+    "declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "name",
+        "verdict",
+        "fuel",
+        "provenance"
+      ],
+      "properties": {
+        "index": {
+          "description": "The declaration's position in the input, from 0: what identifies it (its name is display text).",
+          "$ref": "#/$defs/count"
+        },
+        "name": {
+          "$ref": "#/$defs/name"
+        },
+        "verdict": {
+          "$ref": "#/$defs/verdict"
+        },
+        "label": {
+          "const": "experimental, not independently audited"
+        },
+        "axiomBits": {
+          "description": "The axiom set read from the accepted slot, as bits (src/core/axiom-allowlist.fs, version 1): 1 propext, 2 Classical.choice, 4 Quot.sound, each with Lean's statement, and 8 any other axiom; 0 for none.",
+          "$ref": "#/$defs/count"
+        },
+        "notProved": {
+          "description": "true for an accepted declaration that depends on an axiom outside the allowlist (bit 8): Lean's verdict, labelled NOT PROVED and never counted as proved (owner, 2026-11-04).",
+          "type": "boolean"
+        },
+        "notProvedBy": {
+          "description": "With notProved true only: the axioms outside the allowlist the declaration depends on, in file order (none named when no axiom declaration carries the bit).",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/name"
+          }
+        },
+        "diagnostic": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/diagnostic"
+            }
+          ]
+        },
+        "provenance": {
+          "description": "Where the verdict comes from (ADR 0020 D4, OQ-3): snapshot, taken from the snapshot and not re-checked in this run; uses-snapshot, checked in this run but resting on the snapshot's results; checked, checked in this run.",
+          "enum": [
+            "checked",
+            "snapshot",
+            "uses-snapshot"
+          ]
+        },
+        "fuel": {
+          "description": "Fuel the declaration's check used: exact for an accepted one (with that budget it is accepted, with one less not) and the budget for an exhausted one; 0 for a member of an inductive block after its first, whose check is the first's, and for one not checked; null when not known, for a check that ended with no fuel left without running out (a failed inference gives its counter up).",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/count"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "verdict": {
+                "const": "accepted"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "label",
+              "axiomBits",
+              "notProved"
+            ],
+            "not": {
+              "required": [
+                "diagnostic"
+              ]
+            }
+          },
+          "else": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "label"
+                  ]
+                },
+                {
+                  "required": [
+                    "axiomBits"
+                  ]
+                },
+                {
+                  "required": [
+                    "notProved"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "verdict": {
+                "enum": [
+                  "accepted",
+                  "not-checked"
+                ]
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "diagnostic"
+              ]
+            }
+          },
+          "else": {
+            "required": [
+              "diagnostic"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "axiomBits"
+            ],
+            "properties": {
+              "axiomBits": {
+                "maximum": 7
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "notProved": {
+                "const": false
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "notProved": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "notProved"
+            ],
+            "properties": {
+              "notProved": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "notProvedBy"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "notProvedBy"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "verdict": {
+                "const": "not-checked"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "fuel": {
+                "const": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "declarations",
+        "accepted",
+        "skipped",
+        "rejected",
+        "unknown",
+        "unsupported",
+        "invalid",
+        "exhausted",
+        "full",
+        "notChecked",
+        "notProved"
+      ],
+      "properties": {
+        "declarations": {
+          "$ref": "#/$defs/count"
+        },
+        "accepted": {
+          "$ref": "#/$defs/count"
+        },
+        "skipped": {
+          "description": "Unsafe or partial declarations, which Lean's replay skips (plan task 5.2.7).",
+          "$ref": "#/$defs/count"
+        },
+        "rejected": {
+          "$ref": "#/$defs/count"
+        },
+        "unknown": {
+          "$ref": "#/$defs/count"
+        },
+        "unsupported": {
+          "$ref": "#/$defs/count"
+        },
+        "invalid": {
+          "$ref": "#/$defs/count"
+        },
+        "exhausted": {
+          "$ref": "#/$defs/count"
+        },
+        "full": {
+          "$ref": "#/$defs/count"
+        },
+        "notChecked": {
+          "$ref": "#/$defs/count"
+        },
+        "notProved": {
+          "description": "Accepted declarations that are NOT PROVED (counted among accepted too).",
+          "$ref": "#/$defs/count"
+        }
+      }
+    },
+    "fuel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "perDeclaration",
+        "total",
+        "unknown",
+        "top"
+      ],
+      "properties": {
+        "perDeclaration": {
+          "$ref": "#/$defs/count"
+        },
+        "total": {
+          "description": "Fuel used by every check of the run whose use is known.",
+          "$ref": "#/$defs/count"
+        },
+        "unknown": {
+          "description": "Declarations whose fuel used is not known (null fuel).",
+          "$ref": "#/$defs/count"
+        },
+        "top": {
+          "description": "The declarations that used the most fuel, most first, those of equal fuel in input order; none that used none.",
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "index",
+              "name",
+              "fuel",
+              "verdict"
+            ],
+            "properties": {
+              "index": {
+                "description": "The declaration's index in declarations.",
+                "$ref": "#/$defs/count"
+              },
+              "name": {
+                "$ref": "#/$defs/name"
+              },
+              "fuel": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "verdict": {
+                "$ref": "#/$defs/verdict"
+              }
+            }
+          }
+        }
+      }
+    },
+    "input": {
+      "description": "The input as fed: declarations, term nodes, levels and constant references in the checker's stores, and names in the stage.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "declarations",
+        "terms",
+        "levels",
+        "references",
+        "names"
+      ],
+      "properties": {
+        "declarations": {
+          "$ref": "#/$defs/count"
+        },
+        "terms": {
+          "$ref": "#/$defs/count"
+        },
+        "levels": {
+          "$ref": "#/$defs/count"
+        },
+        "references": {
+          "$ref": "#/$defs/count"
+        },
+        "names": {
+          "$ref": "#/$defs/count"
+        }
+      }
+    },
+    "time": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "wall",
+        "cpu"
+      ],
+      "properties": {
+        "wall": {
+          "$ref": "#/$defs/count"
+        },
+        "cpu": {
+          "$ref": "#/$defs/count"
+        }
+      }
+    },
+    "measured": {
+      "description": "Not deterministic, or how the run was made rather than what it found: wall and CPU time of each phase and of the whole run so far, in microseconds (null on a host without clocks; 0 for a phase that did not run, and a wall time of 0, not a negative one, when the host clock was set back during the phase), the peak resident memory of the process in bytes (VmHWM of /proc/self/status; null where the host does not give it), the bytes of heap blocks the stage held (null when nothing was staged) and the engine bin/leanforth ran. The engine is here, not in settings, so that the same check on either engine gives the same report but for this member.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "microseconds",
+        "peakResidentBytes",
+        "stageBytes",
+        "engine"
+      ],
+      "properties": {
+        "microseconds": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "stage",
+                "feed",
+                "check",
+                "total"
+              ],
+              "properties": {
+                "stage": {
+                  "$ref": "#/$defs/time"
+                },
+                "feed": {
+                  "$ref": "#/$defs/time"
+                },
+                "check": {
+                  "$ref": "#/$defs/time"
+                },
+                "total": {
+                  "$ref": "#/$defs/time"
+                }
+              }
+            }
+          ]
+        },
+        "peakResidentBytes": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/count"
+            }
+          ]
+        },
+        "stageBytes": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/count"
+            }
+          ]
+        },
+        "engine": {
+          "description": "The last part of the file name of the Forth engine bin/leanforth ran (LEANFORTH_ENGINE), as escaped display text: gforth, Gforth's checking engine, by default; gforth-fast with --fast. null when not known (not run by bin/leanforth).",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        }
+      }
+    },
+    "snapshot": {
+      "description": "The snapshot read (ADR 0020 D3): its file, its identity (the SHA-256 of its header, which holds every section's SHA-256), its format and verdict versions, the export it was written from, the manifest's SHA-256 (null when no manifest was checked), its base (null: a base snapshot) and the information text of the build that wrote it (a JSON text, shown, never compared).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "sha256",
+        "formatVersion",
+        "verdictVersion",
+        "export",
+        "manifestSha256",
+        "base",
+        "information"
+      ],
+      "properties": {
+        "file": {
+          "description": "Escaped display text of the file name as the command line gave it.",
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "formatVersion": {
+          "const": 1
+        },
+        "verdictVersion": {
+          "description": "kernel/verdict-version.fs: a snapshot of another verdict version is refused.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "export": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sha256",
+            "bytes",
+            "lines",
+            "manifestChecked",
+            "anyLeanVersion"
+          ],
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "bytes": {
+              "$ref": "#/$defs/count"
+            },
+            "lines": {
+              "$ref": "#/$defs/count"
+            },
+            "manifestChecked": {
+              "type": "boolean"
+            },
+            "anyLeanVersion": {
+              "type": "boolean"
+            }
+          }
+        },
+        "manifestSha256": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          ]
+        },
+        "base": {
+          "type": "null"
+        },
+        "information": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

@@ -32,9 +32,8 @@ COPIED = ["src", "tests/support", "tests/reference"]
 FAULTS = [
     ("publish before the final step: the slot marked final before its record",
      "src/kernel/env-publish.fs",
-     "lf-env-may-write lf-env-verdict dup lf-env-recorded? if lf-env-recorded then",
-     "lf-env-may-write lf-env-verdict 2dup lf-env-final drop dup lf-env-recorded?"
-     " if lf-env-recorded then"),
+     "  lf-env-may-write lf-env-verdict dup lf-env-recorded?\n",
+     "  lf-env-may-write lf-env-verdict 2dup lf-env-final drop dup lf-env-recorded?\n"),
     ("publish before the final step: accepted before the comparison (step 8)",
      "src/kernel/check-declaration.fs",
      "  lf-check-table dup @ 0 ?do",
@@ -51,8 +50,8 @@ FAULTS = [
      "  dup lf-levels = if 2drop true exit then lf-store-back ok? ;"),
     ("forget one store's rollback: the dependency pool after a failed publication",
      "src/kernel/env-publish.fs",
-     "  dup lf-span-all-open? if lf-env-pub-mark store-rollback drop then lf-span-clear ;",
-     "  lf-span-clear ;"),
+     "  lf-env-pub-mark store-rollback drop lf-env-look-mark store-rollback drop ;",
+     "  lf-env-look-mark store-rollback drop ;"),
     ("accept after an injected failure: a check that ends full is finished ok",
      "src/kernel/environment.fs",
      ": lf-env-finish ( outcome -- ) outcome-sane lf-env-cand lf-cand-outcome ! ;",

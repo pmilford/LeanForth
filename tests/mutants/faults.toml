@@ -356,8 +356,8 @@ reason = "a negative pool room is allowed (plan task 6.2.0: the pool has no most
 [[fault]]
 id = "env-pool-blocks-leak"
 file = "src/kernel/environment.fs"
-old = '''  lf-env-forget dup lf-envh-pool @ lf-pool-release free 0= flag>outcome ;'''
-new = '''  lf-env-forget free 0= flag>outcome ;'''
+old = '''  lf-env-forget dup lf-envh-pool @ lf-pool-release dup lf-envh-looks @ lf-pool-release'''
+new = '''  lf-env-forget dup lf-envh-looks @ lf-pool-release'''
 test = "$GFORTH tests/core/environment.fs"
 reason = "freeing an environment leaves its pool's blocks allocated (plan task 6.2.0)"
 
@@ -449,7 +449,7 @@ reason = "E4: the publisher trusts an ok check without any re-check"
 [[fault]]
 id = "pub-pool-room-ignored"
 file = "src/kernel/env-publish.fs"
-old = '''  if lf-pool-take else lf-pool-full then ;'''
+old = '''  if lf-pool-take else lf-cand-count@ swap lf-pool-full then ;'''
 new = '''  drop lf-pool-take ;'''
 test = "$GFORTH tests/core/environment.fs"
 reason = "a pool without room aborts in the publisher (invalid) instead of answering full"
@@ -473,8 +473,8 @@ reason = "a grown pool loses the dependencies published before it grew"
 [[fault]]
 id = "pub-pool-grows-corrupted"
 file = "src/kernel/env-publish.fs"
-old = ''': lf-pool-sound ( -- store true | false ) lf-env lf-env-pool dup store-count-valid? ?keep ;'''
-new = ''': lf-pool-sound ( -- store true ) lf-env lf-env-pool true ;'''
+old = '''  >r lf-env r@ execute @ cell+ dup store-count-valid? 0= if 2drop r> drop exit then'''
+new = '''  >r lf-env r@ execute @ cell+'''
 test = "$GFORTH tests/core/environment.fs"
 reason = "a pool with a corrupted count is grown, and the copy repairs it, instead of the hand-over failing when it marks the pool"
 
@@ -482,9 +482,9 @@ reason = "a pool with a corrupted count is grown, and the copy repairs it, inste
 id = "pub-final-before-outcome"
 file = "src/kernel/env-publish.fs"
 old = '''  lf-env-may-write 2dup lf-span-outcome! 2dup lf-span-skipped! over lf-span-added!
-  lf-env-before-final swap lf-span-final! ;'''
+  over lf-span-saved! lf-env-before-final swap lf-span-final! ;'''
 new = '''  lf-env-may-write over lf-span-final! 2dup lf-span-outcome! 2dup lf-span-skipped!
-  over lf-span-added! lf-env-before-final nip ;'''
+  over lf-span-added! over lf-span-saved! lf-env-before-final nip ;'''
 test = "$GFORTH tests/core/environment.fs"
 reason = "E4 step 3: the slot is marked final before its outcome is written"
 
@@ -508,8 +508,8 @@ reason = "a check that began another declaration has its candidate published"
 id = "pub-hand-over-in-job"
 file = "src/kernel/env-publish.fs"
 old = '''  context-in-job? if outcome-invalid true exit then
-  lf-env-target if lf-env-guarded else outcome-invalid true then ;'''
-new = '''  lf-env-target if lf-env-guarded else outcome-invalid true then ;'''
+  lf-env-target if lf-env-seal lf-env-guarded else outcome-invalid true then ;'''
+new = '''  lf-env-target if lf-env-seal lf-env-guarded else outcome-invalid true then ;'''
 test = "$GFORTH tests/core/environment.fs"
 reason = "G-P1: a hand-over inside a check throws instead of being refused"
 
@@ -2589,7 +2589,7 @@ reason = "the declarations' verdicts never reach the exit status, so every check
 [[fault]]
 id = "cli-prints-accepted-itself"
 file = "src/cli/leanforth.fs"
-old = '''  dup cli-name. ." : " dup lf-check-verdict. dup cli-not-proved. cr'''
+old = '''  dup cli-name. ." : " dup cli-verdict. dup cli-not-proved. cr'''
 new = '''  dup cli-name. ." : accepted (experimental, not independently audited); axioms: none" cr'''
 test = "python3 tests/cli/test_leanforth.py"
 reason = "trust boundary: the command line prints accepted itself, not the slot's verdict"
@@ -2631,8 +2631,8 @@ quick = true
 [[fault]]
 id = "cli-fed-read-no-code"
 file = "src/cli/leanforth.fs"
-old = '''  ck-loaded? if cli-tally-run else ck-read-outcome outcome>code cli-code! then ;'''
-new = '''  ck-loaded? if cli-tally-run then ;'''
+old = '''  ck-loaded? if cli-tally-run else ck-read-outcome outcome>code cli-code! then'''
+new = '''  ck-loaded? if cli-tally-run then'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "an export the stage or the feed refuses exits 0, as if every declaration were accepted"
 quick = true
@@ -6579,8 +6579,8 @@ reason = "rvUNNI L5: a declaration a stopped run never reached reads like the sk
 [[fault]]
 id = "fx8-report-version-0-1"
 file = "src/cli/check-json.fs"
-old = ''': cj-version ( -- c-addr u ) s" 0.2" ;'''
-new = ''': cj-version ( -- c-addr u ) s" 0.1" ;'''
+old = ''': cj-version ( -- c-addr u ) ck-snapped? if s" 0.3" else s" 0.2" then ;'''
+new = ''': cj-version ( -- c-addr u ) ck-snapped? if s" 0.3" else s" 0.1" then ;'''
 test = "python3 tests/cli/test_leanforth.py"
 reason = "rvUNNI M2: a report with the verdict skipped claims version 0.1, whose consumers refuse skipped"
 
@@ -8341,8 +8341,8 @@ reason = "SN2: declarations are written with their mdata marks, which sealing de
 [[fault]]
 id = "sn2-lines-unchecked"
 file = "src/import/snapshot-tier.fs"
-old = '''    over i u32s + u32@ tuck u> over staged-none = or if 2drop false unloop exit then'''
-new = '''    over i u32s + u32@ nip false if 2drop false unloop exit then'''
+old = '''  u< r> r> 2drop ;'''
+new = '''  2drop r> r> 2drop true ;'''
 test = "$GFORTH tests/core/snapshot-tier.fs"
 reason = "SN2: lines going back are not refused"
 
@@ -8369,3 +8369,99 @@ old = '''  dup stage-continued @ if noted? 0= else 2drop false then ;'''
 new = '''  2drop false ;'''
 test = "GFORTH=$GFORTH python3 tests/core/test_stage.py"
 reason = "SN2: after a continued read, a constant only an earlier read contained is refused as unknown"
+
+# --- the checked environment saved and loaded (plan task 6.2.5, step SN3) --
+
+[[fault]]
+id = "sn3-lookup-unrecorded"
+file = "src/kernel/environment.fs"
+old = '''  dup >r lf-env-lookup-found 2dup lf-look-found r> lf-look-find lf-look-key lf-env-noted ;'''
+new = '''  dup >r lf-env-lookup-found 2dup lf-look-found r> lf-look-find lf-look-key 2drop ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "SN3: a lookup not recorded: the I2 assertion sees a check read slots no recorded query answered"
+
+[[fault]]
+id = "sn3-failure-lookups-dropped"
+file = "src/kernel/env-publish.fs"
+old = '''  lf-cand-looked@ 0= if exit then
+  >r lf-looks-append'''
+new = '''  exit
+  >r lf-looks-append'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "SN3: a declaration not accepted is published without its lookups, which a later import replays"
+
+[[fault]]
+id = "sn3-provenance-unspread"
+file = "src/kernel/environment.fs"
+old = '''  lf-slot-provenance @ lf-env-cand lf-cand-provenance lf-or! ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "SN3: a declaration that uses a result from a snapshot is not labelled uses-snapshot"
+
+[[fault]]
+id = "sn3-verdict-version-unchecked"
+file = "src/kernel/env-snapshot.fs"
+old = ''': snap-fresh? ( snap -- flag ) sh-verdict swap head@ lf-verdict-version = ;'''
+new = ''': snap-fresh? ( snap -- flag ) drop true ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots"
+reason = "SN3: a snapshot of another verdict version (stale) is loaded"
+
+[[fault]]
+id = "sn3-fuel-unchecked"
+file = "src/kernel/env-snapshot.fs"
+old = '''  dup snap-fuel? 0= if outcome-invalid c" fuel" rot snap-refuse exit then'''
+new = ''''''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots"
+reason = "SN3: a snapshot written with other fuel is loaded for a run with --fuel N"
+
+[[fault]]
+id = "sn3-dependency-unchecked"
+file = "src/kernel/env-snapshot.fs"
+old = ''': dep-ok? ( prev dep snap -- dep flag ) snap-head @ over > >r tuck < r> and ;'''
+new = ''': dep-ok? ( prev dep snap -- dep flag ) drop nip true ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots"
+reason = "SN3: a saved dependency at or past its slot is not refused"
+
+[[fault]]
+id = "sn3-published-uncompared"
+file = "src/kernel/env-snapshot.fs"
+old = '''    i slot-same? 0= if c" slot published otherwise" i rot snap-note'''
+new = '''    false if c" slot published otherwise" i rot snap-note'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots"
+reason = "SN3: a slot the publisher published otherwise than saved (a lookup list out of order) is not refused"
+
+# --- review rvSN2 of the input tier's loader (src/import/snapshot-tier.fs) --
+
+[[fault]]
+id = "sn2-nat-text-unchecked"
+file = "src/import/snapshot-tier.fs"
+old = '''  dup nat-ok? 0= if drop outcome-invalid exit then
+'''
+new = ''''''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "rvSN2 m1: a natural literal's text not canonical decimal (\"03\") loads and reads as another number"
+
+[[fault]]
+id = "sn2-name-utf8-unchecked"
+file = "src/import/snapshot-tier.fs"
+old = '''  dup name-utf8? 0= if drop false exit then dup tf-names-of name-keyed swap name-hash-same? ;'''
+new = '''  dup tf-names-of name-keyed swap name-hash-same? ;'''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "rvSN2 m3: a name whose text is not UTF-8 loads, which the reader refuses"
+
+[[fault]]
+id = "sn2-lines-equal"
+file = "src/import/snapshot-tier.fs"
+old = '''  2dup = if 2drop r> r> staged-kind@ member-kind? exit then'''
+new = '''  2dup = if 2drop r> r> 2drop true exit then'''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "rvSN2 m4: a declaration on the line of the one before, not a member of a block, loads"
+
+[[fault]]
+id = "sn2-metadata-any"
+file = "src/import/snapshot-tier.fs"
+old = '''  dup stage-export export-any-version? 0= if drop outcome-unsupported exit then
+'''
+new = ''''''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "rvSN2 m2: a tier whose metadata names other versions loads into a stage that reads the pinned ones only"

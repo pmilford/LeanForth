@@ -40,6 +40,20 @@
 \ name it uses and its own (G-P5). A context in which a check threw is
 \ spent (G-P6, env-publish.fs): lf-env-begin refuses it, for good.
 \
+\ Lookups (ADR 0020 D1, D5, I2; plan task 6.2.5, step SN3). A check
+\ records in its candidate every name query it makes of the environment,
+\ deciding or aside, with its answer: lf-env-lookup-pass, the N2 queries
+\ (lf-env-fresh, lf-env-fresh-generated, lf-env-unheld, lf-env-skip's),
+\ lf-env-find, lf-env-first and lf-env-quot-held, each a kind (lf-look-...).
+\ The list is sorted by key (name number * 16 + kind) and distinct; the
+\ publisher stores it with the slot for every outcome (env-publish.fs),
+\ names a check made beyond its input collapsed into one key that a later
+\ import can never match. Nothing reads the list back into a check: the
+\ verdicts do not change, except that a check whose list the heap cannot
+\ hold is published full. A test build (lf-env-i2-checks defined before
+\ loading) counts every slot a check reads through lf-env-readable that
+\ no recorded query answered (lf-i2-misses).
+\
 \ Handles (E3): (identity, d) of an accepted slot. In a snapshot
 \ (identity', i) one is valid only when identity = identity', d < i and
 \ slot d is final and accepted; every other handle is invalid. In a
@@ -66,13 +80,15 @@
 \ written only by the publisher, which keeps its pool mark in the
 \ header, read by every check), two context records, one per context
 \ (ADR 0009): the candidate lf-env-cand and the worker record
-\ lf-env-worker, and the candidate's list of dependencies and its block's
-\ shapes, the context slabs lf-cand-deps and lf-cand-shapes; for the
+\ lf-env-worker, and the candidate's lists of dependencies and lookups and
+\ its block's shapes, the context slabs lf-cand-deps, lf-cand-looks and
+\ lf-cand-shapes; for the
 \ reports, the axiom sets each slot rests on, kept per context
 \ (lf-axd-state and the slabs lf-axd-rows, -row-of, -number and -axioms;
-\ lf-env-axiom-deps), and lf-env-gen-state. An environment must be freed
-\ only when no task uses it. The layout is host-specific and never
-\ serialized.
+\ lf-env-axiom-deps), and lf-env-gen-state; in a test build lf-i2-misses.
+\ An environment must be freed only when no task uses it. The layout is
+\ host-specific and never written to a file as it is (a snapshot,
+\ env-snapshot.fs, writes chosen fields in a fixed byte order).
 
 require ../lib/lib.fs
 require ../core/derivation-log.fs
@@ -114,6 +130,8 @@ begin-structure /lf-env
   field: lf-envh-mode       \ run mode
   field: lf-envh-pool       \ the pool's current block
   /store-mark +field lf-envh-pub-mark   \ the publisher's pool mark while it publishes
+  field: lf-envh-looks      \ the lookup pool's current block ("Lookups")
+  /store-mark +field lf-envh-look-mark  \ and the publisher's mark of it
 end-structure
 
 \ A slot (E2). Only the state and outcome mean anything for a declaration
@@ -138,6 +156,10 @@ begin-structure /lf-slot
                             \ (lf-shape-...); else 0
   field: lf-slot-skipped    \ true on a rejected declaration Lean's replay
                             \ skips, unchecked (lf-env-skipped!); else 0
+  field: lf-slot-looks      \ index in the pool of its first lookup (two cells each)
+  field: lf-slot-looked     \ its number of lookups, on every slot published
+  field: lf-slot-saved      \ true: published from a snapshot, not checked here
+  field: lf-slot-member     \ its place in the span it was published with (0: first)
 end-structure
 \ The recipe bits (ADR 0015 decision 12): the recursor LeanForth generated
 \ for the block can be built again from its input (generated-recursor.fs);
@@ -181,11 +203,17 @@ begin-structure /lf-cand
   field: lf-cand-shaped     \ members with a shape in lf-cand-shapes, from 0
   field: lf-cand-skipped    \ a declaration Lean's replay skips (lf-env-skipped!)
   field: lf-cand-early      \ true once the check found a slot below it not final
+  field: lf-cand-looked     \ lookups recorded
+  field: lf-cand-sealed     \ true once handed over or a view: nothing more recorded
+  field: lf-cand-lost       \ true when a lookup found no room: published full
+  field: lf-cand-saved      \ true: the snapshot's loader fills it (lf-env-saved!)
 end-structure
 /lf-cand context-record: lf-env-cand
 \ The dependencies' slots, ascending: a growable array, as long as the
 \ check needs (plan task 6.2.0).
 1 cells context-slab: lf-cand-deps
+\ The lookups, (key, answer) pairs ascending by key ("Lookups" below).
+2 cells context-slab: lf-cand-looks
 \ The shapes of a block's types (lf-env-shape!), by member: a growable
 \ array, as long as the block has types.
 1 cells context-slab: lf-cand-shapes
@@ -232,6 +260,83 @@ end-structure
 : lf-cand-shape@ ( k -- shape )
   dup lf-cand-shaped@ < if lf-cand-shapes slab-at @ else drop 0 then ;
 
+\ The candidate's lookups (see "Lookups" in the header). A key is a name
+\ number times 16 plus the query's kind; an answer the slot it gave + 1 (0
+\ for none) times 16, plus 8 for Lean's generated recursor (its holder's
+\ slot), plus the outcome. Both fit 32 bits: names and declarations are
+\ below 2^27 (ADR 0016 C1, C2). Keys compare unsigned.
+16 constant lf-look-kinds
+0 constant lf-look-find         \ lf-env-lookup-pass
+1 constant lf-look-fresh        \ lf-env-fresh: N2 of a declaration's own name
+2 constant lf-look-generated    \ lf-env-fresh-generated: N2 of a generated name
+3 constant lf-look-unheld       \ lf-env-unheld (the quotient's names)
+4 constant lf-look-seek         \ lf-env-find
+5 constant lf-look-type         \ lf-env-first for an inductive type (lf-slot-type?)
+6 constant lf-look-any          \ lf-env-first for any slot (lf-slot-any)
+7 constant lf-look-other        \ lf-env-first with a test of another module
+8 constant lf-look-quot         \ lf-env-quot-held, under the anonymous name
+8 constant lf-look-holder       \ an answer's bit: the generated recursor's holder
+u32-mask constant lf-look-outside   \ the key of names beyond the input (published)
+: lf-look-key ( name kind -- key ) swap lf-look-kinds * + ;
+: lf-look-answer ( d outcome -- answer ) swap 1+ lf-look-kinds * + ;
+\ The slot an answer gives + 1, 0 for none.
+: lf-look-slot+1 ( answer -- n ) 4 rshift ;
+: lf-cand-looked@ ( -- n ) lf-env-cand lf-cand-looked @ ;
+: lf-look-at ( k -- addr ) lf-cand-looks slab-at ;
+\ Recording is on in a check's candidate until the publisher seals it.
+: lf-look-on? ( -- flag )
+  lf-env-cand dup lf-cand-identity @ 0<> swap lf-cand-sealed @ 0= and ;
+\ Where key goes: the first entry whose key is not below it, by halving.
+: lf-look-halve ( key lo hi -- key lo' hi' )
+  2dup + 2/ dup >r lf-look-at @ 3 pick u< if nip r> 1+ swap else drop r> then ;
+: lf-look-place ( key -- key k )
+  0 lf-cand-looked@ begin 2dup < while lf-look-halve repeat drop ;
+: lf-look-has? ( key k -- flag )
+  dup lf-cand-looked@ < if lf-look-at @ = else 2drop false then ;
+: lf-look-open ( k -- )
+  dup lf-look-at dup 2 cells + rot lf-cand-looked@ swap - 2* cells move ;
+: lf-look-insert ( answer key k -- )
+  dup lf-look-open lf-look-at 2! 1 lf-env-cand lf-cand-looked +! ;
+: lf-look-room? ( -- flag ) lf-cand-looked@ 1+ lf-cand-looks slab-hold ok? ;
+: lf-look-lost ( answer key -- ) 2drop true lf-env-cand lf-cand-lost ! ;
+\ Record key with its answer, once: a check's queries of one key answer
+\ alike, as every slot below it is final while it runs (G-P5).
+: lf-look-add ( answer key -- )
+  lf-look-place 2dup lf-look-has? if drop 2drop exit then
+  lf-look-room? if lf-look-insert else drop lf-look-lost then ;
+: lf-env-noted ( answer key -- ) lf-look-on? if lf-look-add else 2drop then ;
+\ Record the answer (d outcome) of the query of kind about name.
+: lf-look-noted ( d outcome name kind -- d outcome )
+  lf-look-key >r 2dup lf-look-answer r> lf-env-noted ;
+\ The publisher's seal (env-publish.fs): recording ends, and the keys of
+\ names a check made beyond its input tier (core/names.fs; their numbers
+\ mean nothing outside its context), the last of the list, become the one
+\ key lf-look-outside. Without a view every name is the input's.
+: lf-look-input# ( -- n ) lf-name-view lf-nview-input @ tier-names cons-numbers ;
+: lf-look-outside! ( k -- )
+  dup lf-env-cand lf-cand-looked ! 0 lf-look-outside rot lf-look-at 2!
+  1 lf-env-cand lf-cand-looked +! ;
+: lf-look-collapse ( -- )
+  lf-name-viewed? 0= if exit then
+  lf-look-input# lf-look-kinds * lf-look-place nip
+  dup lf-cand-looked@ < if lf-look-outside! else drop then ;
+: lf-env-seal ( -- ) lf-look-on? if lf-look-collapse then true lf-env-cand lf-cand-sealed
+  ! ;
+\ The snapshot's loader (env-snapshot.fs) gives a candidate a saved
+\ lookup with lf-env-look!.
+: lf-env-look! ( answer key -- ) lf-look-add ;
+\ I2 in a test build: a slot read in a check must be one a recorded
+\ query answered.
+[defined] lf-env-i2-checks [if]
+variable lf-i2-misses  0 lf-i2-misses !
+: lf-look-gave? ( d -- flag )
+  1+ false lf-cand-looked@ 0 ?do over i lf-look-at cell+ @ lf-look-slot+1 = or loop nip ;
+: lf-env-i2 ( d -- d )
+  lf-look-on? if dup lf-look-gave? 0= if 1 lf-i2-misses +! then then ;
+[else]
+: lf-env-i2 ( d -- d ) ;
+[then]
+
 \ A context as a worker (G-P6). Zero in a new context; never cleared.
 begin-structure /lf-worker
   field: lf-worker-spent    \ true once a check in this context threw
@@ -265,6 +370,9 @@ end-structure
 \ (lf-env-live?) reads a whole, sealed store: the current one or an
 \ older one, which no longer changes. Unchecked: a live environment.
 : lf-env-pool ( env -- store ) lf-envh-pool @ cell+ ;
+\ The lookup pool ("Lookups") is a second pool, kept the same way: each
+\ lookup two records, its key, then its answer.
+: lf-env-looks ( env -- store ) lf-envh-looks @ cell+ ;
 \ Whether a pool of room records is a sound store shape, with a cell to
 \ spare for the link.
 : lf-pool-plan? ( room -- flag ) dup 0< 0= swap 1+ 1 cells 0 store-plan? and ;
@@ -285,8 +393,9 @@ end-structure
 : lf-env-sane? ( env -- flag )
   dup lf-envh-identity @ 1 lf-env-serial @ between?
   swap lf-env-length lf-input-capacity upto? and ;
+: lf-pool-sound? ( block|0 -- flag ) ?dup if cell+ store-count-valid? else false then ;
 : lf-env-pooled? ( env -- flag )
-  lf-envh-pool @ ?dup if cell+ store-count-valid? else false then ;
+  dup lf-envh-pool @ lf-pool-sound? swap lf-envh-looks @ lf-pool-sound? and ;
 : lf-env-live? ( env -- flag )
   ?dup 0= if false exit then
   dup lf-env-sane? if lf-env-pooled? else drop false then ;
@@ -315,12 +424,19 @@ end-structure
 : lf-slot-invalid! ( slot -- ) lf-env-may-write outcome-invalid swap lf-slot-outcome ! ;
 : lf-env-unpublished ( env -- env )
   dup lf-env-length 0 ?do i over lf-env-slot lf-slot-invalid! loop ;
-\ Give the environment a pool of deps records: (env ok); or (0 invalid)
-\ for an unsound deps, (0 full) when the heap has no room, the
-\ environment's memory freed.
+\ Give the environment its two pools of deps records each: (env ok); or
+\ (0 invalid) for an unsound deps, (0 full) when the heap has no room,
+\ the environment's memory freed.
+: lf-env-block ( room env field -- env outcome )
+  >r swap lf-pool-block dup ok? if drop over r> execute ! outcome-ok else nip r> drop then
+  ;
+: lf-env-scrap ( env outcome -- 0 outcome ) >r free drop 0 r> ;
+: lf-env-unpool ( env outcome -- 0 outcome ) over lf-envh-pool @ lf-pool-release
+  lf-env-scrap ;
 : lf-env-pooled ( deps env -- env outcome )
-  swap lf-pool-block dup ok? if drop over lf-envh-pool ! outcome-ok exit then
-  >r drop free drop 0 r> ;
+  over over ['] lf-envh-pool lf-env-block dup ok? 0= if >r nip nip r> lf-env-scrap exit
+  then
+  2drop ['] lf-envh-looks lf-env-block dup ok? 0= if lf-env-unpool then ;
 \ The axiom allowlist (core/axiom-allowlist.fs): its version, and the bits
 \ that count as proved.
 : lf-env-allowlist ( env -- env )
@@ -346,7 +462,8 @@ end-structure
   0 over lf-envh-identity ! ;
 : lf-env-free ( env -- outcome )
   dup lf-env-choosable? 0= if drop outcome-invalid exit then
-  lf-env-forget dup lf-envh-pool @ lf-pool-release free 0= flag>outcome ;
+  lf-env-forget dup lf-envh-pool @ lf-pool-release dup lf-envh-looks @ lf-pool-release
+  free 0= flag>outcome ;
 \ Make a live environment current: ok, or invalid with nothing changed
 \ when it is not live or inside a job.
 : lf-env-use ( env -- outcome )
@@ -444,7 +561,8 @@ end-structure
 \ A snapshot of every slot, for queries once a run has ended: ok, or
 \ invalid without a valid current environment. It is not a check.
 : lf-env-view ( -- outcome )
-  lf-env-clear lf-env-current 0= if outcome-invalid exit then
+  lf-env-clear true lf-env-cand lf-cand-sealed ! lf-env-current 0= if outcome-invalid exit
+  then
   dup lf-env-length swap lf-env-snap! outcome-ok ;
 \ End the check with its outcome.
 : lf-env-finish ( outcome -- ) outcome-sane lf-env-cand lf-cand-outcome ! ;
@@ -455,7 +573,7 @@ end-structure
 \ (0 invalid), recording lf-diag-env-handle.
 : lf-env-below? ( d env i -- d env flag ) >r over 0 r> within ;
 : lf-env-readable ( d -- slot true | false )
-  lf-env-snapshot 0= if drop false exit then
+  lf-env-i2 lf-env-snapshot 0= if drop false exit then
   lf-env-below? if lf-env-slot lf-final-slot else 2drop false then ;
 : lf-env-refuse ( d -- 0 outcome )
   lf-env-cand lf-cand-identity @ swap c" environment lf-env-accepted"
@@ -509,11 +627,11 @@ end-structure
   0 >r rot lf-input-newest begin dup 0< 0= while
     lf-env-chain-step if r> 1+ >r then lf-input-before
   repeat drop 2drop r> ;
-: lf-env-first ( name test limit -- d|-1 )
+: lf-env-earliest ( name test limit -- d|-1 )
   lf-input-indexed? if lf-env-chain-first else lf-env-scan-first then ;
 : lf-env-matches ( name test limit -- n )
   lf-input-indexed? if lf-env-chain-matches else lf-env-scan-matches then ;
-: lf-env-any? ( name limit test -- flag ) swap lf-env-first 0< 0= ;
+: lf-env-any? ( name limit test -- flag ) swap lf-env-earliest 0< 0= ;
 
 \ Finding a constant (E5) once every same-named slot below limit is final.
 \ With none accepted, K5 (unknown first, ADR 0012 E5 as amended): the
@@ -527,7 +645,7 @@ end-structure
   0 c" environment lf-env-lookup" lf-diag-dependency-unsupported lf-diag-note
   outcome-unsupported ;
 : lf-env-unsupported ( name limit -- outcome )
-  ['] lf-slot-unsupported? swap lf-env-first
+  ['] lf-slot-unsupported? swap lf-env-earliest
   dup 0< if drop outcome-rejected else lf-env-k5-unsupported then ;
 \ A recursor Lean's kernel generated that no slot holds and that cannot
 \ be built again (its type left no recipe; ADR 0015 decision 12):
@@ -535,17 +653,17 @@ end-structure
 : lf-env-generated ( name d -- outcome )
   c" environment lf-env-lookup" lf-diag-generated-recursor lf-diag-note outcome-unknown ;
 : lf-env-undecided ( name limit -- outcome )
-  2dup ['] lf-slot-undecided? swap lf-env-first
+  2dup ['] lf-slot-undecided? swap lf-env-earliest
   dup 0< if drop lf-env-unsupported else nip nip lf-env-k5-unknown then ;
 : lf-env-decide ( name limit -- d outcome )
   2dup ['] lf-slot-usable? swap lf-env-matches case
     0 of lf-env-undecided no-result endof
-    1 of ['] lf-slot-usable? swap lf-env-first outcome-ok endof
+    1 of ['] lf-slot-usable? swap lf-env-earliest outcome-ok endof
     >r 2drop -1 outcome-invalid r> endcase ;
 : lf-env-early ( name limit -- d outcome )
-  tuck ['] lf-slot-open? swap lf-env-first swap c" environment lf-env-lookup"
+  tuck ['] lf-slot-open? swap lf-env-earliest swap c" environment lf-env-lookup"
   lf-diag-too-early lf-diag-note -1 outcome-invalid ;
-: lf-env-find ( name limit -- d outcome )
+: lf-env-seek ( name limit -- d outcome )
   2dup ['] lf-slot-open? lf-env-any? if lf-env-early else lf-env-decide then ;
 : lf-env-name-ok? ( name -- flag ) lf-name-valid? lf-name-storage-valid? and ;
 : lf-env-bad-name ( name -- d outcome )
@@ -600,7 +718,7 @@ create lf-env-holders
   ' lf-slot-type-unsupported? , outcome-unsupported ,
 here lf-env-holders - 2 cells / constant lf-env-holders#
 : lf-env-held ( prefix limit entry -- d class true | false )
-  dup cell+ @ >r @ swap lf-env-first dup 0< if drop r> drop false else r> true then ;
+  dup cell+ @ >r @ swap lf-env-earliest dup 0< if drop r> drop false else r> true then ;
 : lf-env-holding ( prefix limit -- d class )
   lf-env-holders lf-env-holders# 2* cells bounds ?do
     2dup i lf-env-held if 2swap 2drop unloop exit then
@@ -639,7 +757,7 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
 \ once one is initialised, those names are declared whatever the file
 \ holds, and check_name refuses any other declaration of one of them.
 \ LeanForth publishes one quotient record per slot, so the quotient
-\ records below limit hold the four names (lf-env-quot-held) -- declared
+\ records below limit hold the four names (lf-env-quot-held-pass) -- declared
 \ when one is accepted (the quotient is initialised), K5 when one is
 \ undecided or unsupported, too early when one is not final -- (d class)
 \ as lf-env-holding gives them; (-1 rejected) when none holds them, or
@@ -671,15 +789,15 @@ here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
 : lf-env-quot-found ( limit test -- d|-1 outcome )
   4 0 ?do
     i lf-env-quot-text lf-stmt-intern 0= if drop 2drop -1 outcome-full unloop exit then
-    over 3 pick lf-env-first dup 0< 0= if nip nip outcome-ok unloop exit then drop
+    over 3 pick lf-env-earliest dup 0< 0= if nip nip outcome-ok unloop exit then drop
   loop 2drop -1 outcome-ok ;
-: lf-env-quot-held ( limit -- d class )
+: lf-env-quot-held-pass ( limit -- d class )
   lf-env-quot-holders lf-env-quot-holders# 2* cells bounds ?do
     dup i @ lf-env-quot-found ok-then? 0= if nip -1 swap unloop exit then
     dup 0< 0= if nip i cell+ @ unloop exit then drop
   2 cells +loop drop -1 outcome-rejected ;
 : lf-env-quot-holding ( name limit -- d class )
-  swap lf-env-quot-name? if lf-env-quot-held else drop -1 outcome-rejected then ;
+  swap lf-env-quot-name? if lf-env-quot-held-pass else drop -1 outcome-rejected then ;
 
 \ Whether a type that may hold name below i, or a quotient record that
 \ holds it, is not final (the scheduler's readiness, lf-env-ready?); a
@@ -745,12 +863,20 @@ here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
 \ holder type left no recipe, else (-1 unsupported) when one was
 \ unsupported (K5, unknown first); (-1 invalid) without a valid snapshot
 \ or name, when a same-named earlier slot or a holder type is not final
-\ (started too early), or when two were usable.
-: lf-env-lookup-pass ( name -- d outcome )
+\ (started too early), or when two were usable. Recorded in the
+\ candidate (lf-look-find); a generated recursor's answer is its holder's
+\ slot, marked.
+: lf-env-lookup-found ( name -- d outcome )
   0 lf-env-gen-state !
   lf-env-snapshot 0= if drop -1 outcome-invalid exit then nip
   over lf-env-name-ok? 0= if drop lf-env-bad-name exit then
-  2dup lf-env-find dup ok? if 2swap 2drop exit then nip lf-env-n1 ;
+  2dup lf-env-seek dup ok? if 2swap 2drop exit then nip lf-env-n1 ;
+: lf-look-holder-answer ( -- answer )
+  lf-env-genrec-of outcome-ok lf-look-answer lf-look-holder or ;
+: lf-look-found ( d outcome -- answer )
+  over 0< over ok? and if 2drop lf-look-holder-answer else lf-look-answer then ;
+: lf-env-lookup-pass ( name -- d outcome )
+  dup >r lf-env-lookup-found 2dup lf-look-found r> lf-look-find lf-look-key lf-env-noted ;
 \ The derivation log (ADR 0013): with it on, a lookup is one resolve step
 \ of the name, its result the slot found.
 : lf-env-lookup-logged ( name -- d outcome )
@@ -788,7 +914,7 @@ here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
 \ before K5); no usable declaration of it (the slots of that
 \ name: accepted, or added by Lean's kernel with a block rejected only by
 \ B3, R2-1), and no accepted or added type T with name T.rec (Lean's
-\ generated recursor, review rvI21 B2) (lf-env-unheld); for any
+\ generated recursor, review rvI21 B2) (lf-env-unheld-pass); for any
 \ declaration but a quotient record (quot.fs checks those as add_quot
 \ does), also not one of the four quotient names once the quotient is
 \ initialised (lf-env-fresh). ok, rejected, unknown, unsupported,
@@ -799,17 +925,21 @@ here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
 \ added the skipped declaration of that name: lf-env-fresh-generated
 \ runs every test but lf-env-unskipped (review rvUNNI M1).
 : lf-env-unskipped ( name limit -- outcome )
-  ['] lf-slot-skipped? swap lf-env-first
+  ['] lf-slot-skipped? swap lf-env-earliest
   dup 0< if drop outcome-ok else lf-env-declared then ;
 : lf-env-unused ( name limit -- outcome )
-  2dup lf-env-find lf-env-n2 dup ok? 0= if nip nip exit then drop
+  2dup lf-env-seek lf-env-n2 dup ok? 0= if nip nip exit then drop
   lf-env-reserving lf-env-n2-held ;
-: lf-env-unheld ( name limit -- outcome )
+: lf-env-unheld-pass ( name limit -- outcome )
   2dup lf-env-unskipped dup ok? 0= if nip nip exit then drop lf-env-unused ;
 : lf-env-unquot ( name limit outcome -- outcome )
   dup ok? 0= if nip nip exit then drop lf-env-quot-holding lf-env-n2-quot ;
-: lf-env-fresh ( name limit -- outcome ) 2dup lf-env-unheld lf-env-unquot ;
-: lf-env-fresh-generated ( name limit -- outcome ) 2dup lf-env-unused lf-env-unquot ;
+\ An N2 query's answer, recorded under name with kind ("Lookups").
+: lf-look-n2 ( name outcome kind -- outcome ) >r -1 swap rot r> lf-look-noted nip ;
+: lf-env-fresh ( name limit -- outcome )
+  over >r 2dup lf-env-unheld-pass lf-env-unquot r> swap lf-look-fresh lf-look-n2 ;
+: lf-env-fresh-generated ( name limit -- outcome )
+  over >r 2dup lf-env-unused lf-env-unquot r> swap lf-look-generated lf-look-n2 ;
 : lf-env-own-name-pass ( -- outcome )
   lf-env-checking 0= if outcome-invalid exit then nip
   lf-name-storage-valid? 0= if drop outcome-invalid exit then
@@ -834,7 +964,11 @@ here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
 \ lean4export's parser refuses a name given twice (Parse.lean 78-80).
 \ Invalid without a check's snapshot or with a corrupted name store.
 : lf-slot-any ( slot -- true ) drop true ;
-: lf-env-earlier ( d -- d'|-1 ) lf-input-name ['] lf-slot-any lf-env-limit lf-env-first ;
+\ A scan's first slot d (-1 none), recorded under name with kind.
+: lf-look-first ( d name kind -- d ) >r outcome-ok swap r> lf-look-noted drop ;
+: lf-env-earlier ( d -- d'|-1 )
+  lf-input-name dup ['] lf-slot-any lf-env-limit lf-env-earliest swap lf-look-any
+  lf-look-first ;
 : lf-env-twin ( k -- d d'|-1 ) lf-env-limit + dup lf-env-earlier ;
 : lf-env-twice ( n -- d d' | -1 -1 )
   0 ?do i lf-env-twin dup 0< 0= if unloop exit then 2drop loop -1 -1 ;
@@ -850,6 +984,22 @@ here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
   lf-env-skip-ready? 0= if 2drop drop outcome-invalid exit then
   lf-env-twice dup 0< if 2drop lf-env-unchecked exit then
   2swap 2drop lf-env-given-twice ;
+\ The name queries other modules make (inductive-block.fs,
+\ inductive-nested.fs, quot.fs), each recorded ("Lookups"); the words
+\ here use the unrecorded forms. lf-env-first records its test's kind: an
+\ inductive type, any slot, or another module's test (lf-look-other,
+\ which a later import cannot replay).
+: lf-env-unheld ( name limit -- outcome )
+  over >r lf-env-unheld-pass r> swap lf-look-unheld lf-look-n2 ;
+: lf-env-find ( name limit -- d outcome ) over >r lf-env-seek r> lf-look-seek
+  lf-look-noted ;
+: lf-look-test ( test -- kind )
+  dup ['] lf-slot-type? = if drop lf-look-type exit then
+  ['] lf-slot-any = if lf-look-any else lf-look-other then ;
+: lf-env-first ( name test limit -- d|-1 )
+  >r 2dup r> lf-env-earliest -rot lf-look-test lf-look-first ;
+: lf-env-quot-held ( limit -- d class ) lf-env-quot-held-pass 0 lf-look-quot lf-look-noted
+  ;
 \ G-P5, for a scheduler outside any check: whether every declaration
 \ before i named name has a final slot in the current environment, and,
 \ for a name a generated recursor may hold (lf-env-reserving), every type
@@ -887,6 +1037,12 @@ here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
 : lf-cand-union ( slot -- )
   dup lf-slot-axioms @ lf-env-cand lf-cand-axioms lf-or!
   lf-slot-provenance @ lf-env-cand lf-cand-provenance lf-or! ;
+\ The snapshot's loader (env-snapshot.fs) fills a candidate from a saved
+\ slot: lf-env-saved! marks it as taken from saved results (ADR 0012 E8:
+\ provenance saved, which every user joins; the slot is marked saved).
+: lf-env-saved! ( -- )
+  true lf-env-cand lf-cand-saved ! lf-provenance-saved lf-env-cand lf-cand-provenance
+  lf-or! ;
 : lf-cand-room? ( -- flag ) lf-cand-count@ 1+ lf-cand-deps slab-hold ok? ;
 : lf-cand-full ( d slot -- outcome )
   2drop lf-cand-count@ lf-cand-deps slab-capacity c" environment lf-env-depend"
@@ -971,6 +1127,18 @@ here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
 \ axioms: none" (ADR 0011).
 : lf-env-outcome ( d -- outcome )
   lf-env-readable if lf-slot-outcome@ else outcome-invalid then ;
+\ Where declaration d's verdict comes from (ADR 0020 D4, OQ-3; ADR 0012
+\ E8): lf-origin-checked in this run, lf-origin-uses when checked here
+\ but resting on saved results, lf-origin-saved when taken from a
+\ snapshot and not checked here; checked when unreadable.
+0 constant lf-origin-checked  1 constant lf-origin-uses  2 constant lf-origin-saved
+: lf-slot-origin ( slot -- n )
+  dup lf-slot-saved @ if drop lf-origin-saved exit then
+  lf-slot-provenance @ lf-provenance-saved and 0<> lf-origin-uses and ;
+: lf-env-origin ( d -- n ) lf-env-readable if lf-slot-origin else lf-origin-checked then ;
+\ A run of saved results is a development run (E8): the environment's
+\ mode, set by the snapshot's loader before any slot is published.
+: lf-env-develop ( env -- ) lf-env-may-write lf-mode-development swap lf-envh-mode ! ;
 \ Whether declaration d is one Lean's replay skips (lf-env-skipped!): its
 \ outcome rejected, which reports call skipped; false when unreadable.
 : lf-env-skipped? ( d -- flag ) lf-env-readable if lf-slot-skipped? else false then ;
@@ -1060,6 +1228,11 @@ lf-axd-cell-bits constant lf-axd-bits   \ bits per cell
 : lf-axd-top ( -- addr ) lf-axd-rows slab-top ;
 : lf-axd-row-of@ ( d -- r ) lf-axd-row-of slab-at @ ;
 : lf-dep-at ( k slot -- d ) lf-slot-deps @ + lf-env lf-env-pool store-slot @ ;
+\ Lookup k of a published slot: its key and answer (two records each in
+\ the lookup pool).
+: lf-look-cell ( i -- x ) lf-env lf-env-looks store-slot @ ;
+: lf-slot-look ( k slot -- key answer )
+  lf-slot-looks @ swap 2* + dup lf-look-cell swap 1+ lf-look-cell ;
 \ Numbering: the accepted axioms below the limit; room for the per-slot
 \ arrays; row 0, empty; the key the rows are kept for.
 : lf-axd-axiom? ( d -- flag )

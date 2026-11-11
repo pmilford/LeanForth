@@ -183,9 +183,11 @@ T{ env-a ' lf-env-use rs-checked lf-env env-a = -> outcome-ok true }T
 \ memory, so it copies env-a and clears the copy's identity; with env-a's
 \ identity the same copy is live, so only the identity decides.
 main-count lf-env-bytes constant env-a-size
-\ The copy gets a pool block of its own, so that freeing it frees none of
-\ env-a's.
-: own-pool ( env -- env ) 8 lf-pool-block ok? 0= abort" pool" over lf-envh-pool ! ;
+\ The copy gets pool blocks of its own (dependencies and lookups), so
+\ that freeing it frees none of env-a's.
+: own-block ( env field -- env )
+  8 lf-pool-block ok? 0= abort" pool" swap >r over r> execute ! ;
+: own-pool ( env -- env ) ['] lf-envh-pool own-block ['] lf-envh-looks own-block ;
 : env-copy ( identity -- env )
   env-a-size allocate throw env-a over env-a-size move tuck lf-envh-identity ! own-pool ;
 \ Free env: by lf-env-free when it accepts, else here.
@@ -645,7 +647,9 @@ variable flag-calls
   1 flag-calls +! flag-calls @ 1 = if main-maker else flag-maker then ;
 : run-caught ( check maker -- outcome ior ) ['] lf-env-run catch dup if >r 2drop -1 r> then ;
 variable home-7
-: from-spare ( -- ) spare home-7 ! 8 fresh-env ;
+\ (The spare context's lookup list gets its heap block first: it is the
+\ context's, freed with it, not the run's.)
+: from-spare ( -- ) spare home-7 ! 8 fresh-env 8 lf-cand-looks slab-hold drop ;
 : back-home? ( -- flag ) lf-context @ home-7 @ = ;
 from-spare live-blocks @ constant blocks-7
 T{ ' throwing-check ' flag-maker run-caught back-home? -> outcome-invalid 0 true }T
@@ -738,7 +742,8 @@ T{ env-other lf-env-free -> outcome-ok }T
 \ and 3 makes three, and none is left once the run ends.
 : thrice-throwing ( -- ) me 1 4 within if -78 throw then syn-check ;
 spare constant spare-3
-8 fresh-env 0 makes ! live-blocks @ constant blocks-then
+\ (Room for every lookup, so that the environment's pools do not grow.)
+1024 fresh-env 8 lf-cand-looks slab-hold drop 0 makes ! live-blocks @ constant blocks-then
 T{ ' thrice-throwing ' counting-maker lf-env-run makes @ live-blocks @ blocks-then - -> outcome-ok 3 0 }T
 lf-env-view drop
 T{ lf-context @ spare-3 = 1 lf-env-outcome 3 lf-env-outcome 4 lf-env-outcome -> true outcome-invalid outcome-invalid outcome-unknown }T
@@ -792,7 +797,7 @@ env-free spare-6 unspare
 \ check in the new context, which is freed.
 spare constant twice-loaded
 main-input
-8 fresh-env 0 makes ! live-blocks @ constant blocks-twice
+1024 fresh-env 8 lf-cand-looks slab-hold drop 0 makes ! live-blocks @ constant blocks-twice
 T{ ' throwing-check ' counting-maker lf-env-run makes @ live-blocks @ blocks-twice - -> outcome-invalid 1 0 }T
 lf-env-view drop
 T{ 1 lf-env-outcome 2 slot@ lf-slot-final? lf-context @ twice-loaded = -> outcome-invalid false true }T
@@ -889,6 +894,22 @@ T{ 1 lf-env-outcome 1 provenance 23 provenance 11 provenance -> outcome-ok 1 1 0
 env-free
 lf-mode-final provenance-trial
 T{ 1 lf-env-outcome 11 lf-env-outcome 11 provenance -> outcome-invalid outcome-ok 0 }T
+env-free
+\ The snapshot's loader (plan step SN3, kernel/env-snapshot.fs) fills a
+\ candidate marked saved (lf-env-saved!): in a development run it is
+\ published saved and its users, directly or not, rest on it
+\ (lf-env-origin: snapshot, uses-snapshot, checked); in a final run the
+\ publisher refuses it (invalid).
+: saved-check ( -- ) me 0= if lf-env-saved! then syn-check ;
+: origin-trial ( mode -- )
+  8 fresh-env lf-env lf-envh-mode ! ['] saved-check main-count checked-run lf-env-view drop ;
+: origins ( -- o0 o1 o23 o11 )
+  0 lf-env-origin 1 lf-env-origin 23 lf-env-origin 11 lf-env-origin ;
+lf-mode-development origin-trial
+T{ origins 0 lf-env-outcome -> lf-origin-saved lf-origin-uses lf-origin-uses lf-origin-checked outcome-ok }T
+env-free
+lf-mode-final origin-trial
+T{ 0 lf-env-outcome 11 lf-env-origin -> outcome-invalid lf-origin-checked }T
 env-free
 T{ step-failures @ -> 0 }T
 

@@ -459,6 +459,107 @@ files, tests and planted faults, is kept with the agents' work notes.
 - **Storing the hash tables now**: a faster load for a 50% larger file and
   a format tied to the hash function; left to measurement and the owner.
 
+## Amendment 1 (2026-11-11): step SN3, and the owner's decisions F1 and F5
+
+*Agent SN3; [kernel] (the lookup recording, I2) and [format] (snapshot
+format 1, check report 0.3) review pending, and the owner's approval.*
+
+**F1 (owner): lookup tables are rebuilt on load, never stored.** This
+answers question 1 below: the file holds no hash table, address or hash
+value but a name's stored data word (SN2's tier sections, unchanged), and
+the loader builds every table at its final size.
+
+**F5 (owner): layered snapshots.** A library's snapshot holds only its own
+records and slots and its base's identity; loading is the base, then any
+number of layers in order; a name defined with different content in two
+layers is refused, as Lean refuses an import clash. Step SN3 writes and
+reads base snapshots only; the format already has what layers need, so
+SN4/SN5 add them without a format change:
+- the header's caller fields 7 (the number of layers below this one, 0
+  for a base) and 8-15 (the base's identity: its header's SHA-256, zero
+  for a base);
+- the identity section's fields 21-28: the first number of each tier
+  section (name bytes, names, levels, lists, text bytes, texts,
+  expressions, declarations), zero in a base; a layer's records and slots
+  are numbered on from its base's counts, so every reference stays a
+  number of the one loaded tier;
+- the loader (SN4/SN5): the base as now, then each layer's tier sections
+  entered after the base's records by the same record checks
+  (`tier-read` continuing the numbering, as `stage-continue` does for an
+  export), the clash check by name over the declarations, then the
+  layer's slots published after the base's by the same publisher steps.
+Today a snapshot with field 7 or 8-15 non-zero, or a first number other
+than 0, is refused as *unsupported* (a layer).
+
+**What SN3 implements** (`src/kernel/env-snapshot.fs`, whose header gives
+the layout byte by byte; `src/kernel/verdict-version.fs`):
+- *Lookups* (D1, D5, I2; `src/kernel/environment.fs`, "Lookups"): a
+  check records in its candidate every name query it makes of the
+  environment, deciding or aside, sorted by key (name number × 16 + kind)
+  and distinct, each with its answer (the slot it gave + 1 or 0, times 16;
+  8 for the generated recursor's holder; the outcome). The kinds are the
+  queries' entry points: `lf-env-lookup-pass` (0), N2's `lf-env-fresh`
+  (1), `lf-env-fresh-generated` (2) and `lf-env-unheld` (3),
+  `lf-env-find` (4), `lf-env-first` for an inductive type (5), any slot
+  (6) or another module's test (7, which an import cannot replay), and the
+  quotient's `lf-env-quot-held` (8, under the anonymous name). Names a check
+  made beyond its input (its own scratch names) are collapsed when
+  published into one key that no import can match, so such a declaration
+  is always checked again (8 declarations of `Init`). The publisher stores
+  the list for *every* outcome (an import replays a rejection too) in a
+  second pool beside the dependency pool, marked and rolled back with it.
+  A list the heap cannot grow makes the declaration *full* (diagnostic
+  100), never an incomplete list. Today's checker reads no constant
+  payload (`import/stage.fs`), so there is no payload path to record; when
+  ADR 0016 C9 steps 4-6 read payloads, each such read must record its
+  lookup. A test build (`lf-env-i2-checks`) counts every slot a check
+  reads through `lf-env-readable` that no recorded query answered: zero
+  on every pinned export and fixture (`tests/core/env-snapshot.fs`).
+- *Identity* (D3): the container (`lib/sections.fs`, SN1) has its own
+  magic and 16 caller fields: 0 the mark "LFSN", 1 the snapshot format
+  (1), 2 the verdict version, 3-4 the fuel, 5-6 the allowlist's version
+  and bits, 7-15 the layers (above). The rest of D3's identity, which does
+  not fit 16 fields, is the identity section (the export's SHA-256, bytes,
+  lines, flags; the manifest's SHA-256), protected like every section by
+  its SHA-256 in the header. The manifest's bytes and an information text
+  (LeanForth's version, commit, Gforth, engine, cell width) are sections
+  of their own; the information is the only part that names the build.
+  The file's identity, printed in every report, is its header's SHA-256,
+  which covers every section's.
+- *Slots*: 72 bytes each (outcome; skipped, added and span marks;
+  provenance; axiom bits; warnings; recipe; shape; fuel used, 64-bit;
+  the counts of its dependencies and lookups; its diagnostic: code, two
+  64-bit numbers, step, site), each list written in slot order, so the
+  file never depends on the order of publication: `--jobs 1` and
+  `--jobs 4` write the same bytes.
+- *Loading as the publisher* (D4): after the header, table and tier (every
+  record checked as SN2 says) and the environment's sections (every field
+  in range, dependencies ascending and below their span's first slot,
+  lookups' kinds and answers below it), the loader runs the publisher's
+  own serial steps with a check word that fills each candidate from its
+  saved slot, marked *saved*: the publisher re-checks it as a check's
+  (dependencies usable and ascending, the axiom set their union with the
+  axiom's own bit computed again, provenance, N2, kind) and publishes it
+  final in a development environment; then every published slot is
+  compared with its saved fields and lists (an out-of-order list, for
+  example, is refused). A slot is labelled from its provenance: taken from
+  the snapshot, checked here but resting on it (step SN4), or checked.
+- *Failures* (D6): as the table says, except that the container's
+  *rejected* (a SHA-256 that differs) is reported *invalid*, and a
+  layered snapshot is *unsupported*.
+
+**Measured on all of `Init`** (59,349 declarations; `gforth-fast`, a
+loaded 10-core machine; the export with its manifest): every verdict,
+fuel, axiom set and diagnostic of `check --jobs 4` identical to main's
+(233916d) and to the snapshot's reload (`check --snapshot`); 20.2
+dependencies and 36.1 lookups per declaration (at most 445 lookups);
+file 132.9 MB (expressions 97.8 MB, lookups 17.1 MB, dependencies 4.8 MB,
+slots 4.3 MB); writing it about 3 s; loading and reporting 10.0 s (read
+and check 4.9 s, feed 1.8 s, publish and compare 2.1 s) at a peak of 0.69
+GB. This corrects D7's assumption of 20-40 per declaration: Mathlib's
+dependencies and lookups take about 729,263 × (4 × 20 + 8 × 36) bytes,
+0.27 GB.
+
 ## Questions for the owner
 
 1. **Load speed against file size.** Rebuild the lookup tables when

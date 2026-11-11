@@ -247,6 +247,35 @@ ever turns a failure into ok.
 | `lf-env-run` | `( check maker -- outcome )` | the serial publisher of phase 2: every declaration in input order, in the current context until a check throws, then in a new one from `maker ( -- context ior )`, which must hold the same input, loaded the same way (G-P6). It adopts only a context that is idle, neither the main nor the current one, and not spent (an address that cannot be read is refused, not a `THROW`, where the host turns the memory fault into a `THROW`, as Gforth does), from a maker that leaves exactly two cells and the current environment as it found it, checked before anything is freed; it frees the contexts it made, never one a maker gave that it refused, and returns to the caller's, which it never frees. The check and the maker wait on the return stack while the other runs. ok only when, at its end, the environment it started in is still current and every slot is final; invalid when a fault stopped it, inside a job or a check, when no new context could be adopted, or when a maker left another environment current (or none) |
 | `lf-env-before-final` | deferred `( -- )` | test-only fault injection between writing a slot and marking it final; compiled as a `DEFER` only when a test defines `lf-env-fault-hooks` before loading, otherwise an empty word |
 
+### Lookup lists and snapshots (`src/kernel/environment.fs`, `src/kernel/env-snapshot.fs`; plan task 6.2.5, step SN3)
+
+Every check records in its candidate each name query it makes of the
+environment and the answer it got, sorted and distinct (the header of
+`environment.fs`, "Lookups", and [ADR 0020's amendment
+1](../adr/0020-checked-snapshot.md#amendment-1-2026-11-11-step-sn3-and-the-owners-decisions-f1-and-f5)
+list the kinds); the publisher seals the list at the hand-over and stores
+it, for every outcome, in a second pool beside the dependency pool,
+grown, marked and rolled back as that one is (`lf-slot-looks`,
+`lf-slot-looked`, `lf-slot-look ( k slot -- key answer )`). Nothing reads
+the list back into a check: the verdicts do not change (all of `Init`
+identical), except that a check whose list the heap cannot grow is
+published *full* (diagnostic 100). A test build defining
+`lf-env-i2-checks` before loading counts in `lf-i2-misses` every slot a
+check reads through `lf-env-readable` that none of its recorded queries
+answered (ADR 0020 I2).
+
+A snapshot (`env-snapshot.fs`, whose header gives the format byte by
+byte) saves a run's tier and environment; loading it runs the publisher's
+own serial steps with `snap-fill` as the check word, which fills each
+candidate from its saved slot and marks it saved (`lf-env-saved!`): the
+publisher re-checks it as a check's and publishes it final in a
+development environment (`lf-env-develop`); `snap-same?` then compares
+every slot with its saved fields. `lf-env-origin ( d -- n )` says where a
+verdict comes from: `lf-origin-saved` (taken from a snapshot),
+`lf-origin-uses` (checked here, resting on saved results) or
+`lf-origin-checked`. In a final environment the publisher refuses a
+saved candidate.
+
 ### The parallel scheduler (`src/kernel/env-schedule.fs`, plan task 7.3.1)
 
 `check --jobs N` ([command line](../user/COMMAND_LINE.md)) checks with N
