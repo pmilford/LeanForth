@@ -6426,3 +6426,19 @@ old = '''  swap lf-env-skipped? if drop ." skipped" else outcome-text type then 
 new = '''  nip outcome-text type ;'''
 test = "$GFORTH tests/core/failure-paths.fs"
 reason = "5.2.7: a skipped declaration's line says rejected"
+
+[[fault]]
+id = "skip-json-says-rejected"
+file = "src/cli/check-json.fs"
+old = '''  dup cj-began? if verdict-of else drop not-checked then verdict-name ;'''
+new = '''  dup cj-began? if lf-env-outcome else drop not-checked then verdict-name ;'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "5.2.7: the JSON report calls a skipped declaration rejected, against its counts and status 0"
+
+[[fault]]
+id = "skip-record-says-rejected"
+file = "src/import/run-record.fs"
+old = '''  over lf-env-skipped? if drop s" skipped" rr-string else rr-outcome then ;'''
+new = '''  rr-outcome ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "5.2.7: a run record calls a skipped declaration rejected"
