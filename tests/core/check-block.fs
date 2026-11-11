@@ -569,6 +569,11 @@ T{ least-ok dup 1- bool-at swap bool-at -> outcome-exhausted outcome-ok }T
 s" ind.list" fuel-case 2!
 T{ doubling? -> true }T
 T{ least-ok dup 1- bool-at swap bool-at -> outcome-exhausted outcome-ok }T
+\ A field put in whnf by beta (the recursor builder's own whnf): running out
+\ of fuel there ends the block exhausted, not full or ok.
+s" ind.recursive-through-beta" fuel-case 2!
+T{ doubling? -> true }T
+T{ least-ok dup 1- bool-at swap bool-at -> outcome-exhausted outcome-ok }T
 
 \ 5. Room: with the term store's capacity cut to the records in use, the
 \ check runs out of room: full, never ok.
@@ -679,6 +684,11 @@ T{ s" rec_1" s" ind.nat" held-as -> outcome-rejected }T
 T{ s" rec_1" s" ind.bool" held-as -> outcome-rejected }T
 T{ s" recOn" s" ind.bool" held-as -> outcome-rejected }T
 T{ s" rec_x" s" ind.nat" held-as -> outcome-rejected }T
+\ Not digits, so no auxiliary recursor of the unsupported nested.tree: the
+\ name is held by no type (letters, a digit then a letter, nothing).
+T{ s" rec_x" s" nested.tree" 4 held-at -> outcome-rejected }T
+T{ s" rec_1x" s" nested.tree" 4 held-at -> outcome-rejected }T
+T{ s" rec_" s" nested.tree" 4 held-at -> outcome-rejected }T
 \ A block rejected only by B3 (review rvI21 R2-1; ADR 0015 decision 11):
 \ Lean's replay compares after its kernel added the block, so the type's,
 \ the constructors' and T.rec's names are taken (a later definition of one
@@ -763,6 +773,22 @@ T{ s" after.reflexive-parameter-at-renamed" used -> outcome-ok 0 }T
 \ this field's whnf needs iota on a recursor no slot holds: unknown (81)
 \ until that follow-up of task 5.2.1b, as is the row before.
 T{ s" after.list-left-out-then-lookup-during-param-block" used -> outcome-unknown lf-diag-iota-pending }T
+\ A rebuild gives back what the interrupted block's check had in its three
+\ slabs (domains, type records, constructors' records): their bytes after
+\ save, clobber and restore are the bytes before. (The row above stops
+\ before the check goes on with its constructors, so it cannot see this.)
+: bytes-sum ( addr u -- n ) 0 -rot bounds ?do i c@ + loop ;
+: slab-sum ( xt -- n ) execute dup slab-base swap slab-bytes bytes-sum ;
+: slab-clobbered ( xt -- ) execute dup slab-base swap slab-bytes 255 fill ;
+\ True when the clobbering changed the slab and the restore undid it.
+: slab-back? ( xt -- flag )
+  dup slab-sum >r lf-genrec-save ok? must dup slab-clobbered
+  dup slab-sum r@ <> lf-genrec-restore swap slab-sum r> = and ;
+: given-back ( xt -- flag )
+  s" ind.nat" case-path staged ok? must fuel checked slab-back? finish ;
+T{ ' lf-ind-domains given-back -> true }T
+T{ ' lf-ind-type-cells given-back -> true }T
+T{ ' lf-ind-ctor-cells given-back -> true }T
 \ Mutual blocks (task 5.2.5a): the generated recursor of the first type and
 \ of a later one, with indices, and at concrete and renamed universes.
 T{ s" after.mutual-left-out-then-use-rec" used -> outcome-ok 0 }T
