@@ -45,6 +45,10 @@
 \ exactly for its kind; every name and expression in its data is checked
 \ as it is gathered; a number beyond 32 bits is full.
 \
+\ A read that continues a tier (stage-continue, import/stage.fs) notes the
+\ name of every constant it hands over (put-const-noted, a bitset in the
+\ stage), so that sealing refuses an unknown constant only among them.
+\
 \ State: none of its own. Every word takes a stage record (/stage); the
 \ handlers find it from their record's export, the stage's first field.
 \ The tables below are constant after loading. Loads in decimal whatever
