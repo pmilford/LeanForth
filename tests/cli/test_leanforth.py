@@ -3,8 +3,10 @@
 1. Every exit code, with the exact text printed:
    0 every declaration accepted (composition; the constant fixture's three;
      tests/cli/chain.ndjson, larger than --record holds; tests/cli/
-     inductive.ndjson, an inductive type and a theorem by its recursor);
-   1 rejected (composition with the wrong argument);
+     inductive.ndjson, an inductive type and a theorem by its recursor;
+     tests/cli/sharing.ndjson, proofs shared along 2^40 paths, in little fuel);
+   1 rejected (composition with the wrong argument; sharing.ndjson's wrong
+     twins, which Lean's kernel rejects too);
    2 unsupported (an axiom; a literal; with --record an inductive type,
      refused while reading) and unknown (UNKNOWN, a block whose check needs
      a recursor reduction the checker does not port yet; tests/cli/
