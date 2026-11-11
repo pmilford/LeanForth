@@ -1872,5 +1872,142 @@ class Snapshots(unittest.TestCase):
         self.assertFalse((self.dir / "u").exists())
 
 
+class Progress(unittest.TestCase):
+    """check --progress[=SECONDS] (docs/user/COMMAND_LINE.md): a status line
+    on standard error every SECONDS (default 60; 0: after every report) and a
+    last one; standard output, the JSON report and the exit status are what
+    they are without it, serial and with --jobs; the text report's lines are
+    written as declarations become final, so a finished run's output is
+    unchanged. It does not go with --record, and replay does not take it."""
+
+    LINE = re.compile(r"progress: \d+ s elapsed; (\d+)/(\d+) declarations final \((\d+)%\); "
+                      r"(\d+) accepted, (\d+) other; \d+ declarations/s; "
+                      r"eta (\d+ s|unknown); resident (\d+ MB|\? MB)")
+
+    def lines(self, err):
+        return [self.LINE.fullmatch(line) or self.fail(line) for line in err.splitlines()]
+
+    def test_same_output(self):
+        for args in [[INDUCTIVE], ["--fuel", "3000", "tests/cli/nested.ndjson"],
+                     ["--no-manifest", "tests/cli/jobs/wide60.ndjson"]]:
+            for jobs in [[], ["--jobs", "3"]]:
+                plain = run("check", *jobs, *args)
+                self.assertEqual(plain[2], "", args)
+                for form in ["--progress=0", "--progress"]:
+                    status, out, err = run("check", form, *jobs, *args)
+                    self.assertEqual((status, out), plain[:2], (form, jobs, args))
+                    if form == "--progress=0":
+                        found = self.lines(err)
+                        total = int(found[-1].group(2))
+                        self.assertEqual(found[-1].group(1), str(total))
+                        self.assertEqual(found[-1].group(3), "100")
+                        self.assertEqual(int(found[-1].group(4)) + int(found[-1].group(5)), total)
+
+    def test_counts_rejections(self):
+        """The accepted and other counts follow the verdicts."""
+        path = "tests/cli/bugs/rec-missing-ih.ndjson"
+        status, out, err = run("check", "--no-manifest", "--progress=0", path)
+        self.assertEqual(status, 1)
+        last = self.lines(err)[-1]
+        self.assertGreater(int(last.group(5)), 0)
+        self.assertEqual(int(last.group(4)) + int(last.group(5)), int(last.group(2)))
+
+    def test_json(self):
+        status, want, _ = report(INDUCTIVE)
+        want.pop("measured")
+        code, out, err = run("check", "--progress=0", "--json", INDUCTIVE)
+        self.assertEqual(code, status)
+        self.assertEqual(len(self.lines(err)), 7)
+        got = json.loads(out)
+        got.pop("measured")
+        self.assertEqual(got, want)
+
+    def test_default_is_quiet_for_a_short_run(self):
+        """The default interval is 60 s: a short run writes only the last line."""
+        status, out, err = run("check", "--progress", INDUCTIVE)
+        self.assertEqual((status, len(self.lines(err))), (0, 1))
+
+    def test_4_mistakes(self):
+        for form, why in [("--progress=x", "not a number of seconds: x"),
+                          ("--progress=", "not a number of seconds"),
+                          ("--progress=-1", "not a number of seconds: -1")]:
+            status, out, _ = run("check", form, CHAIN)
+            self.assertEqual((status, out.splitlines()[0]), (4, f"error: {why}"), form)
+        status, out, _ = run("check", "--progress", "--record", "r.json", CHAIN)
+        self.assertEqual((status, out.splitlines()[0]),
+                         (4, "error: --progress does not go with --record"))
+        for form in ["--progress", "--progress=5"]:
+            status, out, _ = run("replay", form, CHAIN, "r.json")
+            self.assertEqual((status, out.splitlines()[0]),
+                             (4, f"error: an option this command does not take: {form}"))
+
+
+class Slice(unittest.TestCase):
+    """scripts/export-slice.py EXPORT NAME... (docs/development/TESTING_STRATEGY.md):
+    the smallest export holding the named declarations and what they need,
+    in the original order with the original header, accepted by check
+    --no-manifest with the same verdicts; an unknown name is exit 2."""
+
+    TOOL = ROOT / "scripts" / "export-slice.py"
+
+    def cut(self, source, *names):
+        result = subprocess.run([sys.executable, "-I", str(self.TOOL), source, *names],
+                                cwd=ROOT, capture_output=True, timeout=TEST_LIMIT)
+        return result.returncode, result.stdout.decode(), result.stderr.decode()
+
+    def check(self, text):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "slice.ndjson"
+            path.write_text(text)
+            return run("check", "--no-manifest", str(path))
+
+    def test_inductive(self):
+        status, text, err = self.cut(INDUCTIVE, "Two.swap")
+        self.assertEqual(status, 0, err)
+        original = Path(ROOT / INDUCTIVE).read_text().splitlines()
+        lines = text.splitlines()
+        self.assertEqual(lines[0], original[0])
+        self.assertLess(len(lines), len(original))
+        position = 0
+        for line in lines:        # a subsequence, in the original order
+            position = original.index(line, position) + 1
+        self.assertRegex(err, r"export-slice: \d+ of 3 declarations, \d+ lines")
+        status, out, _ = self.check(text)
+        self.assertEqual(status, 0)
+        self.assertIn("Two.swap: accepted", out)
+        self.assertNotIn("Two.cases", out)       # not needed by Two.swap
+        self.assertIn("Two.rec: accepted", out)   # the recursor's block is whole
+
+    def test_the_builtins_come_with_it(self):
+        """Quot and Eq (the checker's own lookups) are in a slice of anything,
+        when the export declares them."""
+        source = "tests/reference/inductive/axioms.ndjson"
+        status, text, err = self.cut(source, "propext")
+        self.assertEqual(status, 0, err)
+        status, out, _ = self.check(text)
+        self.assertEqual(status, 0)
+        for name in ["propext", "Quot.sound", "Classical.choice", "Eq"]:
+            self.assertIn(f"{name}: accepted", out)
+
+    def test_several_names(self):
+        status, text, err = self.cut(INDUCTIVE, "Two.first", "Two.cases")
+        self.assertEqual(status, 0, err)
+        status, out, _ = self.check(text)
+        self.assertEqual(status, 0)
+        self.assertIn("Two.cases: accepted", out)
+
+    def test_unknown_name(self):
+        status, text, err = self.cut(INDUCTIVE, "Two.nothing")
+        self.assertEqual((status, text), (2, ""))
+        self.assertIn("Two.nothing: not declared in the export", err)
+        self.assertEqual(self.cut(INDUCTIVE, "a..b")[0], 2)
+        self.assertEqual(self.cut(INDUCTIVE)[0], 4)
+
+    def test_not_an_export(self):
+        status, text, err = self.cut("README.md", "x")
+        self.assertNotEqual(status, 0)
+        self.assertEqual(text, "")
+
+
 if __name__ == "__main__":
     unittest.main()

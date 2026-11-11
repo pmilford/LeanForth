@@ -380,6 +380,33 @@ time, as `scripts/export.sh` builds `export_manifest.py`'s, is not seen).
 | `scripts/lean-cache.py`, the Makefile | `test-lean-cache`, then `make check` |
 | `docs/` | `check-docs`, `check-doc-examples` |
 
+## Re-running one root: the export slicer (`scripts/export-slice.py`)
+
+A failing declaration of a library run is re-run in seconds, not hours, by
+cutting the part of the export it needs (2026-11-11, untrusted tool):
+
+```sh
+python3 -I scripts/export-slice.py EXPORT NAME... > SLICE
+bin/leanforth check --no-manifest SLICE
+.claude/work/arena/official-435/.lake/build/bin/kernel SLICE   # Lean's checker
+```
+
+`SLICE` holds the named declarations and everything they need, in the
+original order with the original header: every declaration whose constant
+occurs, transitively, in a type or value; the whole inductive block of any
+inductive type, constructor or recursor named; the names, levels and
+expressions those use; and the declarations LeanForth looks up by name
+itself (`lf-sch-builtins`: Nat, Bool, Char, List, String, Eq, Quot,
+propext, Classical.choice, Quot.sound), when the export has them. Indices
+are kept, so a slice has gaps, which both readers allow. Three sequential
+passes, Python standard library only; about 13 bytes per expression and 12
+per name in memory (Init: 22 s, 100 MB). It has no manifest. A NAME the
+export does not declare is exit 2 with nothing written. `tests/cli/
+test_leanforth.py` (class `Slice`) slices the small fixtures and checks the
+slices. Measured 2026-11-11 on Init (five assorted theorems, 360 of 57,919
+declarations): accepted by LeanForth and by Lean's official checker. A slice's
+verdicts are those of its declarations only, with the same rules.
+
 ## Failure paths and allocation-failure injection (plan tasks 2.2.4, 1.4.6)
 
 Added 2026-11-03. The first checker must fail closed wherever it runs out

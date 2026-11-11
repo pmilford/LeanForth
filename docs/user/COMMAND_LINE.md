@@ -96,7 +96,7 @@ theorem composition {A B C : Prop} (f : A → B) (g : B → C) : A → C :=
 
 | Command | What it does |
 | --- | --- |
-| `check [--no-manifest] [--fuel N] [--resources] [--json] [--fast] [--strict-axioms] [--any-lean-version] [--jobs N] [--save-snapshot FILE] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text; with `--jobs N`, check with [N workers at once](#parallel-checking---jobs); with `--save-snapshot FILE`, also write the checked environment to FILE ([snapshots](#snapshots---save-snapshot-and---snapshot)) |
+| `check [--no-manifest] [--fuel N] [--resources] [--json] [--fast] [--strict-axioms] [--any-lean-version] [--jobs N] [--progress[=SECONDS]] [--save-snapshot FILE] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text; with `--jobs N`, check with [N workers at once](#parallel-checking---jobs); with `--progress`, write [a status line](#progress-and-partial-results---progress) to standard error every minute; with `--save-snapshot FILE`, also write the checked environment to FILE ([snapshots](#snapshots---save-snapshot-and---snapshot)) |
 | `check --snapshot FILE [--fuel N] [--resources] [--json] [--fast] [--strict-axioms] [--any-lean-version]` | Report the verdicts a [snapshot](#snapshots---save-snapshot-and---snapshot) holds, each labelled as taken from it and not re-checked: for development and research only |
 | `check [--no-manifest] [--fuel N] [--fast] [--strict-axioms] --record RECORD EXPORT` | Check a small export (read straight into the checker's stores) and also write its [run record](#run-records-and-replay) |
 | `replay [--no-manifest] [--fuel N] [--fast] EXPORT RECORD` | Check the export again and compare the new run record with RECORD; print the replay report |
@@ -159,6 +159,10 @@ Options:
   (the resource report says how many). On a host that is not x86-64
   (threads without memory barriers) or where the thread pool cannot start,
   the check runs one declaration at a time and the resource report says why.
+- `--progress[=SECONDS]` (`check` only, not with `--record`) writes a status
+  line to standard error every SECONDS (60 without a value; 0: after every
+  report) and one at the end ([progress](#progress-and-partial-results---progress)).
+  It changes nothing on standard output or in the exit status.
 - `--save-snapshot FILE` (`check` only, not with `--record`) writes the
   run's checked environment to FILE after a run in which every declaration
   was decided; FILE must not be the export. `--snapshot FILE` (`check`
@@ -581,6 +585,49 @@ so. With `--resources` the
 report adds a line naming the workers and how many checks were handed
 out, run again, refused by readiness or forced (the last two are 0 unless
 LeanForth's plan of which declaration needs which is wrong).
+
+### Progress and partial results (`--progress`)
+
+A check of a library takes hours (all of Mathlib is a run of a day or
+more), and the report used to appear only at the end. Two changes let you
+watch a run and keep what it found (2026-11-11, untrusted reporting; no
+verdict, fuel count, exit status or byte of a finished run's standard
+output changes):
+
+- **The text report's lines are written as the run goes.** A declaration's
+  line is written once it and every declaration before it are final (the
+  serial run: when its check ends; `--jobs`: when the scheduler's frontier
+  passes it), in file order, so a run that is stopped (killed, timed out,
+  the machine going down) leaves the lines of the declarations before the
+  stop, a correct prefix of the report. Standard output is flushed every
+  2000 lines or ten seconds (the progress interval, if it is shorter), so
+  a stop loses at most that much: `timeout 600 leanforth check EXPORT >
+  lines.txt` keeps the prefix. The summary, the notes and the resource
+  report come at the end, so a stopped run has no summary: count the
+  lines (`grep -c ': accepted'`). `--json` is one text, written at the
+  end, and is not affected. With `--jobs`, a check that throws stops the
+  run at its declaration as before, but declarations after it may already
+  have been written (they were checked and final); the run still ends with
+  the internal-fault message and code 5.
+- **`--progress[=SECONDS]`** writes one line to standard error each time
+  SECONDS seconds (default 60) have passed when a declaration becomes final
+  (a single check longer than the interval delays its line), and one when
+  the run ends:
+
+```text
+progress: 754 s elapsed; 120000/729263 declarations final (16%); 119990 accepted, 10 other; 159 declarations/s; eta 3830 s; resident 8123 MB
+```
+
+  the seconds since the check began, the declarations final of the total
+  (all below that number, in file order) and their share, how many were
+  accepted and how many were anything else, the average rate so far, a
+  rough estimate of the seconds to go at that rate (declarations differ
+  very much in cost, so it can be far off; `unknown` before the first), and
+  the process's resident memory (`? MB` where the host has no
+  `/proc/self/status`). `--progress=0` writes a line after every
+  report, for tests. The lines go only to standard error, in text and
+  `--json` mode alike; `--progress` does not go with `--record` (status 4)
+  and `replay` and `print` do not take it.
 
 ### The resource report
 
