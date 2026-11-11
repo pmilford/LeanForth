@@ -719,12 +719,14 @@ test-differential: reference-author
 # then fail. Not part of make test or make check. mutants-quick runs the
 # faults marked quick, mutants-check only reports stale entries (old text
 # no longer found once); test-mutants, part of make test, tests the runner.
+# LEAN is the pinned binary itself (LEAN_BINARY), never the cache wrapper:
+# the runner's controls include the Lean cache's own tests.
 MUTANTS_TIMEOUT ?= 3600
 mutants:
-	LEAN=$(LEAN) timeout $(MUTANTS_TIMEOUT) python3 scripts/mutants.py --gforth $(GFORTH)
+	LEAN=$(LEAN_BINARY) timeout $(MUTANTS_TIMEOUT) python3 scripts/mutants.py --gforth $(GFORTH)
 
 mutants-quick:
-	LEAN=$(LEAN) $(RUN) python3 scripts/mutants.py --gforth $(GFORTH) --quick
+	LEAN=$(LEAN_BINARY) $(RUN) python3 scripts/mutants.py --gforth $(GFORTH) --quick
 
 mutants-check:
 	$(RUN) python3 scripts/mutants.py --check
