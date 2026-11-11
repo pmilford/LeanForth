@@ -164,6 +164,12 @@ REQUIRED.update({row: "task 5.2.7 (unsafe and partial declarations skipped as Le
                              "unsafe.postulate", "unsafe.postulate-then-safe-user", "unsafe.opaque",
                              "unsafe.opaque-then-safe-user", "unsafe.inductive-not-positive",
                              "unsafe.inductive-then-safe-user")})
+REQUIRED.update({row: "task 5.2.7's names (review rvUNNI B1, M1: a generated recursor's"
+                      " name a skipped declaration has; one block's constructors of one name)"
+                 for row in ("unsafe.rec-name-before-block", "partial.rec-name-before-block",
+                             "unsafe.rec-name-before-block-holding-it",
+                             "unsafe.aux-rec-name-before-nested-block",
+                             "unsafe.block-constructor-twice")})
 # The axiom bits (src/core/axiom-allowlist.fs) LeanForth must report for
 # declarations of these rows: 8 is an axiom outside the allowlist, so NOT
 # PROVED (a file's own axiom; propext with another statement, or with

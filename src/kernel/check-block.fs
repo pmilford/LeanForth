@@ -19,7 +19,9 @@
 \    5 T5 universe parameters distinct (check_duplicated_univ_params, 869);
 \    then steps 6 to 8 for each type in order (check_inductive_types
 \    254-299):
-\    6 N2 the type's name and T.rec unused (258-259);
+\    6 N2 the type's name and T.rec unused (258-259; a T.rec the block
+\      leaves out is Lean's alone, which a skipped declaration does not
+\      take: lf-blk-rec-fresh);
 \    7 the type's type inferred (tc().check, 261);
 \    8 its telescope, after whnf at each step (263-283): parameters and
 \      indices, and a Sort at the end (ensure_sort, 287: T2), whose level

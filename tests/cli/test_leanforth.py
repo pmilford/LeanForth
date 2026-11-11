@@ -5,7 +5,8 @@
      tests/cli/chain.ndjson, larger than --record holds; tests/cli/
      inductive.ndjson, an inductive type and a theorem by its recursor;
      tests/cli/sharing.ndjson, proofs shared along 2^40 paths, in little fuel,
-     and sharing-universe.ndjson, such a statement at a universe argument),
+     and sharing-universe.ndjson, such a statement at a universe argument;
+     tests/cli/nested.ndjson, nested inductive types as Lean writes them),
      or skipped (composition as an unsafe definition, plan task 5.2.7);
    1 rejected (composition with the wrong argument; the wrong twins of
      sharing.ndjson and sharing-universe.ndjson, which Lean's kernel rejects
@@ -371,6 +372,16 @@ class ExitCodes(unittest.TestCase):
                      "2 declarations: 2 accepted", accepted(2)])
         self.expect(["check", "tests/cli/irrelevance.ndjson"], 0,
                     [f"irrelevant: {LABEL}", "1 declaration: 1 accepted", accepted(1)])
+        # Nested inductive types as Lean writes them (plan task 5.2.5b; review
+        # rvUNNI): through an indexed family and a mutual block, and theorems
+        # that reduce through the auxiliary recursor VT.rec_1; all accepted.
+        status, out, _ = run("check", "tests/cli/nested.ndjson")
+        lines = out.splitlines()
+        self.assertEqual((status, lines[-2:]),
+                         (0, ["107 declarations: 107 accepted", accepted(107)]))
+        for name in ("RvNest.VT.rec_1", "RvNest.AT.rec_2", "RvNest.VT.size_two",
+                     "RvNest.R.count_mk"):
+            self.assertIn(f"{name}: {LABEL}", lines)
         recursor = ("  undecided: a recursor reduction LeanForth does not port yet; "
                     "diagnostic 81 at whnf lf-whnf: 17 0")
         self.expect(["check", "--no-manifest", UNKNOWN], 2,

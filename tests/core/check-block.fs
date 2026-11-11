@@ -520,6 +520,26 @@ T{ s" nested.aux-name-taken" verdict -> outcome-ok 0 all-steps }T
 T{ s" nested.aux-rec-name-taken" verdict -> outcome-rejected lf-diag-already-declared 6 }T
 T{ s" nested.constructor-named-rec-1" verdict
    -> outcome-rejected lf-diag-already-declared 12 }T
+\ Review rvUNNI, each with the official checker's verdict (lean4export's
+\ parser, then Lean's replay): a definition named T.rec_1 after a nested
+\ block (N2); one named T.rec_18446744073709551617, never read modulo
+\ 2^64 as rec_1 (L1); a constructor with a projection of a structure
+\ named under _nested (T0, M3), and its twin with Prod.
+T{ s" nested.def-named-rec-1" used -> outcome-rejected lf-diag-already-declared }T
+T{ s" nested.def-named-rec-huge" used -> outcome-ok 0 }T
+T{ s" names.reserved-nested-prefix-proj" verdict -> outcome-rejected lf-diag-reserved-prefix 2 }T
+T{ s" names.reserved-nested-prefix-proj-twin" verdict -> outcome-ok 0 all-steps }T
+\ A skipped definition named like the recursor Lean's kernel generates
+\ for a later block that leaves it out (M1): the block is accepted, for
+\ T.rec and for a nested block's T.rec_1; when the block holds that
+\ recursor, its name is given twice (step 6). An unsafe block whose two
+\ constructors have one name, as the exporter writes it (B1): rejected.
+T{ s" unsafe.rec-name-before-block" verdict -> outcome-ok 0 all-steps }T
+T{ s" partial.rec-name-before-block" verdict -> outcome-ok 0 all-steps }T
+T{ s" unsafe.aux-rec-name-before-nested-block" verdict -> outcome-ok 0 all-steps }T
+T{ s" unsafe.rec-name-before-block-holding-it" verdict
+   -> outcome-rejected lf-diag-already-declared 6 }T
+T{ s" unsafe.block-constructor-twice" verdict -> outcome-rejected lf-diag-already-declared 1 }T
 \ A local variable in Ds (N2, step 4); Array (Bad -> Nat) (P1 in the
 \ auxiliary List_2.cons); an ill-typed Ds only the typing of the nested
 \ occurrences sees (step 12).

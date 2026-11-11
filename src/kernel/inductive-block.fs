@@ -5,7 +5,8 @@
 \   the audit, before any typing, as check-declaration's audit of a
 \     definition: a block of unsafe members skipped, as Lean's replay
 \     skips them (rejected, reported skipped; with safe ones too,
-\     unsupported), and the term
+\     unsupported; two constructors of one name rejected first, as
+\     lean4export's parser refuses them), and the term
 \     forms the checker lacks (U2) unsupported; loose variables invalid
 \     (V1); whether the block may be nested (task 5.2.5b: translated at
 \     step 4, inductive-nested.fs); on the way, Lean's is_rec and
