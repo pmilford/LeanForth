@@ -11,14 +11,34 @@
 \ in columns of the group lf-level-columns (lib/store-columns.fs). Level
 \ graphs have no fixed depth (plan task 6.2.0): lf-level-walk-room is
 \ only the room a level walk starts with.
-\ State: the store header lf-levels, a member of the checker context
-\ (lib/context.fs) whose block is on the heap, made and reset by set-up
-\ words in every context and freed by its teardown word; single-threaded
+\
+\ Hash-consing (ADR 0016 C1, C4; compact-store plan step S4), as for
+\ terms (terms.fs): lf-level-add looks the record (tag, first, second)
+\ up in a hash table of the context and gives back the equal level it
+\ finds, else appends a new one and enters it, so equal level syntax is
+\ one index for the levels a context makes while sharing (Lean's
+\ operator== on levels). The zero level, record 0, is entered at every
+\ reset. Sharing follows the context's switch for terms
+\ (lf-term-sharing?): a context that keeps data per node turns both off.
+\ A hash is only a hint; an entry is equal only when its allocated record
+\ is, field by field, so no answer depends on the table (C8). A rollback
+\ (lf-level-rollback, which the joint scratch marks of
+\ core/scratch-marks.fs and the level passes' own marks use) takes the
+\ entries of the records it gives back out of the table by Knuth's
+\ Algorithm R, as lib/cons.fs does; a reset empties it.
+\ State: the store header lf-levels, the hash table lf-level-table and
+\ the candidate record lf-level-key, members of the checker context
+\ (lib/context.fs) whose blocks are on the heap, made and reset by set-up
+\ words in every context and freed by their teardown words; single-threaded
 \ within one context. A reset invalidates all indices. The cell layout is
 \ host-specific and must never be serialized directly.
 
 require ../lib/lib.fs
+require ../lib/u32.fs
+require ../lib/hash32.fs
+require ../lib/htab.fs
 require ./diagnostics.fs
+require ./terms.fs
 require ../lib/store-columns.fs
 
 64 constant lf-level-default
@@ -38,8 +58,9 @@ store-header context-record: lf-levels
 : lf-level-capacity ( -- n ) lf-levels store-limit @ ;
 : lf-level-capacity! ( n -- outcome ) lf-levels store-limit! ;
 
-\ The store's fields under their established names; other modules roll back
-\ lf-level-count, and tests corrupt these cells to check fail-closed behavior.
+\ The store's fields under their established names; other modules roll the
+\ store back through marks (core/scratch-marks.fs, or a level-store mark),
+\ and tests corrupt these cells to check fail-closed behavior.
 : lf-level-count ( -- addr ) lf-levels store-count ;
 : lf-level-generation ( -- addr ) lf-levels store-generation ;
 : lf-level-serial ( -- addr ) lf-levels store-serial ;
@@ -47,21 +68,79 @@ store-header context-record: lf-levels
 \ Node address; the index must already be validated.
 : lf-level-slot ( index -- addr ) lf-levels store-slot ;
 
+\ ---------------------------------------------------------------------------
+\ The hash-consing table (see the header): its hooks hash record n from
+\ its fields and tell whether allocated record n equals the record sought.
+/htab context-record: lf-level-table
+3 cells context-record: lf-level-key   \ the record sought: tag first second
+: lf-level-hash ( tag first second -- h ) rot hash-fmix rot hash-step swap hash-step ;
+: lf-level-rehash ( n htab -- h ) drop lf-level-slot node@ lf-level-hash ;
+: lf-level-same ( n key htab -- flag )
+  drop over lf-levels store-at? 0= if 2drop false exit then
+  >r lf-level-slot node@ r> lf-term-key= ;
+create lf-level-hooks /htab-hooks allot
+' lf-level-rehash ' lf-level-same lf-level-hooks htab-hooks!
+: lf-level-table-make ( -- ) 4 lf-level-hooks lf-level-table htab-init drop ;
+' lf-level-table-make context-setup
+:noname ( -- ) lf-level-table htab-free ; context-teardown
+: lf-level-key! ( tag first second -- )
+  lf-level-key 2 cells + ! lf-level-key cell+ ! lf-level-key ! ;
+: lf-level-key@ ( -- tag first second )
+  lf-level-key @ lf-level-key cell+ @ lf-level-key 2 cells + @ ;
+: lf-level-find ( tag first second -- n true | i false )
+  2 pick 2 pick 2 pick lf-level-hash >r lf-level-key!
+  lf-level-key r> lf-level-table htab-find ;
+\ Enter the new record index at the empty slot i the find gave.
+: lf-level-enter ( i index true | i false -- index true | false )
+  if tuck swap lf-level-table htab-put true else drop false then ;
+\ Take record index out of the table, if it is there (a record made while
+\ sharing was off, or that the table could not take, is not), and every
+\ record from count up to the store's count.
+: lf-level-forget ( index -- )
+  dup lf-level-slot node@ lf-level-hash lf-level-table htab-remove drop ;
+: lf-level-unlist ( count -- )
+  lf-level-table htab-live? 0= if drop exit then
+  lf-level-count @ swap ?do i lf-level-forget loop ;
+\ The zero level into the table (one that cannot take it only costs
+\ sharing).
+: lf-level-enter-zero ( -- )
+  lf-level-table htab-ready ok? 0= if exit then
+  0 lf-level-slot node@ lf-level-find if drop else 0 swap lf-level-table htab-put then ;
+\ Empty the table, back to 16 slots when it had grown large.
+1024 constant lf-level-table-small
+: lf-level-table-empty ( -- )
+  lf-level-table dup htab-live? if dup htab-slots lf-level-table-small <= else false then
+  if htab-clear else htab-free lf-level-table-make then ;
+
 \ Discard every level and claim record 0 as the zero level with a fresh
 \ identity. Unchecked: the serial must not be spent; lf-level-reset checks.
 : lf-level-restart ( -- ) 0 lf-level-count ! lf-levels store-claim lf-level-slot /node erase ;
 \ Reset to the zero level alone and advance the generation. A spent identity
-\ serial poisons the store instead of reusing an identity.
+\ serial poisons the store instead of reusing an identity. The table then
+\ holds the zero level alone.
 : lf-level-reset ( -- )
+  lf-level-table-empty
   lf-levels store-spent? if lf-levels store-poison exit then
-  lf-level-restart lf-levels store-epoch+ ;
+  lf-level-restart lf-levels store-epoch+ lf-level-enter-zero ;
+\ Roll the store back to a mark of it (lib/store.fs's store-mark): ok,
+\ the records made since and their table entries given back; or invalid
+\ with nothing changed for a mark that store-rollback refuses.
+: lf-level-rollback ( mark -- outcome )
+  dup lf-levels store-mark-valid? if dup mark-count @ lf-level-unlist then
+  lf-levels store-rollback ;
 
 \ Count and index checks; a valid store always holds the zero level. They
 \ cannot detect stale indices reused after a reset, or corrupted fields.
+\ As for terms (terms.fs, compact-store plan step S2), the whole header
+\ is checked at a pass's root (lf-level-count-valid?, lf-level-root?,
+\ lf-level-pair-valid? or a handle), and every read after that only
+\ checks that the index is allocated (store-at?).
 : lf-level-count-valid? ( -- flag ) lf-levels store-count-valid? ;
-: lf-level-valid? ( index -- flag ) lf-levels store-valid? ;
+: lf-level-root? ( index -- flag ) lf-levels store-valid? ;
+: lf-level-valid? ( index -- flag ) lf-levels store-at? ;
 \ A live node's identity, including the zero level's; never repeats.
-: lf-level-identity ( index -- identity true | false ) lf-levels store-identity@ ;
+: lf-level-identity ( index -- identity true | false )
+  dup lf-level-valid? if lf-levels store-identity @ true else drop false then ;
 
 \ Append a node whose tag and fields the caller validated; a failed
 \ allocation returns false, changes nothing and is recorded as a
@@ -77,10 +156,41 @@ store-header context-record: lf-levels
 : lf-level-room? ( -- flag )
   lf-level-steady? if true exit then
   lf-levels store-ready ok? if lf-level-covered lf-level-columns columns-ready else false then ;
+\ Whether a universe parameter occurs in a level (Lean's has_param_univ),
+\ kept per level in a column when the level is made, from its children's
+\ (compact-store plan step S3: the term store's data words read it,
+\ core/terms.fs). A record changed in place later (only tests do that)
+\ keeps the flag it was made with; a child that is not allocated (a raw
+\ caller's) counts as none.
+/slab context-record: lf-level-param-flags
+1 cells ' lf-level-param-flags lf-level-columns column-add
+: lf-level-params? ( level -- flag ) lf-level-param-flags column-at @ 0<> ;
+: lf-level-child-params? ( child -- flag )
+  dup lf-level-valid? if lf-level-params? else drop false then ;
+: lf-level-params-of ( tag first second -- flag )
+  rot case lf-level-tag-param of 2drop true endof
+    lf-level-tag-succ of drop lf-level-child-params? endof
+    lf-level-tag-max of lf-level-child-params? swap lf-level-child-params? or endof
+    lf-level-tag-imax of lf-level-child-params? swap lf-level-child-params? or endof
+    >r 2drop false r> endcase ;
 : lf-level-new ( tag first second -- index true | false )
-  lf-levels node-new dup 0= if drop lf-level-refused then ;
+  2 pick 2 pick 2 pick lf-level-params-of >r lf-levels node-new
+  if r> over lf-level-param-flags column-at ! true else r> drop lf-level-refused then ;
+\ Hash-consed: the equal level, given only where an allocation would be
+\ allowed (store-open?, as for terms), or a new level entered at the
+\ empty slot the find gave. A table that cannot grow only costs sharing.
+: lf-level-found ( n -- n true | false )
+  lf-levels store-open? if true else drop lf-level-refused then ;
+: lf-level-cons ( tag first second -- index true | false )
+  lf-level-table htab-ready ok? 0= if lf-level-new exit then
+  lf-level-find if lf-level-found exit then lf-level-key@ lf-level-new lf-level-enter ;
+\ At most 2^32 - 2 records, so that a table slot holds every index plus one.
+: lf-level-numbered? ( -- flag ) lf-level-count @ u32-mask 1- u< ;
+: lf-level-make ( tag first second -- index true | false )
+  lf-term-sharing? if lf-level-cons else lf-level-new then ;
 : lf-level-add ( tag first second -- index true | false )
-  lf-level-room? if lf-level-new else 2drop drop lf-level-refused then ;
+  lf-level-room? lf-level-numbered? and
+  if lf-level-make else 2drop drop lf-level-refused then ;
 
 \ Successor of an existing level; the second field is unused.
 : lf-level-succ ( child -- index true | false )
@@ -94,6 +204,7 @@ store-header context-record: lf-levels
 lf-level-tag-imax lf-level-tag-max 1+ <>
 [if] .( levels.fs: max and imax tags must be consecutive) cr abort [then]
 : lf-level-binary-tag? ( tag -- flag ) lf-level-tag-max lf-level-tag-imax 1+ within ;
+\ Two checked roots with one header check (and a new node's children).
 : lf-level-pair-valid? ( left right -- flag ) lf-levels store-pair-valid? ;
 : lf-level-binary ( left right tag -- index true | false )
   >r 2dup lf-level-pair-valid? r@ lf-level-binary-tag? and
@@ -101,10 +212,12 @@ lf-level-tag-imax lf-level-tag-max 1+ <>
 : lf-level-max ( left right -- index true | false ) lf-level-tag-max lf-level-binary ;
 : lf-level-imax ( left right -- index true | false ) lf-level-tag-imax lf-level-binary ;
 
-\ Read an allocated node. A valid index alone does not authenticate fields.
+\ Read an allocated node. A valid index alone does not authenticate fields;
+\ the header is the root's to check.
 : lf-level-read ( index -- tag first second true | false ) lf-levels node-read ;
 \ One field of a node. Unchecked: the index must already be validated,
-\ for instance by an earlier lf-level-read of the same node.
+\ for instance by an earlier lf-level-read of the same node, under a
+\ checked root.
 : lf-level-tag@ ( index -- tag ) lf-level-slot node-tag @ ;
 : lf-level-first@ ( index -- first ) lf-level-slot node-first @ ;
 : lf-level-second@ ( index -- second ) lf-level-slot node-second @ ;

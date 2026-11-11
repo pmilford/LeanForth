@@ -17,7 +17,7 @@ Install the pinned tools into `.tools/` as the
 [project README](../../README.md#installing-the-pinned-tools-and-running-the-tests)
 describes (Gforth 1.0.0 and Lean 4.35.0, each checked against a SHA-256).
 The Makefile finds them there; override with `GFORTH=...` or `LEAN=...`.
-Every command is stopped after `TEST_TIMEOUT` seconds (600 by default) and
+Every command is stopped after `TEST_TIMEOUT` seconds (1,800 by default) and
 then fails. Run everything from the repository root.
 
 ## The two suites

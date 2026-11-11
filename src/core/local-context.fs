@@ -48,6 +48,10 @@ require ./diagnostics.fs
 require ./terms.fs
 
 9 constant lf-tag-fvar
+\ A free variable's node is never shared (terms.fs): its entry names it
+\ by its identity, and a dead node must never come back as a new
+\ entry's free variable.
+lf-tag-fvar lf-term-unshare
 64 constant lf-lctx-default          \ entries a new context's block holds at first
 
 begin-structure /lf-ldecl
@@ -117,9 +121,10 @@ store-header context-record: lf-lctx
 : lf-fvar-live? ( node -- flag )
   dup lf-term-read if lf-fvar-shape if lf-ldecl-names? exit then then drop false ;
 
-\ Discarding scratch above a term-store mark (lf-term-count set back to
-\ it): the entries whose nodes lie at or above the mark go too. They are
-\ the newest, as entries are made in node order.
+\ Discarding scratch above a term-store mark (the term count a scratch
+\ mark gives back to, core/scratch-marks.fs): the entries whose nodes lie
+\ at or above the mark go too. They are the newest, as entries are made
+\ in node order.
 : lf-lctx-above? ( mark -- flag )
   lf-lctx-count @ ?dup if 1- lf-ldecl lf-ldecl-fvar @ <= else drop false then ;
 : lf-lctx-drop ( mark -- ) begin dup lf-lctx-above? while -1 lf-lctx-count +! repeat drop ;

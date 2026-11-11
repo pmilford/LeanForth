@@ -71,11 +71,12 @@
 \ order Lean's kernel checks them (env-signature.fs). A job started with
 \ lf-minfer-start, as by lf-mixed-infer and the probes, never uses it.
 \ State: one inference record, lf-minfer-job (fields lf-ijob-*): fuel, frame
-\ depth, index token, the arena counts before the call, the scope (the
+\ depth, index token, the scratch mark before the call, the scope (the
 \ opened binders' free variables and a Pi telescope's levels), whether
 \ inference runs aside, whether it runs in environment mode, a copy of a
 \ reference's levels; a member of the checker context
-\ (lib/context.fs). Lean's whnf (whnf.fs) runs on the job's frames.
+\ (lib/context.fs). Lean's whnf (whnf.fs) runs on the job's frames. A
+\ step's mark (lf-minfer-discard) is on scratch-marks.fs's mark stack.
 \ The local context is local-context.fs's: emptied when a job starts;
 \ discarding scratch (a binder domain's or an argument's inference, a
 \ Pi's, a failure) drops the
@@ -105,6 +106,7 @@ require ../core/let-terms.fs
 require ../core/levels.fs
 require ../core/local-context.fs
 require ../core/projections.fs
+require ../core/scratch-marks.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
 require ./env-signature.fs
@@ -125,14 +127,13 @@ require ./whnf.fs
 begin-structure /lf-ijob
   /frames +field lf-ijob-frames  \ fuel, visits in progress, the explicit stack
   field: lf-ijob-token     \ signature index token
-  field: lf-ijob-terms     \ term count before the call
-  field: lf-ijob-levels    \ level count before the call
-  field: lf-ijob-crefs     \ reference count before the call
   field: lf-ijob-binders   \ free variables on the scope
   field: lf-ijob-aside     \ true while inference runs aside (infer-only)
   field: lf-ijob-env       \ true in environment mode (lf-minfer-start-env)
   field: lf-ijob-argument  \ the argument an application's type is instantiated with
   field: lf-ijob-chain     \ for a lambda's lambda body, where the chain began, else -1
+  field: lf-ijob-inner     \ true while a Pi's Pi body is entered (no cache key)
+  /lf-scratch +field lf-ijob-mark  \ the stores before the call (scratch-marks.fs)
 end-structure
 0 lf-ijob-frames 0<> [if] .( mixed-infer.fs: frames must come first) cr abort [then]
 /lf-ijob context-record: lf-minfer-job
@@ -176,19 +177,27 @@ end-structure
 : lf-minfer-site ( -- site ) c" mixed-infer lf-mixed-infer" ;
 \ Scratch that a step no longer needs once it has succeeded -- what a
 \ binder domain's, an application argument's or a Pi telescope's
-\ inference made beyond its Sort level or its verdict -- is discarded by
-\ setting the term count back to the mark taken before it. A measure for
-\ small term stores (the default holds 64 terms), so that free variables
-\ (plan task 4.2.2a) fit where the binder context did; it changes no
-\ result, as nothing made after the mark is used again. With the caches
-\ of ADR 0014 Q10 on, which keep scratch until the job ends, it discards
-\ nothing. After a failure the job's own rollback discards everything.
-\ While the caches keep scratch until the job ends (kernel/caches.fs sets
-\ the hook), nothing is discarded.
+\ inference made beyond its Sort level or its verdict -- is discarded:
+\ the terms and their local-context entries go back to a mark on the
+\ scratch mark stack taken before it (lf-scratch-cut, scratch-marks.fs),
+\ the levels and references stay (the Sort level may be one the step
+\ made). A measure for small term stores, so that free variables (plan
+\ task 4.2.2a) fit where the binder context did; it changes no result, as
+\ nothing made after the mark is used again. With the caches of ADR 0014
+\ Q10 on, which keep scratch until the job ends (kernel/caches.fs sets the
+\ hook), and after a failure, the mark is let go and nothing discarded;
+\ after a failure the job's own rollback discards everything. Every step
+\ mark is used exactly once, here, whatever the outcome, so the stack
+\ stays LIFO: a mark is taken just before its step's child visit and used
+\ once that child (and every mark taken inside it) is done. A mark the
+\ stack refuses (out of order) makes a succeeding step invalid; number 0,
+\ of a mark that could not be taken, comes only with a failed step
+\ (lf-minfer-call-marked).
 defer lf-minfer-keeps? ( -- flag )
 :noname ( -- flag ) false ; is lf-minfer-keeps?
 : lf-minfer-discard ( outcome mark -- outcome )
-  over ok? lf-minfer-keeps? 0= and if dup lf-term-count ! lf-lctx-drop else drop then ;
+  over ok? lf-minfer-keeps? 0= and if lf-scratch-cut else lf-scratch-drop then
+  lf-scratch-settled ;
 : lf-minfer-note ( n1 n2 code -- ) lf-minfer-site swap lf-diag-note ;
 
 \ The scope: the free variables of the binders opened around the node
@@ -237,14 +246,27 @@ lf-walk-room context-walk2: lf-minfer-scan
 : lf-minfer-scan-dispatch ( first second walk tag -- outcome )
   dup lf-term-binary-tag? if lf-minfer-scan-binary exit then
   lf-tag-bvar = if lf-minfer-scan-bvar else drop 2drop outcome-ok then ;
-: lf-minfer-scan-visit ( walk -- outcome ) lf-terms ['] lf-minfer-scan-dispatch walk-visit ;
+: lf-minfer-scan-visit ( walk -- outcome ) ['] lf-minfer-scan-dispatch lf-term-visit ;
 \ The scan keeps the largest k - d (-1 for none), so that no index
 \ overflows; m is one more, at most n.
-: lf-minfer-loose ( node n -- m )
+: lf-minfer-scanned ( node n -- m )
   >r -1 lf-minfer-scan walk-arg ! lf-minfer-fuel @ lf-minfer-scan walk-budget 0=
   if drop r> exit then
   0 ['] lf-minfer-scan-visit lf-minfer-scan walk-run-pair ok?
   if lf-minfer-scan walk-arg @ r@ 1- min 1+ r> drop else r> then ;
+\ That number is Lean's loose_bvar_range, which Lean reads from the node
+\ (expr.cpp 102-103, computed once when the node is made), as the term
+\ store keeps it in the node's data word (core/terms.fs, ADR 0016 C1;
+\ plan task 6.5.5): it is taken from there, at most n, and no scan runs.
+\ A node without data asks the hook (the caches' memo, kernel/caches.fs;
+\ by default never known), and only then is scanned.
+defer lf-minfer-range ( node -- m true | false )
+:noname ( node -- m true | false ) drop false ; is lf-minfer-range
+: lf-minfer-word ( node -- m true | false )
+  lf-term-data@ if lf-data-loose true else false then ;
+: lf-minfer-loose ( node n -- m )
+  over lf-minfer-word if min nip exit then
+  over lf-minfer-range if min nip else lf-minfer-scanned then ;
 \ Of n free variables, the innermost that node needs, at least one: the
 \ pass then visits and pays for node as with all n, and gives the same
 \ term, while checking and copying only those (plan task 6.2.0: a
@@ -253,17 +275,20 @@ lf-walk-room context-walk2: lf-minfer-scan
   dup 2 < if exit then
   2 pick over lf-minfer-loose 1 max tuck - cells rot + swap ;
 
-\ Opening on the job's fuel (mixed-open.fs), which continues with what it
-\ leaves: node with the free variables opened since base put for its
-\ loose bound variables (instantiate_rev); ok, invalid, exhausted or full.
+\ Closing on the job's fuel (mixed-open.fs), which continues with what it
+\ leaves: a term read under the scope, with the scope's free variables put
+\ for its loose bound variables (instantiate_rev; the scope's binders);
+\ ok, invalid, exhausted or full. A closing under the whole scope is a
+\ function of the scope, which its innermost free variable names, so
+\ mixed-open.fs keeps its results for every later closing under it
+\ (lf-instantiate-scope): an argument closed once is not closed again
+\ inside a larger argument, which inference closes after it (plan task
+\ 6.5.5; ADR 0014, Amendment 3).
 : lf-minfer-lend ( -- ) lf-minfer-fuel @ lf-open-fuel ! ;
 : lf-minfer-repay ( -- ) lf-open-fuel @ lf-minfer-fuel ! ;
-: lf-minfer-open ( node base -- node' status )
-  lf-minfer-lend lf-minfer-opened lf-minfer-needed lf-instantiate-rev lf-minfer-repay
+: lf-minfer-close ( node -- node' status )
+  lf-minfer-lend 0 lf-minfer-opened lf-minfer-needed lf-instantiate-scope lf-minfer-repay
   outcome-sane ;
-\ A term read under the scope, closed with every free variable of the
-\ scope (its loose bound variables are the scope's binders).
-: lf-minfer-close ( node -- node' status ) 0 lf-minfer-open ;
 
 \ Live nodes as handles; the right one is checked first.
 : lf-minfer-handle ( node -- node identity true | false )
@@ -453,6 +478,20 @@ defer lf-minfer-walk ( node -- type status )
 \ step is the frames' visitor, lf-minfer-visit-step below.
 : lf-minfer-call ( node frames cont -- ... frames next )
   over lf-minfer-room dup ok? if drop frame-opened else frame-refuse then ;
+\ A step's mark on the scratch mark stack (lf-minfer-discard), its number
+\ saved on the frames where the step finds it: ok; or full (the stack
+\ cannot grow: recorded with its depth and room) or invalid (a store's
+\ count is not valid), with number 0 saved.
+: lf-minfer-stack-full ( -- ) lf-scratch-size lf-diag-work-stack-full lf-minfer-note ;
+: lf-minfer-unmarked ( outcome -- outcome )
+  dup outcome-full = if lf-minfer-stack-full then ;
+: lf-minfer-marked ( frames -- outcome )
+  >r lf-scratch-push dup ok? 0= if lf-minfer-unmarked then swap r> frame-save ;
+\ The visit of node once the step's mark is taken; when it could not be,
+\ the step continues at once with no result and that outcome, as after a
+\ refused visit (its mark, number 0, is then only let go, and refused).
+: lf-minfer-call-marked ( node outcome frames cont -- ... frames next )
+  rot dup ok? if drop lf-minfer-call else frame-refuse then ;
 
 \ Application, in three steps (infer_app, type_checker.cpp 173-187): the
 \ function's type must be a Pi, after whnf when it is no visible one
@@ -461,7 +500,7 @@ defer lf-minfer-walk ( node -- type status )
 \ unknown, or rejected when Lean says no: appTypeMismatch), and the type is the Pi
 \ body instantiated with the argument. The argument waits on the stack
 \ while the function's type is inferred; the body, the argument, the
-\ domain and the term count before the argument's inference (its scratch
+\ domain and the mark taken before the argument's inference (its scratch
 \ is discarded) while the argument's is.
 : lf-minfer-pi-whnf ( type -- domain body true | outcome false )
   lf-minfer-whnf-job ok-then? 0= if false exit then
@@ -488,8 +527,8 @@ defer lf-minfer-walk ( node -- type status )
   >r r@ frame-restore -rot lf-minfer-step? 0= if r> 0 exit then
   lf-minfer-pi-parts 0= if nip lf-minfer-none r> 0 exit then
   lf-minfer-aside @ if nip swap lf-minfer-instantiate r> 0 exit then
-  r@ frame-save swap dup r@ frame-save swap r@ frame-save lf-term-count @ r@ frame-save
-  r> ['] lf-minfer-app-arg lf-minfer-call ;
+  r@ frame-save swap dup r@ frame-save swap r@ frame-save r@ lf-minfer-marked
+  r> ['] lf-minfer-app-arg lf-minfer-call-marked ;
 \ A projection (plan task 5.2.2): the application of a projection leaf
 \ to its structure term (core/projections.fs), typed by Lean's infer_proj
 \ in infer-proj.fs, which sets this hook while loading; unknown before.
@@ -501,11 +540,13 @@ defer lf-minfer-proj ( leaf e frames -- ... frames next )
   2 pick lf-proj-leaf? if lf-minfer-proj exit then
   tuck frame-save ['] lf-minfer-app-fn lf-minfer-call ;
 
-\ Source nodes lie below the term count at the start; inference that runs
+\ Source nodes lie below the term count at the start, as the job's mark
+\ records it (none when the mark could not be taken); inference that runs
 \ aside (the typer) reads every live node, among them the closed copies
 \ it infers, whose free variables are read through their entries.
+: lf-minfer-start-terms ( -- n ) lf-minfer-job lf-ijob-mark lf-scratch-terms ;
 : lf-minfer-source? ( node -- flag )
-  dup 0< 0= swap lf-minfer-job lf-ijob-terms @ < and lf-minfer-aside @ or ;
+  dup 0< 0= swap lf-minfer-start-terms < and lf-minfer-aside @ or ;
 : lf-minfer-read ( node -- first second tag true | false )
   dup lf-minfer-source? 0= if drop false exit then lf-term-read dup if >r rot r> then ;
 
@@ -557,8 +598,8 @@ defer lf-minfer-proj ( leaf e frames -- ... frames next )
 \ the chain began while a lambda's body is a lambda; the inner lambda
 \ takes it as it starts (lf-minfer-top), so no other node sees it.
 \ Steps: the domain's inference, with the scope's depth before the
-\ binder (base), the chain's top, the domain, the body and the term
-\ count waiting on the stack; then the body's, with base, top and the
+\ binder (base), the chain's top, the domain, the body and the step's
+\ mark waiting on the stack; then the body's, with base, top and the
 \ domain.
 : lf-minfer-chain ( -- addr ) lf-minfer-job lf-ijob-chain ;
 : lf-minfer-top ( base -- top )
@@ -593,8 +634,8 @@ defer lf-minfer-proj ( leaf e frames -- ... frames next )
   else r> ['] lf-minfer-lam-plain then lf-minfer-call ;
 : lf-minfer-lam ( domain body frames -- ... frames next )
   >r lf-minfer-context-depth @ dup r@ frame-save lf-minfer-top r@ frame-save
-  over r@ frame-save r@ frame-save lf-term-count @ r@ frame-save
-  r> ['] lf-minfer-lam-domain lf-minfer-call ;
+  over r@ frame-save r@ frame-save r@ lf-minfer-marked
+  r> ['] lf-minfer-lam-domain lf-minfer-call-marked ;
 \ A Pi's type is Sort (mk_imax u v) for a domain in Sort u and a body in
 \ Sort v: Lean's infer_pi builds the level innermost first
 \ (type_checker.cpp 158-165), as these steps do (ADR 0011, Amendment
@@ -602,10 +643,13 @@ defer lf-minfer-proj ( leaf e frames -- ... frames next )
 \ Sort too (infer_pi's ensure_sort_core on the body, 158); when it is no
 \ visible Sort and its whnfB is rigid and not a Sort, Lean's kernel fails
 \ with typeExpected. A full level store is full. Only the level is
-\ needed, so the Pi's scratch is discarded before its Sort is made.
+\ needed, so the Pi's scratch is discarded before its Sort is made. Two
+\ marks are taken at the Pi's start, one for each discard: the domain's
+\ scratch goes back to the newer (A), the whole Pi's to the older (B),
+\ which the domain's failure lets go.
 \ Steps: the domain's inference, with the scope's depth before the binder
-\ (base), the term count, the body and the domain waiting on the stack;
-\ then the body's, with base and the count.
+\ (base), mark B, the body, mark A and the domain waiting on the stack;
+\ then the body's, with base and mark B.
 : lf-minfer-body-sort ( type -- level status )
   lf-minfer-site lf-diag-body-type lf-minfer-sort-rule ;
 : lf-minfer-imax ( v base -- level status )
@@ -617,13 +661,28 @@ defer lf-minfer-proj ( leaf e frames -- ... frames next )
 : lf-minfer-pi-body ( T status frames -- type status frames 0 )
   >r r@ frame-restore r@ frame-restore 2swap
   lf-minfer-good? if lf-minfer-pi-level then lf-minfer-pi-end r> 0 ;
+\ A step mark let go on a failure path, where the step's own failure is
+\ the outcome.
+: lf-minfer-let-go ( mark -- ) lf-scratch-drop drop ;
+\ Lean's infer_pi opens a chain of Pis at once (type_checker.cpp
+\ 144-166): an inner Pi is never inferred on its own, so never looked up
+\ or kept in the inferred-type cache (type_checker.cpp 332-334, 356). The
+\ chain is entered one Pi at a time here; a Pi's body that is a Pi is
+\ marked as inner while it is entered (lf-minfer-inner, which the caches
+\ read, kernel/caches.fs), and its own visit takes the mark off.
+: lf-minfer-inner ( -- addr ) lf-minfer-job lf-ijob-inner ;
+: lf-minfer-pi-node? ( node -- flag )
+  lf-minfer-read if nip nip lf-tag-pi = else false then ;
+: lf-minfer-pi-inner ( body -- body ) dup lf-minfer-pi-node? lf-minfer-inner ! ;
 : lf-minfer-pi-domain ( D status frames -- ... frames next )
-  >r r@ frame-restore 1 r@ frame-pick 2swap lf-minfer-bound
-  dup ok? 0= if no-result 3 r@ frame-drop r> 0 exit then
-  drop r@ frame-restore r> ['] lf-minfer-pi-body lf-minfer-call ;
+  >r r@ frame-restore r@ frame-restore 2swap lf-minfer-bound
+  dup ok? 0= if no-result 1 r@ frame-pick lf-minfer-let-go 3 r@ frame-drop r> 0 exit then
+  drop r@ frame-restore lf-minfer-pi-inner r> ['] lf-minfer-pi-body lf-minfer-call ;
 : lf-minfer-pi ( domain body frames -- ... frames next )
-  >r lf-minfer-context-depth @ r@ frame-save lf-term-count @ r@ frame-save
-  r@ frame-save dup r@ frame-save r> ['] lf-minfer-pi-domain lf-minfer-call ;
+  false lf-minfer-inner !
+  >r lf-minfer-context-depth @ r@ frame-save r@ lf-minfer-marked
+  swap r@ frame-save r@ lf-minfer-marked lf-scratch-settled
+  over r@ frame-save r> ['] lf-minfer-pi-domain lf-minfer-call-marked ;
 
 \ A let term (core/let-terms.fs; plan task 4.2.3): Lean's infer_let
 \ (type_checker.cpp 208-230). A chain of let terms, each the body of the
@@ -647,8 +706,8 @@ defer lf-minfer-proj ( leaf e frames -- ... frames next )
 \ default). The chain's variables leave the scope whatever the outcome. A
 \ let term whose second argument is no lambda is malformed (invalid).
 \ Steps: the scope's depth before the chain (base) waits on the stack
-\ throughout; while deciding, T's inference with v, the lambda and the
-\ term count waiting, then v's with v, the lambda, T closed and the count;
+\ throughout; while deciding, T's inference with v, the lambda and a step
+\ mark waiting, then v's with v, the lambda, T closed and another mark;
 \ then the body's.
 : lf-minfer-let-fail ( outcome n frames -- -1 outcome frames 0 )
   tuck frame-drop >r r@ frame-restore lf-minfer-unbind no-result r> 0 ;
@@ -697,11 +756,11 @@ defer lf-minfer-let-one ( v lam frames -- ... frames next )
 : lf-minfer-let-type ( D status frames -- ... frames next )
   >r r@ frame-restore -rot lf-minfer-domain-level r@ lf-minfer-let-tc
   ok-then? 0= if 2 r> lf-minfer-let-fail exit then
-  r@ frame-save lf-term-count @ r@ frame-save
-  3 r@ frame-pick r> ['] lf-minfer-let-value lf-minfer-call ;
+  r@ frame-save r@ lf-minfer-marked
+  3 r@ frame-pick swap r> ['] lf-minfer-let-value lf-minfer-call-marked ;
 : lf-minfer-let-check ( v lam frames -- ... frames next )
-  >r swap r@ frame-save dup r@ frame-save lf-term-count @ r@ frame-save
-  lf-term-first@ r> ['] lf-minfer-let-type lf-minfer-call ;
+  >r swap r@ frame-save dup r@ frame-save r@ lf-minfer-marked
+  swap lf-term-first@ swap r> ['] lf-minfer-let-type lf-minfer-call-marked ;
 : lf-minfer-let-open ( v lam frames -- ... frames next )
   >r dup lf-term-first@ lf-minfer-close ok-then? 0= if nip nip 0 r> lf-minfer-let-fail exit then
   -rot r> lf-minfer-let-bind ;
@@ -783,31 +842,34 @@ defer lf-minfer-entry ( node frames -- ... frames next )
 : lf-minfer-preflight ( root identity -- status )
   lf-minfer-scope dup ok? if drop lf-minfer-index then ;
 
-\ The three arena counts before allocation, and their rollback; allocation
-\ serials never rewind.
-: lf-minfer-mark ( job -- )
-  lf-term-count @ over lf-ijob-terms ! lf-level-count @ over lf-ijob-levels !
-  lf-cref-count @ swap lf-ijob-crefs ! ;
-: lf-minfer-rollback ( -- )
-  lf-minfer-job dup lf-ijob-terms @ lf-term-count ! dup lf-ijob-levels @ lf-level-count !
-  dup lf-ijob-crefs @ lf-cref-count ! lf-ijob-terms @ lf-lctx-drop ;
+\ The job's scratch mark before allocation (core/scratch-marks.fs), and
+\ the rollback to it after a failure: every term, level, reference and
+\ local-context entry the job made goes; allocation serials never rewind.
+\ LIFO: the job's mark is its oldest, taken when it starts and given back
+\ only once its walk has returned, after every mark taken inside it. A
+\ mark that could not be taken (a store's count not valid) is erased, so
+\ the rollback refuses it and no node is a source (lf-minfer-source?):
+\ the job fails at its first read. A refused rollback is invalid.
+: lf-minfer-mark ( job -- ) lf-ijob-mark lf-scratch-mark drop ;
+: lf-minfer-rollback ( outcome -- outcome )
+  lf-minfer-job lf-ijob-mark lf-scratch-rollback lf-scratch-settled ;
 : lf-minfer-idle ( job -- )
   dup lf-ijob-frames frame-reset 0 over lf-ijob-binders !
-  -1 over lf-ijob-chain !
+  -1 over lf-ijob-chain ! false over lf-ijob-inner !
   false over lf-ijob-aside ! false swap lf-ijob-env ! ;
 
 \ Start a job on lf-minfer-job: the index token and nonnegative fuel, no
 \ frames or binders in use, rules on, not in environment mode, an empty
-\ local context, and the arena counts to roll back to. Neither preflight
-\ allocates, so the counts are the same before and after it; the
+\ local context, and the scratch mark to roll back to. Neither preflight
+\ allocates, so the stores stand the same before and after it; the
 \ definition probe starts a job after its own preflight.
 \ A new job empties the caches (kernel/caches.fs sets the hook), as its
-\ local context starts empty.
+\ local context starts empty, and the memo of closings (mixed-open.fs).
 defer lf-minfer-fresh ( -- )
 :noname ( -- ) ; is lf-minfer-fresh
 : lf-minfer-start ( token fuel -- )
   lf-minfer-job tuck lf-ijob-fuel ! tuck lf-ijob-token !
-  dup lf-minfer-idle lf-minfer-mark lf-lctx-reset lf-minfer-fresh ;
+  dup lf-minfer-idle lf-minfer-mark lf-lctx-reset lf-minfer-fresh lf-open-forget ;
 \ Start a job in environment mode (check-declaration.fs), inside a check
 \ of the checked environment: as lf-minfer-start, with no index token.
 : lf-minfer-start-env ( fuel -- )
@@ -817,15 +879,16 @@ defer lf-minfer-fresh ( -- )
 : lf-minfer-failed ( status -- type identity status ) 0 lf-minfer-fuel ! -1 0 rot ;
 : lf-minfer-result ( type -- type identity status )
   dup lf-term-identity if outcome-ok exit then
-  drop lf-minfer-rollback outcome-invalid lf-minfer-failed ;
+  drop outcome-invalid lf-minfer-rollback lf-minfer-failed ;
 : lf-minfer-run ( root -- type identity status )
   lf-minfer-walk
   dup ok? if drop lf-minfer-result else nip lf-minfer-rollback lf-minfer-failed then ;
 
 \ ( token root identity fuel -- type identity status ) Full source and global
-\ index preflight precede allocation. All failures restore three arena counts;
-\ serials never rewind. The input is the root's graph, which preflight
-\ found closed. Every failure reports zero remaining fuel conservatively.
+\ index preflight precede allocation. All failures roll the stores back to
+\ the job's scratch mark; serials never rewind. The input is the root's
+\ graph, which preflight found closed. Every failure reports zero
+\ remaining fuel conservatively.
 : lf-minfer-negative ( token root identity fuel -- type identity status )
   0 lf-diag-bad-argument lf-minfer-note drop 2drop outcome-invalid lf-minfer-failed ;
 : lf-mixed-infer ( token root identity fuel -- type identity status )

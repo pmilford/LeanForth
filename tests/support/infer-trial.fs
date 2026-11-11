@@ -51,7 +51,7 @@ create pairs 2 cells allot
   dup lf-term-read 0= if ." ?node " drop exit then rot case
     lf-tag-symbolic-sort of drop nip ." S " .level endof
     lf-tag-bvar of drop nip ." V " .n endof
-    lf-tag-constant of rot drop .constant endof
+    lf-tag-constant of rot drop lf-cterm-pair .constant endof
     lf-tag-app of ." A " rot drop swap recurse recurse endof
     lf-tag-lam of ." L " rot drop swap recurse recurse endof
     lf-tag-pi of ." P " rot drop swap recurse recurse endof

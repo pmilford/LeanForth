@@ -10,12 +10,19 @@ require ../../src/core/level-scope.fs
 require ../../src/core/levels.fs
 require ../../src/core/local-context.fs
 require ../../src/core/names.fs
+require ../../src/core/scratch-marks.fs
 require ../../src/core/symbolic-session.fs
 require ../../src/core/tagged-sort-boundary.fs
 require ../../src/core/terms.fs
 require ../../src/kernel/mixed-instantiate.fs
 require ../../src/kernel/mixed-open.fs
 require ../../src/kernel/mixed-shift.fs
+require ../support/store-faults.fs
+
+\ These cases number their nodes and identity serials: the term store's
+\ hash-consing (compact-store plan step S3) is off here, so that each
+\ constructor and each rebuilt node is a new node, as the cases count.
+false lf-term-sharing!
 
 variable rid variable cid variable sid variable rootid variable outid variable serial-before
 create args 2 cells allot
@@ -32,24 +39,24 @@ create args 2 cells allot
   0 3 lf-term-app 0= abort" app" drop
   2 4 lf-term-app 0= abort" app" drop
   1 5 lf-term-lam 0= abort" lam" drop
-  lf-term-serial @ rootid ! ;
+  term-serial rootid ! ;
 \ Source lambda: domain constant, body app(local 0, target 1).
 setup
 T{ 2 3 lf-term-app -> 7 true }T
 T{ 0 7 lf-term-lam -> 8 true }T
-lf-term-serial @ rootid !
+term-serial rootid !
 \ Replacement app(Sort, bvar 0): the free variable shifts under lambda.
 T{ 1 2 lf-term-app -> 9 true }T
-lf-term-serial @ rid !
-T{ 8 rootid @ 9 rid @ 100 lf-mixed-instantiate -> 13 lf-term-serial @ outcome-ok }T
-lf-term-serial @ outid !
+term-serial rid !
+T{ 8 rootid @ 9 rid @ 100 lf-mixed-instantiate -> 13 term-serial outcome-ok }T
+term-serial outid !
 T{ 10 lf-term-read -> lf-tag-bvar 1 0 true }T
 T{ 11 lf-term-read -> lf-tag-app 1 10 true }T
 T{ 12 lf-term-read -> lf-tag-app 2 11 true }T
 T{ 13 lf-term-read -> lf-tag-lam 0 12 true }T
 T{ 13 outid @ 100 lf-cterm-check -> outcome-ok }T
 \ Free variables above the target are lowered; leaves keep identities.
-T{ 3 3 lf-term-identity drop 0 cid @ 100 lf-mixed-instantiate -> 14 lf-term-serial @ outcome-ok }T
+T{ 3 3 lf-term-identity drop 0 cid @ 100 lf-mixed-instantiate -> 14 term-serial outcome-ok }T
 T{ 14 lf-term-read -> lf-tag-bvar 0 0 true }T
 T{ 0 cid @ 1 sid @ 100 lf-mixed-instantiate -> 0 cid @ outcome-ok }T
 T{ 2 2 lf-term-identity drop 0 cid @ 100 lf-mixed-instantiate -> 0 cid @ outcome-ok }T
@@ -62,27 +69,30 @@ T{ 0 cid @ 1 sid @ 4 lf-mixed-instantiate -> -1 0 outcome-exhausted }T
 T{ 0 cid @ 1 sid @ 5 lf-mixed-instantiate -> 0 cid @ outcome-ok }T
 T{ lf-minst-fuel @ -> 0 }T
 \ Even unused invalid or exhausted replacements are audited first.
-lf-term-count @ rootid ! lf-term-serial @ serial-before !
+lf-term-count @ rootid ! term-serial serial-before !
 T{ 0 cid @ 9 0 100 lf-mixed-instantiate lf-minst-fuel @ -> -1 0 outcome-invalid 0 }T
 T{ 0 cid @ 9 rid @ -1 lf-mixed-instantiate -> -1 0 outcome-invalid }T
 T{ 0 cid @ 9 rid @ 2 lf-mixed-instantiate -> -1 0 outcome-exhausted }T
 T{ lf-minst-fuel @ -> 0 }T
 T{ lf-term-count @ -> rootid @ }T
-T{ lf-term-serial @ -> serial-before @ }T
+T{ term-serial -> serial-before @ }T
 \ A malformed unused replacement must fail without allocations.
-1 2 lf-term-slot 2 cells + !
+1 2 term-second!
 T{ 0 cid @ 9 rid @ 100 lf-mixed-instantiate -> -1 0 outcome-invalid }T
-0 2 lf-term-slot 2 cells + !
+0 2 term-second!
 T{ lf-term-count @ -> rootid @ }T
-\ Exhaust after allocations, discard output, and never reuse the old identity.
+\ Exhaust after allocations, discard output, and never reuse the old identity:
+\ the audit takes 4, the root's visit 1, the lowered variable's 1 (a new
+\ leaf), and the target's visit finds no fuel (its replacement, lifted by
+\ 0, would be the replacement itself: expr.cpp 449).
 setup
-T{ 2 3 lf-term-app -> 7 true }T
-lf-term-serial @ rootid !
-lf-term-serial @ serial-before !
-T{ 7 rootid @ 2 2 lf-term-identity drop 7 lf-mixed-instantiate -> -1 0 outcome-exhausted }T
+T{ 3 2 lf-term-app -> 7 true }T
+term-serial rootid !
+term-serial serial-before !
+T{ 7 rootid @ 2 2 lf-term-identity drop 6 lf-mixed-instantiate -> -1 0 outcome-exhausted }T
 T{ lf-term-count @ -> 8 }T
-T{ lf-term-serial @ serial-before @ > -> true }T
-lf-term-serial @ outid !
+T{ term-serial serial-before @ > -> true }T
+term-serial outid !
 T{ 0 lf-term-bvar -> 8 true }T
 T{ 8 outid @ lf-hterm-valid? -> false }T
 \ A stale constant reference invalidates either complete input.
@@ -94,21 +104,22 @@ T{ 0 cid @ 2 2 lf-term-identity drop 100 lf-mixed-instantiate -> -1 0 outcome-in
 setup
 T{ 2 3 lf-term-app -> 7 true }T
 T{ 1 7 lf-term-lam -> 8 true }T
-lf-term-serial @ rid !
+term-serial rid !
 T{ 0 3 lf-term-pi -> 9 true }T
-lf-term-serial @ rootid !
-T{ 9 rootid @ 8 rid @ 100 lf-mixed-instantiate -> 13 lf-term-serial @ outcome-ok }T
+term-serial rootid !
+T{ 9 rootid @ 8 rid @ 100 lf-mixed-instantiate -> 13 term-serial outcome-ok }T
 T{ 10 lf-term-read -> lf-tag-bvar 2 0 true }T
 T{ 11 lf-term-read -> lf-tag-app 2 10 true }T
 T{ 12 lf-term-read -> lf-tag-lam 1 11 true }T
 T{ 13 lf-term-read -> lf-tag-pi 0 12 true }T
-T{ 13 lf-term-serial @ 100 lf-cterm-check -> outcome-ok }T
+T{ 13 term-serial 100 lf-cterm-check -> outcome-ok }T
 \ Shifting a maximum index fails after the audits, with rollback: the
-\ index has no room to grow, which is full.
+\ index has no room to grow, which is full (the largest index a term's
+\ 32-bit field holds, since compact-store plan step S3; a cell's before).
 setup
-T{ lf-mshift-max lf-term-bvar -> 7 true }T
+T{ u32-mask lf-term-bvar -> 7 true }T
 T{ 0 3 lf-term-lam -> 8 true }T
-lf-term-serial @ rootid !
+term-serial rootid !
 T{ 8 rootid @ 7 7 lf-term-identity drop 100 lf-mixed-instantiate -> -1 0 outcome-full }T
 T{ lf-term-count @ -> 9 }T
 \ Rebuilding in a full arena is full, without changing count.
@@ -123,11 +134,11 @@ T{ lf-term-count @ -> lf-term-capacity }T
 setup
 T{ 2 3 lf-term-app -> 7 true }T
 T{ 0 7 lf-term-lam -> 8 true }T
-lf-term-serial @ rootid !
+term-serial rootid !
 T{ 1 2 lf-term-app -> 9 true }T
-lf-term-serial @ rid !
+term-serial rid !
 T{ 8 rootid @ 9 rid @ 100 ' lf-mixed-instantiate rs-checked lf-minst-fuel @ lf-mshift-fuel @ ->
-  13 lf-term-serial @ outcome-ok 82 82 }T
+  13 term-serial outcome-ok 82 82 }T
 \ The fuel runs out inside the lent shift: with the replacement app(bvar 0,
 \ Sort) and 17 units, the shift moves the variable (one allocation) and
 \ cannot visit the Sort. Both fuel cells end at zero, the count is
@@ -135,12 +146,12 @@ T{ 8 rootid @ 9 rid @ 100 ' lf-mixed-instantiate rs-checked lf-minst-fuel @ lf-m
 setup
 T{ 2 3 lf-term-app -> 7 true }T
 T{ 0 7 lf-term-lam -> 8 true }T
-lf-term-serial @ rootid !
+term-serial rootid !
 T{ 2 1 lf-term-app -> 9 true }T
-lf-term-serial @ rid !  lf-term-serial @ serial-before !
+term-serial rid !  term-serial serial-before !
 : inst-fuels ( -- inst shift count ) lf-minst-fuel @ lf-mshift-fuel @ lf-term-count @ ;
 T{ 8 rootid @ 9 rid @ 17 lf-mixed-instantiate inst-fuels -> -1 0 outcome-exhausted 0 0 10 }T
-T{ lf-term-serial @ serial-before @ - -> 1 }T
+T{ term-serial serial-before @ - -> 1 }T
 \ A shift record already in use refuses the replacement's shift: the
 \ instantiation fails as invalid and rolls back, and the shift's fuel and
 \ amount stay as they were.
@@ -149,16 +160,22 @@ T{ 8 rootid @ 9 rid @ 100 lf-mixed-instantiate lf-term-count @ lf-mshift-fuel @
   lf-mshift-amount @ -> -1 0 outcome-invalid 10 77 5 }T
 lf-mshift-frames frame-reset
 T{ 8 rootid @ 9 rid @ 18 lf-mixed-instantiate lf-minst-fuel @ ->
-  13 lf-term-serial @ outcome-ok 0 }T
+  13 term-serial outcome-ok 0 }T
 \ A chain that fills the store (node 0 is bvar 0, node k is lam(k-1, 0)) is
 \ visited 64 frames deep down to node 0, the target, whose replacement
-\ cannot be copied into the full store (full): audits 127 and 1 visits, the
-\ walk 64, the shift 1.
+\ node 1, lifted by 0 (itself: expr.cpp 449), makes node 1 a new lambda
+\ that the full store cannot hold (full): audits 127 and 3 visits, the
+\ walk 64 and node 1's body.
 : chain ( -- root identity )
   lf-term-reset lf-ssession-begin 0= abort" session" 0 lf-term-bvar 2drop
   63 0 do i 0 lf-term-lam 0= abort" chain" drop loop 63 dup lf-term-identity drop ;
-T{ chain 0 0 lf-term-identity drop 1000 lf-mixed-instantiate
-  lf-minst-fuel @ lf-mshift-fuel @ lf-term-count @ -> -1 0 outcome-full 807 807 64 }T
+T{ chain 1 1 lf-term-identity drop 1000 lf-mixed-instantiate
+  lf-minst-fuel @ lf-term-count @ -> -1 0 outcome-full 805 64 }T
+\ With bound variable 0 for itself every node comes back unchanged
+\ (update_app, update_binding): the root, after 128 audit visits and 127
+\ walk visits (each lambda's body once).
+T{ chain 0 0 lf-term-identity drop 1000 lf-mixed-instantiate nip lf-minst-fuel @
+  -> 63 outcome-ok 745 }T
 \ A loose variable above the target under a binder is lowered there too:
 \ fun _ : c => #0 #2 with #0 replaced by #0 becomes fun _ : c => #0 #1.
 setup
@@ -166,7 +183,7 @@ T{ 2 lf-term-bvar -> 7 true }T
 T{ 2 7 lf-term-app -> 8 true }T
 T{ 0 8 lf-term-lam -> 9 true }T
 T{ 9 9 lf-term-identity drop 2 2 lf-term-identity drop 100 lf-mixed-instantiate
-  -> 12 lf-term-serial @ outcome-ok }T
+  -> 12 term-serial outcome-ok }T
 T{ 10 lf-term-read -> lf-tag-bvar 1 0 true }T
 T{ 11 lf-term-read -> lf-tag-app 2 10 true }T
 T{ 12 lf-term-read -> lf-tag-lam 0 11 true }T
@@ -196,11 +213,17 @@ T{ 1 99 lf-lctx-let lf-lctx-count @ -> -1 outcome-invalid 3 }T
 \ The audit accepts live free variables only.
 T{ 7 7 lf-term-identity drop 100 lf-cterm-check -> outcome-ok }T
 T{ 10 10 lf-term-identity drop 100 lf-cterm-check -> outcome-invalid }T
-\ A rollback of the term store leaves a discarded free variable's entry
-\ dead, even when its index is used again with the same fields.
-lf-term-count @ constant before-w
+\ A rollback of the term store alone (a store mark, as the input's rollback
+\ makes; a scratch mark would drop the entry too) leaves a discarded free
+\ variable's entry dead, even when its index is used again with the same
+\ fields.
+create term-mark /store-mark allot
+: term-marked ( -- n )
+  term-mark lf-terms store-mark ok? 0= abort" term mark" term-mark mark-count @ ;
+: terms-back ( -- outcome ) term-mark lf-term-rollback ;
+term-marked constant before-w
 T{ 1 lf-lctx-local -> before-w outcome-ok }T
-before-w lf-term-count !
+T{ terms-back -> outcome-ok }T
 T{ before-w lf-fvar-live? -> false }T
 T{ lf-tag-fvar 3 0 lf-term-add -> before-w true }T
 T{ before-w lf-fvar-live? lf-lctx-count @ -> false 4 }T
@@ -277,9 +300,9 @@ open-setup
 1 heap-refusals !
 T{ 9 100000 rev -> -1 outcome-full }T
 T{ 9 -1 rev -> -1 outcome-invalid }T
-lf-term-count @ constant before-dead
+term-marked constant before-dead
 T{ 1 lf-lctx-local -> before-dead outcome-ok }T
-before-dead lf-term-count !
+T{ terms-back -> outcome-ok }T
 T{ lf-tag-fvar 2 0 lf-term-add -> before-dead true }T
 T{ before-dead 1 lf-term-app -> before-dead 1+ true }T
 T{ before-dead 1+ 2 abstracted -> -1 outcome-invalid }T
@@ -303,9 +326,11 @@ T{ lf-open-frames frame-busy? 9 2 rev nip -> false outcome-ok }T
 \ opened, on a stack that grows; a growth the heap refuses is full.
 : deep ( -- node ) 2 lf-walk-room 0 do 1 swap lf-term-lam 0= abort" deep" loop ;
 lf-walk-room 4 * lf-term-capacity! drop
-lf-term-count @ constant before-deep
+create before-deep /lf-scratch allot
+T{ before-deep lf-scratch-mark -> outcome-ok }T
 T{ deep 1 rev nip -> outcome-ok }T
-before-deep lf-term-count !  lf-open-frames frame-free  1 heap-refusals !
+T{ before-deep lf-scratch-rollback -> outcome-ok }T
+lf-open-frames frame-free  1 heap-refusals !
 T{ deep 1 rev -> -1 outcome-full }T
 \ mk_pi: fun over x : Sort and y : x of y is (x : Sort) -> (y : x) -> y,
 \ in de Bruijn form Pi Sort (Pi #0 #0), the domain x abstracted over x.
@@ -319,4 +344,70 @@ T{ made @ pi-parts nip pi-parts nip fields -> lf-tag-bvar 0 0 }T
 \ A let variable would need a let term: unsupported.
 T{ 1 0 lf-lctx-let drop subst ! 1000 lf-open-fuel ! 1 subst 1 lf-mk-pi
   -> -1 outcome-unsupported }T
+\ A shared node is rebuilt once per offset, as Lean's replace caches it
+\ (replace_fn.cpp): M = #0 #0 shared twice in M M, with x for #0, gives
+\ one node x x for both, in five visits (M M, M, #0, #0, then M again: its
+\ result), not seven; the result shares as the input does.
+open-setup
+2 2 lf-term-app drop constant twice-0
+twice-0 twice-0 lf-term-app drop constant pair
+: halves ( node -- first second ) fields rot drop ;
+T{ pair 1 inst nip lf-open-fuel @ -> outcome-ok 995 }T
+T{ pair 1 inst drop halves = -> true }T
+T{ pair 1 inst drop halves drop fields -> lf-tag-app x x }T
+\ What a pass kept is its own: the next pass, with y for #0, gets y y.
+T{ 1000 lf-open-fuel ! pair subst cell+ 1 lf-instantiate drop halves drop fields
+  -> lf-tag-app y y }T
+\ The same node at another offset is another result: in (fun _ : Sort =>
+\ M) M, M under the binder keeps its #0 (bound there), M outside gets x.
+1 twice-0 lf-term-lam drop twice-0 lf-term-app drop constant beta-pair
+: shared-parts ( node -- inner outer ) halves >r halves nip r> ;
+T{ beta-pair 1 inst drop shared-parts drop -> twice-0 }T
+T{ beta-pair 1 inst drop shared-parts nip fields -> lf-tag-app x x }T
+\ The replace memo (kernel/replace-memo.fs, plan task 6.5.5) keys a result
+\ by the node and its offset: N = #1 #1 met first outside, then under a
+\ binder, in N (fun _ : Sort => N), with x for #0: outside #0 #0 (#1 is
+\ lowered), inside x x.
+3 3 lf-term-app drop constant n11
+1 n11 lf-term-lam drop constant lam-n11
+n11 lam-n11 lf-term-app drop constant outer-first
+T{ outer-first 1 inst drop halves drop fields rot drop index-of swap index-of -> 0 0 }T
+T{ outer-first 1 inst drop halves nip fields nip nip fields -> lf-tag-app x x }T
+\ instantiate_rev with an inference scope (lf-instantiate-scope): a node
+\ closed before under the same scope comes back for no fuel; another
+\ scope, named by its innermost free variable, gets its own result.
+: scoped ( node addr -- node' outcome ) 1 lf-instantiate-scope ;
+T{ 1000 lf-open-fuel ! twice-0 subst scoped drop fields lf-open-fuel @
+   -> lf-tag-app x x 997 }T
+T{ 1000 lf-open-fuel ! twice-0 subst scoped drop fields lf-open-fuel @
+   -> lf-tag-app x x 1000 }T
+T{ 1000 lf-open-fuel ! twice-0 subst cell+ scoped drop fields -> lf-tag-app y y }T
+\ A kept result discarded since is a miss, never the node that takes its
+\ index: #1 #0 closed with x and y, its result rolled back and its index
+\ taken by #0 #0, is closed again.
+3 2 lf-term-app drop constant n10
+term-marked constant before-close
+T{ 1000 lf-open-fuel ! n10 subst 2 lf-instantiate-scope drop fields -> lf-tag-app x y }T
+T{ terms-back -> outcome-ok }T
+T{ 2 2 lf-term-app 2drop 1000 lf-open-fuel ! n10 subst 2 lf-instantiate-scope drop fields
+   -> lf-tag-app x y }T
+\ A free variable no longer live is met even in a node with no loose bound
+\ variable, which instantiate keeps unvisited only when no free variable
+\ hides in it: invalid.
+term-marked constant before-gone
+T{ 1 lf-lctx-local -> before-gone outcome-ok }T
+T{ terms-back -> outcome-ok }T
+T{ lf-tag-fvar 2 0 lf-term-add -> before-gone true }T
+T{ before-gone 1 lf-term-app -> before-gone 1+ true }T
+T{ before-gone 1+ 1 inst -> -1 outcome-invalid }T
+\ The single-binder pass keeps its results by node and depth too: in N
+\ (fun _ : c => N), N = #0 #1, with c for the target, N is c #0 outside
+\ and #0 c under the binder.
+2 3 lf-term-app drop constant n01
+0 n01 lf-term-lam drop constant lam-n01
+n01 lam-n01 lf-term-app drop constant inst-pair
+: inst1 ( node -- node' outcome )
+  dup lf-term-identity drop 0 dup lf-term-identity drop 100 lf-mixed-instantiate nip ;
+T{ inst-pair inst1 drop halves drop fields rot drop index-of -> 0 0 }T
+T{ inst-pair inst1 drop halves nip fields nip nip fields -> lf-tag-app 2 0 }T
 bye

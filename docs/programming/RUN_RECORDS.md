@@ -17,7 +17,9 @@ run mode of [ADR 0012, E8](../adr/0012-checked-environment.md#e8-saved-results-a
 requires. Until the checker passes its review gate, every accepted verdict
 in a record carries the label *experimental, not independently audited*.
 
-- **Schemas:** [`schemas/run-record-0.1.schema.json`](../../schemas/run-record-0.1.schema.json)
+- **Schemas:** [`schemas/run-record-0.2.schema.json`](../../schemas/run-record-0.2.schema.json)
+  (records written since the verdict *skipped*; 0.1,
+  [`schemas/run-record-0.1.schema.json`](../../schemas/run-record-0.1.schema.json), kept for earlier ones)
   and [`schemas/replay-report-0.1.schema.json`](../../schemas/replay-report-0.1.schema.json),
   JSON Schema draft 2020-12 within the subset that
   [`tests/support/schema_subset.py`](../../tests/support/schema_subset.py)
@@ -103,7 +105,7 @@ written on one line and shown here indented:
 | `export` | the exporter, export format and Lean versions the metadata record names; null when no metadata record was read | the NDJSON reader, which accepts only the pinned versions |
 | `leanforth` | the commit and whether tracked files differed from it, or null for both | the caller (`ni-source`; `make run-record` asks git) |
 | `host` | the Forth system, its version, its engine (the program's file name, such as `gforth` or `gforth-fast`) and cell width | Gforth's `version-string` and argument 0, else `unknown` |
-| `settings` | fuel per check, the room the dependency pool starts with (`dependencyPool`; it grows since plan task 6.2.0), and the checker's capacities (`dependenciesPerCheck`, `parameters` and `referenceLevels` are not limits since plan task 6.2.0: a check's dependencies and universe lists have no fixed length, and the three fields keep the values 16, 64 and 64, the old limits, fixed legacy values the approved 0.1 schema requires; record 0.2 corrects them, item 3 below) | the run, and the constants of `src/core/` and `src/kernel/` |
+| `settings` | fuel per check, the room the dependency pool starts with (`dependencyPool`; it grows since plan task 6.2.0), and the checker's capacities (`dependenciesPerCheck`, `parameters` and `referenceLevels` are not limits since plan task 6.2.0: a check's dependencies and universe lists have no fixed length, and the three fields keep the values 16, 64 and 64, the old limits, fixed legacy values the approved 0.1 schema requires, and 0.2 too; record 0.3 corrects them, item 3 below) | the run, and the constants of `src/core/` and `src/kernel/` |
 | `check` | the importer's outcome, the run's (`not-run` when the input was not read), and the environment's run mode and allowlist version | the transport, `rr-check`, the environment's header |
 | `declarations` | every declaration in input order: `index`, `name` and `verdict`, and for an accepted one `label` and `axioms`, for any other but `not-checked` its `diagnostic` | the slots of the checked environment, after the run |
 
@@ -122,6 +124,10 @@ what a check said about itself:
   allowlist makes the declaration NOT PROVED. The axioms' own bits must
   make up the slot's axiom set, else the record fails (`rr-write` gives
   invalid); records of allowlist version 0 list none.
+- **skipped** for a rejected slot of an unsafe or partial declaration,
+  which Lean's replay skips unchecked (`Lean/Replay.lean` 180–183; plan
+  task 5.2.7): nothing of it was checked, nothing can use it, and the
+  diagnostic is code 97.
 - **rejected, unknown, unsupported, invalid, exhausted, full**: the slot's
   outcome ([ADR 0008](../adr/0008-outcome-vocabulary.md)), with the
   diagnostic the check left: its code and catalogue name
@@ -337,7 +343,7 @@ the golden records written by 1.0.0 the same way).
   `input.manifest` then says it failed as that read saw it, which an
   enforced read checks again on each pass. A plain `bin/leanforth check`
   (no record) reads the export once, with the importer stage, and writes
-  no record ([version 0.2](#version-02-records-of-any-size) would record
+  no record ([version 0.3](#version-03-records-of-any-size) would record
   that path).
 - The commit is what the caller says, checked only for its form; the host
   fields are what Gforth reports.
@@ -439,15 +445,24 @@ refuses a record of any other version (`unknown-schema`).
   version stays 0.1. The third round changed no field or schema rule: it
   tied `enforced` to the recorded bytes and the run to rr-start's file
   (records only got stricter to write), so the version stays 0.1.
+- **0.2** (2026-11-11): the verdict *skipped* (plan task 5.2.7), which
+  task 5.2.7 had first added to 0.1 in place; review rvUNNI (M2) found that
+  a 0.1 consumer then refused every new record, so it is a version of its
+  own, the 0.1 schema restored exactly as before. Otherwise the same
+  fields and rules. A record without a skipped verdict, its version set
+  back to 0.1, is valid under 0.1 (`tests/core/test_run_records.py`);
+  replay compares a record only with one of its own version, so a 0.1
+  record is refused as `unknown-schema`. The [format] gate for 0.2 is the
+  owner's open decision.
 
-### Version 0.2: records of any size (a proposal, not built)
+### Version 0.3: records of any size (a proposal, not built)
 
 Since 2026-11-04 `bin/leanforth check` stages and feeds an export of any
 size ([the command line](../user/COMMAND_LINE.md#a-whole-library-leans-init)),
-but records stay 0.1, which the owner approved [format] with its fixed
+but records keep the fixed fields of 0.1, which the owner approved [format] with its fixed
 fields: `check --record` and `replay` keep the first path (the input read
 by `src/import/checker-input.fs` at the default sizes, at most 32
-declarations), and a record of `Init` cannot be written. A version 0.2
+declarations), and a record of `Init` cannot be written. A version 0.3
 for any size would need, each a change to the approved format and so the
 owner's [format] gate first:
 
@@ -481,7 +496,7 @@ owner's [format] gate first:
    name once the allowlist names any, and the NOT PROVED mark.
 
 Until then the check report (`check --json`,
-`schemas/check-report-0.1.schema.json`) gives the verdicts of a whole
+`schemas/check-report-0.2.schema.json`) gives the verdicts of a whole
 library as data, without the record's evidence fields (SHA-256, commit,
 host) and without replay.
 

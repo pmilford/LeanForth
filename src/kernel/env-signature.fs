@@ -26,6 +26,7 @@
 
 require ../lib/lib.fs
 require ../core/constant-references.fs
+require ../core/derivation-log.fs
 require ../core/diagnostics.fs
 require ../core/input.fs
 require ../core/levels.fs
@@ -99,8 +100,17 @@ end-structure
   lf-envsig-request dup lf-esreq-pairs @ over lf-esreq-count @ rot lf-esreq-fuel @ ;
 : lf-envsig-left ( root identity 0 | status -- root identity fuel' 0 | status )
   dup ok? if drop lf-mls-fuel @ outcome-ok then ;
+\ Without universe arguments, the stored type itself, unvisited and free
+\ of charge, as instantiate_type_lparams returns it (instantiate.cpp
+\ 251-252), and as whnf.fs unfolds such a constant to its stored value.
+\ With the derivation log on, the substitution runs as before, giving the
+\ same term, so that the log keeps its instantiate-levels step (ADR 0013).
+: lf-envsig-bare? ( -- flag ) lf-envsig-count 0= lf-log? 0= and ;
+: lf-envsig-stored ( root identity -- root identity fuel' 0 )
+  lf-envsig-fuel @ outcome-ok ;
 : lf-envsig-instantiate ( decl -- root identity fuel' 0 | status )
   dup lf-envsig-root 0= if drop outcome-invalid exit then
+  lf-envsig-bare? if rot drop lf-envsig-stored exit then
   rot lf-idecl-params@ drop lf-envsig-actuals lf-mixed-level-substitute lf-envsig-left ;
 : lf-envsig-type ( d -- root identity fuel' 0 | status )
   lf-env-usable ok-then? if lf-slot-decl lf-envsig-instantiate then ;

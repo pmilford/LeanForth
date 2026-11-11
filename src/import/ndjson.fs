@@ -60,8 +60,11 @@
 \ passes on to the caller of export-read after the file is closed, with
 \ the export idle.
 \
-\ What is checked: exact field sets (no field missing, unknown or repeated);
-\ value kinds; enumerations; index fields natural numbers; every name,
+\ What is checked: the fields Lean's reader looks up, as it does (a missing
+\ one is refused, an opaque's isUnsafe excepted; one it does not look up is
+\ ignored; a repeated one reads as its last), the record line's own members
+\ and the metadata exactly; value kinds; enumerations; index fields natural
+\ numbers, as Lean's parser reads them (1e2 is 100; see natural-digits); every name,
 \ level and expression reference to an index an earlier record has, and
 \ names that must not be anonymous; natural number literals in canonical
 \ decimal; heights within UInt32; metadata naming the pinned exporter
@@ -256,9 +259,13 @@ create pair-hooks /htab-hooks allot  ' pair-rehash ' pair-same? pair-hooks htab-
 : imap-keep ( i c map -- outcome )
   dup imap-room dup ok? if drop pair-keep else nip nip nip then ;
 \ Index i takes ordinal c, the family's next: ok, or full when the map
-\ finds no heap.
+\ finds no heap. The dense shortcut needs i = c = imap-dense: after a full
+\ the count has moved on without the map, so later indices are paired and
+\ the one that failed is simply unknown (references to it are refused);
+\ export-restart makes the export whole again.
 : imap-define ( i c map -- outcome )
-  >r 2dup = r@ imap-sparse? 0= and if 2drop 1 r> imap-dense +! outcome-ok exit then
+  >r 2dup = over r@ imap-dense @ = and r@ imap-sparse? 0= and
+  if 2drop 1 r> imap-dense +! outcome-ok exit then
   r> imap-keep ;
 : imap-restart ( dense map -- )
   tuck imap-dense ! dup imap-made @ if dup imap-table htab-clear imap-pairs slab-clear
@@ -268,6 +275,18 @@ create pair-hooks /htab-hooks allot  ' pair-rehash ' pair-same? pair-hooks htab-
 : imap-bytes ( map -- u )
   dup imap-made @ 0= if drop 0 exit then
   dup imap-table htab-slots u32s swap imap-pairs slab-bytes + ;
+
+\ The scratch of a number written with a fraction or an exponent (see
+\ natural-digits): its parts, and the digits of its value as a natural.
+256 constant /digits
+begin-structure /number
+  field: num-negative              \ true: a minus sign
+  text-field: num-whole            \ the digits before the point
+  text-field: num-frac             \ the digits after it, or none
+  field: num-exp-minus             \ true: a minus sign before the exponent
+  text-field: num-exp              \ the exponent's digits, or none
+  /digits +field num-digits        \ the natural's digits, once built
+end-structure
 
 begin-structure /export
   /reader +field export-reader
@@ -279,6 +298,7 @@ begin-structure /export
   field: export-tap                \ xt ( c-addr u x -- ) shown each line read, or 0
   field: export-tap-x              \ the cell given to it
   field: export-any                \ true: metadata of any version of format 3.1.0
+  /number +field export-number    \ scratch of natural-digits
   /imap +field export-name-map     \ the index maps, kept by export-restart,
   /imap +field export-level-map    \ which empties them
   /imap +field export-expr-map
@@ -342,23 +362,39 @@ end-structure
 \ A record kind: also its kind code.
 : nd-variant ( table offset xt kind "key" -- table )
   >r , over table-target @ + , r> , named, ;
+\ A field that may be absent, reading 0 then.
+: nd-default ( table offset xt "key" -- table ) , over table-target @ + , 1 , named, ;
 \ An enumeration word and its code.
 : nd-choice ( table code "key" -- table ) 0 , 0 , , named, ;
 : end-shape ( table -- ) drop 0 , 0 , 0 , 0 0 counted, ;
 
-\ Decoding an object: its fields must be exactly the table's keys.
+\ Decoding an object as Lean's reader does (Export/Parse.lean looks up the
+\ keys it needs in the object its JSON parser made): each of the table's
+\ keys is looked up in the last member that has it (the parser overwrites
+\ on insert), and a member the table does not name is ignored (export-exact
+\ is the strict reading, for the metadata line, which Lean never reads). A
+\ key that is missing is refused, unless its entry is optional (nd-default):
+\ its field then reads 0, as Lean's `getD (.bool false)` does.
+: absent-entry ( export entry -- outcome )
+  dup entry-kind @ 0= if drop c" missing field" export-bad exit then
+  entry-offset @ + 0 swap ! outcome-ok ;
+: export-entry ( object entry export -- outcome )
+  >r dup entry-key r@ export-key ! tuck entry-key swap r@ export-json json-find-last
+  if swap dup entry-offset @ r@ + swap entry-check @ r> swap execute
+  else r> swap absent-entry then ;
 : export-fits? ( object table export -- flag )
   >r table-count @ swap json-object r> export-json json-items-of
   if = else drop false then ;
-: export-entry ( object entry export -- outcome )
-  >r dup entry-key r@ export-key ! tuck entry-key swap r@ export-json json-find
-  if swap dup entry-offset @ r@ + swap entry-check @ r> swap execute
-  else drop r> c" missing or unexpected field" export-bad then ;
 : export-entries ( object table export -- outcome )
   >r table-entries begin dup entry-last? 0= while
     2dup r@ export-entry dup ok? 0= if nip nip r> drop exit then drop entry-next
   repeat 2drop r> drop outcome-ok ;
+: export-object? ( object export -- flag ) export-json json-kind@ json-object = ;
 : export-shape ( object table export -- outcome )
+  >r over r@ export-object? if r> export-entries exit then
+  2drop r> c" expected an object" export-bad ;
+\ The strict reading: the object's members are exactly the table's keys.
+: export-exact ( object table export -- outcome )
   >r 2dup r@ export-fits? if r> export-entries exit then
   2drop r> c" unexpected fields" export-bad ;
 
@@ -371,19 +407,97 @@ end-structure
 \ Defining word: name ( value slot export -- outcome ), the check made
 \ from the decoder xt.
 : slot-check: ( xt "name" -- ) create , does> @ >r for-slot r> execute slot! ;
+\ Natural numbers, as Lean's own reader takes them. Parse.lean matches
+\ `.num (n : Nat)`, a JsonNumber with mantissa n and exponent 0, and Lean's
+\ JSON parser (Json/Parser.lean) gives a number with d fraction digits and
+\ an exponent x the mantissa of all its digits and exponent d, shifted left
+\ by x (mantissa times 10^(x-d), exponent d-x, never below 0) or, after a
+\ minus sign in the exponent, right (exponent d+x). So 1e2, 1E2, 1e+2,
+\ 1.5e1 and 1.50e2 are naturals (100, 100, 100, 15, 150), and 1.0, 1.50e1,
+\ 100e-2 and 1e-1 are not; 5e-0 is 5; a minus sign is a natural only
+\ before a zero (-0, -0e5); an exponent above 2^64 is not parsed at all.
+\ natural-digits gives the digits of the value of such a number: addr u
+\ and ok; invalid when it is not a natural; full when the digits would
+\ not fit the scratch. An integer token's digits are its own text.
+: skip-text ( addr u key-addr key-u -- addr' u' flag )
+  2>r dup 0= if 2r> 2drop false exit then
+  over 1 2r@ compare if 2r> 2drop false exit then
+  1 /string 2r> 2drop true ;
+: skip-e ( addr u -- addr' u' flag )
+  s" e" skip-text dup if exit then drop s" E" skip-text ;
+: digit-run ( addr u -- n ) over + over digits-end nip swap - ;
+: take-digits ( addr u -- addr' u' digits-addr n )
+  2dup digit-run >r 2dup r@ /string 2swap drop r> ;
+: scan-fraction ( addr u -- addr' u' frac-addr n )
+  s" ." skip-text if take-digits else over 0 then ;
+: exponent-part ( addr u -- addr' u' minus exp-addr n )
+  s" -" skip-text dup 0= if drop s" +" skip-text drop false then
+  >r take-digits r> -rot ;
+: scan-exponent ( addr u -- addr' u' minus exp-addr n )
+  skip-e if exponent-part else over 0 false -rot then ;
+\ Split the token's text into the parts of the number record.
+: number-scan ( addr u number -- )
+  >r s" -" skip-text r@ num-negative !
+  take-digits r@ num-whole 2!  scan-fraction r@ num-frac 2!
+  scan-exponent r@ num-exp 2!  r> num-exp-minus ! 2drop ;
+: strip-zeros ( addr u -- addr' u' )
+  begin dup 0> while over 1 s" 0" compare 0= while 1 /string repeat then ;
+: all-zeros? ( addr u -- flag ) strip-zeros nip 0= ;
+: mantissa-zero? ( number -- flag )
+  dup num-whole 2@ all-zeros? swap num-frac 2@ all-zeros? and ;
+\ The exponent's value, at most max-n (a larger one is as good); false
+\ above 2^64, which Lean does not parse.
+: exp-cap ( addr u -- n true | false )
+  strip-zeros dup 20 > if 2drop false exit then
+  dup 20 = if 2dup s" 18446744073709551616" compare 0> if 2drop false exit then then
+  digits>u 0= if max-n then true ;
+: put-text ( dst addr n -- dst' ) rot 2dup + >r swap move r> ;
+: put-zeros ( dst n -- dst' ) 2dup [char] 0 fill + ;
+: frac-length ( number -- d ) num-frac @ ;
+: scratch-fits? ( number zeros -- flag )
+  swap dup num-whole @ swap frac-length + + /digits u<= ;
+\ The mantissa followed by zeros zeros, leading zeros dropped.
+: put-digits ( number zeros -- addr u )
+  >r dup num-digits over num-whole 2@ put-text over num-frac 2@ put-text
+  r> put-zeros swap num-digits tuck - strip-zeros ;
+: natural-value ( number zeros -- addr u outcome )
+  over mantissa-zero? if 2drop s" 0" outcome-ok exit then
+  over num-negative @ if 2drop 0 0 outcome-invalid exit then
+  2dup scratch-fits? 0= if 2drop 0 0 outcome-full exit then
+  put-digits outcome-ok ;
+: plus-exponent ( number -- addr u outcome )
+  dup num-exp 2@ exp-cap 0= if drop 0 0 outcome-invalid exit then
+  over frac-length over u> if 2drop 0 0 outcome-invalid exit then
+  over frac-length - natural-value ;
+\ An exponent of -0 leaves the exponent d of a number with d fraction digits.
+: minus-exponent ( number -- addr u outcome )
+  dup num-exp 2@ strip-zeros nip over frac-length or
+  if drop 0 0 outcome-invalid exit then 0 natural-value ;
+: real-natural ( number -- addr u outcome )
+  dup num-exp-minus @ if minus-exponent else plus-exponent then ;
+: real-digits ( addr u number -- addr u outcome ) dup >r number-scan r> real-natural ;
+: natural-digits ( value export -- addr u outcome )
+  dup export-number >r export-json 2dup json-kind@ json-real =
+  if json-text@ r> real-digits exit then
+  r> drop json-natural if outcome-ok else 0 0 outcome-invalid then ;
+
 \ Natural numbers that fit in a cell.
 : not-natural ( export -- -1 outcome )
   c" expected a natural number" export-bad no-result ;
 : too-large ( export -- -1 outcome ) c" natural number too large" export-over no-result ;
+\ Why natural-digits gave no digits: full is a number too large to keep.
+: natural-bad ( export outcome -- -1 outcome )
+  outcome-full = if too-large else not-natural then ;
 : nat-of ( value export -- n outcome )
-  tuck export-json json-natural 0= if not-natural exit then
-  digits>u if nip outcome-ok else too-large then ;
+  dup >r natural-digits dup ok?
+  if drop digits>u if r> drop outcome-ok else r> too-large then exit then
+  nip nip r> swap natural-bad ;
 \ References: an index an earlier record of the family has, as the
 \ ordinal it has now (see the header). An index above max-n is no
 \ record's (giving one is full), so it is a bad reference.
 : bad-ref ( export -- -1 outcome ) c" bad reference" export-bad no-result ;
 : index-of ( value export -- i true | false )
-  export-json json-natural if digits>u else false then ;
+  natural-digits ok? if digits>u else 2drop false then ;
 : ref-at ( value map export -- n true | false )
   rot swap index-of if swap imap-ordinal else drop false then ;
 : ref-of ( value map export -- n outcome )
@@ -411,7 +525,8 @@ end-structure
   tuck string-at if rot drop true else c" expected a string" export-bad false then ;
 \ The digits of a natural number of any size.
 : numeral-of ( value export -- addr u true | outcome false )
-  tuck export-json json-natural if rot drop true else not-natural nip false then ;
+  dup >r natural-digits dup ok? if drop r> drop true exit then
+  nip nip r> swap natural-bad nip false ;
 \ A string holding a natural number in canonical decimal.
 : literal-of ( value export -- addr u true | outcome false )
   dup >r text-of 0= if r> drop false exit then
@@ -447,7 +562,6 @@ end-shape
   swap 1+ swap 2dup r@ v-level ok-then? 0= if nip r> drop exit then
   swap 1+ swap cell+ r> v-level ;
 \ Any JSON object, kept as its index (mdata's data).
-: export-object? ( value export -- flag ) export-json json-kind@ json-object = ;
 : object-of ( value export -- index outcome )
   2dup export-object? if drop outcome-ok exit then
   nip c" expected an object" export-bad no-result ;
@@ -456,10 +570,12 @@ end-shape
 : uint32? ( addr u -- flag )
   dup 10 > if 2drop false exit then dup 10 < if 2drop true exit then
   s" 4294967295" compare 1 < ;
+: height-big ( export -- -1 outcome ) c" height beyond UInt32" export-bad no-result ;
+: height-value ( addr u export -- u outcome )
+  >r 2dup uint32? if decimal>u r> drop outcome-ok else 2drop r> height-big then ;
 : height-of ( value export -- u outcome )
-  tuck export-json json-natural 0= if not-natural exit then
-  2dup uint32? if decimal>u nip outcome-ok exit then
-  2drop c" height beyond UInt32" export-bad no-result ;
+  dup >r natural-digits dup ok? if drop r> height-value exit then
+  nip nip outcome-full = if r> height-big else r> not-natural then ;
 ' height-of slot-check: v-height
 
 \ Lists. A visit is an action ( item x export -- outcome ) with its x;
@@ -498,6 +614,7 @@ end-structure
 \ nd-nested decodes one object with the table, ignoring slot; nd-listed
 \ decodes a list of such objects, kept in slot.
 : nd-nested ( table "name" -- ) create , does> @ rot drop swap export-shape ;
+: nd-exact ( table "name" -- ) create , does> @ rot drop swap export-exact ;
 : nd-listed ( table "name" -- )
   create ['] export-shape , , does> >r for-slot r> swap list-of slot! ;
 
@@ -521,14 +638,14 @@ end-shape
 0 export-record 0 shape: format-shape
   0 meta-format-version ' v-text nd-member version
 end-shape
-exporter-shape nd-nested v-exporter  lean-shape nd-nested v-lean
-format-shape nd-nested v-format
+exporter-shape nd-exact v-exporter  lean-shape nd-exact v-lean
+format-shape nd-exact v-format
 0 export-record 0 shape: meta-shape
   0 ' v-exporter nd-member exporter
   0 ' v-format nd-member format
   0 ' v-lean nd-member lean
 end-shape
-meta-shape nd-nested v-meta
+meta-shape nd-exact v-meta
 0 export-record 0 shape: meta-kinds  0 ' v-meta kind-meta nd-variant meta  end-shape
 
 0 export-record 0 shape: str-shape
@@ -626,7 +743,7 @@ end-shape
   0 decl-params ' v-names nd-member levelParams
   0 decl-type ' v-expr nd-member type
   0 decl-value ' v-expr nd-member value
-  0 decl-unsafe ' v-bool nd-member isUnsafe
+  0 decl-unsafe ' v-bool nd-default isUnsafe   \ older exporters omit it (Parse.lean:300)
   0 decl-all ' v-names nd-member all
 end-shape
 0 export-record 0 shape: quot-shape
@@ -683,7 +800,7 @@ recursor-shape nd-listed v-recursors
 \ the line {"inductive":{...}}.
 2 constant block-token
 : block-value ( c-addr export -- value true | false )
-  block-token swap export-json json-find ;
+  block-token swap export-json json-find-last ;
 \ A block declares at least one type, unless it is empty: no type, no
 \ constructor and no recursor (ADR 0016 amendment 1: Lean's kernel
 \ rejects such a declaration, emptyBlock, and the checker reports it so).
@@ -860,9 +977,11 @@ here families - cell / constant #families
 : family-map@ ( family export -- map ) swap family-map @ + ;
 : index-pair? ( export -- flag ) 0 swap export-json json-items@ 2 = ;
 : bad-index ( export -- -1 outcome ) c" bad index" export-bad no-result ;
+: index-big ( export -- -1 outcome ) c" index too large" export-over no-result ;
 : index-own ( value export -- i outcome )
-  tuck export-json json-natural 0= if bad-index exit then
-  digits>u if nip outcome-ok else c" index too large" export-over no-result then ;
+  dup >r natural-digits dup ok?
+  if drop digits>u if r> drop outcome-ok else r> index-big then exit then
+  nip nip outcome-full = if r> index-big else r> bad-index then ;
 : kind-key ( value -- key ) 2 = if 3 else 1 then ;
 \ Decode the kind member and hand the record over.
 : export-member ( value family export -- outcome )

@@ -11,6 +11,12 @@ require ../../src/core/tagged-sort-boundary.fs
 require ../../src/core/terms.fs
 require ../../src/kernel/mixed-compare.fs
 require ../../src/kernel/mixed-convert.fs
+require ../support/store-faults.fs
+
+\ These cases number their nodes and identity serials: the term store's
+\ hash-consing (compact-store plan step S3) is off here, so that each
+\ constructor and each rebuilt node is a new node, as the cases count.
+false lf-term-sharing!
 create ids 32 cells allot
 create args 4 cells allot
 variable name-x variable name-y variable num-root variable num-child
@@ -51,16 +57,20 @@ setup
 \ unit per node, on mixed-compare's walk, whose fuel it leaves in
 \ lf-mcompare-fuel), each visit one unit; the keeping variant keeps what an
 \ unknown comparison left (lf-mixed-convert leaves none). Before, the
-\ walk of beta-reduced pairs left 985, 979, 993, 991 and 993 here.
+\ walk of beta-reduced pairs left 985, 979, 993, 991 and 993 here. Since
+\ plan task 5.2.2's step 9 (whnf_core of both sides, two visits) an
+\ undecided pair leaves 2 units less (990 and 991 before).
 : convert-fuel ( a aid b bid -- status fuel )
   1000 ['] lf-mixed-convert-keeping rs-checked lf-mconvert-fuel @ ;
 T{ 0 h 1 h 1000 lf-mixed-compare -> outcome-ok }T
 T{ 0 h 1 h convert-fuel -> outcome-ok 990 }T
 T{ 4 h 5 h convert-fuel -> outcome-ok 987 }T
 T{ 8 h 8 h convert-fuel -> outcome-ok 996 }T
-T{ 0 h 3 h convert-fuel -> outcome-unknown 990 }T
-T{ 8 h 9 h convert-fuel -> outcome-unknown 991 }T
-T{ lf-mcompare-fuel @ -> 995 }T
+T{ 0 h 3 h convert-fuel -> outcome-unknown 988 }T
+\ Two bound variables of different index: their data words differ, so ==
+\ answers at once, no unit (Lean's hash test, plan step S4; 989 before).
+T{ 8 h 9 h convert-fuel -> outcome-unknown 990 }T
+T{ lf-mcompare-fuel @ -> 996 }T
 T{ 0 h 3 h 1000 lf-mixed-convert lf-mconvert-fuel @ -> outcome-unknown 0 }T
 
 T{ 0 h 1 h 10000 lf-mixed-convert -> outcome-ok }T
@@ -83,17 +93,21 @@ T{ 3 h 0 h 10000 ' lf-mixed-convert rs-checked -> outcome-unknown }T
 more
 T{ 18 h 0 h 10000 lf-mixed-convert -> outcome-ok }T
 T{ 19 h 20 h 10000 lf-mixed-convert -> outcome-ok }T
-T{ 18 h 0 h convert-fuel -> outcome-ok 972 }T
-T{ 19 h 20 h convert-fuel -> outcome-ok 939 }T
+\ (The audits check a shared node once: fuel left 972 and 939 before; 976
+\ and 947 before plan task 6.5.5, whose lift by 0 puts fun x => x in
+\ unvisited, expr.cpp 449; 980 and 957 before == is Lean's at every
+\ pair, plan step S4.)
+T{ 18 h 0 h convert-fuel -> outcome-ok 981 }T
+T{ 19 h 20 h convert-fuel -> outcome-ok 964 }T
 variable term-start variable level-start variable serial-start variable saw-allocated
 : sweep ( -- )
   lf-term-count @ term-start ! lf-level-count @ level-start !
   0 saw-allocated !
   700 0 do
-    lf-term-serial @ serial-start !
+    term-serial serial-start !
     19 h 20 h i lf-mixed-convert
     dup outcome-exhausted = if
-      lf-term-serial @ serial-start @ > if true saw-allocated ! then
+      term-serial serial-start @ > if true saw-allocated ! then
     else dup outcome-ok <> abort" unexpected sweep result" then drop
     lf-term-count @ term-start @ <> abort" term leak"
     lf-level-count @ level-start @ <> abort" level leak"
@@ -103,9 +117,9 @@ sweep
 T{ 18 h 0 h -1 lf-mixed-convert -> outcome-invalid }T
 T{ 18 h 0 h 0 lf-mixed-convert -> outcome-exhausted }T
 \ Later stale input must be caught before the reducible first input allocates.
-lf-term-serial @ serial-start !
+term-serial serial-start !
 T{ 18 h 0 0 10000 lf-mixed-convert -> outcome-invalid }T
-T{ lf-term-serial @ -> serial-start @ }T
+T{ term-serial -> serial-start @ }T
 \ Capture avoidance under a binder: (fun x => fun y => x) z.
 : capture-fixtures ( -- )
   0 h 9 h lf-hterm-lam save
@@ -138,17 +152,21 @@ T{ 6 h 7 h 20000 lf-mixed-convert -> outcome-ok }T
 0 lf-term-symbolic-sort 0= abort" malformed sort" drop
 16 30 lf-term-app 0= abort" application" drop ;
 malformed-fixture
-lf-term-serial @ serial-start !
+term-serial serial-start !
 T{ 31 dup lf-term-identity drop 18 h 20000 lf-mixed-convert -> outcome-invalid }T
 T{ 18 h 31 dup lf-term-identity drop 20000 lf-mixed-convert -> outcome-invalid }T
-T{ lf-term-serial @ -> serial-start @ }T
+T{ term-serial -> serial-start @ }T
 \ Visit order. app(bvar 0, P) against app(bvar 1, P), with P a nested Pi
 \ shared by both sides: the first children differ (unknown), so a
 \ pre-order walk stops before the shared second children. Both conversion
 \ and comparison pin the fuel this leaves (values from the code before the
 \ paired-walk refactor; visiting second children first gives 643 and 925;
 \ conversion left 890 before Lean's is_def_eq, plan task 4.2.2b, whose
-\ is_def_eq_app compares the functions first and stops there).
+\ is_def_eq_app compares the functions first and stops there; 933 before
+\ plan task 5.2.2's step 9, two whnf_core visits in each of the three
+\ comparisons that reach it; 927 and 948 before the audits checked the
+\ shared P once, agent EX; conversion 957 before == was Lean's at every
+\ pair, plan step S4: the shared P is one node, equal at once).
 : order-setup ( -- )
   lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
   42 lf-lscope-context-add 0= abort" ctx" 42 lf-level-param 0= abort" level" drop
@@ -158,6 +176,6 @@ T{ lf-term-serial @ -> serial-start @ }T
   0 h 0 h lf-hterm-pi save 3 h 3 h lf-hterm-pi save 4 h 4 h lf-hterm-pi save
   1 h 5 h lf-hterm-app save 2 h 5 h lf-hterm-app save ;
 order-setup
-T{ 6 h 7 h 1000 lf-mixed-convert-keeping lf-mconvert-fuel @ -> outcome-unknown 933 }T
-T{ 6 h 7 h 1000 lf-mixed-compare lf-mcompare-fuel @ -> outcome-unknown 948 }T
+T{ 6 h 7 h 1000 lf-mixed-convert-keeping lf-mconvert-fuel @ -> outcome-unknown 960 }T
+T{ 6 h 7 h 1000 lf-mixed-compare lf-mcompare-fuel @ -> outcome-unknown 978 }T
 bye

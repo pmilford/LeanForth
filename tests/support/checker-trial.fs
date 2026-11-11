@@ -14,6 +14,8 @@
 \ src/lib/task.fs (task-yield) first. Test-only; nothing here checks or
 \ accepts a theorem.
 
+require ./store-faults.fs
+
 \ One trial's own state, a member of every context like the modules' state.
 begin-structure /trial
   field: trial-seed       \ random generator state
@@ -41,7 +43,7 @@ defer checked ( outcome -- outcome )  ' noop is checked
 : post-check ( outcome -- outcome ) checked lf-diag@ nip mix mix mix ;
 : mix-result ( index id 0 | status -- ) dup ok? if mix mix then mix ;
 : mix-counts ( -- )
-  lf-term-count @ mix lf-term-serial @ mix lf-level-count @ mix lf-level-serial @ mix
+  lf-term-count @ mix term-serial mix lf-level-count @ mix level-serial mix
   lf-cref-count @ mix lf-name-count @ mix lf-msp-count @ mix ;
 : mix-terms ( -- )
   lf-term-count @ 0 ?do i lf-term-read if mix mix mix else -1 mix then loop ;

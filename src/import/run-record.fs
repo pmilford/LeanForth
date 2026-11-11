@@ -1,7 +1,7 @@
 \ Run records (plan task 2.2.5; ADR 0012 E8): the evidence of one check of
 \ a Lean export by the first checker, written as one JSON text in the
-\ format leanforth-run-record, version 0.1
-\ (schemas/run-record-0.1.schema.json; fields, rules and use:
+\ format leanforth-run-record, version 0.2
+\ (schemas/run-record-0.2.schema.json; fields, rules and use:
 \ docs/programming/RUN_RECORDS.md). LeanForth-specific and untrusted: it
 \ decides no verdict, and the checker never reads a record. A record
 \ claims no more than the checker established: every verdict is read
@@ -9,7 +9,9 @@
 \ the run made (lf-env-readable, lf-env-axioms), never from another one
 \ that happens to be current (rr-ours?). Accepted only for a final slot whose
 \ outcome is ok, and then labelled "experimental, not independently
-\ audited", with the axiom set that slot holds; a slot that is not final
+\ audited", with the axiom set that slot holds; skipped for a rejected
+\ slot of a declaration Lean's replay skips (unsafe or partial, plan task
+\ 5.2.7); a slot that is not final
 \ is invalid when its check began (it or its publication failed, and the
 \ run stopped there, ADR 0012 E4) and not-checked when it never began.
 \
@@ -113,7 +115,7 @@ rr-internal order+
 4096 constant rr-block-room       \ bytes read at a time while hashing
 8 constant rr-depth               \ deepest nesting the writer allows
 : rr-schema ( -- c-addr u ) s" leanforth-run-record" ;
-: rr-version ( -- c-addr u ) s" 0.1" ;
+: rr-version ( -- c-addr u ) s" 0.2" ;
 : rr-label ( -- c-addr u ) s" experimental, not independently audited" ;
 
 \ A note: a text of at most rr-note-room bytes, its length first; a
@@ -518,7 +520,7 @@ rr-power 2constant rr-exact
 \ Since plan task 6.2.0 universe parameters and arguments, and a check's
 \ dependencies, have no fixed limit; dependenciesPerCheck, parameters and
 \ referenceLevels are not limits since plan task 6.2.0 and record 16, 64
-\ and 64, the old limits, legacy values the 0.1 schema requires, until
+\ and 64, the old limits, legacy values schemas 0.1 and 0.2 require, until
 \ the record's next version (RUN_RECORDS.md, item 3). dependencyPool is
 \ the room the pool starts with; it grows.
 : rr-limits ( -- )
@@ -593,8 +595,12 @@ rr-power 2constant rr-exact
 : rr-diagnostic-out ( step -- )
   s" diagnostic" rr-key
   dup kept-code @ lf-diag-none = if drop rr-null else rr-reason-out then ;
+\ A rejected declaration that Lean's replay skips (lf-env-skipped?) is
+\ written skipped.
+: rr-failed-verdict ( d outcome -- d )
+  over lf-env-skipped? if drop s" skipped" rr-string else rr-outcome then ;
 : rr-failed-out ( d outcome -- )
-  s" verdict" rr-key rr-outcome rr-step-of rr-diagnostic-out ;
+  s" verdict" rr-key rr-failed-verdict rr-step-of rr-diagnostic-out ;
 \ The slot's outcome must be the one the step published.
 : rr-agrees ( d outcome -- d outcome )
   2dup swap rr-step-of kept-outcome @ <> if outcome-invalid rr-fail then ;

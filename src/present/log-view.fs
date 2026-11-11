@@ -351,8 +351,8 @@ lf-walk-room context-walk: lf-lv-term-work
 : lf-lv-tleaf ( tag first second -- tag first' second' true | false )
   2 pick lf-tag-symbolic-sort = if swap lf-lv-level 0= if 2drop false exit then
     swap true exit then
-  2 pick lf-tag-constant = 2 pick 0< and if drop lf-lv-cref 0= if drop false exit
-  then then true ;
+  2 pick lf-tag-constant = 2 pick 0< and if drop lf-lv-cref 0= if drop false exit then
+  drop 0 then true ;
 : lf-lv-tfields ( tag first second -- tag first' second' true | false )
   2 pick lf-term-binary-tag? 0= if lf-lv-tleaf exit then
   swap lf-lv-term-known 0= if 2drop false exit then swap

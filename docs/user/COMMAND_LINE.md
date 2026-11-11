@@ -11,9 +11,13 @@ exports of any size: it stages the export with the importer stage and
 feeds it to the checker, whose stores grow to fit, so a whole library is
 checked from the command line — all of Lean's `Init`, 59,349
 declarations, in [about twelve minutes with `--fast`](#a-whole-library-leans-init). Most
-of a real library still ends *unsupported* or *unknown*, because
-unfolding definitions (plan task 4.2.2), recursive data types and
-literals (phase 5) are not built yet. Two commands keep the first,
+of a real library may still end *unsupported* or *unknown*: nested
+inductive types, metadata and some projection steps are not built yet
+(`capabilities` lists them); unsafe and partial declarations are
+*skipped*, as Lean's own checker skips them (below). The
+counts of Init below are a snapshot of 2026-11-04, before `let`,
+literals, projections, quotients and mutual blocks were merged; no
+Mathlib declaration has been checked (0 of 729,263). Two commands keep the first,
 small path —
 `check --record` and `replay` hold 64 names, 64 levels, 64 term
 nodes and 32 declarations per export ([small exports](#small-exports-check---record-and-replay)).
@@ -59,7 +63,7 @@ proved by $\lambda f\, g\, a.\ g\,(f\,a)$. It uses no axiom.
 runs `src/main.fs` and its word `cli-main`. The same check from a Forth
 session is one word, `cli-check ( c-addr u -- code )`, which prints what
 the command prints and leaves the exit code. `cli-options` restores the
-defaults (manifest checked, fuel 2,000,000 per declaration):
+defaults (manifest checked, fuel 20,000,000 per declaration):
 
 ```forth
 cli-options
@@ -95,7 +99,7 @@ theorem composition {A B C : Prop} (f : A → B) (g : B → C) : A → C :=
 | `check [--no-manifest] [--fuel N] [--resources] [--json] [--fast] [--strict-axioms] [--any-lean-version] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text |
 | `check [--no-manifest] [--fuel N] [--fast] [--strict-axioms] --record RECORD EXPORT` | Check a small export (read straight into the checker's stores) and also write its [run record](#run-records-and-replay) |
 | `replay [--no-manifest] [--fuel N] [--fast] EXPORT RECORD` | Check the export again and compare the new run record with RECORD; print the replay report |
-| `print [--no-manifest] [--fuel N] [--fast] [--detail] [--name NAME] [--latex] [--statement FORMS] [--any-lean-version] EXPORT`, or `print --lf [--no-manifest] [--fuel N] [--fast] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration; `--lf` writes the whole export as one [LeanForth text](#writing-an-export-as-leanforth-text) |
+| `print [--no-manifest] [--fuel N] [--fast] [--detail] [--name NAME] [--latex] [--statement FORMS] [--any-lean-version] EXPORT`, or `print --lf [--no-manifest] [--fuel N] [--fast] [--any-lean-version] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration; `--lf` writes the whole export as one [LeanForth text](#writing-an-export-as-leanforth-text) |
 | `count [--no-manifest] EXPORT` | Count the export's records by kind ([the reader's counter](../development/NDJSON_READER.md#using-it)), for exports of any size |
 | `reexport [--no-manifest] EXPORT COPY` | Write the export again into COPY, byte for byte as Lean's exporter writes it ([re-export](../development/NDJSON_READER.md#re-export)); after an error COPY is incomplete and must be discarded |
 | `version` (or `--version`) | Versions of LeanForth, its Forth host, the export format it reads, and the git commit |
@@ -107,14 +111,14 @@ Options:
 - `--no-manifest` reads the export without checking its manifest. It is
   an explicit choice, and `check`, `count` and `reexport` say so in their
   first line.
-- `--fuel N` gives each declaration's check N steps (default 2,000,000; 100,000 until 2026-11-10). A
+- `--fuel N` gives each declaration's check N steps (default 20,000,000 since 2026-11-11, when all of `Init` needed it; 2,000,000 from 2026-11-10; 100,000 before). A
   check that runs out ends *exhausted*. N is decimal digits, at most
   2^53 − 1 = 9,007,199,254,740,991, the largest integer every JSON reader
   holds exactly, so that reports and run records hold it; a larger N is a
   command-line mistake (status 4).
 - `--record RECORD` writes the run record of the check to RECORD
   ([run records and replay](#run-records-and-replay)); RECORD must not be
-  the export. Run records 0.1 hold at most 32 declarations, so `check
+  the export. Run records 0.2 hold at most 32 declarations, so `check
   --record` reads the export straight into the checker's default
   sizes ([small exports](#small-exports-check---record-and-replay)).
 - `--resources` (`check` only) adds the [resource report](#the-resource-report)
@@ -139,8 +143,9 @@ Options:
 
   The texts are escaped as names are, so a crafted version cannot forge a
   line. With a manifest, its `exporter`, `exporter_version`, `lean_version`
-  and `lean_githash` then need only be strings; `export_format` must still
-  be 3.1.0. The [JSON report](#json-output) adds `settings.anyLeanVersion`
+  and `lean_githash` then need only be strings (they are labels: they are not
+  compared with the export's own header, and the SHA-256 binds the manifest
+  to the file); `export_format` must still be 3.1.0. The [JSON report](#json-output) adds `settings.anyLeanVersion`
   and, when the metadata named other versions, `exportMeta`.
 - `--fast` (`check`, `replay`, `print`) runs on `gforth-fast` instead of
   Gforth's checking engine ([the engine](#the-engine)).
@@ -274,6 +279,32 @@ failure ([exit status](#exit-status)), and the JSON report's
 `settings.strictAxioms` is true. `make test` reaches both with an
 export's own axiom and by planting an axiom in an accepted slot.
 
+**Unsafe and partial declarations: skipped.** Lean's own checker for
+exports, its replay (`Lean/Replay.lean` 180–183), never checks an
+unsafe constant (a definition marked `unsafe`, or an axiom, opaque
+constant, inductive type, constructor or recursor with `isUnsafe`) or a
+`partial` definition: it skips them, so a file that holds one is still
+accepted, and a later declaration that uses one meets an unknown
+constant. LeanForth does the same (plan task 5.2.7): such a declaration
+is *skipped*, nothing of it checked, with Lean's exit status 0; it is
+never labelled accepted, nothing can use it (a use is *rejected*, as
+Lean's checker rejects it), and its name stays taken. Here `composition`
+is declared as an unsafe definition:
+
+```console
+$ bin/leanforth check --no-manifest tests/core/check-declaration-cases/composition-unsafe.ndjson; echo "exit status $?"
+note: the export's manifest is not checked (--no-manifest)
+composition: skipped
+  skipped: unsafe or partial, as Lean's replay skips it; diagnostic 97 at environment lf-env-skip: 1 1
+1 declaration: 1 skipped
+exit status 0
+```
+
+An inductive block whose members are all unsafe is skipped the same way;
+one with both safe and unsafe members, which Lean never writes, is still
+*unsupported* (task 5.2.7, part b). `print` shows a skipped declaration's
+slot as *rejected*, with diagnostic 97.
+
 A broken copy of `composition`, whose proof applies `g` to `value`
 instead of to `f value`, is rejected for the reason Lean's kernel gives
 (Lean's definitional equality says no: the argument has type `A`, `g`
@@ -370,24 +401,26 @@ and leaves 0. An export that uses every kind of record Lean writes,
 today: blocks such as `Prod`, `Eq` and `Iff`, recursive types such as
 `Nat` and `List` (plan task 5.2.1b), projections (plan task 5.2.2) and
 natural-number literals (plan task 5.2.3), axioms (5.3.1), opaque
-declarations (4.2.6) and quotients (5.2.4) are accepted; nested types,
-string literals, unsafe and partial declarations and what uses them are
-not yet:
+declarations (4.2.6), quotients (5.2.4) and nested types (5.2.5b) are
+accepted; the unsafe definition `risky` is skipped, as Lean's replay skips it
+(below); string literals and what uses them are not yet:
 
 ```console
 $ bin/leanforth check --no-manifest tests/core/reexport/kinds.ndjson | tail -n 2; echo "exit status ${PIPESTATUS[0]}"
-106 declarations: 89 accepted, 17 unsupported
-accepted: 89 (experimental, not independently audited); axioms: propext (allowlisted); none NOT PROVED
+106 declarations: 94 accepted, 1 skipped, 11 unsupported
+accepted: 94 (experimental, not independently audited); axioms: propext (allowlisted); none NOT PROVED
 exit status 2
 ```
 
 ### A whole library: Lean's `Init`
 
 `check` holds an export of any size: the importer stage reads it once,
-with its manifest, into a compact store, and the checker's stores grow to
-take the staged declarations. Lean's own `Init` library, exported with
+with its manifest, into a compact store (a loading stage only: the
+checker does not read it in place, it copies the staged names, levels,
+terms and declarations into its own stores, which grow to take them). Lean's own `Init` library, exported with
 `scripts/export.sh` (345.7 MB, 59,349 declarations), checked on
-2026-11-04 with the default fuel:
+2026-11-04 with the default fuel (a snapshot; later merges changed some verdicts and the
+numbers were not re-measured since):
 
 ```text
 $ bin/leanforth check --fast --resources init.ndjson | tail -n 29
@@ -432,13 +465,9 @@ each a gap to close, not an answer that differs from Lean's, which
 accepts all of `Init`: literals, projections and other term forms
 (5.2.3, 5.2.2, 4.2.3; 25,703 declarations), axioms, opaque, unsafe and
 partial declarations and quotients (252; axioms, opaque declarations
-and quotients since 5.3.1, 4.2.6 and 5.2.4; unsafe and partial ones are
-still unsupported, a gap that a follow-up of 5.3.1 and 4.2.6 closes:
-Lean's kernel accepts an unsafe axiom with its unsafe checker and an
-unsafe opaque declaration with the safe one, `environment.cpp` 152-158
-and 211-222, and rejects a safe declaration that uses either,
-`type_checker.cpp` 110-112; Lean's replay and the pinned exporter skip
-unsafe constants, and replay skips partial ones too), mutual
+and quotients since 5.3.1, 4.2.6 and 5.2.4; unsafe and partial ones
+were unsupported in that run and are skipped, as Lean's replay skips
+them, since plan task 5.2.7), mutual
 and nested inductive blocks (5.2.5; 8), comparisons that need
 definitions unfolded (4.2.2; 951 *unknown*, codes 30–32), and
 everything that uses one of those (25,616 *unsupported* and 4,105
@@ -515,11 +544,11 @@ accepted: 6 (experimental, not independently audited); axioms: none
 resources:
   time (s)     wall      cpu
   input: 6 declarations, 46 term nodes, 3 levels, 5 constant references, 31 names
-  fuel: 1039 steps in all, at most 2000000 per declaration
+  fuel: 518 steps in all, at most 20000000 per declaration
   most fuel used:
-        496 Two.cases (accepted)
-        336 Two (accepted)
-        207 Two.swap (accepted)
+         252 Two.cases (accepted)
+         157 Two (accepted)
+         109 Two.swap (accepted)
 ```
 
 **Fuel**, a check's unit of work, is read from the checker's own counters
@@ -536,8 +565,8 @@ only; nothing it prints is fed back into a check.
 ### JSON output
 
 `--json` prints the whole result as one JSON text, then a line feed, in
-the format `leanforth-check-report`, version 0.1
-([`schemas/check-report-0.1.schema.json`](../../schemas/check-report-0.1.schema.json),
+the format `leanforth-check-report`, version 0.2
+([`schemas/check-report-0.2.schema.json`](../../schemas/check-report-0.2.schema.json),
 JSON Schema draft 2020-12 within the subset of
 [`tests/support/schema_subset.py`](../../tests/support/schema_subset.py)).
 It holds what the text holds and the resource report, with the times and
@@ -547,13 +576,13 @@ member is cut off:
 
 ```console
 $ bin/leanforth check --json tests/cli/unfold.ndjson | sed "s/,\"measured\":.*/}/"; echo "exit status ${PIPESTATUS[0]}"
-{"schema":"leanforth-check-report","schemaVersion":"0.1","export":"tests/cli/unfold.ndjson","manifest":"checked","label":"experimental, not independently audited","settings":{"fuel":2000000,"dependencyPool":65536,"strictAxioms":false},"read":{"outcome":"ok","phase":null,"line":null,"field":null,"reason":null,"at":null},"run":"ok","stopped":false,"declarations":[{"index":0,"name":"Implies","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":77},{"index":1,"name":"impliesSelf","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":131}],"counts":{"declarations":2,"accepted":2,"rejected":0,"unknown":0,"unsupported":0,"invalid":0,"exhausted":0,"full":0,"notChecked":0,"notProved":0},"fuel":{"perDeclaration":2000000,"total":208,"unknown":0,"top":[{"index":1,"name":"impliesSelf","fuel":131,"verdict":"accepted"},{"index":0,"name":"Implies","fuel":77,"verdict":"accepted"}]},"input":{"declarations":2,"terms":14,"levels":1,"references":1,"names":10},"exitStatus":0}
+{"schema":"leanforth-check-report","schemaVersion":"0.2","export":"tests/cli/unfold.ndjson","manifest":"checked","label":"experimental, not independently audited","settings":{"fuel":20000000,"dependencyPool":65536,"strictAxioms":false},"read":{"outcome":"ok","phase":null,"line":null,"field":null,"reason":null,"at":null},"run":"ok","stopped":false,"declarations":[{"index":0,"name":"Implies","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":34},{"index":1,"name":"impliesSelf","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":67}],"counts":{"declarations":2,"accepted":2,"skipped":0,"rejected":0,"unknown":0,"unsupported":0,"invalid":0,"exhausted":0,"full":0,"notChecked":0,"notProved":0},"fuel":{"perDeclaration":20000000,"total":101,"unknown":0,"top":[{"index":1,"name":"impliesSelf","fuel":67,"verdict":"accepted"},{"index":0,"name":"Implies","fuel":34,"verdict":"accepted"}]},"input":{"declarations":2,"terms":14,"levels":1,"references":1,"names":10},"exitStatus":0}
 exit status 0
 ```
 
 | Member | Contents |
 | --- | --- |
-| `schema`, `schemaVersion` | `leanforth-check-report`, `0.1` |
+| `schema`, `schemaVersion` | `leanforth-check-report`, `0.2` (since the verdict *skipped*, 2026-11-11; [`0.1`](../../schemas/check-report-0.1.schema.json), kept unchanged for earlier reports, has no *skipped*) |
 | `export`, `manifest` | the file name given, as escaped display text (the escapes of [names](#what-check-prints)); `checked`, or `not-checked` with `--no-manifest` |
 | `label` | `experimental, not independently audited` |
 | `settings` | the fuel per check, `dependencyPool`, the room the environment's dependency pool starts with (it grows: not a limit since plan task 6.2.0), and `strictAxioms` (true with `--strict-axioms`); `anyLeanVersion`, true, only with `--any-lean-version` |
@@ -561,8 +590,8 @@ exit status 0
 | `exportMeta` | only when the export's metadata named another exporter or Lean version (with `--any-lean-version`) and it was staged: `exporter` (`name`, `version`), `format` (`version`) and `lean` (`githash`, `version`), as the export's own metadata record has them, each as escaped display text. Optional members added within version 0.1 (2026-11-10): a report without the option is as before |
 | `run` | the run's outcome: `ok` when every slot ended final and the run did not stop, `invalid` when it stopped, `not-run` when the export was not read |
 | `stopped` | true when the run stopped on an internal fault (a check threw, or publishing failed), as the text's `internal fault: the run stopped` line says; the run is then `invalid` and the status 5 |
-| `declarations` | each declaration in file order: `index` (its place in the export, which identifies it), `name` (escaped display text, as the text shows it), `verdict` (`accepted`, an outcome, or `not-checked`), `fuel` (null when not known); an accepted one's `label`, `axiomBits` (0: none; 1 `propext`, 2 `Classical.choice`, 4 `Quot.sound`, each with Lean's statement, 8 any other axiom) and `notProved` (bit 8 set), with `notProvedBy`, the unlisted axioms' names, when it is true; any other's `diagnostic` (code, reason, site, two numbers, step) |
-| `counts` | the declarations by verdict, `notChecked` and `notProved`; null when no verdict could be read |
+| `declarations` | each declaration in file order: `index` (its place in the export, which identifies it), `name` (escaped display text, as the text shows it), `verdict` (`accepted`, `skipped`, an outcome, or `not-checked`), `fuel` (null when not known); an accepted one's `label`, `axiomBits` (0: none; 1 `propext`, 2 `Classical.choice`, 4 `Quot.sound`, each with Lean's statement, 8 any other axiom) and `notProved` (bit 8 set), with `notProvedBy`, the unlisted axioms' names, when it is true; any other's `diagnostic` (code, reason, site, two numbers, step) |
+| `counts` | the declarations by verdict (`skipped` among them since version 0.2), `notChecked` and `notProved`; null when no verdict could be read |
 | `fuel` | `perDeclaration`, `total` (of the known), `unknown` (how many are not known) and `top` (the ten that used the most) |
 | `input` | declarations, term nodes, levels and constant references fed, and the stage's names; null when nothing was fed |
 | `exitStatus` | the command's [exit status](#exit-status), 0 to 6 |
@@ -574,14 +603,14 @@ check on either engine the same but for `measured`.
 
 The parts of a report agree, and the schema states what its keywords
 can: status 0 only for a run that ended `ok`, did not stop and listed at
-least one declaration, every one accepted, with every other count 0 and
+least one declaration, every one accepted or skipped, with every other count 0 and
 every fuel known, and under `--strict-axioms` none NOT PROVED; status 6
 only under `--strict-axioms`, when every declaration was accepted and at
 least one is NOT PROVED; a rejected or invalid declaration, or one not
 checked, never leaves the status 0. What it
 cannot state, `make test` checks on every report it makes (the schema's
 `$comment` lists it): `counts.declarations` is the number of
-`declarations` and the sum of the eight verdict counts, each count the
+`declarations` and the sum of the nine verdict counts, each count the
 number of declarations with that verdict, `notProved` the number marked
 so, and `input.declarations` the same number; `fuel.unknown` is the
 number of declarations whose fuel is null and `fuel.total` the sum of
@@ -782,7 +811,7 @@ both reads check it.
 
 | Status | Meaning | Comes from |
 | --- | --- | --- |
-| 0 | Every declaration accepted (or, for the other commands, done); NOT PROVED ones too, as Lean, unless `--strict-axioms` | every verdict *ok* |
+| 0 | Every declaration accepted or skipped (or, for the other commands, done); NOT PROVED ones too, as Lean, unless `--strict-axioms` | every verdict *ok* or *skipped* |
 | 1 | Something rejected: Lean's kernel rejects it too | *rejected* |
 | 2 | Unsupported or unknown: LeanForth cannot decide it yet | *unsupported*, *unknown* |
 | 3 | A resource limit: out of fuel or out of room | *exhausted*, *full* |
@@ -819,7 +848,7 @@ composition: rejected
 exit status 1
 $ bin/leanforth check --fuel 30 tests/reference/composition.ndjson; echo "exit status $?"
 composition: exhausted
-  fuel exhausted; diagnostic 1 at check-declaration lf-check-declaration: 0 0
+  fuel exhausted; diagnostic 1 at mixed-infer lf-mixed-infer: 0 0
 1 declaration: 1 exhausted
 note: a check ran out of fuel (30 steps each); --fuel N gives each more
 exit status 3
@@ -849,7 +878,8 @@ inside a check, and checks that the stage is freed either way.
 A check that throws *spends* its checker context for good
 ([ADR 0012](../adr/0012-checked-environment.md), G-P6): the run stops,
 its declaration is *invalid* (diagnostic 29) and the ones after it are
-`not checked`, and every later check in that context also ends *invalid*
+`not checked (not reached: the run stopped)` (verdict *not checked*,
+never to be read as *skipped*), and every later check in that context also ends *invalid*
 with diagnostic 29. `bin/leanforth` runs one command per process, so this
 matters only in a Forth session, which runs its next command in a new
 context (`context-new`, `context-use`). It fails closed: nothing is ever
@@ -857,7 +887,7 @@ accepted in a spent context.
 
 ## Small exports: `check --record` and `replay`
 
-Run records 0.1 hold at most 32 declarations, so these two commands
+Run records 0.2 hold at most 32 declarations, so these two commands
 keep the first path: the export read straight into the checker's stores
 at their default sizes, 64 names, 64 levels and 64 term nodes — the
 export's own and each check's working terms together — and 32
@@ -896,23 +926,30 @@ supported:
     all of Lean's Init, staged and fed in Forth; the manifest checked unless
     --no-manifest; a summary, --resources (time, memory, fuel), --json;
     Gforth's checking engine, or gforth-fast with --fast
-  check: definitions and theorems built from Sort, variables, application, fun,
-    forall and earlier accepted declarations (the first checker, ADR 0011),
-    and inductive blocks that are not mutual or nested: non-recursive ones
-    (5.2.1a) and recursive ones such as Nat and List (5.2.1b, its review
-    gate open); an accepted one is labelled experimental, not independently
-    audited
-  check --record, replay: run records 0.1 and their replay (plan task 2.2.5)
+  check: Lean's kernel rules as built so far, each result labelled
+    experimental, not independently audited: definitions, theorems, opaque
+    declarations and axioms (an axiom outside Lean's standard three is NOT
+    PROVED, as Lean's exit status 0); fun, forall, application, let,
+    number and string literals, projections, unfolding of definitions;
+    proof irrelevance and eta; quotients; inductive types, recursive,
+    indexed and mutual ones, with their recursors; unsafe and partial
+    declarations skipped, as Lean's replay skips them (5.2.7); several of
+    these are merged but their review gates are open
+    (docs/project/PROJECT_PROGRESS.md)
+  check --record, replay: run records 0.2 and their replay (plan task 2.2.5)
   print: a readable proof outline of each accepted declaration, from the
     checker's derivation log (plan tasks 2.4.1, 2.4.4; untrusted presentation)
   count, reexport: exports of any size, up to all of Mathlib
 not yet supported (check answers unsupported or unknown, exit 2):
-  unsafe and partial declarations;
-  let (4.2.3), literals (5.2.3), projections (5.2.2) and metadata (4.1.3)
-  in a term; the rest of indexed families (5.2.1c),
-  mutual and nested blocks (5.2.5); unfolding definitions
-  (4.2.2), so some correct proofs end unknown; check --record and replay
-  refuse inductive types while reading
+  nested inductive types (5.2.5b), a block with both safe and unsafe
+  members (5.2.7 part b), metadata (mdata) in a term (4.1.3);
+  recursor reductions on a variable (a follow-up of 5.2.2),
+  so a correct proof can still end unknown;
+  check --record and replay (the old reader) refuse inductive types, and
+  answer unsupported for let, literals, projections and metadata;
+  the checker has not yet checked a Mathlib declaration
+  (0 of 729,263); the parallel job pool and the compact store are not
+  used by check (it stages the input, then copies it into its own stores)
 limits (check answers full or exhausted, exit 3):
   check: stores, walks and lists that grow with the export (memory), any
     depth and number of dependencies or constructors (plan task 6.2.0);
@@ -922,7 +959,7 @@ limits (check answers full or exhausted, exit 3):
     32 declarations per export
   universe parameters per declaration and universe arguments per constant:
     no fixed limit (memory)
-  fuel 2000000 steps per declaration (--fuel N, at most 9007199254740991)
+  fuel 20000000 steps per declaration (--fuel N, at most 9007199254740991)
 planned, not built: program, serve and --record on any size,
   every axiom name of each accepted declaration, as #print axioms
     (plan task 5.3.2; today: the allowlist's names and NOT PROVED's)
@@ -960,7 +997,7 @@ exit status 4
 ## Run records and replay
 
 `check --record RECORD` also writes the *run record* of the check
-([run records](../programming/RUN_RECORDS.md), format 0.1, plan task
+([run records](../programming/RUN_RECORDS.md), format 0.2, plan task
 2.2.5): which file was checked (its SHA-256, size, lines, whether its
 manifest matched, and whether the check enforced it: true by default,
 false with `--no-manifest`), which Lean and exporter wrote it, which LeanForth
@@ -971,8 +1008,8 @@ those of the check alone; a record that cannot be written is reported and
 the status is then at least 4. A record holds at most 32 declarations, so
 `check --record` reads the export into the checker's default sizes
 ([above](#small-exports-check---record-and-replay)); what a record
-version 0.2 for exports of any size would need is written down in
-[run records](../programming/RUN_RECORDS.md#version-02-records-of-any-size),
+version 0.3 for exports of any size would need is written down in
+[run records](../programming/RUN_RECORDS.md#version-03-records-of-any-size),
 and needs the owner's [format] gate. A record costs reads: with
 `--record` (and in `replay`) the export is read before the check for its
 SHA-256, its metadata and its manifest, and once more after the check to

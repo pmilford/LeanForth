@@ -1,4 +1,5 @@
 include ../support/tester.fs
+include ../support/heap-watch.fs
 require ../../src/core/constant-references.fs
 require ../../src/core/constant-term-boundary.fs
 require ../../src/core/generation-handles.fs
@@ -9,7 +10,12 @@ require ../../src/core/symbolic-session.fs
 require ../../src/core/tagged-sort-boundary.fs
 require ../../src/core/terms.fs
 require ../../src/kernel/mixed-level-substitute.fs
+require ../support/store-faults.fs
 
+\ The rows count the nodes each substitution makes and gives back, the
+\ same substitution again included: hash-consing (compact-store plan
+\ steps S3, S4) is off.
+false lf-term-sharing!
 create formals 2 cells allot
 create actuals 4 cells allot
 create args 4 cells allot
@@ -39,24 +45,26 @@ variable result variable result-id variable constant-id
 setup
 : run-substitution ( fuel -- index id 0 | status )
   >r fixture-root @ root-id @ formals actuals 2 r> lf-mixed-level-substitute ;
-T{ 500 run-substitution -> 7 lf-term-serial @ outcome-ok }T
-T{ 7 lf-term-serial @ 500 lf-cterm-check -> outcome-ok }T
+T{ 500 run-substitution -> 7 term-serial outcome-ok }T
+T{ 7 term-serial 500 lf-cterm-check -> outcome-ok }T
 T{ 7 lf-term-read -> lf-tag-app 6 5 true }T
 T{ 6 lf-term-read -> lf-tag-app 4 4 true }T
-T{ 4 lf-term-read -> lf-tag-constant 1 lf-cref-serial @ true }T
-T{ 1 lf-cref-serial @ 0 lf-cref-level -> 5 lf-level-serial @ true }T
+T{ 4 lf-term-read -> lf-tag-constant 1 0 true }T
+T{ 1 lf-cref-serial @ 0 lf-cref-level -> 5 level-serial true }T
 T{ 5 lf-level-read -> lf-level-tag-max 2 3 true }T
 T{ 1 lf-cref-serial @ 1 lf-cref-level -> 3 3 lf-level-identity drop true }T
 \ The source audit alone, as mixed-signature-audit runs it, against the
-\ formals 11 and 22. Term 3 = app (app C C) (Sort 1): terms 3, 1, 2, 0, 0
-\ cost five units, level 1 one unit, and each C's levels 4 = max 1 2 and
-\ 2 four units: 14 in all. With only formal 11 the audit stops at level 2,
-\ the second child of level 4, after eight units. Nothing is allocated.
+\ formals 11 and 22. Term 3 = app (app C C) (Sort 1): terms 3, 1, 2, 0
+\ and 0 again cost five units, level 1 one unit, and C's levels 4 = max 1 2
+\ and 2 four units, checked at C's first visit only (a term reached again
+\ is skipped, as Lean's replace caches a shared node): 10 in all. With only
+\ formal 11 the audit stops at level 2, the second child of level 4, after
+\ eight units. Nothing is allocated.
 lf-term-count @ constant source-terms
 lf-level-count @ lf-cref-count @ 2constant source-counts
-T{ 3 formals 2 100 lf-mls-audit-formals -> 86 outcome-ok }T
-T{ 3 formals 2 14 lf-mls-audit-formals -> 0 outcome-ok }T
-T{ 3 formals 2 13 lf-mls-audit-formals -> 0 outcome-exhausted }T
+T{ 3 formals 2 100 lf-mls-audit-formals -> 90 outcome-ok }T
+T{ 3 formals 2 10 lf-mls-audit-formals -> 0 outcome-ok }T
+T{ 3 formals 2 9 lf-mls-audit-formals -> 0 outcome-exhausted }T
 T{ 3 formals 1 100 lf-mls-audit-formals -> 92 outcome-invalid }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> source-terms source-counts }T
 \ Negative fuel and a negative count spend nothing. There is no other
@@ -69,7 +77,7 @@ create many-formals 1000 cells allot
   formals many-formals 2 cells move
   1000 2 do i 1000 + i cells many-formals + ! loop ;
 many-formals!
-T{ 3 many-formals 1000 100 lf-mls-audit-formals -> 86 outcome-ok }T
+T{ 3 many-formals 1000 100 lf-mls-audit-formals -> 90 outcome-ok }T
 \ Source must be audited in its real session context, not merely formals.
 33 formals cell+ !
 T{ 500 run-substitution -> outcome-invalid }T
@@ -84,6 +92,18 @@ T{ 500 run-substitution -> outcome-invalid }T
 2 actuals pair!
 T{ 0 run-substitution -> outcome-exhausted }T
 T{ -1 run-substitution -> outcome-invalid }T
+\ A count larger than the replacement array's room, with the heap refusing its
+\ growth: one cell, full, and the stores as they were (a stray nip in
+\ lf-mls-prepare's refusal path once left two cells); then the heap works.
+: big-count ( -- n ) lf-mls-actual-cells slab-capacity 1000 + ;
+lf-term-count @ constant hf-terms
+lf-level-count @ constant hf-levels
+lf-cref-count @ constant hf-crefs
+1 heap-refusals !
+T{ fixture-root @ root-id @ formals actuals big-count 500 lf-mixed-level-substitute
+   -> outcome-full }T
+0 heap-refusals !
+T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> hf-terms hf-levels hf-crefs }T
 11 formals cell+ !
 T{ 500 run-substitution -> outcome-invalid }T
 22 formals cell+ !
@@ -104,8 +124,8 @@ kept-first-fixture 2constant kept-first
 1 actuals pair! 3 actuals 2 cells + pair!
 lf-term-count @ constant kept-index
 T{ kept-first formals actuals 2 500 lf-mixed-level-substitute
-   -> kept-index lf-term-serial @ outcome-ok }T
-T{ kept-index lf-term-read -> lf-tag-constant 3 lf-cref-serial @ true }T
+   -> kept-index term-serial outcome-ok }T
+T{ kept-index lf-term-read -> lf-tag-constant 3 0 true }T
 T{ 3 lf-cref-serial @ 1 lf-cref-level -> 3 3 lf-level-identity drop true }T
 2 actuals pair! 3 actuals 2 cells + pair!
 \ Formal membership alone must not bless an out-of-context input level.
@@ -135,11 +155,11 @@ variable before-term-serial variable before-level-serial variable before-cref-se
   bad-constant-id ! bad-constant-root ! ;
 make-bad-constant-fixture
 lf-term-count @ audit-terms ! lf-level-count @ audit-levels ! lf-cref-count @ audit-crefs !
-lf-term-serial @ before-term-serial ! lf-level-serial @ before-level-serial !
+term-serial before-term-serial ! level-serial before-level-serial !
 lf-cref-serial @ before-cref-serial !
 T{ bad-constant-root @ bad-constant-id @ formals actuals 2 500 lf-mixed-level-substitute -> outcome-invalid }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> audit-terms @ audit-levels @ audit-crefs @ }T
-T{ lf-term-serial @ lf-level-serial @ lf-cref-serial @ -> before-term-serial @ before-level-serial @ before-cref-serial @ }T
+T{ term-serial level-serial lf-cref-serial @ -> before-term-serial @ before-level-serial @ before-cref-serial @ }T
 \ Sweep the shared fuel budget across audit and build. Every exhausted call
 \ restores all counts, including when it consumed allocation identities.
 variable saw-partial variable sweep-fuel
@@ -148,9 +168,9 @@ variable saw-partial variable sweep-fuel
   500 0 do
     i sweep-fuel !
     lf-term-count @ >r lf-level-count @ >r lf-cref-count @ >r
-    lf-level-serial @ >r
+    level-serial >r
     sweep-fuel @ run-substitution dup outcome-exhausted = if
-      drop lf-level-serial @ r> > if true saw-partial ! then
+      drop level-serial r> > if true saw-partial ! then
       lf-cref-count @ r> <> lf-level-count @ r> <> or
       lf-term-count @ r> <> or if false unloop exit then
     else
@@ -160,6 +180,29 @@ variable saw-partial variable sweep-fuel
     then
   loop false ;
 T{ fuel-sweep -> true }T
+\ The reached set (plan task 6.5.5; compact-store plan step S3): an audit
+\ enters the terms it reaches in a hash set of the call, empty again when
+\ the audit ends, and keeps nothing per index of the term store. An
+\ unchanged substitution leaves the root as its own image; then the set
+\ is given every term, as if an audit had left them there (a THROW out
+\ of it), and the changing substitution still rebuilds the term (term
+\ 7, as above), not the root's earlier image: the next audit starts by
+\ emptying the set.
+setup
+1 actuals pair! 2 actuals 2 cells + pair!
+T{ 500 run-substitution -> fixture-root @ root-id @ outcome-ok }T
+T{ lf-mls-set htab-count lf-mls-reached @ -> 0 4 }T
+2 actuals pair! 3 actuals 2 cells + pair!
+: stale-set ( -- )
+  lf-mls-reached @ 0 ?do i lf-mls-node lf-mls-find drop i swap lf-mls-set htab-put loop ;
+stale-set
+T{ lf-mls-set htab-count -> 4 }T
+T{ 500 run-substitution -> 7 term-serial outcome-ok }T
+T{ lf-mls-set htab-count lf-mls-reached @ -> 0 4 }T
+\ The audit alone lists each reached term once (term 3, then 2, 1 and 0;
+\ the repeated edges to term 0 add nothing), with the set empty after.
+T{ 3 formals 2 100 lf-mls-audit-formals -> 90 outcome-ok }T
+T{ lf-mls-set htab-count lf-mls-reached @ -> 0 4 }T
 \ A count below zero is invalid before any allocation, and so is a stale or out-of-range actual, even when the source
 \ is a bare variable that has no level to substitute.
 : counts@ ( -- terms levels crefs ) lf-term-count @ lf-level-count @ lf-cref-count @ ;
@@ -170,7 +213,7 @@ T{ -1 substitute-count -> outcome-invalid }T
 T{ counts@ -> 4 5 1 }T
 : bare-variable ( -- ) 0 lf-hterm-bvar 0= abort" bvar" root-id ! fixture-root ! ;
 bare-variable
-T{ fixture-root @ root-id @ -> 4 lf-term-serial @ }T
+T{ fixture-root @ root-id @ -> 4 term-serial }T
 actuals cell+ @ 1+ actuals cell+ !
 T{ 2 substitute-count -> outcome-invalid }T
 2 actuals pair! lf-level-capacity actuals !
@@ -194,14 +237,14 @@ setup
 lf-term-count @ constant before-term
 lf-level-count @ constant before-level
 lf-cref-count @ constant before-cref
--1 1 rshift 2 - lf-term-serial !
+-1 1 rshift 2 - term-serial!
 T{ 500 run-substitution -> outcome-full }T
 T{ lf-term-count @ lf-level-count @ lf-cref-count @ -> before-term before-level before-cref }T
-T{ lf-term-serial @ -> -1 1 rshift }T
-T{ lf-level-serial @ before-level > -> true }T
+T{ term-serial -> -1 1 rshift }T
+T{ level-serial before-level > -> true }T
 T{ lf-cref-serial @ before-cref > -> true }T
 \ Rolled-back identities cannot be revived by slot reuse.
-lf-level-identities before-level cells + @ constant discarded-level-id
+before-level level-identity@ constant discarded-level-id
 T{ before-level lf-level-count @ = -> true }T
 : reuse-level 33 lf-level-param 0= abort" reuse" drop ;
 reuse-level

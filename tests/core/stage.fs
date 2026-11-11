@@ -262,6 +262,10 @@ T{ st stage-other? st stage-decls 3 st stage-meta-text s" 4.29.1" compare
    0 st stage-meta-text s" handcrafted" compare -> true 1 0 0 }T
 T{ 1 st stage-meta-text s" 0.1.0" compare 2 st stage-meta-text s" 3.1.0" compare
    4 st stage-meta-text s" 2fcce7258eeb6e324366bc25f9058293b04b7547" compare -> 0 0 0 }T
+\ The sparse indices made index maps in the reader; once the stage is sealed
+\ and unmapped the reader keeps none (stage-unmap frees them with its own).
+T{ st stage-export export-map-bytes 0> st stage-unmap st stage-export export-map-bytes
+   -> true 0 }T
 st stage-free
 T{ live-blocks @ blocks-at-start - -> 0 }T
 T{ depth -> 0 }T

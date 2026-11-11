@@ -17,8 +17,13 @@ require ../../src/kernel/mixed-definition-probe.fs
 include ../support/plain-terms.fs
 include ../support/plain-cases.fs
 include ../support/checker-trial.fs
+require ../support/store-faults.fs
 
-: begin-check ( -- ) context-new throw context-use fresh-session open-index ;
+\ The cases number their fixture nodes and fill stores with equal leaves:
+\ each runs with the term store's hash-consing off (compact-store plan
+\ step S3); the random checks below run with it on.
+: begin-check ( -- )
+  context-new throw context-use false lf-term-sharing! fresh-session open-index ;
 : end-check ( -- ) lf-context @ context-main context-use context-free throw ;
 \ The numbers and code recorded, and whether the site's name is text.
 : diag ( -- n1 n2 code ) lf-diag@ nip ;
@@ -51,6 +56,7 @@ create codes 1 , 2 , 3 , 4 , 5 , 6 , 7 , 8 , 9 , 10 , 11 , 12 , 13 , 14 , 15 , 1
   40 , 41 , 42 , 43 , 50 , 51 , 52 , 53 , 54 , 55 , 56 , 57 , 58 , 59 , 60 , 61 ,
   62 , 63 , 64 , 65 , 66 , 67 , 68 , 69 , 70 , 71 , 72 , 73 , 74 , 75 , 76 , 77 , 78 ,
   79 , 80 , 81 , 82 , 83 , 84 , 85 , 86 , 87 , 88 , 89 , 90 , 91 , 92 , 93 , 94 , 95 , 96 ,
+  97 , 98 , 99 ,
 here codes - 1 cells / constant code-count
 : named? ( code -- flag ) lf-diag-name s" unknown code" compare 0<> ;
 : all-named? ( -- flag ) true code-count 0 ?do i cells codes + @ named? and loop ;
@@ -64,7 +70,7 @@ T{ lf-diag-fuel lf-diag-name s" fuel exhausted" compare -> 0 }T
   lf-diag-catalogue true code-count 0 ?do swap i listed? rot and loop
   swap lf-diag-entry-code lf-diag-none = and ;
 T{ catalogue-codes? -> true }T
-T{ 99 lf-diag-name s" unknown code" compare -> 0 }T
+T{ 100 lf-diag-name s" unknown code" compare -> 0 }T
 
 \ Stores: full, a spent serial, and a store that fails its own checks.
 : fill-terms ( -- ) lf-term-capacity lf-term-count @ ?do 0 lf-term-bvar must drop loop ;
@@ -72,7 +78,7 @@ begin-check fill-terms lf-diag-clear
 T{ 0 lf-term-bvar diag -> false 64 64 lf-diag-terms-full }T
 T{ s" terms lf-term-add" at? -> true }T
 end-check
-begin-check lf-term-reset max-n lf-term-serial ! lf-diag-clear
+begin-check lf-term-reset max-n term-serial! lf-diag-clear
 T{ 0 lf-term-bvar diag -> false max-n 1 lf-diag-serial-spent }T
 end-check
 begin-check -1 lf-term-count ! lf-diag-clear
@@ -108,8 +114,13 @@ end-check
 \ The index grows (plan task 6.2.0); one the heap cannot grow
 \ (heap-watch.fs) is full and keeps its count.
 : fill-index ( n -- ) 0 ?do 0 i 1+ lf-name-num must put ok? must loop ;
-begin-check 16 fill-index 0 99 lf-name-num must constant n99 lf-diag-clear 1 heap-refusals !
-T{ n99 put diag -> outcome-full 16 16 lf-diag-signatures-full }T
+\ The Sort is made before the heap refuses, so that the refusal meets the
+\ index's growth, not the stamps' (core/generation-handles.fs keeps them
+\ in a growable map since compact-store plan step S3).
+: put-sort ( name node identity -- status ) 2>r >r token r> 2r> formals 0 1000 lf-msp-put ;
+begin-check 16 fill-index 0 99 lf-name-num must constant n99 sort0 2constant s99
+lf-diag-clear 1 heap-refusals !
+T{ n99 s99 put-sort diag -> outcome-full 16 16 lf-diag-signatures-full }T
 T{ s" mixed-signature-probe lf-msp" at? -> true }T
 T{ heap-refusals @ lf-msp-count @ n99 put lf-msp-count @ -> 0 16 outcome-ok 17 }T
 end-check
@@ -133,7 +144,9 @@ variable wrong
 : redex ( -- node ) 0 make-sort 0 make-var make-lam 0 make-sort make-app ;
 : samples ( -- ) pair-app drop sorts redex drop ;
 : f-cterm ( fuel -- outcome ) >r 2 handle r> lf-cterm-check ;
-: f-scope ( fuel -- outcome ) >r 2 handle 1 r> lf-constant-term-scope ;
+\ At depth 0, out of scope: the data word shows it (plan step S6 (c)), so
+\ the scope walk runs and can run out of fuel at its own site.
+: f-scope ( fuel -- outcome ) >r 2 handle 0 r> lf-constant-term-scope ;
 : f-hterm ( fuel -- outcome ) >r 3 handle r> lf-hterm-check ;
 : f-session ( fuel -- outcome ) 3 swap lf-ssession-check ;
 : f-repr ( fuel -- outcome ) 2 lf-repr-symbolic rot lf-repr-check ;
@@ -200,7 +213,11 @@ T{ outcome-unknown lf-cterm-walker test-site lf-diag-walk diag
 end-check
 \ A pass's frames grow their stack (plan task 6.2.0); a growth the heap
 \ refuses is full, recorded with the cells in use and the capacity.
-: refused-frames ( frames -- ) frame-free 1 heap-refusals ! lf-diag-clear ;
+\ The replace memos (kernel/replace-memo.fs) are made at their first call;
+\ made here first, so that the heap's refusal meets the frames.
+: memo-made ( memo -- ) 0 over lf-rmemo-begin outcome-ok swap lf-rmemo-end ;
+: memos-made ( -- ) lf-mshift-memo memo-made lf-minst-memo memo-made lf-open-memo memo-made ;
+: refused-frames ( frames -- ) memos-made frame-free 1 heap-refusals ! lf-diag-clear ;
 begin-check samples lf-mbeta-frames refused-frames
 T{ 9 handle 1000 lf-mixed-beta nip nip diag -> outcome-full 0 0 lf-diag-frame-limit }T
 T{ s" mixed-beta lf-mixed-beta" at? -> true }T
@@ -263,7 +280,10 @@ T{ 0 handle 0 max-n 100 lf-mixed-shift nip nip diag
   -> outcome-full 1 max-n lf-diag-cell-maximum }T
 T{ s" mixed-shift lf-mixed-shift" at? -> true }T
 end-check
-begin-check 0 make-sort 0 make-var make-lam drop lf-diag-clear
+\ (A lambda over a bound variable past the data words' ranges, which has
+\ no data: one with data and no loose variable would come back at once,
+\ as Lean's lift_loose_bvars, expr.cpp 455.)
+begin-check 0 make-sort lf-data-unknown make-var make-lam drop lf-diag-clear
 T{ 2 handle max-n 1 100 lf-mixed-shift nip nip diag
   -> outcome-full max-n max-n lf-diag-binders-full }T
 T{ s" mixed-rebuild lf-rebuild-binary" at? -> true }T
@@ -277,7 +297,7 @@ begin-check succ-u fill-levels lf-diag-clear
 T{ substitute-u diag -> outcome-full 64 64 lf-diag-levels-full }T
 T{ s" level-substitute lf-lsubst" at? -> true }T
 end-check
-begin-check succ-u max-n lf-level-serial ! lf-diag-clear
+begin-check succ-u max-n level-serial! lf-diag-clear
 T{ substitute-u diag -> outcome-full max-n 1 lf-diag-serial-spent }T
 end-check
 \ A rebuilding pass that fills the term store is explained by the store.
@@ -358,8 +378,10 @@ end-check
   dup lf-diag-undecided lf-diag-dependency-undecided 1+ within
   over lf-diag-unsupported = or swap whnf-undecided? or ;
 : or-none ( code flag -- flag ) swap lf-diag-none = or ;
+\ S4 (a Pi body's type) too: the random checks reach it since plan step
+\ S6 (c) left them more fuel.
 : rejection-code? ( code -- flag )
-  dup lf-diag-unknown-constant lf-diag-value-apart 1+ within swap lf-diag-not-defeq = or ;
+  dup lf-diag-unknown-constant lf-diag-body-type 1+ within swap lf-diag-not-defeq = or ;
 : explained? ( outcome -- flag )
   lf-diag-code@ swap case
     outcome-ok of lf-diag-none = endof

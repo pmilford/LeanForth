@@ -16,6 +16,7 @@ require ../../src/core/tagged-sort-boundary.fs
 require ../../src/core/terms.fs
 require ../../src/kernel/level-substitute.fs
 require ../../src/kernel/mixed-level-substitute.fs
+require ../support/store-faults.fs
 
 \ Level scope. Levels: 1 = param 1, 2 = succ 1, 3 = max 2 1, 4 = param 2.
 \ Root 3 visits 3, 1, 2, 1: four units. Parameter 2 is not in the context.
@@ -87,19 +88,22 @@ T{ 2 term-app-id 1+ 30 lf-hterm-check -> outcome-invalid }T
 \ Mixed substitution of parameter 1 by zero in term 2 (app of the Sort
 \ over level 2 = succ 1, and bvar 0), all passes sharing one budget: the
 \ actual's scope 1 unit, the graph check 3 term and 2 level visits, the
-\ source audit the same 5, then the Sort's level substitution 3 (actual 1,
-\ source 2): 14 units. mixed-signature-audit runs the audit alone: 5 units.
+\ source audit 4 (the app, the Sort and its 2 levels: bvar 0 has no
+\ universe parameter, so it is neither visited nor rebuilt, Lean's
+\ has_param_univ test, plan step S4; 5 before), then the Sort's level
+\ substitution 3 (actual 1, source 2): 13 units. mixed-signature-audit
+\ runs the audit alone: 4 units.
 create mls-formals 1 ,
 create mls-actuals 0 , 0 lf-level-identity drop ,
 T{ 2 term-app-id @ mls-formals mls-actuals 1 30 lf-mixed-level-substitute
-   rot drop lf-mls-fuel @ -> lf-term-serial @ outcome-ok 16 }T
-T{ 2 term-app-id @ mls-formals mls-actuals 1 14 lf-mixed-level-substitute
-   rot drop lf-mls-fuel @ -> lf-term-serial @ outcome-ok 0 }T
+   rot drop lf-mls-fuel @ -> term-serial outcome-ok 17 }T
 T{ 2 term-app-id @ mls-formals mls-actuals 1 13 lf-mixed-level-substitute
+   rot drop lf-mls-fuel @ -> term-serial outcome-ok 0 }T
+T{ 2 term-app-id @ mls-formals mls-actuals 1 12 lf-mixed-level-substitute
    lf-mls-fuel @ -> outcome-exhausted 0 }T
 T{ 2 term-app-id @ mls-formals mls-actuals 1 30 ' lf-mixed-level-substitute rs-checked
-   rot drop -> lf-term-serial @ outcome-ok }T
-T{ 2 mls-formals 1 30 lf-mls-audit-formals -> 25 outcome-ok }T
+   rot drop -> term-serial outcome-ok }T
+T{ 2 mls-formals 1 30 lf-mls-audit-formals -> 26 outcome-ok }T
 \ The substitution walks its own record, not the handle audit's stack.
 0 lf-href-walker walk-pending !  9 lf-href-walker walk-push drop
 T{ 2 term-app-id @ mls-formals mls-actuals 1 30 lf-mixed-level-substitute
@@ -120,7 +124,8 @@ create subst-actuals 2 , 1 ,
 T{ 3 subst-formals subst-actuals 2 20 lf-lsubst lf-lsubst-fuel @ -> 6 outcome-ok 15 }T
 T{ 3 subst-formals subst-actuals 2 4 lf-lsubst lf-lsubst-fuel @ -> outcome-exhausted 0 }T
 T{ 5 subst-formals subst-actuals 2 20 lf-lsubst lf-lsubst-fuel @ -> outcome-invalid 16 }T
-T{ 3 subst-formals subst-actuals 2 20 ' lf-lsubst rs-checked -> 7 outcome-ok }T
+\ The same substitution again gives the same level (hash-consed levels).
+T{ 3 subst-formals subst-actuals 2 20 ' lf-lsubst rs-checked -> 6 outcome-ok }T
 
 \ A handle audit starts from an empty work stack, even when the last walk
 \ left it full. A checker's walk grows past its first room (plan task

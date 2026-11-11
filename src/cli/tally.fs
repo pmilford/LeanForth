@@ -13,7 +13,9 @@
 \ rejected, undecided, resource or malformed code takes precedence over 6.
 \ The counts are the declarations by verdict, in the order reports show
 \ them (verdict-order): the seven outcomes (ADR 0008), not-checked (a run
-\ that stopped before them) and, apart, not-proved: accepted declarations
+\ that stopped before them), skipped (unsafe or partial declarations,
+\ which Lean's replay skips: rejected in their slots, which nothing can
+\ use, and Lean's code 0; plan task 5.2.7) and, apart, not-proved: accepted declarations
 \ that depend on an axiom outside the allowlist (core/axiom-allowlist.fs;
 \ an axiom gets Lean's verdict, plan task 5.3.1); and the axioms the
 \ accepted ones use, joined (cli-axioms-used), which the summary names.
@@ -24,6 +26,7 @@
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../core/axiom-allowlist.fs
+require ../kernel/environment.fs
 
 0 constant exit-accepted     \ every declaration accepted, or the command done
 1 constant exit-rejected     \ something rejected
@@ -50,25 +53,33 @@ here cli-severity - exit-not-proved 1+ cells <>
 : worse-code ( code1 code2 -- code )
   2dup code-severity swap code-severity > if nip else drop then ;
 
-\ The verdicts reports count, in their order: accepted (ok), rejected,
-\ unknown, unsupported, invalid, exhausted, full, not checked.
+\ The verdicts reports count, in their order: accepted (ok), skipped,
+\ rejected, unknown, unsupported, invalid, exhausted, full, not checked.
 7 constant not-checked     \ the count after the outcomes': declarations not reached
+8 constant skipped         \ then: declarations Lean's replay skips
 create verdict-order
-  outcome-ok , outcome-rejected , outcome-unknown , outcome-unsupported ,
+  outcome-ok , skipped , outcome-rejected , outcome-unknown , outcome-unsupported ,
   outcome-invalid , outcome-exhausted , outcome-full , not-checked ,
 here verdict-order - 1 cells / constant verdict-kinds
-verdict-kinds not-checked 1+ <>
+verdict-kinds skipped 1+ <>
 [if] .( tally.fs: one entry per verdict) cr abort [then]
 : verdict-kind ( k -- verdict ) cells verdict-order + @ ;
-\ A verdict as reports name it: accepted for ok, not-checked, or the
-\ outcome's name.
+\ Declaration d's verdict, read from its slot (kernel/environment.fs):
+\ skipped, else its outcome.
+: verdict-of ( d -- verdict )
+  dup lf-env-skipped? if drop skipped else lf-env-outcome then ;
+\ A verdict as reports name it: accepted for ok, not-checked, skipped, or
+\ the outcome's name.
 : verdict-name ( verdict -- c-addr u )
   case outcome-ok of s" accepted" endof not-checked of s" not-checked" endof
-    dup outcome-text rot endcase ;
+    skipped of s" skipped" endof  dup outcome-text rot endcase ;
+\ A verdict's exit code: a skipped declaration keeps Lean's 0.
+: verdict>code ( verdict -- code )
+  dup skipped = if drop exit-accepted else outcome>code then ;
 
 begin-structure /cli-tally
   field: tallied-worst                         \ the exit code so far
-  not-checked 1+ cells +field tallied-counts   \ declarations by verdict
+  skipped 1+ cells +field tallied-counts       \ declarations by verdict
   field: tallied-not-proved                    \ accepted, with an axiom
   field: tallied-strict                        \ true: NOT PROVED gives code 6
   field: tallied-axioms                        \ the accepted ones' axiom sets, joined
@@ -85,8 +96,8 @@ end-structure
 : cli-strict-axioms! ( flag -- ) cli-tally-state tallied-strict ! ;
 : cli-strict-axioms? ( -- flag ) cli-tally-state tallied-strict @ ;
 : cli-code! ( code -- ) cli-worst @ worse-code cli-worst ! ;
-\ Count a verdict, and its code.
-: cli-tally ( outcome -- ) dup outcome>code cli-code! cli-count-of 1 swap +! ;
+\ Count a verdict (an outcome, or skipped), and its code.
+: cli-tally ( verdict -- ) dup verdict>code cli-code! cli-count-of 1 swap +! ;
 \ Whether a verdict with the axiom set bits is NOT PROVED: accepted, and
 \ depending on an axiom outside the allowlist (core/axiom-allowlist.fs:
 \ propext, Classical.choice and Quot.sound with Lean's statements count as

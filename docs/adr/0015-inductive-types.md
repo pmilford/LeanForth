@@ -691,7 +691,7 @@ table is read off the terms, not traced from Lean's kernel.
 | 5.2.2 | Structures and projections: `infer_proj`, `reduce_proj`, R3, R4, R5 in Lean's order | J1, J2, R3–R5 | every `5.2.2` row; BL-7 and BL-8 rows rejected as by Lean | 5.2.1a; phase 4 | [kernel], [import] | M |
 | 5.2.3 | Literals: `bignum.fs` in `reduce_nat` with Lean's size exceptions, L2–L4, and the primitive check of Q1 | L1–L5 | every `5.2.3` row; bignum differential (exists) | 5.2.1b; Q1 | [kernel] | M |
 | 5.2.4 | Quotients: Q1 initialisation and comparison, Q2 reduction | Q1, Q2 | every `5.2.4` row | 5.2.1c, 5.3.1 | [kernel], [axiom] | S |
-| 5.2.5 | Mutual and nested blocks: shared motives, auxiliary types, restoration, `T.rec_k`. *In two parts: 5.2.5a mutual blocks, implemented 2026-11-04, gate open; 5.2.5b nested blocks, planned (below)*; the table's rows carry `5.2.5a` and `5.2.5b` | N1–N3, T3, T4 | every `5.2.5` row; all of `Init`'s blocks, then Std's and Mathlib's 7,013 | 5.2.1c | [kernel] | L (two M) |
+| 5.2.5 | Mutual and nested blocks: shared motives, auxiliary types, restoration, `T.rec_k`. *In two parts: 5.2.5a mutual blocks, implemented 2026-11-04, gate open; 5.2.5b nested blocks, implemented 2026-11-10 (below), gate open*; the table's rows carry `5.2.5a` and `5.2.5b` | N1–N3, T3, T4 | every `5.2.5` row; all of `Init`'s blocks, then Std's and Mathlib's 7,013 | 5.2.1c | [kernel] | L (two M) |
 | 5.3.1 | Allowlist v1 from `axioms.ndjson` | Q3 | altered and unlisted axioms not accepted | Q5 | [axiom], [owner] | S |
 | 5.4.1 | Corpus C-Nat: `nat-add-zero.ndjson` | all above | 44 constants accepted; mutants rejected | 5.2.1a–5.2.3, 4.2.2 | — | M |
 
@@ -1423,7 +1423,8 @@ table has 287 cases; `eta.structure`, `eta.structure-left`,
 `eta.psigma-extrinsic-fix` (the shape of `Init`'s
 `WellFounded.extrinsicFix₂`), `unit.punit` and `unit.punit-variables`
 accepted, `eta.structure-wrong-field` rejected, as by Lean. Still
-*unknown*, not ported: the comparison's projection steps 8 and 9
+*unknown*, not ported then (ported since, next paragraph): the
+comparison's projection steps 8 and 9
 (`lazy_delta_proj_reduction` 1077–1100, `whnf_core` with projections
 reduced by `whnf`, 1188–1191), `try_unfold_proj_app` (950–957) in lazy
 delta and `cheap_proj` (row `proj.index-differs`, diagnostic 30; plan
@@ -1432,6 +1433,60 @@ declarations) only `WellFounded.extrinsicFix₂` changed: from *unknown*
 (89) to *unsupported* through its dependency `WellFounded.extrinsicFix`,
 which uses `Classical.choice`, an axiom the command line does not take
 yet (U1, diagnostic 42); its own comparison is now Lean's.
+
+**The comparison's projection steps** (agent PJ, 2026-11-10; [kernel],
+review owed). Evidence first: on `Init`'s first 1,000,000 export lines
+(main `cc09b87`) 22 roots were *unknown* with diagnostic 30 at `whnf
+lf-whnf`. Traced with pinned Lean's exports of `UInt8.toNat_toUInt32`,
+`BitVec.cast_eq`, `List.getElem?_eq_getElem` and
+`Int.ofNat_mul_subNatNat`, all four stopped in `is_def_eq_app`, which
+took a projection (the application of its leaf) for an application and
+compared its leaf with another function (`UInt8.1` against
+`BitVec.ofFin`, `PProd.1` against `Nat.succ`). In Lean `Expr.proj` is no
+application: `is_def_eq_app` answers no (878–895) and steps 11–14 go on
+(structure eta decides `UInt8.toNat_toUInt32`). Ported now, in
+`defeq.fs`, `whnf.fs`, `iota.fs` and a hook in `caches.fs`:
+- Lean's `is_app`, `get_app_fn` and `get_app_num_args` for
+  `is_def_eq_app` and `is_def_eq_args`: a projection, and a let term,
+  are no applications.
+- Step 8 (1177–1183) and `lazy_delta_proj_reduction` (1084–1102): two
+  projections of one field of one structure (names and indices equal):
+  `lazy_delta_reduction_step` on their terms, a visit of its own that
+  shares the step with lazy delta's loop; yes is yes, otherwise
+  `reduce_proj_core` of both (`iota.fs`, through `lf-dq-reduce-proj`)
+  and `is_def_eq_core` of the fields, else of the terms.
+- Step 9 (1185–1188): `whnf_core` of both sides without `cheap_proj`;
+  either a new node (Lean's `is_eqp`): `is_def_eq_core` of the two.
+- `try_unfold_proj_app` (950–957) where only one side unfolds (971–991):
+  the other side, when its head is a projection, in `whnf_core`; a
+  result not `==` to it takes its place.
+- `cheap_proj` (468, 444–454): steps 3 and lazy delta's unfoldings run
+  `whnf_core` with it, so a projection's term goes through `whnf_core`
+  only; `whnf.fs` keeps the mode of the innermost `whnf_core` visit (a
+  `whnf` visit and each public `whnf_core` visit set theirs), and
+  `caches.fs` keeps no `m_whnf_core` entry of a cheap visit (547) while
+  still reading the cache, as Lean does.
+- `whnf.fs`'s stopgap `lf-wc-proj` is retired: a projection leaf alone
+  is malformed (invalid), never reached by the comparison now.
+Rows (pinned Lean 4.35.0, `inductive-expected.lean`; each accepted and
+its wrong twin rejected, as by Lean): `proj.app-eta`, `proj.lazy-terms`,
+`proj.lazy-fields`, `proj.whnf-term`, `proj.unfold-proj-app`,
+`proj.unfold-proj-app-stuck`; `proj.index-differs` is now *rejected*
+(Lean's `declTypeMismatch`), no longer *unknown* (30). All 43 rows of
+task 5.2.2 give the table's column. 15 planted faults on the new words,
+all caught. `Init`'s first 1,000,000 lines (9,202 declarations, `--fast`,
+default fuel): before 6,488 accepted, 1,686 unknown, 1,011 unsupported,
+17 exhausted; after 6,712 accepted, 162 unknown, 2,309 unsupported, 19
+exhausted. 21 of the 22 roots are accepted; the 22nd,
+`Std.Iter.toArray_eq_match_step`, and all 162 unknowns now wait only on
+two declarations exhausted at the default 2,000,000 steps
+(`Array.foldlM_toList.aux._unary` 2.55 M, `Std.IterM.step_map` 3.59 M;
+both accepted with more fuel); 1,298 moved from *unknown* to
+*unsupported* only because their first undecided dependency is now
+decided and an unsupported one comes next. On the 501 declarations of
+those two exports accepted before and after, the fuel spent grew by
+1.2 % (step 9's extra `whnf_core` visits). `cheap_proj` changes paths
+and fuel, not verdicts, in every row (Lean's own aim: avoid unfolding).
 
 ## Implementation (plan task 5.2.1c, K part: R2)
 
@@ -1469,6 +1524,98 @@ Written 2026-11-05 by agent KL; experimental [kernel] code, gate open.
   on the new words are caught. Gap: the nested inferences run a loop of
   their own on the host stacks (as R3's), so K inside K inside K nests
   loops (plan task 6.2.0 follow-up).
+
+## Implementation (plan task 5.2.7): unsafe and partial declarations
+
+Written 2026-11-10 by agent UN; experimental [kernel] code, gate open.
+
+**What Lean does** (4.35.0, commit `eb6cafb7`).
+- *The referee, Lean's replay*, which the official checker runs
+  (`env.toKernelEnv.replay`, after lean4export's `Export.Parse`): it puts
+  only the constants with `!ci.isUnsafe && !ci.isPartial` in `remaining`
+  (`Lean/Replay.lean` 179–183, "We skip unsafe constants, and also partial
+  constants"), so it sends none of the others to the kernel and checks
+  nothing of them; `replayConstant` of a skipped name finds it not to do
+  (`isTodo`, 46–52, 75) and adds nothing, so a later declaration that uses
+  it fails in the kernel with "unknown constant". The official checker
+  then prints "Accepted N declarations", N counting the skipped ones.
+  `isUnsafe` is a definition with safety `unsafe` and an axiom, opaque
+  declaration, inductive type, constructor or recursor with its flag;
+  `isPartial` only a definition with safety `partial`; a theorem or
+  quotient is neither (`Lean/Declaration.lean` 453–465).
+- *The exporters*: lean4export 3.1.0 leaves unsafe and partial constants
+  out unless `--export-unsafe` (`Export.lean` 238); the toolchain's
+  `leanexport` leaves out unsafe ones only (`LeanExport/Basic.lean` 255; a
+  `partial def` reaches the export as a safe opaque constant, as `spin`
+  in `tests/core/reexport/kinds.ndjson`). `Export.Parse` reads `safety`
+  (`"unsafe"`, `"safe"`, `"partial"`, 255–275) and `isUnsafe` (required
+  for axioms, 241, and inductive types, constructors and recursors, 342,
+  374, 404; `false` when an opaque record lacks it, 300–301), and refuses
+  a name given twice ("Duplicate declaration", `addConst` 78–80).
+- *The kernel's own rules*, which replay never reaches: `add_definition`
+  checks an unsafe definition's header, adds it, then checks its value in
+  the new environment with the unsafe checker, so it may use itself
+  (`environment.cpp` 163–178); a partial one alone takes the safe branch
+  (179–189); `add_mutual` takes only unsafe or partial blocks, one safety
+  and one list of universe parameters, adds every header before any value
+  (225–269); `add_axiom` checks with the unsafe checker when the axiom is
+  unsafe (152–158), `add_opaque` with the safe one (211–223);
+  `infer_constant` refuses, outside infer-only mode, an unsafe constant
+  unless the checker is unsafe ("uses unsafe declaration") and a partial
+  definition when it is safe ("safe declaration must not contain partial
+  declaration", `type_checker.cpp` 109–117); an unsafe inductive block is
+  checked with the unsafe checker and skips positivity (`inductive.cpp`
+  214, 486) and gives its constructors and recursors the flag (373, 515,
+  817).
+
+**Decision.** LeanForth gives the referee's verdicts: an unsafe or partial
+declaration is skipped as replay skips it. The kernel's rules are not
+ported: replay never sends such a declaration to the kernel, the official
+checker accepts a file whose unsafe declaration the kernel would refuse
+(row `unsafe.def-ill-typed`), and an export cannot tell a partial
+definition added alone (`add_definition`, which cannot use itself) from
+one added in a mutual block (`add_mutual`, which can; the arena's 141).
+
+**What.**
+- `check-declaration.fs` U1: a definition with safety unsafe or partial, or
+  an axiom or opaque declaration with `isUnsafe`, after its kind and value
+  are audited, ends rejected, unchecked, its slot marked *skipped*
+  (`environment.fs` `lf-env-skip`, `lf-env-skipped!`; diagnostic 97) --
+  unless an earlier declaration of the input has its name: rejected then
+  (code 51), as lean4export's parser refuses the file.
+- `inductive-block.fs`: a block whose members are all unsafe, as Lean
+  writes an unsafe block, is skipped the same way, every member marked; a
+  block with both kinds stays *unsupported* (code 42), a gap that no
+  export Lean writes reaches: replay adds such a block when one of its
+  types is safe, compares only its safe constructors and recursors, and
+  refuses a safe constructor or recursor of a skipped type (task 5.2.7
+  part b; row `unsafe.inductive-type-safe`).
+- A skipped slot is rejected, so N1 finds no constant in it (Lean's
+  "unknown constant"); N2 (`lf-env-unheld`) counts its name as taken, so a
+  later declaration of that name is rejected, as the parser refuses the
+  file (not a generated recursor's name the file leaves out: amendment
+  rvUNNI M1 below). The publisher marks only a rejected outcome and only when the
+  input marks every member of the span unsafe or partial (re-check part
+  7, else invalid) and counts a skipped slot as an N2 conflict (part 4).
+- Reports call it *skipped*, with Lean's exit status 0: the text line and
+  summary, `--json` (`verdict`, `counts.skipped`, schema check-report 0.1
+  amended in place; version 0.2 since amendment rvUNNI M2), run records
+  (schema run-record 0.1, now 0.2); `print` still
+  shows the slot's outcome, *rejected*, with diagnostic 97 (a follow-up).
+
+**Evidence.** Fourteen rows of `inductive-expected.lean`, each Lean's
+replay of hand-written constants (`replayVerdict`, the official checker's
+call): `unsafe.def`, `unsafe.def-recursive`, `unsafe.def-ill-typed`,
+`unsafe.def-then-unsafe-user`, `partial.def-recursive`, `unsafe.postulate`,
+`unsafe.opaque`, `unsafe.inductive-not-positive` accepted (LeanForth:
+skipped); `unsafe.def-then-safe-user`, `partial.def-then-safe-user`,
+`unsafe.postulate-then-safe-user`, `unsafe.opaque-then-safe-user`,
+`unsafe.inductive-then-safe-user` unknown constant (LeanForth: rejected,
+code 50); `unsafe.inductive-type-safe` accepted (LeanForth: unsupported,
+the gap above). The arena's `140_falseFromUnsafe` and
+`141_falseFromPartial` are rejected as the official checker rejects them
+(unknown constant), and no other arena verdict or count of `Init`'s first
+1,000,000 lines changed (`.claude/work/UN` in the agent's worktree).
 
 ## Plan (task 5.2.5b): nested blocks
 
@@ -1539,6 +1686,169 @@ the auxiliary block's construction and the restoring pass are new
 term-rewriting passes, and the steps must read types and constructors
 that are not input declarations. Until it is done a nested block, and
 everything that uses it, is *unsupported* (diagnostic 63, reason 3).
+
+## Implementation (plan task 5.2.5b)
+
+Written 2026-11-10 by agent NI; experimental [kernel] code, **not through
+its gate**. A nested block is checked as Lean's `add_inductive` checks it
+(`inductive.cpp` 1235–1349), in `src/kernel/inductive-nested.fs` with
+small hooks in `inductive-block.fs`, `check-block.fs`,
+`generated-recursor.fs` and `environment.fs`; diagnostic 63 is no longer
+given.
+
+**What.** The audit only notes that a block *may* be nested (its old
+test, which finds at least Lean's occurrences). At step 4, after T1, the
+translation (`elim_nested_inductive_fn`, 985–1180) rewrites every
+constructor's type, and each auxiliary type's as it is made (Lean's
+queue), top-down after its parameters: an application `I Ds is` whose
+head names an inductive type of the environment (`lf-env-find`: K5 when
+Lean may hold it), whose first `numParams(I)` arguments mention a type
+of the block (auxiliary ones included) and contain no local variable
+(else N2, `nestedLocalVariable`), becomes `Iaux As is`, its indices `is`
+kept as they are. A key `I Ds` new to the block (Lean's `==`,
+`mixed-compare.fs`, on `Ds` lowered to the parameters' depth) makes one
+auxiliary type per type `J` of `I`'s block, named `_nested.J_k`
+(`mk_unique_name`), with `J`'s type and constructor types at `I`'s
+universe levels (`lf-mixed-level-substitute`; a level count that differs
+is N3), their first `numParams(I)` binders instantiated with `Ds` (a
+binder that is no Pi is N3, `throw_ill_formed`) under the constructor's
+own parameter binders; constructor names have their prefix `J` replaced
+(`replace_prefix`). The declarations of the auxiliary types and of every
+constructor (the input's with their translated types) are records of the
+input's layout in two slabs, which the steps read in place of the input
+(`lf-ind-type-at`, `lf-ind-ctor`); the block's counts include them from
+then on, its input counts (`lf-ind-in-types@`, `lf-ind-in-ctors@`) stay
+for the members. Steps 5 to 12 then run unchanged on the auxiliary block,
+a mutual one (task 5.2.5a): N2 on `_nested.J_k`, its `rec` and its
+constructors; the auxiliary types visible to inference from step 9 as
+the block's own; Lean's `is_rec` and `is_reflexive` recomputed on it.
+At step 12 the auxiliary recursors get the names `T.rec_1`, `T.rec_2`, ...
+(`mk_aux_rec_name_map`, 1191–1217) before they are built, which gives
+the terms Lean's renaming gives; after the build, `restore_nested`
+(927–975) rewrites every recursor type and rule: an auxiliary type applied
+to at least the parameters becomes its key under the term's own outer
+binders, applied to the rest; an auxiliary constructor becomes `J.c` at
+`I`'s levels applied to `Ds` and the rest (fewer arguments than
+parameters: N3); a replaced application's arguments are kept, as Lean's
+`replace` keeps them. Each `T.rec_i` must be a name Lean's `new_env`
+had not declared (1283: no type, constructor or `T.rec` of the block, and
+N2), and each key is typed under the first type's raw parameter domains
+(1315–1324), the block's constructors and recursors visible as in
+`new_env`. B3 compares each exported recursor by name — `T.rec` and each
+`T.rec_i`, whose rules name the constructors `J.c`
+(`restore_constructor_name`) — and B4 the type's `numNested` with the
+auxiliary types counted. Every pass runs on frame steps with the block's
+fuel; every table grows in the heap.
+
+**Decisions**, none of which adds or widens a rule beyond Lean's:
+
+22. *The aux recursors are named `T.rec_i` before they are built*, not
+    renamed after: the same terms, one rewriting less.
+23. *A constructor's restored type is not compared*: the translation keeps
+    the parameter binders and replaces each occurrence by one that restores
+    to it, so Lean's restored constructor type is the input's (B3 compares
+    the constructor's numbers as before).
+24. *Lean's re-check of the restored terms (1333–1347) is not run*: it is
+    defensive, as G4 is (decision 7); B3 compares them with the file's.
+25. *`mk_unique_name` counts any earlier declaration of a name as taken*
+    (Lean's environment holds only accepted ones); the names never leave
+    the check, and an undecided earlier `_nested.*` declaration is the only
+    case where the numbering could differ.
+26. *A nested block leaves no recipe*: a use of its `T.rec` or `T.rec_i`
+    that no slot holds is unknown (diagnostic 77) — a temporary gap, closed
+    by a follow-up of task 5.2.5b (the rebuild with the translation). Its
+    first type holds `T.rec_1` .. `T.rec_n` (`lf-env-reserving`: the recipe
+    keeps n), so a later declaration of such a name is rejected.
+
+**Evidence** (2026-11-10, Gforth 1.0.0, Lean 4.35.0): the inductive table
+has 28 new Lean-checked rows, every one with Lean's verdict (`nested.*`:
+`Array`, `List (List _)`, `Option`, `Prod` with two parameters, a block
+parameter, a universe, under a binder, inside a mutual block, `Thunk`
+(reflexive only as the auxiliary block), a parameter the auxiliary block
+drops, typed and ill-typed (`funExpected`, only the typing of the
+occurrences sees it), `_nested.List_1` and `_nested.List_1.rec` declared
+before, a constructor named `rec_1`, `Array (Bad → Nat)`;
+`iota.nested-syntax-rec` and its wrong twin: iota with `Lean.Syntax.rec`
+through `rec_1` and `rec_2`, as `Init` exports them;
+`replay-nested.*`: Lean's replay of `Tree` with `Tree.rec_1` mutated);
+`make test-check-block` checks them with their diagnostics and steps,
+and 14 new planted faults (`nest-*`) are caught;
+the arena's `bad/bugs/nested-rec-rule-nfields`, `nested-unused-param` and
+`rec-rule-proof-irrel-nested` are rejected and `good/init-prelude`
+accepted (2,106 declarations, `Lean.Syntax`, its `rec`, `rec_1`,
+`rec_2` among them). `Init`'s first 1,000,000 export lines (9,202
+declarations, `--fast`, fuel 2,000,000 each): 6,838 accepted, 2,347
+unknown, none unsupported, 17 exhausted (before: 6,488, 1,686, 1,011,
+17); 350 declarations moved from unsupported to accepted, 661 to unknown
+(each also depends on one of 23 whnf gaps, diagnostic 30), no other
+verdict changed.
+
+## Amendment (review rvUNNI; agent FX8, 2026-11-11)
+
+Experimental [kernel][format] code, **not through its gate**. The
+independent review of tasks 5.2.7 and 5.2.5b (rvUNNI, one blocking
+finding) compared LeanForth with the official checker (lean4export's
+`Export.Parse`, then `Kernel.Environment.replay`) on crafted exports.
+Each fix moves LeanForth to that checker's verdict; none adds a rule.
+
+- **B1** (blocking, a fail-open on malformed input). B0 leaves two
+  constructors of one name to C4 (step 9), which a skipped block never
+  reaches, so an all-unsafe block with such a pair was skipped and the
+  file exited 0, where the parser refuses it ("Duplicate declaration",
+  `addConst` 78–80). `lf-ind-unsafe` now rejects such a pair first
+  (code 51, the later constructor's name and the earlier's declaration),
+  for an all-unsafe block and for a mixed one; a safe block still meets
+  C4.
+- **M1.** N2 counted a skipped declaration's name as taken for every
+  name, also for `T.rec` and `T.rec_k` of a later block that leaves that
+  recursor out. That name is Lean's generated recursor, no declaration of
+  the file, so the parser's refusal does not concern it, and replay never
+  added the skipped one: the official checker accepts. `lf-blk-rec-fresh`
+  applies `lf-env-unskipped` to a generated recursor's name only when the
+  block holds a recursor of that name (`lf-env-fresh-generated`
+  otherwise).
+- **M3.** T0 now also refuses a projection whose structure's name starts
+  with `_nested` (`check_no_nested_aux`'s projection clause, 1228): the
+  translation rewrites nested occurrences to the auxiliary types, so such
+  a projection would type-check and name, once restored, a constant that
+  does not exist. Before, the block was unknown (`infer-proj.fs` declines
+  the block's own structures); this also keeps decision 24 whole.
+- **L1.** `T.rec_<digits>` is no longer read modulo 2^64: more than 19
+  digits, or a number beyond one cell, names no auxiliary recursor.
+- **L2** (known strictness, kept; plan task 5.2.7 part b). B0 runs before
+  the skip, so an all-unsafe block of a shape lean4export never writes is
+  *invalid* (exit 4) where replay skips it unread (exit 0); the importer
+  refuses a skipped declaration that names a constant absent from the file
+  (exit 4, replay 0). Both are crafted files only and fail closed; part b
+  (mixed blocks, replay's treatment of unread skipped content) closes them.
+- **L5.** A declaration a stopped run never reached reads `not checked
+  (not reached: the run stopped)`, so it cannot be taken for *skipped*.
+- **M2** ([format]; the owner's decision is pending, this is the
+  recommended form). The verdict *skipped* had changed check-report 0.1
+  and run-record 0.1 in place, so a 0.1 consumer refused every new report.
+  Reports and records are now version **0.2**
+  (`schemas/check-report-0.2.schema.json`, `run-record-0.2.schema.json`);
+  the 0.1 schemas are restored exactly as before task 5.2.7, and a report
+  or record without a skipped verdict, set back to 0.1, still validates
+  under them (tests). Replay compares a record only with one of its own
+  version, so a 0.1 record is refused as `unknown-schema`.
+
+**Evidence.** Eight new rows of `inductive-expected.lean`, each with the
+official checker's verdict: by the kernel in file order,
+`names.reserved-nested-prefix-proj` (reservedNestedPrefix) and its twin
+with `Prod` (accepted), `nested.def-named-rec-1` (alreadyDeclared) and
+`nested.def-named-rec-huge` (accepted); by replay after the parser's
+duplicate test (`fileVerdict`, as `Export.Parse` then `replay`),
+`unsafe.rec-name-before-block`, `partial.rec-name-before-block`,
+`unsafe.aux-rec-name-before-nested-block` (accepted: LeanForth accepts
+the block, the def skipped) and `unsafe.block-constructor-twice`
+(duplicateDeclaration: rejected). The official checker binary gives the
+same verdict on each of these files. `tests/cli/nested.lean` (the
+review's `RvNest.lean`): nesting through the indexed family `Vec VT n`
+and through the mutual block `A`/`B`, `List (α × Q α)`, `List R` with
+`List (List R)`, and `rfl` theorems that reduce through `VT.rec_1`;
+pinned Lean accepts it, its export is reproduced byte for byte, and
+LeanForth and the official checker accept all 107 declarations.
 
 ## Reproduction
 

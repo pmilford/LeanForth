@@ -3,7 +3,12 @@
 include ../support/tester.fs
 require ../../src/core/tagged-sort-boundary.fs
 require ../../src/core/terms.fs
+require ../support/store-faults.fs
 
+\ These cases number their nodes, and some build an equal node again as a
+\ node of its own: the term store's hash-consing (compact-store plan step
+\ S3) is off here, so each constructor makes a new node.
+false lf-term-sharing!
 lf-term-reset
 T{ 1 lf-term-sort -> 0 true }T
 T{ 1 lf-term-symbolic-sort -> 1 true }T
@@ -75,25 +80,25 @@ T{ 17 lf-repr-symbolic 2 lf-repr-check -> outcome-ok }T
 
 \ Malformed leaf fields, cycles and forward references fail closed. Unrelated
 \ corrupt nodes do not change the result for an otherwise valid root.
-7 1 lf-term-slot 2 cells + !
+7 1 term-second!
 T{ 1 lf-repr-symbolic 10 lf-repr-check -> outcome-invalid }T
 T{ 0 lf-repr-concrete 10 lf-repr-check -> outcome-ok }T
-0 1 lf-term-slot 2 cells + !
-99 1 lf-term-slot !
+0 1 term-second!
+99 1 term-tag!
 T{ 777 1 lf-repr-symbolic 10 lf-repr-check -> 777 outcome-invalid }T
-lf-tag-symbolic-sort 1 lf-term-slot !
--1 1 lf-term-slot cell+ !
-T{ 1 lf-repr-symbolic 10 lf-repr-check -> outcome-invalid }T
-1 1 lf-term-slot cell+ !
--1 2 lf-term-slot cell+ !
+lf-tag-symbolic-sort 1 term-tag!
+\ A field is 32 bits wide and unsigned (core/terms.fs, compact-store plan
+\ step S3): -1 written reads back as 2^32 - 1, a nonnegative payload, so
+\ a negative leaf field, which these lines once planted, cannot be stored.
+-1 1 term-first!
+T{ 1 lf-term-first@ 1 lf-repr-symbolic 10 lf-repr-check -> u32-mask outcome-ok }T
+1 1 term-first!
+1 2 term-second!
 T{ 2 lf-repr-concrete 10 lf-repr-check -> outcome-invalid }T
-0 2 lf-term-slot cell+ !
-1 2 lf-term-slot 2 cells + !
-T{ 2 lf-repr-concrete 10 lf-repr-check -> outcome-invalid }T
-0 2 lf-term-slot 2 cells + !
-3 3 lf-term-slot cell+ !
+0 2 term-second!
+3 3 term-first!
 T{ 3 lf-repr-symbolic 10 lf-repr-check -> outcome-invalid }T
-4 3 lf-term-slot cell+ !
+4 3 term-first!
 T{ 3 lf-repr-symbolic 10 lf-repr-check -> outcome-invalid }T
 T{ 777 0 1 -1 10 lf-repr-check-pair -> 777 outcome-invalid }T
 T{ 777 0 1 lf-repr-symbolic -1 lf-repr-check-pair -> 777 outcome-invalid }T
@@ -111,6 +116,12 @@ T{ 1 lf-repr-concrete 3 lf-repr-check -> outcome-ok }T
 T{ 1 1 lf-repr-concrete 5 lf-repr-check-pair -> outcome-exhausted }T
 T{ 1 1 lf-repr-concrete 6 lf-repr-check-pair -> outcome-ok }T
 T{ lf-term-count @ -> 2 }T
+\ A walk is refused at its root when the store's seal is broken, the
+\ count still sound (compact-store plan step S2: its reads check the index).
+term-seal-flip
+T{ 1 lf-repr-concrete 3 lf-repr-check  1 1 lf-repr-concrete 6 lf-repr-check-pair
+   -> outcome-invalid outcome-invalid }T
+term-seal-flip
 -1 lf-term-count !
 T{ 0 lf-repr-concrete 10 lf-repr-check -> outcome-invalid }T
 T{ lf-term-count @ -> -1 }T

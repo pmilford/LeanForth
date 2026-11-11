@@ -35,10 +35,14 @@ variable probe-node  variable probe-outcome  variable probe-same  variable probe
 \ Review rvCACHE L2: in a check, the caches on, inference refuses a node
 \ made during its job (no source node) as invalid, even when a source node
 \ of the same skeleton, the probe's value Sort 0, already has a cached type.
+\ With sharing on the store would give the source node back (compact-store
+\ plan step S4), so the fresh node is made with it off.
 variable fresh-out
+: fresh-sort ( -- node )
+  false lf-term-sharing! 0 lf-term-symbolic-sort must true lf-term-sharing! ;
 : probe-fresh ( -- )
   100000 lf-minfer-start-env lf-env-limit value-of lf-minfer-walk nip probe-outcome !
-  0 lf-term-symbolic-sort must lf-minfer-walk nip fresh-out ! ;
+  fresh-sort lf-minfer-walk nip fresh-out ! ;
 : fresh-probing ( -- ) lf-env-limit fc-last = if probe-fresh then lf-check-declaration ;
 : fresh-run ( -- )
   outcome-invalid probe-outcome ! outcome-ok fresh-out !
@@ -190,4 +194,21 @@ T{ wrong-let type-of nip lf-diag-code@ -> outcome-rejected lf-diag-let-value-apa
 T{ wrong-let aside-of ok? swap sort0 same? -> true true }T
 T{ 0 sort1 sort0 sort0 fc-let 1 sort1 sort0 sort0 fc-let same? dead-let dead-let same?
    -> false true }T
+
+\ has_loose_bvars and has_fvar, as is_def_eq_core and lazy delta ask them,
+\ read from the node's data word for no fuel (plan task 6.5.5; Lean's
+\ cached node data, expr.h): #0 has a loose bound variable, which has_fvar
+\ counts too (whnf.fs); a free variable applied to itself has a free
+\ variable and no loose bound variable.
+: scanned ( node xt -- flag outcome fuel )
+  >r 100 lf-minfer-frames frame-fuel ! lf-minfer-frames r> execute
+  lf-minfer-frames frame-fuel @ ;
+lf-lctx-reset
+0 lf-term-bvar drop constant wb0
+wb0 lf-lctx-local drop constant wfx
+wfx wfx lf-term-app drop constant wfxx
+T{ wb0 ' lf-whnf-loose? scanned -> true outcome-ok 100 }T
+T{ wb0 ' lf-whnf-free? scanned -> true outcome-ok 100 }T
+T{ wfxx ' lf-whnf-loose? scanned -> false outcome-ok 100 }T
+T{ wfxx ' lf-whnf-free? scanned -> true outcome-ok 100 }T
 bye

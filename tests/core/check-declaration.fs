@@ -45,7 +45,8 @@ variable the-env
 \ mode of inference has its own table; a success answers both orders; a
 \ free variable of an emptied local context has no skeleton. Each test
 \ catches a planted fault (.claude/work/CA/faults.py, review CA).
-lf-term-count @ lf-level-count @ 2constant cache-marks
+create cache-mark /lf-scratch allot
+T{ cache-mark lf-scratch-mark -> outcome-ok }T
 lf-caches-clear
 : cz ( -- level ) lf-level-tag-zero 0 0 lf-level-add must ;
 : csort ( level -- term ) lf-term-symbolic-sort must ;
@@ -56,19 +57,37 @@ lf-caches-clear
 T{ 1 cb 0 cb capp cskel  1 cb 0 cb capp cskel = -> true }T
 T{ cz csort cskel  cz lf-level-succ must csort cskel = -> false }T
 T{ 1 cb 0 cb capp cbits  cz csort 0 cb lf-term-lam must cbits  0 cb 0 cb lf-term-lam must cbits
-   -> 4 0 2 }T
+   -> 8 0 4 }T
 \ A bound variable whose loose count would overflow a cell has no facts
-\ (review rvCACHE L1): every pass meets it uncached, never as closed.
-T{ max-n cb lf-term-facts  max-n 2/ cb lf-term-facts -> false false }T
-T{ max-n 2/ 3 - cb cbits -> max-n 5 - }T
+\ (review rvCACHE L1): every pass meets it uncached, never as closed. The
+\ bits are four times the loose count (compact-store plan step S2: a
+\ universe-parameter bit joined the free-variable bit). Since step S3 a
+\ term's fields are 32 bits wide (core/terms.fs): such an index cannot be
+\ stored (the store refuses it, full). Since step S4 the facts are the
+\ data word's (no skeleton memo): an index whose range is 2^20 - 1 or
+\ more (Lean's own limit, expr.cpp 107-109) has none, the largest below
+\ it has.
+T{ max-n lf-term-bvar  max-n 2/ lf-term-bvar  max-n 2 rshift 1- lf-term-bvar
+   -> false false false }T
+T{ u32-mask cb lf-term-facts  lf-data-unknown 1- cb lf-term-facts -> false false }T
+T{ lf-data-unknown 2 - cb cbits -> lf-data-unknown 1- 2 lshift }T
 0 cb constant ckey
-lf-term-count @ constant cbefore
+create cbefore /lf-scratch allot
+T{ cbefore lf-scratch-mark -> outcome-ok }T
 3 cb constant cval
 T{ ckey cval lf-cache-whnf lf-cache-node!  ckey lf-cache-whnf lf-cache-node@ -> cval true }T
-cbefore lf-term-count !  4 cb constant cnew
+T{ cbefore lf-scratch-rollback -> outcome-ok }T  4 cb constant cnew
 T{ cnew cval =  ckey lf-cache-whnf lf-cache-node@ -> true false }T
 T{ ckey cnew lf-cache-whnf lf-cache-node!  lf-caches-clear  ckey lf-cache-whnf lf-cache-node@
    -> false }T
+\ A key is its node's identity (compact-store plan step S4): a key given
+\ back, its index made again as another node, misses (by index it would
+\ hit the stale entry).
+T{ cbefore lf-scratch-mark -> outcome-ok }T
+5 cb 6 cb capp constant ckey2
+T{ ckey2 ckey lf-cache-whnf lf-cache-node!  cbefore lf-scratch-rollback -> outcome-ok }T
+6 cb 5 cb capp constant ckey3
+T{ ckey3 ckey2 =  ckey3 lf-cache-whnf lf-cache-node@ -> true false }T
 : cmode ( flag -- cache ) lf-minfer-aside @ swap lf-minfer-aside ! lf-ci-table swap lf-minfer-aside ! ;
 T{ true cmode false cmode -> lf-cache-infer-only lf-cache-infer }T
 cz csort constant ctype0   cz lf-level-succ must csort constant ctype1
@@ -77,7 +96,20 @@ T{ ctype0 lf-lctx-local ok? swap constant cfvar -> true }T
 T{ cfvar cbits -> 1 }T
 lf-lctx-reset lf-caches-clear
 T{ cfvar lf-term-facts -> false }T
-cache-marks lf-level-count ! lf-term-count ! lf-caches-clear
+\ Nor has a node above it (the free-variable memo walks to the leaf).
+T{ cfvar 1 cb capp lf-term-facts -> false }T
+\ m_whnf_core keeps the result of a whnf_core visit without cheap_proj,
+\ never with it (type_checker.cpp 547; whnf.fs, plan task 5.2.2): the
+\ storing step at the end of a visit, its key saved on the frames.
+' lf-mconvert-no-visit frames: cframes
+: cstored? ( key r flag -- found )
+  lf-whnf-cheap !  cframes frame-reset  4 cframes frame-room? must
+  over cframes frame-save  outcome-ok cframes lf-cwc-store 2drop 2drop
+  lf-whnf-reset  lf-cache-whnf-core lf-cache-node@ dup if nip then ;
+T{ 5 cb 6 cb true cstored? -> false }T
+T{ 7 cb 8 cb false cstored? -> true }T
+cframes frame-free
+T{ cache-mark lf-scratch-rollback -> outcome-ok }T lf-caches-clear
 
 \ ---------------------------------------------------------------------------
 \ Accepted (A1): idProp : ∀ (P : Prop), P → P := fun P h => h. Its verdict
@@ -230,14 +262,59 @@ fc-case uses-axiom
 fc-decl before ax safe postulate 0 TYPE S z VALUE none
 fc-decl check def safe user 0 TYPE S z VALUE C postulate 0
 T{ check-last -> outcome-ok 0 lf-step-done }T
-\ Unsupported. U1: an unsafe or partial declaration, before any typing.
-\ U2: each form, wherever it is.
+\ Skipped (plan task 5.2.7). U1: an unsafe or partial definition, an
+\ unsafe axiom or opaque declaration is skipped as Lean's replay skips it
+\ (Replay.lean 180-183), nothing of it checked, so an ill-typed or
+\ self-referring one too: rejected at the audit, its slot marked skipped;
+\ a safe declaration that uses one meets no constant (N1), and one of a
+\ skipped one's name is refused (N2), as lean4export's parser refuses a
+\ name given twice, which also rejects a skipped one after another of its
+\ name, before anything else; an unsafe use of a skipped one is skipped.
+: last-skipped? ( -- flag ) lf-env-view ok? must fc-last lf-env-skipped? ;
+: check-skip ( -- outcome code step skipped? )
+  check-run last-result last-skipped? env-done ;
 fc-case unsafe
 fc-decl check def unsafe risky 0 TYPE S s z VALUE S z
-T{ check-last -> outcome-unsupported lf-diag-unsupported-kind audit }T
+T{ check-skip -> outcome-rejected lf-diag-skipped audit true }T
 fc-case partial
 fc-decl check def partial looping 0 TYPE S s z VALUE S z
-T{ check-last -> outcome-unsupported lf-diag-unsupported-kind audit }T
+T{ check-skip -> outcome-rejected lf-diag-skipped audit true }T
+fc-case unsafe-ill-typed
+fc-decl check def unsafe wrong 0 TYPE S z VALUE S z
+T{ check-skip -> outcome-rejected lf-diag-skipped audit true }T
+fc-case unsafe-recursive
+fc-decl check def unsafe spin 0 TYPE S z VALUE C spin 0
+T{ check-skip -> outcome-rejected lf-diag-skipped audit true }T
+fc-case unsafe-axiom
+fc-decl check ax unsafe postulate 0 TYPE S z VALUE none
+T{ check-skip -> outcome-rejected lf-diag-skipped audit true }T
+fc-case unsafe-opaque
+fc-decl check opq unsafe hidden 0 TYPE S s z VALUE S z
+T{ check-skip -> outcome-rejected lf-diag-skipped audit true }T
+fc-case safe-uses-unsafe
+fc-decl before def unsafe risky 0 TYPE S s z VALUE S z
+fc-decl check def safe user 0 TYPE S s z VALUE C risky 0
+T{ check-skip -> outcome-rejected lf-diag-unknown-constant value-step false }T
+fc-case safe-uses-partial
+fc-decl before def partial looping 0 TYPE S s z VALUE S z
+fc-decl check thm safe user 0 TYPE C looping 0 VALUE S z
+T{ check-skip -> outcome-rejected lf-diag-unknown-constant type-step false }T
+fc-case unsafe-uses-unsafe
+fc-decl before def unsafe risky 0 TYPE S s z VALUE S z
+fc-decl check def unsafe user 0 TYPE S s z VALUE C risky 0
+T{ check-skip -> outcome-rejected lf-diag-skipped audit true }T
+fc-case safe-after-skipped
+fc-decl before ax unsafe twice 0 TYPE S z VALUE none
+fc-decl check def safe twice 0 TYPE S s z VALUE S z
+T{ check-skip -> outcome-rejected lf-diag-already-declared name-step false }T
+fc-case skipped-after-safe
+fc-decl before def safe twice 0 TYPE S s z VALUE S z
+fc-decl check def unsafe twice 0 TYPE S s z VALUE S z
+T{ check-skip -> outcome-rejected lf-diag-already-declared audit false }T
+fc-case skipped-after-rejected
+fc-decl before def safe twice 0 TYPE S z VALUE S z
+fc-decl check def partial twice 0 TYPE S s z VALUE S z
+T{ check-skip -> outcome-rejected lf-diag-already-declared audit false }T
 fc-case let
 fc-decl check def safe withLet 0 TYPE S s z VALUE Xlet
 T{ check-last -> outcome-unsupported lf-diag-unsupported-form audit }T
@@ -300,6 +377,27 @@ T{ check-last -> outcome-invalid lf-diag-bad-argument audit }T
 : outside ( -- outcome step )
   lf-check-declaration lf-env-cand lf-cand-outcome @ lf-check-step@ ;
 T{ outside -> outcome-invalid 0 }T
+\ Defence in depth (compact-store plan step S6 (c)): with the entry
+\ audit's U2 and V1 skipped (U1 alone as step 1), nothing malformed is
+\ accepted: inference meets the loose variable (invalid, out of scope)
+\ and the concrete Sort (a tag it does not know: unknown), as would the
+\ audits every conversion and rebuilding pass still runs on its roots,
+\ once per node per check.
+' lf-check-u1 lf-check-steps cell+ !
+fc-case loose-unaudited
+fc-decl check thm safe loose 0 TYPE P S z P V 0 V 1 VALUE L S z L V 0 V 2
+T{ check-last nip -> outcome-invalid value-step }T
+fc-case concrete-unaudited
+fc-read-term S s z constant concrete-type2
+0 lf-term-sort must constant concrete-value2
+: concrete-decl2 ( -- )
+  fc-buf /lf-idecl erase lf-kind-definition fc-buf lf-idecl-kind !
+  s" concrete" fc-intern fc-buf lf-idecl-name ! lf-hint-regular fc-buf lf-idecl-hint !
+  concrete-type2 fc-buf lf-idecl-type ! concrete-value2 fc-buf lf-idecl-value !
+  fc-buf lf-input-add ok? must drop ;
+concrete-decl2
+T{ check-last nip -> outcome-unknown value-step }T
+' lf-check-audit lf-check-steps cell+ !
 
 \ ---------------------------------------------------------------------------
 \ Exhausted: too little fuel for the audit; a 17th dependency, which used
@@ -512,8 +610,13 @@ fc-decl check thm safe wrong 0 TYPE P S z P S z P V 1 V 2 VALUE L S z L S z L V 
 T{ 700 swept -> outcome-rejected true true }T
 \ CLI2's case (tests/cli/unfold.lean): Implies A A against A → A needs
 \ Implies unfolded by lazy delta reduction: accepted, as Lean does, from
-\ 131, the fuel the whole check takes since plan task 4.2.7 (Lean's
-\ caches and cached node data; 138 since plan task 4.2.2d), and at every
+\ 62, the fuel the whole check takes since == is Lean's at every pair
+\ (plan step S4: one node is equal and differing data words apart, at
+\ no cost); 67 since the audits check each node
+\ once per check and read V1 and U2 from data words (plan step S6 (c);
+\ 114 since agent EX's audits check each shared node once per audit,
+\ 131 since plan task 4.2.7, Lean's caches and cached
+\ node data; 138 since plan task 4.2.2d), and at every
 \ fuel below exhausted (or unknown for Implies itself out of fuel). Before,
 \ it was unknown: K1, then the interim guard of review rvU4 B1 (diagnostic
 \ 64); and at every fuel from 151 to 280 unknown, code 30, before 4.2.2c,
@@ -521,7 +624,101 @@ T{ 700 swept -> outcome-rejected true true }T
 fc-case sweep-unfolding
 fc-decl before def safe Implies 0 TYPE P S z P S z S z VALUE L S z L S z P V 1 V 1
 fc-decl check thm safe impliesSelf 0 TYPE P S z A A C Implies 0 V 0 V 0 VALUE L S z L V 0 V 0
-T{ 400 sweep -> outcome-ok 131 true }T
+T{ 400 sweep -> outcome-ok 62 true }T
+\ In a check, with the caches on, lf-term-data@ (core/terms.fs) is the
+\ skeleton memo's facts as one data word (compact-store plan step S2),
+\ its depth aside: every node inference visits (its lf-minfer-entry hook,
+\ spied on here; whnf.fs reads the words itself since plan task 6.5.5) is
+\ compared, in the check above run once more.
+variable cd-asked  variable cd-known  variable cd-wrong
+: cd-pack ( x true | false -- x | -1 ) 0= if -1 then ;
+: cd-bits ( data true | false -- x | -1 ) if lf-data-ranges 4 * 1- and else -1 then ;
+: cd-facts ( node -- data | -1 ) lf-term-facts if nip lf-cd-word cd-pack else -1 then ;
+: cd-note ( node -- )
+  1 cd-asked +!  dup lf-term-data@ cd-bits  dup 0< 0= 1 and cd-known +!
+  swap cd-facts <> 1 and cd-wrong +! ;
+: cd-spy ( node frames -- ... frames next ) over cd-note lf-ci-visit ;
+' cd-spy is lf-minfer-entry
+T{ 400 sweep-run -> outcome-ok }T
+' lf-ci-visit is lf-minfer-entry
+T{ cd-asked @ 0> cd-known @ 0> cd-wrong @ -> true true 0 }T
+
+\ ---------------------------------------------------------------------------
+\ Lean's cached node data as one data word (compact-store plan step S2):
+\ the skeleton memo's bits also keep whether a universe parameter occurs
+\ (has_param_univ: in a Sort's level, a constant's universe arguments or
+\ either child), and lf-term-data@ gives the loose range and the two bits
+\ as ADR 0016 C1's data word while the caches are on.
+lf-caches-clear
+lf-term-reset
+T{ lf-ssession-begin -> true }T
+7 lf-level-param must constant cu
+T{ cu csort cbits  cu csort 0 cb capp cbits
+   cz cu lf-level-max must csort 1 cb lf-term-lam must cbits  cz lf-level-succ must csort cbits
+   -> 2 6 6 0 }T
+create cpairs 2 cells allot
+: cconst ( level -- term )
+  dup lf-level-identity must cpairs cell+ ! cpairs !
+  0 s" cc" lf-name-str must lf-name-generation @ cpairs 1 lf-cref-new must
+  lf-cterm-new must drop ;
+T{ cu cconst cbits  cz cconst cbits  cu cconst 2 cb capp cbits -> 2 0 14 }T
+T{ 6 lf-cd-word -> 1 true false lf-data true }T
+T{ 7 lf-cd-word drop dup lf-data-loose over lf-data-params? rot lf-data-fvar?
+   -> 1 true true }T
+T{ lf-data-ranges 1- 2 lshift lf-cd-word -> lf-data-ranges 1- false false lf-data true }T
+T{ lf-data-ranges 2 lshift lf-cd-word -> false }T
+\ Since step S3 every record keeps its data word, caches on or off.
+T{ false lf-caches-enable  cu csort lf-term-data@  true lf-caches-enable
+   -> 0 true false lf-data true }T
+\ The term store hash-conses (step S3), but never a free variable: one
+\ made after the local context was emptied is a new node, and the dead
+\ one does not come back as its variable.
+cz csort constant ctype
+lf-lctx-reset
+T{ ctype lf-lctx-local nip  lf-lctx-count @ -> outcome-ok 1 }T
+lf-term-count @ 1- constant cdead
+lf-lctx-reset
+T{ ctype lf-lctx-local swap cdead <> cdead lf-fvar-live? -> outcome-ok true false }T
+
+\ ---------------------------------------------------------------------------
+\ A broken store seal never publishes ok (review rvS12 L3). idProp, accepted
+\ above, is checked with the term store's or the level store's seal broken
+\ (store-faults.fs): at the root, before the check begins (lf-input-intact?,
+\ read by lf-env-checking and lf-input-read; diagnostic 0, step done), and in
+\ the middle, as step 8's comparison of two skeletons returns (diagnostic 27,
+\ step 8). Each ends invalid, with the seal mended before the next row.
+\ Several layers refuse each break (the store roots of every pass, the
+\ hand-over), so disabling lf-input-intact? or lf-env-still? alone changes no
+\ row (faults.toml: fx9-*, listed as equivalent); the rows pin the end result.
+require ../support/store-faults.fs
+variable seal-armed  \ 0 none, 1 the term seal, 2 the level seal
+: seal-flip-armed ( -- )
+  seal-armed @ 1 = if term-seal-flip then seal-armed @ 2 = if level-seal-flip then
+  0 seal-armed ! ;
+: seal-spy ( t s -- flag ) lf-cs-same? seal-flip-armed ;
+: seal-hook ( -- ) ['] seal-spy is lf-dq-known-same? ;
+: seal-unhook ( -- ) ['] lf-cs-same? is lf-dq-known-same? ;
+: seals-mend ( -- )
+  lf-terms store-sealed? 0= if term-seal-flip then
+  lf-levels store-sealed? 0= if level-seal-flip then ;
+: idprop-case ( -- ) fc-world
+  s" check thm safe idProp 0 TYPE P S z P V 0 V 1 VALUE L S z L V 0 V 0"
+  ['] fc-decl execute-parsing ;
+\ kind: 0 term seal at the root, 1 level seal at the root, 2 term seal after
+\ step 8, 3 level seal after step 8, 4 none (the control).
+: check-with-seal ( kind -- outcome )
+  idprop-case lf-input-end ok? must 64 lf-env-new ok? must dup the-env ! lf-env-use ok? must
+  dup 0 = if term-seal-flip then dup 1 = if level-seal-flip then
+  dup 2 = if 1 seal-armed ! then dup 3 = if 2 seal-armed ! then drop
+  seal-hook ['] lf-check-declaration ['] fc-no-maker lf-env-run drop seal-unhook
+  seals-mend 0 seal-armed !
+  lf-env-view ok? if fc-last lf-env-outcome else -99 then env-done ;
+fc-case seals
+T{ 0 check-with-seal -> outcome-invalid }T
+T{ 1 check-with-seal -> outcome-invalid }T
+T{ 2 check-with-seal -> outcome-invalid }T
+T{ 3 check-with-seal -> outcome-invalid }T
+T{ 4 check-with-seal -> outcome-ok }T
 
 cases-done
 bye

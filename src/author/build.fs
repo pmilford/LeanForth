@@ -35,9 +35,18 @@ require ./errors.fs
   2dup node-tag @ swap node-tag @ = >r 2dup node-first @ swap node-first @ = >r
   node-second @ swap node-second @ = r> r> and and ;
 : lfa-shareable? ( term -- flag ) lf-note-any? 0= ;
+\ A term's fields as the node sought holds them: a literal's value and
+\ count, its limbs being kept apart (core/literals.fs).
+: lfa-lit-fields ( term -- tag value count )
+  lf-tag-lit over lf-lit-cell rot lf-term-second@ ;
+: lfa-term-fields ( term -- tag first second )
+  dup lf-term-tag@ lf-tag-lit = if lfa-lit-fields else lf-term-slot lf-term-fields@ then ;
+: lfa-term-same? ( node term -- flag )
+  lfa-term-fields 3 pick node-second @ = >r 2 pick node-first @ = >r
+  over node-tag @ = nip r> r> and and ;
 \ An existing term equal to the node sought, without labels or notes.
 : lfa-find ( node -- term true | false )
-  lf-term-count @ 0 ?do dup i lf-term-slot lfa-same? i lfa-shareable? and
+  lf-term-count @ 0 ?do dup i lfa-term-same? i lfa-shareable? and
     if drop i true unloop exit then loop drop false ;
 
 \ New nodes; a refused allocation stops the run (the term store is full).
@@ -65,7 +74,7 @@ require ./errors.fs
   >r lf-tag-symbolic-sort over 0 lfa-seek lfa-find if nip r> drop false exit then
   lfa-new-sort r> lfa-span true ;
 : lfa-const ( cref identity pos -- term fresh )
-  >r 2dup lf-tag-constant -rot lfa-seek lfa-find if nip nip r> drop false exit then
+  >r over lf-tag-constant swap 0 lfa-seek lfa-find if nip nip r> drop false exit then
   lfa-new-const r> lfa-span true ;
 
 \ A literal leaf of one cell's value, and a projection leaf (name, index).
@@ -94,8 +103,8 @@ require ./errors.fs
     lf-tag-app of lfa-fields lfa-new-app endof
     lf-tag-bvar of lf-term-first@ lfa-new-bvar endof
     lf-tag-symbolic-sort of lf-term-first@ lfa-new-sort endof
-    lf-tag-constant of lfa-fields lfa-new-const endof
-    lf-tag-lit of lf-term-first@ lfa-new-lit endof
+    lf-tag-constant of lf-term-first@ dup lf-cref-current lfa-new-const endof
+    lf-tag-lit of lf-lit-cell lfa-new-lit endof
     lf-tag-proj of lfa-fields lfa-new-proj endof
   endcase ;
 : lfa-own ( term fresh -- term ) if exit then dup lfa-copy tuck lfa-copy-source ;

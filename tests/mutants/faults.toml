@@ -121,8 +121,8 @@ reason = "CD: the step loop stops one short and never compares the value's type"
 [[fault]]
 id = "cd-unlimited-budget"
 file = "src/kernel/check-declaration.fs"
-old = '''  lf-caches-clear 0 lf-check-step! lf-check-state lf-chk-budget @ lf-check-left !'''
-new = '''  lf-caches-clear 0 lf-check-step! 1000000 lf-check-left !'''
+old = '''  0 lf-check-step! lf-check-state lf-chk-budget @ lf-check-left !'''
+new = '''  0 lf-check-step! 1000000 lf-check-left !'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "CD: the budget is ignored; a check without fuel can be accepted, and fuel sweeps change"
 
@@ -481,10 +481,10 @@ reason = "a pool with a corrupted count is grown, and the copy repairs it, inste
 [[fault]]
 id = "pub-final-before-outcome"
 file = "src/kernel/env-publish.fs"
-old = '''  lf-env-may-write 2dup lf-span-outcome! over lf-span-added! lf-env-before-final
-  swap lf-span-final! ;'''
-new = '''  lf-env-may-write over lf-span-final! 2dup lf-span-outcome! over lf-span-added!
-  lf-env-before-final nip ;'''
+old = '''  lf-env-may-write 2dup lf-span-outcome! 2dup lf-span-skipped! over lf-span-added!
+  lf-env-before-final swap lf-span-final! ;'''
+new = '''  lf-env-may-write over lf-span-final! 2dup lf-span-outcome! 2dup lf-span-skipped!
+  over lf-span-added! lf-env-before-final nip ;'''
 test = "$GFORTH tests/core/environment.fs"
 reason = "E4 step 3: the slot is marked final before its outcome is written"
 
@@ -709,7 +709,7 @@ reason = "4.2.2a: abstract makes free variable i bound variable d + n - i, one t
 
 [[fault]]
 id = "open-update-half-changed"
-file = "src/kernel/mixed-open.fs"
+file = "src/kernel/replace-memo.fs"
 old = '''  >r 2dup lf-term-first@ = over lf-term-second@ r@ = and'''
 new = '''  >r 2dup lf-term-first@ = over lf-term-second@ r@ = or'''
 test = "$GFORTH tests/core/mixed-instantiate.fs"
@@ -783,8 +783,8 @@ reason = "4.2.2a (review rvD2A F3): discarded scratch keeps its local-context en
 [[fault]]
 id = "open-reset-idle"
 file = "src/kernel/mixed-open.fs"
-old = ''': lf-open-reset ( -- ) lf-open-frames frame-reset ;'''
-new = ''': lf-open-reset ( -- ) ;'''
+old = ''': lf-open-reset ( -- ) lf-open-frames frame-reset lf-open-memo lf-rmemo-empty ;'''
+new = ''': lf-open-reset ( -- ) lf-open-memo lf-rmemo-empty ;'''
 test = "$GFORTH tests/core/mixed-instantiate.fs"
 reason = "4.2.2a (review rvD2A F4): after a THROW out of a mixed-open pass the record stays busy, so every later instantiate, instantiate_rev and abstract refuses"
 
@@ -922,10 +922,109 @@ reason = "4.2.2b: step 6 calls the same constant at any universe arguments equal
 [[fault]]
 id = "conv-scratch-kept"
 file = "src/kernel/mixed-convert.fs"
-old = '''  lf-mconvert-marks 2>r >r lf-mconvert-defeq r> 2r> lf-mconvert-done ;'''
+old = '''  lf-mconvert-defeq lf-mconvert-done ;'''
 new = '''  lf-mconvert-defeq ;'''
 test = "$GFORTH tests/core/mixed-convert.fs"
 reason = "the terms, levels and local-context entries a conversion made are not discarded"
+
+# --- Scratch marks (src/core/scratch-marks.fs; compact-store plan S1) ----
+
+[[fault]]
+id = "scratch-family-left-out"
+file = "src/core/scratch-marks.fs"
+old = '''3 constant lf-scratch-families'''
+new = '''2 constant lf-scratch-families'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "S1: the references are left out of the joint mark: neither marked nor given back"
+
+[[fault]]
+id = "scratch-local-context-kept"
+file = "src/core/scratch-marks.fs"
+old = ''': lf-scratch-lctx ( scratch -- ) lf-scratch-terms lf-lctx-drop ;'''
+new = ''': lf-scratch-lctx ( scratch -- ) drop ;'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "S1: the local context is left out of the joint mark: entries outlive their free variables"
+
+[[fault]]
+id = "scratch-rollback-unchecked"
+file = "src/core/scratch-marks.fs"
+old = '''  dup lf-scratch-valid? 0= if drop outcome-invalid exit then
+  lf-scratch-families 0 do'''
+new = '''  lf-scratch-families 0 do'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "S1: a mark restored out of order is not refused (the stores refuse it, unseen, and ok is reported)"
+
+[[fault]]
+id = "scratch-discard-everything"
+file = "src/core/scratch-marks.fs"
+old = '''  dup 0 lf-scratch-back-to lf-scratch-lctx outcome-ok ;'''
+new = '''  lf-scratch-families 0 do dup i lf-scratch-back-to loop lf-scratch-lctx outcome-ok ;'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "S1: a step's discard gives back its levels too, though its Sort level may be one of them"
+
+[[fault]]
+id = "scratch-stack-not-lifo"
+file = "src/core/scratch-marks.fs"
+old = '''  lf-scratch-depth @ 0> if lf-scratch-newest lf-sentry-number @ = else drop false then ;'''
+new = '''  drop lf-scratch-depth @ 0> ;'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "S1: a stack mark that is not the newest is used, rolling back to a younger owner's point"
+
+[[fault]]
+id = "infer-step-mark-leaked"
+file = "src/kernel/mixed-infer.fs"
+old = '''  over ok? lf-minfer-keeps? 0= and if lf-scratch-cut else lf-scratch-drop then'''
+new = '''  over ok? lf-minfer-keeps? 0= and if lf-scratch-cut else drop outcome-ok then'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "S1: a failed step leaves its mark on the stack, so an older mark is refused later"
+
+[[fault]]
+id = "infer-pi-mark-leaked"
+file = "src/kernel/mixed-infer.fs"
+old = '''  dup ok? 0= if no-result 1 r@ frame-pick lf-minfer-let-go 3 r@ frame-drop r> 0 exit then'''
+new = '''  dup ok? 0= if no-result 3 r@ frame-drop r> 0 exit then'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "S1: a Pi whose domain fails keeps its older mark on the stack"
+
+[[fault]]
+id = "rebuild-mark-leaked"
+file = "src/kernel/mixed-rebuild.fs"
+old = '''  lf-scratch-drop dup ok? if exit then nip nip lf-rebuild-none ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "S1: a successful rebuild keeps its mark on the stack, above the inference step's own"
+
+[[fault]]
+id = "infer-job-not-rolled-back"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-minfer-job lf-ijob-mark lf-scratch-rollback lf-scratch-settled ;'''
+new = '''  ;'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "S1: a failed inference keeps what it made"
+
+[[fault]]
+id = "mls-not-rolled-back"
+file = "src/kernel/mixed-level-substitute.fs"
+old = '''  lf-mls-scratch lf-scratch-rollback lf-scratch-settled ;'''
+new = '''  ;'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "S1: a failed universe substitution keeps the terms, levels and references it made"
+
+[[fault]]
+id = "msp-coverage-kept"
+file = "src/kernel/mixed-signature-probe.fs"
+old = '''  lf-msp-zero-actuals lf-msp-mark lf-scratch-rollback lf-scratch-settled ;'''
+new = '''  lf-msp-zero-actuals ;'''
+test = "$GFORTH tests/core/mixed-signature-probe.fs"
+reason = "S1: coverage's trial substitution is kept in the stores"
+
+[[fault]]
+id = "mdp-not-rewound"
+file = "src/kernel/mixed-definition-probe.fs"
+old = '''  lf-mdreq-scratch lf-scratch-rollback lf-scratch-settled ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/core/mixed-definition-probe.fs"
+reason = "S1: the definition probe keeps everything its inference made"
 
 # --- Lean's caches (src/kernel/caches.fs; plan task 4.2.7, review CA) ----
 
@@ -947,28 +1046,20 @@ test = "$GFORTH tests/core/check-declaration.fs"
 reason = "entries outlive their check and their job's local context"
 
 [[fault]]
-id = "cache-sort-level-ignored"
-file = "src/kernel/caches.fs"
-old = '''  swap lf-term-first@ lf-level-id if 0 true else drop false then ;'''
-new = '''  nip 0 0 true ;'''
-test = "$GFORTH tests/core/check-declaration.fs"
-reason = "Sorts of different levels share a skeleton: a false =="
-
-[[fault]]
 id = "cache-skip-early"
 file = "src/kernel/caches.fs"
-old = '''  2/ swap frame-context @ > 0= ;'''
-new = '''  2/ swap frame-context @ 1+ > 0= ;'''
+old = '''  lf-bits-loose swap frame-context @ > 0= ;'''
+new = '''  lf-bits-loose swap frame-context @ 1+ > 0= ;'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "instantiate keeps a node whose loose bound variable it should replace"
 
 [[fault]]
 id = "cache-scope-ignored"
 file = "src/kernel/caches.fs"
-old = '''  ?dup 0= if 0 true exit then lf-minfer-context-depth @ > if false else lf-ci-top then ;'''
-new = '''  drop 0 true ;'''
+old = '''  lf-bits-loose if drop lf-ci-copy else nip true then ;'''
+new = '''  drop nip true ;'''
 test = "$GFORTH tests/core/check-declaration.fs"
-reason = "an open source node's type is reused under another scope"
+reason = "6.5.5: an open source node is keyed by its own skeleton, not its closed copy, so its type is reused under another scope"
 
 [[fault]]
 id = "cache-identity-unchecked"
@@ -977,15 +1068,6 @@ old = '''  lf-cent-values over lf-term-identity if = else drop false then dup 0=
 new = '''  lf-cent-values drop true ;'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "a cached value whose node was discarded is used"
-
-[[fault]]
-id = "cache-dead-fvar"
-file = "src/kernel/caches.fs"
-old = '''  over lf-fvar-live? 0= if 2drop false exit then
-'''
-new = ''''''
-test = "$GFORTH tests/core/check-declaration.fs"
-reason = "a free variable of an emptied local context gets a skeleton"
 
 [[fault]]
 id = "conv-no-as-equal"
@@ -1314,7 +1396,6 @@ new = '''  lf-lmk-offset nip swap lf-lmk-offset nip < if 1 else 2 then ;'''
 test = "$GFORTH tests/core/level-compare.fs"
 reason = "mk_max of two explicit levels of equal depth gives the second, where Lean gives the first"
 
-
 [[fault]]
 id = "lmk-facts-never-stale"
 file = "src/kernel/level-make.fs"
@@ -1351,8 +1432,8 @@ quick = true
 [[fault]]
 id = "ndjson-index-taken-as-ordinal"
 file = "src/import/ndjson.fs"
-old = '''  >r 2dup = r@ imap-sparse? 0= and if 2drop 1 r> imap-dense +! outcome-ok exit then'''
-new = '''  >r 2dup 2drop true r@ imap-sparse? 0= and if 2drop 1 r> imap-dense +! outcome-ok exit then'''
+old = '''  >r 2dup = over r@ imap-dense @ = and r@ imap-sparse? 0= and'''
+new = '''  >r 2dup 2drop true r@ imap-sparse? 0= and'''
 test = "$GFORTH tests/core/ndjson.fs"
 reason = "a sparse index is taken as its ordinal: a reference to it then names no record, or the wrong one"
 
@@ -2500,8 +2581,8 @@ reason = "check ignores --strict-axioms: the report says strictAxioms false and 
 [[fault]]
 id = "cli-verdicts-not-in-code"
 file = "src/cli/tally.fs"
-old = ''': cli-tally ( outcome -- ) dup outcome>code cli-code! cli-count-of 1 swap +! ;'''
-new = ''': cli-tally ( outcome -- ) cli-count-of 1 swap +! ;'''
+old = ''': cli-tally ( verdict -- ) dup verdict>code cli-code! cli-count-of 1 swap +! ;'''
+new = ''': cli-tally ( verdict -- ) cli-count-of 1 swap +! ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "the declarations' verdicts never reach the exit status, so every check exits 0"
 
@@ -2617,7 +2698,7 @@ quick = true
 [[fault]]
 id = "cli-json-all-accepted"
 file = "src/cli/check-json.fs"
-old = '''  dup cj-began? if lf-env-outcome else drop not-checked then verdict-name ;'''
+old = '''  dup cj-began? if verdict-of else drop not-checked then verdict-name ;'''
 new = '''  drop outcome-ok verdict-name ;'''
 test = "python3 tests/cli/test_leanforth.py"
 reason = "trust boundary: the JSON report calls every declaration accepted, not its slot's verdict"
@@ -3011,7 +3092,6 @@ test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "the review's L1: a failed attach keeps the generation, so the input fed before still looks intact"
 
 # --- the release hook of checker contexts, continued (src/lib/context.fs)
-
 
 [[fault]]
 id = "input-index-unhooked"
@@ -4007,7 +4087,7 @@ reason = "T5 skipped: a block with the universe parameters u, u passes"
 id = "ind-skip-names"
 file = "src/kernel/check-block.fs"
 old = '''  dup lf-ind-tname lf-blk-fresh ok-then? 0= if exit then
-  dup lf-blk-rec-name! ok-then? 0= if exit then lf-blk-rec-id lf-blk-fresh ;'''
+  dup lf-blk-rec-name! ok-then? 0= if exit then lf-blk-rec-id lf-blk-rec-fresh ;'''
 new = '''  lf-blk-rec-name! ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "N2 skipped for a block: a type declared twice in one input is accepted twice"
@@ -4107,9 +4187,9 @@ reason = "rvI21 M1: the publisher never re-checks a block's members; a block cla
 [[fault]]
 id = "ind-visible-never-reset"
 file = "src/kernel/check-block.fs"
-old = '''  lf-blk-begin dup ok? if drop lf-blk-checked then
+old = '''  false lf-blk-keys! lf-blk-begin dup ok? if drop lf-blk-checked then
   false lf-ind-state lf-ind-visible ! ;'''
-new = '''  lf-blk-begin dup ok? if drop lf-blk-checked then ;'''
+new = '''  false lf-blk-keys! lf-blk-begin dup ok? if drop lf-blk-checked then ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 M1: the type stays visible to inference after its block's check (the flag is still set afterwards)"
 
@@ -4165,8 +4245,8 @@ reason = "rvI21 B2: T.rec_1, an auxiliary recursor of a nested (unsupported) blo
 [[fault]]
 id = "env-aux-rec-held-by-accepted"
 file = "src/kernel/environment.fs"
-old = ''': lf-env-aux-held ( d class -- d class ) dup ok? if 2drop -1 outcome-rejected then ;'''
-new = ''': lf-env-aux-held ( d class -- d class ) ;'''
+old = '''  lf-env-aux-count swap lf-env-aux-k tuck >= swap 0> and ;'''
+new = '''  2drop true ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 B2: T.rec_1 held by an accepted non-nested T, for which Lean generates no such recursor; a definition of it would be rejected"
 
@@ -4197,8 +4277,8 @@ reason = "rvI21 R2-1: a block the kernel rejects (U1) takes its names; def IE.Bi
 [[fault]]
 id = "pub-added-not-written"
 file = "src/kernel/env-publish.fs"
-old = '''  lf-env-may-write 2dup lf-span-outcome! over lf-span-added! lf-env-before-final'''
-new = '''  lf-env-may-write 2dup lf-span-outcome! lf-env-before-final'''
+old = '''  lf-env-may-write 2dup lf-span-outcome! 2dup lf-span-skipped! over lf-span-added!'''
+new = '''  lf-env-may-write 2dup lf-span-outcome! 2dup lf-span-skipped!'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 R2-1: a B3-rejected block's marks are never published; def IE.B after it is accepted"
 
@@ -4229,8 +4309,8 @@ reason = "rvI21 R2-1: T.rec of a B3-rejected T is free; def IE.B.rec after it is
 [[fault]]
 id = "pub-added-no-conflict"
 file = "src/kernel/env-publish.fs"
-old = '''  dup lf-slot-open? over lf-slot-added? or swap lf-slot-outcome@ outcome-rejected <> or ;'''
-new = '''  dup lf-slot-open? swap lf-slot-outcome@ outcome-rejected <> or ;'''
+old = '''  dup lf-slot-open? over lf-slot-added? or over lf-slot-skipped? or'''
+new = '''  dup lf-slot-open? over lf-slot-skipped? or'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 R2-1: the publisher's name re-check ignores the marks; def IE.B claimed ok after the B3-rejected block is published"
 
@@ -4520,7 +4600,7 @@ reason = "5.2.1b: B4 never compares isRec and isReflexive; N's cleared isRec giv
 [[fault]]
 id = "rec-nested-not-detected"
 file = "src/kernel/inductive-block.fs"
-old = '''  if 2drop drop outcome-unsupported else walk-children then ;'''
+old = '''  if 2drop drop lf-ind-maybe! outcome-ok else walk-children then ;'''
 new = '''  drop walk-children ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.1b: a nested block (List Tree) is checked as a recursive one and rejected where Lean accepts it"
@@ -5032,7 +5112,7 @@ reason = "whnf never asks reduce_nat: Nat.succ Nat.zero, which Lean's reduce_nat
 [[fault]]
 id = "dq-whnf-core-skipped"
 file = "src/kernel/defeq.fs"
-old = '''  dup lf-dq-pick2 drop swap ['] lf-dq-tn lf-whnf-core-call ;'''
+old = '''  dup lf-dq-pick2 drop swap ['] lf-dq-tn lf-whnf-cheap-call ;'''
 new = '''  dup lf-dq-pick2 drop outcome-ok rot lf-dq-tn ;'''
 test = "$GFORTH tests/core/defeq.fs"
 reason = "is_def_eq_core's step 3 leaves the left side unreduced: a redex against its reduct is Lean's yes"
@@ -5205,7 +5285,7 @@ reason = "reduce_nat is taken to compute on any argument that is no constant, so
 [[fault]]
 id = "dq-lz-unfold-wrong-side"
 file = "src/kernel/defeq.fs"
-old = '''  over lf-lz-none? if 2drop r> lf-lz-unfold-s exit then'''
+old = '''  over lf-lz-none? if 2drop r> lf-lz-try-t exit then'''
 new = '''  over lf-lz-none? if 2drop r> lf-dq-tail exit then'''
 test = 'test -n "$LEAN" && GFORTH=$GFORTH python3 tests/core/lean-differential.py definitional-equality'
 reason = "lazy delta stops when only the right side unfolds, so a claim true by unfolding it is a no where Lean says yes"
@@ -5277,12 +5357,126 @@ test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.2: Lean's == takes two projections of one term that differ in the field for equal; p.1 = p.2 (proj.index-differs) is accepted"
 
 [[fault]]
-id = "proj-leaf-whnf-invalid"
-file = "src/kernel/whnf.fs"
-old = '''  dup lf-tag-proj = if drop lf-wc-proj exit then'''
-new = ''''''
+id = "pj-proj-is-app"
+file = "src/kernel/defeq.fs"
+old = '''  dup lf-dq-tag lf-tag-app = if dup lf-let? swap lf-dq-proj? or 0= else drop false then ;'''
+new = '''  dup lf-dq-tag lf-tag-app = if lf-let? 0= else drop false then ;'''
 test = "$GFORTH tests/core/check-block.fs"
-reason = "5.2.2: a projection leaf alone, met by is_def_eq_app, is called malformed; proj.index-differs is invalid instead of unknown"
+reason = "5.2.2 (agent PJ): is_def_eq_app takes a projection for an application of its leaf again; proj.app-eta (Init's UInt8.toNat_toUInt32) is no longer accepted"
+
+[[fault]]
+id = "pj-step8-index-ignored"
+file = "src/kernel/defeq.fs"
+old = '''  2dup lf-proj-idx swap lf-proj-idx ='''
+new = '''  true'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2 (agent PJ): step 8 takes projections onto two fields for one; p.1 = p.2 (proj.index-differs) is accepted"
+
+[[fault]]
+id = "pj-step8-skipped"
+file = "src/kernel/defeq.fs"
+old = '''  dup lf-dq-sides 2dup lf-dq-same-proj? 0= if 2drop lf-dq-full-step exit then'''
+new = '''  dup lf-dq-sides 2drop lf-dq-full-step exit'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2 (agent PJ): step 8 (lazy_delta_proj_reduction) skipped; proj.lazy-terms is rejected"
+
+[[fault]]
+id = "pj-step8-fields-same"
+file = "src/kernel/defeq.fs"
+old = '''  dup 0< if 2drop r> lf-lzp-sides exit then
+  r> ['] lf-dq-final lf-dq-core-call ;'''
+new = '''  dup 0< if 2drop r> lf-lzp-sides exit then
+  drop dup r> ['] lf-dq-final lf-dq-core-call ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2 (agent PJ): step 8 compares tc's field with itself; proj.lazy-fields-wrong is accepted"
+
+[[fault]]
+id = "pj-step8-terms-yes"
+file = "src/kernel/defeq.fs"
+old = '''  dup lf-dq-sides rot ['] lf-dq-final lf-dq-core-call ;'''
+new = '''  >r true r> lf-dq-end ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2 (agent PJ): step 8 answers yes where reduce_proj_core finds no field; proj.lazy-terms-wrong is accepted"
+
+[[fault]]
+id = "pj-reduce-proj-core-any"
+file = "src/kernel/iota.fs"
+old = '''  >r lf-iota-proj-field r> 0 ;'''
+new = '''  >r 2drop 0 outcome-ok r> 0 ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2 (agent PJ): step 8's reduce_proj_core gives one node for every term; proj.lazy-terms-wrong is no longer rejected"
+
+[[fault]]
+id = "pj-step9-skipped"
+file = "src/kernel/defeq.fs"
+old = '''  dup lf-dq-sides drop swap ['] lf-dq-full-tn lf-whnf-core-call ;'''
+new = '''  lf-dq-app-step ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2 (agent PJ): step 9 skipped; (id (a, b)).2 = b (proj.whnf-term) is rejected"
+
+[[fault]]
+id = "pj-step9-cheap"
+file = "src/kernel/defeq.fs"
+old = '''  r@ lf-dq-sides nip swap r@ frame-save r> ['] lf-dq-full-sn lf-whnf-core-call ;'''
+new = '''  r@ lf-dq-sides nip swap r@ frame-save r> ['] lf-dq-full-sn lf-whnf-cheap-call ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2 (agent PJ): step 9 keeps cheap_proj; proj.whnf-term is rejected"
+
+[[fault]]
+id = "pj-step9-always-again"
+file = "src/kernel/defeq.fs"
+old = '''  if r> ['] lf-dq-final lf-dq-core-call else 2drop r> lf-dq-app-step then ;'''
+new = '''  drop r> ['] lf-dq-final lf-dq-core-call ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2 (agent PJ): step 9 starts is_def_eq_core again on unchanged sides; proj.index-differs never answers (exhausted)"
+
+[[fault]]
+id = "pj-unfold-proj-app-unchanged"
+file = "src/kernel/defeq.fs"
+old = '''  >r 2dup = if 2drop r> drop false outcome-ok exit then'''
+new = '''  >r 2dup = if 2drop r> drop true outcome-ok exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2 (agent PJ): try_unfold_proj_app takes an unchanged side for a new one; proj.unfold-proj-app-stuck loops until its fuel is spent"
+
+[[fault]]
+id = "pj-proj-call-inverted"
+file = "src/kernel/whnf.fs"
+old = '''  lf-whnf-cheap? if lf-wc-call else lf-whnf-call then ;'''
+new = '''  lf-whnf-cheap? if lf-whnf-call else lf-wc-call then ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2 (agent PJ): reduce_proj puts a projection's term in whnf_core outside cheap_proj; (id (a, b)).2 = b (proj.whnf-term) is rejected"
+
+[[fault]]
+id = "pj-mode-not-set"
+file = "src/kernel/whnf.fs"
+old = '''  dup lf-whnf-cheap? = if drop exit then dup lf-whnf-cheap !'''
+new = '''  dup lf-whnf-cheap? = if drop exit then'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "5.2.2 (agent PJ): a whnf_core visit with cheap_proj never sets the mode; whnf_core's step is whnf"
+
+[[fault]]
+id = "pj-mode-not-restored"
+file = "src/kernel/whnf.fs"
+old = '''  if ['] lf-whnf-to-full else ['] lf-whnf-to-cheap then over frame-save ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "5.2.2 (agent PJ): a visit that changed the cheap_proj mode leaves it changed when it ends"
+
+[[fault]]
+id = "pj-whnf-keeps-cheap"
+file = "src/kernel/whnf.fs"
+old = '''  false lf-whnf-mode ['] lf-whnf-cored lf-wc-call ;'''
+new = '''  ['] lf-whnf-cored lf-wc-call ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2 (agent PJ): whnf runs its whnf_core in the caller's cheap_proj mode (reduce_recursor's major premise inside step 3)"
+
+[[fault]]
+id = "pj-cache-cheap-kept"
+file = "src/kernel/caches.fs"
+old = '''  >r r@ frame-restore over ok? 0= lf-whnf-cheap? or if drop r> 0 exit then'''
+new = '''  >r r@ frame-restore over ok? 0= if drop r> 0 exit then'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "5.2.2 (agent PJ): m_whnf_core keeps results of whnf_core with cheap_proj, which a later whnf_core without it would read"
 
 [[fault]]
 id = "log-aside-steps-kept"
@@ -5871,8 +6065,8 @@ reason = "a second quotient record of a name is published beside the first (quot
 [[fault]]
 id = "env-quot-not-held"
 file = "src/kernel/environment.fs"
-old = '''  lf-env-quot-holding lf-env-n2-quot ;'''
-new = '''  2drop outcome-ok ;'''
+old = '''  dup ok? 0= if nip nip exit then drop lf-env-quot-holding lf-env-n2-quot ;'''
+new = '''  dup ok? 0= if nip nip exit then drop 2drop outcome-ok ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "N2 ignores the initialised quotient: a user's Quot.mk after the Quot record is accepted (after.quot-then-mk-declared)"
 
@@ -6129,44 +6323,10 @@ reason = "rvCONV L1: is_def_eq_core's direct calls keep their successes, which L
 equivalent = "a pair kept is one is_def_eq_core showed equal, and is_def_eq answers it the same (its success is the core's); a verdict could differ only where Lean's is_def_eq is not symmetric on such a pair, which no known case shows (review rvCONV L1)"
 
 [[fault]]
-id = "cache-const-universes-dropped"
-file = "src/kernel/caches.fs"
-old = '''  swap lf-term-first@ lf-cref-slot dup lf-crec-name @ swap lf-cref-list
-  if true else 2drop false then ;'''
-new = '''  swap lf-term-first@ lf-cref-slot lf-crec-name @ 0 true ;'''
-test = "$GFORTH tests/core/check-block.fs"
-reason = "rvCACHE: a constant's key leaves out its universe arguments: PUnit.{2} gets PUnit.{1}'s type, so a Type 1 is accepted as a Type (cache.universe-arguments-differ)"
-
-[[fault]]
-id = "cache-proj-index-dropped"
-file = "src/kernel/caches.fs"
-old = '''    lf-tag-proj of lf-tk-pair endof'''
-new = '''    lf-tag-proj of swap lf-term-first@ 0 true endof'''
-test = "$GFORTH tests/core/check-block.fs"
-reason = "rvCACHE: a projection's key leaves out its index: p.2 gets p.1's type (cache.projection-index-differs)"
-
-[[fault]]
-id = "cache-lit-value-dropped"
-file = "src/kernel/caches.fs"
-old = '''  over lf-term-second@ 2 < if lf-tk-pair else lf-tk-own then ;'''
-new = '''  over lf-term-second@ 2 < if swap lf-term-second@ 0 swap true else lf-tk-own then ;'''
-test = "$GFORTH tests/core/check-block.fs"
-reason = "rvCACHE: a literal's key leaves out its value: 10 and 11 share a skeleton and are equal by == (iota.nat-literal-major-wrong accepted)"
-
-[[fault]]
-id = "cache-fvar-entry-number"
-file = "src/kernel/caches.fs"
-old = '''  swap lf-term-identity if 0 true else drop false then ;'''
-new = '''  swap lf-term-first@ 0 true ;'''
-test = "$GFORTH tests/core/check-block.fs && $GFORTH tests/core/check-declaration.fs"
-reason = "rvCACHE: a free variable keyed by its entry number, which a discarded entry's successor reuses within a job"
-gap = "entries are reused only after a discard, which the caches make only when a store has less than its keep threshold left (lf-caches-keep?); no test checks a declaration near that threshold whose cached value is a source node keyed by a reused entry (plan task 4.2.7, review rvCACHE test gaps)"
-
-[[fault]]
 id = "cache-pair-open-terms"
 file = "src/kernel/caches.fs"
-old = '''  lf-term-facts if 2/ if drop false else true then else false then ;'''
-new = '''  lf-term-facts if 2/ drop true else false then ;'''
+old = '''  lf-term-facts if lf-bits-loose if drop false else true then else false then ;'''
+new = '''  lf-term-facts if lf-bits-loose drop true else false then ;'''
 test = "$GFORTH tests/core/check-block.fs && $GFORTH tests/core/check-declaration.fs"
 reason = "rvCACHE: the pair caches keep terms with loose bound variables, whose meaning depends on binders the comparison did not open"
 gap = "only check-block.fs's comparisons under binders they did not open give open pairs; no test compares one open pair of skeletons twice under binders of different types within one job (plan task 4.2.7, review rvCACHE test gaps)"
@@ -6190,19 +6350,11 @@ reason = "rvCACHE: scratch is kept until the term store is full, so a small stor
 gap = "no test checks a declaration in a store whose room lies between the run's live nodes and all the nodes it makes (the resource gap of ADR 0014 Amendment 1, plan task 4.2.7c)"
 
 [[fault]]
-id = "cache-bvar-index-unbounded"
-file = "src/kernel/caches.fs"
-old = '''  over dup lf-term-first@ swap lf-term-second@ lf-repr-leaf? 2 pick lf-tk-index? and'''
-new = '''  over dup lf-term-first@ swap lf-term-second@ lf-repr-leaf?'''
-test = "$GFORTH tests/core/check-declaration.fs"
-reason = "rvCACHE L1: a bound variable of index 2^62 or more gets facts whose loose count overflowed (2^63 - 1 reads as closed)"
-
-[[fault]]
 id = "cache-infer-not-source"
 file = "src/kernel/caches.fs"
-old = '''  dup lf-minfer-source? 0= if drop false exit then
-  lf-term-facts 0= if false exit then 2/ lf-ci-scope dup 0= if nip then ;'''
-new = '''  lf-term-facts 0= if false exit then 2/ lf-ci-scope dup 0= if nip then ;'''
+old = '''  dup lf-minfer-source? 0= if lf-ci-none exit then
+  lf-ci-skeleton if 0 true else false then ;'''
+new = '''  lf-ci-skeleton if 0 true else false then ;'''
 test = "$GFORTH tests/core/whnf.fs"
 reason = "rvCACHE L2: a node inference refuses as no source node gets a cached type in deciding mode (whnf.fs's fresh-node probe)"
 
@@ -6213,3 +6365,1308 @@ old = '''  drop lf-term-count @ feed-term-room + lf-term-capacity max lf-term-ca
 new = '''  drop outcome-ok ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "rvKC M1: the nodes of lets and projections eat the checks' term room"
+
+# --- unsafe and partial declarations, skipped as Lean's replay skips them
+# (plan task 5.2.7) ---------------------------------------------------------
+
+[[fault]]
+id = "skip-u1-unsafe-checked"
+file = "src/kernel/check-declaration.fs"
+old = '''  dup lf-idecl-safety @ lf-safety-safe = if drop outcome-ok else lf-check-skip then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "5.2.7: an unsafe or partial declaration is checked as a safe one, never skipped as Lean's replay skips it"
+
+[[fault]]
+id = "skip-not-marked"
+file = "src/kernel/environment.fs"
+old = '''  c" environment lf-env-skip" lf-diag-skipped lf-diag-note true lf-env-skipped!'''
+new = '''  c" environment lf-env-skip" lf-diag-skipped lf-diag-note false lf-env-skipped!'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "5.2.7: a skipped declaration is rejected but not marked: reports say rejected and exit 1 where Lean's checker exits 0"
+
+[[fault]]
+id = "skip-name-twice-ignored"
+file = "src/kernel/environment.fs"
+old = ''': lf-env-twin ( k -- d d'|-1 ) lf-env-limit + dup lf-env-earlier ;'''
+new = ''': lf-env-twin ( k -- d d'|-1 ) lf-env-limit + -1 ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "5.2.7: an unsafe declaration whose name an earlier one has is skipped, where lean4export's parser refuses the file"
+
+[[fault]]
+id = "skip-name-not-taken"
+file = "src/kernel/environment.fs"
+old = '''  dup 0< if drop outcome-ok else lf-env-declared then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "5.2.7: N2 ignores a skipped declaration of the name; a later safe one of it is accepted, where lean4export's parser refuses the file"
+
+[[fault]]
+id = "skip-span-unmarked"
+file = "src/kernel/env-publish.fs"
+old = '''  lf-env-may-write lf-cand-skipped? swap'''
+new = '''  lf-env-may-write drop false swap'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.7: the publisher never marks a skipped declaration's slots"
+
+[[fault]]
+id = "skip-claim-unchecked"
+file = "src/kernel/env-publish.fs"
+old = '''  dup lf-cand-skipped? lf-span-unsafe? 0= and 0= if exit then'''
+new = '''  exit'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.7: a check that claims a safe declaration skipped is published so, status 0 where it must be refused"
+
+[[fault]]
+id = "skip-conflict-ignored"
+file = "src/kernel/env-publish.fs"
+old = '''  dup lf-slot-open? over lf-slot-added? or over lf-slot-skipped? or'''
+new = '''  dup lf-slot-open? over lf-slot-added? or'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "5.2.7: the publisher's name re-check ignores a skipped slot; a declaration of its name claimed ok is published"
+
+[[fault]]
+id = "skip-block-mixed-skipped"
+file = "src/kernel/inductive-block.fs"
+old = ''': lf-ind-any-safe? ( -- flag ) false lf-ind-members 0 ?do i lf-ind-safe-at? or loop ;'''
+new = ''': lf-ind-any-safe? ( -- flag ) false ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.7: a block with safe and unsafe members is skipped whole, where replay adds it when a type is safe (part b)"
+
+[[fault]]
+id = "skip-block-unsafe-checked"
+file = "src/kernel/inductive-block.fs"
+old = '''  lf-ind-safe? 0= if lf-ind-unsafe exit then'''
+new = '''  lf-ind-any-safe? 0= if lf-ind-unsafe exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.7: a block with one unsafe member is checked as a safe block"
+
+[[fault]]
+id = "skip-status-one"
+file = "src/cli/tally.fs"
+old = '''  dup skipped = if drop exit-accepted else outcome>code then ;'''
+new = '''  dup skipped = if drop exit-rejected else outcome>code then ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "5.2.7: a skipped declaration makes the status 1, where Lean's checker exits 0"
+
+[[fault]]
+id = "skip-counted-rejected"
+file = "src/cli/tally.fs"
+old = '''  dup lf-env-skipped? if drop skipped else lf-env-outcome then ;'''
+new = '''  lf-env-outcome ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "5.2.7: reports count a skipped declaration as rejected, status 1"
+
+[[fault]]
+id = "skip-line-says-rejected"
+file = "src/kernel/check-declaration.fs"
+old = '''  swap lf-env-skipped? if drop ." skipped" else outcome-text type then ;'''
+new = '''  nip outcome-text type ;'''
+test = "$GFORTH tests/core/failure-paths.fs"
+reason = "5.2.7: a skipped declaration's line says rejected"
+
+[[fault]]
+id = "skip-json-says-rejected"
+file = "src/cli/check-json.fs"
+old = '''  dup cj-began? if verdict-of else drop not-checked then verdict-name ;'''
+new = '''  dup cj-began? if lf-env-outcome else drop not-checked then verdict-name ;'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "5.2.7: the JSON report calls a skipped declaration rejected, against its counts and status 0"
+
+[[fault]]
+id = "skip-record-says-rejected"
+file = "src/import/run-record.fs"
+old = '''  over lf-env-skipped? if drop s" skipped" rr-string else rr-outcome then ;'''
+new = '''  rr-outcome ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "5.2.7: a run record calls a skipped declaration rejected"
+
+# Review rvUNNI's findings (agent FX8): names and the reserved prefix as the
+# official checker (lean4export's parser, then Lean's replay) decides them,
+# and the report formats' version 0.2.
+
+[[fault]]
+id = "fx8-unsafe-ctor-twice-skipped"
+file = "src/kernel/inductive-block.fs"
+old = '''  lf-ind-ctors-once dup ok? 0= if exit then drop'''
+new = '''  outcome-ok drop'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvUNNI B1: an unsafe block with two constructors of one name is skipped, exit 0, where the parser refuses the file"
+
+[[fault]]
+id = "fx8-ctor-twin-misses-first"
+file = "src/kernel/inductive-block.fs"
+old = '''  dup lf-ind-ctor-named swap 0 ?do'''
+new = '''  dup lf-ind-ctor-named swap 1 ?do'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvUNNI B1: a constructor named as the block's first one is not found given twice"
+
+[[fault]]
+id = "fx8-rec-name-skipped-taken"
+file = "src/kernel/check-block.fs"
+old = '''  dup lf-b4-held? if lf-blk-fresh exit then lf-env-limit lf-env-fresh-generated ;'''
+new = '''  lf-blk-fresh ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvUNNI M1: a skipped declaration takes the name of the T.rec a later block leaves out; Lean accepts the block"
+
+[[fault]]
+id = "fx8-rec-name-held-ignored"
+file = "src/kernel/check-block.fs"
+old = '''  dup lf-b4-held? if lf-blk-fresh exit then lf-env-limit lf-env-fresh-generated ;'''
+new = '''  lf-env-limit lf-env-fresh-generated ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvUNNI M1: a block holding T.rec after a skipped declaration of that name is accepted, where the parser refuses the name given twice"
+
+[[fault]]
+id = "fx8-aux-rec-name-skipped-taken"
+file = "src/kernel/check-block.fs"
+old = '''  lf-blk-rec-fresh ;'''
+new = '''  lf-blk-fresh ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvUNNI M1: a skipped declaration takes the name of the T.rec_1 a later nested block leaves out; Lean accepts the block"
+
+[[fault]]
+id = "fx8-rec-k-wraps"
+file = "src/kernel/environment.fs"
+old = '''  dup lf-env-k-digits > if 2drop 0 exit then'''
+new = ''''''
+test = "$GFORTH tests/core/environment.fs"
+reason = "rvUNNI L1: T.rec_<digits> beyond a double is read modulo 2^128 as a small k"
+
+[[fault]]
+id = "fx8-t0-proj-ignored"
+file = "src/kernel/inductive-block.fs"
+old = '''    lf-tag-proj of drop endof  >r 2drop 0 r> endcase ;'''
+new = '''    >r 2drop 0 r> endcase ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvUNNI M3: a projection of a structure named under _nested passes T0 (check_no_nested_aux's proj clause)"
+
+[[fault]]
+id = "fx8-unreached-line-plain"
+file = "src/cli/leanforth.fs"
+old = ''': cli-unreached ( d -- ) cli-name. ." : not checked (not reached: the run stopped)" cr ;'''
+new = ''': cli-unreached ( d -- ) cli-name. ." : not checked" cr ;'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "rvUNNI L5: a declaration a stopped run never reached reads like the skipped verdict's line"
+
+[[fault]]
+id = "fx8-report-version-0-1"
+file = "src/cli/check-json.fs"
+old = ''': cj-version ( -- c-addr u ) s" 0.2" ;'''
+new = ''': cj-version ( -- c-addr u ) s" 0.1" ;'''
+test = "python3 tests/cli/test_leanforth.py"
+reason = "rvUNNI M2: a report with the verdict skipped claims version 0.1, whose consumers refuse skipped"
+
+[[fault]]
+id = "fx8-record-version-0-1"
+file = "src/import/run-record.fs"
+old = ''': rr-version ( -- c-addr u ) s" 0.2" ;'''
+new = ''': rr-version ( -- c-addr u ) s" 0.1" ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "rvUNNI M2: a run record with the verdict skipped claims version 0.1"
+
+# Step S0 of the compact-store plan (plan task 6.5.5): the level passes mark
+# reached nodes with a per-call stamp and build only the sorted list of them.
+# Since step S3 universe substitution marks them in a hash set of the call
+# (its stamp faults re-targeted at the set; s0-mls-restamp-no-erase went with
+# the stamps' column).
+[[fault]]
+id = "s0-mls-stamp-not-bumped"
+file = "src/kernel/mixed-level-substitute.fs"
+old = '''  lf-mls-set htab-count if lf-mls-set htab-clear then outcome-ok ;'''
+new = '''  outcome-ok ;'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "S0/S3: an audit starts with the entries an earlier one left (a THROW), so the terms it reached are not listed or rebuilt"
+
+[[fault]]
+id = "s0-mls-any-stamp-reached"
+file = "src/kernel/mixed-level-substitute.fs"
+old = ''': lf-mls-set-same ( n key htab -- flag ) drop swap lf-mls-node = ;'''
+new = ''': lf-mls-set-same ( n key htab -- flag ) drop 2drop true ;'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "S0/S3: any entry the probe meets is read as the term sought, so reached terms are not listed or rebuilt"
+
+[[fault]]
+id = "s0-mls-listed-twice"
+file = "src/kernel/mixed-level-substitute.fs"
+old = '''  dup ok? if drop swap lf-mls-set htab-put outcome-ok else nip nip then ;'''
+new = '''  dup ok? if drop 2drop outcome-ok else nip nip then ;'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "S0/S3: a listed term is never entered in the set, so a term is listed once per occurrence"
+
+[[fault]]
+id = "s0-mls-build-unsorted"
+file = "src/kernel/mixed-level-substitute.fs"
+old = '''  lf-mls-sorted lf-mls-reached @ 0 ?do'''
+new = '''  lf-mls-reached @ 0 ?do'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "S0: the build follows the audit's order, so a parent is built before its children"
+
+[[fault]]
+id = "s0-lsubst-stamp-not-bumped"
+file = "src/kernel/level-substitute.fs"
+old = '''  1 lf-lsubst-stamp +! 0 lf-lsubst-reached ! ;'''
+new = '''  0 lf-lsubst-reached ! ;'''
+test = "$GFORTH tests/core/level-substitute.fs"
+reason = "S0: a source walk keeps the last one's stamp, so the levels an earlier call reached are not listed or rebuilt"
+
+[[fault]]
+id = "s0-lsubst-restamp-no-erase"
+file = "src/kernel/level-substitute.fs"
+old = ''': lf-lsubst-restamp ( -- ) lf-lsubst-seen-column column-erase 0 lf-lsubst-stamp ! ;'''
+new = ''': lf-lsubst-restamp ( -- ) 0 lf-lsubst-stamp ! ;'''
+test = "$GFORTH tests/core/level-substitute.fs"
+reason = "S0: stamps that run out restart without erasing, so an old stamp 1 is read as this walk's"
+
+[[fault]]
+id = "s0-lsubst-any-stamp-reached"
+file = "src/kernel/level-substitute.fs"
+old = ''': lf-lsubst-reached? ( index -- flag ) lf-lsubst-seen @ lf-lsubst-stamp @ = ;'''
+new = ''': lf-lsubst-reached? ( index -- flag ) lf-lsubst-seen @ 0<> ;'''
+test = "$GFORTH tests/core/level-substitute.fs"
+reason = "S0: any earlier walk's stamp is read as fresh, so reached levels are not listed or rebuilt"
+
+[[fault]]
+id = "s0-lsubst-build-unsorted"
+file = "src/kernel/level-substitute.fs"
+old = '''  lf-lsubst-sorted lf-lsubst-reached @ 0 ?do'''
+new = '''  lf-lsubst-reached @ 0 ?do'''
+test = "$GFORTH tests/core/level-substitute.fs"
+reason = "S0: the build follows the walk's order, so a parent is built before its children"
+
+[[fault]]
+id = "s0-heap-left-child-only"
+file = "src/kernel/level-substitute.fs"
+old = '''  2* 1+ 2dup 1+ > if dup dup 1+ 4 pick lf-cells-less? - then ;'''
+new = '''  2* 1+ ;'''
+test = "$GFORTH tests/core/level-substitute.fs"
+reason = "S0: the heapsort's sift ignores a larger right child, so some arrangements come out unsorted"
+
+[[fault]]
+id = "s0-lnorm-stamp-not-bumped"
+file = "src/kernel/level-normalize.fs"
+old = '''  lf-lnorm-stamp @ max-n = if lf-lnorm-restamp then 1 lf-lnorm-stamp +! ;'''
+new = '''  lf-lnorm-stamp @ max-n = if lf-lnorm-restamp then ;'''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "S0: a call keeps the last one's stamp, so normal forms of an earlier call (nodes since given back) are read as found"
+
+[[fault]]
+id = "s0-lnorm-restamp-no-erase"
+file = "src/kernel/level-normalize.fs"
+old = ''': lf-lnorm-restamp ( -- ) lf-lnorm-memo-column column-erase 0 lf-lnorm-stamp ! ;'''
+new = ''': lf-lnorm-restamp ( -- ) 0 lf-lnorm-stamp ! ;'''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "S0: stamps that run out restart without erasing, so normal forms of stamp 1 are read as this call's"
+
+[[fault]]
+id = "s0-lnorm-any-stamp-fresh"
+file = "src/kernel/level-normalize.fs"
+old = ''': lf-lnorm-memo@ ( level -- form+1|0 ) lf-lnorm-entry 2@ lf-lnorm-stamp @ = and ;'''
+new = ''': lf-lnorm-memo@ ( level -- form+1|0 ) lf-lnorm-entry 2@ drop ;'''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "S0: a normal form of any earlier call is read as this call's"
+
+# --- FX6: the reader's numbers, members and index maps (src/import/ndjson.fs) ---
+
+[[fault]]
+id = "nd-exponent-below-fraction"
+file = "src/import/ndjson.fs"
+old = '''  over frac-length over u> if 2drop 0 0 outcome-invalid exit then'''
+new = '''  over frac-length over u>= if 2drop 0 0 outcome-invalid exit then'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "FX6: 1.5e1 (fraction digits equal to the exponent) is refused though Lean reads it as 15"
+
+[[fault]]
+id = "nd-negative-nonzero-natural"
+file = "src/import/ndjson.fs"
+old = '''  over num-negative @ if 2drop 0 0 outcome-invalid exit then'''
+new = '''  over num-negative @ if 2drop 0 0 outcome-ok exit then'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "FX6: -5e1 would be read as a natural (an empty one) instead of refused"
+
+[[fault]]
+id = "nd-exponent-above-2-64"
+file = "src/import/ndjson.fs"
+old = '''dup 20 = if 2dup s" 18446744073709551616" compare 0> if 2drop false exit then then'''
+new = '''dup 20 = if 2dup s" 18446744073709551616" compare 0> drop 0 if 2drop false exit then then'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "FX6: an exponent above 2^64, which Lean does not parse, is read"
+
+[[fault]]
+id = "nd-minus-exponent-fraction"
+file = "src/import/ndjson.fs"
+old = '''  dup num-exp 2@ strip-zeros nip over frac-length or'''
+new = '''  dup num-exp 2@ strip-zeros nip over frac-length drop or'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "FX6: 1.5e-0 (a fraction left in place by a zero minus exponent) is read as a natural"
+
+[[fault]]
+id = "nd-huge-number-not-full"
+file = "src/import/ndjson.fs"
+old = '''  2dup scratch-fits? 0= if 2drop 0 0 outcome-full exit then'''
+new = '''  2dup scratch-fits? 0= if 2drop 0 0 outcome-invalid exit then'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "FX6: a natural too large for the scratch is reported invalid instead of full"
+
+[[fault]]
+id = "nd-index-map-dense-shortcut"
+file = "src/import/ndjson.fs"
+old = '''  >r 2dup = over r@ imap-dense @ = and r@ imap-sparse? 0= and'''
+new = '''  >r 2dup = r@ imap-sparse? 0= and'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "FX6 L1: after a full the next index would be taken for its own ordinal and the failed one for another's"
+
+[[fault]]
+id = "nd-member-first-not-last"
+file = "src/import/ndjson.fs"
+old = '''entry-key swap r@ export-json json-find-last'''
+new = '''entry-key swap r@ export-json json-find'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "FX6: a repeated key reads as its first value, not Lean's last"
+
+[[fault]]
+id = "nd-optional-member-required"
+file = "src/import/ndjson.fs"
+old = '''  dup entry-kind @ 0= if drop c" missing field" export-bad exit then'''
+new = '''  drop c" missing field" export-bad exit'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "FX6 L4: an opaque without isUnsafe is refused though Lean reads it as false"
+
+[[fault]]
+id = "nd-missing-member-default"
+file = "src/import/ndjson.fs"
+old = '''  dup entry-kind @ 0= if drop c" missing field" export-bad exit then'''
+new = '''  dup entry-kind @ 0= if entry-offset @ + 0 swap ! outcome-ok exit then'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "FX6 L4: any missing member reads as 0 instead of being refused (an axiom without isUnsafe)"
+
+[[fault]]
+id = "json-find-last-first"
+file = "src/lib/json.fs"
+old = '''    2 pick 2 pick 2r@ nip json-key= if drop dup 1+ then'''
+new = '''    2 pick 2 pick 2r@ nip json-key= if dup 0= if drop dup 1+ then then'''
+test = "$GFORTH tests/lib/json.fs"
+reason = "FX6: json-find-last keeps the first match"
+
+[[fault]]
+id = "stage-reader-maps-kept"
+file = "src/import/stage.fs"
+old = '''  dup stage-sealed? if dup reader-maps-free maps-free else drop then ;'''
+new = '''  dup stage-sealed? if maps-free else drop then ;'''
+test = "$GFORTH tests/core/stage.fs"
+reason = "FX6 L2: the reader's index maps stay allocated through the check"
+# --- shared terms checked once (agent EX, 2026-11-10: the audits' marks in
+# src/core/constant-term-boundary.fs, mixed-open.fs's results per offset,
+# loose_bvar_range from the caches, instantiate_type_lparams without
+# universe arguments) -------------------------------------------------------
+
+[[fault]]
+id = "ex-marks-ignore-depth"
+file = "src/core/constant-term-boundary.fs"
+old = '''  tuck @ = if cell+ @ < 0= else 2drop false then ;'''
+new = '''  tuck @ = if 2drop true else 2drop false then ;'''
+test = "$GFORTH tests/core/constant-term-scope.fs"
+reason = "EX: a node the scope walk checked under a binder is skipped outside it, so #0 shared there and outside passes"
+
+[[fault]]
+id = "ex-marks-same-run"
+file = "src/core/constant-term-boundary.fs"
+old = ''': lf-walk-marking ( walk -- ) lf-mark-next swap walk-arg ! ;'''
+new = ''': lf-walk-marking ( walk -- ) 1 swap walk-arg ! ;'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "EX: every walk takes run 1, so a node a check passed before is skipped after its child was corrupted"
+
+[[fault]]
+id = "ex-marks-u2-unmarked"
+file = "src/kernel/check-declaration.fs"
+old = '''  lf-check-walker lf-walk-marking
+'''
+new = ''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "EX: U2 runs on run 0, which every unwritten unit holds: each node is skipped and no unsupported form is found"
+
+[[fault]]
+id = "ex-open-ignore-offset"
+file = "src/kernel/mixed-open.fs"
+old = '''  frame-context @ lf-open-memo lf-rmemo@ ;'''
+new = '''  drop 0 lf-open-memo lf-rmemo@ ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "EX: a node rebuilt under a binder is given back outside it, its bound variable not replaced"
+
+[[fault]]
+id = "ex-open-no-keep"
+file = "src/kernel/mixed-open.fs"
+old = ''': lf-open-keep ( result node frames -- ) frame-context @ lf-open-memo lf-rmemo! ;'''
+new = ''': lf-open-keep ( result node frames -- ) 2drop drop ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "EX: no result is kept, so a shared node is rebuilt per path (seven visits, two copies)"
+
+[[fault]]
+id = "ex-open-same-run"
+file = "src/kernel/replace-memo.fs"
+old = '''  tuck lf-rmemo-keeps? if drop else lf-rmemo-drop then ;'''
+new = '''  2drop ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "EX: every pass after the first shares one number, so a pass with y gets the results of an earlier pass with x"
+
+[[fault]]
+id = "ex-range-one-short"
+file = "src/kernel/caches.fs"
+old = '''  lf-cs-facts if lf-bits-loose true else false then ;'''
+new = '''  lf-cs-facts if lf-bits-loose 1- 0 max true else false then ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "EX: a term read under the scope is closed with one free variable too few, so a bound variable stays loose"
+
+[[fault]]
+id = "ex-envsig-stored-no-fuel"
+file = "src/kernel/env-signature.fs"
+old = ''': lf-envsig-stored ( root identity -- root identity fuel' 0 )
+  lf-envsig-fuel @ outcome-ok ;'''
+new = ''': lf-envsig-stored ( root identity -- root identity fuel' 0 )
+  0 outcome-ok ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "EX: a constant without universe arguments leaves inference no fuel, so checks that use one run out"
+
+[[fault]]
+id = "ex-envsig-bare-logged"
+file = "src/kernel/env-signature.fs"
+old = ''': lf-envsig-bare? ( -- flag ) lf-envsig-count 0= lf-log? 0= and ;'''
+new = ''': lf-envsig-bare? ( -- flag ) lf-envsig-count 0= ;'''
+test = "python3 tests/present/check_outline.py"
+reason = "EX: with the derivation log on, a constant without universe arguments loses its instantiate-levels step"
+
+# --- nested inductive blocks (plan task 5.2.5b; src/kernel/inductive-nested.fs) --
+# Each caught by tests/core/check-block.fs (the nested.* and replay-nested.*
+# rows, Lean's verdicts).
+
+[[fault]]
+id = "nest-no-translation"
+file = "src/kernel/inductive-nested.fs"
+old = '''  lf-ind-maybe? 0= if outcome-ok exit then'''
+new = '''  outcome-ok exit'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: a nested block is checked as it stands; List Tree is no valid occurrence and nested.tree is rejected"
+quick = true
+
+[[fault]]
+id = "nest-local-variable-allowed"
+file = "src/kernel/inductive-nested.fs"
+old = '''  lf-nest-amount@ < if lf-nest-loose else lf-nest-down then ;'''
+new = '''  drop lf-nest-down ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: Ds with a local variable is lowered as if it had none; nested.local-variable is not Lean's nestedLocalVariable"
+
+[[fault]]
+id = "nest-key-not-lowered"
+file = "src/kernel/inductive-nested.fs"
+old = '''  lf-nest-partial lf-nest-depth@ lf-nest-lower dup outcome-rejected ='''
+new = '''  lf-nest-partial 0 lf-nest-lower dup outcome-rejected ='''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: an occurrence under a binder keeps its depth; nested.under-binder's auxiliary type names the wrong parameter"
+
+[[fault]]
+id = "nest-key-never-shared"
+file = "src/kernel/inductive-nested.fs"
+old = '''    if i outcome-ok unloop exit then'''
+new = '''    if -1 outcome-ok unloop exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: every occurrence makes new auxiliary types; the queue never ends and the fuel runs out (nested.tree)"
+
+[[fault]]
+id = "nest-levels-not-substituted"
+file = "src/kernel/inductive-nested.fs"
+old = '''  lf-nest-at-levels ok-then? 0= if no-result exit then'''
+new = '''  lf-idecl-type @ outcome-ok ok-then? 0= if no-result exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: an auxiliary type keeps List's universe parameter; nested.universe (v) is rejected"
+
+[[fault]]
+id = "nest-not-restored"
+file = "src/kernel/inductive-nested.fs"
+old = '''  lf-ind-aux@ 0= if outcome-ok exit then'''
+new = '''  outcome-ok exit'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: the recursors keep the auxiliary types; B3 rejects Lean's"
+
+[[fault]]
+id = "nest-key-not-shifted"
+file = "src/kernel/inductive-nested.fs"
+old = '''  lf-ind-ty lf-ty-key @ 0 lf-nest-depth@ lf-nest-p - lf-rcr-shift ;'''
+new = '''  lf-ind-ty lf-ty-key @ ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: a restored occurrence names the wrong parameter under the recursor's binders (nested.parameter)"
+
+[[fault]]
+id = "nest-constructor-not-restored"
+file = "src/kernel/inductive-nested.fs"
+old = '''  dup lf-ind-ctor lf-idecl-name @ swap dup lf-ind-in-ctors@ < if drop true exit then'''
+new = '''  lf-ind-ctor lf-idecl-name @ true exit'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: T.rec_1's rules name _nested.List_1.cons, not List.cons; B3 rejects Lean's"
+
+[[fault]]
+id = "nest-flags-not-recomputed"
+file = "src/kernel/inductive-nested.fs"
+old = '''  lf-ind-aux@ if drop lf-ind-flags-again exit then false lf-ind-state lf-ind-xlated ! ;'''
+new = '''  lf-ind-aux@ if exit then false lf-ind-state lf-ind-xlated ! ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: isReflexive from the input, not the auxiliary block; nested.thunk gets a B4 warning"
+
+[[fault]]
+id = "nest-aux-recursors-unnamed"
+file = "src/kernel/check-block.fs"
+old = '''  lf-nest-rec-names ['] lf-blk-built lf-blk-then'''
+new = '''  outcome-ok ['] lf-blk-built lf-blk-then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: the auxiliary recursor stays _nested.List_1.rec; the file's Tree.rec_1 is no such recursor"
+
+[[fault]]
+id = "nest-aux-recursor-name-unchecked"
+file = "src/kernel/check-block.fs"
+old = '''  ['] lf-blk-aux-fresh lf-blk-then ['] lf-blk-keys lf-blk-then ;'''
+new = '''  ['] lf-blk-keys lf-blk-then ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: T.rec_1 declared beside a constructor of that name (nested.constructor-named-rec-1, Lean's alreadyDeclared)"
+
+[[fault]]
+id = "nest-occurrences-untyped"
+file = "src/kernel/check-block.fs"
+old = '''  true lf-blk-keys! lf-blk-job lf-blk-keys-typed lf-blk-refuel false lf-blk-keys! ;'''
+new = '''  outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: an ill-typed Ds the auxiliary block drops is accepted (nested.ill-typed-parameter, Lean's funExpected)"
+
+[[fault]]
+id = "nest-numnested-zero"
+file = "src/kernel/check-block.fs"
+old = ''': lf-b4-nested? ( data -- flag ) lf-ity-nested lf-more-field lf-ind-aux@ <> ;'''
+new = ''': lf-b4-nested? ( data -- flag ) lf-ity-nested lf-more-field 0<> ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: Lean's numNested is warned as a difference (B4) on every nested block"
+
+[[fault]]
+id = "nest-recipe-raw"
+file = "src/kernel/generated-recursor.fs"
+old = '''  lf-ind-aux@ ?dup if lf-recipe-aux-shift lshift exit then'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.5b: a nested block's recipe says rebuild (without its auxiliary types) and holds no T.rec_1"
+
+# --- one read layer (compact-store plan step S2: src/lib/store.fs store-at?,
+# src/lib/node.fs, src/core/terms.fs, levels.fs, generation-handles.fs, the
+# roots of tagged-sort-boundary.fs, level-scope.fs and the printer, and
+# src/kernel/caches.fs's parameter bit and data word)
+
+[[fault]]
+id = "s2-read-past-count"
+file = "src/lib/store.fs"
+old = '''  dup store-capacity @ swap store-count @ tuck u< 0= -rot u< and ;'''
+new = '''  dup store-capacity @ swap store-count @ tuck u< 0= -rot 1+ u< and ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "S2: a read by index reads the record at the count, which is not allocated"
+
+[[fault]]
+id = "s2-read-count-unbounded"
+file = "src/lib/store.fs"
+old = '''  dup store-capacity @ swap store-count @ tuck u< 0= -rot u< and ;'''
+new = '''  store-count @ u< ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "S2: a count corrupted beyond the capacity lets a read by index leave the block"
+
+[[fault]]
+id = "s2-node-read-unchecked"
+file = "src/lib/node.fs"
+old = '''  2dup store-at? if store-slot node@ true else 2drop false then ;'''
+new = '''  store-slot node@ true ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "S2: node-read (every walk's visit) reads an index the store does not hold"
+
+[[fault]]
+id = "s2-term-root-range-only"
+file = "src/core/terms.fs"
+old = ''': lf-term-root? ( index -- flag ) lf-terms store-valid? ;'''
+new = ''': lf-term-root? ( index -- flag ) lf-terms store-at? ;'''
+test = "$GFORTH tests/core/terms.fs && $GFORTH tests/core/tagged-sort-boundary.fs"
+reason = "S2: a root not checked: a term store with a broken seal is taken at a pass's root"
+
+[[fault]]
+id = "s2-term-pair-range-only"
+file = "src/core/terms.fs"
+old = ''': lf-term-pair-valid? ( left right -- flag ) lf-terms store-pair-valid? ;'''
+new = ''': lf-term-pair-valid? ( left right -- flag ) lf-term-valid? swap lf-term-valid? and ;'''
+test = "$GFORTH tests/core/terms.fs && $GFORTH tests/core/tagged-sort-boundary.fs"
+reason = "S2: a root not checked: two roots are taken from a term store with a broken seal"
+
+[[fault]]
+id = "s2-level-root-range-only"
+file = "src/core/levels.fs"
+old = ''': lf-level-root? ( index -- flag ) lf-levels store-valid? ;'''
+new = ''': lf-level-root? ( index -- flag ) lf-levels store-at? ;'''
+test = "$GFORTH tests/core/levels.fs && $GFORTH tests/core/level-scope.fs && $GFORTH tests/core/level-value.fs"
+reason = "S2: a root not checked: a poisoned level store is taken at a pass's root"
+
+[[fault]]
+id = "s2-term-handle-unchecked"
+file = "src/core/generation-handles.fs"
+old = '''  lf-ssession-current? if lf-hterm-id? else 2drop false then ;'''
+new = '''  lf-hterm-id? ;'''
+test = "$GFORTH tests/core/generation-handles.fs"
+reason = "S2: a root not checked: a term handle is valid in a store whose seal is broken"
+
+[[fault]]
+id = "s2-level-handle-unchecked"
+file = "src/core/generation-handles.fs"
+old = '''  lf-level-count-valid? if lf-hlevel-id? else 2drop false then ;'''
+new = '''  lf-hlevel-id? ;'''
+test = "$GFORTH tests/core/generation-handles.fs"
+reason = "S2: a root not checked: a level handle is valid in a store whose seal is broken"
+
+[[fault]]
+id = "s2-repr-root-unchecked"
+file = "src/core/tagged-sort-boundary.fs"
+old = '''  dup lf-term-root? if lf-repr-walk else drop-invalid then ;'''
+new = '''  dup lf-term-valid? if lf-repr-walk else drop-invalid then ;'''
+test = "$GFORTH tests/core/tagged-sort-boundary.fs"
+reason = "S2: a root not checked: the representation walk runs on a term store whose seal is broken"
+
+[[fault]]
+id = "s2-lscope-root-unchecked"
+file = "src/core/level-scope.fs"
+old = '''  lf-lscope-context-valid? swap lf-level-root? and lf-lscope-zero-ok? and ;'''
+new = '''  lf-lscope-context-valid? swap lf-level-valid? and lf-lscope-zero-ok? and ;'''
+test = "$GFORTH tests/core/level-scope.fs && $GFORTH tests/core/level-value.fs"
+reason = "S2: a root not checked: the level-scope walk runs on a level store whose seal is broken"
+
+[[fault]]
+id = "s2-print-root-unchecked"
+file = "src/present/term-printer.fs"
+old = '''  lf-name-storage-valid? lf-term-count-valid? and lf-level-count-valid? and ;'''
+new = '''  lf-name-storage-valid? ;'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "S2: a root not checked: a print reads term and level stores whose seals are broken"
+
+[[fault]]
+id = "s2-data-range-unbounded"
+file = "src/kernel/caches.fs"
+old = '''  dup lf-bits-loose dup lf-data-ranges u< 0= if 2drop false exit then'''
+new = '''  dup lf-bits-loose'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S2: a loose range of 20 bits or more is cut to 20 bits in the data word"
+
+[[fault]]
+id = "s2-data-bits-swapped"
+file = "src/core/terms.fs"
+old = '''  lf-data-ranges 2* and swap lf-data-ranges and or or ;'''
+new = '''  lf-data-ranges and swap lf-data-ranges 2* and or or ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "S2: the parameter and free-variable bits of the data word are swapped (not ADR 0016 C1's layout)"
+
+# Review rvPSE M1 (agent FX7): the level passes check and push a shared node's
+# children only the first time a walk reaches it.
+[[fault]]
+id = "fx7-mls-every-path"
+file = "src/kernel/mixed-level-substitute.fs"
+old = ''': lf-mls-again? ( walk -- flag ) walk-node @ lf-mls-reached? ;'''
+new = ''': lf-mls-again? ( walk -- flag ) drop false ;'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "FX7: a term reached again is checked again and its children pushed, so the audit costs every path (C's levels twice)"
+
+[[fault]]
+id = "fx7-mls-every-path-cli"
+file = "src/kernel/mixed-level-substitute.fs"
+old = ''': lf-mls-again? ( walk -- flag ) walk-node @ lf-mls-reached? ;'''
+new = ''': lf-mls-again? ( walk -- flag ) drop false ;'''
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_1_shared_universe"
+reason = "FX7: the audit walks the 2^40 paths of sharedAndU's type, so useU runs out of fuel where Lean accepts"
+
+[[fault]]
+id = "fx7-mls-again-any-stamp"
+file = "src/kernel/mixed-level-substitute.fs"
+old = '''  lf-mls-unseen ok-then? 0= if nip exit then lf-mls-walk lf-mls-forget ;'''
+new = '''  lf-mls-walk lf-mls-forget ;'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "FX7/S3: a term an earlier audit reached is skipped (the set is not emptied first), so it is neither checked nor listed nor rebuilt"
+
+[[fault]]
+id = "fx7-lsubst-every-path"
+file = "src/kernel/level-substitute.fs"
+old = ''': lf-lsubst-again? ( walk -- flag ) walk-node @ lf-lsubst-reached? ;'''
+new = ''': lf-lsubst-again? ( walk -- flag ) drop false ;'''
+test = "$GFORTH tests/core/level-substitute.fs"
+reason = "FX7: a level node reached again is walked again, so max (max p q) (max p q) needs 9 units, not 7"
+
+[[fault]]
+id = "fx7-lsubst-again-any-stamp"
+file = "src/kernel/level-substitute.fs"
+old = ''': lf-lsubst-again? ( walk -- flag ) walk-node @ lf-lsubst-reached? ;'''
+new = ''': lf-lsubst-again? ( walk -- flag ) walk-node @ lf-lsubst-seen @ 0<> ;'''
+test = "$GFORTH tests/core/level-substitute.fs"
+reason = "FX7: a level an earlier walk reached is skipped, so it is neither checked nor listed nor rebuilt"
+
+[[fault]]
+id = "fx7-lsubst-skip-first"
+file = "src/kernel/level-substitute.fs"
+old = '''  over lf-lsubst-again? if lf-lsubst-skip else lf-lsubst-first then ;'''
+new = '''  over lf-lsubst-again? if lf-lsubst-first else lf-lsubst-skip then ;'''
+test = "$GFORTH tests/core/level-substitute.fs"
+reason = "FX7: a level node is skipped the first time and checked only when reached again"
+
+# --- hash-consed term store, data words (compact-store plan step S3) ------
+
+[[fault]]
+id = "s3-terms-collision-equal"
+file = "src/core/terms.fs"
+old = '''  >r r@ 2 cells + @ = swap r@ cell+ @ = and swap r> @ = and ;'''
+new = '''  >r 2drop r> @ = ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "S3: a record found in the table counts as equal when only its tag is (a collision taken for equality)"
+
+[[fault]]
+id = "s3-terms-rollback-keeps-entries"
+file = "src/core/terms.fs"
+old = '''  dup lf-terms store-mark-valid? if dup mark-count @ lf-term-unlist then'''
+new = '''  dup lf-terms store-mark-valid? drop'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "S3: a rollback leaves the table entries of the records it gives back (undo skipped)"
+
+[[fault]]
+id = "s3-terms-found-unchecked"
+file = "src/core/terms.fs"
+old = '''  lf-terms store-open? if true else drop lf-term-refused then ;'''
+new = '''  true ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "S3: an equal node is given back by a store that refuses allocations (broken seal, spent serial)"
+
+[[fault]]
+id = "s3-data-binder-range"
+file = "src/core/terms.fs"
+old = '''  >r lf-data-loose swap lf-data-loose swap r> if 1- 0 max then max ;'''
+new = '''  >r lf-data-loose swap lf-data-loose swap r> drop max ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "S3: a binder's data word keeps its body's range (a wrong, stale range)"
+
+[[fault]]
+id = "s3-data-leaf-hook-unset"
+file = "src/core/constant-term-boundary.fs"
+old = '''' lf-cterm-leaf-data is lf-term-leaf-data'''
+new = '''' lf-leaf-data-plain is lf-term-leaf-data'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S3: Sorts, constants and the other leaves get no data word"
+
+[[fault]]
+id = "s3-fvar-shared"
+file = "src/core/local-context.fs"
+old = '''lf-tag-fvar lf-term-unshare'''
+new = '''\ free variables shared'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S3: a free variable's node is shared, so a dead one comes back as a new entry's variable"
+
+[[fault]]
+id = "s3-lit-cell-first-field"
+file = "src/core/literals.fs"
+old = '''  dup lf-term-second@ if lf-term-first@ lf-lit-limbs slab-at @ else drop 0 then ;'''
+new = '''  lf-term-first@ ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "S3: a one-limb literal read from its first field (its slab index) instead of its limb"
+
+[[fault]]
+id = "s3-mls-set-kept"
+file = "src/kernel/mixed-level-substitute.fs"
+old = '''  lf-mls-unseen ok-then? 0= if nip exit then lf-mls-walk lf-mls-forget ;'''
+new = '''  lf-mls-unseen ok-then? 0= if nip exit then lf-mls-walk ;'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "S3: the reached set keeps its entries after an audit"
+
+[[fault]]
+id = "s3-mls-search-past"
+file = "src/kernel/mixed-level-substitute.fs"
+old = '''    2dup lf-mls-half dup lf-mls-node 4 pick < if 1+ rot drop swap else nip then'''
+new = '''    2dup lf-mls-half dup lf-mls-node 4 pick <= if 1+ rot drop swap else nip then'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "S3: a child's image is read one place past it in the sorted list"
+
+# --- audits once per node per check (compact-store plan step S6 (c):
+# src/core/constant-term-boundary.fs's memo, the data-word V1 and U2) -------
+
+[[fault]]
+id = "s6c-memo-no-identity"
+file = "src/core/constant-term-boundary.fs"
+old = '''  cell+ @ swap lf-term-identity if = else drop false then ;'''
+new = '''  2drop true ;'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S6C: a kept unit is taken without its identity: a rolled-back index made again passes unchecked"
+
+[[fault]]
+id = "s6c-memo-keep-failed-run"
+file = "src/core/constant-term-boundary.fs"
+old = '''  dup ok? lf-audit-state lf-aud-active @ and if lf-audit-keep then'''
+new = '''  lf-audit-state lf-aud-active @ if lf-audit-keep then'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S6C: a run that ran out of fuel keeps the nodes it reached, whose graphs were not all checked"
+
+[[fault]]
+id = "s6c-memo-open-as-closed"
+file = "src/core/constant-term-boundary.fs"
+old = '''  lf-data-fvar? if lf-audit-state lf-aud-open else lf-audit-state lf-aud-closed then @ ;'''
+new = '''  drop lf-audit-state lf-aud-closed @ ;'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S6C: a node with a free variable is kept in the closed epoch, so a new job's dead variable passes"
+
+[[fault]]
+id = "s6c-memo-local-ignored"
+file = "src/core/constant-term-boundary.fs"
+old = '''  lf-audit-stale? if lf-audit-renew exit then lf-audit-local? 0= if lf-audit-reopen then ;'''
+new = '''  lf-audit-stale? if lf-audit-renew exit then ;'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S6C: the open epoch outlives the local context it was taken in"
+
+[[fault]]
+id = "s6c-memo-facts-ignored"
+file = "src/core/constant-term-boundary.fs"
+old = '''  lf-audit-wrapped? or lf-audit-same? 0= or ;'''
+new = '''  lf-audit-wrapped? or ;'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S6C: a reset of a store the audit reads keeps the epoch, so a constant without its reference passes"
+
+[[fault]]
+id = "s6c-memo-always-on"
+file = "src/core/constant-term-boundary.fs"
+old = '''  lf-audit-state lf-aud-mode @ dup lf-memo-auto = if drop lf-audit-checking? exit then'''
+new = '''  lf-audit-state lf-aud-mode @ dup lf-memo-auto = if drop true exit then'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S6C: the memo is on outside a check, where every audit must run in full"
+
+[[fault]]
+id = "s6c-memo-children-unpushed"
+file = "src/core/constant-term-boundary.fs"
+old = '''  over lf-audited? if 2drop outcome-ok else walk-push-outcome then ;'''
+new = '''  2drop outcome-ok ;'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S6C: no child is pushed, as if every one were kept: only roots are checked"
+
+[[fault]]
+id = "s6c-check-no-renew"
+file = "src/kernel/check-declaration.fs"
+old = '''  lf-caches-clear lf-audit-renew'''
+new = '''  lf-caches-clear'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S6C: the memo outlives a check, so a declaration's entry audit skips nodes an earlier check kept"
+
+[[fault]]
+id = "s6c-v1-word-fvar-ignored"
+file = "src/core/constant-term-scope.fs"
+old = '''  dup lf-data-fvar? if 2drop false else lf-data-loose < 0= then ;'''
+new = '''  lf-data-loose < 0= ;'''
+test = "$GFORTH tests/core/constant-term-scope.fs"
+reason = "S6C: V1 from the data word passes a root with a free variable"
+
+[[fault]]
+id = "s6c-v1-word-off-by-one"
+file = "src/core/constant-term-scope.fs"
+old = '''  dup lf-data-fvar? if 2drop false else lf-data-loose < 0= then ;'''
+new = '''  dup lf-data-fvar? if 2drop false else lf-data-loose 1- < 0= then ;'''
+test = "$GFORTH tests/core/constant-term-scope.fs"
+reason = "S6C: V1 from the data word passes a variable one binder out of scope"
+
+[[fault]]
+id = "s6c-u2-word-without-data"
+file = "src/kernel/check-declaration.fs"
+old = ''': lf-check-forms-word? ( root -- flag ) lf-term-data@ dup if nip then ;'''
+new = ''': lf-check-forms-word? ( root -- flag ) drop true ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S6C: U2 passes a root without a data word, so an unsupported form is reported as another failure"
+
+# --- plan task 6.5.5, agent S6A: substitution as Lean's replace
+# (src/kernel/replace-memo.fs, mixed-open.fs, mixed-shift.fs,
+# mixed-instantiate.fs), Lean's node data read from the data word (whnf.fs,
+# mixed-infer.fs), inferred types keyed by the closed term (caches.fs)
+
+[[fault]]
+id = "s6a-memo-no-offset"
+file = "src/kernel/replace-memo.fs"
+old = ''': lf-rmemo-place ( offset memo -- ) dup lf-rmemo-stamp @ rot rot lf-rmemo-key cell+ 2! ;'''
+new = ''': lf-rmemo-place ( offset memo -- ) nip 0 swap dup lf-rmemo-stamp @ rot rot lf-rmemo-key cell+ 2! ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "6.5.5: the memo keyed without the offset gives a node met under a binder the result of its visit outside it"
+
+[[fault]]
+id = "s6a-memo-no-stamp"
+file = "src/kernel/replace-memo.fs"
+old = ''': lf-rmemo-place ( offset memo -- ) dup lf-rmemo-stamp @ rot rot lf-rmemo-key cell+ 2! ;'''
+new = ''': lf-rmemo-place ( offset memo -- ) 0 rot rot lf-rmemo-key cell+ 2! ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "6.5.5: the memo keyed without the call's stamp gives a closing under one scope the results kept under another"
+
+[[fault]]
+id = "s6a-memo-identity-unchecked"
+file = "src/kernel/replace-memo.fs"
+old = '''  3 cells + dup @ swap cell+ @ over lf-term-identity if = else drop false then'''
+new = '''  3 cells + dup @ swap cell+ @ over lf-term-identity if 2drop true else drop false then'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "6.5.5: a kept result is given back after it was discarded and its index taken by another node"
+
+[[fault]]
+id = "s6a-open-skip-reaches"
+file = "src/kernel/mixed-open.fs"
+old = '''  over lf-data-loose < if drop false true exit then'''
+new = '''  over lf-data-loose 1- < if drop false true exit then'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "6.5.5: instantiate keeps a node whose loose range reaches the offset, its outermost loose variable not replaced"
+
+[[fault]]
+id = "s6a-open-skip-fvar"
+file = "src/kernel/mixed-open.fs"
+old = '''  lf-data-fvar? if false else true true then ;'''
+new = '''  drop true true ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "6.5.5: instantiate keeps a node with a free variable unvisited, so a dead free variable is not refused"
+
+[[fault]]
+id = "s6a-abstract-skip-fvar"
+file = "src/kernel/mixed-open.fs"
+old = ''': lf-open-abs-word ( data -- flag true ) lf-data-fvar? 0= true ;'''
+new = ''': lf-open-abs-word ( data -- flag true ) drop true true ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "6.5.5: abstract keeps a node with free variables unvisited, so they are not made bound variables"
+
+[[fault]]
+id = "s6a-shift-skip-reaches"
+file = "src/kernel/mixed-shift.fs"
+old = '''  swap lf-term-data@ if lf-data-loose swap frame-context @ > 0= else drop false then ;'''
+new = '''  swap lf-term-data@ if lf-data-loose 1- swap frame-context @ > 0= else drop false then ;'''
+test = "$GFORTH tests/core/mixed-shift.fs"
+reason = "6.5.5: lift_loose_bvars keeps a node whose loose range reaches the cutoff, its variable not lifted"
+
+[[fault]]
+id = "s6a-shift-zero-skips-all"
+file = "src/kernel/mixed-shift.fs"
+old = '''  over 0= if 2drop outcome-ok exit then'''
+new = '''  2drop outcome-ok exit'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "6.5.5: the replacement is never lifted, so it is captured under a binder"
+
+[[fault]]
+id = "s6a-shift-memo-no-offset"
+file = "src/kernel/mixed-shift.fs"
+old = '''  frame-context @ lf-mshift-memo lf-rmemo@ ;'''
+new = '''  drop 0 lf-mshift-memo lf-rmemo@ ;'''
+test = "$GFORTH tests/core/mixed-shift.fs"
+reason = "6.5.5: the shift's memo keyed without the cutoff gives a node under a binder the result it had outside"
+
+[[fault]]
+id = "s6a-inst-skip-reaches"
+file = "src/kernel/mixed-instantiate.fs"
+old = '''  swap lf-term-data@ if lf-data-loose swap frame-context @ > 0= else drop false then ;'''
+new = '''  swap lf-term-data@ if lf-data-loose 1- swap frame-context @ > 0= else drop false then ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "6.5.5: instantiate keeps a node whose loose range reaches the binder depth, its target not replaced"
+
+[[fault]]
+id = "s6a-inst-memo-no-offset"
+file = "src/kernel/mixed-instantiate.fs"
+old = '''  frame-context @ lf-minst-memo lf-rmemo@ ;'''
+new = '''  drop 0 lf-minst-memo lf-rmemo@ ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "6.5.5: the instantiate memo keyed without the depth gives a node under a binder the result it had outside"
+
+[[fault]]
+id = "s6a-scope-one-stamp"
+file = "src/kernel/mixed-open.fs"
+old = '''  dup lf-fvar-live? if lf-term-identity drop 1+ else drop 0 then ;'''
+new = '''  drop 1 ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "6.5.5: every closing shares one stamp, so a closing under one scope gets another scope's results"
+
+[[fault]]
+id = "s6a-whnf-word-no-fvar"
+file = "src/kernel/whnf.fs"
+old = '''  dup lf-data-loose 0<> swap lf-data-fvar? or ;'''
+new = '''  lf-data-loose 0<> ;'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "6.5.5: has_fvar read from the data word misses a free variable"
+
+[[fault]]
+id = "s6a-whnf-word-loose-fvar"
+file = "src/kernel/whnf.fs"
+old = '''  ['] lf-whnf-scan-visit = if lf-data-loose 0<> exit then'''
+new = '''  ['] lf-whnf-scan-visit = if dup lf-data-loose 0<> swap lf-data-fvar? or exit then'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "6.5.5: has_loose_bvars read from the data word counts a free variable as a loose bound variable"
+
+[[fault]]
+id = "s6a-infer-word-short"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-term-data@ if lf-data-loose true else false then ;'''
+new = '''  lf-term-data@ if lf-data-loose 1- 0 max true else false then ;'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "6.5.5: inference closes a term with one free variable too few, leaving its outermost loose variable"
+
+[[fault]]
+id = "s6a-infer-key-failure-ignored"
+file = "src/kernel/caches.fs"
+old = '''  lf-minfer-close ok-then? 0= if lf-ci-short false exit then'''
+new = '''  lf-minfer-close ok-then? 0= if drop outcome-ok false exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "6.5.5: a closing for a key that runs out of room lets inference go on uncached, so a refused allocation does not end the block full"
+
+# --- compact-store plan step S4 (agent S4) ---------------------------------
+[[fault]]
+id = "cache-dead-fvar"
+file = "src/kernel/caches.fs"
+old = '''  dup dup lf-term-tag@ lf-tag-fvar = if lf-fvar-live? else drop false then lf-live! ;'''
+new = '''  dup dup lf-term-tag@ lf-tag-fvar = if drop true else drop false then lf-live! ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "a free variable of an emptied local context gets facts (since S4 the free-variable memo's leaf)"
+
+[[fault]]
+id = "fx7-mls-skip-first"
+file = "src/kernel/mixed-level-substitute.fs"
+old = '''  over lf-mls-skip? if lf-walk-skip else lf-mls-first then ;'''
+new = '''  over lf-mls-skip? if lf-mls-first else lf-walk-skip then ;'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "FX7: a term is skipped the first time and checked only when reached again"
+
+[[fault]]
+id = "s6c-cref-reset-same-generation"
+file = "src/core/constant-references.fs"
+old = ''': lf-cref-reset ( -- ) 0 lf-cref-count ! lf-crefs store-epoch+ lf-cref-table-empty ;'''
+new = ''': lf-cref-reset ( -- ) 0 lf-cref-count ! lf-cref-table-empty ;'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S6C: a reference reset leaves the generation, so the memo keeps a constant whose reference went"
+
+[[fault]]
+id = "s4-levels-collision-equal"
+file = "src/core/levels.fs"
+old = '''  >r lf-level-slot node@ r> lf-term-key= ;'''
+new = '''  2drop drop true ;'''
+test = "$GFORTH tests/core/levels.fs"
+reason = "S4: a level found under the same hash run is taken as equal without comparing its fields"
+
+[[fault]]
+id = "s4-levels-rollback-keeps-entries"
+file = "src/core/levels.fs"
+old = '''  dup lf-levels store-mark-valid? if dup mark-count @ lf-level-unlist then'''
+new = ''''''
+test = "$GFORTH tests/core/levels.fs"
+reason = "S4: a level rollback leaves the given-back records' table entries"
+
+[[fault]]
+id = "s4-levels-reset-keeps-table"
+file = "src/core/levels.fs"
+old = '''  lf-level-table-empty
+'''
+new = ''''''
+test = "$GFORTH tests/core/levels.fs"
+reason = "S4: a level reset keeps the table's entries of the records it discarded"
+
+[[fault]]
+id = "s4-levels-zero-not-entered"
+file = "src/core/levels.fs"
+old = '''  lf-level-restart lf-levels store-epoch+ lf-level-enter-zero ;'''
+new = '''  lf-level-restart lf-levels store-epoch+ ;'''
+test = "$GFORTH tests/core/levels.fs"
+reason = "S4: the zero level is not in the table, so a zero made by lf-level-add is a second zero"
+
+[[fault]]
+id = "s4-levels-found-unchecked"
+file = "src/core/levels.fs"
+old = '''  lf-levels store-open? if true else drop lf-level-refused then ;'''
+new = '''  true ;'''
+test = "$GFORTH tests/core/levels.fs"
+reason = "S4: an equal level is given where a new one would be refused"
+
+[[fault]]
+id = "s4-crefs-list-interned-twice"
+file = "src/core/constant-references.fs"
+old = '''  lf-term-sharing? if lf-cref-intern else lf-cref-store then ;'''
+new = '''  lf-cref-store ;'''
+test = "$GFORTH tests/core/constant-references.fs"
+reason = "S4: an equal reference (name and level list) is made again as a record of its own"
+
+[[fault]]
+id = "s4-crefs-pairs-ignored"
+file = "src/core/constant-references.fs"
+old = '''  swap lf-cref-pairs rot 2 cells + @ swap lf-cref-pairs= ;'''
+new = '''  2drop true ;'''
+test = "$GFORTH tests/core/constant-references.fs"
+reason = "S4: references of one name and arity are taken as equal whatever their levels"
+
+[[fault]]
+id = "s4-crefs-rollback-keeps-entries"
+file = "src/core/constant-references.fs"
+old = '''  dup lf-crefs store-mark-valid? if dup mark-count @ lf-cref-unlist then'''
+new = ''''''
+test = "$GFORTH tests/core/constant-references.fs"
+reason = "S4: a reference rollback leaves the given-back records' table entries"
+
+[[fault]]
+id = "s4-crefs-found-unchecked"
+file = "src/core/constant-references.fs"
+old = '''  lf-crefs store-ready drop lf-crefs store-open?'''
+new = '''  true'''
+test = "$GFORTH tests/core/constant-references.fs"
+reason = "S4: an equal reference is given where a new one would be refused"
+
+[[fault]]
+id = "s4-reusable-always"
+file = "src/core/terms.fs"
+old = '''  dup lf-term-reusable? if lf-term-found exit then'''
+new = '''  lf-term-found exit'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S4: a found node is given again unasked, so a raw unstamped node is given out as a constant"
+
+[[fault]]
+id = "s4-reusable-constant-unstamped"
+file = "src/core/constant-term-boundary.fs"
+old = '''    lf-tag-constant of lf-cterm-made? endof'''
+new = '''    lf-tag-constant of drop true endof'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S4: a found constant is given again without its stamps"
+
+[[fault]]
+id = "s4-reusable-ref-ignored"
+file = "src/core/constant-term-boundary.fs"
+old = '''  dup lf-cterm-stamped? if lf-cterm-ref-live? else drop false then ;'''
+new = '''  lf-cterm-stamped? ;'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S4: a found constant whose reference was reset and made again at its index is given again"
+
+[[fault]]
+id = "s4-reusable-sort-level-ignored"
+file = "src/core/constant-term-boundary.fs"
+old = '''    lf-tag-symbolic-sort of dup lf-term-first@ swap lf-hsort-stamped? endof'''
+new = '''    lf-tag-symbolic-sort of drop true endof'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S4: a found Sort whose level was reset and made again at its index is given again"
+
+[[fault]]
+id = "s4-const-audit-current-ref"
+file = "src/core/constant-term-boundary.fs"
+old = '''  >r r@ walk-node @ lf-cterm-ref lf-cref-levels'''
+new = '''  >r r@ walk-node @ lf-term-first@ dup lf-cref-current lf-cref-levels'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S4: the audit takes the record now at a constant's index instead of the stamped reference"
+
+[[fault]]
+id = "s4-const-ref-in-field"
+file = "src/core/constant-term-boundary.fs"
+old = '''  >r lf-tag-constant swap 0 lf-term-add lf-hterm-result'''
+new = '''  >r lf-tag-constant swap r@ lf-term-add lf-hterm-result'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "rvS36 L1: a constant keeps its reference's identity in a 32-bit field (full past 2^32 - 1)"
+
+[[fault]]
+id = "s4-cache-key-stale-node"
+file = "src/kernel/caches.fs"
+old = '''  swap lf-term-identity 0= if drop false exit then swap lf-data-bits true ;'''
+new = '''  over lf-term-identity nip 0= if drop false exit then lf-data-bits true ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S4: a cache keys a node by its index, so a stale entry answers a new node"
+
+[[fault]]
+id = "s4-fvmemo-children-live"
+file = "src/kernel/caches.fs"
+old = '''  dup lf-term-data-word lf-data-fvar? 0= if drop true true exit then lf-live@ ;'''
+new = '''  drop true true ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S4: a node over a dead free variable gets facts (the memo does not walk to the leaf)"
+
+[[fault]]
+id = "s4-eq-identity-skipped"
+file = "src/kernel/mixed-compare.fs"
+old = '''  >r 2dup = if 2drop r> drop outcome-ok exit then'''
+new = '''  >r'''
+test = "$GFORTH tests/core/mixed-compare.fs"
+reason = "S4: == walks a pair of one node instead of answering at once (Lean's is_eqp)"
+
+[[fault]]
+id = "s4-eq-apart-equal"
+file = "src/kernel/mixed-compare.fs"
+old = '''  lf-meq-word swap lf-meq-word over -1 = over -1 = or if 2drop false else <> then ;'''
+new = '''  lf-meq-word swap lf-meq-word over -1 = over -1 = or if 2drop false else = then ;'''
+test = "$GFORTH tests/core/mixed-convert.fs"
+reason = "S4: == takes equal data words for a difference"
+
+[[fault]]
+id = "s4-eq-seen-first"
+file = "src/kernel/mixed-compare.fs"
+old = '''  if drop 2drop true else lf-meq-keep false then ;'''
+new = '''  if drop 2drop true else lf-meq-keep true then ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S4: == takes a pair met for the first time as met before, never walking it"
+
+[[fault]]
+id = "s4-eq-one-head-any"
+file = "src/kernel/mixed-compare.fs"
+old = '''  if lf-mcompare-firsts = else 2drop false then ;'''
+new = '''  2drop true ;'''
+test = "$GFORTH tests/core/mixed-convert.fs"
+reason = "S4: == takes any two constants or Sorts as one"
+
+[[fault]]
+id = "fx9-input-intact-always"
+file = "src/core/input.fs"
+old = '''  lf-input-sealed? ['] store-mark-valid? lf-input-all? and
+  lf-name-used @ lf-input-bytes @ >= and ;'''
+new = '''  true ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "rvS12 L3: lf-input-intact? always true"
+equivalent = "defence in depth: a broken term or level seal at the root is still refused by the store roots every pass checks first (diagnostic 22 or 27), so the seal rows end invalid either way"
+
+[[fault]]
+id = "fx9-env-still-always"
+file = "src/kernel/env-publish.fs"
+old = ''': lf-env-still? ( i -- flag ) lf-env-checking if nip = else drop false then ;'''
+new = ''': lf-env-still? ( i -- flag ) drop true ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "rvS12 L3: lf-env-still? always true"
+equivalent = "defence in depth: the seal rows break no snapshot (only a check of another declaration moves it), and a broken seal is refused by the passes and the pool writes before the hand-over"
+
+[[fault]]
+id = "fx9-mls-prepare-nip-nip"
+file = "src/kernel/mixed-level-substitute.fs"
+old = '''  dup lf-mls-actual-cells slab-hold ok-then? 0= if nip exit then'''
+new = '''  dup lf-mls-actual-cells slab-hold ok-then? 0= if nip nip exit then'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "rvS12 L2: a full heap in lf-mls-prepare leaves two cells (an index and an id) with the refusal"
+
+[[fault]]
+id = "s4-mls-closed-always"
+file = "src/kernel/mixed-level-substitute.fs"
+old = ''': lf-mls-closed? ( node -- flag ) lf-term-data@ if lf-data-params? 0= else false then ;'''
+new = ''': lf-mls-closed? ( node -- flag ) drop true ;'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "S4: universe substitution skips every term, parameters or not"
+
+[[fault]]
+id = "s4-mls-image-unlisted"
+file = "src/kernel/mixed-level-substitute.fs"
+old = '''  if nip lf-mls-image-cell @ else drop then ;'''
+new = '''  drop nip lf-mls-image-cell @ ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S4: a term the audit skipped takes the image of the term listed where it would be"
+
+[[fault]]
+id = "s4-lcmp-memo-no-generation"
+file = "src/kernel/level-compare.fs"
+old = '''  lf-level-identity drop lf-lscope-generation @ ;'''
+new = '''  lf-level-identity drop 1 ;'''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "S4: a level kept in scope stays kept when the parameter context changes"
+
+[[fault]]
+id = "s4-lcmp-memo-no-identity"
+file = "src/kernel/level-compare.fs"
+old = '''  dup lf-lcmp-unit 2@ rot lf-lcmp-stamp d= ;'''
+new = '''  dup lf-lcmp-unit 2@ nip swap lf-lcmp-stamp nip = ;'''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "S4: a level index made again after a rollback counts as kept in scope"
+
+[[fault]]
+id = "s4-lcmp-memo-always"
+file = "src/kernel/level-compare.fs"
+old = '''  lf-audit-on? 0= if drop false exit then
+'''
+new = ''''''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "S4: a level kept in scope while the memo was on counts as kept after it is off"

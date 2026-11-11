@@ -67,7 +67,7 @@ variable dump-notes?  true dump-notes? !
   dup arrow? if drop s"  [arrow] 0" d else dump-binder then ;
 : dump-levels ( addr n -- ) 0 ?do s"  " d dup i lf-cref-pair@ drop dump-level loop drop ;
 : dump-const ( term -- )
-  s" (const " d dup lf-term-first@ swap lf-term-second@ 2dup lf-cref-read
+  s" (const " d lf-term-first@ dup lf-cref-current 2dup lf-cref-read
   0= abort" dump: stale reference" 2drop dump-name lf-cref-levels drop dump-levels s" )" d ;
 defer dump-sub ( term -- )
 : dump-node ( term -- )

@@ -19,6 +19,7 @@ include ../support/checks.fs
 include ../support/heap-watch.fs
 require ../../src/main.fs
 include ../support/plain-terms.fs
+require ../support/store-faults.fs
 
 \ Room for every case of this file in one session.
 4096 lf-term-capacity! ok? must  1024 lf-level-capacity! ok? must
@@ -158,6 +159,30 @@ create no-levels 1 cells allot
 T{ lf-diag-clear s" c" name-of const whnf lf-diag-code@ -> -1 outcome-unknown lf-diag-needs-unfolding }T
 T{ s" c" name-of const 0 make-sort make-app dup core drop = -> true }T
 
+\ cheap_proj (whnf.fs; plan task 5.2.2): reduce_proj's visit of a
+\ projection's term is whnf_core in a cheap whnf_core visit's mode, else
+\ whnf -- told apart by a constant: whnf_core keeps it, whnf is unknown
+\ (K1). A visit that changes the mode pushes the step that puts it back
+\ (one cell), one that keeps it pushes nothing; after a cheap visit the
+\ mode is put back.
+: proj-term ( node flag -- node' outcome )
+  lf-whnf-cheap ! 100000 fuelled dq ['] lf-whnf-proj-call frame-through drop lf-whnf-reset ;
+T{ s" c" name-of const dup true proj-term -rot = -> outcome-ok true }T
+T{ s" c" name-of const false proj-term nip -> outcome-unknown }T
+T{ dq frame-reset dq true lf-whnf-mode frame-used @ lf-whnf-cheap? -> 1 true }T
+T{ 0 outcome-ok dq dq frame-restore execute nip nip nip lf-whnf-cheap? -> 0 false }T
+T{ dq frame-reset dq false lf-whnf-mode frame-used @ lf-whnf-cheap? -> 0 false }T
+: cheap-core ( node -- node' outcome )
+  100000 fuelled dq ['] lf-whnf-cheap-call frame-through drop ;
+T{ s" c" name-of const cheap-core nip lf-whnf-cheap? -> outcome-ok false }T
+\ Lean's is_proj, is_app and get_app_fn (defeq.fs): a projection, the
+\ application of a projection leaf to its term, is no application; the
+\ function of (p.0 a) is p.0, with one argument.
+: proj-of ( node -- node' ) s" P" name-of 0 lf-hterm-proj must drop swap make-app ;
+T{ 0 make-var proj-of dup lf-dq-proj? swap lf-dq-app? -> true false }T
+T{ 0 make-var proj-of dup 1 make-var make-app lf-dq-fn -rot = -> 1 true }T
+T{ 0 make-var proj-of 1 make-var make-app dup lf-dq-proj? swap lf-dq-app? -> false true }T
+
 \ K7 (ADR 0014 Q8): Nat.succ with one argument, a binary Nat operation
 \ with two, by name and without universe arguments; not with another
 \ count, another name, or Nat.succ as one component.
@@ -249,7 +274,7 @@ T{ s" " form-of swap length-of -> true 0 }T
 T{ s" abc" str 2 expanded -> -1 outcome-exhausted }T
 T{ s" abc" str 3 expanded nip dq frame-fuel @ -> outcome-ok 0 }T
 \ Bytes that are no UTF-8 character (a corrupted leaf): invalid.
-: cut ( leaf -- leaf ) 1 over lf-term-slot node-second ! ;
+: cut ( leaf -- leaf ) 1 over term-second! ;
 T{ s\" \xc3\xa9" str cut 100 expanded -> -1 outcome-invalid }T
 \ Step 13 applies to a literal t and String.ofList x as s alone: not to a
 \ String.ofList with a universe argument, with two arguments, or of

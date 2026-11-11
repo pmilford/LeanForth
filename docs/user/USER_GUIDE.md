@@ -55,11 +55,13 @@ tools.
 
 - **Not yet a checker you can rely on, nor one for real libraries.** The
   first checker ([ADR 0011](../adr/0011-definite-rejection.md), rules
-  approved on 2026-11-02) accepts and rejects definitions, theorems and
-  simple inductive types, but its code has not passed its review gate. It
-  reads a whole library — all of Lean's `Init` — yet most of it ends
-  *unsupported* or *unknown*, because unfolding definitions, recursive
-  data types and literals are not built yet ([the command line](COMMAND_LINE.md#a-whole-library-leans-init)).
+  approved on 2026-11-02) accepts and rejects definitions, theorems, inductive types
+  (also recursive and mutual), `let`, literals, projections and quotients,
+  but several of these parts have not passed their review gates and none
+  is independently audited. It reads a whole library — all of Lean's
+  `Init` — yet it has checked no Mathlib declaration (0 of 729,263), and
+  some constructs (nested inductive types, metadata, unsafe and partial
+  declarations) are still *unsupported* ([the command line](COMMAND_LINE.md#a-whole-library-leans-init)).
 - **Not a replacement for Lean's front end.** LeanForth checks finished
   proof terms. Writing proofs — the elaborator, tactics, `simp` — stays in
   Lean; you check a Lean file by exporting it. Writing theorems and proofs

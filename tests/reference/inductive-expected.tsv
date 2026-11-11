@@ -88,6 +88,17 @@ mutual.one-constructor	accepted	accepted	A1 E1	5.2.5a	OA: idx=0 rec=1 refl=0 nes
 nested.tree	accepted	accepted	A1 N1	5.2.5b	Tree: idx=0 rec=1 refl=0 nested=1 elim=any k=0 motives=2 minors=3 fields=[1] aux=[rec_1]
 nested.non-positive	nonPositive	rejected	N1 P1	5.2.5b	
 nested.local-variable	nestedLocalVariable	rejected	N2	5.2.5b	
+nested.array-tree	accepted	accepted	A1 N1	5.2.5b	ATree: idx=0 rec=1 refl=0 nested=2 elim=any k=0 motives=3 minors=4 fields=[1] aux=[rec_1, rec_2]
+nested.list-list	accepted	accepted	A1 N1	5.2.5b	LL: idx=0 rec=1 refl=0 nested=2 elim=any k=0 motives=3 minors=5 fields=[1] aux=[rec_1, rec_2]
+nested.option	accepted	accepted	A1 N1	5.2.5b	OT: idx=0 rec=1 refl=0 nested=1 elim=any k=0 motives=2 minors=4 fields=[0, 1] aux=[rec_1]
+nested.prod	accepted	accepted	A1 N1	5.2.5b	PT: idx=0 rec=1 refl=0 nested=2 elim=any k=0 motives=3 minors=5 fields=[0, 1] aux=[rec_1, rec_2]
+nested.parameter	accepted	accepted	A1 N1	5.2.5b	PTr: idx=0 rec=1 refl=0 nested=1 elim=any k=0 motives=2 minors=3 fields=[2] aux=[rec_1]
+nested.universe	accepted	accepted	A1 N1	5.2.5b	UT: idx=0 rec=1 refl=0 nested=1 elim=any k=0 motives=2 minors=3 fields=[2] aux=[rec_1]
+nested.under-binder	accepted	accepted	A1 N1	5.2.5b	BT: idx=0 rec=1 refl=1 nested=1 elim=any k=0 motives=2 minors=3 fields=[1] aux=[rec_1]
+nested.mutual	accepted	accepted	A1 N1	5.2.5b	NA: idx=0 rec=1 refl=0 nested=1 elim=any k=0 motives=3 minors=5 fields=[1] aux=[rec_1]; NB: idx=0 rec=1 refl=0 nested=1 elim=any k=0 motives=3 minors=5 fields=[1, 0]
+nested.thunk	accepted	accepted	A1 N1	5.2.5b	TT: idx=0 rec=1 refl=1 nested=1 elim=any k=0 motives=2 minors=3 fields=[0, 1] aux=[rec_1]
+nested.constructor-named-rec-1	alreadyDeclared	rejected	N1 N2	5.2.5b	
+nested.array-non-positive	nonPositive	rejected	N1 P1	5.2.5b	
 names.already-declared	alreadyDeclared	rejected	T5	5.2.1a	
 names.duplicate-constructor	duplicateConstructor	rejected	C4	5.2.1a	
 names.duplicate-universe	duplicateLevelParam	rejected	T5	5.2.1a	
@@ -113,6 +124,30 @@ iota.prod-eta	accepted	accepted	R1 R3	5.2.2
 iota.and-prop-stuck-bool	declTypeMismatch	rejected	R1 R3	5.2.2	
 iota.structure-eta	accepted	accepted	R1 R3	5.2.2	
 proj.index-differs	declTypeMismatch	rejected	J1	5.2.2	
+proj.app-eta	accepted	accepted	J1 R4	5.2.2	
+proj.app-eta-wrong	declTypeMismatch	rejected	J1 R4	5.2.2	
+proj.lazy-terms	accepted	accepted	J1	5.2.2	
+proj.lazy-terms-wrong	declTypeMismatch	rejected	J1	5.2.2	
+proj.lazy-fields	accepted	accepted	J1	5.2.2	
+proj.lazy-fields-wrong	declTypeMismatch	rejected	J1	5.2.2	
+proj.whnf-term	accepted	accepted	J1	5.2.2	
+proj.whnf-term-wrong	declTypeMismatch	rejected	J1	5.2.2	
+proj.unfold-proj-app	accepted	accepted	J1	5.2.2	
+proj.unfold-proj-app-wrong	declTypeMismatch	rejected	J1	5.2.2	
+proj.unfold-proj-app-stuck	accepted	accepted	J1	5.2.2	
+proj.unfold-proj-app-stuck-wrong	declTypeMismatch	rejected	J1	5.2.2	
+proj.step8-second-field	accepted	accepted	J1	5.2.2	
+proj.step8-second-field-wrong	declTypeMismatch	rejected	J1	5.2.2	
+proj.step8-pair-params	accepted	accepted	J1	5.2.2	
+proj.step8-pair-params-wrong	declTypeMismatch	rejected	J1	5.2.2	
+proj.unfold-proj-app-delta	accepted	accepted	J1	5.2.2	
+proj.unfold-proj-app-delta-wrong	declTypeMismatch	rejected	J1	5.2.2	
+proj.cheap-step3	accepted	accepted	J1	5.2.2	
+proj.cheap-step3-wrong	declTypeMismatch	rejected	J1	5.2.2	
+proj.step8-nested	accepted	accepted	J1	5.2.2	
+proj.step8-nested-wrong	declTypeMismatch	rejected	J1	5.2.2	
+proj.step8-args-differ	accepted	accepted	J1	5.2.2	
+proj.step8-args-differ-wrong	declTypeMismatch	rejected	J1	5.2.2	
 iota.prop-structure-stuck	declTypeMismatch	rejected	R1 R3	5.2.2	
 k.eq-variable-proof	accepted	accepted	R2	5.2.1c	
 k.eq-different-ends	declTypeMismatch	rejected	R2	5.2.1c	
@@ -166,6 +201,8 @@ lit.string-projected	accepted	accepted	L4	5.2.3
 lit.string-major	accepted	accepted	L2	5.2.3	
 lit.string-major-wrong	declTypeMismatch	rejected	L2	5.2.3	
 lit.string-decide	accepted	accepted	L4	5.2.3	
+iota.nested-syntax-rec	accepted	accepted	R1 N1	5.2.5b	
+iota.nested-syntax-rec-wrong	declTypeMismatch	rejected	R1 N1	5.2.5b	
 replay.original	accepted	accepted	A1 B3	5.2.1b	
 replay.rule-right-sides-swapped	invalidRecursor	rejected	B3	5.2.1b	
 replay.recursor-k-set	invalidRecursor	rejected	B3	5.2.1b	
@@ -198,6 +235,17 @@ replay-bool.constructor-universe-added	invalidConstructor	rejected	B3	5.2.1a
 replay-and.recursor-k-set	invalidRecursor	rejected	B3 K1	5.2.1a	
 replay-unit.recursor-k-set	invalidRecursor	rejected	B3 K1	5.2.1a	
 replay-or.recursor-large-elimination	invalidRecursor	rejected	B3 E1	5.2.1a	
+replay-nested.original	accepted	accepted	A1 N1 B3	5.2.5b	
+replay-nested.aux-rules-swapped	invalidRecursor	rejected	N1 B3	5.2.5b	
+replay-nested.aux-type-changed	invalidRecursor	rejected	N1 B3	5.2.5b	
+replay-nested.aux-motives-changed	invalidRecursor	rejected	N1 B3	5.2.5b	
+replay-nested.aux-minors-changed	invalidRecursor	rejected	N1 B3	5.2.5b	
+replay-nested.aux-nfields-changed	invalidRecursor	rejected	N1 B3	5.2.5b	
+replay-nested.aux-rule-constructor-changed	invalidRecursor	rejected	N1 B3	5.2.5b	
+replay-nested.main-motives-changed	invalidRecursor	rejected	N1 B3	5.2.5b	
+replay-nested.aux-renamed	noSuchRecursor	rejected	N1 B3	5.2.5b	
+replay-nested.aux-left-out	accepted	accepted	N1 B4	5.2.5b	
+replay-nested.numNested-changed	accepted	accepted	N1 B4	5.2.5b	
 after.recursor-left-out-then-def-rec	alreadyDeclared	rejected	B4 N2	5.2.1a	
 after.recursor-then-def-rec	alreadyDeclared	rejected	N2	5.2.1a	
 after.recursor-left-out-then-use-rec	accepted	accepted	B4	5.2.1a	
@@ -277,6 +325,10 @@ lie.structure-said-recursive-then-eta	accepted	accepted	B4 R4	5.2.2
 lie.structure-said-indexed-then-eta	accepted	accepted	B4 R4 J1	5.2.2	
 lie.structure-said-recursive-then-iota	accepted	accepted	B4 R3	5.2.2	
 lie.recursive-said-not-then-iota	declTypeMismatch	rejected	B4 R3	5.2.2	
+nested.aux-name-taken	accepted	accepted	A1 N1	5.2.5b	
+nested.aux-rec-name-taken	alreadyDeclared	rejected	N1 N2	5.2.5b	
+nested.phantom-parameter	accepted	accepted	A1 N1	5.2.5b	
+nested.ill-typed-parameter	funExpected	rejected	N1 F1	5.2.5b	
 lit.free-variable-pow-refused	natCountTooBig	rejected	L1	5.2.3	
 lit.free-variable-pow	accepted	accepted	L1	5.2.3	
 lit.free-variable-shift-refused	natCountTooBig	rejected	L1	5.2.3	
@@ -293,6 +345,10 @@ opaque.never-unfolds	declTypeMismatch	rejected	O1	4.2.6
 opaque.unfolds-as-definition	accepted	accepted	O1	4.2.6	
 names.reserved-nested-prefix	reservedNestedPrefix	rejected	T0	5.2.5b	
 names.reserved-nested-prefix-declared	reservedNestedPrefix	rejected	T0	5.2.1a	
+names.reserved-nested-prefix-proj	reservedNestedPrefix	rejected	T0	5.2.5b	
+names.reserved-nested-prefix-proj-twin	accepted	accepted	A1 T0 J1	5.2.5b	
+nested.def-named-rec-1	alreadyDeclared	rejected	N1 N2	5.2.5b	
+nested.def-named-rec-huge	accepted	accepted	A1 N1 N2	5.2.5b	
 names.constructor-already-declared	alreadyDeclared	rejected	N2	5.2.1a	
 proj.reduces	accepted	accepted	J1	5.2.2	
 proj.reduces-wrong	declTypeMismatch	rejected	J1	5.2.2	
@@ -354,3 +410,22 @@ after.quot-then-ind-declared	alreadyDeclared	rejected	Q1 N2	5.2.4
 after.quot-then-mk-declared-then-used	accepted	accepted	Q1 N2	5.2.4	
 after.user-quot-lift-not-reduced	declTypeMismatch	rejected	Q2	5.2.4	
 replay-iff.flagged-then-propext	accepted	accepted	A1 B4	5.3.1	
+unsafe.def	accepted	skipped	SK	5.2.7	
+unsafe.def-recursive	accepted	skipped	SK	5.2.7	
+unsafe.def-ill-typed	accepted	skipped	SK	5.2.7	
+unsafe.def-then-safe-user	unknownConstant	rejected	SK N1	5.2.7	
+unsafe.def-then-unsafe-user	accepted	skipped	SK	5.2.7	
+partial.def-recursive	accepted	skipped	SK	5.2.7	
+partial.def-then-safe-user	unknownConstant	rejected	SK N1	5.2.7	
+unsafe.postulate	accepted	skipped	SK	5.2.7	
+unsafe.postulate-then-safe-user	unknownConstant	rejected	SK N1	5.2.7	
+unsafe.opaque	accepted	skipped	SK	5.2.7	
+unsafe.opaque-then-safe-user	unknownConstant	rejected	SK N1	5.2.7	
+unsafe.inductive-not-positive	accepted	skipped	SK	5.2.7	
+unsafe.inductive-then-safe-user	unknownConstant	rejected	SK N1	5.2.7	
+unsafe.inductive-type-safe	accepted	unsupported	SK B3	5.2.7	
+unsafe.rec-name-before-block	accepted	accepted	SK N2	5.2.7	
+unsafe.rec-name-before-block-holding-it	duplicateDeclaration	rejected	SK N2	5.2.7	
+partial.rec-name-before-block	accepted	accepted	SK N2	5.2.7	
+unsafe.aux-rec-name-before-nested-block	accepted	accepted	SK N1 N2	5.2.7	
+unsafe.block-constructor-twice	duplicateDeclaration	rejected	SK N2	5.2.7	

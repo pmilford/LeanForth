@@ -93,7 +93,9 @@ T{ 1 lf-input-read nip 2 lf-input-read nip -1 lf-input-read nip -> outcome-ok ou
 \ go on.
 lf-term-count @ constant terms-then
 lf-name-used @ constant bytes-then
-0 lf-term-sort 2drop 0 s" scratch" lf-name-str 2drop
+\ (A Sort no node has yet, so a new node: the term store gives an equal
+\ node back, compact-store plan step S3.)
+9999 lf-term-sort 2drop 0 s" scratch" lf-name-str 2drop
 T{ lf-term-count @ terms-then 1+ = lf-name-used @ bytes-then > -> true true }T
 T{ ' lf-input-rollback rs-checked lf-term-count @ lf-name-used @ -> outcome-ok terms-then bytes-then }T
 T{ lf-input-intact? -> true }T
@@ -949,6 +951,24 @@ T{ lf-env-hand-over -> outcome-invalid false }T
 \ invalid.
 3 lf-env-begin drop 99 lf-env-cand lf-cand-outcome !
 T{ lf-env-hand-over lf-env-view 3 lf-env-outcome -> outcome-invalid false outcome-ok outcome-invalid }T
+\ A skip (lf-env-skip, plan task 5.2.7) needs a check's snapshot: in a
+\ view it is invalid and claims nothing.
+T{ lf-kind-definition lf-safety-unsafe 1 lf-env-skip lf-env-cand lf-cand-skipped @
+   -> outcome-invalid 0 }T
+env-free
+\ A skipped slot's name stays taken: N2 rejects a later declaration of it,
+\ and the publisher refuses one claimed ok (part 4).
+lf-input-reset
+n.A def lf-safety-unsafe buf lf-idecl-safety ! add
+n.A def add
+ends
+8 fresh-env
+0 lf-env-begin drop true lf-env-skipped! outcome-rejected lf-env-finish
+T{ lf-env-hand-over lf-env-view drop 0 lf-env-skipped? -> outcome-rejected false true }T
+1 lf-env-begin drop
+T{ lf-env-own-name lf-diag-code@ -> outcome-rejected lf-diag-already-declared }T
+1 lf-env-begin drop outcome-ok lf-env-finish
+T{ lf-env-hand-over lf-diag@ nip -> outcome-invalid false 1 4 lf-diag-recheck }T
 env-free
 
 \ ---------------------------------------------------------------------------
@@ -1145,6 +1165,15 @@ T{ ' syn-check ' main-maker lf-env-run env-digest run-1 = -> outcome-invalid tru
 env-free
 T{ ' syn-check ' main-maker lf-env-run -> outcome-invalid }T
 T{ lf-env-spent? -> false }T
+
+\ The k of an auxiliary recursor's name T.rec_k: 0 for a leading zero, for
+\ more than 19 digits and for a number beyond one cell, never read modulo
+\ 2^64 (review rvUNNI L1: rec_18446744073709551617 is no rec_1).
+: aux-k ( c-addr u -- k ) 0 -rot lf-name-str drop lf-env-aux-k ;
+T{ s" rec_1" aux-k s" rec_42" aux-k s" rec_01" aux-k -> 1 42 0 }T
+T{ s" rec_2147483647" aux-k -> 2147483647 }T
+T{ s" rec_18446744073709551617" aux-k s" rec_99999999999999999999" aux-k -> 0 0 }T
+T{ s" rec_340282366920938463463374607431768211457" aux-k -> 0 }T
 
 \ The identity serial: once spent, no environment can be made.
 lf-env-serial @ constant serial-now

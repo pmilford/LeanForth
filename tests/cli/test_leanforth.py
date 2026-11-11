@@ -3,8 +3,14 @@
 1. Every exit code, with the exact text printed:
    0 every declaration accepted (composition; the constant fixture's three;
      tests/cli/chain.ndjson, larger than --record holds; tests/cli/
-     inductive.ndjson, an inductive type and a theorem by its recursor);
-   1 rejected (composition with the wrong argument);
+     inductive.ndjson, an inductive type and a theorem by its recursor;
+     tests/cli/sharing.ndjson, proofs shared along 2^40 paths, in little fuel,
+     and sharing-universe.ndjson, such a statement at a universe argument;
+     tests/cli/nested.ndjson, nested inductive types as Lean writes them),
+     or skipped (composition as an unsafe definition, plan task 5.2.7);
+   1 rejected (composition with the wrong argument; the wrong twins of
+     sharing.ndjson and sharing-universe.ndjson, which Lean's kernel rejects
+     too);
    2 unsupported (an axiom; a literal; with --record an inductive type,
      refused while reading) and unknown (UNKNOWN, a block whose check needs
      a recursor reduction the checker does not port yet; tests/cli/
@@ -43,7 +49,7 @@
    with its outcome's code, and no outline appears except below the
    experimental label; a name no declaration has, and print's command-line
    mistakes, are 4.
-7. --json prints one report that the schema (schemas/check-report-0.1)
+7. --json prints one report that the schema (schemas/check-report-0.2)
    accepts, for every case of 1, with the exit status, every verdict and
    the counts the text gives; it is the same on every run but for
    "measured", and its counts and fuel add up as the schema's $comment
@@ -89,6 +95,80 @@ EMPTY_BLOCK = "tests/core/check-block-cases/names.empty-block.ndjson"
 # recursor, which LeanForth does not port yet (diagnostic 81; closed by a
 # follow-up of plan task 5.2.1b, tests/core/inductive-table.py).
 UNKNOWN = "tests/core/check-block-cases/after.list-left-out-then-lookup-during-param-block.ndjson"
+# Proofs whose terms share subterms along 2^40 paths (tests/cli/sharing.lean).
+SHARING = "tests/cli/sharing.ndjson"
+
+
+def shared_twins(text):
+    """sharing.ndjson with sharedAnd and sharedBeta made the wrong twins that
+    sharing.lean shows Lean's kernel rejects (appTypeMismatch), and without
+    the theorem that uses them: in sharedAnd the innermost And.intro gets P
+    for both proofs h, in sharedBeta q 0 is True instead of h."""
+    records = [json.loads(line) for line in text.splitlines()]
+    exprs = {r["ie"]: r for r in records if "ie" in r}
+    names = {r["in"]: r["str"]["str"] for r in records if "str" in r and "in" in r}
+    values = {names.get(d["thm"]["name"]): d["thm"]["value"] for d in records if "thm" in d}
+
+    def body(e, binders):
+        for _ in range(binders):
+            e = exprs[e]["lam"]["body"]
+        return e
+
+    def args(e):
+        """The application records of e's spine, outermost first."""
+        spine = []
+        while "app" in exprs[e]:
+            spine.append(e)
+            e = exprs[e]["app"]["fn"]
+        return spine
+    level = body(values["sharedAnd"], 2)      # And.intro t t q q, 40 times over
+    while "bvar" not in exprs[exprs[args(level)[0]]["app"]["arg"]]:
+        level = exprs[args(level)[0]]["app"]["arg"]
+    spine = args(level)                       # And.intro P P h h
+    p = exprs[spine[3]]["app"]["arg"]
+    for e in spine[:2]:
+        exprs[e]["app"]["arg"] = p
+    level = body(values["sharedBeta"], 1)     # (fun y : True => q k) (q k), 10 times
+    while "bvar" not in exprs[exprs[level]["app"]["arg"]]:
+        level = exprs[level]["app"]["arg"]
+    lam = exprs[exprs[level]["app"]["fn"]]["lam"]
+    lam["body"] = exprs[level]["app"]["arg"] = lam["type"]
+    kept = [r for r in records if "thm" not in r or names.get(r["thm"]["name"]) != "sharing"]
+    return "".join(json.dumps(r, ensure_ascii=False, separators=(",", ":")) + "\n" for r in kept)
+
+
+# A statement shared along 2^40 paths, instantiated at a universe argument
+# (tests/cli/sharing-universe.lean).
+SHARING_UNIVERSE = "tests/cli/sharing-universe.ndjson"
+
+
+def universe_twin(text, twin):
+    """sharing-universe.ndjson with useU made a wrong twin that
+    sharing-universe.lean shows Lean's kernel rejects (declTypeMismatch):
+    "argument" proves it by sharedAndU.{1}, "leaves" states its leaves
+    ∀ (β : Sort 1), P. Either needs the level 1, a new record (with a new
+    sort for the leaves) written just before the record that uses it."""
+    records = [json.loads(line) for line in text.splitlines()]
+    exprs = {r["ie"]: r for r in records if "ie" in r}
+    names = {r["in"]: r["str"]["str"] for r in records if "str" in r and "in" in r}
+    use = next(r["thm"] for r in records if "thm" in r and names[r["thm"]["name"]] == "useU")
+    one = {"il": 1 + max(r["il"] for r in records if "il" in r), "succ": 0}
+    if twin == "argument":
+        target, new = exprs[use["value"]], [one]
+        target["const"]["us"] = [one["il"]]
+    else:
+        target = exprs[use["type"]]
+        for _ in range(3):                    # under α, P and h
+            target = exprs[target["forallE"]["body"]]
+        while "app" in target:                # T (k+1) = And (T k) (T k)
+            target = exprs[target["app"]["arg"]]
+        sort = {"ie": 1 + max(exprs), "sort": one["il"]}
+        target["forallE"]["type"] = sort["ie"]
+        new = [one, sort]
+    at = records.index(target)
+    records[at:at] = new
+    return "".join(json.dumps(r, ensure_ascii=False, separators=(",", ":")) + "\n"
+                   for r in records)
 
 
 def accepted(n, axioms="none"):
@@ -180,6 +260,60 @@ class ExitCodes(unittest.TestCase):
                      "lf-block-check: 0 0",
                      "1 declaration: 1 rejected"])
 
+    def test_1_shared_terms(self):
+        """Terms shared along 2^40 paths (tests/cli/sharing.lean): Lean's
+        verdicts, accepted, and on the wrong twins rejected, as Lean's
+        kernel rejects them; each node is audited, opened and compared
+        once, so the fuel stays small (it ran out at 2,000,000 before,
+        agent EX, 2026-11-10)."""
+        self.expect(["check", SHARING], 0,
+                    [f"{name}: {LABEL}" for name in
+                     ["And", "And.intro", "And.rec", "sharedAnd", "True", "True.intro",
+                      "True.rec", "sharedBeta", "trivial", "sharing"]]
+                    + ["10 declarations: 10 accepted", accepted(10)])
+        status, out, _ = run("check", "--json", SHARING)
+        fuel = {d["name"]: d["fuel"] for d in json.loads(out)["declarations"]}
+        self.assertLess(max(fuel.values()), 100000, fuel)
+        mismatch = ("  rejected: argument type mismatch (D1-D5); diagnostic 59 at mixed-infer "
+                    "lf-mixed-infer: 0 0")
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "twins.ndjson"
+            path.write_text(shared_twins((ROOT / SHARING).read_text(encoding="utf-8")),
+                            encoding="utf-8")
+            self.expect(["check", "--no-manifest", str(path)], 1,
+                        [NO_MANIFEST, *[f"{name}: {LABEL}" for name in
+                                        ["And", "And.intro", "And.rec"]],
+                         "sharedAnd: rejected", mismatch,
+                         *[f"{name}: {LABEL}" for name in ["True", "True.intro", "True.rec"]],
+                         "sharedBeta: rejected", mismatch, f"trivial: {LABEL}",
+                         "9 declarations: 7 accepted, 2 rejected", accepted(7)])
+
+    def test_1_shared_universe(self):
+        """A statement shared along 2^40 paths, instantiated at a universe
+        argument (tests/cli/sharing-universe.lean; review rvPSE M1): Lean's
+        verdicts, accepted, and on both wrong twins rejected, as Lean's
+        kernel rejects them; the level substitution checks and rebuilds
+        each shared node once, so the fuel stays small (useU ran out at
+        2,000,000 before, agent FX7, 2026-11-11)."""
+        own = ["And", "And.intro", "And.rec", "sharedAndU"]
+        self.expect(["check", SHARING_UNIVERSE], 0,
+                    [f"{name}: {LABEL}" for name in own + ["useU"]]
+                    + ["5 declarations: 5 accepted", accepted(5)])
+        status, out, _ = run("check", "--json", SHARING_UNIVERSE)
+        fuel = {d["name"]: d["fuel"] for d in json.loads(out)["declarations"]}
+        self.assertLess(fuel["useU"], 20000, fuel)
+        mismatch = ("  rejected: declared type mismatch (D1-D5); diagnostic 60 at "
+                    "check-declaration lf-check-declaration: 0 0")
+        text = (ROOT / SHARING_UNIVERSE).read_text(encoding="utf-8")
+        for twin in ("argument", "leaves"):
+            with self.subTest(twin=twin), tempfile.TemporaryDirectory() as folder:
+                path = Path(folder) / "twin.ndjson"
+                path.write_text(universe_twin(text, twin), encoding="utf-8")
+                self.expect(["check", "--no-manifest", str(path)], 1,
+                            [NO_MANIFEST, *[f"{name}: {LABEL}" for name in own],
+                             "useU: rejected", mismatch,
+                             "5 declarations: 4 accepted, 1 rejected", accepted(4)])
+
     def test_0_not_proved(self):
         """An axiom (plan task 5.3.1): Lean's verdict, accepted, marked NOT
         PROVED with the axiom named; status 0 as Lean, 6 under
@@ -206,6 +340,21 @@ class ExitCodes(unittest.TestCase):
             self.assertEqual(status, 0, case)
             self.assertIn(line, out.splitlines(), case)
 
+    def test_0_skipped(self):
+        """An unsafe or partial declaration (plan task 5.2.7): skipped, as Lean's
+        replay skips it, with Lean's status 0; a safe declaration that uses one
+        is rejected, as the official checker rejects it (unknown constant)."""
+        skip = ("  skipped: unsafe or partial, as Lean's replay skips it; diagnostic 97 at "
+                "environment lf-env-skip: 1 1")
+        self.expect(["check", "--no-manifest", f"{CASES}/composition-unsafe.ndjson"], 0,
+                    [NO_MANIFEST, "composition: skipped", skip, "1 declaration: 1 skipped"])
+        status, out, _ = run("check", "--no-manifest",
+                             "tests/core/check-block-cases/unsafe.def-then-safe-user.ndjson")
+        lines = out.splitlines()
+        self.assertEqual(status, 1)
+        self.assertIn("IE.unsafeLoop: skipped", lines)
+        self.assertIn("IE.fromUnsafe: rejected", lines)
+
     def test_2_unsupported_and_unknown(self):
         # A proof that is a string literal, typed String, which the file does not
         # declare: rejected, as pinned Lean's kernel rejects it (plan task 5.2.3).
@@ -213,8 +362,8 @@ class ExitCodes(unittest.TestCase):
         self.assertEqual((status, out.splitlines()[1]), (1, "composition: rejected"))
         status, out, _ = run("check", "--no-manifest", "tests/core/reexport/kinds.ndjson")
         self.assertEqual((status, out.splitlines()[-2:]),
-                         (2, ["106 declarations: 89 accepted, 17 unsupported",
-                              accepted(89, "propext (allowlisted); none NOT PROVED")]))
+                         (2, ["106 declarations: 94 accepted, 1 skipped, 11 unsupported",
+                              accepted(94, "propext (allowlisted); none NOT PROVED")]))
         self.expect(["check", "--no-manifest", "--record", "/dev/null",
                      "tests/core/reexport/kinds.ndjson"], 2,
                     [NO_MANIFEST,
@@ -224,6 +373,16 @@ class ExitCodes(unittest.TestCase):
                      "2 declarations: 2 accepted", accepted(2)])
         self.expect(["check", "tests/cli/irrelevance.ndjson"], 0,
                     [f"irrelevant: {LABEL}", "1 declaration: 1 accepted", accepted(1)])
+        # Nested inductive types as Lean writes them (plan task 5.2.5b; review
+        # rvUNNI): through an indexed family and a mutual block, and theorems
+        # that reduce through the auxiliary recursor VT.rec_1; all accepted.
+        status, out, _ = run("check", "tests/cli/nested.ndjson")
+        lines = out.splitlines()
+        self.assertEqual((status, lines[-2:]),
+                         (0, ["107 declarations: 107 accepted", accepted(107)]))
+        for name in ("RvNest.VT.rec_1", "RvNest.AT.rec_2", "RvNest.VT.size_two",
+                     "RvNest.R.count_mk"):
+            self.assertIn(f"{name}: {LABEL}", lines)
         recursor = ("  undecided: a recursor reduction LeanForth does not port yet; "
                     "diagnostic 81 at whnf lf-whnf: 17 0")
         self.expect(["check", "--no-manifest", UNKNOWN], 2,
@@ -237,8 +396,10 @@ class ExitCodes(unittest.TestCase):
                      "check's stores (line 97)", *LIMITS])
         self.expect(["check", "--no-manifest", "tests/cli/composition-huge-number.ndjson"], 3,
                     [NO_MANIFEST, "error: full: number beyond 32 bits (line 12)"])
-        exhausted = ["  fuel exhausted; diagnostic 1 at check-declaration "
-                     "lf-check-declaration: 0 0"]
+        # U2 reads the root's data word at no cost (plan step S6 (c)), so
+        # the structural audit is the first step that needs fuel.
+        exhausted = ["  fuel exhausted; diagnostic 1 at constant-term-boundary "
+                     "lf-cterm-check: 0 0"]
         self.expect(["check", "--fuel", "0", FIXTURE], 3,
                     ["fixtureId: exhausted", *exhausted, "fixturePoly: exhausted", *exhausted,
                      "fixtureUse: exhausted", *exhausted, "3 declarations: 3 exhausted",
@@ -361,7 +522,7 @@ class ExitCodes(unittest.TestCase):
                     continue
                 got = json.loads(out)
                 schema = Validator(json.loads(
-                    (ROOT / "schemas/check-report-0.1.schema.json").read_text()))
+                    (ROOT / "schemas/check-report-0.2.schema.json").read_text()))
                 self.assertEqual((status, schema.errors(got), got["stopped"], got["exitStatus"],
                                   got["declarations"][0]["diagnostic"]["code"]),
                                  (5, [], True, 5, 29))
@@ -384,7 +545,7 @@ class ExitCodes(unittest.TestCase):
             self.assertEqual((status, lines[0], lines[1], lines[-4:], err),
                              (5, f"fixtureId: {LABEL}", "fixturePoly: invalid",
                               ["internal fault: the run stopped: a check threw, or publishing "
-                               "failed", "fixtureUse: not checked",
+                               "failed", "fixtureUse: not checked (not reached: the run stopped)",
                                "3 declarations: 1 accepted, 1 invalid, 1 not checked",
                                accepted(1)], ""))
             status, out, err = run("check", "--json", FIXTURE, gforth=str(stub))
@@ -450,7 +611,7 @@ class OtherLean(unittest.TestCase):
                         lines[1])
 
     def test_json(self):
-        schema = Validator(json.loads((ROOT / "schemas/check-report-0.1.schema.json").read_text()))
+        schema = Validator(json.loads((ROOT / "schemas/check-report-0.2.schema.json").read_text()))
         status, out, _ = run("check", "--json", "--no-manifest", "--any-lean-version", OTHER_LEAN)
         got = json.loads(out)
         self.assertEqual((status, schema.errors(got), got["settings"]["anyLeanVersion"]),
@@ -638,7 +799,7 @@ class RunRecords(unittest.TestCase):
         return status, out, json.loads(path.read_text())
 
     def test_record_as_the_driver(self):
-        schema = Validator(json.loads((ROOT / "schemas/run-record-0.1.schema.json").read_text()))
+        schema = Validator(json.loads((ROOT / "schemas/run-record-0.2.schema.json").read_text()))
         commit, modified = git_source()
         for name in ["composition", "constant-fixture", "identity"]:
             with tempfile.TemporaryDirectory() as folder:
@@ -652,12 +813,12 @@ class RunRecords(unittest.TestCase):
             self.assertEqual((got["input"]["manifest"]["enforced"],
                               golden["input"]["manifest"]["enforced"]), (True, False))
             golden["input"]["manifest"]["enforced"] = True
-            # The command line's default fuel is 2,000,000 (since
-            # 2026-11-10); the driver that wrote the golden records gives
+            # The command line's default fuel is 20,000,000 (since
+            # 2026-11-11); the driver that wrote the golden records gives
             # 100,000. Fuel used is the same either way.
             self.assertEqual((got["settings"]["fuel"], golden["settings"]["fuel"]),
-                             (2000000, 100000))
-            golden["settings"]["fuel"] = 2000000
+                             (20000000, 100000))
+            golden["settings"]["fuel"] = 20000000
             for section in ["input", "export", "settings", "check", "declarations"]:
                 self.assertEqual(got[section], golden[section], f"{name} {section}")
 
@@ -825,6 +986,7 @@ CASES_ALL = [
     ["--no-manifest", f"{CASES}/composition-wrong-argument.ndjson"],
     ["--no-manifest", f"{CASES}/composition-postulate.ndjson"],
     ["--no-manifest", f"{CASES}/composition-loose.ndjson"],
+    ["--no-manifest", f"{CASES}/composition-unsafe.ndjson"],
     ["--no-manifest", "README.md"], ["tests/cli/no-such.ndjson"],
     ["--no-manifest", "tests/cli/composition-huge-number.ndjson"],
     ["--no-manifest", "tests/core/reexport/kinds.ndjson"], ["--fuel", "0", FIXTURE],
@@ -836,8 +998,9 @@ class JsonReport(unittest.TestCase):
     """check --json (plan task 3.4.3): one report the schema accepts, which
     says what the text says, the same on every run but for "measured"."""
 
-    schema = Validator(json.loads((ROOT / "schemas/check-report-0.1.schema.json").read_text()))
-    VERDICTS = {"accepted": "accepted", "rejected": "rejected", "unknown": "unknown",
+    schema = Validator(json.loads((ROOT / "schemas/check-report-0.2.schema.json").read_text()))
+    VERDICTS = {"accepted": "accepted", "skipped": "skipped", "rejected": "rejected",
+                "unknown": "unknown",
                 "unsupported": "unsupported", "invalid": "invalid", "exhausted": "exhausted",
                 "full": "full", "notChecked": "not-checked"}
 
@@ -879,7 +1042,7 @@ class JsonReport(unittest.TestCase):
             # An accepted one's line names its axioms and, when NOT PROVED,
             # says so (plan task 5.3.1).
             words = {"accepted": "accepted (experimental, not independently audited); axioms: ",
-                     "not-checked": "not checked"}
+                     "not-checked": "not checked (not reached: the run stopped)"}
             lines = text.splitlines()
             at = 0
             for d in got["declarations"]:
@@ -895,13 +1058,34 @@ class JsonReport(unittest.TestCase):
             counts = got["counts"]
             self.assertEqual(len(shown), int(counts is not None), args)
             if counts is not None:
-                words = {"accepted": "accepted", "rejected": "rejected", "unknown": "unknown",
+                words = {"accepted": "accepted", "skipped": "skipped", "rejected": "rejected",
+                         "unknown": "unknown",
                          "unsupported": "unsupported", "invalid": "invalid",
                          "exhausted": "exhausted", "full": "full", "notChecked": "not checked"}
                 summary = ", ".join(f"{counts[k]} {w}" for k, w in words.items() if counts[k])
                 plural = "" if counts["declarations"] == 1 else "s"
                 self.assertEqual(shown[0], f"{counts['declarations']} declaration{plural}: "
                                            f"{summary}", args)
+
+    def test_version_0_1_kept(self):
+        """Reports are version 0.2 since the verdict skipped (plan task 5.2.7;
+        review rvUNNI M2); schema 0.1 is kept unchanged for earlier reports. A
+        report without a skipped declaration, set back to 0.1 (its version, no
+        skipped count), is valid under 0.1; one with a skipped declaration is
+        not, nor is any 0.2 report as written."""
+        old = Validator(json.loads((ROOT / "schemas/check-report-0.1.schema.json").read_text()))
+
+        def as_0_1(got):
+            back = json.loads(json.dumps(got))
+            back["schemaVersion"] = "0.1"
+            if back["counts"] is not None:
+                del back["counts"]["skipped"]
+            return back
+        _, plain, _ = report(INDUCTIVE)
+        _, skipped, _ = report("--no-manifest", f"{CASES}/composition-unsafe.ndjson")
+        self.assertEqual((plain["schemaVersion"], old.errors(as_0_1(plain))), ("0.2", []))
+        self.assertNotEqual(old.errors(as_0_1(skipped)), [])
+        self.assertNotEqual(old.errors(plain), [])
 
     def test_schema_refuses(self):
         """The schema refuses a report whose parts disagree."""
@@ -1218,11 +1402,11 @@ class Resources(unittest.TestCase):
         self.assertEqual(rest[6], "  engine: " + os.path.basename(GFORTH))
         self.assertEqual(rest[7:], [
             "  input: 6 declarations, 46 term nodes, 3 levels, 5 constant references, 31 names",
-            "  fuel: 1039 steps in all, at most 2000000 per declaration",
+            "  fuel: 518 steps in all, at most 20000000 per declaration",
             "  most fuel used:",
-            "        496 Two.cases (accepted)",
-            "        336 Two (accepted)",
-            "        207 Two.swap (accepted)"])
+            "         252 Two.cases (accepted)",
+            "         157 Two (accepted)",
+            "         109 Two.swap (accepted)"])
 
     def test_stable_but_for_time_and_memory(self):
         def steady(out):

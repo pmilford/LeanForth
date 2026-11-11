@@ -16,8 +16,10 @@
 \ State: one record, lf-lnorm-state: normalize's frames (lib/frame.fs),
 \ the first failure of the call, the fuel left, the argument stack of the
 \ max case (its top and cells), a mark of the level store before the
-\ call, a merge's cursors, and per level of the input the normal form
-\ found. A member of the checker context (lib/context.fs).
+\ call, a merge's cursors, the call's stamp, and per level of the input
+\ the normal form found, valid in the call whose stamp it carries (so a
+\ call erases nothing: its cost does not grow with the store; plan task
+\ 6.5.5). A member of the checker context (lib/context.fs).
 \ The normal forms are new nodes of the level store, given back when the
 \ call ends; the facts
 \ of level-make are truncated with them. Single-threaded within one
@@ -52,6 +54,7 @@ begin-structure /lf-lnrec
   field: lf-lnrec-hi                                \ and its end;
   field: lf-lnrec-width                             \ a pass's run width,
   field: lf-lnrec-to                                \ and the arguments' end
+  field: lf-lnrec-stamp                             \ the call's stamp, 0 before the first
 end-structure
 /lf-lnrec context-record: lf-lnorm-state
 \ The max case's argument stack: a growable array with no fixed limit
@@ -60,18 +63,27 @@ end-structure
 1 cells context-slab: lf-lnorm-arg-cells
 \ push_max_args's maxes still to flatten (no fixed limit).
 1 cells context-slab: lf-lnorm-todo-cells
-\ Per level, a column of the level store (lib/store-columns.fs): its
-\ normal form + 1, or 0.
+\ Per level, a column of the level store (lib/store-columns.fs) of two
+\ cells: the stamp of the call that wrote it, then its normal form + 1.
 /slab context-record: lf-lnorm-memo-column
-1 cells ' lf-lnorm-memo-column lf-level-columns column-add
+2 cells ' lf-lnorm-memo-column lf-level-columns column-add
 
 : lf-lnorm-status ( -- addr ) lf-lnorm-state lf-lnrec-status ;
 \ Fuel left after lf-level-equivalent; level-compare continues with it.
 : lf-lnorm-fuel ( -- addr ) lf-lnorm-state lf-lnrec-fuel ;
 : lf-lnorm-top ( -- addr ) lf-lnorm-state lf-lnrec-top ;
 : lf-lnorm-arg ( i -- addr ) cells lf-lnorm-arg-cells slab-base + ;
-: lf-lnorm-memo ( level -- addr ) lf-lnorm-memo-column column-at ;
-: lf-lnorm-clear ( -- ) lf-lnorm-memo-column column-erase ;
+\ The memo: a level's normal form + 1 when this call found it, else 0.
+\ A call takes a new stamp instead of erasing the column; stamps start at
+\ 1 (a new unit is 0), and only when they would run out is the column
+\ erased and they restart.
+: lf-lnorm-stamp ( -- addr ) lf-lnorm-state lf-lnrec-stamp ;
+: lf-lnorm-entry ( level -- addr ) lf-lnorm-memo-column column-at ;
+: lf-lnorm-memo@ ( level -- form+1|0 ) lf-lnorm-entry 2@ lf-lnorm-stamp @ = and ;
+: lf-lnorm-memo! ( form+1 level -- ) lf-lnorm-stamp @ swap lf-lnorm-entry 2! ;
+: lf-lnorm-restamp ( -- ) lf-lnorm-memo-column column-erase 0 lf-lnorm-stamp ! ;
+: lf-lnorm-clear ( -- )
+  lf-lnorm-stamp @ max-n = if lf-lnorm-restamp then 1 lf-lnorm-stamp +! ;
 : lf-lnorm-site ( -- site ) c" level-normalize lf-level-equivalent" ;
 : lf-lnorm-frames ( -- frames ) lf-lnorm-state lf-lnrec-frames ;
 
@@ -334,12 +346,12 @@ defer lf-lnorm-flatten ( i frames -- ... frames next )
 \ A visit: a level already normalized gives its normal form; else one
 \ unit of fuel, then the normal form, remembered by the step it keeps for
 \ the visit's end.
-: lf-lnorm-remember ( level level' -- level' ) tuck 1+ swap lf-lnorm-memo ! ;
+: lf-lnorm-remember ( level level' -- level' ) tuck 1+ swap lf-lnorm-memo! ;
 : lf-lnorm-remembered ( level' frames -- level' frames 0 )
   >r r@ frame-restore swap lf-lnorm-remember r> 0 ;
 : lf-lnorm-visit-step ( level frames -- ... frames next )
   lf-lnorm-ok? 0= if nip 0 swap 0 exit then
-  over lf-lnorm-memo @ ?dup if rot drop 1- swap 0 exit then
+  over lf-lnorm-memo@ ?dup if rot drop 1- swap 0 exit then
   lf-lnorm-spend 2dup frame-save ['] lf-lnorm-remembered over frame-save lf-lnorm-compute ;
 \ Normalize one level to the end, as a loop of its own on the frames from
 \ what they hold (level-geq.fs calls it from its steps).
@@ -358,7 +370,7 @@ defer lf-lnorm-flatten ( i frames -- ... frames next )
   max-n lf-lnorm-frames frame-fuel ! lf-lnorm-clear
   lf-lmk-sync lf-lnorm-store-mark lf-levels store-mark ;
 : lf-lnorm-end ( -- )
-  lf-lnorm-store-mark lf-levels store-rollback lf-lnorm-fail
+  lf-lnorm-store-mark lf-level-rollback lf-lnorm-fail
   lf-level-count @ lf-lmk-truncate ;
 : lf-lnorm-result ( flag -- flag outcome )
   lf-lnorm-status @ dup ok? 0= if nip false swap then ;

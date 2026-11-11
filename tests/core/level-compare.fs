@@ -18,8 +18,13 @@ require ../../src/kernel/level-make.fs
 require ../../src/kernel/level-normalize.fs
 require ../../src/kernel/level-compare.fs
 require ../../src/kernel/level-value.fs
+require ../support/store-faults.fs
 decimal
 
+\ The rule rows below need equal levels as distinct nodes (one, one'; u,
+\ u'): hash-consing is off (one switch with the terms, compact-store plan
+\ step S4; tests/core/levels.fs).
+false lf-term-sharing!
 : must ( flag -- ) 0= abort" level-compare test: refused" ;
 : intern ( c-addr u -- id ) 0 -rot lf-name-str must ;
 : param ( id -- level ) lf-level-param must ;
@@ -104,11 +109,16 @@ T{ u u' lf-level-same? u v lf-level-same? one one' lf-level-same? -> true false 
 T{ u -1 lf-level-same? u 99 lf-level-mk-max -> false false }T
 \ A full store: a new node is refused; an argument is still given.
 : fill-levels ( -- ) begin lf-level-count @ lf-level-capacity < while 0 succ drop repeat ;
-lf-level-count @ constant before-fill
+\ Levels made by a test are given back through a mark of the level store
+\ (lib/store.fs), never by setting its count.
+create level-mark /store-mark allot
+: levels-marked ( -- ) level-mark lf-levels store-mark ok? 0= abort" level mark" ;
+: levels-back ( -- ) level-mark lf-levels store-rollback ok? 0= abort" level rollback" ;
+levels-marked
 fill-levels
 T{ u v lf-level-mk-max -> false }T
 T{ u 0 lf-level-mk-imax -> 0 true }T
-before-fill lf-level-count !
+levels-back
 
 \ ---------------------------------------------------------------------------
 \ is_equivalent (518-521) through level-compare: ok for Lean's true,
@@ -178,6 +188,17 @@ swapped budgets
 \ normalized and pushed, one ordering), max v u 7 (u and v remembered).
 T{ swapped needed -> 22 }T
 T{ swapped 30 lf-level-compare lf-lcmp-fuel @ -> outcome-ok 8 }T
+\ Stamps (plan task 6.5.5): a call's memo of normal forms erases nothing,
+\ it takes a new stamp; only when the stamps run out is the column erased
+\ and they restart at 1, so no earlier call's normal form counts as this
+\ call's. Every level holds stamp 1 and itself as its normal form, as an
+\ earlier call could leave it, and the stamps run out: the comparison
+\ still spends what it did above.
+: stale-forms ( -- )
+  1 lf-lnorm-stamp ! lf-level-count @ 0 ?do i 1+ i lf-lnorm-memo! loop
+  max-n lf-lnorm-stamp ! ;
+stale-forms
+T{ swapped 30 lf-level-compare lf-lcmp-fuel @ lf-lnorm-stamp @ -> outcome-ok 8 1 }T
 T{ lu lu 20 lf-level-compare lf-lcmp-fuel @ -> outcome-ok 18 }T
 \ Undecided keeps the fuel only in keeping mode; failures leave none.
 T{ lu lv 20 lf-level-compare lf-lcmp-fuel @ -> outcome-unknown 0 }T
@@ -185,22 +206,22 @@ T{ lu lv 20 lf-level-compare-keeping lf-lcmp-fuel @ -> outcome-unknown 16 }T
 T{ lu lv 3 lf-level-compare-keeping lf-lcmp-fuel @ -> outcome-exhausted 0 }T
 \ Room: the store full, normalize cannot build its forms: full, and the
 \ store is back.
-lf-level-count @ constant before-full
+levels-marked
 fill-levels
 T{ i1u m1u 100 lf-level-compare -> outcome-full }T
 T{ i1u m1u 100 lf-level-inequivalent? -> false outcome-full }T
 T{ lf-level-count @ -> lf-level-capacity }T
-before-full lf-level-count !
+levels-back
 \ Invalid input: negative fuel, a level outside the store, a corrupted
 \ node, a parameter outside the context.
 T{ lu lv -1 lf-level-compare lf-lcmp-fuel @ -> outcome-invalid 0 }T
 T{ -1 lu 100 lf-level-compare 99 lu 100 lf-level-compare -> outcome-invalid outcome-invalid }T
 T{ lu lu -1 lf-level-equivalent lu 99 100 lf-level-equivalent
   -> false outcome-invalid false outcome-invalid }T
-lu lf-level-slot node-tag @ constant saved-tag
-99 lu lf-level-slot node-tag !
+lu lf-level-tag@ constant saved-tag
+99 lu level-tag!
 T{ lu lv 100 lf-level-compare lv lu 100 lf-level-compare -> outcome-invalid outcome-invalid }T
-saved-tag lu lf-level-slot node-tag !
+saved-tag lu level-tag!
 lf-lscope-context-reset
 T{ lu lu 100 lf-level-compare -> outcome-invalid }T
 T{ lu lu 20 ' lf-level-compare rs-checked -> outcome-invalid }T
@@ -309,9 +330,9 @@ variable checks
 : check-same ( a b -- )
   2dup lf-level-same? -rot m-same? <> abort" operator== differs from the model" ;
 : round ( n -- )
-  level-seed ! lf-level-capacity 8 - random-store
+  level-seed ! lf-level-capacity 8 - random-store levels-marked
   200 0 do pick-level pick-level 2dup check-same 2dup check-max check-imax
-    pool @ lf-level-count ! 3 checks +! loop ;
+    levels-back 3 checks +! loop ;
 hits 4 cells erase 0 checks !
 : rounds ( -- ) 30 0 do i 7 * 1+ round loop ;
 rounds
@@ -370,12 +391,15 @@ T{ 1 far-param 1 lf-level-same? -> true }T
 T{ 16384 lf-level-capacity! -> outcome-ok }T
 lf-level-reset
 : succs ( level n -- top ) 0 ?do lf-level-succ must loop ;
-0 3000 succs constant tall
+\ The level store is marked at count 1000, on the way up the chain, and
+\ given back to it after.
+0 999 succs levels-marked 2001 succs constant tall
 T{ tall tall lf-level-same? lf-lmk-known @ -> true 3001 }T
 T{ tall 0 lf-level-same? lf-lmk-known @ -> false 3001 }T
 T{ 0 1000 succs drop lf-level-count @ -> 4001 }T
 T{ tall 1000 succs 0 4000 succs lf-level-same? lf-lmk-known @ -> true 9001 }T
-1000 lf-level-count !
+T{ level-mark mark-count @ -> 1000 }T
+levels-back
 u-id @ lf-level-param must constant u1
 u-id @ lf-level-param must constant u2
 T{ u1 u2 lf-level-same? u1 999 lf-level-same? lf-lmk-known @ -> true false 1002 }T
@@ -397,6 +421,29 @@ lf-level-reset
 T{ 40 up-chain 40 down-chain 100000 lf-level-equivalent -> true outcome-ok }T
 T{ 40 up-chain 39 down-chain 41 nparam lf-level-max must 100000 lf-level-equivalent
    -> false outcome-ok }T
+\ The scope checks' memo (compact-store plan step S4): off (outside a
+\ check), each comparison walks both roots; on, a root found in scope is
+\ not walked again while its identity and the parameter context's
+\ generation hold, so it costs no fuel; a change of the context, or the
+\ index given back and made again, walks it again.
+session
+u-id @ param succ constant mu+1   u-id @ param succ constant m1
+: cmp-fuel ( -- fuel ) mu+1 m1 30 lf-level-compare drop lf-lcmp-fuel @ ;
+T{ cmp-fuel cmp-fuel -> 26 26 }T
+lf-memo-on lf-audit-memo!
+T{ cmp-fuel cmp-fuel -> 26 30 }T
+99 lf-lscope-context-add must
+T{ cmp-fuel cmp-fuel -> 26 30 }T
+create memo-mark /store-mark allot
+: memo-pair ( -- a b ) u-id @ param succ u-id @ param succ ;
+: pair-fuel ( a b -- fuel ) 30 lf-level-compare drop lf-lcmp-fuel @ ;
+memo-mark lf-levels store-mark drop
+T{ memo-pair 2dup pair-fuel -rot pair-fuel -> 26 30 }T
+memo-mark lf-level-rollback drop
+T{ memo-pair pair-fuel -> 26 }T
+lf-memo-off lf-audit-memo!
+T{ cmp-fuel -> 26 }T
+lf-memo-auto lf-audit-memo!
 lf-level-reset
 T{ lf-level-default lf-level-capacity! -> outcome-ok }T
 bye

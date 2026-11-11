@@ -12,6 +12,10 @@ require ./diagnostics.fs
 require ./terms.fs
 
 6 constant lf-tag-symbolic-sort
+\ A symbolic Sort is shared (terms.fs) only while its stamps hold:
+\ generation-handles.fs stamps it with its own identity and its level's,
+\ and constant-term-boundary.fs's lf-term-reusable? checks them (compact-
+\ store plan step S4: levels are hash-consed, so equal Sorts are one node).
 0 constant lf-repr-concrete
 1 constant lf-repr-symbolic
 lf-walk-room context-walk: lf-repr-walker
@@ -38,7 +42,7 @@ lf-walk-room context-walk: lf-repr-walker
   case lf-tag-sort of lf-repr-sort endof
     lf-tag-symbolic-sort of lf-repr-symbolic-sort endof
     lf-tag-bvar of lf-repr-bvar endof walk-bad-tag endcase ;
-: lf-repr-visit ( walk -- outcome ) lf-terms ['] lf-repr-dispatch walk-visit ;
+: lf-repr-visit ( walk -- outcome ) ['] lf-repr-dispatch lf-term-visit ;
 
 \ Walk one root with the current mode and the fuel left.
 : lf-repr-site ( -- site ) c" tagged-sort-boundary lf-repr-check" ;
@@ -55,7 +59,7 @@ lf-walk-room context-walk: lf-repr-walker
 \ node shape; nothing else, and never theorem validity.
 : lf-repr-check ( root mode fuel -- status )
   lf-repr-start 0= if drop-invalid exit then
-  dup lf-term-valid? if lf-repr-walk else drop-invalid then ;
+  dup lf-term-root? if lf-repr-walk else drop-invalid then ;
 
 \ Check two roots against one budget, even when the first is Sort-free.
 \ Counts and nodes are never changed.

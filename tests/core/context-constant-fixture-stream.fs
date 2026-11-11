@@ -8,6 +8,7 @@ require ../../src/core/generation-handles.fs
 require ../../src/core/level-scope.fs
 require ../../src/core/levels.fs
 require ../../src/core/names.fs
+require ../../src/core/scratch-marks.fs
 require ../../src/core/symbolic-session.fs
 require ../../src/core/tagged-sort-boundary.fs
 require ../../src/core/terms.fs
@@ -54,7 +55,9 @@ variable n variable k variable a variable b variable count-n
   0= if -1 throw then n @ cells tids + ! n @ <> if -1 throw then ;
 create formals 1 cells allot
 variable expected-tag variable expected-a variable expected-b
-variable infer-term-count variable infer-level-count variable infer-cref-count
+create infer-mark /lf-scratch allot   \ the stores before the inferences
+: infer-marked ( -- ) infer-mark lf-scratch-mark ok? 0= if -1 throw then ;
+: infer-rolled-back ( -- ) infer-mark lf-scratch-rollback ok? 0= if -1 throw then ;
 \ Require the exported binder/application links used by this fixture test.
 : expect-node ( index tag first second -- )
   expected-b ! expected-a ! expected-tag !
@@ -95,7 +98,7 @@ variable infer-term-count variable infer-level-count variable infer-cref-count
   16 15 expect-app-head
   15 lf-tag-app 14 2 expect-node
   7 lf-term-read 0= if -1 throw then
-  rot lf-tag-constant <> if 2drop -1 throw then
+  rot lf-tag-constant <> if 2drop -1 throw then lf-cterm-pair
   2dup lf-cref-read 0= if 2drop -1 throw then
   1 <> if 2drop 2drop -1 throw then
   lf-name-generation @ <> if 2drop drop -1 throw then
@@ -104,7 +107,7 @@ variable infer-term-count variable infer-level-count variable infer-cref-count
   lids cell+ @ <> if drop -1 throw then
   levels cell+ @ <> if -1 throw then
   14 lf-term-read 0= if -1 throw then
-  rot lf-tag-constant <> if 2drop -1 throw then
+  rot lf-tag-constant <> if 2drop -1 throw then lf-cterm-pair
   2dup lf-cref-read 0= if 2drop -1 throw then
   1 <> if 2drop 2drop -1 throw then
   lf-name-generation @ <> if 2drop drop -1 throw then
@@ -124,8 +127,7 @@ variable infer-term-count variable infer-level-count variable infer-cref-count
   9 handle 1 50000 lf-constant-term-scope outcome-invalid <> if -1 throw then
   \ Conditional inference of fixturePoly, using fixtureId's staged signature
   \ as an unchecked assumption. No declaration or theorem is accepted.
-  lf-term-count @ infer-term-count ! lf-level-count @ infer-level-count !
-  lf-cref-count @ infer-cref-count !
+  infer-marked
   lf-msp-begin 0= if -1 throw then
   2 cells names + @ formals !
   lf-msp-token 0= if -1 throw then
@@ -152,8 +154,7 @@ variable infer-term-count variable infer-level-count variable infer-cref-count
     drop 2drop -1 throw
   then drop
   4 handle 50000 lf-mixed-convert outcome-ok <> if -1 throw then
-  infer-term-count @ lf-term-count ! infer-level-count @ lf-level-count !
-  infer-cref-count @ lf-cref-count !
+  infer-rolled-back
   \ The theorem value also uses fixtureId, specialized at universe zero.
   \ This remains conditional inference, not proof or declaration acceptance.
   lf-msp-token 0= if -1 throw then
@@ -162,8 +163,7 @@ variable infer-term-count variable infer-level-count variable infer-cref-count
     drop 2drop -1 throw
   then drop
   13 handle 50000 lf-mixed-convert outcome-ok <> if -1 throw then
-  infer-term-count @ lf-term-count ! infer-level-count @ lf-level-count !
-  infer-cref-count @ lf-cref-count !
+  infer-rolled-back
   \ Probe the fixtureId type/value pair with an empty signature index. Even a
   \ successful diagnostic is not declaration registration or a theorem.
   lf-msp-begin 0= if -1 throw then

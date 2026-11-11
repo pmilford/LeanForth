@@ -212,11 +212,13 @@ defer lf-env-before-final
   ['] lf-slot-provenance lf-deps-union
   dup lf-env-cand lf-cand-provenance @ = swap lf-provenance-ok? and ;
 \ N2 and K5 (as amended): every slot below the declaration with its name
-\ is final (G-P5) and rejected. One that is open, accepted, undecided or
-\ unsupported is a conflict: lf-env-own-name would not have said ok. The
+\ is final (G-P5) and rejected, not skipped. One that is open, accepted,
+\ added, skipped, undecided or unsupported is a conflict: lf-env-own-name
+\ would not have said ok. The
 \ name store is audited first, as the scan and the parameters need it.
 : lf-slot-conflict? ( slot -- flag )
-  dup lf-slot-open? over lf-slot-added? or swap lf-slot-outcome@ outcome-rejected <> or ;
+  dup lf-slot-open? over lf-slot-added? or over lf-slot-skipped? or
+  swap lf-slot-outcome@ outcome-rejected <> or ;
 \ For a span, every member's name, each below the first member.
 : lf-own-matches ( test k -- n )
   lf-env-limit + lf-input-name swap lf-env-limit lf-env-matches ;
@@ -239,7 +241,7 @@ defer lf-env-before-final
 \ have one (environment.fs lf-kind-valued?), distinct parameters (L3).
 : lf-recheck-value? ( decl -- flag )
   dup lf-idecl-value @ swap lf-idecl-kind @ lf-kind-valued?
-  if lf-term-valid? else -1 = then ;
+  if lf-term-root? else -1 = then ;
 : lf-recheck-kind? ( decl -- flag )
   dup lf-idecl-kind @ dup lf-kind-valued? swap lf-kind-bare? or
   over lf-idecl-safety @ lf-safety-safe = and swap lf-recheck-value? and ;
@@ -282,12 +284,14 @@ defer lf-env-before-final
 \ part 1 the dependencies, 2 the axiom set, 3 the provenance, 4 the name
 \ (N2, K5, G-P5; or a corrupted name store), 5 the kind, safety, value or
 \ parameters. The part after the last, lf-recheck-moved, is lf-env-step's:
-\ a check that moved its snapshot.
+\ a check that moved its snapshot; the next, lf-recheck-skipped, a skipped
+\ claim on a safe declaration (lf-recheck-skip below).
 create lf-rechecks
   ' lf-recheck-deps? , ' lf-recheck-axioms? , ' lf-recheck-provenance? ,
   ' lf-recheck-name? , ' lf-recheck-decl? ,
 here lf-rechecks - 1 cells / constant lf-rechecks#
 lf-rechecks# 1+ constant lf-recheck-moved
+lf-recheck-moved 1+ constant lf-recheck-skipped
 : lf-recheck@ ( k -- xt ) cells lf-rechecks + @ ;
 \ The first re-check that fails, (part true), or false when all pass.
 : lf-recheck ( -- part true | false )
@@ -302,8 +306,20 @@ lf-rechecks# 1+ constant lf-recheck-moved
 \ one; one that fails the re-check is invalid and not added.
 : lf-env-recorded? ( outcome -- flag )
   dup ok? swap outcome-rejected = lf-cand-added? and or ;
+\ A skipped claim (lf-env-skipped!) is marked only on a rejected outcome,
+\ and stands only when the input marks every member of the span unsafe
+\ or partial; any other is a fault (part lf-recheck-skipped): invalid,
+\ nothing marked.
+: lf-cand-skipped? ( outcome -- flag )
+  outcome-rejected = lf-env-cand lf-cand-skipped @ 0<> and ;
+: lf-member-safe? ( k -- flag )
+  lf-env-limit + lf-input-decl lf-idecl-safety @ lf-safety-safe = ;
+: lf-span-unsafe? ( -- flag ) true lf-cand-span@ 0 ?do i lf-member-safe? 0= and loop ;
+: lf-recheck-skip ( outcome -- outcome )
+  dup lf-cand-skipped? lf-span-unsafe? 0= and 0= if exit then
+  drop lf-recheck-skipped lf-recheck-failed false lf-env-skipped! ;
 : lf-env-verdict ( -- outcome )
-  lf-cand-outcome@ dup lf-env-recorded? 0= if exit then
+  lf-cand-outcome@ lf-recheck-skip dup lf-env-recorded? 0= if exit then
   lf-recheck if nip lf-recheck-failed false lf-env-added! then ;
 
 \ E4 step 2 for an ok outcome. The pool has room for n more when both its
@@ -404,9 +420,14 @@ lf-rechecks# 1+ constant lf-recheck-moved
 : lf-span-final! ( slot -- )
   lf-env-may-write lf-cand-span@ 0 ?do lf-state-final over i lf-slot+ lf-slot-state ! loop
   drop ;
+\ A skipped declaration (lf-cand-skipped?): each slot of the span marked;
+\ any other's marks cleared.
+: lf-span-skipped! ( slot outcome -- )
+  lf-env-may-write lf-cand-skipped? swap
+  lf-cand-span@ 0 ?do 2dup i lf-slot+ lf-slot-skipped ! loop 2drop ;
 : lf-env-final ( slot outcome -- outcome )
-  lf-env-may-write 2dup lf-span-outcome! over lf-span-added! lf-env-before-final
-  swap lf-span-final! ;
+  lf-env-may-write 2dup lf-span-outcome! 2dup lf-span-skipped! over lf-span-added!
+  lf-env-before-final swap lf-span-final! ;
 \ Publish the candidate in this context into its slot: the outcome
 \ recorded. Internal: only lf-env-hand-over calls it, outside jobs, under
 \ CATCH, with the slot its target.

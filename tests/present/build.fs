@@ -9,7 +9,10 @@ require ../../src/present/term-printer.fs
 : must-ok ( outcome -- ) ok? must ;
 
 \ A fresh session: empty names, levels, terms, references and side table.
+\ Binder names are kept per node, so the term store's hash-consing
+\ (compact-store plan step S3) is off, as it is for the print command.
 : fresh ( -- )
+  false lf-term-sharing!
   lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
   lf-pres-reset lf-ssession-begin must ;
 

@@ -8,6 +8,7 @@ include ../support/checks.fs
 require ../../src/main.fs
 include ../support/plain-terms.fs
 include ../support/plain-cases.fs
+require ../support/store-faults.fs
 
 : infer ( root -- type identity status ) >r empty-token r> handle 50000 lf-mixed-infer ;
 : inferred ( root -- type ) infer ok? must drop ;
@@ -77,18 +78,20 @@ T{ sweep-result @ 1 make-sort 1 make-sort make-pi convert-terms -> outcome-ok }T
 \ the corrupted count), keeps all counts and leaves an earlier result
 \ readable. A rolled-back identity is not revived by reusing its slot.
 : fill-terms ( room -- )
-  lf-term-capacity swap - begin dup lf-term-count @ > while 0 make-var drop repeat drop ;
+  false lf-term-sharing! lf-term-capacity swap -
+  begin dup lf-term-count @ > while 0 make-var drop repeat drop true lf-term-sharing! ;
 : fill-levels ( -- )
-  begin lf-level-count @ lf-level-capacity < while 0 succ-of drop repeat ;
+  false lf-term-sharing!
+  begin lf-level-count @ lf-level-capacity < while 0 succ-of drop repeat true lf-term-sharing! ;
 variable earlier variable earlier-id variable token variable before-serial
 : keep-earlier ( -- ) 0 make-sort inferred handle earlier-id ! earlier ! ;
 : earlier-ok? ( -- flag ) earlier @ earlier-id @ 1000 lf-cterm-check ok? ;
 : crowded ( room -- root ) >r build-composition keep-earlier r> fill-terms ;
 T{ 0 crowded save-counts status-of counts-kept? earlier-ok?
   -> outcome-full true true }T
-2 crowded sweep-root ! save-counts lf-term-serial @ before-serial !
+2 crowded sweep-root ! save-counts term-serial before-serial !
 T{ sweep-root @ status-of counts-kept? earlier-ok? -> outcome-full true true }T
-T{ lf-term-serial @ before-serial @ > -> true }T
+T{ term-serial before-serial @ > -> true }T
 0 make-var drop
 T{ saved-terms @ before-serial @ 1+ lf-hterm-valid? -> false }T
 T{ fresh-session keep-earlier 0 make-sort fill-levels save-counts status-of counts-kept?
@@ -96,7 +99,8 @@ T{ fresh-session keep-earlier 0 make-sort fill-levels save-counts status-of coun
 \ Room for one more level only: Pi (A : Sort u), A takes it for the
 \ domain's type (succ u), and its universe imax (succ u) u is then full.
 : fill-levels-but-one ( -- )
-  begin lf-level-count @ lf-level-capacity 1- < while 0 succ-of drop repeat ;
+  false lf-term-sharing! begin lf-level-count @ lf-level-capacity 1- < while
+    0 succ-of drop repeat true lf-term-sharing! ;
 T{ fresh-session keep-earlier level-u make-sort 0 make-var make-pi fill-levels-but-one
   save-counts status-of counts-kept? earlier-ok? -> outcome-full true true }T
 fresh-session keep-earlier 0 make-sort handle sweep-result ! sweep-root !
@@ -140,9 +144,13 @@ T{ signatures 0 0 arg! s" c" 1 reference save-counts infer-with nip nip counts-k
   -> outcome-invalid true }T
 T{ signatures s" c" 0 reference infer-with nip nip -> outcome-invalid }T
 T{ signatures 0 0 arg! s" missing" 1 reference infer-with nip nip -> outcome-unknown }T
+\ The reference's level is given back through a mark of the level store
+\ (lib/store.fs) and its slot made again.
+create level-mark /store-mark allot
 : stale-level-reference ( -- token root )
-  signatures level-u succ-of 0 arg! s" missing" 1 reference
-  lf-level-count @ 1- lf-level-count ! 0 succ-of drop ;
+  signatures level-mark lf-levels store-mark ok? must
+  level-u succ-of 0 arg! s" missing" 1 reference
+  level-mark lf-levels store-rollback ok? must 0 succ-of drop ;
 T{ stale-level-reference infer-with nip nip -> outcome-invalid }T
 \ A parameter outside the session's level context is invalid as well.
 T{ signatures 99 lf-level-param must 0 arg! s" missing" 1 reference infer-with nip nip
@@ -238,7 +246,7 @@ T{ 0 make-sort 0 make-var make-lam 0 make-sort convert-terms -> outcome-unknown 
 \ T1.3 (last, because a spent serial poisons the level store): when the
 \ level serial is spent, inferring Sort 0 is full and keeps the counts.
 fresh-session keep-earlier 0 make-sort sweep-root ! save-counts
-lf-level-serial @ max-n lf-level-serial !
+level-serial max-n level-serial!
 T{ sweep-root @ status-of counts-kept? earlier-ok? -> outcome-full true true }T
-lf-level-serial !
+level-serial!
 bye

@@ -156,6 +156,15 @@ dup set-current
   dup store-count-valid? if store-count @ 0 swap within else 2drop false then ;
 \ One check of the store for both indices.
 : store-in-count? ( index count -- flag ) 0 swap within ;
+\ The read check of a store whose header was checked at the root of the
+\ pass (store-count-valid?): index < count <= capacity, unsigned, from
+\ two header fields, without the seal, shape or generation. A count
+\ corrupted beyond the capacity (or negative) still refuses every index,
+\ so a read stays inside the block; any other corruption is caught only
+\ by the root's check. Used by the term and level stores' reads
+\ (compact-store plan step S2; ADR 0016 C8).
+: store-at? ( index store -- flag )
+  dup store-capacity @ swap store-count @ tuck u< 0= -rot u< and ;
 : store-pair-valid? ( left right store -- flag )
   dup store-count-valid? 0= if drop 2drop false exit then
   store-count @ tuck store-in-count? >r store-in-count? r> and ;
@@ -295,9 +304,8 @@ dup set-current
 \ generation identities grow with the index, so two identities show it.
 \ That argument assumes the count only moves by store-new, store-clear
 \ and store-rollback: code that saves a count and later restores it by
-\ hand (as some older modules still do for the term store) can raise it
-\ over records rolled back and allocated again, and a stale mark may then
-\ pass. Converting those modules to marks is a follow-up. A mark of an
+\ hand can raise it over records rolled back and allocated again, and a
+\ stale mark may then pass; roll back through marks only. A mark of an
 \ invalid store names no store and is always refused. Marks are not
 \ capabilities: a forged record that passes these checks is accepted.
 \ Like the store, a mark is host-specific memory.

@@ -4,40 +4,91 @@
 \ serialization or theorem checker. Handles are forgeable and do not record
 \ which store they belong to; callers prevent concurrent mutation, raw
 \ writes and cross-store confusion.
-\ State: two stamp columns of the term store (lib/store-columns.fs),
-\ indexed by term index, record which term and level identities each
+\ State: the stamps, which record which term and level identities each
 \ symbolic Sort was built from (raw symbolic Sorts have no stamp and fail
-\ lf-hterm-check); the audit uses one walk record, lf-href-walker. All
-\ three are members of the checker context (lib/context.fs).
-\ Single-threaded within one context.
+\ lf-hterm-check) and which identity each constant node was
+\ (constant-term-boundary.fs); the audit uses one walk record,
+\ lf-href-walker. All are members of the checker context
+\ (lib/context.fs). Single-threaded within one context.
+\
+\ The stamps (compact-store plan step S3) are kept only for the nodes
+\ that have them, in a map from term index to a stamp unit: a growable
+\ array of units, lf-stamp-units, found through a hash table,
+\ lf-stamp-table (lib/htab.fs), instead of in columns over every index of
+\ the term store (constants and symbolic Sorts are about 1.4% of
+\ Mathlib's nodes). A unit is made, zero, the first time its index is
+\ asked for, and keeps what was written as a column unit did: a rollback
+\ or reset of the term store leaves it, and a reused index gets new
+\ stamps when its node is made, so a stale node never matches. When the
+\ map cannot grow (no heap), a spare zero unit stands in: what is written
+\ there is lost, so the node reads as unstamped and every audit refuses
+\ it (fail-closed).
 
 require ../lib/lib.fs
 require ../lib/slab.fs
-require ../lib/store-columns.fs
+require ../lib/hash32.fs
+require ../lib/htab.fs
 require ./diagnostics.fs
 require ./levels.fs
 require ./symbolic-session.fs
 require ./tagged-sort-boundary.fs
 require ./terms.fs
 
-/slab context-record: lf-hsort-term-identities
-1 cells ' lf-hsort-term-identities lf-term-columns column-add
-/slab context-record: lf-hsort-level-identities
-1 cells ' lf-hsort-level-identities lf-term-columns column-add
 lf-walk-room context-walk: lf-href-walker
 
+begin-structure /lf-stamp
+  field: lf-stamp-term       \ the term index
+  field: lf-stamp-own        \ the node's own identity, stamped when made
+  field: lf-stamp-level      \ a symbolic Sort's level identity
+end-structure
+\ A constant's unit holds its reference's identity where a Sort's holds
+\ its level's (constant-term-boundary.fs; compact-store plan step S4).
+: lf-stamp-ref ( unit -- addr ) lf-stamp-level ;
+/lf-stamp context-slab: lf-stamp-units
+/htab context-record: lf-stamp-table
+/lf-stamp context-record: lf-stamp-spare
+: lf-stamp-unit ( n -- unit ) lf-stamp-units slab-at ;
+: lf-stamp-rehash ( n htab -- h ) drop lf-stamp-unit lf-stamp-term @ hash-fmix ;
+: lf-stamp-same ( n key htab -- flag ) drop swap lf-stamp-unit lf-stamp-term @ = ;
+create lf-stamp-hooks /htab-hooks allot
+' lf-stamp-rehash ' lf-stamp-same lf-stamp-hooks htab-hooks!
+: lf-stamp-table-make ( -- ) 4 lf-stamp-hooks lf-stamp-table htab-init drop ;
+' lf-stamp-table-make context-setup
+:noname ( -- ) lf-stamp-table htab-free ; context-teardown
+: lf-stamp-none ( index -- unit ) drop lf-stamp-spare dup /lf-stamp erase ;
+: lf-stamp-find ( index -- n true | slot false ) dup hash-fmix lf-stamp-table htab-find ;
+\ A new zero unit for index, entered at the empty slot the find gave.
+: lf-stamp-fill ( index n -- unit )
+  lf-stamp-unit dup /lf-stamp erase tuck lf-stamp-term ! ;
+: lf-stamp-new ( index slot -- unit )
+  1 lf-stamp-units slab-claim ok? 0= if 2drop lf-stamp-none exit then
+  tuck swap lf-stamp-table htab-put lf-stamp-fill ;
+\ The stamp unit of a term index, made when first asked for.
+: lf-term-stamps ( index -- unit )
+  lf-stamp-table htab-ready ok? 0= if lf-stamp-none exit then
+  dup lf-stamp-find if nip lf-stamp-unit exit then lf-stamp-new ;
+
 \ Stamp cells of a symbolic Sort at a valid term index.
-: lf-hsort-term-stamp ( index -- addr ) lf-hsort-term-identities column-at ;
-: lf-hsort-level-stamp ( index -- addr ) lf-hsort-level-identities column-at ;
+: lf-hsort-term-stamp ( index -- addr ) lf-term-stamps lf-stamp-own ;
+: lf-hsort-level-stamp ( index -- addr ) lf-term-stamps lf-stamp-level ;
 
 \ The fuel the last audit left, under its established name.
 : lf-href-fuel ( -- addr ) lf-href-walker walk-fuel ;
 
 \ A pair names a live slot with that identity. Level pairs say nothing about
-\ shape or scope; term pairs also need the session to be current.
-: lf-hlevel-valid? ( index identity -- flag ) swap lf-level-identity if = else drop false then ;
+\ shape or scope; term pairs also need the session to be current. A handle
+\ is where a pass takes a node from outside, so these are checked roots:
+\ they check the store's whole header (terms.fs), the reads after them
+\ only the index.
+: lf-hlevel-id? ( index identity -- flag )
+  swap lf-level-identity if = else drop false then ;
+: lf-hlevel-valid? ( index identity -- flag )
+  lf-level-count-valid? if lf-hlevel-id? else 2drop false then ;
+: lf-hterm-id? ( index identity -- flag )
+  swap lf-term-identity if = else drop false then ;
+\ The session's check covers both stores' headers (symbolic-session.fs).
 : lf-hterm-valid? ( index identity -- flag )
-  swap lf-term-identity if = else drop false then lf-ssession-current? and ;
+  lf-ssession-current? if lf-hterm-id? else 2drop false then ;
 : lf-hterms-valid? ( left lid right rid -- flag ) lf-hterm-valid? >r lf-hterm-valid? r> and ;
 
 \ Turn an allocator's result into a handle.
@@ -49,7 +100,7 @@ lf-walk-room context-walk: lf-href-walker
 \ Level handles: zero, an opaque parameter, or the successor of a live level.
 \ Parameters must still be in the session context when checked.
 : lf-hlevel-zero ( -- index identity true | false )
-  0 lf-level-valid? if 0 dup lf-level-identity else false then ;
+  0 lf-level-root? if 0 dup lf-level-identity else false then ;
 : lf-hlevel-param ( name-id -- index identity true | false ) lf-level-param lf-hlevel-result ;
 : lf-hlevel-succ ( index identity -- index identity true | false )
   2dup lf-hlevel-valid? if drop lf-level-succ lf-hlevel-result else 2drop false then ;
@@ -92,7 +143,7 @@ lf-walk-room context-walk: lf-href-walker
   dup lf-term-binary-tag? if drop walk-push2 exit then
   case lf-tag-symbolic-sort of lf-href-sort endof
     lf-tag-bvar of drop 2drop outcome-ok endof walk-bad-tag endcase ;
-: lf-href-visit ( walk -- outcome ) lf-terms ['] lf-href-dispatch walk-visit ;
+: lf-href-visit ( walk -- outcome ) ['] lf-href-dispatch lf-term-visit ;
 \ Internal: audit an already structurally checked root. Negative fuel is
 \ invalid.
 : lf-href-site ( -- site ) c" generation-handles lf-hterm-check" ;

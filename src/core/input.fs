@@ -288,9 +288,9 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 : lf-input-params-ok? ( decl -- flag )
   dup lf-idecl-arity @ dup 0< 0=
   if swap lf-idecl-params @ swap lf-params-ok? else 2drop false then ;
-: lf-input-value-ok? ( value -- flag ) dup -1 = if drop true else lf-term-valid? then ;
+: lf-input-value-ok? ( value -- flag ) dup -1 = if drop true else lf-term-root? then ;
 : lf-input-roots-ok? ( decl -- flag )
-  dup lf-idecl-type @ lf-term-valid? swap lf-idecl-value @ lf-input-value-ok? and ;
+  dup lf-idecl-type @ lf-term-root? swap lf-idecl-value @ lf-input-value-ok? and ;
 \ The inductive data, when present: a record of the declaration's kind
 \ that lies wholly within lf-input-more, its lists' counts nonnegative;
 \ the block header likewise. Nothing else about the data is checked here.
@@ -393,8 +393,11 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 
 \ After a check: every input store back to its mark and the name bytes
 \ back to their count; ok, or invalid with nothing changed when the input
-\ is not intact.
-: lf-mark-back ( mark store -- flag ) store-rollback ok? ;
+\ is not intact. The terms go back through lf-term-rollback, which takes
+\ their entries out of the hash-consing table too (terms.fs).
+: lf-store-back ( mark store -- outcome )
+  dup lf-terms = if drop lf-term-rollback else store-rollback then ;
+: lf-mark-back ( mark store -- flag ) lf-store-back ok? ;
 : lf-input-rollback ( -- outcome )
   lf-input-intact? 0= if outcome-invalid exit then
   ['] lf-mark-back lf-input-all? lf-input-bytes @ lf-name-used ! flag>outcome ;

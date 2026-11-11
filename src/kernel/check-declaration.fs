@@ -4,9 +4,10 @@
 \ (env-publish.fs). It checks the declaration of its context's snapshot
 \ and ends with lf-env-finish, in ADR 0011's order ("Order"), step by step:
 \   1 the audit, before any typing: a definition, theorem or opaque
-\     declaration with a value, or an axiom or quotient record without one,
-\     safe (U1: an unsafe or partial declaration is unsupported; a value
-\     missing or present against its kind is invalid); no
+\     declaration with a value, or an axiom or quotient record without one
+\     (U1: a value missing or present against its kind is invalid), safe
+\     (an unsafe or partial declaration is skipped, as Lean's replay skips
+\     it: rejected, reported skipped; plan task 5.2.7); no
 \     unsupported term form in its type or value (U2, the leaves of
 \     core/unsupported-forms.fs); both terms closed and well formed (V1,
 \     lf-constant-term-scope: invalid);
@@ -56,7 +57,8 @@
 \ State: one record, lf-check-state (the budget, the fuel left in the
 \ audit, the step reached, the declaration checked and the last result),
 \ and one walk record, lf-check-walker (the U2 audit), both members of the
-\ checker context (lib/context.fs). Inference runs on mixed-infer's state.
+\ checker context (lib/context.fs); its marks are constant-term-boundary.fs's.
+\ Inference runs on mixed-infer's state.
 
 require ../lib/lib.fs
 require ../core/constant-term-scope.fs
@@ -102,15 +104,15 @@ lf-walk-room context-walk: lf-check-walker
 : lf-check-keep ( x outcome -- outcome ) swap lf-check-found ! ;
 
 \ U1: a definition, theorem, opaque declaration, axiom or quotient
-\ record, safe; recorded with its kind and safety. A value is malformed
-\ input (invalid) when it is missing for the first three kinds, which
-\ have one, or present for the last two, which have none. An unsafe or
-\ partial one is unsupported, a gap where Lean's kernel decides (an
-\ unsafe axiom or opaque declaration it accepts, environment.cpp 152-158
-\ and 211-222): a follow-up of plan tasks 5.3.1 and 4.2.6 (review rvAX L3).
+\ record (another kind is unsupported, recorded with its kind and
+\ safety). A value is malformed input (invalid) when it is missing for
+\ the first three kinds, which have one, or present for the last two,
+\ which have none. An unsafe or partial one (a definition marked so, an
+\ axiom or opaque declaration marked unsafe; a theorem or quotient record
+\ never is) is skipped as Lean's replay skips it, nothing of it checked
+\ (Replay.lean 180-183; environment.fs lf-env-skip): rejected, reported
+\ skipped, or rejected as a name given twice (plan task 5.2.7).
 : lf-check-kind? ( kind -- flag ) dup lf-kind-valued? swap lf-kind-bare? or ;
-: lf-check-in-scope? ( decl -- flag )
-  dup lf-idecl-kind @ lf-check-kind? swap lf-idecl-safety @ lf-safety-safe = and ;
 : lf-check-out-of-scope ( decl -- outcome )
   dup lf-idecl-kind @ swap lf-idecl-safety @ lf-check-site lf-diag-unsupported-kind
   lf-diag-note outcome-unsupported ;
@@ -119,26 +121,43 @@ lf-walk-room context-walk: lf-check-walker
   outcome-invalid ;
 : lf-check-value? ( decl -- flag )
   dup lf-idecl-value @ 0< 0= swap lf-idecl-kind @ lf-kind-valued? = ;
+: lf-check-skip ( decl -- outcome )
+  dup lf-idecl-kind @ swap lf-idecl-safety @ 1 lf-env-skip ;
+: lf-check-safety ( decl -- outcome )
+  dup lf-idecl-safety @ lf-safety-safe = if drop outcome-ok else lf-check-skip then ;
 : lf-check-u1 ( -- outcome )
-  lf-check-decl dup lf-check-in-scope? 0= if lf-check-out-of-scope exit then
-  dup lf-check-value? if drop outcome-ok else lf-check-bad-value then ;
+  lf-check-decl dup lf-idecl-kind @ lf-check-kind? 0= if lf-check-out-of-scope exit then
+  dup lf-check-value? if lf-check-safety else lf-check-bad-value then ;
 
 \ U2: no leaf of an unsupported form reachable from a root, each visit one
 \ unit of the audit's fuel; recorded with the form and the node. Any other
-\ leaf passes here, for V1 to judge.
+\ leaf passes here, for V1 to judge. Each node is looked at once, however
+\ many paths reach it (constant-term-boundary.fs's marks, as Lean reads
+\ data each node keeps): a node reached again costs its visit's unit only.
 : lf-check-form ( first second walk -- outcome )
   nip walk-node @ lf-check-site lf-diag-unsupported-form lf-diag-note
   outcome-unsupported ;
 : lf-check-forms-dispatch ( first second walk tag -- outcome )
   dup lf-term-binary-tag? if drop walk-children exit then
   lf-tag-unsupported = if lf-check-form else drop 2drop outcome-ok then ;
+: lf-check-forms-once ( first second walk tag -- outcome )
+  ['] lf-check-forms-dispatch lf-walk-once ;
 : lf-check-forms-visit ( walk -- outcome )
-  lf-terms ['] lf-check-forms-dispatch walk-visit ;
+  ['] lf-check-forms-once lf-term-visit ;
 : lf-check-walked ( outcome -- outcome )
   lf-check-walker walk-fuel @ lf-check-left ! lf-check-walker lf-check-site lf-diag-walk ;
+: lf-check-forms-walk ( root -- outcome )
+  lf-check-walker lf-walk-marking
+  ['] lf-check-forms-visit lf-check-walker walk-run lf-check-walked ;
+\ A root with a data word holds no unsupported leaf (compact-store plan
+\ step S6 (c); ADR 0014 Amendment 4): such a leaf has none, and neither
+\ has any node above one (core/terms.fs computes the word from the
+\ children when the node is made), so it passes at once; a root without
+\ one takes the walk, which finds the form (or passes the graph on to V1).
+: lf-check-forms-word? ( root -- flag ) lf-term-data@ dup if nip then ;
 : lf-check-forms ( root -- outcome )
   lf-check-left @ lf-check-walker walk-budget 0= if drop outcome-invalid exit then
-  ['] lf-check-forms-visit lf-check-walker walk-run lf-check-walked ;
+  dup lf-check-forms-word? if drop outcome-ok else lf-check-forms-walk then ;
 
 \ V1: a live root whose graph is well formed, in the session's level
 \ context, with every bound variable under its binder; the audit's fuel.
@@ -271,11 +290,17 @@ lf-check-steps# 1+ constant lf-step-done
 : lf-check-run ( -- outcome )
   lf-log? if lf-check-logged else lf-check-steps-run then ;
 
+\ The structural audit's memo (core/constant-term-boundary.fs) is on in a
+\ check of the checked environment, where the caches are (whnf.fs's
+\ lf-whnf-env?), and starts afresh with each check: every declaration's
+\ entry audit checks its terms anew.
+' lf-whnf-env? is lf-audit-checking?
 \ The declaration of this context's snapshot, a check's (lf-env-begin),
 \ and the budget: ok, or invalid without a check's snapshot of the valid
 \ current environment (recorded by lf-env-checking) or an intact input.
 : lf-check-begin ( -- outcome )
-  lf-caches-clear 0 lf-check-step! lf-check-state lf-chk-budget @ lf-check-left !
+  lf-caches-clear lf-audit-renew
+  0 lf-check-step! lf-check-state lf-chk-budget @ lf-check-left !
   lf-env-checking 0= if outcome-invalid exit then nip
   lf-input-read ok-then? if lf-check-state lf-chk-decl ! outcome-ok then ;
 \ A member of an inductive block is checked with its block, all members
@@ -332,5 +357,9 @@ lf-check-steps# 1+ constant lf-step-done
 : lf-check-accepted. ( d -- )
   lf-check-label type ." ; "
   lf-env-axioms ok? if lf-check-axioms. else drop ." axioms: ?" then ;
+\ Any other: "skipped" for one Lean's replay skips (lf-env-skipped?), else
+\ its outcome's name.
+: lf-check-failed. ( d outcome -- )
+  swap lf-env-skipped? if drop ." skipped" else outcome-text type then ;
 : lf-check-verdict. ( d -- )
-  dup lf-env-outcome dup ok? if drop lf-check-accepted. else nip outcome-text type then ;
+  dup lf-env-outcome dup ok? if drop lf-check-accepted. else lf-check-failed. then ;

@@ -100,7 +100,7 @@ defer .term
     lf-tag-app      of ." (" swap .term space .term ." )" endof
     lf-tag-lam      of ." (fun " .binder endof
     lf-tag-pi       of ." (Pi " .binder endof
-    lf-tag-constant of .constant endof
+    lf-tag-constant of lf-cterm-pair .constant endof
     nip nip ." ?" endcase ;
 :noname ( term -- ) lf-term-read made .term-node ; is .term
 
@@ -778,7 +778,8 @@ index @ open-term 1000 lf-mixed-infer . 2drop              \ invalid
 index @ id-type id-value 10 lf-mixed-definition-probe .    \ exhausted: fuel 10
 index @ k-term 1000 lf-mixed-infer . 2drop                 \ unknown
 index @ id-type bad-value 1000 lf-mixed-definition-probe . \ rejected
-: use-up-nodes ( -- ) begin 0 lf-hterm-bvar while 2drop repeat ;   \ all 64 nodes
+: use-up-nodes ( -- )      \ all 64 nodes; equal nodes are one unless sharing is off
+  false lf-term-sharing! begin 0 lf-hterm-bvar while 2drop repeat ;
 use-up-nodes  index @ Sort-u 1000 lf-mixed-infer . 2drop   \ full
 cr
 export: library  library export-init drop

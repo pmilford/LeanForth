@@ -5,13 +5,18 @@
 \ Equal opaque level parameter IDs are assumed to denote the same Lean name.
 \ State: two paired walk records, lf-mcompare-walker (left and right terms)
 \ and lf-mcompare-level-walker (left and right levels); level comparisons
-\ charge the term walk's fuel. Both are members of the checker context
+\ charge the term walk's fuel; and Lean's == per-call pair set (the table
+\ lf-meq-table over the slab lf-meq-pairs, its count lf-meq-count and
+\ candidate lf-meq-key). All are members of the checker context
 \ (lib/context.fs). Single-threaded within one context; exclude arena,
 \ parameter-context and name mutation during a call. mixed-convert.fs
 \ reuses the pair-visiting, name, reference and audit words with its own
 \ walk.
 
 require ../lib/lib.fs
+require ../lib/hash32.fs
+require ../lib/htab.fs
+require ../lib/slab.fs
 require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
 require ../core/diagnostics.fs
@@ -30,20 +35,30 @@ lf-level-walk-room context-walk2: lf-mcompare-level-walker
 
 \ Visiting a pair of nodes of one store, the left in walk-node and the
 \ right in walk-context: an unallocated node is invalid, different tags are
-\ unknown, and otherwise xt ( a b walk tag -- outcome ) gets both node
-\ addresses and their tag. Fields are then read without further checks.
+\ unknown, and otherwise xt ( a b walk tag -- outcome ) gets both nodes as
+\ records of three cells (lib/node.fs) and their tag: fetch ( left right
+\ -- a b ) gives them, a level's in its store, a term's copied into two
+\ records of the context (term records are packed: core/terms.fs). Fields
+\ are then read without further checks.
+/node context-record: lf-mcompare-left
+/node context-record: lf-mcompare-right
 : lf-mcompare-pair@ ( walk -- left right ) dup walk-node @ swap walk-context @ ;
 : lf-mcompare-slots ( left right store -- a b ) tuck store-slot >r store-slot r> ;
-: lf-mcompare-nodes ( walk store -- a b true | false )
-  >r lf-mcompare-pair@ 2dup r@ store-pair-valid?
-  if r> lf-mcompare-slots true else 2drop r> drop false then ;
+: lf-mcompare-level-slots ( left right -- a b ) lf-levels lf-mcompare-slots ;
+: lf-mcompare-copy ( index record -- ) >r lf-term-slot lf-term-fields@ r> node! ;
+: lf-mcompare-term-slots ( left right -- a b )
+  lf-mcompare-right lf-mcompare-copy lf-mcompare-left lf-mcompare-copy
+  lf-mcompare-left lf-mcompare-right ;
+: lf-mcompare-nodes ( walk store fetch -- a b true | false )
+  >r >r lf-mcompare-pair@ 2dup r> store-pair-valid?
+  if r> execute true else 2drop r> drop false then ;
 : lf-mcompare-tags? ( a b -- flag ) node-tag @ swap node-tag @ = ;
 : lf-mcompare-tagged ( a b walk xt -- outcome )
   >r >r over node-tag @ r> swap r> execute ;
 : lf-mcompare-match ( a b walk xt -- outcome )
   2over lf-mcompare-tags? if lf-mcompare-tagged else 2drop 2drop outcome-unknown then ;
-: lf-mcompare-visit-pair ( walk store xt -- outcome )
-  >r over swap lf-mcompare-nodes
+: lf-mcompare-visit-pair ( walk store fetch xt -- outcome )
+  >r >r over swap r> lf-mcompare-nodes
   if rot r> lf-mcompare-match else drop r> drop outcome-invalid then ;
 
 \ The fields of both nodes, left first. Pushing the first fields as a pair,
@@ -95,7 +110,8 @@ lf-level-walk-room context-walk2: lf-mcompare-level-walker
     lf-level-tag-param of lf-mcompare-same-first endof
     lf-level-tag-succ of lf-mcompare-first endof walk-bad-tag endcase ;
 : lf-mcompare-level-visit ( walk -- outcome )
-  lf-levels ['] lf-mcompare-level-dispatch lf-mcompare-visit-pair ;
+  lf-levels ['] lf-mcompare-level-slots ['] lf-mcompare-level-dispatch
+  lf-mcompare-visit-pair ;
 : lf-mcompare-site ( -- site ) c" mixed-compare lf-mixed-compare" ;
 : lf-mcompare-level-run ( a b -- outcome )
   ['] lf-mcompare-level-visit lf-mcompare-level-walker walk-run-pair
@@ -165,7 +181,7 @@ lf-level-walk-room context-walk2: lf-mcompare-level-walker
     lf-tag-lit of lf-mcompare-lit endof  lf-tag-str of lf-mcompare-str endof
     lf-tag-let of lf-mcompare-same-first endof walk-bad-tag endcase ;
 : lf-mcompare-visit ( walk -- outcome )
-  lf-terms ['] lf-mcompare-dispatch lf-mcompare-visit-pair ;
+  lf-terms ['] lf-mcompare-term-slots ['] lf-mcompare-dispatch lf-mcompare-visit-pair ;
 : lf-mcompare-run ( left right -- outcome )
   ['] lf-mcompare-visit lf-mcompare-walker walk-run-pair
   lf-mcompare-walker lf-mcompare-site lf-diag-walk ;
@@ -174,28 +190,89 @@ lf-level-walk-room context-walk2: lf-mcompare-level-walker
 \ 123-125; ADR 0014 Q3, plan task 4.2.2b): the same constructors, bound
 \ and free variables, constant names and ordered universe arguments, and
 \ the same level syntax; binder names and annotations are not stored, so
-\ they never differ (Lean's == ignores them, 98-103). The same node is
-\ equal at once (is_eqp). (flag ok), with flag Lean's answer, or (false
-\ outcome) for a failure: exhausted, full or invalid, recorded as a
-\ diagnostic; an answer leaves the diagnostic as it was (two levels that
-\ differ note themselves inside the walk), as == is no failure. Each
-\ visit costs one unit of fuel; the fuel left is in lf-mcompare-fuel.
-\ Unchecked: both roots are audited live terms (lf-cterm-check), as every
-\ term conversion compares; open terms compare their loose bound
-\ variables by index.
+\ they never differ (Lean's == ignores them, 98-103). (flag ok), with
+\ flag Lean's answer, or (false outcome) for a failure: exhausted, full
+\ or invalid, recorded as a diagnostic; an answer leaves the diagnostic
+\ as it was (two levels that differ note themselves inside the walk), as
+\ == is no failure. Each visit costs one unit of fuel; the fuel left is
+\ in lf-mcompare-fuel. Unchecked: both roots are audited live terms
+\ (lf-cterm-check), as every term conversion compares; open terms
+\ compare their loose bound variables by index.
+\ As Lean's apply (expr_eq_fn.cpp 44-58; ADR 0014, compact-store plan
+\ step S4), at every pair, the root included: the same node is equal at
+\ once (is_eqp); two nodes whose data words (core/terms.fs: loose range,
+\ the two flags and the depth, each a function of the term's structure,
+\ as Lean's hash is) are known and differ are apart at once (Lean's
+\ hash test); a pair met before in this call is not walked again (Lean's
+\ per-call cache, check_cache: had it differed, the call would have
+\ ended); two constants of one interned reference, or two Sorts of one
+\ hash-consed level, are equal at once (is_eqp on the name and levels).
+\ None of these is pushed, so none costs a unit.
+: lf-meq-word ( node -- data|-1 ) lf-term-data@ 0= if -1 then ;
+: lf-meq-apart? ( x y -- flag )
+  lf-meq-word swap lf-meq-word over -1 = over -1 = or if 2drop false else <> then ;
+\ The pairs met in this call: a hash table over a slab of (left right)
+\ entries, emptied when a call starts; one that cannot grow keeps
+\ nothing more (more work, never another answer).
+/htab context-record: lf-meq-table
+2 cells context-slab: lf-meq-pairs
+1 cells context-record: lf-meq-count
+2 cells context-record: lf-meq-key
+: lf-meq-pair ( n -- addr ) lf-meq-pairs slab-at ;
+: lf-meq-hash ( x y -- h ) swap hash-fmix swap hash-step ;
+: lf-meq-rehash ( n htab -- h ) drop lf-meq-pair 2@ lf-meq-hash ;
+: lf-meq-same ( n key htab -- flag ) drop swap lf-meq-pair 2@ rot 2@ d= ;
+create lf-meq-hooks /htab-hooks allot
+' lf-meq-rehash ' lf-meq-same lf-meq-hooks htab-hooks!
+: lf-meq-table-make ( -- ) 4 lf-meq-hooks lf-meq-table htab-init drop ;
+' lf-meq-table-make context-setup
+:noname ( -- ) lf-meq-table htab-free ; context-teardown
+: lf-meq-reset ( -- )
+  0 lf-meq-count ! lf-meq-table dup htab-live? if dup htab-slots 1024 <= else false then
+  if htab-clear else htab-free lf-meq-table-make then ;
+: lf-meq-keep ( x y i -- )
+  lf-meq-count @ 1+ lf-meq-pairs slab-hold ok? 0= if drop 2drop exit then
+  >r lf-meq-count @ lf-meq-pair 2! lf-meq-count @ r> lf-meq-table htab-put
+  1 lf-meq-count +! ;
+: lf-meq-seen? ( x y -- flag )
+  lf-meq-table htab-ready ok? 0= if 2drop false exit then
+  2dup lf-meq-key 2! 2dup lf-meq-hash lf-meq-key swap lf-meq-table htab-find
+  if drop 2drop true else lf-meq-keep false then ;
+\ A child pair: equal, apart, met, or pushed.
+: lf-meq-push ( x y walk -- outcome )
+  >r 2dup = if 2drop r> drop outcome-ok exit then
+  2dup lf-meq-apart? if 2drop r> drop outcome-unknown exit then
+  2dup lf-meq-seen? if 2drop r> drop outcome-ok exit then
+  r> walk-pair-outcome ;
+: lf-meq-children ( a b walk -- outcome )
+  >r 2dup lf-mcompare-seconds r@ lf-meq-push dup ok?
+  if drop lf-mcompare-firsts r> lf-meq-push else nip nip r> drop then ;
+: lf-meq-one-head? ( a b tag -- flag )
+  dup lf-tag-constant = swap lf-tag-symbolic-sort = or
+  if lf-mcompare-firsts = else 2drop false then ;
+: lf-meq-dispatch ( a b walk tag -- outcome )
+  dup lf-term-binary-tag? if drop lf-meq-children exit then
+  2over 2 pick lf-meq-one-head? if 2drop 2drop outcome-ok exit then
+  lf-mcompare-dispatch ;
+: lf-meq-visit ( walk -- outcome )
+  lf-terms ['] lf-mcompare-term-slots ['] lf-meq-dispatch lf-mcompare-visit-pair ;
 : lf-mcompare-equal ( outcome -- flag outcome )
   dup outcome-unknown = if drop false outcome-ok exit then
   dup ok? if true swap exit then
   lf-mcompare-walker lf-mcompare-site lf-diag-walk false swap ;
 : lf-mcompare-same? ( left right -- flag outcome )
-  lf-diag@ 2>r 2>r ['] lf-mcompare-visit lf-mcompare-walker walk-run-pair
+  lf-meq-reset lf-diag@ 2>r 2>r ['] lf-meq-visit lf-mcompare-walker walk-run-pair
   lf-mcompare-equal dup ok? if 2r> 2r> lf-diag! else 2r> 2r> 2drop 2drop then ;
 : lf-expr-equal ( left right fuel -- flag outcome )
   lf-mcompare-walker walk-budget 0= if 2drop false outcome-invalid exit then
-  2dup = if 2drop true outcome-ok else lf-mcompare-same? then ;
+  2dup = if 2drop true outcome-ok exit then
+  2dup lf-meq-apart? if 2drop false outcome-ok exit then
+  lf-mcompare-same? ;
 
 \ Audit both roots completely, left first, with the walk's fuel; a failed
-\ audit leaves no fuel. lf-cterm-check fails only as invalid, exhausted or
+\ audit leaves no fuel. In a check each node is audited once per check
+\ (core/constant-term-boundary.fs's memo, compact-store plan step S6 (c)):
+\ a root audited before costs nothing. lf-cterm-check fails only as invalid, exhausted or
 \ full. Five inputs: two handles and the walk. Shared with mixed-convert.fs,
 \ as is the refusal of negative fuel, which also leaves no fuel.
 : lf-mcompare-refuel ( outcome walk -- )

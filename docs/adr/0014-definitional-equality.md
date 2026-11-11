@@ -801,7 +801,17 @@ design aims at each:
 5. **Avoiding re-instantiation.** The unfolding cache keyed by the
    interned constant node (Lean's `m_unfold`) and the level-substitution
    memo keyed by (node, level list) answer repeated unfoldings of the same
-   constant at the same levels.
+   constant at the same levels. Note (2026-11-10, step S0 of the
+   compact-store plan, plan task 6.5.5; [kernel] review pending): one
+   level substitution (`mixed-level-substitute.fs`, `level-substitute.fs`)
+   and one level normalization (`level-normalize.fs`) no longer cost the
+   whole store per call (68% of the check time on a 1M-line `Init`
+   prefix): a call marks what it reaches with a new stamp instead of
+   erasing a column, and builds only the reached nodes, sorted, so in the
+   same order as before. The result, which must equal Lean's
+   `instantiate_lparams` (`instantiate.cpp`), every verdict, every fuel
+   count and the trial digests are unchanged; the memo itself is still to
+   come.
 6. **Measuring.** Plan task 4.2.7 reports time per distinct node and cache
    hit rates on the phase-4 corpus next to Lean's 3.0–3.3 µs per distinct
    node (`TimedReplay.lean`, same machine); the owner's goal is one-thread
@@ -1437,6 +1447,439 @@ variable of that context, and `whnf` of such a term is a function of the
 term in the snapshot — the only typer-dependent steps, K and iota's
 structure eta, need a closed major premise and an inference job
 (`iota.fs`), and answer *unknown* elsewhere.
+
+## Amendment 2: shared terms cost their nodes, not their paths (agent EX, 2026-11-10, proposed)
+
+**Finding.** The 17 declarations of `Init`'s first 1,000,000 export lines
+that ended *exhausted* at 2,000,000 fuel (36% of all fuel; the official
+checker accepts the prefix in 5.8 s) are `omega`-style proofs of a few
+thousand nodes shared along up to 2^40 paths. None ran out in `is_def_eq`
+or in the projection steps: all 17 ran out in LeanForth's own audits
+(U2, V1 and the structural check), which visited each path. With those
+fixed, the next walls were `mixed-open.fs` (each pass rebuilt a shared
+node once per path, so the result lost the sharing too), inference's
+loose-variable scan, and the level substitution of a constant without
+universe arguments.
+
+**Ported** (each a Lean step that keeps the work per node):
+1. *Audits per node.* Lean keeps a node's loose bound variables and its
+   free-variable flag in the node (`expr.cpp` 102–105, `lean_expr_mk_data`)
+   and reads them in constant time (`check_no_metavar_no_fvar`,
+   `environment.cpp` 87–100; `infer_type_core`'s `has_loose_bvars`,
+   `type_checker.cpp` 326). LeanForth's U2, V1 and structural walks keep
+   per-term marks (a run number and the depth it was reached at,
+   `constant-term-boundary.fs`): a node is checked again only at a smaller
+   depth; a repeated visit costs its own unit. The outcome and the first
+   failure found are those of the per-path walk (a node is skipped only
+   when its whole subterm was checked at a depth no greater).
+2. *Substitution per node and offset.* Lean's `replace` keeps each shared
+   node's result per offset for the rest of the call (`replace_fn.cpp`
+   16–40); `instantiate`, `instantiate_rev` and `abstract` use it
+   (`instantiate.cpp` 15–39, 99–118; `abstract.cpp` 14–32).
+   `mixed-open.fs` keeps every binary node's result for the pass in a term
+   column (one offset per node, its last: met at another, it is rebuilt).
+   This is Q12 item 1 in part (the memo is per pass, not per context).
+3. *`loose_bvar_range` read, not scanned.* Inference's count of the scope
+   variables a term needs (`lf-minfer-loose`) takes the caches' node data
+   when they are on (`caches.fs`, `lf-ci-range`).
+4. *`instantiate_type_lparams` without universe arguments* returns the
+   stored type itself (`instantiate.cpp` 251–252), as `whnf.fs` already
+   did for values; with the derivation log on the substitution still runs
+   (same term), so the log keeps its step.
+
+**Evidence.** `tests/cli/sharing.lean`: pinned Lean accepts `sharedAnd`
+(2^40 paths) and `sharedBeta` (shared under two offsets) and rejects
+their wrong twins (`appTypeMismatch`); LeanForth before: `sharedAnd`
+*exhausted* (its twin too); after: Lean's verdicts, 61,647 fuel.
+Planted faults `ex-*` in `tests/mutants/faults.toml`, all caught.
+
+**A constant with universe arguments** (review rvPSE M1, agent FX7,
+2026-11-11, [kernel] gate open). The level substitution's source audit
+(`mixed-level-substitute.fs`) and its level walk (`level-substitute.fs`)
+now check a node and push its children only at its first visit in a walk;
+a repeat costs its unit. The checks read only the node, never the path or
+depth. Lean's `instantiate_lparams` rebuilds a shared node once per offset
+(`instantiate.cpp` 236–253, `replace_fn.cpp` 16–40); its level walks have
+no cache (`level.cpp` 247–277). `tests/cli/sharing-universe.lean`: pinned
+Lean accepts `sharedAndU.{u}` (2^40 paths, `u` in every leaf) and
+`useU := sharedAndU.{0}` and rejects two wrong twins (`declTypeMismatch`);
+LeanForth before: `useU` *exhausted*; after: Lean's verdicts, 8,419 fuel.
+Planted faults `fx7-*`, all caught.
+
+**Left (plan task 6.5.5).** Inference still closes each application
+argument with all the scope's free variables, where Lean instantiates a
+binder's body once, and every comparison audits both types in full; on
+the Array.Extract `omega` proofs this costs 10–20 million fuel (9 of the
+17). Both are 6.5.5's "work linear in a term's depth". (The first is
+Amendment 3's, 2026-11-11.)
+
+## Amendment 3: substitution as Lean's replace, node facts from the data word, inferred types keyed by the opened term (agent S6A, 2026-11-11, proposed)
+
+Status: proposed; [kernel] gate owed (review, owner's approval of the fuel
+model below). Plan task 6.5.5, parts (a), (d) and (e) of compact-store
+plan step S6 (`.claude` plan row S6; parts (b) and (c) are elsewhere).
+Code: `src/kernel/replace-memo.fs` (new), `mixed-open.fs`,
+`mixed-shift.fs`, `mixed-instantiate.fs`, `mixed-beta.fs` (reset only),
+`whnf.fs`, `mixed-infer.fs`, `caches.fs`. Lean's files at the referee
+commit `eb6cafb7`.
+
+**Ported.**
+1. *Replace* (`replace_fn.cpp` 16–40; `instantiate.cpp` 15–37, 99–118;
+   `abstract.cpp` 14–32; `expr.cpp` 448–463). Every substitution
+   (instantiate, instantiate_rev, abstract, lift_loose_bvars, and the
+   single-binder instantiate that beta uses) keeps a binary node's result
+   per node and offset for the rest of the call, in one table per pass and
+   context (`replace-memo.fs`, ADR 0016 C4's substitution memo; keys are
+   identities, values checked by identity), and gives a node back
+   unvisited when its data word (ADR 0016 C1) shows the function returns
+   it: loose range at most the offset (`instantiate.cpp` 22, 103;
+   `expr.cpp` 455), or no free variable for abstract (`abstract.cpp` 19);
+   a lift by 0 is the term itself (`expr.cpp` 449); a node whose children
+   come back unchanged is kept (update_app, update_binding). A node whose
+   word names a free variable is kept unvisited by instantiate only on the
+   caches' memo, which knows a free variable only while it is live (as
+   since step S3), so a dead one is still refused. Lean keeps only shared
+   nodes' results; keeping every one changes work, never a result.
+2. *Node facts read, not scanned.* has_loose_bvars, has_fvar (`whnf.fs`)
+   and loose_bvar_range (`mixed-infer.fs`'s count of the scope variables a
+   term needs) read the data word, with or without the caches; a node
+   without data asks the caches' memo, then is walked.
+3. *Inferred types keyed by the opened term.* Lean infers the term that
+   infer_lambda, infer_pi and infer_let instantiated with their free
+   variables and keys its type by that term (`type_checker.h` 26–30,
+   `expr_map` with ==; `type_checker.cpp` 125–171, 208–230, 332–334, 356),
+   so a term that names only outer binders hits under any inner one.
+   LeanForth reads source nodes under the scope (Q2); the key of an open
+   node is now the skeleton of its copy closed with the scope (before: the
+   node with the scope's innermost free variable, which missed under every
+   new binder: agent DX measured 2.8–11.5 times Lean's inferences on the
+   exhausted roots of `Init`). The closing is remembered per scope for the
+   job: a closing under the whole scope is a function of the scope, which
+   its innermost free variable names (each binder makes a new one;
+   identities never repeat), so `lf-instantiate-scope` stamps its results
+   with that identity and a later closing under the same scope finds them,
+   at its root for no fuel. Inference closes an application's argument
+   after inferring it, so the argument's subterms were closed already: no
+   argument is closed in full again. As Lean's infer_pi opens a whole chain
+   (144–166), an inner Pi of a chain is neither looked up nor kept (inner
+   λs were not, Amendment 1); a loose bound variable is not keyed (its
+   type is its entry's, 93–99). A closing that runs out of fuel or room
+   ends the visit so; any other failure leaves the node uncached. While a
+   check keeps no scratch (a small store: `lf-caches-keep?`) open nodes are
+   not keyed.
+
+**Fuel model** (Q9, changed by design; the owner approves it at the
+gate). A substitution visit costs one unit, as before; a node given back
+by its data word or by the memo ends its visit for that unit, so a call
+expands each node at most once per offset ("a unit per distinct node per
+call", plus one per edge into an expanded node); a closing found
+remembered at its root costs nothing, as do memo lookups and keeps, the
+data-word reads that replace the scans (Lean's flags and hash lookups cost
+no steps); the closing of an open node for its key is paid as any
+substitution (Lean's instantiate when it opens a binder). Less fuel can
+still only give *exhausted* or *unknown*, never another verdict.
+
+**Why sound.** Within a call the substitution is fixed, so a result is a
+function of node and offset; across calls only closings stamped by a live
+innermost free variable share entries, and the closing of a node at an
+offset with the scope's innermost n' variables equals its closing with
+the whole scope whenever n' covers its loose range (inference passes
+exactly that, `lf-minfer-needed`). A memo entry is used only while its
+key node and its result keep the identities kept with them. The inferred-
+type key is Lean's: types are functions of the closed term within one
+local context, and every table is emptied when a job starts (Amendment 1).
+
+**Evidence.** `make test` and `make check` on the final commit (all
+Lean-compared tables: the same verdicts). Planted faults: 16 new
+(`s6a-*`: memo without offset or stamp, value identity unchecked, a skip
+reaching the offset in each pass, a skipped free variable, abstract
+skipping, no lift at all, one stamp for every scope, has_fvar or
+has_loose_bvars misread, a loose count one short, a key failure dropped)
+and 7 stale ones re-targeted, all 23 caught. Checker trials (2,000 × 300;
+trial digest `902a42ce549d` → `670bff75d128`, as fuel is folded in; outcomes
+ok 1,166,038 → 1,168,012, exhausted 476,867 → 474,875, invalid +1,
+unknown +20, rejected −3): 1,482 trials keep their outcome mix; the 518 that change move only
+between *exhausted* and *ok* except 39, and in each of those 39 the first
+call that differs went from *exhausted* to *ok* (36) or *unknown* (3) on
+the same store, the rest following from the different store; no trial
+has more *exhausted*. `Init`'s first 1M lines (`check --fast
+--no-manifest`, default fuel): 8,672 → 8,695 accepted, 518 → 501 unknown,
+12 → 6 exhausted, every move to *accepted* (Lean's verdict); fuel
+202,224,048 → 161,723,424 (1,751 declarations use more, at most 8.6%
+more, 5,880 less); check CPU 163 → 159 s. All of `Init` (`check --fast
+--no-manifest --resources`, default fuel): 54,556 → 55,587 accepted,
+4,703 → 3,735 unknown, 90 → 27 exhausted; 65 *exhausted* and 966
+*unknown* (a dependency out of fuel) are now accepted, Lean's verdict,
+and 2 that were *unknown* for a dependency now run themselves and run out
+of fuel (`Array.cons_lex_cons`'s private lemma, `Std.Iter.step_flatMapAfterM`);
+no other move; fuel 1,521,467,121 → 1,187,033,444 (8,864 declarations use
+more, at most 9% more, 41,923 less); check CPU 1,384 → 1,147 s; peak
+memory 1,280 → 1,098 MB.
+`_private.Init.Data.Array.Extract.0.Array.extract_append._proof_1_1`
+(blocks about 3,290 unknowns, agent DX): 21,299,931 → 15,767,375 fuel
+(cut of its dependencies, `--fuel 60000000`): 6.3 M of it is the
+per-conversion audit (`lf-mcompare-roots`, plan row S6 (c)), and with the
+check's scratch room raised from 2^20 to 2^22 terms (`feed.fs`, not
+changed here) it needs 9.0 M: past about 786,000 scratch nodes the caches
+stop keeping (`lf-caches-keep?`), and its comparisons rise from about
+21,000 to 533,000. `make test-depth-deep-differential` (six rows 10,000
+deep, fed; Lean's verdicts before and after): 162 s → 6.1 s.
+
+**Left.** The audits at every comparison and rebuild (S6 (c), agent S6C),
+`instantiate_lparams` per node (S6 (b)), Lean's == by hash (agent DX's
+finding 2), and the check's fixed scratch room above (a temporary gap:
+*exhausted* where Lean decides; plan task 6.2.2 removes the fixed 2^20-term
+scratch room, as it does `feed-term-room`).
+
+## Amendment 4: each node audited once per check (compact-store plan step S6 (c), agent S6C, 2026-11-11, proposed)
+
+Status: proposed; [kernel] gate owed. It changes LeanForth's own
+fail-closed defence, not a rule of Lean's: no typing, reduction or
+conversion step changes, and every verdict that moves is an *exhausted*
+that becomes Lean's.
+
+**Finding.** After Amendment 2 the structural audit (`lf-cterm-check`,
+`src/core/constant-term-boundary.fs`) checked each node once per *audit*,
+and audits run at every comparison (both roots, `lf-mcompare-roots`),
+every rebuilding pass (`lf-rebuild-audit`: shift, instantiate, beta),
+every universe substitution's source, every inference job's preflight and
+every V1 (`lf-constant-term-scope`, which also walked the scope). Lean's
+kernel runs none of them: its terms are well formed by construction and
+it reads `loose_bvar_range` and `has_fvar` from each node (`expr.h`;
+`infer_type_core` 326, `check_no_metavar_no_fvar`). On `Init` at main
+dbc39ad 28 of the 95 roots that ran out of fuel stopped inside the
+structural audit and 5 inside the level-scope check it runs per constant
+(Mathlib 1/6: 51 and 11 of 321); in the stuck `Init` roots the audits took
+25-41% of the fuel, nearly all of it the per-comparison audits (agent DX,
+`.claude/work/DX/REPORT.md`).
+
+**Decision: keep every audit, drop the repetition.**
+1. *A memo per check.* While the memo is on, a node reached by an audit
+   run that ends ok is kept as checked in its marks unit, as (epoch,
+   identity); a later audit in the same epoch pushes no kept child and a
+   kept root costs no fuel. Two epochs: the closed one, for nodes without
+   a free variable (the data word's bit clear), and the open one, for
+   nodes with one; a node without a data word is never kept. Both are new
+   numbers from the run counter (never a run's own number) when a check
+   begins (`lf-check-begin`), when the memo turns on, when the counter
+   wraps, and when one of the generations the audit reads differs from
+   those the closed epoch captured (term, level, reference and name
+   stores, literal limbs, string bytes, the parameter context); the open
+   one alone when the local context's generation moves (inference empties
+   it for each job). The memo is on in a check of the checked environment
+   (`lf-whnf-env?`, where the caches are), off elsewhere, so unit tests and
+   probes audit as before; `lf-audit-memo!` sets it (tests).
+2. *V1 from the data word.* After the structural audit, a root whose data
+   word shows no free variable and a loose range at most the depth passes
+   (`lf-cts-word?`); any other root (out of scope, a free variable, no
+   data word) takes the scope walk as before, so its verdict, diagnostic
+   and fuel are unchanged.
+3. *U2 from the data word.* A root with a data word holds no unsupported
+   leaf (such a leaf has none, nor has any node above it); a root without
+   one takes the walk (`lf-check-forms-word?`).
+4. `lf-cref-reset` advances the reference store's generation, as term and
+   level resets do (it set the count alone).
+
+Not changed: every call site of the audit (the declaration's entry audit
+where input enters, conversion, the rebuilding passes, inference's
+preflight, universe substitution, whose own graph check plan step S4
+retires); the level-scope check is not memoised by itself (its calls
+inside the term audit go with the term memo; level comparison's and
+level value's own calls stay per call, measured at 0.4% of the fuel of
+the stuck root below).
+
+**Why no node reaches a rule unaudited.** A pass reads a root only after
+an audit of it returned ok in this check. That audit either walked it or
+found it kept. A node is kept only by a run that ended ok, and such a run
+checked every node it reached and reached every child of every node it
+visited, except children kept themselves; by induction over the epoch's
+runs every kept node's whole graph was checked in this epoch. It stays
+checked because nothing the audit read can change within the epoch:
+- *The node and its children.* Records are never written after they are
+  made (`terms.fs`; only the test fault words of
+  `tests/support/store-faults.fs` write fields); a rollback gives back a
+  suffix (store marks, the joint scratch marks of step S1), so the
+  children of a live node, which come earlier, are live and the same; an
+  index given back and made again has a new identity (serials never
+  rewind), and a unit counts only with its node's identity.
+- *Stamps* of a constant or symbolic Sort are written when the node is
+  made.
+- *References and levels* a node names are made before it, so a joint
+  rollback that gives them back gives the node back; level-only rollbacks
+  (`level-substitute.fs`, `level-normalize.fs` on failure) give back only
+  levels their own pass made, which no live term names; a reset advances
+  the store's generation, which starts a new epoch.
+- *The parameter context, names, literal limbs and string bytes*: every
+  change advances a generation (the slabs only grow within a context).
+- *Free variables*: liveness depends on the local context. A node with
+  one is kept in the open epoch, which ends with the local context's
+  generation; within one job an entry goes only with its node
+  (`lf-lctx-drop` at a scratch rollback), so a live node's free variables
+  stay live.
+A run that does not end ok keeps nothing. V1 and U2 read data words that
+`terms.fs` computes from the children when a node is made, never from
+input (ADR 0016 C8), and that equal Lean's `loose_bvar_range` and
+`has_fvar`. With the entry audit's U2 and V1 removed, the malformed
+inputs of `tests/core/check-declaration.fs` still end *invalid* or
+*unknown*, never accepted (inference and the other audits meet them).
+
+**Fuel.** A kept root costs nothing and a kept child is not visited; V1
+and U2 of a root with a data word cost nothing; every failure costs as
+before. A check needs less fuel, so only *exhausted* (or *unknown* for a
+dependency out of fuel) can become a decided verdict.
+
+**Evidence.** `make test` and `make check`. On top of Amendment 3 (main
+3578de5 against the merge, `check --fast --no-manifest`, default fuel
+2,000,000): full `Init` 55,587 → 55,750 accepted, 27 → 16 exhausted,
+3,735 → 3,583 unknown; all 163 moves are to Lean's verdict (Lean accepts
+all of `Init`): 11 declarations that ran out of fuel and 152 that were
+unknown only through such a dependency are accepted, none moved away and
+no accepted declaration uses more fuel (list:
+`.claude/work/S6C/init-moves2.txt` of the agent's worktree); fuel
+1,187,033,444 → 791,610,006 (−33%); whole run's CPU 1,175 → 1,073 s
+(`gforth-fast`, a loaded machine); peak resident memory 1,072 → 1,051
+MB. The first 1M lines: 8,695 → 8,696 accepted, 6 → 5 exhausted
+(`Array.extract_append._proof_1_3` accepted), fuel 161,723,424 →
+109,613,586 (−32%), check CPU 147.9 → 147.7 s, peak memory 302 → 313 MB
+(the run's list of reached nodes). `Array.extract_append._proof_1_1`,
+which blocks most of `Init`'s remaining unknowns, with its dependencies
+alone (DX's cut, fuel 40M): 15,767,375 → 8,368,183 (Amendment 3's
+measurement put 6.3M of it in the per-comparison audits); still above
+the default 2,000,000. Over that cut the audits now take 5% of the fuel
+(633,132 of 12,531,033), `==` 6.5%, the level-scope checks of level
+comparison 4.8%. The 2,000 checker trials: `670bff75d128` →
+`056b65372109`, re-baselined; 1,989 trials differ, each trial's later
+random choices following the fuel left (ok 1,168,012 → 1,171,229,
+invalid 356,575 → 357,089, exhausted 474,875 → 467,820, unknown 405,130
+→ 407,009, rejected 90,014 → 91,459, full 4 → 4).
+
+Measured first on main b4c6935 (before Amendment 3). The first 1M lines of `Init`
+(`check --fast --no-manifest`, default fuel 2,000,000): 8,672 → 8,674
+accepted, 12 → 10 exhausted, 518 unknown, the two moves to Lean's verdict
+(`Array.extract_append._proof_1_2`,
+`Array.extract_append_extract._proof_1_2`), no other verdict moved; fuel
+202,224,048 → 145,072,524 steps (−28%); check CPU 170.7 → 162.2 s;
+peak resident memory 323 → 331 MB (the run's list of reached nodes).
+Full `Init` (same command, against main b4c6935): 54,556 → 54,920
+accepted, 90 → 52 exhausted, 4,703 → 4,377 unknown; all 364 moves are to
+Lean's verdict (Lean accepts all of `Init`): 38 declarations that ran out
+of fuel and 326 that were unknown only through such a dependency are
+accepted, none moved away (list:
+`.claude/work/S6C/init-moves.txt` of the agent's worktree); fuel
+1,521,467,121 → 1,107,410,988 (−27%); check CPU 1,385.8 → 1,332.1 s
+(−4%, `gforth-fast`, a loaded machine); peak resident memory 1,279 →
+1,275 MB. Four of the stuck roots
+of `Init` with their dependencies alone (DX's cuts, fuel 20M):
+`WellFounded.partialExtrinsicFix₃_eq_partialExtrinsicFix` exhausted
+before, accepted with 18,453,088 after (over its cut the audits' fuel
+5,685,126 → 263,483, the level-scope checks' 1,750,591 → 82,839);
+`Array.extract_append_extract._proof_1_1` 17,824,836 → 10,787,727;
+`IterM.toList_filterMapWithPostcondition_filterMapWithPostcondition'`
+13,430,006 → 8,847,858; `Std.Iter.step_flatMapAfterM` 13,103,450 →
+8,300,367 (all still above the default 2,000,000). The 2,000
+checker trials (`scripts/trial-digest.sh`): `902a42ce549d` →
+`f3019867dbc3`; 1,989 trials differ because each trial's
+later random choices follow the fuel left (outcomes over all trials: ok
+1,166,038 → 1,169,256, invalid 356,574 → 357,087, exhausted 476,867 →
+469,809, unknown 405,110 → 406,991, rejected 90,017 → 91,463, full 4 →
+4). Planted faults `s6c-*` in `tests/mutants/faults.toml` (12: a unit
+taken without its identity, a failed run that keeps, a free variable's
+node in the closed epoch, the local context or the generations ignored,
+the memo on outside a check, no child pushed, a reference reset without
+its generation, no new epoch per check, V1 passing a free variable or one
+binder too many, U2 passing a root without a data word), all caught; the
+nine earlier faults on the audits' code re-run, all caught.
+
+**Left.** Lean's `==` checks pointer identity at every pair, rejects at
+once on different hashes and caches pairs (`expr_eq_fn.cpp` 44-58);
+`lf-expr-equal` checks identity only at its roots and walks the rest (13-20%
+of the stuck roots' fuel before Amendment 3, DX; 6.5% of the cut above):
+a follow-up, as a structural hash needs room the 16-byte record lacks (a
+column or step S4's interning). The level-scope check that level
+comparison and level value run on both levels per call (4.8% of the cut)
+could keep its own memo per level node in the same way; levels are not
+hash-consed before step S4. `instantiate_lparams` per node is step S6 (b).
+
+## Amendment 5: == at every pair, caches keyed by node (compact-store plan step S4, agent S4, 2026-11-11, proposed)
+
+Status: proposed; [kernel] gate owed. Code: `src/kernel/mixed-compare.fs`
+(`lf-expr-equal`), `src/kernel/caches.fs`,
+`src/kernel/mixed-level-substitute.fs`, `src/kernel/level-compare.fs`;
+the storage side is ADR 0016's S4 note. No typing, reduction or
+conversion rule changes; every verdict that moves is an *exhausted* (or
+an *unknown* behind one) that becomes Lean's.
+
+**Ported.**
+1. *Lean's `==` at every pair* (`expr_eq_fn.cpp` 44-58, `apply`): one
+   node is equal at once (`is_eqp`), at the root and at every child
+   pair; two nodes whose data words (ADR 0016 C1: loose range, the
+   parameter and free-variable bits and the depth, each a function of
+   the term's structure as Lean's hash is) are known and differ are
+   apart at once (Lean's `hash(a) != hash(b)`); a pair met before in the
+   call is not walked again (Lean's per-call `check_cache`: had it
+   differed, the call would have ended); two constants of one interned
+   reference, or two Sorts of one hash-consed level, are equal at once
+   (`is_eqp` on the name and levels). None of these is pushed, so none
+   costs a unit. Before, `lf-expr-equal` checked identity only at its
+   roots and walked the rest (6.5% of the fuel of a stuck root after
+   Amendment 4, agent S6C).
+2. *Caches keyed by node* (Amendment 1's keys). With levels hash-consed
+   and references interned (ADR 0016's S4 note), equal constants and
+   Sorts are one node, so a node's number is its class under `==` and
+   the result caches key a node by its identity; the skeleton memo and
+   its key table are retired. Lean's node facts are the data word; the
+   memo left checks only, for a node whose word names a free variable,
+   that every free variable in it is live in this job (Amendment 1's
+   dead free variable). Two nodes that are `==` but not one node (made
+   while sharing was off, two literals of one value, a constant or Sort
+   made again because its stamps no longer held) are two keys: a miss
+   where Lean hits, never a false hit. Step S3 measured that keying by
+   node before this step lost 142 accepted declarations on the first 1M
+   lines of `Init`; after it none is lost (below).
+3. *`instantiate_lparams`' `has_param_univ` test* (`instantiate.cpp`
+   248-253): universe substitution neither audits nor rebuilds a term
+   whose data word shows no universe parameter; it is its own image.
+4. *Level comparison's scope checks per level*: in a check, a root
+   level found in scope is kept with its identity and the parameter
+   context's generation (a column of the level store) and is not walked
+   again while both hold (Amendment 4's note: 4.8% of a stuck root).
+
+**Why sound.** `==`: a node is equal to itself; data words are computed
+from the children when a node is made (never read from input, C8) and
+are equal for equal structure, so a difference proves a difference; the
+pair set only skips pairs already being compared in the same call; a
+constant's interned reference fixes its name and levels, a Sort's
+hash-consed level fixes its level. Keys: a cached function is a
+function of its argument within one job (Amendment 1), and a node's
+identity names exactly one node, never reused. `has_param_univ`: a term
+without universe parameters is unchanged by the substitution, and its
+levels need no check against the formals (none is a parameter); the
+graph audit still runs on the whole root. Level memo: a level's graph
+never changes while its identity holds, and every change of the
+parameter context advances its generation.
+
+**Fuel.** Fewer units: a pair answered at once, a skipped term, a kept
+level cost none. Less fuel can only turn *exhausted* (or *unknown* for a
+dependency out of fuel) into a decided verdict.
+
+**Evidence.** See ADR 0016's S4 note: the first 1M lines of `Init` and
+all of `Init` before and after, every move to Lean's verdict; `make
+check`; planted faults `s4-eq-*`, `s4-cache-key-stale-node`,
+`s4-fvmemo-children-live`, `s4-mls-*`, `s4-lcmp-memo-*`, all caught.
+
+## Note: the projection steps (plan task 5.2.2, 2026-11-10)
+
+The Q8 row "Projections: `reduce_proj`, step 8, `try_unfold_proj_app`"
+is closed: `defeq.fs` runs steps 8 and 9 (1177–1183, 1185–1188;
+`lazy_delta_proj_reduction` 1084–1102, sharing lazy delta's step) and
+`try_unfold_proj_app` (950–957) where only one side unfolds, and steps 3
+and lazy delta's unfoldings run `whnf_core` with `cheap_proj` (`whnf.fs`
+keeps the mode; `caches.fs` keeps no `m_whnf_core` entry of a cheap
+visit, as Lean, 547). `is_def_eq_app` and `is_def_eq_args` use Lean's
+`is_app` and `get_app_fn`: a projection (`Expr.proj`, here the
+application of a projection leaf) is no application. Evidence, rows and
+the `Init` counts: ADR 0015, "The comparison's projection steps".
+[kernel] code; review gate owed.
 
 ## Consequences
 

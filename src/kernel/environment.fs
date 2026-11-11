@@ -118,8 +118,9 @@ end-structure
 
 \ A slot (E2). Only the state and outcome mean anything for a declaration
 \ that was not accepted, except the members of a block rejected only by
-\ B3, whose slots are written as an accepted block's (lf-slot-added); the
-\ other fields stay zero.
+\ B3, whose slots are written as an accepted block's (lf-slot-added), and
+\ the skipped mark of a rejected one (lf-slot-skipped); the other fields
+\ stay zero.
 begin-structure /lf-slot
   field: lf-slot-state      \ lf-state-final once published, else not final
   field: lf-slot-outcome    \ the declaration's outcome (ADR 0008)
@@ -135,6 +136,8 @@ begin-structure /lf-slot
   field: lf-slot-recipe     \ a block's generated recursor: lf-recipe-... bits
   field: lf-slot-shape      \ an accepted inductive type's computed shape
                             \ (lf-shape-...); else 0
+  field: lf-slot-skipped    \ true on a rejected declaration Lean's replay
+                            \ skips, unchecked (lf-env-skipped!); else 0
 end-structure
 \ The recipe bits (ADR 0015 decision 12): the recursor LeanForth generated
 \ for the block can be built again from its input (generated-recursor.fs);
@@ -147,6 +150,11 @@ end-structure
 : lf-kind-bare? ( kind -- flag ) dup lf-kind-axiom = swap lf-kind-quotient = or ;
 1 constant lf-recipe-raw
 2 constant lf-recipe-large
+\ A nested block's recipe (plan task 5.2.5b) is its number of auxiliary
+\ types shifted by lf-recipe-aux-shift, without lf-recipe-raw: its
+\ recursors are not built again (unknown), and its first type holds the
+\ names T.rec_1 .. T.rec_n.
+8 constant lf-recipe-aux-shift
 \ The shape of an inductive type as LeanForth's block check computed it
 \ (ADR 0015 section 8, owner answer Q2: its own values, never the file's,
 \ which Lean's replay ignores): Lean's numIndices and is_rec, and a bit
@@ -171,6 +179,7 @@ begin-structure /lf-cand
   field: lf-cand-added      \ a block rejected only by B3 (lf-env-added!)
   field: lf-cand-recipe     \ its generated recursor's recipe (lf-env-recipe!)
   field: lf-cand-shaped     \ members with a shape in lf-cand-shapes, from 0
+  field: lf-cand-skipped    \ a declaration Lean's replay skips (lf-env-skipped!)
 end-structure
 /lf-cand context-record: lf-env-cand
 \ The dependencies' slots, ascending: a growable array, as long as the
@@ -197,6 +206,14 @@ end-structure
 \ constructors' slots (lf-slot-added?), and the name checks below read
 \ them.
 : lf-env-added! ( flag -- ) lf-env-cand lf-cand-added ! ;
+\ A declaration Lean's replay skips unchecked, an unsafe constant or a
+\ partial definition (Lean/Replay.lean 180-183; plan task 5.2.7): its
+\ check says so with true and ends rejected; the publisher marks its
+\ slots (lf-slot-skipped?). No later declaration can use it (N1: Lean's
+\ unknown constant), its name stays taken (N2: lean4export's parser
+\ refuses a name given twice, Parse.lean 78-80), and reports call it
+\ skipped (lf-env-skipped?), with Lean's exit status 0.
+: lf-env-skipped! ( flag -- ) lf-env-cand lf-cand-skipped ! ;
 \ A block's check sets the recipe of the recursor it generated
 \ (lf-recipe-... bits); the publisher keeps it on the block's slots, where
 \ a later lookup of T.rec that no slot holds finds it (ADR 0015 decision
@@ -349,6 +366,10 @@ end-structure
 : lf-slot-added? ( slot -- flag )
   dup lf-slot-final? over lf-slot-outcome@ outcome-rejected = and
   swap lf-slot-added @ 0<> and ;
+\ A rejected slot of a declaration Lean's replay skips (lf-env-skipped!).
+: lf-slot-skipped? ( slot -- flag )
+  dup lf-slot-final? over lf-slot-outcome@ outcome-rejected = and
+  swap lf-slot-skipped @ 0<> and ;
 \ A slot later declarations may use: accepted, or added by Lean's kernel
 \ (its own verdict stays rejected; ADR 0015 decision 11).
 \ An added slot is usable once the publisher wrote its record (its
@@ -525,9 +546,10 @@ end-structure
 \ final -- (d class), d that type's slot, class ok, unknown, unsupported
 \ or invalid; (-1 rejected) when nothing holds it. No diagnostic.
 \ P.rec_<digits>, the auxiliary recursors Lean generates for a nested
-\ block (named after its first type), is held the same way except by an
-\ accepted type: LeanForth accepts no nested block yet (plan task 5.2.2
-\ must hold these names for the nested blocks it accepts).
+\ block (named after its first type), is held the same way, by an
+\ accepted (or added) type only when it is its block's first and the
+\ block has an auxiliary type for that number (k from 1, no leading
+\ zero; the recipe, plan task 5.2.5b).
 : lf-env-number-rest ( c-addr u -- u' ) 0 0 2swap >number >r 2drop drop r> ;
 : lf-env-digits? ( c-addr u -- flag )
   dup 0> >r base @ >r decimal lf-env-number-rest r> base ! 0= r> and ;
@@ -565,14 +587,32 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
   lf-env-holders lf-env-holders# 2* cells bounds ?do
     2dup i lf-env-held if 2swap 2drop unloop exit then
   2 cells +loop 2drop -1 outcome-rejected ;
-: lf-env-aux-held ( d class -- d class ) dup ok? if 2drop -1 outcome-rejected then ;
+\ The k of rec_<k>, or 0 when no auxiliary recursor can be named so: a
+\ leading zero, more than 19 digits, or a number beyond one cell (read
+\ modulo 2^64 until review rvUNNI L1; 19 digits never wrap the double).
+19 constant lf-env-k-digits
+: lf-env-aux-k ( name -- k )
+  lf-name-text 4 /string 2dup 1 min s" 0" compare 0= if 2drop 0 exit then
+  dup lf-env-k-digits > if 2drop 0 exit then
+  base @ >r decimal 0 0 2swap >number 2drop r> base ! if drop 0 then ;
+: lf-env-first-type? ( d -- flag )
+  dup lf-input-decl lf-idecl-header ?dup
+  if lf-hdr-first lf-more-field = else drop false then ;
+: lf-env-aux-count ( d -- n )
+  lf-env lf-env-slot lf-slot-recipe @ lf-recipe-aux-shift rshift ;
+: lf-env-aux-has? ( name d -- flag )
+  dup lf-env-first-type? 0= if 2drop false exit then
+  lf-env-aux-count swap lf-env-aux-k tuck >= swap 0> and ;
+: lf-env-aux-held ( name d class -- d class )
+  dup ok? 0= if rot drop exit then
+  >r tuck lf-env-aux-has? if r> else r> 2drop -1 outcome-rejected then ;
 \ The name of the types that may hold name, 0 when no type can.
 : lf-env-type-name ( name -- prefix|0 )
   dup lf-env-rec-kind if lf-name-prefix@ else drop 0 then ;
 : lf-env-reserving ( name limit -- d class )
-  over lf-env-rec-kind >r swap lf-env-type-name ?dup 0=
-  if r> 2drop -1 outcome-rejected exit then
-  swap lf-env-holding r> lf-rec-aux = if lf-env-aux-held then ;
+  over lf-env-rec-kind >r over lf-env-type-name ?dup 0=
+  if r> drop 2drop -1 outcome-rejected exit then
+  swap lf-env-holding r> lf-rec-aux = if lf-env-aux-held else rot drop then ;
 
 \ Lean's quotient (ADR 0015 Q1; review rvAX). add_quot (quot.cpp 47-104)
 \ checks that none of Quot, Quot.mk, Quot.lift and Quot.ind is declared
@@ -725,7 +765,9 @@ here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
     >r lf-env-held-early r> endcase ;
 : lf-env-n2-quot ( d class -- outcome )
   dup outcome-full = if nip else lf-env-n2-held then ;
-\ N2 for name below limit: no usable declaration of it (the slots of that
+\ N2 for name below limit: no declaration of it that Lean's replay skips
+\ (lf-env-unskipped: rejected, as lean4export's parser refuses the file,
+\ before K5); no usable declaration of it (the slots of that
 \ name: accepted, or added by Lean's kernel with a block rejected only by
 \ B3, R2-1), and no accepted or added type T with name T.rec (Lean's
 \ generated recursor, review rvI21 B2) (lf-env-unheld); for any
@@ -733,12 +775,23 @@ here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
 \ does), also not one of the four quotient names once the quotient is
 \ initialised (lf-env-fresh). ok, rejected, unknown, unsupported,
 \ invalid or full, as lf-env-n2 and lf-env-n2-held say.
-: lf-env-unheld ( name limit -- outcome )
+\ The name of a recursor Lean's kernel generates that the file leaves out
+\ (B4: T.rec, or T.rec_k of a nested block) is no declaration of the
+\ file, so the parser's refusal does not concern it, and replay never
+\ added the skipped declaration of that name: lf-env-fresh-generated
+\ runs every test but lf-env-unskipped (review rvUNNI M1).
+: lf-env-unskipped ( name limit -- outcome )
+  ['] lf-slot-skipped? swap lf-env-first
+  dup 0< if drop outcome-ok else lf-env-declared then ;
+: lf-env-unused ( name limit -- outcome )
   2dup lf-env-find lf-env-n2 dup ok? 0= if nip nip exit then drop
   lf-env-reserving lf-env-n2-held ;
-: lf-env-fresh ( name limit -- outcome )
-  2dup lf-env-unheld dup ok? 0= if nip nip exit then drop
-  lf-env-quot-holding lf-env-n2-quot ;
+: lf-env-unheld ( name limit -- outcome )
+  2dup lf-env-unskipped dup ok? 0= if nip nip exit then drop lf-env-unused ;
+: lf-env-unquot ( name limit outcome -- outcome )
+  dup ok? 0= if nip nip exit then drop lf-env-quot-holding lf-env-n2-quot ;
+: lf-env-fresh ( name limit -- outcome ) 2dup lf-env-unheld lf-env-unquot ;
+: lf-env-fresh-generated ( name limit -- outcome ) 2dup lf-env-unused lf-env-unquot ;
 : lf-env-own-name-pass ( -- outcome )
   lf-env-checking 0= if outcome-invalid exit then nip
   lf-name-storage-valid? 0= if drop outcome-invalid exit then
@@ -751,6 +804,34 @@ here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
 : lf-env-own-name ( -- outcome )
   lf-log? 0= if lf-env-own-name-pass exit then
   lf-env-limit lf-log-none lf-rule-fresh-name ['] lf-env-own-name-pass lf-env-logged ;
+
+\ Lean's replay skips unsafe constants and partial definitions, checking
+\ nothing of them (Lean/Replay.lean 180-183; plan task 5.2.7). lf-env-skip
+\ ends the check of the n declarations from the one checked on (a block's
+\ members, or the declaration alone), all unsafe or partial: rejected,
+\ marked skipped (lf-env-skipped!; diagnostic lf-diag-skipped, with the
+\ kind and safety given) -- unless one has the name of an earlier
+\ declaration of the input, whatever its outcome: rejected then
+\ (lf-diag-already-declared, its name ID and that declaration), as
+\ lean4export's parser refuses a name given twice (Parse.lean 78-80).
+\ Invalid without a check's snapshot or with a corrupted name store.
+: lf-slot-any ( slot -- true ) drop true ;
+: lf-env-earlier ( d -- d'|-1 ) lf-input-name ['] lf-slot-any lf-env-limit lf-env-first ;
+: lf-env-twin ( k -- d d'|-1 ) lf-env-limit + dup lf-env-earlier ;
+: lf-env-twice ( n -- d d' | -1 -1 )
+  0 ?do i lf-env-twin dup 0< 0= if unloop exit then 2drop loop -1 -1 ;
+: lf-env-given-twice ( d d' -- outcome )
+  swap lf-input-name swap c" environment lf-env-skip" lf-diag-already-declared
+  lf-diag-note outcome-rejected ;
+: lf-env-unchecked ( kind safety -- outcome )
+  c" environment lf-env-skip" lf-diag-skipped lf-diag-note true lf-env-skipped!
+  outcome-rejected ;
+: lf-env-skip-ready? ( -- flag )
+  lf-env-checking dup if nip nip then lf-name-storage-valid? and ;
+: lf-env-skip ( kind safety n -- outcome )
+  lf-env-skip-ready? 0= if 2drop drop outcome-invalid exit then
+  lf-env-twice dup 0< if 2drop lf-env-unchecked exit then
+  2swap 2drop lf-env-given-twice ;
 \ G-P5, for a scheduler outside any check: whether every declaration
 \ before i named name has a final slot in the current environment, and,
 \ for a name a generated recursor may hold (lf-env-reserving), every type
@@ -872,6 +953,9 @@ here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
 \ axioms: none" (ADR 0011).
 : lf-env-outcome ( d -- outcome )
   lf-env-readable if lf-slot-outcome@ else outcome-invalid then ;
+\ Whether declaration d is one Lean's replay skips (lf-env-skipped!): its
+\ outcome rejected, which reports call skipped; false when unreadable.
+: lf-env-skipped? ( d -- flag ) lf-env-readable if lf-slot-skipped? else false then ;
 : lf-env-axioms ( d -- bits outcome )
   lf-env-readable 0= if 0 outcome-invalid exit then
   dup lf-slot-accepted? if lf-slot-axioms @ outcome-ok else drop 0 outcome-invalid then ;

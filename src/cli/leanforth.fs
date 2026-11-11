@@ -24,7 +24,7 @@
 \       the export read into the checker's input at its default sizes
 \       (import/checker-input.fs, which refuses inductive types), checked
 \       by import/run-record.fs's run (rr-check), and printed as above;
-\       run records 0.1 hold at most 32 declarations, so --record keeps
+\       run records 0.2 hold at most 32 declarations, so --record keeps
 \       this path (docs/programming/RUN_RECORDS.md, "Version 0.2");
 \   replay [--no-manifest] [--fuel N] [--fast] EXPORT RECORD
 \       check the export again and compare the new run record with RECORD
@@ -58,7 +58,9 @@
 \ Trust boundary: "accepted" is printed only by lf-check-verdict.
 \ (kernel/check-declaration.fs) from a declaration's published slot, and
 \ the exit code comes from the slots' outcomes as lf-env-outcome reads
-\ them; staging, parsing and printing here can hand the checker a wrong
+\ them, a rejected one marked skipped (an unsafe or partial declaration,
+\ which Lean's replay skips: lf-env-skipped?) with Lean's code 0; staging,
+\ parsing and printing here can hand the checker a wrong
 \ claim or misreport a failure, never make a declaration accepted. Names
 \ are printed as cli/name-text.fs shows them, escaped, so a crafted name
 \ cannot forge a line. An accepted declaration that depends on an axiom
@@ -124,7 +126,7 @@ require ./name-text.fs
 require ./check-run.fs
 require ./check-json.fs
 
-2000000 constant cli-default-fuel   \ fuel of each declaration's check
+20000000 constant cli-default-fuel   \ fuel of each declaration's check
 \ The most fuel --fuel takes: 2^53 - 1, the largest integer every JSON
 \ reader holds exactly (I-JSON), so that reports and records hold it; on
 \ a host whose cells are smaller, the largest cell.
@@ -236,8 +238,10 @@ end-structure
 : full-or-fault ( outcome -- code ) outcome-full = if exit-limit else exit-fault then ;
 
 \ Counting: each declaration whose check began by the verdict its slot
-\ holds (and NOT PROVED apart), the rest not checked after a fault.
-: cli-tally-one ( d -- ) dup lf-env-outcome dup cli-tally swap cli-bits cli-tally-proved ;
+\ holds (skipped, or its outcome; and NOT PROVED apart), the rest not
+\ checked after a fault.
+: cli-tally-one ( d -- )
+  dup verdict-of cli-tally dup lf-env-outcome swap cli-bits cli-tally-proved ;
 : cli-tally-stopped ( -- )
   exit-fault cli-code! lf-input-count cli-stepped - not-checked cli-count-of +! ;
 : cli-tally-verdicts ( -- )
@@ -268,10 +272,13 @@ end-structure
 : cli-verdict ( d -- )
   dup cli-name. ." : " dup lf-check-verdict. dup cli-not-proved. cr
   dup lf-env-outcome ok? if drop else cli-why. then ;
-: cli-skipped ( d -- ) cli-name. ." : not checked" cr ;
+\ A declaration the stopped run never reached: verdict not checked, said
+\ so that it cannot be read as skipped, the verdict of an unsafe or
+\ partial declaration (review rvUNNI L5).
+: cli-unreached ( d -- ) cli-name. ." : not checked (not reached: the run stopped)" cr ;
 : cli-stopped ( -- )
   ." internal fault: the run stopped: a check threw, or publishing failed" cr
-  lf-input-count cli-stepped ?do i cli-skipped loop ;
+  lf-input-count cli-stepped ?do i cli-unreached loop ;
 : cli-verdicts ( -- )
   cli-stepped 0 ?do i cli-verdict loop cli-faulted? if cli-stopped then ;
 
@@ -474,7 +481,7 @@ create cli-fed-ops
   ck-fuel-budget cli-number-text nip >r cli-number-text r> cli-column ;
 : cli-top. ( k -- )
   ck-top@ ."     " dup ck-fuel-of cli-fuel-column space dup cli-name. ."  ("
-  lf-env-outcome verdict-name type ." )" cr ;
+  verdict-of verdict-name type ." )" cr ;
 : cli-tops. ( -- )
   ck-tops 0= if exit then ."   most fuel used:" cr ck-tops 0 ?do i cli-top. loop ;
 : cli-resources. ( -- )
@@ -564,7 +571,7 @@ create cli-fed-ops
 : cli-misuse-record ( -- code )
   ." error: --json and --resources do not go with --record" cr
   ." try: leanforth help" cr exit-malformed ;
-\ Run records 0.1 hold the pinned versions only: --any-lean-version does
+\ Run records 0.2 hold the pinned versions only: --any-lean-version does
 \ not go with --record either.
 : cli-any-misused? ( -- flag ) cli-record? cli-any-lean? and ;
 : cli-misuse-any ( -- code )
@@ -735,14 +742,18 @@ create cli-fed-ops
   ."     --no-manifest; a summary, --resources (time, memory, fuel), --json;" cr
   ."     Gforth's checking engine, or gforth-fast with --fast" cr ;
 : cli-check-rules. ( -- )
-  ."   check: definitions and theorems built from Sort, variables, application, fun," cr
-  ."     forall and earlier accepted declarations (the first checker, ADR 0011)," cr
-  ."     and inductive blocks that are not mutual or nested: non-recursive ones" cr
-  ."     (5.2.1a) and recursive ones such as Nat and List (5.2.1b, its review" cr
-  ."     gate open); an accepted one is labelled experimental, not independently" cr
-  ."     audited" cr ;
+  ."   check: Lean's kernel rules as built so far, each result labelled" cr
+  ."     experimental, not independently audited: definitions, theorems, opaque" cr
+  ."     declarations and axioms (an axiom outside Lean's standard three is NOT" cr
+  ."     PROVED, as Lean's exit status 0); fun, forall, application, let," cr
+  ."     number and string literals, projections, unfolding of definitions;" cr
+  ."     proof irrelevance and eta; quotients; inductive types, recursive," cr
+  ."     indexed and mutual ones, with their recursors; unsafe and partial" cr
+  ."     declarations skipped, as Lean's replay skips them (5.2.7); several of" cr
+  ."     these are merged but their review gates are open" cr
+  ."     (docs/project/PROJECT_PROGRESS.md)" cr ;
 : cli-other-commands. ( -- )
-  ."   check --record, replay: run records 0.1 and their replay (plan task 2.2.5)" cr
+  ."   check --record, replay: run records 0.2 and their replay (plan task 2.2.5)" cr
   ."   print: a readable proof outline of each accepted declaration, from the" cr
   ."     checker's derivation log (plan tasks 2.4.1, 2.4.4; untrusted presentation)" cr
   ."   count, reexport: exports of any size, up to all of Mathlib" cr ;
@@ -750,12 +761,15 @@ create cli-fed-ops
   ." supported:" cr cli-check-input. cli-check-rules. cli-other-commands. ;
 : cli-lacks. ( -- )
   ." not yet supported (check answers unsupported or unknown, exit 2):" cr
-  ."   unsafe and partial declarations;" cr
-  ."   let (4.2.3), literals (5.2.3), projections (5.2.2) and metadata (4.1.3)" cr
-  ."   in a term; the rest of indexed families (5.2.1c)," cr
-  ."   mutual and nested blocks (5.2.5); unfolding definitions" cr
-  ."   (4.2.2), so some correct proofs end unknown; check --record and replay" cr
-  ."   refuse inductive types while reading" cr ;
+  ."   nested inductive types (5.2.5b), a block with both safe and unsafe" cr
+  ."   members (5.2.7 part b), metadata (mdata) in a term (4.1.3);" cr
+  ."   recursor reductions on a variable (a follow-up of 5.2.2)," cr
+  ."   so a correct proof can still end unknown;" cr
+  ."   check --record and replay (the old reader) refuse inductive types, and" cr
+  ."   answer unsupported for let, literals, projections and metadata;" cr
+  ."   the checker has not yet checked a Mathlib declaration" cr
+  ."   (0 of 729,263); the parallel job pool and the compact store are not" cr
+  ."   used by check (it stages the input, then copies it into its own stores)" cr ;
 : cli-check-limits. ( -- )
   ."   check: stores, walks and lists that grow with the export (memory), any" cr
   ."     depth and number of dependencies or constructors (plan task 6.2.0);" cr
@@ -802,7 +816,7 @@ create cli-fed-ops
   ."         [--latex] [--statement FORMS] [--any-lean-version] EXPORT" cr
   ."       check the export and print each accepted declaration's proof outline;" cr
   ."       FORMS: lean, mathematics, leanforth, all (default), joined by commas" cr
-  ."   print --lf [--no-manifest] [--fuel N] [--fast] EXPORT" cr
+  ."   print --lf [--no-manifest] [--fuel N] [--fast] [--any-lean-version] EXPORT" cr
   ."       write every declaration as one LeanForth text, unchecked; what the" cr
   ."       words cannot write is listed on stderr and stubbed" cr
   ."   count [--no-manifest] EXPORT     count the export's records by kind" cr

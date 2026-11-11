@@ -1,6 +1,6 @@
 \ The JSON report of `leanforth check --json` (plan tasks 3.4.3 and, the
 \ command line's part, 6.5.2): one JSON text in the format
-\ leanforth-check-report, version 0.1 (schemas/check-report-0.1.schema.json;
+\ leanforth-check-report, version 0.2 (schemas/check-report-0.2.schema.json;
 \ docs/user/COMMAND_LINE.md, "JSON output"), then a line feed, written to
 \ standard output with the project's JSON writer after a run of
 \ cli/check-run.fs and before ck-release. Every verdict is read from the
@@ -39,7 +39,7 @@ require ./check-run.fs
 
 8 0 json-writer: cj-writer
 : cj-schema ( -- c-addr u ) s" leanforth-check-report" ;
-: cj-version ( -- c-addr u ) s" 0.1" ;
+: cj-version ( -- c-addr u ) s" 0.2" ;
 : cj-label ( -- c-addr u ) s" experimental, not independently audited" ;
 
 \ Writing values and members.
@@ -103,9 +103,10 @@ require ./check-run.fs
 \ publishing failed), as the text's line "the run stopped" says.
 : cj-stopped ( -- ) ck-stopped? s" stopped" cj-flag ;
 : cj-began? ( d -- flag ) ck-steps-begun < ;
-\ The verdict as a run record writes it: accepted for ok.
+\ The verdict as a run record writes it: accepted for ok, skipped for a
+\ declaration Lean's replay skips (cli/tally.fs verdict-of).
 : cj-verdict-text ( d -- c-addr u )
-  dup cj-began? if lf-env-outcome else drop not-checked then verdict-name ;
+  dup cj-began? if verdict-of else drop not-checked then verdict-name ;
 : cj-site ( site -- c-addr u ) ?dup if count else s" " then ;
 : cj-numbers ( step -- )
   s" numbers" cj-key cj-array dup kept-first @ cj-n kept-second @ cj-n cj-end-array ;
