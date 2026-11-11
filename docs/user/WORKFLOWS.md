@@ -80,8 +80,8 @@ What each step means for you:
    nothing about proofs. It decodes the whole pinned Mathlib export in
    under two minutes ([reader guide](../development/NDJSON_READER.md)).
 3. **Staging** keeps the decoded names, levels, expressions and
-   declarations in the importer's compact store (`src/import/stage.fs`),
-   and the **feed** (`src/import/feed.fs`) gives them to the checker in
+   declarations in the importer's compact store (`src/import/stage.fs`; a loading stage,
+   the checker does not read it in place), and the **feed** (`src/import/feed.fs`) gives them to the checker in
    file order, its stores grown to fit; `bin/leanforth check` runs both, on
    exports of any size ([the command line](COMMAND_LINE.md)). `check
    --record`, `replay` and `print` still copy an export straight into the
