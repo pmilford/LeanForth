@@ -10,7 +10,8 @@
      or skipped (composition as an unsafe definition, plan task 5.2.7);
    1 rejected (composition with the wrong argument; the wrong twins of
      sharing.ndjson and sharing-universe.ndjson, which Lean's kernel rejects
-     too);
+     too; the lean-kernel-arena's four proofs of False in tests/cli/bugs/,
+     each rejected where Lean 4.35.0 rejects it);
    2 unsupported (an axiom; a literal; with --record an inductive type,
      refused while reading) and unknown (UNKNOWN, a block whose check needs
      a recursor reduction the checker does not port yet; tests/cli/
@@ -355,6 +356,32 @@ class ExitCodes(unittest.TestCase):
         self.assertEqual(status, 1)
         self.assertIn("IE.unsafeLoop: skipped", lines)
         self.assertIn("IE.fromUnsafe: rejected", lines)
+
+    def test_1_arena_bugs(self):
+        """Four proofs of False from the lean-kernel-arena (tests/bugs/proj-of-stuck-prop,
+        proj-of-subst-prop, rec-missing-ih, rec-of-subst-prop; their exports copied from
+        the arena's Lean 4.35.0 run into tests/cli/bugs/), which Lean 4.35.0's checker
+        rejects: rejected at the declaration Lean rejects, never unknown (diagnostic 81
+        before the follow-up of task 5.2.1b: K and structure eta on a local of a block's
+        telescope, iota.fs; is_prop's typeExpected, infer-proj.fs)."""
+        for case, first, diagnostic in [
+                ("proj-of-stuck-prop", "Native64ResultSortOwner: rejected",
+                 "  rejected: inductive type not ending in a Sort (T2); diagnostic 68 at "
+                 "check-block lf-block-check: "),
+                ("proj-of-subst-prop", "PR14806Subst.observe: rejected",
+                 "  rejected: type expected (S1); diagnostic 55 at infer-proj lf-infer-proj: "),
+                ("rec-missing-ih", "Native64TwoHashOwner: rejected",
+                 "  rejected: non-valid occurrence of the type (P2); diagnostic 80 at "
+                 "check-block lf-block-check: 2 2"),
+                ("rec-of-subst-prop", "Issue.forallFalse: rejected",
+                 "  rejected: type expected (S1); diagnostic 55 at infer-proj lf-infer-proj: ")]:
+            status, out, _ = run("check", "--no-manifest", f"tests/cli/bugs/{case}.ndjson")
+            lines = out.splitlines()
+            self.assertEqual(status, 1, case)
+            self.assertEqual([l for l in lines if l.endswith(": unknown")], [], case)
+            at = lines.index(first)
+            self.assertTrue(lines[at + 1].startswith(diagnostic), (case, lines[at + 1]))
+            self.assertEqual([l for l in lines[:at] if l.endswith(": rejected")], [], case)
 
     def test_2_unsupported_and_unknown(self):
         # A proof that is a string literal, typed String, which the file does not

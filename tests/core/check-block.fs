@@ -226,6 +226,21 @@ T{ s" pos.negative-redex-domain-later" verdict-field
    -> outcome-rejected lf-diag-non-positive 9 0 }T
 T{ s" pos.non-valid-index-of-other" verdict-field -> outcome-rejected lf-diag-non-valid 9 0 }T
 T{ s" pos.universe-checked-first" verdict -> outcome-rejected lf-diag-universe-too-big 9 }T
+\ K and structure eta on a variable of the block's own telescope (the
+\ follow-up of task 5.2.1b, iota.fs; the arena's bugs/proj-of-stuck-prop
+\ and bugs/rec-missing-ih): each binder steps 8 and 9 walk into is opened
+\ on the job's scope, as Lean's mk_local_decl_for opens it. A recursive
+\ field reached so stays unknown in the recursor builder (step 12), whose
+\ binders no scope holds (GAPS in tests/core/inductive-table.py).
+T{ s" k.block-index-variable" verdict -> outcome-ok 0 all-steps }T
+T{ s" k.mutual-index-variable" verdict -> outcome-ok 0 all-steps }T
+T{ s" eta.block-index-variable" verdict -> outcome-ok 0 all-steps }T
+T{ s" k.block-index-stuck" verdict -> outcome-rejected lf-diag-block-not-sort 8 }T
+T{ s" k.mutual-index-stuck" verdict -> outcome-rejected lf-diag-block-not-sort 8 }T
+T{ s" eta.block-index-prop-stuck" verdict -> outcome-rejected lf-diag-block-not-sort 8 }T
+T{ s" k.field-stuck" verdict-field -> outcome-rejected lf-diag-non-valid 9 1 }T
+T{ s" k.field-under-binder-stuck" verdict-field -> outcome-rejected lf-diag-non-valid 9 1 }T
+T{ s" k.field-variable" verdict -> outcome-unknown lf-diag-iota-pending 12 }T
 T{ s" uniform.other-argument" verdict -> outcome-rejected lf-diag-nonuniform 3 }T
 T{ s" uniform.definitionally-equal-argument" verdict -> outcome-rejected lf-diag-nonuniform 3 }T
 

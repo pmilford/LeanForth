@@ -97,12 +97,26 @@ GAPS = {
         "a block whose type is safe and whose constructor and recursor are unsafe, which"
         " Lean never writes: replay adds the block and compares only its safe members"
         " (diagnostic 42). Closed by task 5.2.7 part b"),
+    "k.field-variable": ("unknown",
+        "a field whose type reduces to the type only by K on an earlier field: positivity"
+        " follows Lean, but the recursor builder (inductive-recursor.fs) reads the field"
+        " under binders no inference scope holds, so K there is undecided (diagnostic 81)."
+        " Closed by the follow-up of task 5.2.1b that opens the builder's binders (Lean's"
+        " is_rec_argument, mk_local_decl_for)"),
 }
 # Rows of a later task that a part of it already done decides: each must give
 # exactly the table's column (id -> the part that decides it).
 REQUIRED = {row: "task 5.2.1c's K part (Lean's to_cnstr_when_K, iota.fs)" for row in (
     "iota.eq-refl", "k.eq-variable-proof", "k.eq-different-ends", "k.eq-ends-defeq",
     "k.type-through-definition", "k.true-variable-proof", "k.eq-different-ends-wrong")}
+REQUIRED.update({row: "the follow-up of task 5.2.1b: K and structure eta on a variable of the"
+                      " block's telescope, which steps 8 and 9 open on the inference scope"
+                      " (iota.fs, check-block.fs; the arena's bugs/proj-of-stuck-prop and"
+                      " bugs/rec-missing-ih)"
+                 for row in ("k.block-index-variable", "k.block-index-stuck",
+                             "k.mutual-index-variable", "k.mutual-index-stuck", "k.field-stuck",
+                             "k.field-under-binder-stuck", "eta.block-index-variable",
+                             "eta.block-index-prop-stuck")})
 REQUIRED.update({row: "task 5.2.4's Q1 and Q2 (add_quot and quot_reduce_rec, quot.fs)"
                  for row in ("quot.lift-on-mk", "quot.lift-on-mk-wrong",
                              "quot.lift-stuck-on-variable", "quotinit.with-eq",

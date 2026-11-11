@@ -61,11 +61,16 @@ require ./whnf.fs
 : lf-iproj-aside ( x xt -- y status )
   lf-minfer-aside @ >r true lf-minfer-aside ! execute r> lf-minfer-aside ! ;
 \ is_prop (383-389), aside: x's type's whnf a Sort whose level is zero.
-\ An inference that fails as invalid is unknown here.
+\ A whnf that is no Sort is Lean's typeExpected, which is_prop's
+\ ensure_sort throws in infer-only mode too: rejected (diagnostic 55,
+\ the type's type reduced; plan task 5.2.1d). An inference that fails as
+\ invalid is unknown here.
+: lf-iproj-not-sort ( reduced -- flag outcome )
+  0 lf-iproj-site lf-diag-type-expected lf-diag! false outcome-rejected ;
 : lf-iproj-zero ( x -- flag status )
   lf-minfer-walk ok-then? 0= if false swap exit then
   lf-minfer-whnf-job ok-then? 0= if false swap exit then
-  lf-minfer-sort? 0= if false outcome-unknown exit then lf-minfer-zero? ;
+  dup lf-minfer-sort? 0= if lf-iproj-not-sort exit then nip lf-minfer-zero? ;
 : lf-iproj-prop? ( x -- flag status )
   ['] lf-iproj-zero lf-iproj-aside dup outcome-invalid = if drop outcome-unknown then ;
 

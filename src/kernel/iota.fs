@@ -125,26 +125,43 @@ require ./quot.fs
   lf-term-first@ lf-whnf-head dup lf-whnf-const? 0= if drop 0 exit then
   lf-whnf-cref lf-crec-name @ ;
 : lf-iota-not-ported ( app -- -1 outcome ) lf-whnf-head lf-whnf-pending ;
+\ Whether inference can type e where whnf meets it: e closed, or met by
+\ a whnf on the inference job's frames, whose terms are read under the
+\ job's scope -- their loose bound variables its free variables, as
+\ Lean's are the locals mk_local_decl_for made: check-block.fs opens each
+\ binder it walks into on the scope, and the typer closes e with it
+\ (lf-minfer-typed). Elsewhere (the recursor builder's frames) a loose
+\ bound variable stands for a binder no scope holds. A failing scan is
+\ (false outcome). An open e typed so is counted (lf-whnf-scope-use): the
+\ result depends on the scope, and kernel/caches.fs keeps none for it.
+: lf-iota-on-scope? ( frames -- flag )
+  lf-minfer-frames = dup if lf-whnf-scope-use then ;
+: lf-iota-scoped? ( e frames -- flag outcome )
+  tuck lf-whnf-loose? ok-then? 0= if nip false swap exit then
+  if lf-iota-on-scope? else drop true then outcome-ok ;
 
 \ Structure eta in iota (R3; plan task 5.2.2; to_cnstr_when_structure,
-\ inductive.h 63-75, expand_eta_struct, inductive.cpp 99-112): a closed
-\ major premise of a non-recursive structure, whose type -- inferred
-\ aside, as Lean's infer_type, then put in whnf -- applies that structure
-\ and is no proposition, becomes the structure's constructor at the
-\ type's universe arguments, applied to the type's first numParams
-\ arguments and to the projections e.0 .. e.(n-1) (core/projections.fs);
-\ a proposition's stays as it is (BL-8), as does one whose type is
-\ another. The inference runs inside an inference job in environment
-\ mode only; elsewhere, for a term with loose bound variables (read
-\ under binders the check did not open), and wherever that inference
-\ fails, unknown. Aside, inference compares nothing (Lean's infer_type
-\ here is infer_only), so it runs inside a comparison too: is_prop of
-\ Prod Bool Bool, met in one (iota.prod-eta).
+\ inductive.h 63-75, expand_eta_struct, inductive.cpp 99-112): a major
+\ premise of a non-recursive structure, whose type -- inferred aside, as
+\ Lean's infer_type, then put in whnf -- applies that structure and is no
+\ proposition, becomes the structure's constructor at the type's
+\ universe arguments, applied to the type's first numParams arguments
+\ and to the projections e.0 .. e.(n-1) (core/projections.fs); a
+\ proposition's stays as it is (BL-8), as does one whose type is another.
+\ The type's type whose whnf is no Sort is Lean's typeExpected (is_prop's
+\ ensure_sort, type_checker.cpp 383-389): rejected. The inference runs
+\ inside an inference job in environment mode, on a major premise that
+\ is scoped (above; plan task 5.2.1d): elsewhere, and wherever that
+\ inference cannot follow Lean, unknown. Aside, inference compares
+\ nothing (Lean's infer_type here is infer_only), so it runs inside a
+\ comparison too: is_prop of Prod Bool Bool, met in one (iota.prod-eta).
 : lf-iota-typed ( node -- Ty outcome )
   lf-minfer-walk ok-then? if lf-minfer-whnf-job else no-result then ;
 : lf-iota-type-of ( node -- Ty outcome ) ['] lf-iota-typed lf-iproj-aside ;
-: lf-iota-closed? ( node -- flag )
-  lf-minfer-frames lf-whnf-loose? ok? if 0= else drop false then ;
+\ A failure of R3: unknown is the route not followed (diagnostic 81);
+\ any other (rejected, exhausted, full, invalid) ends the visit.
+: lf-iota-eta-failed ( app outcome -- -1 outcome )
+  dup outcome-unknown = if drop lf-iota-not-ported else nip no-result then ;
 : lf-iota-of-struct? ( sdecl Ty -- flag )
   lf-whnf-head dup lf-whnf-const? 0= if 2drop false exit then
   lf-whnf-cref lf-crec-name @ swap lf-idecl-name @ lf-name-same? ;
@@ -173,26 +190,36 @@ require ./quot.fs
   swap lf-iota-params ok-then? 0= if r> drop >r 2drop drop r> no-result exit then
   swap lf-idecl-data lf-ict-fields lf-more-field rot swap r> swap lf-iota-fields-of
   rot drop ;
-: lf-iota-eta ( app major sdecl -- major' true | reduct outcome false )
-  lf-minfer-env? 0= if 2drop lf-iota-not-ported false exit then
-  over lf-iota-closed? 0= if 2drop lf-iota-not-ported false exit then
-  over lf-iota-type-of ok-then? 0= if drop 2drop lf-iota-not-ported false exit then
+: lf-iota-eta-ready? ( major frames -- flag )
+  lf-minfer-env? if lf-iota-scoped? drop else 2drop false then ;
+: lf-iota-eta ( app major sdecl frames -- major' true | reduct outcome false )
+  2 pick swap lf-iota-eta-ready? 0= if 2drop lf-iota-not-ported false exit then
+  over lf-iota-type-of ok-then? 0= if >r 2drop r> lf-iota-eta-failed false exit then
   2dup lf-iota-of-struct? 0= if 2drop 2drop -1 outcome-ok false exit then
-  dup lf-iproj-prop? ok-then? 0= if drop 2drop drop lf-iota-not-ported false exit then
+  dup lf-iproj-prop? ok-then? 0= if >r 2drop drop r> lf-iota-eta-failed false exit then
   if 2drop 2drop -1 outcome-ok false exit then
   -rot lf-iota-expand ok-then? 0= if nip no-result false exit then nip true ;
 
+\ The major premise's inductive type as is_non_rec_structure reads it
+\ (get_major_induct): its declaration for a non-recursive structure, 0
+\ for any other type, -1 where it cannot be named (no binder major_idx,
+\ or Lean's generated recursor that no slot holds), or a lookup's
+\ failure.
+: lf-iota-structure ( decl -- sdecl|0|-1 outcome )
+  lf-iota-induct ?dup 0= if -1 outcome-ok exit then
+  lf-whnf-find ok-then? 0= if no-result exit then
+  dup 0< if drop -1 outcome-ok exit then lf-env-structure ;
+: lf-iota-eta-at ( app decl m sdecl frames -- app decl m' true | reduct outcome false )
+  >r >r 2 pick swap r> r> lf-iota-eta 0= if >r >r 2drop r> r> false exit then true ;
 \ A major premise that is no constructor application (inductive.h 90-99):
 \ K undecided (pending, below), unknown; a non-recursive structure, R3
 \ above; any other type, no rule (-1 ok).
-: lf-iota-no-ctor ( app decl m pending -- app decl m' true | reduct outcome false )
-  if 2drop lf-iota-not-ported false exit then
-  over lf-iota-induct ?dup 0= if 2drop lf-iota-not-ported false exit then
-  lf-whnf-find ok-then? 0= if >r 2drop drop r> no-result false exit then
-  dup 0< if drop 2drop lf-iota-not-ported false exit then
-  lf-env-structure ok-then? 0= if >r 2drop drop r> no-result false exit then
-  ?dup 0= if 2drop drop -1 outcome-ok false exit then
-  >r 2 pick swap r> lf-iota-eta 0= if >r >r 2drop r> r> false exit then true ;
+: lf-iota-no-ctor ( app decl m pending frames -- app decl m' true | reduct outcome false )
+  swap if drop 2drop lf-iota-not-ported false exit then
+  >r over lf-iota-structure ok-then? 0= if r> drop >r 2drop drop r> no-result false exit then
+  dup 0< if r> 2drop 2drop lf-iota-not-ported false exit then
+  ?dup 0= if r> drop 2drop drop -1 outcome-ok false exit then
+  r> lf-iota-eta-at ;
 
 \ The rule applies when the constructor has its fields and the recursor
 \ as many universe arguments as parameters (inductive.h 104-105).
@@ -234,7 +261,7 @@ require ./quot.fs
 \ undecided.
 : lf-iota-reduce ( app decl major pending frames -- reduct outcome )
   >r over lf-iota-ctor? ok-then? 0= if >r 2drop 2drop r> no-result r> drop exit then
-  if drop else lf-iota-no-ctor 0= if r> drop exit then then
+  if drop else r@ lf-iota-no-ctor 0= if r> drop exit then then
   2dup lf-iota-head-name lf-iota-rule ?dup 0=
   if 2drop drop -1 outcome-ok r> drop exit then
   2over 2over lf-iota-applies? 0= if 2drop 2drop -1 outcome-ok r> drop exit then
@@ -283,12 +310,16 @@ require ./quot.fs
 \ constructor takes e's place. Otherwise e stays ("kept": another head, a
 \ type without constructors, a no). Either way the major premise is then
 \ put in whnf and reduced as above, as in Lean.
+\ An e with loose bound variables is typed under the inference job's
+\ scope when it is scoped (lf-iota-scoped?; plan task 5.2.1d: a block's
+\ type or field read under binders check-block.fs opened, as Lean's
+\ mk_local_decl_for opens them).
 \ K cannot run as Lean (undecided, e stays): outside environment mode,
-\ for an e with loose bound variables (read under binders the check did
-\ not open), where the inference, a whnf or the comparison is unknown, a
-\ lookup cannot follow Lean, or e's type has fewer than numParams
-\ arguments (Lean would shrink its buffer past the end; never for a
-\ well-typed e). A major premise whose whnf is then a constructor
+\ for an e that is not scoped (a loose bound variable on the recursor
+\ builder's frames), where the inference, a whnf or the comparison is
+\ unknown, a lookup cannot follow Lean, or e's type has fewer than
+\ numParams arguments (Lean would shrink its buffer past the end; never
+\ for a well-typed e). A major premise whose whnf is then a constructor
 \ application still reduces -- the rule of a k recursor takes no field,
 \ so the reduct is the one K's constructor would give -- and any other
 \ is unknown (diagnostic 81). Exhausted, full and invalid end the visit.
@@ -307,10 +338,9 @@ require ./quot.fs
   dup frame-restore -rot lf-iota-k-failed ;
 : lf-iota-k-keep ( frames -- ... frames next ) dup frame-restore swap lf-iota-k-kept ;
 
-\ Whether K can run on e: environment mode, e closed.
+\ Whether K can run on e: environment mode, e scoped.
 : lf-iota-k-ready? ( e frames -- flag outcome )
-  lf-minfer-env? 0= if 2drop false outcome-ok exit then
-  lf-whnf-loose? ok-then? if 0= outcome-ok else false swap then ;
+  lf-minfer-env? if lf-iota-scoped? else 2drop false outcome-ok then ;
 \ The major inductive type's name when Ty's head is a constant of that
 \ name, else 0 (kept); unknown for a recursor type without that binder.
 : lf-iota-k-induct ( Ty decl -- name|0 outcome )

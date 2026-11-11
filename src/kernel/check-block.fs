@@ -213,9 +213,16 @@ end-structure
 \ A Pi of the telescope at binder i: its domain recorded, then its body.
 : lf-blk-bind ( pi i -- body i+1 )
   2dup swap lf-term-first@ swap lf-ind-domain ! 1+ swap lf-term-second@ swap ;
+\ A binder walked into is opened on the job's scope first, as Lean opens
+\ it with mk_local_decl_for (268-279; check_positivity 444-447): the
+\ terms whnf meets below are read under the scope (iota.fs, plan task
+\ 5.2.1d: K and structure eta type their major premise there).
+: lf-blk-open ( binder -- outcome ) lf-term-first@ lf-rcr-consume lf-blk-push ;
+: lf-blk-enter ( pi i -- body i+1 outcome ) over lf-blk-open >r lf-blk-bind r> ;
 : lf-blk-tele ( node i -- outcome )
   begin swap lf-blk-whnf ok-then? 0= if nip exit then dup lf-blk-pi? while
-    over lf-blk-room? 0= if 2drop outcome-full exit then swap lf-blk-bind
+    over lf-blk-room? 0= if 2drop outcome-full exit then
+    swap lf-blk-enter ok-then? 0= if nip exit then
   repeat lf-blk-end swap lf-blk-count ;
 \ The first type's telescope gives the parameters and its indices.
 : lf-blk-first-telescope ( -- outcome )
@@ -240,7 +247,7 @@ end-structure
   swap lf-term-first@ swap lf-ind-domain ! 1 lf-blk-used +! outcome-ok ;
 : lf-blk-dbinder ( node i -- outcome )
   dup lf-ind-nparams < if lf-diag-mutual-params lf-blk-param-as exit then
-  drop lf-blk-index! ;
+  drop dup lf-blk-index! ok-then? 0= if exit then lf-blk-open ;
 \ The member a diagnostic names for type d or constructor j: its own, or
 \ for an auxiliary one (task 5.2.5b) the block's first.
 : lf-blk-type-member ( d -- k ) dup lf-ind-in-types@ < and ;
@@ -367,6 +374,7 @@ end-structure
 : lf-pos-pi ( node depth -- node' depth' true | outcome false )
   over lf-term-first@ lf-blk-occurs? ok-then? 0= if nip nip false exit then
   if 2drop lf-diag-non-positive lf-pos-fail false exit then
+  over lf-blk-open ok-then? 0= if nip false exit then
   1+ swap lf-term-second@ swap true ;
 : lf-pos-step ( node depth -- node' depth' true | outcome false )
   swap lf-blk-whnf ok-then? 0= if nip false exit then swap
@@ -374,7 +382,10 @@ end-structure
   0= if 2drop outcome-ok false exit then
   over lf-blk-pi? if lf-pos-pi exit then lf-pos-end false ;
 : lf-blk-positive ( node depth -- outcome ) begin lf-pos-step 0= until ;
-: lf-blk-positivity ( node i -- outcome ) dup lf-blk-state lf-blkrec-field ! lf-blk-positive ;
+\ The binders it opened leave the scope when it ends.
+: lf-blk-positivity ( node i -- outcome )
+  dup lf-blk-state lf-blkrec-field ! lf-minfer-context-depth @ >r
+  lf-blk-positive r> lf-minfer-unbind ;
 : lf-blk-field ( node i -- outcome )
   swap lf-term-first@ dup lf-minfer-domain ok-then? 0= if nip nip exit then
   lf-blk-fits ok-then? 0= if nip exit then
