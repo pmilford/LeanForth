@@ -60,8 +60,11 @@
 \ passes on to the caller of export-read after the file is closed, with
 \ the export idle.
 \
-\ What is checked: exact field sets (no field missing, unknown or repeated);
-\ value kinds; enumerations; index fields natural numbers; every name,
+\ What is checked: the fields Lean's reader looks up, as it does (a missing
+\ one is refused, an opaque's isUnsafe excepted; one it does not look up is
+\ ignored; a repeated one reads as its last), the record line's own members
+\ and the metadata exactly; value kinds; enumerations; index fields natural
+\ numbers, as Lean's parser reads them (1e2 is 100; see natural-digits); every name,
 \ level and expression reference to an index an earlier record has, and
 \ names that must not be anonymous; natural number literals in canonical
 \ decimal; heights within UInt32; metadata naming the pinned exporter
@@ -359,23 +362,39 @@ end-structure
 \ A record kind: also its kind code.
 : nd-variant ( table offset xt kind "key" -- table )
   >r , over table-target @ + , r> , named, ;
+\ A field that may be absent, reading 0 then.
+: nd-default ( table offset xt "key" -- table ) , over table-target @ + , 1 , named, ;
 \ An enumeration word and its code.
 : nd-choice ( table code "key" -- table ) 0 , 0 , , named, ;
 : end-shape ( table -- ) drop 0 , 0 , 0 , 0 0 counted, ;
 
-\ Decoding an object: its fields must be exactly the table's keys.
+\ Decoding an object as Lean's reader does (Export/Parse.lean looks up the
+\ keys it needs in the object its JSON parser made): each of the table's
+\ keys is looked up in the last member that has it (the parser overwrites
+\ on insert), and a member the table does not name is ignored (export-exact
+\ is the strict reading, for the metadata line, which Lean never reads). A
+\ key that is missing is refused, unless its entry is optional (nd-default):
+\ its field then reads 0, as Lean's `getD (.bool false)` does.
+: absent-entry ( export entry -- outcome )
+  dup entry-kind @ 0= if drop c" missing field" export-bad exit then
+  entry-offset @ + 0 swap ! outcome-ok ;
+: export-entry ( object entry export -- outcome )
+  >r dup entry-key r@ export-key ! tuck entry-key swap r@ export-json json-find-last
+  if swap dup entry-offset @ r@ + swap entry-check @ r> swap execute
+  else r> swap absent-entry then ;
 : export-fits? ( object table export -- flag )
   >r table-count @ swap json-object r> export-json json-items-of
   if = else drop false then ;
-: export-entry ( object entry export -- outcome )
-  >r dup entry-key r@ export-key ! tuck entry-key swap r@ export-json json-find
-  if swap dup entry-offset @ r@ + swap entry-check @ r> swap execute
-  else drop r> c" missing or unexpected field" export-bad then ;
 : export-entries ( object table export -- outcome )
   >r table-entries begin dup entry-last? 0= while
     2dup r@ export-entry dup ok? 0= if nip nip r> drop exit then drop entry-next
   repeat 2drop r> drop outcome-ok ;
+: export-object? ( object export -- flag ) export-json json-kind@ json-object = ;
 : export-shape ( object table export -- outcome )
+  >r over r@ export-object? if r> export-entries exit then
+  2drop r> c" expected an object" export-bad ;
+\ The strict reading: the object's members are exactly the table's keys.
+: export-exact ( object table export -- outcome )
   >r 2dup r@ export-fits? if r> export-entries exit then
   2drop r> c" unexpected fields" export-bad ;
 
@@ -400,28 +419,27 @@ end-structure
 \ natural-digits gives the digits of the value of such a number: addr u
 \ and ok; invalid when it is not a natural; full when the digits would
 \ not fit the scratch. An integer token's digits are its own text.
-: skip-char ( addr u c -- addr' u' flag )
-  >r dup if over c@ r@ = if 1 /string r> drop true exit then then r> drop false ;
-: skip-e ( addr u -- addr' u' flag ) [char] e skip-char dup if exit then drop [char] E skip-char ;
+: skip-text ( addr u key-addr key-u -- addr' u' flag )
+  2>r dup if over 1 2r@ compare 0= if 1 /string 2r> 2drop true exit then then 2r> 2drop false ;
+: skip-e ( addr u -- addr' u' flag ) s" e" skip-text dup if exit then drop s" E" skip-text ;
 : digit-run ( addr u -- n ) over + over digits-end nip swap - ;
 : take-digits ( addr u -- addr' u' digits-addr n )
   2dup digit-run >r 2dup r@ /string 2swap drop r> ;
 : scan-fraction ( addr u -- addr' u' frac-addr n )
-  [char] . skip-char if take-digits else over 0 then ;
+  s" ." skip-text if take-digits else over 0 then ;
 : exponent-part ( addr u -- addr' u' minus exp-addr n )
-  [char] - skip-char dup 0= if drop [char] + skip-char drop false then
+  s" -" skip-text dup 0= if drop s" +" skip-text drop false then
   >r take-digits r> -rot ;
 : scan-exponent ( addr u -- addr' u' minus exp-addr n )
   skip-e if exponent-part else over 0 false -rot then ;
 \ Split the token's text into the parts of the number record.
 : number-scan ( addr u number -- )
-  >r [char] - skip-char r@ num-negative !
+  >r s" -" skip-text r@ num-negative !
   take-digits r@ num-whole 2!  scan-fraction r@ num-frac 2!
   scan-exponent r@ num-exp 2!  r> num-exp-minus ! 2drop ;
 : strip-zeros ( addr u -- addr' u' )
-  begin dup 0> while over c@ [char] 0 = while 1 /string repeat then ;
-: all-zeros? ( addr u -- flag )
-  over + swap ?do i c@ [char] 0 <> if unloop false exit then loop true ;
+  begin dup 0> while over 1 s" 0" compare 0= while 1 /string repeat then ;
+: all-zeros? ( addr u -- flag ) strip-zeros nip 0= ;
 : mantissa-zero? ( number -- flag )
   dup num-whole 2@ all-zeros? swap num-frac 2@ all-zeros? and ;
 \ The exponent's value, at most max-n (a larger one is as good); false
@@ -541,7 +559,6 @@ end-shape
   swap 1+ swap 2dup r@ v-level ok-then? 0= if nip r> drop exit then
   swap 1+ swap cell+ r> v-level ;
 \ Any JSON object, kept as its index (mdata's data).
-: export-object? ( value export -- flag ) export-json json-kind@ json-object = ;
 : object-of ( value export -- index outcome )
   2dup export-object? if drop outcome-ok exit then
   nip c" expected an object" export-bad no-result ;
@@ -593,6 +610,7 @@ end-structure
 \ nd-nested decodes one object with the table, ignoring slot; nd-listed
 \ decodes a list of such objects, kept in slot.
 : nd-nested ( table "name" -- ) create , does> @ rot drop swap export-shape ;
+: nd-exact ( table "name" -- ) create , does> @ rot drop swap export-exact ;
 : nd-listed ( table "name" -- )
   create ['] export-shape , , does> >r for-slot r> swap list-of slot! ;
 
@@ -616,14 +634,14 @@ end-shape
 0 export-record 0 shape: format-shape
   0 meta-format-version ' v-text nd-member version
 end-shape
-exporter-shape nd-nested v-exporter  lean-shape nd-nested v-lean
-format-shape nd-nested v-format
+exporter-shape nd-exact v-exporter  lean-shape nd-exact v-lean
+format-shape nd-exact v-format
 0 export-record 0 shape: meta-shape
   0 ' v-exporter nd-member exporter
   0 ' v-format nd-member format
   0 ' v-lean nd-member lean
 end-shape
-meta-shape nd-nested v-meta
+meta-shape nd-exact v-meta
 0 export-record 0 shape: meta-kinds  0 ' v-meta kind-meta nd-variant meta  end-shape
 
 0 export-record 0 shape: str-shape
@@ -721,7 +739,7 @@ end-shape
   0 decl-params ' v-names nd-member levelParams
   0 decl-type ' v-expr nd-member type
   0 decl-value ' v-expr nd-member value
-  0 decl-unsafe ' v-bool nd-member isUnsafe
+  0 decl-unsafe ' v-bool nd-default isUnsafe   \ older exporters omit it (Parse.lean:300)
   0 decl-all ' v-names nd-member all
 end-shape
 0 export-record 0 shape: quot-shape
@@ -778,7 +796,7 @@ recursor-shape nd-listed v-recursors
 \ the line {"inductive":{...}}.
 2 constant block-token
 : block-value ( c-addr export -- value true | false )
-  block-token swap export-json json-find ;
+  block-token swap export-json json-find-last ;
 \ A block declares at least one type, unless it is empty: no type, no
 \ constructor and no recursor (ADR 0016 amendment 1: Lean's kernel
 \ rejects such a declaration, emptyBlock, and the checker reports it so).

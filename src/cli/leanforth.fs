@@ -802,7 +802,7 @@ create cli-fed-ops
   ."         [--latex] [--statement FORMS] [--any-lean-version] EXPORT" cr
   ."       check the export and print each accepted declaration's proof outline;" cr
   ."       FORMS: lean, mathematics, leanforth, all (default), joined by commas" cr
-  ."   print --lf [--no-manifest] [--fuel N] [--fast] EXPORT" cr
+  ."   print --lf [--no-manifest] [--fuel N] [--fast] [--any-lean-version] EXPORT" cr
   ."       write every declaration as one LeanForth text, unchecked; what the" cr
   ."       words cannot write is listed on stderr and stubbed" cr
   ."   count [--no-manifest] EXPORT     count the export's records by kind" cr

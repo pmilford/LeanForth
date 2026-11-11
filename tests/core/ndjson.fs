@@ -104,7 +104,6 @@ T{ s\" {\"in\":123456789012345678901234567890,\"str\":{\"pre\":0,\"str\":\"y\"}}
    why s" index too large" compare -> outcome-full 0 }T
 T{ s\" {\"in\":4,\"str\":{\"pre\":4,\"str\":\"y\"}}" bad-name failed-field s" pre" compare -> outcome-invalid 0 }T
 T{ s\" {\"in\":4,\"str\":{\"pre\":0}}" bad-name -> outcome-invalid }T
-T{ s\" {\"in\":4,\"str\":{\"pre\":0,\"str\":\"y\",\"z\":1}}" bad-name -> outcome-invalid }T
 T{ s\" {\"in\":4,\"str\":{\"pre\":0,\"str\":5}}" bad-name -> outcome-invalid }T
 T{ s\" {\"in\":4,\"str\":{\"pre\":0,\"pre\":0}}" bad-name -> outcome-invalid }T
 T{ s\" {\"in\":4,\"str\":{\"pre\":0,\"str\":\"y\"},\"x\":1}" bad-name -> outcome-invalid }T
@@ -164,7 +163,6 @@ T{ s\" {\"ie\":11,\"natVal\":\"0\"}" feed ex export-exprs @ -> outcome-ok 12 }T
 T{ s\" {\"app\":{\"arg\":12,\"fn\":0},\"ie\":12}" bad-expr failed-field s" arg" compare -> outcome-invalid 0 }T
 T{ s\" {\"app\":{\"arg\":1,\"fn\":0},\"ie\":true}" bad-expr -> outcome-invalid }T
 T{ s\" {\"app\":{\"arg\":1},\"ie\":12}" bad-expr -> outcome-invalid }T
-T{ s\" {\"app\":{\"arg\":1,\"fn\":0,\"f\":0},\"ie\":12}" bad-expr -> outcome-invalid }T
 T{ s\" {\"app\":{\"arg\":1,\"fn\":true},\"ie\":12}" bad-expr -> outcome-invalid }T
 T{ s\" {\"ie\":12,\"lam\":{\"binderInfo\":\"bogus\",\"body\":1,\"name\":0,\"type\":0}}" bad-expr
    why s" unknown enumeration value" compare -> outcome-invalid 0 }T
@@ -215,7 +213,6 @@ T{ ex export-decls @ -> 6 }T
 T{ s\" {\"def\":{\"all\":[1],\"hints\":{\"regular\":4294967296},\"levelParams\":[],\"name\":1,\"safety\":\"safe\",\"type\":0,\"value\":3}}" bad-decl
    why s" height beyond UInt32" compare -> outcome-invalid 0 }T
 T{ s\" {\"def\":{\"all\":[1],\"hints\":\"never\",\"levelParams\":[],\"name\":1,\"safety\":\"safe\",\"type\":0,\"value\":3}}" bad-decl -> outcome-invalid }T
-T{ s\" {\"def\":{\"all\":[1],\"hints\":{\"regular\":1,\"x\":2},\"levelParams\":[],\"name\":1,\"safety\":\"safe\",\"type\":0,\"value\":3}}" bad-decl -> outcome-invalid }T
 T{ s\" {\"def\":{\"all\":[1],\"hints\":\"abbrev\",\"levelParams\":[],\"name\":1,\"safety\":\"maybe\",\"type\":0,\"value\":3}}" bad-decl -> outcome-invalid }T
 T{ s\" {\"thm\":{\"all\":[1],\"levelParams\":[],\"name\":0,\"type\":0,\"value\":3}}" bad-decl -> outcome-invalid }T
 T{ s\" {\"thm\":{\"all\":[1],\"levelParams\":[0],\"name\":1,\"type\":0,\"value\":3}}" bad-decl
@@ -752,6 +749,40 @@ T{ s" 1e100" num-spelled snap name-part text@ nip -> outcome-ok 101 }T
 T{ s" -0e7" num-spelled snap name-part text@ s" 0" compare -> outcome-ok 0 }T
 T{ s" 1.5" num-spelled why s" expected a natural number" compare -> outcome-invalid 0 }T
 T{ s" 1e300" num-spelled why s" natural number too large" compare -> outcome-full 0 }T
+
+\ Members as Lean's reader takes them (Export/Parse.lean): in the object
+\ of a record, a key it does not look up is ignored, a repeated key reads
+\ as its last member (the JSON parser overwrites on insert), and a missing
+\ key is refused, except an opaque's isUnsafe, which reads false. The
+\ line's own members are the record's, exactly: an extra one is refused.
+: members-line ( c-addr u -- outcome ) fresh meta-line feed drop feed ;
+T{ s\" {\"in\":1,\"str\":{\"pre\":0,\"str\":\"y\",\"z\":1}}" members-line snap name-part text@ s" y" compare
+   -> outcome-ok 0 }T
+T{ s\" {\"in\":1,\"str\":{\"pre\":0,\"str\":\"y\",\"pre\":0,\"str\":\"w\"}}" members-line
+   snap name-part text@ s" w" compare -> outcome-ok 0 }T
+T{ s\" {\"in\":1,\"str\":{\"pre\":99,\"pre\":0,\"str\":\"y\"}}" members-line -> outcome-ok }T
+T{ s\" {\"in\":1,\"str\":{\"pre\":0,\"str\":\"y\",\"pre\":99}}" members-line why s" bad reference" compare
+   -> outcome-invalid 0 }T
+T{ s\" {\"in\":1,\"str\":{\"pre\":0}}" members-line why s" missing field" compare -> outcome-invalid 0 }T
+T{ s\" {\"in\":1,\"str\":{\"pre\":0,\"str\":\"y\"},\"z\":1}" members-line -> outcome-invalid }T
+T{ s\" {\"const\":{\"name\":1,\"us\":[],\"x\":[1,{}]},\"ie\":1}" members-line
+   -> outcome-invalid }T
+: opaque-line ( c-addr u -- c-addr' u' )
+  started drop s\" {\"in\":1,\"str\":{\"pre\":0,\"str\":\"y\"}}" feed drop
+  s\" {\"ie\":0,\"sort\":0}" feed drop ;
+T{ opaque-line s\" {\"opaque\":{\"all\":[1],\"levelParams\":[],\"name\":1,\"type\":0,\"value\":0}}" feed
+   kind@ snap decl-unsafe @ -> outcome-ok kind-opaque false }T
+T{ opaque-line s\" {\"opaque\":{\"all\":[1],\"isUnsafe\":true,\"isUnsafe\":false,\"levelParams\":[],\"name\":1,\"type\":0,\"value\":0}}" feed
+   snap decl-unsafe @ -> outcome-ok false }T
+T{ opaque-line s\" {\"opaque\":{\"all\":[1],\"isUnsafe\":null,\"levelParams\":[],\"name\":1,\"type\":0,\"value\":0}}" feed
+   why s" expected a boolean" compare -> outcome-invalid 0 }T
+T{ opaque-line s\" {\"axiom\":{\"levelParams\":[],\"name\":1,\"type\":0}}" feed
+   why s" missing field" compare -> outcome-invalid 0 }T
+T{ opaque-line s\" {\"def\":{\"all\":[1],\"hints\":{\"regular\":7,\"x\":2},\"levelParams\":[],\"name\":1,\"safety\":\"safe\",\"type\":0,\"value\":0}}"
+   feed snap decl-height @ -> outcome-ok 7 }T
+\ The metadata line, which Lean never reads, keeps its exact shape.
+T{ fresh s\" {\"meta\":{\"exporter\":{\"name\":\"lean4export\",\"version\":\"3.1.0\",\"x\":1},\"format\":{\"version\":\"3.1.0\"},\"lean\":{\"githash\":\"eb6cafb7290e8bd5f2937522d8d804f58f02bafc\",\"version\":\"4.35.0\"}}}" feed
+   -> outcome-invalid }T
 
 \ An index map grows past many pairs: 5000 sparse expressions, each found
 \ again at its own ordinal, and the gaps between them found as nothing.
