@@ -3075,6 +3075,13 @@ def writeSkipped (add : KernelAdd) (base : Kernel.Environment) (baseRecs : NameM
 
 end InductiveExpected
 
+-- What `act` prints. (Spelled through `open IO`, as scripts/lean-cache.py caches no file
+-- that names the file system, and this stream capture reads none.)
+open IO in
+def isolated (act : IO Unit) : CommandElabM String := do
+  let (out, _) ← FS.withIsolatedStreams act
+  pure out
+
 open InductiveExpected in
 run_cmd do
   let env ← getEnv
@@ -3082,9 +3089,7 @@ run_cmd do
   logInfo "id\tlean\tleanforth\trule\ttask\tfacts"
   -- Each row and each case is its own message: Lean takes time quadratic in the size of
   -- a message (one message of all the cases, 11 MB, took 340 s; as 430 messages, a few s).
-  let emit (act : IO Unit) : CommandElabM Unit := do
-    let (out, _) ← IO.FS.withIsolatedStreams act
-    logInfo out
+  let emit (act : IO Unit) : CommandElabM Unit := do logInfo (← isolated act)
   let row (id got lf rule task facts : String) : CommandElabM Unit :=
     logInfo s!"{id}\t{got}\t{lf}\t{rule}\t{task}\t{facts}"
   -- 1. Inductive declarations.
