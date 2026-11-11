@@ -82,10 +82,12 @@ T{ 2 500 specialize -> outcome-invalid }T
 good-id actuals cell+ !
 \ lf-msp-specialize-fuel gives the same result and status, and on success
 \ also the fuel the substitution left, which mixed-infer continues with
-\ (459 before its structural audit checked the repeated constant once).
+\ (463 before the level substitution's audit checked the repeated
+\ constant's levels once, agent FX7; 459 before its structural audit
+\ checked the repeated constant once).
 lf-term-count @ constant spec-terms
 T{ token candidate actuals 2 500 lf-msp-specialize-fuel rot drop
-   -> spec-terms 3 + 463 outcome-ok }T
+   -> spec-terms 3 + 467 outcome-ok }T
 T{ token candidate actuals 2 500 lf-msp-specialize-fuel 2swap 2drop
    -> lf-mls-fuel @ outcome-ok }T
 T{ token second actuals 2 500 lf-msp-specialize-fuel -> outcome-unknown }T
