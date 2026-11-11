@@ -108,11 +108,10 @@ require ./quot.fs
 
 \ A major premise that is no constructor application. Its type's name is
 \ the head of the recursor type's binder major_idx (get_major_induct,
-\ declaration.cpp 145-153), or 0. That type is certainly no non-recursive
-\ structure (is_non_rec_structure, inductive.cpp 28-33) when its slot's
-\ exported fields say so -- not one constructor, or indices, or recursive
-\ -- and B4 found the indices and isRec it compares Lean's; a constant
-\ that is no inductive type is none either.
+\ declaration.cpp 145-153), or 0. Whether it is a non-recursive structure
+\ (is_non_rec_structure, inductive.cpp 28-33) its slot's shape says, the
+\ numIndices and is_rec LeanForth computed, never the file's
+\ (environment.fs lf-env-structure; review rvCONV B2).
 : lf-iota-pi? ( node -- flag ) lf-term-tag@ lf-tag-pi = ;
 : lf-iota-induct ( decl -- name|0 )
   dup lf-idecl-type @ swap lf-iota-major-idx 0 ?do
@@ -121,17 +120,6 @@ require ./quot.fs
   dup lf-iota-pi? 0= if drop 0 exit then
   lf-term-first@ lf-whnf-head dup lf-whnf-const? 0= if drop 0 exit then
   lf-whnf-cref lf-crec-name @ ;
-: lf-iota-shape? ( decl -- flag )
-  dup lf-idecl-kind @ lf-kind-inductive <> if drop true exit then
-  lf-idecl-data dup lf-ity-ctors@ nip 1 <> over lf-ity-indices lf-more-field 0<> or
-  swap lf-ity-flags lf-more-field lf-ity-rec-bit and 0<> or ;
-\ is_non_rec_structure with Lean's fields (B4 found the indices and isRec
-\ Lean's): the structure's declaration, or 0 when it is none.
-: lf-iota-structure ( d -- sdecl|0 outcome )
-  dup lf-env-warnings ok? 0= if 2drop 0 outcome-unknown exit then
-  lf-warn-indices lf-warn-rec or and if drop 0 outcome-unknown exit then
-  lf-whnf-decl ok-then? 0= if 0 swap exit then
-  dup lf-iota-shape? if drop 0 then outcome-ok ;
 : lf-iota-not-ported ( app -- -1 outcome ) lf-whnf-head lf-whnf-pending ;
 
 \ Structure eta in iota (R3; plan task 5.2.2; to_cnstr_when_structure,
@@ -198,7 +186,7 @@ require ./quot.fs
   over lf-iota-induct ?dup 0= if 2drop lf-iota-not-ported false exit then
   lf-whnf-find ok-then? 0= if >r 2drop drop r> no-result false exit then
   dup 0< if drop 2drop lf-iota-not-ported false exit then
-  lf-iota-structure ok-then? 0= if >r 2drop drop r> no-result false exit then
+  lf-env-structure ok-then? 0= if >r 2drop drop r> no-result false exit then
   ?dup 0= if 2drop drop -1 outcome-ok false exit then
   >r 2 pick swap r> lf-iota-eta 0= if >r >r 2drop r> r> false exit then true ;
 

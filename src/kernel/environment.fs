@@ -66,8 +66,9 @@
 \ written only by the publisher, which keeps its pool mark in the
 \ header, read by every check), two context records, one per context
 \ (ADR 0009): the candidate lf-env-cand and the worker record
-\ lf-env-worker, and the candidate's list of dependencies, the context
-\ slab lf-cand-deps. An environment must be freed only when no task uses
+\ lf-env-worker, and the candidate's list of dependencies and its block's
+\ shapes, the context slabs lf-cand-deps and lf-cand-shapes. An
+\ environment must be freed only when no task uses
 \ it. The layout is host-specific and never serialized.
 
 require ../lib/lib.fs
@@ -129,6 +130,8 @@ begin-structure /lf-slot
   field: lf-slot-added      \ true on the type and constructors of a block
                             \ rejected only by B3: Lean's kernel added them
   field: lf-slot-recipe     \ a block's generated recursor: lf-recipe-... bits
+  field: lf-slot-shape      \ an accepted inductive type's computed shape
+                            \ (lf-shape-...); else 0
 end-structure
 \ The recipe bits (ADR 0015 decision 12): the recursor LeanForth generated
 \ for the block can be built again from its input (generated-recursor.fs);
@@ -141,6 +144,15 @@ end-structure
 : lf-kind-bare? ( kind -- flag ) dup lf-kind-axiom = swap lf-kind-quotient = or ;
 1 constant lf-recipe-raw
 2 constant lf-recipe-large
+\ The shape of an inductive type as LeanForth's block check computed it
+\ (ADR 0015 section 8, owner answer Q2: its own values, never the file's,
+\ which Lean's replay ignores): Lean's numIndices and is_rec, and a bit
+\ saying it was computed; 0, no shape, on any other slot.
+1 constant lf-shape-known
+2 constant lf-shape-rec
+: lf-shape ( nindices rec -- shape ) lf-shape-rec and swap 4 * or lf-shape-known or ;
+: lf-shape-indices ( shape -- n ) 4 / ;
+: lf-shape-rec? ( shape -- flag ) lf-shape-rec and 0<> ;
 
 \ A check's snapshot and candidate, in its context.
 begin-structure /lf-cand
@@ -155,11 +167,15 @@ begin-structure /lf-cand
   field: lf-cand-warnings   \ a block's B4 warning bits, published with it
   field: lf-cand-added      \ a block rejected only by B3 (lf-env-added!)
   field: lf-cand-recipe     \ its generated recursor's recipe (lf-env-recipe!)
+  field: lf-cand-shaped     \ members with a shape in lf-cand-shapes, from 0
 end-structure
 /lf-cand context-record: lf-env-cand
 \ The dependencies' slots, ascending: a growable array, as long as the
 \ check needs (plan task 6.2.0).
 1 cells context-slab: lf-cand-deps
+\ The shapes of a block's types (lf-env-shape!), by member: a growable
+\ array, as long as the block has types.
+1 cells context-slab: lf-cand-shapes
 \ The candidate's span: how many slots, from the declaration checked on,
 \ its outcome and record are for. A block's check sets it to the block's
 \ members (kernel/check-block.fs); every other check leaves it 1.
@@ -183,6 +199,17 @@ end-structure
 \ a later lookup of T.rec that no slot holds finds it (ADR 0015 decision
 \ 12).
 : lf-env-recipe! ( bits -- ) lf-env-cand lf-cand-recipe ! ;
+\ A block's check sets the shape it computed for member k, a type of the
+\ block (lf-shape): ok, or full when the array cannot grow. The publisher
+\ keeps it on the member's slot (lf-env-shape); a member without one
+\ gets 0.
+: lf-cand-shaped@ ( -- n ) lf-env-cand lf-cand-shaped @ ;
+: lf-env-shape! ( shape k -- outcome )
+  dup 1+ lf-cand-shapes slab-hold ok-then? 0= if nip exit then
+  dup 1+ lf-cand-shaped@ max lf-env-cand lf-cand-shaped !
+  lf-cand-shapes slab-at ! outcome-ok ;
+: lf-cand-shape@ ( k -- shape )
+  dup lf-cand-shaped@ < if lf-cand-shapes slab-at @ else drop 0 then ;
 
 \ A context as a worker (G-P6). Zero in a new context; never cleared.
 begin-structure /lf-worker
@@ -771,6 +798,28 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
 : lf-env-axioms ( d -- bits outcome )
   lf-env-readable 0= if 0 outcome-invalid exit then
   dup lf-slot-accepted? if lf-slot-axioms @ outcome-ok else drop 0 outcome-invalid then ;
+\ The shape of a usable declaration, (shape ok): an accepted inductive
+\ type's (lf-shape-...), 0 for any other; else (0 invalid).
+: lf-env-shape ( d -- shape outcome )
+  lf-env-usable ok-then? if lf-slot-shape @ outcome-ok else 0 swap then ;
+\ is_non_rec_structure (inductive.cpp 28-33) of usable slot d: (decl ok)
+\ for an inductive type with one constructor (its declaration's list, the
+\ block's own) and, as its shape says, no index and not recursive -- never
+\ as the file's fields say (review rvCONV B2); (0 ok) for any other
+\ declaration; unknown for an inductive type without a shape; or the
+\ slot's failure. Structure eta and unit-like types (defeq.fs) and iota's
+\ structure eta (iota.fs) ask this; projections read the shape's
+\ numIndices (infer-proj.fs).
+: lf-env-one-ctor? ( decl -- flag )
+  lf-idecl-data ?dup if lf-ity-ctors@ nip 1 = else false then ;
+: lf-env-flat? ( shape -- flag ) dup lf-shape-indices 0= swap lf-shape-rec? 0= and ;
+: lf-env-shaped ( decl shape -- decl|0 outcome )
+  dup lf-shape-known and 0= if 2drop 0 outcome-unknown exit then
+  lf-env-flat? over lf-env-one-ctor? and 0= if drop 0 then outcome-ok ;
+: lf-env-structure ( d -- decl|0 outcome )
+  lf-env-usable ok-then? 0= if 0 swap exit then
+  dup lf-slot-decl lf-idecl-kind @ lf-kind-inductive <> if drop 0 outcome-ok exit then
+  dup lf-slot-decl swap lf-slot-shape @ lf-env-shaped ;
 \ The warnings of an accepted declaration, (bits ok): an inductive block
 \ member's B4 bits (check-block.fs lf-warn-...), 0 for any other; else
 \ (0 invalid).

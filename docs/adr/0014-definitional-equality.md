@@ -661,8 +661,10 @@ environments that define the names themselves.
 Natural-number literals are leaves (`core/literals.fs`: one cell, or the
 limbs of `lib/bignum.fs` in the context's slab); a literal's type is the
 constant `Nat`; `whnf_core` leaves it; `reduce_nat` computes Lean's
-fifteen operations by name on literals and `Nat.zero`, when the term has
-no free variable (`kernel/reduce-nat.fs`); iota turns a literal major
+fifteen operations by name on literals and `Nat.zero`, whether or not the
+term has free variables, as Lean's `whnf` does (`kernel/reduce-nat.fs`;
+only lazy delta, 1060, and the `Bool.true` step, 1142, test `has_fvar`;
+review rvCONV B1 corrected an invented test here); iota turns a literal major
 premise into `Nat.zero` or `Nat.succ n`; `quick_is_def_eq` answers no for
 two different literals; `is_def_eq_offset` takes the literal 0 and
 `Nat.zero` as zero and a literal above 0 as a successor; lazy delta
@@ -1399,6 +1401,42 @@ without its level, skip one binder early, scope ignored, value identity
 unchecked, dead free variable kept) are all caught. Init's first 50,000
 lines at the default fuel: 971 accepted, 251 unknown, 8 exhausted before;
 1,164 accepted, 63 unknown, 3 exhausted after.
+
+**Review rvCACHE and rvCONV L1 (2026-11-10, fixes FX1)** — a bound
+variable whose loose count would overflow a cell (index at least
+`max-n 2/ 1-`) gets no skeleton, so every pass meets it uncached (L1;
+unreachable today, as the audit bounds every index by its binders);
+inference looks up and keeps only nodes it may read
+(`lf-minfer-source?`), so a node it refuses stays refused (L2); and
+`is_def_eq_core`'s direct calls (`is_def_eq_offset` 1049, lazy delta's
+`reduce_nat` 1062 and 1064, `is_def_eq_unit_like` 1129) open the
+comparison itself (`lf-dq-core-call`), so the success cache keeps only
+what `is_def_eq` keeps (1211; rvCONV L1). Planted faults: universe
+arguments, projection index and literal value left out of a key are
+caught by `tests/core/check-block.fs`'s `cache.*` and literal rows; a
+free variable keyed by entry number, pair caches over open terms and a
+keep threshold of 0 are listed as gaps in `tests/mutants/faults.toml`
+(no test reaches a discard, an open pair met twice, or a store between
+the run's live nodes and all it makes); a failure kept with doubt is
+equivalent (no doubt arises where the pair caches work).
+
+**Resource gap (rvCACHE L3; a temporary gap, never a verdict)** — kept
+scratch (until the job ends, while a store has the room above) and the
+extra frame each cached visit or `whnf_core` tail step opens can make a
+check *full* where the uncached run decides. Plan task 4.2.7c (to be
+added to the plan) closes it: on *full* with scratch kept, discard the
+kept scratch, empty the tables and retry the job uncached.
+
+**Outside a job (rvCACHE L4)** — step 12 of a block's check
+(`inductive-recursor.fs`, `lf-rcr-whnf`) runs `whnf` outside any
+inference job, on the tables and local context the last job left. The
+argument above ("within one local context") still holds there: the
+recursor builder's terms have no free variable (fields are read under
+binders, as loose bound variables), so no key it meets names a free
+variable of that context, and `whnf` of such a term is a function of the
+term in the snapshot — the only typer-dependent steps, K and iota's
+structure eta, need a closed major premise and an inference job
+(`iota.fs`), and answer *unknown* elsewhere.
 
 ## Consequences
 

@@ -359,8 +359,11 @@ lf-rechecks# 1+ constant lf-recheck-moved
   lf-env-cand lf-cand-provenance @ swap lf-slot-provenance ! ;
 : lf-slot-deps! ( first slot -- )
   lf-env-may-write tuck lf-slot-deps ! lf-cand-count@ swap lf-slot-count ! ;
+\ Member k's shape, which the block's check computed (lf-env-shape!).
+: lf-slot-shape! ( k slot -- )
+  lf-env-may-write swap lf-cand-shape@ swap lf-slot-shape ! ;
 : lf-slot-fill ( first k slot -- )
-  rot over lf-slot-deps! tuck lf-slot-input! lf-slot-sets! ;
+  2dup lf-slot-shape! rot over lf-slot-deps! tuck lf-slot-input! lf-slot-sets! ;
 : lf-span-fill ( first slot -- )
   lf-env-may-write lf-cand-span@ 0 ?do 2dup i swap i lf-slot+ lf-slot-fill loop 2drop ;
 \ The record of an accepted declaration, or of every member of an

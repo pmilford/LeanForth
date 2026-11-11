@@ -57,6 +57,10 @@ T{ 1 cb 0 cb capp cskel  1 cb 0 cb capp cskel = -> true }T
 T{ cz csort cskel  cz lf-level-succ must csort cskel = -> false }T
 T{ 1 cb 0 cb capp cbits  cz csort 0 cb lf-term-lam must cbits  0 cb 0 cb lf-term-lam must cbits
    -> 4 0 2 }T
+\ A bound variable whose loose count would overflow a cell has no facts
+\ (review rvCACHE L1): every pass meets it uncached, never as closed.
+T{ max-n cb lf-term-facts  max-n 2/ cb lf-term-facts -> false false }T
+T{ max-n 2/ 3 - cb cbits -> max-n 5 - }T
 0 cb constant ckey
 lf-term-count @ constant cbefore
 3 cb constant cval

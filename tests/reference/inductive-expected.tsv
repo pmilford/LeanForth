@@ -256,6 +256,24 @@ after.indexed-mixed-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1c
 after.reflexive-indexed-dependent-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1c	
 after.annotated-binders-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1b	
 after.redex-parameter-left-out-then-use-rec	accepted	accepted	B4 G1	5.2.1b	
+lie.indexed-then-unit-like	declTypeMismatch	rejected	B4 R5	5.2.2	
+lie.indexed-said-unindexed-then-unit-like	declTypeMismatch	rejected	B4 R5	5.2.2	
+lie.unit-said-indexed-then-unit-like	accepted	accepted	B4 R5	5.2.2	
+lie.recursive-then-eta	declTypeMismatch	rejected	B4 R4	5.2.2	
+lie.recursive-said-not-then-eta	declTypeMismatch	rejected	B4 R4	5.2.2	
+lie.structure-said-recursive-then-eta	accepted	accepted	B4 R4	5.2.2	
+lie.structure-said-indexed-then-eta	accepted	accepted	B4 R4 J1	5.2.2	
+lie.structure-said-recursive-then-iota	accepted	accepted	B4 R3	5.2.2	
+lie.recursive-said-not-then-iota	declTypeMismatch	rejected	B4 R3	5.2.2	
+lit.free-variable-pow-refused	natCountTooBig	rejected	L1	5.2.3	
+lit.free-variable-pow	accepted	accepted	L1	5.2.3	
+lit.free-variable-shift-refused	natCountTooBig	rejected	L1	5.2.3	
+lit.pow-multi-limb-base	accepted	accepted	L1	5.2.3	
+lit.pow-multi-limb-base-wrong	declTypeMismatch	rejected	L1	5.2.3	
+cache.universe-arguments-differ	declTypeMismatch	rejected	Q10	4.2.7	
+cache.universe-arguments-differ-twin	accepted	accepted	Q10	4.2.7	
+cache.projection-index-differs	appTypeMismatch	rejected	Q10 J1	4.2.7	
+cache.projection-index-differs-twin	accepted	accepted	Q10 J1	4.2.7	
 postulate.declared-and-used	accepted	accepted	A1	5.3.1	
 opaque.accepted	accepted	accepted	O1	4.2.6	
 opaque.wrong-value	declTypeMismatch	rejected	O1	4.2.6	
@@ -294,6 +312,8 @@ k7.with-free-variable	accepted	accepted	delta	4.2.2d
 k7.whnf-sort	typeExpected	rejected	K7	5.2.3	
 k7.whnf-sort-twin	accepted	accepted	whnf	4.2.2c	
 k7.rec-on-succ-variable	accepted	accepted	R1	5.2.1b	
+k7.free-variable-computes	declTypeMismatch	rejected	K7	5.2.3	
+k7.free-variable-computes-twin	accepted	accepted	K7	5.2.3	
 postulate.propext-altered	accepted	accepted	A1	5.3.1	
 postulate.propext-forged-iff	accepted	accepted	A1	5.3.1	
 postulate.propext-own-iff	accepted	accepted	A1	5.3.1	
