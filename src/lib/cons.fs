@@ -63,7 +63,8 @@
 \ cons-open? cons-allocated cons-used /cons-mark cons-mark
 \ cons-mark-valid? cons-rollback cons-reset cons-seal cons-sealed?
 \ cons-building cons-table cons-records cons-bytes cons-under-finds
-\ cons-numbers-max.
+\ cons-numbers-max cons-load-room cons-adopt (loading a set's records from
+\ a file, each checked by the caller; see cons-load-room).
 \ A sealed set's table is frozen (htab.fs): finds in it write nothing.
 \ Only a base set (sealed, extending none) can be extended, so there are
 \ at most two tiers. State: none of its own; classes are made while
@@ -251,6 +252,40 @@ lf-lib set-current
   >r over r@ cons-past? if 2drop r> drop outcome-full no-result exit then
   r@ cons-numbers tuck swap r@ cons-table htab-put swap r> cons-records slab-commit
   outcome-ok ;
+
+\ Loading a set from a file (a snapshot): its records, written by the
+\ caller in order into the free space of the records slab after
+\ cons-load-room, are each checked by the caller and then entered with
+\ cons-adopt, so that the table is built once, at its final size, without
+\ doubling. cons-load-room gives room for units more record units and
+\ makes the table now the size cons-seal gives that many numbers (at most
+\ half full): ok, full, or invalid for a set that is not open.
+lf-lib-private set-current
+: cons-load-log2 ( units cons -- log2 ) cons-numbers + 2* 16 max log2-ceiling ;
+\ Room in the table for one more entry without passing 3/4 full.
+: cons-table-room? ( cons -- flag )
+  cons-table dup htab-count 1+ 4 * swap htab-slots 3 * <= ;
+\ The candidate at cons-top found by its hash: an equal record's number
+\ and true, or the empty slot and false (the hooks read record n =
+\ cons-numbers, the candidate itself, when given the next number).
+: cons-candidate-find ( cons -- n true | i false )
+  dup cons-numbers over cons-rehash false rot cons-find ;
+lf-lib set-current
+: cons-load-room ( units cons -- outcome )
+  dup cons-open? 0= if 2drop outcome-invalid exit then
+  2dup cons-records slab-room ok-then2? 0= if exit then
+  tuck cons-load-log2 swap cons-table htab-presize ;
+\ Enter the candidate of units record units at cons-top, written and
+\ checked by the caller, as the next number: its number and ok; -1 and
+\ invalid when an equal record is already in the set (hash-consing keeps
+\ each record once, so a file with two is refused); -1 and full when the
+\ table has no room (it was not sized by cons-load-room) or the class's
+\ limit would be passed. A class whose comparison reads cons-key (texts,
+\ names) needs it set to the candidate's text first (cons-key!).
+: cons-adopt ( units cons -- n outcome )
+  dup cons-table-room? 0= if 2drop outcome-full no-result exit then
+  dup cons-candidate-find if drop 2drop outcome-invalid no-result exit then
+  swap cons-commit ;
 
 \ Whether n names a record of the set or its under set: in range, the
 \ record within the numbers, and found in its table (exact: a number in

@@ -40,6 +40,9 @@
 \   stage-read-unchecked   read it without one: the caller's explicit choice
 \   stage-seal     resolve the constants, mark, and make the tier read-only
 \   stage-load, stage-load-unchecked   read, then seal
+\   stage-continue, stage-continue-unchecked   read another export into
+\                  a filled tier (a loaded snapshot's, import/snapshot-tier.fs),
+\                  keeping its records but not its declarations (below)
 \   stage-unmap    free the export-index maps of a sealed stage once nothing
 \                  needs them; on any other stage it does nothing
 \   stage-free     free everything, in any state; the record is blank again
@@ -151,6 +154,7 @@ create pinned-meta
   cons-numbers-max over stage-expr-map fields-init drop
   payload-limit over stage-by-name fields-init drop
   cons-numbers-max over stage-lines fields-init drop
+  cons-numbers-max over stage-noted fields-init drop
   /staged payload-limit 1- 2 pick stage-decl-records slab-init drop maps-start ;
 : tier-marked ( stage -- outcome ) dup stage-start swap stage-tier tier-mark ;
 : export-start ( stage -- outcome )
@@ -172,7 +176,7 @@ create pinned-meta
 : stage-free ( stage -- )
   dup stage-tier tier-free dup stage-export export-free dup stage-manifest manifest-free
   dup maps-free dup stage-decl-records slab-free dup stage-by-name slab-free
-  dup stage-lines slab-free
+  dup stage-lines slab-free dup stage-noted slab-free
   dup stage-reach heap-release /stage erase ;
 
 \ ---- Reading. A failed read rolls the stage back: the tier to the mark
@@ -180,7 +184,7 @@ create pinned-meta
 : own-clear ( stage -- outcome )
   dup stage-name-map slab-clear dup stage-level-map slab-clear
   dup stage-expr-map slab-clear dup stage-decl-records slab-clear
-  dup stage-by-name slab-clear dup stage-lines slab-clear
+  dup stage-by-name slab-clear dup stage-lines slab-clear dup stage-noted slab-clear
   0 over stage-mdata ! 0 over stage-marks ! 0 over stage-other !
   0 over stage-why ! maps-start ;
 : stage-rollback ( stage -- outcome )
@@ -248,9 +252,15 @@ create pinned-meta
   2dup stage-tier name-text@ generated-text? 0= if 2drop false exit then
   tuck stage-tier name-prefix@ swap type-named? ;
 : resolved ( u e stage -- outcome ) stage-tier expr-resolve! outcome-ok ;
+\ After a read that continues a tier (stage-continue), a constant of an
+\ earlier read whose name this read never contained is no unknown
+\ constant of this read: it resolves as several do (payload 0).
+: earlier-name? ( n stage -- flag )
+  dup stage-continued @ if noted? 0= else 2drop false then ;
 : const-resolve ( e stage -- outcome )
   2dup stage-tier expr-a@ over resolution if -rot resolved exit then
   2dup stage-tier expr-a@ over generated-name? if 0 -rot resolved exit then
+  2dup stage-tier expr-a@ over earlier-name? if 0 -rot resolved exit then
   tuck stage-tier expr-a@ swap unknown-constant ;
 : record-resolve ( e stage -- outcome )
   2dup stage-tier expr-tag@ tag-const = if const-resolve else 2drop outcome-ok then ;
@@ -334,6 +344,27 @@ binder-reaches
   dup >r stage-read dup ok? if drop r> stage-seal else r> drop then ;
 : stage-load-unchecked ( c-addr u stage -- outcome )
   dup >r stage-read-unchecked dup ok? if drop r> stage-seal else r> drop then ;
+
+\ ---- Continuing (ADR 0020 D5; plan step SN2). stage-continue reads
+\ another export into a filled stage's open tier -- one loaded from a
+\ snapshot (import/snapshot-tier.fs) or read and not yet sealed -- as
+\ stage-read does: the earlier read's declarations, lines and maps go,
+\ its records stay, so a record of the new read equal to one of them gets
+\ its number; the declarations are the new read's only. Its constants'
+\ names are noted (put-const-noted), and sealing refuses an unknown
+\ constant only among them. A tier mark is taken first: a failed read
+\ rolls back to the tier as it was, with no declarations (empty).
+\ Invalid unless the stage is filled.
+: continued! ( stage -- )
+  true over stage-continued !
+  ['] put-const-noted kind-const rot stage-export export-handler ! ;
+: stage-reopen ( stage -- outcome )
+  dup staging-filled stage-in? 0= if drop outcome-invalid exit then
+  dup own-clear ['] tier-marked and-then over continued! staging-empty stage-state! ;
+: stage-continue ( c-addr u stage -- outcome )
+  dup stage-reopen ok-then? if stage-read else nip nip then ;
+: stage-continue-unchecked ( c-addr u stage -- outcome )
+  dup stage-reopen ok-then? if stage-read-unchecked else nip nip then ;
 
 \ ---- Finding declarations (after sealing; unchecked numbers as above).
 \ The newest declaration of name n; the one staged before d of the same

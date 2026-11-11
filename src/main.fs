@@ -33,6 +33,9 @@ require ./import/ndjson.fs
 \ checker's input in file order, its names read from the input tier.
 require ./import/stage.fs
 require ./import/feed.fs
+\ The input tier saved to and loaded from a sectioned file (ADR 0020, plan
+\ step SN2); a fresh check runs none of it.
+require ./import/snapshot-tier.fs
 
 \ Verified-program track: example words, the stack-depth analyzer, the
 \ reader from restricted Forth source to the program IR and its interpreter.
