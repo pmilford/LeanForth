@@ -160,12 +160,22 @@ end-structure
 \ does (254-299). Step 6, N2 on the type's name and on T.rec (K5 on
 \ undecided ones), as the environment's lookup decides it below the block.
 : lf-blk-fresh ( name -- outcome ) lf-env-limit lf-env-fresh ;
+\ Whether the block holds a recursor named name (B4 warns of a type
+\ whose T.rec it leaves out).
+: lf-b4-held? ( name -- flag )
+  false lf-ind-recs@ 0 ?do over i lf-ind-rec lf-idecl-name @ lf-name-same? or loop nip ;
+\ N2 for the name of a recursor Lean's kernel generates, T.rec or T.rec_k:
+\ a declaration of the file when the block holds it, else only Lean's,
+\ which a skipped declaration of that name does not take (review rvUNNI
+\ M1; environment.fs lf-env-fresh-generated).
+: lf-blk-rec-fresh ( name -- outcome )
+  dup lf-b4-held? if lf-blk-fresh exit then lf-env-limit lf-env-fresh-generated ;
 : lf-blk-rec-name! ( d -- outcome )
   dup lf-ind-tname s" rec" lf-name-str 0= if drop outcome-full exit then
   swap lf-ind-ty lf-ty-rec-name ! outcome-ok ;
 : lf-blk-names ( d -- outcome )
   dup lf-ind-tname lf-blk-fresh ok-then? 0= if exit then
-  dup lf-blk-rec-name! ok-then? 0= if exit then lf-blk-rec-id lf-blk-fresh ;
+  dup lf-blk-rec-name! ok-then? 0= if exit then lf-blk-rec-id lf-blk-rec-fresh ;
 \ Step 7: the type's type.
 : lf-blk-type ( d -- outcome ) lf-ind-type-at lf-idecl-type @ lf-blk-infer ;
 
@@ -507,7 +517,7 @@ end-structure
   loop lf-ind-in-ctors@ 0 ?do over i lf-blk-ctor-name lf-name-same? or loop nip ;
 : lf-blk-aux-fresh-at ( a -- outcome )
   lf-blk-rec-id dup lf-blk-earlier? if 0 lf-diag-already-declared lf-blk-reject exit then
-  lf-blk-fresh ;
+  lf-blk-rec-fresh ;
 : lf-blk-aux-fresh ( -- outcome )
   lf-ind-types@ lf-ind-in-types@ ?do
     i lf-blk-aux-fresh-at dup ok? 0= if unloop exit then drop
@@ -673,8 +683,6 @@ here lf-b3-rec - 2 cells / constant lf-b3-rec#
 : lf-b4-reflexive? ( data -- flag )
   lf-ity-reflexive-bit lf-blk-flag lf-ind-state lf-ind-is-refl @ lf-blk-differs? ;
 : lf-b4-nested? ( data -- flag ) lf-ity-nested lf-more-field lf-ind-aux@ <> ;
-: lf-b4-held? ( name -- flag )
-  false lf-ind-recs@ 0 ?do over i lf-ind-rec lf-idecl-name @ lf-name-same? or loop nip ;
 : lf-b4-no-recursor? ( data -- flag ) drop lf-blk-type@ lf-blk-rec-id lf-b4-held? 0= ;
 create lf-b4-tests
   ' lf-b4-indices? , lf-warn-indices ,  ' lf-b4-rec? , lf-warn-rec ,

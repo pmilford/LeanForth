@@ -46,6 +46,7 @@ require ../core/input.fs
 require ../core/levels.fs
 require ../core/name-equal.fs
 require ../core/names.fs
+require ../core/projections.fs
 require ../core/terms.fs
 require ../core/unsupported-forms.fs
 require ./environment.fs
@@ -533,16 +534,24 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   lf-ind-scoped ;
 
 \ ---------------------------------------------------------------------------
-\ T0: no constant whose name starts with the component _nested, in the
-\ type, then in each constructor type (rejected: Lean's "uses the
-\ reserved prefix").
+\ T0: no constant whose name starts with the component _nested, and no
+\ projection whose structure's name does (the proj clause, 1228: the
+\ translation rewrites a nested occurrence to the auxiliary type, so such
+\ a projection would type-check against it and name, once restored, a
+\ constant that does not exist; review rvUNNI M3), in the type, then in
+\ each constructor type (rejected: Lean's "uses the reserved prefix").
 : lf-ind-root ( name -- root ) begin dup lf-name-prefix@ ?dup while nip repeat ;
 : lf-ind-reserved? ( name -- flag )
   lf-ind-root dup lf-name-tag@ lf-name-tag-str =
   if lf-name-text s" _nested" compare 0= else drop false then ;
+\ The name a leaf names, as T0 reads it: a constant's, a projection
+\ leaf's structure's (its first field), else 0.
+: lf-ind-leaf-name ( first walk tag -- name|0 )
+  case lf-tag-constant of nip walk-node @ lf-ind-const-name endof
+    lf-tag-proj of drop endof  >r 2drop 0 r> endcase ;
 : lf-ind-prefix ( first second walk tag -- outcome )
-  lf-tag-constant = 0= if 2drop drop outcome-ok exit then
-  walk-node @ nip nip lf-ind-const-name lf-ind-reserved? 0= if outcome-ok exit then
+  rot drop lf-ind-leaf-name ?dup 0= if outcome-ok exit then
+  lf-ind-reserved? 0= if outcome-ok exit then
   lf-ind-first@ 0 lf-ind-site lf-diag-reserved-prefix lf-diag-note outcome-rejected ;
 : lf-ind-t0-term ( root -- outcome ) ['] lf-ind-prefix lf-ind-walk ;
 : lf-ind-t0 ( -- outcome )
