@@ -388,25 +388,35 @@ lf-form-mdata tag-mdata feed-form!
 : feed-str-leaf ( e feed -- outcome )
   over >r feed-text lf-str-fields dup ok? 0= if nip nip r> drop exit then
   drop 0 r> feed-leaf! ;
-: feed-read-kind? ( tag -- flag ) dup tag-bvar = swap tag-app = or ;
-\ A binder read in place is entered in the view's binder table, so that a
-\ binder a check makes equal to it is it (core/terms.fs).
+: feed-read-kind? ( tag -- flag )
+  dup tag-bvar = over tag-app = or swap binder-tag? or ;
 : feed-leaf ( e feed tag -- outcome )
-  dup binder-tag? if 2drop lf-term-input-binder exit then
   dup feed-read-kind? if drop 2drop outcome-ok exit then
   case tag-sort of feed-sort-leaf endof  tag-const of feed-const-leaf endof
     tag-nat of feed-nat-leaf endof  tag-str of feed-str-leaf endof
     >r 2drop outcome-invalid r> endcase ;
-: feed-place ( e feed -- outcome )
+\ Two passes. The first marks the expressions to copy and enters every
+\ binder read in place in the view's binder table (core/terms.fs), so
+\ that a binder made equal to it is it -- also a let's lambda that a copy
+\ makes before the binder's own number comes up: copying merges the two
+\ into one node, and so must reading in place (47 such binders in Init;
+\ without this pass they cost 22 of its declarations more fuel in place,
+\ +920 in all). The second makes the copies and the leaves' fields.
+: feed-mark ( e feed -- outcome )
   2dup feed-tier expr-tag@ >r 2dup r@ feed-to-copy?
-  if r> drop 2dup feed-dirty! feed-expr else r> feed-leaf then ;
+  if r> drop feed-dirty! outcome-ok exit then
+  r> binder-tag? if drop lf-term-input-binder else 2drop outcome-ok then ;
+: feed-place ( e feed -- outcome )
+  2dup feed-dirty? if feed-expr exit then 2dup feed-tier expr-tag@ feed-leaf ;
 : feed-each ( feed xt -- outcome )
   >r 0 begin over feed-exprs# over > while
     dup 2 pick feed-where ! 2dup swap r@ execute dup ok? 0= if r> drop nip nip exit then
     drop 2dup swap feed-span +
   repeat r> drop 2drop outcome-ok ;
+: feed-placed ( feed -- outcome )
+  dup ['] feed-mark feed-each dup ok? 0= if nip exit then drop ['] feed-place feed-each ;
 : feed-exprs-all ( feed -- outcome )
-  dup feed-placing @ if ['] feed-place else ['] feed-expr then feed-each ;
+  dup feed-placing @ if feed-placed else ['] feed-expr feed-each then ;
 
 \ ---- Declarations, in file order: the one being fed is feed-d. Kinds as
 \ the reader codes them (import/ndjson.fs, kind-axiom on), the checker's

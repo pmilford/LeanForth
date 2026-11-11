@@ -7854,3 +7854,11 @@ old = ''': feed-scratch ( -- n ) lf-input-room ?dup 0= if feed-most then ;'''
 new = ''': feed-scratch ( -- n ) lf-input-room ?dup 0= if 1048576 then ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "S5: with no setting the scratch room stays fixed (1,048,576 term nodes) instead of growing"
+
+[[fault]]
+id = "s5-feed-binders-not-entered"
+file = "src/import/feed.fs"
+old = '''  r> binder-tag? if drop lf-term-input-binder else 2drop outcome-ok then ;'''
+new = '''  r> drop 2drop outcome-ok ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5: binders read in place are not entered first, so a let's lambda and the equal input lambda after it are two nodes (more fuel than copying)"

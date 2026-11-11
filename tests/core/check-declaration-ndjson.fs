@@ -285,6 +285,18 @@ T{ s" 0" lf-lit-decimal s" 1x" lf-lit-decimal -> 0 0 true false }T
 create bad-utf8 255 c,
 T{ bad-utf8 1 lf-str-fields nip nip s" ab" lf-str-fields rot drop
    -> outcome-invalid 2 outcome-ok }T
+\ A let's lambda is the input lambda of the same type and body that comes
+\ later in the file, as when copying (one node either way; before the
+\ feed entered every binder first, Init had 47 such pairs, which cost 22
+\ declarations more fuel in place): def withLet : Sort 1 := let x :
+\ Sort 1 := Sort 0; x, then def idSort : Sort 1 -> Sort 1 := fun x :
+\ Sort 1 => x.
+: let-lam-file ( -- c-addr u ) s" tests/core/check-declaration-cases/let-lambda.ndjson" ;
+: lams ( -- let-lam input-lam )
+  0 lf-input-decl lf-idecl-value @ lf-let-binder 1 lf-input-decl lf-idecl-value @ ;
+T{ let-lam-file fed lams = unstage -> outcome-ok true }T
+T{ true lf-feed-copy! let-lam-file fed lams = unstage false lf-feed-copy! -> outcome-ok true }T
+T{ let-lam-file fed-checked verdicts unstage -> outcome-ok 2 true }T
 \ A let and the nodes above it are copied, at lf-term-base and after.
 T{ let-file fed 0 lf-input-decl lf-idecl-value @ lf-term-base >= lf-term-count @ 0>
    -> outcome-ok true true }T
