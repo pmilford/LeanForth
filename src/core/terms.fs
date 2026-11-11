@@ -651,9 +651,20 @@ defer lf-term-view-hook ( -- outcome )
 \ Data of a child; a child that is not allocated (a raw caller's) has none.
 : lf-term-child-data ( index -- data )
   dup lf-term-valid? if lf-term-data-word else drop lf-data-unknown then ;
+\ A let's data word as Lean's letE and the stage make it: the value and the
+\ lambda LET(v, fun x : T => b) hold, one level deeper than the deepest of
+\ type, value and body, not than the lambda (which is one deeper than T
+\ and b; review rvS5B M1). An unknown word stays unknown.
+: lf-term-let-tag? ( tag -- flag ) dup lf-tag-let = swap lf-tag-let-nondep = or ;
+: lf-let-lam-data ( data -- data' )
+  dup lf-data-known? if 1 22 lshift - then ;
+: lf-term-let-data ( value-data lam-data -- data )
+  lf-let-lam-data false lf-data-pair ;
 : lf-term-data-of ( tag first second -- data )
   2 pick lf-term-binary-tag? 0= if lf-term-leaf-data exit then
-  lf-term-child-data swap lf-term-child-data swap rot lf-term-binder-tag? lf-data-pair ;
+  lf-term-child-data swap lf-term-child-data swap rot
+  dup lf-term-let-tag? if drop lf-term-let-data exit then
+  lf-term-binder-tag? lf-data-pair ;
 : lf-term-store! ( tag first second data addr -- )
   tuck lf-term-data-at + u32! tuck lf-term-second-at + u32!
   tuck lf-term-first-at + u32! u32! ;

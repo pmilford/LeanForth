@@ -3969,12 +3969,12 @@ quick = true
 # each caught by tests/core/check-block.fs.
 
 [[fault]]
-id = "meq-compares-depth"
-file = "src/kernel/mixed-compare.fs"
-old = '''  lf-term-data@ 0= if -1 else lf-meq-nodepth and then ;'''
-new = '''  lf-term-data@ 0= if -1 then ;'''
+id = "let-data-counts-lambda"
+file = "src/core/terms.fs"
+old = '''  lf-let-lam-data false lf-data-pair ;'''
+new = '''  false lf-data-pair ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
-reason = "M1: == compares the depth, so an input let and an equal store let are apart"
+reason = "M1: a store let's depth counts its lambda, so == meets it apart from the equal input let"
 quick = true
 
 [[fault]]

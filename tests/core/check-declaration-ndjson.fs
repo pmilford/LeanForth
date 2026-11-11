@@ -332,12 +332,13 @@ T{ bad-utf8 1 lf-str-fields nip nip s" ab" lf-str-fields rot drop
 T{ let-lam-file fed lams 2dup = -rot 1000 lf-expr-equal ok? -> outcome-ok false true true }T
 T{ lams drop dup lf-term-first@ swap lf-term-second@ lf-term-lam swap lams drop = -> true true }T
 \ An input let and an equal let the store builds (same value, the same
-\ lambda) differ in the depth of their data words: Lean's == ignores it
-\ (review rvS5B M1; the depths 1 and 2 differ, the lets are equal).
+\ lambda) have the same data word, depth included, as Lean's letE gives
+\ (review rvS5B M1: the store once counted the lambda's level too, so
+\ == met the lets apart).
 : store-let ( -- let ) 0 lf-input-decl lf-idecl-value @ lf-let-value
   lams nip lf-tag-let-nondep lf-term-binary 0= abort" store-let" ;
 T{ 0 lf-input-decl lf-idecl-value @ lf-term-data@ drop lf-data-depth
-   store-let lf-term-data@ drop lf-data-depth <> -> true }T
+   store-let lf-term-data@ drop lf-data-depth = -> true }T
 T{ 0 lf-input-decl lf-idecl-value @ store-let 1000 lf-expr-equal -> true outcome-ok }T
 unstage
 \ The same two the other way round (a hand-made reordering of that
