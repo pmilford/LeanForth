@@ -5355,8 +5355,8 @@ id = "str-major-not-expanded"
 file = "src/kernel/iota.fs"
 old = '''  dup lf-str-leaf? if r> ['] lf-iota-stringed lf-str-whnf-call exit then'''
 new = ''''''
-test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
-reason = "5.2.3 L2: iota leaves a string literal major premise stuck; String.rec on \"ab\" (lit.string-major) is no longer accepted"
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.3 L2: iota leaves a string literal major premise stuck; primitive.string-major-two-constructors is no longer accepted (with Lean's String, a structure, R3's eta still reduces lit.string-major)"
 
 [[fault]]
 id = "str-feed-refused"

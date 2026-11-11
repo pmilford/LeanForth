@@ -1459,6 +1459,27 @@ def stringDecls : List Declaration :=
 def stringEq (n : Name) (a b : Expr) : Declaration :=
   .thmDecl { name := n, levelParams := [], type := eqC 1 stringC a b, value := reflC 1 stringC a }
 def abLit : Expr := .lit (.strVal "ab")
+/-- A `String` of two constructors, no structure, and `String.ofList` a definition of
+the first: a recursor on a literal reduces only through the literal's constructor form
+(inductive.h 96-97), never by structure eta. -/
+def stringIndDecl : Declaration :=
+  .inductDecl [] 0 [⟨`String, .sort 1,
+    [⟨`String.mkA, .forallE `data (listOf 0 charC) stringC .default⟩, ⟨`String.mkB, stringC⟩]⟩]
+    false
+def ofListDef : Declaration :=
+  .defnDecl { name := `String.ofList, levelParams := [],
+              type := .forallE `l (listOf 0 charC) stringC .default,
+              value := .lam `l (listOf 0 charC) (.app (mkConst `String.mkA) (.bvar 0)) .default,
+              hints := .regular 1, safety := .safe }
+def stringIndDecls : List Declaration :=
+  [natDecl, eqDecl, axiomD `Char (.sort 1), axiomD `Char.ofNat (.forallE `n nat charC .default),
+   listDecl, stringIndDecl, ofListDef]
+/-- `String.rec (fun _ => Nat) (fun _ => 1) 2 "ab" = k`, by `Eq.refl k`. -/
+def recOnAb (k : Nat) : Declaration :=
+  let onA := Expr.lam `data (listOf 0 charC) (lit 1) .default
+  let r := mkAppN (mkConst `String.rec [1]) #[.lam `s stringC nat .default, onA, lit 2, abLit]
+  .thmDecl { name := `IE.strRec, levelParams := [], type := eqC 1 nat r (lit k),
+             value := reflC 1 nat (lit k) }
 def stringChains : List Chain := [
   { id := "primitive.string-opaque-expansion",
     decls := stringDecls ++ [stringEq `IE.strAb abLit (ofListOf [97, 98])],
@@ -1468,7 +1489,11 @@ def stringChains : List Chain := [
     lean := "accepted", leanforth := "accepted", rule := "L4 L5", task := "5.2.3" },
   { id := "primitive.string-opaque-expansion-wrong",
     decls := stringDecls ++ [stringEq `IE.strAc abLit (ofListOf [97, 99])],
-    lean := "declTypeMismatch", leanforth := "rejected", rule := "L4 L5", task := "5.2.3" }
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "L4 L5", task := "5.2.3" },
+  { id := "primitive.string-major-two-constructors", decls := stringIndDecls ++ [recOnAb 1],
+    lean := "accepted", leanforth := "accepted", rule := "L2 L5", task := "5.2.3" },
+  { id := "primitive.string-major-two-constructors-wrong", decls := stringIndDecls ++ [recOnAb 2],
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "L2 L5", task := "5.2.3" }
 ]
 
 /-! ### Quotient records replayed (ADR 0015 Q1)

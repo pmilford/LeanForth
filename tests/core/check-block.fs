@@ -342,6 +342,11 @@ T{ s" lit.pow-count-limit" used -> outcome-ok 0 }T
 T{ s" primitive.string-opaque-expansion" used -> outcome-ok 0 }T
 T{ s" primitive.string-opaque-expansion-reversed" used -> outcome-ok 0 }T
 T{ s" primitive.string-opaque-expansion-wrong" used -> outcome-rejected lf-diag-value-apart }T
+\ A recursor on a literal of a String with two constructors (no structure
+\ eta): iota through the literal's constructor form (L2), right and wrong.
+T{ s" primitive.string-major-two-constructors" used -> outcome-ok 0 }T
+T{ s" primitive.string-major-two-constructors-wrong" used
+   -> outcome-rejected lf-diag-value-apart }T
 \ Review rvN1 round 2 (L1): a reduct that keeps the recursor's universe
 \ arguments in its recursive call; iota on Lean's generated recursor
 \ after B3 refused the block's swapped rules (not ported yet: unknown,

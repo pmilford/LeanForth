@@ -512,7 +512,9 @@ U+10000) in plain and LaTeX modes; the Forth form has no word for one yet
 (`str#`, a follow-up of this task), so such a declaration is not written.
 Evidence: rows `lit.string-*` (ten, among them a projected literal, a literal
 major premise right and wrong, two literals apart, `""`, `"é😀"` and `decide`)
-and the three `primitive.string-opaque-*` rows give Lean's verdicts; in the
+and five `primitive.string-*` rows (step 13 in both orders with an opaque
+`String.ofList`; a recursor on a literal of a two-constructor `String`, where
+structure eta cannot stand in for the expansion) give Lean's verdicts; in the
 first 1,000,000 lines of `Init`'s export the 126 string-literal refusals are
 gone (9,202 declarations: 31 more accepted, 50 more unknown, 81 fewer
 unsupported, none rejected; of the new unknown ones, one meets a projection
