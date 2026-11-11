@@ -5,7 +5,7 @@
 \ (830-838), try_eta_expansion (841-853), try_eta_struct_core (856-872),
 \ is_def_eq_proof_irrel (899-906), lazy_delta_reduction and its step
 \ (959-1075) with try_unfold_proj_app (950-957), lazy_delta_proj_reduction
-\ (1077-1100), is_def_eq_unit_like (1119-1130) and is_def_eq_core
+\ (1084-1102), is_def_eq_unit_like (1119-1130) and is_def_eq_core
 \ (1132-1207), at the referee commit
 \ eb6cafb7 (ADR 0014, Reproduction). [kernel] code: experimental, not
 \ through the review gate, not independently audited.
@@ -748,7 +748,7 @@ defer lf-dq-string-step ( frames -- ... frames next )
 : lf-dq-app-step ( frames -- ... frames next )
   dup lf-dq-sides rot ['] lf-dq-app-back lf-ap-call ;
 
-\ Step 9 (1188-1191): whnf_core of tn, then of sn, without cheap_proj
+\ Step 9 (1185-1188): whnf_core of tn, then of sn, without cheap_proj
 \ (whnf.fs), tn's kept across sn's visit; when either is a new node
 \ (Lean's is_eqp), is_def_eq_core of the two is the answer, else step 10.
 : lf-dq-full-sn ( snn outcome frames -- ... frames next )
@@ -761,7 +761,7 @@ defer lf-dq-string-step ( frames -- ... frames next )
 : lf-dq-full-step ( frames -- ... frames next )
   dup lf-dq-sides drop swap ['] lf-dq-full-tn lf-whnf-core-call ;
 
-\ Step 8 (1182-1187): tn and sn projections of one field of one
+\ Step 8 (1177-1183): tn and sn projections of one field of one
 \ structure (Lean compares the names and the indices): yes when
 \ lazy_delta_proj_reduction (below) of their terms answers yes, a visit
 \ of its own with the cells leaf, leaf, tc and sc; else step 9.
@@ -820,7 +820,7 @@ defer lf-dq-reduce-proj ( c leaf frames -- ... frames next )
 is lf-dq-reduce-proj
 : lf-dq-reduce-call ( c leaf frames cont -- ... frames next )
   ['] lf-dq-reduce-proj lf-dq-open ;
-\ lazy_delta_proj_reduction's end (1088-1097), when its step answers
+\ lazy_delta_proj_reduction's end (1089-1098), when its step answers
 \ undecided or no: reduce_proj_core of tc, then of sc (tc's field kept
 \ across); is_def_eq_core of the two fields when both are found, else of
 \ tc and sc, is the answer.
@@ -873,7 +873,7 @@ is lf-dq-reduce-proj
   r@ lf-dq-sides nip r@ lf-dq-sides! r> lf-lz-unfold-s ;
 : lf-lz-unfold-both ( frames -- ... frames next )
   dup lf-dq-sides drop swap ['] lf-lz-both-back lf-lz-unfold ;
-\ Where only one side unfolds (976-991): try_unfold_proj_app (950-957)
+\ Where only one side unfolds (971-991): try_unfold_proj_app (950-957)
 \ on the other first. When its head is a projection (Lean's get_app_fn
 \ is_proj), its whnf_core without cheap_proj, a child visit; a result
 \ that is not == to it (Lean's !=: a new node is walked, lf-dq-same)
@@ -949,7 +949,7 @@ defer lf-lz-failure ( frames -- frames )
 \ then on sn (whnf.fs, lf-whnf-nat-call): where it computes v,
 \ is_def_eq_core of v and the other side is the answer (plan task
 \ 5.2.3); otherwise the step. lazy_delta_proj_reduction's loop is the
-\ step alone (1079-1081). Each round costs one unit of fuel.
+\ step alone (1085-1087). Each round costs one unit of fuel.
 : lf-lz-offset ( t s frames -- ... frames next )
   >r lf-dq-pred ok-then? 0= if nip r> lf-dq-end-failed exit then
   swap lf-dq-pred ok-then? 0= if nip r> lf-dq-end-failed exit then

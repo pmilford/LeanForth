@@ -5124,7 +5124,7 @@ reason = "reduce_nat is taken to compute on any argument that is no constant, so
 [[fault]]
 id = "dq-lz-unfold-wrong-side"
 file = "src/kernel/defeq.fs"
-old = '''  over lf-lz-none? if 2drop r> lf-lz-unfold-s exit then'''
+old = '''  over lf-lz-none? if 2drop r> lf-lz-try-t exit then'''
 new = '''  over lf-lz-none? if 2drop r> lf-dq-tail exit then'''
 test = 'test -n "$LEAN" && GFORTH=$GFORTH python3 tests/core/lean-differential.py definitional-equality'
 reason = "lazy delta stops when only the right side unfolds, so a claim true by unfolding it is a no where Lean says yes"
@@ -5314,8 +5314,8 @@ id = "pj-cache-cheap-kept"
 file = "src/kernel/caches.fs"
 old = '''  >r r@ frame-restore over ok? 0= lf-whnf-cheap? or if drop r> 0 exit then'''
 new = '''  >r r@ frame-restore over ok? 0= if drop r> 0 exit then'''
-test = "$GFORTH tests/core/check-block.fs"
-reason = "5.2.2 (agent PJ): m_whnf_core keeps results of whnf_core with cheap_proj"
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "5.2.2 (agent PJ): m_whnf_core keeps results of whnf_core with cheap_proj, which a later whnf_core without it would read"
 
 [[fault]]
 id = "log-aside-steps-kept"

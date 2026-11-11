@@ -403,7 +403,7 @@ require ./quot.fs
   ['] lf-iota-proj-back lf-whnf-proj-call ;
 
 \ reduce_proj_core for defeq.fs's step 8 (lazy_delta_proj_reduction,
-\ 1088-1097; lf-dq-reduce-proj), the first step of a visit of its own:
+\ 1089-1098; lf-dq-reduce-proj), the first step of a visit of its own:
 \ c's field of leaf, or -1, with c as it is -- a string literal first put
 \ in its constructor form in whnf (421-422), a child visit, leaf kept.
 : lf-iota-core-back ( c outcome frames -- field|-1 outcome frames 0 )
