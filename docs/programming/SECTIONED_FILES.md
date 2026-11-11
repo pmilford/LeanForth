@@ -41,13 +41,21 @@ SHA-256 (it is not data); the writer always writes zeros.
 ## Reading and the outcomes
 
 `sections-open` checks, in this order: the file has at least 4,096 bytes;
-the magic (invalid); the version (unsupported unless 1); the byte-order value
-(unsupported for the opposite order, invalid for any other); the header's
-SHA-256 (rejected); the section count, the unit sizes, lengths, offsets and
-the file size against the layout rule (invalid, and any 64-bit number that
-does not fit a non-negative cell). `sections-read` copies one section into
-the caller's block and compares its SHA-256 (rejected on a difference; full
-when the block is too small). An unreadable file or failed read is invalid.
+the magic (invalid); the header's SHA-256 (rejected), before any number it
+covers is judged; the version (unsupported unless 1); the byte-order value
+(unsupported for the opposite order, invalid for any other); the section
+count (at most 62); then the table (invalid): the header is built again
+from the entries' kinds, unit sizes, counts and SHA-256s by the layout rule
+and must equal the one read byte for byte (so every offset and length is
+exactly what the rule gives, any 64-bit number that does not fit a
+non-negative cell fails, and the reserved fields and unused table entries
+are zero), and the last section's padded end must be the file's size.
+`sections-read` copies one section into the caller's block and compares
+its SHA-256 (rejected on a difference; full when the block is too small);
+the block is untrusted unless the outcome is ok, and on a failed read or
+a different SHA-256 the section's span of the block is zeroed. An
+unreadable file or failed read is invalid. The writer flushes the partial
+file before closing and renaming it.
 
 ## Writing
 

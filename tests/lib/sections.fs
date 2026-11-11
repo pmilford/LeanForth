@@ -98,7 +98,7 @@ T{ load-work 7 flip attempt -> outcome-invalid }T
 T{ load-work $04030201 12 poke32 resign attempt -> outcome-unsupported }T   \ other byte order
 T{ load-work 5 12 poke32 resign attempt -> outcome-invalid }T
 T{ load-work 2 8 poke32 resign attempt -> outcome-unsupported }T     \ other format version
-T{ load-work 0 8 poke32 attempt -> outcome-unsupported }T
+T{ load-work 0 8 poke32 attempt -> outcome-rejected }T     \ the SHA-256 is checked first
 \ Truncation: inside the header, at its end, inside a section, in the
 \ padding, short by one byte at the very end, and trailing bytes.
 T{ load-work 0 wn ! attempt -> outcome-invalid }T
@@ -121,6 +121,8 @@ T{ load-work 4095 flip attempt -> outcome-rejected }T
 \ One byte flipped in each section: the file opens, that section is rejected.
 : flipped-section ( offset i -- outcome-of-i ) swap load-work flip try-open drop read-sec ;
 T{ 4096 5 + 0 flipped-section -> outcome-rejected }T
+: zeros? ( addr n -- flag ) true -rot 0 ?do dup i + c@ if nip false swap then loop drop ;
+T{ rbuf 4000 zeros? -> true }T   \ a refused section is not left in the block
 T{ sf sections-close -> outcome-ok }T
 T{ 8192 4999 + 2 flipped-section -> outcome-rejected }T
 T{ 0 read-sec -> outcome-ok }T
@@ -141,6 +143,16 @@ T{ load-work 0 0 4 slot poke32 resign attempt -> outcome-invalid }T          \ u
 T{ load-work 63 16 poke32 resign attempt -> outcome-invalid }T               \ more sections than fit
 T{ load-work 2 16 poke32 resign attempt -> outcome-invalid }T                \ fewer: file too long
 T{ load-work work 40000 erase attempt -> outcome-invalid }T                  \ all zeros
+\ rvSN1 MAJOR 1: count and length 2^63 (an unfit 64-bit field, read as -1)
+\ on the empty section of unit size 1 passed every check before.
+T{ load-work $80000000 1 12 slot poke32 $80000000 1 28 slot poke32 resign attempt
+   -> outcome-invalid }T
+T{ load-work $80000000 1 12 slot poke32 resign attempt -> outcome-invalid }T   \ count alone
+T{ load-work $80000000 1 20 slot poke32 resign attempt -> outcome-invalid }T   \ offset alone
+\ Spare fields and unused slots must be zero.
+T{ load-work 1 20 poke32 resign attempt -> outcome-invalid }T
+T{ load-work 1 90 poke32 resign attempt -> outcome-invalid }T
+T{ load-work 1 4 0 slot poke32 resign attempt -> outcome-invalid }T
 T{ load-work attempt -> outcome-ok }T
 T{ s" /tmp/lf-sections-missing.bin" sf sections-open -> outcome-invalid }T
 
@@ -187,7 +199,12 @@ T{ sg sections-init  tiny 1 1 1 sg sections-add drop  s" tests/lib" sg sections-
 T{ s" tests/lib.partial" gone? -> true }T
 \ Argument errors.
 create longname 501 allot
-T{ sg sections-init  tiny 0 1 1 sg sections-add drop  path2 sg sections-write -> outcome-invalid }T
+T{ sg sections-init  tiny 0 1 1 sg sections-add -> outcome-invalid }T     \ unit size 0
+T{ tiny $100000000 1 1 sg sections-add -> outcome-invalid }T                 \ unit size 2^32
+T{ tiny 1 -1 1 sg sections-add -> outcome-invalid }T                         \ negative count
+T{ tiny 2 -1 1 rshift 1 sg sections-add -> outcome-invalid }T                \ length beyond a cell
+T{ sg sections-count -> 0 }T
+T{ path2 sg sections-write -> outcome-ok }T
 T{ path-partial gone? -> true }T
 T{ sg sections-init  tiny 1 1 $100000000 sg sections-add -> outcome-invalid }T
 T{ 1 16 sg sections-field! -> outcome-invalid }T
