@@ -7,7 +7,8 @@
 \ State: the stamps, which record which term and level identities each
 \ symbolic Sort was built from (raw symbolic Sorts have no stamp and fail
 \ lf-hterm-check) and which identity each constant node was
-\ (constant-term-boundary.fs); the audit uses one walk record,
+\ (constant-term-boundary.fs), with lf-stamp-input, the unit an input
+\ node of a term view reads as (below); the audit uses one walk record,
 \ lf-href-walker. All are members of the checker context
 \ (lib/context.fs). Single-threaded within one context.
 \

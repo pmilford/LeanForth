@@ -190,7 +190,8 @@ lf-tin-binders
 
 \ An input record and its parts. Unchecked: index < lf-term-base.
 : lf-tin-at ( index -- addr ) /quad * lf-term-view lf-tview-records @ + ;
-: lf-tin-code ( index -- x ) lf-tin-at quad-head u32@ head-tag cells lf-term-input-tags + @ ;
+: lf-tin-code ( index -- x )
+  lf-tin-at quad-head u32@ head-tag cells lf-term-input-tags + @ ;
 : lf-tin-leaf? ( x -- flag ) lf-tin-leaf-bit and 0<> ;
 
 \ The leaf table: entry n is a unit of four cells; it is found by its
@@ -345,7 +346,8 @@ lf-data-ranges 3 * constant lf-data-flags
   2dup lf-data-both -rot r> lf-data-loose2 or ;
 \ A node's data word as made. Unchecked: the index is valid.
 : lf-term-data-word ( index -- data )
-  dup lf-term-input? if lf-tin-at quad-data u32@ else lf-term-slot lf-term-data-at + u32@ then ;
+  dup lf-term-input? if lf-tin-at quad-data u32@ exit then
+  lf-term-slot lf-term-data-at + u32@ ;
 \ Lean's cached node data, or false for a node without (see the header)
 \ or an index that is not allocated.
 : lf-term-data@ ( node -- data true | false )
@@ -443,7 +445,8 @@ defer lf-term-view-hook ( -- outcome )
   4 lf-tbind-hooks lf-term-view lf-tview-binders htab-init dup ok? 0= if exit then drop
   /lf-tleaf dup slab-limit-max lf-term-view lf-tview-leaves slab-init ;
 : lf-tview-place ( exprs -- )
-  lf-term-view >r dup cons-numbers r@ lf-tview-base ! 0 swap cons-at r> lf-tview-records ! ;
+  lf-term-view >r dup cons-numbers r@ lf-tview-base !
+  0 swap cons-at r> lf-tview-records ! ;
 : lf-tview-make ( tier -- outcome )
   dup lf-term-view lf-tview-tier ! tier-exprs
   4 over lf-term-view lf-tview-probe cons-extend dup ok? 0= if nip exit then drop
@@ -452,7 +455,8 @@ defer lf-term-view-hook ( -- outcome )
 \ sealed (or a sealed scratch tier); full when the heap has no room, the
 \ view then detached. Detaching gives the hook's outcome.
 : lf-term-detach ( -- outcome ) lf-tview-free lf-term-reset lf-term-view-hook ;
-: lf-tview-hooked ( -- outcome ) lf-term-view-hook dup ok? 0= if lf-term-detach drop then ;
+: lf-tview-hooked ( -- outcome )
+  lf-term-view-hook dup ok? 0= if lf-term-detach drop then ;
 : lf-term-attach ( tier -- outcome )
   lf-term-detach drop dup tier-exprs cons-sealed? 0= if drop outcome-invalid exit then
   lf-tview-make dup ok? if drop lf-tview-hooked exit then lf-term-detach drop ;
@@ -491,13 +495,15 @@ defer lf-term-view-hook ( -- outcome )
 \ lambda or Pi; full when the heap has no room. When another binder has
 \ the same tag and children, the first stays.
 : lf-tin-binder? ( index -- flag )
-  dup lf-term-input? if lf-tin-tag@ dup lf-tag-lam = swap lf-tag-pi = or else drop false then ;
+  dup lf-term-input? 0= if drop false exit then
+  lf-tin-tag@ dup lf-tag-lam = swap lf-tag-pi = or ;
 : lf-tbind-put ( index -- )
   dup lf-tbind-fields lf-tin-key! lf-term-view lf-tview-binders htab-find
   if 2drop else lf-term-view lf-tview-binders htab-put then ;
 : lf-term-input-binder ( index -- outcome )
   dup lf-tin-binder? 0= if drop outcome-invalid exit then
-  lf-term-view lf-tview-binders htab-ready dup ok? if drop lf-tbind-put outcome-ok else nip then ;
+  lf-term-view lf-tview-binders htab-ready dup ok? 0= if nip exit then
+  drop lf-tbind-put outcome-ok ;
 
 \ ---------------------------------------------------------------------------
 \ Making nodes. Append a node whose tag and fields the caller validated,
@@ -574,14 +580,16 @@ defer lf-term-reusable? ( n -- flag )
 \ not read, and every node above one, into the store). A found leaf is
 \ given again only while its stamps hold (lf-term-reusable?).
 : lf-tin-probe ( head a b -- n true | false )
-  lf-term-view lf-tview-probe >r 1 0 r@ cons-room ok? 0= if 2drop drop r> drop false exit then
+  lf-term-view lf-tview-probe >r 1 0 r@ cons-room ok? 0=
+  if 2drop drop r> drop false exit then
   r@ cand! r@ cons-top expr-hash true r> cons-find
   if dup lf-term-input? dup 0= if nip then else drop false then ;
 : lf-tin-app ( first second -- n true | false )
   2dup lf-term-input? swap lf-term-input? and
   if tag-app 0 pack-head -rot lf-tin-probe else 2drop false then ;
 : lf-tin-bvar ( first second -- n true | false )
-  over bvar-fits? over 0= and if tag-bvar 0 pack-head -rot lf-tin-probe else 2drop false then ;
+  over bvar-fits? over 0= and
+  if tag-bvar 0 pack-head -rot lf-tin-probe else 2drop false then ;
 : lf-tin-leaf-tag? ( tag -- flag ) lf-term-tag-bit lf-tin-leaf-tags @ and 0<> ;
 : lf-tin-binder ( tag first second -- n true | false )
   2dup lf-term-input? swap lf-term-input? and

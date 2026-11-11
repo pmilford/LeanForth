@@ -7743,8 +7743,8 @@ reason = "S5: an input Sort or constant loses its level's or reference's stamp, 
 [[fault]]
 id = "s5-input-marks-spare"
 file = "src/core/constant-term-boundary.fs"
-old = '''  dup lf-term-input? if lf-input-mark-at else lf-term-base - lf-term-marks column-at then ;'''
-new = '''  dup lf-term-input? if drop lf-mark-spare dup 2 cells erase else lf-term-base - lf-term-marks column-at then ;'''
+old = '''  dup lf-term-input? if lf-input-mark-at exit then'''
+new = '''  dup lf-term-input? if drop lf-mark-spare dup 2 cells erase exit then'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py BothWays"
 reason = "S5: input nodes keep no audit marks, so each audit walks them again (more fuel than copying)"
 
@@ -7767,7 +7767,8 @@ reason = "S5: detaching a stage's names leaves its term view, which reads the st
 [[fault]]
 id = "s5-feed-reads-above-let"
 file = "src/import/feed.fs"
-old = '''  2dup feed-tier expr-a@ over feed-dirty? >r tuck feed-tier expr-b@ swap feed-dirty? r> or ;'''
+old = '''  2dup feed-tier expr-a@ over feed-dirty?
+  >r tuck feed-tier expr-b@ swap feed-dirty? r> or ;'''
 new = '''  2drop false ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py BothWays"
 reason = "S5: an application or binder above a let or projection is read in place, its child no term of the view"

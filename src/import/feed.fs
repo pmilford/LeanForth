@@ -116,7 +116,8 @@ end-structure
 : lf-feed-copy? ( -- flag ) lf-input-copy? ;
 : feed-free ( feed -- )
   dup feed-levels heap-release dup feed-exprs heap-release dup feed-dirty heap-release
-  dup feed-copy-buf heap-release dup feed-pair-buf heap-release feed-param-buf heap-release ;
+  dup feed-copy-buf heap-release dup feed-pair-buf heap-release
+  feed-param-buf heap-release ;
 \ A heap buffer of the feed's (its address, then its room in units):
 \ room for n units of u address units, grown, never shrunk, freed by
 \ feed-free. There is no other limit (plan task 6.2.0); no heap is full.
@@ -182,7 +183,8 @@ here feed-settings - /feed-setting / constant feed-settings#
 \ bit each, set for the ones copied.
 1 cells 8 * constant feed-cell-bits
 : feed-expr-map ( feed -- outcome )
-  dup feed-placing @ if dup feed-exprs# feed-cell-bits / 1+ swap feed-dirty feed-block exit then
+  dup feed-placing @
+  if dup feed-exprs# feed-cell-bits / 1+ swap feed-dirty feed-block exit then
   dup feed-exprs# 2* swap feed-exprs feed-block ;
 : feed-maps ( feed -- outcome )
   dup feed-levels# over feed-levels feed-block dup ok? 0= if nip exit then
@@ -370,7 +372,8 @@ lf-form-mdata tag-mdata feed-form!
 \ hold).
 : feed-copied-kind? ( tag -- flag ) dup let-tag? over tag-proj = or swap tag-mdata = or ;
 : feed-child-copied? ( e feed -- flag )
-  2dup feed-tier expr-a@ over feed-dirty? >r tuck feed-tier expr-b@ swap feed-dirty? r> or ;
+  2dup feed-tier expr-a@ over feed-dirty?
+  >r tuck feed-tier expr-b@ swap feed-dirty? r> or ;
 : feed-to-copy? ( e feed tag -- flag )
   dup feed-copied-kind? if drop 2drop true exit then
   dup tag-app = swap binder-tag? or if feed-child-copied? else 2drop false then ;

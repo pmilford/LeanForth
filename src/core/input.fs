@@ -49,8 +49,10 @@
 \ fingerprint also covers the references' universe arguments (their
 \ pool) and, under a name view (names.fs), every input name's hash.
 \ State: the declaration store lf-inputs (a heap store), the name index
-\ lf-input-names and the inductive data lf-input-more (heap slabs) and one
-\ record, lf-input-state, all members of the checker context; written only
+\ lf-input-names and the inductive data lf-input-more (heap slabs), one
+\ record, lf-input-state, and the importer's two settings
+\ lf-input-copying and lf-input-room-cell (below), all members of the
+\ checker context; written only
 \ while loading and by
 \ lf-input-reset, then read by every check in that context. The layout is
 \ host-specific and never serialized.

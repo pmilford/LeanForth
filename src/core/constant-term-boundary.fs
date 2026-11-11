@@ -10,7 +10,8 @@
 \ stamp unit; a constant's stamps are its own identity, as a symbolic
 \ Sort's term stamp is, and its reference's, as a Sort's level stamp is,
 \ both full cells), the marks column lf-term-marks with
-\ its run counter lf-mark-runs (below), the audit memo's record
+\ its run counter lf-mark-runs, the input nodes' marks lf-input-marks
+\ and their spare lf-mark-spare (below), the audit memo's record
 \ lf-audit-state and its list lf-audit-reached (below), and one
 \ walk record, lf-cterm-walker, all members of the checker context
 \ (lib/context.fs). The hook lf-audit-checking? is set while loading
@@ -110,7 +111,8 @@ lf-walk-room context-walk: lf-cterm-walker
   if lf-input-marks slab-at else drop lf-mark-spare dup 2 cells erase then ;
 \ A node's unit (two cells), input or store.
 : lf-mark-at ( node -- unit )
-  dup lf-term-input? if lf-input-mark-at else lf-term-base - lf-term-marks column-at then ;
+  dup lf-term-input? if lf-input-mark-at exit then
+  lf-term-base - lf-term-marks column-at ;
 : lf-marks-erase ( -- ) lf-term-marks column-erase lf-input-marks-erase ;
 : lf-mark-next ( -- run )
   lf-mark-runs @ 1+ dup 0= if lf-marks-erase 1+ then dup lf-mark-runs ! ;
