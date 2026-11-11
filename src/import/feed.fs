@@ -368,13 +368,24 @@ lf-form-mdata tag-mdata feed-form!
   2dup feed-proj-leaf dup ok? 0= if nip nip nip exit then drop
   >r over swap feed-tier expr-a@ lf-tin-child r> swap 0 3 roll lf-tin-child
   lf-term-input-leaf ;
+\ A let: the let of its value and its lambda, the first input binder of
+\ the lambda's type and body (an earlier lambda equal to it, or the
+\ let's own, term 2e, which feed-mark entered), so that the two are one
+\ node, as when copied.
+: feed-let-lam-node ( e feed -- lam )
+  feed-tier over >r 2dup expr-a@ lf-tin-child -rot expr-body@ lf-tin-child
+  lf-tag-lam -rot lf-tin-binder-find if r> drop else r> 2* then ;
+: feed-let-leaf ( e feed -- outcome )
+  2dup feed-let-lam-node >r over swap feed-tier expr-b@ lf-tin-child r> 0
+  3 roll lf-tin-child lf-term-input-leaf ;
 : feed-read-kind? ( tag -- flag )
-  dup tag-bvar = over tag-app = or over let-tag? or swap binder-tag? or ;
+  dup tag-bvar = over tag-app = or swap binder-tag? or ;
 : feed-leaf ( e feed tag -- outcome )
   dup feed-read-kind? if drop 2drop outcome-ok exit then
   case tag-sort of feed-sort-leaf endof  tag-const of feed-const-leaf endof
     tag-nat of feed-nat-leaf endof  tag-str of feed-str-leaf endof
     tag-proj of feed-projection endof
+    tag-let of feed-let-leaf endof  tag-let-nondep of feed-let-leaf endof
     >r 2drop outcome-invalid r> endcase ;
 \ Two passes. The first marks the expressions to copy and enters every
 \ binder read in place, and every let's lambda, in the view's binder

@@ -7965,9 +7965,9 @@ reason = "S5B: the printer no longer prints a projection as its leaf applied to 
 
 [[fault]]
 id = "s5b-view-let-value-raw"
-file = "src/core/terms.fs"
-old = ''': lf-tin-let@ ( index -- first second ) dup lf-tin-at quad-b u32@ lf-tin-child swap 1- ;'''
-new = ''': lf-tin-let@ ( index -- first second ) dup lf-tin-at quad-b u32@ swap 1- ;'''
+file = "src/import/feed.fs"
+old = '''  2dup feed-let-lam-node >r over swap feed-tier expr-b@ lf-tin-child r> 0'''
+new = '''  2dup feed-let-lam-node >r over swap feed-tier expr-b@ r> 0'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "S5B: an input let's value is read as a record number, not as its term number"
 
@@ -7988,12 +7988,20 @@ test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "S5B: an input let's lambda's data word counts its body's bound variable as loose"
 
 [[fault]]
-id = "s5b-view-let-probe-any-tag"
-file = "src/core/terms.fs"
-old = '''  1+ >r r@ lf-tin-fields@ drop = swap r@ lf-tin-tag@ = and'''
-new = '''  1+ >r r@ lf-tin-fields@ drop = nip'''
+id = "s5b-feed-let-own-lam"
+file = "src/import/feed.fs"
+old = '''  lf-tag-lam -rot lf-tin-binder-find if r> drop else r> 2* then ;'''
+new = '''  2drop r> 2* ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
-reason = "S5B: a let made with the other nonDep flag is taken for the input let of the same value and lambda"
+reason = "S5B: an input let keeps its own lambda where an earlier input lambda is equal to it, so the two are two nodes (more fuel than copying)"
+
+[[fault]]
+id = "s5b-view-let-tag-unregistered"
+file = "src/core/terms.fs"
+old = '''  lf-tag-let-nondep tag-let-nondep lf-term-input-leaf-tag'''
+new = '''  lf-tag-let-nondep tag-let-nondep lf-term-input-tag!'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "S5B: a nonDep let read in place is no leaf of the view's table, so its fields are its record's raw fields and a let made equal to it is a second node"
 
 [[fault]]
 id = "s5b-view-proj-leaf-unshared"

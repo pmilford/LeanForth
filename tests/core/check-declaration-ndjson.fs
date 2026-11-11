@@ -332,6 +332,15 @@ T{ bad-utf8 1 lf-str-fields nip nip s" ab" lf-str-fields rot drop
 T{ let-lam-file fed lams 2dup = -rot 1000 lf-expr-equal ok? -> outcome-ok false true true }T
 T{ lams drop dup lf-term-first@ swap lf-term-second@ lf-term-lam swap lams drop = -> true true }T
 unstage
+\ The same two the other way round (a hand-made reordering of that
+\ export, tests/core/check-declaration-cases/lambda-let.ndjson): the
+\ let's lambda is the earlier input lambda, one node, as when copied;
+\ both are accepted.
+: lambda-let-file ( -- c-addr u ) s" tests/core/check-declaration-cases/lambda-let.ndjson" ;
+: lams-reversed ( -- let-lam input-lam )
+  1 lf-input-decl lf-idecl-value @ lf-let-binder 0 lf-input-decl lf-idecl-value @ ;
+T{ lambda-let-file fed lams-reversed = unstage -> outcome-ok true }T
+T{ lambda-let-file fed-checked verdicts unstage -> outcome-ok 2 true }T
 T{ let-lam-file fed-checked verdicts unstage -> outcome-ok 2 true }T
 \ An mdata expression and every node above it are copied, the rest read
 \ in place: in stage-cases/marks.ndjson an mdata, an application and a
