@@ -245,7 +245,8 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 \ Anything else cannot come from lean4export: invalid.
 : lf-ind-kind-at ( k -- kind )
   dup lf-ind-in-types@ < if drop lf-kind-inductive exit then
-  lf-ind-in-types@ lf-ind-in-ctors@ + < if lf-kind-constructor else lf-kind-recursor then ;
+  lf-ind-in-types@ lf-ind-in-ctors@ + <
+  if lf-kind-constructor else lf-kind-recursor then ;
 : lf-ind-member-ok? ( k -- flag )
   dup lf-ind-kind-at swap lf-ind-member
   dup lf-idecl-more @ 0<> over lf-idecl-block @ lf-ind-type lf-idecl-block @ = and

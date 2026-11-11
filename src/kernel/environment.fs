@@ -572,11 +572,13 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
     2dup i lf-env-held if 2swap 2drop unloop exit then
   2 cells +loop 2drop -1 outcome-rejected ;
 : lf-env-aux-k ( name -- k )
-  lf-name-text 4 /string over c@ [char] 0 = if 2drop 0 exit then
+  lf-name-text 4 /string 2dup 1 min s" 0" compare 0= if 2drop 0 exit then
   base @ >r decimal 0 0 2swap >number 2drop drop r> base ! ;
 : lf-env-first-type? ( d -- flag )
-  dup lf-input-decl lf-idecl-header ?dup if lf-hdr-first lf-more-field = else drop false then ;
-: lf-env-aux-count ( d -- n ) lf-env lf-env-slot lf-slot-recipe @ lf-recipe-aux-shift rshift ;
+  dup lf-input-decl lf-idecl-header ?dup
+  if lf-hdr-first lf-more-field = else drop false then ;
+: lf-env-aux-count ( d -- n )
+  lf-env lf-env-slot lf-slot-recipe @ lf-recipe-aux-shift rshift ;
 : lf-env-aux-has? ( name d -- flag )
   dup lf-env-first-type? 0= if 2drop false exit then
   lf-env-aux-count swap lf-env-aux-k tuck >= swap 0> and ;

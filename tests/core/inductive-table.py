@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LeanForth against the inductive table (plan tasks 5.2.1a, 5.2.1b and 5.2.5a; ADR
+"""LeanForth against the inductive table (plan tasks 5.2.1a, 5.2.1b, 5.2.5a, 5.2.5b; ADR
 0015 §13, test plan 1).
 
 Runs pinned Lean on tests/reference/inductive-expected.lean, which prints
@@ -40,7 +40,7 @@ import tempfile
 LEAN_FILE = "tests/reference/inductive-expected.lean"
 TSV = "tests/reference/inductive-expected.tsv"
 FIXTURES = "tests/core/check-block-cases"
-DONE_TASKS = {"5.2.1a", "5.2.1b", "5.2.3", "5.2.5a"}
+DONE_TASKS = {"5.2.1a", "5.2.1b", "5.2.3", "5.2.5a", "5.2.5b"}
 # Rows of the tasks done (DONE_TASKS) that LeanForth cannot decide yet: id ->
 # (outcome now, reason, ending with the task that closes it). Each needs
 # something outside those tasks; the same rule reached without the dependency

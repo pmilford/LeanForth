@@ -7,11 +7,13 @@
 \ Lean's replay does (Lean/Replay.lean 102-164), and ends with one
 \ outcome for every member:
 \    1 the audit (inductive-block.fs): B0 shape (invalid), unsafe members
-\      and U2 forms (unsupported), V1 (invalid), the scope (unsupported:
-\      nested, task 5.2.5b);
+\      and U2 forms (unsupported), V1 (invalid), whether it may be nested;
 \    2 T0 the reserved prefix _nested (1241, 1244);
 \    3 C1 uniform occurrences (check_uniform_ind_occs, 134-164);
-\    4 T1 at least numParams binders (get_params, 1138-1146);
+\    4 T1 at least numParams binders (get_params, 1138-1146); then a
+\      nested block translated into its auxiliary mutual block
+\      (elim_nested_inductive_fn 985-1180, inductive-nested.fs: N2, N3),
+\      which steps 5 to 12 check;
 \    5 T5 universe parameters distinct (check_duplicated_univ_params, 869);
 \    then steps 6 to 8 for each type in order (check_inductive_types
 \    254-299):
@@ -36,7 +38,9 @@
 \      its universe u, or u_1, u_2, ... when taken, 579-592) and K
 \      (init_K_target 594-616);
 \   11 N2 for each T.rec against the names the block declared (813);
-\   12 the recursors and their rules (inductive-recursor.fs, G1, G2);
+\   12 the recursors and their rules (inductive-recursor.fs, G1, G2); for
+\      a nested block restored (restore_nested, 1257-1314: T.rec_1, ...),
+\      their names checked and the nested occurrences typed (1315-1324);
 \   13 B3: each constructor and each exported recursor equal to the one
 \      generated, by Lean's ==: every field, universe parameter names
 \      included, terms structurally (mixed-compare.fs: binder names and
@@ -62,7 +66,8 @@
 \ [kernel] code: experimental, not through the review gate; not
 \ independently audited.
 \ State: one record, lf-blk-state (the T.rec name, the constructor and
-\ binder being checked, the fields of the elimination test), and the
+\ binder being checked, the fields of the elimination test, whether the
+\ nested occurrences are being typed), and the
 \ slab lf-blk-positions, members of the checker context, beside the
 \ block's record lf-ind-state.
 
@@ -509,7 +514,8 @@ end-structure
 \ auxiliary block does not contain: each auxiliary type's, under the
 \ first type's parameters as get_params made them (their raw domains,
 \ 1138-1146), the block's constructors and recursors visible.
-: lf-blk-raw-param ( i -- node ) lf-ind-type lf-idecl-type @ swap lf-rcr-skip lf-term-first@ ;
+: lf-blk-raw-param ( i -- node )
+  lf-ind-type lf-idecl-type @ swap lf-rcr-skip lf-term-first@ ;
 : lf-blk-key-params ( -- outcome )
   lf-ind-nparams 0 ?do i lf-blk-raw-param lf-blk-push dup ok? 0= if unloop exit then drop
   loop outcome-ok ;
@@ -643,7 +649,8 @@ here lf-b3-rec - 2 cells / constant lf-b3-rec#
 : lf-blk-shape ( d -- outcome )
   dup lf-ind-n lf-ind-state lf-ind-is-rec @ lf-shape swap lf-env-shape! ;
 : lf-blk-shapes ( -- outcome )
-  lf-ind-in-types@ 0 ?do i lf-blk-shape dup ok? 0= if unloop exit then drop loop outcome-ok ;
+  lf-ind-in-types@ 0 ?do i lf-blk-shape dup ok? 0= if unloop exit then drop loop
+  outcome-ok ;
 : lf-blk-compare ( -- outcome )
   lf-blk-shapes ['] lf-blk-ctors-b3 lf-blk-then ['] lf-blk-recs-b3 lf-blk-then ;
 

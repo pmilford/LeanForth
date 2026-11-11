@@ -523,6 +523,45 @@ def checks : List Block := [
   { id := "nested.local-variable",
     types := [⟨"Bad", "Type", [("mk", "(α : Type) → List (Prod α Bad) → Bad")]⟩],
     lean := "nestedLocalVariable", leanforth := "rejected", rule := "N2", task := "5.2.5b" },
+  -- Through `Array` (a structure over `List`: two auxiliary types, as for `Lean.Syntax`),
+  -- `List (List _)` (two copies of `List`), `Option`, `Prod` with two parameters, a
+  -- parameter of the block, a universe, under a binder, and inside a mutual block.
+  { id := "nested.array-tree", types := [⟨"ATree", "Type", [("node", "Array ATree → ATree")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 N1", task := "5.2.5b" },
+  { id := "nested.list-list", types := [⟨"LL", "Type", [("node", "List (List LL) → LL")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 N1", task := "5.2.5b" },
+  { id := "nested.option",
+    types := [⟨"OT", "Type", [("leaf", "OT"), ("node", "Option OT → OT")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 N1", task := "5.2.5b" },
+  { id := "nested.prod",
+    types := [⟨"PT", "Type", [("leaf", "PT"), ("node", "Prod PT (List PT) → PT")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 N1", task := "5.2.5b" },
+  { id := "nested.parameter", nparams := 1,
+    types := [⟨"PTr", "Type → Type", [("node", "(α : Type) → α → List (PTr α) → PTr α")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 N1", task := "5.2.5b" },
+  { id := "nested.universe", lparams := [`v], nparams := 1,
+    types := [⟨"UT", "Type v → Type v", [("node", "(α : Type v) → α → List (UT α) → UT α")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 N1", task := "5.2.5b" },
+  { id := "nested.under-binder", nparams := 1,
+    types := [⟨"BT", "Type → Type", [("node", "(α : Type) → (Nat → List (BT α)) → BT α")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 N1", task := "5.2.5b" },
+  { id := "nested.mutual",
+    types := [⟨"NA", "Type", [("a", "List NB → NA")]⟩,
+              ⟨"NB", "Type", [("b", "NA → NB"), ("e", "NB")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 N1", task := "5.2.5b" },
+  -- `Thunk`'s field is a function: the auxiliary block is reflexive (isReflexive), the
+  -- input's constructor is not.
+  { id := "nested.thunk",
+    types := [⟨"TT", "Type", [("leaf", "TT"), ("node", "Thunk TT → TT")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 N1", task := "5.2.5b" },
+  -- A constructor named `rec_1`: the restored auxiliary recursor's name is then taken
+  -- (check_name, inductive.cpp 1283).
+  { id := "nested.constructor-named-rec-1",
+    types := [⟨"CR", "Type", [("rec_1", "List CR → CR")]⟩],
+    lean := "alreadyDeclared", leanforth := "rejected", rule := "N1 N2", task := "5.2.5b" },
+  { id := "nested.array-non-positive",
+    types := [⟨"Bad", "Type", [("mk", "Array (Bad → Nat) → Bad")]⟩],
+    lean := "nonPositive", leanforth := "rejected", rule := "N1 P1", task := "5.2.5b" },
   -- Names and the block itself.
   { id := "names.already-declared", ns := .anonymous,
     types := [⟨"Nat", "Type", [("zero", "Nat")]⟩],
@@ -572,6 +611,15 @@ def Red.decl (r : Red) (n : Name) : TermElabM Declaration := do
   else
     pure (.defnDecl { name := n, levelParams := [], type, value, hints := .regular 1,
                       safety := .safe })
+
+/-- `@Lean.Syntax.r` into `Nat` on `major` equal to `n`: `missing` 1, `node` its
+arguments', `atom` 3, `ident` 4, `Array.mk` its list's, `nil` 6, `cons` the sum. -/
+def syntaxRec (r major : String) (n : Nat) : String :=
+  s!"@Lean.Syntax.{r} (fun _ => Nat) (fun _ => Nat) (fun _ => Nat) 1 " ++
+  "(fun _ _ _ ih => ih) (fun _ _ => 3) (fun _ _ _ _ => 4) (fun _ ih => ih) 6 " ++
+  s!"(fun _ _ ih1 ih2 => ih1 + ih2) ({major}) = {n}"
+def syntaxNode : String :=
+  "Lean.Syntax.node Lean.SourceInfo.none Lean.Name.anonymous (Array.mk [Lean.Syntax.missing])"
 
 def reductions : List Red := [
   { id := "iota.nat-literal-major",
@@ -869,7 +917,25 @@ def reductions : List Red := [
     lean := "declTypeMismatch", leanforth := "rejected", rule := "L2", task := "5.2.3" },
   { id := "lit.string-decide", type := "\"ab\" ≠ \"ac\"",
     value := "of_decide_eq_true (p := \"ab\" ≠ \"ac\") (Eq.refl true)",
-    lean := "accepted", leanforth := "accepted", rule := "L4", task := "5.2.3" }
+    lean := "accepted", leanforth := "accepted", rule := "L4", task := "5.2.3" },
+  -- Iota with a nested block's recursors (task 5.2.5b): `Lean.Syntax`, nested through
+  -- `Array` and `List`, its `rec`, `rec_1` (the `Array`) and `rec_2` (the `List`); each
+  -- counts `missing` 1, `nil` 6 and adds along a `cons`.
+  { id := "iota.nested-syntax-rec", type := syntaxRec "rec" syntaxNode 7, value := "Eq.refl 7",
+    lean := "accepted", leanforth := "accepted", rule := "R1 N1", task := "5.2.5b" },
+  { id := "iota.nested-syntax-rec-wrong", type := syntaxRec "rec" syntaxNode 8,
+    value := "Eq.refl 8",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "R1 N1", task := "5.2.5b" },
+  { id := "iota.nested-syntax-rec-1",
+    type := syntaxRec "rec_1" "Array.mk [Lean.Syntax.missing, Lean.Syntax.missing]" 8,
+    value := "Eq.refl 8",
+    lean := "accepted", leanforth := "accepted", rule := "R1 N1", task := "5.2.5b" },
+  { id := "iota.nested-syntax-rec-2", type := syntaxRec "rec_2" "[Lean.Syntax.missing]" 7,
+    value := "Eq.refl 7",
+    lean := "accepted", leanforth := "accepted", rule := "R1 N1", task := "5.2.5b" },
+  { id := "iota.nested-syntax-rec-2-wrong", type := syntaxRec "rec_2" "[]" 7,
+    value := "Eq.refl 7",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "R1 N1", task := "5.2.5b" }
 ]
 
 /-! ## Lean's replay of an exported block -/
@@ -1009,6 +1075,53 @@ def boolMutations : List Mutation := [
   { id := "replay-bool.constructor-universe-added",
     change := onCtor bTrue fun c => { c with levelParams := [`u] },
     lean := "invalidConstructor", leanforth := "rejected", rule := "B3" }
+]
+
+/-- The nested block `nested.tree` (`Tree | node : List Tree → Tree`) replayed, unchanged
+and mutated (task 5.2.5b): its auxiliary recursor `IE.Tree.rec_1` (on the nested
+`List Tree`) with its rules' right sides swapped, its type at another universe, a wrong
+number of motives or minor premises, its rules' fields or constructor changed, renamed,
+or left out; and the type's `numNested`, which Lean's replay ignores. -/
+def onRecNamed (n : Name) (f : RecursorVal → RecursorVal) : ConstantInfo → Option ConstantInfo
+  | .recInfo r => some (.recInfo (if r.name == n then f r else r))
+  | c => some c
+def treeRec1 : Name := `IE.Tree.rec_1
+def nestedMutations : List Mutation := [
+  { id := "replay-nested.original", change := some,
+    lean := "accepted", leanforth := "accepted", rule := "A1 N1 B3" },
+  { id := "replay-nested.aux-rules-swapped", change := onRecNamed treeRec1 swapRules,
+    lean := "invalidRecursor", leanforth := "rejected", rule := "N1 B3" },
+  { id := "replay-nested.aux-type-changed",
+    change := onRecNamed treeRec1 fun r =>
+      { r with type := r.type.instantiateLevelParams [`u] [.succ (.param `u)] },
+    lean := "invalidRecursor", leanforth := "rejected", rule := "N1 B3" },
+  { id := "replay-nested.aux-motives-changed",
+    change := onRecNamed treeRec1 fun r => { r with numMotives := 1 },
+    lean := "invalidRecursor", leanforth := "rejected", rule := "N1 B3" },
+  { id := "replay-nested.aux-minors-changed",
+    change := onRecNamed treeRec1 fun r => { r with numMinors := 2 },
+    lean := "invalidRecursor", leanforth := "rejected", rule := "N1 B3" },
+  { id := "replay-nested.aux-nfields-changed",
+    change := onRecNamed treeRec1 fun r =>
+      { r with rules := r.rules.map fun x => { x with nfields := x.nfields + 1 } },
+    lean := "invalidRecursor", leanforth := "rejected", rule := "N1 B3" },
+  { id := "replay-nested.aux-rule-constructor-changed",
+    change := onRecNamed treeRec1 fun r =>
+      { r with rules := r.rules.map fun x => { x with ctor := `IE.Tree.node } },
+    lean := "invalidRecursor", leanforth := "rejected", rule := "N1 B3" },
+  { id := "replay-nested.main-motives-changed",
+    change := onRecNamed `IE.Tree.rec fun r => { r with numMotives := 1 },
+    lean := "invalidRecursor", leanforth := "rejected", rule := "N1 B3" },
+  { id := "replay-nested.aux-renamed",
+    change := onRecNamed treeRec1 fun r => { r with name := `IE.Tree.rec_2 },
+    lean := "noSuchRecursor", leanforth := "rejected", rule := "N1 B3" },
+  { id := "replay-nested.aux-left-out",
+    change := fun c => match c with | .recInfo r => if r.name == treeRec1 then none else some c
+                                    | c => some c,
+    lean := "accepted", leanforth := "accepted", rule := "N1 B4" },
+  { id := "replay-nested.numNested-changed",
+    change := onType fun i => { i with numNested := 0 },
+    lean := "accepted", leanforth := "accepted", rule := "N1 B4" }
 ]
 
 /-- The motive's sort in a recursor's type made `Sort u`. -/
@@ -1481,7 +1594,39 @@ def projPick (n : Name) (t : Expr) : Declaration :=
                 .default,
               hints := .regular 1, safety := .safe }
 
+/-- `IE.Ph (α : Type) : Type` with a constructor that keeps no field of `α`: a parameter
+whose argument a block nested through `IE.Ph` never puts in its auxiliary block, so only
+Lean's typing of the nested occurrences (inductive.cpp 1315-1324) checks it. -/
+def phantomDecl : Declaration :=
+  .inductDecl [] 1 [⟨`IE.Ph, .forallE `α (.sort 1) (.sort 1) .default,
+    [⟨`IE.Ph.mk, .forallE `α (.sort 1) (.app (mkConst `IE.Ph) (.bvar 0)) .implicit⟩]⟩] false
+/-- `n | mk : IE.Ph d → n`, nested through `IE.Ph`. -/
+def phantomNested (n : Name) (d : Expr) : Declaration :=
+  .inductDecl [] 0 [⟨n, .sort 1,
+    [⟨n ++ `mk, .forallE `x (.app (mkConst `IE.Ph) d) (mkConst n) .default⟩]⟩] false
+
+/-- A definition `n : Type := Prop` before a nested block: `_nested.List_1` is taken, so
+mk_unique_name makes the auxiliary type `_nested.List_2` (accepted); `_nested.List_1.rec`
+is not tested by it, so declaring the auxiliary type's recursor fails (alreadyDeclared). -/
+def typeNamed (n : Name) : Declaration :=
+  .defnDecl { name := n, levelParams := [], type := .sort 1, value := .sort 0,
+              hints := .regular 0, safety := .safe }
+def listTree : Declaration :=
+  .inductDecl [] 0 [⟨`IE.Tree, .sort 1, [⟨`IE.Tree.node,
+    .forallE `c (.app (.const `List [.zero]) (mkConst `IE.Tree)) (mkConst `IE.Tree) .default⟩]⟩]
+    false
+
 def onBase : List Chain := [
+  { id := "nested.aux-name-taken", decls := [typeNamed `_nested.List_1, listTree],
+    lean := "accepted", leanforth := "accepted", rule := "A1 N1", task := "5.2.5b" },
+  { id := "nested.aux-rec-name-taken", decls := [typeNamed `_nested.List_1.rec, listTree],
+    lean := "alreadyDeclared", leanforth := "rejected", rule := "N1 N2", task := "5.2.5b" },
+  { id := "nested.phantom-parameter",
+    decls := [phantomDecl, phantomNested `IE.KT (mkConst `IE.KT)],
+    lean := "accepted", leanforth := "accepted", rule := "A1 N1", task := "5.2.5b" },
+  { id := "nested.ill-typed-parameter",
+    decls := [phantomDecl, phantomNested `IE.KB (.app (mkConst `IE.KB) (mkConst `IE.KB))],
+    lean := "funExpected", leanforth := "rejected", rule := "N1 F1", task := "5.2.5b" },
   { id := "lit.free-variable-pow-refused",
     decls := [underVar `IE.powZeroBig trueC falseC `Nat.pow 0 4294967296],
     lean := "natCountTooBig", leanforth := "rejected", rule := "L1", task := "5.2.3" },
@@ -2668,6 +2813,12 @@ run_cmd do
       let got ← replayVerdict base (cs.filterMap m.change)
       unless got == m.lean do throwError "{m.id}: Lean's verdict is {got}, expected {m.lean}"
       row m.id got m.leanforth m.rule "5.2.1a" ""
+  -- 3c'. Replay of the nested block `nested.tree`, unchanged and mutated (task 5.2.5b).
+  let ncs ← blockConstants base "nested.tree"
+  for m in nestedMutations do
+    let got ← replayVerdict base (ncs.filterMap m.change)
+    unless got == m.lean do throwError "{m.id}: Lean's verdict is {got}, expected {m.lean}"
+    row m.id got m.leanforth m.rule "5.2.5b" ""
   -- 3d. Declarations after a block: the last one's verdict.
   let some (.recInfo bRec) := withB.find? `IE.B.rec | throwError "no IE.B.rec"
   for s in sequels bRec.type do
@@ -2755,6 +2906,7 @@ run_cmd do
     let cs ← blockConstants base blockId
     let root := (cs.head?.map (·.name)).getD .anonymous
     for m in ms do writeMutation add base baseRecs root cs m
+  for m in nestedMutations do writeMutation add base baseRecs `IE.Tree ncs m
   for s in sequels bRec.type do writeSequel add base baseRecs bcs s
   for s in stripped do
     let (kept, _, r) ← strippedStart base s

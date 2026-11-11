@@ -471,9 +471,49 @@ T{ s" forged.type-named-nat-add" used -> outcome-ok 0 }T
 T{ s" forged.type-named-nat-add-recursor-with-hypothesis" verdict
    -> outcome-rejected lf-diag-invalid-recursor 13 }T
 \ Nested blocks (task 5.2.5b): List Tree, and List (Bad -> Nat), which Lean
-\ rejects only after making the block mutual.
-T{ s" nested.tree" verdict-field -> outcome-unsupported lf-diag-block-scope 1 3 }T
-T{ s" nested.non-positive" verdict-field -> outcome-unsupported lf-diag-block-scope 1 3 }T
+\ rejects only after making the block mutual: the auxiliary constructor
+\ _nested.List_1.cons's field 0 (the diagnostic names the first member).
+T{ s" nested.tree" verdict -> outcome-ok 0 all-steps }T
+T{ s" nested.non-positive" verdict-field -> outcome-rejected lf-diag-non-positive 9 0 }T
+\ Lean's auxiliary blocks for Array (Array_1, List_2), List (List _), Option,
+\ Prod with two parameters, a block parameter, a universe parameter,
+\ under a binder (Ds lowered past it), inside a mutual block, Thunk
+\ (reflexive only as the auxiliary block: no B4 warning), and a parameter
+\ the auxiliary block drops: accepted, every recursor equal to Lean's.
+T{ s" nested.array-tree" verdict-warned -> outcome-ok 0 all-steps 0 }T
+T{ s" nested.list-list" verdict-warned -> outcome-ok 0 all-steps 0 }T
+T{ s" nested.option" verdict-warned -> outcome-ok 0 all-steps 0 }T
+T{ s" nested.prod" verdict-warned -> outcome-ok 0 all-steps 0 }T
+T{ s" nested.parameter" verdict-warned -> outcome-ok 0 all-steps 0 }T
+T{ s" nested.universe" verdict-warned -> outcome-ok 0 all-steps 0 }T
+T{ s" nested.under-binder" verdict-warned -> outcome-ok 0 all-steps 0 }T
+T{ s" nested.mutual" verdict-warned -> outcome-ok 0 all-steps 0 }T
+T{ s" nested.thunk" verdict-warned -> outcome-ok 0 all-steps 0 }T
+T{ s" nested.tree" verdict-warned -> outcome-ok 0 all-steps 0 }T
+T{ s" nested.phantom-parameter" verdict -> outcome-ok 0 all-steps }T
+\ A local variable in Ds (N2, step 4); Array (Bad -> Nat) (P1 in the
+\ auxiliary List_2.cons); an ill-typed Ds only the typing of the nested
+\ occurrences sees (step 12).
+T{ s" nested.local-variable" verdict -> outcome-rejected lf-diag-nested-local 4 }T
+T{ s" nested.array-non-positive" verdict -> outcome-rejected lf-diag-non-positive 9 }T
+T{ s" nested.ill-typed-parameter" verdict -> outcome-rejected lf-diag-function-expected 12 }T
+\ Lean's replay of Tree with Tree.rec_1 (the auxiliary recursor) mutated:
+\ the field B3 names (3 type, 7 motives, 8 minors, 9 rules), no such
+\ recursor, or accepted (left out; numNested only warned, B4).
+: invalid-rec ( n2 -- outcome code step n2 ) >r outcome-rejected lf-diag-invalid-recursor 13 r> ;
+T{ s" replay-nested.original" verdict-field -> outcome-ok 0 all-steps 0 }T
+T{ s" replay-nested.aux-rules-swapped" verdict-field -> 9 invalid-rec }T
+T{ s" replay-nested.aux-type-changed" verdict-field -> 3 invalid-rec }T
+T{ s" replay-nested.aux-motives-changed" verdict-field -> 7 invalid-rec }T
+T{ s" replay-nested.aux-minors-changed" verdict-field -> 8 invalid-rec }T
+T{ s" replay-nested.aux-nfields-changed" verdict-field -> 9 invalid-rec }T
+T{ s" replay-nested.aux-rule-constructor-changed" verdict-field -> 9 invalid-rec }T
+T{ s" replay-nested.main-motives-changed" verdict-field -> 7 invalid-rec }T
+T{ s" replay-nested.aux-renamed" verdict-field
+   -> outcome-rejected lf-diag-no-such-recursor 13 0 }T
+T{ s" replay-nested.aux-left-out" verdict-field -> outcome-ok 0 all-steps 0 }T
+T{ s" replay-nested.numNested-changed" verdict-warned
+   -> outcome-ok 0 all-steps lf-warn-nested }T
 \ An empty block: the importer stages it as one declaration (ADR 0016
 \ amendment 1), which the check rejects at step 4 as Lean's kernel does
 \ (emptyBlock).
@@ -483,20 +523,18 @@ T{ s" names.empty-block" verdict -> outcome-rejected lf-diag-empty-block 4 }T
 T{ s" unit.punit-variables" used -> outcome-ok 0 }T
 
 \ ---------------------------------------------------------------------------
-\ 2. blocks.ndjson: N, Both, Same, Either, Nat, the mutual Even/Odd, List
-\ and Point accepted, every member's slot final and accepted, with a
-\ handle and no axioms; the nested Tree unsupported (task 5.2.5b); and
+\ 2. blocks.ndjson: N, Both, Same, Either, Nat, the mutual Even/Odd, List,
+\ the nested Tree (with Tree.rec_1; task 5.2.5b) and Point accepted, every
+\ member's slot final and accepted, with a handle and no axioms; and
 \ Point.x, a projection, accepted (task 5.2.2).
 : blocks ( -- c-addr u ) s" tests/reference/inductive/blocks.ndjson" ;
 : member-ok? ( d -- flag )
   dup lf-env-outcome ok? over lf-env-handle ok? nip nip and
   swap lf-env-axioms ok? swap 0= and and ;
 : all-ok? ( from to -- flag ) true -rot swap ?do i member-ok? and loop ;
-: all-unsupported? ( from to -- flag )
-  true -rot swap ?do i lf-env-outcome outcome-unsupported = and loop ;
 T{ blocks staged fuel checked -> outcome-ok }T
 T{ 0 18 all-ok? 18 25 all-ok? 25 29 all-ok? -> true true true }T
-T{ 29 33 all-unsupported? 33 36 all-ok? 36 37 all-ok? -> true true true }T
+T{ 29 33 all-ok? 33 36 all-ok? 36 37 all-ok? -> true true true }T
 finish
 
 \ ---------------------------------------------------------------------------
@@ -685,8 +723,10 @@ T{ claimed-rec -> outcome-invalid outcome-invalid }T
   3 lf-input-name 3 lf-env-ready? lf-env-view ok? must finish ;
 T{ ready-around -> false true }T
 \ Which types hold a name (lf-env-reserving's class): T.rec by T accepted
-\ or not; T.rec_<digits>, the auxiliary recursors of a nested block, only
-\ by a T not accepted (no accepted block is nested yet); no other name.
+\ or not; T.rec_k, the auxiliary recursors of a nested block, by an
+\ accepted T only when it is its block's first type and k (from 1, no
+\ leading zero) at most the block's auxiliary types (task 5.2.5b: the
+\ nested Tree has one), by a T not accepted always; no other name.
 \ The type is the file's declaration d (held-at) or its first (held-as).
 : held-at ( part-addr part-u c-addr u d -- class )
   >r case-path staged ok? must fuel checked
@@ -695,14 +735,17 @@ T{ ready-around -> false true }T
 T{ s" rec" s" ind.bool" held-as -> outcome-ok }T
 T{ s" rec" s" ind.nat" held-as -> outcome-ok }T
 T{ s" rec" s" mutual.single-ctor-props" held-as -> outcome-ok }T
-T{ s" rec" s" nested.tree" 4 held-at -> outcome-unsupported }T
-T{ s" rec_1" s" nested.tree" 4 held-at -> outcome-unsupported }T
+T{ s" rec" s" nested.tree" 4 held-at -> outcome-ok }T
+T{ s" rec_1" s" nested.tree" 4 held-at -> outcome-ok }T
+T{ s" rec_2" s" nested.tree" 4 held-at -> outcome-rejected }T
+T{ s" rec_0" s" nested.tree" 4 held-at -> outcome-rejected }T
+T{ s" rec_01" s" nested.tree" 4 held-at -> outcome-rejected }T
 T{ s" rec_1" s" ind.nat" held-as -> outcome-rejected }T
 T{ s" rec_1" s" ind.bool" held-as -> outcome-rejected }T
 T{ s" recOn" s" ind.bool" held-as -> outcome-rejected }T
 T{ s" rec_x" s" ind.nat" held-as -> outcome-rejected }T
-\ Not digits, so no auxiliary recursor of the unsupported nested.tree: the
-\ name is held by no type (letters, a digit then a letter, nothing).
+\ Not digits, so no auxiliary recursor of nested.tree: the name is held
+\ by no type (letters, a digit then a letter, nothing).
 T{ s" rec_x" s" nested.tree" 4 held-at -> outcome-rejected }T
 T{ s" rec_1x" s" nested.tree" 4 held-at -> outcome-rejected }T
 T{ s" rec_" s" nested.tree" 4 held-at -> outcome-rejected }T

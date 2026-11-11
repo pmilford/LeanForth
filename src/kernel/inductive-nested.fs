@@ -79,7 +79,7 @@ require ./mixed-rebuild.fs
 begin-structure /lf-nest
   field: lf-nest-node        \ the application being replaced or restored
   field: lf-nest-n           \ its arguments
-  field: lf-nest-depth       \ binders around it below the parameters (translation), or all
+  field: lf-nest-depth       \ binders around it (below the parameters when translating)
   field: lf-nest-k           \ I's numParams
   field: lf-nest-slot        \ I's slot
   field: lf-nest-key         \ I Ds at the parameters' depth
@@ -131,7 +131,8 @@ end-structure
   r> lf-nest-site lf-diag-frames nip ;
 \ A visit that keeps its node, and one that visits an application's
 \ children (any other node kept).
-: lf-nest-keep ( node frames -- node outcome frames 0 ) ['] lf-rebuild-keep lf-rebuild-return ;
+: lf-nest-keep ( node frames -- node outcome frames 0 )
+  ['] lf-rebuild-keep lf-rebuild-return ;
 : lf-nest-descend ( node frames -- ... frames next )
   over lf-tag-app lf-ind-tag? if lf-rebuild-binary else lf-nest-keep then ;
 \ The answer "not replaced" of a replacing step: visit the node's
@@ -178,10 +179,12 @@ end-structure
 \ Names. A name's components; its ancestor t prefixes up; a component
 \ put on base; name's last t components put on base (Lean's operator+
 \ and replace_prefix, name.cpp 302-318, 363-375).
-: lf-nest-length ( name -- n ) 0 begin over while 1+ swap lf-name-prefix@ swap repeat nip ;
+: lf-nest-length ( name -- n )
+  0 begin over while 1+ swap lf-name-prefix@ swap repeat nip ;
 : lf-nest-up ( name t -- name' ) 0 ?do lf-name-prefix@ loop ;
 : lf-nest-part ( base part -- name true | false )
-  dup lf-name-tag@ lf-name-tag-str = if lf-name-text lf-name-str else lf-name-payload lf-name-num then ;
+  dup lf-name-tag@ lf-name-tag-str =
+  if lf-name-text lf-name-str else lf-name-payload lf-name-num then ;
 : lf-nest-graft ( name t base -- name' true | false )
   over 0 ?do
     2 pick 2 pick i - 1- lf-nest-up lf-nest-part 0= if 2drop false unloop exit then
@@ -311,7 +314,8 @@ end-structure
   outcome-ok ['] lf-nest-type-named lf-nest-then ['] lf-nest-type-typed lf-nest-then
   ['] lf-nest-type-keyed lf-nest-then ['] lf-nest-type-ctors lf-nest-then ;
 \ Every type of I's block, in its all list's order: (a ok), a I's own.
-: lf-nest-all ( -- items n ) lf-nest-state lf-nest-slot @ lf-input-decl lf-idecl-data lf-ity-all@ ;
+: lf-nest-all ( -- items n )
+  lf-nest-state lf-nest-slot @ lf-input-decl lf-idecl-data lf-ity-all@ ;
 : lf-nest-own ( -- i )
   lf-nest-head lf-ind-const-name lf-nest-all 0 ?do
     2dup i cells + @ lf-name-same? if 2drop i unloop exit then
@@ -319,7 +323,8 @@ end-structure
 : lf-nest-new ( -- a outcome )
   lf-nest-own dup 0< if drop -1 outcome-invalid exit then lf-ind-types@ +
   lf-nest-all 0 ?do
-    dup i cells + @ lf-nest-make-type dup ok? 0= if nip nip unloop no-result exit then drop
+    dup i cells + @ lf-nest-make-type dup ok?
+    0= if nip nip unloop no-result exit then drop
   loop drop outcome-ok ;
 
 \ ---------------------------------------------------------------------------
@@ -351,7 +356,8 @@ end-structure
 \ a type of the block (on the block's fuel).
 : lf-nest-mentions? ( node n k -- flag outcome )
   0 ?do
-    2dup i lf-ind-arg lf-ind-occurrences ok-then? 0= if nip nip false swap unloop exit then
+    2dup i lf-ind-arg lf-ind-occurrences ok-then?
+    0= if nip nip false swap unloop exit then
     if 2drop true outcome-ok unloop exit then
   loop 2drop false outcome-ok ;
 \ An occurrence's I: a type Lean's environment holds (lf-env-find),
@@ -369,7 +375,8 @@ end-structure
   dup lf-nest-state lf-nest-slot ! lf-input-decl lf-idecl-data lf-ity-params lf-more-field
   dup lf-nest-state lf-nest-k ! dup 0> swap lf-nest-n@ > 0= and ;
 \ The key: I Ds lowered to the parameters' depth; a local variable is N2.
-: lf-nest-partial ( -- node ) lf-nest-node@ lf-nest-n@ lf-nest-k@ - 0 ?do lf-term-first@ loop ;
+: lf-nest-partial ( -- node )
+  lf-nest-node@ lf-nest-n@ lf-nest-k@ - 0 ?do lf-term-first@ loop ;
 : lf-nest-local ( -- outcome )
   lf-nest-node@ lf-nest-depth@ lf-nest-site lf-diag-nested-local lf-diag-note
   outcome-rejected ;
@@ -494,7 +501,8 @@ end-structure
 \ Every constructor's name for B3: an auxiliary one's restored
 \ (restore_constructor_name: its prefix, its type's name, replaced by
 \ the name of its key's head), any other its own.
-: lf-nest-key-name ( a -- name ) lf-ind-ty lf-ty-key @ lf-ind-spine drop lf-ind-const-name ;
+: lf-nest-key-name ( a -- name )
+  lf-ind-ty lf-ty-key @ lf-ind-spine drop lf-ind-const-name ;
 : lf-nest-restored ( j -- name true | false )
   dup lf-ind-ctor lf-idecl-name @ swap dup lf-ind-in-ctors@ < if drop true exit then
   lf-ind-owner dup lf-ind-tname swap lf-nest-key-name lf-nest-replace-prefix ;
@@ -528,5 +536,6 @@ end-structure
   0 lf-ind-ty lf-ty-rec-name @ over lf-ind-in-types@ - 1+ lf-nest-indexed
   0= if drop outcome-full exit then swap lf-ind-ty lf-ty-rec-name ! outcome-ok ;
 : lf-nest-rec-names ( -- outcome )
-  lf-ind-types@ lf-ind-in-types@ ?do i lf-nest-rec-name dup ok? 0= if unloop exit then drop
+  lf-ind-types@ lf-ind-in-types@ ?do
+    i lf-nest-rec-name dup ok? 0= if unloop exit then drop
   loop outcome-ok ;

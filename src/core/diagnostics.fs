@@ -316,7 +316,7 @@ create lf-diag-catalogue
   lf-diag-quot-type
     s" rejected: not one of Lean's four quotient constants (Q1)" lf-diag-entry,
   lf-diag-nested-local
-    s" rejected: a nested occurrence's parameter has a local variable (N2)" lf-diag-entry,
+    s" rejected: nested occurrence's parameter has a local variable (N2)" lf-diag-entry,
   lf-diag-nested-shape
     s" rejected: ill-formed nested inductive declaration (N3)" lf-diag-entry,
   lf-diag-none s" unknown code" lf-diag-entry,
