@@ -261,7 +261,7 @@ lists with their reasons.
 ## Record kinds and their fields
 
 Each record is handed over in a decoded record. Every decoded record starts
-with `record-kind`, `record-index` (its own index; declarations and the
+with `record-kind`, `record-index` (its ordinal, below; declarations and the
 elements of an inductive block count from 0), `record-line`,
 `record-export` and `record-generation`. The line is the line of the file
 for `export-read`; for `export-line`, which may be given lines from
@@ -270,7 +270,43 @@ memory, it is the number of lines given to the export since
 of lines since `export:` made it, which nothing resets; the list and rule
 readers compare it with the export's to tell whether the export's JSON
 view still holds the record's line.
-References are indices of earlier records. Lists are read
+References are to earlier records, as their ordinals.
+
+**Indices and ordinals** (2026-11-10). The rule is what Lean's own reader
+takes, lean4export's `Export.Parse` at tag v4.35.0, which the official
+checker of the Lean Kernel Arena uses: it keeps names, levels and
+expressions in hash maps by index, starting with name 0 the anonymous
+name and level 0 level zero. So a name (`in`), level (`il`) or expression
+(`ie`) record may have any natural number as its index, in any order (the
+arena's tests `sparse-name-index` and `level-index-out-of-order`); a
+reference must be to an index some earlier record has, or 0 for names
+and levels; an index given again, 0 included, names the new record from
+then on, while a record read before keeps what its references named when
+it was read (Lean's maps hold values, not indices). A reference to an
+index no record has yet, the record's own included, is a bad reference,
+as Lean's `Name not found` / `Level not found` / `Expr not found` are. The
+reader hands each record over under its family's next **ordinal** in
+`record-index` (names and levels from 1, after the anonymous name and level
+zero, which are ordinal 0; expressions from 0) and translates every
+reference to the ordinal its index has when the reference is read, so
+every handler sees each family dense and in order, whatever the file's
+numbering. While every index is the ordinal it gets, as in every export
+lean4export writes, nothing is kept; from the first index that differs,
+the family's index map (`src/import/ndjson.fs`, a hash table of
+`lib/htab.fs` over a slab of pairs) keeps each later index with its
+latest ordinal, so its memory grows with the records, never with the
+largest index (`export-map-bytes` gives it; the stage counts it against
+its limit). An index above `max-n` (2^63 − 1 on a 64-bit host), which
+Lean accepts, ends the read as *full*, a resource limit, never a verdict:
+a temporary gap like the other wide numbers of plan task 5.2.6 (proposed
+there, 2026-11-10); a reference above `max-n` is a bad reference, since
+no record can have it. Measured on 2026-11-10 with crafted files against the arena's official
+checker built with Lean 4.35.0 (machine-local): forward, missing and self references
+are refused by both; repeated indices (later record wins, earlier
+records keep their values), redefined name 0 and level 0, and sparse
+indices of every family are accepted by both.
+
+Lists are read
 with `list-count ( list record -- n )` and `list-item ( i list record -- u )`;
 a list field holds its JSON array's token index inverted (below -1), so a
 reference, which is at least 0, or an unset field, -1, never reads as a
@@ -324,9 +360,9 @@ passed.
 | Outcome | When |
 | --- | --- |
 | ok | A complete, well-formed record, accepted by its handler |
-| invalid (malformed) | Bad framing (no final line feed, carriage return, byte-order mark, blank line); not JSON (syntax, bad escape, lone surrogate, invalid UTF-8, a control byte in a string); not a record of format 3.1.0: unknown kind, a field missing, unknown or repeated, a value of the wrong JSON type or outside its enumeration, an index that is not the next one, a reference that is not to an earlier record, an anonymous name where one is not allowed, a natural literal not in canonical decimal, a height beyond UInt32, metadata not first or repeated, an inductive block without types but with constructors or recursors (an empty block, with none of the three, is read: ADR 0016 amendment 1), no metadata or no declaration in the file |
-| unsupported | Metadata naming another exporter, format or Lean version than lean4export 3.1.0, format 3.1.0 and Lean 4.35.0 (`eb6cafb7…`); a record kind without a handler |
-| full (a limit) | A line longer than the limit (64 MiB), JSON nested deeper than 64, more than 65,536 JSON tokens on one line, a natural number field (such as `bvar` or `idx`) that does not fit in a cell, no heap memory |
+| invalid (malformed) | Bad framing (no final line feed, carriage return, byte-order mark, blank line); not JSON (syntax, bad escape, lone surrogate, invalid UTF-8, a control byte in a string); not a record of format 3.1.0: unknown kind, a field missing, unknown or repeated, a value of the wrong JSON type or outside its enumeration, an index that is not a natural number ("bad index"), a reference to an index no earlier record has ("bad reference"), an anonymous name where one is not allowed, a natural literal not in canonical decimal, a height beyond UInt32, metadata not first or repeated, an inductive block without types but with constructors or recursors (an empty block, with none of the three, is read: ADR 0016 amendment 1), no metadata or no declaration in the file |
+| unsupported | Metadata naming another exporter, format or Lean version than lean4export 3.1.0, format 3.1.0 and Lean 4.35.0 (`eb6cafb7…`); after `export-any-version! ( flag export -- )` (the caller's explicit choice, `--any-lean-version`; `export-init` turns it off), only another format version; a record kind without a handler |
+| full (a limit) | A line longer than the limit (64 MiB), JSON nested deeper than 64, more than 65,536 JSON tokens on one line, a natural number field (such as `bvar` or `idx`) that does not fit in a cell, an index above `max-n` ("index too large"), no heap memory (also "no room for an index map") |
 
 A handler's own outcome (rejected, for example) also stops the reading, as
 does a broken handler contract (invalid or a `THROW`, see above).
@@ -440,7 +476,7 @@ from a handler, which passes on with the file closed.
 | Not JSON | invalid | manifest is not valid JSON |
 | Not an object; a member missing, unknown or repeated; a value of the wrong type; a number not canonical; a digest not lowercase hexadecimal of its length | invalid | manifest malformed (the member, or none) |
 | `format_version` other than `1` | invalid | unsupported manifest format version (`format_version`) |
-| A version member other than the pinned one | invalid | manifest names another exporter or Lean version (the member) |
+| A version member other than the pinned one (when the export reads any version, `export-any-version!`, only `export_format`; the other version members need only be strings) | invalid | manifest names another exporter or Lean version (the member) |
 | A failure of the reader itself | the reader's | the reader's reason, field and line |
 | Lines, bytes, a kind's records or SHA-256 differ | invalid | export differs from its manifest (`lines`, `bytes`, the kind, or `sha256`) |
 | The export's name with `.manifest.json` longer than 4,096 characters | invalid | manifest file name too long |
@@ -580,7 +616,13 @@ export per expression: 2^24 for `Init`, 2^28 for Mathlib), the others at
 2^12. `stage-read ( c-addr u stage -- outcome )` reads the file with its
 manifest, `FILE.manifest.json` or the file `stage-manifest-use` names;
 `stage-read-unchecked` reads it without one, the caller's explicit
-choice. `stage-seal` resolves the constants, sets the marks and makes the
+choice. `stage-any-version! ( flag stage -- )`, after `stage-init` (which
+turns it off) and before the read, lets the metadata name any exporter
+and Lean version of format 3.1.0 (`--any-lean-version`); one that does
+has its five texts interned in the tier, and `stage-other? ( stage -- flag )`
+and `stage-meta-text ( k stage -- c-addr u )` (0 the exporter's name, 1
+its version, 2 the format version, 3 the Lean version, 4 Lean's githash;
+the pinned ones' for a pinned export) tell what it named. `stage-seal` resolves the constants, sets the marks and makes the
 tier read-only (its tables spread to at most half full, its stores
 trimmed); `stage-load` and `stage-load-unchecked` read, then seal.
 `stage-free` frees everything. Each step out of order is *invalid*. A
@@ -1066,7 +1108,11 @@ the same field-by-field dump as the original
 ([measurements](measurements/reexport-2026-11-03/README.md)). So the
 reader loses nothing the exporter writes: the decoded fields of every
 record determine its line exactly. Like the reader, the re-exporter is
-untrusted and decides nothing about types or proofs.
+untrusted and decides nothing about types or proofs. It writes the
+ordinals the reader hands over ([indices and ordinals](#record-kinds-and-their-fields)):
+an export whose indices are not dense and in order, which lean4export
+never writes, comes back renumbered densely, the same records with every
+reference to the record Lean's reader would take, so not byte-identical.
 
 ```sh
 scripts/ndjson-reexport.sh --reimport EXPORT COPY   # or: make reexport EXPORT=... COPY=...

@@ -1342,11 +1342,92 @@ reason = "plan task 6.2.0: the merge of a long argument list never takes the rig
 [[fault]]
 id = "ndjson-self-reference"
 file = "src/import/ndjson.fs"
-old = ''': ref-below? ( count n outcome -- n flag ) ok? if tuck u> else nip false then ;'''
-new = ''': ref-below? ( count n outcome -- n flag ) ok? if tuck 1+ u> else nip false then ;'''
+old = ''': imap-dense? ( i map -- n true | false ) over swap imap-dense @ u< dup 0= if nip then ;'''
+new = ''': imap-dense? ( i map -- n true | false ) over swap imap-dense @ 1+ u< dup 0= if nip then ;'''
 test = "$GFORTH tests/core/ndjson.fs"
-reason = "a record may refer to its own index (a forward reference by one)"
+reason = "a record may refer to its own index before it has it (a forward reference by one), which Lean's Export.Parse refuses"
 quick = true
+
+[[fault]]
+id = "ndjson-index-taken-as-ordinal"
+file = "src/import/ndjson.fs"
+old = '''  >r 2dup = r@ imap-sparse? 0= and if 2drop 1 r> imap-dense +! outcome-ok exit then'''
+new = '''  >r 2dup 2drop true r@ imap-sparse? 0= and if 2drop 1 r> imap-dense +! outcome-ok exit then'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "a sparse index is taken as its ordinal: a reference to it then names no record, or the wrong one"
+
+[[fault]]
+id = "ndjson-index-repeat-ignored"
+file = "src/import/ndjson.fs"
+old = '''  >r over r@ imap-pair if rot drop r> ordinal! outcome-ok else r> pair-add then ;'''
+new = '''  >r over r@ imap-pair if 2drop drop r> drop outcome-ok else r> pair-add then ;'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "an index given again keeps naming the first record, where Lean's Export.Parse takes the later one"
+
+[[fault]]
+id = "ndjson-index-refused-defined"
+file = "src/import/ndjson.fs"
+old = '''  3 pick ok? if index-define nip else drop 2drop then ;'''
+new = '''  3 pick ok? 0= 3 pick drop if index-define nip else drop 2drop then ;'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "a record its handler refused gives its index the ordinal no record took, while an accepted one gives none"
+
+[[fault]]
+id = "ndjson-list-items-untranslated"
+file = "src/import/ndjson.fs"
+old = '''  2dup 2>r refs-raw dup 0< if 2r> 2drop else 2r> refs-ordinal then ;'''
+new = '''  2dup 2>r refs-raw dup 0< if 2r> 2drop else 2r> 2drop then ;'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "a list of references (levelParams, all, a constant's levels) gives the file's indices, not the ordinals every other reference gives"
+
+[[fault]]
+id = "ndjson-any-version-default"
+file = "src/import/ndjson.fs"
+old = '''  dup export-any-version? swap export-record format-read? and ;'''
+new = '''  true swap export-record format-read? and ;'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "an export of another Lean version is read without export-any-version!, not refused as unsupported"
+quick = true
+
+[[fault]]
+id = "ndjson-any-version-format-unchecked"
+file = "src/import/ndjson.fs"
+old = ''': format-read? ( record -- flag ) meta-format-version pinned-format-version text= ;'''
+new = ''': format-read? ( record -- flag ) drop true ;'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "with export-any-version! an export of another format version is read, not refused as unsupported"
+
+[[fault]]
+id = "ndjson-any-version-kept-by-init"
+file = "src/import/ndjson.fs"
+old = '''  dup export-untap false over export-any-version!'''
+new = '''  dup export-untap'''
+test = "$GFORTH tests/core/ndjson.fs"
+reason = "export-init leaves export-any-version! on: a reused export reads other Lean versions unasked"
+
+[[fault]]
+id = "manifest-any-version-format-loose"
+file = "src/import/manifest.fs"
+old = '''  manifest-export @ export-any-version? swap @ ['] pinned-format-version <> and ;'''
+new = '''  manifest-export @ export-any-version? nip ;'''
+test = "$GFORTH tests/core/manifest.fs"
+reason = "with export-any-version! a manifest naming another export format passes its version check"
+
+[[fault]]
+id = "stage-other-meta-dropped"
+file = "src/import/stage-records.fs"
+old = '''  dup pinned? if drop outcome-ok exit then'''
+new = '''  true if drop outcome-ok exit then'''
+test = "$GFORTH tests/core/stage.fs"
+reason = "the stage forgets what another Lean version's metadata named, so no note or exportMeta can say it"
+
+[[fault]]
+id = "cli-other-lean-note-missing"
+file = "src/cli/leanforth.fs"
+old = '''  cli-other-note ck-loaded? if cli-results. else ck-read-outcome cli-fed-unread then'''
+new = '''  ck-loaded? if cli-results. else ck-read-outcome cli-fed-unread then'''
+test = "python3 tests/cli/test_leanforth.py OtherLean"
+reason = "check --any-lean-version on another Lean version's export prints no note that its verdicts are Lean 4.35.0's"
 
 [[fault]]
 id = "ndjson-anonymous-name"
@@ -1441,10 +1522,10 @@ reason = "an export written by another exporter is read instead of refused as un
 [[fault]]
 id = "ndjson-index-unchecked"
 file = "src/import/ndjson.fs"
-old = ''': index-is? ( count n outcome -- flag ) ok? -rot = and ;'''
-new = ''': index-is? ( count n outcome -- flag ) ok? -rot 2drop ;'''
+old = '''  dup index-pair? 0= if nip nip bad-index nip exit then'''
+new = '''  false if nip nip bad-index nip exit then'''
 test = "$GFORTH tests/core/ndjson.fs"
-reason = "an index out of order (a gap or a repeat) is accepted"
+reason = "a name, level or expression record with members besides its index and kind is read, the extra ones ignored"
 
 [[fault]]
 id = "ndjson-repeated-meta"
@@ -4951,7 +5032,7 @@ reason = "whnf never asks reduce_nat: Nat.succ Nat.zero, which Lean's reduce_nat
 [[fault]]
 id = "dq-whnf-core-skipped"
 file = "src/kernel/defeq.fs"
-old = '''  dup lf-dq-pick2 drop swap ['] lf-dq-tn lf-whnf-core-call ;'''
+old = '''  dup lf-dq-pick2 drop swap ['] lf-dq-tn lf-whnf-cheap-call ;'''
 new = '''  dup lf-dq-pick2 drop outcome-ok rot lf-dq-tn ;'''
 test = "$GFORTH tests/core/defeq.fs"
 reason = "is_def_eq_core's step 3 leaves the left side unreduced: a redex against its reduct is Lean's yes"
@@ -5124,7 +5205,7 @@ reason = "reduce_nat is taken to compute on any argument that is no constant, so
 [[fault]]
 id = "dq-lz-unfold-wrong-side"
 file = "src/kernel/defeq.fs"
-old = '''  over lf-lz-none? if 2drop r> lf-lz-unfold-s exit then'''
+old = '''  over lf-lz-none? if 2drop r> lf-lz-try-t exit then'''
 new = '''  over lf-lz-none? if 2drop r> lf-dq-tail exit then'''
 test = 'test -n "$LEAN" && GFORTH=$GFORTH python3 tests/core/lean-differential.py definitional-equality'
 reason = "lazy delta stops when only the right side unfolds, so a claim true by unfolding it is a no where Lean says yes"
@@ -5196,12 +5277,126 @@ test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.2: Lean's == takes two projections of one term that differ in the field for equal; p.1 = p.2 (proj.index-differs) is accepted"
 
 [[fault]]
-id = "proj-leaf-whnf-invalid"
-file = "src/kernel/whnf.fs"
-old = '''  dup lf-tag-proj = if drop lf-wc-proj exit then'''
-new = ''''''
+id = "pj-proj-is-app"
+file = "src/kernel/defeq.fs"
+old = '''  dup lf-dq-tag lf-tag-app = if dup lf-let? swap lf-dq-proj? or 0= else drop false then ;'''
+new = '''  dup lf-dq-tag lf-tag-app = if lf-let? 0= else drop false then ;'''
 test = "$GFORTH tests/core/check-block.fs"
-reason = "5.2.2: a projection leaf alone, met by is_def_eq_app, is called malformed; proj.index-differs is invalid instead of unknown"
+reason = "5.2.2 (agent PJ): is_def_eq_app takes a projection for an application of its leaf again; proj.app-eta (Init's UInt8.toNat_toUInt32) is no longer accepted"
+
+[[fault]]
+id = "pj-step8-index-ignored"
+file = "src/kernel/defeq.fs"
+old = '''  2dup lf-proj-idx swap lf-proj-idx ='''
+new = '''  true'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2 (agent PJ): step 8 takes projections onto two fields for one; p.1 = p.2 (proj.index-differs) is accepted"
+
+[[fault]]
+id = "pj-step8-skipped"
+file = "src/kernel/defeq.fs"
+old = '''  dup lf-dq-sides 2dup lf-dq-same-proj? 0= if 2drop lf-dq-full-step exit then'''
+new = '''  dup lf-dq-sides 2drop lf-dq-full-step exit'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2 (agent PJ): step 8 (lazy_delta_proj_reduction) skipped; proj.lazy-terms is rejected"
+
+[[fault]]
+id = "pj-step8-fields-same"
+file = "src/kernel/defeq.fs"
+old = '''  dup 0< if 2drop r> lf-lzp-sides exit then
+  r> ['] lf-dq-final lf-dq-core-call ;'''
+new = '''  dup 0< if 2drop r> lf-lzp-sides exit then
+  drop dup r> ['] lf-dq-final lf-dq-core-call ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2 (agent PJ): step 8 compares tc's field with itself; proj.lazy-fields-wrong is accepted"
+
+[[fault]]
+id = "pj-step8-terms-yes"
+file = "src/kernel/defeq.fs"
+old = '''  dup lf-dq-sides rot ['] lf-dq-final lf-dq-core-call ;'''
+new = '''  >r true r> lf-dq-end ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2 (agent PJ): step 8 answers yes where reduce_proj_core finds no field; proj.lazy-terms-wrong is accepted"
+
+[[fault]]
+id = "pj-reduce-proj-core-any"
+file = "src/kernel/iota.fs"
+old = '''  >r lf-iota-proj-field r> 0 ;'''
+new = '''  >r 2drop 0 outcome-ok r> 0 ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2 (agent PJ): step 8's reduce_proj_core gives one node for every term; proj.lazy-terms-wrong is no longer rejected"
+
+[[fault]]
+id = "pj-step9-skipped"
+file = "src/kernel/defeq.fs"
+old = '''  dup lf-dq-sides drop swap ['] lf-dq-full-tn lf-whnf-core-call ;'''
+new = '''  lf-dq-app-step ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2 (agent PJ): step 9 skipped; (id (a, b)).2 = b (proj.whnf-term) is rejected"
+
+[[fault]]
+id = "pj-step9-cheap"
+file = "src/kernel/defeq.fs"
+old = '''  r@ lf-dq-sides nip swap r@ frame-save r> ['] lf-dq-full-sn lf-whnf-core-call ;'''
+new = '''  r@ lf-dq-sides nip swap r@ frame-save r> ['] lf-dq-full-sn lf-whnf-cheap-call ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2 (agent PJ): step 9 keeps cheap_proj; proj.whnf-term is rejected"
+
+[[fault]]
+id = "pj-step9-always-again"
+file = "src/kernel/defeq.fs"
+old = '''  if r> ['] lf-dq-final lf-dq-core-call else 2drop r> lf-dq-app-step then ;'''
+new = '''  drop r> ['] lf-dq-final lf-dq-core-call ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2 (agent PJ): step 9 starts is_def_eq_core again on unchanged sides; proj.index-differs never answers (exhausted)"
+
+[[fault]]
+id = "pj-unfold-proj-app-unchanged"
+file = "src/kernel/defeq.fs"
+old = '''  >r 2dup = if 2drop r> drop false outcome-ok exit then'''
+new = '''  >r 2dup = if 2drop r> drop true outcome-ok exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2 (agent PJ): try_unfold_proj_app takes an unchanged side for a new one; proj.unfold-proj-app-stuck loops until its fuel is spent"
+
+[[fault]]
+id = "pj-proj-call-inverted"
+file = "src/kernel/whnf.fs"
+old = '''  lf-whnf-cheap? if lf-wc-call else lf-whnf-call then ;'''
+new = '''  lf-whnf-cheap? if lf-whnf-call else lf-wc-call then ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2 (agent PJ): reduce_proj puts a projection's term in whnf_core outside cheap_proj; (id (a, b)).2 = b (proj.whnf-term) is rejected"
+
+[[fault]]
+id = "pj-mode-not-set"
+file = "src/kernel/whnf.fs"
+old = '''  dup lf-whnf-cheap? = if drop exit then dup lf-whnf-cheap !'''
+new = '''  dup lf-whnf-cheap? = if drop exit then'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "5.2.2 (agent PJ): a whnf_core visit with cheap_proj never sets the mode; whnf_core's step is whnf"
+
+[[fault]]
+id = "pj-mode-not-restored"
+file = "src/kernel/whnf.fs"
+old = '''  if ['] lf-whnf-to-full else ['] lf-whnf-to-cheap then over frame-save ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "5.2.2 (agent PJ): a visit that changed the cheap_proj mode leaves it changed when it ends"
+
+[[fault]]
+id = "pj-whnf-keeps-cheap"
+file = "src/kernel/whnf.fs"
+old = '''  false lf-whnf-mode ['] lf-whnf-cored lf-wc-call ;'''
+new = '''  ['] lf-whnf-cored lf-wc-call ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.2 (agent PJ): whnf runs its whnf_core in the caller's cheap_proj mode (reduce_recursor's major premise inside step 3)"
+
+[[fault]]
+id = "pj-cache-cheap-kept"
+file = "src/kernel/caches.fs"
+old = '''  >r r@ frame-restore over ok? 0= lf-whnf-cheap? or if drop r> 0 exit then'''
+new = '''  >r r@ frame-restore over ok? 0= if drop r> 0 exit then'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "5.2.2 (agent PJ): m_whnf_core keeps results of whnf_core with cheap_proj, which a later whnf_core without it would read"
 
 [[fault]]
 id = "log-aside-steps-kept"

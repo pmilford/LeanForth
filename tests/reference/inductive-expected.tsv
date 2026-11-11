@@ -124,6 +124,18 @@ iota.prod-eta	accepted	accepted	R1 R3	5.2.2
 iota.and-prop-stuck-bool	declTypeMismatch	rejected	R1 R3	5.2.2	
 iota.structure-eta	accepted	accepted	R1 R3	5.2.2	
 proj.index-differs	declTypeMismatch	rejected	J1	5.2.2	
+proj.app-eta	accepted	accepted	J1 R4	5.2.2	
+proj.app-eta-wrong	declTypeMismatch	rejected	J1 R4	5.2.2	
+proj.lazy-terms	accepted	accepted	J1	5.2.2	
+proj.lazy-terms-wrong	declTypeMismatch	rejected	J1	5.2.2	
+proj.lazy-fields	accepted	accepted	J1	5.2.2	
+proj.lazy-fields-wrong	declTypeMismatch	rejected	J1	5.2.2	
+proj.whnf-term	accepted	accepted	J1	5.2.2	
+proj.whnf-term-wrong	declTypeMismatch	rejected	J1	5.2.2	
+proj.unfold-proj-app	accepted	accepted	J1	5.2.2	
+proj.unfold-proj-app-wrong	declTypeMismatch	rejected	J1	5.2.2	
+proj.unfold-proj-app-stuck	accepted	accepted	J1	5.2.2	
+proj.unfold-proj-app-stuck-wrong	declTypeMismatch	rejected	J1	5.2.2	
 iota.prop-structure-stuck	declTypeMismatch	rejected	R1 R3	5.2.2	
 k.eq-variable-proof	accepted	accepted	R2	5.2.1c	
 k.eq-different-ends	declTypeMismatch	rejected	R2	5.2.1c	

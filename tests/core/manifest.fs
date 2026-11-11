@@ -63,6 +63,21 @@ T{ s" tests/reference/identity.ndjson.manifest.json" checks manifest-use
 T{ composition checks manifest-read checks given? -> outcome-ok false }T
 T{ identity checks manifest-read -> outcome-ok }T
 
+\ When the export reads any version (export-any-version!), the manifest's
+\ exporter and Lean versions need only be strings, its export format must
+\ still be the pinned one; without it they must all be the pinned ones.
+\ Both manifests are identity's but for those members.
+: other-lean ( -- c-addr u ) s" tests/core/manifest-other-lean.json" ;
+: other-format ( -- c-addr u ) s" tests/core/manifest-other-format.json" ;
+: another? ( -- flag ) why s" manifest names another exporter or Lean version" compare 0= ;
+T{ other-lean checks manifest-use identity checks manifest-read another?
+   failed-field s" exporter" compare -> outcome-invalid true 0 }T
+T{ true ex export-any-version! other-lean checks manifest-use identity checks manifest-read
+   -> outcome-ok }T
+T{ other-format checks manifest-use identity checks manifest-read another?
+   failed-field s" export_format" compare -> outcome-invalid true 0 }T
+T{ false ex export-any-version! identity checks manifest-read -> outcome-ok }T
+
 \ A missing manifest, and an export name too long for the default name
 \ (4,096 characters with the suffix): invalid at line 0, nothing read.
 create long-name 4096 allot  long-name 4096 char x fill

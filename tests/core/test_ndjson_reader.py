@@ -157,7 +157,11 @@ class FramingFailures(unittest.TestCase):
             ("syntax error", good.replace(b'{"in":1,', b'{"in":1;', 1), ("invalid", 2)),
             ("unsupported exporter", bad_meta + b"\n" + b"\n".join(lines[1:]) + b"\n", ("unsupported", 1)),
             ("metadata twice", meta + b"\n" + good, ("invalid", 2)),
-            ("line swapped", b"\n".join([lines[0], lines[2], lines[1]] + lines[3:]) + b"\n", ("invalid", 2)),
+            # A name before the name it is built on: a reference to an index
+            # no record has yet (two names that do not refer to each other may
+            # come in any order, as Lean's Export.Parse reads them).
+            ("line swapped", b"\n".join(lines[:7] + [lines[8], lines[7]] + lines[9:]) + b"\n",
+             ("invalid", 8)),
             ("not an object", b"\n".join([lines[0], b"[1,2]"] + lines[1:]) + b"\n", ("invalid", 2)),
             ("nested too deep", meta + b"\n" + b"[" * 70 + b"]" * 70 + b"\n", ("full", 2)),
         ]

@@ -7,7 +7,9 @@ list of records the Forth reader must hand over, in the text form of
 tests/core/ndjson-dump.fs, and result is "ok" or (outcomes, line), the set
 of outcomes the reader may report and the line it must report them at.
 Records before a failing line are handed over; nothing of the failing line
-is (an inductive block is checked whole).
+is (an inductive block is checked whole). Indices follow lean4export's own
+parser (Export.Parse): any natural number, in any order, an index given
+again naming the new record; the dump shows each family's ordinals.
 
 Strict where Python's json module is lenient: NaN and Infinity, lone
 surrogates and duplicate keys are invalid; numbers keep their text, so
@@ -173,11 +175,15 @@ def nat(v):
     return value_of(t)
 
 
-def ref(v, count, named=False):
+def ref(v, table, named=False):
+    """The ordinal of the record whose index v is now (table: index ->
+    ordinal, as lean4export's Export.Parse keeps its maps); named refuses
+    ordinal 0, the anonymous name."""
     t = natural_text(v)
-    if t is None or not 0 <= value_of(t) < count or (named and value_of(t) == 0):
+    ordinal = None if t is None else table.get(value_of(t))
+    if ordinal is None or (named and ordinal == 0):
         raise Fail([INVALID])
-    return value_of(t)
+    return ordinal
 
 
 def boolean(v):
@@ -235,9 +241,9 @@ def shape(v, keys):
     return {k: v.get(k) for k in keys}
 
 
-def refs(c, v, count, named):
+def refs(c, v, table, named):
     xs = c(array, v)
-    return None if xs is None else [c(ref, x, count, named) for x in xs]
+    return None if xs is None else [c(ref, x, table, named) for x in xs]
 
 
 def hexed(s):
@@ -253,8 +259,13 @@ def listed(xs):
 
 
 class State:
+    """Ordinals so far per family, and each family's map from index to the
+    ordinal of the latest record with that index (name 0 and level 0 are
+    the anonymous name and level zero, ordinal 0, until given again)."""
+
     def __init__(self):
         self.names, self.levels, self.exprs, self.decls, self.metas = 1, 1, 0, 0, 0
+        self.name_map, self.level_map, self.expr_map = {0: 0}, {0: 0}, {}
 
 
 def name_record(kind, v, st, i):
@@ -264,7 +275,7 @@ def name_record(kind, v, st, i):
     c = Collect()
     f = c(shape, v, keys[kind])
     c.done()
-    pre = c(ref, f["pre"], st.names)
+    pre = c(ref, f["pre"], st.name_map)
     part = c(text, f["str"]) if kind == "str" else c(digits, f["i"])
     c.done()
     return [f"name.str {i} {pre} {hexed(part)}" if kind == "str" else f"name.num {i} {pre} {part}"]
@@ -273,13 +284,13 @@ def name_record(kind, v, st, i):
 def level_record(kind, v, st, i):
     c = Collect()
     if kind == "succ":
-        x = c(ref, v, st.levels)
+        x = c(ref, v, st.level_map)
     elif kind in ("max", "imax"):
         if not isinstance(v, list) or len(v) != 2:
             raise Fail([INVALID])
-        x = f"{c(ref, v[0], st.levels)} {c(ref, v[1], st.levels)}"
+        x = f"{c(ref, v[0], st.level_map)} {c(ref, v[1], st.level_map)}"
     elif kind == "param":
-        x = c(ref, v, st.names, True)
+        x = c(ref, v, st.name_map, True)
     else:
         raise Fail([INVALID])
     c.done()
@@ -295,7 +306,7 @@ EXPR_KEYS = {"const": ["name", "us"], "app": ["fn", "arg"],
 
 def expr_record(kind, v, st, i):
     c = Collect()
-    E, N, L = st.exprs, st.names, st.levels
+    E, N, L = st.expr_map, st.name_map, st.level_map
     scalar = {"bvar": lambda: c(nat, v), "sort": lambda: c(ref, v, L),
               "natVal": lambda: c(natlit, v), "strVal": lambda: hexed(c(text, v) or "")}
     if kind in scalar:
@@ -327,9 +338,9 @@ def expr_record(kind, v, st, i):
 
 
 def decl_head(c, f, st):
-    name = c(ref, f["name"], st.names, True)
-    params = refs(c, f["levelParams"], st.names, True)
-    return f"{name} {listed(params)} {c(ref, f['type'], st.exprs)}"
+    name = c(ref, f["name"], st.name_map, True)
+    params = refs(c, f["levelParams"], st.name_map, True)
+    return f"{name} {listed(params)} {c(ref, f['type'], st.expr_map)}"
 
 
 TYPE_KEYS = ["name", "levelParams", "type", "numParams", "numIndices", "all", "ctors",
@@ -348,7 +359,7 @@ DECL_KEYS = {"axiom": ["name", "levelParams", "type", "isUnsafe"],
 def ind_type(c, g, st, j):
     head = decl_head(c, g, st)
     nums = [c(nat, g[k]) for k in ("numParams", "numIndices")]
-    names = [refs(c, g[k], st.names, True) for k in ("all", "ctors")]
+    names = [refs(c, g[k], st.name_map, True) for k in ("all", "ctors")]
     nested = c(nat, g["numNested"])
     flags = [flag(c(boolean, g[k])) for k in ("isRec", "isUnsafe", "isReflexive")]
     return (f"ind.type {j} {head} {nums[0]} {nums[1]} {listed(names[0])} {listed(names[1])} "
@@ -357,7 +368,7 @@ def ind_type(c, g, st, j):
 
 def ind_ctor(c, g, st, j):
     head = decl_head(c, g, st)
-    induct = c(ref, g["induct"], st.names, True)
+    induct = c(ref, g["induct"], st.name_map, True)
     nums = [c(nat, g[k]) for k in ("cidx", "numParams", "numFields")]
     unsafe = flag(c(boolean, g["isUnsafe"]))
     return f"ind.ctor {j} {head} {induct} {nums[0]} {nums[1]} {nums[2]} {unsafe}"
@@ -365,14 +376,14 @@ def ind_ctor(c, g, st, j):
 
 def ind_rec(c, g, st, j):
     head = decl_head(c, g, st)
-    names = refs(c, g["all"], st.names, True)
+    names = refs(c, g["all"], st.name_map, True)
     nums = [c(nat, g[k]) for k in ("numParams", "numIndices", "numMotives", "numMinors")]
     rules = []
     for r in c(array, g["rules"]) or []:
         q = c(shape, r, ["ctor", "nfields", "rhs"])
         if q is not None:
-            rules.append(f"{c(ref, q['ctor'], st.names, True)}:{c(nat, q['nfields'])}:"
-                         f"{c(ref, q['rhs'], st.exprs)}")
+            rules.append(f"{c(ref, q['ctor'], st.name_map, True)}:{c(nat, q['nfields'])}:"
+                         f"{c(ref, q['rhs'], st.expr_map)}")
     k, unsafe = c(boolean, g["k"]), c(boolean, g["isUnsafe"])
     return (f"ind.rec {j} {head} {listed(names)} {' '.join(str(x) for x in nums)} "
             f"{flag(k)} {flag(unsafe)} [{','.join(rules)}]")
@@ -402,7 +413,7 @@ def decl_record(kind, v, st, n):
     if kind == "inductive":
         return inductive(c, f, st, n)
     head = f"decl.{kind} {n} {decl_head(c, f, st)}"
-    value = c(ref, f["value"], st.exprs) if "value" in f else None
+    value = c(ref, f["value"], st.expr_map) if "value" in f else None
     if kind == "axiom":
         rest = flag(c(boolean, f["isUnsafe"]))
     elif kind == "def":
@@ -413,12 +424,12 @@ def decl_record(kind, v, st, n):
         else:
             hint = f"{c(choice, hints, HINTS)} 0"
         rest = (f"{value} {hint} {c(choice, f['safety'], SAFETY)} "
-                f"{listed(refs(c, f['all'], st.names, True))}")
+                f"{listed(refs(c, f['all'], st.name_map, True))}")
     elif kind == "thm":
-        rest = f"{value} {listed(refs(c, f['all'], st.names, True))}"
+        rest = f"{value} {listed(refs(c, f['all'], st.name_map, True))}"
     elif kind == "opaque":
         rest = (f"{value} {flag(c(boolean, f['isUnsafe']))} "
-                f"{listed(refs(c, f['all'], st.names, True))}")
+                f"{listed(refs(c, f['all'], st.name_map, True))}")
     else:
         rest = f"{c(choice, f['kind'], QUOT)}"
     c.done()
@@ -458,12 +469,17 @@ def record(v, st):
         counter, decode = FAMILIES[family[0]]
         index = natural_text(v.get(family[0]))
         others = [k for k in keys if k != family[0]]
-        if len(keys) != 2 or len(others) != 1 or index is None \
-                or value_of(index) != getattr(st, counter):
+        if len(keys) != 2 or len(others) != 1 or index is None:
             raise Fail([INVALID])
+        if value_of(index) > MAXN:
+            raise Fail([FULL])
         kind = others[0]
-        out = decode(kind, v.get(kind), st, getattr(st, counter))
-        setattr(st, counter, getattr(st, counter) + 1)
+        ordinal = getattr(st, counter)
+        out = decode(kind, v.get(kind), st, ordinal)
+        # Any natural number in any order; given again, the index names the
+        # new record from now on (Export.Parse's HashMap.insert).
+        getattr(st, counter[:-1] + "_map")[value_of(index)] = ordinal
+        setattr(st, counter, ordinal + 1)
         return out
     if "meta" in keys or len(keys) != 1:
         raise Fail([INVALID])
