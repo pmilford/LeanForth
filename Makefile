@@ -143,10 +143,15 @@ test-differential: $(DIFFERENTIAL_TARGETS)
 
 # With parallel jobs make starts targets in the order listed: the slowest
 # first (each is also named again below), so that none of them starts last.
-check: test-depth-differential test-depth-fed-differential \
-	reference-compact-init reference-author reference reference-program-ir-run \
-	reference-bignum test-doc-examples-lean test-compact-faults
-check: test test-differential mutants-check
+# Order of the measurement of 2026-11-11 (JOBS=1, no cache, seconds): reference-author 67,
+# reference 61, test-cli 56, reference-compact-init 53, test-inductive-table 43 (it and
+# reference-inductive share the 27 s Lean run of inductive-expected-output),
+# reference-program-ir-run 33, reference-inductive 29, reference-cli 19, ...
+check: reference-author reference test-cli reference-compact-init test-inductive-table \
+	reference-program-ir-run reference-inductive reference-cli test-doc-examples-lean \
+	test-depth-differential test-depth-fed-differential test-universe-many-differential \
+	reference-bignum test-compact-faults
+check: test test-differential mutants-check test-depth-deep-differential
 
 # src/main.fs must load silently: a "redefined" warning means two modules
 # define the same word. Then one word from each loaded layer must run.
