@@ -4,7 +4,8 @@
 \ is_def_eq_binding (752-779), is_def_eq_app (878-895), is_def_eq_args
 \ (830-838), try_eta_expansion (841-853), try_eta_struct_core (856-872),
 \ is_def_eq_proof_irrel (899-906), lazy_delta_reduction and its step
-\ (959-1075), is_def_eq_unit_like (1119-1130) and is_def_eq_core
+\ (959-1075) with try_unfold_proj_app (950-957), lazy_delta_proj_reduction
+\ (1077-1100), is_def_eq_unit_like (1119-1130) and is_def_eq_core
 \ (1132-1207), at the referee commit
 \ eb6cafb7 (ADR 0014, Reproduction). [kernel] code: experimental, not
 \ through the review gate, not independently audited.
@@ -35,17 +36,18 @@
 \ - is_def_eq_core, in Lean's order: (1) quick_is_def_eq decides yes or
 \   no; (2) when s is the constant Bool.true (by name) and t has no free
 \   variable, or in eager mode (lf-dq-eager), yes when whnf(t) is
-\   Bool.true too; (3) whnf_core of both sides (whnf.fs) and, when either
+\   Bool.true too; (3) whnf_core of both sides with cheap_proj (whnf.fs:
+\   a projection's term put in whnf_core, not whnf) and, when either
 \   changed, quick_is_def_eq again; (4) proof irrelevance: when t is a
 \   proof, is_def_eq of t's type and s's type is the answer, yes or no;
 \   (5) lazy delta reduction (below), which may answer yes
 \   or no and leaves both sides as far unfolded as it got; (6) the same
 \   constant with equivalent universe arguments, yes; (7) the same free
-\   variable, yes; (8) and (9), Lean's projection steps
-\   (lazy_delta_proj_reduction, and whnf_core with projections reduced by
-\   whnf), are not ported (plan task 5.2.2): is_def_eq_app takes a
-\   projection for an application of its leaf (core/projections.fs), and
-\   two leaves that differ are unknown (whnf.fs); (10) is_def_eq_app,
+\   variable, yes; (8) both sides projections of one field of one
+\   structure: lazy_delta_proj_reduction of their terms (below), yes;
+\   (9) whnf_core of both sides without cheap_proj: when either is a new
+\   node (Lean's is_eqp), is_def_eq_core of the two is the answer;
+\   (10) is_def_eq_app,
 \   yes; (11) eta: when exactly one side is a lambda and the whnf of the
 \   other's type is a Pi of domain D, is_def_eq of the lambda and
 \   fun x : D => other x, yes; (12) structure eta, tn against sn, then sn
@@ -82,16 +84,25 @@
 \   abbreviation first, the side whose hint is not opaque first, else
 \   both -- but first, for two applications of the same declaration with
 \   a regular hint, equivalent universe arguments and is_def_eq_args
-\   answer yes. Each unfolded side goes through whnf_core; then
+\   answer yes. Where only one side unfolds, try_unfold_proj_app first:
+\   the other side, when its head is a projection, put in whnf_core
+\   without cheap_proj, takes its place when that is not == to it.
+\   Each unfolded side goes through whnf_core with cheap_proj; then
 \   quick_is_def_eq answers yes, no, or the loop goes on. Lean's failure
 \   cache (failed_before, 1004-1009) only skips an argument test that
 \   failed before, which would fail again (kernel/caches.fs keeps it).
-\   try_unfold_proj_app needs
-\   projections (U2).
+\ - lazy_delta_proj_reduction (step 8) runs the same step on the two
+\   projections' terms tc and sc, a visit of its own, until it answers:
+\   yes is yes; otherwise, when reduce_proj_core finds the field of both
+\   (iota.fs, through the hook lf-dq-reduce-proj), is_def_eq_core of the
+\   fields is the answer, else is_def_eq_core of tc and sc.
 \ - is_def_eq_app: both applications, the functions is_def_eq and the
 \   argument counts equal, then the arguments left to right; the first
 \   pair that is not equal ends it, false. is_def_eq_args: the arguments
-\   last first, then both spines must end together.
+\   last first, then both spines must end together. Applications,
+\   functions and counts are Lean's (is_app, get_app_fn): a projection
+\   (core/projections.fs, the application of a projection leaf to its
+\   term) is Lean's Expr.proj, no application, and so is a let term.
 \ Doubt. Where the port cannot tell whether a step it passes would have
 \ answered yes, it goes on, records the first such step (the doubt
 \ record), and lf-defeq-on reports a final no as unknown with it: outside
@@ -134,14 +145,16 @@
 \ typer, the eager flag and the doubt record, in one record; both members
 \ of the checker context (lib/context.fs). The caller sets the typer and
 \ the eager flag around a comparison. A THROW out of a pass leaves the
-\ record wrong: lf-defeq-reset empties it. A few steps are deferred only
-\ so that words defined before them can name them; they are set once,
-\ while loading.
+\ record wrong: lf-defeq-reset empties it (and whnf.fs's cheap_proj
+\ mode). A few steps are deferred only so that words defined before them
+\ can name them, and lf-dq-reduce-proj so that iota.fs can set it; they
+\ are set once, while loading.
 
 require ../lib/lib.fs
 require ../lib/slab.fs
 require ../core/diagnostics.fs
 require ../core/input.fs
+require ../core/let-terms.fs
 require ../core/local-context.fs
 require ../core/names.fs
 require ../core/name-equal.fs
@@ -171,8 +184,9 @@ end-structure
 \ The typer and the eager flag, which the caller sets (see the header).
 : lf-dq-typer ( -- addr ) lf-dq-state lf-dqs-typer ;
 : lf-dq-eager ( -- addr ) lf-dq-state lf-dqs-eager ;
-\ Recovery after a THROW out of a pass: an empty record.
-: lf-defeq-reset ( -- ) lf-dq-state /lf-dqs erase ;
+\ Recovery after a THROW out of a pass: an empty record, whnf_core's
+\ mode without cheap_proj.
+: lf-defeq-reset ( -- ) lf-dq-state /lf-dqs erase lf-whnf-reset ;
 
 \ Lean's lbool: yes 1, no 0, undecided -1. quick_is_def_eq answers one.
 1 constant lf-dq-yes
@@ -249,10 +263,18 @@ defer lf-dq-known-same? ( t s -- flag )
 : lf-dq-tag ( node -- tag ) lf-term-tag@ ;
 : lf-dq-tags? ( t s -- flag ) lf-dq-tag swap lf-dq-tag = ;
 : lf-dq-binder? ( node -- flag ) lf-dq-tag dup lf-tag-lam = swap lf-tag-pi = or ;
-: lf-dq-app? ( node -- flag ) lf-dq-tag lf-tag-app = ;
+\ Lean's is_proj, is_app, get_app_fn and get_app_num_args (see the
+\ header): a projection, the application of a projection leaf, and a let
+\ term are no applications.
+: lf-dq-proj? ( node -- flag )
+  dup lf-dq-tag lf-tag-app = if lf-term-first@ lf-proj-leaf? else drop false then ;
+: lf-dq-app? ( node -- flag )
+  dup lf-dq-tag lf-tag-app = if dup lf-let? swap lf-dq-proj? or 0= else drop false then ;
 : lf-dq-apps? ( t s -- flag ) lf-dq-app? swap lf-dq-app? and ;
 : lf-dq-both? ( t s tag -- flag ) tuck swap lf-dq-tag = -rot swap lf-dq-tag = and ;
-: lf-dq-count ( node -- n ) lf-mhead-spine nip ;
+: lf-dq-fn ( node -- fn n ) 0 begin over lf-dq-app? while 1+ swap lf-term-first@ swap repeat ;
+: lf-dq-head ( node -- fn ) lf-dq-fn drop ;
+: lf-dq-count ( node -- n ) lf-dq-fn nip ;
 
 \ Step 6 (1170-1172): two constants of the same name whose universe
 \ arguments are equivalent; on level-compare's fuel.
@@ -275,6 +297,7 @@ defer lf-bd-visit ( t s frames -- ... frames next )
 defer lf-ap-visit ( t s frames -- ... frames next )
 defer lf-ar-visit ( t s frames -- ... frames next )
 defer lf-es-visit ( t s frames -- ... frames next )
+defer lf-lz-loop ( frames -- ... frames next )
 \ The first step of an is_def_eq visit: lf-dq-visit, or the success
 \ cache's step around it (kernel/caches.fs sets it).
 defer lf-dq-entry ( t s frames -- ... frames next )
@@ -410,7 +433,7 @@ defer lf-ap-arg ( frames -- ... frames next )
   r@ frame-save 0 r@ frame-save r> lf-ap-arg ;
 :noname ( t s frames -- ... frames next )
   >r 2dup lf-dq-apps? 0= if 2drop false r> lf-dq-answer exit then
-  r> lf-dq-save2 >r lf-whnf-head swap lf-whnf-head swap r> ['] lf-ap-fn lf-dq-call
+  r> lf-dq-save2 >r lf-dq-head swap lf-dq-head swap r> ['] lf-ap-fn lf-dq-call
   ; is lf-ap-visit
 
 \ is_def_eq_args (830-838): the last arguments first, while both are
@@ -434,6 +457,8 @@ defer lf-ap-arg ( frames -- ... frames next )
 : lf-dq-sides ( frames -- tn sn ) dup 1 swap frame-pick swap 0 swap frame-pick ;
 : lf-dq-sides! ( tn sn frames -- ) >r 2 r@ frame-drop swap r@ frame-save r> frame-save ;
 : lf-dq-end ( flag frames -- flag outcome frames 0 ) 4 lf-dq-drop-answer ;
+\ Whether whnf_core changed either side: a new node (Lean's is_eqp).
+: lf-dq-changed? ( t s tn sn -- tn sn flag ) 2swap 2over rot <> -rot <> or ;
 : lf-dq-end-failed ( outcome frames -- 0 outcome frames 0 ) 4 lf-dq-drop-failed ;
 
 \ The doubt record (see the header): the first step passed that might
@@ -711,16 +736,58 @@ defer lf-dq-string-step ( frames -- ... frames next )
 : lf-dq-eta-step ( frames -- ... frames next )
   dup lf-dq-sides lf-dq-eta-sides if rot lf-dq-eta-try else lf-dq-struct-step then ;
 
-\ Steps 6, 7 and 10.
+\ A child's answer that is the visit's (also steps 4, 8 and 9 and lazy
+\ delta's).
+: lf-dq-final ( flag outcome frames -- ... frames next )
+  >r ok-then? 0= if r> lf-dq-end-failed exit then r> lf-dq-end ;
+
+\ Step 10.
 : lf-dq-app-back ( flag outcome frames -- ... frames next )
   >r ok-then? 0= if r> lf-dq-end-failed exit then
   if true r> lf-dq-end else r> lf-dq-eta-step then ;
+: lf-dq-app-step ( frames -- ... frames next )
+  dup lf-dq-sides rot ['] lf-dq-app-back lf-ap-call ;
+
+\ Step 9 (1188-1191): whnf_core of tn, then of sn, without cheap_proj
+\ (whnf.fs), tn's kept across sn's visit; when either is a new node
+\ (Lean's is_eqp), is_def_eq_core of the two is the answer, else step 10.
+: lf-dq-full-sn ( snn outcome frames -- ... frames next )
+  >r ok-then? 0= if 1 r@ frame-drop r> lf-dq-end-failed exit then
+  r@ frame-restore swap r@ lf-dq-sides 2swap lf-dq-changed?
+  if r> ['] lf-dq-final lf-dq-core-call else 2drop r> lf-dq-app-step then ;
+: lf-dq-full-tn ( tnn outcome frames -- ... frames next )
+  >r ok-then? 0= if r> lf-dq-end-failed exit then
+  r@ lf-dq-sides nip swap r@ frame-save r> ['] lf-dq-full-sn lf-whnf-core-call ;
+: lf-dq-full-step ( frames -- ... frames next )
+  dup lf-dq-sides drop swap ['] lf-dq-full-tn lf-whnf-core-call ;
+
+\ Step 8 (1182-1187): tn and sn projections of one field of one
+\ structure (Lean compares the names and the indices): yes when
+\ lazy_delta_proj_reduction (below) of their terms answers yes, a visit
+\ of its own with the cells leaf, leaf, tc and sc; else step 9.
+: lf-dq-leaves? ( leaf leaf' -- flag )
+  2dup lf-proj-idx swap lf-proj-idx =
+  if lf-proj-name swap lf-proj-name lf-name-same? else 2drop false then ;
+: lf-dq-same-proj? ( tn sn -- flag )
+  2dup lf-dq-proj? swap lf-dq-proj? and 0= if 2drop false exit then
+  lf-term-first@ swap lf-term-first@ lf-dq-leaves? ;
+: lf-lzp-visit ( tn sn frames -- ... frames next )
+  >r over lf-term-first@ dup r@ frame-save r@ frame-save
+  swap lf-term-second@ r@ frame-save lf-term-second@ r@ frame-save r> lf-lz-loop ;
+: lf-dq-proj-back ( flag outcome frames -- ... frames next )
+  >r ok-then? 0= if r> lf-dq-end-failed exit then
+  if true r> lf-dq-end else r> lf-dq-full-step then ;
+: lf-dq-proj-step ( frames -- ... frames next )
+  dup lf-dq-sides 2dup lf-dq-same-proj? 0= if 2drop lf-dq-full-step exit then
+  rot ['] lf-dq-proj-back ['] lf-lzp-visit lf-dq-open ;
+
+\ Steps 6 and 7, then 8.
 : lf-dq-tail ( frames -- ... frames next )
   >r r@ lf-dq-sides 2dup r@ lf-dq-consts
   ok-then? 0= if nip nip r> lf-dq-end-failed exit then
   if 2drop true r> lf-dq-end exit then
   2dup lf-dq-fvars? if 2drop true r> lf-dq-end exit then
-  r> ['] lf-dq-app-back lf-ap-call ;
+  2drop r> lf-dq-proj-step ;
 
 \ ---------------------------------------------------------------------------
 \ Lazy delta reduction (959-1075; see the header) on the visit's tn and
@@ -737,13 +804,53 @@ defer lf-dq-string-step ( frames -- ... frames next )
   2dup lf-lz-hints 2dup <> if lf-lz-kinds nip nip exit then
   drop lf-hint-regular = if lf-lz-heights else 2drop 0 then ;
 
-defer lf-lz-loop ( frames -- ... frames next )
+\ The step serves two loops (lf-lz-loop): is_def_eq_core's, on the cells
+\ t, s, tn and sn, and lazy_delta_proj_reduction's (step 8), on leaf,
+\ leaf, tc and sc. A visit whose cell 3 is a projection leaf is the
+\ second: a leaf is never a term, and step 3's whnf_core refuses a t
+\ that is one (invalid) before lazy delta begins.
+: lf-lz-proj? ( frames -- flag ) 3 swap frame-pick lf-proj-leaf? ;
+
+\ reduce_proj_core (420-441) of c for leaf, the first step of a visit of
+\ its own that ends with ( field|-1 outcome frames 0 ); iota.fs, which
+\ holds the constructor lookups, sets it; unknown until then.
+defer lf-dq-reduce-proj ( c leaf frames -- ... frames next )
+:noname ( c leaf frames -- -1 outcome frames 0 )
+  >r lf-dq-site lf-diag-undecided lf-diag-note -1 outcome-unknown r> 0 ;
+is lf-dq-reduce-proj
+: lf-dq-reduce-call ( c leaf frames cont -- ... frames next )
+  ['] lf-dq-reduce-proj lf-dq-open ;
+\ lazy_delta_proj_reduction's end (1088-1097), when its step answers
+\ undecided or no: reduce_proj_core of tc, then of sc (tc's field kept
+\ across); is_def_eq_core of the two fields when both are found, else of
+\ tc and sc, is the answer.
+: lf-lzp-sides ( frames -- ... frames next )
+  dup lf-dq-sides rot ['] lf-dq-final lf-dq-core-call ;
+: lf-lzp-s-back ( fs outcome frames -- ... frames next )
+  >r r@ frame-restore -rot ok-then? 0= if nip r> lf-dq-end-failed exit then
+  dup 0< if 2drop r> lf-lzp-sides exit then
+  r> ['] lf-dq-final lf-dq-core-call ;
+: lf-lzp-t-back ( ft outcome frames -- ... frames next )
+  >r ok-then? 0= if r> lf-dq-end-failed exit then
+  dup 0< if drop r> lf-lzp-sides exit then
+  r@ lf-dq-sides nip 3 r@ frame-pick rot r@ frame-save
+  r> ['] lf-lzp-s-back lf-dq-reduce-call ;
+: lf-lzp-reduce ( frames -- ... frames next )
+  dup lf-dq-sides drop 3 2 pick frame-pick rot ['] lf-lzp-t-back lf-dq-reduce-call ;
+\ The step's ends that differ between the loops: undecided (DefUnknown)
+\ goes on to step 6, or ends lazy_delta_proj_reduction; no (DefDiff) is
+\ the answer, or ends it.
+: lf-lz-unknown ( frames -- ... frames next )
+  dup lf-lz-proj? if lf-lzp-reduce else lf-dq-tail then ;
+: lf-lz-differ ( frames -- ... frames next )
+  dup lf-lz-proj? if lf-lzp-reduce else false swap lf-dq-end then ;
+
 \ After an unfolding: quick_is_def_eq answers yes or no, or the loop goes
 \ on (1017-1021).
 : lf-lz-quick-back ( lbool outcome frames -- ... frames next )
   >r ok-then? 0= if r> lf-dq-end-failed exit then
   dup lf-dq-undef = if drop r> ['] lf-lz-loop exit then
-  lf-dq-flag r> lf-dq-end ;
+  lf-dq-flag if true r> lf-dq-end else r> lf-lz-differ then ;
 : lf-lz-quick ( frames -- ... frames next )
   >r r@ lf-dq-sides r> ['] lf-lz-quick-back lf-qk-call ;
 : lf-lz-t-back ( tn' outcome frames -- ... frames next )
@@ -752,11 +859,11 @@ defer lf-lz-loop ( frames -- ... frames next )
 : lf-lz-s-back ( sn' outcome frames -- ... frames next )
   >r ok-then? 0= if r> lf-dq-end-failed exit then
   r@ lf-dq-sides drop swap r@ lf-dq-sides! r> lf-lz-quick ;
-\ A side unfolded (unfold_definition) and put in whnf_core, a child
-\ visit continuing with cont.
+\ A side unfolded (unfold_definition) and put in whnf_core with
+\ cheap_proj, a child visit continuing with cont.
 : lf-lz-unfold ( node frames cont -- ... frames next )
   >r tuck lf-whnf-unfold ok-then? 0= if r> drop swap lf-dq-end-failed exit then
-  swap r> lf-whnf-core-call ;
+  swap r> lf-whnf-cheap-call ;
 : lf-lz-unfold-t ( frames -- ... frames next )
   dup lf-dq-sides drop swap ['] lf-lz-t-back lf-lz-unfold ;
 : lf-lz-unfold-s ( frames -- ... frames next )
@@ -766,6 +873,29 @@ defer lf-lz-loop ( frames -- ... frames next )
   r@ lf-dq-sides nip r@ lf-dq-sides! r> lf-lz-unfold-s ;
 : lf-lz-unfold-both ( frames -- ... frames next )
   dup lf-dq-sides drop swap ['] lf-lz-both-back lf-lz-unfold ;
+\ Where only one side unfolds (976-991): try_unfold_proj_app (950-957)
+\ on the other first. When its head is a projection (Lean's get_app_fn
+\ is_proj), its whnf_core without cheap_proj, a child visit; a result
+\ that is not == to it (Lean's !=: a new node is walked, lf-dq-same)
+\ takes its place, then quick_is_def_eq; otherwise the side unfolds.
+: lf-lz-proj-head? ( node -- flag ) lf-whnf-head lf-proj-leaf? ;
+: lf-lz-new? ( old new frames -- flag outcome )
+  >r 2dup = if 2drop r> drop false outcome-ok exit then
+  r> lf-dq-same ok-then? if 0= outcome-ok else false swap then ;
+: lf-lz-proj-t-back ( tn' outcome frames -- ... frames next )
+  >r ok-then? 0= if r> lf-dq-end-failed exit then
+  r@ lf-dq-sides drop over r@ lf-lz-new? ok-then? 0= if nip r> lf-dq-end-failed exit then
+  if outcome-ok r> lf-lz-t-back else drop r> lf-lz-unfold-s then ;
+: lf-lz-proj-s-back ( sn' outcome frames -- ... frames next )
+  >r ok-then? 0= if r> lf-dq-end-failed exit then
+  r@ lf-dq-sides nip over r@ lf-lz-new? ok-then? 0= if nip r> lf-dq-end-failed exit then
+  if outcome-ok r> lf-lz-s-back else drop r> lf-lz-unfold-t then ;
+: lf-lz-try-t ( frames -- ... frames next )
+  dup lf-dq-sides drop dup lf-lz-proj-head? 0= if drop lf-lz-unfold-s exit then
+  swap ['] lf-lz-proj-t-back lf-whnf-core-call ;
+: lf-lz-try-s ( frames -- ... frames next )
+  dup lf-dq-sides nip dup lf-lz-proj-head? 0= if drop lf-lz-unfold-t exit then
+  swap ['] lf-lz-proj-s-back lf-whnf-core-call ;
 \ The same declaration with a regular hint, both applications (998-1011):
 \ equivalent universe arguments and is_def_eq_args, yes; otherwise both
 \ unfold.
@@ -793,9 +923,9 @@ defer lf-lz-failure ( frames -- frames )
 \ lf-whnf-none.
 : lf-lz-none? ( d -- flag ) lf-whnf-none = ;
 : lf-lz-decide ( dt ds frames -- ... frames next )
-  >r over lf-lz-none? over lf-lz-none? and if 2drop r> lf-dq-tail exit then
-  over lf-lz-none? if 2drop r> lf-lz-unfold-s exit then
-  dup lf-lz-none? if 2drop r> lf-lz-unfold-t exit then
+  >r over lf-lz-none? over lf-lz-none? and if 2drop r> lf-lz-unknown exit then
+  over lf-lz-none? if 2drop r> lf-lz-try-t exit then
+  dup lf-lz-none? if 2drop r> lf-lz-try-s exit then
   2dup lf-lz-compare ?dup if nip nip 0< if r> lf-lz-unfold-t else r> lf-lz-unfold-s then exit then
   r@ lf-lz-same? if r> lf-lz-arguments else r> lf-lz-unfold-both then ;
 : lf-lz-delta ( node -- decl outcome )
@@ -804,7 +934,7 @@ defer lf-lz-failure ( frames -- frames )
 \ doubt, and the loop ends undecided.
 : lf-lz-blind ( frames -- ... frames next )
   >r r@ lf-dq-sides 2dup lf-whnf-head lf-whnf-const? swap lf-whnf-head lf-whnf-const? or
-  if lf-diag-needs-unfolding lf-dq-doubt else 2drop then r> lf-dq-tail ;
+  if lf-diag-needs-unfolding lf-dq-doubt else 2drop then r> lf-lz-unknown ;
 \ One step of lazy_delta_reduction_step: is_delta of each side, then the
 \ choice.
 : lf-lz-step ( frames -- ... frames next )
@@ -818,10 +948,8 @@ defer lf-lz-failure ( frames -- frames )
 \ neither side has a free variable or in eager mode, reduce_nat on tn,
 \ then on sn (whnf.fs, lf-whnf-nat-call): where it computes v,
 \ is_def_eq_core of v and the other side is the answer (plan task
-\ 5.2.3); otherwise the step.
-\ A child's answer that is the visit's (also step 4's, below).
-: lf-dq-final ( flag outcome frames -- ... frames next )
-  >r ok-then? 0= if r> lf-dq-end-failed exit then r> lf-dq-end ;
+\ 5.2.3); otherwise the step. lazy_delta_proj_reduction's loop is the
+\ step alone (1079-1081). Each round costs one unit of fuel.
 : lf-lz-offset ( t s frames -- ... frames next )
   >r lf-dq-pred ok-then? 0= if nip r> lf-dq-end-failed exit then
   swap lf-dq-pred ok-then? 0= if nip r> lf-dq-end-failed exit then
@@ -851,6 +979,7 @@ defer lf-lz-failure ( frames -- frames )
   if r> lf-lz-nat-t else r> lf-lz-step then ;
 :noname ( frames -- ... frames next )
   dup lf-dq-spend dup ok? 0= if swap lf-dq-end-failed exit then drop
+  dup lf-lz-proj? if lf-lz-step exit then
   >r r@ lf-dq-sides 2dup lf-dq-nat-zero? swap lf-dq-nat-zero? and
   if 2drop true r> lf-dq-end exit then
   2dup lf-dq-pred? swap lf-dq-pred? and if r> lf-lz-offset exit then
@@ -868,9 +997,8 @@ defer lf-lz-failure ( frames -- frames )
   dup lf-dq-yes = if drop r> lf-dq-irrel exit then
   lf-dq-undef = if r@ lf-dq-sides lf-diag-proof-pending lf-dq-doubt then
   drop r> lf-lz-loop ;
-\ Step 3: whnf_core of t (tn), then of s (sn); quick_is_def_eq again when
-\ either changed.
-: lf-dq-changed? ( t s tn sn -- tn sn flag ) 2swap 2over rot <> -rot <> or ;
+\ Step 3: whnf_core with cheap_proj of t (tn), then of s (sn);
+\ quick_is_def_eq again when either changed.
 : lf-dq-quick2 ( lbool outcome frames -- ... frames next )
   >r ok-then? 0= if r> lf-dq-end-failed exit then
   dup lf-dq-undef <> if lf-dq-flag r> lf-dq-end exit then drop r> lf-dq-proof-step ;
@@ -880,9 +1008,9 @@ defer lf-lz-failure ( frames -- frames )
   if r> ['] lf-dq-quick2 lf-qk-call else 2drop r> lf-dq-proof-step then ;
 : lf-dq-tn ( tn outcome frames -- ... frames next )
   >r ok-then? 0= if r> 2 lf-dq-drop-failed exit then
-  r@ frame-save 1 r@ frame-pick r> ['] lf-dq-sn lf-whnf-core-call ;
+  r@ frame-save 1 r@ frame-pick r> ['] lf-dq-sn lf-whnf-cheap-call ;
 : lf-dq-core ( frames -- ... frames next )
-  dup lf-dq-pick2 drop swap ['] lf-dq-tn lf-whnf-core-call ;
+  dup lf-dq-pick2 drop swap ['] lf-dq-tn lf-whnf-cheap-call ;
 \ Step 2 (1142-1146), on the visit's t and s.
 : lf-dq-true-back ( t' outcome frames -- ... frames next )
   >r ok-then? 0= if r> 2 lf-dq-drop-failed exit then

@@ -11,7 +11,7 @@
 \   node that is no easy case (490-493), and at each step that goes on
 \   with a new node within a visit (Lean's recursive calls, 523, 533, 538,
 \   543); filled when the visit ends with a result other than its node
-\   (547-549);
+\   (547-549), unless it ran with cheap_proj (whnf.fs);
 \ - whnf results, m_whnf: looked up after the easy cases (724-727),
 \   filled with the result (733, 739);
 \ - unfolded values, m_unfold: a constant with universe arguments and its
@@ -449,9 +449,10 @@ lf-tag-str lf-skel-level < and
 : lf-cwc-cacheable? ( node -- flag )
   lf-caches-on? 0= if drop false exit then
   dup lf-term-valid? if lf-cwc-plain? 0= else drop false then ;
-\ whnf_core keeps a result that is not the node itself (547-549).
+\ whnf_core keeps a result that is not the node itself (547-549), never
+\ one of a visit with cheap_proj (547; whnf.fs), whose lookups still read.
 : lf-cwc-store ( r outcome frames -- r outcome frames 0 )
-  >r r@ frame-restore over ok? 0= if drop r> 0 exit then
+  >r r@ frame-restore over ok? 0= lf-whnf-cheap? or if drop r> 0 exit then
   2 pick 2dup = if 2drop else lf-cache-whnf-core lf-cache-node! then r> 0 ;
 : lf-cwc-visit ( node frames -- ... frames next )
   over lf-cwc-cacheable? 0= if lf-wc-visit exit then

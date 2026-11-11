@@ -50,9 +50,19 @@
 \ string, is normal (Lean's Lit, 476 and 710); the derivation log records
 \ nothing new here (plan task 4.2.2e). A projection (core/projections.fs) is an
 \ application of a projection leaf, which the iota hook reduces
-\ (iota.fs, reduce_proj); a leaf alone, the function defeq.fs's
-\ is_def_eq_app finds where Lean has Expr.proj, is unknown until the
-\ comparison's projection steps are ported (plan task 5.2.2).
+\ (iota.fs, reduce_proj); a leaf alone is never a term (defeq.fs takes
+\ Lean's Expr.proj whole, never its leaf): malformed, invalid.
+\ cheap_proj (468, 444-454; plan task 5.2.2): is_def_eq_core asks
+\ whnf_core with it (lf-whnf-cheap-call; type_checker.cpp 983-1014 and
+\ 1155-1156): a projection's term is then put in whnf_core, still cheap,
+\ instead of whnf (lf-whnf-proj-call, which the iota hook uses). It is
+\ the mode of the innermost whnf_core visit (lf-whnf-cheap): a whnf
+\ visit, which runs whnf_core without it (731) -- as reduce_recursor's
+\ whnf of a major premise does (400) -- and each public whnf_core visit
+\ set their own mode where it differs, and push the step that puts the
+\ other back when they end (one cell of their own); whnf_core's own
+\ steps inherit it. Lean reads m_whnf_core in both modes but keeps no
+\ entry from a cheap visit (547): kernel/caches.fs asks lf-whnf-cheap?.
 \
 \ Passes. Every visit is a chain of steps on a frames record that the
 \ caller gives (lib/frame.fs), so the passes have no depth limit (plan
@@ -98,19 +108,20 @@
 \ as reduce_recursor does.
 \
 \ For plan task 5.2.1b, the words to call: lf-whnf-iota (set it with
-\ IS), lf-whnf-call and lf-whnf-core-call from inside it, lf-whnf-on and
-\ lf-whnf-core-on from a word (check-block's telescope, in place of its
-\ beta-only stand-in), lf-whnf-env?, and lf-whnf-iota-default to fall
-\ back on.
+\ IS), lf-whnf-call, lf-whnf-core-call and lf-whnf-proj-call from inside
+\ it, lf-whnf-on and lf-whnf-core-on from a word (check-block's
+\ telescope, in place of its beta-only stand-in), lf-whnf-env?, and
+\ lf-whnf-iota-default to fall back on. defeq.fs adds lf-whnf-cheap-call.
 \
 \ State: two growable arrays, members of the checker context
 \ (lib/context.fs): an application's arguments, last first, as Lean's
 \ get_app_rev_args gives them, and a copy of a constant's universe
 \ arguments; each is filled and used within one step, never across a
 \ child visit. One paired walk record, lf-whnf-scan, for
-\ has_loose_bvars. Shared and read-only: the table of Lean's binary Nat
-\ operations (K7), and the hook, deferred only so that plan task 5.2.1b
-\ can set it, once, while loading.
+\ has_loose_bvars. One context cell, lf-whnf-cheap, the cheap_proj mode
+\ (above; lf-whnf-reset clears it after a THROW). Shared and read-only:
+\ the table of Lean's binary Nat operations (K7), and the hook, deferred
+\ only so that plan task 5.2.1b can set it, once, while loading.
 
 require ../lib/lib.fs
 require ../lib/slab.fs
@@ -134,6 +145,7 @@ require ./mixed-rebuild.fs
 
 1 cells context-slab: lf-whnf-args     \ an application's arguments, last first
 2 cells context-slab: lf-whnf-pairs    \ a constant's universe arguments, copied
+1 cells context-record: lf-whnf-cheap  \ true: whnf_core runs with cheap_proj
 
 : lf-whnf-site ( -- site ) c" whnf lf-whnf" ;
 : lf-whnf-note ( n1 n2 code -- ) lf-whnf-site swap lf-diag-note ;
@@ -428,6 +440,17 @@ defer lf-whnf-iota ( app frames -- ... frames next )
 : lf-whnf-keep ( node frames -- node outcome frames 0 ) outcome-ok swap 0 ;
 : lf-whnf-ended ( node outcome frames -- node outcome frames 0 ) 0 ;
 
+\ The cheap_proj mode (see the header). A visit's first step sets the
+\ visit's mode; where that changes it, the step that puts the old one
+\ back is pushed, to run when the visit ends.
+: lf-whnf-cheap? ( -- flag ) lf-whnf-cheap @ ;
+: lf-whnf-reset ( -- ) false lf-whnf-cheap ! ;
+: lf-whnf-to-cheap ( x outcome frames -- x outcome frames 0 ) true lf-whnf-cheap ! 0 ;
+: lf-whnf-to-full ( x outcome frames -- x outcome frames 0 ) lf-whnf-reset 0 ;
+: lf-whnf-mode ( frames flag -- frames )
+  dup lf-whnf-cheap? = if drop exit then dup lf-whnf-cheap !
+  if ['] lf-whnf-to-full else ['] lf-whnf-to-cheap then over frame-save ;
+
 \ whnf_core's visit. Going on with a new node within the same visit (a
 \ tail call in Lean: 523, 533, 538, 543) costs one unit of fuel.
 defer lf-wc-visit ( node frames -- ... frames next )
@@ -495,11 +518,9 @@ defer lf-wc-entry ( node frames -- ... frames next )
 : lf-whnf-normal? ( tag -- flag )
   dup lf-tag-lam = over lf-tag-pi = or over lf-tag-constant = or
   over lf-tag-bvar = or over lf-literal-tag? or swap lf-tag-symbolic-sort = or ;
-\ A projection leaf alone (see the header): unknown, never invalid.
-: lf-wc-proj ( node frames -- -1 outcome frames 0 )
-  >r 0 lf-diag-undecided lf-whnf-note outcome-unknown r> lf-whnf-failed ;
+\ Any other leaf, a projection leaf alone among them (see the header),
+\ is malformed.
 : lf-wc-leaf ( node frames tag -- ... frames next )
-  dup lf-tag-proj = if drop lf-wc-proj exit then
   lf-whnf-normal? if lf-whnf-keep else nip outcome-invalid swap lf-whnf-failed then ;
 : lf-wc-tagged ( node frames tag -- ... frames next )
   dup lf-tag-app = if drop over lf-let? if lf-wc-zeta else lf-wc-app then exit then
@@ -537,10 +558,11 @@ defer lf-whnf-cored ( t1 outcome frames -- ... frames next )
   dup lf-term-tag@ dup lf-tag-bvar = over lf-tag-pi = or over lf-literal-tag? or
   swap lf-tag-symbolic-sort = or if drop true exit then
   dup lf-whnf-fvar? if lf-whnf-let? 0= else drop false then ;
+\ Its whnf_core runs without cheap_proj (731).
 : lf-whnf-visit ( node frames -- ... frames next )
   over lf-term-valid? 0= if nip outcome-invalid swap lf-whnf-failed exit then
   over lf-whnf-easy? if lf-whnf-keep exit then
-  ['] lf-whnf-cored lf-wc-call ;
+  false lf-whnf-mode ['] lf-whnf-cored lf-wc-call ;
 \ The first step of a whnf visit: lf-whnf-visit, or the m_whnf cache's
 \ step around it (kernel/caches.fs sets it).
 defer lf-whnf-entry ( node frames -- ... frames next )
@@ -604,9 +626,17 @@ defer lf-whnf-entry ( node frames -- ... frames next )
   over lf-whnf-head over lf-whnf-stripped 2swap -rot r> lf-whnf-cheap-pick ;
 
 \ ---------------------------------------------------------------------------
-\ The public words (see the header).
-: lf-whnf-core-call ( node frames cont -- ... frames next ) lf-wc-call ;
+\ The public words (see the header): whnf_core without cheap_proj, and
+\ with it (is_def_eq_core's, defeq.fs), whnf, and reduce_proj's visit of
+\ a projection's term (450-453): whnf_core in a cheap whnf_core's mode,
+\ else whnf.
+: lf-wc-full-entry ( node frames -- ... frames next ) false lf-whnf-mode lf-wc-entry ;
+: lf-wc-cheap-entry ( node frames -- ... frames next ) true lf-whnf-mode lf-wc-entry ;
+: lf-whnf-core-call ( node frames cont -- ... frames next ) ['] lf-wc-full-entry lf-whnf-open ;
+: lf-whnf-cheap-call ( node frames cont -- ... frames next ) ['] lf-wc-cheap-entry lf-whnf-open ;
 : lf-whnf-call ( node frames cont -- ... frames next ) ['] lf-whnf-entry lf-whnf-open ;
+: lf-whnf-proj-call ( node frames cont -- ... frames next )
+  lf-whnf-cheap? if lf-wc-call else lf-whnf-call then ;
 : lf-whnf-core-on ( node frames -- node' outcome )
   ['] lf-whnf-core-call frame-through drop ;
 : lf-whnf-on ( node frames -- node' outcome ) ['] lf-whnf-call frame-through drop ;

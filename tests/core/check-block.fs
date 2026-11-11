@@ -429,9 +429,10 @@ T{ s" iota.prod-eta" used -> outcome-ok 0 }T
 T{ s" iota.and-prop-stuck-bool" used -> outcome-rejected lf-diag-value-apart }T
 T{ s" iota.structure-eta" used -> outcome-ok 0 }T
 \ p.1 = p.2: two projections of p that differ in the field, never equal
-\ by Lean's ==; unknown, where Lean says no, until defeq.fs ports the
-\ comparison's projection steps (task 5.2.2).
-T{ s" proj.index-differs" used -> outcome-unknown lf-diag-undecided }T
+\ by Lean's ==; no step of defeq.fs's comparison finds them equal (step
+\ 8 needs one field, is_def_eq_app takes no projection), rejected as by
+\ Lean.
+T{ s" proj.index-differs" used -> outcome-rejected lf-diag-value-apart }T
 \ Structure eta and unit-like types in is_def_eq (R4, R5; task 5.2.2,
 \ defeq.fs steps 12 and 14): p and (p.1, p.2) equal either way round,
 \ two values of PUnit equal, as by Lean; a pair whose second field is not
