@@ -54,14 +54,15 @@ tree lf-level-identity drop constant tree-id
 T{ tree formals actuals 2 20 lf-lsubst -> tree outcome-ok }T
 T{ tree lf-level-identity -> tree-id true }T
 T{ lf-level-count @ -> 7 }T
-\ Shared occurrences consume fuel independently, but rebuilt DAGs share
-\ nodes: max (max p q) (max p q) becomes mk_max of two equal images, the
-\ image itself (level.cpp 84-85), as Lean builds it.
+\ A shared node is checked once, a repeat costing only its unit, and
+\ rebuilt DAGs share nodes: max (max p q) (max p q) costs the actuals q
+\ and p, then shared, pq, p, q and pq again, 7 units, and becomes mk_max
+\ of two equal images, the image itself (level.cpp 84-85), as Lean builds it.
 q actuals ! p actuals cell+ !
 pq pq lf-level-max drop constant shared
-T{ shared formals actuals 2 8 lf-lsubst -> outcome-exhausted }T
+T{ shared formals actuals 2 6 lf-lsubst -> outcome-exhausted }T
 T{ lf-level-count @ -> 8 }T
-T{ shared formals actuals 2 9 lf-lsubst -> 8 outcome-ok }T
+T{ shared formals actuals 2 7 lf-lsubst -> 8 outcome-ok }T
 T{ 8 lf-level-read -> lf-level-tag-max q p true }T
 T{ lf-level-count @ -> 9 }T
 \ Running out of allocation identities or storage (full, not exhausted)
