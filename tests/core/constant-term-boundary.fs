@@ -173,4 +173,67 @@ T{ stray @ fulls @ -> 0 0 }T
 \ The predicate itself: those four pass, nothing else.
 : cterm-set ( -- n ) 0 9 -2 do i cterm-outcome? 1 and + loop ;
 T{ outcome-full cterm-outcome? outcome-unknown cterm-outcome? cterm-set -> true false 4 }T
+
+\ ---------------------------------------------------------------------------
+\ The audit memo (compact-store plan step S6 (c); ADR 0014 Amendment 4).
+\ On, a node a run checked is not visited again in its epoch and a checked
+\ root costs no fuel; off, and outside a check (lf-memo-auto: this file
+\ loads no checker), every audit runs in full.
+: cterm-fuel ( index identity -- outcome fuel ) 100 lf-cterm-check lf-cterm-fuel @ ;
+variable xid  variable fid
+: app! ( left lid right rid -- ) lf-hterm-app 0= abort" app" xid ! drop ;
+: local! ( -- ) 0 lf-lctx-local outcome-ok <> abort" local" term-identity@ fid ! ;
+lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
+T{ lf-ssession-begin -> true }T
+setup
+T{ 5 pid @ cterm-fuel 5 pid @ cterm-fuel -> outcome-ok 91 outcome-ok 91 }T
+lf-memo-on lf-audit-memo!
+T{ 5 pid @ cterm-fuel 5 pid @ cterm-fuel -> outcome-ok 91 outcome-ok 100 }T
+\ A new node over checked ones: only it is visited.
+1 sid @ 5 pid @ app!
+T{ 6 xid @ cterm-fuel -> outcome-ok 99 }T
+lf-memo-off lf-audit-memo!
+T{ 5 pid @ cterm-fuel -> outcome-ok 91 }T
+lf-memo-auto lf-audit-memo!
+T{ 5 pid @ cterm-fuel -> outcome-ok 91 }T
+\ Turned on again, the memo starts a new epoch: nothing kept before counts.
+lf-memo-on lf-audit-memo!
+T{ 5 pid @ cterm-fuel 5 pid @ cterm-fuel -> outcome-ok 91 outcome-ok 100 }T
+\ Planted-fault rows. A rolled-back index made again is a new node with a
+\ new identity: kept units name the old one, so the new node is checked,
+\ as a root and as a child (a memo without identities would pass both).
+fresh
+T{ 0 cid @ cterm-fuel drop 0 cid @ cterm-fuel -> outcome-ok outcome-ok 100 }T
+T{ terms-back lf-term-count @ -> outcome-ok 0 }T
+raw-reuse
+T{ 0 0 term-identity@ 10 lf-cterm-check -> outcome-invalid }T
+0 0 term-identity@ 0 0 term-identity@ app!
+T{ 1 xid @ 10 lf-cterm-check -> outcome-invalid }T
+\ A run that does not end ok keeps nothing: the root a run out of fuel
+\ reached is checked in full by the next run (here an unstamped constant
+\ below it is found).
+fresh
+raw-constant
+0 cid @ 1 1 term-identity@ app!
+T{ 2 xid @ 1 lf-cterm-check -> outcome-exhausted }T
+T{ 2 xid @ 10 lf-cterm-check -> outcome-invalid }T
+\ A node with a free variable is kept in the open epoch, which ends when
+\ the local context is emptied (a new inference job); a node without one
+\ stays kept (a memo without the open epoch would pass the dead variable).
+fresh
+local!
+1 fid @ 0 cid @ app!
+T{ 0 cid @ cterm-fuel drop 2 xid @ cterm-fuel drop -> outcome-ok outcome-ok }T
+T{ 2 xid @ cterm-fuel 0 cid @ cterm-fuel -> outcome-ok 100 outcome-ok 100 }T
+lf-lctx-reset
+T{ 2 xid @ 10 lf-cterm-check -> outcome-invalid }T
+T{ 0 cid @ cterm-fuel -> outcome-ok 100 }T
+\ A reset of the reference store (a generation the closed epoch keeps)
+\ starts a new epoch: the constant whose reference went is checked again
+\ (a memo blind to that generation would pass it).
+fresh
+T{ 0 cid @ cterm-fuel drop 0 cid @ cterm-fuel -> outcome-ok outcome-ok 100 }T
+lf-cref-reset
+T{ 0 cid @ 10 lf-cterm-check -> outcome-invalid }T
+lf-memo-auto lf-audit-memo!
 bye

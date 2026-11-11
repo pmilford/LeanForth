@@ -1630,6 +1630,175 @@ deep, fed; Lean's verdicts before and after): 162 s → 6.1 s.
 finding 2), and the check's fixed scratch room above (a temporary gap:
 *exhausted* where Lean decides).
 
+## Amendment 4: each node audited once per check (compact-store plan step S6 (c), agent S6C, 2026-11-11, proposed)
+
+Status: proposed; [kernel] gate owed. It changes LeanForth's own
+fail-closed defence, not a rule of Lean's: no typing, reduction or
+conversion step changes, and every verdict that moves is an *exhausted*
+that becomes Lean's.
+
+**Finding.** After Amendment 2 the structural audit (`lf-cterm-check`,
+`src/core/constant-term-boundary.fs`) checked each node once per *audit*,
+and audits run at every comparison (both roots, `lf-mcompare-roots`),
+every rebuilding pass (`lf-rebuild-audit`: shift, instantiate, beta),
+every universe substitution's source, every inference job's preflight and
+every V1 (`lf-constant-term-scope`, which also walked the scope). Lean's
+kernel runs none of them: its terms are well formed by construction and
+it reads `loose_bvar_range` and `has_fvar` from each node (`expr.h`;
+`infer_type_core` 326, `check_no_metavar_no_fvar`). On `Init` at main
+dbc39ad 28 of the 95 roots that ran out of fuel stopped inside the
+structural audit and 5 inside the level-scope check it runs per constant
+(Mathlib 1/6: 51 and 11 of 321); in the stuck `Init` roots the audits took
+25-41% of the fuel, nearly all of it the per-comparison audits (agent DX,
+`.claude/work/DX/REPORT.md`).
+
+**Decision: keep every audit, drop the repetition.**
+1. *A memo per check.* While the memo is on, a node reached by an audit
+   run that ends ok is kept as checked in its marks unit, as (epoch,
+   identity); a later audit in the same epoch pushes no kept child and a
+   kept root costs no fuel. Two epochs: the closed one, for nodes without
+   a free variable (the data word's bit clear), and the open one, for
+   nodes with one; a node without a data word is never kept. Both are new
+   numbers from the run counter (never a run's own number) when a check
+   begins (`lf-check-begin`), when the memo turns on, when the counter
+   wraps, and when one of the generations the audit reads differs from
+   those the closed epoch captured (term, level, reference and name
+   stores, literal limbs, string bytes, the parameter context); the open
+   one alone when the local context's generation moves (inference empties
+   it for each job). The memo is on in a check of the checked environment
+   (`lf-whnf-env?`, where the caches are), off elsewhere, so unit tests and
+   probes audit as before; `lf-audit-memo!` sets it (tests).
+2. *V1 from the data word.* After the structural audit, a root whose data
+   word shows no free variable and a loose range at most the depth passes
+   (`lf-cts-word?`); any other root (out of scope, a free variable, no
+   data word) takes the scope walk as before, so its verdict, diagnostic
+   and fuel are unchanged.
+3. *U2 from the data word.* A root with a data word holds no unsupported
+   leaf (such a leaf has none, nor has any node above it); a root without
+   one takes the walk (`lf-check-forms-word?`).
+4. `lf-cref-reset` advances the reference store's generation, as term and
+   level resets do (it set the count alone).
+
+Not changed: every call site of the audit (the declaration's entry audit
+where input enters, conversion, the rebuilding passes, inference's
+preflight, universe substitution, whose own graph check plan step S4
+retires); the level-scope check is not memoised by itself (its calls
+inside the term audit go with the term memo; level comparison's and
+level value's own calls stay per call, measured at 0.4% of the fuel of
+the stuck root below).
+
+**Why no node reaches a rule unaudited.** A pass reads a root only after
+an audit of it returned ok in this check. That audit either walked it or
+found it kept. A node is kept only by a run that ended ok, and such a run
+checked every node it reached and reached every child of every node it
+visited, except children kept themselves; by induction over the epoch's
+runs every kept node's whole graph was checked in this epoch. It stays
+checked because nothing the audit read can change within the epoch:
+- *The node and its children.* Records are never written after they are
+  made (`terms.fs`; only the test fault words of
+  `tests/support/store-faults.fs` write fields); a rollback gives back a
+  suffix (store marks, the joint scratch marks of step S1), so the
+  children of a live node, which come earlier, are live and the same; an
+  index given back and made again has a new identity (serials never
+  rewind), and a unit counts only with its node's identity.
+- *Stamps* of a constant or symbolic Sort are written when the node is
+  made.
+- *References and levels* a node names are made before it, so a joint
+  rollback that gives them back gives the node back; level-only rollbacks
+  (`level-substitute.fs`, `level-normalize.fs` on failure) give back only
+  levels their own pass made, which no live term names; a reset advances
+  the store's generation, which starts a new epoch.
+- *The parameter context, names, literal limbs and string bytes*: every
+  change advances a generation (the slabs only grow within a context).
+- *Free variables*: liveness depends on the local context. A node with
+  one is kept in the open epoch, which ends with the local context's
+  generation; within one job an entry goes only with its node
+  (`lf-lctx-drop` at a scratch rollback), so a live node's free variables
+  stay live.
+A run that does not end ok keeps nothing. V1 and U2 read data words that
+`terms.fs` computes from the children when a node is made, never from
+input (ADR 0016 C8), and that equal Lean's `loose_bvar_range` and
+`has_fvar`. With the entry audit's U2 and V1 removed, the malformed
+inputs of `tests/core/check-declaration.fs` still end *invalid* or
+*unknown*, never accepted (inference and the other audits meet them).
+
+**Fuel.** A kept root costs nothing and a kept child is not visited; V1
+and U2 of a root with a data word cost nothing; every failure costs as
+before. A check needs less fuel, so only *exhausted* (or *unknown* for a
+dependency out of fuel) can become a decided verdict.
+
+**Evidence.** `make test` and `make check`. On top of Amendment 3 (main
+3578de5 against the merge, `check --fast --no-manifest`, default fuel
+2,000,000): full `Init` 55,587 → 55,750 accepted, 27 → 16 exhausted,
+3,735 → 3,583 unknown; all 163 moves are to Lean's verdict (Lean accepts
+all of `Init`): 11 declarations that ran out of fuel and 152 that were
+unknown only through such a dependency are accepted, none moved away and
+no accepted declaration uses more fuel (list:
+`.claude/work/S6C/init-moves2.txt` of the agent's worktree); fuel
+1,187,033,444 → 791,610,006 (−33%); whole run's CPU 1,175 → 1,073 s
+(`gforth-fast`, a loaded machine); peak resident memory 1,072 → 1,051
+MB. The first 1M lines: 8,695 → 8,696 accepted, 6 → 5 exhausted
+(`Array.extract_append._proof_1_3` accepted), fuel 161,723,424 →
+109,613,586 (−32%), check CPU 147.9 → 147.7 s, peak memory 302 → 313 MB
+(the run's list of reached nodes). `Array.extract_append._proof_1_1`,
+which blocks most of `Init`'s remaining unknowns, with its dependencies
+alone (DX's cut, fuel 40M): 15,767,375 → 8,368,183 (Amendment 3's
+measurement put 6.3M of it in the per-comparison audits); still above
+the default 2,000,000. Over that cut the audits now take 5% of the fuel
+(633,132 of 12,531,033), `==` 6.5%, the level-scope checks of level
+comparison 4.8%. The 2,000 checker trials: `670bff75d128` →
+`056b65372109`, re-baselined; 1,989 trials differ, each trial's later
+random choices following the fuel left (ok 1,168,012 → 1,171,229,
+invalid 356,575 → 357,089, exhausted 474,875 → 467,820, unknown 405,130
+→ 407,009, rejected 90,014 → 91,459, full 4 → 4).
+
+Measured first on main b4c6935 (before Amendment 3). The first 1M lines of `Init`
+(`check --fast --no-manifest`, default fuel 2,000,000): 8,672 → 8,674
+accepted, 12 → 10 exhausted, 518 unknown, the two moves to Lean's verdict
+(`Array.extract_append._proof_1_2`,
+`Array.extract_append_extract._proof_1_2`), no other verdict moved; fuel
+202,224,048 → 145,072,524 steps (−28%); check CPU 170.7 → 162.2 s;
+peak resident memory 323 → 331 MB (the run's list of reached nodes).
+Full `Init` (same command, against main b4c6935): 54,556 → 54,920
+accepted, 90 → 52 exhausted, 4,703 → 4,377 unknown; all 364 moves are to
+Lean's verdict (Lean accepts all of `Init`): 38 declarations that ran out
+of fuel and 326 that were unknown only through such a dependency are
+accepted, none moved away (list:
+`.claude/work/S6C/init-moves.txt` of the agent's worktree); fuel
+1,521,467,121 → 1,107,410,988 (−27%); check CPU 1,385.8 → 1,332.1 s
+(−4%, `gforth-fast`, a loaded machine); peak resident memory 1,279 →
+1,275 MB. Four of the stuck roots
+of `Init` with their dependencies alone (DX's cuts, fuel 20M):
+`WellFounded.partialExtrinsicFix₃_eq_partialExtrinsicFix` exhausted
+before, accepted with 18,453,088 after (over its cut the audits' fuel
+5,685,126 → 263,483, the level-scope checks' 1,750,591 → 82,839);
+`Array.extract_append_extract._proof_1_1` 17,824,836 → 10,787,727;
+`IterM.toList_filterMapWithPostcondition_filterMapWithPostcondition'`
+13,430,006 → 8,847,858; `Std.Iter.step_flatMapAfterM` 13,103,450 →
+8,300,367 (all still above the default 2,000,000). The 2,000
+checker trials (`scripts/trial-digest.sh`): `902a42ce549d` →
+`f3019867dbc3`; 1,989 trials differ because each trial's
+later random choices follow the fuel left (outcomes over all trials: ok
+1,166,038 → 1,169,256, invalid 356,574 → 357,087, exhausted 476,867 →
+469,809, unknown 405,110 → 406,991, rejected 90,017 → 91,463, full 4 →
+4). Planted faults `s6c-*` in `tests/mutants/faults.toml` (12: a unit
+taken without its identity, a failed run that keeps, a free variable's
+node in the closed epoch, the local context or the generations ignored,
+the memo on outside a check, no child pushed, a reference reset without
+its generation, no new epoch per check, V1 passing a free variable or one
+binder too many, U2 passing a root without a data word), all caught; the
+nine earlier faults on the audits' code re-run, all caught.
+
+**Left.** Lean's `==` checks pointer identity at every pair, rejects at
+once on different hashes and caches pairs (`expr_eq_fn.cpp` 44-58);
+`lf-expr-equal` checks identity only at its roots and walks the rest (13-20%
+of the stuck roots' fuel before Amendment 3, DX; 6.5% of the cut above):
+a follow-up, as a structural hash needs room the 16-byte record lacks (a
+column or step S4's interning). The level-scope check that level
+comparison and level value run on both levels per call (4.8% of the cut)
+could keep its own memo per level node in the same way; levels are not
+hash-consed before step S4. `instantiate_lparams` per node is step S6 (b).
+
 ## Note: the projection steps (plan task 5.2.2, 2026-11-10)
 
 The Q8 row "Projections: `reduce_proj`, step 8, `try_unfold_proj_app`"

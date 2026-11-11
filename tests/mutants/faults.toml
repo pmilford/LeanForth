@@ -121,8 +121,8 @@ reason = "CD: the step loop stops one short and never compares the value's type"
 [[fault]]
 id = "cd-unlimited-budget"
 file = "src/kernel/check-declaration.fs"
-old = '''  lf-caches-clear 0 lf-check-step! lf-check-state lf-chk-budget @ lf-check-left !'''
-new = '''  lf-caches-clear 0 lf-check-step! 1000000 lf-check-left !'''
+old = '''  0 lf-check-step! lf-check-state lf-chk-budget @ lf-check-left !'''
+new = '''  0 lf-check-step! 1000000 lf-check-left !'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "CD: the budget is ignored; a check without fuel can be accepted, and fuel sweeps change"
 
@@ -7277,6 +7277,105 @@ old = '''    2dup lf-mls-half dup lf-mls-node 4 pick < if 1+ rot drop swap else 
 new = '''    2dup lf-mls-half dup lf-mls-node 4 pick <= if 1+ rot drop swap else nip then'''
 test = "$GFORTH tests/core/mixed-level-substitute.fs"
 reason = "S3: a child's image is read one place past it in the sorted list"
+
+# --- audits once per node per check (compact-store plan step S6 (c):
+# src/core/constant-term-boundary.fs's memo, the data-word V1 and U2) -------
+
+[[fault]]
+id = "s6c-memo-no-identity"
+file = "src/core/constant-term-boundary.fs"
+old = '''  cell+ @ swap lf-term-identity if = else drop false then ;'''
+new = '''  2drop true ;'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S6C: a kept unit is taken without its identity: a rolled-back index made again passes unchecked"
+
+[[fault]]
+id = "s6c-memo-keep-failed-run"
+file = "src/core/constant-term-boundary.fs"
+old = '''  dup ok? lf-audit-state lf-aud-active @ and if lf-audit-keep then'''
+new = '''  lf-audit-state lf-aud-active @ if lf-audit-keep then'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S6C: a run that ran out of fuel keeps the nodes it reached, whose graphs were not all checked"
+
+[[fault]]
+id = "s6c-memo-open-as-closed"
+file = "src/core/constant-term-boundary.fs"
+old = '''  lf-data-fvar? if lf-audit-state lf-aud-open else lf-audit-state lf-aud-closed then @ ;'''
+new = '''  drop lf-audit-state lf-aud-closed @ ;'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S6C: a node with a free variable is kept in the closed epoch, so a new job's dead variable passes"
+
+[[fault]]
+id = "s6c-memo-local-ignored"
+file = "src/core/constant-term-boundary.fs"
+old = '''  lf-audit-stale? if lf-audit-renew exit then lf-audit-local? 0= if lf-audit-reopen then ;'''
+new = '''  lf-audit-stale? if lf-audit-renew exit then ;'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S6C: the open epoch outlives the local context it was taken in"
+
+[[fault]]
+id = "s6c-memo-facts-ignored"
+file = "src/core/constant-term-boundary.fs"
+old = '''  lf-audit-wrapped? or lf-audit-same? 0= or ;'''
+new = '''  lf-audit-wrapped? or ;'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S6C: a reset of a store the audit reads keeps the epoch, so a constant without its reference passes"
+
+[[fault]]
+id = "s6c-memo-always-on"
+file = "src/core/constant-term-boundary.fs"
+old = '''  lf-audit-state lf-aud-mode @ dup lf-memo-auto = if drop lf-audit-checking? exit then'''
+new = '''  lf-audit-state lf-aud-mode @ dup lf-memo-auto = if drop true exit then'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S6C: the memo is on outside a check, where every audit must run in full"
+
+[[fault]]
+id = "s6c-memo-children-unpushed"
+file = "src/core/constant-term-boundary.fs"
+old = '''  over lf-audited? if 2drop outcome-ok else walk-push-outcome then ;'''
+new = '''  2drop outcome-ok ;'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S6C: no child is pushed, as if every one were kept: only roots are checked"
+
+[[fault]]
+id = "s6c-cref-reset-same-generation"
+file = "src/core/constant-references.fs"
+old = ''': lf-cref-reset ( -- ) 0 lf-cref-count ! lf-crefs store-epoch+ ;'''
+new = ''': lf-cref-reset ( -- ) 0 lf-cref-count ! ;'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "S6C: a reference reset leaves the generation, so the memo keeps a constant whose reference went"
+
+[[fault]]
+id = "s6c-check-no-renew"
+file = "src/kernel/check-declaration.fs"
+old = '''  lf-caches-clear lf-audit-renew'''
+new = '''  lf-caches-clear'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S6C: the memo outlives a check, so a declaration's entry audit skips nodes an earlier check kept"
+
+[[fault]]
+id = "s6c-v1-word-fvar-ignored"
+file = "src/core/constant-term-scope.fs"
+old = '''  dup lf-data-fvar? if 2drop false else lf-data-loose < 0= then ;'''
+new = '''  lf-data-loose < 0= ;'''
+test = "$GFORTH tests/core/constant-term-scope.fs"
+reason = "S6C: V1 from the data word passes a root with a free variable"
+
+[[fault]]
+id = "s6c-v1-word-off-by-one"
+file = "src/core/constant-term-scope.fs"
+old = '''  dup lf-data-fvar? if 2drop false else lf-data-loose < 0= then ;'''
+new = '''  dup lf-data-fvar? if 2drop false else lf-data-loose 1- < 0= then ;'''
+test = "$GFORTH tests/core/constant-term-scope.fs"
+reason = "S6C: V1 from the data word passes a variable one binder out of scope"
+
+[[fault]]
+id = "s6c-u2-word-without-data"
+file = "src/kernel/check-declaration.fs"
+old = ''': lf-check-forms-word? ( root -- flag ) lf-term-data@ dup if nip then ;'''
+new = ''': lf-check-forms-word? ( root -- flag ) drop true ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S6C: U2 passes a root without a data word, so an unsupported form is reported as another failure"
 
 # --- plan task 6.5.5, agent S6A: substitution as Lean's replace
 # (src/kernel/replace-memo.fs, mixed-open.fs, mixed-shift.fs,

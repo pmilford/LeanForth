@@ -146,10 +146,18 @@ lf-walk-room context-walk: lf-check-walker
   ['] lf-check-forms-once lf-term-visit ;
 : lf-check-walked ( outcome -- outcome )
   lf-check-walker walk-fuel @ lf-check-left ! lf-check-walker lf-check-site lf-diag-walk ;
-: lf-check-forms ( root -- outcome )
-  lf-check-left @ lf-check-walker walk-budget 0= if drop outcome-invalid exit then
+: lf-check-forms-walk ( root -- outcome )
   lf-check-walker lf-walk-marking
   ['] lf-check-forms-visit lf-check-walker walk-run lf-check-walked ;
+\ A root with a data word holds no unsupported leaf (compact-store plan
+\ step S6 (c); ADR 0014 Amendment 4): such a leaf has none, and neither
+\ has any node above one (core/terms.fs computes the word from the
+\ children when the node is made), so it passes at once; a root without
+\ one takes the walk, which finds the form (or passes the graph on to V1).
+: lf-check-forms-word? ( root -- flag ) lf-term-data@ dup if nip then ;
+: lf-check-forms ( root -- outcome )
+  lf-check-left @ lf-check-walker walk-budget 0= if drop outcome-invalid exit then
+  dup lf-check-forms-word? if drop outcome-ok else lf-check-forms-walk then ;
 
 \ V1: a live root whose graph is well formed, in the session's level
 \ context, with every bound variable under its binder; the audit's fuel.
@@ -282,11 +290,17 @@ lf-check-steps# 1+ constant lf-step-done
 : lf-check-run ( -- outcome )
   lf-log? if lf-check-logged else lf-check-steps-run then ;
 
+\ The structural audit's memo (core/constant-term-boundary.fs) is on in a
+\ check of the checked environment, where the caches are (whnf.fs's
+\ lf-whnf-env?), and starts afresh with each check: every declaration's
+\ entry audit checks its terms anew.
+' lf-whnf-env? is lf-audit-checking?
 \ The declaration of this context's snapshot, a check's (lf-env-begin),
 \ and the budget: ok, or invalid without a check's snapshot of the valid
 \ current environment (recorded by lf-env-checking) or an intact input.
 : lf-check-begin ( -- outcome )
-  lf-caches-clear 0 lf-check-step! lf-check-state lf-chk-budget @ lf-check-left !
+  lf-caches-clear lf-audit-renew
+  0 lf-check-step! lf-check-state lf-chk-budget @ lf-check-left !
   lf-env-checking 0= if outcome-invalid exit then nip
   lf-input-read ok-then? if lf-check-state lf-chk-decl ! outcome-ok then ;
 \ A member of an inductive block is checked with its block, all members

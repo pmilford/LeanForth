@@ -88,7 +88,9 @@ require ../core/terms.fs
   2dup lf-rebuild-stuck? if nip >r lf-rebuild-deep r> 0 exit then
   ['] lf-rebuild-second lf-rebuild-first ;
 
-\ Audit a whole root with the pass's fuel before anything is allocated. The
+\ Audit a whole root with the pass's fuel before anything is allocated (in
+\ a check, each node once per check: core/constant-term-boundary.fs's
+\ memo, plan step S6 (c)). The
 \ pass continues with the fuel the audit leaves, or zero after a failure.
 \ lf-cterm-check gives only ok, invalid, exhausted or full (its contract),
 \ so the outcome needs no narrowing.

@@ -7,9 +7,12 @@
 \ State: the stamps of generation-handles.fs (a map from term index to
 \ stamp unit; a constant's stamp is its own identity, as a symbolic Sort's
 \ term stamp is), the marks column lf-term-marks with
-\ its run counter lf-mark-runs (below), and one
+\ its run counter lf-mark-runs (below), the audit memo's record
+\ lf-audit-state and its list lf-audit-reached (below), and one
 \ walk record, lf-cterm-walker, all members of the checker context
-\ (lib/context.fs). Each constant and symbolic Sort visit also runs a
+\ (lib/context.fs). The hook lf-audit-checking? is set while loading
+\ (kernel/check-declaration.fs) and read-only afterwards, as is the table
+\ lf-audit-facts. Each constant and symbolic Sort visit also runs a
 \ level-scope check on level-scope's walk record (lf-lscope-walk), so this
 \ check must not run while another module borrows that record.
 \ Single-threaded within one context. Identities are forgeable,
@@ -104,6 +107,122 @@ lf-walk-room context-walk: lf-cterm-walker
 : lf-walk-once ( first second walk tag xt -- outcome )
   >r over lf-walk-seen? if r> drop lf-walk-skip else r> execute then ;
 
+\ The audit memo (compact-store plan step S6 (c); ADR 0014 Amendment 4):
+\ in a check, the structural audit below checks a node once, not once per
+\ comparison, rebuilding pass or substitution that takes it as a root.
+\ Lean runs no such audit (its terms are well formed by construction);
+\ the audit is LeanForth's own fail-closed defence, kept wherever a pass
+\ takes a root, so only its repetition goes. A node reached by a run
+\ that ends ok was checked with its whole graph (the marks above), and
+\ that stays true while what the check read stays: the node's record
+\ and children (records never change, children come earlier, a rollback
+\ gives back a suffix, and an index made again has a new identity), its
+\ stamps (written when it is made), the term, level, reference and name
+\ stores, the literal and string slabs and the parameter context (their
+\ generations advance on every reset or change), and, for a node with a
+\ free variable (its data word's bit), the local context, whose
+\ generation advances when inference empties it for a new job (within a
+\ job an entry goes only with its node, local-context.fs's lf-lctx-drop).
+\ So while the memo is on, a run that ends ok keeps each node it checked
+\ (lf-audit-reached) in its marks unit as (epoch, identity): the closed
+\ epoch for a node without a free variable, the open epoch for one with,
+\ and nothing for a node without a data word. Both epochs are new
+\ numbers from the run counter (never a run's number) when a check
+\ begins (lf-audit-renew), when the memo turns on, and when one of those
+\ generations differs from the ones the epochs captured; the open epoch
+\ alone when the local context's does. A kept node is not pushed again
+\ and a kept root costs no fuel; a run that does not end ok keeps
+\ nothing. Off (outside a check, or lf-audit-memo! lf-memo-off), every
+\ audit runs as before. A list the heap cannot grow keeps fewer nodes:
+\ more work, never another outcome.
+0 constant lf-memo-auto   \ on while lf-audit-checking? says a check runs
+1 constant lf-memo-on
+2 constant lf-memo-off
+defer lf-audit-checking? ( -- flag )
+:noname ( -- flag ) false ; is lf-audit-checking?
+\ The generations an audit of a node without a free variable reads.
+: lf-gen-terms ( -- n ) lf-term-generation @ ;
+: lf-gen-levels ( -- n ) lf-level-generation @ ;
+: lf-gen-crefs ( -- n ) lf-crefs store-generation @ ;
+: lf-gen-scope ( -- n ) lf-lscope-generation @ ;
+: lf-gen-names ( -- n ) lf-name-generation @ ;
+: lf-gen-lits ( -- n ) lf-lit-limbs slab-generation ;
+: lf-gen-strs ( -- n ) lf-str-bytes slab-generation ;
+create lf-audit-facts 7 ,
+  ' lf-gen-terms , ' lf-gen-levels , ' lf-gen-crefs , ' lf-gen-scope ,
+  ' lf-gen-names , ' lf-gen-lits , ' lf-gen-strs ,
+begin-structure /lf-amemo
+  field: lf-aud-mode      \ lf-memo-auto, lf-memo-on or lf-memo-off
+  field: lf-aud-active    \ true while the current audit uses the memo
+  field: lf-aud-closed    \ epoch of nodes without a free variable; 0: none
+  field: lf-aud-open      \ epoch of nodes with one; 0: none
+  field: lf-aud-local     \ the local context's generation the open epoch saw
+  field: lf-aud-count     \ nodes in lf-audit-reached
+  7 cells +field lf-aud-gens   \ the generations the closed epoch saw
+end-structure
+/lf-amemo context-record: lf-audit-state
+1 cells context-slab: lf-audit-reached   \ nodes the current run checked
+: lf-audit-memo! ( mode -- ) lf-audit-state lf-aud-mode ! ;
+: lf-audit-on? ( -- flag )
+  lf-audit-state lf-aud-mode @ dup lf-memo-auto = if drop lf-audit-checking? exit then
+  lf-memo-on = ;
+: lf-audit-fact ( i -- n ) 1+ cells lf-audit-facts + @ execute ;
+: lf-audit-gen ( i -- addr ) cells lf-audit-state lf-aud-gens + ;
+: lf-audit-same? ( -- flag )
+  lf-audit-facts @ 0 ?do
+    i lf-audit-fact i lf-audit-gen @ <> if false unloop exit then loop true ;
+: lf-audit-capture ( -- )
+  lf-audit-facts @ 0 ?do i lf-audit-fact i lf-audit-gen ! loop ;
+: lf-gen-local ( -- n ) lf-lctx store-generation @ ;
+: lf-audit-reopen ( -- )
+  lf-mark-next lf-audit-state lf-aud-open ! lf-gen-local lf-audit-state lf-aud-local ! ;
+\ New epochs: nothing kept before counts any more.
+: lf-audit-renew ( -- )
+  lf-mark-next lf-audit-state lf-aud-closed ! lf-audit-capture lf-audit-reopen ;
+\ Stale: no epoch yet, the memo was off, a generation moved, or the run
+\ counter wrapped (it is below the newest epoch; the marks were erased).
+: lf-audit-wrapped? ( -- flag ) lf-mark-runs @ lf-audit-state lf-aud-open @ u< ;
+: lf-audit-stale? ( -- flag )
+  lf-audit-state lf-aud-closed @ 0= lf-audit-state lf-aud-active @ 0= or
+  lf-audit-wrapped? or lf-audit-same? 0= or ;
+: lf-audit-local? ( -- flag ) lf-gen-local lf-audit-state lf-aud-local @ = ;
+\ Before an audit: whether the memo is on, with epochs for today's facts.
+: lf-audit-current ( -- )
+  lf-audit-stale? if lf-audit-renew exit then lf-audit-local? 0= if lf-audit-reopen then ;
+: lf-audit-ready ( -- )
+  lf-audit-on? dup if lf-audit-current then lf-audit-state lf-aud-active ! ;
+\ The epoch a node is kept under: 0 (never) for a node without a data
+\ word. Unchecked: the node is allocated.
+: lf-audit-epoch ( node -- epoch )
+  lf-term-data-word dup lf-data-known? 0= if drop 0 exit then
+  lf-data-fvar? if lf-audit-state lf-aud-open else lf-audit-state lf-aud-closed then @ ;
+\ Whether the memo is on and holds node as checked in its epoch.
+\ Unchecked: the node is allocated.
+: lf-audit-same-node? ( node unit -- flag )
+  cell+ @ swap lf-term-identity if = else drop false then ;
+: lf-audit-unit? ( node epoch -- flag )
+  over lf-term-marks column-at tuck @ = if lf-audit-same-node? else 2drop false then ;
+: lf-audited? ( node -- flag )
+  lf-audit-state lf-aud-active @ 0= if drop false exit then
+  dup lf-audit-epoch ?dup if lf-audit-unit? else drop false then ;
+\ A node the current run checks, kept on the list for lf-audit-keep.
+: lf-audit-slot ( i -- addr ) lf-audit-reached slab-at ;
+: lf-audit-add ( node count -- )
+  tuck lf-audit-slot ! 1+ lf-audit-state lf-aud-count ! ;
+: lf-audit-reach ( node -- )
+  lf-audit-state lf-aud-active @ 0= if drop exit then
+  lf-audit-state lf-aud-count @ dup 1+ lf-audit-reached slab-hold ok?
+  if lf-audit-add else 2drop then ;
+\ After a run: kept as checked when it ended ok; the list emptied.
+: lf-audit-mark ( node -- )
+  dup lf-audit-epoch ?dup 0= if drop exit then
+  over lf-term-identity drop rot lf-term-marks column-at tuck cell+ ! ! ;
+: lf-audit-keep ( -- )
+  lf-audit-state lf-aud-count @ 0 ?do i lf-audit-slot @ lf-audit-mark loop ;
+: lf-audit-settle ( outcome -- outcome )
+  dup ok? lf-audit-state lf-aud-active @ and if lf-audit-keep then
+  0 lf-audit-state lf-aud-count ! ;
+
 \ Fuel left after a check; the kernel passes continue with it. Negative
 \ fuel leaves it unchanged; an invalid root leaves the fuel given.
 : lf-cterm-fuel ( -- addr ) lf-cterm-walker walk-fuel ;
@@ -146,15 +265,28 @@ lf-walk-room context-walk: lf-cterm-walker
   if drop r> lf-lscope-walk-check else 2drop r> drop outcome-invalid then ;
 : lf-cterm-fvar ( first second walk -- outcome )
   nip nip walk-node @ lf-fvar-live? flag>outcome ;
+\ Binary children must come earlier (walk-children's test); each is pushed
+\ unless the memo holds it checked, first then second (so the second is
+\ visited first), and a push without room is full.
+: lf-cterm-push ( index walk -- outcome )
+  over lf-audited? if 2drop outcome-ok else walk-push-outcome then ;
+: lf-cterm-pushed ( first second walk -- outcome )
+  rot over lf-cterm-push dup ok? if drop lf-cterm-push else nip nip then ;
+: lf-cterm-children ( first second walk -- outcome )
+  >r 2dup r@ walk-child? swap r@ walk-child? and
+  if r> lf-cterm-pushed else 2drop r> drop outcome-invalid then ;
 : lf-cterm-dispatch ( first second walk tag -- outcome )
-  dup lf-term-binary-tag? if drop walk-children exit then
+  dup lf-term-binary-tag? if drop lf-cterm-children exit then
   case lf-tag-constant of lf-cterm-reference endof
     lf-tag-bvar of lf-repr-bvar endof  lf-tag-fvar of lf-cterm-fvar endof
     lf-tag-symbolic-sort of lf-cterm-sort endof
     lf-tag-proj of lf-proj-check endof  lf-tag-lit of lf-lit-check endof
     lf-tag-str of lf-str-check endof
     lf-tag-let of lf-let-check endof  walk-bad-tag endcase ;
-: lf-cterm-once ( first second walk tag -- outcome ) ['] lf-cterm-dispatch lf-walk-once ;
+\ A node first reached in this run goes on the memo's list.
+: lf-cterm-first ( first second walk tag -- outcome )
+  over walk-node @ lf-audit-reach lf-cterm-dispatch ;
+: lf-cterm-once ( first second walk tag -- outcome ) ['] lf-cterm-first lf-walk-once ;
 : lf-cterm-visit ( walk -- outcome ) ['] lf-cterm-once lf-term-visit ;
 
 \ Validate a live root and its reachable mixed symbolic graph, each node
@@ -169,13 +301,17 @@ lf-walk-room context-walk: lf-cterm-walker
 \ which only a term or level capacity raised above it allows (children
 \ come earlier, so at the default capacities a work stack never holds
 \ more items than its store has nodes).
-\ A root that is not a live handle is recorded as a stale handle.
+\ A root that is not a live handle is recorded as a stale handle. With the
+\ audit memo on, a node checked earlier in the check (its epoch) is not
+\ visited again, and a root so checked costs no fuel.
 : lf-cterm-site ( -- site ) c" constant-term-boundary lf-cterm-check" ;
 : lf-cterm-run ( root -- status )
   lf-cterm-walker lf-walk-marking ['] lf-cterm-visit lf-cterm-walker walk-run
-  lf-cterm-walker lf-cterm-site lf-diag-walk ;
+  lf-audit-settle lf-cterm-walker lf-cterm-site lf-diag-walk ;
+: lf-cterm-audit ( root -- status )
+  lf-audit-ready dup lf-audited? if drop outcome-ok else lf-cterm-run then ;
 : lf-cterm-stale ( index identity -- status )
   lf-cterm-site lf-diag-stale-handle lf-diag-note outcome-invalid ;
 : lf-cterm-check ( index identity fuel -- status )
   lf-cterm-walker walk-budget 0= if 2drop outcome-invalid exit then
-  2dup lf-hterm-valid? if drop lf-cterm-run else lf-cterm-stale then ;
+  2dup lf-hterm-valid? if drop lf-cterm-audit else lf-cterm-stale then ;

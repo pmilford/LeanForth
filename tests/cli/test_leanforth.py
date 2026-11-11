@@ -395,8 +395,10 @@ class ExitCodes(unittest.TestCase):
                      "check's stores (line 97)", *LIMITS])
         self.expect(["check", "--no-manifest", "tests/cli/composition-huge-number.ndjson"], 3,
                     [NO_MANIFEST, "error: full: number beyond 32 bits (line 12)"])
-        exhausted = ["  fuel exhausted; diagnostic 1 at check-declaration "
-                     "lf-check-declaration: 0 0"]
+        # U2 reads the root's data word at no cost (plan step S6 (c)), so
+        # the structural audit is the first step that needs fuel.
+        exhausted = ["  fuel exhausted; diagnostic 1 at constant-term-boundary "
+                     "lf-cterm-check: 0 0"]
         self.expect(["check", "--fuel", "0", FIXTURE], 3,
                     ["fixtureId: exhausted", *exhausted, "fixturePoly: exhausted", *exhausted,
                      "fixtureUse: exhausted", *exhausted, "3 declarations: 3 exhausted",
@@ -1399,11 +1401,11 @@ class Resources(unittest.TestCase):
         self.assertEqual(rest[6], "  engine: " + os.path.basename(GFORTH))
         self.assertEqual(rest[7:], [
             "  input: 6 declarations, 46 term nodes, 3 levels, 5 constant references, 31 names",
-            "  fuel: 996 steps in all, at most 2000000 per declaration",
+            "  fuel: 607 steps in all, at most 2000000 per declaration",
             "  most fuel used:",
-            "        486 Two.cases (accepted)",
-            "        320 Two (accepted)",
-            "        190 Two.swap (accepted)"])
+            "        302 Two.cases (accepted)",
+            "        176 Two (accepted)",
+            "        129 Two.swap (accepted)"])
 
     def test_stable_but_for_time_and_memory(self):
         def steady(out):
