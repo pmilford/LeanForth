@@ -101,12 +101,12 @@ GAPS = {
         "a field whose type reduces to the type only by K on an earlier field: positivity"
         " follows Lean, but the recursor builder (inductive-recursor.fs) reads the field"
         " under binders no inference scope holds, so K there is undecided (diagnostic 81)."
-        " Closed by the follow-up of task 5.2.1b that opens the builder's binders (Lean's"
+        " Closed by plan task 5.2.1d, which opens the builder's binders (Lean's"
         " is_rec_argument, mk_local_decl_for)"),
     "k.field-after-binder-variable": ("unknown",
         "as k.field-variable, after a field whose positivity opened a binder (which must"
         " leave the scope: else K types h as Nat and the block is rejected). Closed by the"
-        " same follow-up of task 5.2.1b"),
+        " task 5.2.1d"),
 }
 # Rows of a later task that a part of it already done decides: each must give
 # exactly the table's column (id -> the part that decides it).
@@ -120,7 +120,9 @@ REQUIRED.update({row: "the follow-up of task 5.2.1b: K and structure eta on a va
                  for row in ("k.block-index-variable", "k.block-index-stuck",
                              "k.mutual-index-variable", "k.mutual-index-stuck", "k.field-stuck",
                              "k.field-under-binder-stuck", "eta.block-index-variable",
-                             "eta.block-index-prop-stuck")})
+                             "eta.block-index-prop-stuck", "k.param-index-variable",
+                             "k.param-index-stuck", "eta.param-index-variable",
+                             "eta.param-index-prop-stuck")})
 REQUIRED.update({row: "task 5.2.4's Q1 and Q2 (add_quot and quot_reduce_rec, quot.fs)"
                  for row in ("quot.lift-on-mk", "quot.lift-on-mk-wrong",
                              "quot.lift-stuck-on-variable", "quotinit.with-eq",

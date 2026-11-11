@@ -63,8 +63,10 @@ require ./whnf.fs
 \ is_prop (383-389), aside: x's type's whnf a Sort whose level is zero.
 \ A whnf that is no Sort is Lean's typeExpected, which is_prop's
 \ ensure_sort throws in infer-only mode too: rejected (diagnostic 55,
-\ the type's type reduced; follow-up of task 5.2.1b). An inference that fails as
-\ invalid is unknown here.
+\ the type's type reduced; follow-up of task 5.2.1b). A failed inference is
+\ the check's failure, as Lean's (a thrown exception): every outcome but ok
+\ passes through unchanged, invalid too (ADR 0015, review rvIO L2), as
+\ iota.fs's R3 aside inference does.
 : lf-iproj-not-sort ( reduced -- flag outcome )
   0 lf-iproj-site lf-diag-type-expected lf-diag! false outcome-rejected ;
 : lf-iproj-zero ( x -- flag status )
@@ -72,7 +74,7 @@ require ./whnf.fs
   lf-minfer-whnf-job ok-then? 0= if false swap exit then
   dup lf-minfer-sort? 0= if lf-iproj-not-sort exit then nip lf-minfer-zero? ;
 : lf-iproj-prop? ( x -- flag status )
-  ['] lf-iproj-zero lf-iproj-aside dup outcome-invalid = if drop outcome-unknown then ;
+  ['] lf-iproj-zero lf-iproj-aside ;
 
 \ The structure's input declaration: Ty's head a constant named as the
 \ leaf, which a usable slot holds as an inductive type with one

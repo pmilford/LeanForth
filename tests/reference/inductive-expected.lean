@@ -478,6 +478,26 @@ def checks : List Block := [
     types := [⟨"T", "(a b : Prop) → (h : a ∧ b) → " ++
       "@And.rec a b (fun _ => Type) (fun _ _ => Prop) h", []⟩],
     lean := "typeExpected", leanforth := "rejected", rule := "T2 R3", task := "5.2.2" },
+  -- The same with a parameter present (order: parameters, then indices): K and
+  -- structure eta on an index variable, accepted and rejected (review rvIO G3).
+  { id := "k.param-index-variable", nparams := 1,
+    types := [⟨"T", "(α : Type) → (h : Bool.true = Bool.true) → " ++
+      "@Eq.rec Bool Bool.true (fun _ _ => Type) Prop Bool.true h",
+      [("mk", "(α : Type) → (h : Bool.true = Bool.true) → T α h")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 T2 R2", task := "5.2.1c" },
+  { id := "k.param-index-stuck", nparams := 1,
+    types := [⟨"T", "(α : Type) → (h : Bool.true = Bool.false) → " ++
+      "@Eq.rec Bool Bool.true (fun _ _ => Type) Prop Bool.false h", []⟩],
+    lean := "typeExpected", leanforth := "rejected", rule := "T2 R2", task := "5.2.1c" },
+  { id := "eta.param-index-variable", nparams := 1,
+    types := [⟨"T", "(α : Type) → (p : Bool × Bool) → " ++
+      "@Prod.rec Bool Bool (fun _ => Type) (fun _ _ => Prop) p",
+      [("mk", "(α : Type) → (p : Bool × Bool) → T α p")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 T2 R3", task := "5.2.2" },
+  { id := "eta.param-index-prop-stuck", nparams := 1,
+    types := [⟨"T", "(α : Type) → (a b : Prop) → (h : a ∧ b) → " ++
+      "@And.rec a b (fun _ => Type) (fun _ _ => Prop) h", []⟩],
+    lean := "typeExpected", leanforth := "rejected", rule := "T2 R3", task := "5.2.2" },
   { id := "pos.non-valid-index-of-other",
     types := [⟨"Bad", "Type", [("z", "Bad"), ("mk", "@HEq Type Nat Type Bad → Bad")]⟩],
     lean := "nonValidOccurrence", leanforth := "rejected", rule := "P2", task := "5.2.1b" },

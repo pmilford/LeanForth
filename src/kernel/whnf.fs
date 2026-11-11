@@ -78,9 +78,12 @@
 \ paid from it too. Out of fuel is exhausted, a stack or store the heap
 \ cannot grow full; neither is ever a result. Inputs are audited terms
 \ whose free variables are live (as every term inference and conversion
-\ give). Lean's kernel reduces closed terms only, but ADR 0011's analysis
-\ and check-block.fs compare terms read under binders they did not open:
-\ a beta argument with a loose bound variable is lifted as Lean's
+\ give). Lean's kernel reduces closed terms only. check-block.fs now opens
+\ each binder it walks into on the inference job's scope (as Lean's
+\ mk_local_decl_for), so its terms are read under the scope; the recursor
+\ builder (inductive-recursor.fs) and ADR 0011's analysis still read terms
+\ under binders no scope holds, and iota.fs's structure eta (R3) refuses
+\ those (unknown). A beta argument with a loose bound variable is lifted as Lean's
 \ instantiate lifts it (lf-whnf-beta); cheap_beta_reduce takes closed
 \ terms only (inference's). Results are new scratch nodes or input nodes,
 \ never discarded here.
