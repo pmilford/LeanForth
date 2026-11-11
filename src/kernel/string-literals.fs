@@ -111,13 +111,13 @@ end-structure
 \ their number into lf-sx-count; invalid at bytes that are no UTF-8
 \ character, full without room. The character at the start of a text:
 \ its code point and its bytes, 0 bytes for none.
-: lf-sx-char ( c-addr u -- code n )
+: lf-sx-first ( c-addr u -- code n )
   over swap utf8-length dup if tuck utf8-decode swap else nip 0 swap then ;
 : lf-sx-keep ( code i -- outcome )
   dup 1+ lf-sx-codes slab-hold dup ok? 0= if nip nip exit then drop
   lf-sx-codes slab-at ! outcome-ok ;
 : lf-sx-decode-step ( c-addr u -- c-addr' u' outcome )
-  2dup lf-sx-char dup 0= if 2drop outcome-invalid exit then
+  2dup lf-sx-first dup 0= if 2drop outcome-invalid exit then
   >r lf-sx lf-sx-count @ lf-sx-keep dup ok? 0= if r> drop exit then drop
   1 lf-sx lf-sx-count +! r> /string outcome-ok ;
 : lf-sx-decode ( leaf -- outcome )
