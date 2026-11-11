@@ -441,7 +441,7 @@ reason = "E4: kind, safety, value and parameters are not re-checked"
 [[fault]]
 id = "pub-verdict-trusts-check"
 file = "src/kernel/env-publish.fs"
-old = '''  lf-recheck if nip lf-recheck-failed false lf-env-added! then ;'''
+old = '''  lf-recheck if nip lf-recheck-failed false lf-env-added! exit then lf-recheck-in-time ;'''
 new = ''' ;'''
 test = "$GFORTH tests/core/environment.fs"
 reason = "E4: the publisher trusts an ok check without any re-check"
@@ -2681,8 +2681,8 @@ reason = "after a check the stores keep the sizes the feed raised, so later smal
 [[fault]]
 id = "cli-stage-kept"
 file = "src/cli/check-run.fs"
-old = '''  ck-env-free ck-unfeed ck-feeding-record dup feed-free /feed erase ck-stage stage-free'''
-new = '''  ck-env-free ck-unfeed ck-feeding-record dup feed-free /feed erase'''
+old = '''  ck-worker-feed dup feed-free /feed erase ck-stage stage-free'''
+new = '''  ck-worker-feed dup feed-free /feed erase'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "the stage, hundreds of MB for a library, is not freed after a check"
 
@@ -7667,8 +7667,8 @@ reason = "S4: a level kept in scope stays kept when the parameter context change
 [[fault]]
 id = "s4-lcmp-memo-no-identity"
 file = "src/kernel/level-compare.fs"
-old = '''  dup lf-lcmp-unit 2@ rot lf-lcmp-stamp d= ;'''
-new = '''  dup lf-lcmp-unit 2@ nip swap lf-lcmp-stamp nip = ;'''
+old = '''  dup 2 cells + @ lf-lcmp-epoch = if 2@ rot lf-lcmp-stamp d= else 2drop false then ;'''
+new = '''  dup 2 cells + @ lf-lcmp-epoch = if 2@ nip swap lf-lcmp-stamp nip = else 2drop false then ;'''
 test = "$GFORTH tests/core/level-compare.fs"
 reason = "S4: a level index made again after a rollback counts as kept in scope"
 
@@ -7862,3 +7862,73 @@ old = '''  r> binder-tag? if drop lf-term-input-binder else 2drop outcome-ok the
 new = '''  r> drop 2drop outcome-ok ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "S5: binders read in place are not entered first, so a let's lambda and the equal input lambda after it are two nodes (more fuel than copying)"
+
+# Parallel checking (plan task 7.3.1, agent S7; src/kernel/env-schedule.fs,
+# ADR 0012 Amendment 2): the guards of G-P5 and G-P7, the per-check memo,
+# and the facts of a stopped run.
+
+[[fault]]
+id = "s7-early-never-noted"
+file = "src/kernel/environment.fs"
+old = '''  dup lf-slot-state @ lf-state-final = dup if nip exit then swap lf-slot-early ;'''
+new = '''  lf-slot-state @ lf-state-final = ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "S7: a check that reads a slot not final yet leaves no witness (G-P5)"
+
+[[fault]]
+id = "s7-recheck-early-off"
+file = "src/kernel/env-publish.fs"
+old = '''  lf-env-early? 0= if exit then
+'''
+new = '''  exit
+'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "S7: the publisher records an ok claim from a check that began too early"
+
+[[fault]]
+id = "s7-readiness-skipped"
+file = "src/kernel/env-schedule.fs"
+old = '''  if lf-sch-names-ready? else drop true then ;'''
+new = '''  drop drop true ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "S7: a declaration is handed out without asking lf-env-ready? (G-P5)"
+
+[[fault]]
+id = "s7-rerun-skipped"
+file = "src/kernel/env-schedule.fs"
+old = ''': lf-sch-early? ( -- flag ) lf-env-early? lf-fault-careless lf-sch-fault? 0= and ;'''
+new = ''': lf-sch-early? ( -- flag ) false ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "S7: a check that began too early is handed over instead of run again (G-P7)"
+
+[[fault]]
+id = "s7-sets-ignored"
+file = "src/kernel/env-schedule.fs"
+old = ''': lf-sch-free? ( d -- flag ) lf-sch-wait @ 0= lf-fault-hasty lf-sch-fault? or ;'''
+new = ''': lf-sch-free? ( d -- flag ) drop true ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "S7: every declaration is ready at once, its readiness set ignored"
+
+[[fault]]
+id = "s7-lcmp-memo-across-checks"
+file = "src/kernel/level-compare.fs"
+old = '''  dup 2 cells + @ lf-lcmp-epoch = if 2@ rot lf-lcmp-stamp d= else 2drop false then ;'''
+new = '''  2@ rot lf-lcmp-stamp d= ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "S7: the level scope memo outlives its check, so a check's fuel depends on its context's earlier checks"
+
+[[fault]]
+id = "s7-stop-keeps-later"
+file = "src/cli/check-run.fs"
+old = '''  dup 0 ?do i ck-jobs-trail loop ck-unkeep ;'''
+new = '''  dup 0 ?do i ck-jobs-trail loop drop ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "S7: a parallel run that stopped keeps the facts of declarations the serial run never reached"
+
+[[fault]]
+id = "s7-members-not-trailed"
+file = "src/cli/check-run.fs"
+old = '''  dup lf-env-published? over lf-sched-checked? 0= and if ck-trailing else drop then ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "S7: a block's members published with their first do not take its facts in a parallel run"

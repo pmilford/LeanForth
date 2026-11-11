@@ -16,6 +16,7 @@ include ../support/checks.fs
 here constant dict-start
 require ../../src/lib/task.fs
 require ../../src/main.fs
+variable planted  0 planted !   \ a shared cell for a planted fault (below)
 here constant dict-end
 \ The main context right after loading, before any test changes it: its
 \ bytes with the heap addresses of its heap-owning members blanked, and
@@ -95,6 +96,50 @@ T{ prints-ok @ 0> reads-ok @ -> true 4 }T
 prints-ok @ . ." prints that ended ok among others; a context is " loaded-bytes .
 ." bytes after src/main.fs loads" cr
 dict-finish
+
+\ A parallel check (check --jobs 3; kernel/env-schedule.fs, plan task
+\ 7.3.1) of the nested-blocks export leaves the dictionary unchanged too,
+\ but for the records that only the driving task writes, outside jobs:
+\ the run's (cli/check-run.fs: ck-state, ck-stage and the two feed
+\ records), the scheduler's (lf-sched), the environment registry and the
+\ job pool's (task-pool, task-queue, the worker threads' ids). A planted
+\ fault, a check that writes a shared cell inside its job, is caught.
+create par-copy dict-bytes allot
+: in-record? ( addr record size -- flag ) over + within ;
+: par-run-records? ( addr -- flag )
+  dup ck-state /ck in-record? over ck-stage /stage in-record? or
+  over ck-feeding-record /feed in-record? or swap ck-worker-feed /feed in-record? or ;
+\ On Gforth 1.0 also the worker threads' ids and the pool's mutex and its
+\ two conditions, laid down from task-lock up to pool-lock.
+[defined] worker-ids [if]
+: par-sync? ( addr -- flag ) ['] task-lock >body ['] pool-lock within ;
+: par-ids? ( addr -- flag )
+  dup worker-ids task-cores pthreads in-record? swap par-sync? or ;
+[else]
+: par-ids? ( addr -- flag ) drop false ;
+[then]
+: par-pool? ( addr -- flag )
+  dup task-pool /pool in-record? over task-queue task-queue-jobs cells in-record? or
+  swap par-ids? or ;
+: par-allowed? ( addr -- flag )
+  dup par-run-records? over lf-sched /lf-sched in-record? or
+  over lf-envs /lf-envs in-record? or swap par-pool? or ;
+: par-changed? ( i -- flag )
+  dup dict-start + dup par-allowed? if 2drop false exit then c@ swap par-copy + c@ <> ;
+: par-changes ( -- n ) 0 dict-bytes 0 ?do i par-changed? - loop ;
+variable planting  false planting !
+: planted-check ( -- ) planting @ if 1 planted +! then lf-check-declaration ;
+: par-check ( -- )
+  20000000 ck-start 3 ck-jobs! ['] planted-check ck-check-word!
+  s" tests/cli/nested.ndjson" false ck-load drop ck-check ck-release ;
+: par-run ( -- )
+  context-new throw dup context-use par-check context-main context-use context-free throw
+  task-cores pool-workers! ;
+dict-start par-copy dict-bytes move
+par-run
+T{ par-changes -> 0 }T
+true planting ! par-run false planting !
+T{ par-changes 0> planted @ 0> -> true true }T
 T{ lf-context @ context-main = -> true }T
 T{ depth -> 0 }T
 bye

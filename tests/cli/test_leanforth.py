@@ -1555,5 +1555,46 @@ class BothWays(unittest.TestCase):
             self.assertEqual(both_ways(True, *args), both_ways(False, *args), args)
 
 
+class Jobs(unittest.TestCase):
+    """check --jobs N (plan tasks 6.5.4, 7.3.1; src/kernel/env-schedule.fs)
+    prints exactly what --jobs 1 prints, text and JSON (but for "measured"),
+    with the same exit status, on every export of the JSON tests and on
+    larger ones; the resource report names the workers. --jobs takes a
+    number of at least 1 and does not go with --record (status 4)."""
+
+    MORE = [["tests/cli/sharing.ndjson"], ["tests/cli/nested.ndjson"],
+            ["tests/cli/irrelevance.ndjson"], ["--fuel", "3000", "tests/cli/nested.ndjson"]]
+
+    def text(self, *args):
+        return run("check", *args)[:2]
+
+    def json(self, *args):
+        status, got, _ = report(*args)
+        got.pop("measured")
+        return status, got
+
+    def test_same_output(self):
+        for args in CASES_ALL + self.MORE:
+            self.assertEqual(self.text(*args), self.text("--jobs", "3", *args), args)
+            self.assertEqual(self.json(*args), self.json("--jobs", "4", *args), args)
+
+    def test_resources(self):
+        status, out, _ = run("check", "--resources", "--jobs", "2", "tests/cli/nested.ndjson")
+        self.assertEqual(status, 0)
+        self.assertRegex(out, r"\n  workers: 2 \(--jobs\), on \d+ cores\n    checks handed "
+                              r"out [1-9]\d*, run again 0, not ready 0, forced 0, workers "
+                              r"replaced 0\n")
+        self.assertNotIn("workers:", run("check", "--resources", CHAIN)[1])
+
+    def test_4_mistakes(self):
+        for value in ["0", "x", "-1", ""]:
+            status, out, _ = run("check", "--jobs", value, CHAIN)
+            self.assertEqual(status, 4, value)
+            self.assertIn("error: not a number of jobs", out)
+        status, out, _ = run("check", "--jobs", "2", "--record", "r.json", CHAIN)
+        self.assertEqual((status, out.splitlines()[0]),
+                         (4, "error: --jobs does not go with --record"))
+
+
 if __name__ == "__main__":
     unittest.main()

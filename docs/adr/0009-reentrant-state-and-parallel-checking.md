@@ -101,7 +101,9 @@ Nothing can run twice at once in one Forth image.
 4. A dependency-ordered scheduler and native tasks through the adapter,
    validated against serial runs (roadmap C3). Serializing the checked
    environment is needed later for the separate checker program and saved
-   results, not for parallelism.
+   results, not for parallelism. Built on 2026-11-11 (plan task 7.3.1;
+   [Amendment 2](#amendment-2-2026-11-11-the-scheduler-built)): `check
+   --jobs N`.
 
 ## Amendment 1 (2026-11-03): context members that own heap memory
 
@@ -160,6 +162,71 @@ held. `tests/core/stage.fs` makes a scratch tier over a sealed input tier
 a context member and frees it the same way, also after a `THROW`. Three
 planted faults in `tests/mutants/faults.toml` (`context-teardown-…`,
 `context-new-failure-leaks`) are each caught. Run on Gforth 1.0 and 0.7.3.
+
+## Amendment 2 (2026-11-11): the scheduler, built
+
+**What.** `leanforth check --jobs N` (plan tasks 6.5.4, 7.3.1; default
+1, the serial run, unchanged) checks with N worker contexts, each a job of
+the pool of `src/lib/task.fs` (threads on Gforth 1.0, cooperative on
+0.7.3, serial elsewhere), and publishes in the driving task through
+[ADR 0012](0012-checked-environment.md)'s single publisher. The scheduler
+is `src/kernel/env-schedule.fs`; its rules are in ADR 0012
+([Amendment 2](0012-checked-environment.md#amendment-2-2026-11-11-the-parallel-scheduler)).
+The input is still per context (E1, plan task 7.2.1 not done): each worker
+is fed the same sealed stage, which is shared read-only, and must have
+the input fingerprint of the run's context; the stage, the environment and
+the job pool are the only shared heap data.
+
+**The audit of state added since 2026-11-02** (task 1 of the brief; every
+table must be a context member or read-only after loading). Verdicts:
+- `kernel/caches.fs` (result caches): context members, emptied when a
+  check begins: safe.
+- `kernel/replace-memo.fs` (substitution memo): one table per pass and
+  context; stamped entries emptied when an inference job starts; costs no
+  fuel: safe.
+- The audit memo (`core/constant-term-boundary.fs`, `lf-audit-state`,
+  `lf-audit-reached`, the marks): context members, new epochs with every
+  check: safe. Its tables `lf-audit-facts` and the hook are read-only after
+  loading.
+- The S3/S4 hash tables (`core/terms.fs` term table, `core/levels.fs`
+  level table, `core/constant-references.fs` interning): context members;
+  a rollback takes its records' entries out (Algorithm R), so each check
+  starts from the same set: safe. Their hook records (`lf-term-hooks` and
+  the like) are filled while loading, read-only after.
+- Level and reference interning, the stamp map (`generation-handles.fs`):
+  context members, rolled back with the input marks: safe.
+- Literals (`core/literals.fs`, `string-literals.fs`): limb and byte
+  slabs per context, not rolled back (unreferenced limbs stay); no check
+  reads another check's limbs: safe, memory grows per worker.
+- `kernel/inductive-nested.fs`, `kernel/quot.fs`: state in context
+  records; `lf-quot-entries` is a constant table: safe.
+- The input view and its leaf table (`core/terms.fs`), the binder table,
+  the names' view (`core/names.fs`): per context over the sealed stage
+  tier, whose finds write nothing (`lib/cons.fs`: a sealed set's table is
+  frozen); names a check makes go into the context's own scratch tier:
+  safe.
+- **Found and fixed:** the level scope memo of `kernel/level-compare.fs`
+  (a column keyed by level identity and the parameter context's
+  generation) outlived its check, so an input level checked in an earlier
+  check cost no fuel in later ones: a check's fuel depended on which checks
+  its context had run (63 of the first 9,202 declarations of `Init` used
+  1-8 more units in a worker). It now also holds the audit memo's
+  per-check epoch, so it lasts one check, as documented; serial fuel on
+  that prefix rises by 2,753 units (0.003%) in 871 declarations, verdicts
+  unchanged.
+- Shared and written while checks run: only by the driving task, outside
+  jobs: the environment (slots, pool, header), `lf-envs`, the scheduler's
+  record `lf-sched`, `cli/check-run.fs`'s run records, the job pool.
+  `tests/core/contexts-main.fs` checks that a parallel check leaves every
+  other byte of the dictionary unchanged, and catches a planted check
+  that writes a shared cell.
+Still global by design and read-only during checks: catalogues, rule
+tables, `htab` hook records, the derivation log's options (set only
+outside jobs), deferred words set while loading.
+
+**Evidence.** Output (text and JSON but `measured`) identical to `--jobs
+1` on all 388 test exports at 3 workers and on the first 1M lines of
+`Init` (9,202 declarations) at 4; full `Init`: see ADR 0012 Amendment 2.
 
 ## Rejected alternatives
 

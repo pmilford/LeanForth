@@ -29,6 +29,8 @@ include ../support/checks.fs
 require ../support/alloc-fail.fs
 \ The publisher's test-only fault hook, lf-env-before-final, to stop a run.
 : lf-env-fault-hooks ( -- ) ;
+\ The parallel scheduler's planted faults (kernel/env-schedule.fs).
+: lf-sched-fault-hooks ( -- ) ;
 require ../../src/cli/leanforth.fs
 decimal
 
@@ -412,6 +414,95 @@ print-allocations constant printed#
 : print-bad? ( k -- flag ) print-fault 0<> swap 0<> or swap 5 <> or ;
 : print-faults ( -- n ) 0 printed# 1+ 1 ?do i print-bad? if 1+ then loop ;
 T{ printed# staged# > print-faults -> true 0 }T
+
+\ Parallel checking (check --jobs; kernel/env-schedule.fs, plan task
+\ 7.3.1): with 3 workers every fact of the run is the serial run's --
+\ each declaration's published outcome and kept step (outcome, diagnostic,
+\ step, fuel) up to where the run stopped, the steps begun, the run's
+\ outcome and whether it stopped -- on composition, the kinds export and
+\ nested blocks (107 declarations); also when a check throws (the run
+\ stops at that declaration, as the serial run does, and the worker is
+\ replaced). Planted faults are caught: with every declaration ready at
+\ once, the readiness test refuses those whose slots are not final
+\ (G-P5); with that test skipped too, the checks that began too early
+\ find a slot not final and are run again; handed over anyway, the facts
+\ differ from the serial run's, and so do they when a check's facts are
+\ kept in the order checks ended instead of file order.
+variable facts
+: mix ( x -- ) facts @ swap fnv-step facts ! ;
+: fact-step ( d -- )
+  dup lf-env-outcome mix ck-kept dup kept-outcome @ mix dup kept-code @ mix
+  dup kept-first @ mix dup kept-second @ mix dup kept-site @ mix dup kept-step @ mix
+  cks-fuel @ mix ;
+: sched-facts ( -- h )
+  2166136261 facts ! ck-verdicts? if ck-steps-begun 0 ?do i fact-step loop then
+  ck-steps-begun mix ck-outcome mix ck-faulted? mix lf-input-count mix
+  ck-fuel-total mix mix ck-fuel-unknowns mix facts @ ;
+variable throw-at  -1 throw-at !
+: throwing-check ( -- ) lf-env-limit throw-at @ = if -77 throw then lf-check-declaration ;
+: run-with ( c-addr u jobs -- )
+  >r 20000000 ck-start r> ck-jobs! ['] throwing-check ck-check-word!
+  false ck-load ok? if ck-check then ;
+: sched-counts ( -- unready reruns renewed ) lf-sched-unready lf-sched-reruns lf-sched-renewed ;
+: facts-of ( c-addr u jobs -- h unready reruns renewed )
+  fresh >r run-with sched-facts sched-counts ck-release r> back ;
+: same? ( c-addr u -- flag )
+  2dup 1 facts-of 2drop drop >r 3 facts-of 2drop drop r> = ;
+: nested ( -- c-addr u ) s" tests/cli/nested.ndjson" ;
+T{ composition same? kinds same? nested same? -> true true true }T
+\ Nothing refused by readiness, nothing run again: the readiness sets hold.
+T{ nested 3 facts-of drop rot drop -> 0 0 }T
+nested 1 facts-of 2drop drop constant serial-nested
+\ A stress run: the nested export, many small interleaved checks, at 8
+\ workers five times, each time the serial run's facts.
+: stress ( -- n ) 0 5 0 ?do nested 8 facts-of 2drop drop serial-nested = - loop ;
+T{ stress -> 5 }T
+40 throw-at !
+nested 1 facts-of 2drop drop constant serial-thrown
+T{ nested 3 facts-of nip nip swap serial-thrown = -> 1 true }T
+T{ serial-thrown serial-nested <> -> true }T
+-1 throw-at !
+lf-fault-hasty lf-sched-faults !
+T{ nested 3 facts-of 2drop 0> swap serial-nested = -> true true }T
+lf-fault-hasty lf-fault-trusting or lf-sched-faults !
+T{ nested 3 facts-of drop nip 0> swap serial-nested = -> true true }T
+lf-fault-hasty lf-fault-trusting or lf-fault-careless or lf-sched-faults !
+T{ nested 3 facts-of drop 2drop serial-nested = -> false }T
+lf-fault-unordered lf-sched-faults !
+T{ nested 3 facts-of drop 2drop serial-nested = -> false }T
+0 lf-sched-faults !
+T{ depth lf-context @ context-main = -> 0 true }T
+
+\ A check's fuel does not depend on the checks its context ran before
+\ (each starts with empty caches and memos; the level scope memo lasts
+\ one check, kernel/level-compare.fs): in the serial run of the nested
+\ export, each declaration it checks is first checked twice more in a
+\ fresh worker, unpublished, and the three use the same fuel.
+variable fuel-misses
+: worker-fuel ( d -- n )
+  dup lf-env-begin drop lf-check-declaration lf-env-cand lf-cand-outcome @ swap ck-used
+  lf-input-rollback drop ;
+: twice-fuel ( d w -- n1 n2 ) context-use dup worker-fuel swap worker-fuel ;
+variable fuel-home
+: fuel-back ( -- ) fuel-home @ context-use ;
+: fuel-step ( d w -- )
+  over lf-env-published? if drop ck-next drop exit then
+  over swap twice-fuel fuel-back rot dup ck-next drop ck-fuel-of
+  tuck <> -rot <> or if 1 fuel-misses +! then ;
+: fuel-checks ( -- )
+  20000000 ck-start nested false ck-load drop ck-facts drop ck-env drop
+  ck-worker-new throw lf-input-count 0 ?do i over fuel-step loop
+  fuel-back context-free drop ck-release ;
+: fuel-run ( -- ) 0 fuel-misses ! fresh dup fuel-home ! fuel-checks back ;
+T{ fuel-run fuel-misses @ -> 0 }T
+\ The main context here has run checks before, so its stores' identities
+\ and generations moved on and a new worker's input has another
+\ fingerprint: --jobs 3 then makes no worker and checks one declaration
+\ at a time, with the facts of a serial run in the same context.
+: stale-facts ( jobs -- h ) nested rot run-with sched-facts ck-release ;
+: stale-jobs ( -- h1 h3 workers )
+  1 stale-facts nested 3 run-with sched-facts ck-jobs-run? lf-sched-workers or ck-release ;
+T{ stale-jobs -rot = swap -> true 0 }T
 
 cases-done
 bye

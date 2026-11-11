@@ -1072,6 +1072,21 @@ outcome-rejected 0 slot@ lf-slot-outcome !
 7 lf-env-begin drop outcome-ok lf-env-finish
 T{ lf-env-hand-over drop diag 0 slot@ lf-slot-final? -> outcome-invalid 7 4 lf-diag-recheck false }T
 env-free
+\ G-P5's witness (plan task 7.3.1): a check that finds a slot below its
+\ declaration not final notes it (lf-env-early?); a slot at or above it
+\ does not, nor does a new check's beginning. A claim of ok that passes
+\ every re-check from a check that noted one is still refused: part
+\ lf-recheck-early, invalid.
+8 fresh-env
+7 lf-env-begin drop
+T{ 7 slot@ lf-slot-final? lf-env-early? 3 slot@ lf-slot-final? lf-env-early? -> false false false true }T
+T{ 7 lf-env-begin lf-env-early? -> outcome-ok false }T
+env-free
+8 fresh-env
+' syn-check 8 checked-run
+8 lf-env-begin drop syn-check true lf-env-cand lf-cand-early !
+T{ lf-env-hand-over drop diag 8 slot@ lf-slot-final? -> outcome-invalid 8 lf-recheck-early lf-diag-recheck true }T
+env-free
 \ A pool with room for one grows when a publication needs more (plan task
 \ 6.2.0): declaration 1's dependency fills it, and declaration 8's two
 \ are published in a block with room for 16. Freeing the environment

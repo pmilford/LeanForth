@@ -180,6 +180,7 @@ begin-structure /lf-cand
   field: lf-cand-recipe     \ its generated recursor's recipe (lf-env-recipe!)
   field: lf-cand-shaped     \ members with a shape in lf-cand-shapes, from 0
   field: lf-cand-skipped    \ a declaration Lean's replay skips (lf-env-skipped!)
+  field: lf-cand-early      \ true once the check found a slot below it not final
 end-structure
 /lf-cand context-record: lf-env-cand
 \ The dependencies' slots, ascending: a growable array, as long as the
@@ -352,8 +353,25 @@ end-structure
   dup lf-env-choosable? 0= if drop outcome-invalid exit then
   lf-envs lf-envs-current ! outcome-ok ;
 
-\ Slots.
-: lf-slot-final? ( slot -- flag ) lf-slot-state @ lf-state-final = ;
+\ Slots. G-P5's witness (plan task 7.3.1): a slot of the current
+\ environment below the declaration of this context's snapshot that is
+\ found not final, by whatever word asks (a lookup's scan, a read, the
+\ holders of a generated recursor), is noted in the candidate,
+\ lf-cand-early, which only lf-env-clear clears. It means the check began
+\ before a slot it reads was final: the parallel scheduler
+\ (env-schedule.fs) never hands such a candidate over but checks the
+\ declaration again once every slot below it is final, and the publisher
+\ refuses one that claims ok (env-publish.fs, lf-recheck-early). In a
+\ serial run every slot below the declaration is final when its check
+\ begins, so nothing is ever noted. (A view, whose limit is the length,
+\ may note one too; nothing publishes a view.)
+: lf-slot-number ( slot -- d ) lf-env /lf-env + - /lf-slot / ;
+: lf-slot-below? ( slot -- flag )
+  lf-env if lf-slot-number 0 lf-env-cand lf-cand-decl @ within else drop false then ;
+: lf-slot-early ( slot -- ) lf-slot-below? if true lf-env-cand lf-cand-early ! then ;
+: lf-env-early? ( -- flag ) lf-env-cand lf-cand-early @ 0<> ;
+: lf-slot-final? ( slot -- flag )
+  dup lf-slot-state @ lf-state-final = dup if nip exit then swap lf-slot-early ;
 : lf-slot-outcome@ ( slot -- outcome ) lf-slot-outcome @ outcome-sane ;
 : lf-slot-accepted? ( slot -- flag ) dup lf-slot-final? swap lf-slot-outcome@ ok? and ;
 : lf-slot-open? ( slot -- flag ) lf-slot-final? 0= ;
