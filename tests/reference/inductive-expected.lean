@@ -844,7 +844,32 @@ def reductions : List Red := [
     lean := "accepted", leanforth := "accepted", rule := "L4", task := "5.2.3" },
   { id := "lit.string-expansion-wrong", type := "\"ab\" = String.ofList ['a', 'c']",
     value := "Eq.refl \"ab\"",
-    lean := "declTypeMismatch", leanforth := "rejected", rule := "L4", task := "5.2.3" }
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "L4", task := "5.2.3" },
+  -- The string part of task 5.2.3: the empty literal, characters of two and four bytes,
+  -- a literal reached by whnf, two literals apart (quick_is_def_eq), a projection of a
+  -- literal (reduce_proj_core), a literal major premise right and wrong (inductive.h),
+  -- and decide on two literals.
+  { id := "lit.string-empty", type := "\"\" = String.ofList []", value := "Eq.refl \"\"",
+    lean := "accepted", leanforth := "accepted", rule := "L4", task := "5.2.3" },
+  { id := "lit.string-non-ascii", type := "\"é😀\" = String.ofList ['é', '😀']",
+    value := "Eq.refl \"é😀\"",
+    lean := "accepted", leanforth := "accepted", rule := "L4", task := "5.2.3" },
+  { id := "lit.string-after-whnf",
+    type := "(fun s : String => s) \"ab\" = String.ofList ['a', 'b']", value := "Eq.refl \"ab\"",
+    lean := "accepted", leanforth := "accepted", rule := "L4", task := "5.2.3" },
+  { id := "lit.string-literals-apart", type := "\"ab\" = \"ac\"", value := "Eq.refl \"ab\"",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "L4", task := "5.2.3" },
+  { id := "lit.string-projected", type := "\"é\".utf8ByteSize = 2", value := "Eq.refl 2",
+    lean := "accepted", leanforth := "accepted", rule := "L4", task := "5.2.3" },
+  { id := "lit.string-major",
+    type := "@String.rec (fun _ => Nat) (fun b _ => b.size) \"ab\" = 2", value := "Eq.refl 2",
+    lean := "accepted", leanforth := "accepted", rule := "L2", task := "5.2.3" },
+  { id := "lit.string-major-wrong",
+    type := "@String.rec (fun _ => Nat) (fun b _ => b.size) \"ab\" = 3", value := "Eq.refl 3",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "L2", task := "5.2.3" },
+  { id := "lit.string-decide", type := "\"ab\" ≠ \"ac\"",
+    value := "of_decide_eq_true (p := \"ab\" ≠ \"ac\") (Eq.refl true)",
+    lean := "accepted", leanforth := "accepted", rule := "L4", task := "5.2.3" }
 ]
 
 /-! ## Lean's replay of an exported block -/
@@ -1570,6 +1595,73 @@ def axiomChains : List Chain := [
   { id := "postulate.sound-own-quot-names",
     decls := [eqDecl, userQuot, userQuotMk, soundDecl],
     lean := "accepted", leanforth := "accepted", rule := "A1", task := "5.3.1" }
+]
+
+/-! ### String literals against an opaque `String.ofList` (task 5.2.3, strings)
+
+With `String.ofList` an axiom, lazy delta cannot unfold it, so a comparison of a string
+literal with `String.ofList x` reaches `try_string_lit_expansion` (type_checker.cpp
+1104-1117), in either order; in Lean's `Init` it is a definition, which lazy delta
+unfolds first. `Char`, `Char.ofNat` and `String` are axioms, `List` Lean's inductive. -/
+def charC : Expr := mkConst `Char
+def stringC : Expr := mkConst `String
+def listOf (u : Level) (α : Expr) : Expr := .app (mkConst `List [u]) α
+def listDecl : Declaration :=
+  let ty : Expr := .sort (.succ lu)
+  .inductDecl [`u] 1 [⟨`List, foralls [(`α, ty)] ty,
+    [⟨`List.nil, foralls [(`α, ty)] (listOf lu (v `α))⟩,
+     ⟨`List.cons, foralls [(`α, ty), (`head, v `α), (`tail, listOf lu (v `α))]
+       (listOf lu (v `α))⟩]⟩] false
+/-- `String.ofList` of the characters with these code points, as Lean's
+`string_lit_to_constructor` builds it. -/
+def charList : List Nat → Expr
+  | [] => .app (mkConst `List.nil [0]) charC
+  | c :: cs => mkAppN (mkConst `List.cons [0]) #[charC, .app (mkConst `Char.ofNat) (lit c),
+      charList cs]
+def ofListOf (cs : List Nat) : Expr := .app (mkConst `String.ofList) (charList cs)
+def stringDecls : List Declaration :=
+  [natDecl, eqDecl, axiomD `Char (.sort 1), axiomD `Char.ofNat (.forallE `n nat charC .default),
+   listDecl, axiomD `String (.sort 1),
+   axiomD `String.ofList (.forallE `l (listOf 0 charC) stringC .default)]
+/-- `a = b : String`, by `Eq.refl a`. -/
+def stringEq (n : Name) (a b : Expr) : Declaration :=
+  .thmDecl { name := n, levelParams := [], type := eqC 1 stringC a b, value := reflC 1 stringC a }
+def abLit : Expr := .lit (.strVal "ab")
+/-- A `String` of two constructors, no structure, and `String.ofList` a definition of
+the first: a recursor on a literal reduces only through the literal's constructor form
+(inductive.h 96-97), never by structure eta. -/
+def stringIndDecl : Declaration :=
+  .inductDecl [] 0 [⟨`String, .sort 1,
+    [⟨`String.mkA, .forallE `data (listOf 0 charC) stringC .default⟩, ⟨`String.mkB, stringC⟩]⟩]
+    false
+def ofListDef : Declaration :=
+  .defnDecl { name := `String.ofList, levelParams := [],
+              type := .forallE `l (listOf 0 charC) stringC .default,
+              value := .lam `l (listOf 0 charC) (.app (mkConst `String.mkA) (.bvar 0)) .default,
+              hints := .regular 1, safety := .safe }
+def stringIndDecls : List Declaration :=
+  [natDecl, eqDecl, axiomD `Char (.sort 1), axiomD `Char.ofNat (.forallE `n nat charC .default),
+   listDecl, stringIndDecl, ofListDef]
+/-- `String.rec (fun _ => Nat) (fun _ => 1) 2 "ab" = k`, by `Eq.refl k`. -/
+def recOnAb (k : Nat) : Declaration :=
+  let onA := Expr.lam `data (listOf 0 charC) (lit 1) .default
+  let r := mkAppN (mkConst `String.rec [1]) #[.lam `s stringC nat .default, onA, lit 2, abLit]
+  .thmDecl { name := `IE.strRec, levelParams := [], type := eqC 1 nat r (lit k),
+             value := reflC 1 nat (lit k) }
+def stringChains : List Chain := [
+  { id := "primitive.string-opaque-expansion",
+    decls := stringDecls ++ [stringEq `IE.strAb abLit (ofListOf [97, 98])],
+    lean := "accepted", leanforth := "accepted", rule := "L4 L5", task := "5.2.3" },
+  { id := "primitive.string-opaque-expansion-reversed",
+    decls := stringDecls ++ [stringEq `IE.strBa (ofListOf [97, 98]) abLit],
+    lean := "accepted", leanforth := "accepted", rule := "L4 L5", task := "5.2.3" },
+  { id := "primitive.string-opaque-expansion-wrong",
+    decls := stringDecls ++ [stringEq `IE.strAc abLit (ofListOf [97, 99])],
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "L4 L5", task := "5.2.3" },
+  { id := "primitive.string-major-two-constructors", decls := stringIndDecls ++ [recOnAb 1],
+    lean := "accepted", leanforth := "accepted", rule := "L2 L5", task := "5.2.3" },
+  { id := "primitive.string-major-two-constructors-wrong", decls := stringIndDecls ++ [recOnAb 2],
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "L2 L5", task := "5.2.3" }
 ]
 
 /-! ### Quotient records replayed (ADR 0015 Q1)
@@ -2605,7 +2697,7 @@ run_cmd do
   row twice.id got twice.leanforth twice.rule twice.task ""
   -- 5. Primitive names and quotient initialisation, from an empty environment.
   let empty := (← mkEmptyEnvironment).toKernelEnv
-  for c in chains ++ k7Chains ++ axiomChains do
+  for c in chains ++ k7Chains ++ axiomChains ++ stringChains do
     let got := verdict (addAll empty c.decls)
     unless got == c.lean do throwError "{c.id}: Lean's verdict is {got}, expected {c.lean}"
     row c.id got c.leanforth c.rule c.task ""
@@ -2673,7 +2765,7 @@ run_cmd do
   for c in onBase do
     writeSegments base baseRecs c.id (chainSegments add base base c.decls)
   writeSegments base baseRecs twice.id (chainSegments add base base [twiceDecl, twiceDecl])
-  for c in chains ++ k7Chains ++ axiomChains do
+  for c in chains ++ k7Chains ++ axiomChains ++ stringChains do
     writeSegments empty {} c.id (chainSegments add base empty c.decls)
   writeCase env0 (← recursorsOf env0) forgedId (forgedCs.foldl add env0)
     (forgedCs.map (·.name)) [`Nat.add]

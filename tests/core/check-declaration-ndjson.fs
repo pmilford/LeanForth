@@ -131,8 +131,12 @@ T{ s" tests/core/check-declaration-cases/composition-wrong-argument.ndjson" fed-
   -> outcome-rejected lf-diag-argument-apart 7 }T
 T{ s" tests/core/check-declaration-cases/composition-postulate.ndjson" fed-case
   -> outcome-ok 0 lf-step-done }T
-T{ s" tests/core/check-declaration-cases/composition-literal.ndjson" fed-case
-  -> outcome-unsupported lf-diag-unsupported-form 1 }T
+\ The proof "3", a string literal, typed String (plan task 5.2.3): the
+\ file declares no String, so pinned Lean 4.35.0's kernel rejects it
+\ (unknown constant 'String'), as here; the first importer (case-file
+\ above) still stages the literal as an unsupported form.
+T{ s" tests/core/check-declaration-cases/composition-literal.ndjson" fed-case drop
+  -> outcome-rejected lf-diag-unknown-constant }T
 T{ s" tests/core/check-declaration-cases/composition-loose.ndjson" fed-case
   -> outcome-invalid lf-diag-out-of-scope 1 }T
 \ A let (plan task 4.2.3), def withLet : Sort 1 := let x : Sort 1 :=

@@ -171,7 +171,9 @@ cli-no-manifest
 T{ wrong cli-check outcome-rejected tally outcome-ok tally -> 1 1 0 }T
 \ An axiom (plan task 5.3.1): accepted as Lean accepts it, NOT PROVED.
 T{ postulate cli-check outcome-ok tally cli-not-proved @ -> 0 1 1 }T
-T{ with-literal cli-check outcome-unsupported tally -> 2 1 }T
+\ A proof that is a string literal, typed String, which the file does not
+\ declare: rejected, as pinned Lean's kernel rejects it (plan task 5.2.3).
+T{ with-literal cli-check outcome-rejected tally -> 1 1 }T
 \ Every record kind (tests/core/reexport/kinds.lean): 89 accepted, among
 \ them inductive blocks, Nat and List (plan task 5.2.1b), projections
 \ (plan task 5.2.2), literals (plan task 5.2.3), axioms, opaque

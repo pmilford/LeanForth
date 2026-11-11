@@ -343,6 +343,18 @@ T{ s" lit.pow-direct" used -> outcome-ok 0 }T
 T{ s" lit.pow-direct-wrong" used -> outcome-rejected lf-diag-value-apart }T
 T{ s" lit.pow-count-too-big" used drop -> outcome-rejected }T
 T{ s" lit.pow-count-limit" used -> outcome-ok 0 }T
+\ String literals (task 5.2.3, strings): with String.ofList an axiom, a
+\ literal against String.ofList of its characters is decided by
+\ try_string_lit_expansion (step 13), either way round; a wrong character
+\ rejected.
+T{ s" primitive.string-opaque-expansion" used -> outcome-ok 0 }T
+T{ s" primitive.string-opaque-expansion-reversed" used -> outcome-ok 0 }T
+T{ s" primitive.string-opaque-expansion-wrong" used -> outcome-rejected lf-diag-value-apart }T
+\ A recursor on a literal of a String with two constructors (no structure
+\ eta): iota through the literal's constructor form (L2), right and wrong.
+T{ s" primitive.string-major-two-constructors" used -> outcome-ok 0 }T
+T{ s" primitive.string-major-two-constructors-wrong" used
+   -> outcome-rejected lf-diag-value-apart }T
 \ Review rvCONV B1: whnf's reduce_nat computes under a variable, as Lean's
 \ (no free-variable test: type_checker.cpp 672-703, 732): 0 ^ 2^32 and
 \ 2 <<< 2^32 refused, 0 ^ 4 computed. With a Nat.add that gives Nat.zero,

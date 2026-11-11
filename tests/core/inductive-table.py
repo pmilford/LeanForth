@@ -60,11 +60,6 @@ PENDING = {
         " recursor's rules)"),
     "after.list-left-out-then-lookup-during-param-block": ("unknown",
         "as after.recursor-left-out-then-lookup-during-block. Closed by the same follow-up"),
-    "lit.string-expansion": ("unsupported",
-        "a string literal (U2): not needed by Nat.add_zero's closure, so left out of task"
-        " 5.2.3. Closed by a string-literal follow-up of task 5.2.3 (L4)"),
-    "lit.string-expansion-wrong": ("unsupported",
-        "as lit.string-expansion. Closed by the same follow-up"),
     "after.redex-type-left-out-then-use-rec": ("unknown",
         "IE.U2's type is a Sort only after whnf, so its block left no recipe of the"
         " generated recursor (ADR 0015 decision 12): a use of IE.U2.rec is unknown"

@@ -501,6 +501,45 @@ route is tried, so LeanForth keeps them.
   exported records and closures equal pinned ones), and otherwise answers
   *unsupported* for every declaration whose check meets one of them.
 
+**String literals implemented (plan task 5.2.3, its string part; 2026-11-10,
+experimental, [kernel][import] gate open).** The feed stages a `strVal` as a
+leaf of its UTF-8 bytes (`src/core/string-literals.fs`, tag 13; bytes that are
+not UTF-8 are *invalid*; no length limit, the bytes in a growable slab of the
+context). Its type is the constant `String` (`infer_lit`); `whnf_core` and
+`whnf` keep it (476, 710); `quick_is_def_eq` answers no for two literals that
+are not `==` (821-822), also a string against a natural-number literal.
+`string_lit_to_constructor` (`inductive.cpp` 1368-1380) is ported in
+`src/kernel/string-literals.fs`: `String.ofList` of `List.cons.{0} Char
+(Char.ofNat c)` over the code points, ending in `List.nil.{0} Char`, built
+last character first, the names by name only as L5 says Lean does (owner rule:
+Lean's verdict by default); it is made where a rule needs it, four nodes and one
+unit of fuel a character, so a long literal is a resource (*exhausted* or
+*full*), never a verdict. Its three callers, each followed by `whnf` as in
+Lean: `reduce_proj_core` (421-422) and `inductive_reduce_rec` (`inductive.h`
+96-97, where structure eta is then not tried) in `src/kernel/iota.fs`, and
+`try_string_lit_expansion` (1104-1117) as step 13 of `is_def_eq_core`
+(1200-1201), tried with `tn, sn` and then `sn, tn`, through the hook
+`lf-dq-string-step` of `defeq.fs`. In Lean's `Init` `String.ofList` is a
+definition, so lazy delta unfolds it before step 13 and structure eta (step 12)
+decides most comparisons, projecting the literal; step 13 itself decides where
+`String.ofList` does not unfold (rows `primitive.string-opaque-expansion`,
+`-reversed`, `-wrong`: `String.ofList` an axiom). The printer writes a literal as Lean's
+`String.quote` does (a character `lib/text-rule.fs` bans as `\uHHHH` when below
+U+10000) in plain and LaTeX modes; the Forth form has no word for one yet
+(`str#`, a follow-up of this task), so such a declaration is not written.
+Evidence: rows `lit.string-*` (ten, among them a projected literal, a literal
+major premise right and wrong, two literals apart, `""`, `"é😀"` and `decide`)
+and five `primitive.string-*` rows (step 13 in both orders with an opaque
+`String.ofList`; a recursor on a literal of a two-constructor `String`, where
+structure eta cannot stand in for the expansion) give Lean's verdicts; in the
+first 1,000,000 lines of `Init`'s export the 126 string-literal refusals are
+gone (9,202 declarations: 31 more accepted, 50 more unknown, 81 fewer
+unsupported, none rejected; of the new unknown ones, one meets a projection
+leaf alone, task 5.2.2's projection steps, and 49 an undecided dependency);
+`"ab".length = 2` by `rfl` or `decide` is accepted by Lean
+but unsupported in LeanForth because `String.length`'s closure holds
+`Lean.Syntax` (through an `autoParam`), a nested block of task 5.2.5.
+
 ## 8. The axiom allowlist, as far as this record needs it
 
 Quotients bring `Quot.sound`; the first target needs no axiom (§11). The
