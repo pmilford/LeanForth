@@ -671,7 +671,8 @@ defer lf-minfer-proj ( leaf e frames -- ... frames next )
 \ marked as inner while it is entered (lf-minfer-inner, which the caches
 \ read, kernel/caches.fs), and its own visit takes the mark off.
 : lf-minfer-inner ( -- addr ) lf-minfer-job lf-ijob-inner ;
-: lf-minfer-pi-node? ( node -- flag ) lf-minfer-read if nip nip lf-tag-pi = else false then ;
+: lf-minfer-pi-node? ( node -- flag )
+  lf-minfer-read if nip nip lf-tag-pi = else false then ;
 : lf-minfer-pi-inner ( body -- body ) dup lf-minfer-pi-node? lf-minfer-inner ! ;
 : lf-minfer-pi-domain ( D status frames -- ... frames next )
   >r r@ frame-restore r@ frame-restore 2swap lf-minfer-bound

@@ -7286,16 +7286,16 @@ reason = "S3: a child's image is read one place past it in the sorted list"
 [[fault]]
 id = "s6a-memo-no-offset"
 file = "src/kernel/replace-memo.fs"
-old = '''  r@ lf-rmemo-key ! r@ lf-rmemo-key cell+ ! r@ lf-rmemo-stamp @ r> lf-rmemo-key 2 cells + !'''
-new = '''  r@ lf-rmemo-key ! drop 0 r@ lf-rmemo-key cell+ ! r@ lf-rmemo-stamp @ r> lf-rmemo-key 2 cells + !'''
+old = ''': lf-rmemo-place ( offset memo -- ) dup lf-rmemo-stamp @ rot rot lf-rmemo-key cell+ 2! ;'''
+new = ''': lf-rmemo-place ( offset memo -- ) nip 0 swap dup lf-rmemo-stamp @ rot rot lf-rmemo-key cell+ 2! ;'''
 test = "$GFORTH tests/core/mixed-instantiate.fs"
 reason = "6.5.5: the memo keyed without the offset gives a node met under a binder the result of its visit outside it"
 
 [[fault]]
 id = "s6a-memo-no-stamp"
 file = "src/kernel/replace-memo.fs"
-old = '''  r@ lf-rmemo-key ! r@ lf-rmemo-key cell+ ! r@ lf-rmemo-stamp @ r> lf-rmemo-key 2 cells + !'''
-new = '''  r@ lf-rmemo-key ! r@ lf-rmemo-key cell+ ! 0 r> lf-rmemo-key 2 cells + !'''
+old = ''': lf-rmemo-place ( offset memo -- ) dup lf-rmemo-stamp @ rot rot lf-rmemo-key cell+ 2! ;'''
+new = ''': lf-rmemo-place ( offset memo -- ) 0 rot rot lf-rmemo-key cell+ 2! ;'''
 test = "$GFORTH tests/core/mixed-instantiate.fs"
 reason = "6.5.5: the memo keyed without the call's stamp gives a closing under one scope the results kept under another"
 

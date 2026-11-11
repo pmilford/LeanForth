@@ -89,8 +89,9 @@ end-structure
 : lf-minst-known? ( node frames -- result true | false )
   frame-context @ lf-minst-memo lf-rmemo@ ;
 : lf-minst-keep ( result node frames -- ) frame-context @ lf-minst-memo lf-rmemo! ;
-: lf-minst-update ( r1 node r2 -- result outcome )
-  over >r lf-replace-update dup ok? if over r@ lf-minst-frames lf-minst-keep then r> drop ;
+: lf-minst-kept ( result outcome node -- result outcome )
+  over ok? if 2 pick swap lf-minst-frames lf-minst-keep else drop then ;
+: lf-minst-update ( r1 node r2 -- result outcome ) over >r lf-replace-update r> lf-minst-kept ;
 : lf-minst-updated ( r2 outcome frames -- result outcome frames 0 )
   ['] lf-minst-update lf-rebuild-joined ;
 : lf-minst-second ( r1 outcome frames -- second frames next | -1 outcome frames 0 )

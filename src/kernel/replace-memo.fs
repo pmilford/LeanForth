@@ -86,9 +86,10 @@ create lf-rmemo-hooks /htab-hooks allot
 : lf-rmemo-release ( memo -- )
   dup lf-rmemo-table htab-free lf-rmemo-entries slab-free ;
 : lf-rmemo-small? ( memo -- flag ) lf-rmemo-table htab-slots lf-rmemo-small <= ;
+: lf-rmemo-clear ( memo -- ) dup lf-rmemo-table htab-clear lf-rmemo-entries slab-clear ;
 : lf-rmemo-empty ( memo -- )
   dup lf-rmemo-live? 0= if drop exit then
-  dup lf-rmemo-small? if dup lf-rmemo-table htab-clear lf-rmemo-entries slab-clear exit then
+  dup lf-rmemo-small? if lf-rmemo-clear exit then
   dup lf-rmemo-release lf-rmemo-make ;
 
 \ A call. Its entries are those from the base on.
@@ -115,10 +116,10 @@ create lf-rmemo-hooks /htab-hooks allot
 
 \ Finding. The key: the node's identity (a node without one has no
 \ entry), the offset and the call's stamp.
+: lf-rmemo-place ( offset memo -- ) dup lf-rmemo-stamp @ rot rot lf-rmemo-key cell+ 2! ;
 : lf-rmemo-key! ( node offset memo -- flag )
   >r swap lf-term-identity 0= if drop r> drop false exit then
-  r@ lf-rmemo-key ! r@ lf-rmemo-key cell+ ! r@ lf-rmemo-stamp @ r> lf-rmemo-key 2 cells + !
-  true ;
+  r@ lf-rmemo-key ! r> lf-rmemo-place true ;
 : lf-rmemo-find ( memo -- n true | i false )
   dup >r lf-rmemo-key dup lf-rment-hash r> lf-rmemo-table htab-find ;
 \ An entry's result while it has the identity kept with it.

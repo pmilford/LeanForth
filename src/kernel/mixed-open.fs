@@ -232,9 +232,10 @@ end-structure
   over lf-data-loose < if drop false true exit then
   lf-data-fvar? if false else true true then ;
 : lf-open-abs-word ( data -- flag true ) lf-data-fvar? 0= true ;
+: lf-open-mode-word ( data frames -- flag true | false )
+  dup lf-open-abstract? if drop lf-open-abs-word else frame-context @ lf-open-inst-word then ;
 : lf-open-word ( node frames -- flag true | false )
-  swap lf-term-data@ 0= if drop false exit then
-  swap dup lf-open-abstract? if drop lf-open-abs-word else frame-context @ lf-open-inst-word then ;
+  swap lf-term-data@ 0= if drop false exit then swap lf-open-mode-word ;
 defer lf-open-unchanged? ( node frames -- flag )
 :noname ( node frames -- flag ) 2drop false ; is lf-open-unchanged?
 : lf-open-skip? ( node frames -- flag )
