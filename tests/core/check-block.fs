@@ -636,6 +636,23 @@ T{ ' all-unsafe 4 block-verdict -> outcome-rejected lf-diag-skipped lf-safety-un
   blocks staged ok? must all-unsafe fuel checked
   4 lf-env-skipped? 5 lf-env-skipped? 6 lf-env-skipped? 7 lf-env-skipped? finish ;
 T{ members-skipped -> true true true false }T
+\ Two constructors of one name in an unsafe block (review rvUNNI B1):
+\ Either's inr named inl, in its ctors list too. lean4export's parser
+\ refuses the file, so the block is rejected as already declared (the
+\ name, inl's declaration), never skipped, also with only some members
+\ unsafe; safe, C4 rejects it at step 9.
+: either-unsafe ( -- ) 14 10 do lf-safety-unsafe i lf-input-decl lf-idecl-safety ! loop ;
+: inr-named-inl ( -- )
+  11 lf-input-name dup 12 lf-input-decl lf-idecl-name !
+  10 data lf-ity-ctors@ drop cell+ ! ;
+: either-twice ( -- ) either-unsafe inr-named-inl ;
+T{ ' either-twice 10 block-verdict -> outcome-rejected lf-diag-already-declared 11 }T
+: either-twice-skipped? ( -- flag )
+  blocks staged ok? must either-twice fuel checked 12 lf-env-skipped? finish ;
+T{ either-twice-skipped? -> false }T
+: inr-unsafe-twice ( -- ) lf-safety-unsafe 12 lf-input-decl lf-idecl-safety ! inr-named-inl ;
+T{ ' inr-unsafe-twice 10 block-verdict -> outcome-rejected lf-diag-already-declared 11 }T
+T{ ' inr-named-inl 10 block-verdict drop -> outcome-rejected lf-diag-duplicate-ctor }T
 T{ s" mutual.even-odd" used -> outcome-ok 0 }T
 : a-variable ( -- node ) 0 begin dup lf-term-tag@ lf-tag-bvar <> while 1+ repeat ;
 : loose ( -- ) a-variable 6 0 rhs ! ;

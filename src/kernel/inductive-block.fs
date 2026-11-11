@@ -495,13 +495,34 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 \ never writes, stays unsupported (diagnostic 42): replay would add the
 \ block when one type is safe, compare only its safe members, and refuse
 \ a safe constructor or recursor of a skipped type (task 5.2.7, part b).
+\ Either way, two constructors of one name are rejected first: B0 leaves
+\ them to C4 (step 9), which such a block never reaches, and
+\ lean4export's parser refuses the file, as it refuses any name given
+\ twice (Parse.lean 78-80; review rvUNNI B1). Diagnostic: already
+\ declared, the later constructor's name and the earlier's declaration.
 : lf-ind-safe-at? ( k -- flag ) lf-ind-member lf-idecl-safety @ lf-safety-safe = ;
 : lf-ind-safe? ( -- flag ) true lf-ind-members 0 ?do i lf-ind-safe-at? and loop ;
 : lf-ind-any-safe? ( -- flag ) false lf-ind-members 0 ?do i lf-ind-safe-at? or loop ;
 : lf-ind-mixed ( -- outcome )
   lf-kind-inductive lf-safety-unsafe lf-ind-site lf-diag-unsupported-kind lf-diag-note
   outcome-unsupported ;
+\ Constructor j's member number and name, before any translation.
+: lf-ind-ctor-k ( j -- k ) lf-ind-in-types@ + ;
+: lf-ind-ctor-named ( j -- name ) lf-ind-ctor-k lf-ind-name-at ;
+\ The first constructor before j with j's name, or -1.
+: lf-ind-twin ( j -- j'|-1 )
+  dup lf-ind-ctor-named swap 0 ?do
+    dup i lf-ind-ctor-named lf-name-same? if drop i unloop exit then
+  loop drop -1 ;
+: lf-ind-given-twice ( j j' -- outcome )
+  lf-ind-ctor-k lf-ind-first@ + swap lf-ind-ctor-named swap lf-ind-site
+  lf-diag-already-declared lf-diag-note outcome-rejected ;
+: lf-ind-ctors-once ( -- outcome )
+  lf-ind-in-ctors@ 0 ?do
+    i lf-ind-twin dup 0< 0= if i swap lf-ind-given-twice unloop exit then drop
+  loop outcome-ok ;
 : lf-ind-unsafe ( -- outcome )
+  lf-ind-ctors-once dup ok? 0= if exit then drop
   lf-ind-any-safe? if lf-ind-mixed exit then
   lf-kind-inductive lf-safety-unsafe lf-ind-members lf-env-skip ;
 : lf-ind-audit ( -- outcome )
