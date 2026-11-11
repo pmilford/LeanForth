@@ -691,7 +691,8 @@ variable cli-info#
 \ --snapshot LAYER a layer loaded on it (kernel/env-layers.fs).
 : cli-layers ( -- ) cli-state opt-layers @ cli-state opt-layers# @ ck-layers! ;
 : cli-snapshot-run ( -- )
-  cli-layers cli-state opt-snapshot 2@ cli-asked-fuel ck-snapshot-load ok? if ck-check then
+  cli-layers cli-state opt-snapshot 2@ cli-asked-fuel ck-snapshot-load
+  ok? if ck-check then
   cli-fed-tally cli-fed-report ;
 \ check --snapshot FILE EXPORT: the export read on into the snapshot's
 \ tier, what is the snapshot's taken from it, the rest checked (plan step
@@ -780,7 +781,8 @@ variable cli-info#
   cli-snap-both? if
   s" --snapshot and --save-snapshot go together only with an export (a layer)"
     cli-misuse-snap exit then
-  cli-save? cli-snapshot? and if cli-state opt-save 2@ cli-state opt-snapshot 2@ compare 0=
+  cli-save? cli-snapshot? and if
+    cli-state opt-save 2@ cli-state opt-snapshot 2@ compare 0=
     if s" FILE must not be the snapshot read" cli-misuse-snap exit then then
   cli-save? cli-state opt-layers# @ 0<> and
   if s" --save-snapshot writes a layer on one snapshot only" cli-misuse-snap exit then 0 ;
@@ -1154,8 +1156,8 @@ end-structure
 : cli-layer+ ( c-addr u -- )
   cli-state opt-layers# @ 1+ cli-layers-room if drop c" no room for the layers" cli-wrong
     exit then
-  dup cli-state opt-layers ! cli-state opt-layers# @ 2* cells + 2! 1 cli-state opt-layers# +!
-  ;
+  dup cli-state opt-layers ! cli-state opt-layers# @ 2* cells + 2!
+  1 cli-state opt-layers# +! ;
 : cli-snapshot-option ( c-addr u -- )
   cli-value if cli-snapshot? if cli-layer+ else cli-snapshot! then then ;
 : cli-manifest-option ( c-addr u -- ) 2drop cli-no-manifest ;

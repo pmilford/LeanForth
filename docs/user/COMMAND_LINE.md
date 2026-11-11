@@ -97,7 +97,7 @@ theorem composition {A B C : Prop} (f : A → B) (g : B → C) : A → C :=
 | Command | What it does |
 | --- | --- |
 | `check [--no-manifest] [--fuel N] [--resources] [--json] [--fast] [--strict-axioms] [--any-lean-version] [--jobs N] [--save-snapshot FILE] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text; with `--jobs N`, check with [N workers at once](#parallel-checking---jobs); with `--save-snapshot FILE`, also write the checked environment to FILE ([snapshots](#snapshots---save-snapshot-and---snapshot)) |
-| `check --snapshot FILE [--fuel N] [--resources] [--json] [--fast] [--strict-axioms] [--any-lean-version]` | Report the verdicts a [snapshot](#snapshots---save-snapshot-and---snapshot) holds, each labelled as taken from it and not re-checked: for development and research only |
+| `check --snapshot FILE [--snapshot LAYER ...] [--fuel N] [--resources] [--json] [--fast] [--strict-axioms] [--any-lean-version] [--no-manifest] [--jobs N] [--save-snapshot LAYER] [EXPORT]` | Report the verdicts a [snapshot](#snapshots---save-snapshot-and---snapshot) and its layers hold, each labelled as taken from it and not re-checked; with EXPORT, check it against them, taking what they vouch for and checking the rest, and with `--save-snapshot`, write what was checked as a layer: for development and research only |
 | `check [--no-manifest] [--fuel N] [--fast] [--strict-axioms] --record RECORD EXPORT` | Check a small export (read straight into the checker's stores) and also write its [run record](#run-records-and-replay) |
 | `replay [--no-manifest] [--fuel N] [--fast] EXPORT RECORD` | Check the export again and compare the new run record with RECORD; print the replay report |
 | `print [--no-manifest] [--fuel N] [--fast] [--detail] [--name NAME] [--latex] [--statement FORMS] [--any-lean-version] EXPORT`, or `print --lf [--no-manifest] [--fuel N] [--fast] [--any-lean-version] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration; `--lf` writes the whole export as one [LeanForth text](#writing-an-export-as-leanforth-text) |
@@ -162,8 +162,10 @@ Options:
 - `--save-snapshot FILE` (`check` only, not with `--record`) writes the
   run's checked environment to FILE after a run in which every declaration
   was decided; FILE must not be the export. `--snapshot FILE` (`check`
-  only, without an export, not with `--record` or `--save-snapshot`)
-  reports a snapshot's verdicts ([snapshots](#snapshots---save-snapshot-and---snapshot)).
+  only, not with `--record`) reports a snapshot's verdicts, a further
+  one loads a layer on it, and with an export checks the export against
+  them; `--save-snapshot` with one `--snapshot` and an export writes a
+  layer ([snapshots](#snapshots---save-snapshot-and---snapshot)).
 - `--detail` (`print` only) prints every step of the checker's log
   instead of the outline; `--name NAME` (`print` only) prints only the
   declaration named NAME.
@@ -747,12 +749,10 @@ snapshot is refused (nothing reported as checked) when it is damaged,
 altered or cut short (status 4, `error: invalid: the snapshot was
 refused: …` naming the section, and the record when there is one), when
 it was written by another verdict version (stale: check the export again)
-or format version or is a layered snapshot (status 2), or for other
+or format version or is a layer given without its base (status 2), or for other
 settings: `--fuel N` other than the snapshot's (by default its own
 fuel is used) or another axiom allowlist (status 4). A snapshot of an
-export read with `--any-lean-version` needs that option again.
-`--snapshot` with an export (a dependent export checked against a
-snapshot) is plan step SN4, not yet supported (status 4). Measured on
+export read with `--any-lean-version` needs that option again. Measured on
 all of `Init` (59,349 declarations, `gforth-fast`, a loaded machine): the
 file is 132.9 MB, writing it adds about 3 s to the run, and `check
 --snapshot` takes 10 s (4.9 s to read and check the file, 1.8 s to feed
@@ -761,15 +761,87 @@ peak of 0.69 GB, against 6 minutes to check it with four workers.
 
 With `--json`, a run of a snapshot prints report version 0.3
 ([`schemas/check-report-0.3.schema.json`](../../schemas/check-report-0.3.schema.json)):
-version 0.2's members, `export` null, `mode` `development`, a `snapshot`
+version 0.2's members, `export` null (the export's name when one is
+checked against the snapshot), `mode` `development`, a `snapshot`
 member (the file, its `sha256`, `formatVersion`, `verdictVersion`, the
 `export` it was written from with its SHA-256, bytes and lines, the
-`manifestSha256`, `base` null, and the `information` text of the build
-that wrote it), and on each declaration its `provenance`: `snapshot`
-(taken from it), `uses-snapshot` (checked in this run but resting on its
-results: dependent exports, step SN4) or `checked`. A refused snapshot is
-a read that failed with `phase` `snapshot`. Final runs keep writing
-version 0.2, unchanged.
+`manifestSha256`, `base` null, the `information` text of the build
+that wrote it, and `import`: null, or with an export the counts `taken`,
+`checked` and `otherContent`), and on each declaration its `provenance`:
+`snapshot` (taken from it), `uses-snapshot` (checked in this run but
+resting on its results) or `checked`. A refused snapshot is a read that
+failed with `phase` `snapshot` and lists no declaration. Final runs keep
+writing version 0.2, unchanged.
+
+#### A dependent export checked against a snapshot
+
+*Plan step SN4 (ADR 0020 D5); a [kernel] and [import] decision for the
+owner, not yet through its gate.* A library built on another -- a
+project on Mathlib, say -- is exported with every declaration it uses,
+its base's among them. Given a snapshot of the base, `check --snapshot
+FILE EXPORT` checks only what the snapshot cannot vouch for:
+
+```text
+leanforth check --save-snapshot two.lfsnap tests/cli/inductive.ndjson
+leanforth check --snapshot two.lfsnap tests/cli/dependent.ndjson
+```
+
+The export is read on into the snapshot's records, so that a record equal
+to one of the snapshot is the same number; then, before any check, each
+declaration is **taken** from the snapshot when one of the snapshot's
+declarations of its name has exactly its content (an inductive block
+only whole), a verdict that does not depend on memory (not *full* or
+*invalid*), and gives the same answer to every lookup its check made,
+each asked again here by the checker's own code over what was taken so
+far (a lookup that meets a declaration not taken is no match). Every
+other declaration is checked as in a final run (with `--jobs N` too), and
+labelled as resting on the snapshot when it uses a taken one. The
+verdicts, fuel and counts are those of a final check of the export (the
+tests compare both, field by field); only the labels differ:
+
+```text
+Two: accepted (experimental, not independently audited; from snapshot, not re-checked in this run); axioms: none
+...
+Eq: accepted (experimental, not independently audited); axioms: none
+Two.swap_swap: accepted (experimental, not independently audited; checked in this run, uses results from the snapshot); axioms: none
+...
+13 declarations: 13 accepted; 6 from the snapshot, 7 checked in this run
+...
+import: 7 checked in this run; 0 with the name of a declaration of the snapshot, not its content
+```
+
+A declaration whose check made names of its own beyond the export (the
+auxiliary types of a nested inductive block) is always checked again, as
+is everything whose lookups reach it. A snapshot refused before the
+export is read is reported as above; the export's own failures are
+reported as a final run reports them.
+
+#### Layered snapshots
+
+*ADR 0020 amendment 1, the owner's decision F5.* With `--snapshot BASE`,
+`--save-snapshot LAYER EXPORT` writes a **layer**: only what the run
+added to BASE -- the records the export added and the declarations
+checked in the run -- numbered on from BASE's, with BASE's identity (its
+header's SHA-256) in its header. Further `--snapshot` options load layers
+on the first, in order, with or without an export:
+
+```text
+leanforth check --snapshot two.lfsnap --save-snapshot dep.lfsnap tests/cli/dependent.ndjson
+leanforth check --snapshot two.lfsnap --save-snapshot sib.lfsnap tests/cli/sibling.ndjson
+leanforth check --snapshot two.lfsnap --snapshot dep.lfsnap --snapshot sib.lfsnap
+```
+
+Base and layer report what the run that wrote the layer reported, and
+two layers written on one base load together: a declaration both hold
+(here `Eq` and `rfl`) is loaded once when its content and verdicts agree.
+Refused (status 4, nothing listed): a layer written on another base
+(`base snapshot of the layer`), a declaration two loaded snapshots hold
+with other verdicts, and a name two of them declare with other content
+(`a name of two snapshots with other content`), as Lean refuses an import
+that declares a name twice; a layer given first is refused as `layer`
+(status 2). A layer is written on one snapshot only (`--save-snapshot`
+with several `--snapshot` options is refused, status 4), and FILE must not
+be the snapshot read.
 
 ## Printing a readable proof
 

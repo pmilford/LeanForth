@@ -287,7 +287,8 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
 \ The dependencies and lookups, each slot's in turn, slots numbered as
 \ written (snap-s): an answer's slot + 1 field.
 : answer-renum ( answer snap -- answer' )
-  over lf-look-slot+1 ?dup 0= if drop exit then 1- swap snap-s 1+ 4 lshift swap 15 and or ;
+  over lf-look-slot+1 ?dup 0= if drop exit then
+  1- swap snap-s 1+ 4 lshift swap 15 and or ;
 \ n slot numbers as little-endian fields at addr sorted ascending (a
 \ layer's are numbered again, so their order may change).
 : dep-sort ( addr n -- )
@@ -403,8 +404,8 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
   dup snap-fuel? 0= if outcome-invalid c" fuel" rot snap-refuse exit then
   dup snap-allowed? 0= if outcome-invalid c" axiom allowlist" rot snap-refuse exit then
   dup snap-expect @ if
-    dup snap-layer-of? 0= if outcome-invalid c" base snapshot of the layer" rot snap-refuse
-      exit then
+    dup snap-layer-of? 0= if
+      outcome-invalid c" base snapshot of the layer" rot snap-refuse exit then
   else dup snap-base? if outcome-unsupported c" layer" rot snap-refuse exit then then
   drop outcome-ok ;
 \ The table: the tier's ten sections (tier-read checks them) and these.
@@ -436,8 +437,9 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
 \ base; in a layer, the base's counts (snap-expect-firsts, 8 cells).
 : firsts-zero? ( snap -- flag ) false 29 si-firsts do over i swap id@ or loop nip 0= ;
 : firsts-same? ( snap -- flag )
-  true 8 0 do over si-firsts i + swap id@ 2 pick snap-expect-firsts @ i cells + @ = and loop
-  nip ;
+  true 8 0 do
+    over si-firsts i + swap id@ 2 pick snap-expect-firsts @ i cells + @ = and
+  loop nip ;
 : snap-checks ( snap -- outcome )
   dup snap-header dup ok? 0= if nip exit then drop
   dup snap-table? 0= if outcome-invalid c" section table" rot snap-refuse exit then
@@ -524,7 +526,8 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
   snap-head @ swap dup 7 and outcome-full u> 0= >r lf-look-slot+1 < 0= r> and ;
 : looks-ok? ( c snap -- flag )
   true rot 0 ?do
-    over dup snap-lk @ i + swap 2dup look-key over key-ok? >r look-answer 2 pick answer-ok?
+    over dup snap-lk @ i + swap 2dup look-key over key-ok? >r look-answer
+    2 pick answer-ok?
     r> and and
   loop nip ;
 : slot-lists? ( addr snap -- flag )
@@ -533,7 +536,8 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
 : slot-fields? ( addr snap -- flag )
   over sl-sane? >r 2dup fuel-ok? >r 2dup prov-ok? >r
   swap sl-site swap fld@ swap site-ok? r> r> r> and and and ;
-: slot-fine? ( addr snap -- flag ) 2dup slot-fields? if slot-lists? else 2drop false then ;
+: slot-fine? ( addr snap -- flag )
+  2dup slot-fields? if slot-lists? else 2drop false then ;
 \ The slot's place: its span's first slot, where its lists start.
 \ (A layer's slots are numbered on from its base's: snap-first.)
 : span-head! ( d snap -- )

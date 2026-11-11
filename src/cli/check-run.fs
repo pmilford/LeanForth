@@ -438,7 +438,8 @@ create ck-line ck-line-room 2 + allot
   ck-importing? 0= if ck-phase-begin then
   ck-staged ck-staging ck-phase-end ck-staging ck-fail ;
 \ After an import's feed: the input as the import pass reads it.
-: ck-import-input ( -- outcome ) ck-importing? if ck-import imp-input else outcome-ok then ;
+: ck-import-input ( -- outcome )
+  ck-importing? if ck-import imp-input else outcome-ok then ;
 : ck-fed-all ( -- outcome )
   ck-fed dup ok? if drop ck-import-input then dup ok? if ck-print! ck-workers then ;
 : ck-feed-phase ( -- outcome )
@@ -498,7 +499,8 @@ create ck-line ck-line-room 2 + allot
   dup ck-first-member ck-kept over ck-kept /ck-step move 0 swap ck-kept cks-fuel ! ;
 \ A declaration taken from a snapshot before the run (ck-import-pass): its
 \ slot is final, its facts the snapshot's.
-: ck-taken? ( d -- flag ) ck-importing? if ck-import imp-source 0< 0= else drop false then ;
+: ck-taken? ( d -- flag )
+  ck-importing? if ck-import imp-source 0< 0= else drop false then ;
 : ck-next ( d -- stop? )
   dup 1+ ck-state ck-stepped ! dup ck-taken? if drop false exit then
   dup lf-env-published? if ck-trailing false else ck-step then ;
@@ -616,14 +618,16 @@ create ck-line ck-line-room 2 + allot
 \ stopped before any check. True when the run goes on.
 : ck-import-facts ( -- )
   lf-input-count 0 ?do
-    i ck-import imp-source dup 0< if drop else i ck-kept snap-fact i ck-kept cks-fuel ! then
+    i ck-import imp-source dup 0< if drop else
+      i ck-kept snap-fact i ck-kept cks-fuel ! then
   loop ;
 : ck-import-refused ( outcome -- )
   c" a slot taken from it was published otherwise" ck-import imp-k @ ck-snap snap-note
   ck-snap-refused ;
 : ck-import-pass ( -- flag )
   ck-importing? 0= if true exit then
-  ck-import imp-pass dup ok? if drop ck-import-facts true else ck-import-refused false then ;
+  ck-import imp-pass dup ok? if drop ck-import-facts true exit then
+  ck-import-refused false ;
 : ck-run-all ( -- outcome )
   ck-import-pass if lf-input-count ck-steps-any ck-snap-after then ck-confirm ck-tally ;
 : ck-checking-run ( -- outcome )

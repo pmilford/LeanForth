@@ -142,7 +142,9 @@ variable imp-current
 \ The first number of each tier section 1-8 after S's (a layer's own
 \ records are numbered on from them).
 : keep-firsts ( imp -- )
-  8 0 do i 1+ over imp-stage @ tier-slab slab-count over imp-firsts i cells + ! loop drop ;
+  8 0 do
+    i 1+ over imp-stage @ tier-slab slab-count over imp-firsts i cells + !
+  loop drop ;
 : imp-keep ( stage imp -- outcome )
   dup /imp erase tuck imp-stage ! dup keep-firsts
   dup keep-copy dup ok? 0= if nip exit then drop
@@ -221,7 +223,9 @@ variable imp-current
   loop drop true ;
 \ Every saved lookup of d asked again, recorded in the candidate.
 : replay-all ( d -- flag )
-  saved-looks bounds ?do i snap@ look-key lf-env-replay 0= if false unloop exit then loop true ;
+  saved-looks bounds ?do
+    i snap@ look-key lf-env-replay 0= if false unloop exit then
+  loop true ;
 \ An answer of this run in S's terms: the slot it gives, taken from S's.
 : answer-taken ( answer imp -- answer' true | false )
   over lf-look-slot+1 ?dup 0= if drop true exit then
@@ -338,7 +342,8 @@ variable imp-current
 : llone ( k ie imp -- k' outcome )
   2 pick over lkept? if ldecl-add else 2drop then 1+ outcome-ok ;
 : lstep ( k ie imp -- k' outcome )
-  2dup e-kind dup block? if drop lblock exit then member-kind? if lmember else llone then ;
+  2dup e-kind dup block? if drop lblock exit then
+  member-kind? if lmember else llone then ;
 : layer-decls ( imp -- outcome )
   0 over e-count 0 ?do i 2 pick lstep dup ok? 0= if nip nip unloop exit then drop loop
   2drop outcome-ok ;
@@ -357,6 +362,7 @@ variable imp-current
 \ The layer's slots and declarations, as env-snapshot.fs's snap-layer-slots!
 \ and snap-layer-decls! take them.
 : imp-layer-slots ( imp -- n which renum ) imp-ln @ ['] imp-which ['] imp-renumber ;
-: imp-layer-decls ( imp -- decls n lines ) dup imp-ldecls @ over imp-ldn @ rot imp-llines @ ;
+: imp-layer-decls ( imp -- decls n lines )
+  dup imp-ldecls @ over imp-ldn @ rot imp-llines @ ;
 
 base !   \ the BASE this file was loaded with

@@ -156,7 +156,9 @@ end-structure
   if r@ lay-stage @ stage-find 0= if -1 then else drop -1 then r> drop ;
 : lay-older ( sd lay -- sd' ) lay-stage @ staged-prev@ 1- ;
 : lay-old-of ( sd lay -- sd' )
-  begin over 0< 0= 2 pick 2 pick lay-old @ < 0= and while dup >r lay-older r> repeat drop ;
+  begin over 0< 0= 2 pick 2 pick lay-old @ < 0= and while
+    dup >r lay-older r>
+  repeat drop ;
 \ The unit's first staged declaration around candidate sd.
 : lay-start ( sd decls -- sd' ) 1 > if 1- then ;
 : lay-match? ( i decls sd lay -- flag )
@@ -207,13 +209,16 @@ end-structure
 \ ---- The new slots appended to the base record: each slot record, its
 \ site, where its lists start, its dependencies and lookups numbered as
 \ loaded and sorted again.
-: lay-slot# ( s lay -- s' ) 2dup lay-sn @ u< if drop exit then tuck lay-sn @ - swap lay-map @ ly@ ;
+: lay-slot# ( s lay -- s' )
+  2dup lay-sn @ u< if drop exit then tuck lay-sn @ - swap lay-map @ ly@ ;
 : lay-key ( key lay -- key' )
   over lf-look-outside = if drop exit then
   over 4 rshift over lay-names @ u< if drop exit then
-  >r dup 15 and swap 4 rshift r> lay-ly ly-name if 4 lshift or else 2drop lf-look-outside then ;
+  >r dup 15 and swap 4 rshift r> lay-ly ly-name
+  if 4 lshift or else 2drop lf-look-outside then ;
 : lay-answer ( answer lay -- answer' )
-  over lf-look-slot+1 ?dup 0= if drop exit then 1- swap lay-slot# 1+ 4 lshift swap 15 and or ;
+  over lf-look-slot+1 ?dup 0= if drop exit then
+  1- swap lay-slot# 1+ 4 lshift swap 15 and or ;
 : entry@ ( addr k -- key answer ) 8 * + dup u32-le@ swap 4 + u32-le@ ;
 : entry! ( key answer addr k -- ) 8 * + tuck 4 + u32-le! u32-le! ;
 : look-sort ( addr n -- )
@@ -241,7 +246,8 @@ end-structure
   2 pick base-grow dup ok? 0= if nip exit then drop
   sl-deps over lay-adds u32s ss-deps 2 pick base-grow dup ok? 0= if nip exit then drop
   sl-looks over lay-adds 8 * ss-looks 2 pick base-grow dup ok? 0= if nip exit then drop
-  ss-sites over lay-snap snap-size ss-sites 2 pick base-grow dup ok? 0= if nip exit then drop
+  ss-sites over lay-snap snap-size ss-sites 2 pick base-grow
+  dup ok? 0= if nip exit then drop
   dup lay-cur @ swap starts-grow ;
 : lay-from ( j lay -- dk lk ) lay-snap snap-starts @ swap 2* cells + 2@ swap ;
 : lay-deps ( j s lay -- )
@@ -258,7 +264,8 @@ end-structure
     2 pick i + 2 pick lay-snap look-answer 2 pick lay-answer 4 pick i entry!
   loop nip rot tuck swap lay-base @ snap-lk +! look-sort ;
 : lay-site ( s lay -- )
-  tuck base-slot sl-site over fld@ ?dup if rot lay-site0 @ + sl-site rot fld! else 2drop then ;
+  tuck base-slot sl-site over fld@ ?dup
+  if rot lay-site0 @ + sl-site rot fld! else 2drop then ;
 : lay-append ( j lay -- )
   2dup lay-map @ ly@
   2 pick 2 pick lay-slot over 3 pick base-slot sl-fields# u32s move

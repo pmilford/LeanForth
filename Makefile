@@ -596,7 +596,9 @@ test-differential: reference-program-ir-run
 # and the outcomes reached per check step; then nine planted faults, each
 # in a temporary copy of the tree, must each make it fail. The lookup
 # lists, the I2 assertion and the snapshot's round trip on every pinned
-# export (tests/core/env-snapshot.fs, plan step SN3). Gforth and
+# export (tests/core/env-snapshot.fs, plan step SN3); the import pass of a
+# dependent export, in the I2 build, and a layer (tests/core/env-import.fs,
+# step SN4). Gforth and
 # Python 3 only.
 test-environment:
 	$(RUN) $(GFORTH) tests/lib/store-mark.fs
@@ -604,6 +606,7 @@ test-environment:
 	$(RUN) $(GFORTH) tests/core/environment-tasks.fs
 	$(RUN) $(GFORTH) tests/core/environment-tasks-serial.fs
 	$(RUN) $(GFORTH) tests/core/env-snapshot.fs
+	$(RUN) $(GFORTH) tests/core/env-import.fs
 	$(RUN) $(GFORTH) tests/core/check-declaration.fs
 	$(RUN) $(GFORTH) tests/core/check-declaration-ndjson.fs
 	$(RUN) $(GFORTH) tests/core/failure-paths.fs

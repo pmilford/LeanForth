@@ -560,6 +560,86 @@ GB. This corrects D7's assumption of 20-40 per declaration: Mathlib's
 dependencies and lookups take about 729,263 × (4 × 20 + 8 × 36) bytes,
 0.27 GB.
 
+## Amendment 2 (2026-11-11): step SN4, dependent exports and layers
+
+*Agent SN4; [kernel] (I1, I2: what a loaded snapshot vouches for) and
+[import] (continued staging, layers) review pending, and the owner's
+approval.*
+
+**The import pass** (`src/kernel/env-import.fs`; D5 as written, with
+these details). `check --snapshot S EXPORT` reads S's tier, keeps S's
+declarations aside, reads the export on into the tier (`stage-continue`),
+seals and feeds it; before any check one pass over the input in order
+takes from S every declaration for which I1 holds. I1.1 compares the
+staged records field by field but the chain and the mdata mark; a
+block's member only with its whole block and at the same place. I1.3
+asks every saved lookup again in the declaration's snapshot through
+`lf-env-replay` (`environment.fs`: the key's name and kind, at the
+check's own limit, at which every recorded query is made), records the
+answers as a check does and compares the list with S's, each answer's
+slot translated to S's numbering; the replay is no match when a query
+met a slot not final below the limit (`lf-env-early?`, which
+`lf-slot-final?` sets: the "lookup mode" of the plan), and every saved
+dependency must have been taken. A slot S published with the one before
+(a block's member) is taken only with that first, as its span; a member
+S checked alone only when its block's first member was taken here. A
+taken slot is published by the publisher's serial step with a check word
+that asks the lookups again (so the slot's list holds this run's
+answers), depends on the taken slots, and copies S's marks, fields and
+outcome with provenance *snapshot*; the publisher re-checks it as a
+check's. Keys of names beyond the input (scratch names, e.g. a nested
+block's auxiliary types) and another module's tests are never replayed,
+so those declarations and everything whose lookups reach them are always
+checked again (35 of the 107 declarations of `tests/cli/nested.ndjson`).
+The scheduler (`env-schedule.fs`) treats slots final before the run as
+done, so `--jobs` checks the rest.
+
+**Layers (F5).** A layer is written by `check --snapshot BASE
+--save-snapshot LAYER EXPORT` after a run whose slots are all final: the
+tier's records from BASE's counts on (identity fields 21-28 the counts,
+header fields 7 = 1 and 8-15 BASE's header SHA-256), the declarations not
+taken with their block records (chains numbered on from BASE's
+declarations), and their slots, numbered on from BASE's slots, every
+dependency and lookup answer numbered so (a taken slot as BASE's) and the
+dependencies sorted again. A layer on layers is not written (refused).
+Loading (`src/kernel/env-layers.fs`, `src/import/snapshot-layer.fs`):
+the base as before, then each layer opened as a layer of that base (its
+identity and counts compared), its records entered again by the tier's
+builders, each part first mapped to its number here (a list built for
+the kind its user says: a constant's levels, a declaration's parameters
+and kind data), so sibling layers share their equal records; its
+environment's sections checked as a base's (numbered on from the base's
+slots); then each of its declarations, a block whole, is the same as
+one loaded before (same content and outcome, axioms, warnings, recipe,
+shape and fuel: loaded once), refused as a clash (a loaded name, none of
+its content), or entered and its slot appended with its lists numbered
+as loaded and sorted again. The loaded snapshots then read as one base,
+for `--snapshot` alone and for the import pass.
+
+**Evidence** (`tests/cli/test_leanforth.py` classes `Imports`, `Layers`;
+`tests/mutants/faults.toml` entries `sn4-*`): both ways, the report of
+the export checked against the snapshot equals its fresh check field by
+field but for the labels, for (i) twelve exports against their own
+snapshots, with the declarations not taken exactly those the model of
+I1 predicts; (ii) a proof altered, (iii) a declaration moved after its
+user, (iv) a name reused with other content, (v) two equal declarations
+of one name, (vi) a block member changed, (vii) a slot saved full, and a
+crafted lookup that matches only when an undecided slot is ignored; the
+dependent fixtures (`tests/cli/dependent.lean`, `sibling.lean`, which
+`tests/cli/export-check.sh` rebuilds with pinned Lean) with `--jobs 3`.
+Layers: base and layer report what the layer's run reported; two
+sibling layers load together (15 declarations, `Eq` and `rfl` once);
+refused: a layer on another base, a layer first, a clash, a shared
+declaration with other verdicts. Thirteen planted faults are caught;
+one (a member published with its first taken alone) is equivalent to
+the first-member rule.
+
+**Open** (for the review): an imported slot's diagnostic is S's, so a
+slot number it names is S's; N2 queries record no slot (the outcome is
+compared, which decides the verdict); answers are compared exactly, so a
+declaration whose lookups reach a re-checked one is checked again even
+when that one's verdict did not change (sound, slower).
+
 ## Questions for the owner
 
 1. **Load speed against file size.** Rebuild the lookup tables when
