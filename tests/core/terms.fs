@@ -186,7 +186,7 @@ T{ 3 lf-term-bvar 3 lf-term-bvar 0 0 lf-term-app 0 0 lf-term-app -> 0 true 0 tru
 T{ 0 lf-term-identity 1 lf-term-identity lf-term-count @ -> term-serial 1- true term-serial true 2 }T
 T{ cons-mark lf-terms store-mark 4 lf-term-bvar 1 2 lf-term-lam -> outcome-ok 2 true 3 true }T
 T{ 1 2 lf-term-lam 4 lf-term-bvar lf-term-count @ -> 3 true 2 true 4 }T
-T{ cons-mark lf-term-rollback lf-term-count @ -> outcome-ok 2 }T
+T{ cons-mark lf-term-rollback lf-term-count @ lf-term-table htab-count -> outcome-ok 2 2 }T
 T{ 1 2 lf-term-lam 5 lf-term-bvar 4 lf-term-bvar 3 lf-term-bvar -> false 2 true 3 true 0 true }T
 T{ cons-mark lf-term-rollback lf-term-count @ 4 lf-term-bvar -> outcome-ok 2 2 true }T
 T{ false lf-term-sharing! 3 lf-term-bvar 0 0 lf-term-app true lf-term-sharing!
@@ -202,7 +202,15 @@ T{ 1 32 lshift lf-term-bvar  lf-tag-bvar -1 0 lf-term-add  lf-term-count @ -> fa
 T{ lf-diag@ nip -> 1 32 lshift u32-mask lf-diag-terms-full }T
 \ A reset empties the table with the store.
 lf-term-reset
-T{ 3 lf-term-bvar 3 lf-term-bvar -> 0 true 0 true }T
+T{ 3 lf-term-bvar 3 lf-term-bvar lf-term-table htab-count -> 0 true 0 true 1 }T
+\ Records equal only in their tag (or in their hash's slot) stay apart:
+\ 25 bound variables, then 25 applications of the first to each, all new
+\ and all found again.
+: bvars-apart? ( -- flag )
+  true 25 0 do i 100 + lf-term-bvar drop i 1+ = and loop ;
+: apps-apart? ( -- flag )
+  true 26 1 do 1 i lf-term-app drop i 25 + = and loop ;
+T{ bvars-apart? apps-apart? bvars-apart? apps-apart? lf-term-count @ -> true true true true 51 }T
 lf-term-reset
 
 \ The capacity is a setting of the context (plan task 3.3.1; ADR 0016

@@ -126,10 +126,13 @@ here feed-settings - /feed-setting / constant feed-settings#
 : feed-setting ( outcome feed row -- outcome )
   >r r@ setting-records @ execute r@ setting-room @ +
   r@ setting-get @ r> setting-set @ feed-raise ;
+\ The term store's hash-consing table is sized for the stage's
+\ expressions too, so that feeding them never doubles it (compact-store
+\ plan step S3; core/terms.fs).
 : feed-capacities ( feed -- outcome )
   outcome-ok feed-settings# 0 do
     over i /feed-setting * feed-settings + feed-setting
-  loop nip ;
+  loop over feed-exprs# lf-term-table-room nip ;
 
 \ The feed's own term nodes: a let becomes 4 nodes for its 2 numbers and a
 \ projection 2 for its 1, so after the expressions are fed the term store

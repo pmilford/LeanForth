@@ -6361,8 +6361,8 @@ reason = "rvCACHE: a projection's key leaves out its index: p.2 gets p.1's type 
 [[fault]]
 id = "cache-lit-value-dropped"
 file = "src/kernel/caches.fs"
-old = '''  over lf-term-second@ 2 < if lf-tk-pair else lf-tk-own then ;'''
-new = '''  over lf-term-second@ 2 < if swap lf-term-second@ 0 swap true else lf-tk-own then ;'''
+old = '''  over lf-lit-small? if over lf-lit-cell rot lf-term-second@ true else lf-tk-own then ;'''
+new = '''  over lf-lit-small? if swap lf-term-second@ 0 swap true else lf-tk-own then ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvCACHE: a literal's key leaves out its value: 10 and 11 share a skeleton and are equal by == (iota.nat-literal-major-wrong accepted)"
 
@@ -6544,37 +6544,32 @@ reason = "5.2.7: a run record calls a skipped declaration rejected"
 
 # Step S0 of the compact-store plan (plan task 6.5.5): the level passes mark
 # reached nodes with a per-call stamp and build only the sorted list of them.
+# Since step S3 universe substitution marks them in a hash set of the call
+# (its stamp faults re-targeted at the set; s0-mls-restamp-no-erase went with
+# the stamps' column).
 [[fault]]
 id = "s0-mls-stamp-not-bumped"
 file = "src/kernel/mixed-level-substitute.fs"
-old = '''  lf-mls-stamp @ max-n = if lf-mls-restamp then 1 lf-mls-stamp +! 0 lf-mls-reached ! ;'''
-new = '''  lf-mls-stamp @ max-n = if lf-mls-restamp then 0 lf-mls-reached ! ;'''
+old = '''  lf-mls-set htab-count if lf-mls-set htab-clear then outcome-ok ;'''
+new = '''  outcome-ok ;'''
 test = "$GFORTH tests/core/mixed-level-substitute.fs"
-reason = "S0: an audit keeps the last one's stamp, so the terms an earlier call reached are not listed or rebuilt"
-
-[[fault]]
-id = "s0-mls-restamp-no-erase"
-file = "src/kernel/mixed-level-substitute.fs"
-old = ''': lf-mls-restamp ( -- ) lf-mls-seen-column column-erase 0 lf-mls-stamp ! ;'''
-new = ''': lf-mls-restamp ( -- ) 0 lf-mls-stamp ! ;'''
-test = "$GFORTH tests/core/mixed-level-substitute.fs"
-reason = "S0: stamps that run out restart without erasing, so an old stamp 1 is read as this audit's"
+reason = "S0/S3: an audit starts with the entries an earlier one left (a THROW), so the terms it reached are not listed or rebuilt"
 
 [[fault]]
 id = "s0-mls-any-stamp-reached"
 file = "src/kernel/mixed-level-substitute.fs"
-old = ''': lf-mls-reached? ( index -- flag ) lf-mls-seen @ lf-mls-stamp @ = ;'''
-new = ''': lf-mls-reached? ( index -- flag ) lf-mls-seen @ 0<> ;'''
+old = ''': lf-mls-set-same ( n key htab -- flag ) drop swap lf-mls-node = ;'''
+new = ''': lf-mls-set-same ( n key htab -- flag ) drop 2drop true ;'''
 test = "$GFORTH tests/core/mixed-level-substitute.fs"
-reason = "S0: any earlier audit's stamp is read as fresh, so reached terms are not listed or rebuilt"
+reason = "S0/S3: any entry the probe meets is read as the term sought, so reached terms are not listed or rebuilt"
 
 [[fault]]
 id = "s0-mls-listed-twice"
 file = "src/kernel/mixed-level-substitute.fs"
-old = '''  lf-mls-stamp @ over lf-mls-seen ! lf-mls-list ;'''
-new = '''  lf-mls-list ;'''
+old = '''  dup ok? if drop swap lf-mls-set htab-put outcome-ok else nip nip then ;'''
+new = '''  dup ok? if drop 2drop outcome-ok else nip nip then ;'''
 test = "$GFORTH tests/core/mixed-level-substitute.fs"
-reason = "S0: the stamp is never written, so a term is listed once per occurrence"
+reason = "S0/S3: a listed term is never entered in the set, so a term is listed once per occurrence"
 
 [[fault]]
 id = "s0-mls-build-unsorted"
@@ -6794,8 +6789,8 @@ reason = "EX: every pass after the first shares one number, so a pass with y get
 [[fault]]
 id = "ex-range-one-short"
 file = "src/kernel/caches.fs"
-old = '''  lf-term-facts if nip lf-bits-loose true else false then ;'''
-new = '''  lf-term-facts if nip lf-bits-loose 1- 0 max true else false then ;'''
+old = '''  lf-cs-facts if lf-bits-loose true else false then ;'''
+new = '''  lf-cs-facts if lf-bits-loose 1- 0 max true else false then ;'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "EX: a term read under the scope is closed with one free variable too few, so a bound variable stays loose"
 
@@ -7060,15 +7055,6 @@ test = "$GFORTH tests/core/check-declaration.fs"
 reason = "S2: a loose range of 20 bits or more is cut to 20 bits in the data word"
 
 [[fault]]
-id = "s2-data-caches-off"
-file = "src/kernel/caches.fs"
-old = '''  lf-caches-on? 0= if drop false exit then
-  lf-term-facts if nip lf-cd-word else false then ;'''
-new = '''  lf-term-facts if nip lf-cd-word else false then ;'''
-test = "$GFORTH tests/core/check-declaration.fs"
-reason = "S2: lf-term-data@ answers from the memo with the caches off"
-
-[[fault]]
 id = "s2-data-bits-swapped"
 file = "src/core/terms.fs"
 old = '''  lf-data-ranges 2* and swap lf-data-ranges and or or ;'''
@@ -7097,10 +7083,10 @@ reason = "FX7: the audit walks the 2^40 paths of sharedAndU's type, so useU runs
 [[fault]]
 id = "fx7-mls-again-any-stamp"
 file = "src/kernel/mixed-level-substitute.fs"
-old = ''': lf-mls-again? ( walk -- flag ) walk-node @ lf-mls-reached? ;'''
-new = ''': lf-mls-again? ( walk -- flag ) walk-node @ lf-mls-seen @ 0<> ;'''
+old = '''  lf-mls-unseen ok-then? 0= if nip exit then lf-mls-walk lf-mls-forget ;'''
+new = '''  lf-mls-walk lf-mls-forget ;'''
 test = "$GFORTH tests/core/mixed-level-substitute.fs"
-reason = "FX7: a term an earlier audit reached is skipped, so it is neither checked nor listed nor rebuilt"
+reason = "FX7/S3: a term an earlier audit reached is skipped (the set is not emptied first), so it is neither checked nor listed nor rebuilt"
 
 [[fault]]
 id = "fx7-mls-skip-first"
@@ -7133,3 +7119,77 @@ old = '''  over lf-lsubst-again? if lf-lsubst-skip else lf-lsubst-first then ;''
 new = '''  over lf-lsubst-again? if lf-lsubst-first else lf-lsubst-skip then ;'''
 test = "$GFORTH tests/core/level-substitute.fs"
 reason = "FX7: a level node is skipped the first time and checked only when reached again"
+
+# --- hash-consed term store, data words (compact-store plan step S3) ------
+
+[[fault]]
+id = "s3-terms-collision-equal"
+file = "src/core/terms.fs"
+old = '''  >r r@ 2 cells + @ = swap r@ cell+ @ = and swap r> @ = and ;'''
+new = '''  >r 2drop r> @ = ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "S3: a record found in the table counts as equal when only its tag is (a collision taken for equality)"
+
+[[fault]]
+id = "s3-terms-rollback-keeps-entries"
+file = "src/core/terms.fs"
+old = '''  dup lf-terms store-mark-valid? if dup mark-count @ lf-term-unlist then'''
+new = '''  dup lf-terms store-mark-valid? drop'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "S3: a rollback leaves the table entries of the records it gives back (undo skipped)"
+
+[[fault]]
+id = "s3-terms-found-unchecked"
+file = "src/core/terms.fs"
+old = '''  lf-terms store-open? if true else drop lf-term-refused then ;'''
+new = '''  true ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "S3: an equal node is given back by a store that refuses allocations (broken seal, spent serial)"
+
+[[fault]]
+id = "s3-data-binder-range"
+file = "src/core/terms.fs"
+old = '''  >r lf-data-loose swap lf-data-loose swap r> if 1- 0 max then max ;'''
+new = '''  >r lf-data-loose swap lf-data-loose swap r> drop max ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "S3: a binder's data word keeps its body's range (a wrong, stale range)"
+
+[[fault]]
+id = "s3-data-leaf-hook-unset"
+file = "src/core/constant-term-boundary.fs"
+old = '''' lf-cterm-leaf-data is lf-term-leaf-data'''
+new = '''' lf-leaf-data-plain is lf-term-leaf-data'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S3: Sorts, constants and the other leaves get no data word"
+
+[[fault]]
+id = "s3-fvar-shared"
+file = "src/core/local-context.fs"
+old = '''lf-tag-fvar lf-term-unshare'''
+new = '''\ free variables shared'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "S3: a free variable's node is shared, so a dead one comes back as a new entry's variable"
+
+[[fault]]
+id = "s3-lit-cell-first-field"
+file = "src/core/literals.fs"
+old = '''  dup lf-term-second@ if lf-term-first@ lf-lit-limbs slab-at @ else drop 0 then ;'''
+new = '''  lf-term-first@ ;'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "S3: a one-limb literal read from its first field (its slab index) instead of its limb"
+
+[[fault]]
+id = "s3-mls-set-kept"
+file = "src/kernel/mixed-level-substitute.fs"
+old = '''  lf-mls-unseen ok-then? 0= if nip exit then lf-mls-walk lf-mls-forget ;'''
+new = '''  lf-mls-unseen ok-then? 0= if nip exit then lf-mls-walk ;'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "S3: the reached set keeps its entries after an audit"
+
+[[fault]]
+id = "s3-mls-search-past"
+file = "src/kernel/mixed-level-substitute.fs"
+old = '''    2dup lf-mls-half dup lf-mls-node 4 pick < if 1+ rot drop swap else nip then'''
+new = '''    2dup lf-mls-half dup lf-mls-node 4 pick <= if 1+ rot drop swap else nip then'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "S3: a child's image is read one place past it in the sorted list"

@@ -630,6 +630,15 @@ T{ lf-data-ranges 2 lshift lf-cd-word -> false }T
 \ Since step S3 every record keeps its data word, caches on or off.
 T{ false lf-caches-enable  cu csort lf-term-data@  true lf-caches-enable
    -> 0 true false lf-data true }T
+\ The term store hash-conses (step S3), but never a free variable: one
+\ made after the local context was emptied is a new node, and the dead
+\ one does not come back as its variable.
+cz csort constant ctype
+lf-lctx-reset
+T{ ctype lf-lctx-local nip  lf-lctx-count @ -> outcome-ok 1 }T
+lf-term-count @ 1- constant cdead
+lf-lctx-reset
+T{ ctype lf-lctx-local swap cdead <> cdead lf-fvar-live? -> outcome-ok true false }T
 
 cases-done
 bye
