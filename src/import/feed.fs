@@ -14,17 +14,20 @@
 \ after the context is freed.
 \ Levels, expressions and declarations are copied into the context's
 \ stores, whose capacities lf-feed raises to fit the stage plus room for
-\ the checks' scratch: the checker reads terms through handles and
+\ the checks' scratch (the term store's once more after the expressions, for
+\ the nodes of lets and projections: feed-room): the checker reads terms through handles and
 \ identities, which the input tier does not have (ADR 0016 C9 step 3
 \ keeps them until the environment's handles replace them). Copied as
 \ ndjson-input.fs (tests/support) stages a file: a Sort as a symbolic
 \ Sort, a constant through its reference, a projection as its leaf
 \ applied to its structure term (core/projections.fs; plan task 5.2.2),
 \ a natural-number literal as a literal leaf (core/literals.fs; plan task
-\ 5.2.3), a let as its leaf applied to its value and to the lambda of its
-\ type and body (core/let-terms.fs; plan task 4.2.3), a string literal or
-\ mdata expression as the leaf of its form (core/unsupported-forms.fs,
-\ refused by the audit, U2); binder names and binder information are not
+\ 5.2.3), a string literal as a string leaf of its UTF-8 bytes
+\ (core/string-literals.fs; text that is not UTF-8 is invalid), a let as
+\ its leaf applied to its value and to the lambda of its type and body
+\ (core/let-terms.fs; plan task 4.2.3), an mdata expression as the leaf
+\ of its form (core/unsupported-forms.fs, refused by the audit, U2);
+\ binder names and binder information are not
 \ copied, as Lean's kernel ignores them. An inductive block, a record
 \ with no name, gives no declaration but a header in the input's
 \ inductive data (core/input.fs); its types, constructors and recursors
@@ -35,7 +38,8 @@
 \
 \ lf-feed ( stage feed -- outcome ): ok; invalid for a stage that is not
 \ sealed, a level or expression of a kind the checker's stores do not
-\ hold (a free or meta variable), a declaration of a kind it does not
+\ hold (a free or meta variable), a string literal that is not UTF-8, a
+\ declaration of a kind it does not
 \ know, a block with no type or with members missing, a member outside a
 \ block, or a failed loading end; full for a store that refuses a record
 \ (its capacity, no heap), the level context, or a universe list longer
@@ -58,6 +62,7 @@ require ../core/unsupported-forms.fs
 require ../core/constant-term-boundary.fs
 require ../core/let-terms.fs
 require ../core/literals.fs
+require ../core/string-literals.fs
 require ../core/projections.fs
 require ./stage.fs
 
@@ -125,6 +130,13 @@ here feed-settings - /feed-setting / constant feed-settings#
   outcome-ok feed-settings# 0 do
     over i /feed-setting * feed-settings + feed-setting
   loop nip ;
+
+\ The feed's own term nodes: a let becomes 4 nodes for its 2 numbers and a
+\ projection 2 for its 1, so after the expressions are fed the term store
+\ is raised again, to the nodes in use plus the room: each check gets the
+\ whole of feed-term-room, however many lets and projections the file has.
+: feed-room ( feed -- outcome )
+  drop lf-term-count @ feed-term-room + lf-term-capacity max lf-term-capacity! ;
 
 \ ---- Maps: heap blocks of cells, zeroed, freed by feed-free.
 : feed-block ( cells addr -- outcome )
@@ -218,7 +230,7 @@ here feed-settings - /feed-setting / constant feed-settings#
 tag-mdata 1+ constant feed-tags#
 create feed-forms feed-tags# cells allot  feed-forms feed-tags# cells erase
 : feed-form! ( form tag -- ) cells feed-forms + ! ;
-lf-form-string tag-str feed-form!  lf-form-mdata tag-mdata feed-form!
+lf-form-mdata tag-mdata feed-form!
 : feed-form@ ( tag -- form )
   dup 0 feed-tags# within if cells feed-forms + @ else drop 0 then ;
 \ A projection (plan task 5.2.2): the leaf of its structure's name and
@@ -230,6 +242,10 @@ lf-form-string tag-str feed-form!  lf-form-mdata tag-mdata feed-form!
 \ A natural-number literal (plan task 5.2.3): its decimal text, read.
 : feed-nat ( e feed -- index identity true | false )
   feed-tier tuck expr-a@ swap tier-texts text@ lf-hterm-decimal ;
+\ A string literal (plan task 5.2.3, strings): its UTF-8 bytes; text that
+\ is not UTF-8 is invalid (core/string-literals.fs).
+: feed-str ( e feed -- index identity outcome )
+  feed-tier tuck expr-a@ swap tier-texts text@ lf-str-new ;
 \ A let (plan task 4.2.3): let x : T := v; b as its leaf, with the
 \ nonDep flag, applied to v and then to fun x : T => b
 \ (core/let-terms.fs); the body is the letE's second record.
@@ -250,6 +266,7 @@ lf-form-string tag-str feed-form!  lf-form-mdata tag-mdata feed-form!
     tag-app of feed-children lf-hterm-app feed-built endof
     tag-proj of feed-proj feed-built endof
     tag-nat of feed-nat feed-built endof
+    tag-str of feed-str endof
     tag-let of false feed-let feed-built endof
     tag-let-nondep of true feed-let feed-built endof
     >r 2drop 0 0 outcome-invalid r> endcase ;
@@ -443,7 +460,7 @@ here feed-kinds - 1 cells / constant feed-kinds#
 : feed-end ( feed -- outcome ) feed-members @ if outcome-invalid else lf-input-end then ;
 create feed-steps
   ' feed-fresh , ' feed-capacities , ' feed-maps , ' feed-context , ' feed-session ,
-  ' feed-levels-all , ' feed-exprs-all , ' feed-decls-all , ' feed-end ,
+  ' feed-levels-all , ' feed-exprs-all , ' feed-room , ' feed-decls-all , ' feed-end ,
 here feed-steps - 1 cells / constant feed-steps#
 : feed-step ( feed k -- outcome ) cells feed-steps + @ execute ;
 : feed-run ( feed -- outcome )

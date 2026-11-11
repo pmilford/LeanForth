@@ -53,8 +53,10 @@
 \   structure I applied to its parameters and fields, the two types
 \   is_def_eq and then each field is_def_eq to the first's projection
 \   onto it (Lean's Expr.proj), yes (BL-7, Lean's own limitation, stays:
-\   two variables are never equated field by field); (13) string
-\   literals are unsupported (U2); (14) unit-like types: when the whnf of
+\   two variables are never equated field by field); (13) a string
+\   literal against String.ofList x, either way round: is_def_eq_core of
+\   the literal's constructor form in whnf and the other side
+\   (kernel/string-literals.fs, plan task 5.2.3); (14) unit-like types: when the whnf of
 \   t's type is headed by a non-recursive structure whose constructor has
 \   no field, is_def_eq_core of that type and s's type is the answer;
 \   (15) otherwise no.
@@ -298,10 +300,13 @@ defer lf-dq-entry ( t s frames -- ... frames next )
   ok-then? if lf-dq-lbool outcome-ok else lf-dq-undef swap then r> 0 ;
 : lf-qk-undecided ( t s frames -- lbool outcome frames 0 )
   >r 2drop lf-dq-undef outcome-ok r> 0 ;
-\ Two literals that are not == are not equal (quick_is_def_eq, Lit).
+\ Two literals that are not == are not equal (quick_is_def_eq, Lit),
+\ also a natural-number and a string literal (both Lean's Lit kind).
+: lf-dq-literals? ( t s -- flag )
+  lf-dq-tag lf-literal-tag? swap lf-dq-tag lf-literal-tag? and ;
 : lf-qk-kinds ( t s frames -- ... frames next )
-  >r 2dup lf-dq-tags? 0= if r> lf-qk-undecided exit then
-  over lf-dq-tag lf-tag-lit = if 2drop lf-dq-no outcome-ok r> 0 exit then
+  >r 2dup lf-dq-literals? if 2drop lf-dq-no outcome-ok r> 0 exit then
+  2dup lf-dq-tags? 0= if r> lf-qk-undecided exit then
   over lf-dq-binder? if r> ['] lf-qk-bound lf-bd-call exit then
   over lf-dq-tag lf-tag-symbolic-sort = if r> lf-qk-sorts else r> lf-qk-undecided then ;
 \ After ==: lf-qk-kinds, or Lean's succeeded_before (804) first
@@ -651,9 +656,14 @@ defer lf-es-field ( frames -- ... frames next )
   >r r@ lf-dq-sides drop r@ lf-dq-unit-type ok-then? 0= if nip r> lf-dq-gap exit then
   dup lf-dq-yes = if drop r> lf-dq-unit-compare exit then
   nip lf-dq-undef = if r> lf-dq-unit-doubt else r> lf-dq-no-step then ;
+\ Step 13 (1200-1201), try_string_lit_expansion: kernel/string-literals.fs
+\ sets it (plan task 5.2.3, strings); it goes on to step 14 when it does
+\ not apply, as this default always does.
+defer lf-dq-string-step ( frames -- ... frames next )
+' lf-dq-unit-step is lf-dq-string-step
 : lf-dq-struct-other ( flag outcome frames -- ... frames next )
   >r ok-then? 0= if r> lf-dq-end-failed exit then
-  if true r> lf-dq-end else r> lf-dq-unit-step then ;
+  if true r> lf-dq-end else r> lf-dq-string-step then ;
 \ try_eta_struct_core(t, s): its visit when it applies, else no at once
 \ (s's constructor looked up here, so that a step that does not apply
 \ opens no visit and spends no fuel).

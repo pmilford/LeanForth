@@ -451,6 +451,10 @@ defer lf-pf-term-step ( term x frames -- ... frames next )
 : lf-pf-lit-step ( leaf frames -- outcome frames 0 )
   >r dup lf-lit-small? over lf-lit-cell 0< 0= and
   if lf-lit-cell lf-pf-number s" lit#" lf-pf-say else drop outcome-unsupported then r> 0 ;
+\ A string literal: unsupported, as the authoring words have no word for
+\ one yet (a follow-up of plan task 5.2.3, strings: str#), so its
+\ declaration is not written.
+: lf-pf-str-step ( leaf frames -- outcome frames 0 ) nip outcome-unsupported swap 0 ;
 : lf-pf-proj-step ( leaf frames -- outcome frames 0 )
   >r dup lf-proj-name lf-pf-declarable? 0= if drop outcome-unsupported r> 0 exit then
   dup lf-proj-idx lf-pf-number
@@ -466,6 +470,7 @@ defer lf-pf-term-step ( term x frames -- ... frames next )
     lf-tag-pi of ['] lf-pf-pi endof
     lf-tag-constant of ['] lf-pf-const endof
     lf-tag-lit of ['] lf-pf-lit-step endof
+    lf-tag-str of ['] lf-pf-str-step endof
     lf-tag-proj of ['] lf-pf-proj-step endof
     ['] lf-pf-invalid-step swap endcase ;
 : lf-pf-noted-end ( outcome frames -- outcome frames 0 )

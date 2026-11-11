@@ -284,7 +284,7 @@ bytes, so four fit a 64-byte cache line and, on an arena that starts on a
 | application (85.5%) | 1 tag | unused | function | argument | all |
 | lambda (7.8%) | 4 tags, one per binder information | binder name | binder type | body | all |
 | Pi, `forallE` (5.1%) | 4 tags, as lambda | binder name | domain | body | all |
-| constant (1.35%) | 1 tag | its declaration, resolved when the input is sealed (C4) | name | universe-argument list | parameters flag |
+| constant (1.35%) | 1 tag | its declaration, resolved when the input is sealed (C4; not yet read by the checker, whose feed builds references by name: C9 steps 4-6) | name | universe-argument list | parameters flag |
 | `letE` (0.23%) | 2 tags (dependent or not) | name | type | value | all; a second record holds the body |
 | projection (0.04%) | 1 tag | structure's type name | the structure | field index | all |
 | `natVal`, `strVal` (0.02%) | 1 tag each | unused | literal number | unused | none |

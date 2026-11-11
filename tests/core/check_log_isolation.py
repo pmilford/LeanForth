@@ -113,8 +113,9 @@ STORES = {
     # that the copier keeps the leaf and a projection's step has the rule
     # form (lf-log-node-rule).
     "lf-tag-proj", "lf-proj-leaf?",
-    # Literals (plan task 5.2.3), read only: the leaf's tag, kept by the copier.
-    "lf-tag-lit",
+    # Literals (plan task 5.2.3), read only: the leaves' tags, natural-number
+    # and string, kept by the copier.
+    "lf-tag-lit", "lf-tag-str",
     # Let terms (plan task 4.2.3), read only: the leaf's tag, kept by the
     # copier, and whether an application's function applies a let leaf, so
     # that a let term's step has the rule form (lf-log-node-rule).

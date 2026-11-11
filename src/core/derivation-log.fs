@@ -819,6 +819,7 @@ create lf-log-level-copier
 : lf-log-term-leaf ( tag first second -- tag first' second' true | false )
   2 pick case lf-tag-sort of true endof lf-tag-bvar of true endof
     lf-tag-proj of true endof  lf-tag-lit of true endof  lf-tag-let of true endof
+    lf-tag-str of true endof
     lf-tag-symbolic-sort of lf-log-sort-level endof lf-tag-fvar of lf-log-fvar endof
     lf-tag-constant of lf-log-cref endof >r 2drop lf-log-unreadable r> endcase ;
 create lf-log-term-copier

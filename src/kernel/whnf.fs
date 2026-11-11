@@ -45,8 +45,9 @@
 \ kernel/caches.fs's, through the hooks lf-wc-entry, lf-whnf-entry,
 \ lf-whnf-valued and lf-whnf-known (plan task 4.2.7); without it every
 \ pass runs as here. Not yet as Lean (no verdict depends on them): the
-\ unfold counts of kernel diagnostics (plan task 4.3.1); string literals and metadata are unsupported
-\ forms (U2) that never reach these passes; the derivation log records
+\ unfold counts of kernel diagnostics (plan task 4.3.1); metadata is an unsupported
+\ form (U2) that never reaches these passes; a literal, natural-number or
+\ string, is normal (Lean's Lit, 476 and 710); the derivation log records
 \ nothing new here (plan task 4.2.2e). A projection (core/projections.fs) is an
 \ application of a projection leaf, which the iota hook reduces
 \ (iota.fs, reduce_proj); a leaf alone, the function defeq.fs's
@@ -493,7 +494,7 @@ defer lf-wc-entry ( node frames -- ... frames next )
   over lf-fvar-let? if swap lf-fvar-value swap lf-wc-again else lf-whnf-keep then ;
 : lf-whnf-normal? ( tag -- flag )
   dup lf-tag-lam = over lf-tag-pi = or over lf-tag-constant = or
-  over lf-tag-bvar = or over lf-tag-lit = or swap lf-tag-symbolic-sort = or ;
+  over lf-tag-bvar = or over lf-literal-tag? or swap lf-tag-symbolic-sort = or ;
 \ A projection leaf alone (see the header): unknown, never invalid.
 : lf-wc-proj ( node frames -- -1 outcome frames 0 )
   >r 0 lf-diag-undecided lf-whnf-note outcome-unknown r> lf-whnf-failed ;
@@ -533,7 +534,7 @@ defer lf-whnf-cored ( t1 outcome frames -- ... frames next )
   over lf-whnf-k7? if 2dup frame-save ['] lf-whnf-nat-back lf-whnf-nat-call exit then
   lf-whnf-delta-step ; is lf-whnf-cored
 : lf-whnf-easy? ( node -- flag )
-  dup lf-term-tag@ dup lf-tag-bvar = over lf-tag-pi = or over lf-tag-lit = or
+  dup lf-term-tag@ dup lf-tag-bvar = over lf-tag-pi = or over lf-literal-tag? or
   swap lf-tag-symbolic-sort = or if drop true exit then
   dup lf-whnf-fvar? if lf-whnf-let? 0= else drop false then ;
 : lf-whnf-visit ( node frames -- ... frames next )

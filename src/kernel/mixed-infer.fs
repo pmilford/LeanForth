@@ -119,6 +119,7 @@ require ./mixed-open.fs
 require ./mixed-signature-audit.fs
 require ./mixed-signature-probe.fs
 require ./reduce-nat.fs
+require ./string-literals.fs
 require ./whnf.fs
 
 begin-structure /lf-ijob
@@ -729,6 +730,7 @@ defer lf-minfer-let-one ( v lam frames -- ... frames next )
     lf-tag-bvar of lf-minfer-bvar endof
     lf-tag-lit of drop lf-reduce-nat-type endof
     lf-tag-let of lf-minfer-stray endof
+    lf-tag-str of drop lf-str-type endof
     nip lf-minfer-unsupported rot endcase ;
 : lf-minfer-other ( first second frames tag -- -1 status frames 0 tag )
   >r >r 2drop r> r> lf-minfer-unsupported 2swap 0 swap ;
