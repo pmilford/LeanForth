@@ -520,6 +520,53 @@ failed inside inference, which gives its counter up, so neither the
 total nor the list counts them ([fuel](#the-resource-report)); a later
 step of plan task 6.5.2 can keep it, with a change to the checker.
 
+### Parallel checking (`--jobs`)
+
+`check --jobs N` checks with N workers at once (plan tasks 6.5.4 and
+7.3.1, 2026-11-11; its [kernel] review is pending). The output is the
+same as with `--jobs 1`, the default, byte for byte but for the resource
+report's times, memory and workers line, and the JSON report but for
+`measured`: every verdict, diagnostic and fuel count, the counts and the
+exit status. How:
+
+- each worker is a context of its own, fed the same staged export (the
+  stage is shared and read only; the rest of the input is, for now, copied
+  into every worker: plan task 7.2.1), and checks one declaration at a
+  time as a thread of Gforth 1.0 (cooperative tasks on Gforth 0.7.3, which
+  gives the same output, no faster);
+- a declaration is handed to a worker only when every earlier declaration
+  its check may look up by name is published, and results are published
+  by one task, in the order checks end, into the checked environment's
+  slots, from which the report is printed afterwards in file order;
+- a check that still finds an earlier declaration it needs unpublished
+  (a name met only after unfolding a definition) is thrown away and run
+  again later, never published; each check starts from the input alone,
+  with empty caches, so its fuel does not depend on the other checks its
+  worker ran.
+
+All of `Init` (59,349 declarations, all accepted), `check --fast --json
+--jobs N`, on this 10-core WSL2 machine, which other agents' runs shared
+(load average 10-13), 2026-11-11 (wall and CPU seconds of the whole run,
+the check phase's wall time, peak resident memory; every report the same
+as the serial one but for `measured`):
+
+| workers | wall | check wall | speed-up (check) | CPU | peak memory |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 1,157 | 1,136 | 1.0 | 1,146 | 543 MB |
+| 2 | 557 | 536 | 2.1 | 1,088 | 1,030 MB |
+| 4 | 367 | 334 | 3.4 | 1,307 | 1,478 MB |
+| 6 | 407 | 374 | 3.0 | 1,481 | 1,809 MB |
+| 8 | 215 | 183 | 6.2 | 1,400 | 2,219 MB |
+| 10 | 249 | 209 | 5.4 | 1,512 | 2,564 MB |
+
+The run with 6 workers met the heaviest load from other runs; the times
+vary by that much from run to run on a shared machine. Each worker costs
+about 210 MB and its feeding about 2.5 seconds, one worker after another
+(the "feed" phase: 25 seconds for 10 workers). With `--resources` the
+report adds a line naming the workers and how many checks were handed
+out, run again, refused by readiness or forced (the last two are 0 unless
+LeanForth's plan of which declaration needs which is wrong).
+
 ### The resource report
 
 `--resources` adds a report after the summary (plan task 6.5.2, the
