@@ -5283,16 +5283,16 @@ id = "str-step13-one-way"
 file = "src/kernel/string-literals.fs"
 old = '''  swap 2dup lf-sx-applies? if rot lf-sx-expand-try exit then'''
 new = ''''''
-test = "$GFORTH tests/core/defeq.fs"
-reason = "5.2.3 L4: try_string_lit_expansion tries (t, s) only, never (s, t)"
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.3 L4: try_string_lit_expansion tries (t, s) only, never (s, t); primitive.string-opaque-expansion-reversed is no longer accepted"
 
 [[fault]]
 id = "str-step13-off"
 file = "src/kernel/string-literals.fs"
 old = '''  dup lf-dq-sides 2dup lf-sx-applies? if rot lf-sx-expand-try exit then'''
 new = '''  dup lf-dq-sides 2dup 2drop false if rot lf-sx-expand-try exit then'''
-test = "$GFORTH tests/core/defeq.fs"
-reason = "5.2.3 L4: step 13 skipped for a string literal on the left; String.ofList x against it never expands"
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.3 L4: step 13 skipped for a string literal on the left; primitive.string-opaque-expansion is no longer accepted"
 
 [[fault]]
 id = "str-of-list-any-levels"
@@ -5331,16 +5331,16 @@ id = "str-typed-nat"
 file = "src/kernel/mixed-infer.fs"
 old = '''    lf-tag-str of drop lf-str-type endof'''
 new = '''    lf-tag-str of drop lf-reduce-nat-type endof'''
-test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
-reason = "5.2.3 L4: a string literal is typed Nat; \"ab\" = String.ofList ['a', 'b'] (lit.string-expansion) is no longer accepted"
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.3 L4: a string literal is typed Nat; primitive.string-opaque-expansion is no longer accepted"
 
 [[fault]]
 id = "str-cons-no-level"
 file = "src/kernel/string-literals.fs"
 old = '''  lf-sx-zero! ok-then? if 1 lf-sx-const else no-result then ;'''
 new = '''  lf-sx-zero! ok-then? if 0 lf-sx-const else no-result then ;'''
-test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
-reason = "5.2.3 L2: List.cons and List.nil without Lean's universe argument zero; String.rec on \"ab\" (lit.string-major) is no longer accepted"
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.3 L2: List.cons and List.nil without Lean's universe argument zero; primitive.string-opaque-expansion is no longer accepted"
 
 [[fault]]
 id = "str-projection-not-expanded"
@@ -5363,8 +5363,8 @@ id = "str-feed-refused"
 file = "src/import/feed.fs"
 old = '''    tag-str of feed-str endof'''
 new = ''''''
-test = 'test -n "$LEAN" && python3 tests/core/inductive-table.py'
-reason = "5.2.3 strings: the feed refuses a string literal as invalid; every lit.string row's file is refused"
+test = "$GFORTH tests/core/check-block.fs"
+reason = "5.2.3 strings: the feed refuses a string literal as invalid; the primitive.string-opaque files are refused"
 
 [[fault]]
 id = "str-print-banned-raw"

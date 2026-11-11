@@ -1429,6 +1429,48 @@ def axiomChains : List Chain := [
     lean := "accepted", leanforth := "accepted", rule := "A1", task := "5.3.1" }
 ]
 
+/-! ### String literals against an opaque `String.ofList` (task 5.2.3, strings)
+
+With `String.ofList` an axiom, lazy delta cannot unfold it, so a comparison of a string
+literal with `String.ofList x` reaches `try_string_lit_expansion` (type_checker.cpp
+1104-1117), in either order; in Lean's `Init` it is a definition, which lazy delta
+unfolds first. `Char`, `Char.ofNat` and `String` are axioms, `List` Lean's inductive. -/
+def charC : Expr := mkConst `Char
+def stringC : Expr := mkConst `String
+def listOf (u : Level) (α : Expr) : Expr := .app (mkConst `List [u]) α
+def listDecl : Declaration :=
+  let ty : Expr := .sort (.succ lu)
+  .inductDecl [`u] 1 [⟨`List, foralls [(`α, ty)] ty,
+    [⟨`List.nil, foralls [(`α, ty)] (listOf lu (v `α))⟩,
+     ⟨`List.cons, foralls [(`α, ty), (`head, v `α), (`tail, listOf lu (v `α))]
+       (listOf lu (v `α))⟩]⟩] false
+/-- `String.ofList` of the characters with these code points, as Lean's
+`string_lit_to_constructor` builds it. -/
+def charList : List Nat → Expr
+  | [] => .app (mkConst `List.nil [0]) charC
+  | c :: cs => mkAppN (mkConst `List.cons [0]) #[charC, .app (mkConst `Char.ofNat) (lit c),
+      charList cs]
+def ofListOf (cs : List Nat) : Expr := .app (mkConst `String.ofList) (charList cs)
+def stringDecls : List Declaration :=
+  [natDecl, eqDecl, axiomD `Char (.sort 1), axiomD `Char.ofNat (.forallE `n nat charC .default),
+   listDecl, axiomD `String (.sort 1),
+   axiomD `String.ofList (.forallE `l (listOf 0 charC) stringC .default)]
+/-- `a = b : String`, by `Eq.refl a`. -/
+def stringEq (n : Name) (a b : Expr) : Declaration :=
+  .thmDecl { name := n, levelParams := [], type := eqC 1 stringC a b, value := reflC 1 stringC a }
+def abLit : Expr := .lit (.strVal "ab")
+def stringChains : List Chain := [
+  { id := "primitive.string-opaque-expansion",
+    decls := stringDecls ++ [stringEq `IE.strAb abLit (ofListOf [97, 98])],
+    lean := "accepted", leanforth := "accepted", rule := "L4 L5", task := "5.2.3" },
+  { id := "primitive.string-opaque-expansion-reversed",
+    decls := stringDecls ++ [stringEq `IE.strBa (ofListOf [97, 98]) abLit],
+    lean := "accepted", leanforth := "accepted", rule := "L4 L5", task := "5.2.3" },
+  { id := "primitive.string-opaque-expansion-wrong",
+    decls := stringDecls ++ [stringEq `IE.strAc abLit (ofListOf [97, 99])],
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "L4 L5", task := "5.2.3" }
+]
+
 /-! ### Quotient records replayed (ADR 0015 Q1)
 
 Lean's replay adds `Declaration.quotDecl` for an exported quotient record and ignores the
@@ -2213,7 +2255,7 @@ run_cmd do
   row twice.id got twice.leanforth twice.rule twice.task ""
   -- 5. Primitive names and quotient initialisation, from an empty environment.
   let empty := (← mkEmptyEnvironment).toKernelEnv
-  for c in chains ++ k7Chains ++ axiomChains do
+  for c in chains ++ k7Chains ++ axiomChains ++ stringChains do
     let got := verdict (addAll empty c.decls)
     unless got == c.lean do throwError "{c.id}: Lean's verdict is {got}, expected {c.lean}"
     row c.id got c.leanforth c.rule c.task ""
@@ -2258,7 +2300,7 @@ run_cmd do
   for c in onBase do
     writeSegments base baseRecs c.id (chainSegments add base base c.decls)
   writeSegments base baseRecs twice.id (chainSegments add base base [twiceDecl, twiceDecl])
-  for c in chains ++ k7Chains ++ axiomChains do
+  for c in chains ++ k7Chains ++ axiomChains ++ stringChains do
     writeSegments empty {} c.id (chainSegments add base empty c.decls)
   writeCase env0 (← recursorsOf env0) forgedId (forgedCs.foldl add env0)
     (forgedCs.map (·.name)) [`Nat.add]

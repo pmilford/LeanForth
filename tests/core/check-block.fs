@@ -335,6 +335,13 @@ T{ s" lit.pow-direct" used -> outcome-ok 0 }T
 T{ s" lit.pow-direct-wrong" used -> outcome-rejected lf-diag-value-apart }T
 T{ s" lit.pow-count-too-big" used drop -> outcome-rejected }T
 T{ s" lit.pow-count-limit" used -> outcome-ok 0 }T
+\ String literals (task 5.2.3, strings): with String.ofList an axiom, a
+\ literal against String.ofList of its characters is decided by
+\ try_string_lit_expansion (step 13), either way round; a wrong character
+\ rejected.
+T{ s" primitive.string-opaque-expansion" used -> outcome-ok 0 }T
+T{ s" primitive.string-opaque-expansion-reversed" used -> outcome-ok 0 }T
+T{ s" primitive.string-opaque-expansion-wrong" used -> outcome-rejected lf-diag-value-apart }T
 \ Review rvN1 round 2 (L1): a reduct that keeps the recursor's universe
 \ arguments in its recursive call; iota on Lean's generated recursor
 \ after B3 refused the block's swapped rules (not ported yet: unknown,

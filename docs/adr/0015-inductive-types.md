@@ -505,13 +505,19 @@ Lean: `reduce_proj_core` (421-422) and `inductive_reduce_rec` (`inductive.h`
 `lf-dq-string-step` of `defeq.fs`. In Lean's `Init` `String.ofList` is a
 definition, so lazy delta unfolds it before step 13 and structure eta (step 12)
 decides most comparisons, projecting the literal; step 13 itself decides where
-`String.ofList` does not unfold. The printer writes a literal as Lean's
+`String.ofList` does not unfold (rows `primitive.string-opaque-expansion`,
+`-reversed`, `-wrong`: `String.ofList` an axiom). The printer writes a literal as Lean's
 `String.quote` does (a character `lib/text-rule.fs` bans as `\uHHHH` when below
 U+10000) in plain and LaTeX modes; the Forth form has no word for one yet
 (`str#`, a follow-up of this task), so such a declaration is not written.
 Evidence: rows `lit.string-*` (ten, among them a projected literal, a literal
 major premise right and wrong, two literals apart, `""`, `"é😀"` and `decide`)
-give Lean's verdicts; `"ab".length = 2` by `rfl` or `decide` is accepted by Lean
+and the three `primitive.string-opaque-*` rows give Lean's verdicts; in the
+first 1,000,000 lines of `Init`'s export the 126 string-literal refusals are
+gone (9,202 declarations: 31 more accepted, 50 more unknown, 81 fewer
+unsupported, none rejected; of the new unknown ones, one meets a projection
+leaf alone, task 5.2.2's projection steps, and 49 an undecided dependency);
+`"ab".length = 2` by `rfl` or `decide` is accepted by Lean
 but unsupported in LeanForth because `String.length`'s closure holds
 `Lean.Syntax` (through an `autoParam`), a nested block of task 5.2.5.
 

@@ -305,6 +305,9 @@ k7.rec-on-succ-variable	accepted	accepted	R1	5.2.1b
 postulate.propext-altered	accepted	accepted	A1	5.3.1	
 postulate.propext-forged-iff	accepted	accepted	A1	5.3.1	
 postulate.propext-own-iff	accepted	accepted	A1	5.3.1	
+primitive.string-opaque-expansion	accepted	accepted	L4 L5	5.2.3	
+primitive.string-opaque-expansion-reversed	accepted	accepted	L4 L5	5.2.3	
+primitive.string-opaque-expansion-wrong	declTypeMismatch	rejected	L4 L5	5.2.3	
 forged.type-named-nat-add-recursor-with-hypothesis	invalidRecursor	rejected	L1 L5 B3	5.2.3	
 replay-quot.original	accepted	accepted	Q1	5.2.4	
 replay-quot.mk-given-quot-type	accepted	accepted	Q1	5.2.4	

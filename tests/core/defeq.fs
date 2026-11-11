@@ -212,8 +212,7 @@ T{ fresh-session 1 make-sort 5000 pis 2 make-sort 5000 pis 1000000 fuelled dq lf
 \ bytes; quick_is_def_eq's no for two literals apart, also against a
 \ natural-number literal; whnf keeps a literal; string_lit_to_constructor
 \ over the code points, last built first, one unit of fuel a character;
-\ step 13 only against String.ofList x (here outside a check, where whnf
-\ cannot unfold String.ofList: unknown, K1), either way round.
+\ when step 13 applies.
 fresh-session
 : str ( c-addr u -- node ) lf-str-new ok? must drop ;
 T{ s\" a\xc3" lf-str-new -> 0 0 outcome-invalid }T
@@ -252,11 +251,11 @@ T{ s" abc" str 3 expanded nip dq frame-fuel @ -> outcome-ok 0 }T
 \ Bytes that are no UTF-8 character (a corrupted leaf): invalid.
 : cut ( leaf -- leaf ) 1 over lf-term-slot node-second ! ;
 T{ s\" \xc3\xa9" str cut 100 expanded -> -1 outcome-invalid }T
-\ Step 13 applies against String.ofList x alone, either way round: the
-\ expansion spends a unit of fuel a character before its whnf meets
-\ String.ofList, which outside a check is unknown (K1); against another
-\ head the literal's length costs nothing (step 14 doubts without a
-\ typer). Every case here ends unknown, as no check can unfold.
+\ Step 13 applies to a literal t and String.ofList x as s alone: not to a
+\ String.ofList with a universe argument, with two arguments, or of
+\ another name, nor to t and s swapped (the step tries both orders). Its
+\ comparisons need a check in which String.ofList does not unfold (lazy
+\ delta comes first): the table's primitive.string-opaque-* rows.
 : of-list-name ( -- name )
   s" ofList" 0 s" String" lf-name-str must -rot lf-name-str must ;
 : of-list ( -- node ) of-list-name const ;
@@ -265,12 +264,12 @@ T{ of-list-name leveled 0 make-sort make-app lf-sx-string-app? -> false }T
 T{ s" ofList" name-of const 0 make-sort make-app lf-sx-string-app? -> false }T
 T{ of-list lf-sx-string-app? -> false }T
 T{ of-list 0 make-sort make-app 0 make-sort make-app lf-sx-string-app? -> false }T
-: spent ( t s -- n ) defeq 0 outcome-unknown d= must 100000 dq frame-fuel @ - ;
 : x-of-list ( -- node ) of-list 0 make-sort make-app ;
 : x-other ( -- node ) s" c" name-of const 0 make-sort make-app ;
-T{ s" abcd" str x-of-list spent s" ab" str x-of-list spent - -> 2 }T
-T{ x-of-list s" abcd" str spent x-of-list s" ab" str spent - -> 2 }T
-T{ s" abcd" str x-other spent s" ab" str x-other spent - -> 0 }T
+T{ s" ab" str x-of-list lf-sx-applies? -> true }T
+T{ x-of-list s" ab" str lf-sx-applies? -> false }T
+T{ s" ab" str x-other lf-sx-applies? -> false }T
+T{ 0 lf-hterm-cell must drop x-of-list lf-sx-applies? -> false }T
 
 \ ---------------------------------------------------------------------------
 \ Every failure outcome, and a fuel sweep: with less fuel a comparison is
