@@ -741,6 +741,19 @@ no typing rule and changes no verdict; how it keeps G-P1 to G-P7:
    barriers (not done; the parallel host is Gforth 1.0 on x86-64), and item
    3 catches a slot read before it is final.
 
+**Measured** (2026-11-11, `check --fast --json`, a 10-core WSL2 machine
+shared with other agents' runs; [COMMAND_LINE.md](../user/COMMAND_LINE.md#parallel-checking---jobs)):
+all of `Init` (59,349 declarations, all accepted) checks in 1,136 s
+serially and 536, 334, 374, 183 and 209 s with 2, 4, 6, 8 and 10 workers
+(the 6-worker run met the heaviest outside load), every JSON report equal
+to the serial one but for `measured`; peak memory 543 MB serially, about
+210 MB more per worker; feeding is serial, about 2.5 s per worker. The
+first sixth of Mathlib (119,472 declarations) with 8 workers: 1,130 s
+wall (check 1,025 s, CPU 7,303 s, feeding 9 contexts 64 s), peak 7.8 GB;
+119,374 accepted, 96 unknown, 2 exhausted. No serial run of the same
+build was made for it (a serial run of an earlier build, e3399df, took
+8,685 s to check on the same machine).
+
 Planted faults, each caught: every declaration handed out at once
 (readiness refuses), readiness skipped too (the in-time witness reruns
 them, the output stays the serial one), early checks handed over anyway
