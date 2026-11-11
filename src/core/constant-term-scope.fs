@@ -47,7 +47,7 @@ lf-walk-room context-walk2: lf-cts-walker
     lf-tag-str of lf-cts-leaf endof
     lf-tag-let of lf-cts-leaf endof  walk-bad-tag endcase ;
 : lf-cts-once ( first second walk tag -- outcome ) ['] lf-cts-dispatch lf-walk-once ;
-: lf-cts-visit ( walk -- outcome ) lf-terms ['] lf-cts-once walk-visit ;
+: lf-cts-visit ( walk -- outcome ) ['] lf-cts-once lf-term-visit ;
 : lf-cts-run ( root depth -- outcome )
   lf-cts-walker lf-walk-marking
   ['] lf-cts-visit lf-cts-walker walk-run-pair lf-cts-walker lf-cts-site lf-diag-walk ;

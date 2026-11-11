@@ -393,8 +393,11 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 
 \ After a check: every input store back to its mark and the name bytes
 \ back to their count; ok, or invalid with nothing changed when the input
-\ is not intact.
-: lf-mark-back ( mark store -- flag ) store-rollback ok? ;
+\ is not intact. The terms go back through lf-term-rollback, which takes
+\ their entries out of the hash-consing table too (terms.fs).
+: lf-store-back ( mark store -- outcome )
+  dup lf-terms = if drop lf-term-rollback else store-rollback then ;
+: lf-mark-back ( mark store -- flag ) lf-store-back ok? ;
 : lf-input-rollback ( -- outcome )
   lf-input-intact? 0= if outcome-invalid exit then
   ['] lf-mark-back lf-input-all? lf-input-bytes @ lf-name-used ! flag>outcome ;

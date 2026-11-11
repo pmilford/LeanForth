@@ -296,7 +296,8 @@ T{ seen @ outcome-exhausted outcome-rejected 2 outcome-set = -> true }T
 \ task 4.2.2c), rejected with enough.
 : fill-to ( free -- )
   lf-term-capacity swap -
-  begin dup lf-term-count @ > while 0 lf-term-bvar must drop repeat drop ;
+  false lf-term-sharing!
+  begin dup lf-term-count @ > while 0 lf-term-bvar must drop repeat drop true lf-term-sharing! ;
 : room-step ( free -- outcome ) 1 d5-term sweep-root ! fill-to 50000 sweep-step ;
 : room-sweep ( -- )
   0 seen ! 40 0 do i room-step saw loop ;

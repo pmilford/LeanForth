@@ -86,8 +86,15 @@ end-structure
 : lf-scratch-terms ( scratch -- n ) 0 lf-scratch-part mark-count @ ;
 
 \ Family k back to its part of a valid mark (store-rollback cannot refuse
-\ it then), and the local context's entries above the terms marked.
-: lf-scratch-back-to ( scratch k -- ) lf-scratch-pair store-rollback drop ;
+\ it then), and the local context's entries above the terms marked. The
+\ terms go back through lf-term-rollback, which also takes their entries
+\ out of the hash-consing table (terms.fs).
+: lf-scratch-level-back ( mark -- outcome ) lf-levels store-rollback ;
+: lf-scratch-cref-back ( mark -- outcome ) lf-crefs store-rollback ;
+create lf-scratch-backs
+  ' lf-term-rollback , ' lf-scratch-level-back , ' lf-scratch-cref-back ,
+: lf-scratch-back-to ( scratch k -- )
+  tuck lf-scratch-part swap cells lf-scratch-backs + @ execute drop ;
 : lf-scratch-lctx ( scratch -- ) lf-scratch-terms lf-lctx-drop ;
 \ Give back everything made since the mark: ok, or invalid with nothing
 \ changed for a mark that is not valid.

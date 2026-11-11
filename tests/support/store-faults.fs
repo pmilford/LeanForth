@@ -14,9 +14,13 @@ require ../../src/core/terms.fs
 require ../../src/core/levels.fs
 
 \ Overwrite one field of a record (unchecked: the index is the test's).
-: term-tag! ( tag index -- ) lf-term-slot node-tag ! ;
-: term-first! ( first index -- ) lf-term-slot node-first ! ;
-: term-second! ( second index -- ) lf-term-slot node-second ! ;
+\ Term records are four 32-bit fields (core/terms.fs, compact-store plan
+\ step S3): a field keeps the low 32 bits of what is written, so -1
+\ reads back as 2^32 - 1; the data word is never recomputed.
+: term-tag! ( tag index -- ) lf-term-slot u32! ;
+: term-first! ( first index -- ) lf-term-slot lf-term-first-at + u32! ;
+: term-second! ( second index -- ) lf-term-slot lf-term-second-at + u32! ;
+: term-data! ( data index -- ) lf-term-slot lf-term-data-at + u32! ;
 : level-tag! ( tag index -- ) lf-level-slot node-tag ! ;
 : level-first! ( first index -- ) lf-level-slot node-first ! ;
 : level-second! ( second index -- ) lf-level-slot node-second ! ;

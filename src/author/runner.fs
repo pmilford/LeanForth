@@ -178,7 +178,11 @@ end-structure
     lfa-restore lfa-caught ;
 
 \ Public words; see the header.
+\ The term store's own hash-consing is turned off for the run (terms.fs):
+\ authoring shares nodes itself and keeps a binder name, a position or a
+\ note per node (build.fs), which one shared node could not hold.
 : lf-author-begin ( -- )
+  false lf-term-sharing!
   lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
   lf-pres-reset lf-note-reset lf-ssession-begin drop lfa-scope-close lfa-items-reset
   lfa-groups-reset lfa-declarations-reset lfa-source-reset lfa-error-reset ;

@@ -384,7 +384,7 @@ lf-walk-room context-walk2: lf-ol-scan
   dup lf-tag-bvar = if drop nip lf-ol-scan-bvar exit then
   dup lf-term-binary-tag? if lf-pp-scan-binary else drop 2drop drop outcome-ok then ;
 : lf-ol-scan-visit ( walk -- outcome )
-  lf-terms walk-read if lf-ol-scan-dispatch else outcome-ok then ;
+  lf-term-walk-read if lf-ol-scan-dispatch else outcome-ok then ;
 : lf-ol-mentions? ( term k -- flag )
   lf-ol-scan walk-arg ! lf-lv lf-lv-fuel @ lf-ol-scan walk-budget drop
   0 ['] lf-ol-scan-visit lf-ol-scan walk-run-pair lf-pp-hit?

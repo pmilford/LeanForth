@@ -381,8 +381,10 @@ lf-tag-str lf-skel-level < and
   if true else 2drop false then ;
 : lf-tk-pair ( node tag -- kind a b true )
   swap dup lf-term-first@ swap lf-term-second@ true ;
+\ A literal of at most one limb by its value and count (its limb is kept
+\ in the slab, core/literals.fs), any other by its own node.
 : lf-tk-lit ( node tag -- kind a b true | false )
-  over lf-term-second@ 2 < if lf-tk-pair else lf-tk-own then ;
+  over lf-lit-small? if over lf-lit-cell rot lf-term-second@ true else lf-tk-own then ;
 : lf-tk-leaf ( node tag -- kind a b true | false )
   dup case
     lf-tag-bvar of lf-tk-bvar endof
@@ -467,15 +469,12 @@ lf-tag-str lf-skel-level < and
   lf-term-facts 0= if drop false exit then drop
   swap lf-term-facts 0= if drop false exit then drop = ;
 ' lf-cs-same? is lf-dq-known-same?
-\ lf-term-data@ (core/terms.fs): the facts as ADR 0016 C1's data word,
-\ while the caches are on and the range fits its 20 bits.
+\ The memo's facts as ADR 0016 C1's data word, when the range fits its
+\ 20 bits: what core/terms.fs's lf-term-data@ gives from each record
+\ (since compact-store plan step S3; the tests compare the two).
 : lf-cd-word ( bits -- data true | false )
   dup lf-bits-loose dup lf-data-ranges u< 0= if 2drop false exit then
   over lf-bits-params 0<> rot lf-bits-fvar 0<> lf-data true ;
-: lf-cd-data ( node -- data true | false )
-  lf-caches-on? 0= if drop false exit then
-  lf-term-facts if nip lf-cd-word else false then ;
-' lf-cd-data is lf-term-data@
 
 \ ---------------------------------------------------------------------------
 \ Nodes as keys (by skeleton) and values (a live node and its identity).

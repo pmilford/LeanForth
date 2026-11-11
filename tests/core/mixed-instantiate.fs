@@ -19,6 +19,11 @@ require ../../src/kernel/mixed-open.fs
 require ../../src/kernel/mixed-shift.fs
 require ../support/store-faults.fs
 
+\ These cases number their nodes and identity serials: the term store's
+\ hash-consing (compact-store plan step S3) is off here, so that each
+\ constructor and each rebuilt node is a new node, as the cases count.
+false lf-term-sharing!
+
 variable rid variable cid variable sid variable rootid variable outid variable serial-before
 create args 2 cells allot
 : setup ( -- )
@@ -106,9 +111,10 @@ T{ 12 lf-term-read -> lf-tag-lam 1 11 true }T
 T{ 13 lf-term-read -> lf-tag-pi 0 12 true }T
 T{ 13 term-serial 100 lf-cterm-check -> outcome-ok }T
 \ Shifting a maximum index fails after the audits, with rollback: the
-\ index has no room to grow, which is full.
+\ index has no room to grow, which is full (the largest index a term's
+\ 32-bit field holds, since compact-store plan step S3; a cell's before).
 setup
-T{ lf-mshift-max lf-term-bvar -> 7 true }T
+T{ u32-mask lf-term-bvar -> 7 true }T
 T{ 0 3 lf-term-lam -> 8 true }T
 term-serial rootid !
 T{ 8 rootid @ 7 7 lf-term-identity drop 100 lf-mixed-instantiate -> -1 0 outcome-full }T
@@ -205,7 +211,7 @@ T{ 10 10 lf-term-identity drop 100 lf-cterm-check -> outcome-invalid }T
 create term-mark /store-mark allot
 : term-marked ( -- n )
   term-mark lf-terms store-mark ok? 0= abort" term mark" term-mark mark-count @ ;
-: terms-back ( -- outcome ) term-mark lf-terms store-rollback ;
+: terms-back ( -- outcome ) term-mark lf-term-rollback ;
 term-marked constant before-w
 T{ 1 lf-lctx-local -> before-w outcome-ok }T
 T{ terms-back -> outcome-ok }T

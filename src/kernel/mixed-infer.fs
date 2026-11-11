@@ -245,7 +245,7 @@ lf-walk-room context-walk2: lf-minfer-scan
 : lf-minfer-scan-dispatch ( first second walk tag -- outcome )
   dup lf-term-binary-tag? if lf-minfer-scan-binary exit then
   lf-tag-bvar = if lf-minfer-scan-bvar else drop 2drop outcome-ok then ;
-: lf-minfer-scan-visit ( walk -- outcome ) lf-terms ['] lf-minfer-scan-dispatch walk-visit ;
+: lf-minfer-scan-visit ( walk -- outcome ) ['] lf-minfer-scan-dispatch lf-term-visit ;
 \ The scan keeps the largest k - d (-1 for none), so that no index
 \ overflows; m is one more, at most n.
 : lf-minfer-scanned ( node n -- m )

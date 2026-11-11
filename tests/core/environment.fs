@@ -93,7 +93,9 @@ T{ 1 lf-input-read nip 2 lf-input-read nip -1 lf-input-read nip -> outcome-ok ou
 \ go on.
 lf-term-count @ constant terms-then
 lf-name-used @ constant bytes-then
-0 lf-term-sort 2drop 0 s" scratch" lf-name-str 2drop
+\ (A Sort no node has yet, so a new node: the term store gives an equal
+\ node back, compact-store plan step S3.)
+9999 lf-term-sort 2drop 0 s" scratch" lf-name-str 2drop
 T{ lf-term-count @ terms-then 1+ = lf-name-used @ bytes-then > -> true true }T
 T{ ' lf-input-rollback rs-checked lf-term-count @ lf-name-used @ -> outcome-ok terms-then bytes-then }T
 T{ lf-input-intact? -> true }T

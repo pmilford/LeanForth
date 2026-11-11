@@ -16,11 +16,18 @@ require ../core/terms.fs
 begin-structure /lf-batch
   field: lf-batch-open     \ true while a batch is open
   field: lf-batch-start    \ term count when the open batch began
+  field: lf-batch-sharing  \ the term store's sharing switch before it
 end-structure
 /lf-batch context-record: lf-load-batch
 
+\ Every record of a batch is a node of its own, at the next index, so
+\ the term store's hash-consing (core/terms.fs) is off while a batch is
+\ open and back as it was when it closes; nothing a batch makes is
+\ entered in the store's table, so an abort only sets the count back.
 : lf-load-open? ( -- flag ) lf-load-batch lf-batch-open @ ;
-: lf-load-close ( -- ) false lf-load-batch lf-batch-open ! ;
+: lf-load-close ( -- )
+  lf-load-open? if lf-load-batch lf-batch-sharing @ lf-term-sharing! then
+  false lf-load-batch lf-batch-open ! ;
 : lf-load-base ( -- start ) lf-load-batch lf-batch-start @ ;
 \ Records staged so far in the open batch: the next batch-local index.
 : lf-load-staged ( -- n ) lf-term-count @ lf-load-base - ;
@@ -28,6 +35,7 @@ end-structure
 \ Begin a batch at the current arena count. An already open batch cannot be
 \ replaced. Failure leaves the arena and any active batch unchanged.
 : lf-load-start ( -- )
+  lf-term-sharing? lf-load-batch lf-batch-sharing ! false lf-term-sharing!
   lf-term-count @ lf-load-batch lf-batch-start ! true lf-load-batch lf-batch-open ! ;
 : lf-load-begin ( -- flag )
   lf-load-open? lf-term-count-valid? 0= or if false else lf-load-start true then ;

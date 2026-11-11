@@ -19,7 +19,11 @@ include ../support/plain-cases.fs
 include ../support/checker-trial.fs
 require ../support/store-faults.fs
 
-: begin-check ( -- ) context-new throw context-use fresh-session open-index ;
+\ The cases number their fixture nodes and fill stores with equal leaves:
+\ each runs with the term store's hash-consing off (compact-store plan
+\ step S3); the random checks below run with it on.
+: begin-check ( -- )
+  context-new throw context-use false lf-term-sharing! fresh-session open-index ;
 : end-check ( -- ) lf-context @ context-main context-use context-free throw ;
 \ The numbers and code recorded, and whether the site's name is text.
 : diag ( -- n1 n2 code ) lf-diag@ nip ;

@@ -213,8 +213,10 @@ lf-log-stop lf-input-rollback drop
 \ variable, built above the input marks and given to a shift, whose
 \ outcome, result and fuel are the same with the log off and on. 200
 \ deep, the shift succeeds (its stack grows: plan task 6.2.0) and the
-\ chain and its shifted copy are copied whole (201 and 401 copies, the
-\ log complete and valid). A copy's depth is no limit of its own (the
+\ chain and its shifted copy are copied whole (201 and 199 copies, the
+\ log complete and valid: the shift's 200 variables #1 are one node, and
+\ its first application one the input holds, since the term store is
+\ hash-consed, compact-store plan step S3; 201 and 401 before). A copy's depth is no limit of its own (the
 \ copier's stacks hold what its work can push; with the 512-entry stacks
 \ before plan task 6.2.0, 300 deep was truncated): 1,000 deep the shift
 \ runs out of fuel and the log is complete; 2,000 deep the copy needs
@@ -229,7 +231,7 @@ T{ 8000 lf-term-capacity! -> outcome-ok }T
 : run-on ( n -- index outcome fuel )
   lf-log-terms lf-log-start shift-chain lf-input-rollback drop ;
 T{ 200 run-off -> 200 run-on }T
-T{ lf-log-complete? lf-log-term-copies lc-valid? -> true 602 true }T
+T{ lf-log-complete? lf-log-term-copies lc-valid? -> true 400 true }T
 T{ 1000 run-off -> 1000 run-on }T
 T{ lf-log-complete? lc-valid? -> true true }T
 T{ 2000 run-off -> 2000 run-on }T

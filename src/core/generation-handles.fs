@@ -101,7 +101,7 @@ lf-walk-room context-walk: lf-href-walker
   dup lf-term-binary-tag? if drop walk-push2 exit then
   case lf-tag-symbolic-sort of lf-href-sort endof
     lf-tag-bvar of drop 2drop outcome-ok endof walk-bad-tag endcase ;
-: lf-href-visit ( walk -- outcome ) lf-terms ['] lf-href-dispatch walk-visit ;
+: lf-href-visit ( walk -- outcome ) ['] lf-href-dispatch lf-term-visit ;
 \ Internal: audit an already structurally checked root. Negative fuel is
 \ invalid.
 : lf-href-site ( -- site ) c" generation-handles lf-hterm-check" ;

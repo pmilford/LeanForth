@@ -140,7 +140,7 @@ lf-walk-room context-walk: lf-mls-walker
 : lf-mls-again? ( walk -- flag ) walk-node @ lf-mls-reached? ;
 : lf-mls-dispatch ( first second walk tag -- outcome )
   over lf-mls-again? if lf-walk-skip else lf-mls-first then ;
-: lf-mls-visit ( walk -- outcome ) lf-terms ['] lf-mls-dispatch walk-visit ;
+: lf-mls-visit ( walk -- outcome ) ['] lf-mls-dispatch lf-term-visit ;
 \ A new audit takes a new stamp, so that no term counts as reached, and
 \ lists nothing yet. Stamps start at 1 (a new unit is 0); only when they
 \ would run out is the column erased and they restart.

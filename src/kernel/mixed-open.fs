@@ -164,14 +164,18 @@ end-structure
   ['] lf-open-second lf-rebuild-first ;
 
 \ A bound-variable leaf of index i: the live one an earlier pass made for
-\ i, else a new one, then kept for i; no room is full.
+\ i, else a new one, then kept for i; no room is full. While the term
+\ store hash-conses (core/terms.fs, compact-store plan step S3) it gives
+\ the live leaf back itself, so the leaves are not kept: what a pass makes
+\ then never depends on what an earlier check left in this record.
 : lf-open-slot ( i -- addr ) 2* cells lf-open-job lf-openjob-leaves + ;
 : lf-open-kept? ( addr -- node true | false )
   dup @ dup lf-term-identity if rot cell+ @ = dup 0= if nip then else 2drop false then ;
 : lf-open-remember ( node i -- node )
   over dup lf-term-identity drop rot lf-open-slot tuck cell+ ! ! ;
 : lf-open-leaf-at ( i -- node outcome )
-  dup 0 lf-open-leaves within 0= if lf-term-bvar lf-rebuild-allocated exit then
+  dup 0 lf-open-leaves within 0= lf-term-sharing? or
+  if lf-term-bvar lf-rebuild-allocated exit then
   dup lf-open-slot lf-open-kept? if nip outcome-ok exit then
   dup lf-term-bvar if swap lf-open-remember outcome-ok else drop lf-rebuild-full then ;
 

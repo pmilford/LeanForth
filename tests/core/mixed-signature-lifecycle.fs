@@ -28,7 +28,7 @@ create term-start /store-mark allot   create level-start /store-mark allot
 : fixture-marked ( -- )
   term-start lf-terms store-mark ok? 0= abort" term mark"
   level-start lf-levels store-mark ok? 0= abort" level mark" ;
-: terms-back ( -- ) term-start lf-terms store-rollback ok? 0= abort" terms back" ;
+: terms-back ( -- ) term-start lf-term-rollback ok? 0= abort" terms back" ;
 : levels-back ( -- ) level-start lf-levels store-rollback ok? 0= abort" levels back" ;
 : begin-fixture ( -- )
   lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset

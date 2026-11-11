@@ -45,9 +45,9 @@ FAULTS = [
      "  dup outcome-full = if drop outcome-ok then ;"),
     ("forget one store's rollback: the level store after each check",
      "src/core/input.fs",
-     ": lf-mark-back ( mark store -- flag ) store-rollback ok? ;",
+     ": lf-mark-back ( mark store -- flag ) lf-store-back ok? ;",
      ": lf-mark-back ( mark store -- flag )\n"
-     "  dup lf-levels = if 2drop true exit then store-rollback ok? ;"),
+     "  dup lf-levels = if 2drop true exit then lf-store-back ok? ;"),
     ("forget one store's rollback: the dependency pool after a failed publication",
      "src/kernel/env-publish.fs",
      "  dup lf-span-all-open? if lf-env-pub-mark store-rollback drop then lf-span-clear ;",

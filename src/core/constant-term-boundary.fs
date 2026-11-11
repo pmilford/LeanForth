@@ -32,9 +32,40 @@ require ./tagged-sort-boundary.fs
 require ./terms.fs
 
 7 constant lf-tag-constant
+\ A constant node is never shared (terms.fs): it carries a stamp of its
+\ own identity.
+lf-tag-constant lf-term-unshare
 /slab context-record: lf-cterm-stamps
 1 cells ' lf-cterm-stamps lf-term-columns column-add
 lf-walk-room context-walk: lf-cterm-walker
+
+\ The data words of the checker's leaves (terms.fs's hook lf-term-leaf-data;
+\ ADR 0016 C1, compact-store plan step S3), the facts kernel/caches.fs's
+\ memo finds for them: a bound variable its index plus one; a free
+\ variable the free-variable bit; a symbolic Sort and a constant the
+\ parameter bit of their levels (levels.fs keeps it per level), when the
+\ level, or the reference and its levels, are valid when the node is
+\ made, else no data; a projection, literal, string literal or let leaf
+\ nothing (0); any other leaf (a concrete Sort, an unsupported form) no
+\ data.
+: lf-data-params ( flag -- data ) 0 swap false lf-data ;
+: lf-cterm-sort-data ( level second -- data )
+  drop dup lf-level-valid? 0= if drop lf-data-unknown exit then
+  lf-level-params? lf-data-params ;
+: lf-cterm-params? ( addr count -- flag )
+  false swap 0 ?do over i lf-cref-pair@ drop lf-level-params? or loop nip ;
+: lf-cterm-const-data ( cref identity -- data )
+  lf-cref-levels if lf-cterm-params? lf-data-params else lf-data-unknown then ;
+: lf-cterm-leaf-data ( tag first second -- data )
+  rot case
+    lf-tag-bvar of lf-bvar-data endof
+    lf-tag-symbolic-sort of lf-cterm-sort-data endof
+    lf-tag-constant of lf-cterm-const-data endof
+    lf-tag-fvar of 2drop 0 false true lf-data endof
+    lf-tag-proj of 2drop 0 endof  lf-tag-lit of 2drop 0 endof
+    lf-tag-str of 2drop 0 endof  lf-tag-let of 2drop 0 endof
+    >r 2drop lf-data-unknown r> endcase ;
+' lf-cterm-leaf-data is lf-term-leaf-data
 
 \ Marks: audits that check each node once, however many paths reach it.
 \ Lean keeps a node's closedness data in the node itself, computed once
@@ -125,7 +156,7 @@ lf-walk-room context-walk: lf-cterm-walker
     lf-tag-str of lf-str-check endof
     lf-tag-let of lf-let-check endof  walk-bad-tag endcase ;
 : lf-cterm-once ( first second walk tag -- outcome ) ['] lf-cterm-dispatch lf-walk-once ;
-: lf-cterm-visit ( walk -- outcome ) lf-terms ['] lf-cterm-once walk-visit ;
+: lf-cterm-visit ( walk -- outcome ) ['] lf-cterm-once lf-term-visit ;
 
 \ Validate a live root and its reachable mixed symbolic graph, each node
 \ once (the marks above). Each term and level visit costs one unit of
