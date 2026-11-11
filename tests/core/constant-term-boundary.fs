@@ -73,9 +73,17 @@ T{ rindex @ rid @ lf-cterm-new -> false }T
 lf-level-reset
 T{ 63 cid @ 10 lf-cterm-check -> outcome-invalid }T
 \ A shared constant is visited twice; each visit also checks its level.
+\ Where a fixture's terms and levels begin, as store marks (lib/store.fs):
+\ slots are given back through them, never by setting a count.
+create term-start /store-mark allot   create level-start /store-mark allot
+: fresh-marked ( -- )
+  term-start lf-terms store-mark ok? 0= abort" term mark"
+  level-start lf-levels store-mark ok? 0= abort" level mark" ;
+: terms-back ( -- outcome ) term-start lf-terms store-rollback ;
+: levels-back ( -- outcome ) level-start lf-levels store-rollback ;
 : fresh ( -- )
   lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
-  lf-ssession-begin 0= abort" session"
+  fresh-marked lf-ssession-begin 0= abort" session"
   0 s" y" lf-name-str 0= abort" name" drop
   0 args ! 0 lf-level-identity 0= abort" zero" args cell+ !
   0 lf-name-generation @ args 1 lf-cref-new 0= abort" cref" rid ! drop
@@ -107,7 +115,7 @@ T{ 0 sid @ 10 lf-cterm-check -> outcome-invalid }T
 T{ 1 cid @ 10 lf-cterm-check -> outcome-invalid }T
 0 1 lf-level-slot 2 cells + !
 \ Reusing the level slot invalidates both captured identities without a reset.
-1 lf-level-count !
+T{ levels-back lf-level-count @ -> outcome-ok 1 }T
 : reuse-level ( -- ) 42 lf-hlevel-param 0= abort" reuse level" 2drop ;
 reuse-level
 T{ 0 sid @ 10 lf-cterm-check -> outcome-invalid }T
@@ -118,7 +126,7 @@ lf-lscope-context-reset
 T{ 0 cid @ 10 lf-cterm-check -> outcome-invalid }T
 \ Rollback and reuse cannot inherit a constant stamp from the old allocation.
 fresh
-0 lf-term-count !
+T{ terms-back lf-term-count @ -> outcome-ok 0 }T
 : raw-reuse ( -- ) lf-tag-constant 0 rid @ lf-term-add 0= abort" raw reuse" drop ;
 raw-reuse
 T{ 0 lf-term-identities @ 10 lf-cterm-check -> outcome-invalid }T

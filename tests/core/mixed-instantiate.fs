@@ -10,6 +10,7 @@ require ../../src/core/level-scope.fs
 require ../../src/core/levels.fs
 require ../../src/core/local-context.fs
 require ../../src/core/names.fs
+require ../../src/core/scratch-marks.fs
 require ../../src/core/symbolic-session.fs
 require ../../src/core/tagged-sort-boundary.fs
 require ../../src/core/terms.fs
@@ -196,11 +197,17 @@ T{ 1 99 lf-lctx-let lf-lctx-count @ -> -1 outcome-invalid 3 }T
 \ The audit accepts live free variables only.
 T{ 7 7 lf-term-identity drop 100 lf-cterm-check -> outcome-ok }T
 T{ 10 10 lf-term-identity drop 100 lf-cterm-check -> outcome-invalid }T
-\ A rollback of the term store leaves a discarded free variable's entry
-\ dead, even when its index is used again with the same fields.
-lf-term-count @ constant before-w
+\ A rollback of the term store alone (a store mark, as the input's rollback
+\ makes; a scratch mark would drop the entry too) leaves a discarded free
+\ variable's entry dead, even when its index is used again with the same
+\ fields.
+create term-mark /store-mark allot
+: term-marked ( -- n )
+  term-mark lf-terms store-mark ok? 0= abort" term mark" term-mark mark-count @ ;
+: terms-back ( -- outcome ) term-mark lf-terms store-rollback ;
+term-marked constant before-w
 T{ 1 lf-lctx-local -> before-w outcome-ok }T
-before-w lf-term-count !
+T{ terms-back -> outcome-ok }T
 T{ before-w lf-fvar-live? -> false }T
 T{ lf-tag-fvar 3 0 lf-term-add -> before-w true }T
 T{ before-w lf-fvar-live? lf-lctx-count @ -> false 4 }T
@@ -277,9 +284,9 @@ open-setup
 1 heap-refusals !
 T{ 9 100000 rev -> -1 outcome-full }T
 T{ 9 -1 rev -> -1 outcome-invalid }T
-lf-term-count @ constant before-dead
+term-marked constant before-dead
 T{ 1 lf-lctx-local -> before-dead outcome-ok }T
-before-dead lf-term-count !
+T{ terms-back -> outcome-ok }T
 T{ lf-tag-fvar 2 0 lf-term-add -> before-dead true }T
 T{ before-dead 1 lf-term-app -> before-dead 1+ true }T
 T{ before-dead 1+ 2 abstracted -> -1 outcome-invalid }T
@@ -303,9 +310,11 @@ T{ lf-open-frames frame-busy? 9 2 rev nip -> false outcome-ok }T
 \ opened, on a stack that grows; a growth the heap refuses is full.
 : deep ( -- node ) 2 lf-walk-room 0 do 1 swap lf-term-lam 0= abort" deep" loop ;
 lf-walk-room 4 * lf-term-capacity! drop
-lf-term-count @ constant before-deep
+create before-deep /lf-scratch allot
+T{ before-deep lf-scratch-mark -> outcome-ok }T
 T{ deep 1 rev nip -> outcome-ok }T
-before-deep lf-term-count !  lf-open-frames frame-free  1 heap-refusals !
+T{ before-deep lf-scratch-rollback -> outcome-ok }T
+lf-open-frames frame-free  1 heap-refusals !
 T{ deep 1 rev -> -1 outcome-full }T
 \ mk_pi: fun over x : Sort and y : x of y is (x : Sort) -> (y : x) -> y,
 \ in de Bruijn form Pi Sort (Pi #0 #0), the domain x abstracted over x.

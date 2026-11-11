@@ -104,11 +104,16 @@ T{ u u' lf-level-same? u v lf-level-same? one one' lf-level-same? -> true false 
 T{ u -1 lf-level-same? u 99 lf-level-mk-max -> false false }T
 \ A full store: a new node is refused; an argument is still given.
 : fill-levels ( -- ) begin lf-level-count @ lf-level-capacity < while 0 succ drop repeat ;
-lf-level-count @ constant before-fill
+\ Levels made by a test are given back through a mark of the level store
+\ (lib/store.fs), never by setting its count.
+create level-mark /store-mark allot
+: levels-marked ( -- ) level-mark lf-levels store-mark ok? 0= abort" level mark" ;
+: levels-back ( -- ) level-mark lf-levels store-rollback ok? 0= abort" level rollback" ;
+levels-marked
 fill-levels
 T{ u v lf-level-mk-max -> false }T
 T{ u 0 lf-level-mk-imax -> 0 true }T
-before-fill lf-level-count !
+levels-back
 
 \ ---------------------------------------------------------------------------
 \ is_equivalent (518-521) through level-compare: ok for Lean's true,
@@ -196,12 +201,12 @@ T{ lu lv 20 lf-level-compare-keeping lf-lcmp-fuel @ -> outcome-unknown 16 }T
 T{ lu lv 3 lf-level-compare-keeping lf-lcmp-fuel @ -> outcome-exhausted 0 }T
 \ Room: the store full, normalize cannot build its forms: full, and the
 \ store is back.
-lf-level-count @ constant before-full
+levels-marked
 fill-levels
 T{ i1u m1u 100 lf-level-compare -> outcome-full }T
 T{ i1u m1u 100 lf-level-inequivalent? -> false outcome-full }T
 T{ lf-level-count @ -> lf-level-capacity }T
-before-full lf-level-count !
+levels-back
 \ Invalid input: negative fuel, a level outside the store, a corrupted
 \ node, a parameter outside the context.
 T{ lu lv -1 lf-level-compare lf-lcmp-fuel @ -> outcome-invalid 0 }T
@@ -320,9 +325,9 @@ variable checks
 : check-same ( a b -- )
   2dup lf-level-same? -rot m-same? <> abort" operator== differs from the model" ;
 : round ( n -- )
-  level-seed ! lf-level-capacity 8 - random-store
+  level-seed ! lf-level-capacity 8 - random-store levels-marked
   200 0 do pick-level pick-level 2dup check-same 2dup check-max check-imax
-    pool @ lf-level-count ! 3 checks +! loop ;
+    levels-back 3 checks +! loop ;
 hits 4 cells erase 0 checks !
 : rounds ( -- ) 30 0 do i 7 * 1+ round loop ;
 rounds
@@ -381,12 +386,15 @@ T{ 1 far-param 1 lf-level-same? -> true }T
 T{ 16384 lf-level-capacity! -> outcome-ok }T
 lf-level-reset
 : succs ( level n -- top ) 0 ?do lf-level-succ must loop ;
-0 3000 succs constant tall
+\ The level store is marked at count 1000, on the way up the chain, and
+\ given back to it after.
+0 999 succs levels-marked 2001 succs constant tall
 T{ tall tall lf-level-same? lf-lmk-known @ -> true 3001 }T
 T{ tall 0 lf-level-same? lf-lmk-known @ -> false 3001 }T
 T{ 0 1000 succs drop lf-level-count @ -> 4001 }T
 T{ tall 1000 succs 0 4000 succs lf-level-same? lf-lmk-known @ -> true 9001 }T
-1000 lf-level-count !
+T{ level-mark mark-count @ -> 1000 }T
+levels-back
 u-id @ lf-level-param must constant u1
 u-id @ lf-level-param must constant u2
 T{ u1 u2 lf-level-same? u1 999 lf-level-same? lf-lmk-known @ -> true false 1002 }T

@@ -58,16 +58,20 @@ T{ 0 lf-term-serial @ 100 lf-hterm-check -> outcome-ok }T
 \ Simulate an allocation transaction that discards its last slot and then
 \ reuses it. The old handle must not match the new occupant even though the
 \ arena generation did not change. No node may retain a rolled-back level.
+\ The slots are given back through store marks (lib/store.fs).
+create rollback-mark /store-mark allot
+T{ rollback-mark lf-terms store-mark -> outcome-ok }T
 T{ 0 lf-hterm-bvar -> 1 lf-term-serial @ true }T
 lf-term-serial @ rolled-term-identity !
-1 lf-term-count !
+T{ rollback-mark lf-terms store-rollback lf-term-count @ -> outcome-ok 1 }T
 T{ 1 lf-hterm-bvar -> 1 lf-term-serial @ true }T
 T{ 1 rolled-term-identity @ lf-hterm-valid? -> false }T
 T{ 1 lf-term-serial @ lf-hterm-valid? -> true }T
 T{ lf-hlevel-zero -> 0 lf-level-identities @ true }T
+T{ rollback-mark lf-levels store-mark -> outcome-ok }T
 T{ 0 lf-level-identities @ lf-hlevel-succ -> 2 lf-level-serial @ true }T
 lf-level-serial @ rolled-level-identity !
-2 lf-level-count !
+T{ rollback-mark lf-levels store-rollback lf-level-count @ -> outcome-ok 2 }T
 T{ 0 lf-level-identities @ lf-hlevel-succ -> 2 lf-level-serial @ true }T
 T{ 2 rolled-level-identity @ lf-hlevel-valid? -> false }T
 T{ 2 lf-level-serial @ lf-hlevel-valid? -> true }T

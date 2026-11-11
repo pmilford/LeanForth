@@ -140,9 +140,13 @@ T{ signatures 0 0 arg! s" c" 1 reference save-counts infer-with nip nip counts-k
   -> outcome-invalid true }T
 T{ signatures s" c" 0 reference infer-with nip nip -> outcome-invalid }T
 T{ signatures 0 0 arg! s" missing" 1 reference infer-with nip nip -> outcome-unknown }T
+\ The reference's level is given back through a mark of the level store
+\ (lib/store.fs) and its slot made again.
+create level-mark /store-mark allot
 : stale-level-reference ( -- token root )
-  signatures level-u succ-of 0 arg! s" missing" 1 reference
-  lf-level-count @ 1- lf-level-count ! 0 succ-of drop ;
+  signatures level-mark lf-levels store-mark ok? must
+  level-u succ-of 0 arg! s" missing" 1 reference
+  level-mark lf-levels store-rollback ok? must 0 succ-of drop ;
 T{ stale-level-reference infer-with nip nip -> outcome-invalid }T
 \ A parameter outside the session's level context is invalid as well.
 T{ signatures 99 lf-level-param must 0 arg! s" missing" 1 reference infer-with nip nip

@@ -94,7 +94,10 @@ T{ lf-load-finish -> false }T
 lf-term-reset
 : bvars ( n -- ) 0 ?do 0 lf-term-bvar 0= abort" bvar" drop loop ;
 context-new throw constant other
-other context-use 8 bvars 2 lf-term-count !
+create other-mark /store-mark allot   \ the other context's terms after 2 nodes
+other context-use 2 bvars
+T{ other-mark lf-terms store-mark 6 bvars other-mark lf-terms store-rollback
+   -> outcome-ok outcome-ok }T
 context-main context-use 10 bvars
 T{ lf-load-begin -> true }T
 other context-use

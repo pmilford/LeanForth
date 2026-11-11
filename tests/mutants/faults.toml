@@ -922,10 +922,109 @@ reason = "4.2.2b: step 6 calls the same constant at any universe arguments equal
 [[fault]]
 id = "conv-scratch-kept"
 file = "src/kernel/mixed-convert.fs"
-old = '''  lf-mconvert-marks 2>r >r lf-mconvert-defeq r> 2r> lf-mconvert-done ;'''
+old = '''  lf-mconvert-defeq lf-mconvert-done ;'''
 new = '''  lf-mconvert-defeq ;'''
 test = "$GFORTH tests/core/mixed-convert.fs"
 reason = "the terms, levels and local-context entries a conversion made are not discarded"
+
+# --- Scratch marks (src/core/scratch-marks.fs; compact-store plan S1) ----
+
+[[fault]]
+id = "scratch-family-left-out"
+file = "src/core/scratch-marks.fs"
+old = '''3 constant lf-scratch-families'''
+new = '''2 constant lf-scratch-families'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "S1: the references are left out of the joint mark: neither marked nor given back"
+
+[[fault]]
+id = "scratch-local-context-kept"
+file = "src/core/scratch-marks.fs"
+old = ''': lf-scratch-lctx ( scratch -- ) lf-scratch-terms lf-lctx-drop ;'''
+new = ''': lf-scratch-lctx ( scratch -- ) drop ;'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "S1: the local context is left out of the joint mark: entries outlive their free variables"
+
+[[fault]]
+id = "scratch-rollback-unchecked"
+file = "src/core/scratch-marks.fs"
+old = '''  dup lf-scratch-valid? 0= if drop outcome-invalid exit then
+  lf-scratch-families 0 do'''
+new = '''  lf-scratch-families 0 do'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "S1: a mark restored out of order is not refused (the stores refuse it, unseen, and ok is reported)"
+
+[[fault]]
+id = "scratch-discard-everything"
+file = "src/core/scratch-marks.fs"
+old = '''  dup 0 lf-scratch-back-to lf-scratch-lctx outcome-ok ;'''
+new = '''  lf-scratch-families 0 do dup i lf-scratch-back-to loop lf-scratch-lctx outcome-ok ;'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "S1: a step's discard gives back its levels too, though its Sort level may be one of them"
+
+[[fault]]
+id = "scratch-stack-not-lifo"
+file = "src/core/scratch-marks.fs"
+old = '''  lf-scratch-depth @ 0> if lf-scratch-newest lf-sentry-number @ = else drop false then ;'''
+new = '''  drop lf-scratch-depth @ 0> ;'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "S1: a stack mark that is not the newest is used, rolling back to a younger owner's point"
+
+[[fault]]
+id = "infer-step-mark-leaked"
+file = "src/kernel/mixed-infer.fs"
+old = '''  over ok? lf-minfer-keeps? 0= and if lf-scratch-cut else lf-scratch-drop then'''
+new = '''  over ok? lf-minfer-keeps? 0= and if lf-scratch-cut else drop outcome-ok then'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "S1: a failed step leaves its mark on the stack, so an older mark is refused later"
+
+[[fault]]
+id = "infer-pi-mark-leaked"
+file = "src/kernel/mixed-infer.fs"
+old = '''  dup ok? 0= if no-result 1 r@ frame-pick lf-minfer-let-go 3 r@ frame-drop r> 0 exit then'''
+new = '''  dup ok? 0= if no-result 3 r@ frame-drop r> 0 exit then'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "S1: a Pi whose domain fails keeps its older mark on the stack"
+
+[[fault]]
+id = "rebuild-mark-leaked"
+file = "src/kernel/mixed-rebuild.fs"
+old = '''  lf-scratch-drop dup ok? if exit then nip nip lf-rebuild-none ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "S1: a successful rebuild keeps its mark on the stack, above the inference step's own"
+
+[[fault]]
+id = "infer-job-not-rolled-back"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-minfer-job lf-ijob-mark lf-scratch-rollback lf-scratch-settled ;'''
+new = '''  ;'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "S1: a failed inference keeps what it made"
+
+[[fault]]
+id = "mls-not-rolled-back"
+file = "src/kernel/mixed-level-substitute.fs"
+old = ''': lf-mls-rollback ( status -- status ) lf-mls-scratch lf-scratch-rollback lf-scratch-settled ;'''
+new = ''': lf-mls-rollback ( status -- status ) ;'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "S1: a failed universe substitution keeps the terms, levels and references it made"
+
+[[fault]]
+id = "msp-coverage-kept"
+file = "src/kernel/mixed-signature-probe.fs"
+old = '''  lf-msp-zero-actuals lf-msp-mark lf-scratch-rollback lf-scratch-settled ;'''
+new = '''  lf-msp-zero-actuals ;'''
+test = "$GFORTH tests/core/mixed-signature-probe.fs"
+reason = "S1: coverage's trial substitution is kept in the stores"
+
+[[fault]]
+id = "mdp-not-rewound"
+file = "src/kernel/mixed-definition-probe.fs"
+old = '''  lf-mdreq-scratch lf-scratch-rollback lf-scratch-settled ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/core/mixed-definition-probe.fs"
+reason = "S1: the definition probe keeps everything its inference made"
 
 # --- Lean's caches (src/kernel/caches.fs; plan task 4.2.7, review CA) ----
 
