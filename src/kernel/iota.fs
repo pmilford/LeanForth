@@ -138,11 +138,15 @@ require ./quot.fs
 \ bound variable stands for a binder no scope holds. A failing scan is
 \ (false outcome). An open e typed so is counted (lf-whnf-scope-use): the
 \ result depends on the scope, and kernel/caches.fs keeps none for it.
-: lf-iota-on-scope? ( frames -- flag )
-  lf-minfer-frames = dup if lf-whnf-scope-use then ;
+: lf-iota-in-range? ( e -- flag )
+  lf-term-data@ 0= if false exit then
+  lf-data-loose lf-minfer-context-depth @ swap u< 0= ;
+: lf-iota-on-scope? ( e frames -- flag )
+  lf-minfer-frames <> if drop false exit then
+  lf-iota-in-range? dup if lf-whnf-scope-use then ;
 : lf-iota-scoped? ( e frames -- flag outcome )
-  tuck lf-whnf-loose? ok-then? 0= if nip false swap exit then
-  if lf-iota-on-scope? else drop true then outcome-ok ;
+  2dup lf-whnf-loose? ok-then? 0= if >r 2drop r> false swap exit then
+  if lf-iota-on-scope? else 2drop true then outcome-ok ;
 
 \ Structure eta in iota (R3; plan task 5.2.2; to_cnstr_when_structure,
 \ inductive.h 63-75, expand_eta_struct, inductive.cpp 99-112): a major
@@ -194,10 +198,12 @@ require ./quot.fs
   swap lf-iota-params ok-then? 0= if r> drop >r 2drop drop r> no-result exit then
   swap lf-idecl-data lf-ict-fields lf-more-field rot swap r> swap lf-iota-fields-of
   rot drop ;
-: lf-iota-eta-ready? ( major frames -- flag )
-  lf-minfer-env? if lf-iota-scoped? drop else 2drop false then ;
+: lf-iota-eta-ready? ( major frames -- flag outcome )
+  lf-minfer-env? if lf-iota-scoped? else 2drop false outcome-ok then ;
 : lf-iota-eta ( app major sdecl frames -- major' true | reduct outcome false )
-  2 pick swap lf-iota-eta-ready? 0= if 2drop lf-iota-not-ported false exit then
+  2 pick swap lf-iota-eta-ready? ok-then?
+  0= if >r 2drop r> lf-iota-eta-failed false exit then
+  0= if 2drop lf-iota-not-ported false exit then
   over lf-iota-type-of ok-then? 0= if >r 2drop r> lf-iota-eta-failed false exit then
   2dup lf-iota-of-struct? 0= if 2drop 2drop -1 outcome-ok false exit then
   dup lf-iproj-prop? ok-then? 0= if >r 2drop drop r> lf-iota-eta-failed false exit then

@@ -8220,10 +8220,19 @@ test = "$GFORTH tests/core/check-block.fs"
 reason = "IO: the binders positivity opened stay on the scope: a later field's h is typed as Nat, k.field-after-binder-variable rejected (Lean accepts; unknown here until the builder's gap closes)"
 
 [[fault]]
+id = "fx12-eta-scope-unranged"
+file = "src/kernel/iota.fs"
+old = '''  lf-term-data@ 0= if false exit then
+  lf-data-loose lf-minfer-context-depth @ swap u< 0= ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/whnf.fs"
+reason = "FX12 (rvIO M1): R3 trusts the inference job's frames alone: a major premise whose loose variable lies beyond the scope's depth is typed as if scoped"
+
+[[fault]]
 id = "io-eta-unscoped"
 file = "src/kernel/iota.fs"
-old = '''  lf-minfer-env? if lf-iota-scoped? drop else 2drop false then ;'''
-new = '''  lf-minfer-env? if lf-whnf-loose? drop 0= else 2drop false then ;'''
+old = '''  lf-minfer-env? if lf-iota-scoped? else 2drop false outcome-ok then ;'''
+new = '''  lf-minfer-env? if lf-whnf-loose? swap 0= swap else 2drop false outcome-ok then ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "IO: structure eta in iota (R3) only on closed major premises: eta.block-index-variable unknown"
 

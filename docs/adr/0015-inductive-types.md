@@ -1898,8 +1898,30 @@ places now do what Lean 4.35.0 does where LeanForth answered *unknown*.
   reduces to the type only by K or structure eta on a variable of the
   constructor (rows `k.field-variable`, `k.field-after-binder-variable`):
   positivity follows Lean, the recursor builder does not open its
-  binders (Lean's `is_rec_argument`). Closed by the follow-up of task
-  5.2.1b that gives the builder the scope.
+  binders (Lean's `is_rec_argument`). Closed by plan task 5.2.1d
+  (`docs/project/PLAN_DRAFT.md`), which gives the builder the scope.
+
+- **One rule for a failed inference (review rvIO L2).** Lean's
+  `infer_type` throws, and a throw is the check's failure. iota's R3
+  aside inference and `infer_proj`'s `is_prop` now pass every outcome but
+  ok through unchanged, *invalid* included (`infer_proj` used to turn
+  *invalid* into *unknown*). A scoped major premise is one on the
+  inference job's frames whose loose range lies within the scope's depth
+  (`lf-iota-in-range?`): a future caller on those frames with a deeper
+  loose variable gets *unknown*, never a guess (rvIO M1). A scan that
+  exhausts its fuel stays *exhausted* (rvIO L1).
+- **Proof irrelevance's typeExpected has no Lean-compared row (rvIO G1).**
+  The kernel checks every binder domain, let type and application
+  argument is a type (`ensure_sort`) before `is_def_eq` can compare terms
+  of that type, so a declaration Lean's elaborator can build never makes
+  the comparison's `is_prop(type of t)` meet a type whose type is no Sort;
+  the stuck-`Eq.rec` telescopes above fail earlier, in `check_inductive_types`.
+  No such row exists, so that branch keeps its stub typer test
+  (`tests/core/defeq.fs`).
+- **Parameters present (rvIO G3).** Rows `k.param-index-variable`,
+  `k.param-index-stuck`, `eta.param-index-variable`,
+  `eta.param-index-prop-stuck` put a parameter before the index; Lean and
+  LeanForth agree (accepted, typeExpected / rejected).
 
 ## Reproduction
 

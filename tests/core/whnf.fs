@@ -225,4 +225,17 @@ T{ wb0 ' lf-whnf-loose? scanned -> true outcome-ok 100 }T
 T{ wb0 ' lf-whnf-free? scanned -> true outcome-ok 100 }T
 T{ wfxx ' lf-whnf-loose? scanned -> false outcome-ok 100 }T
 T{ wfxx ' lf-whnf-free? scanned -> true outcome-ok 100 }T
+
+\ R3's scope guard (iota.fs, review rvIO M1): an open major premise counts as
+\ scoped only on the inference job's frames AND with its loose range within
+\ the scope's depth; any other (a bound variable no scope holds) is not.
+1 lf-term-bvar drop constant wb1
+: scoped-at ( node depth -- flag outcome )
+  lf-minfer-context-depth ! lf-minfer-frames lf-iota-scoped?
+  0 lf-minfer-context-depth ! ;
+T{ wb0 0 scoped-at -> false outcome-ok }T
+T{ wb0 1 scoped-at -> true outcome-ok }T
+T{ wb1 1 scoped-at -> false outcome-ok }T
+T{ wb1 2 scoped-at -> true outcome-ok }T
+T{ wfxx 0 scoped-at -> true outcome-ok }T
 bye
