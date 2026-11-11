@@ -325,8 +325,13 @@ lf-tag-let lf-skel-level < lf-tag-lit lf-skel-level < and lf-tag-proj lf-skel-le
 : lf-tk-first ( node tag -- kind a b true ) swap lf-term-first@ 0 true ;
 : lf-tk-own ( node tag -- kind a b true | false )
   drop lf-skel-node swap lf-term-identity if 0 true else drop false then ;
+\ A bound variable whose index would overflow its bits (twice 1 + the
+\ index, in a cell: lf-leaf-bits) has no facts, so every pass meets it
+\ uncached (review rvCACHE L1; unreachable today: the audit bounds every
+\ index by the binders around it).
+: lf-tk-index? ( node -- flag ) lf-term-first@ 0 max-n 2/ 1- within ;
 : lf-tk-bvar ( node tag -- kind a b true | false )
-  over dup lf-term-first@ swap lf-term-second@ lf-repr-leaf?
+  over dup lf-term-first@ swap lf-term-second@ lf-repr-leaf? 2 pick lf-tk-index? and
   if lf-tk-first else 2drop false then ;
 : lf-tk-fvar ( node tag -- kind a b true | false )
   over lf-fvar-live? 0= if 2drop false exit then
@@ -519,9 +524,13 @@ lf-tag-let lf-skel-level < lf-tag-lit lf-skel-level < and lf-tag-proj lf-skel-le
   lf-minfer-context-depth @ 1- lf-minfer-fvar-cell @ lf-term-identity ;
 : lf-ci-scope ( loose -- scope true | false )
   ?dup 0= if 0 true exit then lf-minfer-context-depth @ > if false else lf-ci-top then ;
+\ Only a node inference may read (lf-minfer-source?: a source node, or
+\ any node aside) is looked up or kept, so a node it refuses as invalid
+\ meets that refusal, never a cached type (review rvCACHE L2).
 : lf-ci-ready? ( node -- id scope true | false )
   lf-caches-on? 0= if drop false exit then
   lf-minfer-chain @ 0< 0= if drop false exit then
+  dup lf-minfer-source? 0= if drop false exit then
   lf-term-facts 0= if false exit then 2/ lf-ci-scope dup 0= if nip then ;
 : lf-ci-table ( -- cache )
   lf-minfer-aside @ if lf-cache-infer-only else lf-cache-infer then ;

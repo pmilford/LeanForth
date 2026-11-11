@@ -661,8 +661,10 @@ environments that define the names themselves.
 Natural-number literals are leaves (`core/literals.fs`: one cell, or the
 limbs of `lib/bignum.fs` in the context's slab); a literal's type is the
 constant `Nat`; `whnf_core` leaves it; `reduce_nat` computes Lean's
-fifteen operations by name on literals and `Nat.zero`, when the term has
-no free variable (`kernel/reduce-nat.fs`); iota turns a literal major
+fifteen operations by name on literals and `Nat.zero`, whether or not the
+term has free variables, as Lean's `whnf` does (`kernel/reduce-nat.fs`;
+only lazy delta, 1060, and the `Bool.true` step, 1142, test `has_fvar`;
+review rvCONV B1 corrected an invented test here); iota turns a literal major
 premise into `Nat.zero` or `Nat.succ n`; `quick_is_def_eq` answers no for
 two different literals; `is_def_eq_offset` takes the literal 0 and
 `Nat.zero` as zero and a literal above 0 as a successor; lazy delta

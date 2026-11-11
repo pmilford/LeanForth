@@ -88,8 +88,17 @@ require ../core/terms.fs
 : lf-rn-unit? ( lit -- flag ) dup lf-lit-small? if lf-lit-cell 2 u< else drop false then ;
 \ Bits estimated for a result, an estimate over the limit being full.
 : lf-rn-over? ( bits -- flag ) big-lean-bits u> ;
-: lf-rn-sized ( a b op bits extra -- node outcome )
-  >r limb-bits / 4 * r> + 16 + ['] lf-rn-literal lf-rn-in-arena ;
+\ Scratch for a result of at most bits (within the limit): 6 cells per
+\ result limb, the operands' limbs twice and 4096 cells. big-pow's peak
+\ is its last squaring of x, of m limbs, about half the result's: x, the
+\ product (2m), the short factor's copy (2m) and Karatsuba's frames
+\ (about 4m, and a few cells per level), so about 9m, 4.5 cells per
+\ result limb; shiftLeft needs the result and the operands (review rvCONV
+\ M1: 4 cells per limb left a 12,800-bit power full).
+: lf-rn-operand-cells ( a b -- a b cells ) over lf-term-second@ over lf-term-second@ + 2* ;
+: lf-rn-sized ( a b op bits -- node outcome )
+  limb-bits / 1+ 6 * >r >r lf-rn-operand-cells r> swap r> + 4096 +
+  ['] lf-rn-literal lf-rn-in-arena ;
 \ Nat.pow (reduce_pow, 633-648): the exponent's count first, then a base
 \ of 0 or 1 at once, else the result's bits (at most bits(a) * e).
 : lf-rn-pow-bits ( a b -- a b bits ) over lf-rn-bits over lf-lit-cell um* if drop -1 then ;
@@ -97,14 +106,14 @@ require ../core/terms.fs
   dup lf-rn-count? 0= if 2drop lf-rn-refuse exit then
   over lf-rn-unit? if ['] big-pow lf-rn-std exit then
   lf-rn-pow-bits dup lf-rn-over? if drop 2drop lf-rn-too-big exit then
-  ['] big-pow swap 0 lf-rn-sized ;
+  ['] big-pow swap lf-rn-sized ;
 \ Nat.shiftLeft (650-660): 0 at once; else the shift's count, then the
 \ result's bits, bits(a) + b.
 : lf-rn-shl ( a b -- node outcome )
   over lf-term-second@ 0= if ['] big-lshift lf-rn-std exit then
   dup lf-rn-count? 0= if 2drop lf-rn-refuse exit then
   over lf-rn-bits over lf-lit-cell + dup lf-rn-over? if drop 2drop lf-rn-too-big exit then
-  ['] big-lshift swap 3 pick lf-term-second@ lf-rn-sized ;
+  ['] big-lshift swap lf-rn-sized ;
 
 : lf-rn-add ( a b -- node outcome ) ['] big+ lf-rn-std ;
 : lf-rn-sub ( a b -- node outcome ) ['] big- lf-rn-std ;
