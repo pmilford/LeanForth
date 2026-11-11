@@ -212,7 +212,7 @@ class ExitCodes(unittest.TestCase):
         self.assertEqual((status, out.splitlines()[1]), (1, "composition: rejected"))
         status, out, _ = run("check", "--no-manifest", "tests/core/reexport/kinds.ndjson")
         self.assertEqual((status, out.splitlines()[-2:]),
-                         (2, ["106 declarations: 89 accepted, 17 unsupported",
+                         (2, ["106 declarations: 89 accepted, 1 skipped, 16 unsupported",
                               accepted(89, "propext (allowlisted); none NOT PROVED")]))
         self.expect(["check", "--no-manifest", "--record", "/dev/null",
                      "tests/core/reexport/kinds.ndjson"], 2,
@@ -836,7 +836,8 @@ class JsonReport(unittest.TestCase):
     says what the text says, the same on every run but for "measured"."""
 
     schema = Validator(json.loads((ROOT / "schemas/check-report-0.1.schema.json").read_text()))
-    VERDICTS = {"accepted": "accepted", "rejected": "rejected", "unknown": "unknown",
+    VERDICTS = {"accepted": "accepted", "skipped": "skipped", "rejected": "rejected",
+                "unknown": "unknown",
                 "unsupported": "unsupported", "invalid": "invalid", "exhausted": "exhausted",
                 "full": "full", "notChecked": "not-checked"}
 
@@ -894,7 +895,8 @@ class JsonReport(unittest.TestCase):
             counts = got["counts"]
             self.assertEqual(len(shown), int(counts is not None), args)
             if counts is not None:
-                words = {"accepted": "accepted", "rejected": "rejected", "unknown": "unknown",
+                words = {"accepted": "accepted", "skipped": "skipped", "rejected": "rejected",
+                         "unknown": "unknown",
                          "unsupported": "unsupported", "invalid": "invalid",
                          "exhausted": "exhausted", "full": "full", "notChecked": "not checked"}
                 summary = ", ".join(f"{counts[k]} {w}" for k, w in words.items() if counts[k])

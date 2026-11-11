@@ -262,7 +262,7 @@ fc-case unsafe-ill-typed
 fc-decl check def unsafe wrong 0 TYPE S z VALUE S z
 T{ check-skip -> outcome-rejected lf-diag-skipped audit true }T
 fc-case unsafe-recursive
-fc-decl check def unsafe loop 0 TYPE S z VALUE C loop 0
+fc-decl check def unsafe spin 0 TYPE S z VALUE C spin 0
 T{ check-skip -> outcome-rejected lf-diag-skipped audit true }T
 fc-case unsafe-axiom
 fc-decl check ax unsafe postulate 0 TYPE S z VALUE none

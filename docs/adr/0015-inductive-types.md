@@ -1525,6 +1525,96 @@ Written 2026-11-05 by agent KL; experimental [kernel] code, gate open.
   their own on the host stacks (as R3's), so K inside K inside K nests
   loops (plan task 6.2.0 follow-up).
 
+## Implementation (plan task 5.2.7): unsafe and partial declarations
+
+Written 2026-11-10 by agent UN; experimental [kernel] code, gate open.
+
+**What Lean does** (4.35.0, commit `eb6cafb7`).
+- *The referee, Lean's replay*, which the official checker runs
+  (`env.toKernelEnv.replay`, after lean4export's `Export.Parse`): it puts
+  only the constants with `!ci.isUnsafe && !ci.isPartial` in `remaining`
+  (`Lean/Replay.lean` 179–183, "We skip unsafe constants, and also partial
+  constants"), so it sends none of the others to the kernel and checks
+  nothing of them; `replayConstant` of a skipped name finds it not to do
+  (`isTodo`, 46–52, 75) and adds nothing, so a later declaration that uses
+  it fails in the kernel with "unknown constant". The official checker
+  then prints "Accepted N declarations", N counting the skipped ones.
+  `isUnsafe` is a definition with safety `unsafe` and an axiom, opaque
+  declaration, inductive type, constructor or recursor with its flag;
+  `isPartial` only a definition with safety `partial`; a theorem or
+  quotient is neither (`Lean/Declaration.lean` 453–465).
+- *The exporters*: lean4export 3.1.0 leaves unsafe and partial constants
+  out unless `--export-unsafe` (`Export.lean` 238); the toolchain's
+  `leanexport` leaves out unsafe ones only (`LeanExport/Basic.lean` 255; a
+  `partial def` reaches the export as a safe opaque constant, as `spin`
+  in `tests/core/reexport/kinds.ndjson`). `Export.Parse` reads `safety`
+  (`"unsafe"`, `"safe"`, `"partial"`, 255–275) and `isUnsafe` (required
+  for axioms, 241, and inductive types, constructors and recursors, 342,
+  374, 404; `false` when an opaque record lacks it, 300–301), and refuses
+  a name given twice ("Duplicate declaration", `addConst` 78–80).
+- *The kernel's own rules*, which replay never reaches: `add_definition`
+  checks an unsafe definition's header, adds it, then checks its value in
+  the new environment with the unsafe checker, so it may use itself
+  (`environment.cpp` 163–178); a partial one alone takes the safe branch
+  (179–189); `add_mutual` takes only unsafe or partial blocks, one safety
+  and one list of universe parameters, adds every header before any value
+  (225–269); `add_axiom` checks with the unsafe checker when the axiom is
+  unsafe (152–158), `add_opaque` with the safe one (211–223);
+  `infer_constant` refuses, outside infer-only mode, an unsafe constant
+  unless the checker is unsafe ("uses unsafe declaration") and a partial
+  definition when it is safe ("safe declaration must not contain partial
+  declaration", `type_checker.cpp` 109–117); an unsafe inductive block is
+  checked with the unsafe checker and skips positivity (`inductive.cpp`
+  214, 486) and gives its constructors and recursors the flag (373, 515,
+  817).
+
+**Decision.** LeanForth gives the referee's verdicts: an unsafe or partial
+declaration is skipped as replay skips it. The kernel's rules are not
+ported: replay never sends such a declaration to the kernel, the official
+checker accepts a file whose unsafe declaration the kernel would refuse
+(row `unsafe.def-ill-typed`), and an export cannot tell a partial
+definition added alone (`add_definition`, which cannot use itself) from
+one added in a mutual block (`add_mutual`, which can; the arena's 141).
+
+**What.**
+- `check-declaration.fs` U1: a definition with safety unsafe or partial, or
+  an axiom or opaque declaration with `isUnsafe`, after its kind and value
+  are audited, ends rejected, unchecked, its slot marked *skipped*
+  (`environment.fs` `lf-env-skip`, `lf-env-skipped!`; diagnostic 97) --
+  unless an earlier declaration of the input has its name: rejected then
+  (code 51), as lean4export's parser refuses the file.
+- `inductive-block.fs`: a block whose members are all unsafe, as Lean
+  writes an unsafe block, is skipped the same way, every member marked; a
+  block with both kinds stays *unsupported* (code 42), a gap that no
+  export Lean writes reaches: replay adds such a block when one of its
+  types is safe, compares only its safe constructors and recursors, and
+  refuses a safe constructor or recursor of a skipped type (task 5.2.7
+  part b; row `unsafe.inductive-type-safe`).
+- A skipped slot is rejected, so N1 finds no constant in it (Lean's
+  "unknown constant"); N2 (`lf-env-unheld`) counts its name as taken, so a
+  later declaration of that name is rejected, as the parser refuses the
+  file. The publisher marks only a rejected outcome and only when the
+  input marks every member of the span unsafe or partial (re-check part
+  7, else invalid) and counts a skipped slot as an N2 conflict (part 4).
+- Reports call it *skipped*, with Lean's exit status 0: the text line and
+  summary, `--json` (`verdict`, `counts.skipped`, schema check-report 0.1
+  amended in place), run records (schema run-record 0.1); `print` still
+  shows the slot's outcome, *rejected*, with diagnostic 97 (a follow-up).
+
+**Evidence.** Fourteen rows of `inductive-expected.lean`, each Lean's
+replay of hand-written constants (`replayVerdict`, the official checker's
+call): `unsafe.def`, `unsafe.def-recursive`, `unsafe.def-ill-typed`,
+`unsafe.def-then-unsafe-user`, `partial.def-recursive`, `unsafe.axiom`,
+`unsafe.opaque`, `unsafe.inductive-not-positive` accepted (LeanForth:
+skipped); `unsafe.def-then-safe-user`, `partial.def-then-safe-user`,
+`unsafe.axiom-then-safe-user`, `unsafe.opaque-then-safe-user`,
+`unsafe.inductive-then-safe-user` unknown constant (LeanForth: rejected,
+code 50); `unsafe.inductive-type-safe` accepted (LeanForth: unsupported,
+the gap above). The arena's `140_falseFromUnsafe` and
+`141_falseFromPartial` are rejected as the official checker rejects them
+(unknown constant), and no other arena verdict or count of `Init`'s first
+1,000,000 lines changed (`.claude/work/UN` in the agent's worktree).
+
 ## Plan (task 5.2.5b): nested blocks
 
 Lean checks a nested block (`Tree | node : List Tree → Tree`;

@@ -954,6 +954,20 @@ T{ lf-env-hand-over lf-env-view 3 lf-env-outcome -> outcome-invalid false outcom
 T{ lf-kind-definition lf-safety-unsafe 1 lf-env-skip lf-env-cand lf-cand-skipped @
    -> outcome-invalid 0 }T
 env-free
+\ A skipped slot's name stays taken: N2 rejects a later declaration of it,
+\ and the publisher refuses one claimed ok (part 4).
+lf-input-reset
+n.A def lf-safety-unsafe buf lf-idecl-safety ! add
+n.A def add
+ends
+8 fresh-env
+0 lf-env-begin drop true lf-env-skipped! outcome-rejected lf-env-finish
+T{ lf-env-hand-over lf-env-view drop 0 lf-env-skipped? -> outcome-rejected false true }T
+1 lf-env-begin drop
+T{ lf-env-own-name lf-diag-code@ -> outcome-rejected lf-diag-already-declared }T
+1 lf-env-begin drop outcome-ok lf-env-finish
+T{ lf-env-hand-over lf-diag@ nip -> outcome-invalid false 1 4 lf-diag-recheck }T
+env-free
 
 \ ---------------------------------------------------------------------------
 \ Corruption fails closed: a slot state that is not final, two accepted

@@ -66,7 +66,8 @@ verdict-kinds skipped 1+ <>
 : verdict-kind ( k -- verdict ) cells verdict-order + @ ;
 \ Declaration d's verdict, read from its slot (kernel/environment.fs):
 \ skipped, else its outcome.
-: verdict-of ( d -- verdict ) dup lf-env-skipped? if drop skipped else lf-env-outcome then ;
+: verdict-of ( d -- verdict )
+  dup lf-env-skipped? if drop skipped else lf-env-outcome then ;
 \ A verdict as reports name it: accepted for ok, not-checked, skipped, or
 \ the outcome's name.
 : verdict-name ( verdict -- c-addr u )

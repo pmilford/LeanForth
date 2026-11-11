@@ -370,13 +370,13 @@ and leaves 0. An export that uses every kind of record Lean writes,
 today: blocks such as `Prod`, `Eq` and `Iff`, recursive types such as
 `Nat` and `List` (plan task 5.2.1b), projections (plan task 5.2.2) and
 natural-number literals (plan task 5.2.3), axioms (5.3.1), opaque
-declarations (4.2.6) and quotients (5.2.4) are accepted; nested types,
-string literals, unsafe and partial declarations and what uses them are
-not yet:
+declarations (4.2.6) and quotients (5.2.4) are accepted; the unsafe
+definition `risky` is skipped, as Lean's replay skips it (below); nested
+types and string literals and what uses them are not yet:
 
 ```console
 $ bin/leanforth check --no-manifest tests/core/reexport/kinds.ndjson | tail -n 2; echo "exit status ${PIPESTATUS[0]}"
-106 declarations: 89 accepted, 17 unsupported
+106 declarations: 89 accepted, 1 skipped, 16 unsupported
 accepted: 89 (experimental, not independently audited); axioms: propext (allowlisted); none NOT PROVED
 exit status 2
 ```
@@ -432,13 +432,9 @@ each a gap to close, not an answer that differs from Lean's, which
 accepts all of `Init`: literals, projections and other term forms
 (5.2.3, 5.2.2, 4.2.3; 25,703 declarations), axioms, opaque, unsafe and
 partial declarations and quotients (252; axioms, opaque declarations
-and quotients since 5.3.1, 4.2.6 and 5.2.4; unsafe and partial ones are
-still unsupported, a gap that a follow-up of 5.3.1 and 4.2.6 closes:
-Lean's kernel accepts an unsafe axiom with its unsafe checker and an
-unsafe opaque declaration with the safe one, `environment.cpp` 152-158
-and 211-222, and rejects a safe declaration that uses either,
-`type_checker.cpp` 110-112; Lean's replay and the pinned exporter skip
-unsafe constants, and replay skips partial ones too), mutual
+and quotients since 5.3.1, 4.2.6 and 5.2.4; unsafe and partial ones
+were unsupported in that run and are skipped, as Lean's replay skips
+them, since plan task 5.2.7), mutual
 and nested inductive blocks (5.2.5; 8), comparisons that need
 definitions unfolded (4.2.2; 951 *unknown*, codes 30–32), and
 everything that uses one of those (25,616 *unsupported* and 4,105
@@ -561,8 +557,8 @@ exit status 0
 | `exportMeta` | only when the export's metadata named another exporter or Lean version (with `--any-lean-version`) and it was staged: `exporter` (`name`, `version`), `format` (`version`) and `lean` (`githash`, `version`), as the export's own metadata record has them, each as escaped display text. Optional members added within version 0.1 (2026-11-10): a report without the option is as before |
 | `run` | the run's outcome: `ok` when every slot ended final and the run did not stop, `invalid` when it stopped, `not-run` when the export was not read |
 | `stopped` | true when the run stopped on an internal fault (a check threw, or publishing failed), as the text's `internal fault: the run stopped` line says; the run is then `invalid` and the status 5 |
-| `declarations` | each declaration in file order: `index` (its place in the export, which identifies it), `name` (escaped display text, as the text shows it), `verdict` (`accepted`, an outcome, or `not-checked`), `fuel` (null when not known); an accepted one's `label`, `axiomBits` (0: none; 1 `propext`, 2 `Classical.choice`, 4 `Quot.sound`, each with Lean's statement, 8 any other axiom) and `notProved` (bit 8 set), with `notProvedBy`, the unlisted axioms' names, when it is true; any other's `diagnostic` (code, reason, site, two numbers, step) |
-| `counts` | the declarations by verdict, `notChecked` and `notProved`; null when no verdict could be read |
+| `declarations` | each declaration in file order: `index` (its place in the export, which identifies it), `name` (escaped display text, as the text shows it), `verdict` (`accepted`, `skipped`, an outcome, or `not-checked`), `fuel` (null when not known); an accepted one's `label`, `axiomBits` (0: none; 1 `propext`, 2 `Classical.choice`, 4 `Quot.sound`, each with Lean's statement, 8 any other axiom) and `notProved` (bit 8 set), with `notProvedBy`, the unlisted axioms' names, when it is true; any other's `diagnostic` (code, reason, site, two numbers, step) |
+| `counts` | the declarations by verdict (`skipped` among them, added within version 0.1 on 2026-11-10), `notChecked` and `notProved`; null when no verdict could be read |
 | `fuel` | `perDeclaration`, `total` (of the known), `unknown` (how many are not known) and `top` (the ten that used the most) |
 | `input` | declarations, term nodes, levels and constant references fed, and the stage's names; null when nothing was fed |
 | `exitStatus` | the command's [exit status](#exit-status), 0 to 6 |
@@ -574,14 +570,14 @@ check on either engine the same but for `measured`.
 
 The parts of a report agree, and the schema states what its keywords
 can: status 0 only for a run that ended `ok`, did not stop and listed at
-least one declaration, every one accepted, with every other count 0 and
+least one declaration, every one accepted or skipped, with every other count 0 and
 every fuel known, and under `--strict-axioms` none NOT PROVED; status 6
 only under `--strict-axioms`, when every declaration was accepted and at
 least one is NOT PROVED; a rejected or invalid declaration, or one not
 checked, never leaves the status 0. What it
 cannot state, `make test` checks on every report it makes (the schema's
 `$comment` lists it): `counts.declarations` is the number of
-`declarations` and the sum of the eight verdict counts, each count the
+`declarations` and the sum of the nine verdict counts, each count the
 number of declarations with that verdict, `notProved` the number marked
 so, and `input.declarations` the same number; `fuel.unknown` is the
 number of declarations whose fuel is null and `fuel.total` the sum of
@@ -782,7 +778,7 @@ both reads check it.
 
 | Status | Meaning | Comes from |
 | --- | --- | --- |
-| 0 | Every declaration accepted (or, for the other commands, done); NOT PROVED ones too, as Lean, unless `--strict-axioms` | every verdict *ok* |
+| 0 | Every declaration accepted or skipped (or, for the other commands, done); NOT PROVED ones too, as Lean, unless `--strict-axioms` | every verdict *ok* or *skipped* |
 | 1 | Something rejected: Lean's kernel rejects it too | *rejected* |
 | 2 | Unsupported or unknown: LeanForth cannot decide it yet | *unsupported*, *unknown* |
 | 3 | A resource limit: out of fuel or out of room | *exhausted*, *full* |
