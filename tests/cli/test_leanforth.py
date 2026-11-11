@@ -281,6 +281,12 @@ class ExitCodes(unittest.TestCase):
              "error: --json and --resources do not go with --record"),
             (["check", "--record", "r.json", "--resources", COMPOSITION],
              "error: --json and --resources do not go with --record"),
+            (["check", "--any-lean-version", "--record", "r.json", COMPOSITION],
+             "error: --any-lean-version does not go with --record"),
+            (["count", "--any-lean-version", COMPOSITION],
+             "error: an option this command does not take: --any-lean-version"),
+            (["replay", "--any-lean-version", COMPOSITION, "r.json"],
+             "error: an option this command does not take: --any-lean-version"),
             (["print", "--json", COMPOSITION],
              "error: an option this command does not take: --json"),
             (["print", "--strict-axioms", COMPOSITION],
@@ -393,6 +399,73 @@ class ExitCodes(unittest.TestCase):
 OUTLINES = ROOT / "tests" / "present" / "outlines.golden"
 LATEX_OUTLINES = ROOT / "tests" / "present" / "outlines-latex.golden"
 REFUSED = "No proof outline: the declaration was not accepted."
+
+
+OTHER_LEAN = "tests/core/other-lean.ndjson"
+OTHER_NOTE = ("note: export made by Lean 4.29.1 (githash 2fcce7258eeb6e324366bc25f9058293b04b7547), "
+              "written by handcrafted 0.1.0; verdicts are Lean 4.35.0's")
+FOO_NOT_PROVED = ("foo: accepted (experimental, not independently audited); axioms: unlisted; "
+                  "NOT PROVED: depends on foo")
+
+
+class OtherLean(unittest.TestCase):
+    """--any-lean-version (check and print): an export whose metadata names
+    another exporter and Lean version of format 3.1.0 (here one with sparse
+    and repeated indices, as lean4export's own parser reads them) is
+    unsupported by default and read with the option, a note saying what it
+    named; the JSON report says so in settings and exportMeta."""
+
+    def test_check(self):
+        status, out, _ = run("check", "--no-manifest", OTHER_LEAN)
+        self.assertEqual((status, out.splitlines()),
+                         (2, [NO_MANIFEST, "error: unsupported: unsupported exporter, format or "
+                              "Lean version (line 1)"]))
+        status, out, _ = run("check", "--no-manifest", "--any-lean-version", OTHER_LEAN)
+        self.assertEqual((status, out.splitlines()[:4]),
+                         (0, [NO_MANIFEST, OTHER_NOTE, FOO_NOT_PROVED, "1 declaration: 1 accepted"]))
+        # A pinned export reads as before: no note.
+        self.assertEqual(run("check", "--any-lean-version", COMPOSITION)[:2],
+                         (0, f"composition: {LABEL}\n1 declaration: 1 accepted\n{accepted(1)}\n"))
+
+    def test_print(self):
+        status, out, _ = run("print", "--no-manifest", "--any-lean-version", OTHER_LEAN)
+        self.assertEqual((status, out.splitlines()[:2]), (0, [NO_MANIFEST, OTHER_NOTE]))
+        status, out, _ = run("print", "--lf", "--no-manifest", "--any-lean-version", OTHER_LEAN)
+        self.assertEqual(status, 0)
+        self.assertIn("\\ " + OTHER_NOTE, out.splitlines())
+
+    def test_escaped(self):
+        """A crafted version cannot forge a line: it is shown escaped."""
+        text = (ROOT / OTHER_LEAN).read_text(encoding="utf-8")
+        crafted = text.replace('"version":"4.29.1"', '"version":"4.29.1\\nbar: accepted"')
+        self.assertNotEqual(crafted, text)
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "crafted.ndjson"
+            path.write_text(crafted, encoding="utf-8")
+            status, out, _ = run("check", "--no-manifest", "--any-lean-version", str(path))
+        lines = out.splitlines()
+        self.assertEqual((status, len(lines)), (0, 7))
+        self.assertTrue(lines[1].startswith("note: export made by Lean 4.29.1\\u{A}bar: accepted "),
+                        lines[1])
+
+    def test_json(self):
+        schema = Validator(json.loads((ROOT / "schemas/check-report-0.1.schema.json").read_text()))
+        status, out, _ = run("check", "--json", "--no-manifest", "--any-lean-version", OTHER_LEAN)
+        got = json.loads(out)
+        self.assertEqual((status, schema.errors(got), got["settings"]["anyLeanVersion"]),
+                         (0, [], True))
+        self.assertEqual(got["exportMeta"], {
+            "exporter": {"name": "handcrafted", "version": "0.1.0"}, "format": {"version": "3.1.0"},
+            "lean": {"githash": "2fcce7258eeb6e324366bc25f9058293b04b7547", "version": "4.29.1"}})
+        # Without the option, or for a pinned export, no exportMeta.
+        status, out, _ = run("check", "--json", "--no-manifest", OTHER_LEAN)
+        got = json.loads(out)
+        self.assertEqual((status, schema.errors(got), "anyLeanVersion" in got["settings"],
+                          "exportMeta" in got, got["read"]["outcome"]),
+                         (2, [], False, False, "unsupported"))
+        status, out, _ = run("check", "--json", "--any-lean-version", COMPOSITION)
+        got = json.loads(out)
+        self.assertEqual((status, schema.errors(got), "exportMeta" in got), (0, [], False))
 
 
 def golden(section):

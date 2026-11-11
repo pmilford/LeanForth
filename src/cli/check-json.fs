@@ -83,6 +83,18 @@ require ./check-run.fs
 : cj-read ( -- )
   s" read" cj-key cj-object ck-read-outcome outcome-text s" outcome" cj-text cj-where
   cj-end-object ;
+\ The export's metadata, only when it names another exporter or Lean
+\ version (read with --any-lean-version), in the shape of the export's
+\ own meta record, each text as display text.
+: cj-meta ( k key-addr key-u -- )
+  rot ck-stage stage-meta-text nt-text cj-shown 2swap cj-text ;
+: cj-exporter ( -- )
+  s" exporter" cj-key cj-object 0 s" name" cj-meta 1 s" version" cj-meta cj-end-object ;
+: cj-lean ( -- )
+  s" lean" cj-key cj-object 4 s" githash" cj-meta 3 s" version" cj-meta cj-end-object ;
+: cj-other ( -- )
+  ck-other-lean? 0= if exit then s" exportMeta" cj-key cj-object cj-exporter
+  s" format" cj-key cj-object 2 s" version" cj-meta cj-end-object cj-lean cj-end-object ;
 
 \ ---- The run and its declarations, in input order.
 : cj-run ( -- )
@@ -184,14 +196,17 @@ require ./check-run.fs
   cj-schema s" schema" cj-text cj-version s" schemaVersion" cj-text >r cj-export
   r> if s" checked" else s" not-checked" then s" manifest" cj-text
   cj-label s" label" cj-text ;
+\ anyLeanVersion only with --any-lean-version, so that a report without it
+\ is as before.
+: cj-any-lean ( -- ) ck-any-version? if true s" anyLeanVersion" cj-flag then ;
 : cj-settings ( -- )
   s" settings" cj-key cj-object ck-fuel-budget s" fuel" cj-number
   lf-env-pool-start s" dependencyPool" cj-number
-  cli-strict-axioms? s" strictAxioms" cj-flag cj-end-object ;
+  cli-strict-axioms? s" strictAxioms" cj-flag cj-any-lean cj-end-object ;
 : cj-status ( -- ) cli-worst @ s" exitStatus" cj-number ;
 : cj-body ( c-addr u checked? -- )
-  cj-object cj-head cj-settings cj-read cj-run cj-stopped cj-decls cj-counts cj-fuel
-  cj-input cj-status cj-measured cj-end-object ;
+  cj-object cj-head cj-settings cj-read cj-other cj-run cj-stopped cj-decls cj-counts
+  cj-fuel cj-input cj-status cj-measured cj-end-object ;
 : cj-report ( c-addr u checked? -- outcome )
   ['] type cj-writer jw-start cj-body cj-writer jw-end dup ok? if cr then ;
 

@@ -116,6 +116,8 @@ begin-structure /stage
   field: stage-reach                 \ while sealing: the mdata reach fields, or 0
   field: stage-item-count            \ items of the tuple being gathered
   8 cells +field stage-items
+  field: stage-other                 \ true: the metadata names other versions
+  5 cells +field stage-meta          \ then its texts, numbers in the tier's texts
 end-structure
 : export>stage ( export -- stage ) 0 stage-export - ;
 : record>stage ( record -- stage ) record-export @ export>stage ;
@@ -133,10 +135,12 @@ end-structure
 : export>level ( i stage -- l ) stage-level-map map> ;
 : export>expr ( i stage -- e ) stage-expr-map map> ;
 
-\ Heap blocks the stage holds (the tier, the maps, the declarations and their lines;
+\ Heap blocks the stage holds (the tier, the maps, the reader's index maps of
+\ an export whose indices are not dense, the declarations and their lines;
 \ not the reader's line buffer and JSON view), and its limit.
 : stage-allocated ( stage -- u )
-  dup stage-tier tier-allocated over stage-name-map slab-bytes +
+  dup stage-export export-map-bytes
+  over stage-tier tier-allocated + over stage-name-map slab-bytes +
   over stage-level-map slab-bytes + over stage-expr-map slab-bytes +
   over stage-decl-records slab-bytes + over stage-by-name slab-bytes +
   swap stage-lines slab-bytes + ;
@@ -156,8 +160,27 @@ end-structure
 : levels-kept ( l outcome stage -- outcome ) >r r@ stage-level-map kept r> limited ;
 : exprs-kept ( e outcome stage -- outcome ) >r r@ stage-expr-map kept r> limited ;
 
+\ ---- The metadata. The pinned versions' needs nothing kept; one that
+\ names others (the reader hands it over only after export-any-version!)
+\ has its five texts interned in the tier, in the order of meta-fields,
+\ and the stage marked (stage-other).
+create meta-fields
+  ' meta-exporter , ' meta-exporter-version , ' meta-format-version ,
+  ' meta-lean-version , ' meta-lean-githash ,
+here meta-fields - cell / constant #meta
+: meta-text ( record k -- c-addr u ) cells meta-fields + @ execute 2@ ;
+: meta-slot ( k stage -- addr ) stage-meta swap cells + ;
+: meta-keep ( record k stage -- outcome )
+  >r tuck meta-text r@ stage-tier tier-texts text-intern
+  ok-then? if swap r> meta-slot ! outcome-ok else nip r> drop then ;
+: metas-keep ( record stage -- outcome )
+  #meta 0 do 2dup i swap meta-keep dup ok? 0= if nip nip unloop exit then drop loop
+  true swap stage-other ! drop outcome-ok ;
+: put-meta ( record -- outcome )
+  dup pinned? if drop outcome-ok exit then
+  dup record>stage tuck metas-keep swap limited ;
+
 \ ---- Handlers ( record -- outcome ) of names, levels and expressions.
-: put-meta ( record -- outcome ) drop outcome-ok ;
 : put-name-str ( record -- outcome )
   dup record>stage >r dup name-prefix @ r@ export>name swap name-part 2@
   r@ stage-tier name-str r> names-kept ;

@@ -246,6 +246,22 @@ st stage-free
 T{ 12 st stage-init -> outcome-ok }T
 st stage-unmap
 T{ fixture st stage-load st stage-decls -> outcome-ok 3 }T
+T{ st stage-other? 3 st stage-meta-text s" 4.35.0" compare -> false 0 }T
+st stage-free
+\ An export of another Lean version, with sparse and repeated indices
+\ (lean4export's own parser reads them): unsupported unless
+\ stage-any-version! says otherwise (stage-init says not); then read, the
+\ metadata's texts kept (stage-other?, stage-meta-text).
+: other-file ( -- c-addr u ) s" tests/core/other-lean.ndjson" ;
+T{ 12 st stage-init other-file st stage-load-unchecked st stage-other?
+   -> outcome-ok outcome-unsupported false }T
+st stage-free
+T{ 12 st stage-init true st stage-any-version! other-file st stage-load-unchecked
+   -> outcome-ok outcome-ok }T
+T{ st stage-other? st stage-decls 3 st stage-meta-text s" 4.29.1" compare
+   0 st stage-meta-text s" handcrafted" compare -> true 1 0 0 }T
+T{ 1 st stage-meta-text s" 0.1.0" compare 2 st stage-meta-text s" 3.1.0" compare
+   4 st stage-meta-text s" 2fcce7258eeb6e324366bc25f9058293b04b7547" compare -> 0 0 0 }T
 st stage-free
 T{ live-blocks @ blocks-at-start - -> 0 }T
 T{ depth -> 0 }T

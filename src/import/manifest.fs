@@ -18,9 +18,10 @@
 \ named for this read. Before reading the export it checks the manifest
 \ whole: one JSON object with exactly the members of format version 1,
 \ each of its type, and the exporter, export format and Lean versions
-\ equal to the pinned ones the reader requires. During the read the
-\ export's tap gives every line, then its line feed, to SHA-256, once and
-\ as it is read. After an ok read it compares the file's lines, bytes,
+\ equal to the pinned ones the reader requires (when the export reads
+\ any version, export-any-version!, only the export format). During the
+\ read the export's tap gives every line, then its line feed, to SHA-256,
+\ once and as it is read. After an ok read it compares the file's lines, bytes,
 \ records of each kind handed over, and SHA-256 with the manifest's.
 \ Every failure about the manifest is invalid: missing, unreadable,
 \ larger than manifest-size-limit, not JSON, malformed, another format
@@ -242,7 +243,15 @@ create version-checks
   ' pinned-format-version check, export_format
   ' pinned-lean-version check, lean_version
   ' pinned-lean-githash check, lean_githash  0 ,
-: version-entry ( entry m -- outcome ) >r dup @ execute rot check-key r> pinned-check ;
+\ When the export reads any version (export-any-version?), only the
+\ format version must be the pinned one; the others need only be strings.
+: string-check ( key m -- outcome )
+  2dup member-at string-value if 2drop 2drop outcome-ok else manifest-broken then ;
+: loose? ( entry m -- flag )
+  manifest-export @ export-any-version? swap @ ['] pinned-format-version <> and ;
+: version-entry ( entry m -- outcome )
+  2dup loose? if swap check-key swap string-check exit then
+  >r dup @ execute rot check-key r> pinned-check ;
 : versions-check ( m -- outcome ) version-checks swap ['] version-entry each-check ;
 : manifest-check ( m -- outcome )
   >r r@ format-check dup ok? if drop r@ types-check then

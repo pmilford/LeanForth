@@ -63,6 +63,21 @@ T{ fresh s\" {\"meta\":{\"exporter\":{\"name\":\"lean4export\",\"version\":\"3.1
    -> outcome-unsupported true }T
 T{ fresh s\" {\"meta\":{\"exporter\":{\"name\":\"lean4import\",\"version\":\"3.1.0\"},\"format\":{\"version\":\"3.1.0\"},\"lean\":{\"githash\":\"eb6cafb7290e8bd5f2937522d8d804f58f02bafc\",\"version\":\"4.35.0\"}}}" unpinned
    -> outcome-unsupported true }T
+\ With export-any-version! any exporter and Lean version of format 3.1.0
+\ are read, and the handler sees them (pinned? false); another format
+\ still is not; export-init turns it off again.
+: other-meta ( -- c-addr u )
+  s\" {\"meta\":{\"exporter\":{\"name\":\"handcrafted\",\"version\":\"0.1.0\"},\"format\":{\"version\":\"3.1.0\"},\"lean\":{\"githash\":\"2fcce7258eeb6e324366bc25f9058293b04b7547\",\"version\":\"4.29.1\"}}}" ;
+T{ ex export-any-version? true ex export-any-version! ex export-any-version? -> false true }T
+T{ fresh other-meta feed kind@ snap pinned? -> outcome-ok kind-meta false }T
+T{ snap meta-lean-version text@ s" 4.29.1" compare snap meta-exporter text@ s" handcrafted" compare
+   -> 0 0 }T
+T{ fresh s\" {\"meta\":{\"exporter\":{\"name\":\"x\",\"version\":\"1\"},\"format\":{\"version\":\"3.2.0\"},\"lean\":{\"githash\":\"0\",\"version\":\"4.36.0\"}}}" unpinned
+   -> outcome-unsupported true }T
+T{ started snap pinned? -> outcome-ok true }T
+T{ false ex export-any-version! fresh other-meta unpinned -> outcome-unsupported true }T
+T{ true ex export-any-version! ex export-init ex export-any-version? -> outcome-ok false }T
+capture-all
 T{ fresh s\" {\"meta\":{\"exporter\":{\"name\":\"lean4export\",\"version\":3},\"format\":{\"version\":\"3.1.0\"},\"lean\":{\"githash\":\"0\",\"version\":\"4.35.0\"}}}" feed
    failed-field s" version" compare -> outcome-invalid 0 }T
 T{ fresh s\" {\"meta\":{\"exporter\":{\"name\":\"lean4export\",\"version\":\"3.1.0\"},\"format\":{\"version\":\"3.1.0\"}}}" feed
@@ -80,9 +95,13 @@ T{ snap name-part text@ s" 123456789012345678901234567890" compare ex export-nam
 T{ s\" {\"str\":{\"pre\":0,\"str\":\"\\u00e9\"},\"in\":3}" feed snap name-part text@ s\" \xc3\xa9" compare
    -> outcome-ok 0 }T
 : bad-name ( c-addr u -- outcome ) feed ex export-names @ 4 <> if drop -9 then ;
-T{ s\" {\"in\":5,\"str\":{\"pre\":0,\"str\":\"y\"}}" bad-name why s" bad or out-of-order index" compare
+\ An index is any natural number up to max-n (sparse and repeated
+\ indices: "Indices as Lean's reader takes them", below).
+T{ s\" {\"in\":-5,\"str\":{\"pre\":0,\"str\":\"y\"}}" bad-name why s" bad index" compare
    -> outcome-invalid 0 }T
-T{ s\" {\"in\":3,\"str\":{\"pre\":0,\"str\":\"y\"}}" bad-name -> outcome-invalid }T
+T{ s\" {\"in\":5.5,\"str\":{\"pre\":0,\"str\":\"y\"}}" bad-name -> outcome-invalid }T
+T{ s\" {\"in\":123456789012345678901234567890,\"str\":{\"pre\":0,\"str\":\"y\"}}" bad-name
+   why s" index too large" compare -> outcome-full 0 }T
 T{ s\" {\"in\":4,\"str\":{\"pre\":4,\"str\":\"y\"}}" bad-name failed-field s" pre" compare -> outcome-invalid 0 }T
 T{ s\" {\"in\":4,\"str\":{\"pre\":0}}" bad-name -> outcome-invalid }T
 T{ s\" {\"in\":4,\"str\":{\"pre\":0,\"str\":\"y\",\"z\":1}}" bad-name -> outcome-invalid }T
@@ -112,7 +131,7 @@ T{ s\" {\"il\":5,\"max\":[0,5]}" bad-level -> outcome-invalid }T
 T{ s\" {\"il\":5,\"max\":{\"a\":1}}" bad-level -> outcome-invalid }T
 T{ s\" {\"il\":5,\"zero\":0}" bad-level -> outcome-invalid }T
 T{ s\" {\"il\":5,\"mvar\":0}" bad-level -> outcome-invalid }T
-T{ s\" {\"il\":6,\"succ\":0}" bad-level -> outcome-invalid }T
+T{ s\" {\"il\":-6,\"succ\":0}" bad-level -> outcome-invalid }T
 
 \ Expressions: every kind, then the failures.
 T{ s\" {\"ie\":0,\"sort\":4}" feed kind@ index@ snap sort-level @ -> outcome-ok kind-sort 0 4 }T
@@ -143,7 +162,7 @@ T{ s\" {\"ie\":10,\"mdata\":{\"data\":{\"k\":[1]},\"expr\":9}}" feed kind@ snap 
 T{ s\" {\"ie\":11,\"natVal\":\"0\"}" feed ex export-exprs @ -> outcome-ok 12 }T
 : bad-expr ( c-addr u -- outcome ) feed ex export-exprs @ 12 <> if drop -9 then ;
 T{ s\" {\"app\":{\"arg\":12,\"fn\":0},\"ie\":12}" bad-expr failed-field s" arg" compare -> outcome-invalid 0 }T
-T{ s\" {\"app\":{\"arg\":1,\"fn\":0},\"ie\":13}" bad-expr -> outcome-invalid }T
+T{ s\" {\"app\":{\"arg\":1,\"fn\":0},\"ie\":true}" bad-expr -> outcome-invalid }T
 T{ s\" {\"app\":{\"arg\":1},\"ie\":12}" bad-expr -> outcome-invalid }T
 T{ s\" {\"app\":{\"arg\":1,\"fn\":0,\"f\":0},\"ie\":12}" bad-expr -> outcome-invalid }T
 T{ s\" {\"app\":{\"arg\":1,\"fn\":true},\"ie\":12}" bad-expr -> outcome-invalid }T
@@ -399,7 +418,7 @@ T{ prefix ex export-names @ ex export-exprs @ -> outcome-ok 5 8 }T
 \ export-line numbers the lines it is given from export-restart on: the
 \ last record came from line 13, and a failure on the next is at line 14.
 T{ ex export-at @ snap record-line @ -> 13 13 }T
-T{ s\" {\"ie\":9,\"sort\":0}" feed ex export-error 2drop 2drop -> outcome-invalid 14 }T
+T{ s\" {\"ie\":-9,\"sort\":0}" feed ex export-error 2drop 2drop -> outcome-invalid 14 }T
 
 \ Decoding never depends on BASE: heights, and numbers as wide as max-n.
 : def-1000 ( -- c-addr u )
@@ -606,6 +625,62 @@ T{ 0 ' tap-throws ex export-tap! s" tests/reference/composition.ndjson" ex ' exp
 T{ tap-fresh ex export-init ex export-tap @ ex export-tap-x @ -> outcome-ok 0 0 }T
 capture-all
 
+\ Indices as Lean's reader takes them (lean4export's Export.Parse): any
+\ natural number in any order; an index given again names the new record
+\ from then on; each reference is the ordinal its index has when it is
+\ read. Records are handed over under their family's next ordinal.
+T{ started ex export-map-bytes -> outcome-ok 0 }T
+T{ s\" {\"in\":7,\"str\":{\"pre\":0,\"str\":\"a\"}}" feed index@ ex export-names @
+   -> outcome-ok 1 2 }T
+T{ ex export-map-bytes 0> -> true }T
+T{ s\" {\"in\":3,\"str\":{\"pre\":7,\"str\":\"b\"}}" feed index@ snap name-prefix @
+   -> outcome-ok 2 1 }T
+\ 7 again: its own prefix is the old 7; from then on 7 is the new one.
+T{ s\" {\"in\":7,\"str\":{\"pre\":7,\"str\":\"c\"}}" feed index@ snap name-prefix @
+   -> outcome-ok 3 1 }T
+T{ s\" {\"in\":9,\"str\":{\"pre\":7,\"str\":\"d\"}}" feed snap name-prefix @ -> outcome-ok 3 }T
+\ 0, the anonymous name, given again: a reference to 0 names the new
+\ record, which is not anonymous; ordinal 0 stays the anonymous name.
+T{ s\" {\"in\":0,\"str\":{\"pre\":0,\"str\":\"e\"}}" feed index@ snap name-prefix @
+   -> outcome-ok 5 0 }T
+T{ s\" {\"il\":5,\"param\":0}" feed index@ snap param-name @ -> outcome-ok 1 5 }T
+\ Level 0 given again: its succ is of level zero, then 0 is the new level.
+T{ s\" {\"il\":0,\"succ\":0}" feed index@ snap succ-of @ -> outcome-ok 2 0 }T
+T{ s\" {\"ie\":4,\"sort\":0}" feed index@ snap sort-level @ -> outcome-ok 0 2 }T
+T{ s\" {\"ie\":4,\"bvar\":1}" feed index@ -> outcome-ok 1 }T
+T{ s\" {\"app\":{\"arg\":4,\"fn\":4},\"ie\":2}" feed index@ snap app-fn @ snap app-arg @
+   -> outcome-ok 2 1 1 }T
+\ No reference to an index no record has, nor to one beyond a cell, nor
+\ to the record's own index before it has it.
+: bad-sparse ( c-addr u -- outcome ) feed ex export-exprs @ 3 <> if drop -9 then ;
+T{ s\" {\"app\":{\"arg\":5,\"fn\":4},\"ie\":6}" bad-sparse failed-field s" arg" compare
+   -> outcome-invalid 0 }T
+T{ s\" {\"app\":{\"arg\":6,\"fn\":4},\"ie\":6}" bad-sparse -> outcome-invalid }T
+T{ s\" {\"app\":{\"arg\":123456789012345678901234567890,\"fn\":4},\"ie\":6}" bad-sparse
+   why s" bad reference" compare -> outcome-invalid 0 }T
+T{ s\" {\"ie\":4294967295,\"sort\":0}" feed index@ -> outcome-ok 3 }T
+T{ s\" {\"app\":{\"arg\":4294967295,\"fn\":4},\"ie\":0}" feed snap app-arg @ -> outcome-ok 3 }T
+\ A record its handler refuses gives its index nothing.
+T{ refuse-app s\" {\"app\":{\"arg\":4,\"fn\":4},\"ie\":8}" feed allow-app
+   s\" {\"app\":{\"arg\":8,\"fn\":4},\"ie\":9}" feed -> outcome-unsupported outcome-invalid }T
+\ Lists of references give ordinals too: a constant's levels, and names.
+T{ s\" {\"const\":{\"name\":9,\"us\":[0,5]},\"ie\":7}" feed snap const-name @
+   0 snap const-levels @ snap list-item 1 snap const-levels @ snap list-item
+   -> outcome-ok 4 2 1 }T
+T{ s\" {\"thm\":{\"all\":[9,0],\"levelParams\":[3],\"name\":7,\"type\":0,\"value\":0}}" feed
+   snap decl-name @ snap decl-type @ 0 snap decl-all @ snap list-item
+   1 snap decl-all @ snap list-item 0 snap decl-params @ snap list-item
+   -> outcome-ok 3 4 4 5 2 }T
+\ export-restart empties the maps: 7 is no name's index again, and
+\ indices that are their ordinals keep nothing.
+T{ started s\" {\"in\":1,\"str\":{\"pre\":7,\"str\":\"x\"}}" feed -> outcome-ok outcome-invalid }T
+T{ s\" {\"in\":1,\"str\":{\"pre\":0,\"str\":\"x\"}}" feed index@ -> outcome-ok 1 }T
+\ An index that was its ordinal, given again, then keeps its new ordinal.
+T{ 0 sort-line feed 1 sort-line feed s\" {\"bvar\":0,\"ie\":0}" feed index@
+   -> outcome-ok outcome-ok outcome-ok 2 }T
+T{ s\" {\"app\":{\"arg\":1,\"fn\":0},\"ie\":3}" feed snap app-fn @ snap app-arg @
+   -> outcome-ok 2 1 }T
+
 \ The tally (export-kind-count): records handed over and accepted, by
 \ kind, with a block's types, constructors and recursors; reset when a
 \ reading starts; a refused record is not counted; only a record kind.
@@ -626,12 +701,16 @@ T{ kind-count ex ' export-kind-count catch nip nip -1 ex ' export-kind-count cat
 T{ kind-count ex ' export-handler catch nip nip -1 ex ' export-handler catch nip nip -> -2 -2 }T
 T{ kind-recursor ex export-handler ex export-handlers - -> kind-recursor cells }T
 
-\ export-init again frees the old buffers and refuses every kind; while it
-\ is ready, an export holds three heap blocks (the line buffer, the token
-\ tape and the container stack), and none after export-free.
+\ export-init again frees the old buffers and the index maps, and refuses
+\ every kind; while it is ready, an export holds three heap blocks (the
+\ line buffer, the token tape and the container stack), and none after
+\ export-free. Here it also holds the three index maps the tests of
+\ sparse indices made, a table and a slab each, which export-restart
+\ empties but keeps.
 : export-blocks ( -- n ) live-blocks @ blocks-at-start - ;
 T{ export-blocks ex export-init kind-app ex export-handler @ ' export-refused = export-blocks
-   -> 3 outcome-ok true 3 }T
+   -> 9 outcome-ok true 3 }T
+T{ ex export-map-bytes -> 0 }T
 T{ ex export-free ex export-json json-tape @ ex export-reader reader-buffer @ export-blocks
    -> 0 0 0 }T
 cases-done
