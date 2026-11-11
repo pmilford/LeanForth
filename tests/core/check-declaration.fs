@@ -364,6 +364,27 @@ T{ check-last -> outcome-invalid lf-diag-bad-argument audit }T
 : outside ( -- outcome step )
   lf-check-declaration lf-env-cand lf-cand-outcome @ lf-check-step@ ;
 T{ outside -> outcome-invalid 0 }T
+\ Defence in depth (compact-store plan step S6 (c)): with the entry
+\ audit's U2 and V1 skipped (U1 alone as step 1), nothing malformed is
+\ accepted: inference meets the loose variable (invalid, out of scope)
+\ and the concrete Sort (a tag it does not know: unknown), as would the
+\ audits every conversion and rebuilding pass still runs on its roots,
+\ once per node per check.
+' lf-check-u1 lf-check-steps cell+ !
+fc-case loose-unaudited
+fc-decl check thm safe loose 0 TYPE P S z P V 0 V 1 VALUE L S z L V 0 V 2
+T{ check-last nip -> outcome-invalid value-step }T
+fc-case concrete-unaudited
+fc-read-term S s z constant concrete-type2
+0 lf-term-sort must constant concrete-value2
+: concrete-decl2 ( -- )
+  fc-buf /lf-idecl erase lf-kind-definition fc-buf lf-idecl-kind !
+  s" concrete" fc-intern fc-buf lf-idecl-name ! lf-hint-regular fc-buf lf-idecl-hint !
+  concrete-type2 fc-buf lf-idecl-type ! concrete-value2 fc-buf lf-idecl-value !
+  fc-buf lf-input-add ok? must drop ;
+concrete-decl2
+T{ check-last nip -> outcome-unknown value-step }T
+' lf-check-audit lf-check-steps cell+ !
 
 \ ---------------------------------------------------------------------------
 \ Exhausted: too little fuel for the audit; a 17th dependency, which used

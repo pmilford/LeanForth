@@ -101,6 +101,11 @@ T{ 4 lambda-id @ max-n 100 lf-constant-term-scope -> outcome-ok }T
 T{ 4 lambda-id @ 0 0 lf-constant-term-scope -> outcome-exhausted }T
 T{ 4 lambda-id @ 0 100 ' lf-constant-term-scope rs-checked -> outcome-ok }T
 T{ 4 lambda-id @ 1+ 0 100 lf-constant-term-scope -> outcome-invalid }T
+\ A live free variable is no bound variable: V1 refuses it at any depth
+\ (its data word's bit sends the root to the walk, which refuses the tag).
+: fvar-root ( -- index identity )
+  0 lf-lctx-local outcome-ok <> abort" local" dup lf-term-identity drop ;
+T{ fvar-root 5 100 lf-constant-term-scope -> outcome-invalid }T
 \ Reuse the referenced slot: the original constant must remain stale.
 lf-cref-reset
 T{ 0 lf-name-generation @ 0 0 lf-cref-new -> 0 lf-cref-serial @ true }T

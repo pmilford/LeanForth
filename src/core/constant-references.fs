@@ -89,8 +89,11 @@ store-header context-record: lf-crefs
 \ A valid store also needs a nonnegative serial.
 : lf-cref-state-valid? ( -- flag )
   lf-crefs store-count-valid? lf-cref-serial @ 0< 0= and ;
-\ Invalidate every reference. The serial is deliberately not rewound.
-: lf-cref-reset ( -- ) 0 lf-cref-count ! ;
+\ Invalidate every reference and advance the store's generation, as a
+\ term or level reset does (saturating to poisoned, lib/store.fs), so
+\ whatever was derived from the old references sees the reset (the audit
+\ memo, constant-term-boundary.fs). The serial is deliberately not rewound.
+: lf-cref-reset ( -- ) 0 lf-cref-count ! lf-crefs store-epoch+ ;
 
 \ A live name pair binds the index to the current name-table generation.
 : lf-cref-name-valid? ( index generation -- flag )
