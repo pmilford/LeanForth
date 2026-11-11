@@ -30,10 +30,31 @@
       "properties": {
         "fuel": {"description": "Fuel each declaration's check starts with (--fuel).", "$ref": "#/$defs/count"},
         "dependencyPool": {"description": "The room the run's dependency pool starts with; it grows (not a limit since plan task 6.2.0).", "$ref": "#/$defs/count"},
-        "strictAxioms": {"description": "true with --strict-axioms: a NOT PROVED declaration makes the exit status 6; false by default, when NOT PROVED keeps Lean's exit status (owner, 2026-11-04).", "type": "boolean"}
+        "strictAxioms": {"description": "true with --strict-axioms: a NOT PROVED declaration makes the exit status 6; false by default, when NOT PROVED keeps Lean's exit status (owner, 2026-11-04).", "type": "boolean"},
+        "anyLeanVersion": {"description": "Present, true, only with --any-lean-version: the export's metadata could name any exporter and Lean version of format 3.1.0 (an optional member added within version 0.1, 2026-11-10; a report without the option is as before).", "const": true}
       }
     },
     "read": {"$ref": "#/$defs/read"},
+    "exportMeta": {
+      "description": "Present only when the export's metadata names another exporter or Lean version than the pinned lean4export 3.1.0 and Lean 4.35.0 (possible only with --any-lean-version), and the export was staged: what it names, in the shape of the export's own meta record, each text as escaped display text (see `export`). The verdicts are still those of Lean 4.35.0's rules. An optional member added within version 0.1 (2026-11-10).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exporter", "format", "lean"],
+      "properties": {
+        "exporter": {
+          "type": "object", "additionalProperties": false, "required": ["name", "version"],
+          "properties": {"name": {"type": "string"}, "version": {"type": "string"}}
+        },
+        "format": {
+          "type": "object", "additionalProperties": false, "required": ["version"],
+          "properties": {"version": {"const": "3.1.0"}}
+        },
+        "lean": {
+          "type": "object", "additionalProperties": false, "required": ["githash", "version"],
+          "properties": {"githash": {"type": "string"}, "version": {"type": "string"}}
+        }
+      }
+    },
     "run": {
       "description": "The run's outcome: ok when every declaration's slot ended final; not-run when the export was not read.",
       "enum": ["ok", "invalid", "exhausted", "unknown", "rejected", "unsupported", "full", "not-run"]

@@ -830,10 +830,11 @@ here families - cell / constant #families
   over meta-exporter-version pinned-exporter-version text= and
   over meta-format-version pinned-format-version text= and swap pinned-lean? and ;
 : export-any-version! ( flag export -- ) export-any ! ;
+: export-any-version? ( export -- flag ) export-any @ ;
 : format-read? ( record -- flag ) meta-format-version pinned-format-version text= ;
 : header-taken? ( export -- flag )
   dup export-record pinned? if drop true exit then
-  dup export-any @ swap export-record format-read? and ;
+  dup export-any-version? swap export-record format-read? and ;
 : export-pinned ( export -- outcome )
   dup header-taken? if dup export-metas swap export-deliver exit then
   0 over export-key ! c" unsupported exporter, format or Lean version" export-refuse ;

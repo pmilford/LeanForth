@@ -19,6 +19,9 @@
 \ - ck-start ( fuel -- ) frees what the last run left (ck-release),
 \   forgets its facts, keeps the fuel each check starts with and starts
 \   the clock;
+\ - ck-any-version! ( flag -- ), after ck-start: true lets the stage read
+\   an export of any exporter and Lean version, only its format pinned
+\   (stage-any-version!; --any-lean-version), false (ck-start's) not;
 \ - ck-load ( c-addr u checked? -- outcome ) stages the export file
 \   c-addr u, its manifest checked when checked? is true, frees the
 \   stage's loading aids (stage-unmap), then feeds it to this context's
@@ -139,6 +142,7 @@ begin-structure /ck
   field: ck-decl-hook            \ the feed's declaration hook, or 0
   field: ck-faulted              \ true when the run stopped on a fault
   field: ck-began-feed           \ true once the feed began: names attached
+  field: ck-any-lean             \ true: an export of any Lean version (ck-any-version!)
   ck-capacities# cells +field ck-saved   \ capacities before the feed
   field: ck-restored-outcome     \ giving them back: ok, or the first refusal
   field: ck-stage-bytes          \ heap bytes the stage holds once staged
@@ -290,9 +294,17 @@ create ck-line ck-line-room 2 + allot
   ck-log2-least begin 2dup 1 swap lshift u> over ck-log2-most < and while 1+ repeat nip ;
 : ck-read ( c-addr u checked? -- outcome )
   if ck-stage stage-load else ck-stage stage-load-unchecked then ;
+\ Whether the export may be of any Lean version, only its format pinned
+\ (--any-lean-version): set after ck-start, before ck-load.
+: ck-any-version! ( flag -- ) ck-state ck-any-lean ! ;
+: ck-any-version? ( -- flag ) ck-state ck-any-lean @ ;
 : ck-staged ( c-addr u checked? -- outcome )
   >r 2dup ck-size ck-slots ck-log2 ck-stage stage-init
-  dup ok? 0= if nip nip r> drop exit then drop r> ck-read ;
+  dup ok? 0= if nip nip r> drop exit then drop
+  ck-any-version? ck-stage stage-any-version! r> ck-read ;
+\ Whether the staged export's metadata names another exporter or Lean
+\ version (stage-meta-text gives what it names).
+: ck-other-lean? ( -- flag ) ck-staged? ck-stage stage-other? and ;
 \ The sealed stage without its loading aids (the export-index maps, which
 \ the feed does not read), and its size and names.
 : ck-stage-facts ( -- )
