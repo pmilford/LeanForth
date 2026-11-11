@@ -6523,3 +6523,82 @@ old = '''  dup stage-sealed? if dup reader-maps-free maps-free else drop then ;'
 new = '''  dup stage-sealed? if maps-free else drop then ;'''
 test = "$GFORTH tests/core/stage.fs"
 reason = "FX6 L2: the reader's index maps stay allocated through the check"
+# --- shared terms checked once (agent EX, 2026-11-10: the audits' marks in
+# src/core/constant-term-boundary.fs, mixed-open.fs's results per offset,
+# loose_bvar_range from the caches, instantiate_type_lparams without
+# universe arguments) -------------------------------------------------------
+
+[[fault]]
+id = "ex-marks-ignore-depth"
+file = "src/core/constant-term-boundary.fs"
+old = '''  tuck @ = if cell+ @ < 0= else 2drop false then ;'''
+new = '''  tuck @ = if 2drop true else 2drop false then ;'''
+test = "$GFORTH tests/core/constant-term-scope.fs"
+reason = "EX: a node the scope walk checked under a binder is skipped outside it, so #0 shared there and outside passes"
+
+[[fault]]
+id = "ex-marks-same-run"
+file = "src/core/constant-term-boundary.fs"
+old = ''': lf-walk-marking ( walk -- ) lf-mark-next swap walk-arg ! ;'''
+new = ''': lf-walk-marking ( walk -- ) 1 swap walk-arg ! ;'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "EX: every walk takes run 1, so a node a check passed before is skipped after its child was corrupted"
+
+[[fault]]
+id = "ex-marks-u2-unmarked"
+file = "src/kernel/check-declaration.fs"
+old = '''  lf-check-walker lf-walk-marking
+'''
+new = ''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "EX: U2 runs on run 0, which every unwritten unit holds: each node is skipped and no unsupported form is found"
+
+[[fault]]
+id = "ex-open-ignore-offset"
+file = "src/kernel/mixed-open.fs"
+old = ''': lf-open-held? ( offset run unit -- flag ) tuck @ = if cell+ @ = else 2drop false then ;'''
+new = ''': lf-open-held? ( offset run unit -- flag ) tuck @ = if 2drop true else 2drop false then ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "EX: a node rebuilt under a binder is given back outside it, its bound variable not replaced"
+
+[[fault]]
+id = "ex-open-no-keep"
+file = "src/kernel/mixed-open.fs"
+old = ''': lf-open-keep ( result node frames -- ) lf-open-key tuck ! tuck cell+ ! 2 cells + ! ;'''
+new = ''': lf-open-keep ( result node frames -- ) 2drop drop ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "EX: no result is kept, so a shared node is rebuilt per path (seven visits, two copies)"
+
+[[fault]]
+id = "ex-open-same-run"
+file = "src/kernel/mixed-open.fs"
+old = '''  lf-open-job lf-openjob-run dup @ 1+'''
+new = '''  lf-open-job lf-openjob-run dup @'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "EX: every pass after the first shares one number, so a pass with y gets the results of an earlier pass with x"
+
+[[fault]]
+id = "ex-range-one-short"
+file = "src/kernel/caches.fs"
+old = '''  lf-term-facts if nip 2/ true else false then ;'''
+new = '''  lf-term-facts if nip 2/ 1- 0 max true else false then ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "EX: a term read under the scope is closed with one free variable too few, so a bound variable stays loose"
+
+[[fault]]
+id = "ex-envsig-stored-no-fuel"
+file = "src/kernel/env-signature.fs"
+old = ''': lf-envsig-stored ( root identity -- root identity fuel' 0 )
+  lf-envsig-fuel @ outcome-ok ;'''
+new = ''': lf-envsig-stored ( root identity -- root identity fuel' 0 )
+  0 outcome-ok ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "EX: a constant without universe arguments leaves inference no fuel, so checks that use one run out"
+
+[[fault]]
+id = "ex-envsig-bare-logged"
+file = "src/kernel/env-signature.fs"
+old = ''': lf-envsig-bare? ( -- flag ) lf-envsig-count 0= lf-log? 0= and ;'''
+new = ''': lf-envsig-bare? ( -- flag ) lf-envsig-count 0= ;'''
+test = "python3 tests/present/check_outline.py"
+reason = "EX: with the derivation log on, a constant without universe arguments loses its instantiate-levels step"

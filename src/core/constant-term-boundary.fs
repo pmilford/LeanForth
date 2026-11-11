@@ -5,8 +5,9 @@
 \ resurrect it. Binary constructors capture child indices, not identities;
 \ their safety relies on backward edges and no raw mutation or count edits.
 \ State: the stamp column lf-cterm-stamps of the term store (indexed by
-\ term index; lib/store-columns.fs) and one
-\ walk record, lf-cterm-walker, both members of the checker context
+\ term index; lib/store-columns.fs), the marks column lf-term-marks with
+\ its run counter lf-mark-runs (below), and one
+\ walk record, lf-cterm-walker, all members of the checker context
 \ (lib/context.fs). Each constant and symbolic Sort visit also runs a
 \ level-scope check on level-scope's walk record (lf-lscope-walk), so this
 \ check must not run while another module borrows that record.
@@ -34,6 +35,44 @@ require ./terms.fs
 /slab context-record: lf-cterm-stamps
 1 cells ' lf-cterm-stamps lf-term-columns column-add
 lf-walk-room context-walk: lf-cterm-walker
+
+\ Marks: audits that check each node once, however many paths reach it.
+\ Lean keeps a node's closedness data in the node itself, computed once
+\ (expr.cpp 105, lean_expr_mk_data), and reads it in constant time
+\ (check_no_metavar_no_fvar, environment.cpp 87-100; infer_type_core's
+\ has_loose_bvars, type_checker.cpp 326), so its checks grow with the
+\ nodes, never with the paths. A marking walk keeps, per term, the run
+\ that reached the node and the depth at which it did (the walk's context
+\ cell; 0 in a walk of single cells). Each run takes a new number from
+\ the context's counter into its walk's arg cell, so a walk run inside
+\ another's visit can never make that one skip a node it has not checked;
+\ a counter that wraps to 0 erases every mark. The visitor (after
+\ walk-read has validated the node) skips a node this run reached before
+\ at a depth no greater -- a bound variable in scope at one depth is in
+\ scope at any greater one -- and the skip costs only the visit's unit of
+\ fuel. Every node a run that ends ok has reached was checked.
+/slab context-record: lf-term-marks
+2 cells ' lf-term-marks lf-term-columns column-add
+1 cells context-record: lf-mark-runs
+: lf-mark-next ( -- run )
+  lf-mark-runs @ 1+ dup 0= if lf-term-marks column-erase 1+ then dup lf-mark-runs ! ;
+: lf-walk-marking ( walk -- ) lf-mark-next swap walk-arg ! ;
+: lf-walk-depth ( walk -- depth ) dup walk-paired? if walk-context @ else drop 0 then ;
+: lf-mark-unit ( walk -- unit ) walk-node @ lf-term-marks column-at ;
+\ A unit holds a run, then a depth.
+: lf-mark-held? ( depth run unit -- flag )
+  tuck @ = if cell+ @ < 0= else 2drop false then ;
+: lf-mark-set ( depth run unit -- ) tuck ! cell+ ! ;
+\ Whether this run reached the node before at a depth no greater; when
+\ not, the node is marked at its depth.
+: lf-walk-seen? ( walk -- flag )
+  dup lf-walk-depth over walk-arg @ rot lf-mark-unit
+  >r 2dup r@ lf-mark-held? if r> drop 2drop true else r> lf-mark-set false then ;
+\ Dispatch with xt ( first second walk tag -- outcome ) a node not seen
+\ before; one seen before is ok, nothing pushed.
+: lf-walk-skip ( first second walk tag -- outcome ) 2drop 2drop outcome-ok ;
+: lf-walk-once ( first second walk tag xt -- outcome )
+  >r over lf-walk-seen? if r> drop lf-walk-skip else r> execute then ;
 
 \ Fuel left after a check; the kernel passes continue with it. Negative
 \ fuel leaves it unchanged; an invalid root leaves the fuel given.
@@ -85,11 +124,13 @@ lf-walk-room context-walk: lf-cterm-walker
     lf-tag-proj of lf-proj-check endof  lf-tag-lit of lf-lit-check endof
     lf-tag-str of lf-str-check endof
     lf-tag-let of lf-let-check endof  walk-bad-tag endcase ;
-: lf-cterm-visit ( walk -- outcome ) lf-terms ['] lf-cterm-dispatch walk-visit ;
+: lf-cterm-once ( first second walk tag -- outcome ) ['] lf-cterm-dispatch lf-walk-once ;
+: lf-cterm-visit ( walk -- outcome ) lf-terms ['] lf-cterm-once walk-visit ;
 
-\ Validate a live root and its reachable mixed symbolic graph. Each term and
-\ level visit costs one unit of fuel, including repeated DAG visits; the
-\ bounded context and reference scans are not charged. Negative fuel is
+\ Validate a live root and its reachable mixed symbolic graph, each node
+\ once (the marks above). Each term and level visit costs one unit of
+\ fuel; a term reached again by another path costs one and is not checked
+\ again; the bounded context and reference scans are not charged. Negative fuel is
 \ invalid; zero exhausts, and a full work stack is full. Success is
 \ structural evidence only. The outcome is always ok, invalid, exhausted or
 \ full, never another one: the kernel's rebuilding passes (mixed-rebuild.fs)
@@ -101,7 +142,8 @@ lf-walk-room context-walk: lf-cterm-walker
 \ A root that is not a live handle is recorded as a stale handle.
 : lf-cterm-site ( -- site ) c" constant-term-boundary lf-cterm-check" ;
 : lf-cterm-run ( root -- status )
-  ['] lf-cterm-visit lf-cterm-walker walk-run lf-cterm-walker lf-cterm-site lf-diag-walk ;
+  lf-cterm-walker lf-walk-marking ['] lf-cterm-visit lf-cterm-walker walk-run
+  lf-cterm-walker lf-cterm-site lf-diag-walk ;
 : lf-cterm-stale ( index identity -- status )
   lf-cterm-site lf-diag-stale-handle lf-diag-note outcome-invalid ;
 : lf-cterm-check ( index identity fuel -- status )
