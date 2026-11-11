@@ -4441,7 +4441,7 @@ reason = "an empty block is accepted where Lean's kernel rejects it (emptyBlock)
 id = "genrec-elim-always-large"
 file = "src/kernel/generated-recursor.fs"
 old = ''': lf-genrec-large? ( d -- flag )
-  lf-env lf-env-slot lf-slot-recipe @ lf-recipe-large and 0<> ;'''
+  lf-env-i2 lf-env lf-env-slot lf-slot-recipe @ lf-recipe-large and 0<> ;'''
 new = ''': lf-genrec-large? ( d -- flag ) drop true ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 R4-2: every generated recursor given a motive universe; a use of Or's or Exists' recursor (Prop only) is rejected for its universe count"
@@ -8465,3 +8465,63 @@ old = '''  dup stage-export export-any-version? 0= if drop outcome-unsupported e
 new = ''''''
 test = "$GFORTH tests/core/snapshot-tier.fs"
 reason = "rvSN2 m2: a tier whose metadata names other versions loads into a stage that reads the pinned ones only"
+
+# --- review rvSN3 of the checked environment saved and loaded (plan step SN3)
+
+[[fault]]
+id = "rvsn3-lists-past-section"
+file = "src/kernel/env-snapshot.fs"
+old = '''  2dup lists-inside? 0= if 2drop false exit then
+'''
+new = ''''''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_review_faults"
+reason = "rvSN3 M1: a slot's list counts past their sections are read (a THROW, or other heap data) before the totals are compared"
+
+[[fault]]
+id = "rvsn3-refused-verdicts-listed"
+file = "src/cli/check-run.fs"
+old = '''  ck-state ck-loaded ! ck-staging ck-state ck-failed ! true ck-state ck-faulted !
+  ck-env-free ;'''
+new = '''  ck-state ck-loaded ! ck-staging ck-state ck-failed ! true ck-state ck-faulted ! ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_review_faults"
+reason = "rvSN3 M2: a refused snapshot's JSON report still lists its verdicts"
+
+[[fault]]
+id = "rvsn3-commit-unplain"
+file = "src/cli/leanforth.fs"
+old = '''  cli-commit-key nip /string 2dup cli-quote-at nip cli-shown-commit ;'''
+new = '''  cli-commit-key nip /string 2dup cli-quote-at nip ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_review_faults"
+reason = "rvSN3 m1: a commit text with a line feed is printed raw and forges a report line"
+
+[[fault]]
+id = "rvsn3-fuel-unbounded"
+file = "src/kernel/env-snapshot.fs"
+old = '''  snap-fuel swap sl-fuel swap fld2@ tuck < 0= swap -1 < 0= and ;'''
+new = '''  2drop true ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_review_faults"
+reason = "rvSN3 m2: a saved fuel used above the fuel per declaration loads"
+
+[[fault]]
+id = "rvsn3-provenance-unchecked"
+file = "src/kernel/env-snapshot.fs"
+old = '''  swap sl-provenance swap fld@ swap snap-layer? 1 and u> 0= ;'''
+new = '''  2drop true ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_review_faults"
+reason = "rvSN3 m3: a base snapshot's slot with a provenance a final run never writes loads"
+
+[[fault]]
+id = "rvsn3-added-unblocked"
+file = "src/kernel/env-publish.fs"
+old = ''': lf-recheck-lone? ( decl -- flag ) lf-recheck-one? lf-cand-added? 0= and ;'''
+new = ''': lf-recheck-lone? ( decl -- flag ) lf-recheck-one? ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_review_faults"
+reason = "rvSN3 m4: a declaration that is no block published as added by B3 (its name usable) passes the re-check"
+
+[[fault]]
+id = "rvsn3-key-name-unchecked"
+file = "src/kernel/env-snapshot.fs"
+old = '''  over key-name swap snap-names @ u< over key-kind lf-look-quot u> 0= and'''
+new = '''  nip dup key-kind lf-look-quot u> 0='''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_review_faults"
+reason = "rvSN3 m5: a saved lookup key of a name beyond the tier loads"

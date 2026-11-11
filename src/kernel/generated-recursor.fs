@@ -146,8 +146,10 @@ end-structure
 \ The recursor's universe parameters (Lean's declare_recursors): the
 \ motive's first when it eliminates into every universe, then the
 \ block's; their number is what a use must supply (L1).
+\ (A slot read directly, counted by the I2 test build as lf-env-readable's
+\ reads are: environment.fs lf-env-i2; review rvSN3 m5.)
 : lf-genrec-large? ( d -- flag )
-  lf-env lf-env-slot lf-slot-recipe @ lf-recipe-large and 0<> ;
+  lf-env-i2 lf-env lf-env-slot lf-slot-recipe @ lf-recipe-large and 0<> ;
 : lf-genrec-arity ( d -- n ) dup lf-input-params nip swap lf-genrec-large? 1 and + ;
 \ The use's arguments, (index identity) pairs as constant references hold
 \ them: the motive's Sort at the first when it has one; the block's

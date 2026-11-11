@@ -1838,6 +1838,56 @@ class Snapshots(unittest.TestCase):
         self.refused(write(data[:len(data) - 4096]), 4,
                      "invalid: the snapshot was refused: header or section table")
 
+    def test_review_faults(self):
+        """Review rvSN3's crafted snapshots, each refused or shown safely:
+        list counts past their sections (M1), fuel used above the fuel per
+        declaration (m2), provenance in a base snapshot (m3), a lookup key of
+        a name beyond the tier or the quotient's kind under another name
+        (m5), a definition marked added (m4), whose JSON report lists no
+        verdict (M2); a commit text that is not plain (m1)."""
+        path, _, _ = self.saved(FIXTURE)
+        data, table = sectioned(path)
+        tampered = self.dir / "r.lfsnap"
+        slots, looks = table[SLOTS][3], table[LOOKS][3]
+
+        def slot_changed(field, value, d=0):
+            changed = bytearray(data)
+            put32(changed, slots + 72 * d + 4 * field, value)
+            tampered.write_bytes(bytes(resealed(changed, table, SLOTS)))
+            return tampered
+        first = next(d for d in range(3) if u32(data, slots + 72 * d + 40))
+        for field, value, why in [
+                (9, 0x7FFFFFFF, "slots (record 0)"), (10, 0x7FFFFFFF, "slots (record 0)"),
+                (9, 1 + len(data), "slots (record 0)"),
+                (8, 0xFFFF, "slots (record 0)"), (2, 1, "slots (record 0)"),
+                (2, 3, "slots (record 0)")]:
+            self.refused(slot_changed(field, value), 4,
+                         f"invalid: the snapshot was refused: {why}")
+        for key in [(0x7FFFFFF << 4) | 0, (1 << 4) | 8]:
+            changed = bytearray(data)
+            put32(changed, looks, key)
+            tampered.write_bytes(bytes(resealed(changed, table, LOOKS)))
+            self.refused(tampered, 4, f"invalid: the snapshot was refused: slots (record {first})")
+        changed = bytearray(data)
+        put32(changed, slots, 4)
+        put32(changed, slots + 4, 2)
+        tampered.write_bytes(bytes(resealed(changed, table, SLOTS)))
+        self.refused(tampered, 4,
+                     "invalid: the snapshot was refused: slot published otherwise (record 0)")
+        status, got, _ = report("--snapshot", str(tampered))
+        self.assertEqual((status, self.schema.errors(got), got["read"]["outcome"],
+                          got["declarations"]), (4, [], "invalid", []))
+        _, _, _, info, length = table[16]
+        text = b'{"leanforth":"0.1.0-dev","commit":"x\nNat.fake: accepted","modified":false}'
+        self.assertLessEqual(len(text), length)
+        changed = bytearray(data)
+        changed[info:info + length] = text + b" " * (length - len(text))
+        tampered.write_bytes(bytes(resealed(changed, table, 16)))
+        status, out, _ = run("check", "--snapshot", str(tampered))
+        self.assertEqual(status, 0)
+        self.assertNotIn("Nat.fake", out)
+        self.assertIn("written by LeanForth unknown: 3 results", out)
+
     def test_outcome_changed(self):
         """A rejected verdict made accepted, every SHA-256 made again: the
         loader cannot tell, and reports it as the snapshot's verdict, never as

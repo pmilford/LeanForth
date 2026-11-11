@@ -601,14 +601,25 @@ create cli-hex 64 allot
   then ;
 : cli-from-snapshot# ( -- n ) 0 lf-input-count 0 ?do i lf-env-origin lf-origin-saved = -
   loop ;
-\ The commit the snapshot's information names, or "unknown".
+\ Whether a text is plain: letters, digits, ".", "-", "_", " " only.
+: cli-plain? ( c-addr u -- flag )
+  true -rot bounds ?do
+    i count nip dup [char] a [char] z 1+ within over [char] A [char] Z 1+ within or
+    over [char] 0 [char] 9 1+ within or over [char] . = or over [char] - = or
+    over [char] _ = or swap bl = or and
+  loop ;
+\ The commit the snapshot's information names, or "unknown", also for a
+\ text that is not plain (a line feed in it could forge a report line;
+\ review rvSN3 m1).
 : cli-commit-key ( -- c-addr u ) s\" \"commit\":\"" ;
 : cli-quote-at ( c-addr u -- n )
   dup >r 0 ?do dup i + count nip [char] " = if drop i unloop r> drop exit then loop drop
   r> ;
+: cli-shown-commit ( c-addr u -- c-addr' u' )
+  2dup cli-plain? over 0<> and 0= if 2drop s" unknown" then ;
 : cli-written-by ( -- c-addr u )
   ck-snap snap-info cli-commit-key search 0= if 2drop s" unknown" exit then
-  cli-commit-key nip /string 2dup cli-quote-at nip ;
+  cli-commit-key nip /string 2dup cli-quote-at nip cli-shown-commit ;
 : cli-snapshot. ( -- )
   ." snapshot: " cli-state opt-snapshot 2@ nt-text if type else cli-unshown then
   ."  (sha256 " ck-snap snap-sum cli-sha. ." ), export sha256 " ck-snap snap-export-sha
@@ -641,12 +652,6 @@ variable cli-info#
 : cli-info+ ( c-addr u -- )
   dup cli-info# @ + 512 > if 2drop exit then
   tuck cli-info cli-info# @ + swap move cli-info# +! ;
-: cli-plain? ( c-addr u -- flag )
-  true -rot bounds ?do
-    i count nip dup [char] a [char] z 1+ within over [char] A [char] Z 1+ within or
-    over [char] 0 [char] 9 1+ within or over [char] . = or over [char] - = or
-    over [char] _ = or swap bl = or and
-  loop ;
 : cli-info-text ( c-addr u -- )
   2dup cli-plain? over 0<> and
   if s\" \"" cli-info+ cli-info+ s\" \"" cli-info+ else 2drop s" null" cli-info+ then ;

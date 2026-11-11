@@ -134,6 +134,7 @@ begin-structure /snap
   field: snap-dk                        \ reading: dependencies passed so far
   field: snap-lk                        \ and lookups
   field: snap-head                      \ the first slot of the span being read
+  field: snap-names                     \ reading: the tier's names (snap-tier)
 end-structure
 variable snap-loading   \ the record snap-fill reads
 : snap-sf ( snap -- sf ) snap-tf tf-sf ;
@@ -383,7 +384,9 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
   r@ snap-sum-read dup ok? 0= if c" header" r> snap-refuse exit then drop r> snap-checks ;
 \ The tier into a fresh stage (stage-init's), as import/snapshot-tier.fs
 \ reads it.
-: snap-tier ( stage snap -- outcome ) snap-tf tier-read snap-damaged ;
+: snap-tier ( stage snap -- outcome )
+  2dup snap-tf tier-read snap-damaged
+  >r swap stage-tier tier-names cons-numbers swap snap-names ! r> ;
 
 \ ---- Loading: the environment's sections, every field in range.
 : sec-units ( i snap -- n ) snap-sf sections-info drop nip nip ;
@@ -399,41 +402,61 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
 : dep@ ( j snap -- d ) ss-deps swap snap-block swap u32s + u32-le@ ;
 : look-key ( j snap -- key ) ss-looks swap snap-block swap 8 * + u32-le@ ;
 : look-answer ( j snap -- answer ) ss-looks swap snap-block swap 8 * + 4 + u32-le@ ;
-\ A slot's own fields: an outcome, marks, provenance, axiom bits within
-\ the allowlist's, fuel used or -1 (not known).
+\ A slot's own fields: an outcome, marks, axiom bits within the
+\ allowlist's; fuel used -1 (not known) or at most the fuel per
+\ declaration; provenance 0 in a base snapshot (written by a final run),
+\ at most 1 (rests on saved results) in a layer (review rvSN3 m2, m3).
 : sl-sane? ( addr -- flag )
   sl-outcome over fld@ outcome-full u> 0= sl-marks 2 pick fld@ 8 u< and
-  sl-provenance 2 pick fld@ 4 u< and sl-axioms 2 pick fld@ snap-axiom-bits invert and 0=
-  and
-  sl-fuel rot fld2@ -1 < 0= and ;
+  sl-axioms rot fld@ snap-axiom-bits invert and 0= and ;
+: fuel-ok? ( addr snap -- flag )
+  snap-fuel swap sl-fuel swap fld2@ tuck < 0= swap -1 < 0= and ;
+: snap-layer? ( snap -- flag ) sh-layers swap head@ 0<> ;
+: prov-ok? ( addr snap -- flag )
+  swap sl-provenance swap fld@ swap snap-layer? 1 and u> 0= ;
 \ Its site: none, or a counted string inside the site texts.
 : site-room ( snap -- base size ) ss-sites over snap-block swap ss-sites swap snap-size ;
 : site-ok? ( n snap -- flag )
   over 0= if 2drop true exit then
   site-room >r swap 1- r@ over u> 0= if r> drop 2drop false exit then
   tuck + count nip + 1+ r> u> 0= ;
+\ Its lists inside their sections, by the counts so far and the
+\ identity's totals, before any entry is read (review rvSN3 M1).
+: lists-inside? ( addr snap -- flag )
+  over sl-deps swap fld@ over si-deps swap id@ 2 pick snap-dk @ - u> 0=
+  >r swap sl-looks swap fld@ over si-looks swap id@ rot snap-lk @ - u> 0= r> and ;
 \ Its dependencies ascending, each below the first slot of its span; its
-\ lookups of a known kind (or the one key of names beyond the input), each
-\ answer an outcome and a slot below that first slot. (Their order and
-\ distinctness are compared after publishing: snap-same?.)
+\ lookups' keys the one key of names beyond the input, or a name of the
+\ tier with a known kind, the quotient's under the anonymous name only
+\ (rvSN3 m5); each answer an outcome and a slot below that first slot.
+\ (Their order and distinctness are compared after publishing:
+\ snap-same?.)
 : dep-ok? ( prev dep snap -- dep flag ) snap-head @ over > >r tuck < r> and ;
 : dep-step ( prev flag snap j -- dep flag' snap )
   over dep@ swap rot >r dup >r dep-ok? r> swap r> and swap ;
 : deps-ok? ( c snap -- flag )
   swap >r -1 true rot r> 0 ?do dup snap-dk @ i + dep-step loop drop nip ;
-: key-ok? ( key -- flag )
-  dup lf-look-outside = swap lf-look-kinds 1- and lf-look-quot u> 0= or ;
+: key-name ( key -- name ) 4 rshift ;
+: key-kind ( key -- kind ) lf-look-kinds 1- and ;
+: key-quot-ok? ( key -- flag ) dup key-kind lf-look-quot <> swap key-name 0= or ;
+: key-ok? ( key snap -- flag )
+  over lf-look-outside = if 2drop true exit then
+  over key-name swap snap-names @ u< over key-kind lf-look-quot u> 0= and
+  swap key-quot-ok? and ;
 : answer-ok? ( answer snap -- flag )
   snap-head @ swap dup 7 and outcome-full u> 0= >r lf-look-slot+1 < 0= r> and ;
 : looks-ok? ( c snap -- flag )
   true rot 0 ?do
-    over dup snap-lk @ i + swap 2dup look-key key-ok? >r look-answer 2 pick answer-ok?
+    over dup snap-lk @ i + swap 2dup look-key over key-ok? >r look-answer 2 pick answer-ok?
     r> and and
   loop nip ;
 : slot-lists? ( addr snap -- flag )
+  2dup lists-inside? 0= if 2drop false exit then
   over sl-deps swap fld@ over deps-ok? >r swap sl-looks swap fld@ swap looks-ok? r> and ;
-: slot-fine? ( addr snap -- flag )
-  over sl-sane? >r over sl-site swap fld@ over site-ok? >r slot-lists? r> r> and and ;
+: slot-fields? ( addr snap -- flag )
+  over sl-sane? >r 2dup fuel-ok? >r 2dup prov-ok? >r
+  swap sl-site swap fld@ swap site-ok? r> r> r> and and and ;
+: slot-fine? ( addr snap -- flag ) 2dup slot-fields? if slot-lists? else 2drop false then ;
 \ The slot's place: its span's first slot, where its lists start.
 : span-head! ( d snap -- )
   2dup snap-slot sl-marks swap fld@ mark-with and if 2drop else snap-head ! then ;

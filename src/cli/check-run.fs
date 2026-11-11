@@ -504,6 +504,9 @@ create ck-line ck-line-room 2 + allot
 \ cannot be made current is freed at once.
 : ck-own ( env -- ) lf-envh-identity @ ck-state ck-env-id ! true ck-state ck-checked ! ;
 : ck-unusable ( env outcome -- outcome ) swap lf-env-free drop 0 ck-state ck-env-id ! ;
+\ The run's environment freed while it is ours (ck-release, a refused
+\ snapshot).
+: ck-env-free ( -- ) ck-ours? if lf-env lf-env-free drop then 0 ck-state ck-env-id ! ;
 \ A run of a loaded snapshot (ck-snapshot-load) is a development run (ADR
 \ 0012 E8, ADR 0020 D4).
 : ck-snapped? ( -- flag ) ck-state ck-snapped @ ;
@@ -575,8 +578,11 @@ create ck-line ck-line-room 2 + allot
 \ refused as if loading had failed, and the run stopped.
 : ck-snap-facts ( -- ) lf-input-count 0 ?do i dup ck-kept snap-fact i ck-kept cks-fuel !
   loop ;
+\ A refused snapshot leaves no verdict to read: its environment is freed
+\ (review rvSN3 M2).
 : ck-snap-refused ( outcome -- )
-  ck-state ck-loaded ! ck-staging ck-state ck-failed ! true ck-state ck-faulted ! ;
+  ck-state ck-loaded ! ck-staging ck-state ck-failed ! true ck-state ck-faulted !
+  ck-env-free ;
 : ck-snap-after ( -- )
   ck-snapped? 0= if exit then
   ck-snap snap-same? dup ok? if drop ck-snap-facts else ck-snap-refused then ;
@@ -589,7 +595,6 @@ create ck-line ck-line-room 2 + allot
 \ ---- Releasing (see the header): the environment while it is ours and
 \ current, then the names detached before the stage they point into is
 \ freed, the stores emptied and their capacities given back.
-: ck-env-free ( -- ) ck-ours? if lf-env lf-env-free drop then 0 ck-state ck-env-id ! ;
 : ck-unfeed ( -- )
   ck-state ck-began-feed @ 0= if exit then
   lf-name-detach ck-empty ck-restore ck-state ck-restored-outcome !

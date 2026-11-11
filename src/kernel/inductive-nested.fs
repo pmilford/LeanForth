@@ -213,9 +213,10 @@ end-structure
   lf-nest-digits rot dup lf-name-tag@ lf-name-tag-str =
   if lf-nest-str-indexed else -rot lf-name-str then ;
 \ mk_unique_name: base_k, k the next index from 1 (counted on for each
-\ name tried) for which no declaration before the block has that name.
-: lf-nest-any ( slot -- true ) drop true ;
-: lf-nest-taken? ( name -- flag ) ['] lf-nest-any lf-env-limit lf-env-first 0< 0= ;
+\ name tried) for which no declaration before the block has that name:
+\ any slot, the test environment.fs records as a query an import replays
+\ (lf-slot-any; review rvSN3 m5).
+: lf-nest-taken? ( name -- flag ) ['] lf-slot-any lf-env-limit lf-env-first 0< 0= ;
 : lf-nest-unique ( base -- name true | false )
   begin dup lf-nest-state lf-nest-next @ lf-nest-indexed 0= if drop false exit then
     1 lf-nest-state lf-nest-next +! dup lf-nest-taken? while drop
