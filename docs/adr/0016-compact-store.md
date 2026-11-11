@@ -724,8 +724,8 @@ needed (Rejected alternatives).
     (a family left out, a mark out of order, a mark left on the stack)
     are caught.
   - Hash-consed compact term records (2026-11-11, step S3 of the
-    compact-store plan, plan task 6.2.1; verdicts unchanged, its
-    [kernel] review pending). A term is a record of four 32-bit fields
+    compact-store plan, plan task 6.2.1; no verdict moves away from
+    Lean's, its [kernel] review pending). A term is a record of four 32-bit fields
     (`src/core/terms.fs`): the checker's tag (its 13 tags, as before:
     a constant's fields a reference, a Sort's a level index), its
     first and second fields, and C1's data word, computed when the node
@@ -763,7 +763,10 @@ needed (Rejected alternatives).
       interned (step S4): each universe substitution makes a new
       reference, and level nodes, per call, so two equal constants
       are two nodes and caches keyed by numbers would miss where
-      skeletons hit (more fuel, verdicts at risk). Lean's node facts
+      skeletons hit. Measured on the first 1M lines of `Init`: with the
+      caches keyed by node instead of skeleton, 142 fewer declarations
+      are accepted (2 more run out of fuel, 140 that depend on them are
+      unknown) and 18% more fuel is spent. Lean's node facts
       come from the data word: the caches' hooks ask the memo only for
       a node without data or with a free variable, whose liveness only
       the memo checks; for the others the word is the memo's facts (the
@@ -810,9 +813,27 @@ needed (Rejected alternatives).
     367,435 → 356,574, exhausted 470,759 → 476,867, unknown 403,346 →
     405,110, rejected 87,361 → 90,017, full 543 → 4). The first 1M
     lines of `Init` (`check --fast --no-manifest`, default fuel): the
-    same verdicts (8,672 accepted, 518 unknown, 12 exhausted), FUELP1M;
-    fed nodes 946,412 → 943,884 (let and projection leaves shared);
-    peak resident memory MEMP1M; check CPU CPUP1M. Full `Init`: INITLINE.
+    same verdict for every declaration (8,672 accepted, 518 unknown, 12
+    exhausted); fuel 205,059,194 → 202,224,048 steps: 4,157 accepted
+    declarations use less, none more (the largest change 1,451,797 →
+    1,400,905, `Std.IterM.step_map`), because equal terms are one node,
+    which the marking audits check once and == finds at once; fed nodes
+    946,412 → 943,884 (let and projection leaves shared); peak resident
+    memory 428 → 377 MB; check CPU 165.8 → 173.2 s (+4.5%: making a
+    shared node costs about 0.4 µs against 0.1-0.2 µs unshared, and a
+    rollback takes each record's entry out; measured, `gforth-fast`, a
+    loaded machine). Full `Init` (same command): 21 verdicts move,
+    every one to Lean's (Lean accepts all of `Init`), none away from
+    it: 4 declarations that ran out of fuel are accepted with less
+    (`Std.Iter.atIdxSlow?.induct_unfolding._unary`,
+    `Std.Iter.forIn'_toList`,
+    `Std.IterM.toList_filterMapWithPostcondition`,
+    `Int.min_assoc._proof_1_1`), and 17 that were unknown only because
+    they depend on those are accepted too: 54,535 → 54,556 accepted,
+    94 → 90 exhausted, 4,720 → 4,703 unknown (every unknown a
+    dependency of an exhausted root); fuel 1,546,142,904 →
+    1,521,467,121; fed nodes 6,136,439 → 6,117,817; peak resident
+    memory 1,580 → 1,279 MB; check CPU 1,384 → 1,408 s (+1.8%).
     Memory per term index, the printer's table aside: about 112 bytes
     before (24 record, 8 identity, 80 in columns) and 64 after (16
     record, 8 identity, 40 in columns: marks and open results), plus
