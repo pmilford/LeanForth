@@ -192,6 +192,10 @@ end-structure
 : lf-author-decl ( i -- decl ) lfa-decl ;
 : lf-author-notes ( i -- first end ) lfa-decl dup lfa-decl-notes @ swap
   lfa-decl-notes-end @ ;
+\ The printer asks whether a name is a constant: any declaration of the run.
+: lfa-name-declared? ( name -- flag )
+  false lfa-decl-count 0 ?do over i lfa-decl lf-fdecl-name @ = or loop nip ;
+' lfa-name-declared? is lf-pf-const-exists?
 create lfa-blank-line 10 c,
 : lfa-print-one ( fuel i -- outcome )
   dup if lfa-blank-line 1 lf-pp-emit then lfa-decl swap lf-print-forth-decl ;

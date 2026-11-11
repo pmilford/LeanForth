@@ -3,8 +3,8 @@
 \ that running the printed words (src/author/) gives the identical term:
 \ the same nodes, levels, constants and universe arguments, binder names
 \ and kinds, labels and notes. Constants are written by their full names,
-\ with root: in a declaration with a dotted name (the reader looks names up
-\ in the namespaces around the declaration first) and elsewhere where a
+\ with root: where a namespace around a dotted declaration holds a constant
+\ the reader would find first (it looks names up there first), and where a
 \ variable or universe parameter has the same spelling or the name is a
 \ syntax word; a variable by its name, or as n var# when
 \ an inner binder hides the name, it has none, or the name could be read
@@ -44,6 +44,7 @@
 require ./term-printer.fs
 require ./note-table.fs
 require ../lib/text-rule.fs
+require ../core/input.fs
 
 \ Declarations, as the authoring program records them.
 0 constant lf-decl-theorem
@@ -196,7 +197,8 @@ create lf-pf-eol 10 c,
   lf-pf-blank-in? 0= ;
 : lf-pf-note-end? ( char -- flag ) dup [char] " = over 10 = or swap 13 = or ;
 : lf-pf-note? ( c-addr u -- flag )
-  2dup tr-rule? 0= if 2drop false exit then true -rot chars over + swap ?do i c@ lf-pf-note-end? 0= and loop ;
+  2dup tr-rule? invert if 2drop false exit then
+  true -rot chars over + swap ?do i c@ lf-pf-note-end? 0= and loop ;
 : lf-pf-spellable-note? ( i -- flag )
   dup lf-note-text@ rot lf-note-kind@ lf-note-label =
   if lf-pf-label? else lf-pf-note? then ;
@@ -304,10 +306,10 @@ defer lf-pf-level-step ( level x frames -- ... frames next )
 
 \ Constants: the full name, with root: when the words would find something
 \ else under it (a variable or universe parameter, a syntax word, a
-\ number) or, in a declaration with a dotted name, always: the reader looks a
-\ name up in the namespaces around the declaration first (Lean's rule, and a
-\ protected constant hides from a one-part name), so A.t would find A.c for
-\ c; root: is an exact full-name lookup. Then each universe argument and ^.
+\ number) or, in a declaration with a dotted name, when a namespace around it
+\ holds a constant of the same relative name: the reader looks a name up in
+\ the namespaces around the declaration first (Lean's rule), so A.t would
+\ find A.c for c; root: is an exact full-name lookup. Then each universe argument and ^.
 : lf-pf-universe-ids ( -- addr n )
   lf-pforth lf-pforth-decl @ ?dup 0= if 0 0 exit then
   dup lf-fdecl-universe swap lf-fdecl-universes @ 0 max lf-decl-universe-capacity min ;
@@ -317,8 +319,31 @@ defer lf-pf-level-step ( level x frames -- ... frames next )
 : lf-pf-dotted-decl? ( -- flag )
   lf-pforth lf-pforth-decl @ ?dup 0= if false exit then
   lf-fdecl-name @ ?dup 0= if false exit then lf-name-prefix@ 0<> ;
+\ Whether a constant is named: the input's (print --lf, the outline); the
+\ authoring words set their own (src/author/runner.fs).
+defer lf-pf-const-exists? ( name -- flag )
+: lf-pf-input-const? ( name -- flag ) lf-input-newest 0< 0= ;
+' lf-pf-input-const? is lf-pf-const-exists?
+\ The name id with base put in front of its components (base.c for c); false
+\ when the name store refuses it (the caller then assumes the worst).
+: lf-pf-graft-part ( base id -- id' flag )
+  dup lf-name-tag@ lf-name-tag-str =
+  if swap >r lf-name-text r> -rot lf-name-str
+  else swap >r lf-name-payload r> swap lf-name-num then ;
+: lf-pf-graft ( base id -- id' flag )
+  dup 0= if drop true exit then
+  dup >r lf-name-prefix@ recurse 0= if r> drop 0 false exit then r> lf-pf-graft-part ;
+\ Whether namespace P around the declaration holds a constant P.c, which the
+\ reader would find first for c.
+: lf-pf-captured-in? ( id P -- flag )
+  swap lf-pf-graft if lf-pf-const-exists? else drop true then ;
+: lf-pf-captured? ( id -- flag )
+  lf-pforth lf-pforth-decl @ lf-fdecl-name @ lf-name-prefix@
+  begin dup while 2dup lf-pf-captured-in? if 2drop true exit then lf-name-prefix@ repeat
+  2drop false ;
+: lf-pf-capturable? ( id -- flag ) lf-pf-dotted-decl? if lf-pf-captured? else drop false then ;
 : lf-pf-root? ( id -- flag )
-  lf-pf-dotted-decl? if drop true exit then
+  dup lf-pf-capturable? if drop true exit then
   dup lf-pf-decl-universe? if drop true exit then
   lf-pf-mark swap lf-pf-put-name dup lf-pp-pending 2dup lf-pf-token? 0= -rot 0 lf-pp-any?
     or
