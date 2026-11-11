@@ -214,7 +214,8 @@ lf-walk-room context-walk: lf-check-walker
 \ statement, else unlisted, which reports mark NOT PROVED.
 : lf-check-own-axiom ( -- outcome )
   lf-check-decl lf-axiom-bit ok-then? if lf-env-axiom! outcome-ok then ;
-: lf-check-axiom ( -- outcome ) ['] lf-check-own-axiom lf-minfer-fuel lf-check-matched-on ;
+: lf-check-axiom ( -- outcome )
+  ['] lf-check-own-axiom lf-minfer-fuel lf-check-matched-on ;
 \ A quotient record (add_quot, quot.cpp 47-100; quot.fs), on the audit's
 \ fuel: U1; its names (check_name on all four, or its own once the
 \ quotient is initialised); Eq's shape; its type, which add_quot never

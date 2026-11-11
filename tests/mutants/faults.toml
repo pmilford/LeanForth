@@ -5604,6 +5604,203 @@ new = '''  swap lf-slot-decl lf-idecl-kind @ lf-kind-axiom ='''
 test = "python3 tests/cli/test_leanforth.py"
 reason = "the axioms a declaration rests on through its dependencies are not named"
 
+# --- review rvAX (agent FX3): Lean's four quotient names, quotient records'
+# ignored fields, fuel, the axiom summary and sets, the allowlist's own tests
+
+[[fault]]
+id = "quot-names-own-only"
+file = "src/kernel/quot.fs"
+old = '''  dup outcome-rejected = if 2drop lf-quot-fresh exit then'''
+new = '''  dup outcome-rejected = if 2drop lf-quot-own exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "add_quot's check_name on its own name only: a user's Quot.mk first leaves Quot accepted, and Quot.lift reduces on that Quot.mk (after.quot-mk-declared-then-lift-on-it)"
+
+[[fault]]
+id = "quot-names-all-once-initialised"
+file = "src/kernel/quot.fs"
+old = '''  dup ok? if 2drop lf-quot-own exit then'''
+new = '''  dup ok? if 2drop lf-quot-fresh exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "the four names checked again once the quotient is initialised: Quot.mk's record is rejected after Quot's (quotinit.with-eq)"
+
+[[fault]]
+id = "quot-twice-accepted"
+file = "src/kernel/quot.fs"
+old = '''  dup ok? if drop nip lf-env-generated exit then lf-env-n2 nip nip ;'''
+new = '''  dup ok? if 2drop 2drop outcome-ok exit then lf-env-n2 nip nip ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "a second quotient record of a name is published beside the first (quotinit.twice must stay unknown)"
+
+[[fault]]
+id = "env-quot-not-held"
+file = "src/kernel/environment.fs"
+old = '''  lf-env-quot-holding lf-env-n2-quot ;'''
+new = '''  2drop outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "N2 ignores the initialised quotient: a user's Quot.mk after the Quot record is accepted (after.quot-then-mk-declared)"
+
+[[fault]]
+id = "env-quot-any-kind"
+file = "src/kernel/environment.fs"
+old = '''  lf-slot-index lf-input-decl lf-idecl-kind @ lf-kind-quotient = ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "a user's Quot.mk initialises the quotient: the Quot record after it is accepted (after.quot-mk-declared-then-lift-on-it)"
+
+[[fault]]
+id = "env-quot-absent-unknown-constant"
+file = "src/kernel/environment.fs"
+old = '''  2dup lf-env-quot-holding dup ok? if drop nip lf-env-generated no-result exit then'''
+new = '''  2dup lf-env-quot-holding dup ok? if 2drop lf-env-unknown-constant no-result exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "a use of Lean's Quot.mk that no slot holds is rejected as an unknown constant, where Lean accepts (after.quot-then-mk-declared-then-used must stay unknown)"
+
+[[fault]]
+id = "env-ready-ignores-quot"
+file = "src/kernel/environment.fs"
+old = '''  2dup lf-env-quot-open? >r lf-env-type-open? r> or ;'''
+new = '''  lf-env-type-open? ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "a scheduler may start a user's Quot.mk while the Quot record is still open"
+
+[[fault]]
+id = "pub-quot-name-not-held"
+file = "src/kernel/env-publish.fs"
+old = '''  outcome-rejected <> 1 and swap lf-own-quot + ;'''
+new = '''  outcome-rejected <> 1 and nip ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "the publisher's name re-check ignores the quotient: a user's Quot.mk claimed ok after Quot is published"
+
+[[fault]]
+id = "pub-quot-params-checked"
+file = "src/kernel/env-publish.fs"
+old = '''  dup lf-member-kind lf-kind-quotient = if drop false exit then
+'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvAX M1: the re-check reads a quotient record's universe parameters, u, u: invalid where Lean accepts (replay-quot.lift-params-repeated)"
+
+[[fault]]
+id = "quot-form-refusal-stands"
+file = "src/kernel/check-declaration.fs"
+old = '''  2r> 2r> lf-diag! ok? outcome-ok lf-check-keep ;'''
+new = '''  2r> 2r> lf-diag! dup ok? swap lf-check-keep ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvAX L1: a quotient record's type with a loose variable or mdata decides the verdict, which add_quot never reads (replay-quot.mk-loose-bvar)"
+
+[[fault]]
+id = "quot-form-diagnostic-kept"
+file = "src/kernel/check-declaration.fs"
+old = '''  2r> 2r> lf-diag! ok? outcome-ok lf-check-keep ;'''
+new = '''  2r> 2r> 2drop 2drop ok? outcome-ok lf-check-keep ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "the refused audit's diagnostic stays on the accepted record (replay-quot.mk-loose-bvar, Quot.mk)"
+
+[[fault]]
+id = "axiom-step7-audit-fuel"
+file = "src/kernel/check-declaration.fs"
+old = '''  ['] lf-check-own-axiom lf-minfer-fuel lf-check-matched-on ;'''
+new = '''  ['] lf-check-own-axiom lf-check-left lf-check-matched-on ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvAX L2: an axiom's step 7 runs on the audit's leftover, not the counter the fuel report reads: one unit short, propext runs out before step 7"
+
+[[fault]]
+id = "ck-quot-inference-fuel"
+file = "src/cli/check-run.fs"
+old = '''  ck-quot? lf-check-step@ ck-inference-step < or'''
+new = '''  drop lf-check-step@ ck-inference-step <'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvAX L2: a quotient record's fuel is read from inference's counter, the declaration before it's"
+
+[[fault]]
+id = "cli-axioms-not-joined"
+file = "src/cli/tally.fs"
+old = '''  over ok? if dup cli-axioms-used dup @ rot or swap ! then ;'''
+new = '''  ;'''
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_1_forged_quotient ExitCodes.test_2_unsupported_and_unknown"
+reason = "rvAX L4: the summary says axioms: none when propext, Classical.choice and Quot.sound are used"
+
+[[fault]]
+id = "cli-listed-not-named"
+file = "src/cli/leanforth.fs"
+old = '''  lf-allowlist-bits and ?dup if cli-listed. then cli-unproved. ;'''
+new = '''  drop cli-unproved. ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "rvAX L4: the summary does not name the allowlisted axioms used"
+
+[[fault]]
+id = "env-axiom-deps-all-empty"
+file = "src/kernel/environment.fs"
+old = '''  0 lf-axd-same? if drop 0 exit then'''
+new = '''  drop 0 exit'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvAX L5: every slot shares the empty row, so no axiom is named"
+
+[[fault]]
+id = "env-axiom-deps-redone-down"
+file = "src/kernel/environment.fs"
+old = '''  1+ lf-axd-state lf-axd-done @ over min ?do'''
+new = '''  1+ lf-axd-state lf-axd-done @ ?do'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvAX L5: asking for an earlier slot after a later one runs the loop from past its end (secret-axioms)"
+
+[[fault]]
+id = "quot-held-any-kind"
+file = "src/kernel/quot.fs"
+old = '''  lf-idecl-kind @ lf-kind-quotient = outcome-ok ;'''
+new = '''  drop true outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "quot_reduce_rec fires on a user's Quot.lift, with no quotient initialised (after.user-quot-lift-not-reduced)"
+
+[[fault]]
+id = "quot-applied-at-mk"
+file = "src/kernel/quot.fs"
+old = ''': lf-quot-applied ( app mk -- mk|-1 ) swap lf-quot-n over > 0= if drop -1 then ;'''
+new = ''': lf-quot-applied ( app mk -- mk|-1 ) swap lf-quot-n over < if drop -1 then ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "Quot.lift with five arguments is taken to have its quotient (quot.lift-unapplied-eta)"
+
+[[fault]]
+id = "quot-mk-any-arity"
+file = "src/kernel/quot.fs"
+old = '''  dup lf-quot-n 3 = 0= if drop false exit then'''
+new = ''''''
+test = "$GFORTH tests/core/check-block.fs"
+equivalent = "with the quotient initialised (the rule's head is a quotient record), a constant named Quot.mk is Lean's (environment.fs holds the name), whose type allows exactly three arguments, and a major premise of type Quot r in whnf with that head has all three: Lean's test, kept as quot.h 54 has it, can never differ"
+reason = "quot_reduce_rec's three-argument test on Quot.mk"
+
+[[fault]]
+id = "allow-quot-any-kind"
+file = "src/core/axiom-allowlist.fs"
+old = ''': lf-lean-quot? ( decl -- flag ) lf-idecl-kind @ lf-kind-quotient = ;'''
+new = ''': lf-lean-quot? ( decl -- flag ) drop true ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "Quot.sound about a Quot and Quot.mk that are axioms counts as proved (postulate.sound-own-quot-names)"
+
+[[fault]]
+id = "allow-warned-is-own"
+file = "src/core/axiom-allowlist.fs"
+old = '''  r> if 2drop false outcome-ok exit then'''
+new = '''  r> drop'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "an Iff accepted with a B4 warning counts as Lean's own: propext about it proved (replay-iff.flagged-then-propext)"
+
+[[fault]]
+id = "allow-params-unchecked"
+file = "src/core/axiom-allowlist.fs"
+old = '''  2 cells + @ over lf-ity-params lf-more-field = swap lf-ity-all@ nip 1 = and ;'''
+new = '''  2 cells + @ drop true swap lf-ity-all@ nip 1 = and ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "an Iff of one parameter counts as Lean's own: propext about it proved (postulate.propext-iff-one-param)"
+
+[[fault]]
+id = "allow-block-not-alone"
+file = "src/core/axiom-allowlist.fs"
+old = '''  2 cells + @ over lf-ity-params lf-more-field = swap lf-ity-all@ nip 1 = and ;'''
+new = '''  2 cells + @ over lf-ity-params lf-more-field = nip ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "an Iff in a block with another type counts as Lean's own: propext about it proved (postulate.propext-iff-mutual)"
+
 [[fault]]
 id = "opaque-unfolds"
 file = "src/kernel/whnf.fs"

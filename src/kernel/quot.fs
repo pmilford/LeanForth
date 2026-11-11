@@ -150,11 +150,11 @@ create lf-quot-entries lf-quot-type , lf-quot-mk , lf-quot-lift , lf-quot-ind ,
 : lf-quot-own ( limit -- outcome )
   dup lf-input-name swap 2dup lf-env-find
   dup ok? if drop nip lf-env-generated exit then lf-env-n2 nip nip ;
-\ The quotient below limit (environment.fs lf-env-quot-holding, d class)
-\ decides: initialised, the record's own name; not, the four names; K5,
-\ too early or full as the quotient records below say (an earlier record
-\ not rejected holds its own name, so the four names' check could not
-\ pass then).
+\ The quotient below limit (environment.fs lf-env-quot-held, d class),
+\ whatever the record's own name, decides: initialised, the record's own
+\ name; not, the four names; K5, too early or full as the quotient
+\ records below say (an earlier record not rejected holds its own name,
+\ so the four names' check could not pass then).
 : lf-quot-held-as ( limit d class -- outcome )
   dup ok? if 2drop lf-quot-own exit then
   dup outcome-rejected = if 2drop lf-quot-fresh exit then
@@ -162,7 +162,7 @@ create lf-quot-entries lf-quot-type , lf-quot-mk , lf-quot-lift , lf-quot-ind ,
 : lf-quot-names-pass ( -- outcome )
   lf-env-checking 0= if outcome-invalid exit then nip
   lf-name-storage-valid? 0= if drop outcome-invalid exit then
-  dup dup lf-input-name swap lf-env-quot-holding lf-quot-held-as ;
+  dup lf-env-quot-held lf-quot-held-as ;
 \ Step 2 of a quotient record (check-declaration.fs), logged as N2.
 : lf-quot-names ( -- outcome )
   lf-log? 0= if lf-quot-names-pass exit then

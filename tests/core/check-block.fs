@@ -821,6 +821,14 @@ T{ s" replay-quot.mk-loose-bvar" s" Quot.mk" warned-at -> lf-warn-quot-record ou
 T{ s" replay-quot.mk-mdata-type" s" Quot.mk" warned-at -> lf-warn-quot-record outcome-ok }T
 T{ s" replay-quot.mk-loose-bvar" used s" replay-quot.mk-mdata-type" used
   -> outcome-ok 0 outcome-ok 0 }T
+\ The refused audit's diagnostic is put back: that Quot.mk record (4) is
+\ accepted with none left; renamed after the feed (IE.mkUse's name, 7), it
+\ is rejected as no constant of Lean's quotient (96), not for its type.
+T{ s" replay-quot.mk-loose-bvar" 4 decl-verdict -> outcome-ok 0 }T
+: mk-renamed ( -- outcome code )
+  s" replay-quot.mk-loose-bvar" case-path staged ok? must
+  7 lf-input-name 4 lf-input-decl lf-idecl-name ! fuel checked 4 result drop finish ;
+T{ mk-renamed -> outcome-rejected lf-diag-quot-type }T
 \ Lean's quotient names (review rvAX): add_quot's check_name on all four
 \ (quot.cpp 53-56). A user's Quot.mk (3) before the quotient leaves every
 \ quotient record rejected (4-7), so Quot.lift on that Quot.mk is an
@@ -849,12 +857,16 @@ T{ s" after.quot-then-mk-declared-then-used" used
   4 lf-input-name 4 lf-env-ready? ['] record 0 lf-env-step 2drop ['] record 3 lf-env-step 2drop
   4 lf-input-name 4 lf-env-ready? lf-env-view ok? must finish ;
 T{ quot-ready -> false true }T
-\ The publisher's re-check: the user's Quot.mk (4) claimed ok after the
-\ quotient record Quot was accepted is refused (its name, part 4).
+\ The publisher's re-check: the user's Quot.mk (4), an axiom, claimed ok
+\ with its own bit after the quotient record Quot was accepted, is
+\ refused (its name, part 4).
+: claim-axiom ( d -- outcome )
+  lf-env-begin drop lf-axiom-unlisted lf-env-axiom! outcome-ok lf-env-finish
+  lf-env-hand-over drop ;
 : claimed-mk ( -- outcome outcome )
   s" after.quot-then-mk-declared" case-path staged ok? must
   fuel fresh ['] record 0 lf-env-step 2drop ['] record 3 lf-env-step 2drop
-  4 claim lf-env-view ok? must 4 lf-env-outcome finish ;
+  4 claim-axiom lf-env-view ok? must 4 lf-env-outcome finish ;
 T{ claimed-mk -> outcome-invalid outcome-invalid }T
 \ propext with Lean's statement about an Iff that is not Lean's: NOT PROVED.
 T{ s" postulate.propext-forged-iff" bits-of -> outcome-ok 8 }T
@@ -936,10 +948,11 @@ finish
 \ d budget b; d checked with the fuel it used is ok, with one unit less
 \ exhausted: propext (6), Classical.choice (10), Quot (11) to Quot.ind
 \ (14), Quot.sound (15).
-variable at-d  variable at-budget  variable at-left
+variable at-d  variable at-budget  variable at-left  variable at-step
+: at-kept ( -- ) at-d @ ck-left at-left ! lf-check-step@ at-step ! ;
 : at-check ( -- )
   lf-env-limit at-d @ = dup if at-budget @ else fuel then lf-check-budget
-  record if at-d @ ck-left at-left ! then ;
+  record if at-kept then ;
 : at-run ( d b -- outcome left )
   at-budget ! at-d ! s" tests/reference/inductive/axioms.ndjson" staged ok? must
   fuel ['] at-check checked-by at-d @ lf-env-outcome at-left @ finish ;
@@ -947,6 +960,10 @@ variable at-d  variable at-budget  variable at-left
 : used-exactly? ( d -- flag )
   dup used-by 2dup at-run drop ok? >r 1- at-run drop outcome-exhausted = r> and ;
 T{ 6 used-exactly? 10 used-exactly? 15 used-exactly? -> true true true }T
+\ One unit short, an axiom runs out in step 7, its statement's comparison,
+\ which is charged too.
+: short-step ( d -- step ) dup used-by 1- at-run 2drop at-step @ ;
+T{ 6 short-step 10 short-step 15 short-step -> 7 7 7 }T
 T{ 11 used-exactly? 12 used-exactly? 13 used-exactly? 14 used-exactly?
   -> true true true true }T
 

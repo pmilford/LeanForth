@@ -553,15 +553,16 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
 \ initialised; a later quotient declaration changes nothing (48-49). So
 \ once one is initialised, those names are declared whatever the file
 \ holds, and check_name refuses any other declaration of one of them.
-\ LeanForth publishes one quotient record per slot, so the four names
-\ are held by the quotient records below limit -- declared when one is
-\ accepted (the quotient is initialised), K5 when one is undecided or
-\ unsupported, too early when one is not final -- (d class) as
-\ lf-env-holding gives them; (-1 rejected) when none holds them or name
-\ is not one of the four; (-1 full) when a name cannot be made. A
-\ quotient record of another name is never accepted (quot.fs), so the
-\ slots of the four names are all there is to scan. Lean's
-\ quot_reduce_rec (quot.fs) can then match Quot.mk by name, as Lean does.
+\ LeanForth publishes one quotient record per slot, so the quotient
+\ records below limit hold the four names (lf-env-quot-held) -- declared
+\ when one is accepted (the quotient is initialised), K5 when one is
+\ undecided or unsupported, too early when one is not final -- (d class)
+\ as lf-env-holding gives them; (-1 rejected) when none holds them, or
+\ (lf-env-quot-holding) for a name not one of the four; (-1 full) when a
+\ name cannot be made. A quotient record of another name is never
+\ accepted (quot.fs), so the slots of the four names are all there is to
+\ scan. Lean's quot_reduce_rec (quot.fs) can then match Quot.mk by name,
+\ as Lean does.
 : lf-env-quot-text ( k -- c-addr u )
   case 0 of s" Quot" endof  1 of s" Quot.mk" endof  2 of s" Quot.lift" endof
     s" Quot.ind" rot endcase ;
@@ -587,12 +588,13 @@ here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
     i lf-env-quot-text lf-stmt-intern 0= if drop 2drop -1 outcome-full unloop exit then
     over 3 pick lf-env-first dup 0< 0= if nip nip outcome-ok unloop exit then drop
   loop 2drop -1 outcome-ok ;
-: lf-env-quot-holding ( name limit -- d class )
-  swap lf-env-quot-name? 0= if drop -1 outcome-rejected exit then
+: lf-env-quot-held ( limit -- d class )
   lf-env-quot-holders lf-env-quot-holders# 2* cells bounds ?do
     dup i @ lf-env-quot-found ok-then? 0= if nip -1 swap unloop exit then
     dup 0< 0= if nip i cell+ @ unloop exit then drop
   2 cells +loop drop -1 outcome-rejected ;
+: lf-env-quot-holding ( name limit -- d class )
+  swap lf-env-quot-name? if lf-env-quot-held else drop -1 outcome-rejected then ;
 
 \ Whether a type that may hold name below i, or a quotient record that
 \ holds it, is not final (the scheduler's readiness, lf-env-ready?); a
@@ -968,7 +970,8 @@ lf-axd-cell-bits constant lf-axd-bits   \ bits per cell
   dup lf-env-readable 0= if drop 0 outcome-ok exit then
   dup lf-slot-accepted? 0= if 2drop 0 outcome-ok exit then
   lf-axd-width@ lf-axd-rows slab-room ok-then? 0= if nip no-result exit then
-  dup >r swap lf-axd-join r> lf-axd-shared dup 0< if drop lf-axd-kept else outcome-ok then ;
+  dup >r swap lf-axd-join r> lf-axd-shared
+  dup 0< if drop lf-axd-kept else outcome-ok then ;
 : lf-axd-upto ( d -- outcome )
   1+ lf-axd-state lf-axd-done @ over min ?do
     i lf-axd-made ok-then? 0= if unloop exit then i lf-axd-row-of slab-at !
