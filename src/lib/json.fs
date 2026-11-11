@@ -29,8 +29,9 @@
 \ text bounds it (json-token-limit) to bound the memory of one text.
 \ Whitespace is space, tab, line feed and carriage return; outside strings
 \ only ASCII is valid, so a text that parses is valid UTF-8. Duplicate
-\ object keys are kept: json-find returns the first, and a caller that
-\ needs unique keys checks them.
+\ object keys are kept: json-find returns the first and json-find-last
+\ the last (the one a parser that overwrites on insert, such as Lean's,
+\ keeps), and a caller that needs unique keys checks them.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./bytes.fs
@@ -418,6 +419,15 @@ create json-steps   \ indexed by state
   begin dup 2r@ drop < while
     2dup 2r@ nip json-key= if nip 1+ true 2r> 2drop exit then 2r@ nip json-member-next
   repeat 2drop 2r> 2drop false ;
+\ The same for the last member with the key: a repeated key then reads as
+\ its last value, as in a parser that overwrites on insert.
+: json-find-last ( c-addr object view -- value true | false )
+  tuck json-contents -rot swap 2>r 0
+  begin over 2r@ drop < while
+    2 pick 2 pick 2r@ nip json-key= if drop dup 1+ then
+    swap 2r@ nip json-member-next swap
+  repeat
+  nip nip 2r> 2drop dup if true else drop false then ;
 \ A boolean token.
 : json-bool ( index view -- flag true | false )
   json-kind@ dup json-true = if drop true true exit then

@@ -551,7 +551,15 @@ through the import review gate.
 
 ## Parallel checking groundwork
 
-- **Done in the library** ([ADR 0009](../adr/0009-reentrant-state-and-parallel-checking.md),
+**Status (2026-11-10): written and tested on synthetic jobs only; not used by
+`leanforth check`, never run on a real export, no `--jobs` option, no use to a
+user yet.** Each worker would also load its own copy of the input (about 27 GB
+for Mathlib today), so parallel checking waits for the checker on the compact
+store (plan 6.2.1-6.2.3); the checker modules added since 2026-11-02 (caches,
+unfolding, inductive types, quotients, literals) are not yet verified safe to
+run in parallel.
+
+- **Written and tested in the library** ([ADR 0009](../adr/0009-reentrant-state-and-parallel-checking.md),
   accepted): per-task contexts (`src/lib/context.fs`) that modules declare
   their state into, with owners — a context belongs to one job until it is
   waited for; a worker pool (`src/lib/task.fs`) on Gforth 1.0's threads,
@@ -561,7 +569,7 @@ through the import review gate.
   ran 12 test jobs 5.7–6.3 times faster than one task (2 workers
   1.9–2.0×, 6 workers 4.4–5.0×); over 39,984 jobs the process stayed at
   about 9.5 MB. These are test jobs, not checker workloads.
-- **Done in the checker** (ADR 0009 step 3, 2026-11-02): all 24 core and
+- **Written and tested in the checker on synthetic trials** (ADR 0009 step 3, 2026-11-02): all 24 core and
   kernel modules keep their state in the context; 2 and 8 contexts
   interleaved step by step, and checker trials run as jobs (14,400 on
   Gforth 1.0 threads, 2,400 each on 0.7.3's cooperative tasker and the

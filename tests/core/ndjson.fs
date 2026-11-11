@@ -104,7 +104,6 @@ T{ s\" {\"in\":123456789012345678901234567890,\"str\":{\"pre\":0,\"str\":\"y\"}}
    why s" index too large" compare -> outcome-full 0 }T
 T{ s\" {\"in\":4,\"str\":{\"pre\":4,\"str\":\"y\"}}" bad-name failed-field s" pre" compare -> outcome-invalid 0 }T
 T{ s\" {\"in\":4,\"str\":{\"pre\":0}}" bad-name -> outcome-invalid }T
-T{ s\" {\"in\":4,\"str\":{\"pre\":0,\"str\":\"y\",\"z\":1}}" bad-name -> outcome-invalid }T
 T{ s\" {\"in\":4,\"str\":{\"pre\":0,\"str\":5}}" bad-name -> outcome-invalid }T
 T{ s\" {\"in\":4,\"str\":{\"pre\":0,\"pre\":0}}" bad-name -> outcome-invalid }T
 T{ s\" {\"in\":4,\"str\":{\"pre\":0,\"str\":\"y\"},\"x\":1}" bad-name -> outcome-invalid }T
@@ -164,7 +163,6 @@ T{ s\" {\"ie\":11,\"natVal\":\"0\"}" feed ex export-exprs @ -> outcome-ok 12 }T
 T{ s\" {\"app\":{\"arg\":12,\"fn\":0},\"ie\":12}" bad-expr failed-field s" arg" compare -> outcome-invalid 0 }T
 T{ s\" {\"app\":{\"arg\":1,\"fn\":0},\"ie\":true}" bad-expr -> outcome-invalid }T
 T{ s\" {\"app\":{\"arg\":1},\"ie\":12}" bad-expr -> outcome-invalid }T
-T{ s\" {\"app\":{\"arg\":1,\"fn\":0,\"f\":0},\"ie\":12}" bad-expr -> outcome-invalid }T
 T{ s\" {\"app\":{\"arg\":1,\"fn\":true},\"ie\":12}" bad-expr -> outcome-invalid }T
 T{ s\" {\"ie\":12,\"lam\":{\"binderInfo\":\"bogus\",\"body\":1,\"name\":0,\"type\":0}}" bad-expr
    why s" unknown enumeration value" compare -> outcome-invalid 0 }T
@@ -215,7 +213,6 @@ T{ ex export-decls @ -> 6 }T
 T{ s\" {\"def\":{\"all\":[1],\"hints\":{\"regular\":4294967296},\"levelParams\":[],\"name\":1,\"safety\":\"safe\",\"type\":0,\"value\":3}}" bad-decl
    why s" height beyond UInt32" compare -> outcome-invalid 0 }T
 T{ s\" {\"def\":{\"all\":[1],\"hints\":\"never\",\"levelParams\":[],\"name\":1,\"safety\":\"safe\",\"type\":0,\"value\":3}}" bad-decl -> outcome-invalid }T
-T{ s\" {\"def\":{\"all\":[1],\"hints\":{\"regular\":1,\"x\":2},\"levelParams\":[],\"name\":1,\"safety\":\"safe\",\"type\":0,\"value\":3}}" bad-decl -> outcome-invalid }T
 T{ s\" {\"def\":{\"all\":[1],\"hints\":\"abbrev\",\"levelParams\":[],\"name\":1,\"safety\":\"maybe\",\"type\":0,\"value\":3}}" bad-decl -> outcome-invalid }T
 T{ s\" {\"thm\":{\"all\":[1],\"levelParams\":[],\"name\":0,\"type\":0,\"value\":3}}" bad-decl -> outcome-invalid }T
 T{ s\" {\"thm\":{\"all\":[1],\"levelParams\":[0],\"name\":1,\"type\":0,\"value\":3}}" bad-decl
@@ -680,6 +677,144 @@ T{ 0 sort-line feed 1 sort-line feed s\" {\"bvar\":0,\"ie\":0}" feed index@
    -> outcome-ok outcome-ok outcome-ok 2 }T
 T{ s\" {\"app\":{\"arg\":1,\"fn\":0},\"ie\":3}" feed snap app-fn @ snap app-arg @
    -> outcome-ok 2 1 }T
+
+\ Numbers spelled with a fraction or an exponent. Lean's JSON parser
+\ (Json/Parser.lean) gives 1e2, 1E2, 1e+2, 1.5e1 and 1.50e2 the mantissa
+\ of all their digits and an exponent (the fraction digits less the
+\ exponent, never below 0), and Parse.lean takes a natural only when that
+\ exponent is 0: 1e2 is 100, 1.5e1 is 15, 1.50e1 and 1.0 are not. The
+\ spellings were also compared with the official checker, in an index, a
+\ reference, a name's number, a bvar index and a projection index (see
+\ docs/development/NDJSON_READER.md).
+variable spelled-at
+: spell+ ( c-addr u -- ) tuck line spelled-at @ + swap move spelled-at +! ;
+: spelled-line ( c-addr u prefix-addr prefix-u suffix-addr suffix-u -- c-addr' u' )
+  0 spelled-at ! 2>r spell+ spell+ 2r> spell+ line spelled-at @ ;
+: spelled-expr ( c-addr u -- outcome )   \ the expression with this index, a sort
+  s\" {\"ie\":" s\" ,\"sort\":0}" spelled-line ex export-line ;
+: spelled-ref ( c-addr u -- outcome )    \ an application of the expression at 100 to this
+  s\" {\"app\":{\"arg\":" s\" ,\"fn\":100},\"ie\":1}" spelled-line ex export-line ;
+: own-then-ref ( c-addr u -- outcome outcome' ) fresh meta-line feed drop
+  spelled-expr s\" {\"app\":{\"arg\":100,\"fn\":100},\"ie\":1}" feed ;
+: own-only ( c-addr u -- outcome ) fresh meta-line feed drop spelled-expr ;
+: ref-after-define ( c-addr u -- outcome ) fresh meta-line feed drop
+  s\" {\"ie\":100,\"sort\":0}" feed drop spelled-ref ;
+T{ s" 1e2" own-then-ref -> outcome-ok outcome-ok }T
+T{ s" 1E2" own-then-ref -> outcome-ok outcome-ok }T
+T{ s" 1e+2" own-then-ref -> outcome-ok outcome-ok }T
+T{ s" 0.1e3" own-then-ref -> outcome-ok outcome-ok }T
+T{ s" 1.00e2" own-then-ref -> outcome-ok outcome-ok }T
+T{ s" 100e-0" own-then-ref -> outcome-ok outcome-ok }T
+T{ s" 1e2" ref-after-define -> outcome-ok }T
+T{ s" 10.0e1" ref-after-define -> outcome-ok }T
+T{ s" 1.0e+2" ref-after-define -> outcome-ok }T
+T{ s" 1.0" ref-after-define why s" bad reference" compare -> outcome-invalid 0 }T
+T{ s" 1.50e1" ref-after-define -> outcome-invalid }T
+T{ s" 100e-2" ref-after-define -> outcome-invalid }T
+T{ s" 1e-1" ref-after-define -> outcome-invalid }T
+T{ s" 1.0" own-only why s" bad index" compare -> outcome-invalid 0 }T
+T{ s" 100e-2" own-then-ref drop -> outcome-invalid }T
+T{ s" -1e0" own-then-ref drop -> outcome-invalid }T
+\ Zero, with a minus sign or any exponent or fraction that leaves exponent 0.
+T{ s" -0" own-then-ref drop s" -0e5" own-then-ref drop -> outcome-ok outcome-ok }T
+T{ s" 0e5" ref-after-define why s" bad reference" compare -> outcome-invalid 0 }T
+\ An exponent above 2^64 is not read at all; 2^64 itself is read, and its
+\ 10^2^64 is beyond any index (full); and so is 10^30.
+T{ s" 1e18446744073709551617" own-then-ref drop -> outcome-invalid }T
+T{ s" 1e18446744073709551616" own-then-ref drop -> outcome-full }T
+T{ s" 1e30" own-only why s" index too large" compare -> outcome-full 0 }T
+T{ s" 0e18446744073709551616" own-then-ref drop -> outcome-ok }T
+T{ s" 0e9999999999999999999" own-then-ref drop -> outcome-ok }T
+T{ s" 0e99999999999999999999" own-then-ref drop -> outcome-invalid }T
+\ The other natural fields: a bvar's index, a name's number (any size
+\ the scratch holds), a reducibility height.
+: bvar-spelled ( c-addr u -- outcome )
+  fresh meta-line feed drop s\" {\"bvar\":" s\" ,\"ie\":1}" spelled-line ex export-line ;
+: num-spelled ( c-addr u -- outcome )
+  fresh meta-line feed drop s\" {\"in\":1,\"num\":{\"i\":" s\" ,\"pre\":0}}" spelled-line ex export-line ;
+T{ s" 1.5e1" bvar-spelled snap bvar-index @ -> outcome-ok 15 }T
+T{ s" 1E2" bvar-spelled snap bvar-index @ -> outcome-ok 100 }T
+T{ s" 5e-0" bvar-spelled snap bvar-index @ -> outcome-ok 5 }T
+T{ s" -0.0e1" bvar-spelled snap bvar-index @ -> outcome-ok 0 }T
+T{ s" 1.50e1" bvar-spelled why s" expected a natural number" compare -> outcome-invalid 0 }T
+T{ s" 1e19" bvar-spelled why s" natural number too large" compare -> outcome-full 0 }T
+T{ s" 9223372036854775807" bvar-spelled snap bvar-index @ -> outcome-ok max-n }T
+T{ s" 92233720368547758.07e2" bvar-spelled snap bvar-index @ -> outcome-ok max-n }T
+T{ s" 92233720368547758.08e2" bvar-spelled why s" natural number too large" compare
+   -> outcome-full 0 }T
+T{ s" 1e300" bvar-spelled why s" natural number too large" compare -> outcome-full 0 }T
+T{ s" 1e2" num-spelled snap name-part text@ s" 100" compare -> outcome-ok 0 }T
+T{ s" 123.45e5" num-spelled snap name-part text@ s" 12345000" compare -> outcome-ok 0 }T
+T{ s" 1e100" num-spelled snap name-part text@ nip -> outcome-ok 101 }T
+T{ s" -0e7" num-spelled snap name-part text@ s" 0" compare -> outcome-ok 0 }T
+T{ s" 1.5" num-spelled why s" expected a natural number" compare -> outcome-invalid 0 }T
+T{ s" 1e300" num-spelled why s" natural number too large" compare -> outcome-full 0 }T
+
+\ Members as Lean's reader takes them (Export/Parse.lean): in the object
+\ of a record, a key it does not look up is ignored, a repeated key reads
+\ as its last member (the JSON parser overwrites on insert), and a missing
+\ key is refused, except an opaque's isUnsafe, which reads false. The
+\ line's own members are the record's, exactly: an extra one is refused.
+: members-line ( c-addr u -- outcome ) fresh meta-line feed drop feed ;
+T{ s\" {\"in\":1,\"str\":{\"pre\":0,\"str\":\"y\",\"z\":1}}" members-line snap name-part text@ s" y" compare
+   -> outcome-ok 0 }T
+T{ s\" {\"in\":1,\"str\":{\"pre\":0,\"str\":\"y\",\"pre\":0,\"str\":\"w\"}}" members-line
+   snap name-part text@ s" w" compare -> outcome-ok 0 }T
+T{ s\" {\"in\":1,\"str\":{\"pre\":99,\"pre\":0,\"str\":\"y\"}}" members-line -> outcome-ok }T
+T{ s\" {\"in\":1,\"str\":{\"pre\":0,\"str\":\"y\",\"pre\":99}}" members-line why s" bad reference" compare
+   -> outcome-invalid 0 }T
+T{ s\" {\"in\":1,\"str\":{\"pre\":0}}" members-line why s" missing field" compare -> outcome-invalid 0 }T
+T{ s\" {\"in\":1,\"str\":{\"pre\":0,\"str\":\"y\"},\"z\":1}" members-line -> outcome-invalid }T
+T{ s\" {\"const\":{\"name\":1,\"us\":[],\"x\":[1,{}]},\"ie\":1}" members-line
+   -> outcome-invalid }T
+: opaque-line ( c-addr u -- c-addr' u' )
+  started drop s\" {\"in\":1,\"str\":{\"pre\":0,\"str\":\"y\"}}" feed drop
+  s\" {\"ie\":0,\"sort\":0}" feed drop ;
+T{ opaque-line s\" {\"opaque\":{\"all\":[1],\"levelParams\":[],\"name\":1,\"type\":0,\"value\":0}}" feed
+   kind@ snap decl-unsafe @ -> outcome-ok kind-opaque false }T
+T{ opaque-line s\" {\"opaque\":{\"all\":[1],\"isUnsafe\":true,\"isUnsafe\":false,\"levelParams\":[],\"name\":1,\"type\":0,\"value\":0}}" feed
+   snap decl-unsafe @ -> outcome-ok false }T
+T{ opaque-line s\" {\"opaque\":{\"all\":[1],\"isUnsafe\":null,\"levelParams\":[],\"name\":1,\"type\":0,\"value\":0}}" feed
+   why s" expected a boolean" compare -> outcome-invalid 0 }T
+T{ opaque-line s\" {\"axiom\":{\"levelParams\":[],\"name\":1,\"type\":0}}" feed
+   why s" missing field" compare -> outcome-invalid 0 }T
+T{ opaque-line s\" {\"def\":{\"all\":[1],\"hints\":{\"regular\":7,\"x\":2},\"levelParams\":[],\"name\":1,\"safety\":\"safe\",\"type\":0,\"value\":0}}"
+   feed snap decl-height @ -> outcome-ok 7 }T
+\ The metadata line, which Lean never reads, keeps its exact shape.
+T{ fresh s\" {\"meta\":{\"exporter\":{\"name\":\"lean4export\",\"version\":\"3.1.0\",\"x\":1},\"format\":{\"version\":\"3.1.0\"},\"lean\":{\"githash\":\"eb6cafb7290e8bd5f2937522d8d804f58f02bafc\",\"version\":\"4.35.0\"}}}" feed
+   -> outcome-invalid }T
+
+\ An index map grows past many pairs: 5000 sparse expressions, each found
+\ again at its own ordinal, and the gaps between them found as nothing.
+: pair-index ( i -- index ) 3 * 7 + ;
+: pair-line ( i -- c-addr u )
+  0 spelled-at ! s\" {\"ie\":" spell+ pair-index 0 <# #s #> spell+ s\" ,\"sort\":0}" spell+
+  line spelled-at @ ;
+: pairs-made ( n -- outcome ) fresh meta-line feed drop outcome-ok swap 0 ?do
+    drop i pair-line ex export-line dup ok? 0= if leave then loop ;
+: pair-wrong ( i -- flag )
+  dup pair-index ex export-expr-map imap-ordinal if <> else drop true then ;
+: pairs-wrong ( n -- count ) 0 swap 0 ?do i pair-wrong - loop ;
+T{ 5000 pairs-made ex export-exprs @ -> outcome-ok 5000 }T
+T{ 5000 pairs-wrong -> 0 }T
+T{ 8 ex export-expr-map imap-ordinal 6 ex export-expr-map imap-ordinal 7 ex export-expr-map imap-ordinal
+   -> false false 0 true }T
+T{ 4999 pair-index ex export-expr-map imap-ordinal 20000 ex export-expr-map imap-ordinal -> 4999 true false }T
+\ A map that finds no heap ends the read as full, and the export stays
+\ consistent when a caller goes on: the index that failed is unknown (a
+\ reference to it is refused), every later one has its own ordinal, and
+\ index 1, which would have been its own ordinal, is not mistaken for it.
+ex export-init drop capture-all   \ the maps made above are freed: the next pair allocates
+T{ started drop 1 heap-refusals ! s\" {\"ie\":5,\"sort\":0}" feed 0 heap-refusals !
+   why s" no room for an index map" compare -> outcome-full 0 }T
+T{ s\" {\"ie\":1,\"sort\":0}" feed s\" {\"app\":{\"arg\":1,\"fn\":1},\"ie\":2}" feed
+   snap app-fn @ snap app-arg @ -> outcome-ok outcome-ok 1 1 }T
+T{ s\" {\"app\":{\"arg\":0,\"fn\":1},\"ie\":3}" feed why s" bad reference" compare
+   -> outcome-invalid 0 }T
+T{ s\" {\"app\":{\"arg\":5,\"fn\":1},\"ie\":3}" feed -> outcome-invalid }T
+\ A name and a level at sparse indices: all three maps are made again.
+T{ s\" {\"in\":7,\"str\":{\"pre\":0,\"str\":\"a\"}}" feed s\" {\"il\":5,\"param\":7}" feed
+   -> outcome-ok outcome-ok }T
 
 \ The tally (export-kind-count): records handed over and accepted, by
 \ kind, with a block's types, constructors and recursors; reset when a

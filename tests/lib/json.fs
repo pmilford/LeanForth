@@ -118,12 +118,19 @@ T{ s\" {\"a\":1,\"b\":[true],\"a\":2}" parsed -> outcome-ok }T
 T{ key-a 0 jv json-find -> 2 true }T
 T{ key-b 0 jv json-find drop kind -> json-array }T
 T{ key-z 0 jv json-find -> false }T
+\ json-find-last: the last member with the key; the member's value is the
+\ token after its key (a is at 2 and 7, b at 4).
+T{ key-a 0 jv json-find-last -> 7 true }T
+T{ key-b 0 jv json-find-last -> 4 true }T
+T{ key-z 0 jv json-find-last -> false }T
 T{ 2 jv json-u 5 jv json-bool 4 jv json-u -> 1 true true true false }T
 T{ s" [false,null,7]" parsed 1 jv json-bool 2 jv json-bool -> outcome-ok false true false }T
 : natural-is? ( index c-addr u -- flag ) rot jv json-natural if compare 0= else 2drop false then ;
 T{ s" [0,-0,-1,1.5,12345]" parsed 2 s" 0" natural-is? 3 s" -1" natural-is? -> outcome-ok true false }T
 T{ 1 jv json-u 2 jv json-u 3 jv json-u 4 jv json-u 5 jv json-u -> 0 true 0 true false false 12345 true }T
 T{ s\" [\"7\"]" parsed 1 jv json-u -> outcome-ok false }T
+T{ s" {}" parsed key-a 0 jv json-find-last -> outcome-ok false }T
+T{ s\" {\"a\":[1,{\"a\":2}],\"b\":3,\"a\":{\"a\":4}}" parsed key-a 0 jv json-find-last -> outcome-ok 10 true }T
 
 \ digits>u: the fast loop, the double-cell path at the width of max-n, and overflow.
 : max-n-text ( -- c-addr u ) max-n 0 <# #s #> ;

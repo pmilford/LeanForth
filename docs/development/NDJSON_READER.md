@@ -301,10 +301,18 @@ Lean accepts, ends the read as *full*, a resource limit, never a verdict:
 a temporary gap like the other wide numbers of plan task 5.2.6 (proposed
 there, 2026-11-10); a reference above `max-n` is a bad reference, since
 no record can have it. Measured on 2026-11-10 with crafted files against the arena's official
-checker built with Lean 4.35.0 (machine-local): forward, missing and self references
-are refused by both; repeated indices (later record wins, earlier
-records keep their values), redefined name 0 and level 0, and sparse
-indices of every family are accepted by both.
+checker built with Lean 4.35.0 (machine-local): a forward reference, a
+missing one and one to the record's own index when no earlier record has
+that index are refused by both; a reference to the record's own index when
+an earlier record has it is that earlier record (both agree); repeated
+indices (later record wins, earlier records keep their values), redefined
+name 0 and level 0, and sparse indices of every family are accepted by
+both. After a *full* from an index map the export is whole, not wrong: the
+record that failed to get its index is simply unknown (a reference to it
+is refused) and every later index keeps its own ordinal, as the dense
+shortcut now needs the index to equal both the ordinal and the dense count;
+`export-restart` empties the maps. The reader's index maps are freed with
+the stage's once the stage is sealed (`stage-unmap`).
 
 Lists are read
 with `list-count ( list record -- n )` and `list-item ( i list record -- u )`;
@@ -360,9 +368,40 @@ passed.
 | Outcome | When |
 | --- | --- |
 | ok | A complete, well-formed record, accepted by its handler |
-| invalid (malformed) | Bad framing (no final line feed, carriage return, byte-order mark, blank line); not JSON (syntax, bad escape, lone surrogate, invalid UTF-8, a control byte in a string); not a record of format 3.1.0: unknown kind, a field missing, unknown or repeated, a value of the wrong JSON type or outside its enumeration, an index that is not a natural number ("bad index"), a reference to an index no earlier record has ("bad reference"), an anonymous name where one is not allowed, a natural literal not in canonical decimal, a height beyond UInt32, metadata not first or repeated, an inductive block without types but with constructors or recursors (an empty block, with none of the three, is read: ADR 0016 amendment 1), no metadata or no declaration in the file |
+| invalid (malformed) | Bad framing (no final line feed, carriage return, byte-order mark, blank line); not JSON (syntax, bad escape, lone surrogate, invalid UTF-8, a control byte in a string); not a record of format 3.1.0: unknown kind, a field missing (an opaque's `isUnsafe` may be), a value of the wrong JSON type or outside its enumeration, an index that is not a natural number ("bad index"), a reference to an index no earlier record has ("bad reference"), an anonymous name where one is not allowed, a natural literal not in canonical decimal, a height beyond UInt32, metadata not first or repeated, an inductive block without types but with constructors or recursors (an empty block, with none of the three, is read: ADR 0016 amendment 1), no metadata or no declaration in the file |
 | unsupported | Metadata naming another exporter, format or Lean version than lean4export 3.1.0, format 3.1.0 and Lean 4.35.0 (`eb6cafb7…`); after `export-any-version! ( flag export -- )` (the caller's explicit choice, `--any-lean-version`; `export-init` turns it off), only another format version; a record kind without a handler |
-| full (a limit) | A line longer than the limit (64 MiB), JSON nested deeper than 64, more than 65,536 JSON tokens on one line, a natural number field (such as `bvar` or `idx`) that does not fit in a cell, an index above `max-n` ("index too large"), no heap memory (also "no room for an index map") |
+| full (a limit) | A line longer than the limit (64 MiB), JSON nested deeper than 64, more than 65,536 JSON tokens on one line, a natural number field (such as `bvar` or `idx`) that does not fit in a cell (or, spelled with an exponent, in 256 digits), an index above `max-n` ("index too large"), no heap memory (also "no room for an index map") |
+
+**Numbers and members as Lean reads them.** Parse.lean matches
+`.num (n : Nat)`, a JSON number whose mantissa is `n` and exponent 0, on the
+number Lean's JSON parser (`Lean/Data/Json/Parser.lean`) made: a number with
+d fraction digits and an exponent x has the mantissa of all its digits and,
+for no sign or `+` in the exponent, exponent d shifted left by x (mantissa
+times 10^(x-d), exponent d-x but not below 0), and for a `-` exponent d + x.
+So `1e2`, `1E2`, `1e+2` (100), `1.5e1` (15), `1.50e2` (150), `5e-0` (5)
+and `-0`, `-0e5`, `-0.0e1` (0) are naturals, in an index, a reference or any
+natural field; `1.0`, `1.50e1`, `100e-2`, `1e-1`, `-1` and `-0.0` are not;
+an exponent above 2^64 is not parsed at all. The reader gives the value's
+digits (`natural-digits`): a number whose digits do not fit 256 bytes
+(`1e300`) is *full*, never a wrong number, and so is one above `max-n` where
+a cell is needed. Measured 2026-11-10 against the official checker: 46
+spellings (accepted and refused) in 5 fields (index, reference, name number,
+bvar index, projection index), no difference but the wide-number limits that
+exist without exponents too (a projection index above a cell, a name number
+above 32 bits).
+In a record's object (the value of `str`, `const`, `def`, `thm`, `opaque`,
+a block's lists and their elements, a recursor rule, `regular`), Lean looks
+up the keys it needs in the object its parser made: a key it does not look
+up is ignored, a key given twice reads as its last value, and a key it
+needs is refused when missing, except an opaque's `isUnsafe`, which reads
+false (Parse.lean, "until the exporter always includes isUnsafe"); the
+reader does the same (`json-find-last`, `nd-default`). The line's own members
+are still exactly the record's: a line with another member, or the same
+member twice (which Lean's parser would merge), is refused; the second is a
+temporary gap against Lean, as is a height beyond UInt32 (Lean takes it
+modulo 2^32): both are crafted-input cases that lean4export never writes.
+The metadata line, which Lean skips unread, is still read strictly (exact
+members, pinned versions); owner decision open.
 
 A handler's own outcome (rejected, for example) also stops the reading, as
 does a broken handler contract (invalid or a `THROW`, see above).
