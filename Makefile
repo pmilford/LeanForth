@@ -931,6 +931,7 @@ reference-cli:
 # and exit codes compared; exit 0 only if identical. About 15 minutes; needs
 # the machine-local Init export and arena tests (scripts/engine-gate.sh). Not
 # part of make check.
+engine-gate: RUN := timeout 7200
 engine-gate:
 	$(RUN) bash scripts/engine-gate.sh $(ENGINE_GATE_INIT) $(ENGINE_GATE_ARENA)
 
