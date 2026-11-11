@@ -721,7 +721,7 @@ T{ -1 field1 u32! field1 u32@ u32-top 1+ field1 u32! field1 u32@ -> u32-mask u32
 T{ u32-block? le-src le-b 8 u32s>le  le-a 32 le-b 32 compare -> true 0 }T
 [defined] warnings [if] warnings @ false warnings ! [then]
 : lf-u32-fields ( -- ) ;
-include ../../src/lib/u32.fs
+decimal include ../../src/lib/u32.fs   \ a reload on purpose, to get the other path
 [defined] warnings [if] warnings ! [then]
 T{ u32-block? -> false }T
 T{ le-src le-b 8 u32s>le  le-a 32 le-b 32 compare -> 0 }T

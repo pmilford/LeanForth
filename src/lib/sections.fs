@@ -99,7 +99,8 @@ end-structure
 
 : sec-entry ( i sf -- e ) sec-entries swap /sec-entry * + ;
 \ Call xt ( e sf -- ) for each entry in turn.
-: sec-each ( xt sf -- ) dup sec-n @ 0 ?do i over sec-entry over 3 pick execute loop 2drop ;
+: sec-each ( xt sf -- )
+  dup sec-n @ 0 ?do i over sec-entry over 3 pick execute loop 2drop ;
 \ Walk entries from e to end with xt ( pos e -- pos' true | false ), carrying
 \ a position; give the final position, or false at the first entry that fails.
 : sec-walk ( xt pos e end -- pos' true | false )
@@ -115,7 +116,8 @@ end-structure
 : sec-hi ( u -- hi ) sec-wide? if 32 rshift else drop 0 then ;
 : sec-le64! ( u c-addr -- )
   over u32-mask and over u32-le! swap sec-hi swap 4 chars + u32-le! ;
-: sec-join ( lo hi -- u|-1 ) dup $80000000 u< if 32 lshift or else 2drop -1 then ;
+1 31 lshift constant sec-sign   \ 2^31: a high word from here up does not fit a cell
+: sec-join ( lo hi -- u|-1 ) dup sec-sign u< if 32 lshift or else 2drop -1 then ;
 : sec-narrow ( lo hi -- u|-1 ) if drop -1 else dup 0< if drop -1 then then ;
 : sec-le64@ ( c-addr -- u|-1 )
   dup u32-le@ swap 4 chars + u32-le@ sec-wide? if sec-join else sec-narrow then ;
@@ -201,7 +203,8 @@ end-structure
   >r r@ sec-fid @ ?dup if close-file else 0 then 0 r@ sec-fid ! 0 r> sec-n ! ;
 : sec-discard ( sf -- ) dup sec-shut drop sec-partial-name delete-file drop ;
 : sec-assign-all ( sf -- outcome )
-  ['] sec-assign sections-align rot sec-walk-all if drop outcome-ok else outcome-invalid then ;
+  ['] sec-assign sections-align rot sec-walk-all
+  if drop outcome-ok else outcome-invalid then ;
 : sec-hash-entry ( e sf -- )
   over sec-addr @ 2 pick sec-length @ 2 pick sec-sum-of rot sec-sha 32 chars move drop ;
 : sec-write-hdr ( sf -- outcome )

@@ -38,6 +38,7 @@ features they describe.
 ## `programming/` — writing proofs and verified Forth programs
 
 - [INTERFACE_CONTRACTS.md](programming/INTERFACE_CONTRACTS.md) — proposed JSON API, proof-step records and program receipts (design, not implemented).
+- [SECTIONED_FILES.md](programming/SECTIONED_FILES.md) — the container format of `src/lib/sections.fs` (header, section table, SHA-256s, outcomes).
 - [PROGRAM_CONTRACTS.md](programming/PROGRAM_CONTRACTS.md) — Lean reference model for program contracts.
 - [PROGRAM_EXAMPLE.md](programming/PROGRAM_EXAMPLE.md) — proposed first verified program: bounded clamp.
 - [PROGRAM_EXAMPLES.md](programming/PROGRAM_EXAMPLES.md) — the executable Forth examples and their tests.
