@@ -39,6 +39,9 @@ require ./tagged-sort-boundary.fs
 require ./terms.fs
 
 7 constant lf-tag-constant
+\ An input constant of a term view (terms.fs) has its reference in the
+\ leaf table.
+lf-tag-constant tag-const lf-term-input-leaf-tag
 lf-walk-room context-walk: lf-cterm-walker
 
 \ The data words of the checker's leaves (terms.fs's hook lf-term-leaf-data;
@@ -91,11 +94,29 @@ lf-walk-room context-walk: lf-cterm-walker
 /slab context-record: lf-term-marks
 2 cells ' lf-term-marks lf-term-columns column-add
 1 cells context-record: lf-mark-runs
+\ The input nodes of a term view (terms.fs) have their units in a slab
+\ of their own, sized and erased when a view is attached or detached
+\ (lf-term-view-hook); a node beyond it (a view whose slab the heap could
+\ not hold, which terms.fs then detaches) gets a spare unit, erased each
+\ time, so it is never held: more visits, never another outcome.
+2 cells context-slab: lf-input-marks
+2 cells context-record: lf-mark-spare
+: lf-input-marks-erase ( -- ) 0 lf-input-marks slab-at lf-term-base 2 cells * erase ;
+: lf-input-marks-ready ( -- outcome )
+  lf-term-base lf-input-marks slab-reserve dup ok? if lf-input-marks-erase then ;
+' lf-input-marks-ready is lf-term-view-hook
+: lf-input-mark-at ( node -- unit )
+  dup lf-input-marks slab-capacity u<
+  if lf-input-marks slab-at else drop lf-mark-spare dup 2 cells erase then ;
+\ A node's unit (two cells), input or store.
+: lf-mark-at ( node -- unit )
+  dup lf-term-input? if lf-input-mark-at else lf-term-base - lf-term-marks column-at then ;
+: lf-marks-erase ( -- ) lf-term-marks column-erase lf-input-marks-erase ;
 : lf-mark-next ( -- run )
-  lf-mark-runs @ 1+ dup 0= if lf-term-marks column-erase 1+ then dup lf-mark-runs ! ;
+  lf-mark-runs @ 1+ dup 0= if lf-marks-erase 1+ then dup lf-mark-runs ! ;
 : lf-walk-marking ( walk -- ) lf-mark-next swap walk-arg ! ;
 : lf-walk-depth ( walk -- depth ) dup walk-paired? if walk-context @ else drop 0 then ;
-: lf-mark-unit ( walk -- unit ) walk-node @ lf-term-marks column-at ;
+: lf-mark-unit ( walk -- unit ) walk-node @ lf-mark-at ;
 \ A unit holds a run, then a depth.
 : lf-mark-held? ( depth run unit -- flag )
   tuck @ = if cell+ @ < 0= else 2drop false then ;
@@ -205,7 +226,7 @@ end-structure
 : lf-audit-same-node? ( node unit -- flag )
   cell+ @ swap lf-term-identity if = else drop false then ;
 : lf-audit-unit? ( node epoch -- flag )
-  over lf-term-marks column-at tuck @ = if lf-audit-same-node? else 2drop false then ;
+  over lf-mark-at tuck @ = if lf-audit-same-node? else 2drop false then ;
 : lf-audited? ( node -- flag )
   lf-audit-state lf-aud-active @ 0= if drop false exit then
   dup lf-audit-epoch ?dup if lf-audit-unit? else drop false then ;
@@ -220,7 +241,7 @@ end-structure
 \ After a run: kept as checked when it ended ok; the list emptied.
 : lf-audit-mark ( node -- )
   dup lf-audit-epoch ?dup 0= if drop exit then
-  over lf-term-identity drop rot lf-term-marks column-at tuck cell+ ! ! ;
+  over lf-term-identity drop rot lf-mark-at tuck cell+ ! ! ;
 : lf-audit-keep ( -- )
   lf-audit-state lf-aud-count @ 0 ?do i lf-audit-slot @ lf-audit-mark loop ;
 : lf-audit-settle ( outcome -- outcome )

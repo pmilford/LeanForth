@@ -63,8 +63,17 @@ create lf-stamp-hooks /htab-hooks allot
 : lf-stamp-new ( index slot -- unit )
   1 lf-stamp-units slab-claim ok? 0= if 2drop lf-stamp-none exit then
   tuck swap lf-stamp-table htab-put lf-stamp-fill ;
+\ An input node of a term view (terms.fs) has no unit: it is sealed, its
+\ own stamp is its identity and its level's or reference's the one the
+\ importer gave it (lf-term-leaf-stamp), so a unit of those is filled in
+\ a spare of its own; what is written there is lost.
+/lf-stamp context-record: lf-stamp-input
+: lf-stamp-of-input ( index -- unit )
+  lf-stamp-input >r dup r@ lf-stamp-term ! dup lf-term-input-identity r@ lf-stamp-own !
+  lf-term-leaf-stamp r@ lf-stamp-level ! r> ;
 \ The stamp unit of a term index, made when first asked for.
 : lf-term-stamps ( index -- unit )
+  dup lf-term-input? if lf-stamp-of-input exit then
   lf-stamp-table htab-ready ok? 0= if lf-stamp-none exit then
   dup lf-stamp-find if nip lf-stamp-unit exit then lf-stamp-new ;
 

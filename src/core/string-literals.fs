@@ -23,6 +23,8 @@ require ./literals.fs
 require ./terms.fs
 
 13 constant lf-tag-str
+\ An input literal of a term view (terms.fs) has its bytes in the leaf table.
+lf-tag-str tag-str lf-term-input-leaf-tag
 1 chars context-slab: lf-str-bytes
 
 : lf-str-leaf? ( node -- flag ) lf-term-tag@ lf-tag-str = ;

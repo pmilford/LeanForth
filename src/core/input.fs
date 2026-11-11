@@ -205,7 +205,10 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 : lf-input-mark ( k -- mark ) /store-mark * lf-input-state lf-inrec-marks + ;
 \ Its count, as a value: objects of input store k lie below it (for
 \ readers such as the derivation log, which may not hold an address).
-: lf-input-mark-count ( k -- n ) lf-input-mark mark-count @ ;
+\ For the terms (k = 0) it is a term number: under an input view the
+\ input nodes are below the store's own records (terms.fs).
+: lf-input-mark-count ( k -- n )
+  dup lf-input-mark mark-count @ swap 0= if lf-term-base + then ;
 \ Whether test ( mark store -- flag ) holds for every input store.
 : lf-input-all? ( test -- flag )
   true lf-input-stores# 0 ?do over i lf-input-mark i lf-input-store rot execute and loop
@@ -236,7 +239,11 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 : lf-fp-pool ( h -- h' ) 0 lf-cref-pool slab-at lf-cref-top 2* lf-fp-cells ;
 : lf-fp-view-names ( h -- h' )
   lf-name-numbers tuck fnv-step swap 0 ?do i lf-name-hash fnv-step loop ;
-: lf-fp-view ( h -- h' ) lf-name-viewed? if lf-fp-view-names then ;
+\ Under a term view (terms.fs), the input nodes' count and the tier read
+\ in place (its address: within one run of one host only).
+: lf-fp-terms ( h -- h' )
+  lf-term-viewed? if lf-term-base fnv-step lf-term-tier fnv-step then ;
+: lf-fp-view ( h -- h' ) lf-name-viewed? if lf-fp-view-names then lf-fp-terms ;
 \ The inductive data: its count, then its cells.
 : lf-fp-more ( h -- h' )
   lf-more-count tuck fnv-step swap ?dup if 0 lf-more-cell swap lf-fp-cells then ;

@@ -52,11 +52,39 @@
 \ frames, binder scopes); lf-walk-room is only the room a context's walk
 \ starts with. A stack the heap cannot grow ends a pass full, never
 \ accepted.
+\
+\ The input view (compact-store plan step S5; ADR 0016 C3). A context
+\ may read a sealed compact input tier (core/compact.fs, filled by
+\ import/stage.fs) in place: lf-term-attach makes the tier's expressions
+\ the first term numbers, 0 .. lf-term-base - 1, each the number the
+\ stage gave it, and the store's own records follow them, record r being
+\ term lf-term-base + r. Every reader below takes a term number and reads
+\ an input node from the tier's 16-byte record (C1), its tag translated
+\ to the checker's: a bound variable, application, lambda or Pi (binder
+\ name and information ignored, as Lean's kernel ignores them) with the
+\ record's own fields; a Sort, constant or literal with the fields the
+\ importer gave it in the view's leaf table (lf-term-input-leaf: the
+\ level, reference or literal it became in this context, and the stamp a
+\ symbolic Sort or constant carries, generation-handles.fs); any other
+\ kind (a let, projection, metadata or free variable, a let's body
+\ record) is no term of the view, so a node above one is copied into the
+\ store instead (import/feed.fs). An input node is sealed: never rolled
+\ back or reset, its data word the tier's (computed when it was staged,
+\ C8, the same facts as this store's), and its identity is the negative
+\ number invert index, which no birth serial is. Making a node equal to
+\ an input node gives that node (lf-term-add finds an application or
+\ bound variable in the tier's table, a Sort or constant in the leaf
+\ table), so equal terms are one number across the two parts. Without a
+\ view lf-term-base is 0 and everything is as before. The tier must
+\ outlive the view: lf-term-detach (or freeing the context) first.
+\
 \ State: the store header lf-terms, the hash table lf-term-table, the
-\ candidate record lf-term-key and the switch lf-term-share-off, members
+\ candidate record lf-term-key, the switch lf-term-share-off and the view
+\ record lf-term-view, members
 \ of the checker context (lib/context.fs) whose blocks are on the heap,
 \ freed by their teardown words, so each context has its own terms;
-\ single-threaded within one context. The set of unshared tags and the
+\ single-threaded within one context. The set of unshared tags, the
+\ input tag table and the
 \ leaf-data hook are fixed while loading and read-only afterwards. A
 \ reset invalidates every index, and a reused index cannot be told from
 \ a stale one; identities (8-byte birth serials) never repeat and are
@@ -68,7 +96,10 @@ require ../lib/lib.fs
 require ../lib/u32.fs
 require ../lib/hash32.fs
 require ../lib/htab.fs
+require ../lib/slab.fs
+require ../lib/cons.fs
 require ./diagnostics.fs
+require ./compact.fs
 require ../lib/store-columns.fs
 
 64 constant lf-term-default
@@ -103,13 +134,116 @@ store-header context-record: lf-terms
 \ The store's fields under their established names. Other modules roll a
 \ failed transaction back through marks (core/scratch-marks.fs), never by
 \ setting the count; tests corrupt these cells on purpose to check that
-\ every operation fails closed.
+\ every operation fails closed. Under an input view (see the header) the
+\ count, marks and capacity are the store's own records', and term
+\ numbers start lf-term-base higher.
 : lf-term-count ( -- addr ) lf-terms store-count ;
 : lf-term-generation ( -- addr ) lf-terms store-generation ;
 : lf-term-serial ( -- addr ) lf-terms store-serial ;
 : lf-term-identities ( -- addr ) lf-terms store-identities ;
-\ Record address; the index must already be validated.
-: lf-term-slot ( index -- addr ) lf-terms store-slot ;
+
+\ ---------------------------------------------------------------------------
+\ The input view (see the header): the tier, its expression count (the
+\ first store number), the address of its first record (a sealed slab
+\ never moves), the leaf table and a set over the tier's expressions in
+\ which a candidate is sought (cons.fs: a find there looks in the tier).
+begin-structure /lf-tview
+  field: lf-tview-tier       \ the sealed tier read in place, or 0
+  field: lf-tview-base       \ its expressions: the numbers below are input nodes
+  field: lf-tview-records    \ address of its record 0
+  /cons +field lf-tview-probe    \ a set over its expressions, never committed to
+  /htab +field lf-tview-nodes    \ leaf entries by node
+  /htab +field lf-tview-fields   \ leaf entries by tag and fields
+  /slab +field lf-tview-leaves   \ the entries: node, first, second, stamp
+end-structure
+/lf-tview context-record: lf-term-view
+: lf-term-base ( -- n ) lf-term-view lf-tview-base @ ;
+: lf-term-tier ( -- tier ) lf-term-view lf-tview-tier @ ;
+: lf-term-viewed? ( -- flag ) lf-term-tier 0<> ;
+\ Whether a number names an input node (it may still be no term).
+: lf-term-input? ( index -- flag ) lf-term-base u< ;
+\ A store record's address from its term number. Unchecked: the number
+\ names a record of the store (lf-term-valid?, not an input node).
+: lf-term-slot ( index -- addr ) lf-term-base - lf-terms store-slot ;
+
+\ The input tags: per tag of the tier (compact-exprs.fs) the checker's
+\ tag, plus lf-tin-leaf-bit when its fields come from the leaf table; 0
+\ for a kind that is no term of the view. A module that defines a leaf
+\ tag registers it while loading (lf-term-input-leaf-tag), read-only
+\ afterwards.
+64 constant lf-tin-leaf-bit
+create lf-term-input-tags head-tag-mask 1+ cells allot
+lf-term-input-tags head-tag-mask 1+ cells erase
+: lf-term-input-tag! ( lftag tag -- ) cells lf-term-input-tags + ! ;
+\ The checker's tags whose input nodes are in the leaf table, a bit each.
+variable lf-tin-leaf-tags   0 lf-tin-leaf-tags !
+: lf-term-input-leaf-tag ( lftag tag -- )
+  over 1 swap lshift lf-tin-leaf-tags @ or lf-tin-leaf-tags !
+  >r lf-tin-leaf-bit or r> lf-term-input-tag! ;
+lf-tag-bvar tag-bvar lf-term-input-tag!   lf-tag-app tag-app lf-term-input-tag!
+: lf-tin-binders ( -- )
+  4 0 do lf-tag-lam tag-lam i + lf-term-input-tag! lf-tag-pi tag-pi i + lf-term-input-tag! loop ;
+lf-tin-binders
+
+\ An input record and its parts. Unchecked: index < lf-term-base.
+: lf-tin-at ( index -- addr ) /quad * lf-term-view lf-tview-records @ + ;
+: lf-tin-code ( index -- x ) lf-tin-at quad-head u32@ head-tag cells lf-term-input-tags + @ ;
+: lf-tin-leaf? ( x -- flag ) lf-tin-leaf-bit and 0<> ;
+
+\ The leaf table: entry n is a unit of four cells; it is found by its
+\ node, or by the checker's tag and fields of that node.
+begin-structure /lf-tleaf
+  field: lf-tleaf-node
+  field: lf-tleaf-first
+  field: lf-tleaf-second
+  field: lf-tleaf-stamp
+end-structure
+: lf-tleaf ( n -- entry ) lf-term-view lf-tview-leaves slab-at ;
+: lf-tleaf-tag ( entry -- tag ) lf-tleaf-node @ lf-tin-code lf-tin-leaf-bit 1- and ;
+: lf-tleaf-fields ( entry -- tag first second )
+  dup lf-tleaf-tag over lf-tleaf-first @ rot lf-tleaf-second @ ;
+: lf-tnode-rehash ( n htab -- h ) drop lf-tleaf lf-tleaf-node @ hash-fmix ;
+: lf-tnode-same ( n key htab -- flag ) drop swap lf-tleaf lf-tleaf-node @ = ;
+\ The fields hash as a store record's (lf-term-hash below, the same mix).
+: lf-tfields-hash ( tag first second -- h ) rot hash-fmix rot hash-step swap hash-step ;
+: lf-tfields-rehash ( n htab -- h ) drop lf-tleaf lf-tleaf-fields lf-tfields-hash ;
+: lf-tfields= ( tag first second addr -- flag )
+  >r r@ 2 cells + @ = swap r@ cell+ @ = and swap r> @ = and ;
+: lf-tfields-same ( n key htab -- flag ) drop >r lf-tleaf lf-tleaf-fields r> lf-tfields= ;
+create lf-tnode-hooks /htab-hooks allot
+' lf-tnode-rehash ' lf-tnode-same lf-tnode-hooks htab-hooks!
+create lf-tfields-hooks /htab-hooks allot
+' lf-tfields-rehash ' lf-tfields-same lf-tfields-hooks htab-hooks!
+\ The entry of an input leaf node, or 0.
+: lf-tin-leaf ( index -- entry | 0 )
+  dup hash-fmix lf-term-view lf-tview-nodes htab-find if lf-tleaf else drop 0 then ;
+3 cells context-record: lf-tin-key
+: lf-tin-leaf-find ( tag first second -- node true | false )
+  lf-tin-key tuck 2 cells + ! tuck cell+ ! tuck ! dup >r @ r@ cell+ @ r@ 2 cells + @
+  lf-tfields-hash r> swap lf-term-view lf-tview-fields htab-find
+  if lf-tleaf lf-tleaf-node @ true else drop false then ;
+
+\ Reading an input node. Unchecked, but a leaf without an entry reads as
+\ fields 0 0 and is not valid.
+: lf-tin-valid? ( index -- flag )
+  dup lf-tin-code ?dup 0= if drop false exit then
+  lf-tin-leaf? if lf-tin-leaf 0<> else drop true then ;
+: lf-tin-tag@ ( index -- tag ) lf-tin-code lf-tin-leaf-bit 1- and ;
+: lf-tin-leaf@ ( index -- first second )
+  lf-tin-leaf ?dup if dup lf-tleaf-first @ swap lf-tleaf-second @ else 0 0 then ;
+: lf-tin-ab@ ( index -- first second ) lf-tin-at dup quad-a u32@ swap quad-b u32@ ;
+: lf-tin-fields@ ( index -- first second )
+  dup lf-tin-code lf-tin-leaf? if lf-tin-leaf@ else lf-tin-ab@ then ;
+: lf-tin-first@ ( index -- first )
+  dup lf-tin-code lf-tin-leaf? if lf-tin-leaf@ drop else lf-tin-at quad-a u32@ then ;
+: lf-tin-second@ ( index -- second )
+  dup lf-tin-code lf-tin-leaf? if lf-tin-leaf@ nip else lf-tin-at quad-b u32@ then ;
+\ The stamp an input leaf carries (its level's or reference's identity
+\ in this context, generation-handles.fs), 0 for none.
+: lf-term-leaf-stamp ( index -- stamp )
+  lf-tin-leaf ?dup if lf-tleaf-stamp @ else 0 then ;
+\ An input node's identity: a negative number, which no serial is.
+: lf-term-input-identity ( index -- identity ) invert ;
 
 \ Checked roots, range-checked reads (compact-store plan step S2; ADR
 \ 0016 C8). The whole header (shape, seal, generation, count) is checked
@@ -117,28 +251,44 @@ store-header context-record: lf-terms
 \ lf-term-root? (lf-term-pair-valid? for two) for its root, or a handle
 \ (generation-handles.fs). Every
 \ read after that (lf-term-valid?, lf-term-identity, lf-term-read and the
-\ walks' visits) checks only that the index is allocated (store-at?), so
+\ walks' visits) checks only that the index is allocated (store-at?), or
+\ for an input node that the view holds it as a term, so
 \ a corrupted shape, seal or generation is refused at the root, never
 \ found by a read; a corrupted count still refuses every read.
 : lf-term-count-valid? ( -- flag ) lf-terms store-count-valid? ;
-: lf-term-root? ( index -- flag ) lf-terms store-valid? ;
-: lf-term-valid? ( index -- flag ) lf-terms store-at? ;
+: lf-term-valid? ( index -- flag )
+  dup lf-term-input? if lf-tin-valid? else lf-term-base - lf-terms store-at? then ;
+: lf-term-root? ( index -- flag )
+  lf-term-count-valid? if lf-term-valid? else drop false then ;
 \ A live node's identity; identities never roll back and never wrap.
 : lf-term-identity ( index -- identity true | false )
-  dup lf-term-valid? if lf-terms store-identity @ true else drop false then ;
+  dup lf-term-valid? 0= if drop false exit then
+  dup lf-term-input? if lf-term-input-identity
+  else lf-term-base - lf-terms store-identity @ then true ;
 
 \ Read a node's tag and fields. An index that is not allocated returns
 \ only false and no memory is read (the header is the root's to check).
+\ lf-term-fields@ reads a store record at its address.
 : lf-term-fields@ ( addr -- tag first second )
   dup u32@ over lf-term-first-at + u32@ rot lf-term-second-at + u32@ ;
+\ Unchecked: the node's tag and fields, input or store.
+: lf-term-fields ( index -- tag first second )
+  dup lf-term-input? if dup lf-tin-tag@ swap lf-tin-fields@ exit then
+  lf-term-slot lf-term-fields@ ;
 : lf-term-read ( index -- tag first second true | false )
-  dup lf-term-valid? if lf-term-slot lf-term-fields@ true else drop false then ;
+  dup lf-term-valid? if lf-term-fields true else drop false then ;
 \ One field of a node. Unchecked: the index must already be validated,
 \ for instance by an earlier lf-term-read of the same node, under a
 \ checked root; no field read checks the header.
-: lf-term-tag@ ( index -- tag ) lf-term-slot u32@ ;
-: lf-term-first@ ( index -- first ) lf-term-slot lf-term-first-at + u32@ ;
-: lf-term-second@ ( index -- second ) lf-term-slot lf-term-second-at + u32@ ;
+: lf-term-tag@ ( index -- tag )
+  dup lf-term-input? if lf-tin-tag@ else lf-term-slot u32@ then ;
+: lf-term-first@ ( index -- first )
+  dup lf-term-input? if lf-tin-first@ else lf-term-slot lf-term-first-at + u32@ then ;
+: lf-term-second@ ( index -- second )
+  dup lf-term-input? if lf-tin-second@ else lf-term-slot lf-term-second-at + u32@ then ;
+\ The end of a store mark as a term number: the nodes below it (input
+\ nodes included) are older than the mark.
+: lf-term-mark-end ( mark -- n ) mark-count @ lf-term-base + ;
 
 \ Visiting a node of a walk (lib/walk.fs's walk-visit, for the term
 \ records): read the current node, then dispatch on its tag with xt
@@ -177,7 +327,8 @@ lf-data-ranges 3 * constant lf-data-flags
   if 2drop r> drop lf-data-unknown exit then
   2dup lf-data-both -rot r> lf-data-loose2 or ;
 \ A node's data word as made. Unchecked: the index is valid.
-: lf-term-data-word ( index -- data ) lf-term-slot lf-term-data-at + u32@ ;
+: lf-term-data-word ( index -- data )
+  dup lf-term-input? if lf-tin-at quad-data u32@ else lf-term-slot lf-term-data-at + u32@ then ;
 \ Lean's cached node data, or false for a node without (see the header)
 \ or an index that is not allocated.
 : lf-term-data@ ( node -- data true | false )
@@ -242,7 +393,7 @@ create lf-term-hooks /htab-hooks allot
   dup lf-term-slot lf-term-fields@ lf-term-hash lf-term-table htab-remove drop ;
 : lf-term-unlist ( count -- )
   lf-term-table htab-live? 0= if drop exit then
-  lf-term-count @ swap ?do
+  lf-term-base tuck + swap lf-term-count @ + swap ?do
     i lf-term-tag@ lf-term-shared-tag? if i lf-term-forget then
   loop ;
 
@@ -255,6 +406,66 @@ create lf-term-hooks /htab-hooks allot
 : lf-term-rollback ( mark -- outcome )
   dup lf-terms store-mark-valid? if dup mark-count @ lf-term-unlist then
   lf-terms store-rollback ;
+
+\ ---------------------------------------------------------------------------
+\ Attaching and detaching a view (see the header). Both empty the store
+\ first (lf-term-reset), as numbers change meaning. The hook
+\ lf-term-view-hook ( -- outcome ) runs after either, for per-node data
+\ of another module that must cover the input nodes (the audit's marks,
+\ constant-term-boundary.fs); set while loading.
+defer lf-term-view-hook ( -- outcome )
+' outcome-ok is lf-term-view-hook
+: lf-tview-free ( -- )
+  lf-term-view dup lf-tview-probe cons-free dup lf-tview-nodes htab-free
+  dup lf-tview-fields htab-free dup lf-tview-leaves slab-free /lf-tview erase ;
+:noname ( -- ) lf-tview-free ; context-teardown
+: lf-tview-tables ( -- outcome )
+  4 lf-tnode-hooks lf-term-view lf-tview-nodes htab-init dup ok? 0= if exit then drop
+  4 lf-tfields-hooks lf-term-view lf-tview-fields htab-init dup ok? 0= if exit then drop
+  /lf-tleaf dup slab-limit-max lf-term-view lf-tview-leaves slab-init ;
+: lf-tview-place ( exprs -- )
+  lf-term-view >r dup cons-numbers r@ lf-tview-base ! 0 swap cons-at r> lf-tview-records ! ;
+: lf-tview-make ( tier -- outcome )
+  dup lf-term-view lf-tview-tier ! tier-exprs
+  4 over lf-term-view lf-tview-probe cons-extend dup ok? 0= if nip exit then drop
+  lf-tview-tables dup ok? 0= if nip exit then drop lf-tview-place outcome-ok ;
+\ Read the sealed tier in place: ok; invalid for a tier that is not
+\ sealed (or a sealed scratch tier); full when the heap has no room, the
+\ view then detached. Detaching gives the hook's outcome.
+: lf-term-detach ( -- outcome ) lf-tview-free lf-term-reset lf-term-view-hook ;
+: lf-tview-hooked ( -- outcome ) lf-term-view-hook dup ok? 0= if lf-term-detach drop then ;
+: lf-term-attach ( tier -- outcome )
+  lf-term-detach drop dup tier-exprs cons-sealed? 0= if drop outcome-invalid exit then
+  lf-tview-make dup ok? if drop lf-tview-hooked exit then lf-term-detach drop ;
+
+\ Give input leaf node index its fields and stamp (the importer, after
+\ attaching; see the header): ok; invalid for a number that is no input
+\ leaf of the view or has its entry already; full when the heap has no
+\ room. When another entry has the same fields, the first is kept for
+\ finding by fields (lf-term-add).
+: lf-tleaf-room ( -- outcome )
+  lf-term-view lf-tview-nodes htab-ready dup ok? 0= if exit then
+  drop lf-term-view lf-tview-fields htab-ready ;
+: lf-tleaf-fill ( first second stamp index n -- )
+  lf-tleaf tuck lf-tleaf-node ! tuck lf-tleaf-stamp ! tuck lf-tleaf-second !
+  lf-tleaf-first ! ;
+: lf-tleaf-by-node ( n -- )
+  dup lf-tleaf lf-tleaf-node @ dup hash-fmix lf-term-view lf-tview-nodes htab-find
+  if 2drop else lf-term-view lf-tview-nodes htab-put then ;
+: lf-tleaf-hash ( n -- key h ) lf-tleaf lf-tleaf-fields lf-tfields-hash lf-tin-key swap ;
+: lf-tleaf-by-fields ( n -- )
+  dup lf-tleaf lf-tleaf-fields lf-tin-leaf-find if 2drop exit then
+  dup lf-tleaf-hash lf-term-view lf-tview-fields htab-find
+  if 2drop else lf-term-view lf-tview-fields htab-put then ;
+: lf-tleaf-new ( first second stamp index -- outcome )
+  lf-tleaf-room dup ok? 0= if >r 2drop 2drop r> exit then drop
+  1 lf-term-view lf-tview-leaves slab-claim dup ok? 0= if nip >r 2drop 2drop r> exit then
+  drop dup >r lf-tleaf-fill r@ lf-tleaf-by-node r> lf-tleaf-by-fields outcome-ok ;
+: lf-tin-leaf-node? ( index -- flag )
+  dup lf-term-input? if lf-tin-code lf-tin-leaf? else drop false then ;
+: lf-term-input-leaf ( first second stamp index -- outcome )
+  dup lf-tin-leaf-node? if dup lf-tin-leaf 0= else false then
+  if lf-tleaf-new else 2drop 2drop outcome-invalid then ;
 
 \ ---------------------------------------------------------------------------
 \ Making nodes. Append a node whose tag and fields the caller validated,
@@ -280,7 +491,7 @@ create lf-term-hooks /htab-hooks allot
   lf-diag-note false ;
 \ At most 2^32 - 2 records, so that a table slot holds every index plus
 \ one (ADR 0016 C4).
-: lf-term-numbered? ( -- flag ) lf-term-count @ u32-mask 1- u< ;
+: lf-term-numbered? ( -- flag ) lf-term-count @ lf-term-base + u32-mask 1- u< ;
 : lf-term-binary-tag? ( tag -- flag ) lf-tag-app lf-tag-pi 1+ within ;
 \ Data of a child; a child that is not allocated (a raw caller's) has none.
 : lf-term-child-data ( index -- data )
@@ -293,7 +504,7 @@ create lf-term-hooks /htab-hooks allot
   tuck lf-term-first-at + u32! u32! ;
 : lf-term-new ( tag first second data -- index true | false )
   lf-terms store-new-slot 0= if 2drop 2drop lf-term-refused exit then
-  >r lf-term-store! r> true ;
+  lf-term-base + >r lf-term-store! r> true ;
 : lf-term-append ( tag first second -- index true | false )
   2 pick 2 pick 2 pick lf-term-data-of lf-term-new ;
 \ Hash-consed: the equal node, or a new node entered at the empty slot
@@ -321,8 +532,36 @@ create lf-term-hooks /htab-hooks allot
 \ is made and entered in its place (compact-store plan step S4).
 defer lf-term-reusable? ( n -- flag )
 :noname ( n -- flag ) drop true ; is lf-term-reusable?
+
+\ An input node equal to the record (see the header): an application of
+\ two input nodes or a bound variable in the tier's expression table,
+\ through the view's set over it (the candidate written at its free end
+\ and sought there, never kept); a leaf (a Sort, constant or literal) in
+\ the leaf table by its fields. No other record is sought: it equals no
+\ input node of the view (the importer copies the kinds the view does
+\ not read, and every node above one, into the store). A found leaf is
+\ given again only while its stamps hold (lf-term-reusable?).
+: lf-tin-probe ( head a b -- n true | false )
+  lf-term-view lf-tview-probe >r 1 0 r@ cons-room ok? 0= if 2drop drop r> drop false exit then
+  r@ cand! r@ cons-top expr-hash true r> cons-find
+  if dup lf-term-input? dup 0= if nip then else drop false then ;
+: lf-tin-app ( first second -- n true | false )
+  2dup lf-term-input? swap lf-term-input? and
+  if tag-app 0 pack-head -rot lf-tin-probe else 2drop false then ;
+: lf-tin-bvar ( first second -- n true | false )
+  over bvar-fits? over 0= and if tag-bvar 0 pack-head -rot lf-tin-probe else 2drop false then ;
+: lf-tin-leaf-tag? ( tag -- flag ) lf-term-tag-bit lf-tin-leaf-tags @ and 0<> ;
+: lf-tin-sought ( tag first second -- n true | false )
+  2 pick case
+    lf-tag-app of rot drop lf-tin-app endof
+    lf-tag-bvar of rot drop lf-tin-bvar endof
+    lf-tin-leaf-tag? if lf-tin-leaf-find else 2drop drop false then 0 endcase ;
+: lf-tin-given ( tag first second -- n true | false )
+  lf-term-viewed? 0= if 2drop drop false exit then
+  lf-tin-sought dup if over lf-term-reusable? 0= if 2drop false then then ;
 : lf-term-cons ( tag first second -- index true | false )
   lf-term-table htab-ready ok? 0= if lf-term-append exit then
+  2 pick 2 pick 2 pick lf-tin-given if nip nip nip lf-term-found exit then
   lf-term-find 0= if lf-term-key@ lf-term-append lf-term-enter exit then
   dup lf-term-reusable? if lf-term-found exit then
   lf-term-forget lf-term-key@ recurse ;
@@ -347,7 +586,8 @@ defer lf-term-reusable? ( n -- flag )
 lf-tag-bvar lf-tag-sort 1+ = lf-tag-lam lf-tag-app 1+ = and lf-tag-pi lf-tag-lam 1+ = and
 0= [if] .( terms.fs: term tags must be consecutive) cr abort [then]
 \ Two checked roots with one header check (and a new node's children).
-: lf-term-pair-valid? ( left right -- flag ) lf-terms store-pair-valid? ;
+: lf-term-pair-valid? ( left right -- flag )
+  lf-term-count-valid? if lf-term-valid? swap lf-term-valid? and else 2drop false then ;
 : lf-term-binary ( left right tag -- index true | false )
   >r 2dup lf-term-pair-valid? r@ lf-term-binary-tag? and
   if r> -rot lf-term-add else r> drop 2drop false then ;

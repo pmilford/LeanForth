@@ -55,7 +55,7 @@ end-structure
 \ is old too). The mark (lib/store.fs) is a boundary to read below, never
 \ rolled back to; the pass's rollback is the rebuild's scratch mark
 \ (mixed-rebuild.fs).
-: lf-minst-old? ( node frames -- flag ) lf-instjob-start mark-count @ 0 swap within ;
+: lf-minst-old? ( node frames -- flag ) lf-instjob-start lf-term-mark-end 0 swap within ;
 : lf-minst-readable? ( node frames -- flag )
   over swap lf-minst-old? swap lf-term-valid? and ;
 : lf-minst-below? ( child node -- flag ) 0 swap within ;

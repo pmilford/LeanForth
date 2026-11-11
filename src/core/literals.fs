@@ -29,6 +29,8 @@ require ./generation-handles.fs
 require ./terms.fs
 
 11 constant lf-tag-lit
+\ An input literal of a term view (terms.fs) has its limbs in the leaf table.
+lf-tag-lit tag-nat lf-term-input-leaf-tag
 1 cells context-slab: lf-lit-limbs
 
 : lf-lit-leaf? ( node -- flag ) lf-term-tag@ lf-tag-lit = ;

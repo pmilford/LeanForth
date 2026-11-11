@@ -12,6 +12,8 @@ require ./diagnostics.fs
 require ./terms.fs
 
 6 constant lf-tag-symbolic-sort
+\ An input Sort of a term view (terms.fs) has its level in the leaf table.
+lf-tag-symbolic-sort tag-sort lf-term-input-leaf-tag
 \ A symbolic Sort is shared (terms.fs) only while its stamps hold:
 \ generation-handles.fs stamps it with its own identity and its level's,
 \ and constant-term-boundary.fs's lf-term-reusable? checks them (compact-
