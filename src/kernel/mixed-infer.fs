@@ -34,8 +34,10 @@
 \ without copying each body first (Lean opens a telescope of binders at
 \ once; the binders here are entered one by one, each one inference step
 \ with its source node as its subject, as the derivation log records it).
-\ An application's argument is closed before it is put into the Pi body,
-\ by Lean's instantiate without the audit that lf-mixed-instantiate ran
+\ An application's argument is closed before it is put into the Pi body
+\ (not for a body without loose bound variables, which Lean's instantiate
+\ gives back without reading it: ADR 0014 Amendment 6), by Lean's
+\ instantiate without the audit that lf-mixed-instantiate ran
 \ before free variables: the body is a type inference made or the audited
 \ input holds, the argument an audited source node closed by mixed-open
 \ (which checks each leaf's shape, liveness and child order), and every

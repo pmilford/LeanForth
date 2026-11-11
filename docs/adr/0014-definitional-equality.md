@@ -1870,6 +1870,86 @@ all of `Init` before and after, every move to Lean's verdict; `make
 check`; planted faults `s4-eq-*`, `s4-cache-key-stale-node`,
 `s4-fvmemo-children-live`, `s4-mls-*`, `s4-lcmp-memo-*`, all caught.
 
+## Amendment 6: an argument put into a closed Pi body is not closed; a closed key's facts from its data word (agent PF, 2026-11-11, proposed)
+
+Status: proposed; [kernel] gate owed. Code: `src/kernel/mixed-infer.fs`
+(`lf-minfer-put-closed`), `src/kernel/caches.fs` (`lf-copy-id`). No
+typing, reduction or conversion rule changes; the type inferred is the
+same node as before; every verdict that moves is an *exhausted* that
+becomes Lean's.
+
+**Finding** (the Lean Kernel Arena's seven `good/perf` tests that
+LeanForth gave up on; `.claude/work/PF/ROOTCAUSE.md`). Lean's `infer_app`
+types `f a` as the function type's Pi body instantiated with `a`
+(`type_checker.cpp` 187), and `instantiate` gives back a body whose
+`loose_bvar_range` is 0 at once, never reading `a` (`instantiate.cpp` 22:
+`s >= get_loose_bvar_range(a)`): every non-dependent arrow. LeanForth reads
+`a` under the scope (Q2) and closed it with the scope's free variables
+before every such substitution (Amendment 3's closing). The closing it had
+made for `a`'s cache key is remembered only while the replace memo keeps
+it (at most 2^20 entries, `replace-memo.fs`); on a large term the memo is
+emptied first and `a` was closed again, its whole size. On the arena's
+`let-ladder` (2,000 `let`s, each `x + (let …)`) that was 18,826,994 of
+38,983,499 units. Separately, the key of each closed copy was found by the
+free-variable memo's walk of the whole copy (`lf-term-facts`), checking
+that its free variables are live: no fuel, but 24.9 of 65.4 s on the same
+test after the first change.
+
+**Ported.**
+1. *An argument for a closed body is not closed.* When the Pi body's data
+   word (ADR 0016 C1) shows no loose bound variable, the substitution runs
+   with the argument as it is, keeps the body by its data word for one
+   unit, and never reads the argument (no loose bound variable remains to
+   put it for); a body with a free variable is checked for live free
+   variables as before. A dependent body, or one without a data word, gets
+   the closed argument as before.
+2. *A closed key's facts from its data word.* The identity and bits of the
+   copy a closing just made for an inferred-type key (`lf-ci-copy`) are
+   read from its data word, as Lean reads `has_fvar` from the node. The
+   walk is not needed there: a closing that succeeded holds only live free
+   variables (the scope's, live while their binders are open; the leaves
+   it visited, each checked; nodes the hook kept, found live; and memo
+   results made in this job, which inference empties when a job starts,
+   whose free variables are older than they are and go only by a scratch
+   rollback that takes the results too). Every other caller of
+   `lf-term-facts` keeps the walk.
+
+**Fuel.** Item 1: the closing's units are no longer spent; the
+substitution's one unit stays. Where a later closing of a larger term
+would have found the argument's closing remembered, it visits the
+argument itself instead, for what the closing here would have cost; no
+declaration measured below needs more. Less fuel can still only give
+*exhausted* or *unknown*, never another verdict. Item 2 changes no fuel.
+
+**Evidence.** `tests/core/mixed-infer.fs`: a closed body costs one unit
+(six with the closing), a dependent one gets `id A x` closed; the `poly`
+case's fuel 49,937 → 49,938 left. `tests/core/check-declaration.fs`: the
+`sweep-unfolding` case accepted from 60 units (62). `tests/cli/shared-depths.lean`
+P3: the arena's let-, beta- and app-ladders at n = 48, with bad twins
+pinned Lean rejects (letTypeMismatch, declTypeMismatch, appTypeMismatch);
+LeanForth agrees, memo on and off, and `shared_depths.py` bounds the good
+rows' fuel. Planted faults `pf-put-always-closes` and
+`pf-put-dependent-unclosed`, caught. Arena `let-ladder` (`check --fast`,
+fuel 400M): accepted with 38,983,499 → 20,072,078 units, check CPU
+85.9 → 66.9 s (item 1) → 39.9 s (both), peak memory 1,291 → 866 MB; at
+the default 20,000,000 it is still *exhausted*: what is left is Lean's
+own `instantiate_rev` of each `let` body, Θ(n²) (ROOTCAUSE.md, cause C2,
+a question for the owner about the fuel budget). Arena `beta-ladder`
+(fuel 400M, accepted, 28,078,156 → 28,074,156 units): check CPU 61.8 →
+40.9 s, peak memory 1,111 → 804 MB. Agent DX's cuts of two `Init` roots
+(default fuel, both accepted before and after):
+`WellFounded.partialExtrinsicFix₃_eq_partialExtrinsicFix` 554,047 →
+552,473 units, `Vector.extract_append._proof_1` 4,394,015 → 4,374,321;
+check CPU the same (2.1 s; 15.9 → 16.1 s).
+The 2,000 checker trials (`scripts/trial-digest.sh`): `f78118062cf9` →
+`e96c47672b69` with item 1 (item 2 changes nothing there); 1,980 trials
+differ, and in every one the first call that differs keeps its outcome
+(what differs is the fuel left or the store's counts: the closed argument
+is no longer made), the rest following from the fuel left (outcomes over
+all trials: ok 1,175,302 → 1,175,500, invalid 367,209 → 367,046,
+exhausted 457,164 → 457,203, unknown 406,080 → 405,983, rejected 88,851 →
+88,877, full 4 → 1).
+
 ## Note: the projection steps (plan task 5.2.2, 2026-11-10)
 
 The Q8 row "Projections: `reduce_proj`, step 8, `try_unfold_proj_app`"
