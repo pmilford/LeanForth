@@ -680,5 +680,45 @@ lf-term-count @ 1- constant cdead
 lf-lctx-reset
 T{ ctype lf-lctx-local swap cdead <> cdead lf-fvar-live? -> outcome-ok true false }T
 
+\ ---------------------------------------------------------------------------
+\ A broken store seal never publishes ok (review rvS12 L3). idProp, accepted
+\ above, is checked with the term store's or the level store's seal broken
+\ (store-faults.fs): at the root, before the check begins (lf-input-intact?,
+\ read by lf-env-checking and lf-input-read; diagnostic 0, step done), and in
+\ the middle, as step 8's comparison of two skeletons returns (diagnostic 27,
+\ step 8). Each ends invalid, with the seal mended before the next row.
+\ Several layers refuse each break (the store roots of every pass, the
+\ hand-over), so disabling lf-input-intact? or lf-env-still? alone changes no
+\ row (faults.toml: fx9-*, listed as equivalent); the rows pin the end result.
+require ../support/store-faults.fs
+variable seal-armed  \ 0 none, 1 the term seal, 2 the level seal
+: seal-flip-armed ( -- )
+  seal-armed @ 1 = if term-seal-flip then seal-armed @ 2 = if level-seal-flip then
+  0 seal-armed ! ;
+: seal-spy ( t s -- flag ) lf-cs-same? seal-flip-armed ;
+: seal-hook ( -- ) ['] seal-spy is lf-dq-known-same? ;
+: seal-unhook ( -- ) ['] lf-cs-same? is lf-dq-known-same? ;
+: seals-mend ( -- )
+  lf-terms store-sealed? 0= if term-seal-flip then
+  lf-levels store-sealed? 0= if level-seal-flip then ;
+: idprop-case ( -- ) fc-world
+  s" check thm safe idProp 0 TYPE P S z P V 0 V 1 VALUE L S z L V 0 V 0"
+  ['] fc-decl execute-parsing ;
+\ kind: 0 term seal at the root, 1 level seal at the root, 2 term seal after
+\ step 8, 3 level seal after step 8, 4 none (the control).
+: check-with-seal ( kind -- outcome )
+  idprop-case lf-input-end ok? must 64 lf-env-new ok? must dup the-env ! lf-env-use ok? must
+  dup 0 = if term-seal-flip then dup 1 = if level-seal-flip then
+  dup 2 = if 1 seal-armed ! then dup 3 = if 2 seal-armed ! then drop
+  seal-hook ['] lf-check-declaration ['] fc-no-maker lf-env-run drop seal-unhook
+  seals-mend 0 seal-armed !
+  lf-env-view ok? if fc-last lf-env-outcome else -99 then env-done ;
+fc-case seals
+T{ 0 check-with-seal -> outcome-invalid }T
+T{ 1 check-with-seal -> outcome-invalid }T
+T{ 2 check-with-seal -> outcome-invalid }T
+T{ 3 check-with-seal -> outcome-invalid }T
+T{ 4 check-with-seal -> outcome-ok }T
+
 cases-done
 bye

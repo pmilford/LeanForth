@@ -7604,6 +7604,25 @@ test = "$GFORTH tests/core/mixed-convert.fs"
 reason = "S4: == takes any two constants or Sorts as one"
 
 [[fault]]
+id = "fx9-input-intact-always"
+file = "src/core/input.fs"
+old = '''  lf-input-sealed? ['] store-mark-valid? lf-input-all? and
+  lf-name-used @ lf-input-bytes @ >= and ;'''
+new = '''  true ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "rvS12 L3: lf-input-intact? always true"
+equivalent = "defence in depth: a broken term or level seal at the root is still refused by the store roots every pass checks first (diagnostic 22 or 27), so the seal rows end invalid either way"
+
+[[fault]]
+id = "fx9-env-still-always"
+file = "src/kernel/env-publish.fs"
+old = ''': lf-env-still? ( i -- flag ) lf-env-checking if nip = else drop false then ;'''
+new = ''': lf-env-still? ( i -- flag ) drop true ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "rvS12 L3: lf-env-still? always true"
+equivalent = "defence in depth: the seal rows break no snapshot (only a check of another declaration moves it), and a broken seal is refused by the passes and the pool writes before the hand-over"
+
+[[fault]]
 id = "fx9-mls-prepare-nip-nip"
 file = "src/kernel/mixed-level-substitute.fs"
 old = '''  dup lf-mls-actual-cells slab-hold ok-then? 0= if nip exit then'''
