@@ -166,7 +166,9 @@ create pinned-meta
 \ stage-unmap only once the stage is sealed.
 : maps-free ( stage -- )
   dup stage-name-map slab-free dup stage-level-map slab-free stage-expr-map slab-free ;
-: stage-unmap ( stage -- ) dup stage-sealed? if maps-free else drop then ;
+: reader-maps-free ( stage -- ) stage-export export-maps-free ;
+: stage-unmap ( stage -- )
+  dup stage-sealed? if dup reader-maps-free maps-free else drop then ;
 : stage-free ( stage -- )
   dup stage-tier tier-free dup stage-export export-free dup stage-manifest manifest-free
   dup maps-free dup stage-decl-records slab-free dup stage-by-name slab-free
