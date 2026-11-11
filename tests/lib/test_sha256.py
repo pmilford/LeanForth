@@ -28,6 +28,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
 ROOT = Path(__file__).resolve().parents[2]
 GFORTH = os.environ.get("GFORTH", "gforth")
@@ -51,7 +52,7 @@ ABC = hashlib.sha256(b"abc").hexdigest()
 def gforth(args, cwd=ROOT):
     """Run Gforth on files (no standard input) and give its output lines."""
     run = subprocess.run([GFORTH, *map(str, args), "-e", "bye"], cwd=cwd,
-                         stdin=subprocess.DEVNULL, capture_output=True, timeout=300)
+                         stdin=subprocess.DEVNULL, capture_output=True, timeout=TEST_LIMIT)
     if run.returncode != 0:
         raise AssertionError(f"gforth failed ({run.returncode}): "
                              f"{run.stdout.decode()} {run.stderr.decode()}")

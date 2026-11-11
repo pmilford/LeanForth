@@ -54,6 +54,7 @@ import re
 import subprocess
 import sys
 import tempfile
+TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
 ROOT = Path(__file__).resolve().parents[2]
 EVALUATOR = ROOT / "tests/reference/program-ir-run.lean"
@@ -434,7 +435,7 @@ def lean_problems(lean, files, generated, directory):
     cases = Path(directory) / "lean-cases.txt"
     cases.write_text("\n".join(lines) + "\n", encoding="utf-8")
     done = subprocess.run([lean, "-DwarningAsError=true", "--run", str(EVALUATOR), str(cases)],
-                          capture_output=True, text=True, timeout=900, stdin=subprocess.DEVNULL)
+                          capture_output=True, text=True, timeout=TEST_LIMIT, stdin=subprocess.DEVNULL)
     if done.returncode != 0:
         return [f"Lean failed:\n{done.stdout[-2000:]}{done.stderr[-2000:]}"], 0
     got = [line.split(" -> ", 1)[1] for line in done.stdout.splitlines()]

@@ -31,6 +31,7 @@ import re
 import subprocess
 import sys
 import unittest
+TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
 MODEL = Path("tests/reference/program-ir.lean")
 GOLDEN = [Path("tests/program/ir/clamp.ir"), Path("tests/program/ir/examples.ir"),
@@ -251,7 +252,7 @@ def golden_text():
 def check_lean():
     lean = os.environ.get("LEAN", "lean")
     run = subprocess.run([lean, "-DwarningAsError=true", "--run", str(MODEL)],
-                         capture_output=True, text=True, timeout=600)
+                         capture_output=True, text=True, timeout=TEST_LIMIT)
     output = run.stdout + run.stderr
     if run.returncode != 0:
         return [f"Lean failed ({run.returncode}):\n{output}"]

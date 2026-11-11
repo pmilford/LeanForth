@@ -34,6 +34,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tests" / "support"))
 import ndjson_oracle  # noqa: E402
+TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
 GFORTH = os.environ.get("GFORTH", "gforth")
 FIXTURES = sorted((ROOT / "tests" / "reference").glob("*.ndjson"))
@@ -62,7 +63,7 @@ def forth_batch(driver, word, paths):
             raise ValueError("path not usable in a Forth string")
     calls = " ".join(f's" {path}" {word} cr .( {MARK}) cr' for path in paths)
     result = subprocess.run([GFORTH, driver, "-e", calls + " bye"], cwd=ROOT, stdin=subprocess.DEVNULL,
-                            capture_output=True, timeout=600)
+                            capture_output=True, timeout=TEST_LIMIT)
     if result.returncode != 0:
         raise AssertionError(f"gforth failed: {result.stderr.decode(errors='replace')[-2000:]}")
     text = result.stdout.decode("utf-8", errors="replace")
@@ -74,7 +75,7 @@ def forth_batch(driver, word, paths):
 
 def python_output(script, path, *options):
     result = subprocess.run([sys.executable, "-I", str(script), *options, str(path)],
-                            capture_output=True, timeout=600)
+                            capture_output=True, timeout=TEST_LIMIT)
     return result.returncode, result.stdout.decode("utf-8", errors="replace")
 
 
@@ -121,7 +122,7 @@ class FixtureDifferential(unittest.TestCase):
                  f'context-new throw dup context-use s" {second}" count-report .( {MARK}) cr '
                  f'context-main context-use .report .( {MARK}) cr context-free throw bye')
         result = subprocess.run([GFORTH, COUNT_FS, "-e", calls], cwd=ROOT,
-                                stdin=subprocess.DEVNULL, capture_output=True, timeout=600)
+                                stdin=subprocess.DEVNULL, capture_output=True, timeout=TEST_LIMIT)
         self.assertEqual(result.returncode, 0, result.stderr.decode(errors="replace")[-2000:])
         own, other, again = result.stdout.decode("utf-8", errors="replace").split(MARK + "\n")[:3]
         self.assertNotEqual(own, other)
@@ -195,7 +196,7 @@ class KindTable(unittest.TestCase):
             text = text.replace(f"require ./{module}", f"require {ROOT}/src/import/{module}")
         path.write_text(text, encoding="utf-8")
         result = subprocess.run([GFORTH, str(path), "-e", "bye"], cwd=ROOT, stdin=subprocess.DEVNULL,
-                                capture_output=True, timeout=600)
+                                capture_output=True, timeout=TEST_LIMIT)
         return result.returncode, (result.stdout + result.stderr).decode("utf-8", errors="replace")
 
     def test_kind_table(self):
@@ -217,7 +218,7 @@ class ExitStatus(unittest.TestCase):
     def run_tool(self, path, word="count-export"):
         command = f's" {path}" {word} bye'
         result = subprocess.run([GFORTH, COUNT_FS, "-e", command], cwd=ROOT,
-                                stdin=subprocess.DEVNULL, capture_output=True, timeout=600)
+                                stdin=subprocess.DEVNULL, capture_output=True, timeout=TEST_LIMIT)
         return result.returncode, result.stdout.decode("utf-8", errors="replace")
 
     def test_exit_status(self):

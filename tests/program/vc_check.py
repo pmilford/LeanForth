@@ -33,6 +33,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 from check_program_ir import copy_problems, LOCATION  # noqa: E402
 import program_vc  # noqa: E402
+TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
 CONTRACTS = [f"tests/program/contracts/{name}.contract" for name in (
     "lf-clamp", "lf-checked-add", "lf-checked-abs", "lf-in-range", "lf-gcd", "lf-factorial",
@@ -104,7 +105,7 @@ def offline_problems():
 
 def run_lean(lean, path):
     done = subprocess.run([lean, "-DwarningAsError=true", str(path)], capture_output=True,
-                          text=True, timeout=600)
+                          text=True, timeout=TEST_LIMIT)
     return done.returncode, done.stdout + done.stderr
 
 

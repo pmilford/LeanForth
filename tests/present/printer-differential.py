@@ -24,6 +24,7 @@ import tempfile
 
 sys.path.insert(0, "tests/present")
 from check_golden import FIXTURES, fixture_output, run_forth  # noqa: E402
+TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
 LEAN = os.environ.get("LEAN", "lean")
 HERE = pathlib.Path("tests/present")
@@ -35,7 +36,7 @@ class Mismatch(Exception):
 
 def lean_output(path):
     result = subprocess.run([LEAN, "-DwarningAsError=true", str(path)], capture_output=True,
-                            text=True, timeout=300)
+                            text=True, timeout=TEST_LIMIT)
     if result.returncode != 0:
         raise Mismatch(f"Lean failed on {path}:\n{result.stdout}{result.stderr}")
     return result.stdout

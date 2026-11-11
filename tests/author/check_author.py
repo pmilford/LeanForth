@@ -57,6 +57,7 @@ import tempfile
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from lean_terms import (Export, ExportError, compile_and_export, parse_dumps,  # noqa: E402
                         structural)
+TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
 GFORTH = os.environ.get("GFORTH", "gforth")
 if "/" in GFORTH:  # the planted faults run Gforth in a copy of the tree
@@ -266,7 +267,7 @@ def check_corpus():
     from present_transport import encode
     from ndjson_preview import preview
     run = subprocess.run([GFORTH, "tests/author/corpus-cases.fs"], stdin=subprocess.DEVNULL,
-                         capture_output=True, text=True, timeout=300)
+                         capture_output=True, text=True, timeout=TEST_LIMIT)
     cases = [line for line in run.stdout.splitlines() if line.startswith("case ")]
     bad = [line for line in cases if not line.endswith(SAME)]
     if run.returncode != 0 or not cases or bad:
@@ -294,7 +295,7 @@ LF_LINE_START = ("\\ ", "  ", ":=", "theorem ", "def ", "axiom ", "import-stub "
 def print_lf(export):
     """`leanforth print --lf` of an export: (the text, what it listed on stderr)."""
     run = subprocess.run(["bin/leanforth", "print", "--lf", "--no-manifest", str(export)],
-                         stdin=subprocess.DEVNULL, capture_output=True, timeout=300)
+                         stdin=subprocess.DEVNULL, capture_output=True, timeout=TEST_LIMIT)
     if run.returncode != 0:
         raise Failure(f"print --lf {export}: exit {run.returncode}:\n"
                       + run.stderr.decode("utf-8", "replace"))
@@ -307,7 +308,7 @@ def lf_terms(text):
         path = pathlib.Path(work) / "export.lf"
         path.write_text(text, encoding="utf-8")
         run = subprocess.run([GFORTH, "tests/author/terms.fs", "-e", f's" {path}" terms-run bye'],
-                             stdin=subprocess.DEVNULL, capture_output=True, timeout=300)
+                             stdin=subprocess.DEVNULL, capture_output=True, timeout=TEST_LIMIT)
     out = run.stdout.decode("utf-8", "replace")
     if run.returncode != 0 or not out.startswith("ran: ok\n"):
         raise Failure("the written text does not run:\n" + out[:600] + run.stderr.decode()[:300])

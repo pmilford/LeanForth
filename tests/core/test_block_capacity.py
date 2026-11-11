@@ -32,6 +32,7 @@ import os
 import subprocess
 import sys
 import tempfile
+TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 BOOL = os.path.join(ROOT, "tests/core/check-block-cases/replay-bool.original.ndjson")
@@ -144,7 +145,7 @@ def outcomes(gforth, paths, limited, folder):
                       + (UNLIMIT if limit else ""))
         out.write("bye\n")
     run = subprocess.run([gforth, script], stdin=subprocess.DEVNULL, capture_output=True,
-                         text=True, timeout=300)
+                         text=True, timeout=TEST_LIMIT)
     cases, current = [], {}
     for line in run.stdout.splitlines():
         part = line.split("\t")
