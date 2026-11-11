@@ -8244,8 +8244,8 @@ reason = "SN2: lines going back are not refused"
 [[fault]]
 id = "sn2-first-record-unchecked"
 file = "src/import/snapshot-tier.fs"
-old = ''': tf-first-checked ( outcome flag -- outcome ) 0= over ok? and if drop outcome-invalid then ;'''
-new = ''': tf-first-checked ( outcome flag -- outcome ) drop ;'''
+old = '''  0= over ok? and if drop outcome-invalid then ;'''
+new = '''  drop ;'''
 test = "$GFORTH tests/core/snapshot-tier.fs"
 reason = "SN2: a family's first record in the file (the anonymous name, level zero) is not compared with the one the stage made"
 
