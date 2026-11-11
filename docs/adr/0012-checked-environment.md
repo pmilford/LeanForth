@@ -744,9 +744,10 @@ no typing rule and changes no verdict; how it keeps G-P1 to G-P7:
 Planted faults, each caught: every declaration handed out at once
 (readiness refuses), readiness skipped too (the in-time witness reruns
 them, the output stays the serial one), early checks handed over anyway
-(the output differs: caught by the comparison), a check that writes a
-shared cell (the dictionary check), and a check that throws (the run stops
-where the serial run stops, the worker replaced). Tests:
+(the output differs: caught by the comparison), facts kept in the order
+checks ended instead of file order (caught by the comparison), a check
+that writes a shared cell (the dictionary check), and a check that throws
+(the run stops where the serial run stops, the worker replaced). Tests:
 `tests/cli/leanforth.fs`, `tests/cli/test_leanforth.py` (`Jobs`),
 `tests/core/contexts-main.fs`, `tests/core/environment.fs`,
 `tests/lib/task.fs`.

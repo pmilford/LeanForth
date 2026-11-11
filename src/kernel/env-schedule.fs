@@ -73,7 +73,9 @@
 \ before this file loads gets lf-sched-faults, a variable of bits
 \ (lf-fault-hasty: every declaration is ready at once; lf-fault-trusting:
 \ no readiness test at hand-out; lf-fault-careless: a check that began too
-\ early is handed over), each of which a guard above must catch.
+\ early is handed over; lf-fault-unordered: a check's facts kept at its
+\ place in the order checks ended, not at its declaration), each of which
+\ a guard above or the comparison with the serial run must catch.
 \
 \ [kernel] [runtime] code: experimental, not through the review gate.
 \ Memory: per declaration about 8 cells; per readiness slot 2 cells; per
@@ -123,6 +125,7 @@ begin-structure /lf-sched
   field: lf-sch-unready#    \ hand-outs lf-env-ready? refused
   field: lf-sch-forced#     \ handed out only because nothing else could run
   field: lf-sch-renewed#    \ workers replaced after a THROW
+  field: lf-sch-handed#     \ checks handed over so far
   /slab +field lf-sch-ctxs     \ per worker: its context, 0 once lost
   /slab +field lf-sch-jobs     \ per worker: its job, or 0
   /slab +field lf-sch-ats      \ per worker: the declaration its job checks
@@ -226,6 +229,7 @@ here lf-sch-cell-slabs - 1 cells / constant lf-sch-cell-slabs#
 : lf-sched-edges ( -- n ) lf-sched lf-sch-deps slab-count ;
 \ Planted faults (see the header), compiled only into tests.
 1 constant lf-fault-hasty  2 constant lf-fault-trusting  4 constant lf-fault-careless
+8 constant lf-fault-unordered
 [defined] lf-sched-fault-hooks [if]
 variable lf-sched-faults  0 lf-sched-faults !
 : lf-sch-fault? ( bit -- flag ) lf-sched-faults @ and 0<> ;
@@ -546,8 +550,13 @@ variable lf-sched-faults  0 lf-sched-faults !
 : lf-sch-rerun ( ior k -- renew? )
   lf-sched lf-sch-reruns# lf-sch-count+ lf-sch-at @ lf-sch-later!
   if true else lf-input-rollback ok? 0= then ;
+\ Where a check's facts are kept: at its declaration (with the planted
+\ fault lf-fault-unordered, at its place among the hand-overs).
+: lf-sch-kept-at ( d -- d' )
+  lf-sched lf-sch-handed# dup @ swap lf-sch-count+
+  lf-fault-unordered lf-sch-fault? if nip else drop then ;
 : lf-sch-handed ( outcome fault? d -- renew? )
-  >r lf-input-rollback ok? 0= or swap r@ lf-sch-keep-call
+  >r lf-input-rollback ok? 0= or swap r@ lf-sch-kept-at lf-sch-keep-call
   lf-env-spent? or dup if r@ lf-sch-stop! then
   lf-sch-done lf-sch-checked or r@ lf-sch-state! r> lf-sch-published ;
 : lf-sch-hand ( ior k -- renew? )

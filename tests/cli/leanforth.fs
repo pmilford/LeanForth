@@ -426,7 +426,8 @@ T{ printed# staged# > print-faults -> true 0 }T
 \ once, the readiness test refuses those whose slots are not final
 \ (G-P5); with that test skipped too, the checks that began too early
 \ find a slot not final and are run again; handed over anyway, the facts
-\ differ from the serial run's.
+\ differ from the serial run's, and so do they when a check's facts are
+\ kept in the order checks ended instead of file order.
 variable facts
 : mix ( x -- ) facts @ swap fnv-step facts ! ;
 : fact-step ( d -- )
@@ -463,6 +464,8 @@ T{ nested 3 facts-of 2drop 0> swap serial-nested = -> true true }T
 lf-fault-hasty lf-fault-trusting or lf-sched-faults !
 T{ nested 3 facts-of drop nip 0> swap serial-nested = -> true true }T
 lf-fault-hasty lf-fault-trusting or lf-fault-careless or lf-sched-faults !
+T{ nested 3 facts-of drop 2drop serial-nested = -> false }T
+lf-fault-unordered lf-sched-faults !
 T{ nested 3 facts-of drop 2drop serial-nested = -> false }T
 0 lf-sched-faults !
 T{ depth lf-context @ context-main = -> 0 true }T
