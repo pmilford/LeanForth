@@ -692,6 +692,14 @@ test-sha256:
 	$(RUN) $(GFORTH) tests/lib/sha256-plain.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/lib/test_sha256.py
 
+# Sectioned binary files (src/lib/sections.fs; plan step SN1): round trips, every
+# planted fault with its outcome, then Python's independent reader, the block
+# and field-by-field paths byte for byte, and the header's example outside
+# the project (tests/lib/test_sections.py).
+test-sections:
+	$(RUN) $(GFORTH) tests/lib/sections.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/lib/test_sections.py
+
 test-manifest:
 	$(RUN) $(GFORTH) tests/core/manifest.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_export_manifest.py
@@ -702,8 +710,8 @@ test-manifest:
 reference-manifest:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/reference/manifest-check.sh
 
-.PHONY: test-sha256 test-manifest reference-manifest
-test: test-sha256 test-manifest
+.PHONY: test-sha256 test-sections test-manifest reference-manifest
+test: test-sha256 test-sections test-manifest
 test-differential: reference-manifest
 
 # The LeanForth authoring words (plan task 8.1.2, ADR 0017; untrusted, not

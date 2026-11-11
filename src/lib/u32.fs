@@ -4,7 +4,8 @@
 \ only by u32@ and u32!, so its bytes are never seen. A packed record's
 \ layout is therefore defined by arithmetic on numbers (bit fields are
 \ shifts and masks of the value u32@ gives), not by byte order or cell
-\ size, and packed memory is never written to a file.
+\ size. Packed memory itself is never written to a file; the file-format
+\ words at the end convert to and from bytes in a fixed order (below).
 \
 \ Two implementations of the same two words. Where the host has Gforth's
 \ l@ and l! (Gforth 0.7.3 and 1.0) and they pass a check while this file
@@ -16,6 +17,16 @@
 \ that is invisible, since a field is only ever read by the version that
 \ wrote it. Both versions are always compiled where the host allows, so
 \ the tests run each on every host; modules use only u32@ and u32!.
+\
+\ File-format words (sectioned files, src/lib/sections.fs): u32-le! and
+\ u32-le@ write and read one field as four bytes, least significant first,
+\ on any host; u32s>le and le>u32s do so for n fields, copying the block
+\ whole when the host keeps a packed field in memory in that same order
+\ (checked once while loading: u32-block?), and field by field otherwise.
+\ u32s>le-fields and le>u32s-fields, the field-by-field versions, are
+\ public for the tests. Defining lf-u32-fields before this file loads
+\ forces the field-by-field path, so a test can show both give the same
+\ bytes. These are the only words that give a field a byte layout.
 \ State: none. u32-native is a constant set while loading, by a check
 \ that uses the 8-character buffer u32-trial once, then never again.
 \ The file loads in decimal whatever BASE is, then restores it.
@@ -66,5 +77,32 @@ u32-native [if]
 : u32@ ( addr -- u ) u32-bytes@ ;
 : u32! ( u addr -- ) u32-bytes! ;
 [then]
+
+\ One field as four bytes, least significant first: the byte order
+\ u32-bytes@ and u32-bytes! already fix, so these are those words under
+\ the names the file formats use.
+: u32-le! ( u c-addr -- ) u32-bytes! ;
+: u32-le@ ( c-addr -- u ) u32-bytes@ ;
+
+\ Whether packed memory is already little-endian: the field 1 has its one
+\ set bit in the first character and the fourth character is 0. Checked
+\ once, while loading; lf-u32-fields forces false.
+: u32-little? ( -- flag )
+  1 u32-trial u32! u32-trial c@ 1 = u32-trial 3 chars + c@ 0= and ;
+[defined] lf-u32-fields 0= [if] u32-little? [else] false [then]
+constant u32-block?
+
+\ n fields to 4n bytes (and back), field by field: public for the tests.
+: u32s>le-fields ( addr c-addr n -- )
+  0 ?do over u32@ over u32-le! swap 4 chars + swap 4 chars + loop 2drop ;
+: le>u32s-fields ( c-addr addr n -- )
+  0 ?do over u32-le@ over u32! swap 4 chars + swap 4 chars + loop 2drop ;
+
+\ n packed fields at addr become 4n little-endian bytes at c-addr; and
+\ the reverse. The two memory areas must not overlap.
+: u32s>le ( addr c-addr n -- )
+  u32-block? if 4 * chars move else u32s>le-fields then ;
+: le>u32s ( c-addr addr n -- )
+  u32-block? if 4 * chars move else le>u32s-fields then ;
 
 base !   \ the BASE this file was loaded with

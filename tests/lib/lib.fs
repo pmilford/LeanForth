@@ -689,6 +689,23 @@ variable u32-seed  20261102 u32-seed !
 T{ u32-mask fenced-host u32-mask fenced-bytes -> u32-mask $A5A5 $5A5A u32-mask $A5A5 $5A5A }T
 T{ ' fenced-host u32-random? ' fenced-bytes u32-random? -> true true }T
 T{ u32-mask ' via-host rs-checked u32-mask ' via-bytes rs-checked -> u32-mask u32-mask }T
+\ The file-format words: one field as four bytes, least significant first,
+\ and the block versions, which copy whole where the host stores fields that
+\ way (u32-block?) and agree with the field-by-field ones on every host.
+create le-src 8 u32s allot   create le-a 32 chars allot   create le-b 32 chars allot
+create le-back 8 u32s allot
+: le-fill ( -- ) 8 0 do i 16777619 * $9E3779B9 xor u32-mask and le-src i u32s + u32! loop ;
+le-fill
+T{ $04030201 le-a u32-le! le-a c@ le-a 1 chars + c@ le-a 2 chars + c@ le-a 3 chars + c@
+   -> 1 2 3 4 }T
+T{ le-a u32-le@ -> $04030201 }T
+T{ $FFFFFFFF le-a u32-le! le-a u32-le@ -> u32-mask }T
+T{ le-src le-a 8 u32s>le  le-src le-b 8 u32s>le-fields  le-a 32 le-b 32 compare -> 0 }T
+T{ le-a le-back 8 le>u32s  le-back 8 u32s le-src 8 u32s compare -> 0 }T
+T{ le-b le-back 8 le>u32s-fields  le-back 8 u32s le-src 8 u32s compare -> 0 }T
+T{ le-src u32@ le-a u32-le@ = -> true }T
+T{ le-src le-a 0 u32s>le  le-a le-back 0 le>u32s -> }T
+
 \ Defining lf-u32-portable before the file loads forces the Forth-2012
 \ version. The file is loaded again for this, last, under BASE 8, where 8
 \ and 9 are not digits: it still reads its numbers in decimal and gives
@@ -699,4 +716,14 @@ T{ u32-mask ' via-host rs-checked u32-mask ' via-bytes rs-checked -> u32-mask u3
 [defined] warnings [if] warnings ! [then]
 T{ u32-base-forced u32-native -> 8 false }T
 T{ -1 field1 u32! field1 u32@ u32-top 1+ field1 u32! field1 u32@ -> u32-mask u32-top 1+ }T
+\ With the Forth-2012 words, fields are already little-endian, so the block copy
+\ is used; lf-u32-fields forces the field-by-field path. Both give the same bytes.
+T{ u32-block? le-src le-b 8 u32s>le  le-a 32 le-b 32 compare -> true 0 }T
+[defined] warnings [if] warnings @ false warnings ! [then]
+: lf-u32-fields ( -- ) ;
+decimal include ../../src/lib/u32.fs   \ a reload on purpose, to get the other path
+[defined] warnings [if] warnings ! [then]
+T{ u32-block? -> false }T
+T{ le-src le-b 8 u32s>le  le-a 32 le-b 32 compare -> 0 }T
+T{ le-a le-back 8 le>u32s  le-back 8 u32s le-src 8 u32s compare -> 0 }T
 bye
