@@ -547,11 +547,11 @@ def scopeCases : List Case := [
     what := "an opaque declaration (never unfolds)" },
   { id := "scope.unsafe-definition",
     decl := defn `scopeUnsafe fixtureIdType fixtureIdValue [`u] (safety := .unsafe),
-    lean := "accepted", leanforth := "unsupported", rule := "U1",
+    lean := "accepted", leanforth := "skipped", rule := "U1",
     what := "a definition marked unsafe" },
   { id := "scope.partial-definition",
     decl := defn `scopePartial fixtureIdType fixtureIdValue [`u] (safety := .partial),
-    lean := "accepted", leanforth := "unsupported", rule := "U1",
+    lean := "accepted", leanforth := "skipped", rule := "U1",
     what := "a definition marked partial" }
 ]
 

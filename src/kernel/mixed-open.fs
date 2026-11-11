@@ -31,7 +31,12 @@
 \ abstract.cpp 19); the term store keeps no such data, but the caches do
 \ while they are on (kernel/caches.fs, ADR 0014 Q12, through the hook
 \ lf-open-unchanged?), and the passes then skip such a node as Lean does;
-\ otherwise they visit it, keep it and pay fuel for it. A new bound
+\ otherwise they visit it, keep it and pay fuel for it. As Lean's replace
+\ keeps each shared node's result per offset for the rest of the pass
+\ (replace_fn.cpp 26-40), a pass keeps every binary node's result and
+\ gives it back when it meets the node again at the same offset: a pass
+\ grows with the nodes, not the paths, and a node shared in the input is
+\ shared in the result. A new bound
 \ variable reuses the live leaf of its index that a
 \ pass made before, if any: leaves never change, so this shares an equal
 \ term (it saves room in a small term store).
@@ -59,8 +64,9 @@
 \ Untrusted; [kernel] code, not yet through the review gate.
 \ State: one job record, lf-open-job (fields lf-openjob-*): the pass's
 \ frames (fuel, nesting, the offset as context), its mode, the term count
-\ before it and the bound-variable leaves it made, and its copy of the n
-\ terms in a growable array (lf-open-terms); members of the checker
+\ before it, its number and the bound-variable leaves it made, its copy of
+\ the n terms in a growable array (lf-open-terms), and the results it
+\ kept, a column of the term store (lf-open-results); members of the checker
 \ context (lib/context.fs), whose frames a set-up word prepares in every
 \ context. Single-threaded within one
 \ context; a pass refuses to start inside another (invalid).
@@ -85,12 +91,17 @@ begin-structure /lf-openjob
   field: lf-openjob-mode               \ one of the lf-open-mode-* constants
   /store-mark +field lf-openjob-start  \ the term store before the pass
   field: lf-openjob-count              \ n
+  field: lf-openjob-run                \ the pass's number, for its results
   lf-open-leaves 2* cells +field lf-openjob-leaves  \ per index: node, identity
 end-structure
 0 lf-openjob-frames 0<> [if] .( mixed-open.fs: frames come first) cr abort [then]
 /lf-openjob context-record: lf-open-job
 \ s0 .. s(n-1), copied: as many as there are (no fixed limit).
 1 cells context-slab: lf-open-terms
+\ Per term, a column of the term store (lib/store-columns.fs): the pass
+\ that last rebuilt it, at which offset, and the result.
+/slab context-record: lf-open-results
+3 cells ' lf-open-results lf-term-columns column-add
 
 : lf-open-frames ( -- frames ) lf-open-job lf-openjob-frames ;
 \ The fuel of the next pass, and what the last one left.
@@ -113,11 +124,34 @@ end-structure
   dup lf-term-first@ over lf-open-below?
   swap dup lf-term-second@ swap lf-open-below? and ;
 
+\ Lean's replace keeps the result of each shared node per offset for the
+\ rest of the pass and gives it back when the node is met again at that
+\ offset (replace_fn.cpp 26-40, m_cache), so a pass grows with the nodes
+\ and their offsets, never with the paths, and a node shared in the input
+\ is shared in the result. Here every binary node's result is kept, in
+\ its unit of lf-open-results: the pass's number, the offset, the result
+\ (a node of the input or one this pass made, live until the pass ends).
+\ A node keeps one offset, its last: met at another, it is rebuilt.
+: lf-open-unit ( node -- unit ) lf-open-results column-at ;
+: lf-open-key ( node frames -- offset run unit )
+  dup frame-context @ swap lf-openjob-run @ rot lf-open-unit ;
+: lf-open-held? ( offset run unit -- flag ) tuck @ = if cell+ @ = else 2drop false then ;
+: lf-open-known? ( node frames -- result true | false )
+  lf-open-key dup >r lf-open-held? if r> 2 cells + @ true else r> drop false then ;
+: lf-open-keep ( result node frames -- ) lf-open-key tuck ! tuck cell+ ! 2 cells + ! ;
+\ A pass's number: the next, after a wrap to 0 with every unit erased.
+: lf-open-next ( -- )
+  lf-open-job lf-openjob-run dup @ 1+
+  dup 0= if lf-open-results column-erase 1+ then swap ! ;
+
 \ update_app and update_binding (Lean's expr.cpp): the node itself when
-\ both children came back unchanged, otherwise a new node of its tag.
-: lf-open-update ( r1 node r2 -- result outcome )
+\ both children came back unchanged, otherwise a new node of its tag;
+\ kept for the node at the offset of its visit.
+: lf-open-built ( r1 node r2 -- result outcome )
   >r 2dup lf-term-first@ = over lf-term-second@ r@ = and
   if nip r> drop outcome-ok else r> lf-rebuild-build then ;
+: lf-open-update ( r1 node r2 -- result outcome )
+  over >r lf-open-built dup ok? if over r@ lf-open-frames lf-open-keep then r> drop ;
 \ A binary node: the first child at this offset, the second one binder
 \ deeper for a lambda or Pi (mixed-rebuild.fs's limits apply).
 : lf-open-updated ( r2 outcome frames -- result outcome frames 0 )
@@ -187,8 +221,14 @@ end-structure
 \ (kernel/caches.fs), and then the node is kept without a visit below it.
 defer lf-open-unchanged? ( node frames -- flag )
 :noname ( node frames -- flag ) 2drop false ; is lf-open-unchanged?
+\ A node rebuilt before at this offset in this pass: its result again,
+\ for the visit's unit of fuel only.
+: lf-open-recall ( node frames result -- result outcome frames 0 )
+  rot drop outcome-ok rot 0 ;
+: lf-open-again ( node frames -- ... frames next )
+  2dup lf-open-known? if lf-open-recall else lf-open-binary then ;
 : lf-open-pair ( node frames -- ... frames next )
-  2dup lf-open-unchanged? if dup >r lf-rebuild-keep r> 0 else lf-open-binary then ;
+  2dup lf-open-unchanged? if dup >r lf-rebuild-keep r> 0 else lf-open-again then ;
 \ The visit's first step (lib/frame.fs).
 : lf-open-visit ( node frames -- ... frames next )
   2dup lf-open-readable? lf-rebuild-tag
@@ -231,7 +271,7 @@ defer lf-open-unchanged? ( node frames -- flag )
 : lf-open-run ( node subst n mode -- node' outcome )
   lf-open-ready dup ok? 0= if nip no-result exit then drop
   lf-open-marked dup ok? 0= if nip no-result exit then drop
-  0 lf-open-frames lf-rebuild-run nip lf-open-explain ;
+  lf-open-next 0 lf-open-frames lf-rebuild-run nip lf-open-explain ;
 : lf-open-pass ( node subst n mode -- node' outcome )
   over 0= if 2drop drop outcome-ok else lf-open-run then ;
 \ instantiate: node with s(k) for its loose bound variable k.

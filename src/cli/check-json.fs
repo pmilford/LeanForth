@@ -103,9 +103,10 @@ require ./check-run.fs
 \ publishing failed), as the text's line "the run stopped" says.
 : cj-stopped ( -- ) ck-stopped? s" stopped" cj-flag ;
 : cj-began? ( d -- flag ) ck-steps-begun < ;
-\ The verdict as a run record writes it: accepted for ok.
+\ The verdict as a run record writes it: accepted for ok, skipped for a
+\ declaration Lean's replay skips (cli/tally.fs verdict-of).
 : cj-verdict-text ( d -- c-addr u )
-  dup cj-began? if lf-env-outcome else drop not-checked then verdict-name ;
+  dup cj-began? if verdict-of else drop not-checked then verdict-name ;
 : cj-site ( site -- c-addr u ) ?dup if count else s" " then ;
 : cj-numbers ( step -- )
   s" numbers" cj-key cj-array dup kept-first @ cj-n kept-second @ cj-n cj-end-array ;

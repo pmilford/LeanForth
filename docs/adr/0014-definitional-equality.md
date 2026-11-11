@@ -1448,6 +1448,57 @@ term in the snapshot — the only typer-dependent steps, K and iota's
 structure eta, need a closed major premise and an inference job
 (`iota.fs`), and answer *unknown* elsewhere.
 
+## Amendment 2: shared terms cost their nodes, not their paths (agent EX, 2026-11-10, proposed)
+
+**Finding.** The 17 declarations of `Init`'s first 1,000,000 export lines
+that ended *exhausted* at 2,000,000 fuel (36% of all fuel; the official
+checker accepts the prefix in 5.8 s) are `omega`-style proofs of a few
+thousand nodes shared along up to 2^40 paths. None ran out in `is_def_eq`
+or in the projection steps: all 17 ran out in LeanForth's own audits
+(U2, V1 and the structural check), which visited each path. With those
+fixed, the next walls were `mixed-open.fs` (each pass rebuilt a shared
+node once per path, so the result lost the sharing too), inference's
+loose-variable scan, and the level substitution of a constant without
+universe arguments.
+
+**Ported** (each a Lean step that keeps the work per node):
+1. *Audits per node.* Lean keeps a node's loose bound variables and its
+   free-variable flag in the node (`expr.cpp` 102–105, `lean_expr_mk_data`)
+   and reads them in constant time (`check_no_metavar_no_fvar`,
+   `environment.cpp` 87–100; `infer_type_core`'s `has_loose_bvars`,
+   `type_checker.cpp` 326). LeanForth's U2, V1 and structural walks keep
+   per-term marks (a run number and the depth it was reached at,
+   `constant-term-boundary.fs`): a node is checked again only at a smaller
+   depth; a repeated visit costs its own unit. The outcome and the first
+   failure found are those of the per-path walk (a node is skipped only
+   when its whole subterm was checked at a depth no greater).
+2. *Substitution per node and offset.* Lean's `replace` keeps each shared
+   node's result per offset for the rest of the call (`replace_fn.cpp`
+   16–40); `instantiate`, `instantiate_rev` and `abstract` use it
+   (`instantiate.cpp` 15–39, 99–118; `abstract.cpp` 14–32).
+   `mixed-open.fs` keeps every binary node's result for the pass in a term
+   column (one offset per node, its last: met at another, it is rebuilt).
+   This is Q12 item 1 in part (the memo is per pass, not per context).
+3. *`loose_bvar_range` read, not scanned.* Inference's count of the scope
+   variables a term needs (`lf-minfer-loose`) takes the caches' node data
+   when they are on (`caches.fs`, `lf-ci-range`).
+4. *`instantiate_type_lparams` without universe arguments* returns the
+   stored type itself (`instantiate.cpp` 251–252), as `whnf.fs` already
+   did for values; with the derivation log on the substitution still runs
+   (same term), so the log keeps its step.
+
+**Evidence.** `tests/cli/sharing.lean`: pinned Lean accepts `sharedAnd`
+(2^40 paths) and `sharedBeta` (shared under two offsets) and rejects
+their wrong twins (`appTypeMismatch`); LeanForth before: `sharedAnd`
+*exhausted* (its twin too); after: Lean's verdicts, 61,647 fuel.
+Planted faults `ex-*` in `tests/mutants/faults.toml`, all caught.
+
+**Left (plan task 6.5.5).** Inference still closes each application
+argument with all the scope's free variables, where Lean instantiates a
+binder's body once, and every comparison audits both types in full; on
+the Array.Extract `omega` proofs this costs 10–20 million fuel (9 of the
+17). Both are 6.5.5's "work linear in a term's depth".
+
 ## Note: the projection steps (plan task 5.2.2, 2026-11-10)
 
 The Q8 row "Projections: `reduce_proj`, step 8, `try_unfold_proj_app`"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LeanForth against the inductive table (plan tasks 5.2.1a, 5.2.1b and 5.2.5a; ADR
+"""LeanForth against the inductive table (plan tasks 5.2.1a, 5.2.1b, 5.2.5a, 5.2.5b; ADR
 0015 §13, test plan 1).
 
 Runs pinned Lean on tests/reference/inductive-expected.lean, which prints
@@ -9,7 +9,8 @@ here too) and then every case as the lean4export file of what Lean checked
 own constants). Each file is checked by LeanForth (tests/core/inductive-table.fs:
 staged, fed, every declaration checked); a row's LeanForth outcome is the first
 outcome that is not accepted among the case's own declarations, in input order,
-else accepted; a file the feed refuses gives the feed's outcome. A row `after.*`
+else accepted (skipped is the verdict of a declaration Lean's replay skips, plan
+task 5.2.7); a file the feed refuses gives the feed's outcome. A row `after.*`
 (declarations after a block, whose verdict is the last one's) is judged on the
 file's last declarations, those its marker names: an earlier declaration of the
 file may have the same name. A case whose marker names nothing (the empty block,
@@ -40,7 +41,7 @@ import tempfile
 LEAN_FILE = "tests/reference/inductive-expected.lean"
 TSV = "tests/reference/inductive-expected.tsv"
 FIXTURES = "tests/core/check-block-cases"
-DONE_TASKS = {"5.2.1a", "5.2.1b", "5.2.3", "5.2.5a"}
+DONE_TASKS = {"5.2.1a", "5.2.1b", "5.2.3", "5.2.5a", "5.2.5b"}
 # Rows of the tasks done (DONE_TASKS) that LeanForth cannot decide yet: id ->
 # (outcome now, reason, ending with the task that closes it). Each needs
 # something outside those tasks; the same rule reached without the dependency
@@ -91,6 +92,10 @@ GAPS = {
     "after.quot-then-mk-declared-then-used": ("unknown",
         "Lean's Quot.mk used where no slot holds it (the file's only Quot.mk refused):"
         " diagnostic 77. Closed by the same follow-up of task 5.2.4"),
+    "unsafe.inductive-type-safe": ("unsupported",
+        "a block whose type is safe and whose constructor and recursor are unsafe, which"
+        " Lean never writes: replay adds the block and compares only its safe members"
+        " (diagnostic 42). Closed by task 5.2.7 part b"),
 }
 # Rows of a later task that a part of it already done decides: each must give
 # exactly the table's column (id -> the part that decides it).
@@ -142,6 +147,14 @@ REQUIRED.update({row: "tasks 5.3.1 and 4.2.6 (axioms and opaque declarations)"
                              "postulate.sound-own-quot-names", "replay-iff.flagged-then-propext",
                              "opaque.accepted", "opaque.wrong-value", "opaque.never-unfolds",
                              "opaque.unfolds-as-definition")})
+REQUIRED.update({row: "task 5.2.7 (unsafe and partial declarations skipped as Lean's"
+                      " replay skips them: reported skipped, a use rejected)"
+                 for row in ("unsafe.def", "unsafe.def-recursive", "unsafe.def-ill-typed",
+                             "unsafe.def-then-safe-user", "unsafe.def-then-unsafe-user",
+                             "partial.def-recursive", "partial.def-then-safe-user",
+                             "unsafe.postulate", "unsafe.postulate-then-safe-user", "unsafe.opaque",
+                             "unsafe.opaque-then-safe-user", "unsafe.inductive-not-positive",
+                             "unsafe.inductive-then-safe-user")})
 # The axiom bits (src/core/axiom-allowlist.fs) LeanForth must report for
 # declarations of these rows: 8 is an axiom outside the allowlist, so NOT
 # PROVED (a file's own axiom; propext with another statement, or with
@@ -161,8 +174,11 @@ OUTCOME = {"accepted": "ok"}
 
 
 def run_lean(lean):
+    # The Makefile's TEST_TIMEOUT bounds the whole run; this bound only stops
+    # a Lean left running without it (the table takes about 7 minutes on an
+    # idle machine, three times that on a loaded one: the cache never holds it).
     run = subprocess.run([lean, "-DwarningAsError=true", LEAN_FILE], stdin=subprocess.DEVNULL,
-                         capture_output=True, text=True, timeout=1800)
+                         capture_output=True, text=True, timeout=3600)
     if run.returncode != 0:
         sys.stdout.write(run.stdout + run.stderr)
         raise SystemExit("inductive-table: Lean failed on " + LEAN_FILE)
@@ -298,16 +314,18 @@ def main():
         got, why = row_outcome(case_id, own, result)
         want = OUTCOME.get(leanforth, leanforth)
         tally[(task in DONE_TASKS, got)] = tally.get((task in DONE_TASKS, got), 0) + 1
-        if task in DONE_TASKS:
+        if case_id in UNCLOSED:
+            # the importer's refusal stands whatever task the row has, a done
+            # one too (names.reserved-nested-prefix, task 5.2.5b), until 5.2.6
+            ok = got in ("invalid", "unsupported", "unknown", want)
+            print(f"unclosed {case_id}: {got} ({UNCLOSED[case_id]})")
+        elif task in DONE_TASKS:
             expected = PENDING.get(case_id, (want, ""))[0]
             ok = got == expected
             if case_id in PENDING and ok:
                 print(f"pending {case_id}: {got} ({PENDING[case_id][1]})")
         elif case_id in REQUIRED:
             ok = got == want
-        elif case_id in UNCLOSED:
-            ok = got in ("invalid", "unsupported", "unknown", want)
-            print(f"unclosed {case_id}: {got} ({UNCLOSED[case_id]})")
         elif case_id in GAPS:
             ok = got == GAPS[case_id][0]
             print(f"gap {case_id}: {got} ({GAPS[case_id][1]})")
@@ -324,7 +342,7 @@ def main():
     failures += stale_fixtures(cases)
     done = sum(n for (d, _), n in tally.items() if d)
     later = sum(n for (d, _), n in tally.items() if not d)
-    print(f"inductive-table: {len(cases)} cases; tasks 5.2.1a-b, 5.2.3, 5.2.5a rows {done}:",
+    print(f"inductive-table: {len(cases)} cases; tasks 5.2.1a-b, 5.2.3, 5.2.5a-b rows {done}:",
           ", ".join(f"{o} {n}" for (d, o), n in sorted(tally.items()) if d),
           f"(pending {len(PENDING)}); later tasks' rows {later}:",
           ", ".join(f"{o} {n}" for (d, o), n in sorted(tally.items()) if not d))

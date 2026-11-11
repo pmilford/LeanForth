@@ -102,7 +102,8 @@ end-structure
 \ Each constructor's first recursive field in lf-rcr-ih-cells, and the count.
 1 cells context-slab: lf-rcr-ih-starts
 
-: lf-rcr-ok? ( -- flag ) lf-rcr-state lf-rcr-status @ ok? ;
+: lf-rcr-status@ ( -- outcome ) lf-rcr-state lf-rcr-status @ ;
+: lf-rcr-ok? ( -- flag ) lf-rcr-status@ ok? ;
 : lf-rcr-failing ( outcome -- -1 )
   lf-rcr-ok? if lf-rcr-state lf-rcr-status ! else drop then -1 ;
 : lf-rcr-made ( index identity true | false -- node )

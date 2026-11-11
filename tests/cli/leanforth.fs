@@ -54,6 +54,12 @@ T{ outcome-ok outcome>code outcome-rejected outcome>code -> 0 1 }T
 T{ outcome-unknown outcome>code outcome-unsupported outcome>code -> 2 2 }T
 T{ outcome-exhausted outcome>code outcome-full outcome>code -> 3 3 }T
 T{ outcome-invalid outcome>code 7 outcome>code -1 outcome>code -> 4 5 5 }T
+\ A skipped declaration (plan task 5.2.7) keeps Lean's code 0, is counted
+\ as skipped and named so; every outcome keeps its code.
+T{ skipped verdict>code outcome-rejected verdict>code not-checked verdict>code -> 0 1 5 }T
+cli-start
+T{ skipped cli-tally outcome-rejected cli-tally skipped tally outcome-rejected tally -> 1 1 }T
+T{ cli-worst @ skipped verdict-name s" skipped" compare -> 1 0 }T
 
 \ Severity, as the documentation states it: 0 < 6 < 2 < 3 < 1 < 4 < 5. The
 \ more severe of two codes is the same both ways round and is the later
@@ -174,14 +180,15 @@ T{ postulate cli-check outcome-ok tally cli-not-proved @ -> 0 1 1 }T
 \ A proof that is a string literal, typed String, which the file does not
 \ declare: rejected, as pinned Lean's kernel rejects it (plan task 5.2.3).
 T{ with-literal cli-check outcome-rejected tally -> 1 1 }T
-\ Every record kind (tests/core/reexport/kinds.lean): 89 accepted, among
+\ Every record kind (tests/core/reexport/kinds.lean): 94 accepted, among
 \ them inductive blocks, Nat and List (plan task 5.2.1b), projections
 \ (plan task 5.2.2), literals (plan task 5.2.3), axioms, opaque
-\ declarations and quotients (plan tasks 5.3.1, 4.2.6, 5.2.4) and what
-\ uses them, with Lean's lazy delta reduction (plan task 4.2.2d); the rest
-\ unsupported (plan phases 4, 5).
-T{ kinds cli-check outcome-ok tally outcome-unknown tally outcome-unsupported tally
-  -> 2 89 0 17 }T
+\ declarations and quotients (plan tasks 5.3.1, 4.2.6, 5.2.4), the nested
+\ Tree with Tree.rec_1 (plan task 5.2.5b) and what uses them, with Lean's
+\ lazy delta reduction (plan task 4.2.2d); the unsafe definition risky
+\ skipped (plan task 5.2.7); the rest unsupported (plan phases 4, 5).
+T{ kinds cli-check outcome-ok tally skipped tally outcome-unknown tally
+  outcome-unsupported tally -> 2 94 1 0 11 }T
 T{ loose cli-check outcome-invalid tally -> 4 1 }T
 T{ s" tests/cli/leanforth.fs" cli-check -> 4 }T
 0 cli-fuel!
@@ -214,13 +221,15 @@ cli-options
 \ A second run in the same process gives the same verdicts and fuel.
 : run-facts ( c-addr u -- code ok# fuel )
   cli-check outcome-ok tally ck-fuel-total drop ;
-\ (1039 with Lean's caches and cached node data, plan task 4.2.7; 1184
+\ (979 since the audits check each shared node once and a constant without
+\ universe arguments has its stored type, agent EX; 1039 with Lean's
+\ caches and cached node data, plan task 4.2.7; 1184
 \ since the block check uses Lean's whnf, plan task 5.2.1b; 1187 since
 \ conversion is Lean's is_def_eq, plan task 4.2.2b; 1520 before.)
-T{ inductive run-facts inductive run-facts -> 0 6 1039 0 6 1039 }T
+T{ inductive run-facts inductive run-facts -> 0 6 979 0 6 979 }T
 cli-no-manifest
 kinds run-facts constant kinds-fuel drop drop
-T{ kinds run-facts -> 2 89 kinds-fuel }T
+T{ kinds run-facts -> 2 94 kinds-fuel }T
 cli-options
 
 \ --record keeps the small path: an inductive type is refused while

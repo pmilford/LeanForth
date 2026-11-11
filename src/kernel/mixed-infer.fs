@@ -248,11 +248,19 @@ lf-walk-room context-walk2: lf-minfer-scan
 : lf-minfer-scan-visit ( walk -- outcome ) lf-terms ['] lf-minfer-scan-dispatch walk-visit ;
 \ The scan keeps the largest k - d (-1 for none), so that no index
 \ overflows; m is one more, at most n.
-: lf-minfer-loose ( node n -- m )
+: lf-minfer-scanned ( node n -- m )
   >r -1 lf-minfer-scan walk-arg ! lf-minfer-fuel @ lf-minfer-scan walk-budget 0=
   if drop r> exit then
   0 ['] lf-minfer-scan-visit lf-minfer-scan walk-run-pair ok?
   if lf-minfer-scan walk-arg @ r@ 1- min 1+ r> drop else r> then ;
+\ That number is Lean's loose_bvar_range, which Lean reads from the node
+\ (expr.cpp 102-103, computed once when the node is made): when the
+\ caches know it (kernel/caches.fs sets the hook), it is taken, at most
+\ n, and no scan runs; by default never known.
+defer lf-minfer-range ( node -- m true | false )
+:noname ( node -- m true | false ) drop false ; is lf-minfer-range
+: lf-minfer-loose ( node n -- m )
+  over lf-minfer-range if min nip else lf-minfer-scanned then ;
 \ Of n free variables, the innermost that node needs, at least one: the
 \ pass then visits and pays for node as with all n, and gives the same
 \ term, while checking and copying only those (plan task 6.2.0: a
