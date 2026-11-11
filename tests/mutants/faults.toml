@@ -6443,6 +6443,112 @@ new = '''  rr-outcome ;'''
 test = "$GFORTH tests/core/run-record.fs"
 reason = "5.2.7: a run record calls a skipped declaration rejected"
 
+# Step S0 of the compact-store plan (plan task 6.5.5): the level passes mark
+# reached nodes with a per-call stamp and build only the sorted list of them.
+[[fault]]
+id = "s0-mls-stamp-not-bumped"
+file = "src/kernel/mixed-level-substitute.fs"
+old = '''  lf-mls-stamp @ max-n = if lf-mls-restamp then 1 lf-mls-stamp +! 0 lf-mls-reached ! ;'''
+new = '''  lf-mls-stamp @ max-n = if lf-mls-restamp then 0 lf-mls-reached ! ;'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "S0: an audit keeps the last one's stamp, so the terms an earlier call reached are not listed or rebuilt"
+
+[[fault]]
+id = "s0-mls-restamp-no-erase"
+file = "src/kernel/mixed-level-substitute.fs"
+old = ''': lf-mls-restamp ( -- ) lf-mls-seen-column column-erase 0 lf-mls-stamp ! ;'''
+new = ''': lf-mls-restamp ( -- ) 0 lf-mls-stamp ! ;'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "S0: stamps that run out restart without erasing, so an old stamp 1 is read as this audit's"
+
+[[fault]]
+id = "s0-mls-any-stamp-reached"
+file = "src/kernel/mixed-level-substitute.fs"
+old = ''': lf-mls-reached? ( index -- flag ) lf-mls-seen @ lf-mls-stamp @ = ;'''
+new = ''': lf-mls-reached? ( index -- flag ) lf-mls-seen @ 0<> ;'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "S0: any earlier audit's stamp is read as fresh, so reached terms are not listed or rebuilt"
+
+[[fault]]
+id = "s0-mls-listed-twice"
+file = "src/kernel/mixed-level-substitute.fs"
+old = '''  lf-mls-stamp @ over lf-mls-seen ! lf-mls-list ;'''
+new = '''  lf-mls-list ;'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "S0: the stamp is never written, so a term is listed once per occurrence"
+
+[[fault]]
+id = "s0-mls-build-unsorted"
+file = "src/kernel/mixed-level-substitute.fs"
+old = '''  lf-mls-sorted lf-mls-reached @ 0 ?do'''
+new = '''  lf-mls-reached @ 0 ?do'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "S0: the build follows the audit's order, so a parent is built before its children"
+
+[[fault]]
+id = "s0-lsubst-stamp-not-bumped"
+file = "src/kernel/level-substitute.fs"
+old = '''  1 lf-lsubst-stamp +! 0 lf-lsubst-reached ! ;'''
+new = '''  0 lf-lsubst-reached ! ;'''
+test = "$GFORTH tests/core/level-substitute.fs"
+reason = "S0: a source walk keeps the last one's stamp, so the levels an earlier call reached are not listed or rebuilt"
+
+[[fault]]
+id = "s0-lsubst-restamp-no-erase"
+file = "src/kernel/level-substitute.fs"
+old = ''': lf-lsubst-restamp ( -- ) lf-lsubst-seen-column column-erase 0 lf-lsubst-stamp ! ;'''
+new = ''': lf-lsubst-restamp ( -- ) 0 lf-lsubst-stamp ! ;'''
+test = "$GFORTH tests/core/level-substitute.fs"
+reason = "S0: stamps that run out restart without erasing, so an old stamp 1 is read as this walk's"
+
+[[fault]]
+id = "s0-lsubst-any-stamp-reached"
+file = "src/kernel/level-substitute.fs"
+old = ''': lf-lsubst-reached? ( index -- flag ) lf-lsubst-seen @ lf-lsubst-stamp @ = ;'''
+new = ''': lf-lsubst-reached? ( index -- flag ) lf-lsubst-seen @ 0<> ;'''
+test = "$GFORTH tests/core/level-substitute.fs"
+reason = "S0: any earlier walk's stamp is read as fresh, so reached levels are not listed or rebuilt"
+
+[[fault]]
+id = "s0-lsubst-build-unsorted"
+file = "src/kernel/level-substitute.fs"
+old = '''  lf-lsubst-sorted lf-lsubst-reached @ 0 ?do'''
+new = '''  lf-lsubst-reached @ 0 ?do'''
+test = "$GFORTH tests/core/level-substitute.fs"
+reason = "S0: the build follows the walk's order, so a parent is built before its children"
+
+[[fault]]
+id = "s0-heap-left-child-only"
+file = "src/kernel/level-substitute.fs"
+old = '''  2* 1+ 2dup 1+ > if dup dup 1+ 4 pick lf-cells-less? - then ;'''
+new = '''  2* 1+ ;'''
+test = "$GFORTH tests/core/level-substitute.fs"
+reason = "S0: the heapsort's sift ignores a larger right child, so some arrangements come out unsorted"
+
+[[fault]]
+id = "s0-lnorm-stamp-not-bumped"
+file = "src/kernel/level-normalize.fs"
+old = '''  lf-lnorm-stamp @ max-n = if lf-lnorm-restamp then 1 lf-lnorm-stamp +! ;'''
+new = '''  lf-lnorm-stamp @ max-n = if lf-lnorm-restamp then ;'''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "S0: a call keeps the last one's stamp, so normal forms of an earlier call (nodes since given back) are read as found"
+
+[[fault]]
+id = "s0-lnorm-restamp-no-erase"
+file = "src/kernel/level-normalize.fs"
+old = ''': lf-lnorm-restamp ( -- ) lf-lnorm-memo-column column-erase 0 lf-lnorm-stamp ! ;'''
+new = ''': lf-lnorm-restamp ( -- ) 0 lf-lnorm-stamp ! ;'''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "S0: stamps that run out restart without erasing, so normal forms of stamp 1 are read as this call's"
+
+[[fault]]
+id = "s0-lnorm-any-stamp-fresh"
+file = "src/kernel/level-normalize.fs"
+old = ''': lf-lnorm-memo@ ( level -- form+1|0 ) lf-lnorm-entry 2@ lf-lnorm-stamp @ = and ;'''
+new = ''': lf-lnorm-memo@ ( level -- form+1|0 ) lf-lnorm-entry 2@ drop ;'''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "S0: a normal form of any earlier call is read as this call's"
+
 # --- FX6: the reader's numbers, members and index maps (src/import/ndjson.fs) ---
 
 [[fault]]

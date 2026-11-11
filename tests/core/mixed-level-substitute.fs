@@ -160,6 +160,25 @@ variable saw-partial variable sweep-fuel
     then
   loop false ;
 T{ fuel-sweep -> true }T
+\ Stamps (plan task 6.5.5): an audit marks the terms it reaches with a new
+\ stamp and erases nothing, except when the stamps run out: then the
+\ column is erased and they restart at 1, so no earlier audit's mark
+\ counts as this one's. An unchanged substitution leaves the root as its
+\ own image; then every term holds stamp 1, as if an earlier audit had
+\ reached it, the stamps run out, and the changing substitution still
+\ rebuilds the term (term 7, as above), not the root's earlier image.
+setup
+1 actuals pair! 2 actuals 2 cells + pair!
+T{ 500 run-substitution -> fixture-root @ root-id @ outcome-ok }T
+2 actuals pair! 3 actuals 2 cells + pair!
+: stale-stamps ( -- ) lf-term-count @ 0 ?do 1 i lf-mls-seen ! loop max-n lf-mls-stamp ! ;
+stale-stamps
+T{ 500 run-substitution -> 7 lf-term-serial @ outcome-ok }T
+T{ lf-mls-stamp @ lf-mls-reached @ -> 1 4 }T
+\ The audit alone lists each reached term once (term 3, then 2, 1 and 0;
+\ the repeated edges to term 0 add nothing), with a new stamp.
+T{ 3 formals 2 100 lf-mls-audit-formals -> 86 outcome-ok }T
+T{ lf-mls-stamp @ lf-mls-reached @ -> 2 4 }T
 \ A count below zero is invalid before any allocation, and so is a stale or out-of-range actual, even when the source
 \ is a bare variable that has no level to substitute.
 : counts@ ( -- terms levels crefs ) lf-term-count @ lf-level-count @ lf-cref-count @ ;

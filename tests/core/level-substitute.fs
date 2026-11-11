@@ -131,4 +131,34 @@ T{ iqp pp qq sub -> iqp outcome-ok }T
 \ A changed child rebuilds it: imax 1 (qq+1) becomes max 1 (qq+1).
 T{ shared-imax qq pp sub -> lf-level-count @ 1- outcome-ok }T
 T{ lf-level-count @ 1- lf-level-read nip nip -> lf-level-tag-max true }T
+
+\ Stamps (plan task 6.5.5): a source walk marks the nodes it reaches with
+\ a new stamp and erases nothing, except when the stamps run out: then the
+\ column is erased and they restart at 1, so no earlier walk's mark counts
+\ as this one's. imax pp qq under pp:=w, qq:=0 is 0; then every node holds
+\ stamp 1, as if an earlier walk had reached it, the stamps run out, and
+\ under pp:=1, qq:=w+1 the node is still rebuilt, not given its earlier
+\ image 0. The walk listed its three nodes once each.
+T{ ipq w 0 sub -> 0 outcome-ok }T
+: stale-stamps ( -- )
+  lf-level-count @ 0 ?do 1 i lf-lsubst-seen ! loop max-n lf-lsubst-stamp ! ;
+stale-stamps
+T{ ipq one w+1 sub -> lf-level-count @ 1- outcome-ok }T
+T{ lf-level-count @ 1- lf-level-read -> lf-level-tag-max one w+1 true }T
+T{ lf-lsubst-stamp @ lf-lsubst-reached @ -> 1 3 }T
+
+\ lf-cells-sort: every arrangement of up to six cells, with repeats, comes
+\ out in ascending order and as the same cells (their sum and xor).
+create sort-cells 6 cells allot
+: sort-cell ( i -- addr ) cells sort-cells + ;
+: arrangement! ( code n -- ) 0 ?do dup 3 mod i sort-cell ! 3 / loop drop ;
+: ascending? ( n -- flag )
+  true swap 1 max 1 ?do i sort-cell @ i 1- sort-cell @ < if drop false then loop ;
+: sum-xor ( n -- sum xor ) 0 0 rot 0 ?do i sort-cell @ tuck xor >r + r> loop ;
+: arrangement-sorted? ( code n -- flag )
+  tuck arrangement! dup sum-xor 2>r sort-cells over lf-cells-sort
+  dup ascending? swap sum-xor 2r> d= and ;
+: arrangements-sorted? ( -- flag )
+  true 7 0 do 729 0 do i j arrangement-sorted? and loop loop ;
+T{ arrangements-sorted? -> true }T
 bye

@@ -178,6 +178,17 @@ swapped budgets
 \ normalized and pushed, one ordering), max v u 7 (u and v remembered).
 T{ swapped needed -> 22 }T
 T{ swapped 30 lf-level-compare lf-lcmp-fuel @ -> outcome-ok 8 }T
+\ Stamps (plan task 6.5.5): a call's memo of normal forms erases nothing,
+\ it takes a new stamp; only when the stamps run out is the column erased
+\ and they restart at 1, so no earlier call's normal form counts as this
+\ call's. Every level holds stamp 1 and itself as its normal form, as an
+\ earlier call could leave it, and the stamps run out: the comparison
+\ still spends what it did above.
+: stale-forms ( -- )
+  1 lf-lnorm-stamp ! lf-level-count @ 0 ?do i 1+ i lf-lnorm-memo! loop
+  max-n lf-lnorm-stamp ! ;
+stale-forms
+T{ swapped 30 lf-level-compare lf-lcmp-fuel @ lf-lnorm-stamp @ -> outcome-ok 8 1 }T
 T{ lu lu 20 lf-level-compare lf-lcmp-fuel @ -> outcome-ok 18 }T
 \ Undecided keeps the fuel only in keeping mode; failures leave none.
 T{ lu lv 20 lf-level-compare lf-lcmp-fuel @ -> outcome-unknown 0 }T

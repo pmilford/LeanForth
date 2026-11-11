@@ -801,7 +801,17 @@ design aims at each:
 5. **Avoiding re-instantiation.** The unfolding cache keyed by the
    interned constant node (Lean's `m_unfold`) and the level-substitution
    memo keyed by (node, level list) answer repeated unfoldings of the same
-   constant at the same levels.
+   constant at the same levels. Note (2026-11-10, step S0 of the
+   compact-store plan, plan task 6.5.5; [kernel] review pending): one
+   level substitution (`mixed-level-substitute.fs`, `level-substitute.fs`)
+   and one level normalization (`level-normalize.fs`) no longer cost the
+   whole store per call (68% of the check time on a 1M-line `Init`
+   prefix): a call marks what it reaches with a new stamp instead of
+   erasing a column, and builds only the reached nodes, sorted, so in the
+   same order as before. The result, which must equal Lean's
+   `instantiate_lparams` (`instantiate.cpp`), every verdict, every fuel
+   count and the trial digests are unchanged; the memo itself is still to
+   come.
 6. **Measuring.** Plan task 4.2.7 reports time per distinct node and cache
    hit rates on the phase-4 corpus next to Lean's 3.0–3.3 µs per distinct
    node (`TimedReplay.lean`, same machine); the owner's goal is one-thread
