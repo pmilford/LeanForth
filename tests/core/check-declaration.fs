@@ -512,8 +512,9 @@ fc-decl check thm safe wrong 0 TYPE P S z P S z P V 1 V 2 VALUE L S z L S z L V 
 T{ 700 swept -> outcome-rejected true true }T
 \ CLI2's case (tests/cli/unfold.lean): Implies A A against A → A needs
 \ Implies unfolded by lazy delta reduction: accepted, as Lean does, from
-\ 131, the fuel the whole check takes since plan task 4.2.7 (Lean's
-\ caches and cached node data; 138 since plan task 4.2.2d), and at every
+\ 114, the fuel the whole check takes since agent EX's audits check each
+\ shared node once (131 since plan task 4.2.7, Lean's caches and cached
+\ node data; 138 since plan task 4.2.2d), and at every
 \ fuel below exhausted (or unknown for Implies itself out of fuel). Before,
 \ it was unknown: K1, then the interim guard of review rvU4 B1 (diagnostic
 \ 64); and at every fuel from 151 to 280 unknown, code 30, before 4.2.2c,
@@ -521,7 +522,7 @@ T{ 700 swept -> outcome-rejected true true }T
 fc-case sweep-unfolding
 fc-decl before def safe Implies 0 TYPE P S z P S z S z VALUE L S z L S z P V 1 V 1
 fc-decl check thm safe impliesSelf 0 TYPE P S z A A C Implies 0 V 0 V 0 VALUE L S z L V 0 V 0
-T{ 400 sweep -> outcome-ok 131 true }T
+T{ 400 sweep -> outcome-ok 114 true }T
 
 cases-done
 bye

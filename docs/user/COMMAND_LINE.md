@@ -515,11 +515,11 @@ accepted: 6 (experimental, not independently audited); axioms: none
 resources:
   time (s)     wall      cpu
   input: 6 declarations, 46 term nodes, 3 levels, 5 constant references, 31 names
-  fuel: 1039 steps in all, at most 2000000 per declaration
+  fuel: 979 steps in all, at most 2000000 per declaration
   most fuel used:
-        496 Two.cases (accepted)
-        336 Two (accepted)
-        207 Two.swap (accepted)
+        472 Two.cases (accepted)
+        320 Two (accepted)
+        187 Two.swap (accepted)
 ```
 
 **Fuel**, a check's unit of work, is read from the checker's own counters
@@ -547,7 +547,7 @@ member is cut off:
 
 ```console
 $ bin/leanforth check --json tests/cli/unfold.ndjson | sed "s/,\"measured\":.*/}/"; echo "exit status ${PIPESTATUS[0]}"
-{"schema":"leanforth-check-report","schemaVersion":"0.1","export":"tests/cli/unfold.ndjson","manifest":"checked","label":"experimental, not independently audited","settings":{"fuel":2000000,"dependencyPool":65536,"strictAxioms":false},"read":{"outcome":"ok","phase":null,"line":null,"field":null,"reason":null,"at":null},"run":"ok","stopped":false,"declarations":[{"index":0,"name":"Implies","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":77},{"index":1,"name":"impliesSelf","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":131}],"counts":{"declarations":2,"accepted":2,"rejected":0,"unknown":0,"unsupported":0,"invalid":0,"exhausted":0,"full":0,"notChecked":0,"notProved":0},"fuel":{"perDeclaration":2000000,"total":208,"unknown":0,"top":[{"index":1,"name":"impliesSelf","fuel":131,"verdict":"accepted"},{"index":0,"name":"Implies","fuel":77,"verdict":"accepted"}]},"input":{"declarations":2,"terms":14,"levels":1,"references":1,"names":10},"exitStatus":0}
+{"schema":"leanforth-check-report","schemaVersion":"0.1","export":"tests/cli/unfold.ndjson","manifest":"checked","label":"experimental, not independently audited","settings":{"fuel":2000000,"dependencyPool":65536,"strictAxioms":false},"read":{"outcome":"ok","phase":null,"line":null,"field":null,"reason":null,"at":null},"run":"ok","stopped":false,"declarations":[{"index":0,"name":"Implies","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":71},{"index":1,"name":"impliesSelf","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":114}],"counts":{"declarations":2,"accepted":2,"rejected":0,"unknown":0,"unsupported":0,"invalid":0,"exhausted":0,"full":0,"notChecked":0,"notProved":0},"fuel":{"perDeclaration":2000000,"total":185,"unknown":0,"top":[{"index":1,"name":"impliesSelf","fuel":114,"verdict":"accepted"},{"index":0,"name":"Implies","fuel":71,"verdict":"accepted"}]},"input":{"declarations":2,"terms":14,"levels":1,"references":1,"names":10},"exitStatus":0}
 exit status 0
 ```
 

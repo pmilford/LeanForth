@@ -72,7 +72,8 @@ T{ 62 lf-cterm-stamp-cell @ -> 0 }T
 T{ rindex @ rid @ lf-cterm-new -> false }T
 lf-level-reset
 T{ 63 cid @ 10 lf-cterm-check -> outcome-invalid }T
-\ A shared constant is visited twice; each visit also checks its level.
+\ A shared constant is visited twice but checked once, with its level:
+\ the second visit costs its own unit only (the marks).
 : fresh ( -- )
   lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
   lf-ssession-begin 0= abort" session"
@@ -82,8 +83,8 @@ T{ 63 cid @ 10 lf-cterm-check -> outcome-invalid }T
   0 rid @ lf-cterm-new 0= abort" const" cid ! drop ;
 fresh
 0 cid @ 0 cid @ lf-hterm-app drop aid ! drop
-T{ 1 aid @ 4 lf-cterm-check -> outcome-exhausted }T
-T{ 1 aid @ 5 lf-cterm-check -> outcome-ok }T
+T{ 1 aid @ 3 lf-cterm-check -> outcome-exhausted }T
+T{ 1 aid @ 4 lf-cterm-check -> outcome-ok }T
 \ Unscoped parameter rejected whether it occurs in a Sort or a cref.
 : param-fixture ( -- )
   42 lf-hlevel-param 0= abort" param" args cell+ ! 1 args !
@@ -129,9 +130,11 @@ T{ 0 cid @ 10 lf-cterm-check -> outcome-invalid }T
 lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
 T{ lf-ssession-begin -> true }T
 setup
-T{ 5 pid @ 100 lf-cterm-check lf-cterm-fuel @ -> outcome-ok 90 }T
-T{ 5 pid @ 10 lf-cterm-check lf-cterm-fuel @ -> outcome-ok 0 }T
-T{ 5 pid @ 9 lf-cterm-check lf-cterm-fuel @ -> outcome-exhausted 0 }T
+\ (The Sort shared by the Pi's and the lambda's domain is checked once:
+\ its second visit costs one unit, its level none.)
+T{ 5 pid @ 100 lf-cterm-check lf-cterm-fuel @ -> outcome-ok 91 }T
+T{ 5 pid @ 9 lf-cterm-check lf-cterm-fuel @ -> outcome-ok 0 }T
+T{ 5 pid @ 8 lf-cterm-check lf-cterm-fuel @ -> outcome-exhausted 0 }T
 T{ 5 pid @ 1+ 7 lf-cterm-check lf-cterm-fuel @ -> outcome-invalid 7 }T
 T{ 5 pid @ -1 lf-cterm-check lf-cterm-fuel @ -> outcome-invalid 7 }T
 T{ 5 pid @ 100 ' lf-cterm-check rs-checked -> outcome-ok }T

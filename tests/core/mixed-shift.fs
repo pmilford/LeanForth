@@ -79,11 +79,12 @@ T{ 8 lf-term-serial @ lf-hterm-valid? -> true }T
 T{ 3 lf-term-serial @ 0 lf-mshift-max 100 lf-mixed-shift -> -1 0 outcome-invalid }T
 T{ 7 lf-term-identities 7 cells + @ 0 lf-mshift-max 100 lf-mixed-shift -> -1 0 outcome-full }T
 T{ lf-term-count @ -> 9 }T
-\ Shared constant occurrences each consume audit and traversal fuel.
+\ Shared constant occurrences each consume audit and traversal fuel; the
+\ audit checks the constant's level once (constant-term-boundary's marks).
 setup
 T{ 0 0 lf-term-pi -> 7 true }T
-T{ 7 lf-term-serial @ 0 1 7 lf-mixed-shift -> -1 0 outcome-exhausted }T
-T{ 7 lf-term-serial @ 0 1 8 lf-mixed-shift -> 8 lf-term-serial @ outcome-ok }T
+T{ 7 lf-term-serial @ 0 1 6 lf-mixed-shift -> -1 0 outcome-exhausted }T
+T{ 7 lf-term-serial @ 0 1 7 lf-mixed-shift -> 8 lf-term-serial @ outcome-ok }T
 T{ 8 lf-term-read -> lf-tag-pi 0 0 true }T
 \ A malformed leaf fails before allocation.
 1 3 lf-term-slot 2 cells + !

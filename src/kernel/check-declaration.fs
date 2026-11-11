@@ -56,7 +56,8 @@
 \ State: one record, lf-check-state (the budget, the fuel left in the
 \ audit, the step reached, the declaration checked and the last result),
 \ and one walk record, lf-check-walker (the U2 audit), both members of the
-\ checker context (lib/context.fs). Inference runs on mixed-infer's state.
+\ checker context (lib/context.fs); its marks are constant-term-boundary.fs's.
+\ Inference runs on mixed-infer's state.
 
 require ../lib/lib.fs
 require ../core/constant-term-scope.fs
@@ -125,19 +126,24 @@ lf-walk-room context-walk: lf-check-walker
 
 \ U2: no leaf of an unsupported form reachable from a root, each visit one
 \ unit of the audit's fuel; recorded with the form and the node. Any other
-\ leaf passes here, for V1 to judge.
+\ leaf passes here, for V1 to judge. Each node is looked at once, however
+\ many paths reach it (constant-term-boundary.fs's marks, as Lean reads
+\ data each node keeps): a node reached again costs its visit's unit only.
 : lf-check-form ( first second walk -- outcome )
   nip walk-node @ lf-check-site lf-diag-unsupported-form lf-diag-note
   outcome-unsupported ;
 : lf-check-forms-dispatch ( first second walk tag -- outcome )
   dup lf-term-binary-tag? if drop walk-children exit then
   lf-tag-unsupported = if lf-check-form else drop 2drop outcome-ok then ;
+: lf-check-forms-once ( first second walk tag -- outcome )
+  ['] lf-check-forms-dispatch lf-walk-once ;
 : lf-check-forms-visit ( walk -- outcome )
-  lf-terms ['] lf-check-forms-dispatch walk-visit ;
+  lf-terms ['] lf-check-forms-once walk-visit ;
 : lf-check-walked ( outcome -- outcome )
   lf-check-walker walk-fuel @ lf-check-left ! lf-check-walker lf-check-site lf-diag-walk ;
 : lf-check-forms ( root -- outcome )
   lf-check-left @ lf-check-walker walk-budget 0= if drop outcome-invalid exit then
+  lf-check-walker lf-walk-marking
   ['] lf-check-forms-visit lf-check-walker walk-run lf-check-walked ;
 
 \ V1: a live root whose graph is well formed, in the session's level

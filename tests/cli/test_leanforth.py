@@ -88,6 +88,46 @@ EMPTY_BLOCK = "tests/core/check-block-cases/names.empty-block.ndjson"
 # recursor, which LeanForth does not port yet (diagnostic 81; closed by a
 # follow-up of plan task 5.2.1b, tests/core/inductive-table.py).
 UNKNOWN = "tests/core/check-block-cases/after.list-left-out-then-lookup-during-param-block.ndjson"
+# Proofs whose terms share subterms along 2^40 paths (tests/cli/sharing.lean).
+SHARING = "tests/cli/sharing.ndjson"
+
+
+def shared_twins(text):
+    """sharing.ndjson with sharedAnd and sharedBeta made the wrong twins that
+    sharing.lean shows Lean's kernel rejects (appTypeMismatch), and without
+    the theorem that uses them: in sharedAnd the innermost And.intro gets P
+    for both proofs h, in sharedBeta q 0 is True instead of h."""
+    records = [json.loads(line) for line in text.splitlines()]
+    exprs = {r["ie"]: r for r in records if "ie" in r}
+    names = {r["in"]: r["str"]["str"] for r in records if "str" in r and "in" in r}
+    values = {names.get(d["thm"]["name"]): d["thm"]["value"] for d in records if "thm" in d}
+
+    def body(e, binders):
+        for _ in range(binders):
+            e = exprs[e]["lam"]["body"]
+        return e
+
+    def args(e):
+        """The application records of e's spine, outermost first."""
+        spine = []
+        while "app" in exprs[e]:
+            spine.append(e)
+            e = exprs[e]["app"]["fn"]
+        return spine
+    level = body(values["sharedAnd"], 2)      # And.intro t t q q, 40 times over
+    while "bvar" not in exprs[exprs[args(level)[0]]["app"]["arg"]]:
+        level = exprs[args(level)[0]]["app"]["arg"]
+    spine = args(level)                       # And.intro P P h h
+    p = exprs[spine[3]]["app"]["arg"]
+    for e in spine[:2]:
+        exprs[e]["app"]["arg"] = p
+    level = body(values["sharedBeta"], 1)     # (fun y : True => q k) (q k), 10 times
+    while "bvar" not in exprs[exprs[level]["app"]["arg"]]:
+        level = exprs[level]["app"]["arg"]
+    lam = exprs[exprs[level]["app"]["fn"]]["lam"]
+    lam["body"] = exprs[level]["app"]["arg"] = lam["type"]
+    kept = [r for r in records if "thm" not in r or names.get(r["thm"]["name"]) != "sharing"]
+    return "".join(json.dumps(r, ensure_ascii=False, separators=(",", ":")) + "\n" for r in kept)
 
 
 def accepted(n, axioms="none"):
@@ -178,6 +218,34 @@ class ExitCodes(unittest.TestCase):
                      "  rejected: an inductive block without types; diagnostic 78 at check-block "
                      "lf-block-check: 0 0",
                      "1 declaration: 1 rejected"])
+
+    def test_1_shared_terms(self):
+        """Terms shared along 2^40 paths (tests/cli/sharing.lean): Lean's
+        verdicts, accepted, and on the wrong twins rejected, as Lean's
+        kernel rejects them; each node is audited, opened and compared
+        once, so the fuel stays small (it ran out at 2,000,000 before,
+        agent EX, 2026-11-10)."""
+        self.expect(["check", SHARING], 0,
+                    [f"{name}: {LABEL}" for name in
+                     ["And", "And.intro", "And.rec", "sharedAnd", "True", "True.intro",
+                      "True.rec", "sharedBeta", "trivial", "sharing"]]
+                    + ["10 declarations: 10 accepted", accepted(10)])
+        status, out, _ = run("check", "--json", SHARING)
+        fuel = {d["name"]: d["fuel"] for d in json.loads(out)["declarations"]}
+        self.assertLess(max(fuel.values()), 100000, fuel)
+        mismatch = ("  rejected: argument type mismatch (D1-D5); diagnostic 59 at mixed-infer "
+                    "lf-mixed-infer: 0 0")
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "twins.ndjson"
+            path.write_text(shared_twins((ROOT / SHARING).read_text(encoding="utf-8")),
+                            encoding="utf-8")
+            self.expect(["check", "--no-manifest", str(path)], 1,
+                        [NO_MANIFEST, *[f"{name}: {LABEL}" for name in
+                                        ["And", "And.intro", "And.rec"]],
+                         "sharedAnd: rejected", mismatch,
+                         *[f"{name}: {LABEL}" for name in ["True", "True.intro", "True.rec"]],
+                         "sharedBeta: rejected", mismatch, f"trivial: {LABEL}",
+                         "9 declarations: 7 accepted, 2 rejected", accepted(7)])
 
     def test_0_not_proved(self):
         """An axiom (plan task 5.3.1): Lean's verdict, accepted, marked NOT
@@ -1217,11 +1285,11 @@ class Resources(unittest.TestCase):
         self.assertEqual(rest[6], "  engine: " + os.path.basename(GFORTH))
         self.assertEqual(rest[7:], [
             "  input: 6 declarations, 46 term nodes, 3 levels, 5 constant references, 31 names",
-            "  fuel: 1039 steps in all, at most 2000000 per declaration",
+            "  fuel: 979 steps in all, at most 2000000 per declaration",
             "  most fuel used:",
-            "        496 Two.cases (accepted)",
-            "        336 Two (accepted)",
-            "        207 Two.swap (accepted)"])
+            "        472 Two.cases (accepted)",
+            "        320 Two (accepted)",
+            "        187 Two.swap (accepted)"])
 
     def test_stable_but_for_time_and_memory(self):
         def steady(out):

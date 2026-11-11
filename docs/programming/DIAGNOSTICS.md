@@ -215,6 +215,18 @@ lf-mixed-shift`, `mixed-instantiate lf-mixed-instantiate` and `mixed-beta
 lf-mixed-beta`. A failure some check inside a walk or pass recorded first
 is kept.
 
+Code 1 at `check-declaration lf-check-declaration` (the U2 audit),
+`constant-term-boundary lf-cterm-check`, `constant-term-scope
+lf-constant-term-scope` or `mixed-open lf-instantiate` meant, before
+2026-11-10 (agent EX), a term shared along very many paths: those walks and
+passes visited each path, so an `omega` proof of a few thousand nodes
+(2^40 paths in `tests/cli/sharing.lean`) ran out of fuel. Each now checks
+or rebuilds a node once (per depth, per offset), as Lean reads the data a
+node keeps; a repeated visit costs its own unit only. Code 1 there now
+means a term that is large in nodes, or, inside inference, the remaining
+quadratic work of plan task 6.5.5 (closing each argument, auditing each
+comparison).
+
 ## Evidence (2026-11-02)
 
 - `tests/core/diagnostics.fs` (in `make test`, Gforth 1.0 and 0.7.3): the

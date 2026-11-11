@@ -411,6 +411,12 @@ lf-tag-str lf-skel-level < and
   over lf-open-abstract? if nip 1 and 0= exit then
   2/ swap frame-context @ > 0= ;
 ' lf-co-unchanged? is lf-open-unchanged?
+\ mixed-infer.fs's scan of how many of the scope's variables a term
+\ names: its loose_bvar_range (expr.cpp 102-103).
+: lf-ci-range ( node -- m true | false )
+  lf-caches-on? 0= if drop false exit then
+  lf-term-facts if nip 2/ true else false then ;
+' lf-ci-range is lf-minfer-range
 : lf-cs-same? ( t s -- flag )
   lf-caches-on? 0= if 2drop false exit then
   lf-term-facts 0= if drop false exit then drop
