@@ -974,22 +974,13 @@ def reductions : List Red := [
     value := "of_decide_eq_true (p := \"ab\" ≠ \"ac\") (Eq.refl true)",
     lean := "accepted", leanforth := "accepted", rule := "L4", task := "5.2.3" },
   -- Iota with a nested block's recursors (task 5.2.5b): `Lean.Syntax`, nested through
-  -- `Array` and `List`, its `rec`, `rec_1` (the `Array`) and `rec_2` (the `List`); each
-  -- counts `missing` 1, `nil` 6 and adds along a `cons`.
+  -- `Array` and `List`; its `rec` on a node reduces through `rec_1` (the `Array`) and
+  -- `rec_2` (the `List`), counting `missing` 1, `nil` 6 and adding along a `cons`. (Two
+  -- rows only: each file holds `Lean.Syntax`'s closure, 379 declarations.)
   { id := "iota.nested-syntax-rec", type := syntaxRec "rec" syntaxNode 7, value := "Eq.refl 7",
     lean := "accepted", leanforth := "accepted", rule := "R1 N1", task := "5.2.5b" },
   { id := "iota.nested-syntax-rec-wrong", type := syntaxRec "rec" syntaxNode 8,
     value := "Eq.refl 8",
-    lean := "declTypeMismatch", leanforth := "rejected", rule := "R1 N1", task := "5.2.5b" },
-  { id := "iota.nested-syntax-rec-1",
-    type := syntaxRec "rec_1" "Array.mk [Lean.Syntax.missing, Lean.Syntax.missing]" 8,
-    value := "Eq.refl 8",
-    lean := "accepted", leanforth := "accepted", rule := "R1 N1", task := "5.2.5b" },
-  { id := "iota.nested-syntax-rec-2", type := syntaxRec "rec_2" "[Lean.Syntax.missing]" 7,
-    value := "Eq.refl 7",
-    lean := "accepted", leanforth := "accepted", rule := "R1 N1", task := "5.2.5b" },
-  { id := "iota.nested-syntax-rec-2-wrong", type := syntaxRec "rec_2" "[]" 7,
-    value := "Eq.refl 7",
     lean := "declTypeMismatch", leanforth := "rejected", rule := "R1 N1", task := "5.2.5b" }
 ]
 

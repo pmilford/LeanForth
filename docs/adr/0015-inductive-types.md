@@ -1669,14 +1669,15 @@ fuel; every table grows in the heap.
     keeps n), so a later declaration of such a name is rejected.
 
 **Evidence** (2026-11-10, Gforth 1.0.0, Lean 4.35.0): the inductive table
-has 31 new Lean-checked rows, every one with Lean's verdict (`nested.*`:
+has 28 new Lean-checked rows, every one with Lean's verdict (`nested.*`:
 `Array`, `List (List _)`, `Option`, `Prod` with two parameters, a block
 parameter, a universe, under a binder, inside a mutual block, `Thunk`
 (reflexive only as the auxiliary block), a parameter the auxiliary block
 drops, typed and ill-typed (`funExpected`, only the typing of the
 occurrences sees it), `_nested.List_1` and `_nested.List_1.rec` declared
 before, a constructor named `rec_1`, `Array (Bad → Nat)`;
-`iota.nested-syntax-*`: iota with `Lean.Syntax.rec`, `rec_1`, `rec_2`;
+`iota.nested-syntax-rec` and its wrong twin: iota with `Lean.Syntax.rec`
+through `rec_1` and `rec_2`, as `Init` exports them;
 `replay-nested.*`: Lean's replay of `Tree` with `Tree.rec_1` mutated);
 `make test-check-block` checks them with their diagnostics and steps,
 and 14 new planted faults (`nest-*`) are caught;

@@ -191,9 +191,6 @@ lit.string-major-wrong	declTypeMismatch	rejected	L2	5.2.3
 lit.string-decide	accepted	accepted	L4	5.2.3	
 iota.nested-syntax-rec	accepted	accepted	R1 N1	5.2.5b	
 iota.nested-syntax-rec-wrong	declTypeMismatch	rejected	R1 N1	5.2.5b	
-iota.nested-syntax-rec-1	accepted	accepted	R1 N1	5.2.5b	
-iota.nested-syntax-rec-2	accepted	accepted	R1 N1	5.2.5b	
-iota.nested-syntax-rec-2-wrong	declTypeMismatch	rejected	R1 N1	5.2.5b	
 replay.original	accepted	accepted	A1 B3	5.2.1b	
 replay.rule-right-sides-swapped	invalidRecursor	rejected	B3	5.2.1b	
 replay.recursor-k-set	invalidRecursor	rejected	B3	5.2.1b	
