@@ -119,8 +119,10 @@
 \ get_app_rev_args gives them, and a copy of a constant's universe
 \ arguments; each is filled and used within one step, never across a
 \ child visit. One paired walk record, lf-whnf-scan, for
-\ has_loose_bvars. One context cell, lf-whnf-cheap, the cheap_proj mode
-\ (above; lf-whnf-reset clears it after a THROW). Shared and read-only:
+\ has_loose_bvars. One context record, lf-whnf-state: the cheap_proj mode
+\ (lf-whnf-cheap, above; lf-whnf-reset clears it after a THROW) and the
+\ count of open terms typed under the scope (lf-whnf-scope-use, below;
+\ only its changes are read). Shared and read-only:
 \ the table of Lean's binary Nat operations (K7), and the hook, deferred
 \ only so that plan task 5.2.1b can set it, once, while loading.
 
@@ -146,7 +148,18 @@ require ./mixed-rebuild.fs
 
 1 cells context-slab: lf-whnf-args     \ an application's arguments, last first
 2 cells context-slab: lf-whnf-pairs    \ a constant's universe arguments, copied
-1 cells context-record: lf-whnf-cheap  \ true: whnf_core runs with cheap_proj
+begin-structure /lf-whnfrec
+  field: lf-whnfrec-cheap    \ true: whnf_core runs with cheap_proj
+  field: lf-whnfrec-scoped   \ open terms typed under the scope so far
+end-structure
+/lf-whnfrec context-record: lf-whnf-state
+: lf-whnf-cheap ( -- addr ) lf-whnf-state lf-whnfrec-cheap ;
+\ The iota hook counts each term with loose bound variables it types
+\ under the inference job's scope (iota.fs: K and structure eta on a
+\ scoped major premise): a result reached so depends on the scope, which
+\ an open key does not name, so kernel/caches.fs keeps none for it.
+: lf-whnf-scope-uses ( -- n ) lf-whnf-state lf-whnfrec-scoped @ ;
+: lf-whnf-scope-use ( -- ) 1 lf-whnf-state lf-whnfrec-scoped +! ;
 
 : lf-whnf-site ( -- site ) c" whnf lf-whnf" ;
 : lf-whnf-note ( n1 n2 code -- ) lf-whnf-site swap lf-diag-note ;

@@ -71,8 +71,12 @@
 \ context only grows. A block's recursor builder (inductive-recursor.fs)
 \ runs whnf outside any job, on the last job's tables: its terms name no
 \ free variable, so no key they meet depends on that context (ADR 0014
-\ Amendment 1, review rvCACHE L4). While the caches are on, inference and comparison
-\ keep their scratch until the job ends (mixed-infer.fs's discard and
+\ Amendment 1, review rvCACHE L4). An open term's whnf depends on no
+\ context either, except where iota's K or structure eta types an open
+\ major premise under the inference job's scope (iota.fs; ADR 0015's
+\ amendment by agent IO): whnf.fs counts each, and no whnf or whnf_core result
+\ reached through one is kept for an open key (lf-cache-restore). While
+\ the caches are on, inference and comparison keep their scratch until the job ends (mixed-infer.fs's discard and
 \ mixed-convert.fs's restore do nothing) where the stores have ample room
 \ (below), so entries stay useful, as Lean's live for the whole check.
 \ Only definite results are kept: a pass that ends unknown, exhausted,
@@ -383,27 +387,39 @@ create lf-cache-hooks /htab-hooks allot
 : lf-cwc-cacheable? ( node -- flag )
   lf-caches-on? 0= if drop false exit then
   dup lf-term-valid? if lf-cwc-plain? 0= else drop false then ;
+\ The key and the count of open terms typed under the scope (whnf.fs,
+\ lf-whnf-scope-uses) are saved across the pass. A key with loose bound
+\ variables keeps no result whose pass typed one (iota.fs's K and
+\ structure eta on a major premise read under the inference job's scope):
+\ the result is the scope's, which the key does not name, and the same
+\ key read under another scope may reduce otherwise (Lean keys closed
+\ terms, whose free variables name their local).
+: lf-cache-save ( node frames -- node frames )
+  2dup frame-save lf-whnf-scope-uses over frame-save ;
+: lf-cache-open? ( node -- flag ) lf-term-data@ if lf-data-loose 0<> else true then ;
+: lf-cache-restore ( frames -- node keep? )
+  dup frame-restore lf-whnf-scope-uses = swap frame-restore tuck lf-cache-open? 0= or ;
 \ whnf_core keeps a result that is not the node itself (547-549), never
 \ one of a visit with cheap_proj (547; whnf.fs), whose lookups still read.
 : lf-cwc-store ( r outcome frames -- r outcome frames 0 )
-  >r r@ frame-restore over ok? 0= lf-whnf-cheap? or if drop r> 0 exit then
+  >r r@ lf-cache-restore 0= 2 pick ok? 0= or lf-whnf-cheap? or if drop r> 0 exit then
   2 pick 2dup = if 2drop else lf-cache-whnf-core lf-cache-node! then r> 0 ;
 : lf-cwc-visit ( node frames -- ... frames next )
   over lf-cwc-cacheable? 0= if lf-wc-visit exit then
   over lf-cache-whnf-core lf-cache-node@ if lf-cache-hit exit then
-  2dup frame-save lf-cache-refund ['] lf-cwc-store ['] lf-wc-visit lf-whnf-open ;
+  lf-cache-save lf-cache-refund ['] lf-cwc-store ['] lf-wc-visit lf-whnf-open ;
 ' lf-cwc-visit is lf-wc-entry
 
 : lf-cw-cacheable? ( node -- flag )
   lf-caches-on? 0= if drop false exit then
   dup lf-term-valid? if lf-whnf-easy? 0= else drop false then ;
 : lf-cw-store ( r outcome frames -- r outcome frames 0 )
-  >r r@ frame-restore over ok?
+  >r r@ lf-cache-restore 2 pick ok? and
   if 2 pick lf-cache-whnf lf-cache-node! else drop then r> 0 ;
 : lf-cw-visit ( node frames -- ... frames next )
   over lf-cw-cacheable? 0= if lf-whnf-visit exit then
   over lf-cache-whnf lf-cache-node@ if lf-cache-hit exit then
-  2dup frame-save lf-cache-refund ['] lf-cw-store ['] lf-whnf-visit lf-whnf-open ;
+  lf-cache-save lf-cache-refund ['] lf-cw-store ['] lf-whnf-visit lf-whnf-open ;
 ' lf-cw-visit is lf-whnf-entry
 
 \ m_unfold: only for a constant with universe arguments, as Lean (573).

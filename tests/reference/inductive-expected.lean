@@ -430,6 +430,54 @@ def checks : List Block := [
     types := [⟨"T", "Type",
       [("z", "T"), ("mk", "@Bool.rec (fun _ => Type) (T → Nat) Nat Bool.true → T")]⟩],
     lean := "accepted", leanforth := "accepted", rule := "A1 P1 R1", task := "5.2.1b" },
+  -- K and structure eta on a variable of the block's own telescope, which Lean opens
+  -- as a local (mk_local_decl_for): an index on which the type's Sort reduces, or a
+  -- field whose type reduces to the type only so; stuck, typeExpected or
+  -- nonValidOccurrence (the arena's bugs/proj-of-stuck-prop and bugs/rec-missing-ih;
+  -- review rows of diagnostic 81's routes).
+  { id := "k.block-index-variable",
+    types := [⟨"T", "(h : Bool.true = Bool.true) → " ++
+      "@Eq.rec Bool Bool.true (fun _ _ => Type) Prop Bool.true h",
+      [("mk", "(h : Bool.true = Bool.true) → T h")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 T2 R2", task := "5.2.1c" },
+  { id := "k.block-index-stuck",
+    types := [⟨"T", "(h : Bool.true = Bool.false) → " ++
+      "@Eq.rec Bool Bool.true (fun _ _ => Type) Prop Bool.false h", []⟩],
+    lean := "typeExpected", leanforth := "rejected", rule := "T2 R2", task := "5.2.1c" },
+  { id := "k.mutual-index-variable",
+    types := [⟨"A", "Prop", [("a", "A")]⟩, ⟨"B", "(h : Bool.true = Bool.true) → " ++
+      "@Eq.rec Bool Bool.true (fun _ _ => Type) Prop Bool.true h", []⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 T2 R2", task := "5.2.1c" },
+  { id := "k.mutual-index-stuck",
+    types := [⟨"A", "Prop", [("a", "A")]⟩, ⟨"B", "(h : Bool.true = Bool.false) → " ++
+      "@Eq.rec Bool Bool.true (fun _ _ => Type) Prop Bool.false h", []⟩],
+    lean := "typeExpected", leanforth := "rejected", rule := "T2 R2", task := "5.2.1c" },
+  { id := "k.field-variable",
+    types := [⟨"T", "Type", [("z", "T"), ("mk", "(h : Bool.true = Bool.true) → " ++
+      "@Eq.rec Bool Bool.true (fun _ _ => Type) T Bool.true h → T")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 P2 R2 G1", task := "5.2.1c" },
+  { id := "k.field-stuck",
+    types := [⟨"T", "Type", [("z", "T"), ("mk", "(h : Bool.true = Bool.false) → " ++
+      "@Eq.rec Bool Bool.true (fun _ _ => Type) T Bool.false h → T")]⟩],
+    lean := "nonValidOccurrence", leanforth := "rejected", rule := "P2 R2", task := "5.2.1c" },
+  { id := "k.field-under-binder-stuck",
+    types := [⟨"T", "Type", [("z", "T"), ("mk", "(h : Bool.true = Bool.false) → " ++
+      "(g : Bool.true = Bool.true) → " ++
+      "(Nat → @Eq.rec Bool Bool.true (fun _ _ => Type) T Bool.false h) → T")]⟩],
+    lean := "nonValidOccurrence", leanforth := "rejected", rule := "P2 R2", task := "5.2.1c" },
+  { id := "k.field-after-binder-variable",
+    types := [⟨"T", "Type", [("z", "T"), ("mk", "(h : Bool.true = Bool.true) → " ++
+      "(Nat → @Eq.rec Bool Bool.true (fun _ _ => Type) T Bool.true h) → " ++
+      "@Eq.rec Bool Bool.true (fun _ _ => Type) T Bool.true h → T")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 P2 R2 G1", task := "5.2.1c" },
+  { id := "eta.block-index-variable",
+    types := [⟨"T", "(p : Bool × Bool) → @Prod.rec Bool Bool (fun _ => Type) (fun _ _ => Prop) p",
+      [("mk", "(p : Bool × Bool) → T p")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 T2 R3", task := "5.2.2" },
+  { id := "eta.block-index-prop-stuck",
+    types := [⟨"T", "(a b : Prop) → (h : a ∧ b) → " ++
+      "@And.rec a b (fun _ => Type) (fun _ _ => Prop) h", []⟩],
+    lean := "typeExpected", leanforth := "rejected", rule := "T2 R3", task := "5.2.2" },
   { id := "pos.non-valid-index-of-other",
     types := [⟨"Bad", "Type", [("z", "Bad"), ("mk", "@HEq Type Nat Type Bad → Bad")]⟩],
     lean := "nonValidOccurrence", leanforth := "rejected", rule := "P2", task := "5.2.1b" },

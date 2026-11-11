@@ -10,7 +10,8 @@
      or skipped (composition as an unsafe definition, plan task 5.2.7);
    1 rejected (composition with the wrong argument; the wrong twins of
      sharing.ndjson and sharing-universe.ndjson, which Lean's kernel rejects
-     too);
+     too; the lean-kernel-arena's four proofs of False in tests/cli/bugs/,
+     each rejected where Lean 4.35.0 rejects it);
    2 unsupported (an axiom; a literal; with --record an inductive type,
      refused while reading) and unknown (UNKNOWN, a block whose check needs
      a recursor reduction the checker does not port yet; tests/cli/
@@ -355,6 +356,32 @@ class ExitCodes(unittest.TestCase):
         self.assertEqual(status, 1)
         self.assertIn("IE.unsafeLoop: skipped", lines)
         self.assertIn("IE.fromUnsafe: rejected", lines)
+
+    def test_1_arena_bugs(self):
+        """Four proofs of False from the lean-kernel-arena (tests/bugs/proj-of-stuck-prop,
+        proj-of-subst-prop, rec-missing-ih, rec-of-subst-prop; their exports copied from
+        the arena's Lean 4.35.0 run into tests/cli/bugs/), which Lean 4.35.0's checker
+        rejects: rejected at the declaration Lean rejects, never unknown (diagnostic 81
+        before the follow-up of task 5.2.1b: K and structure eta on a local of a block's
+        telescope, iota.fs; is_prop's typeExpected, infer-proj.fs)."""
+        for case, first, diagnostic in [
+                ("proj-of-stuck-prop", "Native64ResultSortOwner: rejected",
+                 "  rejected: inductive type not ending in a Sort (T2); diagnostic 68 at "
+                 "check-block lf-block-check: "),
+                ("proj-of-subst-prop", "PR14806Subst.observe: rejected",
+                 "  rejected: type expected (S1); diagnostic 55 at infer-proj lf-infer-proj: "),
+                ("rec-missing-ih", "Native64TwoHashOwner: rejected",
+                 "  rejected: non-valid occurrence of the type (P2); diagnostic 80 at "
+                 "check-block lf-block-check: 2 2"),
+                ("rec-of-subst-prop", "Issue.forallFalse: rejected",
+                 "  rejected: type expected (S1); diagnostic 55 at infer-proj lf-infer-proj: ")]:
+            status, out, _ = run("check", "--no-manifest", f"tests/cli/bugs/{case}.ndjson")
+            lines = out.splitlines()
+            self.assertEqual(status, 1, case)
+            self.assertEqual([l for l in lines if l.endswith(": unknown")], [], case)
+            at = lines.index(first)
+            self.assertTrue(lines[at + 1].startswith(diagnostic), (case, lines[at + 1]))
+            self.assertEqual([l for l in lines[:at] if l.endswith(": rejected")], [], case)
 
     def test_2_unsupported_and_unknown(self):
         # A proof that is a string literal, typed String, which the file does not
@@ -1545,7 +1572,11 @@ def pinned_digest(*args):
 # and diagnostic, the counts and the exit status; agent S5B, 2026-11-11).
 # nested.ndjson is re-pinned after merging main 5a3b68d, whose parallel
 # checking (step S7) gave List.brecOn.go 2,669 fuel instead of 2,656 on
-# main itself; the rest of its report is unchanged.
+# main itself; the rest of its report is unchanged. Those marked IO are
+# re-pinned after the follow-up of task 5.2.1b (agent IO, 2026-11-11): a
+# block's check opens each binder of its type's telescope on the inference
+# scope, as Lean does, for 1 or 2 more fuel per block (nested.ndjson: 7
+# blocks, +11); every verdict and diagnostic is unchanged.
 PINNED = {
     "tests/reference/composition.ndjson": "53507f9eebd13ee8",
     "tests/reference/constant-fixture.ndjson": "1ae9a75744aa7830",
@@ -1560,16 +1591,16 @@ PINNED = {
     "--no-manifest README.md": "32fd051f20a34f99",
     "tests/cli/no-such.ndjson": "a6ff9a5e43c01e00",
     "--no-manifest tests/cli/composition-huge-number.ndjson": "610a34eed3aa4777",
-    "--no-manifest tests/core/reexport/kinds.ndjson": "da50c52cd51dc76f",
+    "--no-manifest tests/core/reexport/kinds.ndjson": "079a8fa59adb3aa3",  # IO
     f"--fuel 0 {FIXTURE}": "7ab8e9fa317ce0a5",
     f"--no-manifest {EMPTY_BLOCK}": "09614e87bede9e1b",
-    "tests/cli/sharing.ndjson": "68363e141b2e8738",
-    "tests/cli/sharing-universe.ndjson": "97cc7be21885e626",
-    "tests/cli/nested.ndjson": "f3c312b3d9c8d6de",  # re-pinned, see above
+    "tests/cli/sharing.ndjson": "aae5c66549dbee32",  # re-pinned (IO)
+    "tests/cli/sharing-universe.ndjson": "3b5cfb8c359e5cf6",  # re-pinned (IO)
+    "tests/cli/nested.ndjson": "37c23b3975e6884c",  # re-pinned twice, see above
     "tests/cli/irrelevance.ndjson": "7e969559755d7151",
     f"--no-manifest {CASES}/composition-literal.ndjson": "fc105a0a3fbe0c49",
     "--no-manifest tests/core/check-block-cases/primitive.string-opaque-expansion.ndjson":
-        "b00d24d1acac23df",
+        "0837e252defd9a74",  # re-pinned (IO)
 }
 
 

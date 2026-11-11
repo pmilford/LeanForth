@@ -497,12 +497,15 @@ defer lf-ap-arg ( frames -- ... frames next )
   dup lf-dq-typeish? if drop true exit then
   dup lf-dq-fvar? if lf-fvar-type lf-dq-sort? else drop false then ;
 : lf-dq-typed ( node frames -- type outcome ) lf-dq-typer @ execute ;
-\ ensure_sort (62-70) of a type's type: its whnf must be a Sort (always,
-\ for the well-typed terms compared); its level.
+\ ensure_sort (62-70) of a type's type, as is_prop calls it: its whnf a
+\ Sort, its level; else Lean's typeExpected, thrown out of the comparison
+\ (a well-typed term's type may have a type whose whnf is stuck, as in
+\ Lean's tests bugs/*-subst-prop): rejected, diagnostic 55 (follow-up
+\ of task 5.2.1b).
 : lf-dq-sorted ( type frames -- level outcome )
   lf-whnf-on ok-then? 0= if no-result exit then
   dup lf-dq-sort? if lf-term-first@ outcome-ok exit then
-  0 lf-dq-site lf-diag-not-sort lf-diag-note -1 outcome-unknown ;
+  0 lf-dq-site lf-diag-type-expected lf-diag! -1 outcome-rejected ;
 : lf-dq-zero? ( level frames -- flag outcome )
   >r r@ frame-fuel @ lf-level-zero? r> lf-lvalue-fuel lf-dq-repay ;
 \ is_prop (383-389) of a type: its type, put in whnf, a Sort whose level

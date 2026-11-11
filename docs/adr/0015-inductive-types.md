@@ -1853,6 +1853,54 @@ and through the mutual block `A`/`B`, `List (α × Q α)`, `List R` with
 pinned Lean accepts it, its export is reproduced byte for byte, and
 LeanForth and the official checker accept all 107 declarations.
 
+## Amendment (follow-up of task 5.2.1b: diagnostic 81's routes; agent IO, 2026-11-11)
+
+Experimental [kernel] code, **not through its gate**. No new rule: three
+places now do what Lean 4.35.0 does where LeanForth answered *unknown*.
+
+- **Binders opened (R2, R3).** Lean's `check_inductive_types` (268-279)
+  and `check_positivity` (444-447) open every binder they walk into as a
+  local (`mk_local_decl_for`), so `to_cnstr_when_K` and
+  `to_cnstr_when_structure` can infer a variable's type. LeanForth's
+  steps 8 and 9 read the raw telescope; step 9 already put each binder on
+  the inference job's scope, and now step 8 (also a mutual block's later
+  indices) and positivity's inner Pis do too (`lf-blk-open`; positivity's
+  leave the scope when it ends). `iota.fs` then types a major premise
+  with loose bound variables under that scope when the whnf runs on the
+  job's frames (`lf-iota-scoped?`); elsewhere -- the recursor builder,
+  which opens no binder, and rebuilds during another check's lookup --
+  it stays *unknown* as before.
+- **Caches.** The whnf of an open term now depends on the scope where K
+  or structure eta typed a variable. `whnf.fs` counts each such typing;
+  `caches.fs` keeps no whnf or whnf_core result reached through one for
+  an open key (Lean keys closed terms, whose free variables name their
+  local). Without this the builder hit positivity's entry and accepted
+  `k.field-variable` by a cache hit, not by a port (fault
+  `io-scope-use-uncounted`).
+- **is_prop's typeExpected.** Lean's `is_prop` (383-389) is
+  `ensure_sort(infer_type(e))`: a type whose type's whnf is no Sort
+  throws `typeExpected`, also in infer-only mode. LeanForth answered
+  *unknown* there; now *rejected*, diagnostic 55, in `infer_proj`
+  (`infer-proj.fs`), iota's structure eta (which borrows it) and proof
+  irrelevance (`defeq.fs`).
+- **Evidence.** Lean-compared rows `k.block-index-variable`,
+  `k.mutual-index-variable`, `eta.block-index-variable` (accepted),
+  `k.block-index-stuck`, `k.mutual-index-stuck`,
+  `eta.block-index-prop-stuck` (typeExpected), `k.field-stuck`,
+  `k.field-under-binder-stuck` (nonValidOccurrence) give Lean's verdict;
+  the lean-kernel-arena's `bugs/proj-of-stuck-prop`,
+  `bugs/proj-of-subst-prop`, `bugs/rec-missing-ih` and
+  `bugs/rec-of-subst-prop` (copied to `tests/cli/bugs/`) are rejected at
+  the declaration Lean's official checker rejects, with its exception;
+  11 new planted faults (`io-*`) and 4 re-targeted, each caught. Fuel: one or two units more per block
+  (closing the binders' domains), verdicts unchanged.
+- **Gap (Lean accepts, LeanForth unknown).** A recursive field whose type
+  reduces to the type only by K or structure eta on a variable of the
+  constructor (rows `k.field-variable`, `k.field-after-binder-variable`):
+  positivity follows Lean, the recursor builder does not open its
+  binders (Lean's `is_rec_argument`). Closed by the follow-up of task
+  5.2.1b that gives the builder the scope.
+
 ## Reproduction
 
 ```sh
