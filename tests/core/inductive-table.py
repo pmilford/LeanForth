@@ -161,8 +161,11 @@ OUTCOME = {"accepted": "ok"}
 
 
 def run_lean(lean):
+    # The Makefile's TEST_TIMEOUT bounds the whole run; this bound only stops
+    # a Lean left running without it (the table takes about 7 minutes on an
+    # idle machine, three times that on a loaded one: the cache never holds it).
     run = subprocess.run([lean, "-DwarningAsError=true", LEAN_FILE], stdin=subprocess.DEVNULL,
-                         capture_output=True, text=True, timeout=600)
+                         capture_output=True, text=True, timeout=3600)
     if run.returncode != 0:
         sys.stdout.write(run.stdout + run.stderr)
         raise SystemExit("inductive-table: Lean failed on " + LEAN_FILE)
