@@ -345,6 +345,10 @@ opaque.never-unfolds	declTypeMismatch	rejected	O1	4.2.6
 opaque.unfolds-as-definition	accepted	accepted	O1	4.2.6	
 names.reserved-nested-prefix	reservedNestedPrefix	rejected	T0	5.2.5b	
 names.reserved-nested-prefix-declared	reservedNestedPrefix	rejected	T0	5.2.1a	
+names.reserved-nested-prefix-proj	reservedNestedPrefix	rejected	T0	5.2.5b	
+names.reserved-nested-prefix-proj-twin	accepted	accepted	A1 T0 J1	5.2.5b	
+nested.def-named-rec-1	alreadyDeclared	rejected	N1 N2	5.2.5b	
+nested.def-named-rec-huge	accepted	accepted	A1 N1 N2	5.2.5b	
 names.constructor-already-declared	alreadyDeclared	rejected	N2	5.2.1a	
 proj.reduces	accepted	accepted	J1	5.2.2	
 proj.reduces-wrong	declTypeMismatch	rejected	J1	5.2.2	
@@ -420,3 +424,8 @@ unsafe.opaque-then-safe-user	unknownConstant	rejected	SK N1	5.2.7
 unsafe.inductive-not-positive	accepted	skipped	SK	5.2.7	
 unsafe.inductive-then-safe-user	unknownConstant	rejected	SK N1	5.2.7	
 unsafe.inductive-type-safe	accepted	unsupported	SK B3	5.2.7	
+unsafe.rec-name-before-block	accepted	accepted	SK N2	5.2.7	
+unsafe.rec-name-before-block-holding-it	duplicateDeclaration	rejected	SK N2	5.2.7	
+partial.rec-name-before-block	accepted	accepted	SK N2	5.2.7	
+unsafe.aux-rec-name-before-nested-block	accepted	accepted	SK N1 N2	5.2.7	
+unsafe.block-constructor-twice	duplicateDeclaration	rejected	SK N2	5.2.7	

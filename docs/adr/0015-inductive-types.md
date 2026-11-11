@@ -1593,12 +1593,14 @@ one added in a mutual block (`add_mutual`, which can; the arena's 141).
 - A skipped slot is rejected, so N1 finds no constant in it (Lean's
   "unknown constant"); N2 (`lf-env-unheld`) counts its name as taken, so a
   later declaration of that name is rejected, as the parser refuses the
-  file. The publisher marks only a rejected outcome and only when the
+  file (not a generated recursor's name the file leaves out: amendment
+  rvUNNI M1 below). The publisher marks only a rejected outcome and only when the
   input marks every member of the span unsafe or partial (re-check part
   7, else invalid) and counts a skipped slot as an N2 conflict (part 4).
 - Reports call it *skipped*, with Lean's exit status 0: the text line and
   summary, `--json` (`verdict`, `counts.skipped`, schema check-report 0.1
-  amended in place), run records (schema run-record 0.1); `print` still
+  amended in place; version 0.2 since amendment rvUNNI M2), run records
+  (schema run-record 0.1, now 0.2); `print` still
   shows the slot's outcome, *rejected*, with diagnostic 97 (a follow-up).
 
 **Evidence.** Fourteen rows of `inductive-expected.lean`, each Lean's
@@ -1780,6 +1782,73 @@ unknown, none unsupported, 17 exhausted (before: 6,488, 1,686, 1,011,
 17); 350 declarations moved from unsupported to accepted, 661 to unknown
 (each also depends on one of 23 whnf gaps, diagnostic 30), no other
 verdict changed.
+
+## Amendment (review rvUNNI; agent FX8, 2026-11-11)
+
+Experimental [kernel][format] code, **not through its gate**. The
+independent review of tasks 5.2.7 and 5.2.5b (rvUNNI, one blocking
+finding) compared LeanForth with the official checker (lean4export's
+`Export.Parse`, then `Kernel.Environment.replay`) on crafted exports.
+Each fix moves LeanForth to that checker's verdict; none adds a rule.
+
+- **B1** (blocking, a fail-open on malformed input). B0 leaves two
+  constructors of one name to C4 (step 9), which a skipped block never
+  reaches, so an all-unsafe block with such a pair was skipped and the
+  file exited 0, where the parser refuses it ("Duplicate declaration",
+  `addConst` 78–80). `lf-ind-unsafe` now rejects such a pair first
+  (code 51, the later constructor's name and the earlier's declaration),
+  for an all-unsafe block and for a mixed one; a safe block still meets
+  C4.
+- **M1.** N2 counted a skipped declaration's name as taken for every
+  name, also for `T.rec` and `T.rec_k` of a later block that leaves that
+  recursor out. That name is Lean's generated recursor, no declaration of
+  the file, so the parser's refusal does not concern it, and replay never
+  added the skipped one: the official checker accepts. `lf-blk-rec-fresh`
+  applies `lf-env-unskipped` to a generated recursor's name only when the
+  block holds a recursor of that name (`lf-env-fresh-generated`
+  otherwise).
+- **M3.** T0 now also refuses a projection whose structure's name starts
+  with `_nested` (`check_no_nested_aux`'s projection clause, 1228): the
+  translation rewrites nested occurrences to the auxiliary types, so such
+  a projection would type-check and name, once restored, a constant that
+  does not exist. Before, the block was unknown (`infer-proj.fs` declines
+  the block's own structures); this also keeps decision 24 whole.
+- **L1.** `T.rec_<digits>` is no longer read modulo 2^64: more than 19
+  digits, or a number beyond one cell, names no auxiliary recursor.
+- **L2** (known strictness, kept; plan task 5.2.7 part b). B0 runs before
+  the skip, so an all-unsafe block of a shape lean4export never writes is
+  *invalid* (exit 4) where replay skips it unread (exit 0); the importer
+  refuses a skipped declaration that names a constant absent from the file
+  (exit 4, replay 0). Both are crafted files only and fail closed; part b
+  (mixed blocks, replay's treatment of unread skipped content) closes them.
+- **L5.** A declaration a stopped run never reached reads `not checked
+  (not reached: the run stopped)`, so it cannot be taken for *skipped*.
+- **M2** ([format]; the owner's decision is pending, this is the
+  recommended form). The verdict *skipped* had changed check-report 0.1
+  and run-record 0.1 in place, so a 0.1 consumer refused every new report.
+  Reports and records are now version **0.2**
+  (`schemas/check-report-0.2.schema.json`, `run-record-0.2.schema.json`);
+  the 0.1 schemas are restored exactly as before task 5.2.7, and a report
+  or record without a skipped verdict, set back to 0.1, still validates
+  under them (tests). Replay compares a record only with one of its own
+  version, so a 0.1 record is refused as `unknown-schema`.
+
+**Evidence.** Eight new rows of `inductive-expected.lean`, each with the
+official checker's verdict: by the kernel in file order,
+`names.reserved-nested-prefix-proj` (reservedNestedPrefix) and its twin
+with `Prod` (accepted), `nested.def-named-rec-1` (alreadyDeclared) and
+`nested.def-named-rec-huge` (accepted); by replay after the parser's
+duplicate test (`fileVerdict`, as `Export.Parse` then `replay`),
+`unsafe.rec-name-before-block`, `partial.rec-name-before-block`,
+`unsafe.aux-rec-name-before-nested-block` (accepted: LeanForth accepts
+the block, the def skipped) and `unsafe.block-constructor-twice`
+(duplicateDeclaration: rejected). The official checker binary gives the
+same verdict on each of these files. `tests/cli/nested.lean` (the
+review's `RvNest.lean`): nesting through the indexed family `Vec VT n`
+and through the mutual block `A`/`B`, `List (α × Q α)`, `List R` with
+`List (List R)`, and `rfl` theorems that reduce through `VT.rec_1`;
+pinned Lean accepts it, its export is reproduced byte for byte, and
+LeanForth and the official checker accept all 107 declarations.
 
 ## Reproduction
 

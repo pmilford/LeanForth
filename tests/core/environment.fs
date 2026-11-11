@@ -1164,6 +1164,15 @@ env-free
 T{ ' syn-check ' main-maker lf-env-run -> outcome-invalid }T
 T{ lf-env-spent? -> false }T
 
+\ The k of an auxiliary recursor's name T.rec_k: 0 for a leading zero, for
+\ more than 19 digits and for a number beyond one cell, never read modulo
+\ 2^64 (review rvUNNI L1: rec_18446744073709551617 is no rec_1).
+: aux-k ( c-addr u -- k ) 0 -rot lf-name-str drop lf-env-aux-k ;
+T{ s" rec_1" aux-k s" rec_42" aux-k s" rec_01" aux-k -> 1 42 0 }T
+T{ s" rec_2147483647" aux-k -> 2147483647 }T
+T{ s" rec_18446744073709551617" aux-k s" rec_99999999999999999999" aux-k -> 0 0 }T
+T{ s" rec_340282366920938463463374607431768211457" aux-k -> 0 }T
+
 \ The identity serial: once spent, no environment can be made.
 lf-env-serial @ constant serial-now
 max-n lf-env-serial !

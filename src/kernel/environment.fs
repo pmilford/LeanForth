@@ -587,9 +587,14 @@ here lf-env-holders - 2 cells / constant lf-env-holders#
   lf-env-holders lf-env-holders# 2* cells bounds ?do
     2dup i lf-env-held if 2swap 2drop unloop exit then
   2 cells +loop 2drop -1 outcome-rejected ;
+\ The k of rec_<k>, or 0 when no auxiliary recursor can be named so: a
+\ leading zero, more than 19 digits, or a number beyond one cell (read
+\ modulo 2^64 until review rvUNNI L1; 19 digits never wrap the double).
+19 constant lf-env-k-digits
 : lf-env-aux-k ( name -- k )
   lf-name-text 4 /string 2dup 1 min s" 0" compare 0= if 2drop 0 exit then
-  base @ >r decimal 0 0 2swap >number 2drop drop r> base ! ;
+  dup lf-env-k-digits > if 2drop 0 exit then
+  base @ >r decimal 0 0 2swap >number 2drop r> base ! if drop 0 then ;
 : lf-env-first-type? ( d -- flag )
   dup lf-input-decl lf-idecl-header ?dup
   if lf-hdr-first lf-more-field = else drop false then ;
@@ -770,16 +775,23 @@ here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
 \ does), also not one of the four quotient names once the quotient is
 \ initialised (lf-env-fresh). ok, rejected, unknown, unsupported,
 \ invalid or full, as lf-env-n2 and lf-env-n2-held say.
+\ The name of a recursor Lean's kernel generates that the file leaves out
+\ (B4: T.rec, or T.rec_k of a nested block) is no declaration of the
+\ file, so the parser's refusal does not concern it, and replay never
+\ added the skipped declaration of that name: lf-env-fresh-generated
+\ runs every test but lf-env-unskipped (review rvUNNI M1).
 : lf-env-unskipped ( name limit -- outcome )
   ['] lf-slot-skipped? swap lf-env-first
   dup 0< if drop outcome-ok else lf-env-declared then ;
-: lf-env-unheld ( name limit -- outcome )
-  2dup lf-env-unskipped dup ok? 0= if nip nip exit then drop
+: lf-env-unused ( name limit -- outcome )
   2dup lf-env-find lf-env-n2 dup ok? 0= if nip nip exit then drop
   lf-env-reserving lf-env-n2-held ;
-: lf-env-fresh ( name limit -- outcome )
-  2dup lf-env-unheld dup ok? 0= if nip nip exit then drop
-  lf-env-quot-holding lf-env-n2-quot ;
+: lf-env-unheld ( name limit -- outcome )
+  2dup lf-env-unskipped dup ok? 0= if nip nip exit then drop lf-env-unused ;
+: lf-env-unquot ( name limit outcome -- outcome )
+  dup ok? 0= if nip nip exit then drop lf-env-quot-holding lf-env-n2-quot ;
+: lf-env-fresh ( name limit -- outcome ) 2dup lf-env-unheld lf-env-unquot ;
+: lf-env-fresh-generated ( name limit -- outcome ) 2dup lf-env-unused lf-env-unquot ;
 : lf-env-own-name-pass ( -- outcome )
   lf-env-checking 0= if outcome-invalid exit then nip
   lf-name-storage-valid? 0= if drop outcome-invalid exit then
