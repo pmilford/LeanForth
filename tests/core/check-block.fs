@@ -433,6 +433,26 @@ T{ s" iota.structure-eta" used -> outcome-ok 0 }T
 \ 8 needs one field, is_def_eq_app takes no projection), rejected as by
 \ Lean.
 T{ s" proj.index-differs" used -> outcome-rejected lf-diag-value-apart }T
+\ The comparison's projection steps (task 5.2.2, defeq.fs), each accepted
+\ and its wrong twin rejected, as by Lean: is_def_eq_app takes no
+\ projection, so p.1 against a pair goes on to structure eta (the shape
+\ of Init's UInt8.toNat_toUInt32); step 8 equates (g (id a)).1 and
+\ (g a).1, and the fields of two pairs; step 9 reduces (id (a, b)).2,
+\ which whnf_core with cheap_proj leaves; try_unfold_proj_app puts a
+\ projection's application in whnf_core first, or unfolds id p.1 when
+\ that changes nothing.
+T{ s" proj.app-eta" used -> outcome-ok 0 }T
+T{ s" proj.app-eta-wrong" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" proj.lazy-terms" used -> outcome-ok 0 }T
+T{ s" proj.lazy-terms-wrong" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" proj.lazy-fields" used -> outcome-ok 0 }T
+T{ s" proj.lazy-fields-wrong" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" proj.whnf-term" used -> outcome-ok 0 }T
+T{ s" proj.whnf-term-wrong" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" proj.unfold-proj-app" used -> outcome-ok 0 }T
+T{ s" proj.unfold-proj-app-wrong" used -> outcome-rejected lf-diag-value-apart }T
+T{ s" proj.unfold-proj-app-stuck" used -> outcome-ok 0 }T
+T{ s" proj.unfold-proj-app-stuck-wrong" used -> outcome-rejected lf-diag-value-apart }T
 \ Structure eta and unit-like types in is_def_eq (R4, R5; task 5.2.2,
 \ defeq.fs steps 12 and 14): p and (p.1, p.2) equal either way round,
 \ two values of PUnit equal, as by Lean; a pair whose second field is not

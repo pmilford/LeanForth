@@ -665,6 +665,61 @@ def reductions : List Red := [
   { id := "proj.index-differs",
     type := "∀ p : Nat × Nat, p.1 = p.2", value := "fun (p : Nat × Nat) => Eq.refl p.1",
     lean := "declTypeMismatch", leanforth := "rejected", rule := "J1", task := "5.2.2" },
+  -- The comparison's projection steps (is_def_eq_core, type_checker.cpp 1132-1207).
+  -- is_def_eq_app takes no projection (Expr.proj is no application): p.1 against a pair
+  -- is decided by structure eta (the shape of Init's UInt8.toNat_toUInt32).
+  { id := "proj.app-eta",
+    type := "∀ p : (Nat × Nat) × Nat, p.1 = (p.1.1, p.1.2)",
+    value := "fun (p : (Nat × Nat) × Nat) => Eq.refl p.1",
+    lean := "accepted", leanforth := "accepted", rule := "J1 R4", task := "5.2.2" },
+  { id := "proj.app-eta-wrong",
+    type := "∀ p : (Nat × Nat) × Nat, p.1 = (p.1.2, p.1.1)",
+    value := "fun (p : (Nat × Nat) × Nat) => Eq.refl p.1",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "J1 R4", task := "5.2.2" },
+  -- Step 8, lazy_delta_proj_reduction: two projections of one field whose terms are
+  -- equal only up to unfolding; no other step equates them.
+  { id := "proj.lazy-terms",
+    type := "∀ (g : Nat → Nat × Nat) (a : Nat), (g (id a)).1 = (g a).1",
+    value := "fun (g : Nat → Nat × Nat) (a : Nat) => Eq.refl (g a).1",
+    lean := "accepted", leanforth := "accepted", rule := "J1", task := "5.2.2" },
+  { id := "proj.lazy-terms-wrong",
+    type := "∀ (g : Nat → Nat × Nat) (a b : Nat), (g b).1 = (g a).1",
+    value := "fun (g : Nat → Nat × Nat) (a b : Nat) => Eq.refl (g a).1",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "J1", task := "5.2.2" },
+  -- Step 8 when both terms unfold to pairs: their fields are compared.
+  { id := "proj.lazy-fields",
+    type := "∀ (a b : Nat), (id (a, b)).1 = (id (a, a)).1",
+    value := "fun (a b : Nat) => Eq.refl (id (a, a)).1",
+    lean := "accepted", leanforth := "accepted", rule := "J1", task := "5.2.2" },
+  { id := "proj.lazy-fields-wrong",
+    type := "∀ (a b : Nat), (id (a, b)).1 = (id (b, a)).1",
+    value := "fun (a b : Nat) => Eq.refl (id (b, a)).1",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "J1", task := "5.2.2" },
+  -- Step 9 with cheap_proj: the term of (id (a, b)).2 is a pair only after whnf, which
+  -- whnf_core with cheap_proj does not take; whnf_core without it does.
+  { id := "proj.whnf-term",
+    type := "∀ (a b : Nat), (id (a, b)).2 = b", value := "fun (a b : Nat) => Eq.refl b",
+    lean := "accepted", leanforth := "accepted", rule := "J1", task := "5.2.2" },
+  { id := "proj.whnf-term-wrong",
+    type := "∀ (a b : Nat), (id (a, b)).2 = a", value := "fun (a b : Nat) => Eq.refl a",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "J1", task := "5.2.2" },
+  -- try_unfold_proj_app: a projection applied to an argument against id a, which lazy
+  -- delta would unfold; the projection's application is put in whnf_core first.
+  { id := "proj.unfold-proj-app",
+    type := "∀ (a : Nat), (id ((fun x : Nat => x), a)).1 a = a",
+    value := "fun (a : Nat) => Eq.refl (id a)",
+    lean := "accepted", leanforth := "accepted", rule := "J1", task := "5.2.2" },
+  { id := "proj.unfold-proj-app-wrong",
+    type := "∀ (a b : Nat), (id ((fun x : Nat => x), b)).1 a = b",
+    value := "fun (a b : Nat) => Eq.refl (id b)",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "J1", task := "5.2.2" },
+  -- try_unfold_proj_app on p.1, which whnf_core leaves as it is: id p.1 unfolds instead.
+  { id := "proj.unfold-proj-app-stuck",
+    type := "∀ (p : Nat × Nat), id p.1 = p.1", value := "fun (p : Nat × Nat) => Eq.refl p.1",
+    lean := "accepted", leanforth := "accepted", rule := "J1", task := "5.2.2" },
+  { id := "proj.unfold-proj-app-stuck-wrong",
+    type := "∀ (p : Nat × Nat), id p.1 = p.2", value := "fun (p : Nat × Nat) => Eq.refl p.2",
+    lean := "declTypeMismatch", leanforth := "rejected", rule := "J1", task := "5.2.2" },
   { id := "iota.prop-structure-stuck",
     type := "∀ (a b : Prop) (h : a ∧ b), @And.rec a b (fun _ => Nat) (fun _ _ => 5) h = 5",
     value := "fun (a b : Prop) (h : a ∧ b) => Eq.refl 5",
