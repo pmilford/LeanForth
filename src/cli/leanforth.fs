@@ -159,6 +159,10 @@ begin-structure /cli-run
   field: arg-mistake            \ counted string: the first mistake, or 0
   field: run-ops                \ the run the last check made: its words (/cli-ops)
   field: run-named              \ axioms named so far on a NOT PROVED line
+  field: opt-progress           \ true: progress lines on stderr (--progress)
+  field: opt-progress-secs      \ seconds between them (--progress[=SECONDS])
+  field: run-printed            \ verdict lines already written, as the run went
+  field: run-noted              \ true: the other-version note came before them
 end-structure
 /cli-run context-record: cli-state
 manifest: cli-manifest
@@ -195,6 +199,14 @@ manifest: cli-manifest
 \ 6.5.4); 0 or 1, the default, checks one at a time.
 : cli-jobs ( -- n ) cli-state opt-jobs @ ;
 : cli-jobs! ( n -- ) cli-state opt-jobs ! ;
+\ check: a progress line on stderr every SECONDS (--progress[=SECONDS],
+\ default 60; 0: after every report), and the text report's verdict lines
+\ written as they become final (cli/check-run.fs).
+60 constant cli-progress-default
+: cli-progress! ( seconds -- ) cli-state opt-progress-secs ! true cli-state opt-progress ! ;
+: cli-progress? ( -- flag ) cli-state opt-progress @ ;
+: cli-progress-apply ( -- )
+  cli-progress? if cli-state opt-progress-secs @ ck-progress! then ;
 : cli-checked? ( -- flag ) cli-unchecked @ 0= ;
 \ check: write the run's snapshot to a file (--save-snapshot FILE), or
 \ report a snapshot's verdicts without an export (--snapshot FILE; ADR
@@ -322,8 +334,13 @@ end-structure
 : cli-stopped ( -- )
   ." internal fault: the run stopped: " cli-reason type cr
   lf-input-count cli-stepped ?do i cli-unreached loop ;
+\ The lines a run wrote as it went (check-run.fs's ck-lines!) are the first
+\ ones; the rest are written here, so a finished run's report is the same.
+: cli-stream ( d -- ) cli-verdict 1 cli-state run-printed +! ;
+: cli-printed ( -- n ) cli-state run-printed @ ;
 : cli-verdicts ( -- )
-  cli-stepped 0 ?do i cli-verdict loop cli-faulted? if cli-stopped then ;
+  cli-stepped cli-printed 2dup > if ?do i cli-verdict loop else 2drop then
+  cli-faulted? if cli-stopped then ;
 
 \ The summary: "N declarations: a accepted, r rejected, ...", in
 \ cli/tally.fs's verdict order.
@@ -579,6 +596,8 @@ create cli-fed-ops
   ." export made by Lean " 3 cli-meta. ."  (githash " 4 cli-meta. ." ), written by "
   0 cli-meta. space 1 cli-meta. ." ; verdicts are Lean " pinned-lean-version type ." 's" ;
 : cli-other-note ( -- ) ck-other-lean? if ." note: " cli-made-by. cr then ;
+\ The note before the lines a run writes as it goes, once.
+: cli-noted ( -- ) cli-other-note true cli-state run-noted ! ;
 
 \ The report: counted first, then printed, as text or as JSON
 \ (cli/check-json.fs); a JSON text the writer refuses is an internal
@@ -619,7 +638,8 @@ create cli-hex 64 allot
   ." note: development and research mode: a final run re-checks everything from the" cr
   ." note: export and reads no snapshot; only its results support a claim" cr ;
 : cli-fed-text ( -- )
-  cli-other-note ck-loaded? if cli-results. else ck-read-outcome cli-fed-unread then
+  cli-state run-noted @ 0= if cli-other-note then
+  ck-loaded? if cli-results. else ck-read-outcome cli-fed-unread then
   ck-snapped? ck-loaded? and if cli-snapshot. then cli-saved.
   cli-resources? if cli-resources. then ;
 \ Whether the export's manifest was checked: for a snapshot run, when the
@@ -662,8 +682,10 @@ variable cli-info#
   s" }" cli-info+ cli-info cli-info# @ ;
 : cli-snapshot-save ( -- )
   cli-save? 0= if exit then cli-state opt-save 2@ cli-info-build ck-snapshot-save drop ;
+\ The text report's lines are written as the run goes (JSON is one text).
+: cli-streaming ( -- ) cli-json? if exit then cli-noted ['] cli-stream ck-lines! ;
 : cli-library-run ( -- )
-  0 cli-file cli-checked? ck-load ok? if ck-check cli-snapshot-save then
+  0 cli-file cli-checked? ck-load ok? if cli-streaming ck-check cli-snapshot-save then
   cli-fed-tally cli-fed-report ;
 \ check --snapshot FILE: the snapshot's verdicts, published again from it
 \ (cli/check-run.fs ck-snapshot-load), no export read.
@@ -679,8 +701,10 @@ variable cli-info#
 \ too (passed on). The run record's state is cleared first, as no record
 \ can be written from this run.
 : cli-fed-run ( xt -- code )
-  cli-fed-ops cli-state run-ops ! rr-release rr-reset cli-fuel @ ck-start
-  cli-any-lean? ck-any-version! cli-jobs ck-jobs! catch ck-release throw cli-restored
+  cli-fed-ops cli-state run-ops ! 0 cli-state run-printed ! 0 cli-state run-noted !
+  rr-release rr-reset cli-fuel @ ck-start
+  cli-any-lean? ck-any-version! cli-jobs ck-jobs! cli-progress-apply
+  catch ck-release throw cli-restored
   cli-worst @ ;
 : cli-library ( -- code )
   cli-json? 0= if cli-unchecked-note then ['] cli-library-run cli-fed-run ;
@@ -737,6 +761,10 @@ variable cli-info#
 : cli-misuse-jobs ( -- code )
   ." error: --jobs does not go with --record" cr
   ." try: leanforth help" cr exit-malformed ;
+: cli-progress-misused? ( -- flag ) cli-record? cli-progress? and ;
+: cli-misuse-progress ( -- code )
+  ." error: --progress does not go with --record" cr
+  ." try: leanforth help" cr exit-malformed ;
 \ Snapshots (ADR 0020 D6): neither --snapshot nor --save-snapshot goes
 \ with --record; a snapshot is not yet both read and written in one run,
 \ nor read with an export (dependent exports: plan step SN4).
@@ -758,6 +786,7 @@ variable cli-info#
   cli-start cli-strict? cli-strict-axioms! cli-misused? if cli-misuse-record exit then
   cli-any-misused? if cli-misuse-any exit then
   cli-jobs-misused? if cli-misuse-jobs exit then
+  cli-progress-misused? if cli-misuse-progress exit then
   cli-snap-misuse ?dup if exit then
   cli-snapshot? if cli-snapshot-check exit then
   cli-opens? 0= if cli-not-opened exit then
@@ -977,10 +1006,12 @@ variable cli-info#
 \ help, one part per kind of command.
 : cli-check-usage. ( -- )
   ."   check [--no-manifest] [--fuel N] [--resources] [--json] [--fast]" cr
-  ."         [--strict-axioms] [--any-lean-version] [--jobs N]" cr
+  ."         [--strict-axioms] [--any-lean-version] [--jobs N] [--progress[=SECONDS]]" cr
   ."         [--save-snapshot FILE] EXPORT" cr
   ."       check every declaration of a Lean export, in file order, any size;" cr
   ."       --jobs N checks with N workers at once (default 1), same output;" cr
+  ."       --progress writes a status line to stderr every SECONDS (default 60);" cr
+  ."       the text report's lines are written as declarations are final;" cr
   ."       --resources adds time, memory and fuel, --json prints it all as JSON;" cr
   ."       --strict-axioms makes a NOT PROVED declaration exit 6;" cr
   ."       --any-lean-version (check, print) reads an export of another Lean or" cr
@@ -1093,6 +1124,7 @@ end-structure
 8192 constant takes-jobs
 16384 constant takes-save
 32768 constant takes-snapshot
+65536 constant takes-progress
 : cli-value ( c-addr u -- c-addr' u' true | false )
   cli-arg if 2swap 2drop true else c" an option without its value" cli-wrong false then ;
 \ A decimal number from 0 to max-n with nothing else: (n true) or false.
@@ -1134,7 +1166,20 @@ end-structure
 : cli-jobs-option ( c-addr u -- )
   cli-value 0= if exit then 2dup cli-decimal
   if cli-jobs-value else c" not a number of jobs" cli-wrong then ;
+\ --progress, or --progress=SECONDS (a number from 0, the lines after every
+\ report): see cli-progress!. The second form is handled by cli-option.
+: cli-progress-option ( c-addr u -- ) 2drop cli-progress-default cli-progress! ;
+: cli-progress-prefix ( -- c-addr u ) s" --progress=" ;
+: cli-progress-form? ( c-addr u -- flag )
+  cli-progress-prefix nip min cli-progress-prefix compare 0= ;
+: cli-progress-value ( c-addr u n -- ) cli-progress! 2drop ;
+: cli-progress-equals ( c-addr u -- )
+  cli-state arg-set @ takes-progress and 0=
+  if c" an option this command does not take" cli-wrong exit then
+  cli-progress-prefix nip /string 2dup cli-decimal
+  if cli-progress-value else c" not a number of seconds" cli-wrong then ;
 create cli-option-table
+  ' cli-progress-option takes-progress 0 cli-entry, --progress
   ' cli-manifest-option takes-no-manifest 0 cli-entry, --no-manifest
   ' cli-fuel-option takes-fuel 0 cli-entry, --fuel
   ' cli-record-option takes-record 0 cli-entry, --record
@@ -1157,6 +1202,7 @@ create cli-option-table
   dup cli-takes? if cli-entry-run @ execute exit then
   drop c" an option this command does not take" cli-wrong ;
 : cli-option ( c-addr u -- )
+  2dup cli-progress-form? if cli-progress-equals exit then
   2dup cli-option-table cli-entry-find ?dup
   if cli-taken else c" an unknown option" cli-wrong then ;
 \ A file name, the first or the second.
@@ -1172,7 +1218,8 @@ create cli-option-table
 \ needs and the options it takes.
 takes-no-manifest takes-fuel or takes-fast or constant checking-set
 checking-set takes-record or takes-resources or takes-json or takes-strict or
-takes-any-lean or takes-jobs or takes-save or takes-snapshot or constant check-set
+takes-any-lean or takes-jobs or takes-save or takes-snapshot or takes-progress or
+constant check-set
 checking-set constant replay-set
 checking-set takes-detail or takes-name or takes-latex or takes-statement or
 takes-lf or takes-any-lean or constant print-set

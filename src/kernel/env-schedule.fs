@@ -60,6 +60,11 @@
 \   serial step), maker ( -- context ior ) a replacement worker, made in
 \   the driving context and given back with that context current; the
 \   pool runs one worker per context, and is stopped at the end;
+\ - lf-sched-tick! ( xt -- ): after lf-sched-init, xt ( -- ) is run in the
+\   driving task after each job is settled (a report that does not change
+\   the run: progress lines, results written as they become final); 0, the
+\   default, none. lf-sched-final ( -- n ): every slot below n is final and
+\   n is not beyond the stop (what a tick may report);
 \ - lf-sched-stop ( -- d ): the declaration at which the serial run would
 \   have stopped, or the input's count; lf-sched-broken? ( -- flag ): the
 \   run could not go on (a job refused, no worker left), so its verdicts
@@ -135,6 +140,7 @@ begin-structure /lf-sched
   field: lf-sch-forced#     \ handed out only because nothing else could run
   field: lf-sch-renewed#    \ workers replaced after a THROW
   field: lf-sch-handed#     \ checks handed over so far
+  field: lf-sch-tick        \ ( -- ) run in the driving task after each settled job, or 0
   /slab +field lf-sch-ctxs     \ per worker: its context, 0 once lost
   /slab +field lf-sch-jobs     \ per worker: its job, or 0
   /slab +field lf-sch-ats      \ per worker: the declaration its job checks
@@ -601,8 +607,11 @@ variable lf-sched-faults  0 lf-sched-faults !
     lf-sch-take dup 0< if 2drop exit then swap lf-sch-launch
   repeat drop ;
 : lf-sch-busy? ( -- flag ) lf-sched lf-sch-running# @ 0> ;
+: lf-sched-tick! ( xt -- ) lf-sched lf-sch-tick ! ;
+: lf-sched-final ( -- n ) lf-sched-reached lf-sched-stop min ;
+: lf-sch-ticked ( -- ) lf-sched lf-sch-tick @ ?dup if execute then ;
 : lf-sch-loop ( -- )
-  begin lf-sch-fill-workers lf-sch-busy? while lf-sch-wait-one repeat ;
+  begin lf-sch-fill-workers lf-sch-busy? while lf-sch-wait-one lf-sch-ticked repeat ;
 : lf-sch-owner ( d -- u )
   dup lf-input-decl lf-idecl-header ?dup 0= if exit then
   over lf-sch-state@ lf-sch-trailing = if nip lf-hdr-first lf-more-field else drop then ;
