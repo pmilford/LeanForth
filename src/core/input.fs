@@ -17,11 +17,17 @@
 \ check that with a digest. lf-input-add checks each record's ranges and
 \ that its references are live, not its typing or scope.
 \
-\ Per context, for now. ADR 0012 (E1) makes the input one shared, read-only
-\ tier; today the term, level, name and reference stores are members of
-\ the checker context (lib/context.fs), so the input lives in the context
-\ that loaded it, and so do its declarations and marks. A check can run
-\ only in a context holding the input. lf-input-end records a fingerprint
+\ Per context, shared by workers. ADR 0012 (E1) makes the input one
+\ shared, read-only tier; the term, level, name and reference stores are
+\ members of the checker context (lib/context.fs), so the input lives in
+\ the context that loaded it, and so do its declarations and marks. A
+\ check can run only in a context holding the input. A parallel check's
+\ workers hold it by reading the loading context's in place (shared
+\ input, ADR 0016 S8; lf-input-borrow below, import/feed.fs's
+\ lf-feed-shared): its declarations, name index and inductive data
+\ through copies of their headers, which they never write or free (the
+\ stage's tier, the view's tables and the references likewise, in their
+\ modules). lf-input-end records a fingerprint
 \ of the input region: every input store's records, identities, count and
 \ generation below its mark, then the name bytes in use and their count.
 \ Two contexts that loaded the same input from a fresh start have the
@@ -53,8 +59,10 @@
 \ record, lf-input-state, and the importer's setting lf-input-room-cell
 \ (below), all members of the checker context; written only
 \ while loading and by
-\ lf-input-reset, then read by every check in that context. The layout is
-\ host-specific and never serialized.
+\ lf-input-reset, then read by every check in that context, and by every
+\ worker that borrowed them (whose members then hold copies of their
+\ headers, flagged in lf-input-state). The layout is host-specific and
+\ never serialized.
 
 require ../lib/lib.fs
 require ../lib/slab.fs

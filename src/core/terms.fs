@@ -90,7 +90,9 @@
 \ candidate record lf-term-key, the switch lf-term-share-off and the view
 \ record lf-term-view, members
 \ of the checker context (lib/context.fs) whose blocks are on the heap,
-\ freed by their teardown words, so each context has its own terms;
+\ freed by their teardown words, so each context has its own terms (a
+\ worker's view may read the leaf and binder tables of the context that
+\ fed them, through copies of their headers: lf-term-borrow);
 \ single-threaded within one context. The set of unshared tags, the
 \ input tag table and the
 \ leaf-data hook are fixed while loading and read-only afterwards. A
@@ -638,8 +640,8 @@ defer lf-term-view-hook ( -- outcome )
   dup lf-term-view <> swap lf-tview-tier @ lf-term-tier = and lf-term-viewed? and
   lf-term-view lf-tview-borrowed @ 0= and ;
 : lf-term-borrow ( source -- outcome )
-  lf-term-view swap lf-member-in dup lf-tview-lendable? 0= if drop outcome-invalid exit then
-  lf-tview-copy lf-term-view-grown ;
+  lf-term-view swap lf-member-in dup lf-tview-lendable?
+  if lf-tview-copy lf-term-view-grown else drop outcome-invalid then ;
 
 \ Give input leaf node index its fields and stamp (the importer, after
 \ attaching; see the header): ok; invalid for a number that is no input

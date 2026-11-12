@@ -612,7 +612,8 @@ here feed-kinds - 1 cells / constant feed-kinds#
 \ fed is read in place or copied, each share ( source -- outcome ) in
 \ order; then the source's copies, if it made any, are made again.
 create feed-shares
-  ' lf-term-borrow , ' lf-cref-borrow , ' lf-input-borrow , ' lf-lit-copy , ' lf-str-copy ,
+  ' lf-term-borrow , ' lf-cref-borrow , ' lf-input-borrow ,
+  ' lf-lit-copy , ' lf-str-copy ,
 here feed-shares - 1 cells / constant feed-shares#
 : feed-share ( source k -- source outcome ) cells feed-shares + @ over swap execute ;
 : feed-borrow ( feed -- outcome )
@@ -627,7 +628,8 @@ here feed-shares - 1 cells / constant feed-shares#
   2dup 2dup feed-tier expr-tag@ feed-to-copy? if feed-dirty! else 2drop then outcome-ok ;
 : feed-place-copy ( e feed -- outcome )
   2dup feed-dirty? 0= if 2drop outcome-ok exit then over 2* lf-term-horizon! feed-expr ;
-: feed-made-copies? ( feed -- flag ) lf-terms swap feed-source @ lf-member-in store-count @ 0<> ;
+: feed-made-copies? ( feed -- flag )
+  lf-terms swap feed-source @ lf-member-in store-count @ 0<> ;
 : feed-copies ( feed -- outcome )
   dup feed-made-copies? 0= if drop outcome-ok exit then
   dup ['] feed-mark-copy feed-each dup ok? 0= if nip exit then

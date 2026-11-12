@@ -10,8 +10,10 @@
 \ stamp unit; a constant's stamps are its own identity, as a symbolic
 \ Sort's term stamp is, and its reference's, as a Sort's level stamp is,
 \ both full cells), the marks column lf-term-marks with
-\ its run counter lf-mark-runs, the input nodes' marks lf-input-marks
-\ and their spare lf-mark-spare (below), the audit memo's record
+\ its run counter lf-mark-runs, the input nodes' mark pages (their
+\ directory lf-mark-pages and list lf-mark-made, the pages heap blocks
+\ freed by a teardown word) and their spare lf-mark-spare (below), the
+\ audit memo's record
 \ lf-audit-state and its list lf-audit-reached (below), and one
 \ walk record, lf-cterm-walker, all members of the checker context
 \ (lib/context.fs). The hook lf-audit-checking? is set while loading
@@ -124,7 +126,8 @@ lf-walk-room context-walk: lf-cterm-walker
   lf-mark-made slab-count 0 ?do i lf-mark-made slab-at @ lf-mark-unmake loop
   lf-mark-made slab-clear ;
 ' lf-marks-release context-teardown
-: lf-mark-pages# ( -- n ) lf-term-input-units lf-mark-page-mask + lf-mark-page-bits rshift ;
+: lf-mark-pages# ( -- n )
+  lf-term-input-units lf-mark-page-mask + lf-mark-page-bits rshift ;
 : lf-input-marks-ready ( -- outcome )
   lf-marks-release lf-mark-pages# lf-mark-pages slab-hold dup ok?
   if 0 lf-mark-page lf-mark-pages slab-capacity cells erase then ;
