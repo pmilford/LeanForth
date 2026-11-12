@@ -848,6 +848,16 @@ whose lookups reach them, to be checked again). A snapshot refused before
 the export is read is reported as above; the export's own failures are
 reported as a final run reports them.
 
+Measured (`gforth-fast`, `--jobs 3`, a loaded 10-core machine): all of
+`Init` against its own snapshot takes every one of its 59,349
+declarations, with every verdict, count and fuel as the fresh check's,
+in 49 s against 749 s fresh (most of the 49 s reads the export again:
+an exact check always reads it whole). Mathlib's first million lines
+against `Init`'s snapshot take 1,108 declarations, 69 s wall against 89 s
+fresh but 164 s of CPU against 139 s: loading `Init`'s records and
+feeding them cost more than the few checks saved, so a snapshot pays off
+for an export that shares much of it.
+
 #### Layered snapshots
 
 *ADR 0020 amendment 1, the owner's decision F5.* With `--snapshot BASE`,

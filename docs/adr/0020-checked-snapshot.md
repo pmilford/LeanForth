@@ -692,6 +692,33 @@ the verdict version is 2 (verdict-version.fs); no outcome or fuel
 changes. Loading a snapshot of version 1 (`--snapshot-stale-ok`) still
 reads the old key and never replays it.
 
+**Measured** (`gforth-fast`, `--jobs 3`, a 10-core machine loaded by
+the full Mathlib run and other agents; `.claude/work/SN5/`). All of
+`Init` against its own snapshot: **all 59,349 declarations taken** (was
+37,142), every field of the report equal to the fresh check's, fuel
+included; 48.7 s wall and 48 s CPU (staging 30.6 s, of which about 24 s
+read the export again; feed 8.0 s; the import pass 9.0 s) against 749 s
+wall and 1,472 s CPU fresh. The file is 132.9 MB. `Init`'s snapshot
+loaded alone: 22.7 s wall, 12.7 s CPU, peak 679 MB; reading the tier
+takes 5.7 s, 2.45 s of it the sections' SHA-256 (about 54 MB/s; the
+expressions alone 1.8 s for 97.8 MB) and the rest the record checks,
+then 0.65 s for the environment's sections and 0.19 s to seal. Mathlib's
+first million lines (13,023 declarations) against `Init`'s snapshot:
+the same verdicts and counts as fresh, 1,108 taken (as before: the
+others of `Init`'s names differ in content, 805, or their lookups reach
+one that does), 68.5 s wall against 88.8 s fresh but 164 s CPU against
+139 s: loading `Init`'s tier (+6 s) and feeding its 11.5 M expressions
+(+7 s) cost more than the checks saved. The feed reads every expression
+of the tier (core/terms.fs's binder table takes the first record of a
+binder's class, so feeding only what the export reaches would move
+fuel: review rvSN4 B1); once agent PF's kernel change makes fuel
+independent of the numbering, a feed limited to what the export reaches
+is the next cut. Fuel used differs on 2,151 of the 13,023 (B1).
+Predicted for all of Mathlib (D7's sizes, these rates): a file of about
+2.1 GB, written in about 50 s; read and checked in about 90 s (40 s of
+it SHA-256) on one worker, about 3 min with the feed and the publisher
+to report its verdicts again.
+
 **The development flag `--snapshot-stale-ok`** (amends D3 and D6 for the
 flag only). With it, a snapshot whose verdict version is older than this
 build's loads instead of being refused as unsupported; it is marked
