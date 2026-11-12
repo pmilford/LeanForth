@@ -527,10 +527,15 @@ defer lf-term-findable? ( n -- flag )
 : lf-term-rehash ( n htab -- h ) drop lf-term-slot lf-term-fields@ lf-term-hash ;
 : lf-term-key= ( tag first second key -- flag )
   >r r@ 2 cells + @ = swap r@ cell+ @ = and swap r> @ = and ;
+\ The fields are compared before the hook is asked, which a probe then
+\ asks only of the one live record equal to the key, never of the others
+\ its run passes (agent PERF1: the hook reads the environment's validity,
+\ about 5% of Init's checking time when asked of every record probed).
+\ Neither changes what the other reads, so the order changes no answer.
 : lf-term-same ( n key htab -- flag )
   drop over lf-term-valid? 0= if 2drop false exit then
-  over lf-term-findable? 0= if 2drop false exit then
-  >r lf-term-slot lf-term-fields@ r> lf-term-key= ;
+  >r dup lf-term-slot lf-term-fields@ r> lf-term-key=
+  if lf-term-findable? else drop false then ;
 create lf-term-hooks /htab-hooks allot
 ' lf-term-rehash ' lf-term-same lf-term-hooks htab-hooks!
 \ A context's table: 16 slots at first, freed with the context. A table
