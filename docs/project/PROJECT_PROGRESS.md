@@ -800,8 +800,7 @@ independently audited*; no outside Lean expert has audited the checker.
   `mixed-definition-probe.fs`, `lf-mixed-convert`) and the old
   `import/load.fs` batch staging, both candidates for retirement (plan task
   5.2.8; diagnostics 33 and 64 appear only in the probes). The derivation log
-  and `print` run only when asked, with caches off; `print` reads the same
-  in-place input since S5B.
+  and `print` run only when asked, with caches off.
 - **Still unsupported or unknown in `check`** (each *unsupported*, *unknown*
   or *full*, exit 2 or 3, never accepted): a block with both safe and unsafe
   members (5.2.7 part b); metadata `mdata` in a term (diagnostic 43, plan
