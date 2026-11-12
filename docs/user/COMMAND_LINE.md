@@ -697,11 +697,11 @@ accepted: 6 (experimental, not independently audited); axioms: none
 resources:
   time (s)     wall      cpu
   input: 6 declarations, 92 term nodes, 3 levels, 5 constant references, 31 names
-  fuel: 508 steps in all, at most 100000000 per declaration
+  fuel: 388 steps in all, at most 100000000 per declaration
   most fuel used:
           244 Two.cases (accepted)
-          157 Two (accepted)
           107 Two.swap (accepted)
+           37 Two (accepted)
 ```
 
 **Fuel**, a check's unit of work, is read from the checker's own counters
@@ -814,7 +814,7 @@ Two.first: accepted (experimental, not independently audited; from snapshot, not
 ...
 6 declarations: 6 accepted
 accepted: 6 (experimental, not independently audited); axioms: none
-snapshot: two.lfsnap (sha256 9aa54473…), export sha256 5c14b3b4…, verdict version 3, written by LeanForth 03c68bd2…: 6 results taken from it, not re-checked in this run
+snapshot: two.lfsnap (sha256 9aa54473…), export sha256 5c14b3b4…, verdict version 4, written by LeanForth 03c68bd2…: 6 results taken from it, not re-checked in this run
 note: development and research mode: a final run re-checks everything from the
 note: export and reads no snapshot; only its results support a claim
 ```
@@ -954,8 +954,8 @@ The report names each layer loaded, after the snapshot's line (and in
 JSON in `snapshot.layers`):
 
 ```text
-snapshot: two.lfsnap (sha256 9aa54473…), export sha256 5c14b3b4…, verdict version 3, written by LeanForth 03c68bd2…: 13 results taken from it and its layers, not re-checked in this run
-layer: dep.lfsnap (sha256 2e727cd4…), export sha256 0a286479…, verdict version 3, on the snapshot above
+snapshot: two.lfsnap (sha256 9aa54473…), export sha256 5c14b3b4…, verdict version 4, written by LeanForth 03c68bd2…: 13 results taken from it and its layers, not re-checked in this run
+layer: dep.lfsnap (sha256 2e727cd4…), export sha256 0a286479…, verdict version 4, on the snapshot above
 ```
 
 Refused (status 4, nothing listed): a layer written on another base

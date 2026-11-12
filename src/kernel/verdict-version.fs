@@ -35,8 +35,16 @@
 \                  command line's default fuel per declaration is
 \                  100,000,000 (owner, 2026-11-11), so a declaration
 \                  that ran out at 20,000,000 may now be decided.
+\   4  2026-11-11  agent NS: an inductive block's walks (the audit, T0,
+\                  C1, the occurrence tests of the scope, positivity and
+\                  the recursor) meet each shared node once, and B3 and
+\                  the nested keys compare by Lean's == (each pair once),
+\                  as Lean's for_each and expr_eq_fn do: blocks use less
+\                  fuel (41 declarations of the pinned exports less, none
+\                  more), so five Navier-Stokes structures that ran out at
+\                  100,000,000 are decided; Init's verdicts are unchanged.
 \
 \ [kernel] code: experimental, not through the review gate.
 \ State: none.
 
-3 constant lf-verdict-version
+4 constant lf-verdict-version

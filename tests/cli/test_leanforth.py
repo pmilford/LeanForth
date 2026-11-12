@@ -1218,7 +1218,7 @@ class JsonReport(unittest.TestCase):
         self.assertEqual((got["fuel"]["total"], got["fuel"]["unknown"]),
                          (sum(d["fuel"] for d in got["declarations"]), 0))
         self.assertEqual([t["name"] for t in got["fuel"]["top"]],
-                         ["Two.cases", "Two", "Two.swap"])
+                         ["Two.cases", "Two.swap", "Two"])
         self.assertEqual((got["input"]["declarations"], got["stopped"]), (6, False))
         # Fuel not known: a check that failed in inference gave its counter
         # up; it is in no total and never among the most fuel used.
@@ -1431,11 +1431,11 @@ class Resources(unittest.TestCase):
         self.assertEqual(rest[6], "  engine: " + os.path.basename(GFORTH))
         self.assertEqual(rest[7:], [
             "  input: 6 declarations, 92 term nodes, 3 levels, 5 constant references, 31 names",
-            "  fuel: 508 steps in all, at most 100000000 per declaration",
+            "  fuel: 388 steps in all, at most 100000000 per declaration",
             "  most fuel used:",
             "          244 Two.cases (accepted)",
-            "          157 Two (accepted)",
-            "          107 Two.swap (accepted)"])
+            "          107 Two.swap (accepted)",
+            "           37 Two (accepted)"])
 
     def test_stable_but_for_time_and_memory(self):
         def steady(out):
@@ -1587,12 +1587,17 @@ def pinned_digest(*args):
 # verdict, diagnostic and count is unchanged. All but the --fuel 0 entry
 # are re-pinned once more for the default fuel of 100,000,000 (owner,
 # 2026-11-11): with settings.fuel and fuel.perDeclaration put back to
-# 20,000,000 each report gives the digest pinned before.
+# 20,000,000 each report gives the digest pinned before. Those marked NS
+# (six entries) are re-pinned after agent NS (2026-11-11): an inductive
+# block's walks meet each shared node once and B3 compares by Lean's ==,
+# so only block fuel moved, 41 declarations less and none more; every
+# verdict, diagnostic and count is unchanged (each report compared with
+# the one before with its fuel fields left out).
 PINNED = {
     "tests/reference/composition.ndjson": "a3e7184036edb9dd",
     "tests/reference/constant-fixture.ndjson": "df2ee45dc87e20ca",
     "tests/cli/chain.ndjson": "b0c8e7d6066c71d6",
-    "tests/cli/inductive.ndjson": "f3c83844f72b2bab",
+    "tests/cli/inductive.ndjson": "cc13d72dd2f09295",  # NS
     "tests/cli/unfold.ndjson": "989fd258bb03e4b7",
     f"{CASES}/composition-wrong-argument.ndjson": "b29f27c0c9419c26",
     f"--no-manifest {CASES}/composition-wrong-argument.ndjson": "850723e5478fed48",
@@ -1602,16 +1607,16 @@ PINNED = {
     "--no-manifest README.md": "7dace333bd425361",
     "tests/cli/no-such.ndjson": "3eac0629560526ed",
     "--no-manifest tests/cli/composition-huge-number.ndjson": "ec7632bcbf284cef",
-    "--no-manifest tests/core/reexport/kinds.ndjson": "4a8e363ce8e30380",  # IO
+    "--no-manifest tests/core/reexport/kinds.ndjson": "a91c53ac28097f58",  # IO, NS
     f"--fuel 0 {FIXTURE}": "7ab8e9fa317ce0a5",
     f"--no-manifest {EMPTY_BLOCK}": "dbfea3992d7e6793",
-    "tests/cli/sharing.ndjson": "e1e5a1f9695267e2",  # re-pinned (IO)
-    "tests/cli/sharing-universe.ndjson": "d5a364d306cbd23c",  # re-pinned (IO)
-    "tests/cli/nested.ndjson": "7ce0c7829c881289",  # re-pinned twice, see above
+    "tests/cli/sharing.ndjson": "9a4781b56496f7cb",  # re-pinned (IO, NS)
+    "tests/cli/sharing-universe.ndjson": "06d702923b708919",  # re-pinned (IO, NS)
+    "tests/cli/nested.ndjson": "f7e4a42464446a05",  # re-pinned, see above (NS)
     "tests/cli/irrelevance.ndjson": "44da5689b4a2a87c",
     f"--no-manifest {CASES}/composition-literal.ndjson": "25123b1e2dfc63de",
     "--no-manifest tests/core/check-block-cases/primitive.string-opaque-expansion.ndjson":
-        "5973f03d5f926191",  # re-pinned (IO)
+        "e99ae84568309866",  # re-pinned (IO, NS)
 }
 
 
@@ -1782,9 +1787,10 @@ class Snapshots(unittest.TestCase):
                                    "audited; from snapshot, not re-checked in this run); "
                                    "axioms: none")
         self.assertRegex(lines[-3], r"^snapshot: .*s\.lfsnap \(sha256 [0-9a-f]{64}\), export "
-                                    r"sha256 [0-9a-f]{64}, verdict version 3, written by "
-                                    r"LeanForth \S+: 3 results taken from it, not re-checked "
-                                    r"in this run$")
+                                    r"sha256 [0-9a-f]{64}, verdict version "
+                                    + str(verdict_version()) +
+                                    r", written by LeanForth \S+: 3 results taken from it, "
+                                    r"not re-checked in this run$")
         self.assertEqual(lines[-2:], [
             "note: development and research mode: a final run re-checks everything from the",
             "note: export and reads no snapshot; only its results support a claim"])
@@ -1920,11 +1926,12 @@ class Snapshots(unittest.TestCase):
         self.assertEqual((status, lines[0]), (0, (
             "fixtureId: accepted (experimental, not independently audited; from a stale "
             "snapshot (an older verdict version), not this build's verdict); axioms: none")))
-        self.assertIn("stale: build's (3): its 3 results are not this build's verdicts", lines)
+        self.assertIn(f"stale: build's ({verdict_version()}): its 3 results are not this "
+                      "build's verdicts", lines)
         status, got, _ = report("--snapshot-stale-ok", "--snapshot", str(old))
         self.assertEqual(self.schema.errors(got), [])
         self.assertEqual((got["snapshot"]["verdictVersion"], got["snapshot"]["stale"]),
-                         (1, {"thisVerdictVersion": 3, "results": 3}))
+                         (1, {"thisVerdictVersion": verdict_version(), "results": 3}))
         self.assertEqual({d["provenance"] for d in got["declarations"]}, {"stale-snapshot"})
         self.assertEqual(report("--snapshot", str(path))[1]["snapshot"]["stale"], None)
         status, got, _ = report("--snapshot-stale-ok", "--snapshot", str(old), FIXTURE)
@@ -2460,7 +2467,8 @@ class Layers(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertIn(f"layer: {one} (sha256 {sha}), export sha256 "
                       f"{hashlib.sha256(Path(DEPENDENT).read_bytes()).hexdigest()}, "
-                      "verdict version 3, on the snapshot above", out.splitlines())
+                      f"verdict version {verdict_version()}, on the snapshot above",
+                      out.splitlines())
         status, got, _ = report(*options)
         self.assertEqual(Imports.schema.errors(got), [])
         self.assertEqual([(x["file"], x["sha256"], x["base"]) for x in got["snapshot"]["layers"]],
