@@ -11,7 +11,7 @@ see [project progress](project/PROJECT_PROGRESS.md). Documents marked
 | New to the project or to Lean terms | The [user guide](user/USER_GUIDE.md) (what LeanForth is and is not, and a reading path for each audience), [reading a Lean proof](user/READING_A_LEAN_PROOF.md), [terms for new readers](user/TERMS_FOR_NEW_READERS.md), then [concepts in three forms](user/CONCEPTS.md) |
 | Installing and running the tests | [Project README](../README.md#installing-the-pinned-tools-and-running-the-tests), [WSL setup](user/SETUP_WSL.md), [running the checks](user/RUNNING_THE_CHECKS.md) |
 | Following progress or plans | [Project progress](project/PROJECT_PROGRESS.md), [development roadmap](project/DEVELOPMENT_ROADMAP.md) |
-| Writing or reviewing code (human or agent) | [AGENTS.md](../AGENTS.md), [architecture](development/ARCHITECTURE.md), [source layout](../src/README.md), [testing strategy](development/TESTING_STRATEGY.md), [Forth reviewer guide](development/FORTH_REVIEWER.md) |
+| Writing or reviewing code (human or agent) | [AGENTS.md](../AGENTS.md), [architecture](development/ARCHITECTURE.md), [source layout](../src/README.md), [testing strategy](development/TESTING_STRATEGY.md), [Forth reviewer guide](development/FORTH_REVIEWER.md), [done checker](development/DONE_CHECKER.md) |
 | An AI tool, or writing one | [For AI tools](user/AI_TOOLS.md) |
 
 ## `user/` — end-user documentation
@@ -62,6 +62,7 @@ features they describe.
 - [TESTING_STRATEGY.md](development/TESTING_STRATEGY.md) — test layers, harness and CI; the pinned-Lean comparisons that replaced the retired tests of superseded code.
 - [FORTH_STYLE.md](development/FORTH_STYLE.md) — the project's Forth style rules: short words, the stack over globals, structures, one error convention.
 - [FORTH_REVIEWER.md](development/FORTH_REVIEWER.md) — checklist for reviewing Forth changes.
+- [DONE_CHECKER.md](development/DONE_CHECKER.md) — the independent check that work called done is integrated and works end to end; status stages.
 - [FORTH_LIBRARY.md](development/FORTH_LIBRARY.md) — inventory of reusable Forth facilities and what is still missing.
 - [TEST_COVERAGE_REVIEW.md](development/TEST_COVERAGE_REVIEW.md) — 2026-11-02 coverage review: findings and their status.
 - [INSTALLATION_LOG.md](development/INSTALLATION_LOG.md) — every install and verification command actually run.
@@ -137,7 +138,7 @@ records and `prompts/FIRST_CODEX_TASK.md` still use those old paths. Old
 | --- | --- |
 | `docs/user/` | `TERMS_FOR_NEW_READERS`, `SETUP_WSL` |
 | `docs/programming/` | `INTERFACE_CONTRACTS`, `PROGRAM_CONTRACTS`, `PROGRAM_EXAMPLE`, `PROGRAM_EXAMPLES`, `PROGRAM_EXAMPLES_REFERENCE`, `CHECKED_ADD_REFERENCE`, `FACTORIAL_REFERENCE`, `GCD_REFERENCE`, `MEMORY_COPY_REFERENCE`, `MEMORY_PROGRAM_REFERENCE`, `MEMORY_SWAP_REFERENCE` |
-| `docs/development/` | `TESTING_STRATEGY`, `FORTH_REVIEWER`, `INSTALLATION_LOG`, `VERSIONS`, `PROFILING`, `ARENA_PROTOTYPE`, `KERNEL_START`, `NDJSON_PREVIEW`, `NDJSON_READER`, and `measurements/` |
+| `docs/development/` | `TESTING_STRATEGY`, `FORTH_REVIEWER`, `DONE_CHECKER`, `INSTALLATION_LOG`, `VERSIONS`, `PROFILING`, `ARENA_PROTOTYPE`, `KERNEL_START`, `NDJSON_PREVIEW`, `NDJSON_READER`, and `measurements/` |
 | `docs/project/` | `PROJECT_PROGRESS`, `DEVELOPMENT_ROADMAP`, `IMPLEMENTATION_PLAN`, `CODEX_HANDOFF`, `OWNER_DECISIONS`, `DECISIONS`, `RESEARCH_NOTES` |
 | `docs/reviews/` | `KERNEL_REVIEW`, `CHECKED_ENVIRONMENT_REVIEW` |
 
