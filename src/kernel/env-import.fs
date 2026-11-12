@@ -52,8 +52,20 @@
 \ Mathlib prefix's checks used a few percent more or less fuel than in its
 \ fresh check (the tier numbers its records otherwise), with the same
 \ verdicts; so a taken slot reports S's run's fuel, and an exhausted one
-\ is never taken (I1.2). Making fuel independent of the numbering is a
-\ kernel task for the review.
+\ is never taken (I1.2). That guards one direction only (review rvSN4
+\ B1): a slot S accepted near its budget may be exhausted in a fresh
+\ check of the export, and a declaration checked here that rests on it may
+\ get another verdict than fresh; so until fuel is independent of the
+\ numbering (a kernel task, agent PF: the binder table of terms.fs and the
+\ cache keys of caches.fs), a taken slot equals a fresh check's in its
+\ verdict only when no check near its fuel budget is involved, and never
+\ claims equal fuel.
+\
+\ The import path never checks that S's lookup lists are ascending and
+\ distinct (only the loader of a snapshot alone does, snap-same? after
+\ publishing; review rvSN4 m5): a list out of order or with an entry twice
+\ can only fail to match, as answers-same? compares entry by entry with
+\ the list this run records, which is ascending and distinct.
 \
 \ Counts: imp-taken# (slots taken), imp-other# (declarations that share a
 \ name with one of S and match none of S's of that name in content).

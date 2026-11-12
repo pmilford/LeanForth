@@ -26,7 +26,8 @@
 \ Interface: tag-name-anon tag-name-str tag-name-num name-anonymous
 \ name-class name-str name-num name-seek-str name-seek-num name-find-str
 \ name-find-num name-valid?
-\ name-tag@ name-prefix@ name-number@ name-text@ name-hash@ name-anon-make.
+\ name-tag@ name-prefix@ name-number@ name-text@ name-hash@ name-anon-make
+\ name-own? name-up name-depth name-copy.
 \ State: name-class, made while loading and read-only afterwards.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
@@ -137,6 +138,28 @@ require ./compact-tier.fs
 : name-find-str ( prefix addr u tier -- n true | false ) name-seek-str seek>find ;
 : name-find-num ( prefix u tier -- n true | false ) name-seek-num seek>find ;
 
+
+\ Copying a name between two scratch tiers over one input tier (ADR 0020
+\ D5; plan step SN5): name-own? whether n is the tier's own (beyond its
+\ input); name-up n's ancestor k prefixes up; name-depth how many of n's
+\ ancestors, n included, are the tier's own; name-copy makes name n of
+\ tier from in tier to, one component at a time from its nearest ancestor
+\ in the input down: (n' ok), or (-1 full) or (-1 invalid) as name-str and
+\ name-num give them. A name of the input is itself in both.
+: name-own? ( n tier -- flag ) tier-names cons-under? 0= ;
+: name-up ( n k tier -- n' ) swap 0 ?do tuck name-prefix@ swap loop drop ;
+: name-depth ( n tier -- d )
+  0 >r begin 2dup name-own? while tuck name-prefix@ swap r> 1+ >r repeat 2drop r> ;
+: name-graft ( prefix' n from to -- n' outcome )
+  >r 2dup name-tag@ tag-name-str =
+  if name-text@ r> name-str else name-number@ r> name-num then ;
+: name-lower ( n from to root k -- n from to root' outcome )
+  >r 3 pick r> 4 pick name-up 3 pick 3 pick name-graft ;
+: name-copy ( n from to -- n' outcome )
+  2 pick 2 pick name-depth >r 2 pick r@ 3 pick name-up r>
+  begin dup while
+    1- dup >r name-lower ok-then? 0= if r> drop >r 2drop drop r> no-result exit then r>
+  repeat drop >r 2drop drop r> outcome-ok ;
 
 \ The anonymous name, made first in an input tier (compact.fs).
 : name-anon-make ( tier -- n outcome )

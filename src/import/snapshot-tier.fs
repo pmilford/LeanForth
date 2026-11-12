@@ -132,6 +132,7 @@ begin-structure /tier-file
   tier-sections# cells +field tf-from  \ writing: each section's first unit (a layer)
   2 cells +field tf-given              \ writing: the declarations given, addr n, or 0 0
   field: tf-given-lines                \ and their lines (n fields)
+  tier-sections# 2* cells +field tf-joins  \ writing: a section's units given whole, or 0 0
 end-structure
 : tf-stage@ ( tf -- stage ) tf-stage @ ;
 \ Section i's slab in the record's stage.
@@ -190,11 +191,18 @@ create tf-outs ' tf-raw-out , ' tf-le-out , ' tf-le-out , ' tf-le-out , ' tf-raw
 : tf-given? ( i tf -- flag ) tf-given cell+ @ 0<> swap tp-decls < 0= and ;
 : tf-given@ ( i tf -- addr n )
   swap tp-decls = if tf-given 2@ else dup tf-given-lines @ swap tf-given @ then ;
+\ A caller may also give a section's units whole (tier-joined!: the
+\ environment's snapshot appends the names a check made beyond the input
+\ to the names and their bytes; the caller keeps the block until the file
+\ is written).
+: tf-join ( i tf -- addr ) tf-joins swap 2* cells + ;
 : tf-data ( i tf -- addr n )
+  2dup tf-join 2@ over if 2swap 2drop exit then 2drop
   2dup tf-given? if tf-given@ exit then
   2dup tf-from@ >r tf-slab dup slab-count r@ - swap r> swap slab-at swap ;
 : tier-from! ( addr tf -- ) tf-from tier-sections# cells move ;
 : tier-given! ( decls n lines tf -- ) tuck tf-given-lines ! tf-given 2! ;
+: tier-joined! ( addr n i tf -- ) tf-join 2! ;
 : tf-out ( i tf -- addr units outcome )
   2dup tf-data 2swap over 1- cells tf-outs + @ execute ;
 : tf-add ( i tf -- outcome )

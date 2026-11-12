@@ -893,11 +893,13 @@
           ]
         },
         "provenance": {
-          "description": "Where the verdict comes from (ADR 0020 D4, OQ-3): snapshot, taken from the snapshot and not re-checked in this run; uses-snapshot, checked in this run but resting on the snapshot's results; checked, checked in this run.",
+          "description": "Where the verdict comes from (ADR 0020 D4, OQ-3): snapshot, taken from the snapshot and not re-checked in this run; uses-snapshot, checked in this run but resting on the snapshot's results; checked, checked in this run. With --snapshot-stale-ok and a snapshot of an older verdict version (ADR 0020 amendment 3): stale-snapshot and uses-stale-snapshot instead, never this build's verdict.",
           "enum": [
             "checked",
             "snapshot",
-            "uses-snapshot"
+            "uses-snapshot",
+            "stale-snapshot",
+            "uses-stale-snapshot"
           ]
         },
         "fuel": {
@@ -1278,7 +1280,7 @@
       }
     },
     "snapshot": {
-      "description": "The snapshot read (ADR 0020 D3): its file, its identity (the SHA-256 of its header, which holds every section's SHA-256), its format and verdict versions, the export it was written from, the manifest's SHA-256 (null when no manifest was checked), its base (null: a base snapshot) and the information text of the build that wrote it (a JSON text, shown, never compared).",
+      "description": "The snapshot read (ADR 0020 D3): its file, its identity (the SHA-256 of its header, which holds every section's SHA-256), its format and verdict versions, the export it was written from, the manifest's SHA-256 (null when no manifest was checked), its base (null: a base snapshot), the layers loaded on it and the information text of the build that wrote it (a JSON text, shown, never compared).",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -1286,9 +1288,11 @@
         "sha256",
         "formatVersion",
         "verdictVersion",
+        "stale",
         "export",
         "manifestSha256",
         "base",
+        "layers",
         "information",
         "import"
       ],
@@ -1306,9 +1310,34 @@
           "const": 1
         },
         "verdictVersion": {
-          "description": "kernel/verdict-version.fs: a snapshot of another verdict version is refused.",
+          "description": "The snapshot's verdict version (kernel/verdict-version.fs): a snapshot of another verdict version than this build's is refused, unless --snapshot-stale-ok lets an older one load (stale).",
           "type": "integer",
           "minimum": 1
+        },
+        "stale": {
+          "description": "null, or with --snapshot-stale-ok when the snapshot or a layer has an older verdict version (ADR 0020 amendment 3): this build's verdict version and how many results were taken from the stale snapshots; those are never this build's verdicts.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "thisVerdictVersion",
+                "results"
+              ],
+              "properties": {
+                "thisVerdictVersion": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "results": {
+                  "$ref": "#/$defs/count"
+                }
+              }
+            }
+          ]
         },
         "export": {
           "type": "object",
@@ -1353,11 +1382,48 @@
         "base": {
           "type": "null"
         },
+        "layers": {
+          "description": "Each layer loaded on this base snapshot, in order (ADR 0020 amendment 1, F5): its file, identity (its header's SHA-256), the export it was written from and its base's identity (this snapshot's sha256). Empty for a base alone.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "file",
+              "sha256",
+              "exportSha256",
+              "base",
+              "verdictVersion"
+            ],
+            "properties": {
+              "file": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "exportSha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "base": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "verdictVersion": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        },
         "information": {
           "type": "string"
         },
         "import": {
-          "description": "With an export checked against the snapshot (plan task 6.2.5, step SN4; ADR 0020 D5): how many of the export's declarations were taken from the snapshot (the import rule I1) and checked in this run, and how many share a name with a declaration of the snapshot but the content of none; null when no export was read.",
+          "description": "With an export checked against the snapshot (plan task 6.2.5, step SN4; ADR 0020 D5): how many of the export's declarations were taken from the snapshot (the import rule I1) and checked in this run, and how many share a name with a declaration of the snapshot but the content of none; null when no export was read or the snapshot was refused. checked counts the declarations whose verdict this run gave (fewer than those not taken when the run stopped).",
           "anyOf": [
             {
               "type": "null"

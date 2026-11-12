@@ -1755,6 +1755,11 @@ class Snapshots(unittest.TestCase):
                 continue
             again, loaded, _ = report("--snapshot", str(path))
             self.assertEqual(self.schema.errors(loaded), [], args)
+            # The names a check made beyond its input (nested blocks) are
+            # written with the tier's names (plan step SN5): the loaded
+            # tier holds them too.
+            names = loaded["input"].pop("names"), fresh["input"].pop("names")
+            self.assertGreaterEqual(*names, args)
             self.assertEqual((again, self.plain(loaded)), (status, self.plain(fresh)), args)
             self.assertEqual({d["provenance"] for d in loaded["declarations"]}, {"snapshot"})
             self.assertEqual(loaded["mode"], "development")
@@ -1770,7 +1775,7 @@ class Snapshots(unittest.TestCase):
                                    "audited; from snapshot, not re-checked in this run); "
                                    "axioms: none")
         self.assertRegex(lines[-3], r"^snapshot: .*s\.lfsnap \(sha256 [0-9a-f]{64}\), export "
-                                    r"sha256 [0-9a-f]{64}, verdict version 1, written by "
+                                    r"sha256 [0-9a-f]{64}, verdict version 2, written by "
                                     r"LeanForth \S+: 3 results taken from it, not re-checked "
                                     r"in this run$")
         self.assertEqual(lines[-2:], [
@@ -1804,7 +1809,7 @@ class Snapshots(unittest.TestCase):
         for field, value, status, why in [
                 (0, 0, 4, "invalid: the snapshot was refused: not a LeanForth snapshot"),
                 (1, 2, 2, "unsupported: the snapshot was refused: format version"),
-                (2, 2, 2, "unsupported: the snapshot was refused: verdict version"),
+                (2, 1, 2, "unsupported: the snapshot was refused: verdict version"),
                 (5, 2, 4, "invalid: the snapshot was refused: axiom allowlist"),
                 (6, 1, 4, "invalid: the snapshot was refused: axiom allowlist"),
                 (8, 1, 2, "unsupported: the snapshot was refused: layer")]:
@@ -1812,7 +1817,7 @@ class Snapshots(unittest.TestCase):
             put32(changed, 24 + 4 * field, value)
             self.refused(write(resealed(changed, table)), status, why)
         changed = bytearray(data)
-        put32(changed, 24 + 4 * 2, 2)
+        put32(changed, 24 + 4 * 2, 1)
         status, got, _ = report("--snapshot", str(write(resealed(changed, table))))
         self.assertEqual((status, self.schema.errors(got), got["read"]["phase"],
                           got["read"]["reason"], got["run"]),
@@ -1891,6 +1896,43 @@ class Snapshots(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertNotIn("Nat.fake", out)
         self.assertIn("written by LeanForth unknown: 3 results", out)
+
+    def test_stale(self):
+        """--snapshot-stale-ok (ADR 0020 amendment 3): a snapshot of an
+        older verdict version loads, every result taken from it labelled
+        stale and counted apart, never as this build's verdict; a newer one
+        is refused still; the flag needs --snapshot and writes no snapshot."""
+        path, _, fresh = self.saved(FIXTURE)
+        data, table = sectioned(path)
+        old = self.dir / "old.lfsnap"
+        put32(data, 24 + 4 * 2, 1)
+        old.write_bytes(bytes(resealed(data, table)))
+        self.refused(old, 2, "unsupported: the snapshot was refused: verdict version")
+        status, out, _ = run("check", "--snapshot-stale-ok", "--snapshot", str(old))
+        lines = out.splitlines()
+        self.assertEqual((status, lines[0]), (0, (
+            "fixtureId: accepted (experimental, not independently audited; from a stale "
+            "snapshot (an older verdict version), not this build's verdict); axioms: none")))
+        self.assertIn("stale: build's (2): its 3 results are not this build's verdicts", lines)
+        status, got, _ = report("--snapshot-stale-ok", "--snapshot", str(old))
+        self.assertEqual(self.schema.errors(got), [])
+        self.assertEqual((got["snapshot"]["verdictVersion"], got["snapshot"]["stale"]),
+                         (1, {"thisVerdictVersion": 2, "results": 3}))
+        self.assertEqual({d["provenance"] for d in got["declarations"]}, {"stale-snapshot"})
+        self.assertEqual(report("--snapshot", str(path))[1]["snapshot"]["stale"], None)
+        status, got, _ = report("--snapshot-stale-ok", "--snapshot", str(old), FIXTURE)
+        self.assertEqual((status, self.schema.errors(got)), (0, []))
+        self.assertEqual({d["provenance"] for d in got["declarations"]}, {"stale-snapshot"})
+        put32(data, 24 + 4 * 2, 3)
+        old.write_bytes(bytes(resealed(data, table)))
+        self.refused(old, 2, "unsupported: the snapshot was refused: verdict version",
+                     "--snapshot-stale-ok")
+        for args, why in [(["--snapshot-stale-ok", FIXTURE], "needs --snapshot"),
+                          (["--snapshot-stale-ok", "--snapshot", str(path), "--save-snapshot",
+                            str(self.dir / "x"), FIXTURE], "does not go with --save-snapshot")]:
+            status, out, _ = run("check", *args)
+            self.assertEqual((status, out.splitlines()[0]),
+                             (4, f"error: --snapshot-stale-ok {why}"), args)
 
     def test_outcome_changed(self):
         """A rejected verdict made accepted, every SHA-256 made again: the
@@ -2096,10 +2138,12 @@ def swapped_minors(lines, name):
 
 def kept_back(snapshot):
     """Per slot of a snapshot checked against its own export: whether the
-    import rule I1 keeps it back -- an outcome invalid, exhausted or full; a lookup of
-    a name beyond the input (key 2^32 - 1) or of another module's test (kind
-    7), which no import replays; a lookup answered or a dependency met by a
-    slot kept back; a slot published with the one before, as that one."""
+    import rule I1 keeps it back -- an outcome invalid, exhausted or full; a lookup
+    no import replays (the key 2^32 - 1 of verdict version 1, or another module's
+    test, kind 7; since plan step SN5 a name a check made beyond its input is
+    written as a name of the tier, and replayed); a lookup answered or a
+    dependency met by a slot kept back; a slot published with the one before,
+    as that one."""
     data, table = sectioned(snapshot)
     _, _, n, slots, _ = table[SLOTS]
     looks, deps = table[LOOKS][3], table[DEPS][3]
@@ -2168,9 +2212,11 @@ class Imports(unittest.TestCase):
         return got
 
     def test_i_own_export(self):
-        """(i) the snapshot's own export: everything taken, as fresh, but
-        what a check made names beyond its input for (nested blocks) and
-        what reaches it; (v) two equal declarations of one name told apart."""
+        """(i) the snapshot's own export: everything taken, as fresh, nested
+        blocks included (plan step SN5: the names their checks made beyond
+        the input are replayed), but what I1 keeps back (an exhausted, full
+        or invalid verdict) and what reaches it; (v) two equal declarations
+        of one name told apart."""
         for k, args in enumerate([[COMPOSITION], [FIXTURE], [CHAIN], [INDUCTIVE], [DEPENDENT],
                                   ["tests/cli/unfold.ndjson"], ["tests/cli/nested.ndjson"],
                                   ["--no-manifest", f"{CASES}/composition-twice.ndjson"],
@@ -2182,8 +2228,7 @@ class Imports(unittest.TestCase):
             status, fresh, _ = report(*args)
             back = kept_back(snap)
             names = [d["name"] for i, d in enumerate(fresh["declarations"]) if not back[i]]
-            self.assertEqual(sum(back), {"nested": 35, "kinds": 5}.get(
-                Path(args[-1]).stem, 0), args)
+            self.assertEqual(sum(back), 0, args)
             self.both_ways(snap, args, names)
 
     def test_dependent(self):
@@ -2398,6 +2443,168 @@ class Layers(unittest.TestCase):
         self.assertEqual((status, out.splitlines()[0]), (4, "error: invalid: the snapshot was "
                          "refused: a declaration of two snapshots with other verdicts (record 0)"))
 
+    def test_reported(self):
+        """Every layer loaded is named in the text and the JSON report, with
+        its identity, its export's and its base's (review rvSN4 M1)."""
+        one, _ = self.layer("dependent.lfsnap", DEPENDENT)
+        options = ["--snapshot", str(self.base), "--snapshot", str(one)]
+        status, out, _ = run("check", *options)
+        sha = hashlib.sha256(sectioned(one)[0][:4064]).hexdigest()
+        self.assertEqual(status, 0)
+        self.assertIn(f"layer: {one} (sha256 {sha}), export sha256 "
+                      f"{hashlib.sha256(Path(DEPENDENT).read_bytes()).hexdigest()}, "
+                      "verdict version 2, on the snapshot above", out.splitlines())
+        status, got, _ = report(*options)
+        self.assertEqual(Imports.schema.errors(got), [])
+        self.assertEqual([(x["file"], x["sha256"], x["base"]) for x in got["snapshot"]["layers"]],
+                         [(str(one), sha, got["snapshot"]["sha256"])])
+        self.assertEqual(report("--snapshot", str(self.base))[1]["snapshot"]["layers"], [])
+
+    def test_member_clash(self):
+        """A layer whose block declares, as a constructor, a name of the
+        base with other content: refused, whichever member holds the name
+        (review rvSN4 M2), when loaded and as an import's base."""
+        base = self.dir / "fixture.lfsnap"
+        run("check", "--save-snapshot", str(base), FIXTURE)
+        lines = records(INDUCTIVE)
+        renamed = next(r for r in lines if r.get("str", {}).get("str") == "first")
+        renamed["str"] = {"pre": 0, "str": "fixtureId"}
+        args = Imports.edited(self, lines, "renamed.ndjson")
+        path = self.dir / "clash.lfsnap"
+        run("check", "--snapshot", str(base), "--save-snapshot", str(path), *args)
+        why = ("error: invalid: the snapshot was refused: a name of two snapshots with other "
+               "content (record 0)")
+        for more in [[], args]:
+            status, out, _ = run("check", "--snapshot", str(base), "--snapshot", str(path), *more)
+            self.assertEqual((status, out.splitlines()[0]), (4, why), more)
+
+    def test_record_twice(self):
+        """A layer holding one expression twice (its second made a copy of
+        its first): refused, never loaded as another tier (review rvSN4
+        m1)."""
+        one, _ = self.layer("dependent.lfsnap", DEPENDENT)
+        data, table = sectioned(one)
+        exprs = table[7][3]
+        data[exprs + 16:exprs + 32] = data[exprs:exprs + 16]
+        one.write_bytes(bytes(resealed(data, table, 7)))
+        status, out, _ = run("check", "--snapshot", str(self.base), "--snapshot", str(one))
+        self.assertEqual((status, out.splitlines()[0]),
+                         (4, "error: invalid: the snapshot was refused: expressions (record 1)"))
+
+    def test_not_written(self):
+        """No "written to" line when the run read nothing and so wrote
+        nothing (review rvSN4 m2)."""
+        target = self.dir / "never.lfsnap"
+        status, out, _ = run("check", "--save-snapshot", str(target), "--no-manifest",
+                             "README.md")
+        self.assertEqual(status, 4)
+        self.assertNotIn("snapshot: written to", out)
+        self.assertIn("error: the snapshot was not written: invalid", out.splitlines())
+        self.assertFalse(target.exists())
+
+
+GOLDEN = ROOT / "tests/cli/golden-snapshots"
+GOLDEN_EXPORTS = {   # the small pinned exports whose snapshots the guard keeps
+    "composition": [COMPOSITION], "constant-fixture": [FIXTURE], "chain": [CHAIN],
+    "inductive": [INDUCTIVE], "dependent": [DEPENDENT], "unfold": ["tests/cli/unfold.ndjson"],
+    "nested": ["tests/cli/nested.ndjson"], "sharing": [SHARING],
+    "kinds": ["--no-manifest", "tests/core/reexport/kinds.ndjson"],
+    "composition-wrong-argument": ["--no-manifest",
+                                   f"{CASES}/composition-wrong-argument.ndjson"]}
+SLOT_FIELDS = ["outcome", "marks", "provenance", "axioms", "warnings", "recipe", "shape",
+               "fuel (low)", "fuel (high)", "dependencies", "lookups"]
+
+
+def verdict_version():
+    text = (ROOT / "src/kernel/verdict-version.fs").read_text()
+    return int(re.search(r"^(\d+) constant lf-verdict-version$", text, re.M).group(1))
+
+
+def golden_fields(path):
+    """What the verdict version covers, read from a snapshot (ADR 0020 D3):
+    the header's settings, the tier and identity sections (their SHA-256),
+    and per slot its fields but the diagnostic, its dependencies and its
+    lookups. The information section, which names the build, is left out."""
+    data, table = sectioned(path)
+    def section(i):
+        return bytes(data[table[i][3]:table[i][3] + table[i][4]])
+    _, _, n, slots, _ = table[SLOTS]
+    deps, looks = table[DEPS][3], table[LOOKS][3]
+    rows, j, k = [], 0, 0
+    for d in range(n):
+        fields = [u32(data, slots + 72 * d + 4 * f) for f in range(len(SLOT_FIELDS))]
+        nd, nl = fields[9], fields[10]
+        rows.append({"fields": fields,
+                     "deps": [u32(data, deps + 4 * (j + i)) for i in range(nd)],
+                     "looks": [[u32(data, looks + 8 * (k + i)), u32(data, looks + 8 * (k + i) + 4)]
+                               for i in range(nl)]})
+        j, k = j + nd, k + nl
+    return {"verdictVersion": u32(data, 24 + 4 * 2),
+            "header": [u32(data, 24 + 4 * f) for f in range(16)],
+            "tier": hashlib.sha256(b"".join(section(i) for i in range(10))).hexdigest(),
+            "identity": hashlib.sha256(section(10)).hexdigest(),
+            "slots": rows}
+
+
+def golden_text(fields):
+    """One slot to a line, so that a change shows as a short diff."""
+    head = {k: v for k, v in fields.items() if k != "slots"}
+    lines = [json.dumps(head, separators=(",", ":"))[:-1] + ',"slots":[']
+    lines += [json.dumps(r, separators=(",", ":")) + ("," if i + 1 < len(fields["slots"]) else "")
+              for i, r in enumerate(fields["slots"])]
+    return "\n".join(lines) + "\n]}\n"
+
+
+def write_golden():
+    """Write the guard's golden files again (after a verdict-version bump,
+    whose commit must hold them): python3 tests/cli/test_leanforth.py
+    --write-golden."""
+    GOLDEN.mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory() as tmp:
+        for stem, args in GOLDEN_EXPORTS.items():
+            path = Path(tmp) / f"{stem}.lfsnap"
+            run("check", "--save-snapshot", str(path), *args)
+            (GOLDEN / f"{stem}.json").write_text(golden_text(golden_fields(path)))
+            print("written", GOLDEN / f"{stem}.json")
+
+
+class VerdictGuard(unittest.TestCase):
+    """The verdict-version guard (ADR 0020 D3; plan step SN5): the snapshot
+    of each small pinned export, written now, has every field the verdict
+    version covers as the golden one written with this verdict version.
+    A change that moves one without bumping lf-verdict-version fails here;
+    a bump makes the golden files stale, so its commit writes them again
+    (write_golden). Only what these exports reach is guarded; ADR 0020 D3's
+    both-ways comparison on Init and a Mathlib prefix covers the rest."""
+
+    def test_golden(self):
+        version = verdict_version()
+        with tempfile.TemporaryDirectory() as tmp:
+            for stem, args in GOLDEN_EXPORTS.items():
+                golden = json.loads((GOLDEN / f"{stem}.json").read_text())
+                self.assertEqual(golden["verdictVersion"], version,
+                                 f"{stem}: golden snapshot of another verdict version (stale): "
+                                 "write them again, python3 tests/cli/test_leanforth.py "
+                                 "--write-golden")
+                path = Path(tmp) / f"{stem}.lfsnap"
+                run("check", "--save-snapshot", str(path), *args)
+                now = golden_fields(path)
+                for key in ("header", "tier", "identity"):
+                    self.assertEqual(now[key], golden[key], f"{stem}: {key}")
+                self.assertEqual(len(now["slots"]), len(golden["slots"]), stem)
+                moved = [f"slot {d} {name}: {a} -> {b}"
+                         for d, (g, s) in enumerate(zip(golden["slots"], now["slots"]))
+                         for name, a, b in
+                         [(SLOT_FIELDS[f], g["fields"][f], s["fields"][f])
+                          for f in range(len(SLOT_FIELDS))] +
+                         [("dependencies", g["deps"], s["deps"]), ("lookups", g["looks"], s["looks"])]
+                         if a != b]
+                self.assertEqual(moved[:10], [], f"{stem}: a field the verdict version covers "
+                                 "moved without a bump of lf-verdict-version")
+
 
 if __name__ == "__main__":
+    if sys.argv[1:] == ["--write-golden"]:
+        write_golden()
+        sys.exit(0)
     unittest.main()

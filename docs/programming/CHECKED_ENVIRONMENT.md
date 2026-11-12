@@ -289,7 +289,26 @@ declaration's snapshot (a query that meets a slot not final below it sets
 with `imp-fill` as its check, provenance saved; the scheduler treats
 slots final before the run as done (`lf-sch-taken`). A layer holds what a
 run added to its base; `lay-load` merges it into the loaded base: equal
-declarations of equal verdicts once, a name of other content refused.
+declarations of equal verdicts once, a name of other content (any member
+of a block, review rvSN4 M2) refused, a record a layer holds twice
+refused (m1).
+
+**Names beyond the input** (plan step SN5, [ADR 0020's amendment
+3](../adr/0020-checked-snapshot.md#amendment-3-2026-11-11-step-sn5)). A
+check may make names its input tier does not hold -- a nested block's
+auxiliary types `_nested.Array_1` -- and look them up. At the hand-over
+the seal (`lf-env-seal`) makes each such name, component by component,
+the same name of the environment's own tier of names (`lf-env-outer`, a
+scratch tier over the input tier that only the publisher writes;
+`name-copy` in `core/compact-names.fs`), so the published key names a name
+every later reader can read; a name the heap cannot hold makes the
+declaration *full*. The snapshot's writer adds those names after the
+tier's names, in an order that depends only on their content and the
+slots' order (so `--jobs` does not change the bytes), and writes their
+keys as those names; a loaded snapshot then holds them as names of its
+tier, and an import replays their lookups as any other. Verdict version 2.
+`--snapshot-stale-ok` (`snap-stale-allowed`) lets a snapshot of an older
+verdict version load, marked stale (`snap-stale`).
 
 ### The parallel scheduler (`src/kernel/env-schedule.fs`, plan task 7.3.1)
 
