@@ -1979,9 +1979,10 @@ Status: proposed; [kernel] gate owed. Code: `src/import/feed.fs`
 (`lf-term-input-binder-first`, `lf-term-input-binder-merged?`,
 `lf-term-findable?`), `src/core/levels.fs`
 (`lf-level-findable?`), `src/core/level-scope.fs` (`lf-lscope-reached`),
-`src/core/constant-term-boundary.fs` (`lf-audit-reached?`,
+`src/core/constant-term-boundary.fs` (`lf-audit-held?`,
 `lf-audit-level-reached?`), `src/kernel/check-declaration.fs`
-(`lf-check-findable`, `lf-check-level-findable`). No typing, reduction or
+(`lf-check-findable`, `lf-check-reached?`, `lf-check-level-findable`;
+until Amendment 11, `lf-audit-reached?`). No typing, reduction or
 conversion rule changes: every change decides only which node, of nodes
 that are equal, stands for a term or level, never what it is.
 
@@ -2437,6 +2438,50 @@ declaration the same but fuel; fuel 654,546,896 → 654,719,715 (+0.03%),
 5,873 declarations more (at most +13.8%, `Sum.liftRel_subrelation_lex`;
 +334 units at most, the `*.instLinearOrderPackage` instances) and 3,647
 less (at most −3.3%); 650 s wall, 0.86 GB peak.
+
+## Amendment 11: a speed and memory pass with every verdict and fuel unchanged (agent PERF1, Q12, plan tasks 6.5.8 and 6.5.9, 2026-11-12, proposed)
+
+Status: proposed; no typing, reduction or conversion rule changes, and no
+fuel change, so no verdict-version bump; [kernel] review owed for the two
+items in `kernel/` and `core/` that the checker runs. A sampling profile
+of all of `Init` (a ptrace sampler of `gforth-fast`'s Forth return stack;
+`.claude/work/PERF1/PROFILE.md` of the `perf1` worktree) found the
+checking flat in small words, with three costs that are not Lean's: the
+environment's and input's validity checks (`lf-env-current`, 18.5% of the
+checking, about one call per unit of fuel at 250-350 ns), the findability
+hook asked of every record a term-table probe passed (4.7%), and the
+level-scope context audit, linear in every universe parameter of the
+export, at each level check (6.5%). Changes, each reading the same
+memory to the same answer:
+
+1. `lf-term-same` (`core/terms.fs`) compares a probed record's fields
+   before asking `lf-term-findable?`, so the hook runs only for the one
+   live record equal to the key.
+2. `lf-check-findable` (`kernel/check-declaration.fs`) asks `lf-audit-on?`
+   only for a node made before the check, once, then reads the memo with
+   `lf-audit-held?` (`lf-check-reached?`); before, it asked it for every
+   node and `lf-audit-reached?` asked again.
+3. The level-scope audit (`core/level-scope.fs`) keeps the entries it last
+   passed; entries equal to them byte for byte pass again without the
+   audit, any others are audited anew (planted fault
+   `perf1-lscope-copy-by-count`, caught).
+4. Not in the checker's rules: the presentation side table's per-term
+   entries (`present/binder-table.fs`, 40 bytes a node, never written by
+   `check`) are a slab grown when an entry is recorded instead of a column
+   of every context's term store, and `u32@`/`u32!` are Forth-2012
+   synonyms of `l@`/`l!` where those are native (`lib/u32.fs`).
+
+Evidence: all of `Init` (`check --no-manifest --json --jobs 2`, main
+`c19a2f5` against `77b4b3d`): every declaration's record the same, fuel
+equal for all 59,349; checking CPU 1,196.7 → 988.1 s (−17.4%), wall
+619.1 → 512.2 s, peak 820 → 789 MB. The arena's large test
+`reachability` (4,846 declarations over Mathlib, `--jobs 2`): reports and
+fuel equal, CPU 520.7 → 420.5 s (−19.3%), peak 3.29 → 1.98 GB (−40%, item
+4). The scratch meter's 12 cells a term
+node stay (an upper bound; Amendment 8). Left, the largest: the validity
+checks (about 15%) run at every cache gate, audit gate and lookup; only
+fewer calls would pay, which moves a fail-closed check (a proposal for
+the review, not done).
 
 ## Note: the projection steps (plan task 5.2.2, 2026-11-10)
 

@@ -1340,6 +1340,26 @@ per term number) is the driving context's alone. Planted faults `sh-*`
 (eight; one a known defence in depth) and two re-targeted `s6c-*` are
 caught.
 
+## Amendment 3 (2026-11-12): bytes per scratch term node (agent PERF1, plan task 6.5.9 in part)
+
+C6 left a worker's scratch "not yet known". Counted from the layouts on a
+64-bit host, each term node of a context's store held, per node of the
+store's capacity (which doubles, as its columns do): its 16-byte record,
+an 8-byte identity, the audit memo's two-cell marks column, and the
+presentation side table's five-cell entry (`present/binder-table.fs`),
+plus a 4-byte hash-cons slot at 3/8 to 3/4 load: 85-91 bytes, against
+about 33 in Lean (agent PF measured 94 on `perf/app-lam`). The
+presentation entry is written only by `print`, the authoring words and
+tests, never by `check`, yet every context the command line made grew it
+with its store. It is now a slab of its own, grown when an entry is
+recorded (a unit beyond it reads as empty), so a check's node holds 45-51
+bytes. The scratch meter's 12 cells a node (ADR 0014 Amendment 8) stay,
+as an upper bound, so no *full* verdict moves. On `Init`'s first million
+lines (`--jobs 1`) peak memory went from 168 to 155 MB with this change
+alone; with the speed changes of ADR 0014 Amendment 11, the arena's large
+test `reachability` (`--jobs 2`) from 3.29 to 1.98 GB, every report and
+fuel the same. The rest of 6.5.9 (identities, marks, the table) is open.
+
 ## Consequences
 
 - All of Mathlib's input fits in about 3 GB with one shared copy, so
