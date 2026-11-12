@@ -6,17 +6,20 @@
 # file names are taken relative to the current directory.
 # Usage: leanforth help; docs/user/COMMAND_LINE.md is the manual.
 #
-# The engine (owner, 2026-11-04): check, replay and print run on Gforth's
-# checking engine, gforth, which stops at a stack or memory fault where it
-# happens; with --fast they run on gforth-fast, about 2.4 times quicker
-# with the same verdicts in every test. count and reexport, which check no
+# The engine (owner, 2026-11-11): check, replay and print run on gforth-fast,
+# the quick engine, with the same verdicts as Gforth's checking engine
+# (make engine-gate compares them on all of Init); --checked runs them on
+# gforth, which stops at a stack or memory fault where it happens (about
+# 2.4 times slower). --fast is still accepted and changes nothing, except
+# when GFORTH is set (see below). count and reexport, which check no
 # proof, use gforth-fast (about 3.3 times faster on large exports,
-# docs/development/NDJSON_READER.md). The engine is $GFORTH when set (with
-# --fast, the gforth-fast in its folder when that exists), else the pinned one in
-# .tools/gforth of this checkout (scripts/install-gforth.sh), else one on
-# PATH. When --fast finds no gforth-fast, the run uses gforth and says so
-# on standard error. The engine's file name is passed on in
-# LEANFORTH_ENGINE, for the resource report and the JSON report.
+# docs/development/NDJSON_READER.md). With GFORTH unset the engine is the
+# pinned one in .tools/gforth of this checkout (scripts/install-gforth.sh),
+# else one on PATH. A set GFORTH names the engine and is used as it is (the
+# Makefile's tests set it to the checking engine); --fast then looks for
+# the gforth-fast in its folder. When no gforth-fast is found, the run
+# uses gforth and says so on standard error. The engine's file name is
+# passed on in LEANFORTH_ENGINE, for the resource report and the JSON report.
 # Exit status: 0 all accepted (or the command done), 1 something rejected,
 # 2 unsupported or unknown, 3 a resource limit, 4 malformed input or
 # command line, 5 an internal fault, 6 all accepted but some NOT PROVED
@@ -34,24 +37,32 @@ root=$(cd "$(dirname "$self")/.." && pwd -P) || {
   exit 5
 }
 
-# --fast among the options of check, replay or print (not the value of
-# --record, --fuel, --name, --statement, --save-snapshot or --snapshot).
+# --fast and --checked among the options of check, replay or print (not the
+# value of --record, --fuel, --name, --statement, --save-snapshot or --snapshot).
 fast=false
+checked=false
 case ${1:-} in
   check | replay | print)
     previous=
     for argument in "${@:2}"; do
       case $previous in
         --record | --fuel | --name | --statement | --save-snapshot | --snapshot) ;;
-        *) if [ "$argument" = --fast ]; then fast=true; fi ;;
+        *) case $argument in
+             --fast) fast=true ;;
+             --checked) checked=true ;;
+           esac ;;
       esac
       previous=$argument
     done
+    if $fast && $checked; then
+      printf 'error: --fast and --checked together\ntry: leanforth help\n'
+      exit 4
+    fi
     ;;
 esac
-engine=gforth
-case ${1:-} in count | reexport) engine=gforth-fast ;; esac
-if $fast; then engine=gforth-fast; fi
+# Default engine: gforth-fast for every command but with --checked.
+engine=gforth-fast
+if $checked; then engine=gforth; fi
 # The engine named, from this checkout's tools or the PATH.
 find_engine() {
   if [ -x "$root/.tools/gforth/bin/$1" ]; then
@@ -63,7 +74,7 @@ find_engine() {
   fi
 }
 no_fast() {
-  printf 'leanforth: note: --fast: no %s found; checking with %s\n' "$1" "$2" >&2
+  printf 'leanforth: note: no %s found; checking with %s\n' "$1" "$2" >&2
 }
 # The fast engine beside GFORTH: the gforth-fast in its folder (for the
 # Makefile's scripts/gforth-strict.sh, scripts/gforth-fast), or on PATH
@@ -89,7 +100,7 @@ if [ -n "${GFORTH:-}" ]; then
 elif GFORTH=$(find_engine "$engine"); then
   :
 elif GFORTH=$(find_engine gforth); then
-  if $fast; then no_fast gforth-fast "$GFORTH"; fi
+  if [ "$engine" = gforth-fast ]; then no_fast gforth-fast "$GFORTH"; fi
 else
   printf 'leanforth: internal fault: no Gforth found; %s\n' \
     'run scripts/install-gforth.sh or set GFORTH' >&2

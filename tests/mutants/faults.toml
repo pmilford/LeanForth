@@ -2864,12 +2864,12 @@ test = "python3 tests/cli/test_leanforth.py"
 reason = "the schema takes exit status 6 from a run without --strict-axioms"
 
 [[fault]]
-id = "wrapper-fast-ignored"
+id = "wrapper-checked-ignored"
 file = "bin/leanforth"
-old = '''if $fast; then engine=gforth-fast; fi'''
+old = '''if $checked; then engine=gforth; fi'''
 new = '''true'''
 test = "python3 tests/cli/test_leanforth.py"
-reason = "--fast does not select gforth-fast when GFORTH is not set"
+reason = "--checked does not select the checking engine when GFORTH is not set"
 
 [[fault]]
 id = "wrapper-fast-beside-ignored"
