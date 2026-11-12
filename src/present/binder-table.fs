@@ -10,10 +10,15 @@
 \ name store's generation, a declaration with its type's identity and that
 \ generation, so after a reset of either store a stale entry reads as
 \ absent instead of describing another term.
-\ State: one context record, lf-pres, and a column of the term store,
-\ lf-pres-terms (lib/store-columns.fs), both members of the checker
-\ context (ADR 0009). Each context has its own table; one context is
-\ single-threaded.
+\ State: one context record, lf-pres, and a slab of term entries,
+\ lf-pres-terms, one unit per record of the term store, both members of
+\ the checker context (ADR 0009). Each context has its own table; one
+\ context is single-threaded. The slab grows only when an entry is
+\ recorded (lf-pres-claim), never with the term store, so a check, which
+\ records none, keeps no 40 bytes per term node for it (plan task 6.5.9;
+\ until 2026-11-12 it was a column of the term store, lib/store-columns.fs,
+\ which every context grew with its store). A unit beyond the slab's
+\ capacity reads as an empty entry.
 
 require ../lib/lib.fs
 require ../lib/slab.fs
@@ -49,11 +54,20 @@ begin-structure /lf-pres
 end-structure
 /lf-pres context-record: lf-pres
 /slab context-record: lf-pres-terms
-/lf-pterm ' lf-pres-terms lf-term-columns column-add
+: lf-pres-terms-make ( -- ) /lf-pterm dup slab-limit-max lf-pres-terms slab-init drop ;
+' lf-pres-terms-make context-setup
+:noname ( -- ) lf-pres-terms slab-free ; context-teardown
 
-\ A store record's entry (the column covers the term store's own records,
-\ which follow the input nodes of a view, core/terms.fs).
-: lf-pres-entry ( term -- entry ) lf-term-base - lf-pres-terms column-at ;
+\ A store record's entry: unit u of the slab is term lf-term-base + u, the
+\ term store's own records following the input nodes of a view
+\ (core/terms.fs). Unchecked: the unit is held (lf-pres-held?, or
+\ lf-pres-hold gave ok).
+: lf-pres-unit ( term -- u ) lf-term-base - ;
+: lf-pres-entry ( term -- entry ) lf-pres-unit lf-pres-terms column-at ;
+: lf-pres-held? ( term -- flag ) lf-pres-unit lf-pres-terms slab-capacity u< ;
+\ Room for term's entry, new units empty: ok, or full when the heap has
+\ none.
+: lf-pres-hold ( term -- outcome ) lf-pres-unit 1+ lf-pres-terms column-reserve ;
 : lf-pres-decl ( i -- decl ) /lf-pdecl * lf-pres lf-pres-decls + ;
 \ The number of declaration records, clamped into range so that a
 \ corrupted count can never address outside the table.
@@ -73,10 +87,12 @@ end-structure
   dup lf-term-input? if drop false else lf-term-identity then ;
 : lf-pres-claim ( term -- entry true | false )
   dup lf-pres-live 0= if drop false exit then
+  over lf-pres-hold ok? 0= if 2drop false exit then
   swap lf-pres-entry 2dup lf-pterm-identity @ = if nip else tuck lf-pres-blank then true ;
 \ The entry of a live term, only when it was recorded for that term.
 : lf-pres-current ( term -- entry true | false )
   dup lf-pres-live 0= if drop false exit then
+  over lf-pres-held? 0= if 2drop false exit then
   swap lf-pres-entry tuck lf-pterm-identity @ = dup 0= if nip then ;
 : lf-pres-known ( n -- n true | false ) dup 0< if drop false else true then ;
 
