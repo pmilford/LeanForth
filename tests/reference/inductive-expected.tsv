@@ -120,6 +120,9 @@ nested.mutual	accepted	accepted	A1 N1	5.2.5b	NA: idx=0 rec=1 refl=0 nested=1 eli
 nested.thunk	accepted	accepted	A1 N1	5.2.5b	TT: idx=0 rec=1 refl=1 nested=1 elim=any k=0 motives=2 minors=3 fields=[0, 1] aux=[rec_1]
 nested.constructor-named-rec-1	alreadyDeclared	rejected	N1 N2	5.2.5b	
 nested.array-non-positive	nonPositive	rejected	N1 P1	5.2.5b	
+nested.shared-depths	accepted	accepted	A1 N1	5.2.5b	T: idx=0 rec=1 refl=0 nested=1 elim=any k=0 motives=2 minors=3 fields=[2] aux=[rec_1]
+nested.shared-depths-negative	nonPositive	rejected	N1 P1	5.2.5b	
+nested.lowered-twice	accepted	accepted	A1 N1	5.2.5b	T: idx=0 rec=1 refl=0 nested=4 elim=any k=0 motives=5 minors=7 fields=[3] aux=[rec_1, rec_2, rec_3, rec_4]
 names.already-declared	alreadyDeclared	rejected	T5	5.2.1a	
 names.duplicate-constructor	duplicateConstructor	rejected	C4	5.2.1a	
 names.duplicate-universe	duplicateLevelParam	rejected	T5	5.2.1a	

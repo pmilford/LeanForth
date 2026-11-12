@@ -9078,3 +9078,40 @@ old = '''  ['] lf-ind-inner-dispatch lf-walk-once-aside ;'''
 new = '''  ['] lf-ind-inner-dispatch lf-walk-once ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvKN 2: the occurrence walk inside the nested-occurrence walk marks the outer walk's units, which then visits those nodes again"
+
+# --- Review MO (2026-11-12): the nested passes keep each (node, offset)
+# pair's result, as Lean's replace does (src/kernel/inductive-nested.fs)
+
+[[fault]]
+id = "mo-nest-no-recall"
+file = "src/kernel/inductive-nested.fs"
+old = '''  >r 2dup lf-nest-recall? if r> drop lf-replace-recall else r> execute then ;'''
+new = '''  execute ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "MO: the nested passes never give a kept result back, so they walk every path: nested.shared-depths runs out of a million units"
+
+[[fault]]
+id = "mo-nest-binary-unkept"
+file = "src/kernel/inductive-nested.fs"
+old = '''  r> swap dup >r lf-nest-kept r> 0 ;'''
+new = '''  r> drop 0 ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "MO: a rebuilt application or binder's result is not kept, so a node met again at an offset is walked again"
+
+[[fault]]
+id = "mo-nest-any-offset"
+file = "src/kernel/inductive-nested.fs"
+old = '''  tuck frame-context @ rot lf-nest-memo lf-rmemo@ ;'''
+new = '''  lf-nest-memo 0 swap lf-rmemo@ ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "MO: a node's result is looked up at offset 0 whatever the offset of the visit, so a node met at depth 0 gives that result at any depth"
+
+[[fault]]
+id = "mo-nest-kept-after-call"
+file = "src/kernel/inductive-nested.fs"
+old = '''  lf-nest-memo dup lf-rmemo-count if dup lf-rmemo-empty then 0 swap lf-rmemo-begin ;
+: lf-nest-memo-end ( outcome frames -- outcome ) over swap lf-nest-memo lf-rmemo-end ;'''
+new = '''  lf-nest-memo 0 swap lf-rmemo-begin ;
+: lf-nest-memo-end ( outcome frames -- outcome ) drop ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "MO: a call's results stay for the next call of the pass, whose results for a node and offset may differ: nested.lowered-twice's second lowering (by 2) is given the first one's (by 1)"

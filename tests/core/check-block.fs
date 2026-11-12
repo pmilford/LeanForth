@@ -258,6 +258,17 @@ T{ s" uniform.let-uniform" verdict -> outcome-ok 0 all-steps }T
 \ this file's million units (review rvKN 1: marks keeping one depth per
 \ term ran out of fuel; pinned Lean accepts).
 T{ s" uniform.shared-depths" verdict -> outcome-ok 0 all-steps }T
+\ The same thirty terms in a nested block's constructor: the translation
+\ and the restoration keep each (term, offset) pair's result, as Lean's
+\ replace does, within this file's million units (review MO: passes that
+\ walked every path ran out of fuel; pinned Lean accepts), and a
+\ non-positive field after them is still found.
+T{ s" nested.shared-depths" verdict -> outcome-ok 0 all-steps }T
+T{ s" nested.shared-depths-negative" verdict -> outcome-rejected lf-diag-non-positive 9 }T
+\ Two occurrences lowered by 1 and by 2 share Option #2, which names a
+\ different parameter at each depth: each lowering keeps only its own
+\ results (pinned Lean accepts).
+T{ s" nested.lowered-twice" verdict -> outcome-ok 0 all-steps }T
 \ The occurrence walk run inside the nested-occurrence walk
 \ (lf-ind-mentions?) keeps its marks apart: a node the outer walk reached
 \ stays reached, so the outer walk does not visit it again (review rvKN 2:

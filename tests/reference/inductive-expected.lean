@@ -729,6 +729,24 @@ def checks : List Block := [
   { id := "nested.array-non-positive",
     types := [⟨"Bad", "Type", [("mk", "Array (Bad → Nat) → Bad")]⟩],
     lean := "nonPositive", leanforth := "rejected", rule := "N1 P1", task := "5.2.5b" },
+  -- A nested block whose constructor has a field of 30 shared closed terms met at many
+  -- depths in turn (zeta := true, as exported): Lean's translation and restoration are
+  -- replace calls, whose cache keeps each shared (term, offset) pair once; passes that
+  -- walked every path (22 million visits) ran out of fuel where Lean accepts at once
+  -- (review MO). The twin adds a non-positive field after it.
+  { id := "nested.shared-depths", zeta := true,
+    types := [⟨"T", "Type", [("mk", "List T → " ++ depthLets 30 ++ " → T")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 N1", task := "5.2.5b" },
+  { id := "nested.shared-depths-negative", zeta := true,
+    types := [⟨"T", "Type", [("mk", "List T → " ++ depthLets 30 ++ " → (T → Nat) → T")]⟩],
+    lean := "nonPositive", leanforth := "rejected", rule := "N1 P1", task := "5.2.5b" },
+  -- Two occurrences lowered to the parameters by different amounts (1 and 2) share the
+  -- node `Option #2`, which names α at the first one's depth and β at the second's: a
+  -- lowering's kept results are its own call's (review MO).
+  { id := "nested.lowered-twice", nparams := 2,
+    types := [⟨"T", "Type → Type → Type", [("mk", "(α β : Type) → Nat → " ++
+      "List (Prod (T α β) (Option α)) → List (Prod (T α β) (Option β)) → T α β")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 N1", task := "5.2.5b" },
   -- Names and the block itself.
   { id := "names.already-declared", ns := .anonymous,
     types := [⟨"Nat", "Type", [("zero", "Nat")]⟩],
