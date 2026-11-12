@@ -2024,12 +2024,14 @@ give (`instantiate_rev`'s definition, mixed-open.fs). The stack's cells
 are read by index after anything that may grow it; each spine gives its
 cells back when its type is known or refused, and a job starts with none.
 
-**Fuel.** Fewer units: one pass per point instead of one per argument,
-and no visit, lookup or key per prefix; where a prefix's type was found in
-the cache before, the spine now types it from its head, as Lean does
-(more units there; none measured below uses more). Less fuel can only
-turn *exhausted* (or *unknown* behind one) into a decided verdict. Verdict
-version 5 (ADR 0020 D3).
+**Fuel.** One pass per point instead of one per argument, and no visit,
+lookup or key per prefix: fewer units for long dependent spines. Where a
+prefix's type was found in the cache before, the spine now types it from
+its head, as Lean does, which can cost more (two Mathlib roots below, and
+some declarations of `Init`). Fuel only bounds work: a run with a
+different count can only be *exhausted* (or *unknown* behind one) where
+the other decides, never give another verdict. Verdict version 5 (ADR
+0020 D3).
 
 **Evidence.** `tests/cli/shared-depths.lean` P4: proof irrelevance types
 two 48-argument spines aside (`Spine.h 0 … 0`, `Spine.h₂ 0 … 0`); pinned

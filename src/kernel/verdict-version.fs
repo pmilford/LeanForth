@@ -39,8 +39,9 @@
 \                  Amendment 7, branch pf-perf: renumber at merge if
 \                  needed): infer-only inference types an application
 \                  from its spine's head, as Lean's infer_app does, so
-\                  fuel counts fall (the pinned exports: every report the
-\                  same but for fuel, which only fell); no verdict.
+\                  fuel counts move, mostly down (the pinned exports:
+\                  every report the same but for fuel, which only fell;
+\                  some declarations use more); no verdict.
 \
 \ [kernel] code: experimental, not through the review gate.
 \ State: none.
