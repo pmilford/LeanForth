@@ -645,7 +645,7 @@ as all of Mathlib with a large `--fuel`: the workers of `--jobs` share
 one process's memory, so without a limit one huge check could take the
 memory the others need and make their checks *full* too. Each record a
 check makes counts a fixed number of bytes, an upper bound on a 64-bit
-host of what the record itself takes (96 per term node, 160 per level,
+host of what the record itself takes (96 per term node, 176 per level,
 64 per reference and 16 per universe argument, 64 per cache entry, 48
 per local-context entry). The heap holds more than the count: stores
 and tables grow by doubling, and a worker keeps what its largest check

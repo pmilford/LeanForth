@@ -2118,7 +2118,7 @@ frame stacks are not counted.
 
 - *Counted, not measured.* Each record counts a fixed number of bytes,
   upper bounds on a 64-bit host of its record, identity, side columns
-  and two table slots (96 per term node, 160 per level, 64 per reference
+  and two table slots (96 per term node, 176 per level, 64 per reference
   plus 16 per universe argument, 64 per cache entry, 48 per local-context
   entry; `tests/core/check-declaration.fs` checks the bounds against the
   stores). The heap's own sizes depend on what earlier checks grew in the

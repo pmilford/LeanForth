@@ -52,7 +52,7 @@ end-structure
 
 \ Bytes each record counts (see the header).
 12 cells constant lf-meter-term-bytes    \ a term node
-20 cells constant lf-meter-level-bytes   \ a level
+22 cells constant lf-meter-level-bytes   \ a level
 8 cells constant lf-meter-cref-bytes     \ a constant reference, plus
 2 cells constant lf-meter-arg-bytes      \ each of its universe arguments
 8 cells constant lf-meter-entry-bytes    \ a cache entry
