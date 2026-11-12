@@ -9382,3 +9382,294 @@ new = '''  lf-nest-memo 0 swap lf-rmemo@ ;
   lf-nest-memo 0 swap lf-rmemo! ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvMO 1: the memo keyed by node alone (offset 0 in the lookup and in the store): nested.offset-local is accepted, which Lean rejects (nestedLocalVariable)"
+
+# --- Coverage tests of the kernel review FRK section 3 (COV1, 2026-11-12):
+# tests/core/<module>.fs for the kernel modules without a test file.
+
+[[fault]]
+id = "cov-iota-major-idx-no-indices"
+file = "src/kernel/iota.fs"
+old = ''': lf-iota-major-idx ( decl -- i ) dup lf-iota-prefix swap lf-irc-indices lf-iota-field + ;'''
+new = ''': lf-iota-major-idx ( decl -- i ) lf-iota-prefix ;'''
+test = "$GFORTH tests/core/iota.fs"
+reason = "the major premise's place without the indices: Eq.rec's is the fifth argument, not the sixth"
+
+[[fault]]
+id = "cov-iota-k-flag-ignored"
+file = "src/kernel/iota.fs"
+old = ''': lf-iota-k? ( decl -- flag ) lf-irc-k lf-iota-field 0<> ;'''
+new = ''': lf-iota-k? ( decl -- flag ) drop false ;'''
+test = "$GFORTH tests/core/iota.fs"
+reason = "the record's k never read: Eq.rec is no longer K-like"
+
+[[fault]]
+id = "cov-iota-ctor-any-kind"
+file = "src/kernel/iota.fs"
+old = '''  dup lf-idecl-kind @ lf-kind-constructor = 0= if drop 0 then outcome-ok ;'''
+new = '''  outcome-ok ;'''
+test = "$GFORTH tests/core/iota.fs"
+reason = "is_constructor_app true for any declaration: an application of Bool.rec counts as a constructor application"
+
+[[fault]]
+id = "cov-iota-k-induct-any-head"
+file = "src/kernel/iota.fs"
+old = '''  lf-whnf-cref lf-crec-name @ over lf-name-same? 0= if drop 0 then outcome-ok ;'''
+new = '''  lf-whnf-cref lf-crec-name @ nip outcome-ok ;'''
+test = "$GFORTH tests/core/iota.fs"
+reason = "K takes any constant head as the major inductive type, not only the recursor's"
+
+[[fault]]
+id = "cov-iota-k-make-short-unchecked"
+file = "src/kernel/iota.fs"
+old = '''  over lf-iota-n over < if 2drop drop -1 outcome-unknown exit then'''
+new = ''''''
+test = "$GFORTH tests/core/iota.fs"
+reason = "mk_nullary_cnstr reads parameters a type with fewer arguments does not have, instead of unknown"
+
+[[fault]]
+id = "cov-iota-of-struct-any"
+file = "src/kernel/iota.fs"
+old = '''  lf-whnf-head dup lf-whnf-const? 0= if 2drop false exit then'''
+new = '''  lf-whnf-head dup lf-whnf-const? 0= if 2drop true exit then'''
+test = "$GFORTH tests/core/iota.fs"
+reason = "a type whose head is no constant counts as an application of the structure (eta would expand it)"
+
+[[fault]]
+id = "cov-iota-major-failure-stuck"
+file = "src/kernel/iota.fs"
+old = '''  lf-iota-lit ok-then? 0= if 3 r@ frame-drop r> lf-whnf-failed exit then'''
+new = '''  lf-iota-lit ok-then? 0= if 3 r@ frame-drop drop -1 outcome-ok r> 0 exit then'''
+test = "$GFORTH tests/core/iota.fs"
+reason = "a major premise's whnf that ran out of fuel or room leaves the application stuck (ok) instead of ending exhausted or full"
+
+[[fault]]
+id = "cov-iota-first-ctor-absent-ok"
+file = "src/kernel/iota.fs"
+old = '''  dup 0< if drop 0 outcome-unknown exit then'''
+new = '''  dup 0< if drop 0 outcome-ok exit then'''
+test = "$GFORTH tests/core/iota.fs"
+reason = "get_first_cnstr of a type Lean's environment does not hold is 'none' (K kept) instead of unknown"
+
+[[fault]]
+id = "cov-rn-table-div-beq-swapped"
+file = "src/kernel/reduce-nat.fs"
+old = '''  ' lf-rn-div , ' lf-rn-beq , ' lf-rn-ble , ' lf-rn-land , ' lf-rn-lor , ' lf-rn-xor ,'''
+new = '''  ' lf-rn-beq , ' lf-rn-div , ' lf-rn-ble , ' lf-rn-land , ' lf-rn-lor , ' lf-rn-xor ,'''
+test = "$GFORTH tests/core/reduce-nat.fs"
+reason = "whnf.fs's operation list out of step with the table: Nat.div computes Nat.beq and the other way round"
+
+[[fault]]
+id = "cov-rn-ble-as-beq"
+file = "src/kernel/reduce-nat.fs"
+old = ''': lf-rn-ble ( a b -- node outcome ) ['] lf-rn-le lf-rn-test ;'''
+new = ''': lf-rn-ble ( a b -- node outcome ) ['] lf-rn-eq lf-rn-test ;'''
+test = "$GFORTH tests/core/reduce-nat.fs"
+reason = "Nat.ble decided as Nat.beq: Nat.ble 3 5 is false"
+
+[[fault]]
+id = "cov-rn-shl-zero-counted"
+file = "src/kernel/reduce-nat.fs"
+old = '''  over lf-term-second@ 0= if ['] big-lshift lf-rn-std exit then'''
+new = ''''''
+test = "$GFORTH tests/core/reduce-nat.fs"
+reason = "0 shifted left by 2^32 refused (rejected) where Lean's reduce_shift_left gives 0 first"
+
+[[fault]]
+id = "cov-rn-zero-as-succ"
+file = "src/kernel/reduce-nat.fs"
+old = '''  dup lf-term-second@ 0= if drop lf-rn-zero exit then'''
+new = ''''''
+test = "$GFORTH tests/core/reduce-nat.fs"
+reason = "nat_lit_to_constructor of 0 is not Nat.zero (the predecessor of 0 is asked for)"
+
+[[fault]]
+id = "cov-mhead-fvar-none"
+file = "src/kernel/mixed-head.fs"
+old = '''    lf-tag-bvar of lf-head-var endof  lf-tag-fvar of lf-head-var endof'''
+new = '''    lf-tag-bvar of lf-head-var endof  lf-tag-fvar of lf-head-none endof'''
+test = "$GFORTH tests/core/mixed-head.fs"
+reason = "a free variable of the local context is no rigid head: rules D2-D5 would not compare it"
+
+[[fault]]
+id = "cov-mhead-projection-none"
+file = "src/kernel/mixed-head.fs"
+old = '''    lf-tag-projection of lf-head-constant endof  lf-head-none swap endcase ;'''
+new = '''    lf-head-none swap endcase ;'''
+test = "$GFORTH tests/core/mixed-head.fs"
+reason = "a projection head no longer flexible (as a constant): it is of no kind"
+
+[[fault]]
+id = "cov-rebuild-binder-never-stuck"
+file = "src/kernel/mixed-rebuild.fs"
+old = '''  frame-context @ max-n = swap lf-rebuild-binder? and ;'''
+new = '''  2drop false ;'''
+test = "$GFORTH tests/core/mixed-rebuild.fs"
+reason = "a binder at the deepest context is entered (frame-under's refusal instead of the binders-full diagnostic, after its children's fuel)"
+
+[[fault]]
+id = "cov-rebuild-body-not-deeper"
+file = "src/kernel/mixed-rebuild.fs"
+old = '''  lf-rebuild-binder? if ['] frame-under else ['] frame-call then ;'''
+new = '''  drop ['] frame-call ;'''
+test = "$GFORTH tests/core/mixed-rebuild.fs"
+reason = "a lambda's or Pi's body visited at its binder's context, not one deeper: a lambda nested at max-n - 1 is copied"
+
+[[fault]]
+id = "cov-rebuild-second-failure-ignored"
+file = "src/kernel/mixed-rebuild.fs"
+old = '''  >r over ok? 0= if r> drop 2 lf-rebuild-failed exit then nip'''
+new = '''  >r nip'''
+test = "$GFORTH tests/core/mixed-rebuild.fs"
+reason = "a failed second child (exhausted, full) built into the node as if it were a result"
+
+[[fault]]
+id = "cov-quot-ind-mk-pos"
+file = "src/kernel/quot.fs"
+old = '''  s" Quot.ind" lf-stmt-name? if 4 else -1 then ;'''
+new = '''  s" Quot.ind" lf-stmt-name? if 5 else -1 then ;'''
+test = "$GFORTH tests/core/quot.fs"
+reason = "Quot.ind's quotient read at Quot.lift's place (mk_pos 5 instead of 4)"
+
+[[fault]]
+id = "cov-quot-applied-any"
+file = "src/kernel/quot.fs"
+old = ''': lf-quot-applied ( app mk -- mk|-1 ) swap lf-quot-n over > 0= if drop -1 then ;'''
+new = ''': lf-quot-applied ( app mk -- mk|-1 ) nip ;'''
+test = "$GFORTH tests/core/quot.fs"
+reason = "Quot.lift with five arguments (no quotient yet) given a rule (quot.h 50-51 gives none)"
+
+[[fault]]
+id = "cov-quot-mk-any-head"
+file = "src/kernel/quot.fs"
+old = '''  lf-whnf-head dup lf-whnf-const? 0= if drop false exit then'''
+new = '''  lf-whnf-head dup lf-whnf-const? 0= if drop true exit then'''
+test = "$GFORTH tests/core/quot.fs"
+reason = "an application of a variable to three arguments counts as Quot.mk"
+
+[[fault]]
+id = "cov-quot-held-any-kind"
+file = "src/kernel/quot.fs"
+old = '''  lf-idecl-kind @ lf-kind-quotient = outcome-ok ;'''
+new = '''  drop true outcome-ok ;'''
+test = "$GFORTH tests/core/quot.fs"
+reason = "any constant of the environment named like a quotient constant gets quot_reduce_rec (Eq counts as a quotient record)"
+
+[[fault]]
+id = "cov-quot-mk-failure-stuck"
+file = "src/kernel/quot.fs"
+old = '''  >r ok-then? 0= if 2 r@ frame-drop r> lf-whnf-failed exit then'''
+new = '''  >r ok-then? 0= if 2 r@ frame-drop drop -1 outcome-ok r> 0 exit then'''
+test = "$GFORTH tests/core/quot.fs"
+reason = "the quotient argument's whnf out of fuel or room leaves Quot.lift stuck (ok) instead of ending exhausted or full"
+
+[[fault]]
+id = "cov-quot-eq-form-any"
+file = "src/kernel/quot.fs"
+old = '''  dup lf-idecl-arity @ 1 = swap lf-quot-ctors nip 1 = and ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/quot.fs"
+reason = "check_eq_type takes any inductive type for Eq (Bool, two constructors and no universe parameter, passes the form test)"
+
+[[fault]]
+id = "cov-iproj-type-head-any"
+file = "src/kernel/infer-proj.fs"
+old = '''  lf-iproj-head dup lf-whnf-const? 0= if 2drop lf-iproj-bad exit then'''
+new = ''''''
+test = "$GFORTH tests/core/infer-proj.fs"
+reason = "a projection of a term whose type's head is no constant (a Sort) is not refused as invalidProj before the head's name is read"
+
+[[fault]]
+id = "cov-iproj-slot-any-kind"
+file = "src/kernel/infer-proj.fs"
+old = '''  if lf-iproj-fits else 2drop drop lf-iproj-bad then ;'''
+new = '''  drop lf-iproj-fits ;'''
+test = "$GFORTH tests/core/infer-proj.fs"
+reason = "the structure a projection names may be any declaration (a constructor), not only an inductive type"
+
+[[fault]]
+id = "cov-iproj-prop-guard-off"
+file = "src/kernel/infer-proj.fs"
+old = '''  over 0= if drop outcome-ok exit then'''
+new = '''  drop outcome-ok exit'''
+test = "$GFORTH tests/core/infer-proj.fs"
+reason = "a data field of a proof is projected (Lean's invalidProj for a proposition's non-proof field)"
+
+[[fault]]
+id = "cov-iproj-end-not-pi"
+file = "src/kernel/infer-proj.fs"
+old = '''  dup lf-iproj-pi? 0= if drop 3 pick lf-iproj-bad exit then'''
+new = ''''''
+test = "$GFORTH tests/core/infer-proj.fs"
+reason = "an index past the constructor's fields reads the domain of a non-Pi instead of invalidProj"
+
+[[fault]]
+id = "cov-genrec-arity-no-motive"
+file = "src/kernel/generated-recursor.fs"
+old = ''': lf-genrec-arity ( d -- n ) dup lf-input-params nip swap lf-genrec-large? 1 and + ;'''
+new = ''': lf-genrec-arity ( d -- n ) lf-input-params nip ;'''
+test = "$GFORTH tests/core/generated-recursor.fs"
+reason = "the motive's own universe parameter not counted: Nat.rec.{u} wants no universe argument, its use is rejected by L1"
+
+[[fault]]
+id = "cov-genrec-instances-unsubstituted"
+file = "src/kernel/generated-recursor.fs"
+old = '''  lf-ind-lparams nip 0= if outcome-ok exit then'''
+new = '''  outcome-ok exit'''
+test = "$GFORTH tests/core/generated-recursor.fs"
+reason = "the block's types and constructors read at the block's own universe names, not the use's arguments: List.rec at renamed or concrete universes gets the wrong type"
+
+[[fault]]
+id = "cov-genrec-motive-level-skipped"
+file = "src/kernel/generated-recursor.fs"
+old = '''  if dup 0 lf-cref-pair @ lf-ind-state lf-ind-elim ! 1 lf-cref-pair'''
+new = '''  if dup 0 lf-cref-pair @ lf-ind-state lf-ind-elim !'''
+test = "$GFORTH tests/core/generated-recursor.fs"
+reason = "the motive's universe argument also read as the block's first: List.rec.{u_1, u} built with List.{u_1}"
+
+[[fault]]
+id = "cov-envsig-slot-arity-unchecked"
+file = "src/kernel/env-signature.fs"
+old = ''': lf-envsig-arity ( d -- d outcome ) lf-envsig-count over lf-env-arity? ;'''
+new = ''': lf-envsig-arity ( d -- d outcome ) outcome-ok ;'''
+test = "$GFORTH tests/core/env-signature.fs"
+reason = "L1 skipped for an accepted slot: Bool.rec used with no universe argument or two"
+
+[[fault]]
+id = "cov-envsig-generated-arity-unchecked"
+file = "src/kernel/env-signature.fs"
+old = '''  dup lf-genrec-arity lf-envsig-count swap 2dup = if 2drop outcome-ok'''
+new = '''  dup lf-genrec-arity lf-envsig-count swap 2dup 2drop true if 2drop outcome-ok'''
+test = "$GFORTH tests/core/env-signature.fs"
+reason = "L1 skipped for Lean's generated recursor: Nat.rec built with a missing or an extra universe argument"
+
+[[fault]]
+id = "cov-envsig-quotient-arity-unchecked"
+file = "src/kernel/env-signature.fs"
+old = '''  lf-envsig-count over lf-stmt-arity 2dup = 0= if lf-env-arity-rejected nip nip exit then'''
+new = '''  lf-envsig-count over lf-stmt-arity'''
+test = "$GFORTH tests/core/env-signature.fs"
+reason = "L1 skipped for a quotient constant: Quot.lift with one or three universe arguments"
+
+[[fault]]
+id = "cov-envsig-negative-fuel-ok"
+file = "src/kernel/env-signature.fs"
+old = '''  lf-envsig-walker walk-budget 0= if drop 0 outcome-invalid exit then'''
+new = '''  lf-envsig-walker walk-budget 0= if drop 0 outcome-ok exit then'''
+test = "$GFORTH tests/core/env-signature.fs"
+reason = "negative fuel for L2 taken as a check that passed with none left, not invalid"
+
+[[fault]]
+id = "cov-nest-then-goes-on"
+file = "src/kernel/inductive-nested.fs"
+old = ''': lf-nest-then ( outcome xt -- outcome ) over ok? if nip execute else drop then ;'''
+new = ''': lf-nest-then ( outcome xt -- outcome ) nip execute ;'''
+test = "$GFORTH tests/core/inductive-nested.fs"
+reason = "a nested block's step that failed (out of fuel or room) does not stop the translation: the next step runs and the failure is lost"
+
+[[fault]]
+id = "cov-rcr-level-refusal-lost"
+file = "src/kernel/inductive-recursor.fs"
+old = '''  else drop outcome-full lf-rcr-failing drop then ;'''
+new = '''  else drop then ;'''
+test = "$GFORTH tests/core/inductive-recursor.fs"
+reason = "a universe parameter of the recursor that the level store refuses is not recorded: the build goes on without its pair, never full"
