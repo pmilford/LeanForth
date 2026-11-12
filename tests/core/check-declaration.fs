@@ -724,5 +724,61 @@ T{ 2 check-with-seal -> outcome-invalid }T
 T{ 3 check-with-seal -> outcome-invalid }T
 T{ 4 check-with-seal -> outcome-ok }T
 
+\ ---------------------------------------------------------------------------
+\ A check's memory limit (core/scratch-meter.fs; check --memory-per-check).
+\ The bytes each record counts bound what it takes: its record, identity,
+\ side columns and two 32-bit table slots.
+: unit+ ( n column -- n' ) column-slab slab-unit + ;
+: group-bytes ( group -- n ) 0 ['] unit+ rot columns-each ;
+: record-bytes ( store group -- n ) group-bytes swap store-width @ + cell+ 8 + ;
+T{ lf-terms lf-term-columns record-bytes lf-meter-term-bytes > -> false }T
+T{ lf-levels lf-level-columns record-bytes lf-meter-level-bytes > -> false }T
+T{ lf-crefs store-width @ cell+ 8 + lf-meter-cref-bytes > -> false }T
+T{ lf-cref-pool slab-unit lf-meter-arg-bytes > -> false }T
+T{ /lf-cent 8 + lf-meter-entry-bytes > -> false }T
+T{ lf-lctx store-width @ cell+ lf-meter-local-bytes > -> false }T
+\ The meter on a reading the test sets: no limit refuses nothing; with
+\ one, a charge that fits is allowed, one that passes is refused, and so
+\ is every later one of the same check, until it stops.
+variable fake-bytes
+: fake-used ( -- u ) fake-bytes @ ;
+' fake-used is lf-meter-used
+0 lf-meter-limit! lf-meter-start
+T{ lf-meter-term? lf-meter-level? 3 lf-meter-cref? lf-meter-entry?
+   -> true true true true }T
+1000 lf-meter-limit! 900 fake-bytes ! lf-meter-start
+T{ lf-meter-term? lf-meter-term? lf-meter-passed? -> true true false }T
+950 fake-bytes !
+T{ lf-meter-term? lf-meter-passed? lf-meter-asked@
+   -> false true lf-meter-term-bytes 950 + }T
+0 fake-bytes !
+T{ lf-meter-entry? -> false }T
+lf-meter-stop
+T{ lf-meter-term? lf-meter-passed? -> true false }T
+' lf-check-scratch is lf-meter-used
+0 lf-meter-limit!
+\ Checks under a limit of bytes, from step to most in steps: each ends full
+\ with the memory limit's diagnostic below some limit and is accepted from
+\ there on, never earlier; with no limit (0) it is accepted. Composition
+\ (Lean accepts it) needed 1,664 bytes on a 64-bit host (2026-11-11).
+variable mem-code  variable mem-first  variable mem-ok
+: mem-run ( bytes -- outcome )
+  lf-meter-limit! 64 lf-env-new ok? must dup the-env ! lf-env-use ok? must
+  ['] lf-check-declaration ['] fc-no-maker lf-env-run ok? must lf-diag-code@ mem-code !
+  lf-env-view ok? must fc-last lf-env-outcome env-done 0 lf-meter-limit! ;
+: mem-full? ( outcome -- flag ) outcome-full = mem-code @ lf-diag-memory-limit = and ;
+: mem-note ( bytes outcome -- )
+  dup ok? if drop mem-first @ 0< if mem-first ! else drop then exit then
+  mem-full? mem-first @ 0< and 0= if false mem-ok ! then drop ;
+: mem-sweep ( most step -- first ok? )
+  -1 mem-first ! true mem-ok !
+  >r r@ begin 2dup > while dup dup mem-run mem-note r@ + repeat 2drop r> drop
+  mem-first @ mem-ok @ ;
+fc-case memory-composition
+fc-decl check thm safe composition 0 TYPE P S z P S z P S z P P V 2 V 2 P P V 2 V 2 P V 4 V 3 VALUE L S z L S z L S z L P V 2 V 2 L P V 2 V 2 L V 4 A V 1 A V 2 V 0
+lf-input-end ok? must
+T{ 0 mem-run -> outcome-ok }T
+T{ 20000 16 mem-sweep swap 16 > -> true true }T
+
 cases-done
 bye

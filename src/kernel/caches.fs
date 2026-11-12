@@ -121,7 +121,9 @@
 \ word names a free variable, from the free-variable memo (lf-term-facts).
 \
 \ Interface: lf-caches-enable ( flag -- ), lf-caches-on? ( -- flag ),
-\ lf-caches-clear ( -- ), lf-term-facts ( node -- id bits true | false ),
+\ lf-caches-clear ( -- ), lf-caches-entries ( -- n ) (for a check's
+\ memory limit, core/scratch-meter.fs, which every new entry is charged
+\ to), lf-term-facts ( node -- id bits true | false ),
 \ lf-cache-stats ( cache -- hits misses ) with the caches lf-cache-infer,
 \ lf-cache-infer-only, lf-cache-whnf-core, lf-cache-whnf,
 \ lf-cache-unfold, lf-cache-success and lf-cache-failure ( -- cache ).
@@ -140,6 +142,7 @@ require ../lib/slab.fs
 require ../core/derivation-log.fs
 require ../core/local-context.fs
 require ../core/terms.fs
+require ../core/scratch-meter.fs
 require ./whnf.fs
 require ./defeq.fs
 require ./mixed-convert.fs
@@ -216,6 +219,9 @@ create lf-cache-hooks /htab-hooks allot
   dup lf-cache-table htab-free lf-cache-table-init ;
 \ Empty every table (a check begins, an inference job starts).
 : lf-caches-clear ( -- ) ['] lf-cache-empty lf-caches-each ;
+\ The entries the tables hold now, for a check's memory limit.
+: lf-caches-entries ( -- n )
+  0 lf-caches# 0 ?do i lf-cache-nth lf-cache-entries slab-count + loop ;
 
 \ The switch, and whether the caches are on now (see the header).
 : lf-caches-enable ( flag -- ) 0= lf-caches lf-caches-off ! ;
@@ -234,7 +240,10 @@ create lf-cache-hooks /htab-hooks allot
 : lf-cent-value! ( v1 v2 addr -- ) tuck 5 cells + ! 4 cells + ! ;
 : lf-cent-values ( addr -- v1 v2 ) dup 4 cells + @ swap 5 cells + @ ;
 : lf-cent-fill ( v1 v2 addr -- ) lf-cache-key over 4 cells move lf-cent-value! ;
+\ A new entry, within a check's memory limit (core/scratch-meter.fs): a
+\ refused one is a miss, and the check then ends full (check-declaration.fs).
 : lf-cache-add ( v1 v2 i cache -- flag )
+  lf-meter-entry? 0= if 2drop 2drop false exit then
   1 over lf-cache-entries slab-claim ok-then? 0= if 2drop 2drop drop false exit then
   2dup swap lf-cent >r -rot lf-cache-table htab-put r> lf-cent-fill true ;
 \ Keep the key with v1 v2, replacing an entry's values: true, or false

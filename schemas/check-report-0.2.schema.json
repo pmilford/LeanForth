@@ -31,7 +31,8 @@
         "fuel": {"description": "Fuel each declaration's check starts with (--fuel).", "$ref": "#/$defs/count"},
         "dependencyPool": {"description": "The room the run's dependency pool starts with; it grows (not a limit since plan task 6.2.0).", "$ref": "#/$defs/count"},
         "strictAxioms": {"description": "true with --strict-axioms: a NOT PROVED declaration makes the exit status 6; false by default, when NOT PROVED keeps Lean's exit status (owner, 2026-11-04).", "type": "boolean"},
-        "anyLeanVersion": {"description": "Present, true, only with --any-lean-version: the export's metadata could name any exporter and Lean version of format 3.1.0 (an optional member added within version 0.1, 2026-11-10; a report without the option is as before).", "const": true}
+        "anyLeanVersion": {"description": "Present, true, only with --any-lean-version: the export's metadata could name any exporter and Lean version of format 3.1.0 (an optional member added within version 0.1, 2026-11-10; a report without the option is as before).", "const": true},
+        "memoryPerCheck": {"description": "Present only with --memory-per-check MB: the megabytes (of 2^20 bytes) each declaration's check may hold in scratch; a check that would pass it is full (diagnostic 101; core/scratch-meter.fs). LeanForth's own resource limit, never a Lean verdict (an optional member added within version 0.2, 2026-11-11; a report without the option is as before).", "type": "integer", "minimum": 1, "maximum": 9007199254740991}
       }
     },
     "read": {"$ref": "#/$defs/read"},

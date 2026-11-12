@@ -40,6 +40,7 @@ require ../lib/htab.fs
 require ./diagnostics.fs
 require ./terms.fs
 require ../lib/store-columns.fs
+require ./scratch-meter.fs
 
 64 constant lf-level-default
 64 constant lf-level-walk-room   \ a level walk's first room
@@ -150,8 +151,8 @@ create lf-level-hooks /htab-hooks allot
   dup lf-level-valid? if lf-levels store-identity @ true else drop false then ;
 
 \ Append a node whose tag and fields the caller validated; a failed
-\ allocation returns false, changes nothing and is recorded as a
-\ diagnostic.
+\ allocation (no room, or past a check's memory limit: scratch-meter.fs)
+\ returns false, changes nothing and is recorded as a diagnostic.
 : lf-level-site ( -- site ) c" levels lf-level-add" ;
 : lf-level-refused ( -- false )
   lf-levels lf-level-site lf-diag-levels-full lf-diag-store false ;
@@ -161,7 +162,7 @@ create lf-level-hooks /htab-hooks allot
 : lf-level-steady? ( -- flag )
   lf-levels dup store-filled? 0= swap store-capacity @ lf-level-covered @ = and ;
 : lf-level-room? ( -- flag )
-  lf-level-steady? if true exit then
+  lf-meter-level? 0= if false exit then  lf-level-steady? if true exit then
   lf-levels store-ready ok? if lf-level-covered lf-level-columns columns-ready else false then ;
 \ Whether a universe parameter occurs in a level (Lean's has_param_univ),
 \ kept per level in a column when the level is made, from its children's
