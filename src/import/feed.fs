@@ -68,7 +68,8 @@
 \ beside or above: its levels (made as the source made them, so equal
 \ numbers and identities), the level context, the session, its literals'
 \ limbs and bytes (copied: a few kilobytes) and the copies of mdata
-\ expressions and the nodes above them, if the source made any. Its
+\ expressions, of binders the source gave an earlier binder of their ==
+\ class, and of the nodes above them, if the source made any. Its
 \ input's fingerprint is then the source's (cli/check-run.fs checks it).
 \
 \ State: none of its own; every word takes a feed record (/feed), which

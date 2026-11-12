@@ -56,7 +56,9 @@ class Ex:
         s.lines.append({"def": {"all": [n], "hints": {"regular": 1}, "levelParams": [], "name": n,
                                 "safety": "safe", "type": ty, "value": val}})
     def out(s):
-        return "".join(json.dumps(l, ensure_ascii=False, separators=(",", ":")) + "\n" for l in s.lines)
+        """The exporter's form: keys sorted (as wide60 and dupl80 are written)."""
+        return "".join(json.dumps(l, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+                       + "\n" for l in s.lines)
 
 def idthm(x):
     P = x.sort0()

@@ -1976,7 +1976,8 @@ verdict version and fuel setting and 99 slots' fuel moved, all to less.
 
 Status: proposed; [kernel] gate owed. Code: `src/import/feed.fs`
 (`feed-enter`, `feed-merge`), `src/core/terms.fs`
-(`lf-term-input-binder-first`, `lf-term-findable?`), `src/core/levels.fs`
+(`lf-term-input-binder-first`, `lf-term-input-binder-merged?`,
+`lf-term-findable?`), `src/core/levels.fs`
 (`lf-level-findable?`), `src/core/level-scope.fs` (`lf-lscope-reached`),
 `src/core/constant-term-boundary.fs` (`lf-audit-reached?`,
 `lf-audit-level-reached?`), `src/kernel/check-declaration.fs`
@@ -2019,7 +2020,13 @@ turn on Mathlib's first 1M lines against `Init`'s snapshot (agent SN4:
    binders, and every node above one, is one node. Not with a binder hook
    (the print command keeps every binder's own name to print it, so its
    checks share as before and may use a little more fuel than `check`'s;
-   `print` writes no snapshot).
+   `print` writes no snapshot). A parallel check's worker, which reads
+   the source's input in place (shared input, ADR 0016 S8), marks the
+   same binders to copy -- those whose class the source's binder table
+   holds another binder for -- and so makes the source's copies; without
+   that its input's fingerprint was not the source's, no worker could be
+   made and `--jobs` ran one declaration at a time (found when main's
+   shared input was merged into this work, before any run used both).
 2. In a check (the audit memo on, Amendment 4), hash-consing gives a node
    made before the check -- below the input's term mark -- only once the
    check has reached it: an audit of this check's epoch kept it.
@@ -2057,13 +2064,18 @@ prefix.
   lambda of the same type and body are one node; with the audit memo on,
   an input lambda, and the importer's level `succ 0`, are given back only
   after an audit (a scope check) of this epoch reached them.
+- `tests/cli/jobs/renamed20.ndjson` (`gen.py renamed`: binders equal up
+  to their names, below new copies): the Jobs tests give the same output
+  serially and with workers, and the workers are made.
 - Planted faults `pf-binder-class-split`, `pf-findable-always`,
   `pf-findable-held-any-epoch`, `pf-level-findable-always`,
-  `pf-level-reached-no-mark` (all caught) and the re-targeted
-  `s5-feed-binders-not-entered`.
+  `pf-level-reached-no-mark`, `pf-shared-merge-missed` (all caught) and
+  the re-targeted `s5-feed-binders-not-entered`.
 - Mathlib's first 1M lines (`.claude/work/SN4/ml1m.ndjson`) fresh and
   against `Init`'s snapshot written by this build (verdict version 4;
-  `.claude/work/PF/b4`): every one of the 13,023 declarations has the
+  `.claude/work/PF/b4`, and again on the merge with the shared input,
+  `PF/b5`, with the same fuel per declaration): every one of the 13,023
+  declarations has the
   same verdict and fuel (1,108 taken, 11,571 checked on taken slots, 344
   checked alone), the same counts and exit status, total fuel 68,731,666
   in both (2,151 differed at SN4, 1,292 with rule 1 alone, 7 with rules 1
