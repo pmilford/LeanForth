@@ -9506,3 +9506,27 @@ old = '''  lf-envsig-walker walk-budget 0= if drop 0 outcome-invalid exit then''
 new = '''  lf-envsig-walker walk-budget 0= if drop 0 outcome-ok exit then'''
 test = "$GFORTH tests/core/env-signature.fs"
 reason = "negative fuel for L2 taken as a check that passed with none left, not invalid"
+
+[[fault]]
+id = "cov-nest-then-goes-on"
+file = "src/kernel/inductive-nested.fs"
+old = ''': lf-nest-then ( outcome xt -- outcome ) over ok? if nip execute else drop then ;'''
+new = ''': lf-nest-then ( outcome xt -- outcome ) nip execute ;'''
+test = "$GFORTH tests/core/inductive-nested.fs"
+reason = "a nested block's step that failed (out of fuel or room) does not stop the translation: the next step runs and the failure is lost"
+
+[[fault]]
+id = "cov-ind-free-failure-free"
+file = "src/kernel/inductive-block.fs"
+old = '''  lf-ind-occurrences ok-then? if 0= outcome-ok else false swap then ;'''
+new = '''  lf-ind-occurrences ok-then? if 0= outcome-ok else drop true outcome-ok then ;'''
+test = "$GFORTH tests/core/inductive-block.fs"
+reason = "an occurrence scan that ran out of fuel or room counts as 'no type of the block occurs' and the block check goes on"
+
+[[fault]]
+id = "cov-rcr-level-refusal-lost"
+file = "src/kernel/inductive-recursor.fs"
+old = '''  else drop outcome-full lf-rcr-failing drop then ;'''
+new = '''  else drop then ;'''
+test = "$GFORTH tests/core/inductive-recursor.fs"
+reason = "a universe parameter of the recursor that the level store refuses is not recorded: the build goes on without its pair, never full"

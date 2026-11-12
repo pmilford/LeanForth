@@ -112,16 +112,29 @@ variable cs-probe-runs    0 cs-probe-runs !
   cs cs-low @ < if outcome-exhausted else cs cs-normal @ then ;
 : cs-agrees? ( budget -- flag ) dup cs-expected swap cs-at = ;
 : cs-edge? ( -- flag ) cs cs-low @ dup cs-agrees? swap 1- 0 max cs-agrees? and ;
-: cs-fuel-sweep ( step -- flag )
-  cs-measure true cs cs-low @ 1+ 0 ?do i cs-agrees? and over +loop nip cs-edge? and ;
+: cs-fuel-steps ( step -- flag )
+  true cs cs-low @ 1+ 0 ?do i cs-agrees? and over +loop nip cs-edge? and ;
+: cs-fuel-sweep ( step -- flag ) cs-measure cs-fuel-steps ;
 
 \ Each step-th allocation of the target's check refused: full, and the
 \ refusal reached. True when every run agrees; false for a check that
 \ allocates nothing.
 : cs-full-at? ( k -- flag ) cs-refused outcome-full = cs cs-hit @ 0<> and ;
+: cs-refusal-steps ( window step -- flag )
+  true rot 1+ 1 ?do i cs-full-at? and over +loop nip ;
 : cs-refusal-sweep ( step -- flag )
-  cs-window dup 0= if 2drop false exit then
-  true swap 1+ 1 ?do i cs-full-at? and over +loop nip ;
+  cs-window dup 0= if 2drop false exit then swap cs-refusal-steps ;
+
+\ About n runs of each sweep, evenly spread: for a check (an inductive
+\ block's) that needs thousands of units of fuel and allocations. Each
+\ run checks the whole case, so n sets the time a test takes.
+: cs-step ( range n -- step ) / 1 max ;
+: cs-fuel-sampled ( n -- flag ) cs-measure cs cs-low @ swap cs-step cs-fuel-steps ;
+: cs-refusal-sampled ( n -- flag )
+  cs-window dup 0= if 2drop false exit then tuck swap cs-step cs-refusal-steps ;
+\ Both, then a crowded term store: ( fuel-ok? refusals-ok? outcome ).
+: cs-sampled ( n -- fuel-ok? refusals-ok? crowded )
+  dup cs-fuel-sampled swap cs-refusal-sampled cs-crowded ;
 
 \ ---------------------------------------------------------------------------
 \ Probes. A probe runs inside the target's check, before it, with the
