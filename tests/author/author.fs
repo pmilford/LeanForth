@@ -7,8 +7,9 @@
 \ means, as Lean resolves it; var# and root:; source positions on nodes;
 \ labels and notes; the runner restoring the caller's settings; the note
 \ table and the printer's Forth mode on their own, which refuses labels
-\ and notes it cannot spell. The 21 example files, their round trips and
-\ the comparison with Lean are in check_author.py.
+\ and notes it cannot spell; the export's records (export.fs). The example
+\ files, their round trips, their records and the comparison with Lean
+\ are in check_author.py.
 require ../support/tester.fs
 require ../../src/author/runner.fs
 
@@ -591,6 +592,18 @@ T{ s" def five 0 Type := 5 lit# end five" exported s\" \"natVal\":\"5\"" holds?
 T{ s" theorem k universe u u Sort implicit: x x := x end k" exported -> outcome-ok }T
 T{ s\" {\"il\":1,\"param\":2}" holds? s\" \"binderInfo\":\"implicit\"" holds? -> true true }T
 T{ s\" \"levelParams\":[2]" holds? -> true }T
+\ Lean's key order and escapes (review S7): bvar, app, const and forallE
+\ before "ie", the rest after; a name's non-ASCII bytes as they are.
+T{ s" theorem t Prop explicit: p p := p end t" exported -> outcome-ok }T
+T{ s\" {\"bvar\":0,\"ie\":1}" holds? s\" {\"ie\":0,\"sort\":0}" holds? -> true true }T
+T{ s\" {\"forallE\":{\"binderInfo\":\"default\",\"body\":1,\"name\":2,\"type\":0},\"ie\":3}"
+   holds? -> true }T
+T{ s\" theorem \xce\xb1 Prop explicit: p p := p end \xce\xb1" exported -> outcome-ok }T
+T{ s\" \"str\":\"\xce\xb1\"" holds? -> true }T
+T{ s" def a 0 Type := Prop end a def b 0 Type := a end b" exported -> outcome-ok }T
+T{ s\" {\"const\":{\"name\":1,\"us\":[]},\"ie\":" holds? -> true }T
+T{ s" theorem t Prop explicit: f Prop explicit: x f x $ := Prop end t" exported
+   s\" {\"app\":{\"arg\":" holds? -> outcome-ok true }T
 \ The sink's refusal stops it at the line refused; a line past the writer's
 \ limit is full; a node no record holds is unsupported.
 variable calls
@@ -605,6 +618,9 @@ T{ s" theorem t Prop explicit: p p := p end t" exported -> outcome-ok }T
 T{ 1 0 lf-hterm-proj drop drop 0 swap lf-tag-app lf-term-binary nip export-now
    -> true outcome-unsupported }T
 T{ s" 18446744073709551615" holds? -> false }T
+\ A level of a tag the format has no record for is refused (review S6).
+T{ s" theorem t Prop explicit: p p := p end t" exported -> outcome-ok }T
+T{ 7 0 0 lf-level-new nip export-now -> true outcome-unsupported }T
 
 \ A library (library.fs, plan task 8.2.1d): a finder that knows Lib.c and
 \ Lib.k, of no universe parameters, definitions of height 3. Its constant

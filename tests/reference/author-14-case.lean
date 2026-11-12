@@ -4,6 +4,7 @@ def bothIds (f : Id Nat) : Id Nat := id f
 def propVar (prop : Prop) : Prop := prop
 
 set_option pp.unicode.fun true
+set_option pp.explicit true
 #print caseVar
 #print bothIds
 #print propVar

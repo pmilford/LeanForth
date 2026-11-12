@@ -4995,8 +4995,8 @@ reason = "a VALUE in LF-WORDS, which Gforth 1.0's ->x recognizer writes from pro
 [[fault]]
 id = "lf-failed-text-checked"
 file = "src/cli/check-lf.fs"
-old = ''': lfc-made ( c-addr u -- outcome ) lfc-run dup ok? if drop lfc-produce then ;'''
-new = ''': lfc-made ( c-addr u -- outcome ) lfc-run drop lfc-produce ;'''
+old = ''': lfc-made ( c-addr u -- outcome ) lfc-run dup ok? if drop lfc-records then ;'''
+new = ''': lfc-made ( c-addr u -- outcome ) lfc-run drop lfc-records ;'''
 test = "GFORTH=$GFORTH python3 tests/author/check_author.py"
 reason = "8.2.1c: a text that stopped with an error is still checked; the declarations before the error get verdicts (accepted lines) beside the error"
 quick = true
@@ -5074,8 +5074,8 @@ reason = "8.2.1d: extending a stage drops the library's declarations, so the tex
 [[fault]]
 id = "lf-export-max-imax-swapped"
 file = "src/author/export.fs"
-old = '''  dup node-tag @ lf-level-tag-max = if s" max" else s" imax" then lfx-pair ;'''
-new = '''  dup node-tag @ lf-level-tag-max = if s" imax" else s" max" then lfx-pair ;'''
+old = '''  dup node-tag @ case lf-level-tag-max of s" max" lfx-pair endof'''
+new = '''  dup node-tag @ case lf-level-tag-max of s" imax" lfx-pair endof'''
 test = "GFORTH=$GFORTH python3 tests/author/check_author.py --records"
 reason = "H1: max and imax swapped: 06-universes's PairSort checked as Type (imax u v); its record's type differs from the words' term"
 quick = true
@@ -5119,6 +5119,46 @@ old = '''    2dup lfa-group-ahead lfa-read-text repeat 2drop 2drop ;'''
 new = '''    lfa-group-ahead repeat 2drop 2drop ;'''
 test = "$GFORTH tests/author/author.fs"
 reason = "M1: the look-ahead makes group words of the text in ( comments and notes: a long word there stops a library run (error 62), a \\ there hides the rest of the line"
+
+[[fault]]
+id = "lf-export-ie-first-always"
+file = "src/author/export.fs"
+old = '''  dup lfx-ie-last? if lfx-body lfx-ie else swap lfx-ie lfx-body then ;'''
+new = '''  swap lfx-ie lfx-body ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "S7: \"ie\" always first, not in Lean's key order; the writer's sorted mode then refuses app, bvar, const and forallE lines"
+
+[[fault]]
+id = "lf-export-python-escapes"
+file = "src/author/export.fs"
+old = '''  true lfx-w jw-sorted ! true lfx-w jw-lean ! ;'''
+new = '''  true lfx-w jw-sorted ! ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "S7: names' strings escaped as Python's json escapes them (\\u03b1), not as Lean's Json.compress (the bytes as they are)"
+
+[[fault]]
+id = "lf-export-unknown-level-tag"
+file = "src/author/export.fs"
+old = '''    nip outcome-unsupported lfx-refuse endcase ;'''
+new = '''    nip endcase ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "S6: a level of a tag the format has no record for is written without its member instead of refused"
+
+[[fault]]
+id = "lf-records-refusal-unrecorded"
+file = "src/cli/check-lf.fs"
+old = ''': lfc-records ( -- outcome ) lfc-produce dup ok? 0= lfc lfc-refused ! ;'''
+new = ''': lfc-records ( -- outcome ) lfc-produce ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "L4: a text whose records the writer or the stage refused is reported as an export's staging error, at a line of records the user never sees"
+
+[[fault]]
+id = "lf-records-message-dropped"
+file = "src/cli/leanforth.fs"
+old = '''  lfc-failed? if cli-text-error exit then lfc-refused? if cli-records-error exit then'''
+new = '''  lfc-failed? if cli-text-error exit then'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "L4: the refused records' message is lost (caught on Gforth 1.0, where the test captures the output)"
 
 [[fault]]
 id = "lf-leaf-as-term"
@@ -8261,8 +8301,8 @@ gap = "no table row has a let in a constructor's type that hides a nonuniform oc
 [[fault]]
 id = "s5b-author-proj-as-app"
 file = "src/author/build.fs"
-old = '''  lf-term-tag@ lf-tag-proj = if lf-tag-projection else lf-tag-app then ;'''
-new = '''  drop lf-tag-app ;'''
+old = ''': lfa-app-tag ( f -- tag ) lfa-leaf? if lf-tag-projection else lf-tag-app then ;'''
+new = ''': lfa-app-tag ( f -- tag ) drop lf-tag-app ;'''
 test = "python3 tests/author/check_author.py"
 reason = "S5B: the authors' $ applies a projection leaf as a function instead of making a projection"
 

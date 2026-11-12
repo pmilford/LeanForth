@@ -236,12 +236,22 @@ plan tasks 8.2.1c-d; ADR 0017 Amendment 2) runs in this order
    node but a projection's leaf in store order (the stores only append, so
    a record names earlier ones only), then each theorem, definition (hints
    regular, height one above the highest definition its value names) and
-   axiom. Each line is a JSON text of `src/lib/json-write.fs`. The stage is
+   axiom. Each line is a JSON text of `src/lib/json-write.fs`, its keys in
+   Lean's sorted order (the writer's sorted mode) and its strings escaped
+   as Lean's `Json.compress` escapes them: the same format as pinned Lean's
+   export, not the same bytes (the numbering is store order, nodes are not
+   merged as lean4export merges them, the metadata names LeanForth). A
+   reference to a projection's leaf or a level of an unknown tag is
+   refused (unsupported), never written. The stage is
    sealed and fed; the run goes on as an export's (`ck-check`, the import
    pass first for a snapshot), and `cli/leanforth.fs` prints the report.
+   `make test` compares each fixture's records with the words' terms and
+   `make check` with pinned Lean's export of its Lean source.
 4. **A text that stops** (any error of the run) is not staged, sealed or
    checked: `lfc-failed?` is true and the command line prints the error
-   (`lf-author-error.`) with its outcome's exit status.
+   (`lf-author-error.`) with its outcome's exit status. A text that ran
+   but whose records the writer or the stage refused is not checked
+   either: `lfc-refused?` is true and the error is said of the text.
 
 The printer's Forth mode returns ok; invalid for a malformed term or a
 variable bound by an arrow; unsupported for a name it cannot spell (a
@@ -393,18 +403,21 @@ a library's constant found by a finder, its record and height, errors 1,
 token; the look-ahead stopping at the reserve), `tests/core/stage.fs`
 (`stage-produce` and `stage-extend`: lines a producer hands over, a
 refusal rolled back, an extended read keeping both reads' declarations)
-and `tests/author/check_author.py` (24 example files against
-`fixtures.golden`, which records each declaration's terms as a tree dump,
-with a round trip each, the five that name a library run with it through
-`tests/author/report-library.fs`; this table; the layering check; round
+and `tests/author/check_author.py` (25 example files against
+`fixtures.golden`, which records each declaration's terms as a tree dump
+and the export records the kernel is given, with a round trip each, the
+five that name a library run with it through
+`tests/author/report-library.fs`; the records against the terms; this
+table; the layering check; round
 trips over the term printer's 50 cases and the five Lean exports; and
-`leanforth check` on every example file, 18 accepted and 6 stopped before
-any check, on the four wrong twins in `tests/author/wrong/`, rejected, and
-19 command cases of every outcome and misuse); the syntax page's
+`leanforth check` on every example file, 19 accepted and 6 stopped before
+any check, each verdict found by its declaration's name, on the four wrong
+twins in `tests/author/wrong/`, rejected, and
+the command cases of every outcome and misuse); the syntax page's
 examples. Run the unit tests with Gforth 0.7.3 too when the runner
 changes: the numbers check is host-sensitive.
 
-`make check` (target `reference-author`) compares with Lean, for the 18
+`make check` (target `reference-author`) compares with Lean, for the 19
 example files with a Lean source (`tests/reference/author-*.lean`); pinned
 Lean refuses the Lean sources of the four wrong twins
 (`tests/reference/author-wrong-*.lean`); and `scripts/export.sh` reproduces
@@ -430,10 +443,24 @@ the two library exports byte for byte (`tests/author/init-slice.ndjson`,
   files `16-namespaces.lf` and `18-protected.lf` put Lean's name resolution
   under this comparison, protected constants included.
 - **Text**: pinned Lean's `#print` of every declaration against the
-  example's `lean:` lines, but for the five that name a library: the
-  printer has no types for a library's constants, so it shows their every
-  argument (`@Eq Nat …`) where Lean hides the implicit ones; their terms
-  are compared all the same.
+  example's `lean:` lines; for the five that name a library, Lean prints
+  with `pp.explicit` and the lines are compared joined (Lean breaks long
+  lines), without `@` and with `nat_lit n` read as `n`: the printer has no
+  types for a library's constants, so it shows their every argument and
+  marks each such application with `@`, where Lean marks only those with
+  implicit arguments. Two listed differences, with their reason
+  (`21-numeric-name.lf`'s private theorem, which Lean prints by its short
+  name).
+- **Records** (review of 2026-11-12, H1): the export records `export.fs`
+  writes for each example (`report.fs`'s `record:` lines) must equal, for
+  every theorem, definition and axiom, the words' terms (in `make test`)
+  and pinned Lean's export of the Lean source: kind, name, `all`,
+  `levelParams`, hints (Lean's height), safety, type and value (apart from
+  binder names and kinds, which that exporter merges). `06-universes.lf`
+  names a constant with two different universe arguments and
+  `21-numeric-name.lf` declares a name with a numeric part. The writer's
+  planted faults (`lf-export-…` in `tests/mutants/faults.toml`) are caught
+  by `check_author.py --records`.
 - **Planted faults**: 24, each caught. Seven are faults in the printer and
   the words; seventeen each undo one fix of the review of 2026-11-03 or of
   its re-review (protected constants). The spelling check disabled, "every

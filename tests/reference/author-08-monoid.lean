@@ -12,5 +12,6 @@ theorem mul_one' {M : Type u} [inst : MyMonoid M] (a : M) : mul a one = a :=
 end MyMonoid
 
 set_option pp.unicode.fun true
+set_option pp.explicit true
 set_option pp.notation false in
 #print MyMonoid.mul_one'

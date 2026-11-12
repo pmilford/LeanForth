@@ -30,7 +30,7 @@ require ../lib/lib.fs
 require ./declarations.fs
 
 begin-structure /lfa-library
-  field: lfa-library-finder     \ xt ( c-addr u -- universes height true | false ), or 0
+  field: lfa-library-finder     \ xt ( name -- universes height true | false ), or 0
   field: lfa-library-checked    \ true: import-stub is refused
 end-structure
 /lfa-library context-record: lfa-library
@@ -42,22 +42,21 @@ end-structure
 : lfa-library-on? ( -- flag ) lfa-library lfa-library-finder @ 0<> ;
 
 \ The record of the library constant of name, if one was made.
-: lfa-library-is? ( name i -- flag )
-  dup lfa-library? if lfa-decl-name = else 2drop false then ;
 : lfa-library-decl? ( name -- decl true | false )
-  lfa-decl-count 0 ?do dup i lfa-library-is? if drop i true unloop exit then loop
-  drop false ;
+  lfa-decl-find 0= if false exit then dup lfa-library? dup 0= if nip then ;
 \ A new record: the name, the number of universe parameters, the height.
 : lfa-library-fields ( name universes height decl -- )
   tuck lfa-decl-height ! tuck lf-fdecl-universes ! tuck lf-fdecl-name !
   lfa-decl-library over lf-fdecl-kind ! -1 over lf-fdecl-type ! -1 swap lf-fdecl-value ! ;
 : lfa-library-new ( name universes height -- decl )
   lfa-decl-new dup >r lfa-decl lfa-library-fields r> ;
-\ The library's constant of full name c-addr u, its record made when new.
+\ What the finder says of the full name name (an ID of the name store).
 : lfa-library-found ( name -- universes height true | false )
   lfa-library lfa-library-finder @ execute ;
 : lfa-library-new? ( name -- decl true | false )
   dup lfa-library-found if lfa-library-new true else drop false then ;
+\ The library's constant of full name c-addr u (text), its record made
+\ when new.
 : lfa-library-lookup ( c-addr u -- decl true | false )
   lfa-library-on? 0= if 2drop false exit then
   lfa-intern dup lfa-library-decl? if nip true else lfa-library-new? then ;

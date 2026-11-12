@@ -355,6 +355,24 @@ T{ fed# 1+ in-context -> 5 true true }T
 T{ 1 refused -> 3 ck-feeding false false 0 true }T
 T{ fed# 1+ refused -> 3 -1 true true 1 true }T
 
+\ A LeanForth text whose records do not reach the stage (review L4): with
+\ the export writer's line limit lowered, the text runs but the writer
+\ refuses its records (full): the text is not checked, the code is 3, said
+\ of the text (cli-records-error), and everything is given back.
+: identity-text ( -- c-addr u ) s" tests/author/01-identity.lf" ;
+: refused-text ( -- code refused? failed? phase released? )
+  20 lfx lfx-writer jw-limit ! identity-text cli-check lfx-line-capacity lfx lfx-writer jw-limit !
+  lfc-refused? lfc-failed? ck-phase-failed released? ;
+T{ refused-text -> 3 true false ck-staging true }T
+T{ identity-text cli-check lfc-refused? released? -> 0 false true }T
+[defined] >string-execute [if]
+: refused-message ( -- code flag )
+  20 lfx lfx-writer jw-limit ! identity-text ['] cli-check >string-execute
+  lfx-line-capacity lfx lfx-writer jw-limit !
+  s" error: full: the records written for the LeanForth text were refused" search nip nip ;
+T{ refused-message -> 3 true }T
+[then]
+
 \ A run that stops in the publisher: a THROW before declaration 1's slot
 \ is final. The run is invalid (that slot is open), the code a fault's;
 \ declaration 0 stays accepted, 1 is invalid and 2 was never checked.

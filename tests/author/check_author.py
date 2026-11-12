@@ -159,8 +159,8 @@ FAULTS = [
     ("5: leading zeros in numeric name parts", "any",
      [(DECLS, "  2dup lfa-leading-zero? 0= lfa-e-bad-name lfa-must\n", "")]),
     ("5: declarations not told apart by name", "any",
-     [(DECLS, "  lfa-decl-count 0 ?do dup i lfa-decl-name = if drop true unloop exit then loop"
-              " drop\n  false ;", "  drop false ;")]),
+     [(DECLS, ": lfa-declared? ( name -- flag ) lfa-decl-find dup if nip then ;",
+       ": lfa-declared? ( name -- flag ) drop false ;")]),
     ("5: labels and notes printed whatever their text", "any",
      [(PRINT, "  dup lf-pf-spellable-note? 0= if drop outcome-unsupported exit then\n", "")]),
     ("6: a long line reported at the line before", "any",
@@ -616,13 +616,34 @@ def lean_reference(texts):
     return reference
 
 
+def flat(lines):
+    """Lean's #print lines with each continuation (an indented line, where
+    Lean's formatter broke a line at a space) joined to the line before."""
+    out = []
+    for line in lines:
+        if line.startswith("  ") and out:
+            out[-1] += " " + line.strip()
+        else:
+            out.append(line)
+    return out
+
+
+def library_lines(printed, lines):
+    """A fixture with a library (review L4): the term printer has no types for
+    the library's constants, so it shows every argument and marks each such
+    application with @; the Lean source prints with pp.explicit, which marks
+    only those with implicit arguments, and a raw literal n as nat_lit n,
+    where the term printer writes n. Compared joined, without @ and nat_lit."""
+    lean = [re.sub(r"\(nat_lit (\d+)\)", r"\1", line) for line in flat(printed)]
+    return [line.replace("@", "") for line in lean], [line.replace("@", "") for line in lines]
+
+
 def lean_differences(stem, reference, text):
-    """The lean: lines (not for a fixture with a library: the term printer has
-    no types for its constants, so it shows every argument, where Lean hides
-    the implicit ones; the terms are compared all the same), the terms and
-    the records."""
-    printed = [] if stem in LIBRARIES else reference[stem][0]
-    lines = [] if stem in LIBRARIES else forth_lean(text)
+    """The lean: lines (for a fixture with a library as library_lines says),
+    the terms and the records."""
+    printed, lines = reference[stem][0], forth_lean(text)
+    if stem in LIBRARIES:
+        printed, lines = library_lines(printed, lines)
     return (compare(stem, printed, lines),
             compare_terms(stem, forth_terms(text), reference[stem]),
             lean_records_differ(stem, text, reference[stem][3]))
@@ -659,7 +680,7 @@ def check_lean():
         if differ_text:
             raise Failure("lean: lines differ from pinned Lean:\n" + "\n".join(differ_text))
         counted = compared_terms(forth_terms(texts[stem]))
-        shown = 0 if stem in LIBRARIES else len(printed)
+        shown = len(flat(printed) if stem in LIBRARIES else printed)
         decls, terms, lines = decls + counted[0], terms + counted[1], lines + shown
     known = sum(len(v) for v in KNOWN.values())
     names = sum(len(v) for v in KNOWN_NAMES.values())
@@ -669,7 +690,8 @@ def check_lean():
           f"{names} listed binder name) and to the pinned export (apart from binder names "
           "and kinds, which that exporter merges)")
     print(f"authoring words agree with pinned Lean's #print: {lines} lines "
-          f"({known} known printer differences, listed with their reasons)")
+          f"({known} known printer differences, listed with their reasons; the "
+          f"{len(LIBRARIES)} fixtures with a library compared without @ and line breaks)")
     check_lean_records(texts, reference)
 
 
@@ -741,6 +763,11 @@ def check_texts():
           f"{len(TEXT_EXIT)} stopped before any check, {len(wrong)} wrong twins rejected")
 
 
+# A constant of the Init slice whose name has a numeric part (lfc-part's
+# numeric branch, review L4).
+NUMERIC = "_private.Init.Data.Nat.Basic.0.Nat.zero_add.match_1_1"
+
+
 # Texts written here, each with check's options, library, exit code and a
 # line the output must hold: every outcome of a text and of the command.
 def cli_cases():
@@ -764,6 +791,17 @@ def cli_cases():
          "error 1 at line:col 5:3"),
         ("library name taken", "theorem Nat.add_comm\n  Prop explicit: p p\n:=\n  p\n"
          "end Nat.add_comm\n", [], slice_, 4, "error 28 at line:col 1:9"),
+        ("library name with a numeric part taken", f"theorem {NUMERIC}\n  Prop explicit: p p\n"
+         f":=\n  p\nend {NUMERIC}\n", [], slice_, 4, "error 28 at line:col 1:9"),
+        ("library name with another numeric part", head + "  "
+         + NUMERIC.replace(".0.", ".1.") + "\nend t\n", [], slice_, 4, "error 1 at line:col 5:3"),
+        ("1024 records, the library's among them", "".join(
+            f"axiom a{i} Prop end a{i}\n" for i in range(1022)) + head
+         + "  Eq.refl 1 ^ Nat $ n $\nend t\n", [], slice_, 3,
+         "error 66 at line:col 1025:3 (token `Eq`)"),
+        ("open of a library namespace, a gap (8.2.1d)", "open Nat\n" + head
+         + "  Eq.refl 1 ^ Nat $ n $\nend t\n", [], slice_, 4,
+         "error 26 at line:col 1:6 (token `Nat`)"),
         ("library short name", "namespace Eq\n" + head + "  refl 1 ^ Nat $ n $\nend t\n"
          "end Eq\n", [], slice_, 2, "error 55 at line:col 6:3 (token `refl`)"),
         ("stub with library", "import-stub Nat end Nat\n", [], slice_, 4,

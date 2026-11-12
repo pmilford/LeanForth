@@ -25,7 +25,20 @@
 \ the library's declarations are in its own export. Binder names and kinds
 \ come from the presentation side table, as the words recorded them; Lean's
 \ kernel ignores them. Each line is one JSON text of lib/json-write.fs,
-\ which escapes the names' strings and refuses bytes that are not UTF-8.
+\ which refuses bytes that are not UTF-8, with each object's keys in
+\ Lean's order (sorted; the writer's sorted mode refuses any other) and
+\ the names' strings escaped as Lean's Json.compress escapes them.
+\
+\ Same format, not the same bytes (review L1; ADR 0017 Amendment 2): each
+\ record has the form and key order of the pinned exporter's, but the
+\ numbering differs. lean4export writes names, levels and expressions as
+\ it first meets them, declaration by declaration, one record for equal
+\ nodes; here they come store by store, and nodes the term store keeps
+\ apart (binders are never shared) get records of their own. The metadata
+\ names LeanForth as the exporter and no Lean build ("githash": "none").
+\ So a declaration means exactly what Lean's export of the same source
+\ means (tests/author/check_author.py compares every fixture's records
+\ with pinned Lean's export, record for record), but the file differs.
 \
 \ lf-author-export ( sink -- outcome ): sink ( c-addr u -- outcome ) is
 \ given each line, without its line feed. The first outcome that is not ok
@@ -56,6 +69,7 @@ require ./constants.fs
 
 4096 constant lfx-line-capacity
 4 constant lfx-depth   \ objects and arrays open at once: {"thm":{"all":[...]}}
+64 constant lfx-key-room   \ the open objects' last keys, for the sorted mode
 
 begin-structure /lfx
   field: lfx-sink           \ xt ( c-addr u -- outcome )
@@ -65,13 +79,15 @@ begin-structure /lfx
   field: lfx-height-table   \ heap: per declaration, a definition's height
   field: lfx-mark-table     \ heap: per term node, a cell: reached from a value
   field: lfx-length         \ bytes of the line built so far
-  lfx-depth 0 jw-size +field lfx-writer
+  lfx-depth lfx-key-room jw-size +field lfx-writer
   lfx-line-capacity +field lfx-line
 end-structure
 /lfx context-record: lfx
 : lfx-w ( -- writer ) lfx lfx-writer ;
+\ Lean's key order and string escapes (review S7); a line's limit.
 : lfx-setup ( -- )
-  lfx-depth 0 lfx-w jw-init drop lfx-line-capacity lfx-w jw-limit ! ;
+  lfx-depth lfx-key-room lfx-w jw-init drop lfx-line-capacity lfx-w jw-limit !
+  true lfx-w jw-sorted ! true lfx-w jw-lean ! ;
 ' lfx-setup context-setup
 
 \ The outcome so far: the first refusal stays.
@@ -143,9 +159,12 @@ end-structure
 : lfx-pair ( slot c-addr u -- )
   lfx-key lfx-w jw-open-array dup node-first @ lfx-level# lfx-u
   node-second @ lfx-level# lfx-u lfx-w jw-close-array ;
+\ Two CASEs, one arm per tag written (zero never is); any other tag is
+\ refused (unsupported), never written as another level (review S6).
 : lfx-binary-level ( slot -- )
-  dup node-tag @ lf-level-tag-max = if s" max" else s" imax" then lfx-pair ;
-\ A CASE: succ, param, else max or imax (zero is never written).
+  dup node-tag @ case lf-level-tag-max of s" max" lfx-pair endof
+    lf-level-tag-imax of s" imax" lfx-pair endof
+    nip outcome-unsupported lfx-refuse endcase ;
 : lfx-level-body ( slot -- )
   dup node-tag @ case
     lf-level-tag-succ of node-first @ lfx-level# s" succ" lfx-member endof
@@ -199,7 +218,15 @@ end-structure
     lf-tag-symbolic-sort of lfx-sort endof lf-tag-bvar of lfx-bvar endof
     lf-tag-app of lfx-app endof lf-tag-lam of s" lam" lfx-binder endof
     lf-tag-pi of s" forallE" lfx-binder endof  dup >r lfx-other r> endcase ;
-: lfx-expr-line ( n term -- ) swap s" ie" lfx-record lfx-body lfx-close lfx-emit ;
+\ Lean's key order: the members app, bvar, const and forallE come before
+\ "ie", the others after it.
+lf-tag-app lf-tag-bit lf-tag-bvar lf-tag-bit or lf-tag-constant lf-tag-bit or
+  lf-tag-pi lf-tag-bit or constant lfx-before-ie
+: lfx-ie-last? ( term -- flag ) lf-term-tag@ lf-tag-bit lfx-before-ie and 0<> ;
+: lfx-ie ( n -- ) s" ie" lfx-member ;
+: lfx-expr-members ( n term -- )
+  dup lfx-ie-last? if lfx-body lfx-ie else swap lfx-ie lfx-body then ;
+: lfx-expr-line ( n term -- ) lfx-begin lfx-open lfx-expr-members lfx-close lfx-emit ;
 \ A projection's leaf is no expression of its own: the projection holds it.
 : lfx-expr ( next term -- next' )
   dup lf-term-tag@ lf-tag-proj = if -1 swap lfx-expr! exit then
@@ -212,13 +239,10 @@ end-structure
 : lfx-mark ( term -- ) true swap lfx lfx-mark-table lfx-cell ! ;
 : lfx-marked? ( term -- flag ) lfx lfx-mark-table lfx-cell @ ;
 : lfx-unmark ( -- ) lfx lfx-mark-table @ lf-term-count @ cells erase ;
-: lfx-decl-of ( name -- i true | false )
-  lfa-decl-count 0 ?do dup i lfa-decl-name = if drop i true unloop exit then loop
-  drop false ;
 : lfx-decl-height ( i -- h )
   dup lfa-library? if lfa-decl lfa-decl-height @ exit then
   dup lfa-decl-kind lf-decl-def = if lfx-height@ else drop 0 then ;
-: lfx-named-height ( name -- h ) lfx-decl-of if lfx-decl-height else 0 then ;
+: lfx-named-height ( name -- h ) lfa-decl-find if lfx-decl-height else 0 then ;
 : lfx-const-height ( term -- h )
   lf-term-first@ lf-cref-slot lf-cref-name@ drop lfx-named-height ;
 : lfx-binary? ( term -- flag ) lf-term-tag@ lf-tag-bit lf-binary-tags and 0<> ;
@@ -226,7 +250,7 @@ end-structure
   dup lfx-binary? if dup lf-term-first@ lfx-mark lf-term-second@ lfx-mark exit then
   dup lf-term-tag@ lf-tag-constant = if lfx-const-height max else drop then ;
 : lfx-reached ( h term -- h' ) dup lfx-marked? if lfx-visit else drop then ;
-: lfx-sweep ( h top -- h' ) dup 1+ 0 ?do dup i - >r swap r> lfx-reached swap loop drop ;
+: lfx-sweep ( h top -- h' ) 0 swap do i lfx-reached -1 +loop ;
 : lfx-value-height ( value -- h ) lfx-unmark dup lfx-mark 0 swap lfx-sweep 1+ ;
 
 \ Declarations: {"thm":{...}}, {"def":{...}}, {"axiom":{...}}.

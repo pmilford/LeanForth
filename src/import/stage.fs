@@ -181,12 +181,15 @@ create pinned-meta
 
 \ ---- Reading. A failed read rolls the stage back: the tier to the mark
 \ stage-init took, the maps to their first entries, no declarations.
-: own-clear ( stage -- outcome )
+\ The export-index maps back to their first entries, no reason kept (also
+\ stage-extend's, below).
+: maps-again ( stage -- outcome )
   dup stage-name-map slab-clear dup stage-level-map slab-clear
-  dup stage-expr-map slab-clear dup stage-decl-records slab-clear
-  dup stage-by-name slab-clear dup stage-lines slab-clear dup stage-noted slab-clear
-  0 over stage-mdata ! 0 over stage-marks ! 0 over stage-other !
-  0 over stage-why ! maps-start ;
+  dup stage-expr-map slab-clear 0 over stage-why ! maps-start ;
+: own-clear ( stage -- outcome )
+  dup stage-decl-records slab-clear dup stage-by-name slab-clear
+  dup stage-lines slab-clear dup stage-noted slab-clear
+  0 over stage-mdata ! 0 over stage-marks ! 0 over stage-other ! maps-again ;
 : stage-rollback ( stage -- outcome )
   dup stage-start over stage-tier tier-rollback ['] own-clear and-then
   staging-empty stage-state! ;
@@ -385,13 +388,12 @@ binder-reaches
 \ failed read then rolls back to empty, the first read's declarations
 \ gone too. Invalid unless the stage is filled.
 : stage-line ( c-addr u stage -- outcome ) stage-export export-line ;
+\ stage-reading's reader takes ( c-addr u stage ): here the producer's xt
+\ and a 0 stand in for the file's name, which a producer has none of.
 : produced ( xt 0 stage -- outcome )
   nip dup stage-export export-restart swap execute
   ok-then? if stage-export export-end then ;
 : stage-produce ( xt stage -- outcome ) 0 swap ['] produced stage-reading ;
-: maps-again ( stage -- outcome )
-  dup stage-name-map slab-clear dup stage-level-map slab-clear
-  dup stage-expr-map slab-clear 0 over stage-why ! maps-start ;
 : stage-extend ( stage -- outcome )
   dup staging-filled stage-in? 0= if drop outcome-invalid exit then
   dup maps-again ['] tier-marked and-then staging-empty stage-state! ;

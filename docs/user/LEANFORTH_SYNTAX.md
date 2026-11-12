@@ -223,16 +223,25 @@ accepted: 60 (experimental, not independently audited); axioms: none
 
 **What happens to a file.** Forth's own interpreter runs it line by line
 with only LeanForth's words visible, and before each line LeanForth makes
-a word for every name in it that has none yet, so that a library name
+a word for every name in it that has none yet (not for the text of `( … )`
+comments and notes, which is no name), so that a library name
 such as `Nat.add_comm` runs as Lean resolves it (unknown names still stop
 as unknown, error 1). When the file ends without an error, the
 declarations it made are handed to the checker as export records, behind
 the library's, and checked in file order. A file that stops with an error
-is not checked at all; the error is printed with its line and column. Two
-limits for now: the library's export does not say which constants are
-*protected*, so a library constant is written by its full name inside a
-namespace (`MyMonoid.mul`, not `mul`; error 55 otherwise, where Lean may
-decide); and `import-stub` is refused (error 48).
+is not checked at all; the error is printed with its line and column. In
+the rare case that the text runs but its records are refused before the
+check (no room for them, say), the error says so of the text, and nothing
+is checked. Three limits for now, each a temporary gap where Lean
+decides (plan task 8.2.1d's follow-ups): the library's export does not
+say which constants are *protected*, so a library constant is written by
+its full name inside a namespace (`MyMonoid.mul`, not `mul`; error 55
+otherwise); `open` of a namespace that only the library has, such as
+`open Nat`, stops with error 26 (unknown namespace: a namespace is known
+once the text enters it or declares a name in it), so write the library's
+names in full; and `import-stub` is refused (error 48). A projection leaf
+(`0 proj# S`) is a term only as the function of `$`; anywhere else the run
+stops with error 56.
 
 ## Example: identity
 

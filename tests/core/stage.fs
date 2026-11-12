@@ -300,6 +300,19 @@ st stage-free
 T{ 12 st stage-init st stage-extend -> outcome-ok outcome-invalid }T
 T{ fixture st stage-load st stage-extend -> outcome-ok outcome-invalid }T
 st stage-free
+\ A failed read after stage-extend rolls back to empty, the first read's
+\ declarations gone too (review L4); so does a producer's THROW, which
+\ passes on, and the stage takes a new read afterwards.
+T{ 12 st stage-init composition st stage-read st stage-extend
+   -> outcome-ok outcome-ok outcome-ok }T
+T{ ' refuse-now st stage-produce phase st stage-decls
+   -> outcome-invalid staging-empty 0 }T
+st stage-free
+: throw-now ( -- outcome ) 77 throw ;
+T{ 12 st stage-init ' throw-now st ' stage-produce catch nip nip phase st stage-decls
+   -> outcome-ok 77 staging-empty 0 }T
+T{ composition st stage-read st stage-decls -> outcome-ok 1 }T
+st stage-free
 T{ live-blocks @ blocks-at-start - -> 0 }T
 T{ depth -> 0 }T
 bye

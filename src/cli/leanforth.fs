@@ -897,8 +897,16 @@ variable cli-info#
 : cli-text-error ( -- )
   ." error: " lf-author-code lf-author-outcome dup outcome-text type
   ." : the LeanForth text was not checked: " lf-author-error. cr outcome>code cli-code! ;
+\ The text ran, but its records did not reach the stage whole (review L4):
+\ the refusal's outcome, said of the text, never of an export line the
+\ user cannot see.
+: cli-records-error ( -- )
+  ." error: " ck-read-outcome dup outcome-text type
+  ." : the records written for the LeanForth text were refused; the text was not checked"
+  cr outcome>code cli-code! ;
 : cli-text-report ( -- )
-  lfc-failed? if cli-text-error else cli-fed-tally cli-fed-report then ;
+  lfc-failed? if cli-text-error exit then lfc-refused? if cli-records-error exit then
+  cli-fed-tally cli-fed-report ;
 : cli-text-lines ( -- )
   cli-json? if exit then true cli-state run-noted ! ['] cli-stream ck-lines! ;
 : cli-text-load ( -- outcome )

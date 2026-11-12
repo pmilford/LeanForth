@@ -2502,7 +2502,8 @@ for the first time gets a record of kind library, and resolves as the
 file's own constants do (§9). *Difference from A4:* LF-LIB, a word list
 with its own search on each host (`wordlist-class`, `mappedwordlist`), is
 not built; the look-ahead A4 kept as the portable path is used on both
-Gforths: before a line runs, each of its tokens up to a `\` comment that
+Gforths: before a line runs, each of its tokens up to a `\` comment,
+outside the text of `( … )` comments and notes (B6), that
 no word list of the run has and that is not number-like gets a group word
 in LF-CONST, which decides nothing (an unknown name still stops as
 unknown, error 1). It costs a group word (about 48 bytes) per distinct
@@ -2553,7 +2554,38 @@ and 19 rejected, 16 to 19 s and 0.6 GB a run.
 node sharing searches the store), 8.2.1e (prompt and inline use), 8.2.1f
 (saving and re-checking), 8.2.1g (a check at each `end NAME`, a kernel
 change), LF-LIB with its host adapters (a speed-up over the look-ahead),
-`protected` in the export pipeline, `--json` for a text, and the term
+`protected` in the export pipeline, `open` of a namespace only the library
+has (error 26 now: a namespace is known once the text enters it or
+declares a name in it; a temporary gap where Lean decides, with
+`protected`, in 8.2.1d's follow-ups), `--json` for a text, and the term
 printer's types for library constants (a library constant prints with
 all its arguments, `@Eq Nat …`, where Lean hides the implicit ones; the
 terms are the same).
+
+**B6. After the Forth and gate review of 2026-11-12**
+([report](../development/forth-reviews/2026-11-12-lf-files.md); agent LF2,
+branch `lf-files-2`). (1) *The records are compared* (H1):
+`tests/author/report.fs` prints the records `export.fs` writes, and
+`check_author.py` reads them as an export and compares every declaration
+with the terms the words built (`make test`) and its whole record — kind,
+name, `all`, `levelParams`, hints, safety, type and value — with pinned
+Lean's export of the fixture's Lean source (`make check`); fixture
+`06-universes` gained `PairOf` (a constant with two different universe
+arguments) and `21-numeric-name` a name with a numeric part (a private
+theorem); the reviewer's five writer faults are planted and caught.
+(2) *Same format, not the same bytes* (L1, S7): each record has the
+pinned exporter's form, key order (sorted; the JSON writer's sorted mode
+refuses any other) and string escapes (Lean's `Json.compress`), but the
+numbering differs — lean4export writes names, levels and expressions as
+it first meets them, declaration by declaration, one record for equal
+nodes; `export.fs` writes them store by store, and nodes the term store
+keeps apart (binders) get records of their own; the metadata names
+LeanForth as the exporter with no Lean build (`"githash": "none"`). A
+declaration means what Lean's export of the same source means; the file
+is not byte for byte Lean's. (3) *Fails closed earlier*: a projection
+leaf anywhere but as the function of `$` stops the run (error 56, M2) and
+the writer refuses a reference to one or a level of an unknown tag (S6);
+the look-ahead skips the text of `( … )`, `note"` and `ai-note"` (M1); a
+text whose records are refused before the check says so of the text
+(L4). (4) Not changed: the typing and conversion rules, the axiom rules
+and every kernel module.

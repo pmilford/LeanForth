@@ -31,15 +31,19 @@
 \ outcome is kept as ck-load's is (ck-read-outcome), the phase that failed
 \ too (ck-staging, ck-feeding); lfc-failed? ( -- flag ) whether the text
 \ itself stopped (then lf-author-error. tells where and why);
+\ lfc-refused? ( -- flag ) whether it ran but its records did not reach
+\ the stage whole (the writer or the stage refused one; review L4);
 \ lfc-library-open ( c-addr u checked? -- outcome ) and lfc-library-close
 \ ( -- ), a library for the words outside check (see below).
 \ Untrusted, like the stage and the words: neither can make a declaration
 \ accepted; only check-declaration and the publisher decide.
 \ State: one context record, lfc (the library's name, whether the text
-\ failed, the settings kept while the words run).
+\ failed or its records were refused, the settings kept while the words
+\ run).
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
+require ../core/input.fs
 require ../author/runner.fs
 require ../import/stage.fs
 require ./check-run.fs
@@ -47,11 +51,9 @@ require ./check-run.fs
 begin-structure /lfc
   2 cells +field lfc-env         \ the library export's file name, or 0 0
   field: lfc-failed              \ true: the text stopped with an error
+  field: lfc-refused             \ true: its records did not reach the stage whole
   field: lfc-sharing             \ the term store's sharing before the run
-  field: lfc-names               \ the stores' capacity settings before the run
-  field: lfc-terms
-  field: lfc-levels
-  field: lfc-crefs
+  field: lfc-names               \ the name store's capacity setting before it
 end-structure
 /lfc context-record: lfc
 
@@ -59,20 +61,20 @@ end-structure
 \ A library: an export (--env) or a snapshot's tier (--snapshot, ck-importing?).
 : lfc-library? ( -- flag ) lfc lfc-env @ 0<> ck-importing? or ;
 : lfc-failed? ( -- flag ) lfc lfc-failed @ ;
+: lfc-refused? ( -- flag ) lfc lfc-refused @ ;
 
-\ ---- The stores' room while the words run: the name, term, level and
-\ reference stores' settings raised to the most a store may hold (they
-\ grow only as records are made), then given back; the first refusal is
-\ the outcome.
-: lfc-kept ( -- ) lf-name-capacity lfc lfc-names ! lf-term-capacity lfc lfc-terms !
-  lf-level-capacity lfc lfc-levels ! lf-cref-capacity lfc lfc-crefs ! ;
+\ ---- The stores' room while the words run: the name store's setting and
+\ those of check-run.fs's table (ck-capacities: terms, levels, references
+\ and the input, which the words do not use), kept as the feed keeps
+\ them (ck-save, ck-restore; the feed comes later), raised to the most a
+\ store may hold (they grow only as records are made), then given back;
+\ the first refusal is the outcome.
+: lfc-raise ( outcome k -- outcome )
+  feed-most swap ck-capacity capacity-set @ execute ck-first ;
 : lfc-rooms ( -- outcome )
-  lfc-kept feed-most lf-name-capacity! feed-most lf-term-capacity! ck-first
-  feed-most lf-level-capacity! ck-first feed-most lf-cref-capacity! ck-first ;
-: lfc-rooms-back ( -- outcome )
-  lfc lfc-names @ lf-name-capacity! lfc lfc-terms @ lf-term-capacity! ck-first
-  lfc lfc-levels @ lf-level-capacity! ck-first
-  lfc lfc-crefs @ lf-cref-capacity! ck-first ;
+  ck-save lf-name-capacity lfc lfc-names ! feed-most lf-name-capacity!
+  ck-capacities# 0 do i lfc-raise loop ;
+: lfc-rooms-back ( -- outcome ) ck-restore lfc lfc-names @ lf-name-capacity! ck-first ;
 
 \ ---- The library's names (author/library.fs): a name of the run's name
 \ store looked up in the stage's tier part by part, prefix first, without
@@ -93,9 +95,10 @@ end-structure
 : lfc-universes ( d -- n )
   ck-stage staged-params@ dup none? if drop 0 exit then
   ck-stage stage-tuples tuple-length ;
-\ A definition's height when its hints are regular (code 2), else 0.
+\ A definition's height when its hints are regular, else 0.
 : lfc-regular? ( d -- flag )
-  dup ck-stage staged-kind@ kind-def = swap ck-stage staged-hints@ 2 = and ;
+  dup ck-stage staged-kind@ kind-def =
+  swap ck-stage staged-hints@ lf-hint-regular = and ;
 : lfc-height ( d -- h ) dup lfc-regular? if ck-stage staged-hint@ else drop 0 then ;
 : lfc-find ( name -- universes height true | false )
   lfc-name lfc-decl 0= if false exit then dup lfc-universes swap lfc-height true ;
@@ -143,7 +146,8 @@ end-structure
 : lfc-sharing-back ( -- ) lfc lfc-sharing @ lf-term-sharing! ;
 : lfc-empty ( -- )
   lf-term-reset lf-level-reset lf-cref-reset lf-name-reset lfa-declarations-reset ;
-: lfc-made ( c-addr u -- outcome ) lfc-run dup ok? if drop lfc-produce then ;
+: lfc-records ( -- outcome ) lfc-produce dup ok? 0= lfc lfc-refused ! ;
+: lfc-made ( c-addr u -- outcome ) lfc-run dup ok? if drop lfc-records then ;
 : lfc-text ( c-addr u -- outcome )
   lfc-sharing! lfc-rooms ok-then? if lfc-made else nip then
   lfc-empty lfc-rooms-back ck-first lfc-sharing-back ;
@@ -161,8 +165,8 @@ end-structure
 \ ---- Loading, as ck-load (cli/check-run.fs): the staging phase is the
 \ library's reading, the text's run and its records, and the seal.
 : lfc-staging ( c-addr u checked? -- outcome )
-  false lfc lfc-failed ! lfc-stage-start ok-then? if lfc-text else nip then
-  dup ok? if drop ck-stage stage-seal then ;
+  false lfc lfc-failed ! false lfc lfc-refused ! lfc-stage-start ok-then?
+  if lfc-text else nip then dup ok? if drop ck-stage stage-seal then ;
 : lfc-stage-phase ( c-addr u checked? -- outcome )
   ck-phase-begin lfc-staging ck-staging ck-phase-end ck-staging ck-fail ;
 : ck-lf-load ( c-addr u checked? -- outcome )

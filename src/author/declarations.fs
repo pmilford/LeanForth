@@ -76,9 +76,7 @@ end-structure
 : lfa-full! ( c-addr u -- )
   lfa-current lfa-current-full dup lfa-text-clear lfa-current-space rot lfa-text+
   lfa-current lfa-current-full lfa-text-dotted ;
-: lfa-declared? ( name -- flag )
-  lfa-decl-count 0 ?do dup i lfa-decl-name = if drop true unloop exit then loop drop
-  false ;
+: lfa-declared? ( name -- flag ) lfa-decl-find dup if nip then ;
 \ No declaration takes the name of a library constant (library.fs).
 : lfa-library-free ( c-addr u -- )
   lfa-library-named if drop lfa-e-declared lfa-fail then ;

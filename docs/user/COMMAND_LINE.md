@@ -192,7 +192,12 @@ library constant's name (error 28, Lean's "already declared"); and
 because Lean's export does not say which constants are *protected*, a
 one-part name that would reach a library constant through a namespace
 stops with "write the full name" (error 55, exit 2), a temporary refusal
-where Lean decides. An axiom gets Lean's verdict and is labelled NOT
+where Lean decides; so does `open` of a namespace only the library has,
+such as `open Nat` (error 26, "unknown namespace", exit 4: write the
+library's names in full). If the text runs but its records are refused
+before the check (no room for them, say), the error says "the records
+written for the LeanForth text were refused; the text was not checked",
+with the refusal's exit status. An axiom gets Lean's verdict and is labelled NOT
 PROVED, with what depends on it, as in an export. `--json`, `--record` and
 `--save-snapshot` do not go with a text yet.
 
