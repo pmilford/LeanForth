@@ -328,11 +328,13 @@ create lf-cref-hooks /htab-hooks allot
   lf-cref-shadowed lf-crefs store-ready drop lf-crefs store-open?
   if dup lf-cref-slot lf-crec-identity @ true else drop lf-cref-refused then ;
 \ The equal reference that a find with the gate missed: made before the
-\ check and not reached by it.
+\ check and not reached by it. The gate is closed again also when a hook
+\ THROWs, and the THROW goes on (review FRI F3: it was left open).
+: lf-cref-ungated-find ( name generation addr count -- n true | false )
+  2over 2over lf-cref-under-find
+  if >r 2drop 2drop r> true else lf-cref-find dup 0= if nip then then ;
 : lf-cref-unreached ( name generation addr count -- n true | false )
-  true lf-cref-ungated ! 2over 2over lf-cref-under-find
-  if >r 2drop 2drop r> true else lf-cref-find dup 0= if nip then then
-  false lf-cref-ungated ! ;
+  true lf-cref-ungated ! ['] lf-cref-ungated-find catch false lf-cref-ungated ! throw ;
 \ A new record entered at slot i, with its shadow mark (its original plus
 \ one, or 0).
 : lf-cref-keep ( index identity i mark -- index identity true | false )

@@ -20,6 +20,7 @@
 create lf-env-i2-checks   \ compiles the I2 assertion into environment.fs
 require ../../src/main.fs
 include ../support/tester.fs
+include ../support/checks.fs
 decimal
 
 : snap-file ( -- c-addr u ) s" /tmp/leanforth-env-snapshot-test.lfsnap" ;
@@ -132,6 +133,52 @@ T{ 0 lf-env-outcome 2 lf-env-outcome 2 ck-kept kept-code @
    -> outcome-ok outcome-full lf-diag-lookups-full }T
 2 cells slab-limit-max looks-limited
 ck-release
+
+\ ---- A slot's own fields as the loader reads them (review FRK F5): each
+\ forged in turn just past what the checker writes is refused.
+create forged sl-fields# u32s allot
+: forged-clear ( -- ) forged sl-fields# u32s erase ;
+: forged? ( u k -- flag ) forged-clear forged fld! forged sl-sane? ;
+T{ 0 sl-outcome forged? outcome-full sl-outcome forged? -> true true }T
+T{ outcome-full 1+ sl-outcome forged? -> false }T
+T{ 7 sl-marks forged? 8 sl-marks forged? -> true false }T
+T{ lf-allowlist-bits sl-axioms forged? snap-axiom-bits invert sl-axioms forged? -> true false }T
+T{ lf-warn-indices lf-warn-rec or lf-warn-reflexive or lf-warn-nested or lf-warn-no-recursor or
+   lf-warn-quot-record or sl-warnings forged? -> true }T
+T{ snap-warn-limit sl-warnings forged? -> false }T
+T{ lf-recipe-raw sl-recipe forged? lf-recipe-raw lf-recipe-large or sl-recipe forged? -> true true }T
+T{ lf-recipe-large sl-recipe forged? 4 sl-recipe forged? -> false false }T
+T{ 3 lf-recipe-aux-shift lshift sl-recipe forged? -> true }T
+T{ 3 lf-recipe-aux-shift lshift lf-recipe-raw or sl-recipe forged? -> false }T
+T{ 5 true lf-shape sl-shape forged? 0 false lf-shape sl-shape forged? -> true true }T
+T{ lf-shape-rec sl-shape forged? 4 sl-shape forged? -> false false }T
+T{ forged ' sl-sane? rs-checked -> false }T
+\ An answer: an outcome and a slot below the span's first, or the holder
+\ bit with ok; never the holder bit with another outcome, nor 7.
+create forged-snap /snap allot  forged-snap /snap erase  5 forged-snap snap-head !
+: answer? ( d outcome -- flag ) lf-look-answer forged-snap answer-ok? ;
+: holder? ( d outcome -- flag ) lf-look-answer lf-look-holder or forged-snap answer-ok? ;
+T{ 4 outcome-ok answer? 4 outcome-rejected answer? -1 outcome-full answer? -> true true true }T
+T{ 5 outcome-ok answer? -1 7 answer? -> false false }T
+T{ 4 outcome-ok holder? 4 outcome-rejected holder? 4 outcome-full holder? -> true false false }T
+
+\ ---- A key beyond the input as written (review FRK F4): without the
+\ environment's tier of names or the canon tier, or for a number the
+\ environment's tier does not hold, refused (invalid) and never read past
+\ them; a name beyond made canon's keeps its kind.
+s" tests/reference/constant-fixture.ndjson" true fresh
+T{ lf-env-outer canon -> 0 0 }T
+T{ 3 lf-look-kinds * canon-key -> -1 outcome-invalid }T
+T{ lf-look-outside canon-key -> -1 outcome-invalid }T
+s" tests/cli/nested.ndjson" true fresh
+: top-outer ( -- key ) lf-env-outer tier-names cons-numbers 1- lf-look-kinds * lf-look-fresh + ;
+T{ lf-env-outer 0<> canon -> true 0 }T
+T{ top-outer canon-key -> -1 outcome-invalid }T
+T{ snap-outers /outers erase ck-stage canon-tier -> outcome-ok }T
+T{ top-outer canon-key swap lf-look-kinds 1- and -> outcome-ok lf-look-fresh }T
+T{ lf-look-outside canon-key -> -1 outcome-invalid }T
+outers-free ck-release
+T{ depth -> 0 }T
 snap-file delete-file drop
 failures @ 0= [if] ." The lookup lists, I2 and the snapshot round trip hold." cr [then]
 bye

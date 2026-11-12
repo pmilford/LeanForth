@@ -1,17 +1,31 @@
 \ Portability adapter: Forth-2012 definitions of the few words the project
-\ uses that are not in the Forth-2012 core word set (-ROT, .S ...), plus the
-\ standard structure words. Each is compiled only when the host lacks it;
-\ under Gforth 1.0 this file defines only max-n. No state, no dependencies.
+\ uses that are not in the Forth-2012 core word set (-ROT, BOUNDS, .S ...),
+\ plus the standard structure words and the standard streams. Each is
+\ compiled only when the host lacks it; under Gforth 1.0 this file
+\ defines only max-n. No state, no dependencies but the streams' (below).
 \ Host assumption: cells are two's complement and arithmetic wraps, as on
 \ every current host (Forth-2012 itself does not require it). upto? and
-\ max-n rely on this.
+\ max-n rely on this. tests/lib/lib.fs checks each one-line fallback
+\ against the host's own word.
 
 \ Comparisons and stack words that Gforth provides as extensions.
 [undefined] >= [if] : >= ( n1 n2 -- flag ) < 0= ; [then]
 [undefined] <= [if] : <= ( n1 n2 -- flag ) > 0= ; [then]
+[undefined] u<= [if] : u<= ( u1 u2 -- flag ) u> 0= ; [then]
 [undefined] 0<= [if] : 0<= ( n -- flag ) 0> 0= ; [then]
 [undefined] 0>= [if] : 0>= ( n -- flag ) 0< 0= ; [then]
 [undefined] -rot [if] : -rot ( x1 x2 x3 -- x3 x1 x2 ) rot rot ; [then]
+\ A range for ?DO: the end and the start of u address units from addr.
+[undefined] bounds [if] : bounds ( addr u -- addr+u addr ) over + swap ; [then]
+
+\ The standard output and error streams' file ids, which both Gforths
+\ name and Forth-2012 does not: elsewhere the POSIX device files, opened
+\ when this file loads (a host without them stops here with a THROW).
+\ FLUSH-FILE is of the optional File-Access extension: a host without it
+\ is taken to write through, with nothing left to flush.
+[undefined] stdout [if] s" /dev/stdout" w/o open-file throw constant stdout [then]
+[undefined] stderr [if] s" /dev/stderr" w/o open-file throw constant stderr [then]
+[undefined] flush-file [if] : flush-file ( fileid -- ior ) drop 0 ; [then]
 
 \ .S, of the optional Programming-Tools word set, which the program words
 \ (src/program/verify-semantics.fs) give verification semantics: the depth

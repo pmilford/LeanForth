@@ -204,4 +204,18 @@ T{ args 2 ref -> 0 8 true }T
 \ An equal record is not given where a new one would be refused.
 max-n lf-cref-serial !
 T{ args 2 ref -> false }T
+
+\ The find without the gate (lf-cref-unreached): the equal record made
+\ before, or none; the gate closed again afterwards, also when a hook
+\ THROWs, the THROW going on (review FRI F3: it was left open).
+: sought ( addr count -- name generation addr count ) name-id @ lf-name-generation @ 2swap ;
+T{ args 2 sought lf-cref-unreached lf-cref-ungated @ -> 0 true false }T
+T{ other-args 2 sought lf-cref-unreached lf-cref-ungated @ -> false false }T
+T{ args 2 sought ' lf-cref-unreached rs-checked -> 0 true }T
+: throwing-same ( n key htab -- flag ) -4321 throw ;
+' lf-cref-rehash ' throwing-same lf-cref-hooks htab-hooks!
+T{ args 2 sought ' lf-cref-unreached catch nip nip nip nip lf-cref-ungated @ -> -4321 false }T
+' lf-cref-rehash ' lf-cref-same lf-cref-hooks htab-hooks!
+T{ args 2 sought lf-cref-unreached -> 0 true }T
+T{ depth -> 0 }T
 bye

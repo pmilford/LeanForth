@@ -401,7 +401,15 @@ create snap-outers /outers allot  snap-outers /outers erase
   dup key-beyond? if key-name swap >r outer-put r> else drop then ;
 : outers-of ( addr slot -- addr n )
   0 swap dup lf-slot-looked @ 0 ?do i over lf-slot-look drop outer-key loop drop ;
-: canon-made ( name -- outcome ) outer canon name-copy nip ;
+\ Name n of the environment's tier made canon's: n' and ok; or -1 and
+\ invalid without the two tiers or for a number the environment's tier
+\ does not hold, such as lf-look-outside's (review FRK F4: name-copy would
+\ read past them), else name-copy's full or invalid.
+: canon-name? ( name -- flag )
+  outer 0<> canon 0<> and if outer tier-names cons-numbers u< else drop false then ;
+: canon-copy ( name -- name' outcome )
+  dup canon-name? if outer canon name-copy else drop -1 outcome-invalid then ;
+: canon-made ( name -- outcome ) canon-copy nip ;
 : canon-slot ( slot -- outcome )
   dup lf-slot-looked @ outers-hold ok-then? 0= if exit then
   snap-outers outers-list @ swap outers-of 2dup o-sort
@@ -455,26 +463,40 @@ create snap-outers /outers allot  snap-outers /outers erase
 : snap-outers! ( snap stage -- outcome )
   2dup swap snap-tf tf-stage ! 2dup canon-build dup ok? 0= if nip nip exit then drop
   outers-joined ;
-\ A key as written: a name beyond the input made canon's.
-: canon-key ( key -- key' )
-  dup key-kind swap key-name outer canon name-copy drop lf-look-kinds * + ;
-: key-written ( key -- key' ) dup key-beyond? if canon-key then ;
-: put-look ( addr snap slot k -- addr' snap slot )
-  over lf-slot-look 3 pick answer-renum >r key-written 3 pick u32-le!
-  r> 3 pick 4 + u32-le! rot 8 + -rot ;
-: put-looks ( addr d snap -- addr' )
+\ A key as written: a name beyond the input made canon's (key' ok), or -1
+\ and canon-copy's failure; the outcome is passed up to snap-save.
+: canon-key ( key -- key' outcome )
+  dup key-kind swap key-name canon-copy ok-then? 0= if nip no-result exit then
+  lf-look-kinds * + outcome-ok ;
+: key-written ( key -- key' outcome ) dup key-beyond? if canon-key else outcome-ok then ;
+\ The key at addr as written: ok, or the failure with nothing written.
+: look-written ( addr key -- outcome )
+  key-written ok-then? if swap u32-le! outcome-ok else nip then ;
+: put-look ( addr snap slot k -- addr' snap slot outcome )
+  over lf-slot-look 3 pick answer-renum 4 pick 4 + u32-le! 3 pick swap look-written
+  >r rot 8 + -rot r> ;
+\ A slot's lookups from addr on: the end and ok, or the first failure.
+: looks-put ( addr snap slot -- addr' snap slot outcome )
+  outcome-ok over lf-slot-looked @ 0 ?do
+    drop i put-look dup ok? 0= if unloop exit then
+  loop ;
+: put-looks ( addr d snap -- addr' outcome )
   over slot-env dup slot-outer? >r lf-slot-looked @ >r 2 pick >r
-  swap slot-env dup lf-slot-looked @ 0 ?do i put-look loop
-  2drop r> r> r> if look-sort else 2drop then ;
-: put-lists ( snap -- )
-  dup ss-deps swap snap-block over ss-looks swap snap-block rot dup snap-wn@ 0 ?do
-    i over snap-e >r rot r@ 2 pick put-deps -rot swap r> 2 pick put-looks swap
-  loop drop 2drop ;
+  swap slot-env looks-put nip nip r> r> r> if look-sort else 2drop then ;
+\ Slot d's dependencies and lookups, after the lists' ends so far.
+: put-pair ( dblk snap lblk d -- dblk' snap lblk' outcome )
+  >r rot r@ 3 pick put-deps -rot r> 2 pick put-looks ;
+: put-lists ( snap -- outcome )
+  dup ss-deps swap snap-block swap dup ss-looks swap snap-block
+  over snap-wn@ outcome-ok swap 0 ?do
+    drop i 2 pick snap-e put-pair dup ok? 0= if nip nip nip unloop exit then
+  loop nip nip nip ;
 : put-sites ( snap -- outcome )
   >r site-bytes dup slab-count dup 1 max allocate
   if drop 2drop r> drop outcome-full exit then
   rot slab-base over 3 pick move swap ss-sites r@ snap-block! ss-sites r> snap-own
   outcome-ok ;
+: put-rest ( snap -- outcome ) dup put-lists dup ok? if drop put-sites else nip then ;
 
 \ The header fields, then every section, then the file.
 : head! ( u k snap -- ) snap-sf sections-field! drop ;
@@ -523,13 +545,15 @@ create snap-outers /outers allot  snap-outers /outers erase
   r@ snap-tf tier-sections dup ok? 0= if nip r> drop exit then drop
   r@ snap-head! r@ snap-lists dup ok? 0= if r> drop exit then drop
   r@ put-slots dup ok? 0= if r> drop exit then drop
-  r@ put-lists r@ put-sites dup ok? 0= if r> drop exit then drop r> snap-adds ;
+  r@ put-rest dup ok? 0= if r> drop exit then drop r> snap-adds ;
 \ Write the snapshot of the current environment over the sealed stage
 \ to the file named c-addr u, after snap-begin and the caller's
 \ snap-export!, snap-manifest-sha!, snap-manifest!, snap-info! and
-\ snap-facts!: ok, invalid when a slot is not final or the stage is not
-\ the environment's, full for no heap, or the container's outcome; the
-\ file is untouched unless ok. snap-free frees the record's blocks.
+\ snap-facts!: ok, invalid when a slot is not final, the stage is not
+\ the environment's or a lookup's name beyond the input is none of the
+\ environment's tier (canon-copy), full for no heap, or the container's
+\ outcome; the file is untouched unless ok. snap-free frees the record's
+\ blocks.
 : snap-save ( c-addr u fuel stage snap -- outcome )
   sites-init dup ok? 0= if >r 2drop 2drop drop r> sites-free exit then drop
   snap-outers /outers erase dup >r snap-build r> swap sites-free
@@ -647,12 +671,30 @@ create snap-outers /outers allot  snap-outers /outers erase
 : look-key ( j snap -- key ) ss-looks swap snap-block swap 8 * + u32-le@ ;
 : look-answer ( j snap -- answer ) ss-looks swap snap-block swap 8 * + 4 + u32-le@ ;
 \ A slot's own fields: an outcome, marks, axiom bits within the
-\ allowlist's; fuel used -1 (not known) or at most the fuel per
+\ allowlist's; B4 warning bits, a recipe and a shape as the checker makes
+\ them (review FRK F5); fuel used -1 (not known) or at most the fuel per
 \ declaration; provenance 0 in a base snapshot (written by a final run),
 \ at most 1 (rests on saved results) in a layer (review rvSN3 m2, m3).
+: sl-at ( addr k -- u ) swap fld@ ;
+: outcome-in? ( u -- flag ) outcome-full u> 0= ;
+\ The warning bits: inductive-block.fs's lf-warn-* (1-16) and quot.fs's
+\ lf-warn-quot-record (32), all below this.
+64 constant snap-warn-limit
+\ A recipe (generated-recursor.fs lf-genrec-recipe): 0, raw, or raw and
+\ large; or a nested block's count of auxiliary types shifted, with
+\ neither bit. A shape: 0, or one the block check computed.
+: recipe-low? ( bits -- flag )
+  dup lf-recipe-large <> swap lf-recipe-raw lf-recipe-large or u> 0= and ;
+: recipe-ok? ( u -- flag )
+  dup lf-recipe-aux-shift rshift if 1 lf-recipe-aux-shift lshift 1- and 0= exit then
+  recipe-low? ;
+: shape-ok? ( u -- flag ) dup 0= swap lf-shape-known and 0<> or ;
+: sl-made? ( addr -- flag )
+  dup sl-warnings sl-at snap-warn-limit u< over sl-recipe sl-at recipe-ok? and
+  swap sl-shape sl-at shape-ok? and ;
 : sl-sane? ( addr -- flag )
-  sl-outcome over fld@ outcome-full u> 0= sl-marks 2 pick fld@ 8 u< and
-  sl-axioms rot fld@ snap-axiom-bits invert and 0= and ;
+  dup sl-outcome sl-at outcome-in? over sl-marks sl-at 8 u< and
+  over sl-axioms sl-at snap-axiom-bits invert and 0= and swap sl-made? and ;
 : fuel-ok? ( addr snap -- flag )
   snap-fuel swap sl-fuel swap fld2@ tuck < 0= swap -1 < 0= and ;
 : snap-layer? ( snap -- flag ) sh-layers swap head@ 0<> ;
@@ -685,8 +727,12 @@ create snap-outers /outers allot  snap-outers /outers erase
   over lf-look-outside = if 2drop true exit then
   over key-name swap snap-names @ u< over key-kind lf-look-quot u> 0= and
   swap key-quot-ok? and ;
+\ An answer's low bits: an outcome, or the holder bit with ok (a
+\ generated recursor's holder: environment.fs lf-look-holder-answer).
+: answer-low? ( answer -- flag )
+  lf-look-kinds 1- and dup outcome-in? swap lf-look-holder = or ;
 : answer-ok? ( answer snap -- flag )
-  snap-head @ swap dup 7 and outcome-full u> 0= >r lf-look-slot+1 < 0= r> and ;
+  snap-head @ swap dup answer-low? >r lf-look-slot+1 < 0= r> and ;
 : looks-ok? ( c snap -- flag )
   true rot 0 ?do
     over dup snap-lk @ i + swap 2dup look-key over key-ok? >r look-answer

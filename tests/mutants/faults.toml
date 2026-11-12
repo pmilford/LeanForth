@@ -2230,6 +2230,22 @@ test = "python3 tests/program/verify_ir02.py"
 reason = "rvIR3 L9: the portable .S shows ten cells where both Gforths show nine"
 
 [[fault]]
+id = "portable-bounds-reversed"
+file = "src/lib/portability.fs"
+old = ''': bounds ( addr u -- addr+u addr ) over + swap ; [then]'''
+new = ''': bounds ( addr u -- addr+u addr ) over swap + ; [then]'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "review FRK 5: the portable BOUNDS gives start and end the other way round, so a ?DO over it runs no or wrong iterations"
+
+[[fault]]
+id = "portable-u-le-signed"
+file = "src/lib/portability.fs"
+old = ''': u<= ( u1 u2 -- flag ) u> 0= ; [then]'''
+new = ''': u<= ( u1 u2 -- flag ) > 0= ; [then]'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "review FRI F5: the portable U<= compares signed, so a number above max-n reads as small"
+
+[[fault]]
 id = "irx-spaces-unbounded"
 file = "src/program/ir-run.fs"
 old = ''': irx-print-spaces ( op -- ) drop irx-data-pop irx-fuel @ min irx-say-blanks ;'''
@@ -3111,6 +3127,14 @@ old = '''  dup lf-cref-span? if lf-cref-pairs lf-cref-input-ok? else drop false 
 new = '''  lf-cref-pairs lf-cref-input-ok? ;'''
 test = "$GFORTH tests/core/constant-references.fs"
 reason = "a reference whose pairs lie outside the pool is read anyway"
+
+[[fault]]
+id = "fri-cref-gate-left-open"
+file = "src/core/constant-references.fs"
+old = '''  true lf-cref-ungated ! ['] lf-cref-ungated-find catch false lf-cref-ungated ! throw ;'''
+new = '''  true lf-cref-ungated ! lf-cref-ungated-find false lf-cref-ungated ! ;'''
+test = "$GFORTH tests/core/constant-references.fs"
+reason = "FRI F3: a hook that THROWs in the ungated find leaves the gate open, so later finds in the check see references it has not reached"
 
 [[fault]]
 id = "e5-chain-newest"
@@ -8295,6 +8319,29 @@ new = '''  lf-sched-broken? if false exit then lf-sch-release'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "FX10 M3: declarations past the stop left in the ready heap make a run with no worker left more work (it spun forever)"
 
+# Review fixes of 2026-11-12 (FRK F1, F6): a worker added whole or not at
+# all; a slab that is not live invalid, never full.
+
+[[fault]]
+id = "frk-sched-add-pushes-first"
+file = "src/kernel/env-schedule.fs"
+old = '''  lf-sch-worker-room dup ok? 0= if nip exit then drop
+  lf-sched lf-sch-ctxs lf-sch-push 0 lf-sched lf-sch-jobs lf-sch-push lf-sch-and
+  -1 lf-sched lf-sch-ats lf-sch-push lf-sch-and ;'''
+new = '''  lf-sched lf-sch-ctxs lf-sch-push dup ok? 0= if exit then drop
+  0 lf-sched lf-sch-jobs lf-sch-push -1 lf-sched lf-sch-ats lf-sch-push or
+  ok? room>outcome ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "FRK F1: the context is pushed before the jobs list is known to have room, so a full add keeps a context the caller frees"
+
+[[fault]]
+id = "frk-sched-outcomes-ored"
+file = "src/kernel/env-schedule.fs"
+old = ''': lf-sch-and ( outcome1 outcome2 -- outcome ) over ok? if nip else drop then ;'''
+new = ''': lf-sch-and ( outcome1 outcome2 -- outcome ) or ok? room>outcome ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "FRK F6: outcomes OR-ed and read as room, so a list that is not live is reported full"
+
 [[fault]]
 id = "s5b-sched-skips-let"
 file = "src/kernel/env-schedule.fs"
@@ -8770,6 +8817,14 @@ reason = "rvSN3 m5: a saved lookup key of a name beyond the tier loads"
 # were taken) or a refusal.
 
 [[fault]]
+id = "frk-fill-replay-dropped"
+file = "src/kernel/env-import.fs"
+old = '''  imp@ dup imp-d @ swap over replay-all 0= if fill-refused exit then'''
+new = '''  imp@ dup imp-d @ swap over replay-all drop'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "FRK F3: a taken slot whose saved lookups cannot all be asked again is published with the saved outcome"
+
+[[fault]]
 id = "sn4-content-by-name"
 file = "src/kernel/env-import.fs"
 old = '''  staged-name 6 u32s rot staged-name 6 u32s compare 0= r> and ;'''
@@ -8872,6 +8927,70 @@ test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
 reason = "rvSN4 m1: a layer that holds one of its own records twice loads (the copy's users then read another record)"
 
 [[fault]]
+id = "frk-canon-unguarded"
+file = "src/kernel/env-snapshot.fs"
+old = '''  dup canon-name? if outer canon name-copy else drop -1 outcome-invalid then ;'''
+new = '''  outer canon name-copy ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "FRK F4: a key beyond the input copied with no tier, or a number beyond the environment's tier, reads past them (a crash or a garbage key)"
+
+[[fault]]
+id = "frk-canon-key-outcome-dropped"
+file = "src/kernel/env-snapshot.fs"
+old = '''  dup key-kind swap key-name canon-copy ok-then? 0= if nip no-result exit then'''
+new = '''  dup key-kind swap key-name canon-copy drop'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "FRK F4: a key whose name cannot be made canon's is written as if it were (name-copy's outcome dropped)"
+
+[[fault]]
+id = "frk-slot-made-unchecked"
+file = "src/kernel/env-snapshot.fs"
+old = '''  over sl-axioms sl-at snap-axiom-bits invert and 0= and swap sl-made? and ;'''
+new = '''  over sl-axioms sl-at snap-axiom-bits invert and 0= and nip ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "FRK F5: a slot's warnings, recipe and shape are loaded whatever their values"
+
+[[fault]]
+id = "frk-recipe-bits-unchecked"
+file = "src/kernel/env-snapshot.fs"
+old = '''  dup lf-recipe-large <> swap lf-recipe-raw lf-recipe-large or u> 0= and ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "FRK F5: a recipe with bits the checker never sets (large without raw, others) loads"
+
+[[fault]]
+id = "frk-answer-holder-any-outcome"
+file = "src/kernel/env-snapshot.fs"
+old = '''  lf-look-kinds 1- and dup outcome-in? swap lf-look-holder = or ;'''
+new = '''  7 and outcome-in? ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "FRK F5: an answer with the holder bit and an outcome other than ok loads"
+
+[[fault]]
+id = "fri-layer-const-levels-flag"
+file = "src/import/snapshot-layer.fs"
+old = '''  tuck ly-levels >r -rot ly-name r> swap ly-and rot swap ;'''
+new = '''  tuck ly-levels ok? 0= outcome-invalid and >r -rot ly-name r> swap ly-and rot swap ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "FRI F1: a constant's universe arguments that the heap cannot hold read as a malformed layer (invalid), not full"
+
+[[fault]]
+id = "fri-layer-rules-flag"
+file = "src/import/snapshot-layer.fs"
+old = '''  2 pick ly-tier tier-tuples tuple-start ok-then? 0= if ly-none2 exit then'''
+new = '''  2 pick ly-tier tier-tuples tuple-start ok-then? 0= if 2drop drop 0 outcome-invalid exit then'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "FRI F1: a recursor's rules that the heap cannot hold read as a malformed layer (invalid), not full"
+
+[[fault]]
+id = "fri-layer-enter-refused"
+file = "src/kernel/env-layers.fs"
+old = '''      swap c" declarations" swap lay-blame unloop exit then drop'''
+new = '''      drop c" declarations" swap lay-refuse unloop exit then drop'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "FRI F1: a layer declaration the stage cannot hold (no heap) refused as invalid, not full"
+
+[[fault]]
 id = "sn5-written-unsaved"
 file = "src/cli/check-run.fs"
 old = '''  outcome-invalid dup ck-outcome! dup ck-state ck-loaded ! ck-state ck-snap-saved !'''
@@ -8899,8 +9018,8 @@ gap = "no fixture yet has one slot whose names beyond the input a parallel run m
 [[fault]]
 id = "sn5-outer-unsorted"
 file = "src/kernel/env-snapshot.fs"
-old = '''  2drop r> r> r> if look-sort else 2drop then ;'''
-new = '''  2drop r> r> r> drop 2drop ;'''
+old = '''  swap slot-env looks-put nip nip r> r> r> if look-sort else 2drop then ;'''
+new = '''  swap slot-env looks-put nip nip r> r> r> drop 2drop ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
 reason = "SN5: a list with names beyond the input written unsorted after their keys are made the written names', which the loader refuses"
 
