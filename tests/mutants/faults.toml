@@ -8907,3 +8907,35 @@ old = '''  dup lf-input-store store-count @ swap lf-input-mark mark-count @ - 0 
 new = '''  dup lf-input-store store-capacity @ swap lf-input-mark mark-count @ - 0 max ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py MemoryPerCheck"
 reason = "MB: the stores' capacity, which earlier checks grew, is read instead of the records made: big2 asks for other bytes than big"
+
+[[fault]]
+id = "r5-spine-one-short"
+file = "src/kernel/mixed-infer.fs"
+old = ''': lf-minfer-spine-pending ( T k c -- T' status ) over - swap lf-minfer-spine-put ;'''
+new = ''': lf-minfer-spine-pending ( T k c -- T' status ) over - swap 1- 0 max lf-minfer-spine-put ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py AsCopied VerdictGuard"
+reason = "R5 (ADR 0014 Am. 8): an aside spine's type gets one argument fewer than it binds"
+
+[[fault]]
+id = "r5-spine-visible-pi-ignored"
+file = "src/kernel/mixed-infer.fs"
+old = '''  >r over lf-minfer-pi? if nip rot drop swap 1+ r> drop outcome-ok exit then'''
+new = '''  >r'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py AsCopied VerdictGuard"
+reason = "R5 (ADR 0014 Am. 8): every argument of an aside spine instantiated on its own, as before Lean's infer_app was followed (more fuel)"
+
+[[fault]]
+id = "r5-spine-order"
+file = "src/kernel/mixed-infer.fs"
+old = '''  swap lf-minfer-spine-cell swap lf-minfer-lend lf-instantiate-rev lf-minfer-repay'''
+new = '''  swap lf-minfer-spine-cell swap lf-minfer-lend lf-instantiate lf-minfer-repay'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py AsCopied VerdictGuard"
+reason = "R5 (ADR 0014 Am. 8): a spine's arguments put in reverse order (instantiate, not instantiate_rev)"
+
+[[fault]]
+id = "r5-spine-unclosed"
+file = "src/kernel/mixed-infer.fs"
+old = '''  2 pick over lf-minfer-spine-needs >r 2dup + r@ - r> lf-minfer-close-cells'''
+new = '''  2 pick over lf-minfer-spine-needs drop outcome-ok'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py AsCopied VerdictGuard"
+reason = "R5 (ADR 0014 Am. 8): a spine's arguments read under the scope put in without closing them"

@@ -42,8 +42,14 @@
 \                  for an equal one only once the check reached it. Fuel
 \                  moves (Init: +0.34% in all, 48,397 declarations more,
 \                  5 less), no verdict.
+\   5  2026-11-11  agent R5 (ADR 0014 Amendment 9): infer-only inference types an application
+\                  from its spine's head, as Lean's infer_app does, so
+\                  fuel counts move, mostly down (the pinned exports:
+\                  every report the same but for fuel, which only fell;
+\                  Init: -0.99% in all, 31,418 declarations less, 27
+\                  more); no verdict.
 \
 \ [kernel] code: experimental, not through the review gate.
 \ State: none.
 
-4 constant lf-verdict-version
+5 constant lf-verdict-version

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Pinned Lean against LeanForth on tests/cli/shared-depths.lean (review rvS36
 probes P1 and P2; plan task 4.2.7, ADR 0014 Amendments 3 and 4; P3, three
-perf ladders of the Lean Kernel Arena at n = 48, agent PF, Amendment 6).
+perf ladders of the Lean Kernel Arena at n = 48, agent PF, Amendment 6; P4,
+proof irrelevance typing 48-argument spines aside, agent R5, Amendment 9).
 
 Usage: shared_depths.py LEAN [GFORTH]
   Runs LEAN (the pinned 4.35.0 binary) on shared-depths.lean, which prints a
@@ -12,7 +13,7 @@ Usage: shared_depths.py LEAN [GFORTH]
   where Lean accepts and, where Lean rejects, 1 (rejected) or 4 (invalid: a
   loose bound variable, which the checker finds in its entry audit before
   Lean's kernel would), never 0 or anything else.
-P3's good rows must also stay below their fuel bounds (FUEL_BOUNDS).
+P3's and P4's good rows must also stay below their fuel bounds (FUEL_BOUNDS).
 Prints one line per case and exits 1 when any case differs.
 """
 import json
@@ -25,14 +26,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "tests" / "cli" / "shared-depths.lean"
 MEMO_OFF = ROOT / "tests" / "cli" / "audit-memo-off.fs"
-EXPECTED_ROWS = 25   # P1 has 12, P2 has 7, P3 has 6
+EXPECTED_ROWS = 27   # P1 has 12, P2 has 7, P3 has 6, P4 has 2
 # P3's good rows (agent PF): the fuel `check --json` reports for the row's
 # declaration stays below these bounds, about 10% above what it was on
 # 2026-11-11 (13,250, 18,060 and 13,157): a guard against a pass whose work
 # grows with the paths or the depth instead of the nodes (ADR 0014,
 # Amendment 6). Lean's own work on these ladders grows as n squared.
+# P4's good row (agent R5): 15,749 on 2026-11-11, 25,063 before an
+# application aside was typed from its spine's head (ADR 0014, Amendment 9).
 FUEL_BOUNDS = {"letgood": ("PF_letgood", 14600), "betagood": ("PF_betagood", 19900),
-               "appgood": ("PF_appgood", 14500)}
+               "appgood": ("PF_appgood", 14500), "spinegood": ("Spine.good", 17300)}
 
 
 def lean_cases(lean):

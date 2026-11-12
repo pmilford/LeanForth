@@ -2174,6 +2174,98 @@ no rule is touched, and no limit is set unless the option is given. It
 needs the owner's approval of this summary and an independent review of
 the change (AGENTS.md, review gates) before it counts as reviewed.
 
+## Amendment 9: an application typed aside from its spine's head (agent R5, 2026-11-11, proposed)
+
+Status: proposed; [kernel] gate owed. Written as Amendment 8 on branch
+`r5-roots`; renumbered 9 at the merge with agent PF's Amendment 7 (verdict
+version 4) and agent MB's Amendment 8; this amendment is verdict version 5.
+Code: `src/kernel/mixed-infer.fs` (`lf-minfer-spine` and the words
+before it; `lf-minfer-binary`). No typing, reduction or conversion rule
+changes: the type given back is the same term, the whnf calls are the same
+calls on the same terms; every verdict that moves is an *exhausted* that
+becomes Lean's.
+
+**Finding** (`.claude/work/R5/ROOTCAUSE.md`: the six Mathlib declarations
+that exhausted 100,000,000 units). Lean's `infer_app` in infer-only mode
+(`type_checker.cpp` 188-205), the mode of every inference a comparison
+asks for (proof irrelevance, eta, unit-like types), takes the arguments of
+`f a₁ … aₙ` at once: it infers the head `f` alone, walks its type's Pi
+bodies without instantiating while they are visible Pis, and puts the
+arguments since the last such point in by one `instantiate_rev` where a
+type is no visible Pi (then `ensure_pi_core`) and at the end. LeanForth
+typed the spine one application node at a time, each node's type the
+function's Pi body instantiated with one argument: every argument cost a
+pass over the rest of the telescope (Θ(n²) visits for a spine whose type
+names its binders, Lean's Θ(n)), and every prefix `f a₁ … aₖ` was looked
+up and kept in the inferred-type cache. On `AlgebraicGeometry.Proj.awayι_comp_map`
+these passes were 23.9M of the first 100M units (1,779,077 calls), on two
+other roots 13-17%.
+
+**Ported.** In aside mode an application's spine is collected (the
+arguments, outermost first, on a growable stack of the job,
+`lf-minfer-spine-cells`, above those of the spines being typed around it:
+a whnf's iota may type aside again), its head is inferred (keyed, as
+`infer_type_core(f, true)` keys it), and Lean's loop runs on the head's
+type: a visible Pi gives its body; otherwise the pending arguments are put
+in at once (`lf-instantiate-rev`), the result is put in whnf when it is no
+Pi (`lf-minfer-pi-parts`: else unknown, as before aside) and gives its
+body; last, the pending arguments are put in. An argument read under the
+scope is closed first when the type's loose range can name it (Lean's
+`instantiate` never reads the others; Amendment 6 for one argument). The
+prefixes are neither typed nor keyed, as in Lean. Checking mode (Lean's
+`infer_only = false`, one node at a time, 173-187) is unchanged. The
+derivation log (ADR 0013) records no step for a spine typed aside, as for
+every visit aside; before, each application typed aside logged one
+instantiate step without formulas (`tests/present/outlines.golden`:
+`Nat.add_zero`'s log 263 → 245 steps, only those 18 gone).
+
+**Why sound.** Instantiation keeps a visible Pi a Pi, so the points where
+Lean's loop instantiates are the points where the node-at-a-time typing
+found no visible Pi, and both put the same whnf calls on the same terms;
+putting k arguments in at once gives the term that k single substitutions
+give (`instantiate_rev`'s definition, mixed-open.fs). The stack's cells
+are read by index after anything that may grow it; each spine gives its
+cells back when its type is known or refused, and a job starts with none.
+
+**Fuel.** One pass per point instead of one per argument, and no visit,
+lookup or key per prefix: fewer units for long dependent spines. Where a
+prefix's type was found in the cache before, the spine now types it from
+its head, as Lean does, which can cost more (two Mathlib roots below, and
+some declarations of `Init`). Fuel only bounds work: a run with a
+different count can only be *exhausted* (or *unknown* behind one) where
+the other decides, never give another verdict. Verdict version 5 (ADR
+0020 D3).
+
+**Evidence.** `tests/cli/shared-depths.lean` P4: proof irrelevance types
+two 48-argument spines aside (`Spine.h 0 … 0`, `Spine.h₂ 0 … 0`); pinned
+Lean accepts `spinegood` and rejects `spinebad` (appTypeMismatch), and
+LeanForth agrees, memo on and off; `shared_depths.py` bounds the good
+row's fuel (15,749 units, 25,063 before). Its two exports are pinned
+(`tests/core/check-declaration-cases/spine-{good,bad}.ndjson`,
+`test_leanforth.py` PINNED). Every pinned report of `test_leanforth.py`,
+compared with the tree before: the same but for fuel, 34 declarations less
+and none more; the golden snapshot fields: 23 slots' fuel less, nothing
+else moved. The checker trial digest stays `e96c47672b69`. Planted faults
+`r5-spine-one-short`, `r5-spine-visible-pi-ignored`, `r5-spine-order` and
+`r5-spine-unclosed`, all caught; the 37 earlier faults of
+`mixed-infer.fs` behave as listed (36 caught, 1 known equivalent). Mathlib
+roots, each checked alone against a snapshot of its dependencies with
+`--fuel 1000000000` (`.claude/work/R5/ROOTCAUSE.md`), all accepted before
+and after, units before → after:
+`AlgebraicGeometry.Proj.awayι_comp_map` 219,483,113 → 211,894,547 (check
+CPU 656 → 521 s, peak memory 8,641 → 5,397 MB);
+`CategoryTheory.GrothendieckTopology.MayerVietorisSquare.biprodAddEquiv_symm_biprodIsoProd_hom_toBiprod_apply`
+99,751,907 → 88,024,288 (peak 4,820 → 3,338 MB);
+`CategoryTheory.instIsIsoIndCoimageImageComparison` 233,897,724 →
+226,013,339; `PresheafOfModules.freeObj._proof_2` 188,314,434 →
+187,856,617; `PadicInt.coe_adicCompletionIntegersEquiv_apply` 133,650,976
+→ 137,151,657 and `Polynomial.iterate_derivative_derivative_mul_X`
+165,018,370 → 167,077,182 (more: prefixes no longer cached, as in Lean);
+check CPU 2-21% less on each. All of `Init` (`check --no-manifest --json
+--jobs 4`, default fuel): 59,349 accepted before and after, no other field
+of any declaration moved; fuel 659,257,764 → 652,726,907 (−0.99%), 31,418
+declarations less, 27 more (at most +0.17% each).
+
 ## Note: the projection steps (plan task 5.2.2, 2026-11-10)
 
 The Q8 row "Projections: `reduce_proj`, step 8, `try_unfold_proj_app`"

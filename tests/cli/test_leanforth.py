@@ -1591,6 +1591,11 @@ def pinned_digest(*args):
 # re-pinned after ADR 0014 Amendment 7 (a check is given only the earlier
 # nodes and levels it reached): against main 0627845 every report is the
 # same but for fuel, 40 declarations with more and none with less.
+# Those marked R5 are also re-pinned after ADR 0014 Amendment 9 (an application typed aside from
+# its spine's head, as Lean's infer_app in infer-only mode): compared with
+# the tree before it, every report is the same but for fuel, 34
+# declarations less (the two spine exports added with it included) and
+# none more.
 PINNED = {
     "tests/reference/composition.ndjson": "a3e7184036edb9dd",
     "tests/reference/constant-fixture.ndjson": "df2ee45dc87e20ca",
@@ -1605,16 +1610,20 @@ PINNED = {
     "--no-manifest README.md": "7dace333bd425361",
     "tests/cli/no-such.ndjson": "3eac0629560526ed",
     "--no-manifest tests/cli/composition-huge-number.ndjson": "ec7632bcbf284cef",
-    "--no-manifest tests/core/reexport/kinds.ndjson": "294aa8ad53b2c3bd",  # IO
+    "--no-manifest tests/core/reexport/kinds.ndjson": "b61d4de7371e945d",  # IO, R5
     f"--fuel 0 {FIXTURE}": "7ab8e9fa317ce0a5",
     f"--no-manifest {EMPTY_BLOCK}": "dbfea3992d7e6793",
     "tests/cli/sharing.ndjson": "e1e5a1f9695267e2",  # re-pinned (IO)
     "tests/cli/sharing-universe.ndjson": "d5a364d306cbd23c",  # re-pinned (IO)
-    "tests/cli/nested.ndjson": "0ea7176adfc28d47",  # re-pinned twice, see above
+    "tests/cli/nested.ndjson": "b21f0e59341d82f6",  # re-pinned, see above; R5
     "tests/cli/irrelevance.ndjson": "44da5689b4a2a87c",
     f"--no-manifest {CASES}/composition-literal.ndjson": "25123b1e2dfc63de",
+    # tests/cli/shared-depths.lean P4's exports (agent R5, ADR 0014 Amendment 9):
+    # 48-argument spines typed aside; accepted with 15,749 units, and rejected.
+    f"--no-manifest {CASES}/spine-good.ndjson": "c9a2f41a2c2da824",
+    f"--no-manifest {CASES}/spine-bad.ndjson": "6b1c8764316512a0",
     "--no-manifest tests/core/check-block-cases/primitive.string-opaque-expansion.ndjson":
-        "95d7bdf159a9fc13",  # re-pinned (IO)
+        "8aa723e5bed376d6",  # re-pinned (IO, R5)
 }
 
 
@@ -1895,7 +1904,8 @@ class Snapshots(unittest.TestCase):
                                    "audited; from snapshot, not re-checked in this run); "
                                    "axioms: none")
         self.assertRegex(lines[-3], r"^snapshot: .*s\.lfsnap \(sha256 [0-9a-f]{64}\), export "
-                                    r"sha256 [0-9a-f]{64}, verdict version 4, written by "
+                                    rf"sha256 [0-9a-f]{{64}}, verdict version {verdict_version()}, "
+                                    r"written by "
                                     r"LeanForth \S+: 3 results taken from it, not re-checked "
                                     r"in this run$")
         self.assertEqual(lines[-2:], [
@@ -2033,11 +2043,12 @@ class Snapshots(unittest.TestCase):
         self.assertEqual((status, lines[0]), (0, (
             "fixtureId: accepted (experimental, not independently audited; from a stale "
             "snapshot (an older verdict version), not this build's verdict); axioms: none")))
-        self.assertIn("stale: build's (4): its 3 results are not this build's verdicts", lines)
+        self.assertIn(f"stale: build's ({verdict_version()}): its 3 results are not this "
+                      "build's verdicts", lines)
         status, got, _ = report("--snapshot-stale-ok", "--snapshot", str(old))
         self.assertEqual(self.schema.errors(got), [])
         self.assertEqual((got["snapshot"]["verdictVersion"], got["snapshot"]["stale"]),
-                         (1, {"thisVerdictVersion": 4, "results": 3}))
+                         (1, {"thisVerdictVersion": verdict_version(), "results": 3}))
         self.assertEqual({d["provenance"] for d in got["declarations"]}, {"stale-snapshot"})
         self.assertEqual(report("--snapshot", str(path))[1]["snapshot"]["stale"], None)
         status, got, _ = report("--snapshot-stale-ok", "--snapshot", str(old), FIXTURE)
@@ -2573,7 +2584,7 @@ class Layers(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertIn(f"layer: {one} (sha256 {sha}), export sha256 "
                       f"{hashlib.sha256(Path(DEPENDENT).read_bytes()).hexdigest()}, "
-                      "verdict version 4, on the snapshot above", out.splitlines())
+                      f"verdict version {verdict_version()}, on the snapshot above", out.splitlines())
         status, got, _ = report(*options)
         self.assertEqual(Imports.schema.errors(got), [])
         self.assertEqual([(x["file"], x["sha256"], x["base"]) for x in got["snapshot"]["layers"]],
