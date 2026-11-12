@@ -4908,6 +4908,92 @@ test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Names"
 reason = "the LeanForth block writes a name holding a banned character raw (review rvPR B1)"
 quick = true
 
+# --- the printer's notation and its dispatch (review FRP batches A and B,
+# 2026-11-12; src/present/print-notation.fs, notation-table.fs, term-printer.fs,
+# print-forth.fs); each caught by tests/present/notation.fs, term-printer.fs or
+# tests/author/author.fs.
+
+[[fault]]
+id = "notation-minus-minus-glued"
+file = "src/present/print-notation.fs"
+old = '''  lf-pn-minus-end? if 2dup lf-pn-minus-first? if s"  " lf-pp-emit then then ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/present/notation.fs"
+reason = "a negation of a negation prints --2, which Lean writes - -2 (--2 would start a comment)"
+quick = true
+
+[[fault]]
+id = "notation-sized-any-arity"
+file = "src/present/print-notation.fs"
+old = '''  over 0= if drop exit then over lf-nt-arity @ <> if drop 0 then ;'''
+new = '''  over 0= if drop exit then over lf-nt-arity @ < if drop 0 then ;'''
+test = "$GFORTH tests/present/notation.fs"
+reason = "a row applies to an application with more arguments than it says: 1 + 2 applied to 3 prints as notation over the wrong arguments"
+
+[[fault]]
+id = "notation-applies-unspelt"
+file = "src/present/print-notation.fs"
+old = '''  dup lf-nt-kind @ lf-nt-numeral <> over lf-pn-spelt? 0= and'''
+new = '''  false'''
+test = "$GFORTH tests/present/notation.fs"
+reason = "a row applies in a mode it has no spelling for: Ne in ASCII prints its operands with nothing between them"
+
+[[fault]]
+id = "notation-numeral-big-literal"
+file = "src/present/print-notation.fs"
+old = '''  lf-pn-a dup lf-pn-small? if lf-lit-cell true else drop false then ;'''
+new = '''  lf-pn-a dup lf-tag-lit lf-pp-is? if lf-lit-cell true else drop false then ;'''
+test = "$GFORTH tests/present/notation.fs"
+reason = "a literal too big for a cell prints as a numeral, the number of one of its limbs"
+
+[[fault]]
+id = "notation-numeral-any-row"
+file = "src/present/print-notation.fs"
+old = '''  dup if dup lf-nt-kind @ lf-nt-numeral = and then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/present/notation.fs"
+reason = "an exponent applying another row's constant with three arguments, a literal in the numeral's place, is raised as that digit: 2^(3 ≠ 4) prints 2³"
+
+[[fault]]
+id = "notation-superscript-width"
+file = "src/present/print-notation.fs"
+old = ''': lf-pn-sup-width ( d -- u ) 1 4 within if 2 else 3 then ;'''
+new = ''': lf-pn-sup-width ( d -- u ) drop 3 ;'''
+test = "$GFORTH tests/present/notation.fs"
+reason = "the superscripts ¹ ² ³ take their padding blank with them: 2¹ prints with a trailing blank"
+
+[[fault]]
+id = "notation-membership-left-above"
+file = "src/present/notation-table.fs"
+old = '''  lf-nt-infix lf-nt-row lf-nt-left-at lf-nt-right-at lf-nt-end ;'''
+new = '''  lf-nt-infix lf-nt-row lf-nt-right-at lf-nt-end ;'''
+test = "$GFORTH tests/present/notation.fs"
+reason = "a ∈ b's left operand at 51, not Lean's 50: 1 = 2 ∈ 3 gains parentheses"
+
+[[fault]]
+id = "notation-negation-not-tight"
+file = "src/present/notation-table.fs"
+old = '''  lf-nt-prefix-row lf-nt-prop lf-nt-tight lf-nt-end ;'''
+new = '''  lf-nt-prefix-row lf-nt-prop lf-nt-end ;'''
+test = "$GFORTH tests/present/notation.fs"
+reason = "¬ is not tight in mathematical text: ¬(1 = 2) prints as ¬1 = 2"
+
+[[fault]]
+id = "printer-string-leaf-invalid"
+file = "src/present/term-printer.fs"
+old = '''    lf-tag-str of ['] lf-pp-str-step endof ['] lf-pp-invalid-step swap endcase ;'''
+new = '''    ['] lf-pp-invalid-step swap endcase ;'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "the printer's leaf dispatch loses the string literal arm: a string prints as invalid"
+
+[[fault]]
+id = "forth-mode-literal-invalid"
+file = "src/present/print-forth.fs"
+old = '''    lf-tag-lit of ['] lf-pf-lit-step endof lf-tag-str of ['] lf-pf-str-step endof'''
+new = '''    lf-tag-str of ['] lf-pf-str-step endof'''
+test = "$GFORTH tests/author/author.fs"
+reason = "the Forth mode's leaf dispatch loses the number literal arm: 7 lit# prints as invalid"
+
 # --- the authoring runner's rules for the checker's Gforth (plan 8.2.1a;
 # ADR 0017 Amendment 1, A5): src/author/runner.fs, groups.fs, source.fs,
 # words.fs; each caught by tests/author/author.fs.
