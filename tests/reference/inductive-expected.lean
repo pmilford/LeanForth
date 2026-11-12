@@ -217,6 +217,16 @@ def sharedLets (base op : String) (n : Nat) : String :=
   "(let a0 := " ++ base ++ "; " ++
     String.join ((List.range n).map fun i => s!"let a{i + 1} := a{i} {op} a{i}; ") ++ s!"a{n})"
 
+/-- `(let a0 := Nat; let a1 := Bool; …; a{n-1})` with a{i} the product `a{i-1} × a{i-2}` for
+even i and the function type `a{i-1} → a{i-1}` for odd i: after zeta, n distinct closed terms,
+each met through a function type's body one binder deeper than through its domain, so at many
+depths in turn (rows `uniform.shared-depths*`; review rvKN 1). -/
+def depthLets (n : Nat) : String :=
+  "(let a0 := Nat; let a1 := Bool; " ++
+    String.join ((List.range (n - 2)).map fun j =>
+      if j % 2 == 0 then s!"let a{j + 2} := a{j + 1} × a{j}; "
+      else s!"let a{j + 2} := a{j + 1} → a{j + 1}; ") ++ s!"a{n - 1})"
+
 def Block.decl (b : Block) : TermElabM Declaration := do
   let tys ← b.types.mapM fun t => do
     pure (t.name, b.full t.name, ← elabWith [] b.lparams t.type)
@@ -555,6 +565,13 @@ def checks : List Block := [
     lean := "nonUniformOccurrence", leanforth := "rejected", rule := "C1", task := "5.2.1b" },
   { id := "uniform.let-uniform", nparams := 1,
     types := [⟨"T", "Type → Type", [("mk", "(α : Type) → (let y : Type := T α; Nat) → T α")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "C1", task := "5.2.1b" },
+  -- A field type of 30 shared closed terms met at many depths in turn (zeta := true, as
+  -- exported): Lean's walk visits each (term, depth) pair once (for_each_offset_fn's
+  -- cache), 449 of them; a walk that kept one depth per term visited 12 million (review
+  -- rvKN 1: out of fuel where Lean accepts in 0.03 s).
+  { id := "uniform.shared-depths", nparams := 1, zeta := true,
+    types := [⟨"T", "Type → Type", [("mk", "(α : Type) → " ++ depthLets 30 ++ " → T α")]⟩],
     lean := "accepted", leanforth := "accepted", rule := "C1", task := "5.2.1b" },
   -- Universe constraints on constructor fields.
   { id := "universe.field-too-big", types := [⟨"Big", "Type", [("mk", "Type → Big")]⟩],

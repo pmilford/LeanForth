@@ -291,17 +291,43 @@ T{ fsort lf-term-reusable? -> false }T
 \ Marks at a depth, on the node fsort in a paired walk. lf-walk-seen?: a
 \ node a run reached at depth 2 is seen at any depth no smaller (3), not
 \ at a smaller one (1, then marked there). lf-walk-seen-at? (C1's, as
-\ Lean's for_each with an offset): seen only at exactly the depth the run
-\ marked it at, and marked at a new one; a new run has seen nothing.
+\ Lean's for_each with an offset): seen only at a depth the run reached
+\ it at, every such depth kept -- the first in the unit, the others in
+\ the pair set -- so a node met at alternating depths is not walked again
+\ (review rvKN 1: a unit keeping only the latest depth gave 3 2 -> true
+\ false); a new run has seen nothing.
 4 walk2: mark-walk
 : at-depth ( depth -- walk ) mark-walk walk-context ! fsort mark-walk walk-node ! mark-walk ;
 mark-walk lf-walk-marking
 T{ 2 at-depth lf-walk-seen? 3 at-depth lf-walk-seen? 1 at-depth lf-walk-seen?
    -> false true false }T
-mark-walk lf-walk-marking
+mark-walk lf-walk-pairing
 T{ 2 at-depth lf-walk-seen-at? 2 at-depth lf-walk-seen-at? 3 at-depth lf-walk-seen-at?
    -> false true false }T
-T{ 3 at-depth lf-walk-seen-at? 2 at-depth lf-walk-seen-at? -> true false }T
+T{ 3 at-depth lf-walk-seen-at? 2 at-depth lf-walk-seen-at? 1 at-depth lf-walk-seen-at?
+   -> true true false }T
+T{ 1 at-depth lf-walk-seen-at? 3 at-depth lf-walk-seen-at? 2 at-depth lf-walk-seen-at?
+   -> true true true }T
+mark-walk lf-walk-pairing
+T{ 2 at-depth lf-walk-seen-at? 3 at-depth lf-walk-seen-at? -> false false }T
+\ A walk run inside another's visit (lf-walk-once-aside's test) keeps its
+\ pairs in the set alone: the outer walk's unit stays, so the outer walk
+\ still skips the node (review rvKN 2: an inner run that marked the unit
+\ made the outer walk visit it again). A run that does not own the set (a
+\ walk started inside the set's run took it), or any run after the
+\ counter wrapped (lf-marks-erase), skips nothing and keeps nothing.
+4 walk2: aside-walk
+: aside-at ( depth -- walk ) aside-walk walk-context ! fsort aside-walk walk-node ! aside-walk ;
 mark-walk lf-walk-marking
-T{ 2 at-depth lf-walk-seen-at? -> false }T
+T{ 2 at-depth lf-walk-seen? -> false }T
+aside-walk lf-walk-pairing
+T{ 2 aside-at lf-walk-seen-aside? 2 aside-at lf-walk-seen-aside? 3 aside-at lf-walk-seen-aside?
+   -> false true false }T
+T{ 2 at-depth lf-walk-seen? -> true }T
+mark-walk lf-walk-pairing
+T{ 2 aside-at lf-walk-seen-aside? 2 aside-at lf-walk-seen-aside? -> false false }T
+aside-walk lf-walk-pairing
+T{ 2 aside-at lf-walk-seen-aside? -> false }T
+lf-marks-erase
+T{ 2 aside-at lf-walk-seen-aside? 2 aside-at lf-walk-seen-aside? -> false false }T
 bye

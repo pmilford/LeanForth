@@ -386,20 +386,22 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 : lf-ind-free? ( root -- flag outcome )
   lf-ind-occurrences ok-then? if 0= outcome-ok else false swap then ;
 \ The same within a walk of lf-ind-walker, on its fuel: a walk of its own
-\ (lf-ind-inner-walker, a run of its own: a node it marks the outer walk
-\ may visit again, never skip unchecked), whose fuel goes back to the
-\ outer walk; whether root mentions the type. A budget the walk refuses
-\ (negative, which the outer walk's fuel never is) is invalid, as for
-\ lf-ind-run.
+\ (lf-ind-inner-walker, a run of its own, each node once, Lean's find
+\ with its per-call cache), whose fuel goes back to the outer walk;
+\ whether root mentions the type. Its marks are kept in the pair set
+\ (constant-term-boundary.fs's lf-walk-once-aside), never in the units,
+\ so a node the outer walk has visited is not visited by it again (review
+\ rvKN 2). A budget the walk refuses (negative, which the outer walk's
+\ fuel never is) is invalid, as for lf-ind-run.
 : lf-ind-inner-dispatch ( first second walk tag -- outcome )
   ['] lf-ind-occurrence lf-ind-branch ;
 : lf-ind-inner-once ( first second walk tag -- outcome )
-  ['] lf-ind-inner-dispatch lf-walk-once ;
+  ['] lf-ind-inner-dispatch lf-walk-once-aside ;
 : lf-ind-inner-visit ( walk -- outcome ) ['] lf-ind-inner-once lf-term-visit ;
 : lf-ind-inner-run ( root -- outcome )
   lf-ind-walker walk-fuel @ lf-ind-inner-walker walk-budget 0=
   if drop outcome-invalid exit then
-  lf-ind-inner-walker lf-walk-marking
+  lf-ind-inner-walker lf-walk-pairing
   ['] lf-ind-inner-visit lf-ind-inner-walker walk-run
   lf-ind-inner-walker walk-fuel @ lf-ind-walker walk-fuel !
   lf-ind-inner-walker lf-ind-site lf-diag-walk ;
@@ -651,9 +653,10 @@ lf-walk-room context-walk2: lf-ind-pair-walker
     lf-tag-let of lf-c1-same endof  lf-tag-let-nondep of lf-c1-same endof
     lf-tag-projection of lf-c1-same endof
     >r 2drop drop outcome-ok r> endcase ;
-\ Each (node, depth) pair once (constant-term-boundary.fs's exact marks,
-\ as Lean's for_each with an offset visits it, for_each_fn.cpp): the test
-\ of an occurrence depends on its depth.
+\ Each (node, depth) pair once (constant-term-boundary.fs's exact marks
+\ and pair set, as Lean's for_each with an offset visits it,
+\ for_each_fn.cpp's cache): the test of an occurrence depends on its
+\ depth.
 : lf-c1-once ( first second walk tag -- outcome ) ['] lf-c1-dispatch lf-walk-once-at ;
 : lf-c1-visit ( walk -- outcome ) ['] lf-c1-once lf-term-visit ;
 : lf-c1-walked ( outcome -- outcome )
@@ -661,7 +664,7 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   lf-ind-pair-walker lf-ind-site lf-diag-walk ;
 : lf-c1-ctor ( j -- outcome )
   lf-ind-fuel @ lf-ind-pair-walker walk-budget 0= if drop outcome-invalid exit then
-  lf-ind-pair-walker lf-walk-marking
+  lf-ind-pair-walker lf-walk-pairing
   lf-ind-ctor-type 0 ['] lf-c1-visit lf-ind-pair-walker walk-run-pair lf-c1-walked ;
 : lf-ind-c1 ( -- outcome )
   lf-ind-ctors@ 0 ?do i lf-c1-ctor dup ok? 0= if unloop exit then drop loop outcome-ok ;

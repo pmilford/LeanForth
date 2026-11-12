@@ -253,6 +253,11 @@ T{ s" uniform.definitionally-equal-argument" verdict -> outcome-rejected lf-diag
 \ check_uniform_ind_occs); pinned Lean agrees on both (review rvS5B T1).
 T{ s" uniform.let-other-argument" verdict -> outcome-rejected lf-diag-nonuniform 3 }T
 T{ s" uniform.let-uniform" verdict -> outcome-ok 0 all-steps }T
+\ Thirty shared closed terms met at many depths in turn: C1 visits each
+\ (term, depth) pair once, as Lean's for_each with an offset does, within
+\ this file's million units (review rvKN 1: marks keeping one depth per
+\ term ran out of fuel; pinned Lean accepts).
+T{ s" uniform.shared-depths" verdict -> outcome-ok 0 all-steps }T
 
 \ Lean's replay of the Bool block (B3, B4).
 T{ s" replay-bool.original" verdict -> outcome-ok 0 all-steps }T

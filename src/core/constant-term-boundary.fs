@@ -13,7 +13,9 @@
 \ its run counter lf-mark-runs, the input nodes' mark pages (their
 \ directory lf-mark-pages and list lf-mark-made, the pages heap blocks
 \ freed by a teardown word) and their spare lf-mark-spare (below), the
-\ audit memo's record
+\ pair set of one run (its table lf-pair-table, entries lf-pair-entries
+\ and record lf-pair-state, below; the table's block freed by a teardown
+\ word), the audit memo's record
 \ lf-audit-state and its list lf-audit-reached (below), and one
 \ walk record, lf-cterm-walker, all members of the checker context
 \ (lib/context.fs). The hook lf-audit-checking? is set while loading
@@ -26,6 +28,8 @@
 \ format.
 
 require ../lib/lib.fs
+require ../lib/hash32.fs
+require ../lib/htab.fs
 require ../lib/slab.fs
 require ../lib/store-columns.fs
 require ./constant-references.fs
@@ -151,7 +155,64 @@ lf-walk-room context-walk: lf-cterm-walker
 : lf-mark-at ( node -- unit )
   dup lf-term-input? if lf-input-mark-at exit then
   lf-term-base - lf-term-marks column-at ;
-: lf-marks-erase ( -- ) lf-term-marks column-erase lf-marks-release ;
+
+\ The pair set (review rvKN 1 and 2): the (node, depth) pairs one run
+\ reached, for a walk whose marks a unit cannot keep -- a node met at
+\ several depths (lf-walk-once-at), or a run inside another walk's visit
+\ (lf-walk-once-aside), which must leave that walk's units as they are.
+\ Lean keeps such a set per call: for_each_offset_fn its cache of (node,
+\ offset) pairs, find_fn its cache of nodes (for_each_fn.cpp,
+\ find_fn.cpp). A hash table (lib/htab.fs) over a slab of (node depth)
+\ entries holds the pairs of one run, the set's: lf-walk-pairing starts a
+\ run and empties the set for it. A lookup by another run (one started
+\ inside the set's run took the set) finds nothing and keeps nothing, and
+\ a table or slab the heap cannot grow keeps nothing more: more visits,
+\ never a pair skipped unvisited. A counter that wraps (lf-marks-erase)
+\ leaves the set no run (0, which no run has).
+/htab context-record: lf-pair-table
+2 cells context-slab: lf-pair-entries
+begin-structure /lf-pairs
+  field: lf-pairs-run          \ the run whose pairs the set holds; 0: none
+  field: lf-pairs-count        \ its entries
+  2 cells +field lf-pairs-key  \ the pair being found
+end-structure
+/lf-pairs context-record: lf-pair-state
+: lf-pair-entry ( n -- addr ) lf-pair-entries slab-at ;
+: lf-pair-hash ( node depth -- h ) swap hash-fmix swap hash-step ;
+: lf-pair-rehash ( n htab -- h ) drop lf-pair-entry 2@ lf-pair-hash ;
+: lf-pair-same ( n key htab -- flag ) drop swap lf-pair-entry 2@ rot 2@ d= ;
+create lf-pair-hooks /htab-hooks allot
+' lf-pair-rehash ' lf-pair-same lf-pair-hooks htab-hooks!
+: lf-pair-table-make ( -- ) 4 lf-pair-hooks lf-pair-table htab-init drop ;
+' lf-pair-table-make context-setup
+:noname ( -- ) lf-pair-table htab-free ; context-teardown
+\ The set emptied for run; a table grown above 1024 slots is made again,
+\ so that one large run leaves later ones no large table to clear.
+: lf-pairs-small? ( -- flag )
+  lf-pair-table dup htab-live? if htab-slots 1024 <= else drop false then ;
+: lf-pairs-reset ( run -- )
+  lf-pair-state tuck lf-pairs-run ! 0 swap lf-pairs-count !
+  lf-pairs-small? if lf-pair-table htab-clear exit then
+  lf-pair-table htab-free lf-pair-table-make ;
+: lf-pairs# ( -- n ) lf-pair-state lf-pairs-count @ ;
+\ Keep (node depth) at the empty slot i a find gave, if the slab can grow.
+: lf-pairs-put ( node depth i -- )
+  >r lf-pairs# lf-pair-entry 2! lf-pairs# r> lf-pair-table htab-put
+  1 lf-pair-state lf-pairs-count +! ;
+: lf-pairs-keep ( node depth i -- )
+  lf-pairs# 1+ lf-pair-entries slab-hold ok? if lf-pairs-put else drop 2drop then ;
+: lf-pairs-find ( node depth -- n true | i false )
+  2dup lf-pair-state lf-pairs-key 2! lf-pair-hash
+  lf-pair-state lf-pairs-key swap lf-pair-table htab-find ;
+\ Whether run's set holds (node depth); when not, the pair is kept.
+: lf-pairs-own? ( run -- flag ) lf-pair-state lf-pairs-run @ = ;
+: lf-pairs-seen? ( node depth run -- flag )
+  lf-pairs-own? 0= if 2drop false exit then
+  lf-pair-table htab-ready ok? 0= if 2drop false exit then
+  2dup lf-pairs-find if drop 2drop true else lf-pairs-keep false then ;
+
+: lf-marks-erase ( -- )
+  lf-term-marks column-erase lf-marks-release 0 lf-pair-state lf-pairs-run ! ;
 : lf-mark-next ( -- run )
   lf-mark-runs @ 1+ dup 0= if lf-marks-erase 1+ then dup lf-mark-runs ! ;
 : lf-walk-marking ( walk -- ) lf-mark-next swap walk-arg ! ;
@@ -169,20 +230,36 @@ lf-walk-room context-walk: lf-cterm-walker
 \ Dispatch with xt ( first second walk tag -- outcome ) a node not seen
 \ before; one seen before is ok, nothing pushed.
 : lf-walk-skip ( first second walk tag -- outcome ) 2drop 2drop outcome-ok ;
+: lf-walk-unless ( first second walk tag xt flag -- outcome )
+  if drop lf-walk-skip else execute then ;
 : lf-walk-once ( first second walk tag xt -- outcome )
-  >r over lf-walk-seen? if r> drop lf-walk-skip else r> execute then ;
+  2 pick lf-walk-seen? lf-walk-unless ;
 \ The same at exactly the node's depth, for a check whose verdict at a
 \ node can change with its depth either way, as Lean's for_each with an
 \ offset visits each shared (term, offset) pair once (for_each_fn.cpp,
-\ for_each_offset_fn): a node this run reached only at another depth is
-\ checked again, and marked at this one (a unit keeps one depth: more
-\ work, never a node skipped unchecked at its depth).
-: lf-mark-exact? ( depth run unit -- flag ) tuck @ = if cell+ @ = else 2drop false then ;
+\ for_each_offset_fn's cache): a walk started by lf-walk-pairing skips a
+\ pair (node, depth) it reached before, and only such a pair. The node's
+\ unit keeps the first depth the run reached it at; the run's pair set
+\ the others (review rvKN 1: a unit keeping only the latest depth made a
+\ node met at alternating depths be walked again, its subtree too, up to
+\ exponentially often).
+: lf-walk-pairing ( walk -- ) dup lf-walk-marking walk-arg @ lf-pairs-reset ;
+: lf-walk-pair ( walk -- node depth run )
+  dup walk-node @ over lf-walk-depth rot walk-arg @ ;
+: lf-mark-other? ( node depth run unit -- flag )
+  cell+ @ 2 pick = if 2drop drop true else lf-pairs-seen? then ;
 : lf-walk-seen-at? ( walk -- flag )
-  dup lf-walk-depth over walk-arg @ rot lf-mark-unit
-  >r 2dup r@ lf-mark-exact? if r> drop 2drop true else r> lf-mark-set false then ;
+  lf-walk-pair 2 pick lf-mark-at 2dup @ =
+  if lf-mark-other? else lf-mark-set drop false then ;
 : lf-walk-once-at ( first second walk tag xt -- outcome )
-  >r over lf-walk-seen-at? if r> drop lf-walk-skip else r> execute then ;
+  2 pick lf-walk-seen-at? lf-walk-unless ;
+\ The same for a walk run inside another's visit (review rvKN 2), also
+\ started by lf-walk-pairing: every pair it reaches is kept in the pair
+\ set alone, so the outer walk's units, and the nodes they let it skip,
+\ stay as they are.
+: lf-walk-seen-aside? ( walk -- flag ) lf-walk-pair lf-pairs-seen? ;
+: lf-walk-once-aside ( first second walk tag xt -- outcome )
+  2 pick lf-walk-seen-aside? lf-walk-unless ;
 
 \ The audit memo (compact-store plan step S6 (c); ADR 0014 Amendment 4):
 \ in a check, the structural audit below checks a node once, not once per
