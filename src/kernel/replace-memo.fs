@@ -2,8 +2,8 @@
 \ eb6cafb7: m_cache, a node's result per offset, kept for the rest of one
 \ call) as ADR 0016 C4's substitution memo (compact-store plan step S6,
 \ plan task 6.5.5): one table per pass kind and context, reused by every
-\ call and never allocated per call. [kernel] code: experimental, not
-\ through the review gate, not independently audited.
+\ call and never allocated per call. [kernel] code: not through the
+\ review gate (AGENTS.md).
 \
 \ An entry is a key -- a node's identity, the offset it was met at, and
 \ the call's stamp -- and a value: the result and the result's identity.

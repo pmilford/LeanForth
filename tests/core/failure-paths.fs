@@ -216,8 +216,8 @@ outcome-invalid cleared lf-slot-outcome !
 
 \ ---------------------------------------------------------------------------
 \ Handles and printed verdicts, read in a view after the run: an accepted
-\ slot has a valid handle and prints the label with the axiom set it
-\ holds; any other has none and prints its outcome alone. TYPE is
+\ slot has a valid handle and prints "accepted" with the axiom set it
+\ holds, and no label (owner, 2026-11-12); any other has none and prints its outcome alone. TYPE is
 \ deferred on both Gforth hosts, so its action is replaced while a
 \ verdict prints (output past the buffer is dropped).
 160 constant text-room
@@ -238,7 +238,7 @@ variable wanted#
   dup lf-axiom-unlisted = if s" unlisted" else dup lf-axiom-name then want
   2* 1- invert over and if s" , " want then ;
 : want-accepted ( bits -- )
-  lf-check-label want s" ; axioms: " want
+  s" accepted; axioms: " want
   ?dup 0= if s" none" want exit then
   lf-axiom-propext want-bit lf-axiom-choice want-bit lf-axiom-sound want-bit
   lf-axiom-unlisted want-bit drop ;
@@ -259,7 +259,7 @@ variable wanted#
 \ An axiom bit planted in an accepted slot must show in its verdict.
 : axiom-shows? ( d -- flag )
   dup fp-slot@ lf-slot-axioms 1 over ! swap captured rot 0 swap !
-  s" accepted (experimental, not independently audited); axioms: propext" compare 0= ;
+  s" accepted; axioms: propext" compare 0= ;
 : axioms-ok ( d -- )
   dup lf-env-outcome ok? if axiom-shows? s" stale axioms" fp-must else drop then ;
 : reports ( -- )

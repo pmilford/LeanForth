@@ -4,13 +4,11 @@ Status: implemented 2026-11-02 as plan task 2.2.2, following
 [ADR 0012](../adr/0012-checked-environment.md), whose design the owner
 accepted (gate answers G8–G11); the findings of its independent review,
 and of that review's second and third rounds, were fixed the same day (see
-*Trust*; the third round also asked for the *Threat model*). **Experimental [kernel] code, not
-through the review gate and not independently audited.** The environment
+*Trust*; the third round also asked for the *Threat model*). **[kernel] code, not
+through the review gate.** The environment
 decides nothing about a declaration's terms: the check that fills it is
 `check-declaration` (plan task 2.2.3, [below](#check-declaration-plan-task-223);
-also [experimental, not through its gate](../user/FIRST_CHECK.md)). Until
-an outside Lean expert has audited the checker, every accepted result is
-printed *accepted (experimental, not independently audited)*.
+also [not through its gate](../user/FIRST_CHECK.md)).
 
 Source: `src/core/input.fs` (the input), `src/core/name-equal.fs`
 (structural name equality), `src/kernel/environment.fs` (environments,
@@ -51,7 +49,7 @@ body.
 **LeanForth Forth.** The input lives in the term, level and name stores
 (`src/core/`), built here with the helpers below; the environment then
 gets one slot per declaration. Each is checked by `check-declaration`
-(plan task 2.2.3; experimental [kernel] code, not through its review
+(plan task 2.2.3; [kernel] code, not through its review
 gate), with fuel 100,000.
 
 ```forth
@@ -163,8 +161,8 @@ ok
 2 : rejected
 51 environment lf-env-own-name: 2 0
 ok
-accepted (experimental, not independently audited); axioms: none
-accepted (experimental, not independently audited); axioms: none
+accepted; axioms: none
+accepted; axioms: none
 rejected
 ```
 
@@ -360,8 +358,7 @@ nothing is recorded and L2 is skipped. A job started with `lf-minfer-start`
 | `lf-check-budget` | `( fuel -- )` | the fuel each later check in this context starts with (the audit and inference share it); a new context has 0, so every check is *exhausted* until a budget is set |
 | `lf-check-step@` | `( -- step )` | the step at which the last check ended: 0 before its snapshot was found, 1–8 as above, `lf-step-done` (9) when every step succeeded |
 | `lf-check-input` | `( fuel deps -- env outcome )` | check every declaration of this context's intact input in input order in a new environment (room for `deps` dependencies), left current; `outcome` is `lf-env-run`'s; a check that throws stops the run |
-| `lf-check-verdict.` | `( d -- )` | print declaration `d`'s verdict within the current snapshot (after a run, `lf-env-view`'s): an accepted one as *accepted (experimental, not independently audited); axioms: none*, the axiom set read from its slot; any other as its outcome |
-| `lf-check-label` | `( -- c-addr u )` | the label of an accepted result |
+| `lf-check-verdict.` | `( d -- )` | print declaration `d`'s verdict within the current snapshot (after a run, `lf-env-view`'s): an accepted one as *accepted; axioms: none*, the axiom set read from its slot; any other as its outcome |
 | `lf-env-signature`, `lf-env-level-scope` | `( name pairs count fuel deciding -- root identity fuel' 0 \| status )`, `( level fuel -- fuel' outcome )` | the environment's answers to inference, above |
 | `lf-hterm-unsupported` | `( form -- index identity true \| false )` | for importers: a leaf for an unsupported form (`lf-form-let`, `-nat`, `-string`, `-mdata`, `-proj`) |
 
@@ -803,6 +800,4 @@ that frees a context the run uses (both now listed as undetected); and
 a claim inside a check read the address before it refused (now refused
 first); recorded in Amendment 1, items 20–22. The fixes still
 need an independent review of the exact change and the owner's approval
-of a plain-language summary. It is untrusted until then,
-and every accepted result is *experimental — not independently audited*
-after that.
+of a plain-language summary. It is untrusted until then.

@@ -4,10 +4,8 @@ Status: implemented 2026-11-04 as plan task 5.2.1a of
 [ADR 0015](../adr/0015-inductive-types.md) (design accepted by the owner
 on 2026-11-03), and extended the same day to recursive types as plan
 task 5.2.1b and to mutual blocks as the first part of plan task 5.2.5
-(5.2.5a; their [kernel] gates open). **Experimental [kernel] and
-[import] code, not through its review gate and not independently
-audited.** Every accepted result is *accepted (experimental, not
-independently audited)*. This is one step of an unfinished design: each
+(5.2.5a; their [kernel] gates open). **[kernel] and
+[import] code, not through its review gate.** This is one step of an unfinished design: each
 remaining difference from Lean below is temporary and names the plan
 task that closes it. Source:
 `src/kernel/check-block.fs` (the check, in Lean's order),
@@ -421,7 +419,7 @@ accepts them). `check --record`, `replay` and `print` still read with
 `import/checker-input.fs`, which refuses an inductive type while reading
 (*unsupported*): a temporary gap, closed for `check --record` and
 `replay` by a run record version for exports of any size (plan task
-6.5.2, [run records, version 0.3](RUN_RECORDS.md#version-03-records-of-any-size))
+6.5.2, [run records of any size](RUN_RECORDS.md#records-of-any-size-a-proposal-not-built))
 and for `print` by moving it onto the feed (plan task 3.4.1).
 
 ## Limits

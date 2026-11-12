@@ -2,8 +2,7 @@
 \ rules J1, J2): the type of a projection e.i of the structure S, a node
 \ over a projection leaf and e (core/projections.fs), behind
 \ mixed-infer.fs's hook lf-minfer-proj (set here, while loading).
-\ [kernel] code: experimental, not through the review gate, not
-\ independently audited.
+\ [kernel] code: not through the review gate (AGENTS.md).
 \
 \ In Lean's order: e's type inferred and put in whnf, Ty; Ty must be an
 \ application of a constant named S, an inductive type with one

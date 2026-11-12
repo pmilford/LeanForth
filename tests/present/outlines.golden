@@ -1,6 +1,6 @@
 == identity
 Theorem identity
-  accepted (experimental, not independently audited); axioms: none
+  accepted; axioms: none
   Statement in Lean:        ∀ {P : Prop}, P → P
   Statement in math text:   ∀ {P : Prop}, P → P
   Statement in mathematics: $\forall \{P : \mathrm{Prop}\},\ P \to P$
@@ -26,7 +26,7 @@ Templates: let-props/v0, assume/v0, discharge/v0, statement/v0.
 
 == composition
 Theorem composition
-  accepted (experimental, not independently audited); axioms: none
+  accepted; axioms: none
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in math text:   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
@@ -61,7 +61,7 @@ Templates: let-props/v0, assume/v0, implies-elim/v0, discharge/v0, statement/v0.
 
 == type-identity
 Theorem type_identity
-  accepted (experimental, not independently audited); axioms: none
+  accepted; axioms: none
   Statement in Lean:        ∀ {A : Type} {P : A → Prop} {x : A}, P x → P x
   Statement in math text:   ∀ {A : Type} {P : A → Prop} {x : A}, P x → P x
   Statement in mathematics: $\forall \{A : \mathrm{Type}\}\ \{P : A \to \mathrm{Prop}\}\ \{x : A\},\ P\ x \to P\ x$
@@ -91,7 +91,7 @@ Templates: let-types/v0, let/v0, assume/v0, discharge/v0, statement/v0.
 
 == poly-identity
 Theorem poly_identity
-  accepted (experimental, not independently audited); axioms: none
+  accepted; axioms: none
   Statement in Lean:        ∀ {A : Sort u} {P : A → Prop} {x : A}, P x → P x
   Statement in math text:   ∀ {A : Sort u} {P : A → Prop} {x : A}, P x → P x
   Statement in mathematics: $\forall \{A : \mathrm{Sort}\ u\}\ \{P : A \to \mathrm{Prop}\}\ \{x : A\},\ P\ x \to P\ x$
@@ -122,7 +122,7 @@ Templates: let-types/v0, let/v0, assume/v0, discharge/v0, statement/v0.
 
 == constant-fixture
 Definition fixtureId
-  accepted (experimental, not independently audited); axioms: none
+  accepted; axioms: none
   Type in Lean:             {α : Sort u} → α → α
   Type in math text:        {α : Sort u} → α → α
   Type in mathematics:      $\{\alpha : \mathrm{Sort}\ u\} \to \alpha \to \alpha$
@@ -148,7 +148,7 @@ fixed templates (structured-template), not checked reasoning.
 Templates: let-types/v0, let/v0, discharge/v0, statement/v0.
 
 Definition fixturePoly
-  accepted (experimental, not independently audited); axioms: none
+  accepted; axioms: none
   Type in Lean:             {α : Sort u} → α → α
   Type in math text:        {α : Sort u} → α → α
   Type in mathematics:      $\{\alpha : \mathrm{Sort}\ u\} \to \alpha \to \alpha$
@@ -178,7 +178,7 @@ fixed templates (structured-template), not checked reasoning.
 Templates: let-types/v0, let/v0, apply/v0, recall/v0, discharge/v0, statement/v0.
 
 Theorem fixtureUse
-  accepted (experimental, not independently audited); axioms: none
+  accepted; axioms: none
   Statement in Lean:        ∀ {P : Prop}, P → P
   Statement in math text:   ∀ {P : Prop}, P → P
   Statement in mathematics: $\forall \{P : \mathrm{Prop}\},\ P \to P$
@@ -208,7 +208,7 @@ Templates: let-props/v0, assume/v0, apply/v0, recall/v0, discharge/v0, statement
 
 == nat-add-zero
 Theorem Nat.add_zero
-  accepted (experimental, not independently audited); axioms: none
+  accepted; axioms: none
   Statement in Lean:        ∀ (n : Nat), Eq (HAdd.hAdd n (OfNat.ofNat 0)) n
   Statement in math text:   ∀ (n : Nat), Eq (HAdd.hAdd n (OfNat.ofNat 0)) n
   Statement in mathematics: $\forall (n : \mathsf{Nat}),\ \mathsf{Eq}\ (\mathsf{HAdd.hAdd}\ n\ (\mathsf{OfNat.ofNat}\ 0))\ n$
@@ -472,7 +472,7 @@ Steps.
 
 == nat-zero-add
 Theorem Nat.zero_add
-  accepted (experimental, not independently audited); axioms: none
+  accepted; axioms: none
   Statement in Lean:        ∀ (n : Nat), Eq (HAdd.hAdd (OfNat.ofNat 0) n) n
   Statement in math text:   ∀ (n : Nat), Eq (HAdd.hAdd (OfNat.ofNat 0) n) n
   Statement in mathematics: $\forall (n : \mathsf{Nat}),\ \mathsf{Eq}\ (\mathsf{HAdd.hAdd}\ (\mathsf{OfNat.ofNat}\ 0)\ n)\ n$
@@ -726,7 +726,7 @@ Steps.
 
 == composition --detail
 Theorem composition
-  accepted (experimental, not independently audited); axioms: none
+  accepted; axioms: none
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in math text:   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
@@ -794,7 +794,7 @@ Steps.
 
 == composition, log truncated
 Theorem composition
-  accepted (experimental, not independently audited); axioms: none
+  accepted; axioms: none
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in math text:   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
@@ -814,7 +814,7 @@ No proof outline: the declaration is accepted, but the checker's log was truncat
 
 == composition, log without formulas
 Theorem composition
-  accepted (experimental, not independently audited); axioms: none
+  accepted; axioms: none
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in math text:   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$

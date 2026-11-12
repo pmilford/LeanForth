@@ -1,6 +1,6 @@
 \ Dependent exports checked against a snapshot (ADR 0020 D5; plan task
-\ 6.2.5, step SN4). [kernel][import] code: experimental, not through the
-\ review gate, not independently audited; LeanForth-specific.
+\ 6.2.5, step SN4). [kernel][import] code: not through the review gate
+\ (AGENTS.md); LeanForth-specific.
 \
 \ check --snapshot S EXPORT (cli/check-run.fs ck-snapshot-import): S's
 \ tier is loaded (import/snapshot-tier.fs) and the export staged on into

@@ -155,8 +155,7 @@ trusted only when the owner declares it so, after the review gate in
 3. an independent AI review of the exact change has no unresolved findings;
 4. the owner approves a plain-language summary of the change.
 
-Until an outside Lean expert has audited it, every accepted result is
-labelled *experimental — not independently audited*. Axiom policy:
+Axiom policy:
 `docs/project/OWNER_DECISIONS.md`.
 
 Kernel modules may use `lib/` and `core/`, never `import/`.

@@ -253,10 +253,10 @@ OUTCOMES = {"ok": "accepted", "rejected": "rejected", "unknown": "unknown",
 # rejected in its slot, printed and counted as skipped.
 SKIPPED_CODE = 97
 # What an accepted declaration prints (src/kernel/check-declaration.fs).
-ACCEPTED_LABEL = "accepted (experimental, not independently audited); axioms: none"
+ACCEPTED_VERDICT = "accepted; axioms: none"
 # Rows that rest on an axiom outside the allowlist (plan task 5.3.1): NOT PROVED.
 UNLISTED_ROWS = {"scope.postulate", "scope.uses-postulate"}
-UNLISTED_LABEL = "accepted (experimental, not independently audited); axioms: unlisted"
+UNLISTED_VERDICT = "accepted; axioms: unlisted"
 # The steps of check-declaration (lf-check-step@), and the steps at which
 # each rule may end a check, in Lean's order (ADR 0011, "Order"): the audit
 # before any typing; then the name, the universe parameters, the declared
@@ -457,7 +457,7 @@ def checker_row(case, lean, expected, rule, measured, verdict, known):
         raise Mismatch(f"{case}: LeanForth gave {outcome}, the table says {expected}")
     if outcome == expected and step not in rule_steps(rule):
         raise Mismatch(f"{case}: ended at step {step}, where rule {rule} cannot")
-    accepted = UNLISTED_LABEL if case in UNLISTED_ROWS else ACCEPTED_LABEL
+    accepted = UNLISTED_VERDICT if case in UNLISTED_ROWS else ACCEPTED_VERDICT
     if outcome == "accepted":
         label = accepted
     elif outcome == "skipped":

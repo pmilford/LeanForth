@@ -10,9 +10,7 @@ that puts reasons between proof lines (2.4.4) builds on it.
 
 **Trust.** The printer is presentation code. The checker never loads it,
 and nothing it prints is evidence that anything was checked. A wrong or
-missing binder name changes only the text. Until an outside Lean expert has
-audited the checker, every accepted result is *experimental — not
-independently audited*; the printer does not change that.
+missing binder name changes only the text.
 
 ## What it prints
 

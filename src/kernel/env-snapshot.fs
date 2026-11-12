@@ -1,6 +1,6 @@
 \ The checked environment saved and loaded (ADR 0020 D1-D6; plan task
-\ 6.2.5, step SN3). [kernel][format] code: experimental, not through the
-\ review gate; LeanForth-specific. A snapshot is one sectioned file
+\ 6.2.5, step SN3). [kernel][format] code: not through the review gate
+\ (AGENTS.md); LeanForth-specific. A snapshot is one sectioned file
 \ (lib/sections.fs): the input tier's ten sections (import/snapshot-tier.fs,
 \ kinds 1-10), then seven of the environment's, in this order (kind =
 \ position + 1; unit size in bytes; every field 32-bit little-endian):

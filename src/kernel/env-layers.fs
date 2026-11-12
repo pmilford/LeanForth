@@ -1,6 +1,6 @@
 \ Layered snapshots loaded on a base (ADR 0020 amendment 1, F5; plan task
-\ 6.2.5, step SN4). [kernel][format] code: experimental, not through the
-\ review gate; LeanForth-specific.
+\ 6.2.5, step SN4). [kernel][format] code: not through the review gate
+\ (AGENTS.md); LeanForth-specific.
 \
 \ After a base's tier is read into a stage and its environment's sections
 \ read into the base record (env-snapshot.fs snap-tier, snap-read), each

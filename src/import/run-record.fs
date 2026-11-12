@@ -1,15 +1,14 @@
 \ Run records (plan task 2.2.5; ADR 0012 E8): the evidence of one check of
 \ a Lean export by the first checker, written as one JSON text in the
-\ format leanforth-run-record, version 0.2
-\ (schemas/run-record-0.2.schema.json; fields, rules and use:
+\ format leanforth-run-record, version 0.3
+\ (schemas/run-record-0.3.schema.json; fields, rules and use:
 \ docs/programming/RUN_RECORDS.md). LeanForth-specific and untrusted: it
 \ decides no verdict, and the checker never reads a record. A record
 \ claims no more than the checker established: every verdict is read
 \ after the run from the declaration's slot in the checked environment
 \ the run made (lf-env-readable, lf-env-axioms), never from another one
 \ that happens to be current (rr-ours?). Accepted only for a final slot whose
-\ outcome is ok, and then labelled "experimental, not independently
-\ audited", with the axiom set that slot holds; skipped for a rejected
+\ outcome is ok, with the axiom set that slot holds; skipped for a rejected
 \ slot of a declaration Lean's replay skips (unsafe or partial, plan task
 \ 5.2.7); a slot that is not final
 \ is invalid when its check began (it or its publication failed, and the
@@ -115,8 +114,7 @@ rr-internal order+
 4096 constant rr-block-room       \ bytes read at a time while hashing
 8 constant rr-depth               \ deepest nesting the writer allows
 : rr-schema ( -- c-addr u ) s" leanforth-run-record" ;
-: rr-version ( -- c-addr u ) s" 0.2" ;
-: rr-label ( -- c-addr u ) s" experimental, not independently audited" ;
+: rr-version ( -- c-addr u ) s" 0.3" ;
 
 \ A note: a text of at most rr-note-room bytes, its length first; a
 \ negative length means none (written as null). rr-note: names one.
@@ -559,8 +557,8 @@ rr-power 2constant rr-exact
   0 run-record rr-name-size ! lf-input-name ['] rr-name-sink lf-pp-name-to
   rr-name rr-name-room rr-shown ;
 
-\ A declaration's verdict. Accepted: the label and the axioms it depends
-\ on, read from the slots (kernel/environment.fs lf-env-axiom-deps), in
+\ A declaration's verdict. Accepted: the axioms it depends on, read
+\ from the slots (kernel/environment.fs lf-env-axiom-deps), in
 \ file order; their own bits must make up the slot's axiom set, else the
 \ text is invalid. Any other: its name and the diagnostic its check left
 \ (null when there is none).
@@ -575,8 +573,7 @@ rr-power 2constant rr-exact
   swap ['] rr-axiom-out lf-env-axiom-deps ok? 0= if outcome-full rr-fail then
   rr-end-array rr-axioms-agree ;
 : rr-accepted-out ( d -- )
-  s" verdict" rr-key s" accepted" rr-string
-  s" label" rr-key rr-label rr-string rr-axioms-out ;
+  s" verdict" rr-key s" accepted" rr-string rr-axioms-out ;
 : rr-site ( site -- c-addr u ) ?dup if count else s" " then ;
 : rr-numbers-out ( step -- )
   s" numbers" rr-key rr-array dup kept-first @ rr-int kept-second @ rr-int rr-end-array ;

@@ -53,7 +53,7 @@
 \ keeps each shared (node, offset) pair's result (replace_fn.cpp 26-40):
 \ each keeps its results in a replace memo (replace-memo.fs), so it grows
 \ with those pairs, never with the paths (review MO). [kernel] code:
-\ experimental, not through the review gate; not independently audited.
+\ not through the review gate (AGENTS.md).
 \ State: one record, lf-nest-state (the occurrence being replaced or
 \ restored, the type J being copied, the lowering's amount,
 \ mk_unique_name's next index), two slabs, lf-nest-doms (the

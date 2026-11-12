@@ -1,11 +1,9 @@
 # Checking a theorem with the first checker
 
-**Status, 2026-11-12: experimental.** The checker (first built as plan task 2.2.3)
-is [kernel] code that has not yet passed its review gate (`AGENTS.md`), and
-no outside Lean expert has audited it. Every result it accepts is printed
-*accepted (experimental, not independently audited)*, with the axioms the
-result depends on. Do not rely on an accepted result until the owner has
-approved the checker; until then, Lean's own kernel is the referee. What it
+The checker (first built as plan task 2.2.3) is [kernel] code that has
+not yet passed its review gate (`AGENTS.md`). Every result it accepts is
+printed *accepted*, with the axioms the result depends on. Until the
+owner has approved the checker, Lean's own kernel is the referee. What it
 checks is a proof that Lean produced and exported; LeanForth text cannot yet be
 checked (plan 8.2.1a-g, not started), so nothing on this page was proved from
 LeanForth input.
@@ -71,9 +69,9 @@ s" tests/reference/composition.ndjson" cli-check .
 ```
 
 ```text
-composition: accepted (experimental, not independently audited); axioms: none
+composition: accepted; axioms: none
 1 declaration: 1 accepted
-accepted: 1 (experimental, not independently audited); axioms: none
+accepted: 1; axioms: none
 0
 ```
 
@@ -159,8 +157,7 @@ in the application
   it unfolds definitions to compare two terms as Lean's lazy delta
   reduction does (since plan task 4.2.2d). Proof irrelevance and function eta
   (plan tasks 4.2.5, 4.2.4), `let`, literals, projections, quotients and
-  inductive types are built too; they are merged and approved, and the checker is
-  still not independently audited. A few constructs can still end *unknown* or
+  inductive types are built too; they are merged and approved. A few constructs can still end *unknown* or
   *unsupported* (see `bin/leanforth capabilities`).
 - Limits today: `bin/leanforth check` holds exports of any size (all of
   Lean's `Init`; the stores grow), with no fixed limit on how deep a term
@@ -222,7 +219,7 @@ rr-text s\" \"declarations\":[" search drop type cr
 ```
 
 ```text
-"declarations":[{"index":0,"name":"composition","verdict":"accepted","label":"experimental, not independently audited","axioms":[]}]}
+"declarations":[{"index":0,"name":"composition","verdict":"accepted","axioms":[]}]}
 ```
 
 A record is evidence, not an approval: it says what the checker
