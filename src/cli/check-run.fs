@@ -356,7 +356,9 @@ create ck-line ck-line-room 2 + allot
 \ An export checked against a snapshot (ck-snapshot-import) is read on
 \ into the snapshot's tier, then sealed.
 : ck-importing? ( -- flag ) ck-state ck-importing @ ;
+\ Not after a refused snapshot (ck-snapshot-import's outcome not ok).
 : ck-continued ( c-addr u checked? -- outcome )
+  ck-state ck-snap-bad @ if drop 2drop outcome-invalid exit then
   if ck-stage stage-continue else ck-stage stage-continue-unchecked then
   dup ok? if drop ck-stage stage-seal then ;
 : ck-staged ( c-addr u checked? -- outcome )

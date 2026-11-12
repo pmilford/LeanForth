@@ -228,9 +228,10 @@ end-structure
       3 pick over 1- entry@ 5 pick 3 pick entry! 1-
     repeat 3 pick swap entry!
   loop drop ;
-\ Growing the base record's section i by u bytes, and its starts to n slots.
+\ Growing the base record's section i by u bytes, and its starts to n slots
+\ (never RESIZE to 0 bytes, which Gforth 0.7.3 takes as freeing the block).
 : base-grow ( u i lay -- outcome )
-  lay-base @ >r dup r@ snap-block over r@ snap-size 3 pick + dup >r resize
+  lay-base @ >r dup r@ snap-block over r@ snap-size 3 pick + dup >r 1 max resize
   if drop 2drop r> drop r> drop outcome-full exit then
   r> rot r> snap-block! drop outcome-ok ;
 : starts-grow ( n lay -- outcome )
