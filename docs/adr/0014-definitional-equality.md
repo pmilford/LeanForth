@@ -2040,7 +2040,18 @@ accepted from there on, never before (a sweep in steps of 16,
 (`tests/mutants/faults.toml`, `mb-*`): the limit never armed (both
 tests), the workers without it, a passed check ending with what it
 found, a reading without the scratch.
-MEASURED-INIT
+All of Lean's `Init` (59,349 declarations; `gforth-fast`, `--jobs 8`, a
+10-core machine other agents loaded) with `--memory-per-check 4000` gives
+every verdict line of main's run without the option (93a993f), all
+59,349 accepted, the same fuel in all (659,257,764 steps) and the same
+ten declarations that used the most; the check phase's CPU time 1,410 s
+against main's 1,387 s (+1.7%, within the load's noise: its wall time
+was 273 s against 353 s), peak resident memory 2,323 MB against 2,302 MB.
+
+**Gate.** A [kernel] change only in where a check stops for a resource:
+no rule is touched, and no limit is set unless the option is given. It
+needs the owner's approval of this summary and an independent review of
+the change (AGENTS.md, review gates) before it counts as reviewed.
 
 ## Note: the projection steps (plan task 5.2.2, 2026-11-10)
 
