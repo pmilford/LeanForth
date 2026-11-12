@@ -159,8 +159,12 @@ require ./notation-table.fs
 \ OP a: the operand follows the symbol, after a blank when both are minus
 \ signs: the symbol ends with one and the operand, unparenthesized, prints
 \ by a prefix row whose symbol starts with one (Lean's - -a).
-: lf-pn-minus-end? ( row -- flag ) lf-pn-mode-sym + 1- 1 s" -" compare 0= ;
-: lf-pn-minus-start? ( row -- flag ) lf-pn-mode-sym drop 1 s" -" compare 0= ;
+\ A text's last character, or the empty text (an empty spelling has no
+\ minus sign at either end).
+: lf-pn-tail ( c-addr u -- c-addr' u' ) dup if + 1- 1 then ;
+: lf-pn-minus? ( c-addr u -- flag ) s" -" compare 0= ;
+: lf-pn-minus-end? ( row -- flag ) lf-pn-mode-sym lf-pn-tail lf-pn-minus? ;
+: lf-pn-minus-start? ( row -- flag ) lf-pn-mode-sym 1 min lf-pn-minus? ;
 : lf-pn-prefix-row ( arg -- row | 0 )
   dup lf-pp-applied? if lf-pn-notation else drop 0 then
   dup if dup lf-nt-kind @ lf-nt-prefix = and then ;

@@ -5067,6 +5067,48 @@ test = "$GFORTH tests/author/author.fs"
 reason = "the note pool takes a text one byte longer than its room"
 
 [[fault]]
+id = "log-view-redex-kept-on-failure"
+file = "src/present/log-view.fs"
+old = '''  lf-lv-redex-term if lf-lv-term-here else lf-lv-fail then lf-lv-release ;'''
+new = '''  lf-lv-redex-term if lf-lv-term-here lf-lv-release else lf-lv-fail then ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "a redex whose argument cannot be rebuilt leaves its rebuilt function in the stores above the input marks (review refactor-present L1a)"
+
+[[fault]]
+id = "notation-left-operand-unfollowed"
+file = "src/present/print-notation.fs"
+old = ''': lf-pn-left ( term row -- arg pos ) tuck lf-pn-a swap dup lf-nt-lprec @ true lf-pn-pos ;'''
+new = ''': lf-pn-left ( term row -- arg pos ) tuck lf-pn-a swap dup lf-nt-lprec @ false lf-pn-pos ;'''
+test = "$GFORTH tests/present/notation.fs"
+reason = "an infix row's left operand is taken as not followed by text: (∃ x, x = 1) ∧ 1 = 2 loses its parentheses (review refactor-present L1b)"
+
+[[fault]]
+id = "notation-connective-operands-not-props"
+file = "src/present/print-notation.fs"
+old = '''  lf-pos swap lf-nt-props @ if lf-pos-prop or then ;'''
+new = '''  lf-pos nip ;'''
+test = "$GFORTH tests/present/notation.fs"
+reason = "a connective's operands are not known propositions: a Pi under ∧ prints as (x : Nat) → x = x, not ∀ (review refactor-present L1c)"
+
+[[fault]]
+id = "log-view-cref-second-kept"
+file = "src/present/log-view.fs"
+old = '''  lf-lv-cref 0= if drop false exit then drop over lv-node-first ! 0 swap lv-node-second !'''
+new = '''  lf-lv-cref 0= if drop false exit then drop over lv-node-first ! drop'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "a rebuilt constant keeps its copy's second field instead of 0 (review refactor-present I4)"
+equivalent = "the log copies a constant with second field 0 already (core/derivation-log.fs's copier), so keeping it and setting it to 0 give the same node"
+
+[[fault]]
+id = "notation-minus-operand-parens-unchecked"
+file = "src/present/print-notation.fs"
+old = '''  dup lf-pn-minus-start? if swap lf-pn-open? 0= else 2drop false then ;'''
+new = '''  dup lf-pn-minus-start? if 2drop true else 2drop false then ;'''
+test = "$GFORTH tests/present/notation.fs"
+reason = "the blank before a minus-sign operand is written even when that operand is parenthesized (review refactor-present I4)"
+equivalent = "the only rows spelt with a minus sign are Neg.neg's, prefix:75 with its operand at 75, so such an operand is never parenthesized under another"
+
+[[fault]]
 id = "log-view-inference-always-first"
 file = "src/present/log-view.fs"
 old = ''': lf-lv-down? ( c -- c' flag ) dup if 1- false else true then ;'''

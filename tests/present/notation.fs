@@ -239,6 +239,31 @@ T{ ' neg-not lf-print-unicode in-mode s" -¬1 = 2" compare -> 0 }T
 T{ ' ex-var lf-print-unicode in-mode s" ∃ x, x" compare -> 0 }T
 : ex-app ( -- t ) s" f" t-const 0 v t-app s" x" ex1 ;
 T{ ' ex-app lf-print-unicode in-mode s" ∃ x, f x" compare -> 0 }T
+\ An open-ended form left of an infix symbol is parenthesized (text follows
+\ it); a Pi as an operand of a connective is a proposition and prints with
+\ ∀ (review refactor-present L1b, L1c).
+: ex-and ( -- t ) 0 v 1 num eq s" x" ex1 1 num 2 num eq and. ;
+T{ ' ex-and lf-print-unicode in-mode s" (∃ x, x = 1) ∧ 1 = 2" compare -> 0 }T
+: fun-eq ( -- t ) nat 0 v t-lam s" x" ex. s" f" t-const eq ;
+T{ ' fun-eq lf-print-unicode in-mode s" (fun x ↦ x) = f" compare -> 0 }T
+: all-and ( -- t ) nat 0 v 0 v eq t-pi s" x" ex. 1 num 2 num eq and. ;
+T{ ' all-and lf-print-unicode in-mode s" (∀ (x : Nat), x = x) ∧ 1 = 2" compare -> 0 }T
+T{ ' all-and lf-print-mathtext in-mode s" (∀ (x : ℕ), x = x) ∧ 1 = 2" compare -> 0 }T
+\ Every row starts aligned, so its cells read the same on any host.
+: rows-aligned? ( -- flag )
+  true lf-nt-rows begin dup lf-nt-rows-end u< while
+    dup dup aligned = rot and swap lf-nt-after repeat drop ;
+T{ rows-aligned? -> true }T
+\ Minus signs at either end of a row's spelling in the printer's mode; an
+\ empty spelling (Ne in ASCII) has none (review refactor-present L4).
+: minus-ends ( c-addr u mode -- end? start? )
+  mode lf-nt-find dup lf-pn-minus-end? swap lf-pn-minus-start? ;
+T{ s" Neg.neg" lf-print-unicode minus-ends s" Neg.neg" lf-print-latex minus-ends
+   -> true true true true }T
+T{ s" HSub.hSub" lf-print-unicode minus-ends s" Not" lf-print-unicode minus-ends
+   -> false false false false }T
+T{ s" Ne" lf-print-ascii minus-ends s" Nat" lf-print-unicode minus-ends
+   -> false false false false }T
 \ Only a numeral is raised: not another row's application with as many
 \ arguments and a literal in the numeral's place.
 : pow-ne ( -- t ) 2 num 3 nlit 4 nlit 2>r s" Ne" t-const nat t-app 2r> >r t-app r> t-app pow ;

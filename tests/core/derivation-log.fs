@@ -565,6 +565,14 @@ syn-stop
   lf-log-cref-copies lf-log-copy-index 1 lv-copy-k lv-term-first!
   lv-open 1 lf-log-a@ lf-lv-term lv-close syn-stop ;
 T{ lv-cref-cut -> false }T
+\ A redex whose argument cannot be rebuilt (the record's b past the pool):
+\ "?" is shown and the stores go back to the input marks all the same, so
+\ the function rebuilt for it does not stay (review refactor-present L1a).
+: lv-at-marks? ( -- flag ) 0 lf-input-mark mark-count @ lf-term-count @ = ;
+: lv-redex-cut ( -- scratch? at-marks? bad )
+  syn-start syn-pi syn-prop lf-rule-beta syn-prop syn-ok
+  lv-past-terms 1 lf-log-record logrec-b ! lv-at-marks? 0= lv-open 1 lf-lv-redex lv-at-marks? lf-lv lf-lv-bad @ lv-close syn-stop ;
+T{ lv-redex-cut -> true true 1 }T
 \ An application whose premises mix inference steps with others: s1 and
 \ s3 are its inference premises, s2 and s4 not.
 : syn-mixed ( -- ) syn-start lf-rule-application syn-open
