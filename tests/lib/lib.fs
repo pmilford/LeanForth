@@ -14,6 +14,10 @@ T{ 1 1 <= -> true }T
 T{ 0 0<= -> true }T
 T{ 1 0<= -> false }T
 T{ max-n 0> max-n 1+ 0< -> true true }T
+\ SYNONYM of an ordinary word, the host's or portability.fs's fallback
+\ (Gforth 0.7.3).
+synonym lib-dup dup
+T{ 3 lib-dup -> 3 3 }T
 
 \ The fallbacks, as a host without the words compiles them: portability.fs
 \ included again with every [undefined] guard taken (fb-guards first in

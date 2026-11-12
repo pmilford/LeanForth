@@ -7781,7 +7781,7 @@ reason = "rvSN4 B1 (PF): every node made before the check counts as reached, so 
 [[fault]]
 id = "pf-level-findable-always"
 file = "src/kernel/check-declaration.fs"
-old = '''  dup lf-check-level-before? if lf-audit-level-reached? else drop true then ;'''
+old = '''  dup lf-check-level-before? if lf-check-level-reached? else drop true then ;'''
 new = '''  drop true ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "rvSN4 B1 (PF): a check is given levels it never reached, so the tier's other levels change its level-scope memo hits and fuel"
@@ -9831,3 +9831,179 @@ old = '''  else drop outcome-full lf-rcr-failing drop then ;'''
 new = '''  else drop then ;'''
 test = "$GFORTH tests/core/inductive-recursor.fs"
 reason = "a universe parameter of the recursor that the level store refuses is not recorded: the build goes on without its pair, never full"
+# --- review rvPF1 of the performance pass perf1 (agent PF1FIX, 2026-11-12) ---
+
+[[fault]]
+id = "rv-same-skips-findable"
+file = "src/core/terms.fs"
+old = '''  over swap lf-term-equal? if lf-term-findable? else drop false then ;'''
+new = '''  over swap lf-term-equal? if drop true else drop false then ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "rvPF1 1: lf-term-same gives a key-equal record without asking findability, so a check is given an importer copy it has not reached"
+
+[[fault]]
+id = "rv-lscope-compare-last-cell-dropped"
+file = "src/core/level-scope.fs"
+old = '''  if lf-lscope-entries lf-lscope-copy compare 0= else false then ;'''
+new = '''  if lf-lscope-entries cell - 0 max lf-lscope-copy cell - 0 max compare 0= else false then ;'''
+test = "$GFORTH tests/core/level-scope.fs"
+reason = "rvPF1 2: the last entry is not compared with the audit's copy, so a repeat put there after a pass at the same count passes"
+
+[[fault]]
+id = "rv-lscope-compare-first-cell-dropped"
+file = "src/core/level-scope.fs"
+old = '''  if lf-lscope-entries lf-lscope-copy compare 0= else false then ;'''
+new = '''  if lf-lscope-entries cell /string 0 max lf-lscope-copy cell /string 0 max compare 0= else false then ;'''
+test = "$GFORTH tests/core/level-scope.fs"
+reason = "rvPF1 2: the first entry is not compared with the audit's copy, so a repeat put there after a pass at the same count passes"
+
+[[fault]]
+id = "rv-lscope-copy-count-unbounded"
+file = "src/core/level-scope.fs"
+old = ''': lf-lscope-held? ( n -- flag ) lf-lscope-audited slab-capacity upto? ;'''
+new = ''': lf-lscope-held? ( n -- flag ) drop true ;'''
+test = "$GFORTH tests/core/level-scope.fs"
+reason = "rvPF1 3: the copy's count is not checked against the copy's capacity, so a corrupted count compares bytes beyond the copy (here from address 0)"
+
+[[fault]]
+id = "rv-pres-hold-refused-invalid"
+file = "src/present/binder-table.fs"
+old = '''  over lf-pres-hold ok-then2? if swap lf-pres-take outcome-ok else no-result then ;'''
+new = '''  over lf-pres-hold ok-then2? if swap lf-pres-take outcome-ok else drop-invalid no-result then ;'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "rvPF1 4: an entry the heap has no room for is reported invalid, not full"
+
+# --- the Forth review of perf1 (findings 1-3; agent PF1FIX, 2026-11-12) ---
+
+[[fault]]
+id = "fr-lscope-pass-refused-kept"
+file = "src/core/level-scope.fs"
+old = '''  if lf-lscope-keep else drop then ;'''
+new = '''  drop lf-lscope-keep ;'''
+test = "$GFORTH tests/core/level-scope.fs"
+reason = "Forth review of perf1, 1: a copy the slab was refused room for is written all the same, past the slab's block, and kept as passed"
+
+[[fault]]
+id = "fr-pres-read-holds"
+file = "src/present/binder-table.fs"
+old = '''  dup lf-pres-live if over lf-pres-held? dup 0= if nip nip then else drop false then ;'''
+new = '''  dup lf-pres-live if over lf-pres-hold drop true else drop false then ;'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "Forth review of perf1, 2: reading an entry grows the slab to hold it, so a check that only prints keeps 40 bytes a node again"
+
+[[fault]]
+id = "fr-check-reached-memo-off-false"
+file = "src/kernel/check-declaration.fs"
+old = ''': lf-check-reached? ( n -- flag ) lf-audit-on? if lf-audit-held? else drop true then ;'''
+new = ''': lf-check-reached? ( n -- flag ) lf-audit-on? if lf-audit-held? else drop false then ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "Forth review of perf1, 3: with the memo off (the importer's feed) a node made before the check is never given, so equal records are not shared"
+
+[[fault]]
+id = "rv-lscope-cache-failed-audit"
+file = "src/core/level-scope.fs"
+old = '''  lf-lscope-passed? if true exit then lf-lscope-audit dup if lf-lscope-pass then ;'''
+new = '''  lf-lscope-passed? if true exit then lf-lscope-audit lf-lscope-pass ;'''
+test = "$GFORTH tests/core/level-scope.fs"
+reason = "Forth review of perf1, 3 (rvPF1's probe): entries that failed the audit are kept as passed, so the same corrupted entries pass the next time"
+
+[[fault]]
+id = "rv-lscope-pass-stale-copy"
+file = "src/core/level-scope.fs"
+old = '''  lf-lscope-entries lf-lscope-audited slab-base swap move 1+ lf-lscope-passed ! ;'''
+new = '''  1+ lf-lscope-passed ! ;'''
+test = "$GFORTH tests/core/level-scope.fs"
+reason = "Forth review of perf1, 3 (rvPF1's probe): the copy is not refreshed, only its count, so entries are compared with an older copy"
+
+[[fault]]
+id = "rv-same-skips-key"
+file = "src/core/terms.fs"
+old = '''  over swap lf-term-equal? if lf-term-findable? else drop false then ;'''
+new = '''  nip lf-term-findable? ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "Forth review of perf1, 3 (rvPF1's probe): lf-term-same ignores the key, so any live record found is given for any record sought"
+
+[[fault]]
+id = "fr-u32-portable-always"
+file = "src/lib/u32.fs"
+old = '''u32-native [if]
+synonym u32@ l@'''
+new = '''false [if]
+synonym u32@ l@'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "Forth review of perf1, 3: u32@ and u32! use the Forth-2012 byte version even where l@ and l! are sound"
+equivalent = "performance only: both versions give every field the same value (tests/lib/lib.fs runs each on every host), and a field is only ever read by the version that wrote it"
+
+# --- the review of pf1-fix (agent PF1FIX, 2026-11-12) ---
+
+[[fault]]
+id = "rv-pres-recorded-no-identity"
+file = "src/present/binder-table.fs"
+old = '''  swap lf-pres-entry tuck lf-pterm-identity @ = dup 0= if nip then ;'''
+new = '''  drop lf-pres-entry true ;'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "review of pf1-fix M1: an entry is read without comparing its identity, so after a term reset a new term at the same index shows the old term's binder name and source"
+
+[[fault]]
+id = "fr-check-cref-reached-memo-off-false"
+file = "src/kernel/check-declaration.fs"
+old = '''  lf-audit-on? if lf-audit-cref-held? else drop true then ;'''
+new = '''  lf-audit-on? if lf-audit-cref-held? else drop false then ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "review of pf1-fix L1: with the memo off a reference made before the check never counts, so outside a check an equal reference makes a shadow"
+
+[[fault]]
+id = "fr-check-level-reached-memo-off-false"
+file = "src/kernel/check-declaration.fs"
+old = '''  lf-audit-on? if lf-audit-level-held? else drop true then ;'''
+new = '''  lf-audit-on? if lf-audit-level-held? else drop false then ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "review of pf1-fix L1: with the memo off a level made before the check is never given, so outside a check equal levels are not shared"
+
+[[fault]]
+id = "fr-audit-cref-held-any-epoch"
+file = "src/core/constant-term-boundary.fs"
+old = '''  dup lf-audit-cref-epoch? 0= if drop false exit then'''
+new = ''''''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "review of pf1-fix L1: a reference kept in an earlier epoch counts as reached in this one"
+
+[[fault]]
+id = "fr-audit-cref-held-any-identity"
+file = "src/core/constant-term-boundary.fs"
+old = '''  dup lf-cref-reach-unit @ swap lf-cref-current = ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "review of pf1-fix L1: a reach unit kept for another identity at the same number counts as reached"
+
+[[fault]]
+id = "fr-audit-level-held-any-epoch"
+file = "src/core/constant-term-boundary.fs"
+old = '''  dup lf-audit-level-epoch? 0= if drop false exit then'''
+new = ''''''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "review of pf1-fix L1: a level kept in an earlier epoch counts as reached in this one"
+
+[[fault]]
+id = "fr-audit-level-held-any-identity"
+file = "src/core/constant-term-boundary.fs"
+old = '''  dup lf-level-reach-unit @ swap lf-level-identity if = else drop false then ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "review of pf1-fix L1: a level reach unit kept for another identity counts as reached"
+
+[[fault]]
+id = "rv-lscope-copy-bound-off-by-one"
+file = "src/core/level-scope.fs"
+old = ''': lf-lscope-held? ( n -- flag ) lf-lscope-audited slab-capacity upto? ;'''
+new = ''': lf-lscope-held? ( n -- flag ) lf-lscope-audited slab-capacity 1+ upto? ;'''
+test = "$GFORTH tests/core/level-scope.fs"
+reason = "review of pf1-fix L2: a copy count one past the copy's capacity is compared, reading beyond the copy (here the empty slab, from address 0)"
+
+[[fault]]
+id = "rv-same-skips-valid"
+file = "src/core/terms.fs"
+old = '''  drop over lf-term-valid? if lf-term-given? else 2drop false then ;'''
+new = '''  drop lf-term-given? ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "review of pf1-fix L3: a record the table lists past a corrupted count is given, so the count stays short"

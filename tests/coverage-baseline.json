@@ -569,6 +569,11 @@
    "never_run": 1,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
+  "src/lib/portability.fs": {
+   "blocks": 18,
+   "never_run": 4,
+   "reason": "measured 2026-11-12 at 86ad63b (new in review-bugs 36c59c6): host fallbacks, compiled only where the host lacks the word; which 4 blocks never run not yet reviewed"
+  },
   "src/lib/sections.fs": {
    "blocks": 331,
    "never_run": 23,

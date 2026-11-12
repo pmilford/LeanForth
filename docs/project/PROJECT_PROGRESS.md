@@ -44,6 +44,7 @@ status changes when this date is older than them. Stages are those of the
 - Natural LeanForth for writing statements (8.6.10) and a first theorem proved in LeanForth (8.6.11).
 
 **Later**
+- Snapshots that read the one or two previous versions (6.2.5c).
 - Speed: the export reader and the remaining validity checks; Physlib; `print --snapshot` (8.6.9); term memory
   (6.5.9); a second Forth system and a 32-bit host (9.4.1); no Python requirement (9.4.3).
 

@@ -355,21 +355,23 @@ end-structure
 : lf-audit-epoch ( node -- epoch )
   lf-term-data-word dup lf-data-known? 0= if drop 0 exit then
   lf-data-fvar? if lf-audit-state lf-aud-open else lf-audit-state lf-aud-closed then @ ;
-\ Whether the memo is on and holds node as checked in its epoch.
+\ Whether node's unit of the marks holds it, kept in that epoch.
 \ Unchecked: the node is allocated.
 : lf-audit-same-node? ( node unit -- flag )
   cell+ @ swap lf-term-identity if = else drop false then ;
 : lf-audit-unit? ( node epoch -- flag )
   over lf-mark-at tuck @ = if lf-audit-same-node? else 2drop false then ;
+\ Whether the memo holds node as checked in its epoch. It does not ask
+\ whether the memo is on; its callers do: lf-audited? (below) whether the
+\ current audit uses the memo, and kernel/check-declaration.fs's
+\ lf-check-reached? (terms.fs's lf-term-findable?) whether it is on at
+\ any time, not only in an audit run; there held means the check has
+\ reached node, an audit of this check having checked it in today's
+\ epoch. Unchecked: the node is allocated.
 : lf-audit-held? ( node -- flag )
   dup lf-audit-epoch ?dup if lf-audit-unit? else drop false then ;
 : lf-audited? ( node -- flag )
   lf-audit-state lf-aud-active @ 0= if drop false exit then lf-audit-held? ;
-\ lf-audit-held? at any time (not only inside an audit run), while the
-\ memo is on, is whether node was checked by an audit of this check, in
-\ today's epoch: what the check has reached (terms.fs's
-\ lf-term-findable?, set by kernel/check-declaration.fs, which asks
-\ lf-audit-on? itself).
 \ Levels reached in this check, the same way: a level root a scope check
 \ found in scope (level-scope.fs's hook lf-lscope-reached) is kept in a
 \ column of the level store with its identity and today's closed epoch.
@@ -381,10 +383,11 @@ end-structure
   dup lf-level-identity 0= if drop exit then over lf-level-reach-unit !
   lf-audit-state lf-aud-closed @ swap lf-level-reach-unit cell+ ! ;
 ' lf-audit-level-mark is lf-lscope-reached
+\ Whether the level was kept so, as lf-audit-held? for a node: the caller
+\ asks whether the memo is on (lf-check-level-reached?).
 : lf-audit-level-epoch? ( level -- flag )
   lf-level-reach-unit cell+ @ lf-audit-state lf-aud-closed @ = ;
-: lf-audit-level-reached? ( level -- flag )
-  lf-audit-on? 0= if drop false exit then
+: lf-audit-level-held? ( level -- flag )
   dup lf-audit-level-epoch? 0= if drop false exit then
   dup lf-level-reach-unit @ swap lf-level-identity if = else drop false then ;
 \ References reached in this check, the same way (review rvRS F1): the
@@ -406,8 +409,9 @@ end-structure
 : lf-audit-cref-epoch? ( cref -- flag )
   dup lf-cref-reach slab-capacity u< 0= if drop false exit then
   lf-cref-reach-unit cell+ @ lf-audit-state lf-aud-closed @ = ;
-: lf-audit-cref-reached? ( cref -- flag )
-  lf-audit-on? 0= if drop false exit then
+\ Whether the reference was kept so; the caller asks whether the memo is
+\ on (lf-check-cref-reached?).
+: lf-audit-cref-held? ( cref -- flag )
   dup lf-audit-cref-epoch? 0= if drop false exit then
   dup lf-cref-reach-unit @ swap lf-cref-current = ;
 \ A node the current run checks, kept on the list for lf-audit-keep.
