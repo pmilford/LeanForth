@@ -698,7 +698,28 @@ def check_text_cases():
                              capture_output=True, timeout=TEST_LIMIT)
         if run.returncode != 4 or b"--env goes only with a LeanForth text" not in run.stdout:
             raise Failure(f"--env with an export: exit {run.returncode}")
-    print(f"leanforth check FILE.lf: {len(cli_cases()) + 2} cases of every outcome and misuse")
+        check_snapshot_cases(pathlib.Path(work))
+    print(f"leanforth check FILE.lf: {len(cli_cases()) + 5} cases of every outcome and misuse, "
+          "a snapshot as the library among them")
+
+
+def check_snapshot_cases(work):
+    """The library from a snapshot of the Init slice (check --snapshot FILE
+    FILE.lf): its declarations taken from it, the text's checked."""
+    snap = work / "slice.lfsnap"
+    subprocess.run(["bin/leanforth", "check", "--save-snapshot", str(snap), str(INIT_SLICE)],
+                   stdin=subprocess.DEVNULL, capture_output=True, timeout=TEST_LIMIT, check=True)
+    code, out = leanforth_check(HERE / "07-add-comm.lf", None, "--snapshot", str(snap))
+    taken = "60 declarations: 60 accepted; 59 from the snapshot, 1 checked in this run"
+    if code != 0 or taken not in out or "add_comm': accepted (experimental, not independently " \
+            "audited; checked in this run, uses results from the snapshot)" not in out:
+        raise Failure(f"07-add-comm.lf against a snapshot: exit {code}:\n{out[-800:]}")
+    code, out = leanforth_check(WRONG / "07-add-comm.lf", None, "--snapshot", str(snap))
+    if code != 1 or "add_comm': rejected" not in out:
+        raise Failure(f"the wrong twin against a snapshot: exit {code}:\n{out[-800:]}")
+    code, out = leanforth_check(HERE / "07-add-comm.lf", str(INIT_SLICE), "--snapshot", str(snap))
+    if code != 4 or "not with a text" not in out:
+        raise Failure(f"--env with --snapshot: exit {code}:\n{out[-400:]}")
 
 
 def check_wrong_lean():
