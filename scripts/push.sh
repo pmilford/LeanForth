@@ -13,6 +13,8 @@ set -u
 cd "$(dirname "$0")/.." || exit 1
 ulimit -u 500
 H=$(git rev-parse --short HEAD); D=.claude/work/ci; mkdir -p "$D"
+# One push run at a time: a second run would test a tree the first is still testing.
+exec 9>"$D/push.lock"; flock -n 9 || { echo "push.sh: another push run is in progress"; exit 1; }
 [ "$(git rev-parse --abbrev-ref HEAD)" = main ] || { echo "push.sh: not on main"; exit 1; }
 [ -z "$(git status --porcelain --untracked-files=no)" ] || { echo "push.sh: uncommitted changes"; exit 1; }
 JOBS=8; [ "$(cat .claude/work/CPU_MODE 2>/dev/null)" = day ] && JOBS=2
