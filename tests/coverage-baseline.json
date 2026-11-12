@@ -20,6 +20,11 @@
    "never_run": 4,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
+  "src/author/export.fs": {
+   "blocks": 270,
+   "never_run": 1,
+   "reason": "new file (plan 8.2.1c; agent LF2, 2026-11-12): lf-author-export when the heap refuses the numbering tables (outcome full); lfx-block's refusal itself is tested"
+  },
   "src/author/groups.fs": {
    "blocks": 155,
    "never_run": 1,
@@ -59,6 +64,11 @@
    "blocks": 302,
    "never_run": 12,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/cli/check-lf.fs": {
+   "blocks": 138,
+   "never_run": 4,
+   "reason": "new file (plan 8.2.1c-d; agent LF2, 2026-11-12): four refusals no input reaches: a library declaration without levelParams (Lean always writes them), the stage refused at stage-init (no heap), stage-extend after a library read that succeeded, the stores' capacity settings refused"
   },
   "src/cli/check-run.fs": {
    "blocks": 898,
