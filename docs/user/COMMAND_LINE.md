@@ -96,7 +96,7 @@ theorem composition {A B C : Prop} (f : A → B) (g : B → C) : A → C :=
 
 | Command | What it does |
 | --- | --- |
-| `check [--no-manifest] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--jobs N] [--progress[=SECONDS]] [--save-snapshot FILE] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text; with `--jobs N`, check with [N workers at once](#parallel-checking---jobs); with `--progress`, write [a status line](#progress-and-partial-results---progress) to standard error every minute; with `--save-snapshot FILE`, also write the checked environment to FILE ([snapshots](#snapshots---save-snapshot-and---snapshot)) |
+| `check [--no-manifest] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--jobs N] [--progress[=SECONDS]] [--memory-per-check MB] [--save-snapshot FILE] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text; with `--jobs N`, check with [N workers at once](#parallel-checking---jobs); with `--memory-per-check MB`, give each check [at most MB megabytes of scratch](#memory-per-check---memory-per-check); with `--progress`, write [a status line](#progress-and-partial-results---progress) to standard error every minute; with `--save-snapshot FILE`, also write the checked environment to FILE ([snapshots](#snapshots---save-snapshot-and---snapshot)) |
 | `check --snapshot FILE [--snapshot LAYER ...] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--no-manifest] [--jobs N] [--save-snapshot LAYER] [--snapshot-stale-ok] [EXPORT]` | Report the verdicts a [snapshot](#snapshots---save-snapshot-and---snapshot) and its layers hold, each labelled as taken from it and not re-checked; with EXPORT, check it against them, taking what they vouch for and checking the rest, and with `--save-snapshot`, write what was checked as a layer: for development and research only |
 | `check [--no-manifest] [--fuel N] [--checked] [--strict-axioms] --record RECORD EXPORT` | Check a small export (read straight into the checker's stores) and also write its [run record](#run-records-and-replay) |
 | `replay [--no-manifest] [--fuel N] [--checked] EXPORT RECORD` | Check the export again and compare the new run record with RECORD; print the replay report |
@@ -161,6 +161,10 @@ Options:
   (the resource report says how many). On a host that is not x86-64
   (threads without memory barriers) or where the thread pool cannot start,
   the check runs one declaration at a time and the resource report says why.
+- `--memory-per-check MB` (`check` only, not with `--record`) gives each
+  declaration's check at most MB megabytes (of 2^20 bytes) of scratch; a
+  check that would pass it is *full* ([memory per check](#memory-per-check---memory-per-check)).
+  MB is at least 1; without the option there is no limit but the heap's.
 - `--progress[=SECONDS]` (`check` only, not with `--record`) writes a status
   line to standard error every SECONDS (60 without a value; 0: after every
   report) and one at the end ([progress](#progress-and-partial-results---progress)).
@@ -594,6 +598,54 @@ so. With `--resources` the
 report adds a line naming the workers and how many checks were handed
 out, run again, refused by readiness or forced (the last two are 0 unless
 LeanForth's plan of which declaration needs which is wrong).
+
+### Memory per check (`--memory-per-check`)
+
+`check --memory-per-check MB` limits the scratch of each declaration's
+check to MB megabytes (MB × 2^20 bytes): the term nodes, levels and
+constant references it makes above the input, its local context and its
+result caches, all of which it gives back when it ends. A check that
+would pass the limit stops and is *full*, exit status 3, as when memory
+runs out; it is never accepted, and declarations that depend on it are
+unknown, as after any other *full*. Its diagnostic is code 101, "memory
+limit per check", with the bytes the check asked for and the limit, and a
+note follows the summary. With `--json` the settings hold
+`"memoryPerCheck": MB`. The limit applies to every worker of `--jobs N`
+alike, so a check gets the same verdict serially and in parallel, and the
+bytes are counted per record made, not read from the heap, so the same
+check under the same limit is full in every run.
+
+Like fuel, the limit is LeanForth's own resource bound, never a Lean
+verdict: Lean's kernel has neither. Its use is a long parallel run such
+as all of Mathlib with a large `--fuel`: the workers of `--jobs` share
+one process's memory, so without a limit one huge check could take the
+memory the others need and make their checks *full* too. Give each check
+well under the process's memory divided by the workers. Bytes are
+counted at upper bounds for a 64-bit host (96 per term node, 160 per
+level, 64 per reference and 16 per universe argument, 64 per cache entry,
+48 per local-context entry), so a check holds somewhat less than MB on
+the heap; the input, the stage and the checked environment are not
+counted. A snapshot written with a limit holds such checks as *full*;
+an export checked against it checks them again (*full* is never taken
+from a snapshot).
+
+```
+$ python3 tests/cli/jobs/gen.py double 12 > /tmp/double12.ndjson
+$ bin/leanforth check --no-manifest --memory-per-check 1 /tmp/double12.ndjson
+...
+big: full
+  memory limit per check; diagnostic 101 at check-declaration lf-check-declaration: 1048640 1048576
+...
+18 declarations: 17 accepted, 1 full
+accepted: 17 (experimental, not independently audited); axioms: none
+note: a check ran out of room; its diagnostic names the limit: memory, or
+note: each check's scratch above the input grows, up to 2147483647
+note: term nodes, levels and constant references each (plan task 6.2.2)
+note: a check passed its memory limit (1 MB each); --memory-per-check MB gives each more
+```
+
+With `--memory-per-check 4` (or none) `big` is accepted: Lean accepts it
+after unfolding 2^12 - 1 definitions.
 
 ### Progress and partial results (`--progress`)
 
@@ -1320,6 +1372,7 @@ limits (check answers full or exhausted, exit 3):
   universe parameters per declaration and universe arguments per constant:
     no fixed limit (memory)
   fuel 100000000 steps per declaration (--fuel N, at most 9007199254740991)
+  memory per check: none but the heap's (--memory-per-check MB)
 planned, not built: program, serve and --record on any size,
   every axiom name of each accepted declaration, as #print axioms
     (plan task 5.3.2; today: the allowlist's names and NOT PROVED's)

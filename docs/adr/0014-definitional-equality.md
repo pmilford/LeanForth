@@ -1972,6 +1972,76 @@ every older snapshot is refused as stale (or labelled stale with
 (`tests/cli/golden-snapshots`) are written again: only the header's
 verdict version and fuel setting and 99 slots' fuel moved, all to less.
 
+## Amendment 7: resource limits per check, fuel and memory (agent MB, 2026-11-11, proposed)
+
+Status: proposed; no typing, reduction or conversion rule changes, and
+without the new option no outcome, fuel count or diagnostic changes (no
+verdict-version bump). Code: `src/core/scratch-meter.fs` (new),
+`core/terms.fs`, `core/levels.fs`, `core/constant-references.fs`,
+`kernel/caches.fs` (one charge each where a record is made),
+`kernel/check-declaration.fs` (`lf-check-scratch`, `lf-check-over`),
+`cli/leanforth.fs`, `cli/check-run.fs` (the workers' copy),
+`cli/check-json.fs`; diagnostic 101.
+
+**Why** (owner, 2026-11-11: more fuel for the night's Mathlib run). Q9's
+fuel bounds a check's time; nothing bounded its memory but the heap. The
+workers of `check --jobs N` share one process, and its `ulimit -v`, so
+with more fuel one huge check could take the memory the other workers'
+checks need, and those would end *full*: new differences from Lean that
+no rule causes.
+
+**Decision.** Two resource limits per check, both LeanForth's own, never
+Lean verdicts (Lean's kernel has neither; its `LEAN_NAT_MAX_SIZE` aside,
+Q8): *fuel* (Q9; `--fuel N`), and since this amendment *memory*
+(`check --memory-per-check MB`, default none). A check whose scratch --
+the term nodes, levels and constant references it makes above the
+input's marks, with their universe arguments, its local context and its
+result caches' entries, all of which it gives back or empties when it
+ends -- would pass MB × 2^20 bytes stops *full*, the outcome the heap's
+refusal gives (ADR 0008): never accepted, its dependants unknown as after
+any *full*, its diagnostic code 101 with the bytes asked for and the
+limit. The input, the stage, the checked environment and the walks'
+frame stacks are not counted.
+
+- *Counted, not measured.* Each record counts a fixed number of bytes,
+  upper bounds on a 64-bit host of its record, identity, side columns
+  and two table slots (96 per term node, 160 per level, 64 per reference
+  plus 16 per universe argument, 64 per cache entry, 48 per local-context
+  entry; `tests/core/check-declaration.fs` checks the bounds against the
+  stores). The heap's own sizes depend on what earlier checks grew in the
+  same worker; counts do not, so a check under a limit gets the same
+  outcome serially, with `--jobs` and in every run.
+- *Cheap.* A new record is charged against a credit; only when the
+  credit runs out is the whole scratch read (a sum over five stores and
+  eight tables) and the credit set to what is left below the limit. A
+  charged node that turns out shared costs an earlier reading, never a
+  refusal: every refusal comes from a reading.
+- *Where it stops.* A term, level or reference past the limit is refused
+  as a full store refuses it, and the check's passes end *full* as
+  before. A cache entry past it is a miss (as when the heap refuses one),
+  so the check may go on; it ends *full* all the same
+  (`lf-check-over`), whatever it found. Once a check passes the limit,
+  every later charge of that check is refused.
+- *Not an approximation of Lean.* Like *exhausted*, a *full* from the
+  limit is never a verdict; the check would need more memory, which
+  `--memory-per-check MB` gives. The known resource gap rvCACHE L3
+  (Amendment 1: scratch kept for the caches until the job ends) makes
+  a check reach the limit sooner than an uncached run would; plan task
+  4.2.7c closes it.
+
+**Evidence.** The doubling export (`tests/cli/jobs/gen.py double 12`:
+`big` unfolds 2^12 - 1 definitions; Lean accepts it) is *full* with
+`--memory-per-check 1` and 2, accepted with 4 or none; with `--jobs 2`
+`big` is full while the small theorems beside it are accepted, the same
+text as serially (`tests/cli/test_leanforth.py`, `MemoryPerCheck`). The
+composition case is full under every limit below 1,664 bytes and
+accepted from there on, never before (a sweep in steps of 16,
+`tests/core/check-declaration.fs`). Five planted faults are caught
+(`tests/mutants/faults.toml`, `mb-*`): the limit never armed (both
+tests), the workers without it, a passed check ending with what it
+found, a reading without the scratch.
+MEASURED-INIT
+
 ## Note: the projection steps (plan task 5.2.2, 2026-11-10)
 
 The Q8 row "Projections: `reduce_proj`, step 8, `try_unfold_proj_app`"

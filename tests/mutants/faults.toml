@@ -7274,8 +7274,8 @@ reason = "S6C: no child is pushed, as if every one were kept: only roots are che
 [[fault]]
 id = "s6c-check-no-renew"
 file = "src/kernel/check-declaration.fs"
-old = '''  lf-caches-clear lf-audit-renew'''
-new = '''  lf-caches-clear'''
+old = '''  lf-meter-start lf-caches-clear lf-audit-renew'''
+new = '''  lf-meter-start lf-caches-clear'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "S6C: the memo outlives a check, so a declaration's entry audit skips nodes an earlier check kept"
 
@@ -8739,3 +8739,45 @@ old = '''  loop 2drop 2r> swap dep-sort ;'''
 new = '''  loop 2drop 2r> 2drop ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
 reason = "SN4: a layer's dependencies written in the order of the run's slots, not ascending as numbered in the layer"
+
+# --- a check's memory limit (src/core/scratch-meter.fs; brief MB) --------
+
+[[fault]]
+id = "mb-limit-ignored"
+file = "src/core/scratch-meter.fs"
+old = ''': lf-meter-start ( -- ) lf-meter-limit@ lf-meter-run ;'''
+new = ''': lf-meter-start ( -- ) 0 lf-meter-run ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py MemoryPerCheck"
+reason = "MB: the setting is never armed, so a check past its memory limit is accepted"
+
+[[fault]]
+id = "mb-limit-ignored-forth"
+file = "src/core/scratch-meter.fs"
+old = ''': lf-meter-start ( -- ) lf-meter-limit@ lf-meter-run ;'''
+new = ''': lf-meter-start ( -- ) 0 lf-meter-run ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "MB: the setting is never armed; the memory sweep finds the check accepted under every limit"
+
+[[fault]]
+id = "mb-workers-unlimited"
+file = "src/cli/check-run.fs"
+old = '''  ' ck-per-check ,'''
+new = ''''''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py MemoryPerCheck"
+reason = "MB: the workers of --jobs never get the limit, so big is accepted in parallel, full serially"
+
+[[fault]]
+id = "mb-cache-refusal-accepted"
+file = "src/kernel/check-declaration.fs"
+old = '''  lf-meter-passed? 0= if exit then drop'''
+new = '''  lf-meter-passed? 0= dup 0= or if exit then drop'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "MB: a check past its limit ends with what it found: accepted after a refused cache entry, else the store's diagnostic, not 101"
+
+[[fault]]
+id = "mb-credit-unread"
+file = "src/core/scratch-meter.fs"
+old = '''  >r lf-meter-used + r> lf-meter-room ;'''
+new = '''  >r r> lf-meter-room ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "MB: a reading leaves the check's scratch out, so only single charges larger than the limit are refused"

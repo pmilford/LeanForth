@@ -121,7 +121,9 @@
 \ word names a free variable, from the free-variable memo (lf-term-facts).
 \
 \ Interface: lf-caches-enable ( flag -- ), lf-caches-on? ( -- flag ),
-\ lf-caches-clear ( -- ), lf-term-facts ( node -- id bits true | false ),
+\ lf-caches-clear ( -- ), lf-caches-entries ( -- n ) (for a check's
+\ memory limit, core/scratch-meter.fs, which every new entry is charged
+\ to), lf-term-facts ( node -- id bits true | false ),
 \ lf-cache-stats ( cache -- hits misses ) with the caches lf-cache-infer,
 \ lf-cache-infer-only, lf-cache-whnf-core, lf-cache-whnf,
 \ lf-cache-unfold, lf-cache-success and lf-cache-failure ( -- cache ).

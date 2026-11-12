@@ -41,6 +41,8 @@
 \ on one budget of fuel per check, lf-check-budget, which starts at 0 in a
 \ new context: a check without a budget is exhausted, never accepted (so a
 \ maker that gives lf-env-run a replacement context sets its budget too).
+\ A check also has its context's memory limit (core/scratch-meter.fs, 0
+\ for none): past it, the check is full (lf-check-over), never accepted.
 \
 \ lf-check-input checks every declaration of this context's input in a
 \ new environment; lf-check-verdict. prints a slot's verdict afterwards,
@@ -305,7 +307,8 @@ lf-check-steps# 1+ constant lf-step-done
 : lf-check-above ( k -- n )
   dup lf-input-store store-count @ swap lf-input-mark mark-count @ - 0 max ;
 : lf-check-args-at ( count -- offset ) ?dup if 1- lf-cref-slot lf-cref-end else 0 then ;
-: lf-check-args ( -- n ) lf-cref-top 3 lf-input-mark mark-count @ lf-check-args-at - 0 max ;
+: lf-check-args ( -- n )
+  lf-cref-top 3 lf-input-mark mark-count @ lf-check-args-at - 0 max ;
 : lf-check-stores ( -- u )
   0 lf-check-above lf-meter-term-bytes * 1 lf-check-above lf-meter-level-bytes * +
   3 lf-check-above lf-meter-cref-bytes * + lf-check-args lf-meter-arg-bytes * + ;
@@ -318,7 +321,8 @@ lf-check-steps# 1+ constant lf-step-done
 \ accepted, its diagnostic the bytes it asked for and the limit.
 : lf-check-over ( outcome -- outcome )
   lf-meter-passed? 0= if exit then drop
-  lf-meter-asked@ lf-meter-limit@ lf-check-site lf-diag-memory-limit lf-diag! outcome-full ;
+  lf-meter-asked@ lf-meter-limit@ lf-check-site lf-diag-memory-limit lf-diag!
+  outcome-full ;
 \ The declaration of this context's snapshot, a check's (lf-env-begin),
 \ and the budget: ok, or invalid without a check's snapshot of the valid
 \ current environment (recorded by lf-env-checking) or an intact input.

@@ -92,4 +92,5 @@ defer lf-meter-used ( -- u )
 : lf-meter-level? ( -- flag ) lf-meter-level-bytes lf-meter-charge ;
 : lf-meter-entry? ( -- flag ) lf-meter-entry-bytes lf-meter-charge ;
 \ A reference with n universe arguments.
-: lf-meter-cref? ( n -- flag ) lf-meter-arg-bytes * lf-meter-cref-bytes + lf-meter-charge ;
+: lf-meter-cref? ( n -- flag )
+  lf-meter-arg-bytes * lf-meter-cref-bytes + lf-meter-charge ;

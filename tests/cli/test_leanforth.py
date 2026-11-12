@@ -1683,6 +1683,72 @@ class Jobs(unittest.TestCase):
                          (4, "error: --jobs does not go with --record"))
 
 
+class MemoryPerCheck(unittest.TestCase):
+    """check --memory-per-check MB (core/scratch-meter.fs; ADR 0014
+    Amendment 7): a check whose scratch would pass MB megabytes is full,
+    with diagnostic 101, never accepted; the others keep their verdicts,
+    serially and with --jobs. The export (tests/cli/jobs/gen.py double 12)
+    has one theorem, big, whose check unfolds 2^12 - 1 definitions (Lean
+    accepts it; its scratch measured between 2 and 4 MB, 2026-11-11), and
+    small theorems beside it."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.export = str(Path(cls.tmp.name) / "double12.ndjson")
+        made = subprocess.run([sys.executable, str(ROOT / "tests/cli/jobs/gen.py"), "double",
+                               "12"], capture_output=True, check=True)
+        Path(cls.export).write_bytes(made.stdout)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def verdicts(self, *args):
+        status, got, _ = report("--no-manifest", *args, self.export)
+        self.assertEqual(JsonReport.schema.errors(got), [], args)
+        return status, got, {d["name"]: d["verdict"] for d in got["declarations"]}
+
+    def test_full_with_limit(self):
+        status, got, verdicts = self.verdicts("--memory-per-check", "1")
+        self.assertEqual((status, verdicts.pop("big")), (3, "full"))
+        self.assertEqual(set(verdicts.values()), {"accepted"})
+        big = [d for d in got["declarations"] if d["name"] == "big"][0]
+        self.assertEqual((big["diagnostic"]["code"], big["diagnostic"]["reason"],
+                          big["diagnostic"]["numbers"][1]),
+                         (101, "memory limit per check", 2**20))
+        self.assertEqual(got["settings"]["memoryPerCheck"], 1)
+
+    def test_accepted_without_or_enough(self):
+        for args in [[], ["--memory-per-check", "64"]]:
+            status, got, verdicts = self.verdicts(*args)
+            self.assertEqual((status, set(verdicts.values())), (0, {"accepted"}), args)
+            self.assertEqual(got["settings"].get("memoryPerCheck"), int(args[1]) if args else None)
+
+    def test_jobs(self):
+        """With --jobs 2 big is full while the small ones beside it are
+        accepted: the same text as one at a time, with the note."""
+        args = ["--no-manifest", "--memory-per-check", "1", self.export]
+        serial = run("check", *args)[:2]
+        self.assertEqual(serial[0], 3)
+        self.assertIn("big: full\n  memory limit per check; diagnostic 101", serial[1])
+        self.assertIn("note: a check passed its memory limit (1 MB each); --memory-per-check MB "
+                      "gives each more\n", serial[1])
+        self.assertEqual(run("check", "--jobs", "2", *args)[:2], serial)
+        status, got, verdicts = self.verdicts("--jobs", "2", "--memory-per-check", "1")
+        self.assertEqual((status, verdicts.pop("big"), set(verdicts.values())),
+                         (3, "full", {"accepted"}))
+
+    def test_4_mistakes(self):
+        for value in ["0", "x", "-1", ""]:
+            status, out, _ = run("check", "--memory-per-check", value, CHAIN)
+            self.assertEqual(status, 4, value)
+        status, out, _ = run("check", "--memory-per-check", "1", "--record", "r.json", CHAIN)
+        self.assertEqual((status, out.splitlines()[0]),
+                         (4, "error: --memory-per-check does not go with --record"))
+        self.assertEqual(run("print", "--memory-per-check", "1", CHAIN)[0], 4)
+
+
 def sectioned(path):
     """A sectioned file's bytes and its table (lib/sections.fs): per section
     (kind, unit, count, offset, length)."""

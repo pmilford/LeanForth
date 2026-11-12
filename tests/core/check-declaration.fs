@@ -744,11 +744,13 @@ variable fake-bytes
 : fake-used ( -- u ) fake-bytes @ ;
 ' fake-used is lf-meter-used
 0 lf-meter-limit! lf-meter-start
-T{ lf-meter-term? lf-meter-level? 3 lf-meter-cref? lf-meter-entry? -> true true true true }T
+T{ lf-meter-term? lf-meter-level? 3 lf-meter-cref? lf-meter-entry?
+   -> true true true true }T
 1000 lf-meter-limit! 900 fake-bytes ! lf-meter-start
 T{ lf-meter-term? lf-meter-term? lf-meter-passed? -> true true false }T
 950 fake-bytes !
-T{ lf-meter-term? lf-meter-passed? lf-meter-asked@ -> false true lf-meter-term-bytes 950 + }T
+T{ lf-meter-term? lf-meter-passed? lf-meter-asked@
+   -> false true lf-meter-term-bytes 950 + }T
 0 fake-bytes !
 T{ lf-meter-entry? -> false }T
 lf-meter-stop
