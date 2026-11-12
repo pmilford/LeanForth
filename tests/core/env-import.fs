@@ -71,6 +71,20 @@ T{ ck-outcome ck-taken# ck-layers# -> outcome-ok 13 1 }T
 T{ ck-verdicts? same-as-fresh? -> true true }T
 ck-release
 
+\ A taken slot whose saved lookups cannot all be asked again (review FRK
+\ F3): imp-fill publishes it invalid and take refuses it, never with the
+\ saved outcome. The base's first slot, its first saved lookup's key
+\ forged to one no import replays (lf-env-replay false), then taken by
+\ hand in the environment the import pass would run in.
+: first-look ( -- addr ) ss-looks ck-snap snap-block 0 start@ nip 8 * + ;
+20000000 ck-start 0 0 ck-layers! base-file -1 ck-snapshot-import ok? s" forge import" must
+dependent true ck-load ok? s" forge load" must ck-facts drop ck-env drop
+T{ first-look u32-le@ lf-env-replay -> true }T
+lf-look-outside first-look u32-le!
+: published ( d -- outcome ) lf-env lf-env-slot lf-slot-outcome @ ;
+T{ 0 0 ck-import take 0 published -> outcome-invalid outcome-invalid }T
+ck-release
+
 \ Sorting slot numbers.
 create nums 16 allot
 : num! ( u k -- ) 4 * nums + u32-le! ;

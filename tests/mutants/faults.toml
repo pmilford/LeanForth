@@ -8793,6 +8793,14 @@ reason = "rvSN3 m5: a saved lookup key of a name beyond the tier loads"
 # were taken) or a refusal.
 
 [[fault]]
+id = "frk-fill-replay-dropped"
+file = "src/kernel/env-import.fs"
+old = '''  imp@ dup imp-d @ swap over replay-all 0= if fill-refused exit then'''
+new = '''  imp@ dup imp-d @ swap over replay-all drop'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "FRK F3: a taken slot whose saved lookups cannot all be asked again is published with the saved outcome"
+
+[[fault]]
 id = "sn4-content-by-name"
 file = "src/kernel/env-import.fs"
 old = '''  staged-name 6 u32s rot staged-name 6 u32s compare 0= r> and ;'''
@@ -8895,6 +8903,46 @@ test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
 reason = "rvSN4 m1: a layer that holds one of its own records twice loads (the copy's users then read another record)"
 
 [[fault]]
+id = "frk-canon-unguarded"
+file = "src/kernel/env-snapshot.fs"
+old = '''  dup canon-name? if outer canon name-copy else drop -1 outcome-invalid then ;'''
+new = '''  outer canon name-copy ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "FRK F4: a key beyond the input copied with no tier, or a number beyond the environment's tier, reads past them (a crash or a garbage key)"
+
+[[fault]]
+id = "frk-canon-key-outcome-dropped"
+file = "src/kernel/env-snapshot.fs"
+old = '''  dup key-kind swap key-name canon-copy ok-then? 0= if nip no-result exit then'''
+new = '''  dup key-kind swap key-name canon-copy drop'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "FRK F4: a key whose name cannot be made canon's is written as if it were (name-copy's outcome dropped)"
+
+[[fault]]
+id = "frk-slot-made-unchecked"
+file = "src/kernel/env-snapshot.fs"
+old = '''  over sl-axioms sl-at snap-axiom-bits invert and 0= and swap sl-made? and ;'''
+new = '''  over sl-axioms sl-at snap-axiom-bits invert and 0= and nip ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "FRK F5: a slot's warnings, recipe and shape are loaded whatever their values"
+
+[[fault]]
+id = "frk-recipe-bits-unchecked"
+file = "src/kernel/env-snapshot.fs"
+old = '''  dup lf-recipe-large <> swap lf-recipe-raw lf-recipe-large or u> 0= and ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "FRK F5: a recipe with bits the checker never sets (large without raw, others) loads"
+
+[[fault]]
+id = "frk-answer-holder-any-outcome"
+file = "src/kernel/env-snapshot.fs"
+old = '''  lf-look-kinds 1- and dup outcome-in? swap lf-look-holder = or ;'''
+new = '''  7 and outcome-in? ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "FRK F5: an answer with the holder bit and an outcome other than ok loads"
+
+[[fault]]
 id = "fri-layer-const-levels-flag"
 file = "src/import/snapshot-layer.fs"
 old = '''  tuck ly-levels >r -rot ly-name r> swap ly-and rot swap ;'''
@@ -8946,8 +8994,8 @@ gap = "no fixture yet has one slot whose names beyond the input a parallel run m
 [[fault]]
 id = "sn5-outer-unsorted"
 file = "src/kernel/env-snapshot.fs"
-old = '''  2drop r> r> r> if look-sort else 2drop then ;'''
-new = '''  2drop r> r> r> drop 2drop ;'''
+old = '''  swap slot-env looks-put nip nip r> r> r> if look-sort else 2drop then ;'''
+new = '''  swap slot-env looks-put nip nip r> r> r> drop 2drop ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
 reason = "SN5: a list with names beyond the input written unsorted after their keys are made the written names', which the loader refuses"
 
