@@ -1,0 +1,42 @@
+\ A wrong twin of tests/author/20-zero-add.lf: the induction's base case
+\ proves 1 = 1 where the motive needs 0 + 0 = 0.
+\ Lean: theorem zero_add' (n : Nat) : 0 + n = n :=
+\         @Nat.rec (fun k => 0 + k = k) (@Eq.refl Nat 1)
+\           (fun k ih => @congrArg Nat Nat (0 + k) k Nat.succ ih) n
+\ (pinned Lean refuses it: tests/reference/author-wrong-20-zero-add.lean)
+theorem zero_add'
+  Nat explicit: n
+  Eq 1 ^ Nat $
+    HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $  instHAdd 0 ^ Nat $ instAddNat $  $
+      OfNat.ofNat 0 ^ Nat $  0 lit# $  instOfNatNat 0 lit# $  $  $  n $
+  $
+    n $
+:=
+  Nat.rec 0 ^
+    Nat explicit: k
+      Eq 1 ^ Nat $
+        HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $  instHAdd 0 ^ Nat $ instAddNat $  $
+          OfNat.ofNat 0 ^ Nat $  0 lit# $  instOfNatNat 0 lit# $  $  $  k $
+      $
+        k $
+    fun
+  $
+    Eq.refl 1 ^ Nat $  OfNat.ofNat 0 ^ Nat $  1 lit# $  instOfNatNat 1 lit# $  $  $
+  $
+    Nat explicit: k
+      Eq 1 ^ Nat $
+        HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $  instHAdd 0 ^ Nat $ instAddNat $  $
+          OfNat.ofNat 0 ^ Nat $  0 lit# $  instOfNatNat 0 lit# $  $  $  k $
+      $
+        k $
+      explicit: ih
+        congrArg 1 ^ 1 ^ Nat $ Nat $
+          HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $  instHAdd 0 ^ Nat $ instAddNat $  $
+            OfNat.ofNat 0 ^ Nat $  0 lit# $  instOfNatNat 0 lit# $  $  $  k $
+          $
+          k $  Nat.succ $  ih $
+      fun
+    fun
+  $
+    n $
+end zero_add'

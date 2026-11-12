@@ -46,7 +46,7 @@ case ${1:-} in
     previous=
     for argument in "${@:2}"; do
       case $previous in
-        --record | --fuel | --name | --statement | --save-snapshot | --snapshot) ;;
+        --record | --fuel | --name | --statement | --save-snapshot | --snapshot | --env) ;;
         *) case $argument in
              --fast) fast=true ;;
              --checked) checked=true ;;

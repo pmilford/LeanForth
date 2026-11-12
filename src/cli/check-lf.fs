@@ -31,7 +31,9 @@
 \ outcome is kept as ck-load's is (ck-read-outcome), the phase that failed
 \ too (ck-staging, ck-feeding); lfc-failed? ( -- flag ) whether the text
 \ itself stopped (then lf-author-error. tells where and why);
-\ lfc-library# ( -- n ) the library's declarations, the input's first n.
+\ lfc-library# ( -- n ) the library's declarations, the input's first n;
+\ lfc-library-open ( c-addr u checked? -- outcome ) and lfc-library-close
+\ ( -- ), a library for the words outside check (see below).
 \ Untrusted, like the stage and the words: neither can make a declaration
 \ accepted; only check-declaration and the publisher decide.
 \ State: one context record, lfc (the library's name, whether the text
@@ -117,8 +119,13 @@ end-structure
 : lfc-finder ( -- xt|0 ) lfc-library? if ['] lfc-find else 0 then ;
 : lfc-settings! ( -- ) lfc-finder lf-author-library! true lf-author-checked! ;
 : lfc-settings-off ( -- ) 0 lf-author-library! false lf-author-checked! ;
+\ A text that declares nothing of its own has nothing to check (error 49).
+: lfc-own? ( -- flag ) false lf-author-count 0 ?do i lfa-library? 0= or loop ;
+: lfc-nothing ( -- outcome ) 0 0 0 lfa-e-nothing lfa-record lfa-e-nothing lf-author-outcome ;
+: lfc-something ( outcome -- outcome )
+  dup ok? lfc-own? 0= and if drop lfc-nothing then ;
 : lfc-run ( c-addr u -- outcome )
-  lfc-settings! lf-author-begin lf-author-file lfc-settings-off
+  lfc-settings! lf-author-begin lf-author-file lfc-settings-off lfc-something
   dup ok? 0= lfc lfc-failed ! ;
 \ Its declarations into the stage, after the library's (stage-extend):
 \ records of LeanForth's own exporter, so of another exporter than the
@@ -140,6 +147,16 @@ end-structure
 : lfc-text ( c-addr u -- outcome )
   lfc-sharing! lfc-rooms ok-then? if lfc-made else nip then
   lfc-empty lfc-rooms-back ck-first lfc-sharing-back ;
+
+\ ---- A library for a run outside check (a Forth session, the authoring
+\ tests): lfc-library-open reads the export c-addr u, its manifest checked
+\ when checked? is true, into the stage, not sealed, and lets the words
+\ name its constants (lfc-find, in this context); lfc-library-close frees
+\ the stage and the words name none again.
+: lfc-library-open ( c-addr u checked? -- outcome )
+  >r lfc-env! ck-stage stage-free r> lfc-library-read
+  dup ok? if ['] lfc-find lf-author-library! then ;
+: lfc-library-close ( -- ) 0 lf-author-library! ck-stage stage-free 0 0 lfc-env! ;
 
 \ ---- Loading, as ck-load (cli/check-run.fs): the staging phase is the
 \ library's reading, the text's run and its records, and the seal.

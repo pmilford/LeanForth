@@ -265,6 +265,7 @@ below it).
 | 46 | invalid | a character no line may hold (a control or format character, or no UTF-8) |
 | 47 | full | out of room: the search order holds more wordlists than a run can save |
 | 48 | invalid | import-stub is never checked: name the library with --env and use its constant |
+| 49 | invalid | nothing to check: the text declares no theorem, definition or axiom |
 | 50 | unsupported | not supported yet: natural-number literals need literal nodes (ADR 0017 section 14) |
 | 51 | unsupported | not supported yet: designed in ADR 0017 but not built yet |
 | 52 | unsupported | not supported yet: holes are filled by the elaborator (plan task 8.3.1) |

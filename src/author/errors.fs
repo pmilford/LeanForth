@@ -68,6 +68,7 @@ require ./source.fs
 46 constant lfa-e-character      \ a character no line may hold
 47 constant lfa-e-search-order   \ the caller's search order is too long to save
 48 constant lfa-e-stub-checked   \ import-stub in a checked run
+49 constant lfa-e-nothing        \ a checked text that declares nothing
 50 constant lfa-e-literal        \ unsupported: natural-number literals
 51 constant lfa-e-sketch
   \ unsupported: let, have, projections, strings, by, import
@@ -165,6 +166,8 @@ create lfa-catalogue
   s" out of room: the search order holds more wordlists than a run can save" lfa-full,
   lfa-e-stub-checked
   s" import-stub is never checked: name the library with --env and use its constant"
+  lfa-invalid,
+  lfa-e-nothing s" nothing to check: the text declares no theorem, definition or axiom"
   lfa-invalid,
   lfa-e-literal
   s" not supported yet: natural-number literals need literal nodes (ADR 0017 section 14)"

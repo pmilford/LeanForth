@@ -1,0 +1,15 @@
+\ A wrong twin of tests/author/19-add-zero.lf: 0 + n = n is true, but not
+\ by Eq.refl: Nat.add recurses on its second argument, so 0 + n does not
+\ reduce to n while n is a variable.
+\ Lean: theorem zero_add_refl (n : Nat) : 0 + n = n := Eq.refl n
+\ (pinned Lean refuses it: tests/reference/author-wrong-19-add-zero.lean)
+theorem zero_add_refl
+  Nat explicit: n
+  Eq 1 ^ Nat $
+    HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $  instHAdd 0 ^ Nat $ instAddNat $  $
+      OfNat.ofNat 0 ^ Nat $  0 lit# $  instOfNatNat 0 lit# $  $  $  n $
+  $
+    n $
+:=
+  Eq.refl 1 ^ Nat $ n $
+end zero_add_refl

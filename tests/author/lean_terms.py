@@ -20,10 +20,12 @@ written in the tree-dump format of tests/author/dump.fs:
 
 Both apply dump.fs's stated identifications and nothing else: a Pi binder
 that prints as -> (explicit, unused, anonymous or hygienic) is written
-[arrow]; levels and Sorts are written as level expressions. A node the term
-store cannot hold yet (let, literals, projections, metadata) is written as
-itself, so it never equals anything the words build. Finite evidence about
-these files; it never accepts a theorem.
+[arrow]; levels and Sorts are written as level expressions; a natural-number
+literal as (lit VALUE LIMBS) and a projection as (projection (proj TYPE
+INDEX) TERM), as dump.fs writes the words' (lit#, proj#). A node the words
+cannot build yet (let, string literals, metadata) is written as itself, so
+it never equals anything the words build. Finite evidence about these
+files; it never accepts a theorem.
 
 Usage: python3 tests/author/lean_terms.py EXPORT.ndjson NAME...   (prints dumps)
 """
@@ -211,6 +213,8 @@ partial def lfTerm : Expr → String
     if bi == .default && (n.isAnonymous || lfHygienic n) && !b.hasLooseBVar 0 then
       s!"(pi [arrow] 0 {lfTerm t} {lfTerm b})"
     else s!"(pi {lfName n} {lfKind bi} {lfTerm t} {lfTerm b})"
+  | .lit (.natVal n) => s!"(lit {n} {if n == 0 then 0 else 1})"
+  | .proj s i e => s!"(projection (proj {lfName s} {i}) {lfTerm e})"
   | e => s!"(lean-only {e.ctorName})"
 
 def lfDecl (name : String) : CoreM Unit := do

@@ -161,78 +161,12 @@ end ImaxSort
 round trip: terms, names, kinds, labels and notes same; printed text same
 == 07-add-comm
 ran: ok
-type: Eq.{u_1} : {α : Sort u_1} → α → α → Prop
-type: HAdd.hAdd.{u, v, w} : {α : Type u} → {β : Type v} → {γ : @outParam (Type w)} → [self : @HAdd α β γ] → α → β → γ
-lean: theorem add_comm' : ∀ (n m : Nat), Eq (HAdd.hAdd n m) (HAdd.hAdd m n) :=
+lean: theorem add_comm' : ∀ (n m : Nat), @Eq Nat (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) n m) (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) m n) :=
 lean: fun n m ↦ Nat.add_comm n m
-term: 3 Nat
-term:   type none
-term:   value none
-term: 3 instAddNat
-term:   type none
-term:   value none
-term: 3 instHAdd u:u_1
-term:   type none
-term:   value none
-term: 3 HAdd u:u u:v u:w
-term:   type none
-term:   value none
-term: 3 outParam u:u
-term:   type none
-term:   value none
-term: 3 Nat.add_comm protected
-term:   type none
-term:   value none
-term: 3 Eq u:u_1
-term:   type (pi α 1 (Sort (param u_1)) (pi [arrow] 0 #0 (pi [arrow] 0 #1 (Sort 0))))
-term:   value none
-term: 3 HAdd.hAdd u:u u:v u:w
-term:   type (pi α 1 (Sort (succ (param u))) (pi β 1 (Sort (succ (param v))) (pi γ 1 (app (const outParam (succ (succ (param w)))) (Sort (succ (param w)))) (pi self 3 (app (app (app (const HAdd (param u) (param v) (param w)) #2) #1) #0) (pi [arrow] 0 #3 (pi [arrow] 0 #3 #3))))))
-term:   value none
 term: 0 add_comm'
 term:   type (pi n 0 (const Nat) (pi m 0 (const Nat) (app (app (app (const Eq (succ 0)) (const Nat)) (app (app (app (app (app (app (const HAdd.hAdd 0 0 0) (const Nat)) (const Nat)) (const Nat)) (app (app (const instHAdd 0) (const Nat)) (const instAddNat))) #1) #0)) (app (app (app (app (app (app (const HAdd.hAdd 0 0 0) (const Nat)) (const Nat)) (const Nat)) (app (app (const instHAdd 0) (const Nat)) (const instAddNat))) #0) #1))))
 term:   value (lam n 0 (const Nat) (lam m 0 (const Nat) (app (app (const Nat.add_comm) #1) #0)))
 words:
-import-stub Nat
-end Nat
-
-import-stub instAddNat
-end instAddNat
-
-import-stub instHAdd
-  universe u_1
-end instHAdd
-
-import-stub HAdd
-  universe u
-  universe v
-  universe w
-end HAdd
-
-import-stub outParam
-  universe u
-end outParam
-
-protected import-stub Nat.add_comm
-end Nat.add_comm
-
-import-stub Eq
-  universe u_1
-  u_1 Sort implicit: α
-  α α Prop -> ->
-end Eq
-
-import-stub HAdd.hAdd
-  universe u
-  universe v
-  universe w
-  u Type implicit: α
-  v Type implicit: β
-  outParam w 2 level+ ^ w Type $ implicit: γ
-  HAdd u ^ v ^ w ^ α $ β $ γ $ instance: self
-  α β γ -> ->
-end HAdd.hAdd
-
 theorem add_comm'
   Nat explicit: n
   Nat explicit: m
@@ -245,66 +179,12 @@ end add_comm'
 round trip: terms, names, kinds, labels and notes same; printed text same
 == 08-monoid
 ran: ok
-type: MyMonoid.{u} : Type u → Type u
-type: Eq.{u_1} : {α : Sort u_1} → α → α → Prop
-type: MyMonoid.mul.{u} : {M : Type u} → [self : MyMonoid M] → M → M → M
-type: MyMonoid.one.{u} : {M : Type u} → [self : MyMonoid M] → M
-type: MyMonoid.mul_one.{u} : {M : Type u} → [self : MyMonoid M] → (a : M) → Eq (MyMonoid.mul a MyMonoid.one) a
-lean: theorem MyMonoid.mul_one'.{u} : ∀ {M : Type u} [inst : MyMonoid M] (a : M), Eq (MyMonoid.mul a MyMonoid.one) a :=
-lean: fun {M} [inst : MyMonoid M] a ↦ MyMonoid.mul_one a
-term: 3 MyMonoid u:u
-term:   type (pi M 0 (Sort (succ (param u))) (Sort (succ (param u))))
-term:   value none
-term: 3 Eq u:u_1
-term:   type (pi α 1 (Sort (param u_1)) (pi [arrow] 0 #0 (pi [arrow] 0 #1 (Sort 0))))
-term:   value none
-term: 3 MyMonoid.mul u:u
-term:   type (pi M 1 (Sort (succ (param u))) (pi self 3 (app (const MyMonoid (param u)) #0) (pi [arrow] 0 #1 (pi [arrow] 0 #2 #3))))
-term:   value none
-term: 3 MyMonoid.one u:u
-term:   type (pi M 1 (Sort (succ (param u))) (pi self 3 (app (const MyMonoid (param u)) #0) #1))
-term:   value none
-term: 3 MyMonoid.mul_one u:u
-term:   type (pi M 1 (Sort (succ (param u))) (pi self 3 (app (const MyMonoid (param u)) #0) (pi a 0 #1 (app (app (app (const Eq (succ (param u))) #2) (app (app (app (app (const MyMonoid.mul (param u)) #2) #1) #0) (app (app (const MyMonoid.one (param u)) #2) #1))) #0))))
-term:   value none
+lean: theorem MyMonoid.mul_one'.{u} : ∀ {M : Type u} [inst : @MyMonoid M] (a : M), @Eq M (@MyMonoid.mul M inst a (@MyMonoid.one M inst)) a :=
+lean: fun {M} [inst : @MyMonoid M] a ↦ @MyMonoid.mul_one M inst a
 term: 0 MyMonoid.mul_one' u:u
 term:   type (pi M 1 (Sort (succ (param u))) (pi inst 3 (app (const MyMonoid (param u)) #0) (pi a 0 #1 (app (app (app (const Eq (succ (param u))) #2) (app (app (app (app (const MyMonoid.mul (param u)) #2) #1) #0) (app (app (const MyMonoid.one (param u)) #2) #1))) #0))))
 term:   value (lam M 1 (Sort (succ (param u))) (lam inst 3 (app (const MyMonoid (param u)) #0) (lam a 0 #1 (app (app (app (const MyMonoid.mul_one (param u)) #2) #1) #0))))
 words:
-import-stub MyMonoid
-  universe u
-  u Type explicit: M
-  u Type
-end MyMonoid
-
-import-stub Eq
-  universe u_1
-  u_1 Sort implicit: α
-  α α Prop -> ->
-end Eq
-
-import-stub MyMonoid.mul
-  universe u
-  u Type implicit: M
-  MyMonoid u ^ M $ instance: self
-  M M M -> ->
-end MyMonoid.mul
-
-import-stub MyMonoid.one
-  universe u
-  u Type implicit: M
-  MyMonoid u ^ M $ instance: self
-  M
-end MyMonoid.one
-
-import-stub MyMonoid.mul_one
-  universe u
-  u Type implicit: M
-  MyMonoid u ^ M $ instance: self
-  M explicit: a
-  Eq u 1 level+ ^ M $ MyMonoid.mul u ^ M $ self $ a $ MyMonoid.one u ^ M $ self $ $ $ a $
-end MyMonoid.mul_one
-
 theorem MyMonoid.mul_one'
   universe u
   u Type implicit: M
@@ -462,23 +342,12 @@ end MyMonoid.mk
 round trip: terms, names, kinds, labels and notes same; printed text same
 == 14-case
 ran: ok
-type: id.{u} : {α : Sort u} → α → α
-type: Id.{u} : Type u → Type u
 lean: def caseVar : {X : Type} → X → X :=
 lean: fun {X} x ↦ x
-lean: def bothIds : Id Nat → Id Nat :=
-lean: fun f ↦ id f
+lean: def bothIds : @Id Nat → @Id Nat :=
+lean: fun f ↦ @id (@Id Nat) f
 lean: def propVar : Prop → Prop :=
 lean: fun prop ↦ prop
-term: 3 Nat
-term:   type none
-term:   value none
-term: 3 id u:u
-term:   type (pi α 1 (Sort (param u)) (pi a 0 #0 #1))
-term:   value none
-term: 3 Id u:u
-term:   type (pi type 0 (Sort (succ (param u))) (Sort (succ (param u))))
-term:   value none
 term: 1 caseVar
 term:   type (pi X 1 (Sort (succ 0)) (pi x 0 #0 #1))
 term:   value (lam X 1 (Sort (succ 0)) (lam x 0 #0 #0))
@@ -489,22 +358,6 @@ term: 1 propVar
 term:   type (pi prop 0 (Sort 0) (Sort 0))
 term:   value (lam prop 0 (Sort 0) #0)
 words:
-import-stub Nat
-end Nat
-
-import-stub id
-  universe u
-  u Sort implicit: α
-  α explicit: a
-  α
-end id
-
-import-stub Id
-  universe u
-  u Type explicit: type
-  u Type
-end Id
-
 def caseVar
   0 Type implicit: X
   X explicit: x
@@ -880,4 +733,44 @@ def P.t8
 :=
   root: q
 end P.t8
+round trip: terms, names, kinds, labels and notes same; printed text same
+== 19-add-zero
+ran: ok
+lean: theorem add_zero' : ∀ (n : Nat), @Eq Nat (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) n (@OfNat.ofNat Nat 0 (instOfNatNat 0))) n :=
+lean: fun n ↦ @Eq.refl Nat n
+term: 0 add_zero'
+term:   type (pi n 0 (const Nat) (app (app (app (const Eq (succ 0)) (const Nat)) (app (app (app (app (app (app (const HAdd.hAdd 0 0 0) (const Nat)) (const Nat)) (const Nat)) (app (app (const instHAdd 0) (const Nat)) (const instAddNat))) #0) (app (app (app (const OfNat.ofNat 0) (const Nat)) (lit 0 0)) (app (const instOfNatNat) (lit 0 0))))) #0))
+term:   value (lam n 0 (const Nat) (app (app (const Eq.refl (succ 0)) (const Nat)) #0))
+words:
+theorem add_zero'
+  Nat explicit: n
+  Eq 1 ^ Nat $ HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $ instHAdd 0 ^ Nat $ instAddNat $ $ n
+    $ OfNat.ofNat 0 ^ Nat $ 0 lit# $ instOfNatNat 0 lit# $ $ $ $ n $
+:=
+  Eq.refl 1 ^ Nat $ n $
+end add_zero'
+round trip: terms, names, kinds, labels and notes same; printed text same
+== 20-zero-add
+ran: ok
+lean: theorem zero_add' : ∀ (n : Nat), @Eq Nat (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) (@OfNat.ofNat Nat 0 (instOfNatNat 0)) n) n :=
+lean: fun n ↦ @Nat.rec (fun k ↦ @Eq Nat (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) (@OfNat.ofNat Nat 0 (instOfNatNat 0)) k) k) (@Eq.refl Nat (@OfNat.ofNat Nat 0 (instOfNatNat 0))) (fun k ih ↦ @congrArg Nat Nat (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) (@OfNat.ofNat Nat 0 (instOfNatNat 0)) k) k Nat.succ ih) n
+term: 0 zero_add'
+term:   type (pi n 0 (const Nat) (app (app (app (const Eq (succ 0)) (const Nat)) (app (app (app (app (app (app (const HAdd.hAdd 0 0 0) (const Nat)) (const Nat)) (const Nat)) (app (app (const instHAdd 0) (const Nat)) (const instAddNat))) (app (app (app (const OfNat.ofNat 0) (const Nat)) (lit 0 0)) (app (const instOfNatNat) (lit 0 0)))) #0)) #0))
+term:   value (lam n 0 (const Nat) (app (app (app (app (const Nat.rec 0) (lam k 0 (const Nat) (app (app (app (const Eq (succ 0)) (const Nat)) (app (app (app (app (app (app (const HAdd.hAdd 0 0 0) (const Nat)) (const Nat)) (const Nat)) (app (app (const instHAdd 0) (const Nat)) (const instAddNat))) (app (app (app (const OfNat.ofNat 0) (const Nat)) (lit 0 0)) (app (const instOfNatNat) (lit 0 0)))) #0)) #0))) (app (app (const Eq.refl (succ 0)) (const Nat)) (app (app (app (const OfNat.ofNat 0) (const Nat)) (lit 0 0)) (app (const instOfNatNat) (lit 0 0))))) (lam k 0 (const Nat) (lam ih 0 (app (app (app (const Eq (succ 0)) (const Nat)) (app (app (app (app (app (app (const HAdd.hAdd 0 0 0) (const Nat)) (const Nat)) (const Nat)) (app (app (const instHAdd 0) (const Nat)) (const instAddNat))) (app (app (app (const OfNat.ofNat 0) (const Nat)) (lit 0 0)) (app (const instOfNatNat) (lit 0 0)))) #0)) #0) (app (app (app (app (app (app (const congrArg (succ 0) (succ 0)) (const Nat)) (const Nat)) (app (app (app (app (app (app (const HAdd.hAdd 0 0 0) (const Nat)) (const Nat)) (const Nat)) (app (app (const instHAdd 0) (const Nat)) (const instAddNat))) (app (app (app (const OfNat.ofNat 0) (const Nat)) (lit 0 0)) (app (const instOfNatNat) (lit 0 0)))) #1)) #1) (const Nat.succ)) #0)))) #0))
+words:
+theorem zero_add'
+  Nat explicit: n
+  Eq 1 ^ Nat $ HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $ instHAdd 0 ^ Nat $ instAddNat $ $
+    OfNat.ofNat 0 ^ Nat $ 0 lit# $ instOfNatNat 0 lit# $ $ $ n $ $ n $
+:=
+  Nat.rec 0 ^ Nat explicit: k Eq 1 ^ Nat $ HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $
+    instHAdd 0 ^ Nat $ instAddNat $ $ OfNat.ofNat 0 ^ Nat $ 0 lit# $ instOfNatNat 0 lit# $
+    $ $ k $ $ k $ fun label: motive $ Eq.refl 1 ^ Nat $ OfNat.ofNat 0 ^ Nat $ 0 lit# $
+    instOfNatNat 0 lit# $ $ $ label: base $ Nat explicit: k Eq 1 ^ Nat $ HAdd.hAdd 0 ^ 0 ^
+    0 ^ Nat $ Nat $ Nat $ instHAdd 0 ^ Nat $ instAddNat $ $ OfNat.ofNat 0 ^ Nat $ 0 lit# $
+    instOfNatNat 0 lit# $ $ $ k $ $ k $ explicit: ih congrArg 1 ^ 1 ^ Nat $ Nat $
+    HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $ instHAdd 0 ^ Nat $ instAddNat $ $ OfNat.ofNat
+    0 ^ Nat $ 0 lit# $ instOfNatNat 0 lit# $ $ $ k $ $ k $ Nat.succ $ ih $ fun fun
+    label: step $ n $
+end zero_add'
 round trip: terms, names, kinds, labels and notes same; printed text same

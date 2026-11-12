@@ -1,0 +1,14 @@
+\ A wrong twin of tests/author/02-composition.lf: g applied to value,
+\ which is a proof of A where g needs B. The words build it without error
+\ (they have no types); the checker rejects it.
+\ Lean: theorem composition {A B C : Prop} (f : A → B) (g : B → C) : A → C :=
+\         fun value => g value
+\ (pinned Lean refuses it: tests/reference/author-wrong-02-composition.lean)
+theorem composition
+  Prop implicit: A   Prop implicit: B   Prop implicit: C
+  A B ->  explicit: f
+  B C ->  explicit: g
+  A C ->
+:=
+  A explicit: value   g value $   fun
+end composition
