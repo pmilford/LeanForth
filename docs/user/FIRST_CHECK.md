@@ -6,9 +6,9 @@ no outside Lean expert has audited it. Every result it accepts is printed
 *accepted (experimental, not independently audited)*, with the axioms the
 result depends on. Do not rely on an accepted result until the owner has
 approved the checker; until then, Lean's own kernel is the referee. What it
-checks is a proof that Lean produced and exported; LeanForth text cannot yet be
-checked (plan 8.2.1a-g, not started), so nothing on this page was proved from
-LeanForth input.
+checks is a proof that Lean produced and exported; LeanForth text is checked by
+`leanforth check FILE.lf` since 2026-11-12 ([checking a file](LEANFORTH_SYNTAX.md#checking-a-file)),
+but nothing on this page is LeanForth input.
 
 This page shows one real check from start to end: the `composition`
 theorem, read from the file that Lean's exporter wrote, checked by

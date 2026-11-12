@@ -1,6 +1,6 @@
 # LeanForth
 
-**Status: development version. Today LeanForth re-checks proofs that Lean produced and exported (NDJSON), including all of Lean's `Init`; it does not yet check LeanForth text, and it has no program verifier. The checker is experimental and not independently audited.**
+**Status: development version. Today LeanForth re-checks proofs that Lean produced and exported (NDJSON), including all of Lean's `Init`; since 2026-11-12 it also checks LeanForth text, `leanforth check [--env EXPORT] FILE.lf` (plan 8.2.1c-d, integrated, gates pending); it has no program verifier. The checker is experimental and not independently audited.**
 
 See the [project progress report](docs/project/PROJECT_PROGRESS.md) for both product
 tracks, importer limits, and a reproducible code inventory.
@@ -38,7 +38,7 @@ What it loads is unverified code in progress, exercised by the tests.
 
 | Path | Contents |
 | --- | --- |
-| `bin/leanforth` | The command line, version 0: `check` (with `--record`), `print`, `replay`, `count`, `reexport`, `version`, `capabilities`; exit statuses 0–6, 6 (NOT PROVED) only with `--strict-axioms`; `gforth-fast` is already the default engine (`--fast` is accepted and changes nothing). `check FILE.lf` (LeanForth text) exits 4: it is not built ([manual](docs/user/COMMAND_LINE.md)). |
+| `bin/leanforth` | The command line, version 0: `check` (with `--record`), `print`, `replay`, `count`, `reexport`, `version`, `capabilities`; exit statuses 0–6, 6 (NOT PROVED) only with `--strict-axioms`; `gforth-fast` is already the default engine (`--fast` is accepted and changes nothing). `check [--env EXPORT | --snapshot FILE] FILE.lf` checks LeanForth text, against a library export of Lean's such as `Init` ([manual](docs/user/COMMAND_LINE.md#checking-leanforth-text)). |
 | `src/main.fs` | The loader for all current code, and the command line's Forth entry point (`src/cli/`). |
 | `src/lib/` | General Forth tools with no Lean knowledge: bounded stores, tagged nodes, the shared outcome vocabulary, walk and frames records, per-task contexts, a worker pool, a line reader with UTF-8 checks and a JSON reader. |
 | `src/core/` | Lean's data model, 10 modules: the term store (`terms.fs`), names, universe levels, sessions and stale-handle checks, constant references. |

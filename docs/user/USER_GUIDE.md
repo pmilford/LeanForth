@@ -1,15 +1,15 @@
 # LeanForth user guide
 
 **Status, 2026-11-12: LeanForth re-checks proofs that Lean produced and
-exported; it does not yet check LeanForth text, and it does not yet verify a
+exported, and since 2026-11-12 LeanForth text; it does not yet verify a
 program.** From the shell, `bin/leanforth check FILE.ndjson`
 ([the command line](COMMAND_LINE.md)) checks a Lean 4.35.0 export of any
 size (all of Lean's `Init` and, on an earlier build, all of Mathlib's
 729,263 declarations were accepted), but the checker is experimental
 [kernel] code, several parts have not passed their review gates, and every
 result it accepts is labelled *accepted (experimental, not independently
-audited)*. `leanforth check FILE.lf` (LeanForth text) exits 4: no input path
-from LeanForth text to the kernel exists yet (plan 8.2.1a-g, not started).
+audited)*. `leanforth check [--env EXPORT] FILE.lf` checks LeanForth text with the
+same checker ([checking a file](LEANFORTH_SYNTAX.md#checking-a-file); plan 8.2.1c-d).
 There is a Forth data model for Lean's terms, a Forth reader for Lean's
 export format, a term printer, and the first steps of a program-verification
 pipeline whose proofs are checked by Lean, not by LeanForth. This guide says what that means for you and where the trust
@@ -118,7 +118,7 @@ and *full* (out of room). Only *ok* is ever accepted. See
   shell, `bin/leanforth check FILE.ndjson`, and read the verdict of each
   declaration and the exit status ([the command line](COMMAND_LINE.md),
   [first check](FIRST_CHECK.md)); its answers are not yet to be relied on.
-  The proofs are Lean's; LeanForth text cannot be checked yet.
+  The proofs are Lean's; LeanForth text is checked by `check FILE.lf`.
 - Build terms with the data model's words, run the experimental
   inference and definition probe on them, and print them in Lean's
   notation, ASCII or LaTeX ([concepts](CONCEPTS.md),

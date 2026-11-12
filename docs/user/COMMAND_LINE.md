@@ -13,9 +13,9 @@ checked from the command line — all of Lean's `Init`, 59,349
 declarations, in [about twelve minutes](#a-whole-library-leans-init). Most
 of a real library may still end *unsupported* or *unknown*: metadata and some
 recursor reductions are not built yet (`capabilities` lists them); nested
-inductive types are (they are accepted). `check` reads Lean's NDJSON exports
-only: LeanForth text (`FILE.lf`) is not checked by it yet, and exits 4 (plan
-8.2.1, not started); unsafe and partial declarations are
+inductive types are (they are accepted). `check` also checks LeanForth text
+(`FILE.lf`, since 2026-11-12: [checking LeanForth text](#checking-leanforth-text), plan
+8.2.1c-d); unsafe and partial declarations are
 *skipped*, as Lean's own checker skips them (below). The
 counts of Init below are a snapshot of 2026-11-04, before `let`,
 literals, projections, quotients and mutual blocks were merged; on

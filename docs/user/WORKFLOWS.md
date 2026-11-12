@@ -15,8 +15,8 @@ partly built; both are meant to end at the same checker:
   Lean, as usual. Lean's exporter writes the checked declarations as an
   NDJSON file; LeanForth reads that file and checks every declaration
   again, on its own, in the file's order.
-- **In LeanForth itself** (the words exist; **checking this text is not built**,
-  `leanforth check FILE.lf` exits 4; plan 8.2.1a-g not started): you write the theorem and its proof with Forth words
+- **In LeanForth itself** (checked since 2026-11-12 by `leanforth check [--env EXPORT]
+  FILE.lf`, plan 8.2.1c-d, experimental, gates pending): you write the theorem and its proof with Forth words
   ([LeanForth syntax](LEANFORTH_SYNTAX.md), [ADR 0017](../adr/0017-leanforth-syntax.md),
   approved by the owner). The authoring words (`src/author/`, plan task
   8.1.2) run a file line by line through Forth's own interpreter, build
