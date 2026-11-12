@@ -3,9 +3,10 @@
 \ context. Untrusted. It does not compare levels, establish Lean name
 \ identity, check types or authorize a theorem.
 \ State: one parameter-context record, lf-lscope-state (the count of a
-\ duplicate-free list of positive parameter IDs and a generation that
-\ advances on every change), the list itself and the audit's scratch
-\ table, both growable arrays with no fixed limit (context-slab:, plan
+\ duplicate-free list of positive parameter IDs, a generation that
+\ advances on every change, and the count of the audit's copy), the list
+\ itself, the audit's scratch table and the copy of the list the audit
+\ last passed, growable arrays with no fixed limit (context-slab:, plan
 \ task 6.2.0: a context that cannot grow is full), and one walk record,
 \ lf-lscope-walk, all members of the checker context (lib/context.fs); a
 \ set-up word starts every context's parameter context empty. Single-threaded within one context: the check
@@ -25,10 +26,12 @@ require ./levels.fs
 begin-structure /lf-lsctx
   field: lf-lsctx-count         \ parameter IDs in the context
   field: lf-lsctx-generation    \ advances on every change; negative when spent
+  field: lf-lsctx-passed        \ IDs in lf-lscope-audited plus one; 0: no copy
 end-structure
 /lf-lsctx context-record: lf-lscope-state
 1 cells context-slab: lf-lscope-ids     \ the parameter IDs, in order
 1 cells context-slab: lf-lscope-table   \ the audit's scratch table
+1 cells context-slab: lf-lscope-audited \ the IDs the audit last passed
 lf-level-walk-room context-walk: lf-lscope-walk
 
 \ The context's fields under their established names (other modules read
@@ -86,9 +89,30 @@ lf-level-walk-room context-walk: lf-lscope-walk
 : lf-lscope-hashed-ok? ( -- flag )
   lf-lscope-context-count @ lf-lscope-slots dup lf-lscope-table?
   if lf-lscope-hashed else drop lf-lscope-pairs-ok? then ;
-: lf-lscope-entries-ok? ( -- flag )
+: lf-lscope-audit ( -- flag )
   lf-lscope-context-count @ lf-lscope-few <
   if lf-lscope-pairs-ok? else lf-lscope-hashed-ok? then ;
+\ The audit's answer depends only on the entries, which the checker reads
+\ (feed.fs puts every parameter of an export in the context) but never
+\ changes while it checks. So the entries the audit last passed are kept,
+\ and entries equal to them, byte for byte, pass again without the audit
+\ (agent PERF1: the audit, linear in the entries, ran at every level
+\ check, about 6% of Init's checking time); any other entries, corrupted
+\ or changed, are audited anew. A copy the heap cannot hold is not kept.
+: lf-lscope-entries ( -- addr u ) lf-lscope-context lf-lscope-context-count @ cells ;
+: lf-lscope-copy ( -- addr u )
+  lf-lscope-audited slab-base lf-lscope-state lf-lsctx-passed @ 1- cells ;
+: lf-lscope-passed? ( -- flag )
+  lf-lscope-state lf-lsctx-passed @ 1- lf-lscope-context-count @ =
+  if lf-lscope-entries lf-lscope-copy compare 0= else false then ;
+: lf-lscope-pass ( -- )
+  0 lf-lscope-state lf-lsctx-passed !
+  lf-lscope-context-count @ dup lf-lscope-audited slab-hold ok? 0= if drop exit then
+  lf-lscope-entries lf-lscope-audited slab-base swap move
+  1+ lf-lscope-state lf-lsctx-passed ! ;
+\ Unchecked: the count was checked (lf-lscope-count-valid?).
+: lf-lscope-entries-ok? ( -- flag )
+  lf-lscope-passed? if true exit then lf-lscope-audit dup if lf-lscope-pass then ;
 : lf-lscope-context-valid? ( -- flag )
   lf-lscope-count-valid? if lf-lscope-entries-ok? else false then ;
 

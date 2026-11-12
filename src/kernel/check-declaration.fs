@@ -307,10 +307,14 @@ lf-check-steps# 1+ constant lf-step-done
 \ declaration and what it reads, not on the other records of the tier
 \ (agent PF, review rvSN4 B1; ADR 0014 Amendment 7). Outside a check (the
 \ importer's feed) every node is given.
+\ Whether the memo is on is asked only of a node made before the check,
+\ and once (agent PERF1: it reads the environment's validity, and was
+\ asked of every node given and again by lf-audit-reached?); the answer
+\ is the same, as both are only read.
 : lf-check-before? ( n -- flag ) 0 lf-input-mark-count < ;
+: lf-check-reached? ( n -- flag ) lf-audit-on? if lf-audit-held? else drop true then ;
 : lf-check-findable ( n -- flag )
-  lf-audit-on? 0= if drop true exit then
-  dup lf-check-before? if lf-audit-reached? else drop true then ;
+  dup lf-check-before? if lf-check-reached? else drop true then ;
 ' lf-check-findable is lf-term-findable?
 \ Levels likewise (a level made before the check, below the input's level
 \ mark, once a scope check of this check found it), but the zero level,
