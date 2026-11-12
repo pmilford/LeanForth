@@ -179,6 +179,9 @@ begin-structure /ck
   field: ck-jobs-asked           \ workers of a parallel check (ck-jobs!); 0, 1: serial
   field: ck-serial-why           \ why workers were asked for but not used (ck-why-*), or 0
   field: ck-print                \ the fed input's fingerprint: every worker's must be it
+  lf-cref-lent# cells +field ck-lent  \ the references the workers read (ck-lent!)
+  lf-cref-lent# cells +field ck-lend-now   \ and as they are now (ck-moved?)
+  field: ck-remade               \ times the workers were made again (ck-relent)
   field: ck-checker              \ the check word ( -- ) (ck-check-word!)
   ck-switches# cells +field ck-switched    \ the checker's switches, for each worker
   ck-capacities# cells +field ck-saved   \ capacities before the feed
@@ -250,8 +253,8 @@ create ck-worker-feed /feed allot  ck-worker-feed /feed erase
 : ck-staged-bytes ( -- u ) ck-state ck-stage-bytes @ ;
 \ Workers of a parallel check (--jobs): set after ck-start, before
 \ ck-load; 0 or 1 checks one declaration at a time in this context.
-\ At most one worker per core and per queued job: more could not run at once,
-\ and each worker holds its own copy of the input.
+\ At most one worker per core and per queued job: more could not run at once
+\ (the workers share one input, but each holds its own scratch and caches).
 : ck-jobs-most ( -- n ) task-cores task-queue-jobs min ;
 : ck-jobs! ( n -- ) ck-jobs-most min ck-state ck-jobs-asked ! ;
 \ Why the run is serial though workers were asked for: 1, or the pool's
@@ -420,23 +423,25 @@ create ck-line ck-line-room 2 + allot
   ck-state ck-binder-hook @ ck-state ck-decl-hook @ lf-feed-hooked ;
 \ The workers of a parallel check (plan task 7.3.1; kernel/env-schedule.fs),
 \ made after the feed: each a new context with this context's switches,
-\ fed the same stage, its input's fingerprint this context's (so the
-\ run's environment is valid in it), and the check's budget. In v0 the
-\ input is per context (core/input.fs), so each worker holds its own
-\ copy of what the feed makes (the leaf table, copied terms, levels,
-\ references, declarations); the stage is shared, read only. Making a
-\ worker gives full (no heap) or invalid (another fingerprint); every
-\ context made is freed with the scheduler (ck-release, lf-sched-free).
+\ fed by sharing this context's input (import/feed.fs's lf-feed-shared;
+\ ADR 0016 S8): it reads this context's declarations, view tables and
+\ references in place and keeps only its levels, its scratch, caches,
+\ memos and marks; its input's fingerprint must be this context's (so the
+\ run's environment is valid in it), and it gets the check's budget. So
+\ this context must outlive the workers and make nothing in its input's
+\ stores while they run: it publishes, and every check runs in a worker.
+\ Making a worker gives full (no heap) or invalid (another fingerprint,
+\ or an input that cannot be shared); every context made is freed with
+\ the scheduler (ck-release, lf-sched-free).
 : ck-switch ( k -- addr ) cells ck-switches + @ execute ;
 : ck-switch-saved ( k -- addr ) cells ck-state ck-switched + ;
 : ck-switched! ( -- ) ck-switches# 0 ?do i ck-switch @ i ck-switch-saved ! loop ;
 : ck-switches! ( -- ) ck-switches# 0 ?do i ck-switch-saved @ i ck-switch ! loop ;
 : ck-print! ( -- ) lf-input-fingerprint ck-state ck-print ! ck-switched! ;
-: ck-worker-fed ( -- outcome )
-  ck-worker-feed dup /feed erase ck-stage swap 0 0 lf-feed-hooked
-  ck-worker-feed feed-free ;
+: ck-worker-fed ( source -- outcome )
+  ck-stage ck-worker-feed rot lf-feed-shared ck-worker-feed feed-free ;
 : ck-worker-fill ( context -- outcome )
-  context-use ck-switches! ck-worker-fed dup ok? 0= if exit then drop
+  lf-context @ swap context-use ck-switches! ck-worker-fed dup ok? 0= if exit then drop
   ck-fuel-budget lf-check-budget lf-input-fingerprint ck-state ck-print @ = flag>outcome ;
 : ck-worker-filled ( context -- outcome )
   ['] ck-worker-fill context-catch ?dup if 2drop outcome-invalid then ;
@@ -457,10 +462,26 @@ create ck-line ck-line-room 2 + allot
 \ resource report then says: the same output, only slower.
 : ck-workers-made ( -- outcome )
   outcome-ok ck-jobs 0 ?do dup ok? 0= if unloop exit then drop ck-worker-add loop ;
+\ The workers read this context's references in place; so that none reads
+\ a block given back, this context's references as the workers began to
+\ read them are kept (core/constant-references.fs's lf-cref-lending) and,
+\ when they moved before the run (a pass that made references here, as
+\ the import pass of a run against a snapshot may), the workers are made
+\ again (ck-relent; ck-remades counts it).
+: ck-lending ( addr -- )
+  >r lf-cref-lending r@ 3 cells + ! r@ 2 cells + ! r@ cell+ ! r> ! ;
+: ck-lent! ( -- ) ck-state ck-lent ck-lending ;
+: ck-moved? ( -- flag )
+  ck-state ck-lend-now dup ck-lending lf-cref-lent# cells ck-state ck-lent over compare
+  0<> ;
+: ck-remades ( -- n ) ck-state ck-remade @ ;
 : ck-workers ( -- )
   ck-parallel? 0= if exit then
   lf-sched-host-ok 0= if ck-why-host ck-state ck-serial-why ! exit then
-  lf-sched-init ok? if ck-workers-made ok? if exit then then lf-sched-free ;
+  lf-sched-init ok? if ck-workers-made ok? if ck-lent! exit then then lf-sched-free ;
+: ck-relent ( -- )
+  lf-sched-workers 0> ck-moved? and 0= if exit then
+  1 ck-state ck-remade +! lf-sched-free ck-workers ;
 \ A failed phase is kept as the one that failed.
 : ck-fail ( outcome phase -- outcome ) over ok? if drop else ck-state ck-failed ! then ;
 \ Staging an export checked against a snapshot goes on in the phase that
@@ -718,7 +739,7 @@ create ck-line ck-line-room 2 + allot
   lf-sched-pool-start ?dup if ck-state ck-serial-why ! lf-sched-free false
   else true then ;
 : ck-steps-any ( n -- )
-  ck-jobs-run? if lf-sched-plan ok? if ck-pool-started? if
+  ck-relent ck-jobs-run? if lf-sched-plan ok? if ck-pool-started? if
     drop ck-jobs-run ck-finished exit then then then
   ck-steps-run ck-finished ;
 

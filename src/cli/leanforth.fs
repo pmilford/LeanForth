@@ -1078,8 +1078,7 @@ variable cli-info#
   ."   check --record and replay (the old reader) refuse inductive types, and" cr
   ."   answer unsupported for let, literals, projections and metadata;" cr
   ."   the checker has not yet checked a Mathlib declaration" cr
-  ."   (0 of 729,263); check --jobs feeds each worker its own copy of the" cr
-  ."   input's per-context part (the stage is shared; plan task 7.2.1)" cr ;
+  ."   (0 of 729,263)" cr ;
 : cli-check-limits. ( -- )
   ."   check: stores, walks and lists that grow with the export (memory), any" cr
   ."     depth and number of dependencies or constructors (plan task 6.2.0);" cr
@@ -1284,8 +1283,8 @@ end-structure
 : cli-checked-option ( c-addr u -- ) 2drop ;
 : cli-lf-option ( c-addr u -- ) 2drop true cli-state opt-lf ! ;
 : cli-any-lean-option ( c-addr u -- ) 2drop cli-any-lean ;
-\ --jobs N, N at least 1; check-run.fs cuts it to the cores. Each worker holds a
-\ copy of the input, so memory grows with the workers made.
+\ --jobs N, N at least 1; check-run.fs cuts it to the cores. The workers share
+\ one input; each holds its own scratch and caches.
 : cli-jobs-value ( c-addr u n -- )
   dup 1 < if drop c" not a number of jobs" cli-wrong exit then
   cli-state opt-jobs ! 2drop ;

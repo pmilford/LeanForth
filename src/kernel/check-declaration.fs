@@ -306,7 +306,9 @@ lf-check-steps# 1+ constant lf-step-done
 \ their universe arguments, the local context's entries and the caches'.
 : lf-check-above ( k -- n )
   dup lf-input-store store-count @ swap lf-input-mark mark-count @ - 0 max ;
-: lf-check-args-at ( count -- offset ) ?dup if 1- lf-cref-slot lf-cref-end else 0 then ;
+\ Where the pairs of the store's first count records end, as lf-cref-top.
+: lf-check-args-at ( count -- offset )
+  ?dup if 1- lf-cref-base + lf-cref-slot lf-cref-end else lf-cref-under-top then ;
 : lf-check-args ( -- n )
   lf-cref-top 3 lf-input-mark mark-count @ lf-check-args-at - 0 max ;
 : lf-check-stores ( -- u )
@@ -328,7 +330,7 @@ lf-check-steps# 1+ constant lf-step-done
 \ current environment (recorded by lf-env-checking) or an intact input.
 \ The check's memory limit starts (core/scratch-meter.fs).
 : lf-check-begin ( -- outcome )
-  lf-meter-start lf-caches-clear lf-audit-renew
+  lf-meter-start lf-caches-clear lf-audit-afresh
   0 lf-check-step! lf-check-state lf-chk-budget @ lf-check-left !
   lf-env-checking 0= if outcome-invalid exit then nip
   lf-input-read ok-then? if lf-check-state lf-chk-decl ! outcome-ok then ;

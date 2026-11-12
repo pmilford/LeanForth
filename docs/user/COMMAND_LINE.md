@@ -156,9 +156,9 @@ Options:
   once ([parallel checking](#parallel-checking---jobs)); N is at least 1,
   and 1, the default, checks one declaration at a time. The output is the
   same whatever N is. N is cut to the number of cores (and to the job
-  pool's queue of 1024): more workers could not run at once, and each
-  holds its own copy of the input, so memory grows with the workers made
-  (the resource report says how many). On a host that is not x86-64
+  pool's queue of 1024): more workers could not run at once. The workers
+  share one copy of the input; each adds only its own scratch and caches
+  (the resource report says how many were made). On a host that is not x86-64
   (threads without memory barriers) or where the thread pool cannot start,
   the check runs one declaration at a time and the resource report says why.
 - `--memory-per-check MB` (`check` only, not with `--record`) gives each
@@ -557,9 +557,11 @@ report's times, memory and workers line, and the JSON report but for
 `measured`: every verdict, diagnostic and fuel count, the counts and the
 exit status. How:
 
-- each worker is a context of its own, fed the same staged export (the
-  stage is shared and read only; the rest of the input is, for now, copied
-  into every worker: plan task 7.2.1), and checks one declaration at a
+- each worker is a context of its own that reads one shared input in
+  place, the one the run fed (the staged export, its declarations, the
+  tables of its leaves and binders, its constant references; nothing a
+  check does writes them), keeps only its own scratch, caches, memos and
+  marks (and its levels, a few thousand), and checks one declaration at a
   time as a thread of Gforth 1.0 (cooperative tasks on Gforth 0.7.3, which
   gives the same output, no faster);
 - a declaration is handed to a worker only when every earlier declaration
@@ -573,10 +575,29 @@ exit status. How:
   worker ran.
 
 All of `Init` (59,349 declarations, all accepted), `check --fast --json
---jobs N`, on this 10-core WSL2 machine, which other agents' runs shared
-(load average 10-13), 2026-11-11 (wall and CPU seconds of the whole run,
-the check phase's wall time, peak resident memory; every report the same
-as the serial one but for `measured`):
+--jobs N`, on this 10-core WSL2 machine, which other agents' runs shared,
+2026-11-11, every report the same as the serial one but for `measured`.
+With the shared input (wall and CPU seconds of the whole run, peak
+resident memory, the load average; the wall times are noisy at such
+loads, the CPU times and memory much less so):
+
+| workers | wall | CPU | peak memory | load |
+| ---: | ---: | ---: | ---: | ---: |
+| 1 | 1,354 | 1,249 | 658 MB | 12-18 |
+| 4 | 511 | 1,439 | 957 MB | 18 |
+| 8 | 263-346 | 1,428-1,477 | 1,166-1,175 MB | 17-21 |
+| 10 | 244-481 | 1,421-1,479 | 1,221-1,280 MB | 15-23 |
+
+More workers than the cores are not made (`--jobs 12` here runs 10): in a
+copy of LeanForth whose pool was forced to 12 threads, `Init` took
+233-326 s, 1,429-1,461 s CPU and 1,314-1,356 MB, no gain over 10 beyond
+the noise. Mathlib's first sixth (119,472 declarations) at 8 workers took
+2,773 s at load 15-22 and 4,688 MB (7,710 MB when each worker held its
+own copy of the input, the same run otherwise); for all of Mathlib, 8
+workers are expected to hold about 13 GB (ADR 0016, Amendment 2).
+
+Before the input was shared (each worker fed its own copy; load average
+10-13; wall, the check phase's wall time, its speed-up, CPU, peak memory):
 
 | workers | wall | check wall | speed-up (check) | CPU | peak memory |
 | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -588,9 +609,12 @@ as the serial one but for `measured`):
 | 10 | 249 | 209 | 5.4 | 1,512 | 2,564 MB |
 
 The run with 6 workers met the heaviest load from other runs; the times
-vary by that much from run to run on a shared machine. Each worker costs
-about 210 MB and its feeding about 2.5 seconds, one worker after another
-(the "feed" phase: 25 seconds for 10 workers). When no worker can be
+vary by that much from run to run on a shared machine. Each worker then
+cost about 210 MB and its feeding about 2.5 seconds, one worker after
+another (the "feed" phase: 25 seconds for 10 workers); sharing the input
+brings a worker of `Init` down to about 64 MB (its scratch, caches and
+marks) and its feeding to a fraction of a second (the "feed" phase at 8
+workers: 2.3 seconds, against 16.3). When no worker can be
 made (no memory; or, from a Forth session, a context that ran checks
 before, whose input then has another fingerprint than a new worker's),
 the run checks one declaration at a time, and the resource report says
@@ -1360,8 +1384,7 @@ not yet supported (check answers unsupported or unknown, exit 2):
   check --record and replay (the old reader) refuse inductive types, and
   answer unsupported for let, literals, projections and metadata;
   the checker has not yet checked a Mathlib declaration
-  (0 of 729,263); check --jobs feeds each worker its own copy of the
-  input's per-context part (the stage is shared; plan task 7.2.1)
+  (0 of 729,263)
 limits (check answers full or exhausted, exit 3):
   check: stores, walks and lists that grow with the export (memory), any
     depth and number of dependencies or constructors (plan task 6.2.0);
