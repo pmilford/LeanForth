@@ -60,7 +60,9 @@ endif
 # Every test command is stopped after TEST_TIMEOUT seconds and then fails,
 # so a looping test cannot stall a local run or CI. Uses GNU timeout(1).
 TEST_TIMEOUT ?= 1800
-RUN := timeout $(TEST_TIMEOUT)
+# With LF_TIMING_LOG set (scripts/push.sh sets it), each command also appends
+# "target seconds exit" to that file, so a normal CI run shows the slow tests.
+RUN = $(if $(LF_TIMING_LOG),scripts/timed.sh $@ ,)timeout $(TEST_TIMEOUT)
 # The tests' own subprocess limits (TEST_LIMIT in tests/*.py) follow it.
 export TEST_TIMEOUT
 
@@ -816,7 +818,8 @@ test-coverage:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/support/test_coverage.py
 
 .PHONY: mutants mutants-quick mutants-check test-mutants coverage coverage-check test-coverage
-check: coverage-check
+# The coverage ratchet runs once per push (scripts/push.sh), not in every make
+# check: it runs the whole of make test again, instrumented (about 6 min at JOBS=2).
 test: test-coverage
 test: test-mutants
 
