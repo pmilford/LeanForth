@@ -40,7 +40,7 @@ require ../core/input.fs
 \ Rules: a known code (the catalogue's last entry has code 0).
 : lf-lc-known? ( s -- flag ) lf-log-rule@ lf-log-entry lf-log-entry-code 0<> ;
 \ Start: 0 <= start < s.
-: lf-lc-start? ( s -- flag ) dup lf-log-premise dup 0< 0= -rot > and ;
+: lf-lc-start? ( s -- flag ) dup lf-log-premise swap 0 swap within ;
 \ Nesting: every record t in (start, s) has its own start >= start
 \ (start < s, part 2).
 : lf-lc-nested? ( s -- flag )
@@ -80,10 +80,15 @@ require ../core/input.fs
 : lf-lc-leaf? ( first tag -- flag )
   dup lf-tag-symbolic-sort = if drop lf-lc-level-ok? exit then
   lf-tag-constant = if lf-lc-cref? else drop true then ;
+\ Copy k's fields, each read from the log's pool.
+: lf-lc-tag ( k -- tag ) lf-log-term-node@ 2drop ;
+: lf-lc-first ( k -- first ) lf-log-term-node@ drop nip ;
+: lf-lc-second ( k -- second ) lf-log-term-node@ nip nip ;
+: lf-lc-pair? ( k -- flag )
+  dup lf-lc-first over lf-lc-child? swap dup lf-lc-second swap lf-lc-child? and ;
+: lf-lc-leaf-copy? ( k -- flag ) dup lf-lc-first swap lf-lc-tag lf-lc-leaf? ;
 : lf-lc-term-copy? ( k -- flag )
-  dup lf-log-term-node@ rot dup lf-term-binary-tag? if drop 2 pick lf-lc-child? >r
-    over lf-lc-child? nip r> and exit then
-  nip lf-lc-leaf? nip ;
+  dup lf-lc-tag lf-term-binary-tag? if lf-lc-pair? else lf-lc-leaf-copy? then ;
 : lf-lc-copies? ( -- flag )
   true lf-log-term-copies 0 ?do i lf-lc-term-copy? and loop ;
 
@@ -99,14 +104,19 @@ require ../core/input.fs
 : lf-lc-prefix? ( -- flag ) lf-log-cut drop ?dup if lf-log-count 1+ = else true then ;
 
 \ Premise kinds (part 9): how many of step s's premises have a rule for
-\ which xt ( rule -- flag ) holds, following premises only while they are
-\ strictly earlier.
+\ which xt ( rule -- flag ) holds: s-1, then each start of the last, while
+\ above s's start and strictly earlier than the one before; xt and s's
+\ start wait on the return stack. A log that passed the other parts
+\ always has them earlier; the guard keeps a damaged one from looping.
+\ lf-lc-premises counts them all (log-view.fs lists them).
 : lf-lc-next ( p -- p' ) dup lf-log-premise tuck > 0= if drop 0 then ;
+: lf-lc-above? ( p start -- flag ) over < swap 0> and ;
 : lf-lc-count ( s xt -- n )
-  >r dup lf-log-premise swap 1- 0 swap
-  begin dup 3 pick > over 0> and while
-    dup lf-log-rule@ r@ execute if swap 1+ swap then lf-lc-next
-  repeat drop nip r> drop ;
+  over lf-log-premise 2>r 1- 0 swap begin dup 2r@ nip lf-lc-above? while
+    dup lf-log-rule@ 2r@ drop execute if swap 1+ swap then lf-lc-next
+  repeat drop 2r> 2drop ;
+: lf-lc-any? ( rule -- flag ) drop true ;
+: lf-lc-premises ( s -- n ) ['] lf-lc-any? lf-lc-count ;
 : lf-lc-infer? ( rule -- flag ) lf-rule-sort lf-rule-form between? ;
 : lf-lc-defeq? ( rule -- flag ) lf-rule-defeq = ;
 : lf-lc-instantiate? ( rule -- flag ) lf-rule-instantiate = ;
@@ -114,29 +124,38 @@ require ../core/input.fs
 : lf-lc-unparameter? ( rule -- flag ) lf-rule-universe-parameter <> ;
 : lf-lc-fresh? ( rule -- flag ) lf-rule-fresh-name = ;
 : lf-lc-formation? ( rule -- flag ) dup lf-rule-proposition = swap lf-rule-type = or ;
+: lf-lc-one? ( s xt -- flag ) lf-lc-count 1 = ;
+: lf-lc-none? ( s xt -- flag ) lf-lc-count 0= ;
+: lf-lc-inferences ( s -- n ) ['] lf-lc-infer? lf-lc-count ;
 : lf-lc-application? ( s -- flag )
-  dup ['] lf-lc-infer? lf-lc-count 2 >= over ['] lf-lc-defeq? lf-lc-count 1 = and
-  swap ['] lf-lc-instantiate? lf-lc-count 1 = and ;
+  dup lf-lc-inferences 2 >= over ['] lf-lc-defeq? lf-lc-one? and
+  swap ['] lf-lc-instantiate? lf-lc-one? and ;
+: lf-lc-binder? ( s -- flag ) lf-lc-inferences 2 = ;
+: lf-lc-formed? ( s -- flag ) lf-lc-inferences 1 = ;
+: lf-lc-shifts? ( s -- flag ) ['] lf-lc-other? lf-lc-none? ;
+: lf-lc-parameters? ( s -- flag ) ['] lf-lc-unparameter? lf-lc-none? ;
 \ A declaration step: its name's freshness, then its type's formation and
 \ the comparison of its value's type with it; one without a value (an
 \ axiom: a formation, no comparison; a quotient record: neither, plan
 \ tasks 5.3.1, 5.2.4) only the freshness and no comparison.
 : lf-lc-valued? ( s -- flag ) lf-log-b@ lf-log-none <> ;
+: lf-lc-unvalued-kinds? ( s -- flag )
+  dup ['] lf-lc-fresh? lf-lc-one? swap ['] lf-lc-defeq? lf-lc-none? and ;
+: lf-lc-valued-kinds? ( s -- flag )
+  dup ['] lf-lc-fresh? lf-lc-one? over ['] lf-lc-formation? lf-lc-one? and
+  swap ['] lf-lc-defeq? lf-lc-one? and ;
 : lf-lc-declaration? ( s -- flag )
-  dup lf-lc-valued? 0= if
-    dup ['] lf-lc-fresh? lf-lc-count 1 = swap ['] lf-lc-defeq? lf-lc-count 0= and exit
-  then
-  dup ['] lf-lc-fresh? lf-lc-count 1 = over ['] lf-lc-formation? lf-lc-count 1 = and
-  swap ['] lf-lc-defeq? lf-lc-count 1 = and ;
-: lf-lc-inferences ( s -- n ) ['] lf-lc-infer? lf-lc-count ;
-: lf-lc-kinds? ( s rule -- flag )
+  dup lf-lc-valued? if lf-lc-valued-kinds? else lf-lc-unvalued-kinds? then ;
+\ The kinds by rule: the inference rules', then the others' (a CASE each,
+\ read as a table); a rule not listed needs nothing.
+: lf-lc-infer-kinds? ( s rule -- flag )
   case lf-rule-application of lf-lc-application? endof
-    lf-rule-lambda of lf-lc-inferences 2 = endof lf-rule-pi of lf-lc-inferences 2 = endof
-    lf-rule-variable of ['] lf-lc-other? lf-lc-count 0= endof
-    lf-rule-sort of ['] lf-lc-unparameter? lf-lc-count 0= endof
-    lf-rule-proposition of lf-lc-inferences 1 = endof
-    lf-rule-type of lf-lc-inferences 1 = endof
-    lf-rule-declaration of lf-lc-declaration? endof >r drop true r> endcase ;
+    lf-rule-variable of lf-lc-shifts? endof lf-rule-sort of lf-lc-parameters? endof
+    lf-rule-lambda of lf-lc-binder? endof lf-rule-pi of lf-lc-binder? endof
+    >r drop true r> endcase ;
+: lf-lc-kinds? ( s rule -- flag )
+  case lf-rule-proposition of lf-lc-formed? endof lf-rule-type of lf-lc-formed? endof
+    lf-rule-declaration of lf-lc-declaration? endof tuck lf-lc-infer-kinds? swap endcase ;
 : lf-lc-premises? ( s -- flag )
   dup lf-log-outcome@ ok? 0= if drop true exit then dup lf-log-rule@ lf-lc-kinds? ;
 

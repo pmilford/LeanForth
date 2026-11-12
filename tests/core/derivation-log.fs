@@ -360,6 +360,194 @@ T{ blocks-same? blk-bad @ -> true 0 }T
 lf-log-terms level!
 T{ blk-cut -> 2 }T
 
+\ Logs written by hand (review FRP, batches A and B7): a test log over
+\ composition's input, its steps opened and closed directly, their
+\ formulas scratch terms and levels above the input marks, so copied into
+\ the log's pools. First the structural check's part 9 (premise kinds)
+\ and part 6 (copies), then the step list (log-view.fs's lf-lv-list) with
+\ one step of every rule, and the rebuilding of copies for printing.
+0 lf-log-set ample
+0 file cin-read ok? must
+: syn-term ( tag first second -- t ) lf-term-add must ;
+: syn-prop ( -- t ) 0 lf-term-sort must ;
+: syn-type ( -- t ) 1 lf-term-sort must ;
+: syn-id ( -- t ) syn-prop 0 lf-term-bvar must lf-term-lam must ;   \ fun x : Prop => x
+: syn-app ( -- t ) syn-id syn-prop lf-term-app must ;              \ (fun x => x) Prop
+: syn-pi ( -- t ) syn-prop syn-prop lf-term-pi must ;              \ Prop -> Prop
+: syn-one ( -- l ) 0 lf-level-succ must ;                           \ the level 1
+: syn-u ( -- l ) syn-one syn-one lf-level-succ must lf-level-max must ;   \ max 1 2
+: syn-sort ( -- t ) syn-u lf-term-symbolic-sort must ;
+: syn-name ( -- id ) 1 lf-input-name ;      \ an input name, kept by every rollback
+\ A step: opened with a and b, closed with its result and outcome.
+: syn-step ( a b rule out outcome -- ) 2>r lf-log-open 2r> lf-log-close 2drop ;
+: syn-ok ( a b rule out -- ) outcome-ok syn-step ;
+: syn-infer ( -- ) syn-prop lf-log-none lf-rule-sort syn-type syn-ok ;
+: syn-start ( -- ) lf-log-terms lf-log-start ;
+: syn-stop ( -- ) lf-log-stop lf-input-rollback drop ;
+: syn-flaw ( -- part ) lf-log-flaw syn-stop ;
+\ An application needs two inference premises, a defeq and an
+\ instantiate; a lambda two inference premises; a variable only shifts; a
+\ Sort only universe-parameter steps. A failed step is not checked.
+: syn-open ( rule -- ) >r syn-app lf-log-none r> lf-log-open ;
+: syn-close ( outcome -- ) syn-prop swap lf-log-close 2drop ;
+: syn-defeq ( -- ) syn-prop syn-prop lf-rule-defeq lf-log-none syn-ok ;
+: syn-inst ( -- ) syn-prop syn-prop lf-rule-instantiate syn-prop syn-ok ;
+: syn-shift ( -- ) syn-prop 1 lf-rule-shift syn-prop syn-ok ;
+: syn-param ( -- ) syn-name lf-log-none lf-rule-universe-parameter lf-log-none syn-ok ;
+: app-with ( n -- part )   \ n of: infer infer defeq inst
+  syn-start lf-rule-application syn-open
+  dup 0> if syn-infer then dup 1 > if syn-infer then dup 2 > if syn-defeq then
+  3 > if syn-inst then outcome-ok syn-close syn-flaw ;
+T{ 4 app-with 3 app-with 2 app-with 0 app-with -> 0 9 9 9 }T
+: lam-with ( n outcome -- part )
+  syn-start lf-rule-lambda syn-open swap 0 ?do syn-infer loop syn-close syn-flaw ;
+T{ 2 outcome-ok lam-with 1 outcome-ok lam-with 1 outcome-rejected lam-with -> 0 9 0 }T
+: rule-with ( n rule -- part )   \ a rule step over n inference premises, ok
+  syn-start syn-open 0 ?do syn-infer loop lf-log-none outcome-ok lf-log-close 2drop
+  syn-flaw ;
+T{ 2 lf-rule-pi rule-with 3 lf-rule-pi rule-with 1 lf-rule-pi rule-with -> 0 9 9 }T
+T{ 1 lf-rule-proposition rule-with 0 lf-rule-proposition rule-with -> 0 9 }T
+T{ 1 lf-rule-type rule-with 2 lf-rule-type rule-with -> 0 9 }T
+T{ 0 lf-rule-form rule-with 0 lf-rule-whnf rule-with -> 0 0 }T
+: var-with ( xt -- part ) syn-start lf-rule-variable syn-open execute outcome-ok syn-close
+  syn-flaw ;
+T{ ' syn-defeq var-with ' syn-shift var-with -> 9 0 }T
+T{ ' syn-param var-with ' noop var-with -> 9 0 }T
+: sort-with ( xt -- part ) syn-start lf-rule-sort syn-open execute outcome-ok syn-close
+  syn-flaw ;
+T{ ' syn-param sort-with ' syn-defeq sort-with ' noop sort-with -> 0 9 0 }T
+\ Part 6: a term copy whose child is no earlier copy (here: itself, or a
+\ copy not made yet), a copied symbolic Sort whose level is not defined, a
+\ copied constant whose argument is not.
+: syn-copied ( -- ) syn-start syn-app lf-log-none lf-rule-whnf syn-prop syn-ok ;
+: syn-k ( -- k ) lf-log-term-copies 1- ;     \ the last copy: the application
+: syn-node ( -- tag first second ) syn-k lf-log-term-node@ ;
+\ Overwrite the last copy's first or second child in the pool.
+: syn-first! ( ref -- ) >r syn-node nip r> swap syn-k lf-log-term-slot node! ;
+: syn-second! ( ref -- ) >r syn-node drop r> syn-k lf-log-term-slot node! ;
+T{ syn-copied lc-valid? syn-stop -> true }T
+T{ syn-copied syn-k lf-log-copy-index syn-first! syn-flaw -> 6 }T
+T{ syn-copied syn-k 1+ lf-log-copy-index syn-second! syn-flaw -> 6 }T
+T{ syn-copied 0 syn-second! syn-flaw -> 0 }T
+: syn-leaf ( -- ) syn-start syn-sort lf-log-none lf-rule-sort syn-type syn-ok ;
+: syn-sort-k ( -- k ) 0 ;                   \ the first copy: the symbolic Sort
+T{ syn-leaf lc-valid? syn-stop -> true }T
+: syn-level! ( ref -- )
+  >r syn-sort-k lf-log-term-node@ nip r> swap syn-sort-k lf-log-term-slot node! ;
+T{ syn-leaf lf-log-level-copies lf-log-copy-index syn-level! syn-flaw -> 6 }T
+T{ syn-leaf lf-log-none syn-level! syn-flaw -> 0 }T
+
+\ The step list: every rule's line, as the outline's --detail prints it.
+create lv-text 8192 allot   variable lv-len
+: lv-sink ( c-addr u -- ) tuck lv-text lv-len @ + swap move lv-len +! ;
+: lv-listed ( -- ) 0 lv-len ! ['] lv-sink 1000 lf-lv-setup must
+  lf-log-count lf-lv-list lf-lv-done ;
+\ Line n (from 1) of the text, without its end.
+: lv-skip ( c-addr u -- c-addr' u' ) 10 scan 1 /string ;
+: lv-line ( n -- c-addr u )
+  lv-text lv-len @ rot 1- 0 ?do lv-skip loop 2dup 10 scan nip - ;
+: syn-every ( -- )
+  syn-start syn-infer
+  syn-app lf-log-none lf-rule-whnf syn-prop syn-ok
+  0 lf-term-bvar must syn-prop lf-rule-beta syn-prop syn-ok
+  syn-prop syn-pi lf-rule-defeq lf-log-none syn-ok
+  syn-one syn-u lf-rule-level-eq lf-log-none outcome-rejected syn-step
+  0 lf-term-bvar must syn-type lf-rule-instantiate syn-type syn-ok
+  syn-type 2 lf-rule-shift syn-type syn-ok
+  syn-sort 1 lf-rule-instantiate-levels syn-sort syn-ok
+  syn-name lf-log-none lf-rule-resolve -1 syn-ok
+  syn-name lf-log-none lf-rule-resolve 3 syn-ok
+  0 lf-log-none lf-rule-fresh-name lf-log-none syn-ok
+  2 0 lf-rule-universe-arity lf-log-none syn-ok
+  syn-name lf-log-none lf-rule-universe-parameter lf-log-none syn-ok
+  syn-pi lf-log-none lf-rule-proposition syn-u syn-ok
+  syn-pi lf-log-none lf-rule-type syn-one syn-ok
+  syn-prop syn-type lf-rule-declaration lf-log-none syn-ok
+  99 lf-log-none lf-rule-inductive-block lf-log-none syn-ok
+  lf-rule-application syn-open syn-infer syn-infer outcome-ok syn-close
+  0 3 lf-rule-publish lf-log-none syn-ok ;
+syn-every lv-listed
+T{ lf-log-count lv-len @ 0> -> 21 true }T
+T{ 1 lv-line s"   s1     sort                depth 0   Prop : Type" compare -> 0 }T
+T{ 2 lv-line s"   s2     whnf                depth 0   (fun x ↦ x) Prop ⟶ Prop" compare -> 0 }T
+T{ 3 lv-line s"   s3     beta                depth 0   (fun x ↦ x) Prop ⟶ Prop" compare -> 0 }T
+T{ 4 lv-line s"   s4     defeq               depth 0   Prop ≡ Prop → Prop" compare -> 0 }T
+T{ 5 lv-line s"   s5     level-eq            depth 0   1 = max 1 2  [rejected]" compare -> 0 }T
+T{ 6 lv-line s"   s6     instantiate         depth 0   (fun x ↦ x) Type ⟶ Type" compare
+   -> 0 }T
+T{ 7 lv-line s"   s7     shift               depth 0   Type shifted by 2 ⟶ Type" compare
+   -> 0 }T
+T{ 8 lv-line
+   s"   s8     instantiate-levels  depth 0   Type (max 0 1) with levels: 1 ⟶ Type (max 0 1)"
+   compare -> 0 }T
+T{ 9 lv-line s"   s9     resolve             depth 0   B ↦ generated" compare -> 0 }T
+T{ 10 lv-line s"   s10    resolve             depth 0   B ↦ d3" compare -> 0 }T
+T{ 11 lv-line s"   s11    fresh-name          depth 0   declaration composition" compare
+   -> 0 }T
+T{ 12 lv-line s"   s12    universe-arity      depth 0   2 levels for d0" compare -> 0 }T
+T{ 13 lv-line s"   s13    universe-parameter  depth 0   B" compare -> 0 }T
+T{ 14 lv-line s"   s14    proposition         depth 0   Prop → Prop : Sort max 1 2" compare
+   -> 0 }T
+T{ 15 lv-line s"   s15    type                depth 0   Prop → Prop : Sort 1" compare -> 0 }T
+T{ 16 lv-line s"   s16    declaration         depth 0   Prop := Type" compare -> 0 }T
+T{ 17 lv-line s"   s17    inductive-block     depth 0   declaration 99" compare -> 0 }T
+T{ 20 lv-line s"   s20    application         depth 0   (fun x ↦ x) Prop : Prop  ← s18, s19"
+   compare -> 0 }T
+T{ 21 lv-line s"   s21    publish             depth 0   d0, 3 dependencies" compare -> 0 }T
+T{ 22 lv-line nip -> 0 }T
+\ Premises, ascending, and the inference premises among them.
+T{ 20 lf-lv-premises 20 0 lf-lv-premise 20 1 lf-lv-premise -> 2 18 19 }T
+T{ 20 0 lf-lv-inference 20 1 lf-lv-inference 20 2 lf-lv-inference -> 18 true 19 true false }T
+T{ 21 lf-lv-premises 1 lf-lv-premises -> 0 0 }T
+T{ 1 0 lf-lv-inference 21 0 lf-lv-inference -> false false }T
+\ Rebuilding copies (lf-lv-term, lf-lv-level): a copy and the copies below
+\ it are rebuilt as scratch nodes, here the very nodes the log copied (the
+\ term store shares equal nodes and levels are interned), a symbolic Sort
+\ with its level; none, unkept and a copy the pool does not hold give
+\ false.
+: lv-open ( -- ) lf-lv-open must ;
+: lv-close ( -- ) lf-lv-release lf-lv-close throw ;
+T{ lv-open 2 lf-log-a@ lf-lv-term >r syn-app = r> lv-close -> true true }T
+T{ lv-open 5 lf-log-b@ lf-lv-level >r syn-u = r> lv-close -> true true }T
+: syn-three ( -- l ) syn-one lf-level-succ must lf-level-succ must ;   \ a chain of successors
+: lv-sort-of? ( term -- flag )   \ a new symbolic Sort (not shared) of syn-u
+  lf-term-read 0= if false exit then drop syn-u = swap lf-tag-symbolic-sort = and ;
+T{ lv-open 8 lf-log-a@ lf-lv-term >r lv-sort-of? r> lv-close -> true true }T
+T{ lv-open 4 lf-log-b@ lf-lv-term >r syn-pi = r> lv-close -> true true }T
+T{ lv-open lf-log-none lf-lv-term lf-log-none lf-lv-level lv-close -> false false }T
+T{ lv-open lf-log-unkept lf-lv-level lv-close -> false }T
+T{ lv-open lf-log-term-copies lf-log-copy-index lf-lv-term lv-close -> false }T
+T{ lv-open lf-log-level-copies lf-log-copy-index lf-lv-level lv-close -> false }T
+\ The parts of a term (1 first, 2 second): of an application, a lambda or
+\ a Pi only.
+: lv-part ( ref part -- ref' true | false ) lf-lv-child-ref ;
+T{ 2 lf-log-a@ 2 lv-part >r 1 lf-log-a@ = r> -> true true }T   \ Prop, copied once
+T{ 2 lf-log-a@ 1 lv-part drop lf-lv-tag -> lf-tag-lam true }T
+T{ 1 lf-log-a@ 1 lv-part -> false }T
+T{ 2 lf-log-a@ lf-lv-tag 2 lf-log-a@ lf-lv-node >r 2drop r> -> lf-tag-app true lf-tag-app true }T
+T{ lf-log-none lf-lv-tag lf-log-none lf-lv-node -> false false }T
+\ A damaged copy (its child a later copy, which no log the copier wrote
+\ has) is not rebuilt, and no copy stays marked by the failed walk.
+: lv-marked? ( -- flag )
+  false lf-log-term-capacity 0 ?do lf-lv lf-lv-made i cells + @ -1 = or loop ;
+: lv-app-k ( -- k ) 2 lf-log-a@ lf-log-copy-index ;    \ s2's application, a copy
+: lv-damage ( -- )   \ its second child: the next copy
+  lv-app-k lf-log-term-node@ drop lv-app-k 1+ lf-log-copy-index lv-app-k lf-log-term-slot
+  node! ;
+T{ lv-open lv-damage 2 lf-log-a@ lf-lv-term lv-marked? lv-close -> false false }T
+syn-stop
+\ An application whose premises mix inference steps with others: s1 and
+\ s3 are its inference premises, s2 and s4 not.
+: syn-mixed ( -- ) syn-start lf-rule-application syn-open
+  syn-infer syn-defeq syn-infer syn-inst outcome-ok syn-close ;
+T{ syn-mixed 5 lf-lv-premises 5 1 lf-lv-premise 5 3 lf-lv-premise syn-stop -> 4 2 4 }T
+T{ syn-mixed 5 0 lf-lv-inference 5 1 lf-lv-inference 5 2 lf-lv-inference syn-stop
+   -> 1 true 3 true false }T
+\ A level copied as a chain of successors is rebuilt link by link.
+: syn-chain ( -- ) syn-start syn-three 0 lf-rule-level-eq lf-log-none syn-ok ;
+T{ syn-chain lf-log-level-copies 1 > lv-open 1 lf-log-a@ lf-lv-level >r syn-three = r>
+   lv-close syn-stop -> true true true }T
+
 ample 0 lf-log-set
 cases-done
 bye

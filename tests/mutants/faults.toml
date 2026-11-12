@@ -3833,8 +3833,8 @@ reason = "a test log keeps the last check's published slot, so a printer can tak
 [[fault]]
 id = "printer-rebuilds-only-the-top"
 file = "src/present/log-view.fs"
-old = '''  1+ 0 ?do i lf-lv-tready 0= if false unloop exit then loop true ;'''
-new = '''  lf-lv-tready ;'''
+old = '''  swap 1+ 0 ?do i over lf-lv-ready 0= if drop false unloop exit then loop drop true ;'''
+new = '''  lf-lv-ready ;'''
 test = "$GFORTH tests/core/derivation-log.fs"
 reason = "the rebuild of a copy (plan task 6.2.0) builds only the copy asked for, not the copies below it that its walk marked, so a copy with copied children prints as ?"
 
@@ -4993,6 +4993,62 @@ old = '''    lf-tag-lit of ['] lf-pf-lit-step endof lf-tag-str of ['] lf-pf-str-
 new = '''    lf-tag-str of ['] lf-pf-str-step endof'''
 test = "$GFORTH tests/author/author.fs"
 reason = "the Forth mode's leaf dispatch loses the number literal arm: 7 lit# prints as invalid"
+
+[[fault]]
+id = "log-view-inference-always-first"
+file = "src/present/log-view.fs"
+old = ''': lf-lv-down? ( c -- c' flag ) dup if 1- false else true then ;'''
+new = ''': lf-lv-down? ( c -- c' flag ) true ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "every inference premise asked for is the first one: an application's argument step shows its function's"
+
+[[fault]]
+id = "log-view-premise-one-late"
+file = "src/present/log-view.fs"
+old = ''': lf-lv-premise ( s i -- p ) over lf-lv-premises swap - 1- swap 1- swap lf-lv-back ;'''
+new = ''': lf-lv-premise ( s i -- p ) over lf-lv-premises swap - swap 1- swap lf-lv-back ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "premise i is counted one hop too far back along the chain"
+
+[[fault]]
+id = "log-view-successor-child-unmarked"
+file = "src/present/log-view.fs"
+old = '''  >r rot dup lf-level-tag-succ = if 2drop r> lf-lv-mark-child exit then'''
+new = '''  >r rot dup lf-level-tag-succ = if 2drop drop r> drop outcome-ok exit then'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "a copied successor level does not mark its copied child, which is then not rebuilt first: max 1 2 is not rebuilt"
+
+[[fault]]
+id = "log-view-shift-listed-as-redex"
+file = "src/present/log-view.fs"
+old = '''lf-rule-shift of lf-lv-shifted endof'''
+new = '''lf-rule-shift of lf-lv-beta endof'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "a shift step's line shows a redex instead of the shifted term and its amount"
+
+[[fault]]
+id = "log-check-pair-first-only"
+file = "src/present/log-check.fs"
+old = '''  dup lf-lc-first over lf-lc-child? swap dup lf-lc-second swap lf-lc-child? and ;'''
+new = '''  dup lf-lc-first swap lf-lc-child? ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "a term copy's second child is not checked: a copy whose argument is a later copy passes part 6"
+
+[[fault]]
+id = "log-check-pi-premises-unchecked"
+file = "src/present/log-check.fs"
+old = '''lf-rule-pi of lf-lc-binder? endof'''
+new = ''''''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "a Pi step's premise kinds are not checked: one with three inference premises passes part 9"
+
+[[fault]]
+id = "log-check-premises-past-start"
+file = "src/present/log-check.fs"
+old = ''': lf-lc-above? ( p start -- flag ) over < swap 0> and ;'''
+new = ''': lf-lc-above? ( p start -- flag ) drop 0> ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "premises are followed below the step's start, so earlier steps count as its premises and real logs fail part 9"
 
 # --- the authoring runner's rules for the checker's Gforth (plan 8.2.1a;
 # ADR 0017 Amendment 1, A5): src/author/runner.fs, groups.fs, source.fs,
