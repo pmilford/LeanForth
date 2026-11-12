@@ -4598,6 +4598,14 @@ new = ''': lf-lscope-power-of-two? ( n -- flag ) 0> ;'''
 test = "$GFORTH tests/core/level-scope.fs"
 reason = "R2-L2: the slot-count guard accepts a count that is not a power of two"
 
+[[fault]]
+id = "perf1-lscope-copy-by-count"
+file = "src/core/level-scope.fs"
+old = '''  if lf-lscope-entries lf-lscope-copy compare 0= else false then ;'''
+new = '''  if true else false then ;'''
+test = "$GFORTH tests/core/level-scope.fs"
+reason = "PERF1: the audit's kept copy is matched by the count alone, so a repeat corrupted into the entries after an audit passes"
+
 # --- recursive inductive blocks (plan task 5.2.1b; ADR 0015 §13, test plan 7) ---
 # src/kernel/check-block.fs (positivity, C3), inductive-block.fs (nested
 # blocks, is_rec), inductive-recursor.fs (induction hypotheses, recursive
@@ -7521,16 +7529,16 @@ reason = "rvSN4 B1 (PF): == binders stay separate nodes, so a binder a check mak
 [[fault]]
 id = "pf-findable-always"
 file = "src/kernel/check-declaration.fs"
-old = '''  dup lf-check-before? if lf-audit-reached? else drop true then ;'''
+old = '''  dup lf-check-before? if lf-check-reached? else drop true then ;'''
 new = '''  drop true ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "rvSN4 B1 (PF): a check is given input nodes it never reached, so the other records of the tier change its hits and fuel"
 
 [[fault]]
 id = "pf-findable-held-any-epoch"
-file = "src/core/constant-term-boundary.fs"
-old = '''  lf-audit-on? 0= if drop false exit then lf-audit-held? ;'''
-new = '''  lf-audit-on? 0= if drop false exit then drop true ;'''
+file = "src/kernel/check-declaration.fs"
+old = ''': lf-check-reached? ( n -- flag ) lf-audit-on? if lf-audit-held? else drop true then ;'''
+new = ''': lf-check-reached? ( n -- flag ) lf-audit-on? if drop true else drop true then ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "rvSN4 B1 (PF): every node made before the check counts as reached, so the rule never holds one back"
 
