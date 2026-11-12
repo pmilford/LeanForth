@@ -1,26 +1,31 @@
 # LeanForth syntax: theorems and proofs as Forth words
 
-**Status (2026-11-03): implemented, experimental, not yet relied on.** The
-words of [ADR 0017](../adr/0017-leanforth-syntax.md), which the owner
-approved as the design, exist in `src/author/` (plan task 8.1.2): you can
-write a theorem, a definition and its proof as Forth words, run them,
-get your mistakes back with line and column, and print the result back
-as words or in Lean's notation. They still pass the [parser] review gate
-of `AGENTS.md` before anything relies on them. What is not built yet
-(designed in [ADR 0017 Amendment 1](../adr/0017-leanforth-syntax.md#amendment-1-accepted-leanforth-text-run-by-forth-itself-at-the-prompt-from-files-and-inline),
-accepted by the owner on 2026-11-04; plan task 8.2.1): with LeanForth
-loaded, Gforth's own interpreter will run this text — from a file with
-`leanforth check proof.lf`, typed at the prompt, or from a Forth program
-that passes values in — and each `end NAME` will hand the declaration to
-the checker; library names such as `Init`'s will be found through a
-vocabulary, exactly as spelt. Today these words build terms and print
-them but do not yet send them to the checker; helpers that fill in
-implicit arguments or run tactics are plan 8.3. Today theorems reach the
-checker from Lean exports ([workflows](WORKFLOWS.md#checking-a-theorem)).
+**Status (2026-11-12): the words exist and build terms; LeanForth does not
+check this text.** The words of [ADR 0017](../adr/0017-leanforth-syntax.md),
+which the owner approved as the design, exist in `src/author/` (plan task
+8.1.2): you can write a theorem, a definition and its proof as Forth words,
+run them, get syntax and scope mistakes back with line and column, and print
+the result back as words or in Lean's notation. They build and print terms;
+they **do not type-check them and do not send them to the checker**, so a
+wrong proof builds without error (the demo's wrong proof, `g value $`
+applied where a proof of B is needed, runs with "no error"). The `import-stub`
+declarations below are not checked either: they only give names and types
+to the words. Checking LeanForth text is **not built**: `leanforth check
+FILE.lf` exits 4 (plan 8.2.1a-g, not started; designed in
+[ADR 0017 Amendment 1](../adr/0017-leanforth-syntax.md#amendment-1-accepted-leanforth-text-run-by-forth-itself-at-the-prompt-from-files-and-inline),
+accepted by the owner on 2026-11-04): with LeanForth loaded, Gforth's own
+interpreter is to run this text, and each `end NAME` is to hand the
+declaration to the checker. Nothing has been proved from LeanForth input.
+The words also hold only 64 terms per run today: a long printed statement
+(such as a demo's) runs out of room (error 60) or meets a name that is not
+declared (error 1, unknown name `Nat`). Helpers that fill in implicit
+arguments or run tactics are plan 8.3. Today theorems reach the checker only
+from Lean exports, where Lean made the proof
+([workflows](WORKFLOWS.md#checking-a-theorem)). These words still pass the
+[parser] review gate of `AGENTS.md`.
 
 **Trust.** The words decide nothing. They only build terms; only the
-checker can accept a theorem, and the checked statement can always be
-printed back for you to read. The checker never loads `src/author/`
+checker can accept a theorem, and nothing here reaches it yet. The checker never loads `src/author/`
 today (a test checks it); under Amendment 1 they will share one Gforth,
 with only LeanForth's words visible to the text, and results where other
 Forth code ran in the same Gforth will read "checked in this session"
@@ -266,8 +271,9 @@ fun {P} h ↦ fixtureId h
 
 **Mathematics.** For all natural numbers $n, m$: $n + m = m + n$.
 
-**LeanForth.** This is the *kernel form*: exactly the term the checker
-checks, with every hidden argument written out. Lean's `n + m` is generic
+**LeanForth.** This is the *kernel form*: the term as Lean's kernel
+has it (the checker would check this term; today these words only build it),
+with every hidden argument written out. Lean's `n + m` is generic
 addition `HAdd.hAdd` at the type `Nat`, with "addition of naturals"
 (`instHAdd 0 ^ Nat $ instAddNat $`) passed as an argument, and `0 ^` and
 `1 ^` are universe levels. Shorter forms, where a helper fills in such

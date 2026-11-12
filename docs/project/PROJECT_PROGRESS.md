@@ -50,19 +50,28 @@ status changes when this date is older than them. Stages are those of the
 ## Where things stand, in plain words
 
 **Current state, 2026-11-12 afternoon (main `700c4a1`, verdict version 9).**
-LeanForth gives **Lean's verdict on every declaration of Mathlib**: all **729,263 of
-729,263 accepted** on `b74a04d` (exit 0; one NOT PROVED, `sorryAx` itself, as in
-Lean), on 8 workers with fuel 250,000,000 and `--memory-per-check 8192`: 12,134 s
+Today LeanForth **re-checks proofs that Lean produced and exported** (NDJSON); it does
+not yet check LeanForth text (plan 8.2.1a-g not started; `leanforth check FILE.lf` exits
+4), and nothing has been proved from LeanForth input. Re-checking Lean's export of all of
+Mathlib gave Lean's verdict on every declaration: all **729,263 of
+729,263 accepted** on build `b74a04d` (before K1 and PERF1; exit 0; one NOT PROVED,
+`sorryAx` itself, as in Lean), on 8 workers with fuel 250,000,000,
+`--memory-per-check 8192` and `--no-manifest`: 12,134 s
 (3.37 h) wall, 92,220 CPU seconds, 29.4 GB peak, 27.1 billion fuel steps; checking
-against the saved snapshot takes 425 s and 9.5 GB. `Init`: all 59,349 accepted. The
-**large Lean Kernel Arena tests** all match the official checker. Since that run:
+against the saved snapshot takes 425 s and 9.5 GB. The proofs were made by Lean. `Init`:
+all 59,349 accepted (one NOT PROVED; `--resources --jobs 2` on this build, 532 s, 842 MB).
+The **large Lean Kernel Arena tests** (std, con-leche, cslib, navier-stokes) were accepted
+on `b74a04d` at fuel 250M, as the official checker does (at the default fuel cslib had 1
+exhausted; in the small bundle 84/84 bad were rejected, 124/128 good accepted and 4 good
+performance tests timed out at 120 s). Since that run:
 the review fixes FXK and FXR, the nested passes' memo (MO), and on 2026-11-12
 afternoon **K1** (plan 4.2.7d: typing aside follows Lean's infer-only mode and
 rejects where it throws; this closed a soundness gap, small exports Lean rejects
 had been accepted, none in Mathlib or the arena since Lean accepts all of those),
 **L1/G1** (6.2.5b), and **readable mathematics** in `leanforth print` (notation
-table, plan 4.4.3) with **five demos** checked end to end
-([DEMOS.md](../user/DEMOS.md), plan 8.6.6). The Mathlib snapshot of `b74a04d`
+table, plan 4.4.3) with **five demos**: Lean proves each theorem and LeanForth re-checks the proof terms in
+Lean's export ([DEMOS.md](../user/DEMOS.md), plan 8.6.6); the LeanForth words shown there
+are the statement printed from that export, not runnable input. The Mathlib snapshot of `b74a04d`
 (version 6) loads on this build only with `--snapshot-stale-ok`; a full Mathlib
 run on version 9 is scheduled for the night of 2026-11-12. **Approved by the
 owner on 2026-11-12:** S5/S5B, S7, IO, SN2-SN5, PF C1, SH, PF task 6, MB, R5, NS,
