@@ -971,7 +971,7 @@ class Behaviour(unittest.TestCase):
         self.assertEqual(run("check", "tests/cli/nested.ndjson")[0], 0)
         self.assertNotIn("0 of 729,263", out)
         progress = (ROOT / "docs/project/PROJECT_PROGRESS.md").read_text()
-        self.assertIn("all **729,263 of\n729,263 accepted** on `b74a04d`", progress)
+        self.assertRegex(progress, r"729,263 of\s+729,263 accepted\*\* on build `b74a04d`")
         self.assertIn("Mathlib: all 729,263 declarations of its Lean export were "
                       "accepted on build\n  b74a04d (fuel 250M,", out)
 
