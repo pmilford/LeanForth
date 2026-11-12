@@ -21,31 +21,25 @@ speed before parallelism adds more.
 
 ## Where things stand, in plain words
 
-**Current state, 2026-11-11 evening (main `0627845`).** LeanForth accepts **all
-59,349 declarations of Lean's `Init`** (exit 0) and has run **all of Mathlib**
-for the first time (`a43539e`, 4 workers, fuel 20,000,000): of **729,263
-declarations, 728,360 are accepted (99.88%, the same verdict as Lean), 0 are
-rejected, 28 ran out of fuel and 875 are *unknown* only because they depend on
-those 28; one is NOT PROVED (it uses `sorryAx`, as in Lean)**. The run took
-5.74 h wall, 21.4 CPU hours (about 21 times Lean's one-thread time) and 20 GB
-at the peak. Re-checking only the 28 roots and what they need at fuel
-100,000,000 accepts 23 of them (9,384 s, 10.9 GB); 5 still run out. The default
-fuel is now 100,000,000 (owner, 2026-11-11). On one thread `Init` takes about
-23 times as long as Lean's official export checker. Merged since the
-earlier state of today: parallel checking (S7, `--jobs N`) and the **shared
-input** (SH: the workers read one copy; Mathlib on 8 workers is predicted at
-about 13 GB, the sixth went from 7.7 to 4.7 GB); compact-store step S5B (no copy
-of the input at all); the **checked-environment snapshot** (plan 6.2.5, steps
-SN1-SN5: save and reload, import against a snapshot, layers, a stale-snapshot
-flag and golden guard files; `Init` against its own snapshot takes 49 s instead
-of 749 s); `--progress`, streamed verdict lines and `scripts/export-slice.py`
-(PRG); `gforth-fast` as the default engine with `--checked` as opt-in and an
-engine gate (ENG); the first performance batch (PF batch 1: default fuel
-100,000,000, the closing-argument fix C1, verdict version 3); the diagnostic-81
-routes (IO). **Open:** the fuel and tier-numbering identity of a snapshot slot
-(blocking finding B1 of review rvSN4; PF task 6), the review and approval gates
-owed for S5/S5B, S7, IO, SN2-SN5, PF C1 and SH, and the large arena tests
-(agent LG). Every accepted result is *experimental — not independently
+**Current state, 2026-11-12 morning (main `b74a04d`).** LeanForth gives
+**Lean's verdict on every declaration of Mathlib**: all **729,263 of 729,263
+accepted** (exit 0; one NOT PROVED, `sorryAx` itself, as in Lean), on 8
+workers with fuel 250,000,000 and `--memory-per-check 8192`: 12,134 s (3.37 h)
+wall, 92,220 CPU seconds, 29.4 GB peak, 27.1 billion fuel steps. The run saved
+the **Mathlib snapshot** (2.2 GB); checking Mathlib against it takes 425 s and
+9.5 GB. `Init`: all 59,349 accepted. The **large Lean Kernel Arena tests**
+(std, reachability, con-leche, cedar, cslib, Navier–Stokes/Euler) now all match
+the official checker: every declaration accepted (e.g. Navier–Stokes 129,845
+in 3,157 s on 8 workers, Lean's checker 1,110 s on one). Merged on
+2026-11-11 night: a check's fuel independent of the tier's numbering (PF task 6,
+review rvSN4 B1, ADR 0014 Amendment 7), memory per check (MB, Amendment 8),
+Lean's `infer_app` spine typing (R5, Amendment 9) and inductive-block walks
+once per shared node (NS); verdict version 6. Earlier on 2026-11-11: parallel
+checking (S7), the shared input (SH), compact-store step S5B, the
+checked-environment snapshot (SN1-SN5), `--progress` (PRG), `gforth-fast` by
+default (ENG), PF batch 1, the diagnostic-81 routes (IO). **Open:** the review
+and approval gates owed for S5/S5B, S7, IO, SN2-SN5, PF C1, SH, PF task 6, MB,
+R5 and NS. Every accepted result is *experimental — not independently
 audited*. Details: [Limitations](#limitations), [Full Mathlib](#full-mathlib);
 the sections below are the 2026-11-04 snapshot except where dated.
 
@@ -409,7 +403,7 @@ LeanForth proof or proof that the real Forth runtime follows the model.
 | T6 NDJSON | 0 | 3 | 1 |
 | T7 Lean corpus | 0 | 3 | 1 |
 | T8 declarations | 0 | 2 | 2 |
-| T9 full Mathlib | 0 | 2 | 3 |
+| T9 full Mathlib | 0 | 3 | 2 |
 | T10 native authoring | 0 | 1 | 3 |
 | **Theorem track, 39 tasks** | **3** | **25** | **11** |
 | P1 contracts | 0 | 3 | 0 |
@@ -508,7 +502,7 @@ tasks, not the plan's.
 | 6. Lean NDJSON importer | In progress: the Forth reader (gate approved 2026-11-03) decodes every record kind of lean4export 3.1.0 and all of Mathlib (below); the importer stage (approved 2026-11-03) stages all of Mathlib and the byte-for-byte re-export is done; the checker is fed `Init` end to end (heap stores; gate approved 2026-11-04 late). Feeding Mathlib, the checksum manifest check by default and other Lean libraries (plan 6.1.6) remain. |
 | 7. Lean checker compatibility corpus | In progress: selected differential tables and the first checker's expected-results table; no official corpus run. |
 | 8. Lean declaration features | In progress: the checked environment is designed (ADR 0012, per-declaration universe scope); candidate signatures remain unchecked assumptions; non-recursive inductive types and their recursors are checked (plan 5.2.1a, approved 2026-11-04); recursive types are merged but not past their gate (5.2.1b); indexed types, structures, literals and quotients are decoded by the reader but not yet checked (plan 5.2.1b-c, 5.2.2, 5.2.3, phase 5). |
-| 9. Full Mathlib | In progress (T9.1, T9.4): denominator pinned, export and reading measured, storage design accepted and measured (ADR 0016); nothing imported into the checker's stores or checked. |
+| 9. Full Mathlib | In progress (T9.1, T9.2, T9.4): every declaration of the pinned Mathlib export (729,263) checked on `b74a04d` (2026-11-12) with Lean's verdict on each, all accepted, 3.37 h on 8 workers, 29.4 GB; the checked snapshot saved and reloaded (425 s). T9.2's evidence is met; the review and owner gates for the checker changes it ran on are owed, so it is not marked done. |
 | 10. Native proof authoring | In progress (T10.1 in part): theorems and proofs are written as LeanForth words run by Forth's own interpreter ([syntax](../user/LEANFORTH_SYNTAX.md), [ADR 0017](../adr/0017-leanforth-syntax.md) approved; plan 8.1.2 merged 2026-11-03, under the [parser] gate): binder words, `fun`, `forall`, `->`, `$`, `^`, `theorem … := … end`, namespaces, labels and notes; 53 error codes with line and column; 42 `#print` lines from 14 fixtures equal Lean's. The term printer matches Lean's printing on 50 cases. Readable proof outlines now come from the checker's derivation log (`leanforth print`, approved 2026-11-04). Not yet: handing terms to the checker in a separate process, literals, `let`, tactics. |
 
 ## Provably correct executable Forth
@@ -547,7 +541,7 @@ tasks, not the plan's.
 | Records of the pinned Mathlib export decoded and checked for shape and references | 110,895,826 of 110,895,826 (100%), field for field equal to Python's `json` module | lines of export SHA-256 `18448e5d…59c6` |
 | Expression nodes staged into the compact store | all of Mathlib's 105,894,257; since compact-store step S5 (2026-11-11) the checker reads them in place, copying only `let`, projection and metadata nodes and the nodes above them (2.4% of `Init`'s) | nodes of the pinned export |
 | Expression nodes fed into the checker's own stores | `Init`: 6,099,054 nodes of its 59,349 declarations; Mathlib: the first sixth (119,472 declarations) checked, the first third (217,032) staged and fed at fuel 1 on 2026-11-10 (loading only, no check); since step S5 only `let`, projection and metadata nodes and those above them are copied | the checker's stores grow with memory |
-| Declarations checked by LeanForth | Mathlib: **729,263 of 729,263 (100%) checked** on `a43539e` (2026-11-11, fuel 20,000,000, 4 workers): 728,360 accepted (99.88%, same verdict as Lean), 0 rejected, 28 exhausted, 875 *unknown* (each depends on one of the 28), 1 NOT PROVED (`sorryAx`); 5.74 h, 21.4 CPU hours, 20 GB. At fuel 100,000,000 the 28 roots give 23 accepted, 5 still exhausted. `Init`: **59,349 of 59,349 (100%) accepted**, exit 0 (`af93afb`). Experimental, not independently audited | constants of the pinned Mathlib export with its dependencies; `Init`'s own count |
+| Declarations checked by LeanForth | Mathlib: **729,263 of 729,263 (100%) accepted** on `b74a04d` (2026-11-12, fuel 250,000,000, 8 workers): the same verdict as Lean on every declaration, 1 NOT PROVED (`sorryAx`); 3.37 h, 25.6 CPU hours, 29.4 GB. `Init`: **59,349 of 59,349 (100%) accepted**, exit 0. Experimental, not independently audited | constants of the pinned Mathlib export with its dependencies; `Init`'s own count |
 | Share of Mathlib the checker accepts | 99.88% (728,360 of 729,263) at fuel 20,000,000; a run at the new default fuel of 100,000,000 that also saves a snapshot is next | all declarations of the pinned export |
 | T6 importer acceptance tasks done | 0 of 4 | roadmap T6 |
 | Other Lean libraries imported (plan 6.1.6) | 0 | planned: a few small ones and the largest |
@@ -565,7 +559,7 @@ through the import review gate.
 
 ## Full Mathlib
 
-- **Acceptance-task completion: 0 of 5 T9 tasks done** (2 in progress).
+- **Acceptance-task completion: 0 of 5 T9 tasks done** (3 in progress: T9.1, T9.2, T9.4).
 - **Storage:** the compact store (ADR 0016, accepted 2026-11-03) holds all
   of Mathlib in 2.94 GB (4.16 GB peak while loading) in a measurement
   prototype and, since the importer stage was approved, in `src/import/`.
@@ -574,17 +568,16 @@ through the import review gate.
   (Mathlib's first sixth loads in 52 s and 1.06 GB, against 124 s and
   3.37 GB copied); step S5B (merged) removed the remaining copy, and the
   workers of `--jobs N` now share one input (SH).
-- **Checked so far: all of Mathlib, once** (`a43539e`, 2026-11-11, fuel
-  20,000,000, 4 workers, `gforth-fast`, in-place input): 728,360 of 729,263
-  accepted (99.88%, the verdict Lean gives), 0 rejected, 28 exhausted roots and
-  875 *unknown* declarations that depend on them (fuel only: Lean accepts all),
-  1 NOT PROVED (`sorryAx`, as in Lean). 20,670 s (5.74 h), 76,961 CPU seconds
-  (21.4 h, about 21 times Lean's one-thread time), 20 GB peak. The 28 roots
-  re-checked at fuel 100,000,000 (slice made with `scripts/export-slice.py`):
-  23 accepted, 5 still exhausted, 9,384 s, 10.9 GB. The 875 unknowns can hide
-  further roots (the sixth, at 100M, showed one new root); agent R5 root-causes
-  them. The earlier first-sixth run (`e3399df`, 118,838 accepted) is superseded.
-- **Declarations checked: 729,263 of 729,263 (728,360 accepted)** in the full export
+- **Checked: all of Mathlib, every verdict Lean's** (`b74a04d`, 2026-11-12,
+  fuel 250,000,000, `--memory-per-check 8192`, 8 workers, `gforth-fast`,
+  shared in-place input): 729,263 of 729,263 accepted, exit 0, 1 NOT PROVED
+  (`sorryAx`, as in Lean). 12,134 s (3.37 h), 92,220 CPU seconds (25.6 h),
+  29.4 GB peak, 27.1 billion fuel steps (the largest single need about 230M,
+  agent R5). Snapshot `mathlib-b74a04d.lfsnap` (2.2 GB, sha256 `31864083…`)
+  saved; the export checked against it: 425 s (316 s of it reading the
+  export), 9.5 GB. The first full run (`a43539e`, fuel 20,000,000, 4 workers:
+  728,360 accepted, 28 exhausted, 875 unknown, 5.74 h) is superseded.
+- **Declarations checked: 729,263 of 729,263 (729,263 accepted)** in the full export
   of Mathlib `v4.35.0` (commit `56a0058`) with its dependencies, sha256
   `18448e5d…59c6` ([measurements](../development/measurements/mathlib-2026-11-02/README.md)):
   184,355 definitions, 517,916 theorems, 2,913 opaque declarations, 4
