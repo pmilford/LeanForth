@@ -1974,7 +1974,7 @@ verdict version and fuel setting and 99 slots' fuel moved, all to less.
 
 ## Amendment 7: one node per == class of input binders (agent PF, review rvSN4 B1, 2026-11-11, proposed)
 
-Status: proposed; [kernel] gate owed. Code: `src/import/feed.fs`
+Status: work in progress (one of two causes found); [kernel] gate owed. Code: `src/import/feed.fs`
 (`feed-enter`, `feed-merge`), `src/core/terms.fs`
 (`lf-term-input-binder-first`). No typing, reduction or conversion rule
 changes; a check reads the same terms up to binder names and binder
@@ -2001,9 +2001,10 @@ entered before it (another name or binder information) is marked to copy
 instead, and its copy is that earlier binder (`lf-term-add` finds it in
 the table). Its parents are copied too (a child copied), and their copies
 are the tier's records of those fields when there are some. So each `==`
-class of input binders, and every node above one, is one node, and what a
-check reaches depends only on its declaration and the declarations it
-reads, never on the rest of the tier. Not with a binder hook (the print
+class of input binders, and every node above one, is one node, and a
+check no longer meets another declaration's or a snapshot's record of a
+binder class (a second dependence on the tier remains: "Left" below).
+Not with a binder hook (the print
 command), which keeps every binder's own name to print it, so its checks
 share as before this change and may use a little more fuel than
 `check`'s (their verdicts can differ only near the fuel budget; `print`
@@ -2015,9 +2016,9 @@ its own). Room: the copies of the merged binders' parents (measured
 below).
 
 **Fuel and verdicts.** In a fresh check a declaration whose binders equal
-earlier ones up to names now shares them: less or equal fuel; with a
-snapshot, a check's fuel equals the fresh check's. Verdicts move only from
-*exhausted* to Lean's.
+earlier ones up to names now shares them: less or equal fuel (measured:
+less or equal on all of `Init`). Verdicts move only from *exhausted* to
+Lean's.
 
 **Evidence.** `tests/cli/cross_snapshot.py` (in `make check`, through
 `tests/cli/export-check.sh`): nine fixtures, each checked fresh and
@@ -2030,7 +2031,24 @@ declaration's verdict and fuel the same (before: unfold/`Implies`
 `s5-feed-binders-not-entered`. `tests/core/check-declaration-ndjson.fs`: a
 let's lambda and a later lambda of the same type and body are one node
 again. The golden snapshot fields of the ten guarded exports: no fuel
-moved (only the verdict version, 3 → 4). EVIDENCE7
+moved (only the verdict version, 3 → 4). All of `Init` fresh (default
+fuel, against pf-perf before the change): 59,349 accepted before and
+after, 26 declarations with less fuel (816 units in all), none more; the
+feed made 1,111 more term nodes (the copies; 12,220,626 → 12,221,737).
+Mathlib's first 1M lines fresh: 13,023 accepted, 41 more nodes.
+
+**Left (in progress).** Against `Init`'s snapshot that prefix still used
+other fuel than fresh on 1,292 of 13,023 declarations (2,151 before),
+same verdicts: none checked without a taken dependency (344), but 1,284
+checked on taken slots and 8 taken slots. The 8 show the second cause
+without any snapshot: the same declaration checked fresh in two exports
+uses other fuel (`Membership.mem` 400 in `Init`'s export, 396 in the
+prefix; `List.zipWith._f` 2,222 and 2,216). A candidate to test next: a
+term a check makes is hash-consed onto an input record when the tier
+holds one (`lf-term-add`), and an input record is never given back,
+while a store node a pass rolls back is, and the caches miss it after;
+so what other records the tier holds can still change hits. Until it is
+found, ADR 0020's claims stay as before this amendment (amendment 4 there).
 
 ## Note: the projection steps (plan task 5.2.2, 2026-11-10)
 

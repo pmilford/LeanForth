@@ -399,10 +399,11 @@ lf-form-mdata tag-mdata feed-form!
 \ and children, another binder name or information) is copied instead,
 \ and the copy is that earlier binder (lf-term-add finds it in the binder
 \ table), so that every == class of input binders is one node and so is
-\ every node above them: what a check costs then depends only on its
-\ declaration and what it reads, never on which other records the tier
-\ holds (review rvSN4 B1; ADR 0014 Amendment 7). Only without a binder
-\ hook: the print command, which sets one, keeps each binder's own name.
+\ every node above them: a check no longer meets another declaration's
+\ or a snapshot's record of a binder's class (review rvSN4 B1; ADR 0014
+\ Amendment 7, which also names a second dependence still open). Only
+\ without a binder hook: the print command, which sets one, keeps each
+\ binder's own name.
 : feed-merging? ( feed -- flag ) feed-binder-hook @ 0= ;
 : feed-redirect? ( feed first? -- flag ) 0= swap feed-merging? and ;
 : feed-merge ( e feed first? outcome -- outcome )

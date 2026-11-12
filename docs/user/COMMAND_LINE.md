@@ -864,15 +864,16 @@ taken one. On the test exports the verdicts and counts are those of a
 final check of the export (the tests compare both, field by field, and so
 did all of `Init` against its own snapshot); only the labels differ.
 
-**Fuel too** (since 2026-11-11, review rvSN4 B1, ADR 0014 Amendment 7):
-the fuel a check uses depends only on its declaration and what it reads,
-not on how the run numbers the tier's records (before, binders equal up
-to their names were separate records, and a check could meet a
-snapshot's), so a taken declaration's fuel, the snapshot run's, is a
-final check's too, and so is a verdict near the fuel budget
-(`tests/cli/cross_snapshot.py`: nine fixtures, each fresh and against the
-others' snapshots, every verdict and fuel equal; MANUALEVIDENCE). An
-exhausted verdict is still never taken:
+**Not claimed (review rvSN4 B1, a kernel task in progress):** the fuel a
+check uses can still depend on what else the run's tier holds. One cause
+is removed (ADR 0014 Amendment 7: binders equal up to their names are
+one node; `tests/cli/cross_snapshot.py` checks nine fixtures, each fresh
+and against the others' snapshots, every verdict and fuel equal), but on
+Mathlib's first million lines against `Init`'s snapshot 1,292 of 13,023
+declarations still used other fuel than in a final check (2,151 before),
+with the same verdicts. So a taken declaration reports the fuel of the
+run that wrote the snapshot, an exhausted verdict is never taken, and a
+verdict near the fuel budget is not claimed equal to a final check's:
 
 ```text
 Two: accepted (experimental, not independently audited; from snapshot, not re-checked in this run); axioms: none
