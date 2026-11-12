@@ -211,7 +211,7 @@ Theorem Nat.add_zero
         $ OfNat.ofNat 0 ^ Nat $ 0 lit# $ instOfNatNat 0 lit# $ $ $ $ n $
     end Nat.add_zero
   Input:     tests/reference/inductive/nat-add-zero.ndjson line 637
-  Checker log: 263 steps, complete. The statement is a proposition: s106 (from s3).
+  Checker log: 245 steps, complete. The statement is a proposition: s106 (from s3).
 
 No outline template covers this proof; its steps follow.
 
@@ -424,61 +424,43 @@ Steps.
   s206   resolve             depth 1   Eq ↦ d4
   s207   universe-arity      depth 1   1 levels for d4
   s208   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
-  s209   instantiate         depth 1   ? ⟶ ?
-  s210   instantiate         depth 1   ? ⟶ ?
-  s211   instantiate         depth 1   ? ⟶ ?
-  s212   resolve             depth 1   HAdd.hAdd ↦ d11
-  s213   universe-arity      depth 1   3 levels for d11
-  s214   instantiate-levels  depth 1   ? with levels: 3 ⟶ ?
-  s215   instantiate         depth 1   ? ⟶ ?
-  s216   instantiate         depth 1   ? ⟶ ?
-  s217   instantiate         depth 1   ? ⟶ ?
-  s218   instantiate         depth 1   ? ⟶ ?
-  s219   instantiate         depth 1   ? ⟶ ?
-  s220   instantiate         depth 1   ? ⟶ ?
-  s221   resolve             depth 1   Nat ↦ d0
-  s222   universe-arity      depth 1   0 levels for d0
-  s223   instantiate-levels  depth 1   ? with levels: 0 ⟶ ?
-  s224   instantiate-levels  depth 1   ? with levels: 3 ⟶ ?
-  s225   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
-  s226   resolve             depth 1   Add.add ↦ d15
-  s227   universe-arity      depth 1   1 levels for d15
-  s228   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
-  s229   instantiate         depth 1   ? ⟶ ?
-  s230   instantiate         depth 1   ? ⟶ ?
-  s231   instantiate         depth 1   ? ⟶ ?
-  s232   instantiate         depth 1   ? ⟶ ?
-  s233   resolve             depth 1   Nat ↦ d0
-  s234   universe-arity      depth 1   0 levels for d0
-  s235   instantiate-levels  depth 1   ? with levels: 0 ⟶ ?
-  s236   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
-  s237   resolve             depth 1   Nat.add ↦ d29
-  s238   universe-arity      depth 1   0 levels for d29
+  s209   resolve             depth 1   HAdd.hAdd ↦ d11
+  s210   universe-arity      depth 1   3 levels for d11
+  s211   instantiate-levels  depth 1   ? with levels: 3 ⟶ ?
+  s212   resolve             depth 1   Nat ↦ d0
+  s213   universe-arity      depth 1   0 levels for d0
+  s214   instantiate-levels  depth 1   ? with levels: 0 ⟶ ?
+  s215   instantiate-levels  depth 1   ? with levels: 3 ⟶ ?
+  s216   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
+  s217   resolve             depth 1   Add.add ↦ d15
+  s218   universe-arity      depth 1   1 levels for d15
+  s219   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
+  s220   resolve             depth 1   Nat ↦ d0
+  s221   universe-arity      depth 1   0 levels for d0
+  s222   instantiate-levels  depth 1   ? with levels: 0 ⟶ ?
+  s223   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
+  s224   resolve             depth 1   Nat.add ↦ d29
+  s225   universe-arity      depth 1   0 levels for d29
+  s226   instantiate-levels  depth 1   ? with levels: 0 ⟶ ?
+  s227   resolve             depth 1   Nat ↦ d0
+  s228   universe-arity      depth 1   0 levels for d0
+  s229   instantiate-levels  depth 1   ? with levels: 0 ⟶ ?
+  s230   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
+  s231   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
+  s232   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
+  s233   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
+  s234   resolve             depth 1   Nat.add._f ↦ d28
+  s235   universe-arity      depth 1   0 levels for d28
+  s236   instantiate-levels  depth 1   ? with levels: 0 ⟶ ?
+  s237   resolve             depth 1   Nat ↦ d0
+  s238   universe-arity      depth 1   0 levels for d0
   s239   instantiate-levels  depth 1   ? with levels: 0 ⟶ ?
-  s240   instantiate         depth 1   ? ⟶ ?
-  s241   instantiate         depth 1   ? ⟶ ?
-  s242   resolve             depth 1   Nat ↦ d0
-  s243   universe-arity      depth 1   0 levels for d0
-  s244   instantiate-levels  depth 1   ? with levels: 0 ⟶ ?
-  s245   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
-  s246   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
-  s247   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
-  s248   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
-  s249   resolve             depth 1   Nat.add._f ↦ d28
-  s250   universe-arity      depth 1   0 levels for d28
-  s251   instantiate-levels  depth 1   ? with levels: 0 ⟶ ?
-  s252   instantiate         depth 1   ? ⟶ ?
-  s253   instantiate         depth 1   ? ⟶ ?
-  s254   instantiate         depth 1   ? ⟶ ?
-  s255   resolve             depth 1   Nat ↦ d0
-  s256   universe-arity      depth 1   0 levels for d0
-  s257   instantiate-levels  depth 1   ? with levels: 0 ⟶ ?
-  s258   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
-  s259   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
-  s260   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
-  s261   defeq               depth 0   (n : Nat) → Eq (HAdd.hAdd n (OfNat.ofNat 0)) (HAdd.hAdd n (OfNat.ofNat 0)) ≡ (n : Nat) → Eq (HAdd.hAdd n (OfNat.ofNat 0)) n  ← s206, s207, s208, s209, s210, s211, s212, s213, s214, s215, s216, s217, s218, s219, s220, s221, s222, s223, s224, s225, s226, s227, s228, s229, s230, s231, s232, s233, s234, s235, s236, s237, s238, s239, s240, s241, s242, s243, s244, s245, s246, s247, s248, s249, s250, s251, s252, s253, s254, s255, s256, s257, s258, s259, s260
-  s262   declaration         depth 0   (n : Nat) → Eq (HAdd.hAdd n (OfNat.ofNat 0)) n := fun n ↦ rfl  ← s1, s2, s106, s205, s261
-  s263   publish             depth 0   d37, 8 dependencies  ← s262
+  s240   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
+  s241   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
+  s242   instantiate-levels  depth 1   ? with levels: 1 ⟶ ?
+  s243   defeq               depth 0   (n : Nat) → Eq (HAdd.hAdd n (OfNat.ofNat 0)) (HAdd.hAdd n (OfNat.ofNat 0)) ≡ (n : Nat) → Eq (HAdd.hAdd n (OfNat.ofNat 0)) n  ← s206, s207, s208, s209, s210, s211, s212, s213, s214, s215, s216, s217, s218, s219, s220, s221, s222, s223, s224, s225, s226, s227, s228, s229, s230, s231, s232, s233, s234, s235, s236, s237, s238, s239, s240, s241, s242
+  s244   declaration         depth 0   (n : Nat) → Eq (HAdd.hAdd n (OfNat.ofNat 0)) n := fun n ↦ rfl  ← s1, s2, s106, s205, s243
+  s245   publish             depth 0   d37, 8 dependencies  ← s244
 
 == nat-zero-add
 Theorem Nat.zero_add

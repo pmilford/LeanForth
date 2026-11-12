@@ -1587,7 +1587,12 @@ def pinned_digest(*args):
 # verdict, diagnostic and count is unchanged. All but the --fuel 0 entry
 # are re-pinned once more for the default fuel of 100,000,000 (owner,
 # 2026-11-11): with settings.fuel and fuel.perDeclaration put back to
-# 20,000,000 each report gives the digest pinned before.
+# 20,000,000 each report gives the digest pinned before. Those marked R5
+# are re-pinned after ADR 0014 Amendment 8 (an application typed aside from
+# its spine's head, as Lean's infer_app in infer-only mode): compared with
+# the tree before it, every report is the same but for fuel, 34
+# declarations less (the two spine exports added with it included) and
+# none more.
 PINNED = {
     "tests/reference/composition.ndjson": "a3e7184036edb9dd",
     "tests/reference/constant-fixture.ndjson": "df2ee45dc87e20ca",
@@ -1602,16 +1607,20 @@ PINNED = {
     "--no-manifest README.md": "7dace333bd425361",
     "tests/cli/no-such.ndjson": "3eac0629560526ed",
     "--no-manifest tests/cli/composition-huge-number.ndjson": "ec7632bcbf284cef",
-    "--no-manifest tests/core/reexport/kinds.ndjson": "2e6ca9cca5d0224f",  # IO; R5
+    "--no-manifest tests/core/reexport/kinds.ndjson": "2e6ca9cca5d0224f",  # IO, R5
     f"--fuel 0 {FIXTURE}": "7ab8e9fa317ce0a5",
     f"--no-manifest {EMPTY_BLOCK}": "dbfea3992d7e6793",
     "tests/cli/sharing.ndjson": "e1e5a1f9695267e2",  # re-pinned (IO)
     "tests/cli/sharing-universe.ndjson": "d5a364d306cbd23c",  # re-pinned (IO)
-    "tests/cli/nested.ndjson": "7ce0c7829c881289",  # re-pinned twice, see above
+    "tests/cli/nested.ndjson": "3f8e75f04c9eb618",  # re-pinned, see above; R5
     "tests/cli/irrelevance.ndjson": "44da5689b4a2a87c",
     f"--no-manifest {CASES}/composition-literal.ndjson": "25123b1e2dfc63de",
+    # tests/cli/shared-depths.lean P4's exports (agent R5, ADR 0014 Amendment 8):
+    # 48-argument spines typed aside; accepted with 15,749 units, and rejected.
+    f"--no-manifest {CASES}/spine-good.ndjson": "aab949e05d4870e3",
+    f"--no-manifest {CASES}/spine-bad.ndjson": "e52ea64966999249",
     "--no-manifest tests/core/check-block-cases/primitive.string-opaque-expansion.ndjson":
-        "5973f03d5f926191",  # re-pinned (IO)
+        "98f6029954a2b728",  # re-pinned (IO, R5)
 }
 
 
@@ -1920,7 +1929,7 @@ class Snapshots(unittest.TestCase):
         self.assertEqual((status, lines[0]), (0, (
             "fixtureId: accepted (experimental, not independently audited; from a stale "
             "snapshot (an older verdict version), not this build's verdict); axioms: none")))
-        self.assertIn("stale: build's (3): its 3 results are not this build's verdicts", lines)
+        self.assertIn("stale: build's (5): its 3 results are not this build's verdicts", lines)
         status, got, _ = report("--snapshot-stale-ok", "--snapshot", str(old))
         self.assertEqual(self.schema.errors(got), [])
         self.assertEqual((got["snapshot"]["verdictVersion"], got["snapshot"]["stale"]),

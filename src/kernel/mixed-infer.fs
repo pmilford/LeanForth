@@ -61,7 +61,8 @@
 \ interface. Inference "aside" is Lean's infer-only mode (infer_type,
 \ type_checker.cpp 360-362), for the comparison's typer (lf-minfer-typed:
 \ whether a term is a proof, its type for unit-like types): no rule, an
-\ application's argument neither inferred nor compared, any live node
+\ application's argument neither inferred nor compared (its spine typed
+\ from its head, lf-minfer-spine), any live node
 \ read (whnf results and inferred types, which the checker's own passes
 \ made from the audited input).
 \ Environment mode (plan task 2.2.3; [kernel] code, not yet through the
@@ -76,7 +77,8 @@
 \ depth, index token, the scratch mark before the call, the scope (the
 \ opened binders' free variables and a Pi telescope's levels), whether
 \ inference runs aside, whether it runs in environment mode, a copy of a
-\ reference's levels; a member of the checker context
+\ reference's levels, the arguments of the spines typed aside
+\ (lf-minfer-spine-cells and the count in use); a member of the checker context
 \ (lib/context.fs). Lean's whnf (whnf.fs) runs on the job's frames. A
 \ step's mark (lf-minfer-discard) is on scratch-marks.fs's mark stack.
 \ The local context is local-context.fs's: emptied when a job starts;
@@ -511,7 +513,8 @@ defer lf-minfer-walk ( node -- type status )
 : lf-minfer-call-marked ( node outcome frames cont -- ... frames next )
   rot dup ok? if drop lf-minfer-call else frame-refuse then ;
 
-\ Application, in three steps (infer_app, type_checker.cpp 173-187): the
+\ Application while deciding, in three steps (infer_app, type_checker.cpp
+\ 173-187; aside, lf-minfer-spine below types the whole spine): the
 \ function's type must be a Pi, after whnf when it is no visible one
 \ (ensure_pi_core: otherwise rejected, funExpected, or the whnf's
 \ failure), the argument's type must convert to its domain (otherwise
@@ -544,7 +547,6 @@ defer lf-minfer-walk ( node -- type status )
 : lf-minfer-app-fn ( T status frames -- ... frames next )
   >r r@ frame-restore -rot lf-minfer-step? 0= if r> 0 exit then
   lf-minfer-pi-parts 0= if nip lf-minfer-none r> 0 exit then
-  lf-minfer-aside @ if nip swap lf-minfer-instantiate r> 0 exit then
   r@ frame-save swap dup r@ frame-save swap r@ frame-save r@ lf-minfer-marked
   r> ['] lf-minfer-app-arg lf-minfer-call-marked ;
 \ A projection (plan task 5.2.2): a projection leaf and its structure
@@ -593,16 +595,18 @@ defer lf-minfer-proj ( leaf e frames -- ... frames next )
   1 swap begin lf-minfer-app? while drop swap 1+ swap repeat ;
 \ The arguments below the outermost, into cells c-1, c-2, ...; the head.
 : lf-minfer-spine-fill ( function c -- head )
-  begin over lf-minfer-app? while rot 1- tuck lf-minfer-spine-cell ! rot drop repeat drop ;
+  begin over lf-minfer-app? while
+    rot 1- tuck lf-minfer-spine-cell ! rot drop repeat drop ;
 \ Room for n more cells: where they start, and ok or full.
 : lf-minfer-spine-room ( n -- base outcome )
   lf-minfer-spine-top @ tuck + lf-minfer-spine-cells slab-hold ;
 \ The innermost of k arguments that a type's loose range can name.
 : lf-minfer-spine-needs ( T k -- m ) swap lf-term-data@ if lf-data-loose min then ;
 \ Cells i .. i+n-1 closed in place with the scope's free variables.
+: lf-minfer-close-cell ( i -- status )
+  lf-minfer-spine-cell dup @ lf-minfer-close ok-then? if swap ! outcome-ok else nip then ;
 : lf-minfer-close-cells ( i n -- status )
-  bounds ?do i lf-minfer-spine-cell dup @ lf-minfer-close ok-then? 0= if nip unloop exit then
-    swap ! loop outcome-ok ;
+  bounds ?do i lf-minfer-close-cell dup ok? 0= if unloop exit then drop loop outcome-ok ;
 : lf-minfer-spine-subst ( T i k -- T' status )
   swap lf-minfer-spine-cell swap lf-minfer-lend lf-instantiate-rev lf-minfer-repay
   outcome-sane ;
@@ -627,13 +631,18 @@ defer lf-minfer-proj ( leaf e frames -- ... frames next )
 : lf-minfer-spine-fn ( T status frames -- type status frames 0 )
   >r r@ frame-restore r@ frame-restore over >r lf-minfer-spined
   r> lf-minfer-spine-top ! r> 0 ;
-: lf-minfer-spine-head ( function argument base n frames -- head )
-  >r 2dup r@ frame-save r> frame-save
+: lf-minfer-spine-keep ( base n frames -- base n ) >r 2dup r@ frame-save r> frame-save ;
+\ The n arguments into cells base .. base+n-1, now in use; the head.
+: lf-minfer-spine-head ( function argument base n -- head )
   + dup lf-minfer-spine-top ! 1- tuck lf-minfer-spine-cell ! lf-minfer-spine-fill ;
 : lf-minfer-spine ( function argument frames -- ... frames next )
   >r over lf-minfer-spine-count dup lf-minfer-spine-room ok-then?
   0= if >r 2drop drop r> no-result r> 0 exit then
-  swap r@ lf-minfer-spine-head r> ['] lf-minfer-spine-fn lf-minfer-call ;
+  swap r@ lf-minfer-spine-keep lf-minfer-spine-head
+  r> ['] lf-minfer-spine-fn lf-minfer-call ;
+\ An application node: its spine aside, the node itself while deciding.
+: lf-minfer-app-node ( function argument frames -- ... frames next )
+  lf-minfer-aside @ if lf-minfer-spine else lf-minfer-app then ;
 
 \ Binders, one at a time, as infer_lambda and infer_pi treat each binder
 \ of a telescope (type_checker.cpp 125-166). The domain, read under the
@@ -876,7 +885,7 @@ defer lf-minfer-let-one ( v lam frames -- ... frames next )
 : lf-minfer-other ( first second frames tag -- -1 status frames 0 tag )
   >r >r 2drop r> r> lf-minfer-unsupported 2swap 0 swap ;
 : lf-minfer-binary ( first second tag frames -- ... frames next )
-  swap case lf-tag-app of lf-minfer-aside @ if lf-minfer-spine else lf-minfer-app then endof
+  swap case lf-tag-app of lf-minfer-app-node endof
     lf-tag-lam of lf-minfer-lam endof
     lf-tag-pi of lf-minfer-pi endof
     lf-tag-let of lf-minfer-let endof  lf-tag-let-nondep of lf-minfer-let endof
