@@ -896,3 +896,25 @@ merged) with its follow-up S5B, and step S7 (parallel checking).
   own limit (Lean has none); a larger budget can only move a verdict toward Lean's, at the cost of a slower give-up
   on a declaration that never finishes. Verdict version 3 (agent PF).
 - **Term memory per node** reviewed later (plan 6.5.9; owner: "Do we gain anything? Lose anything?").
+
+## Approval round of 2026-11-12
+
+The owner approved, choosing each recommendation (summary `.claude/work/APPROVALS-2026-11-12.md`; reviews rvKN,
+rvRS, rvSS, rvS5B, rvS7, rvIO, rvSN2-rvSN4 all not blocking, their major findings fixed). Every accepted result stays
+*experimental — not independently audited*.
+
+- **Lean's methods ported ([kernel] gate):** PF C1 (an argument put into a body without loose variables is not
+  closed first, Lean's instantiate); R5 (an application typed from its spine's head as Lean's `infer_app`, ADR 0014
+  Amendment 9); NS with FXK (an inductive block's walks visit each shared node once, C1 each (node, depth) pair once,
+  the recursor compared by Lean's `==`, ADR 0015 amendment).
+- **Speed, memory and repeatability:** S5/S5B (input read in place), S7 (`check --jobs N`), SH (one shared input),
+  IO (diagnostic-81 routes), PF task 6 with FXR (a check's fuel independent of the tier, lets included; ADR 0014
+  Amendment 7, ADR 0020 Amendment 4), MB with FXR (`--memory-per-check`, exact; ADR 0014 Amendment 8).
+- **Snapshots:** SN2-SN5 (ADR 0020 and Amendments 1-3); F2 a library built on Mathlib (Physlib) is checked in exact
+  mode first, Lean's import mode later as an option; F3 `replay EXPORT SNAPSHOT` replaces the planned run-record
+  format 0.3; F4 no signature on snapshots (hashes detect damage, not forgery; SHA-256 in every report).
+- **New plan tasks:** 4.2.7d (K1: reject where Lean's infer-only typing throws) and 6.2.5b (L1: layer lookups; G1:
+  a `let` export in the version guard).
+- Not in this round: agent MO's nested-pass memo (`2ad871e`, verdict version 8), merged after the round; its review
+  and approval come next.
+

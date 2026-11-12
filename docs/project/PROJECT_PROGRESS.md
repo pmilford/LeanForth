@@ -21,7 +21,7 @@ speed before parallelism adds more.
 
 ## Where things stand, in plain words
 
-**Current state, 2026-11-12 morning (main `b74a04d`).** LeanForth gives
+**Current state, 2026-11-12 morning (main `2ad871e`).** LeanForth gives
 **Lean's verdict on every declaration of Mathlib**: all **729,263 of 729,263
 accepted** (exit 0; one NOT PROVED, `sorryAx` itself, as in Lean), on 8
 workers with fuel 250,000,000 and `--memory-per-check 8192`: 12,134 s (3.37 h)
@@ -34,12 +34,17 @@ in 3,157 s on 8 workers, Lean's checker 1,110 s on one). Merged on
 2026-11-11 night: a check's fuel independent of the tier's numbering (PF task 6,
 review rvSN4 B1, ADR 0014 Amendment 7), memory per check (MB, Amendment 8),
 Lean's `infer_app` spine typing (R5, Amendment 9) and inductive-block walks
-once per shared node (NS); verdict version 6. Earlier on 2026-11-11: parallel
+once per shared node (NS); then on 2026-11-12 the fixes of reviews rvKN and
+rvRS (FXK: C1 per (node, depth) pair; FXR: memory per check exact, lets in
+the fuel identity) and the nested passes' memo (MO); verdict version 8, so
+the Mathlib snapshot (version 6) loads on this build only with
+`--snapshot-stale-ok`. Earlier on 2026-11-11: parallel
 checking (S7), the shared input (SH), compact-store step S5B, the
 checked-environment snapshot (SN1-SN5), `--progress` (PRG), `gforth-fast` by
-default (ENG), PF batch 1, the diagnostic-81 routes (IO). **Open:** the review
-and approval gates owed for S5/S5B, S7, IO, SN2-SN5, PF C1, SH, PF task 6, MB,
-R5 and NS. Every accepted result is *experimental — not independently
+default (ENG), PF batch 1, the diagnostic-81 routes (IO). **Approved by the
+owner on 2026-11-12:** S5/S5B, S7, IO, SN2-SN5, PF C1, SH, PF task 6, MB, R5
+and NS with their review fixes ([decisions](OWNER_DECISIONS.md)). **Open:** the
+review and approval of MO; plan tasks 4.2.7d and 6.2.5b. Every accepted result is *experimental — not independently
 audited*. Details: [Limitations](#limitations), [Full Mathlib](#full-mathlib);
 the sections below are the 2026-11-04 snapshot except where dated.
 
