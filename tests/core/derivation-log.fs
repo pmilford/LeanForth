@@ -540,7 +540,31 @@ T{ lf-log-none lf-lv-tag lf-log-none lf-lv-node -> false false }T
   lv-app-k lf-log-term-node@ drop lv-app-k 1+ lf-log-copy-index lv-app-k lf-log-term-slot
   node! ;
 T{ lv-open lv-damage 2 lf-log-a@ lf-lv-term lv-marked? lv-close -> false false }T
+\ A child that is no copy the pool holds (a reference past its end) is not
+\ marked, and the copy above it is not built: a Pi's domain, a max's
+\ second level, a symbolic Sort's level.
+: lv-past-terms ( -- ref ) lf-log-term-copies lf-log-copy-index ;
+: lv-past-levels ( -- ref ) lf-log-level-copies lf-log-copy-index ;
+: lv-term-first! ( ref k -- ) >r r@ lf-log-term-node@ nip rot swap r> lf-log-term-slot node! ;
+: lv-level-second! ( ref k -- ) >r r@ lf-log-level-node@ drop rot r> lf-log-level-slot node! ;
+: lv-copy-k ( s -- k ) lf-log-a@ lf-log-copy-index ;
+: lv-pi-cut ( -- term? flag ) lv-past-terms 4 lf-log-b@ lf-log-copy-index lv-term-first!
+  lv-open 4 lf-log-b@ lf-lv-term lv-marked? lv-close ;
+T{ lv-pi-cut -> false false }T
+: lv-max-cut ( -- level? ) lv-past-levels 5 lf-log-b@ lf-log-copy-index lv-level-second!
+  lv-open 5 lf-log-b@ lf-lv-level lv-close ;
+T{ lv-max-cut -> false }T
+: lv-sort-cut ( -- term? ) lv-past-levels 8 lv-copy-k lv-term-first!
+  lv-open 8 lf-log-a@ lf-lv-term lv-close ;
+T{ lv-sort-cut -> false }T
 syn-stop
+\ A copied constant whose reference is past the pool's end is not
+\ rebuilt (the shift of composition's scratch constant, as above).
+: lv-cref-cut ( -- term? )
+  syn-start scratch-constant 0 1 100 lf-mixed-shift 2drop drop
+  lf-log-cref-copies lf-log-copy-index 1 lv-copy-k lv-term-first!
+  lv-open 1 lf-log-a@ lf-lv-term lv-close syn-stop ;
+T{ lv-cref-cut -> false }T
 \ An application whose premises mix inference steps with others: s1 and
 \ s3 are its inference premises, s2 and s4 not.
 : syn-mixed ( -- ) syn-start lf-rule-application syn-open

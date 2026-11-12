@@ -227,6 +227,18 @@ T{ 0 sup s" 2⁰" compare 1 sup s" 2¹" compare 2 sup s" 2²" compare 3 sup s" 2
 T{ 4 sup s" 2⁴" compare 5 sup s" 2⁵" compare 6 sup s" 2⁶" compare 7 sup s" 2⁷" compare
    -> 0 0 0 0 }T
 T{ 8 sup s" 2⁸" compare 9 sup s" 2⁹" compare 10 sup s" 2^10" compare -> 0 0 0 }T
+\ An exponent that is no application is no numeral; a minus before a
+\ prefix notation that is no minus is no reason for a blank; an ∃ body
+\ that is no application, or an application without a row, ends the
+\ binders.
+: pow-c ( -- t ) 2 num s" n" t-const pow ;
+T{ ' pow-c lf-print-mathtext in-mode s" 2^n" compare -> 0 }T
+: neg-not ( -- t ) 1 num 2 num eq not. neg ;
+T{ ' neg-not lf-print-unicode in-mode s" -¬1 = 2" compare -> 0 }T
+: ex-var ( -- t ) 0 v s" x" ex1 ;
+T{ ' ex-var lf-print-unicode in-mode s" ∃ x, x" compare -> 0 }T
+: ex-app ( -- t ) s" f" t-const 0 v t-app s" x" ex1 ;
+T{ ' ex-app lf-print-unicode in-mode s" ∃ x, f x" compare -> 0 }T
 \ Only a numeral is raised: not another row's application with as many
 \ arguments and a literal in the numeral's place.
 : pow-ne ( -- t ) 2 num 3 nlit 4 nlit 2>r s" Ne" t-const nat t-app 2r> >r t-app r> t-app pow ;

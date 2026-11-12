@@ -189,7 +189,7 @@ Lean's: `(a + b) * c`, `a - (b - c)`, `¬a = b`, `a ^ (b ^ c)` is `a ^ b ^ c`.
 | `Eq` (3), `LT.lt`, `LE.le`, `GT.gt`, `GE.ge`, `Dvd.dvd` (4), `Ne` (3), `Membership.mem` (5) | `a = b`, `<`, `≤`, `>`, `≥`, `∣`, `≠`, `∈` | `a = b`, `<`, `<=`, `>`, `>=`; none for `∣ ≠ ∈` | `\le`, `\ge`, `\mid`, `\ne`, `\in` | as Lean |
 | `HAdd.hAdd`, `HSub.hSub`, `HMul.hMul`, `HDiv.hDiv`, `HMod.hMod` (6) | `a + b`, `-`, `*`, `/`, `%` | as Lean | `\cdot` for `*`, `\bmod` | `·` for `*`, `mod` |
 | `HPow.hPow` (6) | `a ^ b` | as Lean | `a^{b}` | `a²` for a digit, else `a^b` |
-| `Neg.neg` (3) | `-a` | as Lean | as Lean | as Lean |
+| `Neg.neg` (3) | `-a`; `- -a` for a negation of a negation, as Lean writes it (`--` would start a comment) | as Lean | as Lean | as Lean |
 | `And`, `Or`, `Iff`, `Not` (2, 2, 2, 1) | `∧ ∨ ↔ ¬` | `/\ \/ <-> `; none for `¬` | `\wedge \vee \leftrightarrow \neg` | as Lean, `¬(a = b)` |
 | `Exists` (2), applied to a lambda | `∃ x y, p` | `exists x y, p` | `\exists x\ y,\ p` | as Lean |
 | `OfNat.ofNat` (3), a literal that fits a cell | `3` | `3` | `3` | `3` |

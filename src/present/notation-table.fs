@@ -29,12 +29,13 @@
 \ Defining words. Each makes one whole row, from the numbers before it and
 \ the constant's name and its four quoted spellings after it:
 \   infix:  ( arity a b prec "Const" "s0" "s1" "s2" "s3" -- )  operands at prec + 1
-\   infixl: ( same )  left operand at prec    infixr: ( same )  right operand at prec
-\   infix-at: ( same )  both operands at prec   power: ( same as infixr: )
+\   infixl: ( same )  left operand at prec    infix-at: ( same )  both at prec
+\   power: ( same )  right operand at prec, b a superscript in mathematics
 \   prefix: ( arity a prec rprec ... )   suffix: ( arity a prec ... )
 \   atom: ( "Const" "s0" "s1" "s2" "s3" -- )   numeral: ( "Const" -- )
 \ and for the connectives, whose operands are propositions:
-\   prop-infix: prop-infixr: ( as infix: and infixr: )   exists: ( as atom: )
+\   prop-infix: ( as infix: )   prop-infixr: ( same, right operand at prec )
+\   exists: ( as atom: )
 \   prop-prefix: ( as prefix: ), whose operand in LaTeX and mathematical text
 \     is tight: parenthesized unless an atom or an application (¬(a = b),
 \     where Lean writes ¬a = b)
@@ -102,8 +103,6 @@ end-structure
   lf-nt-infix lf-nt-row lf-nt-end ;
 : infixl: ( arity a b prec "Const" "s0" "s1" "s2" "s3" -- )
   lf-nt-infix lf-nt-row lf-nt-left-at lf-nt-end ;
-: infixr: ( arity a b prec "Const" "s0" "s1" "s2" "s3" -- )
-  lf-nt-infix lf-nt-row lf-nt-right-at lf-nt-end ;
 : infix-at: ( arity a b prec "Const" "s0" "s1" "s2" "s3" -- )
   lf-nt-infix lf-nt-row lf-nt-left-at lf-nt-right-at lf-nt-end ;
 : power: ( arity a b prec "Const" "s0" "s1" "s2" "s3" -- )
