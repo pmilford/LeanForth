@@ -842,12 +842,12 @@ class RunRecords(unittest.TestCase):
             self.assertEqual((got["input"]["manifest"]["enforced"],
                               golden["input"]["manifest"]["enforced"]), (True, False))
             golden["input"]["manifest"]["enforced"] = True
-            # The command line's default fuel is 20,000,000 (since
-            # 2026-11-11); the driver that wrote the golden records gives
-            # 100,000. Fuel used is the same either way.
+            # The command line's default fuel is 100,000,000 (since
+            # 2026-11-11, agent PF); the driver that wrote the golden records
+            # gives 100,000. Fuel used is the same either way.
             self.assertEqual((got["settings"]["fuel"], golden["settings"]["fuel"]),
-                             (20000000, 100000))
-            golden["settings"]["fuel"] = 20000000
+                             (100000000, 100000))
+            golden["settings"]["fuel"] = 100000000
             for section in ["input", "export", "settings", "check", "declarations"]:
                 self.assertEqual(got[section], golden[section], f"{name} {section}")
 
@@ -1431,11 +1431,11 @@ class Resources(unittest.TestCase):
         self.assertEqual(rest[6], "  engine: " + os.path.basename(GFORTH))
         self.assertEqual(rest[7:], [
             "  input: 6 declarations, 92 term nodes, 3 levels, 5 constant references, 31 names",
-            "  fuel: 518 steps in all, at most 20000000 per declaration",
+            "  fuel: 508 steps in all, at most 100000000 per declaration",
             "  most fuel used:",
-            "         252 Two.cases (accepted)",
-            "         157 Two (accepted)",
-            "         109 Two.swap (accepted)"])
+            "          244 Two.cases (accepted)",
+            "          157 Two (accepted)",
+            "          107 Two.swap (accepted)"])
 
     def test_stable_but_for_time_and_memory(self):
         def steady(out):
@@ -1580,31 +1580,38 @@ def pinned_digest(*args):
 # re-pinned after the follow-up of task 5.2.1b (agent IO, 2026-11-11): a
 # block's check opens each binder of its type's telescope on the inference
 # scope, as Lean does, for 1 or 2 more fuel per block (nested.ndjson: 7
-# blocks, +11); every verdict and diagnostic is unchanged.
+# blocks, +11); every verdict and diagnostic is unchanged. The eleven whose
+# digest changed again are re-pinned after agent PF's ADR 0014 Amendment 6
+# (an argument put into a Pi body without loose bound variables is not
+# closed): only fuel moved, 97 declarations less and none more; every
+# verdict, diagnostic and count is unchanged. All but the --fuel 0 entry
+# are re-pinned once more for the default fuel of 100,000,000 (owner,
+# 2026-11-11): with settings.fuel and fuel.perDeclaration put back to
+# 20,000,000 each report gives the digest pinned before.
 PINNED = {
-    "tests/reference/composition.ndjson": "53507f9eebd13ee8",
-    "tests/reference/constant-fixture.ndjson": "1ae9a75744aa7830",
-    "tests/cli/chain.ndjson": "5f268f6342014eed",
-    "tests/cli/inductive.ndjson": "cb594a9d697af8f9",
-    "tests/cli/unfold.ndjson": "84920fb18c4506f5",
-    f"{CASES}/composition-wrong-argument.ndjson": "e283b4fe171d6bbf",
-    f"--no-manifest {CASES}/composition-wrong-argument.ndjson": "2d3176886b7884ef",
-    f"--no-manifest {CASES}/composition-postulate.ndjson": "1f4d8a5a677428b3",
-    f"--no-manifest {CASES}/composition-loose.ndjson": "e5669e82c7613d92",
-    f"--no-manifest {CASES}/composition-unsafe.ndjson": "8a350adcc9f9ff88",
-    "--no-manifest README.md": "32fd051f20a34f99",
-    "tests/cli/no-such.ndjson": "a6ff9a5e43c01e00",
-    "--no-manifest tests/cli/composition-huge-number.ndjson": "610a34eed3aa4777",
-    "--no-manifest tests/core/reexport/kinds.ndjson": "079a8fa59adb3aa3",  # IO
+    "tests/reference/composition.ndjson": "a3e7184036edb9dd",
+    "tests/reference/constant-fixture.ndjson": "df2ee45dc87e20ca",
+    "tests/cli/chain.ndjson": "b0c8e7d6066c71d6",
+    "tests/cli/inductive.ndjson": "f3c83844f72b2bab",
+    "tests/cli/unfold.ndjson": "989fd258bb03e4b7",
+    f"{CASES}/composition-wrong-argument.ndjson": "b29f27c0c9419c26",
+    f"--no-manifest {CASES}/composition-wrong-argument.ndjson": "850723e5478fed48",
+    f"--no-manifest {CASES}/composition-postulate.ndjson": "f4de00b74d911325",
+    f"--no-manifest {CASES}/composition-loose.ndjson": "950ba5ee1bb8f59b",
+    f"--no-manifest {CASES}/composition-unsafe.ndjson": "5f720734c0914c3c",
+    "--no-manifest README.md": "7dace333bd425361",
+    "tests/cli/no-such.ndjson": "3eac0629560526ed",
+    "--no-manifest tests/cli/composition-huge-number.ndjson": "ec7632bcbf284cef",
+    "--no-manifest tests/core/reexport/kinds.ndjson": "4a8e363ce8e30380",  # IO
     f"--fuel 0 {FIXTURE}": "7ab8e9fa317ce0a5",
-    f"--no-manifest {EMPTY_BLOCK}": "09614e87bede9e1b",
-    "tests/cli/sharing.ndjson": "aae5c66549dbee32",  # re-pinned (IO)
-    "tests/cli/sharing-universe.ndjson": "3b5cfb8c359e5cf6",  # re-pinned (IO)
-    "tests/cli/nested.ndjson": "37c23b3975e6884c",  # re-pinned twice, see above
-    "tests/cli/irrelevance.ndjson": "7e969559755d7151",
-    f"--no-manifest {CASES}/composition-literal.ndjson": "fc105a0a3fbe0c49",
+    f"--no-manifest {EMPTY_BLOCK}": "dbfea3992d7e6793",
+    "tests/cli/sharing.ndjson": "e1e5a1f9695267e2",  # re-pinned (IO)
+    "tests/cli/sharing-universe.ndjson": "d5a364d306cbd23c",  # re-pinned (IO)
+    "tests/cli/nested.ndjson": "7ce0c7829c881289",  # re-pinned twice, see above
+    "tests/cli/irrelevance.ndjson": "44da5689b4a2a87c",
+    f"--no-manifest {CASES}/composition-literal.ndjson": "25123b1e2dfc63de",
     "--no-manifest tests/core/check-block-cases/primitive.string-opaque-expansion.ndjson":
-        "0837e252defd9a74",  # re-pinned (IO)
+        "5973f03d5f926191",  # re-pinned (IO)
 }
 
 
@@ -1755,6 +1762,11 @@ class Snapshots(unittest.TestCase):
                 continue
             again, loaded, _ = report("--snapshot", str(path))
             self.assertEqual(self.schema.errors(loaded), [], args)
+            # The names a check made beyond its input (nested blocks) are
+            # written with the tier's names (plan step SN5): the loaded
+            # tier holds them too.
+            names = loaded["input"].pop("names"), fresh["input"].pop("names")
+            self.assertGreaterEqual(*names, args)
             self.assertEqual((again, self.plain(loaded)), (status, self.plain(fresh)), args)
             self.assertEqual({d["provenance"] for d in loaded["declarations"]}, {"snapshot"})
             self.assertEqual(loaded["mode"], "development")
@@ -1770,7 +1782,7 @@ class Snapshots(unittest.TestCase):
                                    "audited; from snapshot, not re-checked in this run); "
                                    "axioms: none")
         self.assertRegex(lines[-3], r"^snapshot: .*s\.lfsnap \(sha256 [0-9a-f]{64}\), export "
-                                    r"sha256 [0-9a-f]{64}, verdict version 1, written by "
+                                    r"sha256 [0-9a-f]{64}, verdict version 3, written by "
                                     r"LeanForth \S+: 3 results taken from it, not re-checked "
                                     r"in this run$")
         self.assertEqual(lines[-2:], [
@@ -1804,7 +1816,7 @@ class Snapshots(unittest.TestCase):
         for field, value, status, why in [
                 (0, 0, 4, "invalid: the snapshot was refused: not a LeanForth snapshot"),
                 (1, 2, 2, "unsupported: the snapshot was refused: format version"),
-                (2, 2, 2, "unsupported: the snapshot was refused: verdict version"),
+                (2, 1, 2, "unsupported: the snapshot was refused: verdict version"),
                 (5, 2, 4, "invalid: the snapshot was refused: axiom allowlist"),
                 (6, 1, 4, "invalid: the snapshot was refused: axiom allowlist"),
                 (8, 1, 2, "unsupported: the snapshot was refused: layer")]:
@@ -1812,13 +1824,13 @@ class Snapshots(unittest.TestCase):
             put32(changed, 24 + 4 * field, value)
             self.refused(write(resealed(changed, table)), status, why)
         changed = bytearray(data)
-        put32(changed, 24 + 4 * 2, 2)
+        put32(changed, 24 + 4 * 2, 1)   # an older verdict version (agent PF bumped it to 3)
         status, got, _ = report("--snapshot", str(write(resealed(changed, table))))
         self.assertEqual((status, self.schema.errors(got), got["read"]["phase"],
                           got["read"]["reason"], got["run"]),
                          (2, [], "snapshot", "verdict version", "not-run"))
         self.refused(path, 4, "invalid: the snapshot was refused: fuel", "--fuel", "5")
-        self.assertEqual(run("check", "--snapshot", str(path), "--fuel", "20000000")[0], 0)
+        self.assertEqual(run("check", "--snapshot", str(path), "--fuel", "100000000")[0], 0)
         # A dependency past its slot: fixturePoly (slot 1) on itself.
         _, _, _, deps, _ = table[DEPS]
         changed = bytearray(data)
@@ -1842,6 +1854,93 @@ class Snapshots(unittest.TestCase):
         self.refused(write(data[:len(data) - 4096]), 4,
                      "invalid: the snapshot was refused: header or section table")
 
+    def test_review_faults(self):
+        """Review rvSN3's crafted snapshots, each refused or shown safely:
+        list counts past their sections (M1), fuel used above the fuel per
+        declaration (m2), provenance in a base snapshot (m3), a lookup key of
+        a name beyond the tier or the quotient's kind under another name
+        (m5), a definition marked added (m4), whose JSON report lists no
+        verdict (M2); a commit text that is not plain (m1)."""
+        path, _, _ = self.saved(FIXTURE)
+        data, table = sectioned(path)
+        tampered = self.dir / "r.lfsnap"
+        slots, looks = table[SLOTS][3], table[LOOKS][3]
+
+        def slot_changed(field, value, d=0):
+            changed = bytearray(data)
+            put32(changed, slots + 72 * d + 4 * field, value)
+            tampered.write_bytes(bytes(resealed(changed, table, SLOTS)))
+            return tampered
+        first = next(d for d in range(3) if u32(data, slots + 72 * d + 40))
+        for field, value, why in [
+                (9, 0x7FFFFFFF, "slots (record 0)"), (10, 0x7FFFFFFF, "slots (record 0)"),
+                (9, 1 + len(data), "slots (record 0)"),
+                (8, 0xFFFF, "slots (record 0)"), (2, 1, "slots (record 0)"),
+                (2, 3, "slots (record 0)")]:
+            self.refused(slot_changed(field, value), 4,
+                         f"invalid: the snapshot was refused: {why}")
+        for key in [(0x7FFFFFF << 4) | 0, (1 << 4) | 8]:
+            changed = bytearray(data)
+            put32(changed, looks, key)
+            tampered.write_bytes(bytes(resealed(changed, table, LOOKS)))
+            self.refused(tampered, 4, f"invalid: the snapshot was refused: slots (record {first})")
+        changed = bytearray(data)
+        put32(changed, slots, 4)
+        put32(changed, slots + 4, 2)
+        tampered.write_bytes(bytes(resealed(changed, table, SLOTS)))
+        self.refused(tampered, 4,
+                     "invalid: the snapshot was refused: slot published otherwise (record 0)")
+        status, got, _ = report("--snapshot", str(tampered))
+        self.assertEqual((status, self.schema.errors(got), got["read"]["outcome"],
+                          got["declarations"]), (4, [], "invalid", []))
+        _, _, _, info, length = table[16]
+        text = b'{"leanforth":"0.1.0-dev","commit":"x\nNat.fake: accepted","modified":false}'
+        self.assertLessEqual(len(text), length)
+        changed = bytearray(data)
+        changed[info:info + length] = text + b" " * (length - len(text))
+        tampered.write_bytes(bytes(resealed(changed, table, 16)))
+        status, out, _ = run("check", "--snapshot", str(tampered))
+        self.assertEqual(status, 0)
+        self.assertNotIn("Nat.fake", out)
+        self.assertIn("written by LeanForth unknown: 3 results", out)
+
+    def test_stale(self):
+        """--snapshot-stale-ok (ADR 0020 amendment 3): a snapshot of an
+        older verdict version loads, every result taken from it labelled
+        stale and counted apart, never as this build's verdict; a newer one
+        is refused still; the flag needs --snapshot and writes no snapshot."""
+        path, _, fresh = self.saved(FIXTURE)
+        data, table = sectioned(path)
+        old = self.dir / "old.lfsnap"
+        put32(data, 24 + 4 * 2, 1)
+        old.write_bytes(bytes(resealed(data, table)))
+        self.refused(old, 2, "unsupported: the snapshot was refused: verdict version")
+        status, out, _ = run("check", "--snapshot-stale-ok", "--snapshot", str(old))
+        lines = out.splitlines()
+        self.assertEqual((status, lines[0]), (0, (
+            "fixtureId: accepted (experimental, not independently audited; from a stale "
+            "snapshot (an older verdict version), not this build's verdict); axioms: none")))
+        self.assertIn("stale: build's (3): its 3 results are not this build's verdicts", lines)
+        status, got, _ = report("--snapshot-stale-ok", "--snapshot", str(old))
+        self.assertEqual(self.schema.errors(got), [])
+        self.assertEqual((got["snapshot"]["verdictVersion"], got["snapshot"]["stale"]),
+                         (1, {"thisVerdictVersion": 3, "results": 3}))
+        self.assertEqual({d["provenance"] for d in got["declarations"]}, {"stale-snapshot"})
+        self.assertEqual(report("--snapshot", str(path))[1]["snapshot"]["stale"], None)
+        status, got, _ = report("--snapshot-stale-ok", "--snapshot", str(old), FIXTURE)
+        self.assertEqual((status, self.schema.errors(got)), (0, []))
+        self.assertEqual({d["provenance"] for d in got["declarations"]}, {"stale-snapshot"})
+        put32(data, 24 + 4 * 2, verdict_version() + 1)   # newer than this build's
+        old.write_bytes(bytes(resealed(data, table)))
+        self.refused(old, 2, "unsupported: the snapshot was refused: verdict version",
+                     "--snapshot-stale-ok")
+        for args, why in [(["--snapshot-stale-ok", FIXTURE], "needs --snapshot"),
+                          (["--snapshot-stale-ok", "--snapshot", str(path), "--save-snapshot",
+                            str(self.dir / "x"), FIXTURE], "does not go with --save-snapshot")]:
+            status, out, _ = run("check", *args)
+            self.assertEqual((status, out.splitlines()[0]),
+                             (4, f"error: --snapshot-stale-ok {why}"), args)
+
     def test_outcome_changed(self):
         """A rejected verdict made accepted, every SHA-256 made again: the
         loader cannot tell, and reports it as the snapshot's verdict, never as
@@ -1863,9 +1962,7 @@ class Snapshots(unittest.TestCase):
                 (["--record", "r.json", "--snapshot", str(path)],
                  "--snapshot and --save-snapshot do not go with --record"),
                 (["--snapshot", str(path), "--save-snapshot", "x"],
-                 "--snapshot and --save-snapshot do not go together yet (plan step SN4)"),
-                (["--snapshot", str(path), CHAIN],
-                 "--snapshot with an export is not supported yet (plan step SN4)")]:
+                 "--snapshot and --save-snapshot go together only with an export (a layer)")]:
             status, out, _ = run("check", *args)
             self.assertEqual((status, out.splitlines()[0]), (4, f"error: {why}"), args)
         status, out, _ = run("check", "--save-snapshot", CHAIN, CHAIN)
@@ -1876,5 +1973,645 @@ class Snapshots(unittest.TestCase):
         self.assertFalse((self.dir / "u").exists())
 
 
+class Progress(unittest.TestCase):
+    """check --progress[=SECONDS] (docs/user/COMMAND_LINE.md): a status line
+    on standard error every SECONDS (default 60; 0: after every report) and a
+    last one; standard output, the JSON report and the exit status are what
+    they are without it, serial and with --jobs; the text report's lines are
+    written as declarations become final, so a finished run's output is
+    unchanged. It does not go with --record, and replay does not take it."""
+
+    LINE = re.compile(r"progress: \d+ s elapsed; (\d+)/(\d+) declarations final \((\d+)%\); "
+                      r"(\d+) accepted, (\d+) other; \d+ declarations/s; "
+                      r"eta (\d+ s|unknown); resident (\d+ MB|\? MB)")
+
+    def lines(self, err):
+        return [self.LINE.fullmatch(line) or self.fail(line) for line in err.splitlines()]
+
+    def test_same_output(self):
+        for args in [[INDUCTIVE], ["--fuel", "3000", "tests/cli/nested.ndjson"],
+                     ["--no-manifest", "tests/cli/jobs/wide60.ndjson"]]:
+            for jobs in [[], ["--jobs", "3"]]:
+                plain = run("check", *jobs, *args)
+                self.assertEqual(plain[2], "", args)
+                for form in ["--progress=0", "--progress"]:
+                    status, out, err = run("check", form, *jobs, *args)
+                    self.assertEqual((status, out), plain[:2], (form, jobs, args))
+                    if form == "--progress=0":
+                        found = self.lines(err)
+                        total = int(found[-1].group(2))
+                        self.assertEqual(found[-1].group(1), str(total))
+                        self.assertEqual(found[-1].group(3), "100")
+                        self.assertEqual(int(found[-1].group(4)) + int(found[-1].group(5)), total)
+
+    def test_counts_rejections(self):
+        """The accepted and other counts follow the verdicts."""
+        path = "tests/cli/bugs/rec-missing-ih.ndjson"
+        status, out, err = run("check", "--no-manifest", "--progress=0", path)
+        self.assertEqual(status, 1)
+        last = self.lines(err)[-1]
+        self.assertGreater(int(last.group(5)), 0)
+        self.assertEqual(int(last.group(4)) + int(last.group(5)), int(last.group(2)))
+
+    def test_json(self):
+        status, want, _ = report(INDUCTIVE)
+        want.pop("measured")
+        code, out, err = run("check", "--progress=0", "--json", INDUCTIVE)
+        self.assertEqual(code, status)
+        self.assertEqual(len(self.lines(err)), 7)
+        got = json.loads(out)
+        got.pop("measured")
+        self.assertEqual(got, want)
+
+    def test_default_is_quiet_for_a_short_run(self):
+        """The default interval is 60 s: a short run writes only the last line."""
+        status, out, err = run("check", "--progress", INDUCTIVE)
+        self.assertEqual((status, len(self.lines(err))), (0, 1))
+
+    def test_4_mistakes(self):
+        for form, why in [("--progress=x", "not a number of seconds: x"),
+                          ("--progress=", "not a number of seconds"),
+                          ("--progress=-1", "not a number of seconds: -1")]:
+            status, out, _ = run("check", form, CHAIN)
+            self.assertEqual((status, out.splitlines()[0]), (4, f"error: {why}"), form)
+        status, out, _ = run("check", "--progress", "--record", "r.json", CHAIN)
+        self.assertEqual((status, out.splitlines()[0]),
+                         (4, "error: --progress does not go with --record"))
+        for form in ["--progress", "--progress=5"]:
+            status, out, _ = run("replay", form, CHAIN, "r.json")
+            self.assertEqual((status, out.splitlines()[0]),
+                             (4, f"error: an option this command does not take: {form}"))
+
+
+class Slice(unittest.TestCase):
+    """scripts/export-slice.py EXPORT NAME... (docs/development/TESTING_STRATEGY.md):
+    the smallest export holding the named declarations and what they need,
+    in the original order with the original header, accepted by check
+    --no-manifest with the same verdicts; an unknown name is exit 2."""
+
+    TOOL = ROOT / "scripts" / "export-slice.py"
+
+    def cut(self, source, *names):
+        result = subprocess.run([sys.executable, "-I", str(self.TOOL), source, *names],
+                                cwd=ROOT, capture_output=True, timeout=TEST_LIMIT)
+        return result.returncode, result.stdout.decode(), result.stderr.decode()
+
+    def check(self, text):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "slice.ndjson"
+            path.write_text(text)
+            return run("check", "--no-manifest", str(path))
+
+    def test_inductive(self):
+        status, text, err = self.cut(INDUCTIVE, "Two.swap")
+        self.assertEqual(status, 0, err)
+        original = Path(ROOT / INDUCTIVE).read_text().splitlines()
+        lines = text.splitlines()
+        self.assertEqual(lines[0], original[0])
+        self.assertLess(len(lines), len(original))
+        position = 0
+        for line in lines:        # a subsequence, in the original order
+            position = original.index(line, position) + 1
+        self.assertRegex(err, r"export-slice: \d+ of 3 declarations, \d+ lines")
+        status, out, _ = self.check(text)
+        self.assertEqual(status, 0)
+        self.assertIn("Two.swap: accepted", out)
+        self.assertNotIn("Two.cases", out)       # not needed by Two.swap
+        self.assertIn("Two.rec: accepted", out)   # the recursor's block is whole
+
+    def test_the_builtins_come_with_it(self):
+        """Quot and Eq (the checker's own lookups) are in a slice of anything,
+        when the export declares them."""
+        source = "tests/reference/inductive/axioms.ndjson"
+        status, text, err = self.cut(source, "propext")
+        self.assertEqual(status, 0, err)
+        status, out, _ = self.check(text)
+        self.assertEqual(status, 0)
+        for name in ["propext", "Quot.sound", "Classical.choice", "Eq"]:
+            self.assertIn(f"{name}: accepted", out)
+
+    def test_several_names(self):
+        status, text, err = self.cut(INDUCTIVE, "Two.first", "Two.cases")
+        self.assertEqual(status, 0, err)
+        status, out, _ = self.check(text)
+        self.assertEqual(status, 0)
+        self.assertIn("Two.cases: accepted", out)
+
+    def test_unknown_name(self):
+        status, text, err = self.cut(INDUCTIVE, "Two.nothing")
+        self.assertEqual((status, text), (2, ""))
+        self.assertIn("Two.nothing: not declared in the export", err)
+        self.assertEqual(self.cut(INDUCTIVE, "a..b")[0], 2)
+        self.assertEqual(self.cut(INDUCTIVE)[0], 4)
+
+    def test_not_an_export(self):
+        status, text, err = self.cut("README.md", "x")
+        self.assertNotEqual(status, 0)
+        self.assertEqual(text, "")
+
+
+DEPENDENT = "tests/cli/dependent.ndjson"   # a library on inductive.lean (dependent.lean)
+SIBLING = "tests/cli/sibling.ndjson"       # another one (sibling.lean)
+TWO = ["Two", "Two.first", "Two.second", "Two.rec"]
+
+
+def records(path):
+    return [json.loads(line) for line in Path(path).read_text().splitlines()]
+
+
+def ndjson_text(lines):
+    return "".join(json.dumps(r, separators=(",", ":")) + "\n" for r in lines)
+
+
+def swapped_minors(lines, name):
+    """The export with theorem name's value `fun t => R m1 m2 t` made
+    `fun t => R m2 m1 t` (new expressions, appended before the theorem)."""
+    names = {r["in"]: r["str"]["str"] for r in lines if "in" in r and "str" in r}
+    exprs = {r["ie"]: r for r in lines if "ie" in r}
+    at = next(i for i, r in enumerate(lines)
+              if "thm" in r and names.get(r["thm"]["name"]) == name)
+    top = max(exprs) + 1
+    lam = exprs[lines[at]["thm"]["value"]]["lam"]
+    body = exprs[lam["body"]]["app"]
+    f = exprs[body["fn"]]["app"]
+    g = exprs[f["fn"]]["app"]
+    new = [{"ie": top, "app": {"fn": g["fn"], "arg": f["arg"]}},
+           {"ie": top + 1, "app": {"fn": top, "arg": g["arg"]}},
+           {"ie": top + 2, "app": {"fn": top + 1, "arg": body["arg"]}},
+           {"ie": top + 3, "lam": dict(lam, body=top + 2)}]
+    thm = dict(lines[at], thm=dict(lines[at]["thm"], value=top + 3))
+    return lines[:at] + new + [thm] + lines[at + 1:]
+
+
+def kept_back(snapshot):
+    """Per slot of a snapshot checked against its own export: whether the
+    import rule I1 keeps it back -- an outcome invalid, exhausted or full; a lookup
+    no import replays (the key 2^32 - 1 of verdict version 1, or another module's
+    test, kind 7; since plan step SN5 a name a check made beyond its input is
+    written as a name of the tier, and replayed); a lookup answered or a
+    dependency met by a slot kept back; a slot published with the one before,
+    as that one."""
+    data, table = sectioned(snapshot)
+    _, _, n, slots, _ = table[SLOTS]
+    looks, deps = table[LOOKS][3], table[DEPS][3]
+    back, j, k = [], 0, 0
+    for d in range(n):
+        at = slots + 72 * d
+        outcome, marks = u32(data, at), u32(data, at + 4)
+        nd, nl = u32(data, at + 36), u32(data, at + 40)
+        pairs = [(u32(data, looks + 8 * (k + i)), u32(data, looks + 8 * (k + i) + 4))
+                 for i in range(nl)]
+        met = [u32(data, deps + 4 * (j + i)) for i in range(nd)] + \
+              [(a >> 4) - 1 for _, a in pairs if a >> 4]
+        j, k = j + nd, k + nl
+        back.append(back[-1] if marks & 4 else
+                    outcome in (1, 2, 6) or any(key == 0xFFFFFFFF or key & 15 == 7
+                                             for key, _ in pairs) or any(back[s] for s in met))
+    return back
+
+
+class Imports(unittest.TestCase):
+    """check --snapshot S EXPORT (plan task 6.2.5, step SN4; ADR 0020 D5):
+    the export read on into S's tier, every declaration for which the import
+    rule I1 holds taken from S, the rest checked. Both ways: the report is
+    the export's fresh check's, field by field (verdicts, details, fuel,
+    counts, exit status) but for the mode, the snapshot member and each
+    declaration's provenance, which say exactly which were taken (i)-(vii);
+    a fresh check is unchanged (ix: the other classes' pinned reports)."""
+
+    schema = Snapshots.schema
+
+    def setUp(self):
+        self.dir = Path(tempfile.mkdtemp(prefix="leanforth-imports-"))
+
+    def tearDown(self):
+        shutil.rmtree(self.dir)
+
+    def snapshot(self, *args, name="s.lfsnap"):
+        path = self.dir / name
+        status, _, _ = run("check", "--save-snapshot", str(path), *args)
+        self.assertTrue(path.exists(), (status, args))
+        return path
+
+    def edited(self, lines, name):
+        path = self.dir / name
+        path.write_text(ndjson_text(lines))
+        return ["--no-manifest", str(path)]
+
+    def both_ways(self, snap, args, taken, other=0, extra=()):
+        """The export checked fresh and against snap: the same report but
+        for the labels; exactly the names taken are from the snapshot."""
+        status, fresh, _ = report(*extra, *args)
+        again, got, _ = report("--snapshot", str(snap), *extra, *args)
+        self.assertEqual(self.schema.errors(got), [], args)
+        # The input's sizes count the snapshot's records too (one tier).
+        keys = ("schemaVersion", "measured", "mode", "snapshot", "input")
+        self.assertEqual((again, Snapshots.plain(got, keys)),
+                         (status, Snapshots.plain(fresh, keys)), args)
+        self.assertEqual(got["input"]["declarations"], fresh["input"]["declarations"], args)
+        names = [d["name"] for d in got["declarations"]]
+        provenance = {d["name"]: d["provenance"] for d in got["declarations"]}
+        self.assertEqual(sorted(n for n in names if provenance[n] == "snapshot"),
+                         sorted(taken), args)
+        self.assertEqual(got["snapshot"]["import"],
+                         {"taken": len(taken), "checked": len(names) - len(taken),
+                          "otherContent": other}, args)
+        return got
+
+    def test_i_own_export(self):
+        """(i) the snapshot's own export: everything taken, as fresh, nested
+        blocks included (plan step SN5: the names their checks made beyond
+        the input are replayed), but what I1 keeps back (an exhausted, full
+        or invalid verdict) and what reaches it; (v) two equal declarations
+        of one name told apart."""
+        for k, args in enumerate([[COMPOSITION], [FIXTURE], [CHAIN], [INDUCTIVE], [DEPENDENT],
+                                  ["tests/cli/unfold.ndjson"], ["tests/cli/nested.ndjson"],
+                                  ["--no-manifest", f"{CASES}/composition-twice.ndjson"],
+                                  ["--no-manifest", f"{CASES}/composition-wrong-argument.ndjson"],
+                                  ["--no-manifest", f"{CASES}/composition-unsafe.ndjson"],
+                                  ["--no-manifest", "tests/core/reexport/kinds.ndjson"],
+                                  [SHARING]]):
+            snap = self.snapshot(*args, name=f"s{k}.lfsnap")
+            status, fresh, _ = report(*args)
+            back = kept_back(snap)
+            names = [d["name"] for i, d in enumerate(fresh["declarations"]) if not back[i]]
+            self.assertEqual(sum(back), 0, args)
+            self.both_ways(snap, args, names)
+
+    def test_dependent(self):
+        """A library checked against its base: the base's declarations
+        taken, the rest checked and labelled as resting on the snapshot;
+        with --jobs too."""
+        snap = self.snapshot(INDUCTIVE)
+        got = self.both_ways(snap, [DEPENDENT], TWO + ["Two.cases", "Two.swap"])
+        uses = {d["name"] for d in got["declarations"] if d["provenance"] == "uses-snapshot"}
+        self.assertEqual(uses, {"Two.swap_swap", "Two.swap_swap_first", "Two.cases_first"})
+        self.both_ways(snap, [DEPENDENT], TWO + ["Two.cases", "Two.swap"],
+                       extra=("--jobs", "3"))
+        self.both_ways(snap, [SIBLING], TWO + ["Two.swap"])
+
+    def test_ii_proof_altered(self):
+        """(ii) one proof altered: exactly it and its user checked again."""
+        snap = self.snapshot(DEPENDENT)
+        args = self.edited(swapped_minors(records(DEPENDENT), "swap_swap"), "altered.ndjson")
+        names = [d["name"] for d in report(DEPENDENT)[1]["declarations"]]
+        self.both_ways(snap, args, [n for n in names
+                                    if n not in ("Two.swap_swap", "Two.swap_swap_first")],
+                       other=1)
+
+    def test_iii_forward_reference(self):
+        """(iii) a declaration moved after its user: the user is not taken,
+        and rejected as fresh; the moved one is taken."""
+        snap = self.snapshot(DEPENDENT)
+        lines = records(DEPENDENT)
+        at = next(i for i, r in enumerate(lines) if r.get("thm", {}).get("name") == 32)
+        user = next(i for i, r in enumerate(lines) if r.get("thm", {}).get("name") == 33)
+        moved = lines[:at] + lines[at + 1:user + 1] + [lines[at]] + lines[user + 1:]
+        names = [d["name"] for d in report(DEPENDENT)[1]["declarations"]]
+        got = self.both_ways(snap, self.edited(moved, "moved.ndjson"),
+                             [n for n in names if n != "Two.swap_swap_first"])
+        verdicts = {d["name"]: d["verdict"] for d in got["declarations"]}
+        self.assertEqual(verdicts["Two.swap_swap_first"], "rejected")
+
+    def test_iv_name_reused(self):
+        """(iv) a name of the snapshot reused with other content and no other
+        link: checked, accepted as fresh, counted."""
+        snap = self.snapshot(COMPOSITION)
+        lines = records(FIXTURE)
+        lines[1]["str"]["str"] = "composition"
+        got = self.both_ways(snap, self.edited(lines, "reused.ndjson"), [], other=1)
+        self.assertEqual(got["declarations"][0]["verdict"], "accepted")
+
+    def test_vi_block_member_changed(self):
+        """(vi) a block with one member changed (the recursor's K flag): the
+        whole block checked, and every user of it."""
+        snap = self.snapshot(INDUCTIVE)
+        text = Path(INDUCTIVE).read_text().replace('"k":false', '"k":true')
+        path = self.dir / "k.ndjson"
+        path.write_text(text)
+        self.both_ways(snap, ["--no-manifest", str(path)], [], other=4)
+
+    def test_vii_full_slot(self):
+        """(vii) a slot saved full is checked again, and nothing that reaches
+        it is taken."""
+        snap = self.snapshot(INDUCTIVE)
+        data, table = sectioned(snap)
+        put32(data, table[SLOTS][3] + 72 * 4, 6)   # Two.cases: full
+        snap.write_bytes(bytes(resealed(data, table, SLOTS)))
+        self.both_ways(snap, [INDUCTIVE], TWO + ["Two.swap"])
+
+    def test_exhausted(self):
+        """A slot saved exhausted is checked again: fuel used depends on how
+        the tier numbers its records too (measured on a Mathlib prefix
+        against Init's snapshot), so an exhausted verdict is not taken."""
+        snap = self.snapshot("--fuel", "200", INDUCTIVE)
+        self.assertEqual(kept_back(snap), [False] * 4 + [True, False])
+        got = self.both_ways(snap, [INDUCTIVE], TWO + ["Two.swap"], extra=("--fuel", "200"))
+        self.assertEqual(got["declarations"][4]["verdict"], "exhausted")
+
+    def test_undecided_slot(self):
+        """A lookup that meets a slot not taken is no match, even when its
+        answer is the saved one: a crafted snapshot in which
+        Two.swap_swap_first's lookup of Two.swap_swap answered invalid, as
+        the too-early lookup of an export whose Two.swap_swap is checked
+        again answers, and which depends on rfl instead."""
+        snap = self.snapshot(DEPENDENT)
+        data, table = sectioned(snap)
+        slots, looks, deps = table[SLOTS][3], table[LOOKS][3], table[DEPS][3]
+        first = sum(u32(data, slots + 72 * d + 40) for d in range(10))
+        at = next(looks + 8 * (first + i) for i in range(u32(data, slots + 72 * 10 + 40))
+                  if u32(data, looks + 8 * (first + i) + 4) >> 4 == 10
+                  and u32(data, looks + 8 * (first + i)) & 15 == 0)
+        put32(data, at + 4, 1)
+        first = sum(u32(data, slots + 72 * d + 36) for d in range(10))
+        self.assertEqual([u32(data, deps + 4 * (first + i)) for i in range(5)], [0, 1, 4, 7, 9])
+        put32(data, deps + 4 * (first + 4), 8)
+        snap.write_bytes(bytes(resealed(resealed(data, table, LOOKS), table, DEPS)))
+        args = self.edited(swapped_minors(records(DEPENDENT), "swap_swap"), "altered.ndjson")
+        names = [d["name"] for d in report(DEPENDENT)[1]["declarations"]]
+        self.both_ways(snap, args, [n for n in names
+                                    if n not in ("Two.swap_swap", "Two.swap_swap_first")],
+                       other=1)
+
+    def test_refused(self):
+        """The snapshot refused before the export is read; the export's
+        own failures stay the export's; a refused snapshot lists no
+        verdict."""
+        snap = self.snapshot(FIXTURE)
+        status, out, _ = run("check", "--snapshot", str(snap), "--fuel", "5", INDUCTIVE)
+        self.assertEqual((status, out.splitlines()[0]),
+                         (4, "error: invalid: the snapshot was refused: fuel"))
+        status, got, _ = report("--snapshot", str(snap), "--fuel", "5", INDUCTIVE)
+        self.assertEqual((status, got["declarations"], got["read"]["phase"]),
+                         (4, [], "snapshot"))
+        status, out, _ = run("check", "--snapshot", str(snap), "--no-manifest", "README.md")
+        self.assertEqual(status, 4)
+        self.assertNotIn("the snapshot was refused", out)
+        status, out, _ = run("check", "--snapshot", str(snap), "tests/cli/no-such.ndjson")
+        self.assertEqual(status, 4)
+
+
+class Layers(unittest.TestCase):
+    """Layered snapshots (ADR 0020 amendment 1, F5; plan step SN4): check
+    --snapshot BASE --save-snapshot LAYER EXPORT writes only what the run
+    added to BASE, with BASE's identity; --snapshot BASE --snapshot LAYER
+    ... loads them in order: base and layer report what base and the
+    dependent export checked against it did; two layers written on one
+    base load together, sharing what both hold; a layer on another base, a
+    layer given first, and a name two layers declare with other content are
+    refused."""
+
+    def setUp(self):
+        self.dir = Path(tempfile.mkdtemp(prefix="leanforth-layers-"))
+        self.base = self.dir / "base.lfsnap"
+        self.assertEqual(run("check", "--save-snapshot", str(self.base), INDUCTIVE)[0], 0)
+
+    def tearDown(self):
+        shutil.rmtree(self.dir)
+
+    def layer(self, name, *args):
+        path = self.dir / name
+        status, got, _ = report("--snapshot", str(self.base), "--save-snapshot", str(path),
+                                *args)
+        self.assertTrue(path.exists(), (status, args))
+        return path, got
+
+    def test_layer_as_its_run(self):
+        layer, got = self.layer("dependent.lfsnap", DEPENDENT)
+        data, table = sectioned(layer)
+        base, _ = sectioned(self.base)
+        self.assertEqual((u32(data, 24 + 4 * 7), data[56:88]),
+                         (1, hashlib.sha256(bytes(base[:4064])).digest()))
+        self.assertEqual(table[SLOTS][2], 7)          # Eq's block, rfl and the three new ones
+        status, loaded, _ = report("--snapshot", str(self.base), "--snapshot", str(layer))
+        self.assertEqual(Imports.schema.errors(loaded), [])
+        def fields(report):
+            return {d["name"]: {k: v for k, v in d.items() if k not in ("index", "provenance")}
+                    for d in report["declarations"]}
+        self.assertEqual(fields(loaded), fields(got))
+        self.assertEqual({d["provenance"] for d in loaded["declarations"]}, {"snapshot"})
+        again, imported, _ = report("--snapshot", str(self.base), "--snapshot", str(layer),
+                                    DEPENDENT)
+        keys = ("schemaVersion", "measured", "mode", "snapshot", "input")
+        self.assertEqual((again, Snapshots.plain(imported, keys)),
+                         (status, Snapshots.plain(got, keys)))
+        self.assertEqual(imported["snapshot"]["import"]["checked"], 0)
+
+    def test_siblings(self):
+        one, _ = self.layer("dependent.lfsnap", DEPENDENT)
+        two, sib = self.layer("sibling.lfsnap", SIBLING)
+        status, got, _ = report("--snapshot", str(self.base), "--snapshot", str(one),
+                                "--snapshot", str(two))
+        names = [d["name"] for d in got["declarations"]]
+        self.assertEqual((status, len(names), len(set(names))), (0, 15, 15))
+        self.assertEqual(names[-2:], ["Two.swap_first", "Two.swap_second"])
+        status, both, _ = report("--snapshot", str(self.base), "--snapshot", str(two),
+                                 "--snapshot", str(one), SIBLING)
+        self.assertEqual((status, both["snapshot"]["import"]["checked"]), (0, 0))
+
+    def test_refused(self):
+        one, _ = self.layer("dependent.lfsnap", DEPENDENT)
+        other = self.dir / "other.lfsnap"
+        run("check", "--save-snapshot", str(other), DEPENDENT)
+        clash, _ = self.layer("clash.lfsnap", *Imports.edited(
+            self, swapped_minors(records(DEPENDENT), "swap_swap"), "altered.ndjson"))
+        for args, why in [
+                ([one, self.base], "unsupported: the snapshot was refused: layer"),
+                ([other, one], "invalid: the snapshot was refused: base snapshot of the layer"),
+                ([self.base, one, clash], "invalid: the snapshot was refused: a name of two "
+                                          "snapshots with other content (record 5)")]:
+            options = [x for path in args for x in ("--snapshot", str(path))]
+            status, out, _ = run("check", *options)
+            self.assertEqual((status, out.splitlines()[0]), (2 if "unsupported" in why else 4,
+                                                             f"error: {why}"), args)
+            status, got, _ = report(*options)
+            self.assertEqual(got["declarations"], [], args)
+        status, out, _ = run("check", "--snapshot", str(self.base), "--snapshot", str(one),
+                             "--save-snapshot", str(self.dir / "x"), DEPENDENT)
+        self.assertEqual((status, out.splitlines()[0]),
+                         (4, "error: --save-snapshot writes a layer on one snapshot only"))
+        # The base with another information text: the same records and
+        # counts, another identity.
+        data, table = sectioned(self.base)
+        _, _, _, info, length = table[16]
+        data[info + length - 2] ^= 0x20
+        renamed = self.dir / "renamed.lfsnap"
+        renamed.write_bytes(bytes(resealed(data, table, 16)))
+        status, out, _ = run("check", "--snapshot", str(renamed), "--snapshot", str(one))
+        self.assertEqual((status, out.splitlines()[0]), (4, "error: invalid: the snapshot was "
+                         "refused: base snapshot of the layer"))
+        # Eq's block, which both layers hold, with another fuel in one.
+        two, _ = self.layer("sibling.lfsnap", SIBLING)
+        data, table = sectioned(two)
+        put32(data, table[SLOTS][3] + 4 * 7, u32(data, table[SLOTS][3] + 4 * 7) + 1)
+        two.write_bytes(bytes(resealed(data, table, SLOTS)))
+        status, out, _ = run("check", "--snapshot", str(self.base), "--snapshot", str(one),
+                             "--snapshot", str(two))
+        self.assertEqual((status, out.splitlines()[0]), (4, "error: invalid: the snapshot was "
+                         "refused: a declaration of two snapshots with other verdicts (record 0)"))
+
+    def test_reported(self):
+        """Every layer loaded is named in the text and the JSON report, with
+        its identity, its export's and its base's (review rvSN4 M1)."""
+        one, _ = self.layer("dependent.lfsnap", DEPENDENT)
+        options = ["--snapshot", str(self.base), "--snapshot", str(one)]
+        status, out, _ = run("check", *options)
+        sha = hashlib.sha256(sectioned(one)[0][:4064]).hexdigest()
+        self.assertEqual(status, 0)
+        self.assertIn(f"layer: {one} (sha256 {sha}), export sha256 "
+                      f"{hashlib.sha256(Path(DEPENDENT).read_bytes()).hexdigest()}, "
+                      "verdict version 3, on the snapshot above", out.splitlines())
+        status, got, _ = report(*options)
+        self.assertEqual(Imports.schema.errors(got), [])
+        self.assertEqual([(x["file"], x["sha256"], x["base"]) for x in got["snapshot"]["layers"]],
+                         [(str(one), sha, got["snapshot"]["sha256"])])
+        self.assertEqual(report("--snapshot", str(self.base))[1]["snapshot"]["layers"], [])
+
+    def test_member_clash(self):
+        """A layer whose block declares, as a constructor, a name of the
+        base with other content: refused, whichever member holds the name
+        (review rvSN4 M2), when loaded and as an import's base."""
+        base = self.dir / "fixture.lfsnap"
+        run("check", "--save-snapshot", str(base), FIXTURE)
+        lines = records(INDUCTIVE)
+        renamed = next(r for r in lines if r.get("str", {}).get("str") == "first")
+        renamed["str"] = {"pre": 0, "str": "fixtureId"}
+        args = Imports.edited(self, lines, "renamed.ndjson")
+        path = self.dir / "clash.lfsnap"
+        run("check", "--snapshot", str(base), "--save-snapshot", str(path), *args)
+        why = ("error: invalid: the snapshot was refused: a name of two snapshots with other "
+               "content (record 0)")
+        for more in [[], args]:
+            status, out, _ = run("check", "--snapshot", str(base), "--snapshot", str(path), *more)
+            self.assertEqual((status, out.splitlines()[0]), (4, why), more)
+
+    def test_record_twice(self):
+        """A layer holding one expression twice (its second made a copy of
+        its first): refused, never loaded as another tier (review rvSN4
+        m1)."""
+        one, _ = self.layer("dependent.lfsnap", DEPENDENT)
+        data, table = sectioned(one)
+        exprs = table[7][3]
+        data[exprs + 16:exprs + 32] = data[exprs:exprs + 16]
+        one.write_bytes(bytes(resealed(data, table, 7)))
+        status, out, _ = run("check", "--snapshot", str(self.base), "--snapshot", str(one))
+        self.assertEqual((status, out.splitlines()[0]),
+                         (4, "error: invalid: the snapshot was refused: expressions (record 1)"))
+
+    def test_not_written(self):
+        """No "written to" line when the run read nothing and so wrote
+        nothing (review rvSN4 m2)."""
+        target = self.dir / "never.lfsnap"
+        status, out, _ = run("check", "--save-snapshot", str(target), "--no-manifest",
+                             "README.md")
+        self.assertEqual(status, 4)
+        self.assertNotIn("snapshot: written to", out)
+        self.assertIn("error: the snapshot was not written: invalid", out.splitlines())
+        self.assertFalse(target.exists())
+
+
+GOLDEN = ROOT / "tests/cli/golden-snapshots"
+GOLDEN_EXPORTS = {   # the small pinned exports whose snapshots the guard keeps
+    "composition": [COMPOSITION], "constant-fixture": [FIXTURE], "chain": [CHAIN],
+    "inductive": [INDUCTIVE], "dependent": [DEPENDENT], "unfold": ["tests/cli/unfold.ndjson"],
+    "nested": ["tests/cli/nested.ndjson"], "sharing": [SHARING],
+    "kinds": ["--no-manifest", "tests/core/reexport/kinds.ndjson"],
+    "composition-wrong-argument": ["--no-manifest",
+                                   f"{CASES}/composition-wrong-argument.ndjson"]}
+SLOT_FIELDS = ["outcome", "marks", "provenance", "axioms", "warnings", "recipe", "shape",
+               "fuel (low)", "fuel (high)", "dependencies", "lookups"]
+
+
+def verdict_version():
+    text = (ROOT / "src/kernel/verdict-version.fs").read_text()
+    return int(re.search(r"^(\d+) constant lf-verdict-version$", text, re.M).group(1))
+
+
+def golden_fields(path):
+    """What the verdict version covers, read from a snapshot (ADR 0020 D3):
+    the header's settings, the tier and identity sections (their SHA-256),
+    and per slot its fields but the diagnostic, its dependencies and its
+    lookups. The information section, which names the build, is left out."""
+    data, table = sectioned(path)
+    def section(i):
+        return bytes(data[table[i][3]:table[i][3] + table[i][4]])
+    _, _, n, slots, _ = table[SLOTS]
+    deps, looks = table[DEPS][3], table[LOOKS][3]
+    rows, j, k = [], 0, 0
+    for d in range(n):
+        fields = [u32(data, slots + 72 * d + 4 * f) for f in range(len(SLOT_FIELDS))]
+        nd, nl = fields[9], fields[10]
+        rows.append({"fields": fields,
+                     "deps": [u32(data, deps + 4 * (j + i)) for i in range(nd)],
+                     "looks": [[u32(data, looks + 8 * (k + i)), u32(data, looks + 8 * (k + i) + 4)]
+                               for i in range(nl)]})
+        j, k = j + nd, k + nl
+    return {"verdictVersion": u32(data, 24 + 4 * 2),
+            "header": [u32(data, 24 + 4 * f) for f in range(16)],
+            "tier": hashlib.sha256(b"".join(section(i) for i in range(10))).hexdigest(),
+            "identity": hashlib.sha256(section(10)).hexdigest(),
+            "slots": rows}
+
+
+def golden_text(fields):
+    """One slot to a line, so that a change shows as a short diff."""
+    head = {k: v for k, v in fields.items() if k != "slots"}
+    lines = [json.dumps(head, separators=(",", ":"))[:-1] + ',"slots":[']
+    lines += [json.dumps(r, separators=(",", ":")) + ("," if i + 1 < len(fields["slots"]) else "")
+              for i, r in enumerate(fields["slots"])]
+    return "\n".join(lines) + "\n]}\n"
+
+
+def write_golden():
+    """Write the guard's golden files again (after a verdict-version bump,
+    whose commit must hold them): python3 tests/cli/test_leanforth.py
+    --write-golden."""
+    GOLDEN.mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory() as tmp:
+        for stem, args in GOLDEN_EXPORTS.items():
+            path = Path(tmp) / f"{stem}.lfsnap"
+            run("check", "--save-snapshot", str(path), *args)
+            (GOLDEN / f"{stem}.json").write_text(golden_text(golden_fields(path)))
+            print("written", GOLDEN / f"{stem}.json")
+
+
+class VerdictGuard(unittest.TestCase):
+    """The verdict-version guard (ADR 0020 D3; plan step SN5): the snapshot
+    of each small pinned export, written now, has every field the verdict
+    version covers as the golden one written with this verdict version.
+    A change that moves one without bumping lf-verdict-version fails here;
+    a bump makes the golden files stale, so its commit writes them again
+    (write_golden). Only what these exports reach is guarded; ADR 0020 D3's
+    both-ways comparison on Init and a Mathlib prefix covers the rest."""
+
+    def test_golden(self):
+        version = verdict_version()
+        with tempfile.TemporaryDirectory() as tmp:
+            for stem, args in GOLDEN_EXPORTS.items():
+                golden = json.loads((GOLDEN / f"{stem}.json").read_text())
+                self.assertEqual(golden["verdictVersion"], version,
+                                 f"{stem}: golden snapshot of another verdict version (stale): "
+                                 "write them again, python3 tests/cli/test_leanforth.py "
+                                 "--write-golden")
+                path = Path(tmp) / f"{stem}.lfsnap"
+                run("check", "--save-snapshot", str(path), *args)
+                now = golden_fields(path)
+                for key in ("header", "tier", "identity"):
+                    self.assertEqual(now[key], golden[key], f"{stem}: {key}")
+                self.assertEqual(len(now["slots"]), len(golden["slots"]), stem)
+                moved = [f"slot {d} {name}: {a} -> {b}"
+                         for d, (g, s) in enumerate(zip(golden["slots"], now["slots"]))
+                         for name, a, b in
+                         [(SLOT_FIELDS[f], g["fields"][f], s["fields"][f])
+                          for f in range(len(SLOT_FIELDS))] +
+                         [("dependencies", g["deps"], s["deps"]), ("lookups", g["looks"], s["looks"])]
+                         if a != b]
+                self.assertEqual(moved[:10], [], f"{stem}: a field the verdict version covers "
+                                 "moved without a bump of lf-verdict-version")
+
+
 if __name__ == "__main__":
+    if sys.argv[1:] == ["--write-golden"]:
+        write_golden()
+        sys.exit(0)
     unittest.main()

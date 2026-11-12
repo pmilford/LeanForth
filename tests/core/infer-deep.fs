@@ -36,21 +36,26 @@ variable token
   0 h rot h lf-hterm-lam save newest 2 h rot h lf-hterm-lam save newest ;
 : infer ( root fuel -- type status ) >r h token @ -rot r> lf-mixed-infer nip ;
 
-\ The deepest successful inference: 27 applications under two binders; its
-\ type is node 62 (one more application is full). Fuel left: 98957 since
-\ the scope audit reads its root's data word (plan step S6 (c)), 98896
-\ since the audits check a shared node once (agent EX), 98894 since
-\ conversion is Lean's is_def_eq (plan task 4.2.2b: each argument's type
-\ equals the domain by Lean's ==), 98705 since free variables (98517 for
-\ 26 applications, 99021 since plan step S6 (c), whose type filled the
-\ store exactly, since ADR 0011
-\ Amendment 1; 98439 before).
-T{ 27 apps 100000 infer lf-minfer-fuel @ lf-term-count @ -> 62 outcome-ok 98957 63 }T
-T{ 26 apps 100000 infer lf-minfer-fuel @ lf-term-count @ -> 60 outcome-ok 99021 61 }T
+\ The deepest successful inference: 54 applications under two binders; its
+\ type is node 63, which fills the store exactly (one more application is
+\ full). Since agent PF (ADR 0014 Amendment 6) each application's
+\ argument, put into the body S of f's type S -> S, is not closed first
+\ (Lean's instantiate never reads it), so inference makes one node, the
+\ type, where it made a closed copy of each argument before: then the
+\ deepest was 27 applications, type node 62, fuel left 98957 since the
+\ scope audit reads its root's data word (plan step S6 (c)), 98896 since
+\ the audits check a shared node once (agent EX), 98894 since conversion
+\ is Lean's is_def_eq (plan task 4.2.2b: each argument's type equals the
+\ domain by Lean's ==), 98705 since free variables (98517 for 26
+\ applications, 99021 since plan step S6 (c), whose type filled the store
+\ exactly, since ADR 0011 Amendment 1; 98439 before).
+T{ 54 apps 100000 infer lf-minfer-fuel @ lf-term-count @ -> 63 outcome-ok 99389 64 }T
+T{ 53 apps 100000 infer lf-minfer-fuel @ lf-term-count @ -> 62 outcome-ok 99400 63 }T
+T{ 27 apps 100000 infer lf-minfer-fuel @ lf-term-count @ -> 36 outcome-ok 99686 37 }T
 \ Deeper inputs run out of room for their output types: full (not
 \ exhausted: fuel is plentiful), with every count rolled back and no fuel
 \ left, never a crash. With too little fuel the same input is exhausted.
-T{ 29 apps 100000 infer lf-minfer-fuel @ lf-term-count @ -> -1 outcome-full 0 35 }T
+T{ 55 apps 100000 infer lf-minfer-fuel @ lf-term-count @ -> -1 outcome-full 0 61 }T
 T{ 31 lams 100000 infer lf-minfer-fuel @ lf-term-count @ -> -1 outcome-full 0 33 }T
 T{ 29 apps 100 infer lf-minfer-fuel @ lf-term-count @ -> -1 outcome-exhausted 0 35 }T
 
@@ -83,16 +88,21 @@ variable deep-root  variable deep-status
 : at-most ( n limit -- flag ) > 0= ;
 : difference ( r1 d1 r2 d2 -- r d ) rot swap - >r - r> ;
 25 59 painted-infer 2constant with-normalize
-\ Fuel left: 98490 and 99081 since == is Lean's at every pair (plan step
-\ S4), 98490 and 99080 since the scope audit reads its root's data
+\ Fuel left 99115 and 99706, 36 terms, since an application's argument
+\ is not closed for the body S of f's type (agent PF; no copies are made,
+\ so 25 applications are no longer the deepest inference the store
+\ allows; the case still measures the normalize at the innermost frame);
+\ before, 60 terms and fuel left 98490 and 99081 since == is Lean's at
+\ every pair (plan step S4), 98490 and 99080 since the scope audit reads
+\ its root's data
 \ word (plan step S6 (c)), 98433 and 99023 since the audits check a
 \ shared node once
 \ (agent EX), 98432 and 99022 since conversion is Lean's is_def_eq (plan
 \ task 4.2.2b), 98143 and 98849 before.
 T{ deep-status @ lf-minfer-fuel @ lf-term-count @ lf-level-count @
-   -> outcome-ok 98490 60 64 }T
+   -> outcome-ok 99115 36 64 }T
 25 0 painted-infer 2constant without-normalize
-T{ deep-status @ lf-minfer-fuel @ lf-term-count @ -> outcome-ok 99081 60 }T
+T{ deep-status @ lf-minfer-fuel @ lf-term-count @ -> outcome-ok 99706 36 }T
 : added ( -- return-cells data-cells ) with-normalize without-normalize difference ;
 T{ added lf-lnorm-data-cells at-most swap lf-lnorm-return-cells at-most -> true true }T
 T{ added drop 64 at-most -> true }T

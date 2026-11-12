@@ -129,6 +129,10 @@ begin-structure /tier-file
   field: tf-why                        \ counted string: the section refused, or 0
   field: tf-at                         \ the number of the record refused, or -1
   field: tf-stage                      \ the stage written or read
+  tier-sections# cells +field tf-from  \ writing: each section's first unit (a layer)
+  2 cells +field tf-given              \ writing: the declarations given, addr n, or 0 0
+  field: tf-given-lines                \ and their lines (n fields)
+  tier-sections# 2* cells +field tf-joins  \ writing: a section's units given whole, or 0 0
 end-structure
 : tf-stage@ ( tf -- stage ) tf-stage @ ;
 \ Section i's slab in the record's stage.
@@ -180,8 +184,27 @@ end-structure
   tf-copy-out dup ok? if >r 2dup decls-unmark r> then ;
 create tf-outs ' tf-raw-out , ' tf-le-out , ' tf-le-out , ' tf-le-out , ' tf-raw-out ,
   ' tf-le-out , ' tf-exprs-out , ' tf-decls-out , ' tf-le-out ,
+\ A layer (ADR 0020 amendment 1, F5; plan step SN4) writes each family's
+\ records from a first unit on (tier-from!), and declarations and lines
+\ the caller gives (tier-given!); a base writes every record.
+: tf-from@ ( i tf -- u ) tf-from swap cells + @ ;
+: tf-given? ( i tf -- flag ) tf-given cell+ @ 0<> swap tp-decls < 0= and ;
+: tf-given@ ( i tf -- addr n )
+  swap tp-decls = if tf-given 2@ else dup tf-given-lines @ swap tf-given @ then ;
+\ A caller may also give a section's units whole (tier-joined!: the
+\ environment's snapshot appends the names a check made beyond the input
+\ to the names and their bytes; the caller keeps the block until the file
+\ is written).
+: tf-join ( i tf -- addr ) tf-joins swap 2* cells + ;
+: tf-data ( i tf -- addr n )
+  2dup tf-join 2@ over if 2swap 2drop exit then 2drop
+  2dup tf-given? if tf-given@ exit then
+  2dup tf-from@ >r tf-slab dup slab-count r@ - swap r> swap slab-at swap ;
+: tier-from! ( addr tf -- ) tf-from tier-sections# cells move ;
+: tier-given! ( decls n lines tf -- ) tuck tf-given-lines ! tf-given 2! ;
+: tier-joined! ( addr n i tf -- ) tf-join 2! ;
 : tf-out ( i tf -- addr units outcome )
-  2dup tf-slab tf-slab-data 2swap over 1- cells tf-outs + @ execute ;
+  2dup tf-data 2swap over 1- cells tf-outs + @ execute ;
 : tf-add ( i tf -- outcome )
   2dup tf-out ok-then2? 0= if nip nip exit then
   2swap tf-sf >r dup tier-unit rot rot 1+ r> sections-add ;
@@ -189,8 +212,8 @@ create tf-outs ' tf-raw-out , ' tf-le-out , ' tf-le-out , ' tf-le-out , ' tf-raw
   tier-sections# 1 do i over tf-add dup ok? 0= if nip unloop exit then drop loop
   drop outcome-ok ;
 \ The information fields.
-: tf-count! ( i stage tf -- ) >r over swap tier-slab slab-count swap ti-decls min r> ti! ;
-: tf-counts! ( stage tf -- ) ti-decls 1+ 1 do 2dup i -rot tf-count! loop 2drop ;
+: tf-count! ( i tf -- ) 2dup tf-data nip -rot swap ti-decls min swap ti! ;
+: tf-counts! ( stage tf -- ) nip ti-decls 1+ 1 do i over tf-count! loop drop ;
 : tf-meta-slot! ( k stage tf -- ) >r over swap meta-slot @ swap ti-meta + r> ti! ;
 : tf-metas! ( stage tf -- )
   over stage-other? 0= if 2drop exit then dup >r 1 ti-other r> ti!

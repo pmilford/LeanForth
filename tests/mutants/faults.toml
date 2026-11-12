@@ -1505,8 +1505,8 @@ reason = "the stage forgets what another Lean version's metadata named, so no no
 [[fault]]
 id = "cli-other-lean-note-missing"
 file = "src/cli/leanforth.fs"
-old = '''  cli-other-note ck-loaded? if cli-results. else ck-read-outcome cli-fed-unread then'''
-new = '''  ck-loaded? if cli-results. else ck-read-outcome cli-fed-unread then'''
+old = '''cli-noted ( -- ) cli-other-note true cli-state run-noted ! ;'''
+new = '''cli-noted ( -- ) true cli-state run-noted ! ;'''
 test = "python3 tests/cli/test_leanforth.py OtherLean"
 reason = "check --any-lean-version on another Lean version's export prints no note that its verdicts are Lean 4.35.0's"
 
@@ -4441,7 +4441,7 @@ reason = "an empty block is accepted where Lean's kernel rejects it (emptyBlock)
 id = "genrec-elim-always-large"
 file = "src/kernel/generated-recursor.fs"
 old = ''': lf-genrec-large? ( d -- flag )
-  lf-env lf-env-slot lf-slot-recipe @ lf-recipe-large and 0<> ;'''
+  lf-env-i2 lf-env lf-env-slot lf-slot-recipe @ lf-recipe-large and 0<> ;'''
 new = ''': lf-genrec-large? ( d -- flag ) drop true ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvI21 R4-2: every generated recursor given a motive universe; a use of Or's or Exists' recursor (Prop only) is rejected for its universe count"
@@ -7436,6 +7436,33 @@ new = '''  lf-minfer-close ok-then? 0= if drop outcome-ok false exit then'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "6.5.5: a closing for a key that runs out of room lets inference go on uncached, so a refused allocation does not end the block full"
 
+# --- plan task 6.5.5, agent PF: an application's argument is not closed for
+# a Pi body without loose bound variables (Lean's instantiate, instantiate.cpp 22)
+
+[[fault]]
+id = "pf-put-always-closes"
+file = "src/kernel/mixed-infer.fs"
+old = '''  over lf-minfer-closed-body? if lf-minfer-substitute exit then'''
+new = '''  over lf-minfer-closed-body? drop'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "6.5.5 (PF): the argument is closed for a body Lean's instantiate gives back unread, five units more"
+
+[[fault]]
+id = "pf-put-dependent-unclosed"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-term-data@ if lf-data-loose 0= else false then ;'''
+new = '''  lf-term-data@ if lf-data-loose 2 < else false then ;'''
+test = "$GFORTH tests/core/mixed-infer.fs"
+reason = "6.5.5 (PF): a dependent body gets the argument unclosed, its loose bound variables read under the wrong scope"
+
+[[fault]]
+id = "pf-copy-id-one-key"
+file = "src/kernel/caches.fs"
+old = '''  lf-word-facts 0= if false exit then lf-bits-loose if drop false else true then ;'''
+new = '''  lf-word-facts 0= if false exit then 2drop 0 true ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "6.5.5 (PF): every closed copy read from its data word gets one key, so an open term finds another's inferred type"
+
 # --- compact-store plan step S4 (agent S4) ---------------------------------
 [[fault]]
 id = "cache-dead-fvar"
@@ -8401,10 +8428,34 @@ reason = "SN3: a declaration that uses a result from a snapshot is not labelled 
 [[fault]]
 id = "sn3-verdict-version-unchecked"
 file = "src/kernel/env-snapshot.fs"
-old = ''': snap-fresh? ( snap -- flag ) sh-verdict swap head@ lf-verdict-version = ;'''
-new = ''': snap-fresh? ( snap -- flag ) drop true ;'''
+old = '''  dup snap-verdict lf-verdict-version = if drop true exit then'''
+new = '''  drop true exit'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots"
 reason = "SN3: a snapshot of another verdict version (stale) is loaded"
+
+[[fault]]
+id = "sn5-stale-unlabelled"
+file = "src/kernel/env-snapshot.fs"
+old = '''  dup snap-older? snap-stale-allowed @ and dup rot snap-stale ! ;'''
+new = '''  dup snap-older? snap-stale-allowed @ and nip ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots"
+reason = "SN5: a snapshot of an older verdict version loaded with --snapshot-stale-ok, its results reported as this build's verdicts"
+
+[[fault]]
+id = "sn5-stale-newer"
+file = "src/kernel/env-snapshot.fs"
+old = ''': snap-older? ( snap -- flag ) snap-verdict 1 lf-verdict-version within ;'''
+new = ''': snap-older? ( snap -- flag ) snap-verdict 0<> ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots"
+reason = "SN5: --snapshot-stale-ok also loads a snapshot of a newer verdict version than this build's"
+
+[[fault]]
+id = "sn5-fuel-moved"
+file = "src/kernel/env-snapshot.fs"
+old = '''  r> snap-facts @ execute >r sl-fuel 2 pick fld2! r@ put-step r> put-site nip ;'''
+new = '''  r> snap-facts @ execute >r 1+ sl-fuel 2 pick fld2! r@ put-step r> put-site nip ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py VerdictGuard"
+reason = "SN5: a change that moves a stored field (every fuel used one more) without a bump of the verdict version"
 
 [[fault]]
 id = "sn3-fuel-unchecked"
@@ -8527,3 +8578,226 @@ new = '''  if drop true else drop false then ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "SH: a worker shares the references of a source that made more since it sealed"
 equivalent = "defence in depth: such a source counts references beyond its input mark, which the worker reads as input, so the worker's fingerprint is not the source's and no worker is made (cli/check-run.fs)"
+
+# --- review rvSN3 of the checked environment saved and loaded (plan step SN3)
+
+[[fault]]
+id = "rvsn3-lists-past-section"
+file = "src/kernel/env-snapshot.fs"
+old = '''  2dup lists-inside? 0= if 2drop false exit then
+'''
+new = ''''''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_review_faults"
+reason = "rvSN3 M1: a slot's list counts past their sections are read (a THROW, or other heap data) before the totals are compared"
+
+[[fault]]
+id = "rvsn3-refused-verdicts-listed"
+file = "src/cli/check-run.fs"
+old = '''  true ck-state ck-snap-bad ! ck-env-free ;'''
+new = '''  true ck-state ck-snap-bad ! ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_review_faults"
+reason = "rvSN3 M2: a refused snapshot's JSON report still lists its verdicts"
+
+[[fault]]
+id = "rvsn3-commit-unplain"
+file = "src/cli/leanforth.fs"
+old = '''  cli-commit-key nip /string 2dup cli-quote-at nip cli-shown-commit ;'''
+new = '''  cli-commit-key nip /string 2dup cli-quote-at nip ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_review_faults"
+reason = "rvSN3 m1: a commit text with a line feed is printed raw and forges a report line"
+
+[[fault]]
+id = "rvsn3-fuel-unbounded"
+file = "src/kernel/env-snapshot.fs"
+old = '''  snap-fuel swap sl-fuel swap fld2@ tuck < 0= swap -1 < 0= and ;'''
+new = '''  2drop true ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_review_faults"
+reason = "rvSN3 m2: a saved fuel used above the fuel per declaration loads"
+
+[[fault]]
+id = "rvsn3-provenance-unchecked"
+file = "src/kernel/env-snapshot.fs"
+old = '''  swap sl-provenance swap fld@ swap snap-layer? 1 and u> 0= ;'''
+new = '''  2drop true ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_review_faults"
+reason = "rvSN3 m3: a base snapshot's slot with a provenance a final run never writes loads"
+
+[[fault]]
+id = "rvsn3-added-unblocked"
+file = "src/kernel/env-publish.fs"
+old = ''': lf-recheck-lone? ( decl -- flag ) lf-recheck-one? lf-cand-added? 0= and ;'''
+new = ''': lf-recheck-lone? ( decl -- flag ) lf-recheck-one? ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_review_faults"
+reason = "rvSN3 m4: a declaration that is no block published as added by B3 (its name usable) passes the re-check"
+
+[[fault]]
+id = "rvsn3-key-name-unchecked"
+file = "src/kernel/env-snapshot.fs"
+old = '''  over key-name swap snap-names @ u< over key-kind lf-look-quot u> 0= and'''
+new = '''  nip dup key-kind lf-look-quot u> 0='''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_review_faults"
+reason = "rvSN3 m5: a saved lookup key of a name beyond the tier loads"
+
+# --- dependent exports checked against a snapshot (plan step SN4;
+# src/kernel/env-import.fs): each fault is caught by a both-ways difference
+# (the report against the export's fresh check, and which declarations
+# were taken) or a refusal.
+
+[[fault]]
+id = "sn4-content-by-name"
+file = "src/kernel/env-import.fs"
+old = '''  staged-name 6 u32s rot staged-name 6 u32s compare 0= r> and ;'''
+new = '''  2drop r> drop true ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
+reason = "SN4: content compared by name only; a declaration of the snapshot's name but another proof is taken"
+
+[[fault]]
+id = "sn4-block-not-whole"
+file = "src/kernel/env-import.fs"
+old = '''  2 pick over e-kind member-kind? if block-same? else decls-alike? then ;'''
+new = '''  decls-alike? ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
+reason = "SN4: a block's member compared alone, not the whole block; the block's first is taken with a changed member in its span"
+
+[[fault]]
+id = "sn4-answer-untranslated"
+file = "src/kernel/env-import.fs"
+old = '''  1- swap imp-from @ ua@ ?dup 0= if drop false exit then
+  4 lshift swap 15 and or true ;'''
+new = '''  2drop true ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
+reason = "SN4: a lookup's answer compared without translating its slot to the snapshot's; a slot at another place in the export is never taken"
+
+[[fault]]
+id = "sn4-undecided-matched"
+file = "src/kernel/env-import.fs"
+old = '''  over replay-all if lf-env-early? 0= if answers-same? exit then then 2drop false ;'''
+new = '''  over replay-all if answers-same? exit then 2drop false ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
+reason = "SN4: a lookup that met a slot not taken (to be checked in this run) is not refused as no match"
+
+[[fault]]
+id = "sn4-full-taken"
+file = "src/kernel/env-import.fs"
+old = '''  dup outcome-full = over outcome-invalid = or swap outcome-exhausted = or ;'''
+new = '''  dup outcome-invalid = swap outcome-exhausted = or ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
+reason = "SN4: a slot the snapshot saved full (no heap then) is taken instead of checked again"
+
+[[fault]]
+id = "sn4-own-name-unasked"
+file = "src/kernel/environment.fs"
+old = ''': lf-replay-fresh ( name -- ) lf-env-limit lf-env-fresh drop ;'''
+new = ''': lf-replay-fresh ( name -- ) lf-look-fresh lf-look-key 0 swap lf-env-noted ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
+reason = "SN4: the own-name lookup (N2) not asked again, its answer taken as found free; of two equal declarations of one name the wrong one is taken"
+
+[[fault]]
+id = "sn4-provenance-unspread"
+file = "src/kernel/env-import.fs"
+old = '''  drop dup fill-marks dup fill-span dup lf-env-span! over swap fill-shapes lf-env-saved!'''
+new = '''  drop dup fill-marks dup fill-span dup lf-env-span! over swap fill-shapes'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
+reason = "SN4: a taken slot not labelled as taken from the snapshot, nor its users as resting on it"
+
+[[fault]]
+id = "sn4-trailing-alone"
+file = "src/kernel/env-import.fs"
+old = '''  over d-trailing? if 2drop drop false exit then
+'''
+new = ''''''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
+reason = "SN4: a member the snapshot published with its block's first is taken alone, when that first is checked here"
+equivalent = "defence in depth: first-taken? already keeps back a member whose block's first was not taken here, and a first taken with its span publishes the member with it"
+
+# --- layered snapshots (ADR 0020 amendment 1, F5; plan step SN4;
+# src/kernel/env-layers.fs, src/import/snapshot-layer.fs)
+
+[[fault]]
+id = "sn4-layer-any-base"
+file = "src/kernel/env-snapshot.fs"
+old = '''  sh-layers over head@ 1 = swap dup snap-expect @ sh-base rot sum-head? and ;'''
+new = '''  sh-layers swap head@ 1 = ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
+reason = "SN4: a layer written on another base loads on this one (its records numbered against other counts)"
+
+[[fault]]
+id = "sn4-layer-clash-entered"
+file = "src/kernel/env-layers.fs"
+old = '''  dup lay-clash? 0= if lay-enter exit then'''
+new = '''  lay-enter exit'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
+reason = "SN4: a name two snapshots declare with other content is loaded twice, which Lean refuses as an import clash"
+
+[[fault]]
+id = "sn5-layer-clash-first-only"
+file = "src/kernel/env-layers.fs"
+old = '''  false over lay-ud @ 0 ?do over lay-ui @ i + 2 pick lay-loaded? or loop nip ;'''
+new = '''  false over lay-ud @ 2 min 0 ?do over lay-ui @ i + 2 pick lay-loaded? or loop nip ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
+reason = "rvSN4 M2: only a block's first member's name is compared with the names loaded before, so a constructor that reuses a base name loads"
+
+[[fault]]
+id = "sn5-layer-record-twice"
+file = "src/import/snapshot-layer.fs"
+old = '''  dup r@ ly-top @ > if r> ly-top ! true else drop r> drop false then ;'''
+new = '''  r> ly-top ! true ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
+reason = "rvSN4 m1: a layer that holds one of its own records twice loads (the copy's users then read another record)"
+
+[[fault]]
+id = "sn5-written-unsaved"
+file = "src/cli/check-run.fs"
+old = '''  outcome-invalid dup ck-outcome! dup ck-state ck-loaded ! ck-state ck-snap-saved !'''
+new = '''  outcome-invalid dup ck-outcome! ck-state ck-loaded !'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
+reason = "rvSN4 m2: a run that read nothing says its snapshot was written"
+
+[[fault]]
+id = "sn5-outer-collapsed"
+file = "src/kernel/environment.fs"
+old = '''  dup lf-cand-looked@ < if lf-look-outers else drop then ;'''
+new = '''  dup lf-cand-looked@ < if drop lf-look-unkept else drop then ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
+reason = "SN5: a check that made names beyond its input (a nested block) is published full instead of with those names, so it is never taken"
+
+[[fault]]
+id = "sn5-outer-unordered"
+file = "src/kernel/env-snapshot.fs"
+old = '''  snap-outers outers-list @ swap outers-of 2dup o-sort'''
+new = '''  snap-outers outers-list @ swap outers-of'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots"
+reason = "SN5: the names beyond the input written in the order the publisher met them, so --jobs 4 writes other bytes than --jobs 1"
+gap = "no fixture yet has one slot whose names beyond the input a parallel run meets in another order than a serial one (nested.ndjson's --jobs 4 bytes are equal without the sort); a crafted multi-block nested export would catch it"
+
+[[fault]]
+id = "sn5-outer-unsorted"
+file = "src/kernel/env-snapshot.fs"
+old = '''  2drop r> r> r> if look-sort else 2drop then ;'''
+new = '''  2drop r> r> r> drop 2drop ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
+reason = "SN5: a list with names beyond the input written unsorted after their keys are made the written names', which the loader refuses"
+
+[[fault]]
+id = "sn4-layer-verdicts-uncompared"
+file = "src/kernel/env-layers.fs"
+old = '''  swap >r true r> 0 ?do 3 pick i + 3 pick i + 3 pick verdict-same? and loop nip nip nip ;'''
+new = '''  2drop 2drop true ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
+reason = "SN4: a declaration two layers hold is loaded once though their verdicts differ"
+
+[[fault]]
+id = "sn4-layer-shared-twice"
+file = "src/kernel/env-layers.fs"
+old = '''  over 0< 0= if drop swap lay-same exit then'''
+new = '''  over 0< 0= if 2drop lay-enter exit then'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
+reason = "SN4: what two sibling layers both hold is entered twice, so its name has two usable declarations"
+
+[[fault]]
+id = "sn4-layer-deps-unsorted"
+file = "src/kernel/env-snapshot.fs"
+old = '''  loop 2drop 2r> swap dep-sort ;'''
+new = '''  loop 2drop 2r> 2drop ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
+reason = "SN4: a layer's dependencies written in the order of the run's slots, not ascending as numbered in the layer"

@@ -25,8 +25,9 @@ environment keeps for it (its dependencies, its axioms). Loading the file
 takes about a minute instead of re-checking. Physlib, or a new proof, is
 then checked against it: each of its declarations that is the same as one
 in the snapshot, and sees the same declarations around it, takes the saved
-verdict; everything else is checked. The verdicts are exactly those of
-checking the dependent export from scratch.
+verdict; everything else is checked. The verdicts are meant to be
+exactly those of checking the dependent export from scratch (not yet for
+fuel and verdicts near the fuel budget: review rvSN4 B1, amendment 3).
 
 The file holds numbers and offsets only, in a fixed byte order, so it
 loads on any host at any address, read or memory-mapped. It is not tied to
@@ -312,7 +313,9 @@ among them); the snapshot S is Mathlib's. `leanforth check --snapshot S E′`:
    with one of S but differ in content (many of them mean S is of another
    library version).
 
-**Why the verdicts are exactly a fresh check's.** The invariant **I2**
+**Why the verdicts are exactly a fresh check's** (not yet so for fuel,
+and so for a verdict near the fuel budget: review rvSN4 B1 found fuel
+depends on the tier's numbering; amendment 3). The invariant **I2**
 ([kernel] review): *a check's outcome, fuel and recorded fields depend
 only on its declaration's content, the run's verdict settings and verdict
 version, and the answers of its lookups, with the records and fields of
@@ -559,6 +562,199 @@ and check 4.9 s, feed 1.8 s, publish and compare 2.1 s) at a peak of 0.69
 GB. This corrects D7's assumption of 20-40 per declaration: Mathlib's
 dependencies and lookups take about 729,263 × (4 × 20 + 8 × 36) bytes,
 0.27 GB.
+
+## Amendment 2 (2026-11-11): step SN4, dependent exports and layers
+
+*Agent SN4; [kernel] (I1, I2: what a loaded snapshot vouches for) and
+[import] (continued staging, layers) review pending, and the owner's
+approval.*
+
+**The import pass** (`src/kernel/env-import.fs`; D5 as written, with
+these details). `check --snapshot S EXPORT` reads S's tier, keeps S's
+declarations aside, reads the export on into the tier (`stage-continue`),
+seals and feeds it; before any check one pass over the input in order
+takes from S every declaration for which I1 holds. I1.1 compares the
+staged records field by field but the chain and the mdata mark; a
+block's member only with its whole block and at the same place. I1.3
+asks every saved lookup again in the declaration's snapshot through
+`lf-env-replay` (`environment.fs`: the key's name and kind, at the
+check's own limit, at which every recorded query is made), records the
+answers as a check does and compares the list with S's, each answer's
+slot translated to S's numbering; the replay is no match when a query
+met a slot not final below the limit (`lf-env-early?`, which
+`lf-slot-final?` sets: the "lookup mode" of the plan), and every saved
+dependency must have been taken. A slot S published with the one before
+(a block's member) is taken only with that first, as its span; a member
+S checked alone only when its block's first member was taken here. A
+taken slot is published by the publisher's serial step with a check word
+that asks the lookups again (so the slot's list holds this run's
+answers), depends on the taken slots, and copies S's marks, fields and
+outcome with provenance *snapshot*; the publisher re-checks it as a
+check's. Keys of names beyond the input (scratch names, e.g. a nested
+block's auxiliary types) and another module's tests are never replayed,
+so those declarations and everything whose lookups reach them are always
+checked again (35 of the 107 declarations of `tests/cli/nested.ndjson`).
+The scheduler (`env-schedule.fs`) treats slots final before the run as
+done, so `--jobs` checks the rest.
+
+**Layers (F5).** A layer is written by `check --snapshot BASE
+--save-snapshot LAYER EXPORT` after a run whose slots are all final: the
+tier's records from BASE's counts on (identity fields 21-28 the counts,
+header fields 7 = 1 and 8-15 BASE's header SHA-256), the declarations not
+taken with their block records (chains numbered on from BASE's
+declarations), and their slots, numbered on from BASE's slots, every
+dependency and lookup answer numbered so (a taken slot as BASE's) and the
+dependencies sorted again. A layer on layers is not written (refused).
+Loading (`src/kernel/env-layers.fs`, `src/import/snapshot-layer.fs`):
+the base as before, then each layer opened as a layer of that base (its
+identity and counts compared), its records entered again by the tier's
+builders, each part first mapped to its number here (a list built for
+the kind its user says: a constant's levels, a declaration's parameters
+and kind data), so sibling layers share their equal records; its
+environment's sections checked as a base's (numbered on from the base's
+slots); then each of its declarations, a block whole, is the same as
+one loaded before (same content and outcome, axioms, warnings, recipe,
+shape and fuel: loaded once), refused as a clash (a loaded name, none of
+its content), or entered and its slot appended with its lists numbered
+as loaded and sorted again. The loaded snapshots then read as one base,
+for `--snapshot` alone and for the import pass.
+
+**Evidence** (`tests/cli/test_leanforth.py` classes `Imports`, `Layers`;
+`tests/mutants/faults.toml` entries `sn4-*`): both ways, the report of
+the export checked against the snapshot equals its fresh check field by
+field but for the labels, for (i) twelve exports against their own
+snapshots, with the declarations not taken exactly those the model of
+I1 predicts; (ii) a proof altered, (iii) a declaration moved after its
+user, (iv) a name reused with other content, (v) two equal declarations
+of one name, (vi) a block member changed, (vii) a slot saved full, and a
+crafted lookup that matches only when an undecided slot is ignored; the
+dependent fixtures (`tests/cli/dependent.lean`, `sibling.lean`, which
+`tests/cli/export-check.sh` rebuilds with pinned Lean) with `--jobs 3`.
+Layers: base and layer report what the layer's run reported; two
+sibling layers load together (15 declarations, `Eq` and `rfl` once);
+refused: a layer on another base, a layer first, a clash, a shared
+declaration with other verdicts. Thirteen planted faults are caught;
+one (a member published with its first taken alone) is equivalent to
+the first-member rule.
+
+**Measured** (`gforth-fast`, `--jobs 4`, a loaded 10-core machine). All
+of `Init` checked against its own snapshot: every field of all 59,349
+declarations equal to the fresh check (fuel included); 37,142 taken,
+22,207 checked again -- exactly those whose lookups reach `Lean.Syntax`'s
+nested block, the 8 declarations whose checks make names beyond the
+input (the model in `test_leanforth.py`, `kept_back`, predicts the set);
+392 s against 460 s fresh. Mathlib's first million lines (13,023
+declarations, 5,231 of them named as in `Init`) checked against `Init`'s
+snapshot: every verdict, the counts and the exit status equal to its
+fresh check's, 1,108 taken, 805 sharing a name with `Init` but not its
+content; but **fuel used differs on 2,151 declarations** (a few percent,
+e.g. `LE` 326 fresh, 330 here, both checked in their run), so a check's
+fuel depends on how the tier numbers its records, not only on its
+content and lookups: I2 does not hold for fuel. Hence I1.2 also refuses
+*exhausted* (a verdict that depends on fuel), and a taken slot reports
+its snapshot run's fuel. 59 s against 41 s fresh (staging `Init`'s tier
+and the larger feed cost more than the 1,108 checks saved).
+
+**Open** (for the review): (1) fuel independent of the tier's numbering
+(a kernel task; until then a declaration accepted near its budget could
+be exhausted in another numbering); (2) nested blocks' scratch names
+recorded so that an import can replay them (today they keep 37% of
+`Init` from being taken); (3) an imported slot's diagnostic is S's, so a
+slot number it names is S's, and N2 queries record no slot (the outcome
+is compared, which decides the verdict); (4) answers are compared
+exactly, so a declaration whose lookups reach a re-checked one is checked
+again even when that one's verdict did not change (sound, slower).
+
+## Amendment 3 (2026-11-11): step SN5
+
+*Agent SN5; [kernel] (the seal's names), [format] (report 0.3's new
+members) review pending, and the owner's approval. The flag below is the
+owner's decision of 2026-11-11 ("Later decisions").*
+
+**Names beyond the input** (amendment 2's open item 2). A check that makes
+names its input tier does not hold (a nested block's auxiliary types
+`_nested.Array_1`, mk_unique_name's queries of them) no longer has its
+keys collapsed into the one key 2^32 - 1. The publisher's seal makes each
+such name, one component at a time from its nearest ancestor in the
+input, the same name of the environment's own tier of names (a scratch
+tier over the input tier that only the publisher writes), so the
+published key names a name that outlives the check's context. The
+writer adds those names after the tier's names in the names and name
+bytes sections -- as names of the tier, so the format, the loader, the
+layers and the import pass are unchanged -- in an order that depends only
+on their content (the root's number, then each component from the top:
+tag, number or bytes; then the depth) and the written slots' order, never
+on the order of publication, so `--jobs 1` and `--jobs 4` still write the
+same bytes; their keys are written as those names, each list sorted again.
+An import then asks these lookups again as any other. A name the heap
+cannot hold makes the declaration *full*. The stored lookups change, so
+the verdict version is 2 (verdict-version.fs); no outcome or fuel
+changes. Loading a snapshot of version 1 (`--snapshot-stale-ok`) still
+reads the old key and never replays it.
+
+**Measured** (`gforth-fast`, `--jobs 3`, a 10-core machine loaded by
+the full Mathlib run and other agents; `.claude/work/SN5/`). All of
+`Init` against its own snapshot: **all 59,349 declarations taken** (was
+37,142), every field of the report equal to the fresh check's, fuel
+included; 48.7 s wall and 48 s CPU (staging 30.6 s, of which about 24 s
+read the export again; feed 8.0 s; the import pass 9.0 s) against 749 s
+wall and 1,472 s CPU fresh. The file is 132.9 MB. `Init`'s snapshot
+loaded alone: 22.7 s wall, 12.7 s CPU, peak 679 MB; reading the tier
+takes 5.7 s, 2.45 s of it the sections' SHA-256 (about 54 MB/s; the
+expressions alone 1.8 s for 97.8 MB) and the rest the record checks,
+then 0.65 s for the environment's sections and 0.19 s to seal. Mathlib's
+first million lines (13,023 declarations) against `Init`'s snapshot:
+the same verdicts and counts as fresh, 1,108 taken (as before: the
+others of `Init`'s names differ in content, 805, or their lookups reach
+one that does), 68.5 s wall against 88.8 s fresh but 164 s CPU against
+139 s: loading `Init`'s tier (+6 s) and feeding its 11.5 M expressions
+(+7 s) cost more than the checks saved. The feed reads every expression
+of the tier (core/terms.fs's binder table takes the first record of a
+binder's class, so feeding only what the export reaches would move
+fuel: review rvSN4 B1); once agent PF's kernel change makes fuel
+independent of the numbering, a feed limited to what the export reaches
+is the next cut. Fuel used differs on 2,151 of the 13,023 (B1).
+Predicted for all of Mathlib (D7's sizes, these rates): a file of about
+2.1 GB, written in about 50 s; read and checked in about 90 s (40 s of
+it SHA-256) on one worker, about 3 min with the feed and the publisher
+to report its verdicts again.
+
+**The development flag `--snapshot-stale-ok`** (amends D3 and D6 for the
+flag only). With it, a snapshot whose verdict version is older than this
+build's loads instead of being refused as unsupported; it is marked
+stale, and every result taken from it (or from any stale layer) is
+labelled so in the text (`from a stale snapshot (an older verdict
+version), not this build's verdict`, two `stale:` lines with the count)
+and in report 0.3 (provenance `stale-snapshot` or `uses-stale-snapshot`,
+`snapshot.stale` with this build's verdict version and the count), never
+as this build's verdict. A newer verdict version is refused still; the
+flag needs `--snapshot` and does not go with `--save-snapshot` (a stale
+verdict is never written into another snapshot). Without the flag
+nothing changes.
+
+**The verdict-version guard** (D3). `tests/cli/test_leanforth.py`,
+class `VerdictGuard` (in `make test` and `make check`): for ten small
+pinned exports, the snapshot written now has every field the verdict
+version covers -- the header's settings, the tier and identity sections
+(their SHA-256), and per slot its fields but the diagnostic, its
+dependencies and its lookups -- equal to the golden one in
+`tests/cli/golden-snapshots/` (a text form, one slot to a line, written
+with this verdict version). A change that moves one fails there; a bump
+makes the golden files stale, and its commit writes them again
+(`python3 tests/cli/test_leanforth.py --write-golden`).
+
+**Review rvSN4's snapshot-side findings.** Every layer loaded is named in
+the text and in report 0.3 (`snapshot.layers`: file, identity, export,
+base, verdict version; M1); the clash check compares every member of a
+unit, a constructor too (M2); a layer that holds a record twice is
+refused (m1); "written to" is printed only after a write (m2); a refused
+snapshot gives no import counts, and `checked` counts the declarations
+whose verdict the run gave (m3). Not changed here: B1 (fuel, and so a
+verdict near the fuel budget, depends on the tier's numbering through
+the binder table and the cache keys) is agent PF's kernel task; until it
+merges, a result taken from a snapshot is not claimed equal to a final
+check's in fuel or in a verdict near the fuel budget (env-import.fs,
+COMMAND_LINE.md).
 
 ## Questions for the owner
 

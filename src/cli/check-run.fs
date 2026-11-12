@@ -45,6 +45,13 @@
 \   context, or publishing failed; ck-steps-begun tells how far it came);
 \   ck-stopped?, which the text and JSON reports both read, is true when
 \   the run's verdicts can be read and it stopped or did not end ok;
+\ - ck-progress! ( seconds -- ) and ck-lines! ( xt -- ), after ck-start: a
+\   progress line on stderr every that many seconds (0: after every report;
+\   the cli's --progress), and xt ( d -- ), the cli's text line of declaration
+\   d, called in file order as each declaration is final, in the serial run
+\   and (from the scheduler's tick, lf-sched-tick!) the parallel one, so
+\   that a stopped run keeps the lines so far (see "Progress lines" below);
+\   ck-done tells how many were given out;
 \ - ck-finish ( -- ) takes the run's total time so far (phase ck-total);
 \ - then, before ck-release, the verdicts are read in a snapshot of the
 \   run's own environment (ck-verdicts?, then lf-env-outcome), and the
@@ -105,6 +112,8 @@ require ../import/stage.fs
 require ../import/feed.fs
 require ../import/run-record.fs
 require ../kernel/env-snapshot.fs
+require ../kernel/env-import.fs
+require ../kernel/env-layers.fs
 
 \ What a check left, kept after its step: run-record.fs's layout
 \ (kept-outcome, kept-code, kept-first, kept-second, kept-site,
@@ -148,6 +157,7 @@ end-structure
 \ Not a timed phase: the export did not open (ck-unopened).
 ck-phases constant ck-opening
 10 constant ck-top-room   \ declarations in the list of the most fuel used
+320 constant ck-pline-room   \ bytes of a progress line
 
 begin-structure /ck
   field: ck-budget               \ fuel each check starts with
@@ -190,9 +200,26 @@ begin-structure /ck
   field: ck-snap-saved           \ the snapshot save's outcome, invalid before it
   2 cells +field ck-snap-file
   \ the snapshot file's name, as ck-snapshot-load was given it
+  field: ck-prog-on              \ true: progress lines on stderr (ck-progress!)
+  field: ck-prog-secs            \ seconds between them; 0: after every report
+  2 cells +field ck-prog-mark    \ wall time (us) of the last one
+  field: ck-line-xt              \ ( d -- ) the line of a final declaration, or 0 (ck-lines!)
+  field: ck-cursor               \ declarations given out: all below it, in file order
+  field: ck-accepted             \ of them, those the check accepted
+  field: ck-others               \ and the others
+  field: ck-unflushed            \ lines given out since the last flush
+  2 cells +field ck-flush-mark   \ wall time (us) of the last flush
+  field: ck-pline#               \ bytes in the progress line
+  ck-pline-room +field ck-pline  \ the progress line, built here
+  field: ck-importing            \ true: an export checked against it (ck-snapshot-import)
+  field: ck-snap-bad             \ true: the snapshot was refused
+  field: ck-layers               \ layers loaded on the base
+  field: ck-lay-ids              \ per layer loaded, its identity (ck-layer-id), or 0
 end-structure
 create ck-state /ck allot  ck-state /ck erase
-create ck-snap /snap allot  ck-snap snap-init   \ the snapshot written or loaded
+create ck-snap /snap allot  ck-snap snap-init   \ the snapshot loaded (a base)
+create ck-out /snap allot  ck-out snap-init     \ the snapshot written
+create ck-import /imp allot  ck-import /imp erase   \ what an import pass takes from it
 create ck-stage /stage allot  ck-stage /stage erase
 create ck-feeding-record /feed allot  ck-feeding-record /feed erase
 create ck-worker-feed /feed allot  ck-worker-feed /feed erase
@@ -278,20 +305,26 @@ create ck-line ck-line-room 2 + allot
 \ The number after the key: (u true) when digits follow the blanks.
 : ck-kb ( c-addr u -- u true | false )
   ck-skip dup >r 0 0 2swap >number nip r> = if 2drop false else drop true then ;
-: ck-hwm? ( c-addr u -- u true | false )
-  dup ck-hwm-key nip < if 2drop false exit then
-  over ck-hwm-key nip ck-hwm-key compare if 2drop false exit then
-  ck-hwm-key nip /string ck-kb ;
+\ The number of kB on a line that begins with the key.
+: ck-key-kb ( c-addr u key-addr key-u -- u true | false )
+  2>r dup r@ < if 2drop 2r> 2drop false exit then
+  over r@ 2r@ compare if 2drop 2r> 2drop false exit then
+  2r> nip /string ck-kb ;
 : ck-line-read ( fid -- u more? )
   ck-line ck-line-room rot read-line if 2drop 0 false then ;
-: ck-hwm-scan ( fid -- u true | false )
-  begin dup ck-line-read while ck-line swap ck-hwm? if nip true exit then repeat
-  2drop false ;
+: ck-key-scan ( fid key-addr key-u -- u true | false )
+  2>r begin dup ck-line-read while
+    ck-line swap 2r@ ck-key-kb if nip 2r> 2drop true exit then
+  repeat 2drop 2r> 2drop false ;
 : ck-status ( -- c-addr u ) s" /proc/self/status" ;
+\ The kB of the status line with the key, in bytes.
+: ck-status-bytes ( key-addr key-u -- u true | false )
+  ck-status r/o open-file if drop 2drop false exit then
+  dup >r -rot ck-key-scan r> close-file drop dup if swap 1024 * swap then ;
 \ The process's peak resident memory, in bytes.
-: ck-peak ( -- u true | false )
-  ck-status r/o open-file if drop false exit then
-  dup >r ck-hwm-scan r> close-file drop dup if swap 1024 * swap then ;
+: ck-peak ( -- u true | false ) ck-hwm-key ck-status-bytes ;
+\ Its resident memory now, in bytes.
+: ck-resident ( -- u true | false ) s" VmRSS:" ck-status-bytes ;
 
 \ ---- The engine: the program bin/leanforth ran (LEANFORTH_ENGINE, the
 \ last part of its file name: gforth, or gforth-fast with --fast), empty
@@ -346,7 +379,16 @@ create ck-line ck-line-room 2 + allot
 \ (--any-lean-version): set after ck-start, before ck-load.
 : ck-any-version! ( flag -- ) ck-state ck-any-lean ! ;
 : ck-any-version? ( -- flag ) ck-state ck-any-lean @ ;
+\ An export checked against a snapshot (ck-snapshot-import) is read on
+\ into the snapshot's tier, then sealed.
+: ck-importing? ( -- flag ) ck-state ck-importing @ ;
+\ Not after a refused snapshot (ck-snapshot-import's outcome not ok).
+: ck-continued ( c-addr u checked? -- outcome )
+  ck-state ck-snap-bad @ if drop 2drop outcome-invalid exit then
+  if ck-stage stage-continue else ck-stage stage-continue-unchecked then
+  dup ok? if drop ck-stage stage-seal then ;
 : ck-staged ( c-addr u checked? -- outcome )
+  ck-importing? if ck-continued exit then
   >r 2dup ck-size ck-slots ck-log2 ck-stage stage-init
   dup ok? 0= if nip nip r> drop exit then drop
   ck-any-version? ck-stage stage-any-version! r> ck-read ;
@@ -420,9 +462,16 @@ create ck-line ck-line-room 2 + allot
   lf-sched-init ok? if ck-workers-made ok? if exit then then lf-sched-free ;
 \ A failed phase is kept as the one that failed.
 : ck-fail ( outcome phase -- outcome ) over ok? if drop else ck-state ck-failed ! then ;
+\ Staging an export checked against a snapshot goes on in the phase that
+\ loaded the snapshot (ck-snapshot-import), so the time is both's.
 : ck-stage-phase ( c-addr u checked? -- outcome )
-  ck-phase-begin ck-staged ck-staging ck-phase-end ck-staging ck-fail ;
-: ck-fed-all ( -- outcome ) ck-fed dup ok? if ck-print! ck-workers then ;
+  ck-importing? 0= if ck-phase-begin then
+  ck-staged ck-staging ck-phase-end ck-staging ck-fail ;
+\ After an import's feed: the input as the import pass reads it.
+: ck-import-input ( -- outcome )
+  ck-importing? if ck-import imp-input else outcome-ok then ;
+: ck-fed-all ( -- outcome )
+  ck-fed dup ok? if drop ck-import-input then dup ok? if ck-print! ck-workers then ;
 : ck-feed-phase ( -- outcome )
   ck-phase-begin ck-fed-all ck-feeding ck-phase-end ck-feeding ck-fail ;
 \ Stage and feed the export c-addr u (see the header).
@@ -478,10 +527,13 @@ create ck-line ck-line-room 2 + allot
   lf-input-decl lf-idecl-header lf-hdr-first lf-more-field ;
 : ck-trailing ( d -- )
   dup ck-first-member ck-kept over ck-kept /ck-step move 0 swap ck-kept cks-fuel ! ;
+\ A declaration taken from a snapshot before the run (ck-import-pass): its
+\ slot is final, its facts the snapshot's.
+: ck-taken? ( d -- flag )
+  ck-importing? if ck-import imp-source 0< 0= else drop false then ;
 : ck-next ( d -- stop? )
-  dup 1+ ck-state ck-stepped !
+  dup 1+ ck-state ck-stepped ! dup ck-taken? if drop false exit then
   dup lf-env-published? if ck-trailing false else ck-step then ;
-: ck-steps-run ( n -- ) 0 ?do i ck-next if unloop exit then loop ;
 
 \ The run's own environment, by identity (never another one that happens
 \ to be current), and a snapshot of every slot of it.
@@ -506,6 +558,9 @@ create ck-line ck-line-room 2 + allot
 \ cannot be made current is freed at once.
 : ck-own ( env -- ) lf-envh-identity @ ck-state ck-env-id ! true ck-state ck-checked ! ;
 : ck-unusable ( env outcome -- outcome ) swap lf-env-free drop 0 ck-state ck-env-id ! ;
+\ The run's environment freed while it is ours (ck-release, a refused
+\ snapshot).
+: ck-env-free ( -- ) ck-ours? if lf-env lf-env-free drop then 0 ck-state ck-env-id ! ;
 \ A run of a loaded snapshot (ck-snapshot-load) is a development run (ADR
 \ 0012 E8, ADR 0020 D4).
 : ck-snapped? ( -- flag ) ck-state ck-snapped @ ;
@@ -535,6 +590,104 @@ create ck-line ck-line-room 2 + allot
   ck-state ck-fuel-sum 2@ rot m+ ck-state ck-fuel-sum 2! ;
 : ck-tally ( -- ) lf-input-count 0 ?do i ck-add i ck-offer loop ;
 
+\ ---- Progress lines and results kept as the run goes. Declarations are
+\ given out in file order, each once final (the serial run: as its step
+\ ends; the parallel one: below the scheduler's frontier, after each job):
+\ ck-advance ( n -- ) gives out those below n, counting each one's outcome
+\ (accepted or other) and passing it to the line word (ck-lines!), which
+\ writes its line and gives true, or gives false for a declaration whose
+\ line needs the finished environment (a NOT PROVED one: the axiom
+\ dependencies are tabulated once, over all slots); from there on the run
+\ writes no line and the report writes the rest; then flushes stdout when 2000 lines or ten seconds (the
+\ progress interval, if less) have passed since, so that a stopped run
+\ keeps the lines of every declaration up to its last flush; and writes
+\ a progress line on stderr when the interval (ck-progress!) has passed
+\ since the last one. Nothing is done unless one of the two is set, and
+\ neither changes a verdict, a fuel or the output a finished run has.
+\ A parallel run's stopping rule (a THROW) is the scheduler's: nothing at
+\ or beyond lf-sched-stop is given out while it runs (lf-sched-final), and
+\ the stop is lowered at the faulting declaration's hand-over, before the
+\ frontier can pass its slot, so the lines written are always a prefix of
+\ the serial run's; the faulting declaration's own line is written by the
+\ report (cli-verdicts), as the serial run's is, and nothing after it.
+: ck-marks! ( -- ) ck-wall-now 2dup ck-state ck-prog-mark 2! ck-state ck-flush-mark 2! ;
+: ck-lines! ( xt -- ) ck-state ck-line-xt ! ck-marks! ;
+: ck-progress! ( seconds -- ) ck-state ck-prog-secs ! true ck-state ck-prog-on ! ck-marks! ;
+: ck-done ( -- n ) ck-state ck-cursor @ ;
+: ck-lines-on? ( -- flag ) ck-state ck-line-xt @ 0<> ;
+: ck-watching? ( -- flag ) ck-lines-on? ck-state ck-prog-on @ or ;
+: ck-jobs-run? ( -- flag ) ck-parallel? lf-sched-workers 0> and ;
+: ck-jobs-trail ( d -- )
+  dup ck-taken? if drop exit then
+  dup lf-env-published? over lf-sched-checked? 0= and if ck-trailing else drop then ;
+: ck-counted ( d -- )
+  ck-kept kept-outcome @ ok? if ck-state ck-accepted else ck-state ck-others then
+  1 swap +! ;
+: ck-lined ( d -- )
+  ck-lines-on? 0= if drop exit then
+  ck-state ck-line-xt @ execute if 1 ck-state ck-unflushed +! else 0 ck-state ck-line-xt ! then ;
+: ck-take ( d -- )
+  ck-jobs-run? if dup ck-jobs-trail then dup ck-counted ck-lined 1 ck-state ck-cursor +! ;
+\ Whether secs seconds have passed since the wall time kept at addr.
+: ck-after? ( secs addr -- flag )
+  >r 1000000 m* ck-wall-now r> ck-since 2swap d< 0= ;
+10 constant ck-flush-secs  2000 constant ck-flush-lines
+: ck-flush-secs@ ( -- secs )
+  ck-flush-secs ck-state ck-prog-on @ if ck-state ck-prog-secs @ min then ;
+: ck-flush-due? ( -- flag )
+  ck-state ck-unflushed @ ?dup 0= if false exit then
+  ck-flush-lines < 0= if true exit then
+  ck-flush-secs@ ck-state ck-flush-mark ck-after? ;
+: ck-flush ( -- )
+  stdout flush-file drop 0 ck-state ck-unflushed !
+  ck-wall-now ck-state ck-flush-mark 2! ;
+\ The progress line, built in ck-pline: texts and decimal numbers.
+: ck-pl-room? ( u -- flag ) ck-state ck-pline# @ + ck-pline-room > 0= ;
+: ck-pl+ ( c-addr u -- )
+  dup ck-pl-room? 0= if 2drop exit then
+  >r ck-state ck-pline ck-state ck-pline# @ + r@ move r> ck-state ck-pline# +! ;
+: ck-n+ ( u -- ) base @ >r decimal 0 <# #s #> r> base ! ck-pl+ ;
+: ck-elapsed-s ( -- s )
+  ck-wall-now ck-state ck-run-mark clock-wall ck-since 1000000 um/mod nip ;
+: ck-percent ( -- n ) ck-done 100 * lf-input-count 1 max / ;
+: ck-rate ( -- n ) ck-done ck-elapsed-s 1 max / ;
+\ The seconds still to go at the rate so far, rough: none before a first one.
+: ck-eta ( -- s true | false )
+  ck-done 0= if false exit then
+  lf-input-count ck-done - 0 max ck-elapsed-s 1 max um* ck-done um/mod nip true ;
+: ck-eta+ ( -- ) ck-eta if ck-n+ s"  s" else s" unknown" then ck-pl+ ;
+: ck-resident+ ( -- )
+  ck-resident if 1000000 / ck-n+ s"  MB" else s" ? MB" then ck-pl+ ;
+: ck-progress-line ( -- )
+  0 ck-state ck-pline# !
+  s" progress: " ck-pl+ ck-elapsed-s ck-n+ s"  s elapsed; " ck-pl+
+  ck-done ck-n+ s" /" ck-pl+ lf-input-count ck-n+ s"  declarations final (" ck-pl+
+  ck-percent ck-n+ s" %); " ck-pl+
+  ck-state ck-accepted @ ck-n+ s"  accepted, " ck-pl+
+  ck-state ck-others @ ck-n+ s"  other; " ck-pl+
+  ck-rate ck-n+ s"  declarations/s; eta " ck-pl+ ck-eta+ s" ; resident " ck-pl+
+  ck-resident+ s\" \n" ck-pl+ ;
+\ Written to stderr, whatever stdout holds, and the interval started again.
+: ck-report ( -- )
+  ck-progress-line ck-state ck-pline ck-state ck-pline# @ stderr write-file drop
+  ck-wall-now ck-state ck-prog-mark 2! ;
+: ck-reported ( -- )
+  ck-state ck-prog-on @ 0= if exit then
+  ck-state ck-prog-secs @ ck-state ck-prog-mark ck-after? if ck-report then ;
+\ Lines are written against the run's own environment: its snapshot taken.
+: ck-ready? ( -- flag ) ck-lines-on? if ck-verdicts? else true then ;
+: ck-give ( n -- ) ck-done ?do i ck-take loop ;
+: ck-advance ( n -- )
+  ck-watching? 0= over ck-done > 0= or if drop exit then
+  ck-ready? 0= if drop exit then ck-give
+  ck-flush-due? if ck-flush then ck-reported ;
+\ After the run: what is left is given out, and one last progress line.
+: ck-finished ( -- )
+  ck-faulted? 0= if ck-steps-begun ck-advance then
+  ck-state ck-prog-on @ if ck-report then ;
+: ck-tick ( -- ) lf-sched-final ck-advance ;
+: ck-steps-run ( n -- ) 0 ?do i ck-next if unloop exit then i 1+ ck-advance loop ;
+
 \ ---- The parallel run (--jobs; kernel/env-schedule.fs): the same checks,
 \ each in a worker, kept by ck-keep in its worker's context after its
 \ hand-over and rollback, as ck-step keeps a serial one. Then the facts
@@ -549,16 +702,14 @@ create ck-line ck-line-room 2 + allot
 : ck-jobs-stepped ( -- n )
   lf-sched-stop lf-input-count < if lf-sched-stop 1+ exit then
   lf-sched-broken? if lf-sched-reached else lf-input-count then ;
-: ck-jobs-trail ( d -- )
-  dup lf-env-published? over lf-sched-checked? 0= and if ck-trailing else drop then ;
 : ck-jobs-facts ( -- )
   ck-jobs-stepped dup ck-state ck-stepped ! dup lf-input-count < ck-stop! drop
   dup 0 ?do i ck-jobs-trail loop ck-unkeep ;
+\ A tick after each job gives out what became final (ck-advance).
+: ck-tick! ( -- ) ck-watching? if ['] ck-tick lf-sched-tick! then ;
 : ck-jobs-run ( -- )
-  ck-check-word ['] ck-keep ['] ck-worker-new ['] lf-sched-run context-catch
+  ck-tick! ck-check-word ['] ck-keep ['] ck-worker-new ['] lf-sched-run context-catch
   throw ck-jobs-facts ;
-\ Whether the run checks in parallel: workers asked for and made.
-: ck-jobs-run? ( -- flag ) ck-parallel? lf-sched-workers 0> and ;
 \ The pool is started before the run, so that a refusal (no threads, as
 \ near the process limit) leaves the whole run to the serial one, with the
 \ workers freed and the cause kept for the report.
@@ -566,8 +717,9 @@ create ck-line ck-line-room 2 + allot
   lf-sched-pool-start ?dup if ck-state ck-serial-why ! lf-sched-free false
   else true then ;
 : ck-steps-any ( n -- )
-  ck-jobs-run? if lf-sched-plan ok? if ck-pool-started? if drop ck-jobs-run exit then then then
-  ck-steps-run ;
+  ck-jobs-run? if lf-sched-plan ok? if ck-pool-started? if
+    drop ck-jobs-run ck-finished exit then then then
+  ck-steps-run ck-finished ;
 
 \ Check every declaration (see the header): the facts, the environment,
 \ the run.
@@ -577,13 +729,32 @@ create ck-line ck-line-room 2 + allot
 \ refused as if loading had failed, and the run stopped.
 : ck-snap-facts ( -- ) lf-input-count 0 ?do i dup ck-kept snap-fact i ck-kept cks-fuel !
   loop ;
+\ A refused snapshot leaves no verdict to read: its environment is freed
+\ (review rvSN3 M2).
 : ck-snap-refused ( outcome -- )
-  ck-state ck-loaded ! ck-staging ck-state ck-failed ! true ck-state ck-faulted ! ;
+  ck-state ck-loaded ! ck-staging ck-state ck-failed ! true ck-state ck-faulted !
+  true ck-state ck-snap-bad ! ck-env-free ;
 : ck-snap-after ( -- )
-  ck-snapped? 0= if exit then
+  ck-snapped? ck-importing? 0= and 0= if exit then
   ck-snap snap-same? dup ok? if drop ck-snap-facts else ck-snap-refused then ;
-: ck-run-all ( -- outcome ) lf-input-count ck-steps-any ck-snap-after ck-confirm ck-tally
-  ;
+\ An export checked against a snapshot: first the import pass
+\ (kernel/env-import.fs), whose taken declarations keep the snapshot's
+\ fuel and diagnostic; a pass that fails refuses the snapshot, the run
+\ stopped before any check. True when the run goes on.
+: ck-import-facts ( -- )
+  lf-input-count 0 ?do
+    i ck-import imp-source dup 0< if drop else
+      i ck-kept snap-fact i ck-kept cks-fuel ! then
+  loop ;
+: ck-import-refused ( outcome -- )
+  c" a slot taken from it was published otherwise" ck-import imp-k @ ck-snap snap-note
+  ck-snap-refused ;
+: ck-import-pass ( -- flag )
+  ck-importing? 0= if true exit then
+  ck-import imp-pass dup ok? if drop ck-import-facts true exit then
+  ck-import-refused false ;
+: ck-run-all ( -- outcome )
+  ck-import-pass if lf-input-count ck-steps-any ck-snap-after then ck-confirm ck-tally ;
 : ck-checking-run ( -- outcome )
   ck-facts dup ok? if drop ck-env then dup ok? if drop ck-run-all then ;
 : ck-check ( -- ) ck-phase-begin ck-checking-run ck-outcome! ck-checking ck-phase-end ;
@@ -591,7 +762,6 @@ create ck-line ck-line-room 2 + allot
 \ ---- Releasing (see the header): the environment while it is ours and
 \ current, then the names detached before the stage they point into is
 \ freed, the stores emptied and their capacities given back.
-: ck-env-free ( -- ) ck-ours? if lf-env lf-env-free drop then 0 ck-state ck-env-id ! ;
 : ck-unfeed ( -- )
   ck-state ck-began-feed @ 0= if exit then
   lf-name-detach ck-empty ck-restore ck-state ck-restored-outcome !
@@ -599,10 +769,11 @@ create ck-line ck-line-room 2 + allot
 : ck-release ( -- )
   lf-sched-free ck-env-free ck-unfeed ck-feeding-record dup feed-free /feed erase
   ck-worker-feed dup feed-free /feed erase ck-stage stage-free
-  ck-state ck-steps slab-free ck-snap snap-close ck-snap snap-free ;
+  ck-state ck-steps slab-free ck-snap snap-close ck-snap snap-free ck-out snap-free
+  ck-import imp-free ck-state ck-lay-ids heap-release ;
 : ck-start ( fuel -- )
   ck-release ck-state /ck erase ck-state ck-budget ! -1 ck-state ck-failed !
-  outcome-invalid dup ck-outcome! ck-state ck-loaded !
+  outcome-invalid dup ck-outcome! dup ck-state ck-loaded ! ck-state ck-snap-saved !
   ['] lf-check-declaration ck-check-word! ck-clock-start ;
 
 \ ---- Snapshots (ADR 0020; plan task 6.2.5, step SN3; kernel/env-snapshot.fs).
@@ -653,7 +824,7 @@ create ck-file /ck-file allot
 : ck-export-lines ( -- n ) ck-stage stage-export export-at @ ;
 : ck-snap-export ( -- outcome )
   ck-export-sha ok-then2? 0= if exit then
-  ck-export-lines ck-snap-flags ck-snap snap-export! outcome-ok ;
+  ck-export-lines ck-snap-flags ck-out snap-export! outcome-ok ;
 \ The manifest's bytes, read again from the file the manifest check read
 \ ("<export>.manifest.json"), and their SHA-256; none without a check.
 create ck-manifest-path manifest-name-room 16 + allot
@@ -675,47 +846,154 @@ create ck-manifest-path manifest-name-room 16 + allot
 : ck-snap-manifest ( -- outcome )
   ck-state ck-checked-read @ 0= if outcome-ok exit then
   ck-manifest-read dup ok? 0= if exit then drop ck-manifest-sha
-  ck-digest ck-snap snap-manifest-sha! ck-manifest-text 2@ ck-snap snap-manifest!
+  ck-digest ck-out snap-manifest-sha! ck-manifest-text 2@ ck-out snap-manifest!
   outcome-ok ;
 : ck-manifest-free ( -- )
   ck-manifest-text 2@ drop ?dup if free drop then 0 0 ck-manifest-text 2! ;
 \ A declaration's facts for the snapshot: its fuel used and kept step.
 : ck-fact ( d -- fuel step ) dup ck-fuel-of swap ck-kept ;
-: ck-saveable? ( -- flag ) ck-loaded? ck-outcome ok? and ck-stopped? 0= and ck-snapped? 0=
-  and ;
+\ A snapshot is written after a final run (a base), or after an export
+\ checked against a base alone (a layer of that base: ADR 0020 amendment
+\ 1, F5; plan step SN4), never after a run of a snapshot alone or of
+\ layers.
+: ck-layers# ( -- n ) ck-state ck-layers @ ;
+: ck-save-kind? ( -- flag )
+  ck-snapped? 0= ck-importing? ck-layers# 0= and or ;
+: ck-saveable? ( -- flag )
+  ck-loaded? ck-outcome ok? and ck-stopped? 0= and ck-save-kind? and ;
+\ A layer: what was not taken, numbered on from the base's.
+: ck-layer-set ( -- outcome )
+  ck-import imp-layer dup ok? 0= if exit then drop
+  ck-snap snap-sum ck-import imp-firsts@ ck-out snap-layer-base!
+  ck-import imp-layer-slots ck-out snap-layer-slots!
+  ck-import imp-layer-decls ck-out snap-layer-decls! outcome-ok ;
 : ck-snap-prepared ( info-addr info-u -- outcome )
-  ck-snap snap-begin dup ok? 0= if nip nip exit then drop ck-snap snap-info!
-  ck-snap-export dup ok? 0= if exit then drop ['] ck-fact ck-snap snap-facts!
-  ck-snap-manifest ;
+  ck-out snap-begin dup ok? 0= if nip nip exit then drop ck-out snap-info!
+  ck-snap-export dup ok? 0= if exit then drop ['] ck-fact ck-out snap-facts!
+  ck-snap-manifest dup ok? ck-importing? and if drop ck-layer-set then ;
 : ck-snap-written ( file-addr file-u info-addr info-u -- outcome )
   ck-snap-prepared dup ok? 0= if nip nip exit then drop
-  ck-fuel-budget ck-stage ck-snap snap-save ;
+  ck-fuel-budget ck-stage ck-out snap-save ;
 : ck-snapshot-save ( file-addr file-u info-addr info-u -- outcome )
   ck-saveable? 0= if 2drop 2drop outcome-invalid else ck-snap-written then
-  ck-snap snap-free ck-manifest-free dup ck-state ck-snap-saved ! ;
+  ck-out snap-free ck-manifest-free dup ck-state ck-snap-saved ! ;
 : ck-snap-saved@ ( -- outcome ) ck-state ck-snap-saved @ ;
-\ Loading: the snapshot's header and tier into the stage, sealed, its
-\ environment's sections read; then the feed.
-: ck-snap-tier ( -- outcome )
+\ Loading: the snapshot's header, its tier into the stage, its
+\ environment's sections read (one slot per declaration but a block
+\ record), each layer given loaded on it (kernel/env-layers.fs); then
+\ for a snapshot alone the stage sealed and fed, or for an export the
+\ import pass's aids kept (ck-snapshot-import).
+create ck-firsts 8 cells allot   \ the base's tier counts, sections 1-8
+create ck-lay /lay allot  ck-lay /lay erase   \ the layer being loaded
+: ck-snap-read ( -- outcome )
   12 ck-stage stage-init dup ok? 0= if exit then drop
-  ck-any-version? ck-stage stage-any-version!
-  ck-stage ck-snap snap-tier dup ok? 0= if exit then drop ck-stage stage-seal ;
-: ck-snap-stage ( c-addr u fuel -- outcome )
-  ck-snap snap-open dup ok? 0= if exit then drop ck-snap-tier dup ok? 0= if exit then drop
-  ck-snap snap-fuel ck-state ck-budget ! outcome-ok ;
+  ck-any-version? ck-stage stage-any-version! ck-stage ck-snap snap-tier ;
+: ck-stage-slots ( -- n )
+  0 ck-stage stage-decls 0 ?do i ck-stage staged-at ck-stage slot-record? 1 and + loop ;
+: ck-firsts! ( -- )
+  8 0 do i 1+ ck-stage tier-slab slab-count ck-firsts i cells + ! loop ;
+\ The layers to load on the base, as (c-addr u) pairs (ck-layers!).
+2variable ck-layer-names  0 0 ck-layer-names 2!
+: ck-layers! ( addr n -- ) ck-layer-names 2! ;
+: ck-layer@ ( k -- c-addr u ) 2* cells ck-layer-names 2@ drop + 2@ ;
+\ Why a layer was refused, as the snapshot's refusal.
+: ck-lay-why ( -- c-addr at )
+  ck-lay lay-why @ ?dup if ck-lay lay-at @ exit then
+  ck-lay lay-snap snap-why @ ?dup if ck-lay lay-snap snap-at @ exit then
+  ck-lay lay-ly ly-why @ ?dup if ck-lay lay-ly ly-where @ exit then c" layer" -1 ;
+: ck-lay-refused ( outcome -- outcome ) ck-lay-why ck-snap snap-note ;
+\ Each layer loaded, for the reports (review rvSN4 M1): its header's
+\ SHA-256, then its export's (32 bytes each), then its verdict version
+\ (a cell, negated when stale: --snapshot-stale-ok); its base is ck-snap's.
+64 1 cells + constant ck-lay-id-size
+: ck-layer-id ( k -- addr ) ck-lay-id-size * ck-state ck-lay-ids @ + ;
+: ck-layer-verdict ( k -- n ) ck-layer-id 64 + @ abs ;
+: ck-layer-stale? ( k -- flag ) ck-layer-id 64 + @ 0< ;
+: ck-lay-version ( -- n )
+  ck-lay lay-snap dup snap-verdict swap snap-stale @ if negate then ;
+: ck-lay-kept ( k -- )
+  ck-layer-id ck-lay lay-snap snap-sum over 32 move
+  ck-lay lay-snap snap-export-sha over 32 + 32 move ck-lay-version swap 64 + ! ;
+: ck-layer ( sn names k -- sn names outcome )
+  >r ck-stage ck-snap 2over ck-firsts ck-lay lay-init
+  r@ ck-layer@ ck-snap snap-fuel ck-lay lay-load
+  dup ok? if r@ ck-lay-kept else ck-lay-refused then r> drop ck-lay lay-free ;
+: ck-lay-ids-made ( -- outcome )
+  ck-layer-names 2@ nip ck-lay-id-size * 1 max allocate if drop outcome-full exit then
+  ck-state ck-lay-ids ! outcome-ok ;
+: ck-layers-load ( -- outcome )
+  ck-lay-ids-made dup ok? 0= if exit then drop
+  ck-snap snap-n @ ck-stage stage-tier tier-names cons-numbers
+  ck-layer-names 2@ nip 0 ?do
+    i ck-layer dup ok? 0= if nip nip unloop exit then drop 1 ck-state ck-layers +!
+  loop 2drop outcome-ok ;
+: ck-snap-base ( -- outcome )
+  ck-snap-read dup ok? 0= if exit then drop ck-firsts!
+  ck-stage-slots ck-snap snap-read dup ok? 0= if exit then drop ck-layers-load ;
+: ck-snap-tier ( -- outcome )
+  ck-snap-base dup ok? 0= if exit then drop ck-stage stage-seal ;
+: ck-snap-opened ( c-addr u fuel xt -- outcome )
+  >r ck-snap snap-open dup ok? 0= if r> drop exit then drop r> execute
+  dup ok? if ck-snap snap-fuel ck-state ck-budget ! then ;
+\ A refusal while loading is the snapshot's (ck-snap-bad?).
+: ck-snap-fails ( outcome -- outcome )
+  dup ok? 0= if true ck-state ck-snap-bad ! then ;
 : ck-snap-phase ( c-addr u fuel -- outcome )
-  ck-phase-begin ck-snap-stage ck-staging ck-phase-end ck-staging ck-fail ;
-\ After the feed: the environment's sections, one slot per input
-\ declaration; a refusal is the snapshot's, as staging's.
+  ck-phase-begin ['] ck-snap-tier ck-snap-opened ck-snap-fails
+  ck-staging ck-phase-end ck-staging ck-fail ;
+\ After the feed: one slot read per input declaration, else the
+\ snapshot is refused, as staging is.
 : ck-snap-slots ( outcome -- outcome' )
-  drop lf-input-count ck-snap snap-read dup ok? 0= if ck-staging ck-state ck-failed ! then
-  ;
+  drop lf-input-count ck-snap snap-n @ = flag>outcome ck-snap-fails
+  dup ok? 0= if c" slots" -1 ck-snap snap-note ck-staging ck-state ck-failed ! then ;
 : ck-snap-file@ ( -- c-addr u ) ck-state ck-snap-file 2@ ;
+: ck-snap-bad? ( -- flag ) ck-state ck-snap-bad @ ;
+\ A run of a snapshot alone, no export read.
+: ck-snap-only? ( -- flag ) ck-snapped? ck-importing? 0= and ;
+: ck-snap-named ( c-addr u -- )
+  ck-state ck-snap-file 2! true ck-state ck-snapped ! ck-snap snap-loading ! ;
 : ck-snapshot-load ( c-addr u fuel -- outcome )
-  >r 2dup ck-state ck-snap-file 2! r> true ck-state ck-snapped ! 0 ck-state ck-jobs-asked
-  ! ck-snap snap-loading !
+  >r 2dup ck-snap-named r> 0 ck-state ck-jobs-asked !
   ['] snap-fill ck-check-word! ck-snap-phase dup ok? if drop ck-stage-facts
   ck-feed-phase dup ok? if ck-input-facts ck-snap-slots then then dup ck-state ck-loaded !
   ;
+
+\ ---- An export checked against a snapshot (ADR 0020 D5; plan step SN4;
+\ kernel/env-import.fs). ck-snapshot-import ( c-addr u fuel -- outcome ),
+\ after ck-start in place of ck-snapshot-load: the snapshot file c-addr u
+\ opened (fuel as there), its tier read into the stage, its environment's
+\ sections read and checked, its layers loaded (ck-layers!), the
+\ declarations of them all kept aside (imp-keep); a refusal is the
+\ snapshot's (ck-snap-bad?), and the staging phase goes on until ck-load
+\ reads the export on into the tier (ck-continued), seals and feeds it,
+\ after which the input is given to the import pass (ck-import-input).
+\ ck-check then runs the pass first (ck-import-pass) and checks the rest,
+\ in parallel with --jobs. Kept: ck-importing?, ck-layers#, and in
+\ ck-import the counts.
+: ck-snap-kept ( -- outcome )
+  ck-snap-base dup ok? 0= if exit then drop
+  ck-stage ck-import imp-keep dup ok? 0= if exit then drop
+  ck-import imp-sn@ ck-snap snap-n @ = flag>outcome ;
+: ck-snapshot-import ( c-addr u fuel -- outcome )
+  >r 2dup ck-snap-named r> true ck-state ck-importing ! ck-phase-begin
+  ['] ck-snap-kept ck-snap-opened ck-snap-fails
+  dup ok? 0= if ck-staging ck-phase-end ck-staging ck-fail dup ck-state ck-loaded ! then ;
+: ck-taken# ( -- n ) ck-import imp-taken# ;
+\ Whether a snapshot loaded (the base or a layer) is stale: of an older
+\ verdict version, which --snapshot-stale-ok let load (env-snapshot.fs
+\ snap-stale-allowed); its results are then reported as stale.
+: ck-stale? ( -- flag )
+  ck-snapped? 0= if false exit then
+  ck-snap snap-stale @ ck-layers# 0 ?do i ck-layer-stale? or loop ;
+\ Declarations checked in this run: final, not taken from the snapshot
+\ (a stopped run checked fewer than it did not take; review rvSN4 m3).
+: ck-checked# ( -- n )
+  ck-verdicts? 0= if 0 exit then
+  0 lf-input-count 0 ?do i ck-final? i ck-taken? 0= and 1 and + loop ;
+\ Verdicts taken from the snapshot (and its layers), not checked here.
+: ck-saved# ( -- n )
+  ck-verdicts? 0= if 0 exit then
+  0 lf-input-count 0 ?do i lf-env-origin lf-origin-saved = - loop ;
+: ck-other# ( -- n ) ck-import imp-other# ;
 
 base !   \ the BASE this file was loaded with

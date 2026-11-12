@@ -20,8 +20,9 @@
 \ declaration into the slot, so the record points at the very input
 \ terms that were checked. Any other outcome is written
 \ alone. For every outcome it also stores the candidate's lookups
-\ (environment.fs, "Lookups"; plan step SN3), sealed and their names beyond
-\ the input collapsed at the hand-over, in the lookup pool, grown, marked
+\ (environment.fs, "Lookups"; plan step SN3), sealed at the hand-over (their
+\ names beyond the input made the environment's own, step SN5), in the
+\ lookup pool, grown, marked
 \ and rolled back with the dependency pool; a list that lost an entry
 \ makes the outcome full. A candidate the snapshot's loader filled
 \ (lf-env-saved!) is re-checked as any other and its slots marked saved.
@@ -285,9 +286,12 @@ defer lf-env-before-final
   true lf-cand-span@ 0 ?do i lf-member-checked? if
     lf-env-limit i + lf-input-decl lf-idecl-params@ lf-params-distinct? and then
   loop ;
+\ Only a block's check says it was rejected by B3 alone (lf-env-added!;
+\ review rvSN3 m4).
+: lf-recheck-lone? ( decl -- flag ) lf-recheck-one? lf-cand-added? 0= and ;
 : lf-recheck-decl? ( -- flag )
   lf-env-limit lf-input-decl dup lf-idecl-block @
-  if drop lf-recheck-members? else lf-recheck-one? then lf-recheck-params? and ;
+  if drop lf-recheck-members? else lf-recheck-lone? then lf-recheck-params? and ;
 \ The re-checks ( -- flag ), in order, each relying on the ones before:
 \ part 1 the dependencies, 2 the axiom set, 3 the provenance, 4 the name
 \ (N2, K5, G-P5; or a corrupted name store), 5 the kind, safety, value or

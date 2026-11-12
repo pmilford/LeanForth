@@ -47,12 +47,17 @@
 \ lf-env-find, lf-env-first and lf-env-quot-held, each a kind (lf-look-...).
 \ The list is sorted by key (name number * 16 + kind) and distinct; the
 \ publisher stores it with the slot for every outcome (env-publish.fs),
-\ names a check made beyond its input collapsed into one key that a later
-\ import can never match. Nothing reads the list back into a check: the
+\ names a check made beyond its input (a nested block's auxiliary types)
+\ made the same names of the environment's own tier of names (plan step
+\ SN5), which a snapshot writes, so that an import replays them too.
+\ Nothing reads the list back into a check: the
 \ verdicts do not change, except that a check whose list the heap cannot
 \ hold is published full. A test build (lf-env-i2-checks defined before
-\ loading) counts every slot a check reads through lf-env-readable that
-\ no recorded query answered (lf-i2-misses).
+\ loading) counts every slot a check reads through lf-env-readable, or
+\ reads directly after a query (generated-recursor.fs), that no recorded
+\ query answered (lf-i2-misses); a query's own reads are what its answer
+\ records. The import pass of a dependent export (env-import.fs, plan
+\ step SN4) asks a saved key's query again with lf-env-replay.
 \
 \ Handles (E3): (identity, d) of an accepted slot. In a snapshot
 \ (identity', i) one is valid only when identity = identity', d < i and
@@ -76,9 +81,11 @@
 \ 6.2.0): both grow with the heap, and one the heap cannot grow is full.
 \ State: the shared record lf-envs (the identity serial and the current
 \ environment; changed only while no job runs), each environment's
-\ ALLOCATEd record and its pool's blocks (shared, outside every context:
-\ written only by the publisher, which keeps its pool mark in the
-\ header, read by every check), two context records, one per context
+\ ALLOCATEd record, its pool's blocks and its tier of names beyond the
+\ input (shared, outside every context: written only by the publisher,
+\ which keeps its pool mark in the header; the pools read by every
+\ check, the tier only by the publisher and a snapshot's writer), two
+\ context records, one per context
 \ (ADR 0009): the candidate lf-env-cand and the worker record
 \ lf-env-worker, and the candidate's lists of dependencies and lookups and
 \ its block's shapes, the context slabs lf-cand-deps, lf-cand-looks and
@@ -132,6 +139,7 @@ begin-structure /lf-env
   /store-mark +field lf-envh-pub-mark   \ the publisher's pool mark while it publishes
   field: lf-envh-looks      \ the lookup pool's current block ("Lookups")
   /store-mark +field lf-envh-look-mark  \ and the publisher's mark of it
+  field: lf-envh-outer      \ its own tier of names beyond the input, or 0
 end-structure
 
 \ A slot (E2). Only the state and outcome mean anything for a declaration
@@ -310,18 +318,20 @@ u32-mask constant lf-look-outside   \ the key of names beyond the input (publish
   lf-look-key >r 2dup lf-look-answer r> lf-env-noted ;
 \ The publisher's seal (env-publish.fs): recording ends, and the keys of
 \ names a check made beyond its input tier (core/names.fs; their numbers
-\ mean nothing outside its context), the last of the list, become the one
-\ key lf-look-outside. Without a view every name is the input's.
+\ mean nothing outside its context), the last of the list, name the same
+\ names in the environment's own tier of names (lf-env-outer, made over
+\ the input tier at the first need), so that a published key names a name
+\ every later reader can read (plan step SN5; the snapshot's writer,
+\ env-snapshot.fs, adds them to the names it writes, where an import
+\ replays them as any other). They stay in the order the check made them
+\ (its scratch numbers), not sorted again. A name the heap cannot hold
+\ loses the entry: published full, never with an incomplete list.
+\ Without a view every name is the input's. lf-look-outside, the one key
+\ such names became before (verdict version 1), stays one no import can
+\ replay.
+\ (The seal's words follow the environment's layout, below.)
 : lf-look-input# ( -- n ) lf-name-view lf-nview-input @ tier-names cons-numbers ;
-: lf-look-outside! ( k -- )
-  dup lf-env-cand lf-cand-looked ! 0 lf-look-outside rot lf-look-at 2!
-  1 lf-env-cand lf-cand-looked +! ;
-: lf-look-collapse ( -- )
-  lf-name-viewed? 0= if exit then
-  lf-look-input# lf-look-kinds * lf-look-place nip
-  dup lf-cand-looked@ < if lf-look-outside! else drop then ;
-: lf-env-seal ( -- ) lf-look-on? if lf-look-collapse then true lf-env-cand lf-cand-sealed
-  ! ;
+: lf-look-unkept ( -- ) true lf-env-cand lf-cand-lost ! ;
 \ The snapshot's loader (env-snapshot.fs) gives a candidate a saved
 \ lookup with lf-env-look!.
 : lf-env-look! ( answer key -- ) lf-look-add ;
@@ -358,6 +368,34 @@ end-structure
 : lf-env-slot ( d env -- slot ) /lf-env + swap /lf-slot * + ;
 : lf-env-bytes ( slots -- u ) /lf-slot * /lf-env + ;
 : lf-env-in? ( d env -- flag ) lf-env-length 0 swap within ;
+
+\ The seal ("Lookups" above): the environment's own tier of names beyond
+\ the input, made by the publisher at the first need, freed with it.
+: lf-env-outer ( -- tier|0 ) lf-env lf-envh-outer @ ;
+: lf-outer-made ( tier -- tier|0 )
+  lf-name-view lf-nview-input @ over tier-extend ok? if exit then
+  dup tier-free free drop 0 ;
+: lf-outer ( -- tier|0 )
+  lf-env-outer ?dup if exit then lf-env-may-write
+  /tier allocate if drop 0 exit then lf-outer-made dup lf-env lf-envh-outer ! ;
+: lf-outer-free ( env -- ) lf-envh-outer @ ?dup if dup tier-free free drop then ;
+\ Entry k's key, a name of this context beyond the input, made the same
+\ name of the environment's tier.
+: lf-look-outer-key ( key tier -- key' outcome )
+  >r lf-look-kinds /mod lf-name-tier r> name-copy ok-then? 0= if nip no-result exit then
+  lf-look-kinds * + outcome-ok ;
+: lf-look-outer ( k tier -- )
+  swap lf-look-at dup @ lf-look-outside = if 2drop exit then
+  tuck @ swap lf-look-outer-key ok? if swap ! else 2drop lf-look-unkept then ;
+: lf-look-outers ( k -- )
+  lf-outer ?dup 0= if drop lf-look-unkept exit then
+  lf-cand-looked@ rot ?do i over lf-look-outer loop drop ;
+: lf-look-translate ( -- )
+  lf-name-viewed? 0= if exit then
+  lf-look-input# lf-look-kinds * lf-look-place nip
+  dup lf-cand-looked@ < if lf-look-outers else drop then ;
+: lf-env-seal ( -- ) lf-look-on? if lf-look-translate then true lf-env-cand lf-cand-sealed
+  ! ;
 
 \ The pool (E2; plan task 6.2.0): a heap block holding a link cell, then
 \ a store of one-cell records, room of them. Only the publisher writes
@@ -463,7 +501,7 @@ end-structure
 : lf-env-free ( env -- outcome )
   dup lf-env-choosable? 0= if drop outcome-invalid exit then
   lf-env-forget dup lf-envh-pool @ lf-pool-release dup lf-envh-looks @ lf-pool-release
-  free 0= flag>outcome ;
+  dup lf-outer-free free 0= flag>outcome ;
 \ Make a live environment current: ok, or invalid with nothing changed
 \ when it is not live or inside a job.
 : lf-env-use ( env -- outcome )
@@ -1000,6 +1038,35 @@ here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
   >r 2dup r> lf-env-earliest -rot lf-look-test lf-look-first ;
 : lf-env-quot-held ( limit -- d class ) lf-env-quot-held-pass 0 lf-look-quot lf-look-noted
   ;
+
+\ Replaying a saved lookup (ADR 0020 D5, I1.3; plan step SN4,
+\ kernel/env-import.fs): in a check's snapshot, the query a saved key
+\ records -- its name and kind -- asked again at the check's own limit
+\ (every recorded query is made at lf-env-limit: check-block.fs, quot.fs,
+\ inductive-block.fs, inductive-nested.fs) and recorded as the check
+\ records it, so that the candidate's list can be compared with the saved
+\ one. A query reads only slots of its name (and the types and quotient
+\ records that may hold it), and one not final below the limit marks the
+\ check early (lf-slot-final?): the import pass's lookup mode, which
+\ makes such a replay no match. False, with nothing asked, for a key no
+\ import can replay: names beyond the input (lf-look-outside) and another
+\ module's test (lf-look-other).
+: lf-replay-find ( name -- ) lf-env-lookup-pass 2drop ;
+: lf-replay-fresh ( name -- ) lf-env-limit lf-env-fresh drop ;
+: lf-replay-generated ( name -- ) lf-env-limit lf-env-fresh-generated drop ;
+: lf-replay-unheld ( name -- ) lf-env-limit lf-env-unheld drop ;
+: lf-replay-seek ( name -- ) lf-env-limit lf-env-find 2drop ;
+: lf-replay-type ( name -- ) ['] lf-slot-type? lf-env-limit lf-env-first drop ;
+: lf-replay-any ( name -- ) ['] lf-slot-any lf-env-limit lf-env-first drop ;
+: lf-replay-quot ( name -- ) drop lf-env-limit lf-env-quot-held 2drop ;
+create lf-replays   \ by kind; 0 for lf-look-other
+  ' lf-replay-find , ' lf-replay-fresh , ' lf-replay-generated , ' lf-replay-unheld ,
+  ' lf-replay-seek , ' lf-replay-type , ' lf-replay-any , 0 , ' lf-replay-quot ,
+: lf-replay@ ( key -- xt|0 )
+  dup lf-look-outside = if drop 0 exit then
+  lf-look-kinds 1- and dup lf-look-quot u> if drop 0 else cells lf-replays + @ then ;
+: lf-env-replay ( key -- flag )
+  dup lf-replay@ ?dup 0= if drop false exit then swap 4 rshift swap execute true ;
 \ G-P5, for a scheduler outside any check: whether every declaration
 \ before i named name has a final slot in the current environment, and,
 \ for a name a generated recursor may hold (lf-env-reserving), every type
@@ -1215,6 +1282,7 @@ begin-structure /lf-axd
   field: lf-axd-limit   \ its snapshot's limit
   field: lf-axd-done    \ slots whose row is known: those below done
   field: lf-axd-width   \ cells per row
+  field: lf-axd-stale   \ true: an accepted axiom reached has no number yet (see below)
 end-structure
 /lf-axd context-record: lf-axd-state
 1 cells context-slab: lf-axd-rows      \ the rows, width cells each
@@ -1245,9 +1313,14 @@ lf-axd-cell-bits constant lf-axd-bits   \ bits per cell
   lf-env-limit 0 ?do
     i lf-axd-axiom? if i lf-axd-number! dup ok? 0= if unloop exit then drop then
   loop outcome-ok ;
+\ Numbers start unset (-1): a table made while the run is still going
+\ numbers only the axioms final by then; one reached later makes the table
+\ stale, and it is made again (lf-axd-upto-fresh), so that a report
+\ written as the run goes gives the sets the finished table gives.
+: lf-axd-unset ( -- ) lf-env-limit 0 ?do -1 i lf-axd-number slab-at ! loop ;
 : lf-axd-arrays ( -- outcome )
   lf-env-limit lf-axd-row-of slab-hold dup ok? 0= if exit then drop
-  lf-env-limit lf-axd-number slab-hold ;
+  lf-env-limit lf-axd-number slab-hold dup ok? if lf-axd-unset then ;
 : lf-axd-width! ( -- )
   lf-axd-axioms slab-count lf-axd-bits /mod swap 0<> - 1 max lf-axd-state lf-axd-width ! ;
 : lf-axd-empty ( -- outcome )
@@ -1255,7 +1328,8 @@ lf-axd-cell-bits constant lf-axd-bits   \ bits per cell
   dup ok? if 0 lf-axd-row lf-axd-width@ cells erase then ;
 : lf-axd-key! ( -- )
   lf-env lf-envh-identity @ lf-axd-state lf-axd-env !
-  lf-env-limit lf-axd-state lf-axd-limit !  0 lf-axd-state lf-axd-done ! ;
+  lf-env-limit lf-axd-state lf-axd-limit !  0 lf-axd-state lf-axd-done !
+  false lf-axd-state lf-axd-stale ! ;
 : lf-axd-reset ( -- outcome )
   0 lf-axd-state lf-axd-env ! lf-axd-rows slab-clear lf-axd-axioms slab-clear
   lf-axd-arrays dup ok? 0= if exit then drop
@@ -1296,11 +1370,20 @@ lf-axd-cell-bits constant lf-axd-bits   \ bits per cell
   lf-axd-width@ lf-axd-rows slab-room ok-then? 0= if nip no-result exit then
   dup >r swap lf-axd-join r> lf-axd-shared
   dup 0< if drop lf-axd-kept else outcome-ok then ;
+: lf-axd-unnumbered? ( j -- flag )
+  dup lf-axd-axiom? if lf-axd-number slab-at @ 0< else drop false then ;
+: lf-axd-stale! ( -- outcome ) true lf-axd-state lf-axd-stale ! outcome-invalid ;
 : lf-axd-upto ( d -- outcome )
   1+ lf-axd-state lf-axd-done @ over min ?do
+    i lf-axd-unnumbered? if lf-axd-stale! unloop exit then
     i lf-axd-made ok-then? 0= if unloop exit then i lf-axd-row-of slab-at !
     i 1+ lf-axd-state lf-axd-done !
   loop outcome-ok ;
+\ The rows up to slot d; a table that met an axiom it had not numbered is
+\ made again, over the slots final now (all below d are), and tried once more.
+: lf-axd-upto-fresh ( d -- outcome )
+  dup lf-axd-upto lf-axd-state lf-axd-stale @ 0= if nip exit then
+  drop lf-axd-reset dup ok? 0= if nip exit then drop lf-axd-upto ;
 \ The axioms of row r's bits, in order: those of one cell (x, its first
 \ number k), then of each cell; no address is held while xt runs.
 : lf-axd-cell ( xt x k -- xt )
@@ -1315,7 +1398,7 @@ lf-axd-cell-bits constant lf-axd-bits   \ bits per cell
 : lf-env-axiom-deps ( d xt -- outcome )
   over lf-env-accepted nip ok? 0= if 2drop outcome-invalid exit then
   lf-axd-ready dup ok? 0= if nip nip exit then drop
-  over lf-axd-upto dup ok? 0= if nip nip exit then drop lf-axd-give outcome-ok ;
+  over lf-axd-upto-fresh dup ok? 0= if nip nip exit then drop lf-axd-give outcome-ok ;
 \ Whether axiom slot d (one lf-env-axiom-deps gives) is outside the
 \ allowlist, its own bit one that does not count as proved.
 : lf-env-unlisted? ( d -- flag )

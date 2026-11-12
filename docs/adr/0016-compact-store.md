@@ -870,6 +870,17 @@ needed (Rejected alternatives).
   unstamped call ends) replaces the open passes' result column (24 bytes
   per term index), and every pass skips a node its data word shows
   unchanged.
+  *Note (2026-11-11, agent PF; ADR 0014 Amendment 6, [kernel] review
+  pending):* the memo keeps at most `lf-rmemo-cap` (2^20) stamped entries
+  and is emptied when a stamped call begins above that, so on a term of
+  more than about a million open nodes the closings inference remembers
+  are lost. Inference closed an application's argument again for every
+  substitution into a Pi body, which the arena's `let-ladder` paid 18.8M
+  of its 39.0M units for; since Amendment 6 an argument is not closed for
+  a body without loose bound variables (Lean's `instantiate` never reads
+  it), and the copy a closing makes for a key takes its facts from its
+  data word, without the free-variable memo's entries (the arena's
+  `beta-ladder`: peak memory 1,111 → 804 MB).
 - Interned levels, universe lists and constants (2026-11-11, step S4 of
   the compact-store plan, agent S4, branch `s4-levels`; ADR 0014
   Amendment 5; no verdict moves away from Lean's, its [kernel] review

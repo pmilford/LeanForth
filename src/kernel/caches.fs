@@ -497,11 +497,26 @@ create lf-cache-hooks /htab-hooks allot
 defer lf-ci-room? ( -- flag )
 : lf-ci-short ( outcome -- outcome )
   dup outcome-exhausted = over outcome-full = or 0= if drop outcome-ok then ;
+\ The key of a node closed just now is its closed copy's identity, which
+\ is read with its bits from the copy's data word, as Lean reads has_fvar
+\ from the node, without the free-variable memo's walk (agent PF: the
+\ walk took 38% of the time of the arena's let-ladder, one per closing).
+\ A closing that succeeded holds only live free variables: the scope's,
+\ live while their binders are open; the leaves it visited, each found
+\ live (mixed-open.fs); the nodes the hook kept, found live
+\ (lf-co-unchanged?); and the results the memo gave back, made in this
+\ job (inference empties the memo when a job starts), whose free
+\ variables are older than they are and go only by a scratch rollback,
+\ which takes the results with them (the memo then misses: identities
+\ never repeat).
+: lf-copy-id ( node -- id true | false )
+  dup lf-term-data@ 0= if drop false exit then
+  lf-word-facts 0= if false exit then lf-bits-loose if drop false else true then ;
 : lf-ci-copy ( node -- id true | outcome false )
   lf-ci-room? 0= if drop outcome-ok false exit then
   dup lf-term-tag@ lf-tag-bvar = if drop outcome-ok false exit then
   lf-minfer-close ok-then? 0= if lf-ci-short false exit then
-  lf-closed-id if true else outcome-ok false then ;
+  lf-copy-id if true else outcome-ok false then ;
 : lf-ci-skeleton ( node -- id true | outcome false )
   dup lf-term-facts 0= if drop outcome-ok false exit then
   lf-bits-loose if drop lf-ci-copy else nip true then ;

@@ -41,6 +41,7 @@ require ./import/snapshot-tier.fs
 \ none of it.
 require ./kernel/verdict-version.fs
 require ./kernel/env-snapshot.fs
+require ./kernel/env-import.fs
 
 \ Verified-program track: example words, the stack-depth analyzer, the
 \ reader from restricted Forth source to the program IR and its interpreter.
