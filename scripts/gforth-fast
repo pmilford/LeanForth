@@ -7,6 +7,11 @@
 # else .tools/gforth/bin/gforth of this checkout, else gforth on PATH) through
 # the strict wrapper; without one, the real Gforth itself.
 here=$(cd "$(dirname "$0")" && pwd -P)
+# Under make coverage (scripts/coverage.py) gforth-fast cannot load coverage.fs:
+# the run goes to the counting wrapper, whose Gforth 1.0 is the checking engine.
+if [ -n "${LF_COVERAGE_GFORTH:-}" ] && [ -n "${LF_COVERAGE_DIR:-}" ]; then
+  exec "$here/coverage-gforth.sh" "$@"
+fi
 real=${LEANFORTH_GFORTH:-$here/../.tools/gforth/bin/gforth}
 # A wrapper of scripts/ is never the real Gforth (see gforth-strict.sh).
 case "$(readlink -f "$real" 2>/dev/null)" in

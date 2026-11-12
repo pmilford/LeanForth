@@ -11,4 +11,7 @@ out=$(mktemp "$LF_COVERAGE_DIR/run.XXXXXX")
 printf '%s\n%s\n' "$(pwd)" "$*" >"$out.cwd"
 LF_COVERAGE_OUT=$out
 export LF_COVERAGE_OUT
-exec "$LF_COVERAGE_GFORTH" "$here/coverage-prelude.fs" "$@"
+# Through the strict wrapper (nonzero status after a reported error).
+LEANFORTH_GFORTH=$LF_COVERAGE_GFORTH
+export LEANFORTH_GFORTH
+exec "$here/gforth-strict.sh" "$here/coverage-prelude.fs" "$@"
