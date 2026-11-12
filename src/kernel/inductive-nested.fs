@@ -49,17 +49,21 @@
 \ decision 7), and B3 compares them with the file's instead.
 \ Every pass runs on frame steps (lib/frame.fs, mixed-rebuild.fs) on the
 \ block's fuel; every table grows in the heap; a name the store cannot
-\ hold is full. [kernel] code: experimental, not through the review
-\ gate; not independently audited.
+\ hold is full. The three passes are Lean's replace calls, whose cache
+\ keeps each shared (node, offset) pair's result (replace_fn.cpp 26-40):
+\ each keeps its results in a replace memo (replace-memo.fs), so it grows
+\ with those pairs, never with the paths (review MO). [kernel] code:
+\ experimental, not through the review gate; not independently audited.
 \ State: one record, lf-nest-state (the occurrence being replaced or
 \ restored, the type J being copied, the lowering's amount,
 \ mk_unique_name's next index), two slabs, lf-nest-doms (the
 \ constructor's parameter domains) and lf-nest-text (a name component
-\ being made), and three frames records, lf-nest-frames (the
-\ translation), lf-nest-lower-frames (an occurrence's parameters lowered
-\ to the block's) and lf-nest-restore-frames (the restoration), all
-\ members of the checker context; the block's own records are
-\ inductive-block.fs's, its term builders inductive-recursor.fs's.
+\ being made), and three pass records (fields lf-npass-*: frames and
+\ replace memo), lf-nest-xlate-pass (the translation), lf-nest-lower-pass
+\ (an occurrence's parameters lowered to the block's) and
+\ lf-nest-restore-pass (the restoration), all members of the checker
+\ context; the block's own records are inductive-block.fs's, its term
+\ builders inductive-recursor.fs's.
 
 require ../lib/lib.fs
 require ../core/constant-references.fs
@@ -75,6 +79,7 @@ require ./mixed-compare.fs
 require ./mixed-instantiate.fs
 require ./mixed-level-substitute.fs
 require ./mixed-rebuild.fs
+require ./replace-memo.fs
 
 begin-structure /lf-nest
   field: lf-nest-node        \ the application being replaced or restored
@@ -91,6 +96,25 @@ end-structure
 /lf-nest context-record: lf-nest-state
 1 cells context-slab: lf-nest-doms
 1 context-slab: lf-nest-text
+\ A pass's record: its frames first, so that a step finds the pass's
+\ replace memo at the address of the frames it is given.
+begin-structure /lf-npass
+  /frames +field lf-npass-frames   \ fuel, nesting, the offset as context
+  /lf-rmemo +field lf-npass-memo   \ results per (node, offset), one call's
+end-structure
+0 lf-npass-frames 0<> [if] .( inductive-nested.fs: frames come first) cr abort [then]
+/lf-npass context-record: lf-nest-xlate-pass
+/lf-npass context-record: lf-nest-lower-pass
+/lf-npass context-record: lf-nest-restore-pass
+: lf-nest-frames ( -- frames ) lf-nest-xlate-pass lf-npass-frames ;
+: lf-nest-lower-frames ( -- frames ) lf-nest-lower-pass lf-npass-frames ;
+: lf-nest-restore-frames ( -- frames ) lf-nest-restore-pass lf-npass-frames ;
+\ The frames' stacks and the memos' tables, freed with the context (the
+\ visitors are set once in every context, after their definitions).
+:noname ( -- )
+  lf-nest-xlate-pass lf-nest-lower-pass lf-nest-restore-pass 3 0 do
+    dup lf-npass-frames frame-free lf-npass-memo lf-rmemo-release
+  loop ; context-teardown
 
 : lf-nest-site ( -- site ) c" inductive-nested lf-nest-translate" ;
 : lf-nest-p ( -- p ) lf-ind-nparams ;
@@ -125,16 +149,49 @@ end-structure
 \ every node it made discarded on failure (mixed-rebuild.fs).
 : lf-nest-lend ( frames -- ) frame-fuel @ lf-ind-fuel ! ;
 : lf-nest-back ( frames -- ) lf-ind-fuel @ swap frame-fuel ! ;
+\ Lean's replace cache (replace_fn.cpp 26-40, m_cache): a pass keeps the
+\ result of each application, binder and replaced node at the offset of
+\ its visit for the rest of its call, in its record's replace memo
+\ (replace-memo.fs), and gives it back when it meets the node there
+\ again, for the visit's one unit of fuel. A call begins with an empty
+\ memo (a call that threw may have left entries, stale for the next) and
+\ takes its entries out when it ends. The memo costs no fuel.
+: lf-nest-memo ( frames -- memo ) lf-npass-memo ;
+: lf-nest-memo-begin ( frames -- )
+  lf-nest-memo dup lf-rmemo-count if dup lf-rmemo-empty then 0 swap lf-rmemo-begin ;
+: lf-nest-memo-end ( outcome frames -- outcome ) over swap lf-nest-memo lf-rmemo-end ;
+: lf-nest-recall? ( node frames -- result true | false )
+  tuck frame-context @ rot lf-nest-memo lf-rmemo@ ;
+: lf-nest-remember ( result node frames -- )
+  tuck frame-context @ rot lf-nest-memo lf-rmemo! ;
+\ A visit's result kept for its node when it is one (ok).
+: lf-nest-kept ( result outcome node frames -- result outcome )
+  2over ok? nip if >r >r over r> r> lf-nest-remember else 2drop then ;
 : lf-nest-run ( root frames -- root' outcome )
   lf-ind-fuel @ over frame-budget 0= if 2drop -1 outcome-invalid exit then
-  dup >r 0 swap lf-rebuild-run r@ frame-fuel @ lf-ind-fuel !
-  r> lf-nest-site lf-diag-frames nip ;
+  dup lf-nest-memo-begin dup >r 0 swap lf-rebuild-run r@ frame-fuel @ lf-ind-fuel !
+  r@ lf-nest-memo-end r> lf-nest-site lf-diag-frames nip ;
+\ A binary node rebuilt as mixed-rebuild.fs's passes rebuild it, its
+\ result kept: the last step reads the node, which the visit saved below
+\ its first child's result.
+: lf-nest-rebuilt ( r2 outcome frames -- result outcome frames 0 )
+  1 over frame-pick >r ['] lf-rebuild-build lf-rebuild-joined drop
+  r> swap dup >r lf-nest-kept r> 0 ;
+: lf-nest-second ( r1 outcome frames -- second frames next | -1 outcome frames 0 )
+  ['] lf-nest-rebuilt lf-rebuild-next ;
+: lf-nest-binary ( node frames -- first frames next | -1 outcome frames 0 )
+  2dup lf-rebuild-stuck? if nip >r lf-rebuild-deep r> 0 exit then
+  ['] lf-nest-second lf-rebuild-first ;
+\ A node met before at this offset in this call: its result again; else
+\ visited by xt ( node frames -- ... frames next ).
+: lf-nest-again ( node frames xt -- ... frames next )
+  >r 2dup lf-nest-recall? if r> drop lf-replace-recall else r> execute then ;
 \ A visit that keeps its node, and one that visits an application's
 \ children (any other node kept).
 : lf-nest-keep ( node frames -- node outcome frames 0 )
   ['] lf-rebuild-keep lf-rebuild-return ;
 : lf-nest-descend ( node frames -- ... frames next )
-  over lf-tag-app lf-ind-tag? if lf-rebuild-binary else lf-nest-keep then ;
+  over lf-tag-app lf-ind-tag? if lf-nest-binary else lf-nest-keep then ;
 \ The answer "not replaced" of a replacing step: visit the node's
 \ children.
 -1 constant lf-nest-none
@@ -145,10 +202,14 @@ end-structure
   >r dup >r lf-nest-lend r@ frame-context @ r> r> swap >r execute r> lf-nest-back ;
 : lf-nest-replaced ( node frames try -- ... frames next )
   >r 2dup r> lf-nest-try 2dup lf-nest-none?
-  if 2drop lf-nest-descend else 2swap nip 0 then ;
+  if 2drop lf-nest-descend else 2swap dup >r lf-nest-kept r> 0 then ;
 \ A leaf no store holds is refused, any other kept.
 : lf-nest-leaf ( node frames tag -- ... frames next )
   lf-rebuild-no-tag = if lf-rebuild-refuse else lf-nest-keep then ;
+\ A node no try is asked of: a binder's children visited, a leaf kept.
+: lf-nest-other ( node frames tag -- ... frames next )
+  dup lf-term-binary-tag? 0= if lf-nest-leaf exit then
+  drop ['] lf-nest-binary lf-nest-again ;
 
 \ ---------------------------------------------------------------------------
 \ Lowering the parametric arguments of an occurrence under c binders
@@ -169,8 +230,8 @@ end-structure
     lf-rebuild-no-tag of lf-rebuild-bad endof  >r lf-rebuild-keep r> endcase ;
 : lf-nest-lower-visit ( node frames -- ... frames next )
   over lf-term-valid? lf-rebuild-tag dup lf-term-binary-tag?
-  if drop lf-rebuild-binary else over >r lf-nest-lower-leaf r> 0 then ;
-' lf-nest-lower-visit context-frames: lf-nest-lower-frames
+  if drop ['] lf-nest-binary lf-nest-again else over >r lf-nest-lower-leaf r> 0 then ;
+:noname ( -- ) ['] lf-nest-lower-visit lf-nest-lower-frames frame-init ; context-setup
 : lf-nest-lower ( node c -- node' outcome )
   ?dup 0= if outcome-ok exit then
   lf-nest-state lf-nest-amount ! lf-nest-lower-frames lf-nest-run ;
@@ -402,12 +463,15 @@ end-structure
   0= if lf-nest-none outcome-ok exit then
   lf-nest-keyed dup ok? 0= if no-result exit then drop lf-nest-replace ;
 \ The visit: an application replaced or its children visited; a binder's
-\ children; any other leaf kept.
+\ children; any other leaf kept. A binary node met before at this offset
+\ gives its result again.
+: lf-nest-occurring ( node frames -- ... frames next )
+  ['] lf-nest-occurrence lf-nest-replaced ;
 : lf-nest-visit ( node frames -- ... frames next )
   over lf-term-valid? lf-rebuild-tag
-  dup lf-tag-app = if drop ['] lf-nest-occurrence lf-nest-replaced exit then
-  dup lf-term-binary-tag? if drop lf-rebuild-binary else lf-nest-leaf then ;
-' lf-nest-visit context-frames: lf-nest-frames
+  dup lf-tag-app = if drop ['] lf-nest-occurring lf-nest-again exit then
+  lf-nest-other ;
+:noname ( -- ) ['] lf-nest-visit lf-nest-frames frame-init ; context-setup
 \ Constructor j's type: its first p binders' domains recorded (it has
 \ them: T1, or made so), its body translated, the binders put back.
 : lf-nest-strip ( root -- body outcome )
@@ -493,11 +557,13 @@ end-structure
   lf-nest-take lf-nest-head lf-nest-aux-type dup 0< 0= if lf-nest-type-back exit then drop
   lf-nest-head lf-nest-aux-ctor dup 0< 0= if lf-nest-ctor-back exit then
   drop lf-nest-none outcome-ok ;
+: lf-nest-restoring ( node frames -- ... frames next )
+  ['] lf-nest-restore-node lf-nest-replaced ;
 : lf-nest-restore-visit ( node frames -- ... frames next )
   over lf-term-valid? lf-rebuild-tag dup lf-tag-app = over lf-tag-constant = or
-  if drop ['] lf-nest-restore-node lf-nest-replaced exit then
-  dup lf-term-binary-tag? if drop lf-rebuild-binary else lf-nest-leaf then ;
-' lf-nest-restore-visit context-frames: lf-nest-restore-frames
+  if drop ['] lf-nest-restoring lf-nest-again exit then
+  lf-nest-other ;
+:noname ( -- ) ['] lf-nest-restore-visit lf-nest-restore-frames frame-init ; context-setup
 \ Every constructor's name for B3: an auxiliary one's restored
 \ (restore_constructor_name: its prefix, its type's name, replaced by
 \ the name of its key's head), any other its own.
