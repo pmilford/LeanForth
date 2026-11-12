@@ -12,6 +12,9 @@
 --   in scope in one place and out of scope in another. Lean rejects m1, m2,
 --   m3, m5 ("loose bound variables") and m6 (typeExpected), and accepts m4
 --   and m4ok.
+-- * P3 (agent PF), 6 rows: three arena perf ladders at n = 48 and bad twins.
+-- * P4 (agent R5), 2 rows: proof irrelevance typing 48-argument spines aside;
+--   Lean accepts spinegood and rejects spinebad (appTypeMismatch).
 -- Each row is a theorem or definition checked by pinned Lean's kernel
 -- (`addDeclCore`, no axioms); the file prints a `row<TAB>id<TAB>verdict` line
 -- per row and then each row's export. tests/cli/shared_depths.py, run by
@@ -271,5 +274,59 @@ run_cmd do
   for r in rows do IO.println r
   for (id, e, ns) in outs do writeCase e id ns
 end P3
+
+namespace P4
+
+-- Agent R5 (ADR 0014 Amendment 8): Lean's infer_app in infer-only mode
+-- (type_checker.cpp 188-205) types an application `f a₁ … aₙ` from its head,
+-- putting the arguments into f's Pi telescope by one instantiate_rev, not
+-- one instantiate per argument. Proof irrelevance types `h 0 … 0` and
+-- `h₂ 0 … 0` (n arguments, h h₂ : ∀ x₁ … xₙ, P x₁ … xₙ) that way when the
+-- good row compares them. The bad twin's statement puts `h₂ 0 … 0 1`, a
+-- proof of `P 0 … 0 1`, where a proof of `P 0 … 0` is expected
+-- (appTypeMismatch). tests/cli/shared_depths.py bounds the good row's fuel.
+
+def piN (n : Nat) (b : Expr) : Expr := Id.run do
+  let mut e := b
+  for _ in [:n] do e := .forallE `x P3.nat e .default
+  return e
+
+def lamN (n : Nat) (b : Expr) : Expr := Id.run do
+  let mut e := b
+  for _ in [:n] do e := .lam `x P3.nat e .default
+  return e
+
+/-- x₁ … xₙ under n binders: bound variables n-1 … 0. -/
+def bvars (n : Nat) : Array Expr := (Array.range n).reverse.map (Expr.bvar ·)
+def zeros (n : Nat) (last : Nat) : Array Expr :=
+  ((List.replicate (n - 1) (P3.lit 0)) ++ [P3.lit last]).toArray
+def eqProp (a b c : Expr) : Expr := mkApp3 (mkConst ``Eq [Level.zero]) a b c
+def reflProp (a b : Expr) : Expr := mkApp2 (mkConst ``Eq.refl [Level.zero]) a b
+
+run_cmd do
+  let base := (← getEnv).toKernelEnv
+  let n := 48
+  let s := P3.sumAll n (P3.lit 0)
+  let p (args : Array Expr) : Expr := mkAppN (mkConst `Spine.P) args
+  let dP := P3.dfn `Spine.P (piN n (.sort .zero)) (lamN n (P3.eqNat s s))
+  let hType := piN n (p (bvars n))
+  let dh := P3.thm `Spine.h hType (lamN n (P3.reflNat s))
+  let dh₂ := P3.thm `Spine.h₂ hType (lamN n (P3.reflNat s))
+  let hz := mkAppN (mkConst `Spine.h) (zeros n 0)
+  let good := P3.thm `Spine.good (eqProp (p (zeros n 0)) hz (mkAppN (mkConst `Spine.h₂) (zeros n 0)))
+    (reflProp (p (zeros n 0)) hz)
+  let bad := P3.thm `Spine.bad (eqProp (p (zeros n 0)) hz (mkAppN (mkConst `Spine.h₂) (zeros n 1)))
+    (reflProp (p (zeros n 0)) hz)
+  let cases : List (String × List Declaration) := [
+    ("spinegood", [dP, dh, dh₂, good]), ("spinebad", [dP, dh, dh₂, bad])]
+  let mut rows : Array String := #[]
+  let mut outs : Array (String × Kernel.Environment × List Name) := #[]
+  for (id, ds) in cases do
+    let (verdict, e) ← liftM (checkAll base ds)
+    rows := rows.push s!"row\t{id}\t{verdict}"
+    outs := outs.push (id, e, (ds.getLast!).getNames)
+  for r in rows do IO.println r
+  for (id, e, ns) in outs do writeCase e id ns
+end P4
 
 end SharedDepths

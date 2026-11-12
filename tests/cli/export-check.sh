@@ -66,8 +66,9 @@ reproduce nested LeanForthNested RvNest.VT.size_two RvNest.VT.size_leaf RvNest.V
 reproduce dependent LeanForthDependent Two.swap_swap_first Two.swap_swap Two.swap_swap_first \
   Two.cases_first
 reproduce sibling LeanForthSibling Two.swap_first Two.swap_first Two.swap_second
-# shared-depths.lean: 25 rows (rvS36 P1, P2; agent PF P3) checked by pinned Lean's kernel; the
-# script compares LeanForth's verdict on each export, with the audit memo on and off.
+# shared-depths.lean: 27 rows (rvS36 P1, P2; agent PF P3; agent R5 P4) checked by pinned
+# Lean's kernel; the script compares LeanForth's verdict on each export, with the audit memo
+# on and off.
 python3 -I tests/cli/shared_depths.py "$lean"
 printf '%s\n' 'Lean accepts chain, impliesSelf, Two.cases, Two.swap, irrelevant,' \
   'sharedAnd, sharedBeta, sharing, sharedAndU, useU and the nested blocks of' \

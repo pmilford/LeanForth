@@ -1602,7 +1602,7 @@ PINNED = {
     "--no-manifest README.md": "7dace333bd425361",
     "tests/cli/no-such.ndjson": "3eac0629560526ed",
     "--no-manifest tests/cli/composition-huge-number.ndjson": "ec7632bcbf284cef",
-    "--no-manifest tests/core/reexport/kinds.ndjson": "4a8e363ce8e30380",  # IO
+    "--no-manifest tests/core/reexport/kinds.ndjson": "2e6ca9cca5d0224f",  # IO; R5
     f"--fuel 0 {FIXTURE}": "7ab8e9fa317ce0a5",
     f"--no-manifest {EMPTY_BLOCK}": "dbfea3992d7e6793",
     "tests/cli/sharing.ndjson": "e1e5a1f9695267e2",  # re-pinned (IO)
@@ -1782,7 +1782,7 @@ class Snapshots(unittest.TestCase):
                                    "audited; from snapshot, not re-checked in this run); "
                                    "axioms: none")
         self.assertRegex(lines[-3], r"^snapshot: .*s\.lfsnap \(sha256 [0-9a-f]{64}\), export "
-                                    r"sha256 [0-9a-f]{64}, verdict version 3, written by "
+                                    r"sha256 [0-9a-f]{64}, verdict version 5, written by "
                                     r"LeanForth \S+: 3 results taken from it, not re-checked "
                                     r"in this run$")
         self.assertEqual(lines[-2:], [
@@ -2460,7 +2460,7 @@ class Layers(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertIn(f"layer: {one} (sha256 {sha}), export sha256 "
                       f"{hashlib.sha256(Path(DEPENDENT).read_bytes()).hexdigest()}, "
-                      "verdict version 3, on the snapshot above", out.splitlines())
+                      "verdict version 5, on the snapshot above", out.splitlines())
         status, got, _ = report(*options)
         self.assertEqual(Imports.schema.errors(got), [])
         self.assertEqual([(x["file"], x["sha256"], x["base"]) for x in got["snapshot"]["layers"]],

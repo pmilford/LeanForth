@@ -135,6 +135,7 @@ begin-structure /lf-ijob
   field: lf-ijob-argument  \ the argument an application's type is instantiated with
   field: lf-ijob-chain     \ for a lambda's lambda body, where the chain began, else -1
   field: lf-ijob-inner     \ true while a Pi's Pi body is entered (no cache key)
+  field: lf-ijob-spine     \ cells of lf-minfer-spine-cells in use (aside spines)
   /lf-scratch +field lf-ijob-mark  \ the stores before the call (scratch-marks.fs)
 end-structure
 0 lf-ijob-frames 0<> [if] .( mixed-infer.fs: frames must come first) cr abort [then]
@@ -148,6 +149,10 @@ end-structure
 \ A constant's universe arguments, copied: as many as it has (no fixed
 \ limit); one the heap cannot hold is full.
 2 cells context-slab: lf-minfer-actual-pairs
+\ The arguments of the applications that infer-only inference is typing
+\ (lf-minfer-spine), outermost first, a stack: the job's lf-ijob-spine
+\ cells are in use (no fixed limit; one the heap cannot hold is full).
+1 cells context-slab: lf-minfer-spine-cells
 
 \ Fields of the record. Tests read the fuel left and the scope's depth
 \ (the binders opened), and mixed-definition-probe reads the fuel left.
@@ -562,6 +567,74 @@ defer lf-minfer-proj ( leaf e frames -- ... frames next )
 : lf-minfer-read ( node -- first second tag true | false )
   dup lf-minfer-source? 0= if drop false exit then lf-term-read dup if >r rot r> then ;
 
+\ An application aside, as Lean's infer_app in infer-only mode
+\ (type_checker.cpp 188-205): the spine f a1 .. an is typed from its head
+\ alone. The head's type is inferred (and keyed, as infer_type_core(f,
+\ true) keys it); then, for each argument in turn, a type that is a
+\ visible Pi gives its body, and one that is not first has the arguments
+\ since the last such point put for its loose bound variables at once
+\ (instantiate_rev), is put in whnf when it is no Pi (ensure_pi_core:
+\ else unknown, aside) and gives its body; last, the arguments since the
+\ last point are put into the type at once. The application's prefixes
+\ f a1 .. ak are neither typed nor keyed, and the type is the same term
+\ as one argument at a time would give (instantiation keeps a visible
+\ Pi a Pi), but each node of the type is visited once per point, not
+\ once per argument (ADR 0014, Amendment 8). Arguments read under the
+\ scope are closed first, those the type's loose range can name (Lean's
+\ instantiate never reads the others). The arguments wait in
+\ lf-minfer-spine-cells, outermost first, above those of the spines being
+\ typed around this one (a whnf's iota may type aside again); the frames
+\ keep where they start and how many there are.
+: lf-minfer-spine-cell ( i -- addr ) lf-minfer-spine-cells slab-at ;
+: lf-minfer-spine-top ( -- addr ) lf-minfer-job lf-ijob-spine ;
+: lf-minfer-app? ( node -- first second true | false )
+  lf-minfer-read 0= if false exit then lf-tag-app = if true else 2drop false then ;
+: lf-minfer-spine-count ( function -- n )
+  1 swap begin lf-minfer-app? while drop swap 1+ swap repeat ;
+\ The arguments below the outermost, into cells c-1, c-2, ...; the head.
+: lf-minfer-spine-fill ( function c -- head )
+  begin over lf-minfer-app? while rot 1- tuck lf-minfer-spine-cell ! rot drop repeat drop ;
+\ Room for n more cells: where they start, and ok or full.
+: lf-minfer-spine-room ( n -- base outcome )
+  lf-minfer-spine-top @ tuck + lf-minfer-spine-cells slab-hold ;
+\ The innermost of k arguments that a type's loose range can name.
+: lf-minfer-spine-needs ( T k -- m ) swap lf-term-data@ if lf-data-loose min then ;
+\ Cells i .. i+n-1 closed in place with the scope's free variables.
+: lf-minfer-close-cells ( i n -- status )
+  bounds ?do i lf-minfer-spine-cell dup @ lf-minfer-close ok-then? 0= if nip unloop exit then
+    swap ! loop outcome-ok ;
+: lf-minfer-spine-subst ( T i k -- T' status )
+  swap lf-minfer-spine-cell swap lf-minfer-lend lf-instantiate-rev lf-minfer-repay
+  outcome-sane ;
+: lf-minfer-spine-put ( T i k -- T' status )
+  2 pick over lf-minfer-spine-needs >r 2dup + r@ - r> lf-minfer-close-cells
+  dup ok? if drop lf-minfer-spine-subst else >r drop 2drop r> lf-minfer-none then ;
+\ The k arguments before cell c put into T at once.
+: lf-minfer-spine-pending ( T k c -- T' status ) over - swap lf-minfer-spine-put ;
+\ One argument (cell c): T and k, the arguments not yet put, after it.
+: lf-minfer-spine-step ( T k c -- T' k' outcome )
+  >r over lf-minfer-pi? if nip rot drop swap 1+ r> drop outcome-ok exit then
+  r> lf-minfer-spine-pending ok-then? 0= if -1 0 rot exit then
+  lf-minfer-pi-parts if nip 1 outcome-ok else -1 0 rot then ;
+: lf-minfer-spine-loop ( T end base -- T k outcome )
+  0 -rot ?do i lf-minfer-spine-step dup ok? 0= if unloop exit then drop loop outcome-ok ;
+: lf-minfer-spine-type ( T base n -- type status )
+  over + dup >r swap lf-minfer-spine-loop ok-then?
+  if r> lf-minfer-spine-pending else r> drop nip lf-minfer-none then ;
+: lf-minfer-spined ( T status base n -- type status )
+  2swap ok-then? if -rot lf-minfer-spine-type else nip nip lf-minfer-none then ;
+\ The head's type is known: the spine's, and its cells given back.
+: lf-minfer-spine-fn ( T status frames -- type status frames 0 )
+  >r r@ frame-restore r@ frame-restore over >r lf-minfer-spined
+  r> lf-minfer-spine-top ! r> 0 ;
+: lf-minfer-spine-head ( function argument base n frames -- head )
+  >r 2dup r@ frame-save r> frame-save
+  + dup lf-minfer-spine-top ! 1- tuck lf-minfer-spine-cell ! lf-minfer-spine-fill ;
+: lf-minfer-spine ( function argument frames -- ... frames next )
+  >r over lf-minfer-spine-count dup lf-minfer-spine-room ok-then?
+  0= if >r 2drop drop r> no-result r> 0 exit then
+  swap r@ lf-minfer-spine-head r> ['] lf-minfer-spine-fn lf-minfer-call ;
+
 \ Binders, one at a time, as infer_lambda and infer_pi treat each binder
 \ of a telescope (type_checker.cpp 125-166). The domain, read under the
 \ scope, must be a type, its type a Sort (otherwise unknown, or rejected
@@ -803,7 +876,7 @@ defer lf-minfer-let-one ( v lam frames -- ... frames next )
 : lf-minfer-other ( first second frames tag -- -1 status frames 0 tag )
   >r >r 2drop r> r> lf-minfer-unsupported 2swap 0 swap ;
 : lf-minfer-binary ( first second tag frames -- ... frames next )
-  swap case lf-tag-app of lf-minfer-app endof
+  swap case lf-tag-app of lf-minfer-aside @ if lf-minfer-spine else lf-minfer-app then endof
     lf-tag-lam of lf-minfer-lam endof
     lf-tag-pi of lf-minfer-pi endof
     lf-tag-let of lf-minfer-let endof  lf-tag-let-nondep of lf-minfer-let endof
@@ -866,7 +939,7 @@ defer lf-minfer-entry ( node frames -- ... frames next )
   lf-minfer-job lf-ijob-mark lf-scratch-rollback lf-scratch-settled ;
 : lf-minfer-idle ( job -- )
   dup lf-ijob-frames frame-reset 0 over lf-ijob-binders !
-  -1 over lf-ijob-chain ! false over lf-ijob-inner !
+  -1 over lf-ijob-chain ! false over lf-ijob-inner ! 0 over lf-ijob-spine !
   false over lf-ijob-aside ! false swap lf-ijob-env ! ;
 
 \ Start a job on lf-minfer-job: the index token and nonnegative fuel, no

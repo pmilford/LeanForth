@@ -35,8 +35,14 @@
 \                  command line's default fuel per declaration is
 \                  100,000,000 (owner, 2026-11-11), so a declaration
 \                  that ran out at 20,000,000 may now be decided.
+\   5  2026-11-11  agent R5 (ADR 0014 Amendment 8; 4 is agent PF's
+\                  Amendment 7, branch pf-perf: renumber at merge if
+\                  needed): infer-only inference types an application
+\                  from its spine's head, as Lean's infer_app does, so
+\                  fuel counts fall (the pinned exports: every report the
+\                  same but for fuel, which only fell); no verdict.
 \
 \ [kernel] code: experimental, not through the review gate.
 \ State: none.
 
-3 constant lf-verdict-version
+5 constant lf-verdict-version
