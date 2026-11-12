@@ -8401,10 +8401,34 @@ reason = "SN3: a declaration that uses a result from a snapshot is not labelled 
 [[fault]]
 id = "sn3-verdict-version-unchecked"
 file = "src/kernel/env-snapshot.fs"
-old = ''': snap-fresh? ( snap -- flag ) sh-verdict swap head@ lf-verdict-version = ;'''
-new = ''': snap-fresh? ( snap -- flag ) drop true ;'''
+old = '''  dup snap-verdict lf-verdict-version = if drop true exit then'''
+new = '''  drop true exit'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots"
 reason = "SN3: a snapshot of another verdict version (stale) is loaded"
+
+[[fault]]
+id = "sn5-stale-unlabelled"
+file = "src/kernel/env-snapshot.fs"
+old = '''  dup snap-older? snap-stale-allowed @ and dup rot snap-stale ! ;'''
+new = '''  dup snap-older? snap-stale-allowed @ and nip ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots"
+reason = "SN5: a snapshot of an older verdict version loaded with --snapshot-stale-ok, its results reported as this build's verdicts"
+
+[[fault]]
+id = "sn5-stale-newer"
+file = "src/kernel/env-snapshot.fs"
+old = ''': snap-older? ( snap -- flag ) snap-verdict 1 lf-verdict-version within ;'''
+new = ''': snap-older? ( snap -- flag ) snap-verdict 0<> ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots"
+reason = "SN5: --snapshot-stale-ok also loads a snapshot of a newer verdict version than this build's"
+
+[[fault]]
+id = "sn5-fuel-moved"
+file = "src/kernel/env-snapshot.fs"
+old = '''  r> snap-facts @ execute >r sl-fuel 2 pick fld2! r@ put-step r> put-site nip ;'''
+new = '''  r> snap-facts @ execute >r 1+ sl-fuel 2 pick fld2! r@ put-step r> put-site nip ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py VerdictGuard"
+reason = "SN5: a change that moves a stored field (every fuel used one more) without a bump of the verdict version"
 
 [[fault]]
 id = "sn3-fuel-unchecked"
@@ -8611,8 +8635,8 @@ reason = "SN4: a layer written on another base loads on this one (its records nu
 [[fault]]
 id = "sn4-layer-clash-entered"
 file = "src/kernel/env-layers.fs"
-old = '''  dup lay-clash? if c" a name of two snapshots with other content" swap lay-refuse exit then'''
-new = ''''''
+old = '''  dup lay-clash? 0= if lay-enter exit then'''
+new = '''  lay-enter exit'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
 reason = "SN4: a name two snapshots declare with other content is loaded twice, which Lean refuses as an import clash"
 
@@ -8655,12 +8679,13 @@ old = '''  snap-outers outers-list @ swap outers-of 2dup o-sort'''
 new = '''  snap-outers outers-list @ swap outers-of'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots"
 reason = "SN5: the names beyond the input written in the order the publisher met them, so --jobs 4 writes other bytes than --jobs 1"
+gap = "no fixture yet has one slot whose names beyond the input a parallel run meets in another order than a serial one (nested.ndjson's --jobs 4 bytes are equal without the sort); a crafted multi-block nested export would catch it"
 
 [[fault]]
 id = "sn5-outer-unsorted"
 file = "src/kernel/env-snapshot.fs"
-old = '''  loop 2drop r> r> r> if look-sort else 2drop then ;'''
-new = '''  loop 2drop r> r> r> drop 2drop ;'''
+old = '''  2drop r> r> r> if look-sort else 2drop then ;'''
+new = '''  2drop r> r> r> drop 2drop ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
 reason = "SN5: a list with names beyond the input written unsorted after their keys are made the written names', which the loader refuses"
 

@@ -247,7 +247,8 @@ create cj-hex 64 allot
   dup ck-layer-id dup s" sha256" cj-sha 32 + s" exportSha256" cj-sha
   ck-snap snap-sum s" base" cj-sha ck-layer-verdict s" verdictVersion" cj-number
   cj-end-object ;
-: cj-layers ( -- ) s" layers" cj-key cj-array ck-layers# 0 ?do i cj-layer loop cj-end-array ;
+: cj-layers ( -- )
+  s" layers" cj-key cj-array ck-layers# 0 ?do i cj-layer loop cj-end-array ;
 \ A stale snapshot loaded (--snapshot-stale-ok; ADR 0020 amendment 3):
 \ this build's verdict version and how many results are stale; else null.
 : cj-stale ( -- )
@@ -259,7 +260,8 @@ create cj-hex 64 allot
   ck-snap snap-id 0= if s" snapshot" cj-null-member exit then
   s" snapshot" cj-key cj-object cj-snap-file
   ck-snap snap-sum s" sha256" cj-sha snap-version s" formatVersion" cj-number
-  ck-snap snap-verdict s" verdictVersion" cj-number cj-stale cj-snap-export cj-snap-manifest
+  ck-snap snap-verdict s" verdictVersion" cj-number cj-stale cj-snap-export
+  cj-snap-manifest
   s" base" cj-null-member cj-layers cj-snap-info cj-import cj-end-object ;
 \ ---- The report.
 : cj-export ( c-addr u -- )

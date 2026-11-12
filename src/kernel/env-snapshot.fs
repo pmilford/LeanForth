@@ -47,7 +47,10 @@
 \ /rr-step with the diagnostic its check left; to FILE.partial, renamed
 \ when complete. Two runs of one export with one build, in any order of
 \ checking (--jobs), write the same bytes: lists are written in slot
-\ order, never in the order of publication.
+\ order, never in the order of publication. The names checks made beyond
+\ the input (the environment's own tier, environment.fs lf-env-outer; plan
+\ step SN5) are written after the tier's names, as names of the tier, in a
+\ content order ("Names beyond the input" below), their keys as those.
 \
 \ Loading, each step refusing before anything is published: snap-open (the
 \ header: mark, format and verdict versions, fuel, allowlist; the table;
@@ -70,12 +73,15 @@
 \ Outcomes (ADR 0008): ok; invalid for a malformed, damaged or altered file
 \ (snap-error names the section, or the slot), other settings (fuel,
 \ allowlist) than the run's, a stage or environment that does not fit;
-\ unsupported for another format or verdict version, or a layered
-\ snapshot; full for no heap. A damaged section the container reports as
-\ rejected is invalid here. The file is closed by snap-close; the heap
-\ blocks are freed by snap-free.
+\ unsupported for another format or verdict version (an older one loads,
+\ marked stale, when snap-stale-allowed is true: --snapshot-stale-ok), or
+\ a layered snapshot; full for no heap. A damaged section the container
+\ reports as rejected is invalid here. The file is closed by snap-close;
+\ the heap blocks are freed by snap-free.
 \ State: one /snap record per file being written or read, used by one task;
-\ snap-loading, the record snap-fill reads (one load at a time).
+\ snap-loading, the record snap-fill reads (one load at a time);
+\ snap-stale-allowed, the flag, set by the caller before loading;
+\ snap-outers and the site tables, the writer's (one save at a time).
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
@@ -361,7 +367,8 @@ create snap-outers /outers allot  snap-outers /outers erase
 \ Whether slot's list ends with a name beyond (such keys are its last).
 : slot-outer? ( slot -- flag )
   canon 0= if drop false exit then
-  dup lf-slot-looked @ ?dup 0= if drop false exit then 1- swap lf-slot-look drop key-beyond? ;
+  dup lf-slot-looked @ ?dup 0= if drop false exit then
+  1- swap lf-slot-look drop key-beyond? ;
 \ The content order of two names of the environment's tier: -1, 0 or 1.
 : u-order ( u1 u2 -- n ) 2dup u> >r u< r> - ;
 : part-order ( a b -- n )
@@ -390,10 +397,10 @@ create snap-outers /outers allot  snap-outers /outers erase
   dup cells allocate if 2drop outcome-full exit then
   snap-outers outers-list ! snap-outers outers-room ! outcome-ok ;
 : outer-put ( addr n name -- addr n' ) >r 2dup cells + r> swap ! 1+ ;
+: outer-key ( addr n slot key -- addr n' slot )
+  dup key-beyond? if key-name swap >r outer-put r> else drop then ;
 : outers-of ( addr slot -- addr n )
-  0 swap dup lf-slot-looked @ 0 ?do
-    i over lf-slot-look drop dup key-beyond? if key-name swap >r outer-put r> else drop then
-  loop drop ;
+  0 swap dup lf-slot-looked @ 0 ?do i over lf-slot-look drop outer-key loop drop ;
 : canon-made ( name -- outcome ) outer canon name-copy nip ;
 : canon-slot ( slot -- outcome )
   dup lf-slot-looked @ outers-hold ok-then? 0= if exit then
@@ -452,12 +459,13 @@ create snap-outers /outers allot  snap-outers /outers erase
 : canon-key ( key -- key' )
   dup key-kind swap key-name outer canon name-copy drop lf-look-kinds * + ;
 : key-written ( key -- key' ) dup key-beyond? if canon-key then ;
+: put-look ( addr snap slot k -- addr' snap slot )
+  over lf-slot-look 3 pick answer-renum >r key-written 3 pick u32-le!
+  r> 3 pick 4 + u32-le! rot 8 + -rot ;
 : put-looks ( addr d snap -- addr' )
   over slot-env dup slot-outer? >r lf-slot-looked @ >r 2 pick >r
-  swap slot-env dup lf-slot-looked @ 0 ?do
-    i over lf-slot-look 3 pick answer-renum >r key-written 3 pick u32-le! r> 3 pick 4 + u32-le!
-    rot 8 + -rot
-  loop 2drop r> r> r> if look-sort else 2drop then ;
+  swap slot-env dup lf-slot-looked @ 0 ?do i put-look loop
+  2drop r> r> r> if look-sort else 2drop then ;
 : put-lists ( snap -- )
   dup ss-deps swap snap-block over ss-looks swap snap-block rot dup snap-wn@ 0 ?do
     i over snap-e >r rot r@ 2 pick put-deps -rot swap r> 2 pick put-looks swap

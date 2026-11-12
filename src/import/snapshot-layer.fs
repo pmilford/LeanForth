@@ -120,7 +120,8 @@ end-structure
   dup r@ ly-begun @ u< if drop r> drop true exit then
   dup r@ ly-top @ > if r> ly-top ! true else drop r> drop false then ;
 : ly-keep ( n' idx i ly -- outcome )
-  3 pick 2 pick 2 pick ly-fresh? if ly-kept outcome-ok else 2drop 2drop outcome-invalid then ;
+  3 pick 2 pick 2 pick ly-fresh? 0= if 2drop 2drop outcome-invalid exit then
+  ly-kept outcome-ok ;
 : ly-name ( n ly -- n' flag ) lp-names swap ly-xlate ;
 : ly-level ( n ly -- n' flag ) lp-levels swap ly-xlate ;
 : ly-text ( n ly -- n' flag ) lp-texts swap ly-xlate ;

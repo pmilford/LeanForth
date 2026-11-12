@@ -25,8 +25,9 @@ environment keeps for it (its dependencies, its axioms). Loading the file
 takes about a minute instead of re-checking. Physlib, or a new proof, is
 then checked against it: each of its declarations that is the same as one
 in the snapshot, and sees the same declarations around it, takes the saved
-verdict; everything else is checked. The verdicts are exactly those of
-checking the dependent export from scratch.
+verdict; everything else is checked. The verdicts are meant to be
+exactly those of checking the dependent export from scratch (not yet for
+fuel and verdicts near the fuel budget: review rvSN4 B1, amendment 3).
 
 The file holds numbers and offsets only, in a fixed byte order, so it
 loads on any host at any address, read or memory-mapped. It is not tied to
@@ -312,7 +313,9 @@ among them); the snapshot S is Mathlib's. `leanforth check --snapshot S E′`:
    with one of S but differ in content (many of them mean S is of another
    library version).
 
-**Why the verdicts are exactly a fresh check's.** The invariant **I2**
+**Why the verdicts are exactly a fresh check's** (not yet so for fuel,
+and so for a verdict near the fuel budget: review rvSN4 B1 found fuel
+depends on the tier's numbering; amendment 3). The invariant **I2**
 ([kernel] review): *a check's outcome, fuel and recorded fields depend
 only on its declaration's content, the run's verdict settings and verdict
 version, and the answers of its lookups, with the records and fields of
@@ -661,6 +664,70 @@ slot number it names is S's, and N2 queries record no slot (the outcome
 is compared, which decides the verdict); (4) answers are compared
 exactly, so a declaration whose lookups reach a re-checked one is checked
 again even when that one's verdict did not change (sound, slower).
+
+## Amendment 3 (2026-11-11): step SN5
+
+*Agent SN5; [kernel] (the seal's names), [format] (report 0.3's new
+members) review pending, and the owner's approval. The flag below is the
+owner's decision of 2026-11-11 ("Later decisions").*
+
+**Names beyond the input** (amendment 2's open item 2). A check that makes
+names its input tier does not hold (a nested block's auxiliary types
+`_nested.Array_1`, mk_unique_name's queries of them) no longer has its
+keys collapsed into the one key 2^32 - 1. The publisher's seal makes each
+such name, one component at a time from its nearest ancestor in the
+input, the same name of the environment's own tier of names (a scratch
+tier over the input tier that only the publisher writes), so the
+published key names a name that outlives the check's context. The
+writer adds those names after the tier's names in the names and name
+bytes sections -- as names of the tier, so the format, the loader, the
+layers and the import pass are unchanged -- in an order that depends only
+on their content (the root's number, then each component from the top:
+tag, number or bytes; then the depth) and the written slots' order, never
+on the order of publication, so `--jobs 1` and `--jobs 4` still write the
+same bytes; their keys are written as those names, each list sorted again.
+An import then asks these lookups again as any other. A name the heap
+cannot hold makes the declaration *full*. The stored lookups change, so
+the verdict version is 2 (verdict-version.fs); no outcome or fuel
+changes. Loading a snapshot of version 1 (`--snapshot-stale-ok`) still
+reads the old key and never replays it.
+
+**The development flag `--snapshot-stale-ok`** (amends D3 and D6 for the
+flag only). With it, a snapshot whose verdict version is older than this
+build's loads instead of being refused as unsupported; it is marked
+stale, and every result taken from it (or from any stale layer) is
+labelled so in the text (`from a stale snapshot (an older verdict
+version), not this build's verdict`, two `stale:` lines with the count)
+and in report 0.3 (provenance `stale-snapshot` or `uses-stale-snapshot`,
+`snapshot.stale` with this build's verdict version and the count), never
+as this build's verdict. A newer verdict version is refused still; the
+flag needs `--snapshot` and does not go with `--save-snapshot` (a stale
+verdict is never written into another snapshot). Without the flag
+nothing changes.
+
+**The verdict-version guard** (D3). `tests/cli/test_leanforth.py`,
+class `VerdictGuard` (in `make test` and `make check`): for ten small
+pinned exports, the snapshot written now has every field the verdict
+version covers -- the header's settings, the tier and identity sections
+(their SHA-256), and per slot its fields but the diagnostic, its
+dependencies and its lookups -- equal to the golden one in
+`tests/cli/golden-snapshots/` (a text form, one slot to a line, written
+with this verdict version). A change that moves one fails there; a bump
+makes the golden files stale, and its commit writes them again
+(`python3 tests/cli/test_leanforth.py --write-golden`).
+
+**Review rvSN4's snapshot-side findings.** Every layer loaded is named in
+the text and in report 0.3 (`snapshot.layers`: file, identity, export,
+base, verdict version; M1); the clash check compares every member of a
+unit, a constructor too (M2); a layer that holds a record twice is
+refused (m1); "written to" is printed only after a write (m2); a refused
+snapshot gives no import counts, and `checked` counts the declarations
+whose verdict the run gave (m3). Not changed here: B1 (fuel, and so a
+verdict near the fuel budget, depends on the tier's numbering through
+the binder table and the cache keys) is agent PF's kernel task; until it
+merges, a result taken from a snapshot is not claimed equal to a final
+check's in fuel or in a verdict near the fuel budget (env-import.fs,
+COMMAND_LINE.md).
 
 ## Questions for the owner
 

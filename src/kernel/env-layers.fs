@@ -208,8 +208,8 @@ end-structure
   dup lay-fits? 0= if c" declarations" swap lay-refuse exit then
   dup lay-ui @ over lay-ud @ 2 pick lay-found
   over 0< 0= if drop swap lay-same exit then 2drop
-  dup lay-clash? if c" a name of two snapshots with other content" swap lay-refuse exit then
-  lay-enter ;
+  dup lay-clash? 0= if lay-enter exit then
+  c" a name of two snapshots with other content" swap lay-refuse ;
 : lay-units ( lay -- outcome )
   0 0 begin 2 pick lay-ly ly-decls# 2 pick > while
     2dup 4 pick lay-unit-set 2 pick lay-decide dup ok? 0= if nip nip nip exit then drop
@@ -261,14 +261,17 @@ end-structure
 : lay-cursor! ( j lay -- ) 2dup lay-at-j ! tuck lay-map @ ly@ swap lay-at-s ! ;
 : lay-from ( j lay -- dk lk ) lay-snap snap-starts @ swap 2* cells + 2@ swap ;
 : lay-count-of ( k lay -- n ) dup lay-s swap base-slot fld@ ;
-: lay-dep-at ( lay -- addr ) lay-base @ dup ss-deps swap snap-block swap snap-dk @ u32s + ;
-: lay-look-at ( lay -- addr ) lay-base @ dup ss-looks swap snap-block swap snap-lk @ 8 * + ;
+: lay-dep-at ( lay -- addr )
+  lay-base @ dup ss-deps swap snap-block swap snap-dk @ u32s + ;
+: lay-look-at ( lay -- addr )
+  lay-base @ dup ss-looks swap snap-block swap snap-lk @ 8 * + ;
 \ Dependency i and lookup i of j, numbered as loaded, into s's list.
 : lay-dep! ( i lay -- )
   2dup dup lay-j swap lay-from drop + over lay-snap dep@ over lay-slot#
   -rot lay-dep-at swap u32s + u32-le! ;
 : lay-entry ( j lay -- key answer )
-  2dup lay-snap look-key over lay-key >r tuck lay-snap look-answer swap lay-answer r> swap ;
+  2dup lay-snap look-key over lay-key >r
+  tuck lay-snap look-answer swap lay-answer r> swap ;
 : lay-look! ( i lay -- )
   2dup dup lay-j swap lay-from nip + over lay-entry 2swap lay-look-at swap entry! ;
 : lay-deps ( lay -- )
@@ -281,7 +284,8 @@ end-structure
   tuck base-slot sl-site over fld@ ?dup
   if rot lay-site0 @ + sl-site rot fld! else 2drop then ;
 : lay-append ( j lay -- )
-  tuck lay-cursor! dup lay-j over lay-slot over lay-s 2 pick base-slot sl-fields# u32s move
+  tuck lay-cursor! dup lay-j over lay-slot over lay-s 2 pick base-slot
+  sl-fields# u32s move
   dup lay-s over lay-site dup lay-s over lay-base @ start! dup lay-deps lay-looks ;
 : lay-appends ( lay -- outcome )
   dup lay-room dup ok? 0= if nip exit then drop
