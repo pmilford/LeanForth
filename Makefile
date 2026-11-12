@@ -659,6 +659,33 @@ test-check-block:
 test: test-check-block
 DOC_EXAMPLE_PAGES += docs/user/FIRST_CHECK.md
 
+# The kernel modules the review of 2026-11-12 found without a test file of
+# their own (docs/development/forth-reviews/2026-11-12-backlog-kernel.md,
+# section 3), on cases of check-block-cases/ (tests/support/case-sweeps.fs):
+# the stack effects and outcomes of their words, run inside a check, and
+# fuel, refused allocations and crowded stores inside each pass -- iota and
+# projections, projection inference, quotients, Nat literals, the
+# environment's answers to inference, Lean's generated recursor, heads and
+# the rebuild helpers; then sampled sweeps of whole block checks for the
+# block, recursor and nested passes. Gforth only; about 9 s on one core.
+test-kernel-reduction:
+	$(RUN) $(GFORTH) tests/core/iota.fs
+	$(RUN) $(GFORTH) tests/core/reduce-nat.fs
+	$(RUN) $(GFORTH) tests/core/quot.fs
+	$(RUN) $(GFORTH) tests/core/infer-proj.fs
+	$(RUN) $(GFORTH) tests/core/env-signature.fs
+	$(RUN) $(GFORTH) tests/core/generated-recursor.fs
+	$(RUN) $(GFORTH) tests/core/mixed-head.fs
+	$(RUN) $(GFORTH) tests/core/mixed-rebuild.fs
+test-kernel-blocks:
+	$(RUN) $(GFORTH) tests/core/inductive-block.fs
+	$(RUN) $(GFORTH) tests/core/inductive-recursor.fs
+test-kernel-nested:
+	$(RUN) $(GFORTH) tests/core/inductive-nested.fs
+
+.PHONY: test-kernel-reduction test-kernel-blocks test-kernel-nested
+test: test-kernel-reduction test-kernel-blocks test-kernel-nested
+
 # Run records and their replay (plan task 2.2.5; docs/programming/RUN_RECORDS.md):
 # unit tests of src/import/run-record.fs and run-replay.fs (every fixture, each
 # failure, replay findings), then records written to files for the five pinned

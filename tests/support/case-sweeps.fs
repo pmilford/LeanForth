@@ -12,10 +12,18 @@
 \ - cs-refusal-sweep: each allocation of the target's check refused in
 \   turn gives full, never another outcome (a check that goes on after a
 \   refusal would end with a wrong verdict);
-\ - cs-crowded: no free term record from the target's start gives full.
+\ - cs-crowded: no free term record from the target's start gives full;
+\ - cs-sampled: about n runs of each sweep, for checks (inductive blocks)
+\   that need thousands of units of fuel and of allocations.
+\ A probe (cs-probed, cs-probe-gives) runs tester.fs assertions inside
+\ the check and can sweep one pass of the checker on one node the same
+\ way (cs-pass-sweep, cs-pass-refusals: whnf, inference, ...), in an
+\ inference job whose scratch is rolled back after each run.
 \ Include it first (alloc-fail.fs must come before src/lib/store.fs).
-\ State: one test-only record, cs; single-threaded. Test-only: nothing
-\ here accepts a theorem.
+\ Used by tests/core/iota.fs and the other kernel module tests of make
+\ test-kernel-reduction, -blocks and -nested.
+\ State: test-only records cs and cs-the-pass, the notes and the probe's
+\ counters; single-threaded. Test-only: nothing here accepts a theorem.
 require ./alloc-fail.fs
 require ./tester.fs
 require ../../src/import/feed.fs

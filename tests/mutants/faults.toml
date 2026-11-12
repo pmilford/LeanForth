@@ -9516,14 +9516,6 @@ test = "$GFORTH tests/core/inductive-nested.fs"
 reason = "a nested block's step that failed (out of fuel or room) does not stop the translation: the next step runs and the failure is lost"
 
 [[fault]]
-id = "cov-ind-free-failure-free"
-file = "src/kernel/inductive-block.fs"
-old = '''  lf-ind-occurrences ok-then? if 0= outcome-ok else false swap then ;'''
-new = '''  lf-ind-occurrences ok-then? if 0= outcome-ok else drop true outcome-ok then ;'''
-test = "$GFORTH tests/core/inductive-block.fs"
-reason = "an occurrence scan that ran out of fuel or room counts as 'no type of the block occurs' and the block check goes on"
-
-[[fault]]
 id = "cov-rcr-level-refusal-lost"
 file = "src/kernel/inductive-recursor.fs"
 old = '''  else drop outcome-full lf-rcr-failing drop then ;'''

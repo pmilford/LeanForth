@@ -47,7 +47,7 @@ lf-ssession-begin must
   dup lf-term-tag@ over lf-term-first@ lf-term-tag@ rot lf-term-second@ lf-term-tag@ ;
 
 \ 1, 3. Copies.
-T{ lam-node 100 copy >r nip 0<> r> -> true outcome-ok }T
+T{ lam-node 100 copy swap 0<> rot drop -> outcome-ok true }T
 T{ lam-node 100 copy 2drop shape -> lam-node shape }T
 T{ pi-node 100 copy nip nip -> outcome-ok }T
 \ A copy needs one unit of fuel per node occurrence: 5 for the lambda.
