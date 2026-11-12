@@ -72,7 +72,7 @@ reproduce sibling LeanForthSibling Two.swap_first Two.swap_first Two.swap_second
 # Lets equal but for their names (review rvRS F2), for cross_snapshot.py's let pair.
 reproduce let-zd LeanForthLetZd Zd Zd
 reproduce let-b LeanForthLetB B B
-# shared-depths.lean: 27 rows (rvS36 P1, P2; agent PF P3; agent R5 P4) checked by pinned
+# shared-depths.lean: 53 rows (rvS36 P1, P2; agent PF P3; agent R5 P4; CK P5; CT P6) checked by pinned
 # Lean's kernel; the script compares LeanForth's verdict on each export, with the audit memo
 # on and off.
 python3 -I tests/cli/shared_depths.py "$lean"

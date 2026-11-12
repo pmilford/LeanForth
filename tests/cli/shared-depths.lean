@@ -20,6 +20,9 @@
 --   io-appbad, io-lambad (funExpected), io-pibad (typeExpected) and
 --   io-projbad (invalidProj) and accepts their good twins, io-lamgood and
 --   io-letgood; p5all is the ten in one export.
+-- * P6 (agent CT, review rvCK 3), 15 rows: Lean's infer-only typing at
+--   is_def_eq steps 4, 11 and 14 and in K-like reduction; 14 ck-* rows and
+--   p6all, the fourteen in one export.
 -- Each row is a theorem or definition checked by pinned Lean's kernel
 -- (`addDeclCore`, no axioms); the file prints a `row<TAB>id<TAB>verdict` line
 -- per row and then each row's export. tests/cli/shared_depths.py, run by
@@ -431,5 +434,140 @@ run_cmd do
   for r in rows do IO.println r
   for (id, e, ns) in outs do writeCase e id ns
 end P5
+
+namespace P6
+
+-- Agent CT (review rvCK 3, plan task 4.2.7d): the 14 probe rows of that
+-- review, which pin what P5 leaves free: is_def_eq types a Pi aside at step 4
+-- (t first, s only when t is a proof), 11 and 14 as Lean's infer_type does;
+-- K-like reduction types its major premise's type in whnf_core; a let kept in
+-- an inferred type; a projection's argument typed aside; eta against a
+-- variable. F, FT, PT and FP are stuck for x : True ∧ True and reduce for
+-- ⟨⟩, as in P5. Lean rejects pilambody, etapibad, pinat, unitpi and kbad and
+-- accepts pilam, letdep, natpi, projarg, etafvar and the good twins; p6all
+-- is the fourteen in one export.
+noncomputable def F (p : True ∧ True) : Type :=
+  @And.rec True True (fun _ => Type) (fun _ _ => Nat → Nat) p
+noncomputable def FT (p : True ∧ True) : Type 1 :=
+  @And.rec True True (fun _ => Type 1) (fun _ _ => Nat → Type) p
+noncomputable def PT (p : True ∧ True) : Type :=
+  @And.rec True True (fun _ => Type) (fun _ _ => Nat × Nat) p
+noncomputable def FP (p : True ∧ True) : Prop :=
+  @And.rec True True (fun _ => Prop) (fun _ _ => Nat → 1 = 1) p
+def C.{u} (α : Sort u) (_a : α) : Nat := 0
+def K (_a b : Nat) : Nat := b
+
+def nat : Expr := mkConst ``Nat
+def lit (n : Nat) : Expr := .lit (.natVal n)
+def pi (n : Name) (t b : Expr) : Expr := .forallE n t b .default
+def lam (n : Name) (t b : Expr) : Expr := .lam n t b .default
+def b (i : Nat) : Expr := .bvar i
+def andTT : Expr := mkApp2 (mkConst ``And) (mkConst ``True) (mkConst ``True)
+def tt : Expr := mkApp4 (mkConst ``And.intro) (mkConst ``True) (mkConst ``True)
+  (mkConst ``True.intro) (mkConst ``True.intro)
+def app (f : Name) (a : Expr) : Expr := mkApp (mkConst f) a
+def thm (n : Name) (ty val : Expr) : Declaration :=
+  .thmDecl { name := n, levelParams := [], type := ty, value := val, all := [n] }
+def l1 : Level := .succ .zero
+def l2 : Level := .succ l1
+/-- `∀ binders, @Eq.{u} T A B` proved by `Eq.refl A`. -/
+def eqn (n : Name) (binders : List (Name × Expr)) (u : Level) (T A B : Expr) : Declaration :=
+  let eq := mkApp3 (mkConst ``Eq [u]) T A B
+  let ty := binders.foldr (fun (bn, bt) e => pi bn bt e) eq
+  let val := binders.foldr (fun (bn, bt) e => lam bn bt e) (mkApp2 (mkConst ``Eq.refl [u]) T A)
+  thm n ty val
+/-- `L = id L`. -/
+def same (n : Name) (binders : List (Name × Expr)) (u : Level) (T L : Expr) : Declaration :=
+  eqn n binders u T L (mkApp2 (mkConst ``id [u]) T L)
+-- Q : (g : FT ⟨⟩) → g 0
+def qT : Expr := pi `g (app ``FT tt) (mkApp (b 0) (lit 0))
+
+-- Under binders h x Q (h = #2, x = #1, Q = #0):
+-- pilam: (fun (f : FT ⟨⟩) => (a : (fun (z : f 0) => Nat) (Q f)) → Nat) x
+def pilamL : Expr :=
+  mkApp (lam `f (app ``FT tt)
+    (pi `a (mkApp (lam `z (mkApp (b 0) (lit 0)) nat) (mkApp (b 1) (b 0))) nat)) (b 1)
+-- pilambody: (fun (f : FT ⟨⟩) => (a : (fun (z : Nat) => f 0) 0) → Nat) x
+def pilambodyL : Expr :=
+  mkApp (lam `f (app ``FT tt)
+    (pi `a (mkApp (lam `z nat (mkApp (b 1) (lit 0))) (lit 0)) nat)) (b 1)
+-- letdep: (fun f => fun (y : Nat) => let z : f 0 := Q f; @Eq.refl.{1} (f 0) z) x
+def letdepL : Expr :=
+  mkApp (lam `f (app ``FT tt) (lam `y nat
+    (.letE `z (mkApp (b 1) (lit 0)) (mkApp (b 2) (b 1))
+      (mkApp2 (mkConst ``Eq.refl [l1]) (mkApp (b 2) (lit 0)) (b 0)) false))) (b 1)
+-- its type: (fun f => (y : Nat) → let z : f 0 := Q f; @Eq.{1} (f 0) z z) x
+def letdepT : Expr :=
+  mkApp (lam `f (app ``FT tt) (pi `y nat
+    (.letE `z (mkApp (b 1) (lit 0)) (mkApp (b 2) (b 1))
+      (mkApp3 (mkConst ``Eq [l1]) (mkApp (b 2) (lit 0)) (b 0) (b 0)) false))) (b 1)
+
+-- Under binders h x (h = #1, x = #0):
+-- the Pi redex (fun (f : FT ⟨⟩) => (a : f 0) → Nat) x
+def piR : Expr := mkApp (lam `f (app ``FT tt) (pi `a (mkApp (b 0) (lit 0)) nat)) (b 0)
+def cE (u : Level) (α a : Expr) : Expr := mkApp2 (mkConst ``C [u]) α a
+def natType : Expr := pi `a nat (.sort l1)
+def lamNat : Expr := lam `a nat nat
+-- projarg: (fun (f : PT ⟨⟩) => K f.1 0) x
+def projargL : Expr :=
+  mkApp (lam `f (app ``PT tt) (mkApp2 (mkConst ``K) (.proj ``Prod 0 (b 0)) (lit 0))) (b 0)
+
+-- etafvar, under h x g (g : piR at depth 2 = with x as #1):
+def piR1 : Expr := mkApp (lam `f (app ``FT tt) (pi `a (mkApp (b 0) (lit 0)) nat)) (b 1)
+-- (fun (f : FT ⟨⟩) (g' : (a : f 0) → Nat) => fun (a : f 0) => g' a) x g
+def etaS : Expr :=
+  mkApp2 (lam `f (app ``FT tt) (lam `g' (pi `a (mkApp (b 0) (lit 0)) nat)
+    (lam `a (mkApp (b 1) (lit 0)) (mkApp (b 1) (b 0))))) (b 1) (b 0)
+
+-- kbad/kgood, under h x (x : FP _ = #0):
+-- (fun (f : FP ⟨⟩) => @Eq.rec.{1,1} Nat 1 (fun _ _ => Nat) 5 1 (f 0)) x
+def kL : Expr :=
+  mkApp (lam `f (app ``FP tt) (mkAppN (mkConst ``Eq.rec [l1, l1])
+    #[nat, lit 1, lam `a nat (lam `e (mkApp3 (mkConst ``Eq [l1]) nat (lit 1) (b 0)) nat),
+      lit 5, lit 1, mkApp (b 0) (lit 0)])) (b 0)
+
+def row (id : String) (d : Declaration) : String × Declaration := (s!"ck-{id}", d)
+
+run_cmd do
+  let base := (← getEnv).toKernelEnv
+  let hx (xt : Expr) : List (Name × Expr) := [(`h, andTT), (`x, xt)]
+  let bad := app ``FT (b 0)
+  let good := app ``FT tt
+  let unit2 : Expr := mkConst ``PUnit [l2]
+  let cases : List (String × Declaration) := [
+    row "pilam" (same `Ck.pilam (hx bad ++ [(`Q, qT)]) l2 (.sort l1) pilamL),
+    row "pilambody" (same `Ck.pilambody (hx bad ++ [(`Q, qT)]) l2 (.sort l1) pilambodyL),
+    row "pilambodygood" (same `Ck.pilambodygood (hx good ++ [(`Q, qT)]) l2 (.sort l1) pilambodyL),
+    row "letdep" (same `Ck.letdep (hx bad ++ [(`Q, qT)]) .zero letdepT letdepL),
+    row "etapibad" (eqn `Ck.etapibad (hx bad) l1 nat (cE l2 natType lamNat) (cE l2 (.sort l1) piR)),
+    row "etapigood" (eqn `Ck.etapigood (hx good) l1 nat (cE l2 natType lamNat) (cE l2 (.sort l1) piR)),
+    row "natpi" (eqn `Ck.natpi (hx bad) l1 nat (cE l2 (.sort l1) nat) (cE l2 (.sort l1) piR)),
+    row "pinat" (eqn `Ck.pinat (hx bad) l1 nat (cE l2 (.sort l1) piR) (cE l2 (.sort l1) nat)),
+    row "unitpi" (eqn `Ck.unitpi (hx bad ++ [(`u0, unit2)]) l1 nat
+      (cE l2 unit2 (b 0)) (cE l2 (.sort l1) (mkApp (lam `f (app ``FT tt)
+        (pi `a (mkApp (b 0) (lit 0)) nat)) (b 1)))),
+    row "unitpigood" (eqn `Ck.unitpigood (hx good ++ [(`u0, unit2)]) l1 nat
+      (cE l2 unit2 (b 0)) (cE l2 (.sort l1) (mkApp (lam `f (app ``FT tt)
+        (pi `a (mkApp (b 0) (lit 0)) nat)) (b 1)))),
+    row "projarg" (same `Ck.projarg (hx (app ``PT (b 0))) l1 nat projargL),
+    row "kbad" (same `Ck.kbad (hx (app ``FP (b 0))) l1 nat kL),
+    row "kgood" (same `Ck.kgood (hx (app ``FP tt)) l1 nat kL),
+    row "etafvar" (eqn `Ck.etafvar (hx bad ++ [(`g, piR)]) l1 piR1 (b 0) etaS)]
+  let mut rows : Array String := #[]
+  let mut outs : Array (String × Kernel.Environment × List Name) := #[]
+  for (id, d) in cases do
+    let (verdict, e) ← liftM (checkAll base [d])
+    rows := rows.push s!"row\t{id}\t{verdict}"
+    outs := outs.push (id, e, d.getNames)
+  -- p6all: the fourteen in one export (Lean's verdict: pilambody's, the first
+  -- failure), copied to tests/core/check-declaration-cases/infer-only-p6.ndjson
+  -- for test_leanforth.py's per-declaration test.
+  let all := cases.map (·.2)
+  let (verdict, e) ← liftM (checkAll base all)
+  rows := rows.push s!"row\tp6all\t{verdict}"
+  outs := outs.push ("p6all", e, all.flatMap (·.getNames))
+  for r in rows do IO.println r
+  for (id, e, ns) in outs do writeCase e id ns
+end P6
 
 end SharedDepths
