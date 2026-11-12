@@ -935,6 +935,19 @@ audited*.
   `tests/cli/shared-depths.lean` and two faults (700c4a1).
 - **Tonight's run:** all of Mathlib on the final build at full speed (8 workers), saving a version-9 snapshot.
 
+### Third approval round of 2026-11-12
+
+The owner approved both, choosing each recommendation.
+
+- **PERF1 and pf1-fix ([kernel] gate; plan 6.5.8, 6.5.9):** the speed and memory pass of ADR 0014 Amendment 11
+  changes how the checker organises its work, never what it decides: every Init declaration keeps its verdict and fuel
+  count; Init's check CPU fell about 17%, reachability's peak memory about 40%. Reviews rvPF1, the perf1 Forth review
+  and the pf1-fix review (with its re-check) recorded no unresolved finding.
+- **review-bugs ([kernel][import][format] gates):** stricter checks that only turn broken or out-of-range input into a
+  refusal: a scheduler worker added wholly or not at all, a full snapshot layer kept full, snapshot replay, canon keys
+  and slot ranges checked, and Gforth 0.7.3 portability (BOUNDS, U<=, the streams). Init keeps every verdict and fuel
+  count (CPU +0.8%). Forth review logged (docs/development/forth-reviews/2026-11-12-no-label-review-bugs.md).
+
 ### No result labels (2026-11-12, evening)
 
 The owner: "I find the constant repetition of experimental and not independently audited, one NOT PROVED not useful.

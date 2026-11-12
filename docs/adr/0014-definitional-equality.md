@@ -2441,11 +2441,13 @@ declaration the same but fuel; fuel 654,546,896 → 654,719,715 (+0.03%),
 +334 units at most, the `*.instLinearOrderPackage` instances) and 3,647
 less (at most −3.3%); 650 s wall, 0.86 GB peak.
 
-## Amendment 11: a speed and memory pass with every verdict and fuel unchanged (agent PERF1, Q12, plan tasks 6.5.8 and 6.5.9, 2026-11-12, proposed)
+## Amendment 11: a speed and memory pass with every verdict and fuel unchanged (agent PERF1, Q12, plan tasks 6.5.8 and 6.5.9, 2026-11-12, accepted)
 
-Status: proposed; no typing, reduction or conversion rule changes, and no
-fuel change, so no verdict-version bump; [kernel] review owed for the three
-items (1-3) in `kernel/` and `core/` that the checker runs. A sampling profile
+Status: **accepted** [kernel] by the owner on 2026-11-12 (OWNER_DECISIONS.md, third approval round),
+after reviews rvPF1, the perf1 Forth review and the pf1-fix review of
+the three items (1-3) in `kernel/` and `core/` that the checker runs; no
+typing, reduction or conversion rule changes, and no fuel change, so no
+verdict-version bump. A sampling profile
 of all of `Init` (a ptrace sampler of `gforth-fast`'s Forth return stack;
 `.claude/work/PERF1/PROFILE.md` of the `perf1` worktree) found the
 checking flat in small words, with three costs that are not Lean's: the
