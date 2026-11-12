@@ -594,13 +594,12 @@ here lf-b3-ctor - 2 cells / constant lf-b3-ctor#
   lf-ind-in-ctors@ 0 ?do
     i lf-blk-ctor-diff ?dup if i swap lf-blk-ctor-differs unloop exit then
   loop outcome-ok ;
-\ Two terms by Lean's ==: (equal ok); a structural difference is (false
-\ ok); any other failure passes on.
+\ Two terms by Lean's == (mixed-compare.fs lf-mixed-equal, as replay's
+\ info == info' compares them, each shared pair once): (equal ok); a
+\ structural difference is (false ok); any other failure passes on.
 : lf-blk-same ( generated exported -- flag outcome )
-  >r lf-rcr-handle r> lf-rcr-handle lf-ind-fuel @ lf-mixed-compare
-  lf-mcompare-fuel @ lf-ind-fuel !
-  case outcome-ok of true outcome-ok endof  outcome-unknown of false outcome-ok endof
-    >r false r@ r> endcase ;
+  >r lf-rcr-handle r> lf-rcr-handle lf-ind-fuel @ lf-mixed-equal
+  lf-mcompare-fuel @ lf-ind-fuel ! ;
 \ Recursor r: named T_d.rec for a type d of the block, else Lean's "No
 \ such recursor"; then the field that differs from type d's generated
 \ recursor (2 levelParams, 3 type, 4 all, 5 numParams, 6 numIndices, 7

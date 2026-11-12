@@ -299,3 +299,17 @@ create lf-meq-hooks /htab-hooks allot
 : lf-mixed-compare ( left lid right rid fuel -- status )
   lf-mcompare-walker tuck walk-budget 0= if lf-mcompare-refused exit then
   lf-mcompare-roots ok-then? if lf-mcompare-run else nip then ;
+
+\ ( left identity right identity fuel -- flag outcome ) Lean's == on two
+\ roots after the same two audits on the same fuel: (flag ok), flag Lean's
+\ answer, as lf-expr-equal gives it, so each shared pair is walked once
+\ (expr_eq_fn's per-call cache), never once per path as lf-mixed-compare
+\ walks a graph; or (false outcome) for negative fuel (invalid, no fuel
+\ left), a failed audit or a failed comparison. The fuel left is in
+\ lf-mcompare-fuel. For the comparisons Lean makes by ==, such as its
+\ replay's of a generated recursor with the exported one
+\ (Lean/Replay.lean, checkPostponedRecursors: info == info').
+: lf-mixed-equal ( left lid right rid fuel -- flag outcome )
+  lf-mcompare-walker tuck walk-budget 0= if lf-mcompare-refused false swap exit then
+  lf-mcompare-roots ok-then? 0= if nip false swap exit then
+  lf-mcompare-fuel @ lf-expr-equal ;

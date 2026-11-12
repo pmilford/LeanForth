@@ -171,6 +171,18 @@ lf-walk-room context-walk: lf-cterm-walker
 : lf-walk-skip ( first second walk tag -- outcome ) 2drop 2drop outcome-ok ;
 : lf-walk-once ( first second walk tag xt -- outcome )
   >r over lf-walk-seen? if r> drop lf-walk-skip else r> execute then ;
+\ The same at exactly the node's depth, for a check whose verdict at a
+\ node can change with its depth either way, as Lean's for_each with an
+\ offset visits each shared (term, offset) pair once (for_each_fn.cpp,
+\ for_each_offset_fn): a node this run reached only at another depth is
+\ checked again, and marked at this one (a unit keeps one depth: more
+\ work, never a node skipped unchecked at its depth).
+: lf-mark-exact? ( depth run unit -- flag ) tuck @ = if cell+ @ = else 2drop false then ;
+: lf-walk-seen-at? ( walk -- flag )
+  dup lf-walk-depth over walk-arg @ rot lf-mark-unit
+  >r 2dup r@ lf-mark-exact? if r> drop 2drop true else r> lf-mark-set false then ;
+: lf-walk-once-at ( first second walk tag xt -- outcome )
+  >r over lf-walk-seen-at? if r> drop lf-walk-skip else r> execute then ;
 
 \ The audit memo (compact-store plan step S6 (c); ADR 0014 Amendment 4):
 \ in a check, the structural audit below checks a node once, not once per

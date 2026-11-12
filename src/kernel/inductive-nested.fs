@@ -330,17 +330,12 @@ end-structure
 
 \ ---------------------------------------------------------------------------
 \ The translation. An auxiliary type whose key is the occurrence's (Lean's
-\ ==, 1087: mixed-compare.fs, binder names and annotations not stored):
-\ a, or -1. A difference is an answer, not a failure: the diagnostic the
-\ comparison recorded for it is put back as it was.
-: lf-nest-compare ( a -- outcome )
-  lf-ind-ty lf-ty-key @ lf-rcr-handle lf-nest-key@ lf-rcr-handle lf-ind-fuel @
-  lf-mixed-compare lf-mcompare-fuel @ lf-ind-fuel ! ;
+\ ==, 1087: mixed-compare.fs lf-mixed-equal, each shared pair once,
+\ binder names and annotations not stored): a, or -1. A difference is an
+\ answer, not a failure: the diagnostic stays as it was.
 : lf-nest-same? ( a -- flag outcome )
-  >r lf-diag@ r> lf-nest-compare
-  case outcome-ok of 2drop 2drop true outcome-ok endof
-    outcome-unknown of lf-diag! false outcome-ok endof
-    >r 2drop 2drop false r@ r> endcase ;
+  lf-ind-ty lf-ty-key @ lf-rcr-handle lf-nest-key@ lf-rcr-handle lf-ind-fuel @
+  lf-mixed-equal lf-mcompare-fuel @ lf-ind-fuel ! ;
 : lf-nest-known ( -- a outcome )
   lf-ind-types@ lf-ind-in-types@ ?do
     i lf-nest-same? ok-then? 0= if -1 swap unloop exit then
