@@ -1,11 +1,16 @@
 # ADR 0020: the checked-environment snapshot
 
-Status: **proposed**, 2026-11-11 (plan task 6.2.5 of the
-[plan draft](../project/PLAN_DRAFT.md); agent SN0). A design only: nothing
-in `src/` is changed. It needs the owner's [format] decision (snapshot
-format 1, check report 0.3), [import] (a dependent export staged into a
-loaded tier) and [kernel] (what a loaded snapshot vouches for: the import
-rule I1 and the invariant I2 below). It builds on
+Status: **accepted** [format][import][kernel] by the owner on 2026-11-12,
+with steps SN2-SN5 and Amendments 1-4
+([approval round of 2026-11-12](../project/OWNER_DECISIONS.md#approval-round-of-2026-11-12));
+Amendment 3 as corrected by G1 in the
+[second round](../project/OWNER_DECISIONS.md#second-approval-round-of-2026-11-12-afternoon)
+the same afternoon. Proposed 2026-11-11 (plan task 6.2.5 of the
+[plan draft](../project/PLAN_DRAFT.md); agent SN0) as a design that needed
+the owner's [format] decision (snapshot format 1, check report 0.3),
+[import] (a dependent export staged into a loaded tier) and [kernel] (what
+a loaded snapshot vouches for: the import rule I1 and the invariant I2
+below). It builds on
 [ADR 0012](0012-checked-environment.md) (the checked environment; E8, saved
 results and the two run modes), [ADR 0016](0016-compact-store.md) (the
 compact store, C1-C9, and its steps S1-S5) and

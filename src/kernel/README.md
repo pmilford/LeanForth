@@ -60,8 +60,10 @@ positivity (in Lean's `whnf`, `whnf.fs`), Lean's `is_geq` in
 `level-geq.fs` -- builds the recursors with their induction hypotheses
 (`inductive-recursor.fs`), compares the constructors and the file's
 recursors with what it built (B3), and the publisher (`env-publish.fs`)
-makes every member's slot final together. A nested block is
-*unsupported*. `iota.fs` ports Lean's iota reduction (`inductive_reduce_rec`)
+makes every member's slot final together. A nested block (a type used
+inside another inductive type's arguments, `Tree` in `List Tree`) is
+translated into a mutual block with auxiliary types, checked and
+restored as Lean does (`inductive-nested.fs`, plan task 5.2.5b). `iota.fs` ports Lean's iota reduction (`inductive_reduce_rec`)
 behind `whnf.fs`'s hook. When no slot holds `T.rec`
 (the file left it out, or the block was rejected by B3), a later
 declaration's inference builds Lean's generated recursor again from the

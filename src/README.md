@@ -48,7 +48,13 @@ audit, any accepted result is *experimental — not independently audited*.
   the job pool's own records (`lib/task.fs`), are only the checked
   environment's registry (`lf-envs` in `kernel/environment.fs`; the
   environments themselves are on the heap), which only the task driving
-  the checks writes, outside jobs, the NDJSON counter's export record
+  the checks writes, outside jobs; the parallel scheduler's record
+  (`lf-sched` in `kernel/env-schedule.fs`), written only by that task
+  outside jobs; the snapshot's (`kernel/env-snapshot.fs`): `snap-loading`
+  (the record a load's check word reads), `snap-stale-allowed` (a flag
+  set before loading), `snap-site-tables` and `snap-outers` (the
+  writer's, one save at a time), and the import pass's `imp-current`
+  (`kernel/env-import.fs`, one pass at a time); the NDJSON counter's export record
   (below), the re-exporter's module and export records
   (`import/ndjson-emit.fs`: they own heap buffers, so one re-export runs
   at a time), the checker input's export and manifest records

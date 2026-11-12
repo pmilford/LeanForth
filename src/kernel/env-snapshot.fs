@@ -549,9 +549,11 @@ create snap-outers /outers allot  snap-outers /outers erase
 \ Write the snapshot of the current environment over the sealed stage
 \ to the file named c-addr u, after snap-begin and the caller's
 \ snap-export!, snap-manifest-sha!, snap-manifest!, snap-info! and
-\ snap-facts!: ok, invalid when a slot is not final or the stage is not
-\ the environment's, full for no heap, or the container's outcome; the
-\ file is untouched unless ok. snap-free frees the record's blocks.
+\ snap-facts!: ok, invalid when a slot is not final, the stage is not
+\ the environment's or a lookup's name beyond the input is none of the
+\ environment's tier (canon-copy), full for no heap, or the container's
+\ outcome; the file is untouched unless ok. snap-free frees the record's
+\ blocks.
 : snap-save ( c-addr u fuel stage snap -- outcome )
   sites-init dup ok? 0= if >r 2drop 2drop drop r> sites-free exit then drop
   snap-outers /outers erase dup >r snap-build r> swap sites-free

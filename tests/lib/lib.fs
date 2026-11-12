@@ -26,7 +26,8 @@ get-current fb-guards set-current
 set-current
 get-order get-current
 get-order fb-guards swap 1+ set-order fallbacks set-current
-include ../../src/lib/portability.fs
+\ Loaded a second time on purpose (REQUIRE would skip it), so INCLUDED.
+s" ../../src/lib/portability.fs" included
 set-current set-order
 : fb' ( "name" -- xt ) parse-name fallbacks search-wordlist 0= abort" no fallback" ;
 T{ 100 5 fb' bounds execute -> 105 100 }T
