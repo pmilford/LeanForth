@@ -9231,3 +9231,110 @@ new = '''  lf-nest-memo 0 swap lf-rmemo@ ;
   lf-nest-memo 0 swap lf-rmemo! ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvMO 1: the memo keyed by node alone (offset 0 in the lookup and in the store): nested.offset-local is accepted, which Lean rejects (nestedLocalVariable)"
+
+# --- Coverage tests of the kernel review FRK section 3 (COV1, 2026-11-12):
+# tests/core/<module>.fs for the kernel modules without a test file.
+
+[[fault]]
+id = "cov-iota-major-idx-no-indices"
+file = "src/kernel/iota.fs"
+old = ''': lf-iota-major-idx ( decl -- i ) dup lf-iota-prefix swap lf-irc-indices lf-iota-field + ;'''
+new = ''': lf-iota-major-idx ( decl -- i ) lf-iota-prefix ;'''
+test = "$GFORTH tests/core/iota.fs"
+reason = "the major premise's place without the indices: Eq.rec's is the fifth argument, not the sixth"
+
+[[fault]]
+id = "cov-iota-k-flag-ignored"
+file = "src/kernel/iota.fs"
+old = ''': lf-iota-k? ( decl -- flag ) lf-irc-k lf-iota-field 0<> ;'''
+new = ''': lf-iota-k? ( decl -- flag ) drop false ;'''
+test = "$GFORTH tests/core/iota.fs"
+reason = "the record's k never read: Eq.rec is no longer K-like"
+
+[[fault]]
+id = "cov-iota-ctor-any-kind"
+file = "src/kernel/iota.fs"
+old = '''  dup lf-idecl-kind @ lf-kind-constructor = 0= if drop 0 then outcome-ok ;'''
+new = '''  outcome-ok ;'''
+test = "$GFORTH tests/core/iota.fs"
+reason = "is_constructor_app true for any declaration: an application of Bool.rec counts as a constructor application"
+
+[[fault]]
+id = "cov-iota-k-induct-any-head"
+file = "src/kernel/iota.fs"
+old = '''  lf-whnf-cref lf-crec-name @ over lf-name-same? 0= if drop 0 then outcome-ok ;'''
+new = '''  lf-whnf-cref lf-crec-name @ nip outcome-ok ;'''
+test = "$GFORTH tests/core/iota.fs"
+reason = "K takes any constant head as the major inductive type, not only the recursor's"
+
+[[fault]]
+id = "cov-iota-k-make-short-unchecked"
+file = "src/kernel/iota.fs"
+old = '''  over lf-iota-n over < if 2drop drop -1 outcome-unknown exit then'''
+new = ''''''
+test = "$GFORTH tests/core/iota.fs"
+reason = "mk_nullary_cnstr reads parameters a type with fewer arguments does not have, instead of unknown"
+
+[[fault]]
+id = "cov-iota-of-struct-any"
+file = "src/kernel/iota.fs"
+old = '''  lf-whnf-head dup lf-whnf-const? 0= if 2drop false exit then'''
+new = '''  lf-whnf-head dup lf-whnf-const? 0= if 2drop true exit then'''
+test = "$GFORTH tests/core/iota.fs"
+reason = "a type whose head is no constant counts as an application of the structure (eta would expand it)"
+
+[[fault]]
+id = "cov-iota-major-failure-stuck"
+file = "src/kernel/iota.fs"
+old = '''  lf-iota-lit ok-then? 0= if 3 r@ frame-drop r> lf-whnf-failed exit then'''
+new = '''  lf-iota-lit ok-then? 0= if 3 r@ frame-drop drop -1 outcome-ok r> 0 exit then'''
+test = "$GFORTH tests/core/iota.fs"
+reason = "a major premise's whnf that ran out of fuel or room leaves the application stuck (ok) instead of ending exhausted or full"
+
+[[fault]]
+id = "cov-iota-first-ctor-absent-ok"
+file = "src/kernel/iota.fs"
+old = '''  dup 0< if drop 0 outcome-unknown exit then'''
+new = '''  dup 0< if drop 0 outcome-ok exit then'''
+test = "$GFORTH tests/core/iota.fs"
+reason = "get_first_cnstr of a type Lean's environment does not hold is 'none' (K kept) instead of unknown"
+
+[[fault]]
+id = "cov-rn-table-div-beq-swapped"
+file = "src/kernel/reduce-nat.fs"
+old = '''  ' lf-rn-div , ' lf-rn-beq , ' lf-rn-ble , ' lf-rn-land , ' lf-rn-lor , ' lf-rn-xor ,'''
+new = '''  ' lf-rn-beq , ' lf-rn-div , ' lf-rn-ble , ' lf-rn-land , ' lf-rn-lor , ' lf-rn-xor ,'''
+test = "$GFORTH tests/core/reduce-nat.fs"
+reason = "whnf.fs's operation list out of step with the table: Nat.div computes Nat.beq and the other way round"
+
+[[fault]]
+id = "cov-rn-ble-as-beq"
+file = "src/kernel/reduce-nat.fs"
+old = ''': lf-rn-ble ( a b -- node outcome ) ['] lf-rn-le lf-rn-test ;'''
+new = ''': lf-rn-ble ( a b -- node outcome ) ['] lf-rn-eq lf-rn-test ;'''
+test = "$GFORTH tests/core/reduce-nat.fs"
+reason = "Nat.ble decided as Nat.beq: Nat.ble 3 5 is false"
+
+[[fault]]
+id = "cov-rn-shl-zero-counted"
+file = "src/kernel/reduce-nat.fs"
+old = '''  over lf-term-second@ 0= if ['] big-lshift lf-rn-std exit then'''
+new = ''''''
+test = "$GFORTH tests/core/reduce-nat.fs"
+reason = "0 shifted left by 2^32 refused (rejected) where Lean's reduce_shift_left gives 0 first"
+
+[[fault]]
+id = "cov-rn-zero-as-succ"
+file = "src/kernel/reduce-nat.fs"
+old = '''  dup lf-term-second@ 0= if drop lf-rn-zero exit then'''
+new = ''''''
+test = "$GFORTH tests/core/reduce-nat.fs"
+reason = "nat_lit_to_constructor of 0 is not Nat.zero (the predecessor of 0 is asked for)"
+
+[[fault]]
+id = "cov-rn-size-limit-off"
+file = "src/kernel/reduce-nat.fs"
+old = ''': lf-rn-over? ( bits -- flag ) big-lean-bits u> ;'''
+new = ''': lf-rn-over? ( bits -- flag ) drop false ;'''
+test = "timeout 20 $GFORTH tests/core/reduce-nat.fs"
+reason = "Lean's 2^30-bit limit not applied: 2 ^ 2^31 is computed (or the heap refused) instead of full with diagnostic 93"
