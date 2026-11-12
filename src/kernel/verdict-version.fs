@@ -24,7 +24,11 @@
 \ Changelog (newest last; each bump with its reason):
 \   1  2026-11-11  the first snapshot format (step SN3): the rules of
 \                  main at 233916d, with lookups recorded.
-\   2  2026-11-11  agent PF (ADR 0014 Amendment 6): an application's
+\   2  2026-11-11  plan step SN5: the lookups of names a check made beyond
+\                  its input (a nested block's auxiliary types) are kept as
+\                  those names (written after the tier's names), no longer
+\                  as the one key 2^32 - 1; no outcome or fuel changes.
+\   3  2026-11-11  agent PF (ADR 0014 Amendment 6): an application's
 \                  argument is not closed for a Pi body without loose
 \                  bound variables, so fuel counts fall (97 declarations
 \                  of the pinned exports use less, none more); and the
@@ -35,4 +39,4 @@
 \ [kernel] code: experimental, not through the review gate.
 \ State: none.
 
-2 constant lf-verdict-version
+3 constant lf-verdict-version

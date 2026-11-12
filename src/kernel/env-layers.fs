@@ -64,6 +64,8 @@ begin-structure /lay
   field: lay-uj                \ its first slot
   field: lay-us                \ and its slots
   field: lay-site0             \ the base's site texts before the layer's
+  field: lay-at-j              \ appending: the layer's slot,
+  field: lay-at-s              \ and its slot as loaded
 end-structure
 : lay-free ( lay -- )
   dup lay-snap snap-close dup lay-snap snap-free dup lay-ly ly-free
@@ -194,12 +196,20 @@ end-structure
 : lay-enter ( lay -- outcome )
   dup lay-enter-all dup ok? 0= if nip exit then drop
   dup lay-us @ 0 ?do i over lay-new! loop dup lay-us @ swap lay-cur +! outcome-ok ;
+\ A new unit clashes when any of its declarations (a block's every member,
+\ not only its first; review rvSN4 M2) has the name of one loaded before:
+\ Lean refuses an import that declares a name twice.
+: lay-loaded? ( i lay -- flag )
+  tuck lay-decl staged-name u32@ ?dup 0= if drop false exit then
+  over lay-newest swap lay-old-of 0< 0= ;
+: lay-clash? ( lay -- flag )
+  false over lay-ud @ 0 ?do over lay-ui @ i + 2 pick lay-loaded? or loop nip ;
 : lay-decide ( lay -- outcome )
   dup lay-fits? 0= if c" declarations" swap lay-refuse exit then
   dup lay-ui @ over lay-ud @ 2 pick lay-found
-  over 0< 0= if drop swap lay-same exit then
-  if drop c" a name of two snapshots with other content" swap lay-refuse exit then
-  drop lay-enter ;
+  over 0< 0= if drop swap lay-same exit then 2drop
+  dup lay-clash? 0= if lay-enter exit then
+  c" a name of two snapshots with other content" swap lay-refuse ;
 : lay-units ( lay -- outcome )
   0 0 begin 2 pick lay-ly ly-decls# 2 pick > while
     2dup 4 pick lay-unit-set 2 pick lay-decide dup ok? 0= if nip nip nip exit then drop
@@ -219,15 +229,7 @@ end-structure
 : lay-answer ( answer lay -- answer' )
   over lf-look-slot+1 ?dup 0= if drop exit then
   1- swap lay-slot# 1+ 4 lshift swap 15 and or ;
-: entry@ ( addr k -- key answer ) 8 * + dup u32-le@ swap 4 + u32-le@ ;
-: entry! ( key answer addr k -- ) 8 * + tuck 4 + u32-le! u32-le! ;
-: look-sort ( addr n -- )
-  dup 2 < if 2drop exit then 1 ?do
-    dup i entry@ i
-    begin dup 0> if 3 pick over 1- entry@ drop 3 pick u> else false then while
-      3 pick over 1- entry@ 5 pick 3 pick entry! 1-
-    repeat 3 pick swap entry!
-  loop drop ;
+\ (entry@, entry! and look-sort, which sorts a list again: env-snapshot.fs.)
 \ Growing the base record's section i by u bytes, and its starts to n slots
 \ (never RESIZE to 0 bytes, which Gforth 0.7.3 takes as freeing the block).
 : base-grow ( u i lay -- outcome )
@@ -250,28 +252,41 @@ end-structure
   ss-sites over lay-snap snap-size ss-sites 2 pick base-grow
   dup ok? 0= if nip exit then drop
   dup lay-cur @ swap starts-grow ;
+\ The slot being appended (review rvSN4 m4: a cursor in the record): the
+\ layer's slot j and its slot s as loaded; where the layer's lists of j
+\ start; how many field k (sl-deps, sl-looks) of s counts; where the base
+\ record's lists end, which s's are appended to.
+: lay-j ( lay -- j ) lay-at-j @ ;
+: lay-s ( lay -- s ) lay-at-s @ ;
+: lay-cursor! ( j lay -- ) 2dup lay-at-j ! tuck lay-map @ ly@ swap lay-at-s ! ;
 : lay-from ( j lay -- dk lk ) lay-snap snap-starts @ swap 2* cells + 2@ swap ;
-: lay-deps ( j s lay -- )
-  >r r@ base-slot sl-deps swap fld@ swap r@ lay-from drop
-  ss-deps r@ lay-base @ snap-block r@ lay-base @ snap-dk @ u32s + swap r>
-  3 pick 0 ?do
-    over i + over lay-snap dep@ over lay-slot# 3 pick i u32s + u32-le!
-  loop nip rot tuck swap lay-base @ snap-dk +! dep-sort ;
-: lay-looks ( j s lay -- )
-  >r r@ base-slot sl-looks swap fld@ swap r@ lay-from nip
-  ss-looks r@ lay-base @ snap-block r@ lay-base @ snap-lk @ 8 * + swap r>
-  3 pick 0 ?do
-    over i + over lay-snap look-key over lay-key
-    2 pick i + 2 pick lay-snap look-answer 2 pick lay-answer 4 pick i entry!
-  loop nip rot tuck swap lay-base @ snap-lk +! look-sort ;
+: lay-count-of ( k lay -- n ) dup lay-s swap base-slot fld@ ;
+: lay-dep-at ( lay -- addr )
+  lay-base @ dup ss-deps swap snap-block swap snap-dk @ u32s + ;
+: lay-look-at ( lay -- addr )
+  lay-base @ dup ss-looks swap snap-block swap snap-lk @ 8 * + ;
+\ Dependency i and lookup i of j, numbered as loaded, into s's list.
+: lay-dep! ( i lay -- )
+  2dup dup lay-j swap lay-from drop + over lay-snap dep@ over lay-slot#
+  -rot lay-dep-at swap u32s + u32-le! ;
+: lay-entry ( j lay -- key answer )
+  2dup lay-snap look-key over lay-key >r
+  tuck lay-snap look-answer swap lay-answer r> swap ;
+: lay-look! ( i lay -- )
+  2dup dup lay-j swap lay-from nip + over lay-entry 2swap lay-look-at swap entry! ;
+: lay-deps ( lay -- )
+  sl-deps over lay-count-of dup >r 0 ?do i over lay-dep! loop
+  dup lay-dep-at r@ dep-sort r> swap lay-base @ snap-dk +! ;
+: lay-looks ( lay -- )
+  sl-looks over lay-count-of dup >r 0 ?do i over lay-look! loop
+  dup lay-look-at r@ look-sort r> swap lay-base @ snap-lk +! ;
 : lay-site ( s lay -- )
   tuck base-slot sl-site over fld@ ?dup
   if rot lay-site0 @ + sl-site rot fld! else 2drop then ;
 : lay-append ( j lay -- )
-  2dup lay-map @ ly@
-  2 pick 2 pick lay-slot over 3 pick base-slot sl-fields# u32s move
-  2dup swap lay-site 2dup swap lay-base @ start!
-  rot swap rot 2 pick 2 pick 2 pick lay-deps lay-looks ;
+  tuck lay-cursor! dup lay-j over lay-slot over lay-s 2 pick base-slot
+  sl-fields# u32s move
+  dup lay-s over lay-site dup lay-s over lay-base @ start! dup lay-deps lay-looks ;
 : lay-appends ( lay -- outcome )
   dup lay-room dup ok? 0= if nip exit then drop
   dup lay-n @ 0 ?do i over lay-new @ ly@ if i over lay-append then loop

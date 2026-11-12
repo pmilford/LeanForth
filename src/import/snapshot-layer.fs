@@ -52,6 +52,8 @@ begin-structure /layer
   tier-sections# cells +field ly-maps     \ per own record: its number here + 1
   field: ly-why                           \ counted string: the section refused, or 0
   field: ly-where                         \ the record refused
+  field: ly-begun                         \ the family being entered: its count before
+  field: ly-top                           \ and the highest number this layer kept of it
 end-structure
 \ Positions of the sections.
 1 constant lp-name-bytes  2 constant lp-names  3 constant lp-levels  4 constant lp-lists
@@ -107,6 +109,19 @@ end-structure
   2dup r@ ly-own 0= if 2drop r> drop 0 false exit then
   rot drop swap r> ly-map ly@ dup if 1- true else false then ;
 : ly-kept ( n' idx i ly -- ) ly-map >r swap 1+ swap r> ly! ;
+\ A record built again must be a new record of the tier, or one an
+\ earlier layer made (sibling layers share them); never the base's (a
+\ layer holds only what its run added) nor this layer's own given twice
+\ (review rvSN4 m1): the numbers of its new records rise.
+: ly-count ( i ly -- n ) ly-stage @ tier-slab slab-count ;
+: ly-begin ( i ly -- ) tuck ly-count dup 2 pick ly-begun ! 1- swap ly-top ! ;
+: ly-fresh? ( n' i ly -- flag )
+  >r over swap r@ ly-first u< if drop r> drop false exit then
+  dup r@ ly-begun @ u< if drop r> drop true exit then
+  dup r@ ly-top @ > if r> ly-top ! true else drop r> drop false then ;
+: ly-keep ( n' idx i ly -- outcome )
+  3 pick 2 pick 2 pick ly-fresh? 0= if 2drop 2drop outcome-invalid exit then
+  ly-kept outcome-ok ;
 : ly-name ( n ly -- n' flag ) lp-names swap ly-xlate ;
 : ly-level ( n ly -- n' flag ) lp-levels swap ly-xlate ;
 : ly-text ( n ly -- n' flag ) lp-texts swap ly-xlate ;
@@ -137,13 +152,16 @@ end-structure
 \ A child of a level, unless it is a parameter's (whose fields are 0).
 : ly-level-part ( u tag ly -- u' flag )
   over tag-level-param = if 2drop true else nip ly-level then ;
+\ A child of the level at addr, its field xt ( addr -- field ) (quad-a or
+\ quad-b), made this tier's; both of them.
+: ly-child ( addr xt ly -- u' flag )
+  >r over swap execute u32@ swap ly-head drop r> ly-level-part ;
+: ly-level-parts ( addr ly -- a' b' flag )
+  2dup ['] quad-a swap ly-child >r -rot ['] quad-b swap ly-child r> and ;
 : ly-level-of ( addr ly -- l outcome )
-  2dup ly-level-head 0= if drop 2drop -1 outcome-invalid exit then >r
-  over quad-a u32@ 2 pick ly-head drop 2 pick ly-level-part
-  0= if r> drop drop 2drop -1 outcome-invalid exit then >r
-  over quad-b u32@ 2 pick ly-head drop 2 pick ly-level-part
-  0= if r> r> 2drop drop 2drop -1 outcome-invalid exit then
-  r> swap r> -rot 4 roll drop 3 roll ly-tier level-build ;
+  2dup ly-level-head 0= if drop 2drop -1 outcome-invalid exit then -rot
+  dup >r ly-level-parts 0= if r> drop 2drop drop -1 outcome-invalid exit then
+  r> ly-tier level-build ;
 \ A text record is (offset, length) into the text bytes.
 : ly-text-of ( addr ly -- t outcome )
   >r dup u32@ swap 1 u32s + u32@ lp-text-bytes r@ ly-bytes
@@ -207,10 +225,12 @@ end-structure
   dup quad-a u32@ swap quad-b u32@ r@ ly-two
   0= if 2drop drop r> r> 2drop -1 outcome-invalid exit then
   r> r> swap ly-tier expr-let ;
+\ The record at addr's operands made this tier's, as its tag says.
+: ly-operands ( addr ly -- a' b' flag )
+  >r dup quad-a u32@ over quad-b u32@ rot ly-head drop r> ly-ab ;
 : ly-plain ( j ly addr head -- e outcome )
-  over quad-a u32@ 2 pick quad-b u32@ 3 pick ly-head drop 5 pick ly-ab
-  0= if 2drop 2drop 2drop -1 outcome-invalid exit then
-  4 roll ly-tier expr-make 2swap 2drop ;
+  >r over ly-operands 0= if r> drop 2drop 2drop -1 outcome-invalid exit then
+  r> -rot 3 roll ly-tier expr-make rot drop ;
 : ly-expr-of ( j ly -- e outcome )
   2dup lp-exprs swap ly-rec dup ly-head over 4 pick ly-payload
   0= if 2drop 2drop drop -1 outcome-invalid exit then
@@ -221,8 +241,9 @@ end-structure
 : ly-span ( j ly -- n ) lp-exprs swap ly-rec ly-head drop let-tag? if 2 else 1 then ;
 : ly-expr-step ( j ly -- j' outcome )
   2dup ly-expr-of dup ok? 0= if nip nip nip -1 swap exit then drop
-  -rot 2dup ly-mdata 2dup 2>r lp-exprs swap ly-kept 2r> over swap ly-span + outcome-ok ;
+  -rot 2dup ly-mdata 2dup 2>r lp-exprs swap ly-keep 2r> over swap ly-span + swap ;
 : ly-exprs ( ly -- outcome )
+  lp-exprs over ly-begin
   0 begin dup lp-exprs 3 pick ly-units u< while
     dup 2 pick ly-expr-step dup ok? 0= if nip -rot swap lp-exprs swap ly-note exit then
     drop nip
@@ -234,17 +255,17 @@ end-structure
     i over 3 pick execute dup ok? 0= if nip nip i swap unloop exit then drop
   loop 2drop 0 outcome-ok ;
 : ly-family ( i xt ly -- outcome )
-  2 pick >r dup >r ly-each swap r> r> swap ly-note ;
+  2 pick over ly-begin 2 pick >r dup >r ly-each swap r> r> swap ly-note ;
 : ly-name-step ( j ly -- outcome )
   2dup lp-names swap ly-rec over ly-name-of dup ok? 0= if nip nip nip exit then drop
-  -rot lp-names swap ly-kept outcome-ok ;
+  -rot lp-names swap ly-keep ;
 : ly-level-step ( j ly -- outcome )
   2dup lp-levels swap ly-rec over ly-level-of dup ok? 0= if nip nip nip exit then drop
-  -rot lp-levels swap ly-kept outcome-ok ;
+  -rot lp-levels swap ly-keep ;
 : ly-text-at ( j ly -- addr ) lp-texts swap ly-block swap 2 u32s * + ;
 : ly-text-step ( j ly -- outcome )
   2dup ly-text-at over ly-text-of dup ok? 0= if nip nip nip exit then drop
-  -rot lp-texts swap ly-kept outcome-ok ;
+  -rot lp-texts swap ly-keep ;
 : ly-records ( ly -- outcome )
   lp-names ['] ly-name-step 2 pick ly-family dup ok? 0= if nip exit then drop
   lp-levels ['] ly-level-step 2 pick ly-family dup ok? 0= if nip exit then drop

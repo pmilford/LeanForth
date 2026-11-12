@@ -96,8 +96,8 @@ theorem composition {A B C : Prop} (f : A → B) (g : B → C) : A → C :=
 
 | Command | What it does |
 | --- | --- |
-| `check [--no-manifest] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--jobs N] [--save-snapshot FILE] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text; with `--jobs N`, check with [N workers at once](#parallel-checking---jobs); with `--save-snapshot FILE`, also write the checked environment to FILE ([snapshots](#snapshots---save-snapshot-and---snapshot)) |
-| `check --snapshot FILE [--snapshot LAYER ...] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--no-manifest] [--jobs N] [--save-snapshot LAYER] [EXPORT]` | Report the verdicts a [snapshot](#snapshots---save-snapshot-and---snapshot) and its layers hold, each labelled as taken from it and not re-checked; with EXPORT, check it against them, taking what they vouch for and checking the rest, and with `--save-snapshot`, write what was checked as a layer: for development and research only |
+| `check [--no-manifest] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--jobs N] [--progress[=SECONDS]] [--save-snapshot FILE] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text; with `--jobs N`, check with [N workers at once](#parallel-checking---jobs); with `--progress`, write [a status line](#progress-and-partial-results---progress) to standard error every minute; with `--save-snapshot FILE`, also write the checked environment to FILE ([snapshots](#snapshots---save-snapshot-and---snapshot)) |
+| `check --snapshot FILE [--snapshot LAYER ...] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--no-manifest] [--jobs N] [--save-snapshot LAYER] [--snapshot-stale-ok] [EXPORT]` | Report the verdicts a [snapshot](#snapshots---save-snapshot-and---snapshot) and its layers hold, each labelled as taken from it and not re-checked; with EXPORT, check it against them, taking what they vouch for and checking the rest, and with `--save-snapshot`, write what was checked as a layer: for development and research only |
 | `check [--no-manifest] [--fuel N] [--checked] [--strict-axioms] --record RECORD EXPORT` | Check a small export (read straight into the checker's stores) and also write its [run record](#run-records-and-replay) |
 | `replay [--no-manifest] [--fuel N] [--checked] EXPORT RECORD` | Check the export again and compare the new run record with RECORD; print the replay report |
 | `print [--no-manifest] [--fuel N] [--checked] [--detail] [--name NAME] [--latex] [--statement FORMS] [--any-lean-version] EXPORT`, or `print --lf [--no-manifest] [--fuel N] [--checked] [--any-lean-version] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration; `--lf` writes the whole export as one [LeanForth text](#writing-an-export-as-leanforth-text) |
@@ -161,6 +161,10 @@ Options:
   (the resource report says how many). On a host that is not x86-64
   (threads without memory barriers) or where the thread pool cannot start,
   the check runs one declaration at a time and the resource report says why.
+- `--progress[=SECONDS]` (`check` only, not with `--record`) writes a status
+  line to standard error every SECONDS (60 without a value; 0: after every
+  report) and one at the end ([progress](#progress-and-partial-results---progress)).
+  It changes nothing on standard output or in the exit status.
 - `--save-snapshot FILE` (`check` only, not with `--record`) writes the
   run's checked environment to FILE after a run in which every declaration
   was decided; FILE must not be the export. `--snapshot FILE` (`check`
@@ -168,6 +172,9 @@ Options:
   one loads a layer on it, and with an export checks the export against
   them; `--save-snapshot` with one `--snapshot` and an export writes a
   layer ([snapshots](#snapshots---save-snapshot-and---snapshot)).
+  `--snapshot-stale-ok` (with `--snapshot`, not with `--save-snapshot`)
+  loads a snapshot of an older verdict version, its results labelled
+  stale ([stale snapshots](#stale-snapshots---snapshot-stale-ok)).
 - `--detail` (`print` only) prints every step of the checker's log
   instead of the outline; `--name NAME` (`print` only) prints only the
   declaration named NAME.
@@ -588,6 +595,52 @@ report adds a line naming the workers and how many checks were handed
 out, run again, refused by readiness or forced (the last two are 0 unless
 LeanForth's plan of which declaration needs which is wrong).
 
+### Progress and partial results (`--progress`)
+
+A check of a library takes hours (all of Mathlib is a run of a day or
+more), and the report used to appear only at the end. Two changes let you
+watch a run and keep what it found (2026-11-11, untrusted reporting; no
+verdict, fuel count, exit status or byte of a finished run's standard
+output changes):
+
+- **The text report's lines are written as the run goes.** A declaration's
+  line is written once it and every declaration before it are final (the
+  serial run: when its check ends; `--jobs`: when the scheduler's frontier
+  passes it), in file order, so a run that is stopped (killed, timed out,
+  the machine going down) leaves the lines of the declarations before the
+  stop, a correct prefix of the report. Standard output is flushed every
+  2000 lines or ten seconds (the progress interval, if it is shorter), so
+  a stop loses at most that much: `timeout 600 leanforth check EXPORT >
+  lines.txt` keeps the prefix. The summary, the notes and the resource
+  report come at the end, so a stopped run has no summary: count the
+  lines (`grep -c ': accepted'`). `--json` is one text, written at the
+  end, and is not affected. With `--jobs` the lines written are always a prefix of the
+  serial run's: nothing at or after a declaration whose check threw is written
+  while the run goes (the run then ends with the internal-fault message and code 5).
+  Gforth does not flush its output when it is killed by SIGTERM (`timeout`): the
+  lines since the last flush are lost, at most 2000 lines or ten seconds' worth.
+  Measured: `timeout 60` on all of Init left 3354 lines, a byte-for-byte prefix
+  of the full output, ending at a line end.
+- **`--progress[=SECONDS]`** writes one line to standard error each time
+  SECONDS seconds (default 60) have passed when a declaration becomes final
+  (a single check longer than the interval delays its line), and one when
+  the run ends:
+
+```text
+progress: 754 s elapsed; 120000/729263 declarations final (16%); 119990 accepted, 10 other; 159 declarations/s; eta 3830 s; resident 8123 MB
+```
+
+  the seconds since the check began, the declarations final of the total
+  (all below that number, in file order) and their share, how many were
+  accepted and how many were anything else, the average rate so far, a
+  rough estimate of the seconds to go at that rate (declarations differ
+  very much in cost, so it can be far off; `unknown` before the first), and
+  the process's resident memory (`? MB` where the host has no
+  `/proc/self/status`). `--progress=0` writes a line after every
+  report, for tests. The lines go only to standard error, in text and
+  `--json` mode alike; `--progress` does not go with `--record` (status 4)
+  and `replay` and `print` do not take it.
+
 ### The resource report
 
 `--resources` adds a report after the summary (plan task 6.5.2, the
@@ -737,7 +790,7 @@ Two.first: accepted (experimental, not independently audited; from snapshot, not
 ...
 6 declarations: 6 accepted
 accepted: 6 (experimental, not independently audited); axioms: none
-snapshot: two.lfsnap (sha256 3f39c1bb…), export sha256 5c14b3b4…, verdict version 2, written by LeanForth 2ecdbfba…: 6 results taken from it, not re-checked in this run
+snapshot: two.lfsnap (sha256 9aa54473…), export sha256 5c14b3b4…, verdict version 3, written by LeanForth 03c68bd2…: 6 results taken from it, not re-checked in this run
 note: development and research mode: a final run re-checks everything from the
 note: export and reads no snapshot; only its results support a claim
 ```
@@ -752,7 +805,8 @@ OQ-3). The exit status follows the verdicts as in a final run. A
 snapshot is refused (nothing reported as checked) when it is damaged,
 altered or cut short (status 4, `error: invalid: the snapshot was
 refused: …` naming the section, and the record when there is one), when
-it was written by another verdict version (stale: check the export again)
+it was written by another verdict version (stale: check the export again,
+or see [stale snapshots](#stale-snapshots---snapshot-stale-ok))
 or format version or is a layer given without its base (status 2), or for other
 settings: `--fuel N` other than the snapshot's (by default its own
 fuel is used) or another axiom allowlist (status 4). A snapshot of an
@@ -767,15 +821,21 @@ With `--json`, a run of a snapshot prints report version 0.3
 ([`schemas/check-report-0.3.schema.json`](../../schemas/check-report-0.3.schema.json)):
 version 0.2's members, `export` null (the export's name when one is
 checked against the snapshot), `mode` `development`, a `snapshot`
-member (the file, its `sha256`, `formatVersion`, `verdictVersion`, the
+member (the file, its `sha256`, `formatVersion`, its `verdictVersion`,
+`stale` (null, or [for a stale one](#stale-snapshots---snapshot-stale-ok)
+this build's verdict version and how many results are stale), the
 `export` it was written from with its SHA-256, bytes and lines, the
-`manifestSha256`, `base` null, the `information` text of the build
-that wrote it, and `import`: null, or with an export the counts `taken`,
-`checked` and `otherContent`), and on each declaration its `provenance`:
-`snapshot` (taken from it), `uses-snapshot` (checked in this run but
-resting on its results) or `checked`. A refused snapshot is a read that
-failed with `phase` `snapshot` and lists no declaration. Final runs keep
-writing version 0.2, unchanged.
+`manifestSha256`, `base` null, `layers` (each layer loaded on it: its
+`file`, `sha256`, `exportSha256`, `base` and `verdictVersion`), the
+`information` text of the build that wrote it, and `import`: null, or
+with an export the counts `taken`, `checked` (the declarations whose
+verdict this run gave) and `otherContent`; null too when the snapshot
+was refused), and on each declaration its `provenance`: `snapshot`
+(taken from it), `uses-snapshot` (checked in this run but resting on its
+results), `checked`, or with a stale snapshot `stale-snapshot` and
+`uses-stale-snapshot`. A refused snapshot is a read that failed with
+`phase` `snapshot` and lists no declaration. Final runs keep writing
+version 0.2, unchanged.
 
 #### A dependent export checked against a snapshot
 
@@ -800,13 +860,23 @@ lookup its check made, each asked again here by the checker's own code
 over what was taken so far (a lookup that meets a declaration not taken
 is no match). Every other declaration is checked as in a final run (with
 `--jobs N` too), and labelled as resting on the snapshot when it uses a
-taken one. The verdicts and counts are those of a final check of the
-export (the tests compare both, field by field, and so did all of `Init`
-against its own snapshot); only the labels differ. The fuel a check uses
-also depends on how the run numbers the export's records, so a taken
-declaration reports the fuel of the run that wrote the snapshot, which
-can differ from a final check's by a few percent (measured on Mathlib's
-first million lines against `Init`'s snapshot):
+taken one. On the test exports the verdicts and counts are those of a
+final check of the export (the tests compare both, field by field, and so
+did all of `Init` against its own snapshot); only the labels differ.
+
+**Not claimed (review rvSN4 B1, a kernel task in progress):** the fuel a
+check uses today also depends on how the run numbers the tier's records
+(the binder table and the cache keys follow the other records of the
+tier), so a taken declaration reports the fuel of the run that wrote the
+snapshot, which can differ from a final check's by a few percent
+(measured on Mathlib's first million lines against `Init`'s snapshot),
+and a verdict that depends on fuel can differ too: a declaration accepted
+near its fuel budget in the snapshot's run may be *exhausted* in a final
+check of the export (or the reverse), and a declaration checked here that
+rests on it may get another verdict than in a final check. An exhausted
+verdict is never taken; until fuel is independent of the numbering,
+results taken from a snapshot equal a final check's in neither fuel nor
+verdicts near the fuel budget:
 
 ```text
 Two: accepted (experimental, not independently audited; from snapshot, not re-checked in this run); axioms: none
@@ -820,10 +890,23 @@ import: 7 checked in this run; 0 with the name of a declaration of the snapshot,
 ```
 
 A declaration whose check made names of its own beyond the export (the
-auxiliary types of a nested inductive block) is always checked again, as
-is everything whose lookups reach it. A snapshot refused before the
-export is read is reported as above; the export's own failures are
+auxiliary types `_nested.Array_1` of a nested inductive block) is taken
+too since plan step SN5: the snapshot holds those names, written after
+the export's, and their lookups are asked again as any other (verdict
+version 2; a snapshot of version 1 kept such declarations, and everything
+whose lookups reach them, to be checked again). A snapshot refused before
+the export is read is reported as above; the export's own failures are
 reported as a final run reports them.
+
+Measured (`gforth-fast`, `--jobs 3`, a loaded 10-core machine): all of
+`Init` against its own snapshot takes every one of its 59,349
+declarations, with every verdict, count and fuel as the fresh check's,
+in 49 s against 749 s fresh (most of the 49 s reads the export again:
+an exact check always reads it whole). Mathlib's first million lines
+against `Init`'s snapshot take 1,108 declarations, 69 s wall against 89 s
+fresh but 164 s of CPU against 139 s: loading `Init`'s records and
+feeding them cost more than the few checks saved, so a snapshot pays off
+for an export that shares much of it.
 
 #### Layered snapshots
 
@@ -843,14 +926,64 @@ leanforth check --snapshot two.lfsnap --snapshot dep.lfsnap --snapshot sib.lfsna
 Base and layer report what the run that wrote the layer reported, and
 two layers written on one base load together: a declaration both hold
 (here `Eq` and `rfl`) is loaded once when its content and verdicts agree.
+The report names each layer loaded, after the snapshot's line (and in
+JSON in `snapshot.layers`):
+
+```text
+snapshot: two.lfsnap (sha256 9aa54473…), export sha256 5c14b3b4…, verdict version 3, written by LeanForth 03c68bd2…: 13 results taken from it and its layers, not re-checked in this run
+layer: dep.lfsnap (sha256 2e727cd4…), export sha256 0a286479…, verdict version 3, on the snapshot above
+```
+
 Refused (status 4, nothing listed): a layer written on another base
 (`base snapshot of the layer`), a declaration two loaded snapshots hold
-with other verdicts, and a name two of them declare with other content
-(`a name of two snapshots with other content`), as Lean refuses an import
-that declares a name twice; a layer given first is refused as `layer`
+with other verdicts, a name two of them declare with other content
+(`a name of two snapshots with other content`; any member of an
+inductive block counts, a constructor too), as Lean refuses an import
+that declares a name twice, and a layer that holds one of its records
+twice; a layer given first is refused as `layer`
 (status 2). A layer is written on one snapshot only (`--save-snapshot`
 with several `--snapshot` options is refused, status 4), and FILE must not
 be the snapshot read.
+
+#### Stale snapshots (`--snapshot-stale-ok`)
+
+*A development flag the owner approved (2026-11-11; ADR 0020 amendment
+3).* A snapshot written under an older verdict version (the checker's
+rules changed since) is refused by default. With `--snapshot-stale-ok`
+it loads, and every result taken from it is labelled stale, never as
+this build's verdict: `from a stale snapshot (an older verdict version),
+not this build's verdict` in the text, with `stale:` lines that count
+them, and `stale-snapshot` (or `uses-stale-snapshot` for one checked here
+but resting on them) in JSON, where `snapshot.stale` gives the count. A
+snapshot of a newer verdict version than this build's is refused still,
+the flag needs `--snapshot`, and it does not go with `--save-snapshot`
+(a stale verdict is never written into another snapshot). Use it to look
+at an old run's results while a new snapshot is being made; only a final
+run supports a claim.
+
+#### The snapshot workflow
+
+1. **Save the base once.** A final run of a library writes its snapshot
+   (`check --jobs N --save-snapshot mathlib.lfsnap mathlib.ndjson`; every
+   full Mathlib run saves one, owner 2026-11-11). The snapshot is valid
+   for every LeanForth build of the same verdict version; a bump of the
+   verdict version needs it written again (or `--snapshot-stale-ok` for a
+   look in the meantime).
+2. **Check a dependent library or a slice against it.**
+   `check --snapshot mathlib.lfsnap physlib.ndjson` reads the dependent
+   export (which holds every Mathlib declaration it uses) on into the
+   snapshot's records and checks only what the snapshot cannot vouch for:
+   new declarations, edited ones and everything whose lookups reach them.
+   A slice of Mathlib itself (an edited file's export) is checked the same
+   way.
+3. **Keep the dependent result as a layer.** Add `--save-snapshot
+   physlib.lfsnap`: the layer holds only what the run added, and
+   `--snapshot mathlib.lfsnap --snapshot physlib.lfsnap` loads both; two
+   layers on one base load together.
+4. **Claims come from final runs only.** A run with `--snapshot` is a
+   development and research run; the results it reports, taken or
+   checked, are labelled, and fuel and verdicts near the fuel budget are
+   not yet guaranteed equal to a final check's (see above).
 
 ## Printing a readable proof
 

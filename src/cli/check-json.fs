@@ -145,7 +145,12 @@ require ./check-run.fs
 \ A check's fuel used, null when it is not known (cli/check-run.fs).
 : cj-fuel-used ( d -- ) s" fuel" cj-key ck-fuel-of dup 0< if drop cj-null else cj-n then ;
 \ Where its verdict comes from (0.3): checked, snapshot, uses-snapshot.
+\ With a stale snapshot (--snapshot-stale-ok): stale-snapshot,
+\ uses-stale-snapshot.
+: cj-stale-text ( origin -- c-addr u )
+  lf-origin-saved = if s" stale-snapshot" else s" uses-stale-snapshot" then ;
 : cj-origin-text ( origin -- c-addr u )
+  dup lf-origin-checked <> ck-stale? and if cj-stale-text exit then
   case lf-origin-saved of s" snapshot" endof lf-origin-uses of s" uses-snapshot" endof
     s" checked" rot endcase ;
 : cj-provenance ( d -- )
@@ -231,17 +236,33 @@ create cj-hex 64 allot
 \ declarations were taken from it and checked in this run, and how many
 \ share a name with one of it but none's content; null without one.
 : cj-import ( -- )
-  ck-importing? 0= if s" import" cj-null-member exit then
-  s" import" cj-key cj-object ck-taken# dup s" taken" cj-number
-  lf-input-count swap - s" checked" cj-number ck-other# s" otherContent" cj-number
+  ck-importing? ck-snap-bad? 0= and 0= if s" import" cj-null-member exit then
+  s" import" cj-key cj-object ck-taken# s" taken" cj-number
+  ck-checked# s" checked" cj-number ck-other# s" otherContent" cj-number
   cj-end-object ;
+\ Each layer loaded on the base (review rvSN4 M1): its file, identity,
+\ export and base (the snapshot's own identity).
+: cj-layer ( k -- )
+  cj-object dup ck-layer@ nt-text cj-shown s" file" cj-text
+  dup ck-layer-id dup s" sha256" cj-sha 32 + s" exportSha256" cj-sha
+  ck-snap snap-sum s" base" cj-sha ck-layer-verdict s" verdictVersion" cj-number
+  cj-end-object ;
+: cj-layers ( -- )
+  s" layers" cj-key cj-array ck-layers# 0 ?do i cj-layer loop cj-end-array ;
+\ A stale snapshot loaded (--snapshot-stale-ok; ADR 0020 amendment 3):
+\ this build's verdict version and how many results are stale; else null.
+: cj-stale ( -- )
+  ck-stale? 0= if s" stale" cj-null-member exit then
+  s" stale" cj-key cj-object lf-verdict-version s" thisVerdictVersion" cj-number
+  ck-saved# s" results" cj-number cj-end-object ;
 : cj-snapshot ( -- )
   ck-snapped? 0= if exit then s" development" s" mode" cj-text
   ck-snap snap-id 0= if s" snapshot" cj-null-member exit then
   s" snapshot" cj-key cj-object cj-snap-file
   ck-snap snap-sum s" sha256" cj-sha snap-version s" formatVersion" cj-number
-  lf-verdict-version s" verdictVersion" cj-number cj-snap-export cj-snap-manifest
-  s" base" cj-null-member cj-snap-info cj-import cj-end-object ;
+  ck-snap snap-verdict s" verdictVersion" cj-number cj-stale cj-snap-export
+  cj-snap-manifest
+  s" base" cj-null-member cj-layers cj-snap-info cj-import cj-end-object ;
 \ ---- The report.
 : cj-export ( c-addr u -- )
   ck-snap-only? if 2drop s" export" cj-null-member exit then nt-text cj-shown s" export"

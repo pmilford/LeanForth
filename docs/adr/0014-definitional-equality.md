@@ -1965,9 +1965,12 @@ exhausted 457,164 → 457,203, unknown 406,080 → 405,983, rejected 88,851 →
 line's fuel per declaration is 100,000,000 (`src/cli/leanforth.fs`,
 `cli-default-fuel`; it was 20,000,000): Lean's own kernel takes 20-91
 million of the same steps on the arena's Θ(n²) tests, which no change
-that follows Lean lowers. Both changes bump the verdict version to 2
-(ADR 0020 D3; `src/kernel/verdict-version.fs`), so every older snapshot
-is refused as stale.
+that follows Lean lowers. Both changes bump the verdict version to 3
+(ADR 0020 D3; `src/kernel/verdict-version.fs`; 2 was step SN5's), so
+every older snapshot is refused as stale (or labelled stale with
+`--snapshot-stale-ok`), and the golden snapshot fields
+(`tests/cli/golden-snapshots`) are written again: only the header's
+verdict version and fuel setting and 99 slots' fuel moved, all to less.
 
 ## Note: the projection steps (plan task 5.2.2, 2026-11-10)
 
