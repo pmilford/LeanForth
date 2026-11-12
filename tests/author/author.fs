@@ -617,6 +617,21 @@ T{ s" theorem t Prop explicit: p p := p end t" run 0 calls ! ' refusing lf-autho
 T{ 20 lfx lfx-writer jw-limit ! export-now -> outcome-full }T
 lfx-line-capacity lfx lfx-writer jw-limit !
 T{ 0 0 lf-tag-let lf-term-binary nip export-now -> true outcome-unsupported }T
+\ A projection, a binder without a recorded name (made by hand) and the
+\ heights: an axiom named in a value counts 0, so does a constant whose
+\ record is gone (renamed by hand), a definition its own height.
+T{ s" axiom S 0 Type end S def d S explicit: s 0 Type := 0 proj# S s $ end d" exported
+   s\" {\"ie\":3,\"proj\":{\"idx\":0,\"struct\":2,\"typeName\":1}}" holds? -> outcome-ok true }T
+T{ 0 0 lf-tag-pi lf-term-binary nip export-now -> true outcome-ok }T
+T{ s\" \"binderInfo\":\"default\",\"body\":0,\"name\":0,\"type\":0" holds? -> true }T
+T{ s" axiom a 0 Type end a def b 0 Type := a end b" exported
+   s\" \"hints\":{\"regular\":1}" holds? -> outcome-ok true }T
+T{ s" def a 0 Type := Prop end a def b 0 Type := a end b" run -> outcome-ok }T
+T{ 0 s" zz" lf-name-str drop 0 lfa-decl lf-fdecl-name ! export-now -> outcome-ok }T
+T{ s\" \"hints\":{\"regular\":2}" holds? -> false }T
+\ A numbering table the heap cannot give: false, the cell 0.
+variable no-block
+T{ max-n no-block lfx-block no-block @ -> false 0 }T
 \ A reference to a projection's leaf is refused, never written (review M2).
 T{ s" theorem t Prop explicit: p p := p end t" exported -> outcome-ok }T
 T{ 1 0 lf-hterm-proj drop drop 0 swap lf-tag-app lf-term-binary nip export-now
@@ -646,6 +661,9 @@ T{ s" def d 0 Type := Lib.d end d" lib-fails -> 1 1 17 }T
 T{ s" namespace Lib def e 0 Type := c end e end Lib" lib-fails -> 55 1 31 }T
 T{ lf-author-code lf-author-outcome -> outcome-unsupported }T
 T{ s" def Lib.c 0 Type := Prop end Lib.c" lib-fails -> 28 1 5 }T
+\ A name the text declared twice, with a library: its record is the
+\ file's, not the library's, and the second declaration is refused.
+T{ s" def x 0 Type := Prop end x def x 0 Type := Prop end x" lib-fails -> 28 1 32 }T
 T{ true lf-author-checked! s" import-stub X end X" fails -> 48 1 1 }T
 T{ s" protected import-stub N.x end N.x" fails false lf-author-checked! -> 48 1 11 }T
 T{ s" import-stub X end X" run -> outcome-ok }T

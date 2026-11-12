@@ -799,6 +799,15 @@ def cli_cases():
             f"axiom a{i} Prop end a{i}\n" for i in range(1022)) + head
          + "  Eq.refl 1 ^ Nat $ n $\nend t\n", [], slice_, 3,
          "error 66 at line:col 1025:3 (token `Eq`)"),
+        ("library unread manifest", "theorem t Prop explicit: p p explicit: h p := "
+         "identity p $ h $ end t\n", ["--no-manifest"], "tests/reference/identity.ndjson", 0,
+         "t: accepted"),
+        ("a library name of no declaration", "theorem t Prop explicit: p p := proof end t\n",
+         ["--no-manifest"], "tests/reference/identity.ndjson", 4,
+         "error 1 at line:col 1:33 (token `proof`)"),
+        ("library not an export", "theorem t Prop explicit: p p := p end t\n",
+         ["--no-manifest"], "tests/author/01-identity.lf", 4,
+         "error: invalid: unexpected character (line 1, byte 0)"),
         ("open of a library namespace, a gap (8.2.1d)", "open Nat\n" + head
          + "  Eq.refl 1 ^ Nat $ n $\nend t\n", [], slice_, 4,
          "error 26 at line:col 1:6 (token `Nat`)"),
