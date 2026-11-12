@@ -173,8 +173,12 @@ lfa-space-capacity /lfa-space 0 context-store: lfa-spaces
 \ part never finds a protected constant (Lean's resolveQualifiedName).
 : lfa-one-part? ( c-addr u -- flag ) tuck lfa-dot = ;
 : lfa-hidden? ( decl -- flag ) lfa-decl lf-fdecl-protected @ lfa-token lfa-one-part? and ;
+\ A library's export does not say what is protected (library.fs): a name
+\ of one part that reaches a library constant through a namespace stops.
+: lfa-library-short? ( decl -- flag ) lfa-library? lfa-token lfa-one-part? and ;
 : lfa-const-in-space ( p-addr p-u -- decl true | false )
   lfa-token 2swap lfa-joined lfa-const-named 0= if false exit then
+  dup lfa-library-short? 0= lfa-e-library-short lfa-must
   dup lfa-hidden? if drop false else true then ;
 : lfa-const-around ( p-addr p-u -- decl true | false )
   begin dup while 2dup lfa-const-in-space if nip nip true exit then lfa-cut repeat

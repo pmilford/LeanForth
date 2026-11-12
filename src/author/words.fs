@@ -11,6 +11,7 @@
 
 require ../lib/lib.fs
 require ./declarations.fs
+require ./library.fs
 
 \ Comments, with Forth's meanings, on one line: a ( comment must end on
 \ its line, or the text after it would silently become comment.
@@ -23,7 +24,10 @@ require ./declarations.fs
 : lfa-w-theorem ( -- ) lf-decl-theorem lfa-declare ;
 : lfa-w-def ( -- ) lf-decl-def lfa-declare ;
 : lfa-w-axiom ( -- ) lf-decl-axiom lfa-declare ;
-: lfa-w-import-stub ( -- ) lf-decl-stub lfa-declare ;
+\ A checked run refuses import stubs (library.fs), at the stub's word.
+: lfa-kind-declare ( kind -- )
+  dup lf-decl-stub = lfa-checked? and 0= lfa-e-stub-checked lfa-must lfa-declare ;
+: lfa-w-import-stub ( -- ) lf-decl-stub lfa-kind-declare ;
 \ protected KIND NAME, as in Lean: the declaration word comes right after.
 \ A protected constant is never found by its last part alone through a
 \ namespace (namespaces.fs).
@@ -33,7 +37,7 @@ require ./declarations.fs
   2dup s" axiom" compare 0= if 2drop lf-decl-axiom exit then
   s" import-stub" compare if -1 else lf-decl-stub then ;
 : lfa-w-protected ( -- )
-  lfa-name-token lfa-kind-of dup 0< 0= lfa-e-protected-here lfa-must lfa-declare
+  lfa-name-token lfa-kind-of dup 0< 0= lfa-e-protected-here lfa-must lfa-kind-declare
   lfa-protect ;
 \ export makes aliases, which change what names mean: not built yet.
 : lfa-w-export ( -- ) lfa-e-export lfa-fail ;

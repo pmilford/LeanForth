@@ -79,6 +79,9 @@ end-structure
 : lfa-declared? ( name -- flag )
   lfa-decl-count 0 ?do dup i lfa-decl-name = if drop true unloop exit then loop drop
   false ;
+\ No declaration takes the name of a library constant (library.fs).
+: lfa-library-free ( c-addr u -- )
+  lfa-library-named if drop lfa-e-declared lfa-fail then ;
 : lfa-new-decl ( kind name pos -- )
   lfa-decl-new dup lfa-current lfa-current-decl ! lfa-decl
   tuck lfa-decl-at ! tuck lf-fdecl-name ! tuck lf-fdecl-kind !
@@ -88,8 +91,8 @@ end-structure
   lfa-entry# lfa-current lfa-current-entries ! ;
 : lfa-decl-name! ( c-addr u -- name )
   2dup lfa-root-name? 0= lfa-e-root-name lfa-must lfa-word-name
-  2dup lfa-end-token! lfa-full! lfa-full lfa-intern dup lfa-declared? 0= lfa-e-declared
-    lfa-must ;
+  2dup lfa-end-token! lfa-full! lfa-full lfa-library-free
+  lfa-full lfa-intern dup lfa-declared? 0= lfa-e-declared lfa-must ;
 : lfa-declare ( kind -- )
   lfa-inside? 0= lfa-e-nested lfa-must depth 1- lfa-floor = lfa-e-not-empty lfa-must
   lfa-here >r lfa-name-token lfa-decl-name! r> lfa-new-decl depth lfa-open-scope ;

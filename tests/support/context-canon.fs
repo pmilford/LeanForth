@@ -19,7 +19,10 @@
 : canon-column ( dst column -- dst ) column-slab over swap canon-slab ;
 create canon-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf-inputs ,
   ' lf-lctx ,
-6 constant canon-stores#
+\ And, when loaded (src/main.fs since plan task 8.2.1c), the authoring
+\ words' binders (src/author/scopes.fs).
+[defined] lfa-binders [if] ' lfa-binders , [then]
+here canon-stores - 1 cells / constant canon-stores#
 : canon-store# ( i -- store ) cells canon-stores + @ execute ;
 : canon-mix ( h x -- h' ) swap 31 * + ;
 \ The derivation log's pools (src/core/derivation-log.fs, when loaded): a

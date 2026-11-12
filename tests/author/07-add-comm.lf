@@ -1,27 +1,8 @@
 \ Lean: theorem add_comm' (n m : Nat) : n + m = m + n := Nat.add_comm n m
-\ Lean's core library provides these constants; import-stub stands in for
-\ importing them (plan task 8.2.1). Eq and HAdd.hAdd get their real types,
-\ so that the printer hides their implicit arguments as Lean does.
-import-stub Nat end Nat
-import-stub instAddNat end instAddNat
-import-stub instHAdd  universe u_1  end instHAdd
-import-stub HAdd  universe u  universe v  universe w  end HAdd
-import-stub outParam  universe u  end outParam
-protected import-stub Nat.add_comm end Nat.add_comm
-import-stub Eq
-  universe u_1
-  u_1 Sort implicit: α
-  α α Prop -> ->
-end Eq
-import-stub HAdd.hAdd
-  universe u  universe v  universe w
-  u Type implicit: α
-  v Type implicit: β
-  outParam w 2 level+ ^  w Type $  implicit: γ
-  HAdd u ^ v ^ w ^  α $ β $ γ $  instance: self
-  α β γ -> ->
-end HAdd.hAdd
-
+\ Nat, Eq, HAdd.hAdd, instHAdd, instAddNat and Nat.add_comm are Lean's own,
+\ from its core library Init: the text names them as Lean does and is
+\ checked against an export of Init (plan task 8.2.1d):
+\   leanforth check --env tests/author/init-slice.ndjson tests/author/07-add-comm.lf
 theorem add_comm'
   Nat explicit: n
   Nat explicit: m

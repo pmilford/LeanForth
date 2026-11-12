@@ -1,0 +1,46 @@
+\ Lean: theorem zero_add' (n : Nat) : 0 + n = n :=
+\         @Nat.rec (fun k => 0 + k = k) (@Eq.refl Nat 0)
+\           (fun k ih => @congrArg Nat Nat (0 + k) k Nat.succ ih) n
+\ A proof by induction on n, written as Lean's kernel term: the recursor
+\ Nat.rec, with the motive k => 0 + k = k, the case for zero (0 + 0
+\ reduces to 0) and the step from k to k + 1 (0 + (k + 1) reduces to
+\ (0 + k) + 1, so congrArg Nat.succ turns ih into it). Against an export
+\ of Init (plan 8.2.1d):
+\   leanforth check --env tests/author/init-slice.ndjson tests/author/20-zero-add.lf
+theorem zero_add'
+  Nat explicit: n
+  Eq 1 ^ Nat $
+    HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $  instHAdd 0 ^ Nat $ instAddNat $  $
+      OfNat.ofNat 0 ^ Nat $  0 lit# $  instOfNatNat 0 lit# $  $  $  n $
+  $
+    n $
+:=
+  Nat.rec 0 ^
+    Nat explicit: k
+      Eq 1 ^ Nat $
+        HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $  instHAdd 0 ^ Nat $ instAddNat $  $
+          OfNat.ofNat 0 ^ Nat $  0 lit# $  instOfNatNat 0 lit# $  $  $  k $
+      $
+        k $
+    fun  label: motive
+  $
+    Eq.refl 1 ^ Nat $  OfNat.ofNat 0 ^ Nat $  0 lit# $  instOfNatNat 0 lit# $  $  $
+    label: base
+  $
+    Nat explicit: k
+      Eq 1 ^ Nat $
+        HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $  instHAdd 0 ^ Nat $ instAddNat $  $
+          OfNat.ofNat 0 ^ Nat $  0 lit# $  instOfNatNat 0 lit# $  $  $  k $
+      $
+        k $
+      explicit: ih
+        congrArg 1 ^ 1 ^ Nat $ Nat $
+          HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $  instHAdd 0 ^ Nat $ instAddNat $  $
+            OfNat.ofNat 0 ^ Nat $  0 lit# $  instOfNatNat 0 lit# $  $  $  k $
+          $
+          k $  Nat.succ $  ih $
+      fun
+    fun  label: step
+  $
+    n $
+end zero_add'

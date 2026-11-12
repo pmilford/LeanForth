@@ -366,6 +366,36 @@ binder-reaches
 : stage-continue-unchecked ( c-addr u stage -- outcome )
   dup stage-reopen ok-then? if stage-read-unchecked else nip nip then ;
 
+\ ---- Records made in this process (plan tasks 8.2.1c-d; ADR 0017
+\ Amendment 2). stage-produce ( xt stage -- outcome ) reads, as
+\ stage-read-unchecked reads a file, the lines a producer hands over:
+\ xt ( -- outcome ) gives each line to stage-line ( c-addr u stage --
+\ outcome ) of this stage and returns its first outcome that is not ok
+\ (or ok); the lines are then ended as a file's (export-end). A line is
+\ decoded in place, so the producer must not need its bytes afterwards.
+\ The LeanForth words' export (author/export.fs) is such a producer. With
+\ the same rules as a read: an empty stage only, filled after an ok one,
+\ rolled back to empty after any other outcome or a THROW.
+\ stage-extend ( stage -- outcome ) readies a filled stage -- a library
+\ export read and not sealed -- for one more read whose declarations join
+\ the first's: the export-index maps start again and the declarations,
+\ their name chains and lines stay, so the next read names the first
+\ read's records only by their content, and at sealing its constants
+\ resolve among every declaration of both. A tier mark is taken first; a
+\ failed read then rolls back to empty, the first read's declarations
+\ gone too. Invalid unless the stage is filled.
+: stage-line ( c-addr u stage -- outcome ) stage-export export-line ;
+: produced ( xt 0 stage -- outcome )
+  nip dup stage-export export-restart swap execute
+  ok-then? if stage-export export-end else nip then ;
+: stage-produce ( xt stage -- outcome ) 0 swap ['] produced stage-reading ;
+: maps-again ( stage -- outcome )
+  dup stage-name-map slab-clear dup stage-level-map slab-clear
+  dup stage-expr-map slab-clear 0 over stage-why ! maps-start ;
+: stage-extend ( stage -- outcome )
+  dup staging-filled stage-in? 0= if drop outcome-invalid exit then
+  dup maps-again ['] tier-marked and-then staging-empty stage-state! ;
+
 \ ---- Finding declarations (after sealing; unchecked numbers as above).
 \ The newest declaration of name n; the one staged before d of the same
 \ name; the one a constant resolved to (false when none or several have

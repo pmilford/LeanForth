@@ -119,7 +119,7 @@ if [ "${1:-}" = reexport ] || [ "${1:-}" = check ]; then
     case $previous in
       --record) target=$argument ;;
       --save-snapshot) target=$argument what=FILE ;;
-      --fuel | --snapshot) ;;
+      --fuel | --snapshot | --env) ;;
       *) case $argument in -*) ;; *) files+=("$argument") ;; esac ;;
     esac
     previous=$argument

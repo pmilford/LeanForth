@@ -129,6 +129,7 @@ require ./print-lf.fs
 require ./tally.fs
 require ./name-text.fs
 require ./check-run.fs
+require ./check-lf.fs
 require ./check-json.fs
 
 100000000 constant cli-default-fuel   \ fuel of each declaration's check
@@ -172,6 +173,7 @@ begin-structure /cli-run
   field: run-noted              \ true: the other-version note came before them
   field: opt-memory             \ megabytes each check's scratch may hold
                                 \ (--memory-per-check); 0: no limit
+  2 cells +field opt-env        \ the library export of a LeanForth text (--env), or 0 0
 end-structure
 /cli-run context-record: cli-state
 manifest: cli-manifest
@@ -879,13 +881,48 @@ variable cli-info#
   cli-save? cli-state opt-layers# @ 0<> and
   if s" --save-snapshot writes a layer on one snapshot only" cli-misuse-snap exit then
   cli-stale-misuse ;
+\ check [--env EXPORT] FILE.lf (plan tasks 8.2.1c-d; cli/check-lf.fs): a
+\ LeanForth text run by the LeanForth words, its declarations staged after
+\ the library's and checked as an export's, the report check's own. A
+\ text that stops with an error is not checked at all: the error is
+\ printed at its line and column, with its outcome's code (4 a mistake, 2
+\ a form not supported yet, 3 no room). Neither a run record, a snapshot
+\ nor JSON goes with a text yet; --env goes only with one.
+: cli-text-file? ( -- flag )
+  0 cli-file dup 3 < if 2drop false exit then + 3 - 3 s" .lf" compare 0= ;
+: cli-library-file ( -- c-addr u ) cli-state opt-env 2@ ;
+: cli-text-error ( -- )
+  ." error: " lf-author-code lf-author-outcome dup outcome-text type
+  ." : the LeanForth text was not checked: " lf-author-error. cr outcome>code cli-code! ;
+: cli-text-report ( -- )
+  lfc-failed? if cli-text-error else cli-fed-tally cli-fed-report then ;
+: cli-text-lines ( -- )
+  cli-json? if exit then true cli-state run-noted ! ['] cli-stream ck-lines! ;
+: cli-text-run ( -- )
+  cli-library-file lfc-env! 0 cli-file cli-checked? ck-lf-load
+  ok? if cli-text-lines ck-check then cli-text-report ;
+: cli-text-misused? ( -- flag ) cli-record? cli-snapshot? or cli-save? or cli-json? or ;
+: cli-text-misuse ( -- code )
+  s" --record, --snapshot, --save-snapshot and --json: not with a text" cli-misuse-snap ;
+: cli-env-opens? ( -- flag )
+  cli-library-file dup 0= if 2drop true exit then
+  r/o bin open-file if drop false else close-file drop true then ;
+: cli-text-command ( -- code )
+  cli-text-misused? if cli-text-misuse exit then
+  cli-opens? 0= if ." error: cannot open the LeanForth text" cr exit-malformed exit then
+  cli-env-opens? 0= if cli-unopened exit then
+  cli-library-file nip if cli-unchecked-note then ['] cli-text-run cli-fed-run ;
+: cli-text? ( -- code true | false )
+  cli-text-file? if cli-text-command true exit then
+  cli-state opt-env @ 0= if false exit then
+  s" --env goes only with a LeanForth text (FILE.lf)" cli-misuse-snap true ;
 \ With an export (it must open), the export checked against the snapshot.
 : cli-snapshot-check ( -- code )
   cli-files @ 0= if ['] cli-snapshot-run cli-fed-run exit then
   cli-opens? 0= if cli-not-opened exit then ['] cli-import-run cli-fed-run ;
 : check-command ( -- code )
   cli-start cli-strict? cli-strict-axioms! cli-misused? if cli-misuse-record exit then
-  cli-any-misused? if cli-misuse-any exit then
+  cli-text? if exit then cli-any-misused? if cli-misuse-any exit then
   cli-jobs-misused? if cli-misuse-jobs exit then
   cli-per-check-misused? if cli-misuse-per-check exit then
   cli-progress-misused? if cli-misuse-progress exit then
@@ -1241,6 +1278,7 @@ end-structure
 262144 constant takes-stale
 524288 constant takes-memory
 1048576 constant takes-kernel
+2097152 constant takes-env
 : cli-value ( c-addr u -- c-addr' u' true | false )
   cli-arg if 2swap 2drop true else c" an option without its value" cli-wrong false then ;
 \ A decimal number from 0 to max-n with nothing else: (n true) or false.
@@ -1258,6 +1296,7 @@ end-structure
   if cli-fuel-value else c" not a fuel amount" cli-wrong then ;
 : cli-record-option ( c-addr u -- ) cli-value if cli-record! then ;
 : cli-save-option ( c-addr u -- ) cli-value if cli-save! then ;
+: cli-env-option ( c-addr u -- ) cli-value if cli-state opt-env 2! then ;
 \ The first --snapshot names the base, each further one a layer on it, in
 \ order (plan step SN4); their names are kept in a heap block that grows.
 : cli-layers-room ( n -- addr ior )
@@ -1339,6 +1378,7 @@ create cli-option-table
   ' cli-snapshot-option takes-snapshot 0 cli-entry, --snapshot
   ' cli-stale-option takes-stale 0 cli-entry, --snapshot-stale-ok
   ' cli-per-check-option takes-memory 0 cli-entry, --memory-per-check
+  ' cli-env-option takes-env 0 cli-entry, --env
   0 ,
 : cli-takes? ( entry -- flag ) cli-entry-first @ cli-state arg-set @ and 0<> ;
 : cli-taken ( c-addr u entry -- )
@@ -1362,7 +1402,7 @@ create cli-option-table
 takes-no-manifest takes-fuel or takes-fast or takes-checked or constant checking-set
 checking-set takes-record or takes-resources or takes-json or takes-strict or
 takes-any-lean or takes-jobs or takes-save or takes-snapshot or takes-progress or takes-stale or
-takes-memory or constant check-set
+takes-memory or takes-env or constant check-set
 checking-set constant replay-set
 checking-set takes-detail or takes-name or takes-latex or takes-statement or
 takes-lf or takes-any-lean or takes-kernel or constant print-set

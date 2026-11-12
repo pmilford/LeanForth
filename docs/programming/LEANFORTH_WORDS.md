@@ -264,11 +264,13 @@ below it).
 | 45 | invalid | LeanForth text runs only while Forth interprets, never while it compiles |
 | 46 | invalid | a character no line may hold (a control or format character, or no UTF-8) |
 | 47 | full | out of room: the search order holds more wordlists than a run can save |
+| 48 | invalid | import-stub is never checked: name the library with --env and use its constant |
 | 50 | unsupported | not supported yet: natural-number literals need literal nodes (ADR 0017 section 14) |
 | 51 | unsupported | not supported yet: designed in ADR 0017 but not built yet |
 | 52 | unsupported | not supported yet: holes are filled by the elaborator (plan task 8.3.1) |
 | 53 | unsupported | not supported yet: _root_ in a declaration's name |
 | 54 | unsupported | not supported yet: export and the aliases it makes |
+| 55 | unsupported | not supported yet: a library constant by a short name; write the full name |
 | 60 | full | out of room: the term store is full |
 | 61 | full | out of room: the level store is full or the level too large |
 | 62 | full | out of room: the name store is full or the name too long |

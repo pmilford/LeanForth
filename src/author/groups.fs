@@ -222,8 +222,14 @@ set-current
   >r 2dup r> lfa-group >r lfa-entries store-new-slot lfa-e-entries-full lfa-must drop
   dup /lfa-entry erase r> over lfa-entry-group ! dup >r lfa-spell! r> ;
 
-\ The constant whose full name is c-addr u, if there is one.
-: lfa-const-named ( c-addr u -- decl true | false )
+\ The constant whose full name is c-addr u, if there is one: the text's
+\ own, else the library's (library.fs sets lfa-library-named while
+\ loading; with no library loaded there is none).
+defer lfa-library-named ( c-addr u -- decl true | false )
+:noname ( c-addr u -- false ) 2drop false ; is lfa-library-named
+: lfa-file-const ( c-addr u -- decl true | false )
   2dup lf-consts search-wordlist 0= if 2drop false exit then
   >body lfa-entry-constant lfa-key! lfa-entry-find
   if lfa-entry-value @ true else false then ;
+: lfa-const-named ( c-addr u -- decl true | false )
+  2dup lfa-file-const if nip nip true else lfa-library-named then ;

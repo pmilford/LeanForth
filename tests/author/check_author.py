@@ -252,15 +252,22 @@ def loads(path, seen):
 
 
 def check_layering():
-    roots = [pathlib.Path("src/main.fs")] + sorted(pathlib.Path("src/core").glob("*.fs")) + \
-        sorted(pathlib.Path("src/kernel").glob("*.fs"))
+    """The kernel never loads the words (ADR 0017 Amendment 1: since plan task
+    8.2.1c the command line does, through src/cli/check-lf.fs, so main.fs does
+    too; the kernel, the data model and the importer must not)."""
+    roots = sorted(pathlib.Path("src/core").glob("*.fs")) + \
+        sorted(pathlib.Path("src/kernel").glob("*.fs")) + \
+        sorted(pathlib.Path("src/import").glob("*.fs"))
     author = pathlib.Path("src/author").resolve()
     for root in roots:
         bad = [p for p in loads(root, set()) if author in p.parents]
         if bad:
             raise Failure(f"{root} loads the authoring program: {bad[0]}")
-    print(f"layering: none of {len(roots)} checker modules (main.fs, core/, kernel/) "
-          "loads src/author")
+    lf = pathlib.Path("src/cli/check-lf.fs")
+    if not any(author in p.parents for p in loads(lf, set())):
+        raise Failure(f"{lf} no longer loads the authoring words: update this check")
+    print(f"layering: none of {len(roots)} checker modules (core/, kernel/, import/) "
+          "loads src/author; the command line does (cli/check-lf.fs)")
 
 
 def check_corpus():
