@@ -8895,6 +8895,30 @@ test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
 reason = "rvSN4 m1: a layer that holds one of its own records twice loads (the copy's users then read another record)"
 
 [[fault]]
+id = "fri-layer-const-levels-flag"
+file = "src/import/snapshot-layer.fs"
+old = '''  tuck ly-levels >r -rot ly-name r> swap ly-and rot swap ;'''
+new = '''  tuck ly-levels ok? 0= outcome-invalid and >r -rot ly-name r> swap ly-and rot swap ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "FRI F1: a constant's universe arguments that the heap cannot hold read as a malformed layer (invalid), not full"
+
+[[fault]]
+id = "fri-layer-rules-flag"
+file = "src/import/snapshot-layer.fs"
+old = '''  2 pick ly-tier tier-tuples tuple-start ok-then? 0= if ly-none2 exit then'''
+new = '''  2 pick ly-tier tier-tuples tuple-start ok-then? 0= if 2drop drop 0 outcome-invalid exit then'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "FRI F1: a recursor's rules that the heap cannot hold read as a malformed layer (invalid), not full"
+
+[[fault]]
+id = "fri-layer-enter-refused"
+file = "src/kernel/env-layers.fs"
+old = '''      swap c" declarations" swap lay-blame unloop exit then drop'''
+new = '''      drop c" declarations" swap lay-refuse unloop exit then drop'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "FRI F1: a layer declaration the stage cannot hold (no heap) refused as invalid, not full"
+
+[[fault]]
 id = "sn5-written-unsaved"
 file = "src/cli/check-run.fs"
 old = '''  outcome-invalid dup ck-outcome! dup ck-state ck-loaded ! ck-state ck-snap-saved !'''
