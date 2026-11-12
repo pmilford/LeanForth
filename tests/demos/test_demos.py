@@ -15,6 +15,7 @@ For each demo (tests/demos/DemoX.lean):
 Then docs/user/DEMOS.md must equal what build_page.py makes of the golden file.
 Finite evidence about these five statements; it never accepts a theorem.
 """
+import concurrent.futures
 import os
 import pathlib
 import subprocess
@@ -46,7 +47,7 @@ def lean_check(demo, work):
                       str(HERE / f"{demo['module']}.lean")])
     if code != 0:
         raise Mismatch(f"{demo['module']}: Lean failed:\n{text}")
-    probe = pathlib.Path(work) / "Probe.lean"
+    probe = pathlib.Path(work) / f"Probe_{demo['module']}.lean"
     probe.write_text(f"import {demo['module']}\n#check @{demo['theorem']}\n", encoding="utf-8")
     code, text = run([LEAN, "-DwarningAsError=true", str(probe)], env={"LEAN_PATH": work})
     if code != 0:
@@ -121,7 +122,9 @@ def section(demo, work):
 
 def main(write):
     with tempfile.TemporaryDirectory() as work:
-        text = "".join(section(demo, work) for demo in DEMOS)
+        # The demos are independent (own module, export and twin files), so they run side by side.
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, len(DEMOS))) as pool:
+            text = "".join(pool.map(lambda demo: section(demo, work), DEMOS))
     if write:
         GOLDEN.write_text(text, encoding="utf-8")
         pathlib.Path("docs/user/DEMOS.md").write_text(page(text), encoding="utf-8")
