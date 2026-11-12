@@ -1080,7 +1080,8 @@ variable cli-info#
   ."   check --record and replay (the old reader) refuse inductive types, and" cr
   ."   answer unsupported for let, literals, projections and metadata;" cr ;
 : cli-mathlib. ( -- )
-  ." Mathlib: all 729,263 declarations of its Lean export were accepted on build" cr
+  ." Mathlib: all 729,263 declarations of its Lean export accepted, experimental and" cr
+  ."   not independently audited, one NOT PROVED (sorryAx, as in Lean), on build" cr
   ."   b74a04d (fuel 250M, --memory-per-check 8192, --no-manifest); not re-run since" cr ;
 : cli-check-limits. ( -- )
   ."   check: stores, walks and lists that grow with the export (memory), any" cr
