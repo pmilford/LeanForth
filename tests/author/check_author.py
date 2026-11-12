@@ -582,8 +582,8 @@ WRONG = HERE / "wrong"
 # mistake in the text (4), a stub (4: error 48), a line too long (3: full).
 TEXT_EXIT = {"10a-missing-app": 4, "10b-typo": 4, "10c-universe": 4, "10d-case": 4,
              "13-structure-ctor": 4, "17-long-line": 3}
-VERDICT = re.compile(r"^(\S+): (accepted|rejected|unsupported|unknown|exhausted|full|invalid)",
-                     re.M)
+VERDICT = re.compile(r"^(?!error:)(\S+): "
+                     r"(accepted|rejected|unsupported|unknown|exhausted|full|invalid)", re.M)
 WRONG_LIBRARIES = {"07-add-comm": str(INIT_SLICE), "19-add-zero": str(INIT_SLICE),
                    "20-zero-add": str(INIT_SLICE)}
 
@@ -615,7 +615,7 @@ def text_checked(path, want_code, want_verdict):
         raise Failure(f"check {path}: exit {code}, want {want_code}:\n{out[-600:]}")
     if want_verdict and any(v != want_verdict for _, v in own_verdicts(path, out)):
         raise Failure(f"check {path}: not every declaration {want_verdict}:\n{out[-600:]}")
-    if code in (2, 3, 4) and (": accepted" in out or "was not checked" not in out):
+    if code in (2, 3, 4) and (VERDICT.search(out) or "was not checked" not in out):
         raise Failure(f"check {path}: a failed text must not be checked:\n{out[-600:]}")
     return out
 
@@ -664,8 +664,8 @@ def cli_cases():
         ("error after a good one", "theorem t\n  Prop explicit: p  p\n:=\n  p\nend t\n"
          "theorem u\n  Prop\n:=\n  x\nend u\n", [], None, 4,
          "the LeanForth text was not checked: error 1 at line:col 9:3 (token `x`)"),
-        ("error after a good one, outside", "theorem t\n  Prop explicit: p  p\n:=\n  p\n"
-         "end t\nnope\n", [], None, 4,
+        ("error after a good one, outside", "theorem t\n  Prop implicit: P  P explicit: h  P\n"
+         ":=\n  h\nend t\nnope\n", [], None, 4,
          "the LeanForth text was not checked: error 1 at line:col 6:1 (token `nope`)"),
         ("not supported", "theorem t\n  Prop explicit: p  p\n:=\n  p let:\nend t\n", [], None,
          2, "error 51 at line:col 4:5 (token `let:`)"),
@@ -688,7 +688,7 @@ def check_text_cases():
             path = pathlib.Path(work) / "case.lf"
             path.write_text(text, encoding="utf-8")
             code, out = leanforth_check(path, library, *options)
-            if want == 4 and ": accepted" in out:
+            if want == 4 and VERDICT.search(out):
                 raise Failure(f"check case {name}: a verdict beside an error:\n{out[-800:]}")
             if code != want or line not in out:
                 raise Failure(f"check case {name}: exit {code} (want {want}), "
