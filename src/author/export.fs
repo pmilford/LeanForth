@@ -158,8 +158,11 @@ end-structure
   2dup lfx-level! lf-level-slot over swap lfx-level-line 1+ ;
 : lfx-levels ( -- ) 1 lf-level-count @ 0 ?do i lfx-level loop drop ;
 
-\ Expressions: {"ie":N, then the node's own member}.
-: lfx-ref ( term c-addr u -- ) rot lfx-expr# -rot lfx-member ;
+\ Expressions: {"ie":N, then the node's own member}. A reference to a
+\ projection's leaf, which no record holds, is refused (unsupported; the
+\ words never make one, values.fs), never written as a number.
+: lfx-expr-ref ( term -- n ) lfx-expr# dup 0< if outcome-unsupported lfx-refuse then ;
+: lfx-ref ( term c-addr u -- ) rot lfx-expr-ref 0 max -rot lfx-member ;
 : lfx-sort ( term -- ) lf-term-first@ lfx-level# s" sort" lfx-member ;
 : lfx-bvar ( term -- ) lf-term-first@ s" bvar" lfx-member ;
 : lfx-app ( term -- )

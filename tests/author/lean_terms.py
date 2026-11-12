@@ -39,6 +39,11 @@ TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make export
 
 LEAN_VERSION = {"version": "4.35.0", "githash": "eb6cafb7290e8bd5f2937522d8d804f58f02bafc"}
 EXPORTER = {"name": "lean4export", "version": "3.1.0"}
+# The records LeanForth's words write (src/author/export.fs): its own
+# exporter's name, the format and Lean's version, no Lean build.
+LEANFORTH_META = {"exporter": {"name": "leanforth", "version": "0.1.0-dev"},
+                  "format": {"version": "3.1.0"},
+                  "lean": {"githash": "none", "version": "4.35.0"}}
 KINDS = {"default": 0, "implicit": 1, "strictImplicit": 2, "instImplicit": 3}
 DECL_KINDS = {"thm": 0, "def": 1, "axiom": 2}
 
@@ -48,22 +53,29 @@ class ExportError(Exception):
 
 
 class Export:
-    """The names, levels, expressions and declarations of one export."""
+    """The names, levels, expressions and declarations of one export; with
+    leanforth, the records of LeanForth's words instead of pinned Lean's."""
 
-    def __init__(self, lines):
+    def __init__(self, lines, leanforth=False):
+        self.leanforth = leanforth
         self.names = {0: ()}
         self.levels = {0: ("zero", None)}
         self.exprs = {}
         self.decls = {}
+        self.order = []   # each declaration's name, in record order
         for line in lines:
             if line.strip():
                 self.record(json.loads(line))
 
+    def meta(self, meta):
+        if self.leanforth and meta != LEANFORTH_META:
+            raise ExportError(f"unexpected metadata of LeanForth's records: {meta}")
+        if not self.leanforth and (meta["exporter"] != EXPORTER or meta["lean"] != LEAN_VERSION):
+            raise ExportError(f"unexpected exporter or Lean: {meta}")
+
     def record(self, r):
         if "meta" in r:
-            meta = r["meta"]
-            if meta["exporter"] != EXPORTER or meta["lean"] != LEAN_VERSION:
-                raise ExportError(f"unexpected exporter or Lean: {meta}")
+            self.meta(r["meta"])
         elif "in" in r:
             kind = "str" if "str" in r else "num"
             item = r[kind]
@@ -85,6 +97,7 @@ class Export:
 
     def declare(self, kind, item):
         self.decls[self.name(item["name"])] = (kind, item)
+        self.order.append(self.name(item["name"]))
 
     def name(self, index):
         parts = self.names[index]
@@ -167,6 +180,26 @@ class Export:
         value = self.term(item["value"]) if kind in ("thm", "def") else "none"
         return DECL_KINDS.get(kind), None, universes, self.term(item["type"]), value
 
+    def resolved(self, name):
+        """The declaration's whole record with every name, level and
+        expression read (types and values structural(), as the pinned
+        exporter merges binder names and kinds): its kind, name, all,
+        levelParams, type, value, hints, safety, isUnsafe, as they stand."""
+        if name not in self.decls:
+            raise ExportError(f"no declaration {name}")
+        kind, item = self.decls[name]
+        out = {"kind": kind}
+        for key, value in item.items():
+            if key == "name":
+                out[key] = self.name(value)
+            elif key in ("all", "levelParams"):
+                out[key] = [self.name(part) for part in value]
+            elif key in ("type", "value"):
+                out[key] = structural(self.term(value))
+            else:
+                out[key] = value
+        return out
+
 
 BINDER = re.compile(r"\((lam|pi) (\[arrow\] 0|\S+ \d)")
 
@@ -217,13 +250,18 @@ partial def lfTerm : Expr → String
   | .proj s i e => s!"(projection (proj {lfName s} {i}) {lfTerm e})"
   | e => s!"(lean-only {e.ctorName})"
 
+-- A dump's name: its parts split at dots, a part #N numeric (Name.num).
+def lfParse (s : String) : Name :=
+  (s.splitOn ".").foldl (init := .anonymous) fun n part =>
+    if part.startsWith "#" then .num n (part.drop 1).toNat! else .str n part
+
 def lfDecl (name : String) : CoreM Unit := do
-  let ci ← getConstInfo name.toName
+  let ci ← getConstInfo (lfParse name)
   let kind := match ci with | .thmInfo _ => "0" | .defnInfo _ => "1" | .axiomInfo _ => "2"
                             | _ => "-"
   let value := match ci with | .thmInfo t => lfTerm t.value | .defnInfo d => lfTerm d.value
                              | _ => "none"
-  let prot := if isProtected (← getEnv) name.toName then " protected" else ""
+  let prot := if isProtected (← getEnv) (lfParse name) then " protected" else ""
   IO.println s!"dump: {kind} {name}{prot}{String.join (ci.levelParams.map (" u:" ++ lfName ·))}"
   IO.println s!"dump:   type {lfTerm ci.type}"
   IO.println s!"dump:   value {value}"
@@ -280,7 +318,9 @@ def compile_and_export(lean, source, names, workdir):
         env = dict(os.environ, LEAN_PATH=str(workdir),
                    PATH=f"{prefix}/bin:{os.environ.get('PATH', '')}")
         exporter = os.environ.get("LEANEXPORT") or f"{prefix}/bin/leanexport"  # may be cached
-        export = subprocess.run([exporter, module, "--", *names],
+        # The exporter reads a name at its dots, so one with a numeric part
+        # (#N) is not asked for: it comes as the dependency of another.
+        export = subprocess.run([exporter, module, "--", *[n for n in names if "#" not in n]],
                                 capture_output=True, text=True, timeout=TEST_LIMIT, env=env)
     finally:
         for made in workdir.glob(f"{module}.*"):

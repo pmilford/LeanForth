@@ -76,6 +76,7 @@ require ./source.fs
 53 constant lfa-e-root-name      \ unsupported: _root_ in a declaration's name
 54 constant lfa-e-export         \ unsupported: export and its aliases
 55 constant lfa-e-library-short  \ unsupported: a short name of a library constant
+56 constant lfa-e-leaf           \ a projection leaf anywhere but before $
 60 constant lfa-e-terms-full     \ the term store is full
 61 constant lfa-e-levels-full    \ the level store or a level is too large
 62 constant lfa-e-names-full     \ the name store is full, or a name too long
@@ -182,6 +183,8 @@ create lfa-catalogue
   lfa-e-library-short
   s" not supported yet: a library constant by a short name; write the full name"
   lfa-unsupported,
+  lfa-e-leaf s" a projection leaf is no term: apply it with $ to the term it projects"
+  lfa-invalid,
   lfa-e-terms-full s" out of room: the term store is full" lfa-full,
   lfa-e-levels-full s" out of room: the level store is full or the level too large"
     lfa-full,

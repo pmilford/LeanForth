@@ -57,8 +57,10 @@ require ./library.fs
 : lfa-w-arrow ( a b -- t ) 2 lfa-args lfa-two-terms lfa-here lfa-arrow true
   lfa-term-value ;
 
-\ Terms: f a $, c l ^, Prop, l Type, l Sort, n var#, root: NAME.
-: lfa-w-app ( f a -- t ) 2 lfa-args lfa-two-terms lfa-here lfa-app lfa-term-value ;
+\ Terms: f a $, c l ^, Prop, l Type, l Sort, n var#, root: NAME. Only $
+\ takes a projection leaf, as its function (values.fs).
+: lfa-fn-arg ( f a -- tf ta ) swap lfa>function swap lfa>term ;
+: lfa-w-app ( f a -- t ) 2 lfa-args lfa-fn-arg lfa-here lfa-app lfa-term-value ;
 \ The authoring layer keeps its own limit of lf-decl-universe-capacity (8)
 \ universe arguments, as for declarations, whatever the checker allows.
 : lfa-w-univ ( c l -- c' )

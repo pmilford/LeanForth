@@ -75,7 +75,7 @@ universe level or a number, *c* a constant waiting for universe arguments,
 | `var#` | `( n -- t )` | bound variable n (de Bruijn index) |
 | `root:` NAME | `( -- c )` | the constant NAME in LF-CONST, whatever else has the name |
 | `lit#` | `( n -- t )` | the natural-number literal n (Lean's `Expr.lit (.natVal n)`; a number of one cell, at most 2^63 - 1). `OfNat.ofNat 0 ^ Nat $ 0 lit# $ instOfNatNat 0 lit# $ $ $` is Lean's `(0 : Nat)` |
-| `proj#` NAME | `( i -- t )` | the projection leaf of field i (from 0) of the structure NAME, a full name of a declared constant; `$` applies it to e, which makes Lean's `Expr.proj S i e`: `0 proj# Prod p $` is `p.1` |
+| `proj#` NAME | `( i -- t )` | the projection leaf of field i (from 0) of the structure NAME, a full name of a declared constant; `$` applies it to e, which makes Lean's `Expr.proj S i e`: `0 proj# Prod p $` is `p.1`. The leaf is a term only as the function of `$`; anywhere else (an argument, a statement, a proof, a binder's type, a label) the run stops with error 56 |
 | `label:` NAME | `( t -- t )` | a step label, unique in the declaration |
 | `note"` text`"`, `ai-note"` text`"` | `( t -- t )` | a note by a person, by an AI |
 | `\`, `(` | `( -- )` | comments, as in Forth, on one line |
@@ -322,6 +322,7 @@ below it).
 | 53 | unsupported | not supported yet: _root_ in a declaration's name |
 | 54 | unsupported | not supported yet: export and the aliases it makes |
 | 55 | unsupported | not supported yet: a library constant by a short name; write the full name |
+| 56 | invalid | a projection leaf is no term: apply it with $ to the term it projects |
 | 60 | full | out of room: the term store is full |
 | 61 | full | out of room: the level store is full or the level too large |
 | 62 | full | out of room: the name store is full or the name too long |

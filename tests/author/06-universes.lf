@@ -2,6 +2,9 @@
 \       def Big : Type (u + 1) := Type u
 \       def PairSort (_A : Sort u) (_B : Sort v) : Type (max u v) := Sort (max u v)
 \       def ImaxSort (_A : Sort u) (_B : Sort v) : Type (imax u v) := Sort (imax u v)
+\       def PairOf (A : Sort u) (B : Sort v) : Type (max u v) := PairSort.{v, u} B A
+\ PairOf names PairSort with two different universe arguments, in the
+\ other order: the export must write each (check_author.py, records).
 def Big
   universe u
   u 1 level+ Type
@@ -26,3 +29,12 @@ def ImaxSort
 :=
   u v level-imax Sort
 end ImaxSort
+
+def PairOf
+  universe u  universe v
+  u Sort explicit: A
+  v Sort explicit: B
+  u v level-max Type
+:=
+  PairSort v ^ u ^  B $  A $
+end PairOf

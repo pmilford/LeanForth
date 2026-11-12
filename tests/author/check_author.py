@@ -6,11 +6,22 @@ Usage (from the repository root; GFORTH and LEAN name the toolchains):
   python3 tests/author/check_author.py --write    regenerate tests/author/fixtures.golden
   python3 tests/author/check_author.py --lean     the terms and the lean: lines against Lean
   python3 tests/author/check_author.py --faults   planted faults (needs Lean too)
+  python3 tests/author/check_author.py --records  the export records only (and Lean's,
+                                                  when LEAN is set)
 
 1. Golden: tests/author/report.fs runs every fixture tests/author/*.lf; the
    output must equal fixtures.golden, every fixture that ran must report a
    round trip with the same terms and the same text, and every other one an
    error with its line and column.
+   Records: the export records the kernel is given for every fixture that
+   ran (src/author/export.fs, report.fs's record: lines) must read as an
+   export and hold each theorem, definition and axiom exactly as the words
+   built it (kind, universe parameters, type and value, node for node,
+   binder names and kinds too), once, in file order, and nothing else.
+   With --lean (and --records with LEAN set) each declaration's whole
+   record must equal pinned Lean's export of the fixture's Lean source
+   (kind, name, all, levelParams, hints, safety, isUnsafe, type and value
+   apart from binder names and kinds, which that exporter merges).
 2. Catalogue: the error table of docs/programming/LEANFORTH_WORDS.md gives
    exactly the codes and messages of src/author/errors.fs, in order.
 3. Layering: no module that src/core, src/kernel or src/main.fs loads,
@@ -81,7 +92,16 @@ LIBRARIES = {stem: str(INIT_SLICE)
 LIBRARIES["08-monoid"] = str(HERE / "monoid-slice.ndjson")   # the class alone, made by Lean
 
 # Lean's line -> the term printer's line, where they differ, with the reason.
-KNOWN = {}
+PRIVATE = ("Lean prints a private declaration by its short name, marked private; the "
+           "words have no private declarations and name it in full, numeric part and all")
+TWICE = "_private.tests.reference.author-21-numeric-name.0.twice"
+KNOWN = {
+    "21-numeric-name": {
+        "private theorem twice : ∀ (p : Prop), p → p :=":
+            (f"theorem {TWICE} : ∀ (p : Prop), p → p :=", PRIVATE),
+        "fun p h ↦ twice p h": (f"fun p h ↦ {TWICE} p h", PRIVATE),
+    },
+}
 
 # (name, who must catch it, [(file, old text, new text), ...]): one deliberate
 # bug each. "any": a unit test or a fixture's output; "lean": the comparison
@@ -105,8 +125,8 @@ FAULTS = [
      [(PRINT, "  >r r@ frame-restore swap ok-then? if lf-pf-notes then r> 0 ;",
        "  >r r@ frame-restore drop r> 0 ;")]),
     ("$ swaps function and argument", "any",
-     [("src/author/words.fs", ": lfa-two-terms ( a b -- ta tb ) swap lfa>term swap lfa>term ;",
-       ": lfa-two-terms ( a b -- ta tb ) lfa>term swap lfa>term ;")]),
+     [("src/author/words.fs", ": lfa-fn-arg ( f a -- tf ta ) swap lfa>function swap lfa>term ;",
+       ": lfa-fn-arg ( f a -- tf ta ) lfa>term swap lfa>function ;")]),
     ("-> does not shift", "any",
      [("src/author/build.fs", "over lf-term-first@ swap < if exit then", "drop exit")]),
     ("spelling check ignored", "lean",
@@ -226,6 +246,61 @@ def check_golden(write):
     errors = len(texts) - trips
     print(f"authoring words: {len(texts)} fixtures equal {GOLDEN}; {trips} round trips "
           f"identical (terms and text), {errors} mistakes stopped with line and column")
+    check_records(texts)
+
+
+# ---- The records the kernel is given (src/author/export.fs; H1 of the
+# review of 2026-11-12): each fixture's record: lines, read as an export,
+# against the terms the words built (here) and against pinned Lean's export
+# of the fixture's Lean source (check_lean).
+def forth_records(text):
+    """The records export.fs wrote for a fixture (its record: lines)."""
+    lines = [line[len("record: "):] for line in text.splitlines() if line.startswith("record: ")]
+    try:
+        return Export(lines, leanforth=True)
+    except (ExportError, KeyError, ValueError) as error:
+        raise Failure(f"the records do not read as an export: {error!r}") from error
+
+
+def own_terms(text):
+    """The fixture's own theorems, definitions and axioms (term: lines), not its stubs."""
+    return {name: decl for name, decl in forth_terms(text).items() if decl[0] != STUB}
+
+
+def records_differ(stem, text):
+    """Where the records differ from the words' terms: each theorem, definition
+    and axiom written once, in file order, with its kind, universe parameters,
+    type and value node for node (binder names and kinds too); nothing else."""
+    records, own = forth_records(text), own_terms(text)
+    if records.order != list(own) or "\nrecords: " in text:
+        return [f"{stem}: records declare {records.order}, the words {list(own)}"]
+    try:
+        return [f"{stem}: {name}: {what}\n  record: {want}\n  words: {got}"
+                for name, decl in own.items()
+                for what, got, want in term_parts(decl, records.declaration(name), lambda t: t)
+                if got != want]
+    except (ExportError, KeyError) as error:
+        return [f"{stem}: a record names what no record before it holds: {error!r}"]
+
+
+def check_records(texts):
+    differ = [line for stem, text in sorted(texts.items()) if text.startswith("ran: ok")
+              for line in records_differ(stem, text)]
+    if differ:
+        raise Failure("the records differ from the words' terms:\n" + "\n".join(differ))
+    decls = sum(len(own_terms(text)) for text in texts.values() if text.startswith("ran: ok"))
+    print(f"export records: {decls} declarations of the fixtures written as the words built "
+          "them (kind, universe parameters, type and value, node for node)")
+
+
+def lean_records_differ(stem, text, export):
+    """Where the records differ from pinned Lean's export of the fixture's Lean
+    source: each declaration's whole record (kind, name, all, levelParams,
+    hints, safety, type and value apart from binder names and kinds)."""
+    records = forth_records(text)
+    return [f"{stem}: {name}: record\n  Lean's export: {want}\n  LeanForth's:   {got}"
+            for name in own_terms(text)
+            for got, want in [(records.resolved(name), export.resolved(name))] if got != want]
 
 
 DUMP = (": dump ( -- ) lfa-catalogue begin dup lfa-last? 0= while dup lfa-message-code @ 0 .r"
@@ -489,7 +564,7 @@ def compare_terms(stem, forth, lean):
     """Where the words' declarations differ from Lean's, term for term: from
     Lean's environment exactly, and from the pinned export apart from binder
     names and kinds (which the exporter merges)."""
-    _, dumps, exported = lean
+    _, dumps, exported, _ = lean
     differ = []
     for name, decl in forth.items():
         decl = known_names(stem, decl)
@@ -537,26 +612,48 @@ def lean_reference(texts):
                 exported = {name: export.declaration(name) for name in names}
             except ExportError as error:
                 raise Failure(str(error)) from error
-            reference[path.stem] = (printed, dumps, exported)
+            reference[path.stem] = (printed, dumps, exported, export)
     return reference
 
 
 def lean_differences(stem, reference, text):
     """The lean: lines (not for a fixture with a library: the term printer has
     no types for its constants, so it shows every argument, where Lean hides
-    the implicit ones; the terms are compared all the same) and the terms."""
+    the implicit ones; the terms are compared all the same), the terms and
+    the records."""
     printed = [] if stem in LIBRARIES else reference[stem][0]
     lines = [] if stem in LIBRARIES else forth_lean(text)
     return (compare(stem, printed, lines),
-            compare_terms(stem, forth_terms(text), reference[stem]))
+            compare_terms(stem, forth_terms(text), reference[stem]),
+            lean_records_differ(stem, text, reference[stem][3]))
+
+
+def check_lean_records(texts, reference):
+    differ = [line for stem in reference for line in records_differ(stem, texts[stem])
+              + lean_records_differ(stem, texts[stem], reference[stem][3])]
+    if differ:
+        raise Failure("records differ from pinned Lean's export:\n" + "\n".join(differ))
+    decls = sum(len(own_terms(texts[stem])) for stem in reference)
+    print(f"export records equal pinned Lean's export of the Lean sources: {decls} "
+          f"declarations of {len(reference)} fixtures (kind, name, levelParams, hints, "
+          "safety, type and value)")
+
+
+def check_records_only():
+    """--records: the records against the words' terms and, with LEAN set,
+    against pinned Lean's export (the writer's planted faults run this)."""
+    texts = outputs()
+    check_records(texts)
+    if os.environ.get("LEAN"):
+        check_lean_records(texts, lean_reference(texts))
 
 
 def check_lean():
     texts = outputs()
     reference = lean_reference(texts)
     lines = decls = terms = 0
-    for stem, (printed, _, _) in reference.items():
-        differ_text, differ_terms = lean_differences(stem, reference, texts[stem])
+    for stem, (printed, _, _, _) in reference.items():
+        differ_text, differ_terms, _ = lean_differences(stem, reference, texts[stem])
         if differ_terms:
             raise Failure("terms differ from pinned Lean's export:\n" + "\n".join(differ_terms))
         if differ_text:
@@ -572,7 +669,8 @@ def check_lean():
           f"{names} listed binder name) and to the pinned export (apart from binder names "
           "and kinds, which that exporter merges)")
     print(f"authoring words agree with pinned Lean's #print: {lines} lines "
-          f"({known} known printer difference, listed with its reason)")
+          f"({known} known printer differences, listed with their reasons)")
+    check_lean_records(texts, reference)
 
 
 # ---- LeanForth text checked by the kernel (plan tasks 8.2.1c-d; ADR 0017
@@ -669,6 +767,8 @@ def cli_cases():
          "the LeanForth text was not checked: error 1 at line:col 6:1 (token `nope`)"),
         ("not supported", "theorem t\n  Prop explicit: p  p\n:=\n  p let:\nend t\n", [], None,
          2, "error 51 at line:col 4:5 (token `let:`)"),
+        ("bare projection leaf", "axiom S 0 Type end S\ndef d\n  0 Type\n:=\n  0 proj# S\nend d\n",
+         [], None, 4, "error 56 at line:col 6:1 (token `end`)"),
         ("unknown in library run", head + "  n\nend t\n" + "theorem u Prop := x end u\n",
          [], slice_, 4, "error 1"),
         ("fuel", (HERE / "20-zero-add.lf").read_text(encoding="utf-8"), ["--fuel", "50"],
@@ -836,6 +936,8 @@ def main(args):
             check_slices()
         elif "--faults" in args:
             check_faults()
+        elif "--records" in args:
+            check_records_only()
         else:
             check_golden("--write" in args)
             if "--write" not in args:

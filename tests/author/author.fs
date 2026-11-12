@@ -519,6 +519,18 @@ T{ 4 lf-author-decl lf-fdecl-value @ forth-text rot rot s" 7 lit#" compare -> ou
 T{ 2 lf-author-decl lf-fdecl-value @ forth-text rot rot s" Prod explicit: p 0 proj# Prod p $ fun" compare
    -> outcome-ok 0 }T
 T{ s" import-stub Nat end Nat def f Nat := 0 proj# Missing end f" fails drop drop -> lfa-e-unknown-constant }T
+\ A projection leaf is a term only as the function of $ (review M2): as a
+\ proof, an argument, a binder's type, under -> or a label it stops the run
+\ (error 56) at the word that takes it; applied, it is a projection.
+T{ s" axiom S 0 Type end S def d 0 Type := 0 proj# S end d" fails -> 56 1 48 }T
+T{ s" axiom S 0 Type end S def d 0 Type := Prop 0 proj# S $ end d" fails -> 56 1 53 }T
+T{ s" axiom S 0 Type end S def d 0 proj# S explicit: x 0 Type := Prop end d" fails
+   -> 56 1 38 }T
+T{ s" axiom S 0 Type end S def d 0 Type := 0 proj# S Prop -> end d" fails -> 56 1 53 }T
+T{ s" axiom S 0 Type end S def d 0 Type := 0 proj# S label: a end d" fails -> 56 1 55 }T
+T{ lf-author-code lf-author-outcome -> outcome-invalid }T
+T{ s" axiom S 0 Type end S def d S explicit: s 0 Type := 0 proj# S s $ end d" run
+   -> outcome-ok }T
 \ A label or note the words cannot read back as itself (added through the
 \ note table, not by the words) is refused, never printed as live words.
 : noted ( c-addr u kind -- outcome )
@@ -588,6 +600,11 @@ T{ s" theorem t Prop explicit: p p := p end t" run 0 calls ! ' refusing lf-autho
 T{ 20 lfx lfx-writer jw-limit ! export-now -> outcome-full }T
 lfx-line-capacity lfx lfx-writer jw-limit !
 T{ 0 0 lf-tag-let lf-term-binary nip export-now -> true outcome-unsupported }T
+\ A reference to a projection's leaf is refused, never written (review M2).
+T{ s" theorem t Prop explicit: p p := p end t" exported -> outcome-ok }T
+T{ 1 0 lf-hterm-proj drop drop 0 swap lf-tag-app lf-term-binary nip export-now
+   -> true outcome-unsupported }T
+T{ s" 18446744073709551615" holds? -> false }T
 
 \ A library (library.fs, plan task 8.2.1d): a finder that knows Lib.c, of
 \ no universe parameters, a definition of height 3. Its constant gets a

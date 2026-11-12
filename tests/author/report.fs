@@ -8,7 +8,10 @@
 \   term: every declaration as a tree dump without labels and notes
 \     (dump.fs), compared term for term with pinned Lean's export of the
 \     same declarations by check_author.py (lean_terms.py);
-\   words: every declaration printed as LeanForth words (print-forth.fs);
+\   record: each export record the kernel is given (export.fs), compared
+\     by check_author.py with the term: lines and with pinned Lean's
+\     export of the fixture's Lean source;
+\   words:every declaration printed as LeanForth words (print-forth.fs);
 \   round trip: the printed words run again, in a new checker context,
 \     and printed again: the terms (with binder names and kinds, levels,
 \     constants and universe arguments, labels and notes, compared by an
@@ -124,9 +127,15 @@ variable line-start
   lf-author-count 0 ?do i ['] dump-decl own loop
   ['] capture is dump-out true dump-notes? ! ;
 : .own ( i -- ) dup ['] .declaration own dup lfa-library? if drop else .notes then ;
+\ The records export.fs hands the kernel (lf-author-export), each line
+\ starting with record: , then the export's outcome when it is not ok.
+: record-out ( c-addr u -- outcome ) ." record: " type cr outcome-ok ;
+: .records ( -- )
+  ['] record-out lf-author-export dup ok? if drop exit then
+  ." records: " outcome-text type cr ;
 : report-run ( -- )
   ['] type lf-print-unicode lf-print-setup
-  lf-author-count 0 ?do i .own loop .terms .printed round-trip ;
+  lf-author-count 0 ?do i .own loop .terms .records .printed round-trip ;
 : report ( c-addr u -- )
   lf-author-begin lf-author-file dup ok?
   if drop ." ran: ok" cr report-run exit then

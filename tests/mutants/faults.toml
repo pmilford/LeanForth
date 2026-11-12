@@ -5067,6 +5067,67 @@ new = '''  dup own-clear ['] tier-marked and-then staging-empty stage-state! ;''
 test = "$GFORTH tests/core/stage.fs"
 reason = "8.2.1d: extending a stage drops the library's declarations, so the text's constants resolve to nothing"
 
+# The writer's faults of the review of 2026-11-12 (H1), each caught by the
+# records comparison (check_author.py --records): the records against the
+# words' terms, and with LEAN against pinned Lean's export of each fixture.
+
+[[fault]]
+id = "lf-export-max-imax-swapped"
+file = "src/author/export.fs"
+old = '''  dup node-tag @ lf-level-tag-max = if s" max" else s" imax" then lfx-pair ;'''
+new = '''  dup node-tag @ lf-level-tag-max = if s" imax" else s" max" then lfx-pair ;'''
+test = "GFORTH=$GFORTH python3 tests/author/check_author.py --records"
+reason = "H1: max and imax swapped: 06-universes's PairSort checked as Type (imax u v); its record's type differs from the words' term"
+quick = true
+
+[[fault]]
+id = "lf-export-level-params-reversed"
+file = "src/author/export.fs"
+old = '''  swap lf-fdecl-universes @ 0 ?do dup i cells + @ lfx-u loop drop lfx-w jw-close-array ;'''
+new = '''  swap lf-fdecl-universes @ dup 0 ?do over over 1- i - cells + @ lfx-u loop 2drop lfx-w jw-close-array ;'''
+test = "GFORTH=$GFORTH python3 tests/author/check_author.py --records"
+reason = "H1: a declaration's universe parameters reversed: PairSort.{v, u} for PairSort.{u, v}"
+
+[[fault]]
+id = "lf-export-universe-arguments-first"
+file = "src/author/export.fs"
+old = '''  0 ?do dup i lf-cref-pair@ drop lfx-level# lfx-u loop drop lfx-w jw-close-array ;'''
+new = '''  0 ?do dup 0 lf-cref-pair@ drop lfx-level# lfx-u loop drop lfx-w jw-close-array ;'''
+test = "GFORTH=$GFORTH python3 tests/author/check_author.py --records"
+reason = "H1: every universe argument written as the first: 06-universes's PairOf names PairSort.{v, v}, not PairSort.{v, u}"
+
+[[fault]]
+id = "lf-export-numeric-part"
+file = "src/author/export.fs"
+old = '''  s" num" lfx-inner dup lf-name-payload s" i" lfx-member'''
+new = '''  s" num" lfx-inner dup lf-name-payload 1+ s" i" lfx-member'''
+test = "GFORTH=$GFORTH python3 tests/author/check_author.py --records"
+reason = "H1: numeric name parts written one too high: 21-numeric-name's _private....0.twice declared as ....1.twice"
+
+[[fault]]
+id = "lf-library-height-zero"
+file = "src/cli/check-lf.fs"
+old = ''': lfc-height ( d -- h ) dup lfc-regular? if ck-stage staged-hint@ else drop 0 then ;'''
+new = ''': lfc-height ( d -- h ) drop 0 ;'''
+test = 'test -n "$LEAN" && GFORTH=$GFORTH python3 tests/author/check_author.py --records'
+reason = "H1: library definitions' heights read as 0: 14-case's bothIds (naming Init's id and Id, height 1) gets height 1, Lean's 2"
+
+[[fault]]
+id = "lf-leaf-as-term"
+file = "src/author/values.fs"
+old = ''': lfa>term+ ( value -- term fresh ) lfa>any+ lfa-whole ;'''
+new = ''': lfa>term+ ( value -- term fresh ) lfa>any+ ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "M2: a bare projection leaf accepted as a proof, argument or binder type; the export then refers to a node no record holds"
+
+[[fault]]
+id = "lf-export-leaf-reference-written"
+file = "src/author/export.fs"
+old = ''': lfx-expr-ref ( term -- n ) lfx-expr# dup 0< if outcome-unsupported lfx-refuse then ;'''
+new = ''': lfx-expr-ref ( term -- n ) lfx-expr# ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "M2: a reference to a projection's leaf written as a number (-1), which the stage refuses as a bad reference of an export the user never sees"
+
 # --- mutual inductive blocks (plan task 5.2.5a; ADR 0015 §13, test plan 7) ---
 # src/kernel/check-block.fs (steps 6-8 per type, E1, C3 per type),
 # inductive-block.fs (B0, constructors' types), inductive-recursor.fs (one

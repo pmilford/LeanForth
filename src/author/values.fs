@@ -103,8 +103,14 @@ lfa-item-capacity /lfa-item 0 context-store: lfa-items
     lfa-kind-name of lfa-var-term endof
     lfa-kind-const of lfa-const-term endof
     lfa-e-not-term lfa-fail endcase ;
-: lfa>term+ ( value -- term fresh ) dup 0< lfa-e-literal lfa-must lfa-take lfa-item-term ;
+: lfa>any+ ( value -- term fresh ) dup 0< lfa-e-literal lfa-must lfa-take lfa-item-term ;
+\ A projection's leaf is a term only as the function of $ (lfa>function),
+\ which applies it to the term it projects; anywhere else it stops the run
+\ (error 56), so no node and no record ever refers to a bare leaf.
+: lfa-whole ( term fresh -- term fresh ) over lfa-leaf? 0= lfa-e-leaf lfa-must ;
+: lfa>term+ ( value -- term fresh ) lfa>any+ lfa-whole ;
 : lfa>term ( value -- term ) lfa>term+ drop ;
+: lfa>function ( value -- term ) lfa>any+ drop ;
 
 \ A value as a universe level: a number n is the level n.
 : lfa-universe ( item -- level ) lfa-item-second @ dup 0< 0= lfa-e-not-universe lfa-must ;
