@@ -852,7 +852,8 @@ Asked in plain language with a recommendation for each item (the full list with 
 - **Speed and memory, no Lean rule changed, approved**: result caches (4.2.7); compact-store steps S0-S4 and S6
   (a, c, d, e); the fuel model of ADR 0014 Amendments 3-5 (a unit per distinct node, not per path) and LeanForth's
   own audits once per node per check (Amendment 4). The default fuel of 20,000,000 per declaration follows the
-  owner's approval of 2026-11-10 to raise it.
+  owner's approval of 2026-11-10 to raise it (raised again to 100,000,000 on 2026-11-11; see "Later decisions of
+  2026-11-11").
 - **Formats and inputs [import][format], approved**: the importer's index numbering as Lean's reader allows (sparse,
   any order); the opt-in `--any-lean-version`; report format `check-report-0.2` and run records `run-record-0.2`
   (the *skipped* verdict; 0.1 kept unchanged); Lean's JSON number spellings and unknown record members ignored;
@@ -890,3 +891,8 @@ merged) with its follow-up S5B, and step S7 (parallel checking).
   by default ("should be also for other large libraries... or even all").
 - **CPU use**: by default up to 10 busy threads (all of WSL); on request a "day" mode of about 6 threads while the
   owner uses the computer.
+- **Default fuel 100,000,000 per declaration** (owner, choosing the recommendation): three arena tests do exactly the
+  work Lean does but need 20-28 million units, so at 20M LeanForth gave up where Lean accepts. Fuel is LeanForth's
+  own limit (Lean has none); a larger budget can only move a verdict toward Lean's, at the cost of a slower give-up
+  on a declaration that never finishes. Verdict version 3 (agent PF).
+- **Term memory per node** reviewed later (plan 6.5.9; owner: "Do we gain anything? Lose anything?").

@@ -10,8 +10,10 @@
 \ stamp unit; a constant's stamps are its own identity, as a symbolic
 \ Sort's term stamp is, and its reference's, as a Sort's level stamp is,
 \ both full cells), the marks column lf-term-marks with
-\ its run counter lf-mark-runs, the input nodes' marks lf-input-marks
-\ and their spare lf-mark-spare (below), the audit memo's record
+\ its run counter lf-mark-runs, the input nodes' mark pages (their
+\ directory lf-mark-pages and list lf-mark-made, the pages heap blocks
+\ freed by a teardown word) and their spare lf-mark-spare (below), the
+\ audit memo's record
 \ lf-audit-state and its list lf-audit-reached (below), and one
 \ walk record, lf-cterm-walker, all members of the checker context
 \ (lib/context.fs). The hook lf-audit-checking? is set while loading
@@ -95,30 +97,61 @@ lf-walk-room context-walk: lf-cterm-walker
 /slab context-record: lf-term-marks
 2 cells ' lf-term-marks lf-term-columns column-add
 1 cells context-record: lf-mark-runs
-\ The input nodes of a term view (terms.fs) have their units in a slab
-\ of their own, sized and erased when a view is attached or detached
-\ (lf-term-view-hook); a node beyond it (a view whose slab the heap could
-\ not hold, which terms.fs then detaches) gets a spare unit, erased each
-\ time, so it is never held: more visits, never another outcome.
-2 cells context-slab: lf-input-marks
+\ The input nodes of a term view (terms.fs) have their units (one per
+\ tier record and leaf entry, terms.fs's lf-term-input-unit) in pages of
+\ 2^lf-mark-page-bits units, each made, zeroed, when a unit of it is
+\ first reached, listed, and given back by lf-marks-release, which every
+\ check runs first (lf-audit-afresh): a unit is read only by the run or
+\ the memo epoch that wrote it, every check starts new ones, so no mark
+\ outlives its check, and a context holds only the pages its current
+\ check reached (shared input, ADR 0016 S8; before, one slab over every
+\ input unit, 16 bytes each, about 1.7 GB per worker for all of Mathlib).
+\ The directory holds a page's block per page, 0 for none; it is sized,
+\ and every page given back, when a view is attached or detached
+\ (lf-term-view-hook). A node beyond it (a view whose directory the
+\ heap could not hold, which terms.fs then detaches) or whose page the
+\ heap cannot give gets a spare unit, erased each time, so it is never
+\ held: more visits, never another outcome.
+8 constant lf-mark-page-bits
+1 lf-mark-page-bits lshift 1- constant lf-mark-page-mask
+1 cells context-slab: lf-mark-pages   \ the directory: per page, its block or 0
+1 cells context-slab: lf-mark-made    \ the pages made since the last release
 2 cells context-record: lf-mark-spare
-: lf-input-marks-erase ( -- )
-  0 lf-input-marks slab-at lf-term-input-units 2 cells * erase ;
+: lf-mark-page ( p -- addr ) lf-mark-pages slab-at ;
+: lf-mark-page-bytes ( -- u ) 1 lf-mark-page-bits lshift 2* cells ;
+\ Every page made given back, its directory cell emptied (also the
+\ teardown: a context's pages are freed with it).
+: lf-mark-unmake ( p -- ) lf-mark-page dup @ ?dup if free drop then 0 swap ! ;
+: lf-marks-release ( -- )
+  lf-mark-made slab-count 0 ?do i lf-mark-made slab-at @ lf-mark-unmake loop
+  lf-mark-made slab-clear ;
+' lf-marks-release context-teardown
+: lf-mark-pages# ( -- n )
+  lf-term-input-units lf-mark-page-mask + lf-mark-page-bits rshift ;
 : lf-input-marks-ready ( -- outcome )
-  lf-term-input-units lf-input-marks slab-reserve dup ok? if lf-input-marks-erase then ;
+  lf-marks-release lf-mark-pages# lf-mark-pages slab-hold dup ok?
+  if 0 lf-mark-page lf-mark-pages slab-capacity cells erase then ;
 ' lf-input-marks-ready is lf-term-view-hook
-\ One unit per tier record (terms.fs's lf-term-input-unit); a projection's
-\ leaf, which has none, gets the spare.
 : lf-mark-spared ( -- unit ) lf-mark-spare dup 2 cells erase ;
+\ Page p made: listed first, so that the release finds it whatever
+\ fails; its block, or 0 when the list or the heap has no room.
+: lf-mark-zeroed ( p -- addr|0 )
+  lf-mark-page-bytes allocate0 if 2drop 0 exit then tuck swap lf-mark-page ! ;
+: lf-mark-listed ( p -- addr|0 )
+  1 lf-mark-made slab-claim ok? 0= if 2drop 0 exit then
+  lf-mark-made slab-at over swap ! lf-mark-zeroed ;
+: lf-mark-paged ( p -- addr|0 ) dup lf-mark-page @ ?dup if nip else lf-mark-listed then ;
+: lf-mark-in-page ( u addr -- unit ) swap lf-mark-page-mask and 2* cells + ;
 : lf-input-mark-at ( node -- unit )
   lf-term-input-unit 0= if lf-mark-spared exit then
-  dup lf-input-marks slab-capacity u<
-  if lf-input-marks slab-at else drop lf-mark-spared then ;
+  dup lf-mark-page-bits rshift dup lf-mark-pages slab-capacity u<
+  if lf-mark-paged ?dup if lf-mark-in-page exit then else drop then
+  drop lf-mark-spared ;
 \ A node's unit (two cells), input or store.
 : lf-mark-at ( node -- unit )
   dup lf-term-input? if lf-input-mark-at exit then
   lf-term-base - lf-term-marks column-at ;
-: lf-marks-erase ( -- ) lf-term-marks column-erase lf-input-marks-erase ;
+: lf-marks-erase ( -- ) lf-term-marks column-erase lf-marks-release ;
 : lf-mark-next ( -- run )
   lf-mark-runs @ 1+ dup 0= if lf-marks-erase 1+ then dup lf-mark-runs ! ;
 : lf-walk-marking ( walk -- ) lf-mark-next swap walk-arg ! ;
@@ -211,6 +244,10 @@ end-structure
 \ New epochs: nothing kept before counts any more.
 : lf-audit-renew ( -- )
   lf-mark-next lf-audit-state lf-aud-closed ! lf-audit-capture lf-audit-reopen ;
+\ A check's start (kernel/check-declaration.fs): the input's mark pages
+\ given back, then new epochs. Exact only where no marking run is under
+\ way, as at a check's start; a renewal within a check keeps the pages.
+: lf-audit-afresh ( -- ) lf-marks-release lf-audit-renew ;
 \ Stale: no epoch yet, the memo was off, a generation moved, or the run
 \ counter wrapped (it is below the newest epoch; the marks were erased).
 : lf-audit-wrapped? ( -- flag ) lf-mark-runs @ lf-audit-state lf-aud-open @ u< ;

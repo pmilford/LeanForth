@@ -1,9 +1,10 @@
 \ The parallel scheduler of the checked environment (ADR 0012 E7, G-P1 to
 \ G-P7; ADR 0009, order of work 4; plan tasks 7.1.1, 7.2.1 in part,
 \ 7.3.1): every declaration of the input checked as a job of the job
-\ pool (lib/task.fs) in one of several worker contexts, each holding the
-\ same input (in v0 the input is per context, core/input.fs, so each
-\ worker is fed the same stage and must have the same fingerprint), and
+\ pool (lib/task.fs) in one of several worker contexts, each reading the
+\ same input, the driving context's, in place (import/feed.fs's
+\ lf-feed-shared; ADR 0016 S8: each worker keeps only its levels,
+\ scratch, caches, memos and marks, and must have the same fingerprint), and
 \ published by the single publisher, lf-env-hand-over-job
 \ (env-publish.fs), in the driving task, outside every job (G-P1). The
 \ verdicts and the environment are the serial run's (lf-env-run), however

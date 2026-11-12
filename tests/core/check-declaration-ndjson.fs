@@ -422,5 +422,25 @@ T{ twice e5-file -> true }T
 T{ e5-checks @ 500 > -> true }T
 ." E5 chain against scan: " e5-checks @ . ." lookups agree" cr
 
+\ The audit's marks of input nodes are pages that a check holds (shared
+\ input, ADR 0016 S8; core/constant-term-boundary.fs): the fed check of
+\ composition left some, and a check's start (lf-audit-afresh) gives every
+\ one back, its directory empty.
+: pages-held ( -- n ) lf-mark-made slab-count ;
+: directory-empty? ( -- flag )
+  true lf-mark-pages slab-capacity 0 ?do i lf-mark-page @ 0= and loop ;
+: pages-kept ( -- held held' empty? )
+  s" tests/reference/composition.ndjson" fed-checked ok? must pages-held
+  lf-audit-afresh pages-held directory-empty? env-done unstage ;
+T{ pages-kept rot 0> -> 0 true true }T
+\ And every check gives them back when it begins: a mark planted, after
+\ the feed, in the unit of an input projection no declaration uses (node
+\ 7 of horizon.ndjson) is gone after the check of its one axiom.
+: planted ( -- addr ) 7 lf-input-mark-at ;
+: plant-run ( -- flag )
+  s" tests/cli/jobs/horizon.ndjson" fed ok? must -12345 planted !
+  fuel 64 lf-check-input swap the-env ! drop planted @ -12345 <> env-done unstage ;
+T{ plant-run -> true }T
+
 cases-done
 bye

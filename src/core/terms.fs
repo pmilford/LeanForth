@@ -90,7 +90,9 @@
 \ candidate record lf-term-key, the switch lf-term-share-off and the view
 \ record lf-term-view, members
 \ of the checker context (lib/context.fs) whose blocks are on the heap,
-\ freed by their teardown words, so each context has its own terms;
+\ freed by their teardown words, so each context has its own terms (a
+\ worker's view may read the leaf and binder tables of the context that
+\ fed them, through copies of their headers: lf-term-borrow);
 \ single-threaded within one context. The set of unshared tags, the
 \ input tag table and the
 \ leaf-data hook are fixed while loading and read-only afterwards. A
@@ -179,6 +181,10 @@ begin-structure /lf-tview
   /htab +field lf-tview-fields   \ leaf entries by tag and fields
   /slab +field lf-tview-leaves   \ the entries: node, first, second, stamp
   /htab +field lf-tview-binders  \ input binders by tag and children
+  field: lf-tview-borrowed       \ true: the four tables above are another
+                                 \ context's, read in place (lf-term-borrow)
+  field: lf-tview-horizon        \ 0, or no leaf entry of a node from it on
+                                 \ is found (lf-term-horizon!)
 end-structure
 /lf-tview context-record: lf-term-view
 : lf-term-base ( -- n ) lf-term-view lf-tview-base @ ;
@@ -286,9 +292,22 @@ create lf-tfields-hooks /htab-hooks allot
 : lf-tin-key! ( tag first second -- key h )
   lf-tin-key tuck 2 cells + ! tuck cell+ ! tuck ! dup >r @ r@ cell+ @ r@ 2 cells + @
   lf-tfields-hash r> swap ;
+\ A node below the horizon, when one is set (see lf-term-horizon! below;
+\ the cell holds the horizon plus one, 0 for none).
+: lf-tin-before? ( node -- flag )
+  lf-term-view lf-tview-horizon @ ?dup if 1- u< else drop true then ;
 : lf-tin-leaf-find ( tag first second -- node true | false )
   lf-tin-key! lf-term-view lf-tview-fields htab-find
-  if lf-tleaf lf-tleaf-node @ true else drop false then ;
+  if lf-tleaf lf-tleaf-node @ dup lf-tin-before? dup 0= if nip then
+  else drop false then ;
+\ The horizon: while one is set, a leaf entry of a node from it on is not
+\ found by its fields. A worker that shares a fed input
+\ (import/feed.fs's lf-feed-shared) remakes the feed's copies of
+\ expression e with the horizon 2e, so that each finds only the leaves
+\ the feed had entered when it made that copy, as when it fed them;
+\ lf-term-unbounded ends it.
+: lf-term-horizon! ( node -- ) 1+ lf-term-view lf-tview-horizon ! ;
+: lf-term-unbounded ( -- ) 0 lf-term-view lf-tview-horizon ! ;
 
 \ Reading an input node. Unchecked, but a leaf without an entry reads as
 \ fields 0 0 and is not valid.
@@ -559,10 +578,16 @@ create lf-term-hooks /htab-hooks allot
 \ constant-term-boundary.fs); set while loading.
 defer lf-term-view-hook ( -- outcome )
 ' outcome-ok is lf-term-view-hook
+\ The four tables, nodes to binders, lie together in the view record; a
+\ borrowed view's are another context's (lf-term-borrow below), so only
+\ the copies of their headers are erased.
+0 lf-tview-binders /htab + 0 lf-tview-nodes - constant /lf-tview-shared
+: lf-tview-tables-free ( view -- )
+  dup lf-tview-borrowed @ if lf-tview-nodes /lf-tview-shared erase exit then
+  dup lf-tview-nodes htab-free dup lf-tview-fields htab-free
+  dup lf-tview-leaves slab-free lf-tview-binders htab-free ;
 : lf-tview-free ( -- )
-  lf-term-view dup lf-tview-probe cons-free dup lf-tview-nodes htab-free
-  dup lf-tview-fields htab-free dup lf-tview-leaves slab-free
-  dup lf-tview-binders htab-free /lf-tview erase ;
+  lf-term-view dup lf-tview-probe cons-free dup lf-tview-tables-free /lf-tview erase ;
 :noname ( -- ) lf-tview-free ; context-teardown
 : lf-tview-tables ( -- outcome )
   4 lf-tnode-hooks lf-term-view lf-tview-nodes htab-init dup ok? 0= if exit then drop
@@ -590,6 +615,45 @@ defer lf-term-view-hook ( -- outcome )
 \ have units of their own (lf-term-input-unit): ok, or the hook's failure
 \ (full when the heap has no room), the view kept.
 : lf-term-view-grown ( -- outcome ) lf-term-view-hook ;
+
+\ Sharing a fed view (shared input, ADR 0016 S8; import/feed.fs's
+\ lf-feed-shared): a context attached to the same tier as the source
+\ context reads the source's leaf and binder tables in place, through
+\ copies of their headers, its own empty tables freed first; the hash
+\ tables' copies are frozen (lib/htab.fs), so a find writes nothing and no
+\ entry can be added. Its probe, store, stamps and marks stay its own.
+\ The source, which fed the tables (import/feed.fs), must outlive this
+\ context and add no entry while it reads them; they are never freed here
+\ (lf-tview-tables-free erases the copies). ok, then the hook again (its
+\ failure, full, keeps the view); invalid, nothing changed, when this
+\ context has no view, its tier is not the source's, it borrowed already
+\ or the source is this context. lf-member-in gives the address of a
+\ member of the current context in another context: every context has
+\ the same layout (lib/context.fs).
+: lf-member-in ( addr context -- addr' ) swap lf-context @ - + ;
+\ The units of a slab member copied from the same member of the source
+\ context into this context's, which must be empty (the literals' limbs
+\ and bytes, a few kilobytes, which checks append to): ok; invalid when it
+\ is not empty or the source is this context; full when the heap has no
+\ room.
+: lf-slab-bytes-of ( slab -- addr u ) 0 over slab-at swap slab-used-bytes ;
+: lf-slab-copy-in ( slab source -- outcome )
+  over swap lf-member-in 2dup = 2 pick slab-count 0<> or
+  if 2drop outcome-invalid exit then
+  dup slab-count 2 pick slab-claim nip dup ok? 0= if nip nip exit then drop
+  lf-slab-bytes-of rot 0 swap slab-at swap move outcome-ok ;
+: lf-tview-frozen ( view -- )
+  dup lf-tview-nodes htab-freeze dup lf-tview-fields htab-freeze
+  lf-tview-binders htab-freeze ;
+: lf-tview-copy ( source-view -- )
+  lf-term-view dup lf-tview-tables-free >r lf-tview-nodes r@ lf-tview-nodes
+  /lf-tview-shared move true r@ lf-tview-borrowed ! r> lf-tview-frozen ;
+: lf-tview-lendable? ( source-view -- flag )
+  dup lf-term-view <> swap lf-tview-tier @ lf-term-tier = and lf-term-viewed? and
+  lf-term-view lf-tview-borrowed @ 0= and ;
+: lf-term-borrow ( source -- outcome )
+  lf-term-view swap lf-member-in dup lf-tview-lendable?
+  if lf-tview-copy lf-term-view-grown else drop outcome-invalid then ;
 
 \ Give input leaf node index its fields and stamp (the importer, after
 \ attaching; see the header): ok; invalid for a number that is no input

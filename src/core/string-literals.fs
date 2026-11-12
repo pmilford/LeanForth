@@ -27,6 +27,9 @@ require ./terms.fs
 lf-tag-str tag-str lf-term-input-leaf-tag
 1 chars context-slab: lf-str-bytes
 
+\ The bytes of a source context's fed input copied, as literals.fs's
+\ lf-lit-copy copies limbs (14,045 bytes for Mathlib's first sixth).
+: lf-str-copy ( source -- outcome ) lf-str-bytes swap lf-slab-copy-in ;
 : lf-str-leaf? ( node -- flag ) lf-term-tag@ lf-tag-str = ;
 \ One of Lean's Expr.lit: a natural-number literal (core/literals.fs) or
 \ a string literal.

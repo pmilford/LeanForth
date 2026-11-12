@@ -691,8 +691,12 @@ E7's scheduler is built (`src/kernel/env-schedule.fs`, plan task 7.3.1;
 `check --jobs N`, default 1; [kernel] [runtime] review pending). It adds
 no typing rule and changes no verdict; how it keeps G-P1 to G-P7:
 
-1. **Workers (E1, G-P6).** The input is still per context: each of N
-   worker contexts is fed the same sealed stage and must have the run's
+1. **Workers (E1, G-P6).** The input was per context: each of N
+   worker contexts was fed the same sealed stage. Since 2026-11-11 (ADR
+   0016 Amendment 2, the shared input) the workers read the driving
+   context's fed input in place, as E7's table has it (shared, written by
+   the importer before tasks start, read by all), keeping only their own
+   scratch, caches, memos and marks; each must still have the run's
    input fingerprint (`cli/check-run.fs`). A check is a job of the job
    pool; `lf-env-begin` runs in the worker's context in the driving task
    before the job is submitted, and after the job the driving task, with

@@ -56,6 +56,21 @@
 \ with two optional hooks for a presentation that reads what the feed
 \ drops (see "Hooks" below); lf-feed is it with none.
 \
+\ Shared input (ADR 0016 S8; plan task 7.2.1). lf-feed-shared ( stage
+\ feed source -- outcome ) feeds a parallel check's worker
+\ (cli/check-run.fs) without a copy of its own: the source context, which
+\ lf-feed fed from the same stage and which makes nothing while others
+\ read it, keeps the one input every worker reads in place -- its
+\ declarations, their name index and inductive data (core/input.fs's
+\ lf-input-borrow), the view's leaf and binder tables (core/terms.fs's
+\ lf-term-borrow) and its references (core/constant-references.fs's
+\ lf-cref-borrow) -- and the worker builds only what its checks write
+\ beside or above: its levels (made as the source made them, so equal
+\ numbers and identities), the level context, the session, its literals'
+\ limbs and bytes (copied: a few kilobytes) and the copies of mdata
+\ expressions and the nodes above them, if the source made any. Its
+\ input's fingerprint is then the source's (cli/check-run.fs checks it).
+\
 \ State: none of its own; every word takes a feed record (/feed), which
 \ owns its heap blocks (the levels' export-to-store map, zeroed, so that
 \ an entry never set is no handle; a bit per expression and the list of
@@ -99,6 +114,7 @@ begin-structure /feed
   field: feed-dirty        \ heap: a bit per stage expression copied
   2 cells +field feed-copy-buf   \ heap: the copies, and their room
   field: feed-copies#      \ the copies made
+  field: feed-source       \ lf-feed-shared's source context, or 0
   /lf-idecl +field feed-decl
 end-structure
 
@@ -605,11 +621,46 @@ here feed-kinds - 1 cells / constant feed-kinds#
   drop feed-tier lf-term-attach ;
 : feed-session ( feed -- outcome ) drop lf-ssession-begin flag>outcome ;
 : feed-end ( feed -- outcome ) feed-members @ if outcome-invalid else lf-input-end then ;
+
+\ ---- Sharing (see "Shared input" in the header): what the source context
+\ fed is read in place or copied, each share ( source -- outcome ) in
+\ order; then the source's copies, if it made any, are made again.
+create feed-shares
+  ' lf-term-borrow , ' lf-cref-borrow , ' lf-input-borrow ,
+  ' lf-lit-copy , ' lf-str-copy ,
+here feed-shares - 1 cells / constant feed-shares#
+: feed-share ( source k -- source outcome ) cells feed-shares + @ over swap execute ;
+: feed-borrow ( feed -- outcome )
+  feed-source @ outcome-ok feed-shares# 0 ?do
+    drop i feed-share dup ok? 0= if nip unloop exit then
+  loop nip ;
+\ The copies: the same expressions marked (no binder entered: the table
+\ is the source's) and copied, each with the horizon of its expression
+\ (core/terms.fs's lf-term-horizon!), so that it finds only the leaves
+\ the source's feed had entered when it made that copy.
+: feed-mark-copy ( e feed -- outcome )
+  2dup 2dup feed-tier expr-tag@ feed-to-copy? if feed-dirty! else 2drop then outcome-ok ;
+: feed-place-copy ( e feed -- outcome )
+  2dup feed-dirty? 0= if 2drop outcome-ok exit then over 2* lf-term-horizon! feed-expr ;
+: feed-made-copies? ( feed -- flag )
+  lf-terms swap feed-source @ lf-member-in store-count @ 0<> ;
+: feed-copies ( feed -- outcome )
+  dup feed-made-copies? 0= if drop outcome-ok exit then
+  dup ['] feed-mark-copy feed-each dup ok? 0= if nip exit then
+  drop ['] feed-place-copy feed-each lf-term-unbounded ;
+
+\ The steps of a feed and of a shared feed, as many in each.
 create feed-steps
   ' feed-fresh , ' feed-capacities , ' feed-maps , ' feed-context , ' feed-session ,
   ' feed-levels-all , ' feed-exprs-all , ' feed-room , ' feed-decls-all , ' feed-end ,
 here feed-steps - 1 cells / constant feed-steps#
-: feed-step ( feed k -- outcome ) cells feed-steps + @ execute ;
+create feed-shared-steps
+  ' feed-fresh , ' feed-capacities , ' feed-maps , ' feed-context , ' feed-session ,
+  ' feed-levels-all , ' feed-borrow , ' feed-copies , ' feed-room , ' feed-end ,
+here feed-shared-steps - 1 cells / feed-steps# <>
+[if] .( feed.fs: the shared feed must have as many steps) cr abort [then]
+: feed-table ( feed -- addr ) feed-source @ if feed-shared-steps else feed-steps then ;
+: feed-step ( feed k -- outcome ) cells over feed-table + @ execute ;
 : feed-run ( feed -- outcome )
   feed-steps# 0 do dup i feed-step dup ok? 0= if nip unloop exit then drop loop
   drop outcome-ok ;
@@ -626,11 +677,21 @@ here feed-steps - 1 cells / constant feed-steps#
 \ mdata expression): an input binder read in place keeps its name and
 \ kind in its record (core/terms.fs's lf-term-input-binder@, which the
 \ print command's side table reads).
-: lf-feed-hooked ( stage feed binder-hook decl-hook -- outcome )
+: feed-set ( stage feed binder-hook decl-hook -- feed )
   2>r dup /feed erase tuck feed-stage !
-  2r> 2 pick feed-decl-hook ! over feed-binder-hook !
+  2r> 2 pick feed-decl-hook ! over feed-binder-hook ! ;
+: feed-go ( feed -- outcome )
   dup feed-stage @ stage-sealed? 0= if drop outcome-invalid exit then
   dup ['] feed-run catch ?dup if >r drop feed-free r> throw then swap feed-free ;
+: lf-feed-hooked ( stage feed binder-hook decl-hook -- outcome ) feed-set feed-go ;
 : lf-feed ( stage feed -- outcome ) 0 0 lf-feed-hooked ;
+\ The shared feed (see "Shared input" in the header): this context shares
+\ the input that the source context, another, was fed from the same stage
+\ by lf-feed and has not changed since: ok; invalid when it cannot be
+\ shared (another stage, a source that made references since it sealed or
+\ shares another's itself, or this context itself), or as lf-feed. A
+\ THROW passes on as from lf-feed.
+: lf-feed-shared ( stage feed source -- outcome )
+  >r 0 0 feed-set r> over feed-source ! feed-go ;
 \ Detaching the names of a stage ends its term view too (core/names.fs).
 :noname ( -- ) feed-unview ; is lf-name-detach-hook
