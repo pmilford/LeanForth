@@ -1739,6 +1739,36 @@ class MemoryPerCheck(unittest.TestCase):
         self.assertEqual((status, verdicts.pop("big"), set(verdicts.values())),
                          (3, "full", {"accepted"}))
 
+    def test_sweep(self):
+        """From 1 to 5 MB big is full up to some limit and accepted from
+        there on, never earlier, and each limit prints the same text with
+        --jobs 3 as one at a time."""
+        seen = []
+        for mb in range(1, 6):
+            args = ["--no-manifest", "--memory-per-check", str(mb), self.export]
+            serial = run("check", *args)[:2]
+            self.assertEqual(run("check", "--jobs", "3", *args)[:2], serial, mb)
+            seen.append(re.search(r"^big: (\w+)", serial[1], re.M).group(1))
+        full = seen.count("full")
+        self.assertTrue(0 < full < 5, seen)
+        self.assertEqual(seen, ["full"] * full + ["accepted"] * (5 - full))
+
+    def test_counted_not_measured(self):
+        """The bytes are counted per record, not read from the heap: big2,
+        the same theorem after big, asks for exactly as many bytes, though
+        big's check grew the stores of the context big2 then runs in."""
+        with tempfile.TemporaryDirectory() as tmp:
+            export = str(Path(tmp) / "double2.ndjson")
+            made = subprocess.run([sys.executable, str(ROOT / "tests/cli/jobs/gen.py"),
+                                   "double2", "12"], capture_output=True, check=True)
+            Path(export).write_bytes(made.stdout)
+            args = ["--no-manifest", "--memory-per-check", "1", export]
+            status, out = run("check", *args)[:2]
+            reasons = re.findall(r"^big2?: full\n  (memory limit per check; .*)$", out, re.M)
+            self.assertEqual((status, len(reasons)), (3, 2), out)
+            self.assertEqual(reasons[0], reasons[1])
+            self.assertEqual(run("check", "--jobs", "3", *args)[:2], (status, out))
+
     def test_4_mistakes(self):
         for value in ["0", "x", "-1", ""]:
             status, out, _ = run("check", "--memory-per-check", value, CHAIN)

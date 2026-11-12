@@ -2010,7 +2010,13 @@ frame stacks are not counted.
   entry; `tests/core/check-declaration.fs` checks the bounds against the
   stores). The heap's own sizes depend on what earlier checks grew in the
   same worker; counts do not, so a check under a limit gets the same
-  outcome serially, with `--jobs` and in every run.
+  outcome serially, with `--jobs` and in every run (big2, the same
+  theorem after big in one worker, asks for exactly big's bytes). The
+  heap holds more than the count: stores and tables grow by doubling,
+  and the walks' stacks and memos are not counted. On the doubling
+  export a check that needed 11 and 44 MB by the count (`double 14`,
+  `double 16`) grew the process by 14 and 59 MB, about 1.3-1.4 times;
+  the command line's manual says to allow twice.
 - *Cheap.* A new record is charged against a credit; only when the
   credit runs out is the whole scratch read (a sum over five stores and
   eight tables) and the credit set to what is left below the limit. A
@@ -2036,10 +2042,12 @@ frame stacks are not counted.
 text as serially (`tests/cli/test_leanforth.py`, `MemoryPerCheck`). The
 composition case is full under every limit below 1,664 bytes and
 accepted from there on, never before (a sweep in steps of 16,
-`tests/core/check-declaration.fs`). Five planted faults are caught
+`tests/core/check-declaration.fs`); the doubling export from 1 to 5 MB
+likewise, each limit the same text with `--jobs 3`. Six planted faults are caught
 (`tests/mutants/faults.toml`, `mb-*`): the limit never armed (both
 tests), the workers without it, a passed check ending with what it
-found, a reading without the scratch.
+found, a reading without the scratch, and (`mb-capacity-not-count`) a
+reading of the stores' capacity instead of the records made.
 All of Lean's `Init` (59,349 declarations; `gforth-fast`, `--jobs 8`, a
 10-core machine other agents loaded) with `--memory-per-check 4000` gives
 every verdict line of main's run without the option (93a993f), all

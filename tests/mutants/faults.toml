@@ -8851,3 +8851,11 @@ old = '''  >r lf-meter-used + r> lf-meter-room ;'''
 new = '''  >r r> lf-meter-room ;'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "MB: a reading leaves the check's scratch out, so only single charges larger than the limit are refused"
+
+[[fault]]
+id = "mb-capacity-not-count"
+file = "src/kernel/check-declaration.fs"
+old = '''  dup lf-input-store store-count @ swap lf-input-mark mark-count @ - 0 max ;'''
+new = '''  dup lf-input-store store-capacity @ swap lf-input-mark mark-count @ - 0 max ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py MemoryPerCheck"
+reason = "MB: the stores' capacity, which earlier checks grew, is read instead of the records made: big2 asks for other bytes than big"

@@ -12,7 +12,10 @@
 \ count is the same in every context and run, whatever an earlier check
 \ grew: a record counts the bytes below, upper bounds on a 64-bit host
 \ of its record, identity, side columns and hash-table slots
-\ (tests/core/scratch-meter.fs checks them against the stores).
+\ (tests/core/check-declaration.fs checks them against the stores). The
+\ heap holds more, as stores grow by doubling and the walks' stacks and
+\ memos are not counted: about 1.3-1.4 times the count, measured (ADR
+\ 0014 Amendment 7).
 \ The stores make and give back records in the hot paths, so the meter
 \ never sums on each record. Each new record is charged against a credit
 \ (lf-meter-charge); only when the credit runs out does the meter read the

@@ -643,13 +643,18 @@ Like fuel, the limit is LeanForth's own resource bound, never a Lean
 verdict: Lean's kernel has neither. Its use is a long parallel run such
 as all of Mathlib with a large `--fuel`: the workers of `--jobs` share
 one process's memory, so without a limit one huge check could take the
-memory the others need and make their checks *full* too. Give each check
-well under the process's memory divided by the workers. Bytes are
-counted at upper bounds for a 64-bit host (96 per term node, 160 per
-level, 64 per reference and 16 per universe argument, 64 per cache entry,
-48 per local-context entry), so a check holds somewhat less than MB on
-the heap; the input, the stage and the checked environment are not
-counted. A snapshot written with a limit holds such checks as *full*;
+memory the others need and make their checks *full* too. Each record a
+check makes counts a fixed number of bytes, an upper bound on a 64-bit
+host of what the record itself takes (96 per term node, 160 per level,
+64 per reference and 16 per universe argument, 64 per cache entry, 48
+per local-context entry). The heap holds more than the count: stores
+and tables grow by doubling, and a worker keeps what its largest check
+grew; the walks' stacks and memos, the input, the stage and the checked
+environment are not counted. Measured on the doubling export (`gen.py
+double 14` and `double 16`, 2026-11-11), a check that needed 11 and 44
+MB by the count grew the process by 14 and 59 MB: about 1.3-1.4 times.
+So give each check at most about half of the memory the run has left
+after the input, divided by the workers. A snapshot written with a limit holds such checks as *full*;
 an export checked against it checks them again (*full* is never taken
 from a snapshot).
 
