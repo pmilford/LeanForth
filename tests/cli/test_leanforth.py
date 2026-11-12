@@ -961,6 +961,20 @@ class Behaviour(unittest.TestCase):
             status, _, _ = run("reexport", "--no-manifest", str(kinds), str(copy))
             self.assertEqual((status, copy.read_bytes()), (0, kinds.read_bytes()))
 
+    def capabilities_match_facts(self, out):
+        """The capabilities text states what is true: nested inductive types are
+        accepted (checked here), so they are not listed as unsupported; the
+        Mathlib line gives the count and build PROJECT_PROGRESS.md records and
+        does not say that nothing was checked."""
+        lacks = out.split("not yet supported")[1].split("limits (")[0]
+        self.assertNotIn("nested", lacks)
+        self.assertEqual(run("check", "tests/cli/nested.ndjson")[0], 0)
+        self.assertNotIn("0 of 729,263", out)
+        progress = (ROOT / "docs/project/PROJECT_PROGRESS.md").read_text()
+        self.assertIn("all **729,263 of\n729,263 accepted** on `b74a04d`", progress)
+        self.assertIn("Mathlib: all 729,263 declarations of its Lean export were "
+                      "accepted on build\n  b74a04d (fuel 250M,", out)
+
     def test_informational(self):
         status, out, _ = run("version")
         self.assertEqual(status, 0)
@@ -973,6 +987,7 @@ class Behaviour(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertIn("  check --record, replay: 64 names, 64 levels, 64 term nodes,\n"
                       "    32 declarations per export\n", out)
+        self.capabilities_match_facts(out)
         status, out, _ = run("help")
         self.assertEqual((status, run("--help")[1], run("-h")[1]), (0, out, out))
 

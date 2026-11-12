@@ -1,6 +1,6 @@
 # LeanForth
 
-**Status: bootstrap and design; no theorem checker or program verifier exists yet.**
+**Status: development version. Today LeanForth re-checks proofs that Lean produced and exported (NDJSON), including all of Lean's `Init`; it does not yet check LeanForth text, and it has no program verifier. The checker is experimental and not independently audited.**
 
 See the [project progress report](docs/project/PROJECT_PROGRESS.md) for both product
 tracks, importer limits, and a reproducible code inventory.
@@ -38,7 +38,7 @@ What it loads is unverified code in progress, exercised by the tests.
 
 | Path | Contents |
 | --- | --- |
-| `bin/leanforth` | The command line, version 0: `check` (with `--record`), `replay`, `count`, `reexport`, `version`, `capabilities`; exit statuses 0–6, 6 (NOT PROVED) only with `--strict-axioms`; `--fast` for gforth-fast ([manual](docs/user/COMMAND_LINE.md)). |
+| `bin/leanforth` | The command line, version 0: `check` (with `--record`), `print`, `replay`, `count`, `reexport`, `version`, `capabilities`; exit statuses 0–6, 6 (NOT PROVED) only with `--strict-axioms`; `gforth-fast` is already the default engine (`--fast` is accepted and changes nothing). `check FILE.lf` (LeanForth text) exits 4: it is not built ([manual](docs/user/COMMAND_LINE.md)). |
 | `src/main.fs` | The loader for all current code, and the command line's Forth entry point (`src/cli/`). |
 | `src/lib/` | General Forth tools with no Lean knowledge: bounded stores, tagged nodes, the shared outcome vocabulary, walk and frames records, per-task contexts, a worker pool, a line reader with UTF-8 checks and a JSON reader. |
 | `src/core/` | Lean's data model, 10 modules: the term store (`terms.fs`), names, universe levels, sessions and stale-handle checks, constant references. |
@@ -91,10 +91,12 @@ shows and what it does not.
 `make test-program` includes clamp and [five additional executable Forth
 examples](docs/programming/PROGRAM_EXAMPLES.md). They are runtime tested, not verified.
 
-These tests exercise Lean and untrusted Forth experiments; they do not test a
-LeanForth theorem-checking kernel. The draft
+These tests run the experimental checker on Lean's exports and compare it with
+pinned Lean; they do not show that it is correct (it is not independently
+audited). The checker re-checks proofs that Lean exported; LeanForth text
+cannot yet be checked by the kernel (plan 8.2.1a-g, not started). The
 [core ADR](docs/adr/0001-core-fragment.md) and [program example](docs/programming/PROGRAM_EXAMPLE.md)
-require human review before implementation.
+needed human review before implementation.
 The export check recompiles the composition theorem, uses the `leanexport`
 bundled with Lean 4.35.0, and compares its output byte-for-byte with the checked-in
 NDJSON fixture. It is not an independent proof check or an importer test.
@@ -143,9 +145,9 @@ The stack-model differential also compares 686 executions against a Lean-proved
 finite stack-machine model; the handwritten model and host remain separate
 assumptions, as described in [the program example](docs/programming/PROGRAM_EXAMPLE.md).
 
-GitHub CI (`.github/workflows/ci.yml`) has two jobs: `make test` on Ubuntu's
-distribution Gforth package as a portability check, and `make check` on the
-pinned Gforth 1.0.0 and Lean 4.35.0 toolchains, which also runs every Lean
-comparison. See [project progress](docs/project/PROJECT_PROGRESS.md) for recent run
-results.
+GitHub CI (`.github/workflows/ci.yml`) is switched off at the owner's request
+(2026-11-11). Its two jobs are run locally before every push: `make test` on Gforth
+0.7.3 as a portability check, and `make check` on the pinned Gforth 1.0.0 and
+Lean 4.35.0, which also runs every Lean comparison. See
+[project progress](docs/project/PROJECT_PROGRESS.md) for the recorded results.
 The project code is MIT licensed; Gforth is a separately licensed dependency.

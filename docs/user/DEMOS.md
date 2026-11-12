@@ -1,10 +1,16 @@
-# Five small proofs, checked
+# Five small proofs, proved by Lean and re-checked
 
 Five well-known results, each stated in mathematical notation, in Lean and in
-LeanForth words, proved in Lean 4.35.0, **checked by LeanForth**, and shown
-next to a deliberately wrong copy that LeanForth rejects. You do not need to
-know Lean or Forth to read the mathematics; the Lean and LeanForth forms are
-there so that you can see what is being checked.
+LeanForth words. **Lean 4.35.0 proves each theorem; LeanForth re-checks the
+proof terms in Lean's export** and rejects a deliberately wrong copy. You do
+not need to know Lean or Forth to read the mathematics.
+
+**What this page does and does not show.** LeanForth checks proofs that Lean
+produced and exported. LeanForth text cannot yet be checked by LeanForth's
+kernel (plan 8.2.1 and 8.6.11 are not built), so nothing here was proved from
+LeanForth input. The "LeanForth words" below are the statement printed from
+Lean's export as an `axiom` form with no proof; they show what is checked, are
+not runnable input, and running them does not check anything.
 
 **How to read the page.** Every statement is printed four times by
 `leanforth print`:
@@ -13,7 +19,7 @@ there so that you can see what is being checked.
   `ℕ` for the natural numbers, `·` for multiplication and exponents raised;
 - *in Lean*, as Lean's own `#check` prints the theorem (the test compares the
   two character by character);
-- *in LeanForth*, the same type as postfix Forth words: names, `$` applies a
+- *in LeanForth words*, the same type, printed from Lean's export, as postfix Forth words: names, `$` applies a
   function to the argument before it, `^` applies a constant to universe
   levels, `lit#` is a number literal ([LeanForth syntax](LEANFORTH_SYNTAX.md)).
 
@@ -57,7 +63,7 @@ instead of *P*, where *P* is the original statement. The checker must say
 add_comm_by_induction : ∀ (m n : Nat), m + n = n + m
 ```
 
-**In LeanForth words** (the type of the theorem, as `leanforth print` writes it):
+**In LeanForth words** (the type of the theorem as `leanforth print` writes it from Lean's export; an `axiom` form with no proof, not runnable input):
 
 ```text
 axiom add_comm_by_induction
@@ -119,7 +125,7 @@ The checker's derivation log of this theorem: *1024 steps, incomplete: truncated
 gauss_sum : ∀ (n : Nat), 2 * sumTo n = n * (n + 1)
 ```
 
-**In LeanForth words** (the type of the theorem, as `leanforth print` writes it):
+**In LeanForth words** (the type of the theorem as `leanforth print` writes it from Lean's export; an `axiom` form with no proof, not runnable input):
 
 ```text
 axiom gauss_sum
@@ -190,7 +196,7 @@ The checker's derivation log of this theorem: *1024 steps, incomplete: truncated
 odd_sum : ∀ (n : Nat), sumOdd n = n ^ 2
 ```
 
-**In LeanForth words** (the type of the theorem, as `leanforth print` writes it):
+**In LeanForth words** (the type of the theorem as `leanforth print` writes it from Lean's export; an `axiom` form with no proof, not runnable input):
 
 ```text
 axiom odd_sum
@@ -259,7 +265,7 @@ The checker's derivation log of this theorem: *1024 steps, incomplete: truncated
 cantor : ∀ (α : Type), ¬∃ f, ∀ (g : α → Prop), ∃ a, f a = g
 ```
 
-**In LeanForth words** (the type of the theorem, as `leanforth print` writes it):
+**In LeanForth words** (the type of the theorem as `leanforth print` writes it from Lean's export; an `axiom` form with no proof, not runnable input):
 
 ```text
 axiom cantor
@@ -321,7 +327,7 @@ The checker's derivation log of this theorem: *756 steps, complete. The statemen
 sqrt2_irrational : ¬∃ a b, b > 0 ∧ a ^ 2 = 2 * b ^ 2
 ```
 
-**In LeanForth words** (the type of the theorem, as `leanforth print` writes it):
+**In LeanForth words** (the type of the theorem as `leanforth print` writes it from Lean's export; an `axiom` form with no proof, not runnable input):
 
 ```text
 axiom sqrt2_irrational
@@ -390,8 +396,9 @@ The checker's derivation log of this theorem: *1024 steps, incomplete: truncated
 ## What this does not show
 
 - The proofs are Lean's; LeanForth reads Lean's export of them and checks the
-  proof terms again. It does not yet write proofs of its own at this size
-  ([plan](../project/PLAN_DRAFT.md), section 8).
+  proof terms again. LeanForth text cannot yet be checked: the words shown are the
+  statement printed from the export, not input, and LeanForth has proved nothing from
+  its own input ([plan](../project/PLAN_DRAFT.md), 8.2.1 and 8.6.11).
 - The proof outline (reasons between proof lines, [PROOF_OUTLINE.md](PROOF_OUTLINE.md))
   has templates for small propositional proofs only. These proofs are induction
   and arithmetic; the checker's log of each is complete or cut at the bound
