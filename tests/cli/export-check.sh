@@ -10,7 +10,8 @@
 # nested.lean (nested inductive types through an indexed family and a
 # mutual block, and theorems that reduce through their recursors), and
 # dependent.lean and sibling.lean (two libraries importing inductive.lean,
-# for check --snapshot), each
+# for check --snapshot), let-zd.lean and let-b.lean (lets equal but for
+# their names, cross_snapshot.py's let pair), each
 # without axioms, and scripts/export.sh reproduces the committed
 # exports and their manifests byte for byte. LEAN names the pinned Lean
 # 4.35.0 binary.
@@ -24,13 +25,15 @@ cleanup() {
   for name in LeanForthChain.olean LeanForthUnfold.olean LeanForthInductive.olean \
     LeanForthIrrelevance.olean LeanForthSharing.olean LeanForthSharingUniverse.olean \
     LeanForthNested.olean LeanForthDependent.olean LeanForthSibling.olean \
+    LeanForthLetZd.olean LeanForthLetB.olean \
     chain.ndjson chain.ndjson.manifest.json unfold.ndjson unfold.ndjson.manifest.json \
     inductive.ndjson inductive.ndjson.manifest.json \
     irrelevance.ndjson irrelevance.ndjson.manifest.json \
     sharing.ndjson sharing.ndjson.manifest.json \
     sharing-universe.ndjson sharing-universe.ndjson.manifest.json \
     nested.ndjson nested.ndjson.manifest.json \
-    dependent.ndjson dependent.ndjson.manifest.json sibling.ndjson sibling.ndjson.manifest.json; do
+    dependent.ndjson dependent.ndjson.manifest.json sibling.ndjson sibling.ndjson.manifest.json \
+    let-zd.ndjson let-zd.ndjson.manifest.json let-b.ndjson let-b.ndjson.manifest.json; do
     rm -f "$temporary/$name"
   done
   rmdir "$temporary"
@@ -66,16 +69,20 @@ reproduce nested LeanForthNested RvNest.VT.size_two RvNest.VT.size_leaf RvNest.V
 reproduce dependent LeanForthDependent Two.swap_swap_first Two.swap_swap Two.swap_swap_first \
   Two.cases_first
 reproduce sibling LeanForthSibling Two.swap_first Two.swap_first Two.swap_second
+# Lets equal but for their names (review rvRS F2), for cross_snapshot.py's let pair.
+reproduce let-zd LeanForthLetZd Zd Zd
+reproduce let-b LeanForthLetB B B
 # shared-depths.lean: 27 rows (rvS36 P1, P2; agent PF P3; agent R5 P4) checked by pinned
 # Lean's kernel; the script compares LeanForth's verdict on each export, with the audit memo
 # on and off.
 python3 -I tests/cli/shared_depths.py "$lean"
 # Fuel independent of the tier's numbering (review rvSN4 B1, agent PF): nine
 # fixtures, each checked fresh and against a snapshot of each of the others,
-# every declaration with the same verdict and fuel.
+# and the let pair (review rvRS F2), every declaration with the same verdict
+# and fuel.
 python3 -I tests/cli/cross_snapshot.py
 printf '%s\n' 'Lean accepts chain, impliesSelf, Two.cases, Two.swap, irrelevant,' \
   'sharedAnd, sharedBeta, sharing, sharedAndU, useU and the nested blocks of' \
-  'nested.lean, Two.swap_swap, Two.swap_swap_first, Two.cases_first, Two.swap_first' \
-  'and Two.swap_second, and rejects their wrong twins; scripts/export.sh reproduces' \
-  'the nine exports and their manifests.'
+  'nested.lean, Two.swap_swap, Two.swap_swap_first, Two.cases_first, Two.swap_first,' \
+  'Two.swap_second, Zd and B, and rejects their wrong twins; scripts/export.sh' \
+  'reproduces the eleven exports and their manifests.'

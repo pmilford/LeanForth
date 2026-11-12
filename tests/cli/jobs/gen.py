@@ -15,6 +15,20 @@ dupl K:      def D : Prop -> Prop := fun A => A; def C := fun A => D A; K slow-i
              filler theorems; a second `def D` (duplicate: rejected); then theorems
              that mention only C (unfolding meets D: the duplicate's slot is not in
              their readiness set).
+lets K:      (review rvRS F2) d0 : Prop -> Prop := let x0 : Prop -> Prop := fun A =>
+             A; x0, then K-1 definitions dk := fun B => (let xk : Prop -> Prop :=
+             fun A => A; xk) B, whose lets are equal to d0's up to their names: the
+             importer makes them one node, so the applications above them are new
+             copies, which a worker must make as the source did.
+refs N:      (review rvRS F1, its probe gen_refs.py) 20 universe parameters vs =
+             v1..v20; for i < N D_i.{vs} : Sort v1 -> Sort 1 := fun a => (Prop ->
+             Prop) and f_i.{vs} : (a : Sort v1) -> D_i.{vs} a := fun a p => p; K :
+             PP -> PP -> PP := fun a b => b (PP = Prop -> Prop); then B : PP :=
+             K (f_0.{0..0} Q) (K (f_1.{0..0} Q) ... (fun p => p)) (Q = forall p :
+             Prop, p), whose check instantiates each f_i's type and so makes the N
+             references D_i.{0..0} (384 bytes each by --memory-per-check's count).
+             refsz N: Z_i : Sort 1 := D_i.{0..0} Q in place of B, so that every such
+             reference is in the tier; refsbz N: B, then the Z_i.
 """
 import json, sys
 
@@ -24,7 +38,7 @@ class Ex:
                              "format": {"version": "3.1.0"},
                              "lean": {"githash": "eb6cafb7290e8bd5f2937522d8d804f58f02bafc",
                                       "version": "4.35.0"}}}]
-        s.names = {}; s.n = 0; s.e = 0; s.exprs = {}
+        s.names = {}; s.n = 0; s.e = 0; s.exprs = {}; s.levels = {}; s.l = 0
     def name(s, text):
         if text in s.names: return s.names[text]
         pre = 0
@@ -47,13 +61,25 @@ class Ex:
         return s.ex(("pi", nm, ty, body, bi), {"forallE": {"binderInfo": bi, "body": body, "name": s.name(nm), "type": ty}})
     def lam(s, nm, ty, body, bi="default"):
         return s.ex(("lam", nm, ty, body, bi), {"lam": {"binderInfo": bi, "body": body, "name": s.name(nm), "type": ty}})
-    def const(s, nm): return s.ex(("const", nm), {"const": {"name": s.name(nm), "us": []}})
+    def const(s, nm, us=()):
+        return s.ex(("const", nm, tuple(us)), {"const": {"name": s.name(nm), "us": list(us)}})
+    def level(s, key, rec):
+        """A universe level (kind refs only): a parameter or a successor."""
+        if key not in s.levels:
+            s.l += 1; s.levels[key] = s.l; s.lines.append(dict(rec, il=s.l))
+        return s.levels[key]
+    def param(s, nm): return s.level(("param", nm), {"param": s.name(nm)})
+    def sort1(s): return s.ex(("sort1",), {"sort": s.level(("succ", 0), {"succ": 0})})
     def app(s, f, a): return s.ex(("app", f, a), {"app": {"fn": f, "arg": a}})
+    def let(s, nm, ty, val, body):
+        return s.ex(("let", nm, ty, val, body), {"letE": {"body": body, "name": s.name(nm),
+                                                          "nondep": False, "type": ty,
+                                                          "value": val}})
     def thm(s, nm, ty, val):
         n = s.name(nm); s.lines.append({"thm": {"all": [n], "levelParams": [], "name": n, "type": ty, "value": val}})
-    def defn(s, nm, ty, val):
-        n = s.name(nm)
-        s.lines.append({"def": {"all": [n], "hints": {"regular": 1}, "levelParams": [], "name": n,
+    def defn(s, nm, ty, val, params=()):
+        n = s.name(nm); ps = [s.name(p) for p in params]
+        s.lines.append({"def": {"all": [n], "hints": {"regular": 1}, "levelParams": ps, "name": n,
                                 "safety": "safe", "type": ty, "value": val}})
     def out(s):
         """The exporter's form: keys sorted (as wide60 and dupl80 are written)."""
@@ -130,9 +156,38 @@ def double(k, copies=1):
     for i in range(4): x.thm(f"small{i}", ty, val)
     return x
 
+def lets(k):
+    x = Ex(); P = x.sort0(); PP = p2p(x); idf = x.lam("A", P, x.bvar(0))
+    x.defn("d0", PP, x.let("x0", PP, idf, x.bvar(0)))
+    for i in range(1, k):
+        x.defn(f"d{i}", PP, x.lam("B", P, x.app(x.let(f"x{i}", PP, idf, x.bvar(0)), x.bvar(0))))
+    return x
+
+def refs(n, b=True, z=False, k=20):
+    x = Ex(); P = x.sort0(); PP = p2p(x); T1 = x.sort1()
+    Q = x.pi("p", P, x.bvar(0))
+    params = [f"v{j}" for j in range(1, k + 1)]
+    vs = [x.param(p) for p in params]
+    Sv = x.ex(("sortv1",), {"sort": vs[0]})
+    for i in range(n):
+        x.defn(f"D{i}", x.pi("a", Sv, T1), x.lam("a", Sv, PP), params)
+        x.defn(f"f{i}", x.pi("a", Sv, x.app(x.const(f"D{i}", vs), x.bvar(0))),
+               x.lam("a", Sv, x.lam("p", P, x.bvar(0))), params)
+    x.defn("K", x.pi("a", PP, x.pi("b", PP, PP)), x.lam("a", PP, x.lam("b", PP, x.bvar(0))))
+    zeros = [0] * k
+    if b:
+        acc = x.lam("p", P, x.bvar(0))
+        for i in reversed(range(n)):
+            acc = x.app(x.app(x.const("K"), x.app(x.const(f"f{i}", zeros), Q)), acc)
+        x.defn("B", PP, acc)
+    if z:
+        for i in range(n): x.defn(f"Z{i}", T1, x.app(x.const(f"D{i}", zeros), Q))
+    return x
+
 if __name__ == "__main__":
     kind, k = sys.argv[1], int(sys.argv[2])
     gens = {"wide": wide, "chain": chain, "dupl": dupl,
             "renamed": renamed, "double": double,
-            "double2": lambda k: double(k, 2)}
+            "double2": lambda k: double(k, 2), "refs": refs, "lets": lets,
+            "refsz": lambda n: refs(n, False, True), "refsbz": lambda n: refs(n, True, True)}
     sys.stdout.write(gens[kind](k).out())

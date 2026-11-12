@@ -1,8 +1,10 @@
 \ The memory limit of one check (check --memory-per-check; ADR 0014
 \ Amendment 8). A check's scratch -- the term nodes, levels and constant
-\ references it makes above the input, its local context and the entries
-\ of its result caches, all given back or emptied when it ends -- may
-\ hold at most a set number of bytes; a check that would pass it stops
+\ references it makes above the input (for a reference made before the
+\ check that it has not reached, the shadow constant-references.fs makes),
+\ the limbs and bytes of the literals it makes, its local context and the
+\ entries of its result caches, all given back or emptied when it ends --
+\ may hold at most a set number of bytes; a check that would pass it stops
 \ full (ADR 0008), as when the heap refuses, never accepted. The limit is
 \ LeanForth's own resource bound, like fuel, never a Lean verdict. It
 \ exists so that one large check cannot take the memory that the other
@@ -18,13 +20,16 @@
 \ 0014 Amendment 8).
 \ The stores make and give back records in the hot paths, so the meter
 \ never sums on each record. Each new record is charged against a credit
-\ (lf-meter-charge); only when the credit runs out does the meter read the
-\ check's whole scratch (lf-meter-used, a DEFER that
-\ kernel/check-declaration.fs sets) and either refuse the record, or set
-\ the credit to the bytes left below the limit. A record charged whose
-\ node turns out shared costs only an earlier reading, never a refusal:
-\ every refusal comes from a reading. Once a reading refuses, every later
-\ charge of the same check is refused too (lf-meter-passed?).
+\ (lf-meter-charge) just before it is made -- never one found shared, and
+\ with no other charge between (review rvRS F4) -- and only when the
+\ credit runs out does the meter read the check's whole scratch
+\ (lf-meter-used, a DEFER that kernel/check-declaration.fs sets) and
+\ either refuse the record, or set the credit to the bytes left below the
+\ limit. Records given back only lower the scratch, never raise the
+\ credit, so a record is refused exactly when it would take the scratch
+\ past the limit: every refusal comes from a reading. Once a reading
+\ refuses, every later charge of the same check is refused too
+\ (lf-meter-passed?).
 \
 \ Use: lf-meter-limit! sets the context's setting (0, a new context's: no
 \ limit); the check calls lf-meter-start when it begins and lf-meter-stop
@@ -57,6 +62,8 @@ end-structure
 2 cells constant lf-meter-arg-bytes      \ each of its universe arguments
 8 cells constant lf-meter-entry-bytes    \ a cache entry
 6 cells constant lf-meter-local-bytes    \ a local-context entry
+\ A literal's limbs and a string literal's bytes count their units:
+\ 1 cells and 1 chars each (core/literals.fs, core/string-literals.fs).
 
 \ The check's scratch now, in bytes; 0 until the checker sets it.
 defer lf-meter-used ( -- u )
@@ -94,6 +101,7 @@ defer lf-meter-used ( -- u )
 : lf-meter-term? ( -- flag ) lf-meter-term-bytes lf-meter-charge ;
 : lf-meter-level? ( -- flag ) lf-meter-level-bytes lf-meter-charge ;
 : lf-meter-entry? ( -- flag ) lf-meter-entry-bytes lf-meter-charge ;
+: lf-meter-local? ( -- flag ) lf-meter-local-bytes lf-meter-charge ;
 \ A reference with n universe arguments.
 : lf-meter-cref? ( n -- flag )
   lf-meter-arg-bytes * lf-meter-cref-bytes + lf-meter-charge ;

@@ -2020,13 +2020,27 @@ turn on Mathlib's first 1M lines against `Init`'s snapshot (agent SN4:
    binders, and every node above one, is one node. Not with a binder hook
    (the print command keeps every binder's own name to print it, so its
    checks share as before and may use a little more fuel than `check`'s;
-   `print` writes no snapshot). A parallel check's worker, which reads
+   `print` writes no snapshot). Lets likewise (review rvRS F2, agent
+   FXR, 2026-11-12): Lean's `==` compares a `letE`'s type, value, body
+   and `nonDep` flag but not its name (`expr_eq_fn.cpp` 104-109, SHA-256
+   `7feb30ca…07c`, read again), so a let read in place whose tag (the
+   `nonDep` flag) and leaf fields (its value and lambda) equal a let
+   entered before it is copied, and its copy is that earlier let; the
+   first pass now enters every other let's leaf, so that a later let
+   finds it. Before, only binders were merged: of two lets differing in
+   their names only the first was findable by its fields, and rule 2
+   declined it when it was another declaration's, so `B` of
+   `tests/cli/let-b.lean` took 295 fuel fresh and 302 against the
+   snapshot of `let-zd.lean` (`Zd := let x : Nat := 0; x`). A parallel
+   check's worker, which reads
    the source's input in place (shared input, ADR 0016 S8), marks the
    same binders to copy -- those whose class the source's binder table
    holds another binder for -- and so makes the source's copies; without
    that its input's fingerprint was not the source's, no worker could be
    made and `--jobs` ran one declaration at a time (found when main's
-   shared input was merged into this work, before any run used both).
+   shared input was merged into this work, before any run used both);
+   for lets, those whose fields the source's leaf table holds another
+   let for.
 2. In a check (the audit memo on, Amendment 4), hash-consing gives a node
    made before the check -- below the input's term mark -- only once the
    check has reached it: an audit of this check's epoch kept it.
@@ -2056,7 +2070,13 @@ prefix.
   `tests/cli/export-check.sh`): nine fixtures, each checked fresh and
   against a snapshot of each of the other eight, 72 pairs: every
   declaration's verdict and fuel the same (before: unfold's `Implies`
-  34 → 38, nested `PProd`/`Prod` +6, sharing's `And` +6).
+  34 → 38, nested `PProd`/`Prod` +6, sharing's `And` +6); and since
+  review rvRS the let pair, `let-b` and `let-zd` each against the
+  other's snapshot (before the let merge: `B` 295 → 302). Lets in a
+  parallel check: `Jobs.test_workers_share_merged_lets`
+  (`tests/cli/jobs/gen.py lets 20`, twenty lets equal but for their
+  names: workers made). Planted faults `fxr-let-class-split` and
+  `fxr-let-worker-unmerged` are caught.
 - The review's p7 (`.claude/work/PF/b2/p7`): fresh and against the
   snapshot both give `Implies` accepted with 34 and `impliesSelf`
   exhausted.
@@ -2108,7 +2128,9 @@ Lean verdicts (Lean's kernel has neither; its `LEAN_NAT_MAX_SIZE` aside,
 Q8): *fuel* (Q9; `--fuel N`), and since this amendment *memory*
 (`check --memory-per-check MB`, default none). A check whose scratch --
 the term nodes, levels and constant references it makes above the
-input's marks, with their universe arguments, its local context and its
+input's marks, with their universe arguments (and, since review rvRS,
+the shadows of the references it is given but has not reached, and the
+limbs and bytes of the literals it makes), its local context and its
 result caches' entries, all of which it gives back or empties when it
 ends -- would pass MB × 2^20 bytes stops *full*, the outcome the heap's
 refusal gives (ADR 0008): never accepted, its dependants unknown as after
@@ -2131,10 +2153,16 @@ frame stacks are not counted.
   `double 16`) grew the process by 14 and 59 MB, about 1.3-1.4 times;
   the command line's manual says to allow twice.
 - *Cheap.* A new record is charged against a credit; only when the
-  credit runs out is the whole scratch read (a sum over five stores and
-  eight tables) and the credit set to what is left below the limit. A
-  charged node that turns out shared costs an earlier reading, never a
-  refusal: every refusal comes from a reading.
+  credit runs out is the whole scratch read (a sum over five stores, two
+  slabs and eight tables) and the credit set to what is left below the
+  limit. Every refusal comes from a reading. *Exact* since review rvRS
+  F4: a record is charged just before it is made, never one found
+  shared, and with no other charge between (a local-context entry after
+  its node), so a check is refused exactly when a record would take its
+  scratch past the limit. Before, a term or level was charged before the
+  lookup that might find it, so a reading could refuse one record below
+  the limit, and local-context entries were counted by readings but never
+  charged, so a check could pass its limit unrefused between readings.
 - *Where it stops.* A term, level or reference past the limit is refused
   as a full store refuses it, and the check's passes end *full* as
   before. A cache entry past it is a miss (as when the heap refuses one),
@@ -2153,9 +2181,10 @@ frame stacks are not counted.
 `--memory-per-check 1` and 2, accepted with 4 or none; with `--jobs 2`
 `big` is full while the small theorems beside it are accepted, the same
 text as serially (`tests/cli/test_leanforth.py`, `MemoryPerCheck`). The
-composition case is full under every limit below 1,664 bytes and
-accepted from there on, never before (a sweep in steps of 16,
-`tests/core/check-declaration.fs`); the doubling export from 1 to 5 MB
+composition case is full under every limit below 1,680 bytes (1,664
+before the exact count of review rvRS F4) and accepted from there on,
+never before (a sweep in steps of 16, `tests/core/check-declaration.fs`;
+at 1,679 it asks for exactly 1,680); the doubling export from 1 to 5 MB
 likewise, each limit the same text with `--jobs 3`. Six planted faults are caught
 (`tests/mutants/faults.toml`, `mb-*`): the limit never armed (both
 tests), the workers without it, a passed check ending with what it
@@ -2168,6 +2197,58 @@ every verdict line of main's run without the option (93a993f), all
 ten declarations that used the most; the check phase's CPU time 1,410 s
 against main's 1,387 s (+1.7%, within the load's noise: its wall time
 was 273 s against 353 s), peak resident memory 2,323 MB against 2,302 MB.
+
+**Corrections (review rvRS, agent FXR, 2026-11-12).** Three claims
+above did not hold; no outcome, fuel count or diagnostic without the
+option changed in fixing them (all of `Init` below), so no verdict-version
+bump.
+1. *Same outcome in every export* (F1). Rules 2 and 3 of Amendment 7
+   gate terms and levels, not references: `lf-cref-intern` gave any
+   equal reference made before the check uncharged, so a check counted
+   other bytes fresh, against a snapshot and in an export with more
+   declarations (the reviewer's probe: full fresh, accepted in the
+   others). Gating references as rule 2 gates terms (a new record for
+   one not reached) moved fuel (`Zd` of `let-zd.lean` 106 → 109): code
+   compares constants by their reference's number, and interning makes
+   that number a reference's class. So the reference is still given, and
+   a reference made before the check that an audit of this check has not
+   reached (a constant node holding it checked in today's closed epoch,
+   `lf-cref-reach`, as levels' `lf-level-reach`) gets a *shadow*: a new
+   record of the same fields in the context's store, charged, counted by
+   the reading, given back by rollbacks, and entered in the interning
+   table, where a later find meets it and gives its original at no cost
+   -- the room a fresh export without that record would take
+   (`constant-references.fs`, "Shadows"). Evidence:
+   `MemoryPerCheck.test_snapshot_pair` (`gen.py refs 2800`: `B` full
+   asking for 1,048,608 bytes fresh, against the snapshot of `refsz`,
+   and in `refsbz` serially and with `--jobs 2`; before: 1,048,640 in the
+   others); the reviewer's probe (1000 × 60): full with 1,048,768 in all
+   three (fuel 4,373,027 unchanged); planted faults `fxr-cref-gate-off`
+   and `fxr-cref-unshadowed`.
+2. *The scratch* (F3). Literal limbs and string bytes a check made were
+   neither counted nor given back (the reviewer: five 2 MB literals
+   accepted under 1 MB, the process 28 → 47 MB, +10 MB per such check for
+   the run). Now `lf-input-end` marks the two slabs with the stores,
+   `lf-input-rollback` gives them back after every check, each limb (1
+   cell) and byte (1 char) is charged where it is claimed, and the
+   reading counts them above the marks. Not counted: the arenas in which
+   `reduce-nat.fs` computes (one operation's, freed when it ends; Lean
+   bounds `pow` at 2^24 bits, ADR 0015, but a product may reach 2^30
+   bits), and a literal's limbs given back by a rollback within a check
+   (only lowering the scratch: the slab keeps them until the check
+   ends). Evidence: `tests/core/check-declaration.fs` (a literal of 200
+   limbs and a string of 2,000 bytes refused under 1,000 bytes, one of
+   100 limbs allowed; the slabs back at their marks after the rollback;
+   the reading counts a literal's limbs with its node); planted faults
+   `fxr-limbs-uncharged`, `fxr-bytes-uncharged`, `fxr-slabs-kept`,
+   `fxr-slabs-unread`.
+3. *Never a refusal below the limit* (F4): see *Cheap* above. Evidence:
+   the composition case's threshold (1,680) and, with fake readings, a
+   term and level found shared given with room for less than a record
+   while a new one is refused; a local-context entry refused with room for
+   its node and one byte less than itself; planted faults
+   `fxr-term-charged-found`, `fxr-level-charged-found`,
+   `fxr-local-uncharged`.
 
 **Gate.** A [kernel] change only in where a check stops for a resource:
 no rule is touched, and no limit is set unless the option is given. It

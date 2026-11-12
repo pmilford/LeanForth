@@ -761,10 +761,11 @@ T{ lf-meter-term? lf-meter-passed? -> true false }T
 \ with the memory limit's diagnostic below some limit and is accepted from
 \ there on, never earlier; with no limit (0) it is accepted. Composition
 \ (Lean accepts it) needed 1,664 bytes on a 64-bit host (2026-11-11).
-variable mem-code  variable mem-first  variable mem-ok
+variable mem-code  variable mem-first  variable mem-ok  variable mem-asked
+: mem-diag ( -- ) lf-diag-code@ mem-code ! lf-diagnostic lf-diag-first @ mem-asked ! ;
 : mem-run ( bytes -- outcome )
   lf-meter-limit! 64 lf-env-new ok? must dup the-env ! lf-env-use ok? must
-  ['] lf-check-declaration ['] fc-no-maker lf-env-run ok? must lf-diag-code@ mem-code !
+  ['] lf-check-declaration ['] fc-no-maker lf-env-run ok? must mem-diag
   lf-env-view ok? must fc-last lf-env-outcome env-done 0 lf-meter-limit! ;
 : mem-full? ( outcome -- flag ) outcome-full = mem-code @ lf-diag-memory-limit = and ;
 : mem-note ( bytes outcome -- )
@@ -779,6 +780,57 @@ fc-decl check thm safe composition 0 TYPE P S z P S z P S z P P V 2 V 2 P P V 2 
 lf-input-end ok? must
 T{ 0 mem-run -> outcome-ok }T
 T{ 20000 16 mem-sweep swap 16 > -> true true }T
+\ Exact (review rvRS F4): a record is charged only where it is made, just
+\ before it is made (a local-context entry after its node), never one
+\ found shared, so a check is refused exactly when a record would take
+\ its scratch past the limit: one byte below the first limit at which it
+\ is accepted, it asks for exactly that limit, the most its scratch held
+\ (1,680 bytes on a 64-bit host; before, 1,664 was accepted).
+T{ mem-first @ 1- mem-run mem-code @ mem-asked @
+   -> outcome-full lf-diag-memory-limit mem-first @ }T
+\ So with room for less than one record (fake readings), a term or level
+\ found shared is given, and a new one refused (before, the charge came
+\ first and refused both).
+: made? ( x true | false -- flag ) dup if nip then ;
+0 lf-meter-limit!
+T{ 7 lf-term-bvar made? 0 lf-level-succ made? -> true true }T
+' fake-used is lf-meter-used  1000 lf-meter-limit!  950 fake-bytes !
+lf-meter-start
+T{ 7 lf-term-bvar made? 0 lf-level-succ made? lf-meter-passed? -> true true false }T
+T{ 12345 lf-term-bvar made? lf-meter-passed? -> false true }T
+lf-meter-stop  ' lf-check-scratch is lf-meter-used  0 lf-meter-limit!
+\ Literals (review rvRS F3): a literal's limbs and a string literal's
+\ bytes are charged to the limit, and given back with the check's scratch
+\ (lf-input-rollback), counted by the reading until then.
+create big-limbs 200 cells allot  big-limbs 200 cells erase  1 big-limbs 199 cells + !
+create big-text 2000 allot  big-text 2000 char a fill
+' fake-used is lf-meter-used  1000 lf-meter-limit!  0 fake-bytes !
+lf-meter-start
+T{ big-limbs 200 lf-hterm-lit lf-meter-passed? -> false true }T
+lf-meter-stop lf-meter-start
+T{ big-text 2000 lf-str-new nip nip lf-meter-passed? -> outcome-full true }T
+lf-meter-stop lf-meter-start
+T{ big-limbs 100 lf-hterm-lit nip nip lf-meter-passed? -> true false }T
+lf-meter-stop  ' lf-check-scratch is lf-meter-used  0 lf-meter-limit!
+lf-lit-limbs slab-count 100 - constant limbs-before
+lf-str-bytes slab-count constant bytes-before
+T{ big-text 50 lf-str-new nip nip lf-input-slab-bytes -> outcome-ok 100 cells 50 + }T
+T{ lf-input-rollback lf-lit-limbs slab-count lf-str-bytes slab-count lf-input-slab-bytes
+   -> outcome-ok limbs-before bytes-before 0 }T
+\ The reading counts a literal's limbs with its node.
+T{ lf-check-scratch big-limbs 100 lf-hterm-lit nip nip lf-check-scratch rot -
+   -> true 100 cells lf-meter-term-bytes + }T
+lf-input-rollback drop
+\ A local-context entry is charged just after its node, under the real
+\ reading: room for the node and one byte less than the entry is full, room
+\ for both is not (review rvRS F4; before, entries were never charged).
+: lctx-try ( extra -- outcome )
+  lf-input-rollback drop lf-lctx-reset 0 lf-term-bvar drop ( extra type )
+  swap lf-check-scratch + lf-meter-limit! lf-meter-start lf-lctx-local nip
+  lf-meter-stop 0 lf-meter-limit! ;
+T{ lf-meter-term-bytes lf-meter-local-bytes + 1- lctx-try -> outcome-full }T
+T{ lf-meter-term-bytes lf-meter-local-bytes + lctx-try -> outcome-ok }T
+lf-input-rollback drop lf-lctx-reset
 
 cases-done
 bye

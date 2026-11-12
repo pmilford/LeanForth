@@ -10,8 +10,10 @@
 \ Lean's == exactly when their counts and limbs are (lf-lit-same?). A
 \ literal is a leaf of its own: every pass treats it as a closed term
 \ without levels, as Lean's passes treat Expr.lit. The limbs live in the
-\ context that made the literal, as its terms do (terms.fs); a rollback
-\ of the term store leaves them (unreferenced) in the slab. String
+\ context that made the literal, as its terms do (terms.fs): a check's are
+\ charged to its memory limit and given back with its scratch (the
+\ input's slab marks, core/input.fs; review rvRS F3), while a rollback
+\ within a check leaves them (unreferenced) in the slab. String
 \ literals stay unsupported forms (core/unsupported-forms.fs, U2).
 \ Untrusted [import][kernel] data; nothing here checks types.
 \ State: the limb slab, a member of the checker context.
@@ -55,9 +57,14 @@ lf-tag-lit tag-nat lf-term-input-leaf-tag
   dup lf-term-second@ if lf-term-first@ lf-lit-limbs slab-at @ else drop 0 then ;
 
 \ A literal from n normalized limbs at addr: the first field, the limbs
-\ kept in the slab when n is 1 or more (ok, or full).
+\ kept in the slab when n is 1 or more (ok, or full). The limbs are
+\ charged to a check's memory limit (scratch-meter.fs; full past it) and
+\ given back with its scratch (core/input.fs's lf-input-rollback; review
+\ rvRS F3).
+: lf-lit-claim ( n -- i outcome )
+  dup cells lf-meter-charge if lf-lit-limbs slab-claim else drop -1 outcome-full then ;
 : lf-lit-kept ( addr n -- first outcome )
-  dup lf-lit-limbs slab-claim ok-then? 0= if >r 2drop r> no-result exit then
+  dup lf-lit-claim ok-then? 0= if >r 2drop r> no-result exit then
   >r r@ lf-lit-limbs slab-at swap cells move r> outcome-ok ;
 : lf-lit-first ( addr n -- first outcome )
   dup 0= if 2drop 0 outcome-ok exit then lf-lit-kept ;

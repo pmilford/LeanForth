@@ -320,10 +320,20 @@ lf-check-steps# 1+ constant lf-step-done
   lf-audit-on? 0= if drop true exit then
   dup lf-check-level-before? if lf-audit-level-reached? else drop true then ;
 ' lf-check-level-findable is lf-level-findable?
+\ References likewise (review rvRS F1): one made before the check, below
+\ the input's reference mark, once an audit of this check checked a
+\ constant node holding it; so a check makes, and its memory limit counts,
+\ the same references fresh, against a snapshot and in any export.
+: lf-check-cref-before? ( n -- flag ) lf-input-cref-k lf-input-mark-count < ;
+: lf-check-cref-findable ( n -- flag )
+  lf-audit-on? 0= if drop true exit then
+  dup lf-check-cref-before? if lf-audit-cref-reached? else drop true then ;
+' lf-check-cref-findable is lf-cref-findable?
 \ The check's scratch, in the bytes core/scratch-meter.fs counts for a
 \ check's memory limit: the term nodes, levels and references above the
 \ input's marks (input store k: 0 terms, 1 levels, 3 references) with
-\ their universe arguments, the local context's entries and the caches'.
+\ their universe arguments, the literals' limbs and bytes above theirs
+\ (review rvRS F3), the local context's entries and the caches'.
 : lf-check-above ( k -- n )
   dup lf-input-store store-count @ swap lf-input-mark mark-count @ - 0 max ;
 \ Where the pairs of the store's first count records end, as lf-cref-top.
@@ -333,7 +343,8 @@ lf-check-steps# 1+ constant lf-step-done
   lf-cref-top 3 lf-input-mark mark-count @ lf-check-args-at - 0 max ;
 : lf-check-stores ( -- u )
   0 lf-check-above lf-meter-term-bytes * 1 lf-check-above lf-meter-level-bytes * +
-  3 lf-check-above lf-meter-cref-bytes * + lf-check-args lf-meter-arg-bytes * + ;
+  3 lf-check-above lf-meter-cref-bytes * + lf-check-args lf-meter-arg-bytes * +
+  lf-input-slab-bytes + ;
 : lf-check-scratch ( -- u )
   lf-check-stores lf-lctx-count @ lf-meter-local-bytes * +
   lf-caches-entries lf-meter-entry-bytes * + ;
