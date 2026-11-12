@@ -9450,3 +9450,27 @@ old = '''  dup lf-iproj-pi? 0= if drop 3 pick lf-iproj-bad exit then'''
 new = ''''''
 test = "$GFORTH tests/core/infer-proj.fs"
 reason = "an index past the constructor's fields reads the domain of a non-Pi instead of invalidProj"
+
+[[fault]]
+id = "cov-genrec-arity-no-motive"
+file = "src/kernel/generated-recursor.fs"
+old = ''': lf-genrec-arity ( d -- n ) dup lf-input-params nip swap lf-genrec-large? 1 and + ;'''
+new = ''': lf-genrec-arity ( d -- n ) lf-input-params nip ;'''
+test = "$GFORTH tests/core/generated-recursor.fs"
+reason = "the motive's own universe parameter not counted: Nat.rec.{u} wants no universe argument, its use is rejected by L1"
+
+[[fault]]
+id = "cov-genrec-instances-unsubstituted"
+file = "src/kernel/generated-recursor.fs"
+old = '''  lf-ind-lparams nip 0= if outcome-ok exit then'''
+new = '''  outcome-ok exit'''
+test = "$GFORTH tests/core/generated-recursor.fs"
+reason = "the block's types and constructors read at the block's own universe names, not the use's arguments: List.rec at renamed or concrete universes gets the wrong type"
+
+[[fault]]
+id = "cov-genrec-motive-level-skipped"
+file = "src/kernel/generated-recursor.fs"
+old = '''  if dup 0 lf-cref-pair @ lf-ind-state lf-ind-elim ! 1 lf-cref-pair'''
+new = '''  if dup 0 lf-cref-pair @ lf-ind-state lf-ind-elim !'''
+test = "$GFORTH tests/core/generated-recursor.fs"
+reason = "the motive's universe argument also read as the block's first: List.rec.{u_1, u} built with List.{u_1}"
