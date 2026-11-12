@@ -2044,10 +2044,24 @@ compared with the tree before: the same but for fuel, 34 declarations less
 and none more; the golden snapshot fields: 23 slots' fuel less, nothing
 else moved. The checker trial digest stays `e96c47672b69`. Planted faults
 `r5-spine-one-short`, `r5-spine-visible-pi-ignored`, `r5-spine-order` and
-`r5-spine-unclosed`. Mathlib roots (one root checked against a snapshot of
-its dependencies, `--fuel 1000000000`): see `.claude/work/R5/ROOTCAUSE.md`;
-`awayι_comp_map` 219,483,113 → 211,894,547 units, check CPU 656 → 521 s,
-peak memory 8,641 → 5,397 MB.
+`r5-spine-unclosed`, all caught; the 37 earlier faults of
+`mixed-infer.fs` behave as listed (36 caught, 1 known equivalent). Mathlib
+roots, each checked alone against a snapshot of its dependencies with
+`--fuel 1000000000` (`.claude/work/R5/ROOTCAUSE.md`), all accepted before
+and after, units before → after:
+`AlgebraicGeometry.Proj.awayι_comp_map` 219,483,113 → 211,894,547 (check
+CPU 656 → 521 s, peak memory 8,641 → 5,397 MB);
+`CategoryTheory.GrothendieckTopology.MayerVietorisSquare.biprodAddEquiv_symm_biprodIsoProd_hom_toBiprod_apply`
+99,751,907 → 88,024,288 (peak 4,820 → 3,338 MB);
+`CategoryTheory.instIsIsoIndCoimageImageComparison` 233,897,724 →
+226,013,339; `PresheafOfModules.freeObj._proof_2` 188,314,434 →
+187,856,617; `PadicInt.coe_adicCompletionIntegersEquiv_apply` 133,650,976
+→ 137,151,657 and `Polynomial.iterate_derivative_derivative_mul_X`
+165,018,370 → 167,077,182 (more: prefixes no longer cached, as in Lean);
+check CPU 2-21% less on each. All of `Init` (`check --no-manifest --json
+--jobs 4`, default fuel): 59,349 accepted before and after, no other field
+of any declaration moved; fuel 659,257,764 → 652,726,907 (−0.99%), 31,418
+declarations less, 27 more (at most +0.17% each).
 
 ## Note: the projection steps (plan task 5.2.2, 2026-11-10)
 
