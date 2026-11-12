@@ -56,7 +56,6 @@
 \ with two optional hooks for a presentation that reads what the feed
 \ drops (see "Hooks" below); lf-feed is it with none.
 \
-\
 \ Shared input (ADR 0016 S8; plan task 7.2.1). lf-feed-shared ( stage
 \ feed source -- outcome ) feeds a parallel check's worker
 \ (cli/check-run.fs) without a copy of its own: the source context, which
