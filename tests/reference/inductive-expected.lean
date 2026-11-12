@@ -747,6 +747,19 @@ def checks : List Block := [
     types := [⟨"T", "Type → Type → Type", [("mk", "(α β : Type) → Nat → " ++
       "List (Prod (T α β) (Option α)) → List (Prod (T α β) (Option β)) → T α β")]⟩],
     lean := "accepted", leanforth := "accepted", rule := "A1 N1", task := "5.2.5b" },
+  -- The nested occurrence `List α` sits at offset 0 and again under the binder
+  -- `(x : Type)`, where the same shared node `List #1` names n instead of α: the
+  -- lowering's memo is keyed by (node, offset), as Lean's replace cache is (review MO).
+  -- Lean lowers the occurrence under x to a local variable (nestedLocalVariable);
+  -- the twin names α under x, which is fine.
+  { id := "nested.offset-local", nparams := 1,
+    types := [⟨"B2", "Type → Type 1", [("mk", "(α n : Type) → " ++
+      "List (Prod (Prod (B2 α) (List α)) ((x : Type) → List n)) → B2 α")]⟩],
+    lean := "nestedLocalVariable", leanforth := "rejected", rule := "N1 N2", task := "5.2.5b" },
+  { id := "nested.offset-param", nparams := 1,
+    types := [⟨"B2ok", "Type → Type 1", [("mk", "(α n : Type) → " ++
+      "List (Prod (Prod (B2ok α) (List α)) ((x : Type) → List α)) → B2ok α")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 N1", task := "5.2.5b" },
   -- Names and the block itself.
   { id := "names.already-declared", ns := .anonymous,
     types := [⟨"Nat", "Type", [("zero", "Nat")]⟩],

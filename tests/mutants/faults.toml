@@ -9115,3 +9115,15 @@ new = '''  lf-nest-memo 0 swap lf-rmemo-begin ;
 : lf-nest-memo-end ( outcome frames -- outcome ) drop ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "MO: a call's results stay for the next call of the pass, whose results for a node and offset may differ: nested.lowered-twice's second lowering (by 2) is given the first one's (by 1)"
+
+[[fault]]
+id = "rvmo-nest-no-offset"
+file = "src/kernel/inductive-nested.fs"
+old = '''  tuck frame-context @ rot lf-nest-memo lf-rmemo@ ;
+: lf-nest-remember ( result node frames -- )
+  tuck frame-context @ rot lf-nest-memo lf-rmemo! ;'''
+new = '''  lf-nest-memo 0 swap lf-rmemo@ ;
+: lf-nest-remember ( result node frames -- )
+  lf-nest-memo 0 swap lf-rmemo! ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvMO 1: the memo keyed by node alone (offset 0 in the lookup and in the store): nested.offset-local is accepted, which Lean rejects (nestedLocalVariable)"

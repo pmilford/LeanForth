@@ -2033,8 +2033,15 @@ nonPositive, rejected; before, out of fuel) and
 with their case files and `tests/core/check-block.fs` rows; 41 case
 files regenerated for Lean's moved hygiene counters (numeric name
 components only). Planted faults `mo-*` (4: no result given back, a
-rebuilt node's result not kept, the offset left out of the key, a call's
-results kept for the next), all caught. Fuel: the pinned exports'
+rebuilt node's result not kept, the offset left out of the lookup only
+(`mo-nest-any-offset`: results are stored at their offset, looked up at
+offset 0), a call's results kept for the next), all caught. Review rvMO
+(finding 1) added rows `nested.offset-local` (probe B2: the shared node
+`List #1` names α at offset 0 and a field `n` under a binder; Lean:
+nestedLocalVariable, rejected) and `nested.offset-param` (probe B2ok:
+accepted), with their case files, and the fault `rvmo-nest-no-offset`
+(offset 0 in the key, in both the lookup and the store), which the first
+four rows let survive and the new rows catch. Fuel: the pinned exports'
 reports are the same but for fuel, 3 declarations less and none more;
 all of Init (59,349 declarations, jobs 8, all accepted): every record
 the same as on main 703c729 but for one declaration's fuel
