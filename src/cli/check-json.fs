@@ -87,7 +87,7 @@ require ./check-run.fs
 : cj-snap-refused ( -- )
   s" snapshot" s" phase" cj-text cj-nowhere ck-snap snap-error >r
   s" reason" cj-text r> dup 0< if drop s" at" cj-null-member else s" at" cj-number then ;
-: cj-staged ( -- ) ck-snapped? if cj-snap-refused else cj-staging then ;
+: cj-staged ( -- ) ck-snap-bad? if cj-snap-refused else cj-staging then ;
 : cj-where ( -- )
   ck-phase-failed case ck-staging of cj-staged endof ck-feeding of cj-feeding endof
     ck-opening of cj-unopened endof cj-ok-read endcase ;
@@ -227,16 +227,24 @@ create cj-hex 64 allot
   else s" manifestSha256" cj-null-member then ;
 : cj-snap-file ( -- ) ck-snap-file@ nt-text cj-shown s" file" cj-text ;
 : cj-snap-info ( -- ) ck-snap snap-info nt-text cj-shown s" information" cj-text ;
+\ With an export checked against the snapshot (plan step SN4): how many
+\ declarations were taken from it and checked in this run, and how many
+\ share a name with one of it but none's content; null without one.
+: cj-import ( -- )
+  ck-importing? 0= if s" import" cj-null-member exit then
+  s" import" cj-key cj-object ck-taken# dup s" taken" cj-number
+  lf-input-count swap - s" checked" cj-number ck-other# s" otherContent" cj-number
+  cj-end-object ;
 : cj-snapshot ( -- )
   ck-snapped? 0= if exit then s" development" s" mode" cj-text
   ck-snap snap-id 0= if s" snapshot" cj-null-member exit then
   s" snapshot" cj-key cj-object cj-snap-file
   ck-snap snap-sum s" sha256" cj-sha snap-version s" formatVersion" cj-number
   lf-verdict-version s" verdictVersion" cj-number cj-snap-export cj-snap-manifest
-  s" base" cj-null-member cj-snap-info cj-end-object ;
+  s" base" cj-null-member cj-snap-info cj-import cj-end-object ;
 \ ---- The report.
 : cj-export ( c-addr u -- )
-  ck-snapped? if 2drop s" export" cj-null-member exit then nt-text cj-shown s" export"
+  ck-snap-only? if 2drop s" export" cj-null-member exit then nt-text cj-shown s" export"
   cj-text ;
 : cj-head ( c-addr u checked? -- )
   cj-schema s" schema" cj-text cj-version s" schemaVersion" cj-text >r cj-export

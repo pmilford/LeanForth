@@ -33,8 +33,16 @@
       "const": "0.3"
     },
     "export": {
-      "description": "null: a run of a snapshot reads no export (its identity is in snapshot.export).",
-      "type": "null"
+      "description": "Escaped display text of the export's file name as the command line gave it, when an export was checked against the snapshot (plan task 6.2.5, step SN4); null: a run of a snapshot alone reads no export (its identity is in snapshot.export).",
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "minLength": 1
+        }
+      ]
     },
     "manifest": {
       "description": "checked: the export was read only if it matched EXPORT.manifest.json (the default); not-checked: --no-manifest.",
@@ -1281,7 +1289,8 @@
         "export",
         "manifestSha256",
         "base",
-        "information"
+        "information",
+        "import"
       ],
       "properties": {
         "file": {
@@ -1346,6 +1355,34 @@
         },
         "information": {
           "type": "string"
+        },
+        "import": {
+          "description": "With an export checked against the snapshot (plan task 6.2.5, step SN4; ADR 0020 D5): how many of the export's declarations were taken from the snapshot (the import rule I1) and checked in this run, and how many share a name with a declaration of the snapshot but the content of none; null when no export was read.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "taken",
+                "checked",
+                "otherContent"
+              ],
+              "properties": {
+                "taken": {
+                  "$ref": "#/$defs/count"
+                },
+                "checked": {
+                  "$ref": "#/$defs/count"
+                },
+                "otherContent": {
+                  "$ref": "#/$defs/count"
+                }
+              }
+            }
+          ]
         }
       }
     }

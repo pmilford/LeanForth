@@ -32,11 +32,13 @@
 \ (snap-version), 2 the verdict version (kernel/verdict-version.fs), 3-4
 \ the fuel per declaration, 5 the allowlist's version, 6 its bits, 7 the
 \ layers below this one (0: a base snapshot), 8-15 the base's identity (its
-\ header's SHA-256, 0 for none). A layered snapshot (plan steps SN4/SN5)
-\ holds only its own records and slots, numbered on from its base's
-\ counts (identity 21-28 and the slots' first number), and is loaded after
-\ its base: this step writes and reads base snapshots only, and refuses a
-\ layer as unsupported. Nothing a build derives is written: no hash table,
+\ header's SHA-256, 0 for none). A layer (plan step SN4; snap-layer-base!,
+\ snap-layer-slots!, snap-layer-decls!) holds only its own records and
+\ slots, numbered on from its base's counts (identity 21-28 and the slots'
+\ first number), field 7 1 (a layer on a base alone); it is opened with
+\ snap-layer-open on the base it names and merged into it by
+\ env-layers.fs. A layer given where a base is expected is refused as
+\ unsupported. Nothing a build derives is written: no hash table,
 \ address or hash value (ADR 0020 F1: lookup tables are rebuilt on load).
 \
 \ Writing (snap-save): after a run in which every slot became final, the
@@ -134,6 +136,15 @@ begin-structure /snap
   field: snap-dk                        \ reading: dependencies passed so far
   field: snap-lk                        \ and lookups
   field: snap-head                      \ the first slot of the span being read
+  field: snap-names                     \ reading: the tier's names (snap-tier)
+  field: snap-first                     \ reading: the first slot's number (a layer's)
+  field: snap-wn                        \ writing: the slots written
+  field: snap-which                     \ writing a layer: xt ( j -- d ), slot j's, or 0
+  field: snap-renum                     \ and xt ( d -- s ), d's number in the layer
+  32 +field snap-base-sha               \ writing a layer: its base's identity
+  field: snap-layered                   \ writing: true for a layer
+  field: snap-expect                    \ reading a layer: its base's identity, or 0
+  field: snap-expect-firsts             \ and the base's tier counts (8 cells)
 end-structure
 variable snap-loading   \ the record snap-fill reads
 : snap-sf ( snap -- sf ) snap-tf tf-sf ;
@@ -197,16 +208,25 @@ variable snap-loading   \ the record snap-fill reads
 : snap-info! ( c-addr u snap -- ) ss-info swap snap-block! ;
 : snap-facts! ( xt snap -- ) snap-facts ! ;
 
+\ The slots written: every slot of the environment, or a layer's (plan
+\ step SN4; snap-layer!): its slot j is the environment's slot d (the
+\ caller's xt), and a slot d it refers to is numbered s in the base and the
+\ layer (the caller's xt; a base numbers as the environment).
+: snap-e ( j snap -- d ) snap-which @ ?dup if execute then ;
+: snap-s ( d snap -- s ) snap-renum @ ?dup if execute then ;
+: snap-wn@ ( snap -- n ) snap-wn @ ;
 \ Every slot's lists counted, then the blocks for them.
 : d-deps ( d -- n ) slot-env lf-slot-count @ ;
 : d-looks ( d -- n ) slot-env lf-slot-looked @ ;
-: snap-totals ( -- deps looks )
-  0 0 lf-env lf-env-length 0 ?do i d-looks + swap i d-deps + swap loop ;
+: snap-totals ( snap -- deps looks )
+  0 0 rot dup snap-wn@ 0 ?do
+    i over snap-e >r rot r@ d-deps + rot r> d-looks + rot
+  loop drop ;
 : snap-lists ( snap -- outcome )
-  >r snap-totals 2dup si-looks r@ id! si-deps r@ id!
+  >r r@ snap-totals 2dup si-looks r@ id! si-deps r@ id!
   8 * ss-looks r@ snap-alloc dup ok? 0= if nip r> drop exit then drop
   4 * ss-deps r@ snap-alloc dup ok? 0= if r> drop exit then drop
-  lf-env lf-env-length dup si-slots r@ id! sl-fields# u32s * ss-slots r> snap-alloc ;
+  r@ snap-wn@ dup si-slots r@ id! sl-fields# u32s * ss-slots r> snap-alloc ;
 \ A slot's marks and provenance as written.
 : slot-marks ( slot -- u )
   dup lf-slot-skipped @ 0<> mark-skipped and over lf-slot-added @ 0<> mark-added and or
@@ -259,24 +279,41 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
   then ;
 : put-site ( addr step -- addr outcome ) kept-site @ site-of >r sl-site 2 pick fld! r> ;
 \ One slot's record, from its environment slot and the caller's facts.
-: put-slot ( d snap -- outcome )
-  2dup snap-slot 2 pick slot-env put-env -rot snap-facts @ execute >r
-  sl-fuel 2 pick fld2! r@ put-step r> put-site nip ;
+: put-slot ( j snap -- outcome )
+  2dup snap-slot -rot tuck snap-e swap >r tuck slot-env put-env swap
+  r> snap-facts @ execute >r sl-fuel 2 pick fld2! r@ put-step r> put-site nip ;
 : put-slots ( snap -- outcome )
-  lf-env lf-env-length 0 ?do
+  dup snap-wn@ 0 ?do
     i over put-slot dup ok? 0= if nip unloop exit then drop
   loop drop outcome-ok ;
-\ The dependencies and lookups, each slot's in turn.
-: put-deps ( addr d -- addr' )
-  slot-env dup lf-slot-count @ 0 ?do i over lf-dep-at 2 pick u32-le! swap 4 + swap loop
-  drop ;
-: put-looks ( addr d -- addr' )
-  slot-env dup lf-slot-looked @ 0 ?do
-    i over lf-slot-look >r 2 pick u32-le! r> 2 pick 4 + u32-le! swap 8 + swap
+\ The dependencies and lookups, each slot's in turn, slots numbered as
+\ written (snap-s): an answer's slot + 1 field.
+: answer-renum ( answer snap -- answer' )
+  over lf-look-slot+1 ?dup 0= if drop exit then
+  1- swap snap-s 1+ 4 lshift swap 15 and or ;
+\ n slot numbers as little-endian fields at addr sorted ascending (a
+\ layer's are numbered again, so their order may change).
+: dep-sort ( addr n -- )
+  dup 2 < if 2drop exit then 1 ?do
+    dup i 4 * + u32-le@ i
+    begin dup 0> if 2 pick over 1- 4 * + u32-le@ 2 pick u> else false then while
+      2 pick over 1- 4 * + u32-le@ 3 pick 2 pick 4 * + u32-le! 1-
+    repeat 4 * 2 pick + u32-le!
   loop drop ;
+: put-deps ( addr d snap -- addr' )
+  over slot-env lf-slot-count @ 3 pick 2>r
+  swap slot-env dup lf-slot-count @ 0 ?do
+    i over lf-dep-at 2 pick snap-s 3 pick u32-le! rot 4 + -rot
+  loop 2drop 2r> swap dep-sort ;
+: put-looks ( addr d snap -- addr' )
+  swap slot-env dup lf-slot-looked @ 0 ?do
+    i over lf-slot-look 3 pick answer-renum >r 3 pick u32-le! r> 3 pick 4 + u32-le!
+    rot 8 + -rot
+  loop 2drop ;
 : put-lists ( snap -- )
-  dup ss-deps swap snap-block swap ss-looks swap snap-block
-  lf-env lf-env-length 0 ?do i put-looks swap i put-deps swap loop 2drop ;
+  dup ss-deps swap snap-block over ss-looks swap snap-block rot dup snap-wn@ 0 ?do
+    i over snap-e >r rot r@ 2 pick put-deps -rot swap r> 2 pick put-looks swap
+  loop drop 2drop ;
 : put-sites ( snap -- outcome )
   >r site-bytes dup slab-count dup 1 max allocate
   if drop 2drop r> drop outcome-full exit then
@@ -285,12 +322,30 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
 
 \ The header fields, then every section, then the file.
 : head! ( u k snap -- ) snap-sf sections-field! drop ;
+\ A SHA-256 as eight fields from k on, its bytes in order.
+: sum-heads! ( c-addr k snap -- )
+  8 0 do 2 pick i u32s + u32-le@ 2 pick i + 2 pick head! loop 2drop drop ;
+\ A layer (ADR 0020 amendment 1, F5; plan step SN4), set after
+\ snap-begin: its base's identity (the base's header SHA-256) and the
+\ first number of each tier section 1-8 in the base (8 cells), written to
+\ the header and the identity; the n slots written, slot j the
+\ environment's slot which ( j -- d ), the slots they refer to numbered
+\ by renum ( d -- s ) in the base and the layer; the declarations and
+\ their lines written (decls n lines; import/snapshot-tier.fs tier-given!).
+: snap-layer-base! ( sha-addr firsts snap -- )
+  true over snap-layered ! rot over snap-base-sha 32 move
+  8 0 do over i cells + @ si-firsts i + 2 pick id! loop
+  over swap snap-tf tf-from cell+ 7 cells move drop ;
+: snap-layer-slots! ( n which renum snap -- )
+  tuck snap-renum ! tuck snap-which ! snap-wn ! ;
+: snap-layer-decls! ( decls n lines snap -- ) snap-tf tier-given! ;
 : snap-head! ( fuel snap -- )
   >r snap-mark sh-mark r@ head! snap-version sh-version r@ head!
   lf-verdict-version sh-verdict r@ head!
   dup u32-mask and sh-fuel r@ head! cell-hi sh-fuel 1+ r@ head!
-  lf-allowlist-version sh-allow-version r@ head! lf-allowlist-bits sh-allow-bits r> head!
-  ;
+  lf-allowlist-version sh-allow-version r@ head! lf-allowlist-bits sh-allow-bits r@ head!
+  r@ snap-layered @ if 1 sh-layers r@ head! r@ snap-base-sha sh-base r@ sum-heads! then
+  r> drop ;
 : snap-count ( i snap -- n ) over snap-unit >r snap-size r> / ;
 : snap-shape ( i snap -- addr unit count )
   2dup snap-block >r 2dup snap-count >r drop snap-unit r> r> -rot ;
@@ -308,6 +363,7 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
 : snap-build ( fuel stage snap -- outcome )
   over snap-ready? 0= if drop 2drop outcome-invalid exit then
   >r r@ snap-tf tier-sections dup ok? 0= if nip r> drop exit then drop
+  r@ snap-which @ 0= if lf-env lf-env-length r@ snap-wn ! then
   r@ snap-head! r@ snap-lists dup ok? 0= if r> drop exit then drop
   r@ put-slots dup ok? 0= if r> drop exit then drop
   r@ put-lists r@ put-sites dup ok? 0= if r> drop exit then drop r> snap-adds ;
@@ -334,7 +390,14 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
   swap sh-allow-bits swap head@ lf-allowlist-bits = and ;
 : snap-fuel? ( snap -- flag ) dup snap-asked @ dup 0< if 2drop true else swap snap-fuel =
   then ;
+\ A base (snap-expect 0): no layer field (7-15) set. A layer loaded on a
+\ base (snap-expect, the base's identity; plan step SN4): field 7 is 1 (a
+\ layer on a base alone) and 8-15 the base's header SHA-256.
 : snap-base? ( snap -- flag ) false 16 sh-layers do over i swap head@ or loop nip 0<> ;
+: sum-head? ( c-addr k snap -- flag )
+  true 8 0 do 3 pick i u32s + u32-le@ 3 pick i + 3 pick head@ = and loop nip nip nip ;
+: snap-layer-of? ( snap -- flag )
+  sh-layers over head@ 1 = swap dup snap-expect @ sh-base rot sum-head? and ;
 : snap-header ( snap -- outcome )
   dup snap-marked? 0= if outcome-invalid c" not a LeanForth snapshot" rot snap-refuse exit
   then
@@ -342,8 +405,11 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
   dup snap-fresh? 0= if outcome-unsupported c" verdict version" rot snap-refuse exit then
   dup snap-fuel? 0= if outcome-invalid c" fuel" rot snap-refuse exit then
   dup snap-allowed? 0= if outcome-invalid c" axiom allowlist" rot snap-refuse exit then
-  dup snap-base? if outcome-unsupported c" layer" rot snap-refuse exit then drop
-  outcome-ok ;
+  dup snap-expect @ if
+    dup snap-layer-of? 0= if
+      outcome-invalid c" base snapshot of the layer" rot snap-refuse exit then
+  else dup snap-base? if outcome-unsupported c" layer" rot snap-refuse exit then then
+  drop outcome-ok ;
 \ The table: the tier's ten sections (tier-read checks them) and these.
 : snap-shaped? ( i snap -- flag )
   over swap snap-sf sections-info 2drop rot dup snap-unit rot = -rot 1+ = and ;
@@ -369,21 +435,39 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
 : snap-sum-read ( c-addr u snap -- outcome )
   >r r/o bin open-file if drop r> drop outcome-invalid exit then
   dup r> sum-read swap close-file drop ;
+\ The first number of each tier section 1-8 (identity 21-28): 0 in a
+\ base; in a layer, the base's counts (snap-expect-firsts, 8 cells).
+: firsts-zero? ( snap -- flag ) false 29 si-firsts do over i swap id@ or loop nip 0= ;
+: firsts-same? ( snap -- flag )
+  true 8 0 do
+    over si-firsts i + swap id@ 2 pick snap-expect-firsts @ i cells + @ = and
+  loop nip ;
 : snap-checks ( snap -- outcome )
   dup snap-header dup ok? 0= if nip exit then drop
   dup snap-table? 0= if outcome-invalid c" section table" rot snap-refuse exit then
   dup snap-identity dup ok? 0= if c" identity" rot snap-refuse exit then drop
-  false 29 si-firsts do over i swap id@ or loop 0<>
-  if outcome-unsupported c" layer" rot snap-refuse exit then drop outcome-ok ;
+  dup snap-expect @ if
+    dup firsts-same? 0= if outcome-invalid c" base snapshot of the layer" rot snap-refuse
+      exit then
+  else dup firsts-zero? 0= if outcome-unsupported c" layer" rot snap-refuse exit then then
+  drop outcome-ok ;
 \ Open the snapshot file c-addr u for a run with fuel per declaration
 \ (-1: the snapshot's): its header, table and identity checked.
-: snap-open ( c-addr u fuel snap -- outcome )
-  dup snap-init tuck snap-asked ! >r 2dup r@ snap-sf sections-open snap-damaged
+: snap-opened ( c-addr u fuel snap -- outcome )
+  tuck snap-asked ! >r 2dup r@ snap-sf sections-open snap-damaged
   dup ok? 0= if nip nip c" header or section table" r> snap-refuse exit then drop
   r@ snap-sum-read dup ok? 0= if c" header" r> snap-refuse exit then drop r> snap-checks ;
+: snap-open ( c-addr u fuel snap -- outcome ) dup snap-init snap-opened ;
+\ Open a layer (plan step SN4) for the base whose identity (its header's
+\ SHA-256) is at sha and whose tier counts are firsts (8 cells): a layer
+\ written on that base alone, or refused (invalid).
+: snap-layer-open ( c-addr u fuel sha firsts snap -- outcome )
+  dup snap-init tuck snap-expect-firsts ! tuck snap-expect ! snap-opened ;
 \ The tier into a fresh stage (stage-init's), as import/snapshot-tier.fs
 \ reads it.
-: snap-tier ( stage snap -- outcome ) snap-tf tier-read snap-damaged ;
+: snap-tier ( stage snap -- outcome )
+  2dup snap-tf tier-read snap-damaged
+  >r swap stage-tier tier-names cons-numbers swap snap-names ! r> ;
 
 \ ---- Loading: the environment's sections, every field in range.
 : sec-units ( i snap -- n ) snap-sf sections-info drop nip nip ;
@@ -399,44 +483,68 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
 : dep@ ( j snap -- d ) ss-deps swap snap-block swap u32s + u32-le@ ;
 : look-key ( j snap -- key ) ss-looks swap snap-block swap 8 * + u32-le@ ;
 : look-answer ( j snap -- answer ) ss-looks swap snap-block swap 8 * + 4 + u32-le@ ;
-\ A slot's own fields: an outcome, marks, provenance, axiom bits within
-\ the allowlist's, fuel used or -1 (not known).
+\ A slot's own fields: an outcome, marks, axiom bits within the
+\ allowlist's; fuel used -1 (not known) or at most the fuel per
+\ declaration; provenance 0 in a base snapshot (written by a final run),
+\ at most 1 (rests on saved results) in a layer (review rvSN3 m2, m3).
 : sl-sane? ( addr -- flag )
   sl-outcome over fld@ outcome-full u> 0= sl-marks 2 pick fld@ 8 u< and
-  sl-provenance 2 pick fld@ 4 u< and sl-axioms 2 pick fld@ snap-axiom-bits invert and 0=
-  and
-  sl-fuel rot fld2@ -1 < 0= and ;
+  sl-axioms rot fld@ snap-axiom-bits invert and 0= and ;
+: fuel-ok? ( addr snap -- flag )
+  snap-fuel swap sl-fuel swap fld2@ tuck < 0= swap -1 < 0= and ;
+: snap-layer? ( snap -- flag ) sh-layers swap head@ 0<> ;
+: prov-ok? ( addr snap -- flag )
+  swap sl-provenance swap fld@ swap snap-layer? 1 and u> 0= ;
 \ Its site: none, or a counted string inside the site texts.
 : site-room ( snap -- base size ) ss-sites over snap-block swap ss-sites swap snap-size ;
 : site-ok? ( n snap -- flag )
   over 0= if 2drop true exit then
   site-room >r swap 1- r@ over u> 0= if r> drop 2drop false exit then
   tuck + count nip + 1+ r> u> 0= ;
+\ Its lists inside their sections, by the counts so far and the
+\ identity's totals, before any entry is read (review rvSN3 M1).
+: lists-inside? ( addr snap -- flag )
+  over sl-deps swap fld@ over si-deps swap id@ 2 pick snap-dk @ - u> 0=
+  >r swap sl-looks swap fld@ over si-looks swap id@ rot snap-lk @ - u> 0= r> and ;
 \ Its dependencies ascending, each below the first slot of its span; its
-\ lookups of a known kind (or the one key of names beyond the input), each
-\ answer an outcome and a slot below that first slot. (Their order and
-\ distinctness are compared after publishing: snap-same?.)
+\ lookups' keys the one key of names beyond the input, or a name of the
+\ tier with a known kind, the quotient's under the anonymous name only
+\ (rvSN3 m5); each answer an outcome and a slot below that first slot.
+\ (Their order and distinctness are compared after publishing:
+\ snap-same?.)
 : dep-ok? ( prev dep snap -- dep flag ) snap-head @ over > >r tuck < r> and ;
 : dep-step ( prev flag snap j -- dep flag' snap )
   over dep@ swap rot >r dup >r dep-ok? r> swap r> and swap ;
 : deps-ok? ( c snap -- flag )
   swap >r -1 true rot r> 0 ?do dup snap-dk @ i + dep-step loop drop nip ;
-: key-ok? ( key -- flag )
-  dup lf-look-outside = swap lf-look-kinds 1- and lf-look-quot u> 0= or ;
+: key-name ( key -- name ) 4 rshift ;
+: key-kind ( key -- kind ) lf-look-kinds 1- and ;
+: key-quot-ok? ( key -- flag ) dup key-kind lf-look-quot <> swap key-name 0= or ;
+: key-ok? ( key snap -- flag )
+  over lf-look-outside = if 2drop true exit then
+  over key-name swap snap-names @ u< over key-kind lf-look-quot u> 0= and
+  swap key-quot-ok? and ;
 : answer-ok? ( answer snap -- flag )
   snap-head @ swap dup 7 and outcome-full u> 0= >r lf-look-slot+1 < 0= r> and ;
 : looks-ok? ( c snap -- flag )
   true rot 0 ?do
-    over dup snap-lk @ i + swap 2dup look-key key-ok? >r look-answer 2 pick answer-ok?
+    over dup snap-lk @ i + swap 2dup look-key over key-ok? >r look-answer
+    2 pick answer-ok?
     r> and and
   loop nip ;
 : slot-lists? ( addr snap -- flag )
+  2dup lists-inside? 0= if 2drop false exit then
   over sl-deps swap fld@ over deps-ok? >r swap sl-looks swap fld@ swap looks-ok? r> and ;
+: slot-fields? ( addr snap -- flag )
+  over sl-sane? >r 2dup fuel-ok? >r 2dup prov-ok? >r
+  swap sl-site swap fld@ swap site-ok? r> r> r> and and and ;
 : slot-fine? ( addr snap -- flag )
-  over sl-sane? >r over sl-site swap fld@ over site-ok? >r slot-lists? r> r> and and ;
+  2dup slot-fields? if slot-lists? else 2drop false then ;
 \ The slot's place: its span's first slot, where its lists start.
+\ (A layer's slots are numbered on from its base's: snap-first.)
 : span-head! ( d snap -- )
-  2dup snap-slot sl-marks swap fld@ mark-with and if 2drop else snap-head ! then ;
+  2dup snap-slot sl-marks swap fld@ mark-with and if 2drop exit then
+  tuck snap-first @ + swap snap-head ! ;
 : start! ( d snap -- )
   dup snap-starts @ rot 2* cells + >r dup snap-dk @ r@ ! snap-lk @ r> cell+ ! ;
 : slot-pass ( addr snap -- )
@@ -474,10 +582,9 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
   dup start@ drop swap sl-deps swap saved true swap 0 ?do
     over i + snap@ dep@ lf-env-depend ok? and
   loop nip ;
-\ The span: the slot and every next one published with it.
+\ The span: the slot and every next one of the snapshot published with it.
 : with-next? ( d -- flag )
-  dup lf-env lf-env-length < if sl-marks swap saved mark-with and 0<> else drop false then
-  ;
+  dup snap@ snap-n @ < if sl-marks swap saved mark-with and 0<> else drop false then ;
 : fill-span ( d -- n ) 1 begin 2dup + with-next? while 1+ repeat nip ;
 : fill-shapes ( d n -- ) 0 ?do sl-shape over i + saved i lf-env-shape! drop loop drop ;
 : fill-marks ( d -- )

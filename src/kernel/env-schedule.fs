@@ -647,9 +647,13 @@ variable lf-sched-faults  0 lf-sched-faults !
   >r pad dup 40 r@ read-line 0= and and r> close-file drop ;
 lf-sch-arch-read s" x86_64" compare 0= constant lf-sch-x86?
 task-host task-threads <> lf-sch-x86? or constant lf-sched-host-ok
+\ A slot final before the run, taken from a snapshot (env-import.fs, plan
+\ step SN4), is done and wakes the declarations that wait for it.
+: lf-sch-taken ( d -- )
+  dup lf-sch-final? 0= if drop exit then lf-sch-done over lf-sch-state! lf-sch-note ;
 : lf-sch-start ( -- )
   lf-context @ lf-sched lf-sch-home-ctx ! lf-sch-pool-size
-  lf-sch-n 0 ?do i lf-sch-first loop ;
+  lf-sch-n 0 ?do i lf-sch-taken loop lf-sch-n 0 ?do i lf-sch-first loop ;
 \ Run every declaration (see the header); the driving context is current
 \ again afterwards and the pool stopped.
 : lf-sched-run ( check keep maker -- )

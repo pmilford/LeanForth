@@ -43,9 +43,9 @@
 \   count [--no-manifest] EXPORT          the record counts (ndjson-count.fs);
 \   reexport [--no-manifest] EXPORT COPY  the byte-exact copy (ndjson-emit.fs);
 \   version, capabilities, help (also --version, --help and -h).
-\ --fast is bin/leanforth's: it runs gforth-fast instead of Gforth's
-\ checking engine, gforth (owner, 2026-11-04); the Forth side only takes
-\ it. Exit codes (cli/tally.fs): 0 all accepted (or the command done), 1
+\ --fast and --checked are bin/leanforth's: gforth-fast is the default engine,
+\ --checked runs Gforth's checking engine, gforth (owner, 2026-11-11); the
+\ Forth side only takes them. Exit codes (cli/tally.fs): 0 all accepted (or the command done), 1
 \ something rejected, 2 unsupported or unknown, 3 a resource limit (out of
 \ fuel or room), 4 malformed input (also a malformed command line, or a
 \ file that cannot be opened or created), 5 an internal fault (a Forth
@@ -152,6 +152,8 @@ begin-structure /cli-run
   field: opt-fuel-given         \ true: --fuel was given
   2 cells +field opt-save       \ the snapshot to write (--save-snapshot), or 0 0
   2 cells +field opt-snapshot   \ the snapshot to read (--snapshot), or 0 0
+  field: opt-layers             \ the layers on it (--snapshot again): (c-addr u) each
+  field: opt-layers#            \ how many
   4 cells +field arg-files      \ the file names given, in order (two c-addr u)
   field: arg-count              \ how many were given
   field: arg-set                \ the options the command takes, as bits
@@ -332,9 +334,17 @@ end-structure
 : cli-item ( first? verdict -- first? )
   dup cli-count-of @ ?dup 0= if drop exit then
   rot 0= if ." , " then .decimal space cli-kind. false ;
+\ In a run with a snapshot (development mode), how many verdicts came
+\ from it (review rvSN3 m6).
+: cli-from-snapshot# ( -- n ) 0 lf-input-count 0 ?do i lf-env-origin lf-origin-saved = -
+  loop ;
+: cli-summary-label ( -- )
+  ck-snapped? 0= if exit then
+  ." ; " cli-from-snapshot# dup .decimal ."  from the snapshot, " lf-input-count swap -
+  .decimal ."  checked in this run" ;
 : cli-summary ( -- )
   lf-input-count dup .decimal ."  declaration" 1 <> if ." s" then ." : "
-  true verdict-kinds 0 do i verdict-kind cli-item loop drop cr ;
+  true verdict-kinds 0 do i verdict-kind cli-item loop drop cli-summary-label cr ;
 \ The accepted ones' label and axioms, read from their slots: none when
 \ they use no axiom; else the allowlisted axioms they use (which count as
 \ proved, docs/user/COMMAND_LINE.md), then how many are NOT PROVED, or
@@ -490,7 +500,7 @@ create cli-fed-ops
   ." error: " ck-read-outcome outcome-text type ." : the snapshot was refused: "
   ck-snap snap-error >r type r> dup 0< if drop else ."  (record " .decimal ." )" then cr ;
 : cli-fed-unread ( outcome -- )
-  ck-snapped? ck-phase-failed ck-staging = and if drop cli-snap-error exit then
+  ck-snap-bad? if drop cli-snap-error exit then
   ck-phase-failed ck-staging = 0= if cli-feed-error exit then
   dup cli-stage-error cli-stage-manifest? if cli-manifest-hint then ;
 
@@ -599,33 +609,50 @@ create cli-hex 64 allot
   else ." snapshot: written to " cli-state opt-save 2@ nt-text if type else cli-unshown
   then cr
   then ;
-: cli-from-snapshot# ( -- n ) 0 lf-input-count 0 ?do i lf-env-origin lf-origin-saved = -
+\ Whether a text is plain: letters, digits, ".", "-", "_", " " only.
+: cli-plain? ( c-addr u -- flag )
+  true -rot bounds ?do
+    i count nip dup [char] a [char] z 1+ within over [char] A [char] Z 1+ within or
+    over [char] 0 [char] 9 1+ within or over [char] . = or over [char] - = or
+    over [char] _ = or swap bl = or and
   loop ;
-\ The commit the snapshot's information names, or "unknown".
+\ The commit the snapshot's information names, or "unknown", also for a
+\ text that is not plain (a line feed in it could forge a report line;
+\ review rvSN3 m1).
 : cli-commit-key ( -- c-addr u ) s\" \"commit\":\"" ;
 : cli-quote-at ( c-addr u -- n )
   dup >r 0 ?do dup i + count nip [char] " = if drop i unloop r> drop exit then loop drop
   r> ;
+: cli-shown-commit ( c-addr u -- c-addr' u' )
+  2dup cli-plain? over 0<> and 0= if 2drop s" unknown" then ;
 : cli-written-by ( -- c-addr u )
   ck-snap snap-info cli-commit-key search 0= if 2drop s" unknown" exit then
-  cli-commit-key nip /string 2dup cli-quote-at nip ;
+  cli-commit-key nip /string 2dup cli-quote-at nip cli-shown-commit ;
+\ With an export (plan step SN4): how many of its declarations were
+\ checked in this run, and how many share a name with a declaration of the
+\ snapshot but the content of none.
+: cli-import. ( -- )
+  ck-importing? 0= if exit then
+  ." import: " lf-input-count cli-from-snapshot# - .decimal ."  checked in this run; "
+  ck-other# .decimal ."  with the name of a declaration of the snapshot, not its content"
+  cr ;
 : cli-snapshot. ( -- )
   ." snapshot: " cli-state opt-snapshot 2@ nt-text if type else cli-unshown then
   ."  (sha256 " ck-snap snap-sum cli-sha. ." ), export sha256 " ck-snap snap-export-sha
   cli-sha.
   ." , verdict version " lf-verdict-version .decimal ." , written by LeanForth "
   cli-written-by type ." : " cli-from-snapshot# .decimal
-  ."  results taken from it, not re-checked in this run" cr
+  ."  results taken from it, not re-checked in this run" cr cli-import.
   ." note: development and research mode: a final run re-checks everything from the" cr
   ." note: export and reads no snapshot; only its results support a claim" cr ;
 : cli-fed-text ( -- )
   cli-other-note ck-loaded? if cli-results. else ck-read-outcome cli-fed-unread then
   ck-snapped? ck-loaded? and if cli-snapshot. then cli-saved.
   cli-resources? if cli-resources. then ;
-\ Whether the export's manifest was checked: for a snapshot run, when the
-\ run that wrote the snapshot checked it.
+\ Whether the export's manifest was checked: for a snapshot run without an
+\ export, when the run that wrote the snapshot checked it.
 : cli-manifest-checked? ( -- flag )
-  ck-snapped? if ck-snap snap-flags snap-enforced and 0<> else cli-checked? then ;
+  ck-snap-only? if ck-snap snap-flags snap-enforced and 0<> else cli-checked? then ;
 : cli-fed-json ( -- )
   0 cli-file cli-manifest-checked? cj-report dup ok? if drop exit then
   cr ." internal fault: the JSON report could not be written: " outcome-text type cr
@@ -641,12 +668,6 @@ variable cli-info#
 : cli-info+ ( c-addr u -- )
   dup cli-info# @ + 512 > if 2drop exit then
   tuck cli-info cli-info# @ + swap move cli-info# +! ;
-: cli-plain? ( c-addr u -- flag )
-  true -rot bounds ?do
-    i count nip dup [char] a [char] z 1+ within over [char] A [char] Z 1+ within or
-    over [char] 0 [char] 9 1+ within or over [char] . = or over [char] - = or
-    over [char] _ = or swap bl = or and
-  loop ;
 : cli-info-text ( c-addr u -- )
   2dup cli-plain? over 0<> and
   if s\" \"" cli-info+ cli-info+ s\" \"" cli-info+ else 2drop s" null" cli-info+ then ;
@@ -666,9 +687,20 @@ variable cli-info#
   0 cli-file cli-checked? ck-load ok? if ck-check cli-snapshot-save then
   cli-fed-tally cli-fed-report ;
 \ check --snapshot FILE: the snapshot's verdicts, published again from it
-\ (cli/check-run.fs ck-snapshot-load), no export read.
+\ (cli/check-run.fs ck-snapshot-load), no export read; each further
+\ --snapshot LAYER a layer loaded on it (kernel/env-layers.fs).
+: cli-layers ( -- ) cli-state opt-layers @ cli-state opt-layers# @ ck-layers! ;
 : cli-snapshot-run ( -- )
-  cli-state opt-snapshot 2@ cli-asked-fuel ck-snapshot-load ok? if ck-check then
+  cli-layers cli-state opt-snapshot 2@ cli-asked-fuel ck-snapshot-load
+  ok? if ck-check then
+  cli-fed-tally cli-fed-report ;
+\ check --snapshot FILE EXPORT: the export read on into the snapshot's
+\ tier, what is the snapshot's taken from it, the rest checked (plan step
+\ SN4; cli/check-run.fs ck-snapshot-import, kernel/env-import.fs); with
+\ --save-snapshot, what was checked written as a layer of the snapshot.
+: cli-import-run ( -- )
+  cli-layers cli-state opt-snapshot 2@ cli-asked-fuel ck-snapshot-import ok?
+  if 0 cli-file cli-checked? ck-load ok? if ck-check cli-snapshot-save then then
   cli-fed-tally cli-fed-report ;
 \ After the run: stores that could not be given back their sizes are an
 \ internal fault (later checks in this context would hold more).
@@ -738,22 +770,26 @@ variable cli-info#
   ." error: --jobs does not go with --record" cr
   ." try: leanforth help" cr exit-malformed ;
 \ Snapshots (ADR 0020 D6): neither --snapshot nor --save-snapshot goes
-\ with --record; a snapshot is not yet both read and written in one run,
-\ nor read with an export (dependent exports: plan step SN4).
+\ with --record; both together write a layer, so only with an export.
 : cli-snap-misused? ( -- flag ) cli-record? cli-snapshot? cli-save? or and ;
-: cli-snap-both? ( -- flag ) cli-snapshot? cli-save? and ;
-: cli-snap-export? ( -- flag ) cli-snapshot? cli-files @ 0<> and ;
+: cli-snap-both? ( -- flag ) cli-snapshot? cli-save? and cli-files @ 0= and ;
 : cli-misuse-snap ( c-addr u -- code )
   ." error: " type cr ." try: leanforth help" cr exit-malformed ;
 : cli-snap-misuse ( -- code|0 )
   cli-snap-misused? if s" --snapshot and --save-snapshot do not go with --record"
     cli-misuse-snap exit then
   cli-snap-both? if
-  s" --snapshot and --save-snapshot do not go together yet (plan step SN4)"
+  s" --snapshot and --save-snapshot go together only with an export (a layer)"
     cli-misuse-snap exit then
-  cli-snap-export? if s" --snapshot with an export is not supported yet (plan step SN4)"
-    cli-misuse-snap exit then 0 ;
-: cli-snapshot-check ( -- code ) ['] cli-snapshot-run cli-fed-run ;
+  cli-save? cli-snapshot? and if
+    cli-state opt-save 2@ cli-state opt-snapshot 2@ compare 0=
+    if s" FILE must not be the snapshot read" cli-misuse-snap exit then then
+  cli-save? cli-state opt-layers# @ 0<> and
+  if s" --save-snapshot writes a layer on one snapshot only" cli-misuse-snap exit then 0 ;
+\ With an export (it must open), the export checked against the snapshot.
+: cli-snapshot-check ( -- code )
+  cli-files @ 0= if ['] cli-snapshot-run cli-fed-run exit then
+  cli-opens? 0= if cli-not-opened exit then ['] cli-import-run cli-fed-run ;
 : check-command ( -- code )
   cli-start cli-strict? cli-strict-axioms! cli-misused? if cli-misuse-record exit then
   cli-any-misused? if cli-misuse-any exit then
@@ -919,7 +955,7 @@ variable cli-info#
   ."   check: Lean 4.35.0 exports (lean4export 3.1.0 NDJSON) of any size, such as" cr
   ."     all of Lean's Init, staged and fed in Forth; the manifest checked unless" cr
   ."     --no-manifest; a summary, --resources (time, memory, fuel), --json;" cr
-  ."     Gforth's checking engine, or gforth-fast with --fast; --jobs N checks" cr
+  ."     gforth-fast, or Gforth's checking engine with --checked; --jobs N checks" cr
   ."     with N workers (threads on Gforth 1.0), the same output as one" cr ;
 : cli-check-rules. ( -- )
   ."   check: Lean's kernel rules as built so far, each result labelled" cr
@@ -987,14 +1023,19 @@ variable cli-info#
   ."       exporter version in format 3.1.0, its verdicts still Lean 4.35.0's;" cr
   ."       --save-snapshot FILE writes the checked environment to FILE" cr
   ."   check --snapshot FILE [--fuel N] [--resources] [--json] [--fast]" cr
+  ."         [--no-manifest] [--jobs N] [EXPORT]" cr
   ."       the verdicts a snapshot holds, labelled, not re-checked (development" cr
-  ."       and research only: a final run re-checks the export)" cr
+  ."       and research only: a final run re-checks the export); with EXPORT," cr
+  ."       its declarations the snapshot holds unchanged taken from it, the rest" cr
+  ."       checked" cr
   ."   check [--no-manifest] [--fuel N] [--fast] [--strict-axioms]" cr
   ."         --record RECORD EXPORT" cr
   ."       the same for a small export, and write its run record to RECORD" cr ;
 : cli-engine-usage. ( -- )
-  ."   --fast (check, replay, print) runs gforth-fast, about 2.4 times quicker" cr
-  ."       than Gforth's checking engine, the default, with the same verdicts" cr ;
+  ."   check, replay and print run on gforth-fast, the default engine; --checked" cr
+  ."       runs Gforth's checking engine instead, about 2.4 times slower, which" cr
+  ."       stops at a stack or memory fault where it happens (same verdicts);" cr
+  ."       --fast is accepted and changes nothing" cr ;
 : cli-other-usage. ( -- )
   ."   replay [--no-manifest] [--fuel N] [--fast] EXPORT RECORD" cr
   ."       check the export again and compare the run record with RECORD" cr
@@ -1090,6 +1131,7 @@ end-structure
 1024 constant takes-fast
 2048 constant takes-lf
 4096 constant takes-any-lean
+16384 constant takes-checked
 8192 constant takes-jobs
 16384 constant takes-save
 32768 constant takes-snapshot
@@ -1110,7 +1152,17 @@ end-structure
   if cli-fuel-value else c" not a fuel amount" cli-wrong then ;
 : cli-record-option ( c-addr u -- ) cli-value if cli-record! then ;
 : cli-save-option ( c-addr u -- ) cli-value if cli-save! then ;
-: cli-snapshot-option ( c-addr u -- ) cli-value if cli-snapshot! then ;
+\ The first --snapshot names the base, each further one a layer on it, in
+\ order (plan step SN4); their names are kept in a heap block that grows.
+: cli-layers-room ( n -- addr ior )
+  2* cells cli-state opt-layers @ ?dup if swap resize else allocate then ;
+: cli-layer+ ( c-addr u -- )
+  cli-state opt-layers# @ 1+ cli-layers-room if drop c" no room for the layers" cli-wrong
+    exit then
+  dup cli-state opt-layers ! cli-state opt-layers# @ 2* cells + 2!
+  1 cli-state opt-layers# +! ;
+: cli-snapshot-option ( c-addr u -- )
+  cli-value if cli-snapshot? if cli-layer+ else cli-snapshot! then then ;
 : cli-manifest-option ( c-addr u -- ) 2drop cli-no-manifest ;
 : cli-detail-option ( c-addr u -- ) 2drop true cli-state opt-detail ! ;
 : cli-name-option ( c-addr u -- ) cli-value if cli-state opt-name 2! then ;
@@ -1124,6 +1176,7 @@ end-structure
 : cli-strict-option ( c-addr u -- ) 2drop cli-strict ;
 \ --fast: bin/leanforth chose the engine before Forth ran; nothing to do.
 : cli-fast-option ( c-addr u -- ) 2drop ;
+: cli-checked-option ( c-addr u -- ) 2drop ;
 : cli-lf-option ( c-addr u -- ) 2drop true cli-state opt-lf ! ;
 : cli-any-lean-option ( c-addr u -- ) 2drop cli-any-lean ;
 \ --jobs N, N at least 1; check-run.fs cuts it to the cores. Each worker holds a
@@ -1146,6 +1199,7 @@ create cli-option-table
   ' cli-statement-option takes-statement 0 cli-entry, --statement
   ' cli-strict-option takes-strict 0 cli-entry, --strict-axioms
   ' cli-fast-option takes-fast 0 cli-entry, --fast
+  ' cli-checked-option takes-checked 0 cli-entry, --checked
   ' cli-lf-option takes-lf 0 cli-entry, --lf
   ' cli-any-lean-option takes-any-lean 0 cli-entry, --any-lean-version
   ' cli-jobs-option takes-jobs 0 cli-entry, --jobs
@@ -1170,7 +1224,7 @@ create cli-option-table
 
 \ The commands: each one's word ( -- code ), the number of file names it
 \ needs and the options it takes.
-takes-no-manifest takes-fuel or takes-fast or constant checking-set
+takes-no-manifest takes-fuel or takes-fast or takes-checked or constant checking-set
 checking-set takes-record or takes-resources or takes-json or takes-strict or
 takes-any-lean or takes-jobs or takes-save or takes-snapshot or constant check-set
 checking-set constant replay-set
