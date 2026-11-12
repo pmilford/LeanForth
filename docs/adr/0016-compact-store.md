@@ -1173,6 +1173,156 @@ constructors or recursors but no type (Lean's replay refuses those:
 "No such constructor", "No such recursor"). Plan task 5.2.6 makes the
 importer stage them so that the checker gives those verdicts.
 
+## Amendment 2 (2026-11-11): one input shared by a parallel check's workers
+
+Step S8 of the compact-store plan (agent SH, branch `sh-shared-input`;
+plan task 7.2.1; the owner's decision of 2026-11-11: "should be also for
+other large libraries... or even all"). Storage only: no typing or
+conversion rule changes, every verdict, diagnostic, fuel count and axiom
+set stays (the verdict version is kept, ADR 0020 D3); its [kernel]
+[runtime] review is pending.
+
+*Before.* `check --jobs N` fed each of N worker contexts the sealed stage
+again, so each held its own copy of the input's per-context part. For
+Mathlib's first sixth (119,472 declarations, 35.3 M term numbers) one
+context held 665 MB of it: the audit's marks of every input unit (16
+bytes per unit, the slab doubled: 538 MB), the view's leaf and binder
+tables (56 MB), the constant references (334,180; 44 MB) and the
+declarations with their name index and inductive data (25 MB). All of
+Mathlib at `--jobs 4` held about 19 GB, and feeding took about 7 s per
+context for the sixth.
+
+*Decision.*
+
+1. **The audit's input marks are pages a check holds**
+   (`core/constant-term-boundary.fs`). A unit is made in a page of 256
+   units (4 KB) when first reached and listed; every check gives every
+   page back when it begins (`lf-audit-afresh`, from `lf-check-begin`).
+   A unit is read only by the marking run or the memo epoch that wrote
+   it, and each check takes new run numbers and epochs at its start, so
+   no mark outlives its check and giving the pages back changes no
+   answer. The serial run gains too: a context holds only what its
+   current check reached.
+2. **A worker reads the driving context's input in place**
+   (`import/feed.fs`'s `lf-feed-shared`, `cli/check-run.fs`):
+   - the declarations, their name index and inductive data
+     (`core/input.fs`'s `lf-input-borrow`: copies of three headers;
+     written only while loading, then sealed);
+   - the view's leaf and binder tables (`core/terms.fs`'s
+     `lf-term-borrow`: copies of their headers, the hash tables frozen,
+     so a find writes nothing, not even a statistic, and an entry cannot
+     be added);
+   - the constant references, as a tier under the worker's own
+     (`core/constant-references.fs`'s `lf-cref-borrow`): numbers below
+     the input's count are the source's records, read through copies of
+     its store's, pairs pool's and (frozen) table's headers; the worker's
+     checks make their own in its own store, numbered from that count,
+     their pairs in its own pool after the source's. A reference sought is
+     sought in the source's table first, then in the worker's own: as
+     interning keeps one record per reference, at most one table holds
+     it, and it is the record, under the number, that a context holding
+     the whole input finds;
+   - the stage's tier, read in place already (step S5), with the worker's
+     own probe set over its frozen table and its own names' scratch tier.
+
+   The worker makes only what its checks write beside or above the
+   input: its levels (made from the stage as the feed makes them, so with
+   the numbers and identities that the shared references' level pairs and
+   Sort leaves name; 9,357 for the sixth), its level context and session,
+   its literals' limbs and bytes (copied, since checks append to those
+   slabs: 261 cells and 14,045 bytes for the sixth), and the feed's
+   copies of mdata expressions and the nodes above them, if the source
+   made any (none in Mathlib's export). Each copy is made with a horizon
+   (`lf-term-horizon!`): it finds only the leaves the source's feed had
+   entered when it made that copy, so it is the source's node (a test
+   export, `tests/cli/jobs/horizon.ndjson`, copies a projection before
+   its first input leaf). The worker's input fingerprint must then be the
+   source's (`cli/check-run.fs`), else no worker is made and the run is
+   the serial one.
+3. **Nothing writes the shared input while jobs run.** The source makes
+   nothing in its input's stores while workers read them (it publishes;
+   every check runs in a worker) and outlives them (the scheduler frees
+   them first); `lf-input-pristine?` refuses a source that made a
+   reference since it sealed. The paths that could write the shared
+   blocks are closed: adding a declaration or an inductive cell is
+   refused after sealing, a leaf or binder entry or any growth of a
+   frozen table is refused, a worker's reset first erases the copied
+   headers (and makes empty stores of its own), and its teardown erases
+   them before the teardown words that would free them. Test (`tests/cli/leanforth.fs`,
+   "Shared input"): a digest of the blocks the workers read and of the
+   fingerprint's parts but the names is the same after a parallel run as
+   before it (the driving context may intern a name the checker looks up,
+   in a scratch tier no worker reads).
+
+*Why it keeps ADR 0012's rules.* E7's table always had the input as
+"shared, written by the importer before tasks start, read by all"; it is
+now true of the whole input, not only the stage. G-P1 (one writer): no
+check writes the shared input; slots, records and the queue are written
+as before. G-P2, G-P3, G-P5 and G-P6: the scheduler, publisher, readiness
+sets and stops are unchanged (a worker that threw is freed, its copied
+headers erased, and replaced by a new shared feed). G-P4 and
+independence: each check still begins from the input alone with empty
+caches, memos and marks (its own pages, given back), so its verdict,
+diagnostic and fuel do not depend on its worker or the run's order, as
+the measurements below confirm. G-P7: unchanged (the in-time witness).
+
+*Measured* (2026-11-11, `check --fast --no-manifest --json --jobs N`,
+`gforth-fast`, main `04f8d96` against the branch, run one after the other
+on the 10-core WSL2 machine, which other agents' runs shared: load
+average 12-23, so the wall times are noisy; peak resident memory from
+`/usr/bin/time`). Every report is main's but for `measured`: the same
+verdict, diagnostic, fuel and axiom set for every declaration, the same
+counts and exit status; and at every N each report is the serial one.
+
+| export, workers | peak memory, main → shared | feed (s) | wall (s) | CPU (s) | load |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `Init`, 1 | 737 → 658 MB | 2.1 → 2.5 | 1,461 → 1,354 | 1,379 → 1,249 | 12-18 |
+| `Init`, 4 | 1,525 → 957 MB | 14.3 → 2.0 | 547 → 511 | 1,416 → 1,439 | 18 |
+| `Init`, 8 | 2,196 → 1,166 MB | 16.3 → 2.3 | 241 → 346 | 1,416 → 1,477 | 6-17 |
+| Mathlib's first sixth, 8 | 7,710 → 4,688 MB | 129 → 8.2 | 3,243 → 2,773 | 7,930 → 7,930 | 15-22 |
+
+`Init` (59,349 declarations): all accepted, fuel 663,921,845 in every
+run; Mathlib's first sixth (`head -n 18482637`, 119,472 declarations):
+119,374 accepted, 96 unknown, 2 exhausted, fuel 3,385,111,959, exit
+status 3, both ways; the arena's 212 tests (bundle of 2026-11-10,
+`--jobs 2`): every exit status and report the same. The `Init` run at 8
+workers met different loads (6 for main, 17 for the branch); the CPU
+time, less sensitive to load, differs by at most 5% and not in one
+direction (the serial run used 9% less). A worker now costs `Init` about
+64 MB (main: 182 MB), its scratch, caches and the mark pages of its
+largest check; the per-worker cost left on the sixth is about 0.5 GB, the
+scratch and caches of its largest checks, which sharing does not touch.
+Repeated one after the other at load 17-25: `Init` at 8 workers 298 s
+(main) and 263 s (shared), CPU 1,442 and 1,428 s; at 10 workers 244-481
+s (three runs), at 12 threads on the 10 hardware threads (the pool's
+size forced in a scratch copy: `--jobs` is cut to the cores) 233-326 s,
+CPU 1,421-1,479 s either way, peak 1,221-1,280 and 1,314-1,356 MB. More
+threads than hardware threads gave no gain beyond the noise: the slight
+edge of 12 under load is CPU time taken from the other runs.
+
+*Predicted for all of Mathlib at 8 workers* (729,263 declarations, 212 M
+term numbers): from main's full run at 4 workers (`a43539e`, 2026-11-11:
+peak 20,466 MB, stage 2,993 MB, check 20,199 s wall and 76,685 s CPU,
+load shared) less the four extra copies of the input (about 2.5 GB each,
+the sixth's 415 MB resident scaled by its term numbers), its per-worker
+scratch is about 1 GB; so 8 workers sharing the input would hold about
+13 GB (stage 3.0 + the driving context's input 0.8 + the scheduler's
+stamps and the environment about 1.1 + 8 × about 1.05), against about 34
+GB with a copy each. The CPU time is the sharing's as main's (the sixth:
+the same), and the sixth's 7.1 busy cores at 8 workers on a quiet machine
+(1,025 s check, 7,303 s CPU, ADR 0012 Amendment 2) give about 76,700 / 7.1
+≈ 10,800 s of checking, plus about 260 s staging and 45 s feeding one
+context (main: 207 s for five): about 3.1 hours on a quiet machine,
+longer under load.
+
+*Not shared, each worker's own:* its levels and level columns (about 1 MB
+for the sixth), its names' scratch tier, the probe set, the mark pages'
+directory (one cell per 256 input units: 0.5 MB for the sixth), the
+literals' copy and any mdata copies. The scheduler's stamp array (4 bytes
+per term number) is the driving context's alone. Planted faults `sh-*`
+(seven; one a known defence in depth) and two re-targeted `s6c-*` are
+caught.
+
 ## Consequences
 
 - All of Mathlib's input fits in about 3 GB with one shared copy, so
