@@ -8,10 +8,10 @@ Usage: python3 scripts/check-progress.py [BASE]      (BASE defaults to origin/ma
    end, done; and a row that says done links a done-checker report (docs/development/done-checks/).
 2. Progress kept with the plan. When BASE..HEAD changes any plan row's status, it also changes
    docs/project/PROJECT_PROGRESS.md.
-4. Kernel changes with their decision. When BASE..HEAD changes src/kernel/*.fs, it also changes an ADR (docs/adr/) or
-   docs/project/OWNER_DECISIONS.md, so a kernel change never lands without its written rule or decision.
 3. Now, next, later. PROJECT_PROGRESS.md has a section "## Now, next, later (updated YYYY-MM-DD)" whose date is not
    older than the newest commit in BASE..HEAD that changed a plan row's status.
+4. Kernel changes with their decision. When BASE..HEAD changes src/kernel/*.fs, it also changes an ADR (docs/adr/) or
+   docs/project/OWNER_DECISIONS.md, so a kernel change never lands without its written rule or decision.
 """
 import pathlib
 import re
