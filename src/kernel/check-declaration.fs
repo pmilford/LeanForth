@@ -307,6 +307,14 @@ lf-check-steps# 1+ constant lf-step-done
   lf-audit-on? 0= if drop true exit then
   dup lf-check-before? if lf-audit-reached? else drop true then ;
 ' lf-check-findable is lf-term-findable?
+\ Levels likewise (a level made before the check, below the input's level
+\ mark, once a scope check of this check found it), but the zero level,
+\ which every store holds from its reset.
+: lf-check-level-before? ( n -- flag ) dup 0<> swap 1 lf-input-mark-count < and ;
+: lf-check-level-findable ( n -- flag )
+  lf-audit-on? 0= if drop true exit then
+  dup lf-check-level-before? if lf-audit-level-reached? else drop true then ;
+' lf-check-level-findable is lf-level-findable?
 \ The declaration of this context's snapshot, a check's (lf-env-begin),
 \ and the budget: ok, or invalid without a check's snapshot of the valid
 \ current environment (recorded by lf-env-checking) or an intact input.

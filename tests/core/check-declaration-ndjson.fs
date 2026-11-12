@@ -345,6 +345,16 @@ T{ lam-again input-lam = -> false }T
 T{ input-lam dup lf-term-identity drop 1000 lf-cterm-check -> outcome-ok }T
 T{ lam-again input-lam = -> true }T
 lf-memo-auto lf-audit-memo!
+\ Levels likewise: the importer's level succ 0 is given back while the
+\ memo is off; with it on and new epochs a new level is made until a
+\ scope check of this check found the importer's in scope.
+: level-one ( -- level ) 0 lf-level-succ drop ;
+level-one constant fed-one
+lf-memo-on lf-audit-memo! lf-audit-renew
+T{ level-one fed-one = -> false }T
+T{ fed-one 1000 lf-lscope-check -> outcome-ok }T
+T{ level-one fed-one = -> true }T
+lf-memo-auto lf-audit-memo!
 \ An input let and an equal let the store builds (same value, the same
 \ lambda) have the same data word, depth included, as Lean's letE gives
 \ (review rvS5B M1: the store once counted the lambda's level too, so

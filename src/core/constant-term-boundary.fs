@@ -244,6 +244,23 @@ end-structure
 \ False while the memo is off. Unchecked: the node is allocated.
 : lf-audit-reached? ( node -- flag )
   lf-audit-on? 0= if drop false exit then lf-audit-held? ;
+\ Levels reached in this check, the same way: a level root a scope check
+\ found in scope (level-scope.fs's hook lf-lscope-reached) is kept in a
+\ column of the level store with its identity and today's closed epoch.
+/slab context-record: lf-level-reach
+2 cells ' lf-level-reach lf-level-columns column-add
+: lf-level-reach-unit ( level -- addr ) lf-level-reach column-at ;
+: lf-audit-level-mark ( level -- )
+  lf-audit-on? 0= if drop exit then
+  dup lf-level-identity 0= if drop exit then over lf-level-reach-unit !
+  lf-audit-state lf-aud-closed @ swap lf-level-reach-unit cell+ ! ;
+' lf-audit-level-mark is lf-lscope-reached
+: lf-audit-level-epoch? ( level -- flag )
+  lf-level-reach-unit cell+ @ lf-audit-state lf-aud-closed @ = ;
+: lf-audit-level-reached? ( level -- flag )
+  lf-audit-on? 0= if drop false exit then
+  dup lf-audit-level-epoch? 0= if drop false exit then
+  dup lf-level-reach-unit @ swap lf-level-identity if = else drop false then ;
 \ A node the current run checks, kept on the list for lf-audit-keep.
 : lf-audit-slot ( i -- addr ) lf-audit-reached slab-at ;
 : lf-audit-add ( node count -- )
