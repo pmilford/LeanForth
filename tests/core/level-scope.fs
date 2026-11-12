@@ -101,6 +101,32 @@ T{ 1000 lf-lscope-member? 1002 lf-lscope-member? -> true false }T
 T{ 1 10 lf-lscope-check lf-lscope-context-valid? -> outcome-invalid false }T
 1000 999 lf-lscope-slot !
 T{ lf-lscope-context-valid? -> true }T
+\ Entries the audit passed are compared with its copy whole: a repeat put
+\ in the last or the first slot after a pass at the same count is found
+\ too (review rvPF1 2), and the restored entries pass again.
+7 1000 lf-lscope-slot !
+T{ lf-lscope-context-valid? -> false }T
+1001 1000 lf-lscope-slot !
+1000 0 lf-lscope-slot !
+T{ lf-lscope-context-valid? -> false }T
+1 0 lf-lscope-slot !
+T{ lf-lscope-context-valid? lf-lscope-state lf-lsctx-passed @ -> true 1002 }T
+
+\ The copy's count is checked against the copy's capacity before the
+\ compared range is formed (review rvPF1 3): with no copy held (its slab
+\ empty, as in a new context) and a corrupted count claiming two IDs, the
+\ entries go to the audit, which finds a repeat, or passes them and keeps
+\ them; nothing is read beyond the copy (without the check, from address
+\ 0).
+lf-lscope-context-reset
+T{ 2 lf-lscope-context-add 3 lf-lscope-context-add -> true true }T
+lf-lscope-audited slab-free  1 cells dup slab-limit-max lf-lscope-audited slab-init drop
+3 lf-lscope-state lf-lsctx-passed !
+2 1 lf-lscope-slot !
+T{ ' lf-lscope-context-valid? catch lf-lscope-audited slab-capacity -> false 0 0 }T
+3 1 lf-lscope-slot !
+T{ ' lf-lscope-context-valid? catch lf-lscope-state lf-lsctx-passed @ -> true 0 3 }T
+T{ lf-lscope-audited slab-capacity 2 < -> false }T
 
 \ A parameter's visit: ok for an ID in the context, invalid outside it
 \ (lf-lscope-param-in, beside the flag lf-lscope-in? that searches a

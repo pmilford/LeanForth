@@ -28,6 +28,19 @@ T{ t2 @ lf-pres-source@ -> false }T
 T{ t2 @ 0 lf-pres-source! -> outcome-ok }T
 T{ t2 @ lf-pres-source@ t2 @ lf-pres-binder@ -> 0 true s" x" nm lf-binder-implicit true }T
 T{ 63 5 lf-pres-source! -> outcome-invalid }T
+\ An entry the slab cannot hold is refused as full, changing nothing
+\ (review rvPF1 4): the slab made again with room for one entry holds
+\ t1's, the first unit, not t2's; then made again as the module makes it.
+lf-pres-terms slab-free  /lf-pterm 1 lf-pres-terms slab-init drop
+T{ t1 @ lf-pres-unit t2 @ lf-pres-unit 0> -> 0 true }T
+T{ t2 @ s" x" nm lf-binder-default lf-pres-binder! t2 @ 3 lf-pres-source!
+   -> outcome-full outcome-full }T
+T{ t2 @ lf-pres-binder@ t2 @ lf-pres-source@ lf-pres-terms slab-capacity
+   -> false false 0 }T
+T{ t1 @ 5 lf-pres-source! t1 @ lf-pres-source@ -> outcome-ok 5 true }T
+T{ t2 @ 3 lf-pres-source! t1 @ s" x" nm lf-binder-default lf-pres-binder!
+   -> outcome-full outcome-invalid }T
+lf-pres-terms slab-free  /lf-pterm dup slab-limit-max lf-pres-terms slab-init drop
 \ A reset of either store makes entries stale; a new term at the same
 \ index starts with an empty entry.
 lf-term-reset lf-ssession-begin drop

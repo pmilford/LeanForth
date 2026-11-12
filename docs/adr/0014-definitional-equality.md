@@ -2442,8 +2442,8 @@ less (at most −3.3%); 650 s wall, 0.86 GB peak.
 ## Amendment 11: a speed and memory pass with every verdict and fuel unchanged (agent PERF1, Q12, plan tasks 6.5.8 and 6.5.9, 2026-11-12, proposed)
 
 Status: proposed; no typing, reduction or conversion rule changes, and no
-fuel change, so no verdict-version bump; [kernel] review owed for the two
-items in `kernel/` and `core/` that the checker runs. A sampling profile
+fuel change, so no verdict-version bump; [kernel] review owed for the three
+items (1-3) in `kernel/` and `core/` that the checker runs. A sampling profile
 of all of `Init` (a ptrace sampler of `gforth-fast`'s Forth return stack;
 `.claude/work/PERF1/PROFILE.md` of the `perf1` worktree) found the
 checking flat in small words, with three costs that are not Lean's: the
@@ -2456,7 +2456,9 @@ memory to the same answer:
 
 1. `lf-term-same` (`core/terms.fs`) compares a probed record's fields
    before asking `lf-term-findable?`, so the hook runs only for the one
-   live record equal to the key.
+   live record equal to the key (planted fault `rv-same-skips-findable`,
+   caught since review rvPF1 by an importer's copy a check has not
+   reached).
 2. `lf-check-findable` (`kernel/check-declaration.fs`) asks `lf-audit-on?`
    only for a node made before the check, once, then reads the memo with
    `lf-audit-held?` (`lf-check-reached?`); before, it asked it for every
@@ -2464,11 +2466,15 @@ memory to the same answer:
 3. The level-scope audit (`core/level-scope.fs`) keeps the entries it last
    passed; entries equal to them byte for byte pass again without the
    audit, any others are audited anew (planted fault
-   `perf1-lscope-copy-by-count`, caught).
+   `perf1-lscope-copy-by-count`, caught). The copy's count is checked
+   against the copy's capacity before the compared range is formed
+   (review rvPF1, agent PF1FIX; faults `rv-lscope-copy-count-unbounded`
+   and `rv-lscope-compare-{first,last}-cell-dropped`, caught).
 4. Not in the checker's rules: the presentation side table's per-term
    entries (`present/binder-table.fs`, 40 bytes a node, never written by
    `check`) are a slab grown when an entry is recorded instead of a column
-   of every context's term store, and `u32@`/`u32!` are Forth-2012
+   of every context's term store (an entry the heap has no room for is
+   refused as full; review rvPF1), and `u32@`/`u32!` are Forth-2012
    synonyms of `l@`/`l!` where those are native (`lib/u32.fs`).
 
 Evidence: all of `Init` (`check --no-manifest --json --jobs 2`, main

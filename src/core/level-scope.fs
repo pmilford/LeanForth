@@ -99,11 +99,18 @@ lf-level-walk-room context-walk: lf-lscope-walk
 \ (agent PERF1: the audit, linear in the entries, ran at every level
 \ check, about 6% of Init's checking time); any other entries, corrupted
 \ or changed, are audited anew. A copy the heap cannot hold is not kept.
+\ The copy's count (passed - 1) is checked against the copy's capacity
+\ before the compared range is formed, as the entries' count was against
+\ theirs, so a corrupted count never reads beyond the copy: it goes to the
+\ audit (review rvPF1 3).
 : lf-lscope-entries ( -- addr u ) lf-lscope-context lf-lscope-context-count @ cells ;
-: lf-lscope-copy ( -- addr u )
-  lf-lscope-audited slab-base lf-lscope-state lf-lsctx-passed @ 1- cells ;
+: lf-lscope-copied ( -- n ) lf-lscope-state lf-lsctx-passed @ 1- ;
+: lf-lscope-copy ( -- addr u ) lf-lscope-audited slab-base lf-lscope-copied cells ;
+: lf-lscope-held? ( n -- flag ) lf-lscope-audited slab-capacity upto? ;
+: lf-lscope-copy-fits? ( -- flag )
+  lf-lscope-copied dup lf-lscope-held? swap lf-lscope-context-count @ = and ;
 : lf-lscope-passed? ( -- flag )
-  lf-lscope-state lf-lsctx-passed @ 1- lf-lscope-context-count @ =
+  lf-lscope-copy-fits?
   if lf-lscope-entries lf-lscope-copy compare 0= else false then ;
 : lf-lscope-pass ( -- )
   0 lf-lscope-state lf-lsctx-passed !

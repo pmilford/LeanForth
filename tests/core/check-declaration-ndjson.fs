@@ -387,6 +387,23 @@ unstage
 T{ let-file fed 0 lf-input-decl lf-idecl-value @ lf-term-base < lf-term-count @
    -> outcome-ok true 0 }T
 unstage
+\ The same rule for a copy the importer made in the term store, below the
+\ input's term mark (checker-input.fs copies every expression), found
+\ through the term table (terms.fs's lf-term-same asks lf-term-findable?
+\ of the record equal to the key; review rvPF1 1): outside a check a
+\ lambda equal to the copy of composition's value is the copy; with the
+\ audit memo on and new epochs it is a new node until an audit of this
+\ check reached the copy, and then it is the copy again.
+: copied-value ( -- node ) lf-input-count 1- lf-input-decl lf-idecl-value @ ;
+: value-again ( -- node )
+  copied-value dup lf-term-first@ swap lf-term-second@ lf-term-lam must ;
+T{ s" tests/reference/composition.ndjson" cin-read copied-value 0 lf-input-mark-count <
+   value-again copied-value = -> outcome-ok true true }T
+lf-memo-on lf-audit-memo! lf-audit-renew
+T{ value-again copied-value = -> false }T
+T{ copied-value dup lf-term-identity drop fuel lf-cterm-check -> outcome-ok }T
+T{ value-again copied-value = -> true }T
+lf-memo-auto lf-audit-memo!
 
 \ ADR 0012 E5 against the name-to-declaration array (ADR 0016 C4): with
 \ names interned in the input tier, the environment reads a name's chain;

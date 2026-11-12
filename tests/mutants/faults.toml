@@ -9231,3 +9231,45 @@ new = '''  lf-nest-memo 0 swap lf-rmemo@ ;
   lf-nest-memo 0 swap lf-rmemo! ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "rvMO 1: the memo keyed by node alone (offset 0 in the lookup and in the store): nested.offset-local is accepted, which Lean rejects (nestedLocalVariable)"
+
+# --- review rvPF1 of the performance pass perf1 (agent PF1FIX, 2026-11-12) ---
+
+[[fault]]
+id = "rv-same-skips-findable"
+file = "src/core/terms.fs"
+old = '''  if lf-term-findable? else drop false then ;'''
+new = '''  if drop true else drop false then ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "rvPF1 1: lf-term-same gives a key-equal record without asking findability, so a check is given an importer copy it has not reached"
+
+[[fault]]
+id = "rv-lscope-compare-last-cell-dropped"
+file = "src/core/level-scope.fs"
+old = '''  if lf-lscope-entries lf-lscope-copy compare 0= else false then ;'''
+new = '''  if lf-lscope-entries cell - 0 max lf-lscope-copy cell - 0 max compare 0= else false then ;'''
+test = "$GFORTH tests/core/level-scope.fs"
+reason = "rvPF1 2: the last entry is not compared with the audit's copy, so a repeat put there after a pass at the same count passes"
+
+[[fault]]
+id = "rv-lscope-compare-first-cell-dropped"
+file = "src/core/level-scope.fs"
+old = '''  if lf-lscope-entries lf-lscope-copy compare 0= else false then ;'''
+new = '''  if lf-lscope-entries cell /string 0 max lf-lscope-copy cell /string 0 max compare 0= else false then ;'''
+test = "$GFORTH tests/core/level-scope.fs"
+reason = "rvPF1 2: the first entry is not compared with the audit's copy, so a repeat put there after a pass at the same count passes"
+
+[[fault]]
+id = "rv-lscope-copy-count-unbounded"
+file = "src/core/level-scope.fs"
+old = ''': lf-lscope-held? ( n -- flag ) lf-lscope-audited slab-capacity upto? ;'''
+new = ''': lf-lscope-held? ( n -- flag ) drop true ;'''
+test = "$GFORTH tests/core/level-scope.fs"
+reason = "rvPF1 3: the copy's count is not checked against the copy's capacity, so a corrupted count compares bytes beyond the copy (here from address 0)"
+
+[[fault]]
+id = "rv-pres-hold-refused-invalid"
+file = "src/present/binder-table.fs"
+old = '''  over lf-pres-hold ok-then2? if swap lf-pres-take outcome-ok else no-result then ;'''
+new = '''  over lf-pres-hold ok-then2? if swap lf-pres-take outcome-ok else drop-invalid no-result then ;'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "rvPF1 4: an entry the heap has no room for is reported invalid, not full"
