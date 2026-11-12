@@ -333,6 +333,18 @@ T{ bad-utf8 1 lf-str-fields nip nip s" ab" lf-str-fields rot drop
   0 lf-input-decl lf-idecl-value @ lf-let-binder 1 lf-input-decl lf-idecl-value @ ;
 T{ let-lam-file fed lams 2dup = -rot 1000 lf-expr-equal ok? -> outcome-ok true true true }T
 T{ lams drop dup lf-term-first@ swap lf-term-second@ lf-term-lam swap lams drop = -> true true }T
+\ In a check, a node made before it is given for an equal record only once
+\ the check has reached it, an audit of this epoch having kept it (agent
+\ PF, ADR 0014 Amendment 7): with the audit memo on and new epochs, the
+\ input lambda is not given (a store node is made) until an audit checked
+\ it, and then it is.
+: input-lam ( -- node ) lams drop ;
+: lam-again ( -- node ) input-lam dup lf-term-first@ swap lf-term-second@ lf-term-lam drop ;
+lf-memo-on lf-audit-memo! lf-audit-renew
+T{ lam-again input-lam = -> false }T
+T{ input-lam dup lf-term-identity drop 1000 lf-cterm-check -> outcome-ok }T
+T{ lam-again input-lam = -> true }T
+lf-memo-auto lf-audit-memo!
 \ An input let and an equal let the store builds (same value, the same
 \ lambda) have the same data word, depth included, as Lean's letE gives
 \ (review rvS5B M1: the store once counted the lambda's level too, so

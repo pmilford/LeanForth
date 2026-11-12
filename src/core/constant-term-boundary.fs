@@ -234,9 +234,16 @@ end-structure
   cell+ @ swap lf-term-identity if = else drop false then ;
 : lf-audit-unit? ( node epoch -- flag )
   over lf-mark-at tuck @ = if lf-audit-same-node? else 2drop false then ;
-: lf-audited? ( node -- flag )
-  lf-audit-state lf-aud-active @ 0= if drop false exit then
+: lf-audit-held? ( node -- flag )
   dup lf-audit-epoch ?dup if lf-audit-unit? else drop false then ;
+: lf-audited? ( node -- flag )
+  lf-audit-state lf-aud-active @ 0= if drop false exit then lf-audit-held? ;
+\ Whether node was checked by an audit of this check, in today's epoch, at
+\ any time (not only inside an audit run): what the check has reached
+\ (terms.fs's lf-term-findable?, set by kernel/check-declaration.fs).
+\ False while the memo is off. Unchecked: the node is allocated.
+: lf-audit-reached? ( node -- flag )
+  lf-audit-on? 0= if drop false exit then lf-audit-held? ;
 \ A node the current run checks, kept on the list for lf-audit-keep.
 : lf-audit-slot ( i -- addr ) lf-audit-reached slab-at ;
 : lf-audit-add ( node count -- )

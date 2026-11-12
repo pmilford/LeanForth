@@ -490,14 +490,26 @@ variable lf-term-unshared-tags   0 lf-term-unshared-tags !
 : lf-term-sharing? ( -- flag ) lf-term-share-off @ 0= ;
 : lf-term-sharing! ( flag -- ) 0= lf-term-share-off ! ;
 
+\ Whether node n may be given for a record made equal to it (hash-consing,
+\ below): a hook, by default always. kernel/check-declaration.fs sets it so
+\ that in a check a node made before the check (an input node or the
+\ importer's copy) is given only once the check has reached it (agent PF,
+\ ADR 0014 Amendment 7): what a check meets then depends only on its
+\ declaration and what it reads, never on the other records of the tier.
+\ A node not given only costs sharing: a new node is made, never another
+\ result.
+defer lf-term-findable? ( n -- flag )
+:noname ( n -- flag ) drop true ; is lf-term-findable?
+
 \ The table's hooks: the hash of record n from its fields, and whether
-\ live record n equals the record sought.
+\ live record n equals the record sought (and may be given).
 : lf-term-hash ( tag first second -- h ) rot hash-fmix rot hash-step swap hash-step ;
 : lf-term-rehash ( n htab -- h ) drop lf-term-slot lf-term-fields@ lf-term-hash ;
 : lf-term-key= ( tag first second key -- flag )
   >r r@ 2 cells + @ = swap r@ cell+ @ = and swap r> @ = and ;
 : lf-term-same ( n key htab -- flag )
   drop over lf-term-valid? 0= if 2drop false exit then
+  over lf-term-findable? 0= if 2drop false exit then
   >r lf-term-slot lf-term-fields@ r> lf-term-key= ;
 create lf-term-hooks /htab-hooks allot
 ' lf-term-rehash ' lf-term-same lf-term-hooks htab-hooks!
@@ -738,7 +750,8 @@ defer lf-term-reusable? ( n -- flag )
     lf-tin-leaf-tag? if lf-tin-leaf-find else 2drop drop false then 0 endcase ;
 : lf-tin-given ( tag first second -- n true | false )
   lf-term-viewed? 0= if 2drop drop false exit then
-  lf-tin-sought dup if over lf-term-reusable? 0= if 2drop false then then ;
+  lf-tin-sought dup if over lf-term-reusable? 0= if 2drop false exit then then
+  dup if over lf-term-findable? 0= if 2drop false then then ;
 : lf-term-cons ( tag first second -- index true | false )
   lf-term-table htab-ready ok? 0= if lf-term-append exit then
   2 pick 2 pick 2 pick lf-tin-given if nip nip nip lf-term-found exit then

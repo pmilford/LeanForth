@@ -295,6 +295,18 @@ lf-check-steps# 1+ constant lf-step-done
 \ lf-whnf-env?), and starts afresh with each check: every declaration's
 \ entry audit checks its terms anew.
 ' lf-whnf-env? is lf-audit-checking?
+\ In such a check a node made before it -- an input node of the view or a
+\ copy the importer made, below the input's term mark -- is given for an
+\ equal record a pass makes only once the check reached it (an audit of
+\ this check kept it), so what a check meets depends only on its
+\ declaration and what it reads, not on the other records of the tier
+\ (agent PF, review rvSN4 B1; ADR 0014 Amendment 7). Outside a check (the
+\ importer's feed) every node is given.
+: lf-check-before? ( n -- flag ) 0 lf-input-mark-count < ;
+: lf-check-findable ( n -- flag )
+  lf-audit-on? 0= if drop true exit then
+  dup lf-check-before? if lf-audit-reached? else drop true then ;
+' lf-check-findable is lf-term-findable?
 \ The declaration of this context's snapshot, a check's (lf-env-begin),
 \ and the budget: ok, or invalid without a check's snapshot of the valid
 \ current environment (recorded by lf-env-checking) or an intact input.

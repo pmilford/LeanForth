@@ -7471,6 +7471,22 @@ new = ''': feed-redirect? ( feed first? -- flag ) 2drop false ;'''
 test = "python3 tests/cli/cross_snapshot.py $GFORTH"
 reason = "rvSN4 B1 (PF): == binders stay separate nodes, so a binder a check makes is the tier's first of its class and fuel depends on the other records"
 
+[[fault]]
+id = "pf-findable-always"
+file = "src/kernel/check-declaration.fs"
+old = '''  dup lf-check-before? if lf-audit-reached? else drop true then ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "rvSN4 B1 (PF): a check is given input nodes it never reached, so the other records of the tier change its hits and fuel"
+
+[[fault]]
+id = "pf-findable-held-any-epoch"
+file = "src/core/constant-term-boundary.fs"
+old = '''  lf-audit-on? 0= if drop false exit then lf-audit-held? ;'''
+new = '''  lf-audit-on? 0= if drop false exit then drop true ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "rvSN4 B1 (PF): every node made before the check counts as reached, so the rule never holds one back"
+
 # --- compact-store plan step S4 (agent S4) ---------------------------------
 [[fault]]
 id = "cache-dead-fvar"
