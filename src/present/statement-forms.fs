@@ -45,12 +45,14 @@
 
 require ./log-view.fs
 require ./print-forth.fs
+require ./print-notation.fs
 require ../lib/text-rule.fs
 
 1 constant lf-form-lean
 2 constant lf-form-mathematics
 4 constant lf-form-leanforth
-7 constant lf-forms-all
+8 constant lf-form-text
+15 constant lf-forms-all
 
 begin-structure /lf-sf
   field: lf-sf-hidden            \ the forms not printed
@@ -115,6 +117,8 @@ end-structure
   ['] lf-sf-line-sink lf-sf-lean-mode lf-sf-printer
   lf-lv-tex? if s" {\ttfamily " lf-lv-out then lf-sf-type
   lf-lv-tex? if s" }" lf-lv-out then ;
+: lf-sf-text ( decl -- )
+  ['] lf-sf-line-sink lf-print-mathtext lf-sf-printer lf-sf-type ;
 : lf-sf-mathematics ( decl -- )
   s" $" lf-lv-out ['] lf-lv-out lf-print-latex lf-sf-printer lf-sf-type s" $" lf-lv-out ;
 
@@ -151,6 +155,8 @@ end-structure
 : lf-sf-lean-line ( decl kind u -- )
   lf-lv-tex? if s"  in Lean (ASCII):" else s"  in Lean:" then lf-sf-label
   lf-sf-lean 0 lf-lv-flush lf-sf-end ;
+: lf-sf-text-line ( decl kind u -- )
+  s"  in math text:" lf-sf-label lf-sf-text 0 lf-lv-flush lf-sf-end ;
 : lf-sf-math-line ( decl kind u -- )
   s"  in mathematics:" lf-sf-label lf-sf-mathematics 0 lf-lv-flush lf-sf-end ;
 : lf-sf-forth-line ( decl kind u -- )
@@ -160,6 +166,7 @@ end-structure
 : lf-sf-copy ( d k u -- d k u d k u ) 2 pick 2 pick 2 pick ;
 : lf-print-forms ( decl kind-c-addr u -- )
   lf-form-lean lf-forms-has? if lf-sf-copy lf-sf-lean-line then
+  lf-form-text lf-forms-has? lf-lv-tex? 0= and if lf-sf-copy lf-sf-text-line then
   lf-form-mathematics lf-forms-has? if lf-sf-copy lf-sf-math-line then
   lf-form-leanforth lf-forms-has? if lf-sf-copy lf-sf-forth-line then
   2drop drop ;

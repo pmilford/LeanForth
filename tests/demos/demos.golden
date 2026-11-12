@@ -1,0 +1,126 @@
+== AddComm
+-- lean
+add_comm_by_induction : ∀ (m n : Nat), m + n = n + m
+-- check
+52 declarations: 52 accepted
+accepted: 52 (experimental, not independently audited); axioms: none
+-- wrong twin
+1
+add_comm_by_induction: rejected
+  rejected: declared type mismatch (D1-D5); diagnostic 60 at check-declaration lf-check-declaration: 0 0
+-- print
+Theorem add_comm_by_induction
+  accepted (experimental, not independently audited); axioms: none
+  Statement in Lean:        ∀ (m n : Nat), m + n = n + m
+  Statement in math text:   ∀ (m n : ℕ), m + n = n + m
+  Statement in mathematics: $\forall (m\ n : \mathbb{N}),\ m + n = n + m$
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
+    axiom add_comm_by_induction
+      Nat explicit: m
+      Nat explicit: n
+      Eq 1 ^ Nat $ HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $ instHAdd 0 ^ Nat $ instAddNat $ $ m
+        $ n $ $ HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $ instHAdd 0 ^ Nat $ instAddNat $ $ n $
+        m $ $
+    end add_comm_by_induction
+  Checker log: 1024 steps, incomplete: truncated at step 1025 (records).
+== Gauss
+-- lean
+gauss_sum : ∀ (n : Nat), 2 * sumTo n = n * (n + 1)
+-- check
+1442 declarations: 1442 accepted
+accepted: 1442 (experimental, not independently audited); axioms: propext, Quot.sound (allowlisted); none NOT PROVED
+-- wrong twin
+1
+gauss_sum: rejected
+  rejected: declared type mismatch (D1-D5); diagnostic 60 at check-declaration lf-check-declaration: 0 0
+-- print
+Theorem gauss_sum
+  accepted (experimental, not independently audited); axioms: propext, Quot.sound
+  Statement in Lean:        ∀ (n : Nat), 2 * sumTo n = n * (n + 1)
+  Statement in math text:   ∀ (n : ℕ), 2 · sumTo n = n · (n + 1)
+  Statement in mathematics: $\forall (n : \mathbb{N}),\ 2 \cdot \mathsf{sumTo}\ n = n \cdot (n + 1)$
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
+    axiom gauss_sum
+      Nat explicit: n
+      Eq 1 ^ Nat $ HMul.hMul 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $ instHMul 0 ^ Nat $ instMulNat $ $
+        OfNat.ofNat 0 ^ Nat $ 2 lit# $ instOfNatNat 2 lit# $ $ $ sumTo n $ $ $ HMul.hMul 0 ^ 0
+        ^ 0 ^ Nat $ Nat $ Nat $ instHMul 0 ^ Nat $ instMulNat $ $ n $ HAdd.hAdd 0 ^ 0 ^ 0 ^
+        Nat $ Nat $ Nat $ instHAdd 0 ^ Nat $ instAddNat $ $ n $ OfNat.ofNat 0 ^ Nat $ 1 lit# $
+        instOfNatNat 1 lit# $ $ $ $ $
+    end gauss_sum
+  Checker log: 1024 steps, incomplete: truncated at step 1025 (records).
+== OddSum
+-- lean
+odd_sum : ∀ (n : Nat), sumOdd n = n ^ 2
+-- check
+1445 declarations: 1445 accepted
+accepted: 1445 (experimental, not independently audited); axioms: propext, Quot.sound (allowlisted); none NOT PROVED
+-- wrong twin
+1
+odd_sum: rejected
+  rejected: declared type mismatch (D1-D5); diagnostic 60 at check-declaration lf-check-declaration: 0 0
+-- print
+Theorem odd_sum
+  accepted (experimental, not independently audited); axioms: propext, Quot.sound
+  Statement in Lean:        ∀ (n : Nat), sumOdd n = n ^ 2
+  Statement in math text:   ∀ (n : ℕ), sumOdd n = n²
+  Statement in mathematics: $\forall (n : \mathbb{N}),\ \mathsf{sumOdd}\ n = n^{2}$
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
+    axiom odd_sum
+      Nat explicit: n
+      Eq 1 ^ Nat $ sumOdd n $ $ HPow.hPow 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $ instHPow 0 ^ 0 ^ Nat $
+        Nat $ instPowNat 0 ^ Nat $ instNatPowNat $ $ $ n $ OfNat.ofNat 0 ^ Nat $ 2 lit# $
+        instOfNatNat 2 lit# $ $ $ $
+    end odd_sum
+  Checker log: 1024 steps, incomplete: truncated at step 1025 (records).
+== Cantor
+-- lean
+cantor : ∀ (α : Type), ¬∃ f, ∀ (g : α → Prop), ∃ a, f a = g
+-- check
+16 declarations: 16 accepted
+accepted: 16 (experimental, not independently audited); axioms: none
+-- wrong twin
+1
+cantor: rejected
+  rejected: declared type mismatch (D1-D5); diagnostic 60 at check-declaration lf-check-declaration: 0 0
+-- print
+Theorem cantor
+  accepted (experimental, not independently audited); axioms: none
+  Statement in Lean:        ∀ (α : Type), ¬∃ f, ∀ (g : α → Prop), ∃ a, f a = g
+  Statement in math text:   ∀ (α : Type), ¬(∃ f, ∀ (g : α → Prop), ∃ a, f a = g)
+  Statement in mathematics: $\forall (\alpha : \mathrm{Type}),\ \neg (\exists f,\ \forall (g : \alpha \to \mathrm{Prop}),\ \exists a,\ f\ a = g)$
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
+    axiom cantor
+      0 Type explicit: α
+      Not Exists 1 ^ α α Prop -> -> $ α α Prop -> -> explicit: f α Prop -> explicit: g
+        Exists 1 ^ α $ α explicit: a Eq 1 ^ α Prop -> $ f a $ $ g $ fun $ forall fun $ $
+    end cantor
+  Checker log: 747 steps, complete. The statement is a proposition: s72 (from s3).
+== Sqrt2
+-- lean
+sqrt2_irrational : ¬∃ a b, b > 0 ∧ a ^ 2 = 2 * b ^ 2
+-- check
+1591 declarations: 1591 accepted
+accepted: 1591 (experimental, not independently audited); axioms: propext, Quot.sound (allowlisted); none NOT PROVED
+-- wrong twin
+1
+sqrt2_irrational: rejected
+  rejected: declared type mismatch (D1-D5); diagnostic 60 at check-declaration lf-check-declaration: 0 0
+-- print
+Theorem sqrt2_irrational
+  accepted (experimental, not independently audited); axioms: propext, Quot.sound
+  Statement in Lean:        ¬∃ a b, b > 0 ∧ a ^ 2 = 2 * b ^ 2
+  Statement in math text:   ¬(∃ a b, b > 0 ∧ a² = 2 · b²)
+  Statement in mathematics: $\neg (\exists a\ b,\ b > 0 \wedge a^{2} = 2 \cdot b^{2})$
+  Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
+    axiom sqrt2_irrational
+      Not Exists 1 ^ Nat $ Nat explicit: a Exists 1 ^ Nat $ Nat explicit: b And GT.gt 0 ^ Nat
+        $ instLTNat $ b $ OfNat.ofNat 0 ^ Nat $ 0 lit# $ instOfNatNat 0 lit# $ $ $ $ Eq 1 ^
+        Nat $ HPow.hPow 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $ instHPow 0 ^ 0 ^ Nat $ Nat $ instPowNat
+        0 ^ Nat $ instNatPowNat $ $ $ a $ OfNat.ofNat 0 ^ Nat $ 2 lit# $ instOfNatNat 2 lit# $
+        $ $ $ HMul.hMul 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $ instHMul 0 ^ Nat $ instMulNat $ $
+        OfNat.ofNat 0 ^ Nat $ 2 lit# $ instOfNatNat 2 lit# $ $ $ HPow.hPow 0 ^ 0 ^ 0 ^ Nat $
+        Nat $ Nat $ instHPow 0 ^ 0 ^ Nat $ Nat $ instPowNat 0 ^ Nat $ instNatPowNat $ $ $ b $
+        OfNat.ofNat 0 ^ Nat $ 2 lit# $ instOfNatNat 2 lit# $ $ $ $ $ $ fun $ fun $ $
+    end sqrt2_irrational
+  Checker log: 1024 steps, incomplete: truncated at step 1025 (records).

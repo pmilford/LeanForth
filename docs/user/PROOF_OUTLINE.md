@@ -79,6 +79,7 @@ s" tests/reference/composition.ndjson" false po-file
 Theorem composition
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
+  Statement in math text:   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
   Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom composition
@@ -247,8 +248,9 @@ leanforth print --name Nat.add_zero tests/reference/inductive/nat-add-zero.ndjso
 ```
 Theorem Nat.add_zero
   accepted (experimental, not independently audited); axioms: none
-  Statement in Lean:        ∀ (n : Nat), Eq (HAdd.hAdd n (OfNat.ofNat 0)) n
-  Statement in mathematics: $\forall (n : \mathsf{Nat}),\ \mathsf{Eq}\ (\mathsf{HAdd.hAdd}\ n\ (\mathsf{OfNat.ofNat}\ 0))\ n$
+  Statement in Lean:        ∀ (n : Nat), n + 0 = n
+  Statement in math text:   ∀ (n : ℕ), n + 0 = n
+  Statement in mathematics: $\forall (n : \mathbb{N}),\ n + 0 = n$
   Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom Nat.add_zero
       Nat explicit: n
@@ -256,7 +258,7 @@ Theorem Nat.add_zero
         $ OfNat.ofNat 0 ^ Nat $ 0 lit# $ instOfNatNat 0 lit# $ $ $ $ n $
     end Nat.add_zero
   Input:     tests/reference/inductive/nat-add-zero.ndjson line 637
-  Checker log: 236 steps, complete. The statement is a proposition: s106 (from s3).
+  Checker log: 245 steps, complete. The statement is a proposition: s106 (from s3).
 
 No outline template covers this proof; its steps follow.
 
@@ -265,7 +267,7 @@ Steps.
   ...
 ```
 
-The log is complete (236 steps, none cut): it records number literals and
+The log is complete (245 steps, none cut): it records number literals and
 projections as it records other terms, and the free variables a definitional
 equality opens count as binders around the steps it opens. Running the
 block needs the constants it mentions (`Nat`, `Eq`, `HAdd.hAdd`, ...) first,

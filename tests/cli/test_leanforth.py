@@ -713,11 +713,11 @@ class Print(unittest.TestCase):
         math = next(i for i, l in enumerate(full) if l.startswith("  Statement in mathematics:"))
         forth = next(i for i, l in enumerate(full) if l.startswith("  Statement in LeanForth"))
         end = full.index("    end composition")
-        parts = {"lean": full[math - 1:math], "mathematics": full[math:math + 1],
-                 "leanforth": full[forth:end + 1]}
-        before, after = full[:math - 1], full[end + 1:]
-        for forms in ("lean", "mathematics", "leanforth", "lean,leanforth", "leanforth,lean",
-                      "mathematics,lean", "all"):
+        parts = {"lean": full[math - 2:math - 1], "text": full[math - 1:math],
+                 "mathematics": full[math:math + 1], "leanforth": full[forth:end + 1]}
+        before, after = full[:math - 2], full[end + 1:]
+        for forms in ("lean", "text", "mathematics", "leanforth", "lean,leanforth",
+                      "leanforth,lean", "mathematics,lean", "text,mathematics", "all"):
             wanted = [name for name in parts if name in forms.split(",") or forms == "all"]
             expected = before + [l for name in wanted for l in parts[name]] + after
             self.assertEqual(self.lines("--statement", forms, COMPOSITION), (0, expected), forms)

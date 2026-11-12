@@ -2,6 +2,7 @@
 Theorem identity
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {P : Prop}, P → P
+  Statement in math text:   ∀ {P : Prop}, P → P
   Statement in mathematics: $\forall \{P : \mathrm{Prop}\},\ P \to P$
   Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom identity
@@ -27,6 +28,7 @@ Templates: let-props/v0, assume/v0, discharge/v0, statement/v0.
 Theorem composition
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
+  Statement in math text:   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
   Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom composition
@@ -61,6 +63,7 @@ Templates: let-props/v0, assume/v0, implies-elim/v0, discharge/v0, statement/v0.
 Theorem type_identity
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {A : Type} {P : A → Prop} {x : A}, P x → P x
+  Statement in math text:   ∀ {A : Type} {P : A → Prop} {x : A}, P x → P x
   Statement in mathematics: $\forall \{A : \mathrm{Type}\}\ \{P : A \to \mathrm{Prop}\}\ \{x : A\},\ P\ x \to P\ x$
   Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom type_identity
@@ -90,6 +93,7 @@ Templates: let-types/v0, let/v0, assume/v0, discharge/v0, statement/v0.
 Theorem poly_identity
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {A : Sort u} {P : A → Prop} {x : A}, P x → P x
+  Statement in math text:   ∀ {A : Sort u} {P : A → Prop} {x : A}, P x → P x
   Statement in mathematics: $\forall \{A : \mathrm{Sort}\ u\}\ \{P : A \to \mathrm{Prop}\}\ \{x : A\},\ P\ x \to P\ x$
   Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom poly_identity
@@ -120,6 +124,7 @@ Templates: let-types/v0, let/v0, assume/v0, discharge/v0, statement/v0.
 Definition fixtureId
   accepted (experimental, not independently audited); axioms: none
   Type in Lean:             {α : Sort u} → α → α
+  Type in math text:        {α : Sort u} → α → α
   Type in mathematics:      $\{\alpha : \mathrm{Sort}\ u\} \to \alpha \to \alpha$
   Type in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom fixtureId
@@ -145,6 +150,7 @@ Templates: let-types/v0, let/v0, discharge/v0, statement/v0.
 Definition fixturePoly
   accepted (experimental, not independently audited); axioms: none
   Type in Lean:             {α : Sort u} → α → α
+  Type in math text:        {α : Sort u} → α → α
   Type in mathematics:      $\{\alpha : \mathrm{Sort}\ u\} \to \alpha \to \alpha$
   Type in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom fixturePoly
@@ -174,6 +180,7 @@ Templates: let-types/v0, let/v0, apply/v0, recall/v0, discharge/v0, statement/v0
 Theorem fixtureUse
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {P : Prop}, P → P
+  Statement in math text:   ∀ {P : Prop}, P → P
   Statement in mathematics: $\forall \{P : \mathrm{Prop}\},\ P \to P$
   Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom fixtureUse
@@ -203,6 +210,7 @@ Templates: let-props/v0, assume/v0, apply/v0, recall/v0, discharge/v0, statement
 Theorem Nat.add_zero
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ (n : Nat), Eq (HAdd.hAdd n (OfNat.ofNat 0)) n
+  Statement in math text:   ∀ (n : Nat), Eq (HAdd.hAdd n (OfNat.ofNat 0)) n
   Statement in mathematics: $\forall (n : \mathsf{Nat}),\ \mathsf{Eq}\ (\mathsf{HAdd.hAdd}\ n\ (\mathsf{OfNat.ofNat}\ 0))\ n$
   Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom Nat.add_zero
@@ -466,6 +474,7 @@ Steps.
 Theorem Nat.zero_add
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ (n : Nat), Eq (HAdd.hAdd (OfNat.ofNat 0) n) n
+  Statement in math text:   ∀ (n : Nat), Eq (HAdd.hAdd (OfNat.ofNat 0) n) n
   Statement in mathematics: $\forall (n : \mathsf{Nat}),\ \mathsf{Eq}\ (\mathsf{HAdd.hAdd}\ (\mathsf{OfNat.ofNat}\ 0)\ n)\ n$
   Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom Nat.zero_add
@@ -719,6 +728,7 @@ Steps.
 Theorem composition
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
+  Statement in math text:   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
   Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom composition
@@ -786,6 +796,7 @@ Steps.
 Theorem composition
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
+  Statement in math text:   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
   Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom composition
@@ -805,6 +816,7 @@ No proof outline: the declaration is accepted, but the checker's log was truncat
 Theorem composition
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
+  Statement in math text:   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
   Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom composition
@@ -825,6 +837,7 @@ Theorem composition
   rejected
   Diagnostic: rejected: argument type mismatch (D1-D5) (0, 0)
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
+  Statement in math text:   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
   Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom composition
@@ -845,6 +858,7 @@ Theorem composition
   rejected
   Diagnostic: rejected: argument type mismatch (D1-D5) (0, 0)
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
+  Statement in math text:   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
   Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom composition
