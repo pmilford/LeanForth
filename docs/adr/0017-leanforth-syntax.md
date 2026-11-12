@@ -2542,7 +2542,12 @@ outcome and misuse (accepted, rejected, NOT PROVED with and without
 taken, a short name, wrong case, stubs, `--jobs 2`, a missing library,
 `--json`, `--env` without a text). Nine planted faults in
 `tests/mutants/faults.toml` (`lf-…`) are caught, among them a failed text
-still checked and a stub accepted with a library.
+still checked and a stub accepted with a library. Against all of `Init`
+(measured once, 2026-11-12, not in the test suites): `check --jobs 2
+--save-snapshot` of the pinned `Init` export accepted its 59,349
+declarations (one NOT PROVED) in 708 s; with that snapshot, `07-add-comm`,
+`19-add-zero` and `20-zero-add` were accepted and the wrong twins of 07
+and 19 rejected, 16 to 19 s and 0.6 GB a run.
 
 **B5. What is left.** 8.2.1b (the words at the kernel's scale: their
 node sharing searches the store), 8.2.1e (prompt and inline use), 8.2.1f

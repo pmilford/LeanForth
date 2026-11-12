@@ -154,12 +154,18 @@ accepted: 59 (experimental, not independently audited); axioms: none
 ```
 
 A whole `Init` export works the same way, but checks all of `Init` first
-(about ten minutes); `--snapshot FILE` instead takes the library from a
+(708 s with `--jobs 2` on the development machine, 2026-11-12);
+`--snapshot FILE` instead takes the library from a
 [snapshot](#snapshots---save-snapshot-and---snapshot) written by
 `check --save-snapshot FILE` of it, as for a dependent export: its
 declarations are taken from the snapshot, labelled so, and only the
 text's are checked (development and research only, like every snapshot
-run). `--env` and `--snapshot` do not go together.
+run). Measured on 2026-11-12 with a snapshot of all of `Init` (59,349
+declarations, written by `check --jobs 2 --save-snapshot`): each of
+`07-add-comm.lf`, `19-add-zero.lf` and `20-zero-add.lf` accepted, and the
+wrong twins of the first two rejected, in 16 to 19 s and 0.6 GB each
+("59350 declarations: 59350 accepted; 59349 from the snapshot, 1 checked
+in this run"). `--env` and `--snapshot` do not go together.
 
 **A text that stops is not checked at all.** A mistake in the text is
 printed at its line and column, with its code from the

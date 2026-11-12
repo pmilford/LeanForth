@@ -31,13 +31,12 @@
 \ outcome is kept as ck-load's is (ck-read-outcome), the phase that failed
 \ too (ck-staging, ck-feeding); lfc-failed? ( -- flag ) whether the text
 \ itself stopped (then lf-author-error. tells where and why);
-\ lfc-library# ( -- n ) the library's declarations, the input's first n;
 \ lfc-library-open ( c-addr u checked? -- outcome ) and lfc-library-close
 \ ( -- ), a library for the words outside check (see below).
 \ Untrusted, like the stage and the words: neither can make a declaration
 \ accepted; only check-declaration and the publisher decide.
 \ State: one context record, lfc (the library's name, whether the text
-\ failed, the library's size, the settings kept while the words run).
+\ failed, the settings kept while the words run).
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
@@ -48,7 +47,6 @@ require ./check-run.fs
 begin-structure /lfc
   2 cells +field lfc-env         \ the library export's file name, or 0 0
   field: lfc-failed              \ true: the text stopped with an error
-  field: lfc-library             \ declarations the library export holds
   field: lfc-sharing             \ the term store's sharing before the run
   field: lfc-names               \ the stores' capacity settings before the run
   field: lfc-terms
@@ -61,7 +59,6 @@ end-structure
 \ A library: an export (--env) or a snapshot's tier (--snapshot, ck-importing?).
 : lfc-library? ( -- flag ) lfc lfc-env @ 0<> ck-importing? or ;
 : lfc-failed? ( -- flag ) lfc lfc-failed @ ;
-: lfc-library# ( -- n ) lfc lfc-library @ ;
 
 \ ---- The stores' room while the words run: the name, term, level and
 \ reference stores' settings raised to the most a store may hold (they
@@ -110,14 +107,11 @@ end-structure
 : lfc-library-read ( checked? -- outcome )
   lfc lfc-env 2@ ck-size ck-slots ck-log2 ck-stage stage-init
   ok-then? 0= if exit then
-  ck-any-version? ck-stage stage-any-version! lfc-read
-  ck-stage stage-decls lfc lfc-library ! ;
+  ck-any-version? ck-stage stage-any-version! lfc-read ;
 \ A snapshot's tier is in the stage already, read and not sealed
 \ (ck-snapshot-import): its declarations are the library's.
-: lfc-snapshot-start ( checked? -- outcome )
-  drop ck-stage stage-decls lfc lfc-library ! outcome-ok ;
 : lfc-stage-start ( checked? -- outcome )
-  0 lfc lfc-library ! ck-importing? if lfc-snapshot-start exit then
+  ck-importing? if drop outcome-ok exit then
   lfc-library? if lfc-library-read exit then drop lfc-log2 ck-stage stage-init ;
 
 \ ---- The text: run by the words, a checked run with the library's finder.

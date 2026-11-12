@@ -664,6 +664,9 @@ def cli_cases():
         ("error after a good one", "theorem t\n  Prop explicit: p  p\n:=\n  p\nend t\n"
          "theorem u\n  Prop\n:=\n  x\nend u\n", [], None, 4,
          "the LeanForth text was not checked: error 1 at line:col 9:3 (token `x`)"),
+        ("error after a good one, outside", "theorem t\n  Prop explicit: p  p\n:=\n  p\n"
+         "end t\nnope\n", [], None, 4,
+         "the LeanForth text was not checked: error 1 at line:col 6:1 (token `nope`)"),
         ("not supported", "theorem t\n  Prop explicit: p  p\n:=\n  p let:\nend t\n", [], None,
          2, "error 51 at line:col 4:5 (token `let:`)"),
         ("unknown in library run", head + "  n\nend t\n" + "theorem u Prop := x end u\n",
