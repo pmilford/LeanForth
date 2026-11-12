@@ -95,7 +95,7 @@ Theorem cantor
       Not Exists 1 ^ α α Prop -> -> $ α α Prop -> -> explicit: f α Prop -> explicit: g
         Exists 1 ^ α $ α explicit: a Eq 1 ^ α Prop -> $ f a $ $ g $ fun $ forall fun $ $
     end cantor
-  Checker log: 747 steps, complete. The statement is a proposition: s72 (from s3).
+  Checker log: 756 steps, complete. The statement is a proposition: s72 (from s3).
 == Sqrt2
 -- lean
 sqrt2_irrational : ¬∃ a b, b > 0 ∧ a ^ 2 = 2 * b ^ 2

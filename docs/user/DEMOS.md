@@ -297,7 +297,7 @@ cantor: rejected
   rejected: declared type mismatch (D1-D5); diagnostic 60 at check-declaration lf-check-declaration: 0 0
 ```
 
-The checker's derivation log of this theorem: *747 steps, complete. The statement is a proposition: s72 (from s3).* No outline template covers an induction proof yet, so the steps are listed instead.
+The checker's derivation log of this theorem: *756 steps, complete. The statement is a proposition: s72 (from s3).* No outline template covers an induction proof yet, so the steps are listed instead.
 
 ## 5. The square root of 2 is irrational
 
