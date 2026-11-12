@@ -392,10 +392,24 @@ lf-form-mdata tag-mdata feed-form!
 \ table (core/terms.fs), so that a binder made equal to it is it (a
 \ binder a copy or a check makes; before step S5's parts 4-5 a let's
 \ lambda copied before the binder's own number came up: 47 such binders
-\ in Init cost 22 of its declarations more fuel without this pass). The
-\ second makes the copies and the leaves' fields.
+\ in Init cost 22 of its declarations more fuel without this pass); a
+\ binder == to one entered before it is marked to copy instead (below).
+\ The second makes the copies and the leaves' fields.
+\ A binder read in place that is == to one entered before it (the same tag
+\ and children, another binder name or information) is copied instead,
+\ and the copy is that earlier binder (lf-term-add finds it in the binder
+\ table), so that every == class of input binders is one node and so is
+\ every node above them: what a check costs then depends only on its
+\ declaration and what it reads, never on which other records the tier
+\ holds (review rvSN4 B1; ADR 0014 Amendment 7). Only without a binder
+\ hook: the print command, which sets one, keeps each binder's own name.
+: feed-merging? ( feed -- flag ) feed-binder-hook @ 0= ;
+: feed-redirect? ( feed first? -- flag ) 0= swap feed-merging? and ;
+: feed-merge ( e feed first? outcome -- outcome )
+  dup ok? 0= if >r drop 2drop r> exit then drop
+  over swap feed-redirect? if feed-dirty! else 2drop then outcome-ok ;
 : feed-enter ( e feed tag -- outcome )
-  dup binder-tag? if 2drop lf-tin-child lf-term-input-binder exit then
+  dup binder-tag? if drop over lf-tin-child lf-term-input-binder-first feed-merge exit then
   let-tag? if drop 2* lf-term-input-binder else 2drop outcome-ok then ;
 : feed-mark ( e feed -- outcome )
   2dup feed-tier expr-tag@ >r 2dup r@ feed-to-copy?

@@ -1782,7 +1782,7 @@ class Snapshots(unittest.TestCase):
                                    "audited; from snapshot, not re-checked in this run); "
                                    "axioms: none")
         self.assertRegex(lines[-3], r"^snapshot: .*s\.lfsnap \(sha256 [0-9a-f]{64}\), export "
-                                    r"sha256 [0-9a-f]{64}, verdict version 3, written by "
+                                    r"sha256 [0-9a-f]{64}, verdict version 4, written by "
                                     r"LeanForth \S+: 3 results taken from it, not re-checked "
                                     r"in this run$")
         self.assertEqual(lines[-2:], [
@@ -1824,7 +1824,7 @@ class Snapshots(unittest.TestCase):
             put32(changed, 24 + 4 * field, value)
             self.refused(write(resealed(changed, table)), status, why)
         changed = bytearray(data)
-        put32(changed, 24 + 4 * 2, 1)   # an older verdict version (agent PF bumped it to 3)
+        put32(changed, 24 + 4 * 2, 1)   # an older verdict version
         status, got, _ = report("--snapshot", str(write(resealed(changed, table))))
         self.assertEqual((status, self.schema.errors(got), got["read"]["phase"],
                           got["read"]["reason"], got["run"]),
@@ -1920,11 +1920,11 @@ class Snapshots(unittest.TestCase):
         self.assertEqual((status, lines[0]), (0, (
             "fixtureId: accepted (experimental, not independently audited; from a stale "
             "snapshot (an older verdict version), not this build's verdict); axioms: none")))
-        self.assertIn("stale: build's (3): its 3 results are not this build's verdicts", lines)
+        self.assertIn("stale: build's (4): its 3 results are not this build's verdicts", lines)
         status, got, _ = report("--snapshot-stale-ok", "--snapshot", str(old))
         self.assertEqual(self.schema.errors(got), [])
         self.assertEqual((got["snapshot"]["verdictVersion"], got["snapshot"]["stale"]),
-                         (1, {"thisVerdictVersion": 3, "results": 3}))
+                         (1, {"thisVerdictVersion": 4, "results": 3}))
         self.assertEqual({d["provenance"] for d in got["declarations"]}, {"stale-snapshot"})
         self.assertEqual(report("--snapshot", str(path))[1]["snapshot"]["stale"], None)
         status, got, _ = report("--snapshot-stale-ok", "--snapshot", str(old), FIXTURE)
@@ -2460,7 +2460,7 @@ class Layers(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertIn(f"layer: {one} (sha256 {sha}), export sha256 "
                       f"{hashlib.sha256(Path(DEPENDENT).read_bytes()).hexdigest()}, "
-                      "verdict version 3, on the snapshot above", out.splitlines())
+                      "verdict version 4, on the snapshot above", out.splitlines())
         status, got, _ = report(*options)
         self.assertEqual(Imports.schema.errors(got), [])
         self.assertEqual([(x["file"], x["sha256"], x["base"]) for x in got["snapshot"]["layers"]],

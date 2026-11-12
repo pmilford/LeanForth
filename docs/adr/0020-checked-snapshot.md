@@ -313,9 +313,9 @@ among them); the snapshot S is Mathlib's. `leanforth check --snapshot S E′`:
    with one of S but differ in content (many of them mean S is of another
    library version).
 
-**Why the verdicts are exactly a fresh check's** (not yet so for fuel,
-and so for a verdict near the fuel budget: review rvSN4 B1 found fuel
-depends on the tier's numbering; amendment 3). The invariant **I2**
+**Why the verdicts are exactly a fresh check's** (fuel too since
+amendment 4: review rvSN4 B1 found fuel depended on the tier's numbering,
+which agent PF's change removed). The invariant **I2**
 ([kernel] review): *a check's outcome, fuel and recorded fields depend
 only on its declaration's content, the run's verdict settings and verdict
 version, and the answers of its lookups, with the records and fields of
@@ -754,7 +754,25 @@ verdict near the fuel budget, depends on the tier's numbering through
 the binder table and the cache keys) is agent PF's kernel task; until it
 merges, a result taken from a snapshot is not claimed equal to a final
 check's in fuel or in a verdict near the fuel budget (env-import.fs,
-COMMAND_LINE.md).
+COMMAND_LINE.md). Amendment 4 is that task.
+
+## Amendment 4 (2026-11-11): fuel independent of the tier's numbering (agent PF; review rvSN4 B1)
+
+*[kernel] review owed (ADR 0014 Amendment 7).* B1: the binder table gave
+a binder a check makes the first record of its `==` class in the whole
+tier, which a snapshot's records (or another declaration's) could be, and
+the caches key by node, so cache hits and fuel depended on the other
+records of the tier; a verdict near the fuel budget could too (the
+review's p7). The importer now makes each `==` class of input binders,
+and every node above one, a single node (`src/import/feed.fs`): a check
+reaches the same nodes, up to their numbers, whatever else the tier
+holds. So I2 holds for fuel, and a taken slot's fuel is a fresh check's.
+Evidence: `tests/cli/cross_snapshot.py` in `make check` (nine fixtures,
+72 pairs fresh and against another fixture's snapshot, every verdict and
+fuel equal); the review's p7 equal both ways; MATHLIBEVIDENCE. I1.2 still
+refuses an *exhausted* slot (kept, harmless). The verdict version is 4.
+The restriction of the feed to what the export reaches (amendment 3) is
+no longer blocked by B1.
 
 ## Questions for the owner
 

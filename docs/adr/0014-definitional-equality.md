@@ -1972,6 +1972,66 @@ every older snapshot is refused as stale (or labelled stale with
 (`tests/cli/golden-snapshots`) are written again: only the header's
 verdict version and fuel setting and 99 slots' fuel moved, all to less.
 
+## Amendment 7: one node per == class of input binders (agent PF, review rvSN4 B1, 2026-11-11, proposed)
+
+Status: proposed; [kernel] gate owed. Code: `src/import/feed.fs`
+(`feed-enter`, `feed-merge`), `src/core/terms.fs`
+(`lf-term-input-binder-first`). No typing, reduction or conversion rule
+changes; a check reads the same terms up to binder names and binder
+information, which Lean's kernel ignores (`expr_eq_fn`, binder info not
+compared by the kernel's `==`).
+
+**Finding** (review rvSN4 B1). Amendment 5 keys the caches by node and
+lets `==` answer at once for one node, relying on hash-consing to make a
+node's number its class under `==`. Input binders break that: two
+records that differ only in a binder name are two input nodes, and the
+binder table (`terms.fs`) gives a binder a check makes the *first* record
+of its class in the whole tier, which can be another declaration's, or a
+snapshot's when an export is checked against one (`check --snapshot`).
+So a check's cache hits, its `==` shortcuts and so its fuel depended on
+which other records the tier held: unfold's `Implies` took 34 fuel fresh
+and 38 against another fixture's snapshot, and the review's p7 gave
+`Implies` *exhausted* fresh but *accepted* against a snapshot at fuel 35;
+Mathlib's first 1M lines used other fuel on 2,151 of 13,023 declarations
+against `Init`'s snapshot than fresh (agent SN4).
+
+**Change.** The importer's first pass enters each binder read in place in
+the binder table as before; a binder whose tag and children equal one
+entered before it (another name or binder information) is marked to copy
+instead, and its copy is that earlier binder (`lf-term-add` finds it in
+the table). Its parents are copied too (a child copied), and their copies
+are the tier's records of those fields when there are some. So each `==`
+class of input binders, and every node above one, is one node, and what a
+check reaches depends only on its declaration and the declarations it
+reads, never on the rest of the tier. Not with a binder hook (the print
+command), which keeps every binder's own name to print it, so its checks
+share as before this change and may use a little more fuel than
+`check`'s (their verdicts can differ only near the fuel budget; `print`
+writes no snapshot).
+
+**Cost.** Binder names: a term whose binder was merged reads the
+earlier record's name (only the print command shows names, and it keeps
+its own). Room: the copies of the merged binders' parents (measured
+below).
+
+**Fuel and verdicts.** In a fresh check a declaration whose binders equal
+earlier ones up to names now shares them: less or equal fuel; with a
+snapshot, a check's fuel equals the fresh check's. Verdicts move only from
+*exhausted* to Lean's.
+
+**Evidence.** `tests/cli/cross_snapshot.py` (in `make check`, through
+`tests/cli/export-check.sh`): nine fixtures, each checked fresh and
+against a snapshot of each of the other eight, 72 pairs: every
+declaration's verdict and fuel the same (before: unfold/`Implies`
+34 → 38, nested `PProd`/`Prod` +6, sharing/`And` +6). The review's p7
+(`.claude/work/PF/b2/p7`): fresh and against the snapshot both give
+`Implies` accepted with 34 and `impliesSelf` exhausted. Planted faults
+`pf-binder-class-split` (caught by the cross test) and the re-targeted
+`s5-feed-binders-not-entered`. `tests/core/check-declaration-ndjson.fs`: a
+let's lambda and a later lambda of the same type and body are one node
+again. The golden snapshot fields of the ten guarded exports: no fuel
+moved (only the verdict version, 3 → 4). EVIDENCE7
+
 ## Note: the projection steps (plan task 5.2.2, 2026-11-10)
 
 The Q8 row "Projections: `reduce_proj`, step 8, `try_unfold_proj_app`"

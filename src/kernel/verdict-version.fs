@@ -35,8 +35,13 @@
 \                  command line's default fuel per declaration is
 \                  100,000,000 (owner, 2026-11-11), so a declaration
 \                  that ran out at 20,000,000 may now be decided.
+\   4  2026-11-11  agent PF (ADR 0014 Amendment 7; review rvSN4 B1): the
+\                  importer makes each == class of input binders one
+\                  node, so fuel no longer depends on which other records
+\                  the tier holds, and a declaration whose binders differ
+\                  only in names from earlier ones shares more (less fuel).
 \
 \ [kernel] code: experimental, not through the review gate.
 \ State: none.
 
-3 constant lf-verdict-version
+4 constant lf-verdict-version

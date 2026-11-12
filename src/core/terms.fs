@@ -611,17 +611,21 @@ defer lf-term-view-hook ( -- outcome )
 \ Enter input binder index in the binder table (the importer, for each
 \ binder it reads in place): ok; invalid for a number that is no input
 \ lambda or Pi; full when the heap has no room. When another binder has
-\ the same tag and children, the first stays.
+\ the same tag and children, the first stays; lf-term-input-binder-first
+\ also says whether index is that first one (false: an earlier binder of
+\ its == class is in the table, which the importer then gives index's
+\ uses instead: import/feed.fs, ADR 0014 Amendment 7).
 : lf-tin-binder? ( index -- flag )
   dup lf-term-input? 0= if drop false exit then
   lf-tin-tag@ dup lf-tag-lam = swap lf-tag-pi = or ;
-: lf-tbind-put ( index -- )
+: lf-tbind-new? ( index -- flag )
   dup lf-tbind-fields lf-tin-key! lf-term-view lf-tview-binders htab-find
-  if 2drop else lf-term-view lf-tview-binders htab-put then ;
-: lf-term-input-binder ( index -- outcome )
-  dup lf-tin-binder? 0= if drop outcome-invalid exit then
-  lf-term-view lf-tview-binders htab-ready dup ok? 0= if nip exit then
-  drop lf-tbind-put outcome-ok ;
+  if 2drop false else lf-term-view lf-tview-binders htab-put true then ;
+: lf-term-input-binder-first ( index -- flag outcome )
+  dup lf-tin-binder? 0= if drop false outcome-invalid exit then
+  lf-term-view lf-tview-binders htab-ready dup ok? 0= if nip false swap exit then
+  drop lf-tbind-new? outcome-ok ;
+: lf-term-input-binder ( index -- outcome ) lf-term-input-binder-first nip ;
 
 \ ---------------------------------------------------------------------------
 \ Making nodes. Append a node whose tag and fields the caller validated,
