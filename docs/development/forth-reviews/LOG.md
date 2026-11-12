@@ -12,6 +12,8 @@ findings neither fixed nor turned into plan tasks. A row that raises the style b
 | --- | --- | --- | --- | --- | --- | --- |
 | 2026-11-12 | `390197d..af64e27` | notation printer and demos (branch demos) | forth-reviewer (Sonnet) | [report](2026-11-12-demos-printer.md) | 0 blocking, 3 low, 7 style/test/docs | 10, to the printer follow-up |
 | 2026-11-12 | `fcce360..3ac0558` | backlog: whole of src/cli, src/present, src/author, src/program | forth-reviewer FRP (Sonnet) | [report](2026-11-12-backlog-cli-present-author-program.md) | 0 blocking; refactor batches A-F; test gaps T1-T6; libraries; portability | all, to the refactoring batches |
+| 2026-11-12 | `fcce360..3ac0558` | backlog: whole of src/kernel | forth-reviewer FRK (Opus) | [report](2026-11-12-backlog-kernel.md) | 0 blocking; F1-F2 medium (scheduler use after free when full, reproduced; kernel requires import/ and present/), F3-F6 low, F7 docs; batches A-J; test gaps; libraries; portability | all, to the bug fixes and refactoring batches |
+| 2026-11-12 | `fcce360..3ac0558` | backlog: whole of src/import, src/core, src/lib | forth-reviewer FRI (Opus) | [report](2026-11-12-backlog-import-core-lib.md) | 0 blocking; F1 medium (layer full reported invalid), F2 32-bit wraps, F3-F4 low, F5 portability; batches B1-B8; test gaps; libraries | all, to the bug fixes and refactoring batches |
 
 ## Backlog
 

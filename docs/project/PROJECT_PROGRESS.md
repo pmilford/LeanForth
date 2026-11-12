@@ -19,6 +19,34 @@ give **exactly Lean 4.35.0's verdicts** — an *unknown* where Lean decides
 is a gap to close, never a feature — and match or beat Lean's one-thread
 speed before parallelism adds more.
 
+## Now, next, later (updated 2026-11-12)
+
+The single list of what is being worked on (owner, 2026-11-12; replaces the near-term queue of
+[DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md), stale since 2026-11-03). `scripts/push.sh` refuses to push plan
+status changes when this date is older than them. Stages are those of the
+[done checker](../development/DONE_CHECKER.md).
+
+**Now**
+- LeanForth text checked by LeanForth's kernel, with Init imported for real (plan 8.2.1a, c, d): designed; work
+  started 2026-11-12. Until it lands, LeanForth only re-checks proofs that Lean produced and exported.
+- Fixes before tonight's run: the performance review's findings (rvPF1), the broken coverage tool and a coverage
+  ratchet, the documentation the done-checker audit found overstated or stale, and real bugs from the Forth backlog
+  reviews (the parallel scheduler's use after free when memory is full; a snapshot layer's full reported as invalid;
+  Gforth-only words outside the portability layer).
+- 2026-11-13 02:00: all of Mathlib on the final build (verdict version 9), saving its snapshot.
+
+**Next**
+- The Forth refactoring batches of the three backlog reviews ([log](../development/forth-reviews/LOG.md), plan
+  9.4.5), tests first, every verdict and fuel count identical.
+- Program track: LeanForth re-checks Lean's proofs of the clamp word's obligations (5.5.1), then a user command
+  `leanforth verify` (8.4.1). The track has been parked since 2026-11-04.
+- A rule-by-rule audit of AGENTS.md against practice.
+- Natural LeanForth for writing statements (8.6.10) and a first theorem proved in LeanForth (8.6.11).
+
+**Later**
+- Speed: the export reader and the remaining validity checks; Physlib; `print --snapshot` (8.6.9); term memory
+  (6.5.9); a second Forth system and a 32-bit host (9.4.1); no Python requirement (9.4.3).
+
 ## Where things stand, in plain words
 
 **Current state, 2026-11-12 afternoon (main `700c4a1`, verdict version 9).**

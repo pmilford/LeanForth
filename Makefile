@@ -137,6 +137,7 @@ check-portable-forth:
 # tests/forth-quality-baseline.json): fails on main for an unreviewed Forth change.
 check-forth-quality:
 	$(RUN) python3 tests/scripts/test_check_forth_quality.py
+	$(RUN) python3 tests/scripts/test_check_progress.py
 	$(RUN) python3 scripts/check-forth-quality.py
 
 # Report-only Forth style metrics (word length, globals, locals, shuffling);

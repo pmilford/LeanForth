@@ -49,6 +49,10 @@ in records (2026-11-02).
 
 ## Near-term execution queue: first checked declaration
 
+**Superseded (owner, 2026-11-12):** this queue has not been kept since 2026-11-03. The current list is
+"Now, next, later" in [PROJECT_PROGRESS.md](PROJECT_PROGRESS.md#now-next-later-updated-2026-11-12); the table below
+is kept for its history.
+
 The earlier roadmap has useful acceptance goals but its items combine many
 changes and review gates, so a count of finished broad tasks conceals progress
 and makes the next step hard to see. This queue splits the current critical
