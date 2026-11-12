@@ -27,6 +27,17 @@
 [undefined] stderr [if] s" /dev/stderr" w/o open-file throw constant stderr [then]
 [undefined] flush-file [if] : flush-file ( fileid -- ior ) drop 0 ; [then]
 
+\ SYNONYM (Forth-2012 TOOLS EXT; Gforth 1.0 has it, 0.7.3 not): where the
+\ host lacks it, new becomes a colon definition that calls old, which is
+\ right for ordinary words only: never name an immediate or parsing word
+\ (new would not be immediate). The fallback cannot refuse one: telling
+\ an immediate word apart needs FIND, a name lookup that src/lib may not
+\ use (tests/core/check_log_isolation.py, N7). Its one use is
+\ src/lib/u32.fs's synonym u32@ l@ and u32! l!, ordinary words.
+[undefined] synonym [if]
+: synonym ( "new" "old" -- ) : ' compile, postpone ; ;
+[then]
+
 \ .S, of the optional Programming-Tools word set, which the program words
 \ (src/program/verify-semantics.fs) give verification semantics: the depth
 \ in angle brackets, then the top nine cells at most, deepest first, each

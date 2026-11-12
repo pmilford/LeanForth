@@ -532,10 +532,12 @@ defer lf-term-findable? ( n -- flag )
 \ its run passes (agent PERF1: the hook reads the environment's validity,
 \ about 5% of Init's checking time when asked of every record probed).
 \ Neither changes what the other reads, so the order changes no answer.
+\ Unchecked (lf-term-equal?, lf-term-given?): record n is live.
+: lf-term-equal? ( n key -- flag ) >r lf-term-slot lf-term-fields@ r> lf-term-key= ;
+: lf-term-given? ( n key -- flag )
+  over swap lf-term-equal? if lf-term-findable? else drop false then ;
 : lf-term-same ( n key htab -- flag )
-  drop over lf-term-valid? 0= if 2drop false exit then
-  >r dup lf-term-slot lf-term-fields@ r> lf-term-key=
-  if lf-term-findable? else drop false then ;
+  drop over lf-term-valid? if lf-term-given? else 2drop false then ;
 create lf-term-hooks /htab-hooks allot
 ' lf-term-rehash ' lf-term-same lf-term-hooks htab-hooks!
 \ A context's table: 16 slots at first, freed with the context. A table
