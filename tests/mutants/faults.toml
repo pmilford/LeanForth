@@ -7455,6 +7455,14 @@ new = '''  lf-term-data@ if lf-data-loose 2 < else false then ;'''
 test = "$GFORTH tests/core/mixed-infer.fs"
 reason = "6.5.5 (PF): a dependent body gets the argument unclosed, its loose bound variables read under the wrong scope"
 
+[[fault]]
+id = "pf-copy-id-one-key"
+file = "src/kernel/caches.fs"
+old = '''  lf-word-facts 0= if false exit then lf-bits-loose if drop false else true then ;'''
+new = '''  lf-word-facts 0= if false exit then 2drop 0 true ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "6.5.5 (PF): every closed copy read from its data word gets one key, so an open term finds another's inferred type"
+
 # --- compact-store plan step S4 (agent S4) ---------------------------------
 [[fault]]
 id = "cache-dead-fvar"

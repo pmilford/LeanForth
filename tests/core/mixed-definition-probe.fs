@@ -94,7 +94,9 @@ T{ statuses -> outcome-ok outcome-invalid outcome-exhausted outcome-unknown }T
 \ equal to one already made is that node, which the marking audits check
 \ once and == finds at once), 95 since the scope audit reads its root's
 \ data word (plan step S6 (c)), 89 since universe substitution skips the
-\ terms without a universe parameter (Lean's has_param_univ, plan step S4).
+\ terms without a universe parameter (Lean's has_param_univ, plan step S4),
+\ 88 since an argument put into a Pi body without loose bound variables is
+\ not closed first (Lean's instantiate never reads it; agent PF).
 \ The rejections are ADR 0011's, each as Lean's kernel decides: the value
 \ id.{u} (Sort u) applies id to an argument of the wrong universe (D1 in
 \ the value: appTypeMismatch); a function claimed to be a Sort u (D2:
@@ -102,7 +104,7 @@ T{ statuses -> outcome-ok outcome-invalid outcome-exhausted outcome-unknown }T
 : rejected-code? ( code -- flag ) lf-diag-code@ = ;
 : basic-case ( -- )
   setup snapshot 4 9 50000 probe outcome-ok expect-status assert-rollback
-  lf-mdefinition-fuel @ 49911 <> abort" success fuel"
+  lf-mdefinition-fuel @ 49912 <> abort" success fuel"
   term-serial term-serial-before @ <= abort" expected allocations"
   snapshot 0 10 50000 probe outcome-rejected expect-status assert-rollback
   lf-mdefinition-fuel @ 0<> abort" rejected fuel"

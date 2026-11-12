@@ -1924,12 +1924,23 @@ declaration measured below needs more. Less fuel can still only give
 **Evidence.** `tests/core/mixed-infer.fs`: a closed body costs one unit
 (six with the closing), a dependent one gets `id A x` closed; the `poly`
 case's fuel 49,937 → 49,938 left. `tests/core/check-declaration.fs`: the
-`sweep-unfolding` case accepted from 60 units (62). `tests/cli/shared-depths.lean`
+`sweep-unfolding` case accepted from 60 units (62).
+`tests/core/infer-deep.fs`: in a 64-node store the deepest `f (f … c)`
+that infers grows from 27 to 54 applications, as no argument is copied
+(Lean makes none either). The pinned fuel of
+`mixed-definition-probe.fs`, `tests/cli/leanforth.fs` (`inductive.ndjson`
+518 → 508) and the report digests of `tests/cli/test_leanforth.py` (11
+re-pinned) move with it: compared with main, every report is the same but
+for fuel, 97 declarations use less and none more. `tests/cli/shared-depths.lean`
 P3: the arena's let-, beta- and app-ladders at n = 48, with bad twins
 pinned Lean rejects (letTypeMismatch, declTypeMismatch, appTypeMismatch);
 LeanForth agrees, memo on and off, and `shared_depths.py` bounds the good
-rows' fuel. Planted faults `pf-put-always-closes` and
-`pf-put-dependent-unclosed`, caught. Arena `let-ladder` (`check --fast`,
+rows' fuel. Planted faults `pf-put-always-closes`,
+`pf-put-dependent-unclosed` and `pf-copy-id-one-key`, caught; the earlier
+faults on the code changed (`infer-arg-unclosed`,
+`s6a-infer-key-failure-ignored`, `cache-dead-fvar`,
+`s4-fvmemo-children-live`, `cache-identity-unchecked`,
+`cache-scope-ignored`, `s4-cache-key-stale-node`) re-run, all caught. Arena `let-ladder` (`check --fast`,
 fuel 400M): accepted with 38,983,499 → 20,072,078 units, check CPU
 85.9 → 66.9 s (item 1) → 39.9 s (both), peak memory 1,291 → 866 MB; at
 the default 20,000,000 it is still *exhausted*: what is left is Lean's
