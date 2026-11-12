@@ -2230,6 +2230,22 @@ test = "python3 tests/program/verify_ir02.py"
 reason = "rvIR3 L9: the portable .S shows ten cells where both Gforths show nine"
 
 [[fault]]
+id = "portable-bounds-reversed"
+file = "src/lib/portability.fs"
+old = ''': bounds ( addr u -- addr+u addr ) over + swap ; [then]'''
+new = ''': bounds ( addr u -- addr+u addr ) over swap + ; [then]'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "review FRK 5: the portable BOUNDS gives start and end the other way round, so a ?DO over it runs no or wrong iterations"
+
+[[fault]]
+id = "portable-u-le-signed"
+file = "src/lib/portability.fs"
+old = ''': u<= ( u1 u2 -- flag ) u> 0= ; [then]'''
+new = ''': u<= ( u1 u2 -- flag ) > 0= ; [then]'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "review FRI F5: the portable U<= compares signed, so a number above max-n reads as small"
+
+[[fault]]
 id = "irx-spaces-unbounded"
 file = "src/program/ir-run.fs"
 old = ''': irx-print-spaces ( op -- ) drop irx-data-pop irx-fuel @ min irx-say-blanks ;'''
@@ -3111,6 +3127,14 @@ old = '''  dup lf-cref-span? if lf-cref-pairs lf-cref-input-ok? else drop false 
 new = '''  lf-cref-pairs lf-cref-input-ok? ;'''
 test = "$GFORTH tests/core/constant-references.fs"
 reason = "a reference whose pairs lie outside the pool is read anyway"
+
+[[fault]]
+id = "fri-cref-gate-left-open"
+file = "src/core/constant-references.fs"
+old = '''  true lf-cref-ungated ! ['] lf-cref-ungated-find catch false lf-cref-ungated ! throw ;'''
+new = '''  true lf-cref-ungated ! lf-cref-ungated-find false lf-cref-ungated ! ;'''
+test = "$GFORTH tests/core/constant-references.fs"
+reason = "FRI F3: a hook that THROWs in the ungated find leaves the gate open, so later finds in the check see references it has not reached"
 
 [[fault]]
 id = "e5-chain-newest"
