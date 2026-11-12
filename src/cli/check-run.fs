@@ -177,6 +177,7 @@ begin-structure /ck
   field: ck-serial-why           \ why workers were asked for but not used (ck-why-*), or 0
   field: ck-print                \ the fed input's fingerprint: every worker's must be it
   lf-cref-lent# cells +field ck-lent  \ the references the workers read (ck-lent!)
+  lf-cref-lent# cells +field ck-lend-now   \ and as they are now (ck-moved?)
   field: ck-remade               \ times the workers were made again (ck-relent)
   field: ck-checker              \ the check word ( -- ) (ck-check-word!)
   ck-switches# cells +field ck-switched    \ the checker's switches, for each worker
@@ -464,12 +465,12 @@ create ck-line ck-line-room 2 + allot
 \ when they moved before the run (a pass that made references here, as
 \ the import pass of a run against a snapshot may), the workers are made
 \ again (ck-relent; ck-remades counts it).
-create ck-lend-now lf-cref-lent# cells allot
 : ck-lending ( addr -- )
   >r lf-cref-lending r@ 3 cells + ! r@ 2 cells + ! r@ cell+ ! r> ! ;
 : ck-lent! ( -- ) ck-state ck-lent ck-lending ;
 : ck-moved? ( -- flag )
-  ck-lend-now dup ck-lending lf-cref-lent# cells ck-state ck-lent over compare 0<> ;
+  ck-state ck-lend-now dup ck-lending lf-cref-lent# cells ck-state ck-lent over compare
+  0<> ;
 : ck-remades ( -- n ) ck-state ck-remade @ ;
 : ck-workers ( -- )
   ck-parallel? 0= if exit then
