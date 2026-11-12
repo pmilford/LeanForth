@@ -365,12 +365,11 @@ end-structure
   dup lf-audit-epoch ?dup if lf-audit-unit? else drop false then ;
 : lf-audited? ( node -- flag )
   lf-audit-state lf-aud-active @ 0= if drop false exit then lf-audit-held? ;
-\ Whether node was checked by an audit of this check, in today's epoch, at
-\ any time (not only inside an audit run): what the check has reached
-\ (terms.fs's lf-term-findable?, set by kernel/check-declaration.fs).
-\ False while the memo is off. Unchecked: the node is allocated.
-: lf-audit-reached? ( node -- flag )
-  lf-audit-on? 0= if drop false exit then lf-audit-held? ;
+\ lf-audit-held? at any time (not only inside an audit run), while the
+\ memo is on, is whether node was checked by an audit of this check, in
+\ today's epoch: what the check has reached (terms.fs's
+\ lf-term-findable?, set by kernel/check-declaration.fs, which asks
+\ lf-audit-on? itself).
 \ Levels reached in this check, the same way: a level root a scope check
 \ found in scope (level-scope.fs's hook lf-lscope-reached) is kept in a
 \ column of the level store with its identity and today's closed epoch.
