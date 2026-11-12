@@ -492,6 +492,23 @@ T{ 0 lf-term-sort drop dup 0 swap lf-note-move lf-note-any? -> true }T
 T{ 0 lf-note-any? -> false }T
 T{ s" y" lf-note-label 1 lf-note-add -> 1 outcome-ok }T
 T{ s" y" 0 lf-note-label? s" y" 2 lf-note-label? s" z" 0 lf-note-label? -> true false false }T
+\ Room (review FRP, B7): the table holds lf-note-capacity entries and the
+\ pool lf-note-byte-capacity bytes; one more is full and changes nothing;
+\ a malformed entry is invalid before a full table is full.
+: notes-fill ( n -- ) 0 ?do s" n" lf-note-person 0 lf-note-add 2drop loop ;
+create note-big lf-note-byte-capacity 1+ allot
+: big-note ( u -- outcome ) note-big swap lf-note-person 0 lf-note-add nip ;
+lf-note-reset
+T{ lf-note-capacity notes-fill lf-note-count lf-note-used -> 64 64 }T
+T{ s" x" lf-note-person 0 lf-note-add lf-note-count -> -1 outcome-full 64 }T
+T{ s" x" 7 0 lf-note-add -> -1 outcome-invalid }T
+lf-note-reset
+T{ lf-note-byte-capacity 1+ big-note lf-note-count lf-note-used -> outcome-full 0 0 }T
+T{ lf-note-byte-capacity big-note lf-note-used -> outcome-ok 4096 }T
+T{ s" " lf-note-person 0 lf-note-add 1 big-note -> 1 outcome-ok outcome-full }T
+T{ 0 lf-note-text@ nip 1 lf-note-text@ nip lf-note-count -> 4096 0 2 }T
+lf-note-reset
+T{ s" x" lf-note-person 0 lf-note-add s" y" lf-note-label 0 lf-note-add -> 0 outcome-ok 1 outcome-ok }T
 lf-term-reset
 T{ 0 lf-note-live? -> false }T
 lf-note-reset

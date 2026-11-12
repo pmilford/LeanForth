@@ -4995,6 +4995,22 @@ test = "$GFORTH tests/author/author.fs"
 reason = "the Forth mode's leaf dispatch loses the number literal arm: 7 lit# prints as invalid"
 
 [[fault]]
+id = "note-table-one-entry-too-many"
+file = "src/present/note-table.fs"
+old = '''lf-note-count lf-note-capacity < and ;'''
+new = '''lf-note-count lf-note-capacity 1+ < and ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "a full note table takes one entry more, past its last slot"
+
+[[fault]]
+id = "note-table-pool-overfull"
+file = "src/present/note-table.fs"
+old = '''  lf-note-byte-capacity lf-note-used - upto?'''
+new = '''  lf-note-byte-capacity lf-note-used - 1+ upto?'''
+test = "$GFORTH tests/author/author.fs"
+reason = "the note pool takes a text one byte longer than its room"
+
+[[fault]]
 id = "log-view-inference-always-first"
 file = "src/present/log-view.fs"
 old = ''': lf-lv-down? ( c -- c' flag ) dup if 1- false else true then ;'''

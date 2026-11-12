@@ -120,10 +120,11 @@ require ./notation-table.fs
   lf-pp-term-call ;
 : lf-pn-suffix ( frames -- outcome frames 0 ) dup lf-pn-kept-row lf-pn-op lf-pn-done ;
 \ a ^ b: b raised in mathematical text when it is a digit, in braces in
-\ LaTeX. The superscript digits ⁰ to ⁹ lie three bytes apart in the string
-\ below: ⁰ (U+2070) and ⁴ to ⁹ (U+2074 to U+2079) take three bytes of
-\ UTF-8, ¹ ² ³ (U+00B9, U+00B2, U+00B3) two and a blank. Unchecked: d is a
-\ digit (lf-pn-digit).
+\ LaTeX, whatever b's type (Lean writes x ^ y for every HPow). The
+\ superscript digits ⁰ to ⁹ lie three bytes apart in the string below: ⁰
+\ (U+2070) and ⁴ to ⁹ (U+2074 to U+2079) take three bytes of UTF-8, ¹ ² ³
+\ (U+00B9, U+00B2, U+00B3) two and a blank. Unchecked: d is a digit
+\ (lf-pn-digit).
 : lf-pn-sup-width ( d -- u ) 1 4 within if 2 else 3 then ;
 : lf-pn-sups ( -- c-addr ) s" ⁰¹ ² ³ ⁴⁵⁶⁷⁸⁹" drop ;
 : lf-pn-sup-digit ( d -- c-addr u ) dup 3 * lf-pn-sups + swap lf-pn-sup-width ;
