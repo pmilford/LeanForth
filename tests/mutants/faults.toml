@@ -1313,6 +1313,28 @@ test = "python3 tests/cli/test_leanforth.py ExitCodes.test_1_infer_only"
 reason = "4.2.7d: aside, invalidProj is unknown, not Lean's (infer_proj throws it in infer-only mode too): P5's projbad unknown"
 
 [[fault]]
+id = "ck-whnf-type-pi-untyped"
+file = "src/kernel/defeq.fs"
+old = '''  over lf-dq-typeish? if 2drop 0 lf-dq-no outcome-ok exit then
+  over lf-dq-typable? 0= if 2drop 0 lf-dq-undef outcome-ok exit then'''
+new = '''  over dup lf-dq-sort? swap lf-dq-pi? or if 2drop 0 lf-dq-no outcome-ok exit then
+  over lf-dq-typable? 0= if 2drop 0 lf-dq-undef outcome-ok exit then'''
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_1_infer_only_p6"
+reason = "rvCK 3: steps 11 and 14 take a Pi for a type without typing it (only dq-pi-untyped's step 4 is also covered by P5): P6's unitpi and etapibad (Lean rejects) accepted"
+
+[[fault]]
+id = "ck-step4-types-s"
+file = "src/kernel/defeq.fs"
+old = '''  dup lf-dq-yes = if drop r> lf-dq-irrel exit then
+  lf-dq-undef = if r@ lf-dq-sides lf-diag-proof-pending lf-dq-doubt then'''
+new = '''  dup lf-dq-yes = if drop r> lf-dq-irrel exit then
+  dup lf-dq-no = if r@ lf-dq-sides nip r@ lf-dq-type-of ok-then? 0=
+    if nip nip nip r> lf-dq-end-failed exit then drop then
+  lf-dq-undef = if r@ lf-dq-sides lf-diag-proof-pending lf-dq-doubt then'''
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_1_infer_only_p6"
+reason = "rvCK 3: step 4 types s although t is no proof (Lean's is_def_eq_proof_irrel types s only when t is a proof): P6's natpi (Lean accepts) rejected"
+
+[[fault]]
 id = "infer-cheap-beta-skipped"
 file = "src/kernel/mixed-infer.fs"
 old = '''  lf-minfer-frames lf-cheap-beta

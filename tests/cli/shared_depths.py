@@ -4,7 +4,7 @@ probes P1 and P2; plan task 4.2.7, ADR 0014 Amendments 3 and 4; P3, three
 perf ladders of the Lean Kernel Arena at n = 48, agent PF, Amendment 6; P4,
 proof irrelevance typing 48-argument spines aside, agent R5, Amendment 9; P5,
 Lean's infer-only typing meeting ill-typed reducts, agent CK, plan task
-4.2.7d, Amendment 10).
+4.2.7d, Amendment 10; P6, the 14 probe rows of review rvCK, agent CT).
 
 Usage: shared_depths.py LEAN [GFORTH]
   Runs LEAN (the pinned 4.35.0 binary) on shared-depths.lean, which prints a
@@ -16,8 +16,9 @@ Usage: shared_depths.py LEAN [GFORTH]
   loose bound variable, which the checker finds in its entry audit before
   Lean's kernel would), never 0 or anything else.
 P3's and P4's good rows must also stay below their fuel bounds (FUEL_BOUNDS).
-P5's row p5all (its ten rows in one export) must be byte for byte the copy
-that test_leanforth.py checks per declaration (P5_COPY).
+P5's row p5all (its ten rows in one export) and P6's p6all (fourteen) must be
+byte for byte the copies that test_leanforth.py checks per declaration
+(P5_COPY, P6_COPY).
 Prints one line per case and exits 1 when any case differs.
 """
 import json
@@ -30,8 +31,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "tests" / "cli" / "shared-depths.lean"
 MEMO_OFF = ROOT / "tests" / "cli" / "audit-memo-off.fs"
-EXPECTED_ROWS = 38   # P1 has 12, P2 has 7, P3 has 6, P4 has 2, P5 has 11
+EXPECTED_ROWS = 53   # P1 has 12, P2 has 7, P3 has 6, P4 has 2, P5 has 11, P6 has 15
 P5_COPY = ROOT / "tests" / "core" / "check-declaration-cases" / "infer-only.ndjson"
+P6_COPY = ROOT / "tests" / "core" / "check-declaration-cases" / "infer-only-p6.ndjson"
 # P3's good rows (agent PF): the fuel `check --json` reports for the row's
 # declaration stays below these bounds, about 10% above what it was on
 # 2026-11-11 (13,250, 18,060 and 13,157): a guard against a pass whose work
@@ -110,6 +112,9 @@ def main():
             if case == "p5all" and export != P5_COPY.read_text(encoding="utf-8"):
                 failures += 1
                 print(f"p5all: export differs from {P5_COPY.relative_to(ROOT)}")
+            if case == "p6all" and export != P6_COPY.read_text(encoding="utf-8"):
+                failures += 1
+                print(f"p6all: export differs from {P6_COPY.relative_to(ROOT)}")
             if case in FUEL_BOUNDS:
                 name, bound = FUEL_BOUNDS[case]
                 fuel = fuel_of(path, name)

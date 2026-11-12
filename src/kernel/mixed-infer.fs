@@ -1006,7 +1006,7 @@ defer lf-minfer-fresh ( -- )
   dup ok? if drop lf-minfer-run else nip lf-minfer-failed then ;
 
 \ Lean's infer_type in infer-only mode (type_checker.cpp 360-362), the
-\ typer of defeq.fs's steps 4 and 14 (lf-dq-typer, which
+\ typer of defeq.fs's steps 4, 11, 12 and 14 (lf-dq-typer, which
 \ lf-minfer-convert lends a comparison): node, closed with the scope's
 \ free variables, inferred aside on the frames' fuel, keeping what it
 \ makes (the comparison's caller discards it).

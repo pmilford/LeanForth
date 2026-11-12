@@ -406,6 +406,25 @@ class ExitCodes(unittest.TestCase):
             self.assertIn(f"InferOnly.{name}: accepted (experimental, not independently "
                           "audited); axioms: none", lines)
 
+    def test_1_infer_only_p6(self):
+        """Lean's infer-only typing at is_def_eq steps 4, 11 and 14 and in K-like reduction
+        (tests/cli/shared-depths.lean P6, the fourteen probe rows of review rvCK in one
+        export): rejected where pinned Lean's kernel throws funExpected (pilambody,
+        etapibad, pinat, unitpi, kbad), accepted on their good twins and on the rows Lean
+        accepts (pilam, letdep, natpi, projarg, etafvar)."""
+        status, out, _ = run("check", "--no-manifest", f"{CASES}/infer-only-p6.ndjson")
+        lines = out.splitlines()
+        self.assertEqual(status, 1)
+        self.assertIn("44 declarations: 39 accepted, 5 rejected", lines)
+        for name in ["pilambody", "etapibad", "pinat", "unitpi", "kbad"]:
+            at = lines.index(f"Ck.{name}: rejected")
+            self.assertTrue(lines[at + 1].startswith("  rejected: function expected (F1); "
+                                                     "diagnostic 58 at mixed-infer"), lines[at + 1])
+        for name in ["pilam", "pilambodygood", "letdep", "etapigood", "natpi", "unitpigood",
+                     "projarg", "kgood", "etafvar"]:
+            self.assertIn(f"Ck.{name}: accepted (experimental, not independently "
+                          "audited); axioms: none", lines)
+
     def test_2_unsupported_and_unknown(self):
         # A proof that is a string literal, typed String, which the file does not
         # declare: rejected, as pinned Lean's kernel rejects it (plan task 5.2.3).
@@ -1661,6 +1680,8 @@ PINNED = {
     f"--no-manifest {CASES}/spine-good.ndjson": "27f4d61217c3b13d",
     f"--no-manifest {CASES}/spine-bad.ndjson": "2121f87813659891",
     f"--no-manifest {CASES}/infer-only.ndjson": "4ea6a0e79761b9cf",  # CK
+    # P6 (agent CT, review rvCK 3): the fourteen probe rows, p6all.
+    f"--no-manifest {CASES}/infer-only-p6.ndjson": "871db9fb2c8f43ab",
     "--no-manifest tests/core/check-block-cases/primitive.string-opaque-expansion.ndjson":
         "e0c28fefae0e93da",  # re-pinned (IO, R5)
 }

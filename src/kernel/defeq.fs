@@ -68,8 +68,9 @@
 \   type is a Sort, and a Pi without a typer (with one a Pi is typed, as
 \   Lean's infer_pi may throw on it); otherwise the types come from the
 \   typer the caller lends, Lean's infer_type in infer-only mode
-\   (lf-dq-typer: mixed-infer.fs, aside). Step 4 asks it for s's type,
-\   step 11 for the other side's and steps 12 and 14 for both sides',
+\   (lf-dq-typer: mixed-infer.fs, aside). Step 4 asks it for t's type
+\   first, and for s's only when t is a proof, step 11 for the other
+\   side's and steps 12 and 14 for both sides',
 \   each a free variable's type without it (Lean's infer_fvar).
 \ - lazy_delta_reduction loops, one unit of fuel a round. First
 \   is_def_eq_offset: both sides zero (the literal 0 or Nat.zero) is yes;
