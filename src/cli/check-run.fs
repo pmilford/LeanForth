@@ -936,8 +936,10 @@ create ck-lay /lay allot  ck-lay /lay erase   \ the layer being loaded
 : ck-lay-kept ( k -- )
   ck-layer-id ck-lay lay-snap snap-sum over 32 move
   ck-lay lay-snap snap-export-sha over 32 + 32 move ck-lay-version swap 64 + ! ;
+\ For an export (ck-importing?), a layer keeps a twin of a loaded
+\ declaration whose lookups differ (env-layers.fs lay-twins).
 : ck-layer ( sn names k -- sn names outcome )
-  >r ck-stage ck-snap 2over ck-firsts ck-lay lay-init
+  >r ck-stage ck-snap 2over ck-firsts ck-lay lay-init ck-importing? ck-lay lay-twins !
   r@ ck-layer@ ck-snap snap-fuel ck-lay lay-load
   dup ok? if r@ ck-lay-kept else ck-lay-refused then r> drop ck-lay lay-free ;
 : ck-lay-ids-made ( -- outcome )

@@ -8898,6 +8898,33 @@ new = '''  loop 2drop 2r> 2drop ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
 reason = "SN4: a layer's dependencies written in the order of the run's slots, not ascending as numbered in the layer"
 
+# --- plan task 6.2.5b L1 (agent CK; review rvSS 1): a layer's twin of a
+# loaded declaration with other lookups, kept for an import ---
+[[fault]]
+id = "lay-twins-merged"
+file = "src/kernel/env-layers.fs"
+old = '''  dup lay-twins @ if unit-looks-same? 0= else 2drop false then ;'''
+new = '''  2drop false ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers.test_twin_lookups"
+reason = "6.2.5b: a layer's unit equal to a loaded one but for its lookups is merged into the loaded slot, so an import never replays it: nested-aux against base and layer takes 94 of 108"
+quick = true
+
+[[fault]]
+id = "lay-twins-alone"
+file = "src/kernel/env-layers.fs"
+old = '''  dup lay-twins @ if unit-looks-same? 0= else 2drop false then ;'''
+new = '''  unit-looks-same? 0= ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers.test_twin_lookups"
+reason = "6.2.5b: twins kept for a snapshot loaded alone, which publishes a name twice: base and layer refused"
+
+[[fault]]
+id = "lay-twin-keys-only"
+file = "src/kernel/env-layers.fs"
+old = '''  >r -rot r> 0 ?do 2 pick i entry@ 2over d= if 2drop drop true unloop exit then loop'''
+new = '''  >r -rot r> 0 ?do 2 pick i entry@ drop 2 pick = if 2drop drop true unloop exit then loop'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers.test_twin_lookups"
+reason = "6.2.5b: lookups compared by their keys only: R's block asks _nested.List_1 in both runs, with other answers, and is merged"
+
 [[fault]]
 id = "pf-shared-merge-missed"
 file = "src/import/feed.fs"

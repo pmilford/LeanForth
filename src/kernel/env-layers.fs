@@ -13,9 +13,11 @@
 \ inductive block whole, is
 \ - the same declaration as one loaded before (the same content as
 \   numbers of the one tier, and the same outcome, axiom set, warnings,
-\   recipe, shape and fuel): not entered again, and what refers to it
-\   refers to the one loaded (two layers written on one base share what
-\   their exports share);
+\   recipe, shape, fuel and lookups): not entered again, and what refers
+\   to it refers to the one loaded (two layers written on one base share
+\   what their exports share); with other lookups, when an import pass
+\   follows (lay-twins, which the caller sets after lay-init; review rvSS
+\   1), it is entered as below, beside the loaded one;
 \ - of a name loaded before but of none's content: refused (invalid), as
 \   Lean refuses an import that declares a name twice;
 \ - else entered into the stage after the declarations loaded, its chain
@@ -66,6 +68,7 @@ begin-structure /lay
   field: lay-site0             \ the base's site texts before the layer's
   field: lay-at-j              \ appending: the layer's slot,
   field: lay-at-s              \ and its slot as loaded
+  field: lay-twins             \ true: keep twins of other lookups (an import follows)
 end-structure
 : lay-free ( lay -- )
   dup lay-snap snap-close dup lay-snap snap-free dup lay-ly ly-free
@@ -116,6 +119,24 @@ end-structure
     i 2 pick lay-stage @ staged-at 2 pick lay-stage @ slot-record? if
       1+ dup i 3 pick lay-slots @ ly! then
   loop drop drop ;
+
+\ ---- Numbering as loaded: a layer slot s (from the base's own on), a
+\ lookup's key (a name of the layer's tier) and answer (its slot); where
+\ layer slot j's lists start; entry j of the layer's lookups so.
+: lay-slot# ( s lay -- s' )
+  2dup lay-sn @ u< if drop exit then tuck lay-sn @ - swap lay-map @ ly@ ;
+: lay-key ( key lay -- key' )
+  over lf-look-outside = if drop exit then
+  over 4 rshift over lay-names @ u< if drop exit then
+  >r dup 15 and swap 4 rshift r> lay-ly ly-name
+  if 4 lshift or else 2drop lf-look-outside then ;
+: lay-answer ( answer lay -- answer' )
+  over lf-look-slot+1 ?dup 0= if drop exit then
+  1- swap lay-slot# 1+ 4 lshift swap 15 and or ;
+: lay-from ( j lay -- dk lk ) lay-snap snap-starts @ swap 2* cells + 2@ swap ;
+: lay-entry ( j lay -- key answer )
+  2dup lay-snap look-key over lay-key >r
+  tuck lay-snap look-answer swap lay-answer r> swap ;
 
 \ ---- Deciding a unit of the layer: one declaration, or an inductive
 \ block whole (its record and members), with its slots; kept in the
@@ -179,11 +200,6 @@ end-structure
 : lay-first-slot ( first lay -- s ) dup lay-ud @ 1 > if swap 1+ swap then lay-slot-of ;
 : lay-take ( j s n lay -- )
   swap 0 ?do over i + 3 pick i + 2 pick lay-map @ ly! loop 2drop drop ;
-: lay-same ( first lay -- outcome )
-  tuck lay-first-slot over lay-uj @ over 3 pick lay-us @ 4 pick verdicts-same?
-  0= if drop c" a declaration of two snapshots with other verdicts" swap lay-refuse exit
-  then
-  over lay-uj @ swap rot dup lay-us @ swap lay-take outcome-ok ;
 \ New: its declarations entered, its slots after those loaded.
 : lay-enter-all ( lay -- outcome )
   dup lay-ud @ 0 ?do
@@ -196,6 +212,45 @@ end-structure
 : lay-enter ( lay -- outcome )
   dup lay-enter-all dup ok? 0= if nip exit then drop
   dup lay-us @ 0 ?do i over lay-new! loop dup lay-us @ swap lay-cur +! outcome-ok ;
+\ For an import pass (lay-twins set: an export follows), a unit of the
+\ same verdicts is the loaded one only if each of its slots has the
+\ lookups of its twin (review rvSS 1): layer slot j's, numbered as loaded
+\ (lay-entry), as many as loaded slot s's, each found in s's list with
+\ its answer; the pair is kept in the record's cursor (lay-pair!). Where
+\ they differ (a nested block's scratch names asked in a tier that held
+\ other names), the unit is entered as new, beside its twin, so that the
+\ import can replay its slots too (env-import.fs tries the declarations
+\ of a name newest first and tells them apart by their lookups). Loaded
+\ alone, the snapshots publish every slot as one environment, which holds
+\ a name once: there the unit is the loaded one, as before.
+: lay-pair! ( j s lay -- ) tuck lay-at-s ! lay-at-j ! ;
+: look-in? ( key answer addr n -- flag )
+  >r -rot r> 0 ?do 2 pick i entry@ 2over d= if 2drop drop true unloop exit then loop
+  2drop drop false ;
+: lay-own-count ( lay -- n ) sl-looks swap dup lay-at-j @ swap lay-slot fld@ ;
+: lay-twin-count ( lay -- n ) sl-looks swap dup lay-at-s @ swap base-slot fld@ ;
+: lay-twin-list ( lay -- addr )
+  dup lay-at-s @ 2* cells over lay-base @ snap-starts @ + cell+ @ 8 *
+  swap lay-base @ ss-looks swap snap-block + ;
+: lay-entry-j ( i lay -- key answer )
+  dup lay-at-j @ over lay-from nip rot + swap lay-entry ;
+: lay-has? ( key answer lay -- flag ) dup lay-twin-list swap lay-twin-count look-in? ;
+: lay-looks-same? ( lay -- flag )
+  dup lay-twin-count over lay-own-count <> if drop false exit then
+  dup lay-own-count 0 ?do i over lay-entry-j 2 pick lay-has? 0= if drop false unloop exit then
+  loop drop true ;
+: lay-twin-same? ( s i lay -- flag )
+  >r tuck + swap r@ lay-uj @ + swap r@ lay-pair! r> lay-looks-same? ;
+: unit-looks-same? ( s lay -- flag )
+  true over lay-us @ 0 ?do 2 pick i 3 pick lay-twin-same? and loop nip nip ;
+: lay-twin? ( s lay -- flag )
+  dup lay-twins @ if unit-looks-same? 0= else 2drop false then ;
+: lay-same ( first lay -- outcome )
+  tuck lay-first-slot over lay-uj @ over 3 pick lay-us @ 4 pick verdicts-same?
+  0= if drop c" a declaration of two snapshots with other verdicts" swap lay-refuse exit
+  then
+  2dup swap lay-twin? if drop lay-enter exit then
+  over lay-uj @ swap rot dup lay-us @ swap lay-take outcome-ok ;
 \ A new unit clashes when any of its declarations (a block's every member,
 \ not only its first; review rvSN4 M2) has the name of one loaded before:
 \ Lean refuses an import that declares a name twice.
@@ -218,17 +273,8 @@ end-structure
 
 \ ---- The new slots appended to the base record: each slot record, its
 \ site, where its lists start, its dependencies and lookups numbered as
-\ loaded and sorted again.
-: lay-slot# ( s lay -- s' )
-  2dup lay-sn @ u< if drop exit then tuck lay-sn @ - swap lay-map @ ly@ ;
-: lay-key ( key lay -- key' )
-  over lf-look-outside = if drop exit then
-  over 4 rshift over lay-names @ u< if drop exit then
-  >r dup 15 and swap 4 rshift r> lay-ly ly-name
-  if 4 lshift or else 2drop lf-look-outside then ;
-: lay-answer ( answer lay -- answer' )
-  over lf-look-slot+1 ?dup 0= if drop exit then
-  1- swap lay-slot# 1+ 4 lshift swap 15 and or ;
+\ loaded and sorted again (the numbering: lay-slot#, lay-key, lay-answer,
+\ lay-entry, above).
 \ (entry@, entry! and look-sort, which sorts a list again: env-snapshot.fs.)
 \ Growing the base record's section i by u bytes, and its starts to n slots
 \ (never RESIZE to 0 bytes, which Gforth 0.7.3 takes as freeing the block).
@@ -259,7 +305,6 @@ end-structure
 : lay-j ( lay -- j ) lay-at-j @ ;
 : lay-s ( lay -- s ) lay-at-s @ ;
 : lay-cursor! ( j lay -- ) 2dup lay-at-j ! tuck lay-map @ ly@ swap lay-at-s ! ;
-: lay-from ( j lay -- dk lk ) lay-snap snap-starts @ swap 2* cells + 2@ swap ;
 : lay-count-of ( k lay -- n ) dup lay-s swap base-slot fld@ ;
 : lay-dep-at ( lay -- addr )
   lay-base @ dup ss-deps swap snap-block swap snap-dk @ u32s + ;
@@ -269,9 +314,6 @@ end-structure
 : lay-dep! ( i lay -- )
   2dup dup lay-j swap lay-from drop + over lay-snap dep@ over lay-slot#
   -rot lay-dep-at swap u32s + u32-le! ;
-: lay-entry ( j lay -- key answer )
-  2dup lay-snap look-key over lay-key >r
-  tuck lay-snap look-answer swap lay-answer r> swap ;
 : lay-look! ( i lay -- )
   2dup dup lay-j swap lay-from nip + over lay-entry 2swap lay-look-at swap entry! ;
 : lay-deps ( lay -- )

@@ -743,6 +743,27 @@ with this verdict version). A change that moves one fails there; a bump
 makes the golden files stale, and its commit writes them again
 (`python3 tests/cli/test_leanforth.py --write-golden`).
 
+*Corrections (review rvSS, agent CK, 2026-11-12; plan task 6.2.5b).*
+(L1) "The layers and the import pass are unchanged" held only where the
+base holds no declaration equal to a layer's: a layer's declaration equal
+to a loaded one in content, outcome, axioms, warnings, recipe, shape and
+fuel was merged into the loaded slot without its lookups being compared,
+so a nested block the layer's run checked again (its scratch names asked
+in a tier holding other names) was never replayed from the layer:
+`nested.ndjson` with an axiom named `_nested.List_1` against `nested`'s
+snapshot and that run's layer took 94 of 108 declarations (R's and Q's
+blocks and their users checked again; verdicts and fuel right). Now, when
+an export follows (an import pass), a layer's unit whose slots' lookups,
+numbered as loaded, differ from its loaded twin's is entered as new beside
+it, and the import tries both, newest first, telling them apart by their
+lookups (`env-layers.fs`, `lay-twins`; 108 of 108 taken, each with a fresh
+check's verdict and fuel; `test_leanforth.py` `Layers.test_twin_lookups`,
+planted faults `lay-twins-*`, `lay-twin-keys-only`). Loaded alone, the
+snapshots publish one environment, which holds a name once, so the unit
+is merged as before. (G1) The guard keeps an eleventh export,
+`tests/cli/let-b.ndjson`, whose two `==` lets are one record, so that a
+change to the let rules moves a guarded field.
+
 **Review rvSN4's snapshot-side findings.** Every layer loaded is named in
 the text and in report 0.3 (`snapshot.layers`: file, identity, export,
 base, verdict version; M1); the clash check compares every member of a

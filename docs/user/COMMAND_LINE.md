@@ -881,7 +881,7 @@ Two.first: accepted (experimental, not independently audited; from snapshot, not
 ...
 6 declarations: 6 accepted
 accepted: 6 (experimental, not independently audited); axioms: none
-snapshot: two.lfsnap (sha256 9aa54473…), export sha256 5c14b3b4…, verdict version 8, written by LeanForth 03c68bd2…: 6 results taken from it, not re-checked in this run
+snapshot: two.lfsnap (sha256 9aa54473…), export sha256 5c14b3b4…, verdict version 9, written by LeanForth 03c68bd2…: 6 results taken from it, not re-checked in this run
 note: development and research mode: a final run re-checks everything from the
 note: export and reads no snapshot; only its results support a claim
 ```
@@ -1016,12 +1016,18 @@ leanforth check --snapshot two.lfsnap --snapshot dep.lfsnap --snapshot sib.lfsna
 Base and layer report what the run that wrote the layer reported, and
 two layers written on one base load together: a declaration both hold
 (here `Eq` and `rfl`) is loaded once when its content and verdicts agree.
+With an export, a layer's declaration equal to a loaded one but whose
+lookups differ (a nested block the layer's run checked again, its
+auxiliary names asked in a tier that held other names) is kept beside it,
+and the export's declaration is taken from whichever of the two its
+lookups replay (review rvSS, plan task 6.2.5b); loaded alone, it is
+loaded once.
 The report names each layer loaded, after the snapshot's line (and in
 JSON in `snapshot.layers`):
 
 ```text
-snapshot: two.lfsnap (sha256 9aa54473…), export sha256 5c14b3b4…, verdict version 8, written by LeanForth 03c68bd2…: 13 results taken from it and its layers, not re-checked in this run
-layer: dep.lfsnap (sha256 2e727cd4…), export sha256 0a286479…, verdict version 8, on the snapshot above
+snapshot: two.lfsnap (sha256 9aa54473…), export sha256 5c14b3b4…, verdict version 9, written by LeanForth 03c68bd2…: 13 results taken from it and its layers, not re-checked in this run
+layer: dep.lfsnap (sha256 2e727cd4…), export sha256 0a286479…, verdict version 9, on the snapshot above
 ```
 
 Refused (status 4, nothing listed): a layer written on another base

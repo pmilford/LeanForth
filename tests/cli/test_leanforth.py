@@ -2609,6 +2609,39 @@ class Layers(unittest.TestCase):
                          (status, Snapshots.plain(got, keys)))
         self.assertEqual(imported["snapshot"]["import"]["checked"], 0)
 
+    def test_twin_lookups(self):
+        """A layer's declaration equal to a loaded one in content and verdict but
+        not in its lookups (review rvSS 1; plan task 6.2.5b): nested.ndjson with an
+        axiom named as a nested block's auxiliary type, _nested.List_1 (review rvSS's
+        nested-aux), checked against nested's snapshot, checks R's and Q's blocks and
+        their users again (their checks ask that name and find it) and saves them in
+        a layer; against base and layer every declaration is taken (94 of 108 while
+        the layer's slot was merged into the base's), each with a fresh check's
+        verdict and fuel; base and layer loaded alone hold each name once."""
+        lines = (ROOT / "tests/cli/nested.ndjson").read_text().splitlines(keepends=True)
+        aux = self.dir / "nested-aux.ndjson"
+        aux.write_text("".join(lines[:1768]) + '{"in":363,"str":{"pre":0,"str":"_nested"}}\n'
+                       '{"in":364,"str":{"pre":363,"str":"List_1"}}\n'
+                       '{"axiom":{"isUnsafe":false,"levelParams":[],"name":364,"type":3}}\n'
+                       + "".join(lines[1768:]))
+        base = self.dir / "nested.lfsnap"
+        self.assertEqual(run("check", "--save-snapshot", str(base), "tests/cli/nested.ndjson")[0],
+                         0)
+        path = self.dir / "aux.lfsnap"
+        status, got, _ = report("--snapshot", str(base), "--save-snapshot", str(path),
+                                "--no-manifest", str(aux))
+        self.assertEqual((status, got["snapshot"]["import"]["checked"]), (0, 15))
+        _, fresh, _ = report("--no-manifest", str(aux))
+        status, both, _ = report("--snapshot", str(base), "--snapshot", str(path),
+                                 "--no-manifest", str(aux))
+        self.assertEqual((status, both["snapshot"]["import"]["taken"]), (0, 108))
+        def fields(report):
+            return [(d["name"], d["verdict"], d["fuel"]) for d in report["declarations"]]
+        self.assertEqual(fields(both), fields(fresh))
+        status, alone, _ = report("--snapshot", str(base), "--snapshot", str(path))
+        names = [d["name"] for d in alone["declarations"]]
+        self.assertEqual((status, len(names), len(set(names))), (0, 108, 108))
+
     def test_siblings(self):
         one, _ = self.layer("dependent.lfsnap", DEPENDENT)
         two, sib = self.layer("sibling.lfsnap", SIBLING)
