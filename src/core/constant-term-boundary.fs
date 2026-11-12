@@ -355,17 +355,19 @@ end-structure
 : lf-audit-epoch ( node -- epoch )
   lf-term-data-word dup lf-data-known? 0= if drop 0 exit then
   lf-data-fvar? if lf-audit-state lf-aud-open else lf-audit-state lf-aud-closed then @ ;
-\ Whether the memo holds node as checked in its epoch; whether the memo
-\ is on, the caller asks: lf-audited? whether the current audit uses it,
-\ and kernel/check-declaration.fs's lf-check-reached? (terms.fs's
-\ lf-term-findable?) whether it is on, at any time, not only inside an
-\ audit run: then held is what the check has reached, a node checked by
-\ an audit of this check in today's epoch. Unchecked: the node is
-\ allocated.
+\ Whether node's unit of the marks holds it, kept in that epoch.
+\ Unchecked: the node is allocated.
 : lf-audit-same-node? ( node unit -- flag )
   cell+ @ swap lf-term-identity if = else drop false then ;
 : lf-audit-unit? ( node epoch -- flag )
   over lf-mark-at tuck @ = if lf-audit-same-node? else 2drop false then ;
+\ Whether the memo holds node as checked in its epoch. It does not ask
+\ whether the memo is on; its callers do: lf-audited? (below) whether the
+\ current audit uses the memo, and kernel/check-declaration.fs's
+\ lf-check-reached? (terms.fs's lf-term-findable?) whether it is on at
+\ any time, not only in an audit run; there held means the check has
+\ reached node, an audit of this check having checked it in today's
+\ epoch. Unchecked: the node is allocated.
 : lf-audit-held? ( node -- flag )
   dup lf-audit-epoch ?dup if lf-audit-unit? else drop false then ;
 : lf-audited? ( node -- flag )

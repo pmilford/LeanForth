@@ -85,9 +85,13 @@ end-structure
   dup lf-term-input? if drop false else lf-term-identity then ;
 \ Claiming a term's entry: the entry and ok; else -1 and invalid for a
 \ term that is not live, or -1 and the slab's refusal, full when the heap
-\ has no room for the term's unit (review rvPF1 4: as before the slab,
-\ when the column grew with the term store and a store that could not
-\ grow was full).
+\ has no room for the term's unit (review rvPF1 4). Before the slab, the
+\ column grew with the term store, so such a term could not be made at
+\ all (the term store was full); now the term is made and only its entry
+\ is refused. The callers of lf-pres-binder! and lf-pres-source! in
+\ cli/print.fs, author/build.fs and present/log-view.fs drop the outcome:
+\ a refused entry loses only that binder name or source ID in the
+\ printed text, never a verdict (review of pf1-fix L4).
 : lf-pres-take ( identity term -- entry )
   lf-pres-entry 2dup lf-pterm-identity @ = if nip else tuck lf-pres-blank then ;
 : lf-pres-claim ( term -- entry outcome )

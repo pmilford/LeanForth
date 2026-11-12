@@ -154,6 +154,14 @@ T{ 1 lf-term-valid? 1 lf-term-read 2 lf-term-read -> true lf-tag-bvar 0 0 true f
 term-seal-flip
 T{ lf-term-count-valid? 0 lf-term-root? 0 1 lf-term-pair-valid? -> true true true }T
 lf-term-reset
+\ A record the table still lists past a corrupted count (lowered by one)
+\ is not given for an equal record (lf-term-same asks lf-term-valid?
+\ first; review of pf1-fix L3): that record is made again at its index,
+\ and the count is whole again.
+T{ 0 lf-term-sort drop 0 lf-term-bvar -> 0 1 true }T
+lf-term-count @ 1- lf-term-count !
+T{ 0 lf-term-bvar lf-term-count @ -> 1 true 2 }T
+lf-term-reset
 
 \ The data word of lf-term-data@ is ADR 0016 C1's: the range in bits
 \ 0-19, the parameter bit 20, the free-variable bit 21, the depth in

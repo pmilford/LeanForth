@@ -9334,3 +9334,77 @@ synonym u32@ l@'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "Forth review of perf1, 3: u32@ and u32! use the Forth-2012 byte version even where l@ and l! are sound"
 equivalent = "performance only: both versions give every field the same value (tests/lib/lib.fs runs each on every host), and a field is only ever read by the version that wrote it"
+
+# --- the review of pf1-fix (agent PF1FIX, 2026-11-12) ---
+
+[[fault]]
+id = "rv-pres-recorded-no-identity"
+file = "src/present/binder-table.fs"
+old = '''  swap lf-pres-entry tuck lf-pterm-identity @ = dup 0= if nip then ;'''
+new = '''  drop lf-pres-entry true ;'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "review of pf1-fix M1: an entry is read without comparing its identity, so after a term reset a new term at the same index shows the old term's binder name and source"
+
+[[fault]]
+id = "fr-check-cref-reached-memo-off-false"
+file = "src/kernel/check-declaration.fs"
+old = '''  lf-audit-on? if lf-audit-cref-held? else drop true then ;'''
+new = '''  lf-audit-on? if lf-audit-cref-held? else drop false then ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "review of pf1-fix L1: with the memo off a reference made before the check never counts, so outside a check an equal reference makes a shadow"
+
+[[fault]]
+id = "fr-check-level-reached-memo-off-false"
+file = "src/kernel/check-declaration.fs"
+old = '''  lf-audit-on? if lf-audit-level-held? else drop true then ;'''
+new = '''  lf-audit-on? if lf-audit-level-held? else drop false then ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "review of pf1-fix L1: with the memo off a level made before the check is never given, so outside a check equal levels are not shared"
+
+[[fault]]
+id = "fr-audit-cref-held-any-epoch"
+file = "src/core/constant-term-boundary.fs"
+old = '''  dup lf-audit-cref-epoch? 0= if drop false exit then'''
+new = ''''''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "review of pf1-fix L1: a reference kept in an earlier epoch counts as reached in this one"
+
+[[fault]]
+id = "fr-audit-cref-held-any-identity"
+file = "src/core/constant-term-boundary.fs"
+old = '''  dup lf-cref-reach-unit @ swap lf-cref-current = ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "review of pf1-fix L1: a reach unit kept for another identity at the same number counts as reached"
+
+[[fault]]
+id = "fr-audit-level-held-any-epoch"
+file = "src/core/constant-term-boundary.fs"
+old = '''  dup lf-audit-level-epoch? 0= if drop false exit then'''
+new = ''''''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "review of pf1-fix L1: a level kept in an earlier epoch counts as reached in this one"
+
+[[fault]]
+id = "fr-audit-level-held-any-identity"
+file = "src/core/constant-term-boundary.fs"
+old = '''  dup lf-level-reach-unit @ swap lf-level-identity if = else drop false then ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "review of pf1-fix L1: a level reach unit kept for another identity counts as reached"
+
+[[fault]]
+id = "rv-lscope-copy-bound-off-by-one"
+file = "src/core/level-scope.fs"
+old = ''': lf-lscope-held? ( n -- flag ) lf-lscope-audited slab-capacity upto? ;'''
+new = ''': lf-lscope-held? ( n -- flag ) lf-lscope-audited slab-capacity 1+ upto? ;'''
+test = "$GFORTH tests/core/level-scope.fs"
+reason = "review of pf1-fix L2: a copy count one past the copy's capacity is compared, reading beyond the copy (here the empty slab, from address 0)"
+
+[[fault]]
+id = "rv-same-skips-valid"
+file = "src/core/terms.fs"
+old = '''  drop over lf-term-valid? if lf-term-given? else 2drop false then ;'''
+new = '''  drop lf-term-given? ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "review of pf1-fix L3: a record the table lists past a corrupted count is given, so the count stays short"

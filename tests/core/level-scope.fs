@@ -141,6 +141,15 @@ lf-lscope-audited slab-free  1 cells dup slab-limit-max lf-lscope-audited slab-i
 T{ lf-lscope-context-valid? lf-lscope-state lf-lsctx-passed @ -> true 3 }T
 T{ lf-lscope-copy lf-lscope-entries compare -> 0 }T
 
+\ The bound itself (review of pf1-fix L2): one entry, a count claiming one
+\ copied and no copy held (an empty slab, no block): the audit runs and
+\ keeps the entry, and nothing is read from the empty slab.
+lf-lscope-context-reset
+T{ 5 lf-lscope-context-add -> true }T
+lf-lscope-audited slab-free  1 cells dup slab-limit-max lf-lscope-audited slab-init drop
+2 lf-lscope-state lf-lsctx-passed !
+T{ ' lf-lscope-context-valid? catch lf-lscope-state lf-lsctx-passed @ -> true 0 2 }T
+
 \ A parameter's visit: ok for an ID in the context, invalid outside it
 \ (lf-lscope-param-in, beside the flag lf-lscope-in? that searches a
 \ prefix of the context).

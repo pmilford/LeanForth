@@ -49,6 +49,12 @@ T{ t1 @ 5 lf-pres-source! t1 @ lf-pres-source@ -> outcome-ok 5 true }T
 T{ t2 @ 3 lf-pres-source! t1 @ s" x" nm lf-binder-default lf-pres-binder!
    -> outcome-full outcome-invalid }T
 pres-slab-again
+\ The entries the staleness tests below read, recorded again in the new
+\ slab (review of pf1-fix M1).
+T{ t2 @ s" x" nm lf-binder-implicit lf-pres-binder! t1 @ 17 lf-pres-source!
+   -> outcome-ok outcome-ok }T
+T{ t2 @ lf-pres-binder@ t1 @ lf-pres-source@
+   -> s" x" nm lf-binder-implicit true 17 true }T
 \ A reset of either store makes entries stale; a new term at the same
 \ index starts with an empty entry.
 lf-term-reset lf-ssession-begin drop
