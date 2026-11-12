@@ -2562,8 +2562,8 @@ printer's types for library constants (a library constant prints with
 all its arguments, `@Eq Nat …`, where Lean hides the implicit ones; the
 terms are the same).
 
-**B6. After the Forth and gate review of 2026-11-12**
-([report](../development/forth-reviews/2026-11-12-lf-files.md); agent LF2,
+**B6. After the Forth and gate review of 2026-11-12** (the report
+`2026-11-12-lf-files` in the Forth review folder, on `main`; agent LF2,
 branch `lf-files-2`). (1) *The records are compared* (H1):
 `tests/author/report.fs` prints the records `export.fs` writes, and
 `check_author.py` reads them as an export and compares every declaration
