@@ -336,11 +336,9 @@ end-structure
   lf-input-count cli-stepped ?do i cli-unreached loop ;
 \ The lines a run wrote as it went (check-run.fs's ck-lines!) are the first
 \ ones; the rest are written here, so a finished run's report is the same.
-\ A NOT PROVED line names the axioms it rests on, tabulated over the finished
-\ environment (lf-env-axiom-deps): the run stops writing at such a declaration.
-: cli-held? ( d -- flag ) dup lf-env-outcome swap cli-bits not-proved? ;
-: cli-stream ( d -- flag )
-  dup cli-held? if drop false exit then cli-verdict 1 cli-state run-printed +! true ;
+\ A NOT PROVED line names the axioms it rests on (lf-env-axiom-deps), which
+\ every earlier slot, final by now, gives the same set as at the end.
+: cli-stream ( d -- flag ) cli-verdict 1 cli-state run-printed +! true ;
 : cli-printed ( -- n ) cli-state run-printed @ ;
 : cli-verdicts ( -- )
   cli-stepped cli-printed 2dup > if ?do i cli-verdict loop else 2drop then
