@@ -1,6 +1,6 @@
 # LeanForth project progress
 
-Snapshot: **2026-11-11, evening**, at commit `0627845` on `main` (the
+Snapshot: **2026-11-12, afternoon**, at commit `700c4a1` on `main` (the
 sections below the opening paragraph are mostly the 2026-11-04 late snapshot at
 `bba87db`; previous
 snapshot 2026-11-04 at `6266f70`; before that 2026-11-03 evening at
@@ -21,30 +21,26 @@ speed before parallelism adds more.
 
 ## Where things stand, in plain words
 
-**Current state, 2026-11-12 morning (main `2ad871e`).** LeanForth gives
-**Lean's verdict on every declaration of Mathlib**: all **729,263 of 729,263
-accepted** (exit 0; one NOT PROVED, `sorryAx` itself, as in Lean), on 8
-workers with fuel 250,000,000 and `--memory-per-check 8192`: 12,134 s (3.37 h)
-wall, 92,220 CPU seconds, 29.4 GB peak, 27.1 billion fuel steps. The run saved
-the **Mathlib snapshot** (2.2 GB); checking Mathlib against it takes 425 s and
-9.5 GB. `Init`: all 59,349 accepted. The **large Lean Kernel Arena tests**
-(std, reachability, con-leche, cedar, cslib, Navier–Stokes/Euler) now all match
-the official checker: every declaration accepted (e.g. Navier–Stokes 129,845
-in 3,157 s on 8 workers, Lean's checker 1,110 s on one). Merged on
-2026-11-11 night: a check's fuel independent of the tier's numbering (PF task 6,
-review rvSN4 B1, ADR 0014 Amendment 7), memory per check (MB, Amendment 8),
-Lean's `infer_app` spine typing (R5, Amendment 9) and inductive-block walks
-once per shared node (NS); then on 2026-11-12 the fixes of reviews rvKN and
-rvRS (FXK: C1 per (node, depth) pair; FXR: memory per check exact, lets in
-the fuel identity) and the nested passes' memo (MO); verdict version 8, so
-the Mathlib snapshot (version 6) loads on this build only with
-`--snapshot-stale-ok`. Earlier on 2026-11-11: parallel
-checking (S7), the shared input (SH), compact-store step S5B, the
-checked-environment snapshot (SN1-SN5), `--progress` (PRG), `gforth-fast` by
-default (ENG), PF batch 1, the diagnostic-81 routes (IO). **Approved by the
-owner on 2026-11-12:** S5/S5B, S7, IO, SN2-SN5, PF C1, SH, PF task 6, MB, R5
-and NS with their review fixes ([decisions](OWNER_DECISIONS.md)). **Open:** the
-review and approval of MO; plan tasks 4.2.7d and 6.2.5b. Every accepted result is *experimental — not independently
+**Current state, 2026-11-12 afternoon (main `700c4a1`, verdict version 9).**
+LeanForth gives **Lean's verdict on every declaration of Mathlib**: all **729,263 of
+729,263 accepted** on `b74a04d` (exit 0; one NOT PROVED, `sorryAx` itself, as in
+Lean), on 8 workers with fuel 250,000,000 and `--memory-per-check 8192`: 12,134 s
+(3.37 h) wall, 92,220 CPU seconds, 29.4 GB peak, 27.1 billion fuel steps; checking
+against the saved snapshot takes 425 s and 9.5 GB. `Init`: all 59,349 accepted. The
+**large Lean Kernel Arena tests** all match the official checker. Since that run:
+the review fixes FXK and FXR, the nested passes' memo (MO), and on 2026-11-12
+afternoon **K1** (plan 4.2.7d: typing aside follows Lean's infer-only mode and
+rejects where it throws; this closed a soundness gap, small exports Lean rejects
+had been accepted, none in Mathlib or the arena since Lean accepts all of those),
+**L1/G1** (6.2.5b), and **readable mathematics** in `leanforth print` (notation
+table, plan 4.4.3) with **five demos** checked end to end
+([DEMOS.md](../user/DEMOS.md), plan 8.6.6). The Mathlib snapshot of `b74a04d`
+(version 6) loads on this build only with `--snapshot-stale-ok`; a full Mathlib
+run on version 9 is scheduled for the night of 2026-11-12. **Approved by the
+owner on 2026-11-12:** S5/S5B, S7, IO, SN2-SN5, PF C1, SH, PF task 6, MB, R5, NS,
+MO, K1, L1, G1 with their review fixes ([decisions](OWNER_DECISIONS.md)). **In
+progress:** one speed and memory pass (PERF1) that keeps every verdict and fuel.
+Every accepted result is *experimental — not independently
 audited*. Details: [Limitations](#limitations), [Full Mathlib](#full-mathlib);
 the sections below are the 2026-11-04 snapshot except where dated.
 

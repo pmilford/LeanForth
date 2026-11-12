@@ -918,3 +918,20 @@ rvRS, rvSS, rvS5B, rvS7, rvIO, rvSN2-rvSN4 all not blocking, their major finding
 - Not in this round: agent MO's nested-pass memo (`2ad871e`, verdict version 8), merged after the round; its review
   and approval come next.
 
+### Second approval round of 2026-11-12 (afternoon)
+
+The owner approved, choosing each recommendation. Every accepted result stays *experimental — not independently
+audited*.
+
+- **MO ([kernel] gate):** the nested-inductive passes (translate, lower, restore) keep a replace memo per (node,
+  offset), as Lean's `replace_rec_fn` cache (ADR 0015 amendment, verdict version 8). Review rvMO not blocking; its
+  finding (no test pinned the offset in the key) fixed by rows `nested.offset-local`/`nested.offset-param` and fault
+  `rvmo-nest-no-offset` (83c9bb4).
+- **K1, L1, G1 ([kernel] gate; plan 4.2.7d, 6.2.5b):** aside typing follows Lean's infer-only mode and rejects where
+  it throws; `defeq.fs` types a Pi as Lean's proof-irrelevance and unit-like steps do. This fixed a soundness gap:
+  main had accepted small exports Lean rejects (io-pibad; review rows ck-etapibad, ck-pinat, ck-pilambody). L1 keeps
+  a layer's twin whose lookups differ; G1 a `let` export in the version guard (ADR 0014 Amendment 10, ADR 0020
+  Amendment 3 corrected, verdict version 9). Review rvCK not blocking; its test-gap finding fixed by part P6 of
+  `tests/cli/shared-depths.lean` and two faults (700c4a1).
+- **Tonight's run:** all of Mathlib on the final build at full speed (8 workers), saving a version-9 snapshot.
+
