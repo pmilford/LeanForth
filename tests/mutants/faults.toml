@@ -9332,9 +9332,41 @@ test = "$GFORTH tests/core/reduce-nat.fs"
 reason = "nat_lit_to_constructor of 0 is not Nat.zero (the predecessor of 0 is asked for)"
 
 [[fault]]
-id = "cov-rn-size-limit-off"
-file = "src/kernel/reduce-nat.fs"
-old = ''': lf-rn-over? ( bits -- flag ) big-lean-bits u> ;'''
-new = ''': lf-rn-over? ( bits -- flag ) drop false ;'''
-test = "timeout 20 $GFORTH tests/core/reduce-nat.fs"
-reason = "Lean's 2^30-bit limit not applied: 2 ^ 2^31 is computed (or the heap refused) instead of full with diagnostic 93"
+id = "cov-mhead-fvar-none"
+file = "src/kernel/mixed-head.fs"
+old = '''    lf-tag-bvar of lf-head-var endof  lf-tag-fvar of lf-head-var endof'''
+new = '''    lf-tag-bvar of lf-head-var endof  lf-tag-fvar of lf-head-none endof'''
+test = "$GFORTH tests/core/mixed-head.fs"
+reason = "a free variable of the local context is no rigid head: rules D2-D5 would not compare it"
+
+[[fault]]
+id = "cov-mhead-projection-none"
+file = "src/kernel/mixed-head.fs"
+old = '''    lf-tag-projection of lf-head-constant endof  lf-head-none swap endcase ;'''
+new = '''    lf-head-none swap endcase ;'''
+test = "$GFORTH tests/core/mixed-head.fs"
+reason = "a projection head no longer flexible (as a constant): it is of no kind"
+
+[[fault]]
+id = "cov-rebuild-binder-never-stuck"
+file = "src/kernel/mixed-rebuild.fs"
+old = '''  frame-context @ max-n = swap lf-rebuild-binder? and ;'''
+new = '''  2drop false ;'''
+test = "$GFORTH tests/core/mixed-rebuild.fs"
+reason = "a binder at the deepest context is entered (frame-under's refusal instead of the binders-full diagnostic, after its children's fuel)"
+
+[[fault]]
+id = "cov-rebuild-body-not-deeper"
+file = "src/kernel/mixed-rebuild.fs"
+old = '''  lf-rebuild-binder? if ['] frame-under else ['] frame-call then ;'''
+new = '''  drop ['] frame-call ;'''
+test = "$GFORTH tests/core/mixed-rebuild.fs"
+reason = "a lambda's or Pi's body visited at its binder's context, not one deeper: a lambda nested at max-n - 1 is copied"
+
+[[fault]]
+id = "cov-rebuild-second-failure-ignored"
+file = "src/kernel/mixed-rebuild.fs"
+old = '''  >r over ok? 0= if r> drop 2 lf-rebuild-failed exit then nip'''
+new = '''  >r nip'''
+test = "$GFORTH tests/core/mixed-rebuild.fs"
+reason = "a failed second child (exhausted, full) built into the node as if it were a result"
