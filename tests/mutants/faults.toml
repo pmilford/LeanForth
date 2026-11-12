@@ -9474,3 +9474,35 @@ old = '''  if dup 0 lf-cref-pair @ lf-ind-state lf-ind-elim ! 1 lf-cref-pair'''
 new = '''  if dup 0 lf-cref-pair @ lf-ind-state lf-ind-elim !'''
 test = "$GFORTH tests/core/generated-recursor.fs"
 reason = "the motive's universe argument also read as the block's first: List.rec.{u_1, u} built with List.{u_1}"
+
+[[fault]]
+id = "cov-envsig-slot-arity-unchecked"
+file = "src/kernel/env-signature.fs"
+old = ''': lf-envsig-arity ( d -- d outcome ) lf-envsig-count over lf-env-arity? ;'''
+new = ''': lf-envsig-arity ( d -- d outcome ) outcome-ok ;'''
+test = "$GFORTH tests/core/env-signature.fs"
+reason = "L1 skipped for an accepted slot: Bool.rec used with no universe argument or two"
+
+[[fault]]
+id = "cov-envsig-generated-arity-unchecked"
+file = "src/kernel/env-signature.fs"
+old = '''  dup lf-genrec-arity lf-envsig-count swap 2dup = if 2drop outcome-ok'''
+new = '''  dup lf-genrec-arity lf-envsig-count swap 2dup 2drop true if 2drop outcome-ok'''
+test = "$GFORTH tests/core/env-signature.fs"
+reason = "L1 skipped for Lean's generated recursor: Nat.rec built with a missing or an extra universe argument"
+
+[[fault]]
+id = "cov-envsig-quotient-arity-unchecked"
+file = "src/kernel/env-signature.fs"
+old = '''  lf-envsig-count over lf-stmt-arity 2dup = 0= if lf-env-arity-rejected nip nip exit then'''
+new = '''  lf-envsig-count over lf-stmt-arity'''
+test = "$GFORTH tests/core/env-signature.fs"
+reason = "L1 skipped for a quotient constant: Quot.lift with one or three universe arguments"
+
+[[fault]]
+id = "cov-envsig-negative-fuel-ok"
+file = "src/kernel/env-signature.fs"
+old = '''  lf-envsig-walker walk-budget 0= if drop 0 outcome-invalid exit then'''
+new = '''  lf-envsig-walker walk-budget 0= if drop 0 outcome-ok exit then'''
+test = "$GFORTH tests/core/env-signature.fs"
+reason = "negative fuel for L2 taken as a check that passed with none left, not invalid"
