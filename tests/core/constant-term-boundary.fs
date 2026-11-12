@@ -287,4 +287,21 @@ lf-cref-reset reuse-cref
 T{ 0 lf-term-reusable? 0 dup lf-cref-current lf-cterm-new nip swap 0= -> false true false }T
 lf-level-reset
 T{ fsort lf-term-reusable? -> false }T
+
+\ Marks at a depth, on the node fsort in a paired walk. lf-walk-seen?: a
+\ node a run reached at depth 2 is seen at any depth no smaller (3), not
+\ at a smaller one (1, then marked there). lf-walk-seen-at? (C1's, as
+\ Lean's for_each with an offset): seen only at exactly the depth the run
+\ marked it at, and marked at a new one; a new run has seen nothing.
+4 walk2: mark-walk
+: at-depth ( depth -- walk ) mark-walk walk-context ! fsort mark-walk walk-node ! mark-walk ;
+mark-walk lf-walk-marking
+T{ 2 at-depth lf-walk-seen? 3 at-depth lf-walk-seen? 1 at-depth lf-walk-seen?
+   -> false true false }T
+mark-walk lf-walk-marking
+T{ 2 at-depth lf-walk-seen-at? 2 at-depth lf-walk-seen-at? 3 at-depth lf-walk-seen-at?
+   -> false true false }T
+T{ 3 at-depth lf-walk-seen-at? 2 at-depth lf-walk-seen-at? -> true false }T
+mark-walk lf-walk-marking
+T{ 2 at-depth lf-walk-seen-at? -> false }T
 bye
