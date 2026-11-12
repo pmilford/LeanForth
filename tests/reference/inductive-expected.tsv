@@ -123,6 +123,8 @@ nested.array-non-positive	nonPositive	rejected	N1 P1	5.2.5b
 nested.shared-depths	accepted	accepted	A1 N1	5.2.5b	T: idx=0 rec=1 refl=0 nested=1 elim=any k=0 motives=2 minors=3 fields=[2] aux=[rec_1]
 nested.shared-depths-negative	nonPositive	rejected	N1 P1	5.2.5b	
 nested.lowered-twice	accepted	accepted	A1 N1	5.2.5b	T: idx=0 rec=1 refl=0 nested=4 elim=any k=0 motives=5 minors=7 fields=[3] aux=[rec_1, rec_2, rec_3, rec_4]
+nested.offset-local	nestedLocalVariable	rejected	N1 N2	5.2.5b	
+nested.offset-param	accepted	accepted	A1 N1	5.2.5b	B2ok: idx=0 rec=1 refl=0 nested=3 elim=any k=0 motives=4 minors=5 fields=[2] aux=[rec_1, rec_2, rec_3]
 names.already-declared	alreadyDeclared	rejected	T5	5.2.1a	
 names.duplicate-constructor	duplicateConstructor	rejected	C4	5.2.1a	
 names.duplicate-universe	duplicateLevelParam	rejected	T5	5.2.1a	

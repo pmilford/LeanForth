@@ -269,6 +269,12 @@ T{ s" nested.shared-depths-negative" verdict -> outcome-rejected lf-diag-non-pos
 \ different parameter at each depth: each lowering keeps only its own
 \ results (pinned Lean accepts).
 T{ s" nested.lowered-twice" verdict -> outcome-ok 0 all-steps }T
+\ The memo's key holds the offset (review MO, probes B2 and B2ok): the shared
+\ node `List #1` is List alpha at offset 0 and List n under the binder
+\ (x : Type); lowering the second to a parameter is Lean's
+\ nestedLocalVariable, while the twin that names alpha under x is accepted.
+T{ s" nested.offset-local" verdict -> outcome-rejected lf-diag-nested-local 4 }T
+T{ s" nested.offset-param" verdict -> outcome-ok 0 all-steps }T
 \ The occurrence walk run inside the nested-occurrence walk
 \ (lf-ind-mentions?) keeps its marks apart: a node the outer walk reached
 \ stays reached, so the outer walk does not visit it again (review rvKN 2:
