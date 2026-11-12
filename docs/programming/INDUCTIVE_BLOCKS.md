@@ -305,7 +305,15 @@ exponentially often (review rvKN 1; row `uniform.shared-depths`, 30
 shared terms: 22,321,990 units of fuel before, 2,158 now). The
 occurrence walk that the nested-occurrence test runs inside the audit's
 walk keeps its marks in that table too, so it no longer erases the outer
-walk's marks (rvKN 2).
+walk's marks (rvKN 2). A nested block's three rebuilding passes (the
+translation, the lowering of an occurrence's parameters and the
+restoration, `inductive-nested.fs`) are Lean's `replace` calls, whose
+cache keeps each shared (term, offset) pair's result: each keeps its
+results in a replace memo (`replace-memo.fs`) for the rest of its call,
+so a term met again at an offset is not rebuilt again. Until 2026-11-12
+they walked every path (review MO; row `nested.shared-depths`, the same
+30 shared terms in a nested block's constructor: out of the table's
+million units before, 19,010 units for the whole check now).
 
 **Publication (B5).** The check's candidate covers all the block's
 members (`lf-env-span!`, `environment.fs`); the publisher re-checks every

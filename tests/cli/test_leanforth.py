@@ -1602,6 +1602,11 @@ def pinned_digest(*args):
 # so only block fuel moved, 41 declarations less and none more; every
 # verdict, diagnostic and count is unchanged (each report compared with
 # the one before with its fuel fields left out).
+# Those marked MO (two entries) are re-pinned after review MO (2026-11-12):
+# a nested block's translation, lowering and restoration keep each (node,
+# offset) pair's result, as Lean's replace does, so only block fuel moved,
+# 3 declarations less and none more; every verdict, diagnostic and count
+# is unchanged (each report compared with main 703c729's, fuel left out).
 PINNED = {
     "tests/reference/composition.ndjson": "a3e7184036edb9dd",
     "tests/reference/constant-fixture.ndjson": "df2ee45dc87e20ca",
@@ -1616,12 +1621,12 @@ PINNED = {
     "--no-manifest README.md": "7dace333bd425361",
     "tests/cli/no-such.ndjson": "3eac0629560526ed",
     "--no-manifest tests/cli/composition-huge-number.ndjson": "ec7632bcbf284cef",
-    "--no-manifest tests/core/reexport/kinds.ndjson": "9cb2ecab7d1cecd7",  # IO, R5
+    "--no-manifest tests/core/reexport/kinds.ndjson": "5d2001a0a64ff3fc",  # IO, R5, MO
     f"--fuel 0 {FIXTURE}": "7ab8e9fa317ce0a5",
     f"--no-manifest {EMPTY_BLOCK}": "dbfea3992d7e6793",
     "tests/cli/sharing.ndjson": "7713766122504e63",  # re-pinned (IO)
     "tests/cli/sharing-universe.ndjson": "1598238656ef6308",  # re-pinned (IO)
-    "tests/cli/nested.ndjson": "4a8a267c562d4006",  # re-pinned, see above; R5
+    "tests/cli/nested.ndjson": "2211c55e0b42f043",  # re-pinned, see above; R5, MO
     "tests/cli/irrelevance.ndjson": "44da5689b4a2a87c",
     f"--no-manifest {CASES}/composition-literal.ndjson": "25123b1e2dfc63de",
     # tests/cli/shared-depths.lean P4's exports (agent R5, ADR 0014 Amendment 9):

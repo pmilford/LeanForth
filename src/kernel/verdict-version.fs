@@ -65,8 +65,16 @@
 \                  blocks use less fuel (Init: one declaration 4 units
 \                  less, none more, every other field the same; the
 \                  pinned exports unchanged); no verdict.
+\   8  2026-11-12  review MO: a nested block's translation, lowering and
+\                  restoration keep each (node, offset) pair's result for
+\                  the rest of their call, as Lean's replace does (before,
+\                  every path was walked, up to exponentially often):
+\                  nested blocks use less fuel (the pinned exports: 3
+\                  declarations less, none more, every other field the
+\                  same; Init: Lean.Syntax 2 units less, every other
+\                  record the same); no verdict.
 \
 \ [kernel] code: experimental, not through the review gate.
 \ State: none.
 
-7 constant lf-verdict-version
+8 constant lf-verdict-version

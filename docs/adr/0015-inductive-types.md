@@ -1980,6 +1980,67 @@ before and after give the same report but for one declaration's fuel
 (4 units less); the pinned exports' reports are unchanged. Verdict
 version 7 (`verdict-version.fs`).
 
+## Amendment (review MO, 2026-11-12)
+
+Experimental [kernel] code, **not through its gate**. No new rule: the
+nested passes now do Lean's work, no more.
+
+- **The nested passes keep each (node, offset) pair's result.** Lean's
+  nested translation (`replace_all_nested`, inductive.cpp 1133-1136), the
+  parameters' replacement in an occurrence (`replace_params`, 1013-1016:
+  `instantiate_rev` of `abstract`) and the restoration
+  (`restore_nested`, 927-975) are `replace` calls, whose cache
+  (`replace_rec_fn`, replace_fn.cpp 26-40) keeps the result of each
+  shared (term, offset) pair for the rest of the call. LeanForth's three
+  passes (`inductive-nested.fs`: translation, lowering, restoration) kept
+  nothing and rebuilt a term once per path, up to exponentially often: a
+  nested block whose constructor has a field of shared closed types met
+  at alternating depths (`MoNest24`: `Option MoNest24 → X → MoNest24`,
+  X 24 nested arrows over `Nat`) ran out of 100 million units at
+  `lf-nest-translate` (each 4 arrows more took 16 times the fuel) where
+  pinned Lean adds it in under 3 ms and the official checker accepts in
+  0.02 s, as both do with 64 arrows; now 7,595 units (64 arrows:
+  44,275). Each pass now keeps, in a replace memo of
+  its own (`replace-memo.fs`, keyed by the node's identity and the offset
+  of its visit), the result of every application, binder and replaced
+  node, and gives it back when it meets the node at that offset again,
+  for the visit's one unit of fuel. A call begins with an empty memo and
+  takes its entries out when it ends, so a result is never given to
+  another call (the lowering's amount differs from call to call). Lean
+  keeps only shared terms' results; keeping every result changes the
+  work, never the result, as the pass's result for a node and offset
+  depends on nothing else within a call (an auxiliary type made at the
+  first meeting is found again by its key at every later one).
+- **The substitutions were already Lean's.** The review asked whether
+  `mixed-open.fs`'s memo kept one offset per node. It does not: the
+  instantiate, instantiate_rev and abstract passes, the shift
+  (`lift_loose_bvars`) and the single-binder instantiate key the replace
+  memo by node, offset and the call's stamp, as `replace_rec_fn` does.
+  A definition whose value opens 65 lambdas over a term of 64 shared
+  nodes each met at its own depth and one deeper (2^64 paths, 2,145
+  pairs) is accepted with 4,383,090 units; the fuel grows as a
+  polynomial in the depth (16, 32, 64 lambdas: 21,612, 290,340,
+  4,383,090), never with the paths.
+
+**Evidence.** New rows of the inductive table: `nested.shared-depths`
+(the 30 shared terms of `uniform.shared-depths` in a nested block's
+constructor; pinned Lean accepts; LeanForth before ran out of the
+table's million units, now accepts with 19,010), its twin
+`nested.shared-depths-negative` (a non-positive field after them:
+nonPositive, rejected; before, out of fuel) and
+`nested.lowered-twice` (two occurrences lowered by 1 and by 2 share
+`Option #2`, which names α at one depth and β at the other; accepted),
+with their case files and `tests/core/check-block.fs` rows; 41 case
+files regenerated for Lean's moved hygiene counters (numeric name
+components only). Planted faults `mo-*` (4: no result given back, a
+rebuilt node's result not kept, the offset left out of the key, a call's
+results kept for the next), all caught. Fuel: the pinned exports'
+reports are the same but for fuel, 3 declarations less and none more;
+all of Init (59,349 declarations, jobs 8, all accepted): every record
+the same as on main 703c729 but for one declaration's fuel
+(`Lean.Syntax`, 2 units less; 654,546,896 units in all, 654,546,898
+before). Verdict version 8 (`verdict-version.fs`).
+
 ## Reproduction
 
 ```sh
