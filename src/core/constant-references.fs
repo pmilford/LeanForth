@@ -43,6 +43,7 @@ require ../lib/htab.fs
 require ./diagnostics.fs
 require ./generation-handles.fs
 require ./names.fs
+require ./scratch-meter.fs
 
 32 constant lf-cref-default
 64 constant lf-cref-argument-capacity
@@ -222,7 +223,10 @@ create lf-cref-hooks /htab-hooks allot
 : lf-cref-room? ( count -- offset true | false )
   lf-cref-top dup 0 lf-cref-pool slab-capacity between? 0= if 2drop false exit then
   tuck + lf-cref-pool-room ok? if true else drop false then ;
+\ A new record within a check's memory limit (scratch-meter.fs), else
+\ refused as when the store is full.
 : lf-cref-store ( name generation addr count -- index identity true | false )
+  dup lf-meter-cref? 0= if 2drop 2drop lf-cref-refused exit then
   dup lf-cref-room? 0= if 2drop 2drop lf-cref-pool-refused exit then
   lf-crefs store-ready drop
   lf-crefs store-new-slot 0= if drop 2drop 2drop lf-cref-refused exit then

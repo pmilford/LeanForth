@@ -2,7 +2,8 @@
 \ bin/leanforth runs as `gforth src/main.fs -e cli-main COMMAND ...`.
 \ Commands, documented in docs/user/COMMAND_LINE.md:
 \   check [--no-manifest] [--fuel N] [--resources] [--json] [--fast]
-\         [--strict-axioms] [--any-lean-version] [--jobs N] EXPORT
+\         [--strict-axioms] [--any-lean-version] [--jobs N]
+\         [--memory-per-check MB] EXPORT
 \       stage the Lean export with the importer stage (its manifest
 \       checked unless --no-manifest says not to; with --any-lean-version
 \       its metadata may name any exporter and Lean version of format
@@ -19,7 +20,9 @@
 \       as one JSON text instead (cli/check-json.fs); with
 \       --strict-axioms a NOT PROVED declaration gives exit 6; with
 \       --jobs N, N workers check at once (cli/check-run.fs,
-\       kernel/env-schedule.fs), the output the same as one's;
+\       kernel/env-schedule.fs), the output the same as one's; with
+\       --memory-per-check MB, a check whose scratch would pass MB
+\       megabytes is full (core/scratch-meter.fs);
 \   check [--no-manifest] [--fuel N] [--fast] [--strict-axioms]
 \         --record RECORD EXPORT
 \       the check of small exports that writes a run record (plan 2.2.5):
@@ -166,6 +169,8 @@ begin-structure /cli-run
   field: opt-progress-secs      \ seconds between them (--progress[=SECONDS])
   field: run-printed            \ verdict lines already written, as the run went
   field: run-noted              \ true: the other-version note came before them
+  field: opt-memory             \ megabytes each check's scratch may hold
+                                \ (--memory-per-check); 0: no limit
 end-structure
 /cli-run context-record: cli-state
 manifest: cli-manifest
@@ -202,6 +207,12 @@ manifest: cli-manifest
 \ 6.5.4); 0 or 1, the default, checks one at a time.
 : cli-jobs ( -- n ) cli-state opt-jobs @ ;
 : cli-jobs! ( n -- ) cli-state opt-jobs ! ;
+\ check: the megabytes (of 2^20 bytes) each declaration's check may hold
+\ in scratch (--memory-per-check; core/scratch-meter.fs); 0, the
+\ default, sets no limit but the heap's. A check past it is full.
+: cli-per-check ( -- mb ) cli-state opt-memory @ ;
+: cli-per-check! ( mb -- ) cli-state opt-memory ! ;
+: cli-per-check-apply ( -- ) cli-per-check 20 lshift lf-meter-limit! ;
 \ check: a progress line on stderr every SECONDS (--progress[=SECONDS],
 \ default 60; 0: after every report), and the text report's verdict lines
 \ written as they become final (cli/check-run.fs).
@@ -423,8 +434,16 @@ end-structure
 : cli-not-proved-note ( -- )
   ." note: NOT PROVED declarations keep Lean's exit status; --strict-axioms"
   cr ." note: makes it 6" cr ;
+\ Whether a check passed its memory limit (--memory-per-check): its
+\ diagnostic says so.
+: cli-over-memory? ( -- flag )
+  false cli-stepped 0 ?do i cli-kept kept-code @ lf-diag-memory-limit = or loop ;
+: cli-per-check-note ( -- )
+  ." note: a check passed its memory limit (" cli-per-check .decimal
+  ."  MB each); --memory-per-check MB gives each more" cr ;
 : cli-notes ( -- )
   outcome-full cli-count-of @ if cli-ops ops-room. @ execute then
+  cli-over-memory? if cli-per-check-note then
   outcome-exhausted cli-count-of @ if cli-fuel-note then
   cli-not-proved @ cli-strict-axioms? 0= and if cli-not-proved-note then ;
 
@@ -766,7 +785,7 @@ variable cli-info#
   cli-fed-ops cli-state run-ops ! 0 cli-state run-printed ! 0 cli-state run-noted !
   rr-release rr-reset cli-fuel @ ck-start
   cli-stale? snap-stale-allowed !
-  cli-any-lean? ck-any-version! cli-jobs ck-jobs! cli-progress-apply
+  cli-any-lean? ck-any-version! cli-jobs ck-jobs! cli-progress-apply cli-per-check-apply
   catch ck-release throw cli-restored
   cli-worst @ ;
 : cli-library ( -- code )
@@ -824,6 +843,11 @@ variable cli-info#
 : cli-misuse-jobs ( -- code )
   ." error: --jobs does not go with --record" cr
   ." try: leanforth help" cr exit-malformed ;
+\ Nor does --memory-per-check: a run record does not hold it.
+: cli-per-check-misused? ( -- flag ) cli-record? cli-per-check 0<> and ;
+: cli-misuse-per-check ( -- code )
+  ." error: --memory-per-check does not go with --record" cr
+  ." try: leanforth help" cr exit-malformed ;
 : cli-progress-misused? ( -- flag ) cli-record? cli-progress? and ;
 : cli-misuse-progress ( -- code )
   ." error: --progress does not go with --record" cr
@@ -861,6 +885,7 @@ variable cli-info#
   cli-start cli-strict? cli-strict-axioms! cli-misused? if cli-misuse-record exit then
   cli-any-misused? if cli-misuse-any exit then
   cli-jobs-misused? if cli-misuse-jobs exit then
+  cli-per-check-misused? if cli-misuse-per-check exit then
   cli-progress-misused? if cli-misuse-progress exit then
   cli-snap-misuse ?dup if exit then
   cli-snapshot? if cli-snapshot-check exit then
@@ -1068,7 +1093,8 @@ variable cli-info#
   ."   universe parameters per declaration and universe arguments per constant:" cr
   ."     no fixed limit (memory)" cr
   ."   fuel " cli-default-fuel .decimal ."  steps per declaration (--fuel N, at most "
-  cli-fuel-most cli-number-text type ." )" cr ;
+  cli-fuel-most cli-number-text type ." )" cr
+  ."   memory per check: none but the heap's (--memory-per-check MB)" cr ;
 : cli-planned. ( -- )
   ." planned, not built: program, serve and --record on any size," cr
   ."   every axiom name of each accepted declaration, as #print axioms" cr
@@ -1082,9 +1108,10 @@ variable cli-info#
 : cli-check-usage. ( -- )
   ."   check [--no-manifest] [--fuel N] [--resources] [--json] [--fast]" cr
   ."         [--strict-axioms] [--any-lean-version] [--jobs N] [--progress[=SECONDS]]" cr
-  ."         [--save-snapshot FILE] EXPORT" cr
+  ."         [--memory-per-check MB] [--save-snapshot FILE] EXPORT" cr
   ."       check every declaration of a Lean export, in file order, any size;" cr
   ."       --jobs N checks with N workers at once (default 1), same output;" cr
+  ."       --memory-per-check MB makes a check whose scratch passes MB full;" cr
   ."       --progress writes a status line to stderr every SECONDS (default 60);" cr
   ."       the text report's lines are written as declarations are final;" cr
   ."       --resources adds time, memory and fuel, --json prints it all as JSON;" cr
@@ -1210,6 +1237,7 @@ end-structure
 32768 constant takes-snapshot
 65536 constant takes-progress
 262144 constant takes-stale
+524288 constant takes-memory
 : cli-value ( c-addr u -- c-addr' u' true | false )
   cli-arg if 2swap 2drop true else c" an option without its value" cli-wrong false then ;
 \ A decimal number from 0 to max-n with nothing else: (n true) or false.
@@ -1263,6 +1291,16 @@ end-structure
 : cli-jobs-option ( c-addr u -- )
   cli-value 0= if exit then 2dup cli-decimal
   if cli-jobs-value else c" not a number of jobs" cli-wrong then ;
+\ --memory-per-check MB, MB at least 1 and small enough that its bytes
+\ fit a cell (2^43 - 1 on a 64-bit host).
+max-n 20 rshift constant cli-per-check-most
+: cli-per-check-value ( c-addr u n -- )
+  dup 1 cli-per-check-most 1+ within 0=
+  if drop c" a number of megabytes out of range" cli-wrong exit then
+  cli-per-check! 2drop ;
+: cli-per-check-option ( c-addr u -- )
+  cli-value 0= if exit then 2dup cli-decimal
+  if cli-per-check-value else c" not a number of megabytes" cli-wrong then ;
 \ --progress, or --progress=SECONDS (a number from 0, the lines after every
 \ report): see cli-progress!. The second form is handled by cli-option.
 : cli-progress-option ( c-addr u -- ) 2drop cli-progress-default cli-progress! ;
@@ -1295,6 +1333,7 @@ create cli-option-table
   ' cli-save-option takes-save 0 cli-entry, --save-snapshot
   ' cli-snapshot-option takes-snapshot 0 cli-entry, --snapshot
   ' cli-stale-option takes-stale 0 cli-entry, --snapshot-stale-ok
+  ' cli-per-check-option takes-memory 0 cli-entry, --memory-per-check
   0 ,
 : cli-takes? ( entry -- flag ) cli-entry-first @ cli-state arg-set @ and 0<> ;
 : cli-taken ( c-addr u entry -- )
@@ -1318,7 +1357,7 @@ create cli-option-table
 takes-no-manifest takes-fuel or takes-fast or takes-checked or constant checking-set
 checking-set takes-record or takes-resources or takes-json or takes-strict or
 takes-any-lean or takes-jobs or takes-save or takes-snapshot or takes-progress or takes-stale or
-constant check-set
+takes-memory or constant check-set
 checking-set constant replay-set
 checking-set takes-detail or takes-name or takes-latex or takes-statement or
 takes-lf or takes-any-lean or constant print-set

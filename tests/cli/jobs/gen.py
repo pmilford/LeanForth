@@ -91,6 +91,25 @@ def dupl(k):
         x.thm(f"g{i}", ty2, val)
     return x
 
+def double(k):
+    """d0 : Prop -> Prop := fun A => A; d(k+1) := fun A => dk (dk A): dK A
+    reduces to A in 2^K - 1 head unfoldings, each making new nodes. Then
+    big : forall A : Prop, A -> dK A := fun A a => a, which Lean accepts
+    (lazy delta unfolds the chain), with a scratch that grows with 2^K, and
+    four small theorems beside it (the identity on propositions)."""
+    x = Ex(); P = x.sort0(); T = p2p(x)
+    x.defn("d0", T, x.lam("A", P, x.bvar(0)))
+    for i in range(1, k + 1):
+        prev = x.const(f"d{i-1}")
+        x.defn(f"d{i}", T, x.lam("A", P, x.app(prev, x.app(prev, x.bvar(0)))))
+    ty = x.pi("A", P, x.pi("a", x.bvar(0), x.app(x.const(f"d{k}"), x.bvar(1))))
+    val = x.lam("A", P, x.lam("a", x.bvar(0), x.bvar(0)))
+    x.thm("big", ty, val)
+    ty, val = idthm(x)
+    for i in range(4): x.thm(f"small{i}", ty, val)
+    return x
+
 if __name__ == "__main__":
     kind, k = sys.argv[1], int(sys.argv[2])
-    sys.stdout.write({"wide": wide, "chain": chain, "dupl": dupl}[kind](k).out())
+    gens = {"wide": wide, "chain": chain, "dupl": dupl, "double": double}
+    sys.stdout.write(gens[kind](k).out())

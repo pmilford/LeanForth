@@ -274,10 +274,13 @@ create cj-hex 64 allot
 \ anyLeanVersion only with --any-lean-version, so that a report without it
 \ is as before.
 : cj-any-lean ( -- ) ck-any-version? if true s" anyLeanVersion" cj-flag then ;
+\ memoryPerCheck, in megabytes of 2^20 bytes, only with --memory-per-check
+\ (core/scratch-meter.fs).
+: cj-per-check ( -- ) lf-meter-limit@ ?dup if 20 rshift s" memoryPerCheck" cj-number then ;
 : cj-settings ( -- )
   s" settings" cj-key cj-object ck-fuel-budget s" fuel" cj-number
   lf-env-pool-start s" dependencyPool" cj-number
-  cli-strict-axioms? s" strictAxioms" cj-flag cj-any-lean cj-end-object ;
+  cli-strict-axioms? s" strictAxioms" cj-flag cj-any-lean cj-per-check cj-end-object ;
 : cj-status ( -- ) cli-worst @ s" exitStatus" cj-number ;
 : cj-body ( c-addr u checked? -- )
   cj-object cj-head cj-settings cj-read cj-other cj-run cj-stopped cj-decls cj-counts

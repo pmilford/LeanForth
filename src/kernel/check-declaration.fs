@@ -74,6 +74,9 @@ require ./check-block.fs
 require ../core/axiom-allowlist.fs
 require ./quot.fs
 require ./caches.fs
+require ../core/scratch-meter.fs
+require ../core/local-context.fs
+require ../core/constant-references.fs
 
 begin-structure /lf-chk
   field: lf-chk-budget   \ fuel each check in this context starts with
@@ -295,11 +298,33 @@ lf-check-steps# 1+ constant lf-step-done
 \ lf-whnf-env?), and starts afresh with each check: every declaration's
 \ entry audit checks its terms anew.
 ' lf-whnf-env? is lf-audit-checking?
+\ The check's scratch, in the bytes core/scratch-meter.fs counts for a
+\ check's memory limit: the term nodes, levels and references above the
+\ input's marks (input store k: 0 terms, 1 levels, 3 references) with
+\ their universe arguments, the local context's entries and the caches'.
+: lf-check-above ( k -- n )
+  dup lf-input-store store-count @ swap lf-input-mark mark-count @ - 0 max ;
+: lf-check-args-at ( count -- offset ) ?dup if 1- lf-cref-slot lf-cref-end else 0 then ;
+: lf-check-args ( -- n ) lf-cref-top 3 lf-input-mark mark-count @ lf-check-args-at - 0 max ;
+: lf-check-stores ( -- u )
+  0 lf-check-above lf-meter-term-bytes * 1 lf-check-above lf-meter-level-bytes * +
+  3 lf-check-above lf-meter-cref-bytes * + lf-check-args lf-meter-arg-bytes * + ;
+: lf-check-scratch ( -- u )
+  lf-check-stores lf-lctx-count @ lf-meter-local-bytes * +
+  lf-caches-entries lf-meter-entry-bytes * + ;
+' lf-check-scratch is lf-meter-used
+\ A check that passed its memory limit ends full, whatever it found (a
+\ cache entry refused is only a miss, so it may have gone on): never
+\ accepted, its diagnostic the bytes it asked for and the limit.
+: lf-check-over ( outcome -- outcome )
+  lf-meter-passed? 0= if exit then drop
+  lf-meter-asked@ lf-meter-limit@ lf-check-site lf-diag-memory-limit lf-diag! outcome-full ;
 \ The declaration of this context's snapshot, a check's (lf-env-begin),
 \ and the budget: ok, or invalid without a check's snapshot of the valid
 \ current environment (recorded by lf-env-checking) or an intact input.
+\ The check's memory limit starts (core/scratch-meter.fs).
 : lf-check-begin ( -- outcome )
-  lf-caches-clear lf-audit-renew
+  lf-meter-start lf-caches-clear lf-audit-renew
   0 lf-check-step! lf-check-state lf-chk-budget @ lf-check-left !
   lf-env-checking 0= if outcome-invalid exit then nip
   lf-input-read ok-then? if lf-check-state lf-chk-decl ! outcome-ok then ;
@@ -320,9 +345,11 @@ lf-check-steps# 1+ constant lf-step-done
 : lf-check-kind-run ( -- outcome )
   lf-check-decl lf-ind-member? if lf-check-block else lf-check-run then ;
 \ Check the declaration of this context's snapshot and end the check with
-\ its outcome (lf-env-finish), as described above.
+\ its outcome (lf-env-finish), as described above; full past its memory
+\ limit, which then stops.
 : lf-check-declaration ( -- )
-  lf-check-begin ['] lf-check-kind-run lf-check-then lf-env-finish ;
+  lf-check-begin ['] lf-check-kind-run lf-check-then lf-check-over lf-env-finish
+  lf-meter-stop ;
 
 \ Check every declaration of this context's intact input, in input order,
 \ each with fuel, in a new environment with room for deps dependencies,

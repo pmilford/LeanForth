@@ -109,6 +109,7 @@ require ../lib/cons.fs
 require ./diagnostics.fs
 require ./compact.fs
 require ../lib/store-columns.fs
+require ./scratch-meter.fs
 
 64 constant lf-term-default
 64 constant lf-walk-room     \ a walk's first room, in items
@@ -628,7 +629,8 @@ defer lf-term-view-hook ( -- outcome )
 \ first growing the store and its columns when every record is in use. A
 \ field outside 0 .. 2^32-1, an invalid count, a full store (at its
 \ capacity, at 2^32-1 records, or no heap) or a spent serial returns
-\ false, changes nothing and is recorded as a diagnostic.
+\ false, changes nothing and is recorded as a diagnostic; so does a
+\ record past a check's memory limit (scratch-meter.fs).
 : lf-term-site ( -- site ) c" terms lf-term-add" ;
 : lf-term-refused ( -- false )
   lf-terms lf-term-site lf-diag-terms-full lf-diag-store false ;
@@ -637,7 +639,7 @@ defer lf-term-view-hook ( -- outcome )
 : lf-term-steady? ( -- flag )
   lf-terms dup store-filled? 0= swap store-capacity @ lf-term-covered @ = and ;
 : lf-term-room? ( -- flag )
-  lf-term-steady? if true exit then
+  lf-meter-term? 0= if false exit then  lf-term-steady? if true exit then
   lf-terms store-ready ok? if lf-term-covered lf-term-columns columns-ready else false then ;
 : lf-term-u32? ( x -- flag ) u32-mask u> 0= ;
 : lf-term-fits? ( first second -- flag ) lf-term-u32? swap lf-term-u32? and ;
