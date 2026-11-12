@@ -73,8 +73,20 @@
 \                  declarations less, none more, every other field the
 \                  same; Init: Lean.Syntax 2 units less, every other
 \                  record the same); no verdict.
+\   9  2026-11-12  agent CK (plan task 4.2.7d; review rvKN 3; ADR 0014
+\                  Amendment 10): inference aside types no lambda's
+\                  domain, as Lean's infer-only infer_lambda; what Lean's
+\                  infer-only typing throws (typeExpected, funExpected,
+\                  invalidProj) rejects aside too (was unknown); and is_def_eq
+\                  types a Pi with its typer where Lean's infer_type does
+\                  (proof irrelevance, eta, unit-like types), as infer_pi may
+\                  throw on an ill-typed Pi (was taken as a type: an export
+\                  Lean rejects was accepted). Fuel moves (the pinned
+\                  exports: unfold's impliesSelf 65 -> 68, every other
+\                  report the same; Init: INIT-NUMBERS); verdicts only on
+\                  ill-typed reducts (tests/cli/shared-depths.lean P5).
 \
 \ [kernel] code: experimental, not through the review gate.
 \ State: none.
 
-8 constant lf-verdict-version
+9 constant lf-verdict-version

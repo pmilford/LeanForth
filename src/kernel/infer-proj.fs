@@ -14,7 +14,8 @@
 \ (where Ty is a proposition, only a proof may be projected so); field
 \ i's domain is the type -- a proof again when Ty is a proposition. Each
 \ "must" that fails is Lean's invalidProj: rejected (diagnostic 91, the
-\ leaf) while deciding, unknown aside (test P2). Lean's to_proj_idx
+\ leaf), aside too, as Lean's infer-only typing throws it as well (plan
+\ task 4.2.7d; before, aside said unknown). Lean's to_proj_idx
 \ (more than 32 bits) cannot fail here: the stage refuses such an index.
 \ Where a whnf or a lookup cannot follow Lean, its failure passes on
 \ (unknown, K5, exhausted, full). Not yet as Lean: a structure that is a
@@ -42,11 +43,10 @@ require ./mixed-infer.fs
 require ./whnf.fs
 
 : lf-iproj-site ( -- site ) c" infer-proj lf-infer-proj" ;
-\ invalidProj: rejected while deciding, unknown aside.
+\ invalidProj: rejected, aside too (Lean's infer_proj throws it in
+\ infer-only mode as well; plan task 4.2.7d).
 : lf-iproj-bad ( leaf -- -1 status )
-  lf-minfer-deciding?
-  if lf-iproj-site lf-diag-invalid-proj lf-minfer-reject no-result exit then
-  0 lf-diag-invalid-proj lf-minfer-note -1 outcome-unknown ;
+  lf-iproj-site lf-diag-invalid-proj lf-minfer-reject no-result ;
 : lf-iproj-unknown ( -- -1 status ) -1 outcome-unknown ;
 
 \ Spines: argument i of node, which has n arguments (as iota.fs).

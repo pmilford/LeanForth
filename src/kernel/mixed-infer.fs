@@ -60,11 +60,17 @@
 \ constants' true types: they are unchecked assumptions at this
 \ interface. Inference "aside" is Lean's infer-only mode (infer_type,
 \ type_checker.cpp 360-362), for the comparison's typer (lf-minfer-typed:
-\ whether a term is a proof, its type for unit-like types): no rule, an
-\ application's argument neither inferred nor compared (its spine typed
-\ from its head, lf-minfer-spine), any live node
-\ read (whnf results and inferred types, which the checker's own passes
-\ made from the audited input).
+\ whether a term is a proof, its type for unit-like types): no
+\ comparison, an application's argument neither inferred nor compared
+\ (its spine typed from its head, lf-minfer-spine), a lambda's domain and
+\ a let's type and value not typed (infer_lambda 131-133, infer_let 215),
+\ no universe-parameter test of a Sort or a constant, any live node read
+\ (whnf results and inferred types, which the checker's own passes made
+\ from the audited input). What Lean's infer-only typing still tests --
+\ a Pi's domains and body are types (infer_pi), a function's type is a Pi
+\ (infer_app's ensure_pi_core), a projection's structure (infer_proj) --
+\ rejects aside as while deciding: Lean throws there in either mode, and
+\ the exception ends the check (plan task 4.2.7d; ADR 0014 Amendment 10).
 \ Environment mode (plan task 2.2.3; [kernel] code, not yet through the
 \ review gate): a job started with lf-minfer-start-env, by
 \ check-declaration.fs, takes a constant's type from the checked
@@ -453,23 +459,20 @@ defer lf-minfer-walk ( node -- type status )
 \ (whnf.fs: beta, and delta in a check of the checked environment), on
 \ the job's frames and fuel, must be one. A whnf that is neither is
 \ Lean's typeExpected (funExpected): rejected at site with code and the
-\ reduced type while deciding, as ADR 0011's rules recorded it; aside
-\ (the typer), where a failure only means "not known", unknown, recorded as
-\ not a Sort (not a Pi) with the type. A whnf that fails passes its
-\ outcome on (unknown where Lean may reduce further than LeanForth yet,
-\ whnf.fs; exhausted, full, invalid).
+\ reduced type, as ADR 0011's rules recorded it -- aside too (the typer),
+\ where Lean's infer-only typing throws the same exception, which no step
+\ of is_def_eq catches (plan task 4.2.7d; review rvKN 3: before, aside
+\ said unknown). A whnf that fails passes its outcome on (unknown where
+\ Lean may reduce further than LeanForth yet, whnf.fs; exhausted, full,
+\ invalid).
 : lf-minfer-whnf-job ( node -- node' status ) lf-minfer-frames lf-whnf-on ;
-: lf-minfer-not-sort ( type -- -1 status )
-  0 lf-diag-not-sort lf-minfer-note -1 outcome-unknown ;
-: lf-minfer-not-type ( reduced site code -- -1 status )
-  lf-minfer-deciding? if lf-minfer-reject no-result else 2drop lf-minfer-not-sort then ;
+: lf-minfer-not-type ( reduced site code -- -1 status ) lf-minfer-reject no-result ;
 : lf-minfer-sort-rule ( type site code -- level status )
   2>r dup lf-minfer-sort? if nip 2r> 2drop outcome-ok exit then
   lf-minfer-whnf-job ok-then? 0= if 2r> 2drop no-result exit then
   dup lf-minfer-sort? if nip 2r> 2drop outcome-ok else 2r> lf-minfer-not-type then ;
 : lf-minfer-not-pi ( reduced -- outcome )
-  lf-minfer-deciding? if lf-minfer-site lf-diag-function-expected lf-minfer-reject
-  else 0 lf-diag-not-pi lf-minfer-note outcome-unknown then ;
+  lf-minfer-site lf-diag-function-expected lf-minfer-reject ;
 
 \ Comparing an inferred type (left) with an expected type (right): Lean's
 \ is_def_eq through conversion (defeq.fs, mixed-convert.fs), (0 ok) when
@@ -576,7 +579,7 @@ defer lf-minfer-proj ( leaf e frames -- ... frames next )
 \ visible Pi gives its body, and one that is not first has the arguments
 \ since the last such point put for its loose bound variables at once
 \ (instantiate_rev), is put in whnf when it is no Pi (ensure_pi_core:
-\ else unknown, aside) and gives its body; last, the arguments since the
+\ else rejected, funExpected) and gives its body; last, the arguments since the
 \ last point are put into the type at once. The application's prefixes
 \ f a1 .. ak are neither typed nor keyed, and the type is the same term
 \ as one argument at a time would give (instantiation keeps a visible
@@ -646,8 +649,8 @@ defer lf-minfer-proj ( leaf e frames -- ... frames next )
 
 \ Binders, one at a time, as infer_lambda and infer_pi treat each binder
 \ of a telescope (type_checker.cpp 125-166). The domain, read under the
-\ scope, must be a type, its type a Sort (otherwise unknown, or rejected
-\ by S2); its inference's scratch is then discarded, and the binder gets
+\ scope, must be a type, its type a Sort (otherwise rejected by S2, or the
+\ whnf's failure); its inference's scratch is then discarded, and the binder gets
 \ a free variable whose type is the domain closed with the scope's free
 \ variables (instantiate_rev), with that Sort's level beside it. The body
 \ is inferred one binder deeper, and the binder goes back to the scope
@@ -691,10 +694,13 @@ defer lf-minfer-proj ( leaf e frames -- ... frames next )
 \ Lean's, built in one pass. The job's chain field names the depth where
 \ the chain began while a lambda's body is a lambda; the inner lambda
 \ takes it as it starts (lf-minfer-top), so no other node sees it.
-\ Steps: the domain's inference, with the scope's depth before the
-\ binder (base), the chain's top, the domain, the body and the step's
-\ mark waiting on the stack; then the body's, with base, top and the
-\ domain.
+\ Aside, as Lean's infer_lambda in infer-only mode (131-133; plan task
+\ 4.2.7d), no domain is typed: it is closed and opened as the next
+\ binder at once (0 beside it), and only the body is inferred.
+\ Steps: the domain's inference (while deciding), with the scope's depth
+\ before the binder (base), the chain's top, the domain, the body and the
+\ step's mark waiting on the stack; then the body's, with base, top and
+\ the domain.
 : lf-minfer-chain ( -- addr ) lf-minfer-job lf-ijob-chain ;
 : lf-minfer-top ( base -- top )
   lf-minfer-chain dup @ -1 rot ! dup 0< if drop else nip then ;
@@ -720,16 +726,25 @@ defer lf-minfer-proj ( leaf e frames -- ... frames next )
 : lf-minfer-lam-plain ( T status frames -- type status frames 0 )
   >r 1 r@ frame-pick -rot lf-minfer-good? if lf-minfer-body-type else rot drop then
   r> lf-minfer-lam-end ;
+\ The body's visit, once the binder is open and base, top and the domain
+\ wait on the frames.
+: lf-minfer-lam-body ( body frames -- ... frames next )
+  >r dup lf-minfer-lam? if 1 r@ frame-pick lf-minfer-chain ! r> ['] lf-minfer-lam-chained
+  else r> ['] lf-minfer-lam-plain then lf-minfer-call ;
 : lf-minfer-lam-domain ( D status frames -- ... frames next )
   >r 2 r@ frame-pick 0 r@ frame-pick 2swap lf-minfer-bound
   dup ok? 0= if no-result 5 r@ frame-drop r> 0 exit then
-  drop 1 r@ frame-pick 2 r@ frame-drop
-  dup lf-minfer-lam? if 1 r@ frame-pick lf-minfer-chain ! r> ['] lf-minfer-lam-chained
-  else r> ['] lf-minfer-lam-plain then lf-minfer-call ;
+  drop 1 r@ frame-pick 2 r@ frame-drop r> lf-minfer-lam-body ;
+: lf-minfer-lam-check ( domain body frames -- ... frames next )
+  >r r@ frame-save r@ lf-minfer-marked r> ['] lf-minfer-lam-domain lf-minfer-call-marked ;
+: lf-minfer-lam-aside ( domain body frames -- ... frames next )
+  >r swap 0 lf-minfer-open-binder ok-then? if r> lf-minfer-lam-body exit then
+  nip no-result 3 r@ frame-drop r> 0 ;
+: lf-minfer-lam-keep ( domain frames -- )
+  >r lf-minfer-context-depth @ dup r@ frame-save lf-minfer-top r@ frame-save r> frame-save ;
 : lf-minfer-lam ( domain body frames -- ... frames next )
-  >r lf-minfer-context-depth @ dup r@ frame-save lf-minfer-top r@ frame-save
-  over r@ frame-save r@ frame-save r@ lf-minfer-marked
-  r> ['] lf-minfer-lam-domain lf-minfer-call-marked ;
+  >r over r@ lf-minfer-lam-keep
+  lf-minfer-deciding? if r> lf-minfer-lam-check else r> lf-minfer-lam-aside then ;
 \ A Pi's type is Sort (mk_imax u v) for a domain in Sort u and a body in
 \ Sort v: Lean's infer_pi builds the level innermost first
 \ (type_checker.cpp 158-165), as these steps do (ADR 0011, Amendment

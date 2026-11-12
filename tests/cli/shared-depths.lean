@@ -15,6 +15,10 @@
 -- * P3 (agent PF), 6 rows: three arena perf ladders at n = 48 and bad twins.
 -- * P4 (agent R5), 2 rows: proof irrelevance typing 48-argument spines aside;
 --   Lean accepts spinegood and rejects spinebad (appTypeMismatch).
+-- * P5 (agent CK, plan task 4.2.7d), 10 rows: Lean's infer-only typing
+--   meeting an ill-typed term that beta reduction made; Lean rejects appbad,
+--   lambad (funExpected), pibad (typeExpected) and projbad (invalidProj) and
+--   accepts their good twins, lamgood and letgood.
 -- Each row is a theorem or definition checked by pinned Lean's kernel
 -- (`addDeclCore`, no axioms); the file prints a `row<TAB>id<TAB>verdict` line
 -- per row and then each row's export. tests/cli/shared_depths.py, run by
@@ -328,5 +332,102 @@ run_cmd do
   for r in rows do IO.println r
   for (id, e, ns) in outs do writeCase e id ns
 end P4
+
+namespace P5
+
+-- Agent CK (plan task 4.2.7d; review rvKN 3; ADR 0014 Amendment 10): Lean's
+-- infer-only typing (infer_type, the typer of is_def_eq's proof irrelevance)
+-- meeting an ill-typed term made by reduction. F h, FT h, S h and PT h are
+-- stuck for a variable h : True ∧ True (And.rec on a proof that is no
+-- constructor; Lean eta-expands no proposition), and reduce for ⟨⟩; F h and
+-- F ⟨⟩ are definitionally equal (the arguments by proof irrelevance). So
+-- `(fun (f : F ⟨⟩) => f 0) x`, x : F h, is well typed, but its beta reduct
+-- `x 0` is not: each row states `L = id L` by `Eq.refl L`, and is_def_eq
+-- of L and id L puts L in whnf_core and types it (is_def_eq_proof_irrel).
+-- * app: `x 0`: infer_app's ensure_pi on F h throws funExpected.
+-- * pi: `x → Nat`, x : S h: infer_pi's ensure_sort on S h, typeExpected
+--   (LeanForth took a Pi to be a type without typing it, and accepted).
+-- * lam: `fun y => (fun (z : x 0) => y) (Q x)`: infer_lambda in infer-only
+--   mode types no domain, so Lean accepts (LeanForth typed z's domain aside).
+-- * lambad: `fun (a : x 0) => 0`: its type `(a : x 0) → Nat`, which is_prop
+--   types (infer_pi), funExpected.
+-- * let: `fun y => let z : x 0 := Q x; y`: infer_let types neither.
+-- * proj: `x.1`, x : PT h: infer_proj's structure test, invalidProj.
+
+noncomputable def F (p : True ∧ True) : Type :=
+  @And.rec True True (fun _ => Type) (fun _ _ => Nat → Nat) p
+noncomputable def FT (p : True ∧ True) : Type 1 :=
+  @And.rec True True (fun _ => Type 1) (fun _ _ => Nat → Type) p
+noncomputable def S (p : True ∧ True) : Type 1 :=
+  @And.rec True True (fun _ => Type 1) (fun _ _ => Type) p
+noncomputable def PT (p : True ∧ True) : Type :=
+  @And.rec True True (fun _ => Type) (fun _ _ => Nat × Nat) p
+
+def nat : Expr := mkConst ``Nat
+def lit (n : Nat) : Expr := .lit (.natVal n)
+def pi (n : Name) (t b : Expr) : Expr := .forallE n t b .default
+def lam (n : Name) (t b : Expr) : Expr := .lam n t b .default
+def b (i : Nat) : Expr := .bvar i
+def andTT : Expr := mkApp2 (mkConst ``And) (mkConst ``True) (mkConst ``True)
+def tt : Expr := mkApp4 (mkConst ``And.intro) (mkConst ``True) (mkConst ``True)
+  (mkConst ``True.intro) (mkConst ``True.intro)
+def app (f : Name) (a : Expr) : Expr := mkApp (mkConst f) a
+def thm (n : Name) (ty val : Expr) : Declaration :=
+  .thmDecl { name := n, levelParams := [], type := ty, value := val, all := [n] }
+def l1 : Level := .succ .zero
+def l2 : Level := .succ l1
+
+/-- `∀ binders, L = id L` proved by `Eq.refl L`, at universe u for type T. -/
+def same (n : Name) (binders : List (Name × Expr)) (u : Level) (T L : Expr) : Declaration :=
+  let eq := mkApp3 (mkConst ``Eq [u]) T L (mkApp2 (mkConst ``id [u]) T L)
+  let ty := binders.foldr (fun (bn, bt) e => pi bn bt e) eq
+  let val := binders.foldr (fun (bn, bt) e => lam bn bt e) (mkApp2 (mkConst ``Eq.refl [u]) T L)
+  thm n ty val
+
+def appL : Expr := mkApp (lam `f (app ``F tt) (mkApp (b 0) (lit 0))) (b 0)
+def piL : Expr := mkApp (lam `T (app ``S tt) (pi `a (b 0) nat)) (b 0)
+def qT : Expr := pi `g (app ``FT tt) (mkApp (b 0) (lit 0))
+def lamL : Expr :=
+  mkApp (lam `f (app ``FT tt)
+    (lam `y nat (mkApp (lam `z (mkApp (b 1) (lit 0)) (b 1)) (mkApp (b 2) (b 1))))) (b 1)
+def lam2L : Expr := mkApp (lam `f (app ``FT tt) (lam `a (mkApp (b 0) (lit 0)) (lit 0))) (b 0)
+def lam2T : Expr := pi `a (mkApp (lam `f (app ``FT tt) (mkApp (b 0) (lit 0))) (b 0)) nat
+def letL : Expr :=
+  mkApp (lam `f (app ``FT tt)
+    (lam `y nat (.letE `z (mkApp (b 1) (lit 0)) (mkApp (b 2) (b 1)) (b 1) false))) (b 1)
+def projL : Expr := mkApp (lam `f (app ``PT tt) (.proj ``Prod 0 (b 0))) (b 0)
+def natNat : Expr := pi `n nat nat
+
+/-- Row id: theorem InferOnly.id over h : True ∧ True, x (or y) : xt and more. -/
+def row (id : String) (xt : Expr) (more : List (Name × Expr)) (u : Level) (T L : Expr) :
+    String × Declaration :=
+  (id, same (Name.mkStr `InferOnly id) ([(`h, andTT), (`x, xt)] ++ more) u T L)
+
+run_cmd do
+  let base := (← getEnv).toKernelEnv
+  let h := b 0
+  let cases : List (String × Declaration) := [
+    row "appbad" (app ``F h) [] l1 nat appL, row "appgood" (app ``F tt) [] l1 nat appL,
+    row "pibad" (app ``S h) [] l2 (.sort l1) piL, row "pigood" (app ``S tt) [] l2 (.sort l1) piL,
+    row "lambad" (app ``FT h) [] l1 lam2T lam2L, row "lam2good" (app ``FT tt) [] l1 lam2T lam2L,
+    row "lamgood" (app ``FT h) [(`Q, qT)] l1 natNat lamL,
+    row "letgood" (app ``FT h) [(`Q, qT)] l1 natNat letL,
+    row "projbad" (app ``PT h) [] l1 nat projL, row "projgood" (app ``PT tt) [] l1 nat projL]
+  let mut rows : Array String := #[]
+  let mut outs : Array (String × Kernel.Environment × List Name) := #[]
+  for (id, d) in cases do
+    let (verdict, e) ← liftM (checkAll base [d])
+    rows := rows.push s!"row\t{id}\t{verdict}"
+    outs := outs.push (id, e, d.getNames)
+  -- p5all: the ten in one export (Lean's verdict: appbad's, the first
+  -- failure), copied to tests/core/check-declaration-cases/infer-only.ndjson
+  -- for test_leanforth.py's per-declaration test.
+  let all := cases.map (·.2)
+  let (verdict, e) ← liftM (checkAll base all)
+  rows := rows.push s!"row\tp5all\t{verdict}"
+  outs := outs.push ("p5all", e, all.flatMap (·.getNames))
+  for r in rows do IO.println r
+  for (id, e, ns) in outs do writeCase e id ns
+end P5
 
 end SharedDepths

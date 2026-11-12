@@ -500,9 +500,9 @@ T{ dependencies -> 0 1 0 1 2 0 }T
 \ A rejection records the dependencies its check met. bad : (fun _ : Prop
 \ => Prop) D := f, with f : B -> B and D = c0 -> ... -> c14 (each : Prop :=
 \ forall p, p), meets D's 15 constants and f (16; once the most a check
-\ could hold). Lean's kernel rejects it (declTypeMismatch). A Pi is never
-\ typed by P2 (it cannot be a proof), so B stays unmet; see aside-deps-app
-\ for inference run aside.
+\ could hold). Lean's kernel rejects it (declTypeMismatch). Inference
+\ run aside (proof irrelevance's typer, which types a Pi since plan task
+\ 4.2.7d) records no dependency, so B stays unmet; see aside-deps-app.
 fc-case aside-deps
 fc-decl before def safe B 0 TYPE S z VALUE P S z V 0
 fc-decl before def safe c0 0 TYPE S z VALUE P S z V 0
@@ -532,8 +532,8 @@ variable last-dep-count
   ['] counting-check ['] fc-no-maker lf-env-run ok? must
   last-result last-dep-count @ env-done ;
 T{ check-counting -> outcome-rejected lf-diag-value-apart compare-step 16 }T
-\ Where P2 meets a constant by the type of an application (a Pi or a Sort
-\ is not typed: it cannot be a proof): bad : Prop := G u, G : Prop -> Prop,
+\ Where P2 meets a constant by the type of an application (a Sort is not
+\ typed: it cannot be a proof): bad : Prop := G u, G : Prop -> Prop,
 \ u : K B an axiom, K : Prop -> Prop, B : Prop. Lean rejects it (the
 \ argument's type K B is not Prop; appTypeMismatch). P2 infers K B aside
 \ and meets K, which is no dependency of bad: G and u only.
@@ -611,7 +611,9 @@ fc-decl check thm safe wrong 0 TYPE P S z P S z P V 1 V 2 VALUE L S z L S z L V 
 T{ 700 swept -> outcome-rejected true true }T
 \ CLI2's case (tests/cli/unfold.lean): Implies A A against A → A needs
 \ Implies unfolded by lazy delta reduction: accepted, as Lean does, from
-\ 60, the fuel the whole check takes since an application's argument is
+\ 63, the fuel the whole check takes since proof irrelevance types the
+\ Pi A → A, as Lean's is_def_eq_proof_irrel does (infer_pi, which may
+\ throw; plan task 4.2.7d); 60 since an application's argument is
 \ not closed to be put into a Pi body without loose bound variables
 \ (agent PF: Lean's instantiate never reads it); 62 since == is Lean's
 \ at every pair
@@ -628,7 +630,7 @@ T{ 700 swept -> outcome-rejected true true }T
 fc-case sweep-unfolding
 fc-decl before def safe Implies 0 TYPE P S z P S z S z VALUE L S z L S z P V 1 V 1
 fc-decl check thm safe impliesSelf 0 TYPE P S z A A C Implies 0 V 0 V 0 VALUE L S z L V 0 V 0
-T{ 400 sweep -> outcome-ok 60 true }T
+T{ 400 sweep -> outcome-ok 63 true }T
 \ In a check, with the caches on, lf-term-data@ (core/terms.fs) is the
 \ skeleton memo's facts as one data word (compact-store plan step S2),
 \ its depth aside: every node inference visits (its lf-minfer-entry hook,

@@ -64,8 +64,9 @@
 \   (15) otherwise no.
 \ - Whether t is a proof (step 4) is Lean's is_prop of its type (383-389):
 \   the type of t's type, put in whnf, is a Sort whose level normalizes to
-\   zero. A Sort or a Pi is a type, never a proof, and so is a free
-\   variable whose type is a Sort; otherwise the types come from the
+\   zero. A Sort is a type, never a proof, and so is a free variable whose
+\   type is a Sort, and a Pi without a typer (with one a Pi is typed, as
+\   Lean's infer_pi may throw on it); otherwise the types come from the
 \   typer the caller lends, Lean's infer_type in infer-only mode
 \   (lf-dq-typer: mixed-infer.fs, aside). Step 4 asks it for s's type,
 \   step 11 for the other side's and steps 12 and 14 for both sides',
@@ -488,10 +489,17 @@ defer lf-ap-arg ( frames -- ... frames next )
   dup lf-lit-leaf? if lf-reduce-nat-pred else lf-term-second@ outcome-ok then ;
 
 \ ---------------------------------------------------------------------------
-\ Types, for steps 4, 11 and 14 (see the header). A Sort or a Pi is a
-\ type, and so is a free variable whose type is a Sort.
+\ Types, for steps 4, 11 and 14 (see the header). A Sort is a type, and
+\ so is a free variable whose type is a Sort: Lean's infer_type gives
+\ their types without a test that can fail. So is a Pi, but Lean's
+\ infer_pi tests that each domain and the body are types even in
+\ infer-only mode, and throws typeExpected for an ill-typed Pi that
+\ reduction made (plan task 4.2.7d): with a typer a Pi is typed as Lean
+\ types it, and only without one taken as a type.
 : lf-dq-sort? ( node -- flag ) lf-dq-tag lf-tag-symbolic-sort = ;
-: lf-dq-typeish? ( node -- flag ) dup lf-dq-sort? swap lf-dq-tag lf-tag-pi = or ;
+: lf-dq-pi? ( node -- flag ) lf-dq-tag lf-tag-pi = ;
+: lf-dq-typeish? ( node -- flag )
+  dup lf-dq-sort? if drop true exit then lf-dq-pi? lf-dq-typer @ 0= and ;
 : lf-dq-fvar? ( node -- flag ) lf-dq-tag lf-tag-fvar = ;
 : lf-dq-plain-type? ( t -- flag )
   dup lf-dq-typeish? if drop true exit then
@@ -569,7 +577,7 @@ defer lf-ap-arg ( frames -- ... frames next )
 \ term's only from a typer.
 : lf-dq-typable? ( t -- flag ) lf-dq-fvar? lf-dq-typer @ 0<> or ;
 \ For steps 11 and 14: the whnf of t's type, with yes; 0 and no for a
-\ Sort or a Pi, whose type is a Sort; 0 and undecided when the type
+\ Sort, or a Pi without a typer, whose type is a Sort; 0 and undecided when the type
 \ cannot be had; 0 0 on a failure.
 : lf-dq-whnf-type ( t frames -- type lbool outcome )
   over lf-dq-typeish? if 2drop 0 lf-dq-no outcome-ok exit then

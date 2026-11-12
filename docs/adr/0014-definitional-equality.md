@@ -2347,6 +2347,88 @@ check CPU 2-21% less on each. All of `Init` (`check --no-manifest --json
 of any declaration moved; fuel 659,257,764 → 652,726,907 (−0.99%), 31,418
 declarations less, 27 more (at most +0.17% each).
 
+## Amendment 10: Lean's infer-only typing, what it skips and what it throws (agent CK, plan task 4.2.7d, 2026-11-12, proposed)
+
+Status: proposed; [kernel] gate owed (review rvKN finding 3, owner
+approval of the task on 2026-11-12). Verdict version 9. Code:
+`src/kernel/mixed-infer.fs` (`lf-minfer-lam` and the words before it,
+`lf-minfer-not-type`, `lf-minfer-not-pi`), `src/kernel/infer-proj.fs`
+(`lf-iproj-bad`), `src/kernel/defeq.fs` (`lf-dq-typeish?`).
+
+**Lean's rules** (`type_checker.cpp` of 4.35.0, `.claude/work/lean-src`).
+`infer_type` (360-362) is `infer_type_core(e, true)`, the mode of every
+inference `is_def_eq` and the reductions ask for: `is_def_eq_proof_irrel`
+(899-905, step 1163) infers `t`'s type for any `t`, a Pi included, then
+`is_prop` of it (383-389, `ensure_sort` of its type); `try_eta_expansion_core`
+(841-853) the other side's; `try_eta_struct_core` (856-872) both;
+`is_def_eq_unit_like` (1120-1130) `t`'s and `s`'s; K and structure eta in
+iota (`inductive.h` 31-75) the major premise's. In that mode
+`infer_lambda` (125-142) types no domain (131-133), `infer_let` (208-230)
+neither the type nor the value (215-221), `infer_app` (188-205) no
+argument; but `infer_pi` (144-166) still makes each domain and the body a
+type (`ensure_sort_core`, 151 and 158), `infer_app` still makes each
+function type a Pi (`ensure_pi_core`, 199) and `infer_proj` (247-292)
+still tests the structure (`invalid_proj_exception`). Each failure throws,
+and nothing in `type_checker.cpp` catches a kernel exception: the
+declaration is rejected (`environment.cpp` 292-298). Such a failure needs
+an ill-typed term, which in a checked declaration only reduction makes:
+beta putting a variable `h : True ∧ True` where `⟨⟩` stood, say, so that
+`F h` (an `And.rec` on `h`, which no rule reduces: Lean eta-expands no
+proposition, `inductive.h` 71) stays where `F ⟨⟩` reduced to a Pi.
+
+**Before.** LeanForth's inference aside (the typer) typed every
+lambda's domain as while deciding (a domain Lean never types could fail),
+answered *unknown* where Lean throws typeExpected, funExpected or
+invalidProj (review rvKN 3), and `defeq.fs` took a Pi to be a type at
+steps 4, 11 and 14 without asking the typer -- the answer Lean gets ("not
+a proof") but not Lean's exception when the Pi is ill-typed: `pibad`
+below, which Lean rejects, was **accepted**.
+
+**Ported.** (1) Aside, a lambda's domain is closed and opened as the next
+binder at once, with no inference, Sort rule or scratch mark (lets were
+already so). (2) `lf-minfer-not-type` and `lf-minfer-not-pi` reject in
+both modes (S2/S4 and F1, the codes of the deciding path), and so does
+`lf-iproj-bad` (J2). (3) With a typer, a Pi is typed at steps 4, 11 and
+14 as Lean types it; without one (a bare comparison outside a check,
+which decides no declaration) it is still taken as a type. A Sort, and a
+free variable whose type is a Sort, still are: Lean's typing of them
+cannot fail. What stays unknown aside: a whnf that cannot follow Lean
+(K1 outside a check, K5, K7, iota pending), as while deciding.
+
+**Why Lean's.** Each rejection aside is at the call where Lean's
+infer-only typing throws, on the same term (the typer's call sites are
+Lean's `infer_type` calls in the same steps and order, ADR 0014 Q1 and the
+defeq port), with Lean's exception kind; a failed typing is never kept
+(the caches keep only *ok*, `caches.fs`), and a typer's *rejected* passes
+through `defeq.fs`, `iota.fs` and conversion as an exception, never as
+Lean's no (`lf-mixed-convert-no?` false), so no failure cache entry is
+made. Outside a check a rejection aside, like `lf-dq-sorted`'s before it,
+passes even when an earlier step left a doubt; no declaration is decided
+there.
+
+**Fuel.** Fewer units where a lambda typed aside had a large domain, more
+where a Pi is now typed at steps 4, 11 or 14. Verdict version 9 (ADR 0020
+D3).
+
+**Evidence.** `tests/cli/shared-depths.lean` P5 (10 rows and `p5all`, the
+ten in one export): pinned Lean and the official checker reject `appbad`
+and `lambad` (funExpected), `pibad` (typeExpected) and `projbad`
+(invalidProj) and accept `appgood`, `pigood`, `lam2good`, `lamgood`,
+`letgood` and `projgood`; LeanForth, memo on and off, now agrees on all
+(before: `appbad`, `lambad`, `projbad` and `lamgood` unknown, `pibad`
+accepted). `p5all` is `tests/core/check-declaration-cases/infer-only.ndjson`
+(`test_leanforth.py` `ExitCodes.test_1_infer_only`, per declaration, and
+PINNED). Aside in `tests/core/definite-rejection.fs`: rejected
+(funExpected), unknown (K1) and a lambda with an ill-typed domain typed.
+Planted faults (`tests/mutants/faults.toml`): `infer-not-pi-aside-unknown`,
+`infer-not-sort-aside-unknown`, `infer-lam-aside-domain`,
+`infer-let-aside-checks`, `dq-pi-untyped`, `iproj-bad-aside-unknown`,
+all caught; `rej-f1-off` and `infer-chain-never` re-targeted, caught;
+`infer-not-pi-aside-rejects` (an equivalent of the old rule) retired.
+Every pinned report of `test_leanforth.py`: the same but for
+`unfold.ndjson`'s `impliesSelf`, 65 → 68 fuel (step 4 types `A → A`);
+the golden snapshots: that slot's fuel only. All of `Init`: INIT-ADR.
+
 ## Note: the projection steps (plan task 5.2.2, 2026-11-10)
 
 The Q8 row "Projections: `reduce_proj`, step 8, `try_unfold_proj_app`"

@@ -427,6 +427,21 @@ T{ fresh 1 q-port -> outcome-rejected }T
 : aside-after ( node -- aside ) lf-minfer-frames lf-minfer-typed 2drop lf-minfer-aside @ ;
 T{ 0 proof-context y-var aside-after -> false }T
 T{ 1 proof-context true lf-minfer-aside ! x-a aside-after -> true }T
+\ What Lean's infer-only typing throws rejects aside too (plan task
+\ 4.2.7d; tests/cli/shared-depths.lean P5 against pinned Lean). Context
+\ A : Type, w : W, a : A. With W = A, w a's type: A is no Pi, nor its
+\ whnf, Lean's funExpected (infer_app's ensure_pi_core): rejected; with
+\ W = k, a candidate that may unfold (K1), unknown. fun (z : w a) => a:
+\ Lean's infer_lambda types no domain in infer-only mode, so it has a
+\ type, (z : w a) -> A, aside.
+: w-context ( W -- ) bind ctx-x ! ctx-a @ bind ctx-a1 ! ;
+: a-context ( -- ) fresh tok @ 100000 lf-minfer-start 1 make-sort bind ctx-a ! ctx-a @ w-context ;
+: k-context ( -- ) with-k tok @ 100000 lf-minfer-start 1 make-sort bind ctx-a ! k-node w-context ;
+: w-a ( -- node ) ctx-x @ ctx-a1 @ make-app ;
+: aside-typed ( node -- outcome code ) lf-diag-clear lf-minfer-frames lf-minfer-typed nip lf-diag-code@ ;
+T{ a-context w-a aside-typed -> outcome-rejected lf-diag-function-expected }T
+T{ k-context w-a aside-typed -> outcome-unknown lf-diag-needs-unfolding }T
+T{ a-context w-a ctx-a1 @ make-lam aside-typed drop -> outcome-ok }T
 \ A comparison gives back what it allocated: (fun X : Type => X -> X)
 \ Prop reduces to a new Pi, Lean's no against Type; the counts are as
 \ before.

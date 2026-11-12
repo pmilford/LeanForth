@@ -384,6 +384,28 @@ class ExitCodes(unittest.TestCase):
             self.assertTrue(lines[at + 1].startswith(diagnostic), (case, lines[at + 1]))
             self.assertEqual([l for l in lines[:at] if l.endswith(": rejected")], [], case)
 
+    def test_1_infer_only(self):
+        """Lean's infer-only typing meeting an ill-typed term that beta reduction made
+        (tests/cli/shared-depths.lean P5, its ten rows in one export; plan task 4.2.7d,
+        ADR 0014 Amendment 10): rejected where pinned Lean's kernel throws (funExpected,
+        typeExpected, invalidProj), never unknown, and the pi row, which LeanForth
+        accepted while it took a Pi for a type untyped, rejected; accepted where Lean's
+        infer-only typing types no lambda domain (lamgood) or let (letgood)."""
+        status, out, _ = run("check", "--no-manifest", f"{CASES}/infer-only.ndjson")
+        lines = out.splitlines()
+        self.assertEqual(status, 1)
+        self.assertIn("31 declarations: 27 accepted, 4 rejected", lines)
+        for name, diagnostic in [
+                ("appbad", "function expected (F1); diagnostic 58 at mixed-infer"),
+                ("pibad", "binder domain not a type (S2); diagnostic 56 at mixed-infer"),
+                ("lambad", "function expected (F1); diagnostic 58 at mixed-infer"),
+                ("projbad", "invalid projection (J2); diagnostic 91 at infer-proj")]:
+            at = lines.index(f"InferOnly.{name}: rejected")
+            self.assertTrue(lines[at + 1].startswith(f"  rejected: {diagnostic}"), lines[at + 1])
+        for name in ["appgood", "pigood", "lam2good", "lamgood", "letgood", "projgood"]:
+            self.assertIn(f"InferOnly.{name}: accepted (experimental, not independently "
+                          "audited); axioms: none", lines)
+
     def test_2_unsupported_and_unknown(self):
         # A proof that is a string literal, typed String, which the file does not
         # declare: rejected, as pinned Lean's kernel rejects it (plan task 5.2.3).
@@ -1607,12 +1629,17 @@ def pinned_digest(*args):
 # offset) pair's result, as Lean's replace does, so only block fuel moved,
 # 3 declarations less and none more; every verdict, diagnostic and count
 # is unchanged (each report compared with main 703c729's, fuel left out).
+# The one marked CK is re-pinned after plan task 4.2.7d (agent CK,
+# 2026-11-12): proof irrelevance types the Pi A → A as Lean's infer_pi
+# does, so impliesSelf takes 68 fuel (65 before); every verdict, diagnostic
+# and count is unchanged (the report compared with main 390197d's, fuel
+# left out). infer-only.ndjson is tests/cli/shared-depths.lean P5's p5all.
 PINNED = {
     "tests/reference/composition.ndjson": "a3e7184036edb9dd",
     "tests/reference/constant-fixture.ndjson": "df2ee45dc87e20ca",
     "tests/cli/chain.ndjson": "b0c8e7d6066c71d6",
     "tests/cli/inductive.ndjson": "bfc886f0d61feca3",
-    "tests/cli/unfold.ndjson": "989fd258bb03e4b7",
+    "tests/cli/unfold.ndjson": "3adc32724d1697ce",  # CK
     f"{CASES}/composition-wrong-argument.ndjson": "b29f27c0c9419c26",
     f"--no-manifest {CASES}/composition-wrong-argument.ndjson": "850723e5478fed48",
     f"--no-manifest {CASES}/composition-postulate.ndjson": "f4de00b74d911325",
@@ -1633,6 +1660,7 @@ PINNED = {
     # 48-argument spines typed aside; accepted with 15,749 units, and rejected.
     f"--no-manifest {CASES}/spine-good.ndjson": "27f4d61217c3b13d",
     f"--no-manifest {CASES}/spine-bad.ndjson": "2121f87813659891",
+    f"--no-manifest {CASES}/infer-only.ndjson": "4ea6a0e79761b9cf",  # CK
     "--no-manifest tests/core/check-block-cases/primitive.string-opaque-expansion.ndjson":
         "e0c28fefae0e93da",  # re-pinned (IO, R5)
 }
@@ -2701,7 +2729,9 @@ GOLDEN_EXPORTS = {   # the small pinned exports whose snapshots the guard keeps
     "nested": ["tests/cli/nested.ndjson"], "sharing": [SHARING],
     "kinds": ["--no-manifest", "tests/core/reexport/kinds.ndjson"],
     "composition-wrong-argument": ["--no-manifest",
-                                   f"{CASES}/composition-wrong-argument.ndjson"]}
+                                   f"{CASES}/composition-wrong-argument.ndjson"],
+    # == lets, one record (review rvSS G1): a let rule's change must bump too
+    "let-b": ["tests/cli/let-b.ndjson"]}
 SLOT_FIELDS = ["outcome", "marks", "provenance", "axioms", "warnings", "recipe", "shape",
                "fuel (low)", "fuel (high)", "dependencies", "lookups"]
 

@@ -1338,7 +1338,8 @@ open.
 - *J1, J2 typing*: `kernel/infer-proj.fs` ports `infer_proj`
   (`type_checker.cpp` 247–292) behind a hook in `mixed-infer.fs`, in
   Lean's order; each of its `invalidProj` exits is a rejection,
-  diagnostic 91 (unknown aside, in test P2).
+  diagnostic 91 (aside too since plan task 4.2.7d, ADR 0014 Amendment
+  10: Lean's infer-only `infer_proj` throws it as well; unknown aside before).
 - *J1 reduction*: `reduce_proj` (420–454, from `whnf_core` 504–510) in
   `iota.fs`, behind `whnf.fs`'s hook: a spine headed by a projection leaf
   has its term put in whnf, and a constructor application of the leaf's

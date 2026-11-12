@@ -635,8 +635,8 @@ reason = "D1 never tries the witness that sets the last universe parameter alone
 [[fault]]
 id = "rej-f1-off"
 file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-deciding? if lf-minfer-site lf-diag-function-expected lf-minfer-reject'''
-new = '''  false if lf-minfer-site lf-diag-function-expected lf-minfer-reject'''
+old = '''  lf-minfer-site lf-diag-function-expected lf-minfer-reject ;'''
+new = '''  drop outcome-unknown ;'''
 test = "$GFORTH tests/core/definite-rejection.fs"
 reason = "F1, since plan task 4.2.2c Lean's ensure_pi_core: a function type whose whnf is no Pi is never rejected"
 
@@ -799,8 +799,8 @@ reason = "4.2.2a: every lambda takes itself for its chain's top, so an inner lam
 [[fault]]
 id = "infer-chain-never"
 file = "src/kernel/mixed-infer.fs"
-old = '''  dup lf-minfer-lam? if 1 r@ frame-pick lf-minfer-chain ! r> ['] lf-minfer-lam-chained'''
-new = '''  false if 1 r@ frame-pick lf-minfer-chain ! r> ['] lf-minfer-lam-chained'''
+old = '''  >r dup lf-minfer-lam? if 1 r@ frame-pick lf-minfer-chain ! r> ['] lf-minfer-lam-chained'''
+new = '''  >r false if 1 r@ frame-pick lf-minfer-chain ! r> ['] lf-minfer-lam-chained'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "4.2.2a: each lambda abstracts and closes its own type (the same types, but nodes quadratic in a chain's depth): composition's value no longer fits the 64-term store after the pad (value-room)"
 
@@ -1256,14 +1256,61 @@ new = '''  dup lf-minfer-pi? if rot drop true else lf-minfer-not-pi false then ;
 test = "$GFORTH tests/core/whnf.fs"
 reason = "4.2.2c: ensure_pi_core without whnf: f : dqPropFn is no function (row pi.after-unfolding: Lean accepts)"
 
+# --- plan task 4.2.7d (agent CK; review rvKN 3; ADR 0014 Amendment 10):
+# Lean's infer-only typing, what it skips and what it throws ---
 [[fault]]
-id = "infer-not-pi-aside-rejects"
+id = "infer-not-pi-aside-unknown"
 file = "src/kernel/mixed-infer.fs"
-old = '''  lf-minfer-deciding? if lf-minfer-site lf-diag-function-expected lf-minfer-reject'''
-new = '''  true if lf-minfer-site lf-diag-function-expected lf-minfer-reject'''
-test = "$GFORTH tests/core/definite-rejection.fs"
-reason = "inference run aside for test P2 records a rejection (its failures only mean not known)"
-equivalent = "aside, inference is run by the analysis's P2 and P4 tests, which turn every failure into not known and restore nothing but the counts: a rejected status there is read as not ok, as unknown is, so no verdict changes; the record is overwritten or kept as before only when a later rejection replaces it"
+old = '''  lf-minfer-site lf-diag-function-expected lf-minfer-reject ;'''
+new = '''  lf-minfer-deciding? if lf-minfer-site lf-diag-function-expected lf-minfer-reject
+  else drop outcome-unknown then ;'''
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_1_infer_only"
+reason = "4.2.7d: aside, a function type whose whnf is no Pi is unknown, not Lean's funExpected (which infer-only typing throws too): shared-depths P5's appbad and lambad unknown"
+quick = true
+
+[[fault]]
+id = "infer-not-sort-aside-unknown"
+file = "src/kernel/mixed-infer.fs"
+old = ''': lf-minfer-not-type ( reduced site code -- -1 status ) lf-minfer-reject no-result ;'''
+new = ''': lf-minfer-not-type ( reduced site code -- -1 status )
+  lf-minfer-deciding? if lf-minfer-reject no-result else 2drop drop -1 outcome-unknown then ;'''
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_1_infer_only"
+reason = "4.2.7d: aside, a Pi's domain whose type is no Sort is unknown, not Lean's typeExpected (infer_pi throws it in infer-only mode): P5's pibad unknown"
+
+[[fault]]
+id = "infer-lam-aside-domain"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-minfer-deciding? if r> lf-minfer-lam-check else r> lf-minfer-lam-aside then ;'''
+new = '''  r> lf-minfer-lam-check ;'''
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_1_infer_only"
+reason = "4.2.7d: aside, a lambda's domain is typed, which Lean's infer-only infer_lambda never does: P5's lamgood (Lean accepts) rejected"
+quick = true
+
+[[fault]]
+id = "infer-let-aside-checks"
+file = "src/kernel/mixed-infer.fs"
+old = '''  lf-minfer-deciding? if lf-minfer-let-check else lf-minfer-let-open then ; is lf-minfer-let-one'''
+new = '''  lf-minfer-let-check ; is lf-minfer-let-one'''
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_1_infer_only"
+reason = "4.2.7d: aside, a let's type and value are typed and compared, which Lean's infer-only infer_let never does: P5's letgood (Lean accepts) rejected"
+
+[[fault]]
+id = "dq-pi-untyped"
+file = "src/kernel/defeq.fs"
+old = '''  dup lf-dq-sort? if drop true exit then lf-dq-pi? lf-dq-typer @ 0= and ;'''
+new = '''  dup lf-dq-sort? swap lf-dq-pi? or ;'''
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_1_infer_only"
+reason = "4.2.7d: proof irrelevance takes a Pi for a type without typing it, where Lean's infer_pi throws typeExpected on an ill-typed one: P5's pibad (Lean rejects) accepted"
+quick = true
+
+[[fault]]
+id = "iproj-bad-aside-unknown"
+file = "src/kernel/infer-proj.fs"
+old = '''  lf-iproj-site lf-diag-invalid-proj lf-minfer-reject no-result ;'''
+new = '''  lf-minfer-deciding? if lf-iproj-site lf-diag-invalid-proj lf-minfer-reject no-result exit then
+  drop -1 outcome-unknown ;'''
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_1_infer_only"
+reason = "4.2.7d: aside, invalidProj is unknown, not Lean's (infer_proj throws it in infer-only mode too): P5's projbad unknown"
 
 [[fault]]
 id = "infer-cheap-beta-skipped"
