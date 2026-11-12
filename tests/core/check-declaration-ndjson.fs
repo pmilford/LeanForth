@@ -325,12 +325,36 @@ T{ bad-utf8 1 lf-str-fields nip nip s" ab" lf-str-fields rot drop
 \ let's lambda is read from the let's records), equal under Lean's ==:
 \ def withLet : Sort 1 := let x : Sort 1 := Sort 0; x, then def idSort :
 \ Sort 1 -> Sort 1 := fun x : Sort 1 => x. A lambda made equal to both is
-\ the first entered, the let's.
+\ the first entered, the let's; and since agent PF (ADR 0014 Amendment 7)
+\ the later lambda is that one too: the importer gives the uses of a
+\ binder == to one entered before it the earlier one, so one node again.
 : let-lam-file ( -- c-addr u ) s" tests/core/check-declaration-cases/let-lambda.ndjson" ;
 : lams ( -- let-lam input-lam )
   0 lf-input-decl lf-idecl-value @ lf-let-binder 1 lf-input-decl lf-idecl-value @ ;
-T{ let-lam-file fed lams 2dup = -rot 1000 lf-expr-equal ok? -> outcome-ok false true true }T
+T{ let-lam-file fed lams 2dup = -rot 1000 lf-expr-equal ok? -> outcome-ok true true true }T
 T{ lams drop dup lf-term-first@ swap lf-term-second@ lf-term-lam swap lams drop = -> true true }T
+\ In a check, a node made before it is given for an equal record only once
+\ the check has reached it, an audit of this epoch having kept it (agent
+\ PF, ADR 0014 Amendment 7): with the audit memo on and new epochs, the
+\ input lambda is not given (a store node is made) until an audit checked
+\ it, and then it is.
+: input-lam ( -- node ) lams drop ;
+: lam-again ( -- node ) input-lam dup lf-term-first@ swap lf-term-second@ lf-term-lam drop ;
+lf-memo-on lf-audit-memo! lf-audit-renew
+T{ lam-again input-lam = -> false }T
+T{ input-lam dup lf-term-identity drop 1000 lf-cterm-check -> outcome-ok }T
+T{ lam-again input-lam = -> true }T
+lf-memo-auto lf-audit-memo!
+\ Levels likewise: the importer's level succ 0 is given back while the
+\ memo is off; with it on and new epochs a new level is made until a
+\ scope check of this check found the importer's in scope.
+: level-one ( -- level ) 0 lf-level-succ drop ;
+level-one constant fed-one
+lf-memo-on lf-audit-memo! lf-audit-renew
+T{ level-one fed-one = -> false }T
+T{ fed-one 1000 lf-lscope-check -> outcome-ok }T
+T{ level-one fed-one = -> true }T
+lf-memo-auto lf-audit-memo!
 \ An input let and an equal let the store builds (same value, the same
 \ lambda) have the same data word, depth included, as Lean's letE gives
 \ (review rvS5B M1: the store once counted the lambda's level too, so

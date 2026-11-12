@@ -1972,6 +1972,119 @@ every older snapshot is refused as stale (or labelled stale with
 (`tests/cli/golden-snapshots`) are written again: only the header's
 verdict version and fuel setting and 99 slots' fuel moved, all to less.
 
+## Amendment 7: a check's fuel independent of the other records of the tier (agent PF, review rvSN4 B1, 2026-11-11, proposed)
+
+Status: proposed; [kernel] gate owed. Code: `src/import/feed.fs`
+(`feed-enter`, `feed-merge`), `src/core/terms.fs`
+(`lf-term-input-binder-first`, `lf-term-input-binder-merged?`,
+`lf-term-findable?`), `src/core/levels.fs`
+(`lf-level-findable?`), `src/core/level-scope.fs` (`lf-lscope-reached`),
+`src/core/constant-term-boundary.fs` (`lf-audit-reached?`,
+`lf-audit-level-reached?`), `src/kernel/check-declaration.fs`
+(`lf-check-findable`, `lf-check-level-findable`). No typing, reduction or
+conversion rule changes: every change decides only which node, of nodes
+that are equal, stands for a term or level, never what it is.
+
+**Finding** (review rvSN4 B1). Amendment 5 keys the caches by node and
+lets `==` and the memos answer by identity, relying on hash-consing to
+make a node's number its class. A check's fuel then depended on which
+other records the tier held, so a declaration checked against a snapshot
+(ADR 0020 D5) could use other fuel than in a fresh check, and a verdict
+near the fuel budget could differ (the review's p7: `Implies` *exhausted*
+fresh, *accepted* against a snapshot, at fuel 35). Three causes, found in
+turn on Mathlib's first 1M lines against `Init`'s snapshot (agent SN4:
+2,151 of 13,023 declarations with other fuel):
+1. *Binder names.* Two input binders that differ only in a binder name
+   (or binder information, which Lean's `==` ignores too) were two
+   nodes, and the binder table gave a binder a check makes the first
+   record of the class in the whole tier, another declaration's or the
+   snapshot's.
+2. *Earlier nodes found by hash-consing.* A term a pass makes was given
+   any equal node made before the check (an input node, or a copy the
+   importer made), whichever declaration it belongs to; such a node is
+   never rolled back while a store node is, and the caches and memos
+   keyed by the store node then miss. So `Membership.mem` took 400 fuel
+   in `Init`'s export and in a cut of the Mathlib prefix, 396 in the whole
+   prefix (records after it in the file changed it).
+3. *Earlier levels*, likewise: a level a pass makes was given the
+   importer's equal level, which keeps level comparison's scope memo
+   (Amendment 5, item 4) across a pass's rollback; `Equiv.trans._proof_1`
+   took 8,589 fresh and 8,583 against the snapshot.
+
+**Change.**
+1. The importer's first pass enters each binder read in place in the
+   binder table as before; a binder whose tag and children equal one
+   entered before it is marked to copy instead, and its copy is that
+   earlier binder; its parents are copied too and are the tier's records
+   of those fields when there are some. So each `==` class of input
+   binders, and every node above one, is one node. Not with a binder hook
+   (the print command keeps every binder's own name to print it, so its
+   checks share as before and may use a little more fuel than `check`'s;
+   `print` writes no snapshot). A parallel check's worker, which reads
+   the source's input in place (shared input, ADR 0016 S8), marks the
+   same binders to copy -- those whose class the source's binder table
+   holds another binder for -- and so makes the source's copies; without
+   that its input's fingerprint was not the source's, no worker could be
+   made and `--jobs` ran one declaration at a time (found when main's
+   shared input was merged into this work, before any run used both).
+2. In a check (the audit memo on, Amendment 4), hash-consing gives a node
+   made before the check -- below the input's term mark -- only once the
+   check has reached it: an audit of this check's epoch kept it.
+   Otherwise a new store node is made, as in an export without that
+   record. Nodes made in the check are given as before; outside a check
+   (the importer's feed) every node is.
+3. Levels likewise: a level made before the check (but the zero level) is
+   given only once a scope check of this check found it in scope (a
+   column of the level store with its identity and the closed epoch).
+
+**Why sound.** Each rule only declines to give an equal node and makes a
+new one with the same fields, as a smaller export or a store without
+sharing would; hash-consing "only saves room and time: a missing entry
+costs a duplicate, never a verdict" (`terms.fs` header, ADR 0016 C8).
+The binder merge gives a term an `==`-equal binder, which Lean's kernel
+cannot tell apart. What a check reaches, and so what it is given, depends
+only on its declaration and the declarations it reads, in the same order,
+so its fuel does too.
+
+**Fuel.** Rule 1 shares more (less fuel); rules 2 and 3 share less with
+records the check never reached (more fuel): all of `Init` (default fuel, against pf-perf's batch 1): 59,349 accepted before and after, fuel 659,257,764 → 661,501,419 (+0.34%), 48,397 declarations with more (at most +19.7%: `String.lt_irrefl` 680 → 814) and 5 with less; Mathlib's first 1M lines fresh (against rule 1 alone): 13,023 accepted, fuel 68,235,044 → 68,731,666 (+0.73%, at most +29.8%: `self_mem_nhdsWithin` 2,151 → 2,792). Verdicts move
+only from or to *exhausted* near the budget; none moved on `Init` or the
+prefix.
+
+**Evidence.**
+- `tests/cli/cross_snapshot.py` (in `make check`, through
+  `tests/cli/export-check.sh`): nine fixtures, each checked fresh and
+  against a snapshot of each of the other eight, 72 pairs: every
+  declaration's verdict and fuel the same (before: unfold's `Implies`
+  34 → 38, nested `PProd`/`Prod` +6, sharing's `And` +6).
+- The review's p7 (`.claude/work/PF/b2/p7`): fresh and against the
+  snapshot both give `Implies` accepted with 34 and `impliesSelf`
+  exhausted.
+- `tests/core/check-declaration-ndjson.fs`: a let's lambda and a later
+  lambda of the same type and body are one node; with the audit memo on,
+  an input lambda, and the importer's level `succ 0`, are given back only
+  after an audit (a scope check) of this epoch reached them.
+- `tests/cli/jobs/renamed20.ndjson` (`gen.py renamed`: binders equal up
+  to their names, below new copies): the Jobs tests give the same output
+  serially and with workers, and the workers are made.
+- Planted faults `pf-binder-class-split`, `pf-findable-always`,
+  `pf-findable-held-any-epoch`, `pf-level-findable-always`,
+  `pf-level-reached-no-mark`, `pf-shared-merge-missed` (all caught) and
+  the re-targeted `s5-feed-binders-not-entered`.
+- Mathlib's first 1M lines (`.claude/work/SN4/ml1m.ndjson`) fresh and
+  against `Init`'s snapshot written by this build (verdict version 4;
+  `.claude/work/PF/b4`, and again on the merge with the shared input,
+  `PF/b5`, with the same fuel per declaration): every one of the 13,023
+  declarations has the
+  same verdict and fuel (1,108 taken, 11,571 checked on taken slots, 344
+  checked alone), the same counts and exit status, total fuel 68,731,666
+  in both (2,151 differed at SN4, 1,292 with rule 1 alone, 7 with rules 1
+  and 2). The 5,231 names in both `Init`'s export and the prefix use the
+  same fuel fresh in each (931 differed with rule 1 alone; `Init` was
+  checked with 8 workers, the prefix with one).
+- The golden snapshot fields of the ten guarded exports
+  (`tests/cli/golden-snapshots`) are written again with verdict version 4.
+
 ## Note: the projection steps (plan task 5.2.2, 2026-11-10)
 
 The Q8 row "Projections: `reduce_proj`, step 8, `try_unfold_proj_app`"

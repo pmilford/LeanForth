@@ -697,11 +697,11 @@ accepted: 6 (experimental, not independently audited); axioms: none
 resources:
   time (s)     wall      cpu
   input: 6 declarations, 92 term nodes, 3 levels, 5 constant references, 31 names
-  fuel: 508 steps in all, at most 100000000 per declaration
+  fuel: 514 steps in all, at most 100000000 per declaration
   most fuel used:
           244 Two.cases (accepted)
           157 Two (accepted)
-          107 Two.swap (accepted)
+          113 Two.swap (accepted)
 ```
 
 **Fuel**, a check's unit of work, is read from the checker's own counters
@@ -814,7 +814,7 @@ Two.first: accepted (experimental, not independently audited; from snapshot, not
 ...
 6 declarations: 6 accepted
 accepted: 6 (experimental, not independently audited); axioms: none
-snapshot: two.lfsnap (sha256 9aa54473…), export sha256 5c14b3b4…, verdict version 3, written by LeanForth 03c68bd2…: 6 results taken from it, not re-checked in this run
+snapshot: two.lfsnap (sha256 9aa54473…), export sha256 5c14b3b4…, verdict version 4, written by LeanForth 03c68bd2…: 6 results taken from it, not re-checked in this run
 note: development and research mode: a final run re-checks everything from the
 note: export and reads no snapshot; only its results support a claim
 ```
@@ -888,19 +888,16 @@ taken one. On the test exports the verdicts and counts are those of a
 final check of the export (the tests compare both, field by field, and so
 did all of `Init` against its own snapshot); only the labels differ.
 
-**Not claimed (review rvSN4 B1, a kernel task in progress):** the fuel a
-check uses today also depends on how the run numbers the tier's records
-(the binder table and the cache keys follow the other records of the
-tier), so a taken declaration reports the fuel of the run that wrote the
-snapshot, which can differ from a final check's by a few percent
-(measured on Mathlib's first million lines against `Init`'s snapshot),
-and a verdict that depends on fuel can differ too: a declaration accepted
-near its fuel budget in the snapshot's run may be *exhausted* in a final
-check of the export (or the reverse), and a declaration checked here that
-rests on it may get another verdict than in a final check. An exhausted
-verdict is never taken; until fuel is independent of the numbering,
-results taken from a snapshot equal a final check's in neither fuel nor
-verdicts near the fuel budget:
+**Fuel too** (since 2026-11-11, review rvSN4 B1, ADR 0014 Amendment 7):
+the fuel a check uses depends only on its declaration and what it reads,
+not on what else the run's tier holds (before, it could, through binders
+equal up to their names and through terms a check made that matched
+other declarations' records), so a taken declaration's fuel, the
+snapshot run's, is a final check's, and so is a verdict near the fuel
+budget (`tests/cli/cross_snapshot.py` checks nine fixtures, each fresh
+and against the others' snapshots; on Mathlib's first million lines
+against `Init`'s snapshot all 13,023 declarations used the final check's
+fuel). An exhausted verdict is still never taken:
 
 ```text
 Two: accepted (experimental, not independently audited; from snapshot, not re-checked in this run); axioms: none
@@ -954,8 +951,8 @@ The report names each layer loaded, after the snapshot's line (and in
 JSON in `snapshot.layers`):
 
 ```text
-snapshot: two.lfsnap (sha256 9aa54473…), export sha256 5c14b3b4…, verdict version 3, written by LeanForth 03c68bd2…: 13 results taken from it and its layers, not re-checked in this run
-layer: dep.lfsnap (sha256 2e727cd4…), export sha256 0a286479…, verdict version 3, on the snapshot above
+snapshot: two.lfsnap (sha256 9aa54473…), export sha256 5c14b3b4…, verdict version 4, written by LeanForth 03c68bd2…: 13 results taken from it and its layers, not re-checked in this run
+layer: dep.lfsnap (sha256 2e727cd4…), export sha256 0a286479…, verdict version 4, on the snapshot above
 ```
 
 Refused (status 4, nothing listed): a layer written on another base

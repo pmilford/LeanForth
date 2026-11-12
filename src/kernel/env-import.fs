@@ -20,7 +20,8 @@
 \    member only when the whole block is equal (its block record and every
 \    member) and k and d hold the same place in it;
 \ 2. a reproducible verdict: d's outcome is neither full nor invalid, nor
-\    exhausted (fuel used depends on the tier's numbering too; below);
+\    exhausted (kept from when fuel used depended on what else the tier
+\    held; below);
 \ 3. the same answers: every lookup S recorded for d, asked again in k's
 \    snapshot by the environment's own code (environment.fs
 \    lf-env-replay), gives the recorded answer, every slot it returns
@@ -47,19 +48,16 @@
 \ answers with the slots they return; by induction over the input's order
 \ every slot those answers return was taken from the one S's check saw.
 \ It vouches for nothing more than ADR 0020 D4 says a snapshot does. A
-\ taken slot's diagnostic is S's (information only, never compared). I2
-\ does not hold for fuel used today: checked against Init's snapshot, a
-\ Mathlib prefix's checks used a few percent more or less fuel than in its
-\ fresh check (the tier numbers its records otherwise), with the same
-\ verdicts; so a taken slot reports S's run's fuel, and an exhausted one
-\ is never taken (I1.2). That guards one direction only (review rvSN4
-\ B1): a slot S accepted near its budget may be exhausted in a fresh
-\ check of the export, and a declaration checked here that rests on it may
-\ get another verdict than fresh; so until fuel is independent of the
-\ numbering (a kernel task, agent PF: the binder table of terms.fs and the
-\ cache keys of caches.fs), a taken slot equals a fresh check's in its
-\ verdict only when no check near its fuel budget is involved, and never
-\ claims equal fuel.
+\ taken slot's diagnostic is S's (information only, never compared). Fuel
+\ is one of those fields since agent PF's rules (ADR 0014 Amendment 7;
+\ review rvSN4 B1, which found it depended on the other records of the
+\ tier): each == class of input binders is one node (import/feed.fs), and
+\ in a check a node or level made before the check is given for an equal
+\ one only once the check reached it (check-declaration.fs). So a taken
+\ slot's fuel, S's run's, is a fresh check's (tests/cli/cross_snapshot.py:
+\ nine fixtures pairwise; Mathlib's first 1M lines against Init's
+\ snapshot: all 13,023 declarations with the fresh check's fuel). An
+\ exhausted slot is still never taken (I1.2), a rule kept.
 \
 \ The import path never checks that S's lookup lists are ascending and
 \ distinct (only the loader of a snapshot alone does, snap-same? after

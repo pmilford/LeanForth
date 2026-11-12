@@ -5,6 +5,12 @@ wide K:      K theorems tK : forall A : Prop, A -> A := fun A a => a (independen
 chainK K:    def c0 : Prop -> Prop := fun A => A; def c(k+1) := fun A => ck A  (a chain
              of K definitions, each unfolding to the one before), then K theorems
              using the last one, each needing the whole chain unfolded.
+renamed K:   theorem r0 : forall A0 : Prop, A0 -> A0 := fun A0 a0 => a0, then K-1
+             theorems rk : forall X : Prop, (forall Ak : Prop, Ak -> Ak) -> X -> X
+             := fun X h x => x, whose inner binders equal r0's up to their names;
+             the importer makes each such class one node (ADR 0014 Amendment 7),
+             so the binders h above them are new copies, which a worker must
+             make as the source did.
 dupl K:      def D : Prop -> Prop := fun A => A; def C := fun A => D A; K slow-ish
              filler theorems; a second `def D` (duplicate: rejected); then theorems
              that mention only C (unfolding meets D: the duplicate's slot is not in
@@ -50,7 +56,9 @@ class Ex:
         s.lines.append({"def": {"all": [n], "hints": {"regular": 1}, "levelParams": [], "name": n,
                                 "safety": "safe", "type": ty, "value": val}})
     def out(s):
-        return "".join(json.dumps(l, ensure_ascii=False, separators=(",", ":")) + "\n" for l in s.lines)
+        """The exporter's form: keys sorted (as wide60 and dupl80 are written)."""
+        return "".join(json.dumps(l, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+                       + "\n" for l in s.lines)
 
 def idthm(x):
     P = x.sort0()
@@ -61,6 +69,17 @@ def idthm(x):
 def wide(k):
     x = Ex(); ty, val = idthm(x)
     for i in range(k): x.thm(f"t{i}", ty, val)
+    return x
+
+def renamed(k):
+    x = Ex(); P = x.sort0()
+    x.thm("r0", x.pi("A0", P, x.pi("a0", x.bvar(0), x.bvar(1))),
+          x.lam("A0", P, x.lam("a0", x.bvar(0), x.bvar(0))))
+    for i in range(1, k):
+        idty = x.pi(f"A{i}", P, x.pi(f"a{i}", x.bvar(0), x.bvar(1)))
+        ty = x.pi("X", P, x.pi("h", idty, x.pi("x", x.bvar(1), x.bvar(2))))
+        val = x.lam("X", P, x.lam("h", idty, x.lam("x", x.bvar(1), x.bvar(0))))
+        x.thm(f"r{i}", ty, val)
     return x
 
 def p2p(x):
@@ -93,4 +112,5 @@ def dupl(k):
 
 if __name__ == "__main__":
     kind, k = sys.argv[1], int(sys.argv[2])
-    sys.stdout.write({"wide": wide, "chain": chain, "dupl": dupl}[kind](k).out())
+    sys.stdout.write({"wide": wide, "chain": chain, "dupl": dupl,
+                      "renamed": renamed}[kind](k).out())

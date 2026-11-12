@@ -69,6 +69,10 @@ reproduce sibling LeanForthSibling Two.swap_first Two.swap_first Two.swap_second
 # shared-depths.lean: 25 rows (rvS36 P1, P2; agent PF P3) checked by pinned Lean's kernel; the
 # script compares LeanForth's verdict on each export, with the audit memo on and off.
 python3 -I tests/cli/shared_depths.py "$lean"
+# Fuel independent of the tier's numbering (review rvSN4 B1, agent PF): nine
+# fixtures, each checked fresh and against a snapshot of each of the others,
+# every declaration with the same verdict and fuel.
+python3 -I tests/cli/cross_snapshot.py
 printf '%s\n' 'Lean accepts chain, impliesSelf, Two.cases, Two.swap, irrelevant,' \
   'sharedAnd, sharedBeta, sharing, sharedAndU, useU and the nested blocks of' \
   'nested.lean, Two.swap_swap, Two.swap_swap_first, Two.cases_first, Two.swap_first' \

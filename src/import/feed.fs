@@ -68,7 +68,8 @@
 \ beside or above: its levels (made as the source made them, so equal
 \ numbers and identities), the level context, the session, its literals'
 \ limbs and bytes (copied: a few kilobytes) and the copies of mdata
-\ expressions and the nodes above them, if the source made any. Its
+\ expressions, of binders the source gave an earlier binder of their ==
+\ class, and of the nodes above them, if the source made any. Its
 \ input's fingerprint is then the source's (cli/check-run.fs checks it).
 \
 \ State: none of its own; every word takes a feed record (/feed), which
@@ -408,10 +409,27 @@ lf-form-mdata tag-mdata feed-form!
 \ table (core/terms.fs), so that a binder made equal to it is it (a
 \ binder a copy or a check makes; before step S5's parts 4-5 a let's
 \ lambda copied before the binder's own number came up: 47 such binders
-\ in Init cost 22 of its declarations more fuel without this pass). The
-\ second makes the copies and the leaves' fields.
+\ in Init cost 22 of its declarations more fuel without this pass); a
+\ binder == to one entered before it is marked to copy instead (below).
+\ The second makes the copies and the leaves' fields.
+\ A binder read in place that is == to one entered before it (the same tag
+\ and children, another binder name or information) is copied instead,
+\ and the copy is that earlier binder (lf-term-add finds it in the binder
+\ table), so that every == class of input binders is one node and so is
+\ every node above them: a check no longer meets another declaration's
+\ or a snapshot's record of a binder's class (review rvSN4 B1; ADR 0014
+\ Amendment 7, rule 1; rules 2 and 3 are terms.fs's and levels.fs's). Only
+\ without a binder hook: the print command, which sets one, keeps each
+\ binder's own name.
+: feed-merging? ( feed -- flag ) feed-binder-hook @ 0= ;
+: feed-redirect? ( feed first? -- flag ) 0= swap feed-merging? and ;
+: feed-merge ( e feed first? outcome -- outcome )
+  dup ok? 0= if >r drop 2drop r> exit then drop
+  over swap feed-redirect? if feed-dirty! else 2drop then outcome-ok ;
+: feed-enter-binder ( e feed -- outcome )
+  over lf-tin-child lf-term-input-binder-first feed-merge ;
 : feed-enter ( e feed tag -- outcome )
-  dup binder-tag? if 2drop lf-tin-child lf-term-input-binder exit then
+  dup binder-tag? if drop feed-enter-binder exit then
   let-tag? if drop 2* lf-term-input-binder else 2drop outcome-ok then ;
 : feed-mark ( e feed -- outcome )
   2dup feed-tier expr-tag@ >r 2dup r@ feed-to-copy?
@@ -622,9 +640,19 @@ here feed-shares - 1 cells / constant feed-shares#
 \ The copies: the same expressions marked (no binder entered: the table
 \ is the source's) and copied, each with the horizon of its expression
 \ (core/terms.fs's lf-term-horizon!), so that it finds only the leaves
-\ the source's feed had entered when it made that copy.
+\ the source's feed had entered when it made that copy. A binder the
+\ source gave an earlier one of its == class (feed-merge, above; the
+\ source has no binder hook: the print command, which sets one, makes no
+\ workers) is one whose class the source's table holds another binder
+\ for; without it the worker's copies, and so its fingerprint, would not
+\ be the source's and no worker could be made.
+: feed-was-merged? ( e feed tag -- flag )
+  binder-tag? if drop lf-tin-child lf-term-input-binder-merged? else 2drop false then ;
+: feed-shared-copy? ( e feed tag -- flag )
+  >r 2dup r@ feed-to-copy? if 2drop r> drop true else r> feed-was-merged? then ;
 : feed-mark-copy ( e feed -- outcome )
-  2dup 2dup feed-tier expr-tag@ feed-to-copy? if feed-dirty! else 2drop then outcome-ok ;
+  2dup 2dup feed-tier expr-tag@ feed-shared-copy? if feed-dirty! else 2drop then
+  outcome-ok ;
 : feed-place-copy ( e feed -- outcome )
   2dup feed-dirty? 0= if 2drop outcome-ok exit then over 2* lf-term-horizon! feed-expr ;
 : feed-made-copies? ( feed -- flag )

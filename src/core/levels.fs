@@ -75,8 +75,15 @@ store-header context-record: lf-levels
 3 cells context-record: lf-level-key   \ the record sought: tag first second
 : lf-level-hash ( tag first second -- h ) rot hash-fmix rot hash-step swap hash-step ;
 : lf-level-rehash ( n htab -- h ) drop lf-level-slot node@ lf-level-hash ;
+\ Whether level n may be given for a record made equal to it: a hook, by
+\ default always; kernel/check-declaration.fs sets it so that in a check a
+\ level made before it is given only once the check reached it, as for
+\ terms (terms.fs's lf-term-findable?; agent PF, ADR 0014 Amendment 7).
+defer lf-level-findable? ( n -- flag )
+:noname ( n -- flag ) drop true ; is lf-level-findable?
 : lf-level-same ( n key htab -- flag )
   drop over lf-levels store-at? 0= if 2drop false exit then
+  over lf-level-findable? 0= if 2drop false exit then
   >r lf-level-slot node@ r> lf-term-key= ;
 create lf-level-hooks /htab-hooks allot
 ' lf-level-rehash ' lf-level-same lf-level-hooks htab-hooks!

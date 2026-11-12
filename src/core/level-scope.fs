@@ -135,9 +135,16 @@ lf-level-walk-room context-walk: lf-lscope-walk
   lf-lscope-context-valid? swap lf-level-root? and lf-lscope-zero-ok? and ;
 : lf-lscope-run ( root -- status )
   ['] lf-lscope-visit lf-lscope-walk walk-run lf-lscope-walk lf-lscope-site lf-diag-walk ;
+\ A root found in scope is passed to the hook lf-lscope-reached ( root -- ),
+\ by default nothing; core/constant-term-boundary.fs keeps it as reached
+\ in this check (agent PF, ADR 0014 Amendment 7).
+defer lf-lscope-reached ( root -- )
+' drop is lf-lscope-reached
+: lf-lscope-noted ( root status -- status )
+  dup ok? if swap lf-lscope-reached else nip then ;
 : lf-lscope-check ( root fuel -- status )
   lf-lscope-walk walk-budget 0= if drop-invalid exit then
-  dup lf-lscope-ready? if lf-lscope-run else drop-invalid then ;
+  dup lf-lscope-ready? if dup lf-lscope-run lf-lscope-noted else drop-invalid then ;
 
 \ Check a level from inside another walk, charging that walk's fuel and
 \ continuing with the fuel the level check leaves.

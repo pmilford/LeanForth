@@ -7463,6 +7463,46 @@ new = '''  lf-word-facts 0= if false exit then 2drop 0 true ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "6.5.5 (PF): every closed copy read from its data word gets one key, so an open term finds another's inferred type"
 
+[[fault]]
+id = "pf-binder-class-split"
+file = "src/import/feed.fs"
+old = ''': feed-redirect? ( feed first? -- flag ) 0= swap feed-merging? and ;'''
+new = ''': feed-redirect? ( feed first? -- flag ) 2drop false ;'''
+test = "python3 tests/cli/cross_snapshot.py $GFORTH"
+reason = "rvSN4 B1 (PF): == binders stay separate nodes, so a binder a check makes is the tier's first of its class and fuel depends on the other records"
+
+[[fault]]
+id = "pf-findable-always"
+file = "src/kernel/check-declaration.fs"
+old = '''  dup lf-check-before? if lf-audit-reached? else drop true then ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "rvSN4 B1 (PF): a check is given input nodes it never reached, so the other records of the tier change its hits and fuel"
+
+[[fault]]
+id = "pf-findable-held-any-epoch"
+file = "src/core/constant-term-boundary.fs"
+old = '''  lf-audit-on? 0= if drop false exit then lf-audit-held? ;'''
+new = '''  lf-audit-on? 0= if drop false exit then drop true ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "rvSN4 B1 (PF): every node made before the check counts as reached, so the rule never holds one back"
+
+[[fault]]
+id = "pf-level-findable-always"
+file = "src/kernel/check-declaration.fs"
+old = '''  dup lf-check-level-before? if lf-audit-level-reached? else drop true then ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "rvSN4 B1 (PF): a check is given levels it never reached, so the tier's other levels change its level-scope memo hits and fuel"
+
+[[fault]]
+id = "pf-level-reached-no-mark"
+file = "src/core/constant-term-boundary.fs"
+old = '''' lf-audit-level-mark is lf-lscope-reached'''
+new = '''' drop is lf-lscope-reached'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "rvSN4 B1 (PF): a level found in scope is not kept as reached, so the check never gets the importer's levels back"
+
 # --- compact-store plan step S4 (agent S4) ---------------------------------
 [[fault]]
 id = "cache-dead-fvar"
@@ -7902,7 +7942,7 @@ reason = "S5: with no setting the scratch room stays fixed (1,048,576 term nodes
 [[fault]]
 id = "s5-feed-binders-not-entered"
 file = "src/import/feed.fs"
-old = '''  dup binder-tag? if 2drop lf-tin-child lf-term-input-binder exit then'''
+old = '''  dup binder-tag? if drop feed-enter-binder exit then'''
 new = '''  dup binder-tag? if 2drop drop outcome-ok exit then'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "S5: binders read in place are not entered first, so a binder made equal to one is a second node (more fuel than copying)"
@@ -8809,3 +8849,11 @@ old = '''  loop 2drop 2r> swap dep-sort ;'''
 new = '''  loop 2drop 2r> 2drop ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
 reason = "SN4: a layer's dependencies written in the order of the run's slots, not ascending as numbered in the layer"
+
+[[fault]]
+id = "pf-shared-merge-missed"
+file = "src/import/feed.fs"
+old = '''  >r 2dup r@ feed-to-copy? if 2drop r> drop true else r> feed-was-merged? then ;'''
+new = '''  feed-to-copy? ;'''
+test = "python3 tests/cli/test_leanforth.py Jobs.test_workers_share_merged_binders"
+reason = "rvSN4 B1 (PF) with the shared input: a worker does not copy the binders the source merged, so its fingerprint is not the source's and no worker is made"
