@@ -30,7 +30,7 @@ require ./notation-table.fs
   lf-pp-const-name if lf-pn-spell else 0 then ;
 \ The row if the application has as many arguments as the row says.
 : lf-pn-sized ( row n -- row | 0 )
-  over 0= if nip exit then over lf-nt-arity @ <> if drop 0 then ;
+  over 0= if drop exit then over lf-nt-arity @ <> if drop 0 then ;
 : lf-pn-mode-sym ( row -- c-addr u ) lf-pp-mode lf-nt-sym ;
 : lf-pn-spelt? ( row -- flag ) lf-pn-mode-sym nip 0<> ;
 \ A numeral's argument is a literal that fits a cell; ∃ needs a lambda.

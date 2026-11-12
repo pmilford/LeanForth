@@ -117,6 +117,7 @@ end-structure
 \ none of them or for an empty list.
 : pr-form-bit ( c-addr u -- bit )
   2dup s" lean" compare 0= if 2drop lf-form-lean exit then
+  2dup s" text" compare 0= if 2drop lf-form-text exit then
   2dup s" mathematics" compare 0= if 2drop lf-form-mathematics exit then
   2dup s" leanforth" compare 0= if 2drop lf-form-leanforth exit then
   s" all" compare 0= if lf-forms-all else 0 then ;

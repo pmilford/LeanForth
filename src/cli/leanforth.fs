@@ -149,6 +149,7 @@ begin-structure /cli-run
   field: opt-latex              \ true: print's outlines as LaTeX (--latex)
   field: opt-forms              \ print's statement forms (--statement), 0: all
   field: opt-lf                 \ true: print writes the export as LeanForth text (--lf)
+  field: opt-kernel             \ true: print terms as the kernel has them, no notation (--kernel)
   field: opt-strict             \ true: NOT PROVED gives exit 6 (--strict-axioms)
   field: opt-any-lean           \ true: an export of any Lean version (--any-lean-version)
   field: opt-jobs               \ workers that check at once (--jobs); 0, 1: one
@@ -962,6 +963,7 @@ variable cli-info#
 \ The outline's style and the names it shows, set before the run.
 : cli-style ( -- )
   cli-state opt-latex @ lf-outline-latex!
+  cli-state opt-kernel @ 0= lf-print-notation!
   cli-state opt-forms @ ?dup 0= if lf-forms-all then lf-forms!
   ['] nt-name ['] nt-text lf-outline-names! ;
 \ The log on for the run, and off again after it, also after a THROW.
@@ -1238,6 +1240,7 @@ end-structure
 65536 constant takes-progress
 262144 constant takes-stale
 524288 constant takes-memory
+1048576 constant takes-kernel
 : cli-value ( c-addr u -- c-addr' u' true | false )
   cli-arg if 2swap 2drop true else c" an option without its value" cli-wrong false then ;
 \ A decimal number from 0 to max-n with nothing else: (n true) or false.
@@ -1282,6 +1285,7 @@ end-structure
 : cli-fast-option ( c-addr u -- ) 2drop ;
 : cli-checked-option ( c-addr u -- ) 2drop ;
 : cli-lf-option ( c-addr u -- ) 2drop true cli-state opt-lf ! ;
+: cli-kernel-option ( c-addr u -- ) 2drop true cli-state opt-kernel ! ;
 : cli-any-lean-option ( c-addr u -- ) 2drop cli-any-lean ;
 \ --jobs N, N at least 1; check-run.fs cuts it to the cores. The workers share
 \ one input; each holds its own scratch and caches.
@@ -1328,6 +1332,7 @@ create cli-option-table
   ' cli-fast-option takes-fast 0 cli-entry, --fast
   ' cli-checked-option takes-checked 0 cli-entry, --checked
   ' cli-lf-option takes-lf 0 cli-entry, --lf
+  ' cli-kernel-option takes-kernel 0 cli-entry, --kernel
   ' cli-any-lean-option takes-any-lean 0 cli-entry, --any-lean-version
   ' cli-jobs-option takes-jobs 0 cli-entry, --jobs
   ' cli-save-option takes-save 0 cli-entry, --save-snapshot
@@ -1360,7 +1365,7 @@ takes-any-lean or takes-jobs or takes-save or takes-snapshot or takes-progress o
 takes-memory or constant check-set
 checking-set constant replay-set
 checking-set takes-detail or takes-name or takes-latex or takes-statement or
-takes-lf or takes-any-lean or constant print-set
+takes-lf or takes-any-lean or takes-kernel or constant print-set
 create cli-commands
   ' check-command 1 check-set cli-entry, check
   ' replay-command 2 replay-set cli-entry, replay

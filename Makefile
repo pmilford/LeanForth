@@ -508,6 +508,7 @@ test-present:
 	$(RUN) $(GFORTH) tests/present/term-printer.fs
 	$(RUN) $(GFORTH) tests/present/print-sweep.fs
 	$(RUN) $(GFORTH) tests/present/print-deep.fs
+	$(RUN) $(GFORTH) tests/present/notation.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/present/test_outline_block.py
 	GFORTH=$(GFORTH) $(RUN) python3 tests/present/check_golden.py
 
