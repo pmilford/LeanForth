@@ -94,7 +94,7 @@ DIFFERENTIAL_TARGETS := \
 	test-memory-reference-differential test-memory-frame-differential \
 	test-printer-differential
 
-.PHONY: test test-differential check check-docs check-doc-examples check-lean-sources \
+.PHONY: test test-differential check check-docs check-doc-examples check-lean-sources check-forth-quality \
 	check-portable-forth smoke \
 	test-harness test-lib test-core \
 	test-composition-fixture test-program test-present profile-existing profile-history \
@@ -103,7 +103,7 @@ DIFFERENTIAL_TARGETS := \
 # Gforth and Python 3 only; run on every CI host and before every commit.
 # The slowest targets first (see check below).
 test: test-core test-composition-fixture test-bignum test-run-records test-environment
-test: check-docs check-lean-sources check-portable-forth smoke test-harness test-lib test-core \
+test: check-docs check-lean-sources check-portable-forth check-forth-quality smoke test-harness test-lib test-core \
 	test-composition-fixture test-program test-present check-doc-examples
 
 # Fails on broken documentation links or missing docs/ paths.
@@ -132,6 +132,12 @@ check-lean-sources:
 # (docs/development/FORTH_STYLE.md, section 8).
 check-portable-forth:
 	$(RUN) python3 scripts/check-portable-forth.py
+
+# Forth review log and style ratchet (docs/development/forth-reviews/LOG.md,
+# tests/forth-quality-baseline.json): fails on main for an unreviewed Forth change.
+check-forth-quality:
+	$(RUN) python3 tests/scripts/test_check_forth_quality.py
+	$(RUN) python3 scripts/check-forth-quality.py
 
 # Report-only Forth style metrics (word length, globals, locals, shuffling);
 # see docs/development/FORTH_STYLE.md. Never fails on style.

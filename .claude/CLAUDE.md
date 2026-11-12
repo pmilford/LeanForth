@@ -50,7 +50,10 @@ OpenAI Codex. Codex-era docs (`docs/project/CODEX_HANDOFF.md`, `prompts/FIRST_CO
 
 - `.claude/agents/forth-reviewer.md` is the Claude Code version of
   `.codex/agents/forth-reviewer.toml`; it follows `docs/development/FORTH_REVIEWER.md`.
-  Keep the two agent definitions in sync. Use it for meaningful Forth changes.
+  Keep the two agent definitions in sync. Run it on every branch that changes
+  Forth source before merging, save the report in `docs/development/forth-reviews/`
+  and log it there (`make test` enforces this on `main`). The same goes for
+  `.claude/agents/done-checker.md` before anything is called done.
 - An AI review alone never satisfies the review gates in `AGENTS.md`; the
   gate process and the owner's policy decisions are in `AGENTS.md` and
   `docs/project/OWNER_DECISIONS.md`. The owner is not a Lean expert: ask gate

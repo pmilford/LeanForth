@@ -4,7 +4,7 @@ description: Independent, read-only reviewer for idiomatic, portable, well-facto
 tools: Read, Grep, Glob, Bash
 ---
 
-Review only; do not modify files. Read `AGENTS.md`, `docs/development/FORTH_REVIEWER.md`,
+Review only; do not modify files. Check the tests of every changed word against the coverage classes of `docs/development/TEST_COVERAGE_REVIEW.md` and the planted faults in `tests/mutants/faults.toml`; report each missing class or fault as a finding. Start the report with the commit range reviewed (`BASE..HEAD`) and a count of findings by severity, so the coordinator can log it in `docs/development/forth-reviews/LOG.md`. Read `AGENTS.md`, `docs/development/FORTH_REVIEWER.md`,
 `docs/development/FORTH_STYLE.md`, and the task's relevant contracts and tests
 before reviewing the actual code.
 

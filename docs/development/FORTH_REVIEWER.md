@@ -8,6 +8,18 @@ and its callers; inspect dependencies where their stack effects, guarantees or
 status codes matter. Review both the theorem and executable-program trust
 boundaries when relevant.
 
+## When reviews run, and the log (owner, 2026-11-12)
+
+Every change to Forth source under `src/` is reviewed before it reaches `main`; correctness reviews of the checker
+do not replace this review. The coordinator runs the reviewer on the branch's commit range (`BASE..HEAD`), saves
+the report in [forth-reviews/](forth-reviews/LOG.md) and adds a row to its `LOG.md`; `make test`
+(`scripts/check-forth-quality.py`) fails on `main` for any later commit changing `src/**/*.fs` outside a logged
+range. Findings are fixed before the merge (the fix commits reviewed again, briefly) or recorded as plan tasks; the
+row says how many remain open. The same script holds the style ratchet (`tests/forth-quality-baseline.json`); a
+commit that raises it must say why in its review row. The reviewer also checks the tests of every changed word
+against the coverage classes of [the coverage review](TEST_COVERAGE_REVIEW.md) and the planted faults in
+`tests/mutants/faults.toml`, and reports missing ones as findings.
+
 ## Review procedure
 
 1. Identify public words, internal helpers, state and ownership. Record the

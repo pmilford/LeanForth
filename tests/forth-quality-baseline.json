@@ -1,0 +1,1258 @@
+{
+ "src/author/build.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 2,
+  "rstack": 52,
+  "shuffles": 16,
+  "words": 58
+ },
+ "src/author/constants.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 5
+ },
+ "src/author/declarations.fs": {
+  "globals": 0,
+  "long lines": 1,
+  "long words": 0,
+  "rstack": 35,
+  "shuffles": 11,
+  "words": 61
+ },
+ "src/author/errors.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 4,
+  "shuffles": 4,
+  "words": 26
+ },
+ "src/author/groups.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 29,
+  "shuffles": 5,
+  "words": 41
+ },
+ "src/author/namespaces.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 14,
+  "shuffles": 9,
+  "words": 46
+ },
+ "src/author/runner.fs": {
+  "globals": 1,
+  "long lines": 1,
+  "long words": 0,
+  "rstack": 10,
+  "shuffles": 4,
+  "words": 45
+ },
+ "src/author/scopes.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 2,
+  "shuffles": 0,
+  "words": 19
+ },
+ "src/author/source.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 22,
+  "shuffles": 6,
+  "words": 37
+ },
+ "src/author/values.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 1,
+  "rstack": 4,
+  "shuffles": 4,
+  "words": 28
+ },
+ "src/author/words.fs": {
+  "globals": 42,
+  "long lines": 1,
+  "long words": 0,
+  "rstack": 12,
+  "shuffles": 2,
+  "words": 44
+ },
+ "src/cli/check-json.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 3,
+  "rstack": 8,
+  "shuffles": 5,
+  "words": 83
+ },
+ "src/cli/check-run.fs": {
+  "globals": 18,
+  "long lines": 6,
+  "long words": 2,
+  "rstack": 69,
+  "shuffles": 13,
+  "words": 262
+ },
+ "src/cli/leanforth.fs": {
+  "globals": 8,
+  "long lines": 11,
+  "long words": 17,
+  "rstack": 25,
+  "shuffles": 11,
+  "words": 347
+ },
+ "src/cli/name-text.fs": {
+  "globals": 3,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 14,
+  "shuffles": 0,
+  "words": 34
+ },
+ "src/cli/print-lf.fs": {
+  "globals": 0,
+  "long lines": 4,
+  "long words": 2,
+  "rstack": 3,
+  "shuffles": 5,
+  "words": 35
+ },
+ "src/cli/print.fs": {
+  "globals": 0,
+  "long lines": 2,
+  "long words": 1,
+  "rstack": 25,
+  "shuffles": 11,
+  "words": 21
+ },
+ "src/cli/tally.fs": {
+  "globals": 3,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 2,
+  "words": 20
+ },
+ "src/core/axiom-allowlist.fs": {
+  "globals": 11,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 4,
+  "shuffles": 1,
+  "words": 19
+ },
+ "src/core/compact-exprs.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 108,
+  "shuffles": 16,
+  "words": 87
+ },
+ "src/core/compact-levels.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 33,
+  "shuffles": 3,
+  "words": 34
+ },
+ "src/core/compact-names.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 72,
+  "shuffles": 15,
+  "words": 44
+ },
+ "src/core/compact-tier.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 19,
+  "shuffles": 7,
+  "words": 31
+ },
+ "src/core/compact.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 4,
+  "shuffles": 0,
+  "words": 4
+ },
+ "src/core/constant-references.fs": {
+  "globals": 1,
+  "long lines": 1,
+  "long words": 4,
+  "rstack": 41,
+  "shuffles": 21,
+  "words": 91
+ },
+ "src/core/constant-term-boundary.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 2,
+  "rstack": 33,
+  "shuffles": 16,
+  "words": 128
+ },
+ "src/core/constant-term-scope.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 1,
+  "rstack": 4,
+  "shuffles": 1,
+  "words": 18
+ },
+ "src/core/derivation-log.fs": {
+  "globals": 6,
+  "long lines": 0,
+  "long words": 5,
+  "rstack": 87,
+  "shuffles": 33,
+  "words": 209
+ },
+ "src/core/diagnostics.fs": {
+  "globals": 1,
+  "long lines": 1,
+  "long words": 0,
+  "rstack": 20,
+  "shuffles": 4,
+  "words": 30
+ },
+ "src/core/generation-handles.fs": {
+  "globals": 1,
+  "long lines": 8,
+  "long words": 0,
+  "rstack": 16,
+  "shuffles": 2,
+  "words": 44
+ },
+ "src/core/input.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 2,
+  "rstack": 11,
+  "shuffles": 12,
+  "words": 113
+ },
+ "src/core/let-terms.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 11
+ },
+ "src/core/level-scope.fs": {
+  "globals": 0,
+  "long lines": 2,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 2,
+  "words": 47
+ },
+ "src/core/levels.fs": {
+  "globals": 2,
+  "long lines": 2,
+  "long words": 1,
+  "rstack": 13,
+  "shuffles": 10,
+  "words": 56
+ },
+ "src/core/literals.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 23,
+  "shuffles": 3,
+  "words": 22
+ },
+ "src/core/local-context.fs": {
+  "globals": 0,
+  "long lines": 3,
+  "long words": 0,
+  "rstack": 8,
+  "shuffles": 1,
+  "words": 29
+ },
+ "src/core/name-equal.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 1,
+  "words": 8
+ },
+ "src/core/names.fs": {
+  "globals": 2,
+  "long lines": 10,
+  "long words": 0,
+  "rstack": 21,
+  "shuffles": 2,
+  "words": 86
+ },
+ "src/core/projections.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 1,
+  "words": 11
+ },
+ "src/core/scratch-marks.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 30
+ },
+ "src/core/scratch-meter.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 2,
+  "shuffles": 0,
+  "words": 18
+ },
+ "src/core/statement-match.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 2,
+  "rstack": 30,
+  "shuffles": 29,
+  "words": 94
+ },
+ "src/core/string-literals.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 7,
+  "shuffles": 3,
+  "words": 11
+ },
+ "src/core/symbolic-session.fs": {
+  "globals": 0,
+  "long lines": 3,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 15
+ },
+ "src/core/tagged-sort-boundary.fs": {
+  "globals": 0,
+  "long lines": 1,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 1,
+  "words": 16
+ },
+ "src/core/terms.fs": {
+  "globals": 8,
+  "long lines": 1,
+  "long words": 4,
+  "rstack": 60,
+  "shuffles": 34,
+  "words": 192
+ },
+ "src/core/unsupported-forms.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 2
+ },
+ "src/import/checker-input.fs": {
+  "globals": 5,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 43,
+  "shuffles": 5,
+  "words": 104
+ },
+ "src/import/feed.fs": {
+  "globals": 6,
+  "long lines": 2,
+  "long words": 4,
+  "rstack": 170,
+  "shuffles": 46,
+  "words": 177
+ },
+ "src/import/load.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 5,
+  "shuffles": 1,
+  "words": 20
+ },
+ "src/import/manifest.fs": {
+  "globals": 4,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 100,
+  "shuffles": 19,
+  "words": 77
+ },
+ "src/import/ndjson-count.fs": {
+  "globals": 4,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 20,
+  "shuffles": 3,
+  "words": 60
+ },
+ "src/import/ndjson-emit.fs": {
+  "globals": 33,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 16,
+  "shuffles": 6,
+  "words": 158
+ },
+ "src/import/ndjson.fs": {
+  "globals": 80,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 253,
+  "shuffles": 45,
+  "words": 251
+ },
+ "src/import/run-record.fs": {
+  "globals": 1,
+  "long lines": 1,
+  "long words": 0,
+  "rstack": 37,
+  "shuffles": 11,
+  "words": 155
+ },
+ "src/import/run-replay.fs": {
+  "globals": 4,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 48,
+  "shuffles": 19,
+  "words": 91
+ },
+ "src/import/snapshot-layer.fs": {
+  "globals": 4,
+  "long lines": 0,
+  "long words": 8,
+  "rstack": 146,
+  "shuffles": 83,
+  "words": 90
+ },
+ "src/import/snapshot-tier.fs": {
+  "globals": 7,
+  "long lines": 3,
+  "long words": 3,
+  "rstack": 137,
+  "shuffles": 36,
+  "words": 185
+ },
+ "src/import/stage-records.fs": {
+  "globals": 12,
+  "long lines": 0,
+  "long words": 4,
+  "rstack": 143,
+  "shuffles": 39,
+  "words": 140
+ },
+ "src/import/stage.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 2,
+  "rstack": 32,
+  "shuffles": 16,
+  "words": 79
+ },
+ "src/kernel/caches.fs": {
+  "globals": 1,
+  "long lines": 1,
+  "long words": 1,
+  "rstack": 47,
+  "shuffles": 20,
+  "words": 111
+ },
+ "src/kernel/check-block.fs": {
+  "globals": 4,
+  "long lines": 0,
+  "long words": 2,
+  "rstack": 36,
+  "shuffles": 4,
+  "words": 186
+ },
+ "src/kernel/check-declaration.fs": {
+  "globals": 3,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 12,
+  "shuffles": 0,
+  "words": 89
+ },
+ "src/kernel/defeq.fs": {
+  "globals": 0,
+  "long lines": 7,
+  "long words": 5,
+  "rstack": 469,
+  "shuffles": 29,
+  "words": 229
+ },
+ "src/kernel/env-import.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 4,
+  "rstack": 68,
+  "shuffles": 51,
+  "words": 98
+ },
+ "src/kernel/env-layers.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 5,
+  "rstack": 88,
+  "shuffles": 63,
+  "words": 81
+ },
+ "src/kernel/env-publish.fs": {
+  "globals": 1,
+  "long lines": 1,
+  "long words": 0,
+  "rstack": 46,
+  "shuffles": 8,
+  "words": 145
+ },
+ "src/kernel/env-schedule.fs": {
+  "globals": 3,
+  "long lines": 3,
+  "long words": 2,
+  "rstack": 39,
+  "shuffles": 14,
+  "words": 179
+ },
+ "src/kernel/env-signature.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 1,
+  "rstack": 6,
+  "shuffles": 3,
+  "words": 36
+ },
+ "src/kernel/env-snapshot.fs": {
+  "globals": 6,
+  "long lines": 0,
+  "long words": 7,
+  "rstack": 194,
+  "shuffles": 119,
+  "words": 209
+ },
+ "src/kernel/environment.fs": {
+  "globals": 5,
+  "long lines": 0,
+  "long words": 3,
+  "rstack": 88,
+  "shuffles": 27,
+  "words": 314
+ },
+ "src/kernel/generated-recursor.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 5,
+  "rstack": 11,
+  "shuffles": 5,
+  "words": 35
+ },
+ "src/kernel/inductive-block.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 5,
+  "rstack": 16,
+  "shuffles": 7,
+  "words": 168
+ },
+ "src/kernel/inductive-nested.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 7,
+  "rstack": 60,
+  "shuffles": 20,
+  "words": 138
+ },
+ "src/kernel/inductive-recursor.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 2,
+  "rstack": 27,
+  "shuffles": 16,
+  "words": 112
+ },
+ "src/kernel/infer-proj.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 3,
+  "rstack": 36,
+  "shuffles": 18,
+  "words": 33
+ },
+ "src/kernel/iota.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 11,
+  "rstack": 129,
+  "shuffles": 43,
+  "words": 77
+ },
+ "src/kernel/level-compare.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 5,
+  "shuffles": 5,
+  "words": 28
+ },
+ "src/kernel/level-geq.fs": {
+  "globals": 0,
+  "long lines": 1,
+  "long words": 1,
+  "rstack": 45,
+  "shuffles": 5,
+  "words": 22
+ },
+ "src/kernel/level-make.fs": {
+  "globals": 2,
+  "long lines": 1,
+  "long words": 3,
+  "rstack": 22,
+  "shuffles": 11,
+  "words": 82
+ },
+ "src/kernel/level-normalize.fs": {
+  "globals": 0,
+  "long lines": 9,
+  "long words": 0,
+  "rstack": 58,
+  "shuffles": 22,
+  "words": 110
+ },
+ "src/kernel/level-substitute.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 2,
+  "rstack": 29,
+  "shuffles": 12,
+  "words": 74
+ },
+ "src/kernel/level-value.fs": {
+  "globals": 0,
+  "long lines": 3,
+  "long words": 1,
+  "rstack": 27,
+  "shuffles": 5,
+  "words": 65
+ },
+ "src/kernel/mixed-beta.fs": {
+  "globals": 0,
+  "long lines": 1,
+  "long words": 0,
+  "rstack": 16,
+  "shuffles": 3,
+  "words": 26
+ },
+ "src/kernel/mixed-compare.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 1,
+  "rstack": 68,
+  "shuffles": 9,
+  "words": 74
+ },
+ "src/kernel/mixed-convert.fs": {
+  "globals": 0,
+  "long lines": 1,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 3,
+  "words": 21
+ },
+ "src/kernel/mixed-definition-probe.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 12,
+  "shuffles": 4,
+  "words": 30
+ },
+ "src/kernel/mixed-head.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 1,
+  "rstack": 2,
+  "shuffles": 0,
+  "words": 7
+ },
+ "src/kernel/mixed-infer.fs": {
+  "globals": 0,
+  "long lines": 9,
+  "long words": 2,
+  "rstack": 185,
+  "shuffles": 48,
+  "words": 202
+ },
+ "src/kernel/mixed-instantiate.fs": {
+  "globals": 0,
+  "long lines": 1,
+  "long words": 2,
+  "rstack": 10,
+  "shuffles": 6,
+  "words": 42
+ },
+ "src/kernel/mixed-level-substitute.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 2,
+  "rstack": 21,
+  "shuffles": 15,
+  "words": 90
+ },
+ "src/kernel/mixed-open.fs": {
+  "globals": 0,
+  "long lines": 1,
+  "long words": 1,
+  "rstack": 27,
+  "shuffles": 10,
+  "words": 73
+ },
+ "src/kernel/mixed-rebuild.fs": {
+  "globals": 0,
+  "long lines": 1,
+  "long words": 0,
+  "rstack": 25,
+  "shuffles": 6,
+  "words": 29
+ },
+ "src/kernel/mixed-shift.fs": {
+  "globals": 0,
+  "long lines": 1,
+  "long words": 1,
+  "rstack": 13,
+  "shuffles": 3,
+  "words": 35
+ },
+ "src/kernel/mixed-signature-audit.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 4,
+  "shuffles": 2,
+  "words": 18
+ },
+ "src/kernel/mixed-signature-probe.fs": {
+  "globals": 1,
+  "long lines": 2,
+  "long words": 0,
+  "rstack": 20,
+  "shuffles": 3,
+  "words": 68
+ },
+ "src/kernel/quot.fs": {
+  "globals": 5,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 12,
+  "shuffles": 6,
+  "words": 38
+ },
+ "src/kernel/reduce-nat.fs": {
+  "globals": 1,
+  "long lines": 6,
+  "long words": 0,
+  "rstack": 29,
+  "shuffles": 4,
+  "words": 50
+ },
+ "src/kernel/replace-memo.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 26,
+  "shuffles": 10,
+  "words": 34
+ },
+ "src/kernel/string-literals.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 1,
+  "rstack": 24,
+  "shuffles": 7,
+  "words": 29
+ },
+ "src/kernel/verdict-version.fs": {
+  "globals": 0,
+  "long lines": 1,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 0
+ },
+ "src/kernel/whnf.fs": {
+  "globals": 1,
+  "long lines": 3,
+  "long words": 3,
+  "rstack": 117,
+  "shuffles": 27,
+  "words": 132
+ },
+ "src/lib/bignum.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 399,
+  "shuffles": 73,
+  "words": 250
+ },
+ "src/lib/bounds.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 2,
+  "words": 3
+ },
+ "src/lib/bytes.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 31,
+  "shuffles": 13,
+  "words": 58
+ },
+ "src/lib/cons.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 33,
+  "shuffles": 10,
+  "words": 59
+ },
+ "src/lib/context.fs": {
+  "globals": 6,
+  "long lines": 1,
+  "long words": 0,
+  "rstack": 21,
+  "shuffles": 8,
+  "words": 73
+ },
+ "src/lib/frame.fs": {
+  "globals": 0,
+  "long lines": 4,
+  "long words": 0,
+  "rstack": 14,
+  "shuffles": 5,
+  "words": 37
+ },
+ "src/lib/hash32.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 1,
+  "words": 5
+ },
+ "src/lib/htab.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 1,
+  "rstack": 48,
+  "shuffles": 8,
+  "words": 41
+ },
+ "src/lib/json-write.fs": {
+  "globals": 4,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 117,
+  "shuffles": 20,
+  "words": 122
+ },
+ "src/lib/json.fs": {
+  "globals": 4,
+  "long lines": 0,
+  "long words": 1,
+  "rstack": 62,
+  "shuffles": 20,
+  "words": 135
+ },
+ "src/lib/lib.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 1
+ },
+ "src/lib/module.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 2,
+  "shuffles": 0,
+  "words": 4
+ },
+ "src/lib/node.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 2,
+  "shuffles": 1,
+  "words": 4
+ },
+ "src/lib/outcome.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 1,
+  "rstack": 0,
+  "shuffles": 3,
+  "words": 13
+ },
+ "src/lib/pools.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 40,
+  "shuffles": 5,
+  "words": 23
+ },
+ "src/lib/portability.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 3,
+  "words": 10
+ },
+ "src/lib/sections.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 1,
+  "rstack": 47,
+  "shuffles": 18,
+  "words": 101
+ },
+ "src/lib/sha256.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 1,
+  "rstack": 59,
+  "shuffles": 5,
+  "words": 52
+ },
+ "src/lib/slab.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 29,
+  "shuffles": 3,
+  "words": 55
+ },
+ "src/lib/store-columns.fs": {
+  "globals": 0,
+  "long lines": 1,
+  "long words": 0,
+  "rstack": 16,
+  "shuffles": 5,
+  "words": 24
+ },
+ "src/lib/store.fs": {
+  "globals": 0,
+  "long lines": 3,
+  "long words": 0,
+  "rstack": 69,
+  "shuffles": 18,
+  "words": 85
+ },
+ "src/lib/task.fs": {
+  "globals": 6,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 33,
+  "shuffles": 10,
+  "words": 122
+ },
+ "src/lib/text-rule.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 7,
+  "shuffles": 2,
+  "words": 8
+ },
+ "src/lib/text-run.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 17,
+  "shuffles": 2,
+  "words": 19
+ },
+ "src/lib/u32.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 3,
+  "shuffles": 1,
+  "words": 20
+ },
+ "src/lib/walk.fs": {
+  "globals": 0,
+  "long lines": 1,
+  "long words": 0,
+  "rstack": 29,
+  "shuffles": 12,
+  "words": 49
+ },
+ "src/main.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 0
+ },
+ "src/present/binder-table.fs": {
+  "globals": 0,
+  "long lines": 1,
+  "long words": 0,
+  "rstack": 5,
+  "shuffles": 3,
+  "words": 42
+ },
+ "src/present/latex-text.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 42,
+  "shuffles": 3,
+  "words": 38
+ },
+ "src/present/log-check.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 2,
+  "rstack": 11,
+  "shuffles": 6,
+  "words": 39
+ },
+ "src/present/log-view.fs": {
+  "globals": 1,
+  "long lines": 2,
+  "long words": 4,
+  "rstack": 38,
+  "shuffles": 25,
+  "words": 155
+ },
+ "src/present/notation-table.fs": {
+  "globals": 3,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 21,
+  "shuffles": 3,
+  "words": 22
+ },
+ "src/present/note-table.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 2,
+  "shuffles": 1,
+  "words": 22
+ },
+ "src/present/print-analysis.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 3,
+  "rstack": 89,
+  "shuffles": 7,
+  "words": 76
+ },
+ "src/present/print-forth.fs": {
+  "globals": 2,
+  "long lines": 3,
+  "long words": 4,
+  "rstack": 156,
+  "shuffles": 24,
+  "words": 148
+ },
+ "src/present/print-job.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 32,
+  "shuffles": 6,
+  "words": 59
+ },
+ "src/present/print-levels.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 3,
+  "rstack": 45,
+  "shuffles": 9,
+  "words": 49
+ },
+ "src/present/print-names.fs": {
+  "globals": 0,
+  "long lines": 1,
+  "long words": 0,
+  "rstack": 17,
+  "shuffles": 12,
+  "words": 43
+ },
+ "src/present/print-notation.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 3,
+  "rstack": 56,
+  "shuffles": 10,
+  "words": 41
+ },
+ "src/present/print-strings.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 2,
+  "rstack": 13,
+  "shuffles": 0,
+  "words": 13
+ },
+ "src/present/print-tokens.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 5,
+  "shuffles": 8,
+  "words": 31
+ },
+ "src/present/proof-outline.fs": {
+  "globals": 0,
+  "long lines": 2,
+  "long words": 9,
+  "rstack": 35,
+  "shuffles": 11,
+  "words": 175
+ },
+ "src/present/statement-forms.fs": {
+  "globals": 0,
+  "long lines": 1,
+  "long words": 4,
+  "rstack": 4,
+  "shuffles": 6,
+  "words": 36
+ },
+ "src/present/term-printer.fs": {
+  "globals": 0,
+  "long lines": 1,
+  "long words": 2,
+  "rstack": 187,
+  "shuffles": 8,
+  "words": 120
+ },
+ "src/program/clamp.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 2,
+  "shuffles": 0,
+  "words": 1
+ },
+ "src/program/examples.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 2,
+  "shuffles": 0,
+  "words": 12
+ },
+ "src/program/ir-reader.fs": {
+  "globals": 5,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 38,
+  "shuffles": 10,
+  "words": 221
+ },
+ "src/program/ir-run.fs": {
+  "globals": 9,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 62,
+  "shuffles": 11,
+  "words": 261
+ },
+ "src/program/program-depth.fs": {
+  "globals": 0,
+  "long lines": 1,
+  "long words": 0,
+  "rstack": 2,
+  "shuffles": 1,
+  "words": 12
+ },
+ "src/program/sha-words.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 2,
+  "shuffles": 3,
+  "words": 6
+ },
+ "src/program/verify-alias.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 17,
+  "shuffles": 1,
+  "words": 29
+ },
+ "src/program/verify-report.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 13,
+  "shuffles": 4,
+  "words": 85
+ },
+ "src/program/verify-runner.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 5,
+  "shuffles": 1,
+  "words": 64
+ },
+ "src/program/verify-semantics.fs": {
+  "globals": 4,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 48,
+  "shuffles": 11,
+  "words": 156
+ },
+ "src/program/verify.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 5,
+  "shuffles": 0,
+  "words": 12
+ }
+}

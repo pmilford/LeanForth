@@ -25,10 +25,10 @@ the coordinator's reports to the owner uses one of these stages, the highest one
 | tested alone | its own unit or synthetic tests pass; no user-facing command uses it |
 | integrated | a user-facing command (`bin/leanforth …`, a documented make target, a documented Forth word) reaches it with the documented invocation |
 | works end to end | that command, run on the real input a user would give (a Lean export, a `.lf` file, Init, Mathlib), gives the documented result; the done checker has run it |
-| **done** | works end to end, its documentation describes what actually happens, both CI jobs are green, and any review gate is passed |
+| **done** | works end to end, its documentation describes what actually happens, both CI jobs are green, any review gate is passed, every Forth change in it has a logged Forth review ([log](forth-reviews/LOG.md)) with no open blocking finding, and its new or changed words have tests in each applicable coverage class with coverage not dropped |
 
 "Done" is written only with a done-checker report that says DONE; the plan row cites the report
-(`.claude/work/done/<task>-<date>.md`, saved by the coordinator).
+(saved by the coordinator in [done-checks/](done-checks/2026-11-12-audit.md) as `<date>-<task>.md`).
 
 ## What the checker does for each claim
 
@@ -52,7 +52,7 @@ the coordinator's reports to the owner uses one of these stages, the highest one
 
 At most 60 lines; first line `DONE`, `NOT DONE: <stage reached>` or `MIXED` (for an audit of several claims). Then,
 per claim: the "A user can …" sentence, the stage reached, the commands with exit codes and decisive output, the gaps,
-and corrected wording for each overstated sentence (file:line). The coordinator saves it under `.claude/work/done/`,
+and corrected wording for each overstated sentence (file:line). The coordinator saves it under `docs/development/done-checks/`,
 corrects the documents, and tells the owner in plain language what works and what does not.
 
 ## When it runs
