@@ -122,7 +122,7 @@ approval; the others are proposals.
 [0017](adr/0017-leanforth-syntax.md) LeanForth Forth syntax for theorems and proofs (accepted as the design basis) ·
 [0018](adr/0018-exceptions.md) when to use `CATCH` and `THROW` (proposed; piloted on level substitution) ·
 [0019](adr/0019-program-words-two-modes.md) program words in two modes: the same source loaded with a LeanForth vocabulary that emits IR, or with ordinary Forth to run it (accepted in direction; mode shift or alias still open; [prototype](development/measurements/two-mode-prototype-2026-11-03/README.md)) ·
-[0020](adr/0020-checked-snapshot.md) the checked-environment snapshot: a library checked once, saved position-independently with format and verdict versions, reloaded to check a dependent library with exactly a fresh check's verdicts, labelled as saved results (proposed; plan task 6.2.5).
+[0020](adr/0020-checked-snapshot.md) the checked-environment snapshot: a library checked once, saved position-independently with format and verdict versions, reloaded to check a dependent library with exactly a fresh check's verdicts, labelled as saved results (accepted 2026-11-12; plan task 6.2.5).
 
 ## `reviews/` — review packets and records
 
