@@ -9,8 +9,10 @@
 \ literal is a closed leaf without levels, as Lean's passes treat
 \ Expr.lit; its type, its expansion into String.ofList and the rules that
 \ use it are kernel/string-literals.fs's. The bytes live in the context
-\ that made the literal, as its terms do; a rollback of the term store
-\ leaves them (unreferenced) in the slab. No fixed length: the slab grows
+\ that made the literal, as its terms do: a check's are charged to its
+\ memory limit and given back with its scratch (core/input.fs), while a
+\ rollback within a check leaves them (unreferenced) in the slab. No
+\ fixed length: the slab grows
 \ on the heap, and no room is full, never a verdict.
 \ Untrusted [import][kernel] data; nothing here checks types.
 \ State: the byte slab, a member of the checker context.
@@ -44,8 +46,12 @@ lf-tag-str tag-str lf-term-input-leaf-tag
 \ A literal of the text at addr u, as a handle: ok; invalid for text that
 \ is not UTF-8 (nothing kept); full when the slab or the term store has
 \ no room.
+\ The bytes are charged to a check's memory limit and given back with its
+\ scratch, as literals.fs's limbs (review rvRS F3).
+: lf-str-claim ( u -- i outcome )
+  dup chars lf-meter-charge if lf-str-bytes slab-claim else drop -1 outcome-full then ;
 : lf-str-keep ( addr u -- first outcome )
-  dup lf-str-bytes slab-claim ok-then? 0= if >r 2drop r> no-result exit then
+  dup lf-str-claim ok-then? 0= if >r 2drop r> no-result exit then
   >r r@ lf-str-bytes slab-at swap move r> outcome-ok ;
 \ The same literal's fields, its bytes kept in the slab but no node made:
 \ an input literal of a term view (terms.fs), whose node is the tier's.

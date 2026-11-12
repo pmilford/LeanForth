@@ -162,7 +162,7 @@ create lf-level-hooks /htab-hooks allot
 : lf-level-steady? ( -- flag )
   lf-levels dup store-filled? 0= swap store-capacity @ lf-level-covered @ = and ;
 : lf-level-room? ( -- flag )
-  lf-meter-level? 0= if false exit then  lf-level-steady? if true exit then
+  lf-level-steady? if true exit then
   lf-levels store-ready ok? if lf-level-covered lf-level-columns columns-ready else false then ;
 \ Whether a universe parameter occurs in a level (Lean's has_param_univ),
 \ kept per level in a column when the level is made, from its children's
@@ -181,7 +181,10 @@ create lf-level-hooks /htab-hooks allot
     lf-level-tag-max of lf-level-child-params? swap lf-level-child-params? or endof
     lf-level-tag-imax of lf-level-child-params? swap lf-level-child-params? or endof
     >r 2drop false r> endcase ;
+\ A new level is charged to a check's memory limit here, where it is made,
+\ never one found shared (review rvRS F4).
 : lf-level-new ( tag first second -- index true | false )
+  lf-meter-level? 0= if 2drop drop lf-level-refused exit then
   2 pick 2 pick 2 pick lf-level-params-of >r lf-levels node-new
   if r> over lf-level-param-flags column-at ! true else r> drop lf-level-refused then ;
 \ Hash-consed: the equal level, given only where an allocation would be

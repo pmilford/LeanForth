@@ -14,7 +14,8 @@
 \ directory lf-mark-pages and list lf-mark-made, the pages heap blocks
 \ freed by a teardown word) and their spare lf-mark-spare (below), the
 \ audit memo's record
-\ lf-audit-state and its list lf-audit-reached (below), and one
+\ lf-audit-state and its list lf-audit-reached (below), the levels' and
+\ references' reach marks lf-level-reach and lf-cref-reach, and one
 \ walk record, lf-cterm-walker, all members of the checker context
 \ (lib/context.fs). The hook lf-audit-checking? is set while loading
 \ (kernel/check-declaration.fs) and read-only afterwards, as is the table
@@ -310,6 +311,29 @@ end-structure
   lf-audit-on? 0= if drop false exit then
   dup lf-audit-level-epoch? 0= if drop false exit then
   dup lf-level-reach-unit @ swap lf-level-identity if = else drop false then ;
+\ References reached in this check, the same way (review rvRS F1): the
+\ reference of a constant node an audit checked (lf-cterm-reference
+\ below) is kept in a unit of lf-cref-reach, by its number, with its
+\ identity and today's closed epoch. The slab grows, zeroed, to the
+\ largest number kept; one the heap cannot grow keeps nothing (a new
+\ reference made instead: never another outcome).
+2 cells context-slab: lf-cref-reach
+: lf-cref-reach-unit ( cref -- addr ) lf-cref-reach slab-at ;
+: lf-cref-reach-zeroed ( old -- )
+  dup lf-cref-reach-unit lf-cref-reach slab-capacity rot - 2* cells erase ;
+: lf-cref-reach-room? ( cref -- flag )
+  1+ lf-cref-reach slab-capacity tuck over u< 0= if 2drop true exit then
+  lf-cref-reach slab-hold ok? if lf-cref-reach-zeroed true else drop false then ;
+: lf-audit-cref-mark ( cref identity -- )
+  lf-audit-on? 0= if 2drop exit then over lf-cref-reach-room? 0= if 2drop exit then
+  swap lf-cref-reach-unit tuck ! lf-audit-state lf-aud-closed @ swap cell+ ! ;
+: lf-audit-cref-epoch? ( cref -- flag )
+  dup lf-cref-reach slab-capacity u< 0= if drop false exit then
+  lf-cref-reach-unit cell+ @ lf-audit-state lf-aud-closed @ = ;
+: lf-audit-cref-reached? ( cref -- flag )
+  lf-audit-on? 0= if drop false exit then
+  dup lf-audit-cref-epoch? 0= if drop false exit then
+  dup lf-cref-reach-unit @ swap lf-cref-current = ;
 \ A node the current run checks, kept on the list for lf-audit-keep.
 : lf-audit-slot ( i -- addr ) lf-audit-reached slab-at ;
 : lf-audit-add ( node count -- )
@@ -396,12 +420,15 @@ end-structure
 \ stamps (lf-hterm-sort) and a level that passes; a free variable must be
 \ live, named by its own entry of the local context (local-context.fs), so
 \ only a check's scratch can hold one; binary children must come earlier.
-\ A constant's second field is 0, and its stamped reference must be live.
+\ A constant's second field is 0, and its stamped reference must be live;
+\ a reference whose levels all pass is reached (lf-audit-cref-mark).
+: lf-cterm-reached ( outcome walk -- outcome )
+  over ok? if walk-node @ lf-cterm-ref lf-audit-cref-mark else drop then ;
 : lf-cterm-reference ( first second walk -- outcome )
   swap if 2drop outcome-invalid exit then nip
   dup walk-node @ lf-cterm-stamped? 0= if drop outcome-invalid exit then
   >r r@ walk-node @ lf-cterm-ref lf-cref-levels
-  if r> lf-cterm-levels else r> drop outcome-invalid then ;
+  if r@ lf-cterm-levels r> lf-cterm-reached else r> drop outcome-invalid then ;
 : lf-cterm-sort? ( first second node -- flag )
   >r over swap lf-repr-leaf? if r> lf-hsort-stamped? else r> 2drop false then ;
 : lf-cterm-sort ( first second walk -- outcome )

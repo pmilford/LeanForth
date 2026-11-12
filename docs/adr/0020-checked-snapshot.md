@@ -784,6 +784,18 @@ it). The verdict version is 4. The restriction of the feed to what the
 export reaches (amendment 3) is no longer blocked by B1: a check is
 given only nodes it reached.
 
+*Correction (review rvRS F2, agent FXR, 2026-11-12).* I2 did not hold
+for fuel with `let`s: lets equal but for their names were two nodes,
+and a check making one met another declaration's (or the snapshot's)
+first, so `B` of `tests/cli/let-b.lean` took 295 fuel fresh and 302
+against the snapshot of `let-zd.lean`, and a layer saved from such a run
+stored 302. The importer now makes each `==` class of input lets one
+node as it does binders (ADR 0014 Amendment 7, rule 1); Lean's `==`
+compares the `nonDep` flag, which stays part of the class. The let pair
+is in `tests/cli/cross_snapshot.py`. Nor did a check's memory count
+(`--memory-per-check`) hold across exports: references made before the
+check were given uncharged; ADR 0014 Amendment 8's corrections fix it.
+
 ## Questions for the owner
 
 1. **Load speed against file size.** Rebuild the lookup tables when

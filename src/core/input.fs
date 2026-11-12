@@ -6,10 +6,11 @@
 \
 \ The importer (in phase 2 a test-only transport) adds declarations with
 \ lf-input-add and ends loading with lf-input-end, which marks every input
-\ store (store-mark). From then on nothing may be added or written below
+\ store (store-mark), and the literals' limb and byte slabs (slab-mark;
+\ review rvRS F3). From then on nothing may be added or written below
 \ the marks: a check allocates its scratch above them, and
-\ lf-input-rollback returns the stores to the marks after each check,
-\ whatever its outcome. lf-input-intact? tells whether the input is still
+\ lf-input-rollback returns the stores and slabs to the marks after each
+\ check, whatever its outcome. lf-input-intact? tells whether the input is still
 \ as loading left it, as far as counts and identities show: every mark
 \ still valid (no reset, nothing rolled back below it) and the name bytes
 \ still there (their count not below the count when loading ended).
@@ -67,6 +68,8 @@
 require ../lib/lib.fs
 require ../lib/slab.fs
 require ../lib/store-columns.fs
+require ./literals.fs
+require ./string-literals.fs
 require ../lib/bytes.fs
 require ./terms.fs
 require ./levels.fs
@@ -200,12 +203,14 @@ store-header context-record: lf-inputs
 : lf-irule-rhs ( rule -- root ) 2 cells + @ ;
 
 5 constant lf-input-stores#
+2 constant lf-input-slabs#
 begin-structure /lf-inrec
   field: lf-inrec-sealed        \ true once loading has ended
   field: lf-inrec-name-bytes    \ name bytes in use when it ended
   field: lf-inrec-fingerprint   \ the input region's fingerprint then
   field: lf-inrec-borrowed      \ true: the declarations are another context's
   lf-input-stores# /store-mark * +field lf-inrec-marks
+  lf-input-slabs# /slab-mark * +field lf-inrec-slab-marks
 end-structure
 /lf-inrec context-record: lf-input-state
 \ Declarations read in place from another context (lf-input-borrow below):
@@ -248,6 +253,24 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
   nip ;
 : lf-input-bytes ( -- addr ) lf-input-state lf-inrec-name-bytes ;
 : lf-input-sealed? ( -- flag ) lf-input-state lf-inrec-sealed @ true = ;
+\ The literals' slabs, marked with the stores (review rvRS F3): the limbs
+\ of natural-number literals (literals.fs) and the bytes of string
+\ literals (string-literals.fs) that loading kept stay; a check's go back
+\ with its scratch (lf-input-rollback), and its memory limit counts them
+\ (lf-input-slab-bytes, kernel/check-declaration.fs).
+create lf-input-slabs ' lf-lit-limbs , ' lf-str-bytes ,
+: lf-input-slab ( k -- slab ) cells lf-input-slabs + @ execute ;
+: lf-input-slab-mark ( k -- mark ) /slab-mark * lf-input-state lf-inrec-slab-marks + ;
+: lf-input-slabs-all? ( xt -- flag )
+  true lf-input-slabs# 0 ?do
+    over i lf-input-slab-mark i lf-input-slab rot execute and loop nip ;
+: lf-slab-marked? ( mark slab -- flag ) slab-mark ok? ;
+: lf-slab-back? ( mark slab -- flag ) slab-rollback ok? ;
+\ The units the literals of this check kept above the marks, in bytes.
+: lf-input-slab-above ( k -- u )
+  dup lf-input-slab dup slab-count swap slab-unit rot lf-input-slab-mark
+  slab-mark-count @ rot swap - 0 max * ;
+: lf-input-slab-bytes ( -- u ) 0 lf-input-slab-above 1 lf-input-slab-above + ;
 
 \ The fingerprint: cells, then bytes, mixed in order with lib/bytes.fs's
 \ fnv-step and bytes-mix (within one host only; never compared across
@@ -307,6 +330,7 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 \ Whether the input is as loading left it (see above).
 : lf-input-intact? ( -- flag )
   lf-input-sealed? ['] store-mark-valid? lf-input-all? and
+  ['] slab-mark-valid? lf-input-slabs-all? and
   lf-name-used @ lf-input-bytes @ >= and ;
 \ Checked: declaration i of an intact input.
 : lf-input-read ( i -- decl outcome )
@@ -429,13 +453,16 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 : lf-input-seal ( -- )
   lf-name-used @ lf-input-bytes ! lf-input-print lf-input-state lf-inrec-fingerprint !
   true lf-input-state lf-inrec-sealed ! ;
+: lf-input-marked? ( -- flag )
+  ['] lf-mark-ok? lf-input-all? ['] lf-slab-marked? lf-input-slabs-all? and ;
 : lf-input-end ( -- outcome )
   lf-input-sealed? lf-name-state-valid? 0= or if outcome-invalid exit then
-  ['] lf-mark-ok? lf-input-all? if lf-input-seal outcome-ok else outcome-invalid then ;
+  lf-input-marked? if lf-input-seal outcome-ok else outcome-invalid then ;
 
-\ After a check: every input store back to its mark and the name bytes
-\ back to their count; ok, or invalid with nothing changed when the input
-\ is not intact. The terms, levels and references go back through their
+\ After a check: every input store back to its mark, the literals' slabs
+\ to theirs and the name bytes back to their count; ok, or invalid with
+\ nothing changed when the input is not intact. The terms, levels and
+\ references go back through their
 \ own rollbacks, which take their entries out of the hash-consing and
 \ interning tables too (terms.fs, levels.fs, constant-references.fs;
 \ review rvS4 M1: with plain store-rollback the tables kept an entry for
@@ -447,7 +474,8 @@ create lf-input-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf
 : lf-mark-back ( mark store -- flag ) lf-store-back ok? ;
 : lf-input-rollback ( -- outcome )
   lf-input-intact? 0= if outcome-invalid exit then
-  ['] lf-mark-back lf-input-all? lf-input-bytes @ lf-name-used ! flag>outcome ;
+  ['] lf-mark-back lf-input-all? ['] lf-slab-back? lf-input-slabs-all? and
+  lf-input-bytes @ lf-name-used ! flag>outcome ;
 
 \ Start loading a new input in this context: forget every declaration and
 \ end the sealed state. Every environment made over the old input then

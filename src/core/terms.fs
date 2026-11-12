@@ -726,7 +726,7 @@ defer lf-term-view-hook ( -- outcome )
 : lf-term-steady? ( -- flag )
   lf-terms dup store-filled? 0= swap store-capacity @ lf-term-covered @ = and ;
 : lf-term-room? ( -- flag )
-  lf-meter-term? 0= if false exit then  lf-term-steady? if true exit then
+  lf-term-steady? if true exit then
   lf-terms store-ready ok? if lf-term-covered lf-term-columns columns-ready else false then ;
 : lf-term-u32? ( x -- flag ) u32-mask u> 0= ;
 : lf-term-fits? ( first second -- flag ) lf-term-u32? swap lf-term-u32? and ;
@@ -757,7 +757,10 @@ defer lf-term-view-hook ( -- outcome )
 : lf-term-store! ( tag first second data addr -- )
   tuck lf-term-data-at + u32! tuck lf-term-second-at + u32!
   tuck lf-term-first-at + u32! u32! ;
+\ A new record is charged to a check's memory limit here, where it is
+\ made, never one found shared (review rvRS F4): a refusal is exact.
 : lf-term-new ( tag first second data -- index true | false )
+  lf-meter-term? 0= if 2drop 2drop lf-term-refused exit then
   lf-terms store-new-slot 0= if 2drop 2drop lf-term-refused exit then
   lf-term-base + >r lf-term-store! r> true ;
 : lf-term-append ( tag first second -- index true | false )

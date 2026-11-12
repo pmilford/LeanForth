@@ -395,6 +395,11 @@ lf-form-mdata tag-mdata feed-form!
 : feed-let-leaf ( e feed -- outcome )
   2dup feed-let-lam-node >r over swap feed-tier expr-b@ lf-tin-child r> 0
   3 roll lf-tin-child lf-term-input-leaf ;
+\ A let's tag (its nonDep flag) and fields in the leaf table: its value
+\ and lambda.
+: feed-let-fields ( e feed -- tag first second )
+  over lf-tin-child lf-tin-tag@ >r 2dup feed-let-lam-node >r
+  feed-tier expr-b@ lf-tin-child r> r> -rot ;
 : feed-read-kind? ( tag -- flag )
   dup tag-bvar = over tag-app = or swap binder-tag? or ;
 : feed-leaf ( e feed tag -- outcome )
@@ -402,7 +407,7 @@ lf-form-mdata tag-mdata feed-form!
   case tag-sort of feed-sort-leaf endof  tag-const of feed-const-leaf endof
     tag-nat of feed-nat-leaf endof  tag-str of feed-str-leaf endof
     tag-proj of feed-projection endof
-    tag-let of feed-let-leaf endof  tag-let-nondep of feed-let-leaf endof
+    tag-let of 2drop outcome-ok endof  tag-let-nondep of 2drop outcome-ok endof
     >r 2drop outcome-invalid r> endcase ;
 \ Two passes. The first marks the expressions to copy and enters every
 \ binder read in place, and every let's lambda, in the view's binder
@@ -421,6 +426,13 @@ lf-form-mdata tag-mdata feed-form!
 \ Amendment 7, rule 1; rules 2 and 3 are terms.fs's and levels.fs's). Only
 \ without a binder hook: the print command, which sets one, keeps each
 \ binder's own name.
+\ Lets likewise (review rvRS F2): Lean's == compares a let's type, value,
+\ body and nonDep flag, never its name (expr_eq_fn.cpp 104-109), so a let
+\ read in place that is == to one entered before it (the same tag, value
+\ and lambda in the leaf table) is copied instead, and its copy is that
+\ earlier let (lf-term-add finds it in the leaf table by its fields).
+\ Every other let's leaf is entered here, in the first pass, so that a
+\ later let finds it; the second pass has nothing left to give a let.
 : feed-merging? ( feed -- flag ) feed-binder-hook @ 0= ;
 : feed-redirect? ( feed first? -- flag ) 0= swap feed-merging? and ;
 : feed-merge ( e feed first? outcome -- outcome )
@@ -428,9 +440,15 @@ lf-form-mdata tag-mdata feed-form!
   over swap feed-redirect? if feed-dirty! else 2drop then outcome-ok ;
 : feed-enter-binder ( e feed -- outcome )
   over lf-tin-child lf-term-input-binder-first feed-merge ;
+: feed-let-merged? ( e feed -- flag )
+  dup feed-merging? 0= if 2drop false exit then
+  feed-let-fields lf-tin-leaf-find dup if nip then ;
+: feed-enter-let ( e feed -- outcome )
+  over 2* lf-term-input-binder dup ok? 0= if nip nip exit then drop
+  2dup feed-let-merged? if feed-dirty! outcome-ok else feed-let-leaf then ;
 : feed-enter ( e feed tag -- outcome )
   dup binder-tag? if drop feed-enter-binder exit then
-  let-tag? if drop 2* lf-term-input-binder else 2drop outcome-ok then ;
+  let-tag? if feed-enter-let else 2drop outcome-ok then ;
 : feed-mark ( e feed -- outcome )
   2dup feed-tier expr-tag@ >r 2dup r@ feed-to-copy?
   if r> drop feed-dirty! outcome-ok exit then r> feed-enter ;
@@ -646,7 +664,12 @@ here feed-shares - 1 cells / constant feed-shares#
 \ workers) is one whose class the source's table holds another binder
 \ for; without it the worker's copies, and so its fingerprint, would not
 \ be the source's and no worker could be made.
+\ A let likewise: the source's leaf table holds an earlier let of its ==
+\ class (whose leaf the source entered instead of this one's).
+: feed-let-was-merged? ( e feed -- flag )
+  over >r feed-let-fields lf-tin-leaf-find if r> lf-tin-child <> else r> drop false then ;
 : feed-was-merged? ( e feed tag -- flag )
+  dup let-tag? if drop feed-let-was-merged? exit then
   binder-tag? if drop lf-tin-child lf-term-input-binder-merged? else 2drop false then ;
 : feed-shared-copy? ( e feed tag -- flag )
   >r 2dup r@ feed-to-copy? if 2drop r> drop true else r> feed-was-merged? then ;

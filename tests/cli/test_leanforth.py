@@ -1689,6 +1689,24 @@ class Jobs(unittest.TestCase):
                               r"out 20, run again 0, not ready 0, forced 0, workers "
                               r"replaced 0\n")
 
+    def test_workers_share_merged_lets(self):
+        """Lets equal up to their names (tests/cli/jobs/gen.py lets 20), which
+        the importer makes one node (review rvRS F2): each worker makes the
+        source's copies of them and of the applications above them, so its
+        input's fingerprint is the source's and workers are made."""
+        with tempfile.TemporaryDirectory() as tmp:
+            export = Path(tmp) / "lets20.ndjson"
+            made = subprocess.run([sys.executable, str(ROOT / "tests/cli/jobs/gen.py"), "lets",
+                                   "20"], capture_output=True, check=True)
+            export.write_bytes(made.stdout)
+            status, out, _ = run("check", "--resources", "--jobs", "2", "--no-manifest",
+                                 str(export))
+        self.assertEqual(status, 0)
+        self.assertIn("20 declarations: 20 accepted", out)
+        self.assertRegex(out, r"\n  workers: 2 \(--jobs\), on \d+ cores\n    checks handed "
+                              r"out 20, run again 0, not ready 0, forced 0, workers "
+                              r"replaced 0\n")
+
     def test_large_counts(self):
         """The count is cut to the cores and the pool's queue of 1024: a larger
         one used to refuse a job (exit 5, declarations "not checked") or make
@@ -1800,6 +1818,37 @@ class MemoryPerCheck(unittest.TestCase):
             self.assertEqual((status, len(reasons)), (3, 2), out)
             self.assertEqual(reasons[0], reasons[1])
             self.assertEqual(run("check", "--jobs", "3", *args)[:2], (status, out))
+
+    def test_snapshot_pair(self):
+        """A check's count does not depend on the other records of the tier
+        (review rvRS F1): B's check (tests/cli/jobs/gen.py refs 2800) makes
+        2,800 references D_i.{0..0}; checked fresh, against a snapshot of
+        the export whose Z_i hold every one of them (refsz), and in the
+        export with the Z_i after B (refsbz), serially and with --jobs 2, B
+        is full asking for the same bytes. Before, a reference made before
+        the check was given uncharged: 1,048,608 bytes fresh, 1,048,640 in
+        the others (and the reviewer's larger probe: full fresh, accepted
+        in the others)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            exports = {}
+            for kind in ["refs", "refsz", "refsbz"]:
+                exports[kind] = str(Path(tmp) / f"{kind}.ndjson")
+                made = subprocess.run([sys.executable, str(ROOT / "tests/cli/jobs/gen.py"), kind,
+                                       "2800"], capture_output=True, check=True)
+                Path(exports[kind]).write_bytes(made.stdout)
+            snapshot = str(Path(tmp) / "refsz.lfsnap")
+            self.assertEqual(run("check", "--no-manifest", "--save-snapshot", snapshot,
+                                 exports["refsz"])[0], 0)
+            limit = ["--no-manifest", "--memory-per-check", "1"]
+            seen = []
+            for args in [[exports["refs"]], ["--snapshot", snapshot, exports["refs"]],
+                         [exports["refsbz"]], ["--jobs", "2", exports["refsbz"]]]:
+                status, out = run("check", *limit, *args)[:2]
+                found = re.search(r"^B: (\w+)\n  (.*)$", out, re.M)
+                seen.append((status, found and found.groups()))
+            self.assertEqual(seen[0][:1] + seen[0][1][:1], (3, "full"), seen[0])
+            self.assertIn("diagnostic 101", seen[0][1][1])
+            self.assertEqual(seen, [seen[0]] * 4)
 
     def test_4_mistakes(self):
         for value in ["0", "x", "-1", ""]:

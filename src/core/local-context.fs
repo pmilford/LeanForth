@@ -94,7 +94,12 @@ store-header context-record: lf-lctx
 : lf-ldecl-fill ( type value fvar addr -- )
   >r dup r@ lf-ldecl-fvar ! lf-term-identity drop r@ lf-ldecl-identity !
   r@ lf-ldecl-value ! r@ lf-ldecl-type ! -1 r> lf-ldecl-depth ! ;
+\ The entry is charged to a check's memory limit (core/scratch-meter.fs)
+\ just before it is made, after its node, as the stores charge theirs, so
+\ that no reading misses a charged record (review rvRS F4); a refused one
+\ is full, and the check then ends full (kernel/check-declaration.fs).
 : lf-lctx-claim ( type value fvar -- fvar outcome )
+  lf-meter-local? 0= if drop 2drop lf-lctx-refused exit then
   lf-lctx store-new 0= if drop 2drop lf-lctx-refused exit then
   over >r lf-ldecl lf-ldecl-fill r> outcome-ok ;
 : lf-lctx-made ( type value -- fvar outcome )

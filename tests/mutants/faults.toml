@@ -7596,8 +7596,8 @@ reason = "S4: a reference rollback leaves the given-back records' table entries"
 [[fault]]
 id = "s4-crefs-found-unchecked"
 file = "src/core/constant-references.fs"
-old = '''  lf-crefs store-ready drop lf-crefs store-open?'''
-new = '''  true'''
+old = '''  lf-cref-shadowed lf-crefs store-ready drop lf-crefs store-open?'''
+new = '''  lf-cref-shadowed true'''
 test = "$GFORTH tests/core/constant-references.fs"
 reason = "S4: an equal reference is given where a new one would be refused"
 
@@ -7701,6 +7701,7 @@ reason = "S4: == takes any two constants or Sorts as one"
 id = "fx9-input-intact-always"
 file = "src/core/input.fs"
 old = '''  lf-input-sealed? ['] store-mark-valid? lf-input-all? and
+  ['] slab-mark-valid? lf-input-slabs-all? and
   lf-name-used @ lf-input-bytes @ >= and ;'''
 new = '''  true ;'''
 test = "$GFORTH tests/core/check-declaration.fs"
@@ -8907,6 +8908,100 @@ old = '''  dup lf-input-store store-count @ swap lf-input-mark mark-count @ - 0 
 new = '''  dup lf-input-store store-capacity @ swap lf-input-mark mark-count @ - 0 max ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py MemoryPerCheck"
 reason = "MB: the stores' capacity, which earlier checks grew, is read instead of the records made: big2 asks for other bytes than big"
+
+# --- review rvRS: the memory count and fuel independent of the tier (brief FXR) ---
+
+[[fault]]
+id = "fxr-cref-gate-off"
+file = "src/kernel/check-declaration.fs"
+old = '''' lf-check-cref-findable is lf-cref-findable?'''
+new = ''''''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py MemoryPerCheck.test_snapshot_pair"
+reason = "rvRS F1: every reference made before the check counts as reached, so one in the tier is given uncharged: B asks for other bytes fresh than against the snapshot"
+
+[[fault]]
+id = "fxr-cref-unshadowed"
+file = "src/core/constant-references.fs"
+old = '''  if r> swap lf-cref-shadow else r> 0 lf-cref-made-at then ;'''
+new = '''  if r> drop >r 2drop 2drop r> lf-cref-found else r> 0 lf-cref-made-at then ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py MemoryPerCheck.test_snapshot_pair"
+reason = "rvRS F1: an unreached reference made before the check is given without its shadow, so its room is never charged"
+
+[[fault]]
+id = "fxr-let-class-split"
+file = "src/import/feed.fs"
+old = '''  feed-let-fields lf-tin-leaf-find dup if nip then ;'''
+new = '''  2drop false ;'''
+test = "python3 tests/cli/cross_snapshot.py $GFORTH"
+reason = "rvRS F2: lets equal but for their names stay separate nodes, so B uses 302 fuel against let-zd's snapshot, 295 fresh"
+
+[[fault]]
+id = "fxr-let-worker-unmerged"
+file = "src/import/feed.fs"
+old = '''  dup let-tag? if drop feed-let-was-merged? exit then'''
+new = ''''''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Jobs.test_workers_share_merged_lets"
+reason = "rvRS F2: a worker does not copy the lets the source merged, so its input's fingerprint is not the source's and no worker is made"
+
+[[fault]]
+id = "fxr-limbs-uncharged"
+file = "src/core/literals.fs"
+old = '''  dup cells lf-meter-charge if lf-lit-limbs slab-claim else drop -1 outcome-full then ;'''
+new = '''  lf-lit-limbs slab-claim ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "rvRS F3: a literal's limbs pass the memory limit uncharged"
+
+[[fault]]
+id = "fxr-bytes-uncharged"
+file = "src/core/string-literals.fs"
+old = '''  dup chars lf-meter-charge if lf-str-bytes slab-claim else drop -1 outcome-full then ;'''
+new = '''  lf-str-bytes slab-claim ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "rvRS F3: a string literal's bytes pass the memory limit uncharged"
+
+[[fault]]
+id = "fxr-slabs-kept"
+file = "src/core/input.fs"
+old = '''  ['] lf-mark-back lf-input-all? ['] lf-slab-back? lf-input-slabs-all? and'''
+new = '''  ['] lf-mark-back lf-input-all?'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "rvRS F3: a check's literal limbs and bytes stay in the slabs after it, for the whole run"
+
+[[fault]]
+id = "fxr-slabs-unread"
+file = "src/kernel/check-declaration.fs"
+old = '''  lf-input-slab-bytes + ;'''
+new = '''  ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "rvRS F3: the scratch reading leaves the literals' limbs and bytes out, so a reading resets the credit as if they took no room"
+
+[[fault]]
+id = "fxr-term-charged-found"
+file = "src/core/terms.fs"
+old = ''': lf-term-room? ( -- flag )
+  lf-term-steady? if true exit then'''
+new = ''': lf-term-room? ( -- flag )
+  lf-meter-term? 0= if false exit then  lf-term-steady? if true exit then'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "rvRS F4: a term is charged before the lookup, so one found shared is refused with room for less than a record"
+
+[[fault]]
+id = "fxr-level-charged-found"
+file = "src/core/levels.fs"
+old = ''': lf-level-room? ( -- flag )
+  lf-level-steady? if true exit then'''
+new = ''': lf-level-room? ( -- flag )
+  lf-meter-level? 0= if false exit then  lf-level-steady? if true exit then'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "rvRS F4: a level is charged before the lookup, so one found shared is refused with room for less than a record"
+
+[[fault]]
+id = "fxr-local-uncharged"
+file = "src/core/local-context.fs"
+old = '''  lf-meter-local? 0= if drop 2drop lf-lctx-refused exit then'''
+new = ''''''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "rvRS F4: local-context entries are counted by readings but never charged, so a check passes its limit unrefused"
 
 [[fault]]
 id = "r5-spine-one-short"

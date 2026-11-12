@@ -627,17 +627,25 @@ LeanForth's plan of which declaration needs which is wrong).
 
 `check --memory-per-check MB` limits the scratch of each declaration's
 check to MB megabytes (MB × 2^20 bytes): the term nodes, levels and
-constant references it makes above the input, its local context and its
-result caches, all of which it gives back when it ends. A check that
-would pass the limit stops and is *full*, exit status 3, as when memory
-runs out; it is never accepted, and declarations that depend on it are
-unknown, as after any other *full*. Its diagnostic is code 101, "memory
-limit per check", with the bytes the check asked for and the limit, and a
-note follows the summary. With `--json` the settings hold
+constant references it makes above the input, the limbs of the number
+literals and the bytes of the string literals it makes, its local context
+and its result caches, all of which it gives back when it ends. A check
+that would pass the limit stops and is *full*, exit status 3, as when
+memory runs out; it is never accepted, and declarations that depend on it
+are unknown, as after any other *full*. Its diagnostic is code 101,
+"memory limit per check", with the bytes the check asked for and the
+limit, and a note follows the summary. With `--json` the settings hold
 `"memoryPerCheck": MB`. The limit applies to every worker of `--jobs N`
-alike, so a check gets the same verdict serially and in parallel, and the
+alike, so a check gets the same verdict serially and in parallel; the
 bytes are counted per record made, not read from the heap, so the same
-check under the same limit is full in every run.
+check under the same limit is full in every run; and what a check is
+charged does not depend on the other declarations of the export or of a
+snapshot it is checked against: a reference that another declaration
+made, and that this check has not reached, costs it the room of a new one
+(review rvRS, 2026-11-12). The count is exact: a check is full exactly
+when a record it makes would take its scratch past the limit (a record it
+finds already made costs nothing), so with a limit at least the most its
+scratch held it gets the verdict it gets without one.
 
 Like fuel, the limit is LeanForth's own resource bound, never a Lean
 verdict: Lean's kernel has neither. Its use is a long parallel run such
@@ -646,11 +654,13 @@ one process's memory, so without a limit one huge check could take the
 memory the others need and make their checks *full* too. Each record a
 check makes counts a fixed number of bytes, an upper bound on a 64-bit
 host of what the record itself takes (96 per term node, 176 per level,
-64 per reference and 16 per universe argument, 64 per cache entry, 48
-per local-context entry). The heap holds more than the count: stores
-and tables grow by doubling, and a worker keeps what its largest check
-grew; the walks' stacks and memos, the input, the stage and the checked
-environment are not counted. Measured on the doubling export (`gen.py
+64 per reference and 16 per universe argument, 8 per literal limb and 1
+per string byte, 64 per cache entry, 48 per local-context entry). The
+heap holds more than the count: stores and tables grow by doubling, and a
+worker keeps what its largest check grew; the walks' stacks and memos,
+the arenas in which arithmetic on literals computes (given back when the
+operation ends), the input, the stage and the checked environment are not
+counted. Measured on the doubling export (`gen.py
 double 14` and `double 16`, 2026-11-11), a check that needed 11 and 44
 MB by the count grew the process by 14 and 59 MB: about 1.3-1.4 times.
 So give each check at most about half of the memory the run has left
@@ -663,7 +673,7 @@ $ python3 tests/cli/jobs/gen.py double 12 > /tmp/double12.ndjson
 $ bin/leanforth check --no-manifest --memory-per-check 1 /tmp/double12.ndjson
 ...
 big: full
-  memory limit per check; diagnostic 101 at check-declaration lf-check-declaration: 1048640 1048576
+  memory limit per check; diagnostic 101 at check-declaration lf-check-declaration: 1048624 1048576
 ...
 18 declarations: 17 accepted, 1 full
 accepted: 17 (experimental, not independently audited); axioms: none
@@ -949,10 +959,12 @@ did all of `Init` against its own snapshot); only the labels differ.
 the fuel a check uses depends only on its declaration and what it reads,
 not on what else the run's tier holds (before, it could, through binders
 equal up to their names and through terms a check made that matched
-other declarations' records), so a taken declaration's fuel, the
+other declarations' records, and until review rvRS on 2026-11-12 through
+lets equal up to their names), so a taken declaration's fuel, the
 snapshot run's, is a final check's, and so is a verdict near the fuel
 budget (`tests/cli/cross_snapshot.py` checks nine fixtures, each fresh
-and against the others' snapshots; on Mathlib's first million lines
+and against the others' snapshots, and a pair of fixtures whose lets
+differ only in their names; on Mathlib's first million lines
 against `Init`'s snapshot all 13,023 declarations used the final check's
 fuel). An exhausted verdict is still never taken:
 

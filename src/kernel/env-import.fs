@@ -51,11 +51,12 @@
 \ taken slot's diagnostic is S's (information only, never compared). Fuel
 \ is one of those fields since agent PF's rules (ADR 0014 Amendment 7;
 \ review rvSN4 B1, which found it depended on the other records of the
-\ tier): each == class of input binders is one node (import/feed.fs), and
-\ in a check a node or level made before the check is given for an equal
-\ one only once the check reached it (check-declaration.fs). So a taken
-\ slot's fuel, S's run's, is a fresh check's (tests/cli/cross_snapshot.py:
-\ nine fixtures pairwise; Mathlib's first 1M lines against Init's
+\ tier): each == class of input binders, and since review rvRS F2 of input
+\ lets, is one node (import/feed.fs), and in a check a node or level made
+\ before the check is given for an equal one only once the check reached
+\ it (check-declaration.fs). So a taken slot's fuel, S's run's, is a fresh
+\ check's (tests/cli/cross_snapshot.py: nine fixtures pairwise and the let
+\ pair; Mathlib's first 1M lines against Init's
 \ snapshot: all 13,023 declarations with the fresh check's fuel). An
 \ exhausted slot is still never taken (I1.2), a rule kept.
 \

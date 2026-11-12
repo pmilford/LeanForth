@@ -29,10 +29,12 @@
 \ by Knuth's Algorithm R; a reset empties the table.
 \ State: the reference records, a heap store whose header lf-crefs is a
 \ member of the checker context (lib/context.fs), the pairs pool, a
-\ heap slab whose record lf-cref-pool is another, and the interning table
-\ lf-cref-table with its candidate lf-cref-key; all are freed by their
-\ teardown words. A worker of a parallel check reads the input's
-\ references of the context that fed them (lf-cref-under, copies of
+\ heap slab whose record lf-cref-pool is another, the interning table
+\ lf-cref-table with its candidate lf-cref-key, the switch lf-cref-ungated
+\ and the shadow map lf-cref-shadows (a context slab; see "Shadows"
+\ below); all are freed by their teardown words. A worker of a parallel
+\ check reads the input's references of the context that fed them
+\ (lf-cref-under, copies of
 \ headers that own nothing; shared input, ADR 0016 S8) and keeps only its
 \ own. Single-threaded within one context; callers exclude raw
 \ mutation, and input arrays must be aligned, readable and disjoint from
@@ -171,8 +173,20 @@ end-structure
   2dup @ swap lf-crec-name @ = >r 2dup cell+ @ swap lf-crec-generation @ = r> and
   >r 3 cells + @ swap lf-crec-arity @ = r> and ;
 : lf-cref-pairs= ( addr addr' count -- flag ) 2* cells tuck compare 0= ;
+\ Whether reference n counts as reached for a reference made equal to it:
+\ a hook, by default always. kernel/check-declaration.fs sets it so that
+\ in a check a reference made before it (below the input's mark) counts
+\ only once the check has reached it, as terms.fs's lf-term-findable? and
+\ levels.fs's lf-level-findable? do for nodes and levels (review rvRS F1,
+\ ADR 0014 Amendment 8). A find with the gate sees only references that
+\ count; one without (lf-cref-ungated on) sees every reference.
+defer lf-cref-findable? ( n -- flag )
+:noname ( n -- flag ) drop true ; is lf-cref-findable?
+1 cells context-record: lf-cref-ungated
+: lf-cref-gate? ( n -- flag ) lf-cref-ungated @ if drop true else lf-cref-findable? then ;
 : lf-cref-same ( n key htab -- flag )
   drop over lf-cref-at? 0= if 2drop false exit then
+  over lf-cref-gate? 0= if 2drop false exit then
   swap lf-cref-slot swap 2dup lf-cref-head= 0= if 2drop false exit then
   over lf-cref-span? 0= if 2drop false exit then
   swap lf-cref-pairs rot 2 cells + @ swap lf-cref-pairs= ;
@@ -289,20 +303,51 @@ create lf-cref-hooks /htab-hooks allot
   lf-crefs store-new-slot 0= if drop 2drop 2drop lf-cref-refused exit then
   >r >r r@ lf-cref-levels! r@ lf-cref-name! r> lf-cref-stamp r> lf-cref-base + swap true ;
 : lf-cref-source? ( name generation -- flag ) lf-cref-name-valid? lf-cref-state-valid? and ;
-\ Interned (see the header): the equal live record, given only where a
-\ new record would be allowed (store-open? after growth, as for terms),
-\ or a new record entered at the empty slot the find gave. A table that
-\ cannot grow only costs sharing.
+\ Shadows (review rvRS F1; ADR 0014 Amendment 8). In a check, a reference
+\ made before it that the check has not reached is given for an equal
+\ one as before (so no outcome or fuel moves), but the room it saves is
+\ taken as an export without that record would take it: a new record of
+\ the same fields, its shadow, is made in this context's store -- charged
+\ to the memory limit, counted by the check's scratch, given back by a
+\ rollback -- and entered in the table, where a later find meets it, as
+\ it would meet that export's new record, and gives its original at no
+\ cost. lf-cref-shadows holds, per record of this context's store entered
+\ in the table, its original plus one, or 0 for none.
+1 cells context-slab: lf-cref-shadows
+: lf-cref-shadow-at ( index -- addr ) lf-cref-base - lf-cref-shadows slab-at ;
+: lf-cref-shadowed ( n -- n' )
+  dup lf-cref-under? if exit then dup lf-cref-shadow-at @ ?dup if nip 1- then ;
+: lf-cref-shadow! ( original+1 index -- flag )
+  dup lf-cref-base - 1+ lf-cref-shadows slab-hold ok?
+  if lf-cref-shadow-at ! true else 2drop false then ;
+\ Interned (see the header): the equal live record (a shadow's original),
+\ given only where a new record would be allowed (store-open? after
+\ growth, as for terms), or a new record entered at the empty slot the
+\ find gave. A table that cannot grow only costs sharing.
 : lf-cref-found ( n -- index identity true | false )
-  lf-crefs store-ready drop lf-crefs store-open?
+  lf-cref-shadowed lf-crefs store-ready drop lf-crefs store-open?
   if dup lf-cref-slot lf-crec-identity @ true else drop lf-cref-refused then ;
-: lf-cref-enter ( index identity true i | false i -- index identity true | false )
-  swap if >r over r> lf-cref-table htab-put true else drop false then ;
+\ The equal reference that a find with the gate missed: made before the
+\ check and not reached by it.
+: lf-cref-unreached ( name generation addr count -- n true | false )
+  true lf-cref-ungated ! 2over 2over lf-cref-under-find
+  if >r 2drop 2drop r> true else lf-cref-find dup 0= if nip then then
+  false lf-cref-ungated ! ;
+\ A new record entered at slot i, with its shadow mark (its original plus
+\ one, or 0).
+: lf-cref-keep ( index identity i mark -- index identity true | false )
+  3 pick lf-cref-shadow! 0= if 2drop drop lf-cref-refused exit then
+  >r over r> lf-cref-table htab-put true ;
+: lf-cref-made-at ( name generation addr count i mark -- index identity true | false )
+  2>r lf-cref-store if 2r> lf-cref-keep else 2r> 2drop false then ;
+: lf-cref-shadow ( name generation addr count i original -- index identity true | false )
+  dup >r 1+ lf-cref-made-at if 2drop r> lf-cref-found else r> drop false then ;
 : lf-cref-intern ( name generation addr count -- index identity true | false )
   lf-cref-table htab-ready ok? 0= if lf-cref-store exit then
   2over 2over lf-cref-under-find if >r 2drop 2drop r> lf-cref-found exit then
   2over 2over lf-cref-find if >r 2drop 2drop r> lf-cref-found exit then
-  >r lf-cref-store r> lf-cref-enter ;
+  >r 2over 2over lf-cref-unreached
+  if r> swap lf-cref-shadow else r> 0 lf-cref-made-at then ;
 : lf-cref-make ( name generation addr count -- index identity true | false )
   lf-term-sharing? if lf-cref-intern else lf-cref-store then ;
 : lf-cref-new ( name generation addr count -- index identity true | false )
