@@ -181,8 +181,9 @@ manifest: cli-manifest
 : cli-file ( k -- c-addr u ) 2* cells cli-state arg-files + 2@ ;
 : cli-files ( -- addr ) cli-state arg-count ;
 
-\ Options. cli-options also forgets the file names and any mistake.
-: cli-options ( -- ) cli-state /cli-run erase cli-default-fuel cli-fuel ! ;
+\ Options. cli-options also forgets the file names, any mistake and an
+\ earlier command's memory limit per check (cli-fed-run sets this one's).
+: cli-options ( -- ) cli-state /cli-run erase cli-default-fuel cli-fuel ! 0 lf-meter-limit! ;
 ' cli-options context-setup
 : cli-no-manifest ( -- ) true cli-unchecked ! ;
 : cli-fuel! ( n -- ) cli-fuel ! ;

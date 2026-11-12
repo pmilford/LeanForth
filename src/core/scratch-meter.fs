@@ -33,7 +33,7 @@
 \ a member of the checker context (lib/context.fs); the reading
 \ lf-meter-used is a DEFER set once while loading.
 \ Example:
-\   4000 1000000 * lf-meter-limit!   \ every later check: at most 4000 MB
+\   4000 20 lshift lf-meter-limit!   \ every later check: at most 4000 MB
 \   lf-meter-start  lf-meter-term? drop  lf-meter-stop
 
 require ../lib/lib.fs
