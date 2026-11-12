@@ -56,8 +56,17 @@
 \                  fuel (41 declarations of the pinned exports less, none
 \                  more), so five Navier-Stokes structures that ran out at
 \                  100,000,000 are decided; Init's verdicts are unchanged.
+\   7  2026-11-12  agent FXK (review rvKN 1 and 2): C1 walks each (node,
+\                  binder depth) pair once, as Lean's for_each with an
+\                  offset (before, a node met again at an earlier depth
+\                  was walked again with its subterm, up to exponentially
+\                  often), and the occurrence walk inside the nested-
+\                  occurrence walk no longer erases that walk's marks:
+\                  blocks use less fuel (Init: one declaration 4 units
+\                  less, none more, every other field the same; the
+\                  pinned exports unchanged); no verdict.
 \
 \ [kernel] code: experimental, not through the review gate.
 \ State: none.
 
-6 constant lf-verdict-version
+7 constant lf-verdict-version

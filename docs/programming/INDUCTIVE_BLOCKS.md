@@ -296,6 +296,16 @@ occurrence tests (constant-term-boundary.fs's marks), and B3. Until
 2026-11-11 they walked every path; five structures of the Navier-Stokes
 library ran out of their 100 million units of fuel and now take 0.4 to
 1.5 million (rows `pos.shared-*` of the table reproduce the pattern).
+C1 keeps every (node, depth) pair a constructor's walk reached, as
+`for_each_offset_fn`'s cache does: the node's mark the first depth, a
+hash table for the run (constant-term-boundary.fs's pair set) the
+others. Until 2026-11-12 a node kept only its latest depth, so a node
+met at alternating depths was walked again with its subterm, up to
+exponentially often (review rvKN 1; row `uniform.shared-depths`, 30
+shared terms: 22,321,990 units of fuel before, 2,158 now). The
+occurrence walk that the nested-occurrence test runs inside the audit's
+walk keeps its marks in that table too, so it no longer erases the outer
+walk's marks (rvKN 2).
 
 **Publication (B5).** The check's candidate covers all the block's
 members (`lf-env-span!`, `environment.fs`); the publisher re-checks every

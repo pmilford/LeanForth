@@ -1923,6 +1923,63 @@ places now do what Lean 4.35.0 does where LeanForth answered *unknown*.
   `eta.param-index-prop-stuck` put a parameter before the index; Lean and
   LeanForth agree (accepted, typeExpected / rejected).
 
+## Amendment (review rvKN; agent FXK, 2026-11-12)
+
+Experimental [kernel] code, **not through its gate**. No new rule: the
+block's walks now do Lean's work, no more.
+
+- **C1 visits each (node, depth) pair once (rvKN 1, major).** Lean's
+  `check_uniform_ind_occs` (inductive.cpp 134-164) walks a constructor
+  type with `for_each` with an offset, whose cache keeps every shared
+  (term, offset) pair it visited (`for_each_offset_fn`). LeanForth's
+  marks kept one depth per node, the latest: a node met again at an
+  earlier depth, after another depth had overwritten its mark, was walked
+  again with its whole subterm -- up to exponentially often (the
+  reviewer's `RvKN_dag78`, 78 closed shared types: pinned Lean and the
+  official checker accept in 0.03 s, LeanForth ran out of 100 million
+  units). Now a node's mark keeps the first depth a run reached it at
+  and a hash table for the run, the *pair set*
+  (`constant-term-boundary.fs`, `lf-walk-pairing`, `lf-walk-once-at`),
+  keeps the others: a pair is skipped only when the run visited it, and
+  every pair it visited is skipped. A run that does not own the set (one
+  started inside the owner's visit), or a table the heap cannot grow,
+  only visits more. `RvKN_dag78`: accepted, 5,059 units for its block.
+  The reviewer's cheaper alternative (a closed node at any depth) was not
+  taken: a closed node can hold an occurrence uniform at depth 0 and not
+  deeper, so it is not exactly Lean's walk.
+- **The inner occurrence walk keeps its marks apart (rvKN 2, minor).**
+  The nested-occurrence test's `has_ind_occ` on a candidate's arguments
+  (`lf-ind-mentions?`, a `find` with its own per-call cache in Lean) ran
+  on the shared marks and erased those of the audit's walk around it,
+  which then visited those nodes again. Its marks are now in the pair set
+  alone (`lf-walk-once-aside`).
+- **Left open (rvKN 3, minor, pre-existing).** Inference aside (Lean's
+  infer-only mode) answers *unknown* where `ensure_pi_core` or
+  `ensure_sort_core` meets a whnf that is no Pi or Sort; Lean throws
+  (funExpected, typeExpected) and rejects. Not changed, because
+  LeanForth's aside inference also infers a lambda's binder domain (and
+  checks it is a type), which Lean's `infer_lambda` in infer-only mode
+  never does (type_checker.cpp 131-133): with the rejection, a domain
+  Lean never reads could reject a declaration Lean accepts. The fix is to
+  follow `infer_lambda` and `infer_let` in infer-only mode first (no
+  domain, type or value inferred aside), then reject aside as Lean does;
+  it reaches only ill-typed terms that reduction produced.
+
+**Evidence.** New row `uniform.shared-depths` of the inductive table (30
+closed shared types met at alternating depths): pinned Lean accepts;
+LeanForth before ran out of the table's million units (22,321,990 to
+accept), now accepts with 2,158; its case file and
+`tests/core/check-block.fs`'s row; 41 case files regenerated for Lean's
+moved hygiene counters (numeric name components only).
+`tests/core/constant-term-boundary.fs` pins the pair set (every depth a
+run reached is kept; a run that does not own the set and one after the
+counter wrapped skip nothing); `tests/core/check-block.fs` checks that
+`lf-ind-mentions?` leaves the outer walk's mark. Planted faults
+`fxk-*` (5), all caught. Fuel: all of Init (59,349 declarations, jobs 8)
+before and after give the same report but for one declaration's fuel
+(4 units less); the pinned exports' reports are unchanged. Verdict
+version 7 (`verdict-version.fs`).
+
 ## Reproduction
 
 ```sh
