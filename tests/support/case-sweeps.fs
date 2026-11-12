@@ -174,9 +174,12 @@ create cs-the-pass /cs-pass allot
 : cs-pass-least ( -- fuel ) 0 begin dup cs-short? over cs-plenty < and while 1+ repeat ;
 \ Every fuel below the least is exhausted (by the search); the least and
 \ the next two give what plenty gives. Notes: the pass's result and
-\ outcome with plenty of fuel.
+\ outcome with plenty of fuel. A first run warms up what a check keeps
+\ across its jobs (the audit's memo of checked nodes, which the job's
+\ rollback leaves), so that the runs measured make the same nodes.
 : cs-pass-sweep ( node pass -- flag )
-  cs-pass! cs-plenty-pass cs-the-pass csp-x @ cs-note cs-the-pass csp-outcome @ cs-note
+  cs-pass! cs-plenty cs-pass 2drop
+  cs-plenty-pass cs-the-pass csp-x @ cs-note cs-the-pass csp-outcome @ cs-note
   cs-pass-least dup cs-gives? over 1+ cs-gives? and swap 2 + cs-gives? and ;
 \ Each allocation of the pass refused in turn: full, and the refusal
 \ reached; false for a pass that allocates nothing.

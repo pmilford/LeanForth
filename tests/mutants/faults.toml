@@ -9418,3 +9418,35 @@ old = '''  dup lf-idecl-arity @ 1 = swap lf-quot-ctors nip 1 = and ;'''
 new = '''  drop true ;'''
 test = "$GFORTH tests/core/quot.fs"
 reason = "check_eq_type takes any inductive type for Eq (Bool, two constructors and no universe parameter, passes the form test)"
+
+[[fault]]
+id = "cov-iproj-type-head-any"
+file = "src/kernel/infer-proj.fs"
+old = '''  lf-iproj-head dup lf-whnf-const? 0= if 2drop lf-iproj-bad exit then'''
+new = ''''''
+test = "$GFORTH tests/core/infer-proj.fs"
+reason = "a projection of a term whose type's head is no constant (a Sort) is not refused as invalidProj before the head's name is read"
+
+[[fault]]
+id = "cov-iproj-slot-any-kind"
+file = "src/kernel/infer-proj.fs"
+old = '''  if lf-iproj-fits else 2drop drop lf-iproj-bad then ;'''
+new = '''  drop lf-iproj-fits ;'''
+test = "$GFORTH tests/core/infer-proj.fs"
+reason = "the structure a projection names may be any declaration (a constructor), not only an inductive type"
+
+[[fault]]
+id = "cov-iproj-prop-guard-off"
+file = "src/kernel/infer-proj.fs"
+old = '''  over 0= if drop outcome-ok exit then'''
+new = '''  drop outcome-ok exit'''
+test = "$GFORTH tests/core/infer-proj.fs"
+reason = "a data field of a proof is projected (Lean's invalidProj for a proposition's non-proof field)"
+
+[[fault]]
+id = "cov-iproj-end-not-pi"
+file = "src/kernel/infer-proj.fs"
+old = '''  dup lf-iproj-pi? 0= if drop 3 pick lf-iproj-bad exit then'''
+new = ''''''
+test = "$GFORTH tests/core/infer-proj.fs"
+reason = "an index past the constructor's fields reads the domain of a non-Pi instead of invalidProj"
