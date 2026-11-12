@@ -600,6 +600,10 @@ T{ s\" {\"forallE\":{\"binderInfo\":\"default\",\"body\":1,\"name\":2,\"type\":0
    holds? -> true }T
 T{ s\" theorem \xce\xb1 Prop explicit: p p := p end \xce\xb1" exported -> outcome-ok }T
 T{ s\" \"str\":\"\xce\xb1\"" holds? -> true }T
+\ A tab, which no text's name holds (it splits tokens), put in the name
+\ store by hand: \u0009 as Lean writes it, not \t.
+T{ 0 s\" a\tb" lf-name-str nip export-now -> true outcome-ok }T
+T{ s\" \"str\":\"a\\u0009b\"" holds? -> true }T
 T{ s" def a 0 Type := Prop end a def b 0 Type := a end b" exported -> outcome-ok }T
 T{ s\" {\"const\":{\"name\":1,\"us\":[]},\"ie\":" holds? -> true }T
 T{ s" theorem t Prop explicit: f Prop explicit: x f x $ := Prop end t" exported

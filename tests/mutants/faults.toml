@@ -5134,7 +5134,7 @@ file = "src/author/export.fs"
 old = '''  true lfx-w jw-sorted ! true lfx-w jw-lean ! ;'''
 new = '''  true lfx-w jw-sorted ! ;'''
 test = "$GFORTH tests/author/author.fs"
-reason = "S7: names' strings escaped as Python's json escapes them (\\u03b1), not as Lean's Json.compress (the bytes as they are)"
+reason = "S7: names' strings escaped as Python's json escapes them (a tab as \\t), not as Lean's Json.compress (\\u0009)"
 
 [[fault]]
 id = "lf-export-unknown-level-tag"
