@@ -964,9 +964,14 @@ DOC_EXAMPLE_PAGES += docs/user/PROOF_OUTLINE.md
 # output, from other folders, against the counter and the re-exporter, and
 # with a broken Gforth. The page's console examples run in check-doc-examples.
 # Gforth and Python 3 only.
-test-cli:
+# The command-line tests run as four parts that make can run at once
+# (tests/cli/run_group.py; 236 s on one core in one part, 2026-11-12).
+test-cli: test-cli-forth test-cli-1 test-cli-2 test-cli-3 test-cli-4
+test-cli-forth:
 	$(RUN) $(GFORTH) tests/cli/leanforth.fs
-	GFORTH=$(GFORTH) $(RUN) python3 tests/cli/test_leanforth.py
+test-cli-1 test-cli-2 test-cli-3 test-cli-4:
+	GFORTH=$(GFORTH) $(RUN) python3 tests/cli/run_group.py $(subst test-cli-,,$@)
+.PHONY: test-cli-forth test-cli-1 test-cli-2 test-cli-3 test-cli-4
 
 # Pinned Lean accepts the two Lean fixtures of the command line's tests and
 # scripts/export.sh reproduces their exports and manifests byte for byte.
