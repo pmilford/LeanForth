@@ -150,8 +150,17 @@ defer lf-pp-args ( app info i frames -- ... frames next )
   >r swap lf-pp-head 2dup lf-pp-at? >r drop dup lf-pp-atom-head?
   if nip r> r> ['] frame-return lf-pp-atom exit then
   r> drop swap r> ['] frame-return lf-pp-term-call ;
+\ Notation (print-notation.fs installs the two words): the row of the
+\ notation table that prints this application, or 0; and the step that
+\ prints it by the row. Off, or with no row, the application prints as
+\ the kernel's term does.
+defer lf-pp-notation ( term -- row | 0 )
+: lf-pp-no-notation ( term -- 0 ) drop 0 ;
+' lf-pp-no-notation is lf-pp-notation
+defer lf-pp-notated ( term row pos frames -- ... frames next )
 : lf-pp-app ( term pos frames -- ... frames next )
   >r over lf-pp-spine >r 2drop r> ok-then2? 0= if r> 0 exit then
+  over lf-pp-notation ?dup if swap r> lf-pp-notated exit then
   over lf-pp-shown# 0= if r> lf-pp-bare exit then
   dup lf-prec-lead false lf-pp-parens? lf-pp-enclose r@ frame-save
   r> ['] lf-pp-wrapped lf-pp-applied ;

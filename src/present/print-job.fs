@@ -33,6 +33,7 @@ require ./binder-table.fs
 0 constant lf-print-unicode     \ mode: Lean's notation (with pp.unicode.fun)
 1 constant lf-print-ascii       \ mode: plain ASCII notation (forall, ->, =>)
 2 constant lf-print-latex       \ mode: LaTeX math
+3 constant lf-print-mathtext    \ mode: mathematics in Unicode text (ℕ, ·, n²)
 3 constant lf-print-mode-mask
 4 constant lf-print-universes   \ option bit: show universe arguments, c.{u}
 \ No limit of nested visits until the caller sets one (lf-print-limit!).
@@ -60,6 +61,7 @@ begin-structure /lf-pjob
   field: lf-pjob-sinking     \ true while the sink runs
   field: lf-pjob-broken      \ true once the sink reset the print in progress
   field: lf-pjob-printing    \ true from a print's start to its end (or a THROW)
+  field: lf-pjob-notation    \ true: print by the notation table (print-notation.fs)
 end-structure
 0 lf-pjob-frames 0<> [if] .( print-job.fs: frames must come first) cr abort [then]
 /lf-pjob context-record: lf-pjob
@@ -82,12 +84,17 @@ end-structure
 \ with TYPE, Unicode, no universes and no limit. The frames' visitor is
 \ never run: every visit names its own first step (lf-pp-call).
 : lf-print-setup ( sink options -- ) lf-pjob tuck lf-pjob-options ! lf-pjob-sink ! ;
+\ Notation (print-notation.fs): off until the caller turns it on; it
+\ survives lf-print-setup, which sets only the sink and the options.
+: lf-print-notation! ( flag -- ) lf-pjob lf-pjob-notation ! ;
+: lf-print-notation? ( -- flag ) lf-pjob lf-pjob-notation @ ;
 : lf-print-limit! ( n -- flag )
   dup 0> lf-pp-busy? 0= and if lf-pjob lf-pjob-limit ! true else drop false then ;
 : lf-pp-no-visit ( x frames -- -1 outcome frames 0 ) >r drop -1 outcome-invalid r> 0 ;
 : lf-print-defaults ( -- )
   ['] lf-pp-no-visit lf-pp-frames frame-init
-  ['] type 0 lf-print-setup lf-print-default-limit lf-print-limit! drop ;
+  ['] type 0 lf-print-setup false lf-print-notation!
+  lf-print-default-limit lf-print-limit! drop ;
 ' lf-print-defaults context-setup
 :noname ( -- ) lf-pp-frames frame-free ; context-teardown
 
