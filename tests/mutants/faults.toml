@@ -8295,6 +8295,29 @@ new = '''  lf-sched-broken? if false exit then lf-sch-release'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "FX10 M3: declarations past the stop left in the ready heap make a run with no worker left more work (it spun forever)"
 
+# Review fixes of 2026-11-12 (FRK F1, F6): a worker added whole or not at
+# all; a slab that is not live invalid, never full.
+
+[[fault]]
+id = "frk-sched-add-pushes-first"
+file = "src/kernel/env-schedule.fs"
+old = '''  lf-sch-worker-room dup ok? 0= if nip exit then drop
+  lf-sched lf-sch-ctxs lf-sch-push 0 lf-sched lf-sch-jobs lf-sch-push lf-sch-and
+  -1 lf-sched lf-sch-ats lf-sch-push lf-sch-and ;'''
+new = '''  lf-sched lf-sch-ctxs lf-sch-push dup ok? 0= if exit then drop
+  0 lf-sched lf-sch-jobs lf-sch-push -1 lf-sched lf-sch-ats lf-sch-push or
+  ok? room>outcome ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "FRK F1: the context is pushed before the jobs list is known to have room, so a full add keeps a context the caller frees"
+
+[[fault]]
+id = "frk-sched-outcomes-ored"
+file = "src/kernel/env-schedule.fs"
+old = ''': lf-sch-and ( outcome1 outcome2 -- outcome ) over ok? if nip else drop then ;'''
+new = ''': lf-sch-and ( outcome1 outcome2 -- outcome ) or ok? room>outcome ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "FRK F6: outcomes OR-ed and read as room, so a list that is not live is reported full"
+
 [[fault]]
 id = "s5b-sched-skips-let"
 file = "src/kernel/env-schedule.fs"
