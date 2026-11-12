@@ -2675,7 +2675,7 @@ reason = "the declarations' verdicts never reach the exit status, so every check
 id = "cli-prints-accepted-itself"
 file = "src/cli/leanforth.fs"
 old = '''  dup cli-name. ." : " dup cli-verdict. dup cli-not-proved. cr'''
-new = '''  dup cli-name. ." : accepted (experimental, not independently audited); axioms: none" cr'''
+new = '''  dup cli-name. ." : accepted; axioms: none" cr'''
 test = "python3 tests/cli/test_leanforth.py"
 reason = "trust boundary: the command line prints accepted itself, not the slot's verdict"
 quick = true
@@ -3258,12 +3258,44 @@ test = "$GFORTH tests/core/run-record.fs"
 reason = "an accepted slot's axiom set is not compared with its axioms, so a planted bit is written as axioms: []"
 
 [[fault]]
-id = "rr-no-label"
+id = "rr-no-axioms"
 file = "src/import/run-record.fs"
-old = '''  s" label" rr-key rr-label rr-string rr-axioms-out ;'''
-new = '''  rr-axioms-out ;'''
+old = '''  s" verdict" rr-key s" accepted" rr-string rr-axioms-out ;'''
+new = '''  s" verdict" rr-key s" accepted" rr-string ;'''
 test = "$GFORTH tests/core/run-record.fs"
-reason = "an accepted declaration is written without its label experimental, not independently audited"
+reason = "an accepted declaration is written without its axioms"
+
+[[fault]]
+id = "rr-label-back"
+file = "src/import/run-record.fs"
+old = '''  s" verdict" rr-key s" accepted" rr-string rr-axioms-out ;'''
+new = '''  s" verdict" rr-key s" accepted" rr-string s" label" rr-key s" experimental" rr-string rr-axioms-out ;'''
+test = "$GFORTH tests/core/run-record.fs"
+reason = "an accepted declaration is written with the label the owner withdrew on 2026-11-12"
+
+[[fault]]
+id = "cd-label-back"
+file = "src/kernel/check-declaration.fs"
+old = '''  ." accepted; "'''
+new = '''  ." accepted (experimental, not independently audited); "'''
+test = "$GFORTH tests/core/failure-paths.fs"
+reason = "an accepted verdict prints the label the owner withdrew on 2026-11-12"
+
+[[fault]]
+id = "cj-label-back"
+file = "src/cli/check-json.fs"
+old = '''  dup lf-env-outcome ok? if cj-axioms else cj-diagnostic then ;'''
+new = '''  dup lf-env-outcome ok? if s" experimental" s" label" cj-text cj-axioms else cj-diagnostic then ;'''
+test = "python3 tests/cli/test_leanforth.py NoLabel"
+reason = "an accepted declaration of the JSON report carries the label the owner withdrew on 2026-11-12"
+
+[[fault]]
+id = "ol-label-back"
+file = "src/present/proof-outline.fs"
+old = '''  if s" accepted; " lf-lv-put lf-ol-axioms 0 lf-lv-flush lf-lv-eol exit then'''
+new = '''  if s" accepted (experimental); " lf-lv-put lf-ol-axioms 0 lf-lv-flush lf-lv-eol exit then'''
+test = "python3 tests/present/check_outline.py"
+reason = "a proof outline's verdict carries the label the owner withdrew on 2026-11-12"
 
 [[fault]]
 id = "rr-unfinished-unchecked"
@@ -6680,18 +6712,18 @@ reason = "rvUNNI L5: a declaration a stopped run never reached reads like the sk
 [[fault]]
 id = "fx8-report-version-0-1"
 file = "src/cli/check-json.fs"
-old = ''': cj-version ( -- c-addr u ) ck-snapped? if s" 0.3" else s" 0.2" then ;'''
-new = ''': cj-version ( -- c-addr u ) ck-snapped? if s" 0.3" else s" 0.1" then ;'''
-test = "python3 tests/cli/test_leanforth.py"
-reason = "rvUNNI M2: a report with the verdict skipped claims version 0.1, whose consumers refuse skipped"
+old = ''': cj-version ( -- c-addr u ) ck-snapped? if s" 0.5" else s" 0.4" then ;'''
+new = ''': cj-version ( -- c-addr u ) ck-snapped? if s" 0.5" else s" 0.2" then ;'''
+test = "python3 tests/cli/test_leanforth.py JsonReport"
+reason = "rvUNNI M2, PA: a report without the label claims version 0.2, whose consumers require it"
 
 [[fault]]
 id = "fx8-record-version-0-1"
 file = "src/import/run-record.fs"
-old = ''': rr-version ( -- c-addr u ) s" 0.2" ;'''
-new = ''': rr-version ( -- c-addr u ) s" 0.1" ;'''
+old = ''': rr-version ( -- c-addr u ) s" 0.3" ;'''
+new = ''': rr-version ( -- c-addr u ) s" 0.2" ;'''
 test = "$GFORTH tests/core/run-record.fs"
-reason = "rvUNNI M2: a run record with the verdict skipped claims version 0.1"
+reason = "rvUNNI M2, PA: a run record without the label claims version 0.2, whose consumers require it"
 
 # Step S0 of the compact-store plan (plan task 6.5.5): the level passes mark
 # reached nodes with a per-call stamp and build only the sorted list of them.

@@ -31,9 +31,8 @@ decides this is the [notation table](TERM_PRINTER.md#notation-the-table-and-the-
 
 **Trust.** The printer is presentation code: nothing it prints is evidence
 that anything was checked, and the checker never loads it. The verdict under
-each statement is the checker's. Until an outside Lean expert has audited the
-checker, every accepted result is *experimental, not independently audited*.
-"accepted ... axioms: propext, Quot.sound" says which of Lean's standard axioms
+each statement is the checker's.
+"accepted; axioms: propext, Quot.sound" says which of Lean's standard axioms
 the proof depends on; the two are on the allowlist.
 
 **The wrong twin.** For each theorem, `tests/demos/wrong_twin.py` copies the
@@ -91,7 +90,7 @@ declarations it needs:
 
 ```text
 52 declarations: 52 accepted
-accepted: 52 (experimental, not independently audited); axioms: none
+accepted: 52; axioms: none
 ```
 
 and of the wrong twin (exit status 1, as for any rejection):
@@ -162,7 +161,7 @@ declarations it needs:
 
 ```text
 1442 declarations: 1442 accepted
-accepted: 1442 (experimental, not independently audited); axioms: propext, Quot.sound (allowlisted); none NOT PROVED
+accepted: 1442; axioms: propext, Quot.sound (allowlisted); none NOT PROVED
 ```
 
 and of the wrong twin (exit status 1, as for any rejection):
@@ -231,7 +230,7 @@ declarations it needs:
 
 ```text
 1445 declarations: 1445 accepted
-accepted: 1445 (experimental, not independently audited); axioms: propext, Quot.sound (allowlisted); none NOT PROVED
+accepted: 1445; axioms: propext, Quot.sound (allowlisted); none NOT PROVED
 ```
 
 and of the wrong twin (exit status 1, as for any rejection):
@@ -293,7 +292,7 @@ declarations it needs:
 
 ```text
 16 declarations: 16 accepted
-accepted: 16 (experimental, not independently audited); axioms: none
+accepted: 16; axioms: none
 ```
 
 and of the wrong twin (exit status 1, as for any rejection):
@@ -381,7 +380,7 @@ declarations it needs:
 
 ```text
 1591 declarations: 1591 accepted
-accepted: 1591 (experimental, not independently audited); axioms: propext, Quot.sound (allowlisted); none NOT PROVED
+accepted: 1591; axioms: propext, Quot.sound (allowlisted); none NOT PROVED
 ```
 
 and of the wrong twin (exit status 1, as for any rejection):

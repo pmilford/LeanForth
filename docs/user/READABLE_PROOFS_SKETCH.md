@@ -31,7 +31,7 @@ input LeanForth checks. In a terminal, the printer would show:
 
 ```text
 Theorem composition
-  accepted — experimental, not independently audited; axioms: none
+  accepted; axioms: none
   Statement: ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   In words:  for all propositions A, B, C: if A implies B, and B implies C, then A implies C.
   Input:     tests/reference/composition.ndjson line 35
@@ -165,9 +165,7 @@ Both Lean blocks were checked with the pinned Lean 4.35.0 and
   review): each formula on a line is exactly the one the checker computed
   for that step; the rule names and step numbers come from the checker's
   log; so do which lines a line uses, the final match with the statement,
-  the verdict and the list of axioms. Until an outside Lean expert has
-  audited the checker, every accepted result carries the label
-  *experimental — not independently audited*.
+  the verdict and the list of axioms.
 - **Only explanation**: the English sentences ("Let", "Assume",
   "because …", "Discharging", the statement in words), how steps are
   grouped into lines, the line numbers, the names and notation. They come

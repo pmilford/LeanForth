@@ -113,12 +113,11 @@ cframes frame-free
 T{ cache-mark lf-scratch-rollback -> outcome-ok }T lf-caches-clear
 
 \ ---------------------------------------------------------------------------
-\ Accepted (A1): idProp : ∀ (P : Prop), P → P := fun P h => h. Its verdict
-\ is labelled; nothing is recorded.
+\ Accepted (A1): idProp : ∀ (P : Prop), P → P := fun P h => h. Nothing is
+\ recorded; tests/core/failure-paths.fs reads every printed verdict.
 fc-case accepted
 fc-decl check thm safe idProp 0 TYPE P S z P V 0 V 1 VALUE L S z L V 0 V 0
 T{ check-last -> outcome-ok 0 lf-step-done }T
-T{ lf-check-label s" accepted (experimental, not independently audited)" compare -> 0 }T
 
 \ The same as a definition, and over Type as a definition (any Sort).
 fc-case definition

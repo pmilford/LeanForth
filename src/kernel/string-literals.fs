@@ -6,8 +6,8 @@
 \ inductive_reduce_rec (inductive.h 94-97), both through iota.fs, and
 \ try_string_lit_expansion (type_checker.cpp 1104-1117), step 13 of
 \ is_def_eq_core (1200-1201), which this file sets as defeq.fs's hook
-\ lf-dq-string-step. [kernel] code: experimental, not through the review
-\ gate, not independently audited.
+\ lf-dq-string-step. [kernel] code: not through the review gate
+\ (AGENTS.md).
 \
 \ string_lit_to_constructor turns the literal s (core/string-literals.fs)
 \ into

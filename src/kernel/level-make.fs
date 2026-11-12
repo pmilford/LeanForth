@@ -4,7 +4,7 @@
 \ is_explicit (54-64), to_offset (67-74), is_one (110), and the
 \ simplifying constructors mk_max (81-104) and mk_imax (112-123). Lean's
 \ mk_succ (33) is the raw constructor, lf-level-succ. [kernel] code:
-\ experimental, not through the review gate. Untrusted.
+\ not through the review gate (AGENTS.md). Untrusted.
 \ Preconditions: every level given is a live node whose reachable graph
 \ a scope check validated (children earlier, known tags), and the store
 \ does not change during a call except by the words here; equal parameter

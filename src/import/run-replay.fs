@@ -13,7 +13,7 @@
 \ field, so the record is confirmed; rejected when they differ, with one
 \ finding per difference (rp-total counts them); invalid when the old record
 \ cannot be compared at all (unreadable or larger than rp-room, not JSON,
-\ not a run record of version 0.1) or the new one is not there.
+\ not a run record of rr-version) or the new one is not there.
 \ rp-report ( -- outcome ) then writes the report with TYPE, whole or not
 \ at all, and gives the writer's outcome. Nothing is ever confirmed
 \ silently: a different input hash, manifest, export, LeanForth commit,
@@ -37,7 +37,7 @@
 \ differences are named by the section they are in (input-differs,
 \ export-differs, tool-differs, settings-differ, run-differs,
 \ declarations-differ), and within a declaration by its member
-\ (verdict-differs for its label and axioms, reason-differs for its
+\ (verdict-differs for its axioms, reason-differs for its
 \ diagnostic). The old record is untrusted: it is read only within the
 \ new record's shape, so the comparison's depth is the new record's, and
 \ JSON nesting deeper than rp-depth is refused as not-json. Paths are
@@ -130,9 +130,8 @@ create rp-sections
   rp-declarations-differ s" declarations" rp-entry,  -1 s" " rp-entry,
 \ ... and within a declaration, by the member's key; others keep the code.
 create rp-members
-  rp-verdict-differs s" verdict" rp-entry,  rp-verdict-differs s" label" rp-entry,
-  rp-verdict-differs s" axioms" rp-entry,  rp-reason-differs s" diagnostic" rp-entry,
-  -1 s" " rp-entry,
+  rp-verdict-differs s" verdict" rp-entry,  rp-verdict-differs s" axioms" rp-entry,
+  rp-reason-differs s" diagnostic" rp-entry,  -1 s" " rp-entry,
 
 begin-structure /rp-finding
   field: finding-code

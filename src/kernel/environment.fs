@@ -75,8 +75,8 @@
 \ docs/programming/DIAGNOSTICS.md; recording never changes an outcome.
 \ lf-env-begin clears the diagnostic.
 \
-\ [kernel] code: experimental, not through the review gate, not
-\ independently audited. Limits: lf-input-capacity slots; a check's
+\ [kernel] code: not through the review gate (AGENTS.md). Limits:
+\ lf-input-capacity slots; a check's
 \ dependencies and an environment's pool have no fixed limit (plan task
 \ 6.2.0): both grow with the heap, and one the heap cannot grow is full.
 \ State: the shared record lf-envs (the identity serial and the current
@@ -1190,8 +1190,7 @@ create lf-replays   \ by kind; 0 for lf-look-other
 \ one with lf-env-view). The outcome of declaration d when the snapshot
 \ may read its slot (below its declaration, final), else invalid; the
 \ axiom set of an accepted one, (bits ok), else (0 invalid). Accepted
-\ results print "accepted — experimental, not independently audited;
-\ axioms: none" (ADR 0011).
+\ results print "accepted; axioms: none" (ADR 0011).
 : lf-env-outcome ( d -- outcome )
   lf-env-readable if lf-slot-outcome@ else outcome-invalid then ;
 \ Where declaration d's verdict comes from (ADR 0020 D4, OQ-3; ADR 0012

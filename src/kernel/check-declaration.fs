@@ -46,16 +46,15 @@
 \
 \ lf-check-input checks every declaration of this context's input in a
 \ new environment; lf-check-verdict. prints a slot's verdict afterwards,
-\ an accepted one as "accepted (experimental, not independently audited);
-\ axioms: none" or the axioms' names, from the set the slot holds
-\ (AGENTS.md, ADR 0011).
+\ an accepted one as "accepted; axioms: none" or the axioms' names, from
+\ the set the slot holds (AGENTS.md, ADR 0011).
 \ The printing words run after a check, never inside one.
 \
-\ [kernel] code: experimental, not through the review gate, not
-\ independently audited. Limits: the stores' capacity settings (default
-\ 64 terms and levels; lf-term-capacity! and the like), the heap (the
-\ passes' explicit stacks grow with the depth: plan task 6.2.0), the
-\ fuel, the environment and inference.
+\ [kernel] code: not through the review gate (AGENTS.md). Limits: the
+\ stores' capacity settings (default 64 terms and levels;
+\ lf-term-capacity! and the like), the heap (the passes' explicit stacks
+\ grow with the depth: plan task 6.2.0), the fuel, the environment and
+\ inference.
 \ State: one record, lf-check-state (the budget, the fuel left in the
 \ audit, the step reached, the declaration checked and the last result),
 \ and one walk record, lf-check-walker (the U2 audit), both members of the
@@ -406,13 +405,12 @@ lf-check-steps# 1+ constant lf-step-done
   swap lf-check-budget lf-env-new dup ok? if drop lf-check-used then ;
 
 \ Reports, after a run (within lf-env-view's snapshot) or within a later
-\ check's: declaration d's verdict, an accepted one labelled, with the
-\ axiom set its slot holds: none, or the allowlist's names of its listed
-\ bits (in Lean's order of names, as #print axioms sorts them), then
-\ "unlisted" for any axiom outside the allowlist, which makes the
-\ declaration NOT PROVED (the command line names those axioms: their
-\ names are file text, which only its printer shows safely).
-: lf-check-label ( -- c-addr u ) s" accepted (experimental, not independently audited)" ;
+\ check's: declaration d's verdict, an accepted one with the axiom set its
+\ slot holds: none, or the allowlist's names of its listed bits (in
+\ Lean's order of names, as #print axioms sorts them), then "unlisted"
+\ for any axiom outside the allowlist, which makes the declaration NOT
+\ PROVED (the command line names those axioms: their names are file
+\ text, which only its printer shows safely).
 \ Bit's name when bits holds it, then a comma when a higher bit follows.
 : lf-check-axiom. ( bits bit -- bits )
   2dup and 0= if drop exit then
@@ -423,7 +421,7 @@ lf-check-steps# 1+ constant lf-step-done
   lf-axiom-propext lf-check-axiom. lf-axiom-choice lf-check-axiom.
   lf-axiom-sound lf-check-axiom. lf-axiom-unlisted lf-check-axiom. drop ;
 : lf-check-accepted. ( d -- )
-  lf-check-label type ." ; "
+  ." accepted; "
   lf-env-axioms ok? if lf-check-axioms. else drop ." axioms: ?" then ;
 \ Any other: "skipped" for one Lean's replay skips (lf-env-skipped?), else
 \ its outcome's name.

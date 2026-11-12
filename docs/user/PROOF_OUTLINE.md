@@ -15,8 +15,7 @@ of `B`; the *kernel* is the part of LeanForth that checks proofs (see
 [concepts](CONCEPTS.md)).
 
 **Status.** Implemented (plan tasks 2.4.1 and 2.4.4; [ADR 0013](../adr/0013-derivation-log.md)).
-The checker itself is experimental and not independently audited, so is
-every accepted result; the outline is untrusted presentation: it cannot
+The outline is untrusted presentation: it cannot
 change a verdict, and its sentences are not checked reasoning.
 
 ## The theorem in three forms
@@ -77,7 +76,7 @@ s" tests/reference/composition.ndjson" false po-file
 
 ```text
 Theorem composition
-  accepted (experimental, not independently audited); axioms: none
+  accepted; axioms: none
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in math text:   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
@@ -175,7 +174,7 @@ steps of its proof term; a long formula runs past its column):
 
 ```text
 Theorem Eq.symm
-  accepted (experimental, not independently audited); axioms: none
+  accepted; axioms: none
   Statement in Lean:        ∀ {α : Sort u} {a b : α} (h : Eq a b), Eq b a
   Statement in mathematics: $\forall \{\alpha : \mathrm{Sort}\ u\}\ \{a\ b : \alpha\}\ (h : \mathsf{Eq}\ a\ b),\ \mathsf{Eq}\ b\ a$
   Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
@@ -247,7 +246,7 @@ leanforth print --name Nat.add_zero tests/reference/inductive/nat-add-zero.ndjso
 
 ```
 Theorem Nat.add_zero
-  accepted (experimental, not independently audited); axioms: none
+  accepted; axioms: none
   Statement in Lean:        ∀ (n : Nat), n + 0 = n
   Statement in math text:   ∀ (n : ℕ), n + 0 = n
   Statement in mathematics: $\forall (n : \mathbb{N}),\ n + 0 = n$
@@ -324,7 +323,7 @@ of the outline of `composition`:
 ```latex
 \begin{flushleft}
 \textbf{Theorem }$\mathsf{composition}$ \\
-  accepted (experimental, not independently audited); axioms: none \\
+  accepted; axioms: none \\
 Statement in Lean (ASCII): {\ttfamily forall~\{A~B~C~:~Prop\},~(A~->~B)~->~(B~->~C)~->~A~->~C} \\
 Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$ \\
 ```
@@ -354,8 +353,8 @@ the structure only and says so).
 
 ## What is checked, and what is only explanation
 
-- **From the checker** (experimental, not independently audited): the
-  verdict, its label and the axioms, read from the checked environment;
+- **From the checker**: the
+  verdict and the axioms, read from the checked environment;
   every formula on every line, which is a term the checker computed for
   that step (an input term, or the copy the log kept of a term the checker
   built), printed by the [term printer](TERM_PRINTER.md); the rules, the

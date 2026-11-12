@@ -696,11 +696,11 @@ row of the [expected results](../reviews/FIRST_CHECKER_EXPECTED.md).
 (Until plan task 4.2.2d the rules D2 and D4 of
 [ADR 0011](../adr/0011-definite-rejection.md) found it, and the
 diagnostic's first number named them, as a set of bits.) The full
-check of a declaration, `check-declaration` (plan task 2.2.3; also
-experimental and not yet through its gate), adds the name, the universe
+check of a declaration, `check-declaration` (plan task 2.2.3; not
+yet through its gate), adds the name, the universe
 parameters, the lookups of constants in the checked environment and, for
 a theorem, the proposition test, and prints an accepted result as
-*accepted (experimental, not independently audited); axioms: none*
+*accepted; axioms: none*
 ([first check](FIRST_CHECK.md)).
 
 **Lean.** Lean accepts `polyId` (under [Term](#term)) and rejects the wrong
@@ -742,7 +742,7 @@ numbers are stable; scripts may rely on them.
 
 | Outcome | Value | Meaning | Lean counterpart |
 | --- | ---: | --- | --- |
-| ok | 0 | Succeeded. For the first checker: *accepted — experimental, not independently audited*. | Lean accepts. |
+| ok | 0 | Succeeded. For the first checker: *accepted*. | Lean accepts. |
 | invalid | 1 | Malformed input or corrupted state. | Input Lean's export cannot even express, such as a variable no binder covers. |
 | exhausted | 2 | Out of fuel: the processing budget ran out. More time might decide it. | None comparable (Lean's own time limits differ). |
 | unknown | 3 | Supported, but the cautious rules cannot decide. | Lean may accept or reject. |

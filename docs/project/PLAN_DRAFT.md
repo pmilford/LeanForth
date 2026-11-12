@@ -174,7 +174,7 @@ arrive in phase 5. The plan says so rather than hiding it.
 | Phase | What you will be able to see | Theorem track | Program track | Needs | Main gates |
 | --- | --- | --- | --- | --- | --- |
 | **1 Clean foundation** (in progress) | Same behaviour, smaller clearer code; `src/legacy/` gone; one command each for coverage and planted-fault reports | refactor core and kernel onto `src/lib/`; retire legacy | example words and depth analyzer onto the library; better comparison tables | — | [forth-review], [owner] for deletion |
-| **2 First checked declaration** | The five pinned Lean examples print *accepted — experimental, not independently audited; axioms: none*; every deliberately broken copy prints *rejected* or *unsupported*, never accepted; a readable proof of `composition` | rejection rules, checked environment, declaration checker, readable proofs v0 | clamp receipt: real Forth source → program IR → proof obligations (checked by Lean, labelled not-yet-LeanForth) → runtime tests | 1 | [kernel] ×3, [format], [owner] |
+| **2 First checked declaration** | The five pinned Lean examples print *accepted; axioms: none*; every deliberately broken copy prints *rejected* or *unsupported*, never accepted; a readable proof of `composition` | rejection rules, checked environment, declaration checker, readable proofs v0 | clamp receipt: real Forth source → program IR → proof obligations (checked by Lean, labelled not-yet-LeanForth) → runtime tests | 1 | [kernel] ×3, [format], [owner] |
 | **3 Lean input in Forth, CLI and API v0** — release 0.1 | `leanforth check file.ndjson` with no Python; `leanforth print`; `leanforth serve` speaking versioned JSON-RPC with schemas and golden examples | Forth JSON and Lean-export reader; capacity stage S1 | `leanforth program` prints program receipts | 1 (reader), 2 (end to end) | [import], [format], [bypass] |
 | **4 Definitions that compute** | Declarations that need earlier definitions unfolded are accepted; "unknown" answers fall measurably; proofs say "by definition of f" | unfolding, universe-level equality, eta, proof irrelevance, let, caches | loops with invariants and bounded memory in the IR; obligations still Lean-checked | 2 | [kernel] per feature |
 | **5 Data types; first real Lean code** — release 0.2 | `n + 0 = n` and `0 + n = n` (by induction), with every declaration they depend on, checked from real Lean output and printed readably | inductive types, recursors, structures, literals, quotients, axiom allowlist v1 | **first program fact checked by LeanForth itself** (clamp contract) | 3, 4 | [kernel] per feature, [axiom], [owner] |
@@ -299,8 +299,7 @@ gets a Forth review and records `make forth-metrics` before and after.
 
 **Outcome.** For the five pinned fixtures (`composition`, `identity`,
 `type-identity`, `poly-identity`, `constant-fixture` in `tests/reference/`)
-LeanForth prints *accepted — experimental, not independently audited;
-axioms: none*. For every deliberately broken copy it prints *rejected* or,
+LeanForth prints *accepted; axioms: none*. For every deliberately broken copy it prints *rejected* or,
 where the expected-results table says so, *unsupported* — never accepted. A
 readable proof of `composition` is printed (§7). Program track: a clamp
 receipt connects the actual Forth source to proof obligations and runtime
@@ -346,7 +345,7 @@ approval recorded in `docs/reviews/`; PROJECT_PROGRESS.md updated.
 | --- | --- | --- | --- | --- | --- |
 | 2.3.1 | Independent AI review of the exact diff by a fresh agent given the code, not our conclusions | No unresolved findings; review file in `docs/reviews/` | 2.2.4 | — | S |
 | 2.3.2 | Plain-language summary for the owner: what it does, evidence, risks, recommendation | Owner approval recorded with date and commit | 2.3.1 | [owner] | S |
-| 2.3.3 | Label every accepted result *experimental — not independently audited*; update PROJECT_PROGRESS.md (T5, Q5–Q7) | Label tested in output | 2.3.2 | — | S |
+| 2.3.3 | Label every accepted result *experimental — not independently audited* (withdrawn by the owner, 2026-11-12); update PROJECT_PROGRESS.md (T5, Q5–Q7) | Label tested in output | 2.3.2 | — | S |
 
 **WP 2.4 Readable proofs v0** (untrusted printer; parallel lane; design in §7)
 
@@ -661,7 +660,7 @@ Lean. **Roadmap:** T10.1–T10.4, P6–P9, D1.
 | 9.1.1 | R1: reproduce several published Lean results of several pages; record sources, versions, licences, assumptions; compare with Lean | Checked results with axioms reported | S4 | — | L |
 | 9.1.2 | R2: a longer recent theorem | as above | 9.1.1 | — | L |
 | 9.1.3 | R3: an open-problem investigation with transparent status; failed attempts kept | A solution is reported only with a checked proof of the exact statement | 9.1.2 | — | L |
-| 9.2.1 | Outside Lean-expert audit (owner decision 1); remove the *not independently audited* label only for the audited scope | Audit report and owner decision recorded | phase 5 at least | [owner] | — |
+| 9.2.1 | Outside Lean-expert audit (owner decision 1); results carry no label since 2026-11-12 (owner) | Audit report and owner decision recorded | phase 5 at least | [owner] | — |
 | 9.3.1 | Upgrade procedure for later Lean and Mathlib releases (T9.5) | Rehearsed on one upgrade | S5 | — | M |
 | 9.4.1 | Portability: a second Forth host and a 32-bit host (X7, T1.4). **Owner, 2026-11-10 (longer term): add one or two more Forth systems.** Candidates to evaluate: SwiftForth (FORTH, Inc.; Windows, Linux, macOS), VFX Forth (MPE; Windows, Linux, macOS), Win32Forth (Windows, free) and pForth (portable ANS Forth written in C); choose by licence, Forth-2012 coverage, 64- and 32-bit availability and how they run in CI | Portable suite passes there; limits documented | — | [runtime] | M–L |
 | 9.4.2 | **Status (2026-11-10): not started; longer term (owner, 2026-11-10).** Review the Forth language checker (`scripts/check-portable-forth.py`, `make forth-metrics`, the independent Forth reviewer `docs/development/FORTH_REVIEWER.md` with `.claude/agents/forth-reviewer.md` and `.codex/agents/forth-reviewer.toml`) and see how it can be improved; then write it up as a separate, reusable skill or agent with its own documentation and examples, so other Forth projects can use it | A review note with findings acted on; the skill or agent published in a form others can install, run on a second Forth code base | — | — | M |
@@ -916,8 +915,8 @@ Recommendation: (a) write checked declarations back out in the same
 lean4export NDJSON format LeanForth reads — then Lean itself can check what
 LeanForth checked, a strong independent cross-check (N9, N12); (b) receipts
 as JSON per the schema (2.5.1, 3.5.1), binding input SHA-256, declaration
-name, statement hash, checker version and commit, axioms, outcome and the
-*not independently audited* label; (c) under the owner's storage
+name, statement hash, checker version and commit, axioms and outcome;
+(c) under the owner's storage
 recommendation ("nothing saved to disk is trusted without being checked
 again", OWNER_DECISIONS.md) loading saved results means re-checking them.
 Whether a reviewed "trusted cache" should ever skip that is OQ-3.
@@ -1045,7 +1044,7 @@ end-theorem
 Printed:
 
 ```text
-Theorem composition            accepted · experimental, not independently audited
+Theorem composition            accepted
   For all propositions A, B, C: if A implies B, and B implies C, then A implies C.
   Axioms: none.   Input: tests/reference/composition.ndjson (sha256 …)
 
@@ -1074,7 +1073,7 @@ Proof.
   question for 8.1.1, because they already mean arithmetic in Forth).
 
 ```text
-Theorem Nat.add_zero           accepted · experimental, not independently audited
+Theorem Nat.add_zero           accepted
   For every natural number n,  n + 0 = n.
   Axioms: none.   Uses 14 earlier declarations, all accepted (list: --deps).
 
@@ -1092,7 +1091,7 @@ Proof.
 ### 7.3 Phase 5: `0 + n = n` (induction with sub-proofs)
 
 ```text
-Theorem Nat.zero_add           accepted · experimental, not independently audited
+Theorem Nat.zero_add           accepted
   For every natural number n,  0 + n = n.
 Proof (reconstructed from the proof term). By induction on n.
                                        [Nat recursor, property: n ↦ 0 + n = n]  s1
@@ -1120,7 +1119,7 @@ Contract, for integers v, l, u in the host cell range:
              so l ≤ r ≤ u;  r = v when l ≤ v ≤ u;  r = l when v < l;  r = u when v > u.
   if l > u:  consumes its three inputs and returns false.
 Source proof:  phase 2 — obligations O1–O4 checked by Lean 4.35.0 (reference), NOT by LeanForth
-               phase 5 — obligations O1–O4 accepted by LeanForth · experimental, not independently audited
+               phase 5 — obligations O1–O4 accepted by LeanForth
 Runtime:       tested on Gforth 1.0.0, x86-64, 64-bit cells (343 + 343 + 1,470 + 784 cases). Testing is not proof.
 Assumptions:   the reader translated the source into IR correctly; host >, MAX and MIN are signed-cell
                integer operations; no data- or return-stack overflow; Gforth behaves as documented.

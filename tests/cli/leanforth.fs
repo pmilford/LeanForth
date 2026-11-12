@@ -97,18 +97,17 @@ T{ cli-strict-axioms? -> false }T
 : accepted-line ( accepted not-proved bits -- c-addr u )
   cli-start cli-axioms-used ! cli-not-proved ! outcome-ok cli-count-of !
   ['] cli-accepted. >string-execute ;
-: label-text ( -- c-addr u )
-  s" accepted: 3 (experimental, not independently audited); axioms: " ;
-: after-label ( c-addr u -- c-addr' u' ) label-text search drop label-text nip /string ;
+: count-text ( -- c-addr u ) s" accepted: 3; axioms: " ;
+: after-count ( c-addr u -- c-addr' u' ) count-text search drop count-text nip /string ;
 : not-proved-text ( -- c-addr u ) s\" 2 NOT PROVED (they depend on an axiom)\n" ;
 : listed-text ( -- c-addr u )
   s\" propext, Quot.sound (allowlisted); 2 NOT PROVED (they depend on an axiom)\n" ;
 : choice-text ( -- c-addr u ) s\" Classical.choice (allowlisted); none NOT PROVED\n" ;
-T{ 3 0 0 accepted-line drop label-text tuck compare -> 0 }T
-T{ 3 0 0 accepted-line after-label s\" none\n" compare -> 0 }T
-T{ 3 2 8 accepted-line after-label not-proved-text compare -> 0 }T
-T{ 3 2 13 accepted-line after-label listed-text compare -> 0 }T
-T{ 3 0 2 accepted-line after-label choice-text compare -> 0 }T
+T{ 3 0 0 accepted-line drop count-text tuck compare -> 0 }T
+T{ 3 0 0 accepted-line after-count s\" none\n" compare -> 0 }T
+T{ 3 2 8 accepted-line after-count not-proved-text compare -> 0 }T
+T{ 3 2 13 accepted-line after-count listed-text compare -> 0 }T
+T{ 3 0 2 accepted-line after-count choice-text compare -> 0 }T
 T{ 0 0 0 accepted-line nip -> 0 }T
 [then]
 
@@ -385,8 +384,7 @@ T{ false planted true planted -> 0 1 6 1 }T
   planted-run ['] cli-results >string-execute rr-release ;
 : says? ( c-addr u c-addr2 u2 -- c-addr u flag ) 2over 2swap search nip nip ;
 : planted-line ( -- c-addr u )
-  s" composition: accepted (experimental, not independently audited); axioms: unlisted; "
-  s" NOT PROVED: depends on an axiom" s+ ;
+  s" composition: accepted; axioms: unlisted; NOT PROVED: depends on an axiom" ;
 : noted? ( c-addr u -- c-addr u flag )
   s" note: NOT PROVED declarations keep Lean's exit status; --strict-axioms" says? ;
 : planted-says ( strict? -- line? summary? note? )

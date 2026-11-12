@@ -7,8 +7,8 @@
 \ (959-1075) with try_unfold_proj_app (950-957), lazy_delta_proj_reduction
 \ (1084-1102), is_def_eq_unit_like (1119-1130) and is_def_eq_core
 \ (1132-1207), at the referee commit
-\ eb6cafb7 (ADR 0014, Reproduction). [kernel] code: experimental, not
-\ through the review gate, not independently audited.
+\ eb6cafb7 (ADR 0014, Reproduction). [kernel] code: not through the
+\ review gate (AGENTS.md).
 \
 \ Answers. A comparison answers yes or no, as Lean's is_def_eq, or fails:
 \ unknown where a step Lean would take is not ported (each named below),

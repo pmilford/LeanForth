@@ -2,8 +2,7 @@
 
 All Forth source lives here. Nothing in this tree is verified yet: it is
 code in progress, and the checker in `kernel/` becomes trusted only when the
-owner declares it so after the review gate in `AGENTS.md`. Until an outside
-audit, any accepted result is *experimental — not independently audited*.
+owner declares it so after the review gate in `AGENTS.md`.
 
 | Folder | Holds | Loaded by `main.fs` |
 | --- | --- | --- |

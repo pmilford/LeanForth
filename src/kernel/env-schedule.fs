@@ -93,7 +93,7 @@
 \ place in the order checks ended, not at its declaration), each of which
 \ a guard above or the comparison with the serial run must catch.
 \
-\ [kernel] [runtime] code: experimental, not through the review gate.
+\ [kernel] [runtime] code: not through the review gate (AGENTS.md).
 \ Memory: per declaration about 8 cells; per readiness slot 2 cells; per
 \ term number 4 bytes (the walk's stamps), all freed by lf-sched-free.
 \ The ready queues are binary heaps, lowest declaration first.

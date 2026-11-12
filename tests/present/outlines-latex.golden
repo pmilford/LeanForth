@@ -1,7 +1,7 @@
 == identity
 \begin{flushleft}
 \textbf{Theorem }$\mathsf{identity}$ \\
-  accepted (experimental, not independently audited); axioms: none \\
+  accepted; axioms: none \\
 Statement in Lean (ASCII): {\ttfamily forall~\{P~:~Prop\},~P~->~P} \\
 Statement in mathematics: $\forall \{P : \mathrm{Prop}\},\ P \to P$ \\
 Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would): \\
@@ -33,7 +33,7 @@ Templates: let-props/v0, assume/v0, discharge/v0, statement/v0. \\
 == composition
 \begin{flushleft}
 \textbf{Theorem }$\mathsf{composition}$ \\
-  accepted (experimental, not independently audited); axioms: none \\
+  accepted; axioms: none \\
 Statement in Lean (ASCII): {\ttfamily forall~\{A~B~C~:~Prop\},~(A~->~B)~->~(B~->~C)~->~A~->~C} \\
 Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$ \\
 Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would): \\
@@ -74,7 +74,7 @@ Templates: let-props/v0, assume/v0, implies-elim/v0, discharge/v0, statement/v0.
 == type-identity
 \begin{flushleft}
 \textbf{Theorem }$\mathsf{type\_identity}$ \\
-  accepted (experimental, not independently audited); axioms: none \\
+  accepted; axioms: none \\
 Statement in Lean (ASCII): {\ttfamily forall~\{A~:~Type\}~\{P~:~A~->~Prop\}~\{x~:~A\},~P~x~->~P~x} \\
 Statement in mathematics: $\forall \{A : \mathrm{Type}\}\ \{P : A \to \mathrm{Prop}\}\ \{x : A\},\ P\ x \to P\ x$ \\
 Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would): \\
@@ -110,7 +110,7 @@ Templates: let-types/v0, let/v0, assume/v0, discharge/v0, statement/v0. \\
 == poly-identity
 \begin{flushleft}
 \textbf{Theorem }$\mathsf{poly\_identity}$ \\
-  accepted (experimental, not independently audited); axioms: none \\
+  accepted; axioms: none \\
 Statement in Lean (ASCII): {\ttfamily forall~\{A~:~Sort~u\}~\{P~:~A~->~Prop\}~\{x~:~A\},~P~x~->~P~x} \\
 Statement in mathematics: $\forall \{A : \mathrm{Sort}\ u\}\ \{P : A \to \mathrm{Prop}\}\ \{x : A\},\ P\ x \to P\ x$ \\
 Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would): \\
@@ -147,7 +147,7 @@ Templates: let-types/v0, let/v0, assume/v0, discharge/v0, statement/v0. \\
 == constant-fixture
 \begin{flushleft}
 \textbf{Definition }$\mathsf{fixtureId}$ \\
-  accepted (experimental, not independently audited); axioms: none \\
+  accepted; axioms: none \\
 Type in Lean (ASCII): {\ttfamily \{α~:~Sort~u\}~->~α~->~α} \\
 Type in mathematics: $\{\alpha : \mathrm{Sort}\ u\} \to \alpha \to \alpha$ \\
 Type in LeanForth (as an axiom declaration; the checker did not assume it, running it would): \\
@@ -179,7 +179,7 @@ Templates: let-types/v0, let/v0, discharge/v0, statement/v0. \\
 
 \begin{flushleft}
 \textbf{Definition }$\mathsf{fixturePoly}$ \\
-  accepted (experimental, not independently audited); axioms: none \\
+  accepted; axioms: none \\
 Type in Lean (ASCII): {\ttfamily \{α~:~Sort~u\}~->~α~->~α} \\
 Type in mathematics: $\{\alpha : \mathrm{Sort}\ u\} \to \alpha \to \alpha$ \\
 Type in LeanForth (as an axiom declaration; the checker did not assume it, running it would): \\
@@ -215,7 +215,7 @@ Templates: let-types/v0, let/v0, apply/v0, recall/v0, discharge/v0, statement/v0
 
 \begin{flushleft}
 \textbf{Theorem }$\mathsf{fixtureUse}$ \\
-  accepted (experimental, not independently audited); axioms: none \\
+  accepted; axioms: none \\
 Statement in Lean (ASCII): {\ttfamily forall~\{P~:~Prop\},~P~->~P} \\
 Statement in mathematics: $\forall \{P : \mathrm{Prop}\},\ P \to P$ \\
 Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would): \\
@@ -274,7 +274,7 @@ No proof outline: the declaration was not accepted. \\
 == composition, log truncated
 \begin{flushleft}
 \textbf{Theorem }$\mathsf{composition}$ \\
-  accepted (experimental, not independently audited); axioms: none \\
+  accepted; axioms: none \\
 Statement in Lean (ASCII): {\ttfamily forall~\{A~B~C~:~Prop\},~(A~->~B)~->~(B~->~C)~->~A~->~C} \\
 Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$ \\
 Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would): \\

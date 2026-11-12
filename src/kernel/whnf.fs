@@ -2,7 +2,7 @@
 \ Q8; plan task 4.2.2c): ports of whnf_core (type_checker.cpp 468-551),
 \ whnf (706-743), is_delta (555-563) and unfold_definition (565-602) at
 \ the referee commit eb6cafb7 (ADR 0014, Reproduction). [kernel] code:
-\ experimental, not through the review gate, not independently audited.
+\ not through the review gate (AGENTS.md).
 \
 \ whnf_core reduces without unfolding (Lean's order). Sorts, Pis,
 \ lambdas, constants, bound variables and free variables that are no let
