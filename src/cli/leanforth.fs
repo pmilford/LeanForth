@@ -881,13 +881,16 @@ variable cli-info#
   cli-save? cli-state opt-layers# @ 0<> and
   if s" --save-snapshot writes a layer on one snapshot only" cli-misuse-snap exit then
   cli-stale-misuse ;
-\ check [--env EXPORT] FILE.lf (plan tasks 8.2.1c-d; cli/check-lf.fs): a
-\ LeanForth text run by the LeanForth words, its declarations staged after
-\ the library's and checked as an export's, the report check's own. A
-\ text that stops with an error is not checked at all: the error is
-\ printed at its line and column, with its outcome's code (4 a mistake, 2
-\ a form not supported yet, 3 no room). Neither a run record, a snapshot
-\ nor JSON goes with a text yet; --env goes only with one.
+\ check [--env EXPORT | --snapshot FILE] FILE.lf (plan tasks 8.2.1c-d;
+\ cli/check-lf.fs): a LeanForth text run by the LeanForth words, its
+\ declarations staged after the library's -- an export's, or a snapshot's
+\ as check --snapshot FILE EXPORT loads it, its declarations then taken
+\ from it by the import pass -- and checked as an export's, the report
+\ check's own. A text that stops with an error is not checked at all: the
+\ error is printed at its line and column, with its outcome's code (4 a
+\ mistake, 2 a form not supported yet, 3 no room). Neither a run record,
+\ a written snapshot nor JSON goes with a text yet; --env goes only with
+\ one, and not with --snapshot.
 : cli-text-file? ( -- flag )
   0 cli-file dup 3 < if 2drop false exit then + 3 - 3 s" .lf" compare 0= ;
 : cli-library-file ( -- c-addr u ) cli-state opt-env 2@ ;
@@ -898,17 +901,22 @@ variable cli-info#
   lfc-failed? if cli-text-error else cli-fed-tally cli-fed-report then ;
 : cli-text-lines ( -- )
   cli-json? if exit then true cli-state run-noted ! ['] cli-stream ck-lines! ;
-: cli-text-run ( -- )
-  cli-library-file lfc-env! 0 cli-file cli-checked? ck-lf-load
-  ok? if cli-text-lines ck-check then cli-text-report ;
-: cli-text-misused? ( -- flag ) cli-record? cli-snapshot? or cli-save? or cli-json? or ;
+: cli-text-load ( -- outcome ) cli-library-file lfc-env! 0 cli-file cli-checked? ck-lf-load ;
+: cli-text-loaded ( -- outcome )
+  cli-snapshot? 0= if cli-text-load exit then
+  cli-layers cli-state opt-snapshot 2@ cli-asked-fuel ck-snapshot-import
+  dup ok? if drop cli-text-load then ;
+: cli-text-run ( -- ) cli-text-loaded ok? if cli-text-lines ck-check then cli-text-report ;
+: cli-text-misused? ( -- flag )
+  cli-record? cli-save? or cli-json? or cli-snapshot? cli-library-file nip 0<> and or ;
 : cli-text-misuse ( -- code )
-  s" --record, --snapshot, --save-snapshot and --json: not with a text" cli-misuse-snap ;
+  s" --record, --save-snapshot, --json and --env with --snapshot: not with a text"
+  cli-misuse-snap ;
 : cli-env-opens? ( -- flag )
   cli-library-file dup 0= if 2drop true exit then
   r/o bin open-file if drop false else close-file drop true then ;
 : cli-text-command ( -- code )
-  cli-text-misused? if cli-text-misuse exit then
+  cli-text-misused? if cli-text-misuse exit then cli-snap-misuse ?dup if exit then
   cli-opens? 0= if ." error: cannot open the LeanForth text" cr exit-malformed exit then
   cli-env-opens? 0= if cli-unopened exit then
   cli-library-file nip if cli-unchecked-note then ['] cli-text-run cli-fed-run ;

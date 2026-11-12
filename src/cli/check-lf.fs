@@ -58,7 +58,8 @@ end-structure
 /lfc context-record: lfc
 
 : lfc-env! ( c-addr u -- ) lfc lfc-env 2! ;
-: lfc-library? ( -- flag ) lfc lfc-env @ 0<> ;
+\ A library: an export (--env) or a snapshot's tier (--snapshot, ck-importing?).
+: lfc-library? ( -- flag ) lfc lfc-env @ 0<> ck-importing? or ;
 : lfc-failed? ( -- flag ) lfc lfc-failed @ ;
 : lfc-library# ( -- n ) lfc lfc-library @ ;
 
@@ -111,9 +112,13 @@ end-structure
   ok-then? 0= if exit then
   ck-any-version? ck-stage stage-any-version! lfc-read
   ck-stage stage-decls lfc lfc-library ! ;
+\ A snapshot's tier is in the stage already, read and not sealed
+\ (ck-snapshot-import): its declarations are the library's.
+: lfc-snapshot-start ( checked? -- outcome )
+  drop ck-stage stage-decls lfc lfc-library ! outcome-ok ;
 : lfc-stage-start ( checked? -- outcome )
-  0 lfc lfc-library ! lfc-library? if lfc-library-read exit then
-  drop lfc-log2 ck-stage stage-init ;
+  0 lfc lfc-library ! ck-importing? if lfc-snapshot-start exit then
+  lfc-library? if lfc-library-read exit then drop lfc-log2 ck-stage stage-init ;
 
 \ ---- The text: run by the words, a checked run with the library's finder.
 : lfc-finder ( -- xt|0 ) lfc-library? if ['] lfc-find else 0 then ;

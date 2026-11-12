@@ -554,6 +554,70 @@ T{ s\" \xc2\xab\xc2\xbb" lf-pf-plain? -> true }T
 T{ s\" \xc2\xabab" lf-pf-plain? -> true }T
 T{ s\" a\xc2\xa0b" lf-pf-plain? -> true }T
 
+\ The export of a run's declarations (export.fs, plan task 8.2.1c): one
+\ export record a line to a sink, the metadata first; theorem t makes its
+\ two names, four expressions and itself.
+8192 constant lines-max
+create lines lines-max allot  variable lines#  variable lines-n
+: line-sink ( c-addr u -- outcome )
+  dup lines# @ + lines-max > if 2drop outcome-full exit then
+  tuck lines lines# @ + swap move lines# +! 1 lines-n +! outcome-ok ;
+: export-now ( -- outcome ) 0 lines# ! 0 lines-n ! ['] line-sink lf-author-export ;
+: exported ( c-addr u -- outcome ) run drop export-now ;
+: holds? ( c-addr u -- flag ) lines lines# @ 2swap search nip nip ;
+T{ s" theorem t Prop explicit: p p := p end t" exported lines-n @ -> outcome-ok 8 }T
+T{ s\" \"name\":\"leanforth\"" holds? s\" {\"in\":1,\"str\":{\"pre\":0,\"str\":\"t\"}}" holds?
+   -> true true }T
+T{ s\" {\"thm\":{\"all\":[1],\"levelParams\":[],\"name\":1,\"type\":3,\"value\":2}}" holds?
+   -> true }T
+\ Lean's heights: a definition one above the highest it names.
+T{ s" def a 0 Type := Prop end a def b 0 Type := a end b" exported -> outcome-ok }T
+T{ s\" \"hints\":{\"regular\":1}" holds? s\" \"hints\":{\"regular\":2}" holds? -> true true }T
+\ Levels, universe parameters, literals and binder kinds as Lean writes them.
+T{ s" def five 0 Type := 5 lit# end five" exported s\" \"natVal\":\"5\"" holds?
+   -> outcome-ok true }T
+T{ s" theorem k universe u u Sort implicit: x x := x end k" exported -> outcome-ok }T
+T{ s\" {\"il\":1,\"param\":2}" holds? s\" \"binderInfo\":\"implicit\"" holds? -> true true }T
+T{ s\" \"levelParams\":[2]" holds? -> true }T
+\ The sink's refusal stops it at the line refused; a line past the writer's
+\ limit is full; a node no record holds is unsupported.
+variable calls
+: refusing ( c-addr u -- outcome ) 2drop 1 calls +! outcome-invalid ;
+T{ s" theorem t Prop explicit: p p := p end t" run 0 calls ! ' refusing lf-author-export
+   calls @ -> outcome-ok outcome-invalid 1 }T
+T{ 20 lfx lfx-writer jw-limit ! export-now -> outcome-full }T
+lfx-line-capacity lfx lfx-writer jw-limit !
+T{ 0 0 lf-tag-let lf-term-binary nip export-now -> true outcome-unsupported }T
+
+\ A library (library.fs, plan task 8.2.1d): a finder that knows Lib.c, of
+\ no universe parameters, a definition of height 3. Its constant gets a
+\ record of kind library, which the export never writes.
+: part= ( id c-addr u -- flag ) rot lf-name-text compare 0= ;
+: lib-c? ( name -- flag )
+  dup s" c" part= swap lf-name-prefix@ dup if s" Lib" part= else drop false then and ;
+: lib-finder ( name -- universes height true | false ) lib-c? if 0 3 true else false then ;
+: with-lib ( c-addr u -- outcome ) ['] lib-finder lf-author-library! run 0 lf-author-library! ;
+: lib-fails ( c-addr u -- code line col ) with-lib drop err ;
+T{ s" def d 0 Type := Lib.c end d" with-lib lf-author-count -> outcome-ok 2 }T
+T{ 0 lfa-library? 1 lfa-library? 1 lfa-decl lfa-decl-height @ -> false true 3 }T
+T{ ' lib-finder lf-author-library! export-now 0 lf-author-library! -> outcome-ok }T
+T{ s\" \"hints\":{\"regular\":4}" holds? lines-n @ -> true 8 }T
+\ Errors: an unknown name; a short name through a namespace (55); a name
+\ the library has (28); a stub in a checked run (48, at the stub's word).
+T{ s" def d 0 Type := Lib.d end d" lib-fails -> 1 1 17 }T
+T{ s" namespace Lib def e 0 Type := c end e end Lib" lib-fails -> 55 1 31 }T
+T{ lf-author-code lf-author-outcome -> outcome-unsupported }T
+T{ s" def Lib.c 0 Type := Prop end Lib.c" lib-fails -> 28 1 5 }T
+T{ true lf-author-checked! s" import-stub X end X" fails -> 48 1 1 }T
+T{ s" protected import-stub N.x end N.x" fails false lf-author-checked! -> 48 1 11 }T
+T{ s" import-stub X end X" run -> outcome-ok }T
+\ The look-ahead: every token of a line up to a \ comment that has no word
+\ gets a group word; a number-like one none, and it is still refused.
+T{ s" def d 0 Type := Lib.c end d \ Zzz.q" with-lib -> outcome-ok }T
+T{ s" Zzz.q" lf-consts search-wordlist s" Lib.c" lf-consts search-wordlist nip -> 0 -1 }T
+T{ s" def d 0 Type := Lib.c $10 end d" lib-fails -> 35 1 23 }T
+T{ s" -7" lf-consts search-wordlist -> 0 }T
+
 \ The dictionary reserve (p05): with fewer than lfa-dictionary-reserve
 \ address units unused, no group word is made (error 66, full), while
 \ names that have one still work. Last in this file: the space taken here
@@ -562,6 +626,8 @@ unused lfa-dictionary-reserve - 1+ allot
 T{ s" axiom aNameAfterTheReserve Prop end aNameAfterTheReserve" fails drop drop -> 66 }T
 T{ lf-author-code lf-author-outcome -> outcome-full }T
 T{ s" theorem t Prop explicit: p p := p end t" run -> outcome-ok }T
+\ The look-ahead stops there too, at the token that needs a new group word.
+T{ s" def t 0 Type := Lib.zz end t" lib-fails -> 66 1 17 }T
 
 cr .( author.fs: all tests passed) cr
 bye
