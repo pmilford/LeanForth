@@ -64,9 +64,10 @@ create cs /cs allot  cs /cs erase
 \ assertion, or a THROW out of the probe, is reported and counted in
 \ cs-probe-errors, which the caller tests after the run.
 variable cs-probe-errors  0 cs-probe-errors !
+variable cs-probe-runs    0 cs-probe-runs !
 : cs-probe-fail ( c-addr u -- ) type source type cr 1 cs-probe-errors +! ;
 : cs-probing ( xt -- )
-  error-xt @ >r ['] cs-probe-fail error-xt ! catch r> error-xt !
+  1 cs-probe-runs +! error-xt @ >r ['] cs-probe-fail error-xt ! catch r> error-xt !
   if ." case-sweeps: the probe threw" cr 1 cs-probe-errors +! then ;
 
 \ The check of each declaration; the target's as set above. A crowded
@@ -135,7 +136,8 @@ create cs-notes cs-most-notes 1+ cells allot  0 cs-notes !
   1 cs-notes +! cs-notes dup @ cells + ! ;
 : cs-noted ( i -- x ) 1+ cells cs-notes + @ ;
 : cs-probed ( c-addr u xt -- outcome errors )
-  0 cs-notes ! 0 cs-probe-errors ! >r cs-load r> cs-probe! cs-run cs-unload
+  0 cs-notes ! 0 cs-probe-errors ! 0 cs-probe-runs ! >r cs-load r> cs-probe! cs-run cs-unload
+  cs-probe-runs @ 1 <> abort" case-sweeps: the probe did not run once"
   cs-probe-errors @ ;
 \ The same for a probe with assertions of its own (tester.fs keeps one
 \ assertion's state, so T{ ... }T cannot hold another): stop the file

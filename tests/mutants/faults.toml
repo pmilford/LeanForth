@@ -9370,3 +9370,51 @@ old = '''  >r over ok? 0= if r> drop 2 lf-rebuild-failed exit then nip'''
 new = '''  >r nip'''
 test = "$GFORTH tests/core/mixed-rebuild.fs"
 reason = "a failed second child (exhausted, full) built into the node as if it were a result"
+
+[[fault]]
+id = "cov-quot-ind-mk-pos"
+file = "src/kernel/quot.fs"
+old = '''  s" Quot.ind" lf-stmt-name? if 4 else -1 then ;'''
+new = '''  s" Quot.ind" lf-stmt-name? if 5 else -1 then ;'''
+test = "$GFORTH tests/core/quot.fs"
+reason = "Quot.ind's quotient read at Quot.lift's place (mk_pos 5 instead of 4)"
+
+[[fault]]
+id = "cov-quot-applied-any"
+file = "src/kernel/quot.fs"
+old = ''': lf-quot-applied ( app mk -- mk|-1 ) swap lf-quot-n over > 0= if drop -1 then ;'''
+new = ''': lf-quot-applied ( app mk -- mk|-1 ) nip ;'''
+test = "$GFORTH tests/core/quot.fs"
+reason = "Quot.lift with five arguments (no quotient yet) given a rule (quot.h 50-51 gives none)"
+
+[[fault]]
+id = "cov-quot-mk-any-head"
+file = "src/kernel/quot.fs"
+old = '''  lf-whnf-head dup lf-whnf-const? 0= if drop false exit then'''
+new = '''  lf-whnf-head dup lf-whnf-const? 0= if drop true exit then'''
+test = "$GFORTH tests/core/quot.fs"
+reason = "an application of a variable to three arguments counts as Quot.mk"
+
+[[fault]]
+id = "cov-quot-held-any-kind"
+file = "src/kernel/quot.fs"
+old = '''  lf-idecl-kind @ lf-kind-quotient = outcome-ok ;'''
+new = '''  drop true outcome-ok ;'''
+test = "$GFORTH tests/core/quot.fs"
+reason = "any constant of the environment named like a quotient constant gets quot_reduce_rec (Eq counts as a quotient record)"
+
+[[fault]]
+id = "cov-quot-mk-failure-stuck"
+file = "src/kernel/quot.fs"
+old = '''  >r ok-then? 0= if 2 r@ frame-drop r> lf-whnf-failed exit then'''
+new = '''  >r ok-then? 0= if 2 r@ frame-drop drop -1 outcome-ok r> 0 exit then'''
+test = "$GFORTH tests/core/quot.fs"
+reason = "the quotient argument's whnf out of fuel or room leaves Quot.lift stuck (ok) instead of ending exhausted or full"
+
+[[fault]]
+id = "cov-quot-eq-form-any"
+file = "src/kernel/quot.fs"
+old = '''  dup lf-idecl-arity @ 1 = swap lf-quot-ctors nip 1 = and ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/core/quot.fs"
+reason = "check_eq_type takes any inductive type for Eq (Bool, two constructors and no universe parameter, passes the form test)"
