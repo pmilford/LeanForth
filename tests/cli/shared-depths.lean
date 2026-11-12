@@ -15,10 +15,11 @@
 -- * P3 (agent PF), 6 rows: three arena perf ladders at n = 48 and bad twins.
 -- * P4 (agent R5), 2 rows: proof irrelevance typing 48-argument spines aside;
 --   Lean accepts spinegood and rejects spinebad (appTypeMismatch).
--- * P5 (agent CK, plan task 4.2.7d), 10 rows: Lean's infer-only typing
---   meeting an ill-typed term that beta reduction made; Lean rejects appbad,
---   lambad (funExpected), pibad (typeExpected) and projbad (invalidProj) and
---   accepts their good twins, lamgood and letgood.
+-- * P5 (agent CK, plan task 4.2.7d), 11 rows: Lean's infer-only typing
+--   meeting an ill-typed term that beta reduction made; Lean rejects
+--   io-appbad, io-lambad (funExpected), io-pibad (typeExpected) and
+--   io-projbad (invalidProj) and accepts their good twins, io-lamgood and
+--   io-letgood; p5all is the ten in one export.
 -- Each row is a theorem or definition checked by pinned Lean's kernel
 -- (`addDeclCore`, no axioms); the file prints a `row<TAB>id<TAB>verdict` line
 -- per row and then each row's export. tests/cli/shared_depths.py, run by
@@ -398,10 +399,11 @@ def letL : Expr :=
 def projL : Expr := mkApp (lam `f (app ``PT tt) (.proj ``Prod 0 (b 0))) (b 0)
 def natNat : Expr := pi `n nat nat
 
-/-- Row id: theorem InferOnly.id over h : True ∧ True, x (or y) : xt and more. -/
+/-- Row io-id (P3 has rows appgood and letgood): theorem InferOnly.id over
+h : True ∧ True, x : xt and more. -/
 def row (id : String) (xt : Expr) (more : List (Name × Expr)) (u : Level) (T L : Expr) :
     String × Declaration :=
-  (id, same (Name.mkStr `InferOnly id) ([(`h, andTT), (`x, xt)] ++ more) u T L)
+  (s!"io-{id}", same (Name.mkStr `InferOnly id) ([(`h, andTT), (`x, xt)] ++ more) u T L)
 
 run_cmd do
   let base := (← getEnv).toKernelEnv

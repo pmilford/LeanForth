@@ -2410,8 +2410,9 @@ there.
 where a Pi is now typed at steps 4, 11 or 14. Verdict version 9 (ADR 0020
 D3).
 
-**Evidence.** `tests/cli/shared-depths.lean` P5 (10 rows and `p5all`, the
-ten in one export): pinned Lean and the official checker reject `appbad`
+**Evidence.** `tests/cli/shared-depths.lean` P5 (10 rows `io-*` and
+`p5all`, the ten in one export; the theorems are named `InferOnly.appbad`
+and so on): pinned Lean and the official checker reject `appbad`
 and `lambad` (funExpected), `pibad` (typeExpected) and `projbad`
 (invalidProj) and accept `appgood`, `pigood`, `lam2good`, `lamgood`,
 `letgood` and `projgood`; LeanForth, memo on and off, now agrees on all
@@ -2427,7 +2428,9 @@ all caught; `rej-f1-off` and `infer-chain-never` re-targeted, caught;
 `infer-not-pi-aside-rejects` (an equivalent of the old rule) retired.
 Every pinned report of `test_leanforth.py`: the same but for
 `unfold.ndjson`'s `impliesSelf`, 65 → 68 fuel (step 4 types `A → A`);
-the golden snapshots: that slot's fuel only. All of `Init` (`check
+the golden snapshots: that slot's fuel only; `shared_depths.py`'s bounded
+rows 13,250, 18,060 → 18,056, 13,157 → 13,160 and `spinegood` 15,749 →
+15,894, all below their bounds. All of `Init` (`check
 --no-manifest --json --jobs 2`, default fuel, against main `390197d`'s
 report): 59,349 accepted before and after, every field of every
 declaration the same but fuel; fuel 654,546,896 → 654,719,715 (+0.03%),
