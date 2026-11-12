@@ -58,7 +58,7 @@ reasons are in `docs/project/OWNER_DECISIONS.md`. Lean is the referee for checke
 correctness: follow Lean's rules, require pinned-Lean differential evidence,
 an independent AI review and owner approval of a plain-language summary,
 and label results *not independently audited* until an outside expert
-audit. The first checker accepts only simple definitions and theorems, with
+audit (the owner withdrew that label on 2026-11-12). The first checker accepts only simple definitions and theorems, with
 three tested outcomes (accepted, rejected, unsupported/unknown). Conversion
 is cautious first, with Lean-style unfolding next. There are no axioms at
 first, later exactly `propext`, `Classical.choice` and `Quot.sound`, and

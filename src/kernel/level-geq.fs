@@ -10,8 +10,8 @@
 \ Like normalize, it is incomplete on purpose; LeanForth copies it exactly
 \ (owner rule). Its one user is the universe check of an inductive
 \ type's constructor fields (inductive.cpp 478-485; check-block.fs, rule
-\ U1 of ADR 0015). [kernel] code: experimental, not through the review
-\ gate. Untrusted.
+\ U1 of ADR 0015). [kernel] code: not through the review gate
+\ (AGENTS.md). Untrusted.
 \ Preconditions: those of lf-level-equivalent (live levels whose graphs a
 \ scope check validated; parameter IDs that are interned names).
 \ State: none of its own; it runs inside one call of level-normalize's

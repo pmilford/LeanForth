@@ -71,8 +71,7 @@
 \ the step's inference scope, as Lean's mk_local_decl_for opens it, so
 \ that K and structure eta can type a variable there (follow-up of task
 \ 5.2.1b); the recursor builder opens none (K on a field there: unknown).
-\ [kernel] code: experimental, not through the review gate; not
-\ independently audited.
+\ [kernel] code: not through the review gate (AGENTS.md).
 \ State: one record, lf-blk-state (the T.rec name, the constructor and
 \ binder being checked, the fields of the elimination test, whether the
 \ nested occurrences are being typed), and the

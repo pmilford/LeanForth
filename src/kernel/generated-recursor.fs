@@ -36,7 +36,7 @@
 \ the recursive fields with that whnf already). Nothing is trusted from
 \ the file beyond
 \ what the block check itself read.
-\ [kernel] code: experimental, not through the review gate.
+\ [kernel] code: not through the review gate (AGENTS.md).
 \ A recursive block's recursor has its induction hypotheses: the builder
 \ finds its recursive fields again on the constructors' instances (plan
 \ task 5.2.1b).

@@ -2,8 +2,7 @@
 \ ADR 0015 rules Q1, Q2): ports of add_quot and check_eq_type
 \ (quot.cpp 19-100) and quot_reduce_rec (quot.h 39-66), which
 \ reduce_recursor (type_checker.cpp 393-398) tries before iota. [kernel]
-\ code: experimental, not through the review gate, not independently
-\ audited.
+\ code: not through the review gate (AGENTS.md).
 \
 \ Q1. Lean's Declaration.quotDecl carries no data: add_quot checks Eq
 \ (check_eq_type) and the four names (check_name), then adds Quot,

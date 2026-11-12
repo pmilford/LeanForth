@@ -88,7 +88,7 @@
 \                  same); verdicts only on ill-typed reducts
 \                  (tests/cli/shared-depths.lean P5).
 \
-\ [kernel] code: experimental, not through the review gate.
+\ [kernel] code: not through the review gate (AGENTS.md).
 \ State: none.
 
 9 constant lf-verdict-version

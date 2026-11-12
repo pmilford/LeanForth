@@ -1,4 +1,4 @@
-# Run records and replay, schema version 0.1
+# Run records and replay, schema version 0.3
 
 **Status: implemented 2026-11-03 (plan task 2.2.5 of the
 [plan draft](../project/PLAN_DRAFT.md)); format 0.1 approved by the owner
@@ -14,11 +14,11 @@ on the path that makes or replays a record.
 A record is evidence, not an approval. It passes no review gate, and it is
 never a source of saved results: replay re-checks everything, as the final
 run mode of [ADR 0012, E8](../adr/0012-checked-environment.md#e8-saved-results-and-the-two-run-modes)
-requires. Until the checker passes its review gate, every accepted verdict
-in a record carries the label *experimental, not independently audited*.
+requires.
 
-- **Schemas:** [`schemas/run-record-0.2.schema.json`](../../schemas/run-record-0.2.schema.json)
-  (records written since the verdict *skipped*; 0.1,
+- **Schemas:** [`schemas/run-record-0.3.schema.json`](../../schemas/run-record-0.3.schema.json)
+  (records written since the owner withdrew the label, 2026-11-12; 0.2,
+  [`schemas/run-record-0.2.schema.json`](../../schemas/run-record-0.2.schema.json), and 0.1,
   [`schemas/run-record-0.1.schema.json`](../../schemas/run-record-0.1.schema.json), kept for earlier ones)
   and [`schemas/replay-report-0.1.schema.json`](../../schemas/replay-report-0.1.schema.json),
   JSON Schema draft 2020-12 within the subset that
@@ -74,7 +74,7 @@ written on one line and shown here indented:
 ```json
 {
   "schema": "leanforth-run-record",
-  "schemaVersion": "0.1",
+  "schemaVersion": "0.3",
   "input": {
     "sha256": "25de2e97121f116649630694fdfa25dd50d74ac20c648e01f68f45781ea193e4",
     "bytes": 1787,
@@ -107,7 +107,7 @@ written on one line and shown here indented:
 | `host` | the Forth system, its version, its engine (the program's file name, such as `gforth` or `gforth-fast`) and cell width | Gforth's `version-string` and argument 0, else `unknown` |
 | `settings` | fuel per check, the room the dependency pool starts with (`dependencyPool`; it grows since plan task 6.2.0), and the checker's capacities (`dependenciesPerCheck`, `parameters` and `referenceLevels` are not limits since plan task 6.2.0: a check's dependencies and universe lists have no fixed length, and the three fields keep the values 16, 64 and 64, the old limits, fixed legacy values the approved 0.1 schema requires, and 0.2 too; record 0.3 corrects them, item 3 below) | the run, and the constants of `src/core/` and `src/kernel/` |
 | `check` | the importer's outcome, the run's (`not-run` when the input was not read), and the environment's run mode and allowlist version | the transport, `rr-check`, the environment's header |
-| `declarations` | every declaration in input order: `index`, `name` and `verdict`, and for an accepted one `label` and `axioms`, for any other but `not-checked` its `diagnostic` | the slots of the checked environment, after the run |
+| `declarations` | every declaration in input order: `index`, `name` and `verdict`, and for an accepted one its `axioms`, for any other but `not-checked` its `diagnostic` | the slots of the checked environment, after the run |
 
 ## What a verdict claims
 
@@ -116,8 +116,7 @@ what a check said about itself:
 
 - **accepted** only for a slot made final with outcome ok, which only the
   publisher's full success can make ([ADR 0012, E4](../adr/0012-checked-environment.md#e4-staging-then-publishing-only-after-full-success)).
-  It always has the label *experimental, not independently audited* and the
-  axioms it depends on, read from the slots (`lf-env-axiom-deps`: the
+  It always has the axioms it depends on, read from the slots (`lf-env-axiom-deps`: the
   accepted axioms among it and its dependencies, directly or not, in file
   order). Since allowlist version 1 (`src/core/axiom-allowlist.fs`, plan
   task 5.3.1) an axiom is accepted as Lean accepts it; one outside the
@@ -214,8 +213,9 @@ before the fault, and nothing changes a final slot.
 
 `rr-write` also refuses (invalid) a record in which a final slot's outcome
 is not the one its step published, so a diagnostic always belongs to its
-verdict. The schema refuses an accepted verdict without its label or with
-a diagnostic or an axiom, a label on any other verdict, a missing
+verdict. The schema refuses an accepted verdict without its axioms or with
+a diagnostic, a label (withdrawn by the owner, 2026-11-12) or axioms on
+any other verdict, a missing
 diagnostic, declarations when no environment was made (`mode` null), a
 not-checked declaration in a run that ended ok, a mode other than final
 and an allowlist version other than 0.
@@ -290,7 +290,7 @@ The first 32 findings are listed, all are counted. Codes:
 | --- | --- |
 | `unreadable` | the old record cannot be read, or is larger than 128 KiB; nothing is compared |
 | `not-json` | the old record is not one JSON text within the reader's limits (nesting at most 8) |
-| `unknown-schema` | not a `leanforth-run-record` of schema version 0.1 |
+| `unknown-schema` | not a `leanforth-run-record` of schema version 0.3 |
 | `rerun-failed` | the input could not be checked again (missing, unreadable, changed during the run) |
 | `missing-field` | the old record lacks a field the new one has |
 | `unknown-field` | the old record has a field the new one lacks |
@@ -301,7 +301,7 @@ The first 32 findings are listed, all are counted. Codes:
 | `settings-differ` | fuel, the dependency pool or a capacity |
 | `run-differs` | the importer's or the run's outcome, the mode or the allowlist version |
 | `declarations-differ` | the number of declarations, or a declaration's index or name |
-| `verdict-differs` | a verdict, or an accepted declaration's label or axioms |
+| `verdict-differs` | a verdict, or an accepted declaration's axioms |
 | `accepted-not-established` | the old record says accepted where the new run did not accept |
 | `reason-differs` | a diagnostic |
 
@@ -343,8 +343,8 @@ the golden records written by 1.0.0 the same way).
   `input.manifest` then says it failed as that read saw it, which an
   enforced read checks again on each pass. A plain `bin/leanforth check`
   (no record) reads the export once, with the importer stage, and writes
-  no record ([version 0.3](#version-03-records-of-any-size) would record
-  that path).
+  no record ([records of any size](#records-of-any-size-a-proposal-not-built)
+  would record that path).
 - The commit is what the caller says, checked only for its form; the host
   fields are what Gforth reports.
 - Diagnostic numbers are those the check recorded. For the internal faults
@@ -454,15 +454,24 @@ refuses a record of any other version (`unknown-schema`).
   replay compares a record only with one of its own version, so a 0.1
   record is refused as `unknown-schema`. The [format] gate for 0.2 is the
   owner's open decision.
+- **0.3** (2026-11-12): 0.2 without the member `label` on each accepted
+  declaration, which the owner withdrew (results carry no label): a
+  [format] change the owner decided. Without that member a 0.2 consumer
+  would refuse every new record, so it is a version of its own, as for
+  0.2; the 0.2 schema is kept exactly as it was. A record set back to 0.2,
+  with the label on each accepted declaration, is valid under 0.2
+  (`tests/core/test_run_records.py`); replay refuses a 0.2 record as
+  `unknown-schema`, and a 0.3 record that still carries a label has the
+  finding `unknown-field`.
 
-### Version 0.3: records of any size (a proposal, not built)
+### Records of any size (a proposal, not built)
 
 Since 2026-11-04 `bin/leanforth check` stages and feeds an export of any
 size ([the command line](../user/COMMAND_LINE.md#a-whole-library-leans-init)),
 but records keep the fixed fields of 0.1, which the owner approved [format] with its fixed
 fields: `check --record` and `replay` keep the first path (the input read
 by `src/import/checker-input.fs` at the default sizes, at most 32
-declarations), and a record of `Init` cannot be written. A version 0.3
+declarations), and a record of `Init` cannot be written. A later version
 for any size would need, each a change to the approved format and so the
 owner's [format] gate first:
 

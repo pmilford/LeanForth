@@ -106,9 +106,15 @@ def promises(text):
                 failures.append(f"{name}: an outline line names no step")
             if "(structured-template)" not in outline or "∎" not in outline:
                 failures.append(f"{name}: no structured-template footer")
-            if "experimental, not independently audited" not in outline:
-                failures.append(f"{name}: no audit label")
+            if "\n  accepted; axioms: " not in outline:
+                failures.append(f"{name}: no accepted verdict with its axioms")
     return failures
+
+
+def unlabelled(text, where):
+    """No result carries the label the owner withdrew on 2026-11-12."""
+    return [f"{where}: the withdrawn label ({word!r})"
+            for word in ("experimental", "independently audited", "pre-alpha") if word in text]
 
 
 def differences(golden, text):
@@ -239,6 +245,7 @@ def main(write):
         return 0
     failures = promises(text) + forms(text) + differences(GOLDEN, text)
     failures += differences(LATEX_GOLDEN, latex)
+    failures += unlabelled(text, GOLDEN) + unlabelled(latex, LATEX_GOLDEN)
     more, note = latex_failures(latex)
     failures += more + round_trips(text)
     for failure in failures:

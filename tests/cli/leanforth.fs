@@ -97,18 +97,17 @@ T{ cli-strict-axioms? -> false }T
 : accepted-line ( accepted not-proved bits -- c-addr u )
   cli-start cli-axioms-used ! cli-not-proved ! outcome-ok cli-count-of !
   ['] cli-accepted. >string-execute ;
-: label-text ( -- c-addr u )
-  s" accepted: 3 (experimental, not independently audited); axioms: " ;
-: after-label ( c-addr u -- c-addr' u' ) label-text search drop label-text nip /string ;
+: count-text ( -- c-addr u ) s" accepted: 3; axioms: " ;
+: after-count ( c-addr u -- c-addr' u' ) count-text search drop count-text nip /string ;
 : not-proved-text ( -- c-addr u ) s\" 2 NOT PROVED (they depend on an axiom)\n" ;
 : listed-text ( -- c-addr u )
   s\" propext, Quot.sound (allowlisted); 2 NOT PROVED (they depend on an axiom)\n" ;
 : choice-text ( -- c-addr u ) s\" Classical.choice (allowlisted); none NOT PROVED\n" ;
-T{ 3 0 0 accepted-line drop label-text tuck compare -> 0 }T
-T{ 3 0 0 accepted-line after-label s\" none\n" compare -> 0 }T
-T{ 3 2 8 accepted-line after-label not-proved-text compare -> 0 }T
-T{ 3 2 13 accepted-line after-label listed-text compare -> 0 }T
-T{ 3 0 2 accepted-line after-label choice-text compare -> 0 }T
+T{ 3 0 0 accepted-line drop count-text tuck compare -> 0 }T
+T{ 3 0 0 accepted-line after-count s\" none\n" compare -> 0 }T
+T{ 3 2 8 accepted-line after-count not-proved-text compare -> 0 }T
+T{ 3 2 13 accepted-line after-count listed-text compare -> 0 }T
+T{ 3 0 2 accepted-line after-count choice-text compare -> 0 }T
 T{ 0 0 0 accepted-line nip -> 0 }T
 [then]
 
@@ -385,8 +384,7 @@ T{ false planted true planted -> 0 1 6 1 }T
   planted-run ['] cli-results >string-execute rr-release ;
 : says? ( c-addr u c-addr2 u2 -- c-addr u flag ) 2over 2swap search nip nip ;
 : planted-line ( -- c-addr u )
-  s" composition: accepted (experimental, not independently audited); axioms: unlisted; "
-  s" NOT PROVED: depends on an axiom" s+ ;
+  s" composition: accepted; axioms: unlisted; NOT PROVED: depends on an axiom" ;
 : noted? ( c-addr u -- c-addr u flag )
   s" note: NOT PROVED declarations keep Lean's exit status; --strict-axioms" says? ;
 : planted-says ( strict? -- line? summary? note? )
@@ -605,6 +603,33 @@ T{ 10 refused-run -> serial-wide task-stacks-small false }T
 T{ ' no-maker lost-run -> 0 false 0 1 }T
 T{ ' ck-worker-new lost-run -> 0 false 0 1 }T
 T{ depth lf-context @ context-main = -> 0 true }T
+
+\ A worker is added whole or not at all (review FRK F1): with the jobs
+\ list limited to one entry, a second lf-sched-add is full and leaves one
+\ context, one job and one declaration entry (it once kept the context and
+\ its entry, which the caller then freed); a list that is not live is
+\ invalid, never full (F6). The contexts here are stand-ins, cleared
+\ before lf-sched-free so that none is freed.
+: sched-lists ( -- contexts jobs ats )
+  lf-sched lf-sch-ctxs slab-count lf-sched lf-sch-jobs slab-count
+  lf-sched lf-sch-ats slab-count ;
+: sched-unlent ( -- ) lf-sched-workers 0 ?do 0 i lf-sch-ctx ! loop lf-sched-free ;
+: jobs-limit ( n -- )
+  lf-sched lf-sch-jobs dup slab-free 1 cells rot rot slab-init drop ;
+T{ lf-sched-init 1 jobs-limit -> outcome-ok }T
+T{ 1 lf-sched-add 2 lf-sched-add sched-lists -> outcome-ok outcome-full 1 1 1 }T
+T{ 0 lf-sch-ctx @ 0 lf-sch-job @ 0 lf-sch-at @ -> 1 0 -1 }T
+sched-unlent
+T{ lf-sched-init lf-sched lf-sch-ats /slab erase 1 lf-sched-add sched-lists
+   -> outcome-ok outcome-invalid 0 0 0 }T
+sched-unlent
+T{ lf-sched-init 1 ' lf-sched-add rs-checked sched-lists -> outcome-ok outcome-ok 1 1 1 }T
+sched-unlent
+\ The plan's arrays: a list that is not live is invalid, never full.
+T{ lf-sched-init lf-sched lf-sch-states /slab erase lf-sched-plan
+   -> outcome-ok outcome-invalid }T
+sched-unlent
+T{ depth -> 0 }T
 
 cases-done
 bye

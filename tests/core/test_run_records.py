@@ -9,9 +9,9 @@ The records are written and replayed by Forth alone
 (tests/support/run-records.fs, src/import/run-record.fs and run-replay.fs);
 Python only drives Gforth and reads what it wrote. For the five pinned
 exports and the four broken copies of the composition export: each record
-is strict JSON valid against schemas/run-record-0.2.schema.json, with the
+is strict JSON valid against schemas/run-record-0.3.schema.json, with the
 input's SHA-256, bytes and lines as Python computes them, the manifest's
-outcome, the pinned versions and the expected verdict, label, axioms and
+outcome, the pinned versions and the expected verdict, axioms and
 diagnostic of every declaration; two runs in two processes write the same
 bytes; each record equals its golden copy in tests/core/run-records/
 (written with Gforth 1.0.0) in every field but the two that name the host
@@ -20,8 +20,11 @@ replays as confirmed, and every golden record replays on this host with no
 finding but those two fields. Each tampered record is refused with the
 code and path named with it, and every replay report is valid against
 schemas/replay-report-0.1.schema.json. The schema itself refuses records
-that claim more than a checker could: accepted without its label or with
-a diagnostic, a label on a rejection, declarations without a run. An
+that claim more than a checker could: accepted without its axioms or with
+a diagnostic, axioms on a rejection, a label anywhere (withdrawn by the
+owner, 2026-11-12), declarations without a run. Each golden record, set
+back to 0.2 with the label on each accepted declaration, is valid under
+0.2: the label is all that changed. An
 export swapped for another, with its manifest, between two reads of a run
 (between rr-start and the import, or during the importer's first pass
 only, served through a FIFO, with the manifest checked or not) is refused,
@@ -59,10 +62,10 @@ import text_rule_tables  # noqa: E402
 GFORTH = os.environ.get("GFORTH", "gforth")
 DRIVER = "tests/support/run-records.fs"
 GOLDEN = Path("tests/core/run-records")
-RECORD_SCHEMA = Validator(json.loads(Path("schemas/run-record-0.2.schema.json").read_text()))
+RECORD_SCHEMA = Validator(json.loads(Path("schemas/run-record-0.3.schema.json").read_text()))
 REPORT_SCHEMA = Validator(json.loads(Path("schemas/replay-report-0.1.schema.json").read_text()))
 FUEL = 100000
-LABEL = "experimental, not independently audited"
+OLD_LABEL = "experimental, not independently audited"   # records 0.1 and 0.2 only
 HOST_VERSION = ("host", "version")
 HOST_ENGINE = ("host", "engine")
 CASES = "tests/core/check-declaration-cases/composition-"
@@ -89,6 +92,17 @@ INPUTS = {
 AXIOMS = {CASES + "postulate.ndjson": ["composition"]}
 PINNED = {"exporter": "lean4export", "exporterVersion": "3.1.0", "format": "3.1.0",
           "lean": "4.35.0", "leanGithash": "eb6cafb7290e8bd5f2937522d8d804f58f02bafc"}
+
+
+def labelled(data, version):
+    """Record data as an earlier version had it: that version, and the label
+    on each accepted declaration."""
+    back = copy.deepcopy(data)
+    back["schemaVersion"] = version
+    for item in back["declarations"] or []:
+        if item["verdict"] == "accepted":
+            item["label"] = OLD_LABEL
+    return back
 
 
 def forth(gforth, words, source=None):
@@ -303,8 +317,8 @@ class Checks:
                     f"{export}: indices")
         for item in data["declarations"]:
             if item["verdict"] == "accepted":
-                self.expect(item["label"] == LABEL and item["axioms"] == AXIOMS.get(export, []),
-                            f"{export}: accepted without its label or with axioms")
+                self.expect("label" not in item and item["axioms"] == AXIOMS.get(export, []),
+                            f"{export}: accepted with a label or other axioms")
         return data
 
     def records(self, update):
@@ -360,7 +374,7 @@ class Checks:
         def claim_accepted(data):
             item = data["declarations"][0]
             item.pop("diagnostic")
-            item.update(verdict="accepted", label=LABEL, axioms=[])
+            item.update(verdict="accepted", axioms=[])
 
         def flip_hash(data):
             digest = data["input"]["sha256"]
@@ -407,9 +421,14 @@ class Checks:
             ("escaped-verdict", comp, comp_record,
              lambda t: t.replace('"verdict":"accepted"', '"verdict":"\\u0061ccepted"', 1), []),
             ("schema-version", comp, comp_record,
-             edit(lambda d: d.update(schemaVersion="0.3")), [("unknown-schema", "$")]),
+             edit(lambda d: d.update(schemaVersion="0.4")), [("unknown-schema", "$")]),
             ("schema-version-earlier", comp, comp_record,
-             edit(lambda d: d.update(schemaVersion="0.1")), [("unknown-schema", "$")]),
+             edit(lambda d: d.update(schemaVersion="0.2")), [("unknown-schema", "$")]),
+            # A record of this version that still carries the label: a
+            # member the new record lacks.
+            ("label", comp, comp_record,
+             edit(lambda d: d["declarations"][0].update(label=OLD_LABEL)),
+             [("unknown-field", "$.declarations[0].label")]),
         ]
         for name, export, base, change, expected in cases:
             self.tampered(name, export, base, change, expected)
@@ -440,12 +459,14 @@ class Checks:
             change(data)
             self.expect(RECORD_SCHEMA.errors(data), f"schema accepts {name}")
 
-        refused("accepted without label", comp, lambda d: d["declarations"][0].pop("label"))
+        refused("accepted without axioms", comp, lambda d: d["declarations"][0].pop("axioms"))
+        refused("accepted with the label", comp,
+                lambda d: d["declarations"][0].update(label=OLD_LABEL))
         refused("accepted with an axiom that is no name", comp,
                 lambda d: d["declarations"][0].update(axioms=["", 1]))
         refused("accepted with diagnostic", comp,
                 lambda d: d["declarations"][0].update(diagnostic=None))
-        refused("label on rejection", wrong, lambda d: d["declarations"][0].update(label=LABEL))
+        refused("axioms on rejection", wrong, lambda d: d["declarations"][0].update(axioms=[]))
         refused("rejection without diagnostic", wrong,
                 lambda d: d["declarations"][0].pop("diagnostic"))
         refused("declarations without a run", comp,
@@ -457,17 +478,23 @@ class Checks:
         refused("manifest failure without reason", wrong,
                 lambda d: d["input"]["manifest"].update(reason=""))
         refused("modified without commit", comp, lambda d: d["leanforth"].update(modified=True))
-        # Records are version 0.2 since the verdict skipped (plan task 5.2.7;
-        # review rvUNNI M2); schema 0.1 stays unchanged for earlier records:
-        # a golden record without a skipped verdict, set back to 0.1, is valid
-        # under it, composition-unsafe's (skipped) is not, nor a 0.2 record.
+        # Records are version 0.3 since the label was withdrawn (owner,
+        # 2026-11-12), 0.2 having been the first with the verdict skipped
+        # (plan task 5.2.7; review rvUNNI M2); schemas 0.1 and 0.2 stay
+        # unchanged for earlier records: a golden record set back to 0.2, with
+        # the label on each accepted declaration, is valid under 0.2; without
+        # a skipped verdict, set back to 0.1 the same way, under 0.1 too,
+        # composition-unsafe's (skipped) not; a 0.3 record as written under
+        # neither.
         old = Validator(json.loads(Path("schemas/run-record-0.1.schema.json").read_text()))
+        v02 = Validator(json.loads(Path("schemas/run-record-0.2.schema.json").read_text()))
         for golden in sorted(GOLDEN.glob("*.json")):
             data = load_strict(golden.read_text())
-            back = dict(data, schemaVersion="0.1")
             skips = any(d.get("verdict") == "skipped" for d in data["declarations"] or [])
-            self.expect(data["schemaVersion"] == "0.2" and old.errors(data)
-                        and bool(old.errors(back)) == skips, f"schema 0.1 and {golden.name}")
+            self.expect(data["schemaVersion"] == "0.3" and old.errors(data) and v02.errors(data)
+                        and not v02.errors(labelled(data, "0.2"))
+                        and bool(old.errors(labelled(data, "0.1"))) == skips,
+                        f"schemas 0.1, 0.2 and {golden.name}")
         # Review F3: the receipts' text rule, the stated limits, the real
         # mode and allowlist version, and runs that cannot list a verdict.
         host = lambda **kw: lambda d: d["host"].update(**kw)  # noqa: E731

@@ -77,6 +77,11 @@ end-structure
   dup /layer erase >r r@ ly-firsts 8 cells move r@ ly-stage ! r> ly-tf ! ;
 : ly-note ( outcome at i ly -- outcome )
   >r 2 pick ok? if 2drop r> drop exit then swap r@ ly-where ! tier-title r> ly-why ! ;
+\ Outcomes all the way (review FRI F1: a full turned into a flag read as
+\ malformed): two as one, the first that is not ok; a failure that drops
+\ two values and gives no result.
+: ly-and ( outcome1 outcome2 -- outcome ) over ok? if nip else drop then ;
+: ly-none2 ( x1 x2 outcome -- -1 outcome ) nip nip no-result ;
 
 \ ---- The sections, read whole, 32-bit fields made the host's.
 : ly-alloc ( i ly -- addr outcome )
@@ -100,14 +105,16 @@ end-structure
   drop outcome-ok ;
 
 \ ---- Numbers here. Family i's number n: the base's below its count;
-\ from it on, the own record's, entered before; else 0 and false.
+\ from it on, the own record's, entered before (ok); else 0 and invalid.
+\ Every translation word, and every xt this file passes one (u ly -- u'
+\ outcome), gives an outcome.
 : ly-own ( n i ly -- idx true | false )
   >r 2dup r@ ly-first u< if 2drop r> drop false exit then
   tuck r@ ly-first - swap r> ly-units over u> if true else drop false then ;
-: ly-xlate ( n i ly -- n' flag )
-  >r 2dup r@ ly-first u< if drop r> drop true exit then
-  2dup r@ ly-own 0= if 2drop r> drop 0 false exit then
-  rot drop swap r> ly-map ly@ dup if 1- true else false then ;
+: ly-xlate ( n i ly -- n' outcome )
+  >r 2dup r@ ly-first u< if drop r> drop outcome-ok exit then
+  2dup r@ ly-own 0= if 2drop r> drop 0 outcome-invalid exit then
+  rot drop swap r> ly-map ly@ dup if 1- outcome-ok else outcome-invalid then ;
 : ly-kept ( n' idx i ly -- ) ly-map >r swap 1+ swap r> ly! ;
 \ A record built again must be a new record of the tier, or one an
 \ earlier layer made (sibling layers share them); never the base's (a
@@ -122,11 +129,11 @@ end-structure
 : ly-keep ( n' idx i ly -- outcome )
   3 pick 2 pick 2 pick ly-fresh? 0= if 2drop 2drop outcome-invalid exit then
   ly-kept outcome-ok ;
-: ly-name ( n ly -- n' flag ) lp-names swap ly-xlate ;
-: ly-level ( n ly -- n' flag ) lp-levels swap ly-xlate ;
-: ly-text ( n ly -- n' flag ) lp-texts swap ly-xlate ;
-: ly-e ( n ly -- n' flag ) lp-exprs swap ly-xlate ;
-: ly-number ( u ly -- u flag ) drop true ;
+: ly-name ( n ly -- n' outcome ) lp-names swap ly-xlate ;
+: ly-level ( n ly -- n' outcome ) lp-levels swap ly-xlate ;
+: ly-text ( n ly -- n' outcome ) lp-texts swap ly-xlate ;
+: ly-e ( n ly -- n' outcome ) lp-exprs swap ly-xlate ;
+: ly-number ( u ly -- u outcome ) drop outcome-ok ;
 \ Bytes of pool i (names' or texts'): the layer's own, inside the pool.
 : ly-bytes ( offset len i ly -- c-addr u flag )
   2>r over 2r@ ly-first u< if 2r> 2drop 2drop 0 0 false exit then
@@ -142,25 +149,26 @@ end-structure
   0= if 2drop drop r> drop -1 outcome-invalid exit then r> ly-tier name-str ;
 : ly-num-name ( prefix addr ly -- n outcome ) >r quad-b u32@ r> ly-tier name-num ;
 : ly-name-of ( addr ly -- n outcome )
-  2dup >r quad-a u32@ r> ly-name 0= if drop 2drop -1 outcome-invalid exit then
+  2dup >r quad-a u32@ r> ly-name ok-then? 0= if ly-none2 exit then
   -rot over ly-head drop case
     tag-name-str of ly-str-name endof  tag-name-num of ly-num-name endof
     >r drop 2drop -1 outcome-invalid r> endcase ;
 \ A level's head, its parameter's name (the payload) made this tier's.
-: ly-level-head ( addr ly -- head flag )
-  >r ly-head over tag-level-param = if r@ ly-name else true then r> drop >r pack-head r> ;
+: ly-level-head ( addr ly -- head outcome )
+  >r ly-head over tag-level-param = if r@ ly-name else outcome-ok then
+  r> drop >r pack-head r> ;
 \ A child of a level, unless it is a parameter's (whose fields are 0).
-: ly-level-part ( u tag ly -- u' flag )
-  over tag-level-param = if 2drop true else nip ly-level then ;
+: ly-level-part ( u tag ly -- u' outcome )
+  over tag-level-param = if 2drop outcome-ok else nip ly-level then ;
 \ A child of the level at addr, its field xt ( addr -- field ) (quad-a or
 \ quad-b), made this tier's; both of them.
-: ly-child ( addr xt ly -- u' flag )
+: ly-child ( addr xt ly -- u' outcome )
   >r over swap execute u32@ swap ly-head drop r> ly-level-part ;
-: ly-level-parts ( addr ly -- a' b' flag )
-  2dup ['] quad-a swap ly-child >r -rot ['] quad-b swap ly-child r> and ;
+: ly-level-parts ( addr ly -- a' b' outcome )
+  2dup ['] quad-a swap ly-child >r -rot ['] quad-b swap ly-child r> swap ly-and ;
 : ly-level-of ( addr ly -- l outcome )
-  2dup ly-level-head 0= if drop 2drop -1 outcome-invalid exit then -rot
-  dup >r ly-level-parts 0= if r> drop 2drop drop -1 outcome-invalid exit then
+  2dup ly-level-head ok-then? 0= if ly-none2 exit then -rot
+  dup >r ly-level-parts ok-then? 0= if r> drop ly-none2 exit then
   r> ly-tier level-build ;
 \ A text record is (offset, length) into the text bytes.
 : ly-text-of ( addr ly -- t outcome )
@@ -180,12 +188,13 @@ end-structure
   2dup lp-lists swap ly-map ly@ 0= if 2drop false exit then
   over swap lp-lists swap ly-block ly@ true ;
 : ly-item ( k idx ly -- u ) lp-lists swap ly-block -rot + 1+ swap ly@ ;
-\ Every item of own list idx through xt ( u ly -- u' flag ), as a new tuple.
+\ Every item of own list idx through xt ( u ly -- u' outcome ), as a new
+\ tuple.
 : ly-items ( idx n xt ly -- outcome )
   dup ly-tier tier-tuples tuple-start dup ok? 0= if nip nip nip nip exit then drop
   rot 0 ?do
-    i 3 pick 2 pick ly-item over 3 pick execute 0= if 2drop 2drop outcome-invalid unloop
-      exit then
+    i 3 pick 2 pick ly-item over 3 pick execute
+    ok-then? 0= if nip nip nip unloop exit then
     over ly-tier tier-tuples tuple-add dup ok? 0= if nip nip nip unloop exit then drop
   loop 2drop drop outcome-ok ;
 \ List t: the base's as it is; the layer's built again through xt.
@@ -196,44 +205,46 @@ end-structure
   r> ly-tier tier-tuples tuple-end ;
 : ly-levels ( t ly -- t' outcome ) ['] ly-level swap ly-tuple ;
 : ly-names ( t ly -- t' outcome ) ['] ly-name swap ly-tuple ;
-: ly-tnames ( t ly -- t' flag ) ly-names ok? ;
 
 \ ---- Expressions (a letE spans two numbers).
-: ly-two ( a b ly -- a' b' flag ) tuck ly-e >r -rot ly-e r> and -rot swap rot ;
-: ly-a-level ( a b ly -- a' b' flag ) >r swap r> ly-level rot swap ;
-: ly-a-expr ( a b ly -- a' b' flag ) >r swap r> ly-e rot swap ;
-: ly-a-text ( a b ly -- a' b' flag ) >r swap r> ly-text rot swap ;
-: ly-const ( a b ly -- a' b' flag ) tuck ly-levels ok? >r -rot ly-name r> and rot swap ;
-: ly-ab ( a b tag ly -- a' b' flag )
+: ly-two ( a b ly -- a' b' outcome ) tuck ly-e >r -rot ly-e r> ly-and -rot swap rot ;
+: ly-a-level ( a b ly -- a' b' outcome ) >r swap r> ly-level rot swap ;
+: ly-a-expr ( a b ly -- a' b' outcome ) >r swap r> ly-e rot swap ;
+: ly-a-text ( a b ly -- a' b' outcome ) >r swap r> ly-text rot swap ;
+\ A constant's levels (a list built again: full when the heap or the
+\ stage's limit refuses) and name.
+: ly-const ( a b ly -- a' b' outcome )
+  tuck ly-levels >r -rot ly-name r> swap ly-and rot swap ;
+: ly-ab ( a b tag ly -- a' b' outcome )
   swap case
-    tag-bvar of drop true endof  tag-sort of ly-a-level endof
+    tag-bvar of drop outcome-ok endof  tag-sort of ly-a-level endof
     tag-const of ly-const endof  tag-app of ly-two endof
     tag-proj of ly-a-expr endof  tag-nat of ly-a-text endof  tag-str of ly-a-text endof
     tag-mdata of ly-a-expr endof
-    >r r@ binder-tag? if ly-two else drop false then r> endcase ;
+    >r r@ binder-tag? if ly-two else drop outcome-invalid then r> endcase ;
 \ The payload: a binder's, a letE's or a projection's name; else 0.
-: ly-payload ( payload tag ly -- payload' flag )
+: ly-payload ( payload tag ly -- payload' outcome )
   over binder-tag? 2 pick let-tag? or 2 pick tag-proj = or
-  if nip ly-name else 2drop dup 0= then ;
+  if nip ly-name else 2drop dup 0= flag>outcome then ;
 \ Record j + 1: a letE's body record; the body.
-: ly-body ( j ly -- body' flag )
-  >r 1+ dup lp-exprs r@ ly-units u< 0= if drop r> drop 0 false exit then
-  lp-exprs r@ ly-rec dup ly-head drop tag-let-body <> if drop r> drop 0 false exit then
-  quad-a u32@ r> ly-e ;
+: ly-body ( j ly -- body' outcome )
+  >r 1+ dup lp-exprs r@ ly-units u< 0= if drop r> drop 0 outcome-invalid exit then
+  lp-exprs r@ ly-rec dup ly-head drop tag-let-body <>
+  if drop r> drop 0 outcome-invalid exit then quad-a u32@ r> ly-e ;
 : ly-let ( head addr j ly -- e outcome )
-  tuck ly-body 0= if 2drop 2drop -1 outcome-invalid exit then >r >r
+  tuck ly-body ok-then? 0= if nip ly-none2 exit then >r >r
   dup quad-a u32@ swap quad-b u32@ r@ ly-two
-  0= if 2drop drop r> r> 2drop -1 outcome-invalid exit then
+  ok-then? 0= if r> r> 2drop ly-none2 exit then
   r> r> swap ly-tier expr-let ;
 \ The record at addr's operands made this tier's, as its tag says.
-: ly-operands ( addr ly -- a' b' flag )
+: ly-operands ( addr ly -- a' b' outcome )
   >r dup quad-a u32@ over quad-b u32@ rot ly-head drop r> ly-ab ;
 : ly-plain ( j ly addr head -- e outcome )
-  >r over ly-operands 0= if r> drop 2drop 2drop -1 outcome-invalid exit then
+  >r over ly-operands ok-then? 0= if r> drop nip ly-none2 exit then
   r> -rot 3 roll ly-tier expr-make rot drop ;
 : ly-expr-of ( j ly -- e outcome )
   2dup lp-exprs swap ly-rec dup ly-head over 4 pick ly-payload
-  0= if 2drop 2drop drop -1 outcome-invalid exit then
+  ok-then? 0= if nip nip ly-none2 exit then
   over swap pack-head swap let-tag? if 2swap >r >r swap r> r> ly-let exit then ly-plain ;
 : ly-mdata ( j ly -- )
   tuck lp-exprs swap ly-rec ly-head drop tag-mdata =
@@ -277,10 +288,10 @@ end-structure
 : ly-decl ( i ly -- addr ) lp-decls swap ly-block swap /staged * + ;
 : ly-line ( i ly -- u ) lp-lines swap ly-block ly@ ;
 : ly-kind ( addr -- kind ) staged-head u32@ head-tag ;
-\ A field: none stays none; else through xt ( u ly -- u' flag ).
-: ly-field ( addr xt ly -- flag )
-  2 pick u32@ dup none? if drop 2drop drop true exit then
-  -rot swap execute dup if drop swap u32! true else nip nip then ;
+\ A field: none stays none; else through xt ( u ly -- u' outcome ).
+: ly-field ( addr xt ly -- outcome )
+  2 pick u32@ dup none? if drop 2drop drop outcome-ok exit then
+  -rot swap execute ok-then? if swap u32! outcome-ok else nip then ;
 \ Item k of list t: an own list's, or a tuple of the base's; 0 false past
 \ its end.
 : ly-own-at ( k idx n ly -- u flag )
@@ -292,52 +303,54 @@ end-structure
 : ly-at ( k t ly -- u flag )
   2dup ly-list if rot >r rot drop r> ly-own-at exit then ly-base-at ;
 \ A recursor's rules, [ctor nfields rhs] each, as a new tuple.
-: ly-rule-item ( u k ly -- u' flag )
-  swap 3 mod case 0 of ly-name endof 1 of drop true endof >r ly-e r> endcase ;
-: ly-rules ( t ly -- t' flag )
-  over lp-lists 2 pick ly-first u< if drop true exit then
-  tuck ly-list 0= if drop 0 false exit then
-  dup /rule-items mod if 2drop drop 0 false exit then
-  2 pick ly-tier tier-tuples tuple-start ok? 0= if 2drop drop 0 false exit then
+: ly-rule-item ( u k ly -- u' outcome )
+  swap 3 mod case 0 of ly-name endof 1 of drop outcome-ok endof >r ly-e r> endcase ;
+: ly-rules ( t ly -- t' outcome )
+  over lp-lists 2 pick ly-first u< if drop outcome-ok exit then
+  tuck ly-list 0= if drop 0 outcome-invalid exit then
+  dup /rule-items mod if 2drop drop 0 outcome-invalid exit then
+  2 pick ly-tier tier-tuples tuple-start ok-then? 0= if ly-none2 exit then
   0 ?do
-    i over 3 pick ly-item i 3 pick ly-rule-item 0= if 2drop drop 0 false unloop exit then
-    2 pick ly-tier tier-tuples tuple-add ok? 0= if 2drop 0 false unloop exit then
-  loop drop ly-tier tier-tuples tuple-end ok? ;
+    i over 3 pick ly-item i 3 pick ly-rule-item ok-then? 0= if ly-none2 unloop exit then
+    2 pick ly-tier tier-tuples tuple-add dup ok? 0= if ly-none2 unloop exit then drop
+  loop drop ly-tier tier-tuples tuple-end ;
 \ Kind data: n items of t, each through its xt in table, as a new tuple
 \ of the stage's items (import/stage-records.fs).
-: ly-more ( t table n ly -- t' flag )
+: ly-more ( t table n ly -- t' outcome )
   dup ly-stage @ items-clear swap 0 ?do
-    i 3 pick 2 pick ly-at 0= if 2drop 2drop 0 false unloop exit then
-    over 3 pick i cells + @ execute 0= if 2drop 2drop 0 false unloop exit then
+    i 3 pick 2 pick ly-at 0= if 2drop 2drop 0 outcome-invalid unloop exit then
+    over 3 pick i cells + @ execute ok-then? 0= if nip ly-none2 unloop exit then
     over ly-stage @ item,
-  loop nip nip ly-stage @ items>tuple ok? ;
+  loop nip nip ly-stage @ items>tuple ;
 create ly-block-data ' ly-number , ' ly-number , ' ly-number ,
-create ly-type-data ' ly-number , ' ly-number , ' ly-tnames , ' ly-tnames , ' ly-number ,
+create ly-type-data ' ly-number , ' ly-number , ' ly-names , ' ly-names , ' ly-number ,
 create ly-ctor-data ' ly-name , ' ly-number , ' ly-number , ' ly-number ,
 create ly-rec-data
-  ' ly-tnames , ' ly-number , ' ly-number , ' ly-number , ' ly-number , ' ly-rules ,
-: ly-data ( t kind ly -- t' flag )
+  ' ly-names , ' ly-number , ' ly-number , ' ly-number , ' ly-number , ' ly-rules ,
+: ly-data ( t kind ly -- t' outcome )
   swap case
-    kind-def of ly-tnames endof  kind-thm of ly-tnames endof
-    kind-opaque of ly-tnames endof
+    kind-def of ly-names endof  kind-thm of ly-names endof
+    kind-opaque of ly-names endof
     kind-inductive of ly-block-data 3 rot ly-more endof
     kind-type of ly-type-data 5 rot ly-more endof
     kind-ctor of ly-ctor-data 4 rot ly-more endof
     kind-recursor of ly-rec-data 6 rot ly-more endof
-    >r drop false r> endcase ;
-: ly-more-field ( addr ly -- flag )
-  over staged-more u32@ dup none? if drop 2drop true exit then
-  2 pick ly-kind rot ly-data dup if drop swap staged-more u32! true else nip nip then ;
-: ly-xlate-decl ( addr ly -- flag )
+    >r drop outcome-invalid r> endcase ;
+: ly-more-field ( addr ly -- outcome )
+  over staged-more u32@ dup none? if drop 2drop outcome-ok exit then
+  2 pick ly-kind rot ly-data ok-then? if swap staged-more u32! outcome-ok else nip then ;
+\ Each field translated in place (all of them, as before), the first
+\ failure the outcome.
+: ly-xlate-decl ( addr ly -- outcome )
   over staged-name ['] ly-name 2 pick ly-field >r
-  over staged-params ['] ly-tnames 2 pick ly-field r> and >r
-  over staged-type ['] ly-e 2 pick ly-field r> and >r
-  over staged-value ['] ly-e 2 pick ly-field r> and >r
-  over 0 swap staged-prev u32! ly-more-field r> and ;
+  over staged-params ['] ly-names 2 pick ly-field r> swap ly-and >r
+  over staged-type ['] ly-e 2 pick ly-field r> swap ly-and >r
+  over staged-value ['] ly-e 2 pick ly-field r> swap ly-and >r
+  over 0 swap staged-prev u32! ly-more-field r> swap ly-and ;
 : ly-decls ( ly -- outcome )
   dup ly-decls# 0 ?do
-    i over ly-decl over ly-xlate-decl 0= if
-      outcome-invalid i lp-decls 3 pick ly-note nip unloop exit then
+    i over ly-decl over ly-xlate-decl dup ok? 0= if
+      i lp-decls 3 pick ly-note nip unloop exit then drop
   loop drop outcome-ok ;
 
 \ Read a layer's sections and enter its records, then translate its

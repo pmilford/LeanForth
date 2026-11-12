@@ -39,9 +39,9 @@ require ../support/run-records.fs
 \ Run a file, then whether its record holds c-addr u; the run released.
 : run-holds? ( c-addr1 u1 c-addr2 u2 -- outcome flag )
   2>r fuel ni-run 2r> holds? rr-release ;
-: accepted ( -- c-addr u )
-  s\" \"verdict\":\"accepted\",\"label\":\"experimental, not independently audited\"" ;
-: no-axioms ( -- c-addr u ) s\" audited\",\"axioms\":[]}" ;
+: accepted ( -- c-addr u ) s\" \"verdict\":\"accepted\",\"axioms\":" ;
+: no-axioms ( -- c-addr u ) s\" \"accepted\",\"axioms\":[]}" ;
+: label-key ( -- c-addr u ) s\" \"label\"" ;
 : third-accepted ( -- c-addr u )
   s\" {\"index\":2,\"name\":\"fixtureUse\",\"verdict\":\"accepted\"" ;
 : manifest-ok ( -- c-addr u )
@@ -51,10 +51,13 @@ require ../support/run-records.fs
 : run-ok ( -- c-addr u )
   s\" \"check\":{\"read\":\"ok\",\"run\":\"ok\",\"mode\":\"final\"," ;
 
-\ The pinned exports: every declaration accepted, labelled, no axioms, the
-\ manifest ok, the pinned versions read from the metadata.
+\ The pinned exports: every declaration accepted, no axioms and no label
+\ (owner, 2026-11-12), the manifest ok, the pinned versions read from the
+\ metadata.
 T{ composition accepted run-holds? -> outcome-ok true }T
 T{ composition no-axioms run-holds? -> outcome-ok true }T
+T{ composition label-key run-holds? -> outcome-ok false }T
+T{ composition s" audited" run-holds? -> outcome-ok false }T
 T{ identity accepted run-holds? -> outcome-ok true }T
 T{ type-identity accepted run-holds? -> outcome-ok true }T
 T{ poly-identity accepted run-holds? -> outcome-ok true }T
@@ -84,7 +87,7 @@ T{ wrong-argument no-manifest run-holds? -> outcome-ok true }T
 \ An axiom (plan task 5.3.1): accepted as Lean accepts it, its own name
 \ among its axioms.
 : postulate-accepted ( -- c-addr u )
-  s\" \"verdict\":\"accepted\",\"label\":\"experimental, not independently audited\",\"axioms\":[\"composition\"]" ;
+  s\" \"verdict\":\"accepted\",\"axioms\":[\"composition\"]" ;
 T{ postulate-case postulate-accepted run-holds? -> outcome-ok true }T
 T{ literal-case unsupported-43 run-holds? -> outcome-ok true }T
 T{ loose-case invalid-23 run-holds? -> outcome-ok true }T
@@ -405,20 +408,21 @@ T{ composition rp-replay-text -> outcome-invalid }T
 T{ 0 finding@ total -> rp-not-json 1 }T
 T{ s" [1]" rp-replay-text -> outcome-invalid }T
 T{ 0 finding@ -> rp-unknown-schema }T
-\ A record of another version, the earlier 0.1 (schemas/run-record-0.1)
-\ or a later one: replay compares a record only with one of its own.
+\ A record of another version, the earlier 0.2 with its label
+\ (schemas/run-record-0.2) or a later one: replay compares a record only
+\ with one of its own.
 : other-version ( -- c-addr u )
-  s\" {\"schema\":\"leanforth-run-record\",\"schemaVersion\":\"0.1\"}" ;
+  s\" {\"schema\":\"leanforth-run-record\",\"schemaVersion\":\"0.2\"}" ;
 T{ other-version rp-replay-text -> outcome-invalid }T
 T{ 0 finding@ -> rp-unknown-schema }T
 : later-version ( -- c-addr u )
-  s\" {\"schema\":\"leanforth-run-record\",\"schemaVersion\":\"0.3\"}" ;
+  s\" {\"schema\":\"leanforth-run-record\",\"schemaVersion\":\"0.4\"}" ;
 T{ later-version rp-replay-text -> outcome-invalid }T
 T{ 0 finding@ -> rp-unknown-schema }T
 \ A record of the format with nothing in it: every member is missing,
 \ within the sections as at the top.
 : hollow ( -- c-addr u )
-  s\" {\"schema\":\"leanforth-run-record\",\"schemaVersion\":\"0.2\",\"input\":{}}" ;
+  s\" {\"schema\":\"leanforth-run-record\",\"schemaVersion\":\"0.3\",\"input\":{}}" ;
 T{ hollow rp-replay-text -> outcome-rejected }T
 T{ total 0 finding@ 9 finding@ -> 10 rp-missing-field rp-missing-field }T
 T{ 0 finding-path@ s" $.input.sha256" compare -> 0 }T

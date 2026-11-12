@@ -17,6 +17,8 @@ findings neither fixed nor turned into plan tasks. A row that raises the style b
 | 2026-11-12 | `c19a2f5..bf5cb68` | performance pass perf1 (merged in 3ac0558; correctness review rvPF1 separate) | forth-reviewer (Opus) | [report](2026-11-12-perf1-docfix.md) | 1 medium (test gap), 8 low, 1 info | 9, to branch pf1-fix |
 | 2026-11-12 | `41c6d8e..66da748` | docs corrections docfix (capabilities text in src/cli/leanforth.fs) | forth-reviewer (Opus) | [report](2026-11-12-perf1-docfix.md) | 1 medium (label), 1 low (test) | 0: test strengthened in b03091c; the label finding superseded by the owner's decision of 2026-11-12 (no labels) |
 | 2026-11-12 | `66da748..629823a` | follow-up of the docfix review: capability line and its test | coordinator (Opus), against the review's findings | this row | text and test only | 0 |
+| 2026-11-12 | `3c306b6..5f82748` | review-bugs: fixes of the backlog reviews' bugs (FRK F1, F3-F7; FRI F1, F3; portability) | forth-reviewer (Opus) | [report](2026-11-12-no-label-review-bugs.md) | 0 blocking; 4 low, 3 info | 7, to the refactoring batches (plan 9.4.5) |
+| 2026-11-12 | `b4f354a..7681f56` | no-label: the result label removed (owner, 2026-11-12) | forth-reviewer (Opus) | [report](2026-11-12-no-label-review-bugs.md) | 0 blocking; 2 low, 2 info | 4, to the refactoring batches and the program track (receipt 0.3) |
 
 ## Backlog
 

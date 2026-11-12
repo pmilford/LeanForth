@@ -48,13 +48,15 @@
 \ Interface, in the driving task outside jobs, the environment current
 \ and valid over the driving context's input:
 \ - lf-sched-init ( -- outcome ): frees an earlier run's workers and
-\   blocks and starts empty; ok, or full;
+\   blocks and starts empty; ok, or invalid for a slab shape refused
+\   (never with the shapes here);
 \ - lf-sched-plan ( -- outcome ): the readiness sets of the current
 \   context's input; ok, or full (no heap), or invalid (a corrupted
-\   name or term read);
+\   name or term read, or a list that is not live);
 \ - lf-sched-add ( context -- outcome ): a worker, an idle context holding
 \   the same input with its check's budget set (the scheduler frees it);
-\   ok, or full when the list cannot grow;
+\   ok, or full (invalid for a list that is not live) when its lists
+\   cannot grow, and then nothing is added and the context is not taken;
 \ - lf-sched-run ( check keep maker -- ): every declaration, check ( -- )
 \   the check word, keep ( outcome d -- ) run in the worker's context
 \   after each hand-over and rollback (as cli/check-run.fs keeps a
@@ -91,7 +93,7 @@
 \ place in the order checks ended, not at its declaration), each of which
 \ a guard above or the comparison with the serial run must catch.
 \
-\ [kernel] [runtime] code: experimental, not through the review gate.
+\ [kernel] [runtime] code: not through the review gate (AGENTS.md).
 \ Memory: per declaration about 8 cells; per readiness slot 2 cells; per
 \ term number 4 bytes (the walk's stamps), all freed by lf-sched-free.
 \ The ready queues are binary heaps, lowest declaration first.
@@ -172,10 +174,12 @@ create lf-sch-cell-slabs
 here lf-sch-cell-slabs - 1 cells / constant lf-sch-cell-slabs#
 : lf-sch-slab ( k -- slab ) cells lf-sch-cell-slabs + @ lf-sched swap execute ;
 : lf-sch-slab-init ( unit slab -- outcome ) over slab-limit-max swap slab-init ;
+\ Two outcomes as one: the first that is not ok, else ok (review FRK F6:
+\ OR-ing them made an invalid slab full).
+: lf-sch-and ( outcome1 outcome2 -- outcome ) over ok? if nip else drop then ;
 : lf-sch-slabs-init ( -- outcome )
   1 u32s lf-sched lf-sch-seen lf-sch-slab-init
-  lf-sch-cell-slabs# 0 ?do 1 cells i lf-sch-slab lf-sch-slab-init or loop
-  ok? room>outcome ;
+  lf-sch-cell-slabs# 0 ?do 1 cells i lf-sch-slab lf-sch-slab-init lf-sch-and loop ;
 : lf-sch-slabs-free ( -- )
   lf-sch-cell-slabs# 0 ?do i lf-sch-slab slab-free loop lf-sched lf-sch-seen slab-free ;
 \ Units up to n in use, the new ones zero: ok, or full.
@@ -429,18 +433,19 @@ variable lf-sched-faults  0 lf-sched-faults !
   lf-sch-n 0 ?do i 1+ lf-sch-from@ i lf-sch-from@ - i lf-sch-wait ! loop ;
 : lf-sch-turn-room ( -- outcome )
   lf-sch-n 1+ lf-sched lf-sch-rfroms lf-sch-hold
-  lf-sched lf-sch-deps slab-count lf-sched lf-sch-rdeps lf-sch-hold or ok? room>outcome ;
+  lf-sched lf-sch-deps slab-count lf-sched lf-sch-rdeps lf-sch-hold lf-sch-and ;
 : lf-sch-turn ( -- outcome )
   lf-sch-turn-room dup ok? 0= if exit then drop
   lf-sch-count-deps lf-sch-sum lf-sch-cursors lf-sch-fill lf-sch-waits! outcome-ok ;
 
-\ Room for every array the plan fills: ok, or full.
+\ Room for every array the plan fills: ok, full, or invalid for a slab
+\ that is not live (the first that failed).
+: lf-sch-also ( outcome n slab -- outcome' ) lf-sch-hold lf-sch-and ;
 : lf-sch-arrays ( -- outcome )
   lf-sch-n 1+ dup lf-sched lf-sch-states lf-sch-hold
-  over lf-sched lf-sch-waits lf-sch-hold or over lf-sched lf-sch-froms lf-sch-hold or
-  over lf-sched lf-sch-nfroms lf-sch-hold or swap lf-sched lf-sch-dseen lf-sch-hold or
-  lf-term-base lf-term-count @ + lf-sched lf-sch-seen lf-sch-hold or
-  ok? room>outcome ;
+  over lf-sched lf-sch-waits lf-sch-also over lf-sched lf-sch-froms lf-sch-also
+  over lf-sched lf-sch-nfroms lf-sch-also swap lf-sched lf-sch-dseen lf-sch-also
+  lf-term-base lf-term-count @ + lf-sched lf-sch-seen lf-sch-also ;
 \ The readiness sets of the current context's input (see the header),
 \ once after lf-sched-init: ok, full, or invalid for a node that cannot
 \ be read.
@@ -456,12 +461,18 @@ variable lf-sched-faults  0 lf-sched-faults !
 : lf-sch-ctx ( k -- addr ) lf-sched lf-sch-ctxs slab-at ;
 : lf-sch-job ( k -- addr ) lf-sched lf-sch-jobs slab-at ;
 : lf-sch-at ( k -- addr ) lf-sched lf-sch-ats slab-at ;
-\ A worker: its context, no job; full, the context not taken, when the
-\ list cannot grow.
+\ A worker: its context, no job; full (invalid for a list that is not
+\ live), the context not taken and nothing added, when one of its three
+\ lists cannot grow: room is made in all three before any is pushed
+\ (review FRK F1).
+: lf-sch-room ( slab -- outcome ) 1 swap slab-room ;
+: lf-sch-worker-room ( -- outcome )
+  lf-sched lf-sch-ctxs lf-sch-room lf-sched lf-sch-jobs lf-sch-room lf-sch-and
+  lf-sched lf-sch-ats lf-sch-room lf-sch-and ;
 : lf-sched-add ( context -- outcome )
-  lf-sched lf-sch-ctxs lf-sch-push dup ok? 0= if exit then drop
-  0 lf-sched lf-sch-jobs lf-sch-push -1 lf-sched lf-sch-ats lf-sch-push or
-  ok? room>outcome ;
+  lf-sch-worker-room dup ok? 0= if nip exit then drop
+  lf-sched lf-sch-ctxs lf-sch-push 0 lf-sched lf-sch-jobs lf-sch-push lf-sch-and
+  -1 lf-sched lf-sch-ats lf-sch-push lf-sch-and ;
 : lf-sch-in ( k -- ) lf-sch-ctx @ context-use ;
 : lf-sch-home ( -- ) lf-sched lf-sch-home-ctx @ context-use ;
 : lf-sch-idle? ( k -- flag ) dup lf-sch-ctx @ 0<> swap lf-sch-job @ 0= and ;

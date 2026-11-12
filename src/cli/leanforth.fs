@@ -13,7 +13,7 @@
 \       of Lean's Init), check every declaration in file order with
 \       check-declaration through the checked environment's publisher,
 \       and print one line per declaration with its verdict, read from
-\       its published slot; then a summary with the accepted ones' label
+\       its published slot; then a summary with the accepted ones' count
 \       and axioms; with --resources also the resource report (time and
 \       CPU of each phase, peak memory, the input's size, fuel in all and
 \       the ten declarations that used the most); with --json all of it
@@ -29,8 +29,8 @@
 \       the export read into the checker's input at its default sizes
 \       (import/checker-input.fs, which refuses inductive types), checked
 \       by import/run-record.fs's run (rr-check), and printed as above;
-\       run records 0.2 hold at most 32 declarations, so --record keeps
-\       this path (docs/programming/RUN_RECORDS.md, "Version 0.2");
+\       run records 0.3 hold at most 32 declarations, so --record keeps
+\       this path (docs/programming/RUN_RECORDS.md, "Versioning");
 \   replay [--no-manifest] [--fuel N] [--fast] EXPORT RECORD
 \       check the export again and compare the new run record with RECORD
 \       (import/run-replay.fs): the replay report, exit 0 confirmed, 1
@@ -334,7 +334,7 @@ end-structure
   else ." checked in this run, uses results from the "
     ck-stale? if ." stale " then ." snapshot" then ;
 : cli-accepted-from. ( d origin -- )
-  ." accepted (experimental, not independently audited; " cli-origin. ." ); "
+  ." accepted (" cli-origin. ." ); "
   lf-env-axioms ok? if lf-check-axioms. else drop ." axioms: ?" then ;
 : cli-failed-from. ( d origin -- )
   over lf-env-outcome rot swap lf-check-failed. ."  (" cli-origin. ." )" ;
@@ -388,7 +388,7 @@ end-structure
 : cli-summary ( -- )
   lf-input-count dup .decimal ."  declaration" 1 <> if ." s" then ." : "
   true verdict-kinds 0 do i verdict-kind cli-item loop drop cli-summary-label cr ;
-\ The accepted ones' label and axioms, read from their slots: none when
+\ How many were accepted, and their axioms, read from their slots: none when
 \ they use no axiom; else the allowlisted axioms they use (which count as
 \ proved, docs/user/COMMAND_LINE.md), then how many are NOT PROVED, or
 \ none (review rvAX L4).
@@ -403,8 +403,7 @@ end-structure
   lf-allowlist-bits and ?dup if cli-listed. then cli-unproved. ;
 : cli-accepted. ( -- )
   outcome-ok cli-count-of @ ?dup 0= if exit then
-  ." accepted: " .decimal ."  (experimental, not independently audited); "
-  cli-axioms. cr ;
+  ." accepted: " .decimal ." ; " cli-axioms. cr ;
 
 \ Notes after a run: the limits behind full, the fuel behind exhausted.
 \ check --record leaves the stores' capacity settings at their defaults:
@@ -833,7 +832,7 @@ variable cli-info#
 : cli-misuse-record ( -- code )
   ." error: --json and --resources do not go with --record" cr
   ." try: leanforth help" cr exit-malformed ;
-\ Run records 0.2 hold the pinned versions only: --any-lean-version does
+\ Run records 0.3 hold the pinned versions only: --any-lean-version does
 \ not go with --record either.
 : cli-any-misused? ( -- flag ) cli-record? cli-any-lean? and ;
 : cli-misuse-any ( -- code )
@@ -914,7 +913,7 @@ variable cli-info#
 \ binder names and declaration lines for the printer (cli/print.fs),
 \ then each declaration checked in file order with the derivation log on
 \ and printed right after its check with its proof outline
-\ (present/proof-outline.fs: the verdict with its label and axioms, the
+\ (present/proof-outline.fs: the verdict with its axioms, the
 \ statement, the outline), or with --detail every step of its log. With
 \ --name only that declaration is printed (the ones before it are checked
 \ too, unprinted; the ones after it are not checked). No outline is ever
@@ -1044,8 +1043,7 @@ variable cli-info#
   pinned-format-version type ." , Lean " pinned-lean-version type ."  ("
   pinned-lean-githash type ." )" cr ;
 : version-command ( -- code )
-  ." leanforth " cli-version-text type
-  ."  (development version; experimental, not independently audited)" cr
+  ." leanforth " cli-version-text type cr
   ." forth: " cli-host. cr cli-reads. exit-accepted ;
 : cli-check-input. ( -- )
   ."   check: Lean 4.35.0 exports (lean4export 3.1.0 NDJSON) of any size, such as" cr
@@ -1054,8 +1052,7 @@ variable cli-info#
   ."     gforth-fast, or Gforth's checking engine with --checked; --jobs N checks" cr
   ."     with N workers (threads on Gforth 1.0), the same output as one" cr ;
 : cli-check-rules. ( -- )
-  ."   check: Lean's kernel rules as built so far, each result labelled" cr
-  ."     experimental, not independently audited: definitions, theorems, opaque" cr
+  ."   check: Lean's kernel rules as built so far: definitions, theorems, opaque" cr
   ."     declarations and axioms (an axiom outside Lean's standard three is NOT" cr
   ."     PROVED, as Lean's exit status 0); fun, forall, application, let," cr
   ."     number and string literals, projections, unfolding of definitions;" cr
@@ -1065,7 +1062,7 @@ variable cli-info#
   ."     these are merged but their review gates are open" cr
   ."     (docs/project/PROJECT_PROGRESS.md)" cr ;
 : cli-other-commands. ( -- )
-  ."   check --record, replay: run records 0.2 and their replay (plan task 2.2.5)" cr
+  ."   check --record, replay: run records 0.3 and their replay (plan task 2.2.5)" cr
   ."   print: a readable proof outline of each accepted declaration, from the" cr
   ."     checker's derivation log (plan tasks 2.4.1, 2.4.4; untrusted presentation)" cr
   ."   count, reexport: exports of any size, up to all of Mathlib" cr ;

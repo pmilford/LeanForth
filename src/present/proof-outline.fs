@@ -19,8 +19,8 @@
 \ publish step. Nor does it print anything from a log that fails the
 \ structural check of log-check.fs (N1 of the second review).
 \
-\ What is printed. The header: kind and name, the verdict with its label
-\ and axioms, the statement (or type), the input line (lf-outline-source),
+\ What is printed. The header: kind and name, the verdict with its
+\ axioms, the statement (or type), the input line (lf-outline-source),
 \ and the log's size and completeness. Then, only for a declaration the
 \ environment accepted, with a complete log whose steps the recognisers
 \ below cover, the outline; otherwise why there is none (D2: never from an
@@ -499,10 +499,8 @@ lf-walk-room context-walk: lf-ol-premises
   lf-ol-decl lf-idecl-kind @ lf-ol-kind lf-lv-put lf-lv-tex? if s" }" lf-lv-put then
   lf-ol-decl lf-idecl-name @ lf-lv-name-id 0 lf-lv-flush lf-lv-eol ;
 \ The verdict, as the caller read it from the checked environment
-\ (lf-outline): the published outcome and, when accepted, the axiom set.
-\ An accepted result carries the label every accepted result carries (as
-\ check-declaration's lf-check-label prints it; AGENTS.md).
-: lf-ol-label ( -- c-addr u ) s" accepted (experimental, not independently audited)" ;
+\ (lf-outline): the published outcome and, when accepted, the axiom set,
+\ as check-declaration's lf-check-verdict. prints them.
 : lf-ol-outcome ( -- outcome ) 0 lf-olr-outcome lf-ol-field @ ;
 : lf-ol-accepted? ( -- flag ) lf-ol-outcome ok? ;
 \ The axiom set as check-declaration's lf-check-axioms. prints it: the
@@ -522,7 +520,7 @@ lf-walk-room context-walk: lf-ol-premises
   s"  (" lf-lv-put swap lf-lv-n s" , " lf-lv-put lf-lv-n s" )" lf-ol-line ;
 : lf-ol-verdict ( -- )
   s"   " lf-lv-put lf-ol-accepted?
-  if lf-ol-label lf-lv-put s" ; " lf-lv-put lf-ol-axioms 0 lf-lv-flush lf-lv-eol exit then
+  if s" accepted; " lf-lv-put lf-ol-axioms 0 lf-lv-flush lf-lv-eol exit then
   lf-ol-outcome outcome-sane outcome-text lf-ol-line lf-ol-diagnostic ;
 \ The statement (or the type), in the forms selected (statement-forms.fs); a
 \ declaration with no type says so.

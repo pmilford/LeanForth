@@ -18,7 +18,7 @@
 \ there only means "not known". The lookup and the arity test cost no
 \ fuel (Lean's lookup is a map access); L2 costs one unit per level node
 \ visited, the specialization what lf-mixed-level-substitute charges.
-\ [kernel] code: experimental, not through the review gate.
+\ [kernel] code: not through the review gate (AGENTS.md).
 \ State: the walk record lf-envsig-walker (L2 on one level) and the
 \ request record lf-envsig-request (one constant), both members of the
 \ checker context (lib/context.fs). The environment is read only within

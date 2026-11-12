@@ -15,6 +15,40 @@ T{ 0 0<= -> true }T
 T{ 1 0<= -> false }T
 T{ max-n 0> max-n 1+ 0< -> true true }T
 
+\ The fallbacks, as a host without the words compiles them: portability.fs
+\ included again with every [undefined] guard taken (fb-guards first in
+\ the search order) into a word list of its own, each fallback then
+\ compared with this host's word on the same inputs.
+wordlist constant fb-guards
+wordlist constant fallbacks
+get-current fb-guards set-current
+: [undefined] ( "name" -- true ) parse-name 2drop true ; immediate
+set-current
+get-order get-current
+get-order fb-guards swap 1+ set-order fallbacks set-current
+\ Loaded a second time on purpose (REQUIRE would skip it), so INCLUDED.
+s" ../../src/lib/portability.fs" included
+set-current set-order
+: fb' ( "name" -- xt ) parse-name fallbacks search-wordlist 0= abort" no fallback" ;
+T{ 100 5 fb' bounds execute -> 105 100 }T
+T{ max-n 1 fb' bounds execute -> max-n 1 bounds }T
+T{ 1 2 fb' u<= execute 2 1 fb' u<= execute 3 3 fb' u<= execute -> true false true }T
+T{ -1 1 fb' u<= execute 1 -1 fb' u<= execute -> false true }T
+T{ 2 1 fb' >= execute 1 2 fb' >= execute 1 2 fb' <= execute 2 1 fb' <= execute
+   -> true false true false }T
+T{ 0 fb' 0<= execute 1 fb' 0<= execute -1 fb' 0>= execute 0 fb' 0>= execute
+   -> true false false true }T
+T{ 1 2 3 fb' -rot execute -> 3 1 2 }T
+T{ fb' max-n execute fb' cell execute -> max-n cell }T
+T{ s" " fb' stdout execute write-file s" " fb' stderr execute write-file -> 0 0 }T
+T{ stdout fb' flush-file execute -> 0 }T
+fb' begin-structure execute /fb-pair
+  fb' field: execute fb-first
+  1 chars fb' +field execute fb-char
+  fb' field: execute fb-second
+fb' end-structure execute
+T{ /fb-pair 0 fb-first 0 fb-char 0 fb-second -> 1 chars aligned 2 cells + 0 cell 1 chars aligned cell + }T
+
 \ between? and upto?: inclusive, signed, and never wrapping around.
 T{ 3 1 5 between? -> true }T
 T{ 1 1 5 between? 5 1 5 between? -> true true }T

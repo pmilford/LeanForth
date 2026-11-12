@@ -7,8 +7,7 @@
 \ to the names of universe parameters, which a constant's users never
 \ see (they instantiate parameters by position). Part of the first
 \ checker's [kernel] path (in core/ so that the presentation can name the
-\ allowlist's axioms): experimental, not through the review gate, not
-\ independently audited.
+\ allowlist's axioms): not through the review gate (AGENTS.md).
 \
 \ A statement is a text: the term in prefix form, tokens separated by one
 \ space.

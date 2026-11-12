@@ -18,7 +18,7 @@
 \
 \ Untrusted presentation code: nothing here decides or changes a verdict;
 \ the verdict printed is the published slot's (lf-env-outcome), with its
-\ label and axioms, and the log is the checker's; the outline printer
+\ axioms, and the log is the checker's; the outline printer
 \ itself refuses a log that does not agree with that verdict, a
 \ declaration not accepted, and a log truncated or kept without formulas.
 \ The printer's scratch between checks advances the stores' identity

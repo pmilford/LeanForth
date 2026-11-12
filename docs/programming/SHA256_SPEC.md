@@ -250,8 +250,7 @@ and none uses `Classical.choice`.
 
 ## What is proved and what is not
 
-Proved by Lean 4.35.0's kernel (untrusted by LeanForth; *experimental —
-not independently audited*):
+Proved by Lean 4.35.0's kernel (untrusted by LeanForth):
 
 - the specification gives NIST's digest for the 19 NIST vectors listed
   above (2 FIPS 180-2 examples, 17 CAVP messages), the published or

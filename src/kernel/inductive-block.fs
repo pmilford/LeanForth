@@ -24,8 +24,8 @@
 \ members in input order, types, then constructors, then recursors.
 \ check-block.fs runs these checks and Lean's typed steps in Lean's order;
 \ inductive-recursor.fs builds the recursor.
-\ [kernel] code: experimental, not through the review gate; not
-\ independently audited. The exported numbers and flags are read here
+\ [kernel] code: not through the review gate (AGENTS.md). The exported
+\ numbers and flags are read here
 \ only for the shape; check-block.fs compares the rest (B3, B4).
 \ State: one record, lf-ind-state (the block, the facts computed so far,
 \ the step reached, the fuel, the warnings), five slabs, lf-ind-ctor-cells

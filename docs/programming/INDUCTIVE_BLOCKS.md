@@ -4,10 +4,8 @@ Status: implemented 2026-11-04 as plan task 5.2.1a of
 [ADR 0015](../adr/0015-inductive-types.md) (design accepted by the owner
 on 2026-11-03), and extended the same day to recursive types as plan
 task 5.2.1b and to mutual blocks as the first part of plan task 5.2.5
-(5.2.5a; their [kernel] gates open). **Experimental [kernel] and
-[import] code, not through its review gate and not independently
-audited.** Every accepted result is *accepted (experimental, not
-independently audited)*. This is one step of an unfinished design: each
+(5.2.5a; their [kernel] gates open). **[kernel] and
+[import] code, not through its review gate.** This is one step of an unfinished design: each
 remaining difference from Lean below is temporary and names the plan
 task that closes it. Source:
 `src/kernel/check-block.fs` (the check, in Lean's order),
@@ -46,9 +44,11 @@ arrow), and the recursor then has an **induction hypothesis** for each
 recursive argument. Task 5.2.5a adds **mutual blocks**, types defined
 together (`Even` and `Odd`, a tree and a forest): each type gets its
 recursor, which takes one motive per type of the block and one minor
-premise per constructor of the block. Nested blocks (a type used inside
-another, as in `List Tree`) are the next task (5.2.5b) and are answered
-*unsupported*, and so is everything that uses them.
+premise per constructor of the block. Task 5.2.5b adds **nested blocks**
+(a type used inside another inductive type's arguments, as `Tree` in
+`List Tree`): as Lean's kernel does, the block is translated into a mutual
+block with auxiliary copies of the outer type, checked as such, and
+restored (`inductive-nested.fs`; steps 4 and 12 below).
 
 ## Example in three forms
 
@@ -197,10 +197,10 @@ rejection names Lean's reason through a diagnostic
 
 | Step | Rule (ADR 0015) | What | Lean (`inductive.cpp`, 4.35.0) | LeanForth's outcome on failure |
 | ---: | --- | --- | --- | --- |
-| 1 | B0, U1 (audit), U2, V1, scope | the block as lean4export writes it (each type's `all` list the block's types, with the first's universe parameters and `numParams`; the constructors the types' `ctors` lists in order), at most 512 constructors (checked when the block is opened, before anything is written for them); no unsafe member; no member named `Nat.pow` or `Nat.shiftLeft` (until task 5.2.3); no `let`, literal, projection or metadata; no loose variable; no nested occurrence (an earlier inductive type applied to arguments that mention a type of the block, after a constructor's parameters: Lean's `elim_nested_inductive`); on the way Lean's `is_rec` and `is_reflexive` | replay's reading; 1237–1247; 1023–1055, 308–352 | invalid (shape, V1); full (more than 512 constructors, the whole block); unsupported (unsafe, U2, nested: task 5.2.5b; `Nat.pow`, `Nat.shiftLeft`: diagnostic 86, task 5.2.3) |
+| 1 | B0, U1 (audit), U2, V1, scope | the block as lean4export writes it (each type's `all` list the block's types, with the first's universe parameters and `numParams`; the constructors the types' `ctors` lists in order), at most 512 constructors (checked when the block is opened, before anything is written for them); no unsafe member; no member named `Nat.pow` or `Nat.shiftLeft` (until task 5.2.3); no `let`, literal, projection or metadata; no loose variable; whether a constructor may hold a nested occurrence (an earlier inductive type applied to arguments that mention a type of the block, after a constructor's parameters: Lean's `elim_nested_inductive`), translated at step 4; on the way Lean's `is_rec` and `is_reflexive` | replay's reading; 1237–1247; 1023–1055, 308–352 | invalid (shape, V1); full (more than 512 constructors, the whole block); unsupported (unsafe, U2; `Nat.pow`, `Nat.shiftLeft`: diagnostic 86, task 5.2.3) |
 | 2 | T0 | no constant named under `_nested` | 1222–1233 | rejected |
 | 3 | C1 | each occurrence of the type applied to the block's universe parameters and parameters | 134–164 | rejected |
-| 4 | T1 | a type at all (an empty block, staged as one declaration without a name: Lean's `emptyBlock`, 1153), then at least `numParams` binders in the type, then in each constructor's type (`get_params`, called by `elim_nested_inductive_fn` 1151–1166 for both) | 1138–1166 | rejected |
+| 4 | T1 | a type at all (an empty block, staged as one declaration without a name: Lean's `emptyBlock`, 1153), then at least `numParams` binders in the type, then in each constructor's type (`get_params`, called by `elim_nested_inductive_fn` 1151–1166 for both); then a nested block translated into its auxiliary mutual block, which steps 5 to 12 check (`elim_nested_inductive_fn`; `inductive-nested.fs`, N2, N3), and after step 12 restored (`restore_nested`, 1257–1324: `T.rec_1`, ..., the nested occurrences typed) | 1138–1166, 985–1180 | rejected |
 | 5 | T5 | universe parameters distinct | 869 | rejected |
 | 6 | N2 | the type's name and `T.rec` unused, also as the recursor Lean generated for an earlier type (below) | 258–259 | rejected; unknown or unsupported when an earlier declaration of that name is undecided or unsupported (K5) |
 | 7 | — | the type's type inferred | 261 | inference's outcome |
@@ -421,7 +421,7 @@ accepts them). `check --record`, `replay` and `print` still read with
 `import/checker-input.fs`, which refuses an inductive type while reading
 (*unsupported*): a temporary gap, closed for `check --record` and
 `replay` by a run record version for exports of any size (plan task
-6.5.2, [run records, version 0.3](RUN_RECORDS.md#version-03-records-of-any-size))
+6.5.2, [run records of any size](RUN_RECORDS.md#records-of-any-size-a-proposal-not-built))
 and for `print` by moving it onto the feed (plan task 3.4.1).
 
 ## Limits
@@ -484,11 +484,10 @@ the default is exactly Lean):
   after iota, or on a stuck major premise, is *unknown* until the port's
   "no" decides (task 4.2.2d; rows `iota.bool-true-wrong`,
   `iota.list-hypothesis-wrong`, `iota.bool-stuck`).
-- **Nested blocks, *unsupported*; task 5.2.5b** (mutual blocks are
-  checked since task 5.2.5a). The nested test (step 1) may only find
-  more than Lean: when the earlier type is not usable, any argument
-  mentioning a type of the block counts. ADR 0015 holds the plan for
-  checking nested blocks (Implementation, plan task 5.2.5b).
+- **Nested blocks** are checked since task 5.2.5b (mutual blocks since
+  task 5.2.5a): translated, checked and restored as Lean's kernel does
+  (steps 4 and 12; `inductive-nested.fs`). ADR 0015 gives the design
+  (Implementation, plan task 5.2.5b).
 - **Two constructors of different types with one name** are rejected
   as Lean's `declare_constructors` rejects them (`alreadyDeclared`); no
   table row covers it, since the table's exporter writes one record per

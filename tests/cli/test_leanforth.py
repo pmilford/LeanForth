@@ -36,9 +36,9 @@
      (composition-postulate.ndjson); tests/cli/leanforth.fs also plants
      an axiom in a slot, and the schema is tested here with planted
      reports too.
-2. "accepted" is printed only on a declaration's line, each with the
-   experimental label and its axioms, and only when the code is 0 or that
-   line's declaration is accepted while another is not.
+2. "accepted" is printed only on a declaration's line, each with its
+   axioms and no label (owner, 2026-11-12), and only when the code is 0
+   or that line's declaration is accepted while another is not.
 3. The tool works from any folder, with relative and absolute names, and
    prints the same bytes on every run.
 4. count prints what src/import/ndjson-count.fs prints, and reexport writes
@@ -47,10 +47,10 @@
 6. print prints each declaration's proof outline exactly as the outline's
    golden file has it (all five reference exports, one declaration by
    name, every step with --detail); a declaration not accepted is refused,
-   with its outcome's code, and no outline appears except below the
-   experimental label; a name no declaration has, and print's command-line
+   with its outcome's code, and no outline appears except below an
+   accepted verdict; a name no declaration has, and print's command-line
    mistakes, are 4.
-7. --json prints one report that the schema (schemas/check-report-0.2)
+7. --json prints one report that the schema (schemas/check-report-0.4)
    accepts, for every case of 1, with the exit status, every verdict and
    the counts the text gives; it is the same on every run but for
    "measured", and its counts and fuel add up as the schema's $comment
@@ -90,7 +90,7 @@ GFORTH = str(Path(_gforth).resolve()) if os.sep in _gforth else _gforth
 CASES = "tests/core/check-declaration-cases"
 COMPOSITION = "tests/reference/composition.ndjson"
 FIXTURE = "tests/reference/constant-fixture.ndjson"
-LABEL = "accepted (experimental, not independently audited); axioms: none"
+LABEL = "accepted; axioms: none"
 INDUCTIVE = "tests/cli/inductive.ndjson"
 CHAIN = "tests/cli/chain.ndjson"
 EMPTY_BLOCK = "tests/core/check-block-cases/names.empty-block.ndjson"
@@ -177,7 +177,7 @@ def universe_twin(text, twin):
 def accepted(n, axioms="none"):
     """The summary line of n accepted declarations, none NOT PROVED: they use
     no axiom, or only the allowlisted ones given."""
-    return f"accepted: {n} (experimental, not independently audited); axioms: {axioms}"
+    return f"accepted: {n}; axioms: {axioms}"
 
 
 
@@ -231,11 +231,11 @@ class ExitCodes(unittest.TestCase):
         source = ROOT / "tests" / "reference" / "inductive" / "axioms.ndjson"
         status, out, _ = run("check", "--no-manifest", str(source))
         self.assertEqual((status, out.splitlines()[-2]), (0, "16 declarations: 16 accepted"))
-        self.assertIn("Quot.sound: accepted (experimental, not independently audited); "
+        self.assertIn("Quot.sound: accepted; "
                       "axioms: Quot.sound", out.splitlines())
         # The summary names the allowlisted axioms used (review rvAX L4).
-        self.assertEqual(out.splitlines()[-1], "accepted: 16 (experimental, not independently "
-                         "audited); axioms: propext, Classical.choice, Quot.sound "
+        self.assertEqual(out.splitlines()[-1], "accepted: 16; "
+                         "axioms: propext, Classical.choice, Quot.sound "
                          "(allowlisted); none NOT PROVED")
         text = source.read_text(encoding="utf-8")
         forged = text.replace('"name":31,"type":121}', '"name":31,"type":115}')
@@ -246,7 +246,7 @@ class ExitCodes(unittest.TestCase):
             status, out, _ = run("check", "--no-manifest", str(path))
         lines = out.splitlines()
         self.assertEqual((status, lines[-2]), (0, "16 declarations: 16 accepted"))
-        self.assertIn("Quot.sound: accepted (experimental, not independently audited); "
+        self.assertIn("Quot.sound: accepted; "
                       "axioms: Quot.sound", lines)
 
     def test_1_rejected(self):
@@ -322,9 +322,9 @@ class ExitCodes(unittest.TestCase):
         PROVED with the axiom named; status 0 as Lean, 6 under
         --strict-axioms."""
         postulate = f"{CASES}/composition-postulate.ndjson"
-        line = (f"composition: accepted (experimental, not independently audited); axioms: unlisted; NOT PROVED: depends on composition")
+        line = (f"composition: accepted; axioms: unlisted; NOT PROVED: depends on composition")
         lines = [NO_MANIFEST, line, "1 declaration: 1 accepted",
-                 "accepted: 1 (experimental, not independently audited); axioms: 1 NOT PROVED (they depend on an axiom)"]
+                 "accepted: 1; axioms: 1 NOT PROVED (they depend on an axiom)"]
         note = ["note: NOT PROVED declarations keep Lean's exit status; --strict-axioms",
                 "note: makes it 6"]
         self.expect(["check", "--no-manifest", postulate], 0, lines + note)
@@ -334,11 +334,11 @@ class ExitCodes(unittest.TestCase):
         # than Lean's is no allowlisted axiom (inductive-table rows).
         blocks = "tests/core/check-block-cases"
         for case, line in [
-                ("postulate.declared-and-used", "IE.usesSecret: accepted (experimental, not "
-                 "independently audited); axioms: unlisted; NOT PROVED: depends on IE.Secret, "
+                ("postulate.declared-and-used", "IE.usesSecret: accepted; "
+                 "axioms: unlisted; NOT PROVED: depends on IE.Secret, "
                  "IE.secret"),
-                ("postulate.propext-altered", "IE.anything: accepted (experimental, not "
-                 "independently audited); axioms: unlisted; NOT PROVED: depends on propext")]:
+                ("postulate.propext-altered", "IE.anything: accepted; "
+                 "axioms: unlisted; NOT PROVED: depends on propext")]:
             status, out, _ = run("check", "--no-manifest", f"{blocks}/{case}.ndjson")
             self.assertEqual(status, 0, case)
             self.assertIn(line, out.splitlines(), case)
@@ -403,8 +403,8 @@ class ExitCodes(unittest.TestCase):
             at = lines.index(f"InferOnly.{name}: rejected")
             self.assertTrue(lines[at + 1].startswith(f"  rejected: {diagnostic}"), lines[at + 1])
         for name in ["appgood", "pigood", "lam2good", "lamgood", "letgood", "projgood"]:
-            self.assertIn(f"InferOnly.{name}: accepted (experimental, not independently "
-                          "audited); axioms: none", lines)
+            self.assertIn(f"InferOnly.{name}: accepted; "
+                          "axioms: none", lines)
 
     def test_1_infer_only_p6(self):
         """Lean's infer-only typing at is_def_eq steps 4, 11 and 14 and in K-like reduction
@@ -422,8 +422,8 @@ class ExitCodes(unittest.TestCase):
                                                      "diagnostic 58 at mixed-infer"), lines[at + 1])
         for name in ["pilam", "pilambodygood", "letdep", "etapigood", "natpi", "unitpigood",
                      "projarg", "kgood", "etafvar"]:
-            self.assertIn(f"Ck.{name}: accepted (experimental, not independently "
-                          "audited); axioms: none", lines)
+            self.assertIn(f"Ck.{name}: accepted; "
+                          "axioms: none", lines)
 
     def test_2_unsupported_and_unknown(self):
         # A proof that is a string literal, typed String, which the file does not
@@ -592,7 +592,7 @@ class ExitCodes(unittest.TestCase):
                     continue
                 got = json.loads(out)
                 schema = Validator(json.loads(
-                    (ROOT / "schemas/check-report-0.2.schema.json").read_text()))
+                    (ROOT / "schemas/check-report-0.4.schema.json").read_text()))
                 self.assertEqual((status, schema.errors(got), got["stopped"], got["exitStatus"],
                                   got["declarations"][0]["diagnostic"]["code"]),
                                  (5, [], True, 5, 29))
@@ -636,7 +636,7 @@ REFUSED = "No proof outline: the declaration was not accepted."
 OTHER_LEAN = "tests/core/other-lean.ndjson"
 OTHER_NOTE = ("note: export made by Lean 4.29.1 (githash 2fcce7258eeb6e324366bc25f9058293b04b7547), "
               "written by handcrafted 0.1.0; verdicts are Lean 4.35.0's")
-FOO_NOT_PROVED = ("foo: accepted (experimental, not independently audited); axioms: unlisted; "
+FOO_NOT_PROVED = ("foo: accepted; axioms: unlisted; "
                   "NOT PROVED: depends on foo")
 
 
@@ -681,7 +681,7 @@ class OtherLean(unittest.TestCase):
                         lines[1])
 
     def test_json(self):
-        schema = Validator(json.loads((ROOT / "schemas/check-report-0.2.schema.json").read_text()))
+        schema = Validator(json.loads((ROOT / "schemas/check-report-0.4.schema.json").read_text()))
         status, out, _ = run("check", "--json", "--no-manifest", "--any-lean-version", OTHER_LEAN)
         got = json.loads(out)
         self.assertEqual((status, schema.errors(got), got["settings"]["anyLeanVersion"]),
@@ -811,7 +811,7 @@ class Print(unittest.TestCase):
         self.assertEqual((status, out.count(REFUSED), out.count("  exhausted")), (3, 3, 3))
         status, out = self.lines("--no-manifest", f"{CASES}/composition-postulate.ndjson")
         self.assertEqual((status, out[1:3], out[-1]),
-                         (0, ["Axiom composition", f"  accepted (experimental, not independently audited); axioms: unlisted"],
+                         (0, ["Axiom composition", f"  accepted; axioms: unlisted"],
                           "No proof outline: an axiom or a quotient constant has no proof;"
                           " Lean's kernel takes it as given."))
         for args, code in [((FIXTURE,), 0), (("--no-manifest", UNKNOWN), 2),
@@ -819,8 +819,9 @@ class Print(unittest.TestCase):
                            (("--no-manifest", f"{CASES}/composition-wrong-argument.ndjson"), 1)]:
             status, out = self.lines(*args)
             self.assertEqual(status, code, args)
-            # Each verdict, the line after a declaration's title, is the label
-            # or a failure; an outline appears only below the label.
+            # Each verdict, the line after a declaration's title, is accepted
+            # with its axioms or a failure; an outline appears only below an
+            # accepted one.
             titles = [i for i, line in enumerate(out)
                       if re.match(r"(Theorem|Definition|Axiom|Opaque|Declaration) ", line)]
             verdicts = [out[i + 1] for i in titles]
@@ -869,7 +870,7 @@ class RunRecords(unittest.TestCase):
         return status, out, json.loads(path.read_text())
 
     def test_record_as_the_driver(self):
-        schema = Validator(json.loads((ROOT / "schemas/run-record-0.2.schema.json").read_text()))
+        schema = Validator(json.loads((ROOT / "schemas/run-record-0.3.schema.json").read_text()))
         commit, modified = git_source()
         for name in ["composition", "constant-fixture", "identity"]:
             with tempfile.TemporaryDirectory() as folder:
@@ -917,16 +918,15 @@ class RunRecords(unittest.TestCase):
 
 class Behaviour(unittest.TestCase):
     def test_accepted_only_from_slots(self):
-        """Every "accepted" is a declaration's line with the label, or a
-        summary line that counts them with the label."""
+        """Every "accepted" is a declaration's line with its axioms, or a
+        summary line that counts them; no line carries a label."""
         for args in [["check", COMPOSITION], ["check", "tests/cli/unfold.ndjson"],
                      ["check", "--no-manifest", f"{CASES}/composition-wrong-argument.ndjson"],
                      ["check", INDUCTIVE]]:
             _, out, _ = run(*args)
             for line in out.splitlines():
                 if "accepted" in line and not re.match(r"^\d+ declarations?: ", line):
-                    self.assertRegex(line, r"^(\S+: " + re.escape(LABEL) + r"|accepted: \d+ "
-                                     r"\(experimental, not independently audited\); "
+                    self.assertRegex(line, r"^(\S+: " + re.escape(LABEL) + r"|accepted: \d+; "
                                      r"axioms: none)$")
 
     def test_any_folder_and_deterministic(self):
@@ -980,8 +980,7 @@ class Behaviour(unittest.TestCase):
     def test_informational(self):
         status, out, _ = run("version")
         self.assertEqual(status, 0)
-        self.assertRegex(out, r"^leanforth 0\.1\.0-dev \(development version; experimental, "
-                              r"not independently audited\)\nforth: Gforth \S+\nreads: "
+        self.assertRegex(out, r"^leanforth 0\.1\.0-dev\nforth: Gforth \S+\nreads: "
                               r"lean4export 3\.1\.0, format 3\.1\.0, Lean 4\.35\.0 "
                               r"\(eb6cafb7290e8bd5f2937522d8d804f58f02bafc\)\ncommit: ")
         self.assertEqual(run("--version")[:2], (0, out))
@@ -1067,6 +1066,115 @@ def report(*args):
     return status, json.loads(out), err
 
 
+# The label reports and records carried until the owner withdrew it
+# (2026-11-12): reports 0.2 and 0.3 and run records 0.2 require it.
+OLD_LABEL = "experimental, not independently audited"
+
+
+def as_labelled(got, version):
+    """A copy of report or record got as the version before the withdrawal
+    had it: that version, the label at the top (reports only) and on each
+    accepted declaration."""
+    back = json.loads(json.dumps(got))
+    back["schemaVersion"] = version
+    if back.get("schema") == "leanforth-check-report":
+        back["label"] = OLD_LABEL
+    for d in back["declarations"]:
+        if d["verdict"] == "accepted":
+            d["label"] = OLD_LABEL
+    return back
+
+
+def as_0_2(got):
+    """A report 0.4 as report 0.2 had it."""
+    return as_labelled(got, "0.2")
+
+
+def as_0_1(got):
+    """A report 0.4 as report 0.1 had it: no skipped count either."""
+    back = as_labelled(got, "0.1")
+    if back["counts"] is not None:
+        del back["counts"]["skipped"]
+    return back
+
+
+# What no output may say since the owner withdrew the label (2026-11-12).
+LABEL_WORDS = ("experimental", "independently audited", "pre-alpha")
+
+
+def keys(value):
+    """Every member name of a JSON value, at any depth."""
+    if isinstance(value, dict):
+        return set(value) | {k for v in value.values() for k in keys(v)}
+    if isinstance(value, list):
+        return {k for v in value for k in keys(v)}
+    return set()
+
+
+class NoLabel(unittest.TestCase):
+    """No output carries the withdrawn label (owner, 2026-11-12): not check's
+    text, its JSON report (no label member at any depth), print's outlines
+    (text and LaTeX), a snapshot run's text, version, capabilities or help;
+    an accepted declaration that depends on an axiom outside the allowlist
+    is still NOT PROVED, here one named sorryAx as Lean's sorry is."""
+
+    def clean(self, text, where):
+        for word in LABEL_WORDS:
+            self.assertNotIn(word, text, where)
+
+    def test_text_json_and_print(self):
+        for args in CASES_ALL:
+            status, out, err = run("check", *args)
+            self.clean(out + err, args)
+            status, got, err = report(*args)
+            self.assertNotIn("label", keys(got), args)
+            self.clean(json.dumps(got) + err, args)
+        for args in ([FIXTURE], ["--detail", COMPOSITION], ["--latex", FIXTURE],
+                     ["--no-manifest", f"{CASES}/composition-postulate.ndjson"]):
+            status, out, err = run("print", *args)
+            self.assertEqual(status, 0, args)
+            self.clean(out + err, args)
+            self.assertIn("  accepted; axioms: ", out, args)
+        for command in ("version", "capabilities", "help"):
+            status, out, err = run(command)
+            self.assertEqual(status, 0, command)
+            self.clean(out + err, command)
+
+    def test_snapshot_text(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "s.lfsnap"
+            self.assertEqual(run("check", "--save-snapshot", str(path), FIXTURE)[0], 0)
+            status, out, err = run("check", "--snapshot", str(path))
+            self.assertEqual(status, 0)
+            self.clean(out + err, "snapshot")
+            status, got, err = report("--snapshot", str(path))
+            self.assertNotIn("label", keys(got))
+
+    def test_sorry_not_proved(self):
+        source = ROOT / CASES / "composition-postulate.ndjson"
+        text = source.read_text(encoding="utf-8")
+        old = '{"pre":0,"str":"composition"}'
+        self.assertEqual(text.count(old), 1)
+        with tempfile.TemporaryDirectory() as folder:
+            export = Path(folder) / "sorry.ndjson"
+            export.write_text(text.replace(old, '{"pre":0,"str":"sorryAx"}'), encoding="utf-8")
+            status, out, _ = run("check", "--no-manifest", str(export))
+            self.assertEqual((status, out.splitlines()[1:]),
+                             (0, ["sorryAx: accepted; axioms: unlisted; NOT PROVED: depends on "
+                                  "sorryAx", "1 declaration: 1 accepted",
+                                  "accepted: 1; axioms: 1 NOT PROVED (they depend on an axiom)",
+                                  "note: NOT PROVED declarations keep Lean's exit status; "
+                                  "--strict-axioms", "note: makes it 6"]))
+            self.assertEqual(run("check", "--no-manifest", "--strict-axioms", str(export))[0], 6)
+            status, got, _ = report("--no-manifest", str(export))
+            d = got["declarations"][0]
+            self.assertEqual((status, d["verdict"], d["notProved"], d["notProvedBy"],
+                              "label" in keys(got)), (0, "accepted", True, ["sorryAx"], False))
+            status, out, _ = run("print", "--no-manifest", str(export))
+            self.assertEqual((status, out.splitlines()[1:3]),
+                             (0, ["Axiom sorryAx", "  accepted; axioms: unlisted"]))
+
+
 CASES_ALL = [
     [COMPOSITION], [FIXTURE], [CHAIN], [INDUCTIVE], ["tests/cli/unfold.ndjson"],
     [f"{CASES}/composition-wrong-argument.ndjson"],
@@ -1085,7 +1193,7 @@ class JsonReport(unittest.TestCase):
     """check --json (plan task 3.4.3): one report the schema accepts, which
     says what the text says, the same on every run but for "measured"."""
 
-    schema = Validator(json.loads((ROOT / "schemas/check-report-0.2.schema.json").read_text()))
+    schema = Validator(json.loads((ROOT / "schemas/check-report-0.4.schema.json").read_text()))
     VERDICTS = {"accepted": "accepted", "skipped": "skipped", "rejected": "rejected",
                 "unknown": "unknown",
                 "unsupported": "unsupported", "invalid": "invalid", "exhausted": "exhausted",
@@ -1128,7 +1236,7 @@ class JsonReport(unittest.TestCase):
             # Each declaration's line, in order, says the report's verdict.
             # An accepted one's line names its axioms and, when NOT PROVED,
             # says so (plan task 5.3.1).
-            words = {"accepted": "accepted (experimental, not independently audited); axioms: ",
+            words = {"accepted": "accepted; axioms: ",
                      "not-checked": "not checked (not reached: the run stopped)"}
             lines = text.splitlines()
             at = 0
@@ -1154,25 +1262,28 @@ class JsonReport(unittest.TestCase):
                 self.assertEqual(shown[0], f"{counts['declarations']} declaration{plural}: "
                                            f"{summary}", args)
 
-    def test_version_0_1_kept(self):
-        """Reports are version 0.2 since the verdict skipped (plan task 5.2.7;
-        review rvUNNI M2); schema 0.1 is kept unchanged for earlier reports. A
-        report without a skipped declaration, set back to 0.1 (its version, no
-        skipped count), is valid under 0.1; one with a skipped declaration is
-        not, nor is any 0.2 report as written."""
+    def test_versions_kept(self):
+        """Reports are version 0.4 since the label was withdrawn (owner,
+        2026-11-12), 0.2 having been the first with the verdict skipped (plan
+        task 5.2.7; review rvUNNI M2); schemas 0.1 and 0.2 are kept unchanged
+        for earlier reports. A report set back to 0.2 (its version, and the
+        label at the top and on each accepted declaration) is valid under
+        0.2, so the label is all that changed; without a skipped declaration,
+        set back to 0.1 (no skipped count either), it is valid under 0.1; one
+        with a skipped declaration is not, nor is any 0.4 report as written
+        valid under either."""
         old = Validator(json.loads((ROOT / "schemas/check-report-0.1.schema.json").read_text()))
-
-        def as_0_1(got):
-            back = json.loads(json.dumps(got))
-            back["schemaVersion"] = "0.1"
-            if back["counts"] is not None:
-                del back["counts"]["skipped"]
-            return back
+        v02 = Validator(json.loads((ROOT / "schemas/check-report-0.2.schema.json").read_text()))
         _, plain, _ = report(INDUCTIVE)
         _, skipped, _ = report("--no-manifest", f"{CASES}/composition-unsafe.ndjson")
-        self.assertEqual((plain["schemaVersion"], old.errors(as_0_1(plain))), ("0.2", []))
+        _, postulate, _ = report("--no-manifest", f"{CASES}/composition-postulate.ndjson")
+        self.assertEqual((plain["schemaVersion"], v02.errors(as_0_2(plain)),
+                          v02.errors(as_0_2(skipped)), v02.errors(as_0_2(postulate))),
+                         ("0.4", [], [], []))
+        self.assertEqual(old.errors(as_0_1(plain)), [])
         self.assertNotEqual(old.errors(as_0_1(skipped)), [])
         self.assertNotEqual(old.errors(plain), [])
+        self.assertNotEqual(v02.errors(plain), [])
 
     def test_schema_refuses(self):
         """The schema refuses a report whose parts disagree."""
@@ -1195,7 +1306,7 @@ class JsonReport(unittest.TestCase):
         def rejected(r, status):
             """Declaration 5 rejected, counted, and the status given."""
             d = r["declarations"][5]
-            for key in ("label", "axiomBits", "notProved", "notProvedBy"):
+            for key in ("axiomBits", "notProved", "notProvedBy"):
                 d.pop(key, None)
             d.update(verdict="rejected", diagnostic=None)
             r["counts"].update(accepted=5, rejected=1)
@@ -1203,7 +1314,8 @@ class JsonReport(unittest.TestCase):
         cases = [
             (good, lambda r: r["declarations"][4].update(verdict="rejected")),   # status 0
             (good, lambda r: r["declarations"][0].update(axiomBits=8)),          # notProved false
-            (good, lambda r: r["declarations"][0].pop("label")),
+            (good, lambda r: r["declarations"][0].update(label="experimental, not independently audited")),
+            (good, lambda r: r.update(label="experimental, not independently audited")),
             (good, lambda r: r["declarations"][1].update(diagnostic=None)),      # accepted
             (good, lambda r: r.update(run="not-run")),                           # read ok
             (good, lambda r: r["fuel"]["top"].append(r["fuel"]["top"][0]) or
@@ -1381,7 +1493,7 @@ class Names(unittest.TestCase):
         """A binder name and a referenced constant's name holding LF and U+202E (and
         an invalid byte) cannot forge an outline line, reorder text or reach the output
         raw, in every statement form, in --detail and in the LaTeX style (review rvPR B1)."""
-        forged = "q\nTheorem forged\n  accepted (experimental)‮"
+        forged = "q\nTheorem forged\n  accepted; axioms: forged‮"
         cases = [("tests/reference/identity.ndjson", '"str":"P"'),
                  ("tests/reference/constant-fixture.ndjson", '"str":"fixtureId"')]
         for forged, (source, old) in [(f, c) for f in (forged, "r\u202es") for c in cases]:
@@ -1400,7 +1512,7 @@ class Names(unittest.TestCase):
                     self.assertNotIn("‮", out, where)
                     lines = out.splitlines()
                     self.assertEqual([l for l in lines if l.startswith(("Theorem forged",
-                                                                       "  accepted (experimental)",
+                                                                       "  accepted; axioms: forged",
                                                                        "forged"))], [], where)
                     heads = [l for l in lines if re.match(r"^(\\textbf\{)?(Theorem|Definition)", l)]
                     self.assertEqual(len(heads), 1 if "identity" in source else 3, where)
@@ -1670,37 +1782,43 @@ def pinned_digest(*args):
 # does, so impliesSelf takes 68 fuel (65 before); every verdict, diagnostic
 # and count is unchanged (the report compared with main 390197d's, fuel
 # left out). infer-only.ndjson is tests/cli/shared-depths.lean P5's p5all.
+# All of them are re-pinned after task PA (2026-11-12): the owner withdrew the
+# label, so each report lost its member label (at the top and on each
+# accepted declaration) and is version 0.4; main 9965c2b's report of each,
+# which gave the digest pinned before, with the label taken out and the
+# version read as 0.4, equals this build's report member by member
+# ("measured" left out).
 PINNED = {
-    "tests/reference/composition.ndjson": "a3e7184036edb9dd",
-    "tests/reference/constant-fixture.ndjson": "df2ee45dc87e20ca",
-    "tests/cli/chain.ndjson": "b0c8e7d6066c71d6",
-    "tests/cli/inductive.ndjson": "bfc886f0d61feca3",
-    "tests/cli/unfold.ndjson": "3adc32724d1697ce",  # CK
-    f"{CASES}/composition-wrong-argument.ndjson": "b29f27c0c9419c26",
-    f"--no-manifest {CASES}/composition-wrong-argument.ndjson": "850723e5478fed48",
-    f"--no-manifest {CASES}/composition-postulate.ndjson": "f4de00b74d911325",
-    f"--no-manifest {CASES}/composition-loose.ndjson": "950ba5ee1bb8f59b",
-    f"--no-manifest {CASES}/composition-unsafe.ndjson": "5f720734c0914c3c",
-    "--no-manifest README.md": "7dace333bd425361",
-    "tests/cli/no-such.ndjson": "3eac0629560526ed",
-    "--no-manifest tests/cli/composition-huge-number.ndjson": "ec7632bcbf284cef",
-    "--no-manifest tests/core/reexport/kinds.ndjson": "5d2001a0a64ff3fc",  # IO, R5, MO
-    f"--fuel 0 {FIXTURE}": "7ab8e9fa317ce0a5",
-    f"--no-manifest {EMPTY_BLOCK}": "dbfea3992d7e6793",
-    "tests/cli/sharing.ndjson": "7713766122504e63",  # re-pinned (IO)
-    "tests/cli/sharing-universe.ndjson": "1598238656ef6308",  # re-pinned (IO)
-    "tests/cli/nested.ndjson": "2211c55e0b42f043",  # re-pinned, see above; R5, MO
-    "tests/cli/irrelevance.ndjson": "44da5689b4a2a87c",
-    f"--no-manifest {CASES}/composition-literal.ndjson": "25123b1e2dfc63de",
+    "tests/reference/composition.ndjson": "2e99beb93733fe3c",
+    "tests/reference/constant-fixture.ndjson": "3e777d5fc8f5ff2c",
+    "tests/cli/chain.ndjson": "268dac385bac9a60",
+    "tests/cli/inductive.ndjson": "9747bfdf954a0d32",
+    "tests/cli/unfold.ndjson": "9e60570bde0484f1",  # CK
+    f"{CASES}/composition-wrong-argument.ndjson": "f0a9dc145b6000df",
+    f"--no-manifest {CASES}/composition-wrong-argument.ndjson": "f840d07c81e64bde",
+    f"--no-manifest {CASES}/composition-postulate.ndjson": "1e03b3224287bf78",
+    f"--no-manifest {CASES}/composition-loose.ndjson": "afa2d221c59541d4",
+    f"--no-manifest {CASES}/composition-unsafe.ndjson": "bf8466416648c453",
+    "--no-manifest README.md": "37b9bcecc9e4fa22",
+    "tests/cli/no-such.ndjson": "9bb0bf1002d40192",
+    "--no-manifest tests/cli/composition-huge-number.ndjson": "b04f25902757c91e",
+    "--no-manifest tests/core/reexport/kinds.ndjson": "ccfb4f5380d614c7",  # IO, R5, MO
+    f"--fuel 0 {FIXTURE}": "f935e2d2bf3631d9",
+    f"--no-manifest {EMPTY_BLOCK}": "e14d55a114b54710",
+    "tests/cli/sharing.ndjson": "9109a215328715cc",  # re-pinned (IO)
+    "tests/cli/sharing-universe.ndjson": "76371ee25566bc72",  # re-pinned (IO)
+    "tests/cli/nested.ndjson": "1dd14a85b734d07b",  # re-pinned, see above; R5, MO
+    "tests/cli/irrelevance.ndjson": "3fb3676909ac5430",
+    f"--no-manifest {CASES}/composition-literal.ndjson": "ecaba8d3d589abce",
     # tests/cli/shared-depths.lean P4's exports (agent R5, ADR 0014 Amendment 9):
     # 48-argument spines typed aside; accepted with 15,749 units, and rejected.
-    f"--no-manifest {CASES}/spine-good.ndjson": "27f4d61217c3b13d",
-    f"--no-manifest {CASES}/spine-bad.ndjson": "2121f87813659891",
-    f"--no-manifest {CASES}/infer-only.ndjson": "4ea6a0e79761b9cf",  # CK
+    f"--no-manifest {CASES}/spine-good.ndjson": "e65bf7bfd762e240",
+    f"--no-manifest {CASES}/spine-bad.ndjson": "2d15817e2ca7834c",
+    f"--no-manifest {CASES}/infer-only.ndjson": "2104f0c7dc5178ad",  # CK
     # P6 (agent CT, review rvCK 3): the fourteen probe rows, p6all.
-    f"--no-manifest {CASES}/infer-only-p6.ndjson": "871db9fb2c8f43ab",
+    f"--no-manifest {CASES}/infer-only-p6.ndjson": "d9b652cecb9cbae4",
     "--no-manifest tests/core/check-block-cases/primitive.string-opaque-expansion.ndjson":
-        "e0c28fefae0e93da",  # re-pinned (IO, R5)
+        "e6d37fe6c3a1830f",  # re-pinned (IO, R5)
 }
 
 
@@ -1972,14 +2090,16 @@ class Snapshots(unittest.TestCase):
     """check --save-snapshot FILE and check --snapshot FILE (plan task 6.2.5,
     step SN3; ADR 0020): a snapshot read back reports what the run that
     wrote it reported -- every verdict, axiom set, diagnostic and fuel --
-    each labelled as taken from the snapshot (text, and report 0.3, which
-    the schema accepts); --jobs 1 and --jobs 4, and two runs, write the
+    each labelled as taken from the snapshot (text, and report 0.5, which
+    the schema accepts, and which set back to 0.3 with the withdrawn label
+    0.3 accepts); --jobs 1 and --jobs 4, and two runs, write the
     same bytes; a damaged, altered or stale snapshot is refused (planted
     faults, each file's SHA-256s made again so that only the snapshot's own
     checks can refuse it); the misuses are refused (status 4)."""
 
-    schema = Validator(json.loads((ROOT / "schemas/check-report-0.3.schema.json").read_text()))
-    final = Validator(json.loads((ROOT / "schemas/check-report-0.2.schema.json").read_text()))
+    schema = Validator(json.loads((ROOT / "schemas/check-report-0.5.schema.json").read_text()))
+    final = Validator(json.loads((ROOT / "schemas/check-report-0.4.schema.json").read_text()))
+    labelled = Validator(json.loads((ROOT / "schemas/check-report-0.3.schema.json").read_text()))
 
     def setUp(self):
         self.dir = Path(tempfile.mkdtemp(prefix="leanforth-snapshots-"))
@@ -2010,6 +2130,7 @@ class Snapshots(unittest.TestCase):
                 continue
             again, loaded, _ = report("--snapshot", str(path))
             self.assertEqual(self.schema.errors(loaded), [], args)
+            self.assertEqual(self.labelled.errors(as_labelled(loaded, "0.3")), [], args)
             # The names a check made beyond its input (nested blocks) are
             # written with the tier's names (plan step SN5): the loaded
             # tier holds them too.
@@ -2026,8 +2147,7 @@ class Snapshots(unittest.TestCase):
         status, out, _ = run("check", "--snapshot", str(path))
         self.assertEqual(status, 0)
         lines = out.splitlines()
-        self.assertEqual(lines[0], "fixtureId: accepted (experimental, not independently "
-                                   "audited; from snapshot, not re-checked in this run); "
+        self.assertEqual(lines[0], "fixtureId: accepted (from snapshot, not re-checked in this run); "
                                    "axioms: none")
         self.assertRegex(lines[-3], r"^snapshot: .*s\.lfsnap \(sha256 [0-9a-f]{64}\), export "
                                     rf"sha256 [0-9a-f]{{64}}, verdict version {verdict_version()}, "
@@ -2167,7 +2287,7 @@ class Snapshots(unittest.TestCase):
         status, out, _ = run("check", "--snapshot-stale-ok", "--snapshot", str(old))
         lines = out.splitlines()
         self.assertEqual((status, lines[0]), (0, (
-            "fixtureId: accepted (experimental, not independently audited; from a stale "
+            "fixtureId: accepted (from a stale "
             "snapshot (an older verdict version), not this build's verdict); axioms: none")))
         self.assertIn(f"stale: build's ({verdict_version()}): its 3 results are not this "
                       "build's verdicts", lines)
