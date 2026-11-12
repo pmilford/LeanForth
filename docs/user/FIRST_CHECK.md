@@ -54,7 +54,7 @@ is staged by the importer stage (`src/import/stage.fs`), which checks it
 against its manifest, and fed to the checker (`src/import/feed.fs`);
 `cli-check`, the word behind [the command line](COMMAND_LINE.md)'s
 `bin/leanforth check`, then checks every declaration of the file, with
-fuel 20,000,000 each, prints each verdict and a summary, and leaves the exit
+fuel 100,000,000 each, prints each verdict and a summary, and leaves the exit
 code (0: every declaration accepted). `cli-options` sets those defaults:
 
 ```forth

@@ -20,7 +20,7 @@ decimal
 
 create tbw-tf /tier-file allot  tbw-tf tier-file-init
 create tbw-stage /stage allot  tbw-stage /stage erase
-20000000 constant tbw-fuel
+100000000 constant tbw-fuel
 : tbw-now ( -- us ) utime drop ;
 : tbw-ms ( us -- ) 500 + 1000 / 0 .r ." ms" cr ;
 \ Stop with the step's name when an outcome is not ok.

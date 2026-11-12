@@ -1961,6 +1961,14 @@ all trials: ok 1,175,302 → 1,175,500, invalid 367,209 → 367,046,
 exhausted 457,164 → 457,203, unknown 406,080 → 405,983, rejected 88,851 →
 88,877, full 4 → 1).
 
+**Default fuel** (owner, 2026-11-11, on PF's question). The command
+line's fuel per declaration is 100,000,000 (`src/cli/leanforth.fs`,
+`cli-default-fuel`; it was 20,000,000): Lean's own kernel takes 20-91
+million of the same steps on the arena's Θ(n²) tests, which no change
+that follows Lean lowers. Both changes bump the verdict version to 2
+(ADR 0020 D3; `src/kernel/verdict-version.fs`), so every older snapshot
+is refused as stale.
+
 ## Note: the projection steps (plan task 5.2.2, 2026-11-10)
 
 The Q8 row "Projections: `reduce_proj`, step 8, `try_unfold_proj_app`"

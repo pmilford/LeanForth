@@ -128,7 +128,7 @@ require ./name-text.fs
 require ./check-run.fs
 require ./check-json.fs
 
-20000000 constant cli-default-fuel   \ fuel of each declaration's check
+100000000 constant cli-default-fuel   \ fuel of each declaration's check
 : cli-version-text ( -- c-addr u ) s" 0.1.0-dev" ;   \ LeanForth's version
 \ The most fuel --fuel takes: 2^53 - 1, the largest integer every JSON
 \ reader holds exactly (I-JSON), so that reports and records hold it; on

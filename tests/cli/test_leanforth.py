@@ -842,12 +842,12 @@ class RunRecords(unittest.TestCase):
             self.assertEqual((got["input"]["manifest"]["enforced"],
                               golden["input"]["manifest"]["enforced"]), (True, False))
             golden["input"]["manifest"]["enforced"] = True
-            # The command line's default fuel is 20,000,000 (since
-            # 2026-11-11); the driver that wrote the golden records gives
-            # 100,000. Fuel used is the same either way.
+            # The command line's default fuel is 100,000,000 (since
+            # 2026-11-11, agent PF); the driver that wrote the golden records
+            # gives 100,000. Fuel used is the same either way.
             self.assertEqual((got["settings"]["fuel"], golden["settings"]["fuel"]),
-                             (20000000, 100000))
-            golden["settings"]["fuel"] = 20000000
+                             (100000000, 100000))
+            golden["settings"]["fuel"] = 100000000
             for section in ["input", "export", "settings", "check", "declarations"]:
                 self.assertEqual(got[section], golden[section], f"{name} {section}")
 
@@ -1431,11 +1431,11 @@ class Resources(unittest.TestCase):
         self.assertEqual(rest[6], "  engine: " + os.path.basename(GFORTH))
         self.assertEqual(rest[7:], [
             "  input: 6 declarations, 92 term nodes, 3 levels, 5 constant references, 31 names",
-            "  fuel: 508 steps in all, at most 20000000 per declaration",
+            "  fuel: 508 steps in all, at most 100000000 per declaration",
             "  most fuel used:",
-            "         244 Two.cases (accepted)",
-            "         157 Two (accepted)",
-            "         107 Two.swap (accepted)"])
+            "          244 Two.cases (accepted)",
+            "          157 Two (accepted)",
+            "          107 Two.swap (accepted)"])
 
     def test_stable_but_for_time_and_memory(self):
         def steady(out):
@@ -1584,31 +1584,34 @@ def pinned_digest(*args):
 # digest changed again are re-pinned after agent PF's ADR 0014 Amendment 6
 # (an argument put into a Pi body without loose bound variables is not
 # closed): only fuel moved, 97 declarations less and none more; every
-# verdict, diagnostic and count is unchanged.
+# verdict, diagnostic and count is unchanged. All but the --fuel 0 entry
+# are re-pinned once more for the default fuel of 100,000,000 (owner,
+# 2026-11-11): with settings.fuel and fuel.perDeclaration put back to
+# 20,000,000 each report gives the digest pinned before.
 PINNED = {
-    "tests/reference/composition.ndjson": "d181b0aed21812ca",
-    "tests/reference/constant-fixture.ndjson": "3d18c55d211a076a",
-    "tests/cli/chain.ndjson": "6d54cd2ee542485c",
-    "tests/cli/inductive.ndjson": "599aa4118bdd5a67",
-    "tests/cli/unfold.ndjson": "3abc83a89e690dab",
-    f"{CASES}/composition-wrong-argument.ndjson": "e283b4fe171d6bbf",
-    f"--no-manifest {CASES}/composition-wrong-argument.ndjson": "2d3176886b7884ef",
-    f"--no-manifest {CASES}/composition-postulate.ndjson": "1f4d8a5a677428b3",
-    f"--no-manifest {CASES}/composition-loose.ndjson": "e5669e82c7613d92",
-    f"--no-manifest {CASES}/composition-unsafe.ndjson": "8a350adcc9f9ff88",
-    "--no-manifest README.md": "32fd051f20a34f99",
-    "tests/cli/no-such.ndjson": "a6ff9a5e43c01e00",
-    "--no-manifest tests/cli/composition-huge-number.ndjson": "610a34eed3aa4777",
-    "--no-manifest tests/core/reexport/kinds.ndjson": "a7af1361ea16cffa",  # IO
+    "tests/reference/composition.ndjson": "a3e7184036edb9dd",
+    "tests/reference/constant-fixture.ndjson": "df2ee45dc87e20ca",
+    "tests/cli/chain.ndjson": "b0c8e7d6066c71d6",
+    "tests/cli/inductive.ndjson": "f3c83844f72b2bab",
+    "tests/cli/unfold.ndjson": "989fd258bb03e4b7",
+    f"{CASES}/composition-wrong-argument.ndjson": "b29f27c0c9419c26",
+    f"--no-manifest {CASES}/composition-wrong-argument.ndjson": "850723e5478fed48",
+    f"--no-manifest {CASES}/composition-postulate.ndjson": "f4de00b74d911325",
+    f"--no-manifest {CASES}/composition-loose.ndjson": "950ba5ee1bb8f59b",
+    f"--no-manifest {CASES}/composition-unsafe.ndjson": "5f720734c0914c3c",
+    "--no-manifest README.md": "7dace333bd425361",
+    "tests/cli/no-such.ndjson": "3eac0629560526ed",
+    "--no-manifest tests/cli/composition-huge-number.ndjson": "ec7632bcbf284cef",
+    "--no-manifest tests/core/reexport/kinds.ndjson": "4a8e363ce8e30380",  # IO
     f"--fuel 0 {FIXTURE}": "7ab8e9fa317ce0a5",
-    f"--no-manifest {EMPTY_BLOCK}": "09614e87bede9e1b",
-    "tests/cli/sharing.ndjson": "494548fc8072d91c",  # re-pinned (IO)
-    "tests/cli/sharing-universe.ndjson": "4d7363ed1b0f2a4a",  # re-pinned (IO)
-    "tests/cli/nested.ndjson": "901b5bd651aa2c8c",  # re-pinned twice, see above
-    "tests/cli/irrelevance.ndjson": "6c93e2d9e67fc1bb",
-    f"--no-manifest {CASES}/composition-literal.ndjson": "fc105a0a3fbe0c49",
+    f"--no-manifest {EMPTY_BLOCK}": "dbfea3992d7e6793",
+    "tests/cli/sharing.ndjson": "e1e5a1f9695267e2",  # re-pinned (IO)
+    "tests/cli/sharing-universe.ndjson": "d5a364d306cbd23c",  # re-pinned (IO)
+    "tests/cli/nested.ndjson": "7ce0c7829c881289",  # re-pinned twice, see above
+    "tests/cli/irrelevance.ndjson": "44da5689b4a2a87c",
+    f"--no-manifest {CASES}/composition-literal.ndjson": "25123b1e2dfc63de",
     "--no-manifest tests/core/check-block-cases/primitive.string-opaque-expansion.ndjson":
-        "4cd67ac4254f627a",  # re-pinned (IO)
+        "5973f03d5f926191",  # re-pinned (IO)
 }
 
 
@@ -1774,7 +1777,7 @@ class Snapshots(unittest.TestCase):
                                    "audited; from snapshot, not re-checked in this run); "
                                    "axioms: none")
         self.assertRegex(lines[-3], r"^snapshot: .*s\.lfsnap \(sha256 [0-9a-f]{64}\), export "
-                                    r"sha256 [0-9a-f]{64}, verdict version 1, written by "
+                                    r"sha256 [0-9a-f]{64}, verdict version 2, written by "
                                     r"LeanForth \S+: 3 results taken from it, not re-checked "
                                     r"in this run$")
         self.assertEqual(lines[-2:], [
@@ -1808,7 +1811,7 @@ class Snapshots(unittest.TestCase):
         for field, value, status, why in [
                 (0, 0, 4, "invalid: the snapshot was refused: not a LeanForth snapshot"),
                 (1, 2, 2, "unsupported: the snapshot was refused: format version"),
-                (2, 2, 2, "unsupported: the snapshot was refused: verdict version"),
+                (2, 1, 2, "unsupported: the snapshot was refused: verdict version"),
                 (5, 2, 4, "invalid: the snapshot was refused: axiom allowlist"),
                 (6, 1, 4, "invalid: the snapshot was refused: axiom allowlist"),
                 (8, 1, 2, "unsupported: the snapshot was refused: layer")]:
@@ -1816,13 +1819,13 @@ class Snapshots(unittest.TestCase):
             put32(changed, 24 + 4 * field, value)
             self.refused(write(resealed(changed, table)), status, why)
         changed = bytearray(data)
-        put32(changed, 24 + 4 * 2, 2)
+        put32(changed, 24 + 4 * 2, 1)   # an older verdict version (agent PF bumped it to 2)
         status, got, _ = report("--snapshot", str(write(resealed(changed, table))))
         self.assertEqual((status, self.schema.errors(got), got["read"]["phase"],
                           got["read"]["reason"], got["run"]),
                          (2, [], "snapshot", "verdict version", "not-run"))
         self.refused(path, 4, "invalid: the snapshot was refused: fuel", "--fuel", "5")
-        self.assertEqual(run("check", "--snapshot", str(path), "--fuel", "20000000")[0], 0)
+        self.assertEqual(run("check", "--snapshot", str(path), "--fuel", "100000000")[0], 0)
         # A dependency past its slot: fixturePoly (slot 1) on itself.
         _, _, _, deps, _ = table[DEPS]
         changed = bytearray(data)

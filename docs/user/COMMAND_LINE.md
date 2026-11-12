@@ -63,7 +63,7 @@ proved by $\lambda f\, g\, a.\ g\,(f\,a)$. It uses no axiom.
 runs `src/main.fs` and its word `cli-main`. The same check from a Forth
 session is one word, `cli-check ( c-addr u -- code )`, which prints what
 the command prints and leaves the exit code. `cli-options` restores the
-defaults (manifest checked, fuel 20,000,000 per declaration):
+defaults (manifest checked, fuel 100,000,000 per declaration):
 
 ```forth
 cli-options
@@ -112,7 +112,7 @@ Options:
 - `--no-manifest` reads the export without checking its manifest. It is
   an explicit choice, and `check`, `count` and `reexport` say so in their
   first line.
-- `--fuel N` gives each declaration's check N steps (default 20,000,000 since 2026-11-11, when all of `Init` needed it; 2,000,000 from 2026-11-10; 100,000 before). A
+- `--fuel N` gives each declaration's check N steps (default 100,000,000 since 2026-11-11, when the Lean Kernel Arena's Θ(n²) perf tests needed it: Lean's own kernel takes 20-91 million of the same steps on them; 20,000,000 earlier that day, when all of `Init` needed it; 2,000,000 from 2026-11-10; 100,000 before). A
   check that runs out ends *exhausted*. N is decimal digits, at most
   2^53 − 1 = 9,007,199,254,740,991, the largest integer every JSON reader
   holds exactly, so that reports and run records hold it; a larger N is a
@@ -620,11 +620,11 @@ accepted: 6 (experimental, not independently audited); axioms: none
 resources:
   time (s)     wall      cpu
   input: 6 declarations, 92 term nodes, 3 levels, 5 constant references, 31 names
-  fuel: 508 steps in all, at most 20000000 per declaration
+  fuel: 508 steps in all, at most 100000000 per declaration
   most fuel used:
-         244 Two.cases (accepted)
-         157 Two (accepted)
-         107 Two.swap (accepted)
+          244 Two.cases (accepted)
+          157 Two (accepted)
+          107 Two.swap (accepted)
 ```
 
 **Fuel**, a check's unit of work, is read from the checker's own counters
@@ -652,7 +652,7 @@ member is cut off:
 
 ```console
 $ bin/leanforth check --json tests/cli/unfold.ndjson | sed "s/,\"measured\":.*/}/"; echo "exit status ${PIPESTATUS[0]}"
-{"schema":"leanforth-check-report","schemaVersion":"0.2","export":"tests/cli/unfold.ndjson","manifest":"checked","label":"experimental, not independently audited","settings":{"fuel":20000000,"dependencyPool":65536,"strictAxioms":false},"read":{"outcome":"ok","phase":null,"line":null,"field":null,"reason":null,"at":null},"run":"ok","stopped":false,"declarations":[{"index":0,"name":"Implies","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":34},{"index":1,"name":"impliesSelf","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":65}],"counts":{"declarations":2,"accepted":2,"skipped":0,"rejected":0,"unknown":0,"unsupported":0,"invalid":0,"exhausted":0,"full":0,"notChecked":0,"notProved":0},"fuel":{"perDeclaration":20000000,"total":99,"unknown":0,"top":[{"index":1,"name":"impliesSelf","fuel":65,"verdict":"accepted"},{"index":0,"name":"Implies","fuel":34,"verdict":"accepted"}]},"input":{"declarations":2,"terms":28,"levels":1,"references":1,"names":10},"exitStatus":0}
+{"schema":"leanforth-check-report","schemaVersion":"0.2","export":"tests/cli/unfold.ndjson","manifest":"checked","label":"experimental, not independently audited","settings":{"fuel":100000000,"dependencyPool":65536,"strictAxioms":false},"read":{"outcome":"ok","phase":null,"line":null,"field":null,"reason":null,"at":null},"run":"ok","stopped":false,"declarations":[{"index":0,"name":"Implies","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":34},{"index":1,"name":"impliesSelf","verdict":"accepted","label":"experimental, not independently audited","axiomBits":0,"notProved":false,"fuel":65}],"counts":{"declarations":2,"accepted":2,"skipped":0,"rejected":0,"unknown":0,"unsupported":0,"invalid":0,"exhausted":0,"full":0,"notChecked":0,"notProved":0},"fuel":{"perDeclaration":100000000,"total":99,"unknown":0,"top":[{"index":1,"name":"impliesSelf","fuel":65,"verdict":"accepted"},{"index":0,"name":"Implies","fuel":34,"verdict":"accepted"}]},"input":{"declarations":2,"terms":28,"levels":1,"references":1,"names":10},"exitStatus":0}
 exit status 0
 ```
 
@@ -737,7 +737,7 @@ Two.first: accepted (experimental, not independently audited; from snapshot, not
 ...
 6 declarations: 6 accepted
 accepted: 6 (experimental, not independently audited); axioms: none
-snapshot: two.lfsnap (sha256 3f39c1bb…), export sha256 5c14b3b4…, verdict version 1, written by LeanForth 2ecdbfba…: 6 results taken from it, not re-checked in this run
+snapshot: two.lfsnap (sha256 3f39c1bb…), export sha256 5c14b3b4…, verdict version 2, written by LeanForth 2ecdbfba…: 6 results taken from it, not re-checked in this run
 note: development and research mode: a final run re-checks everything from the
 note: export and reads no snapshot; only its results support a claim
 ```
@@ -1186,7 +1186,7 @@ limits (check answers full or exhausted, exit 3):
     32 declarations per export
   universe parameters per declaration and universe arguments per constant:
     no fixed limit (memory)
-  fuel 20000000 steps per declaration (--fuel N, at most 9007199254740991)
+  fuel 100000000 steps per declaration (--fuel N, at most 9007199254740991)
 planned, not built: program, serve and --record on any size,
   every axiom name of each accepted declaration, as #print axioms
     (plan task 5.3.2; today: the allowlist's names and NOT PROVED's)
