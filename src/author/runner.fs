@@ -48,6 +48,7 @@
 \   lf-author-error. ( -- )  lf-author-code ( -- code )  (errors.fs)
 
 require ../lib/lib.fs
+require ../lib/bytes.fs
 require ./words.fs
 require ./export.fs
 
@@ -141,8 +142,9 @@ end-structure
 
 \ The look-ahead (ADR 0017 Amendment 1, A4, the portable path; plan task
 \ 8.2.1d): with a library (library.fs), before a line runs, each of its
-\ tokens up to a \ comment that no wordlist of the run has and that is not
-\ number-like gets a group word in LF-CONST, which when it runs resolves
+\ tokens up to a \ comment, outside ( comments and notes, that no wordlist
+\ of the run has and that is not number-like gets a group word in
+\ LF-CONST, which when it runs resolves
 \ the name as Lean does, the library's constants included. It decides
 \ nothing: a token that names no constant stops there as unknown (error
 \ 1), and the line's numbers are still checked as the words read it. The
@@ -160,10 +162,20 @@ end-structure
   lfa-source-column ! ;
 : lfa-group-ahead ( c-addr u -- )
   2dup lfa-ahead? if 2dup lfa-token-at lf-consts lfa-group drop else 2drop then ;
+\ The text a parsing word reads is no token (review M1): \ ends the line's
+\ tokens, ( skips to its ), note" and ai-note" to their " (words.fs).
 : lfa-comment? ( c-addr u -- flag ) s" \" compare 0= ;
+: lfa-token= ( c-addr u c-addr2 u2 -- flag ) compare 0= ;
+: lfa-quote? ( c-addr u -- flag )
+  2dup s\" note\"" lfa-token= if 2drop true exit then s\" ai-note\"" lfa-token= ;
+: lfa-closer ( c-addr u -- char|0 )
+  2dup lfa-quote? if 2drop [char] " exit then s" (" lfa-token= [char] ) and ;
+: lfa-past ( c-addr u char -- c-addr' u' ) byte-scan dup if 1 /string then ;
+: lfa-read-text ( c-addr u token-addr token-u -- c-addr' u' )
+  lfa-closer ?dup if lfa-past then ;
 : lfa-look-ahead ( c-addr u -- )
   begin lfa-next-token dup while 2dup lfa-comment? if 2drop 2drop exit then
-    lfa-group-ahead repeat 2drop 2drop ;
+    2dup lfa-group-ahead lfa-read-text repeat 2drop 2drop ;
 : lfa-ahead ( c-addr u -- )
   lfa-library-on? if lfa-look-ahead 1 lfa-source lfa-source-column !
     0 lfa-source lfa-source-length ! else 2drop then ;

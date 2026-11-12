@@ -606,12 +606,13 @@ T{ 1 0 lf-hterm-proj drop drop 0 swap lf-tag-app lf-term-binary nip export-now
    -> true outcome-unsupported }T
 T{ s" 18446744073709551615" holds? -> false }T
 
-\ A library (library.fs, plan task 8.2.1d): a finder that knows Lib.c, of
-\ no universe parameters, a definition of height 3. Its constant gets a
-\ record of kind library, which the export never writes.
+\ A library (library.fs, plan task 8.2.1d): a finder that knows Lib.c and
+\ Lib.k, of no universe parameters, definitions of height 3. Its constant
+\ gets a record of kind library, which the export never writes.
 : part= ( id c-addr u -- flag ) rot lf-name-text compare 0= ;
+: c-or-k? ( name -- flag ) dup s" c" part= swap s" k" part= or ;
 : lib-c? ( name -- flag )
-  dup s" c" part= swap lf-name-prefix@ dup if s" Lib" part= else drop false then and ;
+  dup c-or-k? swap lf-name-prefix@ dup if s" Lib" part= else drop false then and ;
 : lib-finder ( name -- universes height true | false ) lib-c? if 0 3 true else false then ;
 : with-lib ( c-addr u -- outcome ) ['] lib-finder lf-author-library! run 0 lf-author-library! ;
 : lib-fails ( c-addr u -- code line col ) with-lib drop err ;
@@ -634,6 +635,18 @@ T{ s" def d 0 Type := Lib.c end d \ Zzz.q" with-lib -> outcome-ok }T
 T{ s" Zzz.q" lf-consts search-wordlist s" Lib.c" lf-consts search-wordlist nip -> 0 -1 }T
 T{ s" def d 0 Type := Lib.c $10 end d" lib-fails -> 35 1 23 }T
 T{ s" -7" lf-consts search-wordlist -> 0 }T
+\ The text of a ( comment and of notes is no token (review M1): it gets no
+\ group word, a \ in it ends nothing (Lib.k, first named here, after one),
+\ and a long word in it is no name (no error 62 or 66).
+T{ s\" def d 0 Type := Lib.c ( Zzz.p ) note\" Zzz.n\" ai-note\" Zzz.a\" end d" with-lib
+   -> outcome-ok }T
+T{ s" Zzz.p" lf-consts search-wordlist s" Zzz.n" lf-consts search-wordlist
+   s" Zzz.a" lf-consts search-wordlist -> 0 0 0 }T
+T{ s\" def d 0 Type := ( a \\ b ) Lib.k note\" \\ \" end d" with-lib -> outcome-ok }T
+: long-comment ( -- c-addr u )
+  text0 s" def d 0 Type := Lib.c ( x" text+ s" y" 320 times s" ) end d" text+ text$ ;
+T{ long-comment with-lib -> outcome-ok }T
+T{ s\" def d 0 Type := Lib.c note\" ( Zzz.u end d" lib-fails -> 37 1 23 }T
 
 \ The dictionary reserve (p05): with fewer than lfa-dictionary-reserve
 \ address units unused, no group word is made (error 66, full), while

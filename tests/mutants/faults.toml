@@ -5113,6 +5113,14 @@ test = 'test -n "$LEAN" && GFORTH=$GFORTH python3 tests/author/check_author.py -
 reason = "H1: library definitions' heights read as 0: 14-case's bothIds (naming Init's id and Id, height 1) gets height 1, Lean's 2"
 
 [[fault]]
+id = "lf-look-ahead-reads-comment-text"
+file = "src/author/runner.fs"
+old = '''    2dup lfa-group-ahead lfa-read-text repeat 2drop 2drop ;'''
+new = '''    lfa-group-ahead repeat 2drop 2drop ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "M1: the look-ahead makes group words of the text in ( comments and notes: a long word there stops a library run (error 62), a \\ there hides the rest of the line"
+
+[[fault]]
 id = "lf-leaf-as-term"
 file = "src/author/values.fs"
 old = ''': lfa>term+ ( value -- term fresh ) lfa>any+ lfa-whole ;'''

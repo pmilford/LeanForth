@@ -699,20 +699,29 @@ def leanforth_check(path, library=None, *options):
     return run.returncode, run.stdout.decode("utf-8", "replace") + run.stderr.decode()
 
 
+def printed_name(name):
+    """A dump's name (#N a numeric part) as check prints it, guillemets aside."""
+    return re.sub(r"(^|\.)#(\d+)", r"\1\2", name)
+
+
 def own_verdicts(path, out):
-    """The verdicts of the text's own declarations: the last lines of the run
-    (the library's declarations come first), one per declaration word."""
-    words = re.findall(r"^(?:protected )?(?:theorem|def|axiom) ",
-                       path.read_text(encoding="utf-8"), re.M)
-    return VERDICT.findall(out)[-len(words):] if words else []
+    """(name, verdict or None) for each of the text's own theorems, definitions
+    and axioms, by name (review L3): the names from the words' run of the
+    text (report.fs), the verdicts from check's lines."""
+    found = {name.replace("«", "").replace("»", ""): verdict
+             for name, verdict in VERDICT.findall(out)}
+    names = [printed_name(name) for name in own_terms(report(str(path)))]
+    return [(name, found.get(name)) for name in names]
 
 
 def text_checked(path, want_code, want_verdict):
     code, out = leanforth_check(path, library_of(path))
     if code != want_code:
         raise Failure(f"check {path}: exit {code}, want {want_code}:\n{out[-600:]}")
-    if want_verdict and any(v != want_verdict for _, v in own_verdicts(path, out)):
-        raise Failure(f"check {path}: not every declaration {want_verdict}:\n{out[-600:]}")
+    verdicts = own_verdicts(path, out) if want_verdict else []
+    if want_verdict and (not verdicts or any(v != want_verdict for _, v in verdicts)):
+        raise Failure(f"check {path}: not every declaration {want_verdict}: {verdicts}\n"
+                      f"{out[-600:]}")
     if code in (2, 3, 4) and (VERDICT.search(out) or "was not checked" not in out):
         raise Failure(f"check {path}: a failed text must not be checked:\n{out[-600:]}")
     return out
@@ -747,6 +756,8 @@ def cli_cases():
          None, 6, "NOT PROVED"),
         ("library refl", head + "  Eq.refl 1 ^ Nat $ n $\nend t\n", [], slice_, 0,
          "t: accepted"),
+        ("library, a long word in comments", head + "  Eq.refl 1 ^ Nat $ n $  ( https://"
+         + "a" * 320 + " )  note\" " + "b" * 320 + "\"\nend t\n", [], slice_, 0, "t: accepted"),
         ("library wrong case", head + "  eq.refl 1 ^ Nat $ n $\nend t\n", [], slice_, 4,
          "error 1 at line:col 5:3 (token `eq.refl`)"),
         ("library typo", head + "  Eq.reff 1 ^ Nat $ n $\nend t\n", [], slice_, 4,
