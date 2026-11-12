@@ -507,13 +507,17 @@ T{ 1 0 lf-lv-inference 21 0 lf-lv-inference -> false false }T
 \ false.
 : lv-open ( -- ) lf-lv-open must ;
 : lv-close ( -- ) lf-lv-release lf-lv-close throw ;
-T{ lv-open 2 lf-log-a@ lf-lv-term >r syn-app = r> lv-close -> true true }T
-T{ lv-open 5 lf-log-b@ lf-lv-level >r syn-u = r> lv-close -> true true }T
+\ A rebuilt node with its flag: whether xt ( -- node ) makes the same
+\ node; or what xt ( node -- x ) says of it.
+: lv-is ( node flag xt -- equal? flag ) swap >r execute = r> ;
+: lv-with ( node flag xt -- x flag ) swap >r execute r> ;
+T{ lv-open 2 lf-log-a@ lf-lv-term ' syn-app lv-is lv-close -> true true }T
+T{ lv-open 5 lf-log-b@ lf-lv-level ' syn-u lv-is lv-close -> true true }T
 : syn-three ( -- l ) syn-one lf-level-succ must lf-level-succ must ;   \ a chain of successors
 : lv-sort-of? ( term -- flag )   \ a new symbolic Sort (not shared) of syn-u
   lf-term-read 0= if false exit then drop syn-u = swap lf-tag-symbolic-sort = and ;
-T{ lv-open 8 lf-log-a@ lf-lv-term >r lv-sort-of? r> lv-close -> true true }T
-T{ lv-open 4 lf-log-b@ lf-lv-term >r syn-pi = r> lv-close -> true true }T
+T{ lv-open 8 lf-log-a@ lf-lv-term ' lv-sort-of? lv-with lv-close -> true true }T
+T{ lv-open 4 lf-log-b@ lf-lv-term ' syn-pi lv-is lv-close -> true true }T
 T{ lv-open lf-log-none lf-lv-term lf-log-none lf-lv-level lv-close -> false false }T
 T{ lv-open lf-log-unkept lf-lv-level lv-close -> false }T
 T{ lv-open lf-log-term-copies lf-log-copy-index lf-lv-term lv-close -> false }T
@@ -521,10 +525,11 @@ T{ lv-open lf-log-level-copies lf-log-copy-index lf-lv-level lv-close -> false }
 \ The parts of a term (1 first, 2 second): of an application, a lambda or
 \ a Pi only.
 : lv-part ( ref part -- ref' true | false ) lf-lv-child-ref ;
-T{ 2 lf-log-a@ 2 lv-part >r 1 lf-log-a@ = r> -> true true }T   \ Prop, copied once
+: lv-prop-ref ( -- ref ) 1 lf-log-a@ ;   \ Prop, copied once
+T{ 2 lf-log-a@ 2 lv-part ' lv-prop-ref lv-is -> true true }T
 T{ 2 lf-log-a@ 1 lv-part drop lf-lv-tag -> lf-tag-lam true }T
 T{ 1 lf-log-a@ 1 lv-part -> false }T
-T{ 2 lf-log-a@ lf-lv-tag 2 lf-log-a@ lf-lv-node >r 2drop r> -> lf-tag-app true lf-tag-app true }T
+T{ 2 lf-log-a@ lf-lv-tag 2 lf-log-a@ lf-lv-node nip nip -> lf-tag-app true lf-tag-app true }T
 T{ lf-log-none lf-lv-tag lf-log-none lf-lv-node -> false false }T
 \ A damaged copy (its child a later copy, which no log the copier wrote
 \ has) is not rebuilt, and no copy stays marked by the failed walk.
@@ -545,8 +550,10 @@ T{ syn-mixed 5 0 lf-lv-inference 5 1 lf-lv-inference 5 2 lf-lv-inference syn-sto
    -> 1 true 3 true false }T
 \ A level copied as a chain of successors is rebuilt link by link.
 : syn-chain ( -- ) syn-start syn-three 0 lf-rule-level-eq lf-log-none syn-ok ;
-T{ syn-chain lf-log-level-copies 1 > lv-open 1 lf-log-a@ lf-lv-level >r syn-three = r>
-   lv-close syn-stop -> true true true }T
+: lv-chain ( -- copies? same? flag )
+  syn-chain lf-log-level-copies 1 > lv-open 1 lf-log-a@ lf-lv-level ['] syn-three lv-is
+  lv-close syn-stop ;
+T{ lv-chain -> true true true }T
 
 ample 0 lf-log-set
 cases-done
