@@ -14,6 +14,9 @@ findings neither fixed nor turned into plan tasks. A row that raises the style b
 | 2026-11-12 | `fcce360..3ac0558` | backlog: whole of src/cli, src/present, src/author, src/program | forth-reviewer FRP (Sonnet) | [report](2026-11-12-backlog-cli-present-author-program.md) | 0 blocking; refactor batches A-F; test gaps T1-T6; libraries; portability | all, to the refactoring batches |
 | 2026-11-12 | `fcce360..3ac0558` | backlog: whole of src/kernel | forth-reviewer FRK (Opus) | [report](2026-11-12-backlog-kernel.md) | 0 blocking; F1-F2 medium (scheduler use after free when full, reproduced; kernel requires import/ and present/), F3-F6 low, F7 docs; batches A-J; test gaps; libraries; portability | all, to the bug fixes and refactoring batches |
 | 2026-11-12 | `fcce360..3ac0558` | backlog: whole of src/import, src/core, src/lib | forth-reviewer FRI (Opus) | [report](2026-11-12-backlog-import-core-lib.md) | 0 blocking; F1 medium (layer full reported invalid), F2 32-bit wraps, F3-F4 low, F5 portability; batches B1-B8; test gaps; libraries | all, to the bug fixes and refactoring batches |
+| 2026-11-12 | `c19a2f5..bf5cb68` | performance pass perf1 (merged in 3ac0558; correctness review rvPF1 separate) | forth-reviewer (Opus) | [report](2026-11-12-perf1-docfix.md) | 1 medium (test gap), 8 low, 1 info | 9, to branch pf1-fix |
+| 2026-11-12 | `41c6d8e..66da748` | docs corrections docfix (capabilities text in src/cli/leanforth.fs) | forth-reviewer (Opus) | [report](2026-11-12-perf1-docfix.md) | 1 medium (label), 1 low (test) | 0: test strengthened in b03091c; the label finding superseded by the owner's decision of 2026-11-12 (no labels) |
+| 2026-11-12 | `66da748..629823a` | follow-up of the docfix review: capability line and its test | coordinator (Opus), against the review's findings | this row | text and test only | 0 |
 
 ## Backlog
 
