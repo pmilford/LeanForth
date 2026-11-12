@@ -112,6 +112,8 @@ require ../import/stage.fs
 require ../import/feed.fs
 require ../import/run-record.fs
 require ../kernel/env-snapshot.fs
+require ../kernel/env-import.fs
+require ../kernel/env-layers.fs
 
 \ What a check left, kept after its step: run-record.fs's layout
 \ (kept-outcome, kept-code, kept-first, kept-second, kept-site,
@@ -209,9 +211,14 @@ begin-structure /ck
   2 cells +field ck-flush-mark   \ wall time (us) of the last flush
   field: ck-pline#               \ bytes in the progress line
   ck-pline-room +field ck-pline  \ the progress line, built here
+  field: ck-importing            \ true: an export checked against it (ck-snapshot-import)
+  field: ck-snap-bad             \ true: the snapshot was refused
+  field: ck-layers               \ layers loaded on the base
 end-structure
 create ck-state /ck allot  ck-state /ck erase
-create ck-snap /snap allot  ck-snap snap-init   \ the snapshot written or loaded
+create ck-snap /snap allot  ck-snap snap-init   \ the snapshot loaded (a base)
+create ck-out /snap allot  ck-out snap-init     \ the snapshot written
+create ck-import /imp allot  ck-import /imp erase   \ what an import pass takes from it
 create ck-stage /stage allot  ck-stage /stage erase
 create ck-feeding-record /feed allot  ck-feeding-record /feed erase
 create ck-worker-feed /feed allot  ck-worker-feed /feed erase
@@ -371,7 +378,16 @@ create ck-line ck-line-room 2 + allot
 \ (--any-lean-version): set after ck-start, before ck-load.
 : ck-any-version! ( flag -- ) ck-state ck-any-lean ! ;
 : ck-any-version? ( -- flag ) ck-state ck-any-lean @ ;
+\ An export checked against a snapshot (ck-snapshot-import) is read on
+\ into the snapshot's tier, then sealed.
+: ck-importing? ( -- flag ) ck-state ck-importing @ ;
+\ Not after a refused snapshot (ck-snapshot-import's outcome not ok).
+: ck-continued ( c-addr u checked? -- outcome )
+  ck-state ck-snap-bad @ if drop 2drop outcome-invalid exit then
+  if ck-stage stage-continue else ck-stage stage-continue-unchecked then
+  dup ok? if drop ck-stage stage-seal then ;
 : ck-staged ( c-addr u checked? -- outcome )
+  ck-importing? if ck-continued exit then
   >r 2dup ck-size ck-slots ck-log2 ck-stage stage-init
   dup ok? 0= if nip nip r> drop exit then drop
   ck-any-version? ck-stage stage-any-version! r> ck-read ;
@@ -443,9 +459,16 @@ create ck-line ck-line-room 2 + allot
   lf-sched-init ok? if ck-workers-made ok? if exit then then lf-sched-free ;
 \ A failed phase is kept as the one that failed.
 : ck-fail ( outcome phase -- outcome ) over ok? if drop else ck-state ck-failed ! then ;
+\ Staging an export checked against a snapshot goes on in the phase that
+\ loaded the snapshot (ck-snapshot-import), so the time is both's.
 : ck-stage-phase ( c-addr u checked? -- outcome )
-  ck-phase-begin ck-staged ck-staging ck-phase-end ck-staging ck-fail ;
-: ck-fed-all ( -- outcome ) ck-fed dup ok? if ck-print! ck-workers then ;
+  ck-importing? 0= if ck-phase-begin then
+  ck-staged ck-staging ck-phase-end ck-staging ck-fail ;
+\ After an import's feed: the input as the import pass reads it.
+: ck-import-input ( -- outcome )
+  ck-importing? if ck-import imp-input else outcome-ok then ;
+: ck-fed-all ( -- outcome )
+  ck-fed dup ok? if drop ck-import-input then dup ok? if ck-print! ck-workers then ;
 : ck-feed-phase ( -- outcome )
   ck-phase-begin ck-fed-all ck-feeding ck-phase-end ck-feeding ck-fail ;
 \ Stage and feed the export c-addr u (see the header).
@@ -501,8 +524,12 @@ create ck-line ck-line-room 2 + allot
   lf-input-decl lf-idecl-header lf-hdr-first lf-more-field ;
 : ck-trailing ( d -- )
   dup ck-first-member ck-kept over ck-kept /ck-step move 0 swap ck-kept cks-fuel ! ;
+\ A declaration taken from a snapshot before the run (ck-import-pass): its
+\ slot is final, its facts the snapshot's.
+: ck-taken? ( d -- flag )
+  ck-importing? if ck-import imp-source 0< 0= else drop false then ;
 : ck-next ( d -- stop? )
-  dup 1+ ck-state ck-stepped !
+  dup 1+ ck-state ck-stepped ! dup ck-taken? if drop false exit then
   dup lf-env-published? if ck-trailing false else ck-step then ;
 
 \ The run's own environment, by identity (never another one that happens
@@ -528,6 +555,9 @@ create ck-line ck-line-room 2 + allot
 \ cannot be made current is freed at once.
 : ck-own ( env -- ) lf-envh-identity @ ck-state ck-env-id ! true ck-state ck-checked ! ;
 : ck-unusable ( env outcome -- outcome ) swap lf-env-free drop 0 ck-state ck-env-id ! ;
+\ The run's environment freed while it is ours (ck-release, a refused
+\ snapshot).
+: ck-env-free ( -- ) ck-ours? if lf-env lf-env-free drop then 0 ck-state ck-env-id ! ;
 \ A run of a loaded snapshot (ck-snapshot-load) is a development run (ADR
 \ 0012 E8, ADR 0020 D4).
 : ck-snapped? ( -- flag ) ck-state ck-snapped @ ;
@@ -585,6 +615,7 @@ create ck-line ck-line-room 2 + allot
 : ck-watching? ( -- flag ) ck-lines-on? ck-state ck-prog-on @ or ;
 : ck-jobs-run? ( -- flag ) ck-parallel? lf-sched-workers 0> and ;
 : ck-jobs-trail ( d -- )
+  dup ck-taken? if drop exit then
   dup lf-env-published? over lf-sched-checked? 0= and if ck-trailing else drop then ;
 : ck-counted ( d -- )
   ck-kept kept-outcome @ ok? if ck-state ck-accepted else ck-state ck-others then
@@ -695,13 +726,32 @@ create ck-line ck-line-room 2 + allot
 \ refused as if loading had failed, and the run stopped.
 : ck-snap-facts ( -- ) lf-input-count 0 ?do i dup ck-kept snap-fact i ck-kept cks-fuel !
   loop ;
+\ A refused snapshot leaves no verdict to read: its environment is freed
+\ (review rvSN3 M2).
 : ck-snap-refused ( outcome -- )
-  ck-state ck-loaded ! ck-staging ck-state ck-failed ! true ck-state ck-faulted ! ;
+  ck-state ck-loaded ! ck-staging ck-state ck-failed ! true ck-state ck-faulted !
+  true ck-state ck-snap-bad ! ck-env-free ;
 : ck-snap-after ( -- )
-  ck-snapped? 0= if exit then
+  ck-snapped? ck-importing? 0= and 0= if exit then
   ck-snap snap-same? dup ok? if drop ck-snap-facts else ck-snap-refused then ;
-: ck-run-all ( -- outcome ) lf-input-count ck-steps-any ck-snap-after ck-confirm ck-tally
-  ;
+\ An export checked against a snapshot: first the import pass
+\ (kernel/env-import.fs), whose taken declarations keep the snapshot's
+\ fuel and diagnostic; a pass that fails refuses the snapshot, the run
+\ stopped before any check. True when the run goes on.
+: ck-import-facts ( -- )
+  lf-input-count 0 ?do
+    i ck-import imp-source dup 0< if drop else
+      i ck-kept snap-fact i ck-kept cks-fuel ! then
+  loop ;
+: ck-import-refused ( outcome -- )
+  c" a slot taken from it was published otherwise" ck-import imp-k @ ck-snap snap-note
+  ck-snap-refused ;
+: ck-import-pass ( -- flag )
+  ck-importing? 0= if true exit then
+  ck-import imp-pass dup ok? if drop ck-import-facts true exit then
+  ck-import-refused false ;
+: ck-run-all ( -- outcome )
+  ck-import-pass if lf-input-count ck-steps-any ck-snap-after then ck-confirm ck-tally ;
 : ck-checking-run ( -- outcome )
   ck-facts dup ok? if drop ck-env then dup ok? if drop ck-run-all then ;
 : ck-check ( -- ) ck-phase-begin ck-checking-run ck-outcome! ck-checking ck-phase-end ;
@@ -709,7 +759,6 @@ create ck-line ck-line-room 2 + allot
 \ ---- Releasing (see the header): the environment while it is ours and
 \ current, then the names detached before the stage they point into is
 \ freed, the stores emptied and their capacities given back.
-: ck-env-free ( -- ) ck-ours? if lf-env lf-env-free drop then 0 ck-state ck-env-id ! ;
 : ck-unfeed ( -- )
   ck-state ck-began-feed @ 0= if exit then
   lf-name-detach ck-empty ck-restore ck-state ck-restored-outcome !
@@ -717,7 +766,8 @@ create ck-line ck-line-room 2 + allot
 : ck-release ( -- )
   lf-sched-free ck-env-free ck-unfeed ck-feeding-record dup feed-free /feed erase
   ck-worker-feed dup feed-free /feed erase ck-stage stage-free
-  ck-state ck-steps slab-free ck-snap snap-close ck-snap snap-free ;
+  ck-state ck-steps slab-free ck-snap snap-close ck-snap snap-free ck-out snap-free
+  ck-import imp-free ;
 : ck-start ( fuel -- )
   ck-release ck-state /ck erase ck-state ck-budget ! -1 ck-state ck-failed !
   outcome-invalid dup ck-outcome! ck-state ck-loaded !
@@ -771,7 +821,7 @@ create ck-file /ck-file allot
 : ck-export-lines ( -- n ) ck-stage stage-export export-at @ ;
 : ck-snap-export ( -- outcome )
   ck-export-sha ok-then2? 0= if exit then
-  ck-export-lines ck-snap-flags ck-snap snap-export! outcome-ok ;
+  ck-export-lines ck-snap-flags ck-out snap-export! outcome-ok ;
 \ The manifest's bytes, read again from the file the manifest check read
 \ ("<export>.manifest.json"), and their SHA-256; none without a check.
 create ck-manifest-path manifest-name-room 16 + allot
@@ -793,47 +843,123 @@ create ck-manifest-path manifest-name-room 16 + allot
 : ck-snap-manifest ( -- outcome )
   ck-state ck-checked-read @ 0= if outcome-ok exit then
   ck-manifest-read dup ok? 0= if exit then drop ck-manifest-sha
-  ck-digest ck-snap snap-manifest-sha! ck-manifest-text 2@ ck-snap snap-manifest!
+  ck-digest ck-out snap-manifest-sha! ck-manifest-text 2@ ck-out snap-manifest!
   outcome-ok ;
 : ck-manifest-free ( -- )
   ck-manifest-text 2@ drop ?dup if free drop then 0 0 ck-manifest-text 2! ;
 \ A declaration's facts for the snapshot: its fuel used and kept step.
 : ck-fact ( d -- fuel step ) dup ck-fuel-of swap ck-kept ;
-: ck-saveable? ( -- flag ) ck-loaded? ck-outcome ok? and ck-stopped? 0= and ck-snapped? 0=
-  and ;
+\ A snapshot is written after a final run (a base), or after an export
+\ checked against a base alone (a layer of that base: ADR 0020 amendment
+\ 1, F5; plan step SN4), never after a run of a snapshot alone or of
+\ layers.
+: ck-layers# ( -- n ) ck-state ck-layers @ ;
+: ck-save-kind? ( -- flag )
+  ck-snapped? 0= ck-importing? ck-layers# 0= and or ;
+: ck-saveable? ( -- flag )
+  ck-loaded? ck-outcome ok? and ck-stopped? 0= and ck-save-kind? and ;
+\ A layer: what was not taken, numbered on from the base's.
+: ck-layer-set ( -- outcome )
+  ck-import imp-layer dup ok? 0= if exit then drop
+  ck-snap snap-sum ck-import imp-firsts@ ck-out snap-layer-base!
+  ck-import imp-layer-slots ck-out snap-layer-slots!
+  ck-import imp-layer-decls ck-out snap-layer-decls! outcome-ok ;
 : ck-snap-prepared ( info-addr info-u -- outcome )
-  ck-snap snap-begin dup ok? 0= if nip nip exit then drop ck-snap snap-info!
-  ck-snap-export dup ok? 0= if exit then drop ['] ck-fact ck-snap snap-facts!
-  ck-snap-manifest ;
+  ck-out snap-begin dup ok? 0= if nip nip exit then drop ck-out snap-info!
+  ck-snap-export dup ok? 0= if exit then drop ['] ck-fact ck-out snap-facts!
+  ck-snap-manifest dup ok? ck-importing? and if drop ck-layer-set then ;
 : ck-snap-written ( file-addr file-u info-addr info-u -- outcome )
   ck-snap-prepared dup ok? 0= if nip nip exit then drop
-  ck-fuel-budget ck-stage ck-snap snap-save ;
+  ck-fuel-budget ck-stage ck-out snap-save ;
 : ck-snapshot-save ( file-addr file-u info-addr info-u -- outcome )
   ck-saveable? 0= if 2drop 2drop outcome-invalid else ck-snap-written then
-  ck-snap snap-free ck-manifest-free dup ck-state ck-snap-saved ! ;
+  ck-out snap-free ck-manifest-free dup ck-state ck-snap-saved ! ;
 : ck-snap-saved@ ( -- outcome ) ck-state ck-snap-saved @ ;
-\ Loading: the snapshot's header and tier into the stage, sealed, its
-\ environment's sections read; then the feed.
-: ck-snap-tier ( -- outcome )
+\ Loading: the snapshot's header, its tier into the stage, its
+\ environment's sections read (one slot per declaration but a block
+\ record), each layer given loaded on it (kernel/env-layers.fs); then
+\ for a snapshot alone the stage sealed and fed, or for an export the
+\ import pass's aids kept (ck-snapshot-import).
+create ck-firsts 8 cells allot   \ the base's tier counts, sections 1-8
+create ck-lay /lay allot  ck-lay /lay erase   \ the layer being loaded
+: ck-snap-read ( -- outcome )
   12 ck-stage stage-init dup ok? 0= if exit then drop
-  ck-any-version? ck-stage stage-any-version!
-  ck-stage ck-snap snap-tier dup ok? 0= if exit then drop ck-stage stage-seal ;
-: ck-snap-stage ( c-addr u fuel -- outcome )
-  ck-snap snap-open dup ok? 0= if exit then drop ck-snap-tier dup ok? 0= if exit then drop
-  ck-snap snap-fuel ck-state ck-budget ! outcome-ok ;
+  ck-any-version? ck-stage stage-any-version! ck-stage ck-snap snap-tier ;
+: ck-stage-slots ( -- n )
+  0 ck-stage stage-decls 0 ?do i ck-stage staged-at ck-stage slot-record? 1 and + loop ;
+: ck-firsts! ( -- )
+  8 0 do i 1+ ck-stage tier-slab slab-count ck-firsts i cells + ! loop ;
+\ The layers to load on the base, as (c-addr u) pairs (ck-layers!).
+2variable ck-layer-names  0 0 ck-layer-names 2!
+: ck-layers! ( addr n -- ) ck-layer-names 2! ;
+: ck-layer@ ( k -- c-addr u ) 2* cells ck-layer-names 2@ drop + 2@ ;
+\ Why a layer was refused, as the snapshot's refusal.
+: ck-lay-why ( -- c-addr at )
+  ck-lay lay-why @ ?dup if ck-lay lay-at @ exit then
+  ck-lay lay-snap snap-why @ ?dup if ck-lay lay-snap snap-at @ exit then
+  ck-lay lay-ly ly-why @ ?dup if ck-lay lay-ly ly-where @ exit then c" layer" -1 ;
+: ck-lay-refused ( outcome -- outcome ) ck-lay-why ck-snap snap-note ;
+: ck-layer ( sn names k -- sn names outcome )
+  >r ck-stage ck-snap 2over ck-firsts ck-lay lay-init
+  r> ck-layer@ ck-snap snap-fuel ck-lay lay-load
+  dup ok? 0= if ck-lay-refused then ck-lay lay-free ;
+: ck-layers-load ( -- outcome )
+  ck-snap snap-n @ ck-stage stage-tier tier-names cons-numbers
+  ck-layer-names 2@ nip 0 ?do
+    i ck-layer dup ok? 0= if nip nip unloop exit then drop 1 ck-state ck-layers +!
+  loop 2drop outcome-ok ;
+: ck-snap-base ( -- outcome )
+  ck-snap-read dup ok? 0= if exit then drop ck-firsts!
+  ck-stage-slots ck-snap snap-read dup ok? 0= if exit then drop ck-layers-load ;
+: ck-snap-tier ( -- outcome )
+  ck-snap-base dup ok? 0= if exit then drop ck-stage stage-seal ;
+: ck-snap-opened ( c-addr u fuel xt -- outcome )
+  >r ck-snap snap-open dup ok? 0= if r> drop exit then drop r> execute
+  dup ok? if ck-snap snap-fuel ck-state ck-budget ! then ;
+\ A refusal while loading is the snapshot's (ck-snap-bad?).
+: ck-snap-fails ( outcome -- outcome )
+  dup ok? 0= if true ck-state ck-snap-bad ! then ;
 : ck-snap-phase ( c-addr u fuel -- outcome )
-  ck-phase-begin ck-snap-stage ck-staging ck-phase-end ck-staging ck-fail ;
-\ After the feed: the environment's sections, one slot per input
-\ declaration; a refusal is the snapshot's, as staging's.
+  ck-phase-begin ['] ck-snap-tier ck-snap-opened ck-snap-fails
+  ck-staging ck-phase-end ck-staging ck-fail ;
+\ After the feed: one slot read per input declaration, else the
+\ snapshot is refused, as staging is.
 : ck-snap-slots ( outcome -- outcome' )
-  drop lf-input-count ck-snap snap-read dup ok? 0= if ck-staging ck-state ck-failed ! then
-  ;
+  drop lf-input-count ck-snap snap-n @ = flag>outcome ck-snap-fails
+  dup ok? 0= if c" slots" -1 ck-snap snap-note ck-staging ck-state ck-failed ! then ;
 : ck-snap-file@ ( -- c-addr u ) ck-state ck-snap-file 2@ ;
+: ck-snap-bad? ( -- flag ) ck-state ck-snap-bad @ ;
+\ A run of a snapshot alone, no export read.
+: ck-snap-only? ( -- flag ) ck-snapped? ck-importing? 0= and ;
+: ck-snap-named ( c-addr u -- )
+  ck-state ck-snap-file 2! true ck-state ck-snapped ! ck-snap snap-loading ! ;
 : ck-snapshot-load ( c-addr u fuel -- outcome )
-  >r 2dup ck-state ck-snap-file 2! r> true ck-state ck-snapped ! 0 ck-state ck-jobs-asked
-  ! ck-snap snap-loading !
+  >r 2dup ck-snap-named r> 0 ck-state ck-jobs-asked !
   ['] snap-fill ck-check-word! ck-snap-phase dup ok? if drop ck-stage-facts
   ck-feed-phase dup ok? if ck-input-facts ck-snap-slots then then dup ck-state ck-loaded !
   ;
+
+\ ---- An export checked against a snapshot (ADR 0020 D5; plan step SN4;
+\ kernel/env-import.fs). ck-snapshot-import ( c-addr u fuel -- outcome ),
+\ after ck-start in place of ck-snapshot-load: the snapshot file c-addr u
+\ opened (fuel as there), its tier read into the stage, its environment's
+\ sections read and checked, its layers loaded (ck-layers!), the
+\ declarations of them all kept aside (imp-keep); a refusal is the
+\ snapshot's (ck-snap-bad?), and the staging phase goes on until ck-load
+\ reads the export on into the tier (ck-continued), seals and feeds it,
+\ after which the input is given to the import pass (ck-import-input).
+\ ck-check then runs the pass first (ck-import-pass) and checks the rest,
+\ in parallel with --jobs. Kept: ck-importing?, ck-layers#, and in
+\ ck-import the counts.
+: ck-snap-kept ( -- outcome )
+  ck-snap-base dup ok? 0= if exit then drop
+  ck-stage ck-import imp-keep dup ok? 0= if exit then drop
+  ck-import imp-sn@ ck-snap snap-n @ = flag>outcome ;
+: ck-snapshot-import ( c-addr u fuel -- outcome )
+  >r 2dup ck-snap-named r> true ck-state ck-importing ! ck-phase-begin
+  ['] ck-snap-kept ck-snap-opened ck-snap-fails
+  dup ok? 0= if ck-staging ck-phase-end ck-staging ck-fail dup ck-state ck-loaded ! then ;
+: ck-taken# ( -- n ) ck-import imp-taken# ;
+: ck-other# ( -- n ) ck-import imp-other# ;
 
 base !   \ the BASE this file was loaded with

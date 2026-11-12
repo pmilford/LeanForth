@@ -407,6 +407,24 @@ slices. Measured 2026-11-11 on Init (five assorted theorems, 360 of 57,919
 declarations): accepted by LeanForth and by Lean's official checker. A slice's
 verdicts are those of its declarations only, with the same rules.
 
+### Engine gate
+
+`bin/leanforth` runs `check`, `replay` and `print` on `gforth-fast` by default
+(owner, 2026-11-11); `make test` and `make check` keep using the checking
+engine (`scripts/gforth-strict.sh` around `gforth`), and the tests set `GFORTH`,
+so no test switches engines. `make engine-gate` is the evidence that the two
+engines agree: it runs `check --no-manifest` on all of Lean's `Init` (with
+`--jobs 8`) and on every Lean Kernel Arena test of the 435-test bundle, once
+with the default engine and once with `--checked`, and compares the verdict
+lines and exit codes (not times or memory). Exit 0 only if identical, 1 on a
+difference. It takes about 15 minutes and is not part of `make check`. The
+Init export and the arena tests are machine-local (not in the repository):
+`ENGINE_GATE_INIT=FILE ENGINE_GATE_ARENA=DIR make engine-gate`
+names them; the defaults are `.claude/work/IM/init.ndjson` and
+`.claude/work/arena/tests435` of the main checkout. Output files are kept in
+`.claude/work/engine-gate/` (git-ignored). Run it after a change that could
+make the engines differ (memory-access width, stack depth, Gforth upgrades).
+
 ## Failure paths and allocation-failure injection (plan tasks 2.2.4, 1.4.6)
 
 Added 2026-11-03. The first checker must fail closed wherever it runs out

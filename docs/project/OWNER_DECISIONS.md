@@ -758,7 +758,8 @@ ADR 0019 Amendment 1 (agent IR2; probes in
   --fast"): `leanforth check` runs on the engine that stops at a stack or
   memory fault where it happens; `--fast` selects gforth-fast (2.4 times
   quicker, identical verdicts in every test). Revisit after the outside
-  audit.
+  audit. *Replaced 2026-11-11: gforth-fast is the default (see "Later
+  decisions of 2026-11-11").*
 
 ## Native LeanForth: where theorems run, inline use, library vocabularies (2026-11-04, late)
 
@@ -868,3 +869,24 @@ Asked in plain language with a recommendation for each item (the full list with 
 
 Not in this round (no approval asked yet): compact-store step S5 (the checker reading the input in place; parts 1-3
 merged) with its follow-up S5B, and step S7 (parallel checking).
+
+## Later decisions of 2026-11-11
+
+- **Default engine: gforth-fast** (owner: "Consider changing default to --fast for everything with just some
+  compatibility tests without it"; replaces the 2026-11-04 choice above). `check`, `replay` and `print` run on
+  gforth-fast; `--checked` selects Gforth's checking engine; `--fast` stays accepted. Safeguards: `make test` and
+  `make check` keep running on the checking engine; `make engine-gate` (all of Init and the arena tests on both
+  engines, verdicts and exit codes compared) passes before each approval round and release; first run 2026-11-11
+  identical on both engines.
+- **Downloads approved** ("All five"): the Lean Kernel Arena's large tests navier-stokes-euler, cslib, cedar,
+  reachability and con-leche (git clones at the arena's pinned commits, their Lean toolchains and Mathlib caches) in
+  `.claude/work/arena/large/`, untrusted, after the full Mathlib run; Std built locally.
+- **Snapshots (ADR 0020)**: layered snapshots (a base plus library layers, loaded together; a name with different
+  content in two layers refused); lookup tables rebuilt on load, never stored; an opt-in development flag may load a
+  snapshot written by an older verdict version, every result from it labelled stale and never counted in
+  compatibility numbers (amends ADR 0020 D3/D6 for that flag only); no Mathlib run only to write a snapshot: every
+  full run saves one.
+- **Parallel checking**: the workers of `check --jobs N` share one read-only copy of the input, for every export and
+  by default ("should be also for other large libraries... or even all").
+- **CPU use**: by default up to 10 busy threads (all of WSL); on request a "day" mode of about 6 threads while the
+  owner uses the computer.

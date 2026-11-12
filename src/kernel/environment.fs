@@ -51,8 +51,11 @@
 \ import can never match. Nothing reads the list back into a check: the
 \ verdicts do not change, except that a check whose list the heap cannot
 \ hold is published full. A test build (lf-env-i2-checks defined before
-\ loading) counts every slot a check reads through lf-env-readable that
-\ no recorded query answered (lf-i2-misses).
+\ loading) counts every slot a check reads through lf-env-readable, or
+\ reads directly after a query (generated-recursor.fs), that no recorded
+\ query answered (lf-i2-misses); a query's own reads are what its answer
+\ records. The import pass of a dependent export (env-import.fs, plan
+\ step SN4) asks a saved key's query again with lf-env-replay.
 \
 \ Handles (E3): (identity, d) of an accepted slot. In a snapshot
 \ (identity', i) one is valid only when identity = identity', d < i and
@@ -1000,6 +1003,35 @@ here lf-env-quot-holders - 2 cells / constant lf-env-quot-holders#
   >r 2dup r> lf-env-earliest -rot lf-look-test lf-look-first ;
 : lf-env-quot-held ( limit -- d class ) lf-env-quot-held-pass 0 lf-look-quot lf-look-noted
   ;
+
+\ Replaying a saved lookup (ADR 0020 D5, I1.3; plan step SN4,
+\ kernel/env-import.fs): in a check's snapshot, the query a saved key
+\ records -- its name and kind -- asked again at the check's own limit
+\ (every recorded query is made at lf-env-limit: check-block.fs, quot.fs,
+\ inductive-block.fs, inductive-nested.fs) and recorded as the check
+\ records it, so that the candidate's list can be compared with the saved
+\ one. A query reads only slots of its name (and the types and quotient
+\ records that may hold it), and one not final below the limit marks the
+\ check early (lf-slot-final?): the import pass's lookup mode, which
+\ makes such a replay no match. False, with nothing asked, for a key no
+\ import can replay: names beyond the input (lf-look-outside) and another
+\ module's test (lf-look-other).
+: lf-replay-find ( name -- ) lf-env-lookup-pass 2drop ;
+: lf-replay-fresh ( name -- ) lf-env-limit lf-env-fresh drop ;
+: lf-replay-generated ( name -- ) lf-env-limit lf-env-fresh-generated drop ;
+: lf-replay-unheld ( name -- ) lf-env-limit lf-env-unheld drop ;
+: lf-replay-seek ( name -- ) lf-env-limit lf-env-find 2drop ;
+: lf-replay-type ( name -- ) ['] lf-slot-type? lf-env-limit lf-env-first drop ;
+: lf-replay-any ( name -- ) ['] lf-slot-any lf-env-limit lf-env-first drop ;
+: lf-replay-quot ( name -- ) drop lf-env-limit lf-env-quot-held 2drop ;
+create lf-replays   \ by kind; 0 for lf-look-other
+  ' lf-replay-find , ' lf-replay-fresh , ' lf-replay-generated , ' lf-replay-unheld ,
+  ' lf-replay-seek , ' lf-replay-type , ' lf-replay-any , 0 , ' lf-replay-quot ,
+: lf-replay@ ( key -- xt|0 )
+  dup lf-look-outside = if drop 0 exit then
+  lf-look-kinds 1- and dup lf-look-quot u> if drop 0 else cells lf-replays + @ then ;
+: lf-env-replay ( key -- flag )
+  dup lf-replay@ ?dup 0= if drop false exit then swap 4 rshift swap execute true ;
 \ G-P5, for a scheduler outside any check: whether every declaration
 \ before i named name has a final slot in the current environment, and,
 \ for a name a generated recursor may hold (lf-env-reserving), every type

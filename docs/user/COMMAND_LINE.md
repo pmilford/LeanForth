@@ -10,7 +10,7 @@ approves the checker, Lean's own kernel is the referee. `check` takes
 exports of any size: it stages the export with the importer stage and
 feeds it to the checker, whose stores grow to fit, so a whole library is
 checked from the command line — all of Lean's `Init`, 59,349
-declarations, in [about twelve minutes with `--fast`](#a-whole-library-leans-init). Most
+declarations, in [about twelve minutes](#a-whole-library-leans-init). Most
 of a real library may still end *unsupported* or *unknown*: nested
 inductive types, metadata and some projection steps are not built yet
 (`capabilities` lists them); unsafe and partial declarations are
@@ -96,11 +96,11 @@ theorem composition {A B C : Prop} (f : A → B) (g : B → C) : A → C :=
 
 | Command | What it does |
 | --- | --- |
-| `check [--no-manifest] [--fuel N] [--resources] [--json] [--fast] [--strict-axioms] [--any-lean-version] [--jobs N] [--progress[=SECONDS]] [--save-snapshot FILE] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text; with `--jobs N`, check with [N workers at once](#parallel-checking---jobs); with `--progress`, write [a status line](#progress-and-partial-results---progress) to standard error every minute; with `--save-snapshot FILE`, also write the checked environment to FILE ([snapshots](#snapshots---save-snapshot-and---snapshot)) |
-| `check --snapshot FILE [--fuel N] [--resources] [--json] [--fast] [--strict-axioms] [--any-lean-version]` | Report the verdicts a [snapshot](#snapshots---save-snapshot-and---snapshot) holds, each labelled as taken from it and not re-checked: for development and research only |
-| `check [--no-manifest] [--fuel N] [--fast] [--strict-axioms] --record RECORD EXPORT` | Check a small export (read straight into the checker's stores) and also write its [run record](#run-records-and-replay) |
-| `replay [--no-manifest] [--fuel N] [--fast] EXPORT RECORD` | Check the export again and compare the new run record with RECORD; print the replay report |
-| `print [--no-manifest] [--fuel N] [--fast] [--detail] [--name NAME] [--latex] [--statement FORMS] [--any-lean-version] EXPORT`, or `print --lf [--no-manifest] [--fuel N] [--fast] [--any-lean-version] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration; `--lf` writes the whole export as one [LeanForth text](#writing-an-export-as-leanforth-text) |
+| `check [--no-manifest] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--jobs N] [--progress[=SECONDS]] [--save-snapshot FILE] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text; with `--jobs N`, check with [N workers at once](#parallel-checking---jobs); with `--progress`, write [a status line](#progress-and-partial-results---progress) to standard error every minute; with `--save-snapshot FILE`, also write the checked environment to FILE ([snapshots](#snapshots---save-snapshot-and---snapshot)) |
+| `check --snapshot FILE [--snapshot LAYER ...] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--no-manifest] [--jobs N] [--save-snapshot LAYER] [EXPORT]` | Report the verdicts a [snapshot](#snapshots---save-snapshot-and---snapshot) and its layers hold, each labelled as taken from it and not re-checked; with EXPORT, check it against them, taking what they vouch for and checking the rest, and with `--save-snapshot`, write what was checked as a layer: for development and research only |
+| `check [--no-manifest] [--fuel N] [--checked] [--strict-axioms] --record RECORD EXPORT` | Check a small export (read straight into the checker's stores) and also write its [run record](#run-records-and-replay) |
+| `replay [--no-manifest] [--fuel N] [--checked] EXPORT RECORD` | Check the export again and compare the new run record with RECORD; print the replay report |
+| `print [--no-manifest] [--fuel N] [--checked] [--detail] [--name NAME] [--latex] [--statement FORMS] [--any-lean-version] EXPORT`, or `print --lf [--no-manifest] [--fuel N] [--checked] [--any-lean-version] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration; `--lf` writes the whole export as one [LeanForth text](#writing-an-export-as-leanforth-text) |
 | `count [--no-manifest] EXPORT` | Count the export's records by kind ([the reader's counter](../development/NDJSON_READER.md#using-it)), for exports of any size |
 | `reexport [--no-manifest] EXPORT COPY` | Write the export again into COPY, byte for byte as Lean's exporter writes it ([re-export](../development/NDJSON_READER.md#re-export)); after an error COPY is incomplete and must be discarded |
 | `version` (or `--version`) | Versions of LeanForth, its Forth host, the export format it reads, and the git commit |
@@ -148,8 +148,10 @@ Options:
   compared with the export's own header, and the SHA-256 binds the manifest
   to the file); `export_format` must still be 3.1.0. The [JSON report](#json-output) adds `settings.anyLeanVersion`
   and, when the metadata named other versions, `exportMeta`.
-- `--fast` (`check`, `replay`, `print`) runs on `gforth-fast` instead of
-  Gforth's checking engine ([the engine](#the-engine)).
+- `--checked` (`check`, `replay`, `print`) runs on Gforth's checking engine,
+  `gforth`, instead of the default `gforth-fast` ([the engine](#the-engine)).
+  `--fast` is still accepted and changes nothing (it cannot be combined with
+  `--checked`).
 - `--jobs N` (`check` only, not with `--record`) checks with N workers at
   once ([parallel checking](#parallel-checking---jobs)); N is at least 1,
   and 1, the default, checks one declaration at a time. The output is the
@@ -166,35 +168,39 @@ Options:
 - `--save-snapshot FILE` (`check` only, not with `--record`) writes the
   run's checked environment to FILE after a run in which every declaration
   was decided; FILE must not be the export. `--snapshot FILE` (`check`
-  only, without an export, not with `--record` or `--save-snapshot`)
-  reports a snapshot's verdicts ([snapshots](#snapshots---save-snapshot-and---snapshot)).
+  only, not with `--record`) reports a snapshot's verdicts, a further
+  one loads a layer on it, and with an export checks the export against
+  them; `--save-snapshot` with one `--snapshot` and an export writes a
+  layer ([snapshots](#snapshots---save-snapshot-and---snapshot)).
 - `--detail` (`print` only) prints every step of the checker's log
   instead of the outline; `--name NAME` (`print` only) prints only the
   declaration named NAME.
 
 ### The engine
 
-`check`, `replay` and `print` run on Gforth's checking engine, `gforth`,
-by default (owner's decision of 2026-11-04): it stops at a stack or
-memory fault where it happens, so a fault in LeanForth's own Forth is
-reported as an internal fault at its source. `--fast` runs them on
-`gforth-fast`, which leaves out those checks and is about 2.4 times
-quicker: all of Lean's `Init` in 4 minutes 5 seconds instead of 9
-minutes 59 seconds, for one build of 2026-11-04
+`check`, `replay` and `print` run on `gforth-fast` by default (owner's
+decision of 2026-11-11, replacing that of 2026-11-04), which leaves out
+Gforth's stack and memory checks and is about 2.4 times quicker than the
+checking engine, `gforth`. `--checked` runs them on `gforth`, which stops
+at a stack or memory fault where it happens, so a fault in LeanForth's
+own Forth is reported as an internal fault at its source; use it to
+investigate a surprising result. `make test` and `make check` run on the
+checking engine, and `make engine-gate` compares both engines on all of
+`Init` and the arena tests. For reference, all of Lean's `Init` took all of Lean's `Init` in 4 minutes 5 seconds instead of 9
+minutes 59 seconds, on the checking engine and 4 minutes 5 seconds on `gforth-fast`, for one build of 2026-11-04
 ([below](#a-whole-library-leans-init)). Both engines give the same
 verdicts in every test (`make test` compares the text and the JSON
 reports of the command-line fixtures on both), and the JSON report is
 the same but for `measured`, which names the engine. `count` and
 `reexport`, which check no proof, use `gforth-fast` (about 3.3 times
 faster on large exports). The engine is the one `GFORTH` names when it
-is set — with `--fast`, the `gforth-fast` in the same folder (on `PATH`
-when `GFORTH` names no folder) — else the pinned one in `.tools/gforth`,
-else one on `PATH`. When `--fast` finds no
-`gforth-fast`, the run uses the checking engine and says so on standard
-error:
+is set, used as it is (with `--fast`, the `gforth-fast` in the same
+folder, on `PATH` when `GFORTH` names no folder) — else the pinned one
+in `.tools/gforth`, else one on `PATH`. When no `gforth-fast` is found,
+the run uses `gforth` and says so on standard error:
 
 ```text
-leanforth: note: --fast: no /opt/forth/gforth-fast found; checking with /opt/forth/myforth
+leanforth: note: no /opt/forth/gforth-fast found; checking with /opt/forth/myforth
 ```
 
 `EXPORT` and `COPY` are file names relative to the current folder; the
@@ -518,11 +524,11 @@ now *unknown* (a comparison that needs a definition unfolded, plan task
 `Sum.isRight_iff`), and every other declaration kept its verdict and
 diagnostic.
 
-The run above used `--fast`, the `gforth-fast` engine
+The run above used the `gforth-fast` engine
 ([the engine](#the-engine)), on a 10-core WSL2 machine that other agents'
 test runs shared; its checks took 11 minutes, against under 4 for the
 build of the morning, which accepted 1,618 declarations and checked
-fewer that far. The default engine, Gforth's checking engine, gives the
+fewer that far. The checking engine (`--checked`) gives the
 same output, byte for byte but for the times, memory and engine lines,
 in about 2.4 times as long (9 min 59 s against 4 min 5 s for the
 morning's build; not yet measured on this one). Freeing the stage's
@@ -797,12 +803,10 @@ snapshot is refused (nothing reported as checked) when it is damaged,
 altered or cut short (status 4, `error: invalid: the snapshot was
 refused: …` naming the section, and the record when there is one), when
 it was written by another verdict version (stale: check the export again)
-or format version or is a layered snapshot (status 2), or for other
+or format version or is a layer given without its base (status 2), or for other
 settings: `--fuel N` other than the snapshot's (by default its own
 fuel is used) or another axiom allowlist (status 4). A snapshot of an
-export read with `--any-lean-version` needs that option again.
-`--snapshot` with an export (a dependent export checked against a
-snapshot) is plan step SN4, not yet supported (status 4). Measured on
+export read with `--any-lean-version` needs that option again. Measured on
 all of `Init` (59,349 declarations, `gforth-fast`, a loaded machine): the
 file is 132.9 MB, writing it adds about 3 s to the run, and `check
 --snapshot` takes 10 s (4.9 s to read and check the file, 1.8 s to feed
@@ -811,15 +815,92 @@ peak of 0.69 GB, against 6 minutes to check it with four workers.
 
 With `--json`, a run of a snapshot prints report version 0.3
 ([`schemas/check-report-0.3.schema.json`](../../schemas/check-report-0.3.schema.json)):
-version 0.2's members, `export` null, `mode` `development`, a `snapshot`
+version 0.2's members, `export` null (the export's name when one is
+checked against the snapshot), `mode` `development`, a `snapshot`
 member (the file, its `sha256`, `formatVersion`, `verdictVersion`, the
 `export` it was written from with its SHA-256, bytes and lines, the
-`manifestSha256`, `base` null, and the `information` text of the build
-that wrote it), and on each declaration its `provenance`: `snapshot`
-(taken from it), `uses-snapshot` (checked in this run but resting on its
-results: dependent exports, step SN4) or `checked`. A refused snapshot is
-a read that failed with `phase` `snapshot`. Final runs keep writing
-version 0.2, unchanged.
+`manifestSha256`, `base` null, the `information` text of the build
+that wrote it, and `import`: null, or with an export the counts `taken`,
+`checked` and `otherContent`), and on each declaration its `provenance`:
+`snapshot` (taken from it), `uses-snapshot` (checked in this run but
+resting on its results) or `checked`. A refused snapshot is a read that
+failed with `phase` `snapshot` and lists no declaration. Final runs keep
+writing version 0.2, unchanged.
+
+#### A dependent export checked against a snapshot
+
+*Plan step SN4 (ADR 0020 D5); a [kernel] and [import] decision for the
+owner, not yet through its gate.* A library built on another -- a
+project on Mathlib, say -- is exported with every declaration it uses,
+its base's among them. Given a snapshot of the base, `check --snapshot
+FILE EXPORT` checks only what the snapshot cannot vouch for:
+
+```text
+leanforth check --save-snapshot two.lfsnap tests/cli/inductive.ndjson
+leanforth check --snapshot two.lfsnap tests/cli/dependent.ndjson
+```
+
+The export is read on into the snapshot's records, so that a record equal
+to one of the snapshot is the same number; then, before any check, each
+declaration is **taken** from the snapshot when one of the snapshot's
+declarations of its name has exactly its content (an inductive block
+only whole), a verdict that does not depend on memory or fuel (not
+*full*, *invalid* or *exhausted*), and gives the same answer to every
+lookup its check made, each asked again here by the checker's own code
+over what was taken so far (a lookup that meets a declaration not taken
+is no match). Every other declaration is checked as in a final run (with
+`--jobs N` too), and labelled as resting on the snapshot when it uses a
+taken one. The verdicts and counts are those of a final check of the
+export (the tests compare both, field by field, and so did all of `Init`
+against its own snapshot); only the labels differ. The fuel a check uses
+also depends on how the run numbers the export's records, so a taken
+declaration reports the fuel of the run that wrote the snapshot, which
+can differ from a final check's by a few percent (measured on Mathlib's
+first million lines against `Init`'s snapshot):
+
+```text
+Two: accepted (experimental, not independently audited; from snapshot, not re-checked in this run); axioms: none
+...
+Eq: accepted (experimental, not independently audited); axioms: none
+Two.swap_swap: accepted (experimental, not independently audited; checked in this run, uses results from the snapshot); axioms: none
+...
+13 declarations: 13 accepted; 6 from the snapshot, 7 checked in this run
+...
+import: 7 checked in this run; 0 with the name of a declaration of the snapshot, not its content
+```
+
+A declaration whose check made names of its own beyond the export (the
+auxiliary types of a nested inductive block) is always checked again, as
+is everything whose lookups reach it. A snapshot refused before the
+export is read is reported as above; the export's own failures are
+reported as a final run reports them.
+
+#### Layered snapshots
+
+*ADR 0020 amendment 1, the owner's decision F5.* With `--snapshot BASE`,
+`--save-snapshot LAYER EXPORT` writes a **layer**: only what the run
+added to BASE -- the records the export added and the declarations
+checked in the run -- numbered on from BASE's, with BASE's identity (its
+header's SHA-256) in its header. Further `--snapshot` options load layers
+on the first, in order, with or without an export:
+
+```text
+leanforth check --snapshot two.lfsnap --save-snapshot dep.lfsnap tests/cli/dependent.ndjson
+leanforth check --snapshot two.lfsnap --save-snapshot sib.lfsnap tests/cli/sibling.ndjson
+leanforth check --snapshot two.lfsnap --snapshot dep.lfsnap --snapshot sib.lfsnap
+```
+
+Base and layer report what the run that wrote the layer reported, and
+two layers written on one base load together: a declaration both hold
+(here `Eq` and `rfl`) is loaded once when its content and verdicts agree.
+Refused (status 4, nothing listed): a layer written on another base
+(`base snapshot of the layer`), a declaration two loaded snapshots hold
+with other verdicts, and a name two of them declare with other content
+(`a name of two snapshots with other content`), as Lean refuses an import
+that declares a name twice; a layer given first is refused as `layer`
+(status 2). A layer is written on one snapshot only (`--save-snapshot`
+with several `--snapshot` options is refused, status 4), and FILE must not
+be the snapshot read.
 
 ## Printing a readable proof
 
@@ -1120,7 +1201,7 @@ supported:
   check: Lean 4.35.0 exports (lean4export 3.1.0 NDJSON) of any size, such as
     all of Lean's Init, staged and fed in Forth; the manifest checked unless
     --no-manifest; a summary, --resources (time, memory, fuel), --json;
-    Gforth's checking engine, or gforth-fast with --fast; --jobs N checks
+    gforth-fast, or Gforth's checking engine with --checked; --jobs N checks
     with N workers (threads on Gforth 1.0), the same output as one
   check: Lean's kernel rules as built so far, each result labelled
     experimental, not independently audited: definitions, theorems, opaque
@@ -1268,9 +1349,9 @@ records without the manifest check, so replay those with `--no-manifest`.
 variable; otherwise the pinned one in `.tools/gforth` of its checkout
 (`scripts/install-gforth.sh`), otherwise `gforth` on the `PATH`. `count`
 and `reexport` prefer `gforth-fast`, about 3.3 times faster on large
-exports; `check`, `replay` and `print` use Gforth's checking engine,
-whose stack and memory checks turn a fault in the checker into an
-internal fault where it happens, and `--fast` runs them on `gforth-fast`
+exports; `check`, `replay` and `print` use `gforth-fast` too, and `--checked` runs
+them on Gforth's checking engine, whose stack and memory checks turn a
+fault in the checker into an internal fault where it happens
 ([the engine](#the-engine)). Standard input is closed.
 `bin/leanforth version` adds the checkout's git commit to the versions:
 
