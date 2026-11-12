@@ -601,35 +601,62 @@ explanation (`diff` the two outputs to find the trial). It is not part of
 
 `make coverage` (plan task 1.4.1) reports which Forth code `make test`
 runs. `scripts/coverage.py` runs `make test` with `GFORTH` set to
-`scripts/coverage-gforth.sh`, which starts Gforth 1.0 with
-`scripts/coverage-prelude.fs` before the test's own arguments; the Python
-tests' Gforth runs go through it too. The prelude loads Gforth 1.0's
-`coverage.fs`, which puts a counter on every basic block compiled after it
-(at each colon definition's start, each control-flow word and each source
-line inside a definition), and writes the counts when Gforth ends, also
-after an error (`BYE`, `(BYE)`, an uncaught `THROW` out of a command-line
-argument, `DOERROR`). The script then joins the counts of all runs and
-prints, for each folder of `src/`, the blocks compiled in any run and how
-many ran at least once; `make test`'s smoke check loads every module on its
-own, so modules that no test runs count too. Options: `--files` prints
+`scripts/coverage-gforth.sh`, which starts Gforth 1.0 (through the strict
+wrapper) with `scripts/coverage-prelude.fs` before the test's own arguments.
+The Makefile keeps that `GFORTH` instead of replacing it with
+`scripts/gforth-strict.sh`; `bin/leanforth --fast` finds `scripts/gforth-fast`
+beside it, which hands over to the wrapper under coverage (gforth-fast cannot
+load `coverage.fs`); the Python tests' Gforth runs use `$GFORTH`. The prelude
+loads Gforth 1.0's `coverage.fs`, which puts a counter on every basic block
+compiled after it (at each colon definition's start, each control-flow word
+and each source line inside a definition), and writes the counts when Gforth
+ends, also after an error (`BYE`, `(BYE)`, an uncaught `THROW` out of a
+command-line argument, `DOERROR`). The script then joins the counts of all
+runs and prints, for each folder of `src/`, the blocks compiled in any run and
+how many ran at least once; `make test`'s smoke check loads every module on
+its own, so modules that no test runs count too. Options: `--files` prints
 every file, `--uncovered FILE` writes each block that never ran as
-`file:line:column`, `--keep DIR` keeps the raw counts.
+`file:line:column`, `--keep DIR` keeps the raw counts (about 3.5 GB for a
+full run), `--check`, `--update-baseline`, `--baseline FILE`.
 
-It needs Gforth 1.0 (`.tools/`; Gforth 0.7.3 has no `coverage.fs`) and
-takes about 50 s. It is not part of `make test` or `make check`. Runs on
-copies of the tree outside it (the big-number planted faults) are not
-counted. On 2026-11-03 it reported:
+The tool cannot stop counting silently any more (it did, unnoticed, between
+2026-11-03 and 2026-11-12: the Makefile began to force the strict wrapper,
+which refused the coverage wrapper, so no run was counted and the report said
+"no counts were collected" with exit status 0). It now exits 1 when no run
+left counts, when more than 10% of the runs left none, or when fewer runs left
+counts than 90% of the baseline's `runs`; `tests/support/test_coverage.py`
+(`make test-coverage`, part of `make test`) runs it on a command that starts
+no Gforth, one that bypasses `$GFORTH`, and one that runs it.
+
+**The ratchet.** `tests/coverage-baseline.json` lists, for each `src/` file, its
+blocks and the blocks that never ran, with a `reason` where some did not, and
+the number of runs counted. `make coverage-check` (`scripts/coverage.py
+--check`) runs `make test` under coverage and fails when a file's never-run
+blocks grow, or when a file the baseline lacks has any never-run block. It is
+part of `make check` (not of `make test`), needs Gforth 1.0 and, at `JOBS=2`
+with nice, takes about 6 minutes (5 min 18 s for the measurement, plus about
+20 s to join the counts; with 8 jobs, expect about 2 minutes). After tests
+are added or code is removed, lower the numbers with `python3
+scripts/coverage.py --update-baseline`; a new file with never-run blocks needs
+`--reason TEXT`. Never raise a number to make the check pass: add tests.
+Runs on copies of the tree outside it (the big-number planted faults) are not
+counted. On 2026-11-12 (commit 3ac0558 plus this fix; the earlier measurement
+of 2026-11-03 was 12,093 blocks, 96.6%; the code has grown since, `src/cli`
+is new) it reported over 1,580 Gforth runs
+(22 more left no counts), with the list of the 2,743 never-run blocks in
+`.claude/work/coverage/uncovered-3ac0558.txt`:
 
 | Folder | Blocks | Ran | Coverage |
 | --- | --- | --- | --- |
-| `src/author` | 1,085 | 1,024 | 94.4% |
-| `src/core` | 1,008 | 995 | 98.7% |
-| `src/import` | 796 | 767 | 96.4% |
-| `src/kernel` | 3,180 | 3,096 | 97.4% |
-| `src/lib` | 2,595 | 2,531 | 97.5% |
-| `src/present` | 2,164 | 2,021 | 93.4% |
-| `src/program` | 1,265 | 1,246 | 98.5% |
-| total | 12,093 | 11,680 | 96.6% |
+| `src/author` | 1,337 | 1,277 | 95.5% |
+| `src/cli` | 3,007 | 2,781 | 92.5% |
+| `src/core` | 5,048 | 4,749 | 94.1% |
+| `src/import` | 5,487 | 5,116 | 93.2% |
+| `src/kernel` | 15,013 | 13,780 | 91.8% |
+| `src/lib` | 4,230 | 4,127 | 97.6% |
+| `src/present` | 5,050 | 4,642 | 91.9% |
+| `src/program` | 2,192 | 2,149 | 98.0% |
+| total | 41,364 | 38,621 | 93.4% |
 
 A block that ran is not a tested block: coverage finds code no test
 reaches and says nothing about whether the tests check what the code does,

@@ -1,0 +1,755 @@
+{
+ "runs": 1580,
+ "files": {
+  "src/author/build.fs": {
+   "blocks": 250,
+   "never_run": 39,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/author/constants.fs": {
+   "blocks": 7,
+   "never_run": 0
+  },
+  "src/author/declarations.fs": {
+   "blocks": 207,
+   "never_run": 2,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/author/errors.fs": {
+   "blocks": 55,
+   "never_run": 4,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/author/groups.fs": {
+   "blocks": 155,
+   "never_run": 1,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/author/namespaces.fs": {
+   "blocks": 174,
+   "never_run": 1,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/author/runner.fs": {
+   "blocks": 152,
+   "never_run": 3,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/author/scopes.fs": {
+   "blocks": 35,
+   "never_run": 2,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/author/source.fs": {
+   "blocks": 115,
+   "never_run": 4,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/author/values.fs": {
+   "blocks": 97,
+   "never_run": 2,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/author/words.fs": {
+   "blocks": 90,
+   "never_run": 2,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/cli/check-json.fs": {
+   "blocks": 302,
+   "never_run": 12,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/cli/check-run.fs": {
+   "blocks": 898,
+   "never_run": 60,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/cli/leanforth.fs": {
+   "blocks": 1347,
+   "never_run": 114,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/cli/name-text.fs": {
+   "blocks": 115,
+   "never_run": 8,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/cli/print-lf.fs": {
+   "blocks": 180,
+   "never_run": 27,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/cli/print.fs": {
+   "blocks": 109,
+   "never_run": 5,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/cli/tally.fs": {
+   "blocks": 56,
+   "never_run": 0
+  },
+  "src/core/axiom-allowlist.fs": {
+   "blocks": 109,
+   "never_run": 11,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/core/compact-exprs.fs": {
+   "blocks": 205,
+   "never_run": 2,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/core/compact-levels.fs": {
+   "blocks": 60,
+   "never_run": 0
+  },
+  "src/core/compact-names.fs": {
+   "blocks": 140,
+   "never_run": 5,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/core/compact-tier.fs": {
+   "blocks": 92,
+   "never_run": 1,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/core/compact.fs": {
+   "blocks": 19,
+   "never_run": 3,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/core/constant-references.fs": {
+   "blocks": 354,
+   "never_run": 20,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/core/constant-term-boundary.fs": {
+   "blocks": 518,
+   "never_run": 28,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/core/constant-term-scope.fs": {
+   "blocks": 85,
+   "never_run": 4,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/core/derivation-log.fs": {
+   "blocks": 686,
+   "never_run": 44,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/core/diagnostics.fs": {
+   "blocks": 89,
+   "never_run": 2,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/core/generation-handles.fs": {
+   "blocks": 153,
+   "never_run": 6,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/core/input.fs": {
+   "blocks": 360,
+   "never_run": 20,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/core/let-terms.fs": {
+   "blocks": 15,
+   "never_run": 0
+  },
+  "src/core/level-scope.fs": {
+   "blocks": 182,
+   "never_run": 7,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/core/levels.fs": {
+   "blocks": 182,
+   "never_run": 10,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/core/literals.fs": {
+   "blocks": 86,
+   "never_run": 14,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/core/local-context.fs": {
+   "blocks": 89,
+   "never_run": 3,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/core/name-equal.fs": {
+   "blocks": 28,
+   "never_run": 0
+  },
+  "src/core/names.fs": {
+   "blocks": 214,
+   "never_run": 10,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/core/projections.fs": {
+   "blocks": 23,
+   "never_run": 3,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/core/scratch-marks.fs": {
+   "blocks": 82,
+   "never_run": 1,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/core/scratch-meter.fs": {
+   "blocks": 37,
+   "never_run": 1,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/core/statement-match.fs": {
+   "blocks": 390,
+   "never_run": 54,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/core/string-literals.fs": {
+   "blocks": 40,
+   "never_run": 1,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/core/symbolic-session.fs": {
+   "blocks": 53,
+   "never_run": 1,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/core/tagged-sort-boundary.fs": {
+   "blocks": 59,
+   "never_run": 0
+  },
+  "src/core/terms.fs": {
+   "blocks": 692,
+   "never_run": 47,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/core/unsupported-forms.fs": {
+   "blocks": 6,
+   "never_run": 1,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/import/checker-input.fs": {
+   "blocks": 294,
+   "never_run": 48,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/import/feed.fs": {
+   "blocks": 706,
+   "never_run": 55,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/import/load.fs": {
+   "blocks": 61,
+   "never_run": 0
+  },
+  "src/import/manifest.fs": {
+   "blocks": 325,
+   "never_run": 10,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/import/ndjson-count.fs": {
+   "blocks": 154,
+   "never_run": 10,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/import/ndjson-emit.fs": {
+   "blocks": 387,
+   "never_run": 16,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/import/ndjson.fs": {
+   "blocks": 890,
+   "never_run": 20,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/import/run-record.fs": {
+   "blocks": 503,
+   "never_run": 19,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/import/run-replay.fs": {
+   "blocks": 286,
+   "never_run": 8,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/import/snapshot-layer.fs": {
+   "blocks": 479,
+   "never_run": 96,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/import/snapshot-tier.fs": {
+   "blocks": 644,
+   "never_run": 47,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/import/stage-records.fs": {
+   "blocks": 461,
+   "never_run": 33,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/import/stage.fs": {
+   "blocks": 297,
+   "never_run": 9,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/caches.fs": {
+   "blocks": 505,
+   "never_run": 56,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/check-block.fs": {
+   "blocks": 804,
+   "never_run": 45,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/check-declaration.fs": {
+   "blocks": 304,
+   "never_run": 11,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/defeq.fs": {
+   "blocks": 1104,
+   "never_run": 71,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/env-import.fs": {
+   "blocks": 412,
+   "never_run": 37,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/env-layers.fs": {
+   "blocks": 371,
+   "never_run": 36,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/env-publish.fs": {
+   "blocks": 518,
+   "never_run": 11,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/env-schedule.fs": {
+   "blocks": 688,
+   "never_run": 76,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/env-signature.fs": {
+   "blocks": 168,
+   "never_run": 20,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/env-snapshot.fs": {
+   "blocks": 814,
+   "never_run": 58,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/environment.fs": {
+   "blocks": 1245,
+   "never_run": 71,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/generated-recursor.fs": {
+   "blocks": 227,
+   "never_run": 32,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/inductive-block.fs": {
+   "blocks": 702,
+   "never_run": 42,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/inductive-nested.fs": {
+   "blocks": 654,
+   "never_run": 78,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/inductive-recursor.fs": {
+   "blocks": 384,
+   "never_run": 19,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/infer-proj.fs": {
+   "blocks": 195,
+   "never_run": 32,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/iota.fs": {
+   "blocks": 508,
+   "never_run": 98,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/level-compare.fs": {
+   "blocks": 99,
+   "never_run": 0
+  },
+  "src/kernel/level-geq.fs": {
+   "blocks": 80,
+   "never_run": 15,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/level-make.fs": {
+   "blocks": 294,
+   "never_run": 5,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/level-normalize.fs": {
+   "blocks": 398,
+   "never_run": 6,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/level-substitute.fs": {
+   "blocks": 284,
+   "never_run": 14,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/level-value.fs": {
+   "blocks": 262,
+   "never_run": 7,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/mixed-beta.fs": {
+   "blocks": 85,
+   "never_run": 3,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/mixed-compare.fs": {
+   "blocks": 312,
+   "never_run": 5,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/mixed-convert.fs": {
+   "blocks": 69,
+   "never_run": 7,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/mixed-definition-probe.fs": {
+   "blocks": 96,
+   "never_run": 1,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/mixed-head.fs": {
+   "blocks": 49,
+   "never_run": 2,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/mixed-infer.fs": {
+   "blocks": 819,
+   "never_run": 84,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/mixed-instantiate.fs": {
+   "blocks": 134,
+   "never_run": 9,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/mixed-level-substitute.fs": {
+   "blocks": 398,
+   "never_run": 48,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/mixed-open.fs": {
+   "blocks": 279,
+   "never_run": 13,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/mixed-rebuild.fs": {
+   "blocks": 86,
+   "never_run": 14,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/mixed-shift.fs": {
+   "blocks": 128,
+   "never_run": 4,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/mixed-signature-audit.fs": {
+   "blocks": 72,
+   "never_run": 2,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/mixed-signature-probe.fs": {
+   "blocks": 190,
+   "never_run": 2,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/quot.fs": {
+   "blocks": 205,
+   "never_run": 19,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/reduce-nat.fs": {
+   "blocks": 156,
+   "never_run": 50,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/replace-memo.fs": {
+   "blocks": 126,
+   "never_run": 11,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/string-literals.fs": {
+   "blocks": 190,
+   "never_run": 26,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/kernel/whnf.fs": {
+   "blocks": 599,
+   "never_run": 93,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/lib/bignum.fs": {
+   "blocks": 820,
+   "never_run": 5,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/lib/bounds.fs": {
+   "blocks": 8,
+   "never_run": 0
+  },
+  "src/lib/bytes.fs": {
+   "blocks": 209,
+   "never_run": 6,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/lib/cons.fs": {
+   "blocks": 208,
+   "never_run": 11,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/lib/context.fs": {
+   "blocks": 211,
+   "never_run": 6,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/lib/frame.fs": {
+   "blocks": 103,
+   "never_run": 1,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/lib/hash32.fs": {
+   "blocks": 9,
+   "never_run": 0
+  },
+  "src/lib/htab.fs": {
+   "blocks": 147,
+   "never_run": 1,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/lib/json-write.fs": {
+   "blocks": 367,
+   "never_run": 1,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/lib/json.fs": {
+   "blocks": 513,
+   "never_run": 8,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/lib/lib.fs": {
+   "blocks": 1,
+   "never_run": 1,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/lib/module.fs": {
+   "blocks": 4,
+   "never_run": 0
+  },
+  "src/lib/node.fs": {
+   "blocks": 12,
+   "never_run": 0
+  },
+  "src/lib/outcome.fs": {
+   "blocks": 62,
+   "never_run": 1,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/lib/pools.fs": {
+   "blocks": 69,
+   "never_run": 1,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/lib/sections.fs": {
+   "blocks": 331,
+   "never_run": 23,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/lib/sha256.fs": {
+   "blocks": 147,
+   "never_run": 0
+  },
+  "src/lib/slab.fs": {
+   "blocks": 176,
+   "never_run": 6,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/lib/store-columns.fs": {
+   "blocks": 68,
+   "never_run": 4,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/lib/store.fs": {
+   "blocks": 231,
+   "never_run": 11,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/lib/task.fs": {
+   "blocks": 241,
+   "never_run": 15,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/lib/text-rule.fs": {
+   "blocks": 38,
+   "never_run": 0
+  },
+  "src/lib/text-run.fs": {
+   "blocks": 60,
+   "never_run": 0
+  },
+  "src/lib/u32.fs": {
+   "blocks": 37,
+   "never_run": 0
+  },
+  "src/lib/walk.fs": {
+   "blocks": 158,
+   "never_run": 2,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/present/binder-table.fs": {
+   "blocks": 188,
+   "never_run": 7,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/present/latex-text.fs": {
+   "blocks": 143,
+   "never_run": 6,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/present/log-check.fs": {
+   "blocks": 187,
+   "never_run": 10,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/present/log-view.fs": {
+   "blocks": 754,
+   "never_run": 99,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/present/notation-table.fs": {
+   "blocks": 50,
+   "never_run": 1,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/present/note-table.fs": {
+   "blocks": 78,
+   "never_run": 5,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/present/print-analysis.fs": {
+   "blocks": 343,
+   "never_run": 48,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/present/print-forth.fs": {
+   "blocks": 716,
+   "never_run": 52,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/present/print-job.fs": {
+   "blocks": 132,
+   "never_run": 2,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/present/print-levels.fs": {
+   "blocks": 244,
+   "never_run": 18,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/present/print-names.fs": {
+   "blocks": 163,
+   "never_run": 4,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/present/print-notation.fs": {
+   "blocks": 231,
+   "never_run": 30,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/present/print-strings.fs": {
+   "blocks": 75,
+   "never_run": 1,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/present/print-tokens.fs": {
+   "blocks": 145,
+   "never_run": 3,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/present/proof-outline.fs": {
+   "blocks": 912,
+   "never_run": 110,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/present/statement-forms.fs": {
+   "blocks": 195,
+   "never_run": 4,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/present/term-printer.fs": {
+   "blocks": 494,
+   "never_run": 8,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/program/clamp.fs": {
+   "blocks": 5,
+   "never_run": 0
+  },
+  "src/program/examples.fs": {
+   "blocks": 49,
+   "never_run": 0
+  },
+  "src/program/ir-reader.fs": {
+   "blocks": 535,
+   "never_run": 9,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/program/ir-run.fs": {
+   "blocks": 728,
+   "never_run": 13,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/program/program-depth.fs": {
+   "blocks": 57,
+   "never_run": 0
+  },
+  "src/program/sha-words.fs": {
+   "blocks": 7,
+   "never_run": 0
+  },
+  "src/program/verify-alias.fs": {
+   "blocks": 51,
+   "never_run": 1,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/program/verify-report.fs": {
+   "blocks": 152,
+   "never_run": 2,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/program/verify-runner.fs": {
+   "blocks": 162,
+   "never_run": 5,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/program/verify-semantics.fs": {
+   "blocks": 418,
+   "never_run": 12,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/program/verify.fs": {
+   "blocks": 28,
+   "never_run": 1,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  }
+ }
+}

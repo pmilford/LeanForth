@@ -13,7 +13,13 @@ ifneq ($(filter %/scripts/gforth-strict.sh %/scripts/gforth-fast,$(abspath $(GFO
 override GFORTH := $(or $(LEANFORTH_GFORTH),$(if $(wildcard $(LOCAL_GFORTH)),$(LOCAL_GFORTH),gforth))
 endif
 export LEANFORTH_GFORTH := $(if $(filter .tools/%,$(GFORTH)),$(CURDIR)/$(GFORTH),$(GFORTH))
+# make coverage sets GFORTH to scripts/coverage-gforth.sh, which runs the strict
+# wrapper itself around its Gforth 1.0, so that name is kept as it is.
+ifeq ($(filter %/scripts/coverage-gforth.sh,$(abspath $(GFORTH))),)
 override GFORTH := $(CURDIR)/scripts/gforth-strict.sh
+else
+override GFORTH := $(abspath $(GFORTH))
+endif
 LEAN ?= $(if $(wildcard $(LOCAL_LEAN)),$(LOCAL_LEAN),lean)
 LEAN_BINARY := $(LEAN)
 
@@ -786,11 +792,25 @@ test-mutants:
 # Block coverage of src/ over make test (plan task 1.4.1; TESTING_STRATEGY.md,
 # "Block coverage"): every Gforth run of make test loads Gforth 1.0's
 # coverage.fs first, and the blocks that ran are counted per folder. Needs
-# Gforth 1.0; not part of make test or make check.
+# Gforth 1.0 (LEANFORTH_GFORTH, the real one: GFORTH is the strict wrapper);
+# fails when no counts, or fewer runs than the baseline's, are collected.
+# coverage-check is the ratchet (tests/coverage-baseline.json): it fails when a
+# file's never-run blocks grow; part of make check, not of make test. After a
+# justified change: python3 scripts/coverage.py --update-baseline [--reason TEXT].
+# test-coverage tests the tool itself (part of make test).
+COVERAGE_GFORTH = $(or $(LEANFORTH_GFORTH),$(GFORTH))
 coverage:
-	$(RUN) python3 scripts/coverage.py --gforth $(GFORTH)
+	$(RUN) python3 scripts/coverage.py --gforth $(COVERAGE_GFORTH) -- make test JOBS=$(JOBS)
 
-.PHONY: mutants mutants-quick mutants-check test-mutants coverage
+coverage-check:
+	$(RUN) python3 scripts/coverage.py --gforth $(COVERAGE_GFORTH) --check -- make test JOBS=$(JOBS)
+
+test-coverage:
+	GFORTH=$(GFORTH) $(RUN) python3 tests/support/test_coverage.py
+
+.PHONY: mutants mutants-quick mutants-check test-mutants coverage coverage-check test-coverage
+check: coverage-check
+test: test-coverage
 test: test-mutants
 
 # The NDJSON re-exporter (plan task 3.2.4; docs/development/NDJSON_READER.md,
