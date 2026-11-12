@@ -231,17 +231,24 @@ create cj-hex 64 allot
 \ declarations were taken from it and checked in this run, and how many
 \ share a name with one of it but none's content; null without one.
 : cj-import ( -- )
-  ck-importing? 0= if s" import" cj-null-member exit then
-  s" import" cj-key cj-object ck-taken# dup s" taken" cj-number
-  lf-input-count swap - s" checked" cj-number ck-other# s" otherContent" cj-number
+  ck-importing? ck-snap-bad? 0= and 0= if s" import" cj-null-member exit then
+  s" import" cj-key cj-object ck-taken# s" taken" cj-number
+  ck-checked# s" checked" cj-number ck-other# s" otherContent" cj-number
   cj-end-object ;
+\ Each layer loaded on the base (review rvSN4 M1): its file, identity,
+\ export and base (the snapshot's own identity).
+: cj-layer ( k -- )
+  cj-object dup ck-layer@ nt-text cj-shown s" file" cj-text
+  ck-layer-id dup s" sha256" cj-sha 32 + s" exportSha256" cj-sha
+  ck-snap snap-sum s" base" cj-sha cj-end-object ;
+: cj-layers ( -- ) s" layers" cj-key cj-array ck-layers# 0 ?do i cj-layer loop cj-end-array ;
 : cj-snapshot ( -- )
   ck-snapped? 0= if exit then s" development" s" mode" cj-text
   ck-snap snap-id 0= if s" snapshot" cj-null-member exit then
   s" snapshot" cj-key cj-object cj-snap-file
   ck-snap snap-sum s" sha256" cj-sha snap-version s" formatVersion" cj-number
   lf-verdict-version s" verdictVersion" cj-number cj-snap-export cj-snap-manifest
-  s" base" cj-null-member cj-snap-info cj-import cj-end-object ;
+  s" base" cj-null-member cj-layers cj-snap-info cj-import cj-end-object ;
 \ ---- The report.
 : cj-export ( c-addr u -- )
   ck-snap-only? if 2drop s" export" cj-null-member exit then nt-text cj-shown s" export"

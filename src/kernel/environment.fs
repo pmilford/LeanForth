@@ -47,8 +47,10 @@
 \ lf-env-find, lf-env-first and lf-env-quot-held, each a kind (lf-look-...).
 \ The list is sorted by key (name number * 16 + kind) and distinct; the
 \ publisher stores it with the slot for every outcome (env-publish.fs),
-\ names a check made beyond its input collapsed into one key that a later
-\ import can never match. Nothing reads the list back into a check: the
+\ names a check made beyond its input (a nested block's auxiliary types)
+\ made the same names of the environment's own tier of names (plan step
+\ SN5), which a snapshot writes, so that an import replays them too.
+\ Nothing reads the list back into a check: the
 \ verdicts do not change, except that a check whose list the heap cannot
 \ hold is published full. A test build (lf-env-i2-checks defined before
 \ loading) counts every slot a check reads through lf-env-readable, or
@@ -79,9 +81,11 @@
 \ 6.2.0): both grow with the heap, and one the heap cannot grow is full.
 \ State: the shared record lf-envs (the identity serial and the current
 \ environment; changed only while no job runs), each environment's
-\ ALLOCATEd record and its pool's blocks (shared, outside every context:
-\ written only by the publisher, which keeps its pool mark in the
-\ header, read by every check), two context records, one per context
+\ ALLOCATEd record, its pool's blocks and its tier of names beyond the
+\ input (shared, outside every context: written only by the publisher,
+\ which keeps its pool mark in the header; the pools read by every
+\ check, the tier only by the publisher and a snapshot's writer), two
+\ context records, one per context
 \ (ADR 0009): the candidate lf-env-cand and the worker record
 \ lf-env-worker, and the candidate's lists of dependencies and lookups and
 \ its block's shapes, the context slabs lf-cand-deps, lf-cand-looks and
@@ -135,6 +139,7 @@ begin-structure /lf-env
   /store-mark +field lf-envh-pub-mark   \ the publisher's pool mark while it publishes
   field: lf-envh-looks      \ the lookup pool's current block ("Lookups")
   /store-mark +field lf-envh-look-mark  \ and the publisher's mark of it
+  field: lf-envh-outer      \ its own tier of names beyond the input, or 0
 end-structure
 
 \ A slot (E2). Only the state and outcome mean anything for a declaration
@@ -313,18 +318,20 @@ u32-mask constant lf-look-outside   \ the key of names beyond the input (publish
   lf-look-key >r 2dup lf-look-answer r> lf-env-noted ;
 \ The publisher's seal (env-publish.fs): recording ends, and the keys of
 \ names a check made beyond its input tier (core/names.fs; their numbers
-\ mean nothing outside its context), the last of the list, become the one
-\ key lf-look-outside. Without a view every name is the input's.
+\ mean nothing outside its context), the last of the list, name the same
+\ names in the environment's own tier of names (lf-env-outer, made over
+\ the input tier at the first need), so that a published key names a name
+\ every later reader can read (plan step SN5; the snapshot's writer,
+\ env-snapshot.fs, adds them to the names it writes, where an import
+\ replays them as any other). They stay in the order the check made them
+\ (its scratch numbers), not sorted again. A name the heap cannot hold
+\ loses the entry: published full, never with an incomplete list.
+\ Without a view every name is the input's. lf-look-outside, the one key
+\ such names became before (verdict version 1), stays one no import can
+\ replay.
+\ (The seal's words follow the environment's layout, below.)
 : lf-look-input# ( -- n ) lf-name-view lf-nview-input @ tier-names cons-numbers ;
-: lf-look-outside! ( k -- )
-  dup lf-env-cand lf-cand-looked ! 0 lf-look-outside rot lf-look-at 2!
-  1 lf-env-cand lf-cand-looked +! ;
-: lf-look-collapse ( -- )
-  lf-name-viewed? 0= if exit then
-  lf-look-input# lf-look-kinds * lf-look-place nip
-  dup lf-cand-looked@ < if lf-look-outside! else drop then ;
-: lf-env-seal ( -- ) lf-look-on? if lf-look-collapse then true lf-env-cand lf-cand-sealed
-  ! ;
+: lf-look-unkept ( -- ) true lf-env-cand lf-cand-lost ! ;
 \ The snapshot's loader (env-snapshot.fs) gives a candidate a saved
 \ lookup with lf-env-look!.
 : lf-env-look! ( answer key -- ) lf-look-add ;
@@ -361,6 +368,33 @@ end-structure
 : lf-env-slot ( d env -- slot ) /lf-env + swap /lf-slot * + ;
 : lf-env-bytes ( slots -- u ) /lf-slot * /lf-env + ;
 : lf-env-in? ( d env -- flag ) lf-env-length 0 swap within ;
+
+\ The seal ("Lookups" above): the environment's own tier of names beyond
+\ the input, made by the publisher at the first need, freed with it.
+: lf-env-outer ( -- tier|0 ) lf-env lf-envh-outer @ ;
+: lf-outer-made ( tier -- tier|0 )
+  lf-name-view lf-nview-input @ over tier-extend ok? if exit then
+  dup tier-free free drop 0 ;
+: lf-outer ( -- tier|0 )
+  lf-env-outer ?dup if exit then lf-env-may-write
+  /tier allocate if drop 0 exit then lf-outer-made dup lf-env lf-envh-outer ! ;
+: lf-outer-free ( env -- ) lf-envh-outer @ ?dup if dup tier-free free drop then ;
+\ Entry k's key, a name of this context beyond the input, made the same
+\ name of the environment's tier.
+: lf-look-outer-key ( key tier -- key' outcome )
+  >r lf-look-kinds /mod lf-name-tier r> name-copy ok-then? 0= if nip no-result exit then
+  lf-look-kinds * + outcome-ok ;
+: lf-look-outer ( k tier -- ) swap lf-look-at tuck @ swap lf-look-outer-key
+  ok? if swap ! else 2drop lf-look-unkept then ;
+: lf-look-outers ( k -- )
+  lf-outer ?dup 0= if drop lf-look-unkept exit then
+  lf-cand-looked@ rot ?do i over lf-look-outer loop drop ;
+: lf-look-translate ( -- )
+  lf-name-viewed? 0= if exit then
+  lf-look-input# lf-look-kinds * lf-look-place nip
+  dup lf-cand-looked@ < if lf-look-outers else drop then ;
+: lf-env-seal ( -- ) lf-look-on? if lf-look-translate then true lf-env-cand lf-cand-sealed
+  ! ;
 
 \ The pool (E2; plan task 6.2.0): a heap block holding a link cell, then
 \ a store of one-cell records, room of them. Only the publisher writes
@@ -466,7 +500,7 @@ end-structure
 : lf-env-free ( env -- outcome )
   dup lf-env-choosable? 0= if drop outcome-invalid exit then
   lf-env-forget dup lf-envh-pool @ lf-pool-release dup lf-envh-looks @ lf-pool-release
-  free 0= flag>outcome ;
+  dup lf-outer-free free 0= flag>outcome ;
 \ Make a live environment current: ok, or invalid with nothing changed
 \ when it is not live or inside a job.
 : lf-env-use ( env -- outcome )

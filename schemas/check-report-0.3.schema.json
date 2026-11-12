@@ -1278,7 +1278,7 @@
       }
     },
     "snapshot": {
-      "description": "The snapshot read (ADR 0020 D3): its file, its identity (the SHA-256 of its header, which holds every section's SHA-256), its format and verdict versions, the export it was written from, the manifest's SHA-256 (null when no manifest was checked), its base (null: a base snapshot) and the information text of the build that wrote it (a JSON text, shown, never compared).",
+      "description": "The snapshot read (ADR 0020 D3): its file, its identity (the SHA-256 of its header, which holds every section's SHA-256), its format and verdict versions, the export it was written from, the manifest's SHA-256 (null when no manifest was checked), its base (null: a base snapshot), the layers loaded on it and the information text of the build that wrote it (a JSON text, shown, never compared).",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -1289,6 +1289,7 @@
         "export",
         "manifestSha256",
         "base",
+        "layers",
         "information",
         "import"
       ],
@@ -1353,11 +1354,43 @@
         "base": {
           "type": "null"
         },
+        "layers": {
+          "description": "Each layer loaded on this base snapshot, in order (ADR 0020 amendment 1, F5): its file, identity (its header's SHA-256), the export it was written from and its base's identity (this snapshot's sha256). Empty for a base alone.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "file",
+              "sha256",
+              "exportSha256",
+              "base"
+            ],
+            "properties": {
+              "file": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "exportSha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "base": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        },
         "information": {
           "type": "string"
         },
         "import": {
-          "description": "With an export checked against the snapshot (plan task 6.2.5, step SN4; ADR 0020 D5): how many of the export's declarations were taken from the snapshot (the import rule I1) and checked in this run, and how many share a name with a declaration of the snapshot but the content of none; null when no export was read.",
+          "description": "With an export checked against the snapshot (plan task 6.2.5, step SN4; ADR 0020 D5): how many of the export's declarations were taken from the snapshot (the import rule I1) and checked in this run, and how many share a name with a declaration of the snapshot but the content of none; null when no export was read or the snapshot was refused. checked counts the declarations whose verdict this run gave (fewer than those not taken when the run stopped).",
           "anyOf": [
             {
               "type": "null"

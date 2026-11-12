@@ -24,8 +24,12 @@
 \ Changelog (newest last; each bump with its reason):
 \   1  2026-11-11  the first snapshot format (step SN3): the rules of
 \                  main at 233916d, with lookups recorded.
+\   2  2026-11-11  plan step SN5: the lookups of names a check made beyond
+\                  its input (a nested block's auxiliary types) are kept as
+\                  those names (written after the tier's names), no longer
+\                  as the one key 2^32 - 1; no outcome or fuel changes.
 \
 \ [kernel] code: experimental, not through the review gate.
 \ State: none.
 
-1 constant lf-verdict-version
+2 constant lf-verdict-version

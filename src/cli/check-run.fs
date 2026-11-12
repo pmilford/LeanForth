@@ -195,6 +195,7 @@ begin-structure /ck
   field: ck-importing            \ true: an export checked against it (ck-snapshot-import)
   field: ck-snap-bad             \ true: the snapshot was refused
   field: ck-layers               \ layers loaded on the base
+  field: ck-lay-ids              \ per layer loaded, its identity (ck-layer-id), or 0
 end-structure
 create ck-state /ck allot  ck-state /ck erase
 create ck-snap /snap allot  ck-snap snap-init   \ the snapshot loaded (a base)
@@ -647,10 +648,10 @@ create ck-line ck-line-room 2 + allot
   lf-sched-free ck-env-free ck-unfeed ck-feeding-record dup feed-free /feed erase
   ck-worker-feed dup feed-free /feed erase ck-stage stage-free
   ck-state ck-steps slab-free ck-snap snap-close ck-snap snap-free ck-out snap-free
-  ck-import imp-free ;
+  ck-import imp-free ck-state ck-lay-ids heap-release ;
 : ck-start ( fuel -- )
   ck-release ck-state /ck erase ck-state ck-budget ! -1 ck-state ck-failed !
-  outcome-invalid dup ck-outcome! ck-state ck-loaded !
+  outcome-invalid dup ck-outcome! dup ck-state ck-loaded ! ck-state ck-snap-saved !
   ['] lf-check-declaration ck-check-word! ck-clock-start ;
 
 \ ---- Snapshots (ADR 0020; plan task 6.2.5, step SN3; kernel/env-snapshot.fs).
@@ -779,11 +780,21 @@ create ck-lay /lay allot  ck-lay /lay erase   \ the layer being loaded
   ck-lay lay-snap snap-why @ ?dup if ck-lay lay-snap snap-at @ exit then
   ck-lay lay-ly ly-why @ ?dup if ck-lay lay-ly ly-where @ exit then c" layer" -1 ;
 : ck-lay-refused ( outcome -- outcome ) ck-lay-why ck-snap snap-note ;
+\ Each layer loaded, for the reports (review rvSN4 M1): its header's
+\ SHA-256, then its export's, 64 bytes (its base is ck-snap's).
+: ck-layer-id ( k -- addr ) 64 * ck-state ck-lay-ids @ + ;
+: ck-lay-kept ( k -- )
+  ck-layer-id ck-lay lay-snap snap-sum over 32 move
+  ck-lay lay-snap snap-export-sha swap 32 + 32 move ;
 : ck-layer ( sn names k -- sn names outcome )
   >r ck-stage ck-snap 2over ck-firsts ck-lay lay-init
-  r> ck-layer@ ck-snap snap-fuel ck-lay lay-load
-  dup ok? 0= if ck-lay-refused then ck-lay lay-free ;
+  r@ ck-layer@ ck-snap snap-fuel ck-lay lay-load
+  dup ok? if r@ ck-lay-kept else ck-lay-refused then r> drop ck-lay lay-free ;
+: ck-lay-ids-made ( -- outcome )
+  ck-layer-names 2@ nip 64 * 1 max allocate if drop outcome-full exit then
+  ck-state ck-lay-ids ! outcome-ok ;
 : ck-layers-load ( -- outcome )
+  ck-lay-ids-made dup ok? 0= if exit then drop
   ck-snap snap-n @ ck-stage stage-tier tier-names cons-numbers
   ck-layer-names 2@ nip 0 ?do
     i ck-layer dup ok? 0= if nip nip unloop exit then drop 1 ck-state ck-layers +!
@@ -840,6 +851,11 @@ create ck-lay /lay allot  ck-lay /lay erase   \ the layer being loaded
   ['] ck-snap-kept ck-snap-opened ck-snap-fails
   dup ok? 0= if ck-staging ck-phase-end ck-staging ck-fail dup ck-state ck-loaded ! then ;
 : ck-taken# ( -- n ) ck-import imp-taken# ;
+\ Declarations checked in this run: final, not taken from the snapshot
+\ (a stopped run checked fewer than it did not take; review rvSN4 m3).
+: ck-checked# ( -- n )
+  ck-verdicts? 0= if 0 exit then
+  0 lf-input-count 0 ?do i ck-final? i ck-taken? 0= and 1 and + loop ;
 : ck-other# ( -- n ) ck-import imp-other# ;
 
 base !   \ the BASE this file was loaded with

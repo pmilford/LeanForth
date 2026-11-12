@@ -8611,10 +8611,58 @@ reason = "SN4: a layer written on another base loads on this one (its records nu
 [[fault]]
 id = "sn4-layer-clash-entered"
 file = "src/kernel/env-layers.fs"
-old = '''  if drop c" a name of two snapshots with other content" swap lay-refuse exit then'''
-new = '''  if drop lay-enter exit then'''
+old = '''  dup lay-clash? if c" a name of two snapshots with other content" swap lay-refuse exit then'''
+new = ''''''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
 reason = "SN4: a name two snapshots declare with other content is loaded twice, which Lean refuses as an import clash"
+
+[[fault]]
+id = "sn5-layer-clash-first-only"
+file = "src/kernel/env-layers.fs"
+old = '''  false over lay-ud @ 0 ?do over lay-ui @ i + 2 pick lay-loaded? or loop nip ;'''
+new = '''  false over lay-ud @ 2 min 0 ?do over lay-ui @ i + 2 pick lay-loaded? or loop nip ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
+reason = "rvSN4 M2: only a block's first member's name is compared with the names loaded before, so a constructor that reuses a base name loads"
+
+[[fault]]
+id = "sn5-layer-record-twice"
+file = "src/import/snapshot-layer.fs"
+old = '''  dup r@ ly-top @ > if r> ly-top ! true else drop r> drop false then ;'''
+new = '''  r> ly-top ! true ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
+reason = "rvSN4 m1: a layer that holds one of its own records twice loads (the copy's users then read another record)"
+
+[[fault]]
+id = "sn5-written-unsaved"
+file = "src/cli/check-run.fs"
+old = '''  outcome-invalid dup ck-outcome! dup ck-state ck-loaded ! ck-state ck-snap-saved !'''
+new = '''  outcome-invalid dup ck-outcome! ck-state ck-loaded !'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
+reason = "rvSN4 m2: a run that read nothing says its snapshot was written"
+
+[[fault]]
+id = "sn5-outer-collapsed"
+file = "src/kernel/environment.fs"
+old = '''  dup lf-cand-looked@ < if lf-look-outers else drop then ;'''
+new = '''  dup lf-cand-looked@ < if drop lf-look-unkept else drop then ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
+reason = "SN5: a check that made names beyond its input (a nested block) is published full instead of with those names, so it is never taken"
+
+[[fault]]
+id = "sn5-outer-unordered"
+file = "src/kernel/env-snapshot.fs"
+old = '''  snap-outers outers-list @ swap outers-of 2dup o-sort'''
+new = '''  snap-outers outers-list @ swap outers-of'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots"
+reason = "SN5: the names beyond the input written in the order the publisher met them, so --jobs 4 writes other bytes than --jobs 1"
+
+[[fault]]
+id = "sn5-outer-unsorted"
+file = "src/kernel/env-snapshot.fs"
+old = '''  loop 2drop r> r> r> if look-sort else 2drop then ;'''
+new = '''  loop 2drop r> r> r> drop 2drop ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
+reason = "SN5: a list with names beyond the input written unsorted after their keys are made the written names', which the loader refuses"
 
 [[fault]]
 id = "sn4-layer-verdicts-uncompared"

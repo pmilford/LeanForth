@@ -1755,6 +1755,11 @@ class Snapshots(unittest.TestCase):
                 continue
             again, loaded, _ = report("--snapshot", str(path))
             self.assertEqual(self.schema.errors(loaded), [], args)
+            # The names a check made beyond its input (nested blocks) are
+            # written with the tier's names (plan step SN5): the loaded
+            # tier holds them too.
+            names = loaded["input"].pop("names"), fresh["input"].pop("names")
+            self.assertGreaterEqual(*names, args)
             self.assertEqual((again, self.plain(loaded)), (status, self.plain(fresh)), args)
             self.assertEqual({d["provenance"] for d in loaded["declarations"]}, {"snapshot"})
             self.assertEqual(loaded["mode"], "development")
@@ -1770,7 +1775,7 @@ class Snapshots(unittest.TestCase):
                                    "audited; from snapshot, not re-checked in this run); "
                                    "axioms: none")
         self.assertRegex(lines[-3], r"^snapshot: .*s\.lfsnap \(sha256 [0-9a-f]{64}\), export "
-                                    r"sha256 [0-9a-f]{64}, verdict version 1, written by "
+                                    r"sha256 [0-9a-f]{64}, verdict version 2, written by "
                                     r"LeanForth \S+: 3 results taken from it, not re-checked "
                                     r"in this run$")
         self.assertEqual(lines[-2:], [
@@ -1804,7 +1809,7 @@ class Snapshots(unittest.TestCase):
         for field, value, status, why in [
                 (0, 0, 4, "invalid: the snapshot was refused: not a LeanForth snapshot"),
                 (1, 2, 2, "unsupported: the snapshot was refused: format version"),
-                (2, 2, 2, "unsupported: the snapshot was refused: verdict version"),
+                (2, 1, 2, "unsupported: the snapshot was refused: verdict version"),
                 (5, 2, 4, "invalid: the snapshot was refused: axiom allowlist"),
                 (6, 1, 4, "invalid: the snapshot was refused: axiom allowlist"),
                 (8, 1, 2, "unsupported: the snapshot was refused: layer")]:
@@ -1812,7 +1817,7 @@ class Snapshots(unittest.TestCase):
             put32(changed, 24 + 4 * field, value)
             self.refused(write(resealed(changed, table)), status, why)
         changed = bytearray(data)
-        put32(changed, 24 + 4 * 2, 2)
+        put32(changed, 24 + 4 * 2, 1)
         status, got, _ = report("--snapshot", str(write(resealed(changed, table))))
         self.assertEqual((status, self.schema.errors(got), got["read"]["phase"],
                           got["read"]["reason"], got["run"]),
@@ -1959,10 +1964,12 @@ def swapped_minors(lines, name):
 
 def kept_back(snapshot):
     """Per slot of a snapshot checked against its own export: whether the
-    import rule I1 keeps it back -- an outcome invalid, exhausted or full; a lookup of
-    a name beyond the input (key 2^32 - 1) or of another module's test (kind
-    7), which no import replays; a lookup answered or a dependency met by a
-    slot kept back; a slot published with the one before, as that one."""
+    import rule I1 keeps it back -- an outcome invalid, exhausted or full; a lookup
+    no import replays (the key 2^32 - 1 of verdict version 1, or another module's
+    test, kind 7; since plan step SN5 a name a check made beyond its input is
+    written as a name of the tier, and replayed); a lookup answered or a
+    dependency met by a slot kept back; a slot published with the one before,
+    as that one."""
     data, table = sectioned(snapshot)
     _, _, n, slots, _ = table[SLOTS]
     looks, deps = table[LOOKS][3], table[DEPS][3]
@@ -2031,9 +2038,11 @@ class Imports(unittest.TestCase):
         return got
 
     def test_i_own_export(self):
-        """(i) the snapshot's own export: everything taken, as fresh, but
-        what a check made names beyond its input for (nested blocks) and
-        what reaches it; (v) two equal declarations of one name told apart."""
+        """(i) the snapshot's own export: everything taken, as fresh, nested
+        blocks included (plan step SN5: the names their checks made beyond
+        the input are replayed), but what I1 keeps back (an exhausted, full
+        or invalid verdict) and what reaches it; (v) two equal declarations
+        of one name told apart."""
         for k, args in enumerate([[COMPOSITION], [FIXTURE], [CHAIN], [INDUCTIVE], [DEPENDENT],
                                   ["tests/cli/unfold.ndjson"], ["tests/cli/nested.ndjson"],
                                   ["--no-manifest", f"{CASES}/composition-twice.ndjson"],
@@ -2045,8 +2054,7 @@ class Imports(unittest.TestCase):
             status, fresh, _ = report(*args)
             back = kept_back(snap)
             names = [d["name"] for i, d in enumerate(fresh["declarations"]) if not back[i]]
-            self.assertEqual(sum(back), {"nested": 35, "kinds": 5}.get(
-                Path(args[-1]).stem, 0), args)
+            self.assertEqual(sum(back), 0, args)
             self.both_ways(snap, args, names)
 
     def test_dependent(self):
@@ -2260,6 +2268,65 @@ class Layers(unittest.TestCase):
                              "--snapshot", str(two))
         self.assertEqual((status, out.splitlines()[0]), (4, "error: invalid: the snapshot was "
                          "refused: a declaration of two snapshots with other verdicts (record 0)"))
+
+    def test_reported(self):
+        """Every layer loaded is named in the text and the JSON report, with
+        its identity, its export's and its base's (review rvSN4 M1)."""
+        one, _ = self.layer("dependent.lfsnap", DEPENDENT)
+        options = ["--snapshot", str(self.base), "--snapshot", str(one)]
+        status, out, _ = run("check", *options)
+        sha = hashlib.sha256(sectioned(one)[0][:4064]).hexdigest()
+        self.assertEqual(status, 0)
+        self.assertIn(f"layer: {one} (sha256 {sha}), export sha256 "
+                      f"{hashlib.sha256(Path(DEPENDENT).read_bytes()).hexdigest()}, "
+                      "on the snapshot above", out.splitlines())
+        status, got, _ = report(*options)
+        self.assertEqual(Imports.schema.errors(got), [])
+        self.assertEqual([(x["file"], x["sha256"], x["base"]) for x in got["snapshot"]["layers"]],
+                         [(str(one), sha, got["snapshot"]["sha256"])])
+        self.assertEqual(report("--snapshot", str(self.base))[1]["snapshot"]["layers"], [])
+
+    def test_member_clash(self):
+        """A layer whose block declares, as a constructor, a name of the
+        base with other content: refused, whichever member holds the name
+        (review rvSN4 M2), when loaded and as an import's base."""
+        base = self.dir / "fixture.lfsnap"
+        run("check", "--save-snapshot", str(base), FIXTURE)
+        lines = records(INDUCTIVE)
+        renamed = next(r for r in lines if r.get("str", {}).get("str") == "first")
+        renamed["str"] = {"pre": 0, "str": "fixtureId"}
+        args = Imports.edited(self, lines, "renamed.ndjson")
+        path = self.dir / "clash.lfsnap"
+        run("check", "--snapshot", str(base), "--save-snapshot", str(path), *args)
+        why = ("error: invalid: the snapshot was refused: a name of two snapshots with other "
+               "content (record 0)")
+        for more in [[], args]:
+            status, out, _ = run("check", "--snapshot", str(base), "--snapshot", str(path), *more)
+            self.assertEqual((status, out.splitlines()[0]), (4, why), more)
+
+    def test_record_twice(self):
+        """A layer holding one expression twice (its second made a copy of
+        its first): refused, never loaded as another tier (review rvSN4
+        m1)."""
+        one, _ = self.layer("dependent.lfsnap", DEPENDENT)
+        data, table = sectioned(one)
+        exprs = table[7][3]
+        data[exprs + 16:exprs + 32] = data[exprs:exprs + 16]
+        one.write_bytes(bytes(resealed(data, table, 7)))
+        status, out, _ = run("check", "--snapshot", str(self.base), "--snapshot", str(one))
+        self.assertEqual((status, out.splitlines()[0]),
+                         (4, "error: invalid: the snapshot was refused: expressions (record 1)"))
+
+    def test_not_written(self):
+        """No "written to" line when the run read nothing and so wrote
+        nothing (review rvSN4 m2)."""
+        target = self.dir / "never.lfsnap"
+        status, out, _ = run("check", "--save-snapshot", str(target), "--no-manifest",
+                             "README.md")
+        self.assertEqual(status, 4)
+        self.assertNotIn("snapshot: written to", out)
+        self.assertIn("error: the snapshot was not written: invalid", out.splitlines())
+        self.assertFalse(target.exists())
 
 
 if __name__ == "__main__":

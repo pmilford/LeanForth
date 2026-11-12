@@ -593,7 +593,10 @@ create cli-fed-ops
 \ The report: counted first, then printed, as text or as JSON
 \ (cli/check-json.fs); a JSON text the writer refuses is an internal
 \ fault, after the part already written.
-: cli-save-failed? ( -- flag ) cli-save? ck-snap-saved@ ok? 0= and ;
+\ A save that failed after a run that read its input; a run that read
+\ nothing keeps the read's status (and says the snapshot was not written:
+\ the record's save outcome is invalid until a save, review rvSN4 m2).
+: cli-save-failed? ( -- flag ) cli-save? ck-snap-saved@ ok? 0= and ck-loaded? and ;
 : cli-fed-tally ( -- )
   ck-loaded? if cli-tally-run else ck-read-outcome outcome>code cli-code! then
   cli-save-failed? if ck-snap-saved@ outcome>code cli-code! then ;
@@ -633,16 +636,23 @@ create cli-hex 64 allot
 \ snapshot but the content of none.
 : cli-import. ( -- )
   ck-importing? 0= if exit then
-  ." import: " lf-input-count cli-from-snapshot# - .decimal ."  checked in this run; "
+  ." import: " ck-checked# .decimal ."  checked in this run; "
   ck-other# .decimal ."  with the name of a declaration of the snapshot, not its content"
   cr ;
+\ Each layer loaded on it (review rvSN4 M1): its file, identity, export.
+: cli-layer. ( k -- )
+  ." layer: " dup ck-layer@ nt-text if type else cli-unshown then
+  ."  (sha256 " ck-layer-id dup cli-sha. ." ), export sha256 " 32 + cli-sha.
+  ." , on the snapshot above" cr ;
+: cli-layers. ( -- ) ck-layers# 0 ?do i cli-layer. loop ;
 : cli-snapshot. ( -- )
   ." snapshot: " cli-state opt-snapshot 2@ nt-text if type else cli-unshown then
   ."  (sha256 " ck-snap snap-sum cli-sha. ." ), export sha256 " ck-snap snap-export-sha
   cli-sha.
   ." , verdict version " lf-verdict-version .decimal ." , written by LeanForth "
   cli-written-by type ." : " cli-from-snapshot# .decimal
-  ."  results taken from it, not re-checked in this run" cr cli-import.
+  ."  results taken from it" ck-layers# if ."  and its layers" then
+  ." , not re-checked in this run" cr cli-layers. cli-import.
   ." note: development and research mode: a final run re-checks everything from the" cr
   ." note: export and reads no snapshot; only its results support a claim" cr ;
 : cli-fed-text ( -- )
