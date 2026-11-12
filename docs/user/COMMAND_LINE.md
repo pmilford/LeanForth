@@ -697,11 +697,11 @@ accepted: 6 (experimental, not independently audited); axioms: none
 resources:
   time (s)     wall      cpu
   input: 6 declarations, 92 term nodes, 3 levels, 5 constant references, 31 names
-  fuel: 508 steps in all, at most 100000000 per declaration
+  fuel: 514 steps in all, at most 100000000 per declaration
   most fuel used:
           244 Two.cases (accepted)
           157 Two (accepted)
-          107 Two.swap (accepted)
+          113 Two.swap (accepted)
 ```
 
 **Fuel**, a check's unit of work, is read from the checker's own counters
@@ -888,16 +888,16 @@ taken one. On the test exports the verdicts and counts are those of a
 final check of the export (the tests compare both, field by field, and so
 did all of `Init` against its own snapshot); only the labels differ.
 
-**Not claimed (review rvSN4 B1, a kernel task in progress):** the fuel a
-check uses can still depend on what else the run's tier holds. One cause
-is removed (ADR 0014 Amendment 7: binders equal up to their names are
-one node; `tests/cli/cross_snapshot.py` checks nine fixtures, each fresh
-and against the others' snapshots, every verdict and fuel equal), but on
-Mathlib's first million lines against `Init`'s snapshot 1,292 of 13,023
-declarations still used other fuel than in a final check (2,151 before),
-with the same verdicts. So a taken declaration reports the fuel of the
-run that wrote the snapshot, an exhausted verdict is never taken, and a
-verdict near the fuel budget is not claimed equal to a final check's:
+**Fuel too** (since 2026-11-11, review rvSN4 B1, ADR 0014 Amendment 7):
+the fuel a check uses depends only on its declaration and what it reads,
+not on what else the run's tier holds (before, it could, through binders
+equal up to their names and through terms a check made that matched
+other declarations' records), so a taken declaration's fuel, the
+snapshot run's, is a final check's, and so is a verdict near the fuel
+budget (`tests/cli/cross_snapshot.py` checks nine fixtures, each fresh
+and against the others' snapshots; on Mathlib's first million lines
+against `Init`'s snapshot all 13,023 declarations used the final check's
+fuel). An exhausted verdict is still never taken:
 
 ```text
 Two: accepted (experimental, not independently audited; from snapshot, not re-checked in this run); axioms: none

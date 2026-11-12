@@ -20,8 +20,8 @@
 \    member only when the whole block is equal (its block record and every
 \    member) and k and d hold the same place in it;
 \ 2. a reproducible verdict: d's outcome is neither full nor invalid, nor
-\    exhausted (fuel used still depends on what else the tier holds;
-\    below);
+\    exhausted (kept from when fuel used depended on what else the tier
+\    held; below);
 \ 3. the same answers: every lookup S recorded for d, asked again in k's
 \    snapshot by the environment's own code (environment.fs
 \    lf-env-replay), gives the recorded answer, every slot it returns
@@ -48,22 +48,16 @@
 \ answers with the slots they return; by induction over the input's order
 \ every slot those answers return was taken from the one S's check saw.
 \ It vouches for nothing more than ADR 0020 D4 says a snapshot does. A
-\ taken slot's diagnostic is S's (information only, never compared). I2
-\ does not yet hold for fuel used (review rvSN4 B1). Agent PF's first fix
-\ (ADR 0014 Amendment 7) removed one cause: the importer makes each ==
-\ class of input binders, and every node above one, a single node
-\ (import/feed.fs), so a check no longer meets the tier's first record of
-\ a class, another declaration's or S's (tests/cli/cross_snapshot.py:
-\ nine fixtures pairwise, fresh and against each other's snapshot, every
-\ verdict and fuel the same; the review's p7 equal both ways). A second
-\ cause remains: the same declaration checked fresh in two exports can
-\ use other fuel (Membership.mem 400 in Init, 396 in Mathlib's first 1M
-\ lines), and against Init's snapshot 1,292 of that prefix's 13,023
-\ declarations (2,151 before the fix), all checked here on taken slots or
-\ taken themselves, used other fuel than fresh, with the same verdicts.
-\ So a taken slot reports S's run's fuel, an exhausted one is never taken
-\ (I1.2), and a verdict near the fuel budget is not claimed equal to a
-\ fresh check's.
+\ taken slot's diagnostic is S's (information only, never compared). Fuel
+\ is one of those fields since agent PF's rules (ADR 0014 Amendment 7;
+\ review rvSN4 B1, which found it depended on the other records of the
+\ tier): each == class of input binders is one node (import/feed.fs), and
+\ in a check a node or level made before the check is given for an equal
+\ one only once the check reached it (check-declaration.fs). So a taken
+\ slot's fuel, S's run's, is a fresh check's (tests/cli/cross_snapshot.py:
+\ nine fixtures pairwise; Mathlib's first 1M lines against Init's
+\ snapshot: all 13,023 declarations with the fresh check's fuel). An
+\ exhausted slot is still never taken (I1.2), a rule kept.
 \
 \ The import path never checks that S's lookup lists are ascending and
 \ distinct (only the loader of a snapshot alone does, snap-same? after

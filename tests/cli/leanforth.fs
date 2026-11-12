@@ -223,7 +223,9 @@ cli-options
 \ A second run in the same process gives the same verdicts and fuel.
 : run-facts ( c-addr u -- code ok# fuel )
   cli-check outcome-ok tally ck-fuel-total drop ;
-\ (508 since an argument put into a Pi body without loose bound variables
+\ (514 since a check is given only the earlier nodes and levels it has
+\ reached, ADR 0014 Amendment 7; 508 since an argument put into a Pi
+\ body without loose bound variables
 \ is not closed first, agent PF; 518 since universe substitution skips
 \ terms without a universe parameter, 546 since == is Lean's at every pair, plan step S4; 581 since levels
 \ and references are hash-consed and equal constants and Sorts are one
@@ -238,7 +240,7 @@ cli-options
 \ caches and cached node data, plan task 4.2.7; 1184
 \ since the block check uses Lean's whnf, plan task 5.2.1b; 1187 since
 \ conversion is Lean's is_def_eq, plan task 4.2.2b; 1520 before.)
-T{ inductive run-facts inductive run-facts -> 0 6 508 0 6 508 }T
+T{ inductive run-facts inductive run-facts -> 0 6 514 0 6 514 }T
 cli-no-manifest
 kinds run-facts constant kinds-fuel drop drop
 T{ kinds run-facts -> 2 94 kinds-fuel }T

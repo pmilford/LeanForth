@@ -313,9 +313,9 @@ among them); the snapshot S is Mathlib's. `leanforth check --snapshot S E′`:
    with one of S but differ in content (many of them mean S is of another
    library version).
 
-**Why the verdicts are exactly a fresh check's** (not yet so for fuel,
-and so for a verdict near the fuel budget: review rvSN4 B1 found fuel
-depends on the tier's numbering; amendments 3 and 4). The invariant **I2**
+**Why the verdicts are exactly a fresh check's** (fuel too since
+amendment 4: review rvSN4 B1 found fuel depended on the tier's numbering,
+which agent PF's rules removed). The invariant **I2**
 ([kernel] review): *a check's outcome, fuel and recorded fields depend
 only on its declaration's content, the run's verdict settings and verdict
 version, and the answers of its lookups, with the records and fields of
@@ -754,32 +754,35 @@ verdict near the fuel budget, depends on the tier's numbering through
 the binder table and the cache keys) is agent PF's kernel task; until it
 merges, a result taken from a snapshot is not claimed equal to a final
 check's in fuel or in a verdict near the fuel budget (env-import.fs,
-COMMAND_LINE.md). Amendment 4 is that task, in progress.
+COMMAND_LINE.md). Amendment 4 did that task.
 
-## Amendment 4 (2026-11-11, in progress): fuel independent of the tier's numbering (agent PF; review rvSN4 B1)
+## Amendment 4 (2026-11-11): fuel independent of the tier's numbering (agent PF; review rvSN4 B1)
 
-*[kernel] review owed (ADR 0014 Amendment 7).* B1: the binder table gave
-a binder a check makes the first record of its `==` class in the whole
-tier, which a snapshot's records (or another declaration's) could be, and
-the caches key by node, so cache hits and fuel depended on the other
-records of the tier; a verdict near the fuel budget could too (the
-review's p7). First fix (WIP): the importer makes each `==` class of
-input binders, and every node above one, a single node
-(`src/import/feed.fs`). Evidence: `tests/cli/cross_snapshot.py` in `make
-check` (nine fixtures, 72 pairs fresh and against another fixture's
-snapshot, every verdict and fuel equal); the review's p7 equal both ways;
-all of `Init` fresh: every verdict the same, 26 declarations with less
-fuel, none more; Mathlib's first 1M lines against `Init`'s snapshot
-(verdict version 4): every verdict the same, and every declaration
-checked without a taken dependency (344) uses the fresh check's fuel, but
-1,292 of 13,023 still differ (2,151 before): 1,284 checked here on taken
-slots and 8 taken slots, whose fuel is `Init`'s fresh run's and differs
-from the prefix's fresh run (`Membership.mem` 400 in `Init`, 396 in the
-prefix). So a second cause remains, without any snapshot: the same
-declaration checked fresh in two exports can use other fuel. **I2 does not
-yet hold for fuel**; until it does, the claims of amendments 2 and 3 stand
-as they are (a taken slot reports S's fuel, I1.2 refuses an *exhausted*
-slot, and a verdict near the fuel budget is not claimed equal).
+*[kernel] review owed (ADR 0014 Amendment 7).* B1: a check's fuel, and so
+a verdict near the fuel budget, depended on the other records of the
+tier: the binder table gave a binder a check makes the first record of
+its `==` class in the whole tier, and hash-consing gave a term or level a
+pass makes any equal node made before the check, which (unlike a store
+node) no rollback gives back, so the caches and memos keyed by node hit
+or missed according to what else the tier held. Agent PF's three rules
+(`src/import/feed.fs`, `src/core/terms.fs`, `src/core/levels.fs`,
+`src/kernel/check-declaration.fs`): each `==` class of input binders is
+one node; in a check, a node or level made before the check is given for
+an equal one only once the check has reached it (an audit or a scope
+check of this check kept it). So **I2 holds for fuel**: a check's fuel
+depends only on its declaration, the settings and the answers of its
+lookups, and a taken slot's fuel, the snapshot run's, is a fresh
+check's. Evidence: `tests/cli/cross_snapshot.py` in `make check` (nine
+fixtures, 72 pairs fresh and against another fixture's snapshot, every
+verdict and fuel equal); the review's p7 equal both ways; Mathlib's first
+1M lines against `Init`'s snapshot (verdict version 4): every one of the
+13,023 declarations has the fresh check's verdict and fuel (2,151
+differed at SN4), the counts, exit status and total fuel equal; the 5,231
+names in both exports use the same fuel fresh in each. I1.2 still
+refuses an *exhausted* slot (kept: harmless, and a later change may lift
+it). The verdict version is 4. The restriction of the feed to what the
+export reaches (amendment 3) is no longer blocked by B1: a check is
+given only nodes it reached.
 
 ## Questions for the owner
 

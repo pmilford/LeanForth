@@ -1431,11 +1431,11 @@ class Resources(unittest.TestCase):
         self.assertEqual(rest[6], "  engine: " + os.path.basename(GFORTH))
         self.assertEqual(rest[7:], [
             "  input: 6 declarations, 92 term nodes, 3 levels, 5 constant references, 31 names",
-            "  fuel: 508 steps in all, at most 100000000 per declaration",
+            "  fuel: 514 steps in all, at most 100000000 per declaration",
             "  most fuel used:",
             "          244 Two.cases (accepted)",
             "          157 Two (accepted)",
-            "          107 Two.swap (accepted)"])
+            "          113 Two.swap (accepted)"])
 
     def test_stable_but_for_time_and_memory(self):
         def steady(out):
@@ -1587,12 +1587,15 @@ def pinned_digest(*args):
 # verdict, diagnostic and count is unchanged. All but the --fuel 0 entry
 # are re-pinned once more for the default fuel of 100,000,000 (owner,
 # 2026-11-11): with settings.fuel and fuel.perDeclaration put back to
-# 20,000,000 each report gives the digest pinned before.
+# 20,000,000 each report gives the digest pinned before. Four are
+# re-pinned after ADR 0014 Amendment 7 (a check is given only the earlier
+# nodes and levels it reached): against main 0627845 every report is the
+# same but for fuel, 40 declarations with more and none with less.
 PINNED = {
     "tests/reference/composition.ndjson": "a3e7184036edb9dd",
     "tests/reference/constant-fixture.ndjson": "df2ee45dc87e20ca",
     "tests/cli/chain.ndjson": "b0c8e7d6066c71d6",
-    "tests/cli/inductive.ndjson": "f3c83844f72b2bab",
+    "tests/cli/inductive.ndjson": "b16f6652113685b2",
     "tests/cli/unfold.ndjson": "989fd258bb03e4b7",
     f"{CASES}/composition-wrong-argument.ndjson": "b29f27c0c9419c26",
     f"--no-manifest {CASES}/composition-wrong-argument.ndjson": "850723e5478fed48",
@@ -1602,16 +1605,16 @@ PINNED = {
     "--no-manifest README.md": "7dace333bd425361",
     "tests/cli/no-such.ndjson": "3eac0629560526ed",
     "--no-manifest tests/cli/composition-huge-number.ndjson": "ec7632bcbf284cef",
-    "--no-manifest tests/core/reexport/kinds.ndjson": "4a8e363ce8e30380",  # IO
+    "--no-manifest tests/core/reexport/kinds.ndjson": "294aa8ad53b2c3bd",  # IO
     f"--fuel 0 {FIXTURE}": "7ab8e9fa317ce0a5",
     f"--no-manifest {EMPTY_BLOCK}": "dbfea3992d7e6793",
     "tests/cli/sharing.ndjson": "e1e5a1f9695267e2",  # re-pinned (IO)
     "tests/cli/sharing-universe.ndjson": "d5a364d306cbd23c",  # re-pinned (IO)
-    "tests/cli/nested.ndjson": "7ce0c7829c881289",  # re-pinned twice, see above
+    "tests/cli/nested.ndjson": "0ea7176adfc28d47",  # re-pinned twice, see above
     "tests/cli/irrelevance.ndjson": "44da5689b4a2a87c",
     f"--no-manifest {CASES}/composition-literal.ndjson": "25123b1e2dfc63de",
     "--no-manifest tests/core/check-block-cases/primitive.string-opaque-expansion.ndjson":
-        "5973f03d5f926191",  # re-pinned (IO)
+        "95d7bdf159a9fc13",  # re-pinned (IO)
 }
 
 

@@ -35,12 +35,13 @@
 \                  command line's default fuel per declaration is
 \                  100,000,000 (owner, 2026-11-11), so a declaration
 \                  that ran out at 20,000,000 may now be decided.
-\   4  2026-11-11  agent PF (ADR 0014 Amendment 7; review rvSN4 B1): the
-\                  importer makes each == class of input binders one
-\                  node, so a check no longer meets another record of a
-\                  binder's class, and a declaration whose binders differ
-\                  only in names from earlier ones shares more (less fuel:
-\                  26 declarations of Init, none more).
+\   4  2026-11-11  agent PF (ADR 0014 Amendment 7; review rvSN4 B1): a
+\                  check's fuel no longer depends on the other records of
+\                  the tier: each == class of input binders is one node,
+\                  and in a check a node or level made before it is given
+\                  for an equal one only once the check reached it. Fuel
+\                  moves (Init: +0.34% in all, 48,397 declarations more,
+\                  5 less), no verdict.
 \
 \ [kernel] code: experimental, not through the review gate.
 \ State: none.

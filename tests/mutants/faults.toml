@@ -7942,7 +7942,7 @@ reason = "S5: with no setting the scratch room stays fixed (1,048,576 term nodes
 [[fault]]
 id = "s5-feed-binders-not-entered"
 file = "src/import/feed.fs"
-old = '''  dup binder-tag? if drop over lf-tin-child lf-term-input-binder-first feed-merge exit then'''
+old = '''  dup binder-tag? if drop feed-enter-binder exit then'''
 new = '''  dup binder-tag? if 2drop drop outcome-ok exit then'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "S5: binders read in place are not entered first, so a binder made equal to one is a second node (more fuel than copying)"

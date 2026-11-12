@@ -417,7 +417,7 @@ lf-form-mdata tag-mdata feed-form!
 \ table), so that every == class of input binders is one node and so is
 \ every node above them: a check no longer meets another declaration's
 \ or a snapshot's record of a binder's class (review rvSN4 B1; ADR 0014
-\ Amendment 7, which also names a second dependence still open). Only
+\ Amendment 7, rule 1; rules 2 and 3 are terms.fs's and levels.fs's). Only
 \ without a binder hook: the print command, which sets one, keeps each
 \ binder's own name.
 : feed-merging? ( feed -- flag ) feed-binder-hook @ 0= ;
@@ -425,8 +425,10 @@ lf-form-mdata tag-mdata feed-form!
 : feed-merge ( e feed first? outcome -- outcome )
   dup ok? 0= if >r drop 2drop r> exit then drop
   over swap feed-redirect? if feed-dirty! else 2drop then outcome-ok ;
+: feed-enter-binder ( e feed -- outcome )
+  over lf-tin-child lf-term-input-binder-first feed-merge ;
 : feed-enter ( e feed tag -- outcome )
-  dup binder-tag? if drop over lf-tin-child lf-term-input-binder-first feed-merge exit then
+  dup binder-tag? if drop feed-enter-binder exit then
   let-tag? if drop 2* lf-term-input-binder else 2drop outcome-ok then ;
 : feed-mark ( e feed -- outcome )
   2dup feed-tier expr-tag@ >r 2dup r@ feed-to-copy?
