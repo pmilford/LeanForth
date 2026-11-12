@@ -741,7 +741,8 @@ defer lf-minfer-proj ( leaf e frames -- ... frames next )
   >r swap 0 lf-minfer-open-binder ok-then? if r> lf-minfer-lam-body exit then
   nip no-result 3 r@ frame-drop r> 0 ;
 : lf-minfer-lam-keep ( domain frames -- )
-  >r lf-minfer-context-depth @ dup r@ frame-save lf-minfer-top r@ frame-save r> frame-save ;
+  >r lf-minfer-context-depth @ dup r@ frame-save lf-minfer-top r@ frame-save
+  r> frame-save ;
 : lf-minfer-lam ( domain body frames -- ... frames next )
   >r over r@ lf-minfer-lam-keep
   lf-minfer-deciding? if r> lf-minfer-lam-check else r> lf-minfer-lam-aside then ;

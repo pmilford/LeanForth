@@ -2427,7 +2427,13 @@ all caught; `rej-f1-off` and `infer-chain-never` re-targeted, caught;
 `infer-not-pi-aside-rejects` (an equivalent of the old rule) retired.
 Every pinned report of `test_leanforth.py`: the same but for
 `unfold.ndjson`'s `impliesSelf`, 65 → 68 fuel (step 4 types `A → A`);
-the golden snapshots: that slot's fuel only. All of `Init`: INIT-ADR.
+the golden snapshots: that slot's fuel only. All of `Init` (`check
+--no-manifest --json --jobs 2`, default fuel, against main `390197d`'s
+report): 59,349 accepted before and after, every field of every
+declaration the same but fuel; fuel 654,546,896 → 654,719,715 (+0.03%),
+5,873 declarations more (at most +13.8%, `Sum.liftRel_subrelation_lex`;
++334 units at most, the `*.instLinearOrderPackage` instances) and 3,647
+less (at most −3.3%); 650 s wall, 0.86 GB peak.
 
 ## Note: the projection steps (plan task 5.2.2, 2026-11-10)
 

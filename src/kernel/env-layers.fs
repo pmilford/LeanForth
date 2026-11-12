@@ -235,10 +235,11 @@ end-structure
 : lay-entry-j ( i lay -- key answer )
   dup lay-at-j @ over lay-from nip rot + swap lay-entry ;
 : lay-has? ( key answer lay -- flag ) dup lay-twin-list swap lay-twin-count look-in? ;
+: lay-own-in? ( i lay -- flag ) tuck lay-entry-j rot lay-has? ;
 : lay-looks-same? ( lay -- flag )
   dup lay-twin-count over lay-own-count <> if drop false exit then
-  dup lay-own-count 0 ?do i over lay-entry-j 2 pick lay-has? 0= if drop false unloop exit then
-  loop drop true ;
+  dup lay-own-count 0 ?do i over lay-own-in? 0= if drop false unloop exit then loop
+  drop true ;
 : lay-twin-same? ( s i lay -- flag )
   >r tuck + swap r@ lay-uj @ + swap r@ lay-pair! r> lay-looks-same? ;
 : unit-looks-same? ( s lay -- flag )

@@ -83,8 +83,10 @@
 \                  throw on an ill-typed Pi (was taken as a type: an export
 \                  Lean rejects was accepted). Fuel moves (the pinned
 \                  exports: unfold's impliesSelf 65 -> 68, every other
-\                  report the same; Init: INIT-NUMBERS); verdicts only on
-\                  ill-typed reducts (tests/cli/shared-depths.lean P5).
+\                  report the same; Init: +0.03% in all, 5,873
+\                  declarations more, 3,647 less, every other field the
+\                  same); verdicts only on ill-typed reducts
+\                  (tests/cli/shared-depths.lean P5).
 \
 \ [kernel] code: experimental, not through the review gate.
 \ State: none.
