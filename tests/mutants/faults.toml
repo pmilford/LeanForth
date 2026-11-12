@@ -8939,3 +8939,47 @@ old = '''  2 pick over lf-minfer-spine-needs >r 2dup + r@ - r> lf-minfer-close-c
 new = '''  2 pick over lf-minfer-spine-needs drop outcome-ok'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py AsCopied VerdictGuard"
 reason = "R5 (ADR 0014 Am. 8): a spine's arguments read under the scope put in without closing them"
+
+# --- Review rvKN (agent FXK, 2026-11-12): C1's (node, depth) pairs and the
+# occurrence walk inside the nested-occurrence walk
+# (src/core/constant-term-boundary.fs's pair set, src/kernel/inductive-block.fs)
+
+[[fault]]
+id = "fxk-pairs-one-depth"
+file = "src/core/constant-term-boundary.fs"
+old = '''  cell+ @ 2 pick = if 2drop drop true else lf-pairs-seen? then ;'''
+new = '''  cell+ @ 2 pick = if 2drop drop true else 2drop drop false then ;'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "rvKN 1: an exact-depth walk keeps only the first depth a node was reached at, so a depth met again is walked again"
+
+[[fault]]
+id = "fxk-c1-pairs-unowned"
+file = "src/kernel/inductive-block.fs"
+old = '''  lf-ind-pair-walker lf-walk-pairing'''
+new = '''  lf-ind-pair-walker lf-walk-marking'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvKN 1: C1 runs without the pair set, so each node met at alternating depths is walked again: uniform.shared-depths runs out of a million units"
+
+[[fault]]
+id = "fxk-pairs-other-run"
+file = "src/core/constant-term-boundary.fs"
+old = '''  lf-pairs-own? 0= if 2drop false exit then'''
+new = '''  drop'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "rvKN 1: the pair set is read by a run that does not own it, which skips a pair only another run reached"
+
+[[fault]]
+id = "fxk-pairs-wrap-kept"
+file = "src/core/constant-term-boundary.fs"
+old = '''  lf-term-marks column-erase lf-marks-release 0 lf-pair-state lf-pairs-run ! ;'''
+new = '''  lf-term-marks column-erase lf-marks-release ;'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "rvKN 1: a run counter that wraps leaves the pair set its run, so a later run of that number skips pairs it never reached"
+
+[[fault]]
+id = "fxk-inner-marks-units"
+file = "src/kernel/inductive-block.fs"
+old = '''  ['] lf-ind-inner-dispatch lf-walk-once-aside ;'''
+new = '''  ['] lf-ind-inner-dispatch lf-walk-once ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "rvKN 2: the occurrence walk inside the nested-occurrence walk marks the outer walk's units, which then visits those nodes again"

@@ -258,6 +258,18 @@ T{ s" uniform.let-uniform" verdict -> outcome-ok 0 all-steps }T
 \ this file's million units (review rvKN 1: marks keeping one depth per
 \ term ran out of fuel; pinned Lean accepts).
 T{ s" uniform.shared-depths" verdict -> outcome-ok 0 all-steps }T
+\ The occurrence walk run inside the nested-occurrence walk
+\ (lf-ind-mentions?) keeps its marks apart: a node the outer walk reached
+\ stays reached, so the outer walk does not visit it again (review rvKN 2:
+\ the inner run marked it as its own, true false).
+: outer-at ( node -- walk ) lf-ind-walker walk-node ! lf-ind-walker ;
+: first-bvar ( -- node ) 0 begin dup lf-term-tag@ lf-tag-bvar <> while 1+ repeat ;
+: outer-kept? ( -- flag1 flag2 )
+  s" nested.tree" case-path staged ok? must fuel checked
+  100 lf-ind-walker walk-budget must lf-ind-walker lf-walk-marking
+  first-bvar dup outer-at lf-walk-seen? 0= must
+  dup lf-ind-mentions? ok? must 0= swap outer-at lf-walk-seen? finish ;
+T{ outer-kept? -> true true }T
 
 \ Lean's replay of the Bool block (B3, B4).
 T{ s" replay-bool.original" verdict -> outcome-ok 0 all-steps }T

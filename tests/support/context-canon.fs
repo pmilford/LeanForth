@@ -48,11 +48,18 @@ create canon-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf-in
 : canon-core-htabs ( dst -- dst )
   dup lf-term-table canon-htab dup lf-stamp-table canon-htab
   dup lf-level-table canon-htab dup lf-cref-table canon-htab ;
-\ And, when loaded, the pairs == met (kernel/mixed-compare.fs, step S4).
-[defined] lf-meq-table [if]
-: canon-kernel-htabs ( dst -- dst ) dup lf-meq-table canon-htab ;
+\ And, when loaded, the pairs == met (kernel/mixed-compare.fs, step S4)
+\ and the pairs a walk's run reached (core/constant-term-boundary.fs's
+\ pair set; review rvKN).
+[defined] lf-pair-table [if]
+: canon-pair-htab ( dst -- dst ) dup lf-pair-table canon-htab ;
 [else]
-: canon-kernel-htabs ( dst -- dst ) ;
+: canon-pair-htab ( dst -- dst ) ;
+[then]
+[defined] lf-meq-table [if]
+: canon-kernel-htabs ( dst -- dst ) canon-pair-htab dup lf-meq-table canon-htab ;
+[else]
+: canon-kernel-htabs ( dst -- dst ) canon-pair-htab ;
 [then]
 [defined] lf-mls-set [if]
 : canon-htabs ( dst -- dst ) canon-core-htabs canon-kernel-htabs dup lf-mls-set canon-htab ;
@@ -87,10 +94,15 @@ create canon-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf-in
 : canon-core-digest ( h -- h' )
   lf-term-table canon-htab-digest lf-stamp-table canon-htab-digest
   lf-level-table canon-htab-digest lf-cref-table canon-htab-digest ;
-[defined] lf-meq-table [if]
-: canon-kernel-digest ( h -- h' ) lf-meq-table canon-htab-digest ;
+[defined] lf-pair-table [if]
+: canon-pair-digest ( h -- h' ) lf-pair-table canon-htab-digest ;
 [else]
-: canon-kernel-digest ( h -- h' ) ;
+: canon-pair-digest ( h -- h' ) ;
+[then]
+[defined] lf-meq-table [if]
+: canon-kernel-digest ( h -- h' ) canon-pair-digest lf-meq-table canon-htab-digest ;
+[else]
+: canon-kernel-digest ( h -- h' ) canon-pair-digest ;
 [then]
 [defined] lf-mls-set [if]
 : canon-htabs-digest ( h -- h' )
