@@ -36,7 +36,7 @@
 \       (import/run-replay.fs): the replay report, exit 0 confirmed, 1
 \       refused (a difference), 4 when it cannot be compared;
 \   print [--no-manifest] [--fuel N] [--fast] [--detail] [--name NAME]
-\         [--latex] [--statement FORMS] [--any-lean-version] EXPORT
+\         [--latex] [--statement FORMS] [--kernel] [--any-lean-version] EXPORT
 \       check the export as check does, one declaration at a time with the
 \       derivation log on, and print each one's proof outline right after
 \       its check (cli/print.fs, present/proof-outline.fs), or with
@@ -1142,9 +1142,9 @@ variable cli-info#
   ."   replay [--no-manifest] [--fuel N] [--fast] EXPORT RECORD" cr
   ."       check the export again and compare the run record with RECORD" cr
   ."   print [--no-manifest] [--fuel N] [--fast] [--detail] [--name NAME]" cr
-  ."         [--latex] [--statement FORMS] [--any-lean-version] EXPORT" cr
+  ."         [--latex] [--statement FORMS] [--kernel] [--any-lean-version] EXPORT" cr
   ."       check the export and print each accepted declaration's proof outline;" cr
-  ."       FORMS: lean, mathematics, leanforth, all (default), joined by commas" cr
+  ."       FORMS: lean, text, mathematics, leanforth, all (default), joined by commas" cr
   ."   print --lf [--no-manifest] [--fuel N] [--fast] [--any-lean-version] EXPORT" cr
   ."       write every declaration as one LeanForth text, unchecked; what the" cr
   ."       words cannot write is listed on stderr and stubbed" cr
@@ -1276,7 +1276,7 @@ end-structure
 : cli-resources-option ( c-addr u -- ) 2drop cli-resources ;
 : cli-json-option ( c-addr u -- ) 2drop cli-json ;
 : cli-latex-option ( c-addr u -- ) 2drop true cli-state opt-latex ! ;
-\ --statement FORMS: lean, mathematics, leanforth (or all), separated by commas.
+\ --statement FORMS: lean, text, mathematics, leanforth (or all), separated by commas.
 : cli-statement-option ( c-addr u -- )
   cli-value 0= if exit then 2dup pr-forms
   if cli-state opt-forms ! 2drop else c" not a list of statement forms" cli-wrong then ;

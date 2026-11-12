@@ -100,7 +100,7 @@ theorem composition {A B C : Prop} (f : A → B) (g : B → C) : A → C :=
 | `check --snapshot FILE [--snapshot LAYER ...] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--no-manifest] [--jobs N] [--save-snapshot LAYER] [--snapshot-stale-ok] [EXPORT]` | Report the verdicts a [snapshot](#snapshots---save-snapshot-and---snapshot) and its layers hold, each labelled as taken from it and not re-checked; with EXPORT, check it against them, taking what they vouch for and checking the rest, and with `--save-snapshot`, write what was checked as a layer: for development and research only |
 | `check [--no-manifest] [--fuel N] [--checked] [--strict-axioms] --record RECORD EXPORT` | Check a small export (read straight into the checker's stores) and also write its [run record](#run-records-and-replay) |
 | `replay [--no-manifest] [--fuel N] [--checked] EXPORT RECORD` | Check the export again and compare the new run record with RECORD; print the replay report |
-| `print [--no-manifest] [--fuel N] [--checked] [--detail] [--name NAME] [--latex] [--statement FORMS] [--any-lean-version] EXPORT`, or `print --lf [--no-manifest] [--fuel N] [--checked] [--any-lean-version] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration; `--lf` writes the whole export as one [LeanForth text](#writing-an-export-as-leanforth-text) |
+| `print [--no-manifest] [--fuel N] [--checked] [--detail] [--name NAME] [--latex] [--statement FORMS] [--kernel] [--any-lean-version] EXPORT`, or `print --lf [--no-manifest] [--fuel N] [--checked] [--any-lean-version] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration; `--lf` writes the whole export as one [LeanForth text](#writing-an-export-as-leanforth-text) |
 | `count [--no-manifest] EXPORT` | Count the export's records by kind ([the reader's counter](../development/NDJSON_READER.md#using-it)), for exports of any size |
 | `reexport [--no-manifest] EXPORT COPY` | Write the export again into COPY, byte for byte as Lean's exporter writes it ([re-export](../development/NDJSON_READER.md#re-export)); after an error COPY is incomplete and must be discarded |
 | `version` (or `--version`) | Versions of LeanForth, its Forth host, the export format it reads, and the git commit |
@@ -1093,6 +1093,7 @@ $ bin/leanforth print tests/reference/composition.ndjson; echo "exit status $?"
 Theorem composition
   accepted (experimental, not independently audited); axioms: none
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
+  Statement in math text:   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
   Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom composition
@@ -1126,9 +1127,15 @@ Templates: let-props/v0, assume/v0, implies-elim/v0, discharge/v0, statement/v0.
 exit status 0
 ```
 
-The header shows the statement in three forms (plan task 8.6.2): in
-Lean's notation, in mathematics (LaTeX between `$` and `$`) and in
-LeanForth words. The LeanForth block states the type as the `axiom` of
+The header shows the statement in four forms (plan tasks 8.6.2 and 4.4.3): in
+Lean's notation, in mathematics as Unicode text ("math text"), in mathematics
+as LaTeX (between `$` and `$`) and in LeanForth words. The first three write
+`n + 0 = n`, not `Eq (HAdd.hAdd n (OfNat.ofNat 0)) n`: they follow the
+[notation table](TERM_PRINTER.md#notation-the-table-and-the-modes), which hides the
+arguments Lean fills in and uses Lean's precedences; `--kernel` prints the
+terms as the checker has them instead. The Unicode math text writes `ℕ`, `·`
+and `n²`, and is left out of LaTeX outlines. The page [five small proofs](DEMOS.md)
+shows the forms side by side. The LeanForth block states the type as the `axiom` of
 the same name does, because that is the one form of the words that states
 a type with no proof. Printing it assumes nothing, and the verdict printed
 above it is the checker's (also for an `Axiom` declaration and for a
@@ -1141,8 +1148,8 @@ accepted. A block can be run only after the declarations it mentions: the
 constants of an earlier declaration are defined by running that
 declaration first (an `import-stub` line stands for one of Lean's).
 
-`--statement FORMS` chooses the forms: `lean`, `mathematics` and
-`leanforth`, joined by commas (`--statement lean,leanforth`), or `all`
+`--statement FORMS` chooses the forms: `lean`, `text` (math text),
+`mathematics` (LaTeX) and `leanforth`, joined by commas (`--statement lean,leanforth`), or `all`
 (the default). `--latex` prints the outlines as LaTeX fragments instead
 (see [the proof outline](PROOF_OUTLINE.md#latex)); with `--detail` the
 step list is always plain text.
@@ -1209,6 +1216,7 @@ Theorem composition
   rejected
   Diagnostic: rejected: argument type mismatch (D1-D5) (0, 0)
   Statement in Lean:        ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
+  Statement in math text:   ∀ {A B C : Prop}, (A → B) → (B → C) → A → C
   Statement in mathematics: $\forall \{A\ B\ C : \mathrm{Prop}\},\ (A \to B) \to (B \to C) \to A \to C$
   Statement in LeanForth (as an axiom declaration; the checker did not assume it, running it would):
     axiom composition

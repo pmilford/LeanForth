@@ -167,6 +167,81 @@ GitHub renders those, and also fenced `math` blocks as used on this page.
 Rendering on GitHub was not checked in the session that wrote the printer;
 no LaTeX installation is needed by the term printer's own tests. The [proof outline's](PROOF_OUTLINE.md#latex) LaTeX style (plan task 8.6.1), which uses this mode, is compiled with `pdflatex` by `make test` where it is installed (all five pinned examples compile), and is checked structurally where it is not.
 
+## Notation: the table and the modes
+
+By default the printer writes a term as the kernel has it, so the statement
+`n + 0 = n` of `Nat.add_zero` comes out as
+`Eq Nat (HAdd.hAdd Nat Nat Nat inst n (OfNat.ofNat Nat 0 inst)) n` (all
+arguments shown when the constants' types are not declared). With
+`lf-print-notation!` on (what `leanforth print` does; `--kernel` turns it off)
+the printer follows the **notation table**, `src/present/notation-table.fs`
+(version 1, `lf-notation-version`): one row for each constant, naming it,
+the number of arguments an application must have (implicit and instance
+arguments included), which of them are the operands, and the notation's
+precedences and spelling in each mode. The table is data in the dictionary,
+read by `src/present/print-notation.fs`; it only chooses a spelling, and the
+checker never loads either file. The precedences are Lean's own
+(`Init/Notation.lean` of the pinned toolchain), so the parentheses are
+Lean's: `(a + b) * c`, `a - (b - c)`, `¬a = b`, `a ^ (b ^ c)` is `a ^ b ^ c`.
+
+| Constant (arguments) | Lean | ASCII | LaTeX | Mathematical text |
+| --- | --- | --- | --- | --- |
+| `Eq` (3), `LT.lt`, `LE.le`, `GT.gt`, `GE.ge`, `Dvd.dvd` (4), `Ne` (3), `Membership.mem` (5) | `a = b`, `<`, `≤`, `>`, `≥`, `∣`, `≠`, `∈` | `a = b`, `<`, `<=`, `>`, `>=`; none for `∣ ≠ ∈` | `\le`, `\ge`, `\mid`, `\ne`, `\in` | as Lean |
+| `HAdd.hAdd`, `HSub.hSub`, `HMul.hMul`, `HDiv.hDiv`, `HMod.hMod` (6) | `a + b`, `-`, `*`, `/`, `%` | as Lean | `\cdot` for `*`, `\bmod` | `·` for `*`, `mod` |
+| `HPow.hPow` (6) | `a ^ b` | as Lean | `a^{b}` | `a²` for a digit, else `a^b` |
+| `Neg.neg` (3) | `-a` | as Lean | as Lean | as Lean |
+| `And`, `Or`, `Iff`, `Not` (2, 2, 2, 1) | `∧ ∨ ↔ ¬` | `/\ \/ <-> `; none for `¬` | `\wedge \vee \leftrightarrow \neg` | as Lean, `¬(a = b)` |
+| `Exists` (2), applied to a lambda | `∃ x y, p` | `exists x y, p` | `\exists x\ y,\ p` | as Lean |
+| `OfNat.ofNat` (3), a literal that fits a cell | `3` | `3` | `3` | `3` |
+| `Nat.succ` (1) | `Nat.succ n` (Lean prints `n.succ`) | as Lean | `n + 1` | `n + 1` |
+| `Nat`, `Int`, `Rat`, `Real` (0) | as stored | as stored | `\mathbb{N}`, `\mathbb{Z}`, ... | `ℕ ℤ ℚ ℝ` |
+
+A row that does not fit the application it meets (a different number of
+arguments, a numeral that is no literal, an `Exists` that is not applied to a
+lambda, a mode in which the row has no spelling) is skipped, and the term
+prints as the kernel's term would; turning notation on never turns a print
+that works into a failure. The operands of `∧ ∨ ↔ ¬ ∃` are known to be
+propositions, so a Π among them prints with `∀`, as Lean's delaborator does by
+its type inference.
+
+The fourth mode, `lf-print-mathtext`, is mathematics as Unicode text (`ℕ`,
+`·`, `n²`), the second of the three statement lines `leanforth print` shows
+(`--statement text`). For the Lean form the printer is compared with pinned
+Lean's `#check` for the five demos of [DEMOS.md](DEMOS.md)
+(`make reference-demos`), character for character. Known differences from Lean's
+delaborator: no `n.succ`-style field notation (`Nat.succ n`, `Nat.add_zero n`
+print as applications), no `∃ x ∈ s, p` binder predicates and no set-builder
+or big-operator notation; each of those prints as the kernel's term would.
+
+```forth
+\ A closed statement, in four modes. Helper words (documentation only):
+\ num ( u -- t ) is OfNat.ofNat Nat u inst; arith builds C Nat Nat Nat inst a b.
+require ~+/src/present/print-notation.fs
+: nat ( -- t ) s" Nat" t-const ;
+: nlit ( u -- t ) lf-hterm-cell must drop ;
+: num ( u -- t )
+  s" OfNat.ofNat" t-const nat t-app swap nlit t-app s" inst" t-const t-app ;
+: arith ( c-addr u a b -- t )
+  2>r t-const nat t-app nat t-app nat t-app s" inst" t-const t-app 2r> >r t-app r> t-app ;
+fresh true lf-print-notation!
+nat  0 t-var 0 num s" HAdd.hAdd" 2swap arith
+     s" Eq" t-const nat t-app swap t-app 0 t-var t-app  t-pi s" n" ex.  constant statement
+' type lf-print-unicode lf-print-setup  statement 1000 lf-print-statement .result
+' type lf-print-ascii lf-print-setup    statement 1000 lf-print-statement .result
+' type lf-print-latex lf-print-setup    statement 1000 lf-print-statement .result
+' type lf-print-mathtext lf-print-setup statement 1000 lf-print-statement .result
+false lf-print-notation!
+' type lf-print-unicode lf-print-setup  statement 1000 lf-print-statement .result
+```
+
+```text
+∀ (n : Nat), n + 0 = n  (ok)
+forall (n : Nat), n + 0 = n  (ok)
+\forall (n : \mathbb{N}),\ n + 0 = n  (ok)
+∀ (n : ℕ), n + 0 = n  (ok)
+∀ (n : Nat), Eq Nat (HAdd.hAdd Nat Nat Nat inst n (OfNat.ofNat Nat 0 inst)) n  (ok)
+```
+
 ## Interface (Forth)
 
 The modules are in `src/present/`; load `src/present/term-printer.fs`.
@@ -180,7 +255,8 @@ Outcomes are the shared ones of `src/lib/outcome.fs`.
 | `lf-pres-binder@`, `lf-pres-source@`, `lf-pres-type@` | read them back | false when absent or stale |
 | `lf-pres-kind-text` | `( c-addr u -- kind true \| false )` | Lean's export spelling of a binder kind |
 | `lf-pres-reset` | `( -- )` | forget every side-table entry and declaration |
-| `lf-print-setup` | `( sink options -- )` | sink xt `( c-addr u -- )`, mode and option bits |
+| `lf-print-setup` | `( sink options -- )` | sink xt `( c-addr u -- )`, mode (`lf-print-unicode`, `-ascii`, `-latex`, `-mathtext`) and option bits |
+| `lf-print-notation!`, `lf-print-notation?` | `( flag -- )`, `( -- flag )` | print by the [notation table](#notation-the-table-and-the-modes) (`src/present/print-notation.fs`, loaded separately); off by default, kept by `lf-print-setup` |
 | `lf-print-term` | `( term fuel -- outcome )` | print a closed term |
 | `lf-print-statement` | `( term fuel -- outcome )` | print a theorem's statement: its Π spine is a proposition |
 | `lf-print-level` | `( level fuel -- outcome )` | print a universe level |
@@ -272,8 +348,9 @@ entry per term (64 today) and 32 declarations.
 - **Implicit arguments** are hidden only for constants declared in the side
   table and for variables whose type is a Π; otherwise all arguments show,
   with `@` as Lean does when it cannot compute parameter kinds.
-- **Not yet:** notation such as `a + b` or `a = b` (plan 4.4.3), `let`,
-  literals, projections, line breaking (Lean breaks lines at 120 columns),
+- **Not yet:** notation beyond the table of version 1 (set-builder, big
+  operators, field notation `n.succ`, binder predicates; plan 4.4.3 and 8.6.6),
+  `let`, projections in Lean's `p.1` form, line breaking (Lean breaks lines at 120 columns),
   and Lean's `«»` quoting of unusual names.
 - **Cost and depth.** Fuel counts visited nodes; printing a chain of n
   binders costs on the order of n² fuel, because each Π re-examines the
@@ -314,6 +391,12 @@ entry per term (64 today) and 32 declarations.
   of all cases and of the five pinned
   fixtures, `print-cases.golden` and `fixtures.golden`) and the examples
   on this page. Also on Gforth 0.7.3.
+- `tests/present/notation.fs` (also in `make test`) checks the notation
+  table's lookups and about 60 terms in the four modes with notation off and
+  on: precedences and parentheses, merged `∃` binders, the rows that decline,
+  fuel. `make test-demos` and `make reference-demos` check the page
+  [DEMOS.md](DEMOS.md); the latter compares the Lean form of five statements
+  with pinned Lean's `#check`.
 - `make check` adds `test-printer-differential`: the 50 cases are built as
   Lean expressions in `tests/reference/printer-cases.lean` and printed by
   Lean; the five fixtures (identity, composition, type identity,

@@ -517,6 +517,19 @@ test-present:
 test-printer-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/present/printer-differential.py
 
+# The demos (plan task 8.6.6; docs/user/DEMOS.md): test-demos checks, without
+# Lean, that the page is what tests/demos/demos.golden and the Lean sources
+# make; reference-demos has pinned Lean prove and export the five theorems,
+# LeanForth check and print them (and reject the wrong twins), and compares the
+# live text with the golden file, the Lean forms with Lean's #check output.
+test-demos:
+	$(RUN) python3 tests/demos/build_page.py --check
+reference-demos:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/demos/test_demos.py
+.PHONY: test-demos reference-demos
+test: test-demos
+test-differential: reference-demos
+
 profile-existing:
 	LEAN=$(LEAN_BINARY) GFORTH=$(GFORTH) $(RUN) bash scripts/profile-existing.sh
 

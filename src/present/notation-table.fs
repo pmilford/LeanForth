@@ -33,7 +33,7 @@
 \   suffix: ( arity a prec ... )   atom: ( ... )   numeral: ( "Const" )   exists: ( ... )
 \   props   ( -- )  marks the row just defined as one of propositions
 \ Example: 6 4 5 65 infixl: HAdd.hAdd " + " " + " " + " " + "
-\ A spelling is a quoted text of at most 23 bytes.
+\ The texts of all rows must fit the 4096-byte pool (lf-nt-pool).
 
 require ../lib/lib.fs
 
@@ -47,10 +47,8 @@ require ../lib/lib.fs
 5 constant lf-nt-suffix
 6 constant lf-nt-exists
 
-32 constant lf-nt-name-size
-24 constant lf-nt-sym-size
 begin-structure /lf-nt
-  lf-nt-name-size +field lf-nt-name   \ the constant's name, a counted string
+  2 cells +field lf-nt-name   \ the constant's name: c-addr u in lf-nt-pool
   field: lf-nt-kind
   field: lf-nt-arity
   field: lf-nt-a
@@ -60,23 +58,27 @@ begin-structure /lf-nt
   field: lf-nt-rprec
   field: lf-nt-props
   field: lf-nt-mprec      \ the operand's precedence in the mathematical modes, or 0
-  4 lf-nt-sym-size * +field lf-nt-syms   \ four counted strings
+  8 cells +field lf-nt-syms   \ four spellings, c-addr u each, in lf-nt-pool
 end-structure
 
-\ A counted string of at most size - 1 bytes at dst.
-: lf-nt-put ( c-addr u dst size -- )
-  1- 2 pick u< abort" notation text too long"
-  2dup c! 1+ swap move ;
+\ The texts of the rows, copied here as the table is read (a cursor of the
+\ load, not of any print): the pool is full at 4096 bytes.
+4096 constant lf-nt-pool-size
+create lf-nt-pool lf-nt-pool-size allot
+variable lf-nt-fill
+: lf-nt-keep ( c-addr u -- c-addr' u )
+  dup lf-nt-fill @ + lf-nt-pool-size > abort" notation text area full"
+  dup >r lf-nt-pool lf-nt-fill @ + dup >r swap move r> r> dup lf-nt-fill +! ;
 : lf-nt-quoted ( "text" -- c-addr u ) [char] " parse 2drop [char] " parse ;
 
 : lf-nt-new ( arity a b prec kind "Const" -- row )
   here /lf-nt allot >r r@ /lf-nt erase r@ lf-nt-kind !
   dup r@ lf-nt-prec ! 1+ dup r@ lf-nt-lprec ! r@ lf-nt-rprec !
   r@ lf-nt-b ! r@ lf-nt-a ! r@ lf-nt-arity !
-  parse-name r@ lf-nt-name lf-nt-name-size lf-nt-put r> ;
-: lf-nt-text ( row i -- addr ) lf-nt-sym-size * swap lf-nt-syms + ;
+  parse-name lf-nt-keep r@ lf-nt-name 2! r> ;
+: lf-nt-spelling ( row i -- addr ) 2* cells swap lf-nt-syms + ;
 : lf-nt-spell ( row -- row ) 4 0 do
-    dup i lf-nt-text >r lf-nt-quoted r> lf-nt-sym-size lf-nt-put loop ;
+    lf-nt-quoted lf-nt-keep 2 pick i lf-nt-spelling 2! loop ;
 : lf-nt-lprec! ( row n -- ) over lf-nt-lprec ! drop ;
 : lf-nt-rprec! ( row n -- ) over lf-nt-rprec ! drop ;
 : lf-nt-last ( -- row ) here /lf-nt - ;
@@ -149,11 +151,11 @@ here constant lf-nt-rows-end
 
 \ The row for the constant named c-addr u, or 0.
 : lf-nt-row? ( row c-addr u -- flag )
-  rot lf-nt-name count compare 0= ;
+  rot lf-nt-name 2@ compare 0= ;
 : lf-nt-find ( c-addr u -- row | 0 )
   lf-nt-rows begin dup lf-nt-rows-end u< while
     >r 2dup r@ -rot lf-nt-row? if 2drop r> exit then
     r> /lf-nt + repeat
   drop 2drop 0 ;
 \ A row's spelling for a printer mode (0 to 3), empty when it has none.
-: lf-nt-sym ( row mode -- c-addr u ) lf-nt-text count ;
+: lf-nt-sym ( row mode -- c-addr u ) lf-nt-spelling 2@ ;
