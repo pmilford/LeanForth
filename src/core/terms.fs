@@ -702,6 +702,13 @@ defer lf-term-view-hook ( -- outcome )
   lf-term-view lf-tview-binders htab-ready dup ok? 0= if nip false swap exit then
   drop lf-tbind-new? outcome-ok ;
 : lf-term-input-binder ( index -- outcome ) lf-term-input-binder-first nip ;
+\ Whether input binder index is not the binder the table holds for its ==
+\ class, so the importer gave its uses that earlier one: for a shared feed,
+\ which reads the source's table in place and enters nothing.
+: lf-term-input-binder-merged? ( index -- flag )
+  dup lf-tin-binder? 0= if drop false exit then
+  dup lf-tbind-fields lf-tin-key! lf-term-view lf-tview-binders htab-find
+  if <> else 2drop false then ;
 
 \ ---------------------------------------------------------------------------
 \ Making nodes. Append a node whose tag and fields the caller validated,

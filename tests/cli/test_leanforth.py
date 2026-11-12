@@ -1637,7 +1637,8 @@ class Jobs(unittest.TestCase):
 
     MORE = [["tests/cli/sharing.ndjson"], ["tests/cli/nested.ndjson"],
             ["tests/cli/irrelevance.ndjson"], ["--fuel", "3000", "tests/cli/nested.ndjson"],
-            ["tests/cli/jobs/wide60.ndjson"], ["tests/cli/jobs/dupl80.ndjson"]]
+            ["tests/cli/jobs/wide60.ndjson"], ["tests/cli/jobs/dupl80.ndjson"],
+            ["--no-manifest", "tests/cli/jobs/renamed20.ndjson"]]
 
     def text(self, *args):
         return run("check", *args)[:2]
@@ -1659,6 +1660,19 @@ class Jobs(unittest.TestCase):
                               r"out [1-9]\d*, run again 0, not ready 0, forced 0, workers "
                               r"replaced 0\n")
         self.assertNotIn("workers:", run("check", "--resources", CHAIN)[1])
+
+    def test_workers_share_merged_binders(self):
+        """Binders equal up to their names, which the importer makes one node
+        (ADR 0014 Amendment 7): each worker makes the source's copies of them,
+        so workers are made (before, the workers' input had another
+        fingerprint and the run fell back to one declaration at a time)."""
+        status, out, _ = run("check", "--resources", "--jobs", "2", "--no-manifest",
+                             "tests/cli/jobs/renamed20.ndjson")
+        self.assertEqual(status, 0)
+        self.assertIn("20 declarations: 20 accepted", out)
+        self.assertRegex(out, r"\n  workers: 2 \(--jobs\), on \d+ cores\n    checks handed "
+                              r"out 20, run again 0, not ready 0, forced 0, workers "
+                              r"replaced 0\n")
 
     def test_large_counts(self):
         """The count is cut to the cores and the pool's queue of 1024: a larger

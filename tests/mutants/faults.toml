@@ -8849,3 +8849,11 @@ old = '''  loop 2drop 2r> swap dep-sort ;'''
 new = '''  loop 2drop 2r> 2drop ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
 reason = "SN4: a layer's dependencies written in the order of the run's slots, not ascending as numbered in the layer"
+
+[[fault]]
+id = "pf-shared-merge-missed"
+file = "src/import/feed.fs"
+old = '''  >r 2dup r@ feed-to-copy? if 2drop r> drop true else r> feed-was-merged? then ;'''
+new = '''  feed-to-copy? ;'''
+test = "python3 tests/cli/test_leanforth.py Jobs.test_workers_share_merged_binders"
+reason = "rvSN4 B1 (PF) with the shared input: a worker does not copy the binders the source merged, so its fingerprint is not the source's and no worker is made"

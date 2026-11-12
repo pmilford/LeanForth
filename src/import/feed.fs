@@ -639,9 +639,19 @@ here feed-shares - 1 cells / constant feed-shares#
 \ The copies: the same expressions marked (no binder entered: the table
 \ is the source's) and copied, each with the horizon of its expression
 \ (core/terms.fs's lf-term-horizon!), so that it finds only the leaves
-\ the source's feed had entered when it made that copy.
+\ the source's feed had entered when it made that copy. A binder the
+\ source gave an earlier one of its == class (feed-merge, above; the
+\ source has no binder hook: the print command, which sets one, makes no
+\ workers) is one whose class the source's table holds another binder
+\ for; without it the worker's copies, and so its fingerprint, would not
+\ be the source's and no worker could be made.
+: feed-was-merged? ( e feed tag -- flag )
+  binder-tag? if drop lf-tin-child lf-term-input-binder-merged? else 2drop false then ;
+: feed-shared-copy? ( e feed tag -- flag )
+  >r 2dup r@ feed-to-copy? if 2drop r> drop true else r> feed-was-merged? then ;
 : feed-mark-copy ( e feed -- outcome )
-  2dup 2dup feed-tier expr-tag@ feed-to-copy? if feed-dirty! else 2drop then outcome-ok ;
+  2dup 2dup feed-tier expr-tag@ feed-shared-copy? if feed-dirty! else 2drop then
+  outcome-ok ;
 : feed-place-copy ( e feed -- outcome )
   2dup feed-dirty? 0= if 2drop outcome-ok exit then over 2* lf-term-horizon! feed-expr ;
 : feed-made-copies? ( feed -- flag )
