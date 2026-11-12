@@ -309,8 +309,9 @@ lf-check-steps# 1+ constant lf-step-done
 \ importer's feed) every node is given.
 \ Whether the memo is on is asked only of a node made before the check,
 \ and once (agent PERF1: it reads the environment's validity, and was
-\ asked of every node given and again by lf-audit-reached?); the answer
-\ is the same, as both are only read.
+\ asked of every node given and again before the memo was read); the
+\ answer is the same, as both are only read. Levels and references below
+\ take the same shape (Forth review of perf1, finding 5).
 : lf-check-before? ( n -- flag ) 0 lf-input-mark-count < ;
 : lf-check-reached? ( n -- flag ) lf-audit-on? if lf-audit-held? else drop true then ;
 : lf-check-findable ( n -- flag )
@@ -320,18 +321,20 @@ lf-check-steps# 1+ constant lf-step-done
 \ mark, once a scope check of this check found it), but the zero level,
 \ which every store holds from its reset.
 : lf-check-level-before? ( n -- flag ) dup 0<> swap 1 lf-input-mark-count < and ;
+: lf-check-level-reached? ( n -- flag )
+  lf-audit-on? if lf-audit-level-held? else drop true then ;
 : lf-check-level-findable ( n -- flag )
-  lf-audit-on? 0= if drop true exit then
-  dup lf-check-level-before? if lf-audit-level-reached? else drop true then ;
+  dup lf-check-level-before? if lf-check-level-reached? else drop true then ;
 ' lf-check-level-findable is lf-level-findable?
 \ References likewise (review rvRS F1): one made before the check, below
 \ the input's reference mark, once an audit of this check checked a
 \ constant node holding it; so a check makes, and its memory limit counts,
 \ the same references fresh, against a snapshot and in any export.
 : lf-check-cref-before? ( n -- flag ) lf-input-cref-k lf-input-mark-count < ;
+: lf-check-cref-reached? ( n -- flag )
+  lf-audit-on? if lf-audit-cref-held? else drop true then ;
 : lf-check-cref-findable ( n -- flag )
-  lf-audit-on? 0= if drop true exit then
-  dup lf-check-cref-before? if lf-audit-cref-reached? else drop true then ;
+  dup lf-check-cref-before? if lf-check-cref-reached? else drop true then ;
 ' lf-check-cref-findable is lf-cref-findable?
 \ The check's scratch, in the bytes core/scratch-meter.fs counts for a
 \ check's memory limit: the term nodes, levels and references above the

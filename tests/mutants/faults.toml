@@ -7567,7 +7567,7 @@ reason = "rvSN4 B1 (PF): every node made before the check counts as reached, so 
 [[fault]]
 id = "pf-level-findable-always"
 file = "src/kernel/check-declaration.fs"
-old = '''  dup lf-check-level-before? if lf-audit-level-reached? else drop true then ;'''
+old = '''  dup lf-check-level-before? if lf-check-level-reached? else drop true then ;'''
 new = '''  drop true ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "rvSN4 B1 (PF): a check is given levels it never reached, so the tier's other levels change its level-scope memo hits and fuel"
@@ -9237,8 +9237,8 @@ reason = "rvMO 1: the memo keyed by node alone (offset 0 in the lookup and in th
 [[fault]]
 id = "rv-same-skips-findable"
 file = "src/core/terms.fs"
-old = '''  if lf-term-findable? else drop false then ;'''
-new = '''  if drop true else drop false then ;'''
+old = '''  over swap lf-term-equal? if lf-term-findable? else drop false then ;'''
+new = '''  over swap lf-term-equal? if drop true else drop false then ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "rvPF1 1: lf-term-same gives a key-equal record without asking findability, so a check is given an importer copy it has not reached"
 
@@ -9273,3 +9273,64 @@ old = '''  over lf-pres-hold ok-then2? if swap lf-pres-take outcome-ok else no-r
 new = '''  over lf-pres-hold ok-then2? if swap lf-pres-take outcome-ok else drop-invalid no-result then ;'''
 test = "$GFORTH tests/present/term-printer.fs"
 reason = "rvPF1 4: an entry the heap has no room for is reported invalid, not full"
+
+# --- the Forth review of perf1 (findings 1-3; agent PF1FIX, 2026-11-12) ---
+
+[[fault]]
+id = "fr-lscope-pass-refused-kept"
+file = "src/core/level-scope.fs"
+old = '''  if lf-lscope-keep else drop then ;'''
+new = '''  drop lf-lscope-keep ;'''
+test = "$GFORTH tests/core/level-scope.fs"
+reason = "Forth review of perf1, 1: a copy the slab was refused room for is written all the same, past the slab's block, and kept as passed"
+
+[[fault]]
+id = "fr-pres-read-holds"
+file = "src/present/binder-table.fs"
+old = '''  dup lf-pres-live if over lf-pres-held? dup 0= if nip nip then else drop false then ;'''
+new = '''  dup lf-pres-live if over lf-pres-hold drop true else drop false then ;'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "Forth review of perf1, 2: reading an entry grows the slab to hold it, so a check that only prints keeps 40 bytes a node again"
+
+[[fault]]
+id = "fr-check-reached-memo-off-false"
+file = "src/kernel/check-declaration.fs"
+old = ''': lf-check-reached? ( n -- flag ) lf-audit-on? if lf-audit-held? else drop true then ;'''
+new = ''': lf-check-reached? ( n -- flag ) lf-audit-on? if lf-audit-held? else drop false then ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "Forth review of perf1, 3: with the memo off (the importer's feed) a node made before the check is never given, so equal records are not shared"
+
+[[fault]]
+id = "rv-lscope-cache-failed-audit"
+file = "src/core/level-scope.fs"
+old = '''  lf-lscope-passed? if true exit then lf-lscope-audit dup if lf-lscope-pass then ;'''
+new = '''  lf-lscope-passed? if true exit then lf-lscope-audit lf-lscope-pass ;'''
+test = "$GFORTH tests/core/level-scope.fs"
+reason = "Forth review of perf1, 3 (rvPF1's probe): entries that failed the audit are kept as passed, so the same corrupted entries pass the next time"
+
+[[fault]]
+id = "rv-lscope-pass-stale-copy"
+file = "src/core/level-scope.fs"
+old = '''  lf-lscope-entries lf-lscope-audited slab-base swap move 1+ lf-lscope-passed ! ;'''
+new = '''  1+ lf-lscope-passed ! ;'''
+test = "$GFORTH tests/core/level-scope.fs"
+reason = "Forth review of perf1, 3 (rvPF1's probe): the copy is not refreshed, only its count, so entries are compared with an older copy"
+
+[[fault]]
+id = "rv-same-skips-key"
+file = "src/core/terms.fs"
+old = '''  over swap lf-term-equal? if lf-term-findable? else drop false then ;'''
+new = '''  nip lf-term-findable? ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "Forth review of perf1, 3 (rvPF1's probe): lf-term-same ignores the key, so any live record found is given for any record sought"
+
+[[fault]]
+id = "fr-u32-portable-always"
+file = "src/lib/u32.fs"
+old = '''u32-native [if]
+synonym u32@ l@'''
+new = '''false [if]
+synonym u32@ l@'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "Forth review of perf1, 3: u32@ and u32! use the Forth-2012 byte version even where l@ and l! are sound"
+equivalent = "performance only: both versions give every field the same value (tests/lib/lib.fs runs each on every host), and a field is only ever read by the version that wrote it"

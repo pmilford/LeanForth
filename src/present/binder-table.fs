@@ -61,7 +61,7 @@ end-structure
 \ (core/terms.fs). Unchecked: the unit is held (lf-pres-held?, or
 \ lf-pres-hold gave ok).
 : lf-pres-unit ( term -- u ) lf-term-base - ;
-: lf-pres-entry ( term -- entry ) lf-pres-unit lf-pres-terms column-at ;
+: lf-pres-entry ( term -- entry ) lf-pres-unit lf-pres-terms slab-at ;
 : lf-pres-held? ( term -- flag ) lf-pres-unit lf-pres-terms slab-capacity u< ;
 \ Room for term's entry, new units empty: ok, or full when the heap has
 \ none.
@@ -93,11 +93,15 @@ end-structure
 : lf-pres-claim ( term -- entry outcome )
   dup lf-pres-live 0= if drop-invalid no-result exit then
   over lf-pres-hold ok-then2? if swap lf-pres-take outcome-ok else no-result then ;
-\ The entry of a live term, only when it was recorded for that term.
-: lf-pres-current ( term -- entry true | false )
-  dup lf-pres-live 0= if drop false exit then
-  over lf-pres-held? 0= if 2drop false exit then
+\ The entry of a live term, only when it was recorded for that term: a
+\ live term whose unit the slab holds (a read never grows the slab), and
+\ an entry stamped with its identity.
+: lf-pres-held ( term -- term identity true | false )
+  dup lf-pres-live if over lf-pres-held? dup 0= if nip nip then else drop false then ;
+: lf-pres-recorded ( term identity -- entry true | false )
   swap lf-pres-entry tuck lf-pterm-identity @ = dup 0= if nip then ;
+: lf-pres-current ( term -- entry true | false )
+  lf-pres-held if lf-pres-recorded else false then ;
 : lf-pres-known ( n -- n true | false ) dup 0< if drop false else true then ;
 
 \ Record a binder's name ID and kind on a live lambda or Pi node. The name

@@ -1980,9 +1980,11 @@ Status: proposed; [kernel] gate owed. Code: `src/import/feed.fs`
 `lf-term-findable?`), `src/core/levels.fs`
 (`lf-level-findable?`), `src/core/level-scope.fs` (`lf-lscope-reached`),
 `src/core/constant-term-boundary.fs` (`lf-audit-held?`,
-`lf-audit-level-reached?`), `src/kernel/check-declaration.fs`
-(`lf-check-findable`, `lf-check-reached?`, `lf-check-level-findable`;
-until Amendment 11, `lf-audit-reached?`). No typing, reduction or
+`lf-audit-level-held?`), `src/kernel/check-declaration.fs`
+(`lf-check-findable`, `lf-check-reached?`, `lf-check-level-findable`,
+`lf-check-level-reached?`; until Amendment 11, `lf-audit-reached?`, and
+until the Forth review of Amendment 11, `lf-audit-level-reached?`, which
+asked whether the memo is on itself). No typing, reduction or
 conversion rule changes: every change decides only which node, of nodes
 that are equal, stands for a term or level, never what it is.
 
@@ -2462,7 +2464,10 @@ memory to the same answer:
 2. `lf-check-findable` (`kernel/check-declaration.fs`) asks `lf-audit-on?`
    only for a node made before the check, once, then reads the memo with
    `lf-audit-held?` (`lf-check-reached?`); before, it asked it for every
-   node and `lf-audit-reached?` asked again.
+   node and `lf-audit-reached?` asked again. Since the Forth review of
+   this amendment, the level and reference hooks take the same shape
+   (`lf-check-level-reached?` with `lf-audit-level-held?`,
+   `lf-check-cref-reached?` with `lf-audit-cref-held?`).
 3. The level-scope audit (`core/level-scope.fs`) keeps the entries it last
    passed; entries equal to them byte for byte pass again without the
    audit, any others are audited anew (planted fault

@@ -104,19 +104,24 @@ lf-level-walk-room context-walk: lf-lscope-walk
 \ theirs, so a corrupted count never reads beyond the copy: it goes to the
 \ audit (review rvPF1 3).
 : lf-lscope-entries ( -- addr u ) lf-lscope-context lf-lscope-context-count @ cells ;
-: lf-lscope-copied ( -- n ) lf-lscope-state lf-lsctx-passed @ 1- ;
+: lf-lscope-passed ( -- addr ) lf-lscope-state lf-lsctx-passed ;
+: lf-lscope-copied ( -- n ) lf-lscope-passed @ 1- ;
 : lf-lscope-copy ( -- addr u ) lf-lscope-audited slab-base lf-lscope-copied cells ;
 : lf-lscope-held? ( n -- flag ) lf-lscope-audited slab-capacity upto? ;
 : lf-lscope-copy-fits? ( -- flag )
   lf-lscope-copied dup lf-lscope-held? swap lf-lscope-context-count @ = and ;
+\ COMPARE orders cells by their bytes, an order that depends on the host;
+\ only its 0= is used here, equal or not, which does not.
 : lf-lscope-passed? ( -- flag )
   lf-lscope-copy-fits?
   if lf-lscope-entries lf-lscope-copy compare 0= else false then ;
+\ A pass drops the old copy, then keeps the n entries as the new one when
+\ the copy's slab can hold them (lf-lscope-keep), else none.
+: lf-lscope-keep ( n -- )
+  lf-lscope-entries lf-lscope-audited slab-base swap move 1+ lf-lscope-passed ! ;
 : lf-lscope-pass ( -- )
-  0 lf-lscope-state lf-lsctx-passed !
-  lf-lscope-context-count @ dup lf-lscope-audited slab-hold ok? 0= if drop exit then
-  lf-lscope-entries lf-lscope-audited slab-base swap move
-  1+ lf-lscope-state lf-lsctx-passed ! ;
+  0 lf-lscope-passed !  lf-lscope-context-count @ dup lf-lscope-audited slab-hold ok?
+  if lf-lscope-keep else drop then ;
 \ Unchecked: the count was checked (lf-lscope-count-valid?).
 : lf-lscope-entries-ok? ( -- flag )
   lf-lscope-passed? if true exit then lf-lscope-audit dup if lf-lscope-pass then ;

@@ -128,6 +128,19 @@ T{ ' lf-lscope-context-valid? catch lf-lscope-audited slab-capacity -> false 0 0
 T{ ' lf-lscope-context-valid? catch lf-lscope-state lf-lsctx-passed @ -> true 0 3 }T
 T{ lf-lscope-audited slab-capacity 2 < -> false }T
 
+\ A copy the heap cannot hold is not kept (lf-lscope-pass refused room;
+\ Forth review of perf1, finding 1): with a copy's slab of at most one
+\ cell, holding one, two entries pass the audit, none is kept and nothing
+\ is written beyond the slab, and every check audits anew; with the slab
+\ made again as a context makes it, the copy kept is the entries.
+lf-lscope-audited slab-free  1 cells 1 lf-lscope-audited slab-init drop
+T{ 1 lf-lscope-audited slab-hold lf-lscope-audited slab-capacity -> outcome-ok 1 }T
+T{ lf-lscope-context-valid? lf-lscope-state lf-lsctx-passed @ -> true 0 }T
+T{ lf-lscope-context-valid? lf-lscope-state lf-lsctx-passed @ -> true 0 }T
+lf-lscope-audited slab-free  1 cells dup slab-limit-max lf-lscope-audited slab-init drop
+T{ lf-lscope-context-valid? lf-lscope-state lf-lsctx-passed @ -> true 3 }T
+T{ lf-lscope-copy lf-lscope-entries compare -> 0 }T
+
 \ A parameter's visit: ok for an ID in the context, invalid outside it
 \ (lf-lscope-param-in, beside the flag lf-lscope-in? that searches a
 \ prefix of the context).

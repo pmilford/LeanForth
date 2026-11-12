@@ -13,6 +13,14 @@
 [undefined] 0>= [if] : 0>= ( n -- flag ) 0< 0= ; [then]
 [undefined] -rot [if] : -rot ( x1 x2 x3 -- x3 x1 x2 ) rot rot ; [then]
 
+\ SYNONYM (Forth-2012 TOOLS EXT; Gforth 1.0 has it, 0.7.3 not): where the
+\ host lacks it, new becomes a colon definition that calls old, which is
+\ right for ordinary words only (not an immediate or parsing word). For
+\ example, src/lib/u32.fs: synonym u32@ l@
+[undefined] synonym [if]
+: synonym ( "new" "old" -- ) : ' compile, postpone ; ;
+[then]
+
 \ .S, of the optional Programming-Tools word set, which the program words
 \ (src/program/verify-semantics.fs) give verification semantics: the depth
 \ in angle brackets, then the top nine cells at most, deepest first, each
