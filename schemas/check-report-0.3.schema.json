@@ -893,11 +893,13 @@
           ]
         },
         "provenance": {
-          "description": "Where the verdict comes from (ADR 0020 D4, OQ-3): snapshot, taken from the snapshot and not re-checked in this run; uses-snapshot, checked in this run but resting on the snapshot's results; checked, checked in this run.",
+          "description": "Where the verdict comes from (ADR 0020 D4, OQ-3): snapshot, taken from the snapshot and not re-checked in this run; uses-snapshot, checked in this run but resting on the snapshot's results; checked, checked in this run. With --snapshot-stale-ok and a snapshot of an older verdict version (ADR 0020 amendment 3): stale-snapshot and uses-stale-snapshot instead, never this build's verdict.",
           "enum": [
             "checked",
             "snapshot",
-            "uses-snapshot"
+            "uses-snapshot",
+            "stale-snapshot",
+            "uses-stale-snapshot"
           ]
         },
         "fuel": {
@@ -1286,6 +1288,7 @@
         "sha256",
         "formatVersion",
         "verdictVersion",
+        "stale",
         "export",
         "manifestSha256",
         "base",
@@ -1307,9 +1310,34 @@
           "const": 1
         },
         "verdictVersion": {
-          "description": "kernel/verdict-version.fs: a snapshot of another verdict version is refused.",
+          "description": "The snapshot's verdict version (kernel/verdict-version.fs): a snapshot of another verdict version than this build's is refused, unless --snapshot-stale-ok lets an older one load (stale).",
           "type": "integer",
           "minimum": 1
+        },
+        "stale": {
+          "description": "null, or with --snapshot-stale-ok when the snapshot or a layer has an older verdict version (ADR 0020 amendment 3): this build's verdict version and how many results were taken from the stale snapshots; those are never this build's verdicts.",
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "thisVerdictVersion",
+                "results"
+              ],
+              "properties": {
+                "thisVerdictVersion": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "results": {
+                  "$ref": "#/$defs/count"
+                }
+              }
+            }
+          ]
         },
         "export": {
           "type": "object",
@@ -1364,7 +1392,8 @@
               "file",
               "sha256",
               "exportSha256",
-              "base"
+              "base",
+              "verdictVersion"
             ],
             "properties": {
               "file": {
@@ -1382,6 +1411,10 @@
               "base": {
                 "type": "string",
                 "pattern": "^[0-9a-f]{64}$"
+              },
+              "verdictVersion": {
+                "type": "integer",
+                "minimum": 1
               }
             }
           }

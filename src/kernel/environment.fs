@@ -384,8 +384,9 @@ end-structure
 : lf-look-outer-key ( key tier -- key' outcome )
   >r lf-look-kinds /mod lf-name-tier r> name-copy ok-then? 0= if nip no-result exit then
   lf-look-kinds * + outcome-ok ;
-: lf-look-outer ( k tier -- ) swap lf-look-at tuck @ swap lf-look-outer-key
-  ok? if swap ! else 2drop lf-look-unkept then ;
+: lf-look-outer ( k tier -- )
+  swap lf-look-at dup @ lf-look-outside = if 2drop exit then
+  tuck @ swap lf-look-outer-key ok? if swap ! else 2drop lf-look-unkept then ;
 : lf-look-outers ( k -- )
   lf-outer ?dup 0= if drop lf-look-unkept exit then
   lf-cand-looked@ rot ?do i over lf-look-outer loop drop ;

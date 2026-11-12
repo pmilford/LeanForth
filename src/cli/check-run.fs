@@ -781,17 +781,23 @@ create ck-lay /lay allot  ck-lay /lay erase   \ the layer being loaded
   ck-lay lay-ly ly-why @ ?dup if ck-lay lay-ly ly-where @ exit then c" layer" -1 ;
 : ck-lay-refused ( outcome -- outcome ) ck-lay-why ck-snap snap-note ;
 \ Each layer loaded, for the reports (review rvSN4 M1): its header's
-\ SHA-256, then its export's, 64 bytes (its base is ck-snap's).
-: ck-layer-id ( k -- addr ) 64 * ck-state ck-lay-ids @ + ;
+\ SHA-256, then its export's (32 bytes each), then its verdict version
+\ (a cell, negated when stale: --snapshot-stale-ok); its base is ck-snap's.
+64 1 cells + constant ck-lay-id-size
+: ck-layer-id ( k -- addr ) ck-lay-id-size * ck-state ck-lay-ids @ + ;
+: ck-layer-verdict ( k -- n ) ck-layer-id 64 + @ abs ;
+: ck-layer-stale? ( k -- flag ) ck-layer-id 64 + @ 0< ;
+: ck-lay-version ( -- n )
+  ck-lay lay-snap dup snap-verdict swap snap-stale @ if negate then ;
 : ck-lay-kept ( k -- )
   ck-layer-id ck-lay lay-snap snap-sum over 32 move
-  ck-lay lay-snap snap-export-sha swap 32 + 32 move ;
+  ck-lay lay-snap snap-export-sha over 32 + 32 move ck-lay-version swap 64 + ! ;
 : ck-layer ( sn names k -- sn names outcome )
   >r ck-stage ck-snap 2over ck-firsts ck-lay lay-init
   r@ ck-layer@ ck-snap snap-fuel ck-lay lay-load
   dup ok? if r@ ck-lay-kept else ck-lay-refused then r> drop ck-lay lay-free ;
 : ck-lay-ids-made ( -- outcome )
-  ck-layer-names 2@ nip 64 * 1 max allocate if drop outcome-full exit then
+  ck-layer-names 2@ nip ck-lay-id-size * 1 max allocate if drop outcome-full exit then
   ck-state ck-lay-ids ! outcome-ok ;
 : ck-layers-load ( -- outcome )
   ck-lay-ids-made dup ok? 0= if exit then drop
@@ -851,11 +857,21 @@ create ck-lay /lay allot  ck-lay /lay erase   \ the layer being loaded
   ['] ck-snap-kept ck-snap-opened ck-snap-fails
   dup ok? 0= if ck-staging ck-phase-end ck-staging ck-fail dup ck-state ck-loaded ! then ;
 : ck-taken# ( -- n ) ck-import imp-taken# ;
+\ Whether a snapshot loaded (the base or a layer) is stale: of an older
+\ verdict version, which --snapshot-stale-ok let load (env-snapshot.fs
+\ snap-stale-allowed); its results are then reported as stale.
+: ck-stale? ( -- flag )
+  ck-snapped? 0= if false exit then
+  ck-snap snap-stale @ ck-layers# 0 ?do i ck-layer-stale? or loop ;
 \ Declarations checked in this run: final, not taken from the snapshot
 \ (a stopped run checked fewer than it did not take; review rvSN4 m3).
 : ck-checked# ( -- n )
   ck-verdicts? 0= if 0 exit then
   0 lf-input-count 0 ?do i ck-final? i ck-taken? 0= and 1 and + loop ;
+\ Verdicts taken from the snapshot (and its layers), not checked here.
+: ck-saved# ( -- n )
+  ck-verdicts? 0= if 0 exit then
+  0 lf-input-count 0 ?do i lf-env-origin lf-origin-saved = - loop ;
 : ck-other# ( -- n ) ck-import imp-other# ;
 
 base !   \ the BASE this file was loaded with

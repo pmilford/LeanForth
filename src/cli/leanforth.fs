@@ -154,6 +154,7 @@ begin-structure /cli-run
   2 cells +field opt-snapshot   \ the snapshot to read (--snapshot), or 0 0
   field: opt-layers             \ the layers on it (--snapshot again): (c-addr u) each
   field: opt-layers#            \ how many
+  field: opt-stale              \ true: a snapshot of an older verdict version may load
   4 cells +field arg-files      \ the file names given, in order (two c-addr u)
   field: arg-count              \ how many were given
   field: arg-set                \ the options the command takes, as bits
@@ -205,6 +206,10 @@ manifest: cli-manifest
 : cli-save? ( -- flag ) cli-state opt-save @ 0<> ;
 : cli-snapshot! ( c-addr u -- ) cli-state opt-snapshot 2! ;
 : cli-snapshot? ( -- flag ) cli-state opt-snapshot @ 0<> ;
+\ --snapshot-stale-ok (a development flag, owner 2026-11-11; ADR 0020
+\ amendment 3): a snapshot of an older verdict version loads, its results
+\ reported as stale, never as this build's verdicts.
+: cli-stale? ( -- flag ) cli-state opt-stale @ ;
 \ The fuel a snapshot run asks for: --fuel's, or -1 for the snapshot's.
 : cli-asked-fuel ( -- n ) cli-state opt-fuel-given @ if cli-fuel @ else -1 then ;
 
@@ -294,9 +299,15 @@ end-structure
 \ In a run of a snapshot (ADR 0020 D4, OQ-3) a verdict says where it comes
 \ from: taken from the snapshot, not re-checked; or checked in this run
 \ but resting on the snapshot's results (step SN4's dependent exports).
+\ With a stale snapshot (--snapshot-stale-ok), the verdict is labelled
+\ stale: another build's rules, not this one's.
+: cli-stale-from. ( -- ) ." from a stale snapshot (an older verdict version), not this "
+  ." build's verdict" ;
 : cli-origin. ( origin -- )
-  lf-origin-saved = if ." from snapshot, not re-checked in this run"
-  else ." checked in this run, uses results from the snapshot" then ;
+  lf-origin-saved = if
+    ck-stale? if cli-stale-from. else ." from snapshot, not re-checked in this run" then
+  else ." checked in this run, uses results from the "
+    ck-stale? if ." stale " then ." snapshot" then ;
 : cli-accepted-from. ( d origin -- )
   ." accepted (experimental, not independently audited; " cli-origin. ." ); "
   lf-env-axioms ok? if lf-check-axioms. else drop ." axioms: ?" then ;
@@ -340,8 +351,8 @@ end-structure
   loop ;
 : cli-summary-label ( -- )
   ck-snapped? 0= if exit then
-  ." ; " cli-from-snapshot# dup .decimal ."  from the snapshot, " lf-input-count swap -
-  .decimal ."  checked in this run" ;
+  ." ; " cli-from-snapshot# dup .decimal ck-stale? if ."  stale" then
+  ."  from the snapshot, " lf-input-count swap - .decimal ."  checked in this run" ;
 : cli-summary ( -- )
   lf-input-count dup .decimal ."  declaration" 1 <> if ." s" then ." : "
   true verdict-kinds 0 do i verdict-kind cli-item loop drop cli-summary-label cr ;
@@ -642,17 +653,24 @@ create cli-hex 64 allot
 \ Each layer loaded on it (review rvSN4 M1): its file, identity, export.
 : cli-layer. ( k -- )
   ." layer: " dup ck-layer@ nt-text if type else cli-unshown then
-  ."  (sha256 " ck-layer-id dup cli-sha. ." ), export sha256 " 32 + cli-sha.
-  ." , on the snapshot above" cr ;
+  ."  (sha256 " dup ck-layer-id dup cli-sha. ." ), export sha256 " 32 + cli-sha.
+  ." , verdict version " dup ck-layer-verdict .decimal
+  ck-layer-stale? if ."  (stale)" then ." , on the snapshot above" cr ;
 : cli-layers. ( -- ) ck-layers# 0 ?do i cli-layer. loop ;
+: cli-stale. ( -- )
+  ck-stale? 0= if exit then
+  ." stale: --snapshot-stale-ok loaded a snapshot of an older verdict version than this" cr
+  ." stale: build's (" lf-verdict-version .decimal ." ): its " cli-from-snapshot# .decimal
+  ."  results are not this build's verdicts" cr ;
 : cli-snapshot. ( -- )
   ." snapshot: " cli-state opt-snapshot 2@ nt-text if type else cli-unshown then
   ."  (sha256 " ck-snap snap-sum cli-sha. ." ), export sha256 " ck-snap snap-export-sha
   cli-sha.
-  ." , verdict version " lf-verdict-version .decimal ." , written by LeanForth "
+  ." , verdict version " ck-snap snap-verdict .decimal
+  ck-snap snap-stale @ if ."  (stale)" then ." , written by LeanForth "
   cli-written-by type ." : " cli-from-snapshot# .decimal
   ."  results taken from it" ck-layers# if ."  and its layers" then
-  ." , not re-checked in this run" cr cli-layers. cli-import.
+  ." , not re-checked in this run" cr cli-layers. cli-stale. cli-import.
   ." note: development and research mode: a final run re-checks everything from the" cr
   ." note: export and reads no snapshot; only its results support a claim" cr ;
 : cli-fed-text ( -- )
@@ -722,6 +740,7 @@ variable cli-info#
 \ can be written from this run.
 : cli-fed-run ( xt -- code )
   cli-fed-ops cli-state run-ops ! rr-release rr-reset cli-fuel @ ck-start
+  cli-stale? snap-stale-allowed !
   cli-any-lean? ck-any-version! cli-jobs ck-jobs! catch ck-release throw cli-restored
   cli-worst @ ;
 : cli-library ( -- code )
@@ -785,6 +804,13 @@ variable cli-info#
 : cli-snap-both? ( -- flag ) cli-snapshot? cli-save? and cli-files @ 0= and ;
 : cli-misuse-snap ( c-addr u -- code )
   ." error: " type cr ." try: leanforth help" cr exit-malformed ;
+\ --snapshot-stale-ok reads a snapshot; a stale verdict is never written
+\ into another (ADR 0020 amendment 3).
+: cli-stale-misuse ( -- code|0 )
+  cli-stale? 0= if 0 exit then
+  cli-snapshot? 0= if s" --snapshot-stale-ok needs --snapshot" cli-misuse-snap exit then
+  cli-save? if s" --snapshot-stale-ok does not go with --save-snapshot" cli-misuse-snap
+    exit then 0 ;
 : cli-snap-misuse ( -- code|0 )
   cli-snap-misused? if s" --snapshot and --save-snapshot do not go with --record"
     cli-misuse-snap exit then
@@ -795,7 +821,8 @@ variable cli-info#
     cli-state opt-save 2@ cli-state opt-snapshot 2@ compare 0=
     if s" FILE must not be the snapshot read" cli-misuse-snap exit then then
   cli-save? cli-state opt-layers# @ 0<> and
-  if s" --save-snapshot writes a layer on one snapshot only" cli-misuse-snap exit then 0 ;
+  if s" --save-snapshot writes a layer on one snapshot only" cli-misuse-snap exit then
+  cli-stale-misuse ;
 \ With an export (it must open), the export checked against the snapshot.
 : cli-snapshot-check ( -- code )
   cli-files @ 0= if ['] cli-snapshot-run cli-fed-run exit then
@@ -1033,11 +1060,14 @@ variable cli-info#
   ."       exporter version in format 3.1.0, its verdicts still Lean 4.35.0's;" cr
   ."       --save-snapshot FILE writes the checked environment to FILE" cr
   ."   check --snapshot FILE [--fuel N] [--resources] [--json] [--fast]" cr
-  ."         [--no-manifest] [--jobs N] [EXPORT]" cr
+  ."         [--no-manifest] [--jobs N] [--snapshot LAYER]... [--snapshot-stale-ok]" cr
+  ."         [EXPORT]" cr
   ."       the verdicts a snapshot holds, labelled, not re-checked (development" cr
   ."       and research only: a final run re-checks the export); with EXPORT," cr
   ."       its declarations the snapshot holds unchanged taken from it, the rest" cr
-  ."       checked" cr
+  ."       checked (with --save-snapshot LAYER, written as a layer of FILE);" cr
+  ."       --snapshot-stale-ok loads one of an older verdict version, every" cr
+  ."       result from it labelled stale, never this build's verdict" cr
   ."   check [--no-manifest] [--fuel N] [--fast] [--strict-axioms]" cr
   ."         --record RECORD EXPORT" cr
   ."       the same for a small export, and write its run record to RECORD" cr ;
@@ -1145,6 +1175,7 @@ end-structure
 8192 constant takes-jobs
 16384 constant takes-save
 32768 constant takes-snapshot
+65536 constant takes-stale
 : cli-value ( c-addr u -- c-addr' u' true | false )
   cli-arg if 2swap 2drop true else c" an option without its value" cli-wrong false then ;
 \ A decimal number from 0 to max-n with nothing else: (n true) or false.
@@ -1173,6 +1204,7 @@ end-structure
   1 cli-state opt-layers# +! ;
 : cli-snapshot-option ( c-addr u -- )
   cli-value if cli-snapshot? if cli-layer+ else cli-snapshot! then then ;
+: cli-stale-option ( c-addr u -- ) 2drop true cli-state opt-stale ! ;
 : cli-manifest-option ( c-addr u -- ) 2drop cli-no-manifest ;
 : cli-detail-option ( c-addr u -- ) 2drop true cli-state opt-detail ! ;
 : cli-name-option ( c-addr u -- ) cli-value if cli-state opt-name 2! then ;
@@ -1215,6 +1247,7 @@ create cli-option-table
   ' cli-jobs-option takes-jobs 0 cli-entry, --jobs
   ' cli-save-option takes-save 0 cli-entry, --save-snapshot
   ' cli-snapshot-option takes-snapshot 0 cli-entry, --snapshot
+  ' cli-stale-option takes-stale 0 cli-entry, --snapshot-stale-ok
   0 ,
 : cli-takes? ( entry -- flag ) cli-entry-first @ cli-state arg-set @ and 0<> ;
 : cli-taken ( c-addr u entry -- )
@@ -1236,7 +1269,8 @@ create cli-option-table
 \ needs and the options it takes.
 takes-no-manifest takes-fuel or takes-fast or takes-checked or constant checking-set
 checking-set takes-record or takes-resources or takes-json or takes-strict or
-takes-any-lean or takes-jobs or takes-save or takes-snapshot or constant check-set
+takes-any-lean or takes-jobs or takes-save or takes-snapshot or takes-stale or
+constant check-set
 checking-set constant replay-set
 checking-set takes-detail or takes-name or takes-latex or takes-statement or
 takes-lf or takes-any-lean or constant print-set

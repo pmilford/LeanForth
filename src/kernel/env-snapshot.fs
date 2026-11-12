@@ -145,8 +145,14 @@ begin-structure /snap
   field: snap-layered                   \ writing: true for a layer
   field: snap-expect                    \ reading a layer: its base's identity, or 0
   field: snap-expect-firsts             \ and the base's tier counts (8 cells)
+  field: snap-stale                     \ reading: true for an older verdict version
 end-structure
 variable snap-loading   \ the record snap-fill reads
+\ A development flag (owner, 2026-11-11; ADR 0020 amendment 3): true lets
+\ a snapshot of an older verdict version load, marked stale (snap-stale),
+\ every result taken from it reported as stale, never as this build's
+\ verdict. False (the default): such a snapshot is refused as unsupported.
+variable snap-stale-allowed  false snap-stale-allowed !
 : snap-sf ( snap -- sf ) snap-tf tf-sf ;
 : snap-cell ( i snap field -- addr ) >r swap tier-sections# - cells swap r> execute + ;
 : snap-block ( i snap -- addr ) ['] snap-blocks snap-cell @ ;
@@ -527,7 +533,13 @@ create snap-outers /outers allot  snap-outers /outers erase
 : snap-fuel ( snap -- n ) sh-fuel over head@ swap sh-fuel 1+ swap head@ hi-cell ;
 : snap-marked? ( snap -- flag ) sh-mark swap head@ snap-mark = ;
 : snap-current? ( snap -- flag ) sh-version swap head@ snap-version = ;
-: snap-fresh? ( snap -- flag ) sh-verdict swap head@ lf-verdict-version = ;
+: snap-verdict ( snap -- n ) sh-verdict swap head@ ;
+\ This build's verdict version, or (snap-stale-allowed) an older one,
+\ which marks the record stale.
+: snap-older? ( snap -- flag ) snap-verdict 1 lf-verdict-version within ;
+: snap-fresh? ( snap -- flag )
+  dup snap-verdict lf-verdict-version = if drop true exit then
+  dup snap-older? snap-stale-allowed @ and dup rot snap-stale ! ;
 : snap-allowed? ( snap -- flag )
   dup sh-allow-version swap head@ lf-allowlist-version =
   swap sh-allow-bits swap head@ lf-allowlist-bits = and ;
