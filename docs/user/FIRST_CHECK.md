@@ -1,11 +1,14 @@
 # Checking a theorem with the first checker
 
-**Status, 2026-11-02: experimental.** The first checker (plan task 2.2.3)
+**Status, 2026-11-12: experimental.** The checker (first built as plan task 2.2.3)
 is [kernel] code that has not yet passed its review gate (`AGENTS.md`), and
 no outside Lean expert has audited it. Every result it accepts is printed
 *accepted (experimental, not independently audited)*, with the axioms the
 result depends on. Do not rely on an accepted result until the owner has
-approved the checker; until then, Lean's own kernel is the referee.
+approved the checker; until then, Lean's own kernel is the referee. What it
+checks is a proof that Lean produced and exported; LeanForth text cannot yet be
+checked (plan 8.2.1a-g, not started), so nothing on this page was proved from
+LeanForth input.
 
 This page shows one real check from start to end: the `composition`
 theorem, read from the file that Lean's exporter wrote, checked by
@@ -49,7 +52,7 @@ $g : B \to C$ and a proof $a$ of $A$, the proof of $C$ is $g$ applied to
 $f\,a$. It uses no axiom. Applying $g$ to $a$ itself would be a mistake:
 $g$ needs a proof of $B$, and $a$ proves $A$.
 
-**LeanForth Forth.** The pinned export `tests/reference/composition.ndjson`
+**The checking run in Forth** (the proof is Lean's, not LeanForth text). The pinned export `tests/reference/composition.ndjson`
 is staged by the importer stage (`src/import/stage.fs`), which checks it
 against its manifest, and fed to the checker (`src/import/feed.fs`);
 `cli-check`, the word behind [the command line](COMMAND_LINE.md)'s
@@ -138,12 +141,14 @@ in the application
 - The checked claim is the stored claim: the accepted record points at the
   very terms that were checked ([checked environment](../programming/CHECKED_ENVIRONMENT.md)).
 - "axioms: none" is read from the accepted record, which joins the axiom
-  sets of everything the declaration uses; in the first checker no axiom
-  can be accepted, so every set is empty.
+  sets of everything the declaration uses; the cases on this page use no
+  axiom, so their sets are empty (an axiom outside Lean's standard three is
+  reported NOT PROVED).
 - Reading and staging the file (`src/import/ndjson.fs`, `checker-input.fs`) are
   untrusted. They cannot make a wrong proof right; they could only hand
-  over a different claim. Nothing here prints the checked statement for a
-  person to compare yet (plan task 2.4.4); the 69 table cases are built
+  over a different claim. This page does not show the checked statement;
+  `leanforth print` prints it for a person to compare (plan tasks 4.4.3,
+  2.4.4); the 69 table cases are built
   from the very terms Lean checks.
 - The first checker covers `Sort`s, variables, application, `fun`, `∀` and
   earlier accepted declarations. Where Lean's kernel needs a type to be a
@@ -152,10 +157,11 @@ in the application
   declarations) since plan task 4.2.2c: with `def dqProp : Type := Prop`,
   `theorem t (A : dqProp) (h : A) : A := h` is accepted, as by Lean, and
   it unfolds definitions to compare two terms as Lean's lazy delta
-  reduction does (since plan task 4.2.2d). Proof irrelevance and eta are
-  not ported yet (plan tasks 4.2.5, 4.2.4), so some correct proofs are
-  *unknown*; theorems that use numbers or axioms are *unsupported* until
-  later phases.
+  reduction does (since plan task 4.2.2d). Proof irrelevance and function eta
+  (plan tasks 4.2.5, 4.2.4), `let`, literals, projections, quotients and
+  inductive types are built too; they are merged and approved, and the checker is
+  still not independently audited. A few constructs can still end *unknown* or
+  *unsupported* (see `bin/leanforth capabilities`).
 - Limits today: `bin/leanforth check` holds exports of any size (all of
   Lean's `Init`; the stores grow), with no fixed limit on how deep a term
   nests or how many constants a declaration uses (memory only; each

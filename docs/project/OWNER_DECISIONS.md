@@ -935,3 +935,12 @@ audited*.
   `tests/cli/shared-depths.lean` and two faults (700c4a1).
 - **Tonight's run:** all of Mathlib on the final build at full speed (8 workers), saving a version-9 snapshot.
 
+### No result labels (2026-11-12, evening)
+
+The owner: "I find the constant repetition of experimental and not independently audited, one NOT PROVED not useful.
+the code and system is under development and doesn't do anything yet. call it pre-alpha if you have to", then "I
+don't really think you need to label anything like that at all, or even pre-alpha." Decision 1's label requirement is
+withdrawn: no label on results, in reports, in the JSON report or in documents (task PA removes it; a [format] change
+of the check report decided by the owner). Verdicts are unchanged, including NOT PROVED for a declaration that uses an
+axiom outside the allowlist. The outside audit (plan 9.2.1) and the review gates stay.
+

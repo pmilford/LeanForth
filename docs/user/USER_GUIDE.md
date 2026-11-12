@@ -1,17 +1,18 @@
 # LeanForth user guide
 
-**Status, 2026-11-03: LeanForth does not yet check a proof or verify a
-program that you can rely on.** Its first checker (plan task 2.2.3,
-[first check](FIRST_CHECK.md)) checks small definitions and theorems, from
-the shell with `bin/leanforth check FILE.ndjson`
-([the command line](COMMAND_LINE.md), version 0), but it is experimental
-[kernel] code that has not passed its review gate, every result it accepts
-is labelled *accepted (experimental, not independently audited)*, and only
-exports the size of the test fixtures fit its stores. It has a Forth data
-model for Lean's terms, a Forth reader for Lean's export format, a term
-printer that prints as Lean does, and the first steps of a
-program-verification pipeline whose proofs are checked by Lean, not by
-LeanForth. This guide says what that means for you and where the trust
+**Status, 2026-11-12: LeanForth re-checks proofs that Lean produced and
+exported; it does not yet check LeanForth text, and it does not yet verify a
+program.** From the shell, `bin/leanforth check FILE.ndjson`
+([the command line](COMMAND_LINE.md)) checks a Lean 4.35.0 export of any
+size (all of Lean's `Init` and, on an earlier build, all of Mathlib's
+729,263 declarations were accepted), but the checker is experimental
+[kernel] code, several parts have not passed their review gates, and every
+result it accepts is labelled *accepted (experimental, not independently
+audited)*. `leanforth check FILE.lf` (LeanForth text) exits 4: no input path
+from LeanForth text to the kernel exists yet (plan 8.2.1a-g, not started).
+There is a Forth data model for Lean's terms, a Forth reader for Lean's
+export format, a term printer, and the first steps of a program-verification
+pipeline whose proofs are checked by Lean, not by LeanForth. This guide says what that means for you and where the trust
 boundaries are. The detailed status is in
 [project progress](../project/PROJECT_PROGRESS.md).
 
@@ -19,7 +20,7 @@ boundaries are. The detailed status is in
 | --- | --- |
 | This page | What LeanForth is and is not; trust boundaries; reading paths |
 | [Reading a Lean proof](READING_A_LEAN_PROOF.md) | For readers new to Lean and logic notation: every symbol, three small theorems read as textbook proofs, and each in all its forms (Lean source, `#print`, fully explicit, the kernel's nodes, the NDJSON export, LeanForth's Forth words, the term printer) |
-| [The command line](COMMAND_LINE.md) | `bin/leanforth check FILE.ndjson` on exports of any size and the other commands, what they print (text, the resource report, JSON), exit statuses 0–5, and the commands still limited to small exports |
+| [The command line](COMMAND_LINE.md) | `bin/leanforth check FILE.ndjson` on exports of any size and the other commands, what they print (text, the resource report, JSON), exit statuses 0–6, and the commands still limited to small exports |
 | [First check](FIRST_CHECK.md) | The first checker, experimental: a theorem read from Lean's export, checked and accepted; a broken copy rejected |
 | [Concepts, in three forms](CONCEPTS.md) | Level, `Sort`, `Prop`/`Type`, term, binder, de Bruijn index, constant, declaration, theorem and definition, kernel, outcomes — each as mathematics, LeanForth Forth and Lean, with Forth you can run |
 | [Workflows](WORKFLOWS.md) | Diagrams of checking a theorem and verifying a program, marking what exists and what is planned |
@@ -53,15 +54,16 @@ tools.
 
 ## What LeanForth is not
 
-- **Not yet a checker you can rely on, nor one for real libraries.** The
-  first checker ([ADR 0011](../adr/0011-definite-rejection.md), rules
+- **Not yet a checker you can rely on.** It does re-check real libraries
+  that Lean exported. The first checker ([ADR 0011](../adr/0011-definite-rejection.md), rules
   approved on 2026-11-02) accepts and rejects definitions, theorems, inductive types
   (also recursive and mutual), `let`, literals, projections and quotients,
   but several of these parts have not passed their review gates and none
-  is independently audited. It reads a whole library — all of Lean's
-  `Init` — yet it has checked no Mathlib declaration (0 of 729,263), and
-  some constructs (nested inductive types, metadata, unsafe and partial
-  declarations) are still *unsupported* ([the command line](COMMAND_LINE.md#a-whole-library-leans-init)).
+  is independently audited. It accepted all of Lean's `Init` and, on build
+  `b74a04d` (not re-run since), all 729,263 declarations of Mathlib's export,
+  with nested inductive types; a few constructs (metadata, blocks mixing safe
+  and unsafe members; unsafe and partial declarations are skipped as Lean skips
+  them) are still *unsupported* ([the command line](COMMAND_LINE.md#a-whole-library-leans-init)).
 - **Not a replacement for Lean's front end.** LeanForth checks finished
   proof terms. Writing proofs — the elaborator, tactics, `simp` — stays in
   Lean; you check a Lean file by exporting it. Writing theorems and proofs
@@ -112,11 +114,11 @@ and *full* (out of room). Only *ok* is ever accepted. See
   ([running the checks](RUNNING_THE_CHECKS.md)).
 - Read and count any Lean 4.35.0 export, up to all of Mathlib, with the
   Forth reader ([reader guide](../development/NDJSON_READER.md)).
-- Check a small Lean export with the experimental first checker from the
+- Check a Lean export of any size with the experimental checker from the
   shell, `bin/leanforth check FILE.ndjson`, and read the verdict of each
   declaration and the exit status ([the command line](COMMAND_LINE.md),
-  [first check](FIRST_CHECK.md)); its answers are not yet to be relied on,
-  and only exports the size of the test fixtures fit.
+  [first check](FIRST_CHECK.md)); its answers are not yet to be relied on.
+  The proofs are Lean's; LeanForth text cannot be checked yet.
 - Build terms with the data model's words, run the experimental
   inference and definition probe on them, and print them in Lean's
   notation, ASCII or LaTeX ([concepts](CONCEPTS.md),
