@@ -126,7 +126,8 @@ end-structure
 : lfc-settings-off ( -- ) 0 lf-author-library! false lf-author-checked! ;
 \ A text that declares nothing of its own has nothing to check (error 49).
 : lfc-own? ( -- flag ) false lf-author-count 0 ?do i lfa-library? 0= or loop ;
-: lfc-nothing ( -- outcome ) 0 0 0 lfa-e-nothing lfa-record lfa-e-nothing lf-author-outcome ;
+: lfc-nothing ( -- outcome )
+  0 0 0 lfa-e-nothing lfa-record lfa-e-nothing lf-author-outcome ;
 : lfc-something ( outcome -- outcome )
   dup ok? lfc-own? 0= and if drop lfc-nothing then ;
 : lfc-run ( c-addr u -- outcome )

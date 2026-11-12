@@ -19,6 +19,13 @@ process. It revises the owner's OQ-1 answer (a separate authoring
 program); §2, §18 and the follow-up "8.2.1" below are updated. A short
 word for Lean's `+`: "Not now".
 
+**[Amendment 2](#amendment-2-leanforth-text-checked-by-the-kernel-2026-11-12)
+(2026-11-12, built; gates [parser], [bypass] and [import] pending):**
+`leanforth check [--env EXPORT | --snapshot FILE] FILE.lf` checks LeanForth
+text with the kernel, the file's declarations handed over as export
+records through the importer stage, a library's constants named by their
+Lean names; the whole file is checked when it ends.
+
 This revision follows the owner's requirement of 2026-11-02: *"I was hoping
 we can encode the theorems and proofs in leanforth words, not strings that
 are parsed."* An earlier draft of this record used a reader with its own
@@ -2183,7 +2190,10 @@ and `errors.fs` (codes 45 and 46), described in
 tested by `tests/author/author.fs` on Gforth 1.0 and 0.7.3, with nine
 planted faults in `tests/mutants/faults.toml`, all caught. It also makes
 each text's lines count from 1 (the p12 finding, first recorded for
-8.2.1e).
+8.2.1e). Since 2026-11-12 `leanforth check FILE.lf` runs every text under
+these rules (integrated), and 8.2.1c and 8.2.1d are built as
+[Amendment 2](#amendment-2-leanforth-text-checked-by-the-kernel-2026-11-12)
+records.
 
 **Where 8.6.2 fits.** The statement in three forms is printed with every
 verdict of 8.2.1c and by `lf-verdict.`, from the same printer (merged
@@ -2433,3 +2443,112 @@ and its helper are written whole and read back to the same names. A shorter
 form of a name that is number-like gets no word. A string part of digits is
 written and read between guillemets (`N.«0».f`), distinct from the numeric
 part (`N.0.f`). Untrusted authoring and presentation only; no checker change.
+
+## Amendment 2: LeanForth text checked by the kernel (2026-11-12)
+
+**Status: proposed and built 2026-11-12 (plan tasks 8.2.1c and 8.2.1d,
+agent LF1, branch `lf-files`); integrated, not through its [parser],
+[bypass] and [import] gates, not independently audited.** It records how
+Amendment 1's A1, A3, A4 and A6 were built and where the build differs
+from them. It changes no typing or conversion rule, no axiom rule and no
+kernel module: the declarations reach the kernel through the importer
+stage, exactly as an export's do.
+
+**In plain words.** `leanforth check FILE.lf` now checks a file of
+LeanForth text with the checker that checks Lean's exports, and prints
+the same report. `leanforth check --env EXPORT FILE.lf` lets the file use
+a Lean library's constants, such as `Init`'s `Nat`, `Eq.refl` or
+`Nat.add_comm`, by their Lean names; `--snapshot FILE` takes the library
+from a snapshot instead. A file whose text has a mistake is not checked
+at all. Examples: `tests/author/19-add-zero.lf` proves $n + 0 = n$ by
+`Eq.refl n` and `20-zero-add.lf` proves $0 + n = n$ by induction with
+`Nat.rec`; both are accepted against an export of `Init`, their wrong
+twins rejected, as pinned Lean accepts and refuses the same theorems
+([the command line](../user/COMMAND_LINE.md#checking-leanforth-text),
+[LeanForth syntax](../user/LEANFORTH_SYNTAX.md#checking-a-file)).
+
+**B1. The text reaches the kernel as export records** (A1, A3). The words
+build each declaration in the context's term, level, name and reference
+stores, as before. When the file ends without an error,
+`src/author/export.fs` writes the declarations as the records of an export
+in lean4export's format 3.1.0 — its names, levels and expressions in store
+order, then each theorem, definition (with Lean's height, getMaxHeight + 1)
+and axiom — through `src/lib/json-write.fs`, under a metadata record naming
+LeanForth as the exporter, and hands each line to the importer stage
+(`stage-produce`, `src/import/stage.fs`), which reads it with the same
+handlers and checks as a Lean export's lines. The stage is sealed, fed and
+checked by `cli/check-run.fs`'s run, and `cli/leanforth.fs` prints the
+verdicts from the published slots (`src/cli/check-lf.fs` is the loading
+step). *Why records, not the input directly:* the feed, the checked
+environment, the snapshots' import pass, `--jobs` and every report work
+unchanged, with the stage's own refusals of malformed records in front of
+the kernel; the alternative, adding declarations to a sealed input, is the
+kernel change of 8.2.1g. *Difference from A1/A3:* the whole file is checked
+when it ends ("Now", A3), not each declaration at its `end NAME`.
+
+**B2. The library** (A4, A6). `--env EXPORT` reads the export into the
+stage first (its manifest checked unless `--no-manifest`); `stage-extend`
+then keeps its declarations while the text's records are read on into the
+same tier, so constants resolve among both at sealing, and every library
+declaration is checked before the text's. `--snapshot FILE` loads the
+snapshot's tier as `check --snapshot FILE EXPORT` does, keeps its
+declarations the same way, and the import pass (ADR 0020 D5) takes them
+from the snapshot, so only the text's are checked; the run is a snapshot
+run, labelled so (development and research only). The words find the
+library's constants through a finder (`src/author/library.fs`): the full
+name, looked up in the stage's names and declarations before sealing,
+gives its number of universe parameters and its height; a constant named
+for the first time gets a record of kind library, and resolves as the
+file's own constants do (§9). *Difference from A4:* LF-LIB, a word list
+with its own search on each host (`wordlist-class`, `mappedwordlist`), is
+not built; the look-ahead A4 kept as the portable path is used on both
+Gforths: before a line runs, each of its tokens up to a `\` comment that
+no word list of the run has and that is not number-like gets a group word
+in LF-CONST, which decides nothing (an unknown name still stops as
+unknown, error 1). It costs a group word (about 48 bytes) per distinct
+spelling, within the dictionary reserve of A5 row 11.
+
+**B3. Rules of a checked text.** (1) `import-stub` is refused (error 48,
+invalid): a stub declares a constant no one checks; it remains for runs of
+the words alone (the printer's tests, the documentation's examples). (2) A
+text that declares nothing of its own is refused (error 49). (3) A
+declaration may not take a library constant's name (error 28, Lean's
+"already declared"). (4) Lean's export does not record `protected`, so a
+one-part name that reaches a library constant through a namespace (P.T or
+O.T) stops with error 55 (unsupported, "write the full name"): a temporary
+refusal where Lean decides, until the export pipeline records protected
+(A4, 8.2.1d). (5) A text that stops with an error is not checked at all,
+the declarations before the error included; the error is printed at its
+line and column and the exit status is its outcome's (4 invalid, 2
+unsupported, 3 full). (6) An axiom is checked as an export's axiom is:
+Lean's verdict, labelled NOT PROVED with what depends on it (owner,
+2026-11-04). The stores get the room the heap has while the words run, and
+their settings back after.
+
+**B4. Evidence** (`tests/author/check_author.py`, `author.fs`,
+`tests/core/stage.fs`). All 24 fixtures of `tests/author` run through
+`leanforth check`: the 18 whose Lean source pinned Lean accepts are
+accepted (`07-add-comm`, `14-case`, `19-add-zero` and `20-zero-add` against
+`tests/author/init-slice.ndjson`, 59 declarations of `Init` exported by
+pinned Lean with `scripts/export.sh`; `08-monoid` against the class alone,
+`monoid-slice.ndjson`, exported from its Lean source; both reproduced byte
+for byte in `make check`), and the other 6 stop before any check (4 text
+errors, the structure sketch's stub, a line too long); four wrong twins
+in `tests/author/wrong/` are rejected, and pinned Lean refuses their Lean
+sources; the words' terms equal Lean's, node for node, for every fixture
+with a Lean source, literals included; 19 command cases reach every
+outcome and misuse (accepted, rejected, NOT PROVED with and without
+`--strict-axioms`, exhausted, unsupported, text errors, a library name
+taken, a short name, wrong case, stubs, `--jobs 2`, a missing library,
+`--json`, `--env` without a text). Nine planted faults in
+`tests/mutants/faults.toml` (`lf-…`) are caught, among them a failed text
+still checked and a stub accepted with a library.
+
+**B5. What is left.** 8.2.1b (the words at the kernel's scale: their
+node sharing searches the store), 8.2.1e (prompt and inline use), 8.2.1f
+(saving and re-checking), 8.2.1g (a check at each `end NAME`, a kernel
+change), LF-LIB with its host adapters (a speed-up over the look-ahead),
+`protected` in the export pipeline, `--json` for a text, and the term
+printer's types for library constants (a library constant prints with
+all its arguments, `@Eq Nat …`, where Lean hides the implicit ones; the
+terms are the same).

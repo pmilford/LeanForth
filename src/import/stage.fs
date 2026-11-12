@@ -386,7 +386,8 @@ binder-reaches
 \ gone too. Invalid unless the stage is filled.
 : stage-line ( c-addr u stage -- outcome ) stage-export export-line ;
 : produced ( xt 0 stage -- outcome )
-  nip dup stage-export export-restart swap execute ok-then? if stage-export export-end then ;
+  nip dup stage-export export-restart swap execute
+  ok-then? if stage-export export-end then ;
 : stage-produce ( xt stage -- outcome ) 0 swap ['] produced stage-reading ;
 : maps-again ( stage -- outcome )
   dup stage-name-map slab-clear dup stage-level-map slab-clear

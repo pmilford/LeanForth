@@ -901,12 +901,14 @@ variable cli-info#
   lfc-failed? if cli-text-error else cli-fed-tally cli-fed-report then ;
 : cli-text-lines ( -- )
   cli-json? if exit then true cli-state run-noted ! ['] cli-stream ck-lines! ;
-: cli-text-load ( -- outcome ) cli-library-file lfc-env! 0 cli-file cli-checked? ck-lf-load ;
+: cli-text-load ( -- outcome )
+  cli-library-file lfc-env! 0 cli-file cli-checked? ck-lf-load ;
 : cli-text-loaded ( -- outcome )
   cli-snapshot? 0= if cli-text-load exit then
   cli-layers cli-state opt-snapshot 2@ cli-asked-fuel ck-snapshot-import
   dup ok? if drop cli-text-load then ;
-: cli-text-run ( -- ) cli-text-loaded ok? if cli-text-lines ck-check then cli-text-report ;
+: cli-text-run ( -- )
+  cli-text-loaded ok? if cli-text-lines ck-check then cli-text-report ;
 : cli-text-misused? ( -- flag )
   cli-record? cli-save? or cli-json? or cli-snapshot? cli-library-file nip 0<> and or ;
 : cli-text-misuse ( -- code )
@@ -1177,7 +1179,11 @@ variable cli-info#
   ."       result from it labelled stale, never this build's verdict" cr
   ."   check [--no-manifest] [--fuel N] [--fast] [--strict-axioms]" cr
   ."         --record RECORD EXPORT" cr
-  ."       the same for a small export, and write its run record to RECORD" cr ;
+  ."       the same for a small export, and write its run record to RECORD" cr
+  ."   check [--env EXPORT | --snapshot FILE] [--fuel N] [--resources] [--jobs N]" cr
+  ."         [--strict-axioms] [--no-manifest] [--memory-per-check MB] FILE.lf" cr
+  ."       check a LeanForth text, against Lean's library EXPORT or a snapshot" cr
+  ."       FILE of one: its declarations built by the words, checked as an export's" cr ;
 : cli-engine-usage. ( -- )
   ."   check, replay and print run on gforth-fast, the default engine; --checked" cr
   ."       runs Gforth's checking engine instead, about 2.4 times slower, which" cr

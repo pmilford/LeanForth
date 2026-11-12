@@ -92,10 +92,116 @@ theorem composition {A B C : Prop} (f : A → B) (g : B → C) : A → C :=
 'composition' does not depend on any axioms
 ```
 
+## Checking LeanForth text
+
+**Status, 2026-11-12: integrated, experimental** (plan tasks 8.2.1c and
+8.2.1d; [ADR 0017 Amendment 2](../adr/0017-leanforth-syntax.md#amendment-2-leanforth-text-checked-by-the-kernel-2026-11-12)).
+`check` also takes a file of [LeanForth text](LEANFORTH_SYNTAX.md), whose
+name ends in `.lf`: theorems, definitions and proofs written as Forth
+words. LeanForth's words build each declaration's terms, the terms go to
+the same checker as an export's, and the report is the same: one line per
+declaration, the label *experimental, not independently audited*, the
+axioms and the [exit status](#exit-status). No Lean tool runs:
+
+```console
+$ bin/leanforth check tests/author/02-composition.lf
+composition: accepted (experimental, not independently audited); axioms: none
+1 declaration: 1 accepted
+accepted: 1 (experimental, not independently audited); axioms: none
+```
+
+The words have no types, so they build a wrong proof without complaint;
+the checker rejects it. Here `g` gets `value`, a proof of `A`, where it
+needs one of `B` (pinned Lean refuses the same theorem):
+
+```console
+$ bin/leanforth check tests/author/wrong/02-composition.lf; echo "exit status $?"
+composition: rejected
+  rejected: argument type mismatch (D1-D5); diagnostic 59 at mixed-infer lf-mixed-infer: 0 0
+1 declaration: 1 rejected
+exit status 1
+```
+
+**Lean's library.** `--env EXPORT` names an export of Lean's library that
+the text may use: its constants are named by their Lean names, exactly as
+spelt (`Nat`, `Eq.refl`, `HAdd.hAdd`, `Nat.add_comm`), and Lean decides
+which constant a name means ([LeanForth syntax](LEANFORTH_SYNTAX.md#checking-a-file)).
+The library's declarations are checked first, then the text's; their lines
+are all printed. `tests/author/init-slice.ndjson` holds 59 declarations of
+Lean's `Init`: those that `Nat.add_comm`, `Eq.refl`, `Nat.rec`,
+`congrArg` and a few more need, exported by pinned Lean with
+`scripts/export.sh` (`make check` reproduces it byte for byte). The
+proof of $n + 0 = n$ below is `Eq.refl n`: the checker must see that
+`n + 0` reduces to `n`:
+
+```console
+$ bin/leanforth check --env tests/author/init-slice.ndjson tests/author/19-add-zero.lf | tail -3
+add_zero': accepted (experimental, not independently audited); axioms: none
+60 declarations: 60 accepted
+accepted: 60 (experimental, not independently audited); axioms: none
+```
+
+$0 + n = n$ is true too, but not by `Eq.refl`: `0 + n` does not reduce
+while `n` is a variable, and Lean and LeanForth both refuse that proof
+(`tests/author/20-zero-add.lf` proves it by induction instead):
+
+```console
+$ bin/leanforth check --env tests/author/init-slice.ndjson tests/author/wrong/19-add-zero.lf | tail -4
+zero_add_refl: rejected
+  rejected: declared type mismatch (D1-D5); diagnostic 60 at check-declaration lf-check-declaration: 0 0
+60 declarations: 59 accepted, 1 rejected
+accepted: 59 (experimental, not independently audited); axioms: none
+```
+
+A whole `Init` export works the same way, but checks all of `Init` first
+(about ten minutes); `--snapshot FILE` instead takes the library from a
+[snapshot](#snapshots---save-snapshot-and---snapshot) written by
+`check --save-snapshot FILE` of it, as for a dependent export: its
+declarations are taken from the snapshot, labelled so, and only the
+text's are checked (development and research only, like every snapshot
+run). `--env` and `--snapshot` do not go together.
+
+**A text that stops is not checked at all.** A mistake in the text is
+printed at its line and column, with its code from the
+[catalogue](../programming/LEANFORTH_WORDS.md#errors), and nothing is
+checked, not even the declarations before it; the exit status is the
+error's: 4 for a mistake, 2 for a form not supported yet, 3 for no room:
+
+```console
+$ bin/leanforth check tests/author/10b-typo.lf; echo "exit status $?"
+error: invalid: the LeanForth text was not checked: error 1 at line:col 8:27 (token `valeu`): unknown name: no syntax word, bound variable, universe parameter or constant has it
+exit status 4
+$ bin/leanforth check tests/author/07-add-comm.lf; echo "exit status $?"
+error: invalid: the LeanForth text was not checked: error 1 at line:col 7:3 (token `Nat`): unknown name: no syntax word, bound variable, universe parameter or constant has it
+exit status 4
+```
+
+(`Nat` is Lean's: with `--env tests/author/init-slice.ndjson` the same
+file is accepted.) Further rules of a checked text: `import-stub`, which
+declares a constant no one checks, is refused (error 48); a text that
+declares nothing is refused (error 49); a declaration may not take a
+library constant's name (error 28, Lean's "already declared"); and
+because Lean's export does not say which constants are *protected*, a
+one-part name that would reach a library constant through a namespace
+stops with "write the full name" (error 55, exit 2), a temporary refusal
+where Lean decides. An axiom gets Lean's verdict and is labelled NOT
+PROVED, with what depends on it, as in an export. `--json`, `--record` and
+`--save-snapshot` do not go with a text yet.
+
+What runs: the file runs through Forth's own interpreter with only
+LeanForth's words visible ([ADR 0017 Amendment 1, A5](../adr/0017-leanforth-syntax.md#a5-sealed-text-what-must-be-shut-and-the-probes));
+the declarations it makes are written as export records (in the export
+format, by LeanForth, `src/author/export.fs`) into the importer stage,
+after the library's, and checked as an export holding the same
+declarations would be. The whole file is checked when it ends, not each
+declaration at its `end NAME` (plan 8.2.1g). The words are untrusted: a
+wrong word builds a different term, which the checker checks as it is.
+
 ## Commands
 
 | Command | What it does |
 | --- | --- |
+| `check [--env EXPORT \| --snapshot FILE] [--no-manifest] [--fuel N] [--resources] [--checked] [--strict-axioms] [--any-lean-version] [--jobs N] [--progress[=SECONDS]] [--memory-per-check MB] FILE.lf` | Check a [LeanForth text](#checking-leanforth-text): its declarations built by LeanForth's words and checked as an export's, against the library export EXPORT (its manifest checked unless `--no-manifest`) or a snapshot FILE when one is given; a text that stops with an error is not checked |
 | `check [--no-manifest] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--jobs N] [--progress[=SECONDS]] [--memory-per-check MB] [--save-snapshot FILE] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text; with `--jobs N`, check with [N workers at once](#parallel-checking---jobs); with `--memory-per-check MB`, give each check [at most MB megabytes of scratch](#memory-per-check---memory-per-check); with `--progress`, write [a status line](#progress-and-partial-results---progress) to standard error every minute; with `--save-snapshot FILE`, also write the checked environment to FILE ([snapshots](#snapshots---save-snapshot-and---snapshot)) |
 | `check --snapshot FILE [--snapshot LAYER ...] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--no-manifest] [--jobs N] [--save-snapshot LAYER] [--snapshot-stale-ok] [EXPORT]` | Report the verdicts a [snapshot](#snapshots---save-snapshot-and---snapshot) and its layers hold, each labelled as taken from it and not re-checked; with EXPORT, check it against them, taking what they vouch for and checking the rest, and with `--save-snapshot`, write what was checked as a layer: for development and research only |
 | `check [--no-manifest] [--fuel N] [--checked] [--strict-axioms] --record RECORD EXPORT` | Check a small export (read straight into the checker's stores) and also write its [run record](#run-records-and-replay) |

@@ -1,30 +1,33 @@
 # LeanForth syntax: theorems and proofs as Forth words
 
-**Status (2026-11-03): implemented, experimental, not yet relied on.** The
-words of [ADR 0017](../adr/0017-leanforth-syntax.md), which the owner
-approved as the design, exist in `src/author/` (plan task 8.1.2): you can
-write a theorem, a definition and its proof as Forth words, run them,
-get your mistakes back with line and column, and print the result back
-as words or in Lean's notation. They still pass the [parser] review gate
-of `AGENTS.md` before anything relies on them. What is not built yet
-(designed in [ADR 0017 Amendment 1](../adr/0017-leanforth-syntax.md#amendment-1-accepted-leanforth-text-run-by-forth-itself-at-the-prompt-from-files-and-inline),
-accepted by the owner on 2026-11-04; plan task 8.2.1): with LeanForth
-loaded, Gforth's own interpreter will run this text — from a file with
-`leanforth check proof.lf`, typed at the prompt, or from a Forth program
-that passes values in — and each `end NAME` will hand the declaration to
-the checker; library names such as `Init`'s will be found through a
-vocabulary, exactly as spelt. Today these words build terms and print
-them but do not yet send them to the checker; helpers that fill in
-implicit arguments or run tactics are plan 8.3. Today theorems reach the
-checker from Lean exports ([workflows](WORKFLOWS.md#checking-a-theorem)).
+**Status (2026-11-12): integrated, experimental, not independently
+audited.** The words of [ADR 0017](../adr/0017-leanforth-syntax.md), which
+the owner approved as the design, exist in `src/author/` (plan task
+8.1.2): you write a theorem, a definition and its proof as Forth words,
+run them, get your mistakes back with line and column, and print the
+result back as words or in Lean's notation. Since 2026-11-12 (plan tasks
+8.2.1c and 8.2.1d, [ADR 0017 Amendment 2](../adr/0017-leanforth-syntax.md#amendment-2-leanforth-text-checked-by-the-kernel-2026-11-12))
+**`leanforth check FILE.lf` checks such a file with LeanForth's checker**,
+and with `--env EXPORT` the file uses the constants of Lean's library
+(such as `Nat`, `Eq.refl` and `Nat.add_comm` from `Init`) by their Lean
+names: see [checking a file](#checking-a-file). Every accepted result is
+*experimental — not independently audited*, and the words still pass the
+[parser] review gate of `AGENTS.md`. Not built yet (designed in
+[ADR 0017 Amendment 1](../adr/0017-leanforth-syntax.md#amendment-1-accepted-leanforth-text-run-by-forth-itself-at-the-prompt-from-files-and-inline),
+plan 8.2.1e–g): text typed at the prompt or passed in from a Forth
+program, a check at each `end NAME` (today the whole file is checked when
+it ends), a library found through a vocabulary of its own; helpers that
+fill in implicit arguments or run tactics are plan 8.3. Theorems also
+reach the checker from Lean exports ([workflows](WORKFLOWS.md#checking-a-theorem)).
 
 **Trust.** The words decide nothing. They only build terms; only the
 checker can accept a theorem, and the checked statement can always be
-printed back for you to read. The checker never loads `src/author/`
-today (a test checks it); under Amendment 1 they will share one Gforth,
-with only LeanForth's words visible to the text, and results where other
-Forth code ran in the same Gforth will read "checked in this session"
-until re-checked by `leanforth check`. Words such as *term*, *binder*
+printed back for you to read. `leanforth check FILE.lf` runs the text in
+the checker's own Gforth, with only LeanForth's words visible to it (ADR
+0017 Amendment 1, A5), and hands the declarations to the kernel as export
+records; the kernel's modules themselves never load `src/author/` (a test
+checks it). A wrong word can only build a different term, which the
+checker checks as it is. Words such as *term*, *binder*
 and *universe level* are explained in [terms for new readers](TERMS_FOR_NEW_READERS.md) and
 [concepts in three forms](CONCEPTS.md). Every word, its stack effect and
 every error code are in the
@@ -71,12 +74,15 @@ Forth: the parts come first, then the word that combines them.
 - Comments are Forth's: `\` to the end of the line, `( … )` within a line
   (a `(` must be closed on its line).
 
-Lean's core library is not imported yet (plan 8.2.1): a file names the
-constants it uses with `import-stub NAME [universe u]… [TYPE] end NAME`, a
-stand-in that only defines the constant's word (and, given a type, lets
-the printer hide its implicit arguments as Lean does). A stub for a
-constant Lean protects says so, `protected import-stub Nat.add_comm …`, so
-that names resolve as in Lean.
+Lean's library is named on the command line, `leanforth check --env
+EXPORT FILE.lf` (an export of `Init`, or of any Lean library): the file
+then uses its constants by their Lean names, and a name means the
+constant Lean would pick. Before that existed, files named such constants
+with `import-stub NAME [universe u]… [TYPE] end NAME`, a stand-in that only
+defines the constant's word; a stub declares a constant no one checks, so
+`leanforth check` refuses it (error 48). Stubs remain for running the
+words and the printer on their own (the examples below with the
+`leanforth` helper), until those move to small exports.
 
 ## Running it
 
@@ -136,6 +142,94 @@ create text 8192 allot  variable text#
   lf-author-count 0 ?do i .notes loop ;
 : leanforth-words ( -- ) run-rest if 1000 lf-author-print ok. then ;
 ```
+
+## Checking a file
+
+`leanforth check FILE.lf` runs a file of LeanForth text and checks every
+theorem, definition and axiom it declares with LeanForth's checker, the
+one that checks Lean's exports; the report is the same as for an export
+([the command line](COMMAND_LINE.md#checking-leanforth-text)):
+
+```console
+$ bin/leanforth check tests/author/01-identity.lf
+identity: accepted (experimental, not independently audited); axioms: none
+1 declaration: 1 accepted
+accepted: 1 (experimental, not independently audited); axioms: none
+```
+
+**A proof of your own, using Lean's library.** *Mathematics:* for every
+natural number $n$, $n + 0 = n$, by computation: $n + 0$ reduces to $n$.
+*LeanForth* (`tests/author/19-add-zero.lf`): `Nat`, `Eq`, `HAdd.hAdd`,
+`OfNat.ofNat`, `Eq.refl` and the rest are `Init`'s, named by their Lean
+names; the proof is `Eq.refl n`, which proves $n = n$, and the checker
+must see that `n + 0` reduces to `n` (Lean's `0` is
+`OfNat.ofNat Nat 0 (instOfNatNat 0)`, and `0 lit#` is the literal 0):
+
+```text
+theorem add_zero'
+  Nat explicit: n
+  Eq 1 ^ Nat $
+    HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $  instHAdd 0 ^ Nat $ instAddNat $  $  n $
+      OfNat.ofNat 0 ^ Nat $  0 lit# $  instOfNatNat 0 lit# $  $  $
+  $
+    n $
+:=
+  Eq.refl 1 ^ Nat $ n $
+end add_zero'
+```
+
+```console
+$ bin/leanforth check --env tests/author/init-slice.ndjson tests/author/19-add-zero.lf | tail -3
+add_zero': accepted (experimental, not independently audited); axioms: none
+60 declarations: 60 accepted
+accepted: 60 (experimental, not independently audited); axioms: none
+```
+
+*Lean*, which accepts the same theorem with the same term (the tests
+compare the terms node for node):
+
+```lean
+theorem add_zero' (n : Nat) : n + 0 = n := Eq.refl n
+```
+
+The export `tests/author/init-slice.ndjson` holds the 59 declarations of
+`Init` these examples need; the first 59 lines of the report are theirs,
+checked before the file's. With all of `Init`'s export, or a snapshot of
+it (`--snapshot FILE`), the file is checked the same way.
+
+**Induction.** *Mathematics:* $0 + n = n$ for every $n$ — but not by
+computation, since $0 + n$ does not reduce while $n$ is unknown (the
+checker rejects `Eq.refl n` here, as Lean does:
+`tests/author/wrong/19-add-zero.lf`). By induction on $n$: $0 + 0 = 0$, and
+from $0 + k = k$ follows $0 + (k + 1) = (0 + k) + 1 = k + 1$.
+*LeanForth* (`tests/author/20-zero-add.lf`) writes the induction as Lean's
+kernel term: the recursor `Nat.rec` with the motive $k \mapsto 0 + k = k$,
+the case for zero and the step, `congrArg Nat.succ` applied to the
+hypothesis `ih`. *Lean*:
+
+```lean
+theorem zero_add' (n : Nat) : 0 + n = n :=
+  @Nat.rec (fun k => 0 + k = k) (@Eq.refl Nat 0)
+    (fun k ih => @congrArg Nat Nat (0 + k) k Nat.succ ih) n
+```
+
+```console
+$ bin/leanforth check --env tests/author/init-slice.ndjson tests/author/20-zero-add.lf | tail -1
+accepted: 60 (experimental, not independently audited); axioms: none
+```
+
+**What happens to a file.** Forth's own interpreter runs it line by line
+with only LeanForth's words visible, and before each line LeanForth makes
+a word for every name in it that has none yet, so that a library name
+such as `Nat.add_comm` runs as Lean resolves it (unknown names still stop
+as unknown, error 1). When the file ends without an error, the
+declarations it made are handed to the checker as export records, behind
+the library's, and checked in file order. A file that stops with an error
+is not checked at all; the error is printed with its line and column. Two
+limits for now: the library's export does not say which constants are
+*protected*, so a library constant is written by its full name inside a
+namespace (`MyMonoid.mul`, not `mul`; error 55 otherwise, where Lean may
+decide); and `import-stub` is refused (error 48).
 
 ## Example: identity
 
@@ -272,8 +366,11 @@ addition `HAdd.hAdd` at the type `Nat`, with "addition of naturals"
 (`instHAdd 0 ^ Nat $ instAddNat $`) passed as an argument, and `0 ^` and
 `1 ^` are universe levels. Shorter forms, where a helper fills in such
 arguments, are planned (task 8.3.1); the `+` sign itself stays with the
-printer and editors, because in Forth `+` means machine addition. The
-import stubs stand in for Lean's core library:
+printer and editors, because in Forth `+` means machine addition. Here,
+run by the words alone, import stubs stand in for Lean's core library;
+`tests/author/07-add-comm.lf` is the same theorem without them, checked
+with `leanforth check --env tests/author/init-slice.ndjson`
+([checking a file](#checking-a-file)):
 
 ```forth
 leanforth
@@ -503,16 +600,25 @@ own words are unknown names too: `A dup` in a proof stops at `dup`.
 
 ## Limits today
 
-- **Store sizes.** A run builds its terms in LeanForth's stores, which hold
-  64 terms, 64 levels, 64 names and 32 constant references. While they are
-  this small, equal subterms share one node (which keeps the position
-  where it was first written); a step with a label or note always has a
-  node of its own. A larger proof stops with an "out of room" error.
-  Mathlib-scale stores are planned ([ADR 0016](../adr/0016-compact-store.md)).
+- **Store sizes.** A run on its own builds its terms in LeanForth's
+  stores, which start with 64 terms, 64 levels, 64 names and 32 constant
+  references; `leanforth check` gives them as much room as the heap has.
+  Equal subterms share one node (which keeps the position where it was
+  first written), found by a search through the store, so a text of many
+  thousand nodes is slow (plan 8.2.1b); a step with a label or note always
+  has a node of its own. The authoring tables hold 1,024 declarations and
+  1,024 names in scope.
 - **Not supported yet** (each stops with a "not supported yet" error):
-  natural-number and string literals, `let`/`have`, projections, holes
-  `_`, tactic blocks `by`, `import`, and `_root_` in a declaration's name.
-  Inductive types and structures are sketched in ADR 0017 only.
+  string literals and natural-number literals above one cell, `let`/`have`,
+  holes `_`, tactic blocks `by`, `import`, and `_root_` in a declaration's
+  name. Inductive types and structures are sketched in ADR 0017 only: a
+  file uses them from a library export (`tests/author/08-monoid.lf` uses a
+  class that Lean declared). `n lit#` is the literal n, `i proj# NAME` a
+  projection.
+- **Checking.** `leanforth check FILE.lf` checks the whole file when it
+  ends, not each declaration at its `end NAME` (plan 8.2.1g); the prompt
+  and Forth programs (`lf-prompt`, `lf[ … ]lf`) are not built (8.2.1e);
+  `--json` and run records do not take a text yet.
 - **One line per word and name.** A word that reads a name, a note and a
   `( … )` comment must have it on the same line; lines are at most 1023
   characters in a file.

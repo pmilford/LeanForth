@@ -15,12 +15,13 @@ audit, any accepted result is *experimental — not independently audited*.
 | `cli/` | The command line (`leanforth.fs`, plan tasks 3.4.1-3.4.2): `check` (with `--record`), `replay`, `print` (with `print.fs`: proof outlines from the derivation log), `count`, `reexport`, `version`, `capabilities`, the exit codes 0-5, and the Forth words behind them; see [the command line](../docs/user/COMMAND_LINE.md). Uses `lib/`, `core/`, `kernel/`, `import/` and `present/`; nothing but `main.fs` uses it. Untrusted: it prints a declaration's verdict as the checker published it. | yes |
 | `program/` | Verified-program track: the example words (clamp, checked add, abs, factorial, gcd, in-range) and the stack-depth analyzer. | yes |
 | `present/` | Presentation: untrusted output formatting that the checker never reads. The presentation side table (`binder-table.fs`: binder names and kinds, source record IDs, declared types) and the term printer (`term-printer.fs` and the `print-*.fs`, `latex-text.fs` modules it loads) in Lean's notation, ASCII and LaTeX; the labels and notes of proof steps (`note-table.fs`) and the printer's Forth mode (`print-forth.fs`, a declaration as the LeanForth words that build it); the proof outline printed from the derivation log (`proof-outline.fs` and `log-view.fs`, plan task 2.4.4, in plain text or as LaTeX, 8.6.1; its header shows the statement in Lean notation, mathematics and LeanForth words, `statement-forms.fs`, 8.6.2; the log's structural check, `log-check.fs`, which the outline applies before it prints; [PROOF_OUTLINE.md](../docs/user/PROOF_OUTLINE.md)). See [the user guide](../docs/user/TERM_PRINTER.md). Uses `lib/` and `core/`, never `kernel/`. | yes, `term-printer.fs` and `proof-outline.fs`; the checker never uses them; `note-table.fs` and `print-forth.fs` no |
-| `author/` | The untrusted authoring layer (plan task 8.1.2, ADR 0017): theorems and proofs written as LeanForth words and run by Forth's own interpreter, line by line (`runner.fs`, the top module), with case-sensitive names, namespaces, labels and notes and errors with line and column. Meant to run in an authoring program of its own (plan 8.2.1, not built). See [the reference](../docs/programming/LEANFORTH_WORDS.md). Uses `lib/`, `core/` and `present/`, never `kernel/`; the checker never loads it (`tests/author/check_author.py` checks that). | no |
+| `author/` | The untrusted authoring layer (plan task 8.1.2, ADR 0017): theorems and proofs written as LeanForth words and run by Forth's own interpreter, line by line (`runner.fs`, the top module), with case-sensitive names, namespaces, labels and notes and errors with line and column; a library's constants named through a finder (`library.fs`), and the declarations a run made written as export records (`export.fs`), which `leanforth check FILE.lf` reads into the importer stage (`cli/check-lf.fs`; plan tasks 8.2.1c-d, ADR 0017 Amendment 2). See [the reference](../docs/programming/LEANFORTH_WORDS.md). Uses `lib/`, `core/` and `present/`, never `kernel/` or `import/`; the kernel, the data model and the importer never load it (`tests/author/check_author.py` checks that). | yes, through `cli/check-lf.fs` |
 
 ## Rules
 
 - Dependencies point one way: `lib/` ← `core/` ← `kernel/`, and
-  `lib/` ← `core/` ← `present/` ← `author/`. `lib/` uses
+  `lib/` ← `core/` ← `present/` ← `author/`; `cli/` loads `author/` too
+  (`leanforth check FILE.lf`). `lib/` uses
   nothing outside `lib/`; `core/` never uses `kernel/`; neither uses
   `import/` or `program/`. `cli/` sits on top: it uses `kernel/`,
   `import/` and `present/`, and only `main.fs` uses it.
@@ -70,8 +71,9 @@ audit, any accepted result is *experimental — not independently audited*.
   `ir-run.fs`); `import/ndjson.fs` and `import/stage.fs` keep no state
   of their own (every word takes an export or a stage record). `author/` keeps its state in context members
   too, but grows the dictionary while a proof runs (a word per name
-  spelling, a wordlist per namespace): one more reason the checker never
-  loads it.
+  spelling): one more reason the kernel never loads it; `leanforth
+  check FILE.lf` runs it once per process, within a dictionary reserve
+  (ADR 0017 Amendment 1, A5 row 11).
 - Tests `require` the modules whose words they use; they live in `tests/lib/`,
   `tests/core/` (for `core/`, `kernel/` and `import/` modules),
   `tests/present/`, `tests/author/`, `tests/program/` and `tests/cli/`.

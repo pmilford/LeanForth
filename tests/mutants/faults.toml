@@ -4932,8 +4932,8 @@ reason = "a line that ends with Forth compiling goes on unnoticed (A5 row 5)"
 [[fault]]
 id = "author-line-characters-unchecked"
 file = "src/author/runner.fs"
-old = '''  2dup lfa-line! lfa-line-chars lfa-order! lfa-floats! evaluate lfa-line-end ;'''
-new = '''  2dup lfa-line! lfa-order! lfa-floats! evaluate lfa-line-end ;'''
+old = '''  2dup lfa-line! lfa-line-chars lfa-order! 2dup lfa-ahead lfa-floats! evaluate'''
+new = '''  2dup lfa-line! lfa-order! 2dup lfa-ahead lfa-floats! evaluate'''
 test = "$GFORTH tests/author/author.fs"
 reason = "control and format characters and bytes that are not UTF-8 reach Forth's interpreter, which splits tokens differently from an editor (A5 row 7)"
 quick = true
@@ -4987,6 +4987,85 @@ new = '''' lfa-w-sketch lfa-word import
 get-current lf-words set-current 0 value lfa-trap set-current'''
 test = "$GFORTH tests/author/author.fs"
 reason = "a VALUE in LF-WORDS, which Gforth 1.0's ->x recognizer writes from proof text (A5 row 2; caught on Gforth 1.0, where the test runs)"
+
+# --- LeanForth text checked by the kernel (plan tasks 8.2.1c-d; ADR 0017
+# Amendment 2): src/author/export.fs, library.fs, runner.fs's look-ahead,
+# src/import/stage.fs's produce and extend, src/cli/check-lf.fs.
+
+[[fault]]
+id = "lf-failed-text-checked"
+file = "src/cli/check-lf.fs"
+old = ''': lfc-made ( c-addr u -- outcome ) lfc-run dup ok? if drop lfc-produce then ;'''
+new = ''': lfc-made ( c-addr u -- outcome ) lfc-run drop lfc-produce ;'''
+test = "GFORTH=$GFORTH python3 tests/author/check_author.py"
+reason = "8.2.1c: a text that stopped with an error is still checked; the declarations before the error get verdicts (accepted lines) beside the error"
+quick = true
+
+[[fault]]
+id = "lf-stub-accepted"
+file = "src/author/words.fs"
+old = '''  dup lf-decl-stub = lfa-checked? and 0= lfa-e-stub-checked lfa-must lfa-declare ;'''
+new = '''  lfa-declare ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "8.2.1d: import-stub accepted in a checked run, with or without a library: an unchecked assumption reaches the check"
+quick = true
+
+[[fault]]
+id = "lf-check-not-checked-run"
+file = "src/cli/check-lf.fs"
+old = ''': lfc-settings! ( -- ) lfc-finder lf-author-library! true lf-author-checked! ;'''
+new = ''': lfc-settings! ( -- ) lfc-finder lf-author-library! false lf-author-checked! ;'''
+test = "GFORTH=$GFORTH python3 tests/author/check_author.py"
+reason = "8.2.1d: leanforth check runs the text unchecked, so import-stub is accepted with a library"
+
+[[fault]]
+id = "lf-library-short-name"
+file = "src/author/namespaces.fs"
+old = '''  dup lfa-library-short? 0= lfa-e-library-short lfa-must'''
+new = ''''''
+test = "$GFORTH tests/author/author.fs"
+reason = "8.2.1d: a one-part name through a namespace reaches a library constant the export does not say is not protected; Lean may resolve it elsewhere"
+
+[[fault]]
+id = "lf-library-name-taken"
+file = "src/author/declarations.fs"
+old = '''  2dup lfa-end-token! lfa-full! lfa-full lfa-library-free'''
+new = '''  2dup lfa-end-token! lfa-full!'''
+test = "$GFORTH tests/author/author.fs"
+reason = "8.2.1d: a declaration takes a library constant's name, which Lean refuses (already declared)"
+
+[[fault]]
+id = "lf-export-app-swapped"
+file = "src/author/export.fs"
+old = '''  s" app" lfx-inner dup lf-term-second@ s" arg" lfx-ref lf-term-first@ s" fn" lfx-ref'''
+new = '''  s" app" lfx-inner dup lf-term-first@ s" arg" lfx-ref lf-term-second@ s" fn" lfx-ref'''
+test = "GFORTH=$GFORTH python3 tests/author/check_author.py"
+reason = "8.2.1c: the export swaps function and argument: the kernel checks another term than the words built"
+quick = true
+
+[[fault]]
+id = "lf-export-height-one"
+file = "src/author/export.fs"
+old = ''': lfx-value-height ( value -- h ) lfx-unmark dup lfx-mark 0 swap lfx-sweep 1+ ;'''
+new = ''': lfx-value-height ( value -- h ) drop 1 ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "8.2.1c: every definition's hint is height 1, not Lean's (getMaxHeight + 1)"
+
+[[fault]]
+id = "lf-look-ahead-comment"
+file = "src/author/runner.fs"
+old = '''  begin lfa-next-token dup while 2dup lfa-comment? if 2drop 2drop exit then'''
+new = '''  begin lfa-next-token dup while'''
+test = "$GFORTH tests/author/author.fs"
+reason = "8.2.1d: the look-ahead makes group words for the tokens of a \\ comment too"
+
+[[fault]]
+id = "lf-extend-drops-library"
+file = "src/import/stage.fs"
+old = '''  dup maps-again ['] tier-marked and-then staging-empty stage-state! ;'''
+new = '''  dup own-clear ['] tier-marked and-then staging-empty stage-state! ;'''
+test = "$GFORTH tests/core/stage.fs"
+reason = "8.2.1d: extending a stage drops the library's declarations, so the text's constants resolve to nothing"
 
 # --- mutual inductive blocks (plan task 5.2.5a; ADR 0015 §13, test plan 7) ---
 # src/kernel/check-block.fs (steps 6-8 per type, E1, C3 per type),

@@ -615,7 +615,7 @@ def text_checked(path, want_code, want_verdict):
         raise Failure(f"check {path}: exit {code}, want {want_code}:\n{out[-600:]}")
     if want_verdict and any(v != want_verdict for _, v in own_verdicts(path, out)):
         raise Failure(f"check {path}: not every declaration {want_verdict}:\n{out[-600:]}")
-    if code == 4 and "the LeanForth text was not checked" not in out:
+    if code in (2, 3, 4) and (": accepted" in out or "was not checked" not in out):
         raise Failure(f"check {path}: a failed text must not be checked:\n{out[-600:]}")
     return out
 
@@ -661,6 +661,9 @@ def cli_cases():
          "error 48 at line:col 1:1 (token `import-stub`)"),
         ("stub alone", "protected import-stub N.x end N.x\n", [], None, 4, "error 48"),
         ("nothing", "\\ a comment\n", [], None, 4, "error 49"),
+        ("error after a good one", "theorem t\n  Prop explicit: p  p\n:=\n  p\nend t\n"
+         "theorem u\n  Prop\n:=\n  x\nend u\n", [], None, 4,
+         "the LeanForth text was not checked: error 1 at line:col 9:3 (token `x`)"),
         ("not supported", "theorem t\n  Prop explicit: p  p\n:=\n  p let:\nend t\n", [], None,
          2, "error 51 at line:col 4:5 (token `let:`)"),
         ("unknown in library run", head + "  n\nend t\n" + "theorem u Prop := x end u\n",
@@ -682,6 +685,8 @@ def check_text_cases():
             path = pathlib.Path(work) / "case.lf"
             path.write_text(text, encoding="utf-8")
             code, out = leanforth_check(path, library, *options)
+            if want == 4 and ": accepted" in out:
+                raise Failure(f"check case {name}: a verdict beside an error:\n{out[-800:]}")
             if code != want or line not in out:
                 raise Failure(f"check case {name}: exit {code} (want {want}), "
                               f"want the line {line!r}:\n{out[-800:]}")
