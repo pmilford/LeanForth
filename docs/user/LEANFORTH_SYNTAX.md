@@ -27,7 +27,10 @@ the checker's own Gforth, with only LeanForth's words visible to it (ADR
 0017 Amendment 1, A5), and hands the declarations to the kernel as export
 records; the kernel's modules themselves never load `src/author/` (a test
 checks it). A wrong word can only build a different term, which the
-checker checks as it is. Words such as *term*, *binder*
+checker checks as it is. The words themselves do not type-check: a wrong
+proof builds without error when the words run alone (the composition
+demo's `g value $`, where a proof of B is needed), and `leanforth check`
+rejects it ([checking a file](#checking-a-file)). Words such as *term*, *binder*
 and *universe level* are explained in [terms for new readers](TERMS_FOR_NEW_READERS.md) and
 [concepts in three forms](CONCEPTS.md). Every word, its stack effect and
 every error code are in the
@@ -360,8 +363,9 @@ fun {P} h ↦ fixtureId h
 
 **Mathematics.** For all natural numbers $n, m$: $n + m = m + n$.
 
-**LeanForth.** This is the *kernel form*: exactly the term the checker
-checks, with every hidden argument written out. Lean's `n + m` is generic
+**LeanForth.** This is the *kernel form*: the term as Lean's kernel
+has it (the checker would check this term; today these words only build it),
+with every hidden argument written out. Lean's `n + m` is generic
 addition `HAdd.hAdd` at the type `Nat`, with "addition of naturals"
 (`instHAdd 0 ^ Nat $ instAddNat $`) passed as an argument, and `0 ^` and
 `1 ^` are universe levels. Shorter forms, where a helper fills in such

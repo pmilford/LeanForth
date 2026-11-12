@@ -11,13 +11,15 @@ exports of any size: it stages the export with the importer stage and
 feeds it to the checker, whose stores grow to fit, so a whole library is
 checked from the command line — all of Lean's `Init`, 59,349
 declarations, in [about twelve minutes](#a-whole-library-leans-init). Most
-of a real library may still end *unsupported* or *unknown*: nested
-inductive types, metadata and some projection steps are not built yet
-(`capabilities` lists them); unsafe and partial declarations are
+of a real library may still end *unsupported* or *unknown*: metadata and some
+recursor reductions are not built yet (`capabilities` lists them); nested
+inductive types are (they are accepted). `check` reads Lean's NDJSON exports
+only: LeanForth text (`FILE.lf`) is not checked by it yet, and exits 4 (plan
+8.2.1, not started); unsafe and partial declarations are
 *skipped*, as Lean's own checker skips them (below). The
 counts of Init below are a snapshot of 2026-11-04, before `let`,
-literals, projections, quotients and mutual blocks were merged; no
-Mathlib declaration has been checked (0 of 729,263). Two commands keep the first,
+literals, projections, quotients and mutual blocks were merged; on
+build `b74a04d`, after this snapshot, all 729,263 Mathlib declarations were accepted (not re-run since). Two commands keep the first,
 small path —
 `check --record` and `replay` hold 64 names, 64 levels, 64 term
 nodes and 32 declarations per export ([small exports](#small-exports-check---record-and-replay)).
@@ -1516,15 +1518,15 @@ supported:
   print: a readable proof outline of each accepted declaration, from the
     checker's derivation log (plan tasks 2.4.1, 2.4.4; untrusted presentation)
   count, reexport: exports of any size, up to all of Mathlib
+Mathlib: all 729,263 declarations of its Lean export accepted on build b74a04d
+  (fuel 250M, --memory-per-check 8192, --no-manifest); not re-run since
 not yet supported (check answers unsupported or unknown, exit 2):
-  nested inductive types (5.2.5b), a block with both safe and unsafe
-  members (5.2.7 part b), metadata (mdata) in a term (4.1.3);
+  a block with both safe and unsafe members (5.2.7 part b),
+  metadata (mdata) in a term (4.1.3);
   recursor reductions on a variable (a follow-up of 5.2.2),
   so a correct proof can still end unknown;
   check --record and replay (the old reader) refuse inductive types, and
   answer unsupported for let, literals, projections and metadata;
-  the checker has not yet checked a Mathlib declaration
-  (0 of 729,263)
 limits (check answers full or exhausted, exit 3):
   check: stores, walks and lists that grow with the export (memory), any
     depth and number of dependencies or constructors (plan task 6.2.0);

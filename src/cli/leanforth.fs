@@ -1120,14 +1120,15 @@ variable cli-info#
   ." supported:" cr cli-check-input. cli-check-rules. cli-other-commands. ;
 : cli-lacks. ( -- )
   ." not yet supported (check answers unsupported or unknown, exit 2):" cr
-  ."   nested inductive types (5.2.5b), a block with both safe and unsafe" cr
-  ."   members (5.2.7 part b), metadata (mdata) in a term (4.1.3);" cr
+  ."   a block with both safe and unsafe members (5.2.7 part b)," cr
+  ."   metadata (mdata) in a term (4.1.3);" cr
   ."   recursor reductions on a variable (a follow-up of 5.2.2)," cr
   ."   so a correct proof can still end unknown;" cr
   ."   check --record and replay (the old reader) refuse inductive types, and" cr
-  ."   answer unsupported for let, literals, projections and metadata;" cr
-  ."   the checker has not yet checked a Mathlib declaration" cr
-  ."   (0 of 729,263)" cr ;
+  ."   answer unsupported for let, literals, projections and metadata;" cr ;
+: cli-mathlib. ( -- )
+  ." Mathlib: all 729,263 declarations of its Lean export accepted on build b74a04d" cr
+  ."   (fuel 250M, --memory-per-check 8192, --no-manifest); not re-run since" cr ;
 : cli-check-limits. ( -- )
   ."   check: stores, walks and lists that grow with the export (memory), any" cr
   ."     depth and number of dependencies or constructors (plan task 6.2.0);" cr
@@ -1150,7 +1151,7 @@ variable cli-info#
   ."     (plan task 5.3.2; today: the allowlist's names and NOT PROVED's)" cr ;
 : capabilities-command ( -- code )
   ." leanforth " cli-version-text type ." : what this build can do" cr
-  cli-checks. cli-lacks. cli-limits. cli-planned. exit-accepted ;
+  cli-checks. cli-mathlib. cli-lacks. cli-limits. cli-planned. exit-accepted ;
 
 \ ---------------------------------------------------------------------------
 \ help, one part per kind of command.
