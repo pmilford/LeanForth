@@ -75,6 +75,7 @@ begin-structure /lf-ind
   field: lf-ind-maybe        \ the audit met an occurrence that may be nested
   field: lf-ind-xlated       \ the constructors read are the translated ones
   field: lf-ind-aux          \ auxiliary types of a nested block (task 5.2.5b)
+  field: lf-ind-leaf         \ the leaf visitor of the walk of lf-ind-walker
 end-structure
 /lf-ind context-record: lf-ind-state
 \ Per constructor of the block, numbered across all its types, four
@@ -332,25 +333,38 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   loop drop outcome-ok ;
 
 \ A walk over every node of a root on the block's fuel, with xt ( first
-\ second walk tag -- outcome ) in walk-arg for each leaf; binary nodes
-\ push their children, which must be earlier nodes.
+\ second walk tag -- outcome ) for each leaf (lf-ind-leaf); binary nodes
+\ push their children, which must be earlier nodes. Each node is visited
+\ once, however many paths reach it (constant-term-boundary.fs's marks):
+\ as Lean's find and for_each visit each shared term once
+\ (for_each_fn.cpp's caches), so a walk grows with the nodes, never with
+\ the paths; a node reached again costs its visit's unit only. Every test
+\ these walks make at a node depends on the node alone.
+: lf-ind-leaf! ( xt -- ) lf-ind-state lf-ind-leaf ! ;
+: lf-ind-branch ( first second walk tag xt -- outcome )
+  over lf-term-binary-tag? if 2drop walk-children else execute then ;
 : lf-ind-dispatch ( first second walk tag -- outcome )
-  dup lf-term-binary-tag? if drop walk-children exit then over walk-arg @ execute ;
-: lf-ind-visit ( walk -- outcome ) ['] lf-ind-dispatch lf-term-visit ;
+  lf-ind-state lf-ind-leaf @ lf-ind-branch ;
+: lf-ind-once ( first second walk tag -- outcome ) ['] lf-ind-dispatch lf-walk-once ;
+: lf-ind-visit ( walk -- outcome ) ['] lf-ind-once lf-term-visit ;
 : lf-ind-walked ( outcome -- outcome )
   lf-ind-walker walk-fuel @ lf-ind-fuel ! lf-ind-walker lf-ind-site lf-diag-walk ;
-\ A walk of root by the visitor visit-xt ( walk -- outcome ).
+\ A walk of root by the visitor visit-xt ( walk -- outcome ), a run of
+\ its own (its marks).
 : lf-ind-run ( root visit-xt -- outcome )
   lf-ind-fuel @ lf-ind-walker walk-budget 0= if 2drop outcome-invalid exit then
-  lf-ind-walker walk-run lf-ind-walked ;
-: lf-ind-walk ( root leaf-xt -- outcome )
-  lf-ind-walker walk-arg ! ['] lf-ind-visit lf-ind-run ;
+  lf-ind-walker lf-walk-marking lf-ind-walker walk-run lf-ind-walked ;
+: lf-ind-walk ( root leaf-xt -- outcome ) lf-ind-leaf! ['] lf-ind-visit lf-ind-run ;
 
-\ U2: no leaf of an unsupported form (core/unsupported-forms.fs).
+\ U2: no leaf of an unsupported form (core/unsupported-forms.fs). A root
+\ with a data word holds none (core/terms.fs computes the word from the
+\ children; such a leaf has none, nor has any node above one), as
+\ check-declaration.fs's U2 reads it: it passes at once.
 : lf-ind-form ( first second walk tag -- outcome )
   lf-tag-unsupported = if nip walk-node @ lf-ind-site lf-diag-unsupported-form
     lf-diag-note outcome-unsupported else 2drop drop outcome-ok then ;
-: lf-ind-forms ( root -- outcome ) ['] lf-ind-form lf-ind-walk ;
+: lf-ind-forms ( root -- outcome )
+  dup lf-term-data@ if 2drop outcome-ok exit then ['] lf-ind-form lf-ind-walk ;
 \ V1: a live root whose graph is well formed, every bound variable under
 \ its binder.
 : lf-ind-closed ( root -- outcome )
@@ -358,23 +372,34 @@ lf-walk-room context-walk2: lf-ind-pair-walker
     outcome-invalid exit then
   0 lf-ind-fuel @ lf-constant-term-scope lf-cts-fuel @ lf-ind-fuel ! ;
 
-\ Occurrences of the block's types in a term, counted by a walk on the
-\ block's fuel.
+\ Occurrences of the block's types in a term, by a walk on the block's
+\ fuel: n is zero when root mentions none (Lean's has_ind_occ, a find,
+\ inductive.cpp 420-422), else the occurrence nodes the walk reached,
+\ each once (not the paths to them).
 : lf-ind-occurrence ( first second walk tag -- outcome )
   lf-tag-constant = if walk-node @ lf-ind-type-node? 1 and lf-ind-state lf-ind-count +!
   else drop then 2drop outcome-ok ;
 : lf-ind-occurrences ( root -- n outcome )
   0 lf-ind-state lf-ind-count ! ['] lf-ind-occurrence lf-ind-walk
   lf-ind-state lf-ind-count @ swap ;
+\ Whether root mentions no type of the block.
+: lf-ind-free? ( root -- flag outcome )
+  lf-ind-occurrences ok-then? if 0= outcome-ok else false swap then ;
 \ The same within a walk of lf-ind-walker, on its fuel: a walk of its own
-\ (lf-ind-inner-walker), whose fuel goes back to the outer walk; whether
-\ root mentions the type. A budget the walk refuses (negative, which the
-\ outer walk's fuel never is) is invalid, as for lf-ind-run.
-: lf-ind-inner-visit ( walk -- outcome ) ['] lf-ind-dispatch lf-term-visit ;
+\ (lf-ind-inner-walker, a run of its own: a node it marks the outer walk
+\ may visit again, never skip unchecked), whose fuel goes back to the
+\ outer walk; whether root mentions the type. A budget the walk refuses
+\ (negative, which the outer walk's fuel never is) is invalid, as for
+\ lf-ind-run.
+: lf-ind-inner-dispatch ( first second walk tag -- outcome )
+  ['] lf-ind-occurrence lf-ind-branch ;
+: lf-ind-inner-once ( first second walk tag -- outcome )
+  ['] lf-ind-inner-dispatch lf-walk-once ;
+: lf-ind-inner-visit ( walk -- outcome ) ['] lf-ind-inner-once lf-term-visit ;
 : lf-ind-inner-run ( root -- outcome )
-  ['] lf-ind-occurrence lf-ind-inner-walker walk-arg !
   lf-ind-walker walk-fuel @ lf-ind-inner-walker walk-budget 0=
   if drop outcome-invalid exit then
+  lf-ind-inner-walker lf-walk-marking
   ['] lf-ind-inner-visit lf-ind-inner-walker walk-run
   lf-ind-inner-walker walk-fuel @ lf-ind-walker walk-fuel !
   lf-ind-inner-walker lf-ind-site lf-diag-walk ;
@@ -423,17 +448,19 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   over swap lf-ind-parametric lf-ind-some-arg? ;
 \ The walk: at an application node that may be a nested occurrence, the
 \ block is noted and the node's children are not visited; every other
-\ node's are.
+\ node's are (each node once, the test depending on the node alone).
 : lf-ind-maybe! ( -- ) true lf-ind-state lf-ind-maybe ! ;
 : lf-ind-nest-app ( first second walk -- outcome )
   dup walk-node @ lf-ind-nested? ok-then? 0= if >r 2drop drop r> exit then
   if 2drop drop lf-ind-maybe! outcome-ok else walk-children then ;
 : lf-ind-nest-dispatch ( first second walk tag -- outcome )
   dup lf-tag-app = if drop lf-ind-nest-app else lf-ind-dispatch then ;
-: lf-ind-nest-visit ( walk -- outcome ) ['] lf-ind-nest-dispatch lf-term-visit ;
+: lf-ind-nest-once ( first second walk tag -- outcome )
+  ['] lf-ind-nest-dispatch lf-walk-once ;
+: lf-ind-nest-visit ( walk -- outcome ) ['] lf-ind-nest-once lf-term-visit ;
 : lf-ind-no-leaf ( first second walk tag -- outcome ) 2drop 2drop outcome-ok ;
 : lf-ind-nests ( root -- outcome )
-  ['] lf-ind-no-leaf lf-ind-walker walk-arg ! ['] lf-ind-nest-visit lf-ind-run ;
+  ['] lf-ind-no-leaf lf-ind-leaf! ['] lf-ind-nest-visit lf-ind-run ;
 \ Constructor j's type after its parameters (where its binders end, if
 \ before them: T1 rejects it later).
 : lf-ind-after-params ( j -- node )
@@ -457,11 +484,28 @@ lf-walk-room context-walk2: lf-ind-pair-walker
   drop lf-ind-nests ;
 \ A block whose constructors mention the type at most once each, as the
 \ head of their result, is not nested at once (task 5.2.1a's test): no
-\ field mentions the type, and no other occurrence can be nested.
+\ field mentions the type, and no other occurrence can be nested. Read
+\ leaf by leaf: no domain of the constructor's raw telescope mentions a
+\ type of the block, nor any argument of its result's spine, nor its
+\ head unless the head is such a type.
+: lf-ind-domains-free? ( node -- body flag outcome )
+  begin dup lf-tag-pi lf-ind-tag? while
+    dup lf-term-first@ lf-ind-free? ok-then? 0= if false swap exit then
+    0= if false outcome-ok exit then lf-term-second@
+  repeat true outcome-ok ;
+: lf-ind-args-free? ( node n -- flag outcome )
+  dup 0 ?do
+    2dup i lf-ind-arg lf-ind-free? ok-then? 0= if nip nip false swap unloop exit then
+    0= if 2drop false outcome-ok unloop exit then
+  loop 2drop true outcome-ok ;
+: lf-ind-head-free? ( head -- flag outcome )
+  dup lf-ind-type-node? if drop true outcome-ok else lf-ind-free? then ;
+: lf-ind-result-plain? ( body -- flag outcome )
+  dup lf-ind-spine >r lf-ind-head-free? ok-then? 0= if nip r> drop false swap exit then
+  0= if drop r> drop false outcome-ok exit then r> lf-ind-args-free? ;
 : lf-ind-plain? ( j -- flag outcome )
-  lf-ind-ctor-type dup lf-ind-occurrences ok-then? 0= if nip false swap exit then
-  dup 0= if 2drop true outcome-ok exit then
-  1 = swap lf-ind-body drop lf-ind-headed? and outcome-ok ;
+  lf-ind-ctor-type lf-ind-domains-free? ok-then? 0= if nip false swap exit then
+  if lf-ind-result-plain? else drop false outcome-ok then ;
 : lf-ind-ctors-plain? ( -- flag outcome )
   lf-ind-ctors@ 0 ?do
     i lf-ind-plain? ok-then? 0= if false swap unloop exit then
@@ -607,12 +651,17 @@ lf-walk-room context-walk2: lf-ind-pair-walker
     lf-tag-let of lf-c1-same endof  lf-tag-let-nondep of lf-c1-same endof
     lf-tag-projection of lf-c1-same endof
     >r 2drop drop outcome-ok r> endcase ;
-: lf-c1-visit ( walk -- outcome ) ['] lf-c1-dispatch lf-term-visit ;
+\ Each (node, depth) pair once (constant-term-boundary.fs's exact marks,
+\ as Lean's for_each with an offset visits it, for_each_fn.cpp): the test
+\ of an occurrence depends on its depth.
+: lf-c1-once ( first second walk tag -- outcome ) ['] lf-c1-dispatch lf-walk-once-at ;
+: lf-c1-visit ( walk -- outcome ) ['] lf-c1-once lf-term-visit ;
 : lf-c1-walked ( outcome -- outcome )
   lf-ind-pair-walker walk-fuel @ lf-ind-fuel !
   lf-ind-pair-walker lf-ind-site lf-diag-walk ;
 : lf-c1-ctor ( j -- outcome )
   lf-ind-fuel @ lf-ind-pair-walker walk-budget 0= if drop outcome-invalid exit then
+  lf-ind-pair-walker lf-walk-marking
   lf-ind-ctor-type 0 ['] lf-c1-visit lf-ind-pair-walker walk-run-pair lf-c1-walked ;
 : lf-ind-c1 ( -- outcome )
   lf-ind-ctors@ 0 ?do i lf-c1-ctor dup ok? 0= if unloop exit then drop loop outcome-ok ;

@@ -1218,7 +1218,7 @@ class JsonReport(unittest.TestCase):
         self.assertEqual((got["fuel"]["total"], got["fuel"]["unknown"]),
                          (sum(d["fuel"] for d in got["declarations"]), 0))
         self.assertEqual([t["name"] for t in got["fuel"]["top"]],
-                         ["Two.cases", "Two", "Two.swap"])
+                         ["Two.cases", "Two.swap", "Two"])
         self.assertEqual((got["input"]["declarations"], got["stopped"]), (6, False))
         # Fuel not known: a check that failed in inference gave its counter
         # up; it is in no total and never among the most fuel used.
@@ -1431,11 +1431,11 @@ class Resources(unittest.TestCase):
         self.assertEqual(rest[6], "  engine: " + os.path.basename(GFORTH))
         self.assertEqual(rest[7:], [
             "  input: 6 declarations, 92 term nodes, 3 levels, 5 constant references, 31 names",
-            "  fuel: 514 steps in all, at most 100000000 per declaration",
+            "  fuel: 415 steps in all, at most 100000000 per declaration",
             "  most fuel used:",
             "          244 Two.cases (accepted)",
-            "          157 Two (accepted)",
-            "          113 Two.swap (accepted)"])
+            "          113 Two.swap (accepted)",
+            "           58 Two (accepted)"])
 
     def test_stable_but_for_time_and_memory(self):
         def steady(out):
@@ -1596,11 +1596,17 @@ def pinned_digest(*args):
 # the tree before it, every report is the same but for fuel, 34
 # declarations less (the two spine exports added with it included) and
 # none more.
+# Those marked NS
+# (six entries) are re-pinned after agent NS (2026-11-11): an inductive
+# block's walks meet each shared node once and B3 compares by Lean's ==,
+# so only block fuel moved, 41 declarations less and none more; every
+# verdict, diagnostic and count is unchanged (each report compared with
+# the one before with its fuel fields left out).
 PINNED = {
     "tests/reference/composition.ndjson": "a3e7184036edb9dd",
     "tests/reference/constant-fixture.ndjson": "df2ee45dc87e20ca",
     "tests/cli/chain.ndjson": "b0c8e7d6066c71d6",
-    "tests/cli/inductive.ndjson": "b16f6652113685b2",
+    "tests/cli/inductive.ndjson": "bfc886f0d61feca3",
     "tests/cli/unfold.ndjson": "989fd258bb03e4b7",
     f"{CASES}/composition-wrong-argument.ndjson": "b29f27c0c9419c26",
     f"--no-manifest {CASES}/composition-wrong-argument.ndjson": "850723e5478fed48",
@@ -1610,20 +1616,20 @@ PINNED = {
     "--no-manifest README.md": "7dace333bd425361",
     "tests/cli/no-such.ndjson": "3eac0629560526ed",
     "--no-manifest tests/cli/composition-huge-number.ndjson": "ec7632bcbf284cef",
-    "--no-manifest tests/core/reexport/kinds.ndjson": "b61d4de7371e945d",  # IO, R5
+    "--no-manifest tests/core/reexport/kinds.ndjson": "9cb2ecab7d1cecd7",  # IO, R5
     f"--fuel 0 {FIXTURE}": "7ab8e9fa317ce0a5",
     f"--no-manifest {EMPTY_BLOCK}": "dbfea3992d7e6793",
-    "tests/cli/sharing.ndjson": "e1e5a1f9695267e2",  # re-pinned (IO)
-    "tests/cli/sharing-universe.ndjson": "d5a364d306cbd23c",  # re-pinned (IO)
-    "tests/cli/nested.ndjson": "b21f0e59341d82f6",  # re-pinned, see above; R5
+    "tests/cli/sharing.ndjson": "7713766122504e63",  # re-pinned (IO)
+    "tests/cli/sharing-universe.ndjson": "1598238656ef6308",  # re-pinned (IO)
+    "tests/cli/nested.ndjson": "4a8a267c562d4006",  # re-pinned, see above; R5
     "tests/cli/irrelevance.ndjson": "44da5689b4a2a87c",
     f"--no-manifest {CASES}/composition-literal.ndjson": "25123b1e2dfc63de",
     # tests/cli/shared-depths.lean P4's exports (agent R5, ADR 0014 Amendment 9):
     # 48-argument spines typed aside; accepted with 15,749 units, and rejected.
-    f"--no-manifest {CASES}/spine-good.ndjson": "c9a2f41a2c2da824",
-    f"--no-manifest {CASES}/spine-bad.ndjson": "6b1c8764316512a0",
+    f"--no-manifest {CASES}/spine-good.ndjson": "27f4d61217c3b13d",
+    f"--no-manifest {CASES}/spine-bad.ndjson": "2121f87813659891",
     "--no-manifest tests/core/check-block-cases/primitive.string-opaque-expansion.ndjson":
-        "8aa723e5bed376d6",  # re-pinned (IO, R5)
+        "e0c28fefae0e93da",  # re-pinned (IO, R5)
 }
 
 

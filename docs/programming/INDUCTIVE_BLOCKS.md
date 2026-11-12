@@ -280,8 +280,22 @@ a constructor's universe parameters, index, `numParams` and `numFields`
 name (`T.rec`, else "No such recursor"), universe parameters (the motive's
 universe first, `u` or `u_1`, … when taken), type, `all`, `numParams`,
 `numIndices`, `numMotives`, `numMinors`, rules (constructor, `nfields`,
-right side) and `k`. Terms compare structurally (`mixed-compare.fs`): the
-store keeps no binder names or annotations, which Lean's `==` ignores.
+right side) and `k`. Terms compare by Lean's `==` after the audits
+(`lf-mixed-equal`, `mixed-compare.fs`): the store keeps no binder names
+or annotations, which Lean's `==` ignores, and each pair of shared nodes
+is compared once, as `expr_eq_fn.cpp`'s cache does.
+
+**Shared terms.** An exported term is a graph: a subterm used twice is
+one node. Lean's checks visit each shared term once (`find` and
+`for_each`, `for_each_fn.cpp`, cache the terms they visited; `==` the
+pairs), so their cost grows with the nodes, never with the paths, which
+can be exponentially more. So do the block's walks: the audit (U2, the
+scope's occurrence tests), T0, C1 (each node at each binder depth once,
+as `for_each` with an offset), positivity's and the recursor builder's
+occurrence tests (constant-term-boundary.fs's marks), and B3. Until
+2026-11-11 they walked every path; five structures of the Navier-Stokes
+library ran out of their 100 million units of fuel and now take 0.4 to
+1.5 million (rows `pos.shared-*` of the table reproduce the pattern).
 
 **Publication (B5).** The check's candidate covers all the block's
 members (`lf-env-span!`, `environment.fs`); the publisher re-checks every

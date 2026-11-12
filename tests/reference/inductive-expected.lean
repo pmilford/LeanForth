@@ -174,6 +174,10 @@ structure Block where
   /-- false: the block's file leaves the recursors Lean generated out, as a
   file may (ADR 0015 B4; Lean's replay accepts it). -/
   recursors : Bool := true
+  /-- true: each constructor type has its `let`s replaced by their bodies with the values
+  put in (`zetaAll`), so a value its body uses twice becomes one term shared by both uses:
+  a graph of a few nodes with exponentially many paths (rows `*.shared-*`). -/
+  zeta : Bool := false
 
 def Block.full (b : Block) (short : String) : Name := b.ns ++ short.toName
 
@@ -200,14 +204,28 @@ def elabWith (locals : List (String × Name × Expr)) (lps : List Name) (s : Str
       withLocalDeclD short.toName ty fun fv => go more (fvars.push (fv, full))
   go locals #[]
 
+/-- Every `let` of `e` replaced by its body with its value put in (`instantiate1`, which
+puts the one value term at each use; `Core.transform` caches by pointer). -/
+def zetaAll (e : Expr) : CoreM Expr :=
+  Core.transform e (pre := fun e => match e with
+    | .letE _ _ v b _ => pure (.visit (b.instantiate1 v))
+    | _ => pure .continue)
+
+/-- `(let a0 := base; let a1 := a0 ∘ a0; …; an)` for the binary type former `op`
+(`×` or `→`): after zeta, n + 1 distinct terms and 2^n paths to `base`. -/
+def sharedLets (base op : String) (n : Nat) : String :=
+  "(let a0 := " ++ base ++ "; " ++
+    String.join ((List.range n).map fun i => s!"let a{i + 1} := a{i} {op} a{i}; ") ++ s!"a{n})"
+
 def Block.decl (b : Block) : TermElabM Declaration := do
   let tys ← b.types.mapM fun t => do
     pure (t.name, b.full t.name, ← elabWith [] b.lparams t.type)
   let types ← b.types.mapM fun t => do
     let ty ← elabWith [] b.lparams t.type
     let ctors ← t.ctors.mapM fun (c, cty) => do
-      pure ({ name := b.full t.name ++ c.toName, type := ← elabWith tys b.lparams cty } :
-        Constructor)
+      let e ← elabWith tys b.lparams cty
+      let e ← if b.zeta then zetaAll e else pure e
+      pure ({ name := b.full t.name ++ c.toName, type := e } : Constructor)
     pure ({ name := b.full t.name, type := ty, ctors } : InductiveType)
   pure (.inductDecl b.lparams b.nparams types false)
 
@@ -430,6 +448,26 @@ def checks : List Block := [
     types := [⟨"T", "Type",
       [("z", "T"), ("mk", "@Bool.rec (fun _ => Type) (T → Nat) Nat Bool.true → T")]⟩],
     lean := "accepted", leanforth := "accepted", rule := "A1 P1 R1", task := "5.2.1b" },
+  -- Shared terms (the Navier-Stokes structures that LeanForth ran out of fuel on): a
+  -- field type of 41 distinct terms with 2^40 paths. Lean's checks visit each shared
+  -- term once (for_each_fn.cpp, expr_eq_fn.cpp's cache, replace_fn.cpp), so a check
+  -- that walked every path would never end. Two in a field's whnf (positivity's zeta):
+  -- a product of Nat (accepted) and one of `Bad → Nat` (no Pi: nonValidOccurrence);
+  -- two in the constructor type itself (zeta := true, as exported): a product of Nat
+  -- (accepted: the audit, the occurrence checks, the recursor and Lean's == of it) and
+  -- functions of `Bad` (a Pi whose domain mentions it: nonPositive).
+  { id := "pos.shared-whnf",
+    types := [⟨"T", "Type", [("mk", sharedLets "Nat" "×" 40 ++ " → T")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 P1", task := "5.2.1b" },
+  { id := "pos.shared-whnf-non-valid",
+    types := [⟨"Bad", "Type", [("mk", sharedLets "(Bad → Nat)" "×" 40 ++ " → Bad")]⟩],
+    lean := "nonValidOccurrence", leanforth := "rejected", rule := "P2", task := "5.2.1b" },
+  { id := "pos.shared-field", zeta := true,
+    types := [⟨"T", "Type", [("mk", sharedLets "Nat" "×" 40 ++ " → T")]⟩],
+    lean := "accepted", leanforth := "accepted", rule := "A1 P1 G1", task := "5.2.1b" },
+  { id := "pos.shared-field-negative", zeta := true,
+    types := [⟨"Bad", "Type", [("mk", sharedLets "Bad" "→" 40 ++ " → Bad")]⟩],
+    lean := "nonPositive", leanforth := "rejected", rule := "P1", task := "5.2.1b" },
   -- K and structure eta on a variable of the block's own telescope, which Lean opens
   -- as a local (mk_local_decl_for): an index on which the type's Sort reduces, or a
   -- field whose type reduces to the type only so; stuck, typeExpected or

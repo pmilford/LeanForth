@@ -51,6 +51,10 @@ pos.negative-redex-domain	nonPositive	rejected	P1	5.2.1b
 pos.negative-redex-domain-later	nonPositive	rejected	P1	5.2.1b	
 pos.through-recursor	accepted	accepted	A1 P1 R1 G1	5.2.1b	T: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 1]
 pos.erased-by-recursor	accepted	accepted	A1 P1 R1	5.2.1b	T: idx=0 rec=1 refl=0 nested=0 elim=any k=0 motives=1 minors=2 fields=[0, 1]
+pos.shared-whnf	accepted	accepted	A1 P1	5.2.1b	T: idx=0 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[1]
+pos.shared-whnf-non-valid	nonValidOccurrence	rejected	P2	5.2.1b	
+pos.shared-field	accepted	accepted	A1 P1 G1	5.2.1b	T: idx=0 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[1]
+pos.shared-field-negative	nonPositive	rejected	P1	5.2.1b	
 k.block-index-variable	accepted	accepted	A1 T2 R2	5.2.1c	T: idx=1 rec=0 refl=0 nested=0 elim=any k=0 motives=1 minors=1 fields=[1]
 k.block-index-stuck	typeExpected	rejected	T2 R2	5.2.1c	
 k.mutual-index-variable	accepted	accepted	A1 T2 R2	5.2.1c	A: idx=0 rec=0 refl=0 nested=0 elim=Prop k=0 motives=2 minors=1 fields=[0]; B: idx=1 rec=0 refl=0 nested=0 elim=Prop k=0 motives=2 minors=1 fields=[]

@@ -331,6 +331,18 @@ T{ s" universe.type-a-sort-by-definition" verdict -> outcome-ok 0 all-steps }T
 T{ s" pos.through-recursor" verdict -> outcome-ok 0 all-steps }T
 T{ s" pos.erased-by-recursor" verdict -> outcome-ok 0 all-steps }T
 T{ s" pos.erased-by-definition" verdict -> outcome-ok 0 all-steps }T
+\ Shared terms (the Navier-Stokes structures): a field type of 41 terms
+\ and 2^40 paths, in the field's whnf (lets) or in the constructor type
+\ itself, checked on this file's fuel (a million units), as Lean visits
+\ each shared term once: the products of Nat accepted (the recursor equal
+\ to Lean's by ==), the product of Bad -> Nat a non-valid occurrence and
+\ the functions of Bad a non-positive one, as Lean says. Before each walk
+\ met a shared node once, all four ran out of fuel.
+T{ s" pos.shared-whnf" verdict -> outcome-ok 0 all-steps }T
+T{ s" pos.shared-field" verdict -> outcome-ok 0 all-steps }T
+T{ s" pos.shared-whnf-non-valid" verdict-field -> outcome-rejected lf-diag-non-valid 9 0 }T
+T{ s" pos.shared-field-negative" verdict-field
+   -> outcome-rejected lf-diag-non-positive 9 0 }T
 \ Iota in a declaration's check (Lean's reduce_recursor, behind whnf.fs's
 \ hook): a constructor's rule with its fields, its induction hypothesis
 \ and an argument after the major premise, Nat.zero, Eq.refl (k set);

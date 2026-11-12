@@ -164,4 +164,23 @@ T{ level-u sort-of level-v sort-of 1000 lf-mixed-compare -> outcome-unknown }T
 T{ level-u sort-of level-u' sort-of 1000 lf-mixed-compare -> outcome-ok }T
 T{ level-u x-of level-v x-of 1000 lf-mixed-compare -> outcome-unknown }T
 T{ level-u x-of level-u' x-of 1000 lf-mixed-compare -> outcome-ok }T
+
+\ Lean's == after the same audits (lf-mixed-equal, check-block.fs's B3):
+\ graphs of 17 nodes and 2^16 paths, node k the application of node k-1
+\ to itself, over x.{u}, over another x.{u} node and over x.{v} (this
+\ test's term store holds 64 nodes): the first two equal, the third
+\ different only at the bottom. Each pair of nodes is walked once
+\ (expr_eq_fn.cpp's cache), where lf-mixed-compare walks every path and
+\ runs out of fuel. Negative fuel is invalid and leaves none.
+: doubled ( node identity k -- node' identity' )
+  0 ?do 2dup lf-hterm-app made loop ;
+level-u x-of 16 doubled 2constant graph-u
+level-u' x-of 16 doubled 2constant graph-u'
+level-v x-of 16 doubled 2constant graph-v
+: equal-fuel ( a aid b bid -- flag outcome fuel )
+  1000 lf-mixed-equal lf-mcompare-fuel @ ;
+T{ graph-u graph-u' equal-fuel 900 > -> true outcome-ok true }T
+T{ graph-u graph-v equal-fuel 900 > -> false outcome-ok true }T
+T{ graph-u graph-u' 1000 lf-mixed-compare -> outcome-exhausted }T
+T{ graph-u graph-u' -1 lf-mixed-equal lf-mcompare-fuel @ -> false outcome-invalid 0 }T
 bye
