@@ -62,7 +62,7 @@ endif
 TEST_TIMEOUT ?= 1800
 # With LF_TIMING_LOG set (scripts/push.sh sets it), each command also appends
 # "target seconds exit" to that file, so a normal CI run shows the slow tests.
-RUN = $(if $(LF_TIMING_LOG),scripts/timed.sh $@ ,)timeout $(TEST_TIMEOUT)
+RUN = $(if $(LF_TIMING_LOG),scripts/timed.sh $(or $@,unnamed) ,)timeout $(TEST_TIMEOUT)
 # The tests' own subprocess limits (TEST_LIMIT in tests/*.py) follow it.
 export TEST_TIMEOUT
 
