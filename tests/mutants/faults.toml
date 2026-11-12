@@ -7274,8 +7274,8 @@ reason = "S6C: no child is pushed, as if every one were kept: only roots are che
 [[fault]]
 id = "s6c-check-no-renew"
 file = "src/kernel/check-declaration.fs"
-old = '''  lf-caches-clear lf-audit-renew'''
-new = '''  lf-caches-clear'''
+old = '''  lf-caches-clear lf-audit-afresh'''
+new = '''  lf-caches-clear lf-marks-release'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "S6C: the memo outlives a check, so a declaration's entry audit skips nodes an earlier check kept"
 
@@ -7456,8 +7456,8 @@ reason = "FX7: a term is skipped the first time and checked only when reached ag
 [[fault]]
 id = "s6c-cref-reset-same-generation"
 file = "src/core/constant-references.fs"
-old = ''': lf-cref-reset ( -- ) 0 lf-cref-count ! lf-crefs store-epoch+ lf-cref-table-empty ;'''
-new = ''': lf-cref-reset ( -- ) 0 lf-cref-count ! lf-cref-table-empty ;'''
+old = '''  lf-cref-unborrow 0 lf-cref-count ! lf-crefs store-epoch+ lf-cref-table-empty ;'''
+new = '''  lf-cref-unborrow 0 lf-cref-count ! lf-cref-table-empty ;'''
 test = "$GFORTH tests/core/constant-term-boundary.fs"
 reason = "S6C: a reference reset leaves the generation, so the memo keeps a constant whose reference went"
 
@@ -8465,3 +8465,65 @@ old = '''  dup stage-export export-any-version? 0= if drop outcome-unsupported e
 new = ''''''
 test = "$GFORTH tests/core/snapshot-tier.fs"
 reason = "rvSN2 m2: a tier whose metadata names other versions loads into a stage that reads the pinned ones only"
+
+# --- Shared input (ADR 0016 S8, agent SH; plan task 7.2.1): the workers
+# of a parallel check read the driving context's fed input in place -----
+
+[[fault]]
+id = "sh-check-keeps-pages"
+file = "src/kernel/check-declaration.fs"
+old = '''  lf-caches-clear lf-audit-afresh'''
+new = '''  lf-caches-clear lf-audit-renew'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "SH: a check does not give back the input marks' pages, so a context holds every page any of its checks reached"
+
+[[fault]]
+id = "sh-horizon-ignored"
+file = "src/core/terms.fs"
+old = '''  lf-term-view lf-tview-horizon @ ?dup if 1- u< else drop true then ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "SH: a worker remakes a copied projection over a later input leaf, so its input differs and no worker is made"
+
+[[fault]]
+id = "sh-cref-under-unsought"
+file = "src/core/constant-references.fs"
+old = '''  2over 2over lf-cref-under-find if >r 2drop 2drop r> lf-cref-found exit then
+'''
+new = ''''''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "SH: a worker makes its own reference equal to an input one instead of finding it"
+
+[[fault]]
+id = "sh-cref-number-own"
+file = "src/core/constant-references.fs"
+old = '''  >r >r r@ lf-cref-levels! r@ lf-cref-name! r> lf-cref-stamp r> lf-cref-base + swap true ;'''
+new = '''  >r >r r@ lf-cref-levels! r@ lf-cref-name! r> lf-cref-stamp r> swap true ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "SH: a worker numbers its own references from 0, the numbers of input references"
+
+[[fault]]
+id = "sh-input-teardown-frees"
+file = "src/core/input.fs"
+old = '''' lf-input-unborrow context-teardown'''
+new = '''\ no unborrowing'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "SH: freeing a worker frees the declarations it read from the driving context"
+
+[[fault]]
+id = "sh-view-teardown-frees"
+file = "src/core/terms.fs"
+old = '''  dup lf-tview-borrowed @ if lf-tview-nodes /lf-tview-shared erase exit then
+'''
+new = ''''''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "SH: freeing a worker frees the leaf and binder tables it read from the driving context"
+
+[[fault]]
+id = "sh-source-not-pristine"
+file = "src/core/input.fs"
+old = '''  if lf-input-cref-k swap lf-input-in = else drop false then ;'''
+new = '''  if drop true else drop false then ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "SH: a worker shares the references of a source that made more since it sealed"
+equivalent = "defence in depth: such a source counts references beyond its input mark, which the worker reads as input, so the worker's fingerprint is not the source's and no worker is made (cli/check-run.fs)"

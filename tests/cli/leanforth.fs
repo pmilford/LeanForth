@@ -504,6 +504,40 @@ T{ fuel-run fuel-misses @ -> 0 }T
   1 stale-facts nested 3 run-with sched-facts ck-jobs-run? lf-sched-workers or ck-release ;
 T{ stale-jobs -rot = swap -> true 0 }T
 
+\ Shared input (ADR 0016 S8; import/feed.fs's lf-feed-shared): every
+\ worker reads the driving context's input in place, its fingerprint
+\ equal to it (else no worker is made), and a parallel run leaves that
+\ input as loading left it: a digest of the fingerprint's parts but the
+\ names (the driving context may intern a name the checker looks up, in
+\ a scratch tier of its own that no worker reads) and of the blocks the
+\ workers read (the view's leaf and binder tables, the declarations'
+\ name index and inductive data, the references' table) is the same
+\ after the run as before it. horizon.ndjson copies a
+\ projection over an mdata expression before the first input projection
+\ of its structure and field: a worker remakes it as the feed made it,
+\ over a leaf of its own, not that later input leaf (core/terms.fs's
+\ lf-term-horizon!), or its fingerprint differs; kinds has an mdata too.
+get-order lf-lib-private swap 1+ set-order
+: htab-mix ( h htab -- h' ) dup htab-block @ swap htab-slots u32s bytes-mix ;
+previous
+: slab-mix ( h slab -- h' ) 0 over slab-at swap slab-bytes bytes-mix ;
+: view-mix ( h -- h' )
+  lf-term-view >r r@ lf-tview-nodes htab-mix r@ lf-tview-fields htab-mix
+  r@ lf-tview-binders htab-mix r> lf-tview-leaves slab-mix ;
+: stores-mix ( h -- h' )
+  lf-input-stores# 0 ?do i lf-input-marked lf-fp-store loop lf-fp-pool lf-fp-more ;
+: input-digest ( -- h )
+  2166136261 stores-mix view-mix lf-input-names slab-mix lf-input-more slab-mix
+  lf-cref-table htab-mix ;
+: shared-run ( c-addr u -- same? workers )
+  fresh >r 20000000 ck-start 3 ck-jobs! ['] throwing-check ck-check-word!
+  false ck-load drop input-digest >r ck-check input-digest r> =
+  lf-sched-workers ck-release r> back ;
+: horizon ( -- c-addr u ) s" tests/cli/jobs/horizon.ndjson" ;
+T{ nested shared-run -> true 3 }T
+T{ kinds shared-run -> true 3 }T
+T{ horizon shared-run -> true 3 }T
+
 \ FX10 (review rvS7): the worker count is cut to the cores and the pool's
 \ queue (a count above 1024 refused the first job and left "not checked"
 \ declarations; a huge one copied the input per worker); a pool that

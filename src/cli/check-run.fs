@@ -220,8 +220,8 @@ create ck-worker-feed /feed allot  ck-worker-feed /feed erase
 : ck-staged-bytes ( -- u ) ck-state ck-stage-bytes @ ;
 \ Workers of a parallel check (--jobs): set after ck-start, before
 \ ck-load; 0 or 1 checks one declaration at a time in this context.
-\ At most one worker per core and per queued job: more could not run at once,
-\ and each worker holds its own copy of the input.
+\ At most one worker per core and per queued job: more could not run at once
+\ (the workers share one input, but each holds its own scratch and caches).
 : ck-jobs-most ( -- n ) task-cores task-queue-jobs min ;
 : ck-jobs! ( n -- ) ck-jobs-most min ck-state ck-jobs-asked ! ;
 \ Why the run is serial though workers were asked for: 1, or the pool's

@@ -154,9 +154,9 @@ Options:
   once ([parallel checking](#parallel-checking---jobs)); N is at least 1,
   and 1, the default, checks one declaration at a time. The output is the
   same whatever N is. N is cut to the number of cores (and to the job
-  pool's queue of 1024): more workers could not run at once, and each
-  holds its own copy of the input, so memory grows with the workers made
-  (the resource report says how many). On a host that is not x86-64
+  pool's queue of 1024): more workers could not run at once. The workers
+  share one copy of the input; each adds only its own scratch and caches
+  (the resource report says how many were made). On a host that is not x86-64
   (threads without memory barriers) or where the thread pool cannot start,
   the check runs one declaration at a time and the resource report says why.
 - `--save-snapshot FILE` (`check` only, not with `--record`) writes the
@@ -540,9 +540,11 @@ report's times, memory and workers line, and the JSON report but for
 `measured`: every verdict, diagnostic and fuel count, the counts and the
 exit status. How:
 
-- each worker is a context of its own, fed the same staged export (the
-  stage is shared and read only; the rest of the input is, for now, copied
-  into every worker: plan task 7.2.1), and checks one declaration at a
+- each worker is a context of its own that reads one shared input in
+  place, the one the run fed (the staged export, its declarations, the
+  tables of its leaves and binders, its constant references; nothing a
+  check does writes them), keeps only its own scratch, caches, memos and
+  marks (and its levels, a few thousand), and checks one declaration at a
   time as a thread of Gforth 1.0 (cooperative tasks on Gforth 0.7.3, which
   gives the same output, no faster);
 - a declaration is handed to a worker only when every earlier declaration
@@ -1094,8 +1096,7 @@ not yet supported (check answers unsupported or unknown, exit 2):
   check --record and replay (the old reader) refuse inductive types, and
   answer unsupported for let, literals, projections and metadata;
   the checker has not yet checked a Mathlib declaration
-  (0 of 729,263); check --jobs feeds each worker its own copy of the
-  input's per-context part (the stage is shared; plan task 7.2.1)
+  (0 of 729,263)
 limits (check answers full or exhausted, exit 3):
   check: stores, walks and lists that grow with the export (memory), any
     depth and number of dependencies or constructors (plan task 6.2.0);
