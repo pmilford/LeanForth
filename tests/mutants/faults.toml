@@ -8579,6 +8579,14 @@ test = "$GFORTH tests/cli/leanforth.fs"
 reason = "SH: a worker shares the references of a source that made more since it sealed"
 equivalent = "defence in depth: such a source counts references beyond its input mark, which the worker reads as input, so the worker's fingerprint is not the source's and no worker is made (cli/check-run.fs)"
 
+[[fault]]
+id = "sh-workers-not-remade"
+file = "src/cli/check-run.fs"
+old = '''  ck-relent ck-jobs-run? if lf-sched-plan ok? if ck-pool-started? if'''
+new = '''  ck-jobs-run? if lf-sched-plan ok? if ck-pool-started? if'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "SH: workers made before a pass that moved the driving context's reference blocks read the blocks given back"
+
 # --- review rvSN3 of the checked environment saved and loaded (plan step SN3)
 
 [[fault]]

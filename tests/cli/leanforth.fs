@@ -538,6 +538,21 @@ previous
 T{ nested shared-run -> true 3 }T
 T{ kinds shared-run -> true 3 }T
 T{ horizon shared-run -> true 3 }T
+\ A pass that makes references in the driving context after the workers
+\ began to read them (as the import pass of a run against a snapshot may)
+\ can move their blocks: a reference of every name, given back, grows the
+\ table. The workers are then made again before the run
+\ (cli/check-run.fs's ck-relent), whose facts are the serial run's.
+create moved-mark /store-mark allot
+: name-refs ( -- )
+  lf-name-numbers 1 ?do i lf-name-generation @ 0 0 lf-cref-new if 2drop then loop ;
+: moved-refs ( -- )
+  moved-mark lf-crefs store-mark drop name-refs moved-mark lf-cref-rollback drop ;
+: moved-run ( -- h workers remade )
+  fresh >r 20000000 ck-start 3 ck-jobs! ['] throwing-check ck-check-word!
+  nested false ck-load drop moved-refs ck-check sched-facts lf-sched-workers ck-remades
+  ck-release r> back ;
+T{ moved-run -> serial-nested 3 1 }T
 
 \ FX10 (review rvS7): the worker count is cut to the cores and the pool's
 \ queue (a count above 1024 refused the first job and left "not checked"

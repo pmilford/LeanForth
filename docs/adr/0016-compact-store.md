@@ -1254,7 +1254,13 @@ context for the sixth.
    nothing in its input's stores while workers read them (it publishes;
    every check runs in a worker) and outlives them (the scheduler frees
    them first); `lf-input-pristine?` refuses a source that made a
-   reference since it sealed. The paths that could write the shared
+   reference since it sealed. A pass that runs in the driving context
+   after the workers were made and makes references there (the import
+   pass of a run against a snapshot, ADR 0020 D5, may) can move the
+   blocks they read; the references' blocks and count as the workers
+   began to read them are kept, and when they moved the workers are made
+   again before the run (`cli/check-run.fs`'s `ck-relent`, tested by
+   moving them on purpose). The paths that could write the shared
    blocks are closed: adding a declaration or an inductive cell is
    refused after sealing, a leaf or binder entry or any growth of a
    frozen table is refused, a worker's reset first erases the copied
@@ -1331,7 +1337,7 @@ for the sixth), its names' scratch tier, the probe set, the mark pages'
 directory (one cell per 256 input units: 0.5 MB for the sixth), the
 literals' copy and any mdata copies. The scheduler's stamp array (4 bytes
 per term number) is the driving context's alone. Planted faults `sh-*`
-(seven; one a known defence in depth) and two re-targeted `s6c-*` are
+(eight; one a known defence in depth) and two re-targeted `s6c-*` are
 caught.
 
 ## Consequences

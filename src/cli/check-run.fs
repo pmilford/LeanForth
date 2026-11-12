@@ -176,6 +176,8 @@ begin-structure /ck
   field: ck-jobs-asked           \ workers of a parallel check (ck-jobs!); 0, 1: serial
   field: ck-serial-why           \ why workers were asked for but not used (ck-why-*), or 0
   field: ck-print                \ the fed input's fingerprint: every worker's must be it
+  lf-cref-lent# cells +field ck-lent  \ the references the workers read (ck-lent!)
+  field: ck-remade               \ times the workers were made again (ck-relent)
   field: ck-checker              \ the check word ( -- ) (ck-check-word!)
   ck-switches# cells +field ck-switched    \ the checker's switches, for each worker
   ck-capacities# cells +field ck-saved   \ capacities before the feed
@@ -456,10 +458,26 @@ create ck-line ck-line-room 2 + allot
 \ resource report then says: the same output, only slower.
 : ck-workers-made ( -- outcome )
   outcome-ok ck-jobs 0 ?do dup ok? 0= if unloop exit then drop ck-worker-add loop ;
+\ The workers read this context's references in place; so that none reads
+\ a block given back, this context's references as the workers began to
+\ read them are kept (core/constant-references.fs's lf-cref-lending) and,
+\ when they moved before the run (a pass that made references here, as
+\ the import pass of a run against a snapshot may), the workers are made
+\ again (ck-relent; ck-remades counts it).
+create ck-lend-now lf-cref-lent# cells allot
+: ck-lending ( addr -- )
+  >r lf-cref-lending r@ 3 cells + ! r@ 2 cells + ! r@ cell+ ! r> ! ;
+: ck-lent! ( -- ) ck-state ck-lent ck-lending ;
+: ck-moved? ( -- flag )
+  ck-lend-now dup ck-lending lf-cref-lent# cells ck-state ck-lent over compare 0<> ;
+: ck-remades ( -- n ) ck-state ck-remade @ ;
 : ck-workers ( -- )
   ck-parallel? 0= if exit then
   lf-sched-host-ok 0= if ck-why-host ck-state ck-serial-why ! exit then
-  lf-sched-init ok? if ck-workers-made ok? if exit then then lf-sched-free ;
+  lf-sched-init ok? if ck-workers-made ok? if ck-lent! exit then then lf-sched-free ;
+: ck-relent ( -- )
+  lf-sched-workers 0> ck-moved? and 0= if exit then
+  1 ck-state ck-remade +! lf-sched-free ck-workers ;
 \ A failed phase is kept as the one that failed.
 : ck-fail ( outcome phase -- outcome ) over ok? if drop else ck-state ck-failed ! then ;
 \ Staging an export checked against a snapshot goes on in the phase that
@@ -717,7 +735,7 @@ create ck-line ck-line-room 2 + allot
   lf-sched-pool-start ?dup if ck-state ck-serial-why ! lf-sched-free false
   else true then ;
 : ck-steps-any ( n -- )
-  ck-jobs-run? if lf-sched-plan ok? if ck-pool-started? if
+  ck-relent ck-jobs-run? if lf-sched-plan ok? if ck-pool-started? if
     drop ck-jobs-run ck-finished exit then then then
   ck-steps-run ck-finished ;
 
