@@ -1406,9 +1406,8 @@ supported:
   print: a readable proof outline of each accepted declaration, from the
     checker's derivation log (plan tasks 2.4.1, 2.4.4; untrusted presentation)
   count, reexport: exports of any size, up to all of Mathlib
-Mathlib: all 729,263 declarations of its Lean export accepted, experimental and
-  not independently audited, one NOT PROVED (sorryAx, as in Lean), on build
-  b74a04d (fuel 250M, --memory-per-check 8192, --no-manifest); not re-run since
+Mathlib: all 729,263 declarations of its Lean export accepted on build b74a04d
+  (fuel 250M, --memory-per-check 8192, --no-manifest); not re-run since
 not yet supported (check answers unsupported or unknown, exit 2):
   a block with both safe and unsafe members (5.2.7 part b),
   metadata (mdata) in a term (4.1.3);

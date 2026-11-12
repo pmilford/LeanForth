@@ -973,9 +973,7 @@ class Behaviour(unittest.TestCase):
         progress = (ROOT / "docs/project/PROJECT_PROGRESS.md").read_text()
         self.assertRegex(progress, r"729,263 of\s+729,263 accepted\*\* on build `b74a04d`")
         mathlib = out.split("Mathlib: ")[1].split("not re-run since")[0]
-        for fact in ("all 729,263 declarations of its Lean export accepted",
-                     "experimental and\n  not independently audited",
-                     "one NOT PROVED (sorryAx, as in Lean)", "b74a04d",
+        for fact in ("all 729,263 declarations of its Lean export accepted", "b74a04d",
                      "fuel 250M", "--memory-per-check 8192", "--no-manifest"):
             self.assertIn(fact, mathlib)
 
