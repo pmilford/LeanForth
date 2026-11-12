@@ -70,18 +70,21 @@ constant u32-native
 \ u32@ gives the field's value, 0 .. 2^32-1; u32! keeps only the low 32
 \ bits of u. On a 32-bit host a value of 2^31 or more is a negative cell:
 \ compare such values with U< and U>, never < and >.
-\ Natively they are synonyms of l@ and l! (Forth-2012 SYNONYM), so a
-\ compiled u32@ is the primitive itself, not a call of a colon definition
-\ around it: the checker reads term fields through u32@ several times per
-\ unit of fuel (agent PERF1, 2026-11-12: about 6% of Init's checking time
-\ went to the call alone).
-u32-native [if]
+\ Natively they are synonyms of l@ and l! where the host has Forth-2012
+\ SYNONYM (Gforth 1.0; 0.7.3 has l@ but not SYNONYM), so a compiled u32@
+\ is the primitive itself, not a call of a colon definition around it:
+\ the checker reads term fields through u32@ several times per unit of
+\ fuel (agent PERF1, 2026-11-12).
+u32-native [defined] synonym and [if]
 synonym u32@ l@ ( addr -- u )
 synonym u32! l! ( u addr -- )
+[else] u32-native [if]
+: u32@ ( addr -- u ) l@ ;
+: u32! ( u addr -- ) l! ;
 [else]
 : u32@ ( addr -- u ) u32-bytes@ ;
 : u32! ( u addr -- ) u32-bytes! ;
-[then]
+[then] [then]
 
 \ One field as four bytes, least significant first: the byte order
 \ u32-bytes@ and u32-bytes! already fix, so these are those words under
