@@ -1,4 +1,4 @@
-\ Draft 1, written by an AI.
+kernel-form \ Draft 1, written by an AI.
 \ Lean: theorem chain {A B C D : Prop} (f : A → B) (g : B → C) (h : C → D) : A → D :=
 \         fun a => h (g (f a))
 theorem chain

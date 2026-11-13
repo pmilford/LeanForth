@@ -13,7 +13,7 @@
 require ../support/tester.fs
 require ../../src/author/runner.fs
 
-: run ( c-addr u -- outcome ) lf-author-begin lf-author-text ;
+: run ( c-addr u -- outcome ) lf-author-begin lf-author-kernel lf-author-text ;
 : err ( -- code line col ) lf-author-code lfa-error lfa-err-at @ lfa-pos> ;
 : see-pos ( -- line col ) lfa-error lfa-err-see @ lfa-pos> ;
 : fails ( c-addr u -- code line col ) run drop err ;
@@ -33,7 +33,10 @@ T{ lf-author-code -> 0 }T
 
 \ Forth's own words are forth-word-in-proof: each is an unknown name at its column.
 T{ s" theorem t Prop explicit: p p dup := p end t" fails -> 1 1 30 }T
-T{ s" theorem t Prop explicit: p p := p p + end t" fails -> 1 1 37 }T
+T{ s" theorem t Prop explicit: p p := p p over end t" fails -> 1 1 37 }T
+\ + is Lean's + (owner, 2026-11-12), a word of natural LeanForth only: in
+\ kernel-form text it is refused at its column (error 58), never Forth's +.
+T{ s" theorem t Prop explicit: p p := p p + end t" fails -> 58 1 37 }T
 T{ s" theorem t Prop explicit: p p := swap p end t" fails -> 1 1 33 }T
 T{ s" : x ; theorem t" fails -> 1 1 1 }T
 T{ s\" theorem t\n  CHAR Prop" fails -> 1 2 3 }T
@@ -442,7 +445,7 @@ T{ lfa-error lfa-err-token lfa-error lfa-err-length @ s" 1" compare -> 0 }T
 
 \ Each text's lines count from 1, also when a second text runs in the
 \ same run (the second text's PROP is on its line 1).
-T{ lf-author-begin s\" def a\n Prop := Prop end a" lf-author-text
+T{ lf-author-begin lf-author-kernel s\" def a\n Prop := Prop end a" lf-author-text
    s" def b PROP := Prop end b" lf-author-text err -> outcome-ok outcome-invalid 1 1 7 }T
 
 \ Names that are Forth words become harmless group words (p04), and the
@@ -662,6 +665,19 @@ T{ s" 18446744073709551615" holds? -> false }T
 \ A level of a tag the format has no record for is refused (review S6).
 T{ s" theorem t Prop explicit: p p := p end t" exported -> outcome-ok }T
 T{ 7 0 0 lf-level-new nip export-now -> true outcome-unsupported }T
+\ A metavariable anywhere in the stores (core/mvar-leaves.fs, ADR 0021 D2)
+\ refuses the whole run before any line is written: invalid, elaboration
+\ incomplete; a term one and a level one, each unreachable from any value.
+T{ s" theorem t Prop explicit: p p := p end t" exported -> outcome-ok }T
+T{ 0 0 lf-mvar-leaf nip export-now lines-n @ -> true outcome-invalid 0 }T
+T{ s" theorem t Prop explicit: p p := p end t" exported -> outcome-ok }T
+T{ 0 0 lf-level-mvar-leaf nip export-now lines-n @ -> true outcome-invalid 0 }T
+\ And one inside the theorem's own proof, put there by hand.
+T{ s" theorem t Prop explicit: p p := p end t" run -> outcome-ok }T
+T{ 0 0 lf-mvar-leaf drop 0 lf-author-decl lf-fdecl-value ! export-now lines-n @
+   -> outcome-invalid 0 }T
+T{ lf-holes? -> true }T
+T{ s" theorem t Prop explicit: p p := p end t" run lf-holes? -> outcome-ok false }T
 
 \ A library (library.fs, plan task 8.2.1d): a finder that knows Lib.c,
 \ Lib.k and Lib.m, of no universe parameters, definitions of height 3. Its
@@ -711,6 +727,11 @@ T{ s\" def d 0 Type := Lib.c note\" ( Zzz.u end d" lib-fails -> 37 1 23 }T
 \ ai-note" ends nothing either (Lib.m, first named here, after it).
 T{ s" def d 0 Type := Lib.c ( Zzz.v end d" lib-fails -> 42 1 23 }T
 T{ s\" def d 0 Type := Prop ai-note\" a \\ b\" Lib.m $ end d" with-lib -> outcome-ok }T
+
+\ In natural form, with no front end loaded (src/front/), a name is not
+\ supported yet (error 70).
+T{ ' lib-finder lf-author-library! lf-author-begin s" def d Lib.c" lf-author-text drop err
+   0 lf-author-library! -> 70 1 7 }T
 
 \ The dictionary reserve (p05): with fewer than lfa-dictionary-reserve
 \ address units unused, no group word is made (error 66, full), while

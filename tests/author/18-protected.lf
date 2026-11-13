@@ -1,4 +1,4 @@
-\ Which constant a name means when some are protected, as Lean resolves it:
+kernel-form \ Which constant a name means when some are protected, as Lean resolves it:
 \ through a namespace, around or open, a name of one part never finds a
 \ protected constant; a dotted name and the root do (src/author/namespaces.fs).
 \ Lean: tests/reference/author-18-protected.lean (the same declarations).

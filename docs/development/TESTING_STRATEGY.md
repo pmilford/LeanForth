@@ -206,6 +206,7 @@ average 1–8). *Before*: commit `8148f3f`, before these changes. *No cache*:
 | `test-sha256` | test | 1.5 | 1.6 | 1.8 |
 | `test-manifest` | test | 0.2 | 0.2 | 0.2 |
 | `test-author` | test | 1.0 | 1.0 | 1.1 |
+| `test-front` | test | — | — | 0.6 (new 2026-11-12, plan FE1a-b; not yet timed in the three runs) |
 | `test-mutants` | test | 3.2 | 3.2 | 3.2 |
 | `test-reexport` | test | 1.0 | 1.0 | 1.2 |
 | `test-compact` | test | 0.9 | 0.9 | 0.9 |
@@ -386,6 +387,7 @@ time, as `scripts/export.sh` builds `export_manifest.py`'s, is not seen).
 | `src/program/` | `test-program`, `test-program-ir`, `test-program-ir-run` |
 | `src/present/` | `test-present`; `test-printer-differential` |
 | `src/author/` | `test-author`; `reference-author` |
+| `src/front/`, `src/core/mvar-leaves.fs` | `test-front`; `test-author` (the export writer's refusal, the marker); `reference-front` (pinned Lean's macro expansion) |
 | `tests/reference/*.lean` | the target that runs the file (`make check-changed` finds it) |
 | `scripts/lean-cache.py`, the Makefile | `test-lean-cache`, then `make check` |
 | `docs/` | `check-docs`, `check-doc-examples` |

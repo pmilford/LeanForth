@@ -26,6 +26,8 @@ findings neither fixed nor turned into plan tasks. A row that raises the style b
 | 2026-11-12 | `b4f354a..b89022f` | lf-files (LF1): LeanForth text checked by the kernel, plan 8.2.1a/c/d | forth-reviewer (Opus), style and gates [parser][bypass][import] | [report](2026-11-12-lf-files.md) | 0 blocking; H1, M1-M3, L1-L4, S1-S7 | all but M3 fixed in lf-files-2 |
 | 2026-11-12 | `b89022f..d54ec55` | lf-files-2 (LF2): fixes of the lf-files review | forth-reviewer (Opus), re-review and gates | [report](2026-11-12-lf-files-2.md) | 0 blocking; N1, N2 medium, N3-N6 low, SA, SB | fixed in d54ec55..b5d6205 |
 | 2026-11-12 | `d54ec55..b5d6205` | lf-files-2 follow-up: N1-N6, SA, SB | forth-reviewer (Opus), re-check | [report](2026-11-12-lf-files-2.md), last section | 0 blocking | M3 (progress page) at the merge |
+| 2026-11-12 | `63c5760..16445ef` | fe1: FE1a natural reader, FE1b metavariable context | forth-reviewer (Opus), style and gates [parser][bypass] | [report](2026-11-12-fe1ab.md) | 0 blocking; M1, L1-L4, S1-S6 | fixed in 16445ef..b7cff58; M1 at the merge |
+| 2026-11-12 | `16445ef..b7cff58` | fe1 follow-up: L1-L4, S1-S6 | forth-reviewer (Opus), re-check | [report](2026-11-12-fe1ab.md), last section | 0 blocking | three coverage rows tightened at the merge |
 
 ## Backlog
 

@@ -58,6 +58,11 @@ require ./present/term-printer.fs
 require ./present/log-check.fs
 require ./present/proof-outline.fs
 
+\ The front end (ADR 0021, plan FE1; untrusted, never loaded by the
+\ kernel): the natural reader (front/reader.fs, which the command line
+\ loads through cli/check-lf.fs) and the metavariable context.
+require ./front/mvars.fs
+
 \ The command line: check, replay, print, count, reexport, version,
 \ capabilities. It loads the staging of exports into the checker's input,
 \ the counter, the re-exporter, the manifest check and print's proof

@@ -135,6 +135,13 @@ T{ 0 s0 store-valid? -> false }T
 T{ s0 store-new -> 0 true }T
 T{ 0 s0 store-identity@ -> 4 true }T
 
+\ A claim given back (store-drop): the newest record goes and its
+\ identity is never reused; at the base nothing changes.
+T{ s0 store-new -> 1 true }T
+T{ s0 ' store-drop rs-checked s0 store-count @ 1 s0 store-valid? -> 1 false }T
+T{ s0 store-new 1 s0 store-identity@ -> 1 true 6 true }T
+T{ s0 store-drop s0 store-drop s0 store-drop s0 store-count @ -> 0 }T
+
 \ A store with base 1 keeps record 0, and its identity, through a reset.
 s1 ' store-clear rs-checked
 T{ s1 store-count @ s1 store-count-valid? -> 1 true }T

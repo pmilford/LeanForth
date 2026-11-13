@@ -1,4 +1,4 @@
-\ A mistake: one $ is missing, so g and (f value) are never combined.
+kernel-form \ A mistake: one $ is missing, so g and (f value) are never combined.
 theorem composition
   Prop implicit: A   Prop implicit: B   Prop implicit: C
   A B ->  explicit: f

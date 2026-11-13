@@ -1,4 +1,4 @@
-\ Lean: theorem composition {A B C : Prop} (f : A → B) (g : B → C) : A → C :=
+kernel-form \ Lean: theorem composition {A B C : Prop} (f : A → B) (g : B → C) : A → C :=
 \         fun value => g (f value)
 theorem composition
   Prop implicit: A   Prop implicit: B   Prop implicit: C

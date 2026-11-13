@@ -1,4 +1,4 @@
-\ Names are case-sensitive, as in Lean: p is not the bound variable P.
+kernel-form \ Names are case-sensitive, as in Lean: p is not the bound variable P.
 theorem identity
   Prop implicit: P
   p explicit: proof

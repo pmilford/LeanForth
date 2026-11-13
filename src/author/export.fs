@@ -41,8 +41,10 @@
 \ with pinned Lean's export, record for record), but the file differs.
 \
 \ lf-author-export ( sink -- outcome ): sink ( c-addr u -- outcome ) is
-\ given each line, without its line feed. The first outcome that is not ok
-\ stops the writing and is returned: the sink's; the JSON writer's (full
+\ given each line, without its line feed. A metavariable in the term or
+\ level store (core/mvar-leaves.fs) refuses the whole run before any line:
+\ invalid, elaboration incomplete (ADR 0021 D2). The first outcome that is
+\ not ok stops the writing and is returned: the sink's; the JSON writer's (full
 \ for a line longer than lfx-line-capacity, invalid for a name that is not
 \ UTF-8); full for no heap for the numbering tables; unsupported for a node
 \ no record holds (none the words build). Example, with a sink that types:
@@ -64,6 +66,7 @@ require ../core/projections.fs
 require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
 require ../core/tagged-sort-boundary.fs
+require ../core/mvar-leaves.fs
 require ../present/binder-table.fs
 require ./constants.fs
 
@@ -286,6 +289,10 @@ lf-tag-app lf-tag-bit lf-tag-bvar lf-tag-bit or lf-tag-constant lf-tag-bit or
 \ Public word; see the header.
 : lfx-start ( sink -- ) lfx lfx-sink ! outcome-ok lfx lfx-outcome ! ;
 : lfx-records ( -- ) lfx-meta lfx-names lfx-levels lfx-exprs lfx-declarations ;
+: lfx-write ( -- ) lfx-tables if lfx-records else outcome-full lfx-refuse then lfx-free ;
+\ A metavariable anywhere in the stores (core/mvar-leaves.fs) refuses the
+\ run before any line is written: elaboration is incomplete (ADR 0021 D2),
+\ whatever the front end believes.
 : lf-author-export ( sink -- outcome )
-  lfx-start lfx-tables if lfx-records else outcome-full lfx-refuse then
-  lfx-free lfx lfx-outcome @ ;
+  lfx-start lf-holes? if outcome-invalid lfx-refuse else lfx-write then
+  lfx lfx-outcome @ ;

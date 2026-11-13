@@ -101,7 +101,21 @@ name ends in `.lf`: theorems, definitions and proofs written as Forth
 words. LeanForth's words build each declaration's terms, the terms go to
 the same checker as an export's, and the report is the same: one line per
 declaration with its verdict, the
-axioms and the [exit status](#exit-status). No Lean tool runs:
+axioms and the [exit status](#exit-status). No Lean tool runs. Such a
+file is in the **kernel form** (proof terms written in full), which its
+first word says: `kernel-form`. Without it the text is read as natural
+LeanForth, the default since 2026-11-12 (ADR 0021; plan FE1), which is
+read into syntax trees but not elaborated yet: a natural declaration stops
+at its `end` with error 71, a tactic word with error 72 and a kernel-form
+word such as `Prop` with error 70, all "not supported yet" (exit 2), and
+nothing is checked ([two forms](LEANFORTH_SYNTAX.md#two-forms-kernel-form-and-natural-leanforth)).
+FE1's theorem $0 + n = n$, written in natural LeanForth with tactics:
+
+```console
+$ bin/leanforth check --env tests/author/init-slice.ndjson tests/front/01-zero-add.lf; echo "exit status $?"
+error: unsupported: the LeanForth text was not checked: error 72 at line:col 13:5 (token `by-induction`): not supported yet: tactics (plan FE1g)
+exit status 2
+```
 
 ```console
 $ bin/leanforth check tests/author/02-composition.lf
@@ -1316,6 +1330,10 @@ axiom with its statement and value (the proof), as the
 identical terms (checked node for node for the pinned examples, for
 `Nat.add_zero` and for a slice of `Init`; see [the proof of
 `Nat.add_zero` in LeanForth](PROOF_OUTLINE.md#natadd_zero-in-leanforth)).
+The text is in the kernel form, so its first line is the word
+`kernel-form` (since 2026-11-12, when natural LeanForth became the
+default; [two forms](LEANFORTH_SYNTAX.md#two-forms-kernel-form-and-natural-leanforth)),
+and `leanforth check` reads it back as written.
 The export is not checked and the text is no evidence of anything: it is
 untrusted presentation. `--lf` takes `--no-manifest`, `--fuel` and `--fast`,
 not `--detail`, `--name`, `--latex` or `--statement` (exit 4).
