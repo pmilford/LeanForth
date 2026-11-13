@@ -5375,8 +5375,8 @@ quick = true
 [[fault]]
 id = "lf-export-height-one"
 file = "src/author/export.fs"
-old = ''': lfx-value-height ( value -- h ) lfx-unmark dup lfx-mark 0 swap lfx-sweep 1+ ;'''
-new = ''': lfx-value-height ( value -- h ) drop 1 ;'''
+old = '''  dup lfx-node? 0= if drop 1 exit then lfx-unmark dup lfx-mark 0 swap lfx-sweep 1+ ;'''
+new = '''  drop 1 ;'''
 test = "$GFORTH tests/author/author.fs"
 reason = "8.2.1c: every definition's hint is height 1, not Lean's (getMaxHeight + 1)"
 
@@ -5420,8 +5420,8 @@ reason = "H1: a declaration's universe parameters reversed: PairSort.{v, u} for 
 [[fault]]
 id = "lf-export-universe-arguments-first"
 file = "src/author/export.fs"
-old = '''  0 ?do dup i lf-cref-pair@ drop lfx-level# lfx-u loop drop lfx-w jw-close-array ;'''
-new = '''  0 ?do dup 0 lf-cref-pair@ drop lfx-level# lfx-u loop drop lfx-w jw-close-array ;'''
+old = '''  0 ?do dup i lf-cref-pair@ drop lfx-level-ref lfx-u loop drop lfx-w jw-close-array ;'''
+new = '''  0 ?do dup 0 lf-cref-pair@ drop lfx-level-ref lfx-u loop drop lfx-w jw-close-array ;'''
 test = "GFORTH=$GFORTH python3 tests/author/check_author.py --records"
 reason = "H1: every universe argument written as the first: 06-universes's PairOf names PairSort.{v, v}, not PairSort.{v, u}"
 
@@ -5524,8 +5524,8 @@ reason = "M2: a bare projection leaf accepted as a proof, argument or binder typ
 [[fault]]
 id = "lf-export-leaf-reference-written"
 file = "src/author/export.fs"
-old = ''': lfx-expr-ref ( term -- n ) lfx-expr# dup 0< if outcome-unsupported lfx-refuse then ;'''
-new = ''': lfx-expr-ref ( term -- n ) lfx-expr# ;'''
+old = ''': lfx-expr-ref ( term -- n ) lfx-expr-of dup 0< if outcome-unsupported lfx-refuse then ;'''
+new = ''': lfx-expr-ref ( term -- n ) lfx-expr-of ;'''
 test = "$GFORTH tests/author/author.fs"
 reason = "M2: a reference to a projection's leaf written as a number (-1), which the stage refuses as a bad reference of an export the user never sees"
 
@@ -10621,8 +10621,8 @@ reason = "FE1c: a max whose parts stay is made again where Lean's updateMax! kee
 [[fault]]
 id = "fe-natural-not-default"
 file = "src/author/form.fs"
-old = '''  false lfa-form lfa-form-kernel ! -1 lfa-form lfa-form-tick ! lfa-numerals store-clear ;'''
-new = '''  true lfa-form lfa-form-kernel ! -1 lfa-form lfa-form-tick ! lfa-numerals store-clear ;'''
+old = '''  false lfa-form lfa-form-kernel ! -1 lfa-form lfa-form-tick ! lfa-numerals store-clear'''
+new = '''  true lfa-form lfa-form-kernel ! -1 lfa-form lfa-form-tick ! lfa-numerals store-clear'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1a: a run starts in the kernel form, so natural text is read as kernel terms (owner decision 4)"
 quick = true
@@ -10703,8 +10703,8 @@ reason = "FE1a: by is taken before :=, after a value or twice (error 69 expected
 [[fault]]
 id = "fe-end-no-shape"
 file = "src/front/reader.fs"
-old = '''  lfa-end-check lfn-shape lfa-e-elaborate lfa-fail ;'''
-new = '''  lfa-end-check drop lfa-e-elaborate lfa-fail ;'''
+old = '''  lfa-end-check dup lfn-shape lfn-last lfn-keep'''
+new = '''  lfa-end-check lfn-last lfn-keep'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1a: end of a natural declaration no longer checks := and the one proof (errors 19 and 20)"
 
@@ -10743,8 +10743,8 @@ reason = "FE1a: a variable whose type is headed by a definition (Nat.add) gets a
 [[fault]]
 id = "fe-mvar-to-kernel"
 file = "src/author/export.fs"
-old = '''  lfx-start lf-holes? if outcome-invalid lfx-refuse else lfx-write then'''
-new = '''  lfx-start false if outcome-invalid lfx-refuse else lfx-write then'''
+old = ''': lfx-holes? ( -- flag ) lfx-reaching? if lf-reach-holes? else lf-holes? then ;'''
+new = ''': lfx-holes? ( -- flag ) lfx-reaching? if lf-reach-holes? else false then ;'''
 test = "$GFORTH tests/author/author.fs"
 reason = "FE1b, ADR 0021 D2: the export writer passes a metavariable towards the kernel"
 quick = true
@@ -11864,7 +11864,7 @@ reason = "whnf gives back a node that is not in the store as its own normal form
 [[fault]]
 id = "fe6-motive-universe"
 file = "src/front/constructions.fs"
-old = ''': param-level ( i job -- l outcome ) tuck rec-param swap aux-tier level-param ;'''
+old = ''': param-level ( i job -- l outcome ) tuck name-param swap aux-tier level-param ;'''
 new = ''': param-level ( i job -- l outcome ) 2drop level-zero outcome-ok ;'''
 test = "$GFORTH tests/front/constructions.fs"
 reason = "T.rec is applied at universe 0 for the motive's universe (and the others): Nat.casesOn's value differs from Lean's"
@@ -11949,6 +11949,345 @@ old = '''  nip remap-let-body ['] remap-let-joined frame-under ;'''
 new = '''  nip remap-let-body ['] remap-let-joined frame-call ;'''
 test = "$GFORTH tests/front/constructions.fs"
 reason = "a letE's body is renumbered as if outside its binder: its own variable #0 becomes #1"
+
+[[fault]]
+id = "fe6-ctoridx-universe"
+file = "src/front/constructions.fs"
+old = '''  level-zero over aux-tier level-succ'''
+new = '''  level-zero outcome-ok'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "ctorIdx applies T.casesOn at motive universe 0, not 1: Nat.ctorIdx's value differs from Lean's"
+
+[[fault]]
+id = "fe6-ctoridx-index"
+file = "src/front/ctor-idx.fs"
+old = '''  dup ctor-index over nat-literal ok-keep? 0= if exit then'''
+new = '''  dup ctor-index 1+ over nat-literal ok-keep? 0= if exit then'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "each alternative answers its constructor's index plus one: Nat.ctorIdx differs"
+
+[[fault]]
+id = "fe6-ctoridx-explicit"
+file = "src/front/ctor-idx.fs"
+old = ''': implicit ( head -- head' ) dup head-payload swap plain-binder 1+ swap pack-head ;'''
+new = ''': implicit ( head -- head' ) ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "the parameters stay explicit: List.ctorIdx's first binder is not implicit"
+
+[[fault]]
+id = "fe6-ctoridx-recursor-params"
+file = "src/front/ctor-idx.fs"
+old = '''  dup type-names swap aux-built-params ! outcome-ok ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "ctorIdx is compared with the recursor's universe parameters, not the type's: List's differ"
+
+[[fault]]
+id = "fe6-several-main-slot"
+file = "src/front/cases-several.fs"
+old = ''': main-slot ( job -- x ) dup aux-motives @ 1- swap aux-main @ - ;'''
+new = ''': main-slot ( job -- x ) aux-main @ ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "T's motive counted from the outermost: RvNest.R's casesOn keeps the wrong motive and minor premises"
+
+[[fault]]
+id = "fe6-several-hypotheses-kept"
+file = "src/front/cases-several.fs"
+old = '''  dup closed-end ok-keep? 0= if nip exit then over unit-fold mtype! ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "hypotheses about other motives keep them, which casesOn's value has no binder for: refused, not Lean's"
+
+[[fault]]
+id = "fe6-several-bodies-swapped"
+file = "src/front/cases-several.fs"
+old = '''  tuck minor-main? if dup kept-head swap m-body-at else unit-body then ;'''
+new = '''  tuck minor-main? if unit-body else dup kept-head swap m-body-at then ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "T's minor premises answer PUnit.unit and the others call a minor premise: RvNest's casesOn differs"
+
+[[fault]]
+id = "fe6-table-never-refuses"
+file = "src/front/expr-remap.fs"
+old = '''  remap-x @ swap cells + @ dup 0< if drop false else true then ;'''
+new = '''  remap-x @ swap cells + @ true ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "a reference to a dropped motive becomes variable -1 instead of a refusal"
+
+[[fault]]
+id = "fe6-alike-types-only"
+file = "src/front/constructions.fs"
+old = '''  2dup value-alike? 0= if 2drop false exit then params-same? ;'''
+new = '''  params-same? ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "review fe6a L2: values are not compared up to binder names: Or's casesOn passes as Lean's Or.recOn"
+
+[[fault]]
+id = "fe-reached-hole-written"
+file = "src/author/export.fs"
+old = ''': lfx-holes? ( -- flag ) lfx-reaching? if lf-reach-holes? else lf-holes? then ;'''
+new = ''': lfx-holes? ( -- flag ) lfx-reaching? if false else lf-holes? then ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f, ADR 0021 D2: the reached writer passes a metavariable a declaration reaches"
+quick = true
+
+[[fault]]
+id = "fe-unreached-hole-blocks"
+file = "src/author/export.fs"
+old = ''': lfx-holes? ( -- flag ) lfx-reaching? if lf-reach-holes? else lf-holes? then ;'''
+new = ''': lfx-holes? ( -- flag ) lfx-reaching? if lf-holes? else lf-holes? then ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f: a hole no declaration reaches refuses the whole run (review fe1ab, note 1)"
+quick = true
+
+[[fault]]
+id = "fe-unreached-written"
+file = "src/author/export.fs"
+old = ''': lfx-wanted? ( term -- flag ) lfx-reaching? if lf-reached? else drop true then ;'''
+new = ''': lfx-wanted? ( term -- flag ) drop true ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f: the reached writer writes nodes no declaration reaches"
+quick = true
+
+[[fault]]
+id = "fe-check-lf-all-nodes"
+file = "src/cli/check-lf.fs"
+old = '''  ['] lfc-line lfc-reached? if lf-author-export-reached else lf-author-export then ;'''
+new = '''  ['] lfc-line lf-author-export ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f: a natural text is written whole, so an unused hole refuses its records"
+quick = true
+
+[[fault]]
+id = "fe-handover-no-rollback"
+file = "src/front/handover.fs"
+old = ''': lfh-back ( outcome -- outcome ) lfh-mark lf-scratch-rollback drop ;'''
+new = ''': lfh-back ( outcome -- outcome ) ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f: a refused hand-over keeps the nodes its instantiation made"
+quick = true
+
+[[fault]]
+id = "fe-handover-no-hole-check"
+file = "src/front/handover.fs"
+old = '''  lfh-pair dup ok? if drop lfh-whole then ;'''
+new = '''  lfh-pair ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f, ADR 0021 D3: a declaration with a hole left is recorded"
+quick = true
+
+[[fault]]
+id = "fe-handover-no-instantiate"
+file = "src/front/handover.fs"
+old = '''  >r lf-instantiate-mvars r> swap dup ok? 0= if exit then drop lfh-value ;'''
+new = '''  outcome-ok ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f: assigned metavariables are not instantiated, so a complete declaration is refused"
+quick = true
+
+[[fault]]
+id = "fe-reach-no-sort-level"
+file = "src/core/reach.fs"
+old = '''  case lf-tag-symbolic-sort of lf-term-first@ lr-level! endof'''
+new = '''  case lf-tag-symbolic-sort of drop endof'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f: a level hole under a Sort is not reached, so it is not refused"
+quick = true
+
+[[fault]]
+id = "fe-reach-no-universes"
+file = "src/core/reach.fs"
+old = '''    lf-tag-constant of lr-universes endof nip endcase ;'''
+new = '''    lf-tag-constant of drop endof nip endcase ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f: a level hole in a constant's universe arguments is not reached"
+quick = true
+
+[[fault]]
+id = "fe-reach-first-child-only"
+file = "src/core/reach.fs"
+old = ''': lr-pair ( term -- ) dup lf-term-first@ lf-reach-term lf-term-second@ lf-reach-term ;'''
+new = ''': lr-pair ( term -- ) lf-term-first@ lf-reach-term ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f: a binder's body or an argument is not reached, neither written nor checked for holes"
+quick = true
+
+[[fault]]
+id = "fe-natural-end-no-handover"
+file = "src/front/reader.fs"
+old = '''  lf-front-elaborate lf-front-hand-over lfa-declared ;'''
+new = '''  lf-front-elaborate lf-front-header tuck lf-fdecl-value ! lf-fdecl-type ! lfa-declared ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f: the natural end records the elaborator's terms without the hand-over (no instantiation, no hole check)"
+quick = true
+
+[[fault]]
+id = "fe-unused-universe-accepted"
+file = "src/front/handover.fs"
+old = '''  lfh-unused-of if lfa-e-unused-universe lfh-refuse else outcome-ok then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f: a universe parameter neither the type nor the value uses is kept, where Lean refuses it"
+quick = true
+
+[[fault]]
+id = "fe-reach-param-any-name"
+file = "src/core/reach.fs"
+old = '''  lf-level-slot dup node-tag @ lf-level-tag-param = swap node-first @ rot = and ;'''
+new = '''  lf-level-slot node-tag @ lf-level-tag-param = nip ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f: any universe parameter reached counts as every one, so an unused one is kept"
+quick = true
+
+[[fault]]
+id = "fe-check-lf-mixed-whole"
+file = "src/cli/check-lf.fs"
+old = ''': lfc-reached? ( -- flag ) lfa-front-made? ;'''
+new = ''': lfc-reached? ( -- flag ) lfa-kernel-form? 0= ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f: a text that turns to the kernel form after a natural declaration is written whole, so the elaborator's unused hole refuses its records"
+quick = true
+
+[[fault]]
+id = "fe-reach-succ-part"
+file = "src/core/reach.fs"
+old = '''  dup lf-level-tag@ case lf-level-tag-succ of lf-level-first@ lr-level! endof'''
+new = '''  dup lf-level-tag@ case lf-level-tag-succ of drop endof'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f M2: a successor's level is not reached, so Type u would be written as Type and a hole under u + 1 missed"
+quick = true
+
+[[fault]]
+id = "fe-reach-max-second"
+file = "src/core/reach.fs"
+old = ''': lr-level-pair ( level -- ) dup lf-level-first@ lr-level! lf-level-second@ lr-level! ;'''
+new = ''': lr-level-pair ( level -- ) lf-level-first@ lr-level! ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f M2: the second part of a max or imax is not reached"
+quick = true
+
+[[fault]]
+id = "fe-handover-any-value"
+file = "src/front/handover.fs"
+old = ''': lfh-shaped? ( value -- flag ) lfh-axiom? if -1 = else 0< 0= then ;'''
+new = ''': lfh-shaped? ( value -- flag ) drop true ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f M1: a theorem with no value, or an axiom with one, is recorded"
+quick = true
+
+[[fault]]
+id = "fe-writer-no-node-check"
+file = "src/author/export.fs"
+old = ''': lfx-expr-of ( term -- n ) dup lfx-node? if lfx-expr# else drop -1 then ;'''
+new = ''': lfx-expr-of ( term -- n ) lfx-expr# ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f M1: a declaration's value -1 is written as the number read outside the writer's table"
+quick = true
+
+[[fault]]
+id = "fe-front-made-unset"
+file = "src/front/handover.fs"
+old = '''  drop lfa-front-made! ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f L3: a handed-over declaration does not mark the run, so its text is written whole and the elaborator's unused hole refuses its records"
+quick = true
+
+[[fault]]
+id = "fe-root-theorems-only"
+file = "src/author/export.fs"
+old = '''  dup lfa-decl-kind lf-decl-stub < 0= if drop exit then'''
+new = '''  dup lfa-decl-kind lf-decl-theorem <> if drop exit then'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f L1: an axiom's or definition's terms are no roots, so the reached writer leaves them out"
+quick = true
+
+[[fault]]
+id = "fe-reached-all-levels"
+file = "src/author/export.fs"
+old = '''  lfx-reaching? if lf-level-reached? else drop true then ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f L1: the reached writer writes every level, an unused level hole among them"
+quick = true
+
+[[fault]]
+id = "fe-reach-write-leak"
+file = "src/author/export.fs"
+old = '''  lf-reach-close ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f L1: the reached writer keeps its reach tables' heap blocks"
+quick = true
+
+[[fault]]
+id = "fe-lfn-fresh-no-mctx-reset"
+file = "src/front/reader.fs"
+old = '''  syn-reset lf-mctx-reset -1 lfn-decl lfn-decl-statement ! -1 lfn-decl lfn-decl-by !'''
+new = '''  syn-reset -1 lfn-decl lfn-decl-statement ! -1 lfn-decl lfn-decl-by !'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f L1: a declaration's metavariables stay live into the next declaration"
+quick = true
+
+[[fault]]
+id = "fe-notes-end-unset"
+file = "src/author/declarations.fs"
+old = '''  lfa-notes-end lfa-publish lfa-current lfa-current-entries @ lfa-entries-cut'''
+new = '''  lfa-publish lfa-current lfa-current-entries @ lfa-entries-cut'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f L2: a declaration's notes end is never set"
+quick = true
+
+[[fault]]
+id = "fe-theorem-params-from-value"
+file = "src/front/handover.fs"
+old = ''': lfh-unused-of ( type-unused? -- flag ) lfh-def? if drop lfh-names lfh-unused? then ;'''
+new = ''': lfh-unused-of ( type-unused? -- flag ) drop lfh-names lfh-unused? ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f N1: a theorem's universe parameter used by its proof alone counts as used, where Lean refuses it (unused universe parameter)"
+quick = true
+
+[[fault]]
+id = "fe-def-params-from-type"
+file = "src/front/handover.fs"
+old = ''': lfh-unused-of ( type-unused? -- flag ) lfh-def? if drop lfh-names lfh-unused? then ;'''
+new = ''': lfh-unused-of ( type-unused? -- flag ) ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f N1: a definition's universe parameter used by its value alone is refused, where Lean accepts it"
+quick = true
+
+[[fault]]
+id = "fe-writer-level-unchecked"
+file = "src/author/export.fs"
+old = ''': lfx-level-of ( level -- n ) dup lfx-level-node? if lfx-level# else drop -1 then ;'''
+new = ''': lfx-level-of ( level -- n ) lfx-level# ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f N2: a level number outside the store is read outside the writer's table and written"
+quick = true
+
+[[fault]]
+id = "fe6-several-unit-shift"
+file = "src/front/cases-several.fs"
+old = '''  dup aux-remap >r 0 r@ remap-cutoff! motive-place 1+ r> remap-shift! ;'''
+new = '''  dup aux-remap >r 0 r@ remap-cutoff! motive-place r> remap-shift! ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "review fe6a-2 N3: another motive's binders lifted one short: FE6.Even.casesOn's parameter reference differs"
+
+[[fault]]
+id = "fe6-several-index-drop"
+file = "src/front/cases-several.fs"
+old = '''  1 rot aux-remap remap-shift! ;'''
+new = '''  0 rot aux-remap remap-shift! ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "review fe6a-2 N3: the index's type loses the kept motive's place: FE6.Even.casesOn differs"
+
+[[fault]]
+id = "fe6-several-table-unfilled"
+file = "src/front/cases-several.fs"
+old = '''  tuck table-size 0 ?do -1 over i swap table-cell ! loop drop ;'''
+new = '''  2drop ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "review fe6a-2 N3: the table keeps an earlier renumbering's cells instead of refusing: FE6.Odd.casesOn differs"
 
 [[fault]]
 id = "fe-env-instances-unfold-implicit"

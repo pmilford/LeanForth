@@ -7,8 +7,11 @@ branch `fe1` (Forth review pending):** FE1a, the natural reader
 as not supported yet where elaboration or a tactic would begin; the
 kernel form needs `kernel-form`), and FE1b, the metavariable context
 (`src/front/mvars.fs`, `core/mvar-leaves.fs`), is tested alone (no command
-makes metavariables yet; the export writer refuses any). Nothing else in
-this document is built. It is
+makes metavariables yet; the export writer refuses any). FE1f's hand-over
+(`src/front/handover.fs`: instantiate, refuse a reachable hole, write
+only what the declaration reaches, through the stage to the kernel) is
+tested alone on branch `fe1f`, driven by a stand-in elaborator; FE1d's
+elaboration data is integrated. Nothing else in this document is built. It is
 the design and plan for the half of Lean that LeanForth does not have: the
 part that turns what a person writes into the full proof term the kernel
 checks. The architecture and trust boundary are proposed in
@@ -76,7 +79,7 @@ smallest piece that proves something real: FE1, $0 + n = n$ by induction.
 | Milestone | What a user can do when it is done | Size |
 | --- | --- | --- |
 | FE1 | Prove $0 + n = n$ in LeanForth with `induction`, `rfl` and `exact`, no proof term written by hand, no Lean tool run | L (8 steps) |
-| FE2 | Write any statement and term proof as naturally as in Lean (implicit arguments, numerals, `+`, `=`, `fun`, `let`, holes) | L |
+| FE2 | Write any statement and term proof as naturally as in Lean (implicit arguments, numerals, `+`, `=`, `fun`, `let`, holes); designed in [FE2_TERMS.md](FE2_TERMS.md) | L |
 | FE3 | Declare classes and instances; instance search as Lean's | L |
 | FE4 | Coercions (`↑n`, a natural number used as an integer) | M |
 | FE5 | The everyday tactics (`intro`, `apply`, `cases`, `rw`, `constructor`, `calc` …); `add_comm` and Cantor's theorem of the demos proved natively | L |
@@ -98,11 +101,12 @@ smallest piece that proves something real: FE1, $0 + n = n$ by induction.
 | Printing a checked statement in LeanForth words, Lean notation and mathematics | integrated (`leanforth print`, plan 8.6.2); the notation table maps `HAdd.hAdd` to `+` for printing only |
 | Holes `_` | refused: error 52, "holes are filled by the elaborator" |
 | Metavariable context (FE1b): metavariables, assignment, occurs check, instantiation | tested alone on branch `fe1` (`tests/front/front.fs`); the beta step and delayed assignments' values answer unsupported until FE1c |
+| Hand-over of an elaborated declaration to the kernel (FE1f) | tested alone on branch `fe1f` (`tests/front/handover.fs`, with a stand-in elaborator): holes instantiated, a reachable hole refused (error 74), an unused universe parameter refused as Lean refuses it (error 75), only the nodes the declaration reaches written, through the stage to the kernel; no user command reaches it before FE1e |
 | Elaborator, unification, implicit arguments, numerals as Lean reads them | not started |
 | Type classes, coercions | not started |
 | Tactics and proof states | not started |
 | Pattern matching, recursion | not started |
-| Generated definitions for new data types (FE6) | `T.casesOn` and `T.recOn` written and tested alone on branch `fe6a` (`src/front/constructions.fs`): built from a loaded export's `T.rec` as Lean builds them, and compared with Lean's own on all of Init (`make reference-constructions`): of 597 `casesOn`, 436 equal node for node, 160 equal up to binder names and binder information (Lean's exporter shares terms that differ only in those), 0 different, 1 unsupported (`Lean.Syntax`, a nested type: `casesOn` with several motives is not ported yet); of 576 `recOn`, 539, 37, 0 and 0. Not yet used for LeanForth's own data types, which need FE2–FE5; the kernel builds `T.rec` when it checks a data type, as Lean's kernel does; `noConfusion`, `below`, `brecOn`, `ctorIdx`, `sizeOf` and the injectivity lemmas not started |
+| Generated definitions for new data types (FE6) | `T.casesOn`, `T.recOn` and `T.ctorIdx` written and tested alone on branch `fe6a` (`src/front/constructions.fs`, `cases-several.fs`, `ctor-idx.fs`): built from a loaded export's `T.rec`, `T`'s type and constructors as Lean builds them, and compared with Lean's own on all of Init (`make reference-constructions`): of 597 `casesOn`, 436 equal node for node, 161 equal up to binder names and binder information (Lean's exporter shares terms that differ only in those), 0 different, 0 unsupported (`cases-several.fs` builds it for a recursor with several motives, such as the nested `Lean.Syntax`); of 576 `recOn`, 539, 37, 0 and 0; of 397 `ctorIdx`, 0, 397, 0 and 0 (Lean gives its arrow's binder a fresh hygienic name). Limit (review fe6a M1): the binder names and binder information come from the export's `T.rec` and `T`'s type, and an export may show a shared term's (Lean's `Expr` equality ignores them); against pinned Lean's environment (`tests/reference/constructions-binders.lean`, macro scopes erased) the binders are exact for 565 `casesOn`, 544 `recOn` and 328 `ctorIdx`, the others differing in names (30, 30, 69) or also in binder information (2, 2, 0: `Equivalence`'s `symm` explicit where Lean's is implicit). An exact source (the elaboration data, or an export without sharing) is owed before the front end uses these definitions. Not yet used for LeanForth's own data types, which need FE2–FE5; the kernel builds `T.rec` when it checks a data type, as Lean's kernel does; `noConfusionType` and `noConfusion` (they need the front end's type inference and definitional equality, FE1c), `below`, `brecOn` (type inference of levels), `sizeOf` and the injectivity lemmas not started |
 | `simp`, decision procedures, Mathlib's tactics | not started |
 | Evaluation (`#eval`, `#reduce`) | not started (the kernel reduces terms internally, with no user command) |
 | Natural LeanForth (plan 8.6.10): the natural reader (FE1a) | integrated on branch `fe1`: natural text is the default and is read into Lean-shaped syntax trees (`binrel% Eq (binop% HAdd.hAdd 0 n) n`, compared with pinned Lean's macro expansion); nothing is elaborated yet |
@@ -442,6 +446,12 @@ Proposed rules (spellings are [questions 1–4](#9-questions-for-the-owner)):
   (ADR 0017 rule R1): `#check`, `#print`, `#reduce`, `#eval`, `#synth`.
   `.goals` prints the goals, as Forth's `.s` prints the stack.
 
+The words for the rest of Lean's term language (`fun`, `∀` with every
+binder kind, inferred types, holes, `@`, named arguments, `let`, `have`,
+`show`, ascription, anonymous constructors, field notation, literals and
+the remaining operators) are FE2's, designed in [FE2_TERMS.md](FE2_TERMS.md)
+§2, with three spelling questions for the owner.
+
 ### 4.3 The elaborator core
 
 Planned folder `src/front/` (untrusted; uses `lib/`, `core/`, `present/`
@@ -453,8 +463,9 @@ and `author/`, never `kernel/`):
   with kind, depth, local context, type, assignment and delayed
   assignment; instantiation and abstraction as Lean's `MetavarContext`.
   Metavariables are new leaf kinds in the term and level stores; the export
-  writer refuses any of them (ADR 0021 D2), so the kernel can never receive
-  one.
+  writer refuses any that a declaration it writes reaches (for kernel-form
+  text, any in the stores; ADR 0021 D2), so the kernel can never receive
+  one, and one the elaborator left unused blocks nothing.
 - **Meta-level reduction, type inference and unification**: a port of
   `Meta/WHNF.lean`, `InferType.lean`, `ExprDefEq.lean` and `LevelDefEq.lean`
   with transparency levels, its own caches and fuel. It does not call the
