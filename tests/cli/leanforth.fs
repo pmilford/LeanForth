@@ -636,7 +636,9 @@ T{ 2 dupl-same 4 dupl-same and 7 dupl-same and -> true }T
 T{ 3 dupl-same 10 dupl-same and -> true }T
 \ A pool that cannot start (worker stacks below the contexts' need): the
 \ serial run's facts, no workers in the report, the pool's refusal named.
+lf-lib-private order+   \ the layout record is private to lib/context.fs
 : need-cell ( -- addr ) context-layout layout-data-need ;
+order-
 : refused-run ( jobs -- h why run? )
   fresh >r need-cell @ >r 1000000000 need-cell !
   wide rot run-with sched-facts ck-why ck-jobs-run? ck-release

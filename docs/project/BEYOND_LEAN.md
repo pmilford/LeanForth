@@ -41,6 +41,9 @@ can have an improved solver mode, that would be great!"
 
 ## Related plan items
 
+- Proof-development features beyond Lean (opt-in, long term; plan rows PD2–PD15,
+  [research note](../design/PROOF_DEVELOPMENT.md) §4): none changes the verdict on a declaration the text contains; each gets a row here when it is
+  designed. Lean's own `sorry` (PD1) is Lean behaviour, not an entry.
 - Plan [W8, the improved mode](PLAN_DRAFT.md#w8-improved-mode-beyond-lean):
   designed only after the compatibility checker covers Mathlib (phase 6),
   so that compatibility is never delayed.
