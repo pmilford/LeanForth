@@ -178,7 +178,10 @@ after the library and before the text runs, and checked against the
 library: written for its export (the SHA-256 its manifest, its snapshot or,
 with `--no-manifest`, the file itself gives), every name one of its
 declarations of the right kind, nothing missing, added or changed. The
-counts read are printed first; the verdicts are those of the same run
+values themselves (which class an instance serves, priorities,
+reducibility) are pinned Lean's, taken on trust
+([what is checked](../programming/ELABORATION_DATA.md#what-it-is-and-why)).
+The counts read are printed first; the verdicts are those of the same run
 without it, since nothing uses the data yet (the elaborator of plan rows
 FE1e and FE1g will):
 
@@ -198,8 +201,10 @@ $ bin/leanforth check --env tests/author/init-slice.ndjson --elab-data tests/fro
 error: invalid: the elaboration data was refused at line 27 (error 20): records differ in number from the header; the LeanForth text was not checked
 ```
 
-`--elab-data` without `--env` or `--snapshot`, or with an export instead
-of a text, is refused before anything runs (exit 4).
+`--elab-data` without `--env` or `--snapshot`, with an export instead of
+a text, or with a layered snapshot (`--snapshot BASE --snapshot LAYER`:
+the data would be checked against the base's hash only) is refused
+before anything runs (exit 4).
 
 **A text that stops is not checked at all.** A mistake in the text is
 printed at its line and column, with its code from the
