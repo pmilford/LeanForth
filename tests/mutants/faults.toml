@@ -8181,7 +8181,7 @@ reason = "S4: an equal reference (name and level list) is made again as a record
 [[fault]]
 id = "s4-crefs-pairs-ignored"
 file = "src/core/constant-references.fs"
-old = '''  swap lf-cref-pairs rot 2 cells + @ swap lf-cref-pairs= ;'''
+old = '''  swap lf-cref-pairs rot ckey-addr @ swap lf-cref-pairs= ;'''
 new = '''  2drop true ;'''
 test = "$GFORTH tests/core/constant-references.fs"
 reason = "S4: references of one name and arity are taken as equal whatever their levels"
@@ -10566,3 +10566,27 @@ old = ''': lf-tin-let-lam? ( index -- flag ) lf-tin-code lf-tin-modes and lf-tin
 new = ''': lf-tin-let-lam? ( index -- flag ) lf-tin-code lf-tin-modes and lf-tin-raw = ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "FRI B2: a let's lambda is not recognised (its binder name, its unit), a raw node taken for one"
+
+[[fault]]
+id = "fri-b2-cref-generation-ignored"
+file = "src/core/constant-references.fs"
+old = '''  2dup ckey-generation @ swap lf-crec-generation @ = r> and'''
+new = '''  r>'''
+test = "$GFORTH tests/core/constant-references.fs"
+reason = "FRI B2: a reference of another name generation, the rest equal, is taken as the record"
+
+[[fault]]
+id = "fri-b2-cref-arity-ignored"
+file = "src/core/constant-references.fs"
+old = '''  >r ckey-count @ swap lf-crec-arity @ = r> and ;'''
+new = '''  2drop ;'''
+test = "$GFORTH tests/core/constant-references.fs"
+reason = "FRI B2: a reference of another arity, the rest equal, is taken as the record"
+
+[[fault]]
+id = "fri-b2-cref-name-ignored"
+file = "src/core/constant-references.fs"
+old = '''  2dup ckey-name @ swap lf-crec-name @ = >r'''
+new = '''  true >r'''
+test = "$GFORTH tests/core/constant-references.fs"
+reason = "FRI B2: a reference of another name, the rest equal, is taken as the record"

@@ -150,7 +150,15 @@ end-structure
 \ generation and arity, and its levels' indices; a record whose pairs lie
 \ outside the pool (corrupted) hashes without them, a hint only.
 /htab context-record: lf-cref-table
-4 cells context-record: lf-cref-key   \ the reference sought: name generation addr count
+\ The reference sought: its name and generation, its level pairs and
+\ their count.
+begin-structure /lf-ckey
+  field: ckey-name
+  field: ckey-generation
+  field: ckey-addr
+  field: ckey-count
+end-structure
+/lf-ckey context-record: lf-cref-key
 \ The offsets of the pool an offset lies in: the source's pairs (below
 \ lf-cref-under-top), or this context's pool after them.
 : lf-cref-span-of ( offset -- lo hi )
@@ -170,8 +178,9 @@ end-structure
 \ Whether allocated record n has the name, generation, arity and level
 \ pairs sought.
 : lf-cref-head= ( slot key -- flag )
-  2dup @ swap lf-crec-name @ = >r 2dup cell+ @ swap lf-crec-generation @ = r> and
-  >r 3 cells + @ swap lf-crec-arity @ = r> and ;
+  2dup ckey-name @ swap lf-crec-name @ = >r
+  2dup ckey-generation @ swap lf-crec-generation @ = r> and
+  >r ckey-count @ swap lf-crec-arity @ = r> and ;
 : lf-cref-pairs= ( addr addr' count -- flag ) 2* cells tuck compare 0= ;
 \ Whether reference n counts as reached for a reference made equal to it:
 \ a hook, by default always. kernel/check-declaration.fs sets it so that
@@ -189,7 +198,7 @@ defer lf-cref-findable? ( n -- flag )
   over lf-cref-gate? 0= if 2drop false exit then
   swap lf-cref-slot swap 2dup lf-cref-head= 0= if 2drop false exit then
   over lf-cref-span? 0= if 2drop false exit then
-  swap lf-cref-pairs rot 2 cells + @ swap lf-cref-pairs= ;
+  swap lf-cref-pairs rot ckey-addr @ swap lf-cref-pairs= ;
 create lf-cref-hooks /htab-hooks allot
 ' lf-cref-rehash ' lf-cref-same lf-cref-hooks htab-hooks!
 : lf-cref-table-make ( -- ) 4 lf-cref-hooks lf-cref-table htab-init drop ;
@@ -200,7 +209,7 @@ create lf-cref-hooks /htab-hooks allot
   lf-cref-table dup htab-live? if dup htab-slots lf-cref-table-small <= else false then
   if htab-clear else htab-free lf-cref-table-make then ;
 : lf-cref-key! ( name generation addr count -- )
-  lf-cref-key 3 cells + ! lf-cref-key 2 cells + ! lf-cref-key cell+ ! lf-cref-key ! ;
+  lf-cref-key tuck ckey-count ! tuck ckey-addr ! tuck ckey-generation ! ckey-name ! ;
 : lf-cref-sought ( name generation addr count htab -- n true | i false )
   >r 2over 2over lf-cref-hash >r lf-cref-key! lf-cref-key r> r> htab-find ;
 : lf-cref-find ( name generation addr count -- n true | i false )
