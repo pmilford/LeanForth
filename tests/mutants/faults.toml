@@ -12177,8 +12177,8 @@ quick = true
 [[fault]]
 id = "fe-unused-universe-accepted"
 file = "src/front/handover.fs"
-old = '''  lfh-unused-of if lfa-e-unused-universe lfh-refuse else outcome-ok then ;'''
-new = '''  drop outcome-ok ;'''
+old = '''  lfh-unused-of if lfa-e-unused-universe lfh-refuse exit then'''
+new = '''  drop'''
 test = "$GFORTH tests/front/handover.fs"
 reason = "FE1f: a universe parameter neither the type nor the value uses is kept, where Lean refuses it"
 quick = true
@@ -12712,3 +12712,12 @@ old = '''    2dup i ms-level swap lf-meta-push dup ok? 0= if nip nip unloop exit
 new = '''    2dup 0 ms-level swap lf-meta-push dup ok? 0= if nip nip unloop exit then drop'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "review fe1c-2 re-check: every universe argument of a constant is read as its first (Quot.lift.{1,2} would get Sort 1 for beta)"
+
+[[fault]]
+id = "fe-hole-before-unused"
+file = "src/front/handover.fs"
+old = '''  lfh-unused-of if lfa-e-unused-universe lfh-refuse exit then'''
+new = '''  lf-reach-holes? if drop lfa-e-incomplete lfh-refuse exit then lfh-unused-of if lfa-e-unused-universe lfh-refuse exit then'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f L-a: a hole is told before an unused universe parameter, where pinned Lean tells only the parameter (theorem t5.{v} : True := _)"
+quick = true

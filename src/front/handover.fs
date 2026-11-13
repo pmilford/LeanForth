@@ -73,17 +73,21 @@ end-structure
 \ Lean counts them: a definition's in its type and value, a theorem's and
 \ an axiom's in the type alone (Lean elaborates a theorem's proof after
 \ its header, elabAsync; pinned Lean refuses theorem t.{v} : True :=
-\ (fun (_ : Sort v) => True.intro) PUnit.{v}, review fe1f N1). The type is
-\ marked and swept first, then the value.
+\ (fun (_ : Sort v) => True.intro) PUnit.{v}, review fe1f N1). Lean takes
+\ that path only when the theorem's header type holds no metavariable
+\ once elaborated (MutualDef.lean); plan FE1e's elaborator must say when
+\ it does not. The type is marked and swept first, then the value.
 : lfh-names ( -- addr n ) lfh-decl@ dup lf-fdecl-universe swap lf-fdecl-universes @ ;
 : lfh-unused? ( addr n -- flag )
   0 ?do dup @ lf-reach-param? 0= if drop true unloop exit then cell+ loop drop false ;
 : lfh-def? ( -- flag ) lfh-decl@ lf-fdecl-kind @ lf-decl-def = ;
 : lfh-unused-of ( type-unused? -- flag ) lfh-def? if drop lfh-names lfh-unused? then ;
 : lfh-refuse ( code -- outcome ) lfh-why! outcome-invalid ;
+\ An unused parameter is told before a hole, as pinned Lean tells only it
+\ for theorem t5.{v} : True := _ and def d3.{v} : Nat := _.
 : lfh-judge ( type-unused? -- outcome )
-  lf-reach-holes? if drop lfa-e-incomplete lfh-refuse exit then
-  lfh-unused-of if lfa-e-unused-universe lfh-refuse else outcome-ok then ;
+  lfh-unused-of if lfa-e-unused-universe lfh-refuse exit then
+  lf-reach-holes? if lfa-e-incomplete lfh-refuse else outcome-ok then ;
 : lfh-type-unused? ( type -- flag ) lf-reach-term lf-reach-sweep lfh-names lfh-unused? ;
 : lfh-reached ( type value -- outcome )
   swap lfh-type-unused? swap lf-reach-term lf-reach-sweep lfh-judge ;

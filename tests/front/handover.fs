@@ -223,13 +223,16 @@ T{ poly d0 ty va lf-handover -> outcome-ok }T
 T{ poly d0 ty lf-term-second@ dup lf-handover why -> outcome-invalid 75 }T
 \ A parameter used by the value alone (review fe1f N1): a theorem's and an
 \ axiom's are counted in the type alone, a definition's in both, as
-\ pinned Lean 4.35.0 decides these six (checked 2026-11-13):
+\ pinned Lean 4.35.0 decides these (checked 2026-11-13, -DwarningAsError):
 \   theorem t1.{v} : True := (fun (_ : Sort v) => True.intro) PUnit.{v}  refused
-\   def d1.{v} : True := (fun (_ : Sort v) => True.intro) PUnit.{v}      accepted
+\   def d1.{v} : Nat := (fun (_ : Sort v) => 0) PUnit.{v}               accepted
 \   theorem t2.{v} (α : Sort v) (a : α) : a = a := rfl                   accepted
 \   axiom ax1.{v} : True                                                  refused
 \   axiom ax2.{v} : Sort v                                                accepted
 \   def d2.{v} : True := True.intro                                       refused
+\ and with a hole too it reports only the unused parameter:
+\   theorem t5.{v} : True := _                                            unused
+\   def d3.{v} : Nat := _                                                 unused
 \ Here with k's terms: Pi (x : a), a (no u) as the type, k's value (u in
 \ its binder's type) as the value.
 : kdef ( -- )
@@ -245,8 +248,11 @@ T{ kaxiom d0 ty -1 lf-handover -> outcome-ok }T
 T{ kdef d0 u-free u-free lf-handover why -> outcome-invalid 75 }T
 T{ poly v-too counts! d0 ty va lf-handover counts? why ty va
    -> outcome-invalid true 75 ty0 @ va0 @ }T
-\ A hole is told first, before an unused parameter.
-T{ poly v-too d0 ty ty hole lf-handover why -> outcome-invalid 74 }T
+\ An unused parameter is told first, before a hole, as Lean tells t5 and
+\ d3 (review fe1f L-a); with every parameter used, the hole.
+T{ poly v-too d0 ty ty hole lf-handover why -> outcome-invalid 75 }T
+T{ kdef d0 u-free ty hole lf-handover why -> outcome-invalid 75 }T
+T{ poly d0 ty ty hole lf-handover why -> outcome-invalid 74 }T
 
 \ A term that is no node, an axiom's missing value, and a hole's
 \ instantiation not ported yet (the beta step of ?f Nat, ?f := a lambda):
