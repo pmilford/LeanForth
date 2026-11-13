@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # The elaboration data against pinned Lean (plan rows FE1d and FE1e1; make
 # reference-elab-data): scripts/export-elab.sh reproduces the init slice's
-# data (tests/front/init-slice.elab.ndjson) byte for byte; then for all of
+# and the whnf slice's data (tests/front/init-slice.elab.ndjson,
+# whnf-slice.elab.ndjson) byte for byte; then for all of
 # Init, exported with the pinned leanexport (the export of
 # tests/core/compact-init.sh, checked by its SHA-256), the data's records
 # have the pinned SHA-256, the records it writes plus the ones it leaves
@@ -27,7 +28,7 @@ leanexport=${LEANEXPORT:-$toolchain/bin/leanexport}   # the Makefile's may repla
 fast="$(dirname "$gforth")/gforth-fast"
 if [ -x "$fast" ]; then gforth=$fast; fi
 work=$(mktemp -d)
-names="init.ndjson init.ndjson.manifest.json init.elab.ndjson slice.elab.ndjson finish.txt
+names="init.ndjson init.ndjson.manifest.json init.elab.ndjson slice.elab.ndjson whnf.elab.ndjson finish.txt
   lean.txt forth.txt order.txt"
 trap 'for n in $names; do rm -f "$work/$n"; done; rmdir "$work"' EXIT
 
@@ -35,6 +36,10 @@ LEAN="$lean" bash scripts/export-elab.sh "$work/slice.elab.ndjson" tests/author/
   Init >/dev/null
 cmp "$work/slice.elab.ndjson" tests/front/init-slice.elab.ndjson
 echo "scripts/export-elab.sh reproduces tests/front/init-slice.elab.ndjson byte for byte"
+LEAN="$lean" bash scripts/export-elab.sh "$work/whnf.elab.ndjson" tests/front/whnf-slice.ndjson \
+  Init >/dev/null
+cmp "$work/whnf.elab.ndjson" tests/front/whnf-slice.elab.ndjson
+echo "scripts/export-elab.sh reproduces tests/front/whnf-slice.elab.ndjson byte for byte"
 
 PATH="$toolchain/bin:$PATH" "$leanexport" Init >"$work/init.ndjson"
 digest=$(sha256sum "$work/init.ndjson" | cut -c1-64)

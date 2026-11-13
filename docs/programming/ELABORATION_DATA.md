@@ -252,7 +252,7 @@ kind by text:
 | `class` | `name` (the class), `out_params` (the positions of its out-parameters), `out_level_params` (the positions of its universe parameters that occur only in out-parameters) |
 | `instance` | `name` (the instance), `class`, `priority` (natural, below 2^32), `synth_order` (naturals: the order in which its instance arguments are synthesized), `keys`, `rank` (its place under its root key, the first of its keys) |
 | `instance_left_out` | a value of Lean's instance tree that is no `instance` record: `name`, `keys`, `priority`, `rank`, and `reason`, either `erased` (in Lean's tree but never a candidate) or `not_exported` (the export lacks its declaration; Lean would try it, so FE1e answers *unsupported* when it is a candidate, design §2.7). Its keys may name a constant, or project a structure, that the export lacks: the reader keeps such a key as a *foreign* key, which no query of the library can equal |
-| `default_instance` | `class`, `name` (the instance), `priority`, `rank` (its place in Lean's `getDefaultInstances` of the class, the most recent first) |
+| `default_instance` | `class`, `name` (the instance), `priority`, `rank` (its place in Lean's `getDefaultInstances` of the class, the most recent first). Two of one class may not share a rank, but the ranks may have gaps: a default instance whose declaration the export lacks has no record of its own (format 2 has no `default_instance_left_out`), so its rank is missing, and refusing gaps would refuse every slice that lacks one. FE1e3 answers *unsupported* when a gap is reached |
 | `reducibility` | `name`, `status`: one of `reducible`, `irreducible`, `implicit_reducible`, `instance_reducible` |
 | `eliminator` | `kind` (`induction` or `cases`), `name` (the eliminator), `types` (the names of the explicit targets' types) |
 | `tag` | `name`, `tag`: one of `elab_as_elim`, `elab_without_expected_type`, `aux_recursor`, `no_confusion`, `cases_on`, `rec_on`, `brec_on` |
@@ -260,9 +260,9 @@ kind by text:
 | `projection` | `name` (the projection function), `ctor` (the structure's constructor), `num_params` (the structure's parameters), `idx` (the field), `from_class` (whether the structure is a class) |
 | `sunfold` | smart-unfolding bodies (plan row FE1d2): a kind of format 2 that no exporter writes yet; the reader refuses such a record as *unsupported* (error 38). The [design](#smart-unfolding-bodies-designed-not-built) is below |
 
-A default instance the export lacks leaves a gap in its class's ranks;
-format 2 has no record for it (none in `Init`). Plan row FE1e3 answers
-*unsupported* when a gap is reached.
+A default instance the export lacks leaves a gap in its class's ranks
+(none does in `Init`); the instance tree's ranks have none, since every
+value of the tree has a record.
 
 Format version 1 ([schema](../../schemas/elab-data-1.schema.json): the
 `instance` record without `keys` and `rank`, the `default_instance`
