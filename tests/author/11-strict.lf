@@ -1,4 +1,4 @@
-\ Lean: theorem strict_example {A : Type} {P : A → Prop} (h : ∀ ⦃x : A⦄, P x) (y : A) :
+kernel-form \ Lean: theorem strict_example {A : Type} {P : A → Prop} (h : ∀ ⦃x : A⦄, P x) (y : A) :
 \         P y := @h y
 theorem strict_example
   0 Type implicit: A

@@ -12,6 +12,8 @@ checker change and passes the [kernel] gate in `AGENTS.md` change by
 change. Nothing here is implemented; the pilot below ran on a scratch
 copy of the tree.
 
+Approval status: accepted 2026-11-03, gate: design, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Gate answers and working guidelines (2026-11-03)"
+
 ## Summary in plain words
 
 Today every LeanForth word reports failure by returning an outcome (ok,

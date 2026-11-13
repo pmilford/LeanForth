@@ -43,7 +43,9 @@
    prints the same bytes on every run.
 4. count prints what src/import/ndjson-count.fs prints, and reexport writes
    a copy equal to the export, byte for byte, for every reference export.
-5. version, capabilities and help exit 0; capabilities states the limits.
+5. version, capabilities and help exit 0; capabilities states the limits
+   and lists checking a LeanForth text; --jobs N with a text says that it
+   checks one declaration at a time (TextJobs).
 6. print prints each declaration's proof outline exactly as the outline's
    golden file has it (all five reference exports, one declaration by
    name, every step with --detail); a declaration not accepted is refused,
@@ -68,6 +70,7 @@
 
 Run with GFORTH set to the Forth binary (the Makefile does this).
 """
+import concurrent.futures
 import hashlib
 import json
 import os
@@ -192,6 +195,15 @@ MANIFEST_HINT = [
     "scripts/export.sh writes;",
     "note: --no-manifest skips that check",
 ]
+# What capabilities says of a LeanForth text (plan 8.2.1c's notes), under "supported".
+TEXT_CAPABILITY = (
+    "  check [--env EXPORT | --snapshot FILE] FILE.lf: a LeanForth text, its\n"
+    "    declarations built by LeanForth's words and checked as an export's\n"
+    "    (plan tasks 8.2.1c-d), one at a time (--jobs does not apply yet); not\n"
+    "    with --json, --record or --save-snapshot\n")
+# check --jobs N (N above 1) with a LeanForth text, before its verdicts.
+TEXT_JOBS_NOTE = ("note: --jobs does not apply to LeanForth text yet; checking one "
+                  "declaration at a time")
 
 
 def run(*args, cwd=ROOT, gforth=GFORTH, tool=TOOL):
@@ -199,6 +211,17 @@ def run(*args, cwd=ROOT, gforth=GFORTH, tool=TOOL):
     result = subprocess.run([str(tool), *args], cwd=cwd, env=dict(os.environ, GFORTH=gforth),
                             stdin=subprocess.DEVNULL, capture_output=True, timeout=TEST_LIMIT)
     return result.returncode, result.stdout.decode(), result.stderr.decode()
+
+
+# Independent runs of one test (each with its own files, or only reading) go side by
+# side, at most this many at once: make check runs two targets at once (JOBS=2).
+SIDE_BY_SIDE = 2
+
+
+def side_by_side(function, items):
+    """function of each item, at most SIDE_BY_SIDE at once; the results in items' order."""
+    with concurrent.futures.ThreadPoolExecutor(max_workers=SIDE_BY_SIDE) as pool:
+        return list(pool.map(function, items))
 
 
 class ExitCodes(unittest.TestCase):
@@ -988,6 +1011,7 @@ class Behaviour(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertIn("  check --record, replay: 64 names, 64 levels, 64 term nodes,\n"
                       "    32 declarations per export\n", out)
+        self.assertIn(TEXT_CAPABILITY, out.split("not yet supported")[0])
         self.capabilities_match_facts(out)
         status, out, _ = run("help")
         self.assertEqual((status, run("--help")[1], run("-h")[1]), (0, out, out))
@@ -1853,9 +1877,15 @@ class Jobs(unittest.TestCase):
         return status, got
 
     def test_same_output(self):
-        for args in CASES_ALL + self.MORE:
-            self.assertEqual(self.text(*args), self.text("--jobs", "3", *args), args)
-            self.assertEqual(self.json(*args), self.json("--jobs", "4", *args), args)
+        """Each case's four runs, the cases side by side (each only reads its export)."""
+        cases = CASES_ALL + self.MORE
+
+        def four(args):
+            return (self.text(*args), self.text("--jobs", "3", *args),
+                    self.json(*args), self.json("--jobs", "4", *args))
+        for args, (text, text3, json1, json4) in zip(cases, side_by_side(four, cases)):
+            self.assertEqual(text, text3, args)
+            self.assertEqual(json1, json4, args)
 
     def test_resources(self):
         status, out, _ = run("check", "--resources", "--jobs", "2", "tests/cli/nested.ndjson")
@@ -1920,6 +1950,92 @@ class Jobs(unittest.TestCase):
         status, out, _ = run("check", "--jobs", "2", "--record", "r.json", CHAIN)
         self.assertEqual((status, out.splitlines()[0]),
                          (4, "error: --jobs does not go with --record"))
+
+
+class TextJobs(unittest.TestCase):
+    """check --jobs N with a LeanForth text (plan 8.2.1c's notes): no worker
+    can share the input a text's run leaves, so the text is checked one
+    declaration at a time, and with N above 1 a note says so before the
+    verdicts (after the --no-manifest note); the verdicts, the rest of the
+    text and the exit status are --jobs 1's, for every outcome. --jobs 1 or
+    none prints no note; a text that stops before its check gets none; a
+    wrong N is still a mistake (4); capabilities and help name the text."""
+
+    LIBRARY = ["--env", "tests/author/init-slice.ndjson"]
+    TEXT = "tests/author/07-add-comm.lf"
+    WRONG_TEXT = "tests/author/wrong/07-add-comm.lf"
+
+    def noted(self, *args):
+        """The run with --jobs 2: its status, and its text without the note,
+        which must be its first line."""
+        status, out, err = run("check", "--jobs", "2", *args)
+        self.assertEqual((out.split("\n")[0], err), (TEXT_JOBS_NOTE, ""), args)
+        return status, out.split("\n", 1)[1]
+
+    def test_note_then_serial_verdicts(self):
+        """Accepted, rejected and out of fuel: the same as one at a time."""
+        for args, code in [(self.LIBRARY + [self.TEXT], 0), (self.LIBRARY + [self.WRONG_TEXT], 1),
+                           (["--fuel", "50"] + self.LIBRARY + [self.TEXT], 3)]:
+            serial = run("check", *args)[:2]
+            self.assertEqual(serial[0], code, args)
+            self.assertNotIn("--jobs", serial[1], args)
+            self.assertEqual(self.noted(*args), serial, args)
+            self.assertEqual(run("check", "--jobs", "64", *args)[:2],
+                             (code, TEXT_JOBS_NOTE + "\n" + serial[1]), args)
+
+    def test_no_note_without_workers(self):
+        for args in [[], ["--jobs", "1"]]:
+            status, out, _ = run("check", *args, *self.LIBRARY, self.TEXT)
+            self.assertEqual(status, 0, args)
+            self.assertNotIn("--jobs", out, args)
+
+    def test_note_order_and_resources(self):
+        """After the --no-manifest note; --resources says why (no workers)."""
+        status, out, _ = run("check", "--no-manifest", "--jobs", "2", "--resources",
+                             *self.LIBRARY, self.TEXT)
+        self.assertEqual(status, 0)
+        self.assertEqual(out.split("\n")[:2], [NO_MANIFEST, TEXT_JOBS_NOTE])
+        self.assertIn("\n  workers: none could be made (no heap, or this context's input "
+                      "differs\n    from a new one's): checked one at a time\n", out)
+
+    def test_snapshot_library(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            snapshot = str(Path(tmp) / "slice.lfsnap")
+            self.assertEqual(run("check", "--save-snapshot", snapshot,
+                                 "tests/author/init-slice.ndjson")[0], 0)
+            status, out = self.noted("--snapshot", snapshot, self.TEXT)
+            self.assertEqual(status, 0)
+            self.assertIn("60 declarations: 60 accepted; 59 from the snapshot, 1 checked in "
+                          "this run\n", out)
+
+    def test_stopped_text_has_no_note(self):
+        """A mistake (4), a form not supported (2): not checked, no note."""
+        with tempfile.TemporaryDirectory() as tmp:
+            unsupported = Path(tmp) / "let.lf"
+            unsupported.write_text("theorem t\n  Prop explicit: p  p\n:=\n  p let:\nend t\n",
+                                   encoding="utf-8")
+            for path, code in [("tests/author/10b-typo.lf", 4), (str(unsupported), 2)]:
+                status, out, _ = run("check", "--jobs", "2", path)
+                self.assertEqual(status, code, path)
+                self.assertIn("the LeanForth text was not checked", out)
+                self.assertNotIn("note:", out, path)
+
+    def test_4_mistakes(self):
+        for value in ["0", "x", "-1", ""]:
+            status, out, _ = run("check", "--jobs", value, *self.LIBRARY, self.TEXT)
+            self.assertEqual(status, 4, value)
+            self.assertIn("error: not a number of jobs", out)
+            self.assertNotIn(TEXT_JOBS_NOTE, out)
+        status, out, _ = run("check", "--jobs", "2", "--json", self.TEXT)
+        self.assertEqual(status, 4)
+        self.assertNotIn(TEXT_JOBS_NOTE, out)
+
+    def test_named_by_capabilities_and_help(self):
+        capabilities, helped = run("capabilities")[1], run("help")[1]
+        self.assertIn(TEXT_CAPABILITY, capabilities.split("not yet supported")[0])
+        self.assertEqual(capabilities.count("FILE.lf"), 1)
+        self.assertIn("  check [--env EXPORT | --snapshot FILE] [--fuel N] [--resources] "
+                      "[--jobs N]\n", helped)
 
 
 class MemoryPerCheck(unittest.TestCase):
@@ -2019,20 +2135,26 @@ class MemoryPerCheck(unittest.TestCase):
         the others (and the reviewer's larger probe: full fresh, accepted
         in the others)."""
         with tempfile.TemporaryDirectory() as tmp:
-            exports = {}
-            for kind in ["refs", "refsz", "refsbz"]:
-                exports[kind] = str(Path(tmp) / f"{kind}.ndjson")
-                made = subprocess.run([sys.executable, str(ROOT / "tests/cli/jobs/gen.py"), kind,
+            exports = {kind: str(Path(tmp) / f"{kind}.ndjson") for kind in ["refs", "refsz",
+                                                                            "refsbz"]}
+
+            def made(kind):
+                done = subprocess.run([sys.executable, str(ROOT / "tests/cli/jobs/gen.py"), kind,
                                        "2800"], capture_output=True, check=True)
-                Path(exports[kind]).write_bytes(made.stdout)
+                Path(exports[kind]).write_bytes(done.stdout)
+            side_by_side(made, exports)
             snapshot = str(Path(tmp) / "refsz.lfsnap")
-            self.assertEqual(run("check", "--no-manifest", "--save-snapshot", snapshot,
-                                 exports["refsz"])[0], 0)
             limit = ["--no-manifest", "--memory-per-check", "1"]
+            # The snapshot written beside the three checks that do not read it, then the one
+            # that does; every run only reads its export.
+            first = side_by_side(lambda args: run("check", *args), [
+                ["--no-manifest", "--save-snapshot", snapshot, exports["refsz"]],
+                [*limit, exports["refs"]], [*limit, exports["refsbz"]],
+                [*limit, "--jobs", "2", exports["refsbz"]]])
+            self.assertEqual(first[0][0], 0)
             seen = []
-            for args in [[exports["refs"]], ["--snapshot", snapshot, exports["refs"]],
-                         [exports["refsbz"]], ["--jobs", "2", exports["refsbz"]]]:
-                status, out = run("check", *limit, *args)[:2]
+            for status, out, _ in first[1:2] + [run("check", *limit, "--snapshot", snapshot,
+                                                    exports["refs"])] + first[2:]:
                 found = re.search(r"^B: (\w+)\n  (.*)$", out, re.M)
                 seen.append((status, found and found.groups()))
             self.assertEqual(seen[0][:1] + seen[0][1][:1], (3, "full"), seen[0])

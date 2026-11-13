@@ -12,7 +12,9 @@ export, each theorem with the axioms Lean's own `#print axioms` reports.
 
 Then the same export with changed copies added at its end
 (tests/program/clamp_mutants.py, `copied`), each under its own name next to
-the originals, must give these verdicts:
+the originals, checked against the snapshot the first check saved (the
+originals, just checked and unchanged, taken from it; every copy checked),
+must give these verdicts:
   shaChBodyMutant           sha-ch's body with AND and XOR exchanged      accepted
   shaCh_returnsMutant       sha-ch's proof, about the changed body        rejected
   shaCh_correctProofMutant  shaCh_correct's proof with the lemmas of
@@ -33,7 +35,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "tests" / "program"))
 import program_receipt  # noqa: E402
-from clamp_mutants import copied, leanforth  # noqa: E402
+from clamp_mutants import copied, leanforth, taken_problems  # noqa: E402
 
 SOURCE = "tests/reference/program-ir.lean"
 MODULE = "ProgramIRModel"
@@ -67,11 +69,13 @@ def problems_of(code, report, expected, exit_status):
 
 def main():
     lean = program_receipt.pinned_lean()
+    jobs = ["--jobs", program_receipt.LEANFORTH_JOBS]
     with tempfile.TemporaryDirectory() as folder:
         export, mutants = Path(folder) / "sha-words.ndjson", Path(folder) / "mutants.ndjson"
+        snapshot = Path(folder) / "sha-words.lfsnap"
         output = program_receipt.export_theorems(lean, THEOREMS, export, SOURCE, MODULE)
         axioms = program_receipt.lean_axioms(output, THEOREMS)
-        code, report = leanforth(export, "--jobs", program_receipt.LEANFORTH_JOBS)
+        code, report = leanforth(export, *jobs, "--save-snapshot", str(snapshot))
         problems, verdicts = problems_of(code, report, {t: "accepted" for t in THEOREMS}, 0)
         for theorem in THEOREMS:
             if sorted(verdicts.get(theorem, ("", []))[1]) != sorted(axioms[theorem]):
@@ -81,10 +85,14 @@ def main():
                                   [step[:4] for step in COPIES]), encoding="utf-8")
         subprocess.run([sys.executable, str(ROOT / "scripts" / "export_manifest.py"),
                         str(mutants)], check=True, stdin=subprocess.DEVNULL)
-        changed, changed_report = leanforth(mutants, "--jobs", program_receipt.LEANFORTH_JOBS)
+        # The export's own declarations were just checked: they come from its snapshot, and
+        # only the copies are checked again.
+        changed, changed_report = leanforth(mutants, *jobs, "--snapshot", str(snapshot))
     expected = {t: "accepted" for t in THEOREMS}
     expected.update({f"{SPACE}.{new}": verdict for new, *_, verdict in COPIES})
     problems += problems_of(changed, changed_report, expected, 1)[0]
+    problems += taken_problems(changed_report, report["counts"]["declarations"],
+                               {f"{SPACE}.{new}" for new, *_ in COPIES})
     for problem in problems:
         print(problem, file=sys.stderr)
     if problems:

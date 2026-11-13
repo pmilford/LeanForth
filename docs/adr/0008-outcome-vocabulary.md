@@ -7,6 +7,8 @@ in-progress modules. It changes no typing or conversion rule. Adding the
 *rejected* outcome to the checker (step 3 below) is a checker change and
 goes through the review gate in `AGENTS.md`.
 
+Approval status: accepted 2026-11-02, gate: design, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Planning answers (2026-11-02, later the same day)"
+
 ## Problem
 
 Every walker in `src/core/` and `src/kernel/` defines its own status

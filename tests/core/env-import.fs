@@ -20,14 +20,15 @@
 \ Layers) cover both ways on every fixture, the refusals and the planted
 \ faults. Test-only.
 
+include ../support/scratch.fs
 include ../support/heap-watch.fs
 create lf-env-i2-checks   \ compiles the I2 assertion into environment.fs
 require ../../src/main.fs
 include ../support/tester.fs
 decimal
 
-: base-file ( -- c-addr u ) s" /tmp/leanforth-env-import-base.lfsnap" ;
-: layer-file ( -- c-addr u ) s" /tmp/leanforth-env-import-layer.lfsnap" ;
+s" leanforth-env-import-base.lfsnap" scratch-file 2constant base-file
+s" leanforth-env-import-layer.lfsnap" scratch-file 2constant layer-file
 : dependent ( -- c-addr u ) s" tests/cli/dependent.ndjson" ;
 variable failures  0 failures !
 : must ( flag c-addr u -- ) rot if 2drop else ." failed: " type cr 1 failures +! then ;
@@ -101,8 +102,8 @@ nums 0 dep-sort
 \ and with the stage's tuples trimmed and their next growth refused, a
 \ constant's universe arguments, a recursor's rules, the expressions and
 \ the recursor's declaration are full (they were invalid).
-: base2-file ( -- c-addr u ) s" /tmp/leanforth-env-import-base2.lfsnap" ;
-: layer2-file ( -- c-addr u ) s" /tmp/leanforth-env-import-layer2.lfsnap" ;
+s" leanforth-env-import-base2.lfsnap" scratch-file 2constant base2-file
+s" leanforth-env-import-layer2.lfsnap" scratch-file 2constant layer2-file
 20000000 ck-start s" tests/reference/identity.ndjson" true ck-load ok? s" base2 load" must
 ck-check base2-file s" {}" ck-snapshot-save ok? s" base2 save" must ck-release
 20000000 ck-start 0 0 ck-layers! base2-file -1 ck-snapshot-import ok? s" import2" must
@@ -133,14 +134,14 @@ T{ allocations 50 > all-full? -> true true }T
   ck-lay lay-firsts @ ck-lay lay-snap snap-layer-open drop
   ck-lay lay-snap snap-tf tf-start drop ck-lay lay-ly-start ly ly-sections drop ;
 : ly-early ( -- )
-  lp-names ['] ly-name-step ly ly-family drop lp-levels ['] ly-level-step ly ly-family drop
-  lp-texts ['] ly-text-step ly ly-family drop ly ly-starts drop ;
+  lp-names ly ly-family drop lp-levels ly ly-family drop
+  lp-texts ly ly-family drop ly ly-starts drop ;
 : layer2-ready ( -- ) base2-read layer2-open ly-early ;
 : layer2-done ( -- ) ck-lay lay-free ck-release ;
 \ The tuples' slab at its count, its next growth refused.
 : tuples-refused ( -- ) ly ly-tier tier-tuples cons-records slab-trim drop 1 heap-refusals ! ;
-: own-list? ( t -- flag ) lp-lists ly ly-first u< 0= ;
-: expr@ ( j -- addr ) lp-exprs ly ly-rec ;
+: own-list? ( t -- flag ) ly ly-base-list? 0= ;
+: expr@ ( j -- addr ) lp-exprs ly ly-fam ly-fam-rec ;
 : own-const? ( j -- flag )
   expr@ dup ly-head drop tag-const = if quad-b u32@ own-list? else drop false then ;
 : first-const ( -- j|-1 )
@@ -162,6 +163,106 @@ layer2-done
 layer2-ready
 T{ tuples-refused ly ly-exprs -> outcome-full }T
 layer2-done
+
+\ ---- Forged layers (review FRI B1, test gaps class 2): the layer's
+\ sections read, one record changed in memory, then its records (or its
+\ declarations) entered: each refusal is invalid and names the section
+\ and the record (ly-why, ly-where); freed and read again, the same layer
+\ enters (class 6).
+: layer2-raw ( -- ) base2-read layer2-open ;
+: rec ( j i -- addr ) ly ly-fam ly-fam-rec ;
+: first-of ( i -- u ) ly ly-fam ly-fam-first @ ;
+: lists ( -- addr ) ly ly-lists ly-fam-block @ ;
+: why? ( c-addr u -- flag ) ly ly-why @ count compare 0= ;
+: refused-at ( -- j ) ly ly-where @ ;
+: forge! ( tag payload addr -- ) >r pack-head r> quad-head u32! ;
+\ The first own record of family i with tag, -1 for none.
+: first-tagged ( tag i -- j|-1 )
+  dup ly ly-units 0 ?do
+    2dup i swap rec ly-head drop = if 2drop i unloop exit then
+  loop 2drop -1 ;
+: records ( -- outcome ) ly ly-records ;
+: refused? ( outcome c-addr u j -- flag ) refused-at = >r why? r> and swap outcome-invalid = and ;
+: str-name ( -- j ) tag-name-str lp-names first-tagged ;
+: an-app ( -- j ) tag-app lp-exprs first-tagged ;
+\ A constant's head forged, its number kept (its tag may change).
+variable forged
+: forge-head ( tag payload -- ) first-const dup forged ! lp-exprs rec forge! ;
+layer2-raw
+T{ str-name 0< an-app 0< first-const 0< recursor 0< -> false false false false }T
+layer2-done
+\ The translators themselves: a payload only a named record may have; a
+\ rule's items by position (a name, a number, an expression); a letE's
+\ body record must follow it (here a constant is followed by none).
+layer2-ready
+T{ tag-const 1 ly ly-payload tag-app 0 ly ly-payload
+  -> tag-const 1 outcome-invalid tag-app 0 outcome-ok }T
+T{ 99999999 0 ly ly-rule-item nip 99999999 1 ly ly-rule-item 99999999 2 ly ly-rule-item nip
+  -> outcome-invalid 99999999 outcome-ok outcome-invalid }T
+T{ first-const lp-exprs ly ly-fam ly-fam-body nip -> outcome-invalid }T
+layer2-done
+\ A name's bytes past the pool's end, or in the base's bytes.
+layer2-raw  99999999 str-name lp-names rec quad-b u32!
+T{ records s" names" str-name refused? -> true }T
+layer2-done
+layer2-raw  0 str-name lp-names rec quad-b u32!
+T{ records s" names" str-name refused? -> true }T
+layer2-done
+layer2-raw  lp-name-bytes first-of 1- str-name lp-names rec quad-b u32!
+tag-name-str 1 str-name lp-names rec forge!
+T{ records s" names" str-name refused? -> true }T
+layer2-done
+\ A list whose length runs past the section.
+layer2-raw  99999 lists u32!
+T{ records s" lists" 0 refused? -> true }T
+layer2-done
+\ A constant whose universe arguments name an item of a list, not its start.
+layer2-raw  first-const lp-exprs rec quad-b dup u32@ 1+ swap u32!
+T{ records s" expressions" first-const refused? -> true }T
+layer2-done
+\ A let without its body record after it.
+layer2-raw  tag-let 0 forge-head
+T{ records s" expressions" forged @ refused? -> true }T
+layer2-done
+\ An application that refers to itself, or to a later own expression.
+layer2-raw  an-app lp-exprs first-of + an-app lp-exprs rec quad-a u32!
+T{ records s" expressions" an-app refused? -> true }T
+layer2-done
+layer2-raw  an-app 1+ lp-exprs first-of + an-app lp-exprs rec quad-a u32!
+T{ records s" expressions" an-app refused? -> true }T
+layer2-done
+\ A constant with a payload, and a record of no kind (a free variable,
+\ which no export holds, and tag 31).
+layer2-raw  tag-const 1 forge-head
+T{ records s" expressions" forged @ refused? -> true }T
+layer2-done
+layer2-raw  tag-fvar 0 forge-head
+T{ records s" expressions" forged @ refused? -> true }T
+layer2-done
+layer2-raw  31 0 forge-head
+T{ records s" expressions" forged @ refused? -> true }T
+layer2-done
+\ A declaration of no kind, its records entered.
+layer2-raw
+T{ records -> outcome-ok }T
+recursor forged !  30 0 pack-head forged @ ly ly-decl staged-head u32!
+T{ ly ly-decls s" declarations" forged @ refused? -> true }T
+layer2-done
+\ The same layer, unforged, enters whole after all of these (class 6).
+layer2-raw
+T{ records ly ly-decls ly ly-where @ -> outcome-ok outcome-ok 0 }T
+layer2-done
+\ A layer holding an opaque declaration (review of refactor-fri L2): its
+\ data, the names of its block, translated as a definition's.
+s" leanforth-env-import-layer3.lfsnap" scratch-file 2constant layer3-file
+: opaque-export ( -- c-addr u ) s" tests/core/check-block-cases/opaque.accepted.ndjson" ;
+20000000 ck-start 0 0 ck-layers! base2-file -1 ck-snapshot-import ok? s" import3" must
+opaque-export false ck-load ok? s" import3 load" must ck-check
+layer3-file s" {}" ck-snapshot-save ok? s" layer3 save" must ck-release
+create layers3 2 cells allot  layer3-file layers3 2!
+: layered3 ( -- outcome ) 20000000 ck-start layers3 1 ck-layers! base2-file -1 ck-snapshot-import ;
+T{ layered3 ck-release -> outcome-ok }T
+layer3-file delete-file drop
 T{ heap-refusals @ -> 0 }T
 T{ depth -> 0 }T
 base2-file delete-file drop  layer2-file delete-file drop

@@ -1,4 +1,4 @@
-\ The structure sketch writes MyMonoid's fields as the binders of its
+kernel-form \ The structure sketch writes MyMonoid's fields as the binders of its
 \ constructor. Structures are not in the term store yet, but the
 \ constructor's type is an ordinary Pi term; here it is an import stub
 \ written with the same binder words (Lean: #print MyMonoid.mk).

@@ -99,8 +99,15 @@ lf-walk-room context-walk: lf-cterm-walker
 \ at a depth no greater -- a bound variable in scope at one depth is in
 \ scope at any greater one -- and the skip costs only the visit's unit of
 \ fuel. Every node a run that ends ok has reached was checked.
+\ A node's unit of the marks: what set it -- a walk's run, or the audit
+\ memo's epoch (below) -- then what it keeps: the depth that run reached
+\ the node at, or the node's identity.
+begin-structure /lf-unit
+  field: lf-unit-stamp
+  field: lf-unit-kept
+end-structure
 /slab context-record: lf-term-marks
-2 cells ' lf-term-marks lf-term-columns column-add
+/lf-unit ' lf-term-marks lf-term-columns column-add
 1 cells context-record: lf-mark-runs
 \ The input nodes of a term view (terms.fs) have their units (one per
 \ tier record and leaf entry, terms.fs's lf-term-input-unit) in pages of
@@ -121,9 +128,9 @@ lf-walk-room context-walk: lf-cterm-walker
 1 lf-mark-page-bits lshift 1- constant lf-mark-page-mask
 1 cells context-slab: lf-mark-pages   \ the directory: per page, its block or 0
 1 cells context-slab: lf-mark-made    \ the pages made since the last release
-2 cells context-record: lf-mark-spare
+/lf-unit context-record: lf-mark-spare
 : lf-mark-page ( p -- addr ) lf-mark-pages slab-at ;
-: lf-mark-page-bytes ( -- u ) 1 lf-mark-page-bits lshift 2* cells ;
+: lf-mark-page-bytes ( -- u ) 1 lf-mark-page-bits lshift /lf-unit * ;
 \ Every page made given back, its directory cell emptied (also the
 \ teardown: a context's pages are freed with it).
 : lf-mark-unmake ( p -- ) lf-mark-page dup @ ?dup if free drop then 0 swap ! ;
@@ -137,7 +144,7 @@ lf-walk-room context-walk: lf-cterm-walker
   lf-marks-release lf-mark-pages# lf-mark-pages slab-hold dup ok?
   if 0 lf-mark-page lf-mark-pages slab-capacity cells erase then ;
 ' lf-input-marks-ready is lf-term-view-hook
-: lf-mark-spared ( -- unit ) lf-mark-spare dup 2 cells erase ;
+: lf-mark-spared ( -- unit ) lf-mark-spare dup /lf-unit erase ;
 \ Page p made: listed first, so that the release finds it whatever
 \ fails; its block, or 0 when the list or the heap has no room.
 : lf-mark-zeroed ( p -- addr|0 )
@@ -146,7 +153,7 @@ lf-walk-room context-walk: lf-cterm-walker
   1 lf-mark-made slab-claim ok? 0= if 2drop 0 exit then
   lf-mark-made slab-at over swap ! lf-mark-zeroed ;
 : lf-mark-paged ( p -- addr|0 ) dup lf-mark-page @ ?dup if nip else lf-mark-listed then ;
-: lf-mark-in-page ( u addr -- unit ) swap lf-mark-page-mask and 2* cells + ;
+: lf-mark-in-page ( u addr -- unit ) swap lf-mark-page-mask and /lf-unit * + ;
 : lf-input-mark-at ( node -- unit )
   lf-term-input-unit 0= if lf-mark-spared exit then
   dup lf-mark-page-bits rshift dup lf-mark-pages slab-capacity u<
@@ -219,10 +226,10 @@ create lf-pair-hooks /htab-hooks allot
 : lf-walk-marking ( walk -- ) lf-mark-next swap walk-arg ! ;
 : lf-walk-depth ( walk -- depth ) dup walk-paired? if walk-context @ else drop 0 then ;
 : lf-mark-unit ( walk -- unit ) walk-node @ lf-mark-at ;
-\ A unit holds a run, then a depth.
+\ A walk's unit holds its run, then the depth.
 : lf-mark-held? ( depth run unit -- flag )
-  tuck @ = if cell+ @ < 0= else 2drop false then ;
-: lf-mark-set ( depth run unit -- ) tuck ! cell+ ! ;
+  tuck lf-unit-stamp @ = if lf-unit-kept @ < 0= else 2drop false then ;
+: lf-mark-set ( depth run unit -- ) tuck lf-unit-stamp ! lf-unit-kept ! ;
 \ Whether this run reached the node before at a depth no greater; when
 \ not, the node is marked at its depth.
 : lf-walk-seen? ( walk -- flag )
@@ -231,10 +238,8 @@ create lf-pair-hooks /htab-hooks allot
 \ Dispatch with xt ( first second walk tag -- outcome ) a node not seen
 \ before; one seen before is ok, nothing pushed.
 : lf-walk-skip ( first second walk tag -- outcome ) 2drop 2drop outcome-ok ;
-: lf-walk-unless ( first second walk tag xt flag -- outcome )
-  if drop lf-walk-skip else execute then ;
 : lf-walk-once ( first second walk tag xt -- outcome )
-  2 pick lf-walk-seen? lf-walk-unless ;
+  2 pick lf-walk-seen? if drop lf-walk-skip exit then execute ;
 \ The same at exactly the node's depth, for a check whose verdict at a
 \ node can change with its depth either way, as Lean's for_each with an
 \ offset visits each shared (term, offset) pair once (for_each_fn.cpp,
@@ -248,19 +253,19 @@ create lf-pair-hooks /htab-hooks allot
 : lf-walk-pair ( walk -- node depth run )
   dup walk-node @ over lf-walk-depth rot walk-arg @ ;
 : lf-mark-other? ( node depth run unit -- flag )
-  cell+ @ 2 pick = if 2drop drop true else lf-pairs-seen? then ;
+  lf-unit-kept @ 2 pick = if 2drop drop true else lf-pairs-seen? then ;
 : lf-walk-seen-at? ( walk -- flag )
-  lf-walk-pair 2 pick lf-mark-at 2dup @ =
+  lf-walk-pair 2 pick lf-mark-at 2dup lf-unit-stamp @ =
   if lf-mark-other? else lf-mark-set drop false then ;
 : lf-walk-once-at ( first second walk tag xt -- outcome )
-  2 pick lf-walk-seen-at? lf-walk-unless ;
+  2 pick lf-walk-seen-at? if drop lf-walk-skip exit then execute ;
 \ The same for a walk run inside another's visit (review rvKN 2), also
 \ started by lf-walk-pairing: every pair it reaches is kept in the pair
 \ set alone, so the outer walk's units, and the nodes they let it skip,
 \ stay as they are.
 : lf-walk-seen-aside? ( walk -- flag ) lf-walk-pair lf-pairs-seen? ;
 : lf-walk-once-aside ( first second walk tag xt -- outcome )
-  2 pick lf-walk-seen-aside? lf-walk-unless ;
+  2 pick lf-walk-seen-aside? if drop lf-walk-skip exit then execute ;
 
 \ The audit memo (compact-store plan step S6 (c); ADR 0014 Amendment 4):
 \ in a check, the structural audit below checks a node once, not once per
@@ -358,9 +363,9 @@ end-structure
 \ Whether node's unit of the marks holds it, kept in that epoch.
 \ Unchecked: the node is allocated.
 : lf-audit-same-node? ( node unit -- flag )
-  cell+ @ swap lf-term-identity if = else drop false then ;
+  lf-unit-kept @ swap lf-term-identity if = else drop false then ;
 : lf-audit-unit? ( node epoch -- flag )
-  over lf-mark-at tuck @ = if lf-audit-same-node? else 2drop false then ;
+  over lf-mark-at tuck lf-unit-stamp @ = if lf-audit-same-node? else 2drop false then ;
 \ Whether the memo holds node as checked in its epoch. It does not ask
 \ whether the memo is on; its callers do: lf-audited? (below) whether the
 \ current audit uses the memo, and kernel/check-declaration.fs's
@@ -425,7 +430,7 @@ end-structure
 \ After a run: kept as checked when it ended ok; the list emptied.
 : lf-audit-mark ( node -- )
   dup lf-audit-epoch ?dup 0= if drop exit then
-  over lf-term-identity drop rot lf-mark-at tuck cell+ ! ! ;
+  over lf-term-identity drop rot lf-mark-at tuck lf-unit-kept ! lf-unit-stamp ! ;
 : lf-audit-keep ( -- )
   lf-audit-state lf-aud-count @ 0 ?do i lf-audit-slot @ lf-audit-mark loop ;
 : lf-audit-settle ( outcome -- outcome )

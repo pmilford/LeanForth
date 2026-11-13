@@ -55,8 +55,9 @@ T{ dw dn walk-read -> 5 6 dw 4 true }T
 
 \ ---------------------------------------------------------------------------
 \ Store model: count, serial, generation and per-index identities, for a
-\ base-0 and a base-1 store, under random allocation, reset, lookups at
-\ indices just outside the valid range, and occasional serial exhaustion.
+\ base-0 and a base-1 store, under random allocation, give-back
+\ (store-drop), reset, lookups at indices just outside the valid range,
+\ and occasional serial exhaustion.
 
 6 constant mcap
 create m-ids mcap cells allot
@@ -68,6 +69,7 @@ variable m-count variable m-serial variable m-gen variable m-base
   m-open? 0= if false exit then
   1 m-serial +! m-serial @ m-count @ cells m-ids + ! m-count @ 1 m-count +! true ;
 : m-clear ( -- ) m-base @ m-count ! m-gen @ epoch+ m-gen ! ;
+: m-drop ( -- ) m-count @ m-base @ > if -1 m-count +! then ;
 : m-valid? ( index -- flag ) m-live? if 0 m-count @ within else drop false then ;
 : m-identity@ ( index -- identity true | false )
   dup m-valid? if cells m-ids + @ true else drop false then ;
@@ -92,6 +94,7 @@ variable m-count variable m-serial variable m-gen variable m-base
     3 of dup mcap 3 + lm-rnd 1- swap check-identity endof
     4 of dup mcap 3 + lm-rnd 1- swap check-identity endof
     5 of dup mcap 3 + lm-rnd 1- swap check-valid endof
+    6 of dup store-drop m-drop endof
     drop dup check-new 0
   endcase
   same-fields? 0= if s" store fields differ" fail then ;

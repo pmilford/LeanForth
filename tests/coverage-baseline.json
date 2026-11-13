@@ -1,5 +1,5 @@
 {
- "runs": 1748,
+ "runs": 1762,
  "files": {
   "src/author/build.fs": {
    "blocks": 250,
@@ -11,8 +11,8 @@
    "never_run": 0
   },
   "src/author/declarations.fs": {
-   "blocks": 207,
-   "never_run": 2,
+   "blocks": 209,
+   "never_run": 0,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/author/errors.fs": {
@@ -21,14 +21,22 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/author/export.fs": {
-   "blocks": 270,
+   "blocks": 274,
    "never_run": 1,
    "reason": "new file (plan 8.2.1c; agent LF2, 2026-11-12): lf-author-export when the heap refuses the numbering tables (outcome full); lfx-block's refusal itself is tested"
   },
+  "src/author/form.fs": {
+   "blocks": 32,
+   "never_run": 0
+  },
   "src/author/groups.fs": {
-   "blocks": 155,
-   "never_run": 1,
-   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+   "blocks": 171,
+   "never_run": 2,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed; and (plan FE1a, branch fe1) lfa-natural!'s load-time abort for a syntax word that does not exist"
+  },
+  "src/author/library.fs": {
+   "blocks": 31,
+   "never_run": 0
   },
   "src/author/namespaces.fs": {
    "blocks": 174,
@@ -36,7 +44,7 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/author/runner.fs": {
-   "blocks": 152,
+   "blocks": 216,
    "never_run": 3,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
@@ -51,12 +59,12 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/author/values.fs": {
-   "blocks": 97,
+   "blocks": 100,
    "never_run": 2,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/author/words.fs": {
-   "blocks": 90,
+   "blocks": 97,
    "never_run": 2,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
@@ -66,9 +74,9 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/cli/check-lf.fs": {
-   "blocks": 138,
-   "never_run": 4,
-   "reason": "new file (plan 8.2.1c-d; agent LF2, 2026-11-12): four refusals no input reaches: a library declaration without levelParams (the stage refuses every named declaration without them: named-ok?, src/import/stage-records.fs:443-445), the stage refused at stage-init (no heap), stage-extend after a library read that succeeded, the stores' capacity settings refused"
+   "blocks": 179,
+   "never_run": 6,
+   "reason": "four refusals no input reaches: a library declaration without levelParams (the stage refuses every named declaration without them: named-ok?, src/import/stage-records.fs:443-445), the stage refused at stage-init (no heap), stage-extend after a library read that succeeded, the stores' capacity settings refused; and (plan FE1a) two branches of lfc-arity no Init-slice constant reaches (measured 6 at the fe1 merge, review fe1ab re-check; fe1d's --elab-data code is fully run)"
   },
   "src/cli/check-run.fs": {
    "blocks": 903,
@@ -86,7 +94,7 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/cli/print-lf.fs": {
-   "blocks": 180,
+   "blocks": 181,
    "never_run": 27,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
@@ -187,6 +195,10 @@
    "never_run": 3,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
+  "src/core/mvar-leaves.fs": {
+   "blocks": 13,
+   "never_run": 0
+  },
   "src/core/name-equal.fs": {
    "blocks": 28,
    "never_run": 0
@@ -239,6 +251,31 @@
    "blocks": 6,
    "never_run": 1,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/front/dag-walk.fs": {
+   "blocks": 76,
+   "never_run": 4,
+   "reason": "new file (plan FE1a-b, 2026-11-12; tightened at the merge, review fe1ab re-check): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded and the reader default finder before cli/check-lf.fs sets it are never run"
+  },
+  "src/front/elab-data.fs": {
+   "blocks": 534,
+   "never_run": 4,
+   "reason": "new file (plan FE1d, 2026-11-12): four refusals no test input reaches: a name lookup that fails in an open tier (ed-looked, error 23), a tier name beyond the stage's name-to-declaration array (ed-decls), no room while the eliminators' table grows (the allocation-refusal test reads 4 eliminators), and a THROW inside a read (ed-caught)"
+  },
+  "src/front/mvars.fs": {
+   "blocks": 429,
+   "never_run": 4,
+   "reason": "new file (plan FE1a-b, 2026-11-12; tightened at the merge, review fe1ab re-check): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded and the reader default finder before cli/check-lf.fs sets it are never run"
+  },
+  "src/front/reader.fs": {
+   "blocks": 147,
+   "never_run": 4,
+   "reason": "new file (plan FE1a-b, branch fe1, 2026-11-12): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded, a child beyond the walk memo and the reader default finder before cli/check-lf.fs sets it are never run"
+  },
+  "src/front/syntax.fs": {
+   "blocks": 36,
+   "never_run": 3,
+   "reason": "new file (plan FE1a-b, branch fe1, 2026-11-12): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded, a child beyond the walk memo and the reader default finder before cli/check-lf.fs sets it are never run"
   },
   "src/import/checker-input.fs": {
    "blocks": 294,
@@ -666,8 +703,8 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/print-forth.fs": {
-   "blocks": 716,
-   "never_run": 52,
+   "blocks": 718,
+   "never_run": 51,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/print-job.fs": {

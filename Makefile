@@ -65,6 +65,10 @@ TEST_TIMEOUT ?= 1800
 RUN = $(if $(LF_TIMING_LOG),scripts/timed.sh $(or $@,unnamed) ,)timeout $(TEST_TIMEOUT)
 # The tests' own subprocess limits (TEST_LIMIT in tests/*.py) follow it.
 export TEST_TIMEOUT
+# A Forth test that writes scratch files runs with a folder of its own
+# (LF_TEST_SCRATCH, tests/support/scratch.fs; made and removed by the script),
+# so the same test run at once by another worktree or make never shares them.
+SCRATCH = scripts/with-scratch.sh
 
 # Every pinned-Lean oracle and differential comparison. Excludes the
 # profiling targets.
@@ -117,6 +121,10 @@ test: check-docs check-lean-sources check-portable-forth check-forth-quality smo
 # Fails on broken documentation links or missing docs/ paths.
 check-docs:
 	$(RUN) python3 scripts/check-doc-links.py
+	$(RUN) python3 tests/scripts/test_check_adr_status.py
+	$(RUN) python3 scripts/check-adr-status.py
+	$(RUN) python3 tests/scripts/test_check_agent_sync.py
+	$(RUN) python3 scripts/check-agent-sync.py
 
 # The Forth examples of the user pages print exactly the output shown.
 DOC_EXAMPLE_PAGES := docs/user/CONCEPTS.md docs/user/TERM_PRINTER.md \
@@ -162,9 +170,11 @@ test-differential: $(DIFFERENTIAL_TARGETS)
 # reference 61, test-cli 56, reference-compact-init 53, test-inductive-table 43 (it and
 # reference-inductive share the 27 s Lean run of inductive-expected-output),
 # reference-program-ir-run 33, reference-inductive 29, reference-cli 19, ...; since plan
-# 5.5.1 (2026-11-12) reference-program-ir-run and reference-program-mutants each run
-# LeanForth on the clamp proofs' 4,277-declaration export (about 2 minutes each, 2 workers).
-check: reference-program-ir-run reference-program-mutants reference-author reference test-cli \
+# 5.5.1 (2026-11-12) program-clamp-record runs LeanForth once on the clamp proofs'
+# 4,277-declaration export (about 100 s, 2 workers) for reference-program-ir-run and
+# reference-program-mutants, which wait for it.
+check: program-clamp-record reference-program-sha-export reference-demos \
+	reference-program-ir-run reference-program-mutants reference-author reference test-cli \
 	reference-compact-init test-inductive-table reference-inductive reference-cli test-doc-examples-lean \
 	test-depth-differential test-depth-fed-differential test-universe-many-differential \
 	reference-bignum test-compact-faults
@@ -607,26 +617,48 @@ test-program-ir-run:
 	$(RUN) python3 tests/program/receipt_check.py
 	$(RUN) python3 tests/program/clamp_mutants.py --test
 
+# The clamp receipt's evidence recorded afresh once per make (plan 5.5.1): Lean
+# exports the clamp proofs with their closure (4,277 declarations), LeanForth
+# checks the export with --jobs 2 and saves the checked environment as a
+# snapshot, and Gforth runs the IR table; build/program-clamp keeps the
+# evidence, the export and the snapshot (ignored by git). The two targets
+# below read them instead of each checking the export again (about 100 s of
+# two workers each); run alone, their scripts record for themselves.
+# An earlier run's files are removed first, by name (the export and snapshot by
+# program_receipt.py record --keep, which also fails when no snapshot was written).
+PROGRAM_CLAMP := $(CURDIR)/build/program-clamp
+program-clamp-record:
+	mkdir -p $(PROGRAM_CLAMP)
+	rm -f $(PROGRAM_CLAMP)/evidence.json $(PROGRAM_CLAMP)/manifest.json
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 scripts/program_receipt.py record \
+	  --out $(PROGRAM_CLAMP)/evidence.json --manifest-out $(PROGRAM_CLAMP)/manifest.json \
+	  --keep $(PROGRAM_CLAMP)
+.PHONY: program-clamp-record
+
 # The same against pinned Lean: the interpreter against Lean's evaluation of the
 # model (tables and random programs), the obligations and contract theorems
-# checked by Lean with planted faults, and the receipt's evidence recorded afresh:
-# Lean exports the clamp proofs with their closure and LeanForth checks it (plan 5.5.1).
-reference-program-ir-run:
+# checked by Lean with planted faults, and the receipt's evidence recorded afresh
+# (program-clamp-record) equal to the committed evidence.
+reference-program-ir-run: program-clamp-record
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/program/ir_run_differential.py --lean
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/program/verify_ir02.py --lean
 	LEAN=$(LEAN) $(RUN) python3 tests/program/vc_check.py --lean
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/program/receipt_check.py --record
+	PROGRAM_CLAMP_RECORDED=$(PROGRAM_CLAMP) LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) \
+	  python3 tests/program/receipt_check.py --record
 
 # Plan 5.5.1: the clamp export with the program, the contract and the proof
-# changed (tests/program/clamp_mutants.py copies) checked by LeanForth: the
-# originals accepted, every changed theorem rejected.
-reference-program-mutants:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/program/clamp_mutants.py --test --lean
+# changed (tests/program/clamp_mutants.py copies) checked by LeanForth against
+# the snapshot of the export's own check (program-clamp-record): the originals,
+# every one accepted there, taken from it; every changed theorem rejected.
+reference-program-mutants: program-clamp-record
+	PROGRAM_CLAMP_RECORDED=$(PROGRAM_CLAMP) LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) \
+	  python3 tests/program/clamp_mutants.py --test --lean
 
 # The same pipeline for the SHA-256 helper words (stage SHA-2): Lean's proofs of
 # sha-rotr, sha-ch, sha-maj and sha-big-sigma0 exported with their closure and
-# checked by LeanForth; a changed word body and a changed proof rejected. No
-# receipt yet (IR 0.2 programs need receipt schema 0.4, at the [format] gate).
+# checked by LeanForth; a changed word body and a changed proof rejected, checked
+# against the snapshot of that check. No receipt yet (IR 0.2 programs need
+# receipt schema 0.4, at the [format] gate).
 reference-program-sha-export:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/program/sha_export_check.py
 
@@ -654,8 +686,8 @@ test-environment:
 	$(RUN) $(GFORTH) tests/core/environment.fs
 	$(RUN) $(GFORTH) tests/core/environment-tasks.fs
 	$(RUN) $(GFORTH) tests/core/environment-tasks-serial.fs
-	$(RUN) $(GFORTH) tests/core/env-snapshot.fs
-	$(RUN) $(GFORTH) tests/core/env-import.fs
+	$(RUN) $(SCRATCH) $(GFORTH) tests/core/env-snapshot.fs
+	$(RUN) $(SCRATCH) $(GFORTH) tests/core/env-import.fs
 	$(RUN) $(GFORTH) tests/core/check-declaration.fs
 	$(RUN) $(GFORTH) tests/core/check-declaration-ndjson.fs
 	$(RUN) $(GFORTH) tests/core/failure-paths.fs
@@ -789,8 +821,9 @@ test-sha256:
 # and field-by-field paths byte for byte, and the header's example outside
 # the project (tests/lib/test_sections.py).
 test-sections:
-	$(RUN) $(GFORTH) tests/lib/sections.fs
+	$(RUN) $(SCRATCH) $(GFORTH) tests/lib/sections.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/lib/test_sections.py
+	GFORTH=$(GFORTH) $(RUN) python3 tests/scripts/test_with_scratch.py
 
 test-manifest:
 	$(RUN) $(GFORTH) tests/core/manifest.fs
@@ -805,6 +838,24 @@ reference-manifest:
 .PHONY: test-sha256 test-sections test-manifest reference-manifest
 test: test-sha256 test-sections test-manifest
 test-differential: reference-manifest
+
+# The elaboration data (plan row FE1d; docs/programming/ELABORATION_DATA.md):
+# the reader's unit tests and the check step's, then its finisher and every
+# damaged file through leanforth check --elab-data. Gforth and Python 3 only.
+test-elab-data:
+	$(RUN) $(GFORTH) tests/front/elab-data.fs
+	$(RUN) $(GFORTH) tests/front/elab-check-lf.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/front/test_elab_data.py
+# With pinned Lean: scripts/export-elab.sh reproduces the init slice's data
+# byte for byte, and for all of Init its records equal pinned Lean's own
+# counts and LeanForth reads them against Init's export (about 60 s).
+reference-elab-data: RUN := timeout 1500
+reference-elab-data:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/front/elab-init.sh
+.PHONY: test-elab-data reference-elab-data
+test: test-elab-data
+test-differential: reference-elab-data
+DOC_EXAMPLE_PAGES += docs/programming/ELABORATION_DATA.md
 
 # The LeanForth authoring words (plan task 8.1.2, ADR 0017; untrusted, not
 # loaded by src/main.fs, so they get their own silent-load check): unit
@@ -832,6 +883,26 @@ reference-author:
 
 .PHONY: test-author reference-author
 test: test-author
+
+# The front end's first steps (plan FE1a-b, ADR 0021): the natural reader's
+# syntax trees and refusals, and the metavariable context. Its modules load
+# alone, printing nothing.
+test-front:
+	@for m in src/front/syntax.fs src/front/dag-walk.fs src/front/reader.fs src/front/mvars.fs \
+	  src/core/mvar-leaves.fs; do \
+	  out=$$($(RUN) $(GFORTH) $$m -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
+	  if [ -n "$$out" ]; then printf '%s printed while loading:\n%s\n' "$$m" "$$out" >&2; exit 1; fi; \
+	done
+	$(RUN) $(GFORTH) tests/front/front.fs
+
+# The natural reader's trees against pinned Lean's macro expansion of the
+# same statements (tests/front/operators.lean).
+reference-front:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_front.py
+
+.PHONY: test-front reference-front
+test: test-front
+test-differential: reference-front
 test-differential: reference-author
 
 # Planted faults (plan task 1.4.2; docs/development/TESTING_STRATEGY.md,
@@ -945,7 +1016,7 @@ STAGE_FIXTURES := tests/core/check-declaration-cases/*.ndjson tests/core/ndjson-
 	tests/core/reexport/kinds.ndjson tests/core/stage-cases/*.ndjson
 test-stage:
 	$(RUN) $(GFORTH) tests/core/stage.fs
-	$(RUN) $(GFORTH) tests/core/snapshot-tier.fs
+	$(RUN) $(SCRATCH) $(GFORTH) tests/core/snapshot-tier.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/core/test_stage.py
 	@for f in $(STAGE_FIXTURES); do \
 	  $(RUN) bash tests/core/compact-verify.sh --unchecked $$f $(GFORTH) >/dev/null \

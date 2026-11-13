@@ -48,6 +48,7 @@ features they describe.
 - [DERIVATION_LOG.md](programming/DERIVATION_LOG.md) — the derivation log (ADR 0013; implemented, [kernel] path with the no-behaviour-change review): records, references and copies, the rule catalogue, where each rule records, the Forth interface, the test preset, and the evidence that it changes no answer.
 - [DIAGNOSTICS.md](programming/DIAGNOSTICS.md) — why a check failed: the first failure's reason code, site and numbers, recorded per checker context; the code catalogue (implemented, first form, untrusted).
 - [LEANFORTH_WORDS.md](programming/LEANFORTH_WORDS.md) — the LeanForth authoring words (`src/author/`) and the printer's Forth mode: modules, every word and its stack effect, the Forth interface, the error catalogue, limits and tests (implemented, untrusted, [parser] gate open).
+- [ELABORATION_DATA.md](programming/ELABORATION_DATA.md) — Lean's instances, default instances, reducibility and eliminators for the front end (plan row FE1d, ADR 0021 D10): `scripts/export-elab.sh`, the format and its schema, `leanforth check --elab-data`, the reader's checks and Forth interface, the comparison with pinned Lean on `Init` (integrated, untrusted; nothing uses the data yet).
 - [CHECKED_ENVIRONMENT.md](programming/CHECKED_ENVIRONMENT.md) — the checked environment v0 (ADR 0012): the input, slots, snapshots and handles, finding constants, the publisher, axiom sets; interface, a three-form example, measured limits (implemented, [kernel] code not through the review gate; the type check that fills it is task 2.2.3).
 - [INDUCTIVE_BLOCKS.md](programming/INDUCTIVE_BLOCKS.md) — the first data types LeanForth checks (plan task 5.2.1a, ADR 0015): a block of one non-recursive inductive type checked in Lean's order, its recursor built and compared with the file's, the block published together; a three-form example, the steps and their outcomes, limits and evidence (implemented, [kernel][import] code, gate open).
 - [PROGRAM_IR_RUN.md](programming/PROGRAM_IR_RUN.md) — the program IR interpreter in Forth and the three-way comparison of the interpreter, the host words and Lean's evaluation of the model (implemented, untrusted; testing, not proof).
@@ -59,6 +60,7 @@ features they describe.
 ## `design/` — designs of components not built yet
 
 - [FRONT_END.md](design/FRONT_END.md) — LeanForth's front end (design, nothing built): what Lean's elaborator, unification, type classes, coercions, tactics, pattern matching, recursion, generated definitions, `simp`, Mathlib's tactics and evaluation do, each measured in Lean 4.35.0's sources; the planned untrusted Forth architecture re-checked by the kernel; what "full Lean" means; milestones FE1–FE12 with FE1 ($0 + n = n$ by induction) specified in full; questions for the owner.
+- [SNAPSHOT_COMPATIBILITY.md](design/SNAPSHOT_COMPATIBILITY.md) — reading snapshots saved by the two previous format and verdict versions (plan 6.2.5c; designed, proposed, awaiting the owner): optional sections, the reach table of each verdict-version step, results carried or checked again, upgrading a snapshot, tests, costs and questions for the owner.
 
 ## `development/` — contributing, testing and tooling
 
@@ -86,7 +88,7 @@ features they describe.
 ## `project/` — status, plans and decisions
 
 - [PROJECT_PROGRESS.md](project/PROJECT_PROGRESS.md) — current status of both product tracks.
-- [DEVELOPMENT_ROADMAP.md](project/DEVELOPMENT_ROADMAP.md) — milestones, acceptance criteria and the near-term queue.
+- [DEVELOPMENT_ROADMAP.md](project/DEVELOPMENT_ROADMAP.md) — milestones, acceptance criteria (the near-term queue was deleted on 2026-11-12; see "Now, next, later" in PROJECT_PROGRESS.md).
 - [PLAN_DRAFT.md](project/PLAN_DRAFT.md) — draft next-level plan (nine phases, about 130 tasks, library gaps, readable-proof mock-ups, owner questions); not approved.
 - [SCALE_ASSESSMENT.md](project/SCALE_ASSESSMENT.md) — memory and CPU needed to check all of Mathlib, what in today's design would not scale, and the recommended data structures (2026-11-02 assessment); its last section says where Lean's kernel spends its time and what LeanForth should do about it.
 - [IR 0.2 probes](development/measurements/ir-0.2-probes-2026-11-04/README.md) — evidence for ADR 0019 Amendment 1: what Gforth 1.0.0 and 0.7.3 do with redefinitions, output words, shifts and number forms, and two Lean checks (a clamp with `dup .` and ROTR on 32-bit values) (2026-11-04).
@@ -153,4 +155,8 @@ records and `prompts/FIRST_CODEX_TASK.md` still use those old paths. Old
 
 ADR 0007 (Sort representation boundary) was numbered 0005 until 2026-11-02.
 `make test` runs `scripts/check-doc-links.py`, which fails on any broken
-link or `docs/` path outside the historical records.
+link or `docs/` path outside the historical records, and `scripts/check-adr-status.py`, which fails when an
+ADR or an ADR amendment lacks its "Approval status:" line (proposed, accepted with date, gate and
+`OWNER_DECISIONS.md`, superseded, or "status unclear (no owner decision found)"), and
+`scripts/check-agent-sync.py`, which fails when `.claude/agents/*.md` and `.codex/agents/*.toml` stop defining the
+same agents with the same key instructions.

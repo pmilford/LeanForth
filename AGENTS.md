@@ -1,6 +1,6 @@
 # Agent instructions — LeanForth
 
-Read `docs/project/CODEX_HANDOFF.md`, `docs/project/IMPLEMENTATION_PLAN.md`, `docs/programming/INTERFACE_CONTRACTS.md` and this file before making architecture changes. Treat this as a formal-methods and systems-programming project, not a normal code-generation project. For the current state and next step, read `docs/project/PROJECT_PROGRESS.md` and the near-term execution queue in `docs/project/DEVELOPMENT_ROADMAP.md`. This file is shared by all coding agents: Codex reads it directly and Claude Code loads it through `.claude/CLAUDE.md`.
+Read `docs/project/CODEX_HANDOFF.md`, `docs/project/IMPLEMENTATION_PLAN.md`, `docs/programming/INTERFACE_CONTRACTS.md` and this file before making architecture changes. Treat this as a formal-methods and systems-programming project, not a normal code-generation project. For the current state and next step, read `docs/project/PROJECT_PROGRESS.md` (its "Now, next, later" list is the near-term queue). This file is shared by all coding agents: Codex reads it directly and Claude Code loads it through `.claude/CLAUDE.md`.
 
 ## Non-negotiable design decisions
 

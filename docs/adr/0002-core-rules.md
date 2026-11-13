@@ -6,6 +6,8 @@ Lean kernel. The implementation must not confer theorem validity on the basis
 of this draft before review. Follow the Lean reference and pinned implementation
 when resolving any discrepancy.
 
+Approval status: status unclear (no owner decision found); the ADR's own text says draft, not approved
+
 ## Inputs and boundaries
 
 Terms are finite trees or acyclic DAGs constructed from `Sort(n)`, `Var(i)`,

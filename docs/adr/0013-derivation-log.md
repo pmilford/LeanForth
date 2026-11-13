@@ -19,6 +19,8 @@ worker) and [ADR 0012](0012-checked-environment.md) (whose E1 and E7
 already place "the derivation log" in the check's context), and reuses the
 patterns of the [diagnostics](../programming/DIAGNOSTICS.md).
 
+Approval status: accepted 2026-11-03, gate: design (D1-D5), [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Gate answers and working guidelines (2026-11-03)"; implementation approved 2026-11-04, section "Readable proofs approved (2026-11-04)"
+
 ## Implementation (2026-11-03)
 
 Implemented on a branch of agent RB (plan tasks 2.4.1 and 2.4.4): the log

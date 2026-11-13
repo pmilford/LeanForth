@@ -36,9 +36,19 @@
 \ outcome and give false.
 : ok-then? ( x outcome -- x true | outcome false )
   dup ok? if drop true else nip false then ;
-\ The same with two values kept.
+\ The same with two values kept, and with three.
 : ok-then2? ( x1 x2 outcome -- x1 x2 true | outcome false )
   dup ok? if drop true else nip nip false then ;
+: ok-then3? ( x1 x2 x3 outcome -- x1 x2 x3 true | outcome false )
+  dup ok? if drop true else nip nip nip false then ;
+\ Two outcomes as one: the first that is not ok, else ok.
+: outcome-and ( outcome1 outcome2 -- outcome ) over ok? if nip else drop then ;
+\ Run the steps ( x -- outcome ) listed at a (0 ends the list) in order
+\ until one is not ok: that outcome, or ok. Example: `create checks
+\ ' size-ok , ' sum-ok , 0 ,` then `file checks outcome-steps`.
+: outcome-steps ( x a -- outcome )
+  dup @ 0= if 2drop outcome-ok exit then
+  2dup @ execute dup ok? 0= if nip nip exit then drop cell+ recurse ;
 \ The same for a step that gives a result, with one or two values kept
 \ below it for the next step: keep them and give true, or drop them, keep
 \ the result beside the failing outcome and give false.

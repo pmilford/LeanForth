@@ -22,9 +22,10 @@ include ../support/heap-watch.fs   \ the refusals at the end
 require ../../src/main.fs
 include ../support/tester.fs
 include ../support/checks.fs
+include ../support/scratch.fs
 decimal
 
-: snap-file ( -- c-addr u ) s" /tmp/leanforth-env-snapshot-test.lfsnap" ;
+s" leanforth-env-snapshot-test.lfsnap" scratch-file 2constant snap-file
 \ The exports: the pinned ones with their manifests, then the fixtures.
 create checked-exports
   s" tests/reference/composition.ndjson" 2,  s" tests/reference/constant-fixture.ndjson"

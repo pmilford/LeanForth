@@ -10,6 +10,8 @@ implemented; the pilot below ran on a scratch copy of the tree. The
 handoff's provisional names (`LF.CORE`, `LF.KERNEL`, …) are replaced by
 the ones below; the style guide's section 7 asked for this ADR.
 
+Approval status: accepted 2026-11-03, gate: design, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Gate answers and working guidelines (2026-11-03)"
+
 ## Summary in plain words
 
 Every LeanForth word lives today in one big list of names, Forth's

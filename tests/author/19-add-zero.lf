@@ -1,4 +1,4 @@
-\ Lean: theorem add_zero' (n : Nat) : n + 0 = n := Eq.refl n
+kernel-form \ Lean: theorem add_zero' (n : Nat) : n + 0 = n := Eq.refl n
 \ A proof term of its own, not a library lemma: Eq.refl n proves n = n,
 \ and the checker must see that n + 0 reduces to n (Nat.add's definition,
 \ by its second argument). Against an export of Init (plan 8.2.1d):

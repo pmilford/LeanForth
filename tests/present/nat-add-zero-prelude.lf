@@ -1,4 +1,4 @@
-\ The constants of Nat.add_zero and Nat.zero_add (tests/reference/inductive/
+kernel-form \ The constants of Nat.add_zero and Nat.zero_add (tests/reference/inductive/
 \ nat-add-zero.ndjson) that the statements mention, as import-stubs, for the
 \ round trip of their printed LeanForth statements (check_outline.py).
 import-stub Nat end Nat

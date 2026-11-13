@@ -1,4 +1,4 @@
-\ A wrong twin of tests/author/20-zero-add.lf: the induction's base case
+kernel-form \ A wrong twin of tests/author/20-zero-add.lf: the induction's base case
 \ proves 1 = 1 where the motive needs 0 + 0 = 0.
 \ Lean: theorem zero_add' (n : Nat) : 0 + n = n :=
 \         @Nat.rec (fun k => 0 + k = k) (@Eq.refl Nat 1)

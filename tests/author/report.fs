@@ -91,7 +91,8 @@ variable trip
 variable trip-finder  0 trip-finder !
 : second-run ( -- outcome )
   trip-finder @ lf-author-library!
-  lf-author-begin words1 words1# @ lf-author-text dup ok? 0= if exit then drop
+  lf-author-begin lf-author-kernel words1 words1# @ lf-author-text dup ok? 0= if exit then
+  drop
   words2 words2# capture-into print-words dup ok? 0= if exit then drop
   dump2 dump2# capture-into dump-all outcome-ok ;
 : in-new-context ( xt -- outcome )

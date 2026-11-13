@@ -1,4 +1,4 @@
-\ A mistake: the variable value is misspelt.
+kernel-form \ A mistake: the variable value is misspelt.
 theorem composition
   Prop implicit: A   Prop implicit: B   Prop implicit: C
   A B ->  explicit: f
