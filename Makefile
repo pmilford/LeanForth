@@ -115,7 +115,7 @@ DIFFERENTIAL_TARGETS := \
 # Gforth and Python 3 only; run on every CI host and before every commit.
 # The slowest targets first (see check below).
 test: test-core test-composition-fixture test-bignum test-run-records test-environment
-test: check-docs check-lean-sources check-portable-forth check-forth-quality smoke test-harness test-lib test-core \
+test: check-tools-untracked check-docs check-lean-sources check-portable-forth check-forth-quality smoke test-harness test-lib test-core \
 	test-composition-fixture test-program test-present check-doc-examples
 
 # Fails on broken documentation links or missing docs/ paths.
@@ -146,6 +146,12 @@ check-lean-sources:
 
 # Fails if current Forth source could depend on byte order or cell size
 # (docs/development/FORTH_STYLE.md, section 8).
+# .tools holds the machine-local toolchains and Mathlib export (user data). It must never be tracked:
+# checking out a commit that tracks a .tools symlink replaced the directory on 2026-11-13.
+check-tools-untracked:
+	@if git ls-files --error-unmatch .tools >/dev/null 2>&1; then \
+	  echo "check-tools-untracked: .tools is tracked by git; run: git rm --cached .tools" >&2; exit 1; fi
+
 check-portable-forth:
 	$(RUN) python3 scripts/check-portable-forth.py
 
@@ -175,13 +181,27 @@ test-differential: $(DIFFERENTIAL_TARGETS)
 # reference-program-mutants, which wait for it; since plan 8.4.1b (2026-11-13)
 # reference-program-verify-clamp and -refuted each run leanforth verify's driver end
 # to end (about 100 s, 2 workers).
-check: program-clamp-record reference-program-verify-clamp reference-program-verify-refuted \
-	reference-program-sha-export reference-demos \
+CHECK_FIRST := program-clamp-record reference-program-verify-clamp \
+	reference-program-verify-refuted reference-program-sha-export reference-demos \
 	reference-program-ir-run reference-program-mutants reference-author reference test-cli \
 	reference-compact-init test-inductive-table reference-inductive reference-cli test-doc-examples-lean \
 	test-depth-differential test-depth-fed-differential test-universe-many-differential \
 	reference-bignum test-compact-faults
-check: test test-differential mutants-check test-depth-deep-differential
+# make check is make test plus check-rest: everything make check runs that the
+# instrumented make test of make coverage-check does not stand in for. That is
+# every pinned-Lean comparison and other target of make check outside make
+# test, and the targets of make test whose Gforth changes under coverage
+# (COVERAGE_ENGINE_DIFFERS: test-cli's --fast runs use gforth-fast, which make
+# coverage replaces by the counting Gforth 1.0). The full change tier (plan
+# 9.4.6; scripts/test-tier.py) runs make coverage-check and make check-rest,
+# so make test runs once, instrumented. tests/scripts/test_test_tier.py checks
+# that check-rest holds no other target of make test.
+COVERAGE_ENGINE_DIFFERS := test-cli
+check: $(CHECK_FIRST)
+check: test check-rest
+check-rest: $(CHECK_FIRST) $(COVERAGE_ENGINE_DIFFERS)
+check-rest: test-differential mutants-check test-depth-deep-differential
+.PHONY: check-rest
 
 # src/main.fs must load silently: a "redefined" warning means two modules
 # define the same word. Then one word from each loaded layer must run.
@@ -1032,10 +1052,12 @@ test-differential: reference-author
 # faults marked quick, mutants-check only reports stale entries (old text
 # no longer found once); test-mutants, part of make test, tests the runner.
 # LEAN is the pinned binary itself (LEAN_BINARY), never the cache wrapper:
-# the runner's controls include the Lean cache's own tests.
+# the runner's controls include the Lean cache's own tests. FAULTS=ID,...
+# runs only those faults (make tier's smaller tiers; mutants.py --only).
 MUTANTS_TIMEOUT ?= 3600
 mutants:
-	LEAN=$(LEAN_BINARY) timeout $(MUTANTS_TIMEOUT) python3 scripts/mutants.py --gforth $(GFORTH)
+	LEAN=$(LEAN_BINARY) timeout $(MUTANTS_TIMEOUT) python3 scripts/mutants.py --gforth $(GFORTH) \
+	$(if $(FAULTS),--only $(FAULTS))
 
 mutants-quick:
 	LEAN=$(LEAN_BINARY) $(RUN) python3 scripts/mutants.py --gforth $(GFORTH) --quick
@@ -1065,9 +1087,19 @@ coverage-check:
 test-coverage:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/support/test_coverage.py
 
-.PHONY: mutants mutants-quick mutants-check test-mutants coverage coverage-check test-coverage
-# The coverage ratchet runs once per push (scripts/push.sh), not in every make
-# check: it runs the whole of make test again, instrumented (about 6 min at JOBS=2).
+# The ratchet for COVERAGE_FILES alone, over the targets COVERAGE_TARGETS only
+# (the smaller change tiers of scripts/test-tier.py name every target of make
+# test that loads the files, so their counts are those of the whole make test).
+coverage-focus:
+	$(if $(COVERAGE_FILES),,$(error coverage-focus needs COVERAGE_FILES and COVERAGE_TARGETS))
+	$(RUN) python3 scripts/coverage.py --gforth $(COVERAGE_GFORTH) --check \
+	$(addprefix --only ,$(COVERAGE_FILES)) -- make $(COVERAGE_TARGETS) JOBS=$(JOBS)
+
+.PHONY: mutants mutants-quick mutants-check test-mutants coverage coverage-check test-coverage \
+	coverage-focus
+# The coverage ratchet runs in the full change tier (make tier, scripts/push.sh),
+# not in make check: it runs the whole of make test, instrumented (about 6 min at
+# JOBS=2), and stands in for make test there (check-rest above).
 test: test-coverage
 test: test-mutants
 
@@ -1161,7 +1193,7 @@ reference-compact-init:
 
 .PHONY: test-compact test-stage test-compact-faults reference-compact-init
 test: test-compact test-stage
-check: test-compact-faults
+check-rest: test-compact-faults
 test-differential: reference-compact-init
 
 # The derivation log (ADR 0013, plan task 2.4.1; docs/programming/DERIVATION_LOG.md)
@@ -1259,5 +1291,31 @@ test-changed check-changed:
 	|| exit 1; if [ -z "$$targets" ]; then echo "No target uses a changed file."; \
 	else $(MAKE) --no-print-directory $$targets; fi
 
-.PHONY: test-lean-cache test-changed check-changed
+.PHONY: test-lean-cache test-changed check-changed check-tools-untracked
 test: test-lean-cache
+
+# Tested-tree records and change tiers (plan 9.4.6; TESTING_STRATEGY.md,
+# "Running the suites"). make once GOALS="check" runs make GOALS and records
+# the pass, unless a pass of them on this exact tree (git's tree hash; a
+# worktree with uncommitted changes is refused) with the same Gforth, Lean
+# and LEAN_CACHE is already recorded, in the main checkout's
+# .claude/work/ci/tested/ (TESTED_DIR elsewhere): then it prints that record
+# and runs nothing. make tier runs so every suite of the change tier of
+# BASE...HEAD (scripts/test-tier.py), then the progress check; DRY_RUN=1
+# prints what would run. Both name $(MAKE), so make prints their output as
+# it comes (and runs them even under make -n, as test-changed). test-tiers
+# tests the classifier, the records and push.sh's choices on throw-away
+# repositories (Python 3, git and make only).
+GOALS ?= test
+once:
+	@python3 scripts/tested-tree.py once -- $(MAKE) $(GOALS) JOBS=$(JOBS) \
+	GFORTH=$(LEANFORTH_GFORTH) LEAN=$(LEAN_BINARY) LEAN_CACHE=$(LEAN_CACHE)
+tier:
+	@python3 scripts/tested-tree.py tier --make $(MAKE) --base $(BASE) --jobs $(JOBS) \
+	--lean-cache $(LEAN_CACHE) $(if $(DRY_RUN),--dry-run)
+test-tiers:
+	$(RUN) python3 tests/scripts/test_test_tier.py
+	$(RUN) python3 tests/scripts/test_tested_tree.py
+
+.PHONY: once tier test-tiers
+test: test-tiers

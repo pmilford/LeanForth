@@ -71,6 +71,22 @@ class Pure(unittest.TestCase):
         self.assertEqual(
             tool.new_baseline({"src/c.fs": [4, 1]}, 7, old, "why")["files"]["src/c.fs"]["reason"], "why")
 
+    def test_focused_run_checks_only_its_counts(self):
+        # A few targets (make coverage-focus): no share or baseline rule on the run counts.
+        self.assertEqual(tool.run_problems(1, 5, {"runs": 100}, focused=True), [])
+        self.assertTrue(tool.run_problems(0, 5, {"runs": 100}, focused=True))
+
+    def test_focus_keeps_the_named_files_and_reports_unloaded_ones(self):
+        files = {"src/a.fs": [5, 2], "src/b.fs": [4, 4]}
+        kept, missing = tool.focus(files, ["src/a.fs", "src/c.fs"])
+        self.assertEqual(kept, {"src/a.fs": [5, 2]})
+        self.assertEqual(missing, ["src/c.fs: no run of the command loaded it"])
+
+    def test_only_needs_check(self):
+        for args in (["--only", "src/a.fs"], ["--only", "src/a.fs", "--check", "--update-baseline"]):
+            with self.assertRaises(SystemExit):
+                tool.main(args + ["--", "true"])
+
 
 @unittest.skipUnless(HAS_COVERAGE, "needs Gforth 1.0 with coverage.fs")
 class EndToEnd(unittest.TestCase):
@@ -118,6 +134,17 @@ class EndToEnd(unittest.TestCase):
             result = self.run_tool(*options, "--check", "--", *command)
             self.assertEqual(result.returncode, 1, result.stdout)
             self.assertIn("only 1 Gforth runs", result.stdout)
+            # --only: the same run is enough for its file, and a file it never loaded fails.
+            result = self.run_tool(*options, "--check", "--only", "src/lib/outcome.fs", "--", *command)
+            self.assertEqual(result.returncode, 0, result.stdout)
+            self.assertIn("no file of src/lib/outcome.fs has more never-run blocks", result.stdout)
+            result = self.run_tool(*options, "--check", "--only", "src/lib/sort.fs", "--", *command)
+            self.assertEqual(result.returncode, 1, result.stdout)
+            self.assertIn("src/lib/sort.fs: no run of the command loaded it", result.stdout)
+            data["files"]["src/lib/outcome.fs"]["never_run"] = -1
+            baseline.write_text(json.dumps(data))
+            result = self.run_tool(*options, "--check", "--only", "src/lib/outcome.fs", "--", *command)
+            self.assertEqual(result.returncode, 1, result.stdout)
 
 
 if __name__ == "__main__":

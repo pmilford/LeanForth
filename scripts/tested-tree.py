@@ -1,0 +1,546 @@
+#!/usr/bin/env python3
+"""Records of the suites that passed on a tree, and the runner of the change tiers
+(plan 9.4.6; owner, 2026-11-13: never re-run a suite on a tree that already passed it).
+
+Usage (from the repository root):
+  python3 scripts/tested-tree.py once -- make GOAL... [VAR=VALUE...]      (make once)
+  python3 scripts/tested-tree.py record -- make GOAL... [VAR=VALUE...]
+  python3 scripts/tested-tree.py lookup -- make GOAL... [VAR=VALUE...]
+  python3 scripts/tested-tree.py list [--all]
+  python3 scripts/tested-tree.py tier [--base REF] [--full] [--daily] [--lean-cache MODE]
+          [--jobs N] [--nice N] [--make MAKE] [--log-prefix PATH] [--summary FILE]
+          [--no-progress] [--dry-run]                                    (make tier, push.sh)
+
+A record says that a make command exited 0 on the tree `git rev-parse HEAD^{tree}` names,
+with this Gforth (`--version` of GFORTH, else of the Makefile's default), this Lean (of
+LEAN) and this LEAN_CACHE mode. It keeps the commit, branch, date, command and seconds,
+and what the run stands for ("covers"): every target make built for its goals (make -pn);
+for make coverage-check also the coverage ratchet of every file, and make test's targets
+except those of the Makefile's COVERAGE_ENGINE_DIFFERS, whose Gforth changes under
+coverage; for make coverage-focus the ratchet of COVERAGE_FILES and its targets so; for
+make mutants each fault it ran (FAULTS, else all). A goal given any other variable stands
+only for that exact command. Make options other than -s and --no-print-directory (-n,
+-k, -i ...) are refused.
+
+record runs the command and writes a record only when it exited 0 and the tree was the
+same, with nothing uncommitted, before and after the run. A worktree with changes to
+tracked files, or with new files under src/, tests/, scripts/, bin/, schemas/ or docs/
+(which the suites' globs would pick up), is refused before anything runs: the tree would
+not be what was tested. A failed run writes nothing. lookup exits 0 when records with this
+Gforth and Lean and a cache mode at least as strong (0 or verify stand for 1, verify for
+0; for make test's own targets, which run no Lean, any mode) cover all the command stands
+for, and prints them; else 1. Records of HEAD's tree count whole. A record of an earlier
+commit of HEAD's history counts for what the change since that commit cannot reach: the
+change gets scripts/test-tier.py's tier, and the record loses that tier's targets and
+faults (and all coverage, when the tier asks for coverage); a full tier leaves it nothing.
+So a documentation commit after a tested merge needs only make check-docs and the targets
+that read its pages. once is lookup, then record of what is still missing (only the
+targets of make check or the faults that hold it; the whole command when coverage is
+missing). list prints the records of HEAD's tree (--all: every record).
+
+tier runs the suites of scripts/test-tier.py's tier of BASE...HEAD (default main) in
+order, each as once does. --daily: when no full run (make coverage-check, make check-rest or make check
+with LEAN_CACHE=0, and make test on Gforth 0.7.3) is recorded today, on any tree, the
+tier is full with LEAN_CACHE=0 (the owner's daily full run). Then the progress check
+(scripts/check-progress.py BASE) runs, unless --no-progress. --dry-run prints what would
+run or be reused and runs nothing. It prints, and writes to --summary as one line, each
+suite: ran (exit status, seconds, command) or reused (the record's commit and date), and
+the full tier's suites the tier did not need.
+
+Records live in the main checkout's .claude/work/ci/tested/ (one JSON file each), shared
+by every worktree of the clone like the Lean cache and never committed; LF_TESTED_DIR
+names another folder (the tests use a temporary one). LF_TESTED_NOW (YYYY-MM-DD
+HH:MM:SS) fixes the clock for tests; LF_GFORTH073 names Gforth 0.7.3 (default the main
+checkout's .claude/work/A/gforth073.sh). Exit status: the command's (record, once; 0 when
+reused), 0 or 1 (lookup, tier), 2 usage error, 3 refused or not recordable.
+"""
+import argparse
+import datetime
+import hashlib
+import importlib.util
+import json
+import os
+import re
+import shlex
+import subprocess
+import sys
+import tempfile
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("test_tier", os.path.join(HERE, "test-tier.py"))
+test_tier = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(test_tier)
+
+VERSION = 1
+LOCAL_GFORTH = ".tools/gforth/bin/gforth"
+LOCAL_LEAN = ".tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean"
+WATCHED = ("src", "tests", "scripts", "bin", "schemas", "docs")
+NEUTRAL = {"JOBS", "TEST_TIMEOUT", "MUTANTS_TIMEOUT", "GFORTH", "LEAN", "LEAN_CACHE", "LEAN_CACHE_DIR",
+           "FAULTS", "COVERAGE_FILES", "COVERAGE_TARGETS"}
+NARROWING = {"FAULTS", "COVERAGE_FILES", "COVERAGE_TARGETS"}  # a run with them is partial
+MAKE_OPTIONS = {"-s", "--silent", "--no-print-directory"}
+STRONGER = {"1": {"1", "0", "verify"}, "0": {"0", "verify"}, "verify": {"verify"}}
+COVERAGE_ALL = "coverage:all"
+VARIABLE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$", re.DOTALL)
+
+
+class Refused(Exception):
+    """The command cannot be run or recorded as asked (exit status 3)."""
+
+
+class Usage(Exception):
+    """A malformed command (exit status 2)."""
+
+
+def git(*args):
+    result = subprocess.run(["git", *args], capture_output=True, text=True)
+    if result.returncode != 0:
+        raise Refused(f"git {' '.join(args)}: {result.stderr.strip()}")
+    return result.stdout.strip()
+
+
+def checkout():
+    """The main checkout of this clone (where .claude/work lives), from any worktree."""
+    common = git("rev-parse", "--path-format=absolute", "--git-common-dir")
+    return os.path.dirname(common) if common.endswith("/.git") else git("rev-parse", "--show-toplevel")
+
+
+def tested_dir():
+    return os.environ.get("LF_TESTED_DIR") or os.path.join(checkout(), ".claude/work/ci/tested")
+
+
+def gforth073():
+    return os.environ.get("LF_GFORTH073") or os.path.join(checkout(), ".claude/work/A/gforth073.sh")
+
+
+def now():
+    return os.environ.get("LF_TESTED_NOW") or datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def tree():
+    return git("rev-parse", "HEAD^{tree}")
+
+
+def dirty():
+    """Why this worktree is not exactly HEAD's tree, as far as the suites can see."""
+    lines = git("status", "--porcelain", "--untracked-files=no").splitlines()
+    others = git("ls-files", "--others", "--exclude-standard").splitlines()
+    # Untracked files of the watched folders and every root-level file (lean-toolchain, Makefile).
+    lines += ["?? " + p for p in others if "/" not in p or p.split("/")[0] in WATCHED]
+    return [line for line in lines if line.strip()]
+
+
+# --- commands and what they stand for ---------------------------------------------
+
+def parse(argv):
+    """(goals, {variable: value}) of a make command line."""
+    if not argv or os.path.basename(argv[0]) not in ("make", "gmake"):
+        raise Usage("only a make command can be recorded: make GOAL... [VAR=VALUE...]")
+    goals, variables = [], {}
+    for word in argv[1:]:
+        match = VARIABLE.match(word)
+        if word.startswith("-"):
+            if word not in MAKE_OPTIONS:
+                raise Usage(f"make option {word} is refused: it changes what a pass means")
+        elif match:
+            variables[match[1]] = match[2]
+        else:
+            goals.append(word)
+    if not goals:
+        raise Usage("name the goals: make's default goal is not recorded")
+    return goals, variables
+
+
+_versions = {}
+
+
+def version(program):
+    if program not in _versions:
+        try:
+            run = subprocess.run([program, "--version"], stdin=subprocess.DEVNULL, capture_output=True,
+                                 text=True, timeout=120)
+            lines = (run.stdout or run.stderr).strip().splitlines()
+            _versions[program] = lines[0].strip() if run.returncode == 0 and lines else None
+        except (OSError, subprocess.TimeoutExpired):
+            _versions[program] = None
+    return _versions[program]
+
+
+def toolchain(variables):
+    """{"gforth", "lean", "lean_cache"} of a command, as its make run would use them."""
+    gforth = variables.get("GFORTH") or (LOCAL_GFORTH if os.path.exists(LOCAL_GFORTH) else "gforth")
+    lean = variables.get("LEAN") or (LOCAL_LEAN if os.path.exists(LOCAL_LEAN) else "lean")
+    cache = variables.get("LEAN_CACHE") or os.environ.get("LEAN_CACHE") or ("0" if os.environ.get("CI") else "1")
+    found = version(gforth)
+    if found is None:
+        raise Refused(f"cannot read the version of the Gforth {gforth}")
+    return {"gforth": found, "lean": version(lean) or "none", "lean_cache": cache}
+
+
+class Make:
+    """make's database of this tree: what a command's goals build."""
+
+    def __init__(self):
+        self.rules, self.recipes, variables = test_tier.make_database()
+        self.differs = self.built(variables.get("COVERAGE_ENGINE_DIFFERS", "").split())
+        self.of_test = self.built(["test"])
+        self.units = test_tier.units(self.rules)[0]
+        self.reach, self.deltas = None, {}
+
+    def built(self, goals):
+        return test_tier.reach(goals, self.rules) & self.recipes
+
+    def since(self, commit):
+        """(what the change from COMMIT to HEAD reaches, its tier), or (None, tier) when it
+        reaches everything (the full tier) or COMMIT is no ancestor of HEAD. What it reaches:
+        the targets of its tier, its faults, and every coverage item ("coverage") when the
+        tier asks for coverage."""
+        if commit not in self.deltas:
+            ancestor = subprocess.run(["git", "merge-base", "--is-ancestor", commit, "HEAD"],
+                                      capture_output=True).returncode == 0
+            if not ancestor:
+                self.deltas[commit] = (None, "not an ancestor")
+            else:
+                self.reach = self.reach or test_tier.Reach(self.rules)
+                result = test_tier.plan(test_tier.changed_since(commit), commit, reach=self.reach)
+                reached = None
+                if result["tier"] != "full":
+                    reached = self.built(result["targets"]) | {"fault:" + f for f in result["faults"]}
+                    reached |= {"coverage"} if result["coverage"] else set()
+                self.deltas[commit] = (reached, result["tier"])
+        return self.deltas[commit]
+
+    def covers(self, goals, variables):
+        """Everything a pass of make GOALS VARIABLES stands for."""
+        extra = {k: v for k, v in variables.items() if k not in NEUTRAL}
+        if extra:
+            return {f"{g} {json.dumps(extra, sort_keys=True)}" for g in goals}
+        out = set()
+        for goal in goals:
+            if goal == "coverage-check":
+                out |= {goal, COVERAGE_ALL} | (self.of_test - self.differs)
+            elif goal == "coverage-focus":
+                out |= {"coverage:" + f for f in variables.get("COVERAGE_FILES", "").split()}
+                out |= self.built(variables.get("COVERAGE_TARGETS", "").split()) - self.differs
+            elif goal == "mutants":
+                faults = [f for f in variables.get("FAULTS", "").split(",") if f] or all_faults()
+                out |= {"fault:" + f for f in faults}
+            else:
+                out |= self.built([goal]) or {goal}
+        return out
+
+    def lean_free(self, needs):
+        """Whether NEEDS are only make test's targets and coverage, which run no Lean."""
+        return all(n in self.of_test or n.startswith("coverage") for n in needs)
+
+
+def all_faults():
+    return list(test_tier.fault_entries(test_tier.read_worktree(test_tier.FAULTS) or ""))
+
+
+# --- records --------------------------------------------------------------------------
+
+def load_records():
+    folder, records = tested_dir(), []
+    if not os.path.isdir(folder):
+        return records
+    for name in sorted(os.listdir(folder)):
+        if name.endswith(".json"):
+            try:
+                with open(os.path.join(folder, name), encoding="utf-8") as stream:
+                    record = json.load(stream)
+            except (OSError, ValueError):
+                print(f"tested-tree: unreadable record {name}, ignored", file=sys.stderr)
+                continue
+            if isinstance(record, dict) and record.get("version") == VERSION and record.get("exit") == 0:
+                records.append(record)
+    return records
+
+
+def write_record(record):
+    folder = tested_dir()
+    os.makedirs(folder, exist_ok=True)
+    key = json.dumps([record[k] for k in ("suite", "gforth", "lean", "lean_cache", "command")])
+    path = os.path.join(folder, f"{record['tree']}-{hashlib.sha256(key.encode()).hexdigest()[:16]}.json")
+    handle, temporary = tempfile.mkstemp(dir=folder, prefix=".record-")
+    with os.fdopen(handle, "w", encoding="utf-8") as stream:
+        json.dump(record, stream, indent=1, sort_keys=True)
+        stream.write("\n")
+    os.replace(temporary, path)
+    return path
+
+
+MAX_EARLIER_COMMITS = 40   # earlier commits whose records lookup weighs, newest first
+
+
+def matching(records, chain, lean_free):
+    return [r for r in records if r.get("gforth") == chain["gforth"] and r.get("lean") == chain["lean"]
+            and (lean_free or r.get("lean_cache") in STRONGER.get(chain["lean_cache"], {chain["lean_cache"]}))]
+
+
+def usable(record, reached):
+    """What RECORD still stands for after a change that REACHED these items."""
+    covers = set(record.get("covers", ()))
+    if "coverage" in reached:
+        covers = {c for c in covers if not c.startswith("coverage")}
+    return covers - reached
+
+
+def gained(have, needs):
+    """HAVE with each coverage item of NEEDS when it holds the ratchet of every file."""
+    return have | {n for n in needs if n.startswith("coverage:")} if COVERAGE_ALL in have else have
+
+
+def lookup(argv, make=None, records=None):
+    """(missing, [(record, note)] used, toolchain) for a command at HEAD: records of HEAD's
+    tree, then records of earlier commits of HEAD's history for all the change since that
+    commit cannot reach (scripts/test-tier.py's tier of it; none when that tier is full)."""
+    goals, variables = parse(argv)
+    make = make or Make()
+    chain = toolchain(variables)
+    needs = make.covers(goals, variables)
+    pool = matching(load_records() if records is None else records, chain, make.lean_free(needs))
+    here, have, used = tree(), set(), []
+
+    def take(record, covers, note):
+        """Use RECORD (standing for COVERS) when it supplies something still missing."""
+        nonlocal have
+        before, after = needs - gained(have, needs), needs - gained(have | covers, needs)
+        if before - after:
+            have |= covers
+            used.append((record, note))
+
+    for record in (r for r in pool if r.get("tree") == here):
+        take(record, set(record.get("covers", ())), "this tree")
+    earlier = sorted((r for r in pool if r.get("tree") != here), key=lambda r: r.get("date", ""), reverse=True)
+    for commit in list(dict.fromkeys(r["commit"] for r in earlier))[:MAX_EARLIER_COMMITS]:
+        if not needs - gained(have, needs):
+            break
+        reached, tier = make.since(commit)
+        if reached is not None:
+            for record in (r for r in earlier if r["commit"] == commit):
+                take(record, usable(record, reached), f"changes since are tier {tier}")
+    return needs - gained(have, needs), used, chain
+
+
+def shown(argv):
+    return " ".join(shlex.quote(a) for a in argv)
+
+
+def reused_text(used):
+    """The records a lookup used: commit, date, command, and whether they are of this tree."""
+    return ", ".join(f"{r['commit'][:10]} {r['date']} ({r['command']}"
+                     + ("" if note == "this tree" else f"; {note}") + ")" for r, note in used)
+
+
+def narrowed(argv, missing, make):
+    """The command that runs only what MISSING lacks: its faults, or the targets of make check
+    that hold it (variables kept), or ARGV itself when coverage is missing or no such
+    targets hold all of it."""
+    goals, variables = parse(argv)
+    keep = [a for a in argv[1:] if VARIABLE.match(a) and not a.startswith(("FAULTS=", "COVERAGE_"))]
+    if any(m.startswith("coverage") for m in missing):
+        return argv
+    faults = sorted(m[len("fault:"):] for m in missing if m.startswith("fault:"))
+    if goals == ["mutants"] and len(faults) == len(missing):
+        return [argv[0], "mutants", "FAULTS=" + ",".join(faults), *keep]
+    picked = [u for u in make.units if make.built([u]) & missing]
+    if faults or not picked or missing - set().union(*(make.built([u]) for u in picked)):
+        return argv
+    return [argv[0], *picked, *keep]
+
+
+# What an enclosing make (make once, make tier) passes down; the command's own make sets
+# them again from its command line, so the run is the one its record describes.
+INHERITED = ("MAKEFLAGS", "MAKELEVEL", "MFLAGS", "MAKEOVERRIDES", "GFORTH", "LEANEXPORT", "LEANFORTH_LEAN",
+             "LEANFORTH_LEAN_CACHE", "LEANFORTH_LEAN_CACHE_DIR")
+
+
+def make_env():
+    return {k: v for k, v in os.environ.items() if k not in INHERITED}
+
+
+def record(argv, log=None, nice=None, make=None):
+    """Run ARGV; on exit 0 with the tree unchanged, write its record. Returns the status."""
+    goals, variables = parse(argv)
+    problems = dirty()
+    if problems:
+        raise Refused("the worktree differs from HEAD's tree (commit first, or run make itself): "
+                      + "; ".join(problems[:5]))
+    chain = toolchain(variables)
+    covers = sorted((make or Make()).covers(goals, variables))
+    before, commit = tree(), git("rev-parse", "HEAD")
+    branch = git("rev-parse", "--abbrev-ref", "HEAD")
+    started, date = time.monotonic(), now()
+    command = ["nice", "-n", str(nice), *argv] if nice is not None else argv
+    print(f"tested-tree: running {shown(argv)}", flush=True)
+    if log:
+        with open(log, "w", encoding="utf-8") as stream:
+            status = subprocess.run(command, env=make_env(), stdin=subprocess.DEVNULL, stdout=stream,
+                                    stderr=subprocess.STDOUT).returncode
+    else:
+        status = subprocess.run(command, env=make_env(), stdin=subprocess.DEVNULL).returncode
+    seconds = round(time.monotonic() - started, 1)
+    if status != 0:
+        print(f"tested-tree: {shown(argv)} exited {status} after {seconds:.0f} s; nothing recorded")
+        return status
+    if tree() != before or dirty():
+        raise Refused("the tree changed during the run; nothing recorded")
+    entry = {"version": VERSION, "tree": before, "suite": " ".join(goals), "variables": variables,
+             "gforth": chain["gforth"], "lean": chain["lean"], "lean_cache": chain["lean_cache"],
+             "commit": commit, "branch": branch, "exit": 0, "date": date, "seconds": seconds,
+             "command": shown(argv), "covers": covers}
+    write_record(entry)
+    print(f"tested-tree: passed in {seconds:.0f} s; recorded for tree {before[:12]} (commit {commit[:10]})")
+    return 0
+
+
+def once(argv, log=None, nice=None):
+    make = Make()
+    missing, used, _ = lookup(argv, make)
+    if not missing and not dirty():
+        print(f"tested-tree: {shown(argv)} already passed: {reused_text(used)}")
+        return 0
+    if used:
+        print(f"tested-tree: reused {reused_text(used)}; running the rest")
+        argv = narrowed(argv, missing, make)
+    return record(argv, log, nice, make)
+
+
+# --- the tier runner -------------------------------------------------------------------
+
+def daily_missing(records, day):
+    """The full run's suites not recorded today on any tree, with today's toolchain."""
+    chain = toolchain({})
+    try:
+        chain073 = toolchain({"GFORTH": gforth073()})
+    except Refused:
+        chain073 = {"gforth": None}
+    # A calendar day is the local date (the clock's midnight ends it, whatever ran just before).
+    # A run with a variable that changes what it tests (FAULTS=, COVERAGE_FILES=, ...) never counts.
+    todays = [r for r in records if str(r.get("date", "")).startswith(day) and r.get("lean") == chain["lean"]
+              and all(k in NEUTRAL - NARROWING for k in (r.get("variables") or {}))]
+    need = {
+        "make coverage-check": lambda r: r["suite"] == "coverage-check" and r["gforth"] == chain["gforth"],
+        "make check-rest with LEAN_CACHE=0": lambda r: r["suite"] in ("check-rest", "check")
+        and r["gforth"] == chain["gforth"] and r["lean_cache"] in ("0", "verify"),
+        "make test on Gforth 0.7.3": lambda r: r["suite"] == "test" and r["gforth"] == chain073["gforth"],
+    }
+    return [name for name, ok in need.items() if not any(ok(r) for r in todays)]
+
+
+def suite_argv(suite, make_program, jobs, cache):
+    argv = [make_program, *suite["goals"], *(f"{k}={v}" for k, v in suite.get("vars", {}).items()),
+            f"JOBS={jobs}", f"LEAN_CACHE={cache}"]
+    return argv + ([f"GFORTH={gforth073()}"] if suite.get("gforth073") else [])
+
+
+def run_tier(args):
+    os.chdir(git("rev-parse", "--show-toplevel"))
+    problems = dirty()
+    if problems and not args.dry_run:
+        raise Refused("the worktree differs from HEAD's tree: " + "; ".join(problems[:5]))
+    merge_base, changed = test_tier.changed_files(args.base)
+    result = test_tier.plan(changed, merge_base, args.full)
+    cache, notes = args.lean_cache, []
+    if args.daily:
+        missing = daily_missing(load_records(), now()[:10])
+        if missing:
+            result = test_tier.plan(changed, merge_base, True)
+            cache = "0"
+            notes.append(f"daily full run: none recorded today ({now()[:10]}) of {', '.join(missing)}; "
+                         "the full tier runs with LEAN_CACHE=0")
+    print(test_tier.describe(result))
+    for note in notes:
+        print(note)
+    make, lines, status, tree_hash = Make(), [], 0, tree()
+    for suite in result["suites"]:
+        argv = suite_argv(suite, args.make, args.jobs, cache)
+        label = suite["label"]
+        try:
+            missing, used, _ = lookup(argv, make)
+            if not missing:
+                lines.append(f"{label} reused: {reused_text(used)}")
+                continue
+            argv = narrowed(argv, missing, make) if used else argv
+            rest = f"; the rest reused: {reused_text(used)}" if used else ""
+            if args.dry_run:
+                lines.append(f"{label} would run: {shown(argv)}{rest}")
+                continue
+            started = time.monotonic()
+            log = f"{args.log_prefix}{label}.log" if args.log_prefix else None
+            code = record(argv, log, args.nice, make)
+            lines.append(f"{label} ran: exit {code}, {time.monotonic() - started:.0f} s: {shown(argv)}{rest}")
+        except Refused as error:
+            code = 3
+            lines.append(f"{label} refused: {error}")
+        status = status or (1 if code else 0)
+    labels = {s["label"] for s in result["suites"]}
+    skipped = [s["label"] for s in test_tier.FULL_SUITES if s["label"] not in labels]
+    if skipped and result["tier"] != "full":
+        lines.append(f"not run (tier {result['tier']} does not reach them): {', '.join(skipped)}")
+    if not args.no_progress:
+        code = subprocess.run([sys.executable, os.path.join(HERE, "check-progress.py"), args.base]).returncode
+        lines.append(f"progress check exit {code}")
+        status = status or (1 if code else 0)
+    head = f"tier {result['tier']} of {args.base}...HEAD (tree {tree_hash[:12]})" + "".join(f"; {n}" for n in notes)
+    print(head)
+    for line in lines:
+        print("  " + line)
+    if args.summary:
+        with open(args.summary, "w", encoding="utf-8") as stream:
+            stream.write("; ".join([head] + lines) + "\n")
+    return status
+
+
+def list_records(show_all):
+    here = None if show_all else tree()
+    for r in load_records():
+        if here is None or r.get("tree") == here:
+            print(f"{r['date']} {r['tree'][:12]} {r['commit'][:10]} {r['suite']} | {r['gforth']} | "
+                  f"LEAN_CACHE={r['lean_cache']} | {r['seconds']:.0f} s | {r['command']}")
+    return 0
+
+
+def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    command = argv[argv.index("--") + 1:] if "--" in argv else []
+    options = argv[:argv.index("--")] if "--" in argv else argv
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("action", choices=("once", "record", "lookup", "list", "tier"))
+    parser.add_argument("--all", action="store_true")
+    parser.add_argument("--base", default="main")
+    parser.add_argument("--full", action="store_true")
+    parser.add_argument("--daily", action="store_true")
+    parser.add_argument("--lean-cache", default="1", choices=sorted(STRONGER))
+    parser.add_argument("--jobs", default="8")
+    parser.add_argument("--nice", type=int)
+    parser.add_argument("--make", default="make")
+    parser.add_argument("--log-prefix")
+    parser.add_argument("--summary")
+    parser.add_argument("--no-progress", action="store_true")
+    parser.add_argument("--dry-run", action="store_true")
+    args = parser.parse_args(options)
+    try:
+        if args.action == "list":
+            return list_records(args.all)
+        if args.action == "tier":
+            return run_tier(args)
+        os.chdir(git("rev-parse", "--show-toplevel"))
+        if args.action == "lookup":
+            missing, used, _ = lookup(command)
+            print(f"tested-tree: covered by {reused_text(used)}" if not missing
+                  else f"tested-tree: not covered on this tree: {' '.join(sorted(missing)[:8])}")
+            return 0 if not missing else 1
+        return (once if args.action == "once" else record)(command)
+    except Usage as error:
+        print(f"tested-tree: {error}", file=sys.stderr)
+        return 2
+    except Refused as error:
+        print(f"tested-tree: refused: {error}", file=sys.stderr)
+        return 3
+
+
+if __name__ == "__main__":
+    sys.exit(main())
