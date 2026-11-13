@@ -303,7 +303,8 @@ end-structure
 : me-kinds-copy ( first n -- )
   me-kinds slab-clear dup me-kinds slab-claim ok-then? 0= if drop 2drop exit then
   drop swap me-tkinds slab-at 0 me-kinds slab-at rot cells move ;
-: me-text-kinds ( d -- ) me-text dup mtx-kinds @ swap mtx-kinds# @ me-kinds-copy ;
+: me-kinds-span ( mtx -- first n ) dup mtx-kinds @ swap mtx-kinds# @ ;
+: me-text-kinds ( d -- ) me-text me-kinds-span me-kinds-copy ;
 ' me-fed-kinds ' me-lib-kinds ' me-text-kinds me-table me-binders
 : lf-menv-kinds ( d -- addr n ) me-binders me-ask me-kinds-out ;
 

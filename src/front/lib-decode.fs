@@ -184,6 +184,9 @@ end-structure
 : lbd-go ( root walk -- image outcome ) lbd-start tuck dw-go rot lbd-clean ;
 : lbd-walk ( root walk -- image outcome )
   2dup dw-done? if dw-image outcome-ok else lbd-go then ;
+\ A walk over the n nodes of its family, its tables made at the first.
+: lbd-kept ( root n walk -- image outcome )
+  tuck lbd-tables ok-then? if lbd-walk else nip no-result then ;
 
 \ ---- Levels: zero is the store's 0, a parameter its run name's.
 : lbd-lwalk@ ( -- walk ) lbd lbd-lwalk ;
@@ -191,8 +194,7 @@ end-structure
 : lbd-la ( l -- l' ) lbd-tier level-a@ ;
 : lbd-lb ( l -- l' ) lbd-tier level-b@ ;
 : lbd-a? ( l walk -- child true | false ) swap lbd-la swap dw-want ;
-: lbd-b? ( l walk -- child true | false ) swap lbd-lb swap dw-want ;
-: lbd-ab? ( l walk -- child true | false ) 2dup lbd-a? if nip nip true else lbd-b? then ;
+: lbd-ab? ( l walk -- child true | false ) >r dup lbd-la swap lbd-lb r> dw-want2 ;
 : lbd-max-tag? ( tag -- flag ) dup tag-level-max = swap tag-level-imax = or ;
 : lbd-l-pending ( l walk -- child true | false )
   over lbd-ltag dup tag-level-succ = if drop lbd-a? exit then
@@ -212,8 +214,7 @@ end-structure
     tag-level-param of lbd-param endof  nip outcome-invalid no-result rot endcase ;
 : lbd-l-build ( l walk -- index ) >r lbd-l-make r> lbd-refuse ;
 : lbd-levels# ( -- n ) lbd-tier tier-levels cons-numbers ;
-: lbd-level ( l -- index outcome )
-  lbd-levels# lbd-lwalk@ lbd-tables ok-then? if lbd-lwalk@ lbd-walk else no-result then ;
+: lbd-level ( l -- index outcome ) lbd-levels# lbd-lwalk@ lbd-kept ;
 
 \ ---- Expressions: children first (an application's and a binder's two,
 \ a letE's type, value and body, a projection's structure).
@@ -222,13 +223,10 @@ end-structure
 : lbd-ea ( e -- e' ) lbd-tier expr-a@ ;
 : lbd-eb ( e -- e' ) lbd-tier expr-b@ ;
 : lbd-ebody ( e -- e' ) lbd-tier expr-body@ ;
-: lbd-x? ( e walk xt -- child true | false ) rot swap execute swap dw-want ;
-: lbd-xa? ( e walk -- child true | false ) ['] lbd-ea lbd-x? ;
-: lbd-xb? ( e walk -- child true | false ) ['] lbd-eb lbd-x? ;
-: lbd-xab? ( e walk -- child true | false ) 2dup lbd-xa? if nip nip true else lbd-xb? then
-  ;
+: lbd-xa? ( e walk -- child true | false ) swap lbd-ea swap dw-want ;
+: lbd-xab? ( e walk -- child true | false ) >r dup lbd-ea swap lbd-eb r> dw-want2 ;
 : lbd-xabc? ( e walk -- child true | false )
-  2dup lbd-xab? if nip nip true else ['] lbd-ebody lbd-x? then ;
+  2dup lbd-xab? if nip nip true else swap lbd-ebody swap dw-want then ;
 : lbd-pair-tag? ( tag -- flag ) dup tag-app = swap binder-tag? or ;
 : lbd-x-pending ( e walk -- child true | false )
   over lbd-tag dup lbd-pair-tag? if drop lbd-xab? exit then
@@ -292,8 +290,7 @@ end-structure
   dup let-tag? if lbd-let exit then lbd-plain ;
 : lbd-x-build ( e walk -- term ) >r lbd-x-make r> lbd-refuse ;
 : lbd-exprs# ( -- n ) lbd-tier tier-exprs cons-numbers ;
-: lbd-term ( e -- term outcome )
-  lbd-exprs# lbd-xwalk@ lbd-tables ok-then? if lbd-xwalk@ lbd-walk else no-result then ;
+: lbd-term ( e -- term outcome ) lbd-exprs# lbd-xwalk@ lbd-kept ;
 :noname ( -- )
   ['] lbd-l-pending lbd-lwalk@ dw-pending ! ['] lbd-l-build lbd-lwalk@ dw-build !
   ['] lbd-x-pending lbd-xwalk@ dw-pending ! ['] lbd-x-build lbd-xwalk@ dw-build ! ;
@@ -365,7 +362,8 @@ kind-recursor kind-axiom - 1+ lbd-kinds# <>
 \ names: a type [params indices nested flags] all ctors; a constructor
 \ [induct cidx params fields]; a recursor [params indices motives minors k]
 \ all rules (count, then constructor, fields and right side of each). One
-\ step ( r -- outcome ) per item, chained with ok-with.
+\ step ( r -- outcome ) per item, the first run, the rest chained with
+\ ok-with.
 : lbd-d, ( x -- outcome ) lbd-data lbd-push ;
 : lbd-item ( r k -- u ) swap lbd-d lbd-stage@ staged-item ;
 : lbd-n, ( r k -- outcome ) lbd-item lbd-d, ;
@@ -396,14 +394,14 @@ kind-recursor kind-axiom - 1+ lbd-kinds# <>
 : lbd-t-all ( r -- outcome ) more-type-all lbd-names, ;
 : lbd-t-ctors ( r -- outcome ) more-type-ctors lbd-names, ;
 : lbd-type-data ( r -- outcome )
-  outcome-ok ['] lbd-t-params ok-with ['] lbd-t-indices ok-with ['] lbd-t-nested ok-with
+  dup lbd-t-params ['] lbd-t-indices ok-with ['] lbd-t-nested ok-with
   ['] lbd-t-flags ok-with ['] lbd-t-all ok-with ['] lbd-t-ctors ok-with nip ;
 : lbd-c-induct ( r -- outcome ) more-ctor-induct lbd-item lbd-name, ;
 : lbd-c-cidx ( r -- outcome ) more-ctor-cidx lbd-n, ;
 : lbd-c-params ( r -- outcome ) more-ctor-params lbd-n, ;
 : lbd-c-fields ( r -- outcome ) more-ctor-fields lbd-n, ;
 : lbd-ctor-data ( r -- outcome )
-  outcome-ok ['] lbd-c-induct ok-with ['] lbd-c-cidx ok-with ['] lbd-c-params ok-with
+  dup lbd-c-induct ['] lbd-c-cidx ok-with ['] lbd-c-params ok-with
   ['] lbd-c-fields ok-with nip ;
 : lbd-r-params ( r -- outcome ) more-rec-params lbd-n, ;
 : lbd-r-indices ( r -- outcome ) more-rec-indices lbd-n, ;
@@ -413,7 +411,7 @@ kind-recursor kind-axiom - 1+ lbd-kinds# <>
 : lbd-r-all ( r -- outcome ) more-rec-all lbd-names, ;
 : lbd-r-rules ( r -- outcome ) more-rec-rules lbd-item lbd-rules ;
 : lbd-rec-data ( r -- outcome )
-  outcome-ok ['] lbd-r-params ok-with ['] lbd-r-indices ok-with ['] lbd-r-motives ok-with
+  dup lbd-r-params ['] lbd-r-indices ok-with ['] lbd-r-motives ok-with
   ['] lbd-r-minors ok-with ['] lbd-r-k ok-with ['] lbd-r-all ok-with
   ['] lbd-r-rules ok-with nip ;
 : lbd-kind-data ( r kind -- outcome )

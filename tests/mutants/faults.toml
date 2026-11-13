@@ -15877,6 +15877,30 @@ test = "$GFORTH tests/front/menv-run.fs"
 reason = "review s1-meta-b B3: a walk never descends, so a node is made from children never made"
 
 [[fault]]
+id = "fe-dw-want2-second"
+file = "src/front/dag-walk.fs"
+old = '''  rot over dw-want if nip nip true else dw-want then ;'''
+new = '''  rot drop dw-want ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "review s1-meta-b B3: a max's first side never walked, so level normalization reads an image never made"
+
+[[fault]]
+id = "fe-dw-want2-second-decode"
+file = "src/front/dag-walk.fs"
+old = '''  rot over dw-want if nip nip true else dw-want then ;'''
+new = '''  rot drop dw-want ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b B3: an application's function never decoded before the application"
+
+[[fault]]
+id = "fe-libdec-kept-walk"
+file = "src/front/lib-decode.fs"
+old = '''  tuck lbd-tables ok-then? if lbd-walk else nip no-result then ;'''
+new = '''  tuck lbd-tables ok-then? if 2drop 0 outcome-ok else nip no-result then ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b: a decoded expression or level is never walked (every term the same)"
+
+[[fault]]
 id = "fe-declevel-assign-kept"
 file = "src/front/infer.fs"
 old = '''  rot swap lf-level-mvar-assign dup ok? 0= if nip no-result then ;'''

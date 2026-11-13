@@ -11,8 +11,8 @@
 \ A walk is a record (/dw) of its two words, its size and its tables:
 \   pending ( node walk -- child true | false )  the first child whose
 \     image is not made yet (dw-done? tells; dw-want ( child walk -- child
-\     true | false ) gives the child when it is one), nodes below the size
-\     only;
+\     true | false ) gives the child when it is one, dw-want2 ( a b walk --
+\     child true | false ) the first of two), nodes below the size only;
 \   build ( node walk -- image )  the image, from the children's (dw-image);
 \     it may end the walk with dw-refuse ( outcome walk -- ).
 \ dw-run ( root walk -- image outcome ) runs a walk; the memo and the stack
@@ -57,6 +57,9 @@ end-structure
 \ is not made yet, else false.
 : dw-want ( child walk -- child true | false )
   2dup dw-done? if 2drop false else drop true then ;
+\ The same for two children, the first one first.
+: dw-want2 ( a b walk -- child true | false )
+  rot over dw-want if nip nip true else dw-want then ;
 \ Never met: neither under way nor made; a node beyond the memo counts as
 \ new, so pushing it ends the walk invalid.
 : dw-new? ( node walk -- flag ) 2dup dw-in? if dw-state 0= else 2drop true then ;

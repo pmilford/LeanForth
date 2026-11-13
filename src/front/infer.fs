@@ -261,8 +261,7 @@ end-structure
   lf-level-tag@ dup lf-level-tag-max = swap lf-level-tag-imax = or ;
 : idl-pending ( l walk -- child true | false )
   over idl-max? 0= if 2drop false exit then
-  over lf-level-first@ over dw-want if nip nip true else swap lf-level-second@ swap
-    dw-want then ;
+  >r dup lf-level-first@ swap lf-level-second@ r> dw-want2 ;
 : idl-img ( l -- image ) idl-walk@ dw-image ;
 : idl-both ( l -- a b ) dup lf-level-first@ idl-img swap lf-level-second@ idl-img ;
 : idl-max ( l walk -- image )
