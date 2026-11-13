@@ -149,8 +149,8 @@ FAULTS = [
       (GROUPS, "  2dup lfa-number-like? 0= lfa-e-bad-name lfa-must\n", ""),
       (DECLS, "0<> -rot lfa-number-like? 0= and ;", "0<> nip nip ;")]),
     ("4: numbers not checked before a word or at the end of a line", "any",
-     [(GROUPS, "  lfa-unread-to lfa-stray dup 0= if 2drop exit then\n"
-               "  2dup lfa-token! lfa-stray-code lfa-fail ;", "  drop ;")]),
+     [(GROUPS, "  lfa-unread-to 2dup lfa-stray nip 0= if lfa-numerals-read exit then\n"
+               "  lfa-stray 2dup lfa-token! lfa-stray-code lfa-fail ;", "  drop ;")]),
     ("4: Gforth 1.0's recognizers left as they are", "any",
      [("src/author/runner.fs", "['] lfa-recognize is rec-forth ;", ";")]),
     ("5: an unclosed ( comment", "any",
