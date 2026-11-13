@@ -728,6 +728,11 @@ T{ s\" def d 0 Type := Lib.c note\" ( Zzz.u end d" lib-fails -> 37 1 23 }T
 T{ s" def d 0 Type := Lib.c ( Zzz.v end d" lib-fails -> 42 1 23 }T
 T{ s\" def d 0 Type := Prop ai-note\" a \\ b\" Lib.m $ end d" with-lib -> outcome-ok }T
 
+\ In natural form, with no front end loaded (src/front/), a name is not
+\ supported yet (error 70).
+T{ ' lib-finder lf-author-library! lf-author-begin s" def d Lib.c" lf-author-text drop err
+   0 lf-author-library! -> 70 1 7 }T
+
 \ The dictionary reserve (p05): with fewer than lfa-dictionary-reserve
 \ address units unused, no group word is made (error 66, full), while
 \ names that have one still work. Last in this file: the space taken here

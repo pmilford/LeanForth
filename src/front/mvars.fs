@@ -4,7 +4,9 @@
 \ sees, a type and, once known, an assignment; a level metavariable has a
 \ depth and an assignment. Both are leaves of the term and level stores
 \ (core/mvar-leaves.fs), the leaf's number being its record here and its
-\ epoch this context's, so the leaf is the metavariable's handle.
+\ epoch this context's, so the leaf is the metavariable's handle. Like
+\ every term index, a leaf means nothing after the term store is emptied:
+\ lf-mctx-reset goes with every reset of the stores (a new declaration).
 \ - Kinds, as Lean's MetavarKind: natural (unification may assign it),
 \   synthetic (instances and postponed terms; their own procedure assigns
 \   them) and synthetic opaque (goals; only tactics assign them).

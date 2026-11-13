@@ -15,7 +15,9 @@
 \     it may end the walk with dw-refuse ( outcome walk -- ).
 \ dw-run ( root walk -- image outcome ) runs a walk; the memo and the stack
 \ are heap blocks made when it starts and freed before it returns, so a
-\ walk keeps no address between runs. Untrusted front-end code.
+\ walk keeps no address between runs. A record runs one walk at a time: a
+\ walk whose build needs another walk uses another record (mvars.fs walks
+\ levels inside a term walk). Untrusted front-end code.
 \ No state of its own: every word takes the walk record.
 
 require ../lib/lib.fs

@@ -118,6 +118,21 @@ T{ s" theorem t 1 2 Nat.add explicit: x x := x end t" nfails -> 73 1 35 }T
 T{ lf-author-code lf-author-outcome -> outcome-unsupported }T
 \ So is a type written with an operator: its head needs elaboration.
 T{ s" theorem t 0 0 = explicit: h h := h end t" nfails -> 73 1 29 }T
+\ The other binder words, a variable as a type (no arguments), and
+\ namespaces in natural form.
+T{ s" theorem t Nat implicit: a Nat strict-implicit: b Nat instance: c a b = := a end t"
+   nfails -> 71 1 77 }T
+T{ s" theorem t Nat explicit: n n explicit: x x x = := x end t" nfails -> 71 1 52 }T
+T{ s" namespace N theorem t Nat explicit: n n n = := n end t end N" nfails -> 71 1 50 }T
+T{ s" namespace N end N" nrun -> outcome-ok }T
+\ A constant of the text itself (only kernel-form text makes one) has no
+\ argument count the reader knows; nor has a library constant the
+\ library cannot describe.
+T{ s" kernel-form axiom ax Prop end ax" nrun 0 lfn-library -> outcome-ok -1 true }T
+: no-arity ( name -- false ) drop false ;
+' no-arity is lfn-library-arity
+T{ s" theorem t Nat explicit: n n n = := n end t" nfails -> 73 1 11 }T
+' lfc-arity is lfn-library-arity
 \ Values outside a declaration: the text ends with values left.
 T{ s" Nat" nfails drop drop -> 33 }T
 T{ s" 1 2 +" nfails -> 4 1 5 }T
@@ -129,6 +144,10 @@ T{ base @ get-current s" theorem t Nat explicit: n n := n end t" nrun drop
 \ (68) at the word that needed a fourth; nothing is left on the stack.
 T{ syn-reset 3 syn-store store-limit! -> outcome-ok }T
 T{ s" theorem t Nat explicit: n 0 n + n = := n end t" nfails -> 68 1 31 }T
+\ And with room for an application but not its argument (Nat, n, n,
+\ Eq.refl, the application: five nodes).
+T{ 5 syn-store store-limit! -> outcome-ok }T
+T{ s" theorem t Nat explicit: n n := n Eq.refl end t" nfails -> 68 1 34 }T
 T{ lf-author-code lf-author-outcome -> outcome-full }T
 T{ syn-limit syn-store store-limit! -> outcome-ok }T
 

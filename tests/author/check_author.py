@@ -898,7 +898,8 @@ def check_text_cases():
             raise Failure(f"--env with an export: exit {run.returncode}")
         check_snapshot_cases(pathlib.Path(work))
     print(f"leanforth check FILE.lf: {len(cli_cases()) + 5} cases of every outcome and misuse, "
-          "a snapshot as the library among them")
+          f"a snapshot as the library among them; {len(natural_cases())} natural-form cases "
+          "stopped, never checked")
 
 
 def check_snapshot_cases(work):
