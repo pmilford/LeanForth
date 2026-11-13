@@ -65,9 +65,41 @@ s" iota.bool-true" ' slots outcome-ok cs-probe-gives
 \ statement (the record's is not read).
 : lift ( -- const ) cs-type 4 0 ?do lf-term-second@ loop lf-term-first@ lf-term-second@
   lf-whnf-head ;
+\ Statement letters both ways (review FRI B5): every letter Lean's
+\ statements do not use built (lf-stmt-build) into the node it names, and
+\ matched (lf-stmt-match) by its own letter only; a token of the wrong
+\ length or case, a bare #, or a letter of no node leaves the build full.
+0 0 lf-stmt: st-letters  s" T.letters" lf-text,
+  lf-statement: L S m z s z S i z z end-statement
+0 0 lf-stmt: st-pp  s" T.pp" lf-text,  lf-statement: PP end-statement
+0 0 lf-stmt: st-lower  s" T.lower" lf-text,  lf-statement: l end-statement
+0 0 lf-stmt: st-hash  s" T.hash" lf-text,  lf-statement: # end-statement
+0 0 lf-stmt: st-q  s" T.q" lf-text,  lf-statement: Q end-statement
+0 0 lf-stmt: st-zz  s" T.zz" lf-text,  lf-statement: zz end-statement
+0 0 lf-stmt: st-zs  s" T.zs" lf-text,  lf-statement: zS end-statement
+: built ( entry -- root|-1 outcome ) cs-plenty lf-stmt-fuel ! 0 lf-stmt-build ;
+: st-level ( node -- level ) lf-term-first@ ;
+: letter-tags ( root -- tag domain-tag body-tag succ-tag )
+  dup lf-term-tag@ over lf-term-first@ st-level dup >r lf-level-tag@
+  rot lf-term-second@ st-level lf-level-tag@ r> lf-level-second@ lf-level-tag@ ;
+: st-match ( root c-addr u -- flag ) cs-plenty lf-stmt-fuel ! 0 -rot lf-stmt-match drop ;
+: letters ( -- )
+  T{ st-letters built nip -> outcome-ok }T
+  T{ st-letters built drop letter-tags
+    -> lf-tag-lam lf-level-tag-max lf-level-tag-imax lf-level-tag-succ }T
+  T{ st-letters built drop s" L S m z s z S i z z" st-match -> true }T
+  T{ st-letters built drop s" P S m z s z S i z z" st-match -> false }T
+  T{ st-letters built drop s" L S i z s z S i z z" st-match -> false }T
+  T{ st-letters built drop s" L S m z s z S m z z" st-match -> false }T
+  T{ st-letters built drop s" L S m z z z S i z z" st-match -> false }T
+  T{ st-letters built drop s" L S m s s z S i z z" st-match -> false }T
+  T{ st-letters built drop s" L S m z s z A i z z" st-match -> false }T
+  T{ st-pp built st-lower built st-hash built -> -1 outcome-full -1 outcome-full -1 outcome-full }T
+  T{ st-q built st-zz built st-zs built -> -1 outcome-full -1 outcome-full -1 outcome-full }T ;
 : quotients ( -- )
   T{ lift cs-plenty signature nip lift cs-plenty aside nip -> outcome-ok outcome-ok }T
   T{ lift 1 miscounted lift 3 miscounted -> outcome-rejected outcome-rejected }T
-  T{ lift swept? -> true }T ;
+  T{ lift swept? -> true }T
+  letters ;
 s" quot.lift-on-mk" ' quotients outcome-ok cs-probe-gives
 bye

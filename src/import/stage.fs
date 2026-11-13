@@ -217,10 +217,10 @@ create pinned-meta
 \ outcome that is not ok.
 : input-exprs ( stage -- n ) stage-tier tier-exprs cons-numbers ;
 : exprs-walk ( stage xt -- outcome )
-  over input-exprs 0 begin 2dup > while
-    dup 4 pick 4 pick execute dup ok? 0= if nip nip nip nip exit then drop
-    3 pick stage-tier expr-next
-  repeat 2drop 2drop outcome-ok ;
+  over input-exprs 0 ?do
+    i 2 pick 2 pick execute dup ok? 0= if nip nip unloop exit then drop
+    i 2 pick stage-tier expr-next i -
+  +loop 2drop outcome-ok ;
 
 \ Constants. What a constant of name n resolves to: its declaration + 1,
 \ or 0 when several declarations have the name; false when none has.

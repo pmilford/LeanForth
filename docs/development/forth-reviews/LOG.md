@@ -30,6 +30,8 @@ findings neither fixed nor turned into plan tasks. A row that raises the style b
 | 2026-11-12 | `16445ef..b7cff58` | fe1 follow-up: L1-L4, S1-S6 | forth-reviewer (Opus), re-check | [report](2026-11-12-fe1ab.md), last section | 0 blocking | three coverage rows tightened at the merge |
 | 2026-11-12 | `62ae0e8..571e3b3` | fe1d: FE1d elaboration-data exporter and reader | forth-reviewer (Opus), style and gates [import][parser] | [report](2026-11-12-fe1d.md) | 0 blocking; M1 (for FE1e), L1-L4, I1-I4 | fixed in 571e3b3..0cf4d25; M1's class check in plan row FE1e |
 | 2026-11-12 | `571e3b3..0cf4d25` | fe1d follow-up: M1 docs, L1-L4, I1, I3 | forth-reviewer (Opus), re-check | [report](2026-11-12-fe1d.md), last section | 0 blocking | FE1e: instance-class check |
+| 2026-11-12 | `62ae0e8..13e9a5c` | refactor-fri: FRI batches B1-B8 (import, core, lib) | forth-reviewer (Opus), style and behaviour | [report](2026-11-12-refactor-fri.md) | 0 blocking; 4 low, 4 info | fixed in 13e9a5c..c92bcfe |
+| 2026-11-12 | `13e9a5c..c92bcfe` | refactor-fri follow-up: L1-L4, I2, I3 (incl. src/kernel/env-schedule.fs lf-sch-and → outcome-and, owner-approved) | forth-reviewer (Opus), re-check | [report](2026-11-12-refactor-fri.md), last section | 0 blocking | s6c-memo-no-identity listed as a gap; B2, B6, B7 remainders in the FRI backlog |
 
 ## Backlog
 
