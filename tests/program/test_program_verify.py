@@ -211,7 +211,8 @@ class Discharged(unittest.TestCase):
             evidence = [e["path"] for e in receipt["check"]["evidence"]]
             self.assertEqual(evidence, [rel(Path(out) / "obligations.lean"),
                                         "scripts/program_vc.py", "scripts/export.sh",
-                                        rel(Path(out) / "lf-clamp.ndjson.manifest.json")])
+                                        rel(Path(out) / "lf-clamp.ndjson.manifest.json"),
+                                        rel(Path(out) / "lf-clamp.evidence.json")])
             for item in receipt["check"]["evidence"]:
                 self.assertEqual(item["sha256"], program_verify.file_sha(item["path"]))
             self.assertEqual(receipt["program"]["source"],
@@ -369,14 +370,22 @@ class Lean(unittest.TestCase):
         with scratch() as out:
             status, text = verify("lf-clamp", out, extra=["--detail"])
             self.assertEqual(status, 0, text)
-            self.assertIn("post, as Lean printed it in this run (the statement proved):\n"
+            self.assertIn("post, as Lean printed it in this run:\n"
                           "  def ProgramVC.LfClamp0.post : Cells → List Int → Prop :=", text)
+            self.assertIn("the theorem, as Lean printed it in this run:\n"
+                          "  ProgramVC.LfClamp0.contract (c : Cells) (pre1 : True)", text)
             evidence = json.loads((Path(out) / "lf-clamp.evidence.json").read_text())
-            post = evidence["lean"]["post"]
-            self.assertTrue(post.startswith("def ProgramVC.LfClamp0.post"))
-            self.assertEqual(evidence["lean"]["postSha256"],
-                             program_verify.digest(post.encode("utf-8")))
-            self.assertIn("#print ProgramVC.LfClamp0.post",
+            for key, start in (("post", "def ProgramVC.LfClamp0.post"),
+                               ("statement", "ProgramVC.LfClamp0.contract")):
+                self.assertTrue(evidence["lean"][key].startswith(start))
+                self.assertEqual(evidence["lean"][f"{key}Sha256"],
+                                 program_verify.digest(evidence["lean"][key].encode("utf-8")))
+            lean = (Path(out) / "obligations.lean").read_text()
+            self.assertIn("#print ProgramVC.LfClamp0.post", lean)
+            self.assertIn("#check ProgramVC.LfClamp0.contract", lean)
+        with scratch() as out:
+            verify("wrong-clamp-swapped", out)
+            self.assertIn("#check ProgramVC.LfClampWrongSwapped.refuted",
                           (Path(out) / "obligations.lean").read_text())
         with scratch() as out:
             status, text = verify("lf-clamp", out, {"lean": "no-post"})
@@ -390,17 +399,21 @@ class Lean(unittest.TestCase):
             status, text = verify("lf-clamp", out, env={program_verify.TEST_TOOLS: "0"})
             self.assertEqual((status, problem_codes(text)), (4, ["lean-not-found"]), text)
             self.assertIn("/nonexistent/lean", text)
-        with scratch() as out, mock.patch.object(program_verify, "PINNED_LEAN", FAKE):
-            status, text = verify("lf-clamp", out, lean="/nonexistent/lean",
-                                  env={program_verify.TEST_TOOLS: "0", "LEANEXPORT": "/no"})
+        with scratch() as out:   # a toolchain folder of stand-ins in place of the pinned one
+            toolchain = Path(out) / "bin"
+            toolchain.mkdir()
+            for name in ("lean", "leanexport"):
+                (toolchain / name).symlink_to(FAKE)
+            with mock.patch.object(program_verify, "PINNED_LEAN", toolchain / "lean"):
+                status, text = verify("lf-clamp", Path(out) / "o", lean="/nonexistent/lean",
+                                      env={program_verify.TEST_TOOLS: "0", "LEANEXPORT": "/no"})
             self.assertEqual(status, 0, text)
-            evidence = json.loads((Path(out) / "lf-clamp.evidence.json").read_text())
+            evidence = json.loads((Path(out) / "o" / "lf-clamp.evidence.json").read_text())
             self.assertFalse(evidence["testTools"])
-            self.assertEqual(evidence["tools"]["lean"]["path"], rel(FAKE))
-            self.assertEqual(evidence["tools"]["lean"]["sha256"],
-                             program_verify.digest(FAKE.read_bytes()))
-            self.assertEqual(evidence["tools"]["leanexport"]["path"],
-                             rel(FAKE.parent / "leanexport"))
+            for name in ("lean", "leanexport"):
+                self.assertEqual(evidence["tools"][name], {
+                    "path": rel(toolchain) + "/" + name,
+                    "sha256": program_verify.digest(FAKE.read_bytes())})
             self.assertEqual(set(evidence["tools"]), {"gforth", "lean", "leanexport"})
 
     def test_lean_not_found(self):
@@ -423,7 +436,6 @@ class Checker(unittest.TestCase):
         ({"other": "full", "exit": 3}, 3, "proof-exhausted", "failed"),
         ({"verdicts": {"O1": "invalid"}, "exit": 5}, 5, "internal", "failed"),
         ({"verdicts": {"O2": "not-checked"}}, 5, "internal", "failed"),
-        ({"verdicts": {"O2": "absent"}}, 5, "internal", "failed"),
         ({"check": "stopped", "exit": 5}, 5, "internal", "failed"),
         ({"check": "not-run"}, 5, "internal", "failed"),
         ({"exit": 1}, 5, "internal", "failed"),

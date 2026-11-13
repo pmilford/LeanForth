@@ -79,6 +79,8 @@ def compile_lean(args):
     if behaviour != "no-post" and "vc-post-begin" in text:
         print(f"vc-post-begin\ndef ProgramVC.{name}.post : Cells → List Int → Prop :=\n"
               "fun c out => True\nvc-post-end")
+        print(f"vc-statement-begin\nProgramVC.{name}.{names[-1]} (c : Cells) (pre1 : True) : "
+              "True\nvc-statement-end")
     if behaviour != "no-axioms":
         for short in names:
             axioms = FAKE.get("axioms", {}).get(short, ["propext", "Quot.sound"])

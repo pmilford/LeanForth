@@ -64,12 +64,16 @@ python3 scripts/program_verify.py SOURCE.fs --contract CONTRACT [--out DIR]
 | `--keep-export` | keep the export (about 23 MB) after the check; by default it is removed, by name, and the manifest kept |
 | `--paths-limit N` | the generator stops when the word has more than N paths (default 256; paths double with each IF) |
 | `--search-limit N` | the counterexample search may try at most N input combinations (default 250,000; it tries 12 values per input, 12³ = 1,728 for clamp) |
+| `--detail` | also print the theorem and the postcondition `post` as Lean printed them in this run: what is proved, to compare with the contract's lines |
 
 No option weakens what is checked: there is no way to skip a step, the
 manifest check or the axiom comparison. Python 3 (standard library only),
-Gforth, pinned Lean 4.35.0 (`scripts/install-lean.sh`; `LEAN` may name it
-or the Makefile's cache) and LeanForth's checker are needed; the generator
-stops before Lean for an unsupported word. SOURCE.fs, CONTRACT and `--out`
+Gforth (`GFORTH`, else the checkout's, else on the PATH), the checkout's
+pinned Lean 4.35.0 and its `leanexport` (`scripts/install-lean.sh`) and
+LeanForth's checker are needed; the generator stops before Lean for an
+unsupported word. `LEAN` and `LEANEXPORT` are ignored: only the test
+suites, with `LEANFORTH_VERIFY_TEST_TOOLS=1`, put stand-ins or the Lean
+cache in their place, and the evidence record says so (`testTools`). SOURCE.fs, CONTRACT and `--out`
 must lie inside the LeanForth checkout, since receipt 0.3 names files
 relative to it (plan 8.4.1j makes receipts for other folders).
 
@@ -129,9 +133,9 @@ The text is v0's: its exact form, `--json` and the report schema are plan
 | 1 | Runs the program words (`src/program/verify.fs`, ADR 0019) on the whole source file: they write its IR, or refuse a token with its diagnostic; the file is hashed before and after | `trusted-reader` (tested, not proved) |
 | 2 | Reads the contract, finds its word in the IR, removes by name the files an earlier run wrote in `--out`, and requires the contract's `ir` file to be the IR just written, byte for byte | untrusted |
 | 3 | Refuses an IR 0.2 word (receipt schema 0.4 awaits the owner); runs the generator for this contract alone, within the path and search limits: the obligations, the contract theorem and their tactic scripts, or the theorem `refuted` | `untrusted-generator` |
-| 4 | Pinned Lean compiles the generated file (warnings are errors, so `sorry` fails), run inside `--out` so that the module name it derives from the path, which the export's private names carry, is `obligations` whatever the folder: the same word and contract give the same export bytes anywhere. It writes the proofs, prints the program back, which must equal the IR, and reports `#print axioms`; `scripts/export.sh` writes the theorems with every declaration they use and the manifest | `trusted-lean` |
-| 6 | `bin/leanforth check --json` checks the export, a final run (no snapshot); export and manifest hashed before and after | `trusted-leanforth`, the only judge |
-| 7 | The check status from LeanForth's verdicts on every declaration; each kind of verdict other than accepted is a problem of its own, so the exit status follows the CLI's order as `bin/leanforth check`'s does; each accepted theorem's axioms must equal Lean's | untrusted, from the report |
+| 4 | Pinned Lean compiles the generated file (warnings are errors, so `sorry` fails; `autoImplicit` is off), run inside `--out` so that the module name it derives from the path, which the export's private names carry, is `obligations` whatever the folder: the same word and contract give the same export bytes anywhere. It writes the proofs, prints the program back, which must equal the IR, prints the theorem (the contract theorem with its `pre` hypotheses, or `refuted`) and `post` as it elaborated them, which the evidence records with their SHA-256 (`--detail` shows them), and reports `#print axioms`; `scripts/export.sh` writes the theorems with every declaration they use and the manifest | `trusted-lean` |
+| 6 | `bin/leanforth check --json` checks the export, a final run: its report must be check report 0.4 with no snapshot member; export and manifest hashed before and after; the export's declarations named `ProgramVC.…` must be exactly the generator's (`program`, `post`, the theorems, its shared lemmas) with only Lean's auxiliary `_proof_N` lemmas under them | `trusted-leanforth`, the only judge |
+| 7 | The check status from LeanForth's verdicts on every declaration; each kind of verdict other than accepted is a problem of its own, so the exit status follows the CLI's order as `bin/leanforth check`'s does; a rejection is the two checkers disagreeing, since Lean accepted everything first; each accepted theorem's axioms must equal Lean's | untrusted, from the report |
 | 8 | Builds the receipt, has the strict reader check it, and writes the evidence record and the receipt, each to a `.partial` file renamed when complete; removes the export unless `--keep-export` | untrusted; the reader checks it |
 
 (Step 5, the statement fixed by LeanForth itself, is plan 8.4.1e–f.)
@@ -145,14 +149,14 @@ from LeanForth's report and the generator's summary:
 | --- | --- | --- | --- | --- |
 | LeanForth accepted every declaration of the export, the contract theorem and every obligation's theorem among them, each with allowlisted axioms equal to Lean's | `accepted-by-leanforth` | `discharged` | 0 | yes |
 | A counterexample, and LeanForth accepted the theorem `refuted` | `accepted-by-leanforth` | `refuted` | 1 | yes |
-| A declaration rejected | `rejected` | `open`, nothing settled | 1 | yes |
+| A declaration rejected: Lean accepted it, so the checkers disagree | `rejected` | `open`, nothing settled | 5 | yes |
 | A declaration unknown or unsupported | `unsupported` | `open` | 2 | yes |
 | The check did not finish: out of fuel or room (3); invalid, not checked, a theorem missing from the report, a stopped run, no report (5) | `failed` | `open` | 3 or 5 | yes |
 | Lean failed on the generated file, or ran out of time | `not-checked` | `open` | 2 or 3 | yes |
 | The generator cannot make obligations (loops, recursion, literals outside −1…1) | `not-checked` | `unsupported` | 2 | yes |
 | An IR 0.2 word (the SHA helper words) | — | — | 2 | no: needs receipt 0.4 |
 | A theorem NOT PROVED (an axiom outside the allowlist) | — | — | 6 | no: 0.3 has no status for it |
-| LeanForth's axioms not Lean's; Lean's printed program not the IR | — | — | 5 | no |
+| LeanForth's axioms not Lean's; Lean's printed program not the IR; the export's `ProgramVC` declarations not the generator's; a report that is not a final run's 0.4 | — | — | 5 | no |
 | The source, the contract, the IR file or a tool refused; a limit of the generator | — | — | 2, 3 or 4 | no |
 
 RUN is always `not-run`, label *not run*, until plan 8.4.2. A receipt
@@ -160,12 +164,17 @@ lists every theorem with its own axioms, the assumptions that apply
 (`trusted-lean` only when Lean elaborated the file, `trusted-leanforth`
 only when LeanForth accepted), the tools, and the hashes of the source,
 the IR, the contract, the generated Lean file, `scripts/program_vc.py`,
-`scripts/export.sh` and the export's manifest. It never has a `verified`
-field and never says LeanForth proved anything. Beside it,
-`WORD.evidence.json` records what the run found (Lean's version and
+`scripts/export.sh`, the export's manifest and the evidence record. It
+never has a `verified` field and never says LeanForth proved anything.
+Beside it, `WORD.evidence.json` records what the run found (Lean's
+version, its print of the theorem and of `post` with their SHA-256, its
 axiom reports, the export's hash, LeanForth's version, counts and
-verdicts, the generator's summary, the options that can change a result),
-for the replay of plan 8.4.1d.
+verdicts, the generator's summary with its search notes, the options that
+can change a result, and each tool run, Gforth, Lean and leanexport, by
+path and SHA-256), for the replay of plan 8.4.1d. The receipt names that
+record with its SHA-256 in its provenance note, and also in
+`check.evidence` when something was checked (schema 0.3 allows no
+evidence for `not-checked`).
 
 **Files in `--out`:** `obligations.lean`, `WORD.ndjson` (removed after the
 check unless `--keep-export`), `WORD.ndjson.manifest.json`,
@@ -207,19 +216,44 @@ checks that each is listed here.
 | `export-failed` | 5 | 4 | `scripts/export.sh` failed or wrote no manifest |
 | `file-changed` | 4 | 4, 6 | the generated file changed while Lean read it, or the export or manifest while LeanForth checked it |
 | `export-invalid` | 4 | 6 | LeanForth refused to read the export (its manifest, its format) |
-| `proof-rejected` | 1 | 6 | a declaration rejected |
+| `export-differs` | 5 | 6 | the export's `ProgramVC` declarations are not exactly the generator's |
+| `checkers-disagree` | 5 | 6 | LeanForth rejected a declaration Lean had accepted: one of the two checkers is wrong |
 | `proof-undecided` | 2 | 6 | a declaration unknown or unsupported |
 | `proof-exhausted` | 3 | 6 | a declaration out of fuel or room |
 | `not-proved` | 6 | 6 | a theorem accepted but resting on an axiom outside the allowlist |
 | `axioms-differ` | 5 | 7 | LeanForth's axioms for a theorem are not Lean's `#print axioms` |
-| `internal` | 5 | any | a fault: a tool ending unexpectedly, no check report, a stopped or unfinished check, a missing axiom report, the driver's own fault |
+| `internal` | 5 | any | a fault: a tool ending unexpectedly, no check report or one that is not a final run's 0.4, a stopped or unfinished check, a missing axiom report or print, the driver's own fault (any Python exception, never status 1) |
 | `receipt-not-written` | 4 | 8 | the `--out` folder or a file in it cannot be written |
 
-`search-limit` and `file-changed` are v0's additions to the design's
-catalogue; the catalogue is fixed at 8.4.1c's [format] gate (plan 3.5.4).
-`expect` in a contract is a test annotation: when the outcome differs
-the driver prints `note: the contract expects X; verify found Y` and
-changes nothing else.
+The catalogue is fixed at 8.4.1c's [format] gate (plan 3.5.4); v0's
+differences from the design are listed below. `expect` in a contract is a
+test annotation: when the outcome differs the driver prints `note: the
+contract expects X; verify found Y` and changes nothing else. The
+counterexample search adds `note: search: no candidate meets pre` when no
+candidate input satisfies the `pre` lines (it then tried nothing) and
+`note: search: inputs no case covers: …` when some candidates meet no
+case's guard (the contract says nothing about them); neither changes the
+outcome. The contract reader's own refusals (hidden lines, a line given
+twice, an input named twice, no case, names neither an input nor a result
+of their case) are in [PROGRAM_VC.md](PROGRAM_VC.md#the-contract-language-version-01).
+
+## Differences from the design
+
+What v0 does otherwise than [VERIFY_COMMAND.md](../design/VERIFY_COMMAND.md)
+says (review L1, 2026-11-13); each is for 8.4.1c's [format] gate or the
+step named:
+
+| Design | v0 |
+| --- | --- |
+| §4: a theorem rejected is `proof-rejected`, exit 1 | `checkers-disagree`, exit 5: Lean accepted everything before LeanForth checks; `proof-rejected` returns with supplied proofs (8.4.1f) |
+| §4 codes | added: `search-limit` (3), `file-changed` (4), `export-differs` (5), `checkers-disagree` (5); removed: `proof-rejected` |
+| §2 options | `--paths-limit`, `--search-limit` added; `--json` and `--replay` not yet (8.4.1c, 8.4.1d); `--detail` prints Lean's own theorem and `post`, not the generator's |
+| §6.1 text | no `(if @13:10 taken)` path positions on obligations (the generator does not keep IR locations); the summary and error lines as designed |
+| §6.4 JSON report | not built (8.4.1c); the evidence record is v0's machine-readable result |
+| §6.5 receipt | as designed, plus: a refuted contract's receipt has one obligation `O1`, `refuted`, naming the theorem `refuted` (schema 0.3 needs a settled obligation for `refuted`); the evidence record named by hash |
+| §8 files | `obligations.lean`, `WORD.ndjson`, `WORD.ndjson.manifest.json`, `WORD.evidence.json`, `WORD.receipt.json` (WORD made file-safe); Lean runs inside `--out` so the export does not depend on the folder |
+| §3.2 contract | the reader refuses more than contract 0.1's text says (hidden lines, repeated lines and inputs, no case, unbound names; review B1 and its probe); the statement never enters the Lean file |
+| §5 tools | `LEAN` and `LEANEXPORT` honoured only under the test switch; the evidence names each tool's SHA-256 |
 
 ## Limits and resources
 
@@ -280,8 +314,8 @@ its date and `--out` folder.
   LeanForth, against their golden receipts.
 - `make reference-program-verify-all`: all thirteen contracts (about 13
   minutes; not part of `make check`).
-- Planted faults in `tests/mutants/faults.toml` (ids `verify-…`), each
-  caught by a named test.
+- Planted faults in `tests/mutants/faults.toml` (ids `verify-…`, and
+  `vc-…` for the contract reader), each caught by a named test.
 
 ## What it does not do yet
 

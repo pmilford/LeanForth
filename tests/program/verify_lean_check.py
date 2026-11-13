@@ -58,8 +58,11 @@ SUMMARY = {"discharged": "discharged (", "refuted": "NOT VERIFIED: refuted: ",
 
 
 def normalized(text, out):
-    """A receipt's text with its date and its --out folder replaced, for comparison."""
+    """A receipt's text with its date, its --out folder and the hash of its evidence record
+    (which holds the date and the tools' paths) replaced, for comparison."""
     text = re.sub(r'"createdAt": "[0-9-]+"', '"createdAt": "DATE"', text)
+    text = re.sub(r"(evidence\.json, SHA-256 )[0-9a-f]{64}", r"\1EVIDENCE", text)
+    text = re.sub(r'(evidence\.json",\n\s*"sha256": ")[0-9a-f]{64}', r"\1EVIDENCE", text)
     return text.replace(out.relative_to(ROOT).as_posix(), "OUT")
 
 

@@ -690,16 +690,20 @@ test-program-verify-driver-input:
 
 # The driver end to end from the command line with pinned Lean and LeanForth's
 # checker (--jobs 2, a final run): lf-clamp discharged and wrong-clamp-swapped
-# refuted, each against its golden receipt (about 100 s of two workers each).
+# refuted, each against its golden receipt (about 100 s of two workers each). The
+# test switch LEANFORTH_VERIFY_TEST_TOOLS=1 lets the driver use LEAN and LEANEXPORT
+# (here the Lean cache); without it the driver runs the checkout's pinned Lean.
 reference-program-verify-clamp:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/program/verify_lean_check.py lf-clamp
+	LEANFORTH_VERIFY_TEST_TOOLS=1 LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) \
+	  python3 tests/program/verify_lean_check.py lf-clamp
 reference-program-verify-refuted:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) \
+	LEANFORTH_VERIFY_TEST_TOOLS=1 LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) \
 	  python3 tests/program/verify_lean_check.py wrong-clamp-swapped
 # All thirteen committed contracts, the plan's acceptance (about 13 minutes of
 # two workers): run by hand, not part of make check.
 reference-program-verify-all:
-	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/program/verify_lean_check.py --all
+	LEANFORTH_VERIFY_TEST_TOOLS=1 LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) \
+	  python3 tests/program/verify_lean_check.py --all
 
 .PHONY: test-program-verify-driver test-program-verify-driver-input \
 	reference-program-verify-clamp reference-program-verify-refuted reference-program-verify-all

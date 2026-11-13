@@ -14762,12 +14762,12 @@ reason = "FE1g-1 review L1: mvars.fs reads its numbers (16, 31) in the BASE it i
 # --- leanforth verify's driver v0 (plan 8.4.1b; scripts/program_verify.py) --
 
 [[fault]]
-id = "verify-rejected-not-1"
+id = "verify-rejected-not-disagree"
 file = "scripts/program_verify.py"
-old = '''VERDICT_PROBLEMS = [("proof-rejected", {"rejected"}),'''
+old = '''VERDICT_PROBLEMS = [("checkers-disagree", {"rejected"}),'''
 new = '''VERDICT_PROBLEMS = [("proof-undecided", {"rejected"}),'''
 test = "python3 tests/program/test_program_verify.py Checker"
-reason = "8.4.1b: a rejected theorem is reported as undecided (exit 2), not rejected (exit 1)"
+reason = "8.4.1b, review M1: a theorem LeanForth rejects after Lean accepted it is reported as undecided (2), not as the two checkers disagreeing (5)"
 quick = true
 
 [[fault]]
@@ -14777,6 +14777,7 @@ old = '''        status = receipts.check_status(self.leanforth, names)'''
 new = '''        status = receipts.check_status(self.leanforth, names[:1])'''
 test = "python3 tests/program/test_program_verify.py Checker"
 reason = "8.4.1b: only the contract theorem's verdict counts, so an obligation's theorem missing from LeanForth's report is treated as discharged"
+equivalent = "since review B1 the namespace check refuses an export whose report lacks an obligation's theorem (export-differs) and the counts give every declaration's verdict, so the theorems' own verdicts are a second guard"
 
 [[fault]]
 id = "verify-trusted-lean-dropped"
@@ -15046,3 +15047,54 @@ old = '''    if not contract["cases"]:   # review M3: post would be True'''
 new = '''    if False:   # review M3: post would be True'''
 test = "python3 tests/program/vc_check.py"
 reason = "M3: a contract with no case gives post := True and is discharged for any word"
+
+# The design review of leanforth verify (2026-11-13): B1's rest and M1-M3 in the driver.
+
+[[fault]]
+id = "verify-namespace-unchecked"
+file = "scripts/program_verify.py"
+old = '''        self.namespace_problems(report)'''
+new = '''        pass'''
+test = "python3 tests/program/test_program_verify.py Checker"
+reason = "B1: an export with declarations in the contract's ProgramVC namespace that the generator did not write, or without some it did, is accepted"
+quick = true
+
+[[fault]]
+id = "verify-snapshot-report-read"
+file = "scripts/program_verify.py"
+old = '''                "leanforth-check-report", "0.4") or "snapshot" in report:'''
+new = '''                "leanforth-check-report", "0.4") or False:'''
+test = "python3 tests/program/test_program_verify.py Checker"
+reason = "M2: a development run's report (a snapshot member) is read as a final run's"
+
+[[fault]]
+id = "verify-env-lean-honoured"
+file = "scripts/program_verify.py"
+old = '''        lean = receipts.pinned_lean() if test_tools() else str(PINNED_LEAN)'''
+new = '''        lean = receipts.pinned_lean()'''
+test = "python3 tests/program/test_program_verify.py Lean"
+reason = "M3: the user command runs whatever LEAN names, not the checkout's pinned Lean"
+
+[[fault]]
+id = "verify-evidence-unnamed"
+file = "scripts/program_verify.py"
+old = '''                 self.files["manifest"], self.evidence_ref]'''
+new = '''                 self.files["manifest"]]'''
+test = "python3 tests/program/test_program_verify.py Workflow"
+reason = "M3: a receipt of a checked run does not name its evidence record in check.evidence"
+
+[[fault]]
+id = "verify-crash-exit-1"
+file = "scripts/program_verify.py"
+old = '''    os._exit(5)'''
+new = '''    os._exit(1)'''
+test = "python3 tests/program/test_program_verify.py Workflow"
+reason = "M1: a Python exception nothing caught ends with status 1, which reads as refuted"
+
+[[fault]]
+id = "verify-print-not-from-lean"
+file = "scripts/program_verify.py"
+old = '''                self.lean[key] = self.printed(output, key)'''
+new = '''                self.lean[key] = "post"'''
+test = "python3 tests/program/test_program_verify.py Lean"
+reason = "B1: the theorem and post the evidence records are not what Lean printed in this run"

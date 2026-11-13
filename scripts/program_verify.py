@@ -98,11 +98,14 @@ PROGRAM_WORDS_LIMIT = 600   # seconds for the program words (they read one file)
 PINNED_LEAN = (ROOT / ".tools" / "elan" / "toolchains" / "leanprover--lean4---v4.35.0"
                / "bin" / "lean")
 TEST_TOOLS = "LEANFORTH_VERIFY_TEST_TOOLS"   # =1: LEAN and LEANEXPORT are honoured (tests only)
-# Appended to the generator's file: Lean prints the postcondition as it elaborated it,
-# the statement that is proved, for the report and the evidence (review B1).
-POST_PRINT = ("\n-- Added by leanforth verify: the postcondition as Lean elaborated it.\n"
+# Appended to the generator's file: Lean prints the postcondition and the whole theorem
+# (the contract theorem with its pre hypotheses, or refuted) as it elaborated them, the
+# statement that is proved, for the report and the evidence (review B1).
+POST_PRINT = ("\n-- Added by leanforth verify: what is proved, as Lean elaborated it.\n"
               '#eval IO.println "vc-post-begin"\n#print {namespace}.post\n'
-              '#eval IO.println "vc-post-end"\n')
+              '#eval IO.println "vc-post-end"\n'
+              '#eval IO.println "vc-statement-begin"\n#check {theorem}\n'
+              '#eval IO.println "vc-statement-end"\n')
 # The declarations the generator writes outside a contract's namespace, and the auxiliary
 # lemmas Lean adds under a declaration (`O1._proof_1_4`).
 COMMON_NAMES = ("ir_max", "ir_min", "ir_cell_min", "ir_shift_one", "ir_not_lt", "cells64")
@@ -501,7 +504,8 @@ class Verify:
                      f"generator {GENERATOR['version']}")
             for o in self.vc["obligations"]:
                 self.say(f"  {o['id']}: {receipts.obligation_text(o)}")
-        text += POST_PRINT.format(namespace=self.vc["namespace"])
+        main = self.vc["theorems"][-1]   # the contract theorem, or refuted
+        text += POST_PRINT.format(namespace=self.vc["namespace"], theorem=main)
         self.lean_text = text
         try:
             (ROOT / self.files["lean"]).write_text(text, encoding="utf-8")
@@ -569,8 +573,9 @@ class Verify:
                              f"{done.returncode}): {lean_errors(output)}")
                 return False
             self.printed_back(output)
-            self.lean["post"] = self.printed_post(output)
-            self.lean["postSha256"] = digest(self.lean["post"].encode("utf-8"))
+            for key in ("post", "statement"):
+                self.lean[key] = self.printed(output, key)
+                self.lean[f"{key}Sha256"] = digest(self.lean[key].encode("utf-8"))
             try:
                 self.lean["axioms"] = receipts.lean_axioms(output, theorems)
             except SystemExit as error:
@@ -578,9 +583,10 @@ class Verify:
             self.say("proofs: written by Lean 4.35.0 from the generator's tactic scripts; Lean "
                      "printed the program back equal to the IR")
             if self.args.detail:
-                self.say("post, as Lean printed it in this run (the statement proved):")
-                for line in self.lean["post"].splitlines():
-                    self.say(f"  {line}")
+                for key, what in (("statement", "the theorem"), ("post", "post")):
+                    self.say(f"{what}, as Lean printed it in this run:")
+                    for line in self.lean[key].splitlines():
+                        self.say(f"  {line}")
             self.export = self.files["export"]
             try:
                 done = self.tools.run(receipts.export_args(ROOT / self.files["export"],
@@ -605,11 +611,11 @@ class Verify:
         if file_sha(path) != sha:
             raise Problem("file-changed", f"{path} changed during the run")
 
-    def printed_post(self, output):
-        """The postcondition Lean printed between the markers POST_PRINT adds."""
-        found = re.search(r"^vc-post-begin\n(.*?)^vc-post-end$", output, re.M | re.S)
+    def printed(self, output, key):
+        """What Lean printed between the markers POST_PRINT adds (post, statement)."""
+        found = re.search(rf"^vc-{key}-begin\n(.*?)^vc-{key}-end$", output, re.M | re.S)
         if not found or not found.group(1).strip():
-            raise Problem("internal", "Lean printed no postcondition")
+            raise Problem("internal", f"Lean printed no {key}")
         return found.group(1)
 
     def printed_back(self, output):

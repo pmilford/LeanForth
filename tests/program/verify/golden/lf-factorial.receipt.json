@@ -8,7 +8,7 @@
       "version": "program_verify.py 0.1"
     },
     "createdAt": "DATE",
-    "note": "Written by leanforth verify (scripts/program_verify.py) from the files named below, at the hashes given, and the evidence it recorded beside this receipt. A receipt is a statement of evidence, not an approval; it passes no review gate."
+    "note": "Written by leanforth verify (scripts/program_verify.py) from the files named below, at the hashes given, and the evidence record it wrote beside this receipt, OUT/lf-factorial.evidence.json, SHA-256 EVIDENCE. A receipt is a statement of evidence, not an approval; it passes no review gate."
   },
   "program": {
     "word": "lf-factorial",
