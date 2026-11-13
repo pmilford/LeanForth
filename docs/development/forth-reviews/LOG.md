@@ -47,6 +47,7 @@ findings neither fixed nor turned into plan tasks. A row that raises the style b
 | 2026-11-12 | `860df4d..66959c7` | fe1c-2: the front end's environment view, whnfCore, first inferType cases (meta-env.fs, whnf.fs, infer.fs) | forth-reviewer (Opus), style and fidelity to Lean | [report](2026-11-12-fe1c-2.md) | BLOCKING: M1 stuck projection, M2 non-constant head read as a constant; L1-L5, I1-I4, S1-S6 | fixed in 66959c7..32caf6b |
 | 2026-11-13 | `66959c7..32caf6b` | fe1c-2 follow-up: M1, M2, L1-L5, I3, I4, S1, S3-S6; new beta-inst.fs, inferType for lambdas and pis | forth-reviewer (Opus), re-check and review of the new code | [report](2026-11-13-fe1c-2-recheck.md) | BLOCKING: N1 ib-bvar wrong index beyond the arguments | fixed in 32caf6b..4a1da8d |
 | 2026-11-13 | `32caf6b..4a1da8d` | fe1c-2 follow-up: N1 fixed, coverage rows, S2 (meta-spine.fs) | forth-reviewer (Opus), re-check | [report](2026-11-13-fe1c-2-recheck.md), last section | 0 blocking; L (no constant with different universe arguments in tests) | sent to the agent; 4a1da8d..8bb463a awaits its re-check |
+| 2026-11-12 | `6b613db..9669d7e` | kfix-mls: five stack fixes on out-of-room paths of mixed-level-substitute.fs and level-substitute.fs (B1-B5), unused lf-whnf-ended removed; c749209..9669d7e change only tests and the coverage baseline (the review's L1, L2) | forth-reviewer (Opus), style and kernel failure paths | [report](2026-11-12-kfix-mls.md) | 0 blocking; L1-L2 (fixed in 5c5aad6, 9669d7e), I1-I3 | owner approved [kernel] 2026-11-12 late night |
 
 ## Backlog
 
