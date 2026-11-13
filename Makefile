@@ -305,6 +305,7 @@ test-core:
 	$(RUN) $(GFORTH) tests/core/level-value.fs
 	$(RUN) $(GFORTH) tests/core/level-compare.fs
 	$(RUN) $(GFORTH) tests/core/level-deep.fs
+	$(RUN) $(GFORTH) tests/core/level-geq.fs
 	$(RUN) $(GFORTH) tests/core/infer-deep.fs
 	$(RUN) $(GFORTH) tests/core/contexts.fs
 	$(RUN) $(GFORTH) tests/core/contexts-serial.fs
@@ -730,14 +731,24 @@ test-kernel-reduction:
 	$(RUN) $(GFORTH) tests/core/generated-recursor.fs
 	$(RUN) $(GFORTH) tests/core/mixed-head.fs
 	$(RUN) $(GFORTH) tests/core/mixed-rebuild.fs
+	$(RUN) $(GFORTH) tests/core/no-data-terms.fs
 test-kernel-blocks:
 	$(RUN) $(GFORTH) tests/core/inductive-block.fs
 	$(RUN) $(GFORTH) tests/core/inductive-recursor.fs
 test-kernel-nested:
 	$(RUN) $(GFORTH) tests/core/inductive-nested.fs
+# The second coverage pass (COV2, 2026-11-12): terms without a data word
+# (no-data-terms.fs, above), string literals' expansion under refused
+# allocations, a crowded store and sampled fuel, and sampled fuel through
+# definitional equality's eta, unit-like and lazy-delta steps. About 6 s.
+test-kernel-passes:
+	$(RUN) $(GFORTH) tests/core/string-literals.fs
+	$(RUN) $(GFORTH) tests/core/defeq-sweeps.fs
+	$(RUN) $(GFORTH) tests/core/check-forged.fs
+	$(RUN) $(GFORTH) tests/core/heap-refusals.fs
 
-.PHONY: test-kernel-reduction test-kernel-blocks test-kernel-nested
-test: test-kernel-reduction test-kernel-blocks test-kernel-nested
+.PHONY: test-kernel-reduction test-kernel-blocks test-kernel-nested test-kernel-passes
+test: test-kernel-reduction test-kernel-blocks test-kernel-nested test-kernel-passes
 
 # Run records and their replay (plan task 2.2.5; docs/programming/RUN_RECORDS.md):
 # unit tests of src/import/run-record.fs and run-replay.fs (every fixture, each
@@ -873,23 +884,31 @@ reference-author:
 .PHONY: test-author reference-author
 test: test-author
 
-# The front end's first steps (plan FE1a-b, ADR 0021): the natural reader's
-# syntax trees and refusals, and the metavariable context. Its modules load
-# alone, printing nothing.
+# The front end's first steps (plan FE1a-c, ADR 0021): the natural reader's
+# syntax trees and refusals, the metavariable context, and the Meta layer's
+# level unification and instantiation. Its modules load alone, printing
+# nothing.
 test-front:
 	@for m in src/front/syntax.fs src/front/dag-walk.fs src/front/reader.fs src/front/mvars.fs \
-	  src/core/mvar-leaves.fs src/front/expr-remap.fs src/front/constructions.fs \
-	  src/front/ctor-idx.fs src/front/cases-several.fs; do \
+	  src/core/mvar-leaves.fs src/front/level-defeq.fs src/front/instantiate.fs \
+	  src/front/level-simp.fs src/front/level-params.fs src/front/level-normalize.fs \
+	  src/front/expr-remap.fs src/front/constructions.fs src/front/ctor-idx.fs \
+	  src/front/cases-several.fs; do \
 	  out=$$($(RUN) $(GFORTH) $$m -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
 	  if [ -n "$$out" ]; then printf '%s printed while loading:\n%s\n' "$$m" "$$out" >&2; exit 1; fi; \
 	done
 	$(RUN) $(GFORTH) tests/front/front.fs
+	$(RUN) $(GFORTH) tests/front/meta.fs
+	$(RUN) $(GFORTH) tests/front/meta-heap.fs
 	$(RUN) $(GFORTH) tests/front/constructions.fs
 
 # The natural reader's trees against pinned Lean's macro expansion of the
-# same statements (tests/front/operators.lean).
+# same statements (tests/front/operators.lean); the Meta layer's answers
+# against pinned Lean's (tests/front/check_meta.py: isLevelDefEqAux,
+# instantiate1, abstract, headBeta, instantiateLevelParams).
 reference-front:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_front.py
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_meta.py
 
 # Lean's generated definitions (casesOn, recOn, ctorIdx; plan FE6) built by
 # src/front/constructions.fs and ctor-idx.fs for every inductive type of Init, against

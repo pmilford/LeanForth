@@ -14,6 +14,8 @@ require ../../src/core/scratch-marks.fs
 require ../../src/core/symbolic-session.fs
 require ../../src/core/tagged-sort-boundary.fs
 require ../../src/core/terms.fs
+require ../../src/core/literals.fs
+require ../../src/core/string-literals.fs
 require ../../src/kernel/mixed-instantiate.fs
 require ../../src/kernel/mixed-open.fs
 require ../../src/kernel/mixed-shift.fs
@@ -410,4 +412,10 @@ n01 lam-n01 lf-term-app drop constant inst-pair
   dup lf-term-identity drop 0 dup lf-term-identity drop 100 lf-mixed-instantiate nip ;
 T{ inst-pair inst1 drop halves drop fields rot drop index-of -> 0 0 }T
 T{ inst-pair inst1 drop halves nip fields nip nip fields -> lf-tag-app 2 0 }T
+\ Literal leaves are kept as they are (coverage COV2): #0 5 "ab" with c
+\ for the target is c 5 "ab", over the same literal nodes.
+5 lf-hterm-cell drop drop constant lit-five
+s" ab" lf-str-new ok? drop drop constant str-ab
+2 lit-five lf-term-app drop str-ab lf-term-app drop constant lit-term
+T{ lit-term inst1 drop halves swap halves -> str-ab 0 lit-five }T
 bye

@@ -1,11 +1,11 @@
 # ADR 0004: symbolic universe representation — proposal
 
-Status: **draft for human review; not approved for a trusted kernel**. This
+Status: **accepted** (see the approval status below); universe levels are compared as [ADR 0011 Amendment 1](0011-definite-rejection.md) says (Lean's own level equality). This
 proposal extends the concrete-only scope in ADR 0002 and does not resolve its
 conversion soundness obligations. The current Forth experiments store syntax
 and evaluate concrete graphs; they cannot check a polymorphic declaration.
 
-Approval status: status unclear (no owner decision found); the ADR's own text says draft, not approved
+Approval status: accepted 2026-11-12, gate: kernel and format, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)"; the owner approved it on the pack's recommendation; levels are compared as ADR 0011 Amendment 1 says
 
 ## Motivation and proposed syntax
 
@@ -45,13 +45,13 @@ ID checks; it does not provide structured-name identity or an immutable context.
 `src/kernel/level-value.fs` evaluates concrete graphs only; symbolic
 graphs return unknown unless its separate instance evaluator receives explicit
 numeric assignments. An instance is not a polymorphic equality judgment.
-`src/kernel/level-compare.fs` explores a conservative equality rule:
+*Replaced by ADR 0011 Amendment 1 (accepted 2026-11-03 at the kernel gate): level equality is Lean's own, and the checker uses `src/kernel/level-normalize.fs`, `level-compare.fs`, `level-substitute.fs` and `level-geq.fs`. The paragraph below describes the earlier rule and is kept as history.*
+`src/kernel/level-compare.fs` explored a conservative equality rule:
 after checking both graphs, literal-zero rewrites `max(u,0)`, `max(0,u)` and
 `imax(u,0)` may be applied before structural comparison under one ID-to-name
 mapping; otherwise two unassigned, concrete evaluations may match if their
 values are equal. All other cases are unknown. No finite assignment sampling may
-authorize symbolic equality. This is a proposal and untrusted diagnostic, not a
-reviewed kernel conversion rule. The mapping from opaque IDs to Lean names,
+authorize symbolic equality. That rule was replaced as stated above. The mapping from opaque IDs to Lean names,
 context ownership and its interaction with typing remain unresolved.
 An independent AI review of this later scope experiment was requested but did
 not complete because the reviewer hit its usage limit. No review or approval

@@ -59,9 +59,14 @@ status changes when this date is older than them. Stages are those of the
 - Program track: a user command `leanforth verify` (8.4.1); the SHA-256 helper words' receipts (schema 0.4, IR 0.2,
   at the owner's [format] gate).
 - A rule-by-rule audit of AGENTS.md against practice.
+- Snapshots that read the two previous format and verdict versions (6.2.5c): designed (proposed, awaiting the
+  owner), [design](../design/SNAPSHOT_COMPATIBILITY.md), ADR 0020 Amendment 5; steps 6.2.5c1-c5 are the first
+  infrastructure task of 2026-11-13 (owner, "Order and snapshot stability").
 
 **Later**
-- Snapshots that read the one or two previous versions (6.2.5c).
+- Proof development (owner, 2026-11-12; long term, after strict Lean compatibility): research note
+  [PROOF_DEVELOPMENT.md](../design/PROOF_DEVELOPMENT.md), plan rows PD1–PD15, all not started; PD1, Lean's `sorry`
+  reported NOT PROVED with the conditional report, is decided (ADR 0021 Amendment 1) and fits with FE1g and FE5.
 - Speed: the export reader and the remaining validity checks; Physlib; `print --snapshot` (8.6.9); term memory
   (6.5.9); a second Forth system and a 32-bit host (9.4.1); no Python requirement (9.4.3).
 

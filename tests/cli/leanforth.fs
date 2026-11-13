@@ -504,6 +504,10 @@ variable throw-at  -1 throw-at !
 T{ composition same? kinds same? nested same? -> true true true }T
 \ Nothing refused by readiness, nothing run again: the readiness sets hold.
 T{ nested 3 facts-of drop rot drop -> 0 0 }T
+\ The plan's readiness edges, a count for reports (lf-sched-edges): the
+\ nested export's later declarations wait on earlier ones (COV2).
+: edges-of ( c-addr u jobs -- n ) fresh >r run-with lf-sched-edges ck-release r> back ;
+T{ nested 3 edges-of 0> -> true }T
 nested 1 facts-of 2drop drop constant serial-nested
 \ A stress run: the nested export, many small interleaved checks, at 8
 \ workers five times, each time the serial run's facts.
