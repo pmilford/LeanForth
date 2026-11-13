@@ -326,8 +326,11 @@ store-header context-record: mv-fvars
   r@ lf-term-tag@ lf-term-binary if r> mv-named exit then r> outcome-full mv-refuse ;
 : mv-pair-build ( node walk -- image )
   2dup mv-beta? if drop outcome-unsupported mv-refuse else mv-rebuild then ;
+\ A level's identity, or 0 for no level (lf-hterm-sort and lf-cref-new
+\ then refuse it).
+: mv-identity ( level -- identity ) lf-level-identity 0= if 0 then ;
 : mv-sort-new ( level -- image )
-  dup lf-level-identity drop lf-hterm-sort if drop else outcome-full mv-refuse -1 then ;
+  dup mv-identity lf-hterm-sort if drop else outcome-full mv-refuse -1 then ;
 : mv-sort-level ( node -- node level' true | node false )
   dup lf-term-first@ lf-level-instantiate-mvars dup ok? if drop true exit then
   mv-refuse drop false ;
@@ -344,7 +347,7 @@ store-header context-record: mv-fvars
 : mv-cref-moves? ( term -- flag )
   mv-cref lf-cref-pairs false swap 0 ?do over i mv-moves? loop nip ;
 : mv-pairs-at ( i -- addr ) 2* cells mctx mctx-pairs @ + ;
-: mv-pair! ( level addr -- ) >r dup lf-level-identity drop swap r> 2! ;
+: mv-pair! ( level addr -- ) >r dup mv-identity swap r> 2! ;
 : mv-image-pairs ( addr count -- )
   0 ?do dup i lf-cref-pair@ drop mv-level-image i mv-pairs-at mv-pair! loop drop ;
 : mv-block ( count -- flag )

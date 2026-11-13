@@ -306,6 +306,61 @@ lf-mctx-reset mv-natural new constant cy
 T{ cy cycle! lf-instantiate-mvars -> -1 outcome-invalid }T
 T{ cy cy lf-mvar-occurs? -> true outcome-invalid }T
 T{ cy prop lf-mvar-assign -> outcome-invalid }T
+\ A value that reaches the broken one: its occurs check ends invalid too,
+\ and nothing is assigned.
+mv-natural new constant m2
+T{ m2 cy prop app lf-mvar-assign m2 lf-mvar-value -> outcome-invalid false }T
+T{ prop lf-mvar-assignable? -> false }T
+
+\ Level max: a part that changes is rebuilt, a level with none is kept,
+\ and the occurs check looks through max.
+lf-mctx-reset
+T{ lf-level-mvar-new nip -> outcome-ok }T
+lf-level-count @ 1- constant w
+: lmax ( a b -- level ) lf-level-tag-max lf-level-binary 0= abort" max" ;
+w one lmax constant wmax
+one 0 lmax constant fixed
+T{ w wmax lf-level-mvar-assign w lf-level-mvar-value -> outcome-invalid false }T
+T{ w one lf-level-mvar-assign w 99999 lf-level-mvar-assign -> outcome-ok outcome-invalid }T
+T{ wmax lf-level-instantiate-mvars swap dup wmax = swap mvl-first -> outcome-ok false one }T
+T{ fixed lf-level-instantiate-mvars -> fixed outcome-ok }T
+T{ 0 lf-level-mvar-value 5 mctx-epoch@ lf-level-mvar-leaf drop lf-level-mvar-live? -> false false }T
+\ A broken (cyclic) level assignment, made by hand: the level, a Sort over
+\ it and a constant over it all end invalid.
+T{ lf-level-mvar-new nip -> outcome-ok }T
+lf-level-count @ 1- constant cyl
+cyl lf-level-succ drop cyl mvl-number mvl-decl mvl-value !
+T{ cyl lf-level-instantiate-mvars -> -1 outcome-invalid }T
+T{ cyl sort-of lf-instantiate-mvars -> -1 outcome-invalid }T
+T{ cyl const-over lf-instantiate-mvars -> -1 outcome-invalid }T
+
+\ Out of room in the stores: each refusal is full, never a term.
+lf-mctx-reset
+T{ lf-level-mvar-new nip -> outcome-ok }T
+lf-level-count @ 1- constant s
+T{ s one lf-level-mvar-assign -> outcome-ok }T
+s sort-of constant ss
+s const-over constant cs
+s lf-level-succ drop constant s1
+mv-natural new constant r1
+r1 prop app constant r1p
+T{ r1 prop prop app lf-mvar-assign -> outcome-ok }T
+lf-term-capacity constant term-room
+lf-level-capacity constant level-room
+lf-cref-capacity constant cref-room
+T{ lf-term-count @ lf-term-capacity! -> outcome-ok }T
+T{ r1p lf-instantiate-mvars ss lf-instantiate-mvars -> -1 outcome-full -1 outcome-full }T
+T{ prop mv-natural lf-mvar-new -> -1 outcome-full }T
+T{ cs lf-instantiate-mvars -> -1 outcome-full }T
+T{ term-room lf-term-capacity! lf-cref-count @ lf-cref-capacity! -> outcome-ok outcome-ok }T
+T{ cs lf-instantiate-mvars -> -1 outcome-full }T
+T{ cref-room lf-cref-capacity! lf-level-count @ lf-level-capacity! -> outcome-ok outcome-ok }T
+T{ s1 lf-level-instantiate-mvars lf-level-mvar-new -> -1 outcome-full -1 outcome-full }T
+T{ level-room lf-level-capacity! -> outcome-ok }T
+T{ r1p lf-instantiate-mvars nip -> outcome-ok }T
+\ The free variables of delayed assignments, out of room.
+T{ 1 mv-fvars store-limit! x lf-delay-fvar x lf-delay-fvar -> outcome-ok outcome-ok outcome-full }T
+T{ 1 cells mv-limit mv-fvars store-limit! -> outcome-ok }T
 
 T{ lfc-library-close -> }T
 T{ depth -> 0 }T
