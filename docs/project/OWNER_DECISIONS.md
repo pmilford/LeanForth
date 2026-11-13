@@ -948,6 +948,22 @@ The owner approved both, choosing each recommendation.
   and slot ranges checked, and Gforth 0.7.3 portability (BOUNDS, U<=, the streams). Init keeps every verdict and fuel
   count (CPU +0.8%). Forth review logged (docs/development/forth-reviews/2026-11-12-no-label-review-bugs.md).
 
+### Front-end syntax (2026-11-12, evening; docs/design/FRONT_END.md §9)
+
+The owner answered the first four front-end questions:
+
+1. **`+`, `=`, `*`, `≤` as words in theorem text: yes.** The owner: "I believe that everything in lf[ ]lf only looks in
+   the constrained vocabulary and is using forth compiler and interpreter." That is the design (ADR 0017 §3, Amendment
+   1): theorem text runs with only LeanForth's wordlists in the search order (src/author/runner.fs), so there `+` can
+   only mean Lean's `+`; Forth's `+` is unchanged in programs. This reverses ADR 0017 decision 4 for theorem text.
+2. **`:=` kept, read as "is proved by".** The owner found its place in the sample unclear ("it seemed part of the
+   theorem"); the layout is to be explained in the guide and the question of layout stays open.
+3. **Tactics with the `by-` prefix** (`n by-induction`, `by-rfl`, `by-exact`).
+4. **Natural LeanForth is the default**; the kernel ("assembly") form needs the marker word `kernel-form`.
+
+Questions 5-9 (milestone order, what "full Lean" means, how exact proof terms must be, the elaboration-data exporter,
+Mathlib's code extensions) are open.
+
 ### No result labels (2026-11-12, evening)
 
 The owner: "I find the constant repetition of experimental and not independently audited, one NOT PROVED not useful.
