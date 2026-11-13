@@ -38,7 +38,8 @@ status changes when this date is older than them. Stages are those of the
   Gforth-only words outside the portability layer).
 - 2026-11-13 02:00: all of Mathlib on the final build (verdict version 9), saving its snapshot.
 - The front end, LeanForth's own elaborator and tactics (plan FE1-FE12, replacing 8.3.1-8.3.2; [design](../design/FRONT_END.md),
-  [ADR 0021](../adr/0021-front-end.md) proposed): designed 2026-11-12, no code. FE1, the first theorem proved from
+  [ADR 0021](../adr/0021-front-end.md) proposed): designed 2026-11-12; FE1d, a library's elaboration data
+  (`scripts/export-elab.sh`, `check --elab-data`), tested alone on branch `fe1d`. FE1, the first theorem proved from
   LeanForth text ($0 + n = n$ by induction, no hand-written proof term, no Lean tool), starts once the owner answers
   the syntax questions and 8.2.1c-d are merged; natural statements (8.6.10) are FE2, `add_comm` natively (8.6.11) FE5.
 

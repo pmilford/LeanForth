@@ -9,13 +9,19 @@ FORTH those of tests/front/elab-init.fs, DATA the elaboration data. Holds
 when, for every kind, Lean's count equals the records written plus those
 left out, and LeanForth read exactly the records written; when the
 reducibility statuses LeanForth found equal the file's, and Lean's add up
-to its count; and when Lean's samples equal LeanForth's line for line.
+to its count; when Lean's samples equal LeanForth's line for line; and
+when every line of DATA is valid under schemas/elab-data-1.schema.json.
 Prints the counts compared; exit status 1 and the differences otherwise.
 """
 import collections
 import json
+import pathlib
 import re
 import sys
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tests/support"))
+from schema_subset import Validator, load_strict  # noqa: E402
 
 KINDS = ("instance", "default_instance", "reducibility", "eliminator")
 
@@ -53,6 +59,9 @@ def main(finish, lean, forth, data):
     forth_samples = sorted(line for line in forth_text.splitlines() if line.startswith("sample"))
     if lean_samples != forth_samples or len(lean_samples) < 6:
         problems.append(f"samples differ: Lean {lean_samples}, LeanForth {forth_samples}")
+    validator = Validator(load_strict((ROOT / "schemas/elab-data-1.schema.json").read_text()))
+    for number, line in enumerate(open(data, encoding="utf-8"), 1):
+        problems += [f"line {number}: {e}" for e in validator.errors(load_strict(line))]
     if problems:
         print("\n".join(problems))
         return 1

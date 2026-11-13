@@ -12,7 +12,10 @@ GFORTH names the Forth engine bin/leanforth runs, as make sets it)
 2. The synthetic eliminators fixture (tests/front/eliminators.elab.ndjson:
    records written here by hand, of real declarations of the slice, so
    that the eliminator path is used; no Lean attribute says them) is what
-   this file's generator writes.
+   this file's generator writes, and so is tests/front/cut-off.elab.ndjson
+   (its last line cut off). Every line of the two good fixtures is valid
+   under schemas/elab-data-1.schema.json, and lines the schema can judge
+   alone (a wrong member, status, kind, part or number) are invalid.
 3. `leanforth check --env SLICE --elab-data DATA TEXT.lf` with the good
    data (exit 0, the counts line, the verdicts exactly those of the run
    without it), with a snapshot of the slice in place of the export, and
@@ -32,7 +35,9 @@ import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "tests/support"))
 import export_elab  # noqa: E402
+from schema_subset import Validator, load_strict  # noqa: E402
 
 SLICE = ROOT / "tests/author/init-slice.ndjson"
 GOOD = ROOT / "tests/front/init-slice.elab.ndjson"
@@ -81,6 +86,17 @@ def eliminators_text():
         ("induction", ["And", "rec"], [["And"]]),
         ("induction", ["Eq", "rec"], [["Eq"], ["Nat"]]))]
     return assemble(GOOD_RECORDS + elims)
+
+
+def cut_off_text():
+    """The eliminators fixture with its last record cut off: refused only
+    after every other record was read (tests/front/elab-data.fs)."""
+    return eliminators_text().rsplit("\n", 2)[0] + "\n"
+
+
+# The fixtures this file writes (--write-fixtures) and checks.
+FIXTURES = {ELIMINATORS: eliminators_text,
+            ROOT / "tests/front/cut-off.elab.ndjson": cut_off_text}
 
 
 def with_record(old, new, records=None):
@@ -328,9 +344,30 @@ def command_line(work):
           f"{len(misuse)} misuses and {len(cases)} damaged files refused")
 
 
+def schema_cases():
+    validator = Validator(load_strict((ROOT / "schemas/elab-data-1.schema.json").read_text()))
+    lines = GOOD.read_text().splitlines() + ELIMINATORS.read_text().splitlines()
+    for line in lines:
+        for error in validator.errors(load_strict(line)):
+            fail(f"schema refuses a line of a fixture: {error}: {line[:80]}")
+    wrong = [ONE.replace('"priority"', '"prio"'), ONE.replace("1000", "-1"),
+             ONE.replace("1000", "4294967296"), ONE.replace('["Add"]', '[]'),
+             ONE.replace('["Add"]', '[true]'), ONE.replace('["Add"]', '"Add"'),
+             '{"reducibility":{"name":["Nat"],"status":"semireducible"}}',
+             '{"eliminator":{"kind":"recursion","name":["Nat","rec"],"types":[["Nat"]]}}',
+             '{"simp":{"name":["id"]}}', ONE[:-1] + ',"x":{}}',
+             lines[0].replace('"format_version":1', '"format_version":2')]
+    for line in wrong:
+        if not validator.errors(load_strict(line)):
+            fail(f"schema accepts {line[:80]}")
+    print(f"schema: {len(lines)} fixture lines valid, {len(wrong)} wrong lines invalid")
+
+
 def main():
-    if ELIMINATORS.read_text() != eliminators_text():
-        fail(f"{ELIMINATORS} is not what eliminators_text() writes")
+    for path, made in FIXTURES.items():
+        if path.read_text() != made():
+            fail(f"{path} is not what {made.__name__}() writes")
+    schema_cases()
     with tempfile.TemporaryDirectory() as work:
         work = pathlib.Path(work)
         finisher_cases(work)
@@ -343,7 +380,8 @@ def main():
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 2 and sys.argv[1] == "--write-eliminators":
-        ELIMINATORS.write_text(eliminators_text())
+    if len(sys.argv) == 2 and sys.argv[1] == "--write-fixtures":
+        for path, made in FIXTURES.items():
+            path.write_text(made())
         sys.exit(0)
     sys.exit(main())
