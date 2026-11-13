@@ -12961,10 +12961,10 @@ reason = "FE1c: without elaboration data the status is guessed as Lean's default
 [[fault]]
 id = "fe-env-missing-fact-guessed"
 file = "src/front/meta-env.fs"
-old = '''  me-defn? if false outcome-unsupported else false outcome-ok then ;'''
-new = '''  drop false outcome-ok ;'''
+old = ''': me-sunfold-unknown ( d -- flag outcome ) drop false outcome-unsupported ;'''
+new = ''': me-sunfold-unknown ( d -- flag outcome ) drop false outcome-ok ;'''
 test = "$GFORTH tests/front/meta-env.fs"
-reason = "FE1c: a definition's matcher, projection, auxiliary-recursor or smart-unfolding fact, which LeanForth lacks, is answered false (Lean: true for Nat.add.match_1, HAdd.hAdd, Nat.casesOn, Nat.add)"
+reason = "FE1c, S2: a definition's smart-unfolding fact, which LeanForth lacks without its source, is answered false (Lean: true for Nat.add), so Nat.add would unfold by its brecOn value"
 
 [[fault]]
 id = "fe-env-theorem-unfoldable"
@@ -13065,8 +13065,8 @@ reason = "FE1c: a reduced part (a major premise, a projection's structure) is gi
 [[fault]]
 id = "fe-whnf-frame-term-lost"
 file = "src/front/whnf.fs"
-old = '''  wc-top dup wcf-aux @ wc wc-aux ! dup wcf-term @ wc wc-e ! wcf-kind @'''
-new = '''  wc-top dup wcf-aux @ wc wc-aux ! wcf-kind @'''
+old = '''  wc-top dup wc-restore dup wcf-aux @ wc wc-aux ! dup wcf-term @ wc wc-e ! wcf-kind @'''
+new = '''  wc-top dup wc-restore dup wcf-aux @ wc wc-aux ! wcf-kind @'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "FE1c: a resumed frame works on the term of the step that ran last, not its own (a nested recursor)"
 
@@ -13195,18 +13195,19 @@ reason = "review fe1c-2 M1: getStuckMVar? of a projection applied to arguments a
 [[fault]]
 id = "fe-whnf-proj-literal-final"
 file = "src/front/whnf.fs"
-old = ''': wc-unfinal? ( rhead -- flag ) dup wc-const? if wc-const-unfinal? else wc-lit? then ;'''
-new = ''': wc-unfinal? ( rhead -- flag ) dup wc-const? if wc-const-unfinal? else drop false then ;'''
+old = '''  dup wc-lit? if drop outcome-unsupported wc-fail exit then
+  wc-proj-frame'''
+new = '''  wc-proj-frame'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "review fe1c-2 L1: a projection of a literal stays, where Lean's toCtorIfLit turns the literal into Nat's constructors first"
 
 [[fault]]
 id = "fe-whnf-proj-unknown-final"
-file = "src/front/whnf.fs"
-old = '''  dup wc-kind dup lf-kind-definition = swap 0= or swap wc-foldable? or ;'''
-new = '''  dup wc-kind lf-kind-definition = swap wc-foldable? or ;'''
+file = "src/front/unfold.fs"
+old = '''  dup outcome-invalid = if 2drop false outcome-ok then ;'''
+new = '''  ;'''
 test = "$GFORTH tests/front/whnf.fs"
-reason = "review fe1c-2 L1: a projection of a constant no declaration has stays, where Lean's whnf throws unknown constant"
+reason = "review fe1c-2 L1, re-targeted by S2: a constant no declaration has is looked up with getUnfoldableConst? (Lean throws) where Lean's getUnfoldableConstNoEx? leaves it, so whnf of it and of a projection of it is invalid, not the term"
 
 [[fault]]
 id = "fe-whnf-fields-no-max"
@@ -15447,10 +15448,10 @@ reason = "S1 merge B: whnfCore stops asking the facts Lean's asks (reduceMatcher
 [[fault]]
 id = "fe-whnf-no-delta-check"
 file = "src/front/whnf.fs"
-old = '''  if 2drop outcome-unsupported else wm-firm then ;'''
-new = '''  if 2drop outcome-ok else wm-firm then ;'''
+old = '''  drop wc-full? if wc-delta else false outcome-ok then ;'''
+new = '''  drop false outcome-ok ;'''
 test = "$GFORTH tests/front/whnf.fs"
-reason = "S1 appendix D: a definition the transparency unfolds is answered as whnf's result (a guess: unfoldDefinition? would act)"
+reason = "S1 appendix D, S2: whnf ends at whnfCore's result, never asking unfoldDefinition? (instHAdd Nat instAddNat stays at default)"
 
 [[fault]]
 id = "fe-whnf-nat-folded"
@@ -15480,10 +15481,10 @@ reason = "S1 appendix D: instantiateForall refuses a type that is a pi only afte
 [[fault]]
 id = "fe-whnf-budget-free"
 file = "src/front/whnf.fs"
-old = '''  lf-meta-spend? 0= if drop -1 outcome-exhausted exit then'''
-new = ''''''
+old = '''  lf-meta-spend? if wc-unfold else outcome-exhausted wc-drop-fail then ;'''
+new = '''  wc-unfold ;'''
 test = "$GFORTH tests/front/whnf.fs"
-reason = "S1 §8: whnf spends none of the declaration's budget"
+reason = "S1 §8, S2: whnf and unfoldDefinition? spend none of the declaration's budget"
 
 # --- s1-meta merge A review (2026-11-13): the reviewer's surviving faults
 
@@ -15797,3 +15798,113 @@ new = ''''''
 test = "python3 tests/program/test_program_verify.py WriteIr.test_write_ir_never_overwrites_other_files"
 reason = "review R3: --write-ir overwrites any checkout file the contract's ir line names (src/main.fs)"
 quick = true
+
+# --- S2 merge A: unfoldDefinition? (src/front/unfold.fs), whnf's delta
+# and parts (src/front/whnf.fs), lazy delta (src/front/defeq-delta.fs);
+# docs/design/S2_INTERFACE.md §2, §9.
+
+[[fault]]
+id = "fe-delta-both-sides"
+file = "src/front/defeq-delta.fs"
+old = '''  dup de-s dd-same-head? if de-s dd-compare exit then
+  de-s dd-unfold if dd-heads-both'''
+new = '''  de-s dd-unfold if dd-heads-both'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "S2 §9: unfoldComparingHeadsDefEq unfolds both sides where Lean unfolds one (id Nat (Nat.add ?n x) against Nat.add k x then unfolds Nat.add)"
+
+[[fault]]
+id = "fe-delta-no-sunfold"
+file = "src/front/unfold.fs"
+old = '''  lf-menv-smart? ok-then? if if outcome-unsupported else outcome-ok then then ;'''
+new = '''  lf-menv-smart? ok-then? if drop outcome-ok then ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S2 §9: a definition with a `_sunfold` (Nat.add) unfolds by its brecOn value, where Lean takes the smart path"
+
+[[fault]]
+id = "fe-unfold-matcher"
+file = "src/front/unfold.fs"
+old = '''  lf-menv-matcher? ok-then? if 0= outcome-ok else false swap then ;'''
+new = '''  lf-menv-matcher? ok-then? if drop true outcome-ok else false swap then ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S2: unfoldDefinition? unfolds a matcher (Nat.add.match_1), which Lean leaves to whnfCore"
+
+[[fault]]
+id = "fe-unfold-arity-ignored"
+file = "src/front/unfold.fs"
+old = ''': uf-arity? ( d const -- flag ) uf-slot lf-cref-pairs nip swap lf-menv-params nip = ;'''
+new = ''': uf-arity? ( d const -- flag ) 2drop true ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S2: a constant with more universe arguments than parameters unfolds (Lean's deltaDefinition gives none)"
+
+[[fault]]
+id = "fe-unfold-proj-inst-any-mode"
+file = "src/front/unfold.fs"
+old = ''': uf-inst-mode? ( -- flag ) lf-defeq-mode dup lf-tr-instances = swap lf-tr-implicit = or ;'''
+new = ''': uf-inst-mode? ( -- flag ) true ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S2: unfoldProjInst? runs at reducible transparency (HAdd.hAdd becomes Add.add), where Lean's unfoldProjInstWhenInstances? runs only at instances and implicit"
+
+[[fault]]
+id = "fe-unfold-field-none-kept"
+file = "src/front/whnf.fs"
+old = '''  lf-unfold-ask-keep = if wc wc-aux @ wc-advance else wc-stay then ;'''
+new = '''  drop wc wc-aux @ wc-advance ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S2: unfoldProjInst? whose instance does not project (HAdd.hAdd k k x at instances) unfolds anyway, where Lean gives none"
+
+[[fault]]
+id = "fe-unfold-class-any-projection"
+file = "src/front/meta-env.fs"
+old = '''  elab-projection-of if elab-projection-class? dup if 0 swap then else false then ;'''
+new = '''  elab-projection-of if drop 0 true else false then ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S2: a structure's projection (Prod.fst) counts as a class's (isProjInst), so unfoldDefault at reducible reduces its field too"
+
+[[fault]]
+id = "fe-whnf-proj-core-only"
+file = "src/front/whnf.fs"
+old = '''  wc-full-act wc wc-act ! outcome-ok ;'''
+new = '''  outcome-ok ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S2 §2: a projection's structure is reduced by whnfCore alone, where Lean's whnfCore uses whnf (proj := yesWithDelta): (instHAdd Nat instAddNat).1 stays"
+
+[[fault]]
+id = "fe-whnf-mode-leaks"
+file = "src/front/whnf.fs"
+old = ''': wc-leave ( -- ) wc wc-mode0 @ lf-defeq-mode! ;'''
+new = ''': wc-leave ( -- ) ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S2: a call leaves the transparency its last part ran at (instances after whnfAtMostI), not the caller's"
+
+[[fault]]
+id = "fe-delta-heuristic-skipped"
+file = "src/front/defeq-delta.fs"
+old = '''  dd-mvars? if true exit then de-x dd-nontrivial? dup de-aborted? or if exit then'''
+new = '''  false exit de-x dd-nontrivial? dup de-aborted? or if exit then'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "S2: tryHeuristic never compares the arguments first, so Nat.add ?n x against Nat.add k x unfolds Nat.add (its `_sunfold`)"
+
+[[fault]]
+id = "fe-delta-packed-skipped"
+file = "src/front/defeq-delta.fs"
+old = '''  de-t de-s dd-packed if de-s dd-compare exit then de-aborted? if exit then'''
+new = '''  de-aborted? if exit then'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "S2: unfoldNonProjFnDefEq never unpacks a class projection toward the other side's head (k + x against Nat.add k x then unfolds Nat.add)"
+
+[[fault]]
+id = "fe-delta-levels-ignored"
+file = "src/front/defeq-delta.fs"
+old = '''  de-t de-s de-levels lf-lb-true = if lf-lb-true de-return exit then'''
+new = '''  lf-lb-true de-return exit'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "S2: two constants of one name are equal whatever their universe levels (id.{1} against id.{2})"
+
+[[fault]]
+id = "fe-delta-reducible-first-skipped"
+file = "src/front/defeq-delta.fs"
+old = '''  df df-mode @ lf-tr-reducible = if dd-defeq exit then
+  de-x dd-red? de-y dd-red? dd-one-of ;'''
+new = '''  dd-defeq ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "S2: unfoldReducibleDefEq never unfolds the reducible side first (outParam ?n against Nat.add k x then unfolds Nat.add)"

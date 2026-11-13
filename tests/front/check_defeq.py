@@ -88,6 +88,8 @@ def lam(body, dom=NAT):
 
 
 ADD_ADD = apps(c("Add.add", 0), NAT, c("instAddNat"))
+HADD_MK = apps(c("HAdd.mk", 0, 0, 0), NAT, NAT, NAT,
+               (LAM, NAT, (LAM, NAT, apps(ADD_ADD, "#1", "#0"))))
 SMART = "S2 merge B smart unfolding (Nat.add._sunfold)"
 EQAB = apps(c("Eq", 1), NAT, "a", "b")
 REFL_A = apps(c("Eq.refl", 1), NAT, "a")
@@ -225,6 +227,14 @@ CASES = [
     ("eq", hadd("?n", "x"), apps(ADD_ADD, "k", "x"), None),
     ("eq", hadd("k", "x"), hadd("x", "k"), SMART),
     ("eq", c("id", 1), c("id", 2), None),
+    ("eq", apps(c("outParam", 1), "?n"), apps(ADD, "k", "x"), None),
+    ("eq", apps(c("outParam", 1), "?n"), NAT, None),
+    ("eq", apps(c("id", 1), NAT, apps(ADD, "?n", "x")), apps(ADD, "k", "x"), None),
+    ("eq", apps(ADD, "?n", "x"), apps(ADD, "k", "x"), None),
+    # An instance argument at reducible is compared at implicit, where
+    # instHAdd unfolds to its constructor.
+    ("red", hadd("k", "x"), apps(c("HAdd.hAdd", 0, 0, 0), NAT, NAT, NAT, HADD_MK, "k", "x"),
+     None),
     ("inst", hadd("k", "x"), apps(ADD_ADD, "k", "x"),
      "S2 merge B isDefEqProjInst (ExprDefEq.lean:2356)"),
     ("impl", pair("a", "b"), pair("a", "?n"), None),

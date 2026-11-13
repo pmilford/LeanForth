@@ -252,6 +252,79 @@ T{ nat nat tpi fk fx 2 rxs lf-meta-instantiate-forall nat 0 rxs lf-meta-instanti
 T{ lf-meta-budget nat fk 1 rxs drop -1 lf-meta-instantiate-forall rot lf-meta-budget -
    -> -1 outcome-invalid 0 }T
 
+\ ---- unfoldDefinition? (lf-meta-unfold, S2 merge A; check_unfold.py
+\ compares the same terms with pinned Lean). Made: outParam Nat is Nat,
+\ the transparency unfolds it (reducible) or not (none); none: Nat.add
+\ alone (a `_sunfold`), a matcher, a theorem, a lambda, a constant no
+\ declaration has (getUnfoldableConstNoEx?), one universe argument too
+\ many (deltaDefinition's count).
+: outp ( t -- t' ) >r lv1 1 s" outParam" cn r> app ;
+: unf ( t mode -- e' flag outcome ) ['] lf-meta-unfold at-mode ;
+: stays ( t mode -- flag' outcome same? ) over >r unf rot r> same? ;
+: add-kx ( -- t ) l0 1 s" Add.add" cn nat app 0 s" instAddNat" cn app fk app fx app ;
+T{ nat outp lf-tr-default unf nat outp lf-tr-reducible unf -> nat true outcome-ok nat true outcome-ok }T
+T{ nat outp lf-tr-none stays 0 s" Nat.add" cn lf-tr-default stays
+   -> false outcome-ok true false outcome-ok true }T
+: match1 ( -- t ) lv1 1 s" Nat.add.match_1" cn fk app ;
+T{ match1 lf-tr-default stays 0 s" Nat.zero_add" cn lf-tr-all stays
+   -> false outcome-ok true false outcome-ok true }T
+T{ nat fk lam lf-tr-default stays unknown lf-tr-default stays lv1 lv1 2 s" outParam" cn nat app
+   lf-tr-default stays -> false outcome-ok true false outcome-ok true false outcome-ok true }T
+\ Unsupported: Nat.add applied has a `_sunfold` (the smart path, merge B);
+\ without the facts (no data read against the stage) any definition.
+T{ 0 s" Nat.add" cn fk app fx app lf-meta-unfold -> -1 false outcome-unsupported }T
+0 lf-menv-stage!
+T{ nat outp lf-meta-unfold -> -1 false outcome-unsupported }T
+menv-lib lf-menv-stage!
+\ Invalid: no term; an application of a constant no declaration has
+\ (Lean: unknown constant). Exhausted: no budget left. Full: the first
+\ allocation refused; the same call again works.
+T{ -1 lf-meta-unfold unknown fk app lf-meta-unfold -> -1 false outcome-invalid -1 false outcome-invalid }T
+T{ 0 lf-meta-budget! nat outp lf-meta-unfold lf-meta-default-budget lf-meta-budget!
+   -> -1 false outcome-exhausted }T
+T{ 1 heap-refusals ! hadd-kx lf-tr-instances unf -rot 2drop heap-refusals @ -> outcome-full 0 }T
+T{ hadd-kx lf-tr-instances unf rot add-kx same? -> true outcome-ok true }T
+\ Class fields (unfoldProjInstWhenInstances?): HAdd.hAdd at instances
+\ becomes Add.add (its instance's field, whnf of instHAdd at instances);
+\ at reducible nothing; at default the projection itself; with a
+\ structure no constructor (k) at instances nothing, at default k.1 k x.
+T{ hadd-kx lf-tr-instances unf rot add-kx same? hadd-kx lf-tr-reducible stays
+   -> true outcome-ok true false outcome-ok true }T
+: hadd-kkx ( -- t ) l0 l0 l0 3 s" HAdd.hAdd" cn nat app nat app nat app fk app fk app fx app ;
+: k1kx ( -- t ) fk s" HAdd" menv-name 0 lf-proj-of made fk app fx app ;
+T{ hadd-kkx lf-tr-instances stays hadd-kkx lf-tr-default unf rot k1kx same?
+   -> false outcome-ok true true outcome-ok true }T
+\ A structure projection (Prod.fst, reducible, no class's): at reducible
+\ unfoldDefault leaves its projection (no class field to reduce).
+: fst-ab ( -- t ) l0 l0 2 s" Prod.fst" cn nat app nat app fa fb pair app ;
+T{ fst-ab lf-tr-reducible unf rot fa fb pair 0 proj same? -> true outcome-ok true }T
+\ The transparency on entry is back after every call, a failed one too.
+T{ lf-tr-instances lf-defeq-mode! hadd-kx lf-meta-unfold 2drop drop lf-defeq-mode
+   0 s" Nat.add" cn fk app fx app lf-meta-unfold 2drop drop lf-defeq-mode lf-tr-default lf-defeq-mode!
+   -> lf-tr-instances lf-tr-instances }T
+
+\ ---- whnfCore's parts by whnf (S2 merge A): a projection's structure
+\ (instHAdd Nat instAddNat unfolds to its constructor at default, not at
+\ reducible); whnfCoreAtDefEq's by whnfAtMostI (id unfolds at default,
+\ not at instances); a recursor's major premise (id Nat Nat.zero is
+\ Nat.zero); a literal major premise (toCtorIfLit) unsupported.
+: add-lam ( -- t ) nat nat l0 1 s" Add.add" cn nat app 0 s" instAddNat" cn app 1 bv app 0 bv app lam lam ;
+T{ inst-hadd 0 proj add-lam whnf= inst-hadd 0 proj dup lf-tr-reducible ' lf-whnf-core at-mode
+   >r same? r> -> true outcome-ok true outcome-ok }T
+: id-ab ( -- t ) lv1 1 s" id" cn l0 l0 2 s" Prod" cn nat app nat app app fa fb pair app 0 proj ;
+T{ id-ab fa whnf= id-ab dup lf-whnf-core-at-defeq >r same? r> lf-defeq-mode
+   -> true outcome-ok true outcome-ok lf-tr-default }T
+\ A part that fails (Nat.add k x by whnfAtMostI: reduceNat?'s guard) still
+\ gives the caller its transparency back.
+T{ 0 s" Nat.add" cn fk app fx app 0 proj lf-whnf-core-at-defeq nip lf-defeq-mode
+   -> outcome-unsupported lf-tr-default }T
+T{ lv1 1 s" id" cn nat app zero app recm fz whnf= 5 nlit recm lf-whnf-core
+   -> true outcome-ok -1 outcome-unsupported }T
+\ whnf goes on after an unfolding: outParam Nat is Nat; instHAdd's
+\ projection applied reaches Add.add's field, Nat.add k x, where
+\ reduceNat?'s guard answers unsupported (merge B).
+T{ nat outp nat meta-whnf= hadd-kx lf-meta-whnf -> true outcome-ok -1 outcome-unsupported }T
+
 \ ---- Stale leaves: after the contexts are emptied, every metavariable
 \ and free variable made before is invalid.
 lf-mctx-reset

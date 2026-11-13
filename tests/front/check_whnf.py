@@ -107,6 +107,7 @@ CASES = [
     # the instance unfolds to its constructor, the field is taken.
     ("whnf", (PROJ, 0, apps(c("instHAdd", 0), NAT, c("instAddNat"))), None),
     ("whnf", apps((PROJ, 0, apps(c("instHAdd", 0), NAT, c("instAddNat"))), "k", "x"), None),
+    ("whnf", rec(apps(c("id", 1), NAT, ZERO)), None),
     ("whnf", rec((LET, NAT, "k", apps(SUCC, "#0"))), None),
     ("whnf", rec(apps((LAM, NAT, "#0"), "k")), None),
     ("whnf", rec(apps(REC, "m", apps(SUCC, "z"), "s", ZERO)), None),

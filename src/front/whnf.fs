@@ -67,8 +67,8 @@
 \ stays as it is, as Lean's whnfEasyCases leaves it.
 \ Fuel: each step spends one; lf-whnf-fuel! sets the steps a call may
 \ take (0: lf-whnf-default-fuel); none left is exhausted, never a term.
-\ Each lf-meta-whnf call and each unfolding attempt also spends one step
-\ of meta-config.fs's budget (none left: exhausted).
+\ Each unfolding attempt (at least one per whnf, and one per part) also
+\ spends one step of meta-config.fs's budget (none left: exhausted).
 \ Outcomes: ok; invalid for a term or leaf that is not live, a loose
 \ bound variable, a malformed let or an unknown constant whnf would
 \ unfold; unsupported as above; full when a store or slab has no room;
@@ -483,9 +483,7 @@ end-structure
   true wc wc-facts ! wc-core-act true wc-run ;
 
 \ ---- whnf (lf-meta-whnf) and unfoldDefinition? (lf-meta-unfold).
-: lf-meta-whnf ( e -- e' outcome )
-  lf-meta-spend? 0= if drop -1 outcome-exhausted exit then
-  true wc wc-facts ! wc-full-act false wc-run ;
+: lf-meta-whnf ( e -- e' outcome ) true wc wc-facts ! wc-full-act false wc-run ;
 : wc-unfold-run ( e -- e' outcome )
   wc-delta ok-then2? 0= if no-result exit then if wc-loop else outcome-ok then ;
 : wc-answer ( e' outcome -- e' flag outcome )
