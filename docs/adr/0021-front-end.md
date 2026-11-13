@@ -64,8 +64,9 @@ LeanForth gets its own front end:
   `norm_num` and 119 `positivity` extensions; macros and tactics).
 - **Evidence that order matters** (pinned Lean 4.35.0, 2026-11-12;
   [design §2.1](../design/FRONT_END.md#21-the-pipeline)): for
-  `theorem zero_add' (n : Nat) : 0 + n = n := by induction n; case zero =>
-  rfl; case succ k ih => exact congrArg Nat.succ ih`, Lean's term uses
+  `theorem zero_add' (n : Nat) : 0 + n = n` proved by the tactics
+  `induction n`, `case zero => rfl` and `case succ k ih => exact congrArg
+  Nat.succ ih` (design §8.1), Lean's term uses
   `Nat.recAux` (chosen by an attribute), `@Eq.refl Nat (0 + 0)` (the tactic
   `rfl`; the term `rfl` would give `@rfl`), and `congrArg`'s hidden
   argument `Nat.add 0 n` (because the expected type is unified before the
@@ -89,8 +90,9 @@ word that writes an environment slot, a verdict or a snapshot.
 Metavariables are new leaf kinds of the term and level stores, used only by
 the front end. The export-record writer refuses a declaration that contains
 one (invalid: "elaboration incomplete"), whatever the front end believes,
-so even a front end that forgets to instantiate cannot send a hole. The
-kernel's own refusal of unknown leaves remains a second line.
+so even a front end that forgets to instantiate cannot send a hole. A
+second line stays: Lean's export format has no metavariable kind, and the
+importer stage refuses any record kind it does not know.
 
 ### D3. No `sorry`, no error recovery
 
