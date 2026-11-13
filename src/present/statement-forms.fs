@@ -26,7 +26,11 @@
 \ its line buffer, so no statement is cut at the buffer's size. In LaTeX
 \ style (lf-lv-latex!) the Lean form is the ASCII notation in the
 \ typewriter font and the LeanForth form is a typewriter block, both
-\ escaped for LaTeX; the mathematics is inline math.
+\ escaped for LaTeX; the mathematics is inline math. The fourth line, in
+\ math text (the term printer's mathematical-text mode, ∀ (n : ℕ), n + 0
+\ = n), is printed in plain style only: in LaTeX style the mathematics
+\ line already shows the statement so, and the math-text line is left out
+\ even when lf-forms! asks for it (lf-print-forms).
 \ Untrusted presentation code: the checker never loads it, and nothing it
 \ prints is evidence of anything. Requires log-view.fs for its sink, fuel
 \ and style, and print-forth.fs.

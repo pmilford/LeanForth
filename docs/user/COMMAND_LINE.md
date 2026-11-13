@@ -1158,8 +1158,9 @@ declaration first (an `import-stub` line stands for one of Lean's).
 `--statement FORMS` chooses the forms: `lean`, `text` (math text),
 `mathematics` (LaTeX) and `leanforth`, joined by commas (`--statement lean,leanforth`), or `all`
 (the default). `--latex` prints the outlines as LaTeX fragments instead
-(see [the proof outline](PROOF_OUTLINE.md#latex)); with `--detail` the
-step list is always plain text.
+(see [the proof outline](PROOF_OUTLINE.md#latex)), without the math-text
+line, which the LaTeX `mathematics` line already shows, even when `text` is
+asked for; with `--detail` the step list is always plain text.
 
 NAME is matched against the name as the term printer spells it, components
 joined by dots without « »: `a.b` selects a declaration whose name is the

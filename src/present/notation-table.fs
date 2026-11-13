@@ -10,7 +10,8 @@
 \ Lean's. Untrusted presentation code: a row changes only how a term is
 \ spelled, never what it is, and the checker never loads it.
 \ Standalone: requires only lib/lib.fs; print-notation.fs uses it.
-\ No state: the rows are constants of the dictionary.
+\ No state: the rows and their texts are data of the dictionary, written
+\ once while the table loads.
 \
 \ Kinds (the printing of each is in print-notation.fs):
 \   atom     a constant with no argument:       Nat     written ℕ in mathematics
@@ -23,17 +24,24 @@
 \ Row layout: arity, a and b (the argument indexes of the operands, from 0),
 \ prec (the notation's own precedence), lprec and rprec (the least precedence
 \ allowed for operand a and operand b), props (true: the operands are
-\ propositions, so a Pi among them prints as ∀), four spellings.
+\ propositions, so a Pi among them prints as ∀), mprec, four spellings.
 \
-\ Defining words, written after the numbers they take and reading the
-\ constant's name and its four quoted spellings from the text that follows:
+\ Defining words. Each makes one whole row, from the numbers before it and
+\ the constant's name and its four quoted spellings after it:
 \   infix:  ( arity a b prec "Const" "s0" "s1" "s2" "s3" -- )  operands at prec + 1
-\   infixl: ( same )  left operand at prec    infixr: ( same )  right operand at prec
-\   power: ( same as infixr: )   prefix: ( arity a prec rprec ... )
-\   suffix: ( arity a prec ... )   atom: ( ... )   numeral: ( "Const" )   exists: ( ... )
-\   props   ( -- )  marks the row just defined as one of propositions
+\   infixl: ( same )  left operand at prec    infix-at: ( same )  both at prec
+\   power: ( same )  right operand at prec, b a superscript in mathematics
+\   prefix: ( arity a prec rprec ... )   suffix: ( arity a prec ... )
+\   atom: ( "Const" "s0" "s1" "s2" "s3" -- )   numeral: ( "Const" -- )
+\ and for the connectives, whose operands are propositions:
+\   prop-infix: ( as infix: )   prop-infixr: ( same, right operand at prec )
+\   exists: ( as atom: )
+\   prop-prefix: ( as prefix: ), whose operand in LaTeX and mathematical text
+\     is tight: parenthesized unless an atom or an application (¬(a = b),
+\     where Lean writes ¬a = b)
 \ Example: 6 4 5 65 infixl: HAdd.hAdd " + " " + " " + " " + "
-\ The texts of all rows must fit the 4096-byte pool (lf-nt-pool).
+\ A row's texts follow it in the dictionary; its first field says how far
+\ the next row starts (lf-nt-after).
 
 require ../lib/lib.fs
 
@@ -48,7 +56,8 @@ require ../lib/lib.fs
 6 constant lf-nt-exists
 
 begin-structure /lf-nt
-  2 cells +field lf-nt-name   \ the constant's name: c-addr u in lf-nt-pool
+  field: lf-nt-next       \ address units from the row to the next one
+  2 cells +field lf-nt-name   \ the constant's name: c-addr u, after the row
   field: lf-nt-kind
   field: lf-nt-arity
   field: lf-nt-a
@@ -58,53 +67,60 @@ begin-structure /lf-nt
   field: lf-nt-rprec
   field: lf-nt-props
   field: lf-nt-mprec      \ the operand's precedence in the mathematical modes, or 0
-  8 cells +field lf-nt-syms   \ four spellings, c-addr u each, in lf-nt-pool
+  8 cells +field lf-nt-syms   \ four spellings, c-addr u each, after the row
 end-structure
+1023 constant lf-nt-tight-prec
 
-\ The texts of the rows, copied here as the table is read (a cursor of the
-\ load, not of any print): the pool is full at 4096 bytes.
-4096 constant lf-nt-pool-size
-create lf-nt-pool lf-nt-pool-size allot
-variable lf-nt-fill
-: lf-nt-keep ( c-addr u -- c-addr' u )
-  dup lf-nt-fill @ + lf-nt-pool-size > abort" notation text area full"
-  dup >r lf-nt-pool lf-nt-fill @ + dup >r swap move r> r> dup lf-nt-fill +! ;
+\ Making a row: a zeroed record, its numbers, then its texts copied after
+\ it as the table is read (a load-time word: it allots).
+: lf-nt-blank ( -- row ) here /lf-nt dup allot over swap erase ;
+: lf-nt-precs! ( prec row -- )
+  2dup lf-nt-prec ! >r 1+ dup r@ lf-nt-lprec ! r> lf-nt-rprec ! ;
+: lf-nt-places! ( arity a b row -- ) tuck lf-nt-b ! tuck lf-nt-a ! lf-nt-arity ! ;
+: lf-nt-new ( arity a b prec kind -- row )
+  lf-nt-blank tuck lf-nt-kind ! tuck lf-nt-precs! dup >r lf-nt-places! r> ;
+: lf-nt-keep ( c-addr u -- c-addr' u ) here >r dup allot tuck r@ swap move r> swap ;
 : lf-nt-quoted ( "text" -- c-addr u ) [char] " parse 2drop [char] " parse ;
-
-: lf-nt-new ( arity a b prec kind "Const" -- row )
-  here /lf-nt allot >r r@ /lf-nt erase r@ lf-nt-kind !
-  dup r@ lf-nt-prec ! 1+ dup r@ lf-nt-lprec ! r@ lf-nt-rprec !
-  r@ lf-nt-b ! r@ lf-nt-a ! r@ lf-nt-arity !
-  parse-name lf-nt-keep r@ lf-nt-name 2! r> ;
 : lf-nt-spelling ( row i -- addr ) 2* cells swap lf-nt-syms + ;
-: lf-nt-spell ( row -- row ) 4 0 do
-    lf-nt-quoted lf-nt-keep 2 pick i lf-nt-spelling 2! loop ;
-: lf-nt-lprec! ( row n -- ) over lf-nt-lprec ! drop ;
-: lf-nt-rprec! ( row n -- ) over lf-nt-rprec ! drop ;
-: lf-nt-last ( -- row ) here /lf-nt - ;
+: lf-nt-spell ( row i -- ) lf-nt-spelling >r lf-nt-quoted lf-nt-keep r> 2! ;
+: lf-nt-named ( row "Const" -- row ) dup lf-nt-name >r parse-name lf-nt-keep r> 2! ;
+: lf-nt-spells ( row "s0" "s1" "s2" "s3" -- row ) 4 0 do dup i lf-nt-spell loop ;
+: lf-nt-end ( row -- ) align here over - swap lf-nt-next ! ;
+: lf-nt-row ( arity a b prec kind "Const" "s0" "s1" "s2" "s3" -- row )
+  lf-nt-new lf-nt-named lf-nt-spells ;
+\ Changes to a row before it ends: an operand at the notation's own
+\ precedence, operands that are propositions, a tight operand.
+: lf-nt-left-at ( row -- row ) dup lf-nt-prec @ over lf-nt-lprec ! ;
+: lf-nt-right-at ( row -- row ) dup lf-nt-prec @ over lf-nt-rprec ! ;
+: lf-nt-prop ( row -- row ) true over lf-nt-props ! ;
+: lf-nt-tight ( row -- row ) lf-nt-tight-prec over lf-nt-mprec ! ;
+: lf-nt-prefix-row ( arity a prec rprec "Const" "s0" "s1" "s2" "s3" -- row )
+  >r 0 swap lf-nt-prefix lf-nt-row r> over lf-nt-rprec ! ;
 
-: atom: ( "Const" "s0" "s1" "s2" "s3" -- ) 0 0 0 0 lf-nt-atom lf-nt-new lf-nt-spell drop ;
-: numeral: ( "Const" -- ) 3 1 0 0 lf-nt-numeral lf-nt-new drop ;
+: atom: ( "Const" "s0" "s1" "s2" "s3" -- ) 0 0 0 0 lf-nt-atom lf-nt-row lf-nt-end ;
+: numeral: ( "Const" -- ) 3 1 0 0 lf-nt-numeral lf-nt-new lf-nt-named lf-nt-end ;
 : infix: ( arity a b prec "Const" "s0" "s1" "s2" "s3" -- )
-  lf-nt-infix lf-nt-new lf-nt-spell drop ;
+  lf-nt-infix lf-nt-row lf-nt-end ;
 : infixl: ( arity a b prec "Const" "s0" "s1" "s2" "s3" -- )
-  lf-nt-infix lf-nt-new lf-nt-spell dup lf-nt-prec @ lf-nt-lprec! ;
-: infixr: ( arity a b prec "Const" "s0" "s1" "s2" "s3" -- )
-  lf-nt-infix lf-nt-new lf-nt-spell dup lf-nt-prec @ lf-nt-rprec! ;
+  lf-nt-infix lf-nt-row lf-nt-left-at lf-nt-end ;
+: infix-at: ( arity a b prec "Const" "s0" "s1" "s2" "s3" -- )
+  lf-nt-infix lf-nt-row lf-nt-left-at lf-nt-right-at lf-nt-end ;
 : power: ( arity a b prec "Const" "s0" "s1" "s2" "s3" -- )
-  lf-nt-power lf-nt-new lf-nt-spell dup lf-nt-prec @ lf-nt-rprec! ;
+  lf-nt-power lf-nt-row lf-nt-right-at lf-nt-end ;
 \ OP a: the notation has precedence prec, its operand rprec.
 : prefix: ( arity a prec rprec "Const" "s0" "s1" "s2" "s3" -- )
-  >r 0 swap lf-nt-prefix lf-nt-new lf-nt-spell r> lf-nt-rprec! ;
+  lf-nt-prefix-row lf-nt-end ;
 \ a OP: the operand is the argument a, at prec.
 : suffix: ( arity a prec "Const" "s0" "s1" "s2" "s3" -- )
-  0 swap lf-nt-suffix lf-nt-new lf-nt-spell dup lf-nt-prec @ lf-nt-lprec! ;
-: exists: ( "Const" "s0" "s1" "s2" "s3" -- ) 2 1 0 0 lf-nt-exists lf-nt-new
-  lf-nt-spell drop ;
-: props ( -- ) true lf-nt-last lf-nt-props ! ;
-\ In LaTeX and mathematical text the operand needs parentheses unless it is
-\ an atom or an application (¬(a = b), where Lean writes ¬a = b).
-: tight ( -- ) 1023 lf-nt-last lf-nt-mprec ! ;
+  0 swap lf-nt-suffix lf-nt-row lf-nt-left-at lf-nt-end ;
+: prop-infix: ( arity a b prec "Const" "s0" "s1" "s2" "s3" -- )
+  lf-nt-infix lf-nt-row lf-nt-prop lf-nt-end ;
+: prop-infixr: ( arity a b prec "Const" "s0" "s1" "s2" "s3" -- )
+  lf-nt-infix lf-nt-row lf-nt-right-at lf-nt-prop lf-nt-end ;
+: prop-prefix: ( arity a prec rprec "Const" "s0" "s1" "s2" "s3" -- )
+  lf-nt-prefix-row lf-nt-prop lf-nt-tight lf-nt-end ;
+: exists: ( "Const" "s0" "s1" "s2" "s3" -- )
+  2 1 0 0 lf-nt-exists lf-nt-row lf-nt-prop lf-nt-end ;
 
 \ ---- Version 1 of the table ----------------------------------------------
 \ The rows follow in the dictionary, one after the other, from lf-nt-rows to
@@ -125,8 +141,7 @@ numeral: OfNat.ofNat
 4 2 3 50 infix: GE.ge       " ≥ "  " >= " " \ge "      " ≥ "
 4 2 3 50 infix: Dvd.dvd     " ∣ "  ""      " \mid "     " ∣ "
 \ a ∈ b is notation:50 a:50 " ∈ " b:50 => Membership.mem b a.
-5 4 3 50 infix: Membership.mem " ∈ " "" " \in "         " ∈ "
-  lf-nt-last 50 lf-nt-lprec!  lf-nt-last 50 lf-nt-rprec!
+5 4 3 50 infix-at: Membership.mem " ∈ " "" " \in "      " ∈ "
 \ Arithmetic (Lean: infixl:65, infixl:70, infixr:80, prefix:75).
 6 4 5 65 infixl: HAdd.hAdd   " + "  " + "  " + "        " + "
 6 4 5 65 infixl: HSub.hSub   " - "  " - "  " - "        " - "
@@ -137,25 +152,19 @@ numeral: OfNat.ofNat
 3 2 75 75 prefix: Neg.neg     "-"    "-"    "-"           "-"
 1 0 65 suffix: Nat.succ    ""     ""     " + 1"        " + 1"
 \ Logic (Lean: infix:20, infixr:35, infixr:30, notation:max "¬" p:40).
-2 0 1 20 infix: Iff         " ↔ "  " <-> " " \leftrightarrow " " ↔ "
-  props
-2 0 1 35 infixr: And         " ∧ "  " /\ " " \wedge "   " ∧ "
-  props
-2 0 1 30 infixr: Or          " ∨ "  " \/ " " \vee "     " ∨ "
-  props
-1 0 1024 40 prefix: Not         "¬"    ""     "\neg "       "¬"
-  props tight
+2 0 1 20 prop-infix: Iff     " ↔ "  " <-> " " \leftrightarrow " " ↔ "
+2 0 1 35 prop-infixr: And    " ∧ "  " /\ " " \wedge "   " ∧ "
+2 0 1 30 prop-infixr: Or     " ∨ "  " \/ " " \vee "     " ∨ "
+1 0 1024 40 prop-prefix: Not "¬"    ""     "\neg "       "¬"
 exists: Exists                       "∃ "   "exists " "\exists " "∃ "
-  props
 here constant lf-nt-rows-end
 
-\ The row for the constant named c-addr u, or 0.
-: lf-nt-row? ( row c-addr u -- flag )
-  rot lf-nt-name 2@ compare 0= ;
+\ The row for the constant named c-addr u, or 0: the first such row.
+: lf-nt-after ( row -- row' ) dup lf-nt-next @ + ;
+: lf-nt-named? ( c-addr u row -- flag ) lf-nt-name 2@ compare 0= ;
 : lf-nt-find ( c-addr u -- row | 0 )
   lf-nt-rows begin dup lf-nt-rows-end u< while
-    >r 2dup r@ -rot lf-nt-row? if 2drop r> exit then
-    r> /lf-nt + repeat
+    >r 2dup r@ lf-nt-named? if 2drop r> exit then r> lf-nt-after repeat
   drop 2drop 0 ;
 \ A row's spelling for a printer mode (0 to 3), empty when it has none.
 : lf-nt-sym ( row mode -- c-addr u ) lf-nt-spelling 2@ ;

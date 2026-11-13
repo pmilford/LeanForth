@@ -387,23 +387,23 @@ defer lf-pp-lam-groups ( node frames -- ... frames next )
   outcome-ok r> 0 ;
 \ A literal (core/literals.fs; plan task 5.2.3): its value when it fits
 \ one cell, else the number of its limbs.
+: lf-pp-limbs ( term -- )
+  s" (literal of " lf-pp-emit lf-term-second@ lf-pp-number s"  limbs)" lf-pp-emit ;
 : lf-pp-lit-step ( term pos frames -- outcome frames 0 )
-  >r drop dup lf-lit-small? if lf-lit-cell lf-pp-number
-  else s" (literal of " lf-pp-emit lf-term-second@ lf-pp-number s"  limbs)" lf-pp-emit then
+  >r drop dup lf-lit-small? if lf-lit-cell lf-pp-number else lf-pp-limbs then
   outcome-ok r> 0 ;
 \ A string literal (core/string-literals.fs): quoted as Lean quotes it
 \ (print-strings.fs).
 : lf-pp-str-step ( term pos frames -- outcome frames 0 ) >r drop lf-pp-string r> 0 ;
+\ The leaves that are no atom; any other tag is invalid.
+: lf-pp-leaf-step ( tag -- xt )
+  case lf-tag-proj of ['] lf-pp-proj-step endof lf-tag-lit of ['] lf-pp-lit-step endof
+    lf-tag-str of ['] lf-pp-str-step endof ['] lf-pp-invalid-step swap endcase ;
 : lf-pp-tag-step ( tag -- xt )
   dup lf-pp-applied-tag? if drop ['] lf-pp-app exit then
   case lf-tag-sort of ['] lf-pp-concrete-step endof
-    lf-tag-symbolic-sort of ['] lf-pp-symbolic endof
-    lf-tag-lam of ['] lf-pp-lam endof
-    lf-tag-pi of ['] lf-pp-pi endof
-    lf-tag-proj of ['] lf-pp-proj-step endof
-    lf-tag-lit of ['] lf-pp-lit-step endof
-    lf-tag-str of ['] lf-pp-str-step endof
-    ['] lf-pp-invalid-step swap endcase ;
+    lf-tag-symbolic-sort of ['] lf-pp-symbolic endof lf-tag-lam of ['] lf-pp-lam endof
+    lf-tag-pi of ['] lf-pp-pi endof dup lf-pp-leaf-step swap endcase ;
 : lf-pp-term ( term pos frames -- ... frames next )
   2 pick lf-pp-tag if lf-pp-tag-step else ['] lf-pp-invalid-step then execute ;
 ' lf-pp-term is lf-pp-term-step

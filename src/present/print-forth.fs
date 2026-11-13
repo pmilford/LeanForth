@@ -35,11 +35,12 @@
 \   lf-print-forth-decl ( decl fuel -- outcome )  a declaration (/lf-fdecl)
 \ ok: printed. invalid: malformed input, as for lf-print-term, or a
 \ variable bound by an arrow. unsupported: a name the words cannot spell
-\ (a part with a dot, a space, only digits or between guillemets; a universe parameter named
-\ like a syntax word), or a label or note that would not read back as
-\ itself (from lf-note-add, not the words), which is never printed as
-\ live words. exhausted and full: as for lf-print-term. On a failure the
-\ text sent to the sink so far is incomplete.
+\ (a part with a dot, a space, only digits or between guillemets; a
+\ universe parameter named like a syntax word), or a label or note that
+\ would not read back as itself (from lf-note-add, not the words), which
+\ is never printed as live words. exhausted and full: as for
+\ lf-print-term. On a failure the text sent to the sink so far is
+\ incomplete.
 
 require ./term-printer.fs
 require ./note-table.fs
@@ -178,7 +179,8 @@ create lf-pf-eol 10 c,
   lf-pf-open-quote lf-pp-put lf-pp-put lf-pf-close-quote lf-pp-put ;
 \ The parts from the root (component 0) on, joined by dots.
 : lf-pf-put-parts ( id n -- )
-  dup 0 ?do i if s" ." lf-pp-put then 2dup i - 1- lf-pp-ancestor lf-pf-put-part loop 2drop ;
+  dup 0 ?do i if s" ." lf-pp-put then 2dup i - 1- lf-pp-ancestor lf-pf-put-part loop
+  2drop ;
 \ A name as text, as lf-pp-name-to: too long a name marks the pool full.
 : lf-pf-put-name ( id -- )
   dup lf-pp-name-depth dup lf-name-default >
@@ -341,7 +343,8 @@ defer lf-pf-const-exists? ( name -- flag )
   lf-pforth lf-pforth-decl @ lf-fdecl-name @ lf-name-prefix@
   begin dup while 2dup lf-pf-captured-in? if 2drop true exit then lf-name-prefix@ repeat
   2drop false ;
-: lf-pf-capturable? ( id -- flag ) lf-pf-dotted-decl? if lf-pf-captured? else drop false then ;
+: lf-pf-capturable? ( id -- flag )
+  lf-pf-dotted-decl? if lf-pf-captured? else drop false then ;
 : lf-pf-root? ( id -- flag )
   dup lf-pf-capturable? if drop true exit then
   dup lf-pf-decl-universe? if drop true exit then
@@ -461,18 +464,17 @@ defer lf-pf-term-step ( term x frames -- ... frames next )
   lf-pf-mark s" proj# " lf-pp-put swap lf-proj-name lf-pf-put-name lf-pf-unit
   outcome-ok r> 0 ;
 : lf-pf-lam ( lam frames -- ... frames next ) true swap lf-pf-binder ;
-: lf-pf-node-by ( tag -- xt )
-  case lf-tag-bvar of ['] lf-pf-var-step endof
-    lf-tag-sort of ['] lf-pf-sort-step endof
+\ The leaves: Sorts, literals, projections; any other tag is invalid.
+: lf-pf-leaf-by ( tag -- xt )
+  case lf-tag-sort of ['] lf-pf-sort-step endof
     lf-tag-symbolic-sort of ['] lf-pf-symbolic-step endof
-    lf-tag-app of ['] lf-pf-app endof  lf-tag-projection of ['] lf-pf-app endof
-    lf-tag-lam of ['] lf-pf-lam endof
-    lf-tag-pi of ['] lf-pf-pi endof
-    lf-tag-constant of ['] lf-pf-const endof
-    lf-tag-lit of ['] lf-pf-lit-step endof
-    lf-tag-str of ['] lf-pf-str-step endof
-    lf-tag-proj of ['] lf-pf-proj-step endof
-    ['] lf-pf-invalid-step swap endcase ;
+    lf-tag-lit of ['] lf-pf-lit-step endof lf-tag-str of ['] lf-pf-str-step endof
+    lf-tag-proj of ['] lf-pf-proj-step endof ['] lf-pf-invalid-step swap endcase ;
+: lf-pf-node-by ( tag -- xt )
+  case lf-tag-bvar of ['] lf-pf-var-step endof lf-tag-constant of ['] lf-pf-const endof
+    lf-tag-app of ['] lf-pf-app endof lf-tag-projection of ['] lf-pf-app endof
+    lf-tag-lam of ['] lf-pf-lam endof lf-tag-pi of ['] lf-pf-pi endof
+    dup lf-pf-leaf-by swap endcase ;
 : lf-pf-noted-end ( outcome frames -- outcome frames 0 )
   >r r@ frame-restore swap ok-then? if lf-pf-notes then r> 0 ;
 : lf-pf-noted ( term x frames -- ... frames next )
