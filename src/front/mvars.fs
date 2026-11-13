@@ -657,4 +657,5 @@ end-structure
 : mv-dep-walk ( term -- flag outcome )
   ['] mv-dep-build ['] mv-hole-pending mctx mctx-hwalk mv-walk dw-run swap 0<> swap ;
 : lf-depends-on? ( term fvar -- flag outcome )
-  swap lf-instantiate-mvars ok-then? if swap mv-target ! mv-dep-walk else nip false swap then ;
+  swap lf-instantiate-mvars ok-then? 0= if nip false swap exit then
+  swap mv-target ! mv-dep-walk ;

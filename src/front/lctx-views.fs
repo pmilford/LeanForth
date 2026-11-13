@@ -88,15 +88,15 @@ end-structure
 : lv-kind-one? ( flags -- flag ) lf-local-kind-mask and lf-local-kind-mask <> ;
 : lv-flags? ( flags -- flag )
   dup lf-local-flags-mask invert and 0= swap lv-kind-one? and ;
-: lv-parts? ( fvar name flags -- fvar name flags flag )
-  >r dup lf-user-name? r@ lv-flags? and >r over lf-fvar-live? r> and r> swap ;
 : lv-fill ( fvar name flags addr -- )
   tuck loc-flags ! tuck loc-name ! tuck loc-fvar ! 0 swap loc-class ! ;
 : lv-made ( fvar name flags -- local outcome )
-  1 lv-locals slab-claim ok-then? 0= if >r 2drop drop r> no-result exit then
+  1 lv-locals slab-claim ok-then? 0= if nip nip nip no-result exit then
   dup >r lv-loc lv-fill r> outcome-ok ;
+: lv-bad ( fvar name flags -- -1 outcome ) 2drop drop -1 outcome-invalid ;
 : lf-local-new ( fvar name flags -- local outcome )
-  lv-parts? if lv-made else 2drop drop -1 outcome-invalid then ;
+  2dup lv-flags? swap lf-user-name? and 0= if lv-bad exit then
+  rot dup lf-fvar-live? 0= if -rot lv-bad exit then -rot lv-made ;
 
 \ Changed copies: a new record, the old one as it was.
 : lv-copy ( local -- local' outcome )

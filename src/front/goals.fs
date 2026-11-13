@@ -60,13 +60,15 @@ end-structure
   >r swap mv-opaque r> lf-mvar-new-at ok-then? if gl-tagged else nip no-result then ;
 : lf-goal-assigned? ( goal -- flag ) lf-mvar-value dup if nip then ;
 \ A goal tactics may change: live and not assigned (checkNotAssigned).
-: gl-open? ( goal -- flag ) dup lf-mvar-live? if lf-goal-assigned? 0= else drop false then ;
+: gl-open? ( goal -- flag )
+  dup lf-mvar-live? if lf-goal-assigned? 0= else drop false then ;
 : gl-view ( goal -- view ) lf-mvar-view drop ;
 \ A new goal with the old one's type and tag in view, assigned to it.
 : gl-new-like ( goal view -- goal' outcome )
   >r dup lf-mvar-type drop swap lf-mvar-tag drop r> lf-goal-new ;
 : gl-replace ( goal view -- goal' outcome )
-  over swap gl-new-like ok-then? if tuck lf-mvar-assign gl-result else nip no-result then ;
+  over swap gl-new-like ok-then? 0= if nip no-result exit then
+  tuck lf-mvar-assign gl-result ;
 
 \ Clearing (Lean's MVarId.clear): no other local's type, nor a let's
 \ value that is not hidden, may depend on fvar (localDeclDependsOn), nor
@@ -75,7 +77,8 @@ end-structure
   over over ok? 0= or if true else 2drop false then ;
 : gl-type-dep ( lfvar fvar -- flag outcome ) swap lf-fvar-type swap lf-depends-on? ;
 : gl-value-dep ( lfvar fvar -- flag outcome )
-  over lf-fvar-let? if swap lf-fvar-value swap lf-depends-on? else 2drop false outcome-ok then ;
+  over lf-fvar-let? 0= if 2drop false outcome-ok exit then
+  swap lf-fvar-value swap lf-depends-on? ;
 : gl-local-dep ( lfvar fvar -- flag outcome )
   2dup gl-type-dep gl-decided? if 2swap 2drop else gl-value-dep then ;
 : gl-fvar-at ( view i -- fvar ) lf-view-local lf-local-fvar ;
@@ -108,8 +111,10 @@ end-structure
 : lf-pst-root ( -- goal ) pst pst-root @ ;
 : gl-set ( list -- ) pst tuck pst-goals ! lf-runs-epoch swap pst-epoch ! ;
 : lf-pst-reset ( -- ) 0 gl-set -1 pst pst-root ! ;
-: lf-goals ( -- list ) pst dup pst-epoch @ lf-runs-epoch = if pst-goals @ else drop 0 then ;
-: lf-goals! ( list -- outcome ) dup lf-run-valid? if gl-set outcome-ok else drop-invalid then ;
+: lf-goals ( -- list )
+  pst dup pst-epoch @ lf-runs-epoch = if pst-goals @ else drop 0 then ;
+: lf-goals! ( list -- outcome )
+  dup lf-run-valid? if gl-set outcome-ok else drop-invalid then ;
 : lf-pst-open ( goal -- outcome )
   dup lf-mvar-live? 0= if drop-invalid exit then
   0 over lf-run-push ok-then? if gl-set pst pst-root ! outcome-ok else nip then ;
@@ -117,18 +122,21 @@ end-structure
 \ The goals not assigned, in order (a new run).
 : gl-keep ( list goal -- list' outcome )
   dup lf-goal-assigned? if drop outcome-ok else lf-run-push then ;
-: gl-kept ( new list i -- new' list outcome ) over swap lf-run@ rot swap gl-keep >r swap r> ;
+: gl-kept ( new list i -- new' list outcome )
+  over swap lf-run@ rot swap gl-keep >r swap r> ;
 : gl-unsolved ( list -- list' outcome )
-  0 swap dup lf-run-count 0 ?do i gl-kept ok-then? 0= if nip no-result unloop exit then loop
+  0 swap dup lf-run-count 0 ?do
+    i gl-kept ok-then? 0= if nip no-result unloop exit then loop
   drop outcome-ok ;
 : lf-goals-unsolved ( -- list outcome )
   lf-goals gl-unsolved ok-then? if dup gl-set outcome-ok else no-result then ;
 \ The place of the first goal not assigned, or the count.
+: gl-open-at? ( list i -- flag ) lf-run@ lf-goal-assigned? 0= ;
 : gl-first-open ( list -- k )
-  dup lf-run-count 0 ?do dup i lf-run@ lf-goal-assigned? 0= if drop i unloop exit then loop
-  lf-run-count ;
+  dup lf-run-count 0 ?do dup i gl-open-at? if drop i unloop exit then loop lf-run-count ;
 : gl-main ( list -- goal outcome )
-  dup lf-run-count 0= if drop -1 outcome-invalid exit then dup gl-set 0 lf-run@ outcome-ok ;
+  dup lf-run-count 0= if drop -1 outcome-invalid exit then
+  dup gl-set 0 lf-run@ outcome-ok ;
 : lf-main-goal ( -- goal outcome )
   lf-goals dup gl-first-open lf-run-after ok-then? if gl-main else no-result then ;
 : gl-tail ( -- list outcome )
