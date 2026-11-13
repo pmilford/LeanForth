@@ -208,10 +208,13 @@ end-structure
 : lfa-publish ( -- )
   lfa-this dup lf-fdecl-type @ dup 0< if 2drop exit then
   swap lf-fdecl-name @ swap lf-pres-declare ok? lfa-e-entries-full lfa-must ;
-: lfa-finish ( type value -- )
-  lfa-record-decl lfa-publish lfa-current lfa-current-entries @ lfa-entries-cut
-    lfa-register
+\ The declaration made, its type and value recorded (by lfa-record-decl
+\ here, by the front end's hand-over in natural text, front/handover.fs):
+\ its words, and its scope closed.
+: lfa-declared ( -- )
+  lfa-publish lfa-current lfa-current-entries @ lfa-entries-cut lfa-register
   lfa-scope-close lfa-items-reset ;
+: lfa-finish ( type value -- ) lfa-record-decl lfa-declared ;
 : lfa-end-check ( c-addr u -- )
   lfa-current lfa-current-token lfa-text compare 0= lfa-e-end-name lfa-must ;
 : lfa-end-declaration ( above c-addr u -- )

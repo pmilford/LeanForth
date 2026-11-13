@@ -21,13 +21,16 @@
 \   loading (present/notation-table.fs), whose rows say how those
 \   constants print;
 \ - binder words take a type as written; := takes the statement; by right
-\   after := opens a tactic proof; end NAME of a declaration needs the
-\   elaborator (error 71), and tactic words the tactic engine (error 72).
+\   after := opens a tactic proof; end NAME of a declaration keeps the
+\   proof's node, runs the elaborator (lf-front-elaborate: error 71 until
+\   plan FE1e) and hands the result over (handover.fs), and tactic words
+\   need the tactic engine (error 72).
 \ Values are LeanForth values (author/values.fs) of a kind of their own,
 \ each naming a syntax node. Untrusted: a tree is what was written; only
 \ the kernel's check of the elaborated term decides anything.
 \ Words: lf-front-statement ( -- node ) the statement of the declaration
 \ being read, or -1; lf-front-by ( -- pos ) the position of its by, or -1;
+\ lf-front-proof ( -- node ) its proof's node from end NAME on, or -1;
 \ lfn-library-arity ( name -- arity unfolds? true | false ), a deferred
 \ word the command line sets (cli/check-lf.fs).
 \ State: one context record, lfn-decl (the declaration being read), in
@@ -38,18 +41,23 @@ require ../present/notation-table.fs
 require ../present/print-job.fs
 require ../author/runner.fs
 require ./syntax.fs
+require ./handover.fs
 
 begin-structure /lfn-decl
   field: lfn-decl-statement     \ the statement's node, or -1 before :=
   field: lfn-decl-by            \ position of by, or -1
+  field: lfn-decl-proof         \ the proof's node at end NAME, or -1
 end-structure
 /lfn-decl context-record: lfn-decl
+\ A declaration's trees and metavariables (front/mvars.fs) are its own.
 : lfn-fresh ( -- )
-  syn-reset -1 lfn-decl lfn-decl-statement ! -1 lfn-decl lfn-decl-by ! ;
+  syn-reset lf-mctx-reset -1 lfn-decl lfn-decl-statement ! -1 lfn-decl lfn-decl-by !
+  -1 lfn-decl lfn-decl-proof ! ;
 ' lfn-fresh context-setup
 ' lfn-fresh is lfa-declaration-fresh
 : lf-front-statement ( -- node ) lfn-decl lfn-decl-statement @ ;
 : lf-front-by ( -- pos ) lfn-decl lfn-decl-by @ ;
+: lf-front-proof ( -- node ) lfn-decl lfn-decl-proof @ ;
 
 \ Nodes; a store the heap cannot grow stops the run (full).
 : lfn-new ( kind pos -- node ) syn-new 0= if lfa-e-syntax-full lfa-fail then ;
@@ -171,13 +179,19 @@ s" LE.le" lfn-notation ≤
   lf-front-by 0< and ;
 : lfn-w-by ( -- ) lfn-by-here? lfa-e-by-here lfa-must lfa-here lfn-decl lfn-decl-by ! ;
 \ end NAME of a declaration: the proof (or an axiom's statement) is in
-\ place, and elaboration is what comes next (plan FE1e-f).
+\ place and kept as a node; then the elaborator (plan FE1e) and the
+\ hand-over to the kernel (front/handover.fs), and the declaration is made.
 : lfn-proof-shape ( above -- )
   lfa-proof-ready lf-front-by 0< if 1 = else 0= then lfa-e-proof lfa-must ;
 : lfn-shape ( above -- )
   lfa-this-kind lf-decl-def > if 1 = lfa-e-statement lfa-must else lfn-proof-shape then ;
+: lfn-last ( above -- node ) if lfn>syntax else -1 then ;
+: lfn-keep ( node -- )
+  lfa-this-kind lf-decl-def > if lfn-decl lfn-decl-statement else lfn-decl lfn-decl-proof
+  then ! ;
 : lfn-end-declaration ( above c-addr u -- )
-  lfa-end-check lfn-shape lfa-e-elaborate lfa-fail ;
+  lfa-end-check dup lfn-shape lfn-last lfn-keep
+  lf-front-elaborate lf-front-hand-over lfa-declared ;
 : lfn-w-end ( -- ) lfa-end-head ['] lfn-end-declaration lfa-end-tail ;
 
 \ The natural meanings (author/groups.fs, lfa-natural!).

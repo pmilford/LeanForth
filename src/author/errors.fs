@@ -94,6 +94,7 @@ require ./source.fs
 71 constant lfa-e-elaborate      \ unsupported: elaborating natural text (plan FE1e-f)
 72 constant lfa-e-tactic         \ unsupported: tactics (plan FE1g)
 73 constant lfa-e-arity-unknown  \ unsupported: arguments that depend on unfolding (FE1c)
+74 constant lfa-e-incomplete     \ a hole is left in the elaborated declaration (FE1f)
 
 \ The catalogue: one message record per code, in order, each followed by
 \ its text and aligned; a record with code 0 closes it.
@@ -219,6 +220,9 @@ create lfa-catalogue
   lfa-e-arity-unknown
   s" not supported yet: how many arguments the name takes depends on unfolding its type"
   lfa-unsupported,
+  lfa-e-incomplete
+  s" elaboration incomplete: a hole (metavariable) is left in the declaration"
+  lfa-invalid,
   0 outcome-invalid s" " lfa-message,
 
 \ The catalogue record of a code; an unknown code gives the closing record.

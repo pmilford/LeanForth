@@ -43,7 +43,15 @@
 \ lf-author-export ( sink -- outcome ): sink ( c-addr u -- outcome ) is
 \ given each line, without its line feed. A metavariable in the term or
 \ level store (core/mvar-leaves.fs) refuses the whole run before any line:
-\ invalid, elaboration incomplete (ADR 0021 D2). The first outcome that is
+\ invalid, elaboration incomplete (ADR 0021 D2).
+\ lf-author-export-reached ( sink -- outcome ), for the front end's
+\ declarations (plan row FE1f): the same records, but of the term nodes
+\ and levels the declarations' types and values reach (core/reach.fs)
+\ only, numbered in the same store order; a metavariable they reach
+\ refuses the run before any line (invalid), one they do not reach is
+\ neither written nor refused, and no heap for the marks is full. A node
+\ every declaration reaches gets the same record as from lf-author-export
+\ when no other node lies before it. The first outcome that is
 \ not ok stops the writing and is returned: the sink's; the JSON writer's (full
 \ for a line longer than lfx-line-capacity, invalid for a name that is not
 \ UTF-8); full for no heap for the numbering tables; unsupported for a node
@@ -67,6 +75,7 @@ require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/mvar-leaves.fs
+require ../core/reach.fs
 require ../present/binder-table.fs
 require ./constants.fs
 
@@ -82,6 +91,7 @@ begin-structure /lfx
   field: lfx-height-table   \ heap: per declaration, a definition's height
   field: lfx-mark-table     \ heap: per term node, a cell: reached from a value
   field: lfx-length         \ bytes of the line built so far
+  field: lfx-reaching       \ true: only the nodes the declarations reach
   lfx-depth lfx-key-room jw-size +field lfx-writer
   lfx-line-capacity +field lfx-line
 end-structure
@@ -112,6 +122,13 @@ end-structure
 : lfx-member ( u c-addr u -- ) lfx-key lfx-u ;
 : lfx-inner ( c-addr u -- ) lfx-key lfx-open ;
 : lfx-record ( u c-addr u -- ) lfx-begin lfx-open lfx-member ;
+
+\ The nodes written: every node, or only those the declarations reach
+\ (core/reach.fs) for lf-author-export-reached.
+: lfx-reaching? ( -- flag ) lfx lfx-reaching @ ;
+: lfx-wanted? ( term -- flag ) lfx-reaching? if lf-reached? else drop true then ;
+: lfx-level-wanted? ( level -- flag )
+  lfx-reaching? if lf-level-reached? else drop true then ;
 
 \ The numbering tables: a cell per term node, level and declaration.
 : lfx-cell ( i table -- addr ) @ swap cells + ;
@@ -175,8 +192,9 @@ end-structure
     >r lfx-binary-level r> endcase ;
 : lfx-zero? ( level -- flag ) lf-level-slot node-tag @ lf-level-tag-zero = ;
 : lfx-level-line ( n slot -- ) swap s" il" lfx-record lfx-level-body lfx-close lfx-emit ;
+: lfx-level-skip? ( level -- flag ) dup lfx-zero? swap lfx-level-wanted? 0= or ;
 : lfx-level ( next level -- next' )
-  dup lfx-zero? if 0 swap lfx-level! exit then
+  dup lfx-level-skip? if 0 swap lfx-level! exit then
   2dup lfx-level! lf-level-slot over swap lfx-level-line 1+ ;
 : lfx-levels ( -- ) 1 lf-level-count @ 0 ?do i lfx-level loop drop ;
 
@@ -230,9 +248,11 @@ lf-tag-app lf-tag-bit lf-tag-bvar lf-tag-bit or lf-tag-constant lf-tag-bit or
 : lfx-expr-members ( n term -- )
   dup lfx-ie-last? if lfx-body lfx-ie else swap lfx-ie lfx-body then ;
 : lfx-expr-line ( n term -- ) lfx-begin lfx-open lfx-expr-members lfx-close lfx-emit ;
-\ A projection's leaf is no expression of its own: the projection holds it.
+\ A projection's leaf is no expression of its own: the projection holds
+\ it; a node not wanted is none either.
+: lfx-skip? ( term -- flag ) dup lf-term-tag@ lf-tag-proj = swap lfx-wanted? 0= or ;
 : lfx-expr ( next term -- next' )
-  dup lf-term-tag@ lf-tag-proj = if -1 swap lfx-expr! exit then
+  dup lfx-skip? if -1 swap lfx-expr! exit then
   2dup lfx-expr! over swap lfx-expr-line 1+ ;
 : lfx-exprs ( -- ) 0 lf-term-count @ 0 ?do i lfx-expr loop drop ;
 
@@ -290,9 +310,22 @@ lf-tag-app lf-tag-bit lf-tag-bvar lf-tag-bit or lf-tag-constant lf-tag-bit or
 : lfx-start ( sink -- ) lfx lfx-sink ! outcome-ok lfx lfx-outcome ! ;
 : lfx-records ( -- ) lfx-meta lfx-names lfx-levels lfx-exprs lfx-declarations ;
 : lfx-write ( -- ) lfx-tables if lfx-records else outcome-full lfx-refuse then lfx-free ;
-\ A metavariable anywhere in the stores (core/mvar-leaves.fs) refuses the
-\ run before any line is written: elaboration is incomplete (ADR 0021 D2),
-\ whatever the front end believes.
-: lf-author-export ( sink -- outcome )
-  lfx-start lf-holes? if outcome-invalid lfx-refuse else lfx-write then
+\ A metavariable among the nodes to be written refuses the run before any
+\ line is: elaboration is incomplete (ADR 0021 D2), whatever the front end
+\ believes. Every node: one anywhere in the stores (core/mvar-leaves.fs);
+\ the nodes reached: one they reach (core/reach.fs).
+: lfx-holes? ( -- flag ) lfx-reaching? if lf-reach-holes? else lf-holes? then ;
+: lfx-checked ( -- ) lfx-holes? if outcome-invalid lfx-refuse else lfx-write then ;
+\ The roots: each theorem's, definition's and axiom's type and value.
+: lfx-root ( i -- )
+  dup lfa-decl-kind lf-decl-stub < 0= if drop exit then
+  lfa-decl dup lf-fdecl-type @ lf-reach-term lf-fdecl-value @ lf-reach-term ;
+: lfx-roots ( -- ) lfa-decl-count 0 ?do i lfx-root loop lf-reach-sweep ;
+: lfx-reach-write ( -- )
+  lf-reach-open if lfx-roots lfx-checked else outcome-full lfx-refuse then
+  lf-reach-close ;
+: lfx-export ( sink reaching -- outcome )
+  lfx lfx-reaching ! lfx-start lfx-reaching? if lfx-reach-write else lfx-checked then
   lfx lfx-outcome @ ;
+: lf-author-export ( sink -- outcome ) false lfx-export ;
+: lf-author-export-reached ( sink -- outcome ) true lfx-export ;
