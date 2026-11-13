@@ -94,8 +94,8 @@ require ./level-defeq.fs
   ['] lf-level-first@ lm-arg= ?dup if exit then ['] lf-level-second@ lm-arg= ;
 \ subsumes u v: take u; subsumes v u: take v.
 : lm-subsumes ( u v -- u v code ) 2dup lm-above? if lm-u else lm-in-max then ;
-: lm-flip ( code -- code' )
-  dup lm-u = if drop lm-v exit then dup lm-v = if drop lm-u then ;
+\ (lm-subsumes gives u, the next rule or an end; u becomes v.)
+: lm-flip ( code -- code' ) dup lm-u = if drop lm-v then ;
 : lm-subsumed ( u v -- u v code ) swap lm-subsumes lm-flip >r swap r> ;
 : lm-higher ( u v -- code ) lm-offset swap lm-offset <= if lm-u else lm-v then ;
 : lm-bases ( u v -- u v code )

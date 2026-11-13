@@ -34,6 +34,9 @@ T{ u v lf-level-defeq u zero lf-level-defeq zero u lf-level-defeq
 T{ u lsucc u lf-level-defeq u u 2 lsuccs lf-level-defeq
    -> false outcome-ok false outcome-ok }T
 T{ u 3 lsuccs u 3 lsuccs lf-level-defeq -> true outcome-ok }T
+\ succ u against zero: solve gives undef (decLevel? 0 has none), then
+\ solve 0 (succ u) false.
+T{ u lsucc zero lf-level-defeq -> false outcome-ok }T
 \ Equal records made without sharing (the authoring context's setting).
 T{ 101 lparam dup u = swap u lf-level-defeq -> false true outcome-ok }T
 
@@ -240,8 +243,15 @@ T{ 101 ps cell+ ! u 2 lps 102 ps cell+ ! -> one outcome-ok }T
 : same-under ( a b c -- flag c ) >r = r> ;
 T{ u v lmax 2 lps one zero lmax dup 2 lps same-under -> two outcome-ok true outcome-ok }T
 \ A max whose parts stay is simplified in place (simpLevelMax'): the
-\ same node when no rule applies.
-T{ u v lmax dup 0 lps drop = -> true }T
+\ same node when no rule applies; so is a successor whose part stays.
+T{ u v lmax dup 0 lps drop = u lsucc dup 0 lps drop = -> true true }T
+\ max u 1 with u := 1: 1 (1 has no parameter and is kept; equal sides).
+T{ u one lmax 1 lps -> one outcome-ok }T
+\ imax u v: with v := 0, 0 (mkLevelIMax' v zero); with only u := 1, imax 1 v.
+create ls0 2 cells allot  one ls0 !  zero ls0 cell+ !
+T{ u v lf-level-imax drop ps ls0 2 lf-meta-level-params -> zero outcome-ok }T
+T{ u v lf-level-imax drop 1 lps swap dup ls-tag swap lf-level-first@
+   -> outcome-ok lf-level-tag-imax one }T
 \ max u v with only u named: max 1 v, a new max (no rule applies).
 T{ u v lmax 1 lps swap dup ls-tag swap lf-level-second@ -> outcome-ok lf-level-tag-max v }T
 \ Malformed: a negative count, a level not in the store.
@@ -267,6 +277,7 @@ T{ su-lam 2 ilp drop parts lf-term-first@ swap lf-term-first@ -> one one }T
 T{ su-lam 2 ilp drop lf-pres-binder@ drop nip -> lf-binder-implicit }T
 \ Nothing to change: the same node; a count of 0 changes nothing.
 T{ prop x app dup 2 ilp drop = cuv dup 0 ilp drop = -> true true }T
+T{ u sort-of dup 0 ilp drop = -> true }T
 \ A Sort over max u v (with u := 1, v := ?la): Sort (max 1 ?la).
 T{ u v lmax sort-of 2 ilp drop lf-term-first@ dup ls-tag swap lf-level-second@
    -> lf-level-tag-max la }T
@@ -300,6 +311,7 @@ T{ u one limx dup ls-tag swap lf-level-second@ -> lf-level-tag-max one }T
 T{ u zero limx zero u limx u u limx -> zero u u }T
 T{ u v limx ls-tag -> lf-level-tag-imax }T
 \ The simp forms give d where a new node would be made.
+T{ u zero 7 lm-simp-imax -> zero outcome-ok }T
 T{ u v 7 lm-simp-max u v 7 lm-simp-imax one two 7 lm-simp-max
    -> 7 outcome-ok 7 outcome-ok two outcome-ok }T
 \ Deep: equality and isNeverZero over 10,000 successors in loops.
