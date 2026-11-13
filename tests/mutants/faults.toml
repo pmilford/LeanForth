@@ -3262,6 +3262,30 @@ new = ''': teardown-in ( context teardown -- ior ) nip teardown-xt @ teardown-ca
 test = "$GFORTH tests/lib/context.fs"
 reason = "the context is selected once for all teardown words, so after one throws with the main context selected the next frees the main context's block (review of the release hook)"
 
+[[fault]]
+id = "context-ior-last"
+file = "src/lib/context.fs"
+old = ''': ior-earlier ( ior1 ior2 -- ior ) over if drop else nip then ;'''
+new = ''': ior-earlier ( ior1 ior2 -- ior ) dup if nip else drop then ;'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "the context review's L1 (a): of two teardown words that throw, context-free gives the last code, not the first"
+
+[[fault]]
+id = "context-walks-not-freed"
+file = "src/lib/context.fs"
+old = '''' walks-free context-teardown'''
+new = ''''''
+test = "$GFORTH tests/lib/context.fs"
+reason = "the context review's L1 (c): a context's walk that grew into a heap block keeps it when the context is freed"
+
+[[fault]]
+id = "context-new-ior-order"
+file = "src/lib/context.fs"
+old = '''  swap dup context-torn rot swap ior-earlier swap context-discard ior-earlier 0 swap ;'''
+new = '''  swap dup context-torn rot ior-earlier swap context-discard ior-earlier 0 swap ;'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "the context review's L1 (b): a failed context-new gives a teardown word's code instead of the setup word's, which came first"
+
 # --- run records and replay (src/import/run-record.fs, run-replay.fs) -------
 
 [[fault]]
