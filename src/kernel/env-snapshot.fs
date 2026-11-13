@@ -73,9 +73,11 @@
 \ Outcomes (ADR 0008): ok; invalid for a malformed, damaged or altered file
 \ (snap-error names the section, or the slot), other settings (fuel,
 \ allowlist) than the run's, a stage or environment that does not fit;
-\ unsupported for another format or verdict version (an older one loads,
-\ marked stale, when snap-stale-allowed is true: --snapshot-stale-ok), or
-\ a layered snapshot; full for no heap. A damaged section the container
+\ unsupported for another format or verdict version (a base of one of the
+\ two older verdict versions of the window loads marked snap-carry, for
+\ the caller's carry pass, plan step 6.2.5c3; any older one loads marked
+\ stale when snap-stale-allowed is true: --snapshot-stale-ok), or a
+\ layered snapshot; full for no heap. A damaged section the container
 \ reports as rejected is invalid here. The file is closed by snap-close;
 \ the heap blocks are freed by snap-free.
 \ State: one /snap record per file being written or read, used by one task;
@@ -152,6 +154,7 @@ begin-structure /snap
   field: snap-expect                    \ reading a layer: its base's identity, or 0
   field: snap-expect-firsts             \ and the base's tier counts (8 cells)
   field: snap-stale                     \ reading: true for an older verdict version
+  field: snap-carry                     \ reading a base: older, in the window
 end-structure
 variable snap-loading   \ the record snap-fill reads
 \ A development flag (owner, 2026-11-11; ADR 0020 amendment 3): true lets
@@ -566,12 +569,20 @@ create snap-outers /outers allot  snap-outers /outers erase
 : snap-marked? ( snap -- flag ) sh-mark swap head@ snap-mark = ;
 : snap-current? ( snap -- flag ) sh-version swap head@ snap-version = ;
 : snap-verdict ( snap -- n ) sh-verdict swap head@ ;
-\ This build's verdict version, or (snap-stale-allowed) an older one,
-\ which marks the record stale.
+\ This build's verdict version; for a base, an older one inside the
+\ window (verdict-version.fs lf-verdict-carried?), which marks the record
+\ (snap-carry): the caller carries its results where the steps since cannot
+\ reach and checks the rest (kernel/env-import.fs, plan step 6.2.5c3);
+\ or (snap-stale-allowed) any older one, which marks the record stale. A
+\ layer of an older version is stale or refused until plan step 6.2.5c7.
 : snap-older? ( snap -- flag ) snap-verdict 1 lf-verdict-version within ;
+: snap-carried? ( snap -- flag )
+  dup snap-expect @ 0= swap snap-verdict lf-verdict-carried? and ;
+: snap-beyond? ( snap -- flag )
+  dup snap-older? snap-stale-allowed @ and dup rot snap-stale ! ;
 : snap-fresh? ( snap -- flag )
   dup snap-verdict lf-verdict-version = if drop true exit then
-  dup snap-older? snap-stale-allowed @ and dup rot snap-stale ! ;
+  dup snap-carried? if true swap snap-carry ! true exit then snap-beyond? ;
 : snap-allowed? ( snap -- flag )
   dup sh-allow-version swap head@ lf-allowlist-version =
   swap sh-allow-bits swap head@ lf-allowlist-bits = and ;

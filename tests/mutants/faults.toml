@@ -9426,7 +9426,7 @@ reason = "SN4: a taken slot not labelled as taken from the snapshot, nor its use
 [[fault]]
 id = "sn4-trailing-alone"
 file = "src/kernel/env-import.fs"
-old = '''  over d-trailing? if 2drop drop false exit then
+old = '''  over d-trailing? if dup imp-k @ 1- over why@ why exit then
 '''
 new = ''''''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
@@ -11278,3 +11278,60 @@ old = '''2 constant lf-snapshot-window'''
 new = '''3 constant lf-snapshot-window'''
 test = "$GFORTH tests/core/env-snapshot.fs"
 reason = "6.2.5c1: the window one version wider (a version three back read)"
+
+[[fault]]
+id = "snapc-step9-narrowed"
+file = "src/kernel/verdict-version.fs"
+old = '''  9 , reach-all , 0 ,'''
+new = '''  9 , reach-block-any , 0 ,'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py OlderSnapshots.test_carried"
+reason = "6.2.5c3: step 9's reach narrowed to inductive blocks: unfold's definitions would be carried from version 8 with its fuel (impliesSelf 65, this build 68)"
+
+[[fault]]
+id = "snapc-reach-ignored"
+file = "src/kernel/env-import.fs"
+old = '''  2dup reach-why ?dup if why exit then
+'''
+new = ''''''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "6.2.5c3: C3 ignored: every result of an older snapshot carried, whatever the steps since reach"
+
+[[fault]]
+id = "snapc-exhausted-carried"
+file = "src/kernel/env-import.fs"
+old = '''  dup outcome-full = over outcome-invalid = or swap outcome-exhausted = or ;'''
+new = '''  dup outcome-full = swap outcome-invalid = or ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "6.2.5c3 (C2, I1.2): a result that ran out of fuel carried or taken"
+
+[[fault]]
+id = "snapc-carried-label-dropped"
+file = "src/cli/leanforth.fs"
+old = '''  ck-carried? if cli-carried-from. exit then'''
+new = '''  drop'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "6.2.5c3: a carried result shown as taken from the snapshot, without the older verdict version it comes from"
+
+[[fault]]
+id = "snapc-carried-json-stale"
+file = "src/cli/check-json.fs"
+old = '''  dup ck-carried? if drop s" snapshot" else lf-env-origin cj-origin-text then ;'''
+new = '''  lf-env-origin cj-origin-text ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "6.2.5c3: with --snapshot-stale-ok a carried result labelled stale-snapshot in JSON"
+
+[[fault]]
+id = "snapc-count-not-first"
+file = "src/cli/leanforth.fs"
+old = ''': cli-carry-first ( -- ) cli-json? 0= if ['] cli-carry. ck-carried! then ;'''
+new = ''': cli-carry-first ( -- ) ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py OlderSnapshots.test_carried"
+reason = "6.2.5c3 (owner Q3): the count of declarations checked again not printed before the checks"
+
+[[fault]]
+id = "snapc-layers-carried"
+file = "src/cli/check-run.fs"
+old = '''  ck-layer-names 2@ nip 0<> ck-importing? snap-stale-allowed @ and or ;'''
+new = '''  ck-importing? snap-stale-allowed @ and ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "6.2.5c3: a base of an older version carried under layers (mixed stacks are step 6.2.5c7): with --snapshot-stale-ok its results are no longer all stale"

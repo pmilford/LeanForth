@@ -134,10 +134,11 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
 \ this many versions older than the build's (the owner, 2026-11-12).
 2 constant lf-snapshot-window
 
-\ The reach bits.
+\ The reach bits (the kinds' in the order of the export's kind numbers,
+\ axiom first: env-import.fs computes them by a shift).
 1 constant reach-all
-2 constant reach-kind-definition      4 constant reach-kind-theorem
-8 constant reach-kind-opaque          16 constant reach-kind-axiom
+2 constant reach-kind-axiom           4 constant reach-kind-definition
+8 constant reach-kind-theorem         16 constant reach-kind-opaque
 32 constant reach-kind-quotient       64 constant reach-block-any
 128 constant reach-block-nested       256 constant reach-block-mutual
 512 constant reach-literal-nat        1024 constant reach-literal-string

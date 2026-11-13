@@ -331,20 +331,36 @@ end-structure
 \ stale: another build's rules, not this one's.
 : cli-stale-from. ( -- ) ." from a stale snapshot (an older verdict version), not this "
   ." build's verdict" ;
-: cli-origin. ( origin -- )
-  lf-origin-saved = if
-    ck-stale? if cli-stale-from. else ." from snapshot, not re-checked in this run" then
-  else ." checked in this run, uses results from the "
-    ck-stale? if ." stale " then ." snapshot" then ;
+\ In a carry run (plan step 6.2.5c3; a snapshot of an older verdict
+\ version inside the window) a carried result names the version it comes
+\ from, and a declaration checked again says why (env-import.fs why-*).
+: cli-carried-from. ( -- )
+  ." from snapshot of verdict version " ck-snap snap-verdict .decimal
+  ." , carried: this build's changes since cannot affect it; not re-checked in this run" ;
+: cli-taken-from. ( d -- )
+  ck-carried? if cli-carried-from. exit then
+  ck-stale? if cli-stale-from. else ." from snapshot, not re-checked in this run" then ;
+: cli-why-again. ( why -- )
+  dup why-code why-reach = if
+    ." : inside the reach of verdict version " why-step .decimal ." 's change" exit then
+  why-outcome = if ." : its saved outcome is never carried"
+  else ." : a result its lookups reach was not carried" then ;
+: cli-here. ( d -- )
+  ." checked in this run" dup ck-reason ?dup if cli-why-again. then
+  lf-env-origin lf-origin-uses = if
+    ." , uses results from the " ck-stale? if ." stale " then ." snapshot" then ;
+: cli-origin. ( d origin -- d )
+  over swap lf-origin-saved = if cli-taken-from. else cli-here. then ;
 : cli-accepted-from. ( d origin -- )
   ." accepted (" cli-origin. ." ); "
   lf-env-axioms ok? if lf-check-axioms. else drop ." axioms: ?" then ;
 : cli-failed-from. ( d origin -- )
-  over lf-env-outcome rot swap lf-check-failed. ."  (" cli-origin. ." )" ;
+  over dup lf-env-outcome lf-check-failed. ."  (" cli-origin. drop ." )" ;
 : cli-labelled. ( d origin -- )
   over lf-env-outcome ok? if cli-accepted-from. else cli-failed-from. then ;
+: cli-labelled? ( d -- flag ) dup lf-env-origin swap ck-reason or 0<> ;
 : cli-verdict. ( d -- )
-  dup lf-env-origin ?dup if cli-labelled. else lf-check-verdict. then ;
+  dup cli-labelled? if dup lf-env-origin cli-labelled. else lf-check-verdict. then ;
 : cli-verdict ( d -- )
   dup cli-name. ." : " dup cli-verdict. dup cli-not-proved. cr
   dup lf-env-outcome ok? if drop else cli-why. then ;
@@ -384,10 +400,14 @@ end-structure
 \ from it (review rvSN3 m6).
 : cli-from-snapshot# ( -- n ) 0 lf-input-count 0 ?do i lf-env-origin lf-origin-saved = -
   loop ;
+: cli-stale-of. ( n -- ) .decimal ck-stale? if ."  stale" then ;
+: cli-uncarried# ( -- n ) cli-from-snapshot# ck-carried# - ;
+: cli-from. ( -- )
+  ck-carrying? 0= if cli-from-snapshot# cli-stale-of. exit then ck-carried# .decimal
+  ."  carried" ck-stale? if ."  and " cli-uncarried# cli-stale-of. then ;
 : cli-summary-label ( -- )
-  ck-snapped? 0= if exit then
-  ." ; " cli-from-snapshot# dup .decimal ck-stale? if ."  stale" then
-  ."  from the snapshot, " lf-input-count swap - .decimal ."  checked in this run" ;
+  ck-snapped? 0= if exit then ." ; " cli-from. ."  from the snapshot, "
+  lf-input-count cli-from-snapshot# - .decimal ."  checked in this run" ;
 : cli-summary ( -- )
   lf-input-count dup .decimal ."  declaration" 1 <> if ." s" then ." : "
   true verdict-kinds 0 do i verdict-kind cli-item loop drop cli-summary-label cr ;
@@ -552,8 +572,23 @@ create cli-fed-ops
 : cli-snap-error ( -- )
   ." error: " ck-read-outcome outcome-text type ." : the snapshot was refused: "
   ck-snap snap-error >r type r> dup 0< if drop else ."  (record " .decimal ." )" then cr ;
+\ A snapshot refused for its verdict version (plan step 6.2.5c3, R9): the
+\ versions this build reads, and the ways on.
+: cli-version-refused? ( -- flag )
+  ck-snap snap-why @ ?dup if count s" verdict version" compare 0= else false then ;
+: cli-older-note ( -- )
+  ." note: this build reads snapshots of verdict versions "
+  lf-verdict-version lf-window-oldest .decimal ."  to " lf-verdict-version .decimal
+  ." : check the export" cr
+  ." note: again, or look with --snapshot-stale-ok (every result stale)" cr ;
+: cli-newer-note ( -- )
+  ." note: the snapshot's verdict version is newer than this build's ("
+  lf-verdict-version .decimal ." ): use the build that wrote it" cr ;
+: cli-window-note ( -- )
+  cli-version-refused? 0= if exit then
+  ck-snap snap-verdict lf-verdict-version > if cli-newer-note else cli-older-note then ;
 : cli-fed-unread ( outcome -- )
-  ck-snap-bad? if drop cli-snap-error exit then
+  ck-snap-bad? if drop cli-snap-error cli-window-note exit then
   ck-phase-failed ck-staging = 0= if cli-feed-error exit then
   dup cli-stage-error cli-stage-manifest? if cli-manifest-hint then ;
 
@@ -704,17 +739,50 @@ create cli-hex 64 allot
 : cli-stale. ( -- )
   ck-stale? 0= if exit then
   ." stale: --snapshot-stale-ok loaded a snapshot of an older verdict version than this" cr
-  ." stale: build's (" lf-verdict-version .decimal ." ): its " cli-from-snapshot# .decimal
-  ."  results are not this build's verdicts" cr ;
+  ." stale: build's (" lf-verdict-version .decimal ." ): its "
+  cli-uncarried# .decimal ."  results are not this build's verdicts" cr ;
+\ A carry run (plan step 6.2.5c3): the declarations checked again, by why
+\ (env-import.fs why-*), each group after the first after a comma.
+: cli-again# ( -- n ) 0 lf-input-count 0 ?do i ck-reason 0<> - loop ;
+: cli-comma ( first? n -- n ) swap 0= if ." , " then ;
+: cli-reach-group ( first? k -- first? )
+  dup why-steps * why-reach + ck-again# ?dup 0= if drop exit then rot swap cli-comma
+  .decimal ."  inside the reach of verdict version " .decimal ." 's change" false ;
+: cli-outcome-group ( first? -- first? )
+  why-outcome ck-again# ?dup if
+    cli-comma .decimal ."  whose saved outcome is never carried" false then ;
+: cli-answers-group ( first? -- first? )
+  why-answers ck-again# ?dup if
+    cli-comma .decimal ."  whose lookups reach a result not carried" false then ;
+: cli-groups ( -- )
+  true lf-verdict-version 1+ ck-snap snap-verdict 1+ ?do i cli-reach-group loop
+  cli-outcome-group cli-answers-group drop ;
+: cli-again. ( -- )
+  cli-again# dup .decimal ck-stale? if ."  shown stale, not checked again" then
+  if ."  (" cli-groups ." )" then ;
+\ Printed after the carry pass, before any check (the owner, 2026-11-12:
+\ the count of re-checks first): text only.
+: cli-carry. ( -- )
+  ." carry: a snapshot of verdict version " ck-snap snap-verdict .decimal
+  ." , this build's " lf-verdict-version .decimal ." : " ck-carried# .decimal
+  ."  results carried; to check again: " cli-again. cr ;
+: cli-taken. ( -- )
+  ck-carrying? if ck-carried# .decimal ."  results carried from it" exit then
+  cli-from-snapshot# .decimal ."  results taken from it"
+  ck-layers# if ."  and its layers" then ;
+: cli-version. ( -- )
+  ." , verdict version " ck-snap snap-verdict .decimal
+  ck-snap snap-stale @ if ."  (stale)" then
+  ck-carrying? if ."  (this build: " lf-verdict-version .decimal ." )" then ;
+: cli-carried. ( -- )
+  ck-carrying? 0= if exit then
+  ." carried: this build's changes since that verdict version cannot affect them" cr
+  ." checked again: " cli-again. cr ;
 : cli-snapshot. ( -- )
   ." snapshot: " cli-state opt-snapshot 2@ nt-text if type else cli-unshown then
   ."  (sha256 " ck-snap snap-sum cli-sha. ." ), export sha256 " ck-snap snap-export-sha
-  cli-sha.
-  ." , verdict version " ck-snap snap-verdict .decimal
-  ck-snap snap-stale @ if ."  (stale)" then ." , written by LeanForth "
-  cli-written-by type ." : " cli-from-snapshot# .decimal
-  ."  results taken from it" ck-layers# if ."  and its layers" then
-  ." , not re-checked in this run" cr cli-layers. cli-stale. cli-import.
+  cli-sha. cli-version. ." , written by LeanForth " cli-written-by type ." : " cli-taken.
+  ." , not re-checked in this run" cr cli-carried. cli-layers. cli-stale. cli-import.
   ." note: development and research mode: a final run re-checks everything from the" cr
   ." note: export and reads no snapshot; only its results support a claim" cr ;
 : cli-fed-text ( -- )
@@ -765,8 +833,10 @@ variable cli-info#
 \ (cli/check-run.fs ck-snapshot-load), no export read; each further
 \ --snapshot LAYER a layer loaded on it (kernel/env-layers.fs).
 : cli-layers ( -- ) cli-state opt-layers @ cli-state opt-layers# @ ck-layers! ;
+: cli-carry-first ( -- ) cli-json? 0= if ['] cli-carry. ck-carried! then ;
 : cli-snapshot-run ( -- )
-  cli-layers cli-state opt-snapshot 2@ cli-asked-fuel ck-snapshot-load
+  cli-layers cli-carry-first cli-state opt-snapshot 2@ cli-asked-fuel
+  ck-snapshot-load
   ok? if ck-check then
   cli-fed-tally cli-fed-report ;
 \ check --snapshot FILE EXPORT: the export read on into the snapshot's
@@ -774,7 +844,8 @@ variable cli-info#
 \ SN4; cli/check-run.fs ck-snapshot-import, kernel/env-import.fs); with
 \ --save-snapshot, what was checked written as a layer of the snapshot.
 : cli-import-run ( -- )
-  cli-layers cli-state opt-snapshot 2@ cli-asked-fuel ck-snapshot-import ok?
+  cli-layers cli-carry-first cli-state opt-snapshot 2@ cli-asked-fuel
+  ck-snapshot-import ok?
   if 0 cli-file cli-checked? ck-load ok? if ck-check cli-snapshot-save then then
   cli-fed-tally cli-fed-report ;
 \ After the run: stores that could not be given back their sizes are an
@@ -1232,8 +1303,10 @@ variable cli-info#
   ."       and research only: a final run re-checks the export); with EXPORT," cr
   ."       its declarations the snapshot holds unchanged taken from it, the rest" cr
   ."       checked (with --save-snapshot LAYER, written as a layer of FILE);" cr
-  ."       --snapshot-stale-ok loads one of an older verdict version, every" cr
-  ."       result from it labelled stale, never this build's verdict" cr
+  ."       of one of the two verdict versions before this build's, what this" cr
+  ."       build's changes can reach is checked again, the rest carried;" cr
+  ."       --snapshot-stale-ok shows instead what is not carried, or every" cr
+  ."       result of an older one, labelled stale, never this build's verdict" cr
   ."   check [--no-manifest] [--fuel N] [--fast] [--strict-axioms]" cr
   ."         --record RECORD EXPORT" cr
   ."       the same for a small export, and write its run record to RECORD" cr

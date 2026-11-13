@@ -3205,6 +3205,45 @@ def but_info(path):
     return bytes(data[:96]), entries, sections
 
 
+REACH_DECIDED = {"reach-all", "reach-not-accepted", "reach-block-nested"}
+
+
+def saved_slots(path):
+    """Each saved slot's outcome, recipe, marks and the slots (+ 1) its
+    lookups' answers name, read from the snapshot's sections."""
+    data, table = sectioned(path)
+    _, _, n, slots, _ = table[SLOTS]
+    looks, rows, k = table[LOOKS][3], [], 0
+    for d in range(n):
+        f = [u32(data, slots + 72 * d + 4 * i) for i in range(11)]
+        rows.append((f[0], f[5], f[1], [u32(data, looks + 8 * (k + i) + 4) >> 4
+                                         for i in range(f[10])]))
+        k += f[10]
+    return rows
+
+
+def predicted_again(path, version):
+    """The model of the carry pass's first version (plan step 6.2.5c3; R3,
+    R4 with C5 as I1.3), from the reach table and the saved slots alone:
+    the slots of a snapshot of verdict version `version` that this build
+    checks again -- in the reach of a step since, a saved outcome full,
+    invalid or exhausted, an answered slot checked again, or a member after
+    its block's first that was. It decides the bits of REACH_DECIDED only,
+    and fails on any other an entry in the window holds."""
+    entries, _, _ = reach_table()
+    bits = set().union(*(set(entries[k][0]) for k in range(version + 1, verdict_version() + 1)))
+    assert bits <= REACH_DECIDED, f"the model decides no {bits - REACH_DECIDED}"
+    rows, again = saved_slots(path), set()
+    for d, (outcome, recipe, marks, answered) in enumerate(rows):
+        nested = recipe >> 8 or any(s and rows[s - 1][1] >> 8 for s in answered)
+        reach = ("reach-all" in bits or "reach-not-accepted" in bits and outcome != 0
+                 or "reach-block-nested" in bits and nested)
+        follows = marks & 4 and d - 1 in again
+        if reach or follows or outcome in (1, 2, 6) or any(s and s - 1 in again for s in answered):
+            again.add(d)
+    return again
+
+
 class OlderSnapshots(unittest.TestCase):
     """Snapshots of the verdict versions in the window (plan steps
     6.2.5c2-c5; docs/design/SNAPSHOT_COMPATIBILITY.md, ADR 0020 Amendment
@@ -3246,16 +3285,88 @@ class OlderSnapshots(unittest.TestCase):
             str(path), DEPENDENT)
         self.assertEqual(but_info(path), but_info(fixture(version, "dependent")))
 
-    def test_older_refused(self):
+    @staticmethod
+    def exact(got):
+        """What must equal a fresh check's: every declaration but its
+        provenance, the counts, fuel, the run's outcome and exit status."""
+        decls = [{k: v for k, v in d.items() if k != "provenance"} for d in got["declarations"]]
+        return decls, got["counts"], got["fuel"], got["run"], got["stopped"], got["exitStatus"]
+
+    def test_carried(self):
+        """The differential (plan step 6.2.5c3): every older fixture loaded
+        by this build, alone and with its export, reports exactly a fresh
+        check's verdicts, fuel, axioms and diagnostics; what it carries is
+        what the model predicts; the count checked again comes first."""
         version = verdict_version()
+        tally = {"carried": 0, "again": 0, "runs": 0}
         for v in (version - 2, version - 1):
-            for stem in FIXTURE_EXPORTS:
-                status, out, _ = run("check", "--snapshot", str(fixture(v, stem)))
-                self.assertEqual((status, out.splitlines()[0]), (2, (
-                    "error: unsupported: the snapshot was refused: verdict version")), (v, stem))
-                status, got, _ = report("--snapshot-stale-ok", "--snapshot", str(fixture(v, stem)))
-                self.assertEqual({d["provenance"] for d in got["declarations"]},
-                                 {"stale-snapshot"}, (v, stem))
+            for stem, args in FIXTURE_EXPORTS.items():
+                status, fresh, _ = report(*args)
+                path = fixture(v, stem)
+                for extra in ([], args):
+                    got_status, got, _ = report("--snapshot", str(path), *extra)
+                    self.assertEqual((got_status, self.exact(got)), (status, self.exact(fresh)),
+                                     (v, stem, extra))
+                    again = predicted_again(path, v)
+                    carried = {i for i, d in enumerate(got["declarations"])
+                               if d["provenance"] == "snapshot"}
+                    self.assertEqual(carried, set(range(len(fresh["declarations"]))) - again,
+                                     (v, stem, extra))
+                    self.assertEqual(got["snapshot"]["stale"], None)
+                    tally["carried"] += len(carried)
+                    tally["again"] += len(got["declarations"]) - len(carried)
+                    tally["runs"] += 1
+                out = run("check", "--snapshot", str(path))[1].splitlines()
+                self.assertTrue(out[0].startswith(
+                    f"carry: a snapshot of verdict version {v}, this build's {version}: "
+                    f"{len(fresh['declarations']) - len(again)} results carried; to check again: "
+                    f"{len(again)} ("), (v, stem, out[0]))
+                self.assertIn(f"checked again: {len(again)} (", "\n".join(out))
+        print(f"\nOlderSnapshots differential: {tally['runs']} runs, {tally['carried']} carried, "
+              f"{tally['again']} checked again, 0 differences", file=sys.stderr)
+
+    def test_stale_and_refused(self):
+        """--snapshot-stale-ok inside the window: what is carried, and the
+        rest shown stale, never checked (R7); with an export, or with
+        layers (plan step 6.2.5c7), every result stale, and without the flag
+        refused (status 2). Beyond the window, and newer than this build:
+        refused, with a note naming the versions read."""
+        version = verdict_version()
+        v = version - 1
+        path = fixture(v, "nested")
+        status, got, _ = report("--snapshot-stale-ok", "--snapshot", str(path))
+        again = predicted_again(path, v)
+        self.assertEqual({d["provenance"] for i, d in enumerate(got["declarations"])
+                          if i in again}, {"stale-snapshot"})
+        self.assertEqual(got["snapshot"]["stale"],
+                         {"thisVerdictVersion": version, "results": len(again)})
+        _, out, _ = run("check", "--snapshot-stale-ok", "--snapshot", str(path))
+        self.assertIn(f"shown stale, not checked again", out.splitlines()[0])
+        status, got, _ = report("--snapshot-stale-ok", "--snapshot", str(path), *FIXTURE_EXPORTS["nested"])
+        self.assertEqual({d["provenance"] for d in got["declarations"]}, {"stale-snapshot"})
+        layered = ["--snapshot", str(fixture(v, "inductive")), "--snapshot", str(fixture(v, "dependent"))]
+        status, out, _ = run("check", *layered)
+        self.assertEqual((status, out.splitlines()[0]),
+                         (2, "error: unsupported: the snapshot was refused: verdict version"))
+        status, got, _ = report("--snapshot-stale-ok", *layered)
+        self.assertEqual((status, {d["provenance"] for d in got["declarations"]}),
+                         (0, {"stale-snapshot"}))
+        data, table = sectioned(fixture(version, "unfold"))
+        forged = self.dir / "forged.lfsnap"
+        for written, note in [(version - 3, f"note: this build reads snapshots of verdict "
+                                            f"versions {version - 2} to {version}: check the export"),
+                              (version + 1, "note: the snapshot's verdict version is newer than "
+                                            f"this build's ({version}): use the build that wrote it")]:
+            put32(data, 24 + 4 * 2, written)
+            forged.write_bytes(bytes(resealed(data, table)))
+            status, out, _ = run("check", "--snapshot", str(forged))
+            self.assertEqual((status, out.splitlines()[:2]), (2, [
+                "error: unsupported: the snapshot was refused: verdict version", note]), written)
+        put32(data, 24 + 4 * 2, version - 3)
+        forged.write_bytes(bytes(resealed(data, table)))
+        status, got, _ = report("--snapshot-stale-ok", "--snapshot", str(forged))
+        self.assertEqual((status, {d["provenance"] for d in got["declarations"]}),
+                         (0, {"stale-snapshot"}))
 
 
 if __name__ == "__main__":
