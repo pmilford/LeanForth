@@ -313,11 +313,15 @@ def allowlist_order(axioms):
 def export_verdicts(leanforth):
     """The verdicts LeanForth gave the export's declarations: those its counts record
     (leanforth verify's evidence), and "unaccounted" when it accepted fewer declarations
-    than the export has (a check that did not accept everything never reads as accepted)."""
+    than the export has and the counts do not name the others' verdicts (the clamp
+    evidence has no counts): a check that did not accept everything never reads as
+    accepted."""
     counts = leanforth.get("counts", {})
     found = {VERDICT_OF_COUNT.get(key, key) for key, n in counts.items()
              if n and key not in NOT_VERDICTS}
-    short = leanforth["accepted"] != leanforth["declarations"]
+    named = sum(n for key, n in counts.items() if key not in NOT_VERDICTS)
+    total = leanforth["declarations"]
+    short = leanforth["accepted"] != total and named != total
     return found | ({"unaccounted"} if short else set())
 
 

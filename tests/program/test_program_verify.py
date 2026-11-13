@@ -389,6 +389,21 @@ class Checker(unittest.TestCase):
         ({"check": "no-report"}, 5, "internal", "failed"),
     ]
 
+    def test_every_kind_reported(self):
+        """Verdicts of several kinds: each kind is a problem, the exit status the most severe
+        in the CLI's order (as bin/leanforth check's)."""
+        cases = [({"verdicts": {"contract": "unknown"}, "other": "exhausted", "exit": 3}, 3,
+                  ["proof-undecided", "proof-exhausted"], "unsupported"),
+                 ({"verdicts": {"O1": "rejected", "O2": "exhausted"}, "exit": 1}, 1,
+                  ["proof-rejected", "proof-exhausted"], "rejected"),
+                 ({"verdicts": {"O1": "invalid", "O2": "unknown"}, "exit": 5}, 5,
+                  ["proof-undecided", "internal"], "unsupported")]
+        for fake, expected, codes, check in cases:
+            with self.subTest(fake), scratch() as out:
+                status, text = verify("lf-clamp", out, fake)
+                self.assertEqual((status, problem_codes(text)), (expected, codes), text)
+                self.assertEqual(receipt_at(out, "lf-clamp")["check"]["status"], check)
+
     def test_verdicts(self):
         for fake, expected, code, check in self.CASES:
             with self.subTest(fake), scratch() as out:
@@ -736,8 +751,11 @@ class Shared(unittest.TestCase):
         self.assertEqual(program_receipt.export_verdicts(
             {"declarations": 3, "accepted": 2}), {"unaccounted"})
         other = copy.deepcopy(accepted)
+        other["accepted"] = 2
         other["counts"].update(accepted=2, notChecked=1)
         self.assertEqual(program_receipt.export_verdicts(other), {"accepted", "not-checked"})
+        other["counts"]["notChecked"] = 0     # counts that do not name every declaration
+        self.assertEqual(program_receipt.export_verdicts(other), {"accepted", "unaccounted"})
 
     def test_check_status_reads_the_whole_export(self):
         leanforth = {"declarations": 3, "accepted": 2, "counts": {

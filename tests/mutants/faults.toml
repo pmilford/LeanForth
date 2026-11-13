@@ -14010,8 +14010,8 @@ reason = "FE1g-1 review L1: mvars.fs reads its numbers (16, 31) in the BASE it i
 [[fault]]
 id = "verify-rejected-not-1"
 file = "scripts/program_verify.py"
-old = '''CHECK_PROBLEM = {"rejected": "proof-rejected", "unsupported": "proof-undecided"}'''
-new = '''CHECK_PROBLEM = {"rejected": "proof-undecided", "unsupported": "proof-undecided"}'''
+old = '''VERDICT_PROBLEMS = [("proof-rejected", {"rejected"}),'''
+new = '''VERDICT_PROBLEMS = [("proof-undecided", {"rejected"}),'''
 test = "python3 tests/program/test_program_verify.py Checker"
 reason = "8.4.1b: a rejected theorem is reported as undecided (exit 2), not rejected (exit 1)"
 quick = true

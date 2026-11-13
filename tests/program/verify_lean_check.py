@@ -15,7 +15,8 @@ outcome (EXPECTED below: discharged 0, refuted 1, unsupported 2, the SHA
 words refused as needing receipt 0.4, 2), its receipt must be read by the
 strict reader (scripts/program_receipt.py validate) and equal the golden one
 in tests/program/verify/golden/ but for its date and the --out folder, the
-export must be removed and its manifest kept. The files of the last run stay in
+export must be removed and its manifest kept. The files of the last run, and what it
+printed (verify.out), stay in
 build/verify-lean/NAME (ignored by git). make check runs lf-clamp and
 wrong-clamp-swapped (about 100 s each, two workers); --all runs all thirteen
 (the plan's acceptance: about 12 minutes), recorded in
@@ -71,6 +72,8 @@ def run(name, write):
                            str(out.relative_to(ROOT))], cwd=ROOT, capture_output=True,
                           text=True, timeout=TEST_LIMIT, stdin=subprocess.DEVNULL)
     text = done.stdout + done.stderr
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "verify.out").write_text(text, encoding="utf-8")   # what the command printed
     problems = []
     if done.returncode != status:
         problems.append(f"exit status {done.returncode}, expected {status}:\n{text}")

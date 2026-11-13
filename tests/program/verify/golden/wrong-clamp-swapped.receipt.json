@@ -1,0 +1,161 @@
+{
+  "schema": "leanforth-program-receipt",
+  "schemaVersion": "0.3",
+  "provenance": {
+    "kind": "generated",
+    "generator": {
+      "name": "python",
+      "version": "program_verify.py 0.1"
+    },
+    "createdAt": "DATE",
+    "note": "Written by leanforth verify (scripts/program_verify.py) from the files named below, at the hashes given, and the evidence it recorded beside this receipt. A receipt is a statement of evidence, not an approval; it passes no review gate."
+  },
+  "program": {
+    "word": "lf-clamp",
+    "stackEffect": "( value lower upper -- result true | false )",
+    "source": {
+      "path": "src/program/clamp.fs",
+      "line": 12,
+      "sha256": "e4444161f4a3436b1a4509338e15fe2aeb47cab1f4327069e31b401bf1dc6a30"
+    },
+    "ir": {
+      "version": "0.1",
+      "sha256": "651875025cec88f7ae5b6669b227df28ebd3bbcbc29f11af08370024bf5cfb50"
+    },
+    "floatingPoint": false
+  },
+  "contract": {
+    "id": "lf-clamp/wrong-swapped",
+    "statement": "Wrong on purpose: claims the result is max(min(v, l), u).",
+    "file": {
+      "path": "tests/program/contracts/wrong-clamp-swapped.contract",
+      "sha256": "927d432b715f3b614f7cfa3362542e18b8beda0af18af3b098345274f1b0cdda"
+    }
+  },
+  "check": {
+    "status": "accepted-by-leanforth",
+    "checker": {
+      "name": "leanforth",
+      "version": "0.1.0-dev, verdict version 9"
+    },
+    "theorems": [
+      {
+        "name": "ProgramVC.LfClampWrongSwapped.refuted",
+        "axioms": [
+          "propext",
+          "Classical.choice",
+          "Quot.sound"
+        ]
+      }
+    ],
+    "axioms": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "evidence": [
+      {
+        "path": "OUT/obligations.lean",
+        "sha256": "a9e636446b2d31a71df9568a3be7fc79fb32e6d705a1d0a036c2275e8cc1d985"
+      },
+      {
+        "path": "scripts/program_vc.py",
+        "sha256": "4b69a5015f660035768aebd2bf33c539a5289cfd01c575894ac8ea8bb0f21f9d"
+      },
+      {
+        "path": "scripts/export.sh",
+        "sha256": "3ad758381ff3a6312940e696dae2bc423884aeef34c402c43851ccd53f78d855"
+      },
+      {
+        "path": "OUT/lf-clamp.ndjson.manifest.json",
+        "sha256": "b5a437ff561f4cd11e3d125e51a9554f6974ee30fae4d631021fd42b400c62a2"
+      }
+    ],
+    "note": "Lean 4.35.0 wrote the proof of ProgramVC.LfClampWrongSwapped.refuted, that the contract is false, from the tactic scripts of the untrusted generator, and its exporter wrote them with every declaration they use, 4,295 in all, to the export with SHA-256 cc0bd10b8f2516a906d4e7645daba6d793595c4ed0df56097fd94f3d202f42e3 whose manifest is OUT/lf-clamp.ndjson.manifest.json. LeanForth's checker re-checked that export and accepted all 4,295 of them, these theorems among them: the status is LeanForth's verdict. LeanForth has no tactics yet and wrote no proof."
+  },
+  "verify": {
+    "status": "refuted",
+    "settledBy": "accepted-by-leanforth",
+    "generator": {
+      "name": "python",
+      "version": "program_vc.py 0.1"
+    },
+    "obligations": [
+      {
+        "id": "O1",
+        "statement": "The contract is false: on 64-bit cells with value = -3, lower = -3, upper = -2, the word leaves -3, -1 (true) (bottom first); the postcondition fails.",
+        "status": "refuted",
+        "theorem": "ProgramVC.LfClampWrongSwapped.refuted"
+      }
+    ],
+    "note": "The untrusted generator found inputs that break the contract and wrote the theorem refuted, the contract's negation, proved by running the IR in Lean on them; LeanForth's checker accepted it."
+  },
+  "run": {
+    "status": "not-run",
+    "cases": 0,
+    "failures": 0,
+    "label": "not run",
+    "note": "No runtime test ran: plan 8.4.2 adds them. A receipt about the IR says nothing about the compiled code or the runtime."
+  },
+  "assumptions": [
+    {
+      "id": "A1",
+      "kind": "host-cells",
+      "text": "Every value is one signed host cell. The Lean theorems hold for every cell width of at least two bits; no runtime test ran here (RUN: not run; plan 8.4.2)."
+    },
+    {
+      "id": "A2",
+      "kind": "twos-complement",
+      "text": "Cells are two's complement, so the host's arithmetic wraps as the IR semantics says (src/lib/portability.fs)."
+    },
+    {
+      "id": "A3",
+      "kind": "trusted-reader",
+      "text": "The program words (src/program/verify.fs, the mode shift of ADR 0019) wrote the IR faithfully: each Forth word the file uses means in the IR what the host's word of that name does, and nothing else in the source file changes what its words mean on the host. They run the file through Forth's own text interpreter, one line at a time, with only their entry word visible; each token must be a word of the file (a call, bound when Forth finds it, to the version visible there), a word of FORTH-WORDLIST with verification semantics and the identity it had when they loaded, or a number in a Forth-2012 form (decimal, # $ % prefixes or 'c'), which they read themselves; no word of the file or of the host runs. A standard word redefined after they loaded and before the run is refused, except, on Gforth 0.7.3, a compile-only word, since all of those share one token there; one redefined before they loaded is not noticed, so the verifying Forth too is assumed to have its own standard words. A file may define its own words again, as Forth allows; each version has its own IR name (x, x'1, ...), and program.word names one. They refuse a redefinition, under any spelling, of a word with verification semantics or of a Forth-2012 Core or Core Ext word, a name the IR gives another version, a name that reads as a number, any byte outside printable ASCII other than a space, a tab, an LF and a CR just before an LF, and a division before CONSTANT. Gforth is assumed to load the file with its default settings (decimal BASE, standard words), and the file to define no name that code compiled after it in the same session uses, other than the words under test: definitions of host words outside those word sets, such as Gforth's own, are accepted and would change what such code, a test harness for example, means. Nothing proves the translation; leanforth verify wrote this IR with the program words and required it to equal tests/program/ir/clamp.ir, the contract's IR file, byte for byte."
+    },
+    {
+      "id": "A4",
+      "kind": "trusted-runtime",
+      "text": "Gforth and its compiler execute 2DUP, >, IF, 2DROP, DROP, FALSE, EXIT, THEN, >R, MAX, R>, MIN and TRUE as the IR semantics says. Not tested: no runtime test ran here (RUN: not run; plan 8.4.2)."
+    },
+    {
+      "id": "A5",
+      "kind": "stack-capacity",
+      "text": "The data and return stacks have room for the word's items; stack overflow is not modeled."
+    },
+    {
+      "id": "A6",
+      "kind": "trusted-lean",
+      "text": "Lean 4.35.0, the pinned toolchain, elaborated OUT/obligations.lean and its exporter (lean4export 3.1.0, through scripts/export.sh) wrote the export faithfully: the contract statement, the IR semantics and the program that LeanForth checked mean what that Lean source says. Lean also wrote the proofs, from the generator's tactic scripts, and checked them itself; that check is not relied on here, since LeanForth's checker checked the export again."
+    },
+    {
+      "id": "A7",
+      "kind": "untrusted-generator",
+      "text": "The obligations come from an untrusted generator (scripts/program_vc.py). This is safe only because the theorem refuted, the contract's negation, is stated against the IR semantics copied verbatim from tests/reference/program-ir.lean, and Lean prints the generated program back equal to the IR file."
+    },
+    {
+      "id": "A8",
+      "kind": "trusted-leanforth",
+      "text": "LeanForth's checker (bin/leanforth check, 0.1.0-dev, verdict version 9) checked every declaration of the export correctly: it accepted all 4,295 of them, the theorem refuted and every definition, inductive type and lemma they use, directly or not, each with its axioms. It follows Lean 4.35.0's kernel rules; it has no tactics and wrote no proof."
+    }
+  ],
+  "tools": [
+    {
+      "name": "lean",
+      "version": "4.35.0",
+      "commit": "eb6cafb7290e8bd5f2937522d8d804f58f02bafc"
+    },
+    {
+      "name": "leanforth",
+      "version": "0.1.0-dev, verdict version 9"
+    },
+    {
+      "name": "gforth",
+      "version": "1.0.0"
+    },
+    {
+      "name": "python",
+      "version": "program_vc.py 0.1"
+    }
+  ]
+}

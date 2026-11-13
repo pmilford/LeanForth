@@ -110,8 +110,12 @@ CODES = {
 SEVERITY = (5, 4, 1, 3, 2, 6, 0)   # the CLI's order: the first that occurs is the status
 # The program words' outcome (ADR 0008) when they refuse the source, as an exit status.
 REFUSED_STATUS = {1: 4, 2: 3, 3: 2, 4: 1, 5: 2, 6: 3}
-# A non-accepted check status, as a problem code (failed: by its verdicts, below).
-CHECK_PROBLEM = {"rejected": "proof-rejected", "unsupported": "proof-undecided"}
+# LeanForth's verdicts other than accepted, as problem codes; any other verdict (invalid,
+# not checked, a theorem missing, a stopped run) is an internal fault. Each kind found is
+# reported, so the exit status follows the CLI's order, as bin/leanforth check's does.
+VERDICT_PROBLEMS = [("proof-rejected", {"rejected"}),
+                    ("proof-undecided", {"unknown", "unsupported"}),
+                    ("proof-exhausted", {"exhausted", "full"})]
 
 
 class Problem(Exception):
@@ -207,11 +211,11 @@ class Tools:
     def __init__(self):
         self.active = None
 
-    def run(self, args, limit=None, env=None):
-        """The finished process (CompletedProcess); TimeoutExpired after limit seconds,
-        OSError when it cannot be started."""
+    def run(self, args, limit=None, env=None, cwd=ROOT):
+        """The finished process (CompletedProcess), run in cwd; TimeoutExpired after limit
+        seconds, OSError when it cannot be started."""
         self.active = subprocess.Popen(
-            args, cwd=ROOT, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+            args, cwd=cwd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, text=True, errors="replace", start_new_session=True,
             env=None if env is None else dict(os.environ, **env))
         try:
@@ -476,14 +480,17 @@ class Verify:
     def prove(self):
         """Step 4a: pinned Lean writes the proofs (warnings are errors), prints the program
         back and reports the axioms; its exporter writes the theorems with their closure and
-        the manifest. False when Lean failed (a receipt says so, nothing checked)."""
+        the manifest. False when Lean failed (a receipt says so, nothing checked). Lean runs
+        in --out on obligations.lean, so the module name it derives from the path, which the
+        export's private names carry, is `obligations` whatever --out is: the same word and
+        contract give the same export bytes in any folder."""
         lean, self.lean = self.lean_tool()
         theorems, written = self.vc["theorems"], digest(self.lean_text.encode("utf-8"))
         limit = self.args.lean_time_limit
         with tempfile.TemporaryDirectory() as folder:
             try:
-                done = self.tools.run(receipts.lean_compile_args(lean, self.files["lean"],
-                                                                 folder), limit)
+                done = self.tools.run(receipts.lean_compile_args(
+                    lean, Path(self.files["lean"]).name, folder), limit, cwd=ROOT / self.out)
             except subprocess.TimeoutExpired:
                 self.problem("lean-time-limit", f"Lean ran over {limit} s on "
                              f"{self.files['lean']}; nothing was checked")
@@ -597,13 +604,17 @@ class Verify:
                      "theorem's axioms equal Lean's #print axioms")
             self.verdict = 1 if self.vc["status"] == "refuted" else 0
             return
-        verdicts = receipts.export_verdicts(self.leanforth)
-        code = CHECK_PROBLEM.get(status) or (
-            "proof-exhausted" if verdicts & {"exhausted", "full"} else "internal")
+        verdicts = receipts.export_verdicts(self.leanforth) | {
+            self.leanforth["theorems"][n]["verdict"] for n in names}
+        codes = [code for code, found in VERDICT_PROBLEMS if verdicts & found]
+        known = {"accepted"}.union(*(found for _, found in VERDICT_PROBLEMS))
+        if verdicts - known or not codes:
+            codes.append("internal")
         counts = ", ".join(f"{n} {k}" for k, n in sorted(self.leanforth["counts"].items())
                            if n and k != "declarations")
-        self.problem(code, f"LeanForth's checker did not accept the export: {counts}; check "
-                     f"status {status}")
+        for code in codes:
+            self.problem(code, f"LeanForth's checker did not accept the export: {counts}; "
+                         f"check status {status}")
         self.say(f"check: {status}: LeanForth's verdict on the export; nothing discharged")
 
     # --------------------------------------------------------------- the receipt
