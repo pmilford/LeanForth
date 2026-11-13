@@ -76,8 +76,8 @@ T{ c-sized -> outcome-ok }T
 T{ lf-mls-reached-cells slab-trim drop 1 refused -> outcome-full 0 1 }T
 T{ noted -> 1 1 lf-diag-work-stack-full }T
 T{ sized -> outcome-ok }T
-\ B3: the images trimmed to one cell; room for the three is refused, and
-\ the stores roll back: no term is left made.
+\ B3: the images trimmed to one cell; room for the three is refused
+\ before the build makes anything.
 lf-term-count @ constant terms-before
 T{ lf-mls-image-cells slab-trim drop 1 refused -> outcome-full 0 1 }T
 T{ noted -> 3 1 lf-diag-work-stack-full }T
@@ -95,7 +95,7 @@ T{ level-refused -> outcome-full 0 2 }T
 T{ noted -> 1 1 lf-diag-work-stack-full }T
 T{ sized -> outcome-ok }T
 \ B5: the constant's new level pairs trimmed to one pair; holding its two
-\ is refused, the stores roll back, and the caller keeps its cells.
+\ is refused, and the caller keeps its cells.
 : c-run ( k -- outcome ) lf-diag-clear heap-refusals ! c-pq subst-run outcome-of ;
 : c-refused ( k -- outcome code cells )
   depth >r ['] c-run catch 0 heap-refusals ! depth r> - ;
@@ -103,6 +103,27 @@ lf-term-count @ constant c-terms-before
 T{ lf-mls-arg-pairs slab-trim drop 1 c-refused -> outcome-full 0 1 }T
 T{ lf-term-count @ -> c-terms-before }T
 T{ c-sized -> outcome-ok }T
+T{ sized -> outcome-ok }T
+\ B5 after a rebuilt child: app (Sort p) C.{p, q}, its Sort p made
+\ before C, so the build makes Sort q first; then the pairs are refused
+\ and the stores roll back: the term made is given back (the count as
+\ before), its identity is not (the serial has moved). Two runs first
+\ grow the stores (one growth the second run makes, refused, is not a
+\ failure), so that the one refused is the pairs' (still one pair).
+: early-sort-p ( -- index id ) app-u drop lf-term-first@ dup lf-term-identity must ;
+early-sort-p c-pq lf-hterm-app must 2constant app-c
+: ac-run ( k -- outcome ) lf-diag-clear heap-refusals ! app-c subst-run outcome-of ;
+: ac-refused ( k -- outcome code cells )
+  depth >r ['] ac-run catch 0 heap-refusals ! depth r> - ;
+T{ app-c subst-run outcome-of -> outcome-ok }T
+T{ app-c subst-run outcome-of -> outcome-ok }T
+lf-term-count @ constant ac-terms-before
+lf-term-serial @ constant ac-serial-before
+T{ lf-mls-arg-pairs slab-trim drop 1 ac-refused -> outcome-full 0 1 }T
+T{ lf-mls-arg-pairs slab-capacity -> 1 }T
+T{ lf-term-count @ -> ac-terms-before }T
+T{ lf-term-serial @ ac-serial-before - -> 1 }T
+T{ app-c subst-run outcome-of -> outcome-ok }T
 T{ sized -> outcome-ok }T
 \ B1: the set freed, its making refused: full, with nothing reached and
 \ no slots; then the set is made again.
