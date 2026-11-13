@@ -68,6 +68,13 @@
 \   the run: progress lines, results written as they become final); 0, the
 \   default, none. lf-sched-final ( -- n ): every slot below n is final and
 \   n is not beyond the stop (what a tick may report);
+\ - lf-sched-pre! ( xt -- ): after lf-sched-init, xt ( d -- n ) is asked
+\   in the driving task, the driving context current, when d is about to
+\   be handed out (the carry pass's decision on readiness, plan step
+\   6.2.5c4): 0, hand it out; 1, xt published d (with its block's
+\   members) itself, so it is done; 2, d waits until every slot below it
+\   is final and is asked again (xt must not give 2 then); an xt of 0,
+\   the default, asks nothing;
 \ - lf-sched-stop ( -- d ): the declaration at which the serial run would
 \   have stopped, or the input's count; lf-sched-broken? ( -- flag ): the
 \   run could not go on (a job refused, no worker left), so its verdicts
@@ -144,6 +151,7 @@ begin-structure /lf-sched
   field: lf-sch-renewed#    \ workers replaced after a THROW
   field: lf-sch-handed#     \ checks handed over so far
   field: lf-sch-tick        \ ( -- ) run in the driving task after each settled job, or 0
+  field: lf-sch-pre         \ ( d -- n ) asked before d is handed out, or 0
   /slab +field lf-sch-ctxs     \ per worker: its context, 0 once lost
   /slab +field lf-sch-jobs     \ per worker: its job, or 0
   /slab +field lf-sch-ats      \ per worker: the declaration its job checks
@@ -563,8 +571,17 @@ variable lf-sched-faults  0 lf-sched-faults !
   dup lf-sch-ctx @ lf-sched lf-sch-check @ job-submit
   ?dup if 2drop 2drop 2 lf-sch-break exit then
   -rot over lf-sch-running swap lf-sch-state! lf-sch-submitted ;
+\ Before d is handed out, lf-sched-pre! 's word (plan step 6.2.5c4): 0,
+\ check it; 1, it published d itself (with its block); 2, ask again once
+\ every slot below d is final.
+: lf-sch-pre-of ( d -- n ) lf-sched lf-sch-pre @ ?dup if execute else drop 0 then ;
+: lf-sch-pre-published ( d -- ) lf-sch-done over lf-sch-state! lf-sch-published ;
+: lf-sch-pre-done? ( d -- flag )
+  dup lf-sch-pre-of ?dup 0= if drop false exit then
+  1 = if lf-sch-pre-published else lf-sch-later! then true ;
 : lf-sch-launch ( d k -- )
   over lf-sch-test? 0= if drop lf-sch-unready exit then
+  over lf-sch-pre-done? if 2drop exit then
   2dup lf-sch-begun? if lf-sch-submit else 2drop then ;
 
 \ ---- Settling worker k's job. A check that began too early is run
@@ -619,6 +636,7 @@ variable lf-sched-faults  0 lf-sched-faults !
   repeat drop ;
 : lf-sch-busy? ( -- flag ) lf-sched lf-sch-running# @ 0> ;
 : lf-sched-tick! ( xt -- ) lf-sched lf-sch-tick ! ;
+: lf-sched-pre! ( xt -- ) lf-sched lf-sch-pre ! ;
 : lf-sched-final ( -- n ) lf-sched-reached lf-sched-stop min ;
 : lf-sch-ticked ( -- ) lf-sched lf-sch-tick @ ?dup if execute then ;
 : lf-sch-loop ( -- )

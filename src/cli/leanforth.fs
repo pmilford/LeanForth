@@ -344,7 +344,7 @@ end-structure
   dup why-code why-reach = if
     ." : inside the reach of verdict version " why-step .decimal ." 's change" exit then
   why-outcome = if ." : its saved outcome is never carried"
-  else ." : a result its lookups reach was not carried" then ;
+  else ." : a result its lookups reach answers otherwise now" then ;
 : cli-here. ( d -- )
   ." checked in this run" dup ck-reason ?dup if cli-why-again. then
   lf-env-origin lf-origin-uses = if
@@ -753,7 +753,7 @@ create cli-hex 64 allot
     cli-comma .decimal ."  whose saved outcome is never carried" false then ;
 : cli-answers-group ( first? -- first? )
   why-answers ck-again# ?dup if
-    cli-comma .decimal ."  whose lookups reach a result not carried" false then ;
+    cli-comma .decimal ."  whose lookups reach a result checked again" false then ;
 : cli-groups ( -- )
   true lf-verdict-version 1+ ck-snap snap-verdict 1+ ?do i cli-reach-group loop
   cli-outcome-group cli-answers-group drop ;
@@ -762,10 +762,13 @@ create cli-hex 64 allot
   if ."  (" cli-groups ." )" then ;
 \ Printed after the carry pass, before any check (the owner, 2026-11-12:
 \ the count of re-checks first): text only.
+\ Before the checks, a declaration whose lookups reach a result checked
+\ again may still be carried on its turn (plan step 6.2.5c4).
+: cli-at-most. ( -- ) why-answers ck-again# if ." at most " then ;
 : cli-carry. ( -- )
   ." carry: a snapshot of verdict version " ck-snap snap-verdict .decimal
   ." , this build's " lf-verdict-version .decimal ." : " ck-carried# .decimal
-  ."  results carried; to check again: " cli-again. cr ;
+  ."  results carried; to check again: " cli-at-most. cli-again. cr ;
 : cli-taken. ( -- )
   ck-carrying? if ck-carried# .decimal ."  results carried from it" exit then
   cli-from-snapshot# .decimal ."  results taken from it"

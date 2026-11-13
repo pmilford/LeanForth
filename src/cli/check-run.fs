@@ -544,10 +544,14 @@ create ck-line ck-line-room 2 + allot
 \ ---- Checking, one declaration at a time.
 : ck-diag! ( addr -- )
   >r lf-diag@ r@ kept-code ! r@ kept-site ! r@ kept-second ! r> kept-first ! ;
-\ Keep what declaration d's check left, with the outcome it published.
-: ck-keep ( outcome d -- )
+\ Keep what declaration d's check left, with the outcome it published;
+\ in a carry run, whether d (and its block) answers as the snapshot's
+\ slot it was judged against (env-import.fs imp-same, I3).
+: ck-keep-facts ( outcome d -- )
   2dup ck-used over ck-kept cks-fuel ! dup ck-step-reached over ck-kept kept-step !
   ck-kept dup ck-diag! kept-outcome ! ;
+: ck-same ( d -- ) ck-carrying? if ck-import imp-same else drop then ;
+: ck-keep ( outcome d -- ) dup ck-same ck-keep-facts ;
 \ Check declaration d: whether the run must stop, after a fault of the
 \ publisher or a THROW in the check (the context is then spent); a stop
 \ is kept (ck-faulted?).
@@ -569,8 +573,29 @@ create ck-line ck-line-room 2 + allot
 \ slot is final, its facts the snapshot's.
 : ck-taken? ( d -- flag )
   ck-passing? if ck-import imp-source 0< 0= else drop false then ;
+\ A carry run's declaration not taken before the run for its answers is
+\ judged again on its turn (plan step 6.2.5c4; env-import.fs imp-decide):
+\ taken now, with its block, their facts the snapshot's (ck-span-facts);
+\ a failure to take stops the run. ck-pre is the same decision before a
+\ parallel run hands d out (env-schedule.fs lf-sched-pre!).
+: ck-deferred? ( d -- flag )
+  ck-carrying? if dup lf-env-published? 0= swap ck-import imp-deferred? and
+  else drop false then ;
+: ck-fact-of ( k -- )
+  dup ck-import imp-source over ck-kept snap-fact swap ck-kept cks-fuel ! ;
+: ck-span-facts ( d -- ) begin dup ck-fact-of 1+ dup member-here? 0= until drop ;
+: ck-turn ( d -- stop? )
+  dup ck-deferred? 0= if drop false exit then
+  dup ck-import imp-decide 1 = if drop ck-span-facts false exit then ok? 0= nip ck-stop! ;
+: ck-pre-failed ( d outcome -- n )
+  drop true ck-state ck-faulted ! lf-env-published? 1 and ;
+: ck-pre ( d -- n )
+  dup ck-deferred? 0= if drop 0 exit then
+  dup ck-import imp-decide over ok? 0= if drop ck-pre-failed exit then
+  nip dup 1 = if drop ck-span-facts 1 else nip then ;
 : ck-next ( d -- stop? )
-  dup 1+ ck-state ck-stepped ! dup ck-taken? if drop false exit then
+  dup 1+ ck-state ck-stepped ! dup ck-turn if drop true exit then
+  dup ck-taken? if drop false exit then
   dup lf-env-published? if ck-trailing false else ck-step then ;
 
 \ The run's own environment, by identity (never another one that happens
@@ -745,9 +770,10 @@ create ck-line ck-line-room 2 + allot
   dup 0 ?do i ck-jobs-trail loop ck-unkeep ;
 \ A tick after each job gives out what became final (ck-advance).
 : ck-tick! ( -- ) ck-watching? if ['] ck-tick lf-sched-tick! then ;
+: ck-pre! ( -- ) ck-carrying? if ['] ck-pre lf-sched-pre! then ;
 : ck-jobs-run ( -- )
-  ck-tick! ck-check-word ['] ck-keep ['] ck-worker-new ['] lf-sched-run context-catch
-  throw ck-jobs-facts ;
+  ck-tick! ck-pre! ck-check-word ['] ck-keep ['] ck-worker-new ['] lf-sched-run
+  context-catch throw ck-jobs-facts ;
 \ The pool is started before the run, so that a refusal (no threads, as
 \ near the process limit) leaves the whole run to the serial one, with the
 \ workers freed and the cause kept for the report.

@@ -1253,10 +1253,14 @@ can possibly affect (all of them, inductive blocks, nested blocks, ...).
 LeanForth **carries** a saved result -- verdict, fuel, axioms, lists --
 only when the declaration lies outside the reach of every change since
 the snapshot's version, its saved outcome is not *full*, *invalid* or
-*exhausted*, and every result its lookups reach was carried too; it
+*exhausted*, and every result its lookups reach was carried too or,
+checked again in this run, gives the same answers (its verdict, axioms,
+warnings, recipe, shape and marks; plan step 6.2.5c4: decided on the
+declaration's turn, or with `--jobs` before it is handed to a worker); it
 checks everything else again, so every result shown is this build's
 (the owner, 2026-11-12: exact verdict and fuel). Before checking, the
-text report says how many it will check again and why:
+text report says how many it will check again and why ("at most" while
+some wait for their turn):
 
 ```text
 carry: a snapshot of verdict version 8, this build's 9: 0 results carried; to check again: 2 (2 inside the reach of verdict version 9's change)

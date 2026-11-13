@@ -123,6 +123,10 @@ begin-structure /imp
   field: imp-sd-of       \ per S slot: its S declaration
   field: imp-why         \ per input declaration not taken: why (0: none of S's content)
   field: imp-held        \ judging: the reach bits S's slot holds
+  field: imp-cand        \ per input declaration: the S slot judged against + 1, or 0
+  field: imp-same-from   \ I3: per input declaration checked here: the S slot + 1
+  field: imp-same-to     \ and per S slot: that input declaration + 1
+  field: imp-early       \ judging: the replay met a slot not final
 end-structure
 variable imp-current
 : imp@ ( -- imp ) imp-current @ ;
@@ -139,7 +143,8 @@ variable imp-current
   dup imp-staged-of heap-release dup imp-from heap-release dup imp-to heap-release
   dup imp-renum heap-release dup imp-lslots heap-release dup imp-ldecls heap-release
   dup imp-llines heap-release dup imp-lnewest heap-release dup imp-sd-of heap-release
-  dup imp-why heap-release /imp erase ;
+  dup imp-why heap-release dup imp-cand heap-release dup imp-same-from heap-release
+  dup imp-same-to heap-release /imp erase ;
 
 \ ---- S kept aside, from a stage tier-read filled, before the export is
 \ read into it: its declarations, each one's slot, and each name's newest
@@ -207,11 +212,16 @@ variable imp-current
   2dup imp-stage @ staged-at over imp-stage @ slot-record? 0= if 2drop exit then
   >r over r> imp-staged-of @ ua! 1+ ;
 : e-count ( imp -- n ) imp-stage @ stage-decls ;
-\ What is taken, and why the rest is not: per input declaration, per S slot.
+\ What is taken, and why the rest is not: per input declaration, per S
+\ slot; and I3's maps (below).
+: same-maps ( imp -- outcome )
+  dup imp-n @ over imp-cand ua-new dup ok? 0= if nip exit then drop
+  dup imp-n @ over imp-same-from ua-new dup ok? 0= if nip exit then drop
+  dup imp-sn @ swap imp-same-to ua-new ;
 : input-maps ( imp -- outcome )
   dup imp-n @ over imp-from ua-new dup ok? 0= if nip exit then drop
   dup imp-n @ over imp-why ua-new dup ok? 0= if nip exit then drop
-  dup imp-sn @ swap imp-to ua-new ;
+  dup imp-sn @ over imp-to ua-new dup ok? 0= if nip exit then drop same-maps ;
 : imp-input ( imp -- outcome )
   dup e-count over imp-staged-of ua-new dup ok? 0= if nip exit then drop
   0 over e-count 0 ?do i 2 pick input-slot loop
@@ -272,7 +282,10 @@ variable imp-current
   2dup e-first rot over = if 2drop true exit then swap imp-from @ ua@ 0<> ;
 : saved-looks ( d -- j n ) dup start@ nip swap sl-looks swap saved ;
 : saved-deps ( d -- j n ) dup start@ drop swap sl-deps swap saved ;
-: dep-taken ( s imp -- e+1|0 ) imp-to @ ua@ ;
+\ S's slot s has a slot here: taken from it, or (I3, plan step 6.2.5c4)
+\ checked here with its answer fields.
+: dep-taken ( s imp -- e+1|0 )
+  2dup imp-to @ ua@ ?dup if nip nip exit then imp-same-to @ ua@ ;
 : deps-taken? ( d imp -- flag )
   swap saved-deps bounds ?do
     i snap@ dep@ over dep-taken 0= if drop false unloop exit then
@@ -282,10 +295,13 @@ variable imp-current
   saved-looks bounds ?do
     i snap@ look-key lf-env-replay 0= if false unloop exit then
   loop true ;
-\ An answer of this run in S's terms: the slot it gives, taken from S's.
+\ An answer of this run in S's terms: the slot it gives, taken from S's
+\ (or, I3, checked here with the answer fields of S's).
+: s-of ( k imp -- d+1|0 )
+  2dup imp-from @ ua@ ?dup if nip nip exit then imp-same-from @ ua@ ;
 : answer-taken ( answer imp -- answer' true | false )
   over lf-look-slot+1 ?dup 0= if drop true exit then
-  1- swap imp-from @ ua@ ?dup 0= if drop false exit then
+  1- swap s-of ?dup 0= if drop false exit then
   4 lshift swap 15 and or true ;
 \ The candidate's entry i against S's entry j.
 : entry-same? ( i j imp -- flag )
@@ -294,8 +310,10 @@ variable imp-current
 : answers-same? ( d imp -- flag )
   swap saved-looks dup lf-cand-looked@ <> if 2drop drop false exit then
   0 ?do i over i + 3 pick entry-same? 0= if 2drop false unloop exit then loop 2drop true ;
+\ A query met a slot not final (kept for the decision on readiness).
+: early? ( imp -- flag ) lf-env-early? tuck swap imp-early ! ;
 : asked? ( d imp -- flag )
-  over replay-all if lf-env-early? 0= if answers-same? exit then then 2drop false ;
+  over replay-all if dup early? 0= if answers-same? exit then then 2drop false ;
 \ The lookups asked in k's snapshot, which is then cleared, the scratch
 \ the queries made rolled back.
 : replayed? ( k d imp -- flag )
@@ -362,8 +380,9 @@ reach-let or reach-scratch-names or reach-names or reach-all or constant reach-u
 \ Whether input declaration k (imp-k) can take S's slot d: I1 and C3;
 \ else why it cannot, kept. A member after its block's first goes with
 \ the first: its why is the first's.
+: cand-to ( d imp -- ) swap 1+ swap dup imp-k @ swap imp-cand @ ua! ;
 : judged? ( k d imp -- flag )
-  over reproducible? 0= if why-outcome why exit then
+  2dup cand-to over reproducible? 0= if why-outcome why exit then
   2dup reach-why ?dup if why exit then
   over d-trailing? if dup imp-k @ 1- over why@ why exit then
   2 pick over first-taken? 0= if why-answers why exit then
@@ -439,6 +458,44 @@ reach-let or reach-scratch-names or reach-names or reach-all or constant reach-u
   dup imp-why @ 0= if 2drop 0 exit then 2dup imp-source 0< if why@ else 2drop 0 then ;
 : why-code ( why -- code ) why-steps 1- and ;
 : why-step ( why -- k ) why-steps / ;
+
+\ ---- I3 and the decision on readiness (plan step 6.2.5c4; R4, C5): in
+\ a carry pass, a declaration not taken before the run for its lookups'
+\ answers is judged again on its turn, when every slot its lookups can
+\ reach is final (serially when it is reached; with --jobs before it is
+\ handed out: env-schedule.fs lf-sched-pre!), and a slot checked here
+\ then answers as S's slot it was judged against when its answer fields
+\ (outcome, marks, axiom set, warnings, recipe, shape: env-snapshot.fs
+\ alike?) equal the saved ones -- no check reads another's fuel or
+\ diagnostic, so (by I2) its users' checks run as they ran for S.
+\ imp-same records that after a slot (with its block's members) was
+\ published by a check here; imp-decide judges again.
+: cand@ ( k imp -- d+1|0 ) imp-cand @ ua@ ;
+: same-from! ( imp -- ) dup imp-d @ 1+ swap dup imp-k @ swap imp-same-from @ ua! ;
+: same-to! ( imp -- ) dup imp-k @ 1+ swap dup imp-d @ swap imp-same-to @ ua! ;
+: alike-here? ( imp -- flag ) dup imp-d @ swap imp-k @ lf-env lf-env-slot alike? ;
+: same-one ( k imp -- )
+  2dup imp-k ! tuck cand@ ?dup 0= if drop exit then 1- over imp-d !
+  dup alike-here? if dup same-from! same-to! else drop then ;
+\ Slot k is a member published with the slot before it.
+: member-here? ( k -- flag )
+  dup lf-input-count < 0= if drop false exit then
+  lf-env lf-env-slot dup lf-slot-state @ lf-state-final = swap lf-slot-member @ 0<> and ;
+: imp-same ( k imp -- )
+  2dup imp-source 0< 0= if 2drop exit then
+  begin 2dup same-one swap 1+ swap over member-here? 0= until 2drop ;
+\ Whether input declaration k waits for its turn: not taken before the
+\ run for its answers, in a carry pass.
+: imp-deferred? ( k imp -- flag )
+  dup imp-older @ if why@ why-answers = else 2drop false then ;
+\ Judge k again: ok and 1 when taken now; ok and 2 when a query met a slot
+\ not final (ask again when every slot below k is); ok and 0 to check it;
+\ or a failure of taking (as imp-pass's) and 0.
+: decided ( k imp -- n )
+  2dup imp-source 0< 0= if 2drop 1 exit then nip imp-early @ 2 and ;
+: imp-decide ( k imp -- outcome n )
+  false over imp-early ! 2dup imp-unit dup ok? if drop decided outcome-ok swap
+  else nip nip 0 then ;
 
 \ ---- A layer of this run (ADR 0020 amendment 1, F5; plan step SN4),
 \ after a run whose every slot is final: the input declarations not

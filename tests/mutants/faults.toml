@@ -9385,7 +9385,7 @@ reason = "SN4: a block's member compared alone, not the whole block; the block's
 [[fault]]
 id = "sn4-answer-untranslated"
 file = "src/kernel/env-import.fs"
-old = '''  1- swap imp-from @ ua@ ?dup 0= if drop false exit then
+old = '''  1- swap s-of ?dup 0= if drop false exit then
   4 lshift swap 15 and or true ;'''
 new = '''  2drop true ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
@@ -9394,7 +9394,7 @@ reason = "SN4: a lookup's answer compared without translating its slot to the sn
 [[fault]]
 id = "sn4-undecided-matched"
 file = "src/kernel/env-import.fs"
-old = '''  over replay-all if lf-env-early? 0= if answers-same? exit then then 2drop false ;'''
+old = '''  over replay-all if dup early? 0= if answers-same? exit then then 2drop false ;'''
 new = '''  over replay-all if answers-same? exit then 2drop false ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
 reason = "SN4: a lookup that met a slot not taken (to be checked in this run) is not refused as no match"
@@ -11367,3 +11367,28 @@ old = ''': prov-max ( snap -- u ) snap-layer? if 1 else prov-taken 1 or then ;''
 new = ''': prov-max ( snap -- u ) drop prov-taken 1 or ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py OlderSnapshots.test_upgrade"
 reason = "6.2.5c5: a layer's slot taken from a snapshot (provenance 2) accepted; only an upgraded base holds such slots"
+
+[[fault]]
+id = "snapc-i3-outcome-only"
+file = "src/kernel/env-snapshot.fs"
+old = ''': alike? ( d slot -- flag ) 2dup 5 fields-upto? if marks-same? else 2drop false then ;'''
+new = ''': alike? ( d slot -- flag ) 1 fields-upto? ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "6.2.5c4 (I3): a slot checked again answers as the saved one when only its outcome is the same (a definition whose axiom set differs lets its users be carried)"
+
+[[fault]]
+id = "snapc-i3-off"
+file = "src/kernel/env-import.fs"
+old = '''  dup alike-here? if dup same-from! same-to! else drop then ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "6.2.5c4: I3 never applied: users of a slot checked again with the same answers are checked again too (c3's rule)"
+
+[[fault]]
+id = "snapc-pre-ignored"
+file = "src/kernel/env-schedule.fs"
+old = '''  over lf-sch-pre-done? if 2drop exit then
+'''
+new = ''''''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "6.2.5c4: with --jobs a declaration waiting for its turn is handed out to be checked, never carried: a parallel carry run carries another set than the serial one"

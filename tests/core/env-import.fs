@@ -37,6 +37,54 @@ variable failures  0 failures !
 T{ lf-look-outside lf-env-replay -> false }T
 T{ 5 lf-look-other lf-look-key lf-env-replay -> false }T
 
+
+\ ---- The carry pass's helpers (plan steps 6.2.5c3-c5), and its run with
+\ two workers (step c4), made here first: workers are made only in a
+\ context whose stores no run used before (cli/check-run.fs
+\ ck-workers-made). The snapshot of nested.ndjson of this build's
+\ version (tests/snapshots/v<this>/), judged as if a step after it
+\ reached the definitions (pretend): what looks one up is carried, judged
+\ before it is handed out (env-schedule.fs lf-sched-pre!). Compared below
+\ with the fresh check and the serial run.
+variable pretended
+: pretend ( k -- bits ) drop pretended @ ;
+\ forging: every definition's saved axiom set made another (step c4's test).
+variable forging  false forging !
+: forge-defs ( -- )
+  ck-import imp-sn@ 0 ?do
+    i ck-import d-kind kind-def = if lf-allowlist-bits sl-axioms i ck-snap snap-slot fld! then
+  loop ;
+: carry-tier ( -- outcome )
+  true ck-snap snap-carry ! ck-snap-tier forging @ if forge-defs then
+  ['] pretend ck-import imp-steps ! lf-verdict-version 1+ ck-import imp-top ! ;
+: carry-phase ( c-addr u -- outcome )
+  ck-phase-begin -1 ['] carry-tier ck-snap-opened ck-snap-fails
+  ck-staging ck-phase-end ck-staging ck-fail ;
+: carry-alone ( c-addr u -- outcome )
+  2dup ck-snap-named ck-jobs ck-state ck-jobs-kept ! 0 ck-state ck-jobs-asked !
+  carry-phase dup ok? 0= if exit then drop ck-filling ck-stage-facts
+  ck-feed-phase dup ok? if ck-input-facts ck-snap-slots then dup ck-state ck-loaded ! ;
+create par-out 512 cells allot  create par-fuel 512 cells allot
+create par-taken 512 cells allot  variable par-launched
+: par-keep ( -- )
+  lf-input-count 0 ?do
+    i lf-env-outcome par-out i cells + ! i ck-fuel-of par-fuel i cells + !
+    i ck-taken? par-taken i cells + !
+  loop ;
+: par-same-at? ( i -- flag )
+  dup lf-env-outcome over par-out swap cells + @ =
+  over ck-fuel-of 2 pick par-fuel swap cells + @ = and
+  swap dup ck-taken? swap par-taken swap cells + @ = and ;
+: par-same? ( -- flag ) true lf-input-count 0 ?do i par-same-at? and loop ;
+create this-path 64 allot  variable this-len
+: this+ ( c-addr u -- ) tuck this-path this-len @ + swap move this-len +! ;
+: this-nested ( -- c-addr u )
+  0 this-len ! s" tests/snapshots/v" this+ lf-verdict-version 0 <# #s #> this+
+  s" /nested.lfsnap" this+ this-path this-len @ ;
+reach-kind-definition pretended ! 20000000 ck-start 2 ck-jobs! 0 0 ck-layers!
+this-nested carry-alone ok? s" parallel load" must ck-check ck-outcome ok? s" parallel run" must
+par-keep lf-sched-launched par-launched ! ck-release
+
 \ The fresh check's outcomes and fuel, then the same export's through the
 \ base's snapshot.
 create fresh-outcomes 64 cells allot
@@ -300,8 +348,6 @@ create fresh-out 512 cells allot  create fresh-fuel2 512 cells allot
 20000000 ck-start nested-file true ck-load ok? s" nested load" must ck-check
 ck-verdicts? s" nested verdicts" must keep-fresh2
 nested-snap s" {}" ck-snapshot-save ok? s" nested save" must ck-release
-variable pretended
-: pretend ( k -- bits ) drop pretended @ ;
 : carried-run ( bits -- )
   pretended ! 20000000 ck-start 0 0 ck-layers! nested-snap -1 ck-snapshot-import ok?
   s" carry import" must 9 ck-import imp-carry! ['] pretend ck-import imp-steps !
@@ -357,15 +403,6 @@ ck-release
 \ as fresh.
 s" leanforth-env-import-upgraded.lfsnap" scratch-file 2constant upgraded
 create carried-flags 512 cells allot
-: carry-tier ( -- outcome )
-  true ck-snap snap-carry ! ck-snap-tier
-  ['] pretend ck-import imp-steps ! lf-verdict-version 1+ ck-import imp-top ! ;
-: carry-phase ( c-addr u -- outcome )
-  ck-phase-begin -1 ['] carry-tier ck-snap-opened ck-snap-fails
-  ck-staging ck-phase-end ck-staging ck-fail ;
-: carry-alone ( c-addr u -- outcome )
-  2dup ck-snap-named carry-phase dup ok? 0= if exit then drop ck-filling ck-stage-facts
-  ck-feed-phase dup ok? if ck-input-facts ck-snap-slots then dup ck-state ck-loaded ! ;
 : keep-carried ( -- ) lf-input-count 0 ?do i ck-taken? carried-flags i cells + ! loop ;
 : taken-mark? ( d -- flag ) sl-provenance swap saved prov-taken and 0<> ;
 : marks-kept? ( -- flag )
@@ -389,6 +426,31 @@ ck-check
 T{ ck-outcome ck-carried# ck-stale? -> outcome-ok 72 true }T
 T{ upgraded s" {}" ck-snapshot-save upgraded r/o open-file nip 0<> -> outcome-invalid true }T
 false snap-stale-allowed ! ck-release
+\ ---- I3 and the decision on readiness (plan step 6.2.5c4): definitions
+\ pretended in reach are checked again and answer as their saved slots
+\ (this build gives the same fields), so what looks one up is carried,
+\ judged on its turn: serially, and with two workers the same set before
+\ handing out (env-schedule.fs lf-sched-pre!). With every definition's
+\ saved axiom set forged, a definition checked again answers otherwise,
+\ and its users are checked again (why-answers).
+create taken-serial 512 cells allot
+: keep-taken ( -- ) lf-input-count 0 ?do i ck-taken? taken-serial i cells + ! loop ;
+: taken-same? ( -- flag )
+  true lf-input-count 0 ?do taken-serial i cells + @ i ck-taken? = and loop ;
+: definitions-run ( jobs -- )
+  reach-kind-definition pretended ! 20000000 ck-start ck-jobs! 0 0 ck-layers!
+  nested-snap carry-alone ok? s" definitions load" must 0 lf-i2-misses ! ck-check ;
+1 definitions-run
+T{ ck-outcome same-as-fresh2? lf-i2-misses @ why-answers why# reach10 why# 0>
+   -> outcome-ok true 0 0 true }T
+T{ ck-carried# reach10 why# + lf-input-count = -> true }T
+keep-taken ck-release
+\ The parallel run, made first in this file (see its top), against the
+\ fresh check and the serial run: the same outcomes, fuel and set carried.
+T{ par-launched @ 0> par-same? -> true true }T
+true forging ! 1 definitions-run
+T{ ck-outcome same-as-fresh2? why-answers why# 0> -> outcome-ok true true }T
+false forging ! ck-release
 \ A snapshot written at a fuel limit some checks ran out of: nothing in
 \ the pretended reach, still every exhausted result checked again (C2),
 \ as a fresh check at that limit gives it.

@@ -14,8 +14,14 @@ gates are owed).** Steps c1 (the reach table, window and union), c2 (the
 fixtures of versions 7, 8 and 9, `scripts/write-snapshot-fixtures.sh`,
 byte identity), c3 (the carry pass, first version: C5 as I1.3, decided
 before the checks; labels, the count first, `--snapshot-stale-ok`
-inside the window, the refusals and their notes) and c5 (`--snapshot OLD
---save-snapshot NEW` without an export). Departures, for the gates: (1)
+inside the window, the refusals and their notes), c5 (`--snapshot OLD
+--save-snapshot NEW` without an export) and c4 (branch `snap-compat-c4`:
+I3, a declaration not taken for its answers judged again on its turn,
+serially in `check-run.fs` `ck-next` and with `--jobs` before it is
+handed out, through a new hook of the scheduler, `env-schedule.fs`
+`lf-sched-pre!`; in carry runs only: a dependent export's import pass
+against a snapshot of this build's version keeps I1.3, so Amendment 2's
+open item 4 stays open). Departures, for the gates: (1)
 the carried and checked-again counts are in the text report only; the
 JSON members wait for the report's next version; (2) a layer on an older
 base, an older layer, and an older base with an export and
@@ -23,10 +29,10 @@ base, an older layer, and an older base with an export and
 base marks its carried slots taken (provenance 2, R8), so the loader
 now accepts provenance 1-3 in a base, where it accepted only 0 (review
 rvSN3 m3), until c6's lineage section tells an upgraded base apart; (4)
-c4 is not built: its decision on readiness needs the scheduler
-(`env-schedule.fs`) to let the driving task carry a declaration before
-handing it out, or `--jobs 1` and `--jobs N` would carry different sets
-and write different files (ADR 0009 G-P4); (5) the reach bits without an
+c4's I3 compares the answer fields (outcome, axiom set, warnings,
+recipe, shape and marks) and is tested only against pretended later
+steps (`tests/core/env-import.fs`): no step in today's window leaves a
+result outside its reach whose lookups reach one checked again; (5) the reach bits without an
 evaluator yet (mutual blocks, literals, projections, lets, scratch
 names, names) count as reaching everything; no entry in the window uses
 one.

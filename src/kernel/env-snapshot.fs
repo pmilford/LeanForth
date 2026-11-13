@@ -828,8 +828,10 @@ create same-fields
 here same-fields - 2 cells / constant same-fields#
 : field-same? ( d slot entry -- flag ) dup cell+ @ rot swap execute @ >r @ swap saved r> =
   ;
-: fields-same? ( d slot -- flag )
-  true same-fields# 0 do same-fields i 2* cells + 2over rot field-same? and loop nip nip ;
+\ The first n of them (the first five: a check's answer fields, I3).
+: fields-upto? ( d slot n -- flag )
+  true swap 0 ?do same-fields i 2* cells + 2over rot field-same? and loop nip nip ;
+: fields-same? ( d slot -- flag ) same-fields# fields-upto? ;
 : deps-same? ( d slot -- flag )
   swap start@ drop swap dup lf-slot-count @ true swap 0 ?do
     2 pick i + snap@ dep@ i 3 pick lf-dep-at = and
@@ -839,6 +841,9 @@ here same-fields - 2 cells / constant same-fields#
     2 pick i + snap@ 2dup look-answer >r look-key r> i 4 pick lf-slot-look d= and
   loop nip nip ;
 : marks-same? ( d slot -- flag ) slot-marks swap sl-marks swap saved = ;
+\ What a user's check can read of a slot (plan step 6.2.5c4, I3): outcome,
+\ axiom set, warnings, recipe, shape (the first five) and marks.
+: alike? ( d slot -- flag ) 2dup 5 fields-upto? if marks-same? else 2drop false then ;
 : slot-same? ( d -- flag )
   dup slot-env 2dup fields-same? >r 2dup deps-same? >r 2dup looks-same? >r
   dup lf-slot-saved @ 0<> >r marks-same? r> and r> and r> and r> and ;
