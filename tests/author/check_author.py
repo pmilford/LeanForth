@@ -387,7 +387,7 @@ LF_EXPORTS = [f"tests/reference/{name}.ndjson" for name in
               ("identity", "composition", "type-identity", "poly-identity",
                "constant-fixture")] + ["tests/reference/inductive/nat-add-zero.ndjson",
                                     "tests/author/lf-root-constants.ndjson"]
-LF_LINE_START = ("\\ ", "  ", ":=", "theorem ", "def ", "axiom ", "import-stub ", "end ", "protected ")
+LF_LINE_START = ("kernel-form", "\\ ", "  ", ":=", "theorem ", "def ", "axiom ", "import-stub ", "end ", "protected ")
 
 
 def print_lf(export):
@@ -789,9 +789,9 @@ def cli_cases():
         ("library typo", head + "  Eq.reff 1 ^ Nat $ n $\nend t\n", [], slice_, 4,
          "error 1 at line:col 5:3"),
         ("library name taken", "theorem Nat.add_comm\n  Prop explicit: p p\n:=\n  p\n"
-         "end Nat.add_comm\n", [], slice_, 4, "error 28 at line:col 1:9"),
+         "end Nat.add_comm\n", [], slice_, 4, "error 28 at line:col 1:21"),
         ("library name with a numeric part taken", f"theorem {NUMERIC}\n  Prop explicit: p p\n"
-         f":=\n  p\nend {NUMERIC}\n", [], slice_, 4, "error 28 at line:col 1:9"),
+         f":=\n  p\nend {NUMERIC}\n", [], slice_, 4, "error 28 at line:col 1:21"),
         ("library name with another numeric part", head + "  "
          + NUMERIC.replace(".0.", ".1.") + "\nend t\n", [], slice_, 4, "error 1 at line:col 5:3"),
         ("1024 records, the library's among them", "".join(
@@ -803,17 +803,17 @@ def cli_cases():
          "t: accepted"),
         ("a library name of no declaration", "theorem t Prop explicit: p p := proof end t\n",
          ["--no-manifest"], "tests/reference/identity.ndjson", 4,
-         "error 1 at line:col 1:33 (token `proof`)"),
+         "error 1 at line:col 1:45 (token `proof`)"),
         ("library not an export", "theorem t Prop explicit: p p := p end t\n",
          ["--no-manifest"], "tests/author/01-identity.lf", 4,
          "error: invalid: unexpected character (line 1, byte 0)"),
         ("open of a library namespace, a gap (8.2.1d)", "open Nat\n" + head
          + "  Eq.refl 1 ^ Nat $ n $\nend t\n", [], slice_, 4,
-         "error 26 at line:col 1:6 (token `Nat`)"),
+         "error 26 at line:col 1:18 (token `Nat`)"),
         ("library short name", "namespace Eq\n" + head + "  refl 1 ^ Nat $ n $\nend t\n"
          "end Eq\n", [], slice_, 2, "error 55 at line:col 6:3 (token `refl`)"),
         ("stub with library", "import-stub Nat end Nat\n", [], slice_, 4,
-         "error 48 at line:col 1:1 (token `import-stub`)"),
+         "error 48 at line:col 1:13 (token `import-stub`)"),
         ("stub alone", "protected import-stub N.x end N.x\n", [], None, 4, "error 48"),
         ("nothing", "\\ a comment\n", [], None, 4, "error 49"),
         ("error after a good one", "theorem t\n  Prop explicit: p  p\n:=\n  p\nend t\n"
@@ -839,11 +839,49 @@ def cli_cases():
     ]
 
 
+# The texts above are in the kernel form, which their first line says
+# (ADR 0021 D8): natural LeanForth is the default.
+KERNEL = "kernel-form "
+
+
+# Natural LeanForth (plan FE1a): read into syntax, then stopped as not
+# supported yet where elaboration or tactics would begin (exit 2), or
+# refused as a mistake (exit 4); never checked.
+def natural_cases():
+    slice_ = str(INIT_SLICE)
+    head = "theorem t\n  Nat explicit: n\n  0 n + n =\n:=\n"
+    return [
+        ("natural term proof", head + "  n Eq.refl\nend t\n", [], slice_, 2,
+         "error 71 at line:col 6:1 (token `end`)"),
+        ("natural tactic proof", head + "  by n by-induction\nend t\n", [], slice_, 2,
+         "error 72 at line:col 5:8 (token `by-induction`)"),
+        ("natural ' and $", head + "  ' Nat.succ n $\nend t\n", [], slice_, 2,
+         "error 71 at line:col 6:1 (token `end`)"),
+        ("natural kernel word", "theorem t Prop explicit: p p := p end t\n", [], None, 2,
+         "error 70 at line:col 1:11 (token `Prop`)"),
+        ("natural by twice", head + "  by by\nend t\n", [], slice_, 4,
+         "error 69 at line:col 5:6 (token `by`)"),
+        ("natural ' before a number", head + "  ' 5\nend t\n", [], slice_, 4,
+         "error 59 at line:col 5:3 (token `'`)"),
+        ("natural arguments missing", head + "  Eq.refl\nend t\n", [], slice_, 4,
+         "error 3 at line:col 5:3 (token `Eq.refl`)"),
+        ("kernel-form inside", head + "  kernel-form\nend t\n", [], slice_, 4,
+         "error 57 at line:col 5:3 (token `kernel-form`)"),
+    ]
+
+
 def check_text_cases():
     with tempfile.TemporaryDirectory() as work:
-        for name, text, options, library, want, line in cli_cases():
+        for name, text, options, library, want, line in natural_cases():
             path = pathlib.Path(work) / "case.lf"
             path.write_text(text, encoding="utf-8")
+            code, out = leanforth_check(path, library, *options)
+            if VERDICT.search(out) or code != want or line not in out:
+                raise Failure(f"natural case {name}: exit {code} (want {want}), "
+                              f"want the line {line!r}:\n{out[-800:]}")
+        for name, text, options, library, want, line in cli_cases():
+            path = pathlib.Path(work) / "case.lf"
+            path.write_text(KERNEL + text, encoding="utf-8")
             code, out = leanforth_check(path, library, *options)
             if want == 4 and VERDICT.search(out):
                 raise Failure(f"check case {name}: a verdict beside an error:\n{out[-800:]}")

@@ -1,4 +1,4 @@
-\ A wrong twin of tests/author/07-add-comm.lf: the arguments of Nat.add_comm
+kernel-form \ A wrong twin of tests/author/07-add-comm.lf: the arguments of Nat.add_comm
 \ swapped, so the proof states m + n = n + m, not n + m = m + n.
 \ Lean: theorem add_comm' (n m : Nat) : n + m = m + n := Nat.add_comm m n
 \ (pinned Lean refuses it: tests/reference/author-wrong-07-add-comm.lean)

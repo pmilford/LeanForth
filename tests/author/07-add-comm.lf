@@ -1,4 +1,4 @@
-\ Lean: theorem add_comm' (n m : Nat) : n + m = m + n := Nat.add_comm n m
+kernel-form \ Lean: theorem add_comm' (n m : Nat) : n + m = m + n := Nat.add_comm n m
 \ Nat, Eq, HAdd.hAdd, instHAdd, instAddNat and Nat.add_comm are Lean's own,
 \ from its core library Init: the text names them as Lean does and is
 \ checked against an export of Init (plan task 8.2.1d):

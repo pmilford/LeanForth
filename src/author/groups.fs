@@ -39,6 +39,7 @@
 
 require ../lib/lib.fs
 require ./values.fs
+require ./form.fs
 
 wordlist constant lf-words
 wordlist constant lf-locals
@@ -147,10 +148,12 @@ end-structure
     2drop repeat 2swap 2drop ;
 : lfa-stray-code ( c-addr u -- code )
   lfa-number-like? if lfa-e-not-word else lfa-e-unknown then ;
-\ Check the line up to offset n: a stray token stops the run at itself.
+\ Check the line up to offset n: a stray token stops the run at itself;
+\ in natural form the numbers' positions are kept (form.fs).
+: lfa-stray! ( c-addr u token-addr token-u -- )
+  2swap 2drop 2dup lfa-token! lfa-stray-code lfa-fail ;
 : lfa-read-to ( n -- )
-  lfa-unread-to lfa-stray dup 0= if 2drop exit then
-  2dup lfa-token! lfa-stray-code lfa-fail ;
+  lfa-unread-to 2dup lfa-stray dup if lfa-stray! then 2drop lfa-numerals-read ;
 
 \ The token that invoked the word whose body is given, which must be found
 \ as that word in wid: the word was run by the text interpreter. The
@@ -161,16 +164,26 @@ end-structure
   lfa-invoked over lfa-numbers-before 2dup lfa-token! rot search-wordlist
   if >body = else drop false then lfa-e-interpreter lfa-must ;
 
-\ Syntax words: the word's xt, then its spelling as a counted string.
-: lfa-syntax-name ( body -- c-addr u ) cell+ count ;
+\ Syntax words: the word's xt in the kernel form, its xt in natural form
+\ (form.fs), then its spelling as a counted string. A word of the kernel
+\ form only is not supported yet in natural form (error 70) until a
+\ natural meaning is given (lfa-natural!); a pending ' stops any natural
+\ syntax word.
+: lfa-natural-later ( -- ) lfa-e-natural-later lfa-fail ;
+: lfa-syntax-name ( body -- c-addr u ) 2 cells + count ;
+: lfa-syntax-xt ( body -- xt ) lfa-kernel-form? if @ else lfa-tick-free cell+ @ then ;
 : lfa-syntax-run ( body -- )
   dup >r lf-words lfa-invoked-by lfa-token r@ lfa-syntax-name compare
-  if r> drop lf-words lfa-pass else r> @ execute then ;
+  if r> drop lf-words lfa-pass else r> lfa-syntax-xt execute then ;
 : lfa-syntax-spelling, ( c-addr u -- ) dup c, here swap dup chars allot move align ;
 \ Define name ( -- ) in LF-WORDS, which runs xt for its exact spelling.
 : lfa-syntax ( xt "name" -- )
-  get-current >r lf-words set-current >in @ create >in ! ,
+  get-current >r lf-words set-current >in @ create >in ! , ['] lfa-natural-later ,
   parse-name lfa-syntax-spelling, r> set-current does> lfa-syntax-run ;
+\ Give the syntax word name its meaning in natural form (a load-time word).
+: lfa-natural! ( xt "name" -- )
+  parse-name lf-words search-wordlist 0= abort" lfa-natural!: no such syntax word"
+  >body cell+ ! ;
 
 \ Name groups. The body holds the group's wordlist.
 : lfa-group-wid ( body -- wid ) @ ;
@@ -180,7 +193,8 @@ end-structure
 : lfa-local-run ( body -- )
   dup lfa-entry-variable lfa-token-find lfa-local-value
   swap lfa-entry-universe lfa-token-find lfa-local-value
-  over 0< over 0< and if 2drop lf-locals lfa-pass exit then lfa-name-value ;
+  over 0< over 0< and if 2drop lf-locals lfa-pass exit then lfa-name-value
+  lfa-named-natural ;
 \ Constants: which one a name means is Lean's resolution (declarations.fs).
 defer lfa-const-run ( body -- )
 : lfa-run-group ( body -- )

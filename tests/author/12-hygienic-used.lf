@@ -1,4 +1,4 @@
-\ A used binder whose name is hygienic, as Lean's elaborator makes them:
+kernel-form \ A used binder whose name is hygienic, as Lean's elaborator makes them:
 \ it must not print as ->, which would lose the name and the variable.
 \ Lean: theorem hyg_used : ∀ (P : Prop), P → P := fun Q q => q
 theorem hyg_used

@@ -1,4 +1,4 @@
-\ Draft 2: a person replaced the first two steps by the earlier theorem
+kernel-form \ Draft 2: a person replaced the first two steps by the earlier theorem
 \ composition. The step to-D and its note are unchanged; the steps to-B
 \ and to-C, with their notes, were edited together with the code.
 \ Lean: theorem chain {A B C D : Prop} (f : A → B) (g : B → C) (h : C → D) : A → D :=

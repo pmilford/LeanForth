@@ -336,6 +336,9 @@ below it).
 | 54 | unsupported | not supported yet: export and the aliases it makes |
 | 55 | unsupported | not supported yet: a library constant by a short name; write the full name |
 | 56 | invalid | a projection leaf is no term: apply it with $ to the term it projects |
+| 57 | invalid | kernel-form belongs outside declarations |
+| 58 | invalid | a word of natural LeanForth: the text is in the kernel form (kernel-form) |
+| 59 | invalid | ' takes the name right after it on the same line |
 | 60 | full | out of room: the term store is full |
 | 61 | full | out of room: the level store is full or the level too large |
 | 62 | full | out of room: the name store is full or the name too long |
@@ -344,6 +347,12 @@ below it).
 | 65 | full | out of room: too many binders open |
 | 66 | full | out of room: too many names, namespaces or declarations |
 | 67 | full | out of room: too many labels and notes |
+| 68 | full | out of room: the syntax store is full |
+| 69 | invalid | by comes right after := and before the proof |
+| 70 | unsupported | not supported yet in natural LeanForth (plan FE2); write kernel-form first |
+| 71 | unsupported | not supported yet: elaborating natural LeanForth (plan FE1e-f) |
+| 72 | unsupported | not supported yet: tactics (plan FE1g) |
+| 73 | unsupported | not supported yet: how many arguments the name takes depends on unfolding its type |
 
 The tests reach every code: `tests/author/author.fs` all but 39, which
 the example file `17-long-line.lf` reaches (a line of 1024 characters or

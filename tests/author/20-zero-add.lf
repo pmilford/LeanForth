@@ -1,4 +1,4 @@
-\ Lean: theorem zero_add' (n : Nat) : 0 + n = n :=
+kernel-form \ Lean: theorem zero_add' (n : Nat) : 0 + n = n :=
 \         @Nat.rec (fun k => 0 + k = k) (@Eq.refl Nat 0)
 \           (fun k ih => @congrArg Nat Nat (0 + k) k Nat.succ ih) n
 \ A proof by induction on n, written as Lean's kernel term: the recursor

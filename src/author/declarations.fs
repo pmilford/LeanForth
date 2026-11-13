@@ -86,7 +86,7 @@ end-structure
   -1 over lf-fdecl-type ! -1 over lf-fdecl-value ! lf-note-count swap lfa-decl-notes ! ;
 : lfa-open-scope ( depth -- )
   lfa-scope lfa-scope-base ! -1 lfa-params! lfa-items-reset
-  lfa-entry# lfa-current lfa-current-entries ! ;
+  lfa-entry# lfa-current lfa-current-entries ! lfa-declaration-fresh ;
 : lfa-decl-name! ( c-addr u -- name )
   2dup lfa-root-name? 0= lfa-e-root-name lfa-must lfa-word-name
   2dup lfa-end-token! lfa-full! lfa-full lfa-library-free
@@ -127,10 +127,14 @@ end-structure
 : lfa-name-binder ( binder -- )
   >r lfa-name-token 2dup lfa-binder-name-of dup r> lfa-binder-name ! >r 2dup r> lfa-named?
   if lfa-depth 1- lfa-local! else 2drop then ;
-\ value kind: the binder word; its frame starts below the domain.
-: lfa-binder-word ( value kind -- )
-  depth 2 - >r >r lfa>term r> lfa-here lfa-open r> over lfa-binder-mark !
-    lfa-name-binder ;
+\ value kind: the binder word; its frame starts below the domain, which
+\ is a term in the kernel form and a syntax node in natural form
+\ (src/front/reader.fs gives the word that makes it).
+: lfa-binder-open ( domain kind mark -- )
+  >r lfa-here lfa-open r> over lfa-binder-mark ! lfa-name-binder ;
+: lfa-binder-of ( value kind xt -- )
+  depth 3 - >r swap >r execute r> r> lfa-binder-open ;
+: lfa-binder-word ( value kind -- ) ['] lfa>term lfa-binder-of ;
 \ The node of a binder around body, with its name, kind and position.
 : lfa-named-node ( binder body tag -- term )
   >r over lfa-binder-domain @ swap r> lfa-binder-node swap >r
@@ -215,5 +219,6 @@ end-structure
 : lfa-name-space ( -- c-addr u ) lfa-inside? if lfa-full lfa-cut else lfa-current-space
   then ;
 : lfa-resolved-run ( body -- )
-  drop lfa-name-space lfa-resolve 0= if lfa-e-unknown lfa-fail then lfa-const-value ;
+  drop lfa-name-space lfa-resolve 0= if lfa-e-unknown lfa-fail then lfa-const-value
+  lfa-named-natural ;
 ' lfa-resolved-run is lfa-const-run

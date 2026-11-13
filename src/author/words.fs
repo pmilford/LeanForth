@@ -116,23 +116,34 @@ require ./library.fs
 : lfa-w-sketch ( -- ) lfa-e-sketch lfa-fail ;
 : lfa-w-hole ( -- ) lfa-e-hole lfa-fail ;
 
-\ The vocabulary. Each word must be in the printer's list.
+\ The form (form.fs): kernel-form, outside declarations, switches the run
+\ to the kernel form. Words of natural LeanForth only (' and the operator
+\ words, whose natural meaning src/front/reader.fs gives) are refused in
+\ kernel-form text; tactic words are not supported yet in either form.
+: lfa-w-kernel-form ( -- ) lfa-inside? 0= lfa-e-form-here lfa-must lfa-kernel-form! ;
+: lfa-w-natural-only ( -- ) lfa-e-natural-only lfa-fail ;
+: lfa-w-tactic ( -- ) lfa-e-tactic lfa-fail ;
+
+\ The vocabulary. Each word must be in the printer's list. A word made by
+\ lfa-word-both means the same in both forms.
 : lfa-word ( xt "name" -- )
   >in @ parse-name lf-pf-reserved? 0= abort" words.fs: a word missing in print-forth.fs"
   >in ! lfa-syntax ;
-' lfa-w-backslash lfa-word \
-' lfa-w-paren lfa-word (
-' lfa-w-theorem lfa-word theorem
-' lfa-w-def lfa-word def
-' lfa-w-axiom lfa-word axiom
-' lfa-w-import-stub lfa-word import-stub
-' lfa-w-protected lfa-word protected
-' lfa-w-export lfa-word export
-' lfa-universe-word lfa-word universe
+: lfa-word-both ( xt "name" -- ) dup >in @ >r lfa-word r> >in ! lfa-natural! ;
+' lfa-w-backslash lfa-word-both \
+' lfa-w-paren lfa-word-both (
+' lfa-w-theorem lfa-word-both theorem
+' lfa-w-def lfa-word-both def
+' lfa-w-axiom lfa-word-both axiom
+' lfa-w-import-stub lfa-word-both import-stub
+' lfa-w-protected lfa-word-both protected
+' lfa-w-export lfa-word-both export
+' lfa-universe-word lfa-word-both universe
 ' lfa-define lfa-word :=
 ' lfa-w-end lfa-word end
-' lfa-namespace-word lfa-word namespace
-' lfa-open-word lfa-word open
+' lfa-namespace-word lfa-word-both namespace
+' lfa-open-word lfa-word-both open
+' lfa-w-kernel-form lfa-word-both kernel-form
 ' lfa-w-explicit lfa-word explicit:
 ' lfa-w-implicit lfa-word implicit:
 ' lfa-w-strict lfa-word strict-implicit:
@@ -158,12 +169,21 @@ require ./library.fs
 \ Gforth 1.0 warns that _ could be read as a number; LF-WORDS is searched
 \ before any number conversion, so _ is this word.
 [defined] warnings [if] warnings @ warnings off [then]
-' lfa-w-hole lfa-word _
+' lfa-w-hole lfa-word-both _
 [defined] warnings [if] warnings ! [then]
-' lfa-w-sketch lfa-word let:
-' lfa-w-sketch lfa-word let
-' lfa-w-sketch lfa-word have
-' lfa-w-sketch lfa-word field-at
+' lfa-w-sketch lfa-word-both let:
+' lfa-w-sketch lfa-word-both let
+' lfa-w-sketch lfa-word-both have
+' lfa-w-sketch lfa-word-both field-at
 ' lfa-w-sketch lfa-word by
-' lfa-w-sketch lfa-word s"
-' lfa-w-sketch lfa-word import
+' lfa-w-sketch lfa-word-both s"
+' lfa-w-sketch lfa-word-both import
+' lfa-w-natural-only lfa-word '
+' lfa-w-natural-only lfa-word +
+' lfa-w-natural-only lfa-word =
+' lfa-w-natural-only lfa-word *
+' lfa-w-natural-only lfa-word ≤
+' lfa-w-tactic lfa-word-both by-induction
+' lfa-w-tactic lfa-word-both by-case:
+' lfa-w-tactic lfa-word-both by-rfl
+' lfa-w-tactic lfa-word-both by-exact

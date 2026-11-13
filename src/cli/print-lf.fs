@@ -165,6 +165,9 @@ end-structure
   fl-skipped fl-num fl-err s"  not written" fl-err-line
   fl-reasons 0 ?do i fl-reason-line loop ;
 
+\ The text is in the kernel form, which its first line says (ADR 0021 D8;
+\ author/form.fs), so leanforth check reads it back as written.
+: fl-marker ( -- ) s\" kernel-form\n" fl-out ;
 : lf-file-write ( fuel -- skipped )
-  lf-fl /lf-fl erase lf-fl lf-fl-fuel !
+  lf-fl /lf-fl erase lf-fl lf-fl-fuel ! fl-marker
   lf-input-count 0 ?do i lf-input-decl fl-one loop fl-summary fl-skipped ;

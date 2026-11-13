@@ -1,4 +1,4 @@
-\ Which constant a name means, as Lean resolves it (src/author/namespaces.fs):
+kernel-form \ Which constant a name means, as Lean resolves it (src/author/namespaces.fs):
 \ the namespace around wins, innermost first, over the root and the open
 \ namespaces; a dotted declaration name puts its body in its namespace;
 \ namespace A.B is two scopes; open Z opens Y.Z when Y is open.

@@ -231,7 +231,12 @@ end-structure
   false lf-term-sharing!
   lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
   lf-pres-reset lf-note-reset lf-ssession-begin drop lfa-scope-close lfa-items-reset
-  lfa-groups-reset lfa-declarations-reset lfa-source-reset lfa-error-reset ;
+  lfa-groups-reset lfa-declarations-reset lfa-source-reset lfa-error-reset
+  lfa-form-reset lfa-declaration-fresh ;
+\ The run's text is in the kernel form, as the marker kernel-form says
+\ (form.fs): for callers that run the printer's words or kernel-form text
+\ that has no marker, right after lf-author-begin.
+: lf-author-kernel ( -- ) lfa-kernel-form! ;
 : lf-author-text ( c-addr u -- outcome ) lfa-rest! 0 lfa-run lfa-run-file ! lfa-go ;
 : lf-author-file ( c-addr u -- outcome )
   lfa-error-reset 2dup r/o open-file

@@ -47,6 +47,7 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
 require ../lib/lib.fs
 require ../core/input.fs
 require ../author/runner.fs
+require ../front/reader.fs
 require ../import/stage.fs
 require ./check-run.fs
 
@@ -102,6 +103,29 @@ end-structure
 : lfc-height ( d -- h ) dup lfc-regular? if ck-stage staged-hint@ else drop 0 then ;
 : lfc-find ( name -- universes height true | false )
   lfc-name lfc-decl 0= if false exit then dup lfc-universes swap lfc-height true ;
+
+\ ---- What the natural reader asks of a library constant (front/reader.fs,
+\ lfn-library-arity): how many explicit binders its type's telescope has,
+\ or -1 when the telescope ends in something that may unfold to more (an
+\ application of a definition, a let, a projection or metadata), and
+\ whether it is a definition itself (so a type headed by it may unfold).
+: lfc-tag ( e -- tag ) lfc-tier expr-tag@ ;
+: lfc-def? ( d -- flag ) ck-stage staged-kind@ kind-def = ;
+: lfc-pi? ( e -- flag ) lfc-tag tag-pi tag-let within ;
+: lfc-explicit ( n e -- n' ) lfc-tag tag-pi = if 1+ then ;
+: lfc-telescope ( e -- n e' )
+  0 swap begin dup lfc-pi? while tuck lfc-explicit swap lfc-tier expr-b@ repeat ;
+: lfc-head ( e -- e' ) begin dup lfc-tag tag-app = while lfc-tier expr-a@ repeat ;
+: lfc-const-unfolds? ( e -- flag ) lfc-tier expr-a@ lfc-decl if lfc-def? else false then ;
+: lfc-unfolds? ( e -- flag )
+  lfc-head dup lfc-tag case tag-const of lfc-const-unfolds? endof
+    tag-proj of drop true endof tag-mdata of drop true endof
+    nip dup let-tag? over tag-let-body = or swap endcase ;
+: lfc-arity ( name -- arity unfolds? true | false )
+  lfc-name lfc-decl 0= if false exit then
+  dup lfc-def? swap ck-stage staged-type@ lfc-telescope lfc-unfolds? if drop -1 then
+  swap true ;
+' lfc-arity is lfn-library-arity
 
 \ ---- The stage: the library export read (not sealed yet), or empty.
 12 constant lfc-log2

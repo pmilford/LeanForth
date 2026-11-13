@@ -1,4 +1,4 @@
-\ Lean: universe u
+kernel-form \ Lean: universe u
 \       class MyMonoid (M : Type u) where
 \         mul : M → M → M
 \         one : M

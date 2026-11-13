@@ -13,7 +13,7 @@
 require ../support/tester.fs
 require ../../src/author/runner.fs
 
-: run ( c-addr u -- outcome ) lf-author-begin lf-author-text ;
+: run ( c-addr u -- outcome ) lf-author-begin lf-author-kernel lf-author-text ;
 : err ( -- code line col ) lf-author-code lfa-error lfa-err-at @ lfa-pos> ;
 : see-pos ( -- line col ) lfa-error lfa-err-see @ lfa-pos> ;
 : fails ( c-addr u -- code line col ) run drop err ;
@@ -33,7 +33,10 @@ T{ lf-author-code -> 0 }T
 
 \ Forth's own words are forth-word-in-proof: each is an unknown name at its column.
 T{ s" theorem t Prop explicit: p p dup := p end t" fails -> 1 1 30 }T
-T{ s" theorem t Prop explicit: p p := p p + end t" fails -> 1 1 37 }T
+T{ s" theorem t Prop explicit: p p := p p over end t" fails -> 1 1 37 }T
+\ + is Lean's + (owner, 2026-11-12), a word of natural LeanForth only: in
+\ kernel-form text it is refused at its column (error 58), never Forth's +.
+T{ s" theorem t Prop explicit: p p := p p + end t" fails -> 58 1 37 }T
 T{ s" theorem t Prop explicit: p p := swap p end t" fails -> 1 1 33 }T
 T{ s" : x ; theorem t" fails -> 1 1 1 }T
 T{ s\" theorem t\n  CHAR Prop" fails -> 1 2 3 }T
@@ -442,7 +445,7 @@ T{ lfa-error lfa-err-token lfa-error lfa-err-length @ s" 1" compare -> 0 }T
 
 \ Each text's lines count from 1, also when a second text runs in the
 \ same run (the second text's PROP is on its line 1).
-T{ lf-author-begin s\" def a\n Prop := Prop end a" lf-author-text
+T{ lf-author-begin lf-author-kernel s\" def a\n Prop := Prop end a" lf-author-text
    s" def b PROP := Prop end b" lf-author-text err -> outcome-ok outcome-invalid 1 1 7 }T
 
 \ Names that are Forth words become harmless group words (p04), and the

@@ -1,4 +1,4 @@
-\ A mistake: fixtureId has a universe parameter, and its argument is missing.
+kernel-form \ A mistake: fixtureId has a universe parameter, and its argument is missing.
 def fixtureId
   universe u
   u Sort implicit: α

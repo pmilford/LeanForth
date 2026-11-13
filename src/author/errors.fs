@@ -77,6 +77,9 @@ require ./source.fs
 54 constant lfa-e-export         \ unsupported: export and its aliases
 55 constant lfa-e-library-short  \ unsupported: a short name of a library constant
 56 constant lfa-e-leaf           \ a projection leaf anywhere but before $
+57 constant lfa-e-form-here      \ kernel-form inside a declaration
+58 constant lfa-e-natural-only   \ a word of natural LeanForth in kernel-form text
+59 constant lfa-e-tick           \ ' not followed by a name
 60 constant lfa-e-terms-full     \ the term store is full
 61 constant lfa-e-levels-full    \ the level store or a level is too large
 62 constant lfa-e-names-full     \ the name store is full, or a name too long
@@ -85,6 +88,12 @@ require ./source.fs
 65 constant lfa-e-binders-full   \ too many binders open
 66 constant lfa-e-entries-full   \ too many names, namespaces or declarations
 67 constant lfa-e-notes-full     \ too many labels and notes
+68 constant lfa-e-syntax-full    \ the syntax store is full
+69 constant lfa-e-by-here        \ by not right after :=
+70 constant lfa-e-natural-later  \ unsupported: the word's natural form (plan FE2)
+71 constant lfa-e-elaborate      \ unsupported: elaborating natural text (plan FE1e-f)
+72 constant lfa-e-tactic         \ unsupported: tactics (plan FE1g)
+73 constant lfa-e-arity-unknown  \ unsupported: arguments that depend on unfolding (FE1c)
 
 \ The catalogue: one message record per code, in order, each followed by
 \ its text and aligned; a record with code 0 closes it.
@@ -185,6 +194,11 @@ create lfa-catalogue
   lfa-unsupported,
   lfa-e-leaf s" a projection leaf is no term: apply it with $ to the term it projects"
   lfa-invalid,
+  lfa-e-form-here s" kernel-form belongs outside declarations" lfa-invalid,
+  lfa-e-natural-only
+  s" a word of natural LeanForth: the text is in the kernel form (kernel-form)"
+  lfa-invalid,
+  lfa-e-tick s" ' takes the name right after it on the same line" lfa-invalid,
   lfa-e-terms-full s" out of room: the term store is full" lfa-full,
   lfa-e-levels-full s" out of room: the level store is full or the level too large"
     lfa-full,
@@ -194,6 +208,17 @@ create lfa-catalogue
   lfa-e-binders-full s" out of room: too many binders open" lfa-full,
   lfa-e-entries-full s" out of room: too many names, namespaces or declarations" lfa-full,
   lfa-e-notes-full s" out of room: too many labels and notes" lfa-full,
+  lfa-e-syntax-full s" out of room: the syntax store is full" lfa-full,
+  lfa-e-by-here s" by comes right after := and before the proof" lfa-invalid,
+  lfa-e-natural-later
+  s" not supported yet in natural LeanForth (plan FE2); write kernel-form first"
+  lfa-unsupported,
+  lfa-e-elaborate
+  s" not supported yet: elaborating natural LeanForth (plan FE1e-f)" lfa-unsupported,
+  lfa-e-tactic s" not supported yet: tactics (plan FE1g)" lfa-unsupported,
+  lfa-e-arity-unknown
+  s" not supported yet: how many arguments the name takes depends on unfolding its type"
+  lfa-unsupported,
   0 outcome-invalid s" " lfa-message,
 
 \ The catalogue record of a code; an unknown code gives the closing record.
