@@ -401,7 +401,7 @@ sizes are relative and dates are not estimated.
    procedure, and a second Forth host.
 
 **The program track runs beside these, without delaying them** (owner,
-2026-11-03). Its flagship target is LeanForth's own SHA-256: a Lean
+2026-11-03). *Plainly, as of 2026-11-12: LeanForth has not proved or checked any program proof. The program proofs that exist (the clamp contract, four SHA helper words) were proved and checked by Lean only; `src/lib/sha256.fs` is tested against the standard vectors, not proved; plan 5.5.1 (LeanForth re-checks Lean's program proofs) is in progress and `leanforth verify` (8.4.1) is not started.* Its flagship target is LeanForth's own SHA-256: a Lean
 specification of FIPS 180-4 checked against the NIST vectors first, then
 proofs that the Forth words compute it — the helper functions, the loops
 of the block compression, then padding and buffers — as the program IR
