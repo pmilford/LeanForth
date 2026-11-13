@@ -3,9 +3,9 @@
 
 Usage: python3 scripts/check-progress.py [BASE]      (BASE defaults to origin/main; the range checked is BASE..HEAD)
 
-1. Stage words. A plan row (docs/project/PLAN_DRAFT.md) whose status is dated 2026-11-13 or later uses one of the
-   stages of docs/development/DONE_CHECKER.md: not started, designed, written, tested alone, integrated, works end to
-   end, done; and a row that says done links a done-checker report (docs/development/done-checks/).
+1. Stage words. Every plan row (docs/project/PLAN_DRAFT.md) with a status, dated or not, uses one of the stages of
+   docs/development/DONE_CHECKER.md: not started, designed, written, tested alone, integrated, works end to end,
+   done; and a row that says done links a done-checker report (docs/development/done-checks/).
 2. Progress kept with the plan. When BASE..HEAD changes any plan row's status, it also changes
    docs/project/PROJECT_PROGRESS.md.
 3. Now, next, later. PROJECT_PROGRESS.md has a section "## Now, next, later (updated YYYY-MM-DD)" whose date is not
@@ -25,9 +25,8 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 PLAN = "docs/project/PLAN_DRAFT.md"
 PROGRESS = "docs/project/PROJECT_PROGRESS.md"
 STAGES = ("not started", "designed", "written", "tested alone", "integrated", "works end to end", "done")
-STATUS = re.compile(r"\*\*Status \((\d{4}-\d{2}-\d{2})\): ([^.*;(]*)")
+STATUS = re.compile(r"\*\*Status(?: \(\d{4}-\d{2}-\d{2}\))?: ([^.*;(]*)")
 NNL = re.compile(r"^## Now, next, later \(updated (\d{4}-\d{2}-\d{2})\)", re.M)
-RULE_START = "2026-11-13"
 MATHLIB = re.compile(r"^\*\*Mathlib checked:\*\*(.*)$", re.M)
 FRACTION = re.compile(r"\d[\d,]* of \d[\d,]*")
 RUN_CITATION = re.compile(r"run (record|log)", re.I)
@@ -43,9 +42,7 @@ def stage_problems(text):
     for line in text.splitlines():
         if not line.startswith("| "):
             continue
-        for date, words in STATUS.findall(line):
-            if date < RULE_START:
-                continue
+        for words in STATUS.findall(line):
             row = line.split("|")[1].strip()
             stage = words.strip().lower()
             if not stage.startswith(STAGES):

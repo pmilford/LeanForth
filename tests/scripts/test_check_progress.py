@@ -26,8 +26,16 @@ class Stages(unittest.TestCase):
         self.assertEqual(len(cp.stage_problems(self.row("done"))), 1)
         self.assertEqual(cp.stage_problems(self.row("done", "[check](../development/done-checks/x.md)")), [])
 
-    def test_older_rows_exempt(self):
-        self.assertEqual(cp.stage_problems("| 1.1 | **Status (2026-11-12): implemented.** x |"), [])
+    def test_older_rows_are_checked_too(self):
+        self.assertEqual(len(cp.stage_problems("| 1.1 | **Status (2026-11-05): implemented.** x |")), 1)
+        self.assertEqual(cp.stage_problems("| 1.1 | **Status (2026-11-05): integrated (was \"implemented\").** x |"), [])
+
+    def test_undated_status_is_checked(self):
+        self.assertEqual(cp.stage_problems("| 8.2.1b | **Status: not started.** x |"), [])
+        self.assertEqual(len(cp.stage_problems("| 8.2.1b | **Status: planned.** x |")), 1)
+
+    def test_every_plan_row_uses_a_stage_word(self):
+        self.assertEqual(cp.stage_problems((cp.ROOT / cp.PLAN).read_text(encoding="utf-8")), [])
 
 
 class MathlibLine(unittest.TestCase):
