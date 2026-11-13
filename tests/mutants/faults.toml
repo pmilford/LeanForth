@@ -11727,16 +11727,16 @@ reason = "FRP D1: only the references' count is kept, so workers are not made ag
 [[fault]]
 id = "ck-layer-export-over-header"
 file = "src/cli/check-run.fs"
-old = '''  ck-lay lay-snap snap-export-sha over ck-lid-export 32 move'''
-new = '''  ck-lay lay-snap snap-export-sha over ck-lid-sum 32 move'''
+old = '''  ck-lay lay-snap snap-export-sha over ck-lid-export sha-digest-bytes move'''
+new = '''  ck-lay lay-snap snap-export-sha over ck-lid-sum sha-digest-bytes move'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers.test_reported"
 reason = "FRP D1: a layer's export digest is kept over its header's, so the report names the wrong layer identity"
 
 [[fault]]
 id = "ck-progress-labels-dropped"
 file = "src/cli/check-run.fs"
-old = ''': ck-part+ ( part -- part' ) dup @ execute cell+ count 2dup ck-pl+ + aligned ;'''
-new = ''': ck-part+ ( part -- part' ) dup @ execute cell+ count + aligned ;'''
+old = ''': ck-part+ ( part -- part' ) dup @ execute cell+ dup count ck-pl+ counted-next ;'''
+new = ''': ck-part+ ( part -- part' ) dup @ execute cell+ counted-next ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Progress.test_counts_rejections"
 reason = "FRP D2: the progress line's numbers are written without their labels"
 
@@ -12069,8 +12069,8 @@ reason = "a letE's body is renumbered as if outside its binder: its own variable
 [[fault]]
 id = "irx-lit-unfit-unmarked"
 file = "src/program/ir-run.fs"
-old = ''': irx-lit-fits ( index fits? -- ) if drop else irx-unfit! then ;'''
-new = ''': irx-lit-fits ( index fits? -- ) 2drop ;'''
+old = ''': irx-lit-mark ( index fits? -- ) if drop else irx-unfit! then ;'''
+new = ''': irx-lit-mark ( index fits? -- ) 2drop ;'''
 test = "$GFORTH tests/program/ir-run.fs"
 reason = "FRP F: a literal beyond the cell is not marked unfit, so it runs as a wrapped number instead of the model's unmodeled"
 
@@ -12079,33 +12079,33 @@ reason = "FRP F: a literal beyond the cell is not marked unfit, so it runs as a 
 
 [[fault]]
 id = "log-view-relater-unguarded"
-file = "src/present/log-view.fs"
-old = '''  dup 0 lf-rule-limit within if cells lf-lv-relaters + @ else drop ['] lf-lv-decl then ;'''
-new = '''  cells lf-lv-relaters + @ ;'''
+file = "src/lib/xt-table.fs"
+old = '''  2dup xt-table-in? if xt-table-at @ else nip xt-table-default @ then ;'''
+new = '''  xt-table-at @ ;'''
 test = "$GFORTH tests/core/derivation-log.fs"
 reason = "refactor-present L3: a rule code outside the table reads a cell past it"
 
 [[fault]]
 id = "log-view-form-not-typed"
 file = "src/present/log-view.fs"
-old = '''  lf-rule-form 1+ lf-rule-sort do ['] lf-lv-typed i lf-lv-relater! loop ;'''
-new = '''  lf-rule-form lf-rule-sort do ['] lf-lv-typed i lf-lv-relater! loop ;'''
+old = '''  lf-rule-limit 0 do i lf-lv-infer-rule? if ['] lf-lv-typed i lf-lv-relater! then loop ;'''
+new = '''  lf-rule-limit 0 do i lf-rule-form <> i lf-lv-infer-rule? and if ['] lf-lv-typed i lf-lv-relater! then loop ;'''
 test = "$GFORTH tests/core/derivation-log.fs"
 reason = "refactor-present L3: a form step's line shows a declaration instead of its term and type"
 
 [[fault]]
 id = "log-view-kinds-kids-swapped"
 file = "src/present/log-view.fs"
-old = '''' lf-lv-lmark-kids ' lf-lv-tmark-kids ' lvk-kids lvk-both!'''
-new = '''' lf-lv-tmark-kids ' lf-lv-lmark-kids ' lvk-kids lvk-both!'''
+old = '''' lf-lv-lmark-kids ' lf-lv-tmark-kids ' lv-kind-kids lv-kind-both!'''
+new = '''' lf-lv-tmark-kids ' lf-lv-lmark-kids ' lv-kind-kids lv-kind-both!'''
 test = "$GFORTH tests/core/derivation-log.fs"
 reason = "refactor-present L2: each kind marks its copies' children as the other kind's"
 
 [[fault]]
 id = "log-view-kinds-share-made"
 file = "src/present/log-view.fs"
-old = '''0 lf-lv-lmade 0 lf-lv-made ' lvk-made lvk-both!'''
-new = '''0 lf-lv-made 0 lf-lv-made ' lvk-made lvk-both!'''
+old = '''0 lf-lv-lmade 0 lf-lv-made ' lv-kind-made lv-kind-both!'''
+new = '''0 lf-lv-made 0 lf-lv-made ' lv-kind-made lv-kind-both!'''
 test = "$GFORTH tests/core/derivation-log.fs"
 reason = "refactor-present L2: level copies are recorded as made in the term copies' cells"
 
@@ -12122,9 +12122,9 @@ reason = "refactor-present I1: a rebuilt node's first and second fields are read
 
 [[fault]]
 id = "pp-tag-step-unguarded"
-file = "src/present/term-printer.fs"
-old = '''  dup 0 lf-pp-tags within if cells lf-pp-steps + @ else drop ['] lf-pp-invalid-step then ;'''
-new = '''  cells lf-pp-steps + @ ;'''
+file = "src/lib/xt-table.fs"
+old = '''  2dup xt-table-in? if xt-table-at @ else nip xt-table-default @ then ;'''
+new = '''  xt-table-at @ ;'''
 test = "$GFORTH tests/present/term-printer.fs"
 reason = "refactor-present L3: a corrupted tag past the table reads a cell after it as the step"
 
@@ -12151,3 +12151,71 @@ old = '''' lf-pf-binary lf-level-tag-imax lf-pf-level-step!'''
 new = '''' lf-pf-invalid-step lf-level-tag-imax lf-pf-level-step!'''
 test = "python3 tests/author/check_author.py"
 reason = "refactor-present L3: print --lf refuses an imax level"
+
+# --- tables of execution tokens (src/lib/xt-table.fs; the item-2 review's
+# L5) and the review's other test findings (L1-L3), plan 9.4.5 ------------
+
+[[fault]]
+id = "xt-table-unguarded"
+file = "src/lib/xt-table.fs"
+old = '''  2dup xt-table-in? if xt-table-at @ else nip xt-table-default @ then ;'''
+new = '''  xt-table-at @ ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "item-2 review L5: an index outside a table reads a cell beside it instead of the default"
+
+[[fault]]
+id = "xt-table-write-unguarded"
+file = "src/lib/xt-table.fs"
+old = '''  2dup xt-table-in? 0= abort" xt-table!: index outside the table" xt-table-at ! ;'''
+new = '''  xt-table-at ! ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "item-2 review L5: filling a table writes outside it, over the dictionary"
+
+[[fault]]
+id = "xt-table-unfilled"
+file = "src/lib/xt-table.fs"
+old = '''  swap xt-table-room create here >r dup , swap , cells allot r> xt-table-fill ;'''
+new = '''  swap xt-table-room create here >r dup , swap , cells allot r> drop ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "item-2 review L5: a new table's entries are not the default"
+
+[[fault]]
+id = "xt-table-size-unchecked"
+file = "src/lib/xt-table.fs"
+old = ''': xt-table-room ( n -- n ) dup 1 max-n 1 cells / within 0= abort" xt-table: bad size" ;'''
+new = ''': xt-table-room ( n -- n ) ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "item-2 review L5: a table of no entries, or too many for memory, is made"
+
+[[fault]]
+id = "pf-tag-unguarded"
+file = "src/lib/xt-table.fs"
+old = '''  2dup xt-table-in? if xt-table-at @ else nip xt-table-default @ then ;'''
+new = '''  xt-table-at @ ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "item-2 review L3: the Forth mode reads a step past its tag tables for a corrupted term or level tag"
+
+[[fault]]
+id = "context-listed-each-newest-only"
+file = "src/lib/context.fs"
+old = '''  swap @ begin ?dup while 2dup listed-member swap execute listed-next @ repeat drop ;'''
+new = '''  swap @ ?dup if listed-member swap execute else drop then ;'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "item-2 review L2: only the newest member of a list is freed with its context"
+
+[[fault]]
+id = "cj-layer-export-is-header"
+file = "src/cli/check-json.fs"
+old = '''  dup ck-layer-id dup ck-lid-sum s" sha256" cj-sha ck-lid-export s" exportSha256" cj-sha'''
+new = '''  dup ck-layer-id dup ck-lid-sum s" sha256" cj-sha ck-lid-sum s" exportSha256" cj-sha'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers.test_reported"
+reason = "item-2 review L1: the JSON report gives a layer's header digest as its export's"
+
+[[fault]]
+id = "ck-layer-verdict-sign"
+file = "src/cli/check-run.fs"
+old = ''': ck-layer-verdict ( k -- n ) ck-layer-id ck-lid-verdict @ abs ;'''
+new = ''': ck-layer-verdict ( k -- n ) ck-layer-id ck-lid-verdict @ ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
+reason = "item-2 review L1: a stale layer's verdict version is reported negative"
+gap = "no test loads a stale layer (--snapshot-stale-ok on a layer of an older verdict version): making one needs a snapshot written by an older build; the base snapshot's stale path is tested"

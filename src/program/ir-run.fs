@@ -460,8 +460,8 @@ max-n 1+ irx-width constant irx-cell-digits
 : irx-unfit! ( index -- ) irx-op irx-unfit swap irx-op-end ! ;
 \ A literal's instruction: one that does not fit a cell is kept, marked
 \ unfit (irx-unfit; running it is unmodeled).
-: irx-lit-fits ( index fits? -- ) if drop else irx-unfit! then ;
-: irx-lit-op ( n fits? -- ) irx-k-lit rot irx-add if swap irx-lit-fits else drop then ;
+: irx-lit-mark ( index fits? -- ) if drop else irx-unfit! then ;
+: irx-lit-op ( n fits? -- ) irx-k-lit rot irx-add if swap irx-lit-mark else drop then ;
 
 \ IF and BEGIN open while loading.
 : irx-top ( -- addr ) irx-open# @ 1- cells irx-state irx-s-open + ;

@@ -119,16 +119,15 @@ end-structure
 \ lf-forms! takes (present/statement-forms.fs); false for a name that is
 \ none of them or for an empty list. The names, read-only, an entry each:
 \ a cell, the form's bit (0 ends the table), then its name, counted.
-align here
+create pr-form-names
   lf-form-lean , s" lean" counted,
   lf-form-text , s" text" counted,
   lf-form-mathematics , s" mathematics" counted,
   lf-form-leanforth , s" leanforth" counted,
   lf-forms-all , s" all" counted,
   0 ,
-constant pr-form-names
 : pr-form-name ( entry -- c-addr u ) cell+ count ;
-: pr-form-next ( entry -- entry' ) pr-form-name + aligned ;
+: pr-form-next ( entry -- entry' ) cell+ counted-next ;
 : pr-form-is? ( c-addr u entry -- c-addr u entry flag )
   >r 2dup r@ pr-form-name compare 0= r> swap ;
 \ The bit of the form named c-addr u, or 0.

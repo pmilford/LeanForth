@@ -131,7 +131,7 @@
       },
       {
         "path": "src/program/ir-run.fs",
-        "sha256": "d22d6e540c3d621529d114df6e64393c8087551a71a68f15f7c517d682f92e29"
+        "sha256": "6d01a716d3d2662aa779dcb0312a53aa44724ae1510a3e4ea5afcf34fc269723"
       },
       {
         "path": "tests/program/ir_run_differential.py",

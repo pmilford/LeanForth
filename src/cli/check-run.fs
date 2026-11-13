@@ -103,6 +103,7 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
 require ../lib/lib.fs
 require ../lib/slab.fs
 require ../lib/bytes.fs
+require ../lib/sha256.fs
 require ../core/input.fs
 require ../core/diagnostics.fs
 require ../kernel/environment.fs
@@ -709,7 +710,7 @@ create ck-line ck-line-room 2 + allot
 : ck-accepted+ ( -- ) ck-state ck-accepted @ ck-n+ ;
 : ck-others+ ( -- ) ck-state ck-others @ ck-n+ ;
 : ck-rate+ ( -- ) ck-rate ck-n+ ;
-align here
+create ck-pline-parts
   ' ck-elapsed+ , s"  s elapsed; " counted,
   ' ck-done+ , s" /" counted,
   ' ck-count+ , s"  declarations final (" counted,
@@ -720,8 +721,7 @@ align here
   ' ck-eta+ , s" ; resident " counted,
   ' ck-resident+ , s" " counted,
   0 ,
-constant ck-pline-parts
-: ck-part+ ( part -- part' ) dup @ execute cell+ count 2dup ck-pl+ + aligned ;
+: ck-part+ ( part -- part' ) dup @ execute cell+ dup count ck-pl+ counted-next ;
 : ck-progress-line ( -- )
   0 ck-state ck-pline# ! s" progress: " ck-pl+
   ck-pline-parts begin dup @ while ck-part+ repeat drop s\" \n" ck-pl+ ;
@@ -961,12 +961,13 @@ create ck-lay /lay allot  ck-lay /lay erase   \ the layer being loaded
   ck-lay lay-ly ly-why @ ?dup if ck-lay lay-ly ly-where @ exit then c" layer" -1 ;
 : ck-lay-refused ( outcome -- outcome ) ck-lay-why ck-snap snap-note ;
 \ Each layer loaded, for the reports (review rvSN4 M1): its header's
-\ SHA-256, then its export's (32 bytes each), then its verdict version
-\ (a cell, negated when stale: --snapshot-stale-ok); its base is ck-snap's.
+\ SHA-256, then its export's (sha-digest-bytes each), then its verdict
+\ version (a cell, negated when stale: --snapshot-stale-ok); its base is
+\ ck-snap's.
 begin-structure /ck-layer-id
-  32 +field ck-lid-sum           \ the layer header's SHA-256
-  32 +field ck-lid-export        \ its export's
-  field: ck-lid-verdict          \ its verdict version, negated when stale
+  sha-digest-bytes +field ck-lid-sum      \ the layer header's SHA-256
+  sha-digest-bytes +field ck-lid-export   \ its export's
+  field: ck-lid-verdict                   \ its verdict version, negated when stale
 end-structure
 : ck-layer-id ( k -- addr ) /ck-layer-id * ck-state ck-lay-ids @ + ;
 : ck-layer-verdict ( k -- n ) ck-layer-id ck-lid-verdict @ abs ;
@@ -974,8 +975,8 @@ end-structure
 : ck-lay-version ( -- n )
   ck-lay lay-snap dup snap-verdict swap snap-stale @ if negate then ;
 : ck-lay-kept ( k -- )
-  ck-layer-id ck-lay lay-snap snap-sum over ck-lid-sum 32 move
-  ck-lay lay-snap snap-export-sha over ck-lid-export 32 move
+  ck-layer-id ck-lay lay-snap snap-sum over ck-lid-sum sha-digest-bytes move
+  ck-lay lay-snap snap-export-sha over ck-lid-export sha-digest-bytes move
   ck-lay-version swap ck-lid-verdict ! ;
 \ For an export (ck-importing?), a layer keeps a twin of a loaded
 \ declaration whose lookups differ (env-layers.fs lay-twins).

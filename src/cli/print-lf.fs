@@ -63,8 +63,9 @@ begin-structure /lf-fl
 end-structure
 /lf-fl context-record: lf-fl
 
-\ Each reason's text, read-only: counted strings in the reasons' order.
-align here
+\ Each reason's text, read-only: counted strings in the reasons' order,
+\ one per reason (checked below, while loading).
+create fl-reason-texts
   s" an inductive type" counted,
   s" an inductive type's constructor" counted,
   s" a recursor" counted,
@@ -76,11 +77,13 @@ align here
   s" a name, literal or term form the words cannot write" counted,
   s" a term the input does not hold (let, metadata) or malformed" counted,
   s" the printer ran out of fuel or room" counted,
-constant fl-reason-texts
-\ A reason's text, "?" for any other number.
+here   \ the table's end, for the check below
+\ The counted string of reason (unchecked: 0 .. fl-reasons), and a
+\ reason's text, "?" for any other number.
+: fl-reason-at ( reason -- c-addr ) fl-reason-texts swap 0 ?do counted-next loop ;
+fl-reasons fl-reason-at <> [if] .( print-lf.fs: one text per reason) cr abort [then]
 : fl-reason-text ( reason -- c-addr u )
-  dup 0 fl-reasons within 0= if drop s" ?" exit then
-  fl-reason-texts swap 0 ?do count + aligned loop count ;
+  dup 0 fl-reasons within 0= if drop s" ?" exit then fl-reason-at count ;
 
 \ The standard error, for the list of what was skipped.
 : fl-err ( c-addr u -- ) stderr write-file drop ;
