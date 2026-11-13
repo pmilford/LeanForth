@@ -31,6 +31,11 @@ require ./whnf-cases.fs
 : first-v ( addr n -- v ) drop @ ;
 : v-named? ( v c-addr u -- flag ) rot elab-instance@ 2drop elab-decl-name -rot names= ;
 : depth-ok? ( -- flag ) lf-mctx-depth 0= lf-mctx-marks 0= and ;
+: last-named? ( addr n c-addr u -- n flag ) 2>r tuck last-v 2r> v-named? ;
+: first-named? ( addr n c-addr u -- n flag ) 2>r tuck first-v 2r> v-named? ;
+: last-left ( addr n -- n flag ) tuck last-v lf-inst-left-out? ;
+: add-nat-shape ( addr n -- n last? first-left? )
+  2dup first-v lf-inst-left-out? >r s" instAddNat" last-named? r> ;
 
 \ ---- §4: every instance of the slice checked, none unverified.
 : check-all ( -- n ) 0 elab-instance elab-count 0 ?do i lf-inst-check ok? if 1+ then loop ;
@@ -48,14 +53,13 @@ T{ 0 bv lf-class? -> false outcome-ok }T
 \ Nat three, the last instAddNat; the stuck ones end in the left-out
 \ instOfNatQ, String.instHAddCharRaw and instAddQ).
 lf-defeq-elab lf-defeq-stuck or lf-defeq-flags!
-T{ nat 0 ofnat cands dup >r last-v s" instOfNatNat" v-named? r> -> true 3 }T
-T{ nat nat lv1 ?tv hadd cands dup >r first-v s" instHAdd" v-named? r> -> true 1 }T
-T{ nat add cands dup >r 2dup last-v s" instAddNat" v-named? >r first-v lf-inst-left-out? r> r>
-   -> true true 3 }T
+T{ nat 0 ofnat cands s" instOfNatNat" last-named? -> 3 true }T
+T{ nat nat lv1 ?tv hadd cands s" instHAdd" first-named? -> 1 true }T
+T{ nat add cands add-nat-shape -> 3 true true }T
 T{ lv1 ?tv 0 ofnat cands nip -> 23 }T
 T{ lv1 ?tv 0 ofnat cands last-v dup lf-inst-left-out? swap invert elab-left-out@ nip nip
    -> true elab-not-exported }T
-T{ lv1 ?tv lv1 ?tv lv1 ?tv hadd cands dup >r last-v lf-inst-left-out? r> -> true 7 }T
+T{ lv1 ?tv lv1 ?tv lv1 ?tv hadd cands last-left -> 7 true }T
 T{ lv1 ?tv add cands nip -> 26 }T
 T{ lf-inst-checked# lf-inst-unverified# depth-ok? -> 3 0 true }T
 
@@ -75,7 +79,8 @@ T{ nat add cands drop dup @ invert elab-left-out@ drop nip swap cell+ @ invert e
 \ class is error 110; a sort's key is other.
 T{ nat nat add0 tpi lf-inst-candidates nip nip -> outcome-unsupported }T
 T{ nat lf-inst-candidates nip nip lf-inst-error -> outcome-invalid 110 }T
-T{ l0 sort lf-dt-path >r drop elab-key-tag r> -> elab-key-other outcome-ok }T
+: first-tag ( k n outcome -- tag outcome ) nip swap elab-key-tag swap ;
+T{ l0 sort lf-dt-path first-tag -> elab-key-other outcome-ok }T
 \ Exhausted: the budget spent before the first key.
 T{ 0 lf-meta-budget! nat add lf-inst-unify nip nip lf-meta-default-budget lf-meta-budget!
    -> outcome-exhausted }T
@@ -84,8 +89,9 @@ T{ 0 lf-meta-budget! nat add lf-inst-unify nip nip lf-meta-default-budget lf-met
 \ numeral a literal, of a type its constant; the query's metavariable a
 \ star under isDefEqStuckEx.
 : keys-of ( t -- k n ) lf-dt-path made ;
-: key-tag ( k n i -- tag ) nip + elab-key-tag ;
-T{ nat 0 ofnat keys-of 2dup 1 key-tag >r 2dup 2 key-tag >r nip r> r> -> 3 elab-key-lit elab-key-const }T
+: tags12 ( k n -- n tag2 tag1 )
+  over 1+ elab-key-tag >r over 2 + elab-key-tag >r nip r> r> ;
+T{ nat 0 ofnat keys-of tags12 -> 3 elab-key-lit elab-key-const }T
 T{ nat add keys-of nip -> 2 }T
 T{ lv1 ?tv true lf-dt-nil lf-dt-key nip nip -> outcome-ok }T
 
@@ -106,7 +112,7 @@ T{ nat lf-dt-nat-lit -> 0 false outcome-ok }T
 T{ succ fx app lf-dt-nat-lit -> 0 false outcome-ok }T
 
 \ ---- Default instances, in rank order.
-T{ s" OfNat" menv-name elab-decl-of drop lf-default-instances >r nip r> -> 1 outcome-ok }T
+T{ s" OfNat" menv-name elab-decl-of drop lf-default-instances rot drop -> 1 outcome-ok }T
 T{ s" HAdd" menv-name elab-decl-of drop lf-default-instances 2drop @ elab-default@ drop nip
    s" instHAdd" menv-name elab-decl-of drop = -> true }T
 
