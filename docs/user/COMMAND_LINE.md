@@ -185,25 +185,34 @@ wrong twins of the first two rejected, in 16 to 19 s and 0.6 GB each
 in this run"). `--env` and `--snapshot` do not go together.
 
 **The library's elaboration data** (`--elab-data DATA`, plan row FE1d).
-Lean's instances, default instances, reducibility and the eliminators of
-`induction` and `cases` are not in an export; `scripts/export-elab.sh`
+Several facts are not in an export: Lean's classes, its instances (with
+their order in Lean's instance tree), default instances, reducibility, the
+eliminators of `induction` and `cases`, and the tags, matchers and
+projection functions that Meta's whnf reads. `scripts/export-elab.sh`
 writes them for the export's modules with pinned Lean, beside the export
-([ELABORATION_DATA.md](../programming/ELABORATION_DATA.md)). With
-`--elab-data DATA` and a library (`--env` or `--snapshot`), DATA is read
-after the library and before the text runs, and checked against the
-library: written for its export (the SHA-256 its manifest, its snapshot or,
-with `--no-manifest`, the file itself gives), every name one of its
-declarations of the right kind, nothing missing, added or changed. The
-values themselves (which class an instance serves, priorities,
+([ELABORATION_DATA.md](../programming/ELABORATION_DATA.md), format 2).
+With `--elab-data DATA` and a library (`--env` or `--snapshot`), DATA is
+read after the library and before the text runs, and checked against the
+library:
+
+- it is written for its export (the SHA-256 that its manifest, its
+  snapshot or, with `--no-manifest`, the file itself gives);
+- every name is one of its declarations, of the right kind;
+- instance keys are well formed;
+- ranks have no gap;
+- matchers and projections fit their types;
+- nothing is missing, added or changed.
+
+The values themselves (which class an instance serves, ranks, priorities,
 reducibility) are pinned Lean's, taken on trust
 ([what is checked](../programming/ELABORATION_DATA.md#what-it-is-and-why)).
-The counts read are printed first; the verdicts are those of the same run
-without it, since nothing uses the data yet (the elaborator of plan rows
+The counts read are printed first. The verdicts are those of the same run
+without the data, since nothing uses it yet (the elaborator of plan rows
 FE1e and FE1g will):
 
 ```console
 $ bin/leanforth check --env tests/author/init-slice.ndjson --elab-data tests/front/init-slice.elab.ndjson tests/author/19-add-zero.lf | head -1
-elaboration data: 3 instances, 2 default instances, 18 reducibility statuses, 0 eliminators
+elaboration data: 3 instances, 2 default instances, 18 reducibility statuses, 0 eliminators, 54 instances left out, 3 classes, 5 tags, 4 matchers, 3 projections
 ```
 
 Refused data stops the run before the text runs, with the line, the
@@ -214,7 +223,7 @@ test file `tests/front/cut-off.elab.ndjson` lacks its last record:
 
 ```console
 $ bin/leanforth check --env tests/author/init-slice.ndjson --elab-data tests/front/cut-off.elab.ndjson tests/author/19-add-zero.lf
-error: invalid: the elaboration data was refused at line 27 (error 20): records differ in number from the header; the LeanForth text was not checked
+error: invalid: the elaboration data was refused at line 96 (error 20): records differ in number from the header; the LeanForth text was not checked
 ```
 
 `--elab-data` without `--env` or `--snapshot`, with an export instead of

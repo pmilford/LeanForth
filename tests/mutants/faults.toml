@@ -11089,8 +11089,8 @@ reason = "review fe1d L3: a sealed stage is read, its names never found"
 [[fault]]
 id = "fe-elab-eliminator-for-any-kind"
 file = "src/front/elab-data.fs"
-old = '''  elab elab-key tuck ed-key-kind ! tuck ed-key-one ! dup ed-key-one over ed-key-types !'''
-new = '''  elab elab-key tuck ed-key-kind ! tuck ed-key-one ! dup ed-key-one over ed-key-types ! 0 over ed-key-kind !'''
+old = '''  elab elab-elim-key tuck ed-key-kind ! tuck ed-key-one !'''
+new = '''  elab elab-elim-key tuck ed-key-kind ! tuck ed-key-one ! 0 over ed-key-kind !'''
 test = "$GFORTH tests/front/elab-data.fs"
 reason = "review fe1d L3: elab-eliminator-for looks up the induction eliminator whatever kind is asked"
 
@@ -11141,6 +11141,212 @@ old = '''  ok-then? if elab-read else nip nip nip elab-unhashed then ;'''
 new = '''  ok-then? if elab-read else nip nip nip drop outcome-ok then ;'''
 test = "$GFORTH tests/front/elab-check-lf.fs"
 reason = "review fe1d L2: a library that cannot be hashed lets the text run without its data"
+
+# --- elaboration data format 2 (src/front/elab-data.fs, elab-keys.fs, plan row FE1e1) ---
+
+[[fault]]
+id = "fe-ed2-no-class-unchecked"
+file = "src/front/elab-data.fs"
+old = '''  dup elab-class-of if drop outcome-ok else ed-e-no-class ed-bad then ;'''
+new = '''  outcome-ok ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "an instance or default instance whose class has no class record is read (error 27 never given)"
+
+[[fault]]
+id = "fe-ed2-class-twice"
+file = "src/front/elab-data.fs"
+old = '''  over elab-class-of if 2drop drop ed-e-class ed-bad exit then'''
+new = ''''''
+test = "python3 tests/front/test_elab_data.py"
+reason = "a class given twice is read, the second record replacing the first (error 28 never given)"
+
+[[fault]]
+id = "fe-ed2-tag-twice"
+file = "src/front/elab-data.fs"
+old = '''  2dup elab-tagged? if 2drop ed-e-tag ed-bad exit then'''
+new = ''''''
+test = "python3 tests/front/test_elab_data.py"
+reason = "a tag given twice is added twice, carrying into the next tag's bit (error 29 never given)"
+
+[[fault]]
+id = "fe-ed2-term-unchecked"
+file = "src/front/elab-data.fs"
+old = ''': ed-one-term ( value -- outcome ) ed-keys@ elab-one-term? ed-e-term ed-or-bad ;'''
+new = ''': ed-one-term ( value -- outcome ) drop outcome-ok ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "keys that are not one term (short, long, empty) are kept as a path (error 30 never given)"
+quick = true
+
+[[fault]]
+id = "fe-ed2-rank-twice"
+file = "src/front/elab-data.fs"
+old = '''  if 2drop ed-e-rank ed-bad else ed-ranks htab-put outcome-ok then ;'''
+new = '''  if 2drop outcome-ok else ed-ranks htab-put outcome-ok then ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "two values of one root key with one rank are read, their order ambiguous (error 31 never given)"
+
+[[fault]]
+id = "fe-ed2-gap-unchecked"
+file = "src/front/elab-data.fs"
+old = '''  ed-hash-same? 0= if ed-e-sha ed-bad exit then ed-ranks-whole ;'''
+new = '''  ed-hash-same? 0= if ed-e-sha ed-bad exit then outcome-ok ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "ranks with a gap are read: a value of Lean's tree is missing and never answered unsupported (error 32 never given)"
+quick = true
+
+[[fault]]
+id = "fe-ed2-default-rank-twice"
+file = "src/front/elab-data.fs"
+old = ''': ed-dflt-once ( value i -- outcome ) nip ed-dflt-new? ed-e-default-rank ed-or-bad ;'''
+new = ''': ed-dflt-once ( value i -- outcome ) 2drop outcome-ok ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "two default instances of one class with one rank are read (error 33 never given)"
+
+[[fault]]
+id = "fe-ed2-left-out-has"
+file = "src/front/elab-data.fs"
+old = '''  ed-name ok-then? if ed-left-has? 0= ed-e-left-out ed-or-bad else nip then ;'''
+new = '''  ed-name ok-then? if 2drop outcome-ok else nip then ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "a not_exported left-out instance that the library has is read (error 34 never given)"
+
+[[fault]]
+id = "fe-ed2-matcher-twice"
+file = "src/front/elab-data.fs"
+old = '''  over elab-matcher-of if 2drop drop ed-e-matcher ed-bad exit then'''
+new = ''''''
+test = "python3 tests/front/test_elab_data.py"
+reason = "a matcher given twice is read, the second replacing the first (error 35 never given)"
+
+[[fault]]
+id = "fe-ed2-projection-twice"
+file = "src/front/elab-data.fs"
+old = '''  over elab-projection-of if 2drop drop ed-e-projection ed-bad exit then'''
+new = ''''''
+test = "python3 tests/front/test_elab_data.py"
+reason = "a projection given twice is read, the second replacing the first (error 36 never given)"
+
+[[fault]]
+id = "fe-ed2-matcher-unfit"
+file = "src/front/elab-data.fs"
+old = ''': ed-match-fit ( value m -- outcome ) nip ed-match-fits? ed-e-unfit ed-or-bad ;'''
+new = ''': ed-match-fit ( value m -- outcome ) 2drop outcome-ok ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "a matcher with more parameters than its type has, or an elimination universe beyond its universe parameters, is read (error 37 never given)"
+
+[[fault]]
+id = "fe-ed2-projection-unfit"
+file = "src/front/elab-data.fs"
+old = '''  nip dup ed-proj-takes? swap ed-proj-field? and ed-e-unfit ed-or-bad ;'''
+new = '''  2drop outcome-ok ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "a projection whose field or parameters its types cannot have is read (error 37 never given)"
+
+[[fault]]
+id = "fe-ed2-sunfold-read"
+file = "src/front/elab-data.fs"
+old = ''': ed-on-sunfold ( value -- outcome ) drop ed-e-later outcome-unsupported ed-fail ;'''
+new = ''': ed-on-sunfold ( value -- outcome ) drop outcome-ok ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "a smart-unfolding record is taken as read though nothing reads it (error 38 never given)"
+
+[[fault]]
+id = "fe-ed2-foreign-in-instance"
+file = "src/front/elab-data.fs"
+old = ''': ed-foreign? ( n -- flag ) ed-decls if drop false else elab elab-foreign @ then ;'''
+new = ''': ed-foreign? ( n -- flag ) ed-decls if drop false else true then ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "an instance's key may name a constant the library lacks, kept as foreign instead of refused as unknown"
+
+[[fault]]
+id = "fe-ed2-left-foreign-refused"
+file = "src/front/elab-data.fs"
+old = '''  true elab elab-foreign ! ed-left ed-left-value swap c" keys" ed-member ed-keys-read'''
+new = '''  ed-left ed-left-value swap c" keys" ed-member ed-keys-read'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "a left-out instance's key naming a constant the slice lacks is refused: the slice's own data is refused"
+
+[[fault]]
+id = "fe-ed2-arrow-arity"
+file = "src/front/elab-keys.fs"
+old = ''': ek-more ( tag -- n ) dup elab-key-arrow = swap elab-key-proj = or negate ;'''
+new = ''': ek-more ( tag -- n ) elab-key-proj = negate ;'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "Lean 4.35's arrow key indexes its domain (Key.arity 1); read as 0, an arrow path is no longer one term"
+quick = true
+
+[[fault]]
+id = "fe-ed2-key-text-unequal"
+file = "src/front/elab-keys.fs"
+old = '''  over elab-key-tag ek-texted? if ek-texts= else ek-cells= then ;'''
+new = '''  ek-cells= ;'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "two equal literals or foreign constants kept at different offsets compare unequal"
+
+[[fault]]
+id = "fe-ed2-literal-unchecked"
+file = "src/front/elab-data.fs"
+old = '''  ed-text if 2dup canonical-natural? if outcome-ok exit then 2drop then 0 0 ed-malformed ;'''
+new = '''  ed-text if outcome-ok exit then 0 0 ed-malformed ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "a literal key's digits are not checked: 00 or -1 is kept as a literal"
+
+[[fault]]
+id = "fe-ed2-rank-root-ignored"
+file = "src/front/elab-data.fs"
+old = '''  2dup ed-value-rank @ swap ed-value-rank @ = if ed-root swap ed-root elab-key= exit then'''
+new = '''  2dup ed-value-rank @ swap ed-value-rank @ = if 2drop true exit then'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "ranks compared without their root keys: Add's rank 0 and OfNat's rank 0 collide and the slice's data is refused"
+
+[[fault]]
+id = "fe-ed2-levels-as-params"
+file = "src/front/elab-data.fs"
+old = '''  ed-class ed-class-levels swap c" out_level_params" ed-member ed-numbers ;'''
+new = '''  ed-class ed-class-params swap c" out_level_params" ed-member ed-numbers ;'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "a class's out-level parameters are stored as its out-parameters, and its out-levels are left empty"
+
+# The faults of the Forth review of fe1e1 (L1-L3) and of the class ranges it suggested.
+[[fault]]
+id = "fe-ed2-matcher-arity-at-least"
+file = "src/front/elab-data.fs"
+old = '''  dup ed-match-arity over elab-matcher@ 2drop ed-type-pis = swap ed-elim-fits? and ;'''
+new = '''  dup ed-match-arity over elab-matcher@ 2drop ed-type-pis > 0= swap ed-elim-fits? and ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "review fe1e1 L1: a matcher with fewer parameters, discriminants or alternatives than its type's Pi binders is read"
+
+[[fault]]
+id = "fe-ed2-foreign-stays-on"
+file = "src/front/elab-data.fs"
+old = '''  false elab elab-foreign ! ;'''
+new = '''  ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "review fe1e1 L2: after a left-out instance, an instance's unknown key constant is kept as foreign, not refused"
+
+[[fault]]
+id = "fe-ed2-foreign-proj-unmarked"
+file = "src/front/elab-data.fs"
+old = '''  2 ed-text-u32 ok-then? 0= if exit then dup ed-idx-text ok-then? 0= if exit then'''
+new = '''  dup ed-idx-text ok-then? 0= if exit then'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "review fe1e1 L3: a foreign projection's text lacks its mark 2, so it may equal a foreign constant's"
+
+[[fault]]
+id = "fe-ed2-class-range-unchecked"
+file = "src/front/elab-data.fs"
+old = ''': ed-class-fit ( value k -- outcome ) nip ed-class-fits? ed-e-unfit ed-or-bad ;'''
+new = ''': ed-class-fit ( value k -- outcome ) 2drop outcome-ok ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "a class's out-parameter beyond its parameters, or out-level beyond its universes, is read"
+
+[[fault]]
+id = "fe-ed2-finisher-gap-unchecked"
+file = "scripts/export_elab.py"
+old = '''        if sorted(ranks) != list(range(len(ranks))):'''
+new = '''        if False:'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "the finisher writes a tree whose ranks under a root have a gap (Lean's walk and the records disagree)"
 
 # --- the FRI refactoring batches (review 2026-11-12-backlog-import-core-lib.md, B1-B8) ---
 

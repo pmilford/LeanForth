@@ -462,6 +462,32 @@ trust from pinned Lean, like priorities (ELABORATION_DATA.md, "Trust");
 the keys, the class of each instance and the out-parameter positions are
 checked (§4).
 
+**As built (FE1e1, 2026-11-12, tested alone;
+[ELABORATION_DATA.md](../programming/ELABORATION_DATA.md) is the format's
+reference).** It differs from the plan above in these ways:
+
+- The finisher keeps Lean's tree whole under every root key the export
+  reaches, so the ranks under each root run 0, 1, 2, ... without a gap.
+  The reader checks this; a gap is refused.
+- `instance_left_out` also has the instance's `name` and a `reason`:
+  `erased` (never a candidate) or `not_exported` (Lean would try it:
+  unsupported).
+- Its keys may name constants the export lacks. These are kept as
+  *foreign* keys, which no query of the library can equal.
+- A literal key is its decimal digits as a text (`Init` has 2^64).
+- Lean 4.35's `arrow` key has `Key.arity` 1.
+- Class records come first in the file, and an instance's class must
+  have one.
+- A default instance the export lacks leaves a gap in its class's ranks.
+  There is no record for it, and none in `Init`.
+- At the coordinator's request, format 2 also carries plan row FE1d2's
+  matchers, projection functions and `aux_recursor` and `no_confusion`
+  tags. It reserves the kind `sunfold` for smart-unfolding bodies:
+  designed, not built.
+- Pinned Lean confirms on `Init` that the ranks reproduce `getUnify`'s
+  order, and the priorities `getInstances`' order, for 19 goals,
+  `HPow Nat Nat Nat` among them (`tests/reference/elab-instance-order.lean`).
+
 ### 3.2 The instance table and `getUnify`
 
 At first use, the instances of each root key (the `instance_left_out`
