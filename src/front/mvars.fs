@@ -53,7 +53,8 @@
 \   be rolled back or committed (any other is refused, invalid).
 \ Words: lf-mctx-reset, lf-mctx-deeper, lf-mctx-shallower, lf-mctx-depth;
 \ lf-mctx-mark ( -- mark outcome ), lf-mctx-rollback ( mark -- outcome ),
-\ lf-mctx-commit ( mark -- outcome ), lf-mctx-marks ( -- n ); lf-mvar-new ( type kind -- mvar outcome ), lf-mvar-live?, lf-mvar-type,
+\ lf-mctx-commit ( mark -- outcome ), lf-mctx-marks ( -- n ); lf-mvar-new
+\ ( type kind -- mvar outcome ), lf-mvar-live?, lf-mvar-type,
 \ lf-mvar-kind, lf-mvar-value, lf-mvar-lctx, lf-mvar-assignable?,
 \ lf-mvar-assign ( mvar value -- outcome ), lf-delay-fvar ( fvar --
 \ outcome ), lf-mvar-delay ( mvar pending n -- outcome ), lf-mvar-delayed
