@@ -26,12 +26,26 @@ require ./source.fs
 \ text, unsupported for a form the term store cannot hold yet, full for a
 \ store or table that ran out of room, exhausted for fuel spent. Codes
 \ are stable, in ranges, a new one taking the next free number of its
-\ range:
-\   1-73   the words (ADR 0017), the runner, the stores, natural text read (FE1a)
-\   74-79  elaboration and the hand-over to the kernel (FE1c, FE1e, FE1f; 74-77 used)
-\   80-99  tactic proofs (FE1g; all used: 81-88 the reading of FE1g-2,
-\          80 and 89-93 the runner of FE1g-3, 94-99 the tactics of FE1g-4)
-\   100-   free
+\ range; each branch of a slice
+\ writes only its own range (docs/design/S1_INTERFACE.md §5):
+\   1-73     the words (ADR 0017), the runner, the stores, natural text read (FE1a)
+\   74-79    elaboration and the hand-over to the kernel (FE1c, FE1e, FE1f; 74-77
+\            used, 78-79 kept for S4's auxiliary declarations)
+\   80-99    tactic proofs (FE1g; all used: 81-88 the reading of FE1g-2,
+\            80 and 89-93 the runner of FE1g-3, 94-99 the tactics of FE1g-4)
+\   100-109  Meta errors a user sees: invalid universe level, the stuck
+\            signal's and the undo trail's refusals (S1, branch s1-meta)
+\   110-124  instances: failed to synthesize, the instance codes, one per
+\            unsupported instance rule (S1, branch s1-synth)
+\   125-139  elaboration: numerals, applications, binop%/binrel%, default
+\            instances, the declaration glue, #check, the front end's fuel,
+\            FE1E 2.7's other unsupported rows (S1, branch s1-elab)
+\   140-199  elaboration in FE2: one per Lean error and unsupported
+\            condition, structures, notation, commands (S5, S6)
+\   200-249  tactics after FE1g-4 (FE1g-5 to FE1g-8, FE5's; S2 on)
+\   250-269  decide (S3)
+\   270-299  omega and its opt-in flag (S4)
+\   300-     free
 1 constant lfa-e-unknown        \ no word, variable, universe or constant has the name
 2 constant lfa-e-no-name         \ a name must follow on the same line
 3 constant lfa-e-missing         \ a value is missing above the binder or declaration

@@ -27,10 +27,23 @@ def answer (t s : Expr) (go : MetaM Bool) : MetaM Unit := do
       IO.println s!"true {← sx (← instantiateMVars t)} {← sx (← instantiateMVars s)}"
     else
       IO.println "false"
-  catch _ => IO.println "error"
+  catch ex =>
+    match ex with
+    | .internal id _ => IO.println (if id == isDefEqStuckExceptionId then "stuck" else "error")
+    | _ => IO.println "error"
   saved.restore
 
 def eqCase (t s : Expr) : MetaM Unit := answer t s (isDefEq t s)
+
+def stuckCase (t s : Expr) : MetaM Unit :=
+  answer t s (withConfig (fun c => { c with isDefEqStuckEx := true }) (isDefEq t s))
+
+def dstuckCase (t s : Expr) : MetaM Unit :=
+  answer t s (withNewMCtxDepth (withConfig (fun c => { c with isDefEqStuckEx := true })
+    (isDefEq t s)))
+
+def guardCase (t s : Expr) : MetaM Unit :=
+  answer t s (withConfig (fun c => { c with isDefEqStuckEx := true }) (isDefEqGuarded t s))
 
 def metaCase (t s : Expr) : MetaM Unit :=
   answer t s (withConfig (fun c => { c with foApprox := false, ctxApprox := false }) (isDefEq t s))
@@ -76,7 +89,9 @@ run_meta do
   withLocalDeclD `w (mkConst ``PUnit [Level.one]) fun w => do
   withLocalDeclD `i (mkForall `y .default eqab nat) fun i => do
   let o ← mkFreshExprMVar nat (kind := .syntheticOpaque) (userName := `o)
-  let _ := (m, z, k, x, p, g, n, h, q, r, t, y, j, e, c, u, v, w, i, o)
+  withLocalDeclD `d (mkForall `y .default nat (mkConst ``PUnit [Level.one])) fun d => do
+  let lu ← mkFreshLevelMVar
+  let _ := (m, z, k, x, p, g, n, h, q, r, t, y, j, e, c, u, v, w, i, o, d, lu)
   eqCase k k
   eqCase k x
   eqCase (mkConst `Nat []) (mkConst `Nat [])
@@ -184,3 +199,16 @@ run_meta do
   eqCase (mkApp (mkConst `Nat.succ []) (mkApp (mkApp (mkApp (mkApp (mkApp (mkApp (mkConst `HAdd.hAdd [Level.zero, Level.zero, Level.zero]) (mkConst `Nat [])) (mkConst `Nat [])) (mkConst `Nat [])) (mkApp (mkApp (mkConst `instHAdd [Level.zero]) (mkConst `Nat [])) (mkConst `instAddNat []))) k) (mkApp (mkApp (mkApp (mkApp (mkApp (mkApp (mkConst `HAdd.hAdd [Level.zero, Level.zero, Level.zero]) (mkConst `Nat [])) (mkConst `Nat [])) (mkConst `Nat [])) (mkApp (mkApp (mkConst `instHAdd [Level.zero]) (mkConst `Nat [])) (mkConst `instAddNat []))) (mkApp (mkApp (mkApp (mkApp (mkApp (mkApp (mkConst `HAdd.hAdd [Level.zero, Level.zero, Level.zero]) (mkConst `Nat [])) (mkConst `Nat [])) (mkConst `Nat [])) (mkApp (mkApp (mkConst `instHAdd [Level.zero]) (mkConst `Nat [])) (mkConst `instAddNat []))) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 4611686018427387904)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 4611686018427387904)))) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 4611686018427387904)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 4611686018427387904))))) (mkApp (mkApp (mkApp (mkConst `OfNat.ofNat [Level.zero]) (mkConst `Nat [])) (mkRawNatLit 4611686018427387904)) (mkApp (mkConst `instOfNatNat []) (mkRawNatLit 4611686018427387904)))))) (mkApp (mkConst `Nat.succ []) h)
   eqCase p (mkApp (mkApp (mkApp (mkConst `Prod.mk [Level.zero, Level.zero]) (mkConst `Nat [])) (mkConst `Nat [])) a)
   eqCase (mkApp i e) (mkApp i (mkProj `Prod 0 p))
+  stuckCase o k
+  eqCase o k
+  dstuckCase n k
+  guardCase o k
+  stuckCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [Level.one]) (mkLambda `y .default (mkConst `Nat []) (mkConst `Nat []))) z) (mkLambda `y .default (mkConst `Nat []) (mkLambda `y .default (mkConst `Nat []) (mkBVar 0)))) o) k
+  dstuckCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [Level.one]) (mkLambda `y .default (mkConst `Nat []) (mkConst `Nat []))) z) (mkLambda `y .default (mkConst `Nat []) (mkLambda `y .default (mkConst `Nat []) (mkBVar 0)))) o) k
+  dstuckCase (mkApp d k) (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [Level.one]) (mkLambda `y .default (mkConst `Nat []) (mkConst `PUnit [Level.one]))) (mkConst `PUnit.unit [Level.one])) (mkLambda `y .default (mkConst `Nat []) (mkLambda `y .default (mkConst `PUnit [Level.one]) (mkBVar 0)))) o)
+  eqCase (mkApp d k) (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [Level.one]) (mkLambda `y .default (mkConst `Nat []) (mkConst `PUnit [Level.one]))) (mkConst `PUnit.unit [Level.one])) (mkLambda `y .default (mkConst `Nat []) (mkLambda `y .default (mkConst `PUnit [Level.one]) (mkBVar 0)))) o)
+  dstuckCase (mkApp u k) (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [Level.one]) (mkLambda `y .default (mkConst `Nat []) (mkConst `Nat []))) z) (mkLambda `y .default (mkConst `Nat []) (mkLambda `y .default (mkConst `Nat []) (mkBVar 0)))) o)
+  deepCase (mkSort lu) (mkSort Level.one)
+  dstuckCase (mkSort lu) (mkSort Level.one)
+  dstuckCase (mkSort lu) (mkSort lu)
+  stuckCase (mkSort lu) (mkSort Level.one)

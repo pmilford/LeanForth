@@ -15,7 +15,11 @@ starts from the same metavariable context (Lean restores its saved
 state, LeanForth rolls back a mark). Kinds: eq under the elaborator's
 configuration (run_meta: foApprox, ctxApprox), meta under Meta's default,
 deep one depth deeper (withNewMCtxDepth), red, inst and impl at reducible,
-instances and implicit transparency.
+instances and implicit transparency; stuck and dstuck the elaborator's with
+isDefEqStuckEx (the stuck signal, S1 §2; Lean's line "stuck" is its
+isDefEqStuck exception), at this depth and one deeper, guard
+isDefEqGuarded with isDefEqStuckEx. Made last: the free variable
+d : Nat -> PUnit.{1} and the level metavariable ?lu (level "u").
 The lines must be equal, except for the cases listed as gaps, where
 LeanForth must answer unsupported (a step not ported; the plan item is
 named) and Lean's answer is shown. A harness self-test first checks that
@@ -41,7 +45,7 @@ LIMIT = 300
 LEAN_FILE = ROOT / "tests/front/defeq-cases.lean"
 GOLDEN = ROOT / "tests/front/defeq.golden"
 
-FVARS = set("mzskxabpgjecuvwi")
+FVARS = set("mzskxabpgjecuvwid")
 MVARS = {"?n": "n", "?h": "h", "?f": "f", "?q": "q", "?r": "r", "?t": "t", "?y": "y", "?o": "o"}
 LAM, LET, PROJ, SORT, PI, LIT = "lam", "let", "proj", "sort", "pi", "lit"
 
@@ -219,11 +223,29 @@ CASES = [
     # A constructor short of its arguments; a proof argument skipped.
     ("eq", "p", apps(PROD_MK, NAT, NAT, "a"), None),
     ("eq", apps("i", "e"), apps("i", (PROJ, 0, "p")), None),
+    # The stuck signal (S1 §2): two heads neither side assigns
+    # (ExprDefEq.lean:2118); a stuck metavariable of an outer depth in
+    # isDefEqOnFailure (2182), raised only one depth deeper; caught by
+    # isDefEqAppFallback when a late case (unit-like) answers true; a level
+    # metavariable of an outer depth (LevelDefEq.lean:169); isDefEqGuarded.
+    ("stuck", "?o", "k", None),
+    ("eq", "?o", "k", None),
+    ("dstuck", "?n", "k", None),
+    ("guard", "?o", "k", None),
+    ("stuck", apps(REC, MOTIVE, "z", STEP, "?o"), "k", None),
+    ("dstuck", apps(REC, MOTIVE, "z", STEP, "?o"), "k", None),
+    ("dstuck", apps("d", "k"), apps(REC, lam(PUNIT), UNIT, lam(lam("#0", PUNIT)), "?o"), None),
+    ("eq", apps("d", "k"), apps(REC, lam(PUNIT), UNIT, lam(lam("#0", PUNIT)), "?o"), None),
+    ("dstuck", apps("u", "k"), apps(REC, MOTIVE, "z", STEP, "?o"), None),
+    ("deep", (SORT, "u"), (SORT, 1), None),
+    ("dstuck", (SORT, "u"), (SORT, 1), None),
+    ("dstuck", (SORT, "u"), (SORT, "u"), None),
+    ("stuck", (SORT, "u"), (SORT, 1), None),
 ]
 
 
-LEAN_LEVELS = {0: "Level.zero", 1: "Level.one", 2: "(mkLevelSucc Level.one)"}
-FORTH_LEVELS = {0: "l0", 1: "lv1", 2: "lv2"}
+LEAN_LEVELS = {0: "Level.zero", 1: "Level.one", 2: "(mkLevelSucc Level.one)", "u": "lu"}
+FORTH_LEVELS = {0: "l0", 1: "lv1", 2: "lv2", "u": "lvu"}
 
 
 class Failure(Exception):
@@ -310,10 +332,23 @@ def answer (t s : Expr) (go : MetaM Bool) : MetaM Unit := do
       IO.println s!"true {← sx (← instantiateMVars t)} {← sx (← instantiateMVars s)}"
     else
       IO.println "false"
-  catch _ => IO.println "error"
+  catch ex =>
+    match ex with
+    | .internal id _ => IO.println (if id == isDefEqStuckExceptionId then "stuck" else "error")
+    | _ => IO.println "error"
   saved.restore
 
 def eqCase (t s : Expr) : MetaM Unit := answer t s (isDefEq t s)
+
+def stuckCase (t s : Expr) : MetaM Unit :=
+  answer t s (withConfig (fun c => { c with isDefEqStuckEx := true }) (isDefEq t s))
+
+def dstuckCase (t s : Expr) : MetaM Unit :=
+  answer t s (withNewMCtxDepth (withConfig (fun c => { c with isDefEqStuckEx := true })
+    (isDefEq t s)))
+
+def guardCase (t s : Expr) : MetaM Unit :=
+  answer t s (withConfig (fun c => { c with isDefEqStuckEx := true }) (isDefEqGuarded t s))
 
 def metaCase (t s : Expr) : MetaM Unit :=
   answer t s (withConfig (fun c => { c with foApprox := false, ctxApprox := false }) (isDefEq t s))
@@ -360,7 +395,9 @@ LEAN_SETUP = """run_meta do
   withLocalDeclD `w (mkConst ``PUnit [Level.one]) fun w => do
   withLocalDeclD `i (mkForall `y .default eqab nat) fun i => do
   let o ← mkFreshExprMVar nat (kind := .syntheticOpaque) (userName := `o)
-  let _ := (m, z, k, x, p, g, n, h, q, r, t, y, j, e, c, u, v, w, i, o)
+  withLocalDeclD `d (mkForall `y .default nat (mkConst ``PUnit [Level.one])) fun d => do
+  let lu ← mkFreshLevelMVar
+  let _ := (m, z, k, x, p, g, n, h, q, r, t, y, j, e, c, u, v, w, i, o, d, lu)
 """
 
 

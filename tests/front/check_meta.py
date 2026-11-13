@@ -462,7 +462,7 @@ def forth_level_case(lhs, rhs, readonly):
     inner = [c for c in names if c not in readonly]
     index = {c: i for i, c in enumerate(outer + inner)}
     make = " ".join(f"char {c} add-mv" for c in outer)
-    make += " lf-mctx-deeper " + " ".join(f"char {c} add-mv" for c in inner)
+    make += " deeper " + " ".join(f"char {c} add-mv" for c in inner)
     return (f"level-case {make} {level_forth(level_parse(lhs), index)} "
             f"{level_forth(level_parse(rhs), index)} level-run")
 

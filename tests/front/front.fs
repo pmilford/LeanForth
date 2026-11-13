@@ -213,9 +213,12 @@ T{ mc lf-instantiate-mvars swap lf-term-first@ -> outcome-ok prop }T
 mv-opaque new constant goal
 T{ goal lf-mvar-assignable? -> false }T
 mv-synthetic new constant inst
-T{ inst lf-mvar-assignable? lf-mctx-deeper inst lf-mvar-assignable? -> true false }T
-T{ lf-mctx-depth mv-natural new lf-mvar-assignable? -> 1 true }T
-T{ lf-mctx-shallower lf-mctx-shallower lf-mctx-depth inst lf-mvar-assignable? -> 0 true }T
+variable dscope
+T{ inst lf-mvar-assignable? false lf-mctx-depth{ swap dscope ! inst lf-mvar-assignable?
+   -> true outcome-ok false }T
+T{ lf-mctx-depth lf-mctx-level-depth mv-natural new lf-mvar-assignable? -> 1 1 true }T
+T{ dscope @ }lf-mctx-depth lf-mctx-depth lf-mctx-level-depth inst lf-mvar-assignable?
+   -> outcome-ok 0 0 true }T
 T{ goal prop lf-mvar-assign goal lf-mvar-value -> outcome-ok prop true }T
 \ Stale leaves: after a reset none of them is live or assignable.
 T{ lf-mctx-reset m1 lf-mvar-live? ma lf-mvar-live? ma prop lf-mvar-assign
@@ -258,8 +261,23 @@ T{ lf-mctx-reset u lf-level-mvar-live? u one lf-level-mvar-assign -> false outco
 \ A level metavariable's depth is the context's when it was made; a stale
 \ leaf, a level that is no metavariable or not in the store has -1.
 T{ u lf-level-mvar-depth one lf-level-mvar-depth 99999 lf-level-mvar-depth -> -1 -1 -1 }T
-T{ lf-level-mvar-new drop lf-mctx-deeper lf-level-mvar-new drop lf-mctx-shallower
-   lf-level-mvar-depth swap lf-level-mvar-depth -> 1 0 }T
+T{ lf-level-mvar-new drop true lf-mctx-depth{ drop dscope ! lf-level-mvar-new drop
+   dscope @ }lf-mctx-depth drop lf-level-mvar-depth swap lf-level-mvar-depth -> 1 0 }T
+\ levelAssignDepth (Lean's incDepth): kept by a depth dscope that allows
+\ level assignments, else the new depth; an outer level metavariable is
+\ then assignable, or not; both depths come back at the dscope's end.
+lf-level-mvar-new drop constant lu0
+T{ true lf-mctx-depth{ drop dscope ! lf-mctx-level-depth lu0 lf-level-assignable-mvar?
+   -> 0 true outcome-ok }T
+variable scope2
+T{ false lf-mctx-depth{ drop scope2 ! lf-mctx-level-depth lu0 lf-level-assignable-mvar?
+   -> 2 false outcome-ok }T
+\ The outer dscope while the inner is open, or a depth dscope closed as a
+\ mark, is refused; in order, each closes.
+T{ dscope @ }lf-mctx-depth scope2 @ lf-mctx-rollback scope2 @ lf-mctx-commit
+   -> outcome-invalid outcome-invalid outcome-invalid }T
+T{ scope2 @ }lf-mctx-depth dscope @ }lf-mctx-depth lf-mctx-depth lf-mctx-level-depth
+   -> outcome-ok outcome-ok 0 0 }T
 \ With the level store sharing by content, a new level metavariable of the
 \ same number is another leaf (another epoch), and the old one stays stale.
 true lf-term-sharing! lf-mctx-reset
@@ -556,6 +574,56 @@ T{ lf-mctx-reset mark dup mark-out ! lf-mctx-rollback lf-mctx-reset mark
    mark-out @ lf-mctx-commit swap lf-mctx-commit -> outcome-ok outcome-invalid outcome-ok }T
 \ lf-mctx-latest: the latest open mark, 0 when none is open.
 T{ lf-mctx-latest mark dup lf-mctx-latest = swap lf-mctx-rollback -> 0 true outcome-ok }T
+
+\ Snapshots and switches (S1 §3, Lean's getMCtx and setMCtx): a tree of
+\ states in one dscope; a switch leaves exactly the target's changes
+\ (assignments, a kind, a delayed assignment's three fields), back and
+\ forth; snapshots of a closed dscope, an outer one while an inner dscope
+\ is open (except the inner's entry), 0 or none are refused.
+lf-mctx-reset
+lnew constant la  lnew constant lb
+mv-natural new constant t1  mv-natural new constant t2  mv-natural new constant t3
+variable s0  variable s1  variable s2  variable sc  variable inner
+: snap ( -- snap ) lf-mctx-snapshot ok? 0= abort" snap" ;
+: kind@ ( mvar -- kind ) lf-mvar-kind drop ;
+: delayed? ( mvar -- flag ) lf-mvar-delayed dup if nip nip nip then ;
+: pending ( mvar -- pending n ) lf-mvar-delayed drop nip ;
+T{ lf-mctx-snapshot 0 lf-mctx-switch -> 0 outcome-invalid outcome-invalid }T
+T{ mark sc ! snap s0 ! t1 prop lf-mvar-assign la one lf-level-mvar-assign
+   t3 mv-synthetic lf-mvar-kind! -> outcome-ok outcome-ok outcome-ok }T
+T{ snap s1 ! s0 @ lf-mctx-switch t1 tfree? la lfree? t3 kind@ -> outcome-ok true true mv-natural }T
+T{ t2 t3 0 lf-mvar-delay lb one lf-level-mvar-assign snap s2 ! -> outcome-ok outcome-ok }T
+T{ s1 @ lf-mctx-switch t1 tfree? la lfree? t3 kind@ t2 delayed? lb lfree?
+   -> outcome-ok false false mv-synthetic false true }T
+T{ s2 @ lf-mctx-switch t1 tfree? la lfree? t3 kind@ t2 pending lb lfree?
+   -> outcome-ok true true mv-natural t3 0 false }T
+T{ s2 @ lf-mctx-switch s1 @ lf-mctx-switch s1 @ lf-mctx-switch t1 tfree? t2 delayed?
+   mv-trail slab-count -> outcome-ok outcome-ok outcome-ok false false 7 }T
+\ An inner dscope: an outer snapshot is no target, the inner's entry is;
+\ after the inner commit its snapshots are stale, the outer's are not.
+T{ mark inner ! snap s0 ! s2 @ lf-mctx-switch -> outcome-invalid }T
+T{ t2 prop lf-mvar-assign s0 @ lf-mctx-switch t2 tfree? t1 tfree? -> outcome-ok outcome-ok true false }T
+T{ inner @ lf-mctx-commit s0 @ lf-mctx-switch s2 @ lf-mctx-switch t1 tfree? t2 delayed?
+   -> outcome-ok outcome-invalid outcome-ok true true }T
+\ Rolling the dscope back undoes every branch from wherever it stands; its
+\ snapshots are stale and the trail is empty.
+T{ sc @ lf-mctx-rollback t1 tfree? la lfree? lb lfree? t3 kind@ t2 delayed? mv-trail slab-count
+   -> outcome-ok true true true mv-natural false 0 }T
+T{ s1 @ lf-mctx-switch s2 @ lf-mctx-switch -> outcome-invalid outcome-invalid }T
+\ A depth dscope keeps snapshots like a mark; at its end all is rolled back.
+T{ false lf-mctx-depth{ drop sc ! snap s0 ! lb one lf-level-mvar-assign t1 prop lf-mvar-assign
+   -> outcome-ok outcome-ok }T
+T{ snap s1 ! s0 @ lf-mctx-switch t1 tfree? s1 @ lf-mctx-switch t1 tfree?
+   -> outcome-ok true outcome-ok false }T
+T{ sc @ }lf-mctx-depth t1 tfree? lb lfree? lf-mctx-depth -> outcome-ok true true 0 }T
+\ A handle that names no live snapshot (review s1-meta-a M3): mark M,
+\ snapshot a, inner mark I, snapshot b, I committed (b dropped), snapshot
+\ c, t1 assigned. Neither b nor M (a mark) switches to the snapshot next
+\ to it (c, a): both invalid, t1 still assigned.
+T{ mark sc ! snap s0 ! mark inner ! snap s1 ! inner @ lf-mctx-commit snap s2 !
+   t1 prop lf-mvar-assign -> outcome-ok outcome-ok }T
+T{ s1 @ lf-mctx-switch sc @ lf-mctx-switch t1 tfree? -> outcome-invalid outcome-invalid false }T
+T{ s2 @ lf-mctx-switch t1 tfree? sc @ lf-mctx-rollback t1 tfree? -> outcome-ok true outcome-ok true }T
 lf-mctx-reset
 
 \ A stale value: one the term store gave back after it was assigned (rolled

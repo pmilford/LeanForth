@@ -69,6 +69,7 @@ require ./present/proof-outline.fs
 \ its own local context, the goal list and their text (plan FE1g-1).
 require ./front/level-map.fs
 require ./front/mvars.fs
+require ./front/meta-config.fs
 require ./front/level-defeq.fs
 require ./front/instantiate.fs
 require ./front/level-simp.fs

@@ -9,6 +9,7 @@ require ../../src/main.fs
 require ../../src/front/level-defeq.fs
 require ../../src/front/instantiate.fs
 require ../../src/front/level-params.fs
+require ./depth.fs
 
 lf-author-begin lf-mctx-reset
 : lnew ( -- level ) lf-level-mvar-new ok? 0= abort" level mvar" ;
@@ -76,7 +77,7 @@ T{ zero li lsucc lf-meta-level-defeq -> false outcome-ok }T
 \ ---- Depth (Lean's isReadOnly and isMVarWithGreaterDepth). A level
 \ metavariable made outside is read-only inside a deeper context.
 lf-mctx-reset lnew constant lout
-lf-mctx-deeper lnew constant inner
+deeper lnew constant inner
 T{ lout one lf-meta-level-defeq lout lfree? -> false outcome-ok true }T
 \ Two metavariables: the deeper one is assigned the other.
 T{ lout inner lf-meta-level-defeq inner lval lout lfree? -> true outcome-ok lout true }T
@@ -85,15 +86,15 @@ T{ lout inner lf-meta-level-defeq inner lval lout lfree? -> true outcome-ok lout
 lnew constant p
 T{ p lsucc lout lf-meta-level-defeq p lfree? -> false outcome-unsupported true }T
 \ Neither side assignable: false.
-lf-mctx-shallower lnew lf-mctx-deeper constant q
+shallower lnew deeper constant q
 T{ lout lsucc q lf-meta-level-defeq q lfree? -> false outcome-ok true }T
 \ At depth 0 ?q is free: ?q := ?lout + 1.
-lf-mctx-shallower
+shallower
 T{ lout lsucc q lf-meta-level-defeq q lval ld-pred lout lfree?
    -> true outcome-ok lout true }T
 \ Back at depth 0, ?o =?= ?d with ?d made at depth 1: Lean assigns the
 \ deeper one, ?d := ?o (isMVarWithGreaterDepth), not ?o := ?d.
-lnew constant lo  lf-mctx-deeper lnew constant ldp  lf-mctx-shallower
+lnew constant lo  deeper lnew constant ldp  shallower
 T{ lo ldp lf-meta-level-defeq ldp lval lo lfree? -> true outcome-ok lo true }T
 
 \ ---- max and imax: both sides normalized first (Level.normalize), so
@@ -131,9 +132,19 @@ T{ me u me lf-level-imax drop lf-meta-level-defeq me lfree? -> false outcome-uns
 T{ me lsucc u lsucc v lsucc lmax lf-meta-level-defeq me lfree?
    -> false outcome-unsupported true }T
 T{ u me lmax u v lmax lf-meta-level-defeq -> false outcome-unsupported }T
-lf-mctx-deeper
+deeper
 T{ u me lmax u v lmax lf-meta-level-defeq -> false outcome-ok }T
-lf-mctx-shallower
+shallower
+\ Under isDefEqStuckEx (LevelDefEq.lean:169) a stuck pair with a
+\ metavariable side (?e, read-only one depth deeper) raises the stuck
+\ signal; Sort u =?= Sort v, no metavariable on either side, stays false
+\ (review s1-meta-a M2).
+lf-defeq-stuck lf-defeq-flags!
+T{ u v lf-meta-level-defeq -> false outcome-ok }T
+deeper
+T{ me v lf-meta-level-defeq -> false lf-meta-stuck }T
+shallower
+lf-meta-default lf-defeq-flags!
 \ A stale metavariable inside a max: invalid.
 lnew constant mold
 lf-mctx-reset

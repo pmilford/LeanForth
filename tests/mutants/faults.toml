@@ -10533,7 +10533,7 @@ reason = "5.5.1: a mutant copy keeps its original's body, so the checks of chang
 [[fault]]
 id = "fe-level-read-only-ignored"
 file = "src/front/level-defeq.fs"
-old = ''': ld-read-only? ( mvar -- flag ) ld-depth lf-mctx-depth < ;'''
+old = ''': ld-read-only? ( mvar -- flag ) ld-depth lf-mctx-level-depth < ;'''
 new = ''': ld-read-only? ( mvar -- flag ) drop false ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: a level metavariable of an outer depth is assigned inside a deeper one (Lean's isReadOnly)"
@@ -12150,24 +12150,24 @@ reason = "FE1c review L4: level equality whose pair stack the heap cannot grow a
 [[fault]]
 id = "fe-mctx-rollback-keeps"
 file = "src/front/mvars.fs"
-old = ''': mv-restore ( addr -- ) dup mvt-old @ swap mvt-entry @ mv-cell ! ;'''
-new = ''': mv-restore ( addr -- ) drop ;'''
+old = ''': mv-undo ( i -- ) mvt dup mvt-old @ over mvt-entry @ mv-cell ! mvt-parent @ mv-at! ;'''
+new = ''': mv-undo ( i -- ) mv-parent mv-at! ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1c tidy-up c: a rollback leaves the assignments made since its mark, where Lean's checkpointDefEq restores the metavariable context"
 
 [[fault]]
 id = "fe-mctx-mark-unnoted"
 file = "src/front/mvars.fs"
-old = '''  lf-mctx-marks 0= if 2drop outcome-ok exit then swap 3 lshift or mv-trail-put ;'''
-new = '''  2drop outcome-ok ;'''
+old = '''  mv-entry lf-mctx-marks 0= if mv-cell ! outcome-ok exit then'''
+new = '''  mv-entry mv-cell ! outcome-ok exit'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1c tidy-up c: assignments under a mark are not noted, so no rollback can undo them"
 
 [[fault]]
 id = "fe-mctx-commit-clears"
 file = "src/front/mvars.fs"
-old = '''  mv-latest? 0= if outcome-invalid exit then mv-unmark outcome-ok ;'''
-new = '''  mv-latest? 0= if outcome-invalid exit then mv-unmark mv-trail slab-clear outcome-ok ;'''
+old = '''  mv-plain mv-scope? 0= if outcome-invalid exit then mv-close outcome-ok ;'''
+new = '''  mv-plain mv-scope? 0= if outcome-invalid exit then mv-close mv-trail slab-clear -1 mv-at! outcome-ok ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1c tidy-up c: an inner commit forgets its assignments, so the outer rollback cannot undo them"
 
@@ -12262,7 +12262,7 @@ reason = "FE1c: a stale level metavariable inside a max is compared (false) inst
 [[fault]]
 id = "fe-level-open-read-only"
 file = "src/front/mvars.fs"
-old = '''  dup lf-level-mvar-live? if lf-level-mvar-depth lf-mctx-depth < 0= else drop false then ;'''
+old = '''  dup lf-level-mvar-live? if mvl-depth-open? else drop false then ;'''
 new = '''  lf-level-mvar-live? ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: hasAssignableLevelMVar counts a read-only metavariable, so a pair Lean answers false is postponed (unsupported)"
@@ -12310,8 +12310,8 @@ reason = "FE1c tidy-up d: instantiateMVars runs with no spine table when the hea
 [[fault]]
 id = "fe-mctx-any-mark"
 file = "src/front/mvars.fs"
-old = ''': mv-latest? ( mark -- flag ) lf-mctx-marks if mv-latest cell+ @ = else drop false then ;'''
-new = ''': mv-latest? ( mark -- flag ) drop lf-mctx-marks 0> ;'''
+old = '''  lf-mctx-marks if mv-latest mvs-serial @ = else drop false then ;'''
+new = '''  drop lf-mctx-marks 0> ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1c review of fe1c-lnorm L1: a stale or out-of-order rollback (an inner mark again after its commit) undoes the wrong assignments and closes the outer mark"
 
@@ -12590,8 +12590,8 @@ reason = "re-check of fe1c-lnorm R1: a pending value beyond the memo is read fro
 [[fault]]
 id = "fe-mctx-reset-serial"
 file = "src/front/mvars.fs"
-old = '''  0 mctx mctx-depth ! lf-views-reset lf-view-empty lf-mctx-view! ;'''
-new = '''  0 mctx mctx-depth ! 0 mctx mctx-serial ! lf-views-reset lf-view-empty lf-mctx-view! ;'''
+old = '''  mctx-epoch@ 1+ mv-epoch-mask and mctx mctx-epoch !'''
+new = '''  mctx-epoch@ 1+ mv-epoch-mask and mctx mctx-epoch ! 0 mctx mctx-serial !'''
 test = "$GFORTH tests/front/front.fs"
 reason = "re-check of fe1c-lnorm R2: lf-mctx-reset starts the serials again, so a mark from before the reset closes the first mark after it"
 
@@ -12977,8 +12977,8 @@ reason = "FE1c: getUnfoldableConst? gives a theorem, which Lean never unfolds th
 [[fault]]
 id = "fe-env-ndrec-forgotten"
 file = "src/front/meta-env.fs"
-old = '''  dup me-decl? if dup me-ndrec? if drop true outcome-ok exit then then me-defn-fact ;'''
-new = '''  me-defn-fact ;'''
+old = '''  dup me-decl? if dup me-ndrec? if drop true outcome-ok exit then then'''
+new = '''  '''
 test = "$GFORTH tests/front/meta-env.fs"
 reason = "FE1c: Eq.ndrec, which Lean's isAuxRecursor names itself, answers unsupported"
 
@@ -14221,8 +14221,8 @@ reason = "FE1c: checkpointDefEq keeps the assignments of a false answer (Prod.mk
 [[fault]]
 id = "fe-defeq-fuel-unspent"
 file = "src/front/defeq.fs"
-old = '''  df df-fuel @ dup 0> if 1- df df-fuel ! true exit then'''
-new = '''  true exit'''
+old = ''': de-fuel? ( -- flag ) df df-fuel @ dup 0> if 1- df df-fuel ! true else drop false then ;'''
+new = ''': de-fuel? ( -- flag ) true ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c: no comparison spends fuel, so a call never answers exhausted"
 
@@ -14237,8 +14237,8 @@ reason = "FE1c: a failed call leaves its marks open and its assignments made (un
 [[fault]]
 id = "fe-defeq-depth-kept"
 file = "src/front/defeq.fs"
-old = ''': de-resume ( -- ) de-pop if lf-mctx-shallower then df df-result @ swap execute ;'''
-new = ''': de-resume ( -- ) de-pop drop df df-result @ swap execute ;'''
+old = '''  ?dup 0= if true exit then }lf-mctx-depth dup ok? if drop true else de-abort false then ;'''
+new = '''  drop true ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c: withNewMCtxDepth (isDefEqOffset's ifNatExpr) never leaves its depth"
 
@@ -14533,8 +14533,8 @@ reason = "FE1c review M2: getFunInfo's telescope leaves its free variables in th
 [[fault]]
 id = "fe-defeq-nat-check-same-depth"
 file = "src/front/defeq.fs"
-old = ''': de-deeper ( -- ) de-aborted? if exit then true de-frame de-regs + ! lf-mctx-deeper ;'''
-new = ''': de-deeper ( -- ) ;'''
+old = '''  false lf-mctx-depth{ de-must if de-frame fr-scope ! else drop then ;'''
+new = '''  ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c review M3: ifNatExpr's Nat test at the caller's depth"
 equivalent = "ifNatExpr tests the type of t, which isDefEqOffset reaches only as a literal or a Nat.succ application (whnfCore answers unsupported for an addition, plan FE1d2): its type is Nat, with no metavariable to assign"
@@ -14562,7 +14562,7 @@ reason = "FE1g-1: a push onto a run that does not end at the top appends there, 
 [[fault]]
 id = "fe-goal-tag-untrailed"
 file = "src/front/mvars.fs"
-old = '''  swap mv-number dup mv-decl mvd-tag swap mv-was-tag mv-store ;'''
+old = '''  swap mv-number mv-was-tag mv-change ;'''
 new = '''  swap mv-number mv-decl mvd-tag ! outcome-ok ;'''
 test = "$GFORTH tests/front/goals.fs"
 reason = "FE1g-1: a tag set under a mark is not noted, so a rollback keeps it (Lean's saved state restores it)"
@@ -14570,7 +14570,7 @@ reason = "FE1g-1: a tag set under a mark is not noted, so a rollback keeps it (L
 [[fault]]
 id = "fe-goal-kind-untrailed"
 file = "src/front/mvars.fs"
-old = '''  swap mv-number dup mv-decl mvd-kind swap mv-was-kind mv-store ;'''
+old = '''  swap mv-number mv-was-kind mv-change ;'''
 new = '''  swap mv-number mv-decl mvd-kind ! outcome-ok ;'''
 test = "$GFORTH tests/front/goals.fs"
 reason = "FE1g-1: a kind changed under a mark is not noted, so a rollback keeps it"
@@ -15084,8 +15084,8 @@ reason = "FE1g-4 review fe1g3 L10: a message's printing that throws leaves the p
 [[fault]]
 id = "fe-tac-defeq-settings-kept"
 file = "src/front/tactic-basic.fs"
-old = '''  lf-defeq-flags lf-defeq-mode 2>r ['] lfb-elab-defeq catch 2r> lfb-defeq-set! throw ;'''
-new = '''  lfb-elab-defeq ;'''
+old = '''  lf-defeq-flags lf-defeq-mode 2>r ['] lfb-elab-defeq catch 2r> lfb-defeq-set! throw'''
+new = '''  lfb-elab-defeq'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 review fe1g3 L10: the tactics' isDefEq leaves defeq's configuration and mode set to the elaborator's"
 
@@ -15177,3 +15177,217 @@ old = '''    if not contract["cases"]:   # review M3: post would be True'''
 new = '''    if False:   # review M3: post would be True'''
 test = "python3 tests/program/vc_check.py"
 reason = "M3: a contract with no case gives post := True and is discharged for any word"
+
+# --- S1 merge A: the undo trail, the stuck signal, whnf (branch s1-meta) ---
+
+[[fault]]
+id = "fe-trail-no-redo"
+file = "src/front/mvars.fs"
+old = ''': mv-redo-all ( -- ) begin mv-redos slab-count while mv-redo-pop mv-redo repeat ;'''
+new = ''': mv-redo-all ( -- ) mv-redos slab-clear ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "S1 §3: a switch undoes to the common ancestor but never redoes the target's records"
+
+[[fault]]
+id = "fe-trail-no-undo"
+file = "src/front/mvars.fs"
+old = '''  ok-then? if mv-back-to mv-redo-all outcome-ok then ;'''
+new = '''  ok-then? if drop mv-redo-all outcome-ok then ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "S1 §3: a switch keeps the current branch's changes and adds the target's"
+
+[[fault]]
+id = "fe-trail-snaps-kept"
+file = "src/front/mvars.fs"
+old = '''  mv-latest mvs-snaps @ mv-snaps mv-cut -1 mv-marks slab-commit'''
+new = '''  -1 mv-marks slab-commit'''
+test = "$GFORTH tests/front/front.fs"
+reason = "S1 §3: a closed scope's snapshots stay valid targets (stale snapshots must be refused)"
+
+[[fault]]
+id = "fe-trail-outer-target"
+file = "src/front/mvars.fs"
+old = '''  dup mv-latest mvs-entry @ = swap mv-latest mvs-length @ < 0= or ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "S1 §3: a snapshot outside the innermost open scope is switched to (Lean switches only inside its scope)"
+
+[[fault]]
+id = "fe-trail-snap-outside"
+file = "src/front/mvars.fs"
+old = '''  lf-mctx-marks if mv-snap-new else 0 outcome-invalid then ;'''
+new = '''  mv-snap-new ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "S1 §3: a snapshot is taken with no scope open (getMCtx outside a scope)"
+
+[[fault]]
+id = "fe-trail-delay-partial"
+file = "src/front/mvars.fs"
+old = '''  >r 2dup r@ mv-delayable? r> swap if 3 mv-trail-room else outcome-invalid then ;'''
+new = '''  >r 2dup r@ mv-delayable? r> swap if outcome-ok else outcome-invalid then ;'''
+test = "$GFORTH tests/front/meta-heap.fs"
+reason = "S1 §3: a delayed assignment's three records claimed one by one: a full trail leaves a part noted"
+
+[[fault]]
+id = "fe-trail-depth-levels"
+file = "src/front/mvars.fs"
+old = '''  lf-mctx-depth 1+ tuck swap if drop lf-mctx-level-depth then mv-depths! ;'''
+new = '''  lf-mctx-depth 1+ nip dup mv-depths! ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "S1 appendix D: withNewMCtxDepth (allowLevelAssignments := true) does not keep levelAssignDepth"
+
+[[fault]]
+id = "fe-trail-depth-not-rolled"
+file = "src/front/mvars.fs"
+old = '''  mv-undo-scope mv-depths-back mv-close outcome-ok ;'''
+new = '''  mv-depths-back mv-close outcome-ok ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "S1 §3: a depth scope's end keeps what was assigned inside (Lean's withNewMCtxDepth restores the context)"
+
+[[fault]]
+id = "fe-stuck-no-catch"
+file = "src/front/defeq.fs"
+old = '''  if ['] de-fb-stuck else ['] de-fb-late then de-then de-t de-s ['] de-late de-invoke ;'''
+new = '''  if lf-meta-stuck de-abort exit then ['] de-fb-late de-then de-t de-s ['] de-late de-invoke ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "S1 §2: isDefEqAppFallback does not catch isDefEqOnFailure's stuck signal (a unit-like late case answers true in Lean)"
+
+[[fault]]
+id = "fe-stuck-guard-passes"
+file = "src/front/defeq.fs"
+old = '''  lf-meta-defeq dup lf-meta-stuck = if 2drop false outcome-ok then ;'''
+new = '''  lf-meta-defeq ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "S1 §2: isDefEqGuarded passes the stuck signal on instead of answering false"
+
+[[fault]]
+id = "fe-stuck-level-false"
+file = "src/front/level-defeq.fs"
+old = '''  2dup ld-mvar-side? lf-defeq-stuck lf-meta-flag? and
+  if lf-meta-stuck ld-end else ld-no then ;'''
+new = '''  ld-no ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "S1 §2: a stuck level pair with a metavariable answers false under isDefEqStuckEx (LevelDefEq.lean:169 throws)"
+
+[[fault]]
+id = "fe-stuck-depth-ignored"
+file = "src/front/defeq.fs"
+old = ''': de-older? ( mvar -- flag ) lf-mvar-depth if lf-mctx-depth < else false then ;'''
+new = ''': de-older? ( mvar -- flag ) drop true ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
+reason = "S1 §2: isDefEqOnFailure raises the stuck signal for a metavariable of the current depth (Lean: only an outer one, ExprDefEq.lean:2181)"
+
+[[fault]]
+id = "fe-stuck-unsupported"
+file = "src/front/defeq.fs"
+old = '''  lf-defeq-stuck de-flag? if lf-meta-stuck de-abort else lf-lb-false de-return then ;'''
+new = '''  lf-defeq-stuck de-flag? if outcome-unsupported de-abort else lf-lb-false de-return then ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "S1 §2: two fixed heads under isDefEqStuckEx answer unsupported, not the stuck signal (ExprDefEq.lean:2118)"
+
+[[fault]]
+id = "fe-stuck-marks-kept"
+file = "src/front/defeq.fs"
+old = '''  df df-outcome @ ok? if de-answer else de-unwind false df df-outcome @ then de-leave ;'''
+new = '''  df df-outcome @ dup lf-meta-stuck = if drop false lf-meta-stuck de-leave exit then ok? if de-answer else de-unwind false df df-outcome @ then de-leave ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "S1 §2: the stuck signal leaves its marks open instead of rolling them back"
+
+[[fault]]
+id = "fe-whnf-facts-ignored"
+file = "src/front/whnf.fs"
+old = '''  wc wc-facts @ 0= if drop false exit then'''
+new = '''  drop false exit'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S1 appendix D: whnf refuses every definition head although format 2 says it is no matcher and no auxiliary recursor"
+
+[[fault]]
+id = "fe-whnf-facts-leak"
+file = "src/front/whnf.fs"
+old = ''': lf-whnf-core ( term -- term' outcome ) false wc-core ;'''
+new = ''': lf-whnf-core ( term -- term' outcome ) true wc-core ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S1 appendix D: whnfCore alone (defeq, infer) changes: it asks the facts lf-meta-whnf asks"
+
+[[fault]]
+id = "fe-whnf-no-delta-check"
+file = "src/front/whnf.fs"
+old = '''  if 2drop outcome-unsupported else wm-firm then ;'''
+new = '''  if 2drop outcome-ok else wm-firm then ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S1 appendix D: a definition the transparency unfolds is answered as whnf's result (a guess: unfoldDefinition? would act)"
+
+[[fault]]
+id = "fe-whnf-nat-folded"
+file = "src/front/whnf.fs"
+old = '''  dup lf-meta-args# 1 3 within over ['] lf-menv-nat-name? wm-head-named? and'''
+new = '''  drop false exit'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S1 appendix D: Nat.succ 2 is whnf's result (reduceNat? folds it to 3)"
+
+[[fault]]
+id = "fe-whnf-mode-kept"
+file = "src/front/whnf.fs"
+old = '''  lf-defeq-mode swap lf-defeq-mode! swap lf-meta-whnf rot lf-defeq-mode! ;'''
+new = '''  lf-defeq-mode swap lf-defeq-mode! swap lf-meta-whnf rot drop ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S1 appendix D: whnfR leaves the transparency reducible (Lean's withTransparency restores it)"
+
+[[fault]]
+id = "fe-whnf-forall-no-whnf"
+file = "src/front/whnf.fs"
+old = '''  dup wm-pi? if outcome-ok exit then
+  lf-meta-whnf ok-then? if wm-to-pi else no-result then ;'''
+new = '''  wm-to-pi ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S1 appendix D: instantiateForall refuses a type that is a pi only after whnf"
+
+[[fault]]
+id = "fe-whnf-budget-free"
+file = "src/front/whnf.fs"
+old = '''  lf-meta-spend? 0= if drop -1 outcome-exhausted exit then'''
+new = ''''''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "S1 §8: whnf spends none of the declaration's budget"
+
+# --- s1-meta merge A review (2026-11-13): the reviewer's surviving faults
+
+[[fault]]
+id = "fe-meta-stuck-hints-run"
+file = "src/front/defeq.fs"
+old = '''  de-stuck-either dup de-aborted? or if exit then de-t de-hints de-s de-hints ;'''
+new = '''  de-stuck-either de-t de-hints de-s de-hints ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "s1-meta-a M1: unification hints run after a stuck signal (Lean's throw skips them)"
+
+[[fault]]
+id = "fe-meta-level-stuck-no-mvar"
+file = "src/front/level-defeq.fs"
+old = '''  2dup ld-mvar-side? lf-defeq-stuck lf-meta-flag? and'''
+new = '''  lf-defeq-stuck lf-meta-flag?'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "s1-meta-a M2: the stuck signal raised for a level pair with no metavariable side"
+
+[[fault]]
+id = "fe-meta-snap-hit-neighbour"
+file = "src/front/mvars.fs"
+old = '''  dup mv-snaps slab-count < if mvp mvp-serial @ = else 2drop false then ;'''
+new = '''  nip mv-snaps slab-count < ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "s1-meta-a M3: a handle that names no live snapshot switches to the next one"
+
+[[fault]]
+id = "fe-meta-depth-full-deepens"
+file = "src/front/mvars.fs"
+old = '''  mv-deep mv-open ok-then? if swap mv-deeper outcome-ok else nip 0 swap then ;'''
+new = '''  >r mv-deep mv-open r> mv-deeper ;'''
+test = "$GFORTH tests/front/meta-heap.fs"
+reason = "s1-meta-a L1: a depth scope refused for room still goes one depth deeper"
+
+[[fault]]
+id = "fe-meta-forall-negative"
+file = "src/front/whnf.fs"
+old = '''  dup 0< if drop 2drop outcome-invalid no-result exit then'''
+new = ''''''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "s1-meta-a L4: a negative count runs ?do .. +loop through memory"

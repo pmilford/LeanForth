@@ -944,7 +944,7 @@ test: test-author
 test-front:
 	@for m in src/front/syntax.fs src/front/dag-walk.fs src/front/reader.fs src/front/mvars.fs \
 	  src/front/handover.fs src/core/mvar-leaves.fs src/core/reach.fs \
-	  src/front/level-defeq.fs src/front/instantiate.fs \
+  src/front/meta-config.fs src/front/level-defeq.fs src/front/instantiate.fs \
 	  src/front/level-simp.fs src/front/level-params.fs src/front/level-normalize.fs \
 	  src/front/level-map.fs src/front/expr-remap.fs src/front/constructions.fs src/front/ctor-idx.fs \
 	  src/front/cases-several.fs \
