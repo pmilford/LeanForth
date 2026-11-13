@@ -80,7 +80,8 @@ T{ lf-level-count @ -> levels }T
 \ arrays trimmed first so that they grow again: full; the first refusal
 \ not reached gives the plenty answer. n: the refusals a pair reaches.
 : free-arrays ( -- )
-  lf-lnorm-frames frame-free lf-lnorm-arg-cells slab-trim drop lf-lnorm-todo-cells slab-trim drop ;
+  lf-lnorm-frames frame-free
+  lf-lnorm-arg-cells slab-trim drop lf-lnorm-todo-cells slab-trim drop ;
 : refused ( k -- flag outcome reached? )
   free-arrays heap-refusals ! pair 2@ geq heap-refusals @ 0= 0 heap-refusals ! ;
 : refusal-full? ( k -- flag ) refused swap outcome-full = and nip ;

@@ -328,4 +328,9 @@ dq frame-free  1 heap-refusals !
 T{ 0 make-sort 1 redex 0 make-sort 100 fuelled dq lf-defeq-on -> 0 outcome-full }T
 0 heap-refusals !
 dq frame-free
+\ A node that is not in the store (coverage COV2): whnf and whnf_core
+\ refuse it, invalid, no node given.
+: no-node ( -- node ) lf-term-count @ 100 + ;
+T{ no-node whnf no-node core -> -1 outcome-invalid -1 outcome-invalid }T
+dq frame-free
 bye
