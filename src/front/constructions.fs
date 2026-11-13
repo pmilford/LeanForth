@@ -88,6 +88,7 @@ begin-structure /aux
   field: aux-arg                \ the recursor's arguments ( j job -- e outcome )
   field: aux-body               \ the value's body ( job -- e outcome )
   field: aux-ctor               \ the constructor being read (ctorIdx)
+  field: aux-x                  \ the name x (ctorIdx's binder)
   field: aux-main               \ several motives: the type's, from 0
   field: aux-kept               \ the minor premises casesOn keeps
   field: aux-table              \ heap: a renumbering table (expr-remap.fs)

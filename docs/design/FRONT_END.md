@@ -7,8 +7,11 @@ branch `fe1` (Forth review pending):** FE1a, the natural reader
 as not supported yet where elaboration or a tactic would begin; the
 kernel form needs `kernel-form`), and FE1b, the metavariable context
 (`src/front/mvars.fs`, `core/mvar-leaves.fs`), is tested alone (no command
-makes metavariables yet; the export writer refuses any). Nothing else in
-this document is built. It is
+makes metavariables yet; the export writer refuses any). FE1f's hand-over
+(`src/front/handover.fs`: instantiate, refuse a reachable hole, write
+only what the declaration reaches, through the stage to the kernel) is
+tested alone on branch `fe1f`, driven by a stand-in elaborator; FE1d's
+elaboration data is integrated. Nothing else in this document is built. It is
 the design and plan for the half of Lean that LeanForth does not have: the
 part that turns what a person writes into the full proof term the kernel
 checks. The architecture and trust boundary are proposed in
@@ -98,6 +101,7 @@ smallest piece that proves something real: FE1, $0 + n = n$ by induction.
 | Printing a checked statement in LeanForth words, Lean notation and mathematics | integrated (`leanforth print`, plan 8.6.2); the notation table maps `HAdd.hAdd` to `+` for printing only |
 | Holes `_` | refused: error 52, "holes are filled by the elaborator" |
 | Metavariable context (FE1b): metavariables, assignment, occurs check, instantiation | tested alone on branch `fe1` (`tests/front/front.fs`); the beta step and delayed assignments' values answer unsupported until FE1c |
+| Hand-over of an elaborated declaration to the kernel (FE1f) | tested alone on branch `fe1f` (`tests/front/handover.fs`, with a stand-in elaborator): holes instantiated, a reachable hole refused (error 74), an unused universe parameter refused as Lean refuses it (error 75), only the nodes the declaration reaches written, through the stage to the kernel; no user command reaches it before FE1e |
 | Elaborator, unification, implicit arguments, numerals as Lean reads them | not started |
 | Type classes, coercions | not started |
 | Tactics and proof states | not started |
@@ -459,8 +463,9 @@ and `author/`, never `kernel/`):
   with kind, depth, local context, type, assignment and delayed
   assignment; instantiation and abstraction as Lean's `MetavarContext`.
   Metavariables are new leaf kinds in the term and level stores; the export
-  writer refuses any of them (ADR 0021 D2), so the kernel can never receive
-  one.
+  writer refuses any that a declaration it writes reaches (for kernel-form
+  text, any in the stores; ADR 0021 D2), so the kernel can never receive
+  one, and one the elaborator left unused blocks nothing.
 - **Meta-level reduction, type inference and unification**: a port of
   `Meta/WHNF.lean`, `InferType.lean`, `ExprDefEq.lean` and `LevelDefEq.lean`
   with transparency levels, its own caches and fuel. It does not call the
@@ -736,9 +741,29 @@ metavariable assignments (`mvars.fs`, for `checkpointDefEq`) are written
 and tested alone; `make reference-front` compares 155 cases with pinned
 Lean: 153 equal, and two level unifications that need Lean's
 `solveSelfMax` or `decLevel?` of a max (not ported yet) answer
-unsupported. `whnf`, `inferType`, term unification, `Nat` offsets,
-caches and fuel are not started; they need the front end's view of the
-environment, which FE1d's elaboration data completes.
+unsupported. 
+On branch
+`fe1c-2`, written and tested alone: the front end's view of the
+environment (`src/front/meta-env.fs`: a declaration of the loaded
+library by name, its reducibility status from FE1d's elaboration data,
+Lean's `canUnfoldDefault` and `getUnfoldableConst?` under the six
+transparency modes; `tests/front/check_unfold.py` finds 44 declarations
+of an `Init` slice and their 528 unfolding answers equal to pinned
+Lean's) and `whnfCore` with `getStuckMVar?` (`src/front/whnf.fs`: beta,
+zeta, metavariable and let-variable heads, projections and iota on
+constructor applications, parts reduced first, fuel;
+`tests/front/check_whnf.py`: 39 of 48 cases equal,
+9 answer unsupported). Facts Lean's `whnf` asks of definitions --
+matchers, projection functions, auxiliary recursors, `_sunfold`
+definitions -- are not in an export: a definition at the head answers
+unsupported until plan row FE1d2 adds them to the elaboration data.
+`inferType`'s first cases (`src/front/infer.fs`: constants, variables,
+metavariables, sorts, applications of them, lambdas and pis, with Lean's
+`instantiateBetaRevRange` in `src/front/beta-inst.fs`) are written and
+tested alone; 26 of 30 inference cases equal pinned Lean's, two only
+once Lean's metadata (mdata), which the export leaves out, is dropped.
+`whnf` with delta, the rest of `inferType`, term unification, `Nat`
+offsets and caches are not started.
 
 Size: L, eight S–M steps; *speculative* 4,000 to 7,000 lines of Forth
 source and as much in tests. Needs: 8.2.1c and 8.2.1d (branch

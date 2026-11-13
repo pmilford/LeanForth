@@ -277,19 +277,27 @@ defer lf-pf-level-step ( level x frames -- ... frames next )
 : lf-pf-binary ( level frames -- ... frames next )
   >r dup lf-level-tag@ r@ frame-save dup r@ frame-save lf-level-first@
   r> ['] lf-pf-binary-second lf-pf-level ;
-\ The step for a level's tag: a CASE with one arm per tag, read as a table.
+\ The step for a level's tag, from a table filled once while loading
+\ (read-only afterwards); any other tag, or one outside it, is invalid.
 : lf-pf-level-zero ( level frames -- outcome frames 0 ) >r drop s" 0" lf-pf-say r> 0 ;
 : lf-pf-level-param ( level frames -- outcome frames 0 )
   >r lf-level-first@ lf-pf-param r> 0 ;
 \ The step of a visit that cannot print its node (a level or a term): invalid.
 : lf-pf-invalid-step ( x frames -- outcome frames 0 ) >r drop-invalid r> 0 ;
+8 constant lf-pf-level-tags   \ every level tag is below it (core/levels.fs)
+align here lf-pf-level-tags cells allot constant lf-pf-level-steps
+: lf-pf-level-step! ( xt tag -- ) cells lf-pf-level-steps + ! ;
+: lf-pf-levels-invalid ( -- )
+  lf-pf-level-tags 0 do ['] lf-pf-invalid-step i lf-pf-level-step! loop ;
+lf-pf-levels-invalid
+' lf-pf-level-zero lf-level-tag-zero lf-pf-level-step!
+' lf-pf-succ-level lf-level-tag-succ lf-pf-level-step!
+' lf-pf-binary lf-level-tag-max lf-pf-level-step!
+' lf-pf-binary lf-level-tag-imax lf-pf-level-step!
+' lf-pf-level-param lf-level-tag-param lf-pf-level-step!
 : lf-pf-level-by ( tag -- xt )
-  case lf-level-tag-zero of ['] lf-pf-level-zero endof
-    lf-level-tag-succ of ['] lf-pf-succ-level endof
-    lf-level-tag-max of ['] lf-pf-binary endof
-    lf-level-tag-imax of ['] lf-pf-binary endof
-    lf-level-tag-param of ['] lf-pf-level-param endof
-    ['] lf-pf-invalid-step swap endcase ;
+  dup 0 lf-pf-level-tags within if cells lf-pf-level-steps + @ exit then
+  drop ['] lf-pf-invalid-step ;
 : lf-pf-level-node ( level x frames -- ... frames next )
   nip over lf-level-valid?
   if over lf-level-tag@ lf-pf-level-by else ['] lf-pf-invalid-step then execute ;
@@ -465,17 +473,27 @@ defer lf-pf-term-step ( term x frames -- ... frames next )
   lf-pf-mark s" proj# " lf-pp-put swap lf-proj-name lf-pf-put-name lf-pf-unit
   outcome-ok r> 0 ;
 : lf-pf-lam ( lam frames -- ... frames next ) true swap lf-pf-binder ;
-\ The leaves: Sorts, literals, projections; any other tag is invalid.
-: lf-pf-leaf-by ( tag -- xt )
-  case lf-tag-sort of ['] lf-pf-sort-step endof
-    lf-tag-symbolic-sort of ['] lf-pf-symbolic-step endof
-    lf-tag-lit of ['] lf-pf-lit-step endof lf-tag-str of ['] lf-pf-str-step endof
-    lf-tag-proj of ['] lf-pf-proj-step endof ['] lf-pf-invalid-step swap endcase ;
+\ The step for a term's tag, from a table filled once while loading
+\ (read-only afterwards): variables, constants, applications, binders,
+\ Sorts, literals and projections; any other tag, or one outside the
+\ table (term-printer.fs's lf-pp-tags), is invalid.
+align here lf-pp-tags cells allot constant lf-pf-steps
+: lf-pf-step! ( xt tag -- ) cells lf-pf-steps + ! ;
+: lf-pf-steps-invalid ( -- ) lf-pp-tags 0 do ['] lf-pf-invalid-step i lf-pf-step! loop ;
+lf-pf-steps-invalid
+' lf-pf-var-step lf-tag-bvar lf-pf-step!
+' lf-pf-const lf-tag-constant lf-pf-step!
+' lf-pf-app lf-tag-app lf-pf-step!
+' lf-pf-app lf-tag-projection lf-pf-step!
+' lf-pf-lam lf-tag-lam lf-pf-step!
+' lf-pf-pi lf-tag-pi lf-pf-step!
+' lf-pf-sort-step lf-tag-sort lf-pf-step!
+' lf-pf-symbolic-step lf-tag-symbolic-sort lf-pf-step!
+' lf-pf-lit-step lf-tag-lit lf-pf-step!
+' lf-pf-str-step lf-tag-str lf-pf-step!
+' lf-pf-proj-step lf-tag-proj lf-pf-step!
 : lf-pf-node-by ( tag -- xt )
-  case lf-tag-bvar of ['] lf-pf-var-step endof lf-tag-constant of ['] lf-pf-const endof
-    lf-tag-app of ['] lf-pf-app endof lf-tag-projection of ['] lf-pf-app endof
-    lf-tag-lam of ['] lf-pf-lam endof lf-tag-pi of ['] lf-pf-pi endof
-    dup lf-pf-leaf-by swap endcase ;
+  dup 0 lf-pp-tags within if cells lf-pf-steps + @ else drop ['] lf-pf-invalid-step then ;
 : lf-pf-noted-end ( outcome frames -- outcome frames 0 )
   >r r@ frame-restore swap ok-then? if lf-pf-notes then r> 0 ;
 : lf-pf-noted ( term x frames -- ... frames next )

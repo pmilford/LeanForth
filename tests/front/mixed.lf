@@ -1,0 +1,21 @@
+\ A natural declaration, then the kernel form for the rest of the text
+\ (plan row FE1f; tests/front/handover.fs runs it with a stand-in
+\ elaborator, as FE1e's elaborator does not exist yet). The holes the
+\ natural declaration's elaboration left unused block nothing.
+\ Lean: theorem add_zero' (n : Nat) : n + 0 = n := Eq.refl n
+\       theorem imp_self' (p : Prop) (h : p) : p := h
+theorem add_zero'
+  Nat explicit: n
+  n 0 + n =
+:=
+  n Eq.refl
+end add_zero'
+
+kernel-form
+theorem imp_self'
+  Prop explicit: p
+  p explicit: h
+  p
+:=
+  h
+end imp_self'

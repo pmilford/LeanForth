@@ -32,6 +32,7 @@
 \ whatever its length and depth.
 
 require ../lib/lib.fs
+require ../lib/bytes.fs
 require ../core/input.fs
 require ../core/derivation-log.fs
 require ../kernel/environment.fs
@@ -73,11 +74,13 @@ end-structure
 \ last component back, so nothing is copied and no length is limited.
 : pr-part-text ( id -- c-addr u )
   dup lf-name-tag@ lf-name-tag-str = if lf-name-text else lf-name-payload lf-pp-digits then ;
+\ The text cut n characters before its end (n at most u): the head, then
+\ the tail.
+: pr-split ( c u n -- c u' tail n ) dup >r - 2dup + r> ;
 \ The text ends with the part pa pu: the text without it, or false.
 : pr-ends? ( c u pa pu -- c u' flag )
   2 pick over u< if 2drop false exit then
-  2swap 2 pick - 2dup + 3 pick 5 pick 5 pick compare 0=
-  >r 2>r 2drop 2r> r> ;
+  2swap 2 pick pr-split 2rot compare 0= ;
 : pr-dot? ( c u -- c u' flag ) dup 0= if false exit then 1- 2dup + 1 s" ." compare 0= ;
 : pr-named? ( c-addr u id -- flag )
   begin dup while
@@ -114,17 +117,29 @@ end-structure
 
 \ The statement forms of --statement: names joined by commas, as the mask
 \ lf-forms! takes (present/statement-forms.fs); false for a name that is
-\ none of them or for an empty list.
+\ none of them or for an empty list. The names, read-only, an entry each:
+\ a cell, the form's bit (0 ends the table), then its name, counted.
+align here
+  lf-form-lean , s" lean" counted,
+  lf-form-text , s" text" counted,
+  lf-form-mathematics , s" mathematics" counted,
+  lf-form-leanforth , s" leanforth" counted,
+  lf-forms-all , s" all" counted,
+  0 ,
+constant pr-form-names
+: pr-form-name ( entry -- c-addr u ) cell+ count ;
+: pr-form-next ( entry -- entry' ) pr-form-name + aligned ;
+: pr-form-is? ( c-addr u entry -- c-addr u entry flag )
+  >r 2dup r@ pr-form-name compare 0= r> swap ;
+\ The bit of the form named c-addr u, or 0.
 : pr-form-bit ( c-addr u -- bit )
-  2dup s" lean" compare 0= if 2drop lf-form-lean exit then
-  2dup s" text" compare 0= if 2drop lf-form-text exit then
-  2dup s" mathematics" compare 0= if 2drop lf-form-mathematics exit then
-  2dup s" leanforth" compare 0= if 2drop lf-form-leanforth exit then
-  s" all" compare 0= if lf-forms-all else 0 then ;
-\ The first name of a comma-separated list: the rest, then the name.
+  pr-form-names begin dup @ while pr-form-is? 0= while pr-form-next repeat then
+  nip nip @ ;
+\ The first name of a comma-separated list: the rest, then the name. The
+\ list c u cut at its first comma, at c2 u2.
+: pr-cut ( c u c2 u2 -- rest-addr rest-u c u' ) rot over - >r 1 /string rot r> ;
 : pr-item ( c-addr u -- rest-addr rest-u item-addr item-u )
-  2dup s" ," search 0= if 2drop 2dup + 0 2swap exit then
-  2swap drop 2 pick over - >r >r 1 /string r> r> ;
+  2dup s" ," search if pr-cut exit then 2drop 2dup + 0 2swap ;
 : pr-ends-comma? ( c-addr u -- flag ) dup 0= if 2drop false exit then
   2dup dup 1- /string s" ," compare 0= nip nip ;
 : pr-forms ( c-addr u -- mask true | false )

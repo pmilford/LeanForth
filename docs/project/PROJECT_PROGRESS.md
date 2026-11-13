@@ -21,7 +21,7 @@ speed before parallelism adds more.
 
 **What LeanForth is and is not (2026-11-12).** LeanForth today is only the checking half of Lean (the kernel): it re-checks proof terms that Lean produced and exported (NDJSON), including all of Lean's `Init`. It has none of Lean's front end, the larger half: no elaborator (implicit arguments, numerals, unification), no type classes or coercions, no tactics, no pattern matching or recursion compilation, no evaluation. So it cannot yet turn a written theorem into a proof; Lean does all of that before the export. LeanForth text is checked by the kernel since 2026-11-12 (plan 8.2.1a, c, d); there is no program verifier: for the clamp word LeanForth re-checks the proofs Lean wrote (plan 5.5.1, branch `program-551`). The front end is plan phase 8 ([PLAN_DRAFT.md](PLAN_DRAFT.md)), being re-planned from 2026-11-12.
 
-## Now, next, later (updated 2026-11-12)
+## Now, next, later (updated 2026-11-13)
 
 The single list of what is being worked on (owner, 2026-11-12; replaces the near-term queue of
 [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md), stale since 2026-11-03). `scripts/push.sh` refuses to push plan
@@ -38,12 +38,16 @@ status changes when this date is older than them. Stages are those of the
   Gforth-only words outside the portability layer).
 - 2026-11-13 02:00: all of Mathlib on the final build (verdict version 9), saving its snapshot.
 - The front end, LeanForth's own elaborator and tactics (plan FE1-FE12, replacing 8.3.1-8.3.2; [design](../design/FRONT_END.md),
-  [ADR 0021](../adr/0021-front-end.md) proposed; the owner's syntax answers in OWNER_DECISIONS.md). FE1, the first
-  theorem proved from LeanForth text ($0 + n = n$ by induction, no hand-written proof term, no Lean tool), is being
-  built: FE1a (natural reader: `0 n + n =` read as Lean's own tree, compared with pinned Lean) integrated, a natural
-  file stops at its first tactic with "not supported yet"; FE1b (metavariable context) tested alone; FE1d (elaboration-data
-  exporter, `scripts/export-elab.sh`, `check --elab-data`) integrated; FE1c (unification) on a branch; FE1e-FE1h not started. Nothing is proved by LeanForth yet.
-  Natural statements (8.6.10) are FE2, `add_comm` natively (8.6.11) FE5.
+  [ADR 0021](../adr/0021-front-end.md) proposed, D1-D3, D5, D7 and Amendment 1 (`sorry` as in Lean) decided by the
+  owner). FE1, the first theorem proved from LeanForth text ($0 + n = n$ by induction, no hand-written proof term, no
+  Lean tool), is being built. On main (2026-11-13): FE1a (natural reader) integrated; FE1b (metavariables, with
+  assignment marks) tested alone; FE1c (Lean's level unification and normalize, instantiate and head beta: 153 cases
+  equal to pinned Lean) tested alone in part; FE1d (elaboration data) integrated; FE1f (the hand-over of an elaborated
+  declaration to the kernel) tested alone, reached by no user command before FE1e; FE6a (casesOn, recOn and ctorIdx
+  built as Lean builds them, compared over Init) tested alone. On branches, under review: FE1c's environment view,
+  whnfCore and first inferType cases; FE1e1 (elaboration data format 2); FE1g-2 (tactic proofs read; a well-formed one
+  stops "not supported yet"); FE1i-4 (signed big integers). Designed: FE1e, FE1g, FE1i, FE2. Nothing is proved by
+  LeanForth yet. Natural statements (8.6.10) are FE2, `add_comm` natively (8.6.11) FE5.
 - Program track, restarted 2026-11-12 after being parked since 2026-11-04: LeanForth re-checks Lean's proofs of
   the clamp word's obligations (plan 5.5.1): works end to end (done check docs/development/done-checks/2026-11-12-program-track.md); owner gates [bypass] and [runtime] approved 2026-11-12, merged.
   `python3 scripts/program_receipt.py export OUT.ndjson` has pinned Lean export the contract theorem and its two
@@ -59,9 +63,10 @@ status changes when this date is older than them. Stages are those of the
 - Program track: a user command `leanforth verify` (8.4.1); the SHA-256 helper words' receipts (schema 0.4, IR 0.2,
   at the owner's [format] gate).
 - A rule-by-rule audit of AGENTS.md against practice.
-- Snapshots that read the two previous format and verdict versions (6.2.5c): designed (proposed, awaiting the
-  owner), [design](../design/SNAPSHOT_COMPATIBILITY.md), ADR 0020 Amendment 5; steps 6.2.5c1-c5 are the first
-  infrastructure task of 2026-11-13 (owner, "Order and snapshot stability").
+- Snapshots that read the two previous format and verdict versions (6.2.5c): designed, the owner's four questions
+  answered 2026-11-12 ([design](../design/SNAPSHOT_COMPATIBILITY.md), ADR 0020 Amendment 5 proposed); steps c1, c2,
+  c3 and c5 written on branch `snap-compat`, to be reviewed and taken to the owner's [format], [kernel] and [import]
+  gates.
 
 **Later**
 - Proof development (owner, 2026-11-12; long term, after strict Lean compatibility): research note

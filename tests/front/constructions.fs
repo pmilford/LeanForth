@@ -123,6 +123,33 @@ T{ s" VT" rv job2 aux-cases-on -> outcome-unsupported }T
 T{ s" R" rv job2 aux-cases-on-any lean-cases2 grade2 -> outcome-ok 1 }T
 T{ s" VT" rv job2 aux-cases-on-any lean-cases2 grade2 -> outcome-ok 2 }T
 T{ job2 aux-main @ job2 aux-motives @ 1 > -> 0 true }T
+\ A mutual block with a parameter and an index (tests/front/several.lean,
+\ review fe6a-2 N3): the other motive's binders and the index move.
+create mutual /stage allot
+create job4 /aux allot
+T{ 12 mutual stage-init -> outcome-ok }T
+T{ s" tests/front/several.ndjson" mutual stage-load -> outcome-ok }T
+T{ mutual job4 aux-init -> outcome-ok }T
+: fe6 ( c-addr u -- d )
+  0 s" FE6" job4 aux-tier name-find-str drop -rot job4 aux-tier name-find-str drop
+  mutual stage-find drop ;
+: grade4 ( d -- n ) dup job4 aux-same? if drop 2 exit then job4 aux-alike? 1 and ;
+: lean4 ( c-addr u -- d ) job4 aux-named drop ;
+T{ s" Even" fe6 job4 aux-cases-on-any s" casesOn" lean4 grade4 -> outcome-ok 2 }T
+T{ job4 aux-motives @ job4 aux-params @ job4 aux-indices @ job4 aux-kept @ -> 2 1 1 2 }T
+T{ s" Odd" fe6 job4 aux-cases-on-any s" casesOn" lean4 grade4 -> outcome-ok 2 }T
+T{ job4 aux-main @ job4 aux-kept @ -> 1 1 }T
+T{ s" Even" fe6 job4 aux-rec-on s" recOn" lean4 grade4 -> outcome-ok 2 }T
+T{ s" Odd" fe6 job4 aux-rec-on s" recOn" lean4 grade4 -> outcome-ok 2 }T
+T{ s" Even" fe6 job4 aux-ctor-idx s" ctorIdx" lean4 grade4 -> outcome-ok 1 }T
+T{ s" Odd" fe6 job4 aux-ctor-idx s" ctorIdx" lean4 grade4 -> outcome-ok 1 }T
+\ The renumbering table refuses the other motive (slot 0 of Even's two;
+\ Even's own is slot 1), whatever the table held before.
+T{ s" Even" fe6 job4 aux-cases-on-any 0 5 job4 motive-table -> outcome-ok }T
+T{ 0 job4 aux-tier expr-bvar drop job4 aux-remap remap-run -> -1 outcome-unsupported }T
+T{ 1 job4 aux-tier expr-bvar drop job4 aux-remap remap-run
+   -> 5 job4 aux-tier expr-bvar drop outcome-ok }T
+job4 aux-free  mutual stage-free
 \ One motive: the any-motive casesOn is the one-motive one.
 T{ s" Nat" ind job aux-cases-on-any lean-cases-of grade -> outcome-ok 2 }T
 T{ s" R" rv job2 aux-rec-on job2 aux-motives @ 1 > -> outcome-ok true }T

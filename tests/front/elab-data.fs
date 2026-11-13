@@ -98,6 +98,8 @@ T{ elab-error s" none" compare -> 0 0 }T
 \ matchers and 3 projections; nothing failed.
 T{ good lib digest elab-read elab-loaded? counts
    -> outcome-ok true 3 2 18 0 54 3 5 4 3 0 }T
+\ Read against lib, not against another stage.
+T{ lib elab-read-against? sealed elab-read-against? 0 elab-read-against? -> true false false }T
 T{ elab-error-line s" none" why? -> 0 true }T
 T{ 0 elab-instance@ -> s" instAddNat" top s" Add" top 1000 }T
 T{ 2 elab-instance@ -> s" instOfNatNat" top s" OfNat" top 1000 }T
@@ -206,6 +208,7 @@ T{ 20 1 left-key 44 1 left-key elab-key= -> false }T
   and s" Nat" top elab-induction elab-eliminator-for 0= and elab-keys# 0= and ;
 T{ elims lib zero-sha elab-read empty? elab-error-line s" elaboration data of another export"
    why? elab-error-code -> outcome-invalid true 1 true 9 }T
+T{ lib elab-read-against? -> false }T
 T{ good lib digest elab-read counts elab-error-code -> outcome-ok 3 2 18 0 54 3 5 4 3 0 0 }T
 \ Refused after its last line: none of the records it read stays.
 T{ s" tests/front/cut-off.elab.ndjson" lib digest elab-read empty? elab-error-line

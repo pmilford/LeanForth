@@ -221,7 +221,8 @@ end-structure
 \ check needs (plan task 6.2.0).
 1 cells context-slab: lf-cand-deps
 \ The lookups, (key, answer) pairs ascending by key ("Lookups" below).
-2 cells context-slab: lf-cand-looks
+2 cells constant /look-entry
+/look-entry context-slab: lf-cand-looks
 \ The shapes of a block's types (lf-env-shape!), by member: a growable
 \ array, as long as the block has types.
 1 cells context-slab: lf-cand-shapes
@@ -287,8 +288,22 @@ end-structure
 u32-mask constant lf-look-outside   \ the key of names beyond the input (published)
 : lf-look-key ( name kind -- key ) swap lf-look-kinds * + ;
 : lf-look-answer ( d outcome -- answer ) swap 1+ lf-look-kinds * + ;
-\ The slot an answer gives + 1, 0 for none.
-: lf-look-slot+1 ( answer -- n ) 4 rshift ;
+\ The parts of a key or an answer, as snapshots store them: the low four
+\ bits, and the bits above them (rshift: unsigned, also on 32-bit cells);
+\ x with u above its low bits.
+4 constant lf-look-shift
+: lf-look-low ( x -- u ) lf-look-kinds 1- and ;
+: lf-look-high ( x -- u ) lf-look-shift rshift ;
+: lf-look-above ( x u -- x' ) lf-look-shift lshift swap lf-look-low or ;
+\ A key's name and kind; the key with another name.
+: lf-look-name ( key -- name ) lf-look-high ;
+: lf-look-kind ( key -- kind ) lf-look-low ;
+: lf-look-renumber ( key name -- key' ) lf-look-above ;
+\ The slot an answer gives + 1, 0 for none; its outcome, or with ok the
+\ holder bit; the answer with another slot + 1.
+: lf-look-slot+1 ( answer -- n ) lf-look-high ;
+: lf-look-outcome ( answer -- u ) lf-look-low ;
+: lf-look-reslot ( answer n -- answer' ) lf-look-above ;
 : lf-cand-looked@ ( -- n ) lf-env-cand lf-cand-looked @ ;
 : lf-look-at ( k -- addr ) lf-cand-looks slab-at ;
 \ Recording is on in a check's candidate until the publisher seals it.
@@ -302,7 +317,7 @@ u32-mask constant lf-look-outside   \ the key of names beyond the input (publish
 : lf-look-has? ( key k -- flag )
   dup lf-cand-looked@ < if lf-look-at @ = else 2drop false then ;
 : lf-look-open ( k -- )
-  dup lf-look-at dup 2 cells + rot lf-cand-looked@ swap - 2* cells move ;
+  dup lf-look-at dup /look-entry + rot lf-cand-looked@ swap - /look-entry * move ;
 : lf-look-insert ( answer key k -- )
   dup lf-look-open lf-look-at 2! 1 lf-env-cand lf-cand-looked +! ;
 : lf-look-room? ( -- flag ) lf-cand-looked@ 1+ lf-cand-looks slab-hold ok? ;

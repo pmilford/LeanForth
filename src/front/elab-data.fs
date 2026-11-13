@@ -85,11 +85,12 @@
 \ ( a -- fields overlaps thunk? ); elab-projection-of ( d -- p true |
 \ false ), elab-projection@ ( p -- ctor params idx ), elab-projection-decl
 \ ( p -- d ), elab-projection-class? ( p -- flag ). elab-loaded? says
-\ whether the last read was ok. Unchecked: the words that take a record
-\ number read that record whatever it is; it must be below elab-count of
-\ its kind (an alternative a below the sum of the matchers' alternatives).
-\ The elab-* words are the interface; helpers, fields and tables are named
-\ ed-*.
+\ whether the last read was ok; elab-read-against? ( stage -- flag )
+\ whether it was, against that stage. Unchecked: the words that take a
+\ record number read that record whatever it is; it must be below
+\ elab-count of its kind (an alternative a below the sum of the matchers'
+\ alternatives). The elab-* words are the interface; helpers, fields and
+\ tables are named ed-*.
 \
 \ Example (the export read but not sealed, its manifest checked):
 \   create lib /stage allot   12 lib stage-init drop
@@ -232,6 +233,7 @@ end-structure
 : ed-stage ( -- stage ) elab elab-stage @ ;
 : elab-count ( kind -- n ) cells elab elab-counts + @ ;
 : elab-loaded? ( -- flag ) elab elab-loaded @ ;
+: elab-read-against? ( stage -- flag ) elab elab-stage @ = elab-loaded? and ;
 
 \ Failing: an error code, stable (docs/programming/ELABORATION_DATA.md,
 \ "Errors"; ed-messages holds each one's text, 0 none), at the current
