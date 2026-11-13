@@ -11274,8 +11274,8 @@ reason = "a binder's body is renumbered as if outside it, so its own variable mo
 [[fault]]
 id = "fe6-names-kept"
 file = "src/front/expr-remap.fs"
-old = '''  remap-erase @ over head-tag binder-tag? and if plain-binder then ;'''
-new = '''  drop ;'''
+old = ''': remap-anonymous ( head remap -- head' ) remap-erase @ if anonymous then ;'''
+new = ''': remap-anonymous ( head remap -- head' ) drop ;'''
 test = "$GFORTH tests/front/constructions.fs"
 reason = "erasing keeps binder names and information: two binders differing only in them are not alike"
 
@@ -11286,3 +11286,11 @@ old = ''': remap-clean? ( e remap -- flag ) tuck remap-tier@ expr-data@ swap rem
 new = ''': remap-clean? ( e remap -- flag ) 2drop true ;'''
 test = "$GFORTH tests/front/constructions.fs"
 reason = "nothing is renumbered: the shift and swap tests and every reordered casesOn"
+
+[[fault]]
+id = "fe6-let-body-depth"
+file = "src/front/expr-remap.fs"
+old = '''  nip remap-let-body ['] remap-let-joined frame-under ;'''
+new = '''  nip remap-let-body ['] remap-let-joined frame-call ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "a letE's body is renumbered as if outside its binder: its own variable #0 becomes #1"

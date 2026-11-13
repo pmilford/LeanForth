@@ -119,9 +119,16 @@ T{ 1 2 rp remap-swap! 0 var 0 run 1 var 0 run 2 var 0 run 3 var 0 run
 T{ true rp remap-erase! 0 0 rp remap-shift! 7 1 sort0 2 var lam 0 run
    -> 0 0 sort0 2 var lam outcome-ok }T
 T{ false rp remap-erase! -> }T
-\ A letE with a variable to renumber is unsupported; out of fuel, exhausted.
-: let0 ( -- e ) 0 false let-head sort0 sort0 3 var tier expr-let drop ;
-T{ 0 1 rp remap-shift! let0 0 run -> -1 outcome-unsupported }T
+\ A letE: its body is under its binder; erased, it loses its name only.
+: let-of ( name nondep? body -- e ) >r let-head sort0 sort0 r> tier expr-let drop ;
+T{ 0 1 rp remap-shift! 0 false 3 var let-of 0 run -> 0 false 4 var let-of outcome-ok }T
+T{ 0 false 0 var 3 var app let-of 0 run -> 0 false 0 var 4 var app let-of outcome-ok }T
+T{ true rp remap-erase! 0 0 rp remap-shift! 7 true 3 var let-of 0 run
+   -> 0 true 3 var let-of outcome-ok }T
+T{ false rp remap-erase! -> }T
+\ An mdata record with a variable to renumber is unsupported; out of
+\ fuel, exhausted.
+T{ 0 1 rp remap-shift! 3 var tier expr-mdata drop 0 run -> -1 outcome-unsupported }T
 T{ 1 rp remap-fuel! 0 var 1 var app 0 run -> -1 outcome-exhausted }T
 rp remap-free
 

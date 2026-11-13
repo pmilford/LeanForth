@@ -18,11 +18,12 @@
 \     rest stay.
 \ An expression without such variables (its loose range, kept in every
 \ record, at most the base) is kept as it is, so closed parts are never
-\ walked. Applications, binders and projections are rebuilt; a variable
-\ renumbered; a letE or mdata record is unsupported for now (eight
-\ structures of Init hold one, plan row FE6). With remap-erase! set, the
-\ pass also makes every binder anonymous and plain (name 0, default
-\ information), to compare terms as Lean's Expr equality does; it then
+\ walked. Applications, binders, letE records (the body under the
+\ binder) and projections are rebuilt; a variable renumbered; an mdata
+\ record is unsupported (it is marked when staged, and Lean's exporter
+\ writes none unless asked to). With remap-erase! set, the pass also makes
+\ every binder anonymous and plain (name 0, default information) and every
+\ letE anonymous, to compare terms as Lean's Expr equality does; it then
 \ walks every node but leaves. Each visit costs one unit of fuel
 \ (remap-fuel per run, or what remap-fuel! sets): exhausted beyond it;
 \ full when the tier or the pass's stack cannot grow; invalid for a busy
@@ -95,8 +96,11 @@ end-structure
 \ without its name and binder information when names are erased (Lean's
 \ Expr equality, which its exporter shares terms by, ignores both).
 : plain-binder ( head -- head' ) head-tag tag-pi < if tag-lam else tag-pi then ;
-: remap-anonymous ( head remap -- head' )
-  remap-erase @ over head-tag binder-tag? and if plain-binder then ;
+\ A letE keeps its kind (nonDep or not) and loses its name.
+: anonymous ( head -- head' )
+  dup head-tag binder-tag? if plain-binder exit then
+  dup head-tag let-tag? if head-tag then ;
+: remap-anonymous ( head remap -- head' ) remap-erase @ if anonymous then ;
 : remap-head ( i remap -- head )
   tuck frame-pick over remap-tier@ expr-head@ swap remap-anonymous ;
 \ The record rebuilt; the visit's two saved cells dropped.
@@ -121,8 +125,26 @@ end-structure
   remap-down ['] remap-binder-second frame-call ;
 : remap-proj ( e remap -- ... remap next )
   2dup remap-b over frame-save remap-down ['] remap-proj-joined frame-call ;
+\ A letE: its type and value visited, then its body under its binder; e,
+\ type' and value' saved, then body' for the rebuild.
+: under-pick ( remap i -- x remap ) over frame-pick swap ;
+: remap-let-parts ( remap -- head type' value' body' remap )
+  3 over remap-head swap 2 under-pick 1 under-pick 0 under-pick ;
+: remap-let-built ( remap -- e' outcome remap 0 )
+  remap-let-parts dup >r remap-tier@ expr-let 4 r@ frame-drop r> 0 ;
+: remap-let-joined ( body' outcome remap -- e' outcome remap 0 )
+  over ok? 0= if 3 remap-failed exit then nip tuck frame-save remap-let-built ;
+: remap-let-body ( value' remap -- body remap )
+  tuck frame-save 2 over frame-pick over remap-tier@ expr-body@ swap ;
+: remap-let-third ( value' outcome remap -- ... remap next )
+  over ok? 0= if 2 remap-failed exit then
+  nip remap-let-body ['] remap-let-joined frame-under ;
+: remap-let-second ( type' outcome remap -- ... remap next )
+  over ok? 0= if 1 remap-failed exit then nip remap-hold ['] remap-let-third frame-call ;
+: remap-let ( e remap -- ... remap next ) remap-down ['] remap-let-second frame-call ;
 : remap-kind ( e remap tag -- ... remap next )
   dup binder-tag? if drop remap-binder exit then
+  dup let-tag? if drop remap-let exit then
   case tag-bvar of remap-bvar endof  tag-app of remap-app endof
     tag-proj of remap-proj endof  >r remap-odd r> endcase ;
 : remap-visit ( e remap -- ... remap next )

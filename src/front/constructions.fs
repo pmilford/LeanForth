@@ -29,14 +29,19 @@
 \
 \ Outcomes (ADR 0008): ok with the type and value; unsupported, with a
 \ reason (aux-why), for a shape not ported yet: casesOn of a mutual or
-\ nested type (several motives: Lean then uses PUnit for the others), a
-\ minor premise whose fields and hypotheses are interleaved, a letE or
-\ mdata record in a domain, a structure case whose type's Sort only
-\ reduction shows; invalid for a recursor whose type has fewer binders
-\ than its numbers say or a missing recursor; full or exhausted as the
-\ tier and the renumbering pass report. Untrusted front-end code: the
-\ result is compared with Lean's (tests/front/constructions-init.sh) and
-\ would be checked by the kernel like any declaration.
+\ nested type (several motives: Lean then uses PUnit for the others; on
+\ Init only Lean.Syntax, a temporary gap of plan row FE6), a minor premise
+\ whose fields and hypotheses are interleaved (Lean's recursors never
+\ are), an mdata record in a domain, a type whose Sort only reduction
+\ shows (casesOn needs it to choose the structure case); invalid for a
+\ recursor whose type has fewer binders than its numbers say or a missing
+\ recursor; full or exhausted as the tier and the renumbering pass report.
+\ Untrusted front-end code: the result is compared with Lean's
+\ (tests/front/constructions-init.sh) and would be checked by the kernel
+\ like any declaration. Comparing (aux-same?, aux-alike?): node for node,
+\ or up to binder names and information, which the kernel ignores and
+\ Lean's exporter shares terms by (so an export's names need not be the
+\ ones the generator chose); universe parameters must be equal.
 \
 \ Usage (stage s loaded and sealed, d a type declaration of it):
 \   create job /aux allot  s job aux-init drop
@@ -89,7 +94,7 @@ end-structure
 \ known: the renumbering pass's.
 : pass-why ( outcome -- c-addr )
   case outcome-exhausted of c" the renumbering pass ran out of fuel" endof
-    outcome-unsupported of c" a letE or mdata record, or a dropped binder used" endof
+    outcome-unsupported of c" an mdata record, or a dropped binder used" endof
     >r c" no room for the renumbering pass" r> endcase ;
 : aux-because ( outcome job -- outcome )
   over ok? if drop exit then dup aux-why @ if drop exit then

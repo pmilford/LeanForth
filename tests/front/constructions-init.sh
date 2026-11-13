@@ -37,8 +37,8 @@ python3 scripts/export_manifest.py "$work/init.ndjson" >/dev/null
 "$gforth" tests/front/constructions-init.fs -e "s\" $work/init.ndjson\" fe6-report bye" \
   </dev/null >"$work/forth.txt"
 cat "$work/forth.txt"
-expected="casesOn generated 597 equal 430 equal-up-to-binders 160 different 0 unsupported 7
-recOn generated 576 equal 533 equal-up-to-binders 37 different 0 unsupported 6"
+expected="casesOn generated 597 equal 436 equal-up-to-binders 160 different 0 unsupported 1
+recOn generated 576 equal 539 equal-up-to-binders 37 different 0 unsupported 0"
 actual=$(grep ' generated ' "$work/forth.txt")
 if [ "$actual" != "$expected" ]; then
   printf 'Counts differ from the pinned ones:\n%s\n' "$expected" >&2
