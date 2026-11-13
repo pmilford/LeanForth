@@ -38,7 +38,7 @@ python3 scripts/export_manifest.py "$work/init.ndjson" >/dev/null
 "$gforth" tests/front/constructions-init.fs -e "s\" $work/init.ndjson\" fe6-report bye" \
   </dev/null >"$work/forth.txt"
 cat "$work/forth.txt"
-expected="casesOn generated 597 equal 436 equal-up-to-binders 160 different 0 unsupported 1
+expected="casesOn generated 597 equal 436 equal-up-to-binders 161 different 0 unsupported 0
 recOn generated 576 equal 539 equal-up-to-binders 37 different 0 unsupported 0
 ctorIdx generated 397 equal 0 equal-up-to-binders 397 different 0 unsupported 0"
 actual=$(grep ' generated ' "$work/forth.txt")

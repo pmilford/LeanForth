@@ -12,6 +12,7 @@
 \ the data stack's depth. Nothing here checks or accepts a theorem.
 require ../support/tester.fs
 require ../../src/front/ctor-idx.fs
+require ../../src/front/cases-several.fs
 
 create lib /stage allot
 create job /aux allot
@@ -100,7 +101,8 @@ T{ s" Acc" recon-of -> outcome-exhausted }T
 T{ remap-fuel job aux-remap remap-fuel! -> }T
 T{ s" Acc" cases-of lean-cases-of grade -> outcome-ok 2 }T
 \ A nested type (tests/cli/nested.ndjson): its recursor has several
-\ motives, so casesOn is unsupported; recOn is built.
+\ motives, so the one-motive casesOn is unsupported, the any-motive one
+\ (src/front/cases-several.fs) equals Lean's; recOn is built.
 create nested /stage allot
 create job2 /aux allot
 T{ 12 nested stage-init -> outcome-ok }T
@@ -112,6 +114,13 @@ T{ nested job2 aux-init -> outcome-ok }T
 T{ s" R" rv job2 aux-cases-on -> outcome-unsupported }T
 T{ job2 aux-why @ count s" several motives (a mutual or nested type)" compare -> 0 }T
 T{ s" VT" rv job2 aux-cases-on -> outcome-unsupported }T
+: grade2 ( d -- n ) dup job2 aux-same? if drop 2 exit then job2 aux-alike? 1 and ;
+: lean-cases2 ( -- d ) s" casesOn" job2 aux-named drop ;
+T{ s" R" rv job2 aux-cases-on-any lean-cases2 grade2 -> outcome-ok 1 }T
+T{ s" VT" rv job2 aux-cases-on-any lean-cases2 grade2 -> outcome-ok 2 }T
+T{ job2 aux-main @ job2 aux-motives @ 1 > -> 0 true }T
+\ One motive: the any-motive casesOn is the one-motive one.
+T{ s" Nat" ind job aux-cases-on-any lean-cases-of grade -> outcome-ok 2 }T
 T{ s" R" rv job2 aux-rec-on job2 aux-motives @ 1 > -> outcome-ok true }T
 job2 aux-free  nested stage-free
 
@@ -136,6 +145,11 @@ T{ sort0 5 run -> sort0 outcome-ok }T
 \ Swap 1 and 2: #0 -> #2, #1 -> #0, #2 -> #1, #3 stays.
 T{ 1 2 rp remap-swap! 0 var 0 run 1 var 0 run 2 var 0 run 3 var 0 run
    -> 2 var outcome-ok 0 var outcome-ok 1 var outcome-ok 3 var outcome-ok }T
+\ Table: #0 refused, #1 -> #5, past the table + 7.
+create two-cells -1 , 5 ,
+T{ two-cells 2 rp remap-table! 7 rp remap-delta! 1 var 0 run 2 var 0 run
+   -> 5 var outcome-ok 9 var outcome-ok }T
+T{ 0 var 1 var app 0 run -> -1 outcome-unsupported }T
 \ Erasing: names and binder information go, variables stay.
 T{ true rp remap-erase! 0 0 rp remap-shift! 7 1 sort0 2 var lam 0 run
    -> 0 0 sort0 2 var lam outcome-ok }T

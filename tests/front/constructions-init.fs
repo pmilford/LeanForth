@@ -10,6 +10,7 @@
 \ need not be the generator's), different and unsupported. Usage:
 \   gforth tests/front/constructions-init.fs -e 's" EXPORT" fe6-report bye'
 require ../../src/front/ctor-idx.fs
+require ../../src/front/cases-several.fs
 
 create init /stage allot
 create job /aux allot
@@ -51,7 +52,7 @@ create tallies kinds columns * cells allot
   ."  unsupported " 4 count. cr ;
 : each-type ( -- )
   init stage-decls 0 ?do i kind? if
-    i ['] aux-cases-on s" casesOn" 0 try-one i ['] aux-rec-on s" recOn" 1 try-one
+    i ['] aux-cases-on-any s" casesOn" 0 try-one i ['] aux-rec-on s" recOn" 1 try-one
     i ['] aux-ctor-idx s" ctorIdx" 2 try-one then
   loop ;
 : fe6-report ( export-addr export-u -- )

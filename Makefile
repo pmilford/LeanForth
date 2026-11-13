@@ -879,7 +879,7 @@ test: test-author
 test-front:
 	@for m in src/front/syntax.fs src/front/dag-walk.fs src/front/reader.fs src/front/mvars.fs \
 	  src/core/mvar-leaves.fs src/front/expr-remap.fs src/front/constructions.fs \
-	  src/front/ctor-idx.fs; do \
+	  src/front/ctor-idx.fs src/front/cases-several.fs; do \
 	  out=$$($(RUN) $(GFORTH) $$m -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
 	  if [ -n "$$out" ]; then printf '%s printed while loading:\n%s\n' "$$m" "$$out" >&2; exit 1; fi; \
 	done

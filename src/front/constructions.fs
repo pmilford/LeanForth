@@ -29,8 +29,8 @@
 \
 \ Outcomes (ADR 0008): ok with the type and value; unsupported, with a
 \ reason (aux-why), for a shape not ported yet: casesOn of a mutual or
-\ nested type (several motives: Lean then uses PUnit for the others; on
-\ Init only Lean.Syntax, a temporary gap of plan row FE6), a minor premise
+\ nested type (several motives: src/front/cases-several.fs builds that
+\ case, and aux-cases-on-any either), a minor premise
 \ whose fields and hypotheses are interleaved (Lean's recursors never
 \ are), an mdata record in a domain, a type whose Sort only reduction
 \ shows (casesOn needs it to choose the structure case); invalid for a
@@ -79,6 +79,12 @@ begin-structure /aux
   field: aux-arg                \ the recursor's arguments ( j job -- e outcome )
   field: aux-body               \ the value's body ( job -- e outcome )
   field: aux-ctor               \ the constructor being read (ctorIdx)
+  field: aux-main               \ several motives: the type's, from 0
+  field: aux-kept               \ the minor premises casesOn keeps
+  field: aux-table              \ heap: a renumbering table (expr-remap.fs)
+  field: aux-table-room         \ cells it holds
+  field: aux-ih                 \ a hypothesis's type being rebuilt, its binders
+  field: aux-ih-span
   field: aux-names              \ a tuple of universe parameter names
   field: aux-built-params       \ the result's universe parameters
   field: aux-why                \ counted string: why unsupported, or 0
@@ -108,7 +114,8 @@ end-structure
   dup /aux erase tuck aux-stage ! dup aux-tier over aux-remap remap-init
   dup aux-input swap aux-tier tier-extend ;
 : aux-free ( job -- )
-  dup aux-tier tier-free dup aux-remap remap-free aux-block heap-release ;
+  dup aux-tier tier-free dup aux-remap remap-free dup aux-block heap-release
+  aux-table heap-release ;
 
 \ ---- The declarations.
 : decl-of ( d job -- d stage ) aux-stage @ ;
@@ -234,9 +241,11 @@ end-structure
 : minor-binders ( job -- outcome ) dup aux-minors @ swap ['] minor-binder aux-each ;
 \ The type: the block around the conclusion.
 : conclusion ( job -- e outcome ) dup swapping dup rec-end swap run-remap ;
-: built-type! ( job -- outcome )
-  dup conclusion ok-keep? 0= if nip exit then
+\ The type: the block's Pis around the conclusion given.
+: type-around ( job e outcome -- outcome )
+  ok-keep? 0= if nip exit then
   over aux-pis ok-keep? if swap aux-built-type ! outcome-ok else nip then ;
+: built-type! ( job -- outcome ) dup conclusion type-around ;
 
 \ ---- The value: T.rec.{params} applied, the block's funs around it.
 \ Universe argument lists: the parameters a tuple of names (aux-names)
@@ -329,9 +338,11 @@ end-structure
   2dup m-open 0= if drop nip interleaved exit then over aux-span ! tuck m-moving m-move ;
 : m-head-var ( job -- b ) dup aux-span @ over aux-minors @ 1- + swap aux-minor @ - ;
 : field-arg ( f q job -- e outcome ) tuck m-last swap apply-var ;
-: m-body ( job -- e outcome )
-  dup m-head-var over aux-var ok-keep? 0= if exit then
+\ Variable b applied to the fields.
+: m-body-at ( b job -- e outcome )
+  tuck aux-var ok-keep? 0= if exit then
   swap dup aux-fields @ swap ['] field-arg fold-with ;
+: m-body ( job -- e outcome ) dup m-head-var swap m-body-at ;
 : minor-lambda ( i job -- e outcome )
   tuck m-ready ok-then? 0= if no-result exit then
   dup m-body ok-keep? if swap ['] m-lam-step m-fold then ;
