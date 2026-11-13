@@ -89,3 +89,13 @@ cli/print-lf.fs:80 (Gforth names, not Forth-2012): define them in portability.fs
 are correct for getenv, utime/cputime, next-arg, version-string, (bye), warnings, fdepth, rec-forth; check-run.fs:273
 degrades silently without a wall clock: say so in the header. UTF-8 literals in print-notation.fs depend on source
 encoding, as before.
+
+## Follow-ups from the review of batches A and B (2026-11-12, plan 9.4.5)
+
+From [2026-11-12-refactor-present.md](2026-11-12-refactor-present.md), left for a later batch:
+- **L2:** log-view's merged rebuild picks levels or terms with a true/false flag tested in nine words. Pass a
+  `/lv-kind` record of execution tokens and offsets instead (the review gives the sketch).
+- **L3:** the tag and rule dispatches (term-printer, print-forth, log-view) are chained CASEs split at arbitrary
+  points. Use tables indexed by the validated tag or rule code, and stop lf-lv-relates depending on the catalogue's
+  numbering.
+- **I1:** /lv-node's reversed fields for `2@`.

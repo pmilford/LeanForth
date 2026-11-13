@@ -973,7 +973,11 @@ The owner answered the first four front-end questions:
 8. **The elaboration-data exporter (question 8): approved** as a development tool run with pinned Lean when a library
    is exported (ADR 0021 D10); users who only check LeanForth text need no Lean.
 
-Questions 5 (milestone order) and 9 (Mathlib's code extensions) of the design are open.
+9. **Milestone order (question 5), as recommended:** FE1, FE1i, FE2, FE3-FE5, FE6-FE8, FE9, FE12, then FE10 and FE11.
+10. **Mathlib's code extensions (question 9):** re-implemented as Forth words, most-used first, each compared with
+    Lean; no interpreter for Lean programs in Forth.
+11. **Explained proofs** (owner: "Remember we want each line of a pretty printed proof to give the English version
+    of how we moved from previous line of a proof"): plan row 8.6.12; FE1g's tactic steps record what 8.6.12 needs.
 
 ### LeanForth text checked by the kernel (2026-11-12, evening; [parser][bypass][import] gates)
 
