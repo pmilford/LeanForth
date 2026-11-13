@@ -65,7 +65,12 @@ T{ nat nat lf-term-pi must lf-infer -> -1 outcome-unsupported }T
 T{ nat fk 0 bv let lf-infer -> -1 outcome-unsupported }T
 T{ fa fb pair 0 proj lf-infer -> -1 outcome-unsupported }T
 T{ nat 0 bv lam fk app lf-infer -> -1 outcome-unsupported }T
-T{ rec nat nat lam app fz app fs app fk app lf-infer -> -1 outcome-unsupported }T
+\ A lambda argument put in for a bound variable at an application's head
+\ is applied by a beta step: Nat.rec's type `motive t` with a lambda
+\ motive; under a binder of the type, with a loose argument, unsupported.
+T{ rec nat nat lam app fz app fs app fk app nat infer= -> true outcome-ok }T
+T{ rec nat 0 bv 0 bv eq lam app fz app fs app fk app fk fk eq infer= -> true outcome-ok }T
+T{ rec nat nat lam app fz app fs app lf-infer -> -1 outcome-unsupported }T
 \ The type is no pi and whnf would unfold it: fq : outParam (Nat -> Nat).
 lv1 1 s" outParam" cn nat>nat app lf-lctx-local made constant fq
 T{ fq fk app lf-infer -> -1 outcome-unsupported }T
@@ -94,5 +99,33 @@ T{ 0 bv fk app lf-infer -> -1 outcome-invalid }T
 \ ---- Exhausted: whnfCore's fuel runs out on a type that is no pi.
 T{ 1 lf-whnf-fuel! fh fk app lf-infer 0 lf-whnf-fuel! -> -1 outcome-exhausted }T
 T{ fh fk app nat infer= -> true outcome-ok }T
+
+\ ---- lf-meta-instantiate-rev-beta (src/front/beta-inst.fs): #k below m
+\ is argument k, a larger one m less, below the depth itself; a bound
+\ variable at an application's head takes its arguments by a beta step.
+create xs 4 cells allot
+: x1 ( a -- addr 1 ) xs ! xs 1 ;
+: x2 ( a0 a1 -- addr 2 ) xs cell+ ! xs ! xs 2 ;
+: rb= ( body addr m expected -- flag outcome )
+  >r lf-meta-instantiate-rev-beta r> swap >r same? r> ;
+T{ 0 bv fk x1 fk rb= 1 bv fk x1 0 bv rb= -> true outcome-ok true outcome-ok }T
+T{ nat 1 bv lam fk x1 nat fk lam rb= nat 0 bv lam fk x1 nat 0 bv lam rb=
+   -> true outcome-ok true outcome-ok }T
+T{ 0 bv fa app sfun x1 fs fa app rb= -> true outcome-ok }T
+T{ 1 bv 0 bv app fa sfun x2 fs fa app rb= -> true outcome-ok }T
+T{ 1 bv 0 bv app sfun fa x2 fa sfun app rb= -> true outcome-ok }T
+T{ fk xs 0 fk rb= 1 bv fk x1 0 bv rb= -> true outcome-ok true outcome-ok }T
+\ Unsupported: an argument with a loose bound variable; a beta step under
+\ a binder (its argument #0 is loose there).
+T{ 0 bv 0 bv x1 lf-meta-instantiate-rev-beta -> -1 outcome-unsupported }T
+T{ nat 1 bv 0 bv app lam sfun x1 lf-meta-instantiate-rev-beta -> -1 outcome-unsupported }T
+\ Invalid: no body, no argument, a negative m.
+T{ -1 fk x1 lf-meta-instantiate-rev-beta 0 bv -1 x1 lf-meta-instantiate-rev-beta
+   -> -1 outcome-invalid -1 outcome-invalid }T
+T{ 0 bv xs -1 lf-meta-instantiate-rev-beta -> -1 outcome-invalid }T
+\ Full: the memo's table refused; then the same call works.
+T{ 1 heap-refusals ! 0 bv fk x1 lf-meta-instantiate-rev-beta heap-refusals @
+   -> -1 outcome-full 0 }T
+T{ 0 bv fk x1 fk rb= -> true outcome-ok }T
 
 bye

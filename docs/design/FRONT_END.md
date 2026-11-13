@@ -733,8 +733,9 @@ matchers, projection functions, auxiliary recursors, `_sunfold`
 definitions -- are not in an export: a definition at the head answers
 unsupported until plan row FE1d2 adds them to the elaboration data.
 `inferType`'s first cases (`src/front/infer.fs`: constants, variables,
-metavariables, sorts, applications of them and lambdas) are written and
-tested alone; 20 of 23 inference cases equal pinned Lean's, two only
+metavariables, sorts, applications of them and lambdas, with Lean's
+`instantiateBetaRevRange` in `src/front/beta-inst.fs`) are written and
+tested alone; 22 of 25 inference cases equal pinned Lean's, two only
 once Lean's metadata (mdata), which the export leaves out, is dropped.
 `whnf` with delta, the rest of `inferType`, term unification, `Nat`
 offsets and caches are not started.

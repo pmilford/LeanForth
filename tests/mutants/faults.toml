@@ -11502,12 +11502,44 @@ test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: a constant with the wrong number of universe levels gets a type, where Lean throws"
 
 [[fault]]
-id = "fe-infer-lambda-argument"
+id = "fe-infer-args-left-loose"
 file = "src/front/infer.fs"
-old = '''  false if-args slab-count 0 ?do i if-arg if-lam? or loop ;'''
-new = '''  false ;'''
+old = '''  if-n if-flush ;'''
+new = '''  outcome-ok ;'''
 test = "$GFORTH tests/front/infer.fs"
-reason = "FE1c: a lambda argument is put in without the beta step of Lean's instantiateBetaRevRange"
+reason = "FE1c: the arguments after the last whnf point are never put in, so the type keeps loose bound variables"
+
+[[fault]]
+id = "fe-binst-no-beta"
+file = "src/front/beta-inst.fs"
+old = '''  if ib-head-beta then nip ;'''
+new = '''  drop nip ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: a lambda put in at an application's head is left applied, where instantiateBetaRevRange takes a beta step (a motive's type)"
+
+[[fault]]
+id = "fe-binst-no-shift"
+file = "src/front/beta-inst.fs"
+old = '''  nip lf-term-first@ ib-m - lf-term-bvar ib-made ;'''
+new = '''  nip lf-term-first@ lf-term-bvar ib-made ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: a loose bound variable above the arguments keeps its index instead of m less"
+
+[[fault]]
+id = "fe-binst-order"
+file = "src/front/beta-inst.fs"
+old = ''': ib-x ( k -- x ) cells ib-state ib-xs @ + @ ;'''
+new = ''': ib-x ( k -- x ) ib-state ib-xs# @ 1- swap - cells ib-state ib-xs @ + @ ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: the arguments are put in in the wrong order (instantiate, not instantiateRev)"
+
+[[fault]]
+id = "fe-binst-loose-argument"
+file = "src/front/beta-inst.fs"
+old = '''  lf-meta-loose ok-then? if 0= if outcome-ok else outcome-unsupported then then ;'''
+new = '''  lf-meta-loose nip ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: an argument with a loose bound variable is put in without the lifting Lean does"
 
 [[fault]]
 id = "fe-infer-no-whnf"

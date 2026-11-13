@@ -103,6 +103,8 @@ run_meta do
     inferCase (mkProj `Prod 0 (mkApp (mkApp (mkApp (mkApp (mkConst `Prod.mk [Level.zero, Level.zero]) (mkConst `Nat [])) (mkConst `Nat [])) a) b))
     inferCase (mkLet `y (mkConst `Nat []) k (mkBVar 0))
     inferCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) (mkLambda `y .default (mkConst `Nat []) (mkConst `Nat []))) z) s) k)
+    inferCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) (mkLambda `y .default (mkConst `Nat []) (mkApp (mkApp (mkApp (mkConst `Eq [(mkLevelSucc .zero)]) (mkConst `Nat [])) (mkBVar 0)) (mkBVar 0)))) z) s) k)
+    inferCase (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) (mkLambda `y .default (mkConst `Nat []) (mkConst `Nat []))) z) s)
     stuckCase n
     stuckCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) n)
     stuckCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) k)

@@ -73,6 +73,7 @@ require ./front/level-simp.fs
 require ./front/level-params.fs
 require ./front/meta-env.fs
 require ./front/whnf.fs
+require ./front/beta-inst.fs
 require ./front/infer.fs
 
 \ The command line: check, replay, print, count, reexport, version,

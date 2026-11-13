@@ -9,7 +9,8 @@
 \   metavariable: its declaration's type; Sort u: Sort (u + 1);
 \ - an application f a1 .. an whose head is one of those (inferAppType):
 \   the head's type with each pi's bound variable instantiated by the
-\   next argument; a type that is no pi is reduced by whnfCore
+\   next argument, with beta where a bound variable heads an application
+\   (instantiateBetaRevRange); a type that is no pi is reduced by whnfCore
 \   (front/whnf.fs) and must then be one (Lean's whnf: a result whnf could
 \   unfold further, its head a definition or unknown, answers unsupported;
 \   one with a free variable, metavariable, sort, lambda or any other
@@ -22,15 +23,16 @@
 \ application with any other head, a lambda whose body is none of the
 \ above (they need inferForallType's getLevel and Level.normalize, let
 \ telescopes, inferProjType: plan FE1c), a lambda's type holding a
-\ metavariable (mkForallFVars's elimMVarDeps), a lambda among the
-\ arguments (Lean instantiates with beta, instantiateBetaRevRange: plan
-\ FE1c), and Sort's legacy numeric form.
+\ metavariable (mkForallFVars's elimMVarDeps), a beta step under a
+\ binder of the type (front/beta-inst.fs), and Sort's legacy numeric
+\ form.
 \ Outcomes: ok; invalid for no term, a loose bound variable, a stale
 \ leaf, an unknown constant, a wrong number of levels, a function
 \ expected; unsupported as above; full when a store or slab has no room;
 \ exhausted when whnfCore's fuel runs out. A failure gives -1.
 \ Untrusted: only the kernel's check of a finished term decides anything.
-\ State: the slabs if-args (the arguments, last first), if-levels (a
+\ State: the record if-state (inferAppType's j) and the slabs if-args
+\ (the arguments, last first), if-levels (a
 \ constant's universe arguments), if-xs and if-lams (a lambda's free
 \ variables and binders), in the checker context.
 
@@ -47,7 +49,12 @@ require ./instantiate.fs
 require ./level-params.fs
 require ../present/binder-table.fs
 require ./whnf.fs
+require ./beta-inst.fs
 
+begin-structure /if
+  field: if-from    \ inferAppType's j: the first argument not put in yet
+end-structure
+/if context-record: if-state
 1 cells context-slab: if-args     \ the application's arguments, last first
 1 cells context-slab: if-levels   \ a constant's universe arguments
 
@@ -90,8 +97,13 @@ require ./whnf.fs
     lf-tag-bvar of outcome-invalid if-fail endof
     >r outcome-unsupported if-fail r> endcase ;
 
-\ ---- Applications (inferAppType): the arguments in if-args, each
-\ instantiating the next pi of the type.
+\ ---- Applications (inferAppType): the arguments in if-args. As Lean's,
+\ the pis of the head's type are entered without putting the arguments
+\ in; at a type that is no pi, and at the end, the arguments since the
+\ last such point, j to i - 1, are put in at once, with beta
+\ (instantiateBetaRevRange, front/beta-inst.fs). In if-args, last first,
+\ they are the m = i - j cells from n - i on, the last one first, as
+\ instantiateRev takes them.
 : if-arg ( i -- term ) if-args slab-count 1- swap - if-args slab-at @ ;
 : if-app? ( term -- flag ) if-tag lf-tag-app = ;
 : if-spine ( term -- head outcome )
@@ -99,8 +111,6 @@ require ./whnf.fs
     dup lf-term-second@ if-args if-push ok-then? 0= if no-result exit then
     lf-term-first@ repeat outcome-ok ;
 : if-lam? ( term -- flag ) if-tag lf-tag-lam = ;
-: if-lambda-arg? ( -- flag )
-  false if-args slab-count 0 ?do i if-arg if-lam? or loop ;
 : if-pi? ( term -- flag ) if-tag lf-tag-pi = ;
 \ A type that is no pi: whnfCore's result must be one; an inert head
 \ (no pi whnf could make) is "function expected", anything else needs
@@ -120,19 +130,23 @@ require ./whnf.fs
   dup if-pi? if outcome-ok exit then
   lf-whnf-core ok-then? 0= if no-result exit then
   dup if-pi? if outcome-ok else dup if-no-pi if-fail then ;
-: if-step ( type i -- type' outcome )
-  swap if-to-pi ok-then? 0= if nip no-result exit then
-  lf-term-second@ swap if-arg lf-meta-instantiate1 ;
+: if-n ( -- n ) if-args slab-count ;
+: if-j ( -- addr ) if-state if-from ;
+: if-rev ( i -- addr m ) dup if-n swap - if-args slab-at swap if-j @ - ;
+: if-flush ( type i -- type' outcome ) if-rev lf-meta-instantiate-rev-beta ;
+: if-enter ( type i -- type' outcome )
+  over if-pi? if drop lf-term-second@ outcome-ok exit then
+  tuck if-flush ok-then? 0= if nip no-result exit then
+  if-to-pi ok-then? 0= if nip no-result exit then
+  swap if-j ! lf-term-second@ outcome-ok ;
 : if-args-in ( type -- type' outcome )
-  if-args slab-count 0 ?do
-    i if-step dup ok? 0= if unloop exit then drop
-  loop outcome-ok ;
+  0 if-j ! if-n 0 ?do i if-enter dup ok? 0= if unloop exit then drop loop
+  if-n if-flush ;
 : if-head-type ( head -- type outcome )
   dup if-tag dup lf-tag-app = over lf-tag-lam = or swap lf-tag-pi = or
   if outcome-unsupported if-fail else dup if-tag if-leaf then ;
 : if-app ( term -- type outcome )
   if-spine ok-then? 0= if no-result exit then
-  if-lambda-arg? if outcome-unsupported if-fail exit then
   if-head-type ok-then? if if-args-in else no-result then ;
 
 \ ---- Lambdas (inferLambdaType, with mkForallFVars): each binder opened
