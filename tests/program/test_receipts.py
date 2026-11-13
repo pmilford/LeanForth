@@ -1,14 +1,19 @@
-"""Program receipt schema 0.2: examples, mutations, rules and the validator itself.
+"""Program receipt schema 0.3: examples, mutations, rules and the validator itself.
 
 ``make test`` runs this file (target test-program-ir). It needs only
 the Python standard library; tests/support/schema_subset.py is the
 validator and scripts/program_receipt.py the reader (schema plus the rules
 JSON Schema cannot state). Every rejected receipt pins the reason it must
 be rejected for, so a receipt cannot pass this test by failing for an
-unrelated reason. Schema 0.1, a draft that was never approved, is kept
-unchanged as a record (pinned by hash, its examples in receipts/0.1/), and
-the reader refuses every receipt that names it. When node is installed,
-the schema's patterns are also compiled and run as ECMA-262 expressions.
+unrelated reason. Schema 0.3 is 0.2 without check.label (the owner withdrew
+the result label on 2026-11-12): every 0.3 receipt here validates under 0.2
+with its label put back, and every 0.2 one under 0.3 with it taken out.
+Schema 0.2, which the owner approved, is kept unchanged and still read
+(pinned by hash, its examples and the 0.2 clamp receipt in receipts/0.2/).
+Schema 0.1, a draft that was never approved, is kept unchanged as a record
+(pinned by hash, its examples in receipts/0.1/), and the reader refuses
+every receipt that names it. When node is installed, the schema's patterns
+are also compiled and run as ECMA-262 expressions.
 """
 import copy
 import hashlib
@@ -27,22 +32,42 @@ from schema_subset import (MAX_DEPTH, InstanceError, SchemaError, Validator,  # 
                            load_strict, validate_file)
 import program_receipt  # noqa: E402
 
-SCHEMA = Path("schemas/program-receipt-0.2.schema.json")
+SCHEMA = Path("schemas/program-receipt-0.3.schema.json")
+SCHEMA_02 = Path("schemas/program-receipt-0.2.schema.json")
 SCHEMA_01 = Path("schemas/program-receipt-0.1.schema.json")
 SCHEMA_01_SHA256 = "ed8f25a7a3fd2b71c99f966d52d4d1415644cc894567d004c3c687c90d472218"
-# The generated clamp receipt names 0.2, so its schema changes only on purpose.
+# 0.2 was approved by the owner and receipts name it, so it never changes.
 SCHEMA_02_SHA256 = "bb76793e1cba339d44a078817916f800b8662878b0a0f5cdc3c62a19d0dfb478"
+# The generated clamp receipt names 0.3, so its schema changes only on purpose.
+SCHEMA_03_SHA256 = "ebeec5eaf7c72179486cbe17275b6542a13e1bb0982cf3f84beb783011b57f43"
 EXAMPLES = Path("tests/program/receipts")
 EXAMPLES_01 = EXAMPLES / "0.1"
+EXAMPLES_02 = EXAMPLES / "0.2"
 GENERATED = EXAMPLES / "generated" / "lf-clamp.json"
 DOC = Path("docs/programming/PROGRAM_RECEIPTS.md")
 AI_DOC = Path("docs/user/AI_TOOLS.md")
 BASE = EXAMPLES / "valid-clamp-lean-reference.json"
-FUTURE = EXAMPLES / "valid-clamp-future-leanforth.json"
+LEANFORTH = EXAMPLES / "valid-clamp-leanforth.json"
 GCD = EXAMPLES / "valid-gcd-nothing-yet.json"
+# The labels of schema 0.2, one per check status, which 0.3 no longer has.
+LABELS_02 = {
+    "not-checked": "not checked",
+    "checked-by-lean-reference": "checked by the Lean reference, not by LeanForth",
+    "accepted-by-leanforth": "experimental — not independently audited",
+    "rejected": "rejected by the checker",
+    "unsupported": "not supported by the checker",
+    "failed": "check did not complete",
+}
 
-# Each invalid example file and the error it must produce, in both versions.
+# Each invalid example file and the error it must produce.
 INVALID_EXAMPLES = {
+    "invalid-merged-verified-flag.json": "$: additional property 'verified' is not allowed",
+    "invalid-label-put-back.json": "$.check: additional property 'label' is not allowed",
+    "invalid-lean-check-claimed-by-leanforth.json": '$.check.checker.name: must equal "lean"',
+    "invalid-discharged-without-check.json": "$.check.status: \"not-checked\" is not one of",
+}
+# The same for the 0.2 examples, under schema 0.2 (and 0.1: they were the same then).
+INVALID_EXAMPLES_02 = {
     "invalid-merged-verified-flag.json": "$: additional property 'verified' is not allowed",
     "invalid-leanforth-without-label.json":
         '$.check.label: must equal "experimental — not independently audited"',
@@ -56,7 +81,30 @@ def schema_validator(path=SCHEMA):
 
 
 def load(path=BASE):
+    """A receipt from a file, or the one a function makes."""
+    if callable(path):
+        return path()
     return load_strict(path.read_text(encoding="utf-8"))
+
+
+def unlabelled(receipt):
+    """A 0.2 receipt as 0.3: its check label taken out."""
+    receipt["check"].pop("label")
+    receipt["schemaVersion"] = "0.3"
+    return receipt
+
+
+def labelled(receipt):
+    """A 0.3 receipt as 0.2: the label of its check status put back."""
+    receipt["check"]["label"] = LABELS_02[receipt["check"]["status"]]
+    receipt["schemaVersion"] = "0.2"
+    return receipt
+
+
+def lean_checked():
+    """A 0.3 receipt checked by the Lean reference, with discharged obligations: the 0.2
+    clamp receipt generated before LeanForth checked it, its label taken out."""
+    return unlabelled(load(EXAMPLES_02 / "generated-lf-clamp.json"))
 
 
 def base_receipt():
@@ -103,7 +151,7 @@ def add_assumption(kind, text, base=BASE):
                   base)
 
 
-NOT_CHECKED = {"status": "not-checked", "label": "not checked", "axioms": [], "evidence": []}
+NOT_CHECKED = {"status": "not-checked", "axioms": [], "evidence": []}
 
 
 def with_check(check, verify=None):
@@ -115,10 +163,10 @@ def with_check(check, verify=None):
     return receipt
 
 
-def negative(status, label, **fields):
+def negative(status, **fields):
     """A check part with a negative status, checked by LeanForth."""
     return {"status": status, "checker": {"name": "leanforth", "version": "1"},
-            "label": label, "axioms": [], "evidence": [], **fields}
+            "axioms": [], "evidence": [], **fields}
 
 
 def obligations(*statuses, theorem=True):
@@ -152,9 +200,11 @@ MUTATIONS = [
     ("nested verified flag", lambda: mutated("check.verified", True),
      "$.check: additional property 'verified' is not allowed"),
     ("schema version", lambda: mutated("schemaVersion", "1.0"),
-     '$.schemaVersion: must equal "0.2"'),
+     '$.schemaVersion: must equal "0.3"'),
     ("schema version 0.1", lambda: mutated("schemaVersion", "0.1"),
-     '$.schemaVersion: must equal "0.2"'),
+     '$.schemaVersion: must equal "0.3"'),
+    ("schema version 0.2", lambda: mutated("schemaVersion", "0.2"),
+     '$.schemaVersion: must equal "0.3"'),
     ("short hash", lambda: mutated("program.source.sha256", "abc123"),
      "$.program.source.sha256: does not match pattern"),
     ("uppercase hash", lambda: mutated("program.source.sha256", "A" * 64),
@@ -176,10 +226,13 @@ MUTATIONS = [
      "$.check.theorems: fewer than 1 item(s)"),
     ("lean check without evidence", lambda: mutated("check.evidence", []),
      "$.check.evidence: fewer than 1 item(s)"),
-    ("lean check with other label", lambda: mutated("check.label", "verified"),
-     '$.check.label: must equal "checked by the Lean reference, not by LeanForth"'),
+    ("a label on a Lean check", lambda: mutated("check.label", "verified"),
+     "$.check: additional property 'label' is not allowed"),
+    ("the withdrawn label on a LeanForth check",
+     lambda: mutated("check.label", LABELS_02["accepted-by-leanforth"], base=GENERATED),
+     "$.check: additional property 'label' is not allowed"),
     ("unchecked with axioms", lambda: mutated("check", {
-        "status": "not-checked", "label": "not checked", "axioms": ["propext"], "evidence": []}),
+        "status": "not-checked", "axioms": ["propext"], "evidence": []}),
      "$.check.axioms: more than 0 item(s)"),
     ("not generated with obligations", lambda: mutated("verify.obligations", [
         {"id": "O1", "statement": "x", "status": "open"}]),
@@ -231,25 +284,18 @@ MUTATIONS = [
     # A checked theorem is tied to the source through the IR.
     ("checked without IR", lambda: mutated("program.ir", None),
      "$.program.ir: expected type object, got null"),
-    # A failed check carries its own label, names its checker, and no axioms.
-    ("rejected with the accepted label",
-     lambda: with_check(negative("rejected", "experimental — not independently audited")),
-     '$.check.label: must equal "rejected by the checker"'),
-    ("failed with the Lean label",
-     lambda: with_check(negative("failed", "checked by the Lean reference, not by LeanForth")),
-     '$.check.label: must equal "check did not complete"'),
-    ("unsupported with another label", lambda: with_check(negative("unsupported", "ok")),
-     '$.check.label: must equal "not supported by the checker"'),
+    # A failed check carries no label, names its checker, and no axioms.
+    ("rejected with a label",
+     lambda: with_check(negative("rejected", label="rejected by the checker")),
+     "$.check: additional property 'label' is not allowed"),
     ("rejected with an allowed axiom",
-     lambda: with_check(negative("rejected", "rejected by the checker", axioms=["propext"])),
+     lambda: with_check(negative("rejected", axioms=["propext"])),
      "$.check.axioms: more than 0 item(s)"),
     ("failed with forbidden axioms",
-     lambda: with_check(negative("failed", "check did not complete",
-                                 axioms=["sorryAx", "Lean.ofReduceBool"])),
+     lambda: with_check(negative("failed", axioms=["sorryAx", "Lean.ofReduceBool"])),
      '$.check.axioms[0]: "sorryAx" is not one of'),
     ("rejected without its checker",
-     lambda: with_check({k: v for k, v in negative("rejected", "rejected by the checker").items()
-                         if k != "checker"}),
+     lambda: with_check({k: v for k, v in negative("rejected").items() if k != "checker"}),
      "$.check: missing required property 'checker'"),
     ("not checked naming theorems",
      lambda: with_check(dict(NOT_CHECKED, theorems=[{"name": "T", "axioms": []}])),
@@ -258,14 +304,14 @@ MUTATIONS = [
         NOT_CHECKED, evidence=base_receipt()["check"]["evidence"])),
      "$.check.evidence: more than 0 item(s)"),
     ("check by a tool that is no checker",
-     lambda: with_check(dict(negative("rejected", "rejected by the checker"),
-                             checker={"name": "python", "version": "x"})),
+     lambda: with_check(dict(negative("rejected"), checker={"name": "python", "version": "x"})),
      '$.check.checker.name: "python" is not one of'),
     # LeanForth's own checker is a named trusted component.
     ("leanforth check without its assumption",
-     lambda: remove_assumption("trusted-leanforth", base=FUTURE),
+     lambda: remove_assumption("trusted-leanforth", base=LEANFORTH),
      "$.assumptions: no item matches #/$defs/kindTrustedLeanForth"),
-    ("leanforth check without the leanforth tool", lambda: remove_tool("leanforth", base=FUTURE),
+    ("leanforth check without the leanforth tool",
+     lambda: remove_tool("leanforth", base=LEANFORTH),
      "$.tools: no item matches #/$defs/toolLeanForth"),
     ("lean check without the lean tool", lambda: remove_tool("lean"),
      "$.tools: no item matches #/$defs/toolLean"),
@@ -316,11 +362,21 @@ MUTATIONS = [
                                                     base=GENERATED),
      "$.verify: missing required property 'settledBy'"),
     ("Lean's discharge claimed for LeanForth",
-     lambda: mutated("verify.settledBy", "accepted-by-leanforth", base=GENERATED),
+     lambda: mutated("verify.settledBy", "accepted-by-leanforth", base=lean_checked),
      '$.verify.settledBy: must equal "checked-by-lean-reference"'),
     ("LeanForth's discharge claimed for Lean",
-     lambda: mutated("verify.settledBy", "checked-by-lean-reference", base=FUTURE),
+     lambda: mutated("verify.settledBy", "checked-by-lean-reference", base=LEANFORTH),
      '$.verify.settledBy: must equal "accepted-by-leanforth"'),
+    ("the generated receipt's discharge claimed for Lean",
+     lambda: mutated("verify.settledBy", "checked-by-lean-reference", base=GENERATED),
+     '$.verify.settledBy: must equal "accepted-by-leanforth"'),
+    ("the generated receipt's check claimed for Lean",
+     lambda: edited(lambda r: (r["check"].update(status="checked-by-lean-reference"),
+                               r["check"]["checker"].update(name="lean")), GENERATED),
+     '$.verify.settledBy: must equal "checked-by-lean-reference"'),
+    ("the generated receipt without LeanForth's assumption",
+     lambda: remove_assumption("trusted-leanforth", base=GENERATED),
+     "$.assumptions: no item matches #/$defs/kindTrustedLeanForth"),
     ("settledBy naming no check", lambda: mutated("verify.settledBy", "lean", base=GENERATED),
      '$.verify.settledBy: "lean" is not one of'),
     ("settledBy with nothing settled",
@@ -396,8 +452,7 @@ MUTATIONS = [
     ("theorem with a forbidden axiom", lambda: mutated("check.theorems.0.axioms", ["sorryAx"]),
      '$.check.theorems[0].axioms[0]: "sorryAx" is not one of'),
     ("rejected theorem with an axiom",
-     lambda: with_check(negative("rejected", "rejected by the checker",
-                                 theorems=[{"name": "T", "axioms": ["propext"]}])),
+     lambda: with_check(negative("rejected", theorems=[{"name": "T", "axioms": ["propext"]}])),
      "$.check.theorems[0].axioms: more than 0 item(s)"),
     # Finding 9: the stack and two's-complement assumptions; no verify without IR.
     ("no stack-capacity assumption", lambda: remove_assumption("stack-capacity"),
@@ -467,21 +522,35 @@ class SchemaShape(unittest.TestCase):
         self.assertFalse(set(schema["properties"]) & {"verified", "status", "ok", "success"})
         self.assertIs(schema["additionalProperties"], False)
 
-    def test_reader_reads_only_02(self):
+    def test_reader_writes_03_and_reads_02_and_03(self):
         self.assertEqual(program_receipt.SCHEMA.resolve(), SCHEMA.resolve())
-        self.assertEqual(program_receipt.SCHEMA_VERSION, "0.2")
+        self.assertEqual(program_receipt.SCHEMA_VERSION, "0.3")
+        self.assertEqual(program_receipt.READ_VERSIONS, ("0.2", "0.3"))
         self.assertEqual(program_receipt.SUPERSEDED_VERSIONS, ("0.1",))
 
-    def test_schema_02_is_pinned(self):
-        self.assertEqual(hashlib.sha256(SCHEMA.read_bytes()).hexdigest(), SCHEMA_02_SHA256)
+    def test_schemas_02_and_03_are_pinned(self):
+        self.assertEqual(hashlib.sha256(SCHEMA_02.read_bytes()).hexdigest(), SCHEMA_02_SHA256)
+        self.assertEqual(hashlib.sha256(SCHEMA.read_bytes()).hexdigest(), SCHEMA_03_SHA256)
+
+    def test_no_label_anywhere_in_03(self):
+        """Owner, 2026-11-12: no result label; check.label is gone, run.label stays (it says
+        that testing is not proof, a trust boundary, not a result label)."""
+        text = SCHEMA.read_text(encoding="utf-8")
+        for withdrawn in ("experimental", "audited", "pre-alpha"):
+            self.assertNotIn(withdrawn, text)
+        schema = load_strict(text)
+        self.assertNotIn("label", schema["$defs"]["check"]["properties"])
+        self.assertIn("label", schema["$defs"]["run"]["required"])
 
 
 class Examples(unittest.TestCase):
     def test_valid_examples(self):
+        """The 0.3 examples and receipt, and the 0.2 ones, which stay readable."""
         valid = sorted(EXAMPLES.glob("valid-*.json")) + [GENERATED]
-        self.assertGreaterEqual(len(valid), 4)
-        for path in valid:
-            with self.subTest(path=path.name):
+        old = sorted(EXAMPLES_02.glob("valid-*.json")) + [EXAMPLES_02 / "generated-lf-clamp.json"]
+        self.assertEqual((len(valid), len(old)), (4, 4))
+        for path in valid + old:
+            with self.subTest(path=str(path)):
                 self.assertEqual(program_receipt.read_file(path)[1], [])
 
     def test_invalid_examples_fail_for_their_reason(self):
@@ -495,7 +564,7 @@ class Examples(unittest.TestCase):
 
     def test_every_mutation_fails_for_its_reason(self):
         validator = schema_validator()
-        for base in (BASE, FUTURE, GCD, GENERATED):
+        for base in (BASE, LEANFORTH, GCD, GENERATED, lean_checked):
             self.assertEqual(validator.errors(load(base)), [], base)
         for name, make, expected in MUTATIONS:
             with self.subTest(name=name):
@@ -509,6 +578,19 @@ class Examples(unittest.TestCase):
                 self.assertEqual(schema_validator().errors(receipt), [])
                 problems = program_receipt.receipt_problems(receipt)
                 self.assertTrue(any(p.startswith(expected) for p in problems), problems)
+
+    def test_versions_differ_only_by_the_label(self):
+        """Every 0.3 receipt validates under 0.2 with its label put back, and every 0.2 one
+        under 0.3 with its label taken out; so 0.3 removed the label and nothing else."""
+        old = schema_validator(SCHEMA_02)
+        for path in sorted(EXAMPLES.glob("valid-*.json")) + [GENERATED]:
+            with self.subTest(path=str(path)):
+                self.assertEqual(old.errors(labelled(load(path))), [])
+        new = schema_validator()
+        for path in sorted(EXAMPLES_02.glob("valid-*.json")) + [
+                EXAMPLES_02 / "generated-lf-clamp.json"]:
+            with self.subTest(path=str(path)):
+                self.assertEqual(new.errors(unlabelled(load(path))), [])
 
     def test_a_planted_rule_fault_is_detected(self):
         """Disabling the duplicate check makes the rule suite miss duplicates."""
@@ -535,6 +617,7 @@ class Documentation(unittest.TestCase):
         text = DOC.read_text(encoding="utf-8")
         receipt = load(GENERATED)
         for figure in (f"{receipt['run']['cases']} cases", receipt["contract"]["lean"],
+                       f"check: `{receipt['check']['status']}`",
                        f"verify: `{receipt['verify']['status']}`",
                        f"`{receipt['verify']['settledBy']}`",
                        f"schema version {receipt['schemaVersion']}"):
@@ -563,7 +646,7 @@ class Reader(unittest.TestCase):
     """Finding 4 and the version rule: one strict reader for every receipt."""
 
     def test_unknown_versions_are_refused(self):
-        for version in ("0.3", "1.0", "0.1.0", "0.2\n", 0.2, 0.1, None, ["0.2"]):
+        for version in ("0.4", "1.0", "0.1.0", "0.3\n", 0.3, 0.2, 0.1, None, ["0.3"]):
             with self.subTest(version=version):
                 receipt = mutated("schemaVersion", version)
                 problems = program_receipt.receipt_problems(receipt)
@@ -572,12 +655,13 @@ class Reader(unittest.TestCase):
     def test_texts_that_are_not_strict_json_are_refused(self):
         text = GENERATED.read_text(encoding="utf-8")
         for name, old, new in (
-                ("duplicate key", '"status": "checked-by-lean-reference",',
-                 '"status": "accepted-by-leanforth",\n    "status": "checked-by-lean-reference",'),
+                ("duplicate key", '"status": "accepted-by-leanforth",',
+                 '"status": "checked-by-lean-reference",\n    "status": "accepted-by-leanforth",'),
                 ("fraction", '"cases": 986', '"cases": 986.0'),
                 ("exponent read as zero", '"failures": 0', '"failures": 1e-400'),
                 ("integer beyond 2**53", '"cases": 986', '"cases": 9007199254740992'),
-                ("lone surrogate", '"note": "Lean proved', '"note": "\\ud800 Lean proved'),
+                ("lone surrogate", '"note": "Lean 4.35.0 wrote',
+                 '"note": "\\ud800 Lean 4.35.0 wrote'),
                 ("NaN", '"cases": 986', '"cases": NaN')):
             with self.subTest(name=name):
                 changed = text.replace(old, new, 1)
@@ -726,16 +810,49 @@ class Version01(unittest.TestCase):
         for path in valid:
             with self.subTest(path=path.name):
                 self.assertEqual(validate_file(validator, path), [])
-        for name, expected in INVALID_EXAMPLES.items():
+        for name, expected in INVALID_EXAMPLES_02.items():
             with self.subTest(name=name):
                 problems = validate_file(validator, EXAMPLES_01 / name)
                 self.assertTrue(any(p.startswith(expected) for p in problems), problems)
 
     def test_versions_do_not_mix(self):
         old = load(EXAMPLES_01 / "generated-lf-clamp.json")
-        self.assertIn('$.schemaVersion: must equal "0.2"', schema_validator().errors(old))
+        self.assertIn('$.schemaVersion: must equal "0.3"', schema_validator().errors(old))
         self.assertIn('$.schemaVersion: must equal "0.1"',
                       schema_validator(SCHEMA_01).errors(load(GENERATED)))
+
+
+class Version02(unittest.TestCase):
+    """Schema 0.2, approved by the owner on 2026-11-03, stays unchanged and readable."""
+
+    def test_02_examples_keep_their_results(self):
+        validator = schema_validator(SCHEMA_02)
+        valid = sorted(EXAMPLES_02.glob("valid-*.json")) + [EXAMPLES_02 / "generated-lf-clamp.json"]
+        self.assertEqual(len(valid), 4)
+        for path in valid:
+            with self.subTest(path=path.name):
+                self.assertEqual(validate_file(validator, path), [])
+        self.assertEqual({p.name for p in EXAMPLES_02.glob("invalid-*.json")},
+                         set(INVALID_EXAMPLES_02))
+        for name, expected in INVALID_EXAMPLES_02.items():
+            with self.subTest(name=name):
+                problems = validate_file(validator, EXAMPLES_02 / name)
+                self.assertTrue(any(p.startswith(expected) for p in problems), problems)
+
+    def test_a_02_receipt_is_read_under_02_and_never_as_03(self):
+        receipt = load(EXAMPLES_02 / "generated-lf-clamp.json")
+        self.assertEqual(program_receipt.receipt_problems(receipt), [])
+        receipt["check"]["label"] = "verified"
+        problems = program_receipt.receipt_problems(receipt)
+        self.assertTrue(problems[0].startswith("schema: $.check.label: must equal"), problems)
+        self.assertIn('$.schemaVersion: must equal "0.3"',
+                      schema_validator().errors(load(EXAMPLES_02 / "generated-lf-clamp.json")))
+
+    def test_a_02_receipt_is_not_replayed(self):
+        """verify rebuilds receipts as 0.3; a 0.2 receipt is read but differs from that."""
+        done = run_reader("verify", EXAMPLES_02 / "generated-lf-clamp.json")
+        self.assertEqual(done.returncode, 1)
+        self.assertIn(": replay: $.schemaVersion: ", done.stderr)
 
 
 class ValidatorFailsClosed(unittest.TestCase):

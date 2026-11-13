@@ -898,3 +898,39 @@ does not give (a test reproduces it through a FIFO).
   do. The cost is one SHA-256 of each pass that `cin-read` makes; it reads
   only exports that fit the checker's small fixed tables (64 names), and
   large exports go through the stage, which this does not change.
+
+## Program receipts 0.3, and the clamp proofs re-checked by LeanForth — 2026-11-12
+
+Plan task 5.5.1: Lean proves the clamp contract and its two path
+obligations; its exporter writes them with every declaration they use, and
+LeanForth's checker checks that export again. The program receipt states
+LeanForth's verdict.
+
+- **Decision ([format], decided by the owner on 2026-11-12).** Program
+  receipts 0.3 are 0.2 without `check.label`, as the owner withdrew the
+  result label from check reports (0.4, 0.5) and run records (0.3) the same
+  day. 0.2, approved on 2026-11-03, stays unchanged and readable; a test
+  puts the label back into every 0.3 receipt and validates it under 0.2.
+  `run.label` stays: "runtime-tested; testing is not proof" states a trust
+  boundary, not a result label. Receipts for IR 0.2 programs (the SHA-256
+  helper words) take 0.4, planned as "0.3" in ADR 0019 Amendment 1 and
+  renumbered.
+- **Decision.** The export is pinned by its manifest, committed
+  (`tests/program/vc/lf-clamp.ndjson.manifest.json`); the 23.6 MB export
+  is made again, byte for byte, by `make check`. The receipt names the
+  manifest as evidence and the export's SHA-256 in its note.
+- **Decision.** A receipt never says more than LeanForth's verdict: a
+  rejected, undecided or unfinished check gives `rejected`, `unsupported`
+  or `failed` with nothing discharged; a NOT PROVED theorem, LeanForth's
+  axioms other than Lean's `#print axioms`, or evidence about another
+  export gives no receipt.
+- **Decision.** `make check` checks the three mutants (program, contract,
+  proof) as copies under their own names in one export, one LeanForth run
+  instead of three; the in-place mutants a user makes with
+  `tests/program/clamp_mutants.py` were checked by hand and by Lean's
+  official checker on 2026-11-12.
+- **Rejected: committing the export** (23.6 MB, 467,977 lines), and
+  **a structured `proofsBy` field** in the receipt: the notes and the
+  `trusted-lean` and `trusted-leanforth` assumptions say who wrote and who
+  checked the proofs, and a new field would be a format change beyond the
+  owner's decision.

@@ -269,6 +269,16 @@ average 1–8). *Before*: commit `8148f3f`, before these changes. *No cache*:
 | sum, every target of make test | | 36 | 40 | 43 |
 | sum, every target of make check | | 345 | 335 | 132 |
 
+Since plan task 5.5.1 (2026-11-12) three targets run LeanForth's checker on
+an export of Lean's program proofs with `--jobs 2`, so they are listed
+first in `check`: `reference-program-ir-run` now also records the clamp
+receipt's evidence (Lean exports the clamp proofs' 4,277 declarations and
+LeanForth checks them; 154 s), `reference-program-mutants`
+checks the program, contract and proof mutants in one export of 4,284
+declarations (122 s), and `reference-program-sha-export` the
+SHA-256 helper words' 2,890 declarations twice (86 s); measured
+with `JOBS=2 LEAN_CACHE=0` on a loaded machine (load 6-8 on 10 cores), 2026-11-12: 154 s, 122 s and 86 s.
+
 `reference-compact-init` fell from 78.5 s to 57.3 s by running
 `compact-verify.sh`'s two Gforth runs side by side, and to 40.7 s with
 the export of `Init` replayed; staging it into the compact store and
