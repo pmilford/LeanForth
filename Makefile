@@ -816,6 +816,7 @@ test-front:
 	done
 	$(RUN) $(GFORTH) tests/front/front.fs
 	$(RUN) $(GFORTH) tests/front/meta.fs
+	$(RUN) $(GFORTH) tests/front/meta-heap.fs
 
 # The natural reader's trees against pinned Lean's macro expansion of the
 # same statements (tests/front/operators.lean); the Meta layer's answers
