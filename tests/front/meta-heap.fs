@@ -94,22 +94,39 @@ T{ v u lmax lf-meta-level-normalize nip -> outcome-ok }T
 : norm-op ( -- level outcome ) nmax lf-meta-level-normalize ;
 T{ ' norm-op refusing 0> swap ok? rot dup lf-level-first@ 500 lfirsts swap
    lf-level-second@ 1000 lfirsts -> true true u v }T
-\ Level unification (level-defeq.fs): 0 =?= max ?a (max ?b ?c), true
-\ through normalization, a conjunction, occurs checks and assignments
-\ under a mark; max u ?d =?= max u v, stuck (unsupported). A refused run
-\ answers full and false and rolls its assignments back. A small one
-\ first gives the trail and the pair stack their blocks.
-lf-mctx-reset
+\ Level unification (level-defeq.fs): 0 =?= max ?1 .. ?20, true through
+\ normalization, a conjunction of 20 pairs (19 waiting on ld-pairs),
+\ occurs checks and 20 assignments noted on the trail under a mark;
+\ max u ?d =?= max u v, stuck (unsupported). A refused run answers full
+\ and false and rolls its assignments back, among them the runs whose
+\ pair stack or trail the heap does not let grow. A small one first gives
+\ the trail and the pair stack their first blocks. (Each run normalizes
+\ the shrinking chain again: about n^3 / 6 new levels, plan FE1c.)
+lf-mctx-reset 1000000 lf-level-capacity! drop
 : lnew ( -- level ) lf-level-mvar-new made ;
-lnew constant ma  lnew constant mb  lnew constant mc  lnew constant md
-lnew constant mw  lnew constant mx
+lnew constant md  lnew constant mw  lnew constant mx
 T{ 0 mw mx lmax lf-meta-level-defeq -> true outcome-ok }T
 : free? ( level -- flag ) lf-level-mvar-value dup if nip then 0= ;
-: conj-op ( -- flag outcome ) 0 ma mb mc lmax lmax lf-meta-level-defeq ;
+variable newest
+: wide ( n -- l ) lnew swap 1 ?do lnew dup newest ! lmax loop ;
+20 wide constant w20
+: conj-op ( -- flag outcome ) 0 w20 lf-meta-level-defeq ;
 : stuck-op ( -- flag outcome ) u md lmax u v lmax lf-meta-level-defeq ;
 false none !
-T{ ' conj-op refusing 0> mc lf-level-mvar-value -> true outcome-ok true 0 true }T
+T{ ' conj-op refusing 0> newest @ lf-level-mvar-value -> true outcome-ok true 0 true }T
 T{ ' stuck-op refusing 0> md free? -> false outcome-unsupported true true }T
+\ Marks the heap cannot grow: with marks open up to the slab's capacity,
+\ level unification's own mark and then lf-mctx-mark are refused, full,
+\ and nothing is assigned or opened; the marks then close in turn.
+lnew constant me
+: marks-to-room ( -- )
+  begin lf-mctx-marks mv-marks slab-capacity < while lf-mctx-mark drop drop repeat ;
+: close-marks ( -- ) begin lf-mctx-marks while lf-mctx-marks lf-mctx-rollback drop repeat ;
+marks-to-room lf-mctx-marks constant open-marks
+T{ 1 heap-refusals ! me 0 lf-meta-level-defeq me free? lf-mctx-marks
+   -> false outcome-full true open-marks }T
+T{ 1 heap-refusals ! lf-mctx-mark lf-mctx-marks -> 0 outcome-full open-marks }T
+T{ 0 heap-refusals ! close-marks lf-mctx-marks -> 0 }T
 \ instantiateMVars (mvars.fs): ?f x .. x, 100 arguments, with
 \ ?f := fun a => a: the spine table, the walk, the argument slab and the
 \ beta step's heap, each refused in turn; then x applied to 99 x's.
