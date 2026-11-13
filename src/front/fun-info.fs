@@ -29,6 +29,7 @@
 \   none: past its pis, the head is a free variable, an unassigned
 \   metavariable, a Sort, a literal or a bound variable (false: it might
 \   be a class, which only class facts decide, plan FE1e1).
+\ - lf-meta-unassigned? ( mvar -- flag ): no plain assignment.
 \ Binder kinds: from the head's declared type (a constant's input type,
 \ else the type itself), never from a copy: an input binder's from its
 \ record; a store binder named in the binder table answers unsupported,
