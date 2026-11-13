@@ -64,6 +64,9 @@ status changes when this date is older than them. Stages are those of the
   infrastructure task of 2026-11-13 (owner, "Order and snapshot stability").
 
 **Later**
+- Proof development (owner, 2026-11-12; long term, after strict Lean compatibility): research note
+  [PROOF_DEVELOPMENT.md](../design/PROOF_DEVELOPMENT.md), plan rows PD1–PD15, all not started; PD1, Lean's `sorry`
+  reported NOT PROVED with the conditional report, is decided (ADR 0021 Amendment 1) and fits with FE1g and FE5.
 - Speed: the export reader and the remaining validity checks; Physlib; `print --snapshot` (8.6.9); term memory
   (6.5.9); a second Forth system and a 32-bit host (9.4.1); no Python requirement (9.4.3).
 

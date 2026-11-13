@@ -161,7 +161,9 @@ writes the LeanForth text back.
    `have:`. Consecutive closers are Lean's nested binders: pinned Lean
    gives the same term for `fun (x : Nat) => fun (y : Nat) => x + y` and
    `fun (x y : Nat) => x + y`, and for `fun {α} => fun (a : α) => a` and
-   `fun {α} (a : α) => a` (probe p3, N1 and N2).
+   `fun {α} (a : α) => a` (probe p3, N1 and N2). So "there is a $y$
+   with $x < y$" is `_ explicit: y  x y <  ∃` (the `exists: p` of
+   [PROOF_DEVELOPMENT.md](PROOF_DEVELOPMENT.md) §5 was illustrative).
 3. **A name takes its explicit arguments from the stack** (FE1a): as many
    as its type has explicit binders, counted on the type's Π telescope
    with each result unfolded by FE1c's `whnf` at default transparency (as
