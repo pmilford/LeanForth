@@ -1,0 +1,90 @@
+true k k
+false
+true Nat.{} Nat.{}
+false
+true Sort 0 Sort 0
+false
+true 2 2
+false
+false
+true (lam Nat.{} #0) (lam Nat.{} #0)
+false
+true (pi Nat.{} Nat.{}) (pi Nat.{} Nat.{})
+false
+false
+true (lam Nat.{} k) (lam Nat.{} k)
+false
+true (let Nat.{} k x) x
+true (let Nat.{} k #0) k
+true g (lam Nat.{} (app s #0))
+true (lam Nat.{} (app u #0)) u
+true u (lam Nat.{} (app u #0))
+true (lam Nat.{} (app Nat.succ.{} #0)) Nat.succ.{}
+false
+true (lam Nat.{} (app Nat.succ.{} #0)) Nat.succ.{}
+false
+true e c
+false
+true k k
+true k k
+true (app Nat.succ.{} k) (app Nat.succ.{} k)
+false
+true k k
+false
+false
+false
+true Nat.succ.{} Nat.succ.{}
+false
+true ?h ?h
+false
+false
+true (app Nat.succ.{} j) (app Nat.succ.{} j)
+true (app Nat.succ.{} k) (app Nat.succ.{} k)
+false
+true (app Nat.succ.{} k) (app Nat.succ.{} k)
+false
+true (app (app Nat.add.{} k) k) (app (app Nat.add.{} k) k)
+true (app (app Nat.add.{} j) j) (app (app Nat.add.{} j) j)
+false
+true (app ?t k) (app ?t k)
+false
+false
+true (app ?t k) (app ?t k)
+true ?r ?r
+true ?n ?n
+true 2 2
+false
+true (app u k) (app u k)
+false
+true (app (app (app (app Prod.mk.{0,0} Nat.{}) Nat.{}) a) b) (app (app (app (app Prod.mk.{0,0} Nat.{}) Nat.{}) a) b)
+false
+true p (app (app (app (app Prod.mk.{0,0} Nat.{}) Nat.{}) (proj 0 p)) (proj 1 p))
+false
+false
+true (app (app (app (app Nat.rec.{1} (lam Nat.{} Nat.{})) z) (lam Nat.{} (lam Nat.{} #0))) Nat.zero.{}) z
+true (app (lam Nat.{} (app Nat.succ.{} #0)) k) (app Nat.succ.{} k)
+false
+error
+true ?n (app (app (app (app Nat.rec.{1} (lam Nat.{} Nat.{})) ?n) (lam Nat.{} (lam Nat.{} #0))) Nat.zero.{})
+false
+true v w
+true v PUnit.unit.{1}
+true PUnit.unit.{1} w
+true (app Nat.succ.{} (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) (app (app (app OfNat.ofNat.{0} Nat.{}) 1) (app instOfNatNat.{} 1)))) (app Nat.succ.{} (app Nat.succ.{} k))
+true (app Nat.succ.{} (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) ?r) (app (app (app OfNat.ofNat.{0} Nat.{}) 1) (app instOfNatNat.{} 1)))) (app Nat.succ.{} (app Nat.succ.{} ?r))
+false
+false
+true (app Nat.succ.{} (app (app (app OfNat.ofNat.{0} Nat.{}) 2) (app instOfNatNat.{} 2))) 3
+false
+true 0 Nat.zero.{}
+false
+true 3 (app Nat.succ.{} (app Nat.succ.{} (app Nat.succ.{} Nat.zero.{})))
+true (app Nat.succ.{} (app (app Nat.add.{} (app (app (app OfNat.ofNat.{0} Nat.{}) 0) (app instOfNatNat.{} 0))) k)) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) (app (app (app OfNat.ofNat.{0} Nat.{}) 0) (app instOfNatNat.{} 0))) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) (app (app (app OfNat.ofNat.{0} Nat.{}) 1) (app instOfNatNat.{} 1))))
+true (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) (app (app (app OfNat.ofNat.{0} Nat.{}) 1) (app instOfNatNat.{} 1))) (app Nat.succ.{} k)
+false
+false
+false
+false
+true (app (app Nat.add.{} k) x) (app (app Nat.add.{} k) x)
+false
+false

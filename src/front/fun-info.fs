@@ -21,7 +21,8 @@
 \   recorded) and whether its type is a proposition. Unsupported, never
 \   a guess, when a non-explicit parameter's type has a head that might
 \   be a class and an argument that is an earlier parameter whose type
-\   is or might become a pi: Lean marks such a higher-order
+\   is or might become a pi (outParam T and semiOutParam T taken as T,
+\   as whnf unfolds them): Lean marks such a higher-order
 \   out-parameter, which changes isDefEqArgs's order, and class facts
 \   come with plan FE1e1.
 \ - lf-meta-class-none? ( type -- flag ): Lean's isClassQuick? answers
@@ -118,8 +119,14 @@ require ./prop-quick.fs
   begin fi-step ok-then? 0= if nip nip exit then 0= until 2drop outcome-ok ;
 
 \ ---- Higher-order out-parameters (see the header).
+\ outParam T and semiOutParam T are T (Init's reducible definitions
+\ outParam (α : Sort u) := α, which whnf unfolds at any transparency).
+: fi-param-wrapper? ( t -- flag )
+  dup lf-meta-app? 0= if drop false exit then lf-term-first@
+  dup s" outParam" lf-meta-const-named? swap s" semiOutParam" lf-meta-const-named? or ;
+: fi-unwrap ( t -- t' ) begin dup fi-param-wrapper? while lf-term-second@ repeat ;
 : fi-maybe-pi? ( type -- flag outcome )
-  dup fi-tag lf-tag-pi = if drop true outcome-ok exit then
+  fi-unwrap dup fi-tag lf-tag-pi = if drop true outcome-ok exit then
   lf-whnf-core ok-then? 0= if false swap exit then
   dup fi-tag lf-tag-pi = if drop true else lf-meta-whnf-final? 0= then outcome-ok ;
 : fi-earlier? ( arg i -- flag ) false swap 0 ?do over i fi-x = or loop nip ;

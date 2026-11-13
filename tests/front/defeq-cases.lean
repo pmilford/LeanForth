@@ -137,6 +137,8 @@ run_meta do
   eqCase (mkApp (mkLambda `y .default (mkConst `Nat []) (mkApp (mkConst `Nat.succ []) (mkBVar 0))) k) (mkApp (mkConst `Nat.succ []) k)
   eqCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [Level.one]) (mkLambda `y .default (mkConst `Nat []) (mkConst `Nat []))) z) (mkLambda `y .default (mkConst `Nat []) (mkLambda `y .default (mkConst `Nat []) (mkBVar 0)))) n) k
   eqCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [Level.one]) m) z) s) (mkConst `Nat.zero [])) z
+  eqCase n (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [Level.one]) (mkLambda `y .default (mkConst `Nat []) (mkConst `Nat []))) n) (mkLambda `y .default (mkConst `Nat []) (mkLambda `y .default (mkConst `Nat []) (mkBVar 0)))) (mkConst `Nat.zero []))
+  eqCase (mkLambda `y .default (mkConst `Nat []) k) k
   eqCase v w
   eqCase v (mkConst `PUnit.unit [Level.one])
   eqCase (mkConst `PUnit.unit [Level.one]) w

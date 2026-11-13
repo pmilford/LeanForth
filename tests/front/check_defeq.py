@@ -19,7 +19,13 @@ LeanForth must answer unsupported (a step not ported; the plan item is
 named) and Lean's answer is shown. A harness self-test first checks that
 a wrong line is told apart.
 
-Usage: LEAN=... GFORTH=... python3 tests/front/check_defeq.py [--write]
+Pinned Lean's lines are kept in tests/front/defeq.golden (--write-golden
+writes it from a Lean run; every Lean run checks it is unchanged), so
+that make test compares LeanForth's lines with them without Lean
+(--golden).
+
+Usage: LEAN=... GFORTH=... python3 tests/front/check_defeq.py
+       [--write | --write-golden | --golden]
 """
 import os
 import pathlib
@@ -31,6 +37,7 @@ LEAN = os.environ.get("LEAN", ".tools/elan/toolchains/leanprover--lean4---v4.35.
 GFORTH = os.environ.get("GFORTH", "gforth")
 LIMIT = 300
 LEAN_FILE = ROOT / "tests/front/defeq-cases.lean"
+GOLDEN = ROOT / "tests/front/defeq.golden"
 
 FVARS = set("mzskxabpgjecuvw")
 MVARS = {"?n": "n", "?h": "h", "?f": "f", "?q": "q", "?r": "r", "?t": "t", "?y": "y", "?o": "o"}
@@ -156,6 +163,8 @@ CASES = [
     ("eq", apps(lam(succ("#0")), "k"), succ("k"), None),
     ("eq", apps(REC, MOTIVE, "z", STEP, "?n"), "k", "FE1e synthPending (class facts, FE1e1)"),
     ("eq", apps(REC, "m", "z", "s", ZERO), "z", None),
+    ("eq", "?n", apps(REC, MOTIVE, "?n", STEP, ZERO), None),
+    ("eq", lam("k"), "k", None),
     # Unit-like structures and structure eta without fields.
     ("eq", "v", "w", None),
     ("eq", "v", UNIT, None),
@@ -371,14 +380,37 @@ def self_test():
         raise Failure(f"harness self-test: {want} / {got} (gap {gap}) not told apart")
 
 
+def golden_lines():
+    """Lean's lines as recorded in the golden file, which must match the cases."""
+    lines = GOLDEN.read_text(encoding="utf-8").splitlines()
+    if len(lines) != len(CASES):
+        raise Failure(f"{GOLDEN.relative_to(ROOT)} has {len(lines)} lines for {len(CASES)} cases: "
+                      "python3 tests/front/check_defeq.py --write-golden")
+    return lines
+
+
+def wanted(args):
+    """Pinned Lean's lines, checked against the golden file; or (--golden,
+    without Lean, as make test runs it) the golden file's."""
+    if args == ["--golden"]:
+        return golden_lines()
+    lines = lean_lines()
+    if args == ["--write-golden"]:
+        GOLDEN.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    if golden_lines() != lines:
+        raise Failure(f"{GOLDEN.relative_to(ROOT)} differs from pinned Lean's lines")
+    return lines
+
+
 def main():
-    if sys.argv[1:] == ["--write"]:
+    args = sys.argv[1:]
+    if args == ["--write"]:
         LEAN_FILE.write_text(lean_source(), encoding="utf-8")
         return 0
     try:
         self_test()
         gaps, kinds = [], {}
-        for (kind, t, s, gap), want, got in zip(CASES, lean_lines(), forth_lines()):
+        for (kind, t, s, gap), want, got in zip(CASES, wanted(args), forth_lines()):
             text = judge(f"{kind} {forth(t)} =?= {forth(s)}", gap, want, got)
             if text:
                 gaps.append(f"{text}")
@@ -388,7 +420,8 @@ def main():
         print(f"check_defeq: {error}")
         return 1
     mix = ", ".join(f"{n} {a}" for a, n in sorted(kinds.items()))
-    print(f"isDefEq: {len(CASES) - len(gaps)} of {len(CASES)} cases equal to pinned Lean's "
+    source = "the golden file's" if args == ["--golden"] else "pinned Lean's"
+    print(f"isDefEq: {len(CASES) - len(gaps)} of {len(CASES)} cases equal to {source} "
           f"(Lean's answers: {mix}); {len(gaps)} gaps answer unsupported, Lean's answer shown: "
           f"{'; '.join(gaps)}; harness self-test passed")
     return 0

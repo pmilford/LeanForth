@@ -937,6 +937,7 @@ test-front:
 	$(RUN) $(GFORTH) tests/front/whnf.fs
 	$(RUN) $(GFORTH) tests/front/infer.fs
 	$(RUN) $(GFORTH) tests/front/defeq.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_defeq.py --golden
 	$(RUN) $(GFORTH) tests/front/tactic-syntax.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_tactics.py
 

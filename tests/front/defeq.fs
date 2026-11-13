@@ -93,6 +93,27 @@ T{ succ ?h app 0 ofnat fk 1 ofnat hadd hadd dq ?h free? -> false outcome-unsuppo
 T{ lf-tr-reducible lf-defeq-mode! 0 s" Nat.add" cn 0 s" Nat.mul" cn dq
    lf-tr-default lf-defeq-mode! -> false outcome-ok }T
 T{ 0 s" Nat.add" cn 0 s" Nat.mul" cn dq -> false outcome-unsupported }T
+\ isDefEqProjInst at instances transparency might unfold a definition.
+T{ lf-tr-instances lf-defeq-mode! 0 s" Nat.add" cn fk dq lf-tr-default lf-defeq-mode!
+   -> false outcome-unsupported }T
+T{ own-mark lf-tr-none lf-defeq-mode! ?n fk dq own-back own-mark lf-tr-all lf-defeq-mode!
+   ?n fk dq own-back lf-tr-default lf-defeq-mode! -> true outcome-ok true outcome-ok }T
+
+\ ---- Flags: constApprox and isDefEqStuckEx answer unsupported where
+\ Lean would act; a read-only metavariable's arguments.
+: with-flags ( t s flags -- flag outcome )
+  lf-defeq-flags! dq lf-defeq-elab lf-defeq-flags! ;
+T{ ?t fk app ?t fx app lf-defeq-elab lf-defeq-const or with-flags
+   -> false outcome-unsupported }T
+T{ ?t fk app succ fk app lf-defeq-const with-flags -> false outcome-unsupported }T
+T{ ?o fk lf-defeq-elab lf-defeq-stuck or with-flags -> false outcome-unsupported }T
+T{ lf-mctx-deeper ?t fk app ?t fx app dq lf-mctx-shallower -> false outcome-ok }T
+\ processAssignment' retries with whnf: ?n =?= Nat.rec _ ?n _ Nat.zero
+\ fails the occurs check, but its whnf is ?n itself.
+: rec-n ( -- t ) rec nat nat lam app ?n app nat nat 0 bv lam lam app zero app ;
+T{ ?n rec-n dq ?n free? -> true outcome-ok true }T
+\ Eta: fun y => k against k, whose type is no pi.
+T{ nat fk lam fk dq -> false outcome-ok }T
 
 \ ---- Helpers. Lean's ==, etaExpanded?, names.
 T{ 0 s" Nat" cn nat lf-meta-eqv punit lv2 1 s" PUnit" cn lf-meta-eqv
@@ -123,10 +144,25 @@ T{ ?n fk lf-meta-sees? ?n fj lf-meta-sees? -> true false }T
 T{ 3 nlit lf-meta-eval-nat zero succ swap app lf-meta-eval-nat -> 3 true outcome-ok 1 true outcome-ok }T
 T{ 2 ofnat 3 ofnat hadd lf-meta-eval-nat fk lf-meta-eval-nat -> 5 true outcome-ok 0 false outcome-ok }T
 T{ l0 1 s" OfNat.ofNat" cn nat app 2 nlit app fk app lf-meta-eval-nat -> 0 false outcome-ok }T
-T{ 2 nlit 1 nlit >r >r 0 s" Nat.sub" cn r> app r> app lf-meta-eval-nat -> 0 false outcome-unsupported }T
+: nat-op ( a b c-addr u -- t ) 0 -rot cn rot app swap app ;
+T{ 2 nlit 1 nlit s" Nat.sub" nat-op lf-meta-eval-nat -> 0 false outcome-unsupported }T
+T{ 2 nlit 3 nlit s" Nat.mul" nat-op lf-meta-eval-nat -> 0 false outcome-unsupported }T
 T{ succ fk app lf-meta-offset fk 2 ofnat hadd lf-meta-offset -> fk 1 true outcome-ok fk 2 true outcome-ok }T
 T{ fk lf-meta-offset 2swap 2drop -> false outcome-ok }T
-T{ fk 0 lf-meta-mk-offset zero 3 lf-meta-mk-offset >r 3 ofnat same r> -> fk outcome-ok true outcome-ok }T
+T{ fk 0 lf-meta-mk-offset zero 3 lf-meta-mk-offset swap 3 ofnat same
+   -> fk outcome-ok outcome-ok true }T
+: add-nat ( a b -- t ) l0 1 s" Add.add" cn nat app 0 s" instAddNat" cn app
+  rot app swap app ;
+T{ 2 nlit 3 nlit add-nat lf-meta-eval-nat fk 2 nlit s" Nat.add" nat-op lf-meta-offset
+   -> 5 true outcome-ok fk 2 true outcome-ok }T
+T{ fk 2 nlit add-nat succ swap app lf-meta-offset -> fk 3 true outcome-ok }T
+\ An inner addition without a value is the offset's base.
+: off-sk ( e -- s k ) lf-meta-offset 2drop ;
+T{ fk fx s" Nat.add" nat-op dup succ swap app off-sk rot rot = -> 1 true }T
+\ An instance that is not Nat's node for node: Lean asks isDefEq.
+: hadd-by ( a b inst -- t ) >r >r >r l0 l0 l0 3 s" HAdd.hAdd" cn nat app nat app nat app
+  r> app r> app r> app ;
+T{ fk 2 nlit fx hadd-by lf-meta-offset 2swap 2drop -> false outcome-unsupported }T
 \ whnf's fixed points, isProp, getFunInfoNArgs, isClassQuick?.
 T{ fk lf-meta-whnf-final? succ fk app lf-meta-whnf-final? succ 2 nlit app lf-meta-whnf-final?
    -> true true false }T
@@ -135,6 +171,46 @@ T{ eqab lf-meta-is-prop nat lf-meta-is-prop -> true outcome-ok false outcome-ok 
 T{ succ 1 lf-meta-fun-info 0 lf-meta-param -> 1 outcome-ok lf-binder-default false }T
 T{ nat l0 sort lf-meta-class-none? fk lf-meta-class-none? -> nat true true }T
 T{ nat lf-meta-class-none? -> false }T
+T{ fk lf-meta-is-prop fp 0 proj lf-meta-is-prop -> false outcome-ok false outcome-unsupported }T
+T{ fs 1 lf-meta-fun-info ?t 1 lf-meta-fun-info fp 0 proj 1 lf-meta-fun-info
+   -> 0 outcome-ok 1 outcome-ok -1 outcome-unsupported }T
+: hadd3 ( -- f ) l0 l0 l0 3 s" HAdd.hAdd" cn ;
+T{ hadd3 6 lf-meta-fun-info 0 lf-meta-param 3 lf-meta-param 5 lf-meta-param
+   -> 6 outcome-ok lf-binder-implicit false lf-binder-instance false lf-binder-default false }T
+\ isProofQuick through a head's arguments: Eq.refl's type ends in Prop,
+\ id's in its type argument (Nat, never zero), HAdd.hAdd's in an outParam.
+: id-k ( -- t ) lv1 1 s" id" cn nat app fk app ;
+T{ nat refl lf-meta-proof-quick id-k lf-meta-proof-quick fk fx hadd lf-meta-proof-quick
+   -> lf-lb-true outcome-ok lf-lb-false outcome-ok lf-lb-false outcome-ok }T
+T{ fu fk app lf-meta-proof-quick nat fe lam fk app lf-meta-proof-quick ?h lf-meta-proof-quick
+   -> lf-lb-false outcome-ok lf-lb-true outcome-ok lf-lb-false outcome-ok }T
+T{ nat eqab tpi lf-meta-prop-quick nat fk eqab let lf-meta-prop-quick fu fk app lf-meta-prop-quick
+   -> lf-lb-true outcome-ok lf-lb-true outcome-ok lf-lb-undef outcome-ok }T
+: lmax ( a b -- l ) lf-level-tag-max lf-level-binary drop ;
+: limax ( a b -- l ) lf-level-tag-imax lf-level-binary drop ;
+T{ l0 l0 lmax lf-meta-always-zero? lv1 l0 limax lf-meta-always-zero? l0 lv1 lmax lf-meta-always-zero?
+   -> true outcome-ok true outcome-ok false outcome-ok }T
+\ Lean's == by content: the slice's Nat and Sort 1 against the store's.
+: input-nat ( -- t ) s" Nat.succ" menv-decl lf-menv-type lf-term-first@ ;
+: input-type ( -- t ) s" Nat" menv-decl lf-menv-type ;
+T{ input-nat nat lf-meta-eqv input-type lv1 sort lf-meta-eqv input-type l0 sort lf-meta-eqv
+   -> true outcome-ok true outcome-ok false outcome-ok }T
+T{ fp 0 proj fp 1 proj lf-meta-eqv -> false outcome-ok }T
+\ checkAssignment's refusals: an out-of-scope let variable, a variable
+\ out of scope inside a beta-redex or under ctxApprox, hasCtxLocals.
+nat fk lf-lctx-let made constant fl
+create xk 1 cells allot  fk xk !
+T{ ?n xs 0 fl lf-meta-check-assignment rot drop ?n xs 0 nat fj lam fk app
+   lf-meta-check-assignment rot drop -> false outcome-unsupported false outcome-unsupported }T
+T{ true lf-meta-ctx-approx! ?n xs 0 ?t fj app lf-meta-check-assignment rot drop
+   false lf-meta-ctx-approx! ?n xk 1 ?h lf-meta-check-assignment
+   -> false outcome-unsupported ?h false outcome-ok }T
+T{ ?n xs 0 nat fk fj let lf-meta-check-assignment rot drop -> false outcome-ok }T
+\ mkLambdaFVars: an xi in a metavariable's scope (elimMVarDeps) or a let
+\ between the xi: not ported.
+create xaj 2 cells allot  fa xaj !  fj xaj cell+ !
+T{ xk 1 ?n lf-meta-mk-lambda xaj 2 fk lf-meta-mk-lambda
+   -> -1 outcome-unsupported -1 outcome-unsupported }T
 
 \ ---- Resources: each allocation refused in turn gives full or the
 \ answer, and leaves nothing behind.
