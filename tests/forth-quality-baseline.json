@@ -427,9 +427,9 @@
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 30,
-  "shuffles": 3,
-  "words": 107
+  "rstack": 31,
+  "shuffles": 2,
+  "words": 123
  },
  "src/front/reader.fs": {
   "globals": 0,
