@@ -105,3 +105,16 @@ true (app Nat.succ.{} (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Na
 true (app Nat.succ.{} (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) (app (app (app OfNat.ofNat.{0} Nat.{}) 4611686018427387904) (app instOfNatNat.{} 4611686018427387904))) (app (app (app OfNat.ofNat.{0} Nat.{}) 4611686018427387904) (app instOfNatNat.{} 4611686018427387904)))) (app (app (app OfNat.ofNat.{0} Nat.{}) 4611686018427387904) (app instOfNatNat.{} 4611686018427387904))))) (app Nat.succ.{} (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) (app (app (app OfNat.ofNat.{0} Nat.{}) 13835058055282163712) (app instOfNatNat.{} 13835058055282163712))))
 false
 true (app i e) (app i (proj 0 p))
+stuck
+false
+stuck
+false
+false
+stuck
+true (app d k) (app (app (app (app Nat.rec.{1} (lam Nat.{} PUnit.{1})) PUnit.unit.{1}) (lam Nat.{} (lam PUnit.{1} #0))) ?o)
+true (app d k) (app (app (app (app Nat.rec.{1} (lam Nat.{} PUnit.{1})) PUnit.unit.{1}) (lam Nat.{} (lam PUnit.{1} #0))) ?o)
+stuck
+false
+stuck
+true Sort ?l Sort ?l
+true Sort 1 Sort 1

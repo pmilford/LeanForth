@@ -523,7 +523,8 @@ create mv-offsets
 : mv-redo-all ( -- ) begin mv-redos slab-count while mv-redo-pop mv-redo repeat ;
 : mv-goto ( i -- outcome )
   mv-redos slab-clear mv-at swap mv-climbs ok-then? if mv-back-to mv-redo-all outcome-ok then ;
-: lf-mctx-switch ( snap -- outcome ) mv-snap-at if mv-goto else outcome-invalid then ;
+: lf-mctx-switch ( snap -- outcome )
+  lf-mctx-marks 0= if drop outcome-invalid exit then mv-snap-at if mv-goto else outcome-invalid then ;
 
 \ ---- Assignment: once, to a live leaf, the occurs check passed; a walk
 \ that fails gives its own outcome and nothing is assigned.

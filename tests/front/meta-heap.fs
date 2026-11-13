@@ -127,6 +127,33 @@ T{ 1 heap-refusals ! me 0 lf-meta-level-defeq me free? lf-mctx-marks
    -> false outcome-full true open-marks }T
 T{ 1 heap-refusals ! lf-mctx-mark lf-mctx-marks -> 0 outcome-full open-marks }T
 T{ 0 heap-refusals ! close-marks lf-mctx-marks -> 0 }T
+\ The undo trail's other slabs (S1 §3): a snapshot whose slab cannot
+\ grow, a switch whose redo stack cannot, a delayed assignment whose three
+\ records the trail has no room for: each full, and nothing changes (the
+\ state, the trail's length, the open scopes).
+lnew constant ms1  lnew constant ms2
+variable hm  variable hs0  variable hs1  variable hn
+: snap! ( addr -- ) lf-mctx-snapshot made swap ! ;
+: snaps-to-room ( -- )
+  begin mv-snaps slab-count mv-snaps slab-capacity < while lf-mctx-snapshot 2drop repeat ;
+: trail-to-room ( -- )
+  begin mv-trail slab-capacity mv-trail slab-count - 3 < 0= while
+    lnew one lf-level-mvar-assign drop repeat ;
+T{ lf-mctx-mark made hm ! hs0 snap! ms1 one lf-level-mvar-assign hs1 snap! -> outcome-ok }T
+T{ snaps-to-room 1 heap-refusals ! lf-mctx-snapshot heap-refusals @ 0 heap-refusals !
+   -> 0 outcome-full 0 }T
+T{ hs0 @ lf-mctx-switch ms2 one lf-level-mvar-assign -> outcome-ok outcome-ok }T
+T{ 1 heap-refusals ! hs1 @ lf-mctx-switch heap-refusals @ 0 heap-refusals ! ms1 free? ms2 free?
+   -> outcome-full 0 true false }T
+T{ hs1 @ lf-mctx-switch ms1 free? ms2 free? -> outcome-ok false true }T
+: tm ( -- mvar ) prop mv-natural lf-mvar-new made ;
+tm constant td1  tm constant tp1
+T{ trail-to-room mv-trail slab-count hn ! 1 heap-refusals ! td1 tp1 0 lf-mvar-delay
+   heap-refusals @ 0 heap-refusals ! td1 lf-mvar-delayed mv-trail slab-count hn @ =
+   -> outcome-full 0 false true }T
+T{ td1 tp1 0 lf-mvar-delay td1 lf-mvar-delayed nip nip nip -> outcome-ok true }T
+T{ hm @ lf-mctx-rollback td1 lf-mvar-delayed ms1 free? lf-mctx-marks mv-trail slab-count
+   -> outcome-ok false true 0 0 }T
 \ instantiateMVars (mvars.fs). First, while the argument slab has no
 \ block yet: ?d delayed over x forty times, ?p := x, ?d x .. x with 40
 \ arguments, the 1st, 2nd, ... allocation refused until the slab has its

@@ -110,6 +110,7 @@ T{ s" Nat.add.match_1" ' lf-menv-matcher? fact s" HAdd.hAdd" ' lf-menv-proj-fn? 
    s" Nat.casesOn" ' lf-menv-aux-recursor? fact s" Nat.rec" ' lf-menv-matcher? fact
    -> false outcome-unsupported false outcome-unsupported false outcome-unsupported
       false outcome-ok }T
+T{ s" Eq.ndrec" ' lf-menv-aux-recursor? fact -> true outcome-ok }T
 menv-lib lf-menv-stage!
 
 \ ---- The queries allocate nothing.

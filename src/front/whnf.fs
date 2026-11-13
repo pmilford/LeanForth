@@ -390,20 +390,22 @@ end-structure
 : wm-nat? ( e -- flag )
   dup lf-meta-args# 1 3 within over ['] lf-menv-nat-name? wm-head-named? and
   if wm-succ-inert? 0= else drop false then ;
-\ unfoldDefinition?: a theorem at all; at instances, a projection
-\ function; any definition the transparency unfolds (getUnfoldableConst?).
+\ unfoldDefinition?: any definition the transparency unfolds
+\ (getUnfoldableConst?), a theorem at all; at instances, an application
+\ of a projection function (unfoldProjInstWhenInstances?).
 : wm-thm-all? ( d -- flag ) lf-menv-kind lf-kind-theorem = lf-meta-mode lf-tr-all = and ;
 : wm-proj-fact ( d -- outcome )
   lf-menv-proj-fn? ok-then? if if outcome-unsupported else outcome-ok then then ;
 : wm-proj-inst ( d -- outcome )
   lf-meta-mode lf-tr-instances = if wm-proj-fact else drop outcome-ok then ;
-: wm-firm ( d -- outcome ) dup wm-thm-all? if drop outcome-unsupported else wm-proj-inst then ;
-: wm-const ( const -- outcome )
-  wc-name lf-meta-mode lf-menv-unfoldable ok-then? 0= if nip exit then
-  if drop outcome-unsupported else wm-firm then ;
+: wm-firm ( app? d -- outcome )
+  dup wm-thm-all? if 2drop outcome-unsupported exit then swap if wm-proj-inst else drop outcome-ok then ;
+: wm-const ( app? const -- outcome )
+  wc-name lf-meta-mode lf-menv-unfoldable ok-then? 0= if nip nip exit then
+  if 2drop outcome-unsupported else wm-firm then ;
 : wm-check ( e -- outcome )
   dup wm-nat? if drop outcome-unsupported exit then
-  wm-head dup wc-const? if wm-const else drop outcome-ok then ;
+  dup lf-meta-app? swap wm-head dup wc-const? if wm-const else 2drop outcome-ok then ;
 : wm-final ( e -- e' outcome ) dup wm-check dup ok? 0= if nip no-result then ;
 : lf-meta-whnf ( e -- e' outcome )
   lf-meta-spend? 0= if drop -1 outcome-exhausted exit then

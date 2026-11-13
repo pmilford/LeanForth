@@ -160,6 +160,68 @@ succ lf-term-first@ fvar-at constant ftwin
 T{ ftwin lf-term-first@ succ lf-term-first@ = -> true }T
 T{ ftwin zero app recm lf-whnf-stuck -> false outcome-ok }T
 
+\ ---- whnf (lf-meta-whnf, S1 appendix D) in the fed environment, with the
+\ slice's format 2 facts: what whnfCore leaves, a definition that is no
+\ matcher and no auxiliary recursor included, unless reduceNat? or
+\ unfoldDefinition? would act (unsupported, never a guess: smart
+\ unfolding is S2); at the configured transparency.
+: meta-whnf= ( term expected -- flag outcome ) >r lf-meta-whnf r> swap >r same? r> ;
+: nlit ( u -- t ) lf-hterm-cell must drop ;
+: inst-hadd ( -- t ) l0 1 s" instHAdd" cn nat app 0 s" instAddNat" cn app ;
+: hadd-kx ( -- t ) l0 l0 l0 3 s" HAdd.hAdd" cn nat app nat app nat app inst-hadd app fk app fx app ;
+: in-mode ( term mode -- e' outcome )
+  lf-meta-mode >r lf-defeq-mode! lf-meta-whnf r> lf-defeq-mode! ;
+\ Sorts, binders, literals, an inert head stay; a beta step is taken.
+T{ nat nat tpi dup meta-whnf= lv1 sort dup meta-whnf= 2 nlit dup meta-whnf=
+   -> true outcome-ok true outcome-ok true outcome-ok }T
+T{ fk fx app dup meta-whnf= nat fs 0 bv app lam fk app fs fk app meta-whnf=
+   -> true outcome-ok true outcome-ok }T
+\ An instance (instance-reducible): unfolded at default (unsupported), left
+\ at reducible (whnfR); whnfCore alone still refuses its head.
+T{ inst-hadd lf-meta-whnf inst-hadd lf-meta-whnf-r nip inst-hadd lf-whnf-core
+   -> -1 outcome-unsupported outcome-ok -1 outcome-unsupported }T
+T{ inst-hadd dup lf-meta-whnf-r drop same? lf-meta-mode -> true lf-tr-default }T
+\ A projection function (semireducible in the data): unfolded at default,
+\ left at reducible; a matcher, an auxiliary recursor, Nat operations
+\ reduceNat? might fold; Nat.succ of a variable stays.
+T{ hadd-kx lf-meta-whnf hadd-kx dup lf-meta-whnf-r drop same?
+   -> -1 outcome-unsupported true }T
+T{ 0 s" Nat.add.match_1" cn fk app lf-meta-whnf -> -1 outcome-unsupported }T
+T{ lv1 1 s" Nat.casesOn" cn fk app lf-meta-whnf 0 s" Nat.add" cn fk app fx app lf-meta-whnf-r
+   -> -1 outcome-unsupported -1 outcome-unsupported }T
+T{ succ 2 nlit app lf-meta-whnf succ fk app dup meta-whnf=
+   -> -1 outcome-unsupported true outcome-ok }T
+\ unfoldDefinition? by transparency: Nat.add (instance-reducible) at
+\ default, not at reducible; Nat.div (irreducible) only at all; a theorem
+\ only at all; at instances a projection function applied
+\ (unfoldProjInst?), not alone.
+T{ 0 s" Nat.add" cn lf-meta-whnf 0 s" Nat.add" cn lf-tr-reducible in-mode nip
+   -> -1 outcome-unsupported outcome-ok }T
+T{ 0 s" Nat.div" cn lf-meta-whnf nip 0 s" Nat.div" cn lf-tr-all in-mode
+   -> outcome-ok -1 outcome-unsupported }T
+T{ 0 s" Nat.zero_add" cn lf-meta-whnf nip 0 s" Nat.zero_add" cn lf-tr-all in-mode
+   -> outcome-ok -1 outcome-unsupported }T
+T{ hadd-kx lf-tr-instances in-mode l0 l0 l0 3 s" HAdd.hAdd" cn lf-tr-instances in-mode nip
+   -> -1 outcome-unsupported outcome-ok }T
+\ Without the facts (no data read against the stage) a definition's head
+\ is unsupported, as in whnfCore.
+0 lf-menv-stage!
+T{ inst-hadd lf-meta-whnf-r -> -1 outcome-unsupported }T
+menv-lib lf-menv-stage!
+\ The budget: none left is exhausted, nothing spent then.
+T{ 0 lf-meta-budget! nat lf-meta-whnf lf-meta-budget lf-meta-default-budget lf-meta-budget!
+   -> -1 outcome-exhausted 0 }T
+\ whnfForall: a pi from whnf, else the term itself; a failure passes on.
+T{ nat nat tpi fk app lf-meta-whnf-forall nat lf-meta-whnf-forall inst-hadd lf-meta-whnf-forall
+   -> nat nat tpi fk app lf-whnf-core drop outcome-ok nat outcome-ok -1 outcome-unsupported }T
+\ instantiateForall: (a : Sort 1) -> a with Nat is Nat; (fun _ => Nat ->
+\ Nat) k, a pi only after whnf, with x is Nat; one parameter too many is
+\ invalid (Lean throws); none leaves the term.
+T{ lv1 sort 0 bv tpi nat 1 rxs lf-meta-instantiate-forall -> nat outcome-ok }T
+T{ nat nat nat tpi lam fk app fx 1 rxs lf-meta-instantiate-forall -> nat outcome-ok }T
+T{ nat nat tpi fk fx 2 rxs lf-meta-instantiate-forall nat 0 rxs lf-meta-instantiate-forall
+   -> -1 outcome-invalid nat outcome-ok }T
+
 \ ---- Stale leaves: after the contexts are emptied, every metavariable
 \ and free variable made before is invalid.
 lf-mctx-reset
