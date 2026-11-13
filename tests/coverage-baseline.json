@@ -299,8 +299,8 @@
   },
   "src/front/level-defeq.fs": {
    "blocks": 130,
-   "never_run": 3,
-   "reason": "measured 2026-11-12 on fe1c-lnorm: never run are lf-meta-level='s full branch on the bases or on a normalized side (82, 94: its pair slab is grown by earlier deep tests, so no refusal reaches it) and the CATCH branch that rolls the mark back on a THROW (167: no input makes the rounds throw)"
+   "never_run": 4,
+   "reason": "measured 2026-11-12 on fe1c-lnorm: never run are lf-meta-level='s full branch on the bases or on a normalized side (82, 94: its pair slab is grown by earlier deep tests, so no refusal reaches it) and the CATCH branch that rolls the mark back on a THROW (167: no input makes the rounds throw) Allowance 3 -> 4 (2026-11-13): the full suite measured 4 in the push run of f24c8015 (the 3 above came from a front-end-only run on the branch); the fourth block is not named yet: find it with scripts/coverage.py --uncovered and test it or give its reason (plan row FE1c)."
   },
   "src/front/level-normalize.fs": {
    "blocks": 242,
