@@ -66,9 +66,9 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/cli/check-lf.fs": {
-   "blocks": 138,
-   "never_run": 4,
-   "reason": "new file (plan 8.2.1c-d; agent LF2, 2026-11-12): four refusals no input reaches: a library declaration without levelParams (the stage refuses every named declaration without them: named-ok?, src/import/stage-records.fs:443-445), the stage refused at stage-init (no heap), stage-extend after a library read that succeeded, the stores' capacity settings refused"
+   "blocks": 167,
+   "never_run": 5,
+   "reason": "new file (plan 8.2.1c-d; agent LF2, 2026-11-12): four refusals no input reaches: a library declaration without levelParams (the stage refuses every named declaration without them: named-ok?, src/import/stage-records.fs:443-445), the stage refused at stage-init (no heap), stage-extend after a library read that succeeded, the stores' capacity settings refused; and (plan FE1d, 2026-11-12) the library file's SHA-256 for --elab-data failing after the library itself was read (lfc-elab-read)"
   },
   "src/cli/check-run.fs": {
    "blocks": 898,
@@ -239,6 +239,11 @@
    "blocks": 6,
    "never_run": 1,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/front/elab-data.fs": {
+   "blocks": 531,
+   "never_run": 5,
+   "reason": "new file (plan FE1d, 2026-11-12): five refusals no test input reaches: a name lookup that fails in an open tier (ed-looked), a tier name beyond the stage's name-to-declaration array (ed-decls), a name several declarations have (a single export has none), no room while the eliminators' table grows (the allocation-refusal test reads 4 eliminators), and a THROW inside a read (ed-caught)"
   },
   "src/import/checker-input.fs": {
    "blocks": 294,

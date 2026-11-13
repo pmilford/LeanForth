@@ -20,10 +20,11 @@ docs/programming/ELABORATION_DATA.md and schemas/elab-data-1.schema.json:
 
 Only records whose every name is a declaration of EXPORT are kept, so that
 a slice of a library (scripts/export.sh MODULE -- NAMES) gets the data of
-its own declarations; the records left out, by kind, are printed. A record whose names
-are all there but of the wrong kind (a class that is not an inductive
-type, an instance or eliminator that is one) is an error: then the export
-and the modules do not belong together. It refuses (exit status 1, nothing
+its own declarations; the records left out, by kind, are printed (for a
+whole module: those of the internal and unsafe declarations leanexport
+does not write). A record whose names are all there but of the wrong kind
+(a class that is not an inductive type, an instance or eliminator that is
+one) is an error: then the export and the modules do not belong together. It refuses (exit status 1, nothing
 written) RAW that is not as export_elab.lean writes it, an export whose
 SHA-256 differs from its manifest's, and a Lean version other than the
 pinned one. JSON is written with sorted keys and no spaces, UTF-8 as it
