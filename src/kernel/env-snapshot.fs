@@ -73,9 +73,11 @@
 \ Outcomes (ADR 0008): ok; invalid for a malformed, damaged or altered file
 \ (snap-error names the section, or the slot), other settings (fuel,
 \ allowlist) than the run's, a stage or environment that does not fit;
-\ unsupported for another format or verdict version (an older one loads,
-\ marked stale, when snap-stale-allowed is true: --snapshot-stale-ok), or
-\ a layered snapshot; full for no heap. A damaged section the container
+\ unsupported for another format or verdict version (a base of one of the
+\ two older verdict versions of the window loads marked snap-carry, for
+\ the caller's carry pass, plan step 6.2.5c3; any older one loads marked
+\ stale when snap-stale-allowed is true: --snapshot-stale-ok), or a
+\ layered snapshot; full for no heap. A damaged section the container
 \ reports as rejected is invalid here. The file is closed by snap-close;
 \ the heap blocks are freed by snap-free.
 \ State: one /snap record per file being written or read, used by one task;
@@ -161,6 +163,7 @@ begin-structure /snap
   field: snap-expect                    \ reading a layer: its base's identity, or 0
   field: snap-expect-firsts             \ and the base's tier counts (8 cells)
   field: snap-stale                     \ reading: true for an older verdict version
+  field: snap-carry                     \ reading a base: older, in the window
 end-structure
 variable snap-loading   \ the record snap-fill reads
 \ A development flag (owner, 2026-11-11; ADR 0020 amendment 3): true lets
@@ -590,12 +593,25 @@ create snap-outers /outers allot  snap-outers /outers erase
 : snap-marked? ( snap -- flag ) sh-mark swap head@ snap-mark = ;
 : snap-current? ( snap -- flag ) sh-version swap head@ snap-version = ;
 : snap-verdict ( snap -- n ) sh-verdict swap head@ ;
-\ This build's verdict version, or (snap-stale-allowed) an older one,
-\ which marks the record stale.
+\ This build's verdict version; for a base, an older one inside the
+\ window (verdict-version.fs lf-verdict-carried?), which marks the record
+\ (snap-carry): the caller carries its results where the steps since cannot
+\ reach and checks the rest (kernel/env-import.fs, plan step 6.2.5c3);
+\ or (snap-stale-allowed) any older one, which marks the record stale. A
+\ layer of an older version is stale or refused until plan step 6.2.5c7.
 : snap-older? ( snap -- flag ) snap-verdict 1 lf-verdict-version within ;
+: snap-carried? ( snap -- flag )
+  dup snap-expect @ 0= swap snap-verdict lf-verdict-carried? and ;
+: snap-beyond? ( snap -- flag )
+  dup snap-older? snap-stale-allowed @ and dup rot snap-stale ! ;
+\ Why a version is refused: a layer of an older version inside the window
+\ waits for plan step 6.2.5c7 (review of snap-compat L1).
+: snap-version-why ( snap -- c-addr )
+  dup snap-expect @ swap snap-verdict lf-verdict-carried? and
+  if c" older layer" else c" verdict version" then ;
 : snap-fresh? ( snap -- flag )
   dup snap-verdict lf-verdict-version = if drop true exit then
-  dup snap-older? snap-stale-allowed @ and dup rot snap-stale ! ;
+  dup snap-carried? if true swap snap-carry ! true exit then snap-beyond? ;
 : snap-allowed? ( snap -- flag )
   dup sh-allow-version swap head@ lf-allowlist-version =
   swap sh-allow-bits swap head@ lf-allowlist-bits = and ;
@@ -629,8 +645,9 @@ create snap-outers /outers allot  snap-outers /outers erase
   dup snap-marked? outcome-invalid c" not a LeanForth snapshot" snap-must ;
 : head-format ( snap -- outcome )
   dup snap-current? outcome-unsupported c" format version" snap-must ;
+\ Refused for its verdict version, or as an older layer (snap-version-why).
 : head-verdict ( snap -- outcome )
-  dup snap-fresh? outcome-unsupported c" verdict version" snap-must ;
+  dup snap-version-why over snap-fresh? swap outcome-unsupported swap snap-must ;
 : head-fuel ( snap -- outcome ) dup snap-fuel? outcome-invalid c" fuel" snap-must ;
 : head-allowed ( snap -- outcome )
   dup snap-allowed? outcome-invalid c" axiom allowlist" snap-must ;
@@ -714,8 +731,11 @@ create snap-outers /outers allot  snap-outers /outers erase
 \ A slot's own fields: an outcome, marks, axiom bits within the
 \ allowlist's; B4 warning bits, a recipe and a shape as the checker makes
 \ them (review FRK F5); fuel used -1 (not known) or at most the fuel per
-\ declaration; provenance 0 in a base snapshot (written by a final run),
-\ at most 1 (rests on saved results) in a layer (review rvSN3 m2, m3).
+\ declaration; provenance at most 1 (rests on saved results) in a layer
+\ (review rvSN3 m2, m3), and in a base 0 (written by a final run) or, in
+\ a base written again by a run of an older one (plan step 6.2.5c5, R8),
+\ also 1, 2 (taken from it) and 3; ADR 0020 Amendment 5's lineage
+\ section (plan step 6.2.5c6) will tell such a base apart.
 : sl-at ( addr k -- u ) swap fld@ ;
 : outcome-in? ( u -- flag ) outcome-full u> 0= ;
 \ The warning bits: inductive-block.fs's lf-warn-* (1-16) and quot.fs's
@@ -739,8 +759,8 @@ create snap-outers /outers allot  snap-outers /outers erase
 : fuel-ok? ( addr snap -- flag )
   snap-fuel swap sl-fuel swap fld2@ tuck < 0= swap -1 < 0= and ;
 : snap-layer? ( snap -- flag ) sh-layers swap head@ 0<> ;
-: prov-ok? ( addr snap -- flag )
-  swap sl-provenance swap fld@ swap snap-layer? 1 and u> 0= ;
+: prov-max ( snap -- u ) snap-layer? if 1 else prov-taken 1 or then ;
+: prov-ok? ( addr snap -- flag ) prov-max swap sl-provenance swap fld@ u< 0= ;
 \ Its site: none, or a counted string inside the site texts.
 : site-room ( snap -- base size ) ss-sites swap snap-span ;
 : site-ok? ( n snap -- flag )
@@ -849,8 +869,10 @@ create snap-outers /outers allot  snap-outers /outers erase
 \ recipe, shape, marks (skipped, added, its span), its lists in order,
 \ and published from the snapshot. Else invalid, the slot noted.
 : field-same? ( d slot entry -- flag ) field-of rot saved = ;
-: fields-same? ( d slot -- flag )
-  true same-fields# 0 do i same-field 2over rot field-same? and loop nip nip ;
+\ The first n of them (the first five: a check's answer fields, I3).
+: fields-upto? ( d slot n -- flag )
+  true swap 0 ?do i same-field 2over rot field-same? and loop nip nip ;
+: fields-same? ( d slot -- flag ) same-fields# fields-upto? ;
 : deps-same? ( d slot -- flag )
   swap start@ drop swap dup lf-slot-count @ true swap 0 ?do
     2 pick i + snap@ dep@ i 3 pick lf-dep-at = and
@@ -860,6 +882,9 @@ create snap-outers /outers allot  snap-outers /outers erase
     2 pick i + snap@ 2dup look-answer >r look-key r> i 4 pick lf-slot-look d= and
   loop nip nip ;
 : marks-same? ( d slot -- flag ) slot-marks swap sl-marks swap saved = ;
+\ What a user's check can read of a slot (plan step 6.2.5c4, I3): outcome,
+\ axiom set, warnings, recipe, shape (the first five) and marks.
+: alike? ( d slot -- flag ) 2dup 5 fields-upto? if marks-same? else 2drop false then ;
 : slot-same? ( d -- flag )
   dup slot-env 2dup fields-same? >r 2dup deps-same? >r 2dup looks-same? >r
   dup lf-slot-saved @ 0<> >r marks-same? r> and r> and r> and r> and ;

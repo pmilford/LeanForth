@@ -1,5 +1,7 @@
 # FE1e: elaborating applications, numerals, `+`, `=` and instance search
 
+> **2026-11-13:** for slice S1, [S1_INTERFACE.md](S1_INTERFACE.md) overrides this design where they differ (environment route, stuck signal and FE1e0, the trail of §3.5, binder kinds, error codes, fuel, the unsupported rules of §2.7 and §4, `by-exact`).
+
 Plan row FE1e ([plan](../project/PLAN_DRAFT.md#phase-8-front-end-fe1fe12-2026-11-12-replaces-831-and-832);
 [front-end design §8](FRONT_END.md#8-fe1-in-full-0--n--n-proved-natively);
 [ADR 0021](../adr/0021-front-end.md)). Status (2026-11-12): **designed**;
