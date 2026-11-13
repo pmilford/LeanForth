@@ -185,6 +185,16 @@ T{ s" And" top elab-induction elab-eliminator-for s" And" top elab-cases elab-el
    -> 2 true false }T
 T{ 3 elab-eliminator-types nip 3 elab-eliminator-types drop 1 cells + @ -> 2 s" Nat" top }T
 T{ s" Eq" top elab-induction elab-eliminator-for -> false }T
+\ The fixture's BitVec.instAdd (left out 20) has a projection of BitVec,
+\ which the slice lacks: a foreign key of Key.arity 1 whose text is 2, the
+\ field 0 and BitVec's name; BitVec.instOfNat (44) has the constant
+\ BitVec, a foreign key of arity 1 too: the two differ.
+T{ 20 1 left-key dup elab-key-tag over elab-key-arity rot elab-key-text nip
+   -> elab-key-foreign 1 22 }T
+T{ 20 1 left-key elab-key-text drop dup u32-le@ swap 4 + u32-le@ -> 2 0 }T
+T{ 20 1 left-key elab-key-text 16 /string s" BitVec" compare -> 0 }T
+T{ 44 1 left-key dup elab-key-arity swap elab-key-text nip -> 1 14 }T
+T{ 20 1 left-key 44 1 left-key elab-key= -> false }T
 
 \ A refused read keeps nothing; the next read works and replaces it.
 : forgotten? ( d -- flag )

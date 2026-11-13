@@ -92,14 +92,21 @@ def assemble(lines, **head):
 DROP = object()   # assemble(..., member=DROP) leaves the member out
 
 
+BITVEC_CONST = '{"arity":1,"const":["BitVec"]},"star"],"name":["BitVec","instAdd"]'
+BITVEC_PROJ = '{"arity":0,"idx":0,"proj":["BitVec"]},"star"],"name":["BitVec","instAdd"]'
+
+
 def eliminators_text():
-    """The synthetic fixture: the slice's data with four eliminators."""
+    """The synthetic fixture: the slice's data with four eliminators, and
+    BitVec.instAdd's key BitVec (a constant the slice lacks) made a
+    projection of BitVec, so that a foreign projection is read back
+    (tests/front/elab-data.fs) beside BitVec.instOfNat's foreign constant."""
     elims = [text({"eliminator": {"kind": k, "name": n, "types": t}}) for k, n, t in (
         ("induction", ["Nat", "rec"], [["Nat"]]),
         ("cases", ["Nat", "casesOn"], [["Nat"]]),
         ("induction", ["And", "rec"], [["And"]]),
         ("induction", ["Eq", "rec"], [["Eq"], ["Nat"]]))]
-    return assemble(GOOD_RECORDS + elims)
+    return assemble(swap(BITVEC_CONST, BITVEC_PROJ) + elims)
 
 
 def cut_off_text():
@@ -494,6 +501,15 @@ def format2_cases():
         case("matcher universe beyond its parameters", c('"num_params":0,"u_elim_pos":0}',
                                                          '"num_params":0,"u_elim_pos":1}'),
              4, "numbers that do not fit"),
+        case("matcher with one discriminant too few",
+             c('"discr_names":[null,null],"name":["Nat","add","match_1"],"num_discrs":2',
+               '"discr_names":[null],"name":["Nat","add","match_1"],"num_discrs":1'),
+             4, "numbers that do not fit"),
+        case("class out-parameter beyond its parameters", c('"out_params":[2]', '"out_params":[3]'),
+             4, "numbers that do not fit"),
+        case("class out-level beyond its universes", c('"out_level_params":[2]',
+                                                       '"out_level_params":[3]'),
+             4, "numbers that do not fit"),
         case("projection field beyond the constructor", c('"idx":0,"name":["Add","add"]',
                                                           '"idx":1,"name":["Add","add"]'),
              4, "numbers that do not fit"),
@@ -520,6 +536,11 @@ def format2_cases():
         # 12: unknown names in keys.
         case("unknown key constant", c(nat, '{"arity":0,"const":["Natt"]}],'
                                             '"name":["instAddNat"]'), 4, "unknown name"),
+        ("unknown key constant after a left-out instance", assemble(GOOD_RECORDS + [text(
+            {"instance": {"class": ["Add"], "keys": [{"arity": 1, "const": ["Add"]},
+                                                     {"arity": 0, "const": ["Natt"]}],
+                          "name": ["Nat", "add"], "priority": 1000, "rank": 30,
+                          "synth_order": []}})]), 4, n + 2, "unknown name"),
         case("instance projection key unknown", c(nat, '{"arity":0,"idx":0,"proj":["Natt"]}],'
                                                        '"name":["instAddNat"]'), 4, "unknown name"),
         case("left-out projection key malformed", c('{"arity":0,"const":["Dyadic"]}',
@@ -625,9 +646,7 @@ def command_line(work):
                                       '"discr_names":[["h"],null],"name":["Nat","add","match_1"]'),
         "a matcher into Prop only": swap('"num_params":0,"u_elim_pos":0}',
                                          '"num_params":0,"u_elim_pos":null}'),
-        "a left-out projection of a structure the slice lacks": swap(
-            '{"arity":1,"const":["BitVec"]},"star"],"name":["BitVec","instAdd"]',
-            '{"arity":0,"idx":0,"proj":["BitVec"]},"star"],"name":["BitVec","instAdd"]'),
+        "a left-out projection of a structure the slice lacks": swap(BITVEC_CONST, BITVEC_PROJ),
     }
     for what, records in accepted.items():
         path = work / (re.sub(r"\W+", "-", what) + ".ndjson")

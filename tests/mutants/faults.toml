@@ -11240,6 +11240,39 @@ new = '''  ed-class ed-class-params swap c" out_level_params" ed-member ed-numbe
 test = "$GFORTH tests/front/elab-data.fs"
 reason = "a class's out-level parameters are stored as its out-parameters, and its out-levels are left empty"
 
+# The faults of the Forth review of fe1e1 (L1-L3) and of the class ranges it suggested.
+[[fault]]
+id = "fe-ed2-matcher-arity-at-least"
+file = "src/front/elab-data.fs"
+old = '''  dup ed-match-arity over elab-matcher@ 2drop ed-type-pis = swap ed-elim-fits? and ;'''
+new = '''  dup ed-match-arity over elab-matcher@ 2drop ed-type-pis > 0= swap ed-elim-fits? and ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "review fe1e1 L1: a matcher with fewer parameters, discriminants or alternatives than its type's Pi binders is read"
+
+[[fault]]
+id = "fe-ed2-foreign-stays-on"
+file = "src/front/elab-data.fs"
+old = '''  false elab elab-foreign ! ;'''
+new = '''  ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "review fe1e1 L2: after a left-out instance, an instance's unknown key constant is kept as foreign, not refused"
+
+[[fault]]
+id = "fe-ed2-foreign-proj-unmarked"
+file = "src/front/elab-data.fs"
+old = '''  2 ed-text-u32 ok-then? 0= if exit then dup ed-idx-text ok-then? 0= if exit then'''
+new = '''  dup ed-idx-text ok-then? 0= if exit then'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "review fe1e1 L3: a foreign projection's text lacks its mark 2, so it may equal a foreign constant's"
+
+[[fault]]
+id = "fe-ed2-class-range-unchecked"
+file = "src/front/elab-data.fs"
+old = ''': ed-class-fit ( value k -- outcome ) nip ed-class-fits? ed-e-unfit ed-or-bad ;'''
+new = ''': ed-class-fit ( value k -- outcome ) 2drop outcome-ok ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "a class's out-parameter beyond its parameters, or out-level beyond its universes, is read"
+
 [[fault]]
 id = "fe-ed2-finisher-gap-unchecked"
 file = "scripts/export_elab.py"

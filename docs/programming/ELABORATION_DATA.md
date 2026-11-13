@@ -83,7 +83,9 @@ something else). What LeanForth checks and what it takes on trust:
       is not one;
     - a matcher is a definition;
     - a projection's constructor is a constructor;
-    - a projection key names an inductive type;
+    - a projection key names an inductive type (in a left-out instance,
+      a constant or structure the library lacks is kept as a foreign
+      key instead);
   - that no declaration is named twice;
   - that an instance's or default instance's class has a class record;
   - that an instance's keys make one term, as Lean's paths do;
@@ -93,9 +95,12 @@ something else). What LeanForth checks and what it takes on trust:
   - that a left-out instance the export is said to lack is no declaration
     of the library;
   - that a matcher's and a projection's numbers fit the declaration's
-    type: as many leading Pi binders as their arity needs, an elimination
-    universe among the universe parameters, the field among the
-    constructor's.
+    type: a matcher's type has exactly as many leading Pi binders as its
+    arity, a projection's at least its parameters and the structure; an
+    elimination universe is among the universe parameters, the field among
+    the constructor's;
+  - that a class's out-parameters are among its parameters and its
+    out-levels among its universe parameters.
 - **Taken on trust from pinned Lean:** everything the export cannot
   confirm by names, kinds and types alone. These are pinned Lean's
   output, bound to the export only by its SHA-256, which is not a key:
@@ -106,7 +111,10 @@ something else). What LeanForth checks and what it takes on trust:
     hashes and on import order, which the export does not hold);
   - priorities and synthesis orders;
   - which default instance a class has, and its rank;
-  - out-parameter positions, reducibility statuses and tags;
+  - which of a class's parameters are out-parameters (within range, as
+    above); the synthesis orders' positions (they count the binders
+    after unfolding, which the reader does not do: FE1e3 does);
+  - reducibility statuses and tags;
   - the matchers' alternatives and discriminant names;
   - whether a projection's structure is a class;
   - which eliminator Lean's `induction` and `cases` use.
@@ -304,7 +312,7 @@ What the reader checks, each failure refused with its reason:
 | no declaration named twice as one kind; no tag twice; one eliminator per kind and types | `an instance named twice`, `a default instance named twice`, `a reducibility named twice`, `a class named twice`, `a tag named twice`, `a matcher named twice`, `a projection named twice`, `two eliminators for the same types` | invalid |
 | no two values under one root key with one rank, no two default instances of one class with one rank | `two values of one root key with one rank`, `two default instances of one class with one rank` | invalid |
 | a left-out instance whose reason is `not_exported` is no declaration of the library | `a left-out instance the library has` | invalid |
-| a matcher's type has a leading Pi binder for each parameter, the motive, each discriminant and each alternative, and its elimination universe is one of its universe parameters; a projection function's type has one for each parameter and the structure, and its constructor's type one for each parameter and field up to `idx` (written out, without unfolding) | `numbers that do not fit the declaration's type` | invalid |
+| a matcher's type has exactly a leading Pi binder for each parameter, the motive, each discriminant and each alternative (lets among them not counted), and its elimination universe is one of its universe parameters; a projection function's type has one for each parameter and the structure, and its constructor's type one for each parameter and field up to `idx` (written out, without unfolding); a class's out-parameters are among its type's Pi binders and its out-levels among its universe parameters | `numbers that do not fit the declaration's type` | invalid |
 | as many discriminant names as discriminants | `malformed line` | invalid |
 | priorities, ranks, arities, positions and other numbers fit 32 bits | `a number beyond 2^32 - 1` | unsupported (no Lean library has one; the field widens if one appears) |
 | after the last line: the records of each kind and their SHA-256 are the header's | `records differ in number from the header`, `records differ from their SHA-256` | invalid |
@@ -355,7 +363,7 @@ printed with its text (`at line 2 (error 12): unknown name`):
 | 34 | `a left-out instance the library has` | invalid | a `not_exported` left-out instance whose name is a declaration of the library |
 | 35 | `a matcher named twice` | invalid | two matcher records of one declaration |
 | 36 | `a projection named twice` | invalid | two projection records of one declaration |
-| 37 | `numbers that do not fit the declaration's type` | invalid | a matcher's or projection's numbers that its type, or its constructor's, cannot have |
+| 37 | `numbers that do not fit the declaration's type` | invalid | a matcher's, projection's or class's numbers that its type, its constructor's or its universe parameters cannot have |
 | 38 | `a record kind this reader does not read yet` | unsupported | a `sunfold` record (plan row FE1d2) |
 
 Misuse is refused before anything runs:
@@ -522,7 +530,7 @@ counts it, so the data needs no new format version):
       `--no-manifest`, 16 eliminators (the table grows), 4 accepted
       variants, the verdicts unchanged, and 4 misuses (a layered snapshot
       among them);
-    - 111 damaged files, each refused with its line, code, text and exit
+    - 115 damaged files, each refused with its line, code, text and exit
       status and never "accepted": format 1's checks, format 2's (codes
       27-38, the key forms, ranks, matchers, projections), and a format-1
       file.
@@ -567,12 +575,15 @@ counts it, so the data needs no new format version):
     status mapping, the eliminator's kind ignored in a lookup,
     `--no-manifest` using the manifest's digest, and `--elab-data`
     ignored;
-  - format 2's checks (21 faults): each of codes 27-38 skipped, a foreign
+  - format 2's checks (25 faults): each of codes 27-38 skipped, a foreign
     constant allowed in an instance's keys, foreign constants refused in
     a left-out instance's keys, an arrow key's arity read as 0, equal
     texts compared by their offsets, a literal's digits not checked,
     ranks compared without their root keys, a class's out-levels stored
-    as its out-parameters, and the finisher's rank check skipped.
+    as its out-parameters, the finisher's rank check skipped, and the
+    review's: a matcher's arity checked as at most, the foreign mode left
+    on after a left-out instance, a foreign projection without its mark,
+    and a class's ranges unchecked.
 
 ## Limits and what is left
 

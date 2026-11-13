@@ -1,4 +1,4 @@
-{"elab_data":{"export_sha256":"5f906a8ec01e477612c5a3df525c0b70e7aa486162c9d1f1cb5ea2936356543e","format":"leanforth-elab-data","format_version":2,"lean_githash":"eb6cafb7290e8bd5f2937522d8d804f58f02bafc","lean_version":"4.35.0","modules":["Init"],"records":{"class":3,"default_instance":2,"eliminator":4,"instance":3,"instance_left_out":54,"matcher":4,"projection":3,"reducibility":18,"sunfold":0,"tag":5},"records_sha256":"e10994a35cb5c84c6a6e23922cb822a84c6a669177a9aa82f151de00beed65d2"}}
+{"elab_data":{"export_sha256":"5f906a8ec01e477612c5a3df525c0b70e7aa486162c9d1f1cb5ea2936356543e","format":"leanforth-elab-data","format_version":2,"lean_githash":"eb6cafb7290e8bd5f2937522d8d804f58f02bafc","lean_version":"4.35.0","modules":["Init"],"records":{"class":3,"default_instance":2,"eliminator":4,"instance":3,"instance_left_out":54,"matcher":4,"projection":3,"reducibility":18,"sunfold":0,"tag":5},"records_sha256":"b3c731aaf8be3cc3569f75133a8af498161b6c4b60991f78d1fba55fcfa8c39a"}}
 {"class":{"name":["Add"],"out_level_params":[],"out_params":[]}}
 {"class":{"name":["HAdd"],"out_level_params":[2],"out_params":[2]}}
 {"class":{"name":["OfNat"],"out_level_params":[],"out_params":[]}}
@@ -25,7 +25,7 @@
 {"instance_left_out":{"keys":[{"arity":1,"const":["Add"]},{"arity":0,"const":["UInt64"]}],"name":["instAddUInt64"],"priority":1000,"rank":5,"reason":"not_exported"}}
 {"instance_left_out":{"keys":[{"arity":1,"const":["Add"]},{"arity":0,"const":["UInt8"]}],"name":["instAddUInt8"],"priority":1000,"rank":20,"reason":"not_exported"}}
 {"instance_left_out":{"keys":[{"arity":1,"const":["Add"]},{"arity":0,"const":["USize"]}],"name":["instAddUSize"],"priority":1000,"rank":25,"reason":"not_exported"}}
-{"instance_left_out":{"keys":[{"arity":1,"const":["Add"]},{"arity":1,"const":["BitVec"]},"star"],"name":["BitVec","instAdd"],"priority":1000,"rank":9,"reason":"not_exported"}}
+{"instance_left_out":{"keys":[{"arity":1,"const":["Add"]},{"arity":0,"idx":0,"proj":["BitVec"]},"star"],"name":["BitVec","instAdd"],"priority":1000,"rank":9,"reason":"not_exported"}}
 {"instance_left_out":{"keys":[{"arity":1,"const":["Add"]},{"arity":1,"const":["Fin"]},"star"],"name":["Fin","instAdd"],"priority":1000,"rank":21,"reason":"not_exported"}}
 {"instance_left_out":{"keys":[{"arity":1,"const":["Add"]},{"arity":1,"const":["List"]},{"arity":0,"const":["Int"]}],"name":["Lean","Omega","IntList","instAdd"],"priority":1000,"rank":14,"reason":"not_exported"}}
 {"instance_left_out":{"keys":[{"arity":1,"const":["Add"]},{"arity":2,"const":["Lean","Grind","Ring","OfSemiring","Q"]},"star","star"],"name":["Lean","Grind","CommRing","OfCommSemiring","instAddQ"],"priority":10000,"rank":18,"reason":"not_exported"}}

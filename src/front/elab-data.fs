@@ -557,6 +557,24 @@ create ed-reason-names  s" erased" counted, s" not_exported" counted, 0 0 counte
 : ed-numbers ( span index -- outcome )
   over elab-orders ed-span-open ['] ed-number-item ed-array-items
   swap elab-orders ed-span-close ;
+\ Whether every number of the span is below limit.
+: ed-below? ( span limit -- flag )
+  swap ed-span@ cells bounds ?do dup i @ u> 0= if drop unloop false exit then
+  1 cells +loop drop true ;
+
+\ ---- Types, as far as the checks below read them: the leading Pi
+\ binders of a declaration's type, written out (no unfolding), and its
+\ universe parameters.
+: ed-pi? ( e -- flag ) ed-tier expr-tag@ tag-pi dup 4 + within ;
+: ed-let? ( e -- flag ) ed-tier expr-tag@ let-tag? ;
+\ One binder: a Pi counts one; a let (a matcher's type may hold lets
+\ among its parameters: 13 of Init's) counts none, its body follows.
+: ed-binder ( n e -- n' e' true | n false )
+  dup ed-pi? if ed-tier expr-b@ swap 1+ swap true exit then
+  dup ed-let? if ed-tier expr-body@ true exit then drop false ;
+: ed-pis ( e -- n ) 0 swap begin ed-binder 0= until ;
+: ed-type-pis ( d -- n ) ed-stage staged-type@ ed-pis ;
+: ed-levels ( d -- n ) ed-stage staged-params@ ed-stage stage-tuples tuple-length ;
 
 \ ---- Keys (front/elab-keys.fs): "star", "other", "arrow", or an object
 \ of one of four forms. A constant no declaration has is, while
@@ -782,7 +800,9 @@ create ed-elim-steps  ' ed-elim-kind! , ' ed-elim-decl! , ' ed-elim-types! , 0 ,
   elab-elims ed-claim ok-then? 0= if nip exit then tuck ed-elim-steps ed-steps
   ok-then? if ed-elim-insert then ;
 
-\ ---- Classes: name (an inductive type, once), out-parameters.
+\ ---- Classes: name (an inductive type, once), out-parameters. They fit
+\ when each out-parameter is one of the class's parameters (the Pi
+\ binders of its type) and each out-level one of its universe parameters.
 create ed-class-members
   s" name" counted, s" out_level_params" counted, s" out_params" counted, 0 0 counted,
 : ed-class-fact ( d k -- outcome )
@@ -796,7 +816,12 @@ create ed-class-members
   ed-class ed-class-params swap c" out_params" ed-member ed-numbers ;
 : ed-class-levels! ( value k -- outcome )
   ed-class ed-class-levels swap c" out_level_params" ed-member ed-numbers ;
-create ed-class-steps  ' ed-class-decl! , ' ed-class-params! , ' ed-class-levels! , 0 ,
+: ed-class-fits? ( k -- flag )
+  ed-class dup ed-class-params over ed-class-decl @ ed-type-pis ed-below?
+  swap dup ed-class-levels swap ed-class-decl @ ed-levels ed-below? and ;
+: ed-class-fit ( value k -- outcome ) nip ed-class-fits? ed-e-unfit ed-or-bad ;
+create ed-class-steps
+  ' ed-class-decl! , ' ed-class-params! , ' ed-class-levels! , ' ed-class-fit , 0 ,
 : ed-on-class ( value -- outcome )
   dup ed-class-members ed-shape? 0= if drop ed-malformed exit then
   elab-classes ed-claim ok-then? if ed-class-steps ed-steps else nip then ;
@@ -811,24 +836,11 @@ create ed-tag-members  s" name" counted, s" tag" counted, 0 0 counted,
   dup c" name" ed-member ed-no-type ok-then? 0= if nip exit then
   swap c" tag" ed-member ed-tag-names ed-choice ok-then? if ed-tag-fact else nip then ;
 
-\ ---- Types, as far as the checks below read them: the leading Pi
-\ binders of a declaration's type, written out (no unfolding), and its
-\ universe parameters.
-: ed-pi? ( e -- flag ) ed-tier expr-tag@ tag-pi dup 4 + within ;
-: ed-let? ( e -- flag ) ed-tier expr-tag@ let-tag? ;
-\ One binder: a Pi counts one; a let (a matcher's type may hold lets
-\ among its parameters: 13 of Init's) counts none, its body follows.
-: ed-binder ( n e -- n' e' true | n false )
-  dup ed-pi? if ed-tier expr-b@ swap 1+ swap true exit then
-  dup ed-let? if ed-tier expr-body@ true exit then drop false ;
-: ed-pis ( e -- n ) 0 swap begin ed-binder 0= until ;
-: ed-type-pis ( d -- n ) ed-stage staged-type@ ed-pis ;
-: ed-levels ( d -- n ) ed-stage staged-params@ ed-stage stage-tuples tuple-length ;
-
 \ ---- Matchers: name (a definition, once), parameters, discriminants,
 \ elimination universe, alternatives, the discriminants' names (read for
-\ their form, not kept). It fits when its type has a Pi binder for each
-\ parameter, the motive, each discriminant and each alternative, and the
+\ their form, not kept). It fits when its type has exactly a Pi binder for
+\ each parameter, the motive, each discriminant and each alternative (the
+\ motive applied is its conclusion; all 2,553 of Init's fit), and the
 \ elimination universe is one of its universe parameters.
 create ed-match-members
   s" alt_infos" counted, s" discr_names" counted, s" name" counted,
@@ -877,7 +889,7 @@ create ed-alt-steps  ' ed-alt-fields! , ' ed-alt-overlaps! , ' ed-alt-thunk! , 0
 : ed-elim-fits? ( m -- flag )
   dup elab-matcher-elim if swap elab-matcher@ 2drop ed-levels < else drop true then ;
 : ed-match-fits? ( m -- flag )
-  dup ed-match-arity over elab-matcher@ 2drop ed-type-pis > 0= swap ed-elim-fits? and ;
+  dup ed-match-arity over elab-matcher@ 2drop ed-type-pis = swap ed-elim-fits? and ;
 : ed-match-fit ( value m -- outcome ) nip ed-match-fits? ed-e-unfit ed-or-bad ;
 create ed-match-steps
   ' ed-match-decl! , ' ed-match-params! , ' ed-match-discrs! , ' ed-match-elim! ,

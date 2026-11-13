@@ -904,19 +904,19 @@ variable cli-info#
   ." ; the LeanForth text was not checked" cr outcome>code cli-code! ;
 \ The elaboration data read, by kind, before the verdicts.
 : cli-elab-count. ( kind -- ) elab-count .decimal ;
-: cli-elab-instances ( -- )
+\ The kinds format 1 had, then the kinds format 2 added.
+: cli-elab-format1 ( -- )
   elab-instance cli-elab-count. ."  instances, " elab-default cli-elab-count.
   ."  default instances, " elab-reducibility cli-elab-count.
-  ."  reducibility statuses, " ;
-: cli-elab-classes ( -- )
-  elab-eliminator cli-elab-count. ."  eliminators, " elab-left-out cli-elab-count.
-  ."  instances left out, " elab-class cli-elab-count. ."  classes, " ;
-: cli-elab-whnf ( -- )
-  elab-tag cli-elab-count. ."  tags, " elab-matcher cli-elab-count. ."  matchers, "
-  elab-projection cli-elab-count. ."  projections" ;
+  ."  reducibility statuses, " elab-eliminator cli-elab-count. ."  eliminators" ;
+: cli-elab-format2 ( -- )
+  ." , " elab-left-out cli-elab-count. ."  instances left out, "
+  elab-class cli-elab-count. ."  classes, " elab-tag cli-elab-count. ."  tags, "
+  elab-matcher cli-elab-count. ."  matchers, " elab-projection cli-elab-count.
+  ."  projections" ;
 : cli-elab-note ( -- )
-  cli-elab-file nip 0= if exit then ." elaboration data: " cli-elab-instances
-  cli-elab-classes cli-elab-whnf cr ;
+  cli-elab-file nip 0= if exit then ." elaboration data: " cli-elab-format1
+  cli-elab-format2 cr ;
 : cli-text-error ( -- )
   ." error: " lf-author-code lf-author-outcome dup outcome-text type
   ." : the LeanForth text was not checked: " lf-author-error. cr outcome>code cli-code! ;
