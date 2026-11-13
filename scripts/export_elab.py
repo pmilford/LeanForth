@@ -53,9 +53,10 @@ FORMAT = "leanforth-elab-data"
 VERSION = 2
 LEAN_VERSION = "4.35.0"
 LEAN_GITHASH = "eb6cafb7290e8bd5f2937522d8d804f58f02bafc"
-# The kinds of records, in the order of the file.
+# The kinds of records, in the order of the file. sunfold (smart-unfolding
+# bodies, plan row FE1d2) is in format 2 but not written yet: always 0.
 KINDS = ("class", "instance", "instance_left_out", "default_instance", "reducibility",
-         "eliminator", "tag", "matcher", "projection")
+         "eliminator", "tag", "matcher", "projection", "sunfold")
 RAW_KINDS = ("class", "instance", "default_instance", "reducibility", "eliminator", "tag",
              "matcher", "projection")
 STATUSES = ("reducible", "irreducible", "implicit_reducible", "instance_reducible")

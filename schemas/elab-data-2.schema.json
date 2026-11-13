@@ -56,10 +56,10 @@
           "export_sha256": {"description": "The SHA-256 of the Lean export the data belongs to, as its manifest records it.", "$ref": "#/$defs/sha256"},
           "modules": {"description": "The modules exported.", "type": "array", "items": {"type": "string"}},
           "records": {
-            "description": "The records of each kind on the lines that follow.",
+            "description": "The records of each kind on the lines that follow. sunfold, the smart-unfolding bodies of plan row FE1d2, is a kind of format 2 that no exporter writes yet and LeanForth does not read yet (designed in docs/programming/ELABORATION_DATA.md); its count is 0.",
             "type": "object", "additionalProperties": false,
             "required": ["class", "instance", "instance_left_out", "default_instance",
-              "reducibility", "eliminator", "tag", "matcher", "projection"],
+              "reducibility", "eliminator", "tag", "matcher", "projection", "sunfold"],
             "properties": {
               "class": {"$ref": "#/$defs/count"},
               "instance": {"$ref": "#/$defs/count"},
@@ -69,7 +69,8 @@
               "eliminator": {"$ref": "#/$defs/count"},
               "tag": {"$ref": "#/$defs/count"},
               "matcher": {"$ref": "#/$defs/count"},
-              "projection": {"$ref": "#/$defs/count"}
+              "projection": {"$ref": "#/$defs/count"},
+              "sunfold": {"const": 0}
             }
           },
           "records_sha256": {"description": "The SHA-256 of every line after the header, each with its line feed.", "$ref": "#/$defs/sha256"}

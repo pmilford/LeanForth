@@ -54,14 +54,15 @@
 \ Outcomes (ADR 0008): ok; invalid for anything malformed, unknown,
 \ duplicated, of the wrong kind or differing from the header or from the
 \ export, an unreadable file, a sealed stage, or a call while a read is in
-\ progress; unsupported for another format version or Lean version, and
-\ a number beyond 2^32 - 1 (no Lean library has one; plan row FE3 lifts it
-\ if one appears); full when the heap has no room or a line passes
-\ elab-line-limit bytes. A read that is not ok keeps nothing: every table
-\ is empty afterwards, as after elab-reset.
+\ progress; unsupported for another format version or Lean version, a
+\ number beyond 2^32 - 1 (no Lean library has one; plan row FE3 lifts it
+\ if one appears) and a smart-unfolding record (format 2 has the kind;
+\ plan row FE1d2 reads it); full when the heap has no room or a line
+\ passes elab-line-limit bytes. A read that is not ok keeps nothing: every
+\ table is empty afterwards, as after elab-reset.
 \ elab-error ( -- line c-addr u ) gives the line of the failure (1 the
 \ header; after the last line, the number of lines read; 0 before the
-\ file is open) and why: elab-error-line, elab-error-code (stable, 1-37)
+\ file is open) and why: elab-error-line, elab-error-code (stable, 1-38)
 \ and elab-error-why apart. elab-unhashed ( outcome -- outcome ) refuses
 \ for a caller that could not hash the export (error 26).
 \
@@ -123,7 +124,7 @@ require ./elab-keys.fs
 0 constant elab-instance   1 constant elab-default
 2 constant elab-reducibility   3 constant elab-eliminator   4 constant elab-left-out
 5 constant elab-class   6 constant elab-tag   7 constant elab-matcher
-8 constant elab-projection   9 constant elab-kinds
+8 constant elab-projection   9 constant elab-sunfold   10 constant elab-kinds
 \ Reducibility statuses (Lean's ReducibilityStatus; 0 is the default).
 0 constant elab-semireducible   1 constant elab-reducible   2 constant elab-irreducible
 3 constant elab-implicit-reducible   4 constant elab-instance-reducible
@@ -247,7 +248,7 @@ end-structure
 27 constant ed-e-no-class   28 constant ed-e-class   29 constant ed-e-tag
 30 constant ed-e-term   31 constant ed-e-rank   32 constant ed-e-gap
 33 constant ed-e-default-rank   34 constant ed-e-left-out   35 constant ed-e-matcher
-36 constant ed-e-projection   37 constant ed-e-unfit
+36 constant ed-e-projection   37 constant ed-e-unfit   38 constant ed-e-later
 create ed-messages
   s" none" counted,
   s" file missing or unreadable" counted,
@@ -287,6 +288,7 @@ create ed-messages
   s" a matcher named twice" counted,
   s" a projection named twice" counted,
   s" numbers that do not fit the declaration's type" counted,
+  s" a record kind this reader does not read yet" counted,
   0 0 counted,
 : ed-message ( code -- c-addr u ) ed-messages swap 0 ?do key-next loop count ;
 : ed-line ( -- n ) elab elab-reader reader-position nip nip ;
@@ -437,7 +439,8 @@ create ed-rank-hooks /htab-hooks allot
 create ed-kind-names
   s" instance" counted, s" default_instance" counted, s" reducibility" counted,
   s" eliminator" counted, s" instance_left_out" counted, s" class" counted,
-  s" tag" counted, s" matcher" counted, s" projection" counted, 0 0 counted,
+  s" tag" counted, s" matcher" counted, s" projection" counted, s" sunfold" counted,
+  0 0 counted,
 create ed-status-names
   s" reducible" counted, s" irreducible" counted, s" implicit_reducible" counted,
   s" instance_reducible" counted, 0 0 counted,
@@ -895,11 +898,17 @@ create ed-proj-steps
   dup ed-proj-members ed-shape? 0= if drop ed-malformed exit then
   elab-projs ed-claim ok-then? if ed-proj-steps ed-steps else nip then ;
 
+\ ---- Smart-unfolding bodies (_sunfold, plan row FE1d2): the kind is in
+\ format 2, so that data with them needs no new version, but this reader
+\ does not read them yet: unsupported.
+: ed-on-sunfold ( value -- outcome ) drop ed-e-later outcome-unsupported ed-fail ;
+
 \ ---- Lines. Each is one JSON object with one member: the header's key
 \ elab_data, or a record kind, whose value is an object.
 create ed-kind-handlers
   ' ed-on-instance , ' ed-on-default , ' ed-on-reducibility , ' ed-on-eliminator ,
   ' ed-on-left-out , ' ed-on-class , ' ed-on-tag , ' ed-on-matcher , ' ed-on-projection ,
+  ' ed-on-sunfold ,
 : ed-one-member? ( -- flag ) 0 json-object ed-view json-items-of if 1 = else false then ;
 : ed-object-value? ( -- flag ) 2 ed-view json-kind-at json-object = ;
 : ed-wrapped? ( -- flag ) ed-one-member? if ed-object-value? else false then ;
