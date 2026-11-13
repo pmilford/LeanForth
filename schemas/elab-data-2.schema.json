@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/pmilford/LeanForth/schemas/elab-data-2.schema.json",
+  "title": "LeanForth elaboration data, format version 2: one line",
+  "description": "Every line of an elaboration-data file (plan rows FE1d and FE1e1; ADR 0021 D10), written by scripts/export-elab.sh with pinned Lean 4.35.0 for a Lean export and read by `leanforth check --elab-data FILE` (src/front/elab-data.fs). Line 1 is the header ({\"elab_data\": ...}); every later line is one record: a class, an instance, an instance left out, a default instance, a reducibility status, an eliminator or a tag. A name is the array of its parts, root first (Nat.add is [\"Nat\",\"add\"]); a part is a string or a natural number. A key is one of Lean's discrimination-tree keys (DiscrTree.Key) as the instance tree stores it. Documented in docs/programming/ELABORATION_DATA.md. The Forth reader also refuses what a schema cannot say: a header anywhere but on line 1 or a record on line 1, a name that is not exactly one declaration of the export or of the wrong kind, a declaration named twice, an instance or default instance of a declaration with no class record before it, a key list that is not one term, two values of a root key's tree with one rank or ranks with a gap, two default instances of a class with one rank, a left-out instance that the export has, numbers of records or a SHA-256 of the records that differ from the header, another export's SHA-256, and repeated keys. Format version 1 (schemas/elab-data-1.schema.json) is refused as another format version.",
+  "$comment": "Uses only the keywords that tests/support/schema_subset.py implements.",
+  "anyOf": [
+    {"$ref": "#/$defs/header"},
+    {"$ref": "#/$defs/class"},
+    {"$ref": "#/$defs/instance"},
+    {"$ref": "#/$defs/instance_left_out"},
+    {"$ref": "#/$defs/default_instance"},
+    {"$ref": "#/$defs/reducibility"},
+    {"$ref": "#/$defs/eliminator"},
+    {"$ref": "#/$defs/tag"}
+  ],
+  "$defs": {
+    "name": {
+      "description": "A Lean name: its parts, root first, each a string or a natural number below 2^32 (a larger part names no declaration of an export LeanForth reads).",
+      "type": "array", "minItems": 1,
+      "items": {"anyOf": [{"type": "string"}, {"type": "integer", "minimum": 0}]}
+    },
+    "u32": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+    "u32s": {"type": "array", "items": {"$ref": "#/$defs/u32"}},
+    "count": {"type": "integer", "minimum": 0},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "key": {
+      "description": "A discrimination-tree key (Lean's DiscrTree.Key): star, other, arrow (Key.arity 1), a constant applied to arity arguments, a natural-number or string literal, or a projection of field idx of a structure applied to arity arguments (Key.arity 1 + arity). An fvar key is not one: no global instance has it.",
+      "anyOf": [
+        {"enum": ["star", "other", "arrow"]},
+        {"type": "object", "additionalProperties": false, "required": ["const", "arity"],
+         "properties": {"const": {"$ref": "#/$defs/name"}, "arity": {"$ref": "#/$defs/u32"}}},
+        {"type": "object", "additionalProperties": false, "required": ["lit"],
+         "properties": {"lit": {"$ref": "#/$defs/count"}}},
+        {"type": "object", "additionalProperties": false, "required": ["lit_str"],
+         "properties": {"lit_str": {"type": "string"}}},
+        {"type": "object", "additionalProperties": false, "required": ["proj", "idx", "arity"],
+         "properties": {"proj": {"$ref": "#/$defs/name"}, "idx": {"$ref": "#/$defs/u32"},
+                        "arity": {"$ref": "#/$defs/u32"}}}
+      ]
+    },
+    "keys": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/key"}},
+    "header": {
+      "type": "object", "additionalProperties": false, "required": ["elab_data"],
+      "properties": {"elab_data": {
+        "type": "object", "additionalProperties": false,
+        "required": ["format", "format_version", "lean_version", "lean_githash", "export_sha256",
+          "modules", "records", "records_sha256"],
+        "properties": {
+          "format": {"const": "leanforth-elab-data"},
+          "format_version": {"const": 2},
+          "lean_version": {"const": "4.35.0"},
+          "lean_githash": {"const": "eb6cafb7290e8bd5f2937522d8d804f58f02bafc"},
+          "export_sha256": {"description": "The SHA-256 of the Lean export the data belongs to, as its manifest records it.", "$ref": "#/$defs/sha256"},
+          "modules": {"description": "The modules exported.", "type": "array", "items": {"type": "string"}},
+          "records": {
+            "description": "The records of each kind on the lines that follow.",
+            "type": "object", "additionalProperties": false,
+            "required": ["class", "instance", "instance_left_out", "default_instance",
+              "reducibility", "eliminator", "tag"],
+            "properties": {
+              "class": {"$ref": "#/$defs/count"},
+              "instance": {"$ref": "#/$defs/count"},
+              "instance_left_out": {"$ref": "#/$defs/count"},
+              "default_instance": {"$ref": "#/$defs/count"},
+              "reducibility": {"$ref": "#/$defs/count"},
+              "eliminator": {"$ref": "#/$defs/count"},
+              "tag": {"$ref": "#/$defs/count"}
+            }
+          },
+          "records_sha256": {"description": "The SHA-256 of every line after the header, each with its line feed.", "$ref": "#/$defs/sha256"}
+        }
+      }}
+    },
+    "class": {
+      "type": "object", "additionalProperties": false, "required": ["class"],
+      "properties": {"class": {
+        "description": "A class (Lean's classExtension): the inductive type, the positions of its out-parameters and of its universe parameters that occur only in out-parameters.",
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "out_params", "out_level_params"],
+        "properties": {
+          "name": {"$ref": "#/$defs/name"},
+          "out_params": {"$ref": "#/$defs/u32s"},
+          "out_level_params": {"$ref": "#/$defs/u32s"}
+        }
+      }}
+    },
+    "instance": {
+      "type": "object", "additionalProperties": false, "required": ["instance"],
+      "properties": {"instance": {
+        "description": "An instance (a value of Lean's instance tree): the declaration, its class, its priority, the order in which its arguments are synthesized, its keys as the tree stores them, and its rank: its place among the values of its root key's tree in a depth-first walk, children and values in their stored order (the order of DiscrTree.getUnify's result).",
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "class", "priority", "synth_order", "keys", "rank"],
+        "properties": {
+          "name": {"$ref": "#/$defs/name"},
+          "class": {"$ref": "#/$defs/name"},
+          "priority": {"$ref": "#/$defs/u32"},
+          "synth_order": {"$ref": "#/$defs/u32s"},
+          "keys": {"$ref": "#/$defs/keys"},
+          "rank": {"$ref": "#/$defs/u32"}
+        }
+      }}
+    },
+    "instance_left_out": {
+      "type": "object", "additionalProperties": false, "required": ["instance_left_out"],
+      "properties": {"instance_left_out": {
+        "description": "A value of Lean's instance tree that is no instance record here: erased (Lean never tries it) or not_exported (the export lacks its declaration; Lean would try it). Its keys and rank keep the tree's shape; a key's constant may be one the export lacks.",
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "keys", "priority", "rank", "reason"],
+        "properties": {
+          "name": {"$ref": "#/$defs/name"},
+          "keys": {"$ref": "#/$defs/keys"},
+          "priority": {"$ref": "#/$defs/u32"},
+          "rank": {"$ref": "#/$defs/u32"},
+          "reason": {"enum": ["erased", "not_exported"]}
+        }
+      }}
+    },
+    "default_instance": {
+      "type": "object", "additionalProperties": false, "required": ["default_instance"],
+      "properties": {"default_instance": {
+        "description": "A default instance (Lean's default_instance attribute): its class, the instance, its priority and its rank, its place in getDefaultInstances of the class (the most recent first).",
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "class", "priority", "rank"],
+        "properties": {
+          "name": {"$ref": "#/$defs/name"},
+          "class": {"$ref": "#/$defs/name"},
+          "priority": {"$ref": "#/$defs/u32"},
+          "rank": {"$ref": "#/$defs/u32"}
+        }
+      }}
+    },
+    "reducibility": {
+      "type": "object", "additionalProperties": false, "required": ["reducibility"],
+      "properties": {"reducibility": {
+        "description": "A declaration whose reducibility status (Lean's getReducibilityStatus) is not the default, semireducible.",
+        "type": "object", "additionalProperties": false, "required": ["name", "status"],
+        "properties": {
+          "name": {"$ref": "#/$defs/name"},
+          "status": {"enum": ["reducible", "irreducible", "implicit_reducible", "instance_reducible"]}
+        }
+      }}
+    },
+    "eliminator": {
+      "type": "object", "additionalProperties": false, "required": ["eliminator"],
+      "properties": {"eliminator": {
+        "description": "A custom eliminator: induction for @[induction_eliminator], cases for @[cases_eliminator]; the eliminator and the head constants of its explicit targets' types, Lean's key.",
+        "type": "object", "additionalProperties": false, "required": ["kind", "name", "types"],
+        "properties": {
+          "kind": {"enum": ["induction", "cases"]},
+          "name": {"$ref": "#/$defs/name"},
+          "types": {"type": "array", "items": {"$ref": "#/$defs/name"}}
+        }
+      }}
+    },
+    "tag": {
+      "type": "object", "additionalProperties": false, "required": ["tag"],
+      "properties": {"tag": {
+        "description": "A declaration with a tag the application elaborator reads: the tag attributes elab_as_elim and elab_without_expected_type, and the auxiliary recursors cases_on, rec_on and brec_on (Lean's isCasesOnRecursor, isRecOnRecursor, isBRecOnRecursor).",
+        "type": "object", "additionalProperties": false, "required": ["name", "tag"],
+        "properties": {
+          "name": {"$ref": "#/$defs/name"},
+          "tag": {"enum": ["elab_as_elim", "elab_without_expected_type", "cases_on", "rec_on", "brec_on"]}
+        }
+      }}
+    }
+  }
+}
