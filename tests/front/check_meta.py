@@ -74,6 +74,7 @@ TPARAMS = [
     ((APP, "x", "y"), ["u"], ["1"], False), ((CONST, "0", "1"), ["u"], ["v"], False),
     ((SORT, "(max u v)"), ["u"], ["1"], False),
     ((SORT, "(imax u v)"), ["v"], ["0"], False),
+    ((SORT, "(max u u)"), [], [], False),
 ]
 
 # Term cases: ("inst1", body, value), ("abst", term, [x0, ...]) or

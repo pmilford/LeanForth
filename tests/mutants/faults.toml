@@ -10654,3 +10654,11 @@ old = ''': mv-delayed-ready? ( term -- flag ) lf-mvar-delayed if 2drop mv-ready?
 new = ''': mv-delayed-ready? ( term -- flag ) drop false ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1b: a ready delayed assignment is left in place where Lean puts its value in"
+
+[[fault]]
+id = "fe-lparams-empty-walked"
+file = "src/front/level-params.fs"
+old = ''': lp-run ( term -- term' outcome ) lp-count if lp-walk dw-run else outcome-ok then ;'''
+new = ''': lp-run ( term -- term' outcome ) lp-walk dw-run ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c review L1: with no names Sort (max u u) becomes Sort u, where Lean's instantiateLevelParams returns the term as it is"

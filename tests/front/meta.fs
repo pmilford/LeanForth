@@ -278,6 +278,9 @@ T{ su-lam 2 ilp drop lf-pres-binder@ drop nip -> lf-binder-implicit }T
 \ Nothing to change: the same node; a count of 0 changes nothing.
 T{ prop x app dup 2 ilp drop = cuv dup 0 ilp drop = -> true true }T
 T{ u sort-of dup 0 ilp drop = -> true }T
+\ No names: Sort (max u u) is kept as it is (Lean's empty-list test), but
+\ the Level version simplifies it (Lean has no such test there).
+T{ u u lmax sort-of dup 0 ilp drop = u u lmax 0 lps -> true u outcome-ok }T
 \ A Sort over max u v (with u := 1, v := ?la): Sort (max 1 ?la).
 T{ u v lmax sort-of 2 ilp drop lf-term-first@ dup ls-tag swap lf-level-second@
    -> lf-level-tag-max la }T

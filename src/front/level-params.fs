@@ -16,7 +16,8 @@
 \   in term, as above; a node whose data word shows no parameter (Lean's
 \   hasLevelParam test) is kept, so is a node whose parts do not change;
 \   a constant gets a new reference with its levels' images (as
-\   mvars.fs's instantiation makes one), a binder keeps its name and kind.
+\   mvars.fs's instantiation makes one), a binder keeps its name and kind;
+\   with n = 0 the term is returned as it is, as Lean does for empty lists.
 \ Both walks are dag-walk.fs's, one over levels and one over terms (a
 \ memo per node, heap stacks: no depth needs the host's stacks, plan task
 \ 6.2.0); the level walk runs inside the term walk's builds.
@@ -167,6 +168,9 @@ end-structure
 : lp-walk ( -- walk )
   lp-state lp-dw ['] lp-build over dw-build ! ['] lp-pending over dw-pending !
   lf-term-base lf-term-count @ + over dw-size ! ;
+\ No names: the term as it is (Lean's test of empty lists; the Level
+\ version has none and simplifies even then).
+: lp-run ( term -- term' outcome ) lp-count if lp-walk dw-run else outcome-ok then ;
 : lf-meta-instantiate-level-params ( term names levels n -- term' outcome )
   dup lp-count-ok? 0= if 2drop 2drop -1 outcome-invalid exit then lp-set
-  dup lf-term-root? if lp-walk dw-run else drop -1 outcome-invalid then ;
+  dup lf-term-root? if lp-run else drop -1 outcome-invalid then ;

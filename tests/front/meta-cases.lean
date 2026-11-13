@@ -212,3 +212,4 @@ run_meta do
     IO.println (← sx (Expr.instantiateLevelParams (mkConst `C [(Nat.repeat mkLevelSucc 0 Level.zero), (Nat.repeat mkLevelSucc 1 Level.zero)]) [`u] [(mkLevelParam `v)]))
     IO.println (← sx (Expr.instantiateLevelParams (mkSort (mkLevelMax (mkLevelParam `u) (mkLevelParam `v))) [`u] [(Nat.repeat mkLevelSucc 1 Level.zero)]))
     IO.println (← sx (Expr.instantiateLevelParams (mkSort (mkLevelIMax (mkLevelParam `u) (mkLevelParam `v))) [`v] [(Nat.repeat mkLevelSucc 0 Level.zero)]))
+    IO.println (← sx (Expr.instantiateLevelParams (mkSort (mkLevelMax (mkLevelParam `u) (mkLevelParam `u))) [] []))
