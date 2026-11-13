@@ -837,6 +837,16 @@
    "blocks": 189,
    "never_run": 10,
    "reason": "measured 2026-11-12 on fe1c-lnorm after review L4: never run are ld-same? on two different records of equal fields (37: the tests' unshared equal levels differ in a field first) and the full branches of level equality, isNeverZero, mkLevelMax''s rules and lm-take's ended code (56, 65, 73, 82, 85, 95, 113, 120, 121), each needing the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)"
+  },
+  "src/front/cases-several.fs": {
+   "blocks": 215,
+   "never_run": 33,
+   "reason": "new file (plan FE6, ctorIdx and casesOn with several motives): the blocks never run are failure branches after a scratch tier, tuple or heap block that cannot grow (expr-make, tuple-add, name-str, allocate), which no test can yet make refuse midway (a sealed tier refuses at the first lookup; fuel exhaustion is swept), and refusals no type of Init reaches (a type not among its recursor's, several motives into Prop only, a Sort only reduction shows)"
+  },
+  "src/front/ctor-idx.fs": {
+   "blocks": 185,
+   "never_run": 36,
+   "reason": "new file (plan FE6, ctorIdx and casesOn with several motives): the blocks never run are failure branches after a scratch tier, tuple or heap block that cannot grow (expr-make, tuple-add, name-str, allocate), which no test can yet make refuse midway (a sealed tier refuses at the first lookup; fuel exhaustion is swept), and refusals no type of Init reaches (a type not among its recursor's, several motives into Prop only, a Sort only reduction shows)"
   }
  }
 }

@@ -29,8 +29,8 @@
 \
 \ Outcomes (ADR 0008): ok with the type and value; unsupported, with a
 \ reason (aux-why), for a shape not ported yet: casesOn of a mutual or
-\ nested type (several motives: Lean then uses PUnit for the others; on
-\ Init only Lean.Syntax, a temporary gap of plan row FE6), a minor premise
+\ nested type (several motives: src/front/cases-several.fs builds that
+\ case, and aux-cases-on-any either), a minor premise
 \ whose fields and hypotheses are interleaved (Lean's recursors never
 \ are), an mdata record in a domain, a type whose Sort only reduction
 \ shows (casesOn needs it to choose the structure case); invalid for a
@@ -42,6 +42,15 @@
 \ or up to binder names and information, which the kernel ignores and
 \ Lean's exporter shares terms by (so an export's names need not be the
 \ ones the generator chose); universe parameters must be equal.
+\ Limit (review fe6a M1): the binder names and information of what is
+\ built here are the ones the export gives T.rec, and an export may show
+\ another, shared term's (Equivalence.rec's symm field: explicit binders
+\ a b in Init's export, implicit x y in Lean's environment). Comparing
+\ with the same export cannot see that; tests/front/constructions-init.sh
+\ also compares them with pinned Lean's environment and counts the
+\ differences. The front end needs an exact source of binder names and
+\ information (the elaboration data, or an export without sharing)
+\ before it uses these definitions (plan row FE6).
 \
 \ Usage (stage s loaded and sealed, d a type declaration of it):
 \   create job /aux allot  s job aux-init drop
@@ -78,6 +87,15 @@ begin-structure /aux
   field: aux-step-xt            \ the fold's step ( x i job -- x' outcome )
   field: aux-arg                \ the recursor's arguments ( j job -- e outcome )
   field: aux-body               \ the value's body ( job -- e outcome )
+  field: aux-ctor               \ the constructor being read (ctorIdx)
+  field: aux-main               \ several motives: the type's, from 0
+  field: aux-kept               \ the minor premises casesOn keeps
+  field: aux-table              \ heap: a renumbering table (expr-remap.fs)
+  field: aux-table-room         \ cells it holds
+  field: aux-ih                 \ a hypothesis's type being rebuilt, its binders
+  field: aux-ih-span
+  field: aux-names              \ a tuple of universe parameter names
+  field: aux-built-params       \ the result's universe parameters
   field: aux-why                \ counted string: why unsupported, or 0
   field: aux-built-type         \ the result
   field: aux-built-value
@@ -105,7 +123,8 @@ end-structure
   dup /aux erase tuck aux-stage ! dup aux-tier over aux-remap remap-init
   dup aux-input swap aux-tier tier-extend ;
 : aux-free ( job -- )
-  dup aux-tier tier-free dup aux-remap remap-free aux-block heap-release ;
+  dup aux-tier tier-free dup aux-remap remap-free dup aux-block heap-release
+  aux-table heap-release ;
 
 \ ---- The declarations.
 : decl-of ( d job -- d stage ) aux-stage @ ;
@@ -231,20 +250,34 @@ end-structure
 : minor-binders ( job -- outcome ) dup aux-minors @ swap ['] minor-binder aux-each ;
 \ The type: the block around the conclusion.
 : conclusion ( job -- e outcome ) dup swapping dup rec-end swap run-remap ;
-: built-type! ( job -- outcome )
-  dup conclusion ok-keep? 0= if nip exit then
+\ The type: the block's Pis around the conclusion given.
+: type-around ( job e outcome -- outcome )
+  ok-keep? 0= if nip exit then
   over aux-pis ok-keep? if swap aux-built-type ! outcome-ok else nip then ;
+: built-type! ( job -- outcome ) dup conclusion type-around ;
 
 \ ---- The value: T.rec.{params} applied, the block's funs around it.
-: rec-param ( i job -- name ) dup rec-params swap aux-tuples tuple-item ;
-: param-level ( i job -- l outcome ) tuck rec-param swap aux-tier level-param ;
+\ Universe argument lists: the parameters a tuple of names (aux-names)
+\ holds, as levels, after any levels already added.
+: name-param ( i job -- name ) dup aux-names @ swap aux-tuples tuple-item ;
+: param-level ( i job -- l outcome ) tuck name-param swap aux-tier level-param ;
 : level-add ( i job -- outcome )
   tuck param-level ok-keep? if swap aux-tuples tuple-add else nip then ;
-: param-count ( job -- n ) dup rec-params swap aux-tuples tuple-length ;
-: rec-levels ( job -- t outcome )
-  dup aux-tuples tuple-start ok-then? 0= if no-result exit then
-  dup param-count over ['] level-add aux-each
+: names-count ( job -- n ) dup aux-names @ swap aux-tuples tuple-length ;
+: levels-add ( t job -- outcome )
+  tuck aux-names ! dup names-count swap ['] level-add aux-each ;
+: level-one, ( job -- outcome )
+  level-zero over aux-tier level-succ
+  ok-keep? if swap aux-tuples tuple-add else nip then ;
+: tuple-begin ( job -- outcome ) aux-tuples tuple-start ;
+: tuple-done ( job outcome -- t outcome )
   ok-then? if aux-tuples tuple-end else no-result then ;
+: type-names ( job -- t ) dup aux-type @ swap decl-of staged-params@ ;
+: rec-levels-add ( job -- outcome ) dup rec-params swap levels-add ;
+: type-levels-add ( job -- outcome ) dup type-names swap levels-add ;
+: rec-levels ( job -- t outcome ) dup tuple-begin ['] rec-levels-add aux-then tuple-done ;
+: type-levels ( job -- t outcome )
+  dup tuple-begin ['] type-levels-add aux-then tuple-done ;
 : rec-const ( job -- e outcome )
   dup rec-levels ok-keep? if swap dup >r recursor-name swap r> aux-tier expr-const then ;
 \ Argument j of the recursor: its variable, renumbered as the conclusion's.
@@ -314,9 +347,11 @@ end-structure
   2dup m-open 0= if drop nip interleaved exit then over aux-span ! tuck m-moving m-move ;
 : m-head-var ( job -- b ) dup aux-span @ over aux-minors @ 1- + swap aux-minor @ - ;
 : field-arg ( f q job -- e outcome ) tuck m-last swap apply-var ;
-: m-body ( job -- e outcome )
-  dup m-head-var over aux-var ok-keep? 0= if exit then
+\ Variable b applied to the fields.
+: m-body-at ( b job -- e outcome )
+  tuck aux-var ok-keep? 0= if exit then
   swap dup aux-fields @ swap ['] field-arg fold-with ;
+: m-body ( job -- e outcome ) dup m-head-var swap m-body-at ;
 : minor-lambda ( i job -- e outcome )
   tuck m-ready ok-then? 0= if no-result exit then
   dup m-body ok-keep? if swap ['] m-lam-step m-fold then ;
@@ -357,9 +392,16 @@ end-structure
 : short-type ( job -- outcome )
   c" a recursor type shorter than its numbers" swap aux-invalid ;
 : aux-shape ( job -- outcome )
-  dup rec-whole? 0= if short-type exit then dup rec-total swap aux-reserve ;
+  dup rec-params over aux-built-params ! dup rec-whole? 0= if short-type exit then
+  dup rec-total swap aux-reserve ;
 : aux-begin ( d job -- outcome )
   dup aux-clear tuck aux-recursor ok-then? if aux-shape then ;
+\ The structure case is chosen on the Sort that ends T's type, which
+\ Lean's isPropFormerType finds by reduction: a type that needs it is
+\ unsupported for both constructions.
+: no-sort ( job -- outcome ) c" a type whose Sort only reduction shows" swap aux-refuse ;
+: sort-ready ( job -- outcome )
+  dup type-end over aux-tier expr-tag@ tag-sort <> if no-sort exit then drop outcome-ok ;
 \ recOn (mkRecOn; mkRecOnViaCasesOn? for the structure case).
 : recon-binders ( job -- outcome )
   dup front-binders ['] index-binders aux-then ['] minor-binders aux-then nip ;
@@ -368,15 +410,14 @@ end-structure
   dup via-projs? 0= if ['] recon-body over aux-body ! built-value! exit then
   dup cases-const ok-keep? if swap aux-built-value ! outcome-ok else nip then ;
 : recon ( job -- outcome )
-  dup recon-binders ['] built-type! aux-then ['] recon-value aux-then nip ;
+  dup sort-ready ['] recon-binders aux-then ['] built-type! aux-then
+  ['] recon-value aux-then nip ;
 : aux-rec-on ( d job -- outcome ) tuck aux-begin ['] recon aux-then swap aux-because ;
 \ casesOn (mk_cases_on; mkCasesOnViaProjs? for the structure case).
 : several-motives ( job -- outcome )
   c" several motives (a mutual or nested type)" swap aux-refuse ;
-: no-sort ( job -- outcome ) c" a type whose Sort only reduction shows" swap aux-refuse ;
 : cases-ready ( job -- outcome )
-  dup aux-motives @ 1 <> if several-motives exit then
-  dup type-end over aux-tier expr-tag@ tag-sort <> if no-sort exit then drop outcome-ok ;
+  dup aux-motives @ 1 <> if several-motives exit then sort-ready ;
 : cases-binders ( job -- outcome )
   dup front-binders ['] index-binders aux-then ['] case-minors aux-then nip ;
 : cases-body ( job -- e outcome )
@@ -392,7 +433,7 @@ end-structure
 : lean-type ( d job -- e ) decl-of staged-type@ ;
 : lean-value ( d job -- e ) decl-of staged-value@ ;
 : lean-params ( d job -- t ) decl-of staged-params@ ;
-: params-same? ( d job -- flag ) tuck lean-params swap rec-params = ;
+: params-same? ( d job -- flag ) tuck lean-params swap aux-built-params @ = ;
 : type-same? ( d job -- flag ) tuck lean-type swap aux-type@ = ;
 : value-same? ( d job -- flag ) tuck lean-value swap aux-value@ = ;
 : aux-same? ( d job -- flag )

@@ -11864,7 +11864,7 @@ reason = "whnf gives back a node that is not in the store as its own normal form
 [[fault]]
 id = "fe6-motive-universe"
 file = "src/front/constructions.fs"
-old = ''': param-level ( i job -- l outcome ) tuck rec-param swap aux-tier level-param ;'''
+old = ''': param-level ( i job -- l outcome ) tuck name-param swap aux-tier level-param ;'''
 new = ''': param-level ( i job -- l outcome ) 2drop level-zero outcome-ok ;'''
 test = "$GFORTH tests/front/constructions.fs"
 reason = "T.rec is applied at universe 0 for the motive's universe (and the others): Nat.casesOn's value differs from Lean's"
@@ -11949,3 +11949,75 @@ old = '''  nip remap-let-body ['] remap-let-joined frame-under ;'''
 new = '''  nip remap-let-body ['] remap-let-joined frame-call ;'''
 test = "$GFORTH tests/front/constructions.fs"
 reason = "a letE's body is renumbered as if outside its binder: its own variable #0 becomes #1"
+
+[[fault]]
+id = "fe6-ctoridx-universe"
+file = "src/front/constructions.fs"
+old = '''  level-zero over aux-tier level-succ'''
+new = '''  level-zero outcome-ok'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "ctorIdx applies T.casesOn at motive universe 0, not 1: Nat.ctorIdx's value differs from Lean's"
+
+[[fault]]
+id = "fe6-ctoridx-index"
+file = "src/front/ctor-idx.fs"
+old = '''  dup ctor-index over nat-literal ok-keep? 0= if exit then'''
+new = '''  dup ctor-index 1+ over nat-literal ok-keep? 0= if exit then'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "each alternative answers its constructor's index plus one: Nat.ctorIdx differs"
+
+[[fault]]
+id = "fe6-ctoridx-explicit"
+file = "src/front/ctor-idx.fs"
+old = ''': implicit ( head -- head' ) dup head-payload swap plain-binder 1+ swap pack-head ;'''
+new = ''': implicit ( head -- head' ) ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "the parameters stay explicit: List.ctorIdx's first binder is not implicit"
+
+[[fault]]
+id = "fe6-ctoridx-recursor-params"
+file = "src/front/ctor-idx.fs"
+old = '''  dup type-names swap aux-built-params ! outcome-ok ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "ctorIdx is compared with the recursor's universe parameters, not the type's: List's differ"
+
+[[fault]]
+id = "fe6-several-main-slot"
+file = "src/front/cases-several.fs"
+old = ''': main-slot ( job -- x ) dup aux-motives @ 1- swap aux-main @ - ;'''
+new = ''': main-slot ( job -- x ) aux-main @ ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "T's motive counted from the outermost: RvNest.R's casesOn keeps the wrong motive and minor premises"
+
+[[fault]]
+id = "fe6-several-hypotheses-kept"
+file = "src/front/cases-several.fs"
+old = '''  dup closed-end ok-keep? 0= if nip exit then over unit-fold mtype! ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "hypotheses about other motives keep them, which casesOn's value has no binder for: refused, not Lean's"
+
+[[fault]]
+id = "fe6-several-bodies-swapped"
+file = "src/front/cases-several.fs"
+old = '''  tuck minor-main? if dup kept-head swap m-body-at else unit-body then ;'''
+new = '''  tuck minor-main? if unit-body else dup kept-head swap m-body-at then ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "T's minor premises answer PUnit.unit and the others call a minor premise: RvNest's casesOn differs"
+
+[[fault]]
+id = "fe6-table-never-refuses"
+file = "src/front/expr-remap.fs"
+old = '''  remap-x @ swap cells + @ dup 0< if drop false else true then ;'''
+new = '''  remap-x @ swap cells + @ true ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "a reference to a dropped motive becomes variable -1 instead of a refusal"
+
+[[fault]]
+id = "fe6-alike-types-only"
+file = "src/front/constructions.fs"
+old = '''  2dup value-alike? 0= if 2drop false exit then params-same? ;'''
+new = '''  params-same? ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "review fe6a L2: values are not compared up to binder names: Or's casesOn passes as Lean's Or.recOn"
