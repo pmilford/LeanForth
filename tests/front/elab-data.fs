@@ -32,6 +32,11 @@ T{ 12 lib stage-init slice lib stage-read -> outcome-ok outcome-ok }T
 : why? ( c-addr u -- flag ) elab-error-why compare 0= ;
 : counts ( -- n1 n2 n3 n4 ) elab-kinds 0 do i elab-count loop ;
 
+\ Before any read: nothing loaded, no eliminator found (the table is made
+\ by the first read), nothing failed.
+T{ elab-loaded? counts s" Nat" top elab-induction elab-eliminator-for -> false 0 0 0 0 false }T
+T{ elab-error s" none" compare -> 0 0 }T
+
 \ The slice's data: three instances, two default instances, eighteen
 \ reducibility statuses, no eliminator; nothing failed.
 T{ good lib digest elab-read elab-loaded? counts -> outcome-ok true 3 2 18 0 }T
@@ -91,14 +96,20 @@ T{ good sealed sealed stage-manifest manifest-digest elab-read empty?
 T{ s" the library's stage is sealed: its names cannot be looked up" why? -> true }T
 
 \ Resources: the k-th allocation refused, for every k until a read needs
-\ none: full or ok, never another outcome, and no block kept but the
-\ data's; then the next read is ok.
+\ none, each in a new context, whose tables all start empty: full or ok,
+\ never another outcome, and no block kept once the context is freed;
+\ then the next read in the main context is ok.
 : blocks ( -- n ) live-blocks @ ;
 : refused-read ( k -- outcome ) heap-refusals ! elims lib digest elab-read 0 heap-refusals ! ;
 : full-or-ok? ( outcome -- flag ) dup ok? swap outcome-full = or ;
-: refusals ( -- flag )
-  true 40 1 do elab-reset i refused-read full-or-ok? and loop ;
-T{ elab-reset ed-slabs-clear refusals -> true }T
+: fresh-read ( k -- outcome flag )
+  blocks >r context-new throw dup context-use swap refused-read
+  context-main context-use swap context-free throw blocks r> = ;
+\ Add one read's results: how many were full, and whether all were well.
+: tally ( fulls flag outcome kept? -- fulls' flag' )
+  >r dup full-or-ok? r> and rot and swap outcome-full = rot swap - swap ;
+: refusals ( -- fulls flag ) 0 true 60 1 do i fresh-read tally loop ;
+T{ refusals swap 0> -> true true }T
 T{ elims lib digest elab-read counts -> outcome-ok 3 2 18 4 }T
 
 \ The reader and the view give their blocks back after every read, ok or

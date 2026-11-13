@@ -76,7 +76,12 @@ def assemble(lines, **head):
             counts[kind] += 1
     header = dict(HEAD, records=counts, records_sha256=hashlib.sha256(body.encode()).hexdigest())
     header.update(head)
+    for key in [k for k, v in head.items() if v is DROP]:
+        del header[key]
     return text({"elab_data": header}) + "\n" + body
+
+
+DROP = object()   # assemble(..., member=DROP) leaves the member out
 
 
 def eliminators_text():
@@ -299,6 +304,33 @@ def damaged_cases():
         ("line too long", assemble(GOOD_RECORDS + [longest]), 3, 25,
          "a line longer than the limit"),
         ("no such file", None, 4, 0, "file missing or unreadable"),
+        ("reducibility of an unknown name", assemble(swap('"name":["Id"]', '"name":["Ix"]')),
+         4, 7, "unknown name"),
+        ("reducibility with another member",
+         assemble(swap('"status":"implicit_reducible"', '"status":"implicit_reducible","x":1')),
+         4, 7, "malformed"),
+        ("status a number", assemble(swap('"status":"implicit_reducible"', '"status":3')),
+         4, 7, "malformed"),
+        ("default instance with another member",
+         assemble(swap('{"default_instance":{"class":["HAdd"]',
+                       '{"default_instance":{"klass":["HAdd"]')), 4, 5, "malformed"),
+        ("eliminator with another member", assemble(GOOD_RECORDS + [text({"eliminator": {
+            "kind": "cases", "name": ["Nat", "rec"], "types": [["Nat"]], "x": 1}})]), 4, 25,
+         "malformed"),
+        ("a binder's name", assemble(swap('["instAddNat"]', '["motive"]')), 4, 2,
+         "unknown name"),
+        ("unknown class", assemble(swap('"class":["Add"]', '"class":["Addd"]')), 4, 2,
+         "unknown name"),
+        ("version a text", assemble(GOOD_RECORDS, format_version="1"), 2, 1,
+         "another format version"),
+        ("format missing", assemble(GOOD_RECORDS, format=DROP), 4, 1, "not elaboration data"),
+        ("format a number", assemble(GOOD_RECORDS, format=1), 4, 1, "not elaboration data"),
+        ("count a text", assemble(GOOD_RECORDS, records=dict(HEAD["records"], instance="3")),
+         4, 1, "malformed"),
+        ("records hash a number", assemble(GOOD_RECORDS, records_sha256=5), 4, 1,
+         "malformed"),
+        ("header an array", "[]\n" + "".join(r + "\n" for r in GOOD_RECORDS), 4, 1,
+         "no header"),
     ]
     return cases
 
@@ -335,6 +367,15 @@ def command_line(work):
     status, out = check(work / "both-kinds.ndjson")
     if status != 0:
         fail(f"one eliminator for induction and one for cases refused: {out[-300:]}")
+    # Sixteen eliminators: the table grows past its first 16 slots' 3/4.
+    many = assemble(GOOD_RECORDS + [text({"eliminator": {
+        "kind": k, "name": ["Nat", "rec"], "types": [[t]]}})
+        for t in ("Nat", "And", "Eq", "True", "Unit", "Id", "HAdd", "Add")
+        for k in ("induction", "cases")])
+    (work / "many.ndjson").write_text(many)
+    status, out = check(work / "many.ndjson")
+    if status != 0 or "16 eliminators" not in out:
+        fail(f"sixteen eliminators: exit {status}: {out[-300:]}")
     snapshot = work / "slice.lfsnap"
     made = subprocess.run([str(LEANFORTH), "check", "--save-snapshot", str(snapshot), str(SLICE)],
                           stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=LIMIT)
