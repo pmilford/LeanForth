@@ -40,6 +40,7 @@ require ../lib/lib.fs
 require ../core/levels.fs
 require ../core/mvar-leaves.fs
 require ./mvars.fs
+require ./level-simp.fs
 
 \ The rounds pass the pair and a code: the next round's pair, an answer,
 \ Lean's LBool.undef (the next rule), or an outcome that ends it, plus 8.
@@ -52,17 +53,7 @@ require ./mvars.fs
 : ld-answer ( l r code -- flag outcome )
   nip nip dup ld-ends < if ld-yes = outcome-ok else ld-ends - false swap then ;
 
-\ Shapes: Lean's getLevelOffset and getOffset, the base under the
-\ successors and their number.
-: ld-succ? ( level -- flag ) lf-level-tag@ lf-level-tag-succ = ;
-: ld-param? ( level -- flag ) lf-level-tag@ lf-level-tag-param = ;
-: ld-pred ( level -- level' ) lf-level-first@ ;
-: ld-offset ( level -- base k ) 0 begin over ld-succ? while 1+ swap ld-pred swap repeat ;
-: ld-base ( level -- base ) ld-offset drop ;
-\ Lean's == on two bases: one node, or a record of the same fields.
-: ld-record ( level -- addr u ) lf-level-slot /node ;
-: ld-same? ( a b -- flag )
-  2dup = if 2drop true exit then >r ld-record r> ld-record compare 0= ;
+\ Shapes (ld-offset, ld-base, ld-same? ...): level-simp.fs.
 : ld-bases= ( l r -- flag ) ld-base swap ld-base ld-same? ;
 : ld-offsets= ( l r -- flag ) ld-offset nip swap ld-offset nip = ;
 : ld-down ( l r -- l' r' ) ld-pred swap ld-pred swap ;
