@@ -6534,6 +6534,54 @@ test = "$GFORTH tests/core/check-block.fs"
 reason = "a built quotient type's universe parameter N is the use's argument N+1, not N"
 
 [[fault]]
+id = "stmt-letter-any-length"
+file = "src/core/statement-match.fs"
+old = '''  2swap dup 1 = if search and nip else 2drop 2drop 0 then ;'''
+new = '''  2swap dup 0> if search and nip else 2drop 2drop 0 then ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "FRI B5: a longer token found inside the letters (SALP) reads as its last letter's node"
+
+[[fault]]
+id = "stmt-letter-build-any-length"
+file = "src/core/statement-match.fs"
+old = '''  2swap dup 1 = if search and nip else 2drop 2drop 0 then ;'''
+new = '''  2swap dup 0> if search and nip else 2drop 2drop 0 then ;'''
+test = "$GFORTH tests/core/env-signature.fs"
+reason = "FRI B5: the build reads the token zS as z, a level, instead of refusing it"
+
+[[fault]]
+id = "stmt-match-max-as-imax"
+file = "src/core/statement-match.fs"
+old = '''    3 of lf-level-tag-max lf-stmt-lbinary endof'''
+new = '''    3 of lf-level-tag-imax lf-stmt-lbinary endof'''
+test = "$GFORTH tests/core/env-signature.fs"
+reason = "FRI B5: the comparison reads m as imax; no Lean statement uses m, the letters test does"
+
+[[fault]]
+id = "stmt-build-max-as-imax"
+file = "src/core/statement-match.fs"
+old = '''    3 of ['] lf-level-max lf-stmt-b-lbinary endof'''
+new = '''    3 of ['] lf-level-imax lf-stmt-b-lbinary endof'''
+test = "$GFORTH tests/core/env-signature.fs"
+reason = "FRI B5: the build makes imax for m; its tag differs from the letters test's max"
+
+[[fault]]
+id = "stmt-build-level-offset"
+file = "src/core/statement-match.fs"
+old = '''    dup 4 - lf-stmt-b-level swap endcase ;'''
+new = '''    dup 5 - lf-stmt-b-level swap endcase ;'''
+test = "$GFORTH tests/core/env-signature.fs"
+reason = "FRI B5: the level letters are read one place off (s as z, m as s, ...)"
+
+[[fault]]
+id = "stmt-match-lam-as-pi"
+file = "src/core/statement-match.fs"
+old = '''    1 of lf-tag-pi lf-stmt-binary endof  2 of lf-tag-lam lf-stmt-binary endof'''
+new = '''    1 of lf-tag-pi lf-stmt-binary endof  2 of lf-tag-pi lf-stmt-binary endof'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "FRI B5: L matches a Pi, so Classical.choice with a lambda for its binder matches"
+
+[[fault]]
 id = "allow-own-constants-unchecked"
 file = "src/core/axiom-allowlist.fs"
 old = '''    ?dup if nip lf-allow-checked unloop exit then'''

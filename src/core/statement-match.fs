@@ -156,16 +156,19 @@ end-structure
 : lf-stmt-const? ( node -- flag )
   dup lf-tag-constant lf-stmt-tag? if lf-term-first@ lf-cref-slot lf-stmt-const
   else drop false then ;
-\ Whether a token (not empty) is the text given, or starts with it.
-: lf-stmt-token? ( c-addr u c-addr2 u2 -- c-addr u flag ) 2over compare 0= ;
+\ Whether a token (not empty) starts with the text given.
 : lf-stmt-prefix? ( c-addr u c-addr2 u2 -- c-addr u flag )
   2over drop over 2swap compare 0= ;
+\ A one-letter token's number: its letter's place in letters counted from
+\ the end, the last letter 1 (so letters lists them backwards); 0 for a
+\ longer token or no letter of them. Found with SEARCH: no byte is read.
+: lf-stmt-letter# ( c-addr u letters u2 -- n )
+  2swap dup 1 = if search and nip else 2drop 2drop 0 then ;
 : lf-stmt-letter ( node c-addr u -- flag )
-  s" P" lf-stmt-token? if 2drop lf-tag-pi lf-stmt-binary exit then
-  s" L" lf-stmt-token? if 2drop lf-tag-lam lf-stmt-binary exit then
-  s" A" lf-stmt-token? if 2drop lf-tag-app lf-stmt-binary exit then
-  s" S" lf-stmt-token? if 2drop lf-stmt-sort exit then
-  s" C" compare 0= if lf-stmt-const? else drop false then ;
+  s" CSALP" lf-stmt-letter# case
+    1 of lf-tag-pi lf-stmt-binary endof  2 of lf-tag-lam lf-stmt-binary endof
+    3 of lf-tag-app lf-stmt-binary endof  4 of lf-stmt-sort endof
+    5 of lf-stmt-const? endof  nip false swap endcase ;
 : lf-stmt-bvar-token ( node c-addr u -- flag )
   1 /string lf-stmt-number if lf-stmt-bvar? else 2drop false then ;
 : lf-stmt-term-token ( node c-addr u -- flag )
@@ -188,10 +191,10 @@ end-structure
   if 2drop drop false exit then
   swap lf-param@ swap lf-level-first@ lf-name-same? ;
 : lf-stmt-lletter ( level c-addr u -- flag )
-  s" z" lf-stmt-token? if 2drop lf-level-tag-zero lf-stmt-ltag? exit then
-  s" s" lf-stmt-token? if 2drop lf-stmt-succ exit then
-  s" m" lf-stmt-token? if 2drop lf-level-tag-max lf-stmt-lbinary exit then
-  s" i" compare 0= if lf-level-tag-imax lf-stmt-lbinary else drop false then ;
+  s" imsz" lf-stmt-letter# case
+    1 of lf-level-tag-zero lf-stmt-ltag? endof  2 of lf-stmt-succ endof
+    3 of lf-level-tag-max lf-stmt-lbinary endof
+    4 of lf-level-tag-imax lf-stmt-lbinary endof  nip false swap endcase ;
 : lf-stmt-param-token ( level c-addr u -- flag )
   1 /string lf-stmt-number if lf-stmt-param else 2drop false then ;
 : lf-stmt-level-token ( level c-addr u -- flag )
@@ -309,17 +312,20 @@ end-structure
 : lf-stmt-b-param ( c-addr u -- flag )
   lf-stmt-b-number 0= if drop false exit then
   lf-stmt-state lf-stmt-pairs @ swap lf-cref-pair@ lf-stmt-push2 true ;
-: lf-stmt-b-level ( c-addr u -- flag )
-  s" z" lf-stmt-token? if 2drop lf-hlevel-zero lf-stmt-put exit then
-  s" s" lf-stmt-token? if 2drop lf-stmt-pop2 lf-hlevel-succ lf-stmt-put exit then
-  s" m" lf-stmt-token? if 2drop ['] lf-level-max lf-stmt-b-lbinary exit then
-  s" i" compare 0= if ['] lf-level-imax lf-stmt-b-lbinary else false then ;
+: lf-stmt-b-succ ( -- flag ) lf-stmt-pop2 lf-hlevel-succ lf-stmt-put ;
+: lf-stmt-b-sort ( -- flag ) lf-stmt-pop2 lf-hterm-sort lf-stmt-put ;
+\ Level letter n: 1 z, 2 s, 3 m, 4 i; another n is none.
+: lf-stmt-b-level ( n -- flag )
+  case
+    1 of lf-hlevel-zero lf-stmt-put endof  2 of lf-stmt-b-succ endof
+    3 of ['] lf-level-max lf-stmt-b-lbinary endof
+    4 of ['] lf-level-imax lf-stmt-b-lbinary endof  false swap endcase ;
+\ Letter n: 1 P, 2 L, 3 A, 4 S, then the level letters.
 : lf-stmt-b-letter ( c-addr u -- flag )
-  s" P" lf-stmt-token? if 2drop ['] lf-hterm-pi lf-stmt-b-binary exit then
-  s" L" lf-stmt-token? if 2drop ['] lf-hterm-lam lf-stmt-b-binary exit then
-  s" A" lf-stmt-token? if 2drop ['] lf-hterm-app lf-stmt-b-binary exit then
-  s" S" lf-stmt-token? if 2drop lf-stmt-pop2 lf-hterm-sort lf-stmt-put exit then
-  lf-stmt-b-level ;
+  s" imszSALP" lf-stmt-letter# case  1 of ['] lf-hterm-pi lf-stmt-b-binary endof
+    2 of ['] lf-hterm-lam lf-stmt-b-binary endof
+    3 of ['] lf-hterm-app lf-stmt-b-binary endof  4 of lf-stmt-b-sort endof
+    dup 4 - lf-stmt-b-level swap endcase ;
 : lf-stmt-b-bvar ( c-addr u -- flag )
   lf-stmt-b-number if lf-hterm-bvar lf-stmt-put else drop false then ;
 : lf-stmt-b-plain ( c-addr u -- flag )
