@@ -11834,3 +11834,94 @@ new = '''  over lf-term-valid? 0= if lf-whnf-keep exit then
   over lf-whnf-easy? if lf-whnf-keep exit then'''
 test = "$GFORTH tests/core/defeq.fs"
 reason = "whnf gives back a node that is not in the store as its own normal form instead of refusing it"
+
+# --- Lean's generated definitions, casesOn and recOn (plan FE6) ----------
+
+[[fault]]
+id = "fe6-motive-universe"
+file = "src/front/constructions.fs"
+old = ''': param-level ( i job -- l outcome ) tuck rec-param swap aux-tier level-param ;'''
+new = ''': param-level ( i job -- l outcome ) 2drop level-zero outcome-ok ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "T.rec is applied at universe 0 for the motive's universe (and the others): Nat.casesOn's value differs from Lean's"
+
+[[fault]]
+id = "fe6-swapped-minors"
+file = "src/front/constructions.fs"
+old = ''': m-head-var ( job -- b ) dup aux-span @ over aux-minors @ 1- + swap aux-minor @ - ;'''
+new = ''': m-head-var ( job -- b ) dup aux-span @ swap aux-minor @ + ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "casesOn's fun for minor i applies minor m-1-i: Nat.casesOn's zero and succ cases are swapped"
+
+[[fault]]
+id = "fe6-indices-not-lowered"
+file = "src/front/constructions.fs"
+old = ''': lowering ( c job -- ) tuck at-cutoff dup aux-minors @ 0 rot aux-remap remap-shift! ;'''
+new = ''': lowering ( c job -- ) tuck at-cutoff 0 0 rot aux-remap remap-shift! ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "an index's type keeps the variables of the minor premises it moved past: Eq.casesOn's differs"
+
+[[fault]]
+id = "fe6-hypotheses-kept"
+file = "src/front/constructions.fs"
+old = '''  2dup swap aux-fields @ = if drop aux-mtype @ outcome-ok exit then'''
+new = '''  true if drop aux-mtype @ outcome-ok exit then'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "casesOn's minor premise keeps the induction hypotheses: Nat.casesOn's type differs"
+
+[[fault]]
+id = "fe6-no-projections"
+file = "src/front/constructions.fs"
+old = '''  dup one-case? over type-rec? 0= and over large? and swap prop-former? and ;'''
+new = '''  drop false ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "And.casesOn is built from And.rec, not from projections as Lean's mkCasesOnViaProjs? does"
+quick = true
+
+[[fault]]
+id = "fe6-shift-off-by-one"
+file = "src/front/expr-remap.fs"
+old = '''  2dup remap-x @ < if 2drop false exit then dup remap-y @ swap remap-x @ - + true ;'''
+new = '''  2dup remap-x @ < if 2drop false exit then dup remap-y @ swap remap-x @ - + 1+ true ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "every shifted variable is one too far: the pass's own tests and every casesOn"
+
+[[fault]]
+id = "fe6-swap-wrong-way"
+file = "src/front/expr-remap.fs"
+old = '''  2dup remap-x @ < if remap-y @ + true exit then'''
+new = '''  2dup remap-x @ < if remap-x @ + true exit then'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "the first group moves out by its own size, not past the second: the swap test and Eq's conclusion"
+
+[[fault]]
+id = "fe6-binder-depth"
+file = "src/front/expr-remap.fs"
+old = '''  over ok? 0= if 1 remap-failed exit then nip remap-hold ['] remap-joined frame-under ;'''
+new = '''  over ok? 0= if 1 remap-failed exit then nip remap-hold ['] remap-joined frame-call ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "a binder's body is renumbered as if outside it, so its own variable moves"
+
+[[fault]]
+id = "fe6-names-kept"
+file = "src/front/expr-remap.fs"
+old = ''': remap-anonymous ( head remap -- head' ) remap-erase @ if anonymous then ;'''
+new = ''': remap-anonymous ( head remap -- head' ) drop ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "erasing keeps binder names and information: two binders differing only in them are not alike"
+
+[[fault]]
+id = "fe6-never-clean"
+file = "src/front/expr-remap.fs"
+old = ''': remap-clean? ( e remap -- flag ) tuck remap-tier@ expr-data@ swap remap-changes? 0= ;'''
+new = ''': remap-clean? ( e remap -- flag ) 2drop true ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "nothing is renumbered: the shift and swap tests and every reordered casesOn"
+
+[[fault]]
+id = "fe6-let-body-depth"
+file = "src/front/expr-remap.fs"
+old = '''  nip remap-let-body ['] remap-let-joined frame-under ;'''
+new = '''  nip remap-let-body ['] remap-let-joined frame-call ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "a letE's body is renumbered as if outside its binder: its own variable #0 becomes #1"
