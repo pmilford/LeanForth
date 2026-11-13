@@ -10468,3 +10468,12 @@ new = '''  >r ok-then? 0= if drop outcome-unknown r> lf-es-fail exit then
   0= if false r> lf-es-answer exit then'''
 test = "$GFORTH tests/core/defeq-sweeps.fs"
 reason = "structure eta turns a field comparison that ran out of fuel into undecided"
+
+[[fault]]
+id = "cov2-check-u1-any-kind"
+file = "src/kernel/check-declaration.fs"
+old = '''  lf-check-decl dup lf-idecl-kind @ lf-check-kind? 0= if lf-check-out-of-scope exit then'''
+new = '''  lf-check-decl dup lf-idecl-kind @ lf-check-kind? 0= if drop outcome-ok exit then'''
+test = "$GFORTH tests/core/check-forged.fs"
+reason = "U1 passes a declaration of a kind check-declaration does not check; its check goes on as if it were in scope"
+quick = true

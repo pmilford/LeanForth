@@ -712,6 +712,7 @@ test-kernel-nested:
 test-kernel-passes:
 	$(RUN) $(GFORTH) tests/core/string-literals.fs
 	$(RUN) $(GFORTH) tests/core/defeq-sweeps.fs
+	$(RUN) $(GFORTH) tests/core/check-forged.fs
 
 .PHONY: test-kernel-reduction test-kernel-blocks test-kernel-nested test-kernel-passes
 test: test-kernel-reduction test-kernel-blocks test-kernel-nested test-kernel-passes
