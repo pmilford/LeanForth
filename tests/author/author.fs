@@ -665,6 +665,19 @@ T{ s" 18446744073709551615" holds? -> false }T
 \ A level of a tag the format has no record for is refused (review S6).
 T{ s" theorem t Prop explicit: p p := p end t" exported -> outcome-ok }T
 T{ 7 0 0 lf-level-new nip export-now -> true outcome-unsupported }T
+\ A metavariable anywhere in the stores (core/mvar-leaves.fs, ADR 0021 D2)
+\ refuses the whole run before any line is written: invalid, elaboration
+\ incomplete; a term one and a level one, each unreachable from any value.
+T{ s" theorem t Prop explicit: p p := p end t" exported -> outcome-ok }T
+T{ 0 0 lf-mvar-leaf nip export-now lines-n @ -> true outcome-invalid 0 }T
+T{ s" theorem t Prop explicit: p p := p end t" exported -> outcome-ok }T
+T{ 0 0 lf-level-mvar-leaf nip export-now lines-n @ -> true outcome-invalid 0 }T
+\ And one inside the theorem's own proof, put there by hand.
+T{ s" theorem t Prop explicit: p p := p end t" run -> outcome-ok }T
+T{ 0 0 lf-mvar-leaf drop 0 lf-author-decl lf-fdecl-value ! export-now lines-n @
+   -> outcome-invalid 0 }T
+T{ lf-holes? -> true }T
+T{ s" theorem t Prop explicit: p p := p end t" run lf-holes? -> outcome-ok false }T
 
 \ A library (library.fs, plan task 8.2.1d): a finder that knows Lib.c,
 \ Lib.k and Lib.m, of no universe parameters, definitions of height 3. Its
