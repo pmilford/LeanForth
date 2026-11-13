@@ -94,6 +94,17 @@ require ./source.fs
 71 constant lfa-e-elaborate      \ unsupported: elaborating natural text (plan FE1e-f)
 72 constant lfa-e-tactic         \ unsupported: tactics (plan FE1g)
 73 constant lfa-e-arity-unknown  \ unsupported: arguments that depend on unfolding (FE1c)
+\ Tactic proofs read (src/front/tactic-syntax.fs, plan FE1g-2); 74 to 79
+\ are left to the other front-end steps.
+80 constant lfa-e-tac-run        \ unsupported: running the tactics read (FE1g-3)
+81 constant lfa-e-tac-outside    \ a tactic word outside a tactic proof
+82 constant lfa-e-tac-open       \ a block still open: by-end or ] missing
+83 constant lfa-e-tac-closer     \ by-end, ] or | with no block of its kind open
+84 constant lfa-e-tac-header     \ a | or by-case: header not TAG NAMES.. => on a line
+85 constant lfa-e-tac-empty      \ an alternative or case block with no tactic
+86 constant lfa-e-tac-values     \ the wrong number of values at a tactic word or end
+87 constant lfa-e-tac-arity      \ unsupported: a hypothesis's argument count (FE1g-3)
+88 constant lfa-e-tac-full       \ the tactic store is full
 
 \ The catalogue: one message record per code, in order, each followed by
 \ its text and aligned; a record with code 0 closes it.
@@ -219,6 +230,28 @@ create lfa-catalogue
   lfa-e-arity-unknown
   s" not supported yet: how many arguments the name takes depends on unfolding its type"
   lfa-unsupported,
+  lfa-e-tac-run
+  s" not supported yet: running tactics (plan FE1g-3); the tactic proof was read whole"
+  lfa-unsupported,
+  lfa-e-tac-outside s" a tactic word belongs in a tactic proof, after := by" lfa-invalid,
+  lfa-e-tac-open
+  s" a block is still open: by-end closes by-induction-with and by-case:, ] closes by-rw["
+  lfa-invalid,
+  lfa-e-tac-closer
+  s" no block of this word's kind is open (| belongs right inside by-induction-with)"
+  lfa-invalid,
+  lfa-e-tac-header
+  s" a header is TAG NAMES... => on one line, after | or by-case:; names are no words"
+  lfa-invalid,
+  lfa-e-tac-empty s" an alternative or a by-case: block needs at least one tactic"
+  lfa-invalid,
+  lfa-e-tac-values
+  s" wrong number of values: by-exact and by-induction take one, the others none"
+  lfa-invalid,
+  lfa-e-tac-arity
+  s" not supported yet: how many values a hypothesis takes is known when tactics run"
+  lfa-unsupported,
+  lfa-e-tac-full s" out of room: the tactic store is full" lfa-full,
   0 outcome-invalid s" " lfa-message,
 
 \ The catalogue record of a code; an unknown code gives the closing record.

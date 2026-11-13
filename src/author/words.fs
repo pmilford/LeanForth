@@ -123,7 +123,8 @@ require ./library.fs
 \ The form (form.fs): kernel-form, outside declarations, switches the run
 \ to the kernel form. Words of natural LeanForth only (' and the operator
 \ words, whose natural meaning src/front/reader.fs gives) are refused in
-\ kernel-form text; tactic words are not supported yet in either form.
+\ kernel-form text; tactic words are not supported in kernel-form text,
+\ and in natural text until src/front/tactic-syntax.fs gives them meanings.
 : lfa-w-kernel-form ( -- ) lfa-inside? 0= lfa-e-form-here lfa-must lfa-kernel-form! ;
 : lfa-w-natural-only ( -- ) lfa-e-natural-only lfa-fail ;
 : lfa-w-tactic ( -- ) lfa-e-tactic lfa-fail ;
@@ -191,3 +192,11 @@ require ./library.fs
 ' lfa-w-tactic lfa-word-both by-case:
 ' lfa-w-tactic lfa-word-both by-rfl
 ' lfa-w-tactic lfa-word-both by-exact
+' lfa-w-tactic lfa-word-both by-intro:
+' lfa-w-tactic lfa-word-both by-induction-with
+' lfa-w-tactic lfa-word-both by-end
+' lfa-w-tactic lfa-word-both by-rw[
+' lfa-w-tactic lfa-word-both by-rewrite[
+' lfa-w-tactic lfa-word-both ]
+' lfa-w-tactic lfa-word-both |
+' lfa-w-tactic lfa-word-both =>
