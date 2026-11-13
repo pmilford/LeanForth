@@ -1,8 +1,13 @@
 \ Presentation side table (plan task 2.4.2): for each term, its binder name,
 \ binder kind and source record ID; for each named constant, its declared
-\ type. Printing reads it; nothing else does. Untrusted. The checker never
-\ loads this module, so no entry can change a verdict: a wrong or missing
-\ entry changes only how a term is printed. Requires terms.fs and names.fs.
+\ type. Printing reads it, and so does the front end, which copies binder
+\ names and kinds onto rebuilt binders and reads kinds for Lean's
+\ getFunInfoNArgs (front/fun-info.fs: a store binder's entry may be
+\ another binder's of the same shared node, so it treats an entry there
+\ as unknown). Untrusted. The checker never loads this module, so no
+\ entry can change a kernel verdict: a wrong or missing entry changes how
+\ a term is printed and, in the untrusted front end, what it elaborates,
+\ which the kernel then checks. Requires terms.fs and names.fs.
 \ An importer (the coming Forth NDJSON reader) or a test fills it with
 \ lf-pres-binder! and lf-pres-source! per term and lf-pres-declare per
 \ declaration, or, for the declared types, by feeding the input (core/input.fs),

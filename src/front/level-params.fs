@@ -37,6 +37,7 @@ require ../core/constant-term-boundary.fs
 require ../core/tagged-sort-boundary.fs
 require ../present/binder-table.fs
 require ./dag-walk.fs
+require ./meta-spine.fs
 require ./level-simp.fs
 require ./level-map.fs
 
@@ -119,7 +120,7 @@ end-structure
   over lf-term-first@ over dw-image -rot swap lf-term-second@ swap dw-image ;
 : lp-same? ( i1 i2 node -- i1 i2 flag )
   >r 2dup r@ lf-term-second@ = swap r> lf-term-first@ = and ;
-: lp-named ( new old -- new ) lf-pres-binder@ if 2>r dup 2r> lf-pres-binder! drop then ;
+: lp-named ( new old -- new ) lf-meta-named lp-refuse ;
 : lp-rebuild ( i1 i2 node -- image )
   dup >r lf-term-tag@ lf-term-binary if r> lp-named exit then
   r> drop outcome-full lp-refuse -1 ;

@@ -121,7 +121,7 @@ end-structure
   >r 2dup r@ lf-term-second@ = swap r> lf-term-first@ = and ;
 : ib-rebuild ( i1 i2 node -- image )
   dup >r ib-tag lf-term-binary
-  if r> lf-meta-named else r> drop outcome-full ib-fail -1 then ;
+  if r> lf-meta-named ib-fail else r> drop outcome-full ib-fail -1 then ;
 : ib-pair-image ( node depth -- image )
   over >r ib-images r@ ib-same-pair? if 2drop r> exit then r> ib-rebuild ;
 

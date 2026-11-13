@@ -17,8 +17,8 @@
 \   parameters of f's type (inferType), up to n, entered with new free
 \   variables (whnfCore and the test above where the type is no pi:
 \   forallBoundedTelescope); for each, lf-meta-param ( i -- kind prop )
-\   its binder kind (present/binder-table.fs, explicit when none is
-\   recorded) and whether its type is a proposition. Unsupported, never
+\   its binder kind and whether its type is a proposition; the free
+\   variables leave the local context at the end. Unsupported, never
 \   a guess, when a non-explicit parameter's type has a head that might
 \   be a class and an argument that is an earlier parameter whose type
 \   is or might become a pi (outParam T and semiOutParam T taken as T,
@@ -29,15 +29,19 @@
 \   none: past its pis, the head is a free variable, an unassigned
 \   metavariable, a Sort, a literal or a bound variable (false: it might
 \   be a class, which only class facts decide, plan FE1e1).
-\ Binder kinds are those the term store keeps: two binders that differ
-\ only in their kind are one node (core/terms.fs), so a kind may be the
-\ other binder's (see the plan row FE1c).
+\ Binder kinds: from the head's declared type (a constant's input type,
+\ else the type itself), never from a copy: an input binder's from its
+\ record; a store binder named in the binder table answers unsupported,
+\ since the store shares equal nodes and the name may be another
+\ binder's; one not named is explicit. Unsupported too where whnf makes
+\ the pis. (The importer also merges input binders that differ only in
+\ their kind, core/terms.fs: the plan row FE1c keeps that risk.)
 \ Outcomes: ok; unsupported as above or where inferType or whnfCore is;
 \ invalid for a term that is not live; full when a store or the heap has
 \ no room. Untrusted.
 \ State: the slab fi-params (kind, prop and free variable per
-\ parameter), in the checker context (ADR 0009); valid until the next
-\ lf-meta-fun-info.
+\ parameter) and the record fi (the kinds' source), in the checker
+\ context (ADR 0009); valid until the next lf-meta-fun-info.
 
 require ../lib/lib.fs
 require ../core/terms.fs
@@ -57,6 +61,10 @@ require ./term-eqv.fs
 require ./prop-quick.fs
 
 3 cells context-slab: fi-params
+begin-structure /fi
+  field: fi-source   \ the declared type's pi of the next parameter, or -1
+end-structure
+/fi context-record: fi
 : fi-tag ( t -- tag ) lf-term-tag@ ;
 
 \ ---- whnf's fixed points.
@@ -99,8 +107,25 @@ require ./prop-quick.fs
 : fi-push ( x kind prop -- outcome )
   1 fi-params slab-claim ok-then? 0= if >r 2drop drop r> exit then
   fi-params slab-at tuck cell+ ! tuck ! 2 cells + ! outcome-ok ;
-: fi-kind ( pi -- kind ) lf-pres-binder@ if nip else lf-binder-default then ;
-: fi-record ( pi x -- outcome ) swap fi-kind 0 fi-push ;
+\ Binder kinds come from the head's own declared type, walked beside the
+\ telescope (fi-src: its pi for the next parameter, -1 once whnf made the
+\ pis): an input binder's kind from its record; a store binder that the
+\ binder table names may be another binder's of the same node (the store
+\ shares equal nodes, binder-table.fs), so its kind is unknown; one it
+\ does not name is explicit, as every front-end binder made without a
+\ kind (whose copies are refused, not dropped, when the table is full).
+: fi-src ( -- addr ) fi fi-source ;
+: fi-store-kind ( pi -- kind true | false )
+  lf-pres-binder@ if 2drop false else lf-binder-default true then ;
+: fi-kind ( -- kind true | false )
+  fi-src @ dup 0< if drop false exit then
+  dup lf-term-input? if lf-term-input-binder@ if nip true else false then exit then
+  fi-store-kind ;
+: fi-next-src ( -- )
+  fi-src @ dup 0< 0= if dup fi-tag lf-tag-pi = if lf-term-second@ else drop -1 then then
+  fi-src ! ;
+: fi-record ( pi x -- outcome )
+  nip fi-kind fi-next-src if 0 fi-push else drop outcome-unsupported then ;
 : fi-open ( pi -- body outcome )
   dup lf-term-first@ lf-lctx-local ok-then? 0= if nip no-result exit then
   2dup fi-record dup ok? 0= if nip nip no-result exit then drop
@@ -110,7 +135,7 @@ require ./prop-quick.fs
 \ it; anything else would need whnf's delta.
 : fi-reduce ( type n -- type' n' go? outcome )
   >r lf-whnf-core ok-then? 0= if -1 swap r> swap false swap exit then
-  dup fi-tag lf-tag-pi = if r> true outcome-ok exit then
+  dup fi-tag lf-tag-pi = if -1 fi-src ! r> true outcome-ok exit then
   dup lf-meta-whnf-final? if outcome-ok else outcome-unsupported then r> swap false swap ;
 : fi-step ( type n -- type' n' go? outcome )
   dup 0= if false outcome-ok exit then over fi-tag lf-tag-pi = if fi-pi
@@ -156,9 +181,14 @@ require ./prop-quick.fs
   fi-params slab-count 0 ?do i fi-prop! dup ok? 0= if unloop exit then drop
     i fi-ho? ok-then? 0= if unloop exit then
     if unloop outcome-unsupported exit then loop outcome-ok ;
+\ The kinds' source: a constant's declared (input) type, else the type.
+: fi-declared ( f type -- )
+  swap dup fi-tag lf-tag-constant =
+  if nip lf-meta-const-decl if lf-menv-type else -1 then else drop then fi-src ! ;
 : fi-run ( f n -- m outcome )
-  fi-params slab-clear swap lf-infer ok-then? 0= if nip no-result exit then
-  swap fi-telescope dup ok? if drop fi-props then fi-params slab-count swap ;
+  fi-params slab-clear over lf-infer ok-then? 0= if nip nip no-result exit then
+  rot over fi-declared swap fi-telescope dup ok? if drop fi-props then
+  fi-params slab-count swap ;
 \ The telescope's free variables (and inferType's) go again at the end.
 : fi-mark ( -- mark ) lf-term-base lf-term-count @ + ;
 : lf-meta-fun-info ( f n -- m outcome ) fi-mark >r fi-run r> lf-lctx-drop ;
