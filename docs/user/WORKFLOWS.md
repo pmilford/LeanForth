@@ -16,18 +16,16 @@ partly built; both are meant to end at the same checker:
   NDJSON file; LeanForth reads that file and checks every declaration
   again, on its own, in the file's order.
 - **In LeanForth itself** (checked since 2026-11-12 by `leanforth check [--env EXPORT]
-  FILE.lf`, plan 8.2.1c-d, experimental, gates pending): you write the theorem and its proof with Forth words
+  FILE.lf`, plan 8.2.1c-d, gates pending): you write the theorem and its proof with Forth words
   ([LeanForth syntax](LEANFORTH_SYNTAX.md), [ADR 0017](../adr/0017-leanforth-syntax.md),
   approved by the owner). The authoring words (`src/author/`, plan task
   8.1.2) run a file line by line through Forth's own interpreter, build
   the terms, report mistakes with line and column, and print a declaration
-  back as words. They are untrusted, and the checker never loads them. They build
-  terms and print them back; they do not type-check them, so a wrong proof builds
-  without error, and nothing has been proved from LeanForth input.
-  Still planned: running them in an authoring program of their own, which
-  hands the checker serialized terms only, so nothing the author's code
-  does can reach the checker's memory (8.2.1); untrusted helpers such as
-  implicit arguments and tactics (8.3). The same checker is to decide; a
+  back as words. They are untrusted: `check FILE.lf` loads them in its own process,
+  and the kernel checks the terms they build, so a wrong proof is rejected.
+  There is no elaborator and no tactics: proofs are kernel terms written by
+  hand, and `Init` comes from Lean's export. Still planned: untrusted
+  helpers such as implicit arguments and tactics (8.3). The same checker is to decide; a
   LeanForth-written theorem is to be printable as Lean source for Lean
   to check as a second opinion (not built).
 
@@ -36,13 +34,13 @@ flowchart TD
   src["Lean source file (.lean)"]
   lfsrc["LeanForth source file (.lf)<br/>theorem and proof written with Forth words<br/>syntax: ADR 0017"]
   author["Authoring words, src/author<br/>run by Forth's interpreter, line by line;<br/>errors with line and column; printed back as words<br/>untrusted; task 8.1.2"]
-  proc["Authoring program, its own Gforth process<br/>implicit arguments, tactics<br/>untrusted; tasks 8.2.1, 8.3"]
+  proc["Records written by the words (src/author/export.fs)<br/>no elaborator or tactics yet (8.3)<br/>untrusted; task 8.2.1"]
   lean["Lean 4.35.0 elaborates and checks it"]
   exp["leanexport (lean4export 3.1.0)<br/>writes the declarations"]
   nd["NDJSON export file<br/>one JSON record per line"]
   rd["Forth NDJSON reader<br/>src/import/ndjson.fs<br/>checks every record whole, fails closed"]
   stage["Staging into the input stores<br/>names, levels, terms<br/>task 3.2.1"]
-  probe["Today: experimental inference and definition probe<br/>src/kernel/mixed-*.fs<br/>diagnostics only, never accepted"]
+  probe["Today: inference and definition probe<br/>src/kernel/mixed-*.fs<br/>diagnostics only, never accepted"]
   chk["First checker<br/>ADR 0011 rules approved; rejection rules in progress (2.2.1),<br/>declaration check next (2.2.3)"]
   pub["Publisher<br/>writes each slot once, ok only<br/>ADR 0012, v0 written, under review"]
   env["Checked environment<br/>library of accepted declarations<br/>v0 written, under review"]
@@ -54,7 +52,7 @@ flowchart TD
   src --> lean --> exp --> nd --> rd
   lfsrc --> author --> proc
   rd --> stage
-  proc -- "serialized terms only" --> stage
+  proc -- "export records, same format" --> stage
   stage --> chk
   chk -- "ok only" --> pub --> env
   env -- "earlier accepted declarations" --> chk
@@ -105,7 +103,7 @@ What each step means for you:
    statement lets a person see what was actually checked — the defence
    against a reader that decoded a different claim. `leanforth print` also prints a proof outline
    from the checker's derivation log (task 2.4.4; untrusted presentation).
-7. **Lean as referee.** `make check` compares LeanForth's experimental
+7. **Lean as referee.** `make check` compares LeanForth's
    passes and the printer with Lean on finite tables, and Lean's own
    verdicts on the first checker's
    [expected results](../reviews/FIRST_CHECKER_EXPECTED.md).

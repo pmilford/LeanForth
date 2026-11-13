@@ -153,8 +153,9 @@ zero_add_refl: rejected
 accepted: 59; axioms: none
 ```
 
-A whole `Init` export works the same way, but checks all of `Init` first
-(708 s with `--jobs 2` on the development machine, 2026-11-12);
+A whole `Init` export works the same way, but checks all of `Init` first,
+one declaration at a time (`--jobs` does not yet go with a text; 964 s on
+the development machine, 2026-11-12);
 `--snapshot FILE` instead takes the library from a
 [snapshot](#snapshots---save-snapshot-and---snapshot) written by
 `check --save-snapshot FILE` of it, as for a dependent export: its
@@ -197,7 +198,8 @@ before the check (no room for them, say), the error says "the records
 written for the LeanForth text were refused; the text was not checked",
 with the refusal's exit status. An axiom gets Lean's verdict and is labelled NOT
 PROVED, with what depends on it, as in an export. `--json`, `--record` and
-`--save-snapshot` do not go with a text yet.
+`--save-snapshot` do not go with a text yet, and `--jobs N` with a text
+checks one declaration at a time without saying so.
 
 What runs: the file runs through Forth's own interpreter with only
 LeanForth's words visible ([ADR 0017 Amendment 1, A5](../adr/0017-leanforth-syntax.md#a5-sealed-text-what-must-be-shut-and-the-probes));
@@ -207,6 +209,25 @@ after the library's, and checked as an export holding the same
 declarations would be. The whole file is checked when it ends, not each
 declaration at its `end NAME` (plan 8.2.1g). The words are untrusted: a
 wrong word builds a different term, which the checker checks as it is.
+
+**What this does not do.**
+
+- There is no elaborator: every implicit argument, universe level and
+  instance is written by hand, and there is no `+`, `=` or numeral
+  notation.
+- There are no tactics: `by` stops as "not supported". Proofs are kernel
+  terms written by hand; an induction is a `Nat.rec` term with its motive
+  spelled out.
+- `Init`'s definitions (`Nat`, `Nat.add`, `Nat.rec`, `Eq`, `HAdd`,
+  `Nat.add_comm` with its proof) come from pinned Lean's export;
+  LeanForth re-checks them but did not write them.
+- A text cannot hold inductive types, structures, `let`, holes or string
+  literals. The whole file is checked at its end; there is no prompt or
+  inline use.
+- `--json`, `--record` and `--save-snapshot` do not go with a text, and
+  `--jobs` runs serially.
+- `bin/leanforth capabilities` does not list LeanForth text yet.
+- The owner's gates [parser], [bypass] and [import] are open.
 
 ## Commands
 

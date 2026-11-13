@@ -372,7 +372,7 @@ fun {P} h ↦ fixtureId h
 **Mathematics.** For all natural numbers $n, m$: $n + m = m + n$.
 
 **LeanForth.** This is the *kernel form*: the term as Lean's kernel
-has it (the checker would check this term; today these words only build it),
+has it (this version, with import stubs, is only run by the words; `tests/author/07-add-comm.lf`, without them, is checked against Init),
 with every hidden argument written out. Lean's `n + m` is generic
 addition `HAdd.hAdd` at the type `Nat`, with "addition of naturals"
 (`instHAdd 0 ^ Nat $ instAddNat $`) passed as an argument, and `0 ^` and

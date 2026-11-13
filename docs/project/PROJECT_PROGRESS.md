@@ -29,8 +29,9 @@ status changes when this date is older than them. Stages are those of the
 [done checker](../development/DONE_CHECKER.md).
 
 **Now**
-- LeanForth text checked by LeanForth's kernel, with Init imported for real (plan 8.2.1a, c, d): designed; work
-  started 2026-11-12. Until it lands, LeanForth only re-checks proofs that Lean produced and exported.
+- LeanForth text checked by LeanForth's kernel, with Init imported for real (plan 8.2.1a, c, d): works end to end (done check docs/development/done-checks/2026-11-12-lf-files.md); owner gates [parser], [bypass], [import] pending.
+  `leanforth check [--env EXPORT] FILE.lf` checks hand-written kernel terms; no elaborator or tactics yet. 8.2.1b, e, f
+  and g are not started.
 - Fixes before tonight's run: the performance review's findings (rvPF1), the broken coverage tool and a coverage
   ratchet, the documentation the done-checker audit found overstated or stale, and real bugs from the Forth backlog
   reviews (the parallel scheduler's use after free when memory is full; a snapshot layer's full reported as invalid;
@@ -57,8 +58,7 @@ status changes when this date is older than them. Stages are those of the
 
 **Current state, 2026-11-12 afternoon (main `700c4a1`, verdict version 9).**
 Today LeanForth **re-checks proofs that Lean produced and exported** (NDJSON); it does
-not yet check LeanForth text (plan 8.2.1a-g not started; `leanforth check FILE.lf` exits
-4), and nothing has been proved from LeanForth input. Re-checking Lean's export of all of
+check LeanForth text only as hand-written kernel terms with no elaborator or tactics (plan 8.2.1a, c, d: works end to end (done check docs/development/done-checks/2026-11-12-lf-files.md); owner gates [parser], [bypass], [import] pending; 8.2.1b, e, f and g not started). Re-checking Lean's export of all of
 Mathlib gave Lean's verdict on every declaration: all **729,263 of
 729,263 accepted** on build `b74a04d` (before K1 and PERF1; exit 0; one NOT PROVED,
 `sorryAx` itself, as in Lean), on 8 workers with fuel 250,000,000,
@@ -201,8 +201,7 @@ is temporary and has its closing task):
     with `param:`); a library such as `Init` is one vocabulary looked up by
     hash index; the owner's concern about letter case is answered by an
     exact rule per layer, tested on `Init`'s 31 case pairs on both Gforths.
-    Plan 8.2.1 is split into steps 8.2.1a-g: **0 of 7 started** (the design is
-    the work done; no step has code in `src/` yet).
+    Plan 8.2.1 is split into steps 8.2.1a-g: 8.2.1a, c and d works end to end (done check docs/development/done-checks/2026-11-12-lf-files.md); owner gates [parser], [bypass], [import] pending; 8.2.1b, e, f and g are not started.
 
 **The checker on the large store was held in the morning and approved in the
 evening of 2026-11-04.** The owner had asked whether the fixed limits of 64
@@ -342,7 +341,7 @@ sizes are relative and dates are not estimated.
    `leanforth check FILE.ndjson` and exit codes (3.4; `leanforth print`,
    readable proof outlines from the command line, merged and **approved** by
    the owner 2026-11-04, gate D5); the JSON API v0 for AI tools with schemas and golden examples
-   (3.5); authoring in its own process (8.2.1). *You will see:* one
+   (3.5); LeanForth text checked by the same checker (8.2.1a, c, d). *You will see:* one
    command checks a Lean export with only Forth installed. Today
    `bin/leanforth check` takes whole libraries (`Init` in about four
    minutes with `--fast`'s engine, `gforth-fast`); its report format
@@ -477,7 +476,7 @@ P3.2). Changes of state within the tasks:
 | --- | --- | --- |
 | T5.3 checker | rejection rules approved; declaration check merged | owner's [kernel] approval of plan 2.2.1; the declaration check gives Lean's answer on all 69 table rows, 22 binder-domain rows (three capacity failures of the 64-node store, none accepted) and 49 universe rows, after the level fix of 2026-11-03 |
 | T6.1 export pinned and tested | reader approved | owner's [import] approval; remaining: detection of a file cut off between lines (the checksum manifest) |
-| T10.1 Forth words that build terms | syntax words merged | 15 example files and 50 printer cases round-trip; 42 `#print` lines from 14 fixtures equal pinned Lean's; the authoring program does not yet hand terms to the checker (8.2.1) |
+| T10.1 Forth words that build terms | syntax words merged | 15 example files and 50 printer cases round-trip; 42 `#print` lines from 14 fixtures equal pinned Lean's; `leanforth check FILE.lf` hands the terms to the checker (8.2.1a, c, d: works end to end, done check docs/development/done-checks/2026-11-12-lf-files.md) |
 | T9.4 Mathlib time and memory | storage design accepted | ADR 0016: 2.94 GB stored, 4.16 GB peak, measured |
 | T5.3 / T6 feeding the checker | `Init` fed end to end (plan 3.2.2, 1.1.5, in part) | 59,349 declarations fed; at the 2026-11-03 snapshot 37 accepted, 0 rejected, 59,025 unsupported at 100,000 fuel ([ADR 0016, step 3](../adr/0016-compact-store.md)); since task 5.2.1a, 184 data types and 1,014 definitions and theorems accepted, 0 rejected or invalid ([ADR 0015](../adr/0015-inductive-types.md)); reviews done, [kernel] gate held until the limits are dynamic |
 | P6 program reader | two-mode program words approved [parser] 2026-11-04 | 273 inputs agree with the old reader, 4 intended differences, 287 after the review fixes ([program IR](../programming/PROGRAM_IR.md)); IR 0.2 implemented 2026-11-04, [parser] implementation gate pending |
@@ -512,7 +511,7 @@ tasks, not the plan's.
 | 5.2.1c indexed families, 5.2.2 structures and projections, 5.2.3 literals, 5.2.5 mutual and nested blocks, 5.2.6 per-declaration verdict for unclosed files | not started; they close the temporary gaps of 5.2.1a-b and are on the way to `n + 0 = n` |
 | 3.4.3 `--json` report (`check-report-0.1`) | **done**: [format] gate approved 2026-11-04; `--strict-axioms` and `--fast` implemented (`84725e6`) |
 | 6.5.5 work linear in a term's depth | not started (the quadratic cost is the temporary price of 6.2.0 part b) |
-| 8.2.1a-g native and inline LeanForth (design accepted) | not started (0 of 7 steps have code); 8.6.3 not started |
+| 8.2.1a-g native and inline LeanForth (design accepted) | 8.2.1a, c, d: works end to end (done check docs/development/done-checks/2026-11-12-lf-files.md); owner gates [parser], [bypass], [import] pending; 8.2.1b, e, f and g not started; 8.6.3 not started |
 | SHA-2 helper words (program track) | **in progress**: 4 of 8 words proved (ROTR, Ch, Maj, Σ0); SHR, Σ1, σ0, σ1 remain |
 | 5.3.3 review of the axiom rule (owner, 2026-11-04) | planned; options to be brought in plain words |
 | 6.1.6 other Lean libraries (a few small ones and the largest) | planned (owner, 2026-11-03: "soon", not yet) |
@@ -826,8 +825,7 @@ passed. *Planned*: not coded. No outside Lean expert has audited the checker yet
   0.3, verdict version 3); `--progress` and streamed verdicts (PRG);
   `gforth-fast` as the default engine, `--checked` opt-in (ENG); PF batch 1
   (default fuel 100,000,000, fix C1; ADR 0014 Amendment 6).
-- **Coded, not used by `leanforth check`**: `src/author/` (not loaded by `src/main.fs`; no `check FILE.lf`, plan
-  8.2.1); the program track (runs through tests and Python scripts; there is
+- **Coded, not used by `leanforth check`**: the program track (runs through tests and Python scripts; there is
   no `leanforth program` command, plan 3.4.1, 2.5.x); the record and replay
   reader (`check --record`, `replay`: 32 declarations, no inductive types,
   `let`, literals, projections or metadata; its old limits are 64 names, 64
@@ -928,8 +926,8 @@ the first half of unfolding (4.2.2b-c, gate review running). Merged without
 a gate: `leanforth check` and `leanforth print` on whole libraries, the
 statement in three forms (8.6.1, 8.6.2 done), escaped names, and the first
 four proved SHA-2 words. ADR 0017 Amendment 1 (native and inline LeanForth,
-library vocabularies, case rules) was accepted; plan 8.2.1a-g has not
-started. Every gap from Lean named here is temporary with a closing task.
+library vocabularies, case rules) was accepted; plan 8.2.1a, c, d later
+worked end to end (see the top of this file); 8.2.1b, e, f and g have not started. Every gap from Lean named here is temporary with a closing task.
 Run for this documentation change: `make test` only, not `make check`; the
 figures come from the cited documents and commit messages, the `Init`
 command-line figures are those of `9df4fa3` (before recursive types), and

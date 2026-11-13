@@ -92,7 +92,7 @@ examples](docs/programming/PROGRAM_EXAMPLES.md). They are runtime tested, not ve
 
 These tests run the checker on Lean's exports and compare it with
 pinned Lean; they do not show that it is correct. The checker re-checks proofs that Lean exported; LeanForth text
-cannot yet be checked by the kernel (plan 8.2.1a-g, not started). The
+is checked by the same checker since 2026-11-12 (8.2.1a, c, d); 8.2.1b, e, f and g are not started. The
 [core ADR](docs/adr/0001-core-fragment.md) and [program example](docs/programming/PROGRAM_EXAMPLE.md)
 needed human review before implementation.
 The export check recompiles the composition theorem, uses the `leanexport`

@@ -2527,8 +2527,8 @@ Lean's verdict, labelled NOT PROVED with what depends on it (owner,
 their settings back after.
 
 **B4. Evidence** (`tests/author/check_author.py`, `author.fs`,
-`tests/core/stage.fs`). All 24 fixtures of `tests/author` run through
-`leanforth check`: the 18 whose Lean source pinned Lean accepts are
+`tests/core/stage.fs`). All 25 fixtures of `tests/author` run through
+`leanforth check`: the 19 whose Lean source pinned Lean accepts are
 accepted (`07-add-comm`, `14-case`, `19-add-zero` and `20-zero-add` against
 `tests/author/init-slice.ndjson`, 59 declarations of `Init` exported by
 pinned Lean with `scripts/export.sh`; `08-monoid` against the class alone,
