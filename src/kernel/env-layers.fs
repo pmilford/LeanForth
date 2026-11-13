@@ -348,10 +348,14 @@ end-structure
   dup lay-deps swap lay-looks outcome-and ;
 : lay-append-new ( i lay -- outcome )
   2dup lay-new @ ly@ if lay-append else 2drop outcome-ok then ;
+\ Every new slot appended (each list sorted again: ok, or full, the first
+\ failure kept), then the base's slots counted (only when all are ok).
+: lay-count! ( lay -- ) dup lay-cur @ swap lay-base @ snap-n ! ;
+: lay-all-new ( lay -- outcome )
+  outcome-ok over lay-n @ 0 ?do over i swap lay-append-new outcome-and loop nip ;
 : lay-appends ( lay -- outcome )
   dup lay-room dup ok? 0= if nip exit then drop
-  dup lay-n @ 0 ?do i over lay-append-new dup ok? 0= if nip unloop exit then drop loop
-  dup lay-cur @ swap lay-base @ snap-n ! outcome-ok ;
+  dup lay-all-new dup ok? if over lay-count! then nip ;
 \ The site texts appended after the base's.
 : lay-sites ( lay -- )
   dup lay-snap ss-sites swap snap-block over lay-base @ ss-sites swap snap-block

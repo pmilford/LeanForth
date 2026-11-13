@@ -399,7 +399,7 @@ create snap-outers /outers allot  snap-outers /outers erase
   snap-outers outers-list block-free 0 snap-outers outers-list !
   dup cells allocate if 2drop outcome-full exit then
   snap-outers outers-list ! snap-outers outers-room ! outcome-ok ;
-: outer-put ( addr n name -- addr n' ) >r 2dup cells + r> swap ! 1+ ;
+: outer-put ( addr n name -- addr n' ) 2 pick 2 pick cells + ! 1+ ;
 : outer-key ( addr n slot key -- addr n' slot )
   dup key-beyond? if lf-look-name swap >r outer-put r> else drop then ;
 : outers-of ( addr slot -- addr n )
@@ -413,11 +413,14 @@ create snap-outers /outers allot  snap-outers /outers erase
 : canon-copy ( name -- name' outcome )
   dup canon-name? if outer canon name-copy else drop -1 outcome-invalid then ;
 : canon-made ( name -- outcome ) canon-copy nip ;
-: canon-slot ( slot -- outcome )
-  dup lf-slot-looked @ outers-hold ok-then? 0= if exit then
-  snap-outers outers-list @ swap outers-of 2dup o-sort ok-then? 0= if nip exit then
+: canon-names ( addr n -- outcome )
   cells bounds ?do i @ canon-made dup ok? 0= if unloop exit then drop 1 cells +loop
   outcome-ok ;
+\ The names sorted, then made (in the order they have, should the sort
+\ fail: the save fails then with the sort's outcome).
+: canon-slot ( slot -- outcome )
+  dup lf-slot-looked @ outers-hold ok-then? 0= if exit then
+  snap-outers outers-list @ swap outers-of 2dup o-sort -rot canon-names outcome-and ;
 : canon-slots ( snap -- outcome )
   dup snap-wn@ 0 ?do
     i over snap-e slot-env dup slot-outer? if canon-slot else drop outcome-ok then
@@ -495,11 +498,10 @@ create snap-outers /outers allot  snap-outers /outers erase
   swap slot-env dup lf-slot-count @ 0 ?do
     i over lf-dep-at 2 pick snap-s 3 pick u32-le! rot /snap-dep + -rot
   loop 2drop 2r> swap dep-sort ;
-\ Slot d's dependencies and lookups, after the lists' ends so far (the
-\ dependencies' failure: snap lblk dblk' in place of dblk' snap lblk').
+\ Slot d's dependencies and lookups, after the lists' ends so far; the
+\ first failure.
 : put-pair ( dblk snap lblk d -- dblk' snap lblk' outcome )
-  >r rot r@ 3 pick put-deps r> swap ok-then? 0= if exit then
-  2swap rot 2 pick put-looks ;
+  >r rot r@ 3 pick put-deps r> swap >r 2swap rot 2 pick put-looks r> swap outcome-and ;
 : put-lists ( snap -- outcome )
   dup ss-deps swap snap-block swap dup ss-looks swap snap-block
   over snap-wn@ outcome-ok swap 0 ?do
