@@ -123,4 +123,9 @@ s" iota.bool-true" ' eq-pieces outcome-ok cs-probe-gives
 T{ s" quotinit.with-eq" cs-load quot-record 1 cs-fuel-sweep cs-unload -> true }T
 T{ s" quotinit.eq-wrong-shape" cs-load 1 cs-fuel-sweep cs cs-normal @ cs-unload
    -> true outcome-rejected }T
+
+\ 2, 3 (coverage COV2). Step 2 of a quotient record outside any check (no
+\ snapshot of the checked environment to look names up in): invalid; so
+\ is an inductive block's check (check-block.fs) there, whatever its fuel.
+T{ lf-quot-names 1000 lf-block-check -> outcome-invalid outcome-invalid }T
 bye

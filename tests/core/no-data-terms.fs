@@ -107,4 +107,15 @@ s" proj.data" ' beta outcome-ok cs-probe-gives
      swap lf-term-second@ lf-term-tag@ unjob
      -> outcome-ok lf-tag-app lf-data-unknown lf-tag-str }T ;
 s" proj.data" ' literals outcome-ok cs-probe-gives
+
+\ ---------------------------------------------------------------------------
+\ The caches' counts for reports (lf-cache-stats ( cache -- hits misses )):
+\ the target's check looks up the inference cache, so the context's
+\ count of its lookups, hits and misses together, grows across it.
+variable lookups-before
+: lookups ( -- n ) lf-cache-infer lf-cache-stats + ;
+: remember ( -- ) lookups lookups-before ! ;
+: counted ( c-addr u -- outcome grew? )
+  cs-load ['] remember cs-probe! cs-run lookups lookups-before @ > cs-unload ;
+T{ s" eta.structure" counted -> outcome-ok true }T
 bye
