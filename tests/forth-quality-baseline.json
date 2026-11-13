@@ -872,7 +872,7 @@
   "words": 29
  },
  "src/kernel/verdict-version.fs": {
-  "globals": 0,
+  "globals": 1,
   "long lines": 1,
   "long words": 0,
   "rstack": 0,

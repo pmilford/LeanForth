@@ -135,6 +135,27 @@ T{ 0 lf-env-outcome 2 lf-env-outcome 2 ck-kept kept-code @
 2 cells slab-limit-max looks-limited
 ck-release
 
+\ ---- The reach table (kernel/verdict-version.fs; plan step 6.2.5c1):
+\ the reach after a version is the union of the steps after it up to this
+\ build's, each step once; a step without an entry reaches everything; the
+\ window holds this build's version and the two before it. The entries of
+\ steps 6-9 as proposed (SNAPSHOT_COMPATIBILITY.md section 5).
+: vb ( -- v ) lf-verdict-version ;
+T{ vb lf-verdict-reach vb 1+ lf-verdict-reach vb 5 + lf-verdict-reach -> 0 0 0 }T
+T{ vb 1- lf-verdict-reach -> vb lf-vstep-bits }T
+T{ vb 2 - lf-verdict-reach -> vb lf-vstep-bits vb 1- lf-vstep-bits or }T
+T{ 1 lf-vstep-of 1 lf-vstep-bits vb 1+ lf-vstep-bits -> 0 reach-all reach-all }T
+T{ 9 lf-vstep-bits 8 lf-vstep-bits 7 lf-vstep-bits 6 lf-vstep-bits
+   -> reach-all reach-block-nested reach-block-any reach-block-any }T
+T{ 2 lf-vstep-bits 7 lf-verdict-reach 5 lf-verdict-reach
+   -> reach-scratch-names reach-all reach-block-nested or
+      reach-all reach-block-nested or reach-block-any or }T
+: carried? ( k -- flag ) vb swap - lf-verdict-carried? ;
+T{ 0 carried? 1 carried? 2 carried? 3 carried? -1 carried? vb carried? -> false true true false
+   false false }T
+T{ 1 lf-window-oldest 3 lf-window-oldest lf-snapshot-window -> 1 1 2 }T
+T{ lf-vsteps-known? lf-window-covered? -> true true }T
+
 \ ---- A slot's own fields as the loader reads them (review FRK F5): each
 \ forged in turn just past what the checker writes is refused.
 create forged sl-fields# u32s allot

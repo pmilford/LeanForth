@@ -3137,6 +3137,48 @@ class VerdictGuard(unittest.TestCase):
                                  "moved without a bump of lf-verdict-version")
 
 
+REACH_ENTRY = re.compile(r"^  (\d+) , ([a-z -]+?) , (\S+) ,$", re.M)
+
+
+def reach_table():
+    """The reach table of src/kernel/verdict-version.fs (plan step
+    6.2.5c1), read with one pattern: {version: (bit names, names)}; and the
+    bits the file defines (reach-known, their union, left out)."""
+    text = (ROOT / "src/kernel/verdict-version.fs").read_text()
+    table = text[text.index("create lf-verdict-steps"):text.index("here lf-verdict-steps")]
+    entries = {}
+    for version, bits, names in REACH_ENTRY.findall(table):
+        assert int(version) not in entries, f"step {version} has two entries"
+        entries[int(version)] = ([b for b in bits.split() if b != "or"], names)
+    known = set(re.findall(r"\d+ constant (reach-[a-z-]+)", text)) - {"reach-known"}
+    return entries, known, len(table.strip().splitlines()) - 1
+
+
+class ReachTable(unittest.TestCase):
+    """The reach table (ADR 0020 Amendment 5, SNAPSHOT_COMPATIBILITY.md
+    R3; plan step 6.2.5c1): every step of the verdict version from 2 to
+    this build's has one entry, read with one pattern, of known bits only
+    (a step without one would reach everything, and the build refuses to
+    load when a step in the window has none); the changelog names each."""
+
+    def test_entries(self):
+        entries, known, lines = reach_table()
+        version = verdict_version()
+        self.assertEqual(len(entries), lines, "an entry the pattern does not read")
+        self.assertEqual(sorted(entries), list(range(2, version + 1)),
+                         "a verdict-version step without its reach entry")
+        unknown = {b for bits, _ in entries.values() for b in bits} - known
+        self.assertEqual(unknown, set(), "an unknown reach bit")
+        self.assertEqual({names for _, names in entries.values()}, {"0"})
+        self.assertIn("reach-all", known)
+        text = (ROOT / "src/kernel/verdict-version.fs").read_text()
+        logged = [int(v) for v in re.findall(r"^\\   ?(\d+)  2026-", text, re.M)]
+        self.assertEqual(logged, list(range(1, version + 1)))
+        # The window (two versions back): both of its steps are entered.
+        self.assertIn("2 constant lf-snapshot-window", text)
+        self.assertTrue({version - 1, version} <= set(entries))
+
+
 if __name__ == "__main__":
     if sys.argv[1:] == ["--write-golden"]:
         write_golden()

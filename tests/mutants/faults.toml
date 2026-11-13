@@ -11244,3 +11244,37 @@ new = '''  swap ly-fam-map @ ly@ 1- outcome-ok ;'''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "review I2: an own record not entered (map 0) is given as number -1"
 gap = "not equivalent: every record builder refuses -1 in the same step, but a declaration field naming a letE's body record would be refused by ly-enter instead of ly-decls; no layer fixture forges one"
+
+# --- reading older snapshots (plan task 6.2.5c; src/kernel/verdict-version.fs) ---
+[[fault]]
+id = "snapc-reach-entry-dropped"
+file = "src/kernel/verdict-version.fs"
+old = '''  7 , reach-block-any , 0 ,
+'''
+new = ''''''
+test = "python3 tests/cli/test_leanforth.py ReachTable"
+reason = "6.2.5c1: a step's reach entry dropped (step 7, outside the steps today's window needs; dropping step 8's or 9's stops the build loading, verdict-version.fs's abort)"
+
+[[fault]]
+id = "snapc-reach-union-short"
+file = "src/kernel/verdict-version.fs"
+old = '''  0 swap 1+ lf-verdict-version 1+ tuck min ?do i lf-vstep-bits or loop ;'''
+new = '''  0 swap 2 + lf-verdict-version 1+ tuck min ?do i lf-vstep-bits or loop ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "6.2.5c1: the reach after a version leaves out the step just after it"
+
+[[fault]]
+id = "snapc-reach-union-top-short"
+file = "src/kernel/verdict-version.fs"
+old = '''  0 swap 1+ lf-verdict-version 1+ tuck min ?do i lf-vstep-bits or loop ;'''
+new = '''  0 swap 1+ lf-verdict-version tuck min ?do i lf-vstep-bits or loop ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "6.2.5c1: the reach after a version leaves out this build's own step"
+
+[[fault]]
+id = "snapc-window-wider"
+file = "src/kernel/verdict-version.fs"
+old = '''2 constant lf-snapshot-window'''
+new = '''3 constant lf-snapshot-window'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "6.2.5c1: the window one version wider (a version three back read)"

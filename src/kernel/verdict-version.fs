@@ -88,7 +88,105 @@
 \                  same); verdicts only on ill-typed reducts
 \                  (tests/cli/shared-depths.lean P5).
 \
+\ The reach of each step (ADR 0020 Amendment 5; docs/design/
+\ SNAPSHOT_COMPATIBILITY.md R1 and R3; plan step 6.2.5c1). A build takes
+\ the results of a snapshot whose verdict version V is older than its own
+\ but inside the window (lf-snapshot-window versions back) only for the
+\ declarations outside the reach of every step V+1 to its own, and checks
+\ the rest again (the carry pass, kernel/env-import.fs). Each step has an
+\ entry in lf-verdict-steps: its version, its reach bits and a list of
+\ names (0: none). A declaration is in a step's reach when any of the
+\ step's bits holds for it, each decided from the snapshot alone:
+\   reach-all            always
+\   reach-kind-definition, -theorem, -opaque, -axiom, -quotient
+\                        it is of that kind
+\   reach-block-any      it is a member of an inductive block, or one of
+\                        its lookups was answered by a member's slot or a
+\                        generated recursor's holder
+\   reach-block-nested   as reach-block-any, for blocks with auxiliary types
+\   reach-block-mutual   as reach-block-any, for blocks of several types
+\   reach-literal-nat, reach-literal-string, reach-projection, reach-let
+\                        the construct is in its terms or in those of a
+\                        declaration its lookups answered
+\   reach-quotient       a lookup of the quotient's state, or answered by
+\                        the quotient's slots
+\   reach-scratch-names  a lookup key names a name beyond the input
+\   reach-not-accepted   its saved outcome is not accepted
+\   reach-names          a lookup key names one of the entry's names
+\ The obligation on an entry (S-R): every check that can run code the step
+\ changed satisfies the entry's predicate, judged from its declaration and
+\ the slots its lookups answered. The bump commit argues it and records
+\ that every field the step moved (the golden snapshots, all of Init)
+\ lies inside the reach; the step's [kernel] review checks the argument.
+\ reach-all is the default, and the only entry allowed for a change to the
+\ lookup rules, the fuel model as a whole, the publisher, the importer's
+\ reading of an export, or anything every check shares. Loading this file
+\ stops (abort) when a step inside the window has no entry or an entry
+\ has a bit outside reach-known.
+\
 \ [kernel] code: not through the review gate (AGENTS.md).
 \ State: none.
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 9 constant lf-verdict-version
+
+\ The window: a snapshot's format or verdict version is read when at most
+\ this many versions older than the build's (the owner, 2026-11-12).
+2 constant lf-snapshot-window
+
+\ The reach bits.
+1 constant reach-all
+2 constant reach-kind-definition      4 constant reach-kind-theorem
+8 constant reach-kind-opaque          16 constant reach-kind-axiom
+32 constant reach-kind-quotient       64 constant reach-block-any
+128 constant reach-block-nested       256 constant reach-block-mutual
+512 constant reach-literal-nat        1024 constant reach-literal-string
+2048 constant reach-projection        4096 constant reach-let
+8192 constant reach-quotient          16384 constant reach-scratch-names
+32768 constant reach-not-accepted     65536 constant reach-names
+131071 constant reach-known           \ every bit above
+
+\ Each step's entry: version, reach bits, names (one entry to a line).
+3 cells constant /lf-vstep
+create lf-verdict-steps
+  2 , reach-scratch-names , 0 ,
+  3 , reach-all , 0 ,
+  4 , reach-all , 0 ,
+  5 , reach-all , 0 ,
+  6 , reach-block-any , 0 ,
+  7 , reach-block-any , 0 ,
+  8 , reach-block-nested , 0 ,
+  9 , reach-all , 0 ,
+here lf-verdict-steps - /lf-vstep / constant lf-verdict-steps#
+: lf-vstep-at ( i -- entry ) /lf-vstep * lf-verdict-steps + ;
+: lf-vstep-version ( entry -- k ) @ ;
+: lf-vstep-reach ( entry -- bits ) cell+ @ ;
+: lf-vstep-names ( entry -- names|0 ) 2 cells + @ ;
+\ Step k's entry, or 0 for none.
+: lf-vstep-is? ( k i -- k flag ) lf-vstep-at lf-vstep-version over = ;
+: lf-vstep-of ( k -- entry|0 )
+  0 swap lf-verdict-steps# 0 ?do i lf-vstep-is? if nip i lf-vstep-at swap then loop drop ;
+\ Step k's reach bits; reach-all for a step without an entry.
+: lf-vstep-bits ( k -- bits ) lf-vstep-of ?dup if lf-vstep-reach else reach-all then ;
+\ The reach of the steps after verdict version v up to this build's: their
+\ bits joined (0 for this build's own version or a newer one).
+: lf-verdict-reach ( v -- bits )
+  0 swap 1+ lf-verdict-version 1+ tuck min ?do i lf-vstep-bits or loop ;
+\ The oldest version a build of version current reads (at least 1).
+: lf-window-oldest ( current -- oldest ) lf-snapshot-window - 1 max ;
+\ Whether verdict version v is older than this build's, inside the window:
+\ its results are carried where the steps since cannot reach.
+: lf-verdict-carried? ( v -- flag )
+  lf-verdict-version lf-window-oldest lf-verdict-version within ;
+
+\ Loading stops when a step inside the window lacks an entry or an entry
+\ holds a bit no evaluator knows.
+: lf-vstep-known? ( i -- flag ) lf-vstep-at lf-vstep-reach reach-known invert and 0= ;
+: lf-vsteps-known? ( -- flag ) true lf-verdict-steps# 0 ?do i lf-vstep-known? and loop ;
+: lf-window-steps ( -- limit first ) lf-verdict-version 1+ dup 1- lf-window-oldest 1+ ;
+: lf-window-covered? ( -- flag ) true lf-window-steps ?do i lf-vstep-of 0<> and loop ;
+lf-vsteps-known? lf-window-covered? and 0= [if]
+  .( verdict-version.fs: a step in the window has no reach entry, or an unknown bit) cr
+  abort
+[then]
+base !   \ the BASE this file was loaded with
