@@ -65,7 +65,8 @@ status changes when this date is older than them. Stages are those of the
 **Next**
 - Less repeated testing of small work (plan 9.4.6, owner 2026-11-13): designed
   ([review](../development/TEST_WORKFLOW_REVIEW.md): `lib/sort.fs` took about 12 full-suite runs and 2-3 hours of
-  machine time to reach GitHub; 3.6 hours of CI in six hours of pushes); five owner questions open.
+  machine time to reach GitHub; 3.6 hours of CI in six hours of pushes); decided by the owner 2026-11-13, rules in
+  AGENTS.md, the scripts not started.
 - The Forth refactoring batches of the three backlog reviews ([log](../development/forth-reviews/LOG.md), plan
   9.4.5), tests first, every verdict and fuel count identical.
 - Program track: a user command `leanforth verify` (8.4.1): designed 2026-11-13 ([design](../design/VERIFY_COMMAND.md),
