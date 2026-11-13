@@ -84,10 +84,16 @@ defer binders.
   dup suffix. ."  generated " dup 0 count. ."  equal " dup 1 count.
   ."  equal-up-to-binders " dup 2 count. ."  different " dup 3 count.
   ."  unsupported " 4 count. cr ;
+\ A type Lean made no ctorIdx for, whose one LeanForth builds (review
+\ fe6a-2 N1: Lean's other conditions are not in an export).
+: extra-idx ( d -- ) job aux-ctor-idx ok? if ." extra " 2 which. cr then ;
+: idx-one ( d -- )
+  dup job aux-type ! s" ctorIdx" lean-decl
+  if drop ['] aux-ctor-idx s" ctorIdx" 2 try-one else extra-idx then ;
 : each-type ( -- )
   init stage-decls 0 ?do i kind? if
     i ['] aux-cases-on-any s" casesOn" 0 try-one i ['] aux-rec-on s" recOn" 1 try-one
-    i ['] aux-ctor-idx s" ctorIdx" 2 try-one then
+    i idx-one then
   loop ;
 : fe6-report ( export-addr export-u -- )
   tallies kinds columns * cells erase

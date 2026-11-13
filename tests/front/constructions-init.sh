@@ -31,8 +31,24 @@ leanexport=${LEANEXPORT:-$toolchain/bin/leanexport}   # the Makefile's may repla
 fast="$(dirname "$gforth")/gforth-fast"
 if [ -x "$fast" ]; then gforth=$fast; fi
 work=$(mktemp -d)
-names="init.ndjson init.ndjson.manifest.json forth.txt lean.txt binders.txt"
+names="init.ndjson init.ndjson.manifest.json forth.txt lean.txt binders.txt FE6Several.olean
+  several.ndjson several.ndjson.manifest.json"
 trap 'for n in $names; do rm -f "$work/$n"; done; rmdir "$work"' EXIT
+
+# The unit tests' mutual fixture (tests/front/several.lean): pinned Lean
+# builds it and scripts/export.sh reproduces its export byte for byte.
+out=$(LEAN_PATH="$work" "$lean" -DwarningAsError=true -o "$work/FE6Several.olean" \
+  tests/front/several.lean)
+if [ "$out" != "'FE6.even_zero' does not depend on any axioms" ]; then
+  printf 'Unexpected output from Lean for several.lean: %s\n' "$out" >&2
+  exit 1
+fi
+LEAN="$lean" LEAN_PATH="$work" bash scripts/export.sh "$work/several.ndjson" FE6Several -- \
+  FE6.Even.casesOn FE6.Odd.casesOn FE6.Even.recOn FE6.Odd.recOn FE6.Even.ctorIdx \
+  FE6.Odd.ctorIdx >/dev/null
+cmp tests/front/several.ndjson "$work/several.ndjson"
+cmp tests/front/several.ndjson.manifest.json "$work/several.ndjson.manifest.json"
+echo "tests/front/several.ndjson reproduced byte for byte"
 
 PATH="$toolchain/bin:$PATH" "$leanexport" Init >"$work/init.ndjson"
 digest=$(sha256sum "$work/init.ndjson" | cut -c1-64)
@@ -53,6 +69,27 @@ if [ "$actual" != "$expected" ]; then
   exit 1
 fi
 echo "casesOn, recOn and ctorIdx: the pinned counts, none different"
+# The types LeanForth builds a ctorIdx for and Lean does not (review fe6a-2
+# N1; src/front/ctor-idx.fs's header gives Lean's reasons): six declared
+# before Nat, five private, and one built by stage0.
+expected="extra BEq.ctorIdx
+extra Decidable.ctorIdx
+extra Empty.ctorIdx
+extra Inhabited.ctorIdx
+extra Lean.Grind.ToInt.ctorIdx
+extra PEmpty.ctorIdx
+extra PUnit.ctorIdx
+extra _private.Init.Data.Format.Basic.0.Std.Format.SpaceResult.ctorIdx
+extra _private.Init.Data.Format.Basic.0.Std.Format.State.ctorIdx
+extra _private.Init.Data.Format.Basic.0.Std.Format.WorkGroup.ctorIdx
+extra _private.Init.Data.Format.Basic.0.Std.Format.WorkItem.ctorIdx
+extra _private.Init.Data.Range.Polymorphic.SInt.0.HasModel.ctorIdx"
+actual=$(grep '^extra ' "$work/forth.txt" | LC_ALL=C sort)
+if [ "$actual" != "$expected" ]; then
+  printf 'The ctorIdx Lean has none of differ from the pinned ones:\n%s\n' "$expected" >&2
+  exit 1
+fi
+echo "ctorIdx built where Lean has none: the twelve pinned types"
 
 PATH="$toolchain/bin:$PATH" "$lean" -DwarningAsError=true --run \
   tests/reference/constructions-binders.lean >"$work/lean.txt"

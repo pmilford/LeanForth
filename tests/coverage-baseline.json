@@ -253,9 +253,9 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/front/constructions.fs": {
-   "blocks": 424,
-   "never_run": 50,
-   "reason": "new file (plan FE6, casesOn and recOn): the blocks never run are failure branches after a scratch tier, tuple or heap block that cannot grow (expr-make, tuple-add, allocate) and refusals Lean's recursors never reach (hypotheses before fields, a recursor type shorter than its numbers, a type whose Sort only reduction shows); tests for them need a tier that refuses on demand"
+   "blocks": 441,
+   "never_run": 36,
+   "reason": "new file (plan FE6, casesOn and recOn): the blocks never run are failure branches after a scratch tier, tuple or heap block that cannot grow (expr-make, tuple-add, allocate) and refusals Lean's recursors never reach (hypotheses before fields, a recursor type shorter than its numbers, a type whose Sort only reduction shows); tests for them need a tier that refuses on demand Measured 2026-11-13 over make test-front (review fe6a-2 N4)."
   },
   "src/front/dag-walk.fs": {
    "blocks": 76,
@@ -268,9 +268,9 @@
    "reason": "new file (plan FE1d, 2026-11-12): four refusals no test input reaches: a name lookup that fails in an open tier (ed-looked, error 23), a tier name beyond the stage's name-to-declaration array (ed-decls), no room while the eliminators' table grows (the allocation-refusal test reads 4 eliminators), and a THROW inside a read (ed-caught)"
   },
   "src/front/expr-remap.fs": {
-   "blocks": 141,
-   "never_run": 12,
-   "reason": "new file (plan FE6, casesOn and recOn): the blocks never run are failure branches after a scratch tier, tuple or heap block that cannot grow (expr-make, tuple-add, allocate) and refusals Lean's recursors never reach (hypotheses before fields, a recursor type shorter than its numbers, a type whose Sort only reduction shows); tests for them need a tier that refuses on demand"
+   "blocks": 152,
+   "never_run": 11,
+   "reason": "new file (plan FE6, casesOn and recOn): the blocks never run are failure branches after a scratch tier, tuple or heap block that cannot grow (expr-make, tuple-add, allocate) and refusals Lean's recursors never reach (hypotheses before fields, a recursor type shorter than its numbers, a type whose Sort only reduction shows); tests for them need a tier that refuses on demand Measured 2026-11-13 over make test-front (review fe6a-2 N4)."
   },
   "src/front/mvars.fs": {
    "blocks": 429,
@@ -839,14 +839,14 @@
    "reason": "measured 2026-11-12 on fe1c-lnorm after review L4: never run are ld-same? on two different records of equal fields (37: the tests' unshared equal levels differ in a field first) and the full branches of level equality, isNeverZero, mkLevelMax''s rules and lm-take's ended code (56, 65, 73, 82, 85, 95, 113, 120, 121), each needing the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)"
   },
   "src/front/cases-several.fs": {
-   "blocks": 215,
-   "never_run": 33,
-   "reason": "new file (plan FE6, ctorIdx and casesOn with several motives): the blocks never run are failure branches after a scratch tier, tuple or heap block that cannot grow (expr-make, tuple-add, name-str, allocate), which no test can yet make refuse midway (a sealed tier refuses at the first lookup; fuel exhaustion is swept), and refusals no type of Init reaches (a type not among its recursor's, several motives into Prop only, a Sort only reduction shows)"
+   "blocks": 226,
+   "never_run": 30,
+   "reason": "new file (plan FE6, ctorIdx and casesOn with several motives): the blocks never run are failure branches after a scratch tier, tuple or heap block that cannot grow (expr-make, tuple-add, name-str, allocate), which no test can yet make refuse midway (a sealed tier refuses at the first lookup; fuel exhaustion is swept), and refusals no type of Init reaches (a type not among its recursor's, several motives into Prop only, a Sort only reduction shows) Measured 2026-11-13 over make test-front (review fe6a-2 N4)."
   },
   "src/front/ctor-idx.fs": {
-   "blocks": 185,
-   "never_run": 36,
-   "reason": "new file (plan FE6, ctorIdx and casesOn with several motives): the blocks never run are failure branches after a scratch tier, tuple or heap block that cannot grow (expr-make, tuple-add, name-str, allocate), which no test can yet make refuse midway (a sealed tier refuses at the first lookup; fuel exhaustion is swept), and refusals no type of Init reaches (a type not among its recursor's, several motives into Prop only, a Sort only reduction shows)"
+   "blocks": 193,
+   "never_run": 26,
+   "reason": "new file (plan FE6, ctorIdx and casesOn with several motives): the blocks never run are failure branches after a scratch tier, tuple or heap block that cannot grow (expr-make, tuple-add, name-str, allocate), which no test can yet make refuse midway (a sealed tier refuses at the first lookup; fuel exhaustion is swept), and refusals no type of Init reaches (a type not among its recursor's, several motives into Prop only, a Sort only reduction shows) Measured 2026-11-13 over make test-front (review fe6a-2 N4)."
   }
  }
 }

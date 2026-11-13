@@ -12264,3 +12264,27 @@ new = ''': lfx-level-of ( level -- n ) lfx-level# ;'''
 test = "$GFORTH tests/front/handover.fs"
 reason = "review fe1f N2: a level number outside the store is read outside the writer's table and written"
 quick = true
+
+[[fault]]
+id = "fe6-several-unit-shift"
+file = "src/front/cases-several.fs"
+old = '''  dup aux-remap >r 0 r@ remap-cutoff! motive-place 1+ r> remap-shift! ;'''
+new = '''  dup aux-remap >r 0 r@ remap-cutoff! motive-place r> remap-shift! ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "review fe6a-2 N3: another motive's binders lifted one short: FE6.Even.casesOn's parameter reference differs"
+
+[[fault]]
+id = "fe6-several-index-drop"
+file = "src/front/cases-several.fs"
+old = '''  1 rot aux-remap remap-shift! ;'''
+new = '''  0 rot aux-remap remap-shift! ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "review fe6a-2 N3: the index's type loses the kept motive's place: FE6.Even.casesOn differs"
+
+[[fault]]
+id = "fe6-several-table-unfilled"
+file = "src/front/cases-several.fs"
+old = '''  tuck table-size 0 ?do -1 over i swap table-cell ! loop drop ;'''
+new = '''  2drop ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "review fe6a-2 N3: the table keeps an earlier renumbering's cells instead of refusing: FE6.Odd.casesOn differs"
