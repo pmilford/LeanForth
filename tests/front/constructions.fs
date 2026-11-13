@@ -74,7 +74,7 @@ T{ nat-zero job aux-rec-on why s" no recursor" compare -> outcome-invalid 0 }T
 \ Out of fuel: Acc's domains need more than one visit; then the job is
 \ used again with its fuel back.
 T{ 1 job aux-remap remap-fuel! s" Acc" cases-of -> outcome-exhausted }T
-T{ why s" the renumbering pass refused a domain" compare -> 0 }T
+T{ why s" the renumbering pass ran out of fuel" compare -> 0 }T
 T{ s" Acc" recon-of -> outcome-exhausted }T
 T{ remap-fuel job aux-remap remap-fuel! s" Acc" cases-of lean-cases-of grade -> outcome-ok 2 }T
 \ A nested type (tests/cli/nested.ndjson): its recursor has several

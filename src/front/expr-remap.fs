@@ -71,9 +71,9 @@ end-structure
 : remap-loose? ( d remap -- flag ) swap data-range swap remap-base > ;
 \ Nothing to change below e: no variable to renumber, and no binder to
 \ rename when names are erased (a leaf, of depth 0).
-: remap-clean? ( e remap -- flag )
-  tuck remap-tier@ expr-data@ over remap-erase @ if nip data-depth else swap remap-loose? then
-  0= ;
+: remap-changes? ( d remap -- flag )
+  dup remap-erase @ if drop data-depth 0<> else remap-loose? then ;
+: remap-clean? ( e remap -- flag ) tuck remap-tier@ expr-data@ swap remap-changes? 0= ;
 
 \ Variables: index b renumbered, or refused.
 : remap-index ( b remap -- b' true | false )
@@ -138,6 +138,9 @@ end-structure
 : remap-swap! ( a h remap -- ) ['] swap-map swap remap-set ;
 \ Erase binder names (flag true) in the runs that follow, or keep them.
 : remap-erase! ( flag remap -- ) remap-erase ! ;
+\ Erase names and renumber nothing: Lean's Expr equality, as numbers.
+: remap-erasing ( remap -- )
+  true over remap-erase! 0 over remap-cutoff ! 0 0 rot remap-shift! ;
 : remap-cutoff! ( cutoff remap -- ) remap-cutoff ! ;
 \ e with its loose variables at or past the cutoff renumbered by the map
 \ set last: the result's number and ok, or -1 and the outcome (above).
