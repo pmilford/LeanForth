@@ -11392,3 +11392,35 @@ old = '''  over lf-sch-pre-done? if 2drop exit then
 new = ''''''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "6.2.5c4: with --jobs a declaration waiting for its turn is handed out to be checked, never carried: a parallel carry run carries another set than the serial one"
+
+[[fault]]
+id = "snapc-stale-rechecks"
+file = "src/cli/check-run.fs"
+old = ''': ck-rechecking? ( -- flag ) ck-carrying? snap-stale-allowed @ 0= and ;'''
+new = ''': ck-rechecking? ( -- flag ) ck-carrying? ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review of snap-compat M1: with --snapshot-stale-ok a stale slot answers as itself, so users of stale results are carried on their turn, labelled this build's"
+
+[[fault]]
+id = "snapc-reading-ignored"
+file = "src/cli/check-run.fs"
+old = '''  ck-carrying? ck-importing? 0= and if ck-import imp-rereads? else false then ;'''
+new = '''  false ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review of snap-compat M2: after an importer change a snapshot alone is carried from the older build's reading of the export"
+
+[[fault]]
+id = "snapc-frontier-wait"
+file = "src/kernel/env-schedule.fs"
+old = '''  dup lf-sch-pre-asked dup 2 = if over lf-sch-front@ > 0= if drop 0 then then nip ;'''
+new = '''  lf-sch-pre-asked ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review of snap-compat L6: a declaration at the frontier answered 'wait' waits forever"
+
+[[fault]]
+id = "snapc-carry-import-saved"
+file = "src/cli/check-run.fs"
+old = '''  ck-snapped? 0= ck-layers# 0= ck-unstale? and ck-carry-import? 0= and or ;'''
+new = '''  ck-snapped? 0= ck-layers# 0= ck-unstale? and or ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py OlderSnapshots.test_stale_and_refused"
+reason = "review of snap-compat L7: an export checked against an older base writes a layer no build loads"

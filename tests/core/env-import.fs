@@ -62,8 +62,7 @@ variable forging  false forging !
   ck-staging ck-phase-end ck-staging ck-fail ;
 : carry-alone ( c-addr u -- outcome )
   2dup ck-snap-named ck-jobs ck-state ck-jobs-kept ! 0 ck-state ck-jobs-asked !
-  carry-phase dup ok? 0= if exit then drop ck-filling ck-stage-facts
-  ck-feed-phase dup ok? if ck-input-facts ck-snap-slots then dup ck-state ck-loaded ! ;
+  carry-phase dup ok? if drop ck-snap-rest then dup ck-state ck-loaded ! ;
 create par-out 512 cells allot  create par-fuel 512 cells allot
 create par-taken 512 cells allot  variable par-launched  variable par-n
 : par-keep ( -- )
@@ -349,7 +348,7 @@ nested-snap s" {}" ck-snapshot-save ok? s" nested save" must ck-release
   lf-verdict-version 1+ ck-import imp-top ! 0 lf-i2-misses ! nested-file true ck-load ok?
   s" carry load" must ck-check ;
 : why# ( why -- n ) 0 lf-input-count 0 ?do over i ck-import imp-reason = - loop nip ;
-: reach10 ( -- why ) lf-verdict-version 1+ why-steps * why-reach + ;
+: reach10 ( -- why ) lf-verdict-version 1+ step-why ;
 : whys# ( -- n ) reach10 why# why-answers why# + why-outcome why# + ;
 \ The pretended step reaches nested blocks only: those and what looks
 \ them up are in its reach (35 of 107), the rest carried.
@@ -453,6 +452,68 @@ T{ par-launched @ 0> par-n @ 107 = par-same? -> true true true }T
 true forging ! 1 definitions-run
 T{ ck-outcome same-as-fresh2? why-answers why# 0> -> outcome-ok true true }T
 false forging ! ck-release
+\ ---- With --snapshot-stale-ok (review of snap-compat M1): what the first
+\ pass carries is all that is carried; nothing is checked here, so no
+\ slot answers as a saved one and nothing waits for its turn: the 16
+\ users of the definitions stay stale, never labelled carried.
+variable first-carried
+: note-first ( -- ) ck-carried# first-carried ! ;
+true snap-stale-allowed ! reach-kind-definition pretended ! 20000000 ck-start 0 0 ck-layers!
+' note-first ck-carried!
+T{ nested-snap carry-alone ck-rechecking? -> outcome-ok false }T
+ck-check
+T{ ck-outcome ck-carried# first-carried @ = why-answers why# ck-stale? -> outcome-ok true 16 true }T
+T{ ck-stale# 0< -> false }T
+[defined] >string-execute [if]
+: first-user ( -- d )
+  lf-input-count 0 ?do i ck-import imp-reason why-answers = if i unloop exit then loop -1 ;
+T{ first-user s" from a stale snapshot" says? -> true }T
+[then]
+false snap-stale-allowed ! ck-release
+\ ---- A step that changed the importer (reach-reading; review of
+\ snap-compat M2): a snapshot alone is refused (unsupported, "export
+\ reading"), with no stale count (no verdict: review L3); with
+\ --snapshot-stale-ok every result is stale, none carried; with its
+\ export, the import pass reads it again and every declaration is
+\ checked, as fresh.
+reach-all reach-reading or pretended ! 20000000 ck-start 0 0 ck-layers!
+T{ nested-snap carry-alone ck-snap-bad? ck-stale# -> outcome-unsupported true 0 }T
+T{ ck-snap snap-why @ count s" export reading" compare -> 0 }T
+ck-release
+true snap-stale-allowed ! 20000000 ck-start 0 0 ck-layers!
+T{ nested-snap carry-alone ck-carrying? ck-stale? -> outcome-ok false true }T
+ck-check
+T{ ck-outcome ck-carried# ck-saved# lf-input-count = -> outcome-ok 0 true }T
+false snap-stale-allowed ! ck-release
+20000000 ck-start 0 0 ck-layers! nested-snap -1 ck-snapshot-import ok? s" reading import" must
+9 ck-import imp-carry! ' pretend ck-import imp-steps ! 10 ck-import imp-top !
+nested-file true ck-load ok? s" reading load" must ck-check
+T{ ck-outcome same-as-fresh2? ck-taken# -> outcome-ok true 0 }T
+ck-release
+\ ---- The scheduler's hook (review of snap-compat L6): an answer "wait"
+\ (2) for a declaration at the frontier, every slot below it final, is
+\ "check it" (0); beyond it, "wait".
+: waits ( d -- n ) drop 2 ;
+' waits lf-sched-pre!
+T{ 0 lf-sch-pre-of 5 lf-sch-pre-of -> 0 2 }T
+0 lf-sched-pre!
+\ ---- Out of room in a carry run's load (review of snap-compat): every
+\ heap allocation it makes -- keep-sds, input-maps and same-maps among
+\ them -- refused in turn gives full, never invalid; ok only where the
+\ refusal was the seal's trim of a slab (stage.fs stage-seal: the slab
+\ keeps its room), 11 of them.
+: carried-load ( -- outcome )
+  0 pretended ! 20000000 ck-start 0 0 ck-layers! nested-snap carry-alone ;
+: c-allocations ( -- n )
+  max-n heap-refusals ! carried-load drop max-n heap-refusals @ - 0 heap-refusals ! ck-release ;
+: c-refusing ( k -- outcome reached? )
+  heap-refusals ! carried-load heap-refusals @ 0= 0 heap-refusals ! ck-release ;
+: c-trimmed ( outcome -- n ) ok? 1 and ;
+: c-full? ( k -- trims flag ) c-refusing swap dup c-trimmed swap dup ok? swap outcome-full = or rot and ;
+: c-all-full? ( -- trims flag )
+  0 true c-allocations 1+ 1 ?do i c-full? rot and >r + r> loop ;
+c-allocations drop   \ the first load makes some allocations once (lazily); later ones do not
+T{ c-allocations 20 > c-all-full? -> true 11 true }T
 \ A snapshot written at a fuel limit some checks ran out of: nothing in
 \ the pretended reach, still every exhausted result checked again (C2),
 \ as a fresh check at that limit gives it.

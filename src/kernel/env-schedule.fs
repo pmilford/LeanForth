@@ -73,8 +73,9 @@
 \   be handed out (the carry pass's decision on readiness, plan step
 \   6.2.5c4): 0, hand it out; 1, xt published d (with its block's
 \   members) itself, so it is done; 2, d waits until every slot below it
-\   is final and is asked again (xt must not give 2 then); an xt of 0,
-\   the default, asks nothing;
+\   is final and is asked again (a 2 then counts as 0); 3, the run stops
+\   at d, as the serial run stops at a failure there; an xt of 0, the
+\   default, asks nothing;
 \ - lf-sched-stop ( -- d ): the declaration at which the serial run would
 \   have stopped, or the input's count; lf-sched-broken? ( -- flag ): the
 \   run could not go on (a job refused, no worker left), so its verdicts
@@ -573,12 +574,18 @@ variable lf-sched-faults  0 lf-sched-faults !
   -rot over lf-sch-running swap lf-sch-state! lf-sch-submitted ;
 \ Before d is handed out, lf-sched-pre! 's word (plan step 6.2.5c4): 0,
 \ check it; 1, it published d itself (with its block); 2, ask again once
-\ every slot below d is final.
-: lf-sch-pre-of ( d -- n ) lf-sched lf-sch-pre @ ?dup if execute else drop 0 then ;
+\ every slot below d is final (at the frontier, check it: review of
+\ snap-compat L6); 3, stop the run at d (L4).
+: lf-sch-pre-asked ( d -- n ) lf-sched lf-sch-pre @ ?dup if execute else drop 0 then ;
+: lf-sch-pre-of ( d -- n )
+  dup lf-sch-pre-asked dup 2 = if over lf-sch-front@ > 0= if drop 0 then then nip ;
 : lf-sch-pre-published ( d -- ) lf-sch-done over lf-sch-state! lf-sch-published ;
+: lf-sch-pre-stop ( d -- ) dup lf-sch-stop! lf-sch-done swap lf-sch-state! ;
+: lf-sch-pre-act ( d n -- )
+  case 1 of lf-sch-pre-published endof 2 of lf-sch-later! endof swap lf-sch-pre-stop
+  endcase ;
 : lf-sch-pre-done? ( d -- flag )
-  dup lf-sch-pre-of ?dup 0= if drop false exit then
-  1 = if lf-sch-pre-published else lf-sch-later! then true ;
+  dup lf-sch-pre-of ?dup 0= if drop false exit then lf-sch-pre-act true ;
 : lf-sch-launch ( d k -- )
   over lf-sch-test? 0= if drop lf-sch-unready exit then
   over lf-sch-pre-done? if 2drop exit then

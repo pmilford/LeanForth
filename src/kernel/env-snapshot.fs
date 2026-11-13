@@ -580,6 +580,11 @@ create snap-outers /outers allot  snap-outers /outers erase
   dup snap-expect @ 0= swap snap-verdict lf-verdict-carried? and ;
 : snap-beyond? ( snap -- flag )
   dup snap-older? snap-stale-allowed @ and dup rot snap-stale ! ;
+\ Why a version is refused: a layer of an older version inside the window
+\ waits for plan step 6.2.5c7 (review of snap-compat L1).
+: snap-version-why ( snap -- c-addr )
+  dup snap-expect @ swap snap-verdict lf-verdict-carried? and
+  if c" older layer" else c" verdict version" then ;
 : snap-fresh? ( snap -- flag )
   dup snap-verdict lf-verdict-version = if drop true exit then
   dup snap-carried? if true swap snap-carry ! true exit then snap-beyond? ;
@@ -600,7 +605,8 @@ create snap-outers /outers allot  snap-outers /outers erase
   dup snap-marked? 0= if outcome-invalid c" not a LeanForth snapshot" rot snap-refuse exit
   then
   dup snap-current? 0= if outcome-unsupported c" format version" rot snap-refuse exit then
-  dup snap-fresh? 0= if outcome-unsupported c" verdict version" rot snap-refuse exit then
+  dup snap-fresh? 0= if
+    outcome-unsupported over snap-version-why rot snap-refuse exit then
   dup snap-fuel? 0= if outcome-invalid c" fuel" rot snap-refuse exit then
   dup snap-allowed? 0= if outcome-invalid c" axiom allowlist" rot snap-refuse exit then
   dup snap-expect @ if

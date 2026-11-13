@@ -340,11 +340,12 @@ end-structure
 : cli-taken-from. ( d -- )
   ck-carried? if cli-carried-from. exit then
   ck-stale? if cli-stale-from. else ." from snapshot, not re-checked in this run" then ;
+: cli-reach-why. ( why -- )
+  ." : inside the reach of verdict version " why-step .decimal ." 's change" ;
 : cli-why-again. ( why -- )
-  dup why-code why-reach = if
-    ." : inside the reach of verdict version " why-step .decimal ." 's change" exit then
-  why-outcome = if ." : its saved outcome is never carried"
-  else ." : a result its lookups reach answers otherwise now" then ;
+  dup why-code case why-reach of cli-reach-why. endof
+    why-outcome of drop ." : its saved outcome is never carried" endof
+    nip ." : a result its lookups reach answers otherwise now" endcase ;
 : cli-here. ( d -- )
   ." checked in this run" dup ck-reason ?dup if cli-why-again. then
   lf-env-origin lf-origin-uses = if
@@ -573,9 +574,11 @@ create cli-fed-ops
   ." error: " ck-read-outcome outcome-text type ." : the snapshot was refused: "
   ck-snap snap-error >r type r> dup 0< if drop else ."  (record " .decimal ." )" then cr ;
 \ A snapshot refused for its verdict version (plan step 6.2.5c3, R9): the
-\ versions this build reads, and the ways on.
-: cli-version-refused? ( -- flag )
-  ck-snap snap-why @ ?dup if count s" verdict version" compare 0= else false then ;
+\ versions this build reads, and the ways on; for an older base with
+\ layers or an older layer (plan step 6.2.5c7), or for a change of the
+\ importer since (review of snap-compat L1, M2), why and the ways on.
+: cli-why-is? ( c-addr u -- flag )
+  ck-snap snap-why @ ?dup if count compare 0= else 2drop false then ;
 : cli-older-note ( -- )
   ." note: this build reads snapshots of verdict versions "
   lf-verdict-version lf-window-oldest .decimal ."  to " lf-verdict-version .decimal
@@ -584,9 +587,21 @@ create cli-fed-ops
 : cli-newer-note ( -- )
   ." note: the snapshot's verdict version is newer than this build's ("
   lf-verdict-version .decimal ." ): use the build that wrote it" cr ;
-: cli-window-note ( -- )
-  cli-version-refused? 0= if exit then
+: cli-version-note ( -- )
   ck-snap snap-verdict lf-verdict-version > if cli-newer-note else cli-older-note then ;
+: cli-layered-note ( -- )
+  ." note: layers on or of a snapshot of an older verdict version load with plan step" cr
+  ." note: 6.2.5c7: check the exports again, or look with --snapshot-stale-ok" cr ;
+: cli-reading-note ( -- )
+  ." note: this build reads exports otherwise than the build that wrote the snapshot:" cr
+  ." note: check the export (or check --snapshot FILE EXPORT), or look with" cr
+  ." note: --snapshot-stale-ok (every result stale)" cr ;
+: cli-layered? ( -- flag )
+  s" older base with layers" cli-why-is? s" older layer" cli-why-is? or ;
+: cli-window-note ( -- )
+  s" verdict version" cli-why-is? if cli-version-note exit then
+  s" export reading" cli-why-is? if cli-reading-note exit then
+  cli-layered? if cli-layered-note then ;
 : cli-fed-unread ( outcome -- )
   ck-snap-bad? if drop cli-snap-error cli-window-note exit then
   ck-phase-failed ck-staging = 0= if cli-feed-error exit then
@@ -696,9 +711,15 @@ create cli-fed-ops
 \ results support no claim (ADR 0020 D4).
 create cli-hex 64 allot
 : cli-sha. ( c-addr -- ) cli-hex sha256-hex cli-hex 64 type ;
+\ A layer after an export checked against an older snapshot: the way on.
+: cli-upgrade-note ( -- )
+  ck-carry-import? 0= if exit then
+  ." note: no layer is written on a snapshot of an older verdict version yet (plan" cr
+  ." note: step 6.2.5c7): upgrade it first, check --snapshot OLD --save-snapshot NEW" cr ;
 : cli-saved. ( -- )
   cli-save? 0= if exit then
   ck-snap-saved@ ?dup if ." error: the snapshot was not written: " outcome-text type cr
+    cli-upgrade-note
   else ." snapshot: written to " cli-state opt-save 2@ nt-text if type else cli-unshown
   then cr
   then ;
@@ -746,7 +767,7 @@ create cli-hex 64 allot
 : cli-again# ( -- n ) 0 lf-input-count 0 ?do i ck-reason 0<> - loop ;
 : cli-comma ( first? n -- n ) swap 0= if ." , " then ;
 : cli-reach-group ( first? k -- first? )
-  dup why-steps * why-reach + ck-again# ?dup 0= if drop exit then rot swap cli-comma
+  dup step-why ck-again# ?dup 0= if drop exit then rot swap cli-comma
   .decimal ."  inside the reach of verdict version " .decimal ." 's change" false ;
 : cli-outcome-group ( first? -- first? )
   why-outcome ck-again# ?dup if

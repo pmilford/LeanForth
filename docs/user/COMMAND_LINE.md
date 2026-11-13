@@ -1290,10 +1290,19 @@ as checked in this run; NEW then loads as this build's version. On the
 fixtures every field the verdict version covers in NEW equals this
 build's own snapshot of the export. It is refused with layers (status 4)
 and with `--snapshot-stale-ok`. Not yet: layers on an older base or older
-layers (plan step 6.2.5c7: refused, or all stale with
-`--snapshot-stale-ok`). A snapshot older than the window (`note: this
-build reads snapshots of verdict versions 7 to 9`) or newer than this
-build is refused (status 2).
+layers (plan step 6.2.5c7: refused, `older base with layers` or `older
+layer`, status 2, or all stale with `--snapshot-stale-ok`), and a layer
+written after an export checked against an older base (`the snapshot was
+not written: invalid`, status 4: upgrade the base first). A snapshot
+older than the window (`note: this build reads snapshots of verdict
+versions 7 to 9`) or newer than this build is refused (status 2). After
+a change of how LeanForth reads exports (a step whose reach holds
+`reach-reading`; none so far), an older snapshot is refused alone
+(`export reading`, status 2): its records are the older build's reading
+of the export, so check the export, or check it against the snapshot,
+whose import pass reads it again; `--snapshot-stale-ok` shows it stale.
+With `--snapshot-stale-ok` nothing is checked: what is not carried at
+once, users of results not carried included, is shown stale.
 
 #### Stale snapshots (`--snapshot-stale-ok`)
 

@@ -311,7 +311,8 @@ variable imp-current
   swap saved-looks dup lf-cand-looked@ <> if 2drop drop false exit then
   0 ?do i over i + 3 pick entry-same? 0= if 2drop false unloop exit then loop 2drop true ;
 \ A query met a slot not final (kept for the decision on readiness).
-: early? ( imp -- flag ) lf-env-early? tuck swap imp-early ! ;
+\ Any query of any candidate tried (review of snap-compat L5).
+: early? ( imp -- flag ) lf-env-early? tuck over imp-early @ or swap imp-early ! ;
 : asked? ( d imp -- flag )
   over replay-all if dup early? 0= if answers-same? exit then then 2drop false ;
 \ The lookups asked in k's snapshot, which is then cleared, the scratch
@@ -327,19 +328,23 @@ variable imp-current
 \ the reach of every step after S's version (C3; C4, the settings, is the
 \ loader's: fuel and allowlist are the file's). The reach bits that hold
 \ for S's slot d, decided from the snapshot alone (verdict-version.fs):
-\ reach-all; every bit no evaluator decides yet (reach-unjudged: none of
-\ the entries in the window uses one); its kind's; a member of an
+\ reach-all and reach-reading; every bit no evaluator decides yet
+\ (reach-unjudged: none of the entries in the window uses one); its
+\ kind's; a member of an
 \ inductive block (or an empty block), with auxiliary types (its recipe),
 \ the quotient's; not accepted; and for each saved lookup the quotient's
 \ state asked, a generated recursor's holder, and what the slot it
 \ answered holds as a block member or the quotient.
 reach-block-mutual reach-literal-nat or reach-literal-string or reach-projection or
-reach-let or reach-scratch-names or reach-names or reach-all or constant reach-unjudged
+reach-let or reach-scratch-names or reach-names or reach-all or reach-reading or
+constant reach-unjudged
 : d-kind ( d imp -- kind ) tuck imp-sd-of @ ua@ swap s-kind ;
 : nested? ( d -- flag ) sl-recipe swap saved lf-recipe-aux-shift rshift 0<> ;
 : in-block? ( kind -- flag ) dup member-kind? swap block? or ;
 \ A kind's own bit: the export's kinds axiom .. quotient, in that order.
-: kind-reach ( kind -- bits ) kind-axiom - dup 5 u< if 2 swap lshift else drop 0 then ;
+5 constant reach-kinds#
+: kind-reach ( kind -- bits )
+  kind-axiom - dup reach-kinds# u< if reach-kind-axiom swap lshift else drop 0 then ;
 : kind-holds ( kind -- bits )
   dup in-block? reach-block-any and swap kind-quot = reach-quotient and or ;
 : slot-holds ( d imp -- bits )
@@ -370,9 +375,10 @@ reach-let or reach-scratch-names or reach-names or reach-all or constant reach-u
 \ dependency or its block's first not taken (C5). 0: no S declaration had
 \ its content (C1).
 1 constant why-reach  2 constant why-outcome  3 constant why-answers  4 constant why-steps
+: step-why ( k -- why ) why-steps * why-reach + ;
 : reach-why ( d imp -- why )
   dup imp-older @ 0= if 2drop 0 exit then
-  tuck d-holds swap first-step dup if why-steps * why-reach + then ;
+  tuck d-holds swap first-step dup if step-why then ;
 : why@ ( k imp -- why ) imp-why @ ua@ ;
 \ Why kept for the declaration being judged (imp-k); why also gives false.
 : why-to ( why imp -- ) dup imp-k @ swap imp-why @ ua! ;
@@ -452,6 +458,9 @@ reach-let or reach-scratch-names or reach-names or reach-all or constant reach-u
 : imp-carry! ( v imp -- )
   tuck imp-older ! lf-verdict-version over imp-top ! ['] lf-vstep-bits swap imp-steps ! ;
 : imp-older@ ( imp -- v|0 ) imp-older @ ;
+\ Whether a step since S's version changed the importer (reach-reading):
+\ S's records are then the older build's reading of the export.
+: imp-rereads? ( imp -- flag ) reach-reading swap first-step 0<> ;
 \ Why input declaration k was checked here (judged?), or 0: taken, or no
 \ S declaration of its content; its code and, for why-reach, the step.
 : imp-reason ( k imp -- why )

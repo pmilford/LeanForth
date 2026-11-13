@@ -44,7 +44,18 @@ steps (`tests/core/env-import.fs`): no step in today's window leaves a
 result outside its reach whose lookups reach one checked again; (5) the reach bits without an
 evaluator yet (mutual blocks, literals, projections, lets, scratch
 names, names) count as reaching everything; no entry in the window uses
-one.
+one. The review of 2026-11-13 (`.claude/work/pending-reports/2026-11-13-snap-compat.md`)
+found M1 (with `--snapshot-stale-ok` users of stale results were carried:
+no slot is compared as answering the same in such a run now,
+`check-run.fs` `ck-rechecking?`) and M2 (an importer change: the
+`reach-reading` bit, below); its L1-L7 are fixed too (refusal reasons
+`older base with layers`, `older layer`, `export reading` with their
+notes; the Python model with I3; the stale count never negative; a hook
+answer that stops the parallel run at a failure; the early flag of every
+candidate; "wait" at the frontier taken as "check it"; no layer written
+after an export checked against an older base); S1 (the reach bits kept
+in a record field while judging) and S5 (`why`'s four items) stay, as
+removing them would add stack shuffles the style ratchet counts.
 
 The owner (2026-11-12): "the snapshots should attempt to read backward
 compatible 1-2 versions prior", and "I'd like to not have to regenerate the
@@ -278,6 +289,7 @@ the slot and outcome each got).
 | `reach-scratch-names` | a lookup key names a name beyond the input (ADR 0020 Amendment 3) | lookups |
 | `reach-not-accepted` | `d`'s saved outcome is not *accepted* | slot |
 | `reach-names` | a lookup key names one of the step's listed names (a builtin's reduction, for example `Nat.add`'s) | lookups, names |
+| `reach-reading` | always; and a snapshot of a version before the step is not carried without its export (below) | -- |
 
 **Why one level of lookups is enough.** By I2 (ADR 0020 D5), enforced in
 test builds by `lf-env-i2-checks`, a check reads only slots that its
@@ -300,10 +312,20 @@ declaration and the slots its lookups answered.* The step's author argues
 it in the bump commit; the step's [kernel] review checks the argument
 against the diff. `reach-all` is the default and the only entry allowed for
 a change to the lookup rules (ADR 0012 E5), the fuel model as a whole, the
-publisher, the importer's reading of an export, or anything shared by every
-check. The evidence the bump commit records (section 6): every golden slot
-the step moved, and every `Init` declaration whose stored fields moved in
-the both-ways comparison (ADR 0020 D3), lies inside the reach.
+publisher, or anything shared by every check. The evidence the bump commit
+records (section 6): every golden slot the step moved, and every `Init`
+declaration whose stored fields moved in the both-ways comparison (ADR 0020
+D3), lies inside the reach.
+
+**A change to the importer's reading of an export** takes `reach-all
+reach-reading or` (review of snap-compat M2, 2026-11-13). Without an
+export, the input of a carry run is the snapshot's own tier, the older
+build's reading of the export, so even a declaration checked again would
+not be this build's result for the export: a base whose steps since hold
+`reach-reading` is refused when loaded alone (*unsupported*, "export
+reading": check the export, or check it against the snapshot, whose
+import pass reads it again with this build's importer) and shown stale
+with `--snapshot-stale-ok`; an upgrade (R8) of it is refused likewise.
 
 **Composition.** For a file of verdict version `V`, the reach is the union
 of the entries `V + 1` to `Vb`, every predicate evaluated on the saved
@@ -449,7 +471,10 @@ checking it"**: inside the window, carried results as above, and every
 declaration that would be checked again shown with its saved result,
 labelled stale as today; beyond the verdict window (its format inside its
 window), every result stale, as today. It still needs `--snapshot`, still
-refuses `--save-snapshot`, and stale results never count anywhere.
+refuses `--save-snapshot`, and stale results never count anywhere. Since no
+declaration is checked in such a run, none answers as a saved one (I3)
+and none waits for its turn: what the first pass did not carry stays
+stale, its users included (review of snap-compat M1).
 
 ### R8 Saving an upgraded snapshot
 

@@ -113,16 +113,22 @@
 \   reach-scratch-names  a lookup key names a name beyond the input
 \   reach-not-accepted   its saved outcome is not accepted
 \   reach-names          a lookup key names one of the entry's names
+\   reach-reading        always; and a snapshot of a version before the
+\                        step is not carried without its export (the
+\                        importer changed: its records are the older
+\                        build's reading of the export; cli/check-run.fs
+\                        ck-reading)
 \ The obligation on an entry (S-R): every check that can run code the step
 \ changed satisfies the entry's predicate, judged from its declaration and
 \ the slots its lookups answered. The bump commit argues it and records
 \ that every field the step moved (the golden snapshots, all of Init)
 \ lies inside the reach; the step's [kernel] review checks the argument.
 \ reach-all is the default, and the only entry allowed for a change to the
-\ lookup rules, the fuel model as a whole, the publisher, the importer's
-\ reading of an export, or anything every check shares. Loading this file
-\ stops (abort) when a step inside the window has no entry or an entry
-\ has a bit outside reach-known.
+\ lookup rules, the fuel model as a whole, the publisher, or anything
+\ every check shares; a change to the importer's reading of an export
+\ takes reach-all reach-reading or (review of snap-compat M2). Loading
+\ this file stops (abort) when a step inside the window has no entry or
+\ an entry has a bit outside reach-known.
 \
 \ [kernel] code: not through the review gate (AGENTS.md).
 \ State: none.
@@ -145,7 +151,8 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
 2048 constant reach-projection        4096 constant reach-let
 8192 constant reach-quotient          16384 constant reach-scratch-names
 32768 constant reach-not-accepted     65536 constant reach-names
-131071 constant reach-known           \ every bit above
+131072 constant reach-reading
+262143 constant reach-known           \ every bit above
 
 \ Each step's entry: version, reach bits, names (one entry to a line).
 3 cells constant /lf-vstep

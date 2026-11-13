@@ -3225,16 +3225,21 @@ def saved_slots(path):
     return rows
 
 
-def predicted_again(path, version):
-    """The model of the carry pass's first version (plan step 6.2.5c3; R3,
-    R4 with C5 as I1.3), from the reach table and the saved slots alone:
-    the slots of a snapshot of verdict version `version` that this build
-    checks again -- in the reach of a step since, a saved outcome full,
-    invalid or exhausted, an answered slot checked again, or a member after
-    its block's first that was. It decides the bits of REACH_DECIDED only,
-    and fails on any other an entry in the window holds."""
-    entries, _, _ = reach_table()
-    bits = set().union(*(set(entries[k][0]) for k in range(version + 1, verdict_version() + 1)))
+def predicted_again(path, version, entries=None, top=None):
+    """The model of the carry pass (plan steps 6.2.5c3-c4; R3, R4 with I3),
+    from the reach table (or `entries`, {step: bits}, up to `top`) and the
+    saved slots alone: the slots of a snapshot of verdict version `version`
+    that this build checks again -- in the reach of a step since, a saved
+    outcome full, invalid or exhausted, or a member after its block's first
+    that was. A slot whose lookups reach one checked again is carried on
+    its turn when that one answers as its saved slot (I3), as every slot of
+    a snapshot written by this build's rules does; the differential checks
+    the rest. It decides the bits of REACH_DECIDED only, and fails on any
+    other an entry in force holds."""
+    if entries is None:
+        entries = {k: bits for k, (bits, _) in reach_table()[0].items()}
+    top = verdict_version() if top is None else top
+    bits = set().union(*(set(entries[k]) for k in range(version + 1, top + 1)))
     assert bits <= REACH_DECIDED, f"the model decides no {bits - REACH_DECIDED}"
     rows, again = saved_slots(path), set()
     for d, (outcome, recipe, marks, answered) in enumerate(rows):
@@ -3242,7 +3247,7 @@ def predicted_again(path, version):
         reach = ("reach-all" in bits or "reach-not-accepted" in bits and outcome != 0
                  or "reach-block-nested" in bits and nested)
         follows = marks & 4 and d - 1 in again
-        if reach or follows or outcome in (1, 2, 6) or any(s and s - 1 in again for s in answered):
+        if reach or follows or outcome in (1, 2, 6):
             again.add(d)
     return again
 
@@ -3302,6 +3307,7 @@ class OlderSnapshots(unittest.TestCase):
         what the model predicts; the count checked again comes first."""
         version = verdict_version()
         tally = {"carried": 0, "again": 0, "runs": 0}
+        modelled = []
         for v in (version - 2, version - 1):
             for stem, args in FIXTURE_EXPORTS.items():
                 status, fresh, _ = report(*args)
@@ -3310,23 +3316,37 @@ class OlderSnapshots(unittest.TestCase):
                     got_status, got, _ = report("--snapshot", str(path), *extra)
                     self.assertEqual((got_status, self.exact(got)), (status, self.exact(fresh)),
                                      (v, stem, extra))
-                    again = predicted_again(path, v)
                     carried = {i for i, d in enumerate(got["declarations"])
                                if d["provenance"] == "snapshot"}
-                    self.assertEqual(carried, set(range(len(fresh["declarations"]))) - again,
-                                     (v, stem, extra))
+                    modelled.append((path, v, carried, len(fresh["declarations"]), (stem, extra)))
                     self.assertEqual(got["snapshot"]["stale"], None)
                     tally["carried"] += len(carried)
                     tally["again"] += len(got["declarations"]) - len(carried)
                     tally["runs"] += 1
                 out = run("check", "--snapshot", str(path))[1].splitlines()
+                again = len(fresh["declarations"]) - len(carried)
                 self.assertTrue(out[0].startswith(
                     f"carry: a snapshot of verdict version {v}, this build's {version}: "
-                    f"{len(fresh['declarations']) - len(again)} results carried; to check again: "
-                    f"{len(again)} ("), (v, stem, out[0]))
-                self.assertIn(f"checked again: {len(again)} (", "\n".join(out))
+                    f"{len(carried)} results carried; to check again: {again} ("),
+                    (v, stem, out[0]))
+                self.assertIn(f"checked again: {again} (", "\n".join(out))
+        # The model after every differential (so that a wrong reach entry
+        # is caught by a result that differs; review of snap-compat L2).
+        for path, v, carried, n, where in modelled:
+            self.assertEqual(carried, set(range(n)) - predicted_again(path, v), (v, where))
         print(f"\nOlderSnapshots differential: {tally['runs']} runs, {tally['carried']} carried, "
               f"{tally['again']} checked again, 0 differences", file=sys.stderr)
+
+    def test_model_pretended(self):
+        """The model under a pretended later step reaching nested blocks
+        only, on this build's snapshot of nested.ndjson: the 35 declarations
+        tests/core/env-import.fs's carry run checks again (review of
+        snap-compat L2)."""
+        version = verdict_version()
+        entries = {version + 1: ["reach-block-nested"]}
+        again = predicted_again(fixture(version, "nested"), version, entries, version + 1)
+        self.assertEqual(len(again), 35)
+        self.assertEqual(predicted_again(fixture(version, "nested"), version, {}, version), set())
 
     def test_upgrade(self):
         """check --snapshot OLD --save-snapshot NEW (plan step 6.2.5c5, R8):
@@ -3393,8 +3413,22 @@ class OlderSnapshots(unittest.TestCase):
         self.assertEqual({d["provenance"] for d in got["declarations"]}, {"stale-snapshot"})
         layered = ["--snapshot", str(fixture(v, "inductive")), "--snapshot", str(fixture(v, "dependent"))]
         status, out, _ = run("check", *layered)
-        self.assertEqual((status, out.splitlines()[0]),
-                         (2, "error: unsupported: the snapshot was refused: verdict version"))
+        self.assertEqual((status, out.splitlines()[:2]), (2, [
+            "error: unsupported: the snapshot was refused: older base with layers",
+            "note: layers on or of a snapshot of an older verdict version load with plan step"]))
+        status, out, _ = run("check", "--snapshot", str(fixture(version, "inductive")),
+                             "--snapshot", str(fixture(v, "dependent")))
+        self.assertEqual((status, out.splitlines()[:2]), (2, [   # an older layer
+            "error: unsupported: the snapshot was refused: older layer",
+            "note: layers on or of a snapshot of an older verdict version load with plan step"]))
+        # An export checked against an older base writes no layer yet (L7).
+        status, out, _ = run("check", "--snapshot", str(fixture(v, "inductive")), "--save-snapshot",
+                             str(self.dir / "layer.lfsnap"), DEPENDENT)
+        self.assertEqual(status, 4)
+        self.assertIn("error: the snapshot was not written: invalid", out.splitlines())
+        self.assertIn("note: step 6.2.5c7): upgrade it first, check --snapshot OLD --save-snapshot NEW",
+                      out.splitlines())
+        self.assertFalse((self.dir / "layer.lfsnap").exists())
         status, got, _ = report("--snapshot-stale-ok", *layered)
         self.assertEqual((status, {d["provenance"] for d in got["declarations"]}),
                          (0, {"stale-snapshot"}))
