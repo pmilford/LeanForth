@@ -7,6 +7,7 @@
 require ../support/tester.fs
 require ../../src/main.fs
 require ../../src/front/level-defeq.fs
+require ../../src/front/instantiate.fs
 
 lf-author-begin lf-mctx-reset
 : lnew ( -- level ) lf-level-mvar-new ok? 0= abort" level mvar" ;
@@ -109,9 +110,85 @@ T{ tall u 10000 lsuccs lf-level-defeq tall u 9999 lsuccs lf-level-defeq
 lnew constant w
 T{ w 10000 lsuccs tall lf-level-defeq w lval -> true outcome-ok u }T
 \ ?x + 10000 with ?x := 1 is instantiated (a new level) and compared.
-lnew constant x
-T{ x one lf-level-mvar-assign x 10000 lsuccs zero 10001 lsuccs lf-level-defeq
+lnew constant lx
+T{ lx one lf-level-mvar-assign lx 10000 lsuccs zero 10001 lsuccs lf-level-defeq
    -> outcome-ok true outcome-ok }T
+
+\ ---- Instantiation of bound variables (src/front/instantiate.fs, Lean's
+\ instantiate1 and headBeta).
+lf-mctx-reset lf-lctx-reset
+: app ( f a -- t ) lf-term-app 0= abort" app" ;
+: lam ( type body -- t ) lf-term-lam 0= abort" lam" ;
+: tpi ( type body -- t ) lf-term-pi 0= abort" pi" ;
+: bv ( i -- t ) lf-term-bvar 0= abort" bvar" ;
+: inst ( body value -- term ) lf-meta-instantiate1 ok? 0= abort" inst" ;
+: fvar ( type -- fvar ) lf-lctx-local ok? 0= abort" fvar" ;
+: parts ( t -- first second ) dup lf-term-first@ swap lf-term-second@ ;
+: tag ( t -- tag ) lf-term-tag@ ;
+0 lf-term-sort drop constant prop
+prop fvar constant x
+prop fvar constant y
+\ #0 becomes the value, #1 one less; under a binder #1 is the value.
+T{ 0 bv x inst 1 bv x inst dup tag swap lf-term-first@ -> x lf-tag-bvar 0 }T
+T{ prop 1 bv lam x inst dup tag swap parts -> lf-tag-lam prop x }T
+T{ prop 1 bv tpi x inst parts -> prop x }T
+\ #0 under a binder is bound there: the term is kept, the same node.
+prop 0 bv lam constant id-fun
+T{ id-fun x inst id-fun = prop x inst prop = -> true true }T
+\ Both uses of a shared child become the value (made once).
+0 bv dup app constant dup0
+T{ dup0 x inst parts -> x x }T
+\ A rebuilt binder keeps its name and kind.
+prop 1 bv lam constant named
+T{ named 0 s" z" lf-name-str drop lf-binder-implicit lf-pres-binder! -> outcome-ok }T
+T{ named x inst lf-pres-binder@ drop nip -> lf-binder-implicit }T
+\ Loose indices above the value: #2 under one binder becomes #1.
+T{ prop 2 bv lam x inst lf-term-second@ dup tag swap lf-term-first@ -> lf-tag-bvar 1 }T
+\ A value with a loose bound variable: unsupported (Lean lifts it); a
+\ value holding a metavariable is closed (its range by a walk).
+T{ 0 bv 0 bv lf-meta-instantiate1 -> -1 outcome-unsupported }T
+T{ 0 bv x 0 bv app lf-meta-instantiate1 -> -1 outcome-unsupported }T
+prop mv-natural lf-mvar-new drop constant hole
+T{ hole x app lf-meta-loose x 1 bv app lf-meta-loose -> 0 outcome-ok 2 outcome-ok }T
+T{ 0 bv hole x app inst parts -> hole x }T
+T{ prop hole 1 bv app lam lf-meta-loose -> 1 outcome-ok }T
+\ Malformed: a term or value that is not in the store.
+T{ 99999 x lf-meta-instantiate1 x -1 lf-meta-instantiate1 -> -1 outcome-invalid -1 outcome-invalid }T
+T{ 99999 lf-meta-loose 99999 lf-meta-head-beta -> -1 outcome-invalid -1 outcome-invalid }T
+
+\ Head beta: (fun a => a) x is x; (fun a b => b a) x y is y x; extra
+\ arguments are applied; a head that is no lambda keeps the term.
+T{ id-fun x app lf-meta-head-beta -> x outcome-ok }T
+prop prop 0 bv 1 bv app lam lam constant flip
+T{ flip x app y app lf-meta-head-beta swap parts -> outcome-ok y x }T
+T{ id-fun x app y app lf-meta-head-beta swap parts -> outcome-ok x y }T
+T{ x y app dup lf-meta-head-beta drop = prop lf-meta-head-beta -> true prop outcome-ok }T
+\ Fewer arguments than lambdas: a lambda is left.
+T{ flip x app lf-meta-head-beta swap dup tag swap lf-term-second@ parts
+   swap lf-term-first@ swap -> outcome-ok lf-tag-lam 0 x }T
+\ One step only, as Lean: (fun a => a) (fun b => b) x is (fun b => b) x.
+T{ id-fun id-fun app x app lf-meta-head-beta swap parts -> outcome-ok id-fun x }T
+
+\ ---- Resources: 10,000 binders deep, and 10,000 applications deep, on the
+\ heap stacks; a DAG of 2^40 paths in time of its size.
+100000 lf-term-capacity! drop
+: lams ( body n -- t ) 0 ?do prop swap lam loop ;
+: apps ( t n -- t' ) 0 ?do prop app loop ;
+10000 bv 10000 lams constant deep-lams
+: seconds ( t n -- t' ) 0 ?do lf-term-second@ loop ;
+T{ deep-lams x inst 10000 seconds -> x }T
+0 bv 10000 apps constant deep-apps
+: firsts ( t n -- t' ) 0 ?do lf-term-first@ loop ;
+T{ deep-apps x inst 10000 firsts -> x }T
+: doubling ( t n -- t' ) 0 ?do dup app loop ;
+0 bv 40 doubling constant wide
+T{ wide x inst 40 firsts -> x }T
+\ Full: no room for one more term.
+lf-term-capacity constant term-room
+flip x app y app constant fxy
+T{ lf-term-count @ lf-term-capacity! -> outcome-ok }T
+T{ dup0 y lf-meta-instantiate1 fxy lf-meta-head-beta -> -1 outcome-full -1 outcome-full }T
+T{ term-room lf-term-capacity! dup0 y lf-meta-instantiate1 nip -> outcome-ok outcome-ok }T
 
 T{ depth -> 0 }T
 cr .( meta.fs: all tests passed) cr
