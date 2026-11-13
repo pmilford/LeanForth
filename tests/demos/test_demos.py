@@ -96,6 +96,10 @@ def rejection(text, demo):
 
 
 def section(demo, work):
+    # Each demo gets its own folder: the Lean cache sizes every file on LEAN_PATH, and a demo
+    # running beside it would otherwise add and remove files there.
+    work = os.path.join(work, demo["id"])
+    os.makedirs(work)
     lean = lean_check(demo, work)
     path = export(demo, work)
     code, checked = leanforth("check", path)
