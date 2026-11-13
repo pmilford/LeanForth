@@ -5,7 +5,7 @@ Each case below is run twice: by pinned Lean 4.35.0
 (tests/front/meta-cases.lean, which this script writes with --write and
 checks is up to date, calling Meta.isLevelDefEqAux, Expr.instantiate1,
 Expr.abstract and Expr.headBeta) and by LeanForth (tests/front/meta-cases.fs, calling
-lf-level-defeq, lf-meta-instantiate1, lf-meta-abstract and
+lf-meta-level-defeq, lf-meta-instantiate1, lf-meta-abstract and
 lf-meta-head-beta on the same
 terms). Both print one line per case: the answer and every named level
 metavariable's value afterwards, or the resulting term as an S-expression.

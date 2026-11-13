@@ -6,7 +6,7 @@
 \ imax (Level.normalize) and has rules of its own for it (solveSelfMax,
 \ the univApprox rules); none is ported yet, so such a pair answers
 \ unsupported, never a guess.
-\ lf-level-defeq ( l r -- flag outcome ) is Lean's isLevelDefEqAux:
+\ lf-meta-level-defeq ( l r -- flag outcome ) is Lean's isLevelDefEqAux:
 \ - both successors: compare their predecessors;
 \ - the same level under their successors (Lean's getLevelOffset ==):
 \   equal when they have as many successors;
@@ -27,7 +27,7 @@
 \ instantiates (which mvars.fs keeps acyclic), or answers, so the loop
 \ ends; no host recursion. Untrusted front-end code: only the kernel's
 \ check of the finished term decides.
-\ Words: lf-level-defeq ( l r -- flag outcome ).
+\ Words: lf-meta-level-defeq ( l r -- flag outcome ).
 \ No state of its own: the metavariables are mvars.fs's context.
 
 require ../lib/lib.fs
@@ -120,6 +120,6 @@ require ./mvars.fs
   2dup ld-bases= if 2dup ld-offsets= negate exit then
   2dup ld-flat? 0= if outcome-unsupported ld-end exit then
   2dup ld-assigned? if ld-inst else ld-solve2 then ;
-: lf-level-defeq ( l r -- flag outcome )
+: lf-meta-level-defeq ( l r -- flag outcome )
   2dup lf-level-pair-valid? 0= if 2drop false outcome-invalid exit then
   begin ld-round dup ld-again = while drop repeat ld-answer ;

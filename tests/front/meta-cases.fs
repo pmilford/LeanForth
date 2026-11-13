@@ -1,7 +1,7 @@
 \ The front end's Meta answers printed for tests/front/check_meta.py,
 \ which compares them with pinned Lean's on the same cases (plan FE1c).
 \ It runs the code the script generates: one line per case, the answer of
-\ lf-level-defeq (true, false, unsupported) and each named level
+\ lf-meta-level-defeq (true, false, unsupported) and each named level
 \ metavariable's instantiated value, or the term lf-meta-instantiate1 or
 \ lf-meta-head-beta gives, as an S-expression ((app F A), (lam T B),
 \ (pi T B), #i, Prop, x, y, ?m). Test support only: printing recurses on
@@ -51,7 +51,7 @@ defer .lev
 : .values ( -- )
   #mv @ 0 ?do space i mv-char emit ." =" i mv lf-level-instantiate-mvars drop .lev loop ;
 : level-case ( -- ) lf-mctx-reset 0 #mv ! ;
-: level-run ( l r -- ) lf-level-defeq .answer .values cr ;
+: level-run ( l r -- ) lf-meta-level-defeq .answer .values cr ;
 
 \ Terms: Prop, two free variables x y : Prop, a metavariable ?m : Prop.
 : app ( f a -- t ) lf-term-app must ;
