@@ -48,13 +48,13 @@ require ./snapshot-tier.fs
 
 \ A section of the layer, the family of its records.
 begin-structure /ly-fam
-  field: fam-layer     \ the layer it is a section of
-  field: fam-pos       \ its position, 1-9
-  field: fam-block     \ the section read whole, 32-bit fields made the host's
-  field: fam-map       \ per own record: its number here + 1
-  field: fam-first     \ the base's count of the family (sections 1-8)
-  field: fam-begun     \ while it is entered: its count before
-  field: fam-top       \ and the highest number this layer kept of it
+  field: ly-fam-layer     \ the layer it is a section of
+  field: ly-fam-pos       \ its position, 1-9
+  field: ly-fam-block     \ the section read whole, 32-bit fields made the host's
+  field: ly-fam-map       \ per own record: its number here + 1
+  field: ly-fam-first     \ the base's count of the family (sections 1-8)
+  field: ly-fam-begun     \ while it is entered: its count before
+  field: ly-fam-top       \ and the highest number this layer kept of it
 end-structure
 begin-structure /layer
   field: ly-tf                            \ the layer's tier file (its sections)
@@ -74,92 +74,95 @@ end-structure
 : ly-units ( i ly -- n ) ly-tf @ tf-units ;
 : ly-tier ( ly -- tier ) ly-stage @ stage-tier ;
 : ly-lists ( ly -- fam ) lp-lists swap ly-fam ;
-: fam-ly ( fam -- ly ) fam-layer @ ;
-: fam-tier ( fam -- tier ) fam-ly ly-tier ;
-: fam-units ( fam -- n ) dup fam-pos @ swap fam-ly ly-units ;
-: fam-length ( fam -- u ) dup fam-pos @ swap fam-ly ly-tf @ tf-length ;
-: fam@ ( k fam -- u ) fam-block @ ly@ ;
+: ly-fam-ly ( fam -- ly ) ly-fam-layer @ ;
+: ly-fam-tier ( fam -- tier ) ly-fam-ly ly-tier ;
+: ly-fam-units ( fam -- n ) dup ly-fam-pos @ swap ly-fam-ly ly-units ;
+: ly-fam-length ( fam -- u ) dup ly-fam-pos @ swap ly-fam-ly ly-tf @ tf-length ;
+: fam@ ( k fam -- u ) ly-fam-block @ ly@ ;
 \ Record j of the family, a unit of its section's size.
-: fam-rec ( j fam -- addr ) tuck fam-pos @ tier-unit * swap fam-block @ + ;
-: fam-free ( fam -- ) dup fam-block heap-release fam-map heap-release ;
-: ly-free ( ly -- ) tier-sections# 0 do i over ly-fam fam-free loop drop ;
+: ly-fam-rec ( j fam -- addr ) tuck ly-fam-pos @ tier-unit * swap ly-fam-block @ + ;
+: ly-fam-free ( fam -- ) dup ly-fam-block heap-release ly-fam-map heap-release ;
+: ly-free ( ly -- ) tier-sections# 0 do i over ly-fam ly-fam-free loop drop ;
 \ Start: the tier file whose sections were checked (tf-start), the stage,
 \ the base's counts of sections 1-8 (8 cells).
-: fam-init ( i ly -- ) 2dup ly-fam tuck fam-layer ! fam-pos ! ;
-: ly-fams-init ( ly -- ) tier-sections# 0 do i over fam-init loop drop ;
+: ly-fam-init ( i ly -- ) 2dup ly-fam tuck ly-fam-layer ! ly-fam-pos ! ;
+: ly-fams-init ( ly -- ) tier-sections# 0 do i over ly-fam-init loop drop ;
 : ly-firsts! ( firsts ly -- )
-  lp-lines 1 do over i 1- cells + @ i 2 pick ly-fam fam-first ! loop 2drop ;
+  lp-lines 1 do over i 1- cells + @ i 2 pick ly-fam ly-fam-first ! loop 2drop ;
 : ly-init ( tf stage firsts ly -- )
   dup /layer erase dup ly-fams-init tuck ly-firsts! tuck ly-stage ! ly-tf ! ;
 \ A family's failure names its section and the record (at); ok passes.
 : ly-blame ( at outcome fam -- outcome )
   over ok? if drop nip exit then
-  rot over fam-ly ly-where ! dup fam-pos @ tier-title swap fam-ly ly-why ! ;
-\ A failure that drops two values and gives no result.
+  rot over ly-fam-ly ly-where ! dup ly-fam-pos @ tier-title swap ly-fam-ly ly-why ! ;
+\ A failure that drops two (or three) values and gives no result.
 : ly-none2 ( x1 x2 outcome -- -1 outcome ) nip nip no-result ;
+: ly-none3 ( x1 x2 x3 outcome -- -1 outcome ) nip ly-none2 ;
 
 \ ---- The sections, read whole, 32-bit fields made the host's.
-: fam-alloc ( fam -- addr outcome )
-  dup fam-length 1 max allocate if 2drop 0 outcome-full exit then
-  tuck swap fam-block ! outcome-ok ;
+: ly-fam-alloc ( fam -- addr outcome )
+  dup ly-fam-length 1 max allocate if 2drop 0 outcome-full exit then
+  tuck swap ly-fam-block ! outcome-ok ;
 : ly-field? ( i -- flag ) dup lp-name-bytes <> swap lp-text-bytes <> and ;
-: fam-pack ( fam -- ) dup fam-block @ swap fam-length 1 u32s / le-packed ;
-: fam-load ( addr fam -- outcome ) dup fam-pos @ swap fam-ly ly-tf @ tf-read ;
-: fam-read ( fam -- outcome )
-  dup fam-alloc ok-then? 0= if nip exit then over fam-load ok-then? 0= if exit then
-  dup fam-pos @ ly-field? if fam-pack else drop then outcome-ok ;
+: ly-fam-pack ( fam -- ) dup ly-fam-block @ swap ly-fam-length 1 u32s / le-packed ;
+: ly-fam-load ( addr fam -- outcome ) dup ly-fam-pos @ swap ly-fam-ly ly-tf @ tf-read ;
+: ly-fam-read ( fam -- outcome )
+  dup ly-fam-alloc ok-then? 0= if nip exit then over ly-fam-load ok-then? 0= if exit then
+  dup ly-fam-pos @ ly-field? if ly-fam-pack else drop then outcome-ok ;
 \ The maps: per own record of each family, zeroed.
 : ly-zeros ( n addr -- outcome )
   swap u32s 1 max dup allocate if 2drop drop outcome-full exit then
   dup rot erase swap ! outcome-ok ;
-: fam-section ( fam -- outcome )
-  dup fam-read ok-then? 0= if exit then dup fam-units swap fam-map ly-zeros ;
+: ly-fam-section ( fam -- outcome )
+  dup ly-fam-read ok-then? 0= if exit then dup ly-fam-units swap ly-fam-map ly-zeros ;
 : ly-sections ( ly -- outcome )
   tier-sections# 1 do
-    i over ly-fam fam-section dup ok? 0= if nip unloop exit then drop
+    i over ly-fam ly-fam-section dup ok? 0= if nip unloop exit then drop
   loop drop outcome-ok ;
 
 \ ---- Numbers here. A family's number n: the base's below its count;
 \ from it on, the own record's, entered before (ok); else 0 and invalid.
 \ Every translation word, and every xt this file passes one (u ly -- u'
 \ outcome), gives an outcome.
-: fam-own ( n fam -- idx true | false )
-  2dup fam-first @ u< if 2drop false exit then
-  tuck fam-first @ - swap fam-units over u> if true else drop false then ;
-: fam-xlate ( n fam -- n' outcome )
-  2dup fam-first @ u< if drop outcome-ok exit then
-  tuck fam-own 0= if drop 0 outcome-invalid exit then
-  swap fam-map @ ly@ dup if 1- outcome-ok else outcome-invalid then ;
-: fam-kept ( n' idx fam -- ) fam-map @ swap u32s + swap 1+ swap u32! ;
+: ly-fam-own ( n fam -- idx true | false )
+  2dup ly-fam-first @ u< if 2drop false exit then
+  tuck ly-fam-first @ - swap ly-fam-units over u> if true else drop false then ;
+: ly-fam-xlate ( n fam -- n' outcome )
+  2dup ly-fam-first @ u< if drop outcome-ok exit then
+  tuck ly-fam-own 0= if drop 0 outcome-invalid exit then
+  swap ly-fam-map @ ly@ dup if 1- outcome-ok else outcome-invalid then ;
+: ly-fam-kept ( n' idx fam -- ) ly-fam-map @ swap u32s + swap 1+ swap u32! ;
 \ A record built again must be a new record of the tier, or one an
 \ earlier layer made (sibling layers share them); never the base's (a
 \ layer holds only what its run added) nor this layer's own given twice
 \ (review rvSN4 m1): the numbers of its new records rise.
-: fam-count ( fam -- n ) dup fam-pos @ swap fam-ly ly-stage @ tier-slab slab-count ;
-: fam-begin ( fam -- ) dup fam-count 2dup swap fam-begun ! 1- swap fam-top ! ;
-: fam-fresh? ( n' fam -- flag )
-  2dup fam-first @ u< if 2drop false exit then
-  2dup fam-begun @ u< if 2drop true exit then
-  2dup fam-top @ > if fam-top ! true else 2drop false then ;
-: fam-keep ( n' idx fam -- outcome )
-  2 pick over fam-fresh? 0= if 2drop drop outcome-invalid exit then fam-kept outcome-ok ;
-: ly-name ( n ly -- n' outcome ) lp-names swap ly-fam fam-xlate ;
-: ly-level ( n ly -- n' outcome ) lp-levels swap ly-fam fam-xlate ;
-: ly-e ( n ly -- n' outcome ) lp-exprs swap ly-fam fam-xlate ;
+: ly-fam-count ( fam -- n )
+  dup ly-fam-pos @ swap ly-fam-ly ly-stage @ tier-slab slab-count ;
+: ly-fam-begin ( fam -- ) dup ly-fam-count 2dup swap ly-fam-begun ! 1- swap ly-fam-top ! ;
+: ly-fam-fresh? ( n' fam -- flag )
+  2dup ly-fam-first @ u< if 2drop false exit then
+  2dup ly-fam-begun @ u< if 2drop true exit then
+  2dup ly-fam-top @ > if ly-fam-top ! true else 2drop false then ;
+: ly-fam-keep ( n' idx fam -- outcome )
+  2 pick over ly-fam-fresh? 0= if 2drop drop outcome-invalid exit then
+  ly-fam-kept outcome-ok ;
+: ly-name ( n ly -- n' outcome ) lp-names swap ly-fam ly-fam-xlate ;
+: ly-level ( n ly -- n' outcome ) lp-levels swap ly-fam ly-fam-xlate ;
+: ly-e ( n ly -- n' outcome ) lp-exprs swap ly-fam ly-fam-xlate ;
 : ly-number ( u ly -- u outcome ) drop outcome-ok ;
 \ Bytes of a pool (names' or texts'): the layer's own, inside the pool.
-: fam-bytes ( offset len fam -- c-addr u flag )
-  >r over r@ fam-first @ u< if r> drop 2drop 0 0 false exit then
-  swap r@ fam-first @ - swap 2dup + r@ fam-length u>
+: ly-fam-bytes ( offset len fam -- c-addr u flag )
+  >r over r@ ly-fam-first @ u< if r> drop 2drop 0 0 false exit then
+  swap r@ ly-fam-first @ - swap 2dup + r@ ly-fam-length u>
   if r> drop 2drop 0 0 false exit then
-  swap r> fam-block @ + swap true ;
+  swap r> ly-fam-block @ + swap true ;
 : ly-head ( addr -- tag payload ) quad-head u32@ dup head-tag swap head-payload ;
 
 \ ---- Names, levels and texts.
 \ A string name's bytes: (offset, length) are its b field and payload.
 : ly-name-span ( addr -- offset len ) dup quad-b u32@ swap quad-head u32@ head-payload ;
 : ly-str-name ( prefix addr ly -- n outcome )
-  >r ly-name-span lp-name-bytes r@ ly-fam fam-bytes
+  >r ly-name-span lp-name-bytes r@ ly-fam ly-fam-bytes
   0= if 2drop drop r> drop -1 outcome-invalid exit then r> ly-tier name-str ;
 : ly-num-name ( prefix addr ly -- n outcome ) ly-tier swap quad-b u32@ swap name-num ;
 : ly-name-of ( addr ly -- n outcome )
@@ -186,73 +189,76 @@ end-structure
   r> ly-tier level-build ;
 \ A text record is (offset, length) into the text bytes.
 : ly-text-of ( addr ly -- t outcome )
-  >r dup u32@ swap 1 u32s + u32@ lp-text-bytes r@ ly-fam fam-bytes
+  >r dup u32@ swap 1 u32s + u32@ lp-text-bytes r@ ly-fam ly-fam-bytes
   0= if 2drop r> drop -1 outcome-invalid exit then r> ly-tier tier-texts text-intern ;
 \ The record at addr built again by its family's builder.
-: fam-build ( addr fam -- n outcome )
-  dup fam-ly swap fam-pos @ case
+: ly-fam-build ( addr fam -- n outcome )
+  dup ly-fam-ly swap ly-fam-pos @ case
     lp-names of ly-name-of endof  lp-levels of ly-level-of endof
     lp-texts of ly-text-of endof  2drop drop -1 outcome-invalid 0 endcase ;
 \ Own record j of names, levels or texts built again and kept.
-: fam-step ( j fam -- outcome )
-  2dup fam-rec over fam-build ok-then? 0= if nip nip exit then -rot fam-keep ;
+: ly-fam-step ( j fam -- outcome )
+  2dup ly-fam-rec over ly-fam-build ok-then? 0= if nip nip exit then -rot ly-fam-keep ;
 \ Every own record in order: the first that fails, and its outcome.
-: fam-each ( fam -- at outcome )
-  dup fam-units 0 ?do
-    i over fam-step dup ok? 0= if nip i swap unloop exit then drop
+: ly-fam-each ( fam -- at outcome )
+  dup ly-fam-units 0 ?do
+    i over ly-fam-step dup ok? 0= if nip i swap unloop exit then drop
   loop drop 0 outcome-ok ;
-: fam-enter ( fam -- outcome ) dup fam-begin dup fam-each rot ly-blame ;
-: ly-family ( i ly -- outcome ) ly-fam fam-enter ;
+: ly-fam-enter ( fam -- outcome ) dup ly-fam-begin dup ly-fam-each rot ly-blame ;
+: ly-family ( i ly -- outcome ) ly-fam ly-fam-enter ;
 
 \ ---- Lists: where each starts (a length, then that many items, inside
 \ the section), then built again for the kind its user says.
-: fam-start! ( idx fam -- ) fam-map @ 1 -rot ly! ;
+: ly-fam-start! ( idx fam -- ) ly-fam-map @ 1 -rot ly! ;
 \ Each list's start marked; where the last one ends.
-: fam-starts ( fam -- fam end )
-  0 begin 2dup swap fam-units u< while
-    2dup swap fam-start! 2dup swap fam@ 1+ +
+: ly-fam-starts ( fam -- fam end )
+  0 begin 2dup swap ly-fam-units u< while
+    2dup swap ly-fam-start! 2dup swap fam@ 1+ +
   repeat ;
-: ly-starts ( ly -- outcome ) ly-lists fam-starts swap fam-units = flag>outcome ;
+: ly-starts ( ly -- outcome ) ly-lists ly-fam-starts swap ly-fam-units = flag>outcome ;
 \ List t of the layer: the address of its first item and its length, when
 \ t starts one.
-: fam-list ( t fam -- a n true | false )
-  tuck fam-own 0= if drop false exit then
-  2dup swap fam-map @ ly@ 0= if 2drop false exit then
-  swap fam-block @ swap u32s + dup u32@ swap 1 u32s + swap true ;
-: ly-list ( t ly -- a n true | false ) ly-lists fam-list ;
-: ly-base-list? ( t ly -- flag ) ly-lists fam-first @ u< ;
+: ly-fam-list ( t fam -- a n true | false )
+  tuck ly-fam-own 0= if drop false exit then
+  2dup swap ly-fam-map @ ly@ 0= if 2drop false exit then
+  swap ly-fam-block @ swap u32s + dup u32@ swap 1 u32s + swap true ;
+: ly-list ( t ly -- a n true | false ) ly-lists ly-fam-list ;
+: ly-base-list? ( t ly -- flag ) ly-lists ly-fam-first @ u< ;
 \ Item k of the n items at a, or 0 false past their end.
-: items-at ( k a n -- u flag ) rot tuck u> if u32s + u32@ true else 2drop 0 false then ;
-: fam-tuples ( fam -- cons ) fam-tier tier-tuples ;
+: ly-items-at ( k a n -- u flag )
+  rot tuck u> if u32s + u32@ true else 2drop 0 false then ;
+: ly-fam-tuples ( fam -- cons ) ly-fam-tier tier-tuples ;
 \ The item at a (or the n items from a), a number of family fam made
-\ this tier's, added to the tuple begun; then a tuple filled so, or a
-\ failure, ended.
-: fam-add ( a fam -- outcome )
-  tuck swap u32@ swap fam-xlate ok-then? 0= if nip exit then swap fam-tuples tuple-add ;
-: fam-adds ( a n fam -- outcome )
+\ this tier's, added to the tuple begun. ly-tuple-end ends a tuple filled
+\ so; a fill that fails leaves it begun (the caller frees the stage) and
+\ gives no result.
+: ly-fam-add ( a fam -- outcome )
+  tuck swap u32@ swap ly-fam-xlate ok-then? 0= if nip exit then
+  swap ly-fam-tuples tuple-add ;
+: ly-fam-adds ( a n fam -- outcome )
   swap 0 ?do
-    2dup fam-add dup ok? 0= if nip nip unloop exit then drop swap 1 u32s + swap
+    2dup ly-fam-add dup ok? 0= if nip nip unloop exit then drop swap 1 u32s + swap
   loop 2drop outcome-ok ;
-: fam-fill ( a n fam -- outcome )
-  dup fam-tuples tuple-start ok-then3? 0= if exit then fam-adds ;
+: ly-fam-fill ( a n fam -- outcome )
+  dup ly-fam-tuples tuple-start ok-then3? 0= if exit then ly-fam-adds ;
 : ly-tuple-end ( outcome ly -- t' outcome )
   swap dup ok? 0= if nip no-result exit then drop ly-tier tier-tuples tuple-end ;
 \ List t: the base's as it is; the layer's built again for family fam.
-: fam-tuple ( t fam -- t' outcome )
-  2dup fam-ly ly-base-list? if drop outcome-ok exit then
-  swap over fam-ly ly-list 0= if drop -1 outcome-invalid exit then
-  rot dup >r fam-fill r> fam-ly ly-tuple-end ;
-: ly-levels ( t ly -- t' outcome ) lp-levels swap ly-fam fam-tuple ;
-: ly-names ( t ly -- t' outcome ) lp-names swap ly-fam fam-tuple ;
+: ly-fam-tuple ( t fam -- t' outcome )
+  2dup ly-fam-ly ly-base-list? if drop outcome-ok exit then
+  swap over ly-fam-ly ly-list 0= if drop -1 outcome-invalid exit then
+  rot dup >r ly-fam-fill r> ly-fam-ly ly-tuple-end ;
+: ly-levels ( t ly -- t' outcome ) lp-levels swap ly-fam ly-fam-tuple ;
+: ly-names ( t ly -- t' outcome ) lp-names swap ly-fam ly-fam-tuple ;
 
 \ ---- Expressions (a letE spans two numbers).
 \ Operands a and b both expressions; or a alone of family fam.
 : ly-two ( a b ly -- a' b' outcome )
-  lp-exprs swap ly-fam tuck fam-xlate 2swap fam-xlate 2swap rot swap outcome-and ;
-: fam-a ( a b fam -- a' b' outcome ) rot swap fam-xlate rot swap ;
-: ly-a-level ( a b ly -- a' b' outcome ) lp-levels swap ly-fam fam-a ;
-: ly-a-expr ( a b ly -- a' b' outcome ) lp-exprs swap ly-fam fam-a ;
-: ly-a-text ( a b ly -- a' b' outcome ) lp-texts swap ly-fam fam-a ;
+  lp-exprs swap ly-fam tuck ly-fam-xlate 2swap ly-fam-xlate 2swap rot swap outcome-and ;
+: ly-fam-a ( a b fam -- a' b' outcome ) rot swap ly-fam-xlate rot swap ;
+: ly-a-level ( a b ly -- a' b' outcome ) lp-levels swap ly-fam ly-fam-a ;
+: ly-a-expr ( a b ly -- a' b' outcome ) lp-exprs swap ly-fam ly-fam-a ;
+: ly-a-text ( a b ly -- a' b' outcome ) lp-texts swap ly-fam ly-fam-a ;
 \ A constant's levels (a list built again: full when the heap or the
 \ stage's limit refuses) and name; the levels' outcome first.
 : ly-const ( a b ly -- a' b' outcome )
@@ -269,41 +275,42 @@ end-structure
 : ly-payload ( tag payload ly -- tag payload' outcome )
   2 pick ly-named? if ly-name else drop dup 0= flag>outcome then ;
 \ Record j's head, its payload made this tier's.
-: fam-head ( j fam -- head outcome )
-  tuck fam-rec ly-head rot fam-ly ly-payload >r pack-head r> ;
+: ly-fam-head ( j fam -- head outcome )
+  tuck ly-fam-rec ly-head rot ly-fam-ly ly-payload >r pack-head r> ;
 \ Record j + 1: a letE's body record; the body.
-: fam-body ( j fam -- body' outcome )
-  swap 1+ 2dup swap fam-units u< 0= if 2drop 0 outcome-invalid exit then
-  over fam-rec dup ly-head drop tag-let-body <> if 2drop 0 outcome-invalid exit then
-  quad-a u32@ swap fam-xlate ;
-: fam-operands ( j fam -- a b ) fam-rec dup quad-a u32@ swap quad-b u32@ ;
-: fam-two ( a b fam -- a' b' outcome ) fam-ly ly-two ;
+: ly-fam-body ( j fam -- body' outcome )
+  swap 1+ 2dup swap ly-fam-units u< 0= if 2drop 0 outcome-invalid exit then
+  over ly-fam-rec dup ly-head drop tag-let-body <> if 2drop 0 outcome-invalid exit then
+  quad-a u32@ swap ly-fam-xlate ;
+: ly-fam-operands ( j fam -- a b ) ly-fam-rec dup quad-a u32@ swap quad-b u32@ ;
+: ly-fam-two ( a b fam -- a' b' outcome ) ly-fam-ly ly-two ;
 \ A letE (head, at record j): its body, then its type and value.
-: fam-let ( head j fam -- e outcome )
-  dup >r 2dup fam-body ok-then? 0= if r> drop nip nip nip no-result exit then
-  -rot fam-operands r@ fam-two ok-then? 0= if r> drop nip nip nip no-result exit then
-  rot r> fam-tier expr-let ;
+: ly-fam-let ( head j fam -- e outcome )
+  dup >r 2dup ly-fam-body ok-then? 0= if r> drop ly-none3 exit then
+  -rot ly-fam-operands r@ ly-fam-two ok-then? 0= if r> drop ly-none3 exit then
+  rot r> ly-fam-tier expr-let ;
 \ The record at addr's operands made this tier's, as its tag says.
 : ly-operands ( addr ly -- a' b' outcome )
   >r dup quad-a u32@ over quad-b u32@ rot ly-head drop r> ly-ab ;
-: fam-plain ( head addr fam -- e outcome )
-  dup >r fam-ly ly-operands ok-then? 0= if r> drop ly-none2 exit then
-  r> fam-tier expr-make ;
-: fam-expr-of ( j fam -- e outcome )
-  2dup fam-head ok-then? 0= if nip nip no-result exit then
-  dup head-tag let-tag? if -rot fam-let exit then -rot tuck fam-rec swap fam-plain ;
-: fam-mdata ( j fam -- )
-  tuck fam-rec ly-head drop tag-mdata =
-  if fam-ly ly-stage @ 1 swap stage-mdata +! else drop then ;
-: fam-span ( j fam -- n ) fam-rec ly-head drop let-tag? if 2 else 1 then ;
-: fam-expr-step ( j fam -- j' outcome )
-  2dup fam-expr-of ok-then? 0= if nip nip -1 swap exit then
-  -rot 2dup fam-mdata 2dup fam-span 2 pick + >r fam-keep r> swap ;
-: fam-exprs ( fam -- outcome )
-  dup fam-begin 0 begin 2dup swap fam-units u< while
-    2dup swap fam-expr-step ok-then? 0= if rot ly-blame exit then nip
+: ly-fam-plain ( head addr fam -- e outcome )
+  dup >r ly-fam-ly ly-operands ok-then? 0= if r> drop ly-none2 exit then
+  r> ly-fam-tier expr-make ;
+: ly-fam-expr-of ( j fam -- e outcome )
+  2dup ly-fam-head ok-then? 0= if nip nip no-result exit then
+  dup head-tag let-tag? if -rot ly-fam-let exit then
+  -rot tuck ly-fam-rec swap ly-fam-plain ;
+: ly-fam-mdata ( j fam -- )
+  tuck ly-fam-rec ly-head drop tag-mdata =
+  if ly-fam-ly ly-stage @ 1 swap stage-mdata +! else drop then ;
+: ly-fam-span ( j fam -- n ) ly-fam-rec ly-head drop let-tag? if 2 else 1 then ;
+: ly-fam-expr-step ( j fam -- j' outcome )
+  2dup ly-fam-expr-of ok-then? 0= if nip nip -1 swap exit then
+  -rot 2dup ly-fam-mdata 2dup ly-fam-span 2 pick + >r ly-fam-keep r> swap ;
+: ly-fam-exprs ( fam -- outcome )
+  dup ly-fam-begin 0 begin 2dup swap ly-fam-units u< while
+    2dup swap ly-fam-expr-step ok-then? 0= if rot ly-blame exit then nip
   repeat 2drop outcome-ok ;
-: ly-exprs ( ly -- outcome ) lp-exprs swap ly-fam fam-exprs ;
+: ly-exprs ( ly -- outcome ) lp-exprs swap ly-fam ly-fam-exprs ;
 
 \ ---- Every family in order.
 : ly-starts-noted ( ly -- outcome ) dup ly-starts 0 swap rot ly-lists ly-blame ;
@@ -315,7 +322,7 @@ end-structure
 
 \ ---- Declarations: each translated in place, its chain cleared.
 : ly-decls# ( ly -- n ) lp-decls swap ly-units ;
-: ly-decl ( i ly -- addr ) lp-decls swap ly-fam fam-rec ;
+: ly-decl ( i ly -- addr ) lp-decls swap ly-fam ly-fam-rec ;
 : ly-line ( i ly -- u ) lp-lines swap ly-fam fam@ ;
 : ly-kind ( addr -- kind ) staged-head u32@ head-tag ;
 \ A field: none stays none; else through xt ( u ly -- u' outcome ).
@@ -328,7 +335,8 @@ end-structure
   >r 2dup + 1+ r@ ly-base-list? 0= if 2drop r> drop 0 false exit then
   r> ly-tier tier-tuples 2dup tuple-length 3 pick u>
   if tuple-item true else 2drop drop 0 false then ;
-: ly-at ( k t ly -- u flag ) 2dup ly-list if 2swap 2drop items-at exit then ly-base-at ;
+: ly-at ( k t ly -- u flag )
+  2dup ly-list if 2swap 2drop ly-items-at exit then ly-base-at ;
 \ A recursor's rules, [ctor nfields rhs] each, as a new tuple.
 : ly-rule-item ( u k ly -- u' outcome )
   swap 3 mod case 0 of ly-name endof 1 of drop outcome-ok endof drop ly-e 0 endcase ;
@@ -379,12 +387,12 @@ create ly-rec-data
   over staged-type over ['] ly-e ly-field r> swap outcome-and >r
   over staged-value over ['] ly-e ly-field r> swap outcome-and >r
   over 0 swap staged-prev u32! ly-more-field r> swap outcome-and ;
-: fam-decls ( fam -- at outcome )
-  dup fam-units 0 ?do
-    i over fam-rec over fam-ly ly-xlate-decl dup ok? 0= if nip i swap unloop exit then
-    drop
+: ly-fam-decls ( fam -- at outcome )
+  dup ly-fam-units 0 ?do
+    i over ly-fam-rec over ly-fam-ly ly-xlate-decl
+    dup ok? 0= if nip i swap unloop exit then drop
   loop drop 0 outcome-ok ;
-: ly-decls ( ly -- outcome ) lp-decls swap ly-fam dup fam-decls rot ly-blame ;
+: ly-decls ( ly -- outcome ) lp-decls swap ly-fam dup ly-fam-decls rot ly-blame ;
 
 \ Read a layer's sections and enter its records, then translate its
 \ declarations (see the header): ok, invalid or full.

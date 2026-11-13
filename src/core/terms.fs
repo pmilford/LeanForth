@@ -279,16 +279,17 @@ end-structure
 \ store's lf-term-key, levels.fs's lf-level-key): a tag and two fields,
 \ hashed alike, and whether a record's fields are the ones sought.
 begin-structure /lf-sought
-  field: sought-tag
-  field: sought-first
-  field: sought-second
+  field: lf-sought-tag
+  field: lf-sought-first
+  field: lf-sought-second
 end-structure
 : lf-sought! ( tag first second key -- )
-  tuck sought-second ! tuck sought-first ! sought-tag ! ;
+  tuck lf-sought-second ! tuck lf-sought-first ! lf-sought-tag ! ;
 : lf-sought@ ( key -- tag first second )
-  dup sought-tag @ over sought-first @ rot sought-second @ ;
+  dup lf-sought-tag @ over lf-sought-first @ rot lf-sought-second @ ;
 : lf-sought= ( tag first second key -- flag )
-  >r r@ sought-second @ = swap r@ sought-first @ = and swap r> sought-tag @ = and ;
+  >r r@ lf-sought-second @ = swap r@ lf-sought-first @ = and
+  swap r> lf-sought-tag @ = and ;
 : lf-fields-hash ( tag first second -- h ) rot hash-fmix rot hash-step swap hash-step ;
 \ The key's hash after its fields are stored.
 : lf-sought-hash! ( tag first second key -- key h )

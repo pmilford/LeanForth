@@ -140,7 +140,7 @@ T{ allocations 50 > all-full? -> true true }T
 \ The tuples' slab at its count, its next growth refused.
 : tuples-refused ( -- ) ly ly-tier tier-tuples cons-records slab-trim drop 1 heap-refusals ! ;
 : own-list? ( t -- flag ) ly ly-base-list? 0= ;
-: expr@ ( j -- addr ) lp-exprs ly ly-fam fam-rec ;
+: expr@ ( j -- addr ) lp-exprs ly ly-fam ly-fam-rec ;
 : own-const? ( j -- flag )
   expr@ dup ly-head drop tag-const = if quad-b u32@ own-list? else drop false then ;
 : first-const ( -- j|-1 )
@@ -169,9 +169,9 @@ layer2-done
 \ and the record (ly-why, ly-where); freed and read again, the same layer
 \ enters (class 6).
 : layer2-raw ( -- ) base2-read layer2-open ;
-: rec ( j i -- addr ) ly ly-fam fam-rec ;
-: first-of ( i -- u ) ly ly-fam fam-first @ ;
-: lists ( -- addr ) ly ly-lists fam-block @ ;
+: rec ( j i -- addr ) ly ly-fam ly-fam-rec ;
+: first-of ( i -- u ) ly ly-fam ly-fam-first @ ;
+: lists ( -- addr ) ly ly-lists ly-fam-block @ ;
 : why? ( c-addr u -- flag ) ly ly-why @ count compare 0= ;
 : refused-at ( -- j ) ly ly-where @ ;
 : forge! ( tag payload addr -- ) >r pack-head r> quad-head u32! ;
@@ -198,7 +198,7 @@ T{ tag-const 1 ly ly-payload tag-app 0 ly ly-payload
   -> tag-const 1 outcome-invalid tag-app 0 outcome-ok }T
 T{ 99999999 0 ly ly-rule-item nip 99999999 1 ly ly-rule-item 99999999 2 ly ly-rule-item nip
   -> outcome-invalid 99999999 outcome-ok outcome-invalid }T
-T{ first-const lp-exprs ly ly-fam fam-body nip -> outcome-invalid }T
+T{ first-const lp-exprs ly ly-fam ly-fam-body nip -> outcome-invalid }T
 layer2-done
 \ A name's bytes past the pool's end, or in the base's bytes.
 layer2-raw  99999999 str-name lp-names rec quad-b u32!

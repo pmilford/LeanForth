@@ -174,12 +174,11 @@ create lf-sch-cell-slabs
 here lf-sch-cell-slabs - 1 cells / constant lf-sch-cell-slabs#
 : lf-sch-slab ( k -- slab ) cells lf-sch-cell-slabs + @ lf-sched swap execute ;
 : lf-sch-slab-init ( unit slab -- outcome ) over slab-limit-max swap slab-init ;
-\ Two outcomes as one: the first that is not ok, else ok (review FRK F6:
-\ OR-ing them made an invalid slab full).
-: lf-sch-and ( outcome1 outcome2 -- outcome ) over ok? if nip else drop then ;
+\ Two outcomes are made one with outcome-and (lib/outcome.fs): the first
+\ that is not ok (review FRK F6: OR-ing them made an invalid slab full).
 : lf-sch-slabs-init ( -- outcome )
   1 u32s lf-sched lf-sch-seen lf-sch-slab-init
-  lf-sch-cell-slabs# 0 ?do 1 cells i lf-sch-slab lf-sch-slab-init lf-sch-and loop ;
+  lf-sch-cell-slabs# 0 ?do 1 cells i lf-sch-slab lf-sch-slab-init outcome-and loop ;
 : lf-sch-slabs-free ( -- )
   lf-sch-cell-slabs# 0 ?do i lf-sch-slab slab-free loop lf-sched lf-sch-seen slab-free ;
 \ Units up to n in use, the new ones zero: ok, or full.
@@ -433,14 +432,14 @@ variable lf-sched-faults  0 lf-sched-faults !
   lf-sch-n 0 ?do i 1+ lf-sch-from@ i lf-sch-from@ - i lf-sch-wait ! loop ;
 : lf-sch-turn-room ( -- outcome )
   lf-sch-n 1+ lf-sched lf-sch-rfroms lf-sch-hold
-  lf-sched lf-sch-deps slab-count lf-sched lf-sch-rdeps lf-sch-hold lf-sch-and ;
+  lf-sched lf-sch-deps slab-count lf-sched lf-sch-rdeps lf-sch-hold outcome-and ;
 : lf-sch-turn ( -- outcome )
   lf-sch-turn-room dup ok? 0= if exit then drop
   lf-sch-count-deps lf-sch-sum lf-sch-cursors lf-sch-fill lf-sch-waits! outcome-ok ;
 
 \ Room for every array the plan fills: ok, full, or invalid for a slab
 \ that is not live (the first that failed).
-: lf-sch-also ( outcome n slab -- outcome' ) lf-sch-hold lf-sch-and ;
+: lf-sch-also ( outcome n slab -- outcome' ) lf-sch-hold outcome-and ;
 : lf-sch-arrays ( -- outcome )
   lf-sch-n 1+ dup lf-sched lf-sch-states lf-sch-hold
   over lf-sched lf-sch-waits lf-sch-also over lf-sched lf-sch-froms lf-sch-also
@@ -467,12 +466,12 @@ variable lf-sched-faults  0 lf-sched-faults !
 \ (review FRK F1).
 : lf-sch-room ( slab -- outcome ) 1 swap slab-room ;
 : lf-sch-worker-room ( -- outcome )
-  lf-sched lf-sch-ctxs lf-sch-room lf-sched lf-sch-jobs lf-sch-room lf-sch-and
-  lf-sched lf-sch-ats lf-sch-room lf-sch-and ;
+  lf-sched lf-sch-ctxs lf-sch-room lf-sched lf-sch-jobs lf-sch-room outcome-and
+  lf-sched lf-sch-ats lf-sch-room outcome-and ;
 : lf-sched-add ( context -- outcome )
   lf-sch-worker-room dup ok? 0= if nip exit then drop
-  lf-sched lf-sch-ctxs lf-sch-push 0 lf-sched lf-sch-jobs lf-sch-push lf-sch-and
-  -1 lf-sched lf-sch-ats lf-sch-push lf-sch-and ;
+  lf-sched lf-sch-ctxs lf-sch-push 0 lf-sched lf-sch-jobs lf-sch-push outcome-and
+  -1 lf-sched lf-sch-ats lf-sch-push outcome-and ;
 : lf-sch-in ( k -- ) lf-sch-ctx @ context-use ;
 : lf-sch-home ( -- ) lf-sched lf-sch-home-ctx @ context-use ;
 : lf-sch-idle? ( k -- flag ) dup lf-sch-ctx @ 0<> swap lf-sch-job @ 0= and ;

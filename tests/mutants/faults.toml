@@ -823,8 +823,8 @@ reason = "4.2.2a: an instantiate step's body is copied in the record's context, 
 [[fault]]
 id = "log-memo-any-context"
 file = "src/core/derivation-log.fs"
-old = '''  >r r@ memo-context @ = swap dup 0<> swap r@ memo-identity @ = and and'''
-new = '''  >r drop dup 0<> swap r@ memo-identity @ = and'''
+old = '''  >r r@ lf-memo-context @ = swap dup 0<> swap r@ lf-memo-identity @ = and and'''
+new = '''  >r drop dup 0<> swap r@ lf-memo-identity @ = and'''
 test = "$GFORTH tests/core/derivation-log.fs"
 reason = "4.2.2a: the copier's memo ignores the context, so a node copied under one binder count is reused under another"
 
@@ -7391,8 +7391,8 @@ reason = "FX6 L2: the reader's index maps stay allocated through the check"
 [[fault]]
 id = "ex-marks-ignore-depth"
 file = "src/core/constant-term-boundary.fs"
-old = '''  tuck unit-stamp @ = if unit-kept @ < 0= else 2drop false then ;'''
-new = '''  tuck unit-stamp @ = if 2drop true else 2drop false then ;'''
+old = '''  tuck lf-unit-stamp @ = if lf-unit-kept @ < 0= else 2drop false then ;'''
+new = '''  tuck lf-unit-stamp @ = if 2drop true else 2drop false then ;'''
 test = "$GFORTH tests/core/constant-term-scope.fs"
 reason = "EX: a node the scope walk checked under a binder is skipped outside it, so #0 shared there and outside passes"
 
@@ -7744,8 +7744,8 @@ reason = "FX7: a level node is skipped the first time and checked only when reac
 [[fault]]
 id = "s3-terms-collision-equal"
 file = "src/core/terms.fs"
-old = '''  >r r@ sought-second @ = swap r@ sought-first @ = and swap r> sought-tag @ = and ;'''
-new = '''  >r 2drop r> sought-tag @ = ;'''
+old = '''  >r r@ lf-sought-second @ = swap r@ lf-sought-first @ = and'''
+new = '''  >r 2drop true'''
 test = "$GFORTH tests/core/terms.fs"
 reason = "S3: a record found in the table counts as equal when only its tag is (a collision taken for equality)"
 
@@ -7819,7 +7819,7 @@ reason = "S3: a child's image is read one place past it in the sorted list"
 [[fault]]
 id = "s6c-memo-no-identity"
 file = "src/core/constant-term-boundary.fs"
-old = '''  unit-kept @ swap lf-term-identity if = else drop false then ;'''
+old = '''  lf-unit-kept @ swap lf-term-identity if = else drop false then ;'''
 new = '''  2drop true ;'''
 test = "$GFORTH tests/core/constant-term-boundary.fs"
 reason = "S6C: a kept unit is taken without its identity: a rolled-back index made again passes unchecked"
@@ -8181,7 +8181,7 @@ reason = "S4: an equal reference (name and level list) is made again as a record
 [[fault]]
 id = "s4-crefs-pairs-ignored"
 file = "src/core/constant-references.fs"
-old = '''  swap lf-cref-pairs rot ckey-addr @ swap lf-cref-pairs= ;'''
+old = '''  swap lf-cref-pairs rot lf-ckey-addr @ swap lf-cref-pairs= ;'''
 new = '''  2drop true ;'''
 test = "$GFORTH tests/core/constant-references.fs"
 reason = "S4: references of one name and arity are taken as equal whatever their levels"
@@ -8462,8 +8462,8 @@ reason = "S5, S5B: an application or binder above an mdata expression is read in
 [[fault]]
 id = "s5-feed-copy-not-found"
 file = "src/import/feed.fs"
-old = '''  swap feed-copy-at tuck copy-e @ = and ;'''
-new = '''  swap feed-copy-at tuck copy-e @ <> and ;'''
+old = '''  swap feed-copy-at tuck feed-copied-e @ = and ;'''
+new = '''  swap feed-copy-at tuck feed-copied-e @ <> and ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "S5: a copied expression's term is looked up wrongly"
 
@@ -8826,8 +8826,8 @@ reason = "FX10 M3: declarations past the stop left in the ready heap make a run 
 id = "frk-sched-add-pushes-first"
 file = "src/kernel/env-schedule.fs"
 old = '''  lf-sch-worker-room dup ok? 0= if nip exit then drop
-  lf-sched lf-sch-ctxs lf-sch-push 0 lf-sched lf-sch-jobs lf-sch-push lf-sch-and
-  -1 lf-sched lf-sch-ats lf-sch-push lf-sch-and ;'''
+  lf-sched lf-sch-ctxs lf-sch-push 0 lf-sched lf-sch-jobs lf-sch-push outcome-and
+  -1 lf-sched lf-sch-ats lf-sch-push outcome-and ;'''
 new = '''  lf-sched lf-sch-ctxs lf-sch-push dup ok? 0= if exit then drop
   0 lf-sched lf-sch-jobs lf-sch-push -1 lf-sched lf-sch-ats lf-sch-push or
   ok? room>outcome ;'''
@@ -8836,9 +8836,9 @@ reason = "FRK F1: the context is pushed before the jobs list is known to have ro
 
 [[fault]]
 id = "frk-sched-outcomes-ored"
-file = "src/kernel/env-schedule.fs"
-old = ''': lf-sch-and ( outcome1 outcome2 -- outcome ) over ok? if nip else drop then ;'''
-new = ''': lf-sch-and ( outcome1 outcome2 -- outcome ) or ok? room>outcome ;'''
+file = "src/lib/outcome.fs"
+old = ''': outcome-and ( outcome1 outcome2 -- outcome ) over ok? if nip else drop then ;'''
+new = ''': outcome-and ( outcome1 outcome2 -- outcome ) or ok? room>outcome ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "FRK F6: outcomes OR-ed and read as room, so a list that is not live is reported full"
 
@@ -9421,8 +9421,8 @@ reason = "rvSN4 M2: only a block's first member's name is compared with the name
 [[fault]]
 id = "sn5-layer-record-twice"
 file = "src/import/snapshot-layer.fs"
-old = '''  2dup fam-top @ > if fam-top ! true else 2drop false then ;'''
-new = '''  fam-top ! true ;'''
+old = '''  2dup ly-fam-top @ > if ly-fam-top ! true else 2drop false then ;'''
+new = '''  ly-fam-top ! true ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
 reason = "rvSN4 m1: a layer that holds one of its own records twice loads (the copy's users then read another record)"
 
@@ -9765,8 +9765,8 @@ reason = "R5 (ADR 0014 Am. 8): a spine's arguments read under the scope put in w
 [[fault]]
 id = "fxk-pairs-one-depth"
 file = "src/core/constant-term-boundary.fs"
-old = '''  unit-kept @ 2 pick = if 2drop drop true else lf-pairs-seen? then ;'''
-new = '''  unit-kept @ 2 pick = if 2drop drop true else 2drop drop false then ;'''
+old = '''  lf-unit-kept @ 2 pick = if 2drop drop true else lf-pairs-seen? then ;'''
+new = '''  lf-unit-kept @ 2 pick = if 2drop drop true else 2drop drop false then ;'''
 test = "$GFORTH tests/core/constant-term-boundary.fs"
 reason = "rvKN 1: an exact-depth walk keeps only the first depth a node was reached at, so a depth met again is walked again"
 
@@ -10355,7 +10355,7 @@ reason = "FRI B6: a failure leaves a kept value under the outcome"
 [[fault]]
 id = "fri-b1-bytes-from-base"
 file = "src/import/snapshot-layer.fs"
-old = '''  >r over r@ fam-first @ u< if r> drop 2drop 0 0 false exit then'''
+old = '''  >r over r@ ly-fam-first @ u< if r> drop 2drop 0 0 false exit then'''
 new = '''  >r'''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "FRI B1: a name's bytes may start before the layer's own (the byte before the block is read as the name)"
@@ -10363,24 +10363,24 @@ reason = "FRI B1: a name's bytes may start before the layer's own (the byte befo
 [[fault]]
 id = "fri-b1-bytes-past-pool"
 file = "src/import/snapshot-layer.fs"
-old = '''  swap r@ fam-first @ - swap 2dup + r@ fam-length u>'''
-new = '''  swap r@ fam-first @ - swap 2dup + r@ fam-length 2drop false'''
+old = '''  swap r@ ly-fam-first @ - swap 2dup + r@ ly-fam-length u>'''
+new = '''  swap r@ ly-fam-first @ - swap 2dup + r@ ly-fam-length 2drop false'''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "FRI B1: a name's bytes may run past the pool (read from outside the section)"
 
 [[fault]]
 id = "fri-b1-starts-end-unchecked"
 file = "src/import/snapshot-layer.fs"
-old = ''': ly-starts ( ly -- outcome ) ly-lists fam-starts swap fam-units = flag>outcome ;'''
-new = ''': ly-starts ( ly -- outcome ) ly-lists fam-starts 2drop outcome-ok ;'''
+old = ''': ly-starts ( ly -- outcome ) ly-lists ly-fam-starts swap ly-fam-units = flag>outcome ;'''
+new = ''': ly-starts ( ly -- outcome ) ly-lists ly-fam-starts 2drop outcome-ok ;'''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "FRI B1: a list whose length runs past the lists section is accepted"
 
 [[fault]]
 id = "fri-b1-let-body-tag-unchecked"
 file = "src/import/snapshot-layer.fs"
-old = '''  over fam-rec dup ly-head drop tag-let-body <> if 2drop 0 outcome-invalid exit then'''
-new = '''  over fam-rec'''
+old = '''  over ly-fam-rec dup ly-head drop tag-let-body <> if 2drop 0 outcome-invalid exit then'''
+new = '''  over ly-fam-rec'''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "FRI B1: a letE takes the next record as its body whatever that record is"
 
@@ -10395,7 +10395,7 @@ reason = "FRI B1: a record that has no name keeps a nonzero payload"
 [[fault]]
 id = "fri-b1-list-start-unchecked"
 file = "src/import/snapshot-layer.fs"
-old = '''  2dup swap fam-map @ ly@ 0= if 2drop false exit then'''
+old = '''  2dup swap ly-fam-map @ ly@ 0= if 2drop false exit then'''
 new = ''''''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "FRI B1: a constant may name an item of a list as its universe arguments' list"
@@ -10403,8 +10403,8 @@ reason = "FRI B1: a constant may name an item of a list as its universe argument
 [[fault]]
 id = "fri-b1-blame-wrong-record"
 file = "src/import/snapshot-layer.fs"
-old = '''  rot over fam-ly ly-where ! dup fam-pos @ tier-title swap fam-ly ly-why ! ;'''
-new = '''  nip 0 over fam-ly ly-where ! dup fam-pos @ tier-title swap fam-ly ly-why ! ;'''
+old = '''  rot over ly-fam-ly ly-where ! dup ly-fam-pos @ tier-title swap ly-fam-ly ly-why ! ;'''
+new = '''  nip 0 over ly-fam-ly ly-where ! dup ly-fam-pos @ tier-title swap ly-fam-ly ly-why ! ;'''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "FRI B1: a refused layer names record 0 instead of the one refused"
 
@@ -10419,8 +10419,8 @@ reason = "FRI B1: a rule's constructor name kept as the base's number and its fi
 [[fault]]
 id = "fri-b7-line-none-later"
 file = "src/import/snapshot-tier.fs"
-old = '''  >r tuck line-pair dup staged-none = if 2drop r> 2drop false exit then'''
-new = '''  >r tuck line-pair'''
+old = '''  >r tuck tier-line-pair dup staged-none = if 2drop r> 2drop false exit then'''
+new = '''  >r tuck tier-line-pair'''
 test = "$GFORTH tests/core/snapshot-tier.fs"
 reason = "FRI B7: a declaration after the first whose line is none loads"
 
@@ -10505,16 +10505,16 @@ reason = "FRI B4: a literal's, projection's or let's leaf gets its two fields sw
 [[fault]]
 id = "fri-b3-memo-ref-field"
 file = "src/core/derivation-log.fs"
-old = '''  lf-copier-key dup >r lf-memo-match? if r> memo-ref @ true else r> drop false then ;'''
-new = '''  lf-copier-key dup >r lf-memo-match? if r> memo-context @ true else r> drop false then ;'''
+old = '''  lf-copier-key dup >r lf-memo-match? if r> lf-memo-ref @ true else r> drop false then ;'''
+new = '''  lf-copier-key dup >r lf-memo-match? if r> lf-memo-context @ true else r> drop false then ;'''
 test = "$GFORTH tests/core/derivation-log.fs"
 reason = "FRI B3: a memo hit gives the entry's context, not its copy's reference"
 
 [[fault]]
 id = "fri-b3-memo-identity-ignored"
 file = "src/core/derivation-log.fs"
-old = '''  >r r@ memo-context @ = swap dup 0<> swap r@ memo-identity @ = and and'''
-new = '''  >r r@ memo-context @ = swap dup 0<> swap drop and'''
+old = '''  >r r@ lf-memo-context @ = swap dup 0<> swap r@ lf-memo-identity @ = and and'''
+new = '''  >r r@ lf-memo-context @ = swap dup 0<> swap drop and'''
 test = "$GFORTH tests/core/derivation-log.fs"
 reason = "FRI B3: a memo entry left by a node rolled back matches a new node at the same index"
 gap = "needs a copy that meets a node made again at an index a rolled-back node had, in one log; no test builds one"
@@ -10530,16 +10530,16 @@ reason = "FRI B3: a binder's body is copied in its binder's own context, not und
 [[fault]]
 id = "fri-b2-sought-first-ignored"
 file = "src/core/terms.fs"
-old = '''  >r r@ sought-second @ = swap r@ sought-first @ = and swap r> sought-tag @ = and ;'''
-new = '''  >r r@ sought-second @ = nip swap r> sought-tag @ = and ;'''
+old = '''  >r r@ lf-sought-second @ = swap r@ lf-sought-first @ = and'''
+new = '''  >r r@ lf-sought-second @ = nip'''
 test = "$GFORTH tests/core/terms.fs"
 reason = "FRI B2: a record found whose first field differs counts as equal (terms and levels share lf-sought=)"
 
 [[fault]]
 id = "fri-b2-sought-second-ignored"
 file = "src/core/terms.fs"
-old = '''  >r r@ sought-second @ = swap r@ sought-first @ = and swap r> sought-tag @ = and ;'''
-new = '''  >r drop true swap r@ sought-first @ = and swap r> sought-tag @ = and ;'''
+old = '''  >r r@ lf-sought-second @ = swap r@ lf-sought-first @ = and'''
+new = '''  >r drop true swap r@ lf-sought-first @ = and'''
 test = "$GFORTH tests/core/terms.fs"
 reason = "FRI B2: a level or term found whose second field differs counts as equal"
 
@@ -10570,7 +10570,7 @@ reason = "FRI B2: a let's lambda is not recognised (its binder name, its unit), 
 [[fault]]
 id = "fri-b2-cref-generation-ignored"
 file = "src/core/constant-references.fs"
-old = '''  2dup ckey-generation @ swap lf-crec-generation @ = r> and'''
+old = '''  2dup lf-ckey-generation @ swap lf-crec-generation @ = r> and'''
 new = '''  r>'''
 test = "$GFORTH tests/core/constant-references.fs"
 reason = "FRI B2: a reference of another name generation, the rest equal, is taken as the record"
@@ -10578,7 +10578,7 @@ reason = "FRI B2: a reference of another name generation, the rest equal, is tak
 [[fault]]
 id = "fri-b2-cref-arity-ignored"
 file = "src/core/constant-references.fs"
-old = '''  >r ckey-count @ swap lf-crec-arity @ = r> and ;'''
+old = '''  >r lf-ckey-count @ swap lf-crec-arity @ = r> and ;'''
 new = '''  2drop ;'''
 test = "$GFORTH tests/core/constant-references.fs"
 reason = "FRI B2: a reference of another arity, the rest equal, is taken as the record"
@@ -10586,7 +10586,7 @@ reason = "FRI B2: a reference of another arity, the rest equal, is taken as the 
 [[fault]]
 id = "fri-b2-cref-name-ignored"
 file = "src/core/constant-references.fs"
-old = '''  2dup ckey-name @ swap lf-crec-name @ = >r'''
+old = '''  2dup lf-ckey-name @ swap lf-crec-name @ = >r'''
 new = '''  true >r'''
 test = "$GFORTH tests/core/constant-references.fs"
 reason = "FRI B2: a reference of another name, the rest equal, is taken as the record"
@@ -10602,16 +10602,16 @@ reason = "FRI B8: a node the run reached before is walked again (its fuel and it
 [[fault]]
 id = "fri-b8-mark-fields-swapped"
 file = "src/core/constant-term-boundary.fs"
-old = ''': lf-mark-set ( depth run unit -- ) tuck unit-stamp ! unit-kept ! ;'''
-new = ''': lf-mark-set ( depth run unit -- ) tuck unit-kept ! unit-stamp ! ;'''
+old = ''': lf-mark-set ( depth run unit -- ) tuck lf-unit-stamp ! lf-unit-kept ! ;'''
+new = ''': lf-mark-set ( depth run unit -- ) tuck lf-unit-kept ! lf-unit-stamp ! ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "FRI B8: a walk's mark keeps the depth where the run belongs, so marks are read as other runs'"
 
 [[fault]]
 id = "fri-b8-audit-mark-fields-swapped"
 file = "src/core/constant-term-boundary.fs"
-old = '''  over lf-term-identity drop rot lf-mark-at tuck unit-kept ! unit-stamp ! ;'''
-new = '''  over lf-term-identity drop rot lf-mark-at tuck unit-stamp ! unit-kept ! ;'''
+old = '''  over lf-term-identity drop rot lf-mark-at tuck lf-unit-kept ! lf-unit-stamp ! ;'''
+new = '''  over lf-term-identity drop rot lf-mark-at tuck lf-unit-stamp ! lf-unit-kept ! ;'''
 test = "$GFORTH tests/core/constant-term-boundary.fs"
 reason = "FRI B8: the audit memo keeps a node's identity as its epoch, so no node is ever held as checked"
 

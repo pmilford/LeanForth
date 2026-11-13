@@ -103,8 +103,8 @@ lf-walk-room context-walk: lf-cterm-walker
 \ memo's epoch (below) -- then what it keeps: the depth that run reached
 \ the node at, or the node's identity.
 begin-structure /lf-unit
-  field: unit-stamp
-  field: unit-kept
+  field: lf-unit-stamp
+  field: lf-unit-kept
 end-structure
 /slab context-record: lf-term-marks
 /lf-unit ' lf-term-marks lf-term-columns column-add
@@ -228,8 +228,8 @@ create lf-pair-hooks /htab-hooks allot
 : lf-mark-unit ( walk -- unit ) walk-node @ lf-mark-at ;
 \ A walk's unit holds its run, then the depth.
 : lf-mark-held? ( depth run unit -- flag )
-  tuck unit-stamp @ = if unit-kept @ < 0= else 2drop false then ;
-: lf-mark-set ( depth run unit -- ) tuck unit-stamp ! unit-kept ! ;
+  tuck lf-unit-stamp @ = if lf-unit-kept @ < 0= else 2drop false then ;
+: lf-mark-set ( depth run unit -- ) tuck lf-unit-stamp ! lf-unit-kept ! ;
 \ Whether this run reached the node before at a depth no greater; when
 \ not, the node is marked at its depth.
 : lf-walk-seen? ( walk -- flag )
@@ -253,9 +253,9 @@ create lf-pair-hooks /htab-hooks allot
 : lf-walk-pair ( walk -- node depth run )
   dup walk-node @ over lf-walk-depth rot walk-arg @ ;
 : lf-mark-other? ( node depth run unit -- flag )
-  unit-kept @ 2 pick = if 2drop drop true else lf-pairs-seen? then ;
+  lf-unit-kept @ 2 pick = if 2drop drop true else lf-pairs-seen? then ;
 : lf-walk-seen-at? ( walk -- flag )
-  lf-walk-pair 2 pick lf-mark-at 2dup unit-stamp @ =
+  lf-walk-pair 2 pick lf-mark-at 2dup lf-unit-stamp @ =
   if lf-mark-other? else lf-mark-set drop false then ;
 : lf-walk-once-at ( first second walk tag xt -- outcome )
   2 pick lf-walk-seen-at? if drop lf-walk-skip exit then execute ;
@@ -363,9 +363,9 @@ end-structure
 \ Whether node's unit of the marks holds it, kept in that epoch.
 \ Unchecked: the node is allocated.
 : lf-audit-same-node? ( node unit -- flag )
-  unit-kept @ swap lf-term-identity if = else drop false then ;
+  lf-unit-kept @ swap lf-term-identity if = else drop false then ;
 : lf-audit-unit? ( node epoch -- flag )
-  over lf-mark-at tuck unit-stamp @ = if lf-audit-same-node? else 2drop false then ;
+  over lf-mark-at tuck lf-unit-stamp @ = if lf-audit-same-node? else 2drop false then ;
 \ Whether the memo holds node as checked in its epoch. It does not ask
 \ whether the memo is on; its callers do: lf-audited? (below) whether the
 \ current audit uses the memo, and kernel/check-declaration.fs's
@@ -430,7 +430,7 @@ end-structure
 \ After a run: kept as checked when it ended ok; the list emptied.
 : lf-audit-mark ( node -- )
   dup lf-audit-epoch ?dup 0= if drop exit then
-  over lf-term-identity drop rot lf-mark-at tuck unit-kept ! unit-stamp ! ;
+  over lf-term-identity drop rot lf-mark-at tuck lf-unit-kept ! lf-unit-stamp ! ;
 : lf-audit-keep ( -- )
   lf-audit-state lf-aud-count @ 0 ?do i lf-audit-slot @ lf-audit-mark loop ;
 : lf-audit-settle ( outcome -- outcome )

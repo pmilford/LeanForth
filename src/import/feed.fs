@@ -207,11 +207,11 @@ here feed-settings - /feed-setting / constant feed-settings#
 : feed-dirty? ( e feed -- flag ) feed-bit swap @ and 0<> ;
 : feed-dirty! ( e feed -- ) feed-bit over @ or swap ! ;
 begin-structure /feed-copy
-  field: copy-e                  \ the expression
-  2 cells +field copy-handle     \ its term handle: index, identity (2@)
+  field: feed-copied-e                  \ the expression
+  2 cells +field feed-copied-handle     \ its term handle: index, identity (2@)
 end-structure
 : feed-copy-at ( k feed -- addr ) feed-copy-buf @ swap /feed-copy * + ;
-: feed-copy-e ( k feed -- e ) feed-copy-at copy-e @ ;
+: feed-copy-e ( k feed -- e ) feed-copy-at feed-copied-e @ ;
 \ Room for one more copy; the next copy, counted.
 : feed-copy-room ( feed -- outcome )
   dup feed-copies# @ 1+ /feed-copy rot feed-copy-buf feed-grow ;
@@ -219,7 +219,7 @@ end-structure
   dup feed-copies# dup @ swap 1 swap +! swap feed-copy-at ;
 : feed-copy+ ( index identity e feed -- outcome )
   dup feed-copy-room ok? 0= if 2drop 2drop outcome-full exit then
-  feed-copy-next tuck copy-e ! copy-handle 2! outcome-ok ;
+  feed-copy-next tuck feed-copied-e ! feed-copied-handle 2! outcome-ok ;
 \ Binary search: the first copy whose expression is not below e.
 : feed-copy-below? ( e feed k -- flag ) swap feed-copy-e > ;
 : feed-narrow ( e feed lo hi -- e feed lo' hi' )
@@ -229,10 +229,10 @@ end-structure
 \ Copy k when it is expression e's, else 0.
 : feed-copy-of ( e feed k -- addr|0 )
   2dup swap feed-copies# @ < 0= if 2drop drop 0 exit then
-  swap feed-copy-at tuck copy-e @ = and ;
+  swap feed-copy-at tuck feed-copied-e @ = and ;
 \ A copied expression's handle; 0 0, no handle, for one not in the list.
 : feed-copy@ ( e feed -- index identity )
-  feed-seek feed-copy-of ?dup if copy-handle 2@ else 0 0 then ;
+  feed-seek feed-copy-of ?dup if feed-copied-handle 2@ else 0 0 then ;
 : feed-term@ ( e feed -- index identity )
   2dup feed-dirty? if feed-copy@ else drop lf-tin-child dup lf-term-input-identity then ;
 : feed-root ( e feed -- index ) feed-term@ drop ;

@@ -381,10 +381,10 @@ end-structure
 \ A memo entry (see the copier below): a node, its identity, the context
 \ it was copied in and its copy's reference.
 begin-structure /lf-memo
-  field: memo-index
-  field: memo-identity
-  field: memo-context
-  field: memo-ref
+  field: lf-memo-index
+  field: lf-memo-identity
+  field: lf-memo-context
+  field: lf-memo-ref
 end-structure
 begin-structure /lf-logpools
   lf-log-memo-size /lf-memo * +field lf-logp-term-memo
@@ -633,14 +633,15 @@ end-structure
 \ The memo: a node's copy in a context, when the memo holds it;
 \ remembering one.
 : lf-memo-match? ( index identity c entry -- flag )
-  >r r@ memo-context @ = swap dup 0<> swap r@ memo-identity @ = and and
-  swap r> memo-index @ = and ;
+  >r r@ lf-memo-context @ = swap dup 0<> swap r@ lf-memo-identity @ = and and
+  swap r> lf-memo-index @ = and ;
 : lf-copier-key ( index c copier -- index identity c entry )
   >r over r@ lf-copier-identity swap rot dup r> lf-copier-memo >r -rot r> ;
 : lf-copier-hit ( index c copier -- ref true | false )
-  lf-copier-key dup >r lf-memo-match? if r> memo-ref @ true else r> drop false then ;
+  lf-copier-key dup >r lf-memo-match? if r> lf-memo-ref @ true else r> drop false then ;
 : lf-copier-remember ( ref index c copier -- )
-  lf-copier-key >r r@ memo-context ! r@ memo-identity ! r@ memo-index ! r> memo-ref ! ;
+  lf-copier-key >r r@ lf-memo-context ! r@ lf-memo-identity !
+  r@ lf-memo-index ! r> lf-memo-ref ! ;
 \ A node's reference when it needs no copy: itself below the mark (input
 \ never holds a free variable), or the copy the memo holds.
 : lf-copier-known ( n c copier -- ref true | false )

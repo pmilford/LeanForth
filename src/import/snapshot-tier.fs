@@ -455,10 +455,10 @@ create kind-flags
 \ block's line, as the reader keeps them.
 : member-kind? ( kind -- flag ) kind-type kind-recursor 1+ within ;
 \ Line i of the lines at addr, and line i - 1 before it.
-: line-pair ( addr i -- prev line ) u32s + dup 1 u32s - u32@ swap u32@ ;
+: tier-line-pair ( addr i -- prev line ) u32s + dup 1 u32s - u32@ swap u32@ ;
 \ Line i after line i - 1 (i > 0), declaration i of stage.
 : line-ok? ( addr i stage -- flag )
-  >r tuck line-pair dup staged-none = if 2drop r> 2drop false exit then
+  >r tuck tier-line-pair dup staged-none = if 2drop r> 2drop false exit then
   2dup = if 2drop r> staged-kind@ member-kind? exit then u< nip r> drop ;
 : lines-ok? ( addr n stage -- flag )
   swap dup 0= if 2drop drop true exit then
