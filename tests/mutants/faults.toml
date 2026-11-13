@@ -9033,8 +9033,8 @@ reason = "SN2: declarations are written with their mdata marks, which sealing de
 [[fault]]
 id = "sn2-lines-unchecked"
 file = "src/import/snapshot-tier.fs"
-old = '''  u< r> r> 2drop ;'''
-new = '''  2drop r> r> 2drop true ;'''
+old = '''  2dup = if 2drop r> staged-kind@ member-kind? exit then u< nip r> drop ;'''
+new = '''  2dup = if 2drop r> staged-kind@ member-kind? exit then 2drop drop r> drop true ;'''
 test = "$GFORTH tests/core/snapshot-tier.fs"
 reason = "SN2: lines going back are not refused"
 
@@ -9168,8 +9168,8 @@ reason = "rvSN2 m3: a name whose text is not UTF-8 loads, which the reader refus
 [[fault]]
 id = "sn2-lines-equal"
 file = "src/import/snapshot-tier.fs"
-old = '''  2dup = if 2drop r> r> staged-kind@ member-kind? exit then'''
-new = '''  2dup = if 2drop r> r> 2drop true exit then'''
+old = '''  2dup = if 2drop r> staged-kind@ member-kind? exit then u< nip r> drop ;'''
+new = '''  2dup = if 2drop r> 2drop true exit then u< nip r> drop ;'''
 test = "$GFORTH tests/core/snapshot-tier.fs"
 reason = "rvSN2 m4: a declaration on the line of the one before, not a member of a block, loads"
 
@@ -10415,3 +10415,20 @@ old = '''  swap 3 mod case 0 of ly-name endof 1 of drop outcome-ok endof drop ly
 new = '''  swap 3 mod case 1 of ly-name endof 0 of drop outcome-ok endof drop ly-e 0 endcase ;'''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "FRI B1: a rule's constructor name kept as the base's number and its field count read as a name"
+
+[[fault]]
+id = "fri-b7-line-none-later"
+file = "src/import/snapshot-tier.fs"
+old = '''  >r tuck line-pair dup staged-none = if 2drop r> 2drop false exit then'''
+new = '''  >r tuck line-pair'''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "FRI B7: a declaration after the first whose line is none loads"
+
+[[fault]]
+id = "fri-b7-line-none-first"
+file = "src/import/snapshot-tier.fs"
+old = '''  2 pick u32@ staged-none = if 2drop drop false exit then'''
+new = ''''''
+test = "$GFORTH tests/core/snapshot-tier.fs"
+reason = "FRI B7: a first declaration whose line is none loads"
+gap = "only with a single declaration: a later line is never above none, so the next pair refuses it; no one-declaration tier fixture yet"

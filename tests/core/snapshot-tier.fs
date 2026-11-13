@@ -238,6 +238,11 @@ T{ fresh-img 1 2 0 peek head-tag tag-name-str = -> true }T
 T{ fresh-img $FF 1 name-at c! 1 name-word 1 2 12 poke 1 forged 2 forged attempted
    -> outcome-invalid true }T
 T{ fresh-img a-def 1- 9 0 peek a-def 9 0 poke 9 forged attempted -> outcome-invalid true }T
+\ A line that is none, first or later; a line going back (review FRI B7).
+T{ fresh-img staged-none 0 9 0 poke 9 forged attempted -> outcome-invalid true }T
+T{ fresh-img staged-none a-def 9 0 poke 9 forged attempted -> outcome-invalid true }T
+T{ fresh-img staged-none sa stage-decls 1- 9 0 poke 9 forged attempted -> outcome-invalid true }T
+T{ fresh-img a-def 1- 9 0 peek 1- a-def 9 0 poke 9 forged attempted -> outcome-invalid true }T
 : levelled-const ( -- e )
   sa stage-tier tier-exprs cons-numbers 0 ?do
     i sa stage-tier expr-tag@ tag-const =
