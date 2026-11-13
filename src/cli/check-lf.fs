@@ -53,7 +53,7 @@ require ../lib/lib.fs
 require ../core/input.fs
 require ../author/runner.fs
 require ../front/reader.fs
-require ../front/tactic-run.fs
+require ../front/tactic-basic.fs
 require ../import/stage.fs
 require ../front/elab-data.fs
 require ./check-run.fs

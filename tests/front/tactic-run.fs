@@ -164,14 +164,11 @@ T{ lfa-error lfa-err-see @ -> -1 }T
 T{ printed unsolved-line compare -> 0 }T
 [then]
 
-\ ---- 1. Tactics not ported yet: 80 at the word, its plan step, the goals.
+\ ---- 1. Tactics not ported yet: 80 at the word, its plan step, the goals
+\ (by-rfl, by-exact and by-intro: run since FE1g-4: tests/front/tactic-basic.fs).
 : later ( c-addr u -- code line col plan ) proof nrun drop err plan# ;
-T{ s" by-rfl end t" later -> 80 1 43 4 }T
-T{ token s" by-rfl" compare detail lean-goals compare -> 0 0 }T
-T{ s" n by-exact end t" later -> 80 1 45 4 }T
-T{ s" by-intro: h end t" later -> 80 1 43 4 }T
 T{ s" n by-induction end t" later -> 80 1 45 5 }T
-T{ token s" by-induction" compare -> 0 }T
+T{ token s" by-induction" compare detail lean-goals compare -> 0 0 }T
 T{ s" n by-induction-with | zero => by-rfl by-end end t" later -> 80 1 45 5 }T
 T{ s" by-case: zero => by-rfl by-end end t" later -> 80 1 43 5 }T
 T{ s" by-rw[ ] end t" later -> 80 1 43 6 }T
@@ -205,9 +202,10 @@ T{ 0 lf-tactic-fuel! s" by-sorry end t" proof nrun err -> outcome-exhausted 91 1
 T{ detail s\" p : Prop\n⊢ p" compare -> 0 }T
 T{ 1 lf-tactic-fuel! s" by-sorry end t" proof nrun lf-tactic-fuel-left -> outcome-ok 0 }T
 T{ 1 lf-tactic-fuel! s" by-sorry by-sorry end t" proof nrun err -> outcome-exhausted 91 1 52 }T
-\ A no-op tactic in by-rfl's row (as FE1g-4 will fill rows): with fuel
+\ A no-op tactic in by-rfl's row (its own action kept and put back): with fuel
 \ k, n steps stop at step k + 1 for every k < n, and run with k = n.
 : skip-step ( i -- ) drop ;
+tac-k-rfl lfr-row trow-run @ constant rfl-action
 ' skip-step tac-k-rfl lf-tactic-action!
 : rfls ( n -- ) 0 ?do s" by-rfl " text+ loop ;
 : steps ( n -- c-addr u ) s" " proof 2drop rfls s" by-sorry end t" text+ text$ ;
@@ -218,8 +216,7 @@ T{ 1 lf-tactic-fuel! s" by-sorry by-sorry end t" proof nrun err -> outcome-exhau
 T{ 10 every -> true }T
 T{ 11 lf-tactic-fuel! 10 steps nrun -> outcome-ok }T
 T{ lf-tactic-fuel-default 10 steps nrun lf-tactic-fuel-left -> outcome-ok lfr-default-fuel 11 - }T
-' lf-tac-later 4 tac-k-rfl lfr-set
-T{ s" by-rfl end t" later -> 80 1 43 4 }T
+rfl-action tac-k-rfl lf-tactic-action!
 
 \ ---- 2. Malformed records (checked before any step runs: 92 at end):
 \ a stand-in that breaks the record the reader made, then states p.
@@ -258,7 +255,7 @@ T{ 1 ' lfr-misplaced catch nip lf-author-code -> lf-author-throw 92 }T
 ' holed tac-k-rfl lf-tactic-action!
 ' prop-p stating
 T{ s" by-rfl end t" proof nrun err -> outcome-invalid 74 1 50 }T
-' lf-tac-later 4 tac-k-rfl lfr-set
+rfl-action tac-k-rfl lf-tactic-action!
 
 \ ---- 3. Blocks, focus and done, through a stand-in case action (as
 \ FE1g-5 will run by-case:): the main goal focused, a block whose end
@@ -280,7 +277,7 @@ text0 s\" theorem t Nat explicit: n 0 n + n =\n:= by\n" text+
 1000 cases s\" by-sorry\n" text+ 1000 ends s" end t" text+
 T{ text$ nrun lf-tactic-count -> outcome-ok 1002 }T
 ' lf-tac-later 5 tac-k-case lfr-set
-' lf-tac-later 4 tac-k-rfl lfr-set
+rfl-action tac-k-rfl lf-tactic-action!
 
 \ ---- 3. The words directly, on a proof state made by hand: goals g1 g2
 \ of type p in a view with p : Prop.

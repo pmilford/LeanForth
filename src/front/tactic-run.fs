@@ -59,8 +59,11 @@
 \ lf-tactic-fuel-left ( -- n ), lf-tactic-action! ( xt kind -- ),
 \ lf-tac-step ( -- i ) the step running, lf-tac-main ( -- goal ),
 \ lf-tac-fail ( code -- ) (an error at the step running, with the goals),
-\ lf-tac-detail ( i*x xt -- j*x ) (xt's printing as the error's detail),
-\ lf-tac-later ( i -- ) (a step not ported yet),
+\ lf-tac-stop ( code -- ) (the same without the goals), lf-tac-must
+\ ( outcome -- ) (a Meta step's failure stops the run), lf-tac-detail
+\ ( x xt -- ) (xt's printing as the error's detail), lf-tac-later ( i -- )
+\ (a step not ported yet), lf-tac-const0 ( c-addr u -- term ),
+\ lf-tac-const1 ( level c-addr u -- term ), lf-tac-app ( f a -- t ),
 \ lf-tac-block ( i rest -- ), lf-tac-done ( i -- ), lf-tac-focus ( --
 \ rest ), lf-tac-unfocus ( rest -- ), lf-tac-save ( -- save outcome ),
 \ lf-tac-restore, lf-tac-commit ( save -- outcome ), lf-tac-try,
@@ -191,19 +194,22 @@ s" by-sorry" tac-k-sorry lfr-spell
 \ block's place; a tactic's error also shows the goals, kept as the
 \ error's detail (for the first error only: a later one is not kept).
 : lf-tac-step ( -- i ) trun trun-step @ ;
-\ xt ( i*x -- j*x outcome ) printing with the term printer's sink set to
-\ sink for the while; lf-tac-detail prints into the error's detail.
-: lfr-printed ( i*x xt sink -- j*x outcome )
+\ xt ( x -- outcome ) printing with the term printer's sink set to sink
+\ for the while; lf-tac-detail prints into the error's detail, unless an
+\ error is recorded already.
+: lfr-printed ( x xt sink -- outcome )
   lf-print-settings 2>r lf-print-unicode lf-print-setup execute 2r> lf-print-setup ;
-: lf-tac-detail ( i*x xt -- j*x )
-  lf-author-code if drop exit then
+: lf-tac-detail ( x xt -- )
+  lf-author-code if 2drop exit then
   ['] lfa-detail+ lfr-printed ok? 0= if lfa-detail-cut then ;
-: lfr-with-goals ( -- ) ['] lf-goals-text lf-tac-detail ;
+: lfr-goals-of ( x -- outcome ) drop lf-goals-text ;
+: lfr-with-goals ( -- ) 0 ['] lfr-goals-of lf-tac-detail ;
 : lfr-at-step ( code -- ) >r lf-tac-step dup lfr-spelling rot lfr-at r> lfa-fail-at ;
 \ (With no step of the record running, a word called directly: at the
 \ current token.)
 : lfr-fail ( code -- ) lf-tac-step lf-tactic-count < if lfr-at-step else lfa-fail then ;
 : lf-tac-fail ( code -- ) lfr-with-goals lfr-fail ;
+: lf-tac-stop ( code -- ) lfr-fail ;
 : lfr-block-fail ( i code -- ) >r dup lfr-block-word rot lfr-block-at r> lfa-fail-at ;
 \ An outcome other than ok stops the run: the run's own stores (no room
 \ 88, else 92), or a Meta step (no room for terms 60, fuel 91, anything
@@ -216,6 +222,7 @@ s" by-sorry" tac-k-sorry lfr-spell
   case outcome-full of lfa-e-terms-full endof outcome-exhausted of lfa-e-tac-fuel endof
     lfa-e-tac-meta swap endcase ;
 : lfr-meta-must ( outcome -- ) dup ok? if drop else lfr-meta-code lf-tac-fail then ;
+: lf-tac-must ( outcome -- ) lfr-meta-must ;
 \ At end NAME (the current token): making the root goal and closing the
 \ value, as the hand-over's errors (no room 60, a step not ported 77,
 \ else malformed 76).
@@ -321,6 +328,11 @@ s" by-sorry" tac-k-sorry lfr-spell
   >r lfa-intern lf-name-generation @ lfr-pair r> lf-cref-new lfr-made
   lf-cterm-new lfr-made drop ;
 : lfr-app ( f a -- t ) lf-term-app lfr-made ;
+\ For the tactics: a constant with no universe argument or one, an
+\ application.
+: lf-tac-const0 ( c-addr u -- term ) 0 lfr-const ;
+: lf-tac-const1 ( level c-addr u -- term ) rot lfr-pair! 1 lfr-const ;
+: lf-tac-app ( f a -- t ) lfr-app ;
 : lfr-sorry-term ( type level -- term )
   lfr-pair! s" sorryAx" 1 lfr-const swap lfr-app s" Bool.false" 0 lfr-const lfr-app ;
 : lfr-level ( type -- level ) lf-get-level lfr-meta-must ;
