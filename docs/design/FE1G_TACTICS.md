@@ -1,6 +1,9 @@
 # FE1g: the first tactics, designed
 
-**Status (2026-11-12): designed.** Nothing here is built. This is the
+**Status (2026-11-12): designed; FE1g-2 written and tested alone on
+branch `fe1g2`** (`src/front/tactic-syntax.fs`: the words of §3.2 but
+`.goals` read into a record, their blocks' shape checked, error codes 80
+to 88 of §4.6; nothing runs). The rest is not built. This is the
 design of plan row FE1g (proof state and tactics) of
 [the plan](../project/PLAN_DRAFT.md), part of FE1 ($0 + n = n$ proved
 from LeanForth text), detailed from [FRONT_END.md](FRONT_END.md) §4.5 and
@@ -484,6 +487,20 @@ when FE1g-1 lands, after FE1e's):
 
 The command line exits 4 for a front-end failure, 2 for unsupported,
 as FRONT_END.md §8.3 says; nothing reaches the kernel.
+
+FE1g-2 fixed the reading side's codes (2026-11-12; `author/errors.fs`,
+74 to 79 left to FE1e and FE1f): `lfa-e-tac-block` became 82 (a block
+open at `end NAME`, or a tactic word inside `by-rw[ ]`), 83 (`by-end`,
+`]` or `|` with no block of its kind), 84 (a header not `TAG NAMES… =>`
+on one line), 85 (an alternative or `by-case:` block with no tactic,
+which pinned Lean's parser refuses: "expected … tactic") and 86 (the
+wrong number of values); with 81 (a tactic word outside `:= by`), 87
+(unsupported: more values than a word takes where a hypothesis read
+since the last tactic word might take them, known only once tactics
+run), 88 (full) and 80 (unsupported: running tactics, until FE1g-3).
+Pinned Lean parses an empty `by` and `induction n with` with no
+alternative and refuses them only when it runs them ("unsolved goals",
+"Alternative `zero` has not been provided"), so FE1g-2 reads both.
 
 ## 5. The tactics of FE1
 

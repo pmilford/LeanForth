@@ -387,7 +387,10 @@ T{ s" evaluate" forth-word-in-proof -> 1 1 33 }T
 T{ s" included" forth-word-in-proof -> 1 1 33 }T
 T{ s" immediate" forth-word-in-proof -> 1 1 33 }T
 T{ s" postpone" forth-word-in-proof -> 1 1 33 }T
-T{ s" ]" forth-word-in-proof -> 1 1 33 }T
+\ ] is LeanForth's own word, which closes by-rw[ (a tactic: not supported
+\ in kernel-form text, 72), never Forth's, which would start compiling.
+T{ s" ]" forth-word-in-proof -> 72 1 33 }T
+T{ state @ -> 0 }T
 T{ s" [" forth-word-in-proof -> 1 1 33 }T
 T{ s" state" forth-word-in-proof -> 1 1 33 }T
 T{ s" here" forth-word-in-proof -> 1 1 33 }T

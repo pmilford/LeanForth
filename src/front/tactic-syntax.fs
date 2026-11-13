@@ -241,7 +241,8 @@ max-n store-header - /targ cell+ / constant targ-limit
 : lft-bar? ( c-addr u -- flag ) s" |" lfa-token= ;
 \ The tag: a name. Lean's wildcard _ and @TAG (every field explicit) are
 \ not supported yet.
-: lft-tag-later? ( c-addr u -- flag ) 2dup lft-hole? -rot drop c@ [char] @ = or ;
+: lft-at-sign? ( c-addr u -- flag ) drop 1 s" @" lfa-token= ;
+: lft-tag-later? ( c-addr u -- flag ) 2dup lft-hole? -rot lft-at-sign? or ;
 : lft-tag ( c-addr u -- name )
   2dup lft-tag-later? if lfa-e-tactic lfa-fail then lft-no-word lfa-word-name lfa-intern ;
 \ The names: | before => is a second tag (| a | b =>), not supported yet.

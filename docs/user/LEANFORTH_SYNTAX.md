@@ -59,9 +59,110 @@ theorem text are LeanForth words, never Forth's) build Lean's
 its type has explicit binders (`n Eq.refl` is `Eq.refl n`), `' NAME` is
 the function itself, and `f a $` applies once more. Elaboration and
 tactics come next (plan FE1c-g): `end NAME` of a natural declaration
-stops with error 71, a tactic word (`by-induction`, `by-rfl`, ...) with
-error 72, and a kernel-form word used without the marker (such as `Prop`)
-with error 70, all "not supported yet", and nothing is checked.
+stops with error 71; a tactic proof is read whole and stops at its
+`end NAME` with error 80 ([tactic proofs](#tactic-proofs-read-not-yet-run));
+a kernel-form word used without the marker (such as `Prop`) stops with
+error 70; all "not supported yet", and nothing is checked.
+
+## Tactic proofs (read, not yet run)
+
+**Status (2026-11-12): read, not yet run (plan FE1g-2).** A proof can be a
+list of instructions, *tactics*, as in Lean: `:= by` and then tactic
+words, each named with the prefix `by-`. LeanForth reads such a proof
+whole, checks its shape (every block closed, each word given the values
+it takes, each case header well formed, every mistake at its line and
+column) and keeps a record of the steps; running them, which builds the
+proof term for the checker to check, is plan FE1g-3 onward. So today
+every tactic proof stops at its `end NAME` with error 80, "not supported
+yet", and nothing is checked; a tactic never makes a theorem accepted,
+now or later: only the checker's check of the term does.
+
+*Mathematics:* $0 + n = n$ for every natural number $n$, by induction on
+$n$: for $0$, $0 + 0 = 0$ by computation; for $k + 1$, assuming
+$0 + k = k$, $0 + (k + 1) = (0 + k) + 1$ by the definition of $+$, which
+is $k + 1$ by the induction hypothesis.
+
+*LeanForth* (`tests/front/01-zero-add-rw.lf`): `n by-induction-with`
+starts the induction on `n`, each `| TAG NAMES =>` line is one case with
+the names of its new hypotheses, and `by-end` closes the group;
+`by-rw[ … ]` rewrites with the rules built between its brackets, a
+theorem written `' NAME`, a hypothesis by its name:
+
+```text
+theorem zero_add''
+  Nat explicit: n
+  0 n + n =
+:= by
+  n by-induction-with
+  | zero =>       by-rfl
+  | succ k ih =>  by-rw[ ' Nat.add_succ ih ]
+  by-end
+end zero_add''
+```
+
+*Lean*:
+
+```lean
+theorem zero_add'' (n : Nat) : 0 + n = n := by
+  induction n with
+  | zero => rfl
+  | succ k ih => rw [Nat.add_succ, ih]
+```
+
+What LeanForth says today (the export names `Nat.add_succ` and what it
+uses):
+
+```console
+$ bin/leanforth check --env tests/front/tactic-slice.ndjson tests/front/01-zero-add-rw.lf; echo "exit status $?"
+error: unsupported: the LeanForth text was not checked: error 80 at line:col 17:1 (token `end`): not supported yet: running tactics (plan FE1g-3); the tactic proof was read whole; see line:col 12:4
+exit status 2
+```
+
+The words (read, not yet run; the design is
+[FE1G_TACTICS.md](../design/FE1G_TACTICS.md)):
+
+| Word | Stack effect | Lean | Read as |
+| --- | --- | --- | --- |
+| `:= by` | `( -- )` | `:= by` | a tactic proof, up to `end NAME` |
+| `t by-exact` | `( t -- )` | `exact t` | close the goal with the term `t` |
+| `by-rfl` | `( -- )` | `rfl` | close the goal by computation |
+| `by-intro: NAME` | `( -- )` | `intro NAME` | introduce one hypothesis, `_` for one without a name |
+| `t by-induction` | `( t -- )` | `induction t` | induction on `t`, one goal per case |
+| `t by-induction-with` | `( t -- )` | `induction t with` | the same, its cases written up to `by-end` |
+| `\| TAG NAMES… =>` | `( -- )` | `\| tag names =>` | one case, up to the next `\|` or `by-end`; the names are its new hypotheses |
+| `by-case: TAG NAMES… =>` | `( -- )` | `case tag names =>` | a block for one case, up to its `by-end` |
+| `by-end` | `( -- )` | (Lean's indentation) | closes the innermost `by-induction-with` or `by-case:` |
+| `by-rw[ r1 … ]` | `( -- )` | `rw [r1, …]` | rewrite with each rule in order (none is allowed, as in Lean) |
+| `by-rewrite[ r1 … ]` | `( -- )` | `rewrite [r1, …]` | the same without closing by computation |
+
+The same proof by `case` and `exact` is `tests/front/01-zero-add.lf`
+(`by-case: succ k ih =>  ' Nat.succ ih congrArg by-exact  by-end`); one
+tactic alone, `tests/front/02-add-zero-rfl.lf` and
+`tests/front/03-zero-add-exact.lf`. Blocks nest (a `by-case:` inside a
+case, an induction inside an alternative) as deep as memory allows.
+
+**Mistakes in the shape** each stop at their word with a code (every code
+is in the [programming reference](../programming/LEANFORTH_WORDS.md#errors)):
+a tactic word outside a tactic proof, in the statement say (81); `end
+NAME` with a block still open, or a tactic word inside `by-rw[ ]` (82,
+with the block's place as the second place); `by-end`, `]` or `|` with no
+block of its kind (83: `|` belongs right inside `by-induction-with`); a
+header not of the form `TAG NAMES… =>` on one line, or a tag or name that
+is a LeanForth word (84); an alternative or `by-case:` block with no
+tactic (85: Lean's parser refuses it too); a word given the wrong number
+of values, or values left at a word that takes none or at `end NAME`
+(86). An empty proof (`:= by end NAME`) and a `by-induction-with` with no
+case are read: Lean parses both, and refuses them only when it runs them
+("unsolved goals", "alternative not provided"), which is FE1g-3 onward.
+
+**Not supported yet** (exit 2): Lean's `induction t with tac | …` (a
+tactic before the first `|`), the wildcard `| _ =>`, `| @tag …`, several
+tags `| a | b =>` and `by-case: _` (error 72; plan FE5); and, while
+tactics are only read, a hypothesis given more values than the word
+needs: how many values a hypothesis takes is known only once the tactic
+that introduces it runs (error 87). A hypothesis can be used until its
+block ends (a `by-intro:`'s until the end of the block it is in); one
+named like a variable hides the variable while it is in scope.
 
 ## How to read it
 
@@ -652,7 +753,9 @@ own words are unknown names too: `A dup` in a proof stops at `dup`.
   1,024 names in scope.
 - **Not supported yet** (each stops with a "not supported yet" error):
   string literals and natural-number literals above one cell, `let`/`have`,
-  holes `_`, tactic blocks `by`, `import`, and `_root_` in a declaration's
+  holes `_`, tactic blocks `by` in the kernel form (natural LeanForth
+  reads them, [tactic proofs](#tactic-proofs-read-not-yet-run), and does
+  not run them yet), `import`, and `_root_` in a declaration's
   name. Inductive types and structures are sketched in ADR 0017 only: a
   file uses them from a library export (`tests/author/08-monoid.lf` uses a
   class that Lean declared). `n lit#` is the literal n, `i proj# NAME` a

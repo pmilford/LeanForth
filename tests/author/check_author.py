@@ -854,7 +854,7 @@ def natural_cases():
         ("natural term proof", head + "  n Eq.refl\nend t\n", [], slice_, 2,
          "error 71 at line:col 6:1 (token `end`)"),
         ("natural tactic proof", head + "  by n by-induction\nend t\n", [], slice_, 2,
-         "error 72 at line:col 5:8 (token `by-induction`)"),
+         "error 80 at line:col 6:1 (token `end`)"),
         ("natural ' and $", head + "  ' Nat.succ n $\nend t\n", [], slice_, 2,
          "error 71 at line:col 6:1 (token `end`)"),
         ("natural kernel word", "theorem t Prop explicit: p p := p end t\n", [], None, 2,
