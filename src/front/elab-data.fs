@@ -39,8 +39,9 @@
 \ has one; plan row FE3 lifts it if one appears); full when the heap has
 \ no room or a line passes elab-line-limit bytes. A read that is not ok
 \ keeps nothing: every table is empty afterwards, as after elab-reset.
-\ elab-error gives the line (1 the header; after the last line, the
-\ number of lines read) and why.
+\ elab-error ( -- line c-addr u ) gives the line of the failure (1 the
+\ header; after the last line, the number of lines read; 0 before the
+\ file is open) and why: elab-error-line and elab-error-why apart.
 \
 \ The data kept, numbered from 0 in file order, its declarations the
 \ stage's declaration numbers: elab-count ( kind -- n );
@@ -144,8 +145,9 @@ end-structure
 : ed-bad ( why -- outcome ) outcome-invalid ed-fail ;
 : ed-malformed ( -- outcome ) c" malformed line" ed-bad ;
 : ed-roomed ( outcome -- outcome ) dup ok? 0= if c" no room" swap ed-fail then ;
-: elab-error ( -- line c-addr u )
-  elab elab-at @ elab elab-why @ ?dup if count else s" none" then ;
+: elab-error-line ( -- line ) elab elab-at @ ;
+: elab-error-why ( -- c-addr u ) elab elab-why @ ?dup if count else s" none" then ;
+: elab-error ( -- line c-addr u ) elab-error-line elab-error-why ;
 
 \ ---- Facts per declaration of the stage: bits 0-2 its reducibility
 \ status, bit 3 a default instance, from bit 4 its instance's number + 1.
