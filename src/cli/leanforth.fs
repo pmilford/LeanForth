@@ -906,8 +906,15 @@ variable cli-info#
 : cli-text-report ( -- )
   lfc-failed? if cli-text-error exit then lfc-refused? if cli-records-error exit then
   cli-fed-tally cli-fed-report ;
+\ --jobs N with a text: no worker can share the run's input (the words'
+\ run moved this context's stores on, see ck-workers-made), so the text
+\ is checked one declaration at a time, and a note says so first.
+: cli-serial-text ( -- c-addr )
+  c" --jobs does not apply to LeanForth text yet; checking one declaration at a time" ;
+: cli-text-jobs-note ( -- ) cli-jobs 1 > if cli-serial-text cli-note then ;
 : cli-text-lines ( -- )
-  cli-json? if exit then true cli-state run-noted ! ['] cli-stream ck-lines! ;
+  cli-json? if exit then cli-text-jobs-note true cli-state run-noted !
+  ['] cli-stream ck-lines! ;
 : cli-text-load ( -- outcome )
   cli-library-file lfc-env! 0 cli-file cli-checked? ck-lf-load ;
 : cli-text-loaded ( -- outcome )
@@ -1116,13 +1123,19 @@ variable cli-info#
   ."     declarations skipped, as Lean's replay skips them (5.2.7); several of" cr
   ."     these are merged but their review gates are open" cr
   ."     (docs/project/PROJECT_PROGRESS.md)" cr ;
+: cli-text-check. ( -- )
+  ."   check [--env EXPORT | --snapshot FILE] FILE.lf: a LeanForth text, its" cr
+  ."     declarations built by LeanForth's words and checked as an export's" cr
+  ."     (plan tasks 8.2.1c-d), one at a time (--jobs does not apply yet); not" cr
+  ."     with --json, --record or --save-snapshot" cr ;
 : cli-other-commands. ( -- )
   ."   check --record, replay: run records 0.3 and their replay (plan task 2.2.5)" cr
   ."   print: a readable proof outline of each accepted declaration, from the" cr
   ."     checker's derivation log (plan tasks 2.4.1, 2.4.4; untrusted presentation)" cr
   ."   count, reexport: exports of any size, up to all of Mathlib" cr ;
 : cli-checks. ( -- )
-  ." supported:" cr cli-check-input. cli-check-rules. cli-other-commands. ;
+  ." supported:" cr cli-check-input. cli-check-rules. cli-text-check.
+  cli-other-commands. ;
 : cli-lacks. ( -- )
   ." not yet supported (check answers unsupported or unknown, exit 2):" cr
   ."   a block with both safe and unsafe members (5.2.7 part b)," cr

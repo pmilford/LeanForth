@@ -198,8 +198,17 @@ before the check (no room for them, say), the error says "the records
 written for the LeanForth text were refused; the text was not checked",
 with the refusal's exit status. An axiom gets Lean's verdict and is labelled NOT
 PROVED, with what depends on it, as in an export. `--json`, `--record` and
-`--save-snapshot` do not go with a text yet, and `--jobs N` with a text
-checks one declaration at a time without saying so.
+`--save-snapshot` do not go with a text yet. `--jobs N` (N above 1) with a
+text checks one declaration at a time and says so before the verdicts (no
+worker can share the input a text's run leaves; `--resources` says "workers:
+none could be made"); the verdicts and the exit status are those of
+`--jobs 1`, and a text that stops before its check gets no such note:
+
+```console
+$ bin/leanforth check --jobs 2 --env tests/author/init-slice.ndjson tests/author/07-add-comm.lf | head -2
+note: --jobs does not apply to LeanForth text yet; checking one declaration at a time
+Nat: accepted; axioms: none
+```
 
 What runs: the file runs through Forth's own interpreter with only
 LeanForth's words visible ([ADR 0017 Amendment 1, A5](../adr/0017-leanforth-syntax.md#a5-sealed-text-what-must-be-shut-and-the-probes));
@@ -225,8 +234,7 @@ wrong word builds a different term, which the checker checks as it is.
   literals. The whole file is checked at its end; there is no prompt or
   inline use.
 - `--json`, `--record` and `--save-snapshot` do not go with a text, and
-  `--jobs` runs serially.
-- `bin/leanforth capabilities` does not list LeanForth text yet.
+  `--jobs` runs serially (with a note that says so).
 - The owner's gates [parser], [bypass] and [import] are open.
 
 ## Commands
@@ -1539,6 +1547,10 @@ supported:
     declarations skipped, as Lean's replay skips them (5.2.7); several of
     these are merged but their review gates are open
     (docs/project/PROJECT_PROGRESS.md)
+  check [--env EXPORT | --snapshot FILE] FILE.lf: a LeanForth text, its
+    declarations built by LeanForth's words and checked as an export's
+    (plan tasks 8.2.1c-d), one at a time (--jobs does not apply yet); not
+    with --json, --record or --save-snapshot
   check --record, replay: run records 0.3 and their replay (plan task 2.2.5)
   print: a readable proof outline of each accepted declaration, from the
     checker's derivation log (plan tasks 2.4.1, 2.4.4; untrusted presentation)

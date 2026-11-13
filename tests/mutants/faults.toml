@@ -1580,6 +1580,30 @@ test = "python3 tests/cli/test_leanforth.py OtherLean"
 reason = "check --any-lean-version on another Lean version's export prints no note that its verdicts are Lean 4.35.0's"
 
 [[fault]]
+id = "cli-text-jobs-note-missing"
+file = "src/cli/leanforth.fs"
+old = '''  cli-json? if exit then cli-text-jobs-note true cli-state run-noted !'''
+new = '''  cli-json? if exit then true cli-state run-noted !'''
+test = "python3 tests/cli/test_leanforth.py TextJobs"
+reason = "check --jobs N with a LeanForth text checks one declaration at a time without saying so (plan 8.2.1c's notes)"
+
+[[fault]]
+id = "cli-text-jobs-note-at-one"
+file = "src/cli/leanforth.fs"
+old = ''': cli-text-jobs-note ( -- ) cli-jobs 1 > if cli-serial-text cli-note then ;'''
+new = ''': cli-text-jobs-note ( -- ) cli-jobs 0 > if cli-serial-text cli-note then ;'''
+test = "python3 tests/cli/test_leanforth.py TextJobs"
+reason = "check --jobs 1 with a LeanForth text says --jobs does not apply, though one worker is what it asked for"
+
+[[fault]]
+id = "cli-capabilities-no-text"
+file = "src/cli/leanforth.fs"
+old = '''  ." supported:" cr cli-check-input. cli-check-rules. cli-text-check.'''
+new = '''  ." supported:" cr cli-check-input. cli-check-rules.'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "capabilities does not list checking a LeanForth text (check [--env EXPORT | --snapshot FILE] FILE.lf)"
+
+[[fault]]
 id = "ndjson-anonymous-name"
 file = "src/import/ndjson.fs"
 old = '''  tuck name-of 2dup anonymous? if 2drop bad-ref else rot drop then ;'''

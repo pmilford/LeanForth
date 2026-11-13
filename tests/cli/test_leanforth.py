@@ -192,6 +192,15 @@ MANIFEST_HINT = [
     "scripts/export.sh writes;",
     "note: --no-manifest skips that check",
 ]
+# What capabilities says of a LeanForth text (plan 8.2.1c's notes), under "supported".
+TEXT_CAPABILITY = (
+    "  check [--env EXPORT | --snapshot FILE] FILE.lf: a LeanForth text, its\n"
+    "    declarations built by LeanForth's words and checked as an export's\n"
+    "    (plan tasks 8.2.1c-d), one at a time (--jobs does not apply yet); not\n"
+    "    with --json, --record or --save-snapshot\n")
+# check --jobs N (N above 1) with a LeanForth text, before its verdicts.
+TEXT_JOBS_NOTE = ("note: --jobs does not apply to LeanForth text yet; checking one "
+                  "declaration at a time")
 
 
 def run(*args, cwd=ROOT, gforth=GFORTH, tool=TOOL):
@@ -988,6 +997,7 @@ class Behaviour(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertIn("  check --record, replay: 64 names, 64 levels, 64 term nodes,\n"
                       "    32 declarations per export\n", out)
+        self.assertIn(TEXT_CAPABILITY, out.split("not yet supported")[0])
         self.capabilities_match_facts(out)
         status, out, _ = run("help")
         self.assertEqual((status, run("--help")[1], run("-h")[1]), (0, out, out))
@@ -1920,6 +1930,92 @@ class Jobs(unittest.TestCase):
         status, out, _ = run("check", "--jobs", "2", "--record", "r.json", CHAIN)
         self.assertEqual((status, out.splitlines()[0]),
                          (4, "error: --jobs does not go with --record"))
+
+
+class TextJobs(unittest.TestCase):
+    """check --jobs N with a LeanForth text (plan 8.2.1c's notes): no worker
+    can share the input a text's run leaves, so the text is checked one
+    declaration at a time, and with N above 1 a note says so before the
+    verdicts (after the --no-manifest note); the verdicts, the rest of the
+    text and the exit status are --jobs 1's, for every outcome. --jobs 1 or
+    none prints no note; a text that stops before its check gets none; a
+    wrong N is still a mistake (4); capabilities and help name the text."""
+
+    LIBRARY = ["--env", "tests/author/init-slice.ndjson"]
+    TEXT = "tests/author/07-add-comm.lf"
+    WRONG_TEXT = "tests/author/wrong/07-add-comm.lf"
+
+    def noted(self, *args):
+        """The run with --jobs 2: its status, and its text without the note,
+        which must be its first line."""
+        status, out, err = run("check", "--jobs", "2", *args)
+        self.assertEqual((out.split("\n")[0], err), (TEXT_JOBS_NOTE, ""), args)
+        return status, out.split("\n", 1)[1]
+
+    def test_note_then_serial_verdicts(self):
+        """Accepted, rejected and out of fuel: the same as one at a time."""
+        for args, code in [(self.LIBRARY + [self.TEXT], 0), (self.LIBRARY + [self.WRONG_TEXT], 1),
+                           (["--fuel", "50"] + self.LIBRARY + [self.TEXT], 3)]:
+            serial = run("check", *args)[:2]
+            self.assertEqual(serial[0], code, args)
+            self.assertNotIn("--jobs", serial[1], args)
+            self.assertEqual(self.noted(*args), serial, args)
+            self.assertEqual(run("check", "--jobs", "64", *args)[:2],
+                             (code, TEXT_JOBS_NOTE + "\n" + serial[1]), args)
+
+    def test_no_note_without_workers(self):
+        for args in [[], ["--jobs", "1"]]:
+            status, out, _ = run("check", *args, *self.LIBRARY, self.TEXT)
+            self.assertEqual(status, 0, args)
+            self.assertNotIn("--jobs", out, args)
+
+    def test_note_order_and_resources(self):
+        """After the --no-manifest note; --resources says why (no workers)."""
+        status, out, _ = run("check", "--no-manifest", "--jobs", "2", "--resources",
+                             *self.LIBRARY, self.TEXT)
+        self.assertEqual(status, 0)
+        self.assertEqual(out.split("\n")[:2], [NO_MANIFEST, TEXT_JOBS_NOTE])
+        self.assertIn("\n  workers: none could be made (no heap, or this context's input "
+                      "differs\n    from a new one's): checked one at a time\n", out)
+
+    def test_snapshot_library(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            snapshot = str(Path(tmp) / "slice.lfsnap")
+            self.assertEqual(run("check", "--save-snapshot", snapshot,
+                                 "tests/author/init-slice.ndjson")[0], 0)
+            status, out = self.noted("--snapshot", snapshot, self.TEXT)
+            self.assertEqual(status, 0)
+            self.assertIn("60 declarations: 60 accepted; 59 from the snapshot, 1 checked in "
+                          "this run\n", out)
+
+    def test_stopped_text_has_no_note(self):
+        """A mistake (4), a form not supported (2): not checked, no note."""
+        with tempfile.TemporaryDirectory() as tmp:
+            unsupported = Path(tmp) / "let.lf"
+            unsupported.write_text("theorem t\n  Prop explicit: p  p\n:=\n  p let:\nend t\n",
+                                   encoding="utf-8")
+            for path, code in [("tests/author/10b-typo.lf", 4), (str(unsupported), 2)]:
+                status, out, _ = run("check", "--jobs", "2", path)
+                self.assertEqual(status, code, path)
+                self.assertIn("the LeanForth text was not checked", out)
+                self.assertNotIn("note:", out, path)
+
+    def test_4_mistakes(self):
+        for value in ["0", "x", "-1", ""]:
+            status, out, _ = run("check", "--jobs", value, *self.LIBRARY, self.TEXT)
+            self.assertEqual(status, 4, value)
+            self.assertIn("error: not a number of jobs", out)
+            self.assertNotIn(TEXT_JOBS_NOTE, out)
+        status, out, _ = run("check", "--jobs", "2", "--json", self.TEXT)
+        self.assertEqual(status, 4)
+        self.assertNotIn(TEXT_JOBS_NOTE, out)
+
+    def test_named_by_capabilities_and_help(self):
+        capabilities, helped = run("capabilities")[1], run("help")[1]
+        self.assertIn(TEXT_CAPABILITY, capabilities.split("not yet supported")[0])
+        self.assertEqual(capabilities.count("FILE.lf"), 1)
+        self.assertIn("  check [--env EXPORT | --snapshot FILE] [--fuel N] [--resources] "
+                      "[--jobs N]\n", helped)
 
 
 class MemoryPerCheck(unittest.TestCase):

@@ -265,6 +265,23 @@ T{ s" tests/cli/no-such.ndjson" s" tests/cli/no-such-copy.ndjson" cli-reexport -
 T{ composition s" tests/cli/no-such-folder/copy.ndjson" cli-reexport -> 4 }T
 T{ cli-version cli-capabilities cli-help -> 0 0 0 }T
 
+\ A LeanForth text with --jobs N (plan 8.2.1c's notes): the note that it is
+\ checked one declaration at a time for N above 1, none for 0 (no --jobs)
+\ or 1; capabilities names the text; the stack unchanged (Gforth 1.0,
+\ which captures output).
+[defined] >string-execute [if]
+: jobs-note ( n -- c-addr u ) cli-jobs! ['] cli-text-jobs-note >string-execute ;
+: note-text ( -- c-addr u )
+  s\" note: --jobs does not apply to LeanForth text yet; checking one declaration at a time\n" ;
+: names-text? ( -- flag )
+  ['] capabilities-command >string-execute rot drop s" FILE.lf: a LeanForth text" search
+  nip nip ;
+T{ 0 jobs-note nip 1 jobs-note nip -> 0 0 }T
+T{ 2 jobs-note note-text compare 64 jobs-note note-text compare -> 0 0 }T
+T{ names-text? -> true }T
+[then]
+cli-options
+
 \ The run record (--record): written after the run (here to /dev/null; the
 \ text stays in rr-text), with every declaration's verdict, the read and
 \ the run, and the code unchanged; one that cannot be saved is reported
