@@ -33,7 +33,9 @@
 \ that export's 32-byte SHA-256. The first line must be the header: this
 \ format and version, the pinned Lean, the export's SHA-256 equal to sha,
 \ the number of records of each kind and the SHA-256 of every later line
-\ with its line feed. Every later line is one record of a known kind with
+\ with its line feed, which must be the one elab-bind! named, if any
+\ (error 39: the export's manifest names other data). Every later line
+\ is one record of a known kind with
 \ exactly its members; every name in it (a JSON array of string and
 \ natural-number parts, root first) is the name of exactly one
 \ declaration of the stage, of the right kind: a class an inductive type;
@@ -215,6 +217,8 @@ begin-structure /elab
   sha-digest-bytes chars +field elab-digest
   sha-digest-bytes 2* chars +field elab-hex       \ a SHA-256 as text
   sha-digest-bytes 2* chars +field elab-records   \ the header's records_sha256
+  sha-digest-bytes 2* chars +field elab-bound     \ the records_sha256 elab-bind! named
+  field: elab-bound-length           \ its length: 0 when none is named
 end-structure
 /elab context-record: elab
 /ed-fact context-slab: elab-facts
@@ -251,6 +255,7 @@ end-structure
 30 constant ed-e-term   31 constant ed-e-rank   32 constant ed-e-gap
 33 constant ed-e-default-rank   34 constant ed-e-left-out   35 constant ed-e-matcher
 36 constant ed-e-projection   37 constant ed-e-unfit   38 constant ed-e-later
+39 constant ed-e-bound
 create ed-messages
   s" none" counted,
   s" file missing or unreadable" counted,
@@ -291,6 +296,7 @@ create ed-messages
   s" a projection named twice" counted,
   s" numbers that do not fit the declaration's type" counted,
   s" a record kind this reader does not read yet" counted,
+  s" other records than the export's manifest names" counted,
   0 0 counted,
 : ed-message ( code -- c-addr u ) ed-messages swap 0 ?do key-next loop count ;
 : ed-line ( -- n ) elab elab-reader reader-position nip nip ;
@@ -988,10 +994,17 @@ create ed-head-keys
   drop c" records" ed-member dup ed-kind-names ed-shape? 0= if drop ed-malformed exit then
   elab-kinds 0 do dup i ed-expect dup ok? 0= if nip unloop exit then drop loop
   drop outcome-ok ;
+\ M6 (S1 note): the records SHA-256 the export's manifest names, if any,
+\ must be the header's (the records are then checked against it).
+: ed-bound ( -- c-addr u ) elab elab-bound elab elab-bound-length @ ;
+: ed-bound-same? ( c-addr u -- flag )
+  ed-bound dup if compare 0= else 2drop 2drop true then ;
+: ed-records-keep ( c-addr u -- outcome )
+  2dup ed-bound-same? 0= if 2drop ed-e-bound ed-bad exit then
+  elab elab-records swap move outcome-ok ;
 : ed-head-hash ( value i -- outcome )
   drop c" records_sha256" ed-member ed-text 0= if ed-malformed exit then
-  2dup sha-digest-bytes 2* hex-text? 0= if 2drop ed-malformed exit then
-  elab elab-records swap move outcome-ok ;
+  2dup sha-digest-bytes 2* hex-text? 0= if 2drop ed-malformed exit then ed-records-keep ;
 : ed-module-item ( item -- outcome )
   ed-view json-kind@ json-string = if outcome-ok else ed-malformed then ;
 : ed-head-modules ( value i -- outcome )
@@ -1071,11 +1084,17 @@ create ed-head-steps
   elab elab-sha sha256-init dup stage-sealed? if ed-sealed exit then
   stage-decls ed-facts-made ['] ed-tables-ready ed-then ['] ed-views ed-then ;
 : ed-close ( outcome -- outcome )
+  0 elab elab-bound-length !
   elab elab-reader dup reader-close drop reader-free ed-view json-free
   false elab elab-reading ! dup ok? dup elab elab-loaded ! 0= if elab-reset then ;
 : ed-caught ( c-addr u -- outcome code )
   ['] ed-steps-all catch dup if nip nip outcome-invalid swap then ;
 : ed-busy ( c-addr u stage sha -- outcome ) 2drop 2drop ed-e-busy ed-bad ;
+\ Name the records SHA-256 (64 hexadecimal digits, as text) the next
+\ elab-read must find in the header, or 0 0 for none: the export
+\ manifest's elab_records_sha256 (manifest-elab-sha). Used by that read only.
+: elab-bind! ( c-addr u -- )
+  sha-digest-bytes 2* min dup elab elab-bound-length ! elab elab-bound swap move ;
 : elab-read ( c-addr u stage sha -- outcome )
   elab elab-reading @ if ed-busy exit then
   ed-start ok-then2? if true elab elab-reading ! ed-caught else 0 then

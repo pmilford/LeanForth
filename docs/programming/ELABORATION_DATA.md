@@ -283,7 +283,12 @@ EXPORT` or `--snapshot FILE`). After the library is read and before the
 text runs, `src/front/elab-data.fs` reads DATA. It checks DATA against the
 library's names and against the SHA-256 of its export: the manifest
 check's, the snapshot's, or, with `--no-manifest`, the file's, hashed
-then. The verdicts are those of the same run without `--elab-data`:
+then. When the export's manifest names the data's records SHA-256
+(`elab_records_sha256`, which `scripts/export-elab.sh` adds after writing
+the data: S1 note M6), DATA's header must have that `records_sha256`
+(error 39), so an edited or other data file is refused even when its own
+header was rewritten to match its records. With `--no-manifest` or a
+snapshot the binding is the header's export SHA-256 alone. The verdicts are those of the same run without `--elab-data`:
 nothing uses the data yet. A refusal stops the run before the text runs.
 It prints the line and the reason, and exits with the outcome's status (4
 invalid, 2 unsupported, 3 full). Here the test file
@@ -365,6 +370,7 @@ printed with its text (`at line 2 (error 12): unknown name`):
 | 36 | `a projection named twice` | invalid | two projection records of one declaration |
 | 37 | `numbers that do not fit the declaration's type` | invalid | a matcher's, projection's or class's numbers that its type, its constructor's or its universe parameters cannot have |
 | 38 | `a record kind this reader does not read yet` | unsupported | a `sunfold` record (plan row FE1d2) |
+| 39 | `other records than the export's manifest names` | invalid | the library's manifest has `elab_records_sha256` (M6) and the header's `records_sha256` differs |
 
 Misuse is refused before anything runs:
 
@@ -604,9 +610,10 @@ counts it, so the data needs no new format version):
   and each class's out-parameters are checked against their types only by
   plan row FE1e3; until then they rest on pinned Lean (above, "Trust").
 - Smart-unfolding bodies are designed (above), not written or read.
-- Only `--elab-data FILE`. Naming the data in the export's manifest (the
-  plan row's alternative) is not done, and a snapshot does not keep the
-  data; both are later steps.
+- Only `--elab-data FILE`. The export's manifest names the data's records
+  SHA-256 (M6) but not its file, so the data is not found from the
+  manifest alone, and a snapshot does not keep the data or the binding;
+  both are later steps.
 - Simp lemmas, structure fields and parents, equations, `protected` and
   `export` aliases, `NoConfusionInfo` and the matchers' overlap maps come
   with later rows (design §4.9).

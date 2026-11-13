@@ -2,7 +2,11 @@
 """Finish LeanForth's elaboration data (plan rows FE1d and FE1e1; ADR 0021 D10).
 
 Usage (from any folder):
-  python3 scripts/export_elab.py RAW EXPORT OUTPUT
+  python3 scripts/export_elab.py RAW EXPORT OUTPUT [--bind]
+
+With --bind (as scripts/export-elab.sh runs it) it then adds the member
+elab_records_sha256, the new data's records SHA-256, to EXPORT's manifest,
+so that `leanforth check` refuses other data for that export (S1 note M6).
 
 scripts/export-elab.sh runs this after scripts/export_elab.lean, with pinned
 Lean, has written RAW for the modules of the Lean export EXPORT (made by
@@ -376,11 +380,22 @@ def write(path, data):
     os.replace(partial, path)
 
 
+def bind(export, data):
+    """Name the data's records SHA-256 in the export's manifest (S1 note M6,
+    ADR 0021 D10): `leanforth check` then refuses any other data for it."""
+    path = Path(f"{export}.manifest.json")
+    record = json.loads(path.read_text())
+    record["elab_records_sha256"] = json.loads(data.split("\n", 1)[0])["elab_data"]["records_sha256"]
+    write(path, json.dumps(record, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("raw", type=Path)
     parser.add_argument("export", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--bind", action="store_true",
+                        help="also name the data's records SHA-256 in EXPORT's manifest")
     args = parser.parse_args(argv)
     try:
         data, left_out_counts = finish(args.raw, args.export)
@@ -388,6 +403,8 @@ def main(argv=None):
         print(f"export_elab.py: {error}", file=sys.stderr)
         return 1
     write(args.output, data)
+    if args.bind:
+        bind(args.export, data)
     counts = json.loads(data.split("\n", 1)[0])["elab_data"]["records"]
     print(f"{args.output}: " + ", ".join(f"{counts[k]} {k}" for k in KINDS)
           + "; left out (not declarations of the export): "

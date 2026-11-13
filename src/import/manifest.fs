@@ -16,7 +16,8 @@
 \ with export-read, so with the export's handlers, and checks it against
 \ its manifest: "<c-addr u>.manifest.json", or the file manifest-use
 \ named for this read. Before reading the export it checks the manifest
-\ whole: one JSON object with exactly the members of format version 1,
+\ whole: one JSON object with exactly the members of format version 1
+\ (and perhaps elab_records_sha256, kept for manifest-elab-sha),
 \ each of its type, and the exporter, export format and Lean versions
 \ equal to the pinned ones the reader requires (when the export reads
 \ any version, export-any-version!, only the export format). During the
@@ -54,6 +55,8 @@ begin-structure /manifest
   sha-digest-bytes chars +field manifest-digest   \ the export's digest
   sha-digest-bytes 2* chars +field manifest-hex   \ the same in hexadecimal
   manifest-name-room chars +field manifest-name   \ the default file name
+  sha-digest-bytes 2* chars +field manifest-elab   \ elab_records_sha256's text
+  field: manifest-elab-length        \ its length: 0 when the manifest names none
 end-structure
 
 \ Defining word: name ( -- m ), zeroed; manifest-init prepares it.
@@ -63,7 +66,7 @@ end-structure
 \ manifest-free releases it. A file manifest-use named stays named.
 : manifest-release ( m -- ) manifest-text heap-release ;
 : manifest-init ( export m -- outcome )
-  dup manifest-release tuck manifest-export !
+  dup manifest-release 0 over manifest-elab-length ! tuck manifest-export !
   manifest-depth-limit swap manifest-json json-init ;
 : manifest-free ( m -- ) dup manifest-release manifest-json json-free ;
 \ Name the manifest file for the next manifest-read only; the string must
@@ -202,9 +205,20 @@ kind-keys keys-size kind-count <>
   c" format_version" swap member-at natural-at if s" 1" compare 0= else false then ;
 : version-bad ( m -- outcome )
   c" format_version" c" unsupported manifest format version" rot manifest-bad ;
+\ The one optional member (S1 note, M6; ADR 0021 D10): the records_sha256
+\ of the elaboration data made for this export, which scripts/export-elab.sh
+\ adds; elab-read then refuses any other data (cli/check-lf.fs).
+: elab-key ( -- key ) c" elab_records_sha256" ;
+: root-has? ( key view -- flag ) 0 swap has-key? ;          \ of the object at token 0
+: root-all? ( table view -- flag ) 0 swap all-keys? ;
+: root-size? ( n view -- flag ) 0 swap members? ;
+: elab-named? ( m -- flag ) manifest-json elab-key swap root-has? ;
+: keys-wanted ( m -- n ) elab-named? negate manifest-keys keys-size + ;
+: known-keys? ( m -- flag ) manifest-json manifest-keys swap root-all? ;
+: sized? ( m -- flag ) dup keys-wanted swap manifest-json root-size? ;
+\ Exactly the members of format version 1, and the optional one.
 : keys-check ( m -- outcome )
-  dup manifest-json manifest-keys 0 rot exact-keys?
-  if drop outcome-ok else 0 swap manifest-broken then ;
+  dup known-keys? over sized? and if drop outcome-ok else 0 swap manifest-broken then ;
 \ The name and version first, so that another version is told as such.
 : format-check ( m -- outcome )
   dup 0 swap manifest-json object-size if drop else 0 swap manifest-broken exit then
@@ -218,13 +232,14 @@ kind-keys keys-size kind-count <>
   string-value if 40 hex-text? else false then ;
 : natural-member? ( key m -- flag ) member-at natural-at dup if nip nip then ;
 \ The records object: exactly the record kinds, each a natural number.
+: elab-digest? ( key m -- flag ) dup elab-named? if digest? else 2drop true then ;
 : records? ( key m -- flag )
   member-at kind-keys -rot 2dup 2>r exact-keys?
   if kind-keys 2r> naturals? else 2r> 2drop false then ;
 create type-checks
   ' digest? check, sha256          ' commit? check, mathlib_commit
   ' natural-member? check, bytes   ' natural-member? check, lines
-  ' records? check, records        0 ,
+  ' records? check, records        ' elab-digest? check, elab_records_sha256  0 ,
 : type-entry ( entry m -- outcome )
   over check-key swap 2dup 2>r rot @ execute 2r> rot
   if 2drop outcome-ok else manifest-broken then ;
@@ -253,9 +268,17 @@ create version-checks
   2dup loose? if swap check-key swap string-check exit then
   >r dup @ execute rot check-key r> pinned-check ;
 : versions-check ( m -- outcome ) version-checks swap ['] version-entry each-check ;
+\ Keep the optional member's text: the manifest's is released after the read.
+: elab-text ( m -- c-addr u ) elab-key swap member-at string-value 0= if 0 0 then ;
+: elab-place ( c-addr u m -- ) 2dup manifest-elab-length ! manifest-elab swap move ;
+: elab-keep ( m -- ) dup elab-text rot elab-place ;
+: checked-keep ( outcome m -- outcome ) over ok? if elab-keep else drop then ;
 : manifest-check ( m -- outcome )
   >r r@ format-check dup ok? if drop r@ types-check then
-  dup ok? if drop r@ versions-check then r> drop ;
+  dup ok? if drop r@ versions-check then r> checked-keep ;
+\ The records SHA-256 of the elaboration data the manifest names, as
+\ text, after an ok manifest-read; 0 0 when it names none.
+: manifest-elab-sha ( m -- c-addr u ) dup manifest-elab swap manifest-elab-length @ ;
 
 \ Hashing during the read: the export's tap gives each line to SHA-256,
 \ then its line feed, and counts both.

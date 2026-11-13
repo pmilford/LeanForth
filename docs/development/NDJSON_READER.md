@@ -478,6 +478,7 @@ object with exactly these members:
 | `records` | an object with one member per record kind, all present: `meta`, `name.str`, `name.num`, `level.succ`, `level.max`, `level.imax`, `level.param`, `expr.bvar`, `expr.sort`, `expr.const`, `expr.app`, `expr.lam`, `expr.forallE`, `expr.letE`, `expr.proj`, `expr.natVal`, `expr.strVal`, `expr.mdata`, `decl.axiom`, `decl.def`, `decl.thm`, `decl.opaque`, `decl.quot`, `decl.inductive`, and the elements of inductive blocks, `inductive.type`, `inductive.ctor`, `inductive.recursor` |
 | `exporter`, `exporter_version`, `export_format`, `lean_version`, `lean_githash` | as the export's metadata line states them |
 | `mathlib_commit` | the Mathlib commit exported (40 lowercase hexadecimal digits), or `null` |
+| `elab_records_sha256` | optional (S1 note M6): the `records_sha256` of the elaboration data made for this export (64 lowercase hexadecimal digits), added by `scripts/export-elab.sh`; `manifest-elab-sha ( m -- c-addr u )` gives it after the read (0 0 when absent), and `leanforth check --elab-data` refuses other data ([ELABORATION_DATA.md](../programming/ELABORATION_DATA.md), error 39) |
 
 Numbers are canonical decimal: no sign, no leading zero, no fraction or
 exponent. Each reference export has its manifest committed beside it
@@ -499,7 +500,7 @@ checks manifest-free  library export-free
 `manifest-read` only. `manifest-read` checks the manifest whole before it
 reads the export (so a malformed manifest fails at once, not after a
 two-minute read): one JSON object of at most 64 KiB, exactly the members
-above, each of its type, format version 1, and the five version members
+above (the optional one or not), each of its type, format version 1, and the five version members
 equal to the pinned ones. It then reads the export with `export-read`, so
 with the export's handlers, while the export's tap gives every line and
 its line feed to SHA-256 (`src/lib/sha256.fs`), once, as it is read and

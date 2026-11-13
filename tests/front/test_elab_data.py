@@ -289,7 +289,8 @@ ERRORS = ["file missing or unreadable", "no line, or a line without its line fee
           "two default instances of one class with one rank",
           "a left-out instance the library has", "a matcher named twice",
           "a projection named twice", "numbers that do not fit the declaration's type",
-          "a record kind this reader does not read yet"]
+          "a record kind this reader does not read yet",
+          "other records than the export's manifest names"]
 
 
 def refusal(line, reason):
@@ -716,6 +717,44 @@ def command_line(work):
           "files refused")
 
 
+def bound_cases(work):
+    """M6 (S1 note): export_elab.py --bind names the data's records SHA-256
+    in a copy of the slice's manifest; leanforth check then reads that data
+    and refuses other data (error 39) and a malformed member."""
+    copy = work / "bound.ndjson"
+    copy.write_bytes(SLICE.read_bytes())
+    manifest = work / "bound.ndjson.manifest.json"
+    plain = (ROOT / "tests/author/init-slice.ndjson.manifest.json").read_text()
+    manifest.write_text(plain)
+    raw = work / "bound-raw.ndjson"
+    raw.write_text("\n".join([RAW_HEAD, '{"class":{"name":["Add"],"out_level_params":[],"out_params":[]}}',
+                              raw_instance(["instAddNat"], ["Add"], [ADD, NAT], 0)]) + "\n")
+    out = work / "bound.elab.ndjson"
+    done = subprocess.run([sys.executable, str(ROOT / "scripts/export_elab.py"), str(raw), str(copy),
+                           str(out), "--bind"], capture_output=True, text=True, timeout=LIMIT)
+    records = json.loads(out.read_text().split("\n", 1)[0])["elab_data"]["records_sha256"]
+    bound = json.loads(manifest.read_text())
+    if (done.returncode != 0 or bound.pop("elab_records_sha256", None) != records
+            or bound != json.loads(plain)):
+        fail(f"finisher --bind: {done.returncode} {done.stderr} {manifest.read_text()[:200]}")
+    library = ("--env", str(copy))
+    code, said = check(out, library)
+    if code != 0:
+        fail(f"bound data refused: {code} {said}")
+    code, said = check(GOOD, library)
+    if code != 4 or refusal(1, "other records than") not in said:
+        fail(f"other data accepted for a bound export: {code} {said}")
+    manifest.write_text(manifest.read_text().replace(records, records[:-1] + "G"))
+    code, said = check(out, library)
+    if code != 4 or "manifest malformed" not in said:
+        fail(f"a malformed elab_records_sha256 accepted: {code} {said}")
+    code, said = check(GOOD, ("--no-manifest", "--env", str(copy)))
+    if code != 0:
+        fail(f"--no-manifest binds by the export's SHA-256 alone: {code} {said}")
+    print("binding (M6): --bind names the records; that data read, other data and a malformed "
+          "member refused")
+
+
 def schema_cases():
     validator = Validator(load_strict((ROOT / "schemas/elab-data-2.schema.json").read_text()))
     lines = GOOD.read_text().splitlines() + ELIMINATORS.read_text().splitlines()
@@ -757,6 +796,7 @@ def main():
         work = pathlib.Path(work)
         finisher_cases(work)
         command_line(work)
+        bound_cases(work)
     if failures:
         print(f"{len(failures)} failure(s)")
         return 1

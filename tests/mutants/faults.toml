@@ -15391,3 +15391,46 @@ old = '''  dup 0< if drop 2drop outcome-invalid no-result exit then'''
 new = ''''''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "s1-meta-a L4: a negative count runs ?do .. +loop through memory"
+
+# --- s1-synth: M6, the export's manifest binds the elaboration data (S1 note) ---
+
+[[fault]]
+id = "fe-m6-bound-ignored"
+file = "src/front/elab-data.fs"
+old = '''  ed-bound dup if compare 0= else 2drop 2drop true then ;'''
+new = '''  2drop true ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "M6: data other than the records the export's manifest names is read"
+
+[[fault]]
+id = "fe-m6-cli-unbound"
+file = "src/cli/check-lf.fs"
+old = '''  ck-stage stage-manifest manifest-elab-sha ;'''
+new = '''  0 0 ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "M6: leanforth check never passes the manifest's binding to the reader"
+
+[[fault]]
+id = "fe-m6-manifest-member-refused"
+file = "src/import/manifest.fs"
+old = ''': keys-wanted ( m -- n ) elab-named? negate manifest-keys keys-size + ;'''
+new = ''': keys-wanted ( m -- n ) drop manifest-keys keys-size ;'''
+test = "$GFORTH tests/core/manifest.fs"
+reason = "M6: a manifest that names its elaboration data is refused as malformed"
+
+[[fault]]
+id = "fe-m6-member-unchecked"
+file = "src/import/manifest.fs"
+old = ''': elab-digest? ( key m -- flag ) dup elab-named? if digest? else 2drop true then ;'''
+new = ''': elab-digest? ( key m -- flag ) 2drop true ;'''
+test = "$GFORTH tests/core/manifest.fs"
+reason = "M6: an elab_records_sha256 that is not 64 lowercase hexadecimal digits is accepted"
+
+[[fault]]
+id = "fe-m6-finisher-no-bind"
+file = "scripts/export_elab.py"
+old = '''    if args.bind:
+        bind(args.export, data)'''
+new = ''''''
+test = "python3 tests/front/test_elab_data.py"
+reason = "M6: scripts/export-elab.sh writes data the export's manifest does not name"
