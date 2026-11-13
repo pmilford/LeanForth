@@ -43,8 +43,8 @@
 \ store or slab has no room; exhausted. A failure gives -1 for the term.
 \ lf-whnf-stuck ( term -- mvar true outcome | false outcome ), Lean's
 \ getStuckMVar? for the same cases: the unassigned metavariable at the
-\ head, or a recursor's major premise that is one; unsupported where it
-\ would need whnf, a projection or a definition's facts.
+\ head, a recursor's major premise or a projection's structure that is
+\ one; unsupported where it would need whnf or a definition's facts.
 \ Untrusted: only the kernel's check of a finished term decides anything.
 \ State: the record wc (fuel, the recursor step's term, head, data and
 \ declaration) and the slabs wc-args, wc-margs, wc-levels and wc-frames,
@@ -197,8 +197,11 @@ end-structure
   dup wc-plain-fvar? over wc-plain-mvar? or over wc-binder? or swap wc-sort? or ;
 : wc-lit? ( term -- flag ) lf-term-tag@ lf-tag-lit = ;
 \ Nat.succ applied to one argument that whnf might fold (reduceNat?).
-: wc-succ? ( const -- flag ) wc-name lf-menv-nat-succ? wc-margs slab-count 1 = and ;
-: wc-foldable? ( const -- flag )
+: wc-const? ( term -- flag ) lf-term-tag@ lf-tag-constant = ;
+: wc-succ? ( head -- flag )
+  dup wc-const? if wc-name lf-menv-nat-succ? wc-margs slab-count 1 = and
+  else drop false then ;
+: wc-foldable? ( head -- flag )
   wc-succ? if 0 wc-margs wc-arg dup wc-inert? swap wc-lit? or 0= else false then ;
 
 \ The universe arguments of the recursor's constant, as levels.
@@ -283,7 +286,6 @@ end-structure
 \ further (a definition, an unknown constant, Nat.succ it folds, a
 \ literal, which toCtorIfLit turns into Nat's constructors) answers
 \ unsupported.
-: wc-const? ( term -- flag ) lf-term-tag@ lf-tag-constant = ;
 : wc-const-unfinal? ( rhead -- flag )
   dup wc-kind dup lf-kind-definition = swap 0= or swap wc-foldable? or ;
 : wc-unfinal? ( rhead -- flag ) dup wc-const? if wc-const-unfinal? else wc-lit? then ;
@@ -369,12 +371,18 @@ end-structure
 : ws-const ( e head -- mvar true outcome | false outcome )
   dup wc-decl 0= if 2drop false outcome-ok exit then
   dup wc-recursor? if rot drop ws-rec else nip ws-kind then ;
+\ A projection (Lean: getStuckMVar? of its structure's whnf): a structure
+\ whose head is a plain metavariable is stuck on it, as whnf leaves it;
+\ any other would need whnf first.
+: ws-proj ( proj -- mvar true outcome | false outcome )
+  lf-proj-struct wc-margs wc-spine ok-then? 0= if false swap exit then
+  dup wc-plain-mvar? if true outcome-ok else drop false outcome-unsupported then ;
 : ws-app ( e -- mvar true outcome | false outcome )
   dup wc-args wc-spine ok-then? 0= if nip false swap exit then
   dup lf-term-tag@ case
     lf-tag-mvar of nip ws-mvar endof  lf-tag-constant of ws-const endof
-    >r 2drop false outcome-ok r> endcase ;
+    lf-tag-projection of nip ws-proj endof  >r 2drop false outcome-ok r> endcase ;
 : lf-whnf-stuck ( term -- mvar true outcome | false outcome )
   dup lf-term-root? 0= if drop false outcome-invalid exit then
   dup lf-term-tag@ case lf-tag-mvar of ws-mvar endof  lf-tag-app of ws-app endof
-    lf-tag-projection of drop false ws-none? endof  >r drop true ws-none? r> endcase ;
+    lf-tag-projection of ws-proj endof  >r drop true ws-none? r> endcase ;

@@ -34,7 +34,7 @@ LIMIT = 300
 LEAN_FILE = ROOT / "tests/front/whnf-cases.lean"
 
 FVARS = "mzskxabpg"
-MVARS = {"?n": "n", "?h": "h", "?f": "f"}
+MVARS = {"?n": "n", "?h": "h", "?f": "f", "?q": "q"}
 
 
 def c(name, *levels):
@@ -145,6 +145,9 @@ CASES = [
     ("stuck", apps(ADD, "?n", "k"), "FE1d2 projection-function facts"),
     ("stuck", apps(ADD, "k", "k"), None),
     ("stuck", rec(apps(SUCC, "?n")), None),
+    ("stuck", (PROJ, 0, "?q"), None),
+    ("stuck", apps((PROJ, 0, "?q"), "k"), None),
+    ("stuck", rec((LAM, NAT, "#0")), None),
     ("stuck", apps("?f", "k"), "FE1c instantiateMVars with beta (FE1b's beta step)"),
 ]
 
@@ -242,6 +245,7 @@ LEAN_SETUP = """run_meta do
     let n ← mkFreshExprMVar nat (userName := `n)
     let h ← mkFreshExprMVar nat (userName := `h)
     let f ← mkFreshExprMVar nat (userName := `f)
+    let q ← mkFreshExprMVar nat (userName := `q)
     f.mvarId!.assign sfun
 """
 

@@ -44,6 +44,7 @@ run_meta do
     let n ← mkFreshExprMVar nat (userName := `n)
     let h ← mkFreshExprMVar nat (userName := `h)
     let f ← mkFreshExprMVar nat (userName := `f)
+    let q ← mkFreshExprMVar nat (userName := `q)
     f.mvarId!.assign sfun
     whnfCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) (mkApp (mkConst `Nat.succ []) k))
     whnfCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) (mkConst `Nat.zero []))
@@ -118,4 +119,7 @@ run_meta do
     stuckCase (mkApp (mkApp (mkConst `Nat.add []) n) k)
     stuckCase (mkApp (mkApp (mkConst `Nat.add []) k) k)
     stuckCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) (mkApp (mkConst `Nat.succ []) n))
+    stuckCase (mkProj `Prod 0 q)
+    stuckCase (mkApp (mkProj `Prod 0 q) k)
+    stuckCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) (mkLambda `y .default (mkConst `Nat []) (mkBVar 0)))
     stuckCase (mkApp f k)

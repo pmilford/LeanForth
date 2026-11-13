@@ -123,6 +123,19 @@ T{ prod-rec fa fb pair app fs fa app fb app whnf= -> true outcome-ok }T
 T{ unknown fk app lf-whnf-stuck succ fk app lf-whnf-stuck -> false outcome-ok false outcome-ok }T
 T{ quot fa app lf-whnf-stuck -> false outcome-unsupported }T
 T{ ?n succ swap app succ swap app recm lf-whnf-stuck -> false outcome-unsupported }T
+\ A projection of a metavariable, alone or applied, is stuck on it (review
+\ fe1c-2 M1); of anything else it would need whnf.
+T{ ?q 0 proj fk app lf-whnf-stuck ?q 0 proj lf-whnf-stuck -> ?q true outcome-ok ?q true outcome-ok }T
+T{ fa fb pair 0 proj fk app lf-whnf-stuck -> false outcome-unsupported }T
+\ A major premise whose head is no constant is never read as one (review
+\ M2): a lambda; a free variable whose number is Nat.succ's reference's.
+T{ nat 0 bv lam recm lf-whnf-stuck -> false outcome-ok }T
+variable want
+: fvar-at ( n -- fvar ) want ! begin nat lf-lctx-local made dup lf-term-first@ want @ < while
+  drop repeat ;
+succ lf-term-first@ fvar-at constant ftwin
+T{ ftwin lf-term-first@ succ lf-term-first@ = -> true }T
+T{ ftwin zero app recm lf-whnf-stuck -> false outcome-ok }T
 
 \ ---- Stale leaves: after the contexts are emptied, every metavariable
 \ and free variable made before is invalid.

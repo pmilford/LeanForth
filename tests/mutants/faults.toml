@@ -12191,3 +12191,19 @@ old = '''  if-head dup if-tag lf-tag-mvar = if drop outcome-unsupported exit the
 new = '''  drop outcome-unsupported exit'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: a domain whose type is no sort, where Lean throws type expected, answers unsupported instead of invalid"
+
+[[fault]]
+id = "fe-whnf-succ-name-unchecked"
+file = "src/front/whnf.fs"
+old = '''  dup wc-const? if wc-name lf-menv-nat-succ? wc-margs slab-count 1 = and'''
+new = '''  dup dup if wc-name lf-menv-nat-succ? wc-margs slab-count 1 = and'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review fe1c-2 M2: a major premise's head that is no constant is read as a constant reference (an unchecked store read; a free variable with Nat.succ's reference number answers unsupported)"
+
+[[fault]]
+id = "fe-whnf-stuck-proj-head"
+file = "src/front/whnf.fs"
+old = '''    lf-tag-projection of nip ws-proj endof  >r 2drop false outcome-ok r> endcase ;'''
+new = '''    >r 2drop false outcome-ok r> endcase ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review fe1c-2 M1: getStuckMVar? of a projection applied to arguments answers none, where Lean finds the structure's metavariable"

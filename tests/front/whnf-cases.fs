@@ -50,6 +50,7 @@ nat mv-natural lf-mvar-new made constant ?n  ?n char n named
 nat mv-natural lf-mvar-new made constant ?h  ?h char h named
 nat mv-natural lf-mvar-new made constant ?f  ?f char f named
 0 ?f sfun lf-mvar-assign made drop
+nat mv-natural lf-mvar-new made constant ?q  ?q char q named
 
 : case-name ( term -- c true | false )
   #names @ 0 ?do dup i 2* cells names + @ = if drop i 2* cells names + cell+ @ true unloop exit then
