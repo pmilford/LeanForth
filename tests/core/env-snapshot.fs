@@ -255,6 +255,14 @@ ck-release
 T{ snap-file -1 hs snap-open hs snap-why @ -> outcome-ok 0 }T  hs-done
 T{ snap-file 20000000 hs snap-open -> outcome-ok }T  hs-done
 T{ snap-file 5 hs snap-open s" fuel" why? -> outcome-invalid true }T  hs-done
+\ A base whose first number of a tier section (identity 21-28) is not 0
+\ claims a layer's place: unsupported, the first and the eighth alike
+\ (review FRK L1; fault frk-firsts-zero-short).
+: firsts-forged ( k -- outcome )
+  snap-file -1 hs snap-open drop 1 si-firsts rot + hs id! hs firsts-placed ;
+T{ 0 firsts-forged s" layer" why? -> outcome-unsupported true }T  hs-done
+T{ 7 firsts-forged s" layer" why? -> outcome-unsupported true }T  hs-done
+T{ snap-file -1 hs snap-open hs firsts-placed -> outcome-ok outcome-ok }T  hs-done
 T{ snap-file -1 hs-sha hs-firsts hs snap-layer-open s" base snapshot of the layer" why?
    -> outcome-invalid true }T  hs-done
 T{ s" /nonexistent/leanforth.lfsnap" -1 hs snap-open -> outcome-invalid }T  hs snap-free

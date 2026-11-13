@@ -789,6 +789,10 @@ T{ 20000 16 mem-sweep swap 16 > -> true true }T
 \ (1,680 bytes on a 64-bit host; before, 1,664 was accepted).
 T{ mem-first @ 1- mem-run mem-code @ mem-asked @
    -> outcome-full lf-diag-memory-limit mem-first @ }T
+\ That most is exact on a 64-bit host, which pins step 7's rollback of the
+\ scratch of steps 4-6 (fault cd-no-restart): without it composition's
+\ scratch holds 1,744 bytes at most (measured 2026-11-12, review FRK L2).
+1 cells 8 = [if] T{ mem-first @ -> 1680 }T [then]
 \ So with room for less than one record (fake readings), a term or level
 \ found shared is given, and a new one refused (before, the charge came
 \ first and refused both).

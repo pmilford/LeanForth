@@ -132,7 +132,7 @@ file = "src/kernel/check-declaration.fs"
 old = ''': lf-check-value ( -- outcome ) lf-check-restart ['] lf-check-infer-value ok-and ;'''
 new = ''': lf-check-value ( -- outcome ) outcome-ok ['] lf-check-infer-value ok-and ;'''
 test = "$GFORTH tests/core/check-declaration.fs"
-reason = "CD: step 7 keeps the scratch of steps 4-6 instead of rolling it back: case value-room's composition then fills the term store in step 7 (full, not accepted)"
+reason = "CD: step 7 keeps the scratch of steps 4-6 instead of rolling it back: composition's scratch then holds 1,744 bytes at most, not 1,680 (case memory-composition, 64-bit host; review FRK L2: the stores grow since plan task 6.2.0, so value-room no longer fills)"
 
 [[fault]]
 id = "cd-axioms-not-read"
@@ -11341,3 +11341,19 @@ old = '''  outcome-ok ['] keep-copy ok-with ['] keep-slots ok-with ['] keep-name
 new = '''  outcome-ok ['] keep-copy ok-with ['] keep-slots ok-with nip ;'''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "FRK A (imp-keep): S's newest declaration of each name is not kept, so a name query of the import finds none"
+
+[[fault]]
+id = "frk-firsts-zero-short"
+file = "src/kernel/env-snapshot.fs"
+old = '''  false si-firsts firsts# + si-firsts do over i swap id@ or loop nip 0= ;'''
+new = '''  false si-firsts firsts# 1- + si-firsts do over i swap id@ or loop nip 0= ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "FRK L1 (C5): a base whose eighth tier first (identity field 28) is not 0 loads as a base"
+
+[[fault]]
+id = "frk-lay-site0-lost"
+file = "src/kernel/env-layers.fs"
+old = '''  dup lay-base @ ss-sites swap snap-size swap lay-site0 ! ;'''
+new = '''  0 swap lay-site0 ! ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "FRK L1 (A, lay-merge): a layer's sites are numbered from 0, not after its base's, so its diagnostics name the base's sites"
