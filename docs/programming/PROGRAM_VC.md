@@ -99,6 +99,24 @@ the word's call depth, all inputs that fit and satisfy `pre`, and every
 stack below them, the word returns normally, keeps the cells below, and
 leaves an output that satisfies every case whose guard holds.
 
+The reader refuses, as malformed (since 2026-11-13, after the probe
+review of the B1 fix), each way a contract could say less than it seems
+to: a file holding any control character but a line feed and a tab, a
+carriage return not just before a line feed, or a format or separator
+character (lines are split at line feeds only, so no line can hide behind
+U+2028, a form feed or a lone carriage return); an `id`, `word`, `ir`,
+`stack`, `statement`, `inputs` or `expect` line given twice; an input named
+twice; no `case` at all (the postcondition would be `True`); and any name
+that is neither an input nor, in an `ensure` line, a result its own case
+names on its `out` line (a `pre` line and a guard read inputs only). A tab
+is allowed between words but not inside the `id`, `stack` or `statement`
+text. The generated Lean file sets `autoImplicit false`, so Lean never
+binds an unknown name by itself either.
+
+A refused contract writes nothing: `program_vc.py` exits 1 and leaves the
+files `--out` and `--summary` name as an earlier run left them, so read
+them only after exit status 0.
+
 ## What the generator does
 
 [`scripts/program_vc.py`](../../scripts/program_vc.py) executes the
@@ -128,6 +146,23 @@ text into Lean terms is checked too: Lean prints each generated program
 back in the text form and `make check` compares it with the IR file.
 `make check` also plants two faults that Lean must reject: a postcondition
 changed without its proofs, and the program's MAX and MIN exchanged.
+
+**No contract text enters the Lean file as code** (since 2026-11-13, after
+review B1 of the [verify design](../design/VERIFY_COMMAND.md)). Only the
+expression parser's output becomes Lean terms. The contract's `statement`
+is not copied into the file at all (it stays in the summary and the
+receipt): before, it was a doc comment, and a statement holding
+`` -/ macro_rules | `($a ≥ $b) => `($a ≤ $a) /-- `` ended the comment and
+redefined `≥`, so that pinned Lean proved a false clamp contract. Names
+and paths that still appear inside comments or string literals (the
+contract's id, word and path, its `ir` path, the IR's names and source
+path) are refused, as malformed, when they hold `-/` or `/-` (Lean's
+comment delimiters; its block comments nest), a quote or backslash where
+they sit inside a string, or a control, format or separator character
+(Unicode Cc, Cf, Cs, Zl, Zp); the statement and the stack effect are
+refused for the same characters. `tests/program/vc_check.py` runs the
+reviewer's contract and a hostile corpus, and checks that any other
+statement gives the same Lean file.
 
 ## Results (2026-11-02)
 

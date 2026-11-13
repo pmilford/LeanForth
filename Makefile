@@ -930,7 +930,11 @@ test: test-author
 # the Meta layer's level unification and instantiation, the hand-over of a
 # finished declaration to the kernel, the generated definitions, and
 # tactic proofs read (their records, golden, and every malformed shape,
-# also through leanforth check). Its modules load alone, printing nothing.
+# also through leanforth check) and run (FE1g-3: blocks, fuel, saved
+# states, by-sorry through the kernel, with stand-in statements until
+# FE1e; its output is long, so only its tail on a failure), and the first
+# tactics (FE1g-4: by-intro:, by-exact, by-rfl, through the kernel too). Its modules
+# load alone, printing nothing.
 test-front:
 	@for m in src/front/syntax.fs src/front/dag-walk.fs src/front/reader.fs src/front/mvars.fs \
 	  src/front/handover.fs src/core/mvar-leaves.fs src/core/reach.fs \
@@ -942,7 +946,8 @@ test-front:
 	  src/front/infer.fs src/front/tactic-syntax.fs \
 	  src/front/lctx-views.fs src/front/goals.fs src/front/goal-print.fs \
 	  src/front/term-eqv.fs src/front/prop-quick.fs \
-	  src/front/assign-check.fs src/front/nat-offset.fs src/front/fun-info.fs src/front/defeq.fs; do \
+	  src/front/assign-check.fs src/front/nat-offset.fs src/front/fun-info.fs src/front/defeq.fs \
+	  src/front/tactic-run.fs src/front/tactic-basic.fs; do \
 	  out=$$($(RUN) $(GFORTH) $$m -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
 	  if [ -n "$$out" ]; then printf '%s printed while loading:\n%s\n' "$$m" "$$out" >&2; exit 1; fi; \
 	done
@@ -958,6 +963,10 @@ test-front:
 	$(RUN) $(GFORTH) tests/front/defeq.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_defeq.py --golden
 	$(RUN) $(GFORTH) tests/front/tactic-syntax.fs
+	@out=$$($(RUN) $(GFORTH) tests/front/tactic-run.fs 2>&1) || \
+	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "tactic-run.fs: all tests passed"
+	@out=$$($(RUN) $(GFORTH) tests/front/tactic-basic.fs 2>&1) || \
+	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "tactic-basic.fs: all tests passed"
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_tactics.py
 	$(RUN) $(GFORTH) tests/front/goals.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_goals.py

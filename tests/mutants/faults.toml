@@ -10597,10 +10597,10 @@ reason = "FE1c: a rebuilt binder loses its name and kind, so the term differs fr
 [[fault]]
 id = "fe-inst-loose-value"
 file = "src/front/instantiate.fs"
-old = ''': in-closed-ok ( range -- outcome ) 0= if outcome-ok else outcome-unsupported then ;'''
-new = ''': in-closed-ok ( range -- outcome ) drop outcome-ok ;'''
+old = '''  0> in-state in-lifts @ and if outcome-unsupported in-fail then ;'''
+new = '''  drop ;'''
 test = "$GFORTH tests/front/meta.fs"
-reason = "FE1c: a value with a loose bound variable is put in unlifted, a term Lean never makes"
+reason = "FE1c (narrowed by FE1g-4, which puts such a value in where no binder lies around it): a value with loose bound variables is put in under a binder without the lifting Lean does, so it is captured"
 
 [[fault]]
 id = "fe-beta-counts-result"
@@ -14760,6 +14760,158 @@ test = "$GFORTH tests/front/goals.fs"
 reason = "FE1g-1 review L1: mvars.fs reads its numbers (16, 31) in the BASE it is loaded with"
 
 [[fault]]
+id = "fe-run-unsolved-ignored"
+file = "src/front/tactic-run.fs"
+old = ''': lf-tac-done ( i -- ) lfr-unsolved run-count if lfr-unsolved-at else drop then ;'''
+new = ''': lf-tac-done ( i -- ) lfr-unsolved 2drop ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3: a block (or the proof) ends with goals left and no unsolved-goals error, so an open goal reaches the hand-over"
+
+[[fault]]
+id = "fe-run-fuel-free"
+file = "src/front/tactic-run.fs"
+old = '''  lf-tactic-fuel-left dup 0> if 1- trun trun-fuel ! true else drop false then ;'''
+new = '''  true ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3: a step spends no fuel, so a run never ends exhausted"
+
+[[fault]]
+id = "fe-run-sorry-level-zero"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-level ( type -- level ) lf-get-level lfr-meta-must ;'''
+new = ''': lfr-level ( type -- level ) drop 0 ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3: by-sorry's sorryAx gets level 0 whatever the goal's sort (Lean's getLevel skipped): wrong for a goal in Type"
+
+[[fault]]
+id = "fe-run-restore-keeps"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-trail-undo ( mark -- outcome ) lf-mctx-rollback ;'''
+new = ''': lfr-trail-undo ( mark -- outcome ) lf-mctx-commit ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3: a failed attempt keeps its assignments, tags and kinds (Lean's restore skipped)"
+
+[[fault]]
+id = "fe-run-unfocus-drops-rest"
+file = "src/front/tactic-run.fs"
+old = ''': lf-tac-unfocus ( rest -- ) lfr-unsolved swap run-cat lfr-must lfr-goals! ;'''
+new = ''': lf-tac-unfocus ( rest -- ) drop lfr-unsolved lfr-goals! ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3: Lean's focus loses the goals after the main one when the block ends"
+
+[[fault]]
+id = "fe-run-no-abstract"
+file = "src/front/tactic-run.fs"
+old = '''  >r lf-instantiate-mvars lfr-close-must lfr-n lfr-abstract r> lfr-wraps ;'''
+new = '''  >r lf-instantiate-mvars lfr-close-must r> lfr-wraps ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3: mkLambdaFVars without the abstraction: the binders' free variables stay free in the value and the type"
+
+[[fault]]
+id = "fe-run-nested-as-children"
+file = "src/front/tactic-run.fs"
+old = '''  begin 2dup lfr-inside? while 2dup lfr-parent = if exit then 1+ repeat ;'''
+new = '''  begin 2dup lfr-inside? while exit repeat ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3: a block runs the steps nested in its blocks as its own, so they run twice and outside their focus"
+
+[[fault]]
+id = "fe-run-record-unchecked"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-checked ( -- ) lfr-record-ok? 0= if lfa-e-tac-record lfa-fail then ;'''
+new = ''': lfr-checked ( -- ) ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3: a malformed tactic record (a kind out of range, a parent after its step) runs unchecked"
+
+[[fault]]
+id = "fe-run-sorry-no-part"
+file = "src/front/tactic-run.fs"
+old = '''  drop lf-tac-main dup lfr-sorry-of over lfr-open-part 0 lf-replace-main lfr-must'''
+new = '''  drop lf-tac-main dup lfr-sorry-of 0 lf-replace-main lfr-must'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3: by-sorry closes a goal without recording the open part, so the report misses it (ADR 0021 Amendment 1)"
+
+[[fault]]
+id = "fe-run-parts-kept"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-run-fresh ( -- ) lfr-run-fresh-before execute lfr-parts-reset ;'''
+new = ''': lfr-run-fresh ( -- ) lfr-run-fresh-before execute ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3: a new run reports the open parts of the run before it"
+
+[[fault]]
+id = "fe-run-plan-unprinted"
+file = "src/author/errors.fs"
+old = '''    lfa-e-tac-run of lfa-.plan endof endcase ;'''
+new = '''    endcase ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3: error 80 no longer says which plan step ports the tactic"
+
+[[fault]]
+id = "fe-run-detail-unprinted"
+file = "src/author/errors.fs"
+old = '''  ." : " lf-author-code lf-author-message type lfa-.number lfa-.see lfa-.detail ;'''
+new = '''  ." : " lf-author-code lf-author-message type lfa-.number lfa-.see ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3: a tactic error is printed without the goals Lean prints under it"
+
+[[fault]]
+id = "fe-close-xs-newest-first"
+file = "src/front/tactic-run.fs"
+old = '''  lf-mctx-view dup lf-view-count 0 ?do dup i lfr-binder+ loop drop ;'''
+new = '''  lf-mctx-view dup lf-view-count 0 ?do dup dup lf-view-count 1- i - lfr-binder+ loop drop ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "FE1g-3 review fe1g3 M1 (F1): the binders closed newest first, so (p q : Prop) : p becomes forall (q p : Prop), p and the run is ok"
+
+[[fault]]
+id = "fe-run-meta-fuel-unsupported"
+file = "src/front/tactic-run.fs"
+old = '''  case outcome-full of lfa-e-terms-full endof outcome-exhausted of lfa-e-tac-fuel endof'''
+new = '''  case outcome-full of lfa-e-terms-full endof'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "FE1g-3 review fe1g3 L5 (F9): a Meta step out of fuel (isDefEq, whnfCore) is reported not supported yet (93) instead of exhausted (91)"
+
+[[fault]]
+id = "fe-run-chain-unchecked"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-on-chain? ( i p -- flag ) swap 1- lfr-ancestor? ;'''
+new = ''': lfr-on-chain? ( i p -- flag ) 2drop true ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3 review fe1g3 L1: a step whose parent is a block already closed passes the record check and is skipped without error 92"
+
+[[fault]]
+id = "fe-run-row-unchecked"
+file = "src/front/tactic-run.fs"
+old = '''  dup lfr-kind? 0= abort" tactic-run: no such tactic kind" 1- lfr-row-size * lfr-rows + ;'''
+new = '''  1- lfr-row-size * lfr-rows + ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3 review fe1g3 L2: lf-tactic-action! with kind 0 or 12 writes outside the table of rows"
+
+[[fault]]
+id = "fe-run-sorry-part-first"
+file = "src/front/tactic-run.fs"
+old = '''  drop lf-tac-main dup lfr-sorry-of over lfr-open-part 0 lf-replace-main lfr-must'''
+new = '''  drop lf-tac-main dup lfr-open-part dup lfr-sorry-of 0 lf-replace-main lfr-must'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3 review fe1g3 L8: by-sorry records its open part before the term, so a run that fails making it (93) still reports an open part"
+
+[[fault]]
+id = "fe-run-printer-kept"
+file = "src/front/tactic-run.fs"
+old = '''  lf-print-settings 2>r lf-print-unicode lf-print-setup catch 2r> lf-print-setup throw ;'''
+new = '''  lf-print-settings 2>r lf-print-unicode lf-print-setup execute 2r> lf-print-setup ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3 review fe1g3 L10: a printing that throws leaves the term printer writing into the error's detail"
+
+[[fault]]
+id = "fe-run-text-cut-ignored"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-cut? ( outcome -- outcome' ) trun trun-cut @ if drop outcome-full then ;'''
+new = ''': lfr-cut? ( outcome -- outcome' ) ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3 review fe1g3 L6 (F3): an open part whose text found no room is kept cut and the run goes on as if it were whole"
+
+[[fault]]
 id = "pool-wait-reads-zero"
 file = "src/lib/task.fs"
 old = ''': wait-refused? ( job -- flag ) 0= lf-owner @ 0<> or ;'''
@@ -14823,3 +14975,205 @@ old = '''  cli-lacked. cli-sched. ;'''
 new = '''  cli-sched. ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "POOL: --resources does not say that the system refused worker tasks"
+
+[[fault]]
+id = "fe-intro-no-delay"
+file = "src/front/tactic-basic.fs"
+old = '''  lfb-hyp lfb-view lfb-body swap lfb-new lfb-aux dup lfb-delayed lfb-value lfb-assigned'''
+new = '''  lfb-hyp lfb-view lfb-body swap lfb-new tb tb-new @ ['] lf-term-lam lfb-over lfb-assigned'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "FE1g-4 (design 8.3): intro assigns fun h => ?new without the delayed assignment, so h stays free in the value"
+
+[[fault]]
+id = "fe-intro-name-accessible"
+file = "src/front/tactic-basic.fs"
+old = '''  ?dup if nip 0 exit then lfb-own lf-local-inaccessible ;'''
+new = '''  ?dup if nip 0 exit then lfb-own 0 ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "FE1g-4: intro _ makes an accessible hypothesis where Lean's is hygienic (printed a✝)"
+
+[[fault]]
+id = "fe-rfl-no-defeq"
+file = "src/front/tactic-basic.fs"
+old = '''  tb tb-term @ tb tb-type @ lf-tac-defeq lf-tac-must'''
+new = '''  true'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "FE1g-4 (design 8.3): rfl closes p = q with Eq.refl without isDefEq"
+
+[[fault]]
+id = "fe-rfl-non-eq"
+file = "src/front/tactic-basic.fs"
+old = ''': lfb-eq? ( t -- flag ) lfb-spine 3 = swap lfb-eq-head? and ;'''
+new = ''': lfb-eq? ( t -- flag ) lfb-spine 3 = nip ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "FE1g-4 (design 8.3): the Eq head check dropped, so Ne p q reaches eq_refl and fails as invalid where Lean's apply_rfl would look for @[refl] lemmas"
+
+[[fault]]
+id = "fe-exact-mismatch-kept"
+file = "src/front/tactic-basic.fs"
+old = '''  0= if ['] lfb-mismatch. lfa-e-tac-mismatch lfb-failed then ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "FE1g-4: exact assigns a term whose type is not the goal's"
+
+[[fault]]
+id = "fe-exact-new-holes-ignored"
+file = "src/front/tactic-basic.fs"
+old = '''  dup ['] lfb-new? lfb-holds? if lfa-e-tac-unassigned lf-tac-fail then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "FE1g-4: a metavariable exact's term made and left unassigned is not reported as Lean's don't know how to synthesize"
+
+[[fault]]
+id = "fe-exact-scope-ignored"
+file = "src/front/tactic-basic.fs"
+old = ''': lfb-in-scope ( e -- e ) dup ['] lfb-outside? lfb-holds? if lfb-unassignable then ;'''
+new = ''': lfb-in-scope ( e -- e ) ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "FE1g-4: exact assigns a term with a free variable outside the goal's context (Lean's checkAssignment refuses it)"
+
+[[fault]]
+id = "fe-exact-sorts-ignored"
+file = "src/front/tactic-basic.fs"
+old = ''': lfb-types. ( -- outcome ) lfb-sorted? if lfb-sorted. else lfb-plain. then ;'''
+new = ''': lfb-types. ( -- outcome ) lfb-plain. ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "FE1g-4: the type mismatch text leaves out the sorts Lean names when the two types' types differ"
+
+[[fault]]
+id = "fe-rfl-refl-rhs"
+file = "src/front/tactic-basic.fs"
+old = '''  tb tb-term @ lf-tac-app ;'''
+new = '''  tb tb-type @ lf-tac-app ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "FE1g-4 review fe1g3 L3 (F2): rfl's Eq.refl takes the right side where Lean's MVarId.refl takes the left (Refl.lean:39); the kernel accepts both"
+
+[[fault]]
+id = "fe-intro-domain-unreduced"
+file = "src/front/tactic-basic.fs"
+old = ''': lfb-dom ( -- ) tb tb-pi @ lf-term-first@ lf-meta-head-beta lf-tac-must tb tb-dom ! ;'''
+new = ''': lfb-dom ( -- ) tb tb-pi @ lf-term-first@ tb tb-dom ! ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "FE1g-4 review fe1g3 L4 (F13): intro's hypothesis keeps the domain's beta redex where Lean's introNCore head-beta reduces it"
+
+[[fault]]
+id = "fe-intro-body-unreduced"
+file = "src/front/tactic-basic.fs"
+old = '''  tb tb-pi @ lf-term-second@ tb tb-x @ lf-meta-instantiate1 lf-tac-must
+  lf-meta-head-beta lf-tac-must ;'''
+new = '''  tb tb-pi @ lf-term-second@ tb tb-x @ lf-meta-instantiate1 lf-tac-must ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "FE1g-4 review fe1g3 L4 (F14): intro's new goal keeps the body's beta redex where Lean's introNCore head-beta reduces it"
+
+[[fault]]
+id = "fe-step-view-kept"
+file = "src/front/tactic-basic.fs"
+old = '''  lf-mctx-view >r lf-tac-main lfb-start catch r> lf-mctx-view! throw ;'''
+new = '''  lf-mctx-view >r lf-tac-main lfb-start execute r> lf-mctx-view! ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "FE1g-4 review fe1g3 L10: a step that fails leaves its goal's context current"
+
+[[fault]]
+id = "fe-print-notation-kept"
+file = "src/front/tactic-basic.fs"
+old = '''  lf-print-notation? >r ['] lfb-noting catch r> lf-print-notation! throw ;'''
+new = '''  lf-print-notation? >r lfb-noting r> lf-print-notation! ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "FE1g-4 review fe1g3 L10: a message's printing that throws leaves the printer's notation flag on"
+
+[[fault]]
+id = "fe-tac-defeq-settings-kept"
+file = "src/front/tactic-basic.fs"
+old = '''  lf-defeq-flags lf-defeq-mode 2>r ['] lfb-elab-defeq catch 2r> lfb-defeq-set! throw ;'''
+new = '''  lfb-elab-defeq ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "FE1g-4 review fe1g3 L10: the tactics' isDefEq leaves defeq's configuration and mode set to the elaborator's"
+
+# --- Contract text kept out of the generated Lean file (review B1 of the verify
+# design, 2026-11-13; scripts/program_vc.py) ---------------------------------
+
+[[fault]]
+id = "vc-comment-delimiters-allowed"
+file = "scripts/program_vc.py"
+old = '''    bad = [d for d in ("-/", "/-") + (('"', "\\") if quoted else ()) if d in text]'''
+new = '''    bad = [d for d in (('"', "\\") if quoted else ()) if d in text]'''
+test = "python3 tests/program/vc_check.py"
+reason = "B1: a contract text holding -/ is accepted, so a statement, id or path can end a Lean comment and inject code (the reviewer's false clamp contract)"
+quick = true
+
+[[fault]]
+id = "vc-hidden-characters-allowed"
+file = "scripts/program_vc.py"
+old = '''    hidden = [f"U+{ord(ch):04X}" for ch in text if unicodedata.category(ch) in HIDDEN]'''
+new = '''    hidden = [f"U+{ord(ch):04X}" for ch in text if False]'''
+test = "python3 tests/program/vc_check.py"
+reason = "B1: control and format characters (a right-to-left override, a zero-width space) pass into names, paths and statements, where they can hide what a text says"
+
+[[fault]]
+id = "vc-word-quote-allowed"
+file = "scripts/program_vc.py"
+old = '''    checked_text(contract["word"], f"{path}: the word line", quoted=True)'''
+new = '''    checked_text(contract["word"], f"{path}: the word line", quoted=False)'''
+test = "python3 tests/program/vc_check.py"
+reason = "B1: a word name with a quote or backslash reaches a Lean string literal (callWord ... \"WORD\") and can end it"
+equivalent = "the contract's word must also be a name of the IR, and the IR's names are refused with a quote or backslash (vc_check.py's IR cases), so the contract is refused either way; the check on the word line is kept as a second guard"
+
+[[fault]]
+id = "vc-statement-copied"
+file = "scripts/program_vc.py"
+old = '''        out += ["/-- The postcondition: each case's guard implies its output and its ensures "'''
+new = '''        out += [f"/-- {self.contract['statement']} -/", "/-- The postcondition: each case's guard implies its output and its ensures "'''
+test = "python3 tests/program/vc_check.py"
+reason = "B1: the contract's statement is copied into the generated Lean file again, as before the review"
+
+# The probe review of the B1 hotfix (2026-11-13): false contracts the reader let
+# through (scripts/program_vc.py).
+
+[[fault]]
+id = "vc-lines-split-anywhere"
+file = "scripts/program_vc.py"
+old = '''    for number, raw in enumerate(contract_lines(text, path), 1):'''
+new = '''    for number, raw in enumerate(text.splitlines(), 1):'''
+test = "python3 tests/program/vc_check.py"
+reason = "H1: the contract is split where splitlines splits (U+2028, NEL, VT, FF, a lone CR, ...), so a line no viewer shows, such as pre value < value, makes a false contract vacuously true"
+quick = true
+
+[[fault]]
+id = "vc-contract-read-as-text"
+file = "scripts/program_vc.py"
+old = '''    return Path(path).read_bytes().decode("utf-8")'''
+new = '''    return Path(path).read_text(encoding="utf-8")'''
+test = "python3 tests/program/vc_check.py"
+reason = "H1: the contract file is read in text mode, which turns a lone CR into a line break before the reader can refuse it"
+
+[[fault]]
+id = "vc-input-twice-allowed"
+file = "scripts/program_vc.py"
+old = '''    if len(set(contract["inputs"])) != len(contract["inputs"]):   # review M1: one would'''
+new = '''    if False:   # review M1: one would'''
+test = "python3 tests/program/vc_check.py"
+reason = "M1: an input named twice shadows the other and narrows the contract theorem, so a false contract (r = upper) is discharged"
+
+[[fault]]
+id = "vc-unbound-names-allowed"
+file = "scripts/program_vc.py"
+old = '''    unbound = contract_scope_problems(contract)'''
+new = '''    unbound = []'''
+test = "python3 tests/program/vc_check.py"
+reason = "M2: a name no input or result binds reaches Lean, where default reads as 0 and other names were auto-bound, so false contracts are discharged"
+
+[[fault]]
+id = "vc-auto-implicit"
+file = "scripts/program_vc.py"
+old = '''set_option autoImplicit false'''
+new = '''set_option autoImplicit true'''
+test = "python3 tests/program/vc_check.py"
+reason = "M2: the generated file lets Lean bind an unknown name as an implicit argument again"
+
+[[fault]]
+id = "vc-no-case-allowed"
+file = "scripts/program_vc.py"
+old = '''    if not contract["cases"]:   # review M3: post would be True'''
+new = '''    if False:   # review M3: post would be True'''
+test = "python3 tests/program/vc_check.py"
+reason = "M3: a contract with no case gives post := True and is discharged for any word"

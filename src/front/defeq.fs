@@ -138,6 +138,8 @@ end-structure
 : lf-defeq-flags! ( flags -- ) df df-flags ! ;
 : lf-defeq-mode! ( mode -- ) df df-mode0 ! ;
 : lf-defeq-fuel! ( n -- ) df df-limit ! ;
+: lf-defeq-flags ( -- flags ) df df-flags @ ;
+: lf-defeq-mode ( -- mode ) df df-mode0 @ ;
 
 \ ---- Registers.
 : de-t ( -- t ) df df-t @ ;   : de-s ( -- s ) df df-s @ ;

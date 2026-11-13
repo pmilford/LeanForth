@@ -104,7 +104,7 @@
   "words": 31
  },
  "src/author/words.fs": {
-  "globals": 60,
+  "globals": 61,
   "long lines": 1,
   "long words": 0,
   "rstack": 12,
@@ -462,6 +462,14 @@
   "rstack": 4,
   "shuffles": 0,
   "words": 19
+ },
+ "src/front/tactic-run.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 23,
+  "shuffles": 3,
+  "words": 130
  },
  "src/import/checker-input.fs": {
   "globals": 5,

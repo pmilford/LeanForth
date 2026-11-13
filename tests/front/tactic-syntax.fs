@@ -1,6 +1,9 @@
 \ Unit tests of tactic proofs read (plan FE1g-2; src/front/tactic-syntax.fs,
 \ design docs/design/FE1G_TACTICS.md section 3): the records of well-formed
-\ proofs, which always end not supported yet (error 80, never accepted);
+\ proofs, which are handed to the runner (src/front/tactic-run.fs, whose
+\ tests are tests/front/tactic-run.fs) and, with no statement elaborator
+\ until plan FE1e, end not supported yet (error 71, never accepted), or
+\ without the runner error 80;
 \ every malformed shape with its code, line and column; the forms not
 \ supported yet; hypotheses' scope and shadowing; tactic words in the
 \ kernel form; the stores out of room and the heap refusing; nesting
@@ -35,20 +38,25 @@ create text 32768 allot  variable text#
 : proof ( c-addr u -- c-addr' u' )
   text0 s" theorem t Nat explicit: n 0 n + n = := by " text+ text+ text$ ;
 
-\ ---- 1. Pass: well-formed proofs are read whole and end not supported
-\ yet at end (80), with by as the second place; never ok.
-T{ s" n by-induction end t" proof nfails see-at -> 80 1 58 1 40 }T
+\ ---- 1. Pass: well-formed proofs are read whole and go to the runner,
+\ which stops at end until plan FE1e elaborates the statement (71); never
+\ ok. Without the runner (the hook's own default), end stops with 80 and
+\ by as the second place.
+T{ s" n by-induction end t" proof nfails -> 71 1 58 }T
 T{ outcome -> outcome-unsupported }T
-T{ s" by-rfl end t" proof nfails -> 80 1 50 }T
+T{ ' lft-unrun is lf-tactic-proof-end s" n by-induction end t" proof nfails see-at
+   -> 80 1 58 1 40 }T
+T{ outcome ' lfr-proof-end is lf-tactic-proof-end -> outcome-unsupported }T
+T{ s" by-rfl end t" proof nfails -> 71 1 50 }T
 \ An empty proof and a by-induction-with with no alternative: Lean parses
 \ both (and refuses them when it runs them: unsolved goals, an
 \ alternative not provided), so they are read.
-T{ s" end t" proof nfails -> 80 1 43 }T
-T{ s" n by-induction-with by-end end t" proof nfails -> 80 1 70 }T
-T{ s" by-rw[ ] end t" proof nfails -> 80 1 52 }T
+T{ s" end t" proof nfails -> 71 1 43 }T
+T{ s" n by-induction-with by-end end t" proof nfails -> 71 1 70 }T
+T{ s" by-rw[ ] end t" proof nfails -> 71 1 52 }T
 \ The main test's record (tests/front/01-zero-add-rw.lf, on one line).
 T{ s" n by-induction-with | zero => by-rfl | succ k ih => by-rw[ ' Nat.add_succ ih ] by-end end t"
-   proof nfails -> 80 1 129 }T
+   proof nfails -> 71 1 129 }T
 T{ lf-tactic-count lf-tactic-format -> 6 1 }T
 T{ 0 kind@ 1 kind@ 2 kind@ 3 kind@ 4 kind@ 5 kind@
    -> tac-k-by tac-k-with tac-k-alt tac-k-rfl tac-k-alt tac-k-rw }T
@@ -69,7 +77,7 @@ T{ 3 step tac-from @ lfa-pos> 3 step tac-to @ lfa-pos> -> 1 72 1 79 }T
 T{ 5 step tac-from @ lfa-pos> 5 step tac-to @ lfa-pos> -> 1 94 1 121 }T
 T{ 1 step tac-to @ lfa-pos> 0 step tac-to @ lfa-pos> -> 1 128 1 134 }T
 \ The rules' order is kept (r1 first) and a numeral is a rule too.
-T{ s" by-rewrite[ 1 n 2 ] end t" proof nfails -> 80 1 63 }T
+T{ s" by-rewrite[ 1 n 2 ] end t" proof nfails -> 71 1 63 }T
 T{ 1 kind@ 1 args@ nip 1 0 arg-node syn-a@ 1 2 arg-node syn-a@ -> tac-k-rewrite 3 1 2 }T
 T{ 1 1 arg-node kind 1 2 arg-node syn-at@ lfa-pos> -> syn-k-var 1 59 }T
 
@@ -78,7 +86,7 @@ s" n by-induction-with | zero => n by-induction by-case: zero => by-rfl by-end "
   proof 2drop
 s" by-case: succ j hj => hj by-exact by-end | succ k ih => by-intro: h "
   text+ s" by-rewrite[ ih h ] by-rw[ ] by-end end t" text+
-T{ text$ nfails drop drop -> 80 }T
+T{ text$ nfails drop drop -> 71 }T
 T{ lf-tactic-count -> 12 }T
 T{ 3 kind@ 4 kind@ 5 kind@ 6 kind@ 7 kind@ -> tac-k-induction tac-k-case tac-k-rfl tac-k-case
    tac-k-exact }T
@@ -105,7 +113,7 @@ T{ s" by-rw[ n end t" proof nfails see-at -> 82 1 52 1 43 }T
 T{ s" n by-induction by-case: zero => by-case: succ => by-rfl by-end end t" proof nfails
    see-at -> 82 1 106 1 58 }T
 T{ s" n by-induction by-case: zero => by-case: succ => by-rfl by-end by-end end t" proof
-   nfails -> 80 1 113 }T
+   nfails -> 71 1 113 }T
 \ A tactic word inside by-rw[ ]: the word, and by-rw[.
 T{ s" by-rw[ n by-rfl ] end t" proof nfails see-at -> 82 1 52 1 43 }T
 T{ s" by-rewrite[ by-end end t" proof nfails see-at -> 82 1 55 1 43 }T
@@ -185,10 +193,10 @@ T{ s" n by-induction-with | succ k ih => by-rw[ ih ] n n by-exact" proof nfails 
 T{ s" n by-induction-with | succ k ih => by-rw[ n ih ] n n by-exact" proof nfails
    -> 86 1 96 }T
 T{ s" n by-induction-with | succ k ih => by-rw[ ih k $ ] by-end end t" proof nfails
-   -> 80 1 101 }T
+   -> 71 1 101 }T
 T{ 3 kind@ 3 args@ nip 3 0 arg-node kind 3 0 arg-node syn-a@ kind
    -> tac-k-rw 1 syn-k-app syn-k-hyp }T
-T{ s" n by-induction-with | succ k ih => by-rw[ k ih ] by-end end t" proof nfails -> 80 1 99 }T
+T{ s" n by-induction-with | succ k ih => by-rw[ k ih ] by-end end t" proof nfails -> 71 1 99 }T
 T{ 3 args@ nip 3 0 arg-node kind 3 1 arg-node kind -> 2 syn-k-hyp syn-k-hyp }T
 T{ s" by-intro: h h by-rfl end t" proof nfails -> 86 1 57 }T
 T{ s" by-intro: h h end t" proof nfails -> 86 1 57 }T
@@ -207,18 +215,18 @@ T{ s" n by-induction-with | succ k ih => ih by-exact | zero => ih by-exact by-en
    nfails -> 1 1 100 }T
 T{ s" by-case: zero => by-intro: h h by-exact by-end h end t" proof nfails -> 1 1 90 }T
 T{ s" by-intro: h by-case: zero => h by-exact by-end h by-exact end t" proof nfails
-   -> 80 1 101 }T
+   -> 71 1 101 }T
 T{ s" n by-induction-with | succ n ih => n by-exact | zero => n by-exact by-end end t" proof
-   nfails -> 80 1 117 }T
+   nfails -> 71 1 117 }T
 T{ 3 0 arg-node kind 5 0 arg-node kind -> syn-k-hyp syn-k-var }T
 T{ s" n by-induction-with | succ k ih => Nat explicit: ih ih by-exact" proof nfails
    -> 21 1 98 }T
 T{ syn-count 1- kind -> syn-k-var }T
 T{ s" n by-induction-with | succ a.b ih => ' a.b by-exact by-end end t" proof nfails
-   -> 80 1 102 }T
+   -> 71 1 102 }T
 T{ 3 0 arg-node dup kind swap syn-a@ s" a.b" named? -> syn-k-hyp true }T
 T{ 2 0 arg-name s" a.b" named? 2 1 arg-name s" ih" named? -> true true }T
-T{ s" n by-induction-with | succ _ ih => ih by-exact by-end end t" proof nfails -> 80 1 97 }T
+T{ s" n by-induction-with | succ _ ih => ih by-exact by-end end t" proof nfails -> 71 1 97 }T
 T{ 2 0 arg-name 2 1 arg-name s" ih" named? -> 0 true }T
 T{ s" by-intro: _ _ by-exact end t" proof nfails -> 52 1 55 }T
 T{ 1 0 arg-name -> 0 }T
@@ -258,7 +266,7 @@ text0 s\" theorem t Nat explicit: n 0 n + n =\n:= by\n" text+
 : cases ( n -- ) 0 ?do s\" by-case: a =>\n" text+ loop ;
 : ends ( n -- ) 0 ?do s\" by-end\n" text+ loop ;
 1000 cases s\" by-rfl\n" text+ 1000 ends s" end t" text+
-T{ text$ nfails -> 80 2004 1 }T
+T{ text$ nfails -> 71 2004 1 }T
 T{ lf-tactic-count 1001 parent@ 1001 kind@ 1000 parent@ -> 1002 1000 tac-k-rfl 999 }T
 T{ lf-author-begin 3 tac-steps store-limit! -> outcome-ok }T
 T{ s" by-rfl by-rfl by-rfl end t" proof nfails -> 88 1 57 }T
@@ -271,24 +279,24 @@ T{ targ-limit tac-args store-limit! -> outcome-ok }T
 \ nothing is left allocated by the failure.
 : rfls ( n -- ) 0 ?do s" by-rfl " text+ loop ;
 s" " proof 2drop 20 rfls s" end t" text+
-T{ text$ nfails drop drop -> 80 }T
+T{ text$ nfails drop drop -> 71 }T
 T{ lf-author-begin 16 tac-steps store-limit! tac-limit tac-steps store-limit! -> outcome-ok outcome-ok }T
 live-blocks @ constant blocks-before
 T{ 1 heap-refusals ! text$ nfails drop drop outcome -> 88 outcome-full }T
 T{ live-blocks @ blocks-before = heap-refusals @ -> true 0 }T
-T{ text$ nfails drop drop -> 80 }T
+T{ text$ nfails drop drop -> 71 }T
 
 \ ---- 6. State: after a failed run, the next gives the verdict it gives
 \ alone, with the same record (twice, the same).
 : main-text ( -- c-addr u )
   s" n by-induction-with | zero => by-rfl | succ k ih => by-rw[ ' Nat.add_succ ih ] by-end end t"
   proof ;
-T{ main-text nfails -> 80 1 129 }T
+T{ main-text nfails -> 71 1 129 }T
 lf-tactic-count constant steps-alone
 5 step tac-to @ constant rw-to-alone
 T{ s" n by-induction-with | zero => by-rfl end t" proof nfails drop drop -> 82 }T
-T{ main-text nfails lf-tactic-count 5 step tac-to @ -> 80 1 129 steps-alone rw-to-alone }T
-T{ main-text nfails lf-tactic-count 5 step tac-to @ -> 80 1 129 steps-alone rw-to-alone }T
+T{ main-text nfails lf-tactic-count 5 step tac-to @ -> 71 1 129 steps-alone rw-to-alone }T
+T{ main-text nfails lf-tactic-count 5 step tac-to @ -> 71 1 129 steps-alone rw-to-alone }T
 T{ depth -> 0 }T
 cr .( tactic-syntax.fs: all tests passed) cr
 bye

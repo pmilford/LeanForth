@@ -210,10 +210,14 @@ T{ named 0 s" z" lf-name-str drop lf-binder-implicit lf-pres-binder! -> outcome-
 T{ named x inst lf-pres-binder@ drop nip -> lf-binder-implicit }T
 \ Loose indices above the value: #2 under one binder becomes #1.
 T{ prop 2 bv lam x inst lf-term-second@ dup tag swap lf-term-first@ -> lf-tag-bvar 1 }T
-\ A value with a loose bound variable: unsupported (Lean lifts it); a
-\ value holding a metavariable is closed (its range by a walk).
-T{ 0 bv 0 bv lf-meta-instantiate1 -> -1 outcome-unsupported }T
-T{ 0 bv x 0 bv app lf-meta-instantiate1 -> -1 outcome-unsupported }T
+\ A value with a loose bound variable (plan FE1g-4: instantiateMVars of
+\ fun h => ?n h): put in as it is where no binder lies around the
+\ variable; under one Lean lifts it, not ported: unsupported. A value
+\ holding a metavariable is closed (its range by a walk).
+T{ 0 bv 0 bv lf-meta-instantiate1 swap dup tag swap lf-term-first@ -> outcome-ok lf-tag-bvar 0 }T
+: put-in? ( value -- outcome flag ) dup 0 bv swap lf-meta-instantiate1 -rot = ;
+T{ x 0 bv app put-in? -> outcome-ok true }T
+T{ prop 1 bv lam 0 bv lf-meta-instantiate1 -> -1 outcome-unsupported }T
 prop mv-natural lf-mvar-new drop constant hole
 T{ hole x app lf-meta-loose x 1 bv app lf-meta-loose -> 0 outcome-ok 2 outcome-ok }T
 T{ 0 bv hole x app inst parts -> hole x }T

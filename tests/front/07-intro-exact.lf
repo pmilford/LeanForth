@@ -1,0 +1,15 @@
+\ by-intro: and by-exact (plan FE1g-4; docs/design/FE1G_TACTICS.md 2.4).
+\ Lean: theorem self_imp (p : Prop) : p → p := by intro h; exact h
+\ gives fun (p : Prop) (h : p) => h (tests/front/tactic-run.lean, t4).
+\ Natural LeanForth cannot write Prop and -> yet (plan FE2), and the
+\ statement is not elaborated yet (plan FE1e): the text stops at end with
+\ error 71, exit 2. tests/front/tactic-basic.fs runs it with stand-ins
+\ that give the statement forall (p : Prop), p -> p (whatever the words
+\ below say) and elaborate h as the hypothesis; the kernel accepts it.
+theorem self_imp
+  Nat explicit: n
+  0 n + n =
+:= by
+  by-intro: h
+  h by-exact
+end self_imp

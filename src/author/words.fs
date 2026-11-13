@@ -191,6 +191,7 @@ require ./library.fs
 ' lfa-w-tactic lfa-word-both by-induction
 ' lfa-w-tactic lfa-word-both by-case:
 ' lfa-w-tactic lfa-word-both by-rfl
+' lfa-w-tactic lfa-word-both by-sorry
 ' lfa-w-tactic lfa-word-both by-exact
 ' lfa-w-tactic lfa-word-both by-intro:
 ' lfa-w-tactic lfa-word-both by-induction-with

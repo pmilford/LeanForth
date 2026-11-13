@@ -88,10 +88,13 @@ T{ fa fb pair 0 proj lf-infer -> -1 outcome-unsupported }T
 T{ nat 0 bv lam fk app lf-infer -> -1 outcome-unsupported }T
 \ A lambda argument put in for a bound variable at an application's head
 \ is applied by a beta step: Nat.rec's type `motive t` with a lambda
-\ motive; under a binder of the type, with a loose argument, unsupported.
+\ motive; under a binder of the type the argument is that binder's loose
+\ variable, put in as it is (Lean's instantiateBetaRevRange: (t : Nat) ->
+\ Nat); where the motive's own binders would need it lifted, unsupported.
 T{ rec nat nat lam app fz app fs app fk app nat infer= -> true outcome-ok }T
 T{ rec nat 0 bv 0 bv eq lam app fz app fs app fk app fk fk eq infer= -> true outcome-ok }T
-T{ rec nat nat lam app fz app fs app lf-infer -> -1 outcome-unsupported }T
+T{ rec nat nat lam app fz app fs app nat>nat infer= -> true outcome-ok }T
+T{ rec nat nat 1 bv 0 bv eq tpi lam app fz app fs app lf-infer -> -1 outcome-unsupported }T
 \ The type is no pi and whnf would unfold it: fq : outParam (Nat -> Nat).
 lv1 1 s" outParam" cn nat>nat app lf-lctx-local made constant fq
 T{ fq fk app lf-infer -> -1 outcome-unsupported }T
@@ -151,10 +154,13 @@ T{ nat 0 bv 1 bv app lam sfun x1 nat 0 bv sfun app lam rb= -> true outcome-ok }T
 T{ ?n fk app fa x1 ?n fk app rb= -> true outcome-ok }T
 : chain ( x -- t ) fa 6 0 do over app loop nip ;
 T{ 0 bv chain fk x1 fk chain rb= -> true outcome-ok }T
-\ Unsupported: an argument with a loose bound variable; a beta step under
-\ a binder (its argument #0 is loose there).
+\ Unsupported: an argument with a loose bound variable. A beta step under
+\ a binder (its argument #0 is loose there) is done where the lambda's
+\ body has no binder around its variable (plan FE1g-4), else unsupported.
 T{ 0 bv 0 bv x1 lf-meta-instantiate-rev-beta -> -1 outcome-unsupported }T
-T{ nat 1 bv 0 bv app lam sfun x1 lf-meta-instantiate-rev-beta -> -1 outcome-unsupported }T
+T{ nat 1 bv 0 bv app lam sfun x1 sfun rb= -> true outcome-ok }T
+: deep-fun ( -- t ) nat nat 1 bv tpi lam ;   \ fun x => Nat -> x, a binder around x
+T{ nat 1 bv 0 bv app lam deep-fun x1 lf-meta-instantiate-rev-beta -> -1 outcome-unsupported }T
 \ Invalid: no body, no argument, a negative m.
 T{ -1 fk x1 lf-meta-instantiate-rev-beta 0 bv -1 x1 lf-meta-instantiate-rev-beta
    -> -1 outcome-invalid -1 outcome-invalid }T

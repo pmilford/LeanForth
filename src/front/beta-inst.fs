@@ -12,9 +12,10 @@
 \ loose bound variable at its depth is kept (its data word tells), so is
 \ a node whose parts do not change; a rebuilt binder keeps its name and
 \ kind (present/binder-table.fs). The arguments must have no loose bound
-\ variable, and a beta step under a binder whose arguments have one (Lean
-\ lifts them, liftLooseBVars) answers unsupported, as front/instantiate.fs
-\ does: never another term.
+\ variable (Lean lifts them under binders, liftLooseBVars), else
+\ unsupported, never another term; a beta step under a binder, whose
+\ arguments have loose ones, is front/instantiate.fs's: done where no
+\ binder of the lambda's body needs them lifted, else unsupported.
 \ The walk keeps its pending (node, depth) items on a heap stack and makes
 \ the image of each pair once (a memo table, as Lean's cache), so no depth
 \ needs the host's stacks (plan task 6.2.0).

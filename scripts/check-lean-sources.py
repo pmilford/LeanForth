@@ -25,6 +25,9 @@ FORBIDDEN = re.compile(r"\b(sorry|admit|native_decide|axiom|warningAsError)\b")
 ALLOWED = {
     ("tests/reference/sorry-must-fail.lean", "sorry", None):
         "negative fixture that must be rejected",
+    ("tests/front/tactic-run.lean", "sorry", None):
+        "Lean twins of LeanForth's by-sorry (plan FE1g-3): check_tactics.py --lean expects "
+        "Lean's sorry message, an error under -DwarningAsError=true, and sorryAx",
     **{("tests/reference/mixed-beta-table.lean", "axiom", name):
        "opaque test constant in a Lean-only comparison table"
        for name in ("mixedBetaC", "mixedBetaD", "mixedBetaF")},

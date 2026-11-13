@@ -1,5 +1,4 @@
 {
- "runs": 1770,
  "files": {
   "src/author/build.fs": {
    "blocks": 250,
@@ -17,8 +16,8 @@
   },
   "src/author/errors.fs": {
    "blocks": 55,
-   "never_run": 4,
-   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+   "never_run": 6,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed; FE1g-3/4 (branch fe1g3, 016d1bd1, 2026-11-13): the detail a refused heap cuts (lfa-detail+, lfa-.cut) is not reached"
   },
   "src/author/export.fs": {
    "blocks": 274,
@@ -319,8 +318,8 @@
   },
   "src/front/instantiate.fs": {
    "blocks": 288,
-   "never_run": 3,
-   "reason": "measured 2026-11-12 on fe1c-lnorm after review L4 (meta-heap.fs refuses each allocation): never run are in-instantiate-leaf's non-variable leaf at a depth whose range test kept nothing (157), a failing loose-range walk inside instantiate1's value check (190: the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)), and head beta's application refused by the term store after the lambdas were taken (221)"
+   "never_run": 4,
+   "reason": "measured 2026-11-12 on fe1c-lnorm after review L4 (meta-heap.fs refuses each allocation): never run are in-instantiate-leaf's non-variable leaf at a depth whose range test kept nothing (157), a failing loose-range walk inside instantiate1's value check (190: the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)), and head beta's application refused by the term store after the lambdas were taken (221); FE1g-3/4 (branch fe1g3, 016d1bd1, 2026-11-13): a loose value whose range walk the heap refuses (in-value-ok) is not reached"
   },
   "src/front/lctx-views.fs": {
    "blocks": 174,
@@ -381,6 +380,16 @@
    "blocks": 36,
    "never_run": 3,
    "reason": "new file (plan FE1a-b, branch fe1, 2026-11-12): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded, a child beyond the walk memo and the reader default finder before cli/check-lf.fs sets it are never run"
+  },
+  "src/front/tactic-basic.fs": {
+   "blocks": 266,
+   "never_run": 13,
+   "reason": "new file (plan FE1g-4, branch fe1g3, 2026-11-13), not yet reviewed: refusals of the heap or stores inside a step (lfb-made, a walk refused, a local or view not made), the detail a refused heap cuts, and Meta steps that answer unsupported only where FE1c leaves gaps; scripts/coverage.py --uncovered lists them"
+  },
+  "src/front/tactic-run.fs": {
+   "blocks": 352,
+   "never_run": 22,
+   "reason": "new file (plan FE1g-3, branch fe1g3, 2026-11-13), not yet reviewed: refusals of the heap in the runner's slabs (frames, saves, open parts, binders), the outcomes of the goal list a well-formed run never meets (lfr-own-code 92, lf-tac-main full), the closing's failures (lfr-close-code), and lf-tac-later for rows no kind reaches yet; scripts/coverage.py --uncovered lists them"
   },
   "src/front/tactic-syntax.fs": {
    "blocks": 191,
@@ -923,5 +932,6 @@
    "never_run": 1,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   }
- }
+ },
+ "runs": 1770
 }

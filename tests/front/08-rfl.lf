@@ -1,0 +1,16 @@
+\ by-rfl (plan FE1g-4; docs/design/FE1G_TACTICS.md 2.4 and 5.3).
+\ Lean: theorem refl_p (p : Prop) : p = p := by rfl
+\ gives fun (p : Prop) => @Eq.refl.{1} Prop p. Natural LeanForth cannot
+\ write Prop yet (plan FE2), and the statement is not elaborated yet
+\ (plan FE1e): the text stops at end with error 71, exit 2.
+\ tests/front/tactic-basic.fs runs it with a stand-in that gives the
+\ statement forall (p : Prop), p = p (whatever the words below say); the
+\ kernel accepts it. Theorems whose sides need a library definition
+\ unfolded (0 + n = n) need the Meta layer to see the library while a
+\ text runs (plan FE1e).
+theorem refl_p
+  Nat explicit: n
+  0 n + n =
+:= by
+  by-rfl
+end refl_p
