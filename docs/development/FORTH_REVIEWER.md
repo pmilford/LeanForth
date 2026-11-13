@@ -53,6 +53,14 @@ against the coverage classes of [the coverage review](TEST_COVERAGE_REVIEW.md) a
    Do not shorten code by dropping validation, obscuring control flow,
    weakening resource bounds, or hiding a trust boundary; when a longer word is
    genuinely clearer, it must say why in a comment.
+   **Reuse (owner, 2026-11-13; AGENTS.md "Reuse first").** For every new
+   word that does something general (sorting, tables, maps, heaps, stacks and
+   frames for non-recursive walks, memo caches, growable arrays, bounds,
+   outcome chains, parsing, text and JSON helpers), search `src/lib/`
+   ([FORTH_LIBRARY.md](FORTH_LIBRARY.md)) and the other modules for an
+   existing word; a re-implementation, a general operation buried in a module
+   where a library belongs, or a new library with no caller is a finding that
+   blocks the merge, with the existing word or the library to write named.
 4. Examine cell arithmetic, signed versus unsigned comparisons, overflow,
    alignment, address arithmetic, capacities, initialization and lifetime.
    Check array and arena bounds before access; identify caller-owned storage and

@@ -90,6 +90,8 @@ re-check if needed, against a short checklist:
 - **Slices:** each slice gives a result a user or the next layer can use, with its acceptance command; tests and docs
   belong to the slice that needs them, not to a final step.
 - **Trust and gates:** the trust boundary, which owner gates apply, and when.
+- **Reuse** (owner, 2026-11-13): the libraries and shared words the design uses, the new general-purpose words it
+  needs (each a library or shared word, with the existing copies it replaces), and nothing general re-implemented.
 - **Size:** a body of about 300 lines that the owner can read; Lean-source notes and long tables go in an appendix.
 - **Questions:** the owner's questions extracted, each with a recommendation.
 

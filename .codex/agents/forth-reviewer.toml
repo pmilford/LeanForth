@@ -16,6 +16,11 @@ named words; words taking more than about three stack items or using
 PICK/ROLL; per-module status codes with translation words, or statuses used as
 flags. Never trade away validation, bounds, rollback or a trust boundary for
 brevity.
+Reuse first (owner, 2026-11-13): for every new general-purpose word, search
+src/lib/ (docs/development/FORTH_LIBRARY.md) and the other modules; a
+re-implementation of an existing word, a general operation buried in a module
+where a library belongs, or a library with no caller is a blocking finding that
+names the word or library to use.
 Trace all success and failure paths, resources, overflow, bounds, stale handles,
 rollback, input aliasing, reentrancy and stack prefixes where relevant. Check
 Forth-2012 portability and isolate any Gforth dependencies. Verify tests cover
