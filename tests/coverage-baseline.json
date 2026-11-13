@@ -252,6 +252,11 @@
    "never_run": 1,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
+  "src/front/beta-inst.fs": {
+   "blocks": 236,
+   "never_run": 13,
+   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the branches where the heap or a store refuses room (full) in the memo, the stack, the spine or a rebuild, a leaf that is no bound variable (always kept as closed), and a rebuilt binder's name (the tests' binders have none)"
+  },
   "src/front/constructions.fs": {
    "blocks": 424,
    "never_run": 50,
@@ -273,9 +278,9 @@
    "reason": "new file (plan FE6, casesOn and recOn): the blocks never run are failure branches after a scratch tier, tuple or heap block that cannot grow (expr-make, tuple-add, allocate) and refusals Lean's recursors never reach (hypotheses before fields, a recursor type shorter than its numbers, a type whose Sort only reduction shows); tests for them need a tier that refuses on demand"
   },
   "src/front/infer.fs": {
-   "blocks": 169,
-   "never_run": 13,
-   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the branches where the heap or a store refuses room (full) in a level list, a Sort's level or a spine, and a stale metavariable"
+   "blocks": 296,
+   "never_run": 20,
+   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the branches where the heap or a store refuses room (full) in a level list, a Sort's level, a spine, a telescope, an abstraction, a pi or a normalized level"
   },
   "src/front/instantiate.fs": {
    "blocks": 288,
@@ -303,9 +308,9 @@
    "reason": "measured 2026-11-12 on fe1c-lnorm after review L4: never run are ld-same? on two different records of equal fields (37: the tests' unshared equal levels differ in a field first) and the full branches of level equality, isNeverZero, mkLevelMax''s rules and lm-take's ended code (56, 65, 73, 82, 85, 95, 113, 120, 121), each needing the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)"
   },
   "src/front/meta-env.fs": {
-   "blocks": 125,
+   "blocks": 136,
    "never_run": 3,
-   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are a declaration of the input that the stage does not hold (the feed keeps the stage's names: only a broken input reaches it) and the name tests of a numeric part and of a prefix that is not top-level, which no declaration of the slice named succ or ndrec has"
+   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are an input declaration the named stage does not hold (unreachable: the feed makes the input from the stage's declarations, and only that stage is accepted) and the name tests of a numeric part and of a prefix that is not top-level, which no declaration of the slice named succ or ndrec has"
   },
   "src/front/mvars.fs": {
    "blocks": 429,
@@ -323,9 +328,9 @@
    "reason": "new file (plan FE1a-b, branch fe1, 2026-11-12): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded, a child beyond the walk memo and the reader default finder before cli/check-lf.fs sets it are never run"
   },
   "src/front/whnf.fs": {
-   "blocks": 503,
-   "never_run": 17,
-   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the branches where the heap or a store refuses room (full) inside a rebuild, a level list, a spine, a rule's application or a frame, and defensive defaults no well-formed input reaches (a recursor whose block names no declaration)"
+   "blocks": 520,
+   "never_run": 18,
+   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the branches where the heap or a store refuses room (full) inside a rebuild, a level list, a spine, a rule's application or a frame, defensive defaults no well-formed input reaches (a recursor whose block names no declaration), and the recursive-type test of a structure-like type, which no inductive type of Init has"
   },
   "src/import/checker-input.fs": {
    "blocks": 294,
