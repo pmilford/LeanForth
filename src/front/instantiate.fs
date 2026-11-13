@@ -9,10 +9,12 @@
 \   subterm with no loose bound variable at its depth is kept (Lean's
 \   get_loose_bvar_range test, from the data word, terms.fs), so is a
 \   node whose parts do not change; a rebuilt binder keeps its name and
-\   kind (present/binder-table.fs). The value must have no loose bound
-\   variable: Lean then lifts it under binders (lift_loose_bvars), which
-\   Meta never needs, as it opens binders with free variables; such a
-\   value answers unsupported.
+\   kind (present/binder-table.fs). A value with loose bound variables
+\   (instantiateMVars meets one: an argument under the binders of the
+\   term it instantiates, as fun h => ?n h after intro, plan FE1g-4) is
+\   put in as it is where no binder of body lies around the variable;
+\   under one Lean lifts it (lift_loose_bvars), which is not ported: such
+\   a value there answers unsupported.
 \ - lf-meta-abstract ( term addr n -- term' outcome ): the n terms in
 \   cells at addr, x0 .. xn-1 (free variables or metavariables), become
 \   loose bound variables, xn-1 the innermost: under k binders xi is
@@ -56,6 +58,7 @@ begin-structure /in
   field: in-xs                 \ abstract's terms: the address of their cells
   field: in-xs#                \ and how many
   field: in-outcome            \ ok, or the walk's first failure
+  field: in-lifts              \ true: the value has loose bound variables
   2 cells +field in-key        \ the (node depth) sought in the memo
   /htab-hooks +field in-hooks  \ the memo table's hooks
   /htab +field in-table        \ the memo: (node depth) to its entry
@@ -144,8 +147,11 @@ end-structure
 \ Images: a bound variable at the depth is the value, a larger one is
 \ one less, a leaf is itself; a node whose parts change is rebuilt.
 : in-made ( index true | false -- image ) 0= if outcome-full in-fail -1 then ;
+\ (A value with loose bound variables under binders would need lifting.)
+: in-unlifted ( depth -- )
+  0> in-state in-lifts @ and if outcome-unsupported in-fail then ;
 : in-bvar ( node depth -- image )
-  swap lf-term-first@ tuck = if drop in-state in-value @ exit then
+  swap lf-term-first@ tuck = if in-unlifted in-state in-value @ exit then
   1- lf-term-bvar in-made ;
 : in-x ( i -- x ) cells in-state in-xs @ + @ ;
 : in-count ( -- n ) in-state in-xs# @ ;
@@ -186,9 +192,8 @@ end-structure
 : in-run ( body -- term outcome )
   dup 0 in-push begin in-busy? while in-step repeat
   in-state in-outcome @ dup ok? if drop 0 in-image outcome-ok else nip no-result then ;
-: in-closed-ok ( range -- outcome ) 0= if outcome-ok else outcome-unsupported then ;
 : in-value-ok ( value -- outcome )
-  lf-meta-loose dup ok? if drop in-closed-ok else nip then ;
+  lf-meta-loose dup ok? if drop 0> in-state in-lifts ! outcome-ok else nip then ;
 : lf-meta-instantiate1 ( body value -- term outcome )
   2dup lf-term-pair-valid? 0= if 2drop -1 outcome-invalid exit then
   dup in-value-ok ok-then? 0= if nip no-result exit then

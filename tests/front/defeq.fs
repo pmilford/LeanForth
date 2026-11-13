@@ -146,7 +146,7 @@ T{ ?o fk guarded clean? own-mark ?n fk guarded ?n lf-mvar-value nip own-back
 T{ fp 0 proj fa guarded -1 fk guarded -> false outcome-unsupported false outcome-invalid }T
 \ A configuration scope (meta-config.fs, Lean's withConfig): saved and
 \ given back whole.
-T{ lf-meta-config lf-tr-none lf-defeq-mode! 0 lf-defeq-flags! lf-meta-flags lf-meta-mode
+T{ lf-meta-config lf-tr-none lf-defeq-mode! 0 lf-defeq-flags! lf-defeq-flags lf-defeq-mode
    2swap lf-meta-config! lf-meta-config -> 0 lf-tr-none lf-defeq-elab lf-tr-default }T
 T{ lf-defeq-univ lf-meta-flag? lf-defeq-opaque lf-meta-flag? lf-meta-default lf-defeq-univ =
    -> true false true }T

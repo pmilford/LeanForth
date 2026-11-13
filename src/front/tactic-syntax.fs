@@ -1,11 +1,12 @@
 \ Tactic proofs, read (plan FE1g-2; design docs/design/FE1G_TACTICS.md
 \ section 3, the owner's syntax of 2026-11-12): the natural meanings of
 \ the words of a proof after := by. They are read, checked for shape and
-\ recorded, not run: a tactic proof whose blocks all close stops at its
-\ end NAME as not supported yet (error 80; running tactics is plan
-\ FE1g-3), never accepted. The words, in the order Lean writes them:
+\ recorded; a tactic proof whose blocks all close is run at its end NAME
+\ (lf-tactic-proof-end, which src/front/tactic-run.fs sets: plan
+\ FE1g-3), as Lean parses a declaration whole before it elaborates it.
+\ The words, in the order Lean writes them:
 \   t by-exact, t by-induction, t by-induction-with   take one value each;
-\   by-rfl, by-intro: NAME (_ for an inaccessible hypothesis);
+\   by-rfl, by-sorry, by-intro: NAME (_ for an inaccessible hypothesis);
 \   by-rw[ r1 .. rn ], by-rewrite[ r1 .. rn ]   the values built between
 \     the brackets are the rules, in order (none is allowed, as in Lean);
 \     every value is a rule: a hypothesis there takes no values, and one
@@ -29,7 +30,8 @@
 \ case block holds a tactic (85, at the word that ends it, and its => as
 \ the second place, where Lean's parser reports it); by-end, ] and | only
 \ where their block is open (83); end NAME with every block closed (82,
-\ and the open block's place) and no value left (86).
+\ and the open block's place) and no value left (86). Without the runner
+\ end NAME stops there, not supported yet (80, and by as the second place).
 \ An empty proof and a by-induction-with with no alternative are read:
 \ Lean parses both and refuses them only when it runs them.
 \
@@ -64,7 +66,9 @@
 \ becomes reachable from the text.
 \ Words: lf-tactic-proof? ( -- flag ), lf-tactic-count ( -- n ),
 \ lf-tactic-step ( i -- addr ) (unchecked, valid until the next step),
-\ lf-tactic-arg ( j -- x pos ) (unchecked), the kinds and fields above.
+\ lf-tactic-arg ( j -- x pos ) (unchecked), the kinds and fields above;
+\ lf-tactic-proof-end ( -- ), deferred: what end NAME does with a proof
+\ read whole, its by block closed (the runner's, tactic-run.fs).
 \ State: one context record, tac-read (the innermost open block, where
 \ the next step's text begins, whether a hypothesis was read since the
 \ last tactic word), and the stores tac-steps and tac-args, members of
@@ -87,6 +91,7 @@ require ./reader.fs
 8 constant tac-k-case        \ by-case: TAG NAMES... => (a block)
 9 constant tac-k-rw          \ by-rw[ (a block of rules)
 10 constant tac-k-rewrite    \ by-rewrite[ (a block of rules)
+11 constant tac-k-sorry      \ by-sorry (Lean's sorry tactic)
 
 begin-structure /tac
   field: tac-kind
@@ -215,7 +220,11 @@ action-of lfa-declaration-fresh constant lft-fresh-before
 
 \ Tactics.
 : lft-term-step ( t kind -- i ) lft-tactic-new tuck 1 lft-terms ;
-: lft-w-rfl ( -- ) 0 lft-tactic tac-k-rfl lft-tactic-new lft-done ;
+\ (A word checks the values above the frame before it puts anything on
+\ the stack, so the kind comes after lft-tactic.)
+: lft-plain ( kind -- ) lft-tactic-new lft-done ;
+: lft-w-rfl ( -- ) 0 lft-tactic tac-k-rfl lft-plain ;
+: lft-w-sorry ( -- ) 0 lft-tactic tac-k-sorry lft-plain ;
 : lft-w-exact ( t -- ) 1 lft-tactic tac-k-exact lft-term-step lft-done ;
 : lft-w-induction ( t -- ) 1 lft-tactic tac-k-induction lft-term-step lft-done ;
 : lft-w-with ( t -- ) 1 lft-tactic tac-k-with lft-term-step lft-opened ;
@@ -285,20 +294,24 @@ action-of lfa-declaration-fresh constant lft-fresh-before
 : lft-w-arrow ( -- ) lft-in-proof lfa-e-tac-header lfa-fail ;
 
 \ := by opens the proof; its end NAME needs every block closed and no
-\ value left, and then the tactics would run (plan FE1g-3): the error
-\ names end, and by as the second place. A declaration without by ends
-\ as the reader's does (reader.fs).
+\ value left, and then the tactics run (lf-tactic-proof-end; without the
+\ runner, error 80 names end, and by as the second place). A declaration
+\ without by ends as the reader's does (reader.fs).
 : lft-w-by ( -- ) lfn-w-by lfa-here lft-read-from! tac-k-by lft-new lft-opened ;
 \ The block by-end would close: an alternative's is its by-induction-with.
 : lft-block ( -- addr )
   lft-open lft-rec dup tac-kind @ tac-k-alt = if tac-parent @ lft-rec then ;
 : lft-closed ( -- )
   lft-kind tac-k-by = if exit then lft-block tac-at @ lfa-e-tac-open lfa-fail-see ;
-: lft-unrun ( pos -- ) lft-open-at swap lft-close lfa-e-tac-run lfa-fail-see ;
+\ The proof read whole (its block closed) goes to the runner.
+: lft-unrun ( -- ) 0 lft-rec tac-at @ lfa-e-tac-run lfa-fail-see ;
+defer lf-tactic-proof-end ( -- )
+' lft-unrun is lf-tactic-proof-end
 \ The position just past end's NAME, which is the proof's end.
 : lft-name-past ( c-addr u -- c-addr u pos ) 2dup + lfa-token-pos ;
 : lft-end-proof ( above c-addr u -- )
-  lft-name-past >r lfa-end-check lft-closed lfa-proof-ready 0 lft-count r> lft-unrun ;
+  lft-name-past >r lfa-end-check lft-closed lfa-proof-ready 0 lft-count r> lft-close
+  lf-tactic-proof-end ;
 : lft-end-declaration ( above c-addr u -- )
   lft-proof? if lft-end-proof else lfn-end-declaration then ;
 : lft-w-end ( -- ) lfa-end-head ['] lft-end-declaration lfa-end-tail ;
@@ -325,6 +338,7 @@ action-of lfa-declaration-fresh constant lft-fresh-before
 ' lft-w-by lfa-natural! by
 ' lft-w-end lfa-natural! end
 ' lft-w-rfl lfa-natural! by-rfl
+' lft-w-sorry lfa-natural! by-sorry
 ' lft-w-exact lfa-natural! by-exact
 ' lft-w-intro lfa-natural! by-intro:
 ' lft-w-induction lfa-natural! by-induction

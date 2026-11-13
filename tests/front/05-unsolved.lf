@@ -1,0 +1,15 @@
+\ A tactic proof that closes nothing (plan FE1g-3; docs/design/FE1G_TACTICS.md
+\ 2.5, "by skip"). Lean: theorem zero_add_open (n : Nat) : 0 + n = n := by
+\ is refused at by with
+\   unsolved goals
+\   n : Nat
+\   ⊢ 0 + n = n
+\ (tests/front/tactic-run.lean). Today the statement is not elaborated
+\ (plan FE1e): the text stops at end with error 71, exit 2;
+\ tests/front/tactic-run.fs runs it with a stand-in elaborator that builds
+\ this statement and gets error 89 at by with Lean's goals, exit 4.
+theorem zero_add_open
+  Nat explicit: n
+  0 n + n =
+:= by
+end zero_add_open

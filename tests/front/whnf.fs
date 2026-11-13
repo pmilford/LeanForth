@@ -170,7 +170,7 @@ T{ ftwin zero app recm lf-whnf-stuck -> false outcome-ok }T
 : inst-hadd ( -- t ) l0 1 s" instHAdd" cn nat app 0 s" instAddNat" cn app ;
 : hadd-kx ( -- t ) l0 l0 l0 3 s" HAdd.hAdd" cn nat app nat app nat app inst-hadd app fk app fx app ;
 : in-mode ( term mode -- e' outcome )
-  lf-meta-mode >r lf-defeq-mode! lf-meta-whnf r> lf-defeq-mode! ;
+  lf-defeq-mode >r lf-defeq-mode! lf-meta-whnf r> lf-defeq-mode! ;
 \ Sorts, binders, literals, an inert head stay; a beta step is taken.
 T{ nat nat tpi dup meta-whnf= lv1 sort dup meta-whnf= 2 nlit dup meta-whnf=
    -> true outcome-ok true outcome-ok true outcome-ok }T
@@ -180,7 +180,7 @@ T{ fk fx app dup meta-whnf= nat fs 0 bv app lam fk app fs fk app meta-whnf=
 \ at reducible (whnfR); whnfCore alone still refuses its head.
 T{ inst-hadd lf-meta-whnf inst-hadd lf-meta-whnf-r nip inst-hadd lf-whnf-core
    -> -1 outcome-unsupported outcome-ok -1 outcome-unsupported }T
-T{ inst-hadd dup lf-meta-whnf-r drop same? lf-meta-mode -> true lf-tr-default }T
+T{ inst-hadd dup lf-meta-whnf-r drop same? lf-defeq-mode -> true lf-tr-default }T
 \ A projection function (semireducible in the data): unfolded at default,
 \ left at reducible; a matcher, an auxiliary recursor, Nat operations
 \ reduceNat? might fold; Nat.succ of a variable stays.

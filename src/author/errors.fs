@@ -1,14 +1,19 @@
 \ Authoring errors (ADR 0017 §10): a stable code, the position and text of
 \ the token being acted on, and sometimes a second position the message
-\ refers to (where a binder was opened, where a constant was written).
+\ refers to (where a binder was opened, where a constant was written), a
+\ number the code defines, and lines of detail printed after the message
+\ (a tactic error's goals, as Lean prints them under its message).
 \ docs/programming/LEANFORTH_WORDS.md is the catalogue; tests pin the
 \ codes, never the wording. A LeanForth word that finds a mistake calls
 \ lfa-fail, which records the error and THROWs lf-author-throw; only the
 \ runner (runner.fs) catches it, as the authoring program's top level
 \ (ADR 0018), and turns it into an outcome. Untrusted authoring code: an
 \ error stops the authoring run; it never reaches the checker.
-\ State: one context record, lfa-error; the catalogue is a shared,
-\ read-only table.
+\ Detail: lfa-detail+ ( c-addr u -- ) appends text for the error about to
+\ be recorded (a caller adds it only while no error is recorded yet);
+\ text the heap cannot hold is cut, and the print says so.
+\ State: one context record, lfa-error, and the slab lfa-detail; the
+\ catalogue is a shared, read-only table.
 
 require ../lib/lib.fs
 require ./source.fs
@@ -19,14 +24,15 @@ require ./source.fs
 
 \ Codes. Each has an outcome (ADR 0008): invalid for a mistake in the
 \ text, unsupported for a form the term store cannot hold yet, full for a
-\ store or table that ran out of room. Codes are stable, in ranges, a new
-\ one taking the next free number of its range; each branch of a slice
+\ store or table that ran out of room, exhausted for fuel spent. Codes
+\ are stable, in ranges, a new one taking the next free number of its
+\ range; each branch of a slice
 \ writes only its own range (docs/design/S1_INTERFACE.md §5):
 \   1-73     the words (ADR 0017), the runner, the stores, natural text read (FE1a)
 \   74-79    elaboration and the hand-over to the kernel (FE1c, FE1e, FE1f; 74-77
 \            used, 78-79 kept for S4's auxiliary declarations)
-\   80-99    tactic proofs (FE1g: 81-88 the reading of FE1g-2; 80 and 89-93
-\            the runner of FE1g-3, 94-99 the tactics of FE1g-4, branch fe1g3)
+\   80-99    tactic proofs (FE1g; all used: 81-88 the reading of FE1g-2,
+\            80 and 89-93 the runner of FE1g-3, 94-99 the tactics of FE1g-4)
 \   100-109  Meta errors a user sees: invalid universe level, the stuck
 \            signal's and the undo trail's refusals (S1, branch s1-meta)
 \   110-124  instances: failed to synthesize, the instance codes, one per
@@ -118,8 +124,9 @@ require ./source.fs
 75 constant lfa-e-unused-universe \ a universe parameter nothing uses (FE1f)
 76 constant lfa-e-malformed      \ the elaborator's terms are malformed (FE1f)
 77 constant lfa-e-instantiate    \ unsupported: an instantiation step (FE1c)
-\ Tactic proofs read (src/front/tactic-syntax.fs, plan FE1g-2).
-80 constant lfa-e-tac-run        \ unsupported: running the tactics read (FE1g-3)
+\ Tactic proofs read (src/front/tactic-syntax.fs, plan FE1g-2) and run
+\ (src/front/tactic-run.fs, plan FE1g-3).
+80 constant lfa-e-tac-run        \ unsupported: running this tactic (its number: FE1g-N)
 81 constant lfa-e-tac-outside    \ a tactic word outside a tactic proof
 82 constant lfa-e-tac-open       \ a block still open: by-end or ] missing
 83 constant lfa-e-tac-closer     \ by-end, ] or | with no block of its kind open
@@ -128,6 +135,18 @@ require ./source.fs
 86 constant lfa-e-tac-values     \ the wrong number of values at a tactic word or end
 87 constant lfa-e-tac-arity      \ unsupported: a hypothesis's argument count (FE1g-3)
 88 constant lfa-e-tac-full       \ the tactic store is full
+89 constant lfa-e-tac-unsolved   \ goals left at a block's end (Lean's unsolved goals)
+90 constant lfa-e-tac-no-goals   \ a tactic with no goal (Lean's No goals to be solved)
+91 constant lfa-e-tac-fuel       \ exhausted: the tactic run's fuel is spent
+92 constant lfa-e-tac-record     \ a tactic record or proof state not as made
+93 constant lfa-e-tac-meta       \ unsupported: an inference, reduction or binder
+\ The first tactics (src/front/tactic-basic.fs, plan FE1g-4).
+94 constant lfa-e-tac-no-intro   \ intro with no binder or let to introduce
+95 constant lfa-e-tac-unassigned \ exact's term leaves a new metavariable unassigned
+96 constant lfa-e-tac-mismatch   \ exact's term has another type than the goal
+97 constant lfa-e-tac-rfl        \ rfl's two sides are not definitionally equal
+98 constant lfa-e-tac-assign     \ exact's term cannot be assigned to the goal
+99 constant lfa-e-tac-form       \ unsupported: this case of a tactic (a later step)
 
 \ The catalogue: one message record per code, in order, each followed by
 \ its text and aligned; a record with code 0 closes it.
@@ -137,14 +156,21 @@ begin-structure /lfa-message
   field: lfa-message-length
   0 +field lfa-message-chars
 end-structure
-: lfa-message, ( code outcome c-addr u -- )
-  2swap swap , , dup , here swap dup chars allot move align ;
+: lfa-chars, ( c-addr u -- ) here swap dup chars allot move align ;
+: lfa-message, ( code outcome c-addr u -- ) 2swap swap , , dup , lfa-chars, ;
 : lfa-message-text ( message -- c-addr u )
   dup lfa-message-chars swap lfa-message-length @ ;
 : lfa-message-next ( message -- message' ) lfa-message-text chars + aligned ;
-: lfa-invalid, ( code c-addr u -- ) outcome-invalid -rot lfa-message, ;
-: lfa-unsupported, ( code c-addr u -- ) outcome-unsupported -rot lfa-message, ;
-: lfa-full, ( code c-addr u -- ) outcome-full -rot lfa-message, ;
+\ A text too long for one line of this file goes on with lfa-more, on the
+\ next: the message's alignment padding given back, the text appended.
+: lfa-unpad ( message -- message ) dup lfa-message-text chars + here - allot ;
+: lfa-more, ( message c-addr u -- )
+  rot lfa-unpad over swap lfa-message-length +! lfa-chars, ;
+: lfa-of, ( code c-addr u outcome -- ) -rot lfa-message, ;
+: lfa-invalid, ( code c-addr u -- ) outcome-invalid lfa-of, ;
+: lfa-unsupported, ( code c-addr u -- ) outcome-unsupported lfa-of, ;
+: lfa-full, ( code c-addr u -- ) outcome-full lfa-of, ;
+: lfa-exhausted, ( code c-addr u -- ) outcome-exhausted lfa-of, ;
 create lfa-catalogue
   lfa-e-unknown
   s" unknown name: no syntax word, bound variable, universe parameter or constant has it"
@@ -265,9 +291,7 @@ create lfa-catalogue
   lfa-e-instantiate
   s" not supported yet: this step of instantiating metavariables (plan FE1c)"
   lfa-unsupported,
-  lfa-e-tac-run
-  s" not supported yet: running tactics (plan FE1g-3); the tactic proof was read whole"
-  lfa-unsupported,
+  lfa-e-tac-run s" not supported yet: running this tactic" lfa-unsupported,
   lfa-e-tac-outside s" a tactic word belongs in a tactic proof, after := by" lfa-invalid,
   lfa-e-tac-open
   s" a block is still open: by-end closes by-induction-with and by-case:, ] closes by-rw["
@@ -287,6 +311,29 @@ create lfa-catalogue
   s" not supported yet: how many values a hypothesis takes is known when tactics run"
   lfa-unsupported,
   lfa-e-tac-full s" out of room: the tactic store is full" lfa-full,
+  lfa-e-tac-unsolved s" unsolved goals" lfa-invalid,
+  lfa-e-tac-no-goals s" No goals to be solved" lfa-invalid,
+  lfa-e-tac-fuel
+  s" out of fuel: the tactic proof, or a reduction it ran, took more steps than its fuel"
+  lfa-exhausted,
+  lfa-e-tac-record
+  s" malformed tactic record or proof state: steps not nested as read, a bad goal list"
+  lfa-invalid,
+  lfa-e-tac-meta
+  s" not supported yet: a type inference, reduction or let binder the tactic needs (FE1c)"
+  lfa-unsupported,
+  here lfa-e-tac-no-intro s" Tactic `introN` failed: There are no additional binders"
+  lfa-invalid, s"  or `let` bindings in the goal to introduce" lfa-more,
+  lfa-e-tac-unassigned
+  s" don't know how to synthesize: the term leaves a metavariable it made unassigned"
+  lfa-invalid,
+  lfa-e-tac-mismatch s" Type mismatch" lfa-invalid,
+  lfa-e-tac-rfl s" Tactic `rfl` failed: The left-hand side" lfa-invalid,
+  lfa-e-tac-assign
+  s" Tactic `exact` failed: attempting to close the goal using" lfa-invalid,
+  lfa-e-tac-form
+  s" not supported yet: this case of the tactic (FE1G_TACTICS.md 5 names its step)"
+  lfa-unsupported,
   0 outcome-invalid s" " lfa-message,
 
 \ The catalogue record of a code; an unknown code gives the closing record.
@@ -305,11 +352,14 @@ begin-structure /lfa-err
   field: lfa-err-see         \ a second position, or -1
   field: lfa-err-number      \ a number the code defines (a Forth THROW code), or 0
   field: lfa-err-length      \ characters of the token kept
+  field: lfa-err-cut         \ true when the detail could not be kept whole
   lfa-token-keep +field lfa-err-token
 end-structure
 /lfa-err context-record: lfa-error
+1 chars context-slab: lfa-detail   \ the lines printed after the message
 
-: lfa-error-reset ( -- ) lfa-error /lfa-err erase -1 lfa-error lfa-err-see ! ;
+: lfa-error-reset ( -- )
+  lfa-error /lfa-err erase -1 lfa-error lfa-err-see ! lfa-detail slab-clear ;
 : lf-author-code ( -- code ) lfa-error lfa-err-code @ ;
 \ Record an error at position pos with token c-addr u, unless one is
 \ recorded already.
@@ -321,6 +371,11 @@ end-structure
 \ A second position for the message, and a number.
 : lfa-see! ( pos -- ) lfa-error lfa-err-see ! ;
 : lfa-number! ( n -- ) lfa-error lfa-err-number ! ;
+\ Detail text, appended; what the heap refuses is cut (noted, not kept).
+: lfa-detail-cut ( -- ) true lfa-error lfa-err-cut ! ;
+: lfa-detail+ ( c-addr u -- )
+  dup lfa-detail slab-claim ok? if lfa-detail slab-at swap move exit then
+  2drop drop lfa-detail-cut ;
 
 \ Stop the run with an error at the current token: lfa-fail; with a second
 \ position: lfa-fail-see; lfa-must stops unless the flag is true.
@@ -338,9 +393,17 @@ end-structure
 : lfa-.token ( -- ) ."  (token `" lfa-error lfa-err-token lfa-error lfa-err-length @ type
   ." `)" ;
 : lfa-.see ( -- ) lfa-error lfa-err-see @ dup 0< if drop exit then ." ; see " lfa-.pos ;
-: lfa-.number ( -- ) lf-author-code lfa-e-forth = if ."  " lfa-error lfa-err-number @
-  lfa-.n then ;
+\ The number: a Forth exception's THROW code; a tactic's plan step.
+: lfa-number@ ( -- n ) lfa-error lfa-err-number @ ;
+: lfa-.plan ( -- ) ."  (plan FE1g-" lfa-number@ lfa-.n ." )" ;
+: lfa-.number ( -- )
+  lf-author-code case lfa-e-forth of ."  " lfa-number@ lfa-.n endof
+    lfa-e-tac-run of lfa-.plan endof endcase ;
+\ The detail on the lines after the message, and a note if it was cut.
+: lfa-.cut ( -- ) lfa-error lfa-err-cut @ if cr ." (the rest could not be shown)" then ;
+: lfa-.detail ( -- )
+  lfa-detail slab-count ?dup if cr 0 lfa-detail slab-at swap type then lfa-.cut ;
 : lf-author-error. ( -- )
   lf-author-code 0= if ." no error" exit then
   ." error " lf-author-code lfa-.n ."  at " lfa-error lfa-err-at @ lfa-.pos lfa-.token
-  ." : " lf-author-code lf-author-message type lfa-.number lfa-.see ;
+  ." : " lf-author-code lf-author-message type lfa-.number lfa-.see lfa-.detail ;

@@ -4,7 +4,7 @@
 \ (TransparencyMode), the front end's work budget, and the stuck signal.
 \ Every word of the Meta layer (level-defeq.fs, defeq.fs, whnf.fs) reads
 \ its configuration here.
-\ - Flags (lf-meta-flags), Lean's Config fields: lf-defeq-fo (foApprox),
+\ - Flags (lf-defeq-flags), Lean's Config fields: lf-defeq-fo (foApprox),
 \   lf-defeq-ctx (ctxApprox), lf-defeq-quasi (quasiPatternApprox),
 \   lf-defeq-const (constApprox), lf-defeq-stuck (isDefEqStuckEx),
 \   lf-defeq-univ (univApprox) and lf-defeq-opaque (assignSyntheticOpaque).
@@ -18,7 +18,7 @@
 \ - Transparency, numbered as Lean's TransparencyMode constructors:
 \   lf-tr-all, lf-tr-default (the default), lf-tr-reducible,
 \   lf-tr-instances, lf-tr-none, lf-tr-implicit; lf-defeq-mode! sets it,
-\   lf-meta-mode reads it. A configuration scope (Lean's withConfig,
+\   lf-defeq-mode reads it. A configuration scope (Lean's withConfig,
 \   withTransparency) saves lf-meta-config ( -- flags mode ) and gives it
 \   back with lf-meta-config! ( flags mode -- ).
 \ - The budget (S1 §8, Lean's maxHeartbeats): the steps of elaboration,
@@ -67,10 +67,10 @@ end-structure
   lf-meta-default lf-defeq-flags! lf-tr-default lf-defeq-mode!
   lf-meta-default-budget lf-meta-budget! ; context-setup
 
-: lf-meta-flags ( -- flags ) mcfg mcfg-flags @ ;
-: lf-meta-flag? ( bit -- flag ) lf-meta-flags and 0<> ;
-: lf-meta-mode ( -- mode ) mcfg mcfg-mode @ ;
-: lf-meta-config ( -- flags mode ) lf-meta-flags lf-meta-mode ;
+: lf-defeq-flags ( -- flags ) mcfg mcfg-flags @ ;
+: lf-meta-flag? ( bit -- flag ) lf-defeq-flags and 0<> ;
+: lf-defeq-mode ( -- mode ) mcfg mcfg-mode @ ;
+: lf-meta-config ( -- flags mode ) lf-defeq-flags lf-defeq-mode ;
 : lf-meta-config! ( flags mode -- ) lf-defeq-mode! lf-defeq-flags! ;
 : lf-meta-budget ( -- n ) mcfg mcfg-budget @ ;
 : lf-meta-spend? ( -- flag )

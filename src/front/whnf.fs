@@ -396,16 +396,16 @@ end-structure
 \ unfoldDefinition?: any definition the transparency unfolds
 \ (getUnfoldableConst?), a theorem at all; at instances, an application
 \ of a projection function (unfoldProjInstWhenInstances?).
-: wm-thm-all? ( d -- flag ) lf-menv-kind lf-kind-theorem = lf-meta-mode lf-tr-all = and ;
+: wm-thm-all? ( d -- flag ) lf-menv-kind lf-kind-theorem = lf-defeq-mode lf-tr-all = and ;
 : wm-proj-fact ( d -- outcome )
   lf-menv-proj-fn? ok-then? if if outcome-unsupported else outcome-ok then then ;
 : wm-proj-inst ( d -- outcome )
-  lf-meta-mode lf-tr-instances = if wm-proj-fact else drop outcome-ok then ;
+  lf-defeq-mode lf-tr-instances = if wm-proj-fact else drop outcome-ok then ;
 : wm-firm ( app? d -- outcome )
   dup wm-thm-all? if 2drop outcome-unsupported exit then
   swap if wm-proj-inst else drop outcome-ok then ;
 : wm-const ( app? const -- outcome )
-  wc-name lf-meta-mode lf-menv-unfoldable ok-then? 0= if nip nip exit then
+  wc-name lf-defeq-mode lf-menv-unfoldable ok-then? 0= if nip nip exit then
   if 2drop outcome-unsupported else wm-firm then ;
 : wm-check ( e -- outcome )
   dup wm-nat? if drop outcome-unsupported exit then
@@ -416,7 +416,7 @@ end-structure
   true wc-core ok-then? if wm-final else no-result then ;
 \ whnfR: whnf at reducible transparency, the configured one restored.
 : wm-at ( e mode -- e' outcome )
-  lf-meta-mode swap lf-defeq-mode! swap lf-meta-whnf rot lf-defeq-mode! ;
+  lf-defeq-mode swap lf-defeq-mode! swap lf-meta-whnf rot lf-defeq-mode! ;
 : lf-meta-whnf-r ( e -- e' outcome ) lf-tr-reducible wm-at ;
 : lf-meta-whnf-forall ( e -- e' outcome )
   dup lf-meta-whnf ok-then? 0= if nip no-result exit then

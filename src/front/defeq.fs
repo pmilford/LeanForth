@@ -803,7 +803,7 @@ defer de-quick-x ( -- )
 : de-top ( -- ) de-mark? if de-t de-s ['] de-close-k de-solve then ;
 ' de-top is de-top-x
 : de-config ( -- )
-  lf-meta-mode df df-mode ! outcome-ok df df-outcome ! false df df-taint !
+  lf-defeq-mode df df-mode ! outcome-ok df df-outcome ! false df df-taint !
   df df-limit @ ?dup 0= if lf-defeq-default-fuel then df df-fuel !
   lf-lb-undef df df-result !  lf-defeq-ctx de-flag? lf-meta-ctx-approx! ;
 : de-start ( t s -- )
