@@ -711,16 +711,21 @@ FE1 reaches; every other case answers *unsupported* with its token.
 | FE1g | Proof state and tactics: goals, `.goals`, `by-induction` (eliminator from the elaboration data, motive, one goal per minor premise with its tag), `by-case: … =>`, `by-rfl` (`Eq.refl` at default transparency), `by-exact` | parts of `Elab/Tactic/Basic.lean`, `Induction.lean`, `Meta/Tactic/Induction.lean`, `ElimInfo.lean`, `Rfl.lean` |
 | FE1h | Tests of every class below, planted faults, the user page in three forms, the done-checker run | — |
 
-FE1c's status (2026-11-12, branch `fe1c`): level unification without max
-(`src/front/level-defeq.fs`), bound-variable instantiation, abstraction
-and head beta (`instantiate.fs`), level equality with `mkLevelMax'` and
-`mkLevelIMax'` (`level-simp.fs`) and universe-parameter instantiation
-(`level-params.fs`) are written and tested alone; `make reference-front`
-compares 85 cases with pinned Lean (83 equal; two level unifications over
-max answer unsupported until `Level.normalize` is ported). `whnf`,
-`inferType`, term unification, `Nat` offsets, caches and fuel are not
-started; they need the front end's view of the environment, which FE1d's
-elaboration data completes.
+FE1c's status (2026-11-12, branch `fe1c-lnorm`): level unification
+(`src/front/level-defeq.fs`, Lean's `isLevelDefEqAux` under
+`checkpointDefEq`: both sides instantiated and normalized, the
+assignments of a false answer rolled back), `Level.normalize` and Lean's
+`Name.cmp` (`level-normalize.fs`), bound-variable instantiation,
+abstraction and head beta (`instantiate.fs`), level equality with
+`mkLevelMax'` and `mkLevelIMax'` (`level-simp.fs`), universe-parameter
+instantiation (`level-params.fs`) and marks with rollback of
+metavariable assignments (`mvars.fs`, for `checkpointDefEq`) are written
+and tested alone; `make reference-front` compares 155 cases with pinned
+Lean: 153 equal, and two level unifications that need Lean's
+`solveSelfMax` or `decLevel?` of a max (not ported yet) answer
+unsupported. `whnf`, `inferType`, term unification, `Nat` offsets,
+caches and fuel are not started; they need the front end's view of the
+environment, which FE1d's elaboration data completes.
 
 Size: L, eight S–M steps; *speculative* 4,000 to 7,000 lines of Forth
 source and as much in tests. Needs: 8.2.1c and 8.2.1d (branch
