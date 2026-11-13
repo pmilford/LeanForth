@@ -29,7 +29,11 @@ against the coverage classes of [the coverage review](TEST_COVERAGE_REVIEW.md) a
    success/failure results. Trace return-stack use through loops, `EXIT`,
    `UNLOOP`, and calls; check loop bounds, empty ranges and nesting. Verify flags
    are consumed correctly and that callers use the actual returned convention.
-3. Check idiom and factoring against [the Forth style guide](FORTH_STYLE.md),
+3. Before judging factoring, look for existing words in the generated word index
+   ([LIBRARY_WORDS.md](LIBRARY_WORDS.md)) and read the duplicate report
+   (`python3 scripts/check-duplicates.py --report`; plan 9.4.8f): a new copy of an indexed word or a new
+   duplicate group is a finding.
+   Check idiom and factoring against [the Forth style guide](FORTH_STYLE.md),
    which is the project standard. Run
    `python3 scripts/forth-metrics.py --words 10 <files>` on the reviewed files
    and include its summary in the report. Raise a finding — with a concrete

@@ -125,6 +125,8 @@ check-docs:
 	$(RUN) python3 scripts/check-adr-status.py
 	$(RUN) python3 tests/scripts/test_check_agent_sync.py
 	$(RUN) python3 scripts/check-agent-sync.py
+	$(RUN) python3 tests/scripts/test_lib_index.py
+	$(RUN) python3 scripts/lib-index.py
 
 # The Forth examples of the user pages print exactly the output shown.
 DOC_EXAMPLE_PAGES := docs/user/CONCEPTS.md docs/user/TERM_PRINTER.md \
@@ -156,11 +158,16 @@ check-portable-forth:
 	$(RUN) python3 scripts/check-portable-forth.py
 
 # Forth review log and style ratchet (docs/development/forth-reviews/LOG.md,
-# tests/forth-quality-baseline.json): fails on main for an unreviewed Forth change.
+# tests/forth-quality-baseline.json): fails on main for an unreviewed Forth change; also the lib-caller and
+# duplicate checks (plan 9.4.8f).
 check-forth-quality:
 	$(RUN) python3 tests/scripts/test_check_forth_quality.py
 	$(RUN) python3 tests/scripts/test_check_progress.py
 	$(RUN) python3 scripts/check-forth-quality.py
+	$(RUN) python3 tests/scripts/test_check_lib_callers.py
+	$(RUN) python3 scripts/check-lib-callers.py
+	$(RUN) python3 tests/scripts/test_check_duplicates.py
+	$(RUN) python3 scripts/check-duplicates.py
 
 # Report-only Forth style metrics (word length, globals, locals, shuffling);
 # see docs/development/FORTH_STYLE.md. Never fails on style.
