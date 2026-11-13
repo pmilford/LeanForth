@@ -119,6 +119,8 @@ check-docs:
 	$(RUN) python3 scripts/check-doc-links.py
 	$(RUN) python3 tests/scripts/test_check_adr_status.py
 	$(RUN) python3 scripts/check-adr-status.py
+	$(RUN) python3 tests/scripts/test_check_agent_sync.py
+	$(RUN) python3 scripts/check-agent-sync.py
 
 # The Forth examples of the user pages print exactly the output shown.
 DOC_EXAMPLE_PAGES := docs/user/CONCEPTS.md docs/user/TERM_PRINTER.md \
