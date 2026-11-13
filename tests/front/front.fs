@@ -616,6 +616,14 @@ T{ false lf-mctx-depth{ drop sc ! snap s0 ! lb one lf-level-mvar-assign t1 prop 
 T{ snap s1 ! s0 @ lf-mctx-switch t1 tfree? s1 @ lf-mctx-switch t1 tfree?
    -> outcome-ok true outcome-ok false }T
 T{ sc @ }lf-mctx-depth t1 tfree? lb lfree? lf-mctx-depth -> outcome-ok true true 0 }T
+\ A handle that names no live snapshot (review s1-meta-a M3): mark M,
+\ snapshot a, inner mark I, snapshot b, I committed (b dropped), snapshot
+\ c, t1 assigned. Neither b nor M (a mark) switches to the snapshot next
+\ to it (c, a): both invalid, t1 still assigned.
+T{ mark sc ! snap s0 ! mark inner ! snap s1 ! inner @ lf-mctx-commit snap s2 !
+   t1 prop lf-mvar-assign -> outcome-ok outcome-ok }T
+T{ s1 @ lf-mctx-switch sc @ lf-mctx-switch t1 tfree? -> outcome-invalid outcome-invalid false }T
+T{ s2 @ lf-mctx-switch t1 tfree? sc @ lf-mctx-rollback t1 tfree? -> outcome-ok true outcome-ok true }T
 lf-mctx-reset
 
 \ A stale value: one the term store gave back after it was assigned (rolled

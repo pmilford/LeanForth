@@ -126,6 +126,9 @@ marks-to-room lf-mctx-marks constant open-marks
 T{ 1 heap-refusals ! me 0 lf-meta-level-defeq me free? lf-mctx-marks
    -> false outcome-full true open-marks }T
 T{ 1 heap-refusals ! lf-mctx-mark lf-mctx-marks -> 0 outcome-full open-marks }T
+\ A depth scope refused for room goes no deeper (review s1-meta-a L1).
+T{ 1 heap-refusals ! false lf-mctx-depth{ lf-mctx-depth lf-mctx-level-depth lf-mctx-marks
+   -> 0 outcome-full 0 0 open-marks }T
 T{ 0 heap-refusals ! close-marks lf-mctx-marks -> 0 }T
 \ The undo trail's other slabs (S1 §3): a snapshot whose slab cannot
 \ grow, a switch whose redo stack cannot, a delayed assignment whose three

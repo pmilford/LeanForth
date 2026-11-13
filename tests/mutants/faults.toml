@@ -14533,7 +14533,7 @@ reason = "FE1c review M2: getFunInfo's telescope leaves its free variables in th
 [[fault]]
 id = "fe-defeq-nat-check-same-depth"
 file = "src/front/defeq.fs"
-old = '''  false lf-mctx-depth{ de-must if de-frame de-regs + ! else drop then ;'''
+old = '''  false lf-mctx-depth{ de-must if de-frame fr-scope ! else drop then ;'''
 new = '''  ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c review M3: ifNatExpr's Nat test at the caller's depth"
@@ -15084,8 +15084,8 @@ reason = "FE1g-4 review fe1g3 L10: a message's printing that throws leaves the p
 [[fault]]
 id = "fe-tac-defeq-settings-kept"
 file = "src/front/tactic-basic.fs"
-old = '''  lf-defeq-flags lf-defeq-mode 2>r ['] lfb-elab-defeq catch 2r> lfb-defeq-set! throw ;'''
-new = '''  lfb-elab-defeq ;'''
+old = '''  lf-defeq-flags lf-defeq-mode 2>r ['] lfb-elab-defeq catch 2r> lfb-defeq-set! throw'''
+new = '''  lfb-elab-defeq'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 review fe1g3 L10: the tactics' isDefEq leaves defeq's configuration and mode set to the elaborator's"
 
@@ -15349,3 +15349,45 @@ old = '''  lf-meta-spend? 0= if drop -1 outcome-exhausted exit then'''
 new = ''''''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S1 §8: whnf spends none of the declaration's budget"
+
+# --- s1-meta merge A review (2026-11-13): the reviewer's surviving faults
+
+[[fault]]
+id = "fe-meta-stuck-hints-run"
+file = "src/front/defeq.fs"
+old = '''  de-stuck-either dup de-aborted? or if exit then de-t de-hints de-s de-hints ;'''
+new = '''  de-stuck-either de-t de-hints de-s de-hints ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "s1-meta-a M1: unification hints run after a stuck signal (Lean's throw skips them)"
+
+[[fault]]
+id = "fe-meta-level-stuck-no-mvar"
+file = "src/front/level-defeq.fs"
+old = '''  2dup ld-mvar-side? lf-defeq-stuck lf-meta-flag? and'''
+new = '''  lf-defeq-stuck lf-meta-flag?'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "s1-meta-a M2: the stuck signal raised for a level pair with no metavariable side"
+
+[[fault]]
+id = "fe-meta-snap-hit-neighbour"
+file = "src/front/mvars.fs"
+old = '''  dup mv-snaps slab-count < if mvp mvp-serial @ = else 2drop false then ;'''
+new = '''  nip mv-snaps slab-count < ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "s1-meta-a M3: a handle that names no live snapshot switches to the next one"
+
+[[fault]]
+id = "fe-meta-depth-full-deepens"
+file = "src/front/mvars.fs"
+old = '''  mv-deep mv-open ok-then? if swap mv-deeper outcome-ok else nip 0 swap then ;'''
+new = '''  >r mv-deep mv-open r> mv-deeper ;'''
+test = "$GFORTH tests/front/meta-heap.fs"
+reason = "s1-meta-a L1: a depth scope refused for room still goes one depth deeper"
+
+[[fault]]
+id = "fe-meta-forall-negative"
+file = "src/front/whnf.fs"
+old = '''  dup 0< if drop 2drop outcome-invalid no-result exit then'''
+new = ''''''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "s1-meta-a L4: a negative count runs ?do .. +loop through memory"

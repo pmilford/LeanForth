@@ -327,6 +327,16 @@ T{ deeper ?t fk app ?t fx app lf-defeq-elab lf-defeq-const or with-flags
 \ a hint (Init's or another library's): unsupported, never false.
 T{ lf-tr-reducible lf-defeq-mode! 0 s" Nat.add" cn fk dq lf-tr-default lf-defeq-mode!
    -> false outcome-unsupported }T
+\ Its twin, Nat.rec _ k _ ?o =?= Nat.add with the synthetic opaque ?o
+\ read-only (one depth deeper), reaches isDefEqOnFailure stuck on ?o:
+\ under isDefEqStuckEx the stuck signal (ExprDefEq.lean:2182) and no
+\ hints, else the hints, unsupported (review s1-meta-a M1).
+: rec-major ( major -- t ) >r rec nat nat lam app fk app nat nat fk lam lam app r> app ;
+: hint-twin ( flags -- flag outcome )
+  lf-tr-reducible lf-defeq-mode! deeper ?o rec-major 0 s" Nat.add" cn
+  rot with-flags shallower lf-tr-default lf-defeq-mode! ;
+T{ lf-defeq-elab lf-defeq-stuck or hint-twin lf-defeq-elab hint-twin
+   -> false lf-meta-stuck false outcome-unsupported }T
 \ getFunInfo's kinds come from the declared type: a store binder that
 \ the binder table names may be another binder's (the store shares equal
 \ nodes), so unsupported, here and through isDefEqArgs.

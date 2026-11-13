@@ -139,7 +139,11 @@ begin-structure /df
 end-structure
 /df context-record: df
 7 cells constant de-regs
-8 cells context-slab: de-frames   \ the registers (de-regs) and a depth scope or 0
+begin-structure /de-frame       \ a call's saved activation
+  de-regs +field fr-regs        \ the registers df-k .. df-mode
+  field: fr-scope               \ the callee's depth scope, or 0
+end-structure
+/de-frame context-slab: de-frames
 1 cells context-slab: de-cells
 : lf-defeq-fuel! ( n -- ) df df-limit ! ;
 
@@ -163,7 +167,7 @@ end-structure
 : de-frame ( -- addr ) de-frames dup slab-count 1- swap slab-at ;
 : de-save ( -- outcome )
   1 de-frames slab-claim ok-then? 0= if exit then
-  de-frames slab-at df df-k over de-regs move de-regs + 0 swap ! outcome-ok ;
+  de-frames slab-at df df-k over fr-regs de-regs move 0 swap fr-scope ! outcome-ok ;
 : de-regs! ( t s entry -- )
   df df-entry ! de-s! de-t! 0 df df-x ! 0 df df-y ! de-run de-next! ;
 : de-invoke ( t s entry -- )
@@ -178,7 +182,7 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 : de-solve ( t s k -- ) de-then ['] de-solve-x de-invoke ;
 \ The callee of the last call runs at implicit transparency or above,
 \ or one depth deeper (withNewMCtxDepth: a depth scope, its handle in the
-\ frame's last cell, closed when the callee returns or the call fails).
+\ frame's fr-scope, closed when the callee returns or the call fails).
 : de-rank ( mode -- n )
   case lf-tr-none of 0 endof  lf-tr-reducible of 1 endof  lf-tr-instances of 2 endof
     lf-tr-implicit of 3 endof  lf-tr-default of 4 endof  5 swap endcase ;
@@ -186,9 +190,10 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
   df df-mode @ de-rank lf-tr-implicit de-rank < if lf-tr-implicit df df-mode ! then ;
 : de-deeper ( -- )
   de-aborted? if exit then
-  false lf-mctx-depth{ de-must if de-frame de-regs + ! else drop then ;
+  false lf-mctx-depth{ de-must if de-frame fr-scope ! else drop then ;
 : de-pop ( -- k scope )
-  de-frame dup df df-k de-regs move de-regs + @ df df-k @ swap -1 de-frames slab-commit ;
+  de-frame dup fr-regs df df-k de-regs move fr-scope @ df df-k @ swap
+  -1 de-frames slab-commit ;
 : de-shallow ( scope -- flag )
   ?dup 0= if true exit then }lf-mctx-depth dup ok? if drop true else de-abort false then ;
 : de-resume ( -- ) de-pop de-shallow if df df-result @ swap execute else drop then ;

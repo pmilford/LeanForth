@@ -69,7 +69,8 @@
 \ it is a pi, else e); lf-meta-instantiate-forall ( e addr n -- e'
 \ outcome ) instantiateForall (Basic.lean:2186): e's first n pis, each
 \ made a pi by whnf when it is none, instantiated with the n terms at
-\ addr; invalid when one is still no pi (Lean: too many parameters).
+\ addr; invalid when one is still no pi (Lean: too many parameters) or
+\ n is negative.
 \ Untrusted: only the kernel's check of a finished term decides anything.
 \ State: the record wc (fuel, whether facts are asked, the recursor
 \ step's term, head, data and declaration) and the slabs wc-args,
@@ -432,6 +433,7 @@ end-structure
   swap wm-pi ok-then? 0= if nip no-result exit then
   lf-term-second@ swap lf-meta-instantiate1 ;
 : lf-meta-instantiate-forall ( e addr n -- e' outcome )
+  dup 0< if drop 2drop outcome-invalid no-result exit then
   cells over + swap ?do
     i @ wm-inst ok-then? 0= if no-result unloop exit then
   1 cells +loop outcome-ok ;

@@ -231,6 +231,10 @@ T{ lv1 sort 0 bv tpi nat 1 rxs lf-meta-instantiate-forall -> nat outcome-ok }T
 T{ nat nat nat tpi lam fk app fx 1 rxs lf-meta-instantiate-forall -> nat outcome-ok }T
 T{ nat nat tpi fk fx 2 rxs lf-meta-instantiate-forall nat 0 rxs lf-meta-instantiate-forall
    -> -1 outcome-invalid nat outcome-ok }T
+\ A negative count is invalid: nothing read, no whnf step spent (review
+\ s1-meta-a L4).
+T{ lf-meta-budget nat fk 1 rxs drop -1 lf-meta-instantiate-forall rot lf-meta-budget -
+   -> -1 outcome-invalid 0 }T
 
 \ ---- Stale leaves: after the contexts are emptied, every metavariable
 \ and free variable made before is invalid.

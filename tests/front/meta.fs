@@ -135,6 +135,16 @@ T{ u me lmax u v lmax lf-meta-level-defeq -> false outcome-unsupported }T
 deeper
 T{ u me lmax u v lmax lf-meta-level-defeq -> false outcome-ok }T
 shallower
+\ Under isDefEqStuckEx (LevelDefEq.lean:169) a stuck pair with a
+\ metavariable side (?e, read-only one depth deeper) raises the stuck
+\ signal; Sort u =?= Sort v, no metavariable on either side, stays false
+\ (review s1-meta-a M2).
+lf-defeq-stuck lf-defeq-flags!
+T{ u v lf-meta-level-defeq -> false outcome-ok }T
+deeper
+T{ me v lf-meta-level-defeq -> false lf-meta-stuck }T
+shallower
+lf-meta-default lf-defeq-flags!
 \ A stale metavariable inside a max: invalid.
 lnew constant mold
 lf-mctx-reset

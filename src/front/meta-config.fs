@@ -22,7 +22,8 @@
 \   withTransparency) saves lf-meta-config ( -- flags mode ) and gives it
 \   back with lf-meta-config! ( flags mode -- ).
 \ - The budget (S1 §8, Lean's maxHeartbeats): the steps of elaboration,
-\   synthesis, unification and whnf one declaration may take, default
+\   synthesis, unification and whnf one context may take (per context
+\   until s1-elab resets it per declaration), default
 \   lf-meta-default-budget (100,000,000, as --fuel's); lf-meta-budget! sets
 \   it, lf-meta-spend? spends one step and is false, spending nothing, once
 \   none is left: the caller answers exhausted.
@@ -57,7 +58,7 @@ lf-meta-default lf-defeq-fo or lf-defeq-ctx or constant lf-defeq-elab
 begin-structure /mcfg
   field: mcfg-flags    \ Lean's Config flags (the bits above)
   field: mcfg-mode     \ the transparency
-  field: mcfg-budget   \ steps left in this declaration
+  field: mcfg-budget   \ steps left in this context (per context until s1-elab)
 end-structure
 /mcfg context-record: mcfg
 : lf-defeq-flags! ( flags -- ) mcfg mcfg-flags ! ;

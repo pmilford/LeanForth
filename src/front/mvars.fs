@@ -151,7 +151,6 @@ begin-structure /mctx
   field: mctx-depth
   field: mctx-ldepth      \ Lean's levelAssignDepth
   field: mctx-at          \ the current state: a trail record, or -1
-  field: mctx-key         \ the serial a snapshot search seeks
   field: mctx-target      \ the metavariable an occurs check seeks
   field: mctx-serial      \ the last serial given (scopes, snapshots)
   field: mctx-view        \ the current local context (Lean's Meta lctx)
@@ -502,15 +501,14 @@ end-structure
 \ Snapshots, kept in serial order (a scope's close drops the newest), so
 \ a serial is found by halving.
 : mvp ( i -- addr ) mv-snaps slab-at ;
-: mv-key ( -- addr ) mctx mctx-key ;
-: mvp-below? ( i -- flag ) mvp mvp-serial @ mv-key @ < ;
-: mv-halve ( lo hi -- lo' hi' )
-  2dup + 2/ dup mvp-below? if >r nip r> 1+ swap else nip then ;
-: mv-bisect ( -- i ) 0 mv-snaps slab-count begin 2dup < while mv-halve repeat drop ;
-: mvp-hit? ( i -- flag )
-  dup mv-snaps slab-count < if mvp mvp-serial @ mv-key @ = else drop false then ;
-: mv-snap-index ( snap -- i true | false )
-  mv-key ! mv-bisect dup mvp-hit? dup 0= if nip then ;
+: mvp-below? ( key i -- flag ) mvp mvp-serial @ > ;
+: mv-halve ( key lo hi -- key lo' hi' )
+  2dup + 2/ 3 pick over mvp-below? if >r nip r> 1+ swap else nip then ;
+: mv-bisect ( key -- key i )
+  0 mv-snaps slab-count begin 2dup < while mv-halve repeat drop ;
+: mvp-hit? ( key i -- flag )
+  dup mv-snaps slab-count < if mvp mvp-serial @ = else 2drop false then ;
+: mv-snap-index ( snap -- i true | false ) mv-bisect tuck mvp-hit? dup 0= if nip then ;
 : mv-snap-fill ( addr -- serial ) mv-at over mvp-at ! mv-serial tuck swap mvp-serial ! ;
 : mv-snap-new ( -- snap outcome )
   1 mv-snaps slab-claim ok-then? if mvp mv-snap-fill outcome-ok else 0 swap then ;
@@ -588,7 +586,7 @@ end-structure
   swap mv-fvars# swap - over mv-was-fvars mv-change drop ;
 : mv-delay-set ( pending n i -- ) mv-delay-fvars mv-was-delay mv-change drop ;
 : lf-mvar-delay ( mvar pending n -- outcome )
-  mv-delay-ok dup ok? 0= if nip nip nip exit then drop
+  mv-delay-ok ok-then3? 0= if exit then
   >r swap mv-number r> swap mv-delay-set outcome-ok ;
 : lf-mvar-delayed ( mvar -- pending addr n true | false )
   mv-of 0= if false exit then dup mvd-pending @ dup 0< if 2drop false exit then

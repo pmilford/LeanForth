@@ -117,12 +117,14 @@ defer lf-tac-elab ( node expected -- term outcome )
   2drop lfa-e-elaborate lf-tac-fail -1 outcome-unsupported ;
 ' lfb-unelaborated is lf-tac-elab
 \ isDefEq in the elaborator's configuration at default transparency;
-\ defeq's own configuration and mode put back however it ends.
+\ defeq's own configuration and mode put back however it ends, and an
+\ internal code such as the stuck signal made invalid (outcome-sane).
 : lfb-elab-defeq ( t s -- flag outcome )
   lf-defeq-elab lf-defeq-flags! lf-tr-default lf-defeq-mode! lf-meta-defeq ;
 : lfb-defeq-set! ( flags mode -- ) lf-defeq-mode! lf-defeq-flags! ;
 : lf-tac-defeq ( t s -- flag outcome )
-  lf-defeq-flags lf-defeq-mode 2>r ['] lfb-elab-defeq catch 2r> lfb-defeq-set! throw ;
+  lf-defeq-flags lf-defeq-mode 2>r ['] lfb-elab-defeq catch 2r> lfb-defeq-set! throw
+  outcome-sane ;
 
 \ ---- Leaves: a bottom-up walk (dag-walk.fs) whose image is 1 where a
 \ leaf passes the test.
