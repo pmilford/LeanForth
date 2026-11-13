@@ -20,7 +20,7 @@ docs/programming/ELABORATION_DATA.md and schemas/elab-data-1.schema.json:
 
 Only records whose every name is a declaration of EXPORT are kept, so that
 a slice of a library (scripts/export.sh MODULE -- NAMES) gets the data of
-its own declarations; the number left out is printed. A record whose names
+its own declarations; the records left out, by kind, are printed. A record whose names
 are all there but of the wrong kind (a class that is not an inductive
 type, an instance or eliminator that is one) is an error: then the export
 and the modules do not belong together. It refuses (exit status 1, nothing
@@ -179,12 +179,14 @@ def read_raw(path):
 
 
 def finish(raw, export):
-    """The text of the elaboration data, and the number of records left out."""
+    """The text of the elaboration data, and the records left out of each kind."""
     modules, records = read_raw(raw)
     decls, digest = export_decls(export)
     if manifest_sha(export) != digest:
         raise ElabError(f"{export} differs from its manifest's SHA-256")
     keep = [(k, b) for k, b in records if kept(k, b, decls)]
+    left = {k: sum(1 for x, _ in records if x == k) - sum(1 for x, _ in keep if x == k)
+            for k in KINDS}
     lines = sorted((KINDS.index(k), text({k: b})) for k, b in keep)
     body = "".join(line + "\n" for _, line in lines)
     head = {"elab_data": {"export_sha256": digest, "format": FORMAT, "format_version": VERSION,
@@ -192,7 +194,7 @@ def finish(raw, export):
                           "modules": modules,
                           "records": {k: sum(1 for x, _ in keep if x == k) for k in KINDS},
                           "records_sha256": hashlib.sha256(body.encode()).hexdigest()}}
-    return text(head) + "\n" + body, len(records) - len(keep)
+    return text(head) + "\n" + body, left
 
 
 def write(path, data):
@@ -216,7 +218,8 @@ def main(argv=None):
     write(args.output, data)
     counts = json.loads(data.split("\n", 1)[0])["elab_data"]["records"]
     print(f"{args.output}: " + ", ".join(f"{counts[k]} {k}" for k in KINDS)
-          + f"; {left_out} records left out (not declarations of the export)")
+          + "; left out (not declarations of the export): "
+          + ", ".join(f"{left_out[k]} {k}" for k in KINDS))
     return 0
 
 

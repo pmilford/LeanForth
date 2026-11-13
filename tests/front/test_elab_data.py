@@ -111,7 +111,7 @@ def finisher_cases(work):
                                str(export), str(out)], capture_output=True, text=True,
                               timeout=LIMIT)
     done = run(raw_ok)
-    if done.returncode != 0 or "1 records left out" not in done.stdout:
+    if done.returncode != 0 or "left out (not declarations of the export): 0 instance, 0 default_instance, 1 reducibility" not in done.stdout:
         fail(f"finisher on a good RAW: {done.returncode} {done.stdout} {done.stderr}")
     first = out.read_bytes()
     run([raw_ok[0]] + list(reversed(raw_ok[1:])))
