@@ -201,6 +201,17 @@ T{ u sort-of lf-instantiate-mvars swap lf-term-first@ -> outcome-ok one }T
 T{ u lf-level-succ drop lf-level-instantiate-mvars swap lf-level-slot node-first @
    -> outcome-ok one }T
 T{ 99999 lf-level-instantiate-mvars -> -1 outcome-invalid }T
+\ A constant over ?u gets a new reference with ?u's value (C.{1}).
+create pair 2 cells allot
+: const-over ( level -- term )
+  dup lf-level-identity drop swap pair 2!
+  0 s" C" lf-name-str drop lf-name-generation @ pair 1 lf-cref-new 0= abort" cref"
+  lf-cterm-new 0= abort" cterm" drop ;
+: const-level ( term -- level ) lf-term-first@ lf-cref-slot lf-cref-pairs drop 0 lf-cref-pair@ drop ;
+u const-over constant cu
+T{ cu const-level cu lf-instantiate-mvars swap dup cu = swap const-level
+   -> u outcome-ok false one }T
+T{ one const-over dup lf-instantiate-mvars drop = -> true }T
 T{ lf-mctx-reset u lf-level-mvar-live? u one lf-level-mvar-assign -> false outcome-invalid }T
 
 \ Binders keep their name and kind when a part changes.
@@ -220,10 +231,21 @@ mv-natural new constant pend  mv-natural new constant dm
 T{ x lf-delay-fvar prop lf-delay-fvar -> outcome-ok outcome-invalid }T
 T{ dm pend 2 lf-mvar-delay -> outcome-invalid }T
 T{ dm pend 1 lf-mvar-delay -> outcome-ok }T
-T{ dm lf-mvar-delayed >r >r @ r> r> -> pend x 1 true }T
+: first-fvar ( pending addr n true -- pending fvar n true ) >r >r @ r> r> ;
+T{ dm lf-mvar-delayed first-fvar -> pend x 1 true }T
 T{ dm prop lf-mvar-assign dm pend 1 lf-mvar-delay -> outcome-invalid outcome-invalid }T
 T{ pend lf-mvar-delayed -> false }T
 T{ dm lf-instantiate-mvars -> dm outcome-ok }T
+\ Once the pending one is assigned, Lean would put the value in: not
+\ supported yet (plan FE1c), never another term.
+T{ pend prop lf-mvar-assign dm lf-instantiate-mvars -> outcome-ok -1 outcome-unsupported }T
+\ So is Lean's beta step for ?f a when ?f := fun x : Prop => Prop; ?f alone
+\ is the lambda.
+mv-natural new constant f
+prop prop lf-tag-lam lf-term-binary drop constant fun1
+T{ f fun1 lf-mvar-assign f lf-instantiate-mvars -> outcome-ok fun1 outcome-ok }T
+T{ f prop app lf-instantiate-mvars -> -1 outcome-unsupported }T
+T{ prop f app lf-instantiate-mvars nip -> outcome-ok }T
 T{ mv-natural new lf-mvar-lctx -> 1 true }T
 
 \ Resources: a term 10,000 applications deep around a metavariable is

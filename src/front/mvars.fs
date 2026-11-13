@@ -21,19 +21,23 @@
 \   value, with every assignment followed, must not contain it. Like Lean's
 \   assign it checks neither the value's type nor its free variables; the
 \   unifier does (plan FE1c).
-\ - lf-mvar-delay records a delayed assignment, Lean's
-\   DelayedMetavarAssignment: ?m applied to the free variables fvars stands
-\   for the pending metavariable's value with them abstracted (intro under
-\   binders, plan FE1g). Instantiating it is not built yet: lf-instantiate-mvars
-\   leaves such a metavariable as it is, so the term keeps a hole and the
-\   export writer refuses it (author/export.fs).
-\ - lf-instantiate-mvars replaces every assigned metavariable, term or level,
-\   by its value, itself instantiated, as Lean's instantiateMVars, on the
-\   heap stacks of dag-walk.fs: a node met twice is made once, binders keep
-\   their names and kinds (present/binder-table.fs), a Sort over a level
-\   metavariable gets the level's value, and a node that changes nothing
-\   stays the same node. A constant whose universe arguments hold a level
-\   metavariable is not rebuilt yet: the walk ends unsupported.
+\ - Delayed assignments, Lean's DelayedMetavarAssignment (intro under
+\   binders, plan FE1g): lf-delay-fvar appends a live free variable and
+\   lf-mvar-delay gives a free ?m the last n appended and a pending
+\   metavariable: ?m applied to those free variables stands for the pending
+\   one's value with them abstracted.
+\ - lf-instantiate-mvars replaces every assigned metavariable, term or
+\   level, by its value, itself instantiated, as Lean's instantiateMVars,
+\   on the heap stacks of dag-walk.fs: a node met twice is made once,
+\   binders keep their names and kinds (present/binder-table.fs), a Sort
+\   over a level metavariable gets the level's value, a constant whose
+\   universe arguments hold one gets a new reference with the levels'
+\   images, and a node that changes nothing stays the same node. Two steps
+\   of Lean's need the instantiation of bound variables (plan FE1c) and
+\   answer unsupported until then, never another term: the beta step for
+\   ?f a when ?f's value is a lambda, and putting in a delayed assignment's
+\   value once its pending metavariable is assigned (an unassigned one
+\   stays, as in Lean, and the export writer refuses the hole).
 \ Outcomes: ok; invalid for a stale or unknown leaf, an assigned one, an
 \ occurs-check failure or a cycle; full when a store or the heap has no
 \ room; unsupported as above. Untrusted: whatever the context says, only
@@ -41,15 +45,16 @@
 \ Words: lf-mctx-reset, lf-mctx-deeper, lf-mctx-shallower, lf-mctx-depth;
 \ lf-mvar-new ( type kind -- mvar outcome ), lf-mvar-live?, lf-mvar-type,
 \ lf-mvar-kind, lf-mvar-value, lf-mvar-lctx, lf-mvar-assignable?,
-\ lf-mvar-assign ( mvar value -- outcome ), lf-mvar-delay ( mvar addr n
-\ pending -- outcome ), lf-mvar-delayed ( mvar -- pending addr n true |
-\ false ), lf-level-mvar-new ( -- level outcome ), lf-level-mvar-live?,
-\ lf-level-mvar-value, lf-level-mvar-assign ( level value -- outcome ),
-\ lf-mvar-occurs? ( mvar term -- flag outcome ), lf-level-instantiate-mvars
-\ ( level -- level' outcome ), lf-instantiate-mvars ( term -- term' outcome ).
-\ State: the record mctx and the stores mv-exprs, mv-levels and mv-fvars
-\ in the checker context (ADR 0009), and the two walk records of
-\ dag-walk.fs, whose heap blocks live only while a walk runs.
+\ lf-mvar-assign ( mvar value -- outcome ), lf-delay-fvar ( fvar --
+\ outcome ), lf-mvar-delay ( mvar pending n -- outcome ), lf-mvar-delayed
+\ ( mvar -- pending addr n true | false ), lf-level-mvar-new ( -- level
+\ outcome ), lf-level-mvar-live?, lf-level-mvar-value, lf-level-mvar-assign
+\ ( level value -- outcome ), lf-mvar-occurs? ( mvar term -- flag outcome ),
+\ lf-level-mvar-occurs?, lf-level-instantiate-mvars ( level -- level'
+\ outcome ), lf-instantiate-mvars ( term -- term' outcome ).
+\ State: the record mctx (with the two walk records of dag-walk.fs, whose
+\ heap blocks live only while a walk runs) and the stores mv-exprs,
+\ mv-levels and mv-fvars, in the checker context (ADR 0009).
 
 require ../lib/lib.fs
 require ../core/terms.fs
@@ -88,6 +93,7 @@ begin-structure /mctx
   field: mctx-epoch       \ leaves of another epoch are stale
   field: mctx-depth
   field: mctx-target      \ the metavariable an occurs check seeks
+  field: mctx-pairs       \ heap, while a constant is rebuilt: its new level pairs
   /dw +field mctx-walk    \ the term walks
   /dw +field mctx-lwalk   \ the level walks
 end-structure
@@ -295,15 +301,27 @@ store-header context-record: mv-fvars
 
 \ Terms: a binary node whose parts change is rebuilt with the binder's
 \ name and kind; a Sort gets its level's image; an assigned metavariable
-\ is its value's image; a constant over a level metavariable is not
-\ rebuilt yet (unsupported).
+\ is its value's image; a constant gets its levels' images.
 : mv-refuse ( outcome -- ) mctx mctx-walk dw-refuse ;
 : mv-named ( new old -- new ) lf-pres-binder@ if 2>r dup 2r> lf-pres-binder! drop then ;
 : mv-same-pair? ( i1 i2 node -- i1 i2 flag )
   >r 2dup r@ lf-term-second@ = swap r> lf-term-first@ = and ;
-: mv-pair-build ( node walk -- image )
+\ Lean's instantiateMVars beta-reduces ?f a when ?f's value is a lambda,
+\ and puts a delayed assignment's value in once its pending metavariable
+\ is assigned; both need the front end's instantiation of bound variables
+\ (plan FE1c) and answer unsupported until then, never another term.
+: mv-lambda? ( term -- flag ) lf-term-tag@ lf-tag-lam = ;
+: mv-beta? ( node walk -- flag )
+  over lf-term-tag@ lf-tag-app = 0= if 2drop false exit then
+  swap lf-term-first@ dup mv-value-of
+  if drop swap dw-image mv-lambda? else 2drop false then ;
+: mv-ready? ( pending -- flag ) lf-mvar-value dup if nip then ;
+: mv-delayed-ready? ( term -- flag ) lf-mvar-delayed if 2drop mv-ready? else false then ;
+: mv-rebuild ( node walk -- image )
   over >r mv-pair-images r@ mv-same-pair? if 2drop r> exit then
   r@ lf-term-tag@ lf-term-binary if r> mv-named exit then r> outcome-full mv-refuse ;
+: mv-pair-build ( node walk -- image )
+  2dup mv-beta? if drop outcome-unsupported mv-refuse else mv-rebuild then ;
 : mv-sort-new ( level -- image )
   dup lf-level-identity drop lf-hterm-sort if drop else outcome-full mv-refuse -1 then ;
 : mv-sort-level ( node -- node level' true | node false )
@@ -312,13 +330,31 @@ store-header context-record: mv-fvars
 : mv-sort-build ( node -- image )
   mv-sort-level 0= if exit then 2dup swap lf-term-first@ = if drop exit then
   nip mv-sort-new ;
-: mv-level-moves? ( level -- flag ) dup lf-level-instantiate-mvars drop <> ;
+\ A constant whose universe arguments change gets a reference to the same
+\ name with each argument's image, built in a heap block of (level,
+\ identity) pairs freed at once (core/constant-references.fs).
+: mv-level-image ( level -- level' )
+  lf-level-instantiate-mvars dup ok? if drop else mv-refuse then ;
+: mv-cref ( term -- slot ) lf-term-first@ lf-cref-slot ;
+: mv-moves? ( flag addr i -- flag' ) lf-cref-pair@ drop dup mv-level-image <> or ;
 : mv-cref-moves? ( term -- flag )
-  lf-term-first@ lf-cref-slot lf-cref-pairs false swap 0 ?do
-    over i lf-cref-pair@ drop mv-level-moves? or loop nip ;
-: mv-const-build ( node -- image )
-  dup mv-cref-moves? if outcome-unsupported mv-refuse then ;
+  mv-cref lf-cref-pairs false swap 0 ?do over i mv-moves? loop nip ;
+: mv-pairs-at ( i -- addr ) 2* cells mctx mctx-pairs @ + ;
+: mv-pair! ( level addr -- ) >r dup lf-level-identity drop swap r> 2! ;
+: mv-image-pairs ( addr count -- )
+  0 ?do dup i lf-cref-pair@ drop mv-level-image i mv-pairs-at mv-pair! loop drop ;
+: mv-block ( count -- flag )
+  2* cells 1 max allocate if drop false exit then mctx mctx-pairs ! true ;
+: mv-ref-new ( slot -- term true | false )
+  dup lf-cref-name@ rot lf-cref-pairs nip mctx mctx-pairs @ swap lf-cref-new
+  if lf-cterm-new if drop true exit then then false ;
+: mv-const-new ( node -- image )
+  dup mv-cref lf-cref-pairs dup mv-block 0= if 2drop outcome-full mv-refuse exit then
+  mv-image-pairs dup mv-cref mv-ref-new mctx mctx-pairs heap-release
+  if nip else outcome-full mv-refuse then ;
+: mv-const-build ( node -- image ) dup mv-cref-moves? if mv-const-new then ;
 : mv-leaf-build ( node walk -- image )
+  over mv-delayed-ready? if drop outcome-unsupported mv-refuse exit then
   over mv-value-of if swap dw-image nip else drop then ;
 : mv-leaf-kind ( node walk -- image )
   over lf-term-tag@ case lf-tag-symbolic-sort of drop mv-sort-build endof
