@@ -956,6 +956,7 @@ test-differential: reference-elab-data
 test-instances:
 	$(RUN) $(GFORTH) tests/front/instances.fs
 	$(RUN) $(GFORTH) tests/front/instances-bad.fs
+	$(RUN) $(GFORTH) tests/front/instances-odd.fs
 reference-synth: RUN := timeout 3000
 reference-synth:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/front/synth-init.sh

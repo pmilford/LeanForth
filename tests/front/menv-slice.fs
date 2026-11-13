@@ -16,7 +16,9 @@ require ../../src/import/feed.fs
 create menv-lib /stage allot
 create menv-feed /feed allot
 : menv-slice ( -- c-addr u ) s" tests/front/whnf-slice.ndjson" ;
-: menv-data ( -- c-addr u ) s" tests/front/whnf-slice.elab.ndjson" ;
+\ The elaboration data menv-load reads; a test may name another first.
+defer menv-data ( -- c-addr u )
+:noname ( -- c-addr u ) s" tests/front/whnf-slice.elab.ndjson" ; is menv-data
 : menv-digest ( -- sha ) menv-lib stage-manifest manifest-digest ;
 : menv-must ( outcome -- ) ok? 0= abort" menv-slice: a loading step failed" ;
 : menv-read ( -- ) menv-data menv-lib menv-digest elab-read menv-must ;

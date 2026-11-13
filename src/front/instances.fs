@@ -70,7 +70,8 @@
 \   lf-inst-verified? ( v -- flag ) (an instance whose class and keys were
 \   checked equal; false for any other value), lf-inst-check ( i --
 \   outcome ) (§4 steps 1-2 alone, nothing kept: ok, invalid on a
-\   difference, else why it could not finish), lf-inst-checked# and
+\   difference, else why it could not finish), lf-default-check ( j --
+\   outcome ) (step 3 alone, for default instance j), lf-inst-checked# and
 \   lf-inst-unverified# ( -- n ): the instances whose check is final, and
 \   those of them unverified.
 \ - lf-inst-error ( -- code ): the last error code (src/author/errors.fs);
@@ -98,7 +99,6 @@ require ./lctx-views.fs
 1 constant it-passed      \ (it-pass) the pass found nothing; 0: not run; else its error
 begin-structure /kcmp     \ a comparison of recorded keys with recomputed ones
   field: kc-d-end         \ the recorded keys' end
-  field: kc-c-end         \ the recomputed keys' end
   field: kc-wide          \ true once a recorded star covered a term
 end-structure
 begin-structure /it
@@ -155,9 +155,7 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
 \ ---- forallMetaTelescopeReducing, the declared type's pi beside (src,
 \ -1 once whnf made the pis).
 : it-pi? ( e -- flag ) lf-term-tag@ lf-tag-pi = ;
-: it-binder ( src -- kind )   \ an input pi's binder kind, else explicit
-  dup 0< if drop lf-binder-default exit then
-  dup lf-term-input? 0= if drop lf-binder-default exit then
+: it-binder ( src -- kind )   \ an input pi's binder kind, else (-1 too) explicit
   lf-term-input-binder@ if nip else lf-binder-default then ;
 : it-mv-kind ( src -- kind )
   it-binder lf-binder-instance = if mv-synthetic else mv-natural then ;
@@ -181,12 +179,15 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
   dup lf-menv-kind lf-kind-definition <> if drop false exit then
   lf-defeq-mode dup lf-tr-all = swap lf-tr-default = or if drop true exit then
   lf-menv-status drop elab-reducible = ;
+\ No class: getConstTemp? decides (none for a constant no declaration has).
 : it-not-class ( const -- false outcome )
-  lf-meta-const-decl 0= if false outcome-invalid exit then
+  lf-meta-const-decl 0= if false outcome-ok exit then
   it-defn-temp? if false outcome-unsupported else false outcome-ok then ;
+: it-class-of ( const -- d true | false )   \ its declaration, if a class
+  lf-dt-const-decl 0= if false exit then
+  dup elab-class-of if drop true else drop false then ;
 : it-class-const ( const -- class true outcome | false outcome )
-  dup lf-dt-const-decl 0= if drop false outcome-invalid exit then
-  dup elab-class-of if drop nip true outcome-ok else drop it-not-class then ;
+  dup it-class-of if nip true outcome-ok else it-not-class then ;
 \ An application's head: a constant, an assigned metavariable's value's
 \ constant head (else undefined), a lambda undefined; anything else none.
 : it-mvar-head ( mvar -- class true outcome | false outcome )
@@ -236,22 +237,23 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
   if outcome-ok else lfa-e-inst-class it-fail then ;
 \ Step 2: the recorded keys against the recomputed: the same; wider, the
 \ record has a star where the type gives a term (unverified, error
-\ 114); or different (invalid, error 113).
+\ 114); or different (invalid, error 113). Both are one term (the reader
+\ checks the record's, mkPath makes one), so a walk of the record's keys
+\ that finds no difference ends both at once.
 0 constant it-same   1 constant it-wider   2 constant it-differ
 : it-kc ( -- kcmp ) it it-kcmp ;
 : it-over? ( d c -- flag ) elab-key-star? 0= swap elab-key-star? and ;
-: it-more? ( d c -- d c flag ) 2dup it-kc kc-c-end @ < swap it-kc kc-d-end @ < and ;
-: it-ends? ( d c -- flag ) it-kc kc-c-end @ = swap it-kc kc-d-end @ = and ;
+: it-more? ( d c -- d c flag ) over it-kc kc-d-end @ < ;
 : it-covered ( d c -- d' c' ) elab-term-end swap 1+ swap true it-kc kc-wide ! ;
 : it-advance ( d c -- d' c' flag )
   2dup it-over? if it-covered true exit then
   2dup elab-key= dup if >r 1+ swap 1+ swap r> then ;
 : it-walk-keys ( d c -- result )
   begin it-more? while it-advance 0= if 2drop it-differ exit then repeat
-  it-ends? 0= if it-differ exit then it-kc kc-wide @ if it-wider else it-same then ;
+  2drop it-kc kc-wide @ if it-wider else it-same then ;
 : it-compare ( kc nc i -- result )
-  elab-instance-keys over + it-kc kc-d-end ! -rot over + it-kc kc-c-end !
-  false it-kc kc-wide ! it-walk-keys ;
+  elab-instance-keys over + it-kc kc-d-end ! -rot drop false it-kc kc-wide !
+  it-walk-keys ;
 : it-path-result ( body i -- result outcome )
   swap lf-dt-path ok-then2? 0= if nip -1 swap exit then rot it-compare outcome-ok ;
 : it-verdict ( result -- outcome )
@@ -269,7 +271,7 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
 : it-default-verdict ( body j -- outcome )
   it-default-class it-head-class? if outcome-ok else lfa-e-default-class it-fail then ;
 : it-default-decl ( j -- d outcome ) elab-default@ drop nip elab-decl-name lf-menv-find ;
-: it-default-check ( j -- outcome )
+: lf-default-check ( j -- outcome )
   dup it-default-decl ok-then? 0= if nip exit then ['] it-default-verdict it-at-default ;
 
 \ ---- What the checks found, kept per record: only a final outcome (ok,
@@ -312,7 +314,7 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
   dup ['] it-class-verdict it-checked-by swap it-class-ok it-record ;
 : it-default-pass ( j -- outcome )
   dup it-dstatus@ it-unchecked <> if drop outcome-ok exit then
-  dup it-default-check swap it-verified it-dstatus it-keep ;
+  dup lf-default-check swap it-verified it-dstatus it-keep ;
 : it-records-ready ( -- outcome )
   elab-instance elab-count it-status it-slab-ready
   dup ok? if drop elab-default elab-count it-dstatus it-slab-ready then ;
@@ -343,8 +345,8 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
 : it-find-child ( k n -- c | -1 )
   it-child begin dup 0< 0= while 2dup it-key@ elab-key= if nip exit then it-sibling
   repeat nip ;
-: it-star-child ( n -- c | -1 )
-  it-child dup 0< if exit then dup it-key@ elab-key-star? 0= if drop -1 then ;
+: it-star-child ( n -- c | -1 )   \ n has a child: its first is the star, if any
+  it-child dup it-key@ elab-key-star? 0= if drop -1 then ;
 : it-last-sibling ( c -- addr )   \ the sibling field of c's last sibling
   begin dup it-sibling dup 0< 0= while nip repeat drop tn@ tn-sibling ;
 : it-link ( c n -- ) dup it-child 0< if tn@ tn-child ! else it-child it-last-sibling !
@@ -409,12 +411,16 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
 \ ---- getUnify's process (Main.lean:577-605) on a heap stack of frames
 \ (todo, node, skip): skip 0 or more visits a node; skip below 0 visits
 \ the siblings from node, each with skip (skip invert) plus its arity. A
-\ node below 0 has nothing to visit and gets no frame.
+\ node below 0 has nothing to visit and gets no frame. A frame's visit
+\ puts its first new frame in the slot its pop freed (it-refill: the room
+\ is there), any second one on top (it-push, which may find no room).
 : tf@ ( i -- addr ) it-stack slab-at ;
+: it-frame! ( todo node skip i -- ) tf@ tuck tf-skip ! tuck tf-node ! tf-todo ! ;
+: it-refill ( todo node skip -- )
+  over 0< if drop 2drop exit then it-stack slab-count it-frame! 1 it-stack slab-commit ;
 : it-push ( todo node skip -- outcome )
   over 0< if drop 2drop outcome-ok exit then
-  1 it-stack slab-claim ok-then? 0= if nip nip nip exit then
-  tf@ tuck tf-skip ! tuck tf-node ! tf-todo ! outcome-ok ;
+  1 it-stack slab-claim ok-then? 0= if nip nip nip exit then it-frame! outcome-ok ;
 : it-pop ( -- todo node skip )
   it-stack slab-count 1- tf@ dup tf-todo @ over tf-node @ rot tf-skip @
   -1 it-stack slab-commit ;
@@ -422,25 +428,26 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
   tn@ tn-first @ begin dup 0< 0= while
     dup tv@ tv-value @ it-out lf-meta-push dup ok? 0= if nip exit then drop
     tv@ tv-next @ repeat drop outcome-ok ;
-: it-visit-skip ( todo node skip -- outcome ) swap it-child swap 1- invert it-push ;
+: it-visit-skip ( todo node skip -- outcome )
+  swap it-child swap 1- invert it-refill outcome-ok ;
 : it-key-of ( todo -- rest k args outcome )
   dup lf-dt-rest tuck swap lf-dt-first false rot lf-dt-key ;
 \ Lean visits the star child first, then the child of the key: their
 \ frames go on in the other order. A star key visits every child.
 : it-on-key ( rest k args node -- outcome )
-  >r swap dup elab-key-star? if 2drop r> it-child -1 it-push exit then
-  r@ it-find-child 0 it-push ok-then? 0= if r> drop exit then
-  r> it-star-child 0 it-push ;
+  >r swap dup elab-key-star? if 2drop r> it-child -1 it-refill outcome-ok exit then
+  r@ it-find-child 0 it-refill r> it-star-child 0 it-push ;
 : it-visit-key ( todo node -- outcome )
   >r it-key-of ok-then3? if r> it-on-key else r> drop then ;
+\ A node's values when no term is left, else its children by the next
+\ term's key (a value's keys are one term: a node has children exactly
+\ while terms are left, so the key is made only where Lean makes it).
 : it-visit-zero ( todo node -- outcome )
-  over lf-dt-nil = if nip it-values-out exit then
-  dup it-child 0< if 2drop outcome-ok exit then it-visit-key ;
+  over lf-dt-nil = if nip it-values-out else it-visit-key then ;
 : it-arity ( s -- n ) it-key@ elab-key-arity ;
 \ The next sibling's frame goes on first, so that s is visited first.
 : it-siblings ( todo s base -- outcome )
-  >r 2dup it-sibling r@ invert it-push dup ok? 0= if nip nip r> drop exit then drop
-  dup it-arity r> + it-push ;
+  >r 2dup it-sibling r@ invert it-refill dup it-arity r> + it-push ;
 : it-frame ( todo node skip -- outcome )
   dup 0< if invert it-siblings exit then ?dup if it-visit-skip else it-visit-zero then ;
 : it-walk ( -- outcome )
@@ -475,9 +482,8 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
 : it-sorter ( -- sorter ) it it-sort-rec ;
 : it-sorter-ready ( -- outcome )
   1 cells ['] sort-signed it-sorter sorter-init ['] it-prio-at it-sorter sorter-key! ;
-: it-sort ( -- outcome )
-  it-sorter-ready dup ok? 0= if exit then
-  drop it-out slab-base it-out slab-count it-sorter sort-records ;
+: it-sorted ( -- outcome ) it-out slab-base it-out slab-count it-sorter sort-records ;
+: it-sort ( -- outcome ) it-sorter-ready ['] it-sorted ok-and ;
 : it-kept ( w v -- w' ) dup it-erased? if drop else over it-out slab-at ! 1+ then ;
 : it-drop-erased ( -- )
   0 it-out slab-count 0 ?do i it-out slab-at @ it-kept loop

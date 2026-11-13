@@ -503,7 +503,10 @@ FE3's work.)
 
 `getUnify` (DiscrTree/Main.lean:567) is ported as written, with an
 explicit stack of (node, remaining subterms) pairs whose subterm lists
-are shared cons lists (`lib/cons.fs`): at the root the query's key is
+are shared lists of (rest, term) cells in `front/discr-keys.fs`'s own
+slab, forgotten from a mark (`lib/cons.fs` hash-conses records and
+`lib/runs.fs` appends at the end without marks: neither is a cons
+list): at the root the query's key is
 `getUnifyKeyArgs e root` (Main.lean:350); a star root key (the goal is a
 bare metavariable) folds over the root map in hash order: unsupported
 (never reached by instance problems, whose goal is a class
@@ -706,6 +709,17 @@ the number of unverified instances in `Init` (target 0). Outcomes:
 invalid for a mismatch (with the record's line), unsupported as above,
 exhausted and full as always.
 
+Built (branch `s1-synth`, 2026-11-13, `src/front/instances.fs`,
+`lf-inst-classes`): at the first instance problem or default-instance
+query, every instance record's root key must be the constant of its
+recorded class (error 115), step 1 runs over every instance (error 112)
+and step 3 over every default instance (error 116); step 2 runs for a
+root's instances when the root is first queried (error 113). A refusal
+is kept: every later query answers it. Step 4 is plan row FE1e3b, not
+built: until then the out-parameters rest on pinned Lean. S1 note §9
+replaced the rule above for unverified records: one answers unsupported
+only when a search tries it.
+
 Tests: each of the following data files, made from the slice's good data,
 is refused at first use with its code and line: `instAddNat` recorded as
 an instance of `Mul`; `instOfNatNat`'s keys changed to `[OfNat, Nat, 0]`
@@ -754,12 +768,12 @@ Outcomes are ADR 0008's; a failed word gives -1 for its result.
 | `lf-synth-instance` | `( type -- inst flag outcome )`, flag true found, false none; outcome `lf-meta-stuck` only inside the Meta layer | `synthInstance?` |
 | `lf-try-synth` | `( type -- inst code outcome )`, code some, none or undef | `trySynthInstance` |
 | `lf-inst-candidates` | `( type -- addr n outcome )` | `getInstances` |
-| `lf-inst-ready` | `( -- outcome )` | the class check of §4 |
+| `lf-inst-classes` | `( -- outcome )` | §4 "When": steps 1 and 3 over every record, and each instance's root key its class's (built: `src/front/instances.fs`) |
 | `lf-class?` | `( term -- class true outcome \| false outcome )` | `isClass?` |
 | `lf-class-out-params` | `( class -- addr n )` | `getOutParamPositions?` |
-| `lf-default-instances` | `( class -- addr n )` cells of (instance, priority) | `getDefaultInstances` |
-| `lf-dt-path` | `( type -- keys outcome )`, `keys` a key list of the key store | `mkPath` |
-| `lf-dt-unify-key` | `( term root? -- key args outcome )`, `key` a key of the key store, `args` a cons list of subterms (`lib/cons.fs`) | `getUnifyKeyArgs` |
+| `lf-default-instances` | `( class -- addr n outcome )`, one cell per rank: a default-instance record or a gap (`lf-default-gap?`) | `getDefaultInstances` |
+| `lf-dt-path` | `( type -- k n outcome )`, keys `k` .. `k+n-1` of the key store | `mkPath` |
+| `lf-dt-key` | `( term root? list -- key list' outcome )`, `key` a key of the key store, `list'` the todo list with the term's arguments | `getUnifyKeyArgs` |
 | `lf-mctx-snapshot`, `lf-mctx-switch` | `( -- snap )`, `( snap -- outcome )` | `withMCtx` |
 
 FE1f's deferred `lf-front-elaborate ( -- type value )` is set to a word

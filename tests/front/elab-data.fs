@@ -210,6 +210,12 @@ T{ elims lib zero-sha elab-read empty? elab-error-line s" elaboration data of an
    why? elab-error-code -> outcome-invalid true 1 true 9 }T
 T{ lib elab-read-against? -> false }T
 T{ good lib digest elab-read counts elab-error-code -> outcome-ok 3 2 18 0 54 3 5 4 3 0 0 }T
+\ M6: a binding (elab-bind!) holds for the next read only: bound to other
+\ records that read is refused (error 39), the next, unbound, works.
+: other-records ( -- c-addr u )
+  s" 0000000000000000000000000000000000000000000000000000000000000000" ;
+T{ other-records elab-bind! good lib digest elab-read elab-error-code
+   good lib digest elab-read -> outcome-invalid 39 outcome-ok }T
 \ Refused after its last line: none of the records it read stays.
 T{ s" tests/front/cut-off.elab.ndjson" lib digest elab-read empty? elab-error-line
    s" records differ in number from the header" why? elab-error-code

@@ -16,10 +16,11 @@
   "tokens": 9
  },
  "03ddd755d471": {
-  "copies": 3,
+  "copies": 4,
   "members": [
    "src/author/export.fs:lfx-digits",
    "src/front/ctor-idx.fs:digits",
+   "src/front/discr-keys.fs:dk-digits",
    "src/present/print-job.fs:lf-pp-digits"
   ],
   "tokens": 11
@@ -1417,9 +1418,10 @@
   "tokens": 10
  },
  "cc681a2bd39b": {
-  "copies": 2,
+  "copies": 3,
   "members": [
    "src/core/derivation-log.fs:lf-log-cref-head!",
+   "src/front/instances.fs:it-frame!",
    "src/program/ir-run.fs:irx-effect!"
   ],
   "tokens": 9
@@ -1756,6 +1758,14 @@
    "src/kernel/environment.fs:lf-kind-valued?"
   ],
   "tokens": 11
+ },
+ "f7841b636bbb": {
+  "copies": 2,
+  "members": [
+   "src/front/discr-keys.fs:dk-sort?",
+   "src/front/whnf.fs:wc-sort?"
+  ],
+  "tokens": 8
  },
  "f820a56cdea5": {
   "copies": 4,

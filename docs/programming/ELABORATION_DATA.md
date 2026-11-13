@@ -106,11 +106,14 @@ something else). What LeanForth checks and what it takes on trust:
   output, bound to the export only by its SHA-256, which is not a key:
   anyone can write a file with the right hash and other values.
   - that an instance belongs to the class its record names and has those
-    keys (Lean computes both from the instance's type);
+    keys (Lean computes both from the instance's type), until the first
+    instance problem checks them (below; an instance whose check cannot
+    finish stays on trust, unverified);
   - the ranks themselves (the order of Lean's tree depends on 64-bit name
     hashes and on import order, which the export does not hold);
   - priorities and synthesis orders;
-  - which default instance a class has, and its rank;
+  - which default instance a class has, and its rank (its class is
+    checked at the first instance problem, below);
   - which of a class's parameters are out-parameters (within range, as
     above); the synthesis orders' positions (they count the binders
     after unfolding, which the reader does not do: FE1e3 does);
@@ -118,11 +121,18 @@ something else). What LeanForth checks and what it takes on trust:
   - the matchers' alternatives and discriminant names;
   - whether a projection's structure is a class;
   - which eliminator Lean's `induction` and `cases` use.
+- **Checked at the first instance problem** (FE1e3, branch `s1-synth`,
+  tested alone; [FE1e design](../design/FE1E_APPLICATIONS.md#4-the-instance-class-check-fe1d-review-m1) §4):
+  each instance's root key is its recorded class's constant (error
+  115) and its class is its type's conclusion's (error 112); each
+  default instance's type ends in its recorded class (error 116); each
+  instance's keys, recomputed by FE1e2's `mkPath`, equal the record's
+  when its root is first queried (error 113). A difference refuses the
+  data at that query and every later one. A record whose check cannot
+  finish is unverified: kept on trust, and a search that tries it
+  answers unsupported (S1 note §9).
 - **Still to come:**
-  - Plan row FE1e3 checks, at the first instance problem, each
-    instance's and default instance's class against its type's
-    conclusion, each instance's keys (recomputed by FE1e2's `mkPath`) and
-    each class's out-parameters ([FE1e design](../design/FE1E_APPLICATIONS.md#4-the-instance-class-check-fe1d-review-m1) §4).
+  - Plan row FE1e3b recomputes each class's out-parameters.
   - For the rest, the guard is that every statement is printed back in
     three forms and compared with Lean's ([parser] gate).
 
@@ -252,7 +262,7 @@ kind by text:
 | `class` | `name` (the class), `out_params` (the positions of its out-parameters), `out_level_params` (the positions of its universe parameters that occur only in out-parameters) |
 | `instance` | `name` (the instance), `class`, `priority` (natural, below 2^32), `synth_order` (naturals: the order in which its instance arguments are synthesized), `keys`, `rank` (its place under its root key, the first of its keys) |
 | `instance_left_out` | a value of Lean's instance tree that is no `instance` record: `name`, `keys`, `priority`, `rank`, and `reason`, either `erased` (in Lean's tree but never a candidate) or `not_exported` (the export lacks its declaration; Lean would try it, so FE1e answers *unsupported* when it is a candidate, design §2.7). Its keys may name a constant, or project a structure, that the export lacks: the reader keeps such a key as a *foreign* key, which no query of the library can equal |
-| `default_instance` | `class`, `name` (the instance), `priority`, `rank` (its place in Lean's `getDefaultInstances` of the class, the most recent first). Two of one class may not share a rank, but the ranks may have gaps: a default instance whose declaration the export lacks has no record of its own (format 2 has no `default_instance_left_out`), so its rank is missing, and refusing gaps would refuse every slice that lacks one. FE1e3 answers *unsupported* when a gap is reached |
+| `default_instance` | `class`, `name` (the instance), `priority`, `rank` (its place in Lean's `getDefaultInstances` of the class, the most recent first). Two of one class may not share a rank, but the ranks may have gaps: a default instance whose declaration the export lacks has no record of its own (format 2 has no `default_instance_left_out`), so its rank is missing, and refusing gaps would refuse every slice that lacks one. FE1e3's `lf-default-instances` gives a gap there (`lf-default-gap?`), and a caller that reaches it answers *unsupported* |
 | `reducibility` | `name`, `status`: one of `reducible`, `irreducible`, `implicit_reducible`, `instance_reducible` |
 | `eliminator` | `kind` (`induction` or `cases`), `name` (the eliminator), `types` (the names of the explicit targets' types) |
 | `tag` | `name`, `tag`: one of `elab_as_elim`, `elab_without_expected_type`, `aux_recursor`, `no_confusion`, `cases_on`, `rec_on`, `brec_on` |
@@ -451,13 +461,16 @@ no data key has); its header documents them.
 **Using the instance records (FE1e2, FE1e3; branch `s1-synth`, tested
 alone).** `src/front/discr-keys.fs` recomputes Lean's keys (`lf-dt-path`,
 mkPath; `lf-dt-key`, getUnifyKeyArgs) and `src/front/instances.fs`
-rebuilds Lean's instance tree from the ranks, checks each instance's class
-and keys against its type when its root is first queried (`lf-inst-check`;
-a difference refuses the data, error 112 or 113; a record whose star covers
-a term the type gives, as a `no_index` annotation the export drops leaves
-it, makes that instance unverified, error 114), and answers getInstances
-(`lf-inst-candidates`). `make reference-synth` recomputes every Init
-instance and compares getInstances with pinned Lean's `#synth` traces.
+rebuilds Lean's instance tree from the ranks and answers getInstances
+(`lf-inst-candidates`) and getDefaultInstances (`lf-default-instances`).
+The first query checks every record's class and root key and every
+default instance's class (`lf-inst-classes`); a root's first query
+checks its instances' keys. A difference refuses the data (errors 112,
+113, 115, 116) at that query and every later one; a record whose star
+covers a term the type gives, as a `no_index` annotation the export
+drops leaves it, makes that instance unverified (error 114). `make
+reference-synth` recomputes every Init instance and compares getInstances
+with pinned Lean's `#synth` traces.
 
 ## Smart-unfolding bodies: designed, not built
 
@@ -621,9 +634,11 @@ counts it, so the data needs no new format version):
 - Nothing uses the data yet: FE1e3 and later (instances, default
   instances), FE1g (eliminators) and FE1d2 (matchers, projections,
   auxiliary recursors, smart unfolding) will.
-- The class of each instance and default instance, each instance's keys
-  and each class's out-parameters are checked against their types only by
-  plan row FE1e3; until then they rest on pinned Lean (above, "Trust").
+- The class of each instance and default instance and each instance's
+  keys are checked against their types at the first instance problem
+  (FE1e3, not yet run by `leanforth check`, which uses no data yet); each
+  class's out-parameters only by plan row FE1e3b; until then they rest
+  on pinned Lean (above, "Trust").
 - Smart-unfolding bodies are designed (above), not written or read.
 - Only `--elab-data FILE`. The export's manifest names the data's records
   SHA-256 (M6) but not its file, so the data is not found from the
