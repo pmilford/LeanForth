@@ -239,6 +239,11 @@ T{ cu const-level cu lf-instantiate-mvars swap dup cu = swap const-level
    -> u outcome-ok false one }T
 T{ one const-over dup lf-instantiate-mvars drop = -> true }T
 T{ lf-mctx-reset u lf-level-mvar-live? u one lf-level-mvar-assign -> false outcome-invalid }T
+\ A level metavariable's depth is the context's when it was made; a stale
+\ leaf, a level that is no metavariable or not in the store has -1.
+T{ u lf-level-mvar-depth one lf-level-mvar-depth 99999 lf-level-mvar-depth -> -1 -1 -1 }T
+T{ lf-level-mvar-new drop lf-mctx-deeper lf-level-mvar-new drop lf-mctx-shallower
+   lf-level-mvar-depth swap lf-level-mvar-depth -> 1 0 }T
 \ With the level store sharing by content, a new level metavariable of the
 \ same number is another leaf (another epoch), and the old one stays stale.
 true lf-term-sharing! lf-mctx-reset

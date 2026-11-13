@@ -10662,3 +10662,11 @@ old = ''': lp-run ( term -- term' outcome ) lp-count if lp-walk dw-run else outc
 new = ''': lp-run ( term -- term' outcome ) lp-walk dw-run ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c review L1: with no names Sort (max u u) becomes Sort u, where Lean's instantiateLevelParams returns the term as it is"
+
+[[fault]]
+id = "fe-level-mvar-depth-zero"
+file = "src/front/mvars.fs"
+old = '''  dup lf-level-mvar-live? if mvl-number mvl-decl mvl-depth @ else drop -1 then ;'''
+new = '''  drop 0 ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1c review L5: every level metavariable reads as made at depth 0, so one made inside withNewMCtxDepth looks read-only"

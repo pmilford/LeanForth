@@ -73,7 +73,7 @@ require ./mvars.fs
 \ a smaller depth than the context's), assignable.
 : ld-set? ( level -- flag ) ld-base lf-level-mvar-value dup if nip then ;
 : ld-assigned? ( l r -- flag ) ld-set? swap ld-set? or ;
-: ld-depth ( mvar -- depth ) mvl-number mvl-decl mvl-depth @ ;
+: ld-depth ( mvar -- depth ) lf-level-mvar-depth ;
 : ld-read-only? ( mvar -- flag ) ld-depth lf-mctx-depth < ;
 : ld-open? ( level -- flag )
   ld-base dup lf-level-mvar? if ld-read-only? 0= else drop false then ;

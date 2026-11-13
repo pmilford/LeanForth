@@ -50,7 +50,8 @@
 \ lf-mvar-assign ( mvar value -- outcome ), lf-delay-fvar ( fvar --
 \ outcome ), lf-mvar-delay ( mvar pending n -- outcome ), lf-mvar-delayed
 \ ( mvar -- pending addr n true | false ), lf-level-mvar-new ( -- level
-\ outcome ), lf-level-mvar-live?, lf-level-mvar-value, lf-level-mvar-assign
+\ outcome ), lf-level-mvar-live?, lf-level-mvar-value, lf-level-mvar-depth
+\ ( level -- depth ), lf-level-mvar-assign
 \ ( level value -- outcome ), lf-mvar-occurs? ( mvar term -- flag outcome ),
 \ lf-level-mvar-occurs?, lf-level-instantiate-mvars ( level -- level'
 \ outcome ), lf-instantiate-mvars ( term -- term' outcome ).
@@ -179,6 +180,10 @@ store-header context-record: mv-fvars
 : lf-level-mvar-value ( level -- value true | false )
   dup lf-level-mvar-live? 0= if drop false exit then
   mvl-number mvl-decl mvl-value @ dup 0< if drop false else true then ;
+\ Its depth (Lean's LMVarDecl.depth), or -1 for a level that is no live
+\ metavariable.
+: lf-level-mvar-depth ( level -- depth )
+  dup lf-level-mvar-live? if mvl-number mvl-decl mvl-depth @ else drop -1 then ;
 : mvl-fill ( leaf addr -- )
   tuck mvl-leaf ! lf-mctx-depth over mvl-depth ! -1 swap mvl-value ! ;
 : mvl-claim ( leaf -- level outcome )
