@@ -48,5 +48,6 @@ nat mv-opaque lf-mvar-new made constant ?o  ?o char o named
   lf-tr-default lf-defeq-mode! ;
 : eq-dq ( t s -- ) lf-defeq-elab lf-defeq-flags! dq-case ;
 : meta-dq ( t s -- ) 0 lf-defeq-flags! dq-case ;
-: deep-dq ( t s -- ) lf-defeq-elab lf-defeq-flags! lf-mctx-deeper dq-case lf-mctx-shallower ;
+: deep-dq ( t s -- ) lf-defeq-elab lf-defeq-flags! lf-mctx-deeper dq-case
+  lf-mctx-shallower ;
 : red-dq ( t s -- ) lf-tr-reducible lf-defeq-mode! eq-dq ;

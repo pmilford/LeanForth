@@ -61,25 +61,30 @@ require ./prop-quick.fs
 \ ---- whnf's fixed points.
 : fi-bit ( tag -- mask ) 1 swap lshift ;
 : fi-final-mask ( -- mask )
-  lf-tag-fvar fi-bit lf-tag-mvar fi-bit or lf-tag-symbolic-sort fi-bit or lf-tag-lam fi-bit or
+  lf-tag-fvar fi-bit lf-tag-mvar fi-bit or lf-tag-symbolic-sort fi-bit or lf-tag-lam
+  fi-bit or
   lf-tag-pi fi-bit or lf-tag-lit fi-bit or lf-tag-projection fi-bit or ;
-: fi-defn? ( const -- flag ) lf-meta-const-decl if lf-menv-kind lf-kind-definition = else true then ;
+: fi-defn? ( const -- flag ) lf-meta-const-decl if lf-menv-kind lf-kind-definition = else
+  true then ;
 : fi-head-final? ( head -- flag )
-  dup fi-tag lf-tag-constant = if fi-defn? 0= exit then fi-tag fi-bit fi-final-mask and 0<> ;
+  dup fi-tag lf-tag-constant = if fi-defn? 0= exit then fi-tag fi-bit fi-final-mask and
+  0<> ;
 : fi-unassigned? ( mvar -- flag ) lf-mvar-value dup if nip then 0= ;
 : fi-inert? ( t -- flag )
   dup fi-tag lf-tag-fvar = if lf-fvar-let? 0= exit then
   dup fi-tag lf-tag-mvar = if fi-unassigned? else drop false then ;
 : fi-succ-app? ( e -- flag )
-  dup lf-meta-app? if lf-term-first@ s" Nat.succ" lf-meta-const-named? else drop false then ;
+  dup lf-meta-app? if lf-term-first@ s" Nat.succ" lf-meta-const-named? else drop false
+  then ;
 : lf-meta-whnf-final? ( e -- flag )
   dup fi-succ-app? if lf-term-second@ fi-inert? else lf-meta-head fi-head-final? then ;
 
 \ ---- isProp.
+: fi-zero-sort? ( sort -- flag outcome )
+  lf-term-first@ lf-level-instantiate-mvars ok-then? if lf-meta-always-zero? else false
+  swap then ;
 : fi-sort-prop ( type -- flag outcome )
-  dup fi-tag lf-tag-symbolic-sort = if
-    lf-term-first@ lf-level-instantiate-mvars ok-then? if lf-meta-always-zero? else false swap then
-    exit then
+  dup fi-tag lf-tag-symbolic-sort = if fi-zero-sort? exit then
   lf-meta-whnf-final? if false outcome-ok else false outcome-unsupported then ;
 : lf-meta-is-prop ( e -- flag outcome )
   dup lf-meta-prop-quick ok-then? 0= if nip false swap exit then
@@ -90,11 +95,11 @@ require ./prop-quick.fs
 \ ---- The telescope: per parameter (kind, prop, free variable).
 : lf-meta-param ( i -- kind prop ) fi-params slab-at dup @ swap cell+ @ ;
 : fi-x ( i -- x ) fi-params slab-at 2 cells + @ ;
-: fi-push ( kind prop x -- outcome )
+: fi-push ( x kind prop -- outcome )
   1 fi-params slab-claim ok-then? 0= if >r 2drop drop r> exit then
-  fi-params slab-at tuck 2 cells + ! tuck cell+ ! ! outcome-ok ;
+  fi-params slab-at tuck cell+ ! tuck ! 2 cells + ! outcome-ok ;
 : fi-kind ( pi -- kind ) lf-pres-binder@ if nip else lf-binder-default then ;
-: fi-record ( pi x -- outcome ) swap fi-kind 0 rot fi-push ;
+: fi-record ( pi x -- outcome ) swap fi-kind 0 fi-push ;
 : fi-open ( pi -- body outcome )
   dup lf-term-first@ lf-lctx-local ok-then? 0= if nip no-result exit then
   2dup fi-record dup ok? 0= if nip nip no-result exit then drop
@@ -105,9 +110,10 @@ require ./prop-quick.fs
 : fi-reduce ( type n -- type' n' go? outcome )
   >r lf-whnf-core ok-then? 0= if -1 swap r> swap false swap exit then
   dup fi-tag lf-tag-pi = if r> true outcome-ok exit then
-  dup lf-meta-whnf-final? r> false rot if outcome-ok else outcome-unsupported then ;
+  dup lf-meta-whnf-final? if outcome-ok else outcome-unsupported then r> swap false swap ;
 : fi-step ( type n -- type' n' go? outcome )
-  dup 0= if false outcome-ok exit then over fi-tag lf-tag-pi = if fi-pi else fi-reduce then ;
+  dup 0= if false outcome-ok exit then over fi-tag lf-tag-pi = if fi-pi else fi-reduce
+  then ;
 : fi-telescope ( type n -- outcome )
   begin fi-step ok-then? 0= if nip nip exit then 0= until 2drop outcome-ok ;
 
@@ -120,9 +126,9 @@ require ./prop-quick.fs
 : fi-ho-arg? ( arg i -- flag outcome )
   over swap fi-earlier? if lf-fvar-type fi-maybe-pi? else drop false outcome-ok then ;
 : fi-ho-args? ( T i -- flag outcome )
-  false -rot begin over lf-meta-app? while
-    over lf-term-second@ over fi-ho-arg? ok-then? 0= if >r 2drop drop false r> exit then
-    >r rot r> or -rot swap lf-term-first@ swap repeat 2drop outcome-ok ;
+  swap begin dup lf-meta-app? while
+    2dup lf-term-second@ swap fi-ho-arg? ok-then? 0= if nip nip false swap exit then
+    if 2drop true outcome-ok exit then lf-term-first@ repeat 2drop false outcome-ok ;
 : fi-strip ( T -- body ) begin dup fi-tag lf-tag-pi = while lf-term-second@ repeat ;
 \ isClassQuick? answers none for these heads: no class.
 : fi-not-class? ( head -- flag )
@@ -132,7 +138,8 @@ require ./prop-quick.fs
 : lf-meta-class-none? ( type -- flag ) fi-strip lf-meta-head fi-not-class? ;
 : fi-ho? ( i -- flag outcome )
   dup lf-meta-param drop lf-binder-default = if drop false outcome-ok exit then
-  dup fi-x lf-fvar-type fi-strip dup lf-meta-head fi-not-class? if 2drop false outcome-ok exit then
+  dup fi-x lf-fvar-type fi-strip dup lf-meta-head fi-not-class? if 2drop false outcome-ok
+  exit then
   swap fi-ho-args? ;
 
 \ ---- getFunInfoNArgs.
@@ -141,7 +148,8 @@ require ./prop-quick.fs
   swap fi-params slab-at cell+ ! outcome-ok ;
 : fi-props ( -- outcome )
   fi-params slab-count 0 ?do i fi-prop! dup ok? 0= if unloop exit then drop
-    i fi-ho? ok-then? 0= if unloop exit then if unloop outcome-unsupported exit then loop outcome-ok ;
+    i fi-ho? ok-then? 0= if unloop exit then if unloop outcome-unsupported exit then loop
+    outcome-ok ;
 : lf-meta-fun-info ( f n -- m outcome )
   fi-params slab-clear swap lf-infer ok-then? 0= if nip no-result exit then
   swap fi-telescope dup ok? if drop fi-props then fi-params slab-count swap ;

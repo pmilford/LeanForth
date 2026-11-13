@@ -51,14 +51,16 @@ require ./term-eqv.fs
 \ the second of an imax is zero.
 : pq-lpush ( level -- outcome ) pq-levels lf-meta-push ;
 : pq-lsides ( level -- outcome )
-  dup lf-level-first@ pq-lpush dup ok? 0= if nip exit then drop lf-level-second@ pq-lpush ;
+  dup lf-level-first@ pq-lpush dup ok? 0= if nip exit then drop lf-level-second@ pq-lpush
+  ;
 : pq-lstep ( level -- zero? outcome )
   dup lf-level-tag@ case lf-level-tag-zero of drop true outcome-ok endof
     lf-level-tag-max of pq-lsides true swap endof
     lf-level-tag-imax of lf-level-second@ pq-lpush true swap endof
     >r drop false outcome-ok r> endcase ;
 : pq-lrun ( -- flag outcome )
-  begin pq-levels slab-count 0> while pq-levels pq-pop pq-lstep ok-then? 0= if false swap exit then
+  begin pq-levels slab-count 0> while pq-levels pq-pop pq-lstep ok-then? 0= if false swap
+  exit then
   0= if false outcome-ok exit then repeat true outcome-ok ;
 : lf-meta-always-zero? ( level -- flag outcome )
   pq-levels slab-clear pq-lpush dup ok? if drop pq-lrun else false swap then ;
@@ -108,7 +110,8 @@ require ./term-eqv.fs
   dup pq-head? if 0 pq-head-arrow exit then
   pq-no-prop? if lf-lb-false else lf-lb-undef then outcome-ok ;
 : pq-into ( e -- e' flag )
-  dup lf-let? if lf-let-body true exit then dup pq-pi? if lf-term-second@ true else false then ;
+  dup lf-let? if lf-let-body true exit then dup pq-pi? if lf-term-second@ true else false
+  then ;
 : lf-meta-prop-quick ( e -- lbool outcome )
   begin pq-into 0= until dup lf-meta-app? if pq-prop-app else pq-prop-leaf then ;
 
@@ -117,7 +120,8 @@ require ./term-eqv.fs
 \ type's checkProp and #k+1 into #k.
 3 constant pq-bvar
 : pq-outparam? ( t -- flag )
-  dup lf-meta-app? if lf-term-first@ s" outParam" lf-meta-const-named? else drop false then ;
+  dup lf-meta-app? if lf-term-first@ s" outParam" lf-meta-const-named? else drop false
+  then ;
 : pq-zero? ( level -- flag ) lf-level-tag@ lf-level-tag-zero = ;
 : pq-sort-prop ( sort -- r outcome )
   lf-term-first@ dup lf-meta-never-zero? ok-then? 0= if nip lf-lb-undef swap exit then
@@ -129,7 +133,8 @@ require ./term-eqv.fs
   over pq-bvar = if nip pq-check-prop exit then
   drop dup pq-bvar > if 1- then outcome-ok ;
 : pq-binder ( type n -- type' n' flag outcome )
-  over lf-let? if over lf-let-type pq-binders lf-meta-push >r swap lf-let-body swap true r> exit then
+  over lf-let? if over lf-let-type pq-binders lf-meta-push >r swap lf-let-body swap true
+  r> exit then
   over pq-pi? over 0> and 0= if false outcome-ok exit then
   over lf-term-first@ pq-binders lf-meta-push >r 1- swap lf-term-second@ swap true r> ;
 : pq-binders-in ( type n -- type' n' outcome )
@@ -137,14 +142,16 @@ require ./term-eqv.fs
   0= until outcome-ok ;
 : pq-prop-end ( type n -- r outcome )
   if drop lf-lb-undef outcome-ok exit then
-  dup lf-tag-bvar pq-tag? if lf-term-first@ pq-bvar + outcome-ok else lf-meta-prop-quick then ;
+  dup lf-tag-bvar pq-tag? if lf-term-first@ pq-bvar + outcome-ok else lf-meta-prop-quick
+  then ;
 : pq-back ( r -- r' outcome )
   begin pq-binders slab-count 0> while pq-binders pq-pop pq-process
     dup ok? 0= if exit then drop repeat outcome-ok ;
 : pq-lbool ( r -- lbool ) dup pq-bvar < 0= if drop lf-lb-undef then ;
 : pq-arrow-proposition ( type n -- lbool outcome )
   pq-binders-in ok-then? 0= if pq-undef exit then
-  pq-prop-end dup ok? if drop pq-back then dup ok? if drop pq-lbool outcome-ok else pq-undef then ;
+  pq-prop-end dup ok? if drop pq-back then dup ok? if drop pq-lbool outcome-ok else
+  pq-undef then ;
 : pq-proof-arrow ( head n -- lbool outcome )
   swap pq-type ok-then? if swap pq-arrow-proposition else pq-undef then ;
 
@@ -161,6 +168,7 @@ require ./term-eqv.fs
   pq-app-head over pq-head? if pq-proof-arrow false exit then
   over pq-lam? if drop lf-term-second@ true else 2drop lf-lb-undef outcome-ok false then ;
 : pq-proof-round ( e -- e' true | lbool outcome false )
-  dup pq-lam? over lf-let? or if dup lf-let? if lf-let-body else lf-term-second@ then true exit then
+  dup pq-lam? over lf-let? or if dup lf-let? if lf-let-body else lf-term-second@ then true
+  exit then
   dup lf-meta-app? if pq-proof-app else pq-proof-leaf false then ;
 : lf-meta-proof-quick ( e -- lbool outcome ) begin pq-proof-round 0= until ;
