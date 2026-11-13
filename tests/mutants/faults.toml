@@ -13863,8 +13863,8 @@ reason = "FE1c: isDefEqOffset skipped: Nat.succ ?h =?= Nat.succ (Nat.succ k) ass
 [[fault]]
 id = "fe-defeq-implicit-args-skipped"
 file = "src/front/defeq.fs"
-old = '''  de-y de-post# < 0= if lf-lb-true de-args-done exit then'''
-new = '''  true if lf-lb-true de-args-done exit then'''
+old = '''  de-y de-post# < 0= if lf-lb-true de-cells-return exit then'''
+new = '''  true if lf-lb-true de-cells-return exit then'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c: isDefEqArgs postpones the implicit arguments and never compares them"
 
@@ -13975,8 +13975,8 @@ reason = "FE1c review M3: processAssignment' retries after a level comparison fa
 [[fault]]
 id = "fe-defeq-level-taint-never"
 file = "src/front/defeq.fs"
-old = ''': de-level-taint ( l r -- ) de-may-assign? swap de-may-assign? or if true df df-taint ! then ;'''
-new = ''': de-level-taint ( l r -- ) 2drop ;'''
+old = '''  de-may-assign? swap de-may-assign? or if true df df-taint ! then ;'''
+new = '''  2drop ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c review M3/L1: a false level comparison on a level metavariable never taints"
 
@@ -14029,9 +14029,17 @@ test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c review M3: isOffset?'s offset wraps past 2^64 instead of answering unsupported"
 
 [[fault]]
+id = "fe-defeq-succ-offset-wraps"
+file = "src/front/nat-offset.fs"
+old = '''  1 no-off+ if no-go else drop false outcome-unsupported then ;'''
+new = '''  1 no-off+ drop no-go ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c: a Nat.succ layer past 2^64 - 1 is dropped from isOffset?'s offset, not unsupported"
+
+[[fault]]
 id = "fe-defeq-partial-ctor-eta"
 file = "src/front/defeq.fs"
-old = '''  dup lf-meta-head de-ctor-arity over de-args# <> if 2drop 0 exit then'''
+old = '''  dup lf-meta-head de-ctor-arity over lf-meta-args# <> if 2drop 0 exit then'''
 new = '''  '''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c review M3: isDefEqEtaStruct on Prod.mk Nat Nat a, short of an argument"
@@ -14047,7 +14055,7 @@ reason = "FE1c review M3: isDefEqMVarSelf tries constApprox on a read-only metav
 [[fault]]
 id = "fe-defeq-hints-off"
 file = "src/front/defeq.fs"
-old = '''  dup de-mvar? if drop exit then de-head-defn? if outcome-unsupported de-abort then ;'''
+old = '''  dup lf-mvar? if drop exit then de-head-defn? if outcome-unsupported de-abort then ;'''
 new = '''  drop ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c review M3/L4: a failure under a definition head ignores unification hints"

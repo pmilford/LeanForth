@@ -42,10 +42,8 @@ require ./term-eqv.fs
 
 1 cells context-slab: pq-binders   \ isArrowProposition's binder types, outermost first
 1 cells context-slab: pq-levels    \ isAlwaysZero's pending levels
-: pq-tag? ( t tag -- flag ) swap lf-term-tag@ = ;
-: pq-lam? ( t -- flag ) lf-tag-lam pq-tag? ;
-: pq-pi? ( t -- flag ) lf-tag-pi pq-tag? ;
-: pq-pop ( slab -- x ) dup slab-count 1- over slab-at @ -1 rot slab-commit ;
+: pq-lam? ( t -- flag ) lf-tag-lam lf-meta-tag? ;
+: pq-pi? ( t -- flag ) lf-tag-pi lf-meta-tag? ;
 
 \ ---- isAlwaysZero: every level reached through both sides of a max and
 \ the second of an imax is zero.
@@ -59,7 +57,7 @@ require ./term-eqv.fs
     lf-level-tag-imax of lf-level-second@ pq-lpush true swap endof
     >r drop false outcome-ok r> endcase ;
 : pq-lrun ( -- flag outcome )
-  begin pq-levels slab-count 0> while pq-levels pq-pop pq-lstep ok-then? 0=
+  begin pq-levels slab-count 0> while pq-levels lf-meta-pop pq-lstep ok-then? 0=
   if false swap exit then
   0= if false outcome-ok exit then repeat true outcome-ok ;
 : lf-meta-always-zero? ( level -- flag outcome )
@@ -85,7 +83,7 @@ require ./term-eqv.fs
   over pq-pi? over 0> and if 1- swap lf-term-second@ swap true else false then ;
 : pq-arrow-end ( type n -- lbool outcome )
   if drop lf-lb-undef outcome-ok exit then
-  dup lf-tag-symbolic-sort pq-tag? if pq-sort-zero exit then
+  dup lf-tag-symbolic-sort lf-meta-tag? if pq-sort-zero exit then
   pq-pi? if lf-lb-false else lf-lb-undef then outcome-ok ;
 : pq-arrow-prop ( type n -- lbool outcome ) begin pq-arrow-next 0= until pq-arrow-end ;
 : pq-head-arrow ( head n -- lbool outcome )
@@ -128,7 +126,8 @@ require ./term-eqv.fs
   if drop lf-lb-false else pq-zero? if lf-lb-true else lf-lb-undef then then outcome-ok ;
 : pq-check-prop ( type -- r outcome )
   begin dup pq-outparam? while lf-term-second@ repeat
-  dup lf-tag-symbolic-sort pq-tag? if pq-sort-prop else drop lf-lb-undef outcome-ok then ;
+  dup lf-tag-symbolic-sort lf-meta-tag?
+  if pq-sort-prop else drop lf-lb-undef outcome-ok then ;
 : pq-process ( r type -- r' outcome )
   over pq-bvar = if nip pq-check-prop exit then
   drop dup pq-bvar > if 1- then outcome-ok ;
@@ -142,10 +141,10 @@ require ./term-eqv.fs
   0= until outcome-ok ;
 : pq-prop-end ( type n -- r outcome )
   if drop lf-lb-undef outcome-ok exit then
-  dup lf-tag-bvar pq-tag? if lf-term-first@ pq-bvar + outcome-ok
+  dup lf-tag-bvar lf-meta-tag? if lf-term-first@ pq-bvar + outcome-ok
   else lf-meta-prop-quick then ;
 : pq-back ( r -- r' outcome )
-  begin pq-binders slab-count 0> while pq-binders pq-pop pq-process
+  begin pq-binders slab-count 0> while pq-binders lf-meta-pop pq-process
     dup ok? 0= if exit then drop repeat outcome-ok ;
 : pq-lbool ( r -- lbool ) dup pq-bvar < 0= if drop lf-lb-undef then ;
 : pq-arrow-proposition ( type n -- lbool outcome )

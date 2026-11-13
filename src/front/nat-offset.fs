@@ -16,8 +16,8 @@
 \   OfNat.ofNat.{0} Nat k (instOfNatNat k) (lf-meta-nat-lit, mkNatLit).
 \ - lf-meta-nat ( -- term outcome ): the constant Nat.
 \ Values are unsigned cells (below 2^64 on a 64-bit host), added and
-\ compared unsigned. Never a guess: unsupported for a literal or a sum
-\ beyond a cell, an operation Lean's evalNat also evaluates that is not
+\ compared unsigned. Never a guess: unsupported for a literal, a sum or
+\ an offset beyond a cell, an operation Lean's evalNat also evaluates that is not
 \ ported (subtraction, multiplication, division, modulo and power:
 \ Nat.sub, Sub.sub, HSub.hSub and the others, by name and number of
 \ arguments), an instance of Add.add or HAdd.hAdd in an offset that is
@@ -47,6 +47,7 @@ begin-structure /no
   field: no-acc           \ evalNat: the value so far
   field: no-e             \ isOffset?: the term not yet taken apart
   field: no-off           \ and the offset so far
+  field: no-out           \ isOffset?: the outcome that ended a layer
   field: no-k             \ a constant being made: its number of universe arguments
   6 cells +field no-pairs \ and its (level, identity) pairs, up to three
 end-structure
@@ -104,10 +105,8 @@ end-structure
 
 \ ---- Shapes: n arguments and a constant of the name at the head
 \ (Lean's match_expr).
-: no-args ( t -- n )
-  0 swap begin dup lf-meta-app? while lf-term-first@ swap 1+ swap repeat drop ;
 : no-is? ( t n c-addr u -- flag )
-  2>r over no-args = if lf-meta-head 2r> lf-meta-const-named?
+  2>r over lf-meta-args# = if lf-meta-head 2r> lf-meta-const-named?
   else drop 2r> 2drop false then ;
 \ Argument i, the first 0, of t with n arguments.
 : no-arg ( t i n -- a ) swap - 1- 0 ?do lf-term-first@ loop lf-term-second@ ;
@@ -134,7 +133,7 @@ end-structure
 \ ---- evalNat: the terms to evaluate on no-stack, the first argument on
 \ top; each value adds to no-acc. A step's code: 0 go on, 1 no value.
 : no-push ( t -- outcome ) no-stack lf-meta-push ;
-: no-pop ( -- t ) no-stack dup slab-count 1- swap slab-at @ -1 no-stack slab-commit ;
+: no-pop ( -- t ) no-stack lf-meta-pop ;
 : no-add-acc ( u -- outcome )
   no no-acc @ 2dup + tuck u> if 2drop outcome-unsupported exit then
   nip no no-acc ! outcome-ok ;
@@ -173,36 +172,44 @@ end-structure
   0 no no-acc ! no-stack slab-clear no-push dup ok? if drop no-run else no-none then ;
 
 \ ---- isOffset?: one layer of no-e at a time, the offset in no-off. A
-\ layer's code: 0 none, 1 Nat.succ a, 2 an addition a + b, 3 an addition
-\ whose instance is not Nat's node for node, 8 + an outcome that ended it.
+\ layer's code: none, Nat.succ a, an addition a + b, an addition whose
+\ instance is not Nat's node for node (Lean asks isDefEq: unsupported),
+\ or a failure, its outcome in no-out.
+0 constant no-plain  1 constant no-succ-at  2 constant no-sum-at
+3 constant no-foreign  4 constant no-failed
 : no-want ( n -- inst outcome ) 4 = if s" instAddNat" 0 no-const else no-inst-hadd then ;
 : no-inst-arg ( e n -- arg ) dup 3 - swap no-arg ;
 : no-inst-ok? ( e n -- flag outcome )
   tuck no-inst-arg swap no-want ok-then? if lf-meta-eqv else nip false swap then ;
+: no-fail ( outcome -- 0 0 code ) no no-out ! 0 0 no-failed ;
 : no-inst-layer ( e n -- a b code )
-  over swap no-inst-ok? dup ok? 0= if nip nip 8 + 0 swap 0 swap exit then drop
-  if no-sides 2 else drop 0 0 3 then ;
+  over swap no-inst-ok? dup ok? 0= if nip nip no-fail exit then drop
+  if no-sides no-sum-at else drop 0 0 no-foreign then ;
 : no-layer ( e -- a b code )
-  dup 1 s" Nat.succ" no-is? if 0 1 no-arg 0 1 exit then
-  dup 2 s" Nat.add" no-is? if no-sides 2 exit then
+  dup 1 s" Nat.succ" no-is? if 0 1 no-arg 0 no-succ-at exit then
+  dup 2 s" Nat.add" no-is? if no-sides no-sum-at exit then
   dup 4 s" Add.add" no-is? if 4 no-inst-layer exit then
-  dup 6 s" HAdd.hAdd" no-is? if 6 no-inst-layer else 0 0 then ;
+  dup 6 s" HAdd.hAdd" no-is? if 6 no-inst-layer else 0 no-plain then ;
 \ v more for the offset: false when it passes a cell.
 : no-off+ ( v -- flag )
   no no-off @ over + tuck u> if drop false else no no-off ! true then ;
 : no-go ( a -- true outcome ) no no-e ! true outcome-ok ;
+\ Nat.succ a: one more, unsupported past a cell.
+: no-succ-layer ( a -- go? outcome )
+  1 no-off+ if no-go else drop false outcome-unsupported then ;
 \ An addition a + b: b's value adds to the offset and a goes on; with
 \ none, the layer is no offset.
 : no-add-layer ( a b -- go? outcome )
   lf-meta-eval-nat ok-then2? 0= if nip false swap exit then
   0= if 2drop false outcome-ok exit then
   no-off+ if no-go else drop false outcome-unsupported then ;
+: no-end-outcome ( code -- outcome )
+  no-foreign = if outcome-unsupported else no no-out @ then ;
 : no-off-end ( a b code -- go? outcome )
-  nip nip dup 0= if drop false outcome-ok exit then
-  dup 3 = if drop outcome-unsupported else 8 - then false swap ;
+  nip nip dup no-plain = if drop false outcome-ok exit then no-end-outcome false swap ;
 : no-off-step ( -- go? outcome )
-  no no-e @ no-layer dup 1 = if 2drop 1 no-off+ drop no-go exit then
-  dup 2 = if drop no-add-layer else no-off-end then ;
+  no no-e @ no-layer dup no-succ-at = if 2drop no-succ-layer exit then
+  dup no-sum-at = if drop no-add-layer else no-off-end then ;
 : no-off-loop ( -- outcome )
   begin no-off-step ok-then? 0= if exit then 0= until outcome-ok ;
 : lf-meta-offset ( e -- s k flag outcome )

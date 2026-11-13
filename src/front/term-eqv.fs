@@ -48,7 +48,6 @@ require ./instantiate.fs
   1 eq-pairs slab-claim dup ok? if drop eq-pairs slab-at 2! outcome-ok
   else nip nip nip then ;
 : eq-pop ( -- a b ) eq-pairs dup slab-count 1- swap slab-at 2@ -1 eq-pairs slab-commit ;
-: eq-tag ( t -- tag ) lf-term-tag@ ;
 
 
 \ Leaves by content: names by their parts, constants with their levels.
@@ -76,17 +75,17 @@ require ./instantiate.fs
   over lf-term-second@ over lf-term-second@ =
   if lf-term-first@ swap lf-term-first@ eq-name=
   else 2drop false then ;
-: eq-unshared? ( a -- flag ) eq-tag dup lf-tag-fvar = swap lf-tag-mvar = or ;
+: eq-unshared? ( a -- flag ) lf-term-tag@ dup lf-tag-fvar = swap lf-tag-mvar = or ;
 : eq-sorts ( a b -- flag outcome ) lf-term-first@ swap lf-term-first@ lf-meta-level= ;
 \ A literal, a projection's leaf or any other leaf.
 : eq-plain ( a b -- flag outcome )
-  over eq-tag lf-tag-lit = if lf-lit-same? outcome-ok exit then
-  over eq-tag lf-tag-str = if lf-str-same? outcome-ok exit then
-  over eq-tag lf-tag-proj = if eq-proj else eq-fields then outcome-ok ;
+  over lf-term-tag@ lf-tag-lit = if lf-lit-same? outcome-ok exit then
+  over lf-term-tag@ lf-tag-str = if lf-str-same? outcome-ok exit then
+  over lf-term-tag@ lf-tag-proj = if eq-proj else eq-fields then outcome-ok ;
 : eq-leaf ( a b -- flag outcome )
   over eq-unshared? if 2drop false outcome-ok exit then
-  over eq-tag lf-tag-symbolic-sort = if eq-sorts exit then
-  over eq-tag lf-tag-constant = if eq-const else eq-plain then ;
+  over lf-term-tag@ lf-tag-symbolic-sort = if eq-sorts exit then
+  over lf-term-tag@ lf-tag-constant = if eq-const else eq-plain then ;
 
 \ One pair: the same node, a binary node's parts pushed, or two leaves.
 : eq-parts ( a b -- flag outcome )
@@ -95,8 +94,8 @@ require ./instantiate.fs
   drop lf-term-first@ swap lf-term-first@ eq-push true swap ;
 : eq-step ( a b -- flag outcome )
   2dup = if 2drop true outcome-ok exit then
-  over eq-tag over eq-tag <> if 2drop false outcome-ok exit then
-  over eq-tag lf-term-binary-tag? if eq-parts else eq-leaf then ;
+  over lf-term-tag@ over lf-term-tag@ <> if 2drop false outcome-ok exit then
+  over lf-term-tag@ lf-term-binary-tag? if eq-parts else eq-leaf then ;
 : eq-more? ( -- flag ) eq-pairs slab-count 0> ;
 : eq-run ( -- flag outcome )
   begin eq-more? while eq-pop eq-step dup ok? 0= if nip false swap exit then drop
@@ -125,20 +124,22 @@ require ./instantiate.fs
   >r 2dup eq-dot 0< if r> eq-top? else r> eq-two then ;
 \ A term that is the constant of that name (Lean's isConstOf).
 : lf-meta-const-named? ( t c-addr u -- flag )
-  rot dup eq-tag lf-tag-constant = if eq-slot lf-cref-name@ drop lf-meta-name?
+  rot dup lf-term-tag@ lf-tag-constant = if eq-slot lf-cref-name@ drop lf-meta-name?
   else drop 2drop false then ;
-: lf-meta-head ( t -- head ) begin dup eq-tag lf-tag-app = while lf-term-first@ repeat ;
+: lf-meta-head ( t -- head )
+  begin dup lf-term-tag@ lf-tag-app = while lf-term-first@ repeat ;
 
 
 \ etaExpanded?: the lambdas taken off, then the body's arguments, from the
 \ last, must be #0, #1, ... and what is left must have no loose variable.
-: eq-lam? ( t -- flag ) eq-tag lf-tag-lam = ;
+: eq-lam? ( t -- flag ) lf-term-tag@ lf-tag-lam = ;
 : eq-lams ( e -- body n )
   0 swap begin dup eq-lam? while lf-term-second@ swap 1+ swap repeat swap ;
 : eq-bvar? ( t i -- flag )
-  over eq-tag lf-tag-bvar = if swap lf-term-first@ = else 2drop false then ;
+  over lf-term-tag@ lf-tag-bvar = if swap lf-term-first@ = else 2drop false then ;
 : eq-arg-i? ( body i -- flag )
-  over eq-tag lf-tag-app = if swap lf-term-second@ swap eq-bvar? else 2drop false then ;
+  over lf-term-tag@ lf-tag-app =
+  if swap lf-term-second@ swap eq-bvar? else 2drop false then ;
 : eq-peel ( body n -- f flag )
   0 ?do dup i eq-arg-i? 0= if false unloop exit then lf-term-first@ loop true ;
 : eq-closed ( e f -- f' flag outcome )

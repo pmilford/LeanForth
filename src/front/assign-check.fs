@@ -35,10 +35,11 @@
 \ an xi's type whose scope holds an xi (elimMVarDeps), and a let
 \ variable in the local context between the first xi and the last.
 \ The xi must be live free variables, not let variables, in the order of
-\ the local context (processAssignment's are). Both words take the
-\ local context to be one prefix of a growing list (mvars.fs, FE1b),
-\ until per-goal contexts come (plan FE1g-1).
+\ the local context (processAssignment's are). A metavariable's scope is
+\ its own local context (its view, lctx-views.fs, plan FE1g-1); the let
+\ variables between the xi are read in the current view.
 \ lf-meta-ctx-approx! ( flag -- ) sets ctxApprox (Lean's Meta.Config).
+\ lf-meta-delayed? ( mvar -- flag ): mvar has a delayed assignment.
 \ Outcomes: ok; unsupported as above; full when a store or the heap has
 \ no room; invalid for a stale leaf. Untrusted.
 \ State: the record ac (the walk, ?m, the xi and two flags), a member of
@@ -109,8 +110,8 @@ end-structure
 \ Nodes: one with no free variable and no metavariable is fine without a
 \ visit of its parts; a let's parts in Lean's order (type, value, body).
 : ac-binary? ( node -- flag ) lf-term-tag@ lf-term-binary-tag? ;
-: ac-ground? ( node -- flag ) lf-term-data@ if lf-data-fvar? 0= else false then ;
-: ac-inner? ( node -- flag ) dup ac-binary? if ac-ground? 0= else drop false then ;
+: ac-inner? ( node -- flag )
+  dup ac-binary? if lf-meta-fvar-free? 0= else drop false then ;
 : ac-undone ( child walk -- child true | false )
   over swap dw-done? if drop false else true then ;
 : ac-parts ( node walk -- child true | false )
@@ -132,15 +133,14 @@ end-structure
 \ ?f x1 .. xk with a variable out of scope, under ctxApprox, it solves
 \ with a constant function.
 : ac-beta? ( node -- flag ) lf-meta-head lf-term-tag@ lf-tag-lam = ;
-: ac-fvar? ( t -- flag ) lf-term-tag@ lf-tag-fvar = ;
 : ac-fvar-args? ( node -- flag )
-  true swap begin dup lf-meta-app? while dup lf-term-second@ ac-fvar? rot and swap
+  true swap begin dup lf-meta-app? while dup lf-term-second@ lf-meta-fvar? rot and swap
   lf-term-first@ repeat drop ;
-: ac-delayed? ( mvar -- flag ) lf-mvar-delayed dup if nip nip nip then ;
+: lf-meta-delayed? ( mvar -- flag ) lf-mvar-delayed dup if nip nip nip then ;
 : ac-mvar-spine? ( node -- flag )
   ac ac-approx @ 0= if drop false exit then
   dup lf-meta-head dup lf-term-tag@ lf-tag-mvar =
-  if ac-delayed? 0= swap ac-fvar-args? and else 2drop false then ;
+  if lf-meta-delayed? 0= swap ac-fvar-args? and else 2drop false then ;
 : ac-app ( node image -- image )
   dup 0= if nip exit then  over ac-beta? if 2drop ac-refuse exit then
   dup ac-scope-fail = if over ac-mvar-spine? if 2drop ac-refuse exit then then nip ;
@@ -157,7 +157,7 @@ end-structure
     if nip unloop false swap exit then or loop outcome-ok ;
 : ac-locals? ( -- flag ) ac-m ac-sees-x? ;
 : ac-solid? ( v -- flag )
-  dup ac-binary? if ac-ground? exit then lf-term-tag@
+  dup ac-binary? if lf-meta-fvar-free? exit then lf-term-tag@
   dup lf-tag-fvar <> swap lf-tag-mvar <> and ;
 : ac-verdict ( v image outcome -- v' flag outcome )
   dup ok? 0= if nip false swap exit then drop 0= ac ac-hit @ 0= and outcome-ok ;

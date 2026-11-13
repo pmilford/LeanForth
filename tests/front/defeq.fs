@@ -249,6 +249,7 @@ T{ own-mark succ ?h app -1 nlit dq ?h inst -2 ofnat same own-back -> true outcom
 T{ succ ?h 1 63 lshift ofnat hadd app 5 nlit dq ?h free? -> false outcome-ok true }T
 T{ -1 nlit 1 nlit nat-add lf-meta-eval-nat -> 0 false outcome-unsupported }T
 T{ fk -1 nlit nat-add succ swap app lf-meta-offset nip nip nip -> outcome-unsupported }T
+T{ succ fk app -1 nlit nat-add lf-meta-offset nip nip nip -> outcome-unsupported }T
 \ evalNat takes HAdd.hAdd only with instHAdd Nat instAddNat.
 : inst-x ( -- inst ) l0 1 s" instHAdd" cn nat app fx app ;
 T{ inst-x 2 nlit 3 nlit hadd-by lf-meta-eval-nat -> 0 false outcome-ok }T

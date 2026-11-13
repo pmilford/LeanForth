@@ -65,23 +65,21 @@ begin-structure /fi
   field: fi-source   \ the declared type's pi of the next parameter, or -1
 end-structure
 /fi context-record: fi-state
-: fi-tag ( t -- tag ) lf-term-tag@ ;
 
 \ ---- whnf's fixed points.
-: fi-bit ( tag -- mask ) 1 swap lshift ;
 : fi-final-mask ( -- mask )
-  lf-tag-fvar fi-bit lf-tag-mvar fi-bit or lf-tag-symbolic-sort fi-bit or
-  lf-tag-lam fi-bit or
-  lf-tag-pi fi-bit or lf-tag-lit fi-bit or lf-tag-projection fi-bit or ;
+  lf-tag-fvar lf-tag-bit lf-tag-mvar lf-tag-bit or lf-tag-symbolic-sort lf-tag-bit or
+  lf-tag-lam lf-tag-bit or
+  lf-tag-pi lf-tag-bit or lf-tag-lit lf-tag-bit or lf-tag-projection lf-tag-bit or ;
 : fi-defn? ( const -- flag )
   lf-meta-const-decl if lf-menv-kind lf-kind-definition = else true then ;
 : fi-head-final? ( head -- flag )
-  dup fi-tag lf-tag-constant =
-  if fi-defn? 0= exit then fi-tag fi-bit fi-final-mask and 0<> ;
-: fi-unassigned? ( mvar -- flag ) lf-mvar-value dup if nip then 0= ;
+  dup lf-term-tag@ lf-tag-constant =
+  if fi-defn? 0= exit then lf-term-tag@ lf-tag-bit fi-final-mask and 0<> ;
+: lf-meta-unassigned? ( mvar -- flag ) lf-mvar-value dup if nip then 0= ;
 : fi-inert? ( t -- flag )
-  dup fi-tag lf-tag-fvar = if lf-fvar-let? 0= exit then
-  dup fi-tag lf-tag-mvar = if fi-unassigned? else drop false then ;
+  dup lf-term-tag@ lf-tag-fvar = if lf-fvar-let? 0= exit then
+  dup lf-term-tag@ lf-tag-mvar = if lf-meta-unassigned? else drop false then ;
 : fi-succ-app? ( e -- flag )
   dup lf-meta-app? if lf-term-first@ s" Nat.succ" lf-meta-const-named?
   else drop false then ;
@@ -93,7 +91,7 @@ end-structure
   lf-term-first@ lf-level-instantiate-mvars ok-then? if lf-meta-always-zero?
   else false swap then ;
 : fi-sort-prop ( type -- flag outcome )
-  dup fi-tag lf-tag-symbolic-sort = if fi-zero-sort? exit then
+  dup lf-term-tag@ lf-tag-symbolic-sort = if fi-zero-sort? exit then
   lf-meta-whnf-final? if false outcome-ok else false outcome-unsupported then ;
 : lf-meta-is-prop ( e -- flag outcome )
   dup lf-meta-prop-quick ok-then? 0= if nip false swap exit then
@@ -122,7 +120,8 @@ end-structure
   dup lf-term-input? if lf-term-input-binder@ if nip true else false then exit then
   fi-store-kind ;
 : fi-next-src ( -- )
-  fi-src @ dup 0< 0= if dup fi-tag lf-tag-pi = if lf-term-second@ else drop -1 then then
+  fi-src @ dup 0< 0= if
+    dup lf-term-tag@ lf-tag-pi = if lf-term-second@ else drop -1 then then
   fi-src ! ;
 : fi-record ( pi x -- outcome )
   nip fi-kind fi-next-src if 0 fi-push else drop outcome-unsupported then ;
@@ -135,10 +134,10 @@ end-structure
 \ it; anything else would need whnf's delta.
 : fi-reduce ( type n -- type' n' go? outcome )
   >r lf-whnf-core ok-then? 0= if -1 swap r> swap false swap exit then
-  dup fi-tag lf-tag-pi = if -1 fi-src ! r> true outcome-ok exit then
+  dup lf-term-tag@ lf-tag-pi = if -1 fi-src ! r> true outcome-ok exit then
   dup lf-meta-whnf-final? if outcome-ok else outcome-unsupported then r> swap false swap ;
 : fi-step ( type n -- type' n' go? outcome )
-  dup 0= if false outcome-ok exit then over fi-tag lf-tag-pi = if fi-pi
+  dup 0= if false outcome-ok exit then over lf-term-tag@ lf-tag-pi = if fi-pi
   else fi-reduce then ;
 : fi-telescope ( type n -- outcome )
   begin fi-step ok-then? 0= if nip nip exit then 0= until 2drop outcome-ok ;
@@ -151,9 +150,9 @@ end-structure
   dup s" outParam" lf-meta-const-named? swap s" semiOutParam" lf-meta-const-named? or ;
 : fi-unwrap ( t -- t' ) begin dup fi-param-wrapper? while lf-term-second@ repeat ;
 : fi-maybe-pi? ( type -- flag outcome )
-  fi-unwrap dup fi-tag lf-tag-pi = if drop true outcome-ok exit then
+  fi-unwrap dup lf-term-tag@ lf-tag-pi = if drop true outcome-ok exit then
   lf-whnf-core ok-then? 0= if false swap exit then
-  dup fi-tag lf-tag-pi = if drop true else lf-meta-whnf-final? 0= then outcome-ok ;
+  dup lf-term-tag@ lf-tag-pi = if drop true else lf-meta-whnf-final? 0= then outcome-ok ;
 : fi-earlier? ( arg i -- flag ) false swap 0 ?do over i fi-x = or loop nip ;
 : fi-ho-arg? ( arg i -- flag outcome )
   over swap fi-earlier? if lf-fvar-type fi-maybe-pi? else drop false outcome-ok then ;
@@ -161,11 +160,11 @@ end-structure
   swap begin dup lf-meta-app? while
     2dup lf-term-second@ swap fi-ho-arg? ok-then? 0= if nip nip false swap exit then
     if 2drop true outcome-ok exit then lf-term-first@ repeat 2drop false outcome-ok ;
-: fi-strip ( T -- body ) begin dup fi-tag lf-tag-pi = while lf-term-second@ repeat ;
+: fi-strip ( T -- body ) begin dup lf-term-tag@ lf-tag-pi = while lf-term-second@ repeat ;
 \ isClassQuick? answers none for these heads: no class.
 : fi-not-class? ( head -- flag )
-  dup fi-tag lf-tag-mvar = if fi-unassigned? exit then
-  fi-tag dup lf-tag-fvar = over lf-tag-symbolic-sort = or over lf-tag-sort = or
+  dup lf-term-tag@ lf-tag-mvar = if lf-meta-unassigned? exit then
+  lf-term-tag@ dup lf-tag-fvar = over lf-tag-symbolic-sort = or over lf-tag-sort = or
   over lf-tag-lit = or swap lf-tag-bvar = or ;
 : lf-meta-class-none? ( type -- flag ) fi-strip lf-meta-head fi-not-class? ;
 : fi-ho? ( i -- flag outcome )
@@ -183,7 +182,7 @@ end-structure
     if unloop outcome-unsupported exit then loop outcome-ok ;
 \ The kinds' source: a constant's declared (input) type, else the type.
 : fi-declared ( f type -- )
-  swap dup fi-tag lf-tag-constant =
+  swap dup lf-term-tag@ lf-tag-constant =
   if nip lf-meta-const-decl if lf-menv-type else -1 then else drop then fi-src ! ;
 : fi-run ( f n -- m outcome )
   fi-params slab-clear over lf-infer ok-then? 0= if nip nip no-result exit then
