@@ -179,6 +179,23 @@ T{ 40 descending 1 heap-refusals ! lf-lsubst-sorted 0 sort-cell @ 39 sort-cell @
    -> outcome-full 40 1 }T
 T{ lf-diag@ nip nip -> 40 lf-diag-work-stack-full }T
 lf-diag-clear
+\ In a substitution: 40 succs over pp, pp given for itself (so no node is
+\ made), reach 41 levels; the build sorts them through scratch from the
+\ heap, the call's one allocation once the reached list has grown to hold
+\ them. Refused, the substitution is full, recorded as the reached list's
+\ (41 levels), and nothing is appended.
+: succs ( level n -- level' ) 0 ?do lf-level-succ must loop ;
+pp 40 succs constant pp+40
+variable refusals-left
+: sub-41 ( k -- result ok | status )
+  heap-refusals ! pp+40 pp qq sub heap-refusals @ refusals-left ! 0 heap-refusals ! ;
+T{ max-n sub-41 max-n refusals-left @ - -> pp+40 outcome-ok 2 }T
+T{ max-n sub-41 max-n refusals-left @ - -> pp+40 outcome-ok 1 }T
+lf-level-count @ constant before-41
+T{ 1 sub-41 refusals-left @ lf-level-count @ before-41 = -> outcome-full 0 true }T
+T{ lf-diag@ nip nip -> 41 lf-diag-work-stack-full }T
+lf-diag-clear
+T{ 2 sub-41 refusals-left @ -> pp+40 outcome-ok 1 }T
 
 \ Hash-consed levels (compact-store plan step S4): a substitution whose
 \ image exists gives that level and appends nothing; a build that fails

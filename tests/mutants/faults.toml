@@ -15864,3 +15864,11 @@ old = '''  drop lf-lnorm-arg @ lf-lnorm-crowded ;'''
 new = '''  2drop ;'''
 test = "$GFORTH tests/core/level-deep.fs"
 reason = "reuse-k1: a merge whose scratch the heap refuses leaves the arguments unsorted and the call ok, where it is full"
+
+[[fault]]
+id = "s0-lsubst-sort-full-ignored"
+file = "src/kernel/level-substitute.fs"
+old = '''  lf-lsubst-sorted dup ok? 0= if exit then drop'''
+new = '''  lf-lsubst-sorted drop'''
+test = "$GFORTH tests/core/level-substitute.fs"
+reason = "reuse-k1: a build whose sort the heap refused goes on over the unsorted list, ok where it is full"
