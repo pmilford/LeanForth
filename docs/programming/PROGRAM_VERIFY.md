@@ -6,8 +6,8 @@ tested alone; this page is 8.4.1n's user guide.** Nothing here is called
 done: the done checker's run (the list [below](#the-done-check)) and the
 owner's gates ([bypass] for b and d, [format] for c, [parser] for the
 contract translation) come first. `leanforth capabilities` and `leanforth
-help` do not list `verify` yet: that is a change to the Forth command
-line (`src/cli/leanforth.fs`) with its own Forth review. The design is
+help` list `verify` and say that V1 needs Python 3 and the pinned Lean
+(a change to `src/cli/leanforth.fs` awaiting its Forth review). The design is
 [VERIFY_COMMAND.md](../design/VERIFY_COMMAND.md); the owner's answers of
 2026-11-13 are in [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md).
 
@@ -319,7 +319,7 @@ says (review L1, 2026-11-13), for the [format] gate:
 | §8 files | as listed above; Lean runs inside `--out` |
 | §3.2 contract | the reader refuses more than contract 0.1's text says (hidden lines, repeated lines and inputs, no case, unbound names; review B1 and its probe); the statement never enters the Lean file |
 | §5 tools | `LEAN` and `LEANEXPORT` only under the test switch; each tool's SHA-256 in the evidence |
-| §2 `capabilities`, `help` | not yet: a Forth change to `src/cli/leanforth.fs` with its own review |
+| §2 `capabilities`, `help` | list `verify` and say V1 needs Python 3 and the pinned Lean |
 
 ## Limits and resources
 
@@ -363,7 +363,11 @@ its date, `--out` folder and evidence hash.
   tools missing or of another version; files changed during the run; the
   report against its schema; `--write-ir`; `bin/leanforth verify`; replay
   and every tampering of the table above; two runs giving the same bytes.
-  `tests/program/vc_check.py` holds the contract reader's hostile corpus.
+  `tests/program/vc_check.py` holds the contract reader's hostile corpus;
+  under `make check` (`--lean`) it also compares Python's evaluation of
+  every contract operator, which decides `refuted`, with Lean's evaluation
+  of its translation on every pair of the twelve candidates on 64-bit
+  cells (review H1).
 - `make check` (`reference-program-verify-clamp`, `reference-program-verify-refuted`):
   `lf-clamp` and `wrong-clamp-swapped` end to end through `bin/leanforth
   verify` against their golden receipts.
@@ -389,7 +393,7 @@ end:
 
 ## What it does not do yet
 
-`capabilities` and `help` entries (a Forth change); the statement fixed by
+The statement fixed by
 LeanForth and supplied proofs (8.4.1e–f); contracts read in Forth
 (8.4.1g); the receipt written in Forth (8.4.1h); `sorry` (8.4.1i, 0.5);
 files outside the checkout (8.4.1j); IR 0.2 words (8.4.1k); proofs by

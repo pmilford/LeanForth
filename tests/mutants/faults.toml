@@ -15444,3 +15444,11 @@ old = '''  cli-check-usage. cli-other-usage. cli-verify-usage. cli-verify-meanin
 new = '''  cli-check-usage. cli-other-usage. cli-info-usage.'''
 test = "python3 tests/cli/test_leanforth.py Behaviour.test_verify_listed"
 reason = "8.4.1c: help does not list verify's usage"
+
+[[fault]]
+id = "vc-python-fits-off-by-one"
+file = "scripts/program_vc.py"
+old = '''    return CMIN <= args[0] <= CMAX'''
+new = '''    return CMIN < args[0] <= CMAX'''
+test = "LEAN=.tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean python3 tests/program/vc_check.py --operators"
+reason = "review H1: Python's fits, which the counterexample search uses to decide refuted, disagrees with Lean's c.Fits at the smallest cell; the comparison with Lean's evaluation finds it"
