@@ -281,6 +281,11 @@
    "never_run": 4,
    "reason": "new file (plan FE1a-b, 2026-11-12; tightened at the merge, review fe1ab re-check): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded and the reader default finder before cli/check-lf.fs sets it are never run"
   },
+  "src/front/discr-keys.fs": {
+   "blocks": 481,
+   "never_run": 109,
+   "reason": "new file (plan FE1e2, branch s1-synth, 2026-11-13; measured over make test-instances): the failure branches of each Meta call a key makes (inferType, whnf, getFunInfoNArgs and whnfCore answering unsupported, exhausted or full, a stage without the constant), projection keys and a class structure's no_index, the Add.add, HAdd.hAdd and Nat.add offsets, a matcher stuck on a discriminant and a literal beyond one cell; make reference-synth reaches the key forms on all 2,938 Init instances, the slice has none of them; follow-up: slice cases for projections, offsets and matchers"
+  },
   "src/front/defeq.fs": {
    "blocks": 1208,
    "never_run": 158,
@@ -315,6 +320,11 @@
    "blocks": 260,
    "never_run": 19,
    "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the branches where the heap or a store refuses room (full) in a level list, a Sort's level, a spine, a telescope, an abstraction, a pi or a normalized level"
+  },
+  "src/front/instances.fs": {
+   "blocks": 597,
+   "never_run": 90,
+   "reason": "new file (plan FE1e3, branch s1-synth, 2026-11-13; measured over make test-instances): failure branches (a slab or the heap refusing while a root's tree is built or walked, the Meta words unsupported inside a check), isClassQuick?'s undefined answers (an assigned metavariable, a lambda or a definition at the head), a local instance of the class, a pi goal after whnf and an instance unverified in a tried root; make reference-synth reaches the unverified and wider cases on all of Init; follow-up: slice cases for local instances and isClassQuick?'s heads"
   },
   "src/front/instantiate.fs": {
    "blocks": 288,

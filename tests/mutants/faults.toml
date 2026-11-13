@@ -15613,12 +15613,20 @@ test = "$GFORTH tests/front/instances.fs"
 reason = "getUnify: the star child is visited after the matching one (Lean's order lost)"
 
 [[fault]]
-id = "fe-inst-sort-unstable"
+id = "fe-inst-sort-reversed"
 file = "src/front/instances.fs"
-old = '''  it-prio@ > ;'''
-new = '''  it-prio@ >= ;'''
+old = ''': it-prio-at ( a-addr -- p ) @ lf-inst-priority ;'''
+new = ''': it-prio-at ( a-addr -- p ) @ lf-inst-priority negate ;'''
 test = "$GFORTH tests/front/instances.fs"
-reason = "getInstances: the priority sort is not stable (equal priorities change order)"
+reason = "getInstances: the priority order reversed (lib/sort.fs's key), the highest priority first"
+
+[[fault]]
+id = "fe-inst-sort-by-value"
+file = "src/front/instances.fs"
+old = '''  1 cells ['] sort-signed it-sorter sorter-init ['] it-prio-at it-sorter sorter-key! ;'''
+new = '''  1 cells ['] sort-signed it-sorter sorter-init ['] @ it-sorter sorter-key! ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "getInstances sorts the values, not their priorities: equal priorities lose getUnify's order"
 
 [[fault]]
 id = "fe-inst-keys-unchecked"

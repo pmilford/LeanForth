@@ -71,6 +71,16 @@ T{ nat add lf-inst-unify drop drop @ lf-inst-left-out? -> true }T
 : deeper-count ( t -- n ) false lf-mctx-depth{ made >r cands nip r> }lf-mctx-depth drop ;
 T{ lv1 ?tv 0 ofnat deeper-count -> 23 }T
 
+\ The priority sort is stable (lib/sort.fs, Lean's insertionSort):
+\ candidates of equal priority keep getUnify's order, their ranks rising.
+: pair-ok? ( v1 v2 -- flag )
+  over lf-inst-priority over lf-inst-priority <> if 2drop true exit then
+  it-rank swap it-rank > ;
+: stable? ( addr n -- flag )
+  true swap 1 ?do over i cells + dup cell- @ swap @ pair-ok? and loop nip ;
+T{ lv1 ?tv add cands stable? -> true }T
+T{ lv1 ?tv 0 ofnat cands stable? -> true }T
+
 \ The candidates of Add Nat are in rank order: the two left out first.
 T{ nat add cands drop dup @ invert elab-left-out@ drop nip swap cell+ @ invert elab-left-out@
    drop nip -> 0 1 }T
@@ -93,6 +103,13 @@ T{ 0 lf-meta-budget! nat add lf-inst-unify nip nip lf-meta-default-budget lf-met
   over 1+ elab-key-tag >r over 2 + elab-key-tag >r nip r> r> ;
 T{ nat 0 ofnat keys-of tags12 -> 3 elab-key-lit elab-key-const }T
 T{ nat add keys-of nip -> 2 }T
+\ An arrow and its domain; a free variable; a nested Nat.succ of no
+\ numeral is an offset, a star (isOffset).
+: tag0 ( k n -- tag n ) swap elab-key-tag swap ;
+: tag1 ( k n -- n tag ) swap 1+ elab-key-tag ;
+T{ nat nat tpi keys-of tag0 -> elab-key-arrow 2 }T
+T{ fx keys-of tag0 -> elab-key-fvar 1 }T
+T{ succ succ fx app app keys-of tag1 -> 2 elab-key-star }T
 T{ lv1 ?tv true lf-dt-nil lf-dt-key nip nip -> outcome-ok }T
 
 \ The stuck signal (Main.lean:359-397): a recursor stuck on ?n, keyed
@@ -117,10 +134,12 @@ T{ s" HAdd" menv-name elab-decl-of drop lf-default-instances 2drop @ elab-defaul
    s" instHAdd" menv-name elab-decl-of drop = -> true }T
 
 \ ---- Full: each heap request of a fresh root's build refused in turn.
-: full-run ( -- outcome ) lf-inst-reset nat add lf-inst-candidates nip nip ;
-: full-try ( k -- flag ) heap-refusals ! full-run 0 heap-refusals ! dup ok? swap outcome-full = or ;
+\ The goal is made first: only the query meets the refusal.
+: full-run ( t -- outcome ) lf-inst-reset lf-inst-candidates nip nip ;
+: full-try ( k -- flag )
+  nat add swap heap-refusals ! full-run 0 heap-refusals ! dup ok? swap outcome-full = or ;
 : full-all ( -- flag ) true 40 1 do i full-try and loop ;
-T{ full-run -> outcome-ok }T
+T{ nat add full-run -> outcome-ok }T
 T{ full-all -> true }T
 T{ depth-ok? -> true }T
 

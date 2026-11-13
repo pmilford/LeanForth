@@ -28,7 +28,8 @@
 \   problem.
 \ - lf-inst-candidates ( type -- addr n outcome ): getInstances: the goal
 \   past its pis must be a class application (else invalid, error 110,
-\   "type class instance expected"); getUnify; stably sorted by priority,
+\   "type class instance expected"); getUnify; stably sorted by priority
+\   (src/lib/sort.fs, as Lean's insertionSort),
 \   ascending; erased values dropped. A search tries them from the last.
 \   Unsupported: a goal that is or becomes a pi and a local instance of
 \   the class (FE1E §2.7).
@@ -53,6 +54,7 @@
 \ Loads in decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
+require ../lib/sort.fs
 require ./discr-keys.fs
 require ./lctx-views.fs
 
@@ -71,6 +73,7 @@ begin-structure /it
   field: it-ck   field: it-cn   \ and the recomputed
   field: it-i    field: it-j    \ the walk's places in each
   field: it-wide       \ true once a recorded star covered a term
+  /sorter +field it-sort-rec   \ getInstances' priority sort (lib/sort.fs)
 end-structure
 /it context-record: it
 2 cells context-slab: it-roots
@@ -362,12 +365,15 @@ end-structure
   elab-decl-name lf-mctx-view dup lf-view-valid? 0= if 2drop false exit then
   dup lf-view-count 0 ?do 2dup i it-local? if 2drop true unloop exit then loop 2drop
   false ;
-: it-prio@ ( j -- p ) it-out slab-at @ lf-inst-priority ;
-: it-swap ( j -- ) it-out slab-at dup 2@ swap rot 2! ;
-: it-out-of-order? ( j -- flag ) dup 0< if drop false exit then dup it-prio@ swap 1+
-  it-prio@ > ;
-: it-sink ( i -- ) 1- begin dup it-out-of-order? while dup it-swap 1- repeat drop ;
-: it-sort ( -- ) it-out slab-count 1 ?do i it-sink loop ;
+\ Lean's insertionSort by priority (SynthInstance.lean:214), ascending:
+\ lib/sort.fs sorts stably, so equal priorities keep getUnify's order.
+: it-prio-at ( a-addr -- p ) @ lf-inst-priority ;
+: it-sorter ( -- sorter ) it it-sort-rec ;
+: it-sorter-ready ( -- outcome )
+  1 cells ['] sort-signed it-sorter sorter-init ['] it-prio-at it-sorter sorter-key! ;
+: it-sort ( -- outcome )
+  it-sorter-ready dup ok? 0= if exit then
+  drop it-out slab-base it-out slab-count it-sorter sort-records ;
 : it-keep ( w v -- w' ) dup it-erased? if drop else over it-out slab-at ! 1+ then ;
 : it-drop-erased ( -- )
   0 it-out slab-count 0 ?do i it-out slab-at @ it-keep loop
@@ -379,7 +385,7 @@ end-structure
 : it-candidates ( type -- outcome )
   it-class-body ok-then2? 0= if exit then
   it-locals-of? if drop outcome-unsupported exit then
-  lf-inst-unify nip nip dup ok? if it-sort it-drop-erased then ;
+  lf-inst-unify nip nip dup ok? if drop it-sort dup ok? if it-drop-erased then then ;
 : lf-inst-candidates ( type -- addr n outcome ) it-candidates it-out-cells ;
 
 \ ---- Default instances, by rank.
