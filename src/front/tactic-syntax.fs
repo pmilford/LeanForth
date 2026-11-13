@@ -274,8 +274,11 @@ max-n store-header - /targ cell+ / constant targ-limit
 \ names end, and by as the second place. A declaration without by ends
 \ as the reader's does (reader.fs).
 : lft-w-by ( -- ) lfn-w-by lfa-here lft-read-from! tac-k-by lft-new lft-opened ;
+\ The block by-end would close: an alternative's is its by-induction-with.
+: lft-block ( -- addr )
+  lft-open lft-rec dup tac-kind @ tac-k-alt = if tac-parent @ lft-rec then ;
 : lft-closed ( -- )
-  lft-kind tac-k-by = if exit then lft-open-at lfa-e-tac-open lfa-fail-see ;
+  lft-kind tac-k-by = if exit then lft-block tac-at @ lfa-e-tac-open lfa-fail-see ;
 : lft-unrun ( pos -- ) lft-open-at swap lft-close lfa-e-tac-run lfa-fail-see ;
 \ The position just past end's NAME, which is the proof's end.
 : lft-name-past ( c-addr u -- c-addr u pos ) 2dup + lfa-token-pos ;
