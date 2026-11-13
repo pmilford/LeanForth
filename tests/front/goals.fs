@@ -159,7 +159,9 @@ nat mv-natural v123 lf-mvar-new-at made constant mb
 T{ mb x2 fapp lf-mvar-assign mb x2 lf-depends-on? -> outcome-ok true outcome-ok }T
 nat mv-natural v123 lf-mvar-new-at made constant mf
 T{ mf nat nat t-lam lf-mvar-assign mf x2 t-app x2 lf-depends-on? -> outcome-ok false outcome-ok }T
-T{ nat mf 0 t-var t-app t-lam x2 lf-depends-on? -> false outcome-unsupported }T
+\ Under a binder: ?mf #0 instantiated to Nat (plan FE1g-4: a loose
+\ argument where no binder of the value lies around it).
+T{ nat mf 0 t-var t-app t-lam x2 lf-depends-on? -> false outcome-ok }T
 
 \ ---- Goals: synthetic opaque, tagged, in a view.
 g-fresh
@@ -292,7 +294,9 @@ T{ cap-reset fw fuel lf-print-term cap s" _fvar." search nip nip -> outcome-ok t
 \ the printer's notation flag is restored whatever happens.
 false lf-print-notation!
 T{ 99999 lf-goal-print lf-print-notation? -> outcome-invalid false }T
-nat mv-natural lf-mvar-new made constant mfz  mfz nat nat t-lam lf-mvar-assign must-ok
+\ (?mfz := fun x => Nat -> x: put into fun z => ?mfz z, the loose z would
+\ need lifting under the arrow's binder, which is not ported.)
+nat mv-natural lf-mvar-new made constant mfz  mfz nat nat 1 t-var t-pi t-lam lf-mvar-assign must-ok
 T{ cap-reset nat mfz 0 t-var t-app t-lam 0 0 goal lf-goal-print lf-print-notation?
    -> outcome-unsupported false }T
 \ The same failure in a hypothesis's type; a hypothesis of a type the

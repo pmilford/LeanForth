@@ -1,11 +1,20 @@
 # FE1g: the first tactics, designed
 
+> **2026-11-13:** for slice S1, [S1_INTERFACE.md](S1_INTERFACE.md) overrides this design where they differ (when tactics run, §3.2; the trail of §4.2; error codes, §4.6; fuel, §4.5; binder kinds).
+
 **Status (2026-11-13): designed; FE1g-2 written and tested alone
 (`src/front/tactic-syntax.fs`: the words of §3.2 but `.goals` read into a
-record, their blocks' shape checked, error codes 80 to 88 of §4.6;
-nothing runs); FE1g-1 written and tested alone on branch `fe1g1`** (§4.7:
-each metavariable's own local context, tags, the goal list and the
-proof state, the text of `.goals`; nothing runs a tactic yet). The rest
+record, their blocks' shape checked, error codes 81 to 88 of §4.6);
+FE1g-1 written and tested alone, on main** (§4.7: each metavariable's
+own local context, tags, the goal list and the proof state, the text of
+`.goals`); **FE1g-3a, the runner as far as it goes before FE1e, written
+and tested alone on branch `fe1g3`** (§4.8: the run at `end NAME`, blocks
+as heap frames, focus, done, saved states, fuel, `by-sorry`, the closing
+over the binders and FE1f's hand-over, error codes 80 and 89 to 93;
+reached by no user command until FE1e elaborates statements); **FE1g-4,
+written and tested alone on the same branch** (§4.9: `by-intro:`,
+`by-exact`, `by-rfl`, terms equal to pinned Lean's for the FE1 cases
+that need no library definition unfolded; error codes 94 to 99). The rest
 is not built. This is the
 design of plan row FE1g (proof state and tactics) of
 [the plan](../project/PLAN_DRAFT.md), part of FE1 ($0 + n = n$ proved
@@ -487,8 +496,6 @@ when FE1g-1 lands, after FE1e's):
 | `lfa-e-tac-no-pattern` | `Tactic \`rewrite\` failed: Did not find an occurrence of the pattern …` | invalid |
 | `lfa-e-tac-motive` | `motive is not type correct` / `Motive is dependent` (`rewrite`) | invalid |
 | `lfa-e-tac-not-eq` | `Invalid rewrite argument: Expected an equality or iff proof …` | invalid |
-| `lfa-e-tac-unsolved` | `unsolved goals …` | invalid |
-| `lfa-e-tac-no-goals` | `No goals to be solved` | invalid |
 | `lfa-e-tac-open` (82) | (LeanForth) a block left open at `end`, or a tactic word inside `by-rw[ ]` | invalid |
 | `lfa-e-tac-closer` (83) | (LeanForth) `by-end`, `]` or `\|` with no block of its kind (`\|` outside a `-with` block) | invalid |
 | `lfa-e-tac-header` (84) | (LeanForth) a header not `TAG NAMES… =>` on one line; `=>` alone | invalid |
@@ -496,7 +503,12 @@ when FE1g-1 lands, after FE1e's):
 | `lfa-e-tac-values` (86) | (LeanForth) values left on the stack, or too few for the word | invalid |
 | `lfa-e-tac-outside` (81) | (LeanForth) a tactic word outside `:= by` | invalid |
 | `lfa-e-tac-arity` (87) | (LeanForth, FE1g-2 only) more values than a word takes, where a hypothesis read with values below it might take them | unsupported |
-| `lfa-e-tac-run` (80) | (LeanForth, until FE1g-3) a tactic proof read whole, not run | unsupported |
+| `lfa-e-tac-run` (80) | (LeanForth) a tactic word not ported yet, with the plan step that ports it (FE1g-2 used 80 for "read whole, not run" until FE1g-3) | unsupported |
+| `lfa-e-tac-unsolved` (89) | `unsolved goals` and the goals, at `by` or at a block's `=>` | invalid |
+| `lfa-e-tac-no-goals` (90) | `No goals to be solved` | invalid |
+| `lfa-e-tac-fuel` (91) | (LeanForth) the run's own fuel spent (Lean: maxHeartbeats) | exhausted |
+| `lfa-e-tac-record` (92) | (LeanForth) a tactic record or proof state not as the reader and runner make them | invalid |
+| `lfa-e-tac-meta` (93) | (LeanForth) a type inference, reduction or `let` binder the run needs, not ported yet (FE1c) | unsupported |
 | `lfa-e-tac-full` (88) | (LeanForth) the tactic record's stores out of room | full |
 | `lfa-e-tactic` (72, exists) | not supported yet: the token names the tactic or case | unsupported |
 
@@ -553,6 +565,109 @@ pinned Lean.
   lines Lean breaks past width 120, a binder Lean renames because its body
   uses a hypothesis of that name, Lean's numbers of anonymous
   metavariables (`?m.N`) and its display of delayed assignments.
+
+### 4.8 What FE1g-3a built (2026-11-13, branch `fe1g3`)
+
+FE1g-3 as far as it goes before FE1e (`src/front/tactic-run.fs`; tests
+`tests/front/tactic-run.fs`, `tests/front/check_tactics.py`):
+
+- **Entry.** `end NAME` of a tactic proof read whole calls the runner
+  (FE1g-2's deferred `lf-tactic-proof-end`). The statement comes from
+  the hook `lf-front-by-statement ( -- type )`, which FE1e fills: the
+  binders' locals pushed on the current view, the statement's type in
+  their context. Until FE1e it stops with error 71, as a term proof does,
+  so `leanforth check` reports 71 for every tactic proof (FE1g-2 said
+  80); the tests set stand-ins that build statements in Forth. The run
+  itself is `lf-tactic-by ( type -- goal )`, Lean's `runTactic`, a word
+  FE1e may also call directly. The value is the goal instantiated and
+  closed over the binders (Lean's `mkLambdaFVars`; the type likewise,
+  `mkForallFVars`; the binders are the view's locals of the default
+  kind, so an auxiliary local is not one; a `let` binder answers 93 until
+  needed), and FE1f's hand-over checks and records it.
+- **Running.** §4.3 as designed: blocks are frames on a heap stack (1,000
+  nested blocks tested), a block's end is Lean's `done` (error 89 at
+  `=>`, or at `by` for the proof, with the goals in Lean's text) and puts
+  the goals outside it back; `lf-tac-focus`, `lf-tac-unfocus`,
+  `lf-tac-done`, `lf-tac-block` are what FE1g-5's `case` and
+  alternatives will use. Steps run by a table of rows, one per tactic
+  kind; every kind but `by-sorry` answers 80 with its plan step until
+  FE1g-4 to FE1g-6 set their rows (`lf-tactic-action!`).
+- **Choice points.** `lf-tac-try ( xt -- code )` runs a tactic from a
+  saved state (the metavariable context's mark, the goal list, open
+  blocks and open parts) and restores it on an authoring error; the
+  rollback is tested field by field (assignments, tags, kinds, goals).
+  Term nodes made by a failed attempt are not given back (unreached, so
+  no record holds them); fuel is not given back, as Lean's heartbeats
+  are not.
+- **Fuel.** One unit per step, LeanForth's own (owner, 2026-11-12: own
+  fuel, differences listed); none left is 91, exhausted (exit 3). Lean's
+  limit is `maxHeartbeats`; no proof is known that one of the two limits
+  stops and the other does not, so BEYOND_LEAN.md has no row yet.
+- **Errors.** As Lean prints a tactic error's goals under its message,
+  80, 89, 91 and 93 keep the goals at that point as the error's detail
+  (`author/errors.fs`'s `lfa-detail+`), printed on the lines after the
+  message; 90 and 92 have none.
+- **`by-sorry`** (ADR 0021 Amendment 1; the spelling is plan PD1's
+  proposal at the [parser] gate). The main goal is assigned
+  `sorryAx.{u} T Bool.false`, `u` from Lean's `getLevel` (`infer.fs`'s
+  new `lf-get-level`). **Not Lean's term yet:** Lean 4.35.0 labels every
+  sorry, `sorryAx.{0} (Lean.Name → T) Bool.false «label»`, the label a
+  `Lean.Name` built from strings (the module, the position, a hygienic
+  counter); LeanForth's export writes no string literals, so the label
+  waits for plan PD1. The verdict is the same: the declaration is
+  accepted and NOT PROVED, depending on `sorryAx` (tested through
+  `cli-check` and the kernel). Each goal `by-sorry` closes is an open
+  part, kept as text for the whole run, and the text report lists them
+  after the verdicts (wording proposed, a [format] decision; no JSON form
+  yet).
+- **Not possible yet.** Type inference reads the fed input
+  (`core/input.fs`), and a text runs before its library is fed, so
+  `by-sorry` on a goal whose type names library constants answers 93
+  during `leanforth check` (tested); FE1e must let the Meta layer see the
+  library while a text runs. The end-to-end test that reaches the
+  kernel therefore uses a stand-in statement `p` for `p : Prop`.
+
+### 4.9 What FE1g-4 built (2026-11-13, branch `fe1g3`)
+
+`src/front/tactic-basic.fs` sets the rows of `by-intro:`, `by-exact` and
+`by-rfl` (§5.1-5.3); tests `tests/front/tactic-basic.fs`, Lean twins in
+`tests/front/tactic-run.lean` (checked by `check_tactics.py --lean`).
+
+- **`by-intro:`** as §5.1, its new goal's old goal assigned `fun x => ?n
+  x` with `?n` delayed-assigned `[x] := new goal`, as Lean's `elimMVar`
+  makes it; `theorem self_imp (p : Prop) : p → p := by intro h; exact h`
+  gives Lean's `fun (p : Prop) (h : p) => h` node for node and the kernel
+  accepts it (through `cli-check`, stand-in statement). `intro _` makes
+  the hypothesis inaccessible, printed `a✝` as pinned Lean prints it.
+  Not supported yet (99): `intro rfl` (Lean substitutes, FE5), a `let`,
+  and a binder whose kind is not known explicit (review fe1c-3 R1: the
+  presentation table's kind of a shared node may be another's; an
+  instance binder would need Lean's `isClass?`, FE3). Error 94 is Lean's
+  introN text with the goal after a blank line.
+- **Instantiation** (`instantiate.fs`): instantiating `fun x => ?n x`
+  puts a loose bound variable into `?n`'s delayed value; Lean lifts such
+  values under binders (`lift_loose_bvars`). `lf-meta-instantiate1` now
+  puts one in where no binder of the body lies around the variable (the
+  FE1 cases) and still answers unsupported under a binder (FE1c).
+- **`by-exact`** as §5.2: the term from `lf-tac-elab` (FE1e's
+  `Tactic.elabTerm`; until FE1e error 71, tests set a stand-in), its type
+  from `infer.fs`, FE1c's `isDefEq` (`defeq.fs`, the elaborator's
+  configuration). Lean compares with synthetic opaque metavariables
+  assignable (`withAssignableSyntheticOpaque`), which `defeq.fs` does not
+  offer: either type holding one answers 93 first. Lean's Type mismatch
+  text (with "of sort" lines when the two types' types differ, as
+  `mkHasTypeButIsExpectedMsg`), 95 for a metavariable the term made and
+  left, 98 for a free variable outside the goal's context; a term with an
+  older open metavariable answers 93 (Lean's `checkAssignment` would
+  restrict it: FE1c's `assign-check.fs` is not called yet).
+- **`by-rfl`** as §5.3 on goals whose type is `Eq` with three arguments
+  after instantiation and whnfCore: `theorem refl_p (p : Prop) : p = p :=
+  by rfl` gives Lean's `fun (p : Prop) => @Eq.refl.{1} Prop p`; error 97
+  is apply_rfl's text. `0 + n = n` and the like need `isDefEq` to unfold
+  `HAdd.hAdd` (lazy delta, unsupported in FE1c) and the Meta layer to see
+  the library while a text runs (FE1e).
+- **Not as Lean yet** (plan 8.6): `addPPExplicitToExposeDiff` in the
+  error texts and Lean's line breaks past width 120.
 
 ## 5. The tactics of FE1
 

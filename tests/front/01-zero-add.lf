@@ -4,9 +4,9 @@
 \         induction n
 \         case zero => rfl
 \         case succ k ih => exact congrArg Nat.succ ih
-\ Today (plan FE1g-2) the tactic proof is read whole and its shape is
-\ checked; end stops as not supported yet (error 80, exit 2): elaboration
-\ and running the tactics are plan FE1c-g.
+\ Today the tactic proof is read whole and its shape checked (FE1g-2); end
+\ stops as not supported yet (error 71, exit 2) until plan FE1e elaborates
+\ the statement; its tactics are plans FE1g-4 and FE1g-5.
 theorem zero_add'
   Nat explicit: n
   0 n + n =

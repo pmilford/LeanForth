@@ -8,8 +8,8 @@
 \           induction m with
 \           | zero => rw [Nat.add_succ, ih]
 \           | succ j ih => exact ih
-\ Today (plan FE1g-2) it is read and stops at end as not supported yet
-\ (error 80, exit 2). Constants: tests/front/tactic-slice.ndjson.
+\ Today it is read (FE1g-2) and stops at end as not supported yet (error
+\ 71, exit 2) until plan FE1e elaborates the statement for the runner. Constants: tests/front/tactic-slice.ndjson.
 theorem zero_add_nested
   Nat explicit: n  Nat explicit: m
   0 n + n =

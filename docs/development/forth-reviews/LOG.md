@@ -75,6 +75,8 @@ findings neither fixed nor turned into plan tasks. A row that raises the style b
 | 2026-11-13 | `0e1021c..72d1dae` | snap-compat follow-up: M1, M2, L1-L7, heap-refusal tests, S2-S4 | forth-reviewer (Opus), re-check | [report](2026-11-13-snap-compat.md), re-check sections | 0 blocking; L3, L4 test gaps | fixed in 72d1dae..edb5554 |
 | 2026-11-13 | `72d1dae..edb5554` | snap-compat follow-up: the L3 and L4 tests, nits | forth-reviewer (Opus), re-check | [report](2026-11-13-snap-compat.md), re-check sections | 0 blocking | L5's test with c7; owner approved [format][kernel][import] 2026-11-13 |
 | 2026-11-13 | merge `5a9d65a` | snap-compat: main 437feb84 (FRK kernel refactor) merged into the branch; env-import.fs and env-snapshot.fs conflicts resolved | forth-reviewer (Opus), resolution-only (owner's rule of 2026-11-13) | [report](2026-11-13-snap-compat.md), last section | 0 findings | none |
+| 2026-11-13 | `7d627919..67d71882` | fe1g3: the tactic runner and the first tactics (plan FE1g-3, FE1g-4; slice S1): tactic-run.fs, tactic-basic.fs, by-sorry, instantiate.fs's loose value at depth 0 | forth-reviewer (Opus), one round, probe | [report](2026-11-13-fe1g3.md) | 0 blocking; M1 (no test with two binders), M2 style, L1-L10 | fixed in 67d71882..b171fc9c; M2 and S-L1..3 plan notes |
+| 2026-11-13 | `67d71882..b171fc9c` | fe1g3 follow-up: M1, L1-L10 | forth-reviewer (Opus), short re-check | [report](2026-11-13-fe1g3.md), last section | 0 blocking; 2 low (no fault on `lfa-more,`; `lf-tac-defeq`'s throwing exit untested) | the two lows to the FE1g row |
 
 ## Backlog
 

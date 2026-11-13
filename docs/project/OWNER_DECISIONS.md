@@ -1194,3 +1194,34 @@ every recommendation:
 4. **The existing, never-reviewed designs reviewed now:** the front-end designs together before S1 goes further, and
    VERIFY_COMMAND before V1 merges.
 
+
+### Slice S1 approved (2026-11-13, morning)
+
+The owner approved the S1 design ([S1_INTERFACE.md](../design/S1_INTERFACE.md); the front-end design review and its
+re-check in [design-reviews/](../development/design-reviews/LOG.md)) from its one-page summary: the first native proof
+`theorem t : 0 + 0 = 0 := by-rfl`, elaborated with Lean's instances and checked by the kernel, built in four branches
+(fe1g3, s1-meta, s1-synth, s1-elab), gates [import] when s1-meta and s1-synth merge and [parser] and [bypass] at S1's
+end, no kernel change. Also decided: the front end's work limit is `--elab-fuel N` (`--fuel` stays the kernel's); the
+midpoint `0 0 + 0 = #check` printing `0 + 0 = 0 : Prop` is accepted as a midpoint, never as "done" (a file of only
+`#check` lines then ends with exit 0, as in Lean, instead of error 49); `sorry` is the tactic `by-sorry` now and the term
+`sorry` in S5 (the [parser] spelling).
+
+### `leanforth verify`, slice V1 (2026-11-13, morning)
+
+From the design review of [VERIFY_COMMAND.md](../design/VERIFY_COMMAND.md)
+([report](../development/design-reviews/2026-11-13-verify.md)) and its questions, the owner chose every recommendation:
+
+1. **V1's trust:** `verify` runs pinned Lean itself to write the proofs and LeanForth's kernel re-checks them; proof
+   files a user supplies are accepted only in V2, once LeanForth writes the contract statement itself. For each contract
+   a new Lean file is generated (no contract text enters it as code: the hotfix of 2026-11-13) and Lean's own reading of
+   the statement, with its hypotheses, is shown back; a short [parser] review of the contract translation is part of V1.
+2. **Reports and exit codes:** a missing or failed proof prints "NOT VERIFIED: open" with the list and exits 2, never 0;
+   success says "discharged", never the bare word "verified"; LeanForth's kernel rejecting what Lean accepted is exit 5
+   "checkers disagree"; a crash of the Python driver is exit 5, never 1 (1 means refuted).
+3. **Receipts:** schema 0.3 for V1; 0.4 (the SHA-256 helper words) decided separately; 0.5 later, with V2: paths
+   relative to the user's project folder, the proved statement and the tools' hashes.
+4. **Python 3 and pinned Lean for V1 only,** a documented exception to the 2026-11-02 rule that end users need only
+   Forth; `leanforth capabilities` says so; V2 moves the deciding steps into Forth.
+
+Open with V3: `sorry` in program proofs (as in Lean, never inserted by `verify`, exit 6); with FE2: contracts as
+LeanForth text.

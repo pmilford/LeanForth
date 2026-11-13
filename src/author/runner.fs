@@ -234,7 +234,7 @@ end-structure
 : lf-author-begin ( -- )
   false lf-term-sharing! lfa-stores-reset lfa-scope-close lfa-items-reset
   lfa-groups-reset lfa-declarations-reset lfa-source-reset lfa-error-reset
-  lfa-form-reset lfa-declaration-fresh ;
+  lfa-form-reset lfa-run-fresh lfa-declaration-fresh ;
 \ The run's text is in the kernel form, as the marker kernel-form says
 \ (form.fs): for callers that run the printer's words or kernel-form text
 \ that has no marker, right after lf-author-begin.

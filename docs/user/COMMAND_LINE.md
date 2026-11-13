@@ -106,16 +106,16 @@ file is in the **kernel form** (proof terms written in full), which its
 first word says: `kernel-form`. Without it the text is read as natural
 LeanForth, the default since 2026-11-12 (ADR 0021; plan FE1), which is
 read into syntax trees but not elaborated yet: a natural declaration stops
-at its `end` with error 71, a tactic proof (read whole, its blocks
-checked, not run: plan FE1g-3) at its `end` with error 80, and a
-kernel-form word such as `Prop` with error 70, all "not supported yet"
-(exit 2), and nothing is checked ([two forms](LEANFORTH_SYNTAX.md#two-forms-kernel-form-and-natural-leanforth),
-[tactic proofs](LEANFORTH_SYNTAX.md#tactic-proofs-read-not-yet-run)).
+at its `end` with error 71, a tactic proof too (read whole, its blocks
+checked; its tactics run once plan FE1e elaborates the statement, plan
+FE1g-3), and a kernel-form word such as `Prop` with error 70, all "not
+supported yet" (exit 2), and nothing is checked ([two forms](LEANFORTH_SYNTAX.md#two-forms-kernel-form-and-natural-leanforth),
+[tactic proofs](LEANFORTH_SYNTAX.md#tactic-proofs-read-and-run-once-statements-are-elaborated)).
 FE1's theorem $0 + n = n$, written in natural LeanForth with tactics:
 
 ```console
 $ bin/leanforth check --env tests/author/init-slice.ndjson tests/front/01-zero-add.lf; echo "exit status $?"
-error: unsupported: the LeanForth text was not checked: error 80 at line:col 17:1 (token `end`): not supported yet: running tactics (plan FE1g-3); the tactic proof was read whole; see line:col 13:4
+error: unsupported: the LeanForth text was not checked: error 71 at line:col 17:1 (token `end`): not supported yet: elaborating natural LeanForth (plan FE1e-f)
 exit status 2
 ```
 

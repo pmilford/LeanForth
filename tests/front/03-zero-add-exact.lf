@@ -1,5 +1,5 @@
 \ A proof by a library theorem (docs/design/FE1G_TACTICS.md 2.4 and 3.1).
 \ Lean: theorem zero_add_ex (n : Nat) : 0 + n = n := by exact Nat.zero_add n
-\ Today (plan FE1g-2) it is read and stops at end as not supported yet
-\ (error 80, exit 2). Constants: tests/front/tactic-slice.ndjson.
+\ Today it is read (FE1g-2) and stops at end as not supported yet (error
+\ 71, exit 2) until plan FE1e elaborates the statement for the runner. Constants: tests/front/tactic-slice.ndjson.
 theorem zero_add_ex Nat explicit: n   0 n + n =   := by  n Nat.zero_add by-exact   end zero_add_ex
