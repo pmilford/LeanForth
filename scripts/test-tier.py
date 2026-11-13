@@ -32,7 +32,8 @@ Each file gets a tier; the range gets the largest:
            base (so a library that becomes loaded is full), src/main.fs,
            src/kernel, core, import, cli and every other folder of src/,
            the Makefile, scripts/, bin/, schemas/, lean-toolchain, .github/
-           and any file not named above. Suites: make coverage-check (make
+           any deleted or renamed-away file but documents (what used it is
+           known only from the base tree) and any file not named above. Suites: make coverage-check (make
            test once, instrumented, and the coverage ratchet), make
            check-rest (the rest of make check, every pinned-Lean comparison
            included) and make test on Gforth 0.7.3.
@@ -232,6 +233,22 @@ class Reach:
     def users(self, path):
         return [u for u in self.every if path in self.uses[u]]
 
+    def data_users(self, path):
+        """Targets whose programs may read a data file through a path built at run time: those
+        naming its basename or its folder's name, or searching with a glob for its file type.
+        More than needed is chosen, never less."""
+        ext, parent = os.path.splitext(path)[1], os.path.basename(os.path.dirname(path))
+        found = set()
+        for program in self.cache:
+            if os.path.splitext(program)[1] not in changed_tests.COMMENT:
+                continue
+            text = read_worktree(program) or ""
+            globs = re.search(r"\b(?:r?glob|walk|listdir|iterdir)\b", text) and ext and ext in text
+            quoted = parent and program.endswith((".py", ".sh")) and re.search(f"[\"']{re.escape(parent)}[\"']", text)
+            if os.path.basename(path) in text or quoted or globs:
+                found.add(program)
+        return [u for u in self.every if any(p in self.uses[u] for p in found)]
+
     def folder_users(self, path):
         folder = os.path.dirname(path) + "/"
         return [u for u in self.every if any(f.startswith(folder) for f in self.uses[u])]
@@ -274,8 +291,11 @@ def fault_entries(text):
 
 def selected_faults(changed, base_rev):
     """Fault ids whose file or test command names a changed file, or, when the fault list
-    changed, whose entry is new or differs from BASE_REV's; never a fault of a missing file."""
+    changed, whose entry is new or differs from BASE_REV's; never a fault of a missing file.
+    A fault also counts when its test command's programs load a changed file (tests/support
+    helpers such as tester.fs), through changed-tests.py's closure."""
     paths = {p for _, p in changed}
+    cache = {}
     now = fault_entries(read_worktree(FAULTS) or "")
     before = None
     if FAULTS in paths:
@@ -285,6 +305,7 @@ def selected_faults(changed, base_rev):
         if not os.path.isfile(str(fault.get("file", ""))):
             continue
         named = set(changed_tests.PATH.findall(str(fault.get("test", "")))) | {fault.get("file")}
+        named |= changed_tests.closure(changed_tests.named_files(str(fault.get("test", ""))), cache)
         if named & paths or (before is not None and before.get(ident) != fault):
             chosen.append(ident)
     return chosen
@@ -309,6 +330,10 @@ def plan(changed, merge_base, full=False, reach=None):
     files = []
     for status, path in changed:
         tier, why = category(path, loaded)
+        if status == "D" and tier != "docs":
+            # What used a deleted file (or a rename's old half) is known only from the base
+            # tree, which Reach does not read: the safe answer is the full tier.
+            tier, why = "full", "deleted or renamed away: its users and coverage are not known from this tree"
         files.append({"path": path, "status": status, "tier": tier, "why": why})
     tier = max((f["tier"] for f in files), key=TIERS.index, default="none")
     if full:
@@ -322,6 +347,8 @@ def plan(changed, merge_base, full=False, reach=None):
     chosen = set()
     for f in files:
         path, users = f["path"], reach_.users(f["path"])
+        if f["tier"] == "tests" and os.path.splitext(path)[1] not in changed_tests.COMMENT:
+            users = users + reach_.data_users(path)
         if path.startswith("src/") and path.endswith(".fs"):
             users += SOURCE_RULE_TARGETS
         if path.endswith(".md"):

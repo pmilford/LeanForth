@@ -45,6 +45,11 @@ COMMENT = {".fs": "\\", ".py": "#", ".sh": "#"}
 AGGREGATES = {"test": ["test"], "check": ["check", "test", "check-rest", "test-differential"]}
 # A target-specific variable line of make's database ("target: VAR := value").
 TARGET_VARIABLE = re.compile(r"^\s*[\w.-]+\s*(?:::=|:=|\?=|\+=|!=|=)")
+# sys.path.insert(0, "dir") and sys.path.append("dir"): a directory Python imports from.
+SYS_PATH = re.compile(r"""sys\.path\.(?:insert|append)\([^"'\n]*["']([^"']+)["']""")
+# Joined paths: "tests" / "core" / "x.ndjson", os.path.join("tests", "core", "x").
+JOINED = re.compile(r"""["'](?:src|tests|scripts|docs)["'](?:\s*[/,]\s*["'][^"'\n]+["'])+""")
+SUPPORT = "tests/support"
 TEXT_LIMIT = 2 * 1024 * 1024
 
 
@@ -113,6 +118,9 @@ def code_of(path, text):
 def used_files(path, text):
     """The files one program uses: named paths, Forth loads, Python imports."""
     found = named_files(code_of(path, text))
+    if path.endswith((".py", ".sh")):
+        for joined in JOINED.findall(code_of(path, text)):
+            found |= named_files("/".join(re.findall(r"""["']([^"'\n]+)["']""", joined)))
     folder = os.path.dirname(path)
     if path.endswith(".fs"):
         for name in FORTH_LOAD.findall(text):
@@ -122,7 +130,8 @@ def used_files(path, text):
                     found.add(candidate)
     if path.endswith(".py"):
         for first, second in PY_IMPORT.findall(text):
-            for base in (folder, "scripts"):
+            bases = [folder, "scripts", SUPPORT] + SYS_PATH.findall(text)
+            for base in bases:
                 candidate = os.path.normpath(os.path.join(base, (first or second) + ".py"))
                 if os.path.isfile(candidate):
                     found.add(candidate)

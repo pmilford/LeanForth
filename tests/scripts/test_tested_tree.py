@@ -82,7 +82,7 @@ class Records(Base):
         self.repo.write("tests/lib/new.fs", "\\ new\n")
         self.assertEqual(self.records_tool("once", "--", "make", "test-lib").returncode, 3)
         self.repo.remove("tests/lib/new.fs")
-        self.repo.write("notes.txt", "elsewhere\n")
+        self.repo.write("scratch/notes.txt", "elsewhere\n")
         self.assertRan(self.records_tool("once", "--", "make", "test-lib"))
 
     def test_tree_changed_during_the_run(self):
@@ -221,7 +221,7 @@ class Tier(Base):
         log = self.repo.logged()
         self.assertIn("gforth10 coverage-focus src/lib/free.fs over smoke test-lib test-front", log)
         self.assertIn("gforth073 tests/lib/a.fs", log)
-        self.assertIn("gforth10 mutants free-one", log)
+        self.assertIn("gforth10 mutants free-one,alone-one", log)
         self.assertNotIn("gforth10 tests/lib/a.fs", log, "the instrumented run stands for the plain one")
         self.assertIn("check-portable-forth", log)
         line = summary.read_text()
@@ -267,6 +267,19 @@ class Tier(Base):
         out = self.assertRan(self.tier("--daily", "--dry-run"))
         self.assertNotIn("daily full run", out)
         self.assertIn("tier docs", out)
+
+    def test_daily_run_with_changing_variables_does_not_count(self):
+        gforth073 = str(self.repo.path / ".tools/gforth073")
+        self.daily(["coverage-check"], ["test", f"GFORTH={gforth073}"],
+                   ["check-rest", "LEAN_CACHE=0", "FAULTS=free-one"])
+        self.repo.write("./docs/A.md", "# docs\n")
+        self.repo.commit("docs")
+        out = self.assertRan(self.tier("--daily", "--dry-run"))
+        self.assertIn("of make check-rest with LEAN_CACHE=0", out)
+
+    def test_untracked_root_file_makes_the_tree_dirty(self):
+        self.repo.write("lean-toolchain", "leanprover/lean4:v4.35.0\n")
+        self.assertEqual(self.tier().returncode, 3)
 
     def test_daily_run_of_yesterday_does_not_count(self):
         gforth073 = str(self.repo.path / ".tools/gforth073")

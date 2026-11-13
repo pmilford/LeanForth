@@ -119,7 +119,7 @@ class Tiers(Fixture):
         self.assertEqual(result["targets"], ["check-portable-forth", "check-forth-quality", "smoke",
                                              "test-lib", "test-front"])
         self.assertEqual(result["targets073"], ["smoke", "test-lib", "test-front"])
-        self.assertEqual(result["faults"], ["free-one"])
+        self.assertEqual(result["faults"], ["free-one", "alone-one"])
         self.assertEqual(result["coverage"], {"kind": "focus", "files": ["src/lib/free.fs"],
                                               "targets": ["smoke", "test-lib", "test-front"]})
 
@@ -185,10 +185,21 @@ class Tiers(Fixture):
         self.assertEqual(result["tier"], "full")
 
     def test_deleted_test_data(self):
+        # Its users are known only from the base tree: the full tier (review B1).
         self.repo.remove("tests/front/data.txt")
+        self.assertFull(self.change({}))
+
+    def test_deleted_library_nothing_loads(self):
+        # B1: a deleted library must not select only the source rules (the bigint case).
+        self.repo.remove("src/lib/free.fs")
+        self.assertFull(self.change({}))
+
+    def test_deleted_test_needs_its_coverage(self):
+        # B4: a deleted test that drove a loaded file is the full tier, coverage included.
+        self.repo.remove("tests/core/c.fs")
         result = self.change({})
-        self.assertEqual(result["tier"], "tests")
-        self.assertIn("reference-front", result["targets"])
+        self.assertFull(result)
+        self.assertEqual(result["suites"][0]["goals"], ["coverage-check"])
 
     def test_renamed_test_the_makefile_no_longer_finds(self):
         self.repo.git("mv", "tests/lib/a.fs", "tests/lib/b.fs")
@@ -223,6 +234,44 @@ class Tiers(Fixture):
         run = self.repo.script("test-tier.py", "--base", "no-such-ref")
         self.assertEqual(run.returncode, 2)
         self.assertIn("test-tier: git", run.stderr)
+
+
+class Reaches(Fixture):
+    """Run-time paths, sys.path imports and test helpers (review B2, B3)."""
+
+    def setUp(self):
+        files = dict(tier_fixture.FILES)
+        files["Makefile"] = files["Makefile"].replace(
+            "\t$(GFORTH) tests/core/c.fs\n", "\t$(GFORTH) tests/core/c.fs\n\tpython3 tests/core/lvl.py\n"
+        ).replace("\t$(GFORTH) tests/cli/cli.fs\n", "\t$(GFORTH) tests/cli/cli.fs\n\tpython3 tests/cli/shared.py\n")
+        files["tests/core/lvl.py"] = 'import sys\nsys.path.insert(0, "tests/support")\nimport preview\n'
+        files["tests/support/preview.py"] = "X = 1\n"
+        files["tests/support/tester.fs"] = ": t ;\n"
+        files["tests/lib/a.fs"] = "require ../../src/lib/free.fs\nrequire ../support/tester.fs\n"
+        files["tests/core/cases/x.ndjson"] = "{}\n"
+        files["tests/cli/shared.py"] = 'P = ROOT / "tests" / "core" / "cases"\n'
+        self.repo = tier_fixture.Repo(files)
+
+    def test_python_import_through_sys_path(self):
+        result = self.change({"tests/support/preview.py": "X = 2\n"})
+        self.assertEqual(result["tier"], "tests")
+        self.assertIn("test-core", result["targets"])
+
+    def test_data_read_through_a_joined_path(self):
+        result = self.change({"tests/core/cases/x.ndjson": "{}\n{}\n"})
+        self.assertEqual(result["tier"], "tests")
+        self.assertIn("test-cli", result["targets"])
+
+    def test_data_found_by_a_glob_of_its_type(self):
+        self.repo.write("tests/cli/shared.py", 'import pathlib\nL = pathlib.Path("tests").rglob("*.ndjson")\n')
+        self.repo.commit("glob")
+        result = self.change({"tests/core/cases/x.ndjson": "{}\n{}\n"})
+        self.assertIn("test-cli", result["targets"])
+
+    def test_test_helper_selects_the_faults_that_load_it(self):
+        result = self.change({"tests/support/tester.fs": ": t 1 ;\n"})
+        self.assertEqual(result["tier"], "tests")
+        self.assertEqual(result["faults"], ["free-one"])
 
 
 class Units(unittest.TestCase):

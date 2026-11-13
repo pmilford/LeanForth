@@ -78,6 +78,7 @@ LOCAL_LEAN = ".tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean"
 WATCHED = ("src", "tests", "scripts", "bin", "schemas", "docs")
 NEUTRAL = {"JOBS", "TEST_TIMEOUT", "MUTANTS_TIMEOUT", "GFORTH", "LEAN", "LEAN_CACHE", "LEAN_CACHE_DIR",
            "FAULTS", "COVERAGE_FILES", "COVERAGE_TARGETS"}
+NARROWING = {"FAULTS", "COVERAGE_FILES", "COVERAGE_TARGETS"}  # a run with them is partial
 MAKE_OPTIONS = {"-s", "--silent", "--no-print-directory"}
 STRONGER = {"1": {"1", "0", "verify"}, "0": {"0", "verify"}, "verify": {"verify"}}
 COVERAGE_ALL = "coverage:all"
@@ -124,7 +125,9 @@ def tree():
 def dirty():
     """Why this worktree is not exactly HEAD's tree, as far as the suites can see."""
     lines = git("status", "--porcelain", "--untracked-files=no").splitlines()
-    lines += ["?? " + p for p in git("ls-files", "--others", "--exclude-standard", "--", *WATCHED).splitlines()]
+    others = git("ls-files", "--others", "--exclude-standard").splitlines()
+    # Untracked files of the watched folders and every root-level file (lean-toolchain, Makefile).
+    lines += ["?? " + p for p in others if "/" not in p or p.split("/")[0] in WATCHED]
     return [line for line in lines if line.strip()]
 
 
@@ -414,7 +417,10 @@ def daily_missing(records, day):
         chain073 = toolchain({"GFORTH": gforth073()})
     except Refused:
         chain073 = {"gforth": None}
-    todays = [r for r in records if str(r.get("date", "")).startswith(day) and r.get("lean") == chain["lean"]]
+    # A calendar day is the local date (the clock's midnight ends it, whatever ran just before).
+    # A run with a variable that changes what it tests (FAULTS=, COVERAGE_FILES=, ...) never counts.
+    todays = [r for r in records if str(r.get("date", "")).startswith(day) and r.get("lean") == chain["lean"]
+              and all(k in NEUTRAL - NARROWING for k in (r.get("variables") or {}))]
     need = {
         "make coverage-check": lambda r: r["suite"] == "coverage-check" and r["gforth"] == chain["gforth"],
         "make check-rest with LEAN_CACHE=0": lambda r: r["suite"] in ("check-rest", "check")
