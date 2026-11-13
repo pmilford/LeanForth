@@ -107,7 +107,7 @@ def main(argv):
     for r in rows:
         m = re.match(r"problem (.*?): (.*)$", r)
         if m:
-            ours[m.group(1)] = [x.strip() for x in m.group(2).split(",")] if m.group(2) else []
+            ours[m.group(1)] = [x.strip() for x in m.group(2).split(",") if x.strip()]
     same = 0
     for (label, _), theirs in zip(PROBLEMS, lean_lists()):
         mine = ours.get(label)

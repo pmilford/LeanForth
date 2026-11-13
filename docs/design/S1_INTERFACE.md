@@ -206,7 +206,10 @@ classes). Pinned Lean tries one candidate per problem: `OfNat ?T 0` `instOfNatQ`
 `HAdd ?α ?β ?γ` `String.instHAddCharRaw` (stuck), `HAdd Nat Nat ?γ` `instHAdd` then `instAddNat`, `Add ?α` `instAddQ`
 (stuck), `Add Nat` `instAddNat`. On Init none of them is left out; on `tests/front/init-slice.elab.ndjson` `instOfNatQ`,
 `String.instHAddCharRaw` and `instAddQ` are (`not_exported`), so S1's slice must export them (reported to the
-coordinator). Unverified among them: counted when `discr-keys.fs` recomputes Init's keys (`check_synth.py`).
+coordinator). Unverified among them: none. `make reference-synth` (`check_synth.py`) recomputes all 2,938 Init
+instances: 2,321 equal, 0 refused, 617 unverified (616 need a definition unfolded, S2's delta; 1,
+`Int.instNeZeroOfNatOfNat`, has a recorded star where its type gives a term, a `no_index` the export drops: error 114,
+an exporter task); getInstances gives pinned Lean's candidates in order on all 13 problems compared.
 
 ## 10. `by-exact` (M1)
 

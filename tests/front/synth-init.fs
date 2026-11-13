@@ -56,10 +56,10 @@ variable cn-k  variable cn-name
 : num ( u -- t ) lf-hterm-cell 0= abort" lit" drop ;
 : c1 ( t c-addr u -- t' ) 2>r lv? 1 2r> cn swap app ;     \ C.{?u} t
 : c1z ( t c-addr u -- t' ) 2>r 0 1 2r> cn swap app ;       \ C.{0} t
-: hop ( a b c c-addr u -- t ) 2>r >r >r >r lv? lv? lv? 3 2r> cn r> app r> app r> app ;
+: hop ( c-addr u a b c -- t ) >r >r >r 2>r lv? lv? lv? 3 2r> cn r> app r> app r> app ;
 : .value ( v -- )
   dup lf-inst-left-out? if drop ." <left out>" else elab-instance@ 2drop elab-decl-name .dotted then ;
-: .values ( addr n -- ) 0 ?do dup i cells + @ .value i 1+ over <> if ." , " then loop drop ;
+: .values ( addr n -- ) dup 0 ?do over i cells + @ .value i 1+ over < if ." , " then loop 2drop ;
 : problem ( type c-addr u -- )
   ." problem " type ." : " false lf-mctx-depth{ made >r
   lf-defeq-elab lf-defeq-stuck or lf-defeq-flags! lf-tr-instances lf-defeq-mode!
@@ -68,8 +68,8 @@ variable cn-k  variable cn-name
 : problems ( -- )
   type? s" OfNat" c1 0 num app s" OfNat ?T 0" problem
   nat s" OfNat" c1z 0 num app s" OfNat Nat 0" problem
-  type? type? type? s" HAdd" hop s" HAdd ?a ?b ?c" problem
-  nat nat type? s" HAdd" hop s" HAdd Nat Nat ?c" problem
+  s" HAdd" type? type? type? hop s" HAdd ?a ?b ?c" problem
+  s" HAdd" nat nat type? hop s" HAdd Nat Nat ?c" problem
   type? s" Add" c1 s" Add ?a" problem
   nat s" Add" c1z s" Add Nat" problem
   nat s" Mul" c1z s" Mul Nat" problem
@@ -78,6 +78,6 @@ variable cn-k  variable cn-name
   nat s" LT" c1z s" LT Nat" problem
   nat s" Inhabited" c1 s" Inhabited Nat" problem
   nat s" BEq" c1z s" BEq Nat" problem
-  nat nat type? s" HMul" hop s" HMul Nat Nat ?c" problem ;
+  s" HMul" nat nat type? hop s" HMul Nat Nat ?c" problem ;
 
 : synth-init ( c-addr u c-addr' u' -- ) init-load lf-mctx-reset checks problems ;
