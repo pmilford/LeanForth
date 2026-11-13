@@ -90,6 +90,7 @@ features they describe.
 - [INSTALLATION_LOG.md](development/INSTALLATION_LOG.md) — every install and verification command actually run.
 - [VERSIONS.md](development/VERSIONS.md) — observed tool versions and pinned download hashes.
 - [PROFILING.md](development/PROFILING.md) — opt-in time and memory measurement; results in [measurements/](development/measurements/).
+- [Reuse baseline](development/measurements/reuse-2026-11-13/README.md) — lines of Forth per folder and each library's use outside `lib/` before the reuse work of plan 9.4.8 (2026-11-13).
 - [Lean kernel profile](development/measurements/lean-kernel-profile-2026-11-02/README.md) — where Lean 4.35.0's kernel spends its time on `Init`, `Std` and a Mathlib slice (by function family, measured with perf), per-declaration times and the slowest declarations, and a nanoda comparison (2026-11-02).
 - [Two-mode program words prototype](development/measurements/two-mode-prototype-2026-11-03/README.md) — throwaway evidence for ADR 0019: the real example sources, run by Forth's interpreter with a LeanForth vocabulary, give byte-identical IR on Gforth 1.0.0 and 0.7.3; run mode, replayed reader tests, hostile inputs, an IR round trip, planted faults, a symbolic demo, the mode shift (a third interpreter state, on both Gforths) and defining words and loops in both designs (2026-11-03).
 - [KERNEL_START.md](development/KERNEL_START.md) — prerequisites for starting the trusted kernel.
