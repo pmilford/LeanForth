@@ -1045,6 +1045,18 @@ These settle the design's choices. The amendment stays **proposed**: the code (s
 through the [format], [kernel] and [import] gates (Lean comparisons, an independent review, the owner's approval of
 the summary) before it is accepted.
 
+### Front-end designs FE1e and FE1g: questions answered (2026-11-12, about 22:40)
+
+Each as recommended ([FE1E_APPLICATIONS.md](../design/FE1E_APPLICATIONS.md) §8,
+[FE1G_TACTICS.md](../design/FE1G_TACTICS.md) §10):
+1. **Instance-search limits (FE1e):** LeanForth uses its own fuel. Lean stops a search after a count of its own
+   allocations or at depth 512, which LeanForth cannot reproduce; where Lean would give up and LeanForth finds an
+   answer, the kernel still checks the result and the case is listed in BEYOND_LEAN.md. Nothing unchecked is accepted.
+2. **Induction case syntax (FE1g):** Lean's `| tag names =>` lines, one `by-end` closing the group and every
+   `by-case:` block (e.g. `n by-induction-with | zero => by-rfl | succ k ih => by-rw[ ' Nat.add_succ ih ] by-end`).
+3. **`by-rw` in FE1:** yes; the first native proof uses Lean's own rewrite proof, which is also the proof the
+   explained-proofs output (8.6.12) describes line by line.
+
 ### No result labels (2026-11-12, evening)
 
 The owner: "I find the constant repetition of experimental and not independently audited, one NOT PROVED not useful.

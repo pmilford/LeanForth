@@ -902,6 +902,8 @@ plan row assumed. FE1e1-FE1e4 can start before FE1c's unifier lands
 
 ## 8. Questions for the owner
 
+**Answered by the owner on 2026-11-12 (about 22:40): option (a), LeanForth's own fuel, differences listed in BEYOND_LEAN.md** ([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md)).
+
 1. **Lean's work limits.** Lean gives up on an elaboration after a fixed
    amount of work, counted in its own memory allocations (instance
    search: 20 million), or at nesting depth 512. LeanForth cannot count
