@@ -10,6 +10,9 @@
 \ 3. Interfaces: lf-check-no-maker's stack effect ( -- 0 -1 ), the
 \    publisher's sign that no context replaces one whose check threw.
 \ 6. The same case checks as before once the record is put back.
+\ 1, 7. K5 (environment.fs): a dependency's slot forged undecided or
+\    unsupported makes the declarations after it unknown or unsupported,
+\    never accepted (below).
 \ Test-only; nothing here accepts a theorem.
 require ../support/case-sweeps.fs
 
@@ -30,4 +33,33 @@ T{ ' as-nothing forged
 : plain ( budget -- outcome ) s" proj.data" cs-load cs-at cs-unload ;
 T{ cs-plenty plain -1 plain -> outcome-ok outcome-invalid }T
 T{ lf-check-no-maker -> 0 -1 }T
+
+\ ---------------------------------------------------------------------------
+\ 1, 7. K5 through Lean's generated recursor: the slot of the type N
+\ (declaration 0) forged undecided or unsupported in the probe, as if its
+\ block's check had ended so (the run's environment is freed after it).
+\ A later definition that uses N.rec, which the export left out, then
+\ ends unknown (dependency-undecided, the slot and its outcome) or
+\ unsupported (dependency-unsupported), never accepted; one named N.rec
+\ itself (N2 against the generated recursor: rejected, already-declared,
+\ with the type accepted) the same. With the type accepted, the first is
+\ accepted.
+: type-as ( outcome -- ) 0 lf-env lf-env-slot lf-slot-outcome ! ;
+: as-unknown ( -- ) outcome-unknown type-as ;
+: as-unsupported ( -- ) outcome-unsupported type-as ;
+: k5-run ( c-addr u xt -- outcome code n1 n2 )
+  >r cs-load r> cs-probe! lf-diag-clear cs-run lf-diag@ nip -rot cs-unload ;
+: use-rec ( -- c-addr u ) s" after.nat-left-out-then-use-rec" ;
+: def-rec ( -- c-addr u ) s" after.recursor-left-out-then-def-rec" ;
+T{ use-rec ' as-unknown k5-run
+   -> outcome-unknown lf-diag-dependency-undecided 0 outcome-unknown }T
+T{ use-rec ' as-unsupported k5-run
+   -> outcome-unsupported lf-diag-dependency-unsupported 0 0 }T
+T{ def-rec ' as-unknown k5-run
+   -> outcome-unknown lf-diag-dependency-undecided 0 outcome-unknown }T
+T{ def-rec ' as-unsupported k5-run
+   -> outcome-unsupported lf-diag-dependency-unsupported 0 0 }T
+: verdict ( c-addr u -- outcome code ) cs-load cs-plenty cs-at lf-diag-code@ cs-unload ;
+T{ use-rec verdict nip def-rec verdict
+   -> outcome-ok outcome-rejected lf-diag-already-declared }T
 bye

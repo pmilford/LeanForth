@@ -10551,3 +10551,11 @@ old = '''    lf-tag-lit of lf-rebuild-keep endof'''
 new = '''    lf-tag-lit of lf-rebuild-bad endof'''
 test = "$GFORTH tests/core/mixed-instantiate.fs"
 reason = "instantiate refuses a natural-number literal as malformed"
+
+[[fault]]
+id = "cov2-env-n2-holder-unsupported-as-unknown"
+file = "src/kernel/environment.fs"
+old = '''    outcome-unsupported of lf-env-k5-unsupported endof'''
+new = '''    outcome-unsupported of lf-env-k5-unknown endof'''
+test = "$GFORTH tests/core/check-forged.fs"
+reason = "N2 against a generated recursor whose type is unsupported reports the declaration of that name undecided instead of unsupported (K5)"
