@@ -966,14 +966,6 @@
   ],
   "tokens": 18
  },
- "90c2a924e3e1": {
-  "copies": 2,
-  "members": [
-   "src/core/level-scope.fs:lf-lscope-pairs-ok?",
-   "src/kernel/level-value.fs:lf-lassign-entries?"
-  ],
-  "tokens": 14
- },
  "9477caacbf7a": {
   "copies": 2,
   "members": [
