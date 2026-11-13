@@ -9,8 +9,9 @@
 \ One line per step: its index, kind and word's line:col; in N (its block,
 \ - for none); text FROM-TO; a header's tag and =>; a block's inner
 \ tactics; then its arguments, each a term or a name @ line:col. A term is
-\ a numeral, a constant, vN (the binder in slot N), a hypothesis by its
-\ name, ( f a .. ) an application, or [ binop% f a b ] and [ binrel% f a b ].
+\ a numeral, a constant, vN (the binder in slot N), a hypothesis as
+\ name#j (j: the argument that gave it its name), ( f a .. ) an
+\ application, or [ binop% f a b ] and [ binrel% f a b ].
 
 : dump-library ( -- )
   s" tests/front/tactic-slice.ndjson" true lfc-library-open ok? 0= abort" dump: no library" ;
@@ -35,7 +36,7 @@ defer .term ( node -- )
     syn-k-num of syn-a@ .dec endof
     syn-k-var of ." v" syn-a@ .dec endof
     syn-k-const of syn-a@ lfa-decl-name .name-id endof
-    syn-k-hyp of syn-a@ .name-id endof
+    syn-k-hyp of dup syn-a@ .name-id ." #" syn-b@ .dec endof
     syn-k-app of ." ( " dup syn-a@ .term .args ."  )" endof
     syn-k-binop of ." [ binop% " .op ."  ]" endof
     syn-k-binrel of ." [ binrel% " .op ."  ]" endof

@@ -8,6 +8,8 @@
 \   by-rfl, by-intro: NAME (_ for an inaccessible hypothesis);
 \   by-rw[ r1 .. rn ], by-rewrite[ r1 .. rn ]   the values built between
 \     the brackets are the rules, in order (none is allowed, as in Lean);
+\     every value is a rule: a hypothesis there takes no values, and one
+\     applied is written with $ (ih k $ is Lean's rw [ih k]);
 \   | TAG NAMES... =>   an alternative of the by-induction-with block it is
 \     right inside, up to the next | or the block's by-end;
 \   by-case: TAG NAMES... =>   a case block, up to its by-end;
@@ -18,14 +20,16 @@
 \ inside by-rw[ ] (82, and the bracket's place); none before the first |
 \ of a by-induction-with (Lean's pre-tactic, with tac: not supported yet,
 \ 72); no binder of a term left open (21); exactly the values the word
-\ takes, none left (86; 87 instead when a hypothesis read since the last
-\ tactic word could take the extra ones: how many values a hypothesis
-\ takes is known only once its tactic runs); a header's tokens on its
-\ line, its tag and names names and no words (84), the tag not _ or @TAG
-\ and no second tag (72: Lean's wildcard, @ and | a | b forms, plan FE5);
-\ an alternative or case block holds a tactic (85, as Lean's parser);
-\ by-end, ] and | only where their block is open (83); end NAME with every
-\ block closed (82, and the open block's place) and no value left (86).
+\ takes, none left (86; 87 instead when, outside by-rw[ ], a hypothesis
+\ was read with values below it, which it could take: how many values a
+\ hypothesis takes is known only once its tactic runs, so ih k by-exact
+\ is 86, k ih by-exact 87); a header's tokens on its line, its tag and
+\ names names and no words (84), the tag not _ or @TAG and no second tag
+\ (72: Lean's wildcard, @ and | a | b forms, plan FE5); an alternative or
+\ case block holds a tactic (85, at the word that ends it, and its => as
+\ the second place, where Lean's parser reports it); by-end, ] and | only
+\ where their block is open (83); end NAME with every block closed (82,
+\ and the open block's place) and no value left (86).
 \ An empty proof and a by-induction-with with no alternative are read:
 \ Lean parses both and refuses them only when it runs them.
 \
@@ -44,7 +48,9 @@
 \ alternative's last tactic; -1 while open); tac-arrow, a
 \ header's => (else -1); tac-name, a header's tag (a name ID, else 0);
 \ tac-first and tac-count, its arguments; tac-inner, the tactics right
-\ inside a block; tac-entries, the names in scope before a header's.
+\ inside a block; tac-entries, the names in scope before a header's (an
+\ index of the reader's entry store, for this run only: no serialized
+\ form, FE1g-7, carries it).
 \ Argument fields: targ-x, the syntax node of a term (by-exact's,
 \ by-induction's, a rule) or the name ID of a hypothesis (0 for _), and
 \ targ-at, its position. Positions are author/source.fs's. The parent
@@ -99,10 +105,14 @@ begin-structure /targ
   field: targ-x
   field: targ-at
 end-structure
+\ Forth's interpreter runs the text a word at a time and the data stack
+\ holds the author's values, so what one word leaves for the next lives
+\ here, in the checker context (ADR 0009), for one declaration.
 begin-structure /tac-read
   field: tac-read-open      \ the innermost open block, or -1
   field: tac-read-from      \ where the next step's text begins
-  field: tac-read-hyp       \ true: a hypothesis read since the last tactic word
+  field: tac-read-hyp       \ true: a hypothesis read since the last tactic
+                            \ word may take values below it
 end-structure
 /tac-read context-record: tac-read
 store-header context-record: tac-steps
@@ -129,8 +139,10 @@ max-n store-header - /targ cell+ / constant targ-limit
 : lft-reset ( -- )
   tac-steps store-clear tac-args store-clear -1 lft-open! false lft-hyp! ;
 ' lft-reset context-setup
-\ A declaration starts: the reader's trees and the record are new.
-: lft-fresh ( -- ) lfn-fresh lft-reset ;
+\ A declaration starts: what the hook did before (the reader's trees and
+\ metavariables, reader.fs), and the record is new.
+action-of lfa-declaration-fresh constant lft-fresh-before
+: lft-fresh ( -- ) lft-fresh-before execute lft-reset ;
 ' lft-fresh is lfa-declaration-fresh
 
 \ Positions: just past the current token; the next step's text from there.
@@ -172,10 +184,9 @@ max-n store-header - /targ cell+ / constant targ-limit
 : lf-tactic-proof? ( -- flag ) lft-proof? ;
 : lft-bracket? ( kind -- flag ) dup tac-k-rw = swap tac-k-rewrite = or ;
 \ Block i is open: the next step's text begins past the current token.
-: lft-opened ( i -- ) lft-open! lft-from! false lft-hyp! ;
+: lft-opened ( i -- ) lft-open! lft-from! ;
 \ The open block ends at pos; the block around it is open again.
-: lft-close ( pos -- )
-  lft-open lft-rec tuck tac-to ! tac-parent @ lft-open! false lft-hyp! ;
+: lft-close ( pos -- ) lft-open lft-rec tuck tac-to ! tac-parent @ lft-open! ;
 : lft-to! ( i -- ) lft-past swap lft-rec tac-to ! ;
 : lft-done ( i -- ) lft-to! lft-from! ;
 : lft-inner+ ( -- ) 1 lft-open lft-rec tac-inner +! ;
@@ -192,10 +203,12 @@ max-n store-header - /targ cell+ / constant targ-limit
 : lft-not-pre ( -- ) lft-kind tac-k-with = if lfa-e-tactic lfa-fail then ;
 \ Exactly want values above the frame. Too few is a mistake; too many
 \ too, unless a hypothesis read since the last tactic word (taken as
-\ taking none) may take some: not supported yet. A word that takes none
-\ finds every value left, whatever a hypothesis takes.
+\ taking none) had values below it, which it may take: not supported yet.
+\ A word that takes none finds a value left whatever a hypothesis takes,
+\ since a term leaves one value. The doubt ends with each tactic word.
+: lft-extra? ( found want -- flag ) tuck > swap 0> and ;
 : lft-count-code ( found want -- code )
-  tuck > swap 0> and lft-hyp? and if lfa-e-tac-arity else lfa-e-tac-values then ;
+  lft-extra? lft-hyp? and if lfa-e-tac-arity else lfa-e-tac-values then ;
 : lft-count ( found want -- ) 2dup = if 2drop exit then lft-count-code lfa-fail ;
 : lft-takes ( want -- ) >r lfa-above r> lft-count false lft-hyp! ;
 : lft-tactic ( want -- ) lft-ready lft-not-pre lft-takes ;
@@ -253,9 +266,11 @@ max-n store-header - /targ cell+ / constant targ-limit
 : lft-arrow! ( i -- i ) lfa-here over lft-rec tac-arrow ! ;
 : lft-header ( kind -- ) lft-new lft-entries! lft-tag! lft-names lft-arrow! lft-opened ;
 
-\ A block of names ends at pos: it held a tactic (else the error is at
-\ the word that ends it, as Lean's parser reports), and its names go.
-: lft-held ( addr -- addr ) dup tac-inner @ 0> lfa-e-tac-empty lfa-must ;
+\ A block of names ends at pos: it held a tactic, and its names go. An
+\ empty one stops the run at the word that ends it, with its => as the
+\ second place (pinned Lean's parser reports just past =>).
+: lft-held ( addr -- addr )
+  dup tac-inner @ 0> if exit then dup tac-arrow @ lfa-e-tac-empty lfa-fail-see ;
 : lft-names-end ( pos -- )
   lft-open lft-rec lft-held tac-entries @ lfa-entries-cut lft-close ;
 \ An alternative ends with its last tactic, at the next | or by-end.
@@ -288,17 +303,22 @@ max-n store-header - /targ cell+ / constant targ-limit
   lft-proof? if lft-end-proof else lfn-end-declaration then ;
 : lft-w-end ( -- ) lfa-end-head ['] lft-end-declaration lfa-end-tail ;
 
-\ Hypotheses, read (groups.fs): the newest entry of the token's spelling
-\ if it is a hypothesis; entries are one array, so the newer has the
-\ higher address. Its node takes no values (a pending ' is spent).
+\ Hypotheses, read (groups.fs): the token's hypothesis entry when it is
+\ newer than every variable entry of the spelling (entries are one array,
+\ so the newer has the higher address), else 0. Its node takes no values
+\ (a pending ' is spent); read with values below it outside by-rw[ ],
+\ it may take some once tactics run, which leaves a doubt (lft-count).
 : lft-entry-of ( body kind -- entry|0 ) lfa-token-find 0= if 0 then ;
-: lft-newest ( body -- entry|0 )
+: lft-newer ( body -- entry|0 )
   dup lfa-entry-hypothesis lft-entry-of swap lfa-entry-variable lft-entry-of over u< and ;
+: lft-bracketed? ( -- flag ) lft-proof? if lft-kind lft-bracket? else false then ;
+: lft-may-take? ( -- flag ) lfa-above 0> lft-bracketed? 0= and ;
+: lft-doubt ( -- ) lft-may-take? lft-hyp? or lft-hyp! ;
 : lft-hyp-node ( j -- node )
   dup tac-args store-slot targ-x @ syn-k-hyp lfa-here lfn-new swap syn-a! swap syn-b! ;
-: lft-hyp-value ( j -- value ) lfa-untick drop lft-hyp-node lfn-value true lft-hyp! ;
+: lft-hyp-value ( j -- value ) >r lft-doubt r> lfa-untick drop lft-hyp-node lfn-value ;
 : lft-hyp-run ( body -- body false | value true )
-  dup lft-newest ?dup 0= if false exit then nip lfa-entry-value @ lft-hyp-value true ;
+  dup lft-newer ?dup 0= if false exit then nip lfa-entry-value @ lft-hyp-value true ;
 ' lft-hyp-run is lfa-hypothesis-run
 
 \ The natural meanings (author/groups.fs, lfa-natural!).

@@ -14,13 +14,17 @@ docs/design/FE1G_TACTICS.md section 3).
 With --lean instead: pinned Lean, through scripts/export.sh, reproduces
 the export these tests run against (tests/front/tactic-slice.ndjson:
 Nat.add_succ, Nat.zero_add and congrArg from Init, with what they use)
-and its manifest, byte for byte.
+and its manifest, byte for byte; and pinned Lean parses or refuses the
+shapes of tests/front/tactic-shapes.lean as the reader does (an empty
+proof, a by-induction-with with no alternative, rw [] and dotted and
+nested names read; an alternative with no tactic refused).
 
 Usage: GFORTH=... python3 tests/front/check_tactics.py
        LEAN=... python3 tests/front/check_tactics.py --lean
 """
 import os
 import pathlib
+import re
 import subprocess
 import sys
 import tempfile
@@ -33,7 +37,8 @@ GOLDEN = ROOT / "tests/front/tactics.golden"
 SLICE = "tests/front/tactic-slice.ndjson"
 LIMIT = 300
 FILES = ["tests/front/01-zero-add-rw.lf", "tests/front/01-zero-add.lf",
-         "tests/front/02-add-zero-rfl.lf", "tests/front/03-zero-add-exact.lf"]
+         "tests/front/02-add-zero-rfl.lf", "tests/front/03-zero-add-exact.lf",
+         "tests/front/04-nested-ih.lf"]
 
 # Malformed twins of 01-zero-add-rw.lf: (what changes, old text, new text,
 # the error the command line must print).
@@ -120,13 +125,49 @@ def check_slice():
                 raise Failure(f"scripts/export.sh does not reproduce {SLICE}{suffix}")
 
 
+# The shapes of tests/front/tactic-shapes.lean: each theorem's first error
+# as pinned Lean reports it, or None; FE1g-2 reads s1, s2, s3, s5 and s6
+# and refuses s4 (error 85), as the unit tests check.
+SHAPES = ROOT / "tests/front/tactic-shapes.lean"
+SHAPE_ERRORS = {"s1": "unsolved goals", "s2": "Alternative `zero` has not been provided",
+                "s3": None, "s4": "unexpected token '|'; expected", "s5": None, "s6": None}
+ERROR = re.compile(r"^[^:]*:(\d+):\d+: error: (.*)$")
+
+
+def theorem_at(lines, number):
+    """The theorem whose text holds line number (from 1)."""
+    name = None
+    for i, line in enumerate(lines[:number], 1):
+        if line.startswith("theorem "):
+            name = line.split()[1]
+    return name
+
+
+def check_shapes():
+    run = subprocess.run([LEAN, "-DwarningAsError=true", str(SHAPES)], cwd=ROOT,
+                         stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=LIMIT)
+    lines = SHAPES.read_text(encoding="utf-8").splitlines()
+    first = {}
+    for line in (run.stdout + run.stderr).splitlines():
+        match = ERROR.match(line)
+        if match:
+            first.setdefault(theorem_at(lines, int(match.group(1))), match.group(2))
+    for name, want in SHAPE_ERRORS.items():
+        got = first.get(name)
+        if (want is None) != (got is None) or (want is not None and not got.startswith(want)):
+            raise Failure(f"tactic-shapes.lean: {name}: pinned Lean says {got!r}, expected {want!r}")
+
+
 def main_lean():
     try:
         check_slice()
+        check_shapes()
     except Failure as error:
         print(f"check_tactics: {error}")
         return 1
-    print(f"{SLICE} and its manifest reproduced byte for byte by pinned Lean")
+    print(f"{SLICE} and its manifest reproduced byte for byte by pinned Lean; "
+          f"pinned Lean parses and refuses the {len(SHAPE_ERRORS)} shapes of "
+          "tests/front/tactic-shapes.lean as the reader does")
     return 0
 
 

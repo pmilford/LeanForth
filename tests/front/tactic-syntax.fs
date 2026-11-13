@@ -129,11 +129,12 @@ T{ s" n by-induction-with | succ 0 ih => by-rfl by-end end t" proof nfails -> 30
 T{ s" n by-induction-with | 0 => by-rfl by-end end t" proof nfails -> 30 1 65 }T
 T{ s" by-intro:" proof nfails -> 2 1 43 }T
 T{ s" by-intro: => end t" proof nfails -> 84 1 53 }T
-\ An alternative or case block with no tactic, at the word that ends it.
+\ An alternative or case block with no tactic, at the word that ends it,
+\ and its => as the second place (where pinned Lean's parser reports it).
 T{ s" n by-induction-with | zero => | succ k ih => by-rfl by-end end t" proof nfails
-   -> 85 1 73 }T
-T{ s" n by-induction-with | zero => by-end end t" proof nfails -> 85 1 73 }T
-T{ s" n by-induction by-case: zero => by-end end t" proof nfails -> 85 1 75 }T
+   see-at -> 85 1 73 1 70 }T
+T{ s" n by-induction-with | zero => by-end end t" proof nfails see-at -> 85 1 73 1 70 }T
+T{ s" n by-induction by-case: zero => by-end end t" proof nfails see-at -> 85 1 75 1 72 }T
 \ Values: too few or too many for the word, left at a word that takes
 \ none, at by-rw[, at | and at end.
 T{ s" by-exact end t" proof nfails -> 86 1 43 }T
@@ -165,13 +166,30 @@ T{ s" n by-induction-with | _ => by-rfl by-end end t" proof nfails -> 72 1 65 }T
 T{ s" n by-induction-with | @succ k ih => by-rfl by-end end t" proof nfails -> 72 1 65 }T
 T{ s" n by-induction-with | zero | succ => by-rfl by-end end t" proof nfails -> 72 1 70 }T
 T{ s" by-case: _ => by-rfl by-end end t" proof nfails -> 72 1 52 }T
-\ Too many values where a hypothesis read since the last tactic word
-\ might take some: not supported yet; too many for a word that takes
-\ none, or too few, stays a mistake whatever it takes.
+\ Too many values where a hypothesis read since the last tactic word had
+\ values below it, which it may take once tactics run: not supported yet
+\ (87). One read first takes nothing (ih k by-exact: two values, 86); too
+\ many for a word that takes none, or too few, stays a mistake whatever
+\ a hypothesis takes.
 T{ s\" theorem t Nat explicit: n 0 n + n =\n:= by n by-induction-with\n| succ k ih => n ih by-exact"
    nfails -> 87 3 21 }T
 T{ outcome -> outcome-unsupported }T
 T{ s" by-intro: h n h by-exact end t" proof nfails -> 87 1 59 }T
+T{ s" n by-induction-with | succ k ih => k ih by-exact" proof nfails -> 87 1 83 }T
+T{ s" n by-induction-with | succ k ih => ih n by-exact" proof nfails -> 86 1 83 }T
+\ (k is a hypothesis too: in ih k by-exact it may take ih.)
+T{ s" n by-induction-with | succ k ih => ih k by-exact" proof nfails -> 87 1 83 }T
+\ Inside by-rw[ ] every value is a rule: a hypothesis takes nothing there,
+\ so leaves no doubt after ]; one applied is written with $ (ih k $).
+T{ s" n by-induction-with | succ k ih => by-rw[ ih ] n n by-exact" proof nfails -> 86 1 94 }T
+T{ s" n by-induction-with | succ k ih => by-rw[ n ih ] n n by-exact" proof nfails
+   -> 86 1 96 }T
+T{ s" n by-induction-with | succ k ih => by-rw[ ih k $ ] by-end end t" proof nfails
+   -> 80 1 101 }T
+T{ 3 kind@ 3 args@ nip 3 0 arg-node kind 3 0 arg-node syn-a@ kind
+   -> tac-k-rw 1 syn-k-app syn-k-hyp }T
+T{ s" n by-induction-with | succ k ih => by-rw[ k ih ] by-end end t" proof nfails -> 80 1 99 }T
+T{ 3 args@ nip 3 0 arg-node kind 3 1 arg-node kind -> 2 syn-k-hyp syn-k-hyp }T
 T{ s" by-intro: h h by-rfl end t" proof nfails -> 86 1 57 }T
 T{ s" by-intro: h h end t" proof nfails -> 86 1 57 }T
 T{ s" by-intro: h by-exact end t" proof nfails -> 86 1 55 }T
@@ -222,8 +240,12 @@ T{ 80 lf-author-outcome 81 lf-author-outcome 82 lf-author-outcome 83 lf-author-o
 T{ 84 lf-author-outcome 85 lf-author-outcome 86 lf-author-outcome 87 lf-author-outcome
    88 lf-author-outcome
    -> outcome-invalid outcome-invalid outcome-invalid outcome-unsupported outcome-full }T
-\ After a run no tactic proof is open; a new run starts with no record.
+\ After a run no tactic proof is open, also when it failed inside one
+\ (its block still open: outside the declaration, no proof is read); a
+\ new run starts with no record.
 T{ lf-tactic-proof? lf-author-begin lf-tactic-count -> false 0 }T
+T{ s" n by-induction-with | zero => by-rfl end t" proof nfails drop drop -> 82 }T
+T{ lf-tactic-proof? tac-read tac-read-open @ 0< -> false false }T
 
 \ ---- 5. Resources: 1,000 nested by-case: blocks, one a line (heap
 \ records, no host recursion); a store that may hold 3 steps stops the

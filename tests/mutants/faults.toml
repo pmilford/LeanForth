@@ -11702,8 +11702,8 @@ reason = "FE1g-2: | opens an alternative outside by-induction-with, in the proof
 [[fault]]
 id = "fe-tac-empty-block"
 file = "src/front/tactic-syntax.fs"
-old = ''': lft-held ( addr -- addr ) dup tac-inner @ 0> lfa-e-tac-empty lfa-must ;'''
-new = ''': lft-held ( addr -- addr ) ;'''
+old = '''  dup tac-inner @ 0> if exit then dup tac-arrow @ lfa-e-tac-empty lfa-fail-see ;'''
+new = '''  ;'''
 test = "$GFORTH tests/front/tactic-syntax.fs"
 reason = "FE1g-2: an alternative or case block with no tactic is read, which Lean's parser refuses (error 85 expected)"
 
@@ -11718,7 +11718,7 @@ reason = "FE1g-2: a tactic word takes whatever values are there, by-exact none o
 [[fault]]
 id = "fe-tac-arity-invalid"
 file = "src/front/tactic-syntax.fs"
-old = '''  tuck > swap 0> and lft-hyp? and if lfa-e-tac-arity else lfa-e-tac-values then ;'''
+old = '''  lft-extra? lft-hyp? and if lfa-e-tac-arity else lfa-e-tac-values then ;'''
 new = '''  2drop lfa-e-tac-values ;'''
 test = "$GFORTH tests/front/tactic-syntax.fs"
 reason = "FE1g-2: extra values a hypothesis might take are called a mistake (invalid) where only running the tactics can tell (87, unsupported, expected)"
@@ -11787,6 +11787,38 @@ old = ''': lft-tag-later? ( c-addr u -- flag ) 2dup lft-hole? -rot lft-at-sign? 
 new = ''': lft-tag-later? ( c-addr u -- flag ) 2drop false ;'''
 test = "$GFORTH tests/front/tactic-syntax.fs"
 reason = "FE1g-2: Lean's wildcard and @ alternatives (| _ =>, | @succ =>) are refused as malformed or read as a tag @succ, not answered not supported yet (72)"
+
+[[fault]]
+id = "fe-tac-hypothesis-arg-lost"
+file = "src/front/tactic-syntax.fs"
+old = '''  dup tac-args store-slot targ-x @ syn-k-hyp lfa-here lfn-new swap syn-a! swap syn-b! ;'''
+new = '''  dup tac-args store-slot targ-x @ syn-k-hyp lfa-here lfn-new swap syn-a! nip ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_tactics.py"
+reason = "FE1g-2, review fe1g2 L2: a hypothesis's node no longer says which header gave it its name, so the inner and outer ih of tests/front/04-nested-ih.lf are told apart by nothing (the golden's ih#2 and ih#7)"
+
+[[fault]]
+id = "fe-tac-bracket-doubt"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-may-take? ( -- flag ) lfa-above 0> lft-bracketed? 0= and ;'''
+new = ''': lft-may-take? ( -- flag ) lfa-above 0> ;'''
+test = "$GFORTH tests/front/tactic-syntax.fs"
+reason = "FE1g-2, review fe1g2 L1/L2: a hypothesis inside by-rw[ ] is taken as maybe applied to the values below it, though every value there is a rule, and the doubt outlives ] (by-rw[ n ih ] n n by-exact: 87 where 86 is due)"
+
+[[fault]]
+id = "fe-tac-doubt-anywhere"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-may-take? ( -- flag ) lfa-above 0> lft-bracketed? 0= and ;'''
+new = ''': lft-may-take? ( -- flag ) lft-bracketed? 0= ;'''
+test = "$GFORTH tests/front/tactic-syntax.fs"
+reason = "FE1g-2, review fe1g2 L1: a hypothesis read with nothing below it still leaves a doubt, so ih n by-exact (two values for certain) is 87, not the mistake 86"
+
+[[fault]]
+id = "fe-tac-proof-after-run"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-proof? ( -- flag ) lft-open 0< 0= lfa-inside? and ;'''
+new = ''': lft-proof? ( -- flag ) lft-open 0< 0= ;'''
+test = "$GFORTH tests/front/tactic-syntax.fs"
+reason = "FE1g-2, review fe1g2 L2: after a run that failed inside a tactic proof, a tactic proof still counts as being read (lf-tactic-proof? true outside every declaration)"
 
 [[fault]]
 id = "fe-lparams-empty-walked"
