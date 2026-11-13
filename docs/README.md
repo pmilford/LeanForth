@@ -60,6 +60,7 @@ features they describe.
 ## `design/` — designs of components not built yet
 
 - [FRONT_END.md](design/FRONT_END.md) — LeanForth's front end (design, nothing built): what Lean's elaborator, unification, type classes, coercions, tactics, pattern matching, recursion, generated definitions, `simp`, Mathlib's tactics and evaluation do, each measured in Lean 4.35.0's sources; the planned untrusted Forth architecture re-checked by the kernel; what "full Lean" means; milestones FE1–FE12 with FE1 ($0 + n = n$ by induction) specified in full; questions for the owner.
+- [FE1E_APPLICATIONS.md](design/FE1E_APPLICATIONS.md) — plan row FE1e (design, nothing built): how pinned Lean elaborates `0 + n = n` step by step (the acceptance trace), the faithful subset of application elaboration, numerals, `binop%`/`binrel%`, pending metavariables and default instances, tabled instance search with the elaboration data's discrimination-tree keys and Lean's candidate order, the instance-class check (fe1d M1), modules, tests, sub-steps and one owner question.
 
 ## `development/` — contributing, testing and tooling
 
