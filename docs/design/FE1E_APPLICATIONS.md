@@ -370,6 +370,7 @@ error (§5.3) and the plan row that lifts it.
 | fill an `optParam` or `autoParam` | explicit binder with no argument left whose type is `optParam`/`autoParam`, or eta arguments | FE2 |
 | elaborate as an eliminator | `elabAsElim?` (App.lean:1397): recursor, `casesOn`, `recOn`, `brecOn` or `elab_as_elim` | FE5 |
 | use a local instance | a local hypothesis whose type is a class (`isClass?`) when an instance problem is solved | FE3 |
+| try an instance the export lacks | a candidate list that holds an `instance_left_out` record (§3.1) | the exporter, if such a case is ever met |
 | synthesize a Π-typed instance goal | the goal type, after `forallTelescopeReducing`, has binders | FE3 |
 | keep an answer with metavariables | an answer whose instantiated value has metavariables of the synthesis depth (`abstractMVars` with `numMVars > 0` or level parameters) | FE3 |
 | run `check` on an answer | `checkMayHaveSideEffects` true (SynthInstance.lean:862) | FE3 |
@@ -378,8 +379,10 @@ error (§5.3) and the plan row that lifts it.
 | unify what FE1c does not port | FE1c's own unsupported answers (max levels, postponed level constraints) pass through unchanged | FE1c, FE2 |
 
 The unsupported answers never replace an error Lean gives: an elaboration
-error that Lean reports before reaching the condition (a failed instance,
-a type mismatch without coercion) is reported as the error.
+error that Lean reports before reaching the condition (an instance that
+does not exist, a numeral against a proposition) is reported as the
+error. A type mismatch is not such an error in FE1e: Lean looks for a
+coercion first, so FE1e answers unsupported there.
 
 ## 3. Instance search
 
@@ -406,8 +409,9 @@ as format version 2:
 
 | Record | New members | Lean source |
 | --- | --- | --- |
-| `instance` | `keys`: the instance's stored `InstanceEntry.keys`; `rank`: its position in the depth-first walk of its root's tree (children in stored order, values in stored order) | `instanceExtension.getState env` |
+| `instance` | `keys`: the instance's stored `InstanceEntry.keys`; `rank`: its position in the depth-first walk of its root's tree (children in stored order, values in stored order; the walk is `dfs` of probe p6) | `instanceExtension.getState env` |
 | `default_instance` | `rank`: its position in `getDefaultInstances class` (most recent first) | `defaultInstanceExtension` |
+| `instance_left_out` (new kind) | `keys`, `rank`, `priority` of an instance whose declaration the export does not have (FE1d leaves 31 such instances of `Init` out: private or unsafe declarations), so that the tree keeps its place | as `instance` |
 | `class` (new kind) | `name`, `out_params`, `out_level_params` | `classExtension` (Class.lean:14): the class set and out-parameter positions |
 | `tag` (new kind) | `name`, `tag`: `elab_as_elim`, `elab_without_expected_type`, `cases_on`, `rec_on`, `brec_on` | the tag attributes and the auxiliary-recursor tags (if plan row FE1d2 lands first with the auxiliary recursors, its records are used instead) |
 
@@ -415,7 +419,9 @@ A key is a JSON value: `"star"`, `"other"`, `"arrow"`, `{"const":NAME,"arity":N}
 `{"fvar":…}` (never in global instances: refused), `{"lit":N}` or
 `{"lit_str":S}`, `{"proj":NAME,"idx":I,"arity":N}`. The reader (FE1d's,
 extended) checks forms, that every name is a declaration of the right
-kind, that ranks are a permutation within each root key, that each
+kind, that no two instances of a root key share a rank (ranks may have
+gaps where the exporter leaves an instance out, as FE1d does for
+instances that are not declarations of the export), that each
 default instance's rank is unique per class, and that the header counts
 the new kinds; version 1 files are refused as "another format version"
 (unsupported) once version 2 exists. Ranks and the class set are taken on
@@ -425,7 +431,8 @@ checked (§4).
 
 ### 3.2 The instance table and `getUnify`
 
-At first use, the instances of each root key are inserted, in rank
+At first use, the instances of each root key (the `instance_left_out`
+records among them, marked) are inserted, in rank
 order, into a tree (a trie): a node holds its values and its children
 (key, node) in insertion order, which, inserted in rank order, is Lean's
 child order. Inserting in rank order makes every child list Lean's
@@ -640,7 +647,8 @@ exhausted and full as always.
 
 Tests: each of the following data files, made from the slice's good data,
 is refused at first use with its code and line: `instAddNat` recorded as
-an instance of `Mul`; `instOfNatNat`'s keys changed to `[OfNat, Int, *]`;
+an instance of `Mul`; `instOfNatNat`'s keys changed to `[OfNat, Nat, 0]`
+(a literal where Lean has a star);
 a default instance recorded under the wrong class; a class with a wrong
 `out_params`; a non-class declaration as an instance (`Nat.add`, kind
 check passes, class check refuses). Passing: an instance whose class
@@ -689,8 +697,8 @@ Outcomes are ADR 0008's; a failed word gives -1 for its result.
 | `lf-class?` | `( term -- class true outcome \| false outcome )` | `isClass?` |
 | `lf-class-out-params` | `( class -- addr n )` | `getOutParamPositions?` |
 | `lf-default-instances` | `( class -- addr n )` cells of (instance, priority) | `getDefaultInstances` |
-| `lf-dt-path` | `( type -- addr n outcome )` keys, two cells each | `mkPath` |
-| `lf-dt-unify-key` | `( term root? -- key1 key2 args n outcome )` | `getUnifyKeyArgs` |
+| `lf-dt-path` | `( type -- keys outcome )`, `keys` a key list of the key store | `mkPath` |
+| `lf-dt-unify-key` | `( term root? -- key args outcome )`, `key` a key of the key store, `args` a cons list of subterms (`lib/cons.fs`) | `getUnifyKeyArgs` |
 | `lf-mctx-snapshot`, `lf-mctx-switch` | `( -- snap )`, `( snap -- outcome )` | `withMCtx` |
 
 FE1f's deferred `lf-front-elaborate ( -- type value )` is set to a word
@@ -766,21 +774,34 @@ goals over `Init`: `Add Nat`, `HAdd Nat Nat ?`, `OfNat Nat 5`, `OfNat Nat
 0` (where `Zero.toOfNat0` and `Lean.Grind.Semiring.ofNat` also match),
 `LE Nat`, `LT Nat`, `Mul Nat`, `HMul Nat Nat ?`, `HPow Nat Nat ?`,
 `Decidable (n = m)`, `DecidableEq Nat`, `Inhabited Nat`, `BEq Nat`, …;
-failures (`Add Prop`: none), stuck goals (`OfNat ?α 0`, `HAdd ?α ?β ?γ`),
-and a goal where rank order and priority order differ (found by a probe
-over `Init`'s data). The FE1 statement's trace (§1.6) and C1's term are
+failures (`Add Prop`, `OfNat Bool 0`: none), stuck goals (`OfNat ?α 0`,
+`HAdd ?α ?β ?γ`), and goals where the tree order and the priority order
+differ (probe p8 over `Init`: in `HPow`'s tree `instHPow` (1000) comes
+before `Lean.Grind.Semiring.npow` and `Lean.Grind.Field.zpow` (100), so
+`HPow Nat Nat Nat` is answered `@instHPow.{0, 0} Nat Nat (@instPowNat.{0}
+Nat instNatPowNat)` only because of the priority sort: without it,
+`Lean.Grind.Semiring.npow` is tried first and succeeds, since `Init` has
+`Lean.Grind.Semiring Nat` (probe p9); in `Add`, `Mul`, `Sub`, `LE`, `LT` and `OfNat` a `Lean.Grind`
+instance of priority 10000 sits in the middle of the tree). Pinned Lean's
+answers seen so far (p8): `Decidable (2 = 3)`: `instDecidableEqNat 2 3`;
+`DecidableEq Nat`: `instDecidableEqNat`; `Inhabited Nat`:
+`instInhabitedNat`; `BEq Nat`: `instBEqOfDecidableEq`; `LE Nat`:
+`instLENat`. The FE1 statement's trace (§1.6) and C1's term are
 FE1e's acceptance; with FE1f, `0 n + n = #check` printing `0 + n = n :
 Prop` is the plan row's.
 
 ### 6.2 Coverage classes ([TEST_COVERAGE_REVIEW.md](../development/TEST_COVERAGE_REVIEW.md#owners-coverage-classes))
 
-1. **Every outcome:** a term (C1-C25), a front-end error (`#check` of
-   `n Nat.succ Nat.succ`'s mismatch, a numeral against `Prop`, an
-   instance that does not exist: `Add Prop` through `Prop Prop +`), each
+1. **Every outcome:** a term (C1-C25); a front-end error, each with
+   its code: `0` against the proposition `a = b` ("numerals are data"),
+   `0` against `Bool` ("failed to synthesize `OfNat Bool 0`"), a
+   type-class problem still stuck when nothing may be postponed (a Forth
+   test with the default instances left out of the data); each
    unsupported condition of §2.7 reached by one input (C26, a recursor
-   applied, a Π-typed instance goal), exhausted (fuel 1 for C1), full
-   (each store refused in turn with `tests/support/heap-watch.fs`); no
-   failure ever gives a term.
+   applied, a Π-typed instance goal; note that a type mismatch is
+   unsupported in FE1e, since Lean first looks for a coercion);
+   exhausted (fuel 1 for C1); full (each store refused in turn with
+   `tests/support/heap-watch.fs`); no failure ever gives a term.
 2. **Malformed input:** the damaged elaboration data of §4 and format 2's
    new members (each refused with its code and line); syntax nodes that
    are not live; a stale metavariable.
@@ -806,8 +827,10 @@ Prop` is the plan row's.
 ### 6.3 Planted faults (`tests/mutants/faults.toml`, each caught)
 
 `fe-instance-try-order` (candidates tried from the front: C1's
-`OfNat Nat 0` answer changes), `fe-priority-ignored` (no priority sort:
-the rank-versus-priority case), `fe-rank-ignored` (children in key order),
+`OfNat Nat 0` answer changes), `fe-priority-unsorted` (no priority sort:
+`HPow Nat Nat ?γ`'s answer changes; FE1d's `fe-priority-ignored`, a
+priority read as 0, is then caught by the same case), `fe-rank-ignored`
+(children in key order),
 `fe-outparam-kept` (`γ` not replaced: `HAdd Nat Nat ?γ` stuck, C1
 fails), `fe-stuck-as-failure` (stuck read as "no instance": C1 reports
 "failed to synthesize"), `fe-no-default-instance` (C8 left with a hole),
@@ -829,7 +852,7 @@ review; sizes are the plan's S (under a day), M (days) and L.
 | Step | What | Size | Needs |
 | --- | --- | --- | --- |
 | FE1e0 | **Asks of FE1c**, done there: `isDefEq` with the flags of §3.4 and the `lf-meta-stuck` code (review I2); `levelAssignDepth` and `incDepth allowLevelAssignments` (I1); a metavariable's assignment that also unifies the types (`checkTypesAndAssign`, ExprDefEq.lean:640: `?T := Nat` gives `w := 0`), with its instance-typed case; `decLevel` (DecLevel.lean:22); `whnf` with delta at each transparency, `whnfForall`, `unfoldDefinition?`, strict eta; `inferType`, `isType`, `isProof`, `check`; `instantiateForall`, `mkLambdaFVars (etaReduce)`; a deferred `synthPending`; caches only for terms without metavariables | (in FE1c) | — |
-| FE1e1 | Elaboration data format 2: exporter writes keys, ranks, classes, tags; reader checks and serves them; `make reference-elab-data` compares | S-M | FE1d |
+| FE1e1 | Elaboration data format 2: exporter writes keys, ranks, classes, tags and left-out instances; reader checks and serves them; `make reference-elab-data` compares | S-M | FE1d |
 | FE1e2 | `discr-keys.fs`: `mkPath` and `getUnifyKeyArgs`; all of `Init`'s instance keys recomputed equal the exported ones | M | FE1e1, FE1e0 (whnf, inferType) |
 | FE1e3 | `instances.fs`: class set, tries, `getUnify`, `getInstances`, default instances; the class check of §4 (closes fe1d M1) | M | FE1e2 |
 | FE1e4 | Metavariable trail and snapshots in `mvars.fs` (§3.5) | S-M | FE1b |
@@ -888,3 +911,8 @@ Probes, run with the pinned binary (`.tools/elan/toolchains/leanprover--lean4---
   depth first against `getUnify`, priorities, default instances,
   out-parameters (§3.1).
 - p7: the theorem header (`Sort ?u`), `#check 0`, and `n + i`'s coercion.
+- p8: for every root of the instance tree, pairs that the priority sort
+  reorders (`Init`'s instances only); `#synth` of six goals; the errors
+  of `0` against a proposition and against `Bool`.
+- p9: `#synth Lean.Grind.Semiring Nat` and `#synth HPow Nat Nat Nat`
+  (`pp.all`).
