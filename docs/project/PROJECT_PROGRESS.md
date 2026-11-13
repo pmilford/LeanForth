@@ -67,6 +67,10 @@ status changes when this date is older than them. Stages are those of the
 
 ## Where things stand, in plain words
 
+**Mathlib checked:** 729,263 of 729,263 declarations of the pinned Mathlib export (Mathlib `v4.35.0`, commit `56a0058`, export sha256 `18448e5d...59c6`; checked-declaration coverage, not estimated effort) accepted, run on build `b74a04d` (2026-11-12; run record `.claude/work/overnight/full-b74a04d.txt`, untracked, read by the audit [done-checks/2026-11-12-audit.md](../development/done-checks/2026-11-12-audit.md)); not re-run on the current build (verdict version 9 run scheduled for the night of 2026-11-12). [Details](#full-mathlib).
+
+**Plan row statuses (2026-11-12):** every status in [PLAN_DRAFT.md](PLAN_DRAFT.md) now uses the stage words of [DONE_CHECKER.md](../development/DONE_CHECKER.md) (`scripts/check-progress.py` checks all rows, dated or not). Earlier wording was mapped on each row's own evidence and kept in the row as `was "..."`; rows that said "done" without a done-checker report were lowered with "done check owed"; rows the [audit](../development/done-checks/2026-11-12-audit.md) ran are "works end to end".
+
 **Current state, 2026-11-12 afternoon (main `700c4a1`, verdict version 9).**
 Today LeanForth **re-checks proofs that Lean produced and exported** (NDJSON); it does
 check LeanForth text only as hand-written kernel terms with no elaborator or tactics (plan 8.2.1a, c, d: works end to end (done check docs/development/done-checks/2026-11-12-lf-files.md); owner gates [parser], [bypass], [import] approved by the owner 2026-11-12; 8.2.1b, e, f and g not started). Re-checking Lean's export of all of

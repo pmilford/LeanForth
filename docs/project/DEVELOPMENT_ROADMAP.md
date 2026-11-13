@@ -47,37 +47,10 @@ in records (2026-11-02).
   representative proof and program-verification workloads; document supported
   concurrency and limits. Never let parallelism bypass proof checking.
 
-## Near-term execution queue: first checked declaration
+The near-term queue that stood here was superseded on 2026-11-12 (owner) and deleted: the current list is "Now, next, later" in
+[PROJECT_PROGRESS.md](PROJECT_PROGRESS.md#now-next-later-updated-2026-11-12).
 
-**Superseded (owner, 2026-11-12):** this queue has not been kept since 2026-11-03. The current list is
-"Now, next, later" in [PROJECT_PROGRESS.md](PROJECT_PROGRESS.md#now-next-later-updated-2026-11-12); the table below
-is kept for its history.
-
-The earlier roadmap has useful acceptance goals but its items combine many
-changes and review gates, so a count of finished broad tasks conceals progress
-and makes the next step hard to see. This queue splits the current critical
-path into smaller deliverables. The first two are completed **experimental
-preparation**, not completed trusted-kernel milestones.
-
-| Task | Status | Acceptance evidence or next step |
-| --- | --- | --- |
-| Q1. Mixed syntax and scope | Done, untrusted | Constant-bearing source graphs and binder scope are audited with negative and resource tests. |
-| Q2. Candidate signature preflight | Done, untrusted | All staged candidate roots are audited before later allocations; identity reuse and malformed metadata are tested. |
-| Q3. Mixed inference transaction | Done, untrusted | Closed mixed-term inference preaudits source and signature snapshots, bounds fuel, and rolls back all arenas on failure. Tests include stale later signatures, exhaustion and generated references. No theorem is accepted. |
-| Q4. Real exported fixture | Done, untrusted | The pinned `fixturePoly` and `fixtureUse` exports are staged and their values inferred using `fixtureId` as an unchecked assumption. Wrong arguments return inconclusive and fail closed; stale candidate signatures are rejected in diagnostic tests. |
-| Q5. Lean comparison | In progress | Direct Lean kernel checks cover both fixture-shaped values; a 21-case finite comparison checks independently constructed expected types, nested binders and three concrete universes. The Forth converter participates in its own expected-type check; Lean failure reasons are not inspected. Broaden symbolic-universe, malformed-input and resource cases before calling this complete. |
-| Q6. Checked environment design | In progress | Design done: the owner accepted [ADR 0011](../adr/0011-definite-rejection.md) (rejection rules, gate answers G1–G4), [ADR 0003 Amendment 1](../adr/0003-conversion.md) (binder domains, G6) and [ADR 0012](../adr/0012-checked-environment.md) (the checked environment: slots published once after full success, snapshots and handles, transitive axiom sets, a single publisher; G8–G11) on 2026-11-02. Implemented as v0 (plan task 2.2.2, [CHECKED_ENVIRONMENT.md](../programming/CHECKED_ENVIRONMENT.md)), awaiting its independent review and the owner's gate; next `check-declaration` (2.2.3) and the failure-path suite (2.2.4), and pass the review gate in `AGENTS.md` before any result is called checked. |
-| Q7. First independently checked declaration | Not started | A test-only chain can diagnose three fixture pairs and stage conditional signatures in order, but does not check dependencies or accept declarations. After Q3–Q6 and the kernel review gate, check a real closed definition and a theorem against the prior checked environment, reject mutations and unapproved assumptions, and preserve replayable evidence. |
-| Q8. Parallel program path | In progress | Owner goal (2026-11-02): most of Forth-2012 Core, in five stages (plan, program-track goal). Done: IR 0.1 for a small Forth subset with Lean semantics and proofs (`tests/reference/program-ir.lean`), receipt schema 0.2 (superseding the draft 0.1), and a reader from Forth source to IR. The reader and schema were fixed after their independent review (names found ignoring ASCII case as Gforth finds them; nothing in the source is ever run). In progress: an IR interpreter compared three ways, verification conditions and a first receipt for the clamp example. The reader and schema need the owner's [parser] and [format] gates before a receipt is relied on. |
-| Q9. Consolidate experiments | Done 2026-11-02 | The variant each later step builds on was identified and the source tree reorganised to match ([source layout](../../src/README.md)): the current `mixed-*` path and the modules it uses are in `src/core/` (data model) and `src/kernel/` (checker under development). Every test and pinned-Lean comparison that used a superseded module was rebuilt on current code (11 ported comparison tables, `tests/core/lean-differential.py`), and then, with the owner's approval, the 28 superseded modules (plain and `tagged-` shift, instantiate, beta, compare, convert and infer, the `raw-*` signature index, the `constant-*`/`context-*` probes, `arena.fs` and the unsafe `symbolic-infer.fs` draft), their 91 test files and their Make targets (`test-legacy`, `test-legacy-differential`, `test-symbolic-infer-draft` and 18 Lean comparisons) were deleted. The capabilities only that code had are recorded with the owner's answers in [decisions](DECISIONS.md) ("Legacy retired — 2026-11-02"): theorem mode returns in phase 2, open terms under a supplied context wait for a Lean-style local context. The profiling workload moved to the current universe substitution. |
-| Q10. Refactor core to the Forth style guide | Done | Owner direction 2026-11-02: rework `src/core/` and `src/kernel/` from the lowest layer up to the [style guide](../development/FORTH_STYLE.md) without changing behavior; `make forth-metrics` tracks progress (baseline for `src/core/` plus `src/kernel/`: 218 words, 23% over ten lines, 225 globals). Done 2026-11-02: `src/lib` (portability, range checks, `store:`, tagged nodes, outcomes, `walk:`, paired `walk2:`, `frames:`, contexts, the job pool), every core and kernel module, the loader and the program examples rebuilt on it (687 words, none over ten lines), each with a randomized differential against the previous code and an independent review; every module `require`s its direct dependencies and loads alone (`make smoke`); *exhausted* (out of fuel) split from *full* (out of room); superseded variants retired. Every module's state is in the per-task context ([ADR 0009](../adr/0009-reentrant-state-and-parallel-checking.md) step 3), with a per-context diagnostic record. The loader, program reader, IR interpreter and NDJSON counter keep their state there too. Follow-up: one recursion pattern. |
-
-Run focused tests while developing. Group roughly two coherent increments
-before the full regression suite and commit when feasible; checkpoint earlier
-for risk, CI failure or a review boundary. Larger batches do not waive negative
-tests, independent review, human approval of trusted changes, or CI checks.
-
-### Documentation and diagrams
+## Documentation and diagrams
 
 - **D1 — audiences:** Develop and keep current separate entry points for Forth
   developers, Forth users, Lean users, mathematicians familiar with Lean,
@@ -98,7 +71,7 @@ tests, independent review, human approval of trusted changes, or CI checks.
   both paths, with tool versions and reproduction commands. Distinguish fixed
   bounds, configurable limits, measured capacities and untested ranges.
 
-### Near term: low-friction time and memory profiling
+## Near term: low-friction time and memory profiling
 
 - **M1 — measurement interface:** Provide an opt-in command or flag for
   elapsed time and memory with concise default output, scriptable structured
@@ -129,7 +102,7 @@ tests, independent review, human approval of trusted changes, or CI checks.
   tests. Do not trade correctness or review for speed. Record prerequisites
   and obtain approval before adding any new runtime/network dependency.
 
-### Long term: reproduce published work and investigate open problems
+## Long term: reproduce published work and investigate open problems
 
 - **R1 — several substantial results:** Find several published Lean results
   whose statements and proofs span several pages. Record source links, exact

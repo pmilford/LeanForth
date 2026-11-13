@@ -11,6 +11,8 @@ structure of [ADR 0009](0009-reentrant-state-and-parallel-checking.md)
 (accepted), and answers questions 2, 5 and 6 of
 [the checked-environment review packet](../reviews/CHECKED_ENVIRONMENT_REVIEW.md).
 
+Approval status: accepted 2026-11-02, gate: design (G8-G11), [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Legacy retirement and the first checker's rules (2026-11-02, evening)"; kernel gate (v0 with Amendment 1) approved 2026-11-03, section "Gate answers and working guidelines (2026-11-03)"
+
 Amended 2026-11-02 ([Amendment 1](#amendment-1-2026-11-02-after-the-independent-review-of-v0)):
 stricter or clarifying changes after the independent review of the
 implementation, and clarifications after its second, third, fourth and
@@ -488,6 +490,8 @@ failure injection (row 6) and replay (row 8) remain for tasks 2.2.4 and
 
 ## Amendment 1 (2026-11-02): after the independent review of v0
 
+Approval status: accepted 2026-11-03, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Gate answers and working guidelines (2026-11-03)"; the entry approves checked environment v0, ADR 0012 with Amendment 1
+
 The independent review of the first implementation (plan task 2.2.2,
 `src/kernel/environment.fs` and `env-publish.fs`) found two faults and
 several gaps. The changes below are stricter than, or clarify, the design
@@ -686,6 +690,8 @@ the changes below adds or changes a rule of this design.
     instead of a memory fault for one that cannot be read.
 
 ## Amendment 2 (2026-11-11): the parallel scheduler
+
+Approval status: accepted 2026-11-12, gate: not stated, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names S7 (check --jobs N)
 
 E7's scheduler is built (`src/kernel/env-schedule.fs`, plan task 7.3.1;
 `check --jobs N`, default 1; [kernel] [runtime] review pending). It adds
