@@ -12,8 +12,10 @@
 \   heap block of (level, identity) pairs freed at once
 \   (core/constant-references.fs).
 \ xt reports its own failures (it refuses its own walk) and its image is
-\ used as it is. Outcomes: ok; full when the term or reference store or
-\ the heap has no room, the image then -1. Untrusted front-end code.
+\ used as it is, so after a refused xt these may answer full too (the
+\ caller's walk has its first refusal already). Outcomes: ok; full when
+\ the term or reference store or the heap has no room, the image then
+\ -1. Untrusted front-end code.
 \ Words: lf-meta-sort-remap, lf-meta-const-remap.
 \ State: the record lmap (xt, and the pairs block while a constant is
 \ rebuilt), a member of the checker context (ADR 0009); one rebuild at a

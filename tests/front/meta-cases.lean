@@ -643,3 +643,33 @@ run_meta do
     assignDelayedMVar me.mvarId! #[x] mq.mvarId!
     mf.mvarId!.assign (mkLambda `a .default (mkSort Level.zero) (mkBVar 0))
     IO.println (← sx (← instantiateMVars (mkApp (mkApp mf me) y)))
+
+run_meta do
+  withLocalDeclD `x (mkSort Level.zero) fun x => do
+  withLocalDeclD `y (mkSort Level.zero) fun y => do
+    let _ := (x, y)
+    let mp ← mkFreshExprMVar (mkSort Level.zero)
+    let md ← mkFreshExprMVar (mkSort Level.zero)
+    mp.mvarId!.assign (mkApp x md)
+    assignDelayedMVar md.mvarId! #[x] mp.mvarId!
+    IO.println (← sx (← instantiateMVars (mkApp md y)))
+
+run_meta do
+  withLocalDeclD `x (mkSort Level.zero) fun x => do
+  withLocalDeclD `y (mkSort Level.zero) fun y => do
+    let _ := (x, y)
+    let mp ← mkFreshExprMVar (mkSort Level.zero)
+    let md ← mkFreshExprMVar (mkSort Level.zero)
+    mp.mvarId!.assign (mkApp x (mkApp md y))
+    assignDelayedMVar md.mvarId! #[x] mp.mvarId!
+    IO.println (← sx (← instantiateMVars (mkApp md x)))
+
+run_meta do
+  withLocalDeclD `x (mkSort Level.zero) fun x => do
+  withLocalDeclD `y (mkSort Level.zero) fun y => do
+    let _ := (x, y)
+    let mp ← mkFreshExprMVar (mkSort Level.zero)
+    let md ← mkFreshExprMVar (mkSort Level.zero)
+    mp.mvarId!.assign (mkLet `a (mkSort Level.zero) y (mkLambda `a .default (mkSort Level.zero) (mkBVar 0)))
+    assignDelayedMVar md.mvarId! #[x] mp.mvarId!
+    IO.println (← sx (← instantiateMVars (mkApp (mkApp md y) (mkSort Level.zero))))

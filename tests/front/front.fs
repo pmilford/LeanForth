@@ -337,6 +337,31 @@ mv-natural new constant p4  mv-natural new constant dm4
 T{ p4 x y2 app lf-mvar-assign x lf-delay-fvar y2 lf-delay-fvar dm4 p4 2 lf-mvar-delay
    -> outcome-ok outcome-ok outcome-ok outcome-ok }T
 T{ dm4 y2 app x app lf-instantiate-mvars swap parts2 -> outcome-ok y2 x }T
+\ The occurs check follows a delayed assignment to its pending
+\ metavariable, as Lean's occursCheck: with ?dm6 delayed to ?p6, ?p6
+\ occurs in x ?dm6, so ?p6 := x ?dm6 is refused (review of
+\ fe1c-lnorm-2, L2); ?p6 := x is not.
+mv-natural new constant p6  mv-natural new constant dm6
+T{ x lf-delay-fvar dm6 p6 1 lf-mvar-delay p6 x dm6 app lf-mvar-occurs?
+   -> outcome-ok outcome-ok true outcome-ok }T
+T{ p6 x dm6 app lf-mvar-assign p6 x lf-mvar-assign -> outcome-invalid outcome-ok }T
+\ The re-check of fe1c-lnorm (N2, N3): ?f10 ?dm with ?f10 := fun a => a y2
+\ and ?dm ready needs Lean's second pass (P4): unsupported. Surplus
+\ arguments are reduced in the delayed step (P12): ?dm7 y2 Prop with
+\ ?p7 := fun b => b is Prop. A let in the delayed value would be
+\ zeta-reduced (Q4): unsupported.
+mv-natural new constant f10
+T{ f10 prop 0 lf-term-bvar drop y2 app lam2 lf-mvar-assign f10 dm app lf-instantiate-mvars
+   -> outcome-ok -1 outcome-unsupported }T
+mv-natural new constant p7  mv-natural new constant dm7
+T{ p7 prop 0 lf-term-bvar drop lam2 lf-mvar-assign x lf-delay-fvar dm7 p7 1 lf-mvar-delay
+   -> outcome-ok outcome-ok outcome-ok }T
+T{ dm7 y2 app prop app lf-instantiate-mvars -> prop outcome-ok }T
+mv-natural new constant p8  mv-natural new constant dm8
+y2 prop prop 0 lf-term-bvar drop lam2 lam2 false lf-let-make drop constant let-id
+T{ p8 let-id lf-mvar-assign x lf-delay-fvar dm8 p8 1 lf-mvar-delay
+   -> outcome-ok outcome-ok outcome-ok }T
+T{ dm8 y2 app prop app lf-instantiate-mvars -> -1 outcome-unsupported }T
 \ With no free variable (k = 0) the value takes the arguments: ?dm5 x
 \ with ?p5 := fun a => a is x.
 mv-natural new constant p5  mv-natural new constant dm5

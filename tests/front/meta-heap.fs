@@ -129,13 +129,13 @@ T{ 1 heap-refusals ! me 0 lf-meta-level-defeq me free? lf-mctx-marks
 T{ 1 heap-refusals ! lf-mctx-mark lf-mctx-marks -> 0 outcome-full open-marks }T
 T{ 0 heap-refusals ! close-marks lf-mctx-marks -> 0 }T
 \ instantiateMVars (mvars.fs). First, while the argument slab has no
-\ block yet (heap-watch.fs sees its first allocation, not its growth):
-\ ?d delayed over x forty times, ?p := x, ?d x .. x with 40 arguments,
-\ the 1st, 2nd, ... allocation refused until the slab has its block;
-\ each of these runs, the one whose slab block was refused among them,
-\ answers full with no result (review of fe1c-lnorm, M2: the delayed step
-\ read past the slab and crashed). Then the same with every allocation
-\ refused in turn, and ?f x .. x, 100 arguments, ?f := fun a => a.
+\ block yet: ?d delayed over x forty times, ?p := x, ?d x .. x with 40
+\ arguments, the 1st, 2nd, ... allocation refused until the slab has its
+\ block; each run answers full with no result (review of fe1c-lnorm, M2:
+\ the delayed step read past the slab and crashed; heap-watch.fs does not
+\ see the slab's own block, so the slab's refusal is reached by lowering
+\ its limit, below). Then every allocation refused in turn, and ?f x ..
+\ x, 100 arguments, ?f := fun a => a.
 lf-mctx-reset
 : tnew ( -- mvar ) prop mv-natural lf-mvar-new made ;
 tnew constant tp  tnew constant td
@@ -150,6 +150,13 @@ td 40 apps constant td-spine
   outcome-full <> abort" meta-heap: not full" -1 <> abort" meta-heap: a result" ;
 : cold-runs ( -- n ) 0 begin 1+ dup cold-run mv-args slab-capacity until ;
 T{ mv-args slab-capacity cold-runs 1 > mv-args slab-capacity 0> -> 0 true true }T
+\ The argument slab itself full (heap-watch.fs does not refuse its
+\ growth): its limit lowered to 8 arguments, the 40-argument delayed
+\ term answers full with no result; the limit restored, x (re-check of
+\ fe1c-lnorm, N1).
+mv-args slab-limit constant args-limit
+: args-room! ( n -- outcome ) mv-args slab-free 1 cells swap mv-args slab-init ;
+T{ 8 args-room! delay-op args-limit args-room! -> outcome-ok -1 outcome-full outcome-ok }T
 \ A whole run first makes the blocks the walks keep (instantiate.fs's memo).
 T{ delay-op -> x outcome-ok }T
 -1 none !

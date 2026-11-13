@@ -156,9 +156,11 @@ require ./level-normalize.fs
   ld-stale dup ld-undef? 0= if ld-answer exit then drop
   begin ld-round ld-follow dup ld-again = while drop repeat ld-answer ;
 \ checkpointDefEq: kept when true, else rolled back. The mark is the
-\ latest open one, so neither is refused (their outcome is ok).
+\ latest open one, so neither is refused; a refusal would be the answer.
+: ld-closed ( flag outcome close -- flag outcome )
+  dup ok? if drop else nip nip false swap then ;
 : ld-close ( flag outcome mark -- flag outcome )
-  >r 2dup ok? and if r> lf-mctx-commit else r> lf-mctx-rollback then drop ;
+  >r 2dup ok? and if r> lf-mctx-commit else r> lf-mctx-rollback then ld-closed ;
 : ld-mark ( l r -- l r mark true | outcome false )
   lf-mctx-mark dup ok? if drop true else nip nip nip false then ;
 \ As checkpointDefEq restores the context on an exception: a THROW inside

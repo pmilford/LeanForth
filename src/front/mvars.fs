@@ -237,14 +237,25 @@ store-header context-record: mv-fvars
   over lf-term-first@ over dw-image >r swap lf-term-second@ swap dw-image r> swap ;
 : mv-walk ( build pending walk -- walk )
   tuck dw-pending ! tuck dw-build ! lf-term-base lf-term-count @ + over dw-size ! ;
-: mv-term-walk ( build -- walk ) ['] mv-term-pending mctx mctx-walk mv-walk ;
 : mv-target ( -- addr ) mctx mctx-target ;
+\ As Lean's occursCheck, a delayed metavariable leads on to its pending
+\ one (and that to its value).
+: mv-pending-of ( mvar -- pending true | false )
+  mv-of 0= if false exit then mvd-pending @ dup 0< if drop false else true then ;
+: mv-delay-leaf ( walk node -- child true | false )
+  mv-pending-of if swap mv-undone else drop false then ;
+: mv-occurs-pending ( node walk -- child true | false )
+  2dup mv-term-pending if nip nip true exit then
+  over lf-mvar? if swap mv-delay-leaf else 2drop false then ;
+: mv-leaf-hit ( node walk -- 0|1 )
+  swap dup mv-value-of if nip swap dw-image exit then
+  mv-pending-of if swap dw-image else drop 0 then ;
 : mv-occurs-build ( node walk -- 0|1 )
   over mv-target @ = if 2drop 1 exit then
-  over mv-binary? if mv-pair-images or exit then
-  swap mv-value-of if swap dw-image else drop 0 then ;
+  over mv-binary? if mv-pair-images or else mv-leaf-hit then ;
 : lf-mvar-occurs? ( mvar term -- flag outcome )
-  swap mv-target ! ['] mv-occurs-build mv-term-walk dw-run swap 0<> swap ;
+  swap mv-target ! ['] mv-occurs-build ['] mv-occurs-pending mctx mctx-walk mv-walk
+  dw-run swap 0<> swap ;
 
 : mvl-first ( level -- child ) lf-level-slot node-first @ ;
 : mvl-second ( level -- child ) lf-level-slot node-second @ ;
@@ -400,7 +411,7 @@ store-header context-record: mv-fvars
 \ is fun x1 .. xk => value beta-reduced against all n arguments the same
 \ way. Any other application gets its parts' images. Not ported, answered
 \ unsupported, never another term: Lean instantiates an assigned head's
-\ beta result again, which changes it when f or an argument has a ready
+\ beta result again, which may change it when f or an argument has a ready
 \ delayed metavariable at its spine head; a let that betaRev would
 \ zeta-reduce; an argument with loose bound variables (instantiate1 does
 \ not lift them). Lean writes an instantiated assignment back into the
@@ -423,8 +434,6 @@ store-header context-record: mv-fvars
 \ step (mctx-delays: some delayed assignment's pending one is assigned).
 : mv-app? ( node -- flag ) lf-term-tag@ lf-tag-app = ;
 : mv-spine-head ( term -- head ) begin dup mv-app? while lf-term-first@ repeat ;
-: mv-spine-n ( term -- n )
-  0 swap begin dup mv-app? while lf-term-first@ swap 1+ swap repeat drop ;
 : mv-assigned? ( head -- flag ) mv-value-of dup if nip then ;
 : mv-delay-rec ( head -- rec true | false )
   mv-of 0= if false exit then dup mvd-pending @ 0< if drop false exit then
@@ -439,26 +448,6 @@ store-header context-record: mv-fvars
   mv-decl mvd-pending @ dup 0< if drop false else mv-assigned? then ;
 : mv-any-delay ( -- flag ) false mv-exprs store-count @ 0 ?do i mv-ready-decl? or loop ;
 
-\ The walk's children: an application whose head is ready for its
-\ delayed step also has the pending one's value; a search for a
-\ metavariable goes through parts only.
-: mv-app-delay ( node -- rec true | false )
-  dup mv-spine-n swap mv-spine-head mv-delay-for ;
-: mv-delay-child ( node -- value true | false )
-  mv-delays? 0= if drop false exit then
-  mv-app-delay if mv-rec-pending-value true else false then ;
-: mv-app-pending ( node walk -- child true | false )
-  swap mv-delay-child if swap mv-undone else drop false then ;
-: mv-inst-pending ( node walk -- child true | false )
-  2dup mv-term-pending if nip nip true exit then
-  over mv-app? if mv-app-pending else 2drop false then ;
-: mv-hole-pending ( node walk -- child true | false )
-  over mv-binary? if mv-pair-pending else 2drop false then ;
-: mv-hole-build ( node walk -- 0|1 )
-  over mv-binary? if mv-pair-images or else drop lf-mvar? 1 and then ;
-: mv-holes? ( term -- flag outcome )
-  ['] mv-hole-build ['] mv-hole-pending mctx mctx-hwalk mv-walk dw-run swap 0<> swap ;
-
 \ The spine table (a heap block for the walk, two cells per node) keeps
 \ each application's head and argument count, from its first part's, so
 \ a node finds them at once. mv-spine puts the arguments' images in
@@ -470,6 +459,34 @@ store-header context-record: mv-fvars
   lf-term-first@ dup mv-app? if mv-count-cell @ 1+ else drop 1 then ;
 : mv-spine-set ( node -- )
   dup mv-first-head over mv-head-cell ! dup mv-first-count swap mv-count-cell ! ;
+
+\ The walk's children: an application whose head is ready for its
+\ delayed step (found from its first part's spine cells, built by then)
+\ also has the pending one's value, unless that value is under way: the
+\ value then holds this application (Lean finds it not ready, as it
+\ still holds a metavariable). A search for a metavariable goes through
+\ parts only.
+: mv-app-delay ( node -- rec true | false )
+  dup mv-first-count swap mv-first-head mv-delay-for ;
+: mv-delay-child ( node -- value true | false )
+  mv-delays? 0= if drop false exit then
+  mv-app-delay if mv-rec-pending-value true else false then ;
+: mv-fresh ( walk child -- child true | false )
+  tuck swap dw-state 0= if true else drop false then ;
+: mv-app-pending ( node walk -- child true | false )
+  swap mv-delay-child if mv-fresh else drop false then ;
+: mv-inst-pending ( node walk -- child true | false )
+  2dup mv-term-pending if nip nip true exit then
+  over mv-app? if mv-app-pending else 2drop false then ;
+: mv-hole-pending ( node walk -- child true | false )
+  over mv-binary? if mv-pair-pending else 2drop false then ;
+: mv-hole-build ( node walk -- 0|1 )
+  over mv-binary? if mv-pair-images or else drop lf-mvar? 1 and then ;
+: mv-holes? ( term -- flag outcome )
+  ['] mv-hole-build ['] mv-hole-pending mctx mctx-hwalk mv-walk dw-run swap 0<> swap ;
+
+\ mv-spine puts an application's argument images in mv-args, the last
+\ first (a_j is n - j there).
 : mv-args# ( -- n ) mv-args slab-count ;
 : mv-nth ( j -- image ) mv-args# swap - mv-args slab-at @ ;
 : mv-arg-put ( image -- )
@@ -530,8 +547,11 @@ store-header context-record: mv-fvars
 : mv-delay-step ( node rec -- image )
   dup mv-rec-pending-value mv-image mv-solid
   if swap mv-rec-fun mv-delay-beta else 2drop mv-node-rebuild then ;
+: mv-delay-ready ( n head -- rec true | false )
+  mv-delay-for 0= if false exit then
+  dup mv-rec-pending-value mv-twalk dw-done? dup 0= if nip then ;
 : mv-delay-at ( node head n -- image )
-  swap mv-delay-for if mv-delay-step else mv-node-rebuild then ;
+  swap mv-delay-ready if mv-delay-step else mv-node-rebuild then ;
 
 : mv-app-build ( node walk -- image )
   drop dup mv-spine-set dup mv-head-cell @ over mv-count-cell @ over mv-assigned?

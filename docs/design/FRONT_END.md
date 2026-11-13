@@ -736,10 +736,10 @@ metavariable assignments (`mvars.fs`, for `checkpointDefEq`) are written
 and tested alone, and `instantiateMVars` (`mvars.fs`) beta-reduces an
 assigned head, and a ready delayed head as `fun xs => value` against all
 its arguments, as Lean's C++ `instantiate_mvars` does; `make
-reference-front` compares 184 cases with pinned Lean: 177 equal; two
+reference-front` compares 187 cases with pinned Lean: 179 equal; two
 level unifications that need Lean's `solveSelfMax` or `decLevel?` of a
-max, and five instantiations (an argument with loose bound variables, a
-let that betaRev zeta-reduces, and three where Lean instantiates an
+max, and six instantiations (an argument with loose bound variables, a
+let that betaRev zeta-reduces, a let in a delayed value, and three where Lean instantiates an
 assigned head's beta result a second time), not ported yet, answer
 unsupported. `whnf`, `inferType`, term unification, `Nat` offsets,
 caches and fuel are not started; they need the front end's view of the

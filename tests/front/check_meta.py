@@ -184,6 +184,12 @@ MINST = [
      (APP, "?f", "?d"), True),
     ([("m", "p", "x"), ("d", "d", ["x"], "p"), ("m", "f", "?d")], (APP, "?f", "y"), True),
     ([("m", "q", "x"), ("d", "e", ["x"], "q"), ("m", "f", ID)], (APP, (APP, "?f", "?e"), "y"), True),
+    # The re-check (2026-11-13): pending values that hold ?d itself, bare
+    # (P3) or applied (P3b: Lean finds the value not ready); a let in the
+    # delayed value, which Lean's betaRev zeta-reduces (Q4, a gap).
+    ([("m", "p", (APP, "x", "?d")), ("d", "d", ["x"], "p")], (APP, "?d", "y"), False),
+    ([("m", "p", (APP, "x", (APP, "?d", "y"))), ("d", "d", ["x"], "p")], (APP, "?d", "x"), False),
+    ([("m", "p", (LET, "P", "y", ID)), ("d", "d", ["x"], "p")], (APP, (APP, "?d", "y"), "P"), True),
 ]
 
 
