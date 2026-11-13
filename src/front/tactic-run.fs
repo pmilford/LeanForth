@@ -136,7 +136,8 @@ end-structure
 : lf-tactic-fuel! ( n -- ) trun tuck trun-limit ! true swap trun-given ! ;
 : lf-tactic-fuel-default ( -- ) false trun trun-given ! ;
 : lf-tactic-fuel-left ( -- n ) trun trun-fuel @ ;
-: lfr-limit ( -- n ) trun dup trun-given @ if trun-limit @ else drop lfr-default-fuel then ;
+: lfr-limit ( -- n )
+  trun dup trun-given @ if trun-limit @ else drop lfr-default-fuel then ;
 : lfr-fuel-start ( -- ) lfr-limit trun trun-fuel ! ;
 : lfr-spend? ( -- flag )
   lf-tactic-fuel-left dup 0> if 1- trun trun-fuel ! true else drop false then ;
@@ -147,7 +148,8 @@ end-structure
 : lfr-at ( i -- pos ) lf-tactic-step tac-at @ ;
 \ Where a block's unsolved goals are told: its => when it has one, else
 \ its word (by).
-: lfr-block-at ( i -- pos ) lf-tactic-step dup tac-arrow @ dup 0< if drop tac-at @ else nip then ;
+: lfr-block-at ( i -- pos )
+  lf-tactic-step dup tac-arrow @ dup 0< if drop tac-at @ else nip then ;
 : lfr-block-word ( i -- c-addr u ) lfr-kind tac-k-by = if s" by" else s" =>" then ;
 
 \ ---- The rows: per kind (1 to 11, tactic-syntax.fs's), its step's
@@ -185,7 +187,8 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lfr-detail-goals ( -- outcome )
   lf-print-settings 2>r ['] lfa-detail+ lf-print-unicode lf-print-setup lf-goals-text
   2r> lf-print-setup ;
-: lfr-with-goals ( -- ) lf-author-code if exit then lfr-detail-goals ok? 0= if lfa-detail-cut then ;
+: lfr-with-goals ( -- )
+  lf-author-code if exit then lfr-detail-goals ok? 0= if lfa-detail-cut then ;
 : lfr-at-step ( code -- ) >r lf-tac-step dup lfr-spelling rot lfr-at r> lfa-fail-at ;
 \ (With no step of the record running, a word called directly: at the
 \ current token.)
@@ -196,7 +199,8 @@ s" by-sorry" tac-k-sorry lfr-spell
 \ 88, else 92), or a Meta step (no room for terms 60, fuel 91, anything
 \ else 93, not supported yet: the step works on goals Lean's invariants
 \ keep well formed, so a refusal there is a gap of LeanForth's).
-: lfr-own-code ( outcome -- code ) outcome-full = if lfa-e-tac-full else lfa-e-tac-record then ;
+: lfr-own-code ( outcome -- code )
+  outcome-full = if lfa-e-tac-full else lfa-e-tac-record then ;
 : lfr-must ( outcome -- ) dup ok? if drop else lfr-own-code lfr-fail then ;
 : lfr-meta-code ( outcome -- code )
   case outcome-full of lfa-e-terms-full endof outcome-exhausted of lfa-e-tac-fuel endof
@@ -206,13 +210,14 @@ s" by-sorry" tac-k-sorry lfr-spell
 \ value, as the hand-over's errors (no room 60, a step not ported 77,
 \ else malformed 76).
 : lfr-close-code ( outcome -- code )
-  case outcome-full of lfa-e-terms-full endof outcome-unsupported of lfa-e-instantiate endof
-    lfa-e-malformed swap endcase ;
+  case outcome-full of lfa-e-terms-full endof
+    outcome-unsupported of lfa-e-instantiate endof lfa-e-malformed swap endcase ;
 : lfr-ok ( outcome -- ) dup ok? if drop else lfr-close-code lfa-fail then ;
 : lfr-close-must ( x outcome -- x ) ok-then? 0= if lfr-close-code lfa-fail then ;
 
 \ ---- Steps not ported yet: error 80 with the plan step and the goals.
-: lfr-plan! ( i -- ) lf-author-code if drop exit then lfr-kind lfr-row trow-plan @ lfa-number! ;
+: lfr-plan! ( i -- )
+  lf-author-code if drop exit then lfr-kind lfr-row trow-plan @ lfa-number! ;
 : lf-tac-later ( i -- ) lfr-plan! lfa-e-tac-run lf-tac-fail ;
 \ A step the record cannot hold there (a second by): malformed.
 : lfr-misplaced ( i -- ) drop lfa-e-tac-record lfr-fail ;
@@ -228,8 +233,8 @@ s" by-sorry" tac-k-sorry lfr-spell
   lf-main-goal ok-then? if exit then
   outcome-invalid = if lfa-e-tac-no-goals else lfa-e-tac-full then lfr-fail ;
 : lfr-unsolved ( -- list ) lf-goals-unsolved ok-then? 0= if lfr-own-code lfr-fail then ;
-: lf-tac-done ( i -- )
-  lfr-unsolved run-count if lfr-with-goals lfa-e-tac-unsolved lfr-block-fail else drop then ;
+: lfr-unsolved-at ( i -- ) lfr-with-goals lfa-e-tac-unsolved lfr-block-fail ;
+: lf-tac-done ( i -- ) lfr-unsolved run-count if lfr-unsolved-at else drop then ;
 : lfr-split ( list -- rest ) dup 1 run-take lfr-must lfr-goals! 1 run-after lfr-must ;
 : lf-tac-focus ( -- rest )
   lfr-unsolved dup run-count if lfr-split else drop lfa-e-tac-no-goals lfr-fail then ;
@@ -245,7 +250,8 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lf-tac-block ( i rest -- ) 1 trun-frames slab-claim lfr-must lfr-frame lfr-frame! ;
 : lfr-inside? ( b j -- flag )
   dup lf-tactic-count < if lfr-parent swap < 0= else 2drop false then ;
-: lfr-scan ( b j -- b j' ) begin 2dup lfr-inside? while 2dup lfr-parent = if exit then 1+ repeat ;
+: lfr-scan ( b j -- b j' )
+  begin 2dup lfr-inside? while 2dup lfr-parent = if exit then 1+ repeat ;
 : lfr-next ( frame -- j true | false )
   dup tfr-step @ swap tfr-next @ lfr-scan tuck lfr-inside? dup 0= if nip then ;
 \ A step: its fuel, then its row's action.
@@ -255,7 +261,8 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lfr-go ( j -- ) dup 1+ lfr-top tfr-next ! lfr-step ;
 \ A block's end: done at its place, the goals outside it put back.
 : lfr-pop ( -- ) -1 trun-frames slab-commit ;
-: lfr-end-block ( -- ) lfr-top dup tfr-step @ swap tfr-rest @ lfr-pop swap lf-tac-done lfr-goals! ;
+: lfr-end-block ( -- )
+  lfr-top dup tfr-step @ swap tfr-rest @ lfr-pop swap lf-tac-done lfr-goals! ;
 : lfr-advance ( -- ) lfr-top lfr-next if lfr-go else lfr-end-block then ;
 : lfr-loop ( -- ) begin lfr-depth while lfr-advance repeat ;
 
@@ -281,8 +288,9 @@ s" by-sorry" tac-k-sorry lfr-spell
 \ ---- by-sorry (Lean's sorry tactic). First the open part: the
 \ declaration's name and the goal as printed, in trun-text.
 : lfr-text# ( -- n ) trun-text slab-count ;
+: lfr-text-cut ( c-addr u i -- ) 2drop drop true trun trun-cut ! ;
 : lfr-text+ ( c-addr u -- )
-  dup trun-text slab-claim ok? if trun-text slab-at swap move else 2drop drop true trun trun-cut ! then ;
+  dup trun-text slab-claim ok? if trun-text slab-at swap move else lfr-text-cut then ;
 : lfr-goal-text ( goal -- outcome )
   lf-print-settings 2>r ['] lfr-text+ lf-print-unicode lf-print-setup lf-goal-print
   2r> lf-print-setup ;
@@ -302,7 +310,8 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lfr-pair! ( level -- ) dup lf-level-identity 0= if 0 then swap lfr-pair 2! ;
 : lfr-made ( flag -- ) 0= if outcome-full lfr-meta-must then ;
 : lfr-const ( c-addr u n -- term )
-  >r lfa-intern lf-name-generation @ lfr-pair r> lf-cref-new lfr-made lf-cterm-new lfr-made drop ;
+  >r lfa-intern lf-name-generation @ lfr-pair r> lf-cref-new lfr-made
+  lf-cterm-new lfr-made drop ;
 : lfr-app ( f a -- t ) lf-term-app lfr-made ;
 : lfr-sorry-term ( type level -- term )
   lfr-pair! s" sorryAx" 1 lfr-const swap lfr-app s" Bool.false" 0 lfr-const lfr-app ;
@@ -326,7 +335,8 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lfr-unmark ( mark outcome -- -1 outcome ) swap lf-mctx-rollback drop no-result ;
 : lf-tac-save ( -- save outcome )
   lf-mctx-mark ok-then? 0= if no-result exit then
-  1 trun-saves slab-claim ok-then? 0= if lfr-unmark exit then tuck lfr-save lfr-fill outcome-ok ;
+  1 trun-saves slab-claim ok-then? 0= if lfr-unmark exit then
+  tuck lfr-save lfr-fill outcome-ok ;
 : lfr-drop-save ( -- ) -1 trun-saves slab-commit ;
 \ A slab's count back to n (blocks, parts and text only grow in a try).
 : lfr-cut-to ( n slab -- ) tuck slab-count - swap slab-commit ;
@@ -348,11 +358,13 @@ s" by-sorry" tac-k-sorry lfr-spell
 
 \ ---- The run: the root goal, the steps, the end.
 : lfr-fresh ( -- )
-  trun-frames slab-clear trun-saves slab-clear lfr-fuel-start lf-pst-reset 0 trun trun-step ! ;
+  trun-frames slab-clear trun-saves slab-clear lfr-fuel-start lf-pst-reset
+  0 trun trun-step ! ;
 : lfr-root ( type -- )
   lf-instantiate-mvars lfr-close-must 0 lf-mctx-view lf-goal-new lfr-close-must
   lf-pst-open lfr-must ;
-: lf-tactic-by ( type -- goal ) lfr-fresh lfr-checked lfr-root 0 0 lf-tac-block lfr-loop lf-pst-root ;
+: lf-tactic-by ( type -- goal )
+  lfr-fresh lfr-checked lfr-root 0 0 lf-tac-block lfr-loop lf-pst-root ;
 
 \ ---- Closing over the binders (Lean's mkForallFVars, mkLambdaFVars): the
 \ term instantiated, its binders' free variables abstracted, then a
@@ -377,15 +389,18 @@ s" by-sorry" tac-k-sorry lfr-spell
   >r tuck lfr-domain swap r> execute 0= if outcome-full lfr-ok then swap lfr-named ;
 : lfr-wraps ( body xt -- body' )
   >r lfr-n begin dup while 1- swap over r@ lfr-around swap repeat drop r> drop ;
-: lfr-close ( e xt -- e' ) >r lf-instantiate-mvars lfr-close-must lfr-n lfr-abstract r> lfr-wraps ;
+: lfr-close ( e xt -- e' )
+  >r lf-instantiate-mvars lfr-close-must lfr-n lfr-abstract r> lfr-wraps ;
 
 \ ---- End NAME of a tactic proof (tactic-syntax.fs's lf-tactic-proof-end).
 defer lf-front-by-statement ( -- type )
 : lfr-unelaborated ( -- type ) lfa-e-elaborate lfa-fail ;
 ' lfr-unelaborated is lf-front-by-statement
-: lfr-assemble ( type goal -- type' value ) ['] lf-term-lam lfr-close >r ['] lf-term-pi lfr-close r> ;
+: lfr-assemble ( type goal -- type' value )
+  ['] lf-term-lam lfr-close >r ['] lf-term-pi lfr-close r> ;
 : lfr-proof-end ( -- )
-  lf-front-by-statement lfr-xs dup lf-tactic-by lfr-assemble lf-front-hand-over lfa-declared ;
+  lf-front-by-statement lfr-xs dup lf-tactic-by lfr-assemble lf-front-hand-over
+  lfa-declared ;
 ' lfr-proof-end is lf-tactic-proof-end
 
 \ ---- The open parts, after the verdicts (ADR 0021 Amendment 1).
@@ -395,7 +410,8 @@ action-of lfa-run-fresh constant lfr-run-fresh-before
 : lfr-run-fresh ( -- ) lfr-run-fresh-before execute lfr-parts-reset ;
 ' lfr-run-fresh is lfa-run-fresh
 : lfr-chars ( first n -- c-addr u ) swap trun-text slab-at swap ;
-: lfr-.place ( addr -- ) ." (by-sorry at line:col " top-at @ lfa-pos> swap lfa-.n ." :" lfa-.n ." )" ;
+: lfr-.pos ( pos -- ) lfa-pos> swap lfa-.n ." :" lfa-.n ;
+: lfr-.place ( addr -- ) ." (by-sorry at line:col " top-at @ lfr-.pos ." )" ;
 : lfr-.head ( k addr -- )
   ." open part " swap 1+ lfa-.n ."  of " dup top-name @ over top-name# @ lfr-chars type
   space lfr-.place ." :" ;

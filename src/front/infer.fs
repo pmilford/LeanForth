@@ -227,6 +227,7 @@ end-structure
   dup if-pi? if if-forall else if-body then ;
 \ Lean's getLevel (Meta/InferType.lean): the level u of a type's type,
 \ which whnf must make Sort u; the cases as inferForallType's above.
-: lf-get-level ( type -- level outcome ) lf-infer ok-then? if if-sort-level else no-result then ;
+: lf-get-level ( type -- level outcome )
+  lf-infer ok-then? if if-sort-level else no-result then ;
 
 base !   \ the BASE this file was loaded with

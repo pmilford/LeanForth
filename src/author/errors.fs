@@ -121,11 +121,11 @@ require ./source.fs
 86 constant lfa-e-tac-values     \ the wrong number of values at a tactic word or end
 87 constant lfa-e-tac-arity      \ unsupported: a hypothesis's argument count (FE1g-3)
 88 constant lfa-e-tac-full       \ the tactic store is full
-89 constant lfa-e-tac-unsolved   \ goals left at the end of a block (Lean's unsolved goals)
-90 constant lfa-e-tac-no-goals   \ a tactic with no goal left (Lean's No goals to be solved)
+89 constant lfa-e-tac-unsolved   \ goals left at a block's end (Lean's unsolved goals)
+90 constant lfa-e-tac-no-goals   \ a tactic with no goal (Lean's No goals to be solved)
 91 constant lfa-e-tac-fuel       \ exhausted: the tactic run's fuel is spent
-92 constant lfa-e-tac-record     \ a tactic record or proof state not as the runner makes them
-93 constant lfa-e-tac-meta       \ unsupported: inference, reduction or a binder the run needs
+92 constant lfa-e-tac-record     \ a tactic record or proof state not as made
+93 constant lfa-e-tac-meta       \ unsupported: an inference, reduction or binder
 
 \ The catalogue: one message record per code, in order, each followed by
 \ its text and aligned; a record with code 0 closes it.
@@ -290,7 +290,7 @@ create lfa-catalogue
   s" out of fuel: the tactic proof, or a reduction it ran, took more steps than its fuel"
   lfa-exhausted,
   lfa-e-tac-record
-  s" malformed tactic record or proof state: steps that do not nest as read, a bad goal list"
+  s" malformed tactic record or proof state: steps not nested as read, a bad goal list"
   lfa-invalid,
   lfa-e-tac-meta
   s" not supported yet: a type inference, reduction or let binder the tactic needs (FE1c)"
@@ -335,7 +335,8 @@ end-structure
 \ Detail text, appended; what the heap refuses is cut (noted, not kept).
 : lfa-detail-cut ( -- ) true lfa-error lfa-err-cut ! ;
 : lfa-detail+ ( c-addr u -- )
-  dup lfa-detail slab-claim ok? if lfa-detail slab-at swap move else 2drop drop lfa-detail-cut then ;
+  dup lfa-detail slab-claim ok? if lfa-detail slab-at swap move exit then
+  2drop drop lfa-detail-cut ;
 
 \ Stop the run with an error at the current token: lfa-fail; with a second
 \ position: lfa-fail-see; lfa-must stops unless the flag is true.

@@ -59,22 +59,25 @@ theorem text are LeanForth words, never Forth's) build Lean's
 its type has explicit binders (`n Eq.refl` is `Eq.refl n`), `' NAME` is
 the function itself, and `f a $` applies once more. Elaboration and
 tactics come next (plan FE1c-g): `end NAME` of a natural declaration
-stops with error 71; a tactic proof is read whole and stops at its
-`end NAME` with error 80 ([tactic proofs](#tactic-proofs-read-not-yet-run));
+stops with error 71, and so does a tactic proof, read whole, whose
+tactics run only once the statement is elaborated ([tactic proofs](#tactic-proofs-read-and-run-once-statements-are-elaborated));
 a kernel-form word used without the marker (such as `Prop`) stops with
 error 70; all "not supported yet", and nothing is checked.
 
-## Tactic proofs (read, not yet run)
+## Tactic proofs (read, and run once statements are elaborated)
 
-**Status (2026-11-12): read, not yet run (plan FE1g-2).** A proof can be a
+**Status (2026-11-13): read (plan FE1g-2); the runner written and tested
+alone (plan FE1g-3, branch `fe1g3`), waiting for the statement's
+elaboration (plan FE1e).** A proof can be a
 list of instructions, *tactics*, as in Lean: `:= by` and then tactic
 words, each named with the prefix `by-`. LeanForth reads such a proof
 whole, checks its shape (every block closed, each word given the values
 it takes, each case header well formed, every mistake at its line and
-column) and keeps a record of the steps; running them, which builds the
-proof term for the checker to check, is plan FE1g-3 onward. So today
-every tactic proof stops at its `end NAME` with error 80, "not supported
-yet", and nothing is checked; a tactic never makes a theorem accepted,
+column) and keeps a record of the steps. At `end NAME` the runner
+(plan FE1g-3) would take the statement, once plan FE1e elaborates it, and
+run the steps in order on its goal; until then every tactic proof stops
+at its `end NAME` with error 71, "not supported yet", as a term proof
+does, and nothing is checked. A tactic never makes a theorem accepted,
 now or later: only the checker's check of the term does.
 
 *Mathematics:* $0 + n = n$ for every natural number $n$, by induction on
@@ -114,7 +117,7 @@ uses):
 
 ```console
 $ bin/leanforth check --env tests/front/tactic-slice.ndjson tests/front/01-zero-add-rw.lf; echo "exit status $?"
-error: unsupported: the LeanForth text was not checked: error 80 at line:col 17:1 (token `end`): not supported yet: running tactics (plan FE1g-3); the tactic proof was read whole; see line:col 12:4
+error: unsupported: the LeanForth text was not checked: error 71 at line:col 17:1 (token `end`): not supported yet: elaborating natural LeanForth (plan FE1e-f)
 exit status 2
 ```
 
@@ -134,6 +137,7 @@ The words (read, not yet run; the design is
 | `by-end` | `( -- )` | (Lean's indentation) | closes the innermost `by-induction-with` or `by-case:` |
 | `by-rw[ r1 … ]` | `( -- )` | `rw [r1, …]` | rewrite with each rule in order (none is allowed, as in Lean); every value between the brackets is a rule, so a hypothesis applied to arguments is written with `$`: `ih k $` is Lean's `rw [ih k]` |
 | `by-rewrite[ r1 … ]` | `( -- )` | `rewrite [r1, …]` | the same without closing by computation |
+| `by-sorry` | `( -- )` | `sorry` | close the goal without a proof: an open part (below) |
 
 The same proof by `case` and `exact` is `tests/front/01-zero-add.lf`
 (`by-case: succ k ih =>  ' Nat.succ ih congrArg by-exact  by-end`); one
@@ -157,6 +161,40 @@ of values, or values left at a word that takes none or at `end NAME`
 (86). An empty proof (`:= by end NAME`) and a `by-induction-with` with no
 case are read: Lean parses both, and refuses them only when it runs them
 ("unsolved goals", "alternative not provided"), which is FE1g-3 onward.
+
+**Running** (plan FE1g-3; tested with statements built by hand until plan
+FE1e). The steps run in order on a list of goals, the statement's goal
+first, as Lean runs them; LeanForth stops at the first error, Lean goes
+on to report more. Today `by-sorry` runs; every other tactic stops at its
+word, "not supported yet" with the plan step that ports it (error 80:
+FE1g-4 for `by-rfl`, `by-exact`, `by-intro:`, FE1g-5 for induction and
+cases, FE1g-6 for rewriting), followed by the goals at that point. A goal
+left when the proof ends is Lean's "unsolved goals" at `by` (error 89),
+the goals printed as Lean prints them; a tactic with no goal left is
+Lean's "No goals to be solved" (error 90); each step spends one unit of
+the run's own fuel (error 91 when none is left, exit 3).
+
+**Open parts** (`by-sorry`, Lean's `sorry`; ADR 0021 Amendment 1). The
+goal is closed with Lean's axiom `sorryAx`; the checker checks
+everything else, and the theorem, when accepted, is NOT PROVED: it
+depends on `sorryAx` and is never counted as proved. After the verdicts
+the command line lists each open part with its declaration, its line and
+column and its goal:
+
+```text
+zero_add_sorry: accepted; axioms: unlisted; NOT PROVED: depends on sorryAx
+...
+open part 1 of zero_add_sorry (by-sorry at line:col 17:3):
+p : Prop
+⊢ p
+note: everything else in a declaration with open parts was checked by the kernel;
+note: accepted, it holds if each of its open parts is true, and is NOT PROVED
+```
+
+(That run is `tests/front/tactic-run.fs`'s, with a statement built by
+hand; the wording and a JSON form wait for the owner's decision.) Lean
+names each `sorry` with a label made from its position; LeanForth's term
+has no label yet (plan PD1), which changes no verdict.
 
 **Not supported yet** (exit 2): Lean's `induction t with tac | …` (a
 tactic before the first `|`), the wildcard `| _ =>`, `| @tag …`, several
@@ -767,8 +805,8 @@ own words are unknown names too: `A dup` in a proof stops at `dup`.
 - **Not supported yet** (each stops with a "not supported yet" error):
   string literals and natural-number literals above one cell, `let`/`have`,
   holes `_`, tactic blocks `by` in the kernel form (natural LeanForth
-  reads them, [tactic proofs](#tactic-proofs-read-not-yet-run), and does
-  not run them yet), `import`, and `_root_` in a declaration's
+  reads them, [tactic proofs](#tactic-proofs-read-and-run-once-statements-are-elaborated),
+  and runs them once their statements are elaborated), `import`, and `_root_` in a declaration's
   name. Inductive types and structures are sketched in ADR 0017 only: a
   file uses them from a library export (`tests/author/08-monoid.lf` uses a
   class that Lean declared). `n lit#` is the literal n, `i proj# NAME` a
