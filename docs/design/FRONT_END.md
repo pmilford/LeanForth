@@ -55,8 +55,8 @@ theorem zero_add'
   0 n + n =
 := by
   n by-induction
-  by-case: zero =>       by-rfl
-  by-case: succ k ih =>  ' Nat.succ ih congrArg by-exact
+  by-case: zero =>       by-rfl                           by-end
+  by-case: succ k ih =>  ' Nat.succ ih congrArg by-exact  by-end
 end zero_add'
 ```
 
@@ -505,7 +505,9 @@ when Lean's tactic would.
   hypothesis.
 - `by-case: TAG NAMES… =>` focuses the goal of that case and names its new
   hypotheses, as Lean's `case TAG NAMES… =>`; the names end at `=>`. The
-  case must be finished before the next `by-case:` or `end`.
+  case is a block closed by `by-end`, which must find its goal finished;
+  blocks nest (owner, 2026-11-12; [FE1G_TACTICS.md](FE1G_TACTICS.md) §3,
+  with Lean's `| tag names =>` alternatives after `by-induction-with`).
 - `end NAME` with goals left is an error that prints them; nothing is
   ever filled in to carry on after an error (ADR 0021 D3). The explicit
   `sorry`, as in Lean, closes a goal and leaves the declaration NOT
@@ -688,8 +690,8 @@ five times LeanForth today.
     0 n + n =
   := by
     n by-induction
-    by-case: zero =>       by-rfl
-    by-case: succ k ih =>  ' Nat.succ ih congrArg by-exact
+    by-case: zero =>       by-rfl                           by-end
+    by-case: succ k ih =>  ' Nat.succ ih congrArg by-exact  by-end
   end zero_add'
   ```
 

@@ -323,7 +323,11 @@ Rules:
   right-to-left (FE5; unsupported in FE1). A tactic word that finds the
   wrong number of values is a malformed-input error. A rule that is a
   theorem is written with `'` (`' Nat.add_succ`), as Lean writes the bare
-  name `Nat.add_succ`; a hypothesis by its name.
+  name `Nat.add_succ`; a hypothesis by its name. Inside the brackets
+  every value is a rule: a hypothesis there takes no values, and one
+  applied to arguments is written with `$` (`ih k $` is Lean's
+  `rw [ih k]`; decided in FE1g-2 after review fe1g2 L1), so the rules
+  never depend on a hypothesis's type.
 - **No value may be left on the stack** at `:= by`, at a tactic word that
   takes none, or at `end NAME`.
 - Labels and notes (ADR 0017 §11) may follow a tactic word as they follow a
@@ -482,25 +486,31 @@ when FE1g-1 lands, after FE1e's):
 | `lfa-e-tac-not-eq` | `Invalid rewrite argument: Expected an equality or iff proof …` | invalid |
 | `lfa-e-tac-unsolved` | `unsolved goals …` | invalid |
 | `lfa-e-tac-no-goals` | `No goals to be solved` | invalid |
-| `lfa-e-tac-block` | (LeanForth) a block left open at `end`, `by-end` with no block, `\|` outside a `-with` block, values left on the stack | invalid |
+| `lfa-e-tac-open` (82) | (LeanForth) a block left open at `end`, or a tactic word inside `by-rw[ ]` | invalid |
+| `lfa-e-tac-closer` (83) | (LeanForth) `by-end`, `]` or `\|` with no block of its kind (`\|` outside a `-with` block) | invalid |
+| `lfa-e-tac-header` (84) | (LeanForth) a header not `TAG NAMES… =>` on one line; `=>` alone | invalid |
+| `lfa-e-tac-empty` (85) | `unexpected token …; expected … tactic` (an alternative or case with no tactic) | invalid |
+| `lfa-e-tac-values` (86) | (LeanForth) values left on the stack, or too few for the word | invalid |
+| `lfa-e-tac-outside` (81) | (LeanForth) a tactic word outside `:= by` | invalid |
+| `lfa-e-tac-arity` (87) | (LeanForth, FE1g-2 only) more values than a word takes, where a hypothesis read with values below it might take them | unsupported |
+| `lfa-e-tac-run` (80) | (LeanForth, until FE1g-3) a tactic proof read whole, not run | unsupported |
+| `lfa-e-tac-full` (88) | (LeanForth) the tactic record's stores out of room | full |
 | `lfa-e-tactic` (72, exists) | not supported yet: the token names the tactic or case | unsupported |
 
 The command line exits 4 for a front-end failure, 2 for unsupported,
 as FRONT_END.md §8.3 says; nothing reaches the kernel.
 
-FE1g-2 fixed the reading side's codes (2026-11-12; `author/errors.fs`,
-74 to 79 left to FE1e and FE1f): `lfa-e-tac-block` became 82 (a block
-open at `end NAME`, or a tactic word inside `by-rw[ ]`), 83 (`by-end`,
-`]` or `|` with no block of its kind), 84 (a header not `TAG NAMES… =>`
-on one line), 85 (an alternative or `by-case:` block with no tactic,
-which pinned Lean's parser refuses: "expected … tactic") and 86 (the
-wrong number of values); with 81 (a tactic word outside `:= by`), 87
-(unsupported: more values than a word takes where a hypothesis read
-since the last tactic word might take them, known only once tactics
-run), 88 (full) and 80 (unsupported: running tactics, until FE1g-3).
-Pinned Lean parses an empty `by` and `induction n with` with no
-alternative and refuses them only when it runs them ("unsolved goals",
-"Alternative `zero` has not been provided"), so FE1g-2 reads both.
+FE1g-2 fixed the reading side's codes (2026-11-12; `author/errors.fs`
+holds the ranges: 74 to 79 FE1c, FE1e and FE1f, 80 to 89 FE1g): the
+proposed `lfa-e-tac-block` became 82, 83, 84 and 86 of the table above,
+with 81, 85, 87, 88 and 80. Pinned Lean parses an empty `by` and
+`induction n with` with no alternative and refuses them only when it
+runs them ("unsolved goals", "Alternative `zero` has not been
+provided"), so FE1g-2 reads both; it refuses an alternative with no
+tactic, as Lean's parser does (85, at the word that ends it, with its
+`=>`, where Lean reports, as the second place);
+`tests/front/tactic-shapes.lean` keeps these shapes checked against
+pinned Lean.
 
 ## 5. The tactics of FE1
 

@@ -132,7 +132,7 @@ The words (read, not yet run; the design is
 | `\| TAG NAMES… =>` | `( -- )` | `\| tag names =>` | one case, up to the next `\|` or `by-end`; the names are its new hypotheses |
 | `by-case: TAG NAMES… =>` | `( -- )` | `case tag names =>` | a block for one case, up to its `by-end` |
 | `by-end` | `( -- )` | (Lean's indentation) | closes the innermost `by-induction-with` or `by-case:` |
-| `by-rw[ r1 … ]` | `( -- )` | `rw [r1, …]` | rewrite with each rule in order (none is allowed, as in Lean) |
+| `by-rw[ r1 … ]` | `( -- )` | `rw [r1, …]` | rewrite with each rule in order (none is allowed, as in Lean); every value between the brackets is a rule, so a hypothesis applied to arguments is written with `$`: `ih k $` is Lean's `rw [ih k]` |
 | `by-rewrite[ r1 … ]` | `( -- )` | `rewrite [r1, …]` | the same without closing by computation |
 
 The same proof by `case` and `exact` is `tests/front/01-zero-add.lf`
@@ -149,7 +149,8 @@ with the block's place as the second place); `by-end`, `]` or `|` with no
 block of its kind (83: `|` belongs right inside `by-induction-with`); a
 header not of the form `TAG NAMES… =>` on one line, or a tag or name that
 is a LeanForth word (84); an alternative or `by-case:` block with no
-tactic (85: Lean's parser refuses it too); a word given the wrong number
+tactic (85, at the word that ends it, with its `=>` as the second place,
+where Lean's parser refuses it too); a word given the wrong number
 of values, or values left at a word that takes none or at `end NAME`
 (86). An empty proof (`:= by end NAME`) and a `by-induction-with` with no
 case are read: Lean parses both, and refuses them only when it runs them
@@ -158,9 +159,13 @@ case are read: Lean parses both, and refuses them only when it runs them
 **Not supported yet** (exit 2): Lean's `induction t with tac | …` (a
 tactic before the first `|`), the wildcard `| _ =>`, `| @tag …`, several
 tags `| a | b =>` and `by-case: _` (error 72; plan FE5); and, while
-tactics are only read, a hypothesis given more values than the word
-needs: how many values a hypothesis takes is known only once the tactic
-that introduces it runs (error 87). A hypothesis can be used until its
+tactics are only read, more values than a word takes where a hypothesis
+was read with values below it, which it might take: how many values a
+hypothesis takes is known only once the tactic that introduces it runs
+(error 87). So `k ih by-exact` answers 87, while `ih n by-exact`, with
+`n` a variable, is a mistake (86: `ih` comes first and takes nothing
+from `n`); inside `by-rw[ ]` no doubt arises, since there every value is
+a rule. A hypothesis can be used until its
 block ends (a `by-intro:`'s until the end of the block it is in); one
 named like a variable hides the variable while it is in scope.
 
