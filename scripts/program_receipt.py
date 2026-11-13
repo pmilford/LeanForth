@@ -354,7 +354,7 @@ def verify_part(status, vc):
 
 
 def build(contract_path, evidence):
-    contract = program_vc.parse_contract(Path(contract_path).read_text(encoding="utf-8"),
+    contract = program_vc.parse_contract(program_vc.read_contract(contract_path),
                                          contract_path)
     vc = vc_entry(contract["id"])
     ir_text = Path(contract["ir"]).read_text(encoding="utf-8")
@@ -614,7 +614,7 @@ def record(contract_path, manifest_out=None, keep=None):
     make check records once, and the receipt's test and the clamp mutants' test both read
     the result. The files KEPT of an earlier run are removed first, by name."""
     lean, gforth = pinned_lean(), os.environ.get("GFORTH", "gforth")
-    contract = program_vc.parse_contract(Path(contract_path).read_text(encoding="utf-8"),
+    contract = program_vc.parse_contract(program_vc.read_contract(contract_path),
                                          contract_path)
     vc = vc_entry(contract["id"])
     written = ir_written(gforth, contract["ir"])
@@ -797,7 +797,7 @@ def main():
     if args.action == "export":
         if len(args.receipts) != 1:
             parser.error("export needs one output file, OUT.ndjson")
-        vc = vc_entry(program_vc.parse_contract(Path(args.contract).read_text(encoding="utf-8"),
+        vc = vc_entry(program_vc.parse_contract(program_vc.read_contract(args.contract),
                                                 args.contract)["id"])
         export_theorems(pinned_lean(), vc["theorems"], args.receipts[0])
         print(f"wrote {args.receipts[0]} and its manifest: {', '.join(vc['theorems'])} with "

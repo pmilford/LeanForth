@@ -347,11 +347,11 @@ The generated clamp receipt (`tests/program/receipts/generated/lf-clamp.json`):
     "evidence": [
       {
         "path": "tests/program/vc/obligations.lean",
-        "sha256": "6d0c701a4c9107946ea2478d5832f6fe2718a7d35c1e514e7476e4de34d0a92f"
+        "sha256": "2abd460a52f8a413b5fd9f9e6cffcb3f7ee5affca1346ed3082f913bb8141631"
       },
       {
         "path": "scripts/program_vc.py",
-        "sha256": "6c720f37b66db895e351e2198832e458dbb49bc5b603c948e73665faead9f581"
+        "sha256": "436e956a8f0df4b3218778edc05652d97f1be642be149c58bdd37681424080f3"
       },
       {
         "path": "scripts/export.sh",

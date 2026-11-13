@@ -17,7 +17,11 @@ reviewer's contract, whose statement closed a comment and redefined `≥` so
 that Lean accepted a false clamp contract, and a hostile corpus (comment
 delimiters, quotes and control or format characters in each text, name and
 path, of the contract and of the IR) are refused; any other statement gives
-the same Lean file.
+the same Lean file. The probe review's false contracts are refused too (H1,
+M1-M3): a line hidden behind each of the nine separators Python's
+splitlines knows, an input named twice, a name no input or result binds
+(`default`, `sorry`, an auto-bound `zz`), no case; the file sets
+autoImplicit false; CRLF line ends read as LF.
 
 With --lean it also has Lean 4.35.0 check the golden file (warnings are
 errors, so `sorry` fails), requires every theorem the summary names to use
@@ -124,6 +128,12 @@ def hostile_problems():
                        ("a zero-width space", "a\u200bb"), ("a bell", "a \x07 b"),
                        ("a soft hyphen", "a\u00adb")]:
         cases.append((f"a statement with {name}", clamp.replace(statement, text), None, ""))
+    cases += [(f"a line hidden after {name}", clamp.replace(
+        statement, f"For integers v, l, u.{separator}pre value < value"), None, "")
+        for name, separator in (("U+2028", "\u2028"), ("U+2029", "\u2029"), ("NEL", "\x85"),
+                                ("VT", "\x0b"), ("FF", "\x0c"), ("FS", "\x1c"), ("GS", "\x1d"),
+                                ("RS", "\x1e"), ("a lone CR", "\r"))]
+    cases += [(name, PROBE_HEAD + body, None, "") for name, body in PROBES]
     cases += [
         ("an id with -/", clamp.replace("id lf-clamp/0", "id lf-clamp-/0"), None, ""),
         ("an id with /-", clamp.replace("id lf-clamp/0", "id lf-clamp/-0"), None, ""),
@@ -137,6 +147,9 @@ def hostile_problems():
         ("a stack effect with a control character",
          clamp.replace("( value lower", "( \x1b value lower"), None, ""),
         ("a contract path with -/", clamp, None, "x-"),
+        ("a contract path with a format character", clamp, None, "x\u200by"),
+        ("an IR source path with a control character", SMALL,
+         SMALL_IR.replace("NAME", "w").replace("SOURCE", "w\x1b.fs"), ""),
         ("an IR name with a quote", SMALL,
          SMALL_IR.replace("NAME", 'w"x').replace("SOURCE", "w.fs"), ""),
         ("an IR name with a backslash", SMALL, SMALL_IR.replace("NAME", "w\\").replace(
@@ -153,7 +166,52 @@ def hostile_problems():
             problems.append(f"hostile contract ({name}): {got}, expected malformed")
     if status_of(SMALL, SMALL_IR.replace("NAME", "w").replace("SOURCE", "w.fs")) != "discharged":
         problems.append("the small contract the hostile IR cases change is not discharged")
-    return problems + harmless_problems(clamp, statement)
+    if "\nset_option autoImplicit false\n" not in GOLDEN_LEAN.read_text(encoding="utf-8"):
+        problems.append("the generated Lean file does not set autoImplicit false")
+    return problems + harmless_problems(clamp, statement) + crlf_problems(clamp)
+
+
+# The probe review's other false contracts (2026-11-13), each discharged before the fix.
+PROBE_HEAD = """lf-contract 0.1
+id lf-clamp/probe
+word lf-clamp
+ir tests/program/ir/clamp.ir
+stack ( value lower upper -- result true | false )
+"""
+PROBES = [
+    ("an input named twice (M1)", "inputs value upper upper\nstatement Upper.\ncase true\n"
+     "  out r true\n  ensure r = upper\n"),
+    ("default read as 0 (M2)", "inputs value lower upper\nstatement D.\n"
+     "case lower <= upper && value = 7\n  out r true\n  ensure r - r = default\n"
+     "case lower > upper\n  out false\n"),
+    ("an auto-bound name (M2)", "inputs value lower upper\nstatement A.\npre value = 7\n"
+     "pre zz + value < zz + value\ncase true\n  out r true\n  ensure r = 1000\n"),
+    ("sorry read as a name (M2)", "inputs value lower upper\nstatement S.\n"
+     "case lower <= upper && value = 7\n  out r true\n  ensure r = sorry\ncase lower > upper\n"
+     "  out false\n"),
+    ("a guard reading an unbound name (M2)", "inputs value lower upper\nstatement G.\n"
+     "case lower > bound\n  out false\ncase lower <= upper\n  out r true\n"),
+    ("a result read in another case (M2)", "inputs value lower upper\nstatement R.\n"
+     "case lower > upper\n  out false\n  ensure r = 0\ncase lower <= upper\n  out r true\n"),
+    ("no case (M3)", "inputs value lower upper\nstatement The word clamps.\n"),
+    ("a second word line", "inputs value lower upper\nstatement W.\nword lf-clamp\n"
+     "case true\n  out r true\n"),
+    ("a second inputs line", "inputs value lower upper\ninputs value lower upper\n"
+     "statement I.\ncase true\n  out r true\n"),
+]
+
+
+def crlf_problems(clamp):
+    """CRLF line ends read as LF: the same summary and the same Lean file."""
+    texts = []
+    for text in (clamp, clamp.replace("\n", "\r\n")):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "c.contract"
+            path.write_bytes(text.encode("utf-8"))
+            lean, summary = program_vc.generate([str(path)])
+        texts.append((lean.replace(str(path), "C"), summary[0]["status"]))
+    return [] if texts[0] == texts[1] and texts[0][1] == "discharged" else [
+        "a contract with CRLF line ends reads otherwise than with LF"]
 
 
 def harmless_problems(clamp, statement):
@@ -171,6 +229,20 @@ def harmless_problems(clamp, statement):
     return [] if len(set(texts)) == 1 else ["the statement changes the generated Lean file"]
 
 
+# lf-euclid ( a b -- gcd ) loops (BEGIN ... WHILE ... REPEAT): unsupported by v0.
+EUCLID = """lf-contract 0.1
+id lf-euclid/0
+word lf-euclid
+ir tests/program/ir/examples.ir
+stack ( a b -- gcd )
+inputs a b
+statement Euclid's loop.
+case a >= 0 && b >= 0
+  out d
+  ensure d >= 0
+"""
+
+
 def negative_problems():
     clamp = Path(CONTRACTS[0]).read_text(encoding="utf-8")
     problems = []
@@ -179,9 +251,7 @@ def negative_problems():
                                                 "max(min(value, lower), upper)"), "refuted"),
         ("an off-by-one bound", clamp.replace("lower <= r && r <= upper",
                                               "lower < r && r <= upper"), "refuted"),
-        ("a loop word", clamp.replace("word lf-clamp", "word lf-euclid")
-         .replace("tests/program/ir/clamp.ir", "tests/program/ir/examples.ir")
-         .replace("inputs value lower upper", "inputs value lower"), "unsupported"),
+        ("a loop word", EUCLID, "unsupported"),
         ("an input named c", clamp.replace("inputs value lower upper", "inputs value c upper"),
          "malformed"),
     ]

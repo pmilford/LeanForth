@@ -540,6 +540,8 @@ end ProgramIR
 -- Proofs are generated; their binders and simp sets are uniform, not minimal.
 set_option linter.unusedVariables false
 set_option linter.unusedSimpArgs false
+-- A name the generator did not bind is an error, never an implicit argument (review M2).
+set_option autoImplicit false
 
 namespace ProgramVC
 open ProgramIR
