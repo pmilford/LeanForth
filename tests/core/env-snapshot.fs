@@ -155,6 +155,7 @@ T{ 0 carried? 1 carried? 2 carried? 3 carried? -1 carried? vb carried? -> false 
    false false }T
 T{ 1 lf-window-oldest 3 lf-window-oldest lf-snapshot-window -> 1 1 2 }T
 T{ lf-vsteps-known? lf-window-covered? -> true true }T
+T{ vb lf-vstep-of lf-vstep-names vb lf-vstep-of lf-vstep-version -> 0 vb }T
 
 \ ---- A slot's own fields as the loader reads them (review FRK F5): each
 \ forged in turn just past what the checker writes is refused.

@@ -421,6 +421,8 @@ ck-check
 T{ ck-outcome ck-carried# ck-stale? -> outcome-ok 72 true }T
 T{ upgraded s" {}" ck-snapshot-save upgraded r/o open-file nip 0<> -> outcome-invalid true }T
 false snap-stale-allowed ! ck-release
+\ Without an input read (no import pass: released), no reason is kept.
+T{ 0 ck-import imp-reason -> 0 }T
 \ ---- I3 and the decision on readiness (plan step 6.2.5c4): definitions
 \ pretended in reach are checked again and answer as their saved slots
 \ (this build gives the same fields), so what looks one up is carried,
