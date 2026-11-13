@@ -21,6 +21,12 @@
 \   otherwise Lean postpones the pair (postponeIsLevelDefEq): unsupported.
 \ An assignment ends the comparison true, so no false answer leaves one
 \ behind, as Lean's checkpointDefEq would undo it.
+\ Two differences, for instance synthesis (plan FE1e): Lean's isReadOnly
+\ and isLevelMVarAssignable compare with mctx.levelAssignDepth, taken
+\ here to be lf-mctx-depth (equal until withNewMCtxDepth with
+\ allowLevelAssignments := true); and under isDefEqStuckEx Lean throws
+\ isDefEqStuck for a stuck pair holding a metavariable, where this
+\ answers false.
 \ Outcomes: ok with the flag; unsupported as above; invalid for a level
 \ that is not in the store or a stale metavariable; full when the store
 \ has no room for an instantiated level. Each round peels successors, or
