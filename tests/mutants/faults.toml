@@ -12312,3 +12312,11 @@ new = '''  nip ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "review fe1c-2 L1: a recursive single-constructor type without indices is taken for structure-like, where Lean's isStructureLike requires isRec false"
 gap = "no inductive type of Init is recursive with one constructor and no indices (a scan of Init's whole export, 2026-11-13), so no test over an Init slice can tell; the check stays as Lean has it"
+
+[[fault]]
+id = "fe-spine-levels-first-only"
+file = "src/front/meta-spine.fs"
+old = '''    2dup i ms-level swap lf-meta-push dup ok? 0= if nip nip unloop exit then drop'''
+new = '''    2dup 0 ms-level swap lf-meta-push dup ok? 0= if nip nip unloop exit then drop'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "review fe1c-2 re-check: every universe argument of a constant is read as its first (Quot.lift.{1,2} would get Sort 1 for beta)"

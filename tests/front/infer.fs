@@ -60,6 +60,12 @@ T{ nat fh lam lf-infer nat nat fk 0 bv let lam lf-infer
    -> -1 outcome-unsupported -1 outcome-unsupported }T
 T{ nat fs 0 bv app lam lf-infer -> -1 outcome-invalid }T
 
+\ A constant whose universe arguments differ: each parameter gets its own
+\ (Quot.lift.{1,2}: alpha : Sort 1, beta : Sort 2).
+: qlift-type ( -- type ) lv1 lv2 2 s" Quot.lift" cn lf-infer drop ;
+T{ qlift-type lf-term-first@ lv1 sort same? -> true }T
+T{ qlift-type lf-term-second@ lf-term-second@ lf-term-first@ lv2 sort same? -> true }T
+
 \ ---- Unsupported.
 \ Pis: Sort of imax of the domains' levels and the body's, normalized.
 T{ nat>nat lv1 sort infer= nat 0 bv 0 bv eq lf-term-pi must l0 sort infer=
