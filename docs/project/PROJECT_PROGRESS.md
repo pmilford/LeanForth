@@ -42,7 +42,9 @@ status changes when this date is older than them. Stages are those of the
   theorem proved from LeanForth text ($0 + n = n$ by induction, no hand-written proof term, no Lean tool), is being
   built: FE1a (natural reader: `0 n + n =` read as Lean's own tree, compared with pinned Lean) integrated, a natural
   file stops at its first tactic with "not supported yet"; FE1b (metavariable context) tested alone; FE1d (elaboration-data
-  exporter, `scripts/export-elab.sh`, `check --elab-data`) integrated; FE1c (unification) on a branch; FE1e-FE1h not started. Nothing is proved by LeanForth yet.
+  exporter, `scripts/export-elab.sh`, `check --elab-data`) integrated; FE1c (unification) on a branch; FE1f (the
+  hand-over of an elaborated declaration to the kernel) tested alone on branch `fe1f` with a stand-in elaborator, no
+  user command reaching it before FE1e; FE1e, FE1g and FE1h not started. Nothing is proved by LeanForth yet.
   Natural statements (8.6.10) are FE2, `add_comm` natively (8.6.11) FE5.
 - Program track, restarted 2026-11-12 after being parked since 2026-11-04: LeanForth re-checks Lean's proofs of
   the clamp word's obligations (plan 5.5.1): works end to end (done check docs/development/done-checks/2026-11-12-program-track.md); owner gates [bypass] and [runtime] approved 2026-11-12, merged.

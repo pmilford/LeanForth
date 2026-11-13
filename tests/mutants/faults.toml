@@ -10484,8 +10484,8 @@ reason = "FE1a: by is taken before :=, after a value or twice (error 69 expected
 [[fault]]
 id = "fe-end-no-shape"
 file = "src/front/reader.fs"
-old = '''  lfa-end-check lfn-shape lfa-e-elaborate lfa-fail ;'''
-new = '''  lfa-end-check drop lfa-e-elaborate lfa-fail ;'''
+old = '''  lfa-end-check dup lfn-shape lfn-last lfn-keep'''
+new = '''  lfa-end-check lfn-last lfn-keep'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1a: end of a natural declaration no longer checks := and the one proof (errors 19 and 20)"
 
@@ -10524,8 +10524,8 @@ reason = "FE1a: a variable whose type is headed by a definition (Nat.add) gets a
 [[fault]]
 id = "fe-mvar-to-kernel"
 file = "src/author/export.fs"
-old = '''  lfx-start lf-holes? if outcome-invalid lfx-refuse else lfx-write then'''
-new = '''  lfx-start false if outcome-invalid lfx-refuse else lfx-write then'''
+old = ''': lfx-holes? ( -- flag ) lfx-reaching? if lf-reach-holes? else lf-holes? then ;'''
+new = ''': lfx-holes? ( -- flag ) lfx-reaching? if lf-reach-holes? else false then ;'''
 test = "$GFORTH tests/author/author.fs"
 reason = "FE1b, ADR 0021 D2: the export writer passes a metavariable towards the kernel"
 quick = true
@@ -11203,3 +11203,102 @@ new = '''  swap ly-fam-map @ ly@ 1- outcome-ok ;'''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "review I2: an own record not entered (map 0) is given as number -1"
 gap = "not equivalent: every record builder refuses -1 in the same step, but a declaration field naming a letE's body record would be refused by ly-enter instead of ly-decls; no layer fixture forges one"
+
+[[fault]]
+id = "fe-reached-hole-written"
+file = "src/author/export.fs"
+old = ''': lfx-holes? ( -- flag ) lfx-reaching? if lf-reach-holes? else lf-holes? then ;'''
+new = ''': lfx-holes? ( -- flag ) lfx-reaching? if false else lf-holes? then ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f, ADR 0021 D2: the reached writer passes a metavariable a declaration reaches"
+quick = true
+
+[[fault]]
+id = "fe-unreached-hole-blocks"
+file = "src/author/export.fs"
+old = ''': lfx-holes? ( -- flag ) lfx-reaching? if lf-reach-holes? else lf-holes? then ;'''
+new = ''': lfx-holes? ( -- flag ) lfx-reaching? if lf-holes? else lf-holes? then ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f: a hole no declaration reaches refuses the whole run (review fe1ab, note 1)"
+quick = true
+
+[[fault]]
+id = "fe-unreached-written"
+file = "src/author/export.fs"
+old = ''': lfx-wanted? ( term -- flag ) lfx-reaching? if lf-reached? else drop true then ;'''
+new = ''': lfx-wanted? ( term -- flag ) drop true ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f: the reached writer writes nodes no declaration reaches"
+quick = true
+
+[[fault]]
+id = "fe-check-lf-all-nodes"
+file = "src/cli/check-lf.fs"
+old = '''  ['] lfc-line lfa-kernel-form? if lf-author-export else lf-author-export-reached then ;'''
+new = '''  ['] lfc-line lf-author-export ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f: a natural text is written whole, so an unused hole refuses its records"
+quick = true
+
+[[fault]]
+id = "fe-handover-no-rollback"
+file = "src/front/handover.fs"
+old = '''  nip nip nip lfh-mark lf-scratch-rollback drop ;'''
+new = '''  nip nip nip ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f: a refused hand-over keeps the nodes its instantiation made"
+quick = true
+
+[[fault]]
+id = "fe-handover-no-hole-check"
+file = "src/front/handover.fs"
+old = '''  lfh-pair dup ok? if drop lfh-whole then ;'''
+new = '''  lfh-pair ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f, ADR 0021 D3: a declaration with a hole left is recorded"
+quick = true
+
+[[fault]]
+id = "fe-handover-no-instantiate"
+file = "src/front/handover.fs"
+old = '''  >r lf-instantiate-mvars r> swap dup ok? 0= if exit then drop lfh-value ;'''
+new = '''  outcome-ok ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f: assigned metavariables are not instantiated, so a complete declaration is refused"
+quick = true
+
+[[fault]]
+id = "fe-reach-no-sort-level"
+file = "src/core/reach.fs"
+old = '''  case lf-tag-symbolic-sort of lf-term-first@ lr-level! endof'''
+new = '''  case lf-tag-symbolic-sort of drop endof'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f: a level hole under a Sort is not reached, so it is not refused"
+quick = true
+
+[[fault]]
+id = "fe-reach-no-universes"
+file = "src/core/reach.fs"
+old = '''    lf-tag-constant of lr-universes endof nip endcase ;'''
+new = '''    lf-tag-constant of drop endof nip endcase ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f: a level hole in a constant's universe arguments is not reached"
+quick = true
+
+[[fault]]
+id = "fe-reach-first-child-only"
+file = "src/core/reach.fs"
+old = ''': lr-pair ( term -- ) dup lf-term-first@ lf-reach-term lf-term-second@ lf-reach-term ;'''
+new = ''': lr-pair ( term -- ) lf-term-first@ lf-reach-term ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f: a binder's body or an argument is not reached, neither written nor checked for holes"
+quick = true
+
+[[fault]]
+id = "fe-natural-end-no-handover"
+file = "src/front/reader.fs"
+old = '''  lf-front-elaborate lf-front-hand-over lfa-declared ;'''
+new = '''  lf-front-elaborate lf-front-header tuck lf-fdecl-value ! lf-fdecl-type ! lfa-declared ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f: the natural end records the elaborator's terms without the hand-over (no instantiation, no hole check)"
+quick = true

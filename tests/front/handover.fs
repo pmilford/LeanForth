@@ -93,6 +93,13 @@ T{ lf-level-mvar-new swap lhole ! -> outcome-ok }T
 T{ lhole @ dup lf-level-identity drop lf-hterm-sort drop drop va lf-holes-reached?
    -> true outcome-ok }T
 T{ lhole @ eq-at -1 lf-holes-reached? -> true outcome-ok }T
+\ And through a max of levels: Sort (max ?l 1).
+: sort-of ( level -- t ) dup lf-level-identity drop lf-hterm-sort drop drop ;
+T{ lhole @ 1 lfa-level-number lf-level-tag-max lf-level-binary nip -> true }T
+T{ lf-level-count @ 1- sort-of -1 lf-holes-reached? -> true outcome-ok }T
+\ Empty stores: nothing to reach, no hole.
+T{ lf-author-begin -1 -1 lf-holes-reached? -> false outcome-ok }T
+T{ kernel -> }T
 \ No heap for either table: full, nothing reached, no block left.
 T{ 1 heap-refusals ! ty va lf-holes-reached? -> false outcome-full }T
 T{ 2 heap-refusals ! ty va lf-holes-reached? -> false outcome-full }T
@@ -188,6 +195,9 @@ T{ setup vh @ va0 @ assign d0 tp @ vh @ lf-handover ty ty0 @ = -> outcome-ok fal
 \ Made again in the same process: the same records.
 T{ setup vh @ va0 @ assign d0 tp @ vh @ lf-handover -> outcome-ok }T
 T{ reached-records same-records? -> outcome-ok true }T
+\ A store whose count is not valid cannot be marked: refused, nothing kept.
+T{ kernel lf-term-count @ -1 lf-term-count ! d0 ty0 @ va0 @ lf-handover swap lf-term-count !
+   -> outcome-invalid }T
 T{ lfc-library-close -> }T
 
 \ ---- Through the command line: the path of every text.
@@ -249,4 +259,16 @@ T{ ' wrong elaborating add-zero-natural check outcome-rejected tally -> 1 1 }T
 T{ ' direct elaborating add-zero-natural check outcome-ok tally -> 0 accepted }T
 \ The elaborator back to plan FE1e's place-holder.
 T{ ' lfh-later elaborating add-zero-natural check -> 2 }T
+
+\ The natural end's other refusals, read directly against the library: an
+\ instantiation step not ported yet (the beta step of ?f Nat with ?f := a
+\ lambda) is error 71, no room for the hand-over's walk error 60.
+: natural ( -- outcome ) lf-author-begin add-zero-natural lf-author-file ;
+: beta ( -- type value ) direct over hole dup rot assign nat app ;
+: no-room-left ( -- type value ) direct 1 heap-refusals ! ;
+T{ library true lfc-library-open -> outcome-ok }T
+T{ ' beta elaborating natural lf-author-code -> outcome-unsupported 71 }T
+T{ ' no-room-left elaborating natural lf-author-code -> outcome-full 60 }T
+T{ ' direct elaborating natural ty 0< va 0< -> outcome-ok false false }T
+T{ ' lfh-later elaborating lfc-library-close -> }T
 bye

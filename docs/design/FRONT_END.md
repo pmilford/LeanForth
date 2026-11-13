@@ -7,8 +7,11 @@ branch `fe1` (Forth review pending):** FE1a, the natural reader
 as not supported yet where elaboration or a tactic would begin; the
 kernel form needs `kernel-form`), and FE1b, the metavariable context
 (`src/front/mvars.fs`, `core/mvar-leaves.fs`), is tested alone (no command
-makes metavariables yet; the export writer refuses any). Nothing else in
-this document is built. It is
+makes metavariables yet; the export writer refuses any). FE1f's hand-over
+(`src/front/handover.fs`: instantiate, refuse a reachable hole, write
+only what the declaration reaches, through the stage to the kernel) is
+tested alone on branch `fe1f`, driven by a stand-in elaborator; FE1d's
+elaboration data is integrated. Nothing else in this document is built. It is
 the design and plan for the half of Lean that LeanForth does not have: the
 part that turns what a person writes into the full proof term the kernel
 checks. The architecture and trust boundary are proposed in
