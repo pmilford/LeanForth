@@ -10049,3 +10049,11 @@ old = '''  drop over lf-term-valid? if lf-term-given? else 2drop false then ;'''
 new = '''  drop lf-term-given? ;'''
 test = "$GFORTH tests/core/terms.fs"
 reason = "review of pf1-fix L3: a record the table lists past a corrupted count is given, so the count stays short"
+
+[[fault]]
+id = "notation-row-unaligned"
+file = "src/present/notation-table.fs"
+old = ''': lf-nt-end ( row -- ) align here over - swap lf-nt-next ! ;'''
+new = ''': lf-nt-end ( row -- ) here over - swap lf-nt-next ! ;'''
+test = "$GFORTH tests/present/notation.fs"
+reason = "a notation row may start at an unaligned address (works on x86-64, faults elsewhere): rows-aligned? catches it (review refactor-present L1d)"
