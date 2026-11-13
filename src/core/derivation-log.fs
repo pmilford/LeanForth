@@ -673,7 +673,7 @@ end-structure
 \ The context of the second child: c and the binders the tag puts it under.
 : lf-copier-under ( c copier tag -- c copier c' ) over lf-copier-inner 2 pick + ;
 : lf-copier-pair ( c copier tag first second -- flag )
-  2>r lf-copier-under r> swap 2 pick lf-copier-child
+  swap >r >r lf-copier-under r> swap 2 pick lf-copier-child
   r> swap >r -rot lf-copier-child r> and ;
 : lf-copier-kids ( n c copier -- flag )
   rot over copier-read @ execute 0= if drop lf-log-unreadable exit then
