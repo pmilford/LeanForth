@@ -20,21 +20,23 @@
 \   answers unsupported. An input declaration the named stage does not
 \   hold answers invalid (unreachable today: the feed makes the input
 \   from the stage's declarations).
-\ - Not available yet (plan row FE1d2, the elaboration data's second
-\   slice, closes them): matcher information (getMatcherInfo?), projection
-\   function information (getProjectionFnInfo?), the auxiliary-recursor
-\   tags (isAuxRecursor: casesOn, recOn, brecOn, below, ...) and whether
-\   a definition has a smart-unfolding `_sunfold` definition (the export
-\   leaves those out: Init's has none). Lean asks these only of
-\   definitions: Lean's constructions make matchers, projections,
-\   auxiliary recursors and `_sunfold` declarations as definitions. So a
-\   definition answers unsupported, any other kind false (certain), and
-\   Eq.ndrec, Eq.ndrec_symm and Eq.ndrecOn, which isAuxRecursor names
-\   itself, are auxiliary recursors.
+\ - Format 2 of the elaboration data (FE1e1; S1 appendix D): matcher
+\   information (getMatcherInfo?), projection function information
+\   (getProjectionFnInfo?) and the auxiliary-recursor tag (isAuxRecursor:
+\   casesOn, recOn, brecOn, below, ...); a definition no record names is
+\   none of them. Lean asks these only of definitions: its constructions
+\   make matchers, projections and auxiliary recursors as definitions. So
+\   any other kind answers false (certain), a definition the data's
+\   answer, or unsupported without data read against the stage; Eq.ndrec,
+\   Eq.ndrec_symm and Eq.ndrecOn, which isAuxRecursor names itself, are
+\   auxiliary recursors. Whether a definition has a smart-unfolding
+\   `_sunfold` definition is not available yet (the export leaves those
+\   out and no exporter writes format 2's sunfold records; plan S2): a
+\   definition answers unsupported.
 \
-\ Transparency modes, numbered as Lean's TransparencyMode constructors:
-\ lf-tr-all, lf-tr-default, lf-tr-reducible, lf-tr-instances, lf-tr-none,
-\ lf-tr-implicit. canUnfoldDefault: none unfolds nothing, all everything,
+\ Transparency modes (meta-config.fs, numbered as Lean's TransparencyMode
+\ constructors): lf-tr-all, lf-tr-default, lf-tr-reducible,
+\ lf-tr-instances, lf-tr-none, lf-tr-implicit. canUnfoldDefault: none unfolds nothing, all everything,
 \ default all but an irreducible declaration; reducible a reducible one;
 \ instances also an instance-reducible one; implicit also an
 \ implicit-reducible one.
@@ -51,7 +53,8 @@
 \ flag true when the name is a definition that mode unfolds (a theorem
 \ or any other kind: false); lf-menv-matcher?, lf-menv-proj-fn?,
 \ lf-menv-aux-recursor?, lf-menv-smart? ( d -- flag outcome ) as above;
-\ lf-menv-nat-succ? ( name -- flag ) whether a name is Nat.succ.
+\ lf-menv-nat-succ? ( name -- flag ) whether a name is Nat.succ,
+\ lf-menv-nat-name? ( name -- flag ) whether it is in Nat's namespace.
 \ Outcomes: ok; invalid for a declaration number beyond the input, a
 \ mode beyond the six, a name that is not valid or that no declaration
 \ has, or a declaration the stage does not hold; unsupported as above.
@@ -64,10 +67,7 @@ require ../core/names.fs
 require ../core/input.fs
 require ../import/stage.fs
 require ./elab-data.fs
-
-0 constant lf-tr-all   1 constant lf-tr-default   2 constant lf-tr-reducible
-3 constant lf-tr-instances   4 constant lf-tr-none   5 constant lf-tr-implicit
-6 constant lf-tr-modes
+require ./meta-config.fs
 
 begin-structure /menv
   field: menv-stage   \ the stage the elaboration data was read against, or 0
@@ -135,15 +135,24 @@ end-structure
   dup lf-tr-modes u< 0= if 2drop -1 false outcome-invalid exit then
   swap lf-menv-find ok-then? if swap me-unfoldable else nip -1 false rot then ;
 
-\ ---- Facts not available yet: unsupported for a definition, false for
-\ any other kind; Eq.ndrec, Eq.ndrec_symm and Eq.ndrecOn are auxiliary
-\ recursors by name.
-: me-defn-fact ( d -- flag outcome )
+\ ---- Facts of a definition from format 2: the stage's declaration of
+\ the same name asked with xt ( d -- x true | false ); unsupported
+\ without data, false for any other kind; Eq.ndrec, Eq.ndrec_symm and
+\ Eq.ndrecOn are auxiliary recursors by name. Smart unfolding: unsupported
+\ for a definition (no data has it yet).
+: me-data-fact ( d xt -- flag outcome )
+  swap me-staged if swap execute dup if nip then outcome-ok else drop false outcome-invalid then ;
+: me-known-fact ( d xt -- flag outcome )
+  me-data? if me-data-fact else 2drop false outcome-unsupported then ;
+: me-defn-fact ( d xt -- flag outcome )
+  over me-decl? 0= if 2drop false outcome-invalid exit then
+  over me-defn? if me-known-fact else 2drop false outcome-ok then ;
+: me-aux-tag ( d -- 0 true | false ) elab-tag-aux-recursor elab-tagged? dup if 0 swap then ;
+: lf-menv-matcher? ( d -- flag outcome ) ['] elab-matcher-of me-defn-fact ;
+: lf-menv-proj-fn? ( d -- flag outcome ) ['] elab-projection-of me-defn-fact ;
+: lf-menv-smart? ( d -- flag outcome )
   dup me-decl? 0= if drop false outcome-invalid exit then
   me-defn? if false outcome-unsupported else false outcome-ok then ;
-: lf-menv-matcher? ( d -- flag outcome ) me-defn-fact ;
-: lf-menv-proj-fn? ( d -- flag outcome ) me-defn-fact ;
-: lf-menv-smart? ( d -- flag outcome ) me-defn-fact ;
 : me-text? ( name -- flag ) lf-name-tag@ lf-name-tag-str = ;
 : me-str? ( name c-addr u -- flag )
   rot dup me-text? if lf-name-text compare 0= else drop 2drop false then ;
@@ -155,10 +164,13 @@ end-structure
 : me-ndrec? ( d -- flag )
   lf-input-name dup me-ndrec-text? if lf-name-prefix@ me-eq? else drop false then ;
 : lf-menv-aux-recursor? ( d -- flag outcome )
-  dup me-decl? if dup me-ndrec? if drop true outcome-ok exit then then me-defn-fact ;
+  dup me-decl? if dup me-ndrec? if drop true outcome-ok exit then then
+  ['] me-aux-tag me-defn-fact ;
 \ Whether a name is Nat.succ (whnf's reduceNat? and Nat offsets know it
 \ by name).
 : lf-menv-nat-succ? ( name -- flag )
   dup s" succ" me-str? if lf-name-prefix@ s" Nat" me-top? else drop false then ;
+\ Whether a name is in Nat's namespace, Nat.x (whnf's reduceNat?).
+: lf-menv-nat-name? ( name -- flag ) lf-name-prefix@ dup if s" Nat" me-top? else drop false then ;
 
 base !   \ the BASE this file was loaded with

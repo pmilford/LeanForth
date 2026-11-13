@@ -16,22 +16,23 @@
 \   against max a b compares zero with a, then with b (both must hold),
 \   against imax a b with b, against a successor is false; succ u
 \   against a parameter is false; otherwise undef;
-\ - else false when neither side holds an assignable metavariable
-\   (hasAssignableLevelMVar); otherwise Lean postpones the pair
-\   (postponeIsLevelDefEq): unsupported.
+\ - else, when neither side holds an assignable metavariable
+\   (hasAssignableLevelMVar), false, or under isDefEqStuckEx
+\   (meta-config.fs) Lean's stuck signal lf-meta-stuck when either side is
+\   a metavariable (LevelDefEq.lean:169); otherwise Lean postpones the
+\   pair (postponeIsLevelDefEq): unsupported.
+\ Read-only and assignable compare a metavariable's depth with the
+\ context's levelAssignDepth (lf-mctx-level-depth), as Lean's isReadOnly
+\ and isLevelMVarAssignable do.
 \ Not ported, answered unsupported (never a guess): solveSelfMax (?m
 \ against a max holding ?m) and decLevel? of a max or an imax (succ u
-\ against one). Lean's univApprox rules apply only in its approximate
-\ mode, which the front end has not (Lean's default is off).
+\ against one). Lean's univApprox rules apply only while it processes
+\ postponed pairs, which answer unsupported here.
 \ The comparison runs under a mark of mvars.fs: unless the answer is
-\ true, every assignment it made is rolled back, as checkpointDefEq does.
-\ Two differences, for instance synthesis (plan FE1e): Lean's isReadOnly
-\ and isLevelMVarAssignable compare with mctx.levelAssignDepth, taken
-\ here to be lf-mctx-depth (equal until withNewMCtxDepth with
-\ allowLevelAssignments := true); and under isDefEqStuckEx Lean throws
-\ isDefEqStuck for a stuck pair holding a metavariable, where this
-\ answers false.
-\ Outcomes: ok with the flag; unsupported as above; invalid for a level
+\ true, every assignment it made is rolled back, as checkpointDefEq does
+\ (the stuck signal included, which then passes on).
+\ Outcomes: ok with the flag; lf-meta-stuck and unsupported as above;
+\ invalid for a level
 \ that is not in the store or holds a stale metavariable; full when the
 \ store or the heap has no room. The pairs a conjunction leaves for later
 \ wait on a heap stack. Each round peels successors, or normalizes (a
@@ -40,12 +41,15 @@
 \ finished term decides.
 \ Words: lf-meta-level-defeq ( l r -- flag outcome ).
 \ State: the slab ld-pairs (a member of the checker context, ADR 0009);
-\ the metavariables are mvars.fs's context.
+\ the metavariables are mvars.fs's context, the configuration
+\ meta-config.fs's. Loads in decimal whatever BASE is, then restores it.
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../core/levels.fs
 require ../core/mvar-leaves.fs
 require ./mvars.fs
+require ./meta-config.fs
 require ./level-simp.fs
 require ./level-normalize.fs
 
@@ -99,9 +103,9 @@ require ./level-normalize.fs
 : ld-normal ( l r -- l' r' code ) swap ld-new1 >r swap ld-new1 r> swap ld-codes ;
 
 \ Metavariables: read-only (Lean's LMVarId.isReadOnly: made at a smaller
-\ depth than the context's), assigned.
+\ depth than the context's levelAssignDepth), assigned.
 : ld-depth ( mvar -- depth ) lf-level-mvar-depth ;
-: ld-read-only? ( mvar -- flag ) ld-depth lf-mctx-depth < ;
+: ld-read-only? ( mvar -- flag ) ld-depth lf-mctx-level-depth < ;
 : ld-assign ( mvar value -- code )
   lf-level-mvar-assign dup ok? if drop ld-yes else ld-end then ;
 
@@ -137,11 +141,15 @@ require ./level-normalize.fs
   over lf-level-mvar? if ld-solve-mvar exit then dup lf-level-mvar? if ld-undef exit then
   over ld-zero? if ld-solve-zero exit then
   over ld-succ? if ld-solve-succ else ld-undef then ;
-\ Both orders, then the stuck pair: false, or postponed (unsupported).
+\ Both orders, then the stuck pair: postponed (unsupported) when a side
+\ holds an assignable metavariable; else false, or the stuck signal.
+: ld-mvar-side? ( l r -- flag ) lf-level-mvar? swap lf-level-mvar? or ;
+: ld-fixed ( l r -- l r code )
+  2dup ld-mvar-side? lf-defeq-stuck lf-meta-flag? and if lf-meta-stuck ld-end else ld-no then ;
 : ld-stuck ( l r -- l r code )
   over lf-level-assignable-mvar? outcome-unsupported ld-when dup ld-undef? 0= if exit then
   drop dup lf-level-assignable-mvar? outcome-unsupported ld-when
-  dup ld-undef? if drop ld-no then ;
+  dup ld-undef? if drop ld-fixed then ;
 : ld-solve2 ( l r -- l' r' code )
   ld-solve dup ld-undef? if drop swap ld-solve then
   dup ld-undef? if drop ld-stuck then ;
@@ -170,3 +178,5 @@ require ./level-normalize.fs
 : lf-meta-level-defeq ( l r -- flag outcome )
   2dup lf-level-pair-valid? 0= if 2drop false outcome-invalid exit then
   ld-pairs slab-clear ld-mark if ld-run else false swap then ;
+
+base !   \ the BASE this file was loaded with

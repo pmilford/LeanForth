@@ -49,11 +49,32 @@
 \ getStuckMVar? for the same cases: the unassigned metavariable at the
 \ head, a recursor's major premise or a projection's structure that is
 \ one; unsupported where it would need whnf or a definition's facts.
+\ lf-meta-whnf ( e -- e' outcome ), Lean's whnf (WHNF.lean:1060, whnfImp)
+\ at the configured transparency (meta-config.fs), in the fed environment
+\ (meta-env.fs, S1 appendix D): whnfCore, which now asks meta-env.fs's
+\ format 2 facts at a definition head (Lean's reduceMatcher? and isAuxDef:
+\ a definition that is neither a matcher nor an auxiliary recursor stays
+\ as it is), then reduceNat? and unfoldDefinition? (getUnfoldableConst?).
+\ Answered unsupported, never a guess, where they would act: a matcher
+\ (matcher reduction, plan S3) or an auxiliary recursor at the head
+\ (deltaBetaDefinition of it, plan S2), a definition or fact meta-env.fs
+\ lacks; a Nat operation reduceNat? might fold (S3); a definition the
+\ transparency unfolds or a theorem at all (unfoldDefinition? first asks
+\ for the definition's smart-unfolding `_sunfold`, a fact meta-env.fs has
+\ not yet: S2, with lazy delta), and at instances transparency a
+\ projection function (unfoldProjInst?). The library route of merge B
+\ (S1 §1) widens the environment, not these rules. Each call spends one
+\ step of meta-config.fs's budget. lf-meta-whnf-r is whnfR (reducible);
+\ lf-meta-whnf-forall ( e -- e' outcome ) whnfForall (whnf's result when
+\ it is a pi, else e); lf-meta-instantiate-forall ( e addr n -- e'
+\ outcome ) instantiateForall (Basic.lean:2186): e's first n pis, each
+\ made a pi by whnf when it is none, instantiated with the n terms at
+\ addr; invalid when one is still no pi (Lean: too many parameters).
 \ Untrusted: only the kernel's check of a finished term decides anything.
-\ State: the record wc (fuel, the recursor step's term, head, data and
-\ declaration) and the slabs wc-args, wc-margs, wc-levels and wc-frames,
-\ in the checker context. Loads in decimal whatever BASE is, then
-\ restores it.
+\ State: the record wc (fuel, whether facts are asked, the recursor
+\ step's term, head, data and declaration) and the slabs wc-args,
+\ wc-margs, wc-levels and wc-frames, in the checker context. Loads in
+\ decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
@@ -69,6 +90,7 @@ require ../core/input.fs
 require ./mvars.fs
 require ./instantiate.fs
 require ./level-params.fs
+require ./meta-config.fs
 require ./meta-env.fs
 require ./meta-spine.fs
 
@@ -76,6 +98,7 @@ require ./meta-spine.fs
 begin-structure /wc
   field: wc-limit    \ steps a call may take; 0: the default
   field: wc-fuel     \ steps left in this call
+  field: wc-facts    \ true: a definition head asks meta-env.fs's facts
   field: wc-src      \ the slab wc-apply reads arguments from (set just
                      \ before each use: wc-from; one step's register)
   field: wc-e        \ the recursor step's term,
@@ -311,10 +334,17 @@ end-structure
 : wc-blocked? ( d -- flag )
   lf-menv-kind dup lf-kind-definition = swap lf-kind-quotient = or ;
 : wc-recursor? ( d -- flag ) lf-menv-kind lf-kind-recursor = ;
-: wc-const-head ( e head -- e' flag outcome )
-  dup lf-meta-const-decl 0= if drop wc-done exit then
-  dup wc-blocked? if drop wc-unsupported exit then
+\ With facts asked, a definition that is certainly no matcher and no
+\ auxiliary recursor stays (Lean's whnfCore returns e).
+: wc-fact-no? ( d xt -- flag ) execute ok? swap 0= and ;
+: wc-inert-defn? ( d -- flag )
+  wc wc-facts @ 0= if drop false exit then
+  dup ['] lf-menv-matcher? wc-fact-no? swap ['] lf-menv-aux-recursor? wc-fact-no? and ;
+: wc-decl-head ( e head d -- e' flag outcome )
+  dup wc-inert-defn? if 2drop wc-done exit then dup wc-blocked? if drop wc-unsupported exit then
   dup wc-recursor? if wc-iota else 2drop wc-done then ;
+: wc-const-head ( e head -- e' flag outcome )
+  dup lf-meta-const-decl if wc-decl-head else drop wc-done then ;
 
 \ ---- One step.
 : wc-head-tag ( e head tag -- e' flag outcome )
@@ -343,8 +373,57 @@ end-structure
   begin wc-spend 0= if drop -1 outcome-exhausted exit then
     wc-turn dup ok? 0= if nip exit then drop
   0= until outcome-ok ;
-: lf-whnf-core ( term -- term' outcome )
-  dup lf-term-root? 0= if drop -1 outcome-invalid exit then wc-start wc-loop ;
+: wc-core ( term facts -- term' outcome )
+  wc wc-facts ! dup lf-term-root? 0= if drop -1 outcome-invalid exit then wc-start wc-loop ;
+: lf-whnf-core ( term -- term' outcome ) false wc-core ;
+
+\ ---- whnf (lf-meta-whnf): what whnfCore leaves, unless reduceNat? or
+\ unfoldDefinition? would act on it (unsupported).
+: wm-pi? ( e -- flag ) lf-term-tag@ lf-tag-pi = ;
+\ reduceNat?: a constant of Nat's namespace with one or two arguments
+\ (Lean's list, taken widely), except Nat.succ of a term whnf leaves.
+: wm-head ( e -- head ) begin dup lf-meta-app? while lf-term-first@ repeat ;
+: wm-head-named? ( e xt -- flag )
+  swap wm-head dup wc-const? if wc-name swap execute else 2drop false then ;
+: wm-succ-inert? ( e -- flag )
+  dup ['] lf-menv-nat-succ? wm-head-named? if lf-term-second@ wc-inert? else drop false then ;
+: wm-nat? ( e -- flag )
+  dup lf-meta-args# 1 3 within over ['] lf-menv-nat-name? wm-head-named? and
+  if wm-succ-inert? 0= else drop false then ;
+\ unfoldDefinition?: a theorem at all; at instances, a projection
+\ function; any definition the transparency unfolds (getUnfoldableConst?).
+: wm-thm-all? ( d -- flag ) lf-menv-kind lf-kind-theorem = lf-meta-mode lf-tr-all = and ;
+: wm-proj-fact ( d -- outcome )
+  lf-menv-proj-fn? ok-then? if if outcome-unsupported else outcome-ok then then ;
+: wm-proj-inst ( d -- outcome )
+  lf-meta-mode lf-tr-instances = if wm-proj-fact else drop outcome-ok then ;
+: wm-firm ( d -- outcome ) dup wm-thm-all? if drop outcome-unsupported else wm-proj-inst then ;
+: wm-const ( const -- outcome )
+  wc-name lf-meta-mode lf-menv-unfoldable ok-then? 0= if nip exit then
+  if drop outcome-unsupported else wm-firm then ;
+: wm-check ( e -- outcome )
+  dup wm-nat? if drop outcome-unsupported exit then
+  wm-head dup wc-const? if wm-const else drop outcome-ok then ;
+: wm-final ( e -- e' outcome ) dup wm-check dup ok? 0= if nip no-result then ;
+: lf-meta-whnf ( e -- e' outcome )
+  lf-meta-spend? 0= if drop -1 outcome-exhausted exit then
+  true wc-core ok-then? if wm-final else no-result then ;
+\ whnfR: whnf at reducible transparency, the configured one restored.
+: wm-at ( e mode -- e' outcome )
+  lf-meta-mode swap lf-defeq-mode! swap lf-meta-whnf rot lf-defeq-mode! ;
+: lf-meta-whnf-r ( e -- e' outcome ) lf-tr-reducible wm-at ;
+: lf-meta-whnf-forall ( e -- e' outcome )
+  dup lf-meta-whnf ok-then? 0= if nip no-result exit then dup wm-pi? if nip else drop then outcome-ok ;
+\ instantiateForall's step: e made a pi (whnf when it is none), its body
+\ instantiated with p.
+: wm-to-pi ( e -- pi outcome ) dup wm-pi? if outcome-ok else drop -1 outcome-invalid then ;
+: wm-pi ( e -- pi outcome )
+  dup wm-pi? if outcome-ok exit then lf-meta-whnf ok-then? if wm-to-pi else no-result then ;
+: wm-inst ( e p -- e' outcome )
+  swap wm-pi ok-then? if lf-term-second@ swap lf-meta-instantiate1 else nip no-result then ;
+: lf-meta-instantiate-forall ( e addr n -- e' outcome )
+  cells over + swap ?do i @ wm-inst ok-then? 0= if no-result unloop exit then 1 cells +loop
+  outcome-ok ;
 
 \ ---- getStuckMVar?: the unassigned metavariable at the head, or one
 \ that is a recursor's major premise (isRecStuck?: none for a K-like

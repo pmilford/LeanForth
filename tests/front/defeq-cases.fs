@@ -19,6 +19,7 @@
 \ whnf-cases.fs) would move the context under the loaded slice.
 require ../../src/front/defeq.fs
 require ./whnf-cases.fs
+require ./depth.fs
 
 \ Literals print their value.
 action-of .t constant .t-plain
@@ -49,9 +50,9 @@ nat mv-opaque lf-mvar-new made constant ?o  ?o char o named
   lf-mctx-mark drop >r 2dup lf-meta-defeq defeq-show r> lf-mctx-rollback drop
   lf-tr-default lf-defeq-mode! ;
 : eq-dq ( t s -- ) lf-defeq-elab lf-defeq-flags! dq-case ;
-: meta-dq ( t s -- ) 0 lf-defeq-flags! dq-case ;
-: deep-dq ( t s -- ) lf-defeq-elab lf-defeq-flags! lf-mctx-deeper dq-case
-  lf-mctx-shallower ;
+: meta-dq ( t s -- ) lf-meta-default lf-defeq-flags! dq-case ;
+: deep-dq ( t s -- ) lf-defeq-elab lf-defeq-flags! false lf-mctx-depth{ drop >r dq-case
+  r> }lf-mctx-depth drop ;
 : red-dq ( t s -- ) lf-tr-reducible lf-defeq-mode! eq-dq ;
 : inst-dq ( t s -- ) lf-tr-instances lf-defeq-mode! eq-dq ;
 : impl-dq ( t s -- ) lf-tr-implicit lf-defeq-mode! eq-dq ;

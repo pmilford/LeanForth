@@ -104,7 +104,7 @@ T{ ?t fk app ?t fx app dq ?t 2 nlit app succ fk app dq -> false outcome-ok false
 T{ own-mark ?n ?h dq ?n inst own-back ?n ?o dq -> true outcome-ok ?h false outcome-ok }T
 T{ ?o fk dq -> false outcome-ok }T
 T{ own-mark ?n 2 nlit dq ?n inst 2 nlit same own-back -> true outcome-ok true }T
-T{ lf-mctx-deeper ?n fk dq lf-mctx-shallower -> false outcome-ok }T
+T{ deeper ?n fk dq shallower -> false outcome-ok }T
 
 \ ---- whnfCore and Nat offsets (Lean's mkOffset: k + 1, not Nat.succ k).
 T{ 0 s" Nat" cn fk lam fk app fk dq -> true outcome-ok }T
@@ -126,15 +126,29 @@ T{ lf-tr-instances lf-defeq-mode! 0 s" Nat.add" cn fk dq lf-tr-default lf-defeq-
 T{ own-mark lf-tr-none lf-defeq-mode! ?n fk dq own-back own-mark lf-tr-all lf-defeq-mode!
    ?n fk dq own-back lf-tr-default lf-defeq-mode! -> true outcome-ok true outcome-ok }T
 
-\ ---- Flags: constApprox and isDefEqStuckEx answer unsupported where
-\ Lean would act; a read-only metavariable's arguments.
+\ ---- Flags: constApprox answers unsupported where Lean would act;
+\ isDefEqStuckEx raises the stuck signal where Lean throws it (two heads
+\ neither side assigns, ExprDefEq.lean:2118), every mark rolled back;
+\ isDefEqGuarded answers false for it alone; outcome-sane, at the Meta
+\ layer's exits, makes it invalid. A read-only metavariable's arguments.
 : with-flags ( t s flags -- flag outcome )
   lf-defeq-flags! dq lf-defeq-elab lf-defeq-flags! ;
+: guarded ( t s -- flag outcome )
+  lf-defeq-elab lf-defeq-stuck or lf-defeq-flags! lf-meta-defeq-guarded
+  lf-defeq-elab lf-defeq-flags! ;
 T{ ?t fk app ?t fx app lf-defeq-elab lf-defeq-const or with-flags
    -> false outcome-unsupported }T
 T{ ?t fk app succ fk app lf-defeq-const with-flags -> false outcome-unsupported }T
-T{ ?o fk lf-defeq-elab lf-defeq-stuck or with-flags -> false outcome-unsupported }T
-T{ lf-mctx-deeper ?t fk app ?t fx app dq lf-mctx-shallower -> false outcome-ok }T
+T{ ?o fk lf-defeq-elab lf-defeq-stuck or with-flags -> false lf-meta-stuck }T
+T{ ?o fk lf-defeq-elab lf-defeq-stuck or with-flags outcome-sane -> false outcome-invalid }T
+T{ ?o fk guarded clean? own-mark ?n fk guarded ?n lf-mvar-value nip own-back
+   -> false outcome-ok true true outcome-ok true }T
+T{ fp 0 proj fa guarded -1 fk guarded -> false outcome-unsupported false outcome-invalid }T
+\ The budget (meta-config.fs): each comparison spends a step; none left
+\ is exhausted.
+T{ 1 lf-meta-budget! succ fk app succ fx app dq lf-meta-budget
+   lf-meta-default-budget lf-meta-budget! -> false outcome-exhausted 0 }T
+T{ deeper ?t fk app ?t fx app dq shallower -> false outcome-ok }T
 \ processAssignment' retries with whnf: ?n =?= Nat.rec _ ?n _ Nat.zero
 \ fails the occurs check, but its whnf is ?n itself.
 : rec-n ( -- t ) rec nat nat lam app ?n app nat nat 0 bv lam lam app zero app ;
@@ -301,8 +315,8 @@ T{ lf-tr-reducible lf-defeq-mode! s" Nat.add" refl-of s" Nat.mul" refl-of dq
    -> false outcome-unsupported false outcome-ok }T
 \ isDefEqMVarSelf: a read-only ?t (one depth deeper) is false even under
 \ constApprox.
-T{ lf-mctx-deeper ?t fk app ?t fx app lf-defeq-elab lf-defeq-const or with-flags
-   lf-mctx-shallower -> false outcome-ok }T
+T{ deeper ?t fk app ?t fx app lf-defeq-elab lf-defeq-const or with-flags
+   shallower -> false outcome-ok }T
 \ Unification hints: a failure with a definition at the head might match
 \ a hint (Init's or another library's): unsupported, never false.
 T{ lf-tr-reducible lf-defeq-mode! 0 s" Nat.add" cn fk dq lf-tr-default lf-defeq-mode!

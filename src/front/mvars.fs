@@ -10,9 +10,11 @@
 \ - Kinds, as Lean's MetavarKind: natural (unification may assign it),
 \   synthetic (instances and postponed terms; their own procedure assigns
 \   them) and synthetic opaque (goals; only tactics assign them).
-\ - Depth: Lean's mctx.depth. lf-mctx-deeper and lf-mctx-shallower enter
-\   and leave a level, as Lean's withNewMCtxDepth; lf-mvar-assignable?
-\   holds for a natural or synthetic metavariable of the current depth.
+\ - Depth: Lean's mctx.depth and mctx.levelAssignDepth (lf-mctx-depth,
+\   lf-mctx-level-depth), entered one level deeper by a depth scope (see
+\   Scopes); lf-mvar-assignable? holds for a natural or synthetic
+\   metavariable of the current depth, a level metavariable is assignable
+\   when made at levelAssignDepth or deeper (Lean's isLevelMVarAssignable).
 \ - Each metavariable has its own local context (Lean's MetavarDecl.lctx,
 \   plan FE1g-1): a view (lctx-views.fs) of free variables with their user
 \   names and binder kinds, the one current when it was made (lf-mctx-view,
@@ -61,19 +63,28 @@
 \ occurs-check failure or a cycle; full when a store or the heap has no
 \ room; unsupported as above. Untrusted: whatever the context says, only
 \ the kernel's check of the finished term decides anything.
-\ - Marks (Lean's checkpointDefEq and the tactic framework's saved
-\   states): lf-mctx-mark opens one; lf-mctx-rollback undoes every change
-\   made since, an assignment (plain, level or delayed), a tag or a kind;
-\   lf-mctx-commit keeps them. Marks nest; only the latest open mark may
-\   be rolled back or committed (any other is refused, invalid).
+\ - Scopes, one undo trail (S1 §3; Lean's persistent MetavarContext):
+\   lf-mctx-mark opens a scope (Lean's saveState, checkpointDefEq,
+\   commitWhen); lf-mctx-rollback undoes every change made since, an
+\   assignment (plain, level or delayed), a tag or a kind; lf-mctx-commit
+\   keeps them. lf-mctx-snapshot ( -- snap outcome ) takes the state inside
+\   an open scope (getMCtx) and lf-mctx-switch ( snap -- outcome ) goes to
+\   it (setMCtx, withMCtx), from any state of the same scope.
+\   lf-mctx-depth{ ( levels? -- scope outcome ) opens a scope one depth
+\   deeper (withNewMCtxDepth allowLevelAssignments); }lf-mctx-depth
+\   ( scope -- outcome ) rolls everything back and restores both depths.
+\   Scopes nest; only the latest open one closes, by its own word (any
+\   other is refused, invalid). See Scopes below.
 \ - lf-depends-on? ( term fvar -- flag outcome ): Lean's exprDependsOn,
 \   whether the term, its metavariables instantiated, holds the free
 \   variable or an unassigned metavariable whose context holds it.
-\ Words: lf-mctx-reset, lf-mctx-deeper, lf-mctx-shallower, lf-mctx-depth;
+\ Words: lf-mctx-reset, lf-mctx-depth, lf-mctx-level-depth ( -- n );
 \ lf-mctx-view ( -- view ), lf-mctx-view! ( view -- );
 \ lf-mctx-mark ( -- mark outcome ), lf-mctx-rollback ( mark -- outcome ),
 \ lf-mctx-commit ( mark -- outcome ), lf-mctx-marks ( -- n ), lf-mctx-latest
-\ ( -- mark ); lf-mvar-new ( type kind -- mvar outcome ), lf-mvar-new-at
+\ ( -- mark ), lf-mctx-snapshot, lf-mctx-switch, lf-mctx-depth{,
+\ }lf-mctx-depth, lf-mvar-depth ( mvar -- depth true | false );
+\ lf-mvar-new ( type kind -- mvar outcome ), lf-mvar-new-at
 \ ( type kind view -- mvar outcome ), lf-mvar-live?, lf-mvar-type,
 \ lf-mvar-kind, lf-mvar-value, lf-mvar-view, lf-mvar-tag ( mvar -- x true
 \ | false ), lf-mvar-sees? ( mvar fvar -- flag ), lf-mvar-tag! ( mvar name
@@ -90,7 +101,8 @@
 \ State: the record mctx (the current view, three walk records of
 \ dag-walk.fs and the spine table, heap blocks that live only while a walk
 \ runs), the stores mv-exprs, mv-levels and mv-fvars and the slabs
-\ mv-trail, mv-marks and mv-args, in the checker context (ADR 0009); the
+\ mv-trail, mv-marks, mv-snaps, mv-redos and mv-args, in the checker
+\ context (ADR 0009); the
 \ views' state is lctx-views.fs's, emptied with lf-mctx-reset. Loads in
 \ decimal whatever BASE is, then restores it.
 
@@ -136,8 +148,11 @@ end-structure
 begin-structure /mctx
   field: mctx-epoch       \ leaves of another epoch are stale
   field: mctx-depth
+  field: mctx-ldepth      \ Lean's levelAssignDepth
+  field: mctx-at          \ the current state: a trail record, or -1
+  field: mctx-key         \ the serial a snapshot search seeks
   field: mctx-target      \ the metavariable an occurs check seeks
-  field: mctx-serial      \ the last mark's serial (lf-mctx-mark)
+  field: mctx-serial      \ the last serial given (scopes, snapshots)
   field: mctx-view        \ the current local context (Lean's Meta lctx)
   /dw +field mctx-walk    \ the term walks
   /dw +field mctx-lwalk   \ the level walks
@@ -150,12 +165,29 @@ end-structure
 store-header context-record: mv-exprs
 store-header context-record: mv-levels
 store-header context-record: mv-fvars
-begin-structure /mvt              \ a change under a mark (see Marks, below)
+begin-structure /mvt              \ a change in a scope (see Scopes, below)
   field: mvt-entry                \ the record's number * 8 + the field's kind
   field: mvt-old                  \ the field's value before the change
+  field: mvt-new                  \ and after it
+  field: mvt-parent               \ the state it changed: a record, or -1
 end-structure
 /mvt context-slab: mv-trail
-2 cells context-slab: mv-marks    \ per open mark: trail length when made, serial
+begin-structure /mvs              \ an open scope
+  field: mvs-serial
+  field: mvs-kind                 \ mv-plain or mv-deep
+  field: mvs-length               \ the trail's length when opened
+  field: mvs-entry                \ the state when opened
+  field: mvs-snaps                \ the snapshots' count when opened
+  field: mvs-depth                \ the depths when opened
+  field: mvs-ldepth
+end-structure
+/mvs context-slab: mv-marks
+begin-structure /mvp              \ a snapshot
+  field: mvp-serial
+  field: mvp-at                   \ its state
+end-structure
+/mvp context-slab: mv-snaps
+1 cells context-slab: mv-redos    \ a switch's records to redo, the last first
 
 \ The stores: heap stores that grow up to the heap (plan task 6.2.0).
 16 constant mv-room
@@ -169,22 +201,27 @@ end-structure
   mv-exprs store-heap-free mv-levels store-heap-free mv-fvars store-heap-free ;
   context-teardown
 
-\ The context: emptied, with a new epoch, at depth 0, no mark open, the
+\ The context: emptied, with a new epoch, at depth 0, no scope open, the
 \ empty local context current (every view gone).
 : mctx-epoch@ ( -- n ) mctx mctx-epoch @ ;
 : lf-mctx-depth ( -- n ) mctx mctx-depth @ ;
-: lf-mctx-deeper ( -- ) 1 mctx mctx-depth +! ;
-: lf-mctx-shallower ( -- ) lf-mctx-depth 1- 0 max mctx mctx-depth ! ;
+: lf-mctx-level-depth ( -- n ) mctx mctx-ldepth @ ;
+: mv-depths! ( depth ldepth -- ) mctx mctx-ldepth ! mctx mctx-depth ! ;
+: mv-at ( -- i ) mctx mctx-at @ ;
+: mv-at! ( i -- ) mctx mctx-at ! ;
 : lf-mctx-marks ( -- n ) mv-marks slab-count ;
+: mv-scopes-reset ( -- )
+  mv-trail slab-clear mv-marks slab-clear mv-snaps slab-clear -1 mv-at! 0 0 mv-depths! ;
+:noname ( -- ) -1 mv-at! ; context-setup
 \ The current local context, which a new metavariable gets. Lean's
 \ withLocalDecl is: make the free variable and its local, push it on
 \ this view, set the result, run, set the old view back.
 : lf-mctx-view ( -- view ) mctx mctx-view @ ;
 : lf-mctx-view! ( view -- ) mctx mctx-view ! ;
 : lf-mctx-reset ( -- )
-  mv-exprs store-clear mv-levels store-clear mv-fvars store-clear mv-trail slab-clear
-  mv-marks slab-clear mctx-epoch@ 1+ mv-epoch-mask and mctx mctx-epoch !
-  0 mctx mctx-depth ! lf-views-reset lf-view-empty lf-mctx-view! ;
+  mv-exprs store-clear mv-levels store-clear mv-fvars store-clear mv-scopes-reset
+  mctx-epoch@ 1+ mv-epoch-mask and mctx mctx-epoch !
+  lf-views-reset lf-view-empty lf-mctx-view! ;
 
 \ Live leaves: a term leaf is the one its record names (term leaves are
 \ never shared, so a leaf of an emptied context is never a new record's);
@@ -204,6 +241,7 @@ end-structure
 : lf-mvar-kind ( mvar -- kind true | false ) 0 mvd-kind mv-field ;
 : lf-mvar-view ( mvar -- view true | false ) 0 mvd-view mv-field ;
 : lf-mvar-tag ( mvar -- name true | false ) 0 mvd-tag mv-field ;
+: lf-mvar-depth ( mvar -- depth true | false ) 0 mvd-depth mv-field ;
 : lf-mvar-value ( mvar -- value true | false )
   0 mvd-value mv-field dup if over 0< if 2drop false then then ;
 \ Whether the free variable is in the metavariable's local context.
@@ -322,9 +360,9 @@ end-structure
   lf-level-count @ over dw-size ! ;
 \ The level walk seeks the target, or with the target -1 an assignable
 \ metavariable (Lean's isLevelMVarAssignable: live, made at the
-\ context's depth or deeper), with -2 a stale one.
+\ context's levelAssignDepth or deeper), with -2 a stale one.
 : mvl-open? ( level -- flag )
-  dup lf-level-mvar-live? if lf-level-mvar-depth lf-mctx-depth < 0= else drop false then ;
+  dup lf-level-mvar-live? if lf-level-mvar-depth lf-mctx-level-depth < 0= else drop false then ;
 : mvl-stale? ( level -- flag )
   dup lf-level-mvar? if lf-level-mvar-live? 0= else drop false then ;
 : mvl-hit? ( node -- flag )
@@ -340,59 +378,152 @@ end-structure
 : lf-level-assignable-mvar? ( level -- flag outcome ) -1 swap lf-level-mvar-occurs? ;
 : lf-level-stale-mvar? ( level -- flag outcome ) -2 swap lf-level-mvar-occurs? ;
 
-\ ---- Marks, for Lean's checkpointDefEq (it saves the metavariable
-\ context and restores it when the comparison fails) and the tactic
-\ framework's saved states: while a mark is open each change of a
-\ record's field (an assignment, plain, level or delayed, a tag, a kind)
-\ is noted on the trail mv-trail (the record's number * 8 + the field's
-\ kind, and the field's old value) before it is stored; a trail the heap
-\ cannot grow refuses the change (full). A mark is a
-\ serial number, 1, 2, ..., never given twice in a context (not even
-\ after lf-mctx-reset); mv-marks keeps, per open mark, the trail's length
-\ when it was made and its serial. Rolling back the latest open mark
-\ undoes the changes noted after it, latest first, each field getting its
-\ old value back; committing it keeps them, for an outer mark to undo;
-\ either closes it, and when the
-\ last mark closes the trail is emptied. Any other mark (an inner mark
-\ already closed, an outer one while an inner is open, one from before a
-\ reset, 0, the refused mark) is refused, invalid, and nothing changes.
-\ Metavariables made after a mark stay made, unassigned (Lean's restored
-\ context no longer has them; no term then refers to them).
+\ ---- Scopes: one undo trail shaped as a tree (S1 §3). While a scope is
+\ open, each change of a record's field (an assignment, plain, level or
+\ delayed, a tag, a kind) is a trail record: the entry (the record's
+\ number * 8 + the field's kind), the old value, the new value and its
+\ parent, the state it changed; the current state is a record (mctx-at),
+\ or -1 for the state no record changed. A parent is always older than
+\ its children, so two states meet at their common ancestor by climbing
+\ from the newer one. A trail the heap cannot grow refuses the change,
+\ full, and nothing changes.
+\ A scope and a snapshot are serial numbers, 1, 2, ..., from one counter,
+\ never given twice in a context (not even after lf-mctx-reset);
+\ mv-marks keeps per open scope its kind (a mark, or a depth scope), the
+\ trail's length, the state and the snapshots' count when it was opened,
+\ and both depths. Every record made while a scope is open is newer than
+\ its opening, so the states under the innermost scope are its entry and
+\ the records from its length on.
+\ - Rolling back the latest scope goes back to its entry, undoing the
+\   records from the current state up, and drops its records; committing
+\   keeps them for an outer scope. Either closes it, its snapshots become
+\   stale, and when the last scope closes the trail is emptied. With no
+\   switch the records form one chain: a mark is undone latest first, as
+\   a LIFO trail is (defeq.fs's checkpoints, the tactics' saved states).
+\ - A snapshot is the current state, taken inside an open scope. A switch
+\   to it climbs from both states to their common ancestor, noting the
+\   target's records on mv-redos, then undoes the current state's records
+\   up to the ancestor and redoes the target's down from it: every field
+\   has its value in the target state. The target must lie under the
+\   innermost open scope (Lean switches only inside its synthesis
+\   scope). A stale snapshot (its scope closed), 0 or one never given is
+\   refused, invalid; a redo stack the heap cannot grow, full; nothing
+\   changes then.
+\ Any other scope (an inner one already closed, an outer one while an
+\ inner is open, one from before a reset, 0, the refused one, or a scope
+\ of the other kind) is refused, invalid, and nothing changes.
+\ Metavariables made on another branch stay made, unassigned (Lean's
+\ restored context no longer has them; no term then refers to them).
+\ Postponed level constraints, part of Lean's saveState, are unsupported
+\ (level-defeq.fs), so no scope keeps them.
 0 constant mv-was-value
 1 constant mv-was-level
 2 constant mv-was-delay
 3 constant mv-was-tag
 4 constant mv-was-kind
-\ The field an entry names (one arm per kind: a table read as one).
+5 constant mv-was-fvars
+6 constant mv-was-fvars#
+\ The field an entry names: the record's (of mv-levels for a level
+\ assignment, else of mv-exprs) at the kind's offset.
+create mv-offsets
+  0 mvd-value ,  0 mvl-value ,  0 mvd-pending ,  0 mvd-tag ,  0 mvd-kind ,
+  0 mvd-fvars ,  0 mvd-fvars# ,
+: mv-record ( n kind -- addr ) mv-was-level = if mvl-decl else mv-decl then ;
 : mv-cell ( entry -- addr )
-  dup 3 rshift swap 7 and case mv-was-value of mv-decl mvd-value endof
-    mv-was-level of mvl-decl mvl-value endof  mv-was-delay of mv-decl mvd-pending endof
-    mv-was-tag of mv-decl mvd-tag endof  swap mv-decl mvd-kind swap endcase ;
-: mv-trail-put ( entry -- outcome )
-  1 mv-trail slab-claim ok-then? 0= if nip exit then
-  mv-trail slab-at over mv-cell @ over mvt-old ! mvt-entry ! outcome-ok ;
-: mv-note ( n kind -- outcome )
-  lf-mctx-marks 0= if 2drop outcome-ok exit then swap 3 lshift or mv-trail-put ;
-: mv-store ( value addr n kind -- outcome )
-  mv-note dup ok? if drop ! outcome-ok else nip nip then ;
-: mv-trail-top ( -- addr ) mv-trail dup slab-count 1- swap slab-at ;
-: mv-restore ( addr -- ) dup mvt-old @ swap mvt-entry @ mv-cell ! ;
-: mv-undo ( -- ) mv-trail-top mv-restore -1 mv-trail slab-commit ;
-: mv-undo-to ( length -- ) begin dup mv-trail slab-count < while mv-undo repeat drop ;
+  dup 3 rshift over 7 and mv-record swap 7 and cells mv-offsets + @ + ;
+: mv-entry ( n kind -- entry ) swap 3 lshift or ;
+: mvt ( i -- addr ) mv-trail slab-at ;
+: mv-parent ( i -- i' ) mvt mvt-parent @ ;
+\ Redoing a record sets its field's new value and makes it the current
+\ state, undoing it sets the old value and makes its parent so. A new
+\ record (the current state already its number) gets its fields, its
+\ parent the state before, and is redone.
+: mvt-fill ( value entry parent -- )
+  mv-at mvt tuck mvt-parent ! over mv-cell @ over mvt-old ! tuck mvt-entry ! mvt-new ! ;
+: mv-redo ( i -- ) dup mv-at! mvt dup mvt-new @ swap mvt-entry @ mv-cell ! ;
+: mv-undo ( i -- ) mvt dup mvt-old @ over mvt-entry @ mv-cell ! mvt-parent @ mv-at! ;
+: mv-noted ( value entry i -- ) mv-at swap mv-at! mvt-fill mv-at mv-redo ;
+\ Set the field of record n's kind to value: noted when a scope is open.
+: mv-change ( value n kind -- outcome )
+  mv-entry lf-mctx-marks 0= if mv-cell ! outcome-ok exit then
+  1 mv-trail slab-claim ok-then? if mv-noted outcome-ok else nip nip then ;
+\ Room for n changes that then cannot fail.
+: mv-trail-room ( n -- outcome ) lf-mctx-marks if mv-trail slab-room else drop outcome-ok then ;
+
+\ The scopes.
+0 constant mv-plain   1 constant mv-deep
 : mv-latest ( -- addr ) lf-mctx-marks 1- mv-marks slab-at ;
-: mv-latest? ( mark -- flag ) lf-mctx-marks if mv-latest cell+ @ = else drop false then ;
-: mv-unmark ( -- ) -1 mv-marks slab-commit lf-mctx-marks 0= if mv-trail slab-clear then ;
+: mv-latest? ( mark -- flag ) lf-mctx-marks if mv-latest mvs-serial @ = else drop false then ;
+: mv-scope? ( mark kind -- flag )
+  swap mv-latest? if mv-latest mvs-kind @ = else drop false then ;
 : mv-serial ( -- n ) 1 mctx mctx-serial +! mctx mctx-serial @ ;
-: lf-mctx-mark ( -- mark outcome )
-  1 mv-marks slab-claim dup ok? 0= if nip 0 swap exit then drop mv-marks slab-at
-  mv-trail slab-count over ! mv-serial tuck swap cell+ ! outcome-ok ;
+: mv-scope-trail ( addr -- addr )
+  mv-trail slab-count over mvs-length ! mv-at over mvs-entry ! mv-snaps slab-count over mvs-snaps ! ;
+: mv-scope-depths ( addr -- addr )
+  lf-mctx-depth over mvs-depth ! lf-mctx-level-depth over mvs-ldepth ! ;
+: mv-scope-fill ( kind addr -- serial )
+  tuck mvs-kind ! mv-scope-trail mv-scope-depths mv-serial tuck swap mvs-serial ! ;
+: mv-open ( kind -- mark outcome )
+  1 mv-marks slab-claim ok-then? 0= if nip 0 swap exit then mv-marks slab-at mv-scope-fill outcome-ok ;
+: mv-cut ( n slab -- ) tuck slab-count - swap slab-commit ;
+: mv-back-to ( i -- ) begin dup mv-at <> while mv-at mv-undo repeat drop ;
+: mv-undo-scope ( -- ) mv-latest dup mvs-entry @ mv-back-to mvs-length @ mv-trail mv-cut ;
+: mv-close ( -- )
+  mv-latest mvs-snaps @ mv-snaps mv-cut -1 mv-marks slab-commit
+  lf-mctx-marks 0= if mv-trail slab-clear -1 mv-at! then ;
+: lf-mctx-mark ( -- mark outcome ) mv-plain mv-open ;
 : lf-mctx-rollback ( mark -- outcome )
-  mv-latest? 0= if outcome-invalid exit then
-  mv-latest @ mv-undo-to mv-unmark outcome-ok ;
+  mv-plain mv-scope? 0= if outcome-invalid exit then mv-undo-scope mv-close outcome-ok ;
 : lf-mctx-commit ( mark -- outcome )
-  mv-latest? 0= if outcome-invalid exit then mv-unmark outcome-ok ;
-\ The latest open mark, or 0 (no mark) when none is open.
-: lf-mctx-latest ( -- mark ) lf-mctx-marks if mv-latest cell+ @ else 0 then ;
+  mv-plain mv-scope? 0= if outcome-invalid exit then mv-close outcome-ok ;
+\ The latest open scope, or 0 (none) when none is open.
+: lf-mctx-latest ( -- mark ) lf-mctx-marks if mv-latest mvs-serial @ else 0 then ;
+\ Depth scopes: one depth deeper, levelAssignDepth kept with levels?
+\ (Lean's allowLevelAssignments), else the new depth (Lean's incDepth).
+: mv-deeper ( levels? -- )
+  lf-mctx-depth 1+ tuck swap if drop lf-mctx-level-depth then mv-depths! ;
+: lf-mctx-depth{ ( levels? -- scope outcome )
+  mv-deep mv-open ok-then? if swap mv-deeper outcome-ok else nip 0 swap then ;
+: mv-depths-back ( -- ) mv-latest dup mvs-depth @ swap mvs-ldepth @ mv-depths! ;
+: }lf-mctx-depth ( scope -- outcome )
+  mv-deep mv-scope? 0= if outcome-invalid exit then
+  mv-undo-scope mv-depths-back mv-close outcome-ok ;
+
+\ Snapshots, kept in serial order (a scope's close drops the newest), so
+\ a serial is found by halving.
+: mvp ( i -- addr ) mv-snaps slab-at ;
+: mv-key ( -- addr ) mctx mctx-key ;
+: mvp-below? ( i -- flag ) mvp mvp-serial @ mv-key @ < ;
+: mv-halve ( lo hi -- lo' hi' )
+  2dup + 2/ dup mvp-below? if 1+ rot drop swap else nip then ;
+: mv-bisect ( -- i ) 0 mv-snaps slab-count begin 2dup < while mv-halve repeat drop ;
+: mvp-hit? ( i -- flag )
+  dup mv-snaps slab-count < if mvp mvp-serial @ mv-key @ = else drop false then ;
+: mv-snap-index ( snap -- i true | false ) mv-key ! mv-bisect dup mvp-hit? dup 0= if nip then ;
+: mv-snap-fill ( addr -- serial ) mv-at over mvp-at ! mv-serial tuck swap mvp-serial ! ;
+: mv-snap-new ( -- snap outcome )
+  1 mv-snaps slab-claim ok-then? if mvp mv-snap-fill outcome-ok else 0 swap then ;
+: lf-mctx-snapshot ( -- snap outcome )
+  lf-mctx-marks if mv-snap-new else 0 outcome-invalid then ;
+\ A state under the innermost scope: its entry, or a record made in it.
+: mv-under? ( i -- flag )
+  dup mv-latest mvs-entry @ = swap mv-latest mvs-length @ < 0= or ;
+: mv-snap-at ( snap -- i true | false )
+  mv-snap-index 0= if false exit then mvp mvp-at @ dup mv-under? dup 0= if nip then ;
+\ The switch: the common ancestor c of the current state a and the target
+\ b, b's records above c on mv-redos; then down from a to c, up to b.
+: mv-redo-push ( i -- outcome )
+  1 mv-redos slab-claim ok-then? if mv-redos slab-at ! outcome-ok else nip then ;
+: mv-climb ( a b -- a' b' outcome )
+  2dup > if swap mv-parent swap outcome-ok exit then
+  dup mv-redo-push dup ok? if drop mv-parent outcome-ok then ;
+: mv-climbs ( a b -- c outcome )
+  begin 2dup <> while mv-climb ok-then? 0= if nip -1 swap exit then repeat drop outcome-ok ;
+: mv-redo-pop ( -- i ) mv-redos dup slab-count 1- swap slab-at @ -1 mv-redos slab-commit ;
+: mv-redo-all ( -- ) begin mv-redos slab-count while mv-redo-pop mv-redo repeat ;
+: mv-goto ( i -- outcome )
+  mv-redos slab-clear mv-at swap mv-climbs ok-then? if mv-back-to mv-redo-all outcome-ok then ;
+: lf-mctx-switch ( snap -- outcome ) mv-snap-at if mv-goto else outcome-invalid then ;
 
 \ ---- Assignment: once, to a live leaf, the occurs check passed; a walk
 \ that fails gives its own outcome and nothing is assigned.
@@ -404,8 +535,7 @@ end-structure
   dup lf-term-valid? 0= if 2drop outcome-invalid exit then
   over mv-free? 0= if 2drop outcome-invalid exit then lf-mvar-occurs? mv-occurs-outcome ;
 : lf-mvar-assign ( mvar value -- outcome )
-  2dup mv-sound dup ok? 0= if nip nip exit then drop
-  swap mv-number dup mv-decl mvd-value swap mv-was-value mv-store ;
+  2dup mv-sound dup ok? 0= if nip nip exit then drop swap mv-number mv-was-value mv-change ;
 : mvl-free? ( level -- flag )
   dup lf-level-mvar-live? if mvl-number mvl-decl mvl-value @ 0< else drop false then ;
 : mvl-sound ( mvar value -- outcome )
@@ -413,33 +543,34 @@ end-structure
   over mvl-free? 0= if 2drop outcome-invalid exit then
   lf-level-mvar-occurs? mv-occurs-outcome ;
 : lf-level-mvar-assign ( level value -- outcome )
-  2dup mvl-sound dup ok? 0= if nip nip exit then drop
-  swap mvl-number dup mvl-decl mvl-value swap mv-was-level mv-store ;
+  2dup mvl-sound dup ok? 0= if nip nip exit then drop swap mvl-number mv-was-level mv-change ;
 
 \ A tag (a name ID, or 0 for none) and a kind, set on a live metavariable
 \ whether assigned or not, as Lean's setTag and setKind.
 : lf-mvar-tag! ( mvar name -- outcome )
   2dup lf-user-name? swap lf-mvar-live? and 0= if 2drop outcome-invalid exit then
-  swap mv-number dup mv-decl mvd-tag swap mv-was-tag mv-store ;
+  swap mv-number mv-was-tag mv-change ;
 : lf-mvar-kind! ( mvar kind -- outcome )
   2dup mv-kind? swap lf-mvar-live? and 0= if 2drop outcome-invalid exit then
-  swap mv-number dup mv-decl mvd-kind swap mv-was-kind mv-store ;
+  swap mv-number mv-was-kind mv-change ;
 
 \ Delayed assignments: lf-delay-fvar appends a live free variable;
 \ lf-mvar-delay gives the free metavariable mvar the last n appended and
-\ the pending metavariable.
+\ the pending metavariable: three changes (the free variables' place and
+\ count, then the pending one), room for all made first.
 : lf-delay-fvar ( fvar -- outcome )
   dup lf-fvar-live? 0= if drop outcome-invalid exit then
   mv-fvars mv-slot if drop ! outcome-ok else drop outcome-full then ;
 : mv-fvars# ( -- n ) mv-fvars store-count @ ;
 : mv-delayable? ( mvar pending n -- flag )
   0 mv-fvars# 1+ within swap lf-mvar-live? and swap mv-free? and ;
-: mv-delay! ( pending n addr -- )
-  tuck mvd-fvars# ! mv-fvars# over mvd-fvars# @ - over mvd-fvars ! mvd-pending ! ;
+: mv-delay-ok ( mvar pending n -- mvar pending n outcome )
+  >r 2dup r@ mv-delayable? r> swap if 3 mv-trail-room else outcome-invalid then ;
+: mv-delay-fvars ( n i -- i )
+  2dup mv-was-fvars# mv-change drop swap mv-fvars# swap - over mv-was-fvars mv-change drop ;
+: mv-delay-set ( pending n i -- ) mv-delay-fvars mv-was-delay mv-change drop ;
 : lf-mvar-delay ( mvar pending n -- outcome )
-  >r 2dup r@ mv-delayable? 0= if r> drop 2drop outcome-invalid exit then
-  swap mv-number dup mv-was-delay mv-note dup ok? 0= if nip nip r> drop exit then
-  drop r> swap mv-decl mv-delay! outcome-ok ;
+  mv-delay-ok dup ok? 0= if nip nip nip exit then drop rot mv-number mv-delay-set outcome-ok ;
 : lf-mvar-delayed ( mvar -- pending addr n true | false )
   mv-of 0= if false exit then dup mvd-pending @ dup 0< if 2drop false exit then
   swap dup mvd-fvars @ mv-fvars store-slot swap mvd-fvars# @ true ;

@@ -75,28 +75,42 @@ T{ s" Nat.add" menv-name lf-tr-all lf-menv-unfoldable nip nip s" Nat.add" menv-d
 T{ 0 s" motive" menv-part lf-tr-all lf-menv-unfoldable -> -1 false outcome-invalid }T
 T{ s" Nat.add" menv-name lf-tr-modes lf-menv-unfoldable -> -1 false outcome-invalid }T
 
-\ ---- Facts not available yet: unsupported for definitions, false for
-\ other kinds, the three Eq.ndrec names auxiliary recursors.
+\ ---- Facts of format 2 (S1 appendix D): a definition's from the data, a
+\ definition no record names none of them, other kinds false, the three
+\ Eq.ndrec names auxiliary recursors; smart unfolding still unsupported
+\ for a definition (no data has it).
 : fact ( c-addr u xt -- flag outcome ) >r menv-decl r> execute ;
 T{ s" Nat.add.match_1" ' lf-menv-matcher? fact s" Nat.rec" ' lf-menv-matcher? fact
-   -> false outcome-unsupported false outcome-ok }T
+   s" Nat.add" ' lf-menv-matcher? fact -> true outcome-ok false outcome-ok false outcome-ok }T
 T{ s" HAdd.hAdd" ' lf-menv-proj-fn? fact s" HAdd.mk" ' lf-menv-proj-fn? fact
-   -> false outcome-unsupported false outcome-ok }T
+   s" instHAdd" ' lf-menv-proj-fn? fact -> true outcome-ok false outcome-ok false outcome-ok }T
 T{ s" Nat.add" ' lf-menv-smart? fact s" Nat.zero_add" ' lf-menv-smart? fact
    -> false outcome-unsupported false outcome-ok }T
 T{ s" Nat.casesOn" ' lf-menv-aux-recursor? fact s" Eq.ndrec" ' lf-menv-aux-recursor? fact
-   -> false outcome-unsupported true outcome-ok }T
+   s" Nat.add" ' lf-menv-aux-recursor? fact -> true outcome-ok true outcome-ok false outcome-ok }T
 T{ s" Eq.refl" ' lf-menv-aux-recursor? fact s" Nat.succ" ' lf-menv-aux-recursor? fact
    -> false outcome-ok false outcome-ok }T
 T{ -1 lf-menv-matcher? lf-input-count lf-menv-aux-recursor? -1 lf-menv-smart?
    -> false outcome-invalid false outcome-invalid false outcome-invalid }T
-\ The other two names isAuxRecursor lists; HEq.ndrec is no Eq.ndrec (a
-\ definition: unsupported); Fin.succ is no Nat.succ (review fe1c-2 L3).
+T{ -1 lf-menv-proj-fn? -> false outcome-invalid }T
+\ The other two names isAuxRecursor lists; HEq.ndrec is no Eq.ndrec (the
+\ data's answer); Fin.succ is no Nat.succ (review fe1c-2 L3); Nat's
+\ namespace (reduceNat?).
 T{ s" Eq.ndrec_symm" ' lf-menv-aux-recursor? fact s" Eq.ndrecOn" ' lf-menv-aux-recursor? fact
    -> true outcome-ok true outcome-ok }T
-T{ s" HEq.ndrec" ' lf-menv-aux-recursor? fact -> false outcome-unsupported }T
+T{ s" HEq.ndrec" ' lf-menv-aux-recursor? fact -> false outcome-ok }T
 T{ s" Nat.succ" menv-name lf-menv-nat-succ? s" Fin.succ" menv-name lf-menv-nat-succ?
    s" Nat" menv-name lf-menv-nat-succ? -> true false false }T
+T{ s" Nat.add" menv-name lf-menv-nat-name? s" Fin.succ" menv-name lf-menv-nat-name?
+   s" Nat" menv-name lf-menv-nat-name? s" Nat.add.match_1" menv-name lf-menv-nat-name?
+   -> true false false false }T
+\ Without data read against the stage a definition's facts are unknown.
+0 lf-menv-stage!
+T{ s" Nat.add.match_1" ' lf-menv-matcher? fact s" HAdd.hAdd" ' lf-menv-proj-fn? fact
+   s" Nat.casesOn" ' lf-menv-aux-recursor? fact s" Nat.rec" ' lf-menv-matcher? fact
+   -> false outcome-unsupported false outcome-unsupported false outcome-unsupported
+      false outcome-ok }T
+menv-lib lf-menv-stage!
 
 \ ---- The queries allocate nothing.
 : queries ( -- )

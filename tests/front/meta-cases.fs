@@ -11,6 +11,7 @@ require ../../src/front/level-defeq.fs
 require ../../src/front/instantiate.fs
 require ../../src/front/level-params.fs
 require ../../src/front/level-normalize.fs
+require ./depth.fs
 
 lf-author-begin
 : must ( x flag -- x ) 0= abort" meta-cases: no room" ;
@@ -59,7 +60,7 @@ defer .lev
   nip outcome-unsupported = if ." unsupported" else ." failed" then ;
 : .values ( -- )
   #mv @ 0 ?do space i mv-char emit ." =" i mv lf-level-instantiate-mvars drop .lev loop ;
-: level-case ( -- ) lf-mctx-reset 0 #mv ! ;
+: level-case ( -- ) depth-reset 0 #mv ! ;
 : level-run ( l r -- ) lf-meta-level-defeq .answer .values cr ;
 
 \ Terms: Prop, two free variables x y : Prop, a metavariable ?m : Prop.

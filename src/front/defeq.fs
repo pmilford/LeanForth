@@ -35,15 +35,25 @@
 \   ?m a1 .. an-1 =?= f, under a checkpoint) and, with no arguments, the
 \   constant assignment; processAssignment' retries with whnf's value.
 \ Each checkpointDefEq of Lean is a mark of mvars.fs, rolled back when
-\ its answer is false and on any failure, kept when true.
-\ Configuration (lf-defeq-flags!, Lean's Meta.Config): lf-defeq-fo
-\ (foApprox), lf-defeq-ctx (ctxApprox), lf-defeq-quasi
-\ (quasiPatternApprox), lf-defeq-const (constApprox), lf-defeq-stuck
-\ (isDefEqStuckEx); lf-defeq-elab is Lean's elaborator's (fo and ctx,
-\ as run_meta and TermElabM); 0 is Meta's default. lf-defeq-mode! sets
-\ the transparency (meta-env.fs's lf-tr-*; default lf-tr-default);
-\ implicit arguments and metavariable types are compared at implicit
-\ transparency or above, as Lean's withImplicitConfig.
+\ its answer is false and on any failure, kept when true; each
+\ withNewMCtxDepth a depth scope, rolled back at its end.
+\ Configuration (meta-config.fs, Lean's Meta.Config read as getConfig):
+\ lf-defeq-flags! (foApprox, ctxApprox, quasiPatternApprox, constApprox,
+\ isDefEqStuckEx, ...), lf-defeq-mode! (the transparency); implicit
+\ arguments and metavariable types are compared at implicit transparency
+\ or above, as Lean's withImplicitConfig. Each comparison spends one step
+\ of meta-config.fs's budget too.
+\ The stuck signal (meta-config.fs, lf-meta-stuck), under isDefEqStuckEx:
+\ raised where both heads are metavariables neither side may assign and
+\ proof irrelevance cannot decide (ExprDefEq.lean:2118), where
+\ isDefEqOnFailure meets a stuck metavariable of an outer depth that
+\ synthPending leaves (2182), and by level unification
+\ (level-defeq.fs); every mark rolls back on it and it passes on as the
+\ answer's outcome. Caught only as Lean does: isDefEqAppFallback (2393)
+\ catches isDefEqOnFailure's, tries the late cases and raises it again
+\ unless one answers true (isDefEqOnFailure changes nothing here, so
+\ Lean's restore is the identity); lf-meta-defeq-guarded ( t s -- flag
+\ outcome ), Lean's isDefEqGuarded, answers false for it alone.
 \ Never a guess, answered unsupported (plan FE1c, FE1d2, FE1e): an
 \ unfoldable definition at either head (lazy delta reduction, FE1d2's
 \ facts), a projection node (isDefEqProj), a ground Nat operation
@@ -52,7 +62,7 @@
 \ FE1e), isDefEqProjInst at instances or implicit transparency, a
 \ string literal against String.ofList (isDefEqStringLit), the steps of
 \ the files above that answer unsupported, quasi-pattern assignments
-\ (isTypeCorrect), constApprox, the stuck exception of isDefEqStuckEx,
+\ (isTypeCorrect), constApprox,
 \ and processAssignment's retry after a level comparison that may have
 \ left assignments Lean keeps and this rolled back. Caches are not
 \ kept: they change no answer.
@@ -70,9 +80,10 @@
 \ activation keeps (binders, arguments) wait on the heap stack de-cells.
 \ No host recursion (plan task 6.2.0). Fuel: each comparison spends one;
 \ lf-defeq-fuel! sets a call's limit (0: lf-defeq-default-fuel).
-\ Outcomes: ok with the flag; unsupported as above; exhausted; full;
-\ invalid for terms that are not live, for a broken step and for a mark
-\ that cannot be rolled back. On any failure every assignment made is
+\ Outcomes: ok with the flag; lf-meta-stuck and unsupported as above;
+\ exhausted (the call's fuel or the budget spent); full; invalid for
+\ terms that are not live, for a broken step and for a mark or depth
+\ scope that cannot be closed. On any failure every assignment made is
 \ rolled back, every new depth left; after every call the local context
 \ and its view are as on entry (binders' free variables dropped).
 \ Untrusted front-end code: only the kernel's check of a finished term
@@ -95,6 +106,7 @@ require ../present/binder-table.fs
 require ./mvars.fs
 require ./instantiate.fs
 require ./meta-spine.fs
+require ./meta-config.fs
 require ./meta-env.fs
 require ./whnf.fs
 require ./infer.fs
@@ -105,9 +117,6 @@ require ./assign-check.fs
 require ./nat-offset.fs
 require ./fun-info.fs
 
-1 constant lf-defeq-fo   2 constant lf-defeq-ctx   4 constant lf-defeq-quasi
-8 constant lf-defeq-const   16 constant lf-defeq-stuck
-lf-defeq-fo lf-defeq-ctx or constant lf-defeq-elab
 1000000 constant lf-defeq-default-fuel
 
 begin-structure /df
@@ -121,9 +130,7 @@ begin-structure /df
   field: df-next     \ de-run, de-ret, de-done or de-stall
   field: df-entry    \ the step that starts the activation
   field: df-result   \ the answer being returned
-  field: df-flags    \ the configuration
-  field: df-mode0    \ the transparency a call starts with
-  field: df-limit    \ fuel per call; 0: the default
+  field: df-limit    \ fuel per call (a unit-test setting); 0: the default
   field: df-fuel
   field: df-outcome  \ ok, or the failure that ended the call
   field: df-taint    \ a false level comparison may have left assignments
@@ -131,12 +138,9 @@ begin-structure /df
   field: df-mark0    \ and the term mark (lf-lctx-drop's) on entry
 end-structure
 /df context-record: df
-:noname ( -- ) lf-tr-default df df-mode0 ! ; context-setup
 7 cells constant de-regs
-8 cells context-slab: de-frames   \ the registers (de-regs) and a deeper flag
+8 cells context-slab: de-frames   \ the registers (de-regs) and a depth scope or 0
 1 cells context-slab: de-cells
-: lf-defeq-flags! ( flags -- ) df df-flags ! ;
-: lf-defeq-mode! ( mode -- ) df df-mode0 ! ;
 : lf-defeq-fuel! ( n -- ) df df-limit ! ;
 
 \ ---- Registers.
@@ -144,7 +148,7 @@ end-structure
 : de-x ( -- x ) df df-x @ ;   : de-y ( -- y ) df df-y @ ;   : de-m ( -- m ) df df-m @ ;
 : de-t! ( t -- ) df df-t ! ;   : de-s! ( s -- ) df df-s ! ;
 : de-y+ ( -- ) 1 df df-y +! ;
-: de-flag? ( bit -- flag ) df df-flags @ and 0<> ;
+: de-flag? ( bit -- flag ) lf-meta-flag? ;
 
 \ ---- The machine.
 0 constant de-run  1 constant de-ret  2 constant de-done  3 constant de-stall
@@ -165,24 +169,28 @@ end-structure
 : de-invoke ( t s entry -- )
   de-aborted? if drop 2drop exit then
   de-save dup ok? 0= if de-abort drop 2drop exit then drop 0 df df-m ! de-regs! ;
+: de-fuel? ( -- flag ) df df-fuel @ dup 0> if 1- df df-fuel ! true else drop false then ;
 : de-spend? ( -- flag )
-  df df-fuel @ dup 0> if 1- df df-fuel ! true exit then
-  drop outcome-exhausted de-abort false ;
+  de-fuel? dup if drop lf-meta-spend? then dup 0= if outcome-exhausted de-abort then ;
 : de-goto ( t s entry -- ) de-aborted? de-spend? 0= or if drop 2drop exit then de-regs! ;
 defer de-solve-x ( -- )   \ isExprDefEqAux
 defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 : de-solve ( t s k -- ) de-then ['] de-solve-x de-invoke ;
 \ The callee of the last call runs at implicit transparency or above,
-\ or one depth deeper (withNewMCtxDepth).
+\ or one depth deeper (withNewMCtxDepth: a depth scope, its handle in the
+\ frame's last cell, closed when the callee returns or the call fails).
 : de-rank ( mode -- n )
   case lf-tr-none of 0 endof  lf-tr-reducible of 1 endof  lf-tr-instances of 2 endof
     lf-tr-implicit of 3 endof  lf-tr-default of 4 endof  5 swap endcase ;
 : de-bump ( -- )
   df df-mode @ de-rank lf-tr-implicit de-rank < if lf-tr-implicit df df-mode ! then ;
-: de-deeper ( -- ) de-aborted? if exit then true de-frame de-regs + ! lf-mctx-deeper ;
-: de-pop ( -- k deeper )
+: de-deeper ( -- )
+  de-aborted? if exit then false lf-mctx-depth{ de-must if de-frame de-regs + ! else drop then ;
+: de-pop ( -- k scope )
   de-frame dup df df-k de-regs move de-regs + @ df df-k @ swap -1 de-frames slab-commit ;
-: de-resume ( -- ) de-pop if lf-mctx-shallower then df df-result @ swap execute ;
+: de-shallow ( scope -- flag )
+  ?dup 0= if true exit then }lf-mctx-depth dup ok? if drop true else de-abort false then ;
+: de-resume ( -- ) de-pop de-shallow if df df-result @ swap execute else drop then ;
 : de-ret-step ( -- ) de-frames slab-count 0= if de-done de-next! else de-resume then ;
 : de-step ( -- )
   df df-next @ de-stall de-next! de-run = if df df-entry @ execute else de-ret-step then
@@ -198,7 +206,7 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 \ A mark that cannot be rolled back leaves the context broken: invalid.
 : de-broken ( outcome -- ) ok? 0= if outcome-invalid df df-outcome ! then ;
 : de-roll ( -- ) de-m ?dup if lf-mctx-rollback de-broken 0 df df-m ! then ;
-: de-unframe ( -- ) de-pop nip if lf-mctx-shallower then de-roll ;
+: de-unframe ( -- ) de-pop nip ?dup if }lf-mctx-depth de-broken then de-roll ;
 : de-unwind ( -- ) de-roll begin de-frames slab-count 0> while de-unframe repeat ;
 
 \ ---- Cells: arrays of an activation, from de-x on.
@@ -338,7 +346,10 @@ is de-bind-dom
 \ that synthPending would not touch (synthetic opaque, or a type that is
 \ no class), and unification hints: Init's one hint (Not p =?= p ->
 \ False) can match only a definition at the head. Anything else
-\ answers unsupported; this never answers true.
+\ answers unsupported; this never answers true. Under isDefEqStuckEx a
+\ stuck metavariable made at an outer depth is Lean's stuck signal: the
+\ flag stuck? (raised by the caller), the rest skipped as Lean's throw
+\ skips it.
 : de-stuck-mvar ( t -- mvar true | false )
   lf-whnf-stuck dup ok? 0= if nip de-abort false exit then drop ;
 : de-opaque? ( mvar -- flag ) lf-mvar-kind if mv-opaque = else true then ;
@@ -346,12 +357,16 @@ is de-bind-dom
   dup de-opaque? if drop exit then
   lf-mvar-type drop lf-meta-class-none? 0= if outcome-unsupported de-abort then ;
 : de-try-synth ( t -- ) de-stuck-mvar if de-synth-pending then ;
-: de-unstuck ( t -- )
-  de-stuck-mvar if de-synth-pending lf-defeq-stuck de-flag?
-  if outcome-unsupported de-abort then then ;
+: de-older? ( mvar -- flag ) lf-mvar-depth if lf-mctx-depth < else false then ;
+: de-unstuck ( t -- stuck? )
+  de-stuck-mvar 0= if false exit then dup de-synth-pending
+  lf-defeq-stuck de-flag? if de-older? else drop false then ;
 : de-hints ( t -- )
   dup lf-mvar? if drop exit then de-head-defn? if outcome-unsupported de-abort then ;
-: de-on-failure ( -- ) de-t de-unstuck de-s de-unstuck de-t de-hints de-s de-hints ;
+: de-stuck-either ( -- stuck? )
+  de-t de-unstuck ?dup if exit then de-aborted? if false exit then de-s de-unstuck ;
+: de-on-failure ( -- stuck? )
+  de-stuck-either dup de-aborted? or if exit then de-t de-hints de-s de-hints ;
 
 \ ---- isDefEqArgs (t and s applications with one head, the parameter
 \ facts from t's). Cells from de-x: n, m, the n arguments of t, the n of
@@ -684,8 +699,7 @@ defer de-quick-x ( -- )
   lf-meta-head dup lf-mvar? if lf-mvar-assignable? else drop false then ;
 : de-both-fixed-k ( r -- )
   dup lf-lb-undef <> if de-return exit then drop
-  lf-defeq-stuck de-flag? if outcome-unsupported de-abort
-  else lf-lb-false de-return then ;
+  lf-defeq-stuck de-flag? if lf-meta-stuck de-abort else lf-lb-false de-return then ;
 : de-assignables ( -- )
   de-t de-assignable? de-s de-assignable? 2dup and if 2drop de-mvar-mvar exit then
   2dup or 0= if 2drop ['] de-both-fixed-k de-then de-t
@@ -726,12 +740,16 @@ defer de-quick-x ( -- )
   de-t de-const-name de-s de-const-name lf-name-same? 0=
   if lf-lb-false de-return exit then
   de-t de-s de-levels de-return ;
+\ isDefEqAppFallback: the late cases after isDefEqOnFailure; its stuck
+\ signal caught, raised again unless the late cases answer true.
 : de-fb-late ( r -- ) lf-lb-true = lf-lb de-return ;
+: de-fb-stuck ( r -- ) lf-lb-true = if lf-lb-true de-return else lf-meta-stuck de-abort then ;
 : de-exp-app ( r -- )
-  dup lf-lb-true = if de-return exit then drop
-  de-on-failure ['] de-fb-late de-then de-t de-s ['] de-late de-invoke ;
+  dup lf-lb-true = if de-return exit then drop de-on-failure
+  if ['] de-fb-stuck else ['] de-fb-late then de-then de-t de-s ['] de-late de-invoke ;
 : de-exp-late ( r -- )
-  dup lf-lb-undef <> if de-return exit then drop de-on-failure lf-lb-false de-return ;
+  dup lf-lb-undef <> if de-return exit then drop
+  de-on-failure if lf-meta-stuck de-abort else lf-lb-false de-return then ;
 : de-exp-shape ( -- )
   de-t de-const? de-s de-const? and if de-consts exit then
   de-t lf-meta-app? de-s lf-meta-app? and
@@ -783,7 +801,7 @@ defer de-quick-x ( -- )
 : de-top ( -- ) de-mark? if de-t de-s ['] de-close-k de-solve then ;
 ' de-top is de-top-x
 : de-config ( -- )
-  df df-mode0 @ df df-mode ! outcome-ok df df-outcome ! false df df-taint !
+  lf-meta-mode df df-mode ! outcome-ok df df-outcome ! false df df-taint !
   df df-limit @ ?dup 0= if lf-defeq-default-fuel then df df-fuel !
   lf-lb-undef df df-result !  lf-defeq-ctx de-flag? lf-meta-ctx-approx! ;
 : de-start ( t s -- )
@@ -799,5 +817,9 @@ defer de-quick-x ( -- )
 : lf-meta-defeq ( t s -- flag outcome )
   2dup lf-term-pair-valid? 0= if 2drop false outcome-invalid exit then
   de-start ['] de-loop catch ?dup if de-unwind de-leave throw then de-finish ;
+\ isDefEqGuarded (Basic.lean:2546): the stuck signal answers false; every
+\ other failure passes on.
+: lf-meta-defeq-guarded ( t s -- flag outcome )
+  lf-meta-defeq dup lf-meta-stuck = if 2drop false outcome-ok then ;
 
 base !   \ the BASE this file was loaded with
