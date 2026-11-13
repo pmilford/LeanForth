@@ -291,6 +291,7 @@ test-core:
 	$(RUN) $(GFORTH) tests/core/defeq.fs
 	$(RUN) $(GFORTH) tests/core/whnf.fs
 	$(RUN) $(GFORTH) tests/core/mixed-level-substitute.fs
+	$(RUN) $(GFORTH) tests/core/mixed-level-substitute-crowded.fs
 	$(RUN) $(GFORTH) tests/core/mixed-signature-probe.fs
 	$(RUN) $(GFORTH) tests/core/mixed-signature-lifecycle.fs
 	$(RUN) $(GFORTH) tests/core/mixed-signature-audit.fs

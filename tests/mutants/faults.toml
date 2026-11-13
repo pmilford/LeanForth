@@ -1010,6 +1010,49 @@ new = '''  ;'''
 test = "$GFORTH tests/core/mixed-level-substitute.fs"
 reason = "S1: a failed universe substitution keeps the terms, levels and references it made"
 
+# Stack faults on the paths where the heap cannot grow a list or set (found
+# by COV2, fixed by KFIX, 2026-11-12): each fix reverted in turn.
+
+[[fault]]
+id = "mls-audit-set-full-nip"
+file = "src/kernel/mixed-level-substitute.fs"
+old = '''  lf-mls-unseen ok-then? if lf-mls-walk lf-mls-forget then ;'''
+new = '''  lf-mls-unseen ok-then? 0= if nip exit then lf-mls-walk lf-mls-forget ;'''
+test = "$GFORTH tests/core/mixed-level-substitute-crowded.fs"
+reason = "B1: a set of reached terms that cannot be made drops the caller's cell below the outcome"
+
+[[fault]]
+id = "mls-crowded-extra-cell"
+file = "src/kernel/mixed-level-substitute.fs"
+old = '''  dup lf-mls-reached-cells slab-capacity lf-mls-site'''
+new = '''  dup dup lf-mls-reached-cells slab-capacity lf-mls-site'''
+test = "$GFORTH tests/core/mixed-level-substitute-crowded.fs"
+reason = "B2: a reached list the heap cannot grow leaves its count twice"
+
+[[fault]]
+id = "mls-image-room-extra-cell"
+file = "src/kernel/mixed-level-substitute.fs"
+old = '''    lf-mls-reached @ lf-mls-image-cells slab-capacity lf-mls-site'''
+new = '''    lf-mls-reached @ dup lf-mls-image-cells slab-capacity lf-mls-site'''
+test = "$GFORTH tests/core/mixed-level-substitute-crowded.fs"
+reason = "B3: images the heap cannot hold leave the reached count, reported as the build's status"
+
+[[fault]]
+id = "mls-arg-room-nip"
+file = "src/kernel/mixed-level-substitute.fs"
+old = '''  lf-cref-pairs lf-mls-arg-room ok-then? 0= if nip false swap exit then'''
+new = '''  lf-cref-pairs lf-mls-arg-room ok-then? 0= if nip nip false swap exit then'''
+test = "$GFORTH tests/core/mixed-level-substitute-crowded.fs"
+reason = "B5: a constant's new level pairs the heap cannot hold drop a cell of the caller"
+
+[[fault]]
+id = "lsubst-crowded-extra-cell"
+file = "src/kernel/level-substitute.fs"
+old = '''  dup lf-lsubst-reached-cells slab-capacity lf-lsubst-site'''
+new = '''  dup dup lf-lsubst-reached-cells slab-capacity lf-lsubst-site'''
+test = "$GFORTH tests/core/mixed-level-substitute-crowded.fs"
+reason = "B4: a level substitution's reached list the heap cannot grow leaves its count twice"
+
 [[fault]]
 id = "msp-coverage-kept"
 file = "src/kernel/mixed-signature-probe.fs"
@@ -7751,7 +7794,7 @@ reason = "FX7: the audit walks the 2^40 paths of sharedAndU's type, so useU runs
 [[fault]]
 id = "fx7-mls-again-any-stamp"
 file = "src/kernel/mixed-level-substitute.fs"
-old = '''  lf-mls-unseen ok-then? 0= if nip exit then lf-mls-walk lf-mls-forget ;'''
+old = '''  lf-mls-unseen ok-then? if lf-mls-walk lf-mls-forget then ;'''
 new = '''  lf-mls-walk lf-mls-forget ;'''
 test = "$GFORTH tests/core/mixed-level-substitute.fs"
 reason = "FX7/S3: a term an earlier audit reached is skipped (the set is not emptied first), so it is neither checked nor listed nor rebuilt"
@@ -7841,8 +7884,8 @@ reason = "S3: a one-limb literal read from its first field (its slab index) inst
 [[fault]]
 id = "s3-mls-set-kept"
 file = "src/kernel/mixed-level-substitute.fs"
-old = '''  lf-mls-unseen ok-then? 0= if nip exit then lf-mls-walk lf-mls-forget ;'''
-new = '''  lf-mls-unseen ok-then? 0= if nip exit then lf-mls-walk ;'''
+old = '''  lf-mls-unseen ok-then? if lf-mls-walk lf-mls-forget then ;'''
+new = '''  lf-mls-unseen ok-then? if lf-mls-walk then ;'''
 test = "$GFORTH tests/core/mixed-level-substitute.fs"
 reason = "S3: the reached set keeps its entries after an audit"
 
