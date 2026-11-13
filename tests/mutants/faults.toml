@@ -14994,3 +14994,55 @@ old = '''        out += ["/-- The postcondition: each case's guard implies its o
 new = '''        out += [f"/-- {self.contract['statement']} -/", "/-- The postcondition: each case's guard implies its output and its ensures "'''
 test = "python3 tests/program/vc_check.py"
 reason = "B1: the contract's statement is copied into the generated Lean file again, as before the review"
+
+# The probe review of the B1 hotfix (2026-11-13): false contracts the reader let
+# through (scripts/program_vc.py).
+
+[[fault]]
+id = "vc-lines-split-anywhere"
+file = "scripts/program_vc.py"
+old = '''    for number, raw in enumerate(contract_lines(text, path), 1):'''
+new = '''    for number, raw in enumerate(text.splitlines(), 1):'''
+test = "python3 tests/program/vc_check.py"
+reason = "H1: the contract is split where splitlines splits (U+2028, NEL, VT, FF, a lone CR, ...), so a line no viewer shows, such as pre value < value, makes a false contract vacuously true"
+quick = true
+
+[[fault]]
+id = "vc-contract-read-as-text"
+file = "scripts/program_vc.py"
+old = '''    return Path(path).read_bytes().decode("utf-8")'''
+new = '''    return Path(path).read_text(encoding="utf-8")'''
+test = "python3 tests/program/vc_check.py"
+reason = "H1: the contract file is read in text mode, which turns a lone CR into a line break before the reader can refuse it"
+
+[[fault]]
+id = "vc-input-twice-allowed"
+file = "scripts/program_vc.py"
+old = '''    if len(set(contract["inputs"])) != len(contract["inputs"]):   # review M1: one would'''
+new = '''    if False:   # review M1: one would'''
+test = "python3 tests/program/vc_check.py"
+reason = "M1: an input named twice shadows the other and narrows the contract theorem, so a false contract (r = upper) is discharged"
+
+[[fault]]
+id = "vc-unbound-names-allowed"
+file = "scripts/program_vc.py"
+old = '''    unbound = contract_scope_problems(contract)'''
+new = '''    unbound = []'''
+test = "python3 tests/program/vc_check.py"
+reason = "M2: a name no input or result binds reaches Lean, where default reads as 0 and other names were auto-bound, so false contracts are discharged"
+
+[[fault]]
+id = "vc-auto-implicit"
+file = "scripts/program_vc.py"
+old = '''set_option autoImplicit false'''
+new = '''set_option autoImplicit true'''
+test = "python3 tests/program/vc_check.py"
+reason = "M2: the generated file lets Lean bind an unknown name as an implicit argument again"
+
+[[fault]]
+id = "vc-no-case-allowed"
+file = "scripts/program_vc.py"
+old = '''    if not contract["cases"]:   # review M3: post would be True'''
+new = '''    if False:   # review M3: post would be True'''
+test = "python3 tests/program/vc_check.py"
+reason = "M3: a contract with no case gives post := True and is discharged for any word"

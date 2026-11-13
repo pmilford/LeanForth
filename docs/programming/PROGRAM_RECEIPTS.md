@@ -14,11 +14,6 @@ wrote the proofs, its exporter wrote them with every declaration they use,
 and LeanForth's checker (`bin/leanforth check`) re-checked that export.
 Receipts for IR 0.2 programs (the SHA-256 helper words) will take version
 0.4 at the owner's [format] gate ([below](#schema-04-what-ir-02-receipts-need)).
-Since plan 8.4.1b the driver of `leanforth verify`,
-`scripts/program_verify.py` ([PROGRAM_VERIFY.md](PROGRAM_VERIFY.md)),
-writes a 0.3 receipt for any IR 0.1 word with a contract: `discharged`,
-`refuted` (a theorem `refuted` LeanForth accepted, as obligation `O1`),
-`open` or `unsupported`, with RUN `not-run`; the same reader checks it.
 
 A program receipt records what is known about one Forth word, and on what
 it rests. It answers three separate questions and never merges them into
@@ -352,11 +347,11 @@ The generated clamp receipt (`tests/program/receipts/generated/lf-clamp.json`):
     "evidence": [
       {
         "path": "tests/program/vc/obligations.lean",
-        "sha256": "6d0c701a4c9107946ea2478d5832f6fe2718a7d35c1e514e7476e4de34d0a92f"
+        "sha256": "2abd460a52f8a413b5fd9f9e6cffcb3f7ee5affca1346ed3082f913bb8141631"
       },
       {
         "path": "scripts/program_vc.py",
-        "sha256": "b05a9e082a0e84f0aea2ff58c45b83f80992c1ec489d26817ad8c21fc9af1d82"
+        "sha256": "04012f147279ee03b4fc689dfa104025b830bc2f65233d6e96226cae958301f0"
       },
       {
         "path": "scripts/export.sh",

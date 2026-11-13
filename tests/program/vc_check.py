@@ -17,7 +17,11 @@ reviewer's contract, whose statement closed a comment and redefined `≥` so
 that Lean accepted a false clamp contract, and a hostile corpus (comment
 delimiters, quotes and control or format characters in each text, name and
 path, of the contract and of the IR) are refused; any other statement gives
-the same Lean file.
+the same Lean file. The probe review's false contracts are refused too (H1,
+M1-M3): a line hidden behind each of the nine separators Python's
+splitlines knows, an input named twice, a name no input or result binds
+(`default`, `sorry`, an auto-bound `zz`), no case; the file sets
+autoImplicit false; CRLF line ends read as LF.
 
 With --lean it also has Lean 4.35.0 check the golden file (warnings are
 errors, so `sorry` fails), requires every theorem the summary names to use
@@ -124,6 +128,12 @@ def hostile_problems():
                        ("a zero-width space", "a\u200bb"), ("a bell", "a \x07 b"),
                        ("a soft hyphen", "a\u00adb")]:
         cases.append((f"a statement with {name}", clamp.replace(statement, text), None, ""))
+    cases += [(f"a line hidden after {name}", clamp.replace(
+        statement, f"For integers v, l, u.{separator}pre value < value"), None, "")
+        for name, separator in (("U+2028", "\u2028"), ("U+2029", "\u2029"), ("NEL", "\x85"),
+                                ("VT", "\x0b"), ("FF", "\x0c"), ("FS", "\x1c"), ("GS", "\x1d"),
+                                ("RS", "\x1e"), ("a lone CR", "\r"))]
+    cases += [(name, PROBE_HEAD + body, None, "") for name, body in PROBES]
     cases += [
         ("an id with -/", clamp.replace("id lf-clamp/0", "id lf-clamp-/0"), None, ""),
         ("an id with /-", clamp.replace("id lf-clamp/0", "id lf-clamp/-0"), None, ""),
@@ -137,6 +147,9 @@ def hostile_problems():
         ("a stack effect with a control character",
          clamp.replace("( value lower", "( \x1b value lower"), None, ""),
         ("a contract path with -/", clamp, None, "x-"),
+        ("a contract path with a format character", clamp, None, "x\u200by"),
+        ("an IR source path with a control character", SMALL,
+         SMALL_IR.replace("NAME", "w").replace("SOURCE", "w\x1b.fs"), ""),
         ("an IR name with a quote", SMALL,
          SMALL_IR.replace("NAME", 'w"x').replace("SOURCE", "w.fs"), ""),
         ("an IR name with a backslash", SMALL, SMALL_IR.replace("NAME", "w\\").replace(
@@ -146,7 +159,6 @@ def hostile_problems():
         ("an IR source path with /-", SMALL, SMALL_IR.replace("NAME", "w").replace(
             "SOURCE", "a/-w.fs"), ""),
     ]
-    cases += contract_rule_cases(clamp)
     problems = []
     for name, text, ir_text, folder in cases:
         got = status_of(text, ir_text, folder)
@@ -154,45 +166,53 @@ def hostile_problems():
             problems.append(f"hostile contract ({name}): {got}, expected malformed")
     if status_of(SMALL, SMALL_IR.replace("NAME", "w").replace("SOURCE", "w.fs")) != "discharged":
         problems.append("the small contract the hostile IR cases change is not discharged")
-    return problems + harmless_problems(clamp, statement) + search_note_problems(clamp)
+    if "\nset_option autoImplicit false\n" not in GOLDEN_LEAN.read_text(encoding="utf-8"):
+        problems.append("the generated Lean file does not set autoImplicit false")
+    return (problems + harmless_problems(clamp, statement) + crlf_problems(clamp)
+            + search_note_problems(clamp))
 
 
-def contract_rule_cases(clamp):
-    """Contracts the reader refuses since review M4 (2026-11-13): no case, a line given
-    twice, a name read but never bound, a name Lean already has."""
-    no_cases = clamp.split("case lower > upper", 1)[0] + "expect discharged\n"
-    cases = [("no case", no_cases)]
-    for key, line in (("id", "id lf-clamp/1"), ("word", "word lf-clamp"),
-                      ("ir", "ir tests/program/ir/clamp.ir"), ("stack", "stack ( a -- b )"),
-                      ("statement", "statement Twice."), ("inputs", "inputs value lower upper"),
-                      ("expect", "expect refuted")):
-        cases.append((f"a second {key} line", clamp + line + "\n"))
-    cases += [
-        ("an ensure reading an unbound name", clamp.replace(
-            "ensure value > upper -> r = upper", "ensure value > upper -> r = foo")),
-        ("an ensure reading default", clamp.replace(
-            "ensure value > upper -> r = upper", "ensure r >= default")),
-        ("a guard reading an unbound name", clamp.replace("case lower > upper",
-                                                          "case lower > bound")),
-        ("a pre reading an unbound name", clamp.replace("case lower > upper",
-                                                        "pre lower > bound\ncase lower > upper")),
-        ("a result read in another case", clamp.replace("  out false", "  out false\n"
-                                                        "  ensure r = 0")),
-        ("an input named default", clamp.replace("inputs value lower upper",
-                                                 "inputs value lower default")
-         .replace("upper", "default").replace("inputs value lower default",
-                                              "inputs value lower default")),
-        ("an input named max", clamp.replace("inputs value lower upper", "inputs value lower max")),
-        ("an input named ir_max", clamp.replace("inputs value lower upper",
-                                                "inputs value lower ir_max")),
-        ("an input named twice", clamp.replace("inputs value lower upper",
-                                               "inputs value lower lower")),
-        ("a result named default", clamp.replace("out r true", "out default true")
-         .replace("ensure r ", "ensure default ").replace("-> r ", "-> default ")
-         .replace("&& r <=", "&& default <=")),
-        ("a result named out", clamp.replace("out r true", "out out true")),
-    ]
-    return [(name, text, None, "") for name, text in cases]
+# The probe review's other false contracts (2026-11-13), each discharged before the fix.
+PROBE_HEAD = """lf-contract 0.1
+id lf-clamp/probe
+word lf-clamp
+ir tests/program/ir/clamp.ir
+stack ( value lower upper -- result true | false )
+"""
+PROBES = [
+    ("an input named twice (M1)", "inputs value upper upper\nstatement Upper.\ncase true\n"
+     "  out r true\n  ensure r = upper\n"),
+    ("default read as 0 (M2)", "inputs value lower upper\nstatement D.\n"
+     "case lower <= upper && value = 7\n  out r true\n  ensure r - r = default\n"
+     "case lower > upper\n  out false\n"),
+    ("an auto-bound name (M2)", "inputs value lower upper\nstatement A.\npre value = 7\n"
+     "pre zz + value < zz + value\ncase true\n  out r true\n  ensure r = 1000\n"),
+    ("sorry read as a name (M2)", "inputs value lower upper\nstatement S.\n"
+     "case lower <= upper && value = 7\n  out r true\n  ensure r = sorry\ncase lower > upper\n"
+     "  out false\n"),
+    ("a guard reading an unbound name (M2)", "inputs value lower upper\nstatement G.\n"
+     "case lower > bound\n  out false\ncase lower <= upper\n  out r true\n"),
+    ("a result read in another case (M2)", "inputs value lower upper\nstatement R.\n"
+     "case lower > upper\n  out false\n  ensure r = 0\ncase lower <= upper\n  out r true\n"),
+    ("no case (M3)", "inputs value lower upper\nstatement The word clamps.\n"),
+    ("a second word line", "inputs value lower upper\nstatement W.\nword lf-clamp\n"
+     "case true\n  out r true\n"),
+    ("a second inputs line", "inputs value lower upper\ninputs value lower upper\n"
+     "statement I.\ncase true\n  out r true\n"),
+]
+
+
+def crlf_problems(clamp):
+    """CRLF line ends read as LF: the same summary and the same Lean file."""
+    texts = []
+    for text in (clamp, clamp.replace("\n", "\r\n")):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "c.contract"
+            path.write_bytes(text.encode("utf-8"))
+            lean, summary = program_vc.generate([str(path)])
+        texts.append((lean.replace(str(path), "C"), summary[0]["status"]))
+    return [] if texts[0] == texts[1] and texts[0][1] == "discharged" else [
+        "a contract with CRLF line ends reads otherwise than with LF"]
 
 
 def summary_of(contract_text):
@@ -204,7 +224,8 @@ def summary_of(contract_text):
 
 def search_note_problems(clamp):
     """The search says when it tried nothing (no candidate meets pre) and which inputs no
-    case covers; the committed contracts have neither, so their summaries have no notes."""
+    case covers (review M4 of the verify design); the committed contracts have neither, so
+    their summaries have no notes."""
     problems = []
     impossible = clamp.replace("case lower > upper", "pre lower > 100 && lower < 50\n"
                                "case lower > upper")

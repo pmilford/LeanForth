@@ -73,15 +73,6 @@ def model_ranges(lines):
         (at("def Prim.word"), last_before_blank(at("def render ")))
 
 RESERVED = re.compile(r"(c|fuel|tail|rs|out|g|h|this|[fhp][0-9]+|pre[0-9]+)$")
-# Lower-case names the generated Lean file uses or Lean defines, which an input or a
-# result name could shadow or an unbound name could silently mean (review M4 of the
-# verify design: `default` is 0 in Int): refused as names; ir_ and vc_ names too.
-LEAN_NAMES = frozenset(
-    "default id max min abs flag fits decide bitwise post program contract refuted run step "
-    "lookup render cells64 callword true false fun let have show from at by do then else if "
-    "match with in theorem def open end namespace section variable universe where instance "
-    "structure class inductive macro syntax notation import sorry rfl trivial omega simp "
-    "exact intro and or not example abbrev opaque axiom calc obtain cases".split())
 CELL_BITS = 64               # counterexamples are searched and refuted on 64-bit cells
 CMIN, CMAX = -(1 << (CELL_BITS - 1)), (1 << (CELL_BITS - 1)) - 1
 
@@ -361,19 +352,37 @@ class ExprParser:
         raise Malformed(f"unexpected {token}")
 
 
-def lean_name_problem(name, result=False):
-    """Why a contract's own name, an input or (result) a result of a case, is not allowed,
-    or None. A result is bound inside post, where only post's own parameters clash with
-    it; the proofs' hypothesis names (g, h, p1, ...) do not."""
-    clash = name in RESULT_RESERVED if result else RESERVED.match(name)
-    if not re.fullmatch(r"[a-z][a-z0-9_]*", name) or clash:
-        return "is not allowed"
-    if name in LEAN_NAMES or name.startswith(("ir_", "vc_")):
-        return "is a name the generated Lean file or Lean uses"
-    return None
+def contract_lines(text, path):
+    """The contract's lines, split at LF only (a CR just before an LF dropped), or Malformed
+    when the file holds a character that would hide a line (review H1, 2026-11-13: Python's
+    splitlines also breaks at U+2028, U+2029, NEL, VT, FF, U+001C-U+001E and a lone CR,
+    which viewers do not show, so a hidden `pre value < value` made a false contract
+    vacuously true): any control character but LF and TAB, a CR not before an LF, and
+    format and separator characters (Unicode Cc, Cf, Cs, Zl, Zp)."""
+    for number, line in enumerate(text.split("\n"), 1):
+        body = line[:-1] if line.endswith("\r") else line
+        hidden = [f"U+{ord(ch):04X}" for ch in body
+                  if ch != "\t" and unicodedata.category(ch) in HIDDEN]
+        if hidden:
+            raise Malformed(f"{path}:{number}: the file holds {', '.join(hidden[:3])}, which "
+                            "could hide a line: refused")
+    return [line[:-1] if line.endswith("\r") else line for line in text.split("\n")]
 
 
-RESULT_RESERVED = ("c", "fuel", "tail", "rs", "out", "this")
+def contract_scope_problems(contract):
+    """Names a contract reads but never binds (review M2): a `pre` line and a guard may read
+    only inputs, an ensure line also the results its case names on its out line. In Lean
+    an unbound name would be auto-bound (now refused there too) or a global (`default` is
+    0 in Int), and either can make a false contract true."""
+    inputs, problems = set(contract["inputs"]), []
+    for expr in contract["pre"]:
+        problems += sorted(variables(expr) - inputs)
+    for case in contract["cases"]:
+        results = {t for t in case["out"] if out_item(t, inputs)[0] == "unknown"}
+        problems += sorted(variables(case["guard"]) - inputs)
+        for expr, _ in case["ensure"]:
+            problems += sorted(variables(expr) - inputs - results)
+    return problems
 
 
 def variables(expr, found=None):
@@ -387,31 +396,20 @@ def variables(expr, found=None):
     return found
 
 
-def binding_problems(contract):
-    """Names a contract reads but never binds (an input, or a result of the case): in
-    Lean such a name would be an error at best and a global (`default`) at worst."""
-    inputs, problems = set(contract["inputs"]), []
-    for expr in contract["pre"]:
-        problems += sorted(variables(expr) - inputs)
-    for case in contract["cases"]:
-        results = {t for t in case["out"] if out_item(t, inputs)[0] == "unknown"}
-        for name in sorted(results):
-            if lean_name_problem(name, result=True):
-                problems.append(f"{name} (a result name that "
-                                f"{lean_name_problem(name, result=True)})")
-        problems += sorted(variables(case["guard"]) - inputs)
-        for expr, _ in case["ensure"]:
-            problems += sorted(variables(expr) - inputs - results)
-    return problems
+def read_contract(path):
+    """A contract file's text exactly as stored: Python's text mode would turn a lone CR,
+    which no viewer shows, into a line break before contract_lines could refuse it."""
+    return Path(path).read_bytes().decode("utf-8")
 
 
+# Lines a contract has at most once: a second one would quietly replace the first.
 SINGLE_LINES = ("id", "word", "ir", "stack", "statement", "expect", "inputs")
 
 
 def parse_contract(text, path):
     contract = {"path": path, "pre": [], "cases": [], "file": None}
     case = None
-    for number, raw in enumerate(text.splitlines(), 1):
+    for number, raw in enumerate(contract_lines(text, path), 1):
         line = raw.split("#", 1)[0].rstrip() if not raw.lstrip().startswith("statement") else raw
         if not line.strip():
             continue
@@ -444,19 +442,19 @@ def parse_contract(text, path):
         if field not in contract:
             raise Malformed(f"{path}: no {field}")
     for name in contract["inputs"]:
-        if lean_name_problem(name):
-            raise Malformed(f"{path}: input name {name} {lean_name_problem(name)}")
-    if len(set(contract["inputs"])) != len(contract["inputs"]):
-        raise Malformed(f"{path}: an input named twice")
-    if not contract["cases"]:
+        if not re.fullmatch(r"[a-z][a-z0-9_]*", name) or RESERVED.match(name):
+            raise Malformed(f"{path}: input name {name} is not allowed")
+    if len(set(contract["inputs"])) != len(contract["inputs"]):   # review M1: one would
+        raise Malformed(f"{path}: an input named twice")         # shadow the other
+    if not contract["cases"]:   # review M3: post would be True
         raise Malformed(f"{path}: no case: the contract would state nothing")
     for case in contract["cases"]:
         if case["out"] is None:
             raise Malformed(f"{path}: a case without out")
-    unbound = binding_problems(contract)
+    unbound = contract_scope_problems(contract)
     if unbound:
-        raise Malformed(f"{path}: names neither an input nor a result of their case: "
-                        f"{', '.join(unbound)}")
+        raise Malformed(f"{path}: reads names that are neither an input nor a result of "
+                        f"their case: {', '.join(unbound)}")
     checked_text(path, "the contract's path")
     for field in ("id", "ir", "statement", "stack"):
         checked_text(contract[field], f"{path}: the {field} line")
@@ -1309,6 +1307,8 @@ end ProgramIR
 -- Proofs are generated; their binders and simp sets are uniform, not minimal.
 set_option linter.unusedVariables false
 set_option linter.unusedSimpArgs false
+-- A name the generator did not bind is an error, never an implicit argument (review M2).
+set_option autoImplicit false
 
 namespace ProgramVC
 open ProgramIR
@@ -1348,7 +1348,7 @@ def generate(contract_paths):
     with the IR file its `ir` line names."""
     items = []
     for path in contract_paths:
-        contract = parse_contract(Path(path).read_text(encoding="utf-8"), path)
+        contract = parse_contract(read_contract(path), path)
         items.append((contract, Path(contract["ir"]).read_text(encoding="utf-8")))
     text, summary, _ = generate_parsed(items)
     return text, summary
