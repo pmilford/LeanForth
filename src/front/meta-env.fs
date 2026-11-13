@@ -108,9 +108,16 @@ end-structure
 \ ---- canUnfoldDefault: per mode, the statuses it unfolds (bit k for
 \ status k: semireducible, reducible, irreducible, implicit-reducible,
 \ instance-reducible); all and none need no status.
+: me-bit ( status -- mask ) 1 swap lshift ;
+: me-every ( -- mask ) elab-instance-reducible 1+ me-bit 1- ;
+: me-default ( -- mask ) me-every elab-irreducible me-bit invert and ;
+: me-reducible ( -- mask ) elab-reducible me-bit ;
+: me-instances ( -- mask ) me-reducible elab-instance-reducible me-bit or ;
+: me-implicit ( -- mask ) me-instances elab-implicit-reducible me-bit or ;
 : me-mask ( mode -- mask )
-  case lf-tr-all of 31 endof lf-tr-default of 27 endof lf-tr-reducible of 2 endof
-    lf-tr-instances of 18 endof lf-tr-implicit of 26 endof 0 swap endcase ;
+  case lf-tr-all of me-every endof lf-tr-default of me-default endof
+    lf-tr-reducible of me-reducible endof lf-tr-instances of me-instances endof
+    lf-tr-implicit of me-implicit endof 0 swap endcase ;
 : me-status-free? ( mode -- flag ) dup lf-tr-all = swap lf-tr-none = or ;
 : me-unfolds? ( status mode -- flag ) me-mask swap rshift 1 and 0<> ;
 : me-by-status ( d mode -- flag outcome )

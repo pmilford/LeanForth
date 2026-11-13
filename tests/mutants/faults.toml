@@ -11953,16 +11953,16 @@ reason = "a letE's body is renumbered as if outside its binder: its own variable
 [[fault]]
 id = "fe-env-instances-unfold-implicit"
 file = "src/front/meta-env.fs"
-old = '''    lf-tr-instances of 18 endof lf-tr-implicit of 26 endof 0 swap endcase ;'''
-new = '''    lf-tr-instances of 26 endof lf-tr-implicit of 26 endof 0 swap endcase ;'''
+old = ''': me-instances ( -- mask ) me-reducible elab-instance-reducible me-bit or ;'''
+new = ''': me-instances ( -- mask ) me-reducible elab-instance-reducible me-bit or 8 or ;'''
 test = "$GFORTH tests/front/meta-env.fs"
 reason = "FE1c: instances transparency also unfolds implicit-reducible declarations, which Lean's canUnfoldDefault does only at implicit"
 
 [[fault]]
 id = "fe-env-default-unfolds-irreducible"
 file = "src/front/meta-env.fs"
-old = '''  case lf-tr-all of 31 endof lf-tr-default of 27 endof lf-tr-reducible of 2 endof'''
-new = '''  case lf-tr-all of 31 endof lf-tr-default of 31 endof lf-tr-reducible of 2 endof'''
+old = ''': me-default ( -- mask ) me-every elab-irreducible me-bit invert and ;'''
+new = ''': me-default ( -- mask ) me-every ;'''
 test = "$GFORTH tests/front/meta-env.fs"
 reason = "FE1c: default transparency unfolds an irreducible declaration (Nat.div)"
 
@@ -12081,8 +12081,8 @@ reason = "FE1c: a reduced part (a major premise, a projection's structure) is gi
 [[fault]]
 id = "fe-whnf-frame-term-lost"
 file = "src/front/whnf.fs"
-old = '''  0 wc-top wc wc-aux ! 1 wc-top wc wc-e ! 2 wc-top -3 wc-frames slab-commit ;'''
-new = '''  0 wc-top wc wc-aux ! 2 wc-top -3 wc-frames slab-commit ;'''
+old = '''  wc-top dup wcf-aux @ wc wc-aux ! dup wcf-term @ wc wc-e ! wcf-kind @'''
+new = '''  wc-top dup wcf-aux @ wc wc-aux ! wcf-kind @'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "FE1c: a resumed frame works on the term of the step that ran last, not its own (a nested recursor)"
 

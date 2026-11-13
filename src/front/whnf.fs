@@ -75,7 +75,8 @@ require ./meta-env.fs
 begin-structure /wc
   field: wc-limit    \ steps a call may take; 0: the default
   field: wc-fuel     \ steps left in this call
-  field: wc-src      \ the slab wc-apply reads arguments from
+  field: wc-src      \ the slab wc-apply reads arguments from (set just
+                     \ before each use: wc-from; one step's register)
   field: wc-e        \ the recursor step's term,
   field: wc-head     \ its head constant,
   field: wc-data     \ the recursor's inductive data
@@ -85,7 +86,12 @@ end-structure
 1 cells context-slab: wc-args     \ the term's arguments, last first
 1 cells context-slab: wc-margs    \ the major premise's arguments, last first
 1 cells context-slab: wc-levels   \ the recursor's universe arguments
-1 cells context-slab: wc-frames   \ the frames: kind, term, aux each
+begin-structure /wcf
+  field: wcf-kind    \ wc-proj-kind or wc-rec-kind
+  field: wcf-term    \ the step's term
+  field: wcf-aux     \ a recursor step's declaration
+end-structure
+/wcf context-slab: wc-frames      \ the frames, the newest last
 : lf-whnf-fuel! ( n -- ) wc wc-limit ! ;
 : wc-start ( -- )
   wc-frames slab-clear wc wc-limit @ ?dup 0= if lf-whnf-default-fuel then wc wc-fuel ! ;
@@ -122,12 +128,14 @@ end-structure
 \ wc-frames and goes on with the part; when the part is done, the frame
 \ resumes with it (wc-resume), as Lean's call of whnf returns.
 0 constant wc-proj-kind   1 constant wc-rec-kind
+: wc-top ( -- frame ) wc-frames dup slab-count 1- swap slab-at ;
+\ One frame claimed whole, or none (full).
 : wc-frame ( kind e aux -- outcome )
-  >r swap wc-frames wc-push >r wc-frames wc-push r> outcome-and
-  r> wc-frames wc-push outcome-and ;
-: wc-top ( k -- x ) wc-frames slab-count 1- swap - wc-frames slab-at @ ;
+  1 wc-frames slab-claim nip dup ok? 0= if >r 2drop drop r> exit then drop
+  wc-top tuck wcf-aux ! tuck wcf-term ! wcf-kind ! outcome-ok ;
 : wc-pop ( -- kind )
-  0 wc-top wc wc-aux ! 1 wc-top wc wc-e ! 2 wc-top -3 wc-frames slab-commit ;
+  wc-top dup wcf-aux @ wc wc-aux ! dup wcf-term @ wc wc-e ! wcf-kind @
+  -1 wc-frames slab-commit ;
 : wc-framed? ( -- flag ) wc-frames slab-count 0> ;
 
 \ ---- Leaves: metavariables, let variables, lets.
@@ -177,7 +185,6 @@ end-structure
 : wc-single? ( -- flag ) lf-irc-motives wc-irc 1 = ;
 : wc-term ( -- e ) wc wc-e @ ;
 : wc-stay ( -- e false outcome ) wc-term wc-done ;
-: wc-no ( outcome -- -1 false outcome ) wc-fail ;
 : wc-short? ( -- flag ) wc-args slab-count wc-major-at > 0= ;
 : wc-major ( -- term ) wc-major-at wc-args wc-arg ;
 
@@ -236,7 +243,7 @@ end-structure
   wc-prefixed ok-then? 0= if nip no-result exit then
   swap wc-fields ok-then? if wc-rest else no-result then ;
 : wc-ctor-major ( mhead -- e' flag outcome )
-  dup wc-foldable? if drop outcome-unsupported wc-no exit then
+  dup wc-foldable? if drop outcome-unsupported wc-fail exit then
   wc-name wc-rule 0= if wc-stay exit then
   wc-levels-ok? 0= if drop wc-stay exit then wc-fire wc-go ;
 
@@ -266,13 +273,13 @@ end-structure
 : wc-inert-major? ( mhead -- flag )
   dup wc-head-inert? over wc-leaf-inert? or swap wc-const-inert? or ;
 : wc-major-head ( mhead -- e' flag outcome )
-  wc-induct-data dup 0= if 2drop outcome-unsupported wc-no exit then
-  over swap wc-eta? if drop outcome-unsupported wc-no exit then
+  wc-induct-data dup 0= if 2drop outcome-unsupported wc-fail exit then
+  over swap wc-eta? if drop outcome-unsupported wc-fail exit then
   dup wc-ctor? if wc-ctor-major exit then
-  wc-inert-major? if wc-stay else outcome-unsupported wc-no then ;
+  wc-inert-major? if wc-stay else outcome-unsupported wc-fail then ;
 : wc-reduce-rec ( -- e' flag outcome )
   wc-short? if wc-stay exit then
-  wc-k? wc-single? 0= or if outcome-unsupported wc-no exit then
+  wc-k? wc-single? 0= or if outcome-unsupported wc-fail exit then
   wc-major wc-rec-kind wc-term wc wc-aux @ wc-frame wc-go ;
 : wc-iota ( e head d -- e' flag outcome )
   dup wc wc-aux ! lf-input-decl lf-idecl-data wc wc-data ! wc wc-head ! wc wc-e !
@@ -284,7 +291,7 @@ end-structure
   wc-term wc-args wc-spine ok-then? if wc wc-head ! outcome-ok then ;
 : wc-rec-resume ( r -- e' flag outcome )
   wc-rec-frame dup ok? 0= if wc-drop-fail exit then drop
-  wc-margs wc-spine ok-then? if wc-major-head else wc-no then ;
+  wc-margs wc-spine ok-then? if wc-major-head else wc-fail then ;
 
 \ ---- Projections (projectCore?): the structure's whnf r, a constructor
 \ applied to more than its parameters and the field's index, gives that
@@ -305,8 +312,8 @@ end-structure
   over wc-ctor? if wc-field else 2drop false then ;
 : wc-proj-frame ( -- p outcome ) wc-term wc-args wc-spine ;
 : wc-proj-resume ( r -- e' flag outcome )
-  wc-margs wc-spine ok-then? 0= if wc-no exit then
-  dup wc-unfinal? if drop outcome-unsupported wc-no exit then
+  wc-margs wc-spine ok-then? 0= if wc-fail exit then
+  dup wc-unfinal? if drop outcome-unsupported wc-fail exit then
   wc-proj-frame ok-then? 0= if wc-drop-fail exit then
   wc-project if wc-rebuild wc-go else wc-stay then ;
 : wc-proj-head ( e head -- e' flag outcome )
@@ -370,10 +377,12 @@ end-structure
   wc-major wc-margs wc-spine ok-then? if ws-major-head else false swap then ;
 : ws-rec ( head d -- mvar true outcome | false outcome )
   lf-input-decl lf-idecl-data wc wc-data ! drop ws-major ;
-: ws-mvar-free? ( app -- flag ) lf-term-data@ dup if nip then ;
+\ A binary node's data word is known only when no metavariable is in it
+\ (core/terms.fs): Lean's hasExprMVar is false.
+: ws-data-known? ( app -- flag ) lf-term-data@ dup if nip then ;
 : ws-kind ( e d -- false outcome )
   lf-menv-kind dup lf-kind-quotient = if 2drop false outcome-unsupported exit then
-  lf-kind-definition = if ws-mvar-free? ws-none? else drop false outcome-ok then ;
+  lf-kind-definition = if ws-data-known? ws-none? else drop false outcome-ok then ;
 : ws-const ( e head -- mvar true outcome | false outcome )
   dup wc-decl 0= if 2drop false outcome-ok exit then
   dup wc-recursor? if rot drop ws-rec else nip ws-kind then ;

@@ -148,9 +148,9 @@ end-structure
 : if-args-in ( type -- type' outcome )
   0 if-j ! if-n 0 ?do i if-enter dup ok? 0= if unloop exit then drop loop
   if-n if-flush ;
-: if-head-type ( head -- type outcome )
-  dup if-tag dup lf-tag-app = over lf-tag-lam = or swap lf-tag-pi = or
-  if outcome-unsupported if-fail else dup if-tag if-leaf then ;
+\ A spine's head is no application; a lambda, pi, let or projection
+\ there answers unsupported (if-leaf).
+: if-head-type ( head -- type outcome ) dup if-tag if-leaf ;
 : if-app ( term -- type outcome )
   if-spine ok-then? 0= if no-result exit then
   if-head-type ok-then? if if-args-in else no-result then ;
