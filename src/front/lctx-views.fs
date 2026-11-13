@@ -33,8 +33,12 @@
 \ - lf-view-find ( view fvar -- i true | false ): its place (contains);
 \   lf-view-named ( view name -- i true | false ): the newest accessible
 \   local of that name (findFromUserName?);
-\ - lf-view-sub-prefix? ( view1 view2 -- flag ): isSubPrefixOf without
-\   exceptions, view1's free variables found in view2 in the same order;
+\ - lf-view-sub-prefix? ( view1 view2 -- flag ): isSubPrefixOf, view1's
+\   free variables found in view2 in the same order (others between);
+\   lf-view-sub-prefix-except? ( view1 view2 addr n -- flag ): the same
+\   with exceptFVars, the n free variables in the cells at addr, which
+\   view1's locals may hold without view2 holding them (checkAssignment's
+\   pattern variables); a negative n, or a view that names none, is false;
 \ - lf-view-count ( view -- n ), lf-view-local ( view i -- local )
 \   (unchecked: a valid view, 0 <= i < n), lf-view-valid? ( view -- flag ).
 \ Local instances (Lean's MetavarDecl.localInstances) are the view's
@@ -45,8 +49,9 @@
 \ no local or view; full when the heap refuses. A failure makes nothing
 \ reachable. Untrusted: whatever a context says, the kernel's check of
 \ the finished term decides.
-\ State: the slab lv-locals, and the runs of runs.fs, in the checker
-\ context (ADR 0009).
+\ State: the slab lv-locals and the record lv (the exceptions of the
+\ comparison under way, as mvars.fs keeps an occurs check's target), and
+\ the runs of runs.fs, in the checker context (ADR 0009).
 
 require ../lib/lib.fs
 require ../core/names.fs
@@ -62,6 +67,11 @@ begin-structure /loc
   field: loc-class     \ a local instance's class name, or 0
 end-structure
 /loc context-slab: lv-locals
+begin-structure /lv
+  field: lv-except     \ the free variables a comparison skips: their cells
+  field: lv-except#    \ and how many
+end-structure
+/lv context-record: lv
 : lf-views-reset ( -- ) lv-locals slab-clear lf-runs-reset ;
 
 3 constant lf-local-binder-mask      \ the binder kind, lf-binder-*
@@ -161,11 +171,21 @@ end-structure
   >r over swap lf-view-find if r> lv-renamed-at else r> 2drop -1 outcome-invalid then ;
 
 \ Lean's isSubPrefixOf: walking view2, each of view1's free variables in
-\ turn is found (k of them so far).
+\ turn is found (k of them so far), view1's exceptions passed over.
+: lv-except! ( addr n -- ) lv tuck lv-except# ! lv-except ! ;
+: lv-skip? ( fvar -- flag )
+  lv lv-except @ lv lv-except# @ cells over + swap
+  ?do dup i @ = if drop true unloop exit then cell +loop drop false ;
+: lv-more? ( view1 k -- flag ) swap lf-view-count < ;
+: lv-skipped ( view1 k -- view1 k' )
+  begin 2dup lv-more? while 2dup lv-fvar-at lv-skip? 0= if exit then 1+ repeat ;
 : lv-advance ( view1 k fvar -- view1 k' )
-  >r 2dup swap lf-view-count < if 2dup lv-fvar-at r@ = if 1+ then then r> drop ;
+  >r lv-skipped 2dup lv-more? if 2dup lv-fvar-at r@ = if 1+ then then r> drop ;
 : lv-scan ( view1 k view2 -- view1 k' )
   dup lf-view-count 0 ?do dup i lv-fvar-at swap >r lv-advance r> loop drop ;
-: lf-view-sub-prefix? ( view1 view2 -- flag )
+: lv-sub? ( view1 view2 -- flag )
   2dup lf-view-valid? swap lf-view-valid? and 0= if 2drop false exit then
-  0 swap lv-scan swap lf-view-count = ;
+  0 swap lv-scan lv-skipped swap lf-view-count = ;
+: lf-view-sub-prefix? ( view1 view2 -- flag ) 0 0 lv-except! lv-sub? ;
+: lf-view-sub-prefix-except? ( view1 view2 addr n -- flag )
+  dup 0< if 2drop 2drop false exit then lv-except! lv-sub? ;

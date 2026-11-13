@@ -113,6 +113,22 @@ T{ v13 v123 lf-view-sub-prefix? v123 v13 lf-view-sub-prefix? v1 v13 lf-view-sub-
 T{ 0 v1 lf-view-sub-prefix? v123 v123 lf-view-sub-prefix? 99 v1 lf-view-sub-prefix? -> true true false }T
 0 l3 lf-view-push made lc1 lf-view-push made constant v31
 T{ v31 v123 lf-view-sub-prefix? v123 v31 lf-view-sub-prefix? -> false false }T
+\ With exceptions (Lean's exceptFVars): view1's excepted locals need not
+\ be in view2, wherever they stand (also last); an exception view1 lacks
+\ changes nothing; none is the plain test; a negative count is false.
+create exc 3 cells allot
+: exc! ( fvar i -- ) cells exc + ! ;
+x2 0 exc!  x3 1 exc!  99999 2 exc!
+T{ v123 v13 exc 1 lf-view-sub-prefix-except? v123 v1 exc 1 lf-view-sub-prefix-except?
+   -> true false }T
+T{ v123 v1 exc 2 lf-view-sub-prefix-except? v13 v1 exc 1 cells + 1 lf-view-sub-prefix-except?
+   -> true true }T
+T{ v123 v123 exc 2 cells + 1 lf-view-sub-prefix-except? v123 v13 exc 0 lf-view-sub-prefix-except?
+   -> true false }T
+T{ v123 v13 exc -1 lf-view-sub-prefix-except? 99 v13 exc 1 lf-view-sub-prefix-except?
+   -> false false }T
+\ The plain test after one with exceptions has none (they do not linger).
+T{ v123 v13 exc 1 lf-view-sub-prefix-except? v123 v13 lf-view-sub-prefix? -> true false }T
 
 \ ---- Each metavariable's local context: the current one, or one given.
 T{ lf-mctx-view nat mv-natural lf-mvar-new made lf-mvar-view -> 0 0 true }T
@@ -257,6 +273,11 @@ g-fresh
 0 nat s" a" hyp drop nat s" b" hyp-detail drop nat s" c" hyp-aux drop nat s" d" hyp drop
 constant vhid
 T{ true. 0 vhid goal goal-text s\" a d : Nat\n⊢ True" compare -> 0 }T
+\ Types with literals, built apart, are equal (Lean's == on literals): one
+\ line; types that differ in a literal are not.
+0 0 num 0 num eq s" h1" hyp drop 0 num 0 num eq s" h2" hyp drop 1 num 0 num eq s" h3" hyp drop
+constant vlit
+T{ true. 0 vlit goal goal-text s\" h1 h2 : 0 = 0\nh3 : 1 = 0\n⊢ True" compare -> 0 }T
 \ A let value: shown up to Lean's approxDepth 254 for a tactic goal (the
 \ sum of 126 ones; Lean measured 2n + 2 for n ones), as ⋯ past it; for
 \ a goal of another kind (not synthetic opaque) only a leaf shows.
