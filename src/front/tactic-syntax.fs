@@ -219,11 +219,9 @@ max-n store-header - /targ cell+ / constant targ-limit
 \ Names given to hypotheses: _, or a name that is no LeanForth word,
 \ which the block's text can use until the block ends (groups.fs).
 : lft-hole? ( c-addr u -- flag ) s" _" lfa-token= ;
-: lft-syntax-word? ( c-addr u -- flag )
-  2dup lf-words search-wordlist 0= if 2drop false exit then
-  >body lfa-syntax-name lfa-token= ;
-: lft-no-word ( c-addr u -- c-addr u )
-  2dup lft-syntax-word? 0= lfa-e-tac-header lfa-must ;
+\ The LeanForth words are the printer's reserved list (words.fs checks
+\ each against it), which needs no name lookup in the front end.
+: lft-no-word ( c-addr u -- c-addr u ) 2dup lf-pf-reserved? 0= lfa-e-tac-header lfa-must ;
 : lft-entry! ( c-addr u j -- )
   >r lf-locals lfa-entry-new lfa-entry-hypothesis r> rot lfa-entry-set ;
 : lft-hypothesis ( i c-addr u -- i )

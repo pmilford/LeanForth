@@ -26,6 +26,8 @@ create canon-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf-in
 [defined] syn-store [if] ' syn-store , [then]
 \ And the metavariable context's stores (src/front/mvars.fs, plan FE1b).
 [defined] mv-exprs [if] ' mv-exprs , ' mv-levels , ' mv-fvars , [then]
+\ And the tactic record's stores (src/front/tactic-syntax.fs, plan FE1g-2).
+[defined] tac-steps [if] ' tac-steps , ' tac-args , [then]
 here canon-stores - 1 cells / constant canon-stores#
 : canon-store# ( i -- store ) cells canon-stores + @ execute ;
 : canon-mix ( h x -- h' ) swap 31 * + ;
