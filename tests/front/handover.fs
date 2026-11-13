@@ -99,7 +99,8 @@ T{ lhole @ 1 lfa-level-number lf-level-tag-max lf-level-binary nip -> true }T
 T{ lf-level-count @ 1- sort-of -1 lf-holes-reached? -> true outcome-ok }T
 \ A Sort naming no level of the store (a broken node): the level is never
 \ marked, nothing is written outside the table.
-T{ 1000000 lf-term-symbolic-sort nip -1 lf-holes-reached? -> false outcome-ok }T
+T{ 1000000 lf-term-symbolic-sort drop dup -1 lf-holes-reached? rot lf-term-tag@
+   -> false outcome-ok lf-tag-symbolic-sort }T
 \ Empty stores: nothing to reach, no hole.
 T{ lf-author-begin -1 -1 lf-holes-reached? -> false outcome-ok }T
 T{ kernel -> }T
