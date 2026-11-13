@@ -368,6 +368,14 @@ T{ r1p lf-instantiate-mvars nip -> outcome-ok }T
 T{ 1 mv-fvars store-limit! x lf-delay-fvar x lf-delay-fvar -> outcome-ok outcome-ok outcome-full }T
 T{ 1 cells mv-limit mv-fvars store-limit! -> outcome-ok }T
 
+\ Library constants whose types may unfold (review fe1ab L1; exported by
+\ pinned Lean from tests/reference/front-unfold.lean): c : F Nat, F a
+\ definition, and d : (fun α => α → α) Nat, a beta redex. Lean's whnf
+\ gives each an explicit argument; the reader stops (73), never guesses.
+T{ lfc-library-close s" tests/front/unfold-slice.ndjson" true lfc-library-open -> outcome-ok }T
+T{ s" theorem t Nat explicit: x x c x = := x end t" nfails -> 73 1 29 }T
+T{ s" theorem t Nat explicit: x x d x = := x end t" nfails -> 73 1 29 }T
+T{ lf-author-code lf-author-outcome -> outcome-unsupported }T
 T{ lfc-library-close -> }T
 T{ depth -> 0 }T
 cr .( front.fs: all tests passed) cr

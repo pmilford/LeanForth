@@ -10384,8 +10384,15 @@ file = "src/cli/check-lf.fs"
 old = ''': lfc-const-unfolds? ( e -- flag ) lfc-tier expr-a@ lfc-decl if lfc-def? else false then ;'''
 new = ''': lfc-const-unfolds? ( e -- flag ) drop false ;'''
 test = "$GFORTH tests/front/front.fs"
-reason = "FE1a: a constant whose type ends in a definition's application gets a fixed argument count"
-gap = "no constant of the Init slice (tests/author/init-slice.ndjson) has a type ending in a definition's application; a slice with one (such as a Set-valued constant) is plan FE1c's"
+reason = "FE1a: a constant whose type ends in a definition's application (c : F Nat, tests/front/unfold-slice.ndjson) gets a fixed argument count"
+
+[[fault]]
+id = "fe-lambda-head-fixed"
+file = "src/cli/check-lf.fs"
+old = '''  dup tag-lam tag-pi within over let-tag? or over tag-let-body = or'''
+new = '''  false over let-tag? or over tag-let-body = or'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1a, review fe1ab L1: a type that is a beta redex (d : (fun a => a -> a) Nat) gets a fixed argument count, a miscount refused as error 18 instead of unsupported 73"
 
 [[fault]]
 id = "fe-type-head-unfold-ignored"

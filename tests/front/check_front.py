@@ -11,6 +11,11 @@ Lean's macros of Lean's constants, and a name takes its explicit arguments
 in Lean's order. A harness self-test first checks that a wrong tree is
 told apart. Syntax only: nothing is elaborated or checked.
 
+It also checks that pinned Lean, through scripts/export.sh, reproduces the
+export tests/front/front.fs reads for argument counts that depend on
+unfolding (tests/front/unfold-slice.ndjson, from
+tests/reference/front-unfold.lean) and its manifest, byte for byte.
+
 Usage: LEAN=... GFORTH=... python3 tests/front/check_front.py
 """
 import os
@@ -18,6 +23,7 @@ import pathlib
 import re
 import subprocess
 import sys
+import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 LEAN = os.environ.get("LEAN", ".tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean")
@@ -108,9 +114,32 @@ def self_test():
             raise Failure(f"harness self-test: {wrong} not told apart")
 
 
+def check_unfold_slice():
+    """The fixture export and its manifest, made again by pinned Lean."""
+    with tempfile.TemporaryDirectory() as work:
+        work = pathlib.Path(work)
+        env = dict(os.environ, LEAN=LEAN, LEAN_PATH=str(work))
+        run = subprocess.run([LEAN, "-DwarningAsError=true", "-o", str(work / "FrontUnfold.olean"),
+                              "tests/reference/front-unfold.lean"], cwd=ROOT, env=env,
+                             stdin=subprocess.DEVNULL, capture_output=True, timeout=LIMIT)
+        if run.returncode != 0:
+            raise Failure("pinned Lean refuses tests/reference/front-unfold.lean")
+        made = work / "unfold-slice.ndjson"
+        run = subprocess.run(["bash", "scripts/export.sh", str(made), "FrontUnfold", "--", "c", "d"],
+                             cwd=ROOT, env=env, stdin=subprocess.DEVNULL, capture_output=True,
+                             timeout=LIMIT)
+        if run.returncode != 0:
+            raise Failure(f"scripts/export.sh: exit {run.returncode}\n{run.stderr.decode()[-400:]}")
+        for suffix in ("", ".manifest.json"):
+            mine = (ROOT / f"tests/front/unfold-slice.ndjson{suffix}").read_bytes()
+            if pathlib.Path(str(made) + suffix).read_bytes() != mine:
+                raise Failure(f"scripts/export.sh does not reproduce unfold-slice.ndjson{suffix}")
+
+
 def main():
     try:
         self_test()
+        check_unfold_slice()
         lean, forth = lean_trees(), forth_trees()
         for (spelling, lf), want, got in zip(CASES, lean, forth):
             if want != got:
@@ -119,7 +148,8 @@ def main():
         print(f"check_front: {error}")
         return 1
     print(f"natural reader: {len(CASES)} statements read as pinned Lean expands them "
-          "(binop%, binrel%, applications); harness self-test passed")
+          "(binop%, binrel%, applications); harness self-test passed; "
+          "tests/front/unfold-slice.ndjson reproduced byte for byte")
     return 0
 
 
