@@ -45,7 +45,8 @@ status changes when this date is older than them. Stages are those of the
   equal to pinned Lean) tested alone in part; FE1d (elaboration data) integrated; FE1f (the hand-over of an elaborated
   declaration to the kernel) tested alone, reached by no user command before FE1e; FE6a (casesOn, recOn and ctorIdx
   built as Lean builds them, compared over Init) tested alone; FE1c's environment view, whnfCore and first inferType cases tested alone; FE1g-2 (tactic proofs
-  read; a well-formed one stops "not supported yet") tested alone; FE1i-4 (signed big integers, `lib/bigint.fs`)
+  read; a well-formed one stops "not supported yet") tested alone; FE1g-1 (each goal's own local context, the goal
+  list and `.goals` printed as Lean prints goals: 15 of 18 states equal) tested alone; the library `lib/runs.fs`; FE1i-4 (signed big integers, `lib/bigint.fs`)
   tested alone; FE1c's instantiateMVars beta and delayed steps and marks as serials tested alone (179 of 187 cases
   equal to pinned Lean). On branches: FE1e1 (elaboration data format 2: reviewed, waiting for the owner's
   [import]/[format] approval); the job pool failing closed when threads are refused (reviewed, waiting for the owner's
@@ -68,9 +69,9 @@ status changes when this date is older than them. Stages are those of the
   at the owner's [format] gate).
 - A rule-by-rule audit of AGENTS.md against practice.
 - Snapshots that read the two previous format and verdict versions (6.2.5c): designed, the owner's four questions
-  answered 2026-11-12 ([design](../design/SNAPSHOT_COMPATIBILITY.md), ADR 0020 Amendment 5 proposed); steps c1, c2,
-  c3 and c5 written on branch `snap-compat`, to be reviewed and taken to the owner's [format], [kernel] and [import]
-  gates.
+  answered 2026-11-12 ([design](../design/SNAPSHOT_COMPATIBILITY.md), ADR 0020 Amendment 5 proposed); steps c1 to c5
+  written and tested alone on branch `snap-compat` (`edb5554`), the Forth review and its three re-checks not blocking,
+  waiting for the owner's [format], [kernel] and [import] approval.
 
 **Later**
 - Proof development (owner, 2026-11-12; long term, after strict Lean compatibility): research note
