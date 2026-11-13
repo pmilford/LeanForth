@@ -63,7 +63,8 @@ T{ binder-a 1 tier expr-bvar drop job alike? -> false }T
 T{ s" Nat" recon-of lean-cases-of grade -> outcome-ok 0 }T
 \ Building again gives the same numbers.
 : built ( -- type value ) s" Nat" cases-of drop job aux-type@ job aux-value@ ;
-T{ built built rot = >r = r> -> true true }T
+: same-pair? ( a b c d -- flag ) rot = -rot = and ;
+T{ built built same-pair? -> true }T
 
 \ ---- Refusals, each with its reason.
 \ No recursor: a constructor is no type.

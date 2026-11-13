@@ -101,7 +101,8 @@ smallest piece that proves something real: FE1, $0 + n = n$ by induction.
 | Elaborator, unification, implicit arguments, numerals as Lean reads them | not started |
 | Type classes, coercions | not started |
 | Tactics and proof states | not started |
-| Pattern matching, recursion, generated definitions for new data types | not started (the kernel builds `T.rec` when it checks a data type, as Lean's kernel does; everything else comes from Lean's export) |
+| Pattern matching, recursion | not started |
+| Generated definitions for new data types (FE6) | `T.casesOn` and `T.recOn` written and tested alone on branch `fe6a` (`src/front/constructions.fs`): built from a loaded export's `T.rec` as Lean builds them, and compared with Lean's own on all of Init (`make reference-constructions`): of 597 `casesOn`, 430 equal node for node, 160 equal up to binder names and binder information (Lean's exporter shares terms that differ only in those), 0 different, 7 unsupported (a nested type; a `let` in a field's type); of 576 `recOn`, 533, 37, 0 and 6. Not yet used for LeanForth's own data types, which need FE2–FE5; the kernel builds `T.rec` when it checks a data type, as Lean's kernel does; `noConfusion`, `below`, `brecOn`, `ctorIdx`, `sizeOf` and the injectivity lemmas not started |
 | `simp`, decision procedures, Mathlib's tactics | not started |
 | Evaluation (`#eval`, `#reduce`) | not started (the kernel reduces terms internally, with no user command) |
 | Natural LeanForth (plan 8.6.10): the natural reader (FE1a) | integrated on branch `fe1`: natural text is the default and is read into Lean-shaped syntax trees (`binrel% Eq (binop% HAdd.hAdd 0 n) n`, compared with pinned Lean's macro expansion); nothing is elaborated yet |
