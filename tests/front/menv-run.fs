@@ -57,9 +57,18 @@ create us 4 2* cells allot
 : tally ( k -- n ) cli-count-of @ ;
 : check ( c-addr u -- code )
   cli-options library cli-state opt-env 2! elab-file cli-state opt-elab 2! cli-check ;
-' s1-true stating
+: nm ( c-addr u -- name ) lfa-intern ;
+: d-of ( c-addr u -- d ) nm lf-menv-find made ;
+\ With the data read (the run mode bound by cli-check), facts and status
+\ of a library declaration while the text runs: HAdd.hAdd is a projection
+\ function, semireducible (the stand-in asks before it gives the statement).
+variable fact  2variable status
+: probed ( -- type )
+  s" HAdd.hAdd" d-of dup lf-menv-proj-fn? drop fact ! lf-menv-status status 2! s1-true ;
+' probed stating
 T{ s" tests/front/09-zero-add-rfl.lf" check outcome-ok tally cli-not-proved @ lf-libdec-count
    -> 0 438 0 0 }T
+T{ fact @ status 2@ -> true 0 outcome-ok }T
 ' s1-false stating
 T{ s" tests/front/10-zero-add-wrong.lf" check lf-author-code lf-libdec-stage -> 4 97 0 }T
 T{ detail s\"   0 + 0\nis not definitionally equal to the right-hand side\n  1\n\n⊢ 0 + 0 = 1"
@@ -69,8 +78,6 @@ T{ detail s\"   0 + 0\nis not definitionally equal to the right-hand side\n  1\n
 \ The stores given a text run's room (lfc-rooms, as check-lf.fs does).
 T{ library true lfc-library-open lfc-rooms -> outcome-ok outcome-ok }T
 lf-author-begin
-: nm ( c-addr u -- name ) lfa-intern ;
-: d-of ( c-addr u -- d ) nm lf-menv-find made ;
 : lib? ( d -- flag ) lf-libdec-count u< ;
 T{ s" Nat.add" d-of dup lib? swap lf-menv-kind -> true lf-kind-definition }T
 T{ s" Nat.add" d-of lf-menv-name s" Nat.add" nm = -> true }T
@@ -102,6 +109,9 @@ T{ s" theorem zz 0 0 + 0 = := by by-sorry end zz" lf-author-begin lf-author-text
 T{ s" zz" d-of dup lib? 0= swap lf-menv-kind -> true lf-kind-theorem }T
 T{ s" zz" d-of dup lf-menv-value nip swap lf-menv-kinds nip -> true 0 }T
 T{ s" zz" d-of lf-menv-status s" zz" d-of lf-menv-matcher? -> 0 outcome-ok false outcome-ok }T
+T{ s" zz" d-of dup lf-menv-name s" zz" nm = swap lf-menv-hint -> true lf-hint-opaque 0 }T
+T{ s" zz" d-of dup lf-menv-params nip swap lf-menv-data s" zz" d-of lf-menv-type lf-term-tag@
+   -> 0 0 lf-tag-app }T
 create fake /lf-fdecl allot
 : pi-kinded ( -- t )
   nat nat lf-term-pi 0= abort" pi" dup s" a" nm 1 lf-pres-binder! made
@@ -160,6 +170,13 @@ variable worst
 : each-refused ( -- k )
   0 begin 1+ dup decode-at dup refusal-ok? 0= if dup worst ! then ok? until ;
 T{ outcome-ok worst ! each-refused 1 > worst @ -> true outcome-ok }T
+\ The same for getDecLevel's assignment (?u := succ ?w); a type whose
+\ level cannot be inferred passes its failure on.
+: dec-at ( k -- outcome ) typed-mvar swap heap-refusals ! lf-meta-dec-level nip 0 heap-refusals ! ;
+: dec-refused ( -- k )
+  0 begin 1+ dup dec-at dup refusal-ok? 0= if dup worst ! then ok? until ;
+T{ outcome-ok worst ! dec-refused 0> worst @ -> true outcome-ok }T
+T{ 0 lf-term-bvar drop lf-meta-dec-level nip -> outcome-invalid }T
 T{ lfc-library-close lf-libdec-count lfc-empty lfc-rooms-back -> 0 outcome-ok }T
 T{ depth -> 0 }T
 cr .( menv-run.fs: all tests passed) cr
