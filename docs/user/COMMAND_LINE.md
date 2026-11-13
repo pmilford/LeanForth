@@ -1708,6 +1708,9 @@ supported:
   print: a readable proof outline of each accepted declaration, from the
     checker's derivation log (plan tasks 2.4.1, 2.4.4; untrusted presentation)
   count, reexport: exports of any size, up to all of Mathlib
+  verify: one Forth word against its contract (plan 8.4.1, V1): pinned Lean
+    writes the proofs, this checker re-checks them, a receipt records it;
+    needs Python 3 and the pinned Lean 4.35.0 (owner, 2026-11-13: V1 only)
 Mathlib: all 729,263 declarations of its Lean export accepted on build b74a04d
   (fuel 250M, --memory-per-check 8192, --no-manifest); not re-run since
 not yet supported (check answers unsupported or unknown, exit 2):

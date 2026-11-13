@@ -15426,3 +15426,21 @@ old = '''    *) printf 'error: internal: leanforth verify ended with status %s\n
 new = '''    *) exit "$status" ;;'''
 test = "python3 tests/program/test_program_verify.py Command"
 reason = "8.4.1c: an interpreter's own status (Python missing, a crash) passes through bin/leanforth verify and can read as a verdict"
+
+# --- capabilities and help list verify (plan 8.4.1c; src/cli/leanforth.fs) --
+
+[[fault]]
+id = "cli-verify-unlisted"
+file = "src/cli/leanforth.fs"
+old = '''  cli-other-commands. cli-verify-what. cli-verify-needs. ;'''
+new = '''  cli-other-commands. ;'''
+test = "python3 tests/cli/test_leanforth.py Behaviour.test_verify_listed"
+reason = "8.4.1c: capabilities does not list verify or say that V1 needs Python 3 and the pinned Lean"
+
+[[fault]]
+id = "cli-verify-usage-missing"
+file = "src/cli/leanforth.fs"
+old = '''  cli-check-usage. cli-other-usage. cli-verify-usage. cli-verify-meaning. cli-info-usage.'''
+new = '''  cli-check-usage. cli-other-usage. cli-info-usage.'''
+test = "python3 tests/cli/test_leanforth.py Behaviour.test_verify_listed"
+reason = "8.4.1c: help does not list verify's usage"
