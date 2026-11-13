@@ -12062,3 +12062,14 @@ old = '''  nip remap-let-body ['] remap-let-joined frame-under ;'''
 new = '''  nip remap-let-body ['] remap-let-joined frame-call ;'''
 test = "$GFORTH tests/front/constructions.fs"
 reason = "a letE's body is renumbered as if outside its binder: its own variable #0 becomes #1"
+
+# --- the IR runner's literal instructions (src/program/ir-run.fs; the FRP
+# review's batch F, plan 9.4.5) --------------------------------------------
+
+[[fault]]
+id = "irx-lit-unfit-unmarked"
+file = "src/program/ir-run.fs"
+old = ''': irx-lit-fits ( index fits? -- ) if drop else irx-unfit! then ;'''
+new = ''': irx-lit-fits ( index fits? -- ) 2drop ;'''
+test = "$GFORTH tests/program/ir-run.fs"
+reason = "FRP F: a literal beyond the cell is not marked unfit, so it runs as a wrapped number instead of the model's unmodeled"

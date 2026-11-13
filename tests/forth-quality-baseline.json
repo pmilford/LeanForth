@@ -1269,7 +1269,7 @@
   "long words": 0,
   "rstack": 62,
   "shuffles": 11,
-  "words": 261
+  "words": 262
  },
  "src/program/program-depth.fs": {
   "globals": 0,
