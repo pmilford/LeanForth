@@ -24,6 +24,8 @@
 \ marks it pending; the name word that runs next takes no arguments, and
 \ any syntax word that runs instead stops the run (error 59). Untrusted
 \ authoring code.
+\ lfa-front-made? says whether a declaration of the run came through the
+\ front end's hand-over (src/front/handover.fs sets it).
 \ State: one context record, lfa-form, and the store lfa-numerals, both
 \ in the checker context (ADR 0009).
 
@@ -35,14 +37,21 @@ require ./errors.fs
 begin-structure /lfa-form
   field: lfa-form-kernel      \ true: the kernel form
   field: lfa-form-tick        \ position of a pending ' , or -1
+  field: lfa-form-front       \ true: a declaration came through the front end
 end-structure
 /lfa-form context-record: lfa-form
 lfa-numeral-capacity 1 cells 0 context-store: lfa-numerals
 
 : lfa-kernel-form? ( -- flag ) lfa-form lfa-form-kernel @ ;
 : lfa-kernel-form! ( -- ) true lfa-form lfa-form-kernel ! ;
+\ A declaration of the run was handed over by the front end
+\ (src/front/handover.fs), so its records are written reached-only
+\ (cli/check-lf.fs; review fe1f L3).
+: lfa-front-made? ( -- flag ) lfa-form lfa-form-front @ ;
+: lfa-front-made! ( -- ) true lfa-form lfa-form-front ! ;
 : lfa-form-reset ( -- )
-  false lfa-form lfa-form-kernel ! -1 lfa-form lfa-form-tick ! lfa-numerals store-clear ;
+  false lfa-form lfa-form-kernel ! -1 lfa-form lfa-form-tick ! lfa-numerals store-clear
+  false lfa-form lfa-form-front ! ;
 ' lfa-form-reset context-setup
 
 \ Numerals: the positions of the numbers on the data stack, newest last.

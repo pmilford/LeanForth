@@ -193,7 +193,15 @@ end-structure
 \ records of LeanForth's own exporter, so of another exporter than the
 \ pinned one, which the stage takes only when asked.
 : lfc-line ( c-addr u -- outcome ) ck-stage stage-line ;
-: lfc-write ( -- outcome ) ['] lfc-line lf-author-export ;
+\ A natural text's declarations come from the front end's hand-over
+\ (front/handover.fs): when any did (author/form.fs, lfa-front-made?),
+\ also in a text that turned to the kernel form after them, only what the
+\ declarations reach is written, so a metavariable or node the elaborator
+\ left unused blocks nothing (author/export.fs). A text with none, a
+\ kernel-form text, is written whole, as before (review fe1f L3).
+: lfc-reached? ( -- flag ) lfa-front-made? ;
+: lfc-write ( -- outcome )
+  ['] lfc-line lfc-reached? if lf-author-export-reached else lf-author-export then ;
 : lfc-extended ( -- outcome ) lfc-library? if ck-stage stage-extend else outcome-ok then ;
 : lfc-produce ( -- outcome )
   lfc-extended dup ok? 0= if exit then drop

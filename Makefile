@@ -884,13 +884,15 @@ reference-author:
 .PHONY: test-author reference-author
 test: test-author
 
-# The front end's first steps (plan FE1a-c, ADR 0021): the natural reader's
-# syntax trees and refusals, the metavariable context, and the Meta layer's
-# level unification and instantiation. Its modules load alone, printing
-# nothing.
+# The front end's first steps (plan FE1a-c, FE1f, FE6a, ADR 0021): the
+# natural reader's syntax trees and refusals, the metavariable context, the
+# Meta layer's level unification and instantiation, the hand-over of a
+# finished declaration to the kernel, and the generated definitions. Its
+# modules load alone, printing nothing.
 test-front:
 	@for m in src/front/syntax.fs src/front/dag-walk.fs src/front/reader.fs src/front/mvars.fs \
-	  src/core/mvar-leaves.fs src/front/level-defeq.fs src/front/instantiate.fs \
+	  src/front/handover.fs src/core/mvar-leaves.fs src/core/reach.fs \
+	  src/front/level-defeq.fs src/front/instantiate.fs \
 	  src/front/level-simp.fs src/front/level-params.fs src/front/level-normalize.fs \
 	  src/front/expr-remap.fs src/front/constructions.fs src/front/ctor-idx.fs \
 	  src/front/cases-several.fs; do \
@@ -901,6 +903,8 @@ test-front:
 	$(RUN) $(GFORTH) tests/front/meta.fs
 	$(RUN) $(GFORTH) tests/front/meta-heap.fs
 	$(RUN) $(GFORTH) tests/front/constructions.fs
+	@out=$$($(RUN) $(GFORTH) tests/front/handover.fs 2>&1) || \
+	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "handover.fs: all tests passed"
 
 # The natural reader's trees against pinned Lean's macro expansion of the
 # same statements (tests/front/operators.lean); the Meta layer's answers

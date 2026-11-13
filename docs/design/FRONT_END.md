@@ -7,8 +7,11 @@ branch `fe1` (Forth review pending):** FE1a, the natural reader
 as not supported yet where elaboration or a tactic would begin; the
 kernel form needs `kernel-form`), and FE1b, the metavariable context
 (`src/front/mvars.fs`, `core/mvar-leaves.fs`), is tested alone (no command
-makes metavariables yet; the export writer refuses any). Nothing else in
-this document is built. It is
+makes metavariables yet; the export writer refuses any). FE1f's hand-over
+(`src/front/handover.fs`: instantiate, refuse a reachable hole, write
+only what the declaration reaches, through the stage to the kernel) is
+tested alone on branch `fe1f`, driven by a stand-in elaborator; FE1d's
+elaboration data is integrated. Nothing else in this document is built. It is
 the design and plan for the half of Lean that LeanForth does not have: the
 part that turns what a person writes into the full proof term the kernel
 checks. The architecture and trust boundary are proposed in
@@ -98,6 +101,7 @@ smallest piece that proves something real: FE1, $0 + n = n$ by induction.
 | Printing a checked statement in LeanForth words, Lean notation and mathematics | integrated (`leanforth print`, plan 8.6.2); the notation table maps `HAdd.hAdd` to `+` for printing only |
 | Holes `_` | refused: error 52, "holes are filled by the elaborator" |
 | Metavariable context (FE1b): metavariables, assignment, occurs check, instantiation | tested alone on branch `fe1` (`tests/front/front.fs`); the beta step and delayed assignments' values answer unsupported until FE1c |
+| Hand-over of an elaborated declaration to the kernel (FE1f) | tested alone on branch `fe1f` (`tests/front/handover.fs`, with a stand-in elaborator): holes instantiated, a reachable hole refused (error 74), an unused universe parameter refused as Lean refuses it (error 75), only the nodes the declaration reaches written, through the stage to the kernel; no user command reaches it before FE1e |
 | Elaborator, unification, implicit arguments, numerals as Lean reads them | not started |
 | Type classes, coercions | not started |
 | Tactics and proof states | not started |
@@ -459,8 +463,9 @@ and `author/`, never `kernel/`):
   with kind, depth, local context, type, assignment and delayed
   assignment; instantiation and abstraction as Lean's `MetavarContext`.
   Metavariables are new leaf kinds in the term and level stores; the export
-  writer refuses any of them (ADR 0021 D2), so the kernel can never receive
-  one.
+  writer refuses any that a declaration it writes reaches (for kernel-form
+  text, any in the stores; ADR 0021 D2), so the kernel can never receive
+  one, and one the elaborator left unused blocks nothing.
 - **Meta-level reduction, type inference and unification**: a port of
   `Meta/WHNF.lean`, `InferType.lean`, `ExprDefEq.lean` and `LevelDefEq.lean`
   with transparency levels, its own caches and fuel. It does not call the
