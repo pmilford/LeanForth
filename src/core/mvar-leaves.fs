@@ -7,11 +7,12 @@
 \ context's epoch, so a leaf of an earlier context is never taken for a
 \ later one's (src/front/mvars.fs). Only the front end makes them. The
 \ kernel never receives one: Lean's export format has no metavariable,
-\ the export writer refuses a run whose stores hold any (author/export.fs,
-\ lf-holes?), and the importer stage refuses every record kind it does
-\ not know. The leaves are never shared, as a free variable's are not
-\ (core/local-context.fs): a new metavariable is always a new node with a
-\ new identity. Untrusted.
+\ the export writer refuses a kernel-form run whose stores hold any
+\ (author/export.fs, lf-holes?) and a front-end run whose declarations
+\ reach any (lf-author-export-reached, core/reach.fs), and the importer
+\ stage refuses every record kind it does not know. The leaves are never
+\ shared, as a free variable's are not (core/local-context.fs): a new
+\ metavariable is always a new node with a new identity. Untrusted.
 \ Words: lf-tag-mvar, lf-level-tag-mvar, lf-mvar-leaf ( n epoch -- term
 \ true | false ), lf-level-mvar-leaf ( n epoch -- level true | false ),
 \ lf-mvar? ( term -- flag ), lf-level-mvar? ( level -- flag ), lf-holes?

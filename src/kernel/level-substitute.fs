@@ -134,7 +134,7 @@ lf-level-walk-room context-walk: lf-lsubst-walker
 \ A list the heap cannot grow is full, recorded with its count and room.
 : lf-lsubst-site ( -- site ) c" level-substitute lf-lsubst" ;
 : lf-lsubst-crowded ( n -- n )
-  dup dup lf-lsubst-reached-cells slab-capacity lf-lsubst-site
+  dup lf-lsubst-reached-cells slab-capacity lf-lsubst-site
   lf-diag-work-stack-full lf-diag-note ;
 : lf-lsubst-list ( index -- outcome )
   lf-lsubst-reached @ lf-lsubst-reached-cells lf-cells-add

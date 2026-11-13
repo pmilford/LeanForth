@@ -130,10 +130,10 @@
  "src/cli/check-run.fs": {
   "globals": 18,
   "long lines": 6,
-  "long words": 2,
+  "long words": 1,
   "rstack": 69,
   "shuffles": 13,
-  "words": 264
+  "words": 272
  },
  "src/cli/leanforth.fs": {
   "globals": 8,
@@ -153,19 +153,19 @@
  },
  "src/cli/print-lf.fs": {
   "globals": 0,
-  "long lines": 4,
-  "long words": 2,
+  "long lines": 3,
+  "long words": 1,
   "rstack": 3,
-  "shuffles": 5,
-  "words": 36
+  "shuffles": 2,
+  "words": 38
  },
  "src/cli/print.fs": {
   "globals": 0,
   "long lines": 2,
-  "long words": 1,
-  "rstack": 25,
-  "shuffles": 11,
-  "words": 21
+  "long words": 0,
+  "rstack": 24,
+  "shuffles": 9,
+  "words": 26
  },
  "src/cli/tally.fs": {
   "globals": 3,
@@ -565,7 +565,7 @@
   "long words": 2,
   "rstack": 36,
   "shuffles": 4,
-  "words": 186
+  "words": 185
  },
  "src/kernel/check-declaration.fs": {
   "globals": 3,
@@ -573,7 +573,7 @@
   "long words": 0,
   "rstack": 12,
   "shuffles": 0,
-  "words": 90
+  "words": 89
  },
  "src/kernel/defeq.fs": {
   "globals": 0,
@@ -586,18 +586,18 @@
  "src/kernel/env-import.fs": {
   "globals": 1,
   "long lines": 0,
-  "long words": 4,
+  "long words": 2,
   "rstack": 68,
   "shuffles": 51,
-  "words": 99
+  "words": 108
  },
  "src/kernel/env-layers.fs": {
   "globals": 0,
   "long lines": 0,
-  "long words": 5,
+  "long words": 3,
   "rstack": 88,
   "shuffles": 63,
-  "words": 82
+  "words": 92
  },
  "src/kernel/env-publish.fs": {
   "globals": 1,
@@ -626,10 +626,10 @@
  "src/kernel/env-snapshot.fs": {
   "globals": 6,
   "long lines": 0,
-  "long words": 7,
-  "rstack": 193,
-  "shuffles": 117,
-  "words": 222
+  "long words": 4,
+  "rstack": 176,
+  "shuffles": 106,
+  "words": 242
  },
  "src/kernel/environment.fs": {
   "globals": 5,
@@ -637,7 +637,7 @@
   "long words": 3,
   "rstack": 88,
   "shuffles": 27,
-  "words": 314
+  "words": 322
  },
  "src/kernel/generated-recursor.fs": {
   "globals": 0,
@@ -645,7 +645,7 @@
   "long words": 5,
   "rstack": 11,
   "shuffles": 5,
-  "words": 35
+  "words": 34
  },
  "src/kernel/inductive-block.fs": {
   "globals": 0,
@@ -661,7 +661,7 @@
   "long words": 7,
   "rstack": 60,
   "shuffles": 20,
-  "words": 138
+  "words": 137
  },
  "src/kernel/inductive-recursor.fs": {
   "globals": 0,
@@ -677,7 +677,7 @@
   "long words": 3,
   "rstack": 36,
   "shuffles": 18,
-  "words": 33
+  "words": 32
  },
  "src/kernel/iota.fs": {
   "globals": 0,
@@ -925,7 +925,7 @@
   "long words": 0,
   "rstack": 21,
   "shuffles": 7,
-  "words": 75
+  "words": 77
  },
  "src/lib/frame.fs": {
   "globals": 0,
@@ -997,7 +997,7 @@
   "long words": 1,
   "rstack": 0,
   "shuffles": 3,
-  "words": 16
+  "words": 18
  },
  "src/lib/pools.fs": {
   "globals": 2,
@@ -1133,7 +1133,7 @@
   "long words": 0,
   "rstack": 29,
   "shuffles": 7,
-  "words": 180
+  "words": 181
  },
  "src/present/notation-table.fs": {
   "globals": 1,
@@ -1162,10 +1162,10 @@
  "src/present/print-forth.fs": {
   "globals": 2,
   "long lines": 0,
-  "long words": 3,
+  "long words": 2,
   "rstack": 156,
   "shuffles": 24,
-  "words": 149
+  "words": 152
  },
  "src/present/print-job.fs": {
   "globals": 0,
@@ -1237,7 +1237,7 @@
   "long words": 1,
   "rstack": 187,
   "shuffles": 8,
-  "words": 122
+  "words": 124
  },
  "src/program/clamp.fs": {
   "globals": 0,
@@ -1269,7 +1269,7 @@
   "long words": 0,
   "rstack": 62,
   "shuffles": 11,
-  "words": 261
+  "words": 262
  },
  "src/program/program-depth.fs": {
   "globals": 0,

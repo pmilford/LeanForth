@@ -252,10 +252,15 @@
    "never_run": 1,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
+  "src/front/beta-inst.fs": {
+   "blocks": 230,
+   "never_run": 11,
+   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the context teardown, the memo table rehash (no test body makes enough pairs to grow it), the branches where the heap or a store refuses room (full) in the memo, the stack, the spine, a beta step or a rebuild, and a leaf that is no bound variable (always kept as closed)"
+  },
   "src/front/constructions.fs": {
-   "blocks": 424,
-   "never_run": 50,
-   "reason": "new file (plan FE6, casesOn and recOn): the blocks never run are failure branches after a scratch tier, tuple or heap block that cannot grow (expr-make, tuple-add, allocate) and refusals Lean's recursors never reach (hypotheses before fields, a recursor type shorter than its numbers, a type whose Sort only reduction shows); tests for them need a tier that refuses on demand"
+   "blocks": 441,
+   "never_run": 36,
+   "reason": "new file (plan FE6, casesOn and recOn): the blocks never run are failure branches after a scratch tier, tuple or heap block that cannot grow (expr-make, tuple-add, allocate) and refusals Lean's recursors never reach (hypotheses before fields, a recursor type shorter than its numbers, a type whose Sort only reduction shows); tests for them need a tier that refuses on demand Measured 2026-11-13 over make test-front (review fe6a-2 N4)."
   },
   "src/front/dag-walk.fs": {
    "blocks": 76,
@@ -268,9 +273,49 @@
    "reason": "new file (plan FE1d, 2026-11-12): four refusals no test input reaches: a name lookup that fails in an open tier (ed-looked, error 23), a tier name beyond the stage's name-to-declaration array (ed-decls), no room while the eliminators' table grows (the allocation-refusal test reads 4 eliminators), and a THROW inside a read (ed-caught)"
   },
   "src/front/expr-remap.fs": {
-   "blocks": 141,
-   "never_run": 12,
-   "reason": "new file (plan FE6, casesOn and recOn): the blocks never run are failure branches after a scratch tier, tuple or heap block that cannot grow (expr-make, tuple-add, allocate) and refusals Lean's recursors never reach (hypotheses before fields, a recursor type shorter than its numbers, a type whose Sort only reduction shows); tests for them need a tier that refuses on demand"
+   "blocks": 152,
+   "never_run": 11,
+   "reason": "new file (plan FE6, casesOn and recOn): the blocks never run are failure branches after a scratch tier, tuple or heap block that cannot grow (expr-make, tuple-add, allocate) and refusals Lean's recursors never reach (hypotheses before fields, a recursor type shorter than its numbers, a type whose Sort only reduction shows); tests for them need a tier that refuses on demand Measured 2026-11-13 over make test-front (review fe6a-2 N4)."
+  },
+  "src/front/infer.fs": {
+   "blocks": 260,
+   "never_run": 19,
+   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the branches where the heap or a store refuses room (full) in a level list, a Sort's level, a spine, a telescope, an abstraction, a pi or a normalized level"
+  },
+  "src/front/instantiate.fs": {
+   "blocks": 288,
+   "never_run": 3,
+   "reason": "measured 2026-11-12 on fe1c-lnorm after review L4 (meta-heap.fs refuses each allocation): never run are in-instantiate-leaf's non-variable leaf at a depth whose range test kept nothing (157), a failing loose-range walk inside instantiate1's value check (190: the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)), and head beta's application refused by the term store after the lambdas were taken (221)"
+  },
+  "src/front/level-defeq.fs": {
+   "blocks": 130,
+   "never_run": 4,
+   "reason": "measured 2026-11-12 on fe1c-lnorm: never run are the full branches of the conjunction's pair stack ld-pairs (70, 130) and of lf-meta-level= on the bases or on a normalized side (82, 94), each needing the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)"
+  },
+  "src/front/level-normalize.fs": {
+   "blocks": 242,
+   "never_run": 3,
+   "reason": "new file (plan FE1c, branch fe1c-lnorm, 2026-11-12): never run are the full branches of lf-meta-level= and lf-meta-never-zero? inside a normalize (67, 69) and of the argument slabs ln-args and ln-todo (125), each needing the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)"
+  },
+  "src/front/level-params.fs": {
+   "blocks": 217,
+   "never_run": 6,
+   "reason": "measured 2026-11-12 on fe1c-lnorm after review L4: never run are imax rebuilt with mkLevelIMax' when a part changes (84), the case default of a level tag without parameters (95), a binder rebuild the term store refuses (125, 126), a Sort whose level is unchanged (137: the walk skips a Sort without a parameter first) and a constant reference made but its term refused (154)"
+  },
+  "src/front/level-simp.fs": {
+   "blocks": 189,
+   "never_run": 10,
+   "reason": "measured 2026-11-12 on fe1c-lnorm after review L4: never run are ld-same? on two different records of equal fields (37: the tests' unshared equal levels differ in a field first) and the full branches of level equality, isNeverZero, mkLevelMax''s rules and lm-take's ended code (56, 65, 73, 82, 85, 95, 113, 120, 121), each needing the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)"
+  },
+  "src/front/meta-env.fs": {
+   "blocks": 136,
+   "never_run": 3,
+   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are an input declaration the named stage does not hold (unreachable: the feed makes the input from the stage's declarations, and only that stage is accepted) and the name tests of a numeric part and of a prefix that is not top-level, which no declaration of the slice named succ or ndrec has"
+  },
+  "src/front/meta-spine.fs": {
+   "blocks": 44,
+   "never_run": 1,
+   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-13): never run is the branch where a slab refuses a cell (full) while a universe-argument list is filled; the spine refusal is tested through whnf.fs"
   },
   "src/front/mvars.fs": {
    "blocks": 429,
@@ -286,6 +331,11 @@
    "blocks": 36,
    "never_run": 3,
    "reason": "new file (plan FE1a-b, branch fe1, 2026-11-12): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded, a child beyond the walk memo and the reader default finder before cli/check-lf.fs sets it are never run"
+  },
+  "src/front/whnf.fs": {
+   "blocks": 487,
+   "never_run": 17,
+   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the branches where the heap or a store refuses room (full) inside a rebuild, a level list, a spine, a rule's application or a frame, defensive defaults no well-formed input reaches (a recursor whose block names no declaration), and the recursive-type test of a structure-like type, which no inductive type of Init has"
   },
   "src/import/checker-input.fs": {
    "blocks": 294,
@@ -433,8 +483,8 @@
   },
   "src/kernel/iota.fs": {
    "blocks": 508,
-   "never_run": 62,
-   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+   "never_run": 63,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed Allowance 62 -> 63 (2026-11-13): one block of iota.fs runs in some full runs and not in others (63 in the push run of f29a526d, 62 and 66/67 elsewhere): a cache hit or miss that depends on which worker checks which declaration first under --jobs, as the fe1c review's Q4 found; plan: find the block with coverage.py --uncovered over two runs and pin it with a deterministic test."
   },
   "src/kernel/level-compare.fs": {
    "blocks": 99,
@@ -457,8 +507,8 @@
   },
   "src/kernel/level-substitute.fs": {
    "blocks": 284,
-   "never_run": 13,
-   "reason": "COV2 2026-11-12: lf-lsubst-crowded (136-141) leaves an extra cell when the reached list cannot grow: bug B4, tests/core/mixed-level-substitute-crowded.fs, kept out of make test. The rest is not yet reviewed"
+   "never_run": 6,
+   "reason": "KFIX 2026-11-12, measured at 5c5aad6: the full reached list (lf-lsubst-crowded, bug B4 fixed) runs in tests/core/mixed-level-substitute-crowded.fs. Not yet reviewed: the invalid exits for a parameter context, formal, root, actual or level store that is not valid (116, 147, 177, 243, 290) and a refused rollback (267)"
   },
   "src/kernel/level-value.fs": {
    "blocks": 262,
@@ -502,8 +552,8 @@
   },
   "src/kernel/mixed-level-substitute.fs": {
    "blocks": 398,
-   "never_run": 43,
-   "reason": "COV2 2026-11-12: the projection, literal and string arms of the audit and the build (175-178, 291-293) are unreachable by design (those leaves always have a data word without a universe parameter, constant-term-boundary.fs, so lf-mls-closed? skips them); the refusals of the reached set, the reached list and the images (127-135, 192-193, 205, 305-309) leave the stack wrong: bugs B1-B3, tests/core/mixed-level-substitute-crowded.fs, kept out of make test. The rest is not yet reviewed"
+   "never_run": 25,
+   "reason": "KFIX 2026-11-12, measured at 5c5aad6: the full paths of the reached set, the reached list, the images and a constant's level pairs (bugs B1-B3 and B5, fixed) run in tests/core/mixed-level-substitute-crowded.fs. Unreachable by design: the projection, literal and string arms of the audit and the build (175-178, 291-293: those leaves always have a data word without a universe parameter, constant-term-boundary.fs, so lf-mls-closed? skips them) and lf-mls-again? (180), used nowhere. Not yet reviewed: a set that refuses to grow while marking (142), a term found again when marked (143), a refused second push (165) and the invalid exits behind the graph audit (149, 168, 179, 228, 237, 264, 296, 332)"
   },
   "src/kernel/mixed-open.fs": {
    "blocks": 279,
@@ -551,7 +601,7 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/whnf.fs": {
-   "blocks": 599,
+   "blocks": 598,
    "never_run": 52,
    "reason": "COV2 2026-11-12, unreachable by design: the defaults main.fs replaces whenever the checker loads -- lf-whnf-known's (235) and its answer (243: caches.fs's hook answers only for a node with a data word, which lf-whnf-word answers first), and the default iota hook lf-whnf-recursor?, lf-whnf-iota-const and lf-whnf-iota-head's constant branch (442-453, iota.fs's lf-iota replaces it); lf-whnf-ended (469) is used nowhere. The other failure exits are not yet reviewed"
   },
@@ -813,30 +863,15 @@
    "never_run": 1,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
-  "src/front/instantiate.fs": {
-   "blocks": 288,
-   "never_run": 3,
-   "reason": "measured 2026-11-12 on fe1c-lnorm after review L4 (meta-heap.fs refuses each allocation): never run are in-instantiate-leaf's non-variable leaf at a depth whose range test kept nothing (157), a failing loose-range walk inside instantiate1's value check (190: the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)), and head beta's application refused by the term store after the lambdas were taken (221)"
+  "src/front/cases-several.fs": {
+   "blocks": 226,
+   "never_run": 30,
+   "reason": "new file (plan FE6, ctorIdx and casesOn with several motives): the blocks never run are failure branches after a scratch tier, tuple or heap block that cannot grow (expr-make, tuple-add, name-str, allocate), which no test can yet make refuse midway (a sealed tier refuses at the first lookup; fuel exhaustion is swept), and refusals no type of Init reaches (a type not among its recursor's, several motives into Prop only, a Sort only reduction shows) Measured 2026-11-13 over make test-front (review fe6a-2 N4)."
   },
-  "src/front/level-defeq.fs": {
-   "blocks": 130,
-   "never_run": 4,
-   "reason": "measured 2026-11-12 on fe1c-lnorm: never run are the full branches of the conjunction's pair stack ld-pairs (70, 130) and of lf-meta-level= on the bases or on a normalized side (82, 94), each needing the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)"
-  },
-  "src/front/level-normalize.fs": {
-   "blocks": 242,
-   "never_run": 3,
-   "reason": "new file (plan FE1c, branch fe1c-lnorm, 2026-11-12): never run are the full branches of lf-meta-level= and lf-meta-never-zero? inside a normalize (67, 69) and of the argument slabs ln-args and ln-todo (125), each needing the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)"
-  },
-  "src/front/level-params.fs": {
-   "blocks": 217,
-   "never_run": 6,
-   "reason": "measured 2026-11-12 on fe1c-lnorm after review L4: never run are imax rebuilt with mkLevelIMax' when a part changes (84), the case default of a level tag without parameters (95), a binder rebuild the term store refuses (125, 126), a Sort whose level is unchanged (137: the walk skips a Sort without a parameter first) and a constant reference made but its term refused (154)"
-  },
-  "src/front/level-simp.fs": {
-   "blocks": 189,
-   "never_run": 10,
-   "reason": "measured 2026-11-12 on fe1c-lnorm after review L4: never run are ld-same? on two different records of equal fields (37: the tests' unshared equal levels differ in a field first) and the full branches of level equality, isNeverZero, mkLevelMax''s rules and lm-take's ended code (56, 65, 73, 82, 85, 95, 113, 120, 121), each needing the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)"
+  "src/front/ctor-idx.fs": {
+   "blocks": 193,
+   "never_run": 26,
+   "reason": "new file (plan FE6, ctorIdx and casesOn with several motives): the blocks never run are failure branches after a scratch tier, tuple or heap block that cannot grow (expr-make, tuple-add, name-str, allocate), which no test can yet make refuse midway (a sealed tier refuses at the first lookup; fuel exhaustion is swept), and refusals no type of Init reaches (a type not among its recursor's, several motives into Prop only, a Sort only reduction shows) Measured 2026-11-13 over make test-front (review fe6a-2 N4)."
   }
  }
 }

@@ -148,7 +148,7 @@ is elaborated yet:
 | `explicit:` and the other binder words | `( t -- )` | a binder whose type is the tree as written |
 | `:=` | `( t -- )` | the statement, as in the kernel form |
 | `by` | `( -- )` | right after `:=`: a tactic proof follows (69 elsewhere or twice) |
-| `end NAME` | `( t -- )` | checks the declaration's shape (errors 19, 20, 22), then stops: elaborating is plan FE1e-f (71, unsupported) |
+| `end NAME` | `( t -- )` | checks the declaration's shape (errors 19, 20, 22) and keeps the proof's tree, then elaborates it, which stops today: elaborating is plan FE1e (71, unsupported). Once FE1e gives the type and value, the hand-over (`src/front/handover.fs`, plan FE1f) instantiates every assigned metavariable, stops at a hole still reachable (74, invalid) or at a universe parameter of the declaration that is unused (75, invalid, as Lean's "unused universe parameter": a theorem's or axiom's counted in its statement alone, a definition's in its statement and value), refuses malformed terms (76, invalid: a term that is no node, a theorem or definition without a value, an axiom with one) and an instantiation step not ported yet (77, unsupported), and records the declaration; its records reach the kernel as a kernel-form text's do |
 | `by-induction`, `by-case:`, `by-rfl`, `by-exact` | | tactics: not supported yet in either form (72) |
 | the other kernel-form words (`Prop`, `fun`, `var#`, `^`, ...) | | not supported yet in natural form (70) |
 | `'`, `+`, `=`, `*`, `≤` in kernel-form text | | refused (58) |
@@ -157,8 +157,11 @@ Each operator word is checked against the printer's notation table while
 the reader loads (`present/notation-table.fs`: the row of the constant
 must spell the word). The Forth interface adds `lf-author-kernel ( -- )`
 (the marker, for a caller that runs kernel-form text without it),
-`lf-front-statement ( -- node )` and `lf-front-by ( -- pos )`, and the
-syntax store's words (`src/front/syntax.fs`). `leanforth print --lf`
+`lf-front-statement ( -- node )`, `lf-front-by ( -- pos )` and
+`lf-front-proof ( -- node )`, the syntax store's words
+(`src/front/syntax.fs`), the elaborator's hook `lf-front-elaborate ( --
+type value )` and the hand-over `lf-handover ( decl type value -- outcome
+)` (`src/front/handover.fs`). `leanforth print --lf`
 writes `kernel-form` as its first line.
 
 ## Forth interface
@@ -391,10 +394,16 @@ below it).
 | 71 | unsupported | not supported yet: elaborating natural LeanForth (plan FE1e-f) |
 | 72 | unsupported | not supported yet: tactics (plan FE1g) |
 | 73 | unsupported | not supported yet: how many arguments the name takes depends on unfolding its type |
+| 74 | invalid | elaboration incomplete: a hole (metavariable) is left in the declaration |
+| 75 | invalid | unused universe parameter: the statement (or a definition's value) must use it |
+| 76 | invalid | malformed elaboration: a term that is no node, or a value unfit for the declaration |
+| 77 | unsupported | not supported yet: this step of instantiating metavariables (plan FE1c) |
 
 The tests reach every code: `tests/author/author.fs` all but 39 and the
 natural form's (57 to 59 and 68 to 73, which `tests/front/front.fs`
-reaches, 68 with the syntax store's limit lowered; 58 both), and 39 the
+reaches, 68 with the syntax store's limit lowered; 58 both; 74 to 77,
+which `tests/front/handover.fs` reaches with an elaborator of its own, the
+real one being plan FE1e), and 39 the
 example file `17-long-line.lf` (a line of 1024 characters or more in a
 file). Proof text cannot reach 34, since it cannot write a
 negative number and each value is used once; the unit tests reach it by

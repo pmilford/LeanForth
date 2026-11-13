@@ -49,6 +49,13 @@
 : outcome-steps ( x a -- outcome )
   dup @ 0= if 2drop outcome-ok exit then
   2dup @ execute dup ok? 0= if nip nip exit then drop cell+ recurse ;
+\ Run the step xt ( i*x -- j*x outcome ) only when the outcome so far is
+\ ok; else keep that outcome, the values below it untouched. Example:
+\ `outcome-ok ['] size-ok ok-and ['] sum-ok ok-and`.
+: ok-and ( i*x outcome xt -- j*x outcome ) over ok? if nip execute else drop then ;
+\ The same for a step ( x -- outcome ) of x, which stays below for the
+\ next. Example: `file outcome-ok ['] size-ok ok-with ['] sum-ok ok-with nip`.
+: ok-with ( x outcome xt -- x outcome ) over ok? if nip over swap execute else drop then ;
 \ The same for a step that gives a result, with one or two values kept
 \ below it for the next step: keep them and give true, or drop them, keep
 \ the result beside the failing outcome and give false.
