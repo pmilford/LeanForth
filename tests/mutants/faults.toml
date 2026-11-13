@@ -10841,7 +10841,7 @@ reason = "FE1c tidy-up d: ?f a with ?f := fun x => b is not beta-reduced, where 
 [[fault]]
 id = "fe-delayed-ready-unchecked"
 file = "src/front/mvars.fs"
-old = '''  swap mv-ready if mv-delayed-app else mctx mctx-walk mv-rebuild then ;'''
+old = '''  swap mv-ready if swap mv-spine drop mv-delayed else mctx mctx-walk mv-rebuild then ;'''
 new = '''  2drop mctx mctx-walk mv-rebuild ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1c tidy-up d: ?d x with a ready delayed assignment keeps ?d, where Lean puts the pending value in"
@@ -11806,8 +11806,8 @@ reason = "FE1c review Q5: a Sort keeps its level after the level's image changes
 [[fault]]
 id = "fe-inst-zeta-guessed"
 file = "src/front/mvars.fs"
-old = '''  tuck mv-lams rot = if drop 0 else lf-let? 1 and 2 swap - then ;'''
-new = '''  tuck mv-lams rot = if drop 0 else drop 2 then ;'''
+old = ''': mv-lam-code ( f n -- 0|1|2 ) mv-lams if lf-let? 1 and 2 swap - else drop 0 then ;'''
+new = ''': mv-lam-code ( f n -- 0|1|2 ) mv-lams if drop 2 else drop 0 then ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1c tidy-up d: ?l a with ?l := let c := v; fun x => b is applied without zeta, a term Lean's betaRev (useZeta) never gives; it must answer unsupported"
 

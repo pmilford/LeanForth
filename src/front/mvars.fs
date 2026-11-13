@@ -427,10 +427,13 @@ store-header context-record: mv-fvars
 \ from its first part's, so a node finds them at once. mv-spine puts the
 \ arguments' images in mv-args, the last first (a_j is n - j there).
 : mv-app? ( node -- flag ) lf-term-tag@ lf-tag-app = ;
-: mv-spine-cell ( node -- addr ) 2* cells mctx mctx-spine @ + ;
+: mv-head-cell ( node -- addr ) 2* cells mctx mctx-spine @ + ;
+: mv-count-cell ( node -- addr ) mv-head-cell cell+ ;
+: mv-first-head ( node -- head ) lf-term-first@ dup mv-app? if mv-head-cell @ then ;
+: mv-first-count ( node -- n )
+  lf-term-first@ dup mv-app? if mv-count-cell @ 1+ else drop 1 then ;
 : mv-spine-set ( node -- )
-  dup lf-term-first@ dup mv-app? if mv-spine-cell 2@ 1+ else 1 then
-  rot mv-spine-cell 2! ;
+  dup mv-first-head over mv-head-cell ! dup mv-first-count swap mv-count-cell ! ;
 : mv-args# ( -- n ) mv-args slab-count ;
 : mv-nth ( j -- image ) mv-args# swap - mv-args slab-at @ ;
 : mv-arg-put ( image -- )
@@ -447,38 +450,45 @@ store-header context-record: mv-fvars
 \ lambdas run out first and the node is its parts' images (its first
 \ part, with one argument fewer, is already the beta-reduced term).
 : mv-lam? ( term -- flag ) lf-term-tag@ lf-tag-lam = ;
-: mv-lams ( f n -- f' m )
-  0 swap 0 ?do over mv-lam? 0= if leave then swap lf-term-second@ swap 1+ loop ;
-: mv-lam-code ( f n -- 0|1|2 )
-  tuck mv-lams rot = if drop 0 else lf-let? 1 and 2 swap - then ;
+\ f under its first lambdas, at most n, and the arguments left.
+: mv-lams ( f n -- f' left )
+  begin dup 0> while over mv-lam? 0= if exit then 1- swap lf-term-second@ swap repeat ;
+: mv-lam-code ( f n -- 0|1|2 ) mv-lams if lf-let? 1 and 2 swap - else drop 0 then ;
 : mv-beta-all ( node f -- image )
   swap mv-spine drop 0 mv-apply lf-meta-head-beta mv-remapped ;
 : mv-zeta ( node f -- image ) 2drop outcome-unsupported mv-refuse -1 ;
 : mv-beta-at ( node head n -- image )
   swap mv-image tuck swap mv-lam-code case 0 of mv-beta-all endof 1 of mv-zeta endof
-    >r drop mctx mctx-walk mv-rebuild r> endcase ;
+    drop drop mctx mctx-walk mv-rebuild 0 endcase ;
 : mv-assigned? ( head -- flag ) mv-value-of dup if nip then ;
 
 \ The delayed step, for exactly k arguments (with more, the first part is
-\ already the value put in, and the node is its parts' images).
-: mv-delay-of ( head -- addr k value true | false )
-  lf-mvar-delayed 0= if false exit then rot lf-mvar-value if true else 2drop false then ;
+\ already the value put in, and the node is its parts' images). The
+\ head's record gives the free variables, their count and the pending
+\ metavariable, whose value's image is put in.
+: mv-delay-rec ( head -- rec true | false )
+  mv-of 0= if false exit then dup mvd-pending @ 0< if drop false exit then
+  dup mvd-pending @ mv-assigned? dup 0= if nip then ;
+: mv-rec-k ( rec -- k ) mvd-fvars# @ ;
+: mv-rec-fvars ( rec -- addr ) mvd-fvars @ mv-fvars store-slot ;
+: mv-rec-value ( rec -- image ) mvd-pending @ lf-mvar-value drop mv-image ;
 : mv-solid ( term -- term flag )
   dup mv-holes? dup ok? if drop 0= else mv-refuse drop false then ;
-: mv-ready ( n head -- value addr k true | false )
-  mv-delay-of 0= if drop false exit then
-  >r rot over <> if 2drop r> drop false exit then
-  r> mv-image mv-solid if -rot true else 2drop drop false then ;
+: mv-ready ( n head -- rec true | false )
+  mv-delay-rec 0= if drop false exit then tuck mv-rec-k <> if drop false exit then
+  dup mv-rec-value mv-solid nip if true else drop false then ;
 : mv-put-args ( e k -- e' )
-  begin dup 0> while >r r@ mv-nth lf-meta-instantiate1 mv-remapped r> 1- repeat drop ;
-: mv-delayed ( value addr k -- image )
-  dup >r lf-meta-abstract mv-remapped r@ mv-put-args r> mv-apply ;
-: mv-delayed-app ( node value addr k -- image ) 2>r >r mv-spine drop r> 2r> mv-delayed ;
+  begin dup 0> while tuck mv-nth lf-meta-instantiate1 mv-remapped swap 1- repeat drop ;
+: mv-put-apply ( e k -- image ) tuck mv-put-args swap mv-apply ;
+: mv-rec-abstract ( value rec -- e )
+  dup mv-rec-fvars swap mv-rec-k lf-meta-abstract mv-remapped ;
+: mv-delayed ( rec -- image )
+  dup mv-rec-value over mv-rec-abstract swap mv-rec-k mv-put-apply ;
 : mv-delay-at ( node head n -- image )
-  swap mv-ready if mv-delayed-app else mctx mctx-walk mv-rebuild then ;
+  swap mv-ready if swap mv-spine drop mv-delayed else mctx mctx-walk mv-rebuild then ;
 
 : mv-app-build ( node walk -- image )
-  drop dup mv-spine-set dup mv-spine-cell 2@ over mv-assigned?
+  drop dup mv-spine-set dup mv-head-cell @ over mv-count-cell @ over mv-assigned?
   if mv-beta-at else mv-delay-at then ;
 : mv-pair-build ( node walk -- image ) over mv-app? if mv-app-build else mv-rebuild then ;
 \ A Sort's level and a constant's universe arguments get their images
