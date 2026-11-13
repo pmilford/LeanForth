@@ -227,10 +227,12 @@ end-structure
 \ The term store's own hash-consing is turned off for the run (terms.fs):
 \ authoring shares nodes itself and keeps a binder name, a position or a
 \ note per node (build.fs), which one shared node could not hold.
-: lf-author-begin ( -- )
-  false lf-term-sharing!
+: lfa-stores-reset ( -- )
   lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
-  lf-pres-reset lf-note-reset lf-ssession-begin drop lfa-scope-close lfa-items-reset
+  lf-pres-reset lf-note-reset lf-ssession-begin drop ;
+\ A run starts in natural form (form.fs).
+: lf-author-begin ( -- )
+  false lf-term-sharing! lfa-stores-reset lfa-scope-close lfa-items-reset
   lfa-groups-reset lfa-declarations-reset lfa-source-reset lfa-error-reset
   lfa-form-reset lfa-declaration-fresh ;
 \ The run's text is in the kernel form, as the marker kernel-form says

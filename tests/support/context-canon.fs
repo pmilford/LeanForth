@@ -22,6 +22,8 @@ create canon-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf-in
 \ And, when loaded (src/main.fs since plan task 8.2.1c), the authoring
 \ words' binders (src/author/scopes.fs).
 [defined] lfa-binders [if] ' lfa-binders , [then]
+\ And the natural reader's syntax store (src/front/syntax.fs, plan FE1a).
+[defined] syn-store [if] ' syn-store , [then]
 here canon-stores - 1 cells / constant canon-stores#
 : canon-store# ( i -- store ) cells canon-stores + @ execute ;
 : canon-mix ( h x -- h' ) swap 31 * + ;

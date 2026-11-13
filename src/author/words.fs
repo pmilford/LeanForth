@@ -129,7 +129,7 @@ require ./library.fs
 : lfa-word ( xt "name" -- )
   >in @ parse-name lf-pf-reserved? 0= abort" words.fs: a word missing in print-forth.fs"
   >in ! lfa-syntax ;
-: lfa-word-both ( xt "name" -- ) dup >in @ >r lfa-word r> >in ! lfa-natural! ;
+: lfa-word-both ( xt "name" -- ) >in @ over lfa-word >in ! lfa-natural! ;
 ' lfa-w-backslash lfa-word-both \
 ' lfa-w-paren lfa-word-both (
 ' lfa-w-theorem lfa-word-both theorem

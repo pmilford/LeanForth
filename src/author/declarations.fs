@@ -130,10 +130,9 @@ end-structure
 \ value kind: the binder word; its frame starts below the domain, which
 \ is a term in the kernel form and a syntax node in natural form
 \ (src/front/reader.fs gives the word that makes it).
-: lfa-binder-open ( domain kind mark -- )
-  >r lfa-here lfa-open r> over lfa-binder-mark ! lfa-name-binder ;
-: lfa-binder-of ( value kind xt -- )
-  depth 3 - >r swap >r execute r> r> lfa-binder-open ;
+: lfa-binder-open ( domain kind -- )
+  depth 2 - >r lfa-here lfa-open r> over lfa-binder-mark ! lfa-name-binder ;
+: lfa-binder-of ( value kind xt -- ) swap >r execute r> lfa-binder-open ;
 : lfa-binder-word ( value kind -- ) ['] lfa>term lfa-binder-of ;
 \ The node of a binder around body, with its name, kind and position.
 : lfa-named-node ( binder body tag -- term )

@@ -150,10 +150,9 @@ end-structure
   lfa-number-like? if lfa-e-not-word else lfa-e-unknown then ;
 \ Check the line up to offset n: a stray token stops the run at itself;
 \ in natural form the numbers' positions are kept (form.fs).
-: lfa-stray! ( c-addr u token-addr token-u -- )
-  2swap 2drop 2dup lfa-token! lfa-stray-code lfa-fail ;
 : lfa-read-to ( n -- )
-  lfa-unread-to 2dup lfa-stray dup if lfa-stray! then 2drop lfa-numerals-read ;
+  lfa-unread-to 2dup lfa-stray nip 0= if lfa-numerals-read exit then
+  lfa-stray 2dup lfa-token! lfa-stray-code lfa-fail ;
 
 \ The token that invoked the word whose body is given, which must be found
 \ as that word in wid: the word was run by the text interpreter. The

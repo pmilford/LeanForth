@@ -138,11 +138,11 @@ defer lfn-library-arity ( name -- arity unfolds? true | false )
 : lfn-w-mul ( a b -- t ) 2 lfa-args syn-k-binop s" HMul.hMul" lfn-operator ;
 : lfn-w-eq ( a b -- t ) 2 lfa-args syn-k-binrel s" Eq" lfn-operator ;
 : lfn-w-le ( a b -- t ) 2 lfa-args syn-k-binrel s" LE.le" lfn-operator ;
-: lfn-trim ( c-addr u -- c-addr' u' ) begin dup while over c@ bl = while 1 /string repeat
-  then begin dup while 2dup + 1- c@ bl = while 1- repeat then ;
+\ An infix spelling is the operator with a blank on each side (" + ").
+: lfn-inner ( c-addr u -- c-addr' u' ) dup 2 < if exit then 1 /string 1- ;
 : lfn-spelt? ( c-addr u word-addr word-u -- flag )
   2swap lf-nt-find dup 0= if drop 2drop false exit then
-  lf-print-unicode lf-nt-sym lfn-trim compare 0= ;
+  lf-print-unicode lf-nt-sym lfn-inner compare 0= ;
 : lfn-notation ( c-addr u "word" -- )
   parse-name lfn-spelt? 0= abort" reader.fs: an operator word the notation table lacks" ;
 s" HAdd.hAdd" lfn-notation +
