@@ -494,9 +494,10 @@ when Lean's tactic would.
 - `by-case: TAG NAMES… =>` focuses the goal of that case and names its new
   hypotheses, as Lean's `case TAG NAMES… =>`; the names end at `=>`. The
   case must be finished before the next `by-case:` or `end`.
-- `end NAME` with goals left is an error that prints them; there is no
-  `sorry`, and nothing is ever filled in to carry on after an error
-  (ADR 0021 D3).
+- `end NAME` with goals left is an error that prints them; nothing is
+  ever filled in to carry on after an error (ADR 0021 D3). The explicit
+  `sorry`, as in Lean, closes a goal and leaves the declaration NOT
+  PROVED, with the open parts listed (ADR 0021 Amendment 1).
 - `.goals` prints the goals at any point (at the prompt this is the
   interactive view; in a file, a debugging aid); errors print the goals
   too. For AI tools the same in JSON.
@@ -561,7 +562,8 @@ with it.
 
 The rules of ADR 0021: the front end has no way to publish a declaration
 except through the kernel's check of export records; no metavariable
-reaches the kernel; no `sorry` and no error recovery; the axioms of each
+reaches the kernel; no error recovery, and the explicit `sorry` only as
+in Lean, reported NOT PROVED with its open parts (ADR 0021 Amendment 1); the axioms of each
 accepted theorem are the kernel's report, unchanged; every verdict line
 shows the checked statement; every elaboration rule that decides what a
 statement means passes the [parser] gate and is compared with pinned Lean;
