@@ -180,7 +180,40 @@ written once from pinned Lean's trace (p1) and reviewed; the test
 compares LeanForth's trace with it line by line, and the final term with
 pinned Lean's `pp.all` output node for node. Lean's own trace numbers
 metavariables per message, so the golden file is not produced from
-Lean's text mechanically; the term comparison is (§6.1).
+Lean's text mechanically; the term comparison is (§6.1). The golden
+events, with the names of §1.2 (the file numbers them):
+
+```text
+binrel Eq                    resolve Eq.{u1}; open withSynthesizeLight
+ tree L: binop HAdd.hAdd     resolve HAdd.hAdd.{u2,u3,u4}
+  leaf 0: num                ?T synthetic : Sort v; v := w+1
+                             ?i synthetic : OfNat.{w} ?T 0
+                             synth OfNat.{w} ?T 0: stuck (instOfNatQ); pending ?i
+  leaf n: var                n
+  round (postpone yes)       resume ?i: synth OfNat.{w} ?T 0: stuck; not ready
+ tree R: leaf n: var         n
+  round (postpone yes)       resume ?i: synth OfNat.{w} ?T 0: stuck; not ready
+ analyze                     0 : ?T unknown; n : Nat, max Nat; n : Nat =?= Nat
+                             max Nat; uncomparable false; unknown true
+ applyCoe Eq, predicate
+  binop HAdd.hAdd            homogeneous: synth HAdd.{0,0,0} Nat Nat Nat:
+                               instHAdd.{0} Nat instAddNat (subgoal Add.{0} Nat: instAddNat)
+  leaf 0                     heterogeneous defaults: false; Nat =?= ?T: ?T := Nat, w := 0
+  leaf n                     Nat =?= Nat
+  leaf n                     Nat =?= Nat
+ app HAdd.hAdd.{u2,u3,u4}    ?α natural; ?β natural; ?γ natural; ?s synthetic, instance
+                             arg 0: Nat =?= ?α: ?α := Nat, u2 := 0
+                             arg n: Nat =?= ?β: ?β := Nat, u3 := 0
+                             finalize: synth HAdd.{0,0,u4} Nat Nat ?γ:
+                               instHAdd.{0} Nat instAddNat; out-parameters ?γ := Nat, u4 := 0
+ app Eq.{u1}                 ?A natural
+                             arg: Nat =?= ?A: ?A := Nat, u1 := 1
+                             arg: Nat =?= Nat; finalize
+ round (postpone yes)        resume ?i: synth OfNat.{0} Nat 0: instOfNatNat 0; succeeded
+ close withSynthesizeLight
+term @Eq.{1} Nat (@HAdd.hAdd.{0,0,0} Nat Nat Nat (@instHAdd.{0} Nat instAddNat)
+       (@OfNat.ofNat.{0} Nat (nat_lit 0) (instOfNatNat (nat_lit 0))) n) n
+```
 
 ## 2. The minimal faithful subset
 
