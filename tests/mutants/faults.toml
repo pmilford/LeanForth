@@ -11494,3 +11494,19 @@ new = '''  dup lf-slot-accepted? if lf-slot-warnings @ outcome-ok
   else drop 0 outcome-ok then ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "a rejected declaration's warnings are given as none and ok, as if it had been accepted"
+
+[[fault]]
+id = "cov2-quot-names-outside-check"
+file = "src/kernel/quot.fs"
+old = '''  lf-env-checking 0= if outcome-invalid exit then nip'''
+new = '''  lf-env-checking 0= if outcome-ok exit then nip'''
+test = "$GFORTH tests/core/quot.fs"
+reason = "a quotient record's names pass outside any check, where nothing could be looked up"
+
+[[fault]]
+id = "cov2-block-check-outside-check"
+file = "src/kernel/check-block.fs"
+old = '''  lf-env-checking 0= if drop outcome-invalid exit then nip'''
+new = '''  lf-env-checking 0= if drop outcome-rejected exit then nip'''
+test = "$GFORTH tests/core/quot.fs"
+reason = "a block checked outside any check is rejected, a verdict, instead of refused as invalid"
