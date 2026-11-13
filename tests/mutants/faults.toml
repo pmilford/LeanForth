@@ -11762,3 +11762,136 @@ old = '''  dup lf-level-mvar-live? if lf-level-mvar-depth lf-mctx-depth < 0= els
 new = '''  lf-level-mvar-live? ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: hasAssignableLevelMVar counts a read-only metavariable, so a pair Lean answers false is postponed (unsupported)"
+
+# --- Signed big integers (src/lib/bigint.fs, plan step FE1i-4) ------------
+
+[[fault]]
+id = "fe-bigint-ediv-sign"
+file = "src/lib/bigint.fs"
+old = ''': ediv-step ( build -- xt ) away? if ['] ceil-div else ['] big/ then ;'''
+new = ''': ediv-step ( build -- xt ) build-signs 0> swap 0< and if ['] ceil-div else ['] big/ then ;'''
+test = 'test -n "$LEAN" && GFORTH=$GFORTH python3 tests/lib/bigint_differential.py --lean --pairs 300'
+reason = "FE1i design 6.4: ediv rounds toward zero for a negative divisor (-12 / -7 gives 1, Lean 2); Forth differs from pinned Lean's Int"
+quick = true
+
+[[fault]]
+id = "fe-bigint-emod-negative"
+file = "src/lib/bigint.fs"
+old = '''  dup @ if r> big- else nip r> drop outcome-ok then ;'''
+new = '''  nip r> drop outcome-ok ;'''
+test = "$GFORTH tests/lib/bigint.fs"
+reason = "a % b for a negative a is |a| mod |b|, not |b| - that; Lean's -12 % 7 = 2 gives 5"
+
+[[fault]]
+id = "fe-bigint-ceil-no-step"
+file = "src/lib/bigint.fs"
+old = '''    swap r@ big/ ok-then? if r> big-1+ exit then no-result'''
+new = '''    swap r@ big/ ok-then? if r> drop outcome-ok exit then no-result'''
+test = "$GFORTH tests/lib/bigint.fs"
+reason = "a negative a's quotient misses its final + 1: Lean's -12 / 7 = -2 gives -1"
+
+[[fault]]
+id = "fe-bigint-bmod-boundary"
+file = "src/lib/bigint.fs"
+old = '''  2dup big-compare 0< if drop nip else nip swap -1 swap sign! then ;'''
+new = '''  2dup big-compare 1 < if drop nip else nip swap -1 swap sign! then ;'''
+test = "$GFORTH tests/lib/bigint.fs"
+reason = "bmod keeps r when 2r = m (r <= m - r, not r < m - r): Lean's 12 bmod 8 = -4 gives 4"
+quick = true
+
+[[fault]]
+id = "fe-bigint-bmod-sign-kept"
+file = "src/lib/bigint.fs"
+old = '''  2dup big-compare 0< if drop nip else nip swap -1 swap sign! then ;'''
+new = '''  2dup big-compare 0< if drop nip else nip nip then ;'''
+test = "$GFORTH tests/lib/bigint.fs"
+reason = "bmod's r - m keeps a positive sign: Lean's 12 bmod 7 = -2 gives 2"
+
+[[fault]]
+id = "fe-bigint-sum-sign"
+file = "src/lib/bigint.fs"
+old = ''': sum-sign ( sb build -- ) dup smaller? 0= if nip dup a-sign swap then sign! ;'''
+new = ''': sum-sign ( sb build -- ) nip dup a-sign swap sign! ;'''
+test = "$GFORTH tests/lib/bigint.fs"
+reason = "a sum takes a's sign even when |a| < |b|: -3 + 5 gives -2"
+
+[[fault]]
+id = "fe-bigint-sub-step"
+file = "src/lib/bigint.fs"
+old = ''': sub-step ( build -- xt ) build-signs * 0> if ['] diff-mag else ['] big+ then ;'''
+new = ''': sub-step ( build -- xt ) build-signs * 0< if ['] diff-mag else ['] big+ then ;'''
+test = "$GFORTH tests/lib/bigint.fs"
+reason = "a - b adds the magnitudes for like signs: 5 - 5 gives 10"
+
+[[fault]]
+id = "fe-bigint-zero-sign"
+file = "src/lib/bigint.fs"
+old = ''': zero-fix ( i -- ) dup int-mag @ 0= if 0 swap ! else drop then ;'''
+new = ''': zero-fix ( i -- ) drop ;'''
+test = "$GFORTH tests/lib/bigint.fs"
+reason = "a zero result keeps a sign of -1 or 1 (5 + -5): two forms of 0, which bigint-valid? refuses"
+quick = true
+
+[[fault]]
+id = "fe-bigint-land-after-move"
+file = "src/lib/bigint.fs"
+old = '''  rot build-arena @ >r tuck big-move dup big-end r> arena-top ! ;'''
+new = '''  rot >r tuck big-move dup big-end r> build-arena @ arena-top ! ;'''
+test = "$GFORTH tests/lib/bigint.fs"
+reason = "regression: the build's arena field is read after the move has overwritten it, so the arena's top is stored at a wrong address"
+
+[[fault]]
+id = "fe-bigint-live-unchecked"
+file = "src/lib/bigint.fs"
+old = '''  over int-after over arena-top @ u> 0= -rot arena-end @ u< 0= or ;'''
+new = '''  2drop true ;'''
+test = "$GFORTH tests/lib/bigint.fs"
+reason = "a released (stale) integer is taken as an operand, though the result would overwrite it"
+
+[[fault]]
+id = "fe-bigint-arena-unchecked"
+file = "src/lib/bigint.fs"
+old = '''  dup arena-valid? if tuck int-operand? -rot int-operand? and else drop 2drop false then ;'''
+new = '''  tuck int-operand? -rot int-operand? and ;'''
+test = "$GFORTH tests/lib/bigint.fs"
+reason = "a corrupted arena record (top past its end) is not refused as invalid before a build is claimed in it"
+
+[[fault]]
+id = "fe-bigint-pow-sign"
+file = "src/lib/bigint.fs"
+old = ''': pow-sign ( build -- ) dup a-sign 0< over build-b @ odd? and 1 or swap sign! ;'''
+new = ''': pow-sign ( build -- ) dup a-sign 0< 1 or swap sign! ;'''
+test = "$GFORTH tests/lib/bigint.fs"
+reason = "a negative base gives a negative power for an even exponent too: (-3)^0 gives -1"
+
+[[fault]]
+id = "fe-bigint-min-cell"
+file = "src/lib/bigint.fs"
+old = ''': n-fits? ( u s -- flag ) 0< if 1- then max-n u> 0= ;'''
+new = ''': n-fits? ( u s -- flag ) drop max-n u> 0= ;'''
+test = "$GFORTH tests/lib/bigint.fs"
+reason = "bigint>n refuses the most negative cell, whose magnitude is max-n + 1"
+
+[[fault]]
+id = "fe-bigint-compare-negatives"
+file = "src/lib/bigint.fs"
+old = '''  2dup signs 2dup <> if sign-order nip nip exit then drop >r mags big-compare r> * ;'''
+new = '''  2dup signs 2dup <> if sign-order nip nip exit then 2drop mags big-compare ;'''
+test = "$GFORTH tests/lib/bigint.fs"
+reason = "two negative integers compare by magnitude: -5 is taken as above -3"
+
+[[fault]]
+id = "fe-bigint-tonat-negative"
+file = "src/lib/bigint.fs"
+old = ''': tonat-step ( build -- xt ) a-sign 0< if ['] zero-mag else ['] copy-first then ;'''
+new = ''': tonat-step ( build -- xt ) drop ['] copy-first ;'''
+test = "$GFORTH tests/lib/bigint.fs"
+reason = "Int.toNat of a negative integer gives its magnitude, not 0"
+
+[[fault]]
+id = "fe-bigint-print-no-minus"
+file = "src/lib/bigint.fs"
+old = '''  over negative? if minus-text else swap int-mag swap big>decimal then ;'''
+new = '''  swap int-mag swap big>decimal ;'''
+test = "$GFORTH tests/lib/bigint.fs"
+reason = "a negative integer prints without its minus sign"

@@ -393,7 +393,8 @@ def main():
         bad = compare("Forth against the model", lines, expected, pairs)
         if args.lean:
             lean = lean_lines(os.environ.get("LEAN", "lean"), directory, pairs)
-            bad += compare("Lean against the model", lean, expected, pairs)
+            bad += compare("Forth against Lean", lines, lean, pairs)
+            bad += compare("the model against Lean", expected, lean, pairs)
         for item in bad[:10]:
             print("  " + item)
         if bad:

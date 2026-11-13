@@ -802,6 +802,26 @@ reference-bignum:
 test: test-bignum
 test-differential: reference-bignum
 
+# Signed big integers with Lean's Int semantics (plan step FE1i-4;
+# src/lib/bigint.fs, a standalone library over bignum.fs): unit tests of
+# every word and outcome, every room from 0 cells up and no heap use; then
+# 9,906 integer pairs (7,906 edge, 2,000 random), 13 operations each,
+# against a model that follows Lean's definitions, and the header's example
+# and interface from a folder outside the project. Gforth and Python 3 only.
+test-bigint:
+	$(RUN) $(GFORTH) tests/lib/bigint.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/lib/bigint_differential.py --pairs 2000
+
+# 17,906 pairs (10,000 random) computed by pinned Lean's own Int, line for
+# line, and 300 results decided by Lean's kernel (decide +kernel), each also
+# rejected with its value changed.
+reference-bigint:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/lib/bigint_differential.py --lean
+
+.PHONY: test-bigint reference-bigint
+test: test-bigint
+test-differential: reference-bigint
+
 # SHA-256 (src/lib/sha256.fs, a standalone library; docs/development/FORTH_LIBRARY.md):
 # FIPS 180-4's vectors, every split of messages up to 200 bytes, the named
 # functions against independent models and the fast round against the plain
