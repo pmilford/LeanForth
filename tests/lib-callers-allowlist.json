@@ -1,0 +1,4 @@
+{
+ "src/lib/bigint.fs": {"plan": "FE1i-4", "reason": "first caller is slice S4, the by-omega tactic"},
+ "src/lib/sort.fs": {"plan": "9.4.8a", "reason": "its first callers merge with s1-synth and reuse-1"}
+}

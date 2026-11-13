@@ -29,7 +29,11 @@ against the coverage classes of [the coverage review](TEST_COVERAGE_REVIEW.md) a
    success/failure results. Trace return-stack use through loops, `EXIT`,
    `UNLOOP`, and calls; check loop bounds, empty ranges and nesting. Verify flags
    are consumed correctly and that callers use the actual returned convention.
-3. Check idiom and factoring against [the Forth style guide](FORTH_STYLE.md),
+3. Before judging factoring, look for existing words in the generated word index
+   ([LIBRARY_WORDS.md](LIBRARY_WORDS.md)) and read the duplicate report
+   (`python3 scripts/check-duplicates.py --report`; plan 9.4.8f): a new copy of an indexed word or a new
+   duplicate group is a finding.
+   Check idiom and factoring against [the Forth style guide](FORTH_STYLE.md),
    which is the project standard. Run
    `python3 scripts/forth-metrics.py --words 10 <files>` on the reviewed files
    and include its summary in the report. Raise a finding — with a concrete
@@ -63,11 +67,11 @@ against the coverage classes of [the coverage review](TEST_COVERAGE_REVIEW.md) a
      JSON;
    - for each, search for an existing word that already does it: the library
      words ([FORTH_LIBRARY.md](FORTH_LIBRARY.md), `src/README.md`'s `lib/`
-     row, and the generated word index once plan 9.4.8f adds it), then
+     row, and the generated word index [LIBRARY_WORDS.md](LIBRARY_WORDS.md)), then
      `grep -rn` across all of `src/` by name and by shape (the same loop, the
      same push and pop, the same tag test), not only the changed files;
    - run `python3 scripts/check-duplicates.py` and
-     `python3 scripts/check-lib-callers.py` (plan 9.4.8f, once on `main`) and
+     `python3 scripts/check-lib-callers.py` (plan 9.4.8f) and
      quote their new entries; when the coordinator names branches in flight,
      compare their copies of the same operation too;
    - check the reverse: a general operation written inside a Lean module
