@@ -7,7 +7,10 @@ sections 3 and 4).
    tests/front/tactic-dump.fs in its format 1, with the error the run ends
    with, equals tests/front/tactics.golden line for line. A harness
    self-test first checks that a changed record is told apart.
-2. `bin/leanforth check --env tests/front/tactic-slice.ndjson FILE` on
+2. The messages of src/author/errors.fs's catalogue for the codes of
+   CODES (89, 90, 94, 96, 97), as LeanForth prints them, equal the
+   messages below, which the Lean run checks against pinned Lean's.
+3. `bin/leanforth check --env tests/front/tactic-slice.ndjson FILE` on
    each file, and with tests/front/run-slice.ndjson on the runner's files
    (RUN_FILES), exits 2 with error 71 at its end NAME (not supported yet:
    elaborating the statement, plan FE1e; the runner's own outcomes are
@@ -27,8 +30,10 @@ tests pin: unsolved goals at by with exactly the goal lines
 tests/front/tactic-run.fs compares (LEAN_GOALS), sorry accepted with the
 warning "declaration uses `sorry`" (an error under -DwarningAsError=true,
 which every Lean run of the tests passes; the theorem is added all the
-same) and sorryAx its one axiom, and "No goals to be solved" at a second
-sorry.
+same) and sorryAx its one axiom, "No goals to be solved" at a second
+sorry, each error's first line the message errors.fs's catalogue has
+for its code, the terms of the proofs tests/front/tactic-basic.fs pins
+node for node, and the goal after intro on beta redexes.
 
 Usage: GFORTH=... python3 tests/front/check_tactics.py
        LEAN=... python3 tests/front/check_tactics.py --lean
@@ -67,9 +72,21 @@ BASIC_ERRORS = {
                    ["  p", "is not definitionally equal to the right-hand side", "  q", "",
                     "p q : Prop", "⊢ p = q"]),
 }
-# The terms pinned Lean prints for the two proofs the kernel accepts in
-# tests/front/tactic-basic.fs (which compares LeanForth's node by node).
-BASIC_TERMS = ["fun (p : Prop) (h : p) => h", "fun (p : Prop) => @Eq.refl.{1} Prop p"]
+# The terms pinned Lean prints for the proofs tests/front/tactic-basic.fs
+# compares node by node (the first two, refl_x and imp_pq also through the
+# kernel).
+BASIC_TERMS = ["fun (p : Prop) (h : p) => h", "fun (p : Prop) => @Eq.refl.{1} Prop p",
+               "fun (a : Type) (x : a) => @Eq.refl.{1} a x", "fun (p q : Prop) (h : p) => h",
+               "fun (p : Prop) (h1 h2 : p) => @Eq.refl.{0} p h1"]
+# The goal trace_state prints after intro h in intro_beta and intro_whnf
+# (tactic-basic.fs's h-goal): the domain and the body head-beta reduced.
+INTRO_GOAL = ["p : Prop", "h : p", "⊢ p"]
+# The catalogue code (src/author/errors.fs) of each theorem's first error,
+# whose message must be pinned Lean's word for word (review fe1g3 L7).
+CODES = {"zero_add_open": 89, "sorry_twice": 90, "intro_twice": 94, "exact_sort": 96,
+         "exact_wrong": 96, "refl_wrong": 97}
+LEAN_MESSAGES = {"zero_add_open": "unsolved goals", "sorry_twice": "No goals to be solved",
+                 **{name: message for name, (message, _) in BASIC_ERRORS.items()}}
 RUN_LEAN = ROOT / "tests/front/tactic-run.lean"
 RUN_TWIN = ROOT / "tests/front/tactic-run.fs"
 # The goal lines under Lean's "unsolved goals" for zero_add_open, which
@@ -122,6 +139,27 @@ def self_test(want):
     changed = [line.replace("@15:41", "@15:42") for line in want]
     if changed == want or differ(changed, want) is None:
         raise Failure("harness self-test: a changed record is not told apart")
+
+
+def catalogue():
+    """errors.fs's message for each code of CODES, as LeanForth prints it."""
+    codes = sorted(set(CODES.values()))
+    calls = " ".join(f"{code} lf-author-message type cr" for code in codes)
+    run = subprocess.run([GFORTH, "src/main.fs", "-e", calls + " bye"], cwd=ROOT,
+                         stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                         timeout=LIMIT)
+    lines = run.stdout.splitlines()
+    if run.returncode != 0 or run.stderr or len(lines) != len(codes):
+        raise Failure(f"the catalogue: exit {run.returncode}\n{run.stdout}{run.stderr}")
+    return dict(zip(codes, lines))
+
+
+def check_catalogue():
+    texts = catalogue()
+    for name, code in CODES.items():
+        if texts[code] != LEAN_MESSAGES[name]:
+            raise Failure(f"error {code}: errors.fs says {texts[code]!r}, pinned Lean on "
+                          f"{name} {LEAN_MESSAGES[name]!r}")
 
 
 def check(path, slice_=SLICE):
@@ -250,6 +288,17 @@ def check_run_lean():
     for term in BASIC_TERMS:
         if term not in out:
             raise Failure(f"tactic-run.lean: pinned Lean does not print {term}")
+    if out.count("\n".join(INTRO_GOAL)) != 2:
+        raise Failure(f"tactic-run.lean: intro_beta, intro_whnf: not the goal {INTRO_GOAL}")
+    pinned = 's\\" ' + "\\n".join(INTRO_GOAL) + '"'
+    if pinned not in basic:
+        raise Failure(f"tests/front/tactic-basic.fs does not pin the goal {pinned}")
+    texts = catalogue()
+    for name, code in CODES.items():
+        said = by_name.get(name, [])
+        if not said or said[0][1] != texts[code]:
+            raise Failure(f"error {code}: errors.fs says {texts[code]!r}, pinned Lean on "
+                          f"{name} {said[:1]!r}")
 
 
 def main_lean():
@@ -264,7 +313,8 @@ def main_lean():
     print(f"{SLICE}, {RUN_SLICE} and their manifests reproduced byte for byte by pinned "
           f"Lean; pinned Lean parses and refuses the {len(SHAPE_ERRORS)} shapes of "
           "tests/front/tactic-shapes.lean as the reader does, and gives the runner's "
-          "outcomes of tests/front/tactic-run.lean")
+          "outcomes, terms and goals of tests/front/tactic-run.lean, its messages "
+          "errors.fs's")
     return 0
 
 
@@ -277,12 +327,14 @@ def main():
         problem = differ(dump(), want)
         if problem:
             raise Failure(f"the records differ from {GOLDEN.relative_to(ROOT)}, {problem}")
+        check_catalogue()
         check_files()
         check_twins()
     except Failure as error:
         print(f"check_tactics: {error}")
         return 1
     print(f"tactic records: {len(FILES)} files read as tests/front/tactics.golden says; "
+          f"errors.fs's messages for codes {sorted(set(CODES.values()))} as pinned; "
           f"leanforth check stops each and {len(RUN_FILES)} more with error 71 (exit 2) "
           f"and {len(TWINS)} malformed twins with their errors (exit 4); harness "
           "self-test passed")

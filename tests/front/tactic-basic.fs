@@ -10,16 +10,22 @@
 \ not have yet: plan FE1e). Covered:
 \ 1. every outcome: theorem t (p : Prop) : p -> p := by intro h; exact h
 \    made as Lean's fun (p : Prop) (h : p) => h, node for node, also
-\    through the command line and the kernel (exit 0); intro _ makes an
-\    inaccessible hypothesis; rfl on p = p made as @Eq.refl.{1} Prop p
-\    and checked by the kernel; errors 94 (with Lean's text), 95, 96
-\    (with Lean's text), 97 (with Lean's text), 98, 99, 93, 71;
+\    through the command line and the kernel (exit 0); two binders closed
+\    in order, (p q : Prop) : p -> p by intro and exact and (a : Type)
+\    (x : a) : x = x by rfl, node for node and through the kernel; intro _
+\    makes an inaccessible hypothesis; intro head-beta reduces the domain
+\    and the body; rfl on p = p made as @Eq.refl.{1} Prop p and checked
+\    by the kernel, on h1 = h2 (proofs of p) with the left side; errors 94
+\    (with Lean's text), 95, 96 (with Lean's text), 97 (with Lean's text),
+\    98, 99, 93, 71, and 91 when isDefEq or whnfCore runs out of fuel;
 \ 2. malformed: a binder with no known kind, an implicit binder, a let;
 \ 3. stack effects (every T{ }T checks the depth) and lf-tac-holds?;
 \ 4. through cli-check: tests/front/07-intro-exact.lf, 08-rfl.lf;
 \ 5. resources: the heap refusing each allocation of an intro-exact run;
 \ 6. state: an intro undone at a choice point leaves no assignment, the
-\    same verdicts run twice;
+\    goal list and the context as they were; the current context, the
+\    printer's notation flag and defeq's configuration put back however a
+\    step ends; the same verdicts run twice;
 \ 7. regression pins: the terms and texts.
 include ../support/heap-watch.fs
 require ../support/tester.fs
@@ -60,7 +66,11 @@ create us 4 2* cells allot
 : local-of ( fvar c-addr u flags -- local ) >r lfa-intern r> lf-local-new made ;
 : pushed ( local -- ) lf-mctx-view swap lf-view-push made lf-mctx-view! ;
 : binder ( type c-addr u -- fvar ) rot lf-lctx-local made dup 2swap 0 local-of pushed ;
-: eq-of ( a b -- t ) >r >r level1 0 u! s" Eq" 1 cst prop app r> app r> app ;
+: eq-at ( α a b -- t ) >r >r >r level1 0 u! s" Eq" 1 cst r> app r> app r> app ;
+: eq-of ( a b -- t ) prop -rot eq-at ;
+: id-fun ( -- t ) prop 0 lf-term-bvar 0= abort" bvar" lf-term-lam 0= abort" lam" ;
+: id-of ( t -- t' ) id-fun s" x" lf-binder-default named swap app ;   \ (fun x => x) t
+: in2 ( t -- body ) lf-term-second@ lf-term-second@ ;
 
 \ ---- Stand-in statements (plan FE1e).
 variable p  variable q
@@ -109,6 +119,18 @@ T{ lf-pst-root lf-mvar-value drop dup tag swap lf-term-second@ lf-term-first@ lf
 : part-goal ( k -- c-addr u ) trun-parts slab-at dup top-goal @ swap top-goal# @ lfr-chars ;
 T{ s" by-intro: _ by-sorry end t" proof nrun new-local lf-local-name s" a" name= -> outcome-ok true }T
 T{ new-local lf-local-inaccessible? 0 part-goal s\" p : Prop\na✝ : p\n⊢ p" compare -> true 0 }T
+
+\ intro head-beta reduces the binder's domain and the body (Lean's
+\ introNCore, Meta/Tactic/Intro.lean): (fun x => x) p -> (fun x => x) p
+\ gives the goal pinned Lean's trace_state prints (tactic-run.lean's
+\ intro_beta); the same through whnfCore for (fun x => x) (p -> p).
+: beta-imp ( -- type ) p-prop p @ id-of p @ id-of arrow ;
+: beta-pi ( -- type ) p-prop p @ p @ arrow id-of ;
+: h-goal ( -- c-addr u ) s\" p : Prop\nh : p\n⊢ p" ;
+' beta-imp stating
+T{ s" by-intro: h by-sorry end t" proof nrun 0 part-goal h-goal compare -> outcome-ok 0 }T
+' beta-pi stating
+T{ s" by-intro: h by-sorry end t" proof nrun 0 part-goal h-goal compare -> outcome-ok 0 }T
 
 \ ---- 1. intro with nothing to introduce: 94 at the word, Lean's goal
 \ after a blank line (t3's second intro); where whnf's delta might find a
@@ -204,6 +226,61 @@ T{ s" by-rfl end t" proof nrun err -> outcome-unsupported 93 1 43 }T
 ' eq-hole stating
 T{ s" by-rfl end t" proof nrun err -> outcome-unsupported 93 1 43 }T
 
+\ Sides that differ but are definitionally equal (two proofs of p, by
+\ proof irrelevance): Lean's Eq.refl takes the left side (MVarId.refl,
+\ Meta/Tactic/Refl.lean:39; tactic-run.lean's refl_irrel):
+\ fun (p : Prop) (h1 h2 : p) => @Eq.refl.{0} p h1, the level Eq's own.
+: eq0 ( a b -- t ) >r >r 0 0 u! s" Eq" 1 cst p @ app r> app r> app ;
+: irrel ( -- type ) p-prop p @ s" h1" binder p @ s" h2" binder eq0 ;
+: in3 ( t -- body ) lf-term-second@ lf-term-second@ lf-term-second@ ;
+' irrel stating
+T{ s" by-rfl end t" proof nrun -> outcome-ok }T
+T{ va in3 dup lf-term-second@ dup tag swap lf-term-first@ rot lf-term-first@ lf-term-second@ tag
+   -> lf-tag-bvar 1 lf-tag-bvar }T
+T{ va in3 lf-term-first@ lf-term-first@ lf-term-first@ lf-cref-slot lf-cref-pairs drop 0 lf-cref-pair@
+   drop -> 0 }T
+
+\ ---- 1. Two binders (review fe1g3 M1), closed oldest first as pinned
+\ Lean's #print (tactic-run.lean's refl_x and imp_pq), node for node:
+\ fun (a : Type) (x : a) => @Eq.refl.{1} a x, of type
+\ forall (a : Type) (x : a), @Eq.{1} a x x.
+variable ta  variable tx
+: refl-x ( -- type )
+  level1 sort s" a" binder ta ! ta @ s" x" binder tx ! ta @ tx @ tx @ eq-at ;
+: bv ( t -- tag i ) dup tag swap lf-term-first@ ;
+' refl-x stating
+T{ s" by-rfl end t" proof nrun -> outcome-ok }T
+T{ va bname s" a" name= va lf-term-second@ bname s" x" name= -> true true }T
+T{ va lf-term-first@ bv one? va lf-term-second@ lf-term-first@ bv
+   -> lf-tag-symbolic-sort true lf-tag-bvar 0 }T
+T{ va in2 lf-term-first@ dup lf-term-first@ cname s" Eq.refl" name= swap lf-term-second@ bv
+   -> true lf-tag-bvar 1 }T
+T{ va in2 lf-term-second@ bv -> lf-tag-bvar 0 }T
+T{ ty tag ty lf-term-first@ bv one? ty lf-term-second@ lf-term-first@ bv
+   -> lf-tag-pi lf-tag-symbolic-sort true lf-tag-bvar 0 }T
+T{ ty in2 lf-term-first@ lf-term-first@ lf-term-second@ bv ty in2 lf-term-second@ bv
+   -> lf-tag-bvar 1 lf-tag-bvar 0 }T
+\ fun (p q : Prop) (h : p) => h, of type forall (p q : Prop), p -> p.
+: imp-pq ( -- type ) p-prop prop s" q" binder q ! p @ p @ arrow ;
+' imp-pq stating
+T{ s" by-intro: h h by-exact end t" proof nrun -> outcome-ok }T
+T{ va bname s" p" name= va lf-term-second@ bname s" q" name= va in2 bname s" h" name=
+   -> true true true }T
+T{ va lf-term-second@ lf-term-first@ bv va in2 lf-term-first@ bv va in2 lf-term-second@ bv
+   -> lf-tag-symbolic-sort 0 lf-tag-bvar 1 lf-tag-bvar 0 }T
+T{ ty bname s" p" name= ty in2 lf-term-first@ bv ty in2 lf-term-second@ bv
+   -> true lf-tag-bvar 1 lf-tag-bvar 2 }T
+
+\ ---- 5. A Meta step out of fuel: 91, exhausted, at the step (review
+\ fe1g3 L5): isDefEq of rfl's sides, whnfCore of intro's binder, each
+\ given one unit.
+' irrel stating
+T{ 1 lf-defeq-fuel! s" by-rfl end t" proof nrun err 0 lf-defeq-fuel!
+   -> outcome-exhausted 91 1 43 }T
+' beta-pi stating
+T{ 1 lf-whnf-fuel! s" by-intro: h end t" proof nrun err 0 lf-whnf-fuel!
+   -> outcome-exhausted 91 1 43 }T
+
 \ ---- 3. lf-tac-holds?: a leaf found, none, and the outcome of the walk.
 : fvar? ( leaf -- flag ) lf-term-tag@ lf-tag-fvar = ;
 T{ prop ' fvar? lf-tac-holds? p @ ' fvar? lf-tac-holds? -> false outcome-ok true outcome-ok }T
@@ -220,6 +297,39 @@ variable worst
   0 begin 1+ dup refused-at dup refusal-ok? 0= if dup worst ! then ok? until ;
 T{ outcome-ok worst ! each-refused 1 > worst @ -> true outcome-ok }T
 
+\ ---- 6. An intro undone at a choice point (Lean's saveState and restore
+\ around a failed alternative; review fe1g3 L9): a test row tries intro
+\ h then fails; no assignment, the goal list and the context as before,
+\ and by-sorry closes the goal as it was.
+variable tried  variable goal0  variable seen
+variable main-after  variable open-after  variable goals-after
+: intro-fails ( -- ) tried @ lfb-w-intro lfa-e-tac-unsolved lfa-fail ;
+: noted ( -- )
+  lf-tac-main main-after ! goal0 @ lf-goal-assigned? open-after ! lf-goals run-count goals-after ! ;
+: try-intro ( i -- )
+  tried ! lf-tac-main goal0 ! ['] intro-fails lf-tac-try drop lf-author-code seen ! lf-tac-forget noted ;
+' try-intro tac-k-intro lf-tactic-action!
+' imp-p stating
+T{ s" by-intro: h by-sorry end t" proof nrun seen @ -> outcome-ok 89 }T
+T{ main-after @ goal0 @ = open-after @ goals-after @ -> true false 1 }T
+T{ 0 part-goal s\" p : Prop\n⊢ p → p" compare -> 0 }T
+' lfb-w-intro tac-k-intro lf-tactic-action!
+
+\ ---- 6. Settings put back however a step ends (review fe1g3 L10): the
+\ current context after a failed step on a goal of another context, the
+\ printer's notation flag after a printing that throws, defeq's
+\ configuration and mode after lf-tac-defeq.
+T{ s" by-intro: h by-intro: k end t" proof nrun err lf-mctx-view lf-view-count
+   -> outcome-invalid 94 1 55 1 }T
+2variable settings
+: sink-throws ( c-addr u -- ) 2drop -79 throw ;
+: throwing-sink ( -- ) lf-print-settings settings 2! ['] sink-throws lf-print-unicode lf-print-setup ;
+T{ false lf-print-notation! throwing-sink prop ' lfb-noted catch nip lf-print-notation? -> -79 false }T
+settings 2@ lf-print-setup
+T{ 0 lf-defeq-flags! lf-tr-all lf-defeq-mode! prop prop lf-tac-defeq lf-defeq-flags lf-defeq-mode
+   -> true outcome-ok 0 lf-tr-all }T
+lf-tr-default lf-defeq-mode!
+
 \ ---- 4. Through the command line and the kernel.
 : tally ( k -- n ) cli-count-of @ ;
 : check ( c-addr u -- code ) cli-options library cli-state opt-env 2! cli-check ;
@@ -227,6 +337,12 @@ T{ outcome-ok worst ! each-refused 1 > worst @ -> true outcome-ok }T
 T{ s" tests/front/07-intro-exact.lf" check outcome-ok tally cli-not-proved @ -> 0 49 1 }T
 ' eq-pp stating
 T{ s" tests/front/08-rfl.lf" check outcome-ok tally cli-not-proved @ -> 0 49 1 }T
+\ Two binders (review fe1g3 M1): the kernel accepts both closed terms.
+' imp-pq stating
+T{ s" tests/front/07-intro-exact.lf" check outcome-ok tally cli-not-proved @ -> 0 49 1 }T
+' refl-x stating
+T{ s" tests/front/08-rfl.lf" check outcome-ok tally cli-not-proved @ -> 0 49 1 }T
+' eq-pp stating
 \ 6. The same again: the same verdicts.
 T{ s" tests/front/08-rfl.lf" check outcome-ok tally -> 0 49 }T
 ' lfr-unelaborated stating

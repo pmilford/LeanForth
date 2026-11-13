@@ -175,7 +175,11 @@ begin-structure /trow
 end-structure
 /trow aligned constant lfr-row-size
 create lfr-rows lfr-kinds lfr-row-size * allot
-: lfr-row ( kind -- addr ) 1- lfr-row-size * lfr-rows + ;
+\ A kind outside 1 to 11 has no row: a load-time slip (lf-tactic-action!),
+\ since a run checks its record first.
+: lfr-kind? ( kind -- flag ) 1 lfr-kinds 1+ within ;
+: lfr-row ( kind -- addr )
+  dup lfr-kind? 0= abort" tactic-run: no such tactic kind" 1- lfr-row-size * lfr-rows + ;
 : lfr-spell ( c-addr u kind -- )
   over lfr-room > abort" tactic-run: a spelling too long"
   lfr-row 2dup trow-length ! trow-chars swap chars move ;
@@ -195,10 +199,11 @@ s" by-sorry" tac-k-sorry lfr-spell
 \ error's detail (for the first error only: a later one is not kept).
 : lf-tac-step ( -- i ) trun trun-step @ ;
 \ xt ( x -- outcome ) printing with the term printer's sink set to sink
-\ for the while; lf-tac-detail prints into the error's detail, unless an
+\ for the while, the printer's settings put back however xt ends (a THROW
+\ passes on); lf-tac-detail prints into the error's detail, unless an
 \ error is recorded already.
 : lfr-printed ( x xt sink -- outcome )
-  lf-print-settings 2>r lf-print-unicode lf-print-setup execute 2r> lf-print-setup ;
+  lf-print-settings 2>r lf-print-unicode lf-print-setup catch 2r> lf-print-setup throw ;
 : lf-tac-detail ( x xt -- )
   lf-author-code if 2drop exit then
   ['] lfa-detail+ lfr-printed ok? 0= if lfa-detail-cut then ;
@@ -285,19 +290,27 @@ s" by-sorry" tac-k-sorry lfr-spell
 
 \ ---- The record checked before anything runs: step 0 the proof (kind
 \ by, no parent), every other step of a known kind but by, its parent
-\ before it and a block (by, with, alternative or case), alternatives
-\ exactly the steps right inside a by-induction-with.
-: lfr-kind? ( kind -- flag ) 1 lfr-kinds 1+ within ;
+\ before it, one of the blocks open at it (the step before it or a block
+\ around that) and a block (by, with, alternative or case), alternatives
+\ exactly the steps right inside a by-induction-with. Steps are checked
+\ in order and the first bad one stops the check, so the parents walked
+\ are known to come before their steps.
 : lfr-holder? ( kind -- flag )
   dup tac-k-by = over tac-k-with = or over tac-k-alt = or swap tac-k-case = or ;
 : lfr-alt-right? ( i p -- flag ) lfr-kind tac-k-with = swap lfr-kind tac-k-alt = = ;
+\ p is j or a block around j: j's parents walked while they come after p.
+: lfr-ancestor? ( p j -- flag ) begin 2dup < while lfr-parent repeat = ;
+: lfr-on-chain? ( i p -- flag ) swap 1- lfr-ancestor? ;
+: lfr-parent-ok? ( i p -- flag )
+  2dup 0 rot within if lfr-on-chain? else 2drop false then ;
 : lfr-linked? ( i -- flag )
-  dup lfr-parent 2dup 0 rot within 0= if 2drop false exit then
+  dup lfr-parent 2dup lfr-parent-ok? 0= if 2drop false exit then
   dup lfr-kind lfr-holder? if lfr-alt-right? else 2drop false then ;
 : lfr-step-ok? ( i -- flag )
   dup lfr-kind dup lfr-kind? swap tac-k-by <> and if lfr-linked? else drop false then ;
 : lfr-root-ok? ( -- flag ) 0 lfr-kind tac-k-by = 0 lfr-parent 0< and ;
-: lfr-steps-ok? ( -- flag ) true lf-tactic-count 1 ?do i lfr-step-ok? and loop ;
+: lfr-steps-ok? ( -- flag )
+  lf-tactic-count 1 ?do i lfr-step-ok? 0= if false unloop exit then loop true ;
 : lfr-record-ok? ( -- flag )
   lf-tactic-count 0> if lfr-root-ok? lfr-steps-ok? and else false then ;
 : lfr-checked ( -- ) lfr-record-ok? 0= if lfa-e-tac-record lfa-fail then ;
@@ -338,9 +351,10 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lfr-level ( type -- level ) lf-get-level lfr-meta-must ;
 : lfr-sorry-of ( goal -- term ) lf-mvar-type drop dup lfr-level lfr-sorry-term ;
 \ (Lean takes the goal off the list first and puts it back when the term
-\ fails; here the term is made first, with the same goals at a failure.)
+\ fails; here the term is made first, with the same goals at a failure,
+\ and the open part is recorded only once it is made.)
 : lfr-sorry ( i -- )
-  drop lf-tac-main dup lfr-open-part dup lfr-sorry-of 0 lf-replace-main lfr-must
+  drop lf-tac-main dup lfr-sorry-of over lfr-open-part 0 lf-replace-main lfr-must
   lf-mvar-assign lfr-meta-must ;
 ' lfr-sorry tac-k-sorry lf-tactic-action!
 

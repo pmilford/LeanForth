@@ -116,8 +116,13 @@ defer lf-tac-elab ( node expected -- term outcome )
 : lfb-unelaborated ( node expected -- term outcome )
   2drop lfa-e-elaborate lf-tac-fail -1 outcome-unsupported ;
 ' lfb-unelaborated is lf-tac-elab
-: lf-tac-defeq ( t s -- flag outcome )
+\ isDefEq in the elaborator's configuration at default transparency;
+\ defeq's own configuration and mode put back however it ends.
+: lfb-elab-defeq ( t s -- flag outcome )
   lf-defeq-elab lf-defeq-flags! lf-tr-default lf-defeq-mode! lf-meta-defeq ;
+: lfb-defeq-set! ( flags mode -- ) lf-defeq-mode! lf-defeq-flags! ;
+: lf-tac-defeq ( t s -- flag outcome )
+  lf-defeq-flags lf-defeq-mode 2>r ['] lfb-elab-defeq catch 2r> lfb-defeq-set! throw ;
 
 \ ---- Leaves: a bottom-up walk (dag-walk.fs) whose image is 1 where a
 \ leaf passes the test.
@@ -154,21 +159,23 @@ defer lf-tac-elab ( node expected -- term outcome )
 : lfb-holds? ( term xt -- flag ) lf-tac-holds? lf-tac-must ;
 
 \ ---- The step's goal and context (Lean's withMainContext); the row's
-\ action leaves the current context as it found it.
+\ action leaves the current context as it found it, also when it fails.
 : lfb-start ( goal -- )
   dup tb tb-goal ! dup lf-mvar-type drop tb tb-want ! lf-mvar-view drop
   dup tb tb-view ! lf-mctx-view! lf-mvar-count tb tb-from ! ;
-: lfb-step ( i xt -- ) lf-mctx-view >r lf-tac-main lfb-start execute r> lf-mctx-view! ;
+: lfb-step ( i xt -- )
+  lf-mctx-view >r lf-tac-main lfb-start catch r> lf-mctx-view! throw ;
 : lfb-popped ( -- ) 0 lf-replace-main lf-tac-must ;
 : lfb-made ( flag -- ) 0= if outcome-full lf-tac-must then ;
 : lfb-arg ( i -- x ) lf-tactic-step tac-first @ lf-tactic-arg drop ;
 
-\ ---- Messages: terms printed as goals print them, indented as Lean's
+\ ---- Messages: terms printed as goals print them (notation on, the
+\ printer's flag put back however printing ends), indented as Lean's
 \ indentExpr; a tactic error's goal after a blank line.
-: lfb-term. ( term -- outcome )
-  lf-instantiate-mvars ok-then? 0= if exit then
-  lf-print-notation? >r true lf-print-notation! lfb-print-fuel lf-print-term
-  r> lf-print-notation! ;
+: lfb-noting ( term -- outcome ) true lf-print-notation! lfb-print-fuel lf-print-term ;
+: lfb-noted ( term -- outcome )
+  lf-print-notation? >r ['] lfb-noting catch r> lf-print-notation! throw ;
+: lfb-term. ( term -- outcome ) lf-instantiate-mvars ok-then? if lfb-noted then ;
 : lfb-indented. ( term -- outcome ) s"   " lf-pp-emit lfb-term. ;
 : lfb-line. ( c-addr u term -- outcome ) >r lf-pp-emit r> lfb-indented. ;
 : lfb-the-goal. ( -- outcome ) s\" \n\n" lf-pp-emit tb tb-goal @ lf-goal-print ;

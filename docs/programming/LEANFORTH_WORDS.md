@@ -443,7 +443,7 @@ below it).
 | 91 | exhausted | out of fuel: the tactic proof, or a reduction it ran, took more steps than its fuel |
 | 92 | invalid | malformed tactic record or proof state: steps not nested as read, a bad goal list |
 | 93 | unsupported | not supported yet: a type inference, reduction or let binder the tactic needs (FE1c) |
-| 94 | invalid | Tactic `introN` failed: no binders or `let` bindings in the goal to introduce |
+| 94 | invalid | Tactic `introN` failed: There are no additional binders or `let` bindings in the goal to introduce |
 | 95 | invalid | don't know how to synthesize: the term leaves a metavariable it made unassigned |
 | 96 | invalid | Type mismatch |
 | 97 | invalid | Tactic `rfl` failed: The left-hand side |

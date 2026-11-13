@@ -20,8 +20,10 @@
 \    NOT PROVED; 5. resources: fuel at every step, the heap refusing each
 \    allocation of a run, 1,000 nested blocks (heap frames); 6. state:
 \    rollback at choice points field by field, the same verdict after a
-\    failed run, the open parts reset with each run; 7. regression pins:
-\    the terms, positions and texts.
+\    failed run, the open parts reset with each run, none kept by a
+\    by-sorry that failed, the printer's settings put back after a THROW;
+\    an open part or an error's detail cut where its slab is full;
+\    7. regression pins: the terms, positions and texts.
 \ Nothing here accepts a theorem except through the kernel's check.
 include ../support/heap-watch.fs
 require ../support/tester.fs
@@ -189,7 +191,7 @@ T{ token s" by-sorry" compare detail nip -> 0 0 }T
 \ constants of 0 + n = n are not in the Meta layer's input while a text
 \ runs (plan FE1e).
 ' zero-add stating
-T{ s" by-sorry end t" proof nrun err -> outcome-unsupported 93 1 43 }T
+T{ s" by-sorry end t" proof nrun err lf-open-parts -> outcome-unsupported 93 1 43 0 }T
 T{ detail lean-goals compare -> 0 }T
 \ A let among the binders: not supported yet when the value is closed.
 ' let-x stating
@@ -240,11 +242,20 @@ T{ :noname tac-k-sorry 2 kind! ; s" n by-induction-with | zero => by-rfl by-end 
    -> 92 }T
 T{ :noname 1 2 parent! ; s" by-rw[ ] by-sorry end t" breaks -> 92 }T
 T{ :noname 1 2 parent! ; s" by-sorry by-sorry end t" breaks -> 92 }T
+\ A parent before its step and a block, but one already closed (review
+\ fe1g3 L1): step 4 would be skipped; unbroken, the case step runs (80).
+: closed-case ( -- c-addr u ) s" by-case: zero => by-sorry by-end by-sorry by-sorry end t" ;
+T{ :noname 1 4 parent! ; closed-case breaks -> 92 }T
+T{ :noname 0 2 parent! ; closed-case breaks -> 80 }T
+T{ :noname ; closed-case breaks -> 80 }T
 \ The record unbroken: the stand-in alone runs.
 T{ :noname ; s" by-sorry end t" breaks -> 0 }T
 \ A second by in the record where a step is: the check refuses it, and so
 \ would its row (run here directly, the step running the last record's).
 T{ tac-k-by lfr-row trow-run @ -> ' lfr-misplaced }T
+\ A kind with no row (review fe1g3 L2): refused, nothing written.
+T{ ' lfr-misplaced 0 ' lf-tactic-action! catch nip nip -> -2 }T
+T{ ' lfr-misplaced lfr-kinds 1+ ' lf-tactic-action! catch nip nip -> -2 }T
 T{ 1 ' lfr-misplaced catch nip lf-author-code -> lf-author-throw 92 }T
 
 \ ---- 1. The hand-over's refusal: a test tactic that leaves a hole in
@@ -341,6 +352,27 @@ T{ two-goals 1 saves-most lf-tac-save nip lf-tac-save lfr-saves lf-mctx-marks
 T{ ' spoil ' lf-tac-try catch nip lf-author-code -> lf-author-throw 88 }T
 T{ 0 lf-tac-commit lf-tac-forget max-n /tsv / saves-most lfr-saves -> outcome-ok 0 }T
 
+\ ---- 6. The printer's sink and options put back when the printing
+\ throws (review fe1g3 L10).
+2variable settings
+: throws ( x -- outcome ) drop -78 throw ;
+T{ lf-print-settings settings 2! 0 ' throws ' 2drop ' lfr-printed catch nip nip nip -> -78 }T
+T{ lf-print-settings settings 2@ d= -> true }T
+
+\ ---- 5. Room for an open part's text or an error's detail used up (a
+\ slab limited as saves-most limits trun-saves): the open part cut stops
+\ the run full (88); the detail cut is noted and said.
+: chars-most ( n slab -- ) dup slab-free 1 chars -rot slab-init must-be-ok ;
+' prop-p stating
+T{ 4 trun-text chars-most s" by-sorry end t" proof nrun err -> outcome-full 88 1 43 }T
+T{ max-n trun-text chars-most -> }T
+' zero-add stating
+T{ 4 lfa-detail chars-most s" end t" proof nrun err cut? -> outcome-invalid 89 1 40 true }T
+[defined] >string-execute [if]
+T{ printed s" (the rest could not be shown)" search nip nip -> true }T
+[then]
+T{ max-n lfa-detail chars-most -> }T
+
 \ ---- 5. The heap refusing each allocation of a by-sorry run in turn:
 \ never accepted, a stated outcome each time, no block kept by the
 \ failure; past the last one, made.
@@ -362,7 +394,7 @@ T{ s" tests/front/06-sorry.lf" check lf-author-code -> 2 71 }T
 ' zero-add stating
 T{ s" tests/front/05-unsolved.lf" check err -> 4 89 14 4 }T
 T{ detail lean-goals compare -> 0 }T
-T{ s" tests/front/06-sorry.lf" check err -> 2 93 17 3 }T
+T{ s" tests/front/06-sorry.lf" check err lf-open-parts -> 2 93 17 3 0 }T
 \ The stand-in p : Prop: the kernel accepts the term, NOT PROVED, sorryAx
 \ named; the open part outlives the stores the run emptied.
 \ The slice's 48 declarations and the text's are accepted; NOT PROVED are

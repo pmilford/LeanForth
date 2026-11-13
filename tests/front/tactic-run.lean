@@ -45,7 +45,37 @@ theorem exact_wrong (p q : Prop) (h : q) : p := by
 -- rfl on two different sides (LeanForth: error 97, the same lines).
 theorem refl_wrong (p q : Prop) : p = q := by
   rfl
+-- Two binders, closed oldest first (review fe1g3 M1; tactic-basic.fs's
+-- refl-x and imp-pq): fun (a : Type) (x : a) => @Eq.refl.{1} a x and
+-- fun (p q : Prop) (h : p) => h.
+theorem refl_x (a : Type) (x : a) : x = x := by
+  rfl
+set_option linter.unusedVariables false in
+theorem imp_pq (p q : Prop) : p → p := by
+  intro h
+  exact h
+-- rfl on sides that differ but are definitionally equal (two proofs of p):
+-- Eq.refl of the left side (review fe1g3 L3; tactic-basic.fs's irrel).
+theorem refl_irrel (p : Prop) (h1 h2 : p) : h1 = h2 := by
+  rfl
+-- intro head-beta reduces the binder's domain and the body, and whnfCore
+-- finds the binder of a beta redex: the same goal after intro h, as
+-- trace_state prints it (review fe1g3 L4; tactic-basic.fs's h-goal).
+theorem intro_beta (p : Prop) : (fun x => x) p → (fun x => x) p := by
+  intro h
+  trace_state
+  exact h
+theorem intro_whnf (p : Prop) : (fun x => x) (p → p) := by
+  intro h
+  trace_state
+  exact h
 set_option pp.all true in
 #print self_imp
 set_option pp.all true in
 #print refl_p
+set_option pp.all true in
+#print refl_x
+set_option pp.all true in
+#print imp_pq
+set_option pp.all true in
+#print refl_irrel

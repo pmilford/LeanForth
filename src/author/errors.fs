@@ -142,11 +142,16 @@ begin-structure /lfa-message
   field: lfa-message-length
   0 +field lfa-message-chars
 end-structure
-: lfa-message, ( code outcome c-addr u -- )
-  2swap swap , , dup , here swap dup chars allot move align ;
+: lfa-chars, ( c-addr u -- ) here swap dup chars allot move align ;
+: lfa-message, ( code outcome c-addr u -- ) 2swap swap , , dup , lfa-chars, ;
 : lfa-message-text ( message -- c-addr u )
   dup lfa-message-chars swap lfa-message-length @ ;
 : lfa-message-next ( message -- message' ) lfa-message-text chars + aligned ;
+\ A text too long for one line of this file goes on with lfa-more, on the
+\ next: the message's alignment padding given back, the text appended.
+: lfa-unpad ( message -- message ) dup lfa-message-text chars + here - allot ;
+: lfa-more, ( message c-addr u -- )
+  rot lfa-unpad over swap lfa-message-length +! lfa-chars, ;
 : lfa-of, ( code c-addr u outcome -- ) -rot lfa-message, ;
 : lfa-invalid, ( code c-addr u -- ) outcome-invalid lfa-of, ;
 : lfa-unsupported, ( code c-addr u -- ) outcome-unsupported lfa-of, ;
@@ -303,9 +308,8 @@ create lfa-catalogue
   lfa-e-tac-meta
   s" not supported yet: a type inference, reduction or let binder the tactic needs (FE1c)"
   lfa-unsupported,
-  lfa-e-tac-no-intro
-  s" Tactic `introN` failed: no binders or `let` bindings in the goal to introduce"
-  lfa-invalid,
+  here lfa-e-tac-no-intro s" Tactic `introN` failed: There are no additional binders"
+  lfa-invalid, s"  or `let` bindings in the goal to introduce" lfa-more,
   lfa-e-tac-unassigned
   s" don't know how to synthesize: the term leaves a metavariable it made unassigned"
   lfa-invalid,
