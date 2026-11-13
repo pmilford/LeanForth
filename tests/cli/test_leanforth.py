@@ -3179,6 +3179,85 @@ class ReachTable(unittest.TestCase):
         self.assertTrue({version - 1, version} <= set(entries))
 
 
+SNAPSHOTS = ROOT / "tests/snapshots"
+# The fixture snapshots of each verdict version in the window (plan step
+# 6.2.5c2; scripts/write-snapshot-fixtures.sh): the export each was
+# written from; dependent.lfsnap is a layer of DEPENDENT on inductive.
+FIXTURE_EXPORTS = {
+    "inductive": [INDUCTIVE], "nested": ["tests/cli/nested.ndjson"],
+    "kinds": ["--no-manifest", "tests/core/reexport/kinds.ndjson"],
+    "unfold": ["tests/cli/unfold.ndjson"], "let-b": ["tests/cli/let-b.ndjson"],
+    "init-slice": ["tests/author/init-slice.ndjson"]}
+INFO = 16   # the information section, the only one that names the build
+
+
+def fixture(version, stem):
+    return SNAPSHOTS / f"v{version}" / f"{stem}.lfsnap"
+
+
+def but_info(path):
+    """A snapshot's bytes but its information section's (ADR 0020 D1):
+    the header's fields before the table, every other section's table
+    entry with its SHA-256, and every other section."""
+    data, table = sectioned(path)
+    entries = [bytes(data[96 + 64 * i:96 + 64 * i + 64]) for i in range(len(table)) if i != INFO]
+    sections = [bytes(data[o:o + n]) for i, (_, _, _, o, n) in enumerate(table) if i != INFO]
+    return bytes(data[:96]), entries, sections
+
+
+class OlderSnapshots(unittest.TestCase):
+    """Snapshots of the verdict versions in the window (plan steps
+    6.2.5c2-c5; docs/design/SNAPSHOT_COMPATIBILITY.md, ADR 0020 Amendment
+    5). The fixture sets of tests/snapshots/v<V>, each written by its own
+    build, are the three versions in the window, each file as its README
+    says; this build writes its own version's set again with every section
+    but the information section byte-equal (R2.5: a change that bumps no
+    version keeps the bytes)."""
+
+    def setUp(self):
+        self.dir = Path(tempfile.mkdtemp(prefix="leanforth-older-"))
+
+    def tearDown(self):
+        shutil.rmtree(self.dir)
+
+    def test_fixture_sets(self):
+        version = verdict_version()
+        self.assertEqual(sorted(p.name for p in SNAPSHOTS.iterdir()),
+                         sorted(f"v{v}" for v in range(version - 2, version + 1)))
+        for v in range(version - 2, version + 1):
+            readme = (SNAPSHOTS / f"v{v}" / "README.md").read_text()
+            sums = dict((name, digest) for digest, name in
+                        re.findall(r"^([0-9a-f]{64})  (\S+\.lfsnap)$", readme, re.M))
+            self.assertEqual(sorted(sums), sorted([f"{s}.lfsnap" for s in FIXTURE_EXPORTS]
+                                                  + ["dependent.lfsnap"]), v)
+            for name, digest in sums.items():
+                data = (SNAPSHOTS / f"v{v}" / name).read_bytes()
+                self.assertEqual(hashlib.sha256(data).hexdigest(), digest, (v, name))
+                self.assertEqual((u32(data, 24 + 4 * 1), u32(data, 24 + 4 * 2)), (1, v), name)
+
+    def test_same_bytes(self):
+        version = verdict_version()
+        for stem, args in FIXTURE_EXPORTS.items():
+            path = self.dir / f"{stem}.lfsnap"
+            run("check", "--save-snapshot", str(path), *args)
+            self.assertEqual(but_info(path), but_info(fixture(version, stem)), stem)
+        path = self.dir / "dependent.lfsnap"
+        run("check", "--snapshot", str(fixture(version, "inductive")), "--save-snapshot",
+            str(path), DEPENDENT)
+        self.assertEqual(but_info(path), but_info(fixture(version, "dependent")))
+
+    def test_older_refused(self):
+        version = verdict_version()
+        for v in (version - 2, version - 1):
+            for stem in FIXTURE_EXPORTS:
+                status, out, _ = run("check", "--snapshot", str(fixture(v, stem)))
+                self.assertEqual((status, out.splitlines()[0]), (2, (
+                    "error: unsupported: the snapshot was refused: verdict version")), (v, stem))
+                status, got, _ = report("--snapshot-stale-ok", "--snapshot", str(fixture(v, stem)))
+                self.assertEqual({d["provenance"] for d in got["declarations"]},
+                                 {"stale-snapshot"}, (v, stem))
+
+
 if __name__ == "__main__":
     if sys.argv[1:] == ["--write-golden"]:
         write_golden()
