@@ -72,7 +72,6 @@ require ./term-eqv.fs
 : uf-fail ( outcome -- -1 code outcome ) -1 lf-unfold-none rot ;
 
 \ ---- The head constant.
-: uf-const? ( t -- flag ) lf-term-tag@ lf-tag-constant = ;
 : uf-slot ( const -- slot ) lf-term-first@ lf-cref-slot ;
 : uf-name ( const -- name ) uf-slot lf-cref-name@ drop ;
 \ As many universe arguments as the declaration has parameters.
@@ -86,10 +85,9 @@ require ./term-eqv.fs
   uf-slot uf-levels lf-meta-levels-fill ok-then? 0= if no-result exit then
   dup lf-menv-value 0= if drop-invalid no-result exit then
   swap lf-menv-params >r 0 uf-levels slab-at r> lf-meta-instantiate-level-params ;
-: uf-lam? ( t -- flag ) lf-term-tag@ lf-tag-lam = ;
 : uf-beta ( value -- e' outcome )
-  dup uf-lam? swap uf-args lf-meta-apply-all ok-then? 0= if nip no-result exit then
-  swap if lf-meta-head-beta else outcome-ok then ;
+  dup lf-tag-lam lf-meta-tag? swap uf-args lf-meta-apply-all
+  ok-then? 0= if nip no-result exit then swap if lf-meta-head-beta else outcome-ok then ;
 : uf-delta-beta ( d const -- e' outcome )
   uf-value ok-then? if uf-beta else no-result then ;
 
@@ -142,7 +140,7 @@ require ./term-eqv.fs
   if swap uf-known else drop uf-when-instances then ;
 : uf-spine ( e -- e' code outcome )
   dup uf-args lf-meta-spine ok-then? 0= if nip uf-fail exit then
-  dup uf-const? if uf-app-head else drop uf-none-of then ;
+  dup lf-tag-constant lf-meta-tag? if uf-app-head else drop uf-none-of then ;
 
 \ ---- A constant: getUnfoldableConstNoEx? (an unknown name: none).
 : uf-const-d ( const -- d flag outcome )
@@ -159,6 +157,6 @@ require ./term-eqv.fs
 
 : lf-unfold-step ( e -- e' code outcome )
   dup lf-meta-app? if uf-spine exit then
-  dup uf-const? if uf-const else uf-none-of then ;
+  dup lf-tag-constant lf-meta-tag? if uf-const else uf-none-of then ;
 
 base !   \ the BASE this file was loaded with

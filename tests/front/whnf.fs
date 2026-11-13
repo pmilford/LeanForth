@@ -22,6 +22,8 @@ require ./whnf-cases.fs
   over lf-term-first@ over lf-term-first@ recurse 0= if 2drop false exit then
   lf-term-second@ swap lf-term-second@ recurse ;
 : whnf= ( term expected -- flag outcome ) >r lf-whnf-core r> swap >r same? r> ;
+: same-out ( a b outcome -- flag outcome ) >r same? r> ;
+: tag-out ( t outcome -- tag outcome ) >r lf-term-tag@ r> ;
 : recm ( major -- t ) >r rec fm app fz app fs app r> app ;
 
 \ ---- Full: the first call's first allocation (its spine's slab)
@@ -172,7 +174,7 @@ T{ ftwin zero app recm lf-whnf-stuck -> false outcome-ok }T
 \ matcher and no auxiliary recursor included, unless reduceNat? or
 \ unfoldDefinition? would act (unsupported, never a guess: smart
 \ unfolding is S2); at the configured transparency.
-: meta-whnf= ( term expected -- flag outcome ) >r lf-meta-whnf r> swap >r same? r> ;
+: meta-whnf= ( term expected -- flag outcome ) >r lf-meta-whnf r> swap same-out ;
 : nlit ( u -- t ) lf-hterm-cell must drop ;
 : inst-hadd ( -- t ) l0 1 s" instHAdd" cn nat app 0 s" instAddNat" cn app ;
 : hadd-kx ( -- t ) l0 l0 l0 3 s" HAdd.hAdd" cn nat app nat app nat app inst-hadd app fk app fx app ;
@@ -188,7 +190,7 @@ T{ fk fx app dup meta-whnf= nat fs 0 bv app lam fk app fs fk app meta-whnf=
 \ matcher, no auxiliary recursor: S1 merge B).
 : hadd-mk ( -- t ) l0 l0 l0 3 s" HAdd.mk" cn nat app nat app nat app
   nat nat l0 1 s" Add.add" cn nat app 0 s" instAddNat" cn app 1 bv app 0 bv app lam lam app ;
-T{ inst-hadd hadd-mk meta-whnf= inst-hadd lf-meta-whnf-r nip inst-hadd dup lf-whnf-core >r same? r>
+T{ inst-hadd hadd-mk meta-whnf= inst-hadd lf-meta-whnf-r nip inst-hadd dup lf-whnf-core same-out
    -> true outcome-ok outcome-ok true outcome-ok }T
 T{ inst-hadd dup lf-meta-whnf-r drop same? lf-defeq-mode -> true lf-tr-default }T
 \ A projection function (semireducible in the data): unfolded at default,
@@ -209,9 +211,9 @@ T{ succ 2 nlit app lf-meta-whnf succ fk app dup meta-whnf=
 T{ 0 s" Nat.add" cn dup meta-whnf= 0 s" Nat.add" cn lf-tr-reducible in-mode nip
    -> true outcome-ok outcome-ok }T
 : nat-div ( -- t ) 0 s" Nat.div" cn ;
-T{ nat-div dup meta-whnf= nat-div lf-tr-all in-mode >r lf-term-tag@ r>
+T{ nat-div dup meta-whnf= nat-div lf-tr-all in-mode tag-out
    -> true outcome-ok lf-tag-lam outcome-ok }T
-T{ 0 s" Nat.zero_add" cn dup meta-whnf= 0 s" Nat.zero_add" cn dup lf-tr-all in-mode >r same? r>
+T{ 0 s" Nat.zero_add" cn dup meta-whnf= 0 s" Nat.zero_add" cn dup lf-tr-all in-mode same-out
    -> true outcome-ok true outcome-ok }T
 T{ hadd-kx lf-tr-instances in-mode l0 l0 l0 3 s" HAdd.hAdd" cn lf-tr-instances in-mode nip
    -> -1 outcome-unsupported outcome-ok }T
@@ -310,9 +312,9 @@ T{ lf-tr-instances lf-defeq-mode! hadd-kx lf-meta-unfold 2drop drop lf-defeq-mod
 \ Nat.zero); a literal major premise (toCtorIfLit) unsupported.
 : add-lam ( -- t ) nat nat l0 1 s" Add.add" cn nat app 0 s" instAddNat" cn app 1 bv app 0 bv app lam lam ;
 T{ inst-hadd 0 proj add-lam whnf= inst-hadd 0 proj dup lf-tr-reducible ' lf-whnf-core at-mode
-   >r same? r> -> true outcome-ok true outcome-ok }T
+   same-out -> true outcome-ok true outcome-ok }T
 : id-ab ( -- t ) lv1 1 s" id" cn l0 l0 2 s" Prod" cn nat app nat app app fa fb pair app 0 proj ;
-T{ id-ab fa whnf= id-ab dup lf-whnf-core-at-defeq >r same? r> lf-defeq-mode
+T{ id-ab fa whnf= id-ab dup lf-whnf-core-at-defeq same-out lf-defeq-mode
    -> true outcome-ok true outcome-ok lf-tr-default }T
 \ A part that fails (Nat.add k x by whnfAtMostI: reduceNat?'s guard) still
 \ gives the caller its transparency back.
