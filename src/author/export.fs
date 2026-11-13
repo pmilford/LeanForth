@@ -49,9 +49,9 @@
 \ and levels the declarations' types and values reach (core/reach.fs)
 \ only, numbered in the same store order; a metavariable they reach
 \ refuses the run before any line (invalid), one they do not reach is
-\ neither written nor refused, and no heap for the marks is full. A node
-\ every declaration reaches gets the same record as from lf-author-export
-\ when no other node lies before it. The first outcome that is
+\ neither written nor refused, and no heap for the marks is full. When
+\ the declarations reach every node, the records are lf-author-export's,
+\ byte for byte (tests/front/handover.fs). The first outcome that is
 \ not ok stops the writing and is returned: the sink's; the JSON writer's (full
 \ for a line longer than lfx-line-capacity, invalid for a name that is not
 \ UTF-8); full for no heap for the numbering tables; unsupported for a node

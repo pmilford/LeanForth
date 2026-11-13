@@ -101,6 +101,7 @@ smallest piece that proves something real: FE1, $0 + n = n$ by induction.
 | Printing a checked statement in LeanForth words, Lean notation and mathematics | integrated (`leanforth print`, plan 8.6.2); the notation table maps `HAdd.hAdd` to `+` for printing only |
 | Holes `_` | refused: error 52, "holes are filled by the elaborator" |
 | Metavariable context (FE1b): metavariables, assignment, occurs check, instantiation | tested alone on branch `fe1` (`tests/front/front.fs`); the beta step and delayed assignments' values answer unsupported until FE1c |
+| Hand-over of an elaborated declaration to the kernel (FE1f) | tested alone on branch `fe1f` (`tests/front/handover.fs`, with a stand-in elaborator): holes instantiated, a reachable hole refused (error 74), only the nodes the declaration reaches written, through the stage to the kernel; no user command reaches it before FE1e |
 | Elaborator, unification, implicit arguments, numerals as Lean reads them | not started |
 | Type classes, coercions | not started |
 | Tactics and proof states | not started |

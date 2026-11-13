@@ -97,6 +97,9 @@ T{ lhole @ eq-at -1 lf-holes-reached? -> true outcome-ok }T
 : sort-of ( level -- t ) dup lf-level-identity drop lf-hterm-sort drop drop ;
 T{ lhole @ 1 lfa-level-number lf-level-tag-max lf-level-binary nip -> true }T
 T{ lf-level-count @ 1- sort-of -1 lf-holes-reached? -> true outcome-ok }T
+\ A Sort naming no level of the store (a broken node): the level is never
+\ marked, nothing is written outside the table.
+T{ 1000000 lf-term-symbolic-sort nip -1 lf-holes-reached? -> false outcome-ok }T
 \ Empty stores: nothing to reach, no hole.
 T{ lf-author-begin -1 -1 lf-holes-reached? -> false outcome-ok }T
 T{ kernel -> }T
@@ -244,7 +247,7 @@ create us 4 2* cells allot
 : unassigned ( -- type value ) with-hole drop ;
 \ Eq.refl Nat 0 (a raw literal): a proof of 0 = 0, not of n + 0 = n.
 : wrong ( -- type value ) add-zero-type nat 0 raw-lit refl-of lam-n ;
-: elaborating ( xt -- ) ['] lf-front-elaborate defer! ;
+: elaborating ( xt -- ) is lf-front-elaborate ;
 
 T{ ' direct elaborating add-zero-natural check -> 0 }T
 T{ outcome-ok tally -> accepted }T
@@ -270,5 +273,9 @@ T{ library true lfc-library-open -> outcome-ok }T
 T{ ' beta elaborating natural lf-author-code -> outcome-unsupported 71 }T
 T{ ' no-room-left elaborating natural lf-author-code -> outcome-full 60 }T
 T{ ' direct elaborating natural ty 0< va 0< -> outcome-ok false false }T
+\ The header the elaborator reads: the statement and the proof kept as
+\ nodes (n Eq.refl, an application), no by.
+T{ lf-front-proof syn-kind@ lf-front-statement syn-kind@ lf-front-by
+   -> syn-k-app syn-k-binrel -1 }T
 T{ ' lfh-later elaborating lfc-library-close -> }T
 bye
