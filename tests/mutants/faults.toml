@@ -10432,3 +10432,21 @@ new = ''''''
 test = "$GFORTH tests/core/snapshot-tier.fs"
 reason = "FRI B7: a first declaration whose line is none loads"
 gap = "only with a single declaration: a later line is never above none, so the next pair refuses it; no one-declaration tier fixture yet"
+
+[[fault]]
+id = "fri-b7-list-item-unchecked"
+file = "src/import/stage-records.fs"
+old = ''': tuple-item, ( k list record xt -- outcome ) over >r execute r> record>stage tuple-add? ;'''
+new = ''': tuple-item, ( k list record xt -- outcome ) over >r execute drop true r> record>stage tuple-add? ;'''
+test = "GFORTH=$GFORTH python3 tests/core/test_stage.py"
+reason = "FRI B7: a list item naming no name or level of the export is added to the tuple"
+gap = "the reader checks each list whole when it decodes a record (ndjson.fs refs-ordinal), so no export reaches an invalid item here; a forged reader record with a JSON view is needed"
+
+[[fault]]
+id = "fri-b7-list-items-past-failure"
+file = "src/import/stage-records.fs"
+old = '''    i 3 pick 3 pick 3 pick tuple-item, ok-then3? 0= if unloop exit then'''
+new = '''    i 3 pick 3 pick 3 pick tuple-item, drop'''
+test = "GFORTH=$GFORTH python3 tests/core/test_stage.py"
+reason = "FRI B7: a list item that fails is skipped and the list made a tuple without it"
+gap = "the reader checks each list whole when it decodes a record (ndjson.fs), and the memory limit fails again later; a forged reader record with a JSON view is needed"
