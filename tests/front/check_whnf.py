@@ -103,6 +103,10 @@ CASES = [
     ("whnf", apps((PROJ, 0, pair(SFUN, "b")), "k"), None),
     ("whnf", (PROJ, 0, apps(SUCC, "k")), None),
     ("whnf", (PROJ, 0, apps(ADD, "k", "k")), "FE1d2 smart unfolding and matcher facts"),
+    # A projection's structure by whnf (proj := yesWithDelta, S2 merge A):
+    # the instance unfolds to its constructor, the field is taken.
+    ("whnf", (PROJ, 0, apps(c("instHAdd", 0), NAT, c("instAddNat"))), None),
+    ("whnf", apps((PROJ, 0, apps(c("instHAdd", 0), NAT, c("instAddNat"))), "k", "x"), None),
     ("whnf", rec((LET, NAT, "k", apps(SUCC, "#0"))), None),
     ("whnf", rec(apps((LAM, NAT, "#0"), "k")), None),
     ("whnf", rec(apps(REC, "m", apps(SUCC, "z"), "s", ZERO)), None),

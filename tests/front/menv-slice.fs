@@ -31,3 +31,22 @@ create menv-feed /feed allot
 : menv-name ( c-addr u -- name )
   0 -rot begin dup while menv-split 2>r menv-part 2r> repeat 2drop ;
 : menv-decl ( c-addr u -- d ) menv-name lf-menv-find menv-must ;
+
+\ The slice's smart-unfolding facts, until the elaboration data carries
+\ them (plan S2 merge A; src/front/meta-env.fs, lf-menv-sunfold-source):
+\ pinned Lean 4.35.0 (env.contains (mkSmartUnfoldingNameFor f), over all
+\ 207 definitions of the slice, 2026-11-13) finds a `_sunfold` for these
+\ 13 and none for the rest; tests/front/check_unfold.py compares the
+\ answer with Lean's for its names. menv-sunfolds! installs it (after
+\ menv-load). Test-only.
+13 constant #menv-sunfolds
+create menv-sunfolds #menv-sunfolds cells allot
+: menv-sunfold-names ( -- c-addr1 u1 .. c-addr13 u13 )
+  s" Nat.add" s" Nat.mul" s" Nat.pow" s" List.concat" s" List.toByteArray.loop"
+  s" List.append" s" List.flatten" s" List.map" s" Nat.ble" s" Nat.beq" s" Nat.sub"
+  s" Nat.modCore.go" s" Nat.div.go" ;
+: menv-sunfold? ( d -- flag outcome )
+  false #menv-sunfolds 0 ?do over menv-sunfolds i cells + @ = or loop nip outcome-ok ;
+: menv-sunfolds! ( -- )
+  menv-sunfold-names #menv-sunfolds 0 ?do menv-decl menv-sunfolds i cells + ! loop
+  ['] menv-sunfold? is lf-menv-sunfold-source ;

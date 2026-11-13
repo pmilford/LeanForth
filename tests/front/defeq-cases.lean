@@ -189,6 +189,19 @@ run_meta do
   redCase (mkApp (mkApp (mkConst `Eq.refl [Level.one]) (mkConst `Nat.add [])) a) (mkApp (mkApp (mkConst `Eq.refl [Level.one]) (mkConst `Nat.mul [])) a)
   redCase (mkConst `Nat.add []) k
   eqCase n (mkApp (mkApp (mkConst `Nat.add []) n) k)
+  eqCase (mkApp (mkConst `outParam [(mkLevelSucc Level.one)]) (mkSort Level.one)) (mkSort Level.one)
+  implCase (mkApp (mkConst `outParam [(mkLevelSucc Level.one)]) (mkSort (mkLevelSucc lu))) (mkSort Level.one)
+  eqCase (mkApp (mkConst `outParam [Level.one]) (mkConst `Nat [])) (mkConst `Nat [])
+  redCase (mkConst `Nat []) (mkApp (mkConst `outParam [Level.one]) (mkConst `Nat []))
+  eqCase (mkApp (mkConst `outParam [Level.one]) (mkConst `Nat [])) (mkApp (mkApp (mkConst `id [(mkLevelSucc Level.one)]) (mkSort Level.one)) (mkConst `Nat []))
+  eqCase (mkApp (mkApp (mkConst `id [Level.one]) (mkConst `Nat [])) k) k
+  eqCase (mkApp (mkApp (mkApp (mkApp (mkApp (mkApp (mkConst `HAdd.hAdd [Level.zero, Level.zero, Level.zero]) (mkConst `Nat [])) (mkConst `Nat [])) (mkConst `Nat [])) (mkApp (mkApp (mkConst `instHAdd [Level.zero]) (mkConst `Nat [])) (mkConst `instAddNat []))) k) x) (mkApp (mkApp (mkApp (mkApp (mkConst `Add.add [Level.zero]) (mkConst `Nat [])) (mkConst `instAddNat [])) k) x)
+  eqCase (mkApp (mkApp (mkApp (mkApp (mkConst `Add.add [Level.zero]) (mkConst `Nat [])) (mkConst `instAddNat [])) k) x) (mkApp (mkApp (mkApp (mkApp (mkApp (mkApp (mkConst `HAdd.hAdd [Level.zero, Level.zero, Level.zero]) (mkConst `Nat [])) (mkConst `Nat [])) (mkConst `Nat [])) (mkApp (mkApp (mkConst `instHAdd [Level.zero]) (mkConst `Nat [])) (mkConst `instAddNat []))) k) x)
+  eqCase (mkApp (mkApp (mkApp (mkApp (mkApp (mkApp (mkConst `HAdd.hAdd [Level.zero, Level.zero, Level.zero]) (mkConst `Nat [])) (mkConst `Nat [])) (mkConst `Nat [])) (mkApp (mkApp (mkConst `instHAdd [Level.zero]) (mkConst `Nat [])) (mkConst `instAddNat []))) k) x) (mkApp (mkApp (mkConst `Nat.add []) k) x)
+  eqCase (mkApp (mkApp (mkApp (mkApp (mkApp (mkApp (mkConst `HAdd.hAdd [Level.zero, Level.zero, Level.zero]) (mkConst `Nat [])) (mkConst `Nat [])) (mkConst `Nat [])) (mkApp (mkApp (mkConst `instHAdd [Level.zero]) (mkConst `Nat [])) (mkConst `instAddNat []))) n) x) (mkApp (mkApp (mkApp (mkApp (mkConst `Add.add [Level.zero]) (mkConst `Nat [])) (mkConst `instAddNat [])) k) x)
+  eqCase (mkApp (mkApp (mkApp (mkApp (mkApp (mkApp (mkConst `HAdd.hAdd [Level.zero, Level.zero, Level.zero]) (mkConst `Nat [])) (mkConst `Nat [])) (mkConst `Nat [])) (mkApp (mkApp (mkConst `instHAdd [Level.zero]) (mkConst `Nat [])) (mkConst `instAddNat []))) k) x) (mkApp (mkApp (mkApp (mkApp (mkApp (mkApp (mkConst `HAdd.hAdd [Level.zero, Level.zero, Level.zero]) (mkConst `Nat [])) (mkConst `Nat [])) (mkConst `Nat [])) (mkApp (mkApp (mkConst `instHAdd [Level.zero]) (mkConst `Nat [])) (mkConst `instAddNat []))) x) k)
+  eqCase (mkConst `id [Level.one]) (mkConst `id [(mkLevelSucc Level.one)])
+  instCase (mkApp (mkApp (mkApp (mkApp (mkApp (mkApp (mkConst `HAdd.hAdd [Level.zero, Level.zero, Level.zero]) (mkConst `Nat [])) (mkConst `Nat [])) (mkConst `Nat [])) (mkApp (mkApp (mkConst `instHAdd [Level.zero]) (mkConst `Nat [])) (mkConst `instAddNat []))) k) x) (mkApp (mkApp (mkApp (mkApp (mkConst `Add.add [Level.zero]) (mkConst `Nat [])) (mkConst `instAddNat [])) k) x)
   implCase (mkApp (mkApp (mkApp (mkApp (mkConst `Prod.mk [Level.zero, Level.zero]) (mkConst `Nat [])) (mkConst `Nat [])) a) b) (mkApp (mkApp (mkApp (mkApp (mkConst `Prod.mk [Level.zero, Level.zero]) (mkConst `Nat [])) (mkConst `Nat [])) a) n)
   instCase (mkConst `Nat.add []) k
   eqCase (mkApp (mkConst `Nat.succ []) h) (mkRawNatLit 9223372036854775808)

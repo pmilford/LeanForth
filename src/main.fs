@@ -66,7 +66,9 @@ require ./present/proof-outline.fs
 \ universe-parameter instantiation, the view of the environment
 \ (reducibility and unfolding under each transparency), whnfCore and the
 \ first cases of type inference; the tactic framework's goals, each with
-\ its own local context, the goal list and their text (plan FE1g-1).
+\ its own local context, the goal list and their text (plan FE1g-1);
+\ unfolding one definition (unfoldDefinition?) and lazy delta reduction
+\ in unification (isDefEqDelta, which sets defeq.fs's hook: plan S2).
 require ./front/level-map.fs
 require ./front/mvars.fs
 require ./front/meta-config.fs
@@ -77,9 +79,11 @@ require ./front/level-params.fs
 require ./front/level-normalize.fs
 require ./front/lib-decode.fs
 require ./front/meta-env.fs
+require ./front/unfold.fs
 require ./front/whnf.fs
 require ./front/beta-inst.fs
 require ./front/infer.fs
+require ./front/defeq-delta.fs
 require ./front/goal-print.fs
 
 \ The command line: check, replay, print, count, reexport, version,

@@ -30,9 +30,13 @@
 \   answer, or unsupported without data read against the stage; Eq.ndrec,
 \   Eq.ndrec_symm and Eq.ndrecOn, which isAuxRecursor names itself, are
 \   auxiliary recursors. Whether a definition has a smart-unfolding
-\   `_sunfold` definition is not available yet (the export leaves those
-\   out and no exporter writes format 2's sunfold records; plan S2): a
-\   definition answers unsupported.
+\   `_sunfold` definition (Lean's find? (mkSmartUnfoldingNameFor f),
+\   WHNF.lean:854) is asked of lf-menv-sunfold-source ( d -- flag outcome
+\   ), for a definition of the input or the library: the export leaves the
+\   `_sunfold` definitions out, and until the elaboration data carries
+\   them (format 3's sunfold records, plan S2 merge A) the source answers
+\   unsupported; a text definition has none (LeanForth elaborates no
+\   structural recursion, which alone makes them).
 \
 \ Transparency modes (meta-config.fs, numbered as Lean's TransparencyMode
 \ constructors): lf-tr-all, lf-tr-default, lf-tr-reducible,
@@ -84,8 +88,16 @@
 \ flag true when the name is a definition that mode unfolds (a theorem
 \ or any other kind: false); lf-menv-matcher?, lf-menv-proj-fn?,
 \ lf-menv-aux-recursor?, lf-menv-smart? ( d -- flag outcome ) as above;
+\ lf-menv-proj-class? ( d -- flag outcome ) whether d is a class's
+\ projection function (Lean's isProjInst: getProjectionFnInfo?'s
+\ fromClass), from format 2's projection records as lf-menv-proj-fn?;
+\ lf-menv-reducible? ( d -- flag outcome ) Lean's isReducible (status
+\ reducible); lf-menv-hint-known? ( d -- flag ) whether lf-menv-hint is
+\ Lean's: false for a text declaration, whose height is not recorded;
 \ lf-menv-nat-succ? ( name -- flag ) whether a name is Nat.succ,
-\ lf-menv-nat-name? ( name -- flag ) whether it is in Nat's namespace.
+\ lf-menv-nat-name? ( name -- flag ) whether it is in Nat's namespace,
+\ lf-menv-wf-rec? ( name -- flag ) whether it is Acc.rec or
+\ WellFounded.rec (reduceRec's isWFRec).
 \ Outcomes: ok; invalid for a declaration number beyond the input, a
 \ mode beyond the six, a name that is not valid or that no declaration
 \ has, or a declaration the stage does not hold; unsupported as above.
@@ -273,9 +285,23 @@ end-structure
   elab-tag-aux-recursor elab-tagged? dup if 0 swap then ;
 : lf-menv-matcher? ( d -- flag outcome ) ['] elab-matcher-of me-defn-fact ;
 : lf-menv-proj-fn? ( d -- flag outcome ) ['] elab-projection-of me-defn-fact ;
+\ Smart unfolding: the source answers for a definition of the input or the
+\ library; a text definition has none.
+: me-sunfold-unknown ( d -- flag outcome ) drop false outcome-unsupported ;
+defer lf-menv-sunfold-source ( d -- flag outcome )
+' me-sunfold-unknown is lf-menv-sunfold-source
+: me-text-decl? ( d -- flag ) me-run? if me-lib# u< 0= else drop false then ;
+: me-smart ( d -- flag outcome )
+  dup me-text-decl? if drop false outcome-ok else lf-menv-sunfold-source then ;
 : lf-menv-smart? ( d -- flag outcome )
   dup me-decl? 0= if drop false outcome-invalid exit then
-  me-defn? if false outcome-unsupported else false outcome-ok then ;
+  dup me-defn? if me-smart else drop false outcome-ok then ;
+: me-class-proj ( d -- 0 true | false )
+  elab-projection-of if elab-projection-class? dup if 0 swap then else false then ;
+: lf-menv-proj-class? ( d -- flag outcome ) ['] me-class-proj me-defn-fact ;
+: lf-menv-reducible? ( d -- flag outcome )
+  lf-menv-status ok-then? if elab-reducible = outcome-ok else false swap then ;
+: lf-menv-hint-known? ( d -- flag ) me-text-decl? 0= ;
 : me-text? ( name -- flag ) lf-name-tag@ lf-name-tag-str = ;
 : me-str? ( name c-addr u -- flag )
   rot dup me-text? if lf-name-text compare 0= else drop 2drop false then ;
@@ -345,5 +371,9 @@ create me-text-kinds-of   \ per lf-decl-* kind (present/print-forth.fs); 0: none
 \ Whether a name is in Nat's namespace, Nat.x (whnf's reduceNat?).
 : lf-menv-nat-name? ( name -- flag )
   lf-name-prefix@ dup if s" Nat" me-top? else drop false then ;
+\ Whether a name is Acc.rec or WellFounded.rec (reduceRec's isWFRec).
+: me-wf? ( prefix -- flag ) dup s" Acc" me-top? swap s" WellFounded" me-top? or ;
+: lf-menv-wf-rec? ( name -- flag )
+  dup s" rec" me-str? if lf-name-prefix@ me-wf? else drop false then ;
 
 base !   \ the BASE this file was loaded with

@@ -63,10 +63,13 @@ T{ nat 0 bv lam fk app recm dup whnf= -> true outcome-ok }T
 T{ rec fm app fz succ swap app app fs app zero app recm  fs fz app fz recm app whnf=
    -> true outcome-ok }T
 T{ fk succ swap app 0 proj fk whnf= -> true outcome-ok }T
-\ The structure or major premise needs what whnf would do next.
+\ The structure or major premise is reduced by whnf (S2 merge A): what it
+\ cannot decide is unsupported (reduceNat? of Nat.add (a, b)); a
+\ definition it leaves (Nat.add alone has a `_sunfold`, so it stays)
+\ leaves the projection or the recursor as they are.
 T{ 0 s" Nat.add" cn fa fb pair app 0 proj lf-whnf-core -> -1 outcome-unsupported }T
-T{ 0 s" Nat.add" cn 0 proj lf-whnf-core -> -1 outcome-unsupported }T
-T{ 0 s" Nat.add" cn recm lf-whnf-core -> -1 outcome-unsupported }T
+T{ 0 s" Nat.add" cn 0 proj dup whnf= -> true outcome-ok }T
+T{ 0 s" Nat.add" cn recm dup whnf= -> true outcome-ok }T
 
 \ ---- A definition that the data says is no matcher and no auxiliary
 \ recursor stays, as Lean's whnfCore leaves it (S1 merge B: whnfCore asks
@@ -133,15 +136,16 @@ T{ prod-rec fa fb pair app fs fa app fb app whnf= -> true outcome-ok }T
 \ lift, a constructor at the head, a Nat.succ whnf may fold.
 T{ unknown fk app lf-whnf-stuck succ fk app lf-whnf-stuck -> false outcome-ok false outcome-ok }T
 
-\ ---- Review fe1c-2 L1: a projection of a literal or of a constant no
-\ declaration has (whnf would go on: toCtorIfLit; Lean throws), Nat.succ
+\ ---- Review fe1c-2 L1: a projection of a literal (toCtorIfLit:
+\ unsupported) or of a constant no declaration has (whnf leaves it, as
+\ Lean's getUnfoldableConstNoEx? does: the projection stays, S2), Nat.succ
 \ alone as a major premise (fewer arguments than the rule's fields: the
 \ rule's right side takes none), a malformed let whose binder is an
 \ application, and a recursor of a nested block (Lean.Syntax.rec, three
 \ motives).
 : three ( -- t ) s" 3" lf-hterm-decimal must drop ;
-T{ three 0 proj lf-whnf-core unknown 0 proj lf-whnf-core
-   -> -1 outcome-unsupported -1 outcome-unsupported }T
+T{ three 0 proj lf-whnf-core unknown 0 proj dup whnf=
+   -> -1 outcome-unsupported true outcome-ok }T
 T{ succ recm  nat fs 0 bv app rec fm app fz app fs app 0 bv app app lam whnf=
    -> true outcome-ok }T
 T{ fk fs fk app 0 lf-let-make must lf-whnf-core -> -1 outcome-invalid }T
@@ -179,11 +183,13 @@ T{ nat nat tpi dup meta-whnf= lv1 sort dup meta-whnf= 2 nlit dup meta-whnf=
    -> true outcome-ok true outcome-ok true outcome-ok }T
 T{ fk fx app dup meta-whnf= nat fs 0 bv app lam fk app fs fk app meta-whnf=
    -> true outcome-ok true outcome-ok }T
-\ An instance (instance-reducible): unfolded at default (unsupported), left
-\ at reducible (whnfR); whnfCore alone leaves it (no matcher, no auxiliary
-\ recursor: S1 merge B).
-T{ inst-hadd lf-meta-whnf inst-hadd lf-meta-whnf-r nip inst-hadd dup lf-whnf-core >r same? r>
-   -> -1 outcome-unsupported outcome-ok true outcome-ok }T
+\ An instance (instance-reducible): unfolded at default to its structure
+\ (S2 merge A), left at reducible (whnfR); whnfCore alone leaves it (no
+\ matcher, no auxiliary recursor: S1 merge B).
+: hadd-mk ( -- t ) l0 l0 l0 3 s" HAdd.mk" cn nat app nat app nat app
+  nat nat l0 1 s" Add.add" cn nat app 0 s" instAddNat" cn app 1 bv app 0 bv app lam lam app ;
+T{ inst-hadd hadd-mk meta-whnf= inst-hadd lf-meta-whnf-r nip inst-hadd dup lf-whnf-core >r same? r>
+   -> true outcome-ok outcome-ok true outcome-ok }T
 T{ inst-hadd dup lf-meta-whnf-r drop same? lf-defeq-mode -> true lf-tr-default }T
 \ A projection function (semireducible in the data): unfolded at default,
 \ left at reducible; a matcher, an auxiliary recursor, Nat operations
@@ -195,16 +201,18 @@ T{ lv1 1 s" Nat.casesOn" cn fk app lf-meta-whnf 0 s" Nat.add" cn fk app fx app l
    -> -1 outcome-unsupported -1 outcome-unsupported }T
 T{ succ 2 nlit app lf-meta-whnf succ fk app dup meta-whnf=
    -> -1 outcome-unsupported true outcome-ok }T
-\ unfoldDefinition? by transparency: Nat.add (instance-reducible) at
-\ default, not at reducible; Nat.div (irreducible) only at all; a theorem
-\ only at all; at instances a projection function applied
-\ (unfoldProjInst?), not alone.
-T{ 0 s" Nat.add" cn lf-meta-whnf 0 s" Nat.add" cn lf-tr-reducible in-mode nip
-   -> -1 outcome-unsupported outcome-ok }T
-T{ 0 s" Nat.div" cn lf-meta-whnf nip 0 s" Nat.div" cn lf-tr-all in-mode
-   -> outcome-ok -1 outcome-unsupported }T
-T{ 0 s" Nat.zero_add" cn lf-meta-whnf nip 0 s" Nat.zero_add" cn lf-tr-all in-mode
-   -> outcome-ok -1 outcome-unsupported }T
+\ unfoldDefinition? by transparency: Nat.add alone stays (it has a
+\ `_sunfold`: a constant then never unfolds, WHNF.lean:918); Nat.div
+\ (irreducible) unfolds only at all, to its value; a theorem never (S2
+\ merge A: getUnfoldableConst? gives none for one); at instances a
+\ projection function applied (unfoldProjInst?), not alone.
+T{ 0 s" Nat.add" cn dup meta-whnf= 0 s" Nat.add" cn lf-tr-reducible in-mode nip
+   -> true outcome-ok outcome-ok }T
+: nat-div ( -- t ) 0 s" Nat.div" cn ;
+T{ nat-div dup meta-whnf= nat-div lf-tr-all in-mode >r lf-term-tag@ r>
+   -> true outcome-ok lf-tag-lam outcome-ok }T
+T{ 0 s" Nat.zero_add" cn dup meta-whnf= 0 s" Nat.zero_add" cn dup lf-tr-all in-mode >r same? r>
+   -> true outcome-ok true outcome-ok }T
 T{ hadd-kx lf-tr-instances in-mode l0 l0 l0 3 s" HAdd.hAdd" cn lf-tr-instances in-mode nip
    -> -1 outcome-unsupported outcome-ok }T
 \ At instances, an application of a definition that is no projection and
@@ -222,13 +230,16 @@ menv-lib lf-menv-stage!
 T{ 0 lf-meta-budget! nat lf-meta-whnf lf-meta-budget lf-meta-default-budget lf-meta-budget!
    -> -1 outcome-exhausted 0 }T
 \ whnfForall: a pi from whnf, else the term itself; a failure passes on.
-T{ nat nat tpi fk app lf-meta-whnf-forall nat lf-meta-whnf-forall inst-hadd lf-meta-whnf-forall
+T{ nat nat tpi fk app lf-meta-whnf-forall nat lf-meta-whnf-forall hadd-kx lf-meta-whnf-forall
    -> nat nat tpi fk app lf-whnf-core drop outcome-ok nat outcome-ok -1 outcome-unsupported }T
 T{ nat nat nat tpi lam fk app lf-meta-whnf-forall swap nat nat tpi same? -> outcome-ok true }T
-\ A constant no declaration has: invalid (Lean: unknown constant); a type
-\ whnf cannot decide passes its failure on through instantiateForall.
-T{ 0 s" motive" cn lf-meta-whnf inst-hadd fx 1 rxs lf-meta-instantiate-forall
-   -> -1 outcome-invalid -1 outcome-unsupported }T
+\ A constant no declaration has stays (getUnfoldableConstNoEx?); applied,
+\ it is invalid (Lean: unknown constant); a type whnf cannot decide
+\ passes its failure on through instantiateForall, one that is no pi is
+\ invalid.
+T{ unknown dup meta-whnf= unknown fk app lf-meta-whnf -> true outcome-ok -1 outcome-invalid }T
+T{ hadd-kx fx 1 rxs lf-meta-instantiate-forall inst-hadd fx 1 rxs lf-meta-instantiate-forall
+   -> -1 outcome-unsupported -1 outcome-invalid }T
 \ instantiateForall: (a : Sort 1) -> a with Nat is Nat; (fun _ => Nat ->
 \ Nat) k, a pi only after whnf, with x is Nat; one parameter too many is
 \ invalid (Lean throws); none leaves the term.

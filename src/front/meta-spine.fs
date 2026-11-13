@@ -30,6 +30,10 @@
 \   lf-meta-fvar? ( term -- flag ): a free variable.
 \ - lf-meta-args# ( term -- n ): the number of arguments of its spine.
 \ - lf-meta-pop ( slab -- x ): the slab's last cell, taken off.
+\ - lf-meta-app ( f a -- f' outcome ): the application f a (Lean's
+\   mkApp); full, with -1, when the term store has no room.
+\ - lf-meta-apply-all ( f slab -- f' outcome ): f applied to a spine's
+\   arguments, a0 first (Lean's mkAppN f args); full as above.
 \ Unchecked: the terms are live, the constant is one, the slab is a cell
 \ slab (not empty for lf-meta-pop). State: none of its own; every word
 \ takes its slab. Loads in decimal whatever BASE is, then restores it.
@@ -74,5 +78,11 @@ require ../present/binder-table.fs
 : lf-meta-args# ( term -- n )
   0 swap begin dup lf-meta-app? while lf-term-first@ swap 1+ swap repeat drop ;
 : lf-meta-pop ( slab -- x ) dup slab-count 1- over slab-at @ -1 rot slab-commit ;
+: lf-meta-app ( f a -- f' outcome ) lf-term-app if outcome-ok else -1 outcome-full then ;
+: ms-apply-at ( f slab i -- slab f' outcome ) over lf-meta-arg rot swap lf-meta-app ;
+: lf-meta-apply-all ( f slab -- f' outcome )
+  dup slab-count 0 ?do
+    i ms-apply-at ok-then? 0= if nip no-result unloop exit then swap
+  loop drop outcome-ok ;
 
 base !   \ the BASE this file was loaded with

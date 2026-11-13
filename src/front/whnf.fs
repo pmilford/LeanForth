@@ -1,40 +1,65 @@
-\ The front end's whnfCore (plan FE1c; ADR 0021 D6): a port of Lean
-\ 4.35.0's Meta.whnfCore (Lean/Meta/WHNF.lean, with whnfEasyCases,
-\ reduceRec and projectCore?) under Meta's default configuration (beta,
-\ zeta, zetaDelta, zetaHave, iota and proj := yesWithDelta on), over the
-\ term store, with no use of src/kernel/.
+\ The front end's whnfCore and whnf (plan FE1c, S1 appendix D, S2 merge A;
+\ ADR 0021 D6): ports of Lean 4.35.0's Meta.whnfCore (Lean/Meta/WHNF.lean,
+\ with whnfEasyCases, reduceRec and projectCore?) under Meta's default
+\ configuration (beta, zeta, zetaDelta, zetaHave, iota and proj :=
+\ yesWithDelta on), of whnf (whnfImp, 1060) and of unfoldDefinition? (844),
+\ over the term store, with no use of src/kernel/.
 \ lf-whnf-core ( term -- term' outcome ) repeats one step on the term
 \ until none applies:
 \ - a sort, binder, literal or constant is itself; a loose bound variable
 \   is invalid (Lean panics);
 \ - an assigned metavariable is its value; a let variable of the local
 \   context its value (zetaDelta); a let is its body with the value put in;
-\ - a projection reduces its structure first (a frame, below); when that
-\   is a constructor applied to more than its parameters and the field's
-\   index, it is that argument; else the projection stays;
+\ - a projection reduces its structure with whnf first (a frame, below);
+\   when that is a constructor applied to more than its parameters and the
+\   field's index, it is that argument; else the projection stays;
 \ - an application f a1 .. an: a lambda head takes the arguments
 \   (lf-meta-head-beta); an assigned metavariable, a let variable, a let
 \   or a projection at the head is replaced as above, the arguments kept;
-\   a recursor at the head reduces its major premise first, then, when
-\   that is a constructor application, fires the constructor's rule
-\   (iota: the rule's right side, its universe parameters instantiated,
-\   applied to the parameters, motives and minor premises, the
-\   constructor's fields and the arguments after the major premise); any
-\   other head, an unassigned metavariable included, ends the reduction.
-\ Frames: where Lean calls whnf on a part (a projection's structure, a
-\ recursor's major premise), the step keeps (kind, term, aux) on the heap
-\ stack wc-frames and goes on with the part; when the part is done the
-\ frame resumes with it. Lean's whnf adds delta and Nat literal folding to
-\ whnfCore; a part whose whnfCore ends where whnf would do more (a
-\ definition, an unknown constant, a literal, Nat.succ of what reduceNat?
-\ or the Nat offsets would change) answers unsupported.
+\   a recursor at the head reduces its major premise with whnf first (at
+\   transparency all for Acc.rec and WellFounded.rec at default, isWFRec),
+\   then, when that is a constructor application, fires the constructor's
+\   rule (iota: the rule's right side, its universe parameters
+\   instantiated, applied to the parameters, motives and minor premises,
+\   the constructor's fields and the arguments after the major premise);
+\   any other major premise leaves it; any other head, an unassigned
+\   metavariable included, ends the reduction.
+\ lf-whnf-core-at-defeq ( term -- term' outcome ) is whnfCoreAtDefEq
+\ (ExprDefEq.lean, backward.isDefEq.lazyWhnfCore true: proj :=
+\ yesWithDeltaI): a projection's structure, and everything inside that
+\ reduction, by whnfAtMostI (instances transparency in place of all,
+\ default or implicit).
+\ lf-meta-whnf ( e -- e' outcome ) is whnf at the configured transparency
+\ (meta-config.fs): whnfCore, then reduceNat? (answered unsupported where
+\ it might fold: a constant of Nat's namespace with one or two arguments,
+\ except Nat.succ of a term whnf leaves; plan S2 merge B), then
+\ unfoldDefinition? (front/unfold.fs, lf-unfold-step): when it unfolds,
+\ whnf again on the result. lf-meta-unfold ( e -- e' flag outcome ) is
+\ unfoldDefinition? alone: the result and true, or e and false (none).
+\ Where unfold.fs asks for a class field (reduceProj? at instances
+\ transparency), the structure's whnf runs at instances and, when it is a
+\ constructor, the field applied to the unfolded term's arguments with
+\ head beta is the result; else unfoldDefault's result stands (ask-keep)
+\ or nothing unfolds (ask-none, unfoldProjInst?).
+\ Machine: an activation is whnfCore (lf-whnf-core's), whnf (every part:
+\ a projection's structure, a recursor's major premise, a class field's
+\ structure; lf-meta-whnf's) or unfoldDefinition? (lf-meta-unfold's).
+\ Where Lean calls whnf on a part, the step keeps (kind, term, aux, the
+\ activation, the transparency) on the heap stack wc-frames and goes on
+\ with the part in a whnf activation; when the part is done the frame
+\ resumes with it, its activation and transparency restored. No host
+\ recursion (plan task 6.2.0 (b)); the transparency on entry is restored
+\ on every exit.
 \ Never a guess: unsupported for what Lean decides with a fact or a step
-\ not ported yet -- a definition at the head (Lean first asks whether it
-\ is a matcher, then whether it is an auxiliary recursor: facts the
-\ export lacks, front/meta-env.fs, plan FE1d2), a quotient's lift or ind,
-\ a delayed-assigned metavariable at the head, and, for a recursor:
-\ K-like ones (toCtorWhenK infers the major premise's type), a stuck
-\ major premise of a structure-like type (toCtorWhenStructure
+\ not ported yet -- a matcher or an auxiliary recursor at a definition's
+\ head (whnfCore's matcher and deltaBetaDefinition steps, S2 merge B; a
+\ definition that is neither stays), a definition with a `_sunfold` or not
+\ known to have none (unfold.fs), a quotient's lift or ind, a
+\ delayed-assigned metavariable at the head, a literal where Lean turns it
+\ into constructors (toCtorIfLit), and, for a recursor: K-like ones
+\ (toCtorWhenK infers the major premise's type), a major premise
+\ Nat.succ of a term reduceNat? might fold (cleanupNatOffsetMajor), a
+\ stuck major premise of a structure-like type (toCtorWhenStructure
 \ eta-expands it), and a recursor of a mutual or nested block.
 \ Let variables: Lean unfolds a let variable only when it is no "have"
 \ (nondep) declaration; lf-fvar-let? is false for a have
@@ -42,40 +67,28 @@
 \ stays as it is, as Lean's whnfEasyCases leaves it.
 \ Fuel: each step spends one; lf-whnf-fuel! sets the steps a call may
 \ take (0: lf-whnf-default-fuel); none left is exhausted, never a term.
+\ Each lf-meta-whnf call and each unfolding attempt also spends one step
+\ of meta-config.fs's budget (none left: exhausted).
 \ Outcomes: ok; invalid for a term or leaf that is not live, a loose
-\ bound variable or a malformed let; unsupported as above; full when a
-\ store or slab has no room; exhausted. A failure gives -1 for the term.
+\ bound variable, a malformed let or an unknown constant whnf would
+\ unfold; unsupported as above; full when a store or slab has no room;
+\ exhausted. A failure gives -1 for the term.
 \ lf-whnf-stuck ( term -- mvar true outcome | false outcome ), Lean's
 \ getStuckMVar? for the same cases: the unassigned metavariable at the
 \ head, a recursor's major premise or a projection's structure that is
 \ one; unsupported where it would need whnf or a definition's facts.
-\ lf-meta-whnf ( e -- e' outcome ), Lean's whnf (WHNF.lean:1060, whnfImp)
-\ at the configured transparency (meta-config.fs), in the fed environment
-\ (meta-env.fs, S1 appendix D): whnfCore, which now asks meta-env.fs's
-\ format 2 facts at a definition head (Lean's reduceMatcher? and isAuxDef:
-\ a definition that is neither a matcher nor an auxiliary recursor stays
-\ as it is), then reduceNat? and unfoldDefinition? (getUnfoldableConst?).
-\ Answered unsupported, never a guess, where they would act: a matcher
-\ (matcher reduction, plan S3) or an auxiliary recursor at the head
-\ (deltaBetaDefinition of it, plan S2), a definition or fact meta-env.fs
-\ lacks; a Nat operation reduceNat? might fold (S3); a definition the
-\ transparency unfolds or a theorem at all (unfoldDefinition? first asks
-\ for the definition's smart-unfolding `_sunfold`, a fact meta-env.fs has
-\ not yet: S2, with lazy delta), and at instances transparency a
-\ projection function (unfoldProjInst?). The library route of merge B
-\ (S1 §1) widens the environment, not these rules. Each call spends one
-\ step of meta-config.fs's budget. lf-meta-whnf-r is whnfR (reducible);
-\ lf-meta-whnf-forall ( e -- e' outcome ) whnfForall (whnf's result when
-\ it is a pi, else e); lf-meta-instantiate-forall ( e addr n -- e'
-\ outcome ) instantiateForall (Basic.lean:2186): e's first n pis, each
-\ made a pi by whnf when it is none, instantiated with the n terms at
-\ addr; invalid when one is still no pi (Lean: too many parameters) or
-\ n is negative.
+\ lf-meta-whnf-r is whnfR (reducible); lf-meta-whnf-forall ( e -- e'
+\ outcome ) whnfForall (whnf's result when it is a pi, else e);
+\ lf-meta-instantiate-forall ( e addr n -- e' outcome ) instantiateForall
+\ (Basic.lean:2186): e's first n pis, each made a pi by whnf when it is
+\ none, instantiated with the n terms at addr; invalid when one is still
+\ no pi (Lean: too many parameters) or n is negative.
 \ Untrusted: only the kernel's check of a finished term decides anything.
-\ State: the record wc (fuel, whether facts are asked, the recursor
-\ step's term, head, data and declaration) and the slabs wc-args,
-\ wc-margs, wc-levels and wc-frames, in the checker context. Loads in
-\ decimal whatever BASE is, then restores it.
+\ State: the record wc (fuel, whether facts are asked, the activation,
+\ the projection mode, lf-meta-unfold's answer, the transparency on
+\ entry, the recursor step's term, head, data and declaration) and the
+\ slabs wc-args, wc-margs, wc-levels and wc-frames, in the checker
+\ context. Loads in decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
@@ -94,32 +107,43 @@ require ./level-params.fs
 require ./meta-config.fs
 require ./meta-env.fs
 require ./meta-spine.fs
+require ./term-eqv.fs
+require ./unfold.fs
 
 100000 constant lf-whnf-default-fuel
 begin-structure /wc
   field: wc-limit    \ steps a call may take; 0: the default
   field: wc-fuel     \ steps left in this call
   field: wc-facts    \ true: a definition head asks meta-env.fs's facts
+  field: wc-act      \ the running activation: wc-core-act, -full- or -unfold-
+  field: wc-proj-i   \ true: projections' structures by whnfAtMostI
+  field: wc-unfolded \ lf-meta-unfold's answer: whether its term unfolded
+  field: wc-mode0    \ the transparency on entry
   field: wc-src      \ the slab wc-apply reads arguments from (set just
                      \ before each use: wc-from; one step's register)
   field: wc-e        \ the recursor step's term,
   field: wc-head     \ its head constant,
   field: wc-data     \ the recursor's inductive data
-  field: wc-aux      \ a frame's third cell: the recursor's declaration
+  field: wc-aux      \ a frame's third cell: the recursor's declaration,
+                     \ or a class field's unfolded term
 end-structure
 /wc context-record: wc
 1 cells context-slab: wc-args     \ the term's arguments, last first
 1 cells context-slab: wc-margs    \ the major premise's arguments, last first
 1 cells context-slab: wc-levels   \ the recursor's universe arguments
 begin-structure /wcf
-  field: wcf-kind    \ wc-proj-kind or wc-rec-kind
+  field: wcf-kind    \ wc-proj-kind, wc-rec-kind or unfold.fs's ask code
   field: wcf-term    \ the step's term
-  field: wcf-aux     \ a recursor step's declaration
+  field: wcf-aux     \ a recursor's declaration, a class field's unfolded term
+  field: wcf-act     \ the activation the frame resumes
+  field: wcf-mode    \ the transparency it resumes at
 end-structure
 /wcf context-slab: wc-frames      \ the frames, the newest last
+0 constant wc-core-act   1 constant wc-full-act   2 constant wc-unfold-act
 : lf-whnf-fuel! ( n -- ) wc wc-limit ! ;
 : wc-start ( -- )
   wc-frames slab-clear wc wc-limit @ ?dup 0= if lf-whnf-default-fuel then wc wc-fuel ! ;
+: wc-full? ( -- flag ) wc wc-act @ wc-full-act = ;
 
 \ ---- Results of a step ( -- term flag outcome ): flag true goes on.
 : wc-done ( term -- term false outcome ) false outcome-ok ;
@@ -131,25 +155,27 @@ end-structure
 
 \ ---- Spines: the arguments of f a1 .. an in a slab, an first.
 : wc-nth ( i -- term ) wc wc-src @ lf-meta-arg ;
-: wc-app1 ( f a -- f' outcome ) lf-term-app if outcome-ok else -1 outcome-full then ;
 \ f applied to arguments from to to-1 of the slab wc-src names.
 : wc-apply ( f from to -- f' outcome )
-  swap ?do i wc-nth wc-app1 ok-then? 0= if -1 swap unloop exit then loop outcome-ok ;
+  swap ?do i wc-nth lf-meta-app ok-then? 0= if -1 swap unloop exit then loop outcome-ok ;
 : wc-from ( slab -- ) wc wc-src ! ;
-: wc-rebuild ( head -- term outcome ) wc-args wc-from 0 wc-args slab-count wc-apply ;
+: wc-rebuild ( head -- term outcome ) wc-args lf-meta-apply-all ;
 
-\ ---- Frames: a step that needs the whnf of a part (a projection's
-\ structure, a recursor's major premise) keeps (kind, term, aux) on
-\ wc-frames and goes on with the part; when the part is done, the frame
-\ resumes with it (wc-resume), as Lean's call of whnf returns.
+\ ---- Frames: a step that needs the whnf of a part keeps (kind, term,
+\ aux, activation, transparency) on wc-frames and goes on with the part
+\ in a whnf activation; when the part is done, the frame resumes with it
+\ (wc-resume), as Lean's call of whnf returns.
 0 constant wc-proj-kind   1 constant wc-rec-kind
 : wc-top ( -- frame ) wc-frames dup slab-count 1- swap slab-at ;
-\ One frame claimed whole, or none (full).
+: wc-keep ( frame -- ) wc wc-act @ over wcf-act ! lf-defeq-mode swap wcf-mode ! ;
+\ One frame claimed whole, or none (full); the part's activation is whnf.
 : wc-frame ( kind e aux -- outcome )
   1 wc-frames slab-claim nip dup ok? 0= if >r 2drop drop r> exit then drop
-  wc-top tuck wcf-aux ! tuck wcf-term ! wcf-kind ! outcome-ok ;
+  wc-top tuck wcf-aux ! tuck wcf-term ! tuck wcf-kind ! wc-keep
+  wc-full-act wc wc-act ! outcome-ok ;
+: wc-restore ( frame -- ) dup wcf-act @ wc wc-act ! wcf-mode @ lf-defeq-mode! ;
 : wc-pop ( -- kind )
-  wc-top dup wcf-aux @ wc wc-aux ! dup wcf-term @ wc wc-e ! wcf-kind @
+  wc-top dup wc-restore dup wcf-aux @ wc wc-aux ! dup wcf-term @ wc wc-e ! wcf-kind @
   -1 wc-frames slab-commit ;
 : wc-framed? ( -- flag ) wc-frames slab-count 0> ;
 
@@ -274,7 +300,8 @@ end-structure
 : wc-exact? ( mhead -- flag )
   dup wc-ctor? if wc-ctor-arity wc-margs slab-count = else drop false then ;
 : wc-eta? ( mhead data -- flag ) wc-structure-like? if wc-exact? 0= else drop false then ;
-\ Heads whose application whnf leaves as it is and no rule matches.
+\ Heads whose application whnf leaves as it is and no rule matches
+\ (getStuckMVar? below asks them).
 : wc-head-inert? ( mhead -- flag )
   dup wc-plain-fvar? over wc-plain-mvar? or swap wc-sort? or ;
 : wc-leaf-inert? ( mhead -- flag )
@@ -283,15 +310,23 @@ end-structure
   wc-kind dup lf-kind-inductive = over lf-kind-axiom = or swap lf-kind-theorem = or ;
 : wc-inert-major? ( mhead -- flag )
   dup wc-head-inert? over wc-leaf-inert? or swap wc-const-inert? or ;
+\ The major premise's whnf: a constructor fires its rule, a literal
+\ (toCtorIfLit) answers unsupported, any other head leaves the recursor.
 : wc-major-head ( mhead -- e' flag outcome )
   wc-induct-data dup 0= if 2drop outcome-unsupported wc-fail exit then
   over swap wc-eta? if drop outcome-unsupported wc-fail exit then
   dup wc-ctor? if wc-ctor-major exit then
-  wc-inert-major? if wc-stay else outcome-unsupported wc-fail then ;
+  wc-lit? if outcome-unsupported wc-fail else wc-stay then ;
+\ isWFRec: Acc.rec and WellFounded.rec reduce their major premise at
+\ transparency all when it is default.
+: wc-wf-bump ( -- )
+  wc wc-head @ wc-name lf-menv-wf-rec? lf-defeq-mode lf-tr-default = and
+  if lf-tr-all lf-defeq-mode! then ;
 : wc-reduce-rec ( -- e' flag outcome )
   wc-short? if wc-stay exit then
   wc-k? wc-single? 0= or if outcome-unsupported wc-fail exit then
-  wc-major wc-rec-kind wc-term wc wc-aux @ wc-frame wc-go ;
+  wc-major wc-rec-kind wc-term wc wc-aux @ wc-frame ok-then? 0= if wc-fail exit then
+  wc-wf-bump true outcome-ok ;
 : wc-iota ( e head d -- e' flag outcome )
   dup wc wc-aux ! lf-menv-data wc wc-data ! wc wc-head ! wc wc-e !
   wc-reduce-rec ;
@@ -306,13 +341,14 @@ end-structure
 
 \ ---- Projections (projectCore?): the structure's whnf r, a constructor
 \ applied to more than its parameters and the field's index, gives that
-\ argument; any other r leaves the projection. An r whnf would reduce
-\ further (a definition, an unknown constant, Nat.succ it folds, a
-\ literal, which toCtorIfLit turns into Nat's constructors) answers
-\ unsupported.
-: wc-const-unfinal? ( rhead -- flag )
-  dup wc-kind dup lf-kind-definition = swap 0= or swap wc-foldable? or ;
-: wc-unfinal? ( rhead -- flag ) dup wc-const? if wc-const-unfinal? else wc-lit? then ;
+\ argument; any other r leaves the projection; a literal, which
+\ toCtorIfLit turns into constructors, answers unsupported.
+\ whnfAtMostI (proj := yesWithDeltaI): all, default and implicit become
+\ instances.
+: wc-at-most-i ( mode -- mode' )
+  dup lf-tr-all = over lf-tr-default = or over lf-tr-implicit = or
+  if drop lf-tr-instances then ;
+: wc-lower ( -- ) wc wc-proj-i @ if lf-defeq-mode wc-at-most-i lf-defeq-mode! then ;
 : wc-proj-at ( p -- k ) lf-proj-leaf lf-proj-idx ;
 : wc-ctor-params ( ctor -- n )
   lf-meta-const-decl drop lf-menv-data lf-ict-params lf-more-field ;
@@ -324,13 +360,12 @@ end-structure
 : wc-proj-frame ( -- p outcome ) wc-term wc-args lf-meta-spine ;
 : wc-proj-resume ( r -- e' flag outcome )
   wc-margs lf-meta-spine ok-then? 0= if wc-fail exit then
-  dup wc-unfinal? if drop outcome-unsupported wc-fail exit then
+  dup wc-lit? if drop outcome-unsupported wc-fail exit then
   wc-proj-frame ok-then? 0= if wc-drop-fail exit then
   wc-project if wc-rebuild wc-go else wc-stay then ;
 : wc-proj-head ( e head -- e' flag outcome )
-  lf-proj-struct wc-proj-kind rot 0 wc-frame wc-go ;
-: wc-resume ( r -- e' flag outcome )
-  wc-pop wc-rec-kind = if wc-rec-resume else wc-proj-resume then ;
+  lf-proj-struct wc-proj-kind rot 0 wc-frame ok-then? 0= if wc-fail exit then
+  wc-lower true outcome-ok ;
 
 : wc-blocked? ( d -- flag )
   lf-menv-kind dup lf-kind-definition = swap lf-kind-quotient = or ;
@@ -349,7 +384,7 @@ end-structure
 : wc-const-head ( e head -- e' flag outcome )
   dup lf-meta-const-decl if wc-decl-head else drop wc-done then ;
 
-\ ---- One step.
+\ ---- One step of whnfCore.
 : wc-head-tag ( e head tag -- e' flag outcome )
   case lf-tag-mvar of wc-mvar-head endof  lf-tag-fvar of wc-fvar-head endof
     lf-tag-constant of wc-const-head endof  lf-tag-projection of wc-proj-head endof
@@ -364,9 +399,68 @@ end-structure
   case lf-tag-mvar of wc-mvar endof  lf-tag-fvar of wc-fvar endof
     lf-tag-projection of dup wc-proj-head endof
     lf-tag-bvar of outcome-invalid wc-drop-fail endof  >r wc-done r> endcase ;
-: wc-step ( e -- e' flag outcome )
+: wc-core-step ( e -- e' flag outcome )
   dup lf-let? if wc-zeta wc-go exit then
   dup lf-meta-app? if wc-app else dup lf-term-tag@ wc-leaf-step then ;
+
+\ ---- reduceNat?: a constant of Nat's namespace with one or two arguments
+\ (Lean's list, taken widely), except Nat.succ of a term whnf leaves.
+: wm-pi? ( e -- flag ) lf-term-tag@ lf-tag-pi = ;
+: wm-head-named? ( e xt -- flag )
+  swap lf-meta-head dup wc-const? if wc-name swap execute else 2drop false then ;
+: wm-succ-inert? ( e -- flag )
+  dup ['] lf-menv-nat-succ? wm-head-named?
+  if lf-term-second@ wc-inert? else drop false then ;
+: wm-nat? ( e -- flag )
+  dup lf-meta-args# 1 3 within over ['] lf-menv-nat-name? wm-head-named? and
+  if wm-succ-inert? 0= else drop false then ;
+
+\ ---- Delta: whnf's step once whnfCore ends (reduceNat?, then
+\ unfoldDefinition?), and lf-meta-unfold's one step. An unfolding goes on
+\ in a whnf activation and ends lf-meta-unfold's (wc-unfolded); a class
+\ field's structure goes on as a part at instances transparency.
+: wc-advance ( e' -- e' flag outcome )
+  wc-full? if true else true wc wc-unfolded ! false then outcome-ok ;
+: wc-field-of ( -- s ) wc-top wcf-aux @ lf-meta-head lf-proj-struct ;
+: wc-ask ( e e' code -- s flag outcome )
+  -rot wc-frame dup ok? 0= if wc-fail exit then drop
+  lf-tr-instances lf-defeq-mode! wc-field-of true outcome-ok ;
+: wc-unfold-code ( e e' code -- e'' flag outcome )
+  dup lf-unfold-none = if 2drop wc-done exit then
+  dup lf-unfold-made = if drop nip wc-advance else wc-ask then ;
+: wc-unfold ( e -- e' flag outcome )
+  dup lf-unfold-step ok-then2? if wc-unfold-code else wc-drop-fail then ;
+: wc-delta ( e -- e' flag outcome )
+  wc-full? if dup wm-nat? if outcome-unsupported wc-drop-fail exit then then
+  lf-meta-spend? if wc-unfold else outcome-exhausted wc-drop-fail then ;
+\ After a whnfCore step: when it ends, a whnf activation tries delta.
+: wc-then-delta ( e flag outcome -- e' flag' outcome )
+  dup ok? 0= if exit then drop dup if outcome-ok exit then
+  drop wc-full? if wc-delta else false outcome-ok then ;
+: wc-step ( e -- e' flag outcome ) wc-core-step wc-then-delta ;
+
+\ ---- Resuming a frame with its part's whnf r. A class field: the field
+\ applied to the unfolded term's arguments with head beta, else the
+\ unfolded term (ask-keep) or nothing (ask-none).
+: wc-field-arg ( r -- x flag outcome )
+  wc-margs lf-meta-spine ok-then? 0= if -1 false rot exit then
+  dup wc-lit? if drop -1 false outcome-unsupported exit then
+  wc wc-aux @ lf-meta-head wc-project if true else -1 false then outcome-ok ;
+: wc-field-apply ( x -- y outcome )
+  wc wc-aux @ wc-args lf-meta-spine ok-then? 0= if nip no-result exit then drop
+  wc-rebuild ok-then? if lf-meta-head-beta else no-result then ;
+: wc-field-none ( kind -- e' flag outcome )
+  lf-unfold-ask-keep = if wc wc-aux @ wc-advance else wc-stay then ;
+: wc-field-resume ( r kind -- e' flag outcome )
+  >r wc-field-arg ok-then2? 0= if r> drop wc-fail exit then
+  if r> drop wc-field-apply ok-then? if wc-advance else wc-fail then
+  else drop r> wc-field-none then ;
+: wc-core-resume ( r kind -- e' flag outcome )
+  wc-rec-kind = if wc-rec-resume else wc-proj-resume then wc-then-delta ;
+: wc-resume ( r -- e' flag outcome )
+  wc-pop dup lf-unfold-ask-keep < if wc-core-resume else wc-field-resume then ;
+
+\ ---- The loop.
 : wc-spend ( -- flag ) wc wc-fuel @ dup 0> if 1- wc wc-fuel ! true else drop false then ;
 : wc-next ( e flag -- e' flag' outcome )
   begin dup 0= wc-framed? and while drop wc-resume dup ok? 0= if exit then drop repeat
@@ -376,46 +470,29 @@ end-structure
   begin wc-spend 0= if drop -1 outcome-exhausted exit then
     wc-turn dup ok? 0= if nip exit then drop
   0= until outcome-ok ;
-: wc-core ( term facts -- term' outcome )
-  wc wc-facts ! dup lf-term-root? 0= if drop -1 outcome-invalid exit then
-  wc-start wc-loop ;
+\ A call: the activation, the projection mode and the facts flag set, the
+\ transparency on entry restored at the end.
+: wc-enter ( act proj-i -- )
+  wc wc-proj-i ! wc wc-act ! false wc wc-unfolded ! lf-defeq-mode wc wc-mode0 ! wc-start ;
+: wc-leave ( -- ) wc wc-mode0 @ lf-defeq-mode! ;
+: wc-run ( e act proj-i -- e' outcome )
+  wc-enter dup lf-term-root? if wc-loop else drop -1 outcome-invalid then wc-leave ;
+: wc-core ( term facts -- term' outcome ) wc wc-facts ! wc-core-act false wc-run ;
 : lf-whnf-core ( term -- term' outcome ) true wc-core ;
+: lf-whnf-core-at-defeq ( term -- term' outcome )
+  true wc wc-facts ! wc-core-act true wc-run ;
 
-\ ---- whnf (lf-meta-whnf): what whnfCore leaves, unless reduceNat? or
-\ unfoldDefinition? would act on it (unsupported).
-: wm-pi? ( e -- flag ) lf-term-tag@ lf-tag-pi = ;
-\ reduceNat?: a constant of Nat's namespace with one or two arguments
-\ (Lean's list, taken widely), except Nat.succ of a term whnf leaves.
-: wm-head ( e -- head ) begin dup lf-meta-app? while lf-term-first@ repeat ;
-: wm-head-named? ( e xt -- flag )
-  swap wm-head dup wc-const? if wc-name swap execute else 2drop false then ;
-: wm-succ-inert? ( e -- flag )
-  dup ['] lf-menv-nat-succ? wm-head-named?
-  if lf-term-second@ wc-inert? else drop false then ;
-: wm-nat? ( e -- flag )
-  dup lf-meta-args# 1 3 within over ['] lf-menv-nat-name? wm-head-named? and
-  if wm-succ-inert? 0= else drop false then ;
-\ unfoldDefinition?: any definition the transparency unfolds
-\ (getUnfoldableConst?), a theorem at all; at instances, an application
-\ of a projection function (unfoldProjInstWhenInstances?).
-: wm-thm-all? ( d -- flag ) lf-menv-kind lf-kind-theorem = lf-defeq-mode lf-tr-all = and ;
-: wm-proj-fact ( d -- outcome )
-  lf-menv-proj-fn? ok-then? if if outcome-unsupported else outcome-ok then then ;
-: wm-proj-inst ( d -- outcome )
-  lf-defeq-mode lf-tr-instances = if wm-proj-fact else drop outcome-ok then ;
-: wm-firm ( app? d -- outcome )
-  dup wm-thm-all? if 2drop outcome-unsupported exit then
-  swap if wm-proj-inst else drop outcome-ok then ;
-: wm-const ( app? const -- outcome )
-  wc-name lf-defeq-mode lf-menv-unfoldable ok-then? 0= if nip nip exit then
-  if 2drop outcome-unsupported else wm-firm then ;
-: wm-check ( e -- outcome )
-  dup wm-nat? if drop outcome-unsupported exit then
-  dup lf-meta-app? swap wm-head dup wc-const? if wm-const else 2drop outcome-ok then ;
-: wm-final ( e -- e' outcome ) dup wm-check dup ok? 0= if nip no-result then ;
+\ ---- whnf (lf-meta-whnf) and unfoldDefinition? (lf-meta-unfold).
 : lf-meta-whnf ( e -- e' outcome )
   lf-meta-spend? 0= if drop -1 outcome-exhausted exit then
-  true wc-core ok-then? if wm-final else no-result then ;
+  true wc wc-facts ! wc-full-act false wc-run ;
+: wc-unfold-run ( e -- e' outcome )
+  wc-delta ok-then2? 0= if no-result exit then if wc-loop else outcome-ok then ;
+: wc-answer ( e' outcome -- e' flag outcome )
+  dup ok? if wc wc-unfolded @ else false then swap ;
+: lf-meta-unfold ( e -- e' flag outcome )
+  dup lf-term-root? 0= if drop -1 false outcome-invalid exit then
+  true wc wc-facts ! wc-unfold-act false wc-enter wc-unfold-run wc-leave wc-answer ;
 \ whnfR: whnf at reducible transparency, the configured one restored.
 : wm-at ( e mode -- e' outcome )
   lf-defeq-mode swap lf-defeq-mode! swap lf-meta-whnf rot lf-defeq-mode! ;

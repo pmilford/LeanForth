@@ -116,10 +116,12 @@ T{ own-mark succ ?h app 3 nlit dq ?h inst 2 ofnat same own-back clean? -> true o
 T{ 3 nlit succ succ succ zero app app app dq -> false outcome-unsupported }T
 T{ succ ?h app 0 ofnat fk 1 ofnat hadd hadd dq ?h free? -> false outcome-unsupported true }T
 
-\ ---- Transparency: a definition is a delta candidate at default only.
+\ ---- Transparency: a definition is a delta candidate at default only;
+\ there lazy delta (S2 merge A) finds that neither constant unfolds (each
+\ has a `_sunfold`, so a constant alone stays) and they differ.
 T{ lf-tr-reducible lf-defeq-mode! 0 s" Nat.add" cn 0 s" Nat.mul" cn dq
    lf-tr-default lf-defeq-mode! -> false outcome-ok }T
-T{ 0 s" Nat.add" cn 0 s" Nat.mul" cn dq -> false outcome-unsupported }T
+T{ 0 s" Nat.add" cn 0 s" Nat.mul" cn dq -> false outcome-ok }T
 \ isDefEqProjInst at instances transparency might unfold a definition.
 T{ lf-tr-instances lf-defeq-mode! 0 s" Nat.add" cn fk dq lf-tr-default lf-defeq-mode!
    -> false outcome-unsupported }T
@@ -274,14 +276,17 @@ T{ succ fk app -1 nlit nat-add lf-meta-offset nip nip nip -> outcome-unsupported
 : inst-x ( -- inst ) l0 1 s" instHAdd" cn nat app fx app ;
 T{ inst-x 2 nlit 3 nlit hadd-by lf-meta-eval-nat -> 0 false outcome-ok }T
 \ Universe lists: == compares every level; isDefEq pair by pair, false
-\ when one list ends first; a definition whose levels differ is unfolded
-\ on both sides (lazy delta: unsupported).
+\ when one list ends first. HAdd.hAdd at two levels stops at proof
+\ irrelevance (isProp of its type: fun-info.fs, unsupported); a
+\ definition with one list too long is unfolded on one side only (lazy
+\ delta, S2 merge A: deltaDefinition's level count), then its levels
+\ differ: false, as Lean.
 : hadd-c ( l -- t ) >r l0 l0 r> 3 s" HAdd.hAdd" cn ;
 T{ l0 hadd-c lv1 hadd-c lf-meta-eqv l0 hadd-c lv1 hadd-c dq
    -> false outcome-ok false outcome-unsupported }T
 : prod-c ( l -- t ) >r l0 r> 2 s" Prod.mk" cn ;
 T{ l0 prod-c lv1 prod-c dq l0 prod-c l0 1 s" Prod.mk" cn dq -> false outcome-ok false outcome-ok }T
-T{ l0 1 s" OfNat.ofNat" cn l0 l0 2 s" OfNat.ofNat" cn dq -> false outcome-unsupported }T
+T{ l0 1 s" OfNat.ofNat" cn l0 l0 2 s" OfNat.ofNat" cn dq -> false outcome-ok }T
 \ String literals by their text.
 : slit ( c-addr u -- t ) lf-str-new made drop ;
 T{ s" ab" slit s" ab" slit dq s" ab" slit s" ac" slit dq -> true outcome-ok false outcome-ok }T
@@ -314,11 +319,12 @@ T{ ?t fk app succ fk app lf-defeq-elab lf-defeq-quasi or with-flags
 T{ ?M rec-prop dq ?M free? -> false outcome-unsupported true }T
 \ At reducible transparency an implicit argument is compared at implicit
 \ (withImplicitConfig), where Nat.add and Nat.mul are delta candidates
-\ (lazy delta: unsupported, FE1d2); at reducible they are not (false).
+\ (lazy delta, S2 merge A: neither constant unfolds, false); at reducible
+\ they are not (false).
 : refl-of ( name u -- t ) 0 -rot cn refl ;
 T{ lf-tr-reducible lf-defeq-mode! s" Nat.add" refl-of s" Nat.mul" refl-of dq
    0 s" Nat.add" cn 0 s" Nat.mul" cn dq lf-tr-default lf-defeq-mode!
-   -> false outcome-unsupported false outcome-ok }T
+   -> false outcome-ok false outcome-ok }T
 \ isDefEqMVarSelf: a read-only ?t (one depth deeper) is false even under
 \ constApprox.
 T{ deeper ?t fk app ?t fx app lf-defeq-elab lf-defeq-const or with-flags

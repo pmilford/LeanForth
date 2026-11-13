@@ -95,6 +95,19 @@ true (lam (app (app id.{2} Sort 1) Nat.{}) #0) (lam (app (app id.{2} Sort 1) Nat
 false
 false
 false
+true (app outParam.{2} Sort 1) Sort 1
+true (app outParam.{2} Sort 1) Sort 1
+true (app outParam.{1} Nat.{}) Nat.{}
+true Nat.{} (app outParam.{1} Nat.{})
+true (app outParam.{1} Nat.{}) (app (app id.{2} Sort 1) Nat.{})
+true (app (app id.{1} Nat.{}) k) k
+true (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) x) (app (app (app (app Add.add.{0} Nat.{}) instAddNat.{}) k) x)
+true (app (app (app (app Add.add.{0} Nat.{}) instAddNat.{}) k) x) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) x)
+true (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) x) (app (app Nat.add.{} k) x)
+true (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) x) (app (app (app (app Add.add.{0} Nat.{}) instAddNat.{}) k) x)
+false
+false
+true (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) x) (app (app (app (app Add.add.{0} Nat.{}) instAddNat.{}) k) x)
 true (app (app (app (app Prod.mk.{0,0} Nat.{}) Nat.{}) a) b) (app (app (app (app Prod.mk.{0,0} Nat.{}) Nat.{}) a) b)
 false
 true (app Nat.succ.{} (app (app (app OfNat.ofNat.{0} Nat.{}) 9223372036854775807) (app instOfNatNat.{} 9223372036854775807))) 9223372036854775808

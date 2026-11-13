@@ -22,6 +22,7 @@
 \ Every module first: a context member declared after menv-load (in
 \ whnf-cases.fs) would move the context under the loaded slice.
 require ../../src/front/defeq.fs
+require ../../src/front/defeq-delta.fs
 require ./whnf-cases.fs
 require ./depth.fs
 
@@ -47,6 +48,7 @@ eqab nat tpi char i local constant fi
 nat mv-opaque lf-mvar-new made constant ?o  ?o char o named
 nat punit tpi char d local constant fd
 lf-level-mvar-new made constant lvu
+lvu lf-level-succ must constant lvu1
 
 : defeq-show ( t s flag outcome -- )
   dup lf-meta-stuck = if 2drop 2drop ." stuck" cr exit then

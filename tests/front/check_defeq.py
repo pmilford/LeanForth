@@ -87,6 +87,8 @@ def lam(body, dom=NAT):
     return (LAM, dom, body)
 
 
+ADD_ADD = apps(c("Add.add", 0), NAT, c("instAddNat"))
+SMART = "S2 merge B smart unfolding (Nat.add._sunfold)"
 EQAB = apps(c("Eq", 1), NAT, "a", "b")
 REFL_A = apps(c("Eq.refl", 1), NAT, "a")
 MOTIVE, STEP = lam(NAT), lam(lam("#0"))
@@ -147,7 +149,7 @@ CASES = [
     ("eq", apps("?y", "k", "k"), apps(ADD, "k", "k"), None),
     ("eq", apps("?y", "j", "j"), apps(ADD, "j", "j"), None),
     ("eq", apps("?y", "j", "k"), apps(ADD, "k", "j"),
-     "FE1d2 unfoldDefinition? in first-order approximation"),
+     "S2 unfoldDefinition? in first-order approximation (Nat.add's smart unfolding, merge B)"),
     ("eq", apps("?t", "k"), apps("?t", "k"), None),
     ("eq", apps("?t", "k"), apps("?t", "x"), None),
     ("eq", apps("?t", (LIT, 2)), succ("k"), None),
@@ -178,7 +180,7 @@ CASES = [
     # Nat offsets and values.
     ("eq", succ("?h"), succ(succ("k")), None),
     ("eq", succ("?h"), succ(succ("?r")), None),
-    ("eq", succ(succ("?h")), succ("k"), "FE1d2 whnfCore of an instance-headed term"),
+    ("eq", succ(succ("?h")), succ("k"), SMART),
     ("eq", succ("k"), succ("x"), None),
     ("eq", succ("?h"), (LIT, 3), None),
     ("eq", succ("k"), (LIT, 0), None),
@@ -186,28 +188,45 @@ CASES = [
     ("eq", (LIT, 1), ZERO, None),
     ("eq", (LIT, 3), succ(succ(succ(ZERO))), "FE1c reduceNat? (isDefEqNat)"),
     ("eq", succ("?h"), hadd(ofnat(0), hadd("k", ofnat(1))),
-     "FE1d2 lazy delta reduction (FE1's acceptance case)"),
+     SMART + " after lazy delta (FE1's acceptance case)"),
     ("eq", hadd("k", ofnat(1)), succ("k"), None),
     # Depth: a metavariable of the outer depth is read-only.
     ("deep", "?n", "k", None),
     ("deep", apps("u", "?n"), apps("u", "k"), None),
     # Transparency: what may be unfolded.
     ("red", ADD, c("Nat.mul"), None),
-    ("eq", ADD, c("Nat.mul"), "FE1d2 lazy delta reduction"),
+    ("eq", ADD, c("Nat.mul"), None),
     ("red", apps(ADD, "k", "x"), apps(ADD, "k", "x"), None),
-    ("red", apps(ADD, "k", "x"), apps(ADD, "x", "k"), "FE1d2 whnfCore's matcher facts"),
-    ("eq", apps(ADD, "k", "x"), apps(ADD, "x", "k"), "FE1d2 whnfCore's matcher facts"),
+    ("red", apps(ADD, "k", "x"), apps(ADD, "x", "k"), "FE1c unification hints (the hint table)"),
+    ("eq", apps(ADD, "k", "x"), apps(ADD, "x", "k"), SMART),
     # Instances and implicit transparency, with arguments; at reducible,
     # an assignment's types compared at implicit (id Nat unfolds there).
     ("inst", apps("u", "k"), apps("u", "x"), None),
-    ("inst", apps(ADD, "k", "x"), apps(ADD, "k", "?n"),
-     "FE1e instance facts (getUnfoldableConst? at instances)"),
+    ("inst", apps(ADD, "k", "x"), apps(ADD, "k", "?n"), None),
     ("impl", apps("u", "?n"), apps("u", "k"), None),
-    ("red", "?t", lam("#0", apps(c("id", 2), (SORT, 1), NAT)), "FE1d2 lazy delta reduction"),
-    ("red", apps(c("Eq.refl", 1), ADD, "a"), apps(c("Eq.refl", 1), c("Nat.mul"), "a"),
-     "FE1d2 lazy delta reduction"),
+    ("red", "?t", lam("#0", apps(c("id", 2), (SORT, 1), NAT)), None),
+    ("red", apps(c("Eq.refl", 1), ADD, "a"), apps(c("Eq.refl", 1), c("Nat.mul"), "a"), None),
     ("red", ADD, "k", "FE1c unification hints (the hint table)"),
-    ("eq", "?n", apps(ADD, "?n", "k"), "FE1d2 whnf's delta (processAssignment')"),
+    ("eq", "?n", apps(ADD, "?n", "k"), "S2 merge B reduceNat?'s guard (whnf of Nat.add ?n k)"),
+    # Lazy delta (S2 merge A, ExprDefEq.lean:1544-1849): one side unfolds
+    # (outParam, Lean's p4b and p4f; at implicit with a level
+    # metavariable); a reducible side first; class projections unpacked
+    # to the other side's head (packedInstanceOf?), on either side, with an
+    # assignment; one name at two levels (both unfolded).
+    ("eq", apps(c("outParam", 2), (SORT, 1)), (SORT, 1), None),
+    ("impl", apps(c("outParam", 2), (SORT, "u1")), (SORT, 1), None),
+    ("eq", apps(c("outParam", 1), NAT), NAT, None),
+    ("red", NAT, apps(c("outParam", 1), NAT), None),
+    ("eq", apps(c("outParam", 1), NAT), apps(c("id", 2), (SORT, 1), NAT), None),
+    ("eq", apps(c("id", 1), NAT, "k"), "k", None),
+    ("eq", hadd("k", "x"), apps(ADD_ADD, "k", "x"), None),
+    ("eq", apps(ADD_ADD, "k", "x"), hadd("k", "x"), None),
+    ("eq", hadd("k", "x"), apps(ADD, "k", "x"), None),
+    ("eq", hadd("?n", "x"), apps(ADD_ADD, "k", "x"), None),
+    ("eq", hadd("k", "x"), hadd("x", "k"), SMART),
+    ("eq", c("id", 1), c("id", 2), None),
+    ("inst", hadd("k", "x"), apps(ADD_ADD, "k", "x"),
+     "S2 merge B isDefEqProjInst (ExprDefEq.lean:2356)"),
     ("impl", pair("a", "b"), pair("a", "?n"), None),
     ("inst", ADD, "k", "FE1c isDefEqProjInst (projection facts, FE1d2)"),
     # Offsets and values are unsigned cells (review B1).
@@ -244,8 +263,9 @@ CASES = [
 ]
 
 
-LEAN_LEVELS = {0: "Level.zero", 1: "Level.one", 2: "(mkLevelSucc Level.one)", "u": "lu"}
-FORTH_LEVELS = {0: "l0", 1: "lv1", 2: "lv2", "u": "lvu"}
+LEAN_LEVELS = {0: "Level.zero", 1: "Level.one", 2: "(mkLevelSucc Level.one)", "u": "lu",
+               "u1": "(mkLevelSucc lu)"}
+FORTH_LEVELS = {0: "l0", 1: "lv1", 2: "lv2", "u": "lvu", "u1": "lvu1"}
 
 
 class Failure(Exception):

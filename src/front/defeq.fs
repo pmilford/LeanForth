@@ -246,17 +246,25 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 : de-eqv-of ( a b -- flag ) lf-meta-eqv dup ok? if drop else de-abort drop false then ;
 : de-eqv? ( -- flag ) de-t de-s de-eqv-of ;
 : de-inst ( t -- t' ) lf-instantiate-mvars de-must drop ;
-: de-whnf ( t -- t' flag ) lf-whnf-core de-must ;
-\ inferType; a literal's type is Nat (infer.fs has no literal case).
+\ A Meta call at transparency mode (Lean's withTransparency), the
+\ configured one restored after.
+: de-at ( x mode xt -- i*x )
+  lf-defeq-mode >r swap lf-defeq-mode! execute r> lf-defeq-mode! ;
+\ whnfCoreAtDefEq and whnf at the activation's transparency, whnfD at
+\ default (whnf.fs).
+: de-whnf ( t -- t' flag ) df df-mode @ ['] lf-whnf-core-at-defeq de-at de-must ;
+: de-whnf-m ( t -- t' flag ) df df-mode @ ['] lf-meta-whnf de-at de-must ;
+\ inferType, at default transparency or above (withInferTypeConfig); a
+\ literal's type is Nat (infer.fs has no literal case).
+: de-infer-mode ( -- mode )
+  df df-mode @ lf-tr-all = if lf-tr-all else lf-tr-default then ;
 : de-infer ( t -- type flag )
-  dup lf-term-tag@ lf-tag-lit = if drop lf-meta-nat de-must exit then lf-infer de-must ;
+  dup lf-term-tag@ lf-tag-lit = if drop lf-meta-nat de-must exit then
+  de-infer-mode ['] lf-infer de-at de-must ;
 : de-free-mvar? ( t -- flag )
   dup lf-mvar? 0= if drop false exit then
   dup lf-mvar-assignable? swap lf-meta-unassigned? and ;
-\ whnfD: a pi, or what whnf would leave (abort when whnf would do more).
-: de-whnf-d ( type -- type' flag )
-  dup de-pi? if true exit then de-whnf 0= if false exit then dup de-pi? if true exit then
-  dup lf-meta-whnf-final? if true else outcome-unsupported de-abort false then ;
+: de-whnf-d ( type -- type' flag ) lf-tr-default ['] lf-meta-whnf de-at de-must ;
 
 \ ---- Level lists (isListLevelDefEqAux): pairwise, Lean's way with no
 \ checkpoint of its own; a false pair that held an assignable level
@@ -568,8 +576,8 @@ defer de-args-post ( -- )
   df df-taint @ if drop outcome-unsupported de-abort exit then
   de-t swap ['] de-pass de-then ['] de-assign de-invoke ;
 : de-pa2-k ( r -- )
-  dup lf-lb-true = if de-return exit then drop de-s de-whnf 0= if drop exit then
-  dup lf-meta-whnf-final? if de-pa2-retry else drop outcome-unsupported de-abort then ;
+  dup lf-lb-true = if de-return exit then
+  drop de-s de-whnf-m if de-pa2-retry else drop then ;
 : de-assign2 ( -- ) ['] de-pa2-k de-then de-t de-s ['] de-assign de-invoke ;
 
 \ ---- isDefEqMVarSelf and isDefEqQuickMVarMVar.
@@ -653,9 +661,7 @@ defer de-args-post ( -- )
   lf-meta-head dup lf-kind-inductive de-kind? if de-decl drop de-data de-unit-data?
   else drop false then ;
 : de-late-u ( r -- ) lf-lb-true = if lf-lb-true else lf-lb-undef then de-return ;
-: de-late-type ( -- type flag )
-  de-t de-infer 0= if false exit then de-whnf 0= if false exit then
-  dup lf-meta-whnf-final? if true else outcome-unsupported de-abort false then ;
+: de-late-type ( -- type flag ) de-t de-infer if de-whnf-m else false then ;
 : de-proj-inst? ( -- flag ) de-mode-inst? de-t de-head-defn? de-s de-head-defn? or and ;
 : de-late-unit ( type -- ) de-s de-infer 0= if 2drop exit then ['] de-late-u de-solve ;
 : de-late ( -- )
@@ -791,10 +797,19 @@ defer de-quick-x ( -- )
   de-s de-t de-eta-struct if ['] de-es-k2 de-then de-s de-t de-es-types
   else de-exp-shape then ;
 : de-es-k1 ( r -- ) lf-lb-true = if lf-lb-true de-return else de-exp-es2 then ;
-: de-exp-delta ( -- )
-  de-t de-delta? de-s de-delta? or if outcome-unsupported de-abort exit then
+: de-exp-es ( -- )
   de-t de-s de-eta-struct if ['] de-es-k1 de-then de-t de-s de-es-types
   else de-exp-es2 then ;
+\ isDefEqDelta, an activation (defeq-delta.fs sets de-delta-x; without it
+\ an unfoldable head answers unsupported, as before plan S2), then
+\ structure eta.
+: de-delta-none ( -- )
+  de-t de-delta? de-s de-delta? or
+  if outcome-unsupported de-abort else lf-lb-undef de-return then ;
+defer de-delta-x ( -- )
+' de-delta-none is de-delta-x
+: de-delta-k ( r -- ) dup lf-lb-undef = if drop de-exp-es else de-return then ;
+: de-exp-delta ( -- ) ['] de-delta-k de-then de-t de-s ['] de-delta-x de-invoke ;
 : de-exp-o ( r -- ) dup lf-lb-undef = if drop de-exp-delta else de-return then ;
 : de-exp-nat ( -- )
   de-nat-unported? if outcome-unsupported de-abort exit then
