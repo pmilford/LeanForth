@@ -55,6 +55,7 @@ wordlist constant lfa-definer
 1 constant lfa-entry-variable    \ value: the binder's slot
 2 constant lfa-entry-universe    \ value: the universe parameter's level
 3 constant lfa-entry-constant    \ value: the declaration
+4 constant lfa-entry-hypothesis  \ value: a tactic's argument (src/front/tactic-syntax.fs)
 
 1024 constant lfa-entry-capacity
 65536 constant lfa-spelling-capacity
@@ -189,11 +190,16 @@ end-structure
 \ Locals: the innermost variable and the universe parameter with this
 \ spelling make one name value; with neither, the token is passed on.
 : lfa-local-value ( entry true | false -- n ) if lfa-entry-value @ else -1 then ;
-: lfa-local-run ( body -- )
+: lfa-variable-run ( body -- )
   dup lfa-entry-variable lfa-token-find lfa-local-value
   swap lfa-entry-universe lfa-token-find lfa-local-value
   over 0< over 0< and if 2drop lf-locals lfa-pass exit then lfa-name-value
   lfa-named-natural ;
+\ A hypothesis a tactic named (src/front/tactic-syntax.fs sets the word):
+\ its value, when its entry is newer than every variable of the spelling.
+defer lfa-hypothesis-run ( body -- body false | value true )
+:noname ( body -- body false ) false ; is lfa-hypothesis-run
+: lfa-local-run ( body -- ) lfa-hypothesis-run 0= if lfa-variable-run then ;
 \ Constants: which one a name means is Lean's resolution (declarations.fs).
 defer lfa-const-run ( body -- )
 : lfa-run-group ( body -- )

@@ -19,8 +19,13 @@ require ./source.fs
 
 \ Codes. Each has an outcome (ADR 0008): invalid for a mistake in the
 \ text, unsupported for a form the term store cannot hold yet, full for a
-\ store or table that ran out of room.
-1 constant lfa-e-unknown         \ no word, variable, universe or constant has the name
+\ store or table that ran out of room. Codes are stable, in ranges, a new
+\ one taking the next free number of its range:
+\   1-73   the words (ADR 0017), the runner, the stores, natural text read (FE1a)
+\   74-79  elaboration and the hand-over to the kernel (FE1c, FE1e, FE1f; 74-77 used)
+\   80-89  tactic proofs (FE1g; 80-88 used, the reading of FE1g-2)
+\   90-    free
+1 constant lfa-e-unknown        \ no word, variable, universe or constant has the name
 2 constant lfa-e-no-name         \ a name must follow on the same line
 3 constant lfa-e-missing         \ a value is missing above the binder or declaration
 4 constant lfa-e-outside         \ terms belong inside a declaration
@@ -98,6 +103,16 @@ require ./source.fs
 75 constant lfa-e-unused-universe \ a universe parameter nothing uses (FE1f)
 76 constant lfa-e-malformed      \ the elaborator's terms are malformed (FE1f)
 77 constant lfa-e-instantiate    \ unsupported: an instantiation step (FE1c)
+\ Tactic proofs read (src/front/tactic-syntax.fs, plan FE1g-2).
+80 constant lfa-e-tac-run        \ unsupported: running the tactics read (FE1g-3)
+81 constant lfa-e-tac-outside    \ a tactic word outside a tactic proof
+82 constant lfa-e-tac-open       \ a block still open: by-end or ] missing
+83 constant lfa-e-tac-closer     \ by-end, ] or | with no block of its kind open
+84 constant lfa-e-tac-header     \ a | or by-case: header not TAG NAMES.. => on a line
+85 constant lfa-e-tac-empty      \ an alternative or case block with no tactic
+86 constant lfa-e-tac-values     \ the wrong number of values at a tactic word or end
+87 constant lfa-e-tac-arity      \ unsupported: a hypothesis's argument count (FE1g-3)
+88 constant lfa-e-tac-full       \ the tactic store is full
 
 \ The catalogue: one message record per code, in order, each followed by
 \ its text and aligned; a record with code 0 closes it.
@@ -235,6 +250,28 @@ create lfa-catalogue
   lfa-e-instantiate
   s" not supported yet: this step of instantiating metavariables (plan FE1c)"
   lfa-unsupported,
+  lfa-e-tac-run
+  s" not supported yet: running tactics (plan FE1g-3); the tactic proof was read whole"
+  lfa-unsupported,
+  lfa-e-tac-outside s" a tactic word belongs in a tactic proof, after := by" lfa-invalid,
+  lfa-e-tac-open
+  s" a block is still open: by-end closes by-induction-with and by-case:, ] closes by-rw["
+  lfa-invalid,
+  lfa-e-tac-closer
+  s" no block of this word's kind is open (| belongs right inside by-induction-with)"
+  lfa-invalid,
+  lfa-e-tac-header
+  s" a header is TAG NAMES... => on one line, after | or by-case:; names are no words"
+  lfa-invalid,
+  lfa-e-tac-empty s" an alternative or a by-case: block needs at least one tactic"
+  lfa-invalid,
+  lfa-e-tac-values
+  s" wrong number of values: by-exact and by-induction take one, the others none"
+  lfa-invalid,
+  lfa-e-tac-arity
+  s" not supported yet: how many values a hypothesis takes is known when tactics run"
+  lfa-unsupported,
+  lfa-e-tac-full s" out of room: the tactic store is full" lfa-full,
   0 outcome-invalid s" " lfa-message,
 
 \ The catalogue record of a code; an unknown code gives the closing record.

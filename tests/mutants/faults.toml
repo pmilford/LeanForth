@@ -13211,3 +13211,149 @@ old = '''  dup lay-base @ ss-sites swap snap-size swap lay-site0 ! ;'''
 new = '''  0 swap lay-site0 ! ;'''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "FRK L1 (A, lay-merge): a layer's sites are numbered from 0, not after its base's, so its diagnostics name the base's sites"
+
+[[fault]]
+id = "fe-tac-end-unclosed"
+file = "src/front/tactic-syntax.fs"
+old = '''  lft-kind tac-k-by = if exit then lft-block tac-at @ lfa-e-tac-open lfa-fail-see ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/tactic-syntax.fs"
+reason = "FE1g-2: end NAME no longer checks that every block is closed, so a missing by-end reads as a whole proof (error 82 expected)"
+quick = true
+
+[[fault]]
+id = "fe-tac-bar-anywhere"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-in-with ( -- ) lft-kind tac-k-with = lfa-e-tac-closer lfa-must ;'''
+new = ''': lft-in-with ( -- ) ;'''
+test = "$GFORTH tests/front/tactic-syntax.fs"
+reason = "FE1g-2: | opens an alternative outside by-induction-with, in the proof or a case block (error 83 expected)"
+
+[[fault]]
+id = "fe-tac-empty-block"
+file = "src/front/tactic-syntax.fs"
+old = '''  dup tac-inner @ 0> if exit then dup tac-arrow @ lfa-e-tac-empty lfa-fail-see ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/tactic-syntax.fs"
+reason = "FE1g-2: an alternative or case block with no tactic is read, which Lean's parser refuses (error 85 expected)"
+
+[[fault]]
+id = "fe-tac-values-ignored"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-count ( found want -- ) 2dup = if 2drop exit then lft-count-code lfa-fail ;'''
+new = ''': lft-count ( found want -- ) 2drop ;'''
+test = "$GFORTH tests/front/tactic-syntax.fs"
+reason = "FE1g-2: a tactic word takes whatever values are there, by-exact none or two, and values are left at end (error 86 expected)"
+
+[[fault]]
+id = "fe-tac-arity-invalid"
+file = "src/front/tactic-syntax.fs"
+old = '''  lft-extra? lft-hyp? and if lfa-e-tac-arity else lfa-e-tac-values then ;'''
+new = '''  2drop lfa-e-tac-values ;'''
+test = "$GFORTH tests/front/tactic-syntax.fs"
+reason = "FE1g-2: extra values a hypothesis might take are called a mistake (invalid) where only running the tactics can tell (87, unsupported, expected)"
+quick = true
+
+[[fault]]
+id = "fe-tac-hypothesis-scope-leak"
+file = "src/front/tactic-syntax.fs"
+old = '''  lft-open lft-rec lft-held tac-entries @ lfa-entries-cut lft-close ;'''
+new = '''  lft-open lft-rec lft-held drop lft-close ;'''
+test = "$GFORTH tests/front/tactic-syntax.fs"
+reason = "FE1g-2: an alternative's or case's hypotheses stay in scope after its block ends (ih after by-end: error 1 expected)"
+
+[[fault]]
+id = "fe-tac-hypothesis-older-wins"
+file = "src/front/tactic-syntax.fs"
+old = '''  dup lfa-entry-hypothesis lft-entry-of swap lfa-entry-variable lft-entry-of over u< and ;'''
+new = '''  dup lfa-entry-hypothesis lft-entry-of swap lfa-entry-variable lft-entry-of drop ;'''
+test = "$GFORTH tests/front/tactic-syntax.fs"
+reason = "FE1g-2: a hypothesis hides a variable of its spelling bound after it (the binder ih inside the alternative reads as the hypothesis)"
+
+[[fault]]
+id = "fe-tac-end-as-term"
+file = "src/front/tactic-syntax.fs"
+old = '''  lft-proof? if lft-end-proof else lfn-end-declaration then ;'''
+new = '''  lfn-end-declaration ;'''
+test = "$GFORTH tests/front/tactic-syntax.fs"
+reason = "FE1g-2: end NAME of a tactic proof takes the term proof's path, so blocks and values are not checked and the proof is not reported as read (80 expected)"
+
+[[fault]]
+id = "fe-tac-pre-tactic"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-not-pre ( -- ) lft-kind tac-k-with = if lfa-e-tactic lfa-fail then ;'''
+new = ''': lft-not-pre ( -- ) ;'''
+test = "$GFORTH tests/front/tactic-syntax.fs"
+reason = "FE1g-2: a tactic right after by-induction-with (Lean's pre-tactic, with tac) is read as a step of the block instead of not supported yet (72)"
+
+[[fault]]
+id = "fe-tac-bracket-open"
+file = "src/front/tactic-syntax.fs"
+old = '''  lft-kind lft-bracket? if lft-open-at lfa-e-tac-open lfa-fail-see then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/tactic-syntax.fs"
+reason = "FE1g-2: a tactic word inside by-rw[ ] is read as a step of the rewrite (error 82 expected)"
+
+[[fault]]
+id = "fe-tac-rules-reversed"
+file = "src/front/tactic-syntax.fs"
+old = '''  ?dup if over + 1- do i lft-term! -1 +loop else drop then ;'''
+new = '''  ?dup if over + swap do i lft-term! loop else drop then ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_tactics.py"
+reason = "FE1g-2: the rules of by-rw[ r1 r2 ] are kept last first, so the rewrites would run in the wrong order (the golden record)"
+
+[[fault]]
+id = "fe-tac-header-open-line"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-header-token ( -- c-addr u ) lft-next dup 0<> lfa-e-tac-header lfa-must ;'''
+new = ''': lft-header-token ( -- c-addr u ) lft-next ;'''
+test = "$GFORTH tests/front/tactic-syntax.fs"
+reason = "FE1g-2: a header whose line ends before => is not refused as a header (84 expected, an empty name's 30 given)"
+
+[[fault]]
+id = "fe-tac-tag-wildcard"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-tag-later? ( c-addr u -- flag ) 2dup lft-hole? -rot lft-at-sign? or ;'''
+new = ''': lft-tag-later? ( c-addr u -- flag ) 2drop false ;'''
+test = "$GFORTH tests/front/tactic-syntax.fs"
+reason = "FE1g-2: Lean's wildcard and @ alternatives (| _ =>, | @succ =>) are refused as malformed or read as a tag @succ, not answered not supported yet (72)"
+
+[[fault]]
+id = "fe-tac-hypothesis-arg-lost"
+file = "src/front/tactic-syntax.fs"
+old = '''  dup tac-args store-slot targ-x @ syn-k-hyp lfa-here lfn-new swap syn-a! swap syn-b! ;'''
+new = '''  dup tac-args store-slot targ-x @ syn-k-hyp lfa-here lfn-new swap syn-a! nip ;'''
+test = "GFORTH=$GFORTH python3 tests/front/check_tactics.py"
+reason = "FE1g-2, review fe1g2 L2: a hypothesis's node no longer says which header gave it its name, so the inner and outer ih of tests/front/04-nested-ih.lf are told apart by nothing (the golden's ih#2 and ih#7)"
+
+[[fault]]
+id = "fe-tac-bracket-doubt"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-may-take? ( -- flag ) lfa-above 0> lft-bracketed? 0= and ;'''
+new = ''': lft-may-take? ( -- flag ) lfa-above 0> ;'''
+test = "$GFORTH tests/front/tactic-syntax.fs"
+reason = "FE1g-2, review fe1g2 L1/L2: a hypothesis inside by-rw[ ] is taken as maybe applied to the values below it, though every value there is a rule, and the doubt outlives ] (by-rw[ n ih ] n n by-exact: 87 where 86 is due)"
+
+[[fault]]
+id = "fe-tac-doubt-anywhere"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-may-take? ( -- flag ) lfa-above 0> lft-bracketed? 0= and ;'''
+new = ''': lft-may-take? ( -- flag ) lft-bracketed? 0= ;'''
+test = "$GFORTH tests/front/tactic-syntax.fs"
+reason = "FE1g-2, review fe1g2 L1: a hypothesis read with nothing below it still leaves a doubt, so ih n by-exact (two values for certain) is 87, not the mistake 86"
+
+[[fault]]
+id = "fe-tac-doubt-kept"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-takes ( want -- ) >r lfa-above r> lft-count false lft-hyp! ;'''
+new = ''': lft-takes ( want -- ) >r lfa-above r> lft-count ;'''
+test = "$GFORTH tests/front/tactic-syntax.fs"
+reason = "FE1g-2, re-check of review fe1g2 L-1: the doubt a hypothesis leaves outlives its tactic word, so after k ih $ by-exact the mistake n n by-exact answers 87 instead of 86"
+
+[[fault]]
+id = "fe-tac-proof-after-run"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-proof? ( -- flag ) lft-open 0< 0= lfa-inside? and ;'''
+new = ''': lft-proof? ( -- flag ) lft-open 0< 0= ;'''
+test = "$GFORTH tests/front/tactic-syntax.fs"
+reason = "FE1g-2, review fe1g2 L2: after a run that failed inside a tactic proof, a tactic proof still counts as being read (lf-tactic-proof? true outside every declaration)"

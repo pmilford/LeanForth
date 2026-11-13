@@ -59,21 +59,22 @@ T{ s" theorem t Nat explicit: n 0 n + n = := ' Nat.succ n $ end t" nfails -> 71 
 T{ last-node 1- dup kind swap syn-b@ -> syn-k-app 1 }T
 \ * and ≤ are binop% HMul.hMul and binrel% LE.le; numerals keep their
 \ value and column, also across lines.
-T{ s\" theorem t\n  2 3 * 7 \xE2\x89\xA4\n:= by\nend t" nfails -> 71 4 1 }T
+T{ s\" theorem t\n  2 3 * 7 \xE2\x89\xA4\n:= by\nend t" nfails -> 80 4 1 }T
 T{ lf-front-statement dup kind swap syn-a@ s" LE.le" named? -> syn-k-binrel true }T
 T{ lf-front-statement syn-b@ dup kind swap syn-a@ s" HMul.hMul" named? -> syn-k-binop true }T
 T{ lf-front-statement syn-c@ dup syn-a@ swap at -> 7 2 9 }T
 T{ lf-front-statement syn-b@ syn-b@ dup syn-a@ swap at -> 2 2 3 }T
 T{ lf-front-by lfa-pos> -> 3 4 }T
-T{ s\" theorem t\n 123456789\n 1 = := by end t" nfails -> 71 3 12 }T
+T{ s\" theorem t\n 123456789\n 1 = := by end t" nfails -> 80 3 12 }T
 T{ lf-front-statement syn-b@ dup syn-a@ swap at -> 123456789 2 2 }T
 
-\ Tactic words, by and end: not supported yet, nothing checked.
+\ Tactic proofs are read whole and stop at end not supported yet (80;
+\ tests/front/tactic-syntax.fs has the rest); nothing is checked.
 T{ s" theorem t Nat explicit: n 0 n + n = := by n by-induction end t" nfails
-   -> 72 1 45 }T
+   -> 80 1 58 }T
 T{ lf-author-code lf-author-outcome -> outcome-unsupported }T
-T{ s" theorem t Nat explicit: n 0 n + n = := by end t" nfails -> 71 1 43 }T
-T{ s" theorem t Nat explicit: n 0 n + n = := by by-rfl end t" nfails -> 72 1 43 }T
+T{ s" theorem t Nat explicit: n 0 n + n = := by end t" nfails -> 80 1 43 }T
+T{ s" theorem t Nat explicit: n 0 n + n = := by by-rfl end t" nfails -> 80 1 50 }T
 T{ s" axiom a Nat end a" nfails -> 71 1 13 }T
 \ A kernel-form word in natural text, and the marker.
 T{ s" theorem t Prop explicit: p p := p end t" nfails -> 70 1 11 }T
@@ -104,7 +105,7 @@ T{ s" theorem t Nat explicit: n n n = := by by end t" nfails -> 69 1 39 }T
 T{ s" theorem t Nat explicit: n n n = := Nat explicit: m by end t" nfails -> 69 1 52 }T
 T{ s" theorem t Nat explicit: n n n = end t" nfails -> 19 1 33 }T
 T{ s" theorem t Nat explicit: n n n = := n n end t" nfails -> 20 1 40 }T
-T{ s" theorem t Nat explicit: n n n = := by n end t" nfails -> 20 1 41 }T
+T{ s" theorem t Nat explicit: n n n = := by n end t" nfails -> 86 1 41 }T
 T{ s" theorem t Nat explicit: n n n = := n end u" nfails -> 22 1 38 }T
 T{ s" theorem t Nat explicit: n n n = n := n end t" nfails -> 18 1 35 }T
 T{ s" theorem t Nat explicit: n 1234567890 n = := n end t" nfails -> 35 1 27 }T
