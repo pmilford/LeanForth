@@ -13,10 +13,22 @@
 \ - Depth: Lean's mctx.depth. lf-mctx-deeper and lf-mctx-shallower enter
 \   and leave a level, as Lean's withNewMCtxDepth; lf-mvar-assignable?
 \   holds for a natural or synthetic metavariable of the current depth.
-\ - The local context a metavariable sees is the free variables of the
-\   checker context's local context (core/local-context.fs) that existed
-\   when it was made: their count, as the local context only grows while
-\   a declaration is elaborated.
+\ - Each metavariable has its own local context (Lean's MetavarDecl.lctx,
+\   plan FE1g-1): a view (lctx-views.fs) of free variables with their user
+\   names and binder kinds, the one current when it was made (lf-mctx-view,
+\   Lean's Meta context lctx, which the caller extends as withLocalDecl
+\   does) or one given (lf-mvar-new-at, mkFreshExprMVarAt). Its local
+\   instances are the view's locals with a class. A caller that makes a
+\   free variable (entering a binder) must push its local onto the
+\   current view (lf-view-push, lf-mctx-view!) for metavariables made
+\   then to see it: one made with core/local-context.fs alone is in no
+\   view. lf-mvar-sees? asks whether a free variable is in a
+\   metavariable's view (Lean's lctx.contains, for checkAssignment). A
+\   view never changes: a tactic that clears or renames a hypothesis
+\   makes a new goal (front/goals.fs).
+\ - A tag (Lean's MetavarDecl.userName, a goal's case name: zero, succ),
+\   anonymous (0) when made; lf-mvar-tag! sets it, lf-mvar-kind! changes
+\   the kind (Lean's setTag, setKind), both noted under a mark.
 \ - lf-mvar-assign checks that the leaf is live (a stale leaf, of an
 \   earlier context or an emptied one, is refused), that the metavariable
 \   has no assignment yet, plain or delayed, and the occurs check: the
@@ -49,16 +61,23 @@
 \ occurs-check failure or a cycle; full when a store or the heap has no
 \ room; unsupported as above. Untrusted: whatever the context says, only
 \ the kernel's check of the finished term decides anything.
-\ - Marks (Lean's checkpointDefEq): lf-mctx-mark opens one; lf-mctx-rollback
-\   undoes every assignment made since, plain, level or delayed;
+\ - Marks (Lean's checkpointDefEq and the tactic framework's saved
+\   states): lf-mctx-mark opens one; lf-mctx-rollback undoes every change
+\   made since, an assignment (plain, level or delayed), a tag or a kind;
 \   lf-mctx-commit keeps them. Marks nest; only the latest open mark may
 \   be rolled back or committed (any other is refused, invalid).
+\ - lf-depends-on? ( term fvar -- flag outcome ): Lean's exprDependsOn,
+\   whether the term, its metavariables instantiated, holds the free
+\   variable or an unassigned metavariable whose context holds it.
 \ Words: lf-mctx-reset, lf-mctx-deeper, lf-mctx-shallower, lf-mctx-depth;
+\ lf-mctx-view ( -- view ), lf-mctx-view! ( view -- );
 \ lf-mctx-mark ( -- mark outcome ), lf-mctx-rollback ( mark -- outcome ),
 \ lf-mctx-commit ( mark -- outcome ), lf-mctx-marks ( -- n ), lf-mctx-latest
-\ ( -- mark ); lf-mvar-new
-\ ( type kind -- mvar outcome ), lf-mvar-live?, lf-mvar-type,
-\ lf-mvar-kind, lf-mvar-value, lf-mvar-lctx, lf-mvar-assignable?,
+\ ( -- mark ); lf-mvar-new ( type kind -- mvar outcome ), lf-mvar-new-at
+\ ( type kind view -- mvar outcome ), lf-mvar-live?, lf-mvar-type,
+\ lf-mvar-kind, lf-mvar-value, lf-mvar-view, lf-mvar-tag ( mvar -- x true
+\ | false ), lf-mvar-sees? ( mvar fvar -- flag ), lf-mvar-tag! ( mvar name
+\ -- outcome ), lf-mvar-kind! ( mvar kind -- outcome ), lf-mvar-assignable?,
 \ lf-mvar-assign ( mvar value -- outcome ), lf-delay-fvar ( fvar --
 \ outcome ), lf-mvar-delay ( mvar pending n -- outcome ), lf-mvar-delayed
 \ ( mvar -- pending addr n true | false ), lf-level-mvar-new ( -- level
@@ -67,12 +86,15 @@
 \ ( level value -- outcome ), lf-mvar-occurs? ( mvar term -- flag outcome ),
 \ lf-level-mvar-occurs?, lf-level-assignable-mvar? ( level -- flag
 \ outcome ), lf-level-stale-mvar?, lf-level-instantiate-mvars ( level -- level'
-\ outcome ), lf-instantiate-mvars ( term -- term' outcome ).
-\ State: the record mctx (with three walk records of dag-walk.fs and the
-\ spine table, heap blocks that live only while a walk runs), the stores
-\ mv-exprs, mv-levels and mv-fvars and the slabs mv-trail, mv-marks and
-\ mv-args, in the checker context (ADR 0009).
+\ outcome ), lf-instantiate-mvars ( term -- term' outcome ), lf-depends-on?.
+\ State: the record mctx (the current view, three walk records of
+\ dag-walk.fs and the spine table, heap blocks that live only while a walk
+\ runs), the stores mv-exprs, mv-levels and mv-fvars and the slabs
+\ mv-trail, mv-marks and mv-args, in the checker context (ADR 0009); the
+\ views' state is lctx-views.fs's, emptied with lf-mctx-reset. Loads in
+\ decimal whatever BASE is, then restores it.
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../core/terms.fs
 require ../core/levels.fs
@@ -87,6 +109,7 @@ require ./dag-walk.fs
 require ../core/let-terms.fs
 require ./level-map.fs
 require ./instantiate.fs
+require ./lctx-views.fs
 
 0 constant mv-natural
 1 constant mv-synthetic
@@ -96,7 +119,8 @@ require ./instantiate.fs
 begin-structure /mvd
   field: mvd-kind
   field: mvd-depth        \ the context's depth when it was made
-  field: mvd-lctx         \ free variables of the local context it sees
+  field: mvd-view         \ its local context, a view (lctx-views.fs)
+  field: mvd-tag          \ its user name, a goal's tag (0: anonymous)
   field: mvd-type         \ its type, a term
   field: mvd-leaf         \ its leaf
   field: mvd-value        \ its assignment, a term, or -1
@@ -114,6 +138,7 @@ begin-structure /mctx
   field: mctx-depth
   field: mctx-target      \ the metavariable an occurs check seeks
   field: mctx-serial      \ the last mark's serial (lf-mctx-mark)
+  field: mctx-view        \ the current local context (Lean's Meta lctx)
   /dw +field mctx-walk    \ the term walks
   /dw +field mctx-lwalk   \ the level walks
   /dw +field mctx-hwalk   \ the search for a metavariable, inside a term walk
@@ -125,7 +150,11 @@ end-structure
 store-header context-record: mv-exprs
 store-header context-record: mv-levels
 store-header context-record: mv-fvars
-1 cells context-slab: mv-trail    \ assignments under a mark: number * 4 + kind
+begin-structure /mvt              \ a change under a mark (see Marks, below)
+  field: mvt-entry                \ the record's number * 8 + the field's kind
+  field: mvt-old                  \ the field's value before the change
+end-structure
+/mvt context-slab: mv-trail
 2 cells context-slab: mv-marks    \ per open mark: trail length when made, serial
 
 \ The stores: heap stores that grow up to the heap (plan task 6.2.0).
@@ -140,16 +169,22 @@ store-header context-record: mv-fvars
   mv-exprs store-heap-free mv-levels store-heap-free mv-fvars store-heap-free ;
   context-teardown
 
-\ The context: emptied, with a new epoch, at depth 0, no mark open.
+\ The context: emptied, with a new epoch, at depth 0, no mark open, the
+\ empty local context current (every view gone).
 : mctx-epoch@ ( -- n ) mctx mctx-epoch @ ;
 : lf-mctx-depth ( -- n ) mctx mctx-depth @ ;
 : lf-mctx-deeper ( -- ) 1 mctx mctx-depth +! ;
 : lf-mctx-shallower ( -- ) lf-mctx-depth 1- 0 max mctx mctx-depth ! ;
 : lf-mctx-marks ( -- n ) mv-marks slab-count ;
+\ The current local context, which a new metavariable gets. Lean's
+\ withLocalDecl is: make the free variable and its local, push it on
+\ this view, set the result, run, set the old view back.
+: lf-mctx-view ( -- view ) mctx mctx-view @ ;
+: lf-mctx-view! ( view -- ) mctx mctx-view ! ;
 : lf-mctx-reset ( -- )
   mv-exprs store-clear mv-levels store-clear mv-fvars store-clear mv-trail slab-clear
   mv-marks slab-clear mctx-epoch@ 1+ mv-epoch-mask and mctx mctx-epoch !
-  0 mctx mctx-depth ! ;
+  0 mctx mctx-depth ! lf-views-reset lf-view-empty lf-mctx-view! ;
 
 \ Live leaves: a term leaf is the one its record names (term leaves are
 \ never shared, so a leaf of an emptied context is never a new record's);
@@ -167,14 +202,18 @@ store-header context-record: mv-fvars
 : mv-field ( mvar offset -- x true | false ) swap mv-of if + @ true else drop false then ;
 : lf-mvar-type ( mvar -- type true | false ) 0 mvd-type mv-field ;
 : lf-mvar-kind ( mvar -- kind true | false ) 0 mvd-kind mv-field ;
-: lf-mvar-lctx ( mvar -- n true | false ) 0 mvd-lctx mv-field ;
+: lf-mvar-view ( mvar -- view true | false ) 0 mvd-view mv-field ;
+: lf-mvar-tag ( mvar -- name true | false ) 0 mvd-tag mv-field ;
 : lf-mvar-value ( mvar -- value true | false )
   0 mvd-value mv-field dup if over 0< if 2drop false then then ;
+\ Whether the free variable is in the metavariable's local context.
+: lf-mvar-sees? ( mvar fvar -- flag )
+  swap lf-mvar-view if swap lf-view-find dup if nip then else drop false then ;
 
-\ New term metavariables.
+\ New term metavariables, in the current local context or a given one.
 : mv-kind? ( kind -- flag ) mv-natural mv-opaque 1+ within ;
 : mv-scope! ( addr -- )
-  lf-mctx-depth over mvd-depth ! lf-lctx-count @ over mvd-lctx !
+  lf-mctx-depth over mvd-depth ! lf-mctx-view over mvd-view ! 0 over mvd-tag !
   -1 over mvd-value ! -1 swap mvd-pending ! ;
 : mv-fill ( type kind leaf addr -- )
   dup /mvd erase dup mv-scope! tuck mvd-leaf ! tuck mvd-kind ! mvd-type ! ;
@@ -186,9 +225,13 @@ store-header context-record: mv-fvars
 : mv-leafed ( type kind addr n -- mvar outcome )
   mctx-epoch@ lf-mvar-leaf 0= if drop 2drop mv-exprs store-drop -1 outcome-full exit then
   dup >r swap mv-fill r> outcome-ok ;
+: mv-parts? ( type kind -- flag )
+  mv-kind? swap lf-term-valid? and lf-mctx-view lf-view-valid? and ;
 : lf-mvar-new ( type kind -- mvar outcome )
-  over lf-term-valid? over mv-kind? and 0= if 2drop -1 outcome-invalid exit then
+  2dup mv-parts? 0= if 2drop -1 outcome-invalid exit then
   mv-exprs mv-slot if mv-leafed else 2drop -1 outcome-full then ;
+: lf-mvar-new-at ( type kind view -- mvar outcome )
+  lf-mctx-view >r lf-mctx-view! lf-mvar-new r> lf-mctx-view! ;
 : lf-mvar-assignable? ( mvar -- flag )
   mv-of 0= if false exit then
   dup mvd-kind @ mv-opaque <> swap mvd-depth @ lf-mctx-depth = and ;
@@ -298,15 +341,18 @@ store-header context-record: mv-fvars
 : lf-level-stale-mvar? ( level -- flag outcome ) -2 swap lf-level-mvar-occurs? ;
 
 \ ---- Marks, for Lean's checkpointDefEq (it saves the metavariable
-\ context and restores it when the comparison fails): while a mark is
-\ open each assignment, plain, level or delayed, is noted on the trail
-\ mv-trail (its record's number * 4 + its kind) before it is stored; a
-\ trail the heap cannot grow refuses the assignment (full). A mark is a
+\ context and restores it when the comparison fails) and the tactic
+\ framework's saved states: while a mark is open each change of a
+\ record's field (an assignment, plain, level or delayed, a tag, a kind)
+\ is noted on the trail mv-trail (the record's number * 8 + the field's
+\ kind, and the field's old value) before it is stored; a trail the heap
+\ cannot grow refuses the change (full). A mark is a
 \ serial number, 1, 2, ..., never given twice in a context (not even
 \ after lf-mctx-reset); mv-marks keeps, per open mark, the trail's length
 \ when it was made and its serial. Rolling back the latest open mark
-\ undoes the assignments noted after it, latest first; committing it
-\ keeps them, for an outer mark to undo; either closes it, and when the
+\ undoes the changes noted after it, latest first, each field getting its
+\ old value back; committing it keeps them, for an outer mark to undo;
+\ either closes it, and when the
 \ last mark closes the trail is emptied. Any other mark (an inner mark
 \ already closed, an outer one while an inner is open, one from before a
 \ reset, 0, the refused mark) is refused, invalid, and nothing changes.
@@ -315,16 +361,23 @@ store-header context-record: mv-fvars
 0 constant mv-was-value
 1 constant mv-was-level
 2 constant mv-was-delay
+3 constant mv-was-tag
+4 constant mv-was-kind
+\ The field an entry names (one arm per kind: a table read as one).
+: mv-cell ( entry -- addr )
+  dup 3 rshift swap 7 and case mv-was-value of mv-decl mvd-value endof
+    mv-was-level of mvl-decl mvl-value endof  mv-was-delay of mv-decl mvd-pending endof
+    mv-was-tag of mv-decl mvd-tag endof  swap mv-decl mvd-kind swap endcase ;
+: mv-trail-put ( entry -- outcome )
+  1 mv-trail slab-claim ok-then? 0= if nip exit then
+  mv-trail slab-at over mv-cell @ over mvt-old ! mvt-entry ! outcome-ok ;
 : mv-note ( n kind -- outcome )
-  lf-mctx-marks 0= if 2drop outcome-ok exit then swap 2 lshift or
-  1 mv-trail slab-claim dup ok? if drop mv-trail slab-at ! outcome-ok else nip nip then ;
+  lf-mctx-marks 0= if 2drop outcome-ok exit then swap 3 lshift or mv-trail-put ;
 : mv-store ( value addr n kind -- outcome )
   mv-note dup ok? if drop ! outcome-ok else nip nip then ;
-: mv-undo-cell ( entry -- addr )
-  dup 2 rshift swap 3 and case mv-was-value of mv-decl mvd-value endof
-    mv-was-level of mvl-decl mvl-value endof  swap mv-decl mvd-pending swap endcase ;
-: mv-trail-top ( -- entry ) mv-trail dup slab-count 1- swap slab-at @ ;
-: mv-undo ( -- ) mv-trail-top mv-undo-cell -1 swap ! -1 mv-trail slab-commit ;
+: mv-trail-top ( -- addr ) mv-trail dup slab-count 1- swap slab-at ;
+: mv-restore ( addr -- ) dup mvt-old @ swap mvt-entry @ mv-cell ! ;
+: mv-undo ( -- ) mv-trail-top mv-restore -1 mv-trail slab-commit ;
 : mv-undo-to ( length -- ) begin dup mv-trail slab-count < while mv-undo repeat drop ;
 : mv-latest ( -- addr ) lf-mctx-marks 1- mv-marks slab-at ;
 : mv-latest? ( mark -- flag ) lf-mctx-marks if mv-latest cell+ @ = else drop false then ;
@@ -362,6 +415,15 @@ store-header context-record: mv-fvars
 : lf-level-mvar-assign ( level value -- outcome )
   2dup mvl-sound dup ok? 0= if nip nip exit then drop
   swap mvl-number dup mvl-decl mvl-value swap mv-was-level mv-store ;
+
+\ A tag (a name ID, or 0 for none) and a kind, set on a live metavariable
+\ whether assigned or not, as Lean's setTag and setKind.
+: lf-mvar-tag! ( mvar name -- outcome )
+  2dup lf-user-name? swap lf-mvar-live? and 0= if 2drop outcome-invalid exit then
+  swap mv-number dup mv-decl mvd-tag swap mv-was-tag mv-store ;
+: lf-mvar-kind! ( mvar kind -- outcome )
+  2dup mv-kind? swap lf-mvar-live? and 0= if 2drop outcome-invalid exit then
+  swap mv-number dup mv-decl mvd-kind swap mv-was-kind mv-store ;
 
 \ Delayed assignments: lf-delay-fvar appends a live free variable;
 \ lf-mvar-delay gives the free metavariable mvar the last n appended and
@@ -582,3 +644,25 @@ store-header context-record: mv-fvars
 : lf-instantiate-mvars ( term -- term' outcome )
   mv-spine-block 0= if drop -1 outcome-full exit then
   mv-inst-run mctx mctx-spine heap-release ;
+
+\ ---- Dependencies, Lean's exprDependsOn (MetavarContext.lean, DependsOn):
+\ the term is instantiated first (Lean visits an assigned metavariable's
+\ value and instantiates an application whose head is one, which comes to
+\ the same nodes); then it depends on fvar when it holds fvar, or a
+\ metavariable left in it (unassigned, or delayed and not ready) whose
+\ local context holds fvar: Lean's "may" dependency, as a value assigned
+\ later could use fvar. The search walks parts only (mctx-hwalk, free
+\ once the instantiation is done). An instantiation's failure is the
+\ answer's outcome.
+: mv-dep-hit? ( node -- flag )
+  dup mv-target @ = if drop true exit then
+  dup lf-mvar? if mv-target @ lf-mvar-sees? else drop false then ;
+: mv-dep-build ( node walk -- 0|1 )
+  over mv-dep-hit? if 2drop 1 exit then
+  over mv-binary? if mv-pair-images or else 2drop 0 then ;
+: mv-dep-walk ( term -- flag outcome )
+  ['] mv-dep-build ['] mv-hole-pending mctx mctx-hwalk mv-walk dw-run swap 0<> swap ;
+: lf-depends-on? ( term fvar -- flag outcome )
+  swap lf-instantiate-mvars ok-then? 0= if nip false swap exit then
+  swap mv-target ! mv-dep-walk ;
+base !   \ the BASE this file was loaded with

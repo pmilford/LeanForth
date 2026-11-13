@@ -11740,16 +11740,16 @@ reason = "FE1c review L4: level equality whose pair stack the heap cannot grow a
 [[fault]]
 id = "fe-mctx-rollback-keeps"
 file = "src/front/mvars.fs"
-old = ''': mv-undo ( -- ) mv-trail-top mv-undo-cell -1 swap ! -1 mv-trail slab-commit ;'''
-new = ''': mv-undo ( -- ) mv-trail-top mv-undo-cell drop -1 mv-trail slab-commit ;'''
+old = ''': mv-restore ( addr -- ) dup mvt-old @ swap mvt-entry @ mv-cell ! ;'''
+new = ''': mv-restore ( addr -- ) drop ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1c tidy-up c: a rollback leaves the assignments made since its mark, where Lean's checkpointDefEq restores the metavariable context"
 
 [[fault]]
 id = "fe-mctx-mark-unnoted"
 file = "src/front/mvars.fs"
-old = '''  lf-mctx-marks 0= if 2drop outcome-ok exit then swap 2 lshift or'''
-new = '''  2drop outcome-ok exit'''
+old = '''  lf-mctx-marks 0= if 2drop outcome-ok exit then swap 3 lshift or mv-trail-put ;'''
+new = '''  2drop outcome-ok ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1c tidy-up c: assignments under a mark are not noted, so no rollback can undo them"
 
@@ -12180,8 +12180,8 @@ reason = "re-check of fe1c-lnorm R1: a pending value beyond the memo is read fro
 [[fault]]
 id = "fe-mctx-reset-serial"
 file = "src/front/mvars.fs"
-old = '''  0 mctx mctx-depth ! ;'''
-new = '''  0 mctx mctx-depth ! 0 mctx mctx-serial ! ;'''
+old = '''  0 mctx mctx-depth ! lf-views-reset lf-view-empty lf-mctx-view! ;'''
+new = '''  0 mctx mctx-depth ! 0 mctx mctx-serial ! lf-views-reset lf-view-empty lf-mctx-view! ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "re-check of fe1c-lnorm R2: lf-mctx-reset starts the serials again, so a mark from before the reset closes the first mark after it"
 
@@ -13793,3 +13793,214 @@ old = ''': sort-unsigned ( u1 u2 -- n ) 2dup = if 2drop 0 else u< 2* 1+ then ;''
 new = ''': sort-unsigned ( u1 u2 -- n ) 2dup = if 2drop 0 else < 2* 1+ then ;'''
 test = "$GFORTH tests/lib/sort.fs"
 reason = "sort-unsigned compares signed: a value with the top bit set sorts first"
+
+# --- goals of the tactic framework (plan FE1g-1: src/lib/runs.fs,
+# lctx-views.fs, goals.fs, goal-print.fs, the views of mvars.fs) ----------
+
+[[fault]]
+id = "fe-goal-run-no-copy"
+file = "src/lib/runs.fs"
+old = '''  dup rn-top? if rn-first@ outcome-ok else rn-copied then ;'''
+new = '''  rn-first@ outcome-ok ;'''
+test = "$GFORTH tests/lib/runs.fs"
+reason = "FE1g-1: a push onto a run that does not end at the top appends there, so another run's cells change under it"
+
+[[fault]]
+id = "fe-goal-tag-untrailed"
+file = "src/front/mvars.fs"
+old = '''  swap mv-number dup mv-decl mvd-tag swap mv-was-tag mv-store ;'''
+new = '''  swap mv-number mv-decl mvd-tag ! outcome-ok ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "FE1g-1: a tag set under a mark is not noted, so a rollback keeps it (Lean's saved state restores it)"
+
+[[fault]]
+id = "fe-goal-kind-untrailed"
+file = "src/front/mvars.fs"
+old = '''  swap mv-number dup mv-decl mvd-kind swap mv-was-kind mv-store ;'''
+new = '''  swap mv-number mv-decl mvd-kind ! outcome-ok ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "FE1g-1: a kind changed under a mark is not noted, so a rollback keeps it"
+
+[[fault]]
+id = "fe-goal-sees-all"
+file = "src/front/mvars.fs"
+old = '''  swap lf-mvar-view if swap lf-view-find dup if nip then else drop false then ;'''
+new = '''  2drop true ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "FE1g-1: every free variable counts as in a metavariable's context (the count model's flaw: a cleared hypothesis stays visible)"
+
+[[fault]]
+id = "fe-goal-may-dep-ignored"
+file = "src/front/mvars.fs"
+old = '''  dup lf-mvar? if mv-target @ lf-mvar-sees? else drop false then ;'''
+new = '''  drop false ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "FE1g-1: an unassigned metavariable whose context holds the variable is no dependency, where Lean's exprDependsOn counts it"
+
+[[fault]]
+id = "fe-goal-depends-raw"
+file = "src/front/mvars.fs"
+old = '''  swap lf-instantiate-mvars ok-then? 0= if nip false swap exit then'''
+new = '''  swap outcome-ok ok-then? 0= if nip false swap exit then'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "FE1g-1: dependencies read the term without instantiating it, so ?f x with ?f := fun _ => Nat depends on x"
+
+[[fault]]
+id = "fe-goal-clear-unchecked"
+file = "src/front/goals.fs"
+old = '''  2dup gl-has? if gl-free-of else 2drop outcome-invalid then ;'''
+new = '''  2dup gl-has? if 2drop outcome-ok else 2drop outcome-invalid then ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "FE1g-1: clear removes a hypothesis the target or another hypothesis depends on"
+
+[[fault]]
+id = "fe-goal-clear-value-ignored"
+file = "src/front/goals.fs"
+old = '''  over lf-fvar-let? 0= if 2drop false outcome-ok exit then'''
+new = '''  2drop false outcome-ok exit'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "FE1g-1: clear removes k though a let's value uses it (localDeclDependsOn reads a let's value)"
+
+[[fault]]
+id = "fe-goal-have-is-let"
+file = "src/core/local-context.fs"
+old = ''': lf-fvar-let? ( fvar -- flag ) lf-fvar-code 0< 0= ;'''
+new = ''': lf-fvar-let? ( fvar -- flag ) lf-fvar-code -1 <> ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "FE1g-1: a have (nondep) counts as a let, so whnf unfolds it where Lean's whnfEasyCases leaves it"
+
+[[fault]]
+id = "fe-goal-delayed-solved"
+file = "src/front/goals.fs"
+old = ''': lf-goal-assigned? ( goal -- flag ) lf-mvar-value dup if nip then ;'''
+new = ''': lf-goal-assigned? ( goal -- flag ) dup lf-mvar-delayed if 2drop 2drop true exit then lf-mvar-value dup if nip then ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "FE1g-1: a delayed-assigned goal counts as solved, where Lean's isAssigned reads plain assignments only"
+
+[[fault]]
+id = "fe-goal-main-kept"
+file = "src/front/goals.fs"
+old = '''  dup gl-set 0 run@ outcome-ok ;'''
+new = '''  0 run@ outcome-ok ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "FE1g-1: getMainGoal leaves the assigned goals before the main one in the list"
+
+[[fault]]
+id = "fe-goal-stale-list"
+file = "src/front/goals.fs"
+old = '''  pst dup pst-epoch @ runs-epoch = if pst-goals @ else drop 0 then ;'''
+new = '''  pst pst-goals @ ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "FE1g-1: a goal list from before lf-mctx-reset is read as a list of the new context"
+
+[[fault]]
+id = "fe-goal-named-hidden"
+file = "src/front/lctx-views.fs"
+old = '''  dup lf-local-inaccessible? if 2drop false else lf-local-name lf-name-same? then ;'''
+new = '''  lf-local-name lf-name-same? ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "FE1g-1: an inaccessible hypothesis is found by its name, which Lean's findFromUserName? never does (its name has macro scopes)"
+
+[[fault]]
+id = "fe-goal-rename-hidden"
+file = "src/front/lctx-views.fs"
+old = ''': lv-name! ( name local -- ) lv-loc tuck loc-name ! lv-accessible ;'''
+new = ''': lv-name! ( name local -- ) lv-loc loc-name ! ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "FE1g-1: a hypothesis renamed by the user stays inaccessible (printed name✝)"
+
+[[fault]]
+id = "fe-goal-sub-prefix-unordered"
+file = "src/front/lctx-views.fs"
+old = '''  >r lv-skipped 2dup lv-more? if 2dup lv-fvar-at r@ = if 1+ then then r> drop ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "FE1g-1: isSubPrefixOf never finds a variable in the second context, so only the empty context is a sub-prefix"
+
+[[fault]]
+id = "fe-goal-shadow-ignored"
+file = "src/front/goal-print.fs"
+old = '''  dup gp-local lf-local-inaccessible? if drop true else gp-shadowed? then ;'''
+new = '''  gp-local lf-local-inaccessible? ;'''
+test = "python3 tests/front/check_goals.py"
+reason = "FE1g-1: a hypothesis shadowed by a newer one of its name prints plain, where Lean's sanitizeNames gives n✝"
+
+[[fault]]
+id = "fe-goal-tombstone-count"
+file = "src/front/goal-print.fs"
+old = '''  dup gp-local 0 rot gp-after ?do over i gp-renamed-as? if 1+ then loop nip ;'''
+new = '''  drop 0 ;'''
+test = "python3 tests/front/check_goals.py"
+reason = "FE1g-1: every tombstone is a bare ✝, where Lean numbers the older ones x✝¹, x✝²"
+
+[[fault]]
+id = "fe-goal-group-by-node"
+file = "src/front/goal-print.fs"
+old = '''  gp gp-prev @ dup 0< if 2drop true outcome-ok else gp-fuel lf-print-same? then ;'''
+new = '''  gp gp-prev @ dup 0< if 2drop true outcome-ok else = outcome-ok then ;'''
+test = "python3 tests/front/check_goals.py"
+reason = "FE1g-1: hypotheses share a line only when their types are one node, where Lean compares them with =="
+
+[[fault]]
+id = "fe-goal-let-threshold"
+file = "src/front/goal-print.fs"
+old = '''254 constant gp-depth-shown    \ ppGoal's threshold for a tactic goal's let value'''
+new = '''255 constant gp-depth-shown    \ ppGoal's threshold for a tactic goal's let value'''
+test = "python3 tests/front/check_goals.py"
+reason = "FE1g-1: a let value of approxDepth 255 is shown, where ppGoal's threshold (min 254) prints ⋯"
+
+[[fault]]
+id = "fe-goal-detail-shown"
+file = "src/front/goal-print.fs"
+old = ''': gp-visible? ( i -- flag ) gp-local lf-local-detail? 0= ;'''
+new = ''': gp-visible? ( i -- flag ) drop true ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "FE1g-1: implementation-detail and auxiliary hypotheses are shown, which ppGoal hides"
+
+[[fault]]
+id = "fe-goal-leaf-unprinted"
+file = "src/front/goal-print.fs"
+old = ''': gp-leaf ( term -- outcome ) dup lf-mvar? if gp-mvar else gp-fvar then ;'''
+new = ''': gp-leaf ( term -- outcome ) drop outcome-invalid ;'''
+test = "python3 tests/front/check_goals.py"
+reason = "FE1g-1: the goal printer's hook prints no free variable, so a hypothesis in a type cannot be printed (invalid)"
+
+[[fault]]
+id = "fe-goal-literal-by-node"
+file = "src/present/print-analysis.fs"
+old = '''  case lf-tag-lit of ['] lf-lit-same? endof  lf-tag-str of ['] lf-str-same? endof'''
+new = '''  case lf-tag-lit of ['] = endof  lf-tag-str of ['] lf-str-same? endof'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "FE1g-1: two equal literals made apart compare different, so h1 h2 : 0 = 0 take two lines, where Lean's == compares values"
+
+[[fault]]
+id = "fe-goal-except-ignored"
+file = "src/front/lctx-views.fs"
+old = '''  ?do dup i @ = if drop true unloop exit then cell +loop drop false ;'''
+new = '''  2drop drop false ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "FE1g-1: isSubPrefixOf skips none of exceptFVars, so checkAssignment's pattern variables count against the assignment"
+
+[[fault]]
+id = "fe-goal-print-hex"
+file = "src/front/goal-print.fs"
+old = '''base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end'''
+new = '''base @'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "FE1g-1 review L1: goal-print.fs reads its numbers (254, 255, 100000) in the BASE it is loaded with"
+
+[[fault]]
+id = "fe-goal-views-hex"
+file = "src/front/lctx-views.fs"
+old = '''base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end'''
+new = '''base @'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "FE1g-1 review L1: lctx-views.fs reads its flag numbers (12, 16, 31) in the BASE it is loaded with"
+
+[[fault]]
+id = "fe-goal-mvars-hex"
+file = "src/front/mvars.fs"
+old = '''base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end'''
+new = '''base @'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "FE1g-1 review L1: mvars.fs reads its numbers (16, 31) in the BASE it is loaded with"

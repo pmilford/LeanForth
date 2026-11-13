@@ -10,6 +10,11 @@
 \ comparison, so that nests once on the host's stacks whatever the depth.
 
 require ./print-levels.fs
+require ../core/literals.fs
+require ../core/string-literals.fs
+require ../core/projections.fs
+require ../core/name-equal.fs
+require ../core/unsupported-forms.fs
 
 \ A node's tag when it is a valid term; a term with a given tag.
 : lf-pp-tag ( term -- tag true | false ) lf-term-read if 2drop true else false then ;
@@ -102,7 +107,9 @@ defer lf-pp-lsame-rest ( addr1 addr2 n i frames -- ... frames next )
 \ otherwise. Both children compare, the pair waiting while the first ones
 \ do; a binder's second ones one binder deeper (frame-up restores it).
 defer lf-pp-same-step ( a b frames -- ... frames next )
-: lf-pp-tag-known? ( tag -- flag ) lf-tag-sort lf-tag-constant between? ;
+\ Every tag of a term but the importer's unsupported leaves.
+: lf-pp-tag-known? ( tag -- flag )
+  dup lf-tag-sort lf-tag-mvar between? swap lf-tag-unsupported <> and ;
 : lf-pp-same-call ( a b frames cont -- ... frames next ) ['] lf-pp-same-step lf-pp-call ;
 : lf-pp-cmp-depth ( -- addr ) lf-pp-frames frame-context ;
 : lf-pp-var-same? ( i j -- flag ) over lf-pp-cmp-depth @ < if = else swap 1+ = then ;
@@ -135,11 +142,32 @@ defer lf-pp-same-step ( a b frames -- ... frames next )
     lf-tag-constant of ['] lf-pp-const-same endof
     lf-tag-app of ['] lf-pp-same-app endof
     ['] lf-pp-same-binder swap endcase ;
+\ A free variable or metavariable is the same as itself only; literals
+\ and projection leaves by their contents (Lean's Literal and proj ==);
+\ a let and a projection part by part, as an application (a let and a
+\ have, of different tags, differ here, where Lean's == ignores nonDep).
+: lf-pp-proj= ( a b -- flag )
+  2dup lf-proj-name swap lf-proj-name lf-name-same?
+  if lf-proj-idx swap lf-proj-idx = else 2drop false then ;
+\ Two leaves of one tag (a CASE table): by contents or as nodes. The
+\ step finds its frames again (print-job.fs: always the printer's own).
+: lf-pp-leaf-test ( tag -- xt )
+  case lf-tag-lit of ['] lf-lit-same? endof  lf-tag-str of ['] lf-str-same? endof
+    lf-tag-proj of ['] lf-pp-proj= endof  ['] = swap endcase ;
+: lf-pp-leaf= ( a b -- flag ) over lf-term-tag@ lf-pp-leaf-test execute ;
+: lf-pp-same-leaf ( a b frames -- outcome frames 0 )
+  drop lf-pp-leaf= lf-pp-equal lf-pp-frames 0 ;
+: lf-pp-leaf-kind? ( tag -- flag )
+  dup lf-pp-identity-tag? over lf-literal-tag? or swap lf-tag-proj = or ;
+: lf-pp-pair-kind? ( tag -- flag ) dup lf-tag-projection = swap lf-let-tag? or ;
+: lf-pp-same-kind ( tag -- xt )
+  dup lf-pp-leaf-kind? if drop ['] lf-pp-same-leaf exit then
+  dup lf-pp-pair-kind? if drop ['] lf-pp-same-app else lf-pp-same-by then ;
 : lf-pp-same ( a b frames -- ... frames next )
   >r 2dup lf-term-pair-valid? 0= if 2drop outcome-invalid r> 0 exit then
   over lf-term-tag@ over lf-term-tag@ <> if 2drop outcome-rejected r> 0 exit then
   over lf-term-tag@ dup lf-pp-tag-known? 0= if drop 2drop outcome-invalid r> 0 exit then
-  lf-pp-same-by r> swap execute ;
+  lf-pp-same-kind r> swap execute ;
 ' lf-pp-same is lf-pp-same-step
 : lf-pp-same-domain? ( a b -- flag outcome )
   0 lf-pp-cmp-depth ! ['] lf-pp-same-step lf-pp-run lf-pp-decided ;
@@ -175,8 +203,14 @@ defer lf-pp-same-step ( a b frames -- ... frames next )
     >r drop false outcome-ok r> endcase ;
 : lf-pp-arrow-prop? ( type n -- flag outcome )
   lf-pp-arrows if lf-pp-prop-sort? else false outcome-ok then ;
-: lf-pp-head-type ( chain k head -- type true | false )
+\ A free variable's type is its local declaration's (Lean's isPropQuick
+\ reads it too); one that is not live has none.
+: lf-pp-fvar-type ( fvar -- type true | false )
+  dup lf-fvar-live? if lf-fvar-type true else drop false then ;
+: lf-pp-bvar-type ( chain k head -- type true | false )
   dup lf-tag-bvar lf-pp-is? if lf-term-first@ lf-pp-chain-var else drop 2drop false then ;
+: lf-pp-head-type ( chain k head -- type true | false )
+  dup lf-tag-fvar lf-pp-is? if nip nip lf-pp-fvar-type else lf-pp-bvar-type then ;
 : lf-pp-end-prop? ( chain k end -- flag outcome )
   lf-pp-spine dup ok? 0= if >r 2drop 2drop false r> exit then drop
   >r lf-pp-head-type if r> lf-pp-arrow-prop? else r> drop false outcome-ok then ;
@@ -192,13 +226,16 @@ defer lf-pp-same-step ( a b frames -- ... frames next )
 : lf-pp-const-type ( head -- type true | false )
   lf-pp-const-name if lf-pres-type@ else false then ;
 : lf-pp-known ( type true | false -- chain tag ) if lf-tag-pi else 0 0 then ;
-\ A CASE with one arm per kind of head (six lines, read as a table).
-: lf-pp-params ( head -- chain tag )
+\ A CASE with one arm per kind of head (six lines, read as a table); a
+\ free variable's type is its local declaration's.
+: lf-pp-tag-params ( head -- chain tag )
   dup lf-pp-tag 0= if drop 0 0 exit then
   case lf-tag-bvar of lf-term-first@ lf-pp-var-type lf-pp-known endof
     lf-tag-constant of lf-pp-const-type lf-pp-known endof
     lf-tag-lam of lf-tag-lam endof
     >r drop 0 0 r> endcase ;
+: lf-pp-params ( head -- chain tag )
+  dup lf-tag-fvar lf-pp-is? if lf-pp-fvar-type lf-pp-known else lf-pp-tag-params then ;
 \ Binders of the chain, at most limit of them.
 : lf-pp-avail ( chain tag limit -- n )
   dup >r 0 ?do 2dup lf-pp-is? 0= if 2drop i unloop r> drop exit then
@@ -228,7 +265,8 @@ defer lf-pp-same-step ( a b frames -- ... frames next )
 \ with all its arguments, except a constant without universe arguments
 \ whose parameters are unknown.
 : lf-pp-atom-head? ( head -- flag )
-  dup lf-tag-constant lf-pp-is? swap lf-tag-bvar lf-pp-is? or ;
+  dup lf-tag-constant lf-pp-is? over lf-tag-bvar lf-pp-is? or
+  swap lf-tag-fvar lf-pp-is? or ;
 : lf-pp-unknown? ( head -- flag ) lf-pp-params 1 lf-pp-avail 0= ;
 : lf-pp-bare-const? ( head -- flag )
   dup lf-tag-constant lf-pp-is?

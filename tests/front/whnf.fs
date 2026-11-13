@@ -42,6 +42,14 @@ T{ nat fk fs 0 bv app let fs fk app whnf= -> true outcome-ok }T
 T{ ?f fk app fs fk app whnf= ?h fk app dup whnf= -> true outcome-ok true outcome-ok }T
 T{ fg fk app fs fk app whnf= fg sfun whnf= -> true outcome-ok true outcome-ok }T
 T{ succ fk app dup whnf= -> true outcome-ok }T
+\ A have (Lean's ldecl with nondep := true; plan FE1g-1): its value is
+\ hidden, so whnf leaves the variable and its application as they are
+\ (Lean's whnfEasyCases unfolds only a let with nondep := false).
+nat sfun lf-lctx-have made constant fh
+T{ fh lf-fvar-let? fh lf-fvar-nondep? fg lf-fvar-let? fg lf-fvar-nondep? -> false true true false }T
+T{ fh lf-fvar-value fg lf-fvar-value fk lf-fvar-value fk lf-fvar-nondep? -> sfun sfun -1 false }T
+T{ nat zero lf-lctx-have made lf-fvar-value -> zero }T
+T{ fh dup whnf= fh fk app dup whnf= -> true outcome-ok true outcome-ok }T
 
 \ ---- Frames: the major premise and a projection's structure are
 \ reduced first (a let, a beta step, an assigned metavariable, an inner
