@@ -10447,8 +10447,8 @@ reason = "FE1b: a leaf of an earlier context, or one no record names, counts as 
 [[fault]]
 id = "fe-level-epoch-ignored"
 file = "src/front/mvars.fs"
-old = '''  mv-levels store-count @ mctx-epoch@ lf-level-mvar-leaf'''
-new = '''  mv-levels store-count @ 0 lf-level-mvar-leaf'''
+old = '''  mctx-epoch@ lf-level-mvar-leaf 0= if drop mv-levels store-drop -1 outcome-full exit then'''
+new = '''  0 lf-level-mvar-leaf 0= if drop mv-levels store-drop -1 outcome-full exit then'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1b: with sharing on, a new level metavariable is the old leaf of the same number, which comes back to life"
 
@@ -10507,3 +10507,27 @@ old = ''': mv-delayed-ready? ( term -- flag ) lf-mvar-delayed if 2drop mv-ready?
 new = ''': mv-delayed-ready? ( term -- flag ) drop false ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1b: a ready delayed assignment is left in place where Lean puts its value in"
+
+[[fault]]
+id = "lib-store-drop-below-base"
+file = "src/lib/store.fs"
+old = ''': store-drop ( store -- ) dup store-above-base? if -1 swap store-count +! else drop then ;'''
+new = ''': store-drop ( store -- ) -1 swap store-count +! ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "review fe1ab S5: store-drop gives back a record the store does not have, taking the count below its base"
+
+[[fault]]
+id = "fe-record-kept-on-refusal"
+file = "src/front/mvars.fs"
+old = '''  mctx-epoch@ lf-mvar-leaf 0= if drop 2drop mv-exprs store-drop -1 outcome-full exit then'''
+new = '''  mctx-epoch@ lf-mvar-leaf 0= if drop 2drop -1 outcome-full exit then'''
+test = "$GFORTH tests/front/front.fs"
+reason = "review fe1ab L2: a metavariable whose leaf the term store refuses keeps its claimed record, an entry no leaf names"
+
+[[fault]]
+id = "fe-walk-memo-unbounded"
+file = "src/front/dag-walk.fs"
+old = ''': dw-done? ( node walk -- flag ) 2dup dw-in? if dw-state 1 > else 2drop false then ;'''
+new = ''': dw-done? ( node walk -- flag ) dw-state 1 > ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "review fe1ab L2: a value given back after its assignment is read from past the walk's memo, so the walk may give a term instead of invalid"

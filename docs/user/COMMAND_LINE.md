@@ -1330,6 +1330,10 @@ axiom with its statement and value (the proof), as the
 identical terms (checked node for node for the pinned examples, for
 `Nat.add_zero` and for a slice of `Init`; see [the proof of
 `Nat.add_zero` in LeanForth](PROOF_OUTLINE.md#natadd_zero-in-leanforth)).
+The text is in the kernel form, so its first line is the word
+`kernel-form` (since 2026-11-12, when natural LeanForth became the
+default; [two forms](LEANFORTH_SYNTAX.md#two-forms-kernel-form-and-natural-leanforth)),
+and `leanforth check` reads it back as written.
 The export is not checked and the text is no evidence of anything: it is
 untrusted presentation. `--lf` takes `--no-manifest`, `--fuel` and `--fast`,
 not `--detail`, `--name`, `--latex` or `--statement` (exit 4).

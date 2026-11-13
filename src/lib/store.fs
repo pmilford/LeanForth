@@ -209,6 +209,10 @@ defer store-refuse? ( store -- flag )
 : store-new ( store -- index true | false ) dup store-open? if store-claim true else drop false then ;
 : store-new-slot ( store -- addr index true | false )
   dup store-new if tuck swap store-slot swap true else drop false then ;
+\ Give the newest record back, as a claim that could not be completed;
+\ its identity is never reused. At the base nothing changes.
+: store-above-base? ( store -- flag ) dup store-count @ swap store-base @ > ;
+: store-drop ( store -- ) dup store-above-base? if -1 swap store-count +! else drop then ;
 : store-identity@ ( index store -- identity true | false )
   2dup store-valid? if store-identity @ true else 2drop false then ;
 

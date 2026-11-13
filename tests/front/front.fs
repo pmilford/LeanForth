@@ -140,6 +140,18 @@ T{ s" 1 2 +" nfails -> 4 1 5 }T
 T{ base @ get-current s" theorem t Nat explicit: n n := n end t" nrun drop
    base @ get-current rot = -rot = -> true true }T
 
+\ Out of room: the numerals' positions (author/form.fs) hold 512; a 513th
+\ number in one declaration stops the run full (64), on the line it ends.
+create text 4096 allot  variable text#
+: text0 ( -- ) 0 text# ! ;
+: text+ ( c-addr u -- ) tuck text text# @ + swap move text# +! ;
+: times ( c-addr u n -- ) 0 ?do 2dup text+ loop 2drop ;
+: text$ ( -- c-addr u ) text text# @ ;
+text0 s\" theorem t\n" text+ s" 1 " 300 times s\" \n" text+ s" 1 " 212 times s\" \n" text+
+T{ text$ nfails drop drop lf-author-code lf-author-outcome -> 33 outcome-invalid }T
+text0 s\" theorem t\n" text+ s" 1 " 300 times s\" \n" text+ s" 1 " 213 times s\" \n" text+
+T{ text$ nfails drop lf-author-code lf-author-outcome -> 64 3 outcome-full }T
+
 \ Out of room: a syntax store that may hold 3 nodes stops the run full
 \ (68) at the word that needed a fourth; nothing is left on the stack.
 T{ syn-reset 3 syn-store store-limit! -> outcome-ok }T
@@ -357,16 +369,32 @@ lf-cref-capacity constant cref-room
 T{ lf-term-count @ lf-term-capacity! -> outcome-ok }T
 T{ r1p lf-instantiate-mvars ss lf-instantiate-mvars -> -1 outcome-full -1 outcome-full }T
 T{ prop mv-natural lf-mvar-new -> -1 outcome-full }T
+\ The record claimed for it is given back: nothing changes (review L2).
+T{ mv-exprs store-count @ prop mv-natural lf-mvar-new rot mv-exprs store-count @ =
+   -> -1 outcome-full true }T
 T{ cs lf-instantiate-mvars -> -1 outcome-full }T
 T{ term-room lf-term-capacity! lf-cref-count @ lf-cref-capacity! -> outcome-ok outcome-ok }T
 T{ cs lf-instantiate-mvars -> -1 outcome-full }T
 T{ cref-room lf-cref-capacity! lf-level-count @ lf-level-capacity! -> outcome-ok outcome-ok }T
 T{ s1 lf-level-instantiate-mvars lf-level-mvar-new -> -1 outcome-full -1 outcome-full }T
+T{ mv-levels store-count @ lf-level-mvar-new rot mv-levels store-count @ =
+   -> -1 outcome-full true }T
 T{ level-room lf-level-capacity! -> outcome-ok }T
 T{ r1p lf-instantiate-mvars nip -> outcome-ok }T
 \ The free variables of delayed assignments, out of room.
 T{ 1 mv-fvars store-limit! x lf-delay-fvar x lf-delay-fvar -> outcome-ok outcome-ok outcome-full }T
 T{ 1 cells mv-limit mv-fvars store-limit! -> outcome-ok }T
+
+\ A stale value: one the term store gave back after it was assigned (rolled
+\ back past it) is no node of a walk, whose memo ends below it; the walk
+\ ends invalid and never reads past its memo (review fe1ab L2).
+create stale-mark /store-mark allot
+lf-mctx-reset mv-natural new constant sm
+T{ stale-mark lf-terms store-mark -> outcome-ok }T
+prop prop app constant gone
+T{ sm gone lf-mvar-assign stale-mark lf-term-rollback -> outcome-ok outcome-ok }T
+T{ sm lf-instantiate-mvars -> -1 outcome-invalid }T
+T{ sm sm lf-mvar-occurs? -> true outcome-invalid }T
 
 \ Library constants whose types may unfold (review fe1ab L1; exported by
 \ pinned Lean from tests/reference/front-unfold.lean): c : F Nat, F a

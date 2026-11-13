@@ -919,6 +919,17 @@ def check_snapshot_cases(work):
     code, out = leanforth_check(HERE / "07-add-comm.lf", str(INIT_SLICE), "--snapshot", str(snap))
     if code != 4 or "not with a text" not in out:
         raise Failure(f"--env with --snapshot: exit {code}:\n{out[-400:]}")
+    # Natural text against the snapshot's library (review fe1ab L4): the
+    # argument counts come from the snapshot's tier (Eq.refl takes one).
+    natural = work / "natural.lf"
+    for proof, want, line in (("  n Eq.refl\n", 2, "error 71 at line:col 6:1 (token `end`)"),
+                              ("  Eq.refl\n", 4, "error 3 at line:col 5:3 (token `Eq.refl`)")):
+        natural.write_text("theorem t\n  Nat explicit: n\n  n n =\n:=\n" + proof + "end t\n",
+                           encoding="utf-8")
+        code, out = leanforth_check(natural, None, "--snapshot", str(snap))
+        if code != want or line not in out or VERDICT.search(out):
+            raise Failure(f"natural text against a snapshot: exit {code} (want {want}):\n"
+                          f"{out[-400:]}")
 
 
 def check_wrong_lean():

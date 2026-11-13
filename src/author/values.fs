@@ -26,6 +26,7 @@ require ./scopes.fs
 2 constant lfa-kind-level
 3 constant lfa-kind-name
 4 constant lfa-kind-const
+5 constant lfa-kind-syntax   \ a natural form's syntax node (src/front/reader.fs)
 
 begin-structure /lfa-item
   field: lfa-item-kind
