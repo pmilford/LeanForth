@@ -823,8 +823,8 @@ reason = "4.2.2a: an instantiate step's body is copied in the record's context, 
 [[fault]]
 id = "log-memo-any-context"
 file = "src/core/derivation-log.fs"
-old = '''  >r r@ 2 cells + @ = swap dup 0<> swap r@ cell+ @ = and and swap r> @ = and ;'''
-new = '''  >r drop dup 0<> swap r@ cell+ @ = and swap r> @ = and ;'''
+old = '''  >r r@ memo-context @ = swap dup 0<> swap r@ memo-identity @ = and and'''
+new = '''  >r drop dup 0<> swap r@ memo-identity @ = and'''
 test = "$GFORTH tests/core/derivation-log.fs"
 reason = "4.2.2a: the copier's memo ignores the context, so a node copied under one binder count is reused under another"
 
@@ -10501,3 +10501,28 @@ old = ''': feed-leaf0! ( first second e -- outcome ) 0 swap feed-leaf! ;'''
 new = ''': feed-leaf0! ( first second e -- outcome ) >r swap r> 0 swap feed-leaf! ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "FRI B4: a literal's, projection's or let's leaf gets its two fields swapped"
+
+[[fault]]
+id = "fri-b3-memo-ref-field"
+file = "src/core/derivation-log.fs"
+old = '''  lf-copier-key dup >r lf-memo-match? if r> memo-ref @ true else r> drop false then ;'''
+new = '''  lf-copier-key dup >r lf-memo-match? if r> memo-context @ true else r> drop false then ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "FRI B3: a memo hit gives the entry's context, not its copy's reference"
+
+[[fault]]
+id = "fri-b3-memo-identity-ignored"
+file = "src/core/derivation-log.fs"
+old = '''  >r r@ memo-context @ = swap dup 0<> swap r@ memo-identity @ = and and'''
+new = '''  >r r@ memo-context @ = swap dup 0<> swap drop and'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "FRI B3: a memo entry left by a node rolled back matches a new node at the same index"
+gap = "needs a copy that meets a node made again at an index a rolled-back node had, in one log; no test builds one"
+
+[[fault]]
+id = "fri-b3-pair-contexts-swapped"
+file = "src/core/derivation-log.fs"
+old = ''': lf-copier-under ( c copier tag -- c copier c' ) over lf-copier-inner 2 pick + ;'''
+new = ''': lf-copier-under ( c copier tag -- c copier c' ) drop over ;'''
+test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
+reason = "FRI B3: a binder's body is copied in its binder's own context, not under the binder"

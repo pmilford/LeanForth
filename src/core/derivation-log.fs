@@ -378,9 +378,17 @@ end-structure
 0 lf-logs-args 0 lf-logs-count - 7 cells <>
 0 lf-logs-levels-max 0 lf-logs-records-max - 3 cells <> or
 [if] .( derivation-log.fs: header layout) cr abort [then]
+\ A memo entry (see the copier below): a node, its identity, the context
+\ it was copied in and its copy's reference.
+begin-structure /lf-memo
+  field: memo-index
+  field: memo-identity
+  field: memo-context
+  field: memo-ref
+end-structure
 begin-structure /lf-logpools
-  lf-log-memo-size 4 * cells +field lf-logp-term-memo
-  lf-log-memo-size 4 * cells +field lf-logp-level-memo
+  lf-log-memo-size /lf-memo * +field lf-logp-term-memo
+  lf-log-memo-size /lf-memo * +field lf-logp-level-memo
   lf-log-task-cells 1+ cells +field lf-logp-term-tasks
   lf-log-stack-capacity 1+ cells +field lf-logp-term-values
   lf-log-task-cells 1+ cells +field lf-logp-level-tasks
@@ -470,8 +478,8 @@ end-structure
 \ Starting and stopping. The input marks are read when a log starts: the
 \ objects below them never change during a check.
 : lf-log-memos-clear ( -- )
-  lf-log-pools ?dup if lf-logp-term-memo lf-log-memo-size 8 * cells erase then ;
-0 lf-logp-level-memo 0 lf-logp-term-memo - lf-log-memo-size 4 * cells <>
+  lf-log-pools ?dup if lf-logp-term-memo lf-log-memo-size 2* /lf-memo * erase then ;
+0 lf-logp-level-memo 0 lf-logp-term-memo - lf-log-memo-size /lf-memo * <>
 [if] .( derivation-log.fs: memo layout) cr abort [then]
 : lf-log-mark-of ( k -- count )
   lf-input-intact? if lf-input-mark-count else drop 0 then ;
@@ -616,7 +624,7 @@ end-structure
 : lf-copier-values ( copier -- stack ) 0 copier-values lf-copier-pooled ;
 : lf-copier-made@ ( copier -- addr ) 0 copier-made lf-copier@ ;
 : lf-copier-memo ( index copier -- entry )
-  0 copier-memo lf-copier-pooled swap lf-log-memo-size mod 4 * cells + ;
+  0 copier-memo lf-copier-pooled swap lf-log-memo-size mod /lf-memo * + ;
 : lf-copier-input? ( index copier -- flag ) lf-copier-mark < ;
 : lf-copier-identity ( index copier -- identity )
   copier-identity @ execute 0= if 0 then ;
@@ -625,13 +633,14 @@ end-structure
 \ The memo: a node's copy in a context, when the memo holds it;
 \ remembering one.
 : lf-memo-match? ( index identity c entry -- flag )
-  >r r@ 2 cells + @ = swap dup 0<> swap r@ cell+ @ = and and swap r> @ = and ;
+  >r r@ memo-context @ = swap dup 0<> swap r@ memo-identity @ = and and
+  swap r> memo-index @ = and ;
 : lf-copier-key ( index c copier -- index identity c entry )
   >r over r@ lf-copier-identity swap rot dup r> lf-copier-memo >r -rot r> ;
 : lf-copier-hit ( index c copier -- ref true | false )
-  lf-copier-key dup >r lf-memo-match? if r> 3 cells + @ true else r> drop false then ;
+  lf-copier-key dup >r lf-memo-match? if r> memo-ref @ true else r> drop false then ;
 : lf-copier-remember ( ref index c copier -- )
-  lf-copier-key >r r@ 2 cells + ! r@ cell+ ! r@ ! r> 3 cells + ! ;
+  lf-copier-key >r r@ memo-context ! r@ memo-identity ! r@ memo-index ! r> memo-ref ! ;
 \ A node's reference when it needs no copy: itself below the mark (input
 \ never holds a free variable), or the copy the memo holds.
 : lf-copier-known ( n c copier -- ref true | false )
@@ -661,9 +670,11 @@ end-structure
 : lf-copier-child ( n c copier -- flag )
   2 pick 0< if 2drop lf-log-unreadable exit then lf-copier-task ;
 : lf-copier-single ( c copier tag first second -- flag ) drop nip -rot lf-copier-child ;
+\ The context of the second child: c and the binders the tag puts it under.
+: lf-copier-under ( c copier tag -- c copier c' ) over lf-copier-inner 2 pick + ;
 : lf-copier-pair ( c copier tag first second -- flag )
-  >r >r over lf-copier-inner 2 pick + r> r> rot 3 pick lf-copier-child
-  >r -rot lf-copier-child r> and ;
+  2>r lf-copier-under r> swap 2 pick lf-copier-child
+  r> swap >r -rot lf-copier-child r> and ;
 : lf-copier-kids ( n c copier -- flag )
   rot over copier-read @ execute 0= if drop lf-log-unreadable exit then
   2 pick 4 pick lf-copier-arity case
