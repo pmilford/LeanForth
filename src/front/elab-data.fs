@@ -445,12 +445,14 @@ create head-steps
   2 0 head-steps ed-steps ;
 
 \ ---- The file, line by line; each record line hashed before it is
-\ parsed (parsing decodes its strings in place).
+\ parsed (parsing decodes its strings in place). A line that cannot be
+\ read is the one after the last line read.
 : ed-line-why ( outcome -- why )
   outcome-full = if c" a line longer than the limit" exit then
   c" no line, or a line without its line feed" ;
+: ed-unread ( outcome -- outcome ) dup ed-line-why swap ed-fail 1 elab elab-at +! ;
 : ed-next-line ( -- c-addr u outcome )
-  elab elab-reader reader-line dup ok? 0= if dup ed-line-why swap ed-fail then ;
+  elab elab-reader reader-line dup ok? 0= if ed-unread then ;
 : ed-parse ( c-addr u -- outcome )
   ed-view json-parse dup ok? 0= if c" not one JSON value within the limits" swap ed-fail
   then ;
