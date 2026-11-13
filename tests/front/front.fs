@@ -362,6 +362,26 @@ y2 prop prop 0 lf-term-bvar drop lam2 lam2 false lf-let-make drop constant let-i
 T{ p8 let-id lf-mvar-assign x lf-delay-fvar dm8 p8 1 lf-mvar-delay
    -> outcome-ok outcome-ok outcome-ok }T
 T{ dm8 y2 app prop app lf-instantiate-mvars -> -1 outcome-unsupported }T
+\ A pending value that holds its own application (P3b, review R3): Lean
+\ finds it not ready, so ?d12 x stays, its argument instantiated.
+mv-natural new constant p12  mv-natural new constant d12
+T{ p12 x d12 y2 app app lf-mvar-assign x lf-delay-fvar d12 p12 1 lf-mvar-delay
+   -> outcome-ok outcome-ok outcome-ok }T
+T{ d12 x app lf-instantiate-mvars swap parts2 -> outcome-ok d12 x }T
+\ A pending value beyond the term store (its terms given back after the
+\ assignment, review R1): the walk reads no memo past its block and ends
+\ invalid.
+mv-natural new constant p11  mv-natural new constant d11
+T{ x lf-delay-fvar d11 p11 1 lf-mvar-delay -> outcome-ok outcome-ok }T
+d11 x app constant root11
+create sm11 /lf-scratch allot
+T{ sm11 lf-scratch-mark -> outcome-ok }T
+\ (100,000 applications, so the value's index lies far past the memo.)
+lf-term-count @ 200000 + lf-term-capacity! drop
+: xapps ( t n -- t' ) 0 ?do x app loop ;
+x 100000 xapps constant v11
+T{ p11 v11 lf-mvar-assign sm11 lf-scratch-rollback -> outcome-ok outcome-ok }T
+T{ root11 lf-instantiate-mvars -> -1 outcome-invalid }T
 \ With no free variable (k = 0) the value takes the arguments: ?dm5 x
 \ with ?p5 := fun a => a is x.
 mv-natural new constant p5  mv-natural new constant dm5
@@ -515,6 +535,12 @@ T{ mark mark-out ! lma one lf-level-mvar-assign mv-trail slab-count -> outcome-i
 \ A mark from before lf-mctx-reset is refused by the marks after it.
 T{ lf-mctx-reset mark mark-out @ lf-mctx-commit swap lf-mctx-commit lf-mctx-marks
    -> outcome-invalid outcome-ok 0 }T
+\ So is one rolled back before a reset when the next reset's first mark
+\ follows (review R2: a reset does not start the serials again).
+T{ lf-mctx-reset mark dup mark-out ! lf-mctx-rollback lf-mctx-reset mark
+   mark-out @ lf-mctx-commit swap lf-mctx-commit -> outcome-ok outcome-invalid outcome-ok }T
+\ lf-mctx-latest: the latest open mark, 0 when none is open.
+T{ lf-mctx-latest mark dup lf-mctx-latest = swap lf-mctx-rollback -> 0 true outcome-ok }T
 lf-mctx-reset
 
 \ A stale value: one the term store gave back after it was assigned (rolled

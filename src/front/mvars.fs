@@ -55,7 +55,8 @@
 \   be rolled back or committed (any other is refused, invalid).
 \ Words: lf-mctx-reset, lf-mctx-deeper, lf-mctx-shallower, lf-mctx-depth;
 \ lf-mctx-mark ( -- mark outcome ), lf-mctx-rollback ( mark -- outcome ),
-\ lf-mctx-commit ( mark -- outcome ), lf-mctx-marks ( -- n ); lf-mvar-new
+\ lf-mctx-commit ( mark -- outcome ), lf-mctx-marks ( -- n ), lf-mctx-latest
+\ ( -- mark ); lf-mvar-new
 \ ( type kind -- mvar outcome ), lf-mvar-live?, lf-mvar-type,
 \ lf-mvar-kind, lf-mvar-value, lf-mvar-lctx, lf-mvar-assignable?,
 \ lf-mvar-assign ( mvar value -- outcome ), lf-delay-fvar ( fvar --
@@ -337,6 +338,8 @@ store-header context-record: mv-fvars
   mv-latest @ mv-undo-to mv-unmark outcome-ok ;
 : lf-mctx-commit ( mark -- outcome )
   mv-latest? 0= if outcome-invalid exit then mv-unmark outcome-ok ;
+\ The latest open mark, or 0 (no mark) when none is open.
+: lf-mctx-latest ( -- mark ) lf-mctx-marks if mv-latest cell+ @ else 0 then ;
 
 \ ---- Assignment: once, to a live leaf, the occurs check passed; a walk
 \ that fails gives its own outcome and nothing is assigned.
@@ -472,7 +475,7 @@ store-header context-record: mv-fvars
   mv-delays? 0= if drop false exit then
   mv-app-delay if mv-rec-pending-value true else false then ;
 : mv-fresh ( walk child -- child true | false )
-  tuck swap dw-state 0= if true else drop false then ;
+  tuck swap dw-new? if true else drop false then ;
 : mv-app-pending ( node walk -- child true | false )
   swap mv-delay-child if mv-fresh else drop false then ;
 : mv-inst-pending ( node walk -- child true | false )

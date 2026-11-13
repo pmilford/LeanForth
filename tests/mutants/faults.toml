@@ -12086,7 +12086,23 @@ reason = "review of fe1c-lnorm-2 L2: the occurs check does not follow a delayed 
 [[fault]]
 id = "fe-inst-pending-under-way"
 file = "src/front/mvars.fs"
-old = '''  tuck swap dw-state 0= if true else drop false then ;'''
-new = '''  true ;'''
-test = "python3 tests/front/check_meta.py"
+old = '''  tuck swap dw-new? if true else drop false then ;'''
+new = '''  tuck swap dw-state 1 > if drop false else true then ;'''
+test = "$GFORTH tests/front/front.fs"
 reason = "re-check of fe1c-lnorm L2 (P3b): a pending value that holds its own application is pushed again, a cycle (invalid) where Lean finds the value not ready and keeps ?d x"
+
+[[fault]]
+id = "fe-walk-new-unbounded"
+file = "src/front/dag-walk.fs"
+old = ''': dw-new? ( node walk -- flag ) 2dup dw-in? if dw-state 0= else 2drop true then ;'''
+new = ''': dw-new? ( node walk -- flag ) dw-state 0= ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "re-check of fe1c-lnorm R1: a pending value beyond the memo is read from past the memo block, so ?d x answers ok instead of invalid"
+
+[[fault]]
+id = "fe-mctx-reset-serial"
+file = "src/front/mvars.fs"
+old = '''  0 mctx mctx-depth ! ;'''
+new = '''  0 mctx mctx-depth ! 0 mctx mctx-serial ! ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "re-check of fe1c-lnorm R2: lf-mctx-reset starts the serials again, so a mark from before the reset closes the first mark after it"
