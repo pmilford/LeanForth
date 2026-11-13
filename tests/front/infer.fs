@@ -39,8 +39,28 @@ T{ succ fk app nat infer= -> true outcome-ok }T
 T{ nat lv1 sort infer= -> true outcome-ok }T
 T{ l0 sort lv1 sort infer= -> true outcome-ok }T
 
+nat nat>nat lf-lctx-let made constant ftype
+nat mv-natural lf-mvar-new made constant ?t
+0 ?t ftype lf-mvar-assign made drop
+nat ?t lf-lctx-local made constant fh
+
+\ ---- Lambdas: the body's type closed over the binders.
+T{ nat 0 bv lam nat>nat infer= -> true outcome-ok }T
+T{ nat nat 1 bv lam lam nat nat>nat lf-term-pi must infer= -> true outcome-ok }T
+: eq-refl ( a -- t ) >r lv1 1 s" Eq.refl" cn nat app r> app ;
+: eq ( a b -- t ) >r >r lv1 1 s" Eq" cn nat app r> app r> app ;
+T{ nat 0 bv eq-refl lam  nat 0 bv 0 bv eq lf-term-pi must infer= -> true outcome-ok }T
+T{ nat ?n lam nat>nat infer= -> true outcome-ok }T
+\ A later binder's domain over an earlier one: fun a (h : a = a) => h.
+T{ nat 0 bv 0 bv eq 0 bv lam lam
+   nat 0 bv 0 bv eq 1 bv 1 bv eq lf-term-pi must lf-term-pi must infer= -> true outcome-ok }T
+\ A lambda's type with a metavariable, a body of no inferable kind, a
+\ body that is no function applied: unsupported, unsupported, invalid.
+T{ nat fh lam lf-infer nat nat fk 0 bv let lam lf-infer
+   -> -1 outcome-unsupported -1 outcome-unsupported }T
+T{ nat fs 0 bv app lam lf-infer -> -1 outcome-invalid }T
+
 \ ---- Unsupported.
-T{ nat 0 bv lam lf-infer -> -1 outcome-unsupported }T
 T{ nat nat lf-term-pi must lf-infer -> -1 outcome-unsupported }T
 T{ nat fk 0 bv let lf-infer -> -1 outcome-unsupported }T
 T{ fa fb pair 0 proj lf-infer -> -1 outcome-unsupported }T
@@ -72,10 +92,6 @@ T{ ft fk app lf-infer -> -1 outcome-unsupported }T
 T{ 0 bv fk app lf-infer -> -1 outcome-invalid }T
 
 \ ---- Exhausted: whnfCore's fuel runs out on a type that is no pi.
-nat nat>nat lf-lctx-let made constant ftype
-nat mv-natural lf-mvar-new made constant ?t
-0 ?t ftype lf-mvar-assign made drop
-nat ?t lf-lctx-local made constant fh
 T{ 1 lf-whnf-fuel! fh fk app lf-infer 0 lf-whnf-fuel! -> -1 outcome-exhausted }T
 T{ fh fk app nat infer= -> true outcome-ok }T
 

@@ -11524,3 +11524,27 @@ old = '''  if-head if-firm? if outcome-invalid else outcome-unsupported then ;''
 new = '''  drop outcome-unsupported ;'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: a function expected (Lean throws) answers unsupported instead of invalid"
+
+[[fault]]
+id = "fe-infer-lambda-domain-open"
+file = "src/front/infer.fs"
+old = '''  dup if-x lf-fvar-type over if-abstract ok-then? 0= if nip nip no-result exit then'''
+new = '''  dup if-x lf-fvar-type 0 if-abstract ok-then? 0= if nip nip no-result exit then'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: a lambda's inferred pi keeps the earlier binders' free variables in a later domain instead of abstracting them"
+
+[[fault]]
+id = "fe-infer-lambda-holes"
+file = "src/front/infer.fs"
+old = '''  over if-holes? if 2drop -1 outcome-unsupported exit then'''
+new = '''  over drop false if 2drop -1 outcome-unsupported exit then'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: a lambda's type holding a metavariable is closed without Lean's elimMVarDeps"
+
+[[fault]]
+id = "fe-infer-lambda-one-binder"
+file = "src/front/infer.fs"
+old = '''  swap begin dup 0> while 1- tuck if-pi ok-then? 0= if nip no-result exit then swap repeat'''
+new = '''  swap 1- tuck if-pi ok-then? 0= if nip no-result exit then swap'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: only the innermost binder of a lambda is closed into a pi"

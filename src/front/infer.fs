@@ -14,18 +14,25 @@
 \   unfold further, its head a definition or unknown, answers unsupported;
 \   one with a free variable, metavariable, sort, lambda or any other
 \   constant at the head is invalid, as Lean throws "function expected").
-\ Never a guess: unsupported for a lambda, pi, let, projection or
-\ literal, an application with any other head (they need the telescopes
-\ of inferLambdaType and inferForallType, getLevel, inferProjType: plan
-\ FE1c), a lambda among the arguments (Lean instantiates with beta,
-\ instantiateBetaRevRange: plan FE1c), and Sort's legacy numeric form.
+\ - a lambda (inferLambdaType): its binders opened with new free
+\   variables, the body's type (one of the above) inferred and closed
+\   into pis over them (mkForallFVars), each with its lambda's name and
+\   kind.
+\ Never a guess: unsupported for a pi, let, projection or literal, an
+\ application with any other head, a lambda whose body is none of the
+\ above (they need inferForallType's getLevel and Level.normalize, let
+\ telescopes, inferProjType: plan FE1c), a lambda's type holding a
+\ metavariable (mkForallFVars's elimMVarDeps), a lambda among the
+\ arguments (Lean instantiates with beta, instantiateBetaRevRange: plan
+\ FE1c), and Sort's legacy numeric form.
 \ Outcomes: ok; invalid for no term, a loose bound variable, a stale
 \ leaf, an unknown constant, a wrong number of levels, a function
 \ expected; unsupported as above; full when a store or slab has no room;
 \ exhausted when whnfCore's fuel runs out. A failure gives -1.
 \ Untrusted: only the kernel's check of a finished term decides anything.
-\ State: the slabs if-args (the arguments, last first) and if-levels (a
-\ constant's universe arguments), in the checker context.
+\ State: the slabs if-args (the arguments, last first), if-levels (a
+\ constant's universe arguments), if-xs and if-lams (a lambda's free
+\ variables and binders), in the checker context.
 
 require ../lib/lib.fs
 require ../core/terms.fs
@@ -38,6 +45,7 @@ require ../core/input.fs
 require ./mvars.fs
 require ./instantiate.fs
 require ./level-params.fs
+require ../present/binder-table.fs
 require ./whnf.fs
 
 1 cells context-slab: if-args     \ the application's arguments, last first
@@ -127,6 +135,44 @@ require ./whnf.fs
   if-lambda-arg? if outcome-unsupported if-fail exit then
   if-head-type ok-then? if if-args-in else no-result then ;
 
+\ ---- Lambdas (inferLambdaType, with mkForallFVars): each binder opened
+\ with a new free variable of its domain (lambdaTelescope; the local
+\ context keeps them, as it only grows while a declaration is
+\ elaborated), the body's type inferred, then closed again into pis over
+\ the variables, each with its lambda's name and kind. A type holding a
+\ metavariable (Lean's elimMVarDeps) answers unsupported.
+1 cells context-slab: if-xs     \ the telescope's free variables, first first
+1 cells context-slab: if-lams   \ and the lambdas they opened
+: if-x ( i -- fvar ) if-xs slab-at @ ;
+: if-xs-at ( -- addr ) 0 if-xs slab-at ;
+: if-holes? ( term -- flag )
+  dup if-tag lf-term-binary-tag? if lf-term-data@ dup if nip then 0= exit then
+  if-tag lf-tag-mvar = ;
+: if-named ( new old -- new ) lf-pres-binder@ if 2>r dup 2r> lf-pres-binder! drop then ;
+: if-open ( lam -- body outcome )
+  dup if-lams if-push ok-then? 0= if no-result exit then
+  dup lf-term-first@ lf-lctx-local ok-then? 0= if if-fail exit then
+  dup if-xs if-push ok-then? 0= if if-fail exit then
+  swap lf-term-second@ swap lf-meta-instantiate1 ;
+: if-telescope ( term -- body outcome )
+  if-xs slab-clear if-lams slab-clear
+  begin dup if-lam? while if-open ok-then? 0= if no-result exit then repeat outcome-ok ;
+: if-abstract ( term n -- term' outcome )
+  over if-holes? if 2drop -1 outcome-unsupported exit then
+  if-xs-at swap lf-meta-abstract ;
+: if-pi ( body i -- pi outcome )
+  dup if-x lf-fvar-type over if-abstract ok-then? 0= if nip nip no-result exit then
+  rot lf-term-pi 0= if drop -1 outcome-full exit then
+  swap if-lams slab-at @ if-named outcome-ok ;
+: if-close ( type -- type' outcome )
+  if-xs slab-count tuck if-abstract ok-then? 0= if nip no-result exit then
+  swap begin dup 0> while 1- tuck if-pi ok-then? 0= if nip no-result exit then swap repeat
+  drop outcome-ok ;
+: if-body ( term -- type outcome ) dup if-app? if if-app else dup if-tag if-leaf then ;
+: if-lambda ( lam -- type outcome )
+  if-telescope ok-then? 0= if no-result exit then
+  if-body ok-then? if if-close else no-result then ;
+
 : lf-infer ( term -- type outcome )
   dup lf-term-root? 0= if outcome-invalid if-fail exit then
-  dup if-app? if if-app else dup if-tag if-leaf then ;
+  dup if-lam? if if-lambda else if-body then ;
