@@ -629,6 +629,8 @@ flowchart LR
   FE3 --> FE9
   FE9 --> FE10[FE10 decide, omega, grind]
   FE8 --> FE12[FE12 evaluation]
+  FE12 --> FE10
+  FE8 --> FE10
   FE10 --> FE11[FE11 Mathlib tactics]
   FE4 --> FE11
 ```
@@ -636,10 +638,10 @@ flowchart LR
 Sizes use the plan's S, M and L. *Speculative* estimate of the whole:
 the parts of §2.2 needed for meaning (B) without `grind`, `do` and
 `bv_decide` are about 85,000 lines of Lean; at 1.5 to 3 lines of Forth per
-line of Lean (LeanForth's kernel and core are about 23,000 lines of Forth
-for a C++ kernel of roughly 10,000–15,000 lines), that is 130,000 to
-250,000 lines of Forth before Mathlib's tactics, three to five times
-LeanForth today.
+line of Lean (LeanForth's `kernel/` and `core/` are about 23,000 lines of
+Forth for Lean's C++ kernel, whose 19 main files have 9,880 lines), that is
+130,000 to 250,000 lines of Forth before Mathlib's tactics, about three to
+five times LeanForth today.
 
 ## 8. FE1 in full: $0 + n = n$ proved natively
 
@@ -836,7 +838,7 @@ first step of plan 8.6.11; 8.6.11's own acceptance is reached with FE5
    available, for the printer and for exact control, but is not what
    people normally write.
 5. **The order of milestones.** *Recommendation:* FE1 → FE2 → FE3, FE4 and
-   FE5 → FE6 → FE7 → FE8 → FE9 → FE10 → FE12 → FE11. FE1 first because it
+   FE5 → FE6 → FE7 → FE8 → FE9 → FE12 (reduction first) → FE10 → FE11. FE1 first because it
    needs, end to end, the parts everything else stands on (unification,
    instances, goals) on the smallest real proof; FE2 next because its
    round trip over Init gives a measured denominator; data types, matching

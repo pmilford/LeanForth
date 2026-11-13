@@ -675,7 +675,7 @@ below means the full `Init` as a snapshot with its elaboration data
 checker uses. Sizes: S, M, L as in §2; "ports" gives the Lean 4.35.0 lines
 of the parts concerned (measured, [design §2.2](../design/FRONT_END.md#22-the-pieces-their-sizes-and-what-they-need)).
 Recommended order (owner question 5): FE1, FE2, then FE3–FE5, FE6, FE7,
-FE8, FE9, FE10, FE12, FE11.
+FE8, FE9, FE12 (its reduction part, which `decide` needs), FE10, FE11.
 
 | ID | Task | Acceptance (user-visible) | Needs | Gates | Size |
 | --- | --- | --- | --- | --- | --- |
