@@ -309,8 +309,8 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lfr-step-ok? ( i -- flag )
   dup lfr-kind dup lfr-kind? swap tac-k-by <> and if lfr-linked? else drop false then ;
 : lfr-root-ok? ( -- flag ) 0 lfr-kind tac-k-by = 0 lfr-parent 0< and ;
-: lfr-steps-ok? ( -- flag )
-  lf-tactic-count 1 ?do i lfr-step-ok? 0= if false unloop exit then loop true ;
+: lfr-step-after? ( k -- flag ) 1+ lfr-step-ok? ;   \ steps 1 .. count - 1
+: lfr-steps-ok? ( -- flag ) lf-tactic-count 1- ['] lfr-step-after? all? ;
 : lfr-record-ok? ( -- flag )
   lf-tactic-count 0> if lfr-root-ok? lfr-steps-ok? and else false then ;
 : lfr-checked ( -- ) lfr-record-ok? 0= if lfa-e-tac-record lfa-fail then ;
@@ -412,10 +412,10 @@ s" by-sorry" tac-k-sorry lfr-spell
 \ binder per variable from the last, each named as its local, its domain
 \ the variable's type abstracted over the variables before it.
 : lfr-let? ( fvar -- flag ) dup lf-fvar-let? swap lf-fvar-nondep? or ;
+: lfr-close-push ( x slab -- ) slab-push lfr-ok ;
 : lfr-x+ ( local -- )
   dup lf-local-fvar lfr-let? if drop lfa-e-tac-meta lfa-fail then
-  dup lf-local-fvar 1 trun-xs slab-claim lfr-close-must trun-xs slab-at !
-  1 trun-locals slab-claim lfr-close-must trun-locals slab-at ! ;
+  dup lf-local-fvar trun-xs lfr-close-push trun-locals lfr-close-push ;
 : lfr-binder+ ( view i -- ) lf-view-local dup lf-local-detail? if drop else lfr-x+ then ;
 : lfr-xs ( -- )
   trun-xs slab-clear trun-locals slab-clear

@@ -58,16 +58,11 @@ require ../core/levels.fs
   2dup = if 2drop true outcome-ok exit then
   over ls-tag over ls-tag <> if 2drop false outcome-ok exit then
   over ls-leaf? if ld-same? outcome-ok else ls-parts then ;
-\ Pairs compared off a stack (term-eqv.fs's too): xt ( a b -- same?
-\ outcome ) on the newest pair of the slab, which it may push more onto,
-\ until the slab is empty (true), a pair differs (false) or a step fails
-\ (false and its outcome). The first pair is pushed already.
-: ls-pair ( slab xt -- slab xt same? outcome ) >r dup slab-2pop r@ execute r> -rot ;
-: lf-meta-pairs-all ( slab xt -- flag outcome )
-  begin over slab-count 0> while ls-pair ok-then? 0= if nip nip false swap exit then
-  0= if 2drop false outcome-ok exit then repeat 2drop true outcome-ok ;
+\ The pairs compared off ls-pairs by slab.fs's slab-2all? (term-eqv.fs's
+\ by the same word): until none is left (true), a pair differs (false)
+\ or a step fails (false and its outcome).
 : lf-meta-level= ( a b -- flag outcome )
-  ls-start dup ok? if drop ls-pairs ['] ls-step lf-meta-pairs-all else false swap then ;
+  ls-start dup ok? if drop ls-pairs ['] ls-step slab-2all? else false swap then ;
 
 \ isNeverZero: a successor reached through max's sides or imax's second.
 : ls-push1 ( level -- outcome ) 0 ls-push ;

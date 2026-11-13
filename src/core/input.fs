@@ -349,8 +349,8 @@ create lf-input-slabs ' lf-lit-limbs , ' lf-str-bytes ,
   dup lf-idecl-hint @ over lf-idecl-height @ lf-hint-ok?
   over lf-idecl-kind @ lf-kind-definition = rot lf-idecl-hint @ lf-hint-opaque = or and ;
 : lf-param-ok? ( name -- flag ) dup 0> swap lf-name-valid? and ;
-: lf-params-ok? ( params n -- flag )
-  0 ?do dup i lf-param@ lf-param-ok? 0= if drop false unloop exit then loop drop true ;
+: lf-param-at-ok? ( params k -- params flag ) over swap lf-param@ lf-param-ok? ;
+: lf-params-ok? ( params n -- flag ) ['] lf-param-at-ok? all? nip ;
 : lf-input-params-ok? ( decl -- flag )
   dup lf-idecl-arity @ dup 0< 0=
   if swap lf-idecl-params @ swap lf-params-ok? else 2drop false then ;

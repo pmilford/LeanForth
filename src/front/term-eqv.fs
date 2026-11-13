@@ -17,7 +17,10 @@
 \   lf-lb-undef, and lf-lb ( flag -- lbool ).
 \ - lf-meta-name? ( c-addr u name -- flag ): the name is the dotted text
 \   ("Nat.succ"; Lean's match_expr), core/statement-match.fs's
-\   lf-name-dotted? with the text first;
+\   lf-name-dotted? with the text first: names of any number of parts,
+\   as Lean compares them (until 2026-11-13 the front end's own copy
+\   took at most two parts, and no caller passes more; defeq.fs tests
+\   three);
 \   lf-meta-const-named? ( t c-addr u -- flag ): t is that constant
 \   (isConstOf); lf-meta-head ( t -- head ): getAppFn.
 \ The pairs still to compare wait on a heap stack (plan task 6.2.0).
@@ -55,14 +58,11 @@ require ./instantiate.fs
 : eq-arity= ( s1 s2 -- flag ) lf-cref-pairs nip swap lf-cref-pairs nip = ;
 : eq-names= ( s1 s2 -- flag ) lf-cref-name@ drop swap lf-cref-name@ drop eq-name= ;
 : eq-level-of ( slot i -- level ) swap lf-cref-pairs drop swap eq-level@ ;
-: eq-level-at ( s1 s2 i -- flag outcome )
-  tuck eq-level-of >r eq-level-of r> lf-meta-level= ;
+: eq-level-at ( s1 s2 k -- s1 s2 flag outcome )
+  >r 2dup r@ eq-level-of swap r> eq-level-of swap lf-meta-level= ;
 \ Each pair of universe arguments, in order, until one differs.
 : eq-levels ( s1 s2 -- flag outcome )
-  over lf-cref-pairs nip 0 ?do
-    2dup i eq-level-at ok-then? 0= if nip nip false swap unloop exit then
-    0= if 2drop false outcome-ok unloop exit then
-  loop 2drop true outcome-ok ;
+  over lf-cref-pairs nip ['] eq-level-at ok-all? 2swap 2drop ;
 : eq-const ( a b -- flag outcome )
   eq-slot swap eq-slot 2dup eq-arity= 0= if 2drop false outcome-ok exit then
   2dup eq-names= if eq-levels else 2drop false outcome-ok then ;
@@ -94,7 +94,7 @@ require ./instantiate.fs
   2dup = if 2drop true outcome-ok exit then
   over lf-term-tag@ over lf-term-tag@ <> if 2drop false outcome-ok exit then
   over lf-term-binary? if eq-parts else eq-leaf then ;
-: eq-run ( -- flag outcome ) eq-pairs ['] eq-step lf-meta-pairs-all ;
+: eq-run ( -- flag outcome ) eq-pairs ['] eq-step slab-2all? ;
 : lf-meta-eqv ( a b -- flag outcome )
   2dup lf-term-pair-valid? 0= if 2drop false outcome-invalid exit then
   2dup = if 2drop true outcome-ok exit then

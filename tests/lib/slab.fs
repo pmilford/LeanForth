@@ -162,6 +162,56 @@ T{ m0 s2 slab-mark 1 s2 slab-push 2 s2 slab-push m0 s2 slab-rollback s2 slab-cou
    -> outcome-ok outcome-ok outcome-ok outcome-ok 0 }T
 s1 slab-free s2 slab-free s3 slab-free
 
+\ Worklists: slab-all? pops a value and tests it, the test pushing more,
+\ until the slab is empty (true ok), a test says false (false ok) or one
+\ fails (false and its outcome), the values not yet tested left; the
+\ trail shows the order, newest first. down? n: n < 5, n - 2 pushed when
+\ positive.
+1 cells 100 s1 slab-init drop  2 cells 100 s2 slab-init drop
+variable all-trail
+: trail+ ( n -- ) all-trail @ 10 * + all-trail ! ;
+: all-run ( slab xt -- flag outcome trail ) 0 all-trail ! slab-all? all-trail @ ;
+: step-push ( n -- outcome ) dup 0> if s1 slab-push else drop outcome-ok then ;
+: down? ( n -- flag outcome ) dup trail+ dup 5 < swap 2 - step-push ;
+T{ 3 s1 slab-push 4 s1 slab-push s1 ' down? all-run s1 slab-count
+   -> outcome-ok outcome-ok true outcome-ok 4231 0 }T
+T{ 7 s1 slab-push s1 ' down? all-run s1 slab-count s1 slab-pop
+   -> outcome-ok false outcome-ok 7 1 5 }T
+\ Empty: true and ok, no test run; a step that uses the return stack.
+T{ s1 ' down? all-run -> true outcome-ok 0 }T
+: down-r? ( n -- flag outcome ) >r r@ trail+ r@ 5 < r> 2 - step-push ;
+T{ 4 s1 slab-push s1 ' down-r? ' all-run rs-checked -> outcome-ok true outcome-ok 42 }T
+\ A failing test stops the run with false and its outcome, true flag or
+\ not; the values below stay.
+: fail-at-2 ( n -- flag outcome ) dup trail+ 2 = if true outcome-full else true outcome-ok then ;
+T{ 1 s1 slab-push 2 s1 slab-push 3 s1 slab-push 2drop drop s1 ' fail-at-2 all-run
+   s1 slab-count s1 slab-pop -> false outcome-full 32 1 1 }T
+: fail-odd ( n -- flag outcome ) trail+ false 99 ;
+T{ 5 s1 slab-push s1 ' fail-odd all-run s1 slab-count -> outcome-ok false 99 5 0 }T
+\ A push the test makes that the slab refuses: full, through the test.
+s3 slab-free 1 cells 1 s3 slab-init drop
+: two? ( n -- flag outcome ) trail+ true 1 s3 slab-push 2 s3 slab-push outcome-and ;
+T{ 9 s3 slab-push s3 ' two? all-run s3 slab-count -> outcome-ok false outcome-full 9 1 }T
+\ Pairs: slab-2all? pops x1 x2 in slab-2push's order. pair? a b: a + b
+\ < 9, a - 1 b pushed while a > 0; the trail holds each a.
+: pair? ( a b -- flag outcome )
+  over trail+ over 0> if over 1- over s2 slab-2push else outcome-ok then >r + 9 < r> ;
+: all2-run ( slab xt -- flag outcome trail ) 0 all-trail ! slab-2all? all-trail @ ;
+T{ 3 2 s2 slab-2push s2 ' pair? all2-run s2 slab-count -> outcome-ok true outcome-ok 3210 0 }T
+T{ 8 3 s2 slab-2push s2 ' pair? all2-run s2 slab-2pop -> outcome-ok false outcome-ok 8 7 3 }T
+T{ 2 2 s2 slab-2push s2 ' pair? ' all2-run rs-checked -> outcome-ok true outcome-ok 210 }T
+\ A slab that is not live: false and invalid, no test run, nothing
+\ popped; units too narrow for a pair throw slab-underflow, nothing
+\ popped.
+2 1 s2 slab-2push drop  s2 slab-seal @ 1+ s2 slab-seal !
+T{ s2 ' pair? all2-run s2 slab-count -> false outcome-invalid 0 1 }T
+s2 slab-seal @ 1- s2 slab-seal !
+T{ s2 slab-2pop s1 slab-free s1 ' down? all-run -> 2 1 false outcome-invalid 0 }T
+1 cells 100 s1 slab-init drop
+T{ 5 s1 slab-push s1 ' pair? ' slab-2all? catch nip nip s1 slab-count s1 slab-pop
+   -> outcome-ok -4132 1 5 }T
+s1 slab-free s2 slab-free s3 slab-free
+
 \ A randomized stack: pushes, pair pushes and pops against a model array,
 \ the slab's limit reached now and then (full, nothing changed).
 create stack-model 64 cells allot

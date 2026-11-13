@@ -152,8 +152,7 @@ end-structure
 : lf-mark-zeroed ( p -- addr|0 )
   lf-mark-page-bytes allocate0 if 2drop 0 exit then tuck swap lf-mark-page ! ;
 : lf-mark-listed ( p -- addr|0 )
-  1 lf-mark-made slab-claim ok? 0= if 2drop 0 exit then
-  lf-mark-made slab-at over swap ! lf-mark-zeroed ;
+  dup lf-mark-made slab-push ok? 0= if drop 0 exit then lf-mark-zeroed ;
 : lf-mark-paged ( p -- addr|0 ) dup lf-mark-page @ ?dup if nip else lf-mark-listed then ;
 : lf-mark-in-page ( u addr -- unit ) swap lf-mark-page-mask and /lf-unit * + ;
 : lf-input-mark-at ( node -- unit )

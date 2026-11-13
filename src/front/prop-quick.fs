@@ -54,12 +54,9 @@ require ./term-eqv.fs
     lf-level-tag-max of pq-lsides true swap endof
     lf-level-tag-imax of lf-level-second@ pq-lpush true swap endof
     >r drop false outcome-ok r> endcase ;
-: pq-lrun ( -- flag outcome )
-  begin pq-levels slab-count 0> while pq-levels slab-pop pq-lstep ok-then? 0=
-  if false swap exit then
-  0= if false outcome-ok exit then repeat true outcome-ok ;
 : lf-meta-always-zero? ( level -- flag outcome )
-  pq-levels slab-clear pq-lpush dup ok? if drop pq-lrun else false swap then ;
+  pq-levels slab-clear pq-lpush dup ok? if drop pq-levels ['] pq-lstep slab-all?
+  else false swap then ;
 
 \ ---- The type of a head: a constant's (inferConstType), a free
 \ variable's or a metavariable's.

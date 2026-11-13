@@ -260,7 +260,7 @@ lf-tag-app lf-tag-bit lf-tag-bvar lf-tag-bit or lf-tag-constant lf-tag-bit or
 : lfx-expr-line ( n term -- ) lfx-begin lfx-open lfx-expr-members lfx-close lfx-emit ;
 \ A projection's leaf is no expression of its own: the projection holds
 \ it; a node not wanted is none either.
-: lfx-skip? ( term -- flag ) dup lf-term-tag@ lf-tag-proj = swap lfx-wanted? 0= or ;
+: lfx-skip? ( term -- flag ) dup lf-proj-leaf? swap lfx-wanted? 0= or ;
 : lfx-expr ( next term -- next' )
   dup lfx-skip? if -1 swap lfx-expr! exit then
   2dup lfx-expr! over swap lfx-expr-line 1+ ;

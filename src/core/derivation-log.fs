@@ -807,7 +807,7 @@ create lf-log-level-copier
 \ (lf-fvar-depth); any other tag, or a free variable not live or whose
 \ binder lies outside its context, is unreadable.
 : lf-log-term-arity ( tag -- n ) lf-term-binary-tag? if 2 else 0 then ;
-: lf-log-term-inner ( tag -- n ) dup lf-tag-lam = swap lf-tag-pi = or 1 and ;
+: lf-log-term-inner ( tag -- n ) lf-term-binder-tag? 1 and ;
 : lf-log-at-index ( d -- index true | false )
   dup 0< if lf-log-unreadable exit then
   lf-log-state lf-logs-at-context @ swap - 1- dup 0< if lf-log-unreadable exit then true ;

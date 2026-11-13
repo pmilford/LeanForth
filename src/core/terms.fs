@@ -726,7 +726,7 @@ defer lf-term-view-hook ( -- outcome )
 \ uses instead: import/feed.fs, ADR 0014 Amendment 7).
 : lf-tin-binder? ( index -- flag )
   dup lf-term-input? 0= if drop false exit then
-  lf-tin-tag@ dup lf-tag-lam = swap lf-tag-pi = or ;
+  lf-tin-tag@ lf-term-binder-tag? ;
 : lf-tbind-new? ( index -- flag )
   dup lf-tbind-fields lf-tin-key! lf-term-view lf-tview-binders htab-find
   if 2drop false else lf-term-view lf-tview-binders htab-put true then ;

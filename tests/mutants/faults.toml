@@ -2996,8 +2996,8 @@ reason = "a backslash in a name is not escaped, so a name can show the text of a
 [[fault]]
 id = "cli-name-no-root"
 file = "src/cli/name-text.fs"
-old = '''    over swap nt-parts slab-at ! lf-name-prefix@'''
-new = '''    over swap nt-parts slab-at ! drop 0'''
+old = '''    dup nt-parts slab-push ok? 0= if drop outcome-full exit then lf-name-prefix@'''
+new = '''    dup nt-parts slab-push ok? 0= if drop outcome-full exit then drop 0'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "only a name's last component is shown, not the walk to its root"
 
@@ -8760,7 +8760,7 @@ gap = "no table row has a let in a constructor's type that hides a nonuniform oc
 [[fault]]
 id = "s5b-author-proj-as-app"
 file = "src/author/build.fs"
-old = ''': lfa-app-tag ( f -- tag ) lfa-leaf? if lf-tag-projection else lf-tag-app then ;'''
+old = ''': lfa-app-tag ( f -- tag ) lf-proj-leaf? if lf-tag-projection else lf-tag-app then ;'''
 new = ''': lfa-app-tag ( f -- tag ) drop lf-tag-app ;'''
 test = "python3 tests/author/check_author.py"
 reason = "S5B: the authors' $ applies a projection leaf as a function instead of making a projection"
@@ -14223,8 +14223,8 @@ quick = true
 [[fault]]
 id = "lib-slab-pop-empty"
 file = "src/lib/slab.fs"
-old = '''  tuck slab-wide? over slab-count 0> and 0= if slab-underflow throw then'''
-new = '''  tuck slab-wide? 0= if slab-underflow throw then'''
+old = '''  tuck slab-unit u<= swap dup slab-count swap slab-capacity 1 swap between? and ;'''
+new = '''  tuck slab-unit u<= swap dup slab-count swap slab-capacity 0 swap between? and ;'''
 test = "$GFORTH tests/lib/slab.fs"
 reason = "a pop of an empty slab reads before its block and leaves the count -1 instead of throwing slab-underflow"
 quick = true
@@ -14248,8 +14248,8 @@ reason = "a pair is stored swapped, so slab-2pop (and slab-last's 2@) give x2 x1
 [[fault]]
 id = "lib-slab-last-oldest"
 file = "src/lib/slab.fs"
-old = '''  dup slab-count 1- swap slab-at ;'''
-new = '''  0 swap slab-at ;'''
+old = '''  tuck slab-has-top? 0= if slab-underflow throw then dup slab-count 1- swap slab-at ;'''
+new = '''  tuck slab-has-top? 0= if slab-underflow throw then 0 swap slab-at ;'''
 test = "$GFORTH tests/lib/slab.fs"
 reason = "the stack's top is the oldest unit: pops come back first in, first out"
 
@@ -14347,9 +14347,9 @@ reason = "a merge whose scratch the heap refuses leaves the arguments unsorted a
 
 [[fault]]
 id = "fe-pairs-all-past-difference"
-file = "src/front/level-simp.fs"
-old = '''  0= if 2drop false outcome-ok exit then repeat 2drop true outcome-ok ;'''
-new = '''  drop repeat 2drop true outcome-ok ;'''
+file = "src/lib/outcome.fs"
+old = '''  over 0<> over ok? and if 2drop true else nip false swap false then ;'''
+new = '''  dup ok? if 2drop true else nip false swap false then ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "a comparison of pairs goes on past a pair that differs: Level.beq and Expr.eqv answer true for different levels and terms"
 quick = true
@@ -14377,6 +14377,129 @@ old = '''  0 max 0 ?do 2dup i cells + @ = if 2drop i true unloop exit then loop 
 new = '''  0 max 0 ?do 2dup i cells + @ = if 2drop i 1+ true unloop exit then loop 2drop false ;'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "cells-index gives the index after the match"
+
+[[fault]]
+id = "lib-slab-pop-past-capacity"
+file = "src/lib/slab.fs"
+old = '''  tuck slab-unit u<= swap dup slab-count swap slab-capacity 1 swap between? and ;'''
+new = '''  tuck slab-unit u<= swap slab-count 0> and ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review reuse-1a M1: a pop of a slab whose count is corrupted past its capacity reads past the block instead of throwing slab-underflow"
+
+[[fault]]
+id = "lib-slab-pop-narrow"
+file = "src/lib/slab.fs"
+old = '''  tuck slab-unit u<= swap dup slab-count swap slab-capacity 1 swap between? and ;'''
+new = '''  nip dup slab-count swap slab-capacity 1 swap between? ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review reuse-1a M1: a pair popped from units of one cell reads past its unit instead of throwing slab-underflow"
+
+[[fault]]
+id = "lib-outcome-ok-true-failure-lost"
+file = "src/lib/outcome.fs"
+old = '''  over 0<> over ok? and if 2drop true else nip false swap false then ;'''
+new = '''  over 0<> over ok? and if 2drop true else 2drop false outcome-ok false then ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "ok-true? stops a failing step as a plain false: ok-all? and slab-all? read a refusal as a definite no"
+quick = true
+
+[[fault]]
+id = "lib-outcome-all-past-false"
+file = "src/lib/outcome.fs"
+old = '''  dup 1+ swap ?do 0 max 0 ?do i j execute 0= if false unloop unloop exit then'''
+new = '''  dup 1+ swap ?do 0 max 0 ?do i j execute drop'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "all? runs every test and answers true whatever they gave"
+quick = true
+
+[[fault]]
+id = "lib-outcome-all-negative"
+file = "src/lib/outcome.fs"
+old = '''  dup 1+ swap ?do 0 max 0 ?do i j execute 0= if false unloop unloop exit then'''
+new = '''  dup 1+ swap ?do 0 ?do i j execute 0= if false unloop unloop exit then'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "all? with a negative count runs tests (?DO wraps round) instead of none"
+
+[[fault]]
+id = "lib-outcome-ok-all-past-answer"
+file = "src/lib/outcome.fs"
+old = '''  dup 1+ swap ?do 0 max 0 ?do i j execute ok-true? 0= if unloop unloop exit then'''
+new = '''  dup 1+ swap ?do 0 max 0 ?do i j execute 2drop'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "ok-all? runs every test and answers true and ok whatever they gave"
+
+[[fault]]
+id = "lib-slab-all-unchecked"
+file = "src/lib/slab.fs"
+old = '''  over slab-live? if ['] slab-step slab-drained else slab-dead then ;'''
+new = '''  ['] slab-step slab-drained ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "slab-all? drains a slab that is not live (a freed slab) instead of answering false and invalid"
+
+[[fault]]
+id = "lib-slab-2all-one-cell"
+file = "src/lib/slab.fs"
+old = ''': slab-2step ( slab xt -- slab xt flag outcome ) >r dup slab-2pop r@ execute r> -rot ;'''
+new = ''': slab-2step ( slab xt -- slab xt flag outcome ) >r dup slab-pop r@ execute r> -rot ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "slab-2all? pops one cell, not a pair: the test reads the slab beneath as its first value"
+
+[[fault]]
+id = "fe-pairs-all-outcome-lost"
+file = "src/lib/slab.fs"
+old = '''  >r begin slab-more? while r@ execute ok-true? 0= if r> drop slab-stop exit then'''
+new = '''  >r begin slab-more? while r@ execute ok-true? 0= if r> drop slab-stop drop outcome-ok exit then'''
+test = "$GFORTH tests/front/meta-heap.fs"
+reason = "review reuse-1a H1: a failing pair step reads as different and ok, so a refused push in Level.beq or Expr.eqv is a definite not equal"
+quick = true
+
+[[fault]]
+id = "fe-eq-push-full-lost"
+file = "src/front/term-eqv.fs"
+old = ''': eq-push ( a b -- outcome ) eq-pairs slab-2push ;'''
+new = ''': eq-push ( a b -- outcome ) eq-pairs slab-2push drop outcome-ok ;'''
+test = "$GFORTH tests/front/meta-heap.fs"
+reason = "review reuse-1a H1: Expr.eqv ignores a refused push and answers for the pairs it kept"
+
+[[fault]]
+id = "fe-level-seconds-push-lost"
+file = "src/front/level-simp.fs"
+old = '''  lf-level-second@ swap lf-level-second@ ls-push true swap ;'''
+new = '''  lf-level-second@ swap lf-level-second@ ls-push drop true outcome-ok ;'''
+test = "$GFORTH tests/front/meta-heap.fs"
+reason = "review reuse-1a H1: Level.beq drops a max's second parts when the pair stack is full and answers true for parts it never compared"
+
+[[fault]]
+id = "fe-assign-or-last-only"
+file = "src/front/assign-check.fs"
+old = '''  ok-then? if or outcome-ok else nip false swap then ;'''
+new = '''  ok-then? if nip outcome-ok else nip false swap then ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "review reuse-1a M2: checkAssignment's occurs check counts only the last pattern variable's type"
+
+[[fault]]
+id = "fe-fun-info-ho-free-ignored"
+file = "src/front/fun-info.fs"
+old = '''  fi-ho? ok-then? if if outcome-unsupported else outcome-ok then then ;'''
+new = '''  fi-ho? ok-then? if drop outcome-ok then ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "review reuse-1a M2: getFunInfoNArgs takes a higher-order out-parameter as an ordinary one instead of unsupported"
+
+[[fault]]
+id = "fe-dag-walk-in-negative"
+file = "src/front/dag-walk.fs"
+old = ''': dw-in? ( node walk -- flag ) dw-size @ index? ;'''
+new = ''': dw-in? ( node walk -- flag ) dw-size @ < ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "review reuse-1a L1: a negative node is inside the walk's memo, which it then reads before its block"
+
+[[fault]]
+id = "core-names-entry-after-root"
+file = "src/core/names.fs"
+old = ''': lf-name-entry-after? ( k -- flag ) 1+ lf-name-entry-checked? ;'''
+new = ''': lf-name-entry-after? ( k -- flag ) lf-name-entry-checked? ;'''
+test = "$GFORTH tests/core/names.fs"
+reason = "the name store's audit checks entries 0 .. count - 2: the root as an entry, and never the newest"
 
 # --- the front end's isDefEq (src/front/defeq.fs and its helpers; plan FE1c)
 
@@ -14583,8 +14706,8 @@ reason = "FE1c review B1: Nat.succ ?h =?= 2^63 compared signed answers false"
 [[fault]]
 id = "fe-defeq-eqv-first-level"
 file = "src/front/term-eqv.fs"
-old = '''  over lf-cref-pairs nip 0 ?do'''
-new = '''  over lf-cref-pairs nip 1 min 0 ?do'''
+old = '''  over lf-cref-pairs nip ['] eq-level-at ok-all? 2swap 2drop ;'''
+new = '''  over lf-cref-pairs nip 1 min ['] eq-level-at ok-all? 2swap 2drop ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c review M3: == compares only a constant's first universe argument"
 

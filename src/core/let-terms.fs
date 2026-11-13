@@ -42,7 +42,7 @@ require ./terms.fs
 : lf-let-type ( let -- T ) lf-let-binder lf-term-first@ ;
 : lf-let-body ( let -- b ) lf-let-binder lf-term-second@ ;
 : lf-let-nondep ( let -- flag ) lf-term-tag@ lf-tag-let-nondep = ;
-: lf-let-well? ( let -- flag ) lf-let-binder lf-term-tag@ lf-tag-lam = ;
+: lf-let-well? ( let -- flag ) lf-let-binder lf-term-lam? ;
 
 \ Constructors: the let of value v and lam = fun x : T => b, the tag
 \ from the flag (any true flag is nonDep). From live handles; or from

@@ -228,6 +228,18 @@ T{ fs 1 lf-meta-fun-info ?t 1 lf-meta-fun-info fp 0 proj 1 lf-meta-fun-info
 : hadd3 ( -- f ) l0 l0 l0 3 s" HAdd.hAdd" cn ;
 T{ hadd3 6 lf-meta-fun-info 0 lf-meta-param 3 lf-meta-param 5 lf-meta-param
    -> 6 outcome-ok lf-binder-implicit false lf-binder-instance false lf-binder-default false }T
+\ A higher-order out-parameter is unsupported (review reuse-1a M2): no
+\ constant of the slice has one (Init's Functor.map would: [Functor f],
+\ f : Type u -> Type v), so the telescope's records are filled by hand:
+\ fu : Nat -> Nat explicit, then an implicit h : Eq fu fu, whose type's
+\ head might be a class and has fu, a function, as an argument; h leaves
+\ the local context at the end.
+: ho-params ( h -- )
+  fi-params slab-clear fu lf-binder-default 0 fi-push drop lf-binder-implicit 0 fi-push drop ;
+: ho-run ( -- outcome outcome outcome )
+  fi-mark >r lv1 1 s" Eq" cn nat>nat app fu app fu app lf-lctx-local made ho-params
+  0 fi-ho-free 1 fi-ho-free fi-props r> lf-lctx-drop ;
+T{ ho-run lf-lctx-count @ -> outcome-ok outcome-unsupported outcome-unsupported lctx0 }T
 \ isProofQuick through a head's arguments: Eq.refl's type ends in Prop,
 \ id's in its type argument (Nat, never zero), HAdd.hAdd's in an outParam.
 : id-k ( -- t ) lv1 1 s" id" cn nat app fk app ;
@@ -298,6 +310,10 @@ T{ ?n ?n fk nat-add dq ?n free? -> false outcome-unsupported true }T
 \ checkAssignment: ?n in an xi's type, in a metavariable's type, through
 \ a delayed assignment; ?z's context less j is a prefix of ?n's.
 T{ ?n xq 1 fk chk -> fk false outcome-ok }T
+\ Each xi's answer counts, not only the last's (review reuse-1a M2).
+create xqk 2 cells allot  fq xqk !  fk xqk cell+ !
+create xkq 2 cells allot  fk xkq !  fq xkq cell+ !
+T{ ?n xqk 2 fk chk ?n xkq 2 fk chk -> fk false outcome-ok fk false outcome-ok }T
 T{ ?n xs 0 ?w chk rot drop -> false outcome-ok }T
 T{ own-mark ?d ?n 0 lf-mvar-delay ?n xs 0 ?d chk rot drop own-back
    -> outcome-ok false outcome-ok }T

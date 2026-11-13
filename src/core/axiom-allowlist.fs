@@ -134,11 +134,8 @@ end-structure
 /lf-allow context-record: lf-allow-state
 : lf-allow-id ( k -- addr ) cells lf-allow-state lf-allow-ids + ;
 : lf-allow-keep ( -- n ) lf-stmt-met@ dup 0 ?do i lf-stmt-id @ i lf-allow-id ! loop ;
-: lf-allow-lean? ( -- flag outcome )
-  lf-allow-keep 0 ?do
-    i lf-allow-id @ lf-lean-own? ok-then? 0= if false swap unloop exit then
-    0= if false outcome-ok unloop exit then
-  loop true outcome-ok ;
+: lf-allow-own? ( k -- flag outcome ) lf-allow-id @ lf-lean-own? ;
+: lf-allow-lean? ( -- flag outcome ) lf-allow-keep ['] lf-allow-own? ok-all? ;
 \ A listed bit stays when its statement's constants are Lean's own.
 : lf-allow-checked ( bit -- bit' outcome )
   lf-allow-lean? ok-then? 0= if nip -1 swap exit then

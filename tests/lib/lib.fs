@@ -84,6 +84,11 @@ T{ 9 some-cells 2 cells-index 9 some-cells 3 cells-index -> false 2 true }T
 T{ 4 some-cells 0 cells-index 4 some-cells -3 cells-index 7 some-cells 5 cells-index
    -> false false false }T
 T{ 9 some-cells 5 ' cells-index rs-checked -> 2 true }T
+\ cells-has?: cells-index's flag alone, the index dropped (review
+\ reuse-1a L1); none in an empty or negative range.
+T{ 9 some-cells 5 cells-has? 7 some-cells 5 cells-has? 4 some-cells 0 cells-has? -> true false false }T
+T{ 0 some-cells 5 cells-has? 0 some-cells 4 cells-has? 4 some-cells -1 cells-has? -> true false false }T
+T{ -1 some-cells 2 ' cells-has? rs-checked -> true }T
 
 \ cells-zero?: any nonzero cell in range makes it false.
 create zero-cells 3 cells allot
@@ -494,6 +499,52 @@ T{ outcome-full first-cell outcome-first! first-cell @ -> outcome-full }T
 T{ outcome-invalid first-cell outcome-first! outcome-ok first-cell outcome-first! first-cell @
    -> outcome-full }T
 T{ outcome-unknown first-cell ' outcome-first! rs-checked first-cell @ -> outcome-full }T
+\ ok-true?: go on (true) only after true and ok; else false, the outcome
+\ and false: a failure keeps its outcome whatever the flag.
+T{ true outcome-ok ok-true? 1 outcome-ok ok-true? -> true true }T
+T{ false outcome-ok ok-true? -> false outcome-ok false }T
+T{ true outcome-full ok-true? false outcome-unknown ok-true? 7 99 ok-true?
+   -> false outcome-full false false outcome-unknown false false 99 false }T
+\ all?: the test ( i*x k -- i*x flag ) for k = 0 .. n-1 while true; n <=
+\ 0 gives true. test-k keeps a trail of the k it saw and fails at k = 3;
+\ cell-pos? reads a table kept below k.
+: test-k ( x k -- x flag ) dup step-trail @ 10 * + 1+ step-trail ! 3 <> ;
+: alled ( x n xt -- x flag trail ) 0 step-trail ! all? step-trail @ ;
+T{ 7 3 ' test-k alled 7 6 ' test-k alled -> 7 true 123 7 false 1234 }T
+T{ 7 0 ' test-k alled 7 -5 ' test-k alled 7 max-n invert ' test-k alled
+   -> 7 true 0 7 true 0 7 true 0 }T
+T{ 7 6 ' test-k ' alled rs-checked -> 7 false 1234 }T
+: cell-pos? ( table k -- table flag ) cells over + @ 0> ;
+create pos-cells 3 , 1 , 9 , -2 , 4 ,
+T{ pos-cells 3 ' cell-pos? all? nip pos-cells 4 ' cell-pos? all? nip -> true false }T
+\ A true flag other than -1 counts as true; the answer is a well-formed flag.
+: test-one ( k -- flag ) drop 1 ;
+T{ 4 ' test-one all? -> true }T
+\ Nested: whether every k < n has every j < k below 3.
+: below-3? ( j -- flag ) 3 < ;
+: all-below? ( k -- flag ) ['] below-3? all? ;
+T{ 4 ' all-below? all? 5 ' all-below? all? -> true false }T
+\ A test that uses the return stack.
+: test-r ( x k -- x flag ) >r dup r> > ;
+T{ 5 5 ' test-r all? 5 6 ' test-r all? -> 5 true 5 false }T
+\ ok-all?: the test ( i*x k -- i*x flag outcome ) while true and ok:
+\ true and ok; false and ok at the first false; false and the outcome at
+\ the first failure, true flag or not. n <= 0: true and ok.
+: test-ko ( x k -- x flag outcome )
+  dup step-trail @ 10 * + 1+ step-trail ! case
+    2 of dup 0= outcome-ok endof  4 of true outcome-full endof  true outcome-ok rot
+  endcase ;
+: ok-alled ( x n xt -- x flag outcome trail ) 0 step-trail ! ok-all? step-trail @ ;
+T{ 1 2 ' test-ko ok-alled 1 6 ' test-ko ok-alled -> 1 true outcome-ok 12 1 false outcome-ok 123 }T
+T{ 0 6 ' test-ko ok-alled -> 0 false outcome-full 12345 }T
+T{ 0 0 ' test-ko ok-alled 0 -3 ' test-ko ok-alled 0 max-n invert ' test-ko ok-alled
+   -> 0 true outcome-ok 0 0 true outcome-ok 0 0 true outcome-ok 0 }T
+T{ 0 6 ' test-ko ' ok-alled rs-checked -> 0 false outcome-full 12345 }T
+\ A failing test's false flag keeps its outcome; an outcome outside the
+\ vocabulary stops the loop as a failure.
+: test-fail ( k -- flag outcome ) drop false outcome-exhausted ;
+: test-odd ( k -- flag outcome ) drop true 99 ;
+T{ 3 ' test-fail ok-all? 3 ' test-odd ok-all? -> false outcome-exhausted false 99 }T
 
 \ walk: refuses a capacity below 1.
 : bad-walk? ( addr u -- flag ) ['] evaluate catch dup if nip nip then 0<> ;

@@ -76,12 +76,10 @@ lf-level-walk-room context-walk: lf-lscope-walk
   repeat nip lf-lscope-seen ! false ;
 : lf-lscope-hash-ok? ( mask i -- mask flag )
   lf-lscope-id@ dup 0> if over lf-lscope-seen? 0= else drop false then ;
-: lf-lscope-pairs-ok? ( -- flag )
-  lf-lscope-context-count @ 0 ?do
-    i lf-lscope-pair-ok? 0= if false unloop exit then loop true ;
+: lf-lscope-pairs-ok? ( -- flag ) lf-lscope-context-count @ ['] lf-lscope-pair-ok? all? ;
 : lf-lscope-hashed ( slots -- flag )
-  dup cells 0 lf-lscope-seen swap erase 1- lf-lscope-context-count @ 0 ?do
-    i lf-lscope-hash-ok? 0= if drop false unloop exit then loop drop true ;
+  dup cells 0 lf-lscope-seen swap erase 1- lf-lscope-context-count @
+  ['] lf-lscope-hash-ok? all? nip ;
 : lf-lscope-table? ( slots -- flag )
   dup lf-lscope-power-of-two? if lf-lscope-table slab-hold ok? else drop false then ;
 : lf-lscope-hashed-ok? ( -- flag )

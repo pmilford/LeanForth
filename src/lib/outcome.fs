@@ -6,8 +6,9 @@
 \ (full: more memory or a larger limit would help) are distinct, and
 \ neither is ever ok. Chains of steps that stop at the first failure:
 \ outcome-and, outcome-steps, ok-and, ok-with, the ok-then and ok-keep
-\ words, and the loops ok-each and ok-fold; outcome-first! keeps a first
-\ failure in a cell.
+\ words, and the loops ok-each and ok-fold; the tests over every index,
+\ all? (a flag) and ok-all? (a flag and an outcome), with ok-true? their
+\ stop test; outcome-first! keeps a first failure in a cell.
 \ No state, no dependencies.
 
 0 constant outcome-ok           \ succeeded; for a comparison, shown equal
@@ -87,6 +88,30 @@
 : ok-fold ( x n y xt -- x' outcome )
   dup 1+ swap ?do swap 0 max 0 ?do tuck i swap j execute ok-keep? 0= if
   unloop unloop exit then swap loop loop drop outcome-ok ;
+\ Go on only after a true answer that is ok: true; else false, the
+\ outcome (ok after a plain false) and false, so a failing step never
+\ reads as a plain false. The stop test of ok-all? and slab.fs's
+\ slab-all?.
+: ok-true? ( flag outcome -- true | false outcome false )
+  over 0<> over ok? and if 2drop true else nip false swap false then ;
+\ Whether the test xt ( i*x k -- i*x flag ) holds for k = 0, 1, ... n-1:
+\ true, or false at the first k it fails, after which none runs. n <= 0
+\ gives true. The values below k are the tests' to read, as ok-each's,
+\ and the xt is kept the same way. Example, whether the first three
+\ cells of a table are positive: `table 3 ' cell-pos? all? nip` with
+\ `: cell-pos? ( table k -- table flag ) cells over + @ 0> ;`.
+: all? ( i*x n xt -- i*x flag )
+  dup 1+ swap ?do 0 max 0 ?do i j execute 0= if false unloop unloop exit then
+  loop loop true ;
+\ The same for a test that may fail, xt ( i*x k -- i*x flag outcome ):
+\ true and ok when every test gives true and ok; else false beside the
+\ first answer's outcome that stops the loop, ok for a plain false. n <=
+\ 0 gives true and ok. Example, Level.beq of a constant's universe
+\ arguments: `s1 s2 n ' level-at ok-all? 2swap 2drop` with level-at
+\ ( s1 s2 k -- s1 s2 flag outcome ).
+: ok-all? ( i*x n xt -- i*x flag outcome )
+  dup 1+ swap ?do 0 max 0 ?do i j execute ok-true? 0= if unloop unloop exit then
+  loop loop true outcome-ok ;
 \ Keep the first failure in a cell: store the outcome only while the cell
 \ holds ok, so a later outcome, ok or not, never hides an earlier failure.
 : outcome-first! ( outcome a-addr -- ) dup @ ok? if ! else 2drop then ;
