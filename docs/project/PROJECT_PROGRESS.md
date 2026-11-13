@@ -81,8 +81,9 @@ status changes when this date is older than them. Stages are those of the
 - A rule-by-rule audit of AGENTS.md against practice.
 - Snapshots that read the two previous format and verdict versions (6.2.5c): designed, the owner's four questions
   answered 2026-11-12 ([design](../design/SNAPSHOT_COMPATIBILITY.md), ADR 0020 Amendment 5 proposed); steps c1 to c5
-  written and tested alone on branch `snap-compat` (`edb5554`), the Forth review and its three re-checks not blocking,
-  approved by the owner 2026-11-13; being merged with the kernel refactor.
+  integrated (merged 2026-11-13, owner approved [format][kernel][import]): `check --snapshot OLD` reads a snapshot of
+  either previous verdict version, says how many results it checks again, and `--save-snapshot NEW` upgrades it; a done
+  check is owed.
 
 **Later**
 - Proof development (owner, 2026-11-12; long term, after strict Lean compatibility): research note
