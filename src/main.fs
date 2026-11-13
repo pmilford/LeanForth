@@ -64,6 +64,7 @@ require ./present/proof-outline.fs
 \ pieces of the Meta layer (plan FE1c): level unification, bound-variable
 \ instantiation and abstraction, level simplification and normalization,
 \ and universe-parameter instantiation.
+require ./front/level-map.fs
 require ./front/mvars.fs
 require ./front/level-defeq.fs
 require ./front/instantiate.fs

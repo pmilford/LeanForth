@@ -10395,7 +10395,7 @@ reason = "FE1c: u + 1 with u := 1 becomes 1, the successor above the parameter d
 [[fault]]
 id = "fe-lparams-const-kept"
 file = "src/front/level-params.fs"
-old = ''': lp-const-build ( node -- image ) dup lp-cref-moves? if lp-const-new then ;'''
+old = ''': lp-const-build ( node -- image ) ['] lp-image lf-meta-const-remap lp-remapped ;'''
 new = ''': lp-const-build ( node -- image ) ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: a constant keeps its universe parameters after instantiateLevelParams"
@@ -10626,15 +10626,15 @@ reason = "FE1b: a rebuilt binder loses its name and kind (Lean's terms keep them
 [[fault]]
 id = "fe-sort-level-kept"
 file = "src/front/mvars.fs"
-old = '''  mv-sort-level 0= if exit then 2dup swap lf-term-first@ = if drop exit then'''
-new = '''  exit'''
+old = ''': mv-sort-build ( node -- image ) ['] mv-level-image lf-meta-sort-remap mv-remapped ;'''
+new = ''': mv-sort-build ( node -- image ) ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1b: Sort ?u keeps ?u after ?u is assigned"
 
 [[fault]]
 id = "fe-const-levels-kept"
 file = "src/front/mvars.fs"
-old = ''': mv-const-build ( node -- image ) dup mv-cref-moves? if mv-const-new then ;'''
+old = ''': mv-const-build ( node -- image ) ['] mv-level-image lf-meta-const-remap mv-remapped ;'''
 new = ''': mv-const-build ( node -- image ) ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1b: a constant over ?u keeps ?u after ?u is assigned"
@@ -10814,3 +10814,19 @@ old = '''  dup lf-level-mvar-live? if lf-level-mvar-depth lf-mctx-depth < 0= els
 new = '''  lf-level-mvar-live? ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: hasAssignableLevelMVar counts a read-only metavariable, so a pair Lean answers false is postponed (unsupported)"
+
+[[fault]]
+id = "fe-lmap-old-levels"
+file = "src/front/level-map.fs"
+old = '''  0 ?do dup i lf-cref-pair@ drop lmap-image i lmap-at lmap-pair! loop drop ;'''
+new = '''  0 ?do dup i lf-cref-pair@ drop i lmap-at lmap-pair! loop drop ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c review Q5: a rebuilt constant keeps its old universe arguments instead of their images"
+
+[[fault]]
+id = "fe-lmap-sort-same"
+file = "src/front/level-map.fs"
+old = '''  if drop outcome-ok else nip lmap-sort-new then ;'''
+new = '''  2drop outcome-ok ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c review Q5: a Sort keeps its level after the level's image changes"

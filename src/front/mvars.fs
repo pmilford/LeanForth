@@ -34,7 +34,8 @@
 \   binders keep their names and kinds (present/binder-table.fs), a Sort
 \   over a level metavariable gets the level's value, a constant whose
 \   universe arguments hold one gets a new reference with the levels'
-\   images, and a node that changes nothing stays the same node. Two steps
+\   images (level-map.fs), and a node that changes nothing stays the same
+\   node. Two steps
 \   of Lean's need the instantiation of bound variables (plan FE1c) and
 \   answer unsupported until then, never another term: the beta step for
 \   ?f a when ?f's value is a lambda, and putting in a delayed assignment's
@@ -76,6 +77,7 @@ require ../core/tagged-sort-boundary.fs
 require ../core/mvar-leaves.fs
 require ../present/binder-table.fs
 require ./dag-walk.fs
+require ./level-map.fs
 
 0 constant mv-natural
 1 constant mv-synthetic
@@ -103,7 +105,6 @@ begin-structure /mctx
   field: mctx-depth
   field: mctx-target      \ the metavariable an occurs check seeks
   field: mctx-marks       \ marks open (lf-mctx-mark)
-  field: mctx-pairs       \ heap, while a constant is rebuilt: its new level pairs
   /dw +field mctx-walk    \ the term walks
   /dw +field mctx-lwalk   \ the level walks
 end-structure
@@ -382,40 +383,13 @@ store-header context-record: mv-fvars
   r@ lf-term-tag@ lf-term-binary if r> mv-named exit then r> outcome-full mv-refuse ;
 : mv-pair-build ( node walk -- image )
   2dup mv-beta? if drop outcome-unsupported mv-refuse else mv-rebuild then ;
-\ A level's identity, or 0 for no level (lf-hterm-sort and lf-cref-new
-\ then refuse it).
-: mv-identity ( level -- identity ) lf-level-identity 0= if 0 then ;
-: mv-sort-new ( level -- image )
-  dup mv-identity lf-hterm-sort if drop else outcome-full mv-refuse -1 then ;
-: mv-sort-level ( node -- node level' true | node false )
-  dup lf-term-first@ lf-level-instantiate-mvars dup ok? if drop true exit then
-  mv-refuse drop false ;
-: mv-sort-build ( node -- image )
-  mv-sort-level 0= if exit then 2dup swap lf-term-first@ = if drop exit then
-  nip mv-sort-new ;
-\ A constant whose universe arguments change gets a reference to the same
-\ name with each argument's image, built in a heap block of (level,
-\ identity) pairs freed at once (core/constant-references.fs).
+\ A Sort's level and a constant's universe arguments get their images
+\ (level-map.fs rebuilds the node when one changes).
 : mv-level-image ( level -- level' )
   lf-level-instantiate-mvars dup ok? if drop else mv-refuse then ;
-: mv-cref ( term -- slot ) lf-term-first@ lf-cref-slot ;
-: mv-moves? ( flag addr i -- flag' ) lf-cref-pair@ drop dup mv-level-image <> or ;
-: mv-cref-moves? ( term -- flag )
-  mv-cref lf-cref-pairs false swap 0 ?do over i mv-moves? loop nip ;
-: mv-pairs-at ( i -- addr ) 2* cells mctx mctx-pairs @ + ;
-: mv-pair! ( level addr -- ) >r dup mv-identity swap r> 2! ;
-: mv-image-pairs ( addr count -- )
-  0 ?do dup i lf-cref-pair@ drop mv-level-image i mv-pairs-at mv-pair! loop drop ;
-: mv-block ( count -- flag )
-  2* cells 1 max allocate if drop false exit then mctx mctx-pairs ! true ;
-: mv-ref-new ( slot -- term true | false )
-  dup lf-cref-name@ rot lf-cref-pairs nip mctx mctx-pairs @ swap lf-cref-new
-  if lf-cterm-new if drop true exit then then false ;
-: mv-const-new ( node -- image )
-  dup mv-cref lf-cref-pairs dup mv-block 0= if 2drop outcome-full mv-refuse exit then
-  mv-image-pairs dup mv-cref mv-ref-new mctx mctx-pairs heap-release
-  if nip else outcome-full mv-refuse then ;
-: mv-const-build ( node -- image ) dup mv-cref-moves? if mv-const-new then ;
+: mv-remapped ( image outcome -- image ) dup ok? if drop else mv-refuse then ;
+: mv-sort-build ( node -- image ) ['] mv-level-image lf-meta-sort-remap mv-remapped ;
+: mv-const-build ( node -- image ) ['] mv-level-image lf-meta-const-remap mv-remapped ;
 : mv-leaf-build ( node walk -- image )
   over mv-delayed-ready? if drop outcome-unsupported mv-refuse exit then
   over mv-value-of if swap dw-image nip else drop then ;
