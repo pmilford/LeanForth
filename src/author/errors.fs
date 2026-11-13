@@ -95,6 +95,7 @@ require ./source.fs
 72 constant lfa-e-tactic         \ unsupported: tactics (plan FE1g)
 73 constant lfa-e-arity-unknown  \ unsupported: arguments that depend on unfolding (FE1c)
 74 constant lfa-e-incomplete     \ a hole is left in the elaborated declaration (FE1f)
+75 constant lfa-e-unused-universe \ a universe parameter nothing uses (FE1f)
 
 \ The catalogue: one message record per code, in order, each followed by
 \ its text and aligned; a record with code 0 closes it.
@@ -222,6 +223,9 @@ create lfa-catalogue
   lfa-unsupported,
   lfa-e-incomplete
   s" elaboration incomplete: a hole (metavariable) is left in the declaration"
+  lfa-invalid,
+  lfa-e-unused-universe
+  s" unused universe parameter: neither the statement nor the proof uses it"
   lfa-invalid,
   0 outcome-invalid s" " lfa-message,
 

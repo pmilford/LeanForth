@@ -169,6 +169,28 @@ T{ ty eqh @ = ty lf-term-first@ lf-cref-slot lf-cref-pairs nip -> false 1 }T
 T{ ty lf-term-first@ lf-cref-slot lf-cref-pairs drop 0 lf-cref-pair@ drop
    -> 1 lfa-level-number }T
 
+\ Universe parameters, as Lean's sortDeclLevelParams: k.{u} {a : Sort u}
+\ (x : a) : a := x uses u, in its type and its value: accepted; used by
+\ the value alone, accepted; by neither, refused (error 75), as pinned
+\ Lean refuses theorem unusedU.{u} : True := trivial ("unused universe
+\ parameter 'u'"); and a second parameter v named by hand and used by
+\ nothing refuses k, nothing kept.
+: poly ( -- )
+  lf-author-begin
+  s" kernel-form theorem k universe u u Sort implicit: a a explicit: x a := x end k"
+  lf-author-text drop ty ty0 ! va va0 ! ;
+: v-too ( -- )
+  s" v" lfa-intern d0 lf-fdecl-universe d0 lf-fdecl-universes @ cells + !
+  1 d0 lf-fdecl-universes +! ;
+: why ( -- code ) lfh lfh-why @ ;
+T{ poly d0 ty va lf-handover -> outcome-ok }T
+T{ poly d0 ty lf-term-second@ va lf-handover -> outcome-ok }T
+T{ poly d0 ty lf-term-second@ dup lf-handover why -> outcome-invalid 75 }T
+T{ poly v-too counts! d0 ty va lf-handover counts? why ty va
+   -> outcome-invalid true 75 ty0 @ va0 @ }T
+\ A hole is told first, before an unused parameter.
+T{ poly v-too d0 ty ty hole lf-handover why -> outcome-invalid 74 }T
+
 \ A term that is no node, an axiom's missing value, and a hole's
 \ instantiation not ported yet (the beta step of ?f Nat, ?f := a lambda):
 \ never reference.
@@ -278,5 +300,12 @@ T{ ' direct elaborating natural ty 0< va 0< -> outcome-ok false false }T
 \ nodes (n Eq.refl, an application), no by.
 T{ lf-front-proof syn-kind@ lf-front-statement syn-kind@ lf-front-by
    -> syn-k-app syn-k-binrel -1 }T
+\ A universe parameter neither the statement nor the proof uses stops
+\ the natural text at end (error 75), as Lean refuses it.
+: with-u ( -- outcome )
+  lf-author-begin
+  s" theorem add_zero' universe u Nat explicit: n n 0 + n = := n Eq.refl end add_zero'"
+  lf-author-text ;
+T{ ' direct elaborating with-u lf-author-code -> outcome-invalid 75 }T
 T{ ' lfh-later elaborating lfc-library-close -> }T
 bye

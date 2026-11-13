@@ -20,7 +20,9 @@
 \ -1 for an axiom's missing value, is ignored); lf-reach-sweep ( -- )
 \ marks what the roots reach; lf-reached? ( term -- flag ),
 \ lf-level-reached? ( level -- flag ); lf-reach-holes? ( -- flag ) whether
-\ a reached node is a metavariable; lf-holes-reached? ( term1 term2 --
+\ a reached node is a metavariable; lf-reach-param? ( name -- flag )
+\ whether a reached level is the universe parameter name (Lean's
+\ collectLevelParams, asked of one name); lf-holes-reached? ( term1 term2 --
 \ flag outcome ) all of it for two roots: ok, or full when the heap has
 \ no room for the tables (flag false then).
 \ Example:
@@ -107,6 +109,14 @@ end-structure
 : lr-level-holes? ( -- flag )
   false lf-reach lf-reach-level# @ 0 ?do i lr-level-hole? loop ;
 : lf-reach-holes? ( -- flag ) lr-term-holes? lr-level-holes? or ;
+
+\ A reached universe parameter of that name.
+: lr-param= ( name level -- flag )
+  lf-level-slot dup node-tag @ lf-level-tag-param = swap node-first @ rot = and ;
+: lr-param-reached? ( name level -- flag )
+  dup lf-level-reached? if lr-param= else 2drop false then ;
+: lf-reach-param? ( name -- flag )
+  false lf-reach lf-reach-level# @ 0 ?do over i lr-param-reached? or loop nip ;
 
 \ Two roots at once (a declaration's type and value).
 : lr-roots ( term1 term2 -- ) lf-reach-term lf-reach-term lf-reach-sweep ;

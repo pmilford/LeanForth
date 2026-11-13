@@ -11243,8 +11243,8 @@ quick = true
 [[fault]]
 id = "fe-handover-no-rollback"
 file = "src/front/handover.fs"
-old = '''  nip nip nip lfh-mark lf-scratch-rollback drop ;'''
-new = '''  nip nip nip ;'''
+old = '''  nip nip lfh-mark lf-scratch-rollback drop ;'''
+new = '''  nip nip ;'''
 test = "$GFORTH tests/front/handover.fs"
 reason = "FE1f: a refused hand-over keeps the nodes its instantiation made"
 quick = true
@@ -11301,4 +11301,22 @@ old = '''  lf-front-elaborate lf-front-hand-over lfa-declared ;'''
 new = '''  lf-front-elaborate lf-front-header tuck lf-fdecl-value ! lf-fdecl-type ! lfa-declared ;'''
 test = "$GFORTH tests/front/handover.fs"
 reason = "FE1f: the natural end records the elaborator's terms without the hand-over (no instantiation, no hole check)"
+quick = true
+
+[[fault]]
+id = "fe-unused-universe-accepted"
+file = "src/front/handover.fs"
+old = '''  lfh-names lfh-unused? if lfa-e-unused-universe lfh-refuse else outcome-ok then ;'''
+new = '''  outcome-ok ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f: a universe parameter neither the type nor the value uses is kept, where Lean refuses it"
+quick = true
+
+[[fault]]
+id = "fe-reach-param-any-name"
+file = "src/core/reach.fs"
+old = '''  lf-level-slot dup node-tag @ lf-level-tag-param = swap node-first @ rot = and ;'''
+new = '''  lf-level-slot node-tag @ lf-level-tag-param = nip ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f: any universe parameter reached counts as every one, so an unused one is kept"
 quick = true
