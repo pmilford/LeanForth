@@ -138,6 +138,13 @@ lf-mctx-shallower
 lnew constant mold
 lf-mctx-reset
 T{ u mold lmax u lf-meta-level-defeq -> false outcome-invalid }T
+\ No answer leaves its mark open (review of fe1c-lnorm-2, T2): true,
+\ false, unsupported, invalid.
+lnew constant mk
+T{ mk one lf-meta-level-defeq lf-mctx-marks u v lf-meta-level-defeq lf-mctx-marks
+   -> true outcome-ok 0 false outcome-ok 0 }T
+T{ u lnew lmax u v lmax lf-meta-level-defeq lf-mctx-marks 99999 u lf-meta-level-defeq lf-mctx-marks
+   -> false outcome-unsupported 0 false outcome-invalid 0 }T
 
 \ ---- Malformed: a level not in the store, a stale metavariable.
 T{ 99999 u lf-meta-level-defeq u -1 lf-meta-level-defeq

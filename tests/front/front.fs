@@ -441,18 +441,18 @@ T{ 1 cells mv-limit mv-fvars store-limit! -> outcome-ok }T
 \ Marks (Lean's checkpointDefEq): a rollback undoes the assignments made
 \ since its mark, plain, level and delayed, and only those; a commit keeps
 \ them for an outer mark; marks nest; the trail empties with the last.
-\ A mark is its depth: 1, 2, ...
+\ A mark is a serial number, never given twice.
 lf-mctx-reset
 : lnew ( -- level ) lf-level-mvar-new ok? 0= abort" lnew" ;
 : lfree? ( level -- flag ) lf-level-mvar-value dup if nip then 0= ;
 : tfree? ( mvar -- flag ) lf-mvar-value dup if nip then 0= ;
 : mark ( -- mark ) lf-mctx-mark ok? 0= abort" mark" ;
 lnew constant lma  lnew constant lmb  mv-natural new constant ta  mv-natural new constant tb
-lnew constant lmc  lnew constant lmd
-variable mark-out  variable mark-in
-T{ mark dup mark-out ! lma one lf-level-mvar-assign -> 1 outcome-ok }T
-T{ mark dup mark-in ! ta prop lf-mvar-assign lmb one lf-level-mvar-assign
-   -> 2 outcome-ok outcome-ok }T
+lnew constant lmc  lnew constant lmd  lnew constant lme
+variable mark-out  variable mark-in  variable mark-in2
+T{ mark dup mark-out ! 0> lma one lf-level-mvar-assign -> true outcome-ok }T
+T{ mark dup mark-in ! mark-out @ > ta prop lf-mvar-assign lmb one lf-level-mvar-assign
+   -> true outcome-ok outcome-ok }T
 T{ mark-in @ lf-mctx-rollback lma lfree? lmb lfree? ta tfree? -> outcome-ok false true true }T
 T{ mv-trail slab-count lf-mctx-marks -> 1 1 }T
 T{ mark-out @ lf-mctx-commit lma lfree? mv-trail slab-count lf-mctx-marks
@@ -464,22 +464,33 @@ T{ mark-in @ lf-mctx-commit tb ta 0 lf-mvar-delay mark-out @ lf-mctx-rollback
    -> outcome-ok outcome-ok outcome-ok }T
 T{ lmb lfree? tb lf-mvar-delayed lma lfree? -> true false false }T
 \ Only the latest open mark closes: an inner mark committed and then
-\ rolled back again, an outer mark while an inner is open, a mark of 0 or
-\ beyond the open ones are refused, invalid, and change nothing.
+\ rolled back again, an outer mark while an inner is open, 0 (the
+\ refused mark) or a number never given are refused, invalid, and change
+\ nothing.
 T{ mark mark-out ! lmc one lf-level-mvar-assign mark mark-in ! lmd one lf-level-mvar-assign
    -> outcome-ok outcome-ok }T
 T{ mark-out @ lf-mctx-rollback mark-in @ lf-mctx-commit mark-in @ lf-mctx-rollback
    -> outcome-invalid outcome-ok outcome-invalid }T
-T{ lmd lfree? lf-mctx-marks 0 lf-mctx-commit 5 lf-mctx-rollback -> false 1 outcome-invalid outcome-invalid }T
-T{ mark-out @ lf-mctx-rollback lmc lfree? lmd lfree? lf-mctx-marks -> outcome-ok true true 0 }T
-\ Without a mark nothing is noted; a rollback with no mark open is
-\ refused.
+T{ lmd lfree? lf-mctx-marks 0 lf-mctx-commit 99999 lf-mctx-rollback
+   -> false 1 outcome-invalid outcome-invalid }T
+\ A closed inner mark whose place a newer mark takes is still refused
+\ (review of fe1c-lnorm-2, L1): the newer mark's assignment stays.
+T{ mark mark-in2 ! lme one lf-level-mvar-assign mark-in @ lf-mctx-rollback lme lfree?
+   -> outcome-ok outcome-invalid false }T
+T{ mark-in2 @ lf-mctx-rollback mark-out @ lf-mctx-rollback lmc lfree? lmd lfree? lf-mctx-marks
+   -> outcome-ok outcome-ok true true 0 }T
+\ Without a mark nothing is noted; a rollback or commit with no mark open,
+\ 0 among them, is refused.
 T{ lmb one lf-level-mvar-assign mv-trail slab-count -> outcome-ok 0 }T
-T{ 1 lf-mctx-rollback lmb lfree? lf-mctx-marks -> outcome-invalid false 0 }T
+T{ mark-out @ lf-mctx-rollback 0 lf-mctx-commit lmb lfree? lf-mctx-marks
+   -> outcome-invalid outcome-invalid false 0 }T
 \ A refused assignment notes nothing: ?a is assigned already.
 lma one lf-level-mvar-assign drop
 T{ mark mark-out ! lma one lf-level-mvar-assign mv-trail slab-count -> outcome-invalid 0 }T
-T{ mark-out @ lf-mctx-rollback lma lfree? lf-mctx-reset lf-mctx-marks -> outcome-ok false 0 }T
+\ A mark from before lf-mctx-reset is refused by the marks after it.
+T{ lf-mctx-reset mark mark-out @ lf-mctx-commit swap lf-mctx-commit lf-mctx-marks
+   -> outcome-invalid outcome-ok 0 }T
+lf-mctx-reset
 
 \ A stale value: one the term store gave back after it was assigned (rolled
 \ back past it) is no node of a walk, whose memo ends below it; the walk

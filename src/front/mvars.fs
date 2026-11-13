@@ -112,6 +112,7 @@ begin-structure /mctx
   field: mctx-epoch       \ leaves of another epoch are stale
   field: mctx-depth
   field: mctx-target      \ the metavariable an occurs check seeks
+  field: mctx-serial      \ the last mark's serial (lf-mctx-mark)
   /dw +field mctx-walk    \ the term walks
   /dw +field mctx-lwalk   \ the level walks
   /dw +field mctx-hwalk   \ the search for a metavariable, inside a term walk
@@ -124,7 +125,7 @@ store-header context-record: mv-exprs
 store-header context-record: mv-levels
 store-header context-record: mv-fvars
 1 cells context-slab: mv-trail    \ assignments under a mark: number * 4 + kind
-1 cells context-slab: mv-marks    \ per open mark, the trail's length when made
+2 cells context-slab: mv-marks    \ per open mark: trail length when made, serial
 
 \ The stores: heap stores that grow up to the heap (plan task 6.2.0).
 16 constant mv-room
@@ -288,16 +289,17 @@ store-header context-record: mv-fvars
 \ context and restores it when the comparison fails): while a mark is
 \ open each assignment, plain, level or delayed, is noted on the trail
 \ mv-trail (its record's number * 4 + its kind) before it is stored; a
-\ trail the heap cannot grow refuses the assignment (full). A mark is its
-\ depth among the open marks (1, 2, ...); mv-marks keeps, per open mark,
-\ the trail's length when it was made. Rolling back the latest open mark
+\ trail the heap cannot grow refuses the assignment (full). A mark is a
+\ serial number, 1, 2, ..., never given twice in a context (not even
+\ after lf-mctx-reset); mv-marks keeps, per open mark, the trail's length
+\ when it was made and its serial. Rolling back the latest open mark
 \ undoes the assignments noted after it, latest first; committing it
 \ keeps them, for an outer mark to undo; either closes it, and when the
 \ last mark closes the trail is emptied. Any other mark (an inner mark
-\ already closed, an outer one while an inner is open, a stale one) is
-\ refused, invalid, and nothing changes. Metavariables made after a mark
-\ stay made, unassigned (Lean's restored context no longer has them; no
-\ term then refers to them).
+\ already closed, an outer one while an inner is open, one from before a
+\ reset, 0, the refused mark) is refused, invalid, and nothing changes.
+\ Metavariables made after a mark stay made, unassigned (Lean's restored
+\ context no longer has them; no term then refers to them).
 0 constant mv-was-value
 1 constant mv-was-level
 2 constant mv-was-delay
@@ -312,15 +314,16 @@ store-header context-record: mv-fvars
 : mv-trail-top ( -- entry ) mv-trail dup slab-count 1- swap slab-at @ ;
 : mv-undo ( -- ) mv-trail-top mv-undo-cell -1 swap ! -1 mv-trail slab-commit ;
 : mv-undo-to ( length -- ) begin dup mv-trail slab-count < while mv-undo repeat drop ;
-: mv-latest? ( mark -- flag ) dup 0> swap lf-mctx-marks = and ;
-: mv-mark-length ( -- length ) lf-mctx-marks 1- mv-marks slab-at @ ;
+: mv-latest ( -- addr ) lf-mctx-marks 1- mv-marks slab-at ;
+: mv-latest? ( mark -- flag ) lf-mctx-marks if mv-latest cell+ @ = else drop false then ;
 : mv-unmark ( -- ) -1 mv-marks slab-commit lf-mctx-marks 0= if mv-trail slab-clear then ;
+: mv-serial ( -- n ) 1 mctx mctx-serial +! mctx mctx-serial @ ;
 : lf-mctx-mark ( -- mark outcome )
-  1 mv-marks slab-claim dup ok? 0= if nip 0 swap exit then
-  drop mv-trail slab-count swap mv-marks slab-at ! lf-mctx-marks outcome-ok ;
+  1 mv-marks slab-claim dup ok? 0= if nip 0 swap exit then drop mv-marks slab-at
+  mv-trail slab-count over ! mv-serial tuck swap cell+ ! outcome-ok ;
 : lf-mctx-rollback ( mark -- outcome )
   mv-latest? 0= if outcome-invalid exit then
-  mv-mark-length mv-undo-to mv-unmark outcome-ok ;
+  mv-latest @ mv-undo-to mv-unmark outcome-ok ;
 : lf-mctx-commit ( mark -- outcome )
   mv-latest? 0= if outcome-invalid exit then mv-unmark outcome-ok ;
 

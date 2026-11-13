@@ -121,7 +121,8 @@ T{ ' stuck-op refusing 0> md free? -> false outcome-unsupported true true }T
 lnew constant me
 : marks-to-room ( -- )
   begin lf-mctx-marks mv-marks slab-capacity < while lf-mctx-mark drop drop repeat ;
-: close-marks ( -- ) begin lf-mctx-marks while lf-mctx-marks lf-mctx-rollback drop repeat ;
+\ Each latest open mark's serial (mvars.fs keeps it after the trail length).
+: close-marks ( -- ) begin lf-mctx-marks while mv-latest cell+ @ lf-mctx-rollback drop repeat ;
 marks-to-room lf-mctx-marks constant open-marks
 T{ 1 heap-refusals ! me 0 lf-meta-level-defeq me free? lf-mctx-marks
    -> false outcome-full true open-marks }T

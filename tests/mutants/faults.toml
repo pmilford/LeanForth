@@ -11830,7 +11830,7 @@ reason = "FE1c tidy-up d: instantiateMVars runs with no spine table when the hea
 [[fault]]
 id = "fe-mctx-any-mark"
 file = "src/front/mvars.fs"
-old = ''': mv-latest? ( mark -- flag ) dup 0> swap lf-mctx-marks = and ;'''
+old = ''': mv-latest? ( mark -- flag ) lf-mctx-marks if mv-latest cell+ @ = else drop false then ;'''
 new = ''': mv-latest? ( mark -- flag ) drop lf-mctx-marks 0> ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1c review of fe1c-lnorm L1: a stale or out-of-order rollback (an inner mark again after its commit) undoes the wrong assignments and closes the outer mark"
@@ -12017,3 +12017,11 @@ old = '''  mv-delays? if mv-spine-head mv-delay-rec dup if nip then else drop fa
 new = '''  drop false ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "review of fe1c-lnorm M1: an assigned head's beta result with a ready delayed metavariable at a head is returned as it is, where Lean's second pass puts its value in; it must answer unsupported"
+
+[[fault]]
+id = "fe-mctx-mark-serial-reused"
+file = "src/front/mvars.fs"
+old = ''': mv-serial ( -- n ) 1 mctx mctx-serial +! mctx mctx-serial @ ;'''
+new = ''': mv-serial ( -- n ) lf-mctx-marks ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "review of fe1c-lnorm-2 L1: a mark is its depth again, so a closed inner mark whose place a newer mark takes rolls back the newer mark's assignments"
