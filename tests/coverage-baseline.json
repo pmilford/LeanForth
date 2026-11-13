@@ -1,5 +1,5 @@
 {
- "runs": 1749,
+ "runs": 1748,
  "files": {
   "src/author/build.fs": {
    "blocks": 250,
@@ -450,8 +450,8 @@
   },
   "src/kernel/mixed-instantiate.fs": {
    "blocks": 134,
-   "never_run": 9,
-   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+   "never_run": 7,
+   "reason": "COV2 2026-11-12, unreachable by design: a leaf of no tag instantiate knows (112-113) and a malformed bound variable (79): lf-mixed-instantiate audits the graph first, which refuses both. The rest is not yet reviewed"
   },
   "src/kernel/mixed-level-substitute.fs": {
    "blocks": 398,
@@ -461,7 +461,7 @@
   "src/kernel/mixed-open.fs": {
    "blocks": 279,
    "never_run": 11,
-   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+   "reason": "COV2 2026-11-12, unreachable by design: a leaf of no tag instantiate knows (221-222) and a malformed bound variable (211): the passes give it terms the audits passed or the term store's constructors made, which make neither. The rest is not yet reviewed"
   },
   "src/kernel/mixed-rebuild.fs": {
    "blocks": 86,
@@ -470,8 +470,8 @@
   },
   "src/kernel/mixed-shift.fs": {
    "blocks": 128,
-   "never_run": 3,
-   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+   "never_run": 2,
+   "reason": "COV2 2026-11-12, unreachable by design: a leaf of no tag the shift knows (74-75): lf-mixed-shift audits the graph first (lf-cterm-check), which refuses such a leaf (a concrete Sort, an unsupported form)"
   },
   "src/kernel/mixed-signature-audit.fs": {
    "blocks": 72,
