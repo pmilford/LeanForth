@@ -15452,3 +15452,22 @@ old = '''    return CMIN <= args[0] <= CMAX'''
 new = '''    return CMIN < args[0] <= CMAX'''
 test = "LEAN=.tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean python3 tests/program/vc_check.py --operators"
 reason = "review H1: Python's fits, which the counterexample search uses to decide refuted, disagrees with Lean's c.Fits at the smallest cell; the comparison with Lean's evaluation finds it"
+
+[[fault]]
+id = "verify-replay-exit-zero"
+file = "scripts/program_verify.py"
+old = '''            self.verdict = self.own_status(given)'''
+new = '''            self.verdict = 0'''
+test = "python3 tests/program/test_program_verify.py Replay.test_replay_exits_with_the_receipts_own_status"
+reason = "review R1: replay of an unsupported or refuted receipt exits 0, as if discharged"
+quick = true
+
+[[fault]]
+id = "verify-write-ir-any-file"
+file = "scripts/program_verify.py"
+old = '''            self.check_writable(ir_file)
+'''
+new = ''''''
+test = "python3 tests/program/test_program_verify.py WriteIr.test_write_ir_never_overwrites_other_files"
+reason = "review R3: --write-ir overwrites any checkout file the contract's ir line names (src/main.fs)"
+quick = true

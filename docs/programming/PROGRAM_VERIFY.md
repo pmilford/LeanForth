@@ -19,7 +19,8 @@ the only judge. LeanForth writes no proof. A receipt is about the word's
 IR, under the assumptions it lists, and never about the compiled code or
 the Forth system that runs it. V1 needs Python 3 and the pinned Lean
 4.35.0 (the owner allowed both for V1 only); V2 checks proofs a user
-supplies with Forth alone.
+supplies with Forth alone. V1 works only inside a LeanForth checkout (it reads the checkout's
+scripts, pinned tools and paths); `leanforth capabilities` does not yet say so.
 
 ## One example in three forms
 

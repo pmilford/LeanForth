@@ -72,9 +72,10 @@
   },
   "allOf": [
     {
-      "$comment": "Exit status 0 only with a discharged receipt and no problem.",
+      "$comment": "Exit status 0 only with a discharged, accepted, recorded receipt and no problem.",
       "if": {"properties": {"exitStatus": {"const": 0}}},
-      "then": {"properties": {"problems": {"maxItems": 0}}}
+      "then": {"properties": {"problems": {"maxItems": 0}, "verify": {"const": "discharged"},
+        "check": {"const": "accepted-by-leanforth"}, "receipt": {"type": "object"}}}
     },
     {
       "$comment": "A discharged verify needs LeanForth's acceptance.",

@@ -426,7 +426,7 @@ class Verify:
             "check": None if receipt is None else receipt["check"]["status"],
             "verify": None if receipt is None else receipt["verify"]["status"],
             "run": None if receipt is None else receipt["run"]["status"],
-            "receipt": None if self.receipt_path is None else {
+            "receipt": None if self.receipt_path is None or receipt is None else {
                 "path": self.receipt_path, "schemaVersion": receipt["schemaVersion"],
                 "sha256": file_sha(self.receipt_path)},
             "problems": [{"code": c, "step": s or "command-line", "message": m}
@@ -551,6 +551,7 @@ class Verify:
             raise Problem("contract-malformed", f"{self.contract_path}: its ir line {ir_file} "
                           "does not name a file inside the checkout")
         if self.args.write_ir:
+            self.check_writable(ir_file)
             atomic(ROOT / ir_file, self.ir_text)
             self.say(f"ir: wrote {ir_file}, the IR the program words write for {self.source} "
                      f"(IR {self.ir_text.split(chr(10), 1)[0].split()[-1]}, sha256 "
@@ -572,6 +573,22 @@ class Verify:
         self.say(f"IR: {version}, sha256 {short(self.ir_sha)}, equal to {ir_file}")
         self.say(f"contract: {self.contract['id']}, {self.contract_path}, sha256 "
                  f"{short(self.contract_sha)}")
+
+    def check_writable(self, ir_file):
+        """--write-ir writes only a new .ir file or one that is already an IR file."""
+        target = ROOT / ir_file
+        if not ir_file.endswith(".ir"):
+            raise Problem("contract-malformed", f"{self.contract_path}: --write-ir writes only "
+                          f"a file whose name ends in .ir, not {ir_file}")
+        if target.exists():
+            try:
+                first = target.read_bytes()[:64].split(b"\n", 1)[0]
+            except OSError as error:
+                raise Problem("contract-malformed", f"{ir_file} cannot be read: "
+                              f"{error.strerror}") from None
+            if not first.startswith(b"lf-ir "):
+                raise Problem("contract-malformed", f"--write-ir overwrites only a file whose "
+                              f"first line starts with 'lf-ir ', and {ir_file} is not one")
 
     def prepare_out(self):
         """The --out folder (default verify-out/WORD here), with the files an earlier run
@@ -1085,12 +1102,23 @@ class Replay(Verify):
                 self.enter("rerun")
                 self.rerun(given, evidence)
             self.receipt = given
+            self.verdict = self.own_status(given)
             self.say(f"replay: {self.receipt_path}: " + (
+                f"NOT VERIFIED: {len(self.problems)} problems" if self.problems else
+                f"NOT VERIFIED: {given['verify']['status']}" if self.verdict else
                 "the receipt is what its files and its evidence give" + (
-                    ", and running every step again gives it too" if self.args.rerun else "")
-                if not self.problems else f"NOT VERIFIED: {len(self.problems)} problems"))
+                    ", and running every step again gives it too" if self.args.rerun else "")))
         except Finished:
             pass
+        except receipts.Refusal as refusal:
+            self.problem("replay", f"the receipt's files do not give it: {refusal}")
+            self.say(f"replay: {self.receipt_path}: NOT VERIFIED: replay")
+        except OSError as error:   # a file the receipt names is gone or unreadable
+            self.problem("replay", f"a file the receipt names cannot be read: {error}")
+            self.say(f"replay: {self.receipt_path}: NOT VERIFIED: replay")
+        except SystemExit as error:
+            self.problem("internal", f"SystemExit: {error}")
+            self.say(f"replay: {self.receipt_path}: NOT VERIFIED: internal")
         except Problem as stop:
             self.problem(stop.code, stop.message, stop.status)
             self.say(f"replay: {self.receipt_path}: NOT VERIFIED: {stop.code}")
@@ -1098,6 +1126,15 @@ class Replay(Verify):
             self.problem("internal", f"{type(error).__name__}: {error}")
             self.say(f"replay: {self.receipt_path}: NOT VERIFIED: internal")
         return self.finish(self.exit_status())
+
+    @staticmethod
+    def own_status(receipt):
+        """The exit status of the receipt's own claim: 0 discharged, 1 refuted, 3 failed
+        check, 2 open or unsupported (replay never turns these into success)."""
+        status = receipt["verify"]["status"]
+        if receipt["check"]["status"] == "failed":
+            return 3
+        return {"discharged": 0, "refuted": 1}.get(status, 2)
 
     def read_receipt(self):
         receipt, problems = receipts.read_file(ROOT / self.receipt_path)

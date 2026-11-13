@@ -39,7 +39,7 @@ checker). tests/program/verify_lean_check.py runs it with the real tools.
    hash), a status, an axiom, an added field, a duplicate id, an old or
    unknown version, a duplicate key, a missing file, a receipt verify did
    not write; a receipt and its evidence changed together replay clean and
-   --rerun refuses them.
+   --rerun refuses them; replay exits with the receipt's own status.
 """
 import contextlib
 import copy
@@ -1030,6 +1030,31 @@ class WriteIr(unittest.TestCase):
             status, text = cli(["src/program/clamp.fs", "--contract", path, "--write-ir"])
             self.assertEqual((status, problem_codes(text)), (4, ["contract-malformed"]), text)
 
+    def test_write_ir_never_overwrites_other_files(self):
+        """Review R3: only a new .ir file, or one that already starts with 'lf-ir '."""
+        clamp = (CONTRACTS / "lf-clamp.contract").read_text(encoding="utf-8")
+        with scratch() as folder:
+            other = Path(folder) / "notes.txt"
+            other.write_text("mine\n", encoding="utf-8")
+            for name in ("src/main.fs", "AGENTS.md", rel(other)):
+                with self.subTest(name):
+                    before = (ROOT / name).read_bytes()
+                    path = Path(folder) / "c.contract"
+                    path.write_text(clamp.replace("ir tests/program/ir/clamp.ir", f"ir {name}"),
+                                    encoding="utf-8")
+                    status, text = run(["src/program/clamp.fs", "--contract", path,
+                                        "--write-ir"])
+                    self.assertEqual((status, problem_codes(text)), (4, ["contract-malformed"]),
+                                     text)
+                    self.assertEqual((ROOT / name).read_bytes(), before)
+            target = Path(folder) / "other.ir"
+            target.write_text("not an IR\n", encoding="utf-8")
+            path.write_text(clamp.replace("ir tests/program/ir/clamp.ir", f"ir {rel(target)}"),
+                            encoding="utf-8")
+            status, text = run(["src/program/clamp.fs", "--contract", path, "--write-ir"])
+            self.assertEqual((status, problem_codes(text)), (4, ["contract-malformed"]), text)
+            self.assertEqual(target.read_text(), "not an IR\n")
+
 
 class Command(unittest.TestCase):
     """bin/leanforth verify (plan 8.4.1c)."""
@@ -1179,6 +1204,52 @@ class Replay(unittest.TestCase):
             status, text = self.replay(receipt, "--rerun")
             self.assertEqual(status, 1, text)
             self.assertIn("running every step again records", text)
+
+    def made_for(self, contract, out, word):
+        status, text = verify(contract, out)
+        return status, rel(Path(out) / f"{word}.receipt.json")
+
+    def test_replay_exits_with_the_receipts_own_status(self):
+        """Review R1: only a discharged receipt replays to 0 and says so."""
+        for contract, word, expected, said in (
+                ("lf-clamp", "lf-clamp", 0, "the receipt is what its files"),
+                ("lf-gcd", "lf-gcd", 2, "NOT VERIFIED: unsupported"),
+                ("wrong-clamp-swapped", "lf-clamp", 1, "NOT VERIFIED: refuted")):
+            with self.subTest(contract), scratch() as out:
+                made, receipt = self.made_for(contract, out, word)
+                self.assertEqual(made, expected)
+                status, text = self.replay(receipt)
+                self.assertEqual((status, problem_codes(text)), (expected, []), text)
+                self.assertIn(said, text)
+                status, text = self.replay(receipt, "--json")
+                self.assertEqual(report_of(text)["exitStatus"], expected)
+
+    def test_replay_refusals_are_replay_problems(self):
+        """Review R2: a word the IR lacks, a deleted source."""
+        def rename(fixture, receipt):
+            data = json.loads(receipt.read_text())
+            data["program"]["word"] = "zzz"
+            receipt.write_text(program_receipt.dump(data))
+        for change, code in ((rename, "replay"), (lambda f, r: f.source.unlink(), "replay")):
+            with self.subTest(code), scratch() as folder:
+                fixture, receipt = self.made(folder)
+                change(fixture, ROOT / receipt)
+                status, text = self.replay(receipt, "--json")
+                self.assertEqual((status, report_of(text)["problems"][0]["code"]), (1, code),
+                                 text)
+
+    def test_exit_zero_needs_a_discharged_receipt(self):
+        """Review R4: the R1 report (exit 0, unsupported) no longer validates."""
+        with scratch() as out:
+            status, text = verify("lf-gcd", out, extra=["--json"])
+            report = report_of(text)
+        report["exitStatus"] = 0
+        self.assertTrue(REPORT_SCHEMA.errors(report))
+        with scratch() as out:
+            report = report_of(verify("lf-clamp", out, extra=["--json"])[1])
+        self.assertEqual(report["exitStatus"], 0)
+        report["receipt"] = None
+        self.assertTrue(REPORT_SCHEMA.errors(report))
 
 
 if __name__ == "__main__":
