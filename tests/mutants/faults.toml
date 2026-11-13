@@ -10559,3 +10559,14 @@ old = '''    outcome-unsupported of lf-env-k5-unsupported endof'''
 new = '''    outcome-unsupported of lf-env-k5-unknown endof'''
 test = "$GFORTH tests/core/check-forged.fs"
 reason = "N2 against a generated recursor whose type is unsupported reports the declaration of that name undecided instead of unsupported (K5)"
+
+[[fault]]
+id = "cov2-env-too-early-rejected"
+file = "src/kernel/environment.fs"
+old = '''  lf-env-limit c" environment lf-env-own-name" lf-diag-too-early lf-diag-note
+  outcome-invalid ;'''
+new = '''  lf-env-limit c" environment lf-env-own-name" lf-diag-too-early lf-diag-note
+  outcome-rejected ;'''
+test = "$GFORTH tests/core/check-forged.fs"
+reason = "N2 that meets a holder type not yet final (a check begun too early) rejects the declaration: a scheduling state stored as a verdict"
+quick = true

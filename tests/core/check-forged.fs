@@ -59,6 +59,14 @@ T{ def-rec ' as-unknown k5-run
    -> outcome-unknown lf-diag-dependency-undecided 0 outcome-unknown }T
 T{ def-rec ' as-unsupported k5-run
    -> outcome-unsupported lf-diag-dependency-unsupported 0 0 }T
+\ The type's slot forged not final, as a check of a parallel run sees a
+\ slot below it that is not yet published (env-schedule.fs then runs the
+\ check again): invalid, too-early with the slot (0) and the declaration
+\ being checked (3), for the use of N.rec and for N2 on a declaration
+\ named N.rec.
+: not-final ( -- ) 0 0 lf-env lf-env-slot lf-slot-state ! ;
+T{ use-rec ' not-final k5-run -> outcome-invalid lf-diag-too-early 0 3 }T
+T{ def-rec ' not-final k5-run -> outcome-invalid lf-diag-too-early 0 3 }T
 : verdict ( c-addr u -- outcome code ) cs-load cs-plenty cs-at lf-diag-code@ cs-unload ;
 T{ use-rec verdict nip def-rec verdict
    -> outcome-ok outcome-rejected lf-diag-already-declared }T

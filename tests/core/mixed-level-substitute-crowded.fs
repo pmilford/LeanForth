@@ -45,8 +45,7 @@ create actuals 4 cells allot
 create levels 2 cells allot
 : pair! ( level addr -- ) >r dup r@ ! lf-level-identity must r> cell+ ! ;
 lf-name-reset lf-level-reset lf-term-reset lf-lscope-context-reset lf-cref-reset
-11 lf-lscope-context-add must  22 lf-lscope-context-add must
-33 lf-lscope-context-add must
+11 lf-lscope-context-add must  22 lf-lscope-context-add must  33 lf-lscope-context-add must
 lf-ssession-begin must
 11 lf-level-param must constant p   22 lf-level-param must constant q
 33 lf-level-param must constant x
@@ -56,8 +55,7 @@ q actuals pair!  x actuals 2 cells + pair!  q levels !  x levels cell+ !
 : sort-p ( -- index id ) p dup lf-level-identity must lf-hterm-sort must ;
 : var-u ( -- index id ) lf-data-unknown lf-hterm-bvar must ;
 sort-p var-u lf-hterm-app must 2constant app-u
-: substituted ( -- index id 0 | status )
-  app-u formals actuals 2 500 lf-mixed-level-substitute ;
+: substituted ( -- index id 0 | status ) app-u formals actuals 2 500 lf-mixed-level-substitute ;
 
 \ The cells a run leaves and its outcome, under CATCH: ( outcome 0 1 )
 \ when it keeps its stack effect. A first run sizes every array, so that
