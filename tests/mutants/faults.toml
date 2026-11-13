@@ -11306,8 +11306,8 @@ quick = true
 [[fault]]
 id = "fe-unused-universe-accepted"
 file = "src/front/handover.fs"
-old = '''  lfh-names lfh-unused? if lfa-e-unused-universe lfh-refuse else outcome-ok then ;'''
-new = '''  outcome-ok ;'''
+old = '''  lfh-unused-of if lfa-e-unused-universe lfh-refuse else outcome-ok then ;'''
+new = '''  drop outcome-ok ;'''
 test = "$GFORTH tests/front/handover.fs"
 reason = "FE1f: a universe parameter neither the type nor the value uses is kept, where Lean refuses it"
 quick = true
@@ -11418,4 +11418,31 @@ old = '''  lfa-notes-end lfa-publish lfa-current lfa-current-entries @ lfa-entri
 new = '''  lfa-publish lfa-current lfa-current-entries @ lfa-entries-cut'''
 test = "$GFORTH tests/front/handover.fs"
 reason = "review fe1f L2: a declaration's notes end is never set"
+quick = true
+
+[[fault]]
+id = "fe-theorem-params-from-value"
+file = "src/front/handover.fs"
+old = ''': lfh-unused-of ( type-unused? -- flag ) lfh-def? if drop lfh-names lfh-unused? then ;'''
+new = ''': lfh-unused-of ( type-unused? -- flag ) drop lfh-names lfh-unused? ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f N1: a theorem's universe parameter used by its proof alone counts as used, where Lean refuses it (unused universe parameter)"
+quick = true
+
+[[fault]]
+id = "fe-def-params-from-type"
+file = "src/front/handover.fs"
+old = ''': lfh-unused-of ( type-unused? -- flag ) lfh-def? if drop lfh-names lfh-unused? then ;'''
+new = ''': lfh-unused-of ( type-unused? -- flag ) ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f N1: a definition's universe parameter used by its value alone is refused, where Lean accepts it"
+quick = true
+
+[[fault]]
+id = "fe-writer-level-unchecked"
+file = "src/author/export.fs"
+old = ''': lfx-level-of ( level -- n ) dup lfx-level-node? if lfx-level# else drop -1 then ;'''
+new = ''': lfx-level-of ( level -- n ) lfx-level# ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f N2: a level number outside the store is read outside the writer's table and written"
 quick = true

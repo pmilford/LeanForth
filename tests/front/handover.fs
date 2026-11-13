@@ -208,22 +208,41 @@ T{ ty lf-term-first@ lf-cref-slot lf-cref-pairs drop 0 lf-cref-pair@ drop
    -> 1 lfa-level-number }T
 
 \ Universe parameters, as Lean's sortDeclLevelParams: k.{u} {a : Sort u}
-\ (x : a) : a := x uses u, in its type and its value: accepted; used by
-\ the value alone, accepted; by neither, refused (error 75), as pinned
-\ Lean refuses theorem unusedU.{u} : True := trivial ("unused universe
-\ parameter 'u'"); and a second parameter v named by hand and used by
-\ nothing refuses k, nothing kept.
+\ (x : a) : a := x uses u in its type: accepted; used by neither,
+\ refused (error 75), as pinned Lean refuses theorem unusedU.{u} : True
+\ := trivial ("unused universe parameter 'u'"); and a second parameter v
+\ named by hand and used by nothing refuses k, nothing kept.
+: poly-of ( c-addr u -- ) lf-author-begin lf-author-text drop ty ty0 ! va va0 ! ;
 : poly ( -- )
-  lf-author-begin
-  s" kernel-form theorem k universe u u Sort implicit: a a explicit: x a := x end k"
-  lf-author-text drop ty ty0 ! va va0 ! ;
+  s" kernel-form theorem k universe u u Sort implicit: a a explicit: x a := x end k" poly-of ;
 : v-too ( -- )
   s" v" lfa-intern d0 lf-fdecl-universe d0 lf-fdecl-universes @ cells + !
   1 d0 lf-fdecl-universes +! ;
 : why ( -- code ) lfh lfh-why @ ;
 T{ poly d0 ty va lf-handover -> outcome-ok }T
-T{ poly d0 ty lf-term-second@ va lf-handover -> outcome-ok }T
 T{ poly d0 ty lf-term-second@ dup lf-handover why -> outcome-invalid 75 }T
+\ A parameter used by the value alone (review fe1f N1): a theorem's and an
+\ axiom's are counted in the type alone, a definition's in both, as
+\ pinned Lean 4.35.0 decides these six (checked 2026-11-13):
+\   theorem t1.{v} : True := (fun (_ : Sort v) => True.intro) PUnit.{v}  refused
+\   def d1.{v} : True := (fun (_ : Sort v) => True.intro) PUnit.{v}      accepted
+\   theorem t2.{v} (α : Sort v) (a : α) : a = a := rfl                   accepted
+\   axiom ax1.{v} : True                                                  refused
+\   axiom ax2.{v} : Sort v                                                accepted
+\   def d2.{v} : True := True.intro                                       refused
+\ Here with k's terms: Pi (x : a), a (no u) as the type, k's value (u in
+\ its binder's type) as the value.
+: kdef ( -- )
+  s" kernel-form def k universe u u Sort implicit: a a explicit: x a := x end k" poly-of ;
+: kaxiom ( -- )
+  s" kernel-form axiom k universe u u Sort implicit: a a explicit: x a end k" poly-of ;
+: u-free ( -- t ) ty lf-term-second@ ;
+T{ poly d0 u-free va lf-handover why -> outcome-invalid 75 }T
+T{ kdef d0 u-free va lf-handover -> outcome-ok }T
+T{ kdef d0 ty va lf-handover -> outcome-ok }T
+T{ kaxiom d0 u-free -1 lf-handover why -> outcome-invalid 75 }T
+T{ kaxiom d0 ty -1 lf-handover -> outcome-ok }T
+T{ kdef d0 u-free u-free lf-handover why -> outcome-invalid 75 }T
 T{ poly v-too counts! d0 ty va lf-handover counts? why ty va
    -> outcome-invalid true 75 ty0 @ va0 @ }T
 \ A hole is told first, before an unused parameter.
@@ -249,6 +268,11 @@ T{ kernel -2 d0 lf-fdecl-value ! all-records -> outcome-unsupported }T
 T{ def-a -1 d0 lf-fdecl-value ! all-records reached-records
    -> outcome-unsupported outcome-unsupported }T
 T{ s\" \"value\"" caught caught# @ 2swap search nip nip -> false }T
+\ A Sort naming no level of the store as a theorem's type (review fe1f
+\ N2): both writers refuse it (unsupported), reading no table outside.
+: no-level ( -- ) kernel 1000000 lf-term-symbolic-sort drop d0 lf-fdecl-type ! ;
+T{ no-level all-records reached-records -> outcome-unsupported outcome-unsupported }T
+T{ s\" {\"thm\"" caught caught# @ 2swap search nip nip -> false }T
 variable fa
 T{ kernel va hole dup va assign ty lf-term-first@ lf-tag-app lf-term-binary swap fa !
    -> true }T
