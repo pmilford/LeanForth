@@ -161,9 +161,11 @@ test-differential: $(DIFFERENTIAL_TARGETS)
 # Order of the measurement of 2026-11-11 (JOBS=1, no cache, seconds): reference-author 67,
 # reference 61, test-cli 56, reference-compact-init 53, test-inductive-table 43 (it and
 # reference-inductive share the 27 s Lean run of inductive-expected-output),
-# reference-program-ir-run 33, reference-inductive 29, reference-cli 19, ...
-check: reference-author reference test-cli reference-compact-init test-inductive-table \
-	reference-program-ir-run reference-inductive reference-cli test-doc-examples-lean \
+# reference-program-ir-run 33, reference-inductive 29, reference-cli 19, ...; since plan
+# 5.5.1 (2026-11-12) reference-program-ir-run and reference-program-mutants each run
+# LeanForth on the clamp proofs' 4,277-declaration export (about 2 minutes each, 2 workers).
+check: reference-program-ir-run reference-program-mutants reference-author reference test-cli \
+	reference-compact-init test-inductive-table reference-inductive reference-cli test-doc-examples-lean \
 	test-depth-differential test-depth-fed-differential test-universe-many-differential \
 	reference-bignum test-compact-faults
 check: test test-differential mutants-check test-depth-deep-differential
@@ -592,28 +594,45 @@ test-program-verify:
 .PHONY: test-program-verify
 test: test-program-verify
 
-# Program track, phase 2, tasks 2.5.4 to 2.5.6 (docs/programming/PROGRAM_IR_RUN.md,
+# Program track, tasks 2.5.4 to 2.5.6 and 5.5.1 (docs/programming/PROGRAM_IR_RUN.md,
 # PROGRAM_VC.md and PROGRAM_RECEIPTS.md): the IR interpreter against the host's
-# own words, the verification-condition generator's golden output, and the
-# generated clamp receipt. Gforth and Python 3 only.
+# own words, the verification-condition generator's golden output, the
+# generated clamp receipt (schema 0.3), and the export mutation tool on a
+# fixture. Gforth and Python 3 only.
 test-program-ir-run:
 	$(RUN) $(GFORTH) tests/program/ir-run.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/program/ir_run_differential.py
 	$(RUN) python3 tests/program/vc_check.py
 	$(RUN) python3 tests/program/receipt_check.py
+	$(RUN) python3 tests/program/clamp_mutants.py --test
 
 # The same against pinned Lean: the interpreter against Lean's evaluation of the
 # model (tables and random programs), the obligations and contract theorems
-# checked by Lean with planted faults, and the receipt's evidence recorded afresh.
+# checked by Lean with planted faults, and the receipt's evidence recorded afresh:
+# Lean exports the clamp proofs with their closure and LeanForth checks it (plan 5.5.1).
 reference-program-ir-run:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/program/ir_run_differential.py --lean
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/program/verify_ir02.py --lean
 	LEAN=$(LEAN) $(RUN) python3 tests/program/vc_check.py --lean
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/program/receipt_check.py --record
 
-.PHONY: test-program-ir-run reference-program-ir-run
+# Plan 5.5.1: the clamp export with the program, the contract and the proof
+# changed (tests/program/clamp_mutants.py copies) checked by LeanForth: the
+# originals accepted, every changed theorem rejected.
+reference-program-mutants:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/program/clamp_mutants.py --test --lean
+
+# The same pipeline for the SHA-256 helper words (stage SHA-2): Lean's proofs of
+# sha-rotr, sha-ch, sha-maj and sha-big-sigma0 exported with their closure and
+# checked by LeanForth; a changed word body and a changed proof rejected. No
+# receipt yet (IR 0.2 programs need receipt schema 0.4, at the [format] gate).
+reference-program-sha-export:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/program/sha_export_check.py
+
+.PHONY: test-program-ir-run reference-program-ir-run reference-program-mutants \
+	reference-program-sha-export
 test: test-program-ir-run
-test-differential: reference-program-ir-run
+test-differential: reference-program-ir-run reference-program-mutants reference-program-sha-export
 
 # Store marks (plan task 1.1.3) and the checked environment v0 (ADR 0012,
 # plan task 2.2.2): unit and failure-path tests, and checks interleaved as

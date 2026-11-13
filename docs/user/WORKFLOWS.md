@@ -126,10 +126,10 @@ flowchart TD
   model["IR semantics in Lean<br/>tests/reference/program-ir.lean<br/>proves each word's IR equals its reference model"]
   interp["IR interpreter vs host word vs Lean model<br/>src/program/ir-run.fs, task 2.5.4"]
   vc["Verification-condition generator v0<br/>obligations from IR and contract<br/>scripts/program_vc.py, untrusted, task 2.5.5"]
-  leanchk["Proofs checked by Lean<br/>labelled: not by LeanForth"]
-  lfchk["Proofs checked by the LeanForth checker<br/>phase 5, with data types"]
+  leanchk["Proofs written and checked by Lean<br/>tactic scripts from the generator"]
+  lfchk["Lean's proofs exported with their closure<br/>re-checked by the LeanForth checker<br/>bin/leanforth check, task 5.5.1, clamp"]
   run["RUN: tests on Gforth<br/>make test-program<br/>testing is not proof"]
-  receipt["Receipt, schema 0.2<br/>check, verify and run kept apart<br/>first receipt: clamp, task 2.5.6"]
+  receipt["Receipt, schema 0.3<br/>check, verify and run kept apart<br/>clamp: LeanForth's verdict, task 5.5.1"]
 
   fs --> rdr --> ir
   ir --> model --> leanchk
@@ -137,16 +137,13 @@ flowchart TD
   ir --> vc
   contract --> vc
   vc --> leanchk
-  vc --> lfchk
+  leanchk --> lfchk
   fs --> run
-  leanchk --> receipt
   lfchk --> receipt
   interp --> receipt
   run --> receipt
 
-  classDef planned stroke-dasharray: 6 4
   classDef gate stroke-width: 3px
-  class lfchk planned
   class lfchk gate
 ```
 
@@ -168,11 +165,15 @@ abs, in-range, factorial, gcd):
   into Lean obligations; Lean proves them for clamp, checked add, checked
   abs and in-range, and refutes three wrong contracts
   ([verification conditions](../programming/PROGRAM_VC.md)).
-- The **receipt format** exists as a JSON Schema
+- For **clamp**, Lean's exporter writes the contract theorem and its two
+  obligations with every declaration they use (4,277), and **LeanForth's
+  checker re-checks that export** and accepts it; a program, contract or
+  proof changed after Lean proved it is rejected (plan 5.5.1). Lean wrote
+  the proofs; LeanForth has no tactics yet.
+- The **receipt format** exists as a JSON Schema, version 0.3
   ([program receipts](../programming/PROGRAM_RECEIPTS.md)), and the first
-  receipt, for clamp, is generated: *checked by the Lean reference, not by
-  LeanForth*, obligations discharged, 986 runs passed. The reader and the
-  format await the owner's review gates.
+  receipt, for clamp, is generated: `accepted-by-leanforth` (LeanForth's
+  verdict on Lean's proofs), obligations discharged, 986 runs passed.
 
 Not established: that Gforth runs the words as the IR semantics says (the
 interpreter comparison tests it; testing is not proof), that the reader's

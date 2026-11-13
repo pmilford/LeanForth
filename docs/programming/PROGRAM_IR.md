@@ -906,10 +906,10 @@ whole (review rvIR3, L1; `tests/program/verify.fs` runs it with a small
 heap). The IR 0.1 reader stays IR 0.1 and refuses
 every IR 0.2 input; the IR interpreter reads both versions and refuses an
 IR 0.2 instruction under an IR 0.1 version line. Reason 2 now reads "a
-Forth word outside IR 0.2". Receipts are not changed: schema 0.2 has
+Forth word outside IR 0.2". Receipts are not changed: schemas 0.2 and 0.3 have
 `program.ir.version` "0.1" only, so the receipt generator refuses to write
-one for an IR 0.2 program until the owner decides schema 0.3 at the
-[format] gate ([receipts](PROGRAM_RECEIPTS.md#schema-03-what-ir-02-receipts-need)).
+one for an IR 0.2 program until the owner decides schema 0.4 at the
+[format] gate ([receipts](PROGRAM_RECEIPTS.md#schema-04-what-ir-02-receipts-need)).
 
 **Lean (Parts 7 and 8 of `program-ir.lean`).** `Prim` gains `lshift` and
 `negRot`, `Instr` gains `out`; `run` gives an output word its stack effect

@@ -10277,3 +10277,73 @@ old = ''': lf-nt-end ( row -- ) align here over - swap lf-nt-next ! ;'''
 new = ''': lf-nt-end ( row -- ) here over - swap lf-nt-next ! ;'''
 test = "$GFORTH tests/present/notation.fs"
 reason = "a notation row may start at an unaligned address (works on x86-64, faults elsewhere): rows-aligned? catches it (review refactor-present L1d)"
+
+# Plan 5.5.1 (2026-11-12): the program receipt states LeanForth's verdict on
+# Lean's exported clamp proofs, and the export mutation tool
+# (scripts/program_receipt.py, tests/program/clamp_mutants.py).
+
+[[fault]]
+id = "p551-any-theorem-accepted"
+file = "scripts/program_receipt.py"
+old = '''    if verdicts == {"accepted"}:'''
+new = '''    if "accepted" in verdicts:'''
+test = "python3 tests/program/receipt_check.py"
+reason = "5.5.1: a receipt says accepted-by-leanforth when LeanForth rejected an obligation but accepted the contract theorem"
+quick = true
+
+[[fault]]
+id = "p551-not-proved-accepted"
+file = "scripts/program_receipt.py"
+old = '''            if set(leanforth["theorems"][name]["axioms"]) - set(ALLOWED_AXIOMS):'''
+new = '''            if False:'''
+test = "python3 tests/program/receipt_check.py"
+reason = "5.5.1: a theorem that depends on sorryAx (NOT PROVED) is written into a receipt as accepted"
+
+[[fault]]
+id = "p551-unfinished-as-unsupported"
+file = "scripts/program_receipt.py"
+old = '''    return next((status for status, found in CHECK_FROM_VERDICTS if verdicts & found), "failed")'''
+new = '''    return next((status for status, found in CHECK_FROM_VERDICTS if verdicts & found), "unsupported")'''
+test = "python3 tests/program/receipt_check.py"
+reason = "5.5.1: a check that ran out of fuel, or a theorem missing from the report, is called unsupported, not failed"
+
+[[fault]]
+id = "p551-axioms-not-compared"
+file = "scripts/program_receipt.py"
+old = '''        if sorted(leanforth["theorems"][name]["axioms"]) != sorted(lean["axioms"][name]):'''
+new = '''        if False:'''
+test = "python3 tests/program/receipt_check.py"
+reason = "5.5.1: a receipt is written when LeanForth's axioms for a theorem differ from Lean's #print axioms"
+
+[[fault]]
+id = "p551-export-not-pinned"
+file = "scripts/program_receipt.py"
+old = '''    if evidence["export"] != {"sha256": manifest["sha256"], "bytes": manifest["bytes"]}:'''
+new = '''    if False:'''
+test = "python3 tests/program/receipt_check.py"
+reason = "5.5.1: a receipt is written from LeanForth's verdict on another export than the pinned one"
+quick = true
+
+[[fault]]
+id = "p551-bit8-unnamed"
+file = "scripts/program_receipt.py"
+old = '''        ["an axiom outside the allowlist"] if bits & 8 else [])'''
+new = '''        [] if bits & 8 else [])'''
+test = "python3 tests/program/receipt_check.py"
+reason = "5.5.1: an accepted declaration with an unnamed axiom outside the allowlist reads as having none, so NOT PROVED is lost"
+
+[[fault]]
+id = "p551-mutant-reuses-later-expression"
+file = "tests/program/clamp_mutants.py"
+old = '''        if found is None or self.where["ie", found] >= self.limit:'''
+new = '''        if found is None:'''
+test = "python3 tests/program/clamp_mutants.py --test"
+reason = "5.5.1: an in-place mutant reuses an expression defined after the declaration, so the export is malformed and its rejection says nothing about the change"
+
+[[fault]]
+id = "p551-copies-without-change"
+file = "tests/program/clamp_mutants.py"
+old = '''            changes = {**renaming, **(export.swaps(pairs) if field == "value" else {})}'''
+new = '''            changes = dict(renaming)'''
+test = "python3 tests/program/sha_export_check.py"
+reason = "5.5.1: a mutant copy keeps its original's body, so the checks of changed words and proofs test nothing (needs pinned Lean)"

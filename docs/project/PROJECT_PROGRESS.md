@@ -19,7 +19,7 @@ give **exactly Lean 4.35.0's verdicts** — an *unknown* where Lean decides
 is a gap to close, never a feature — and match or beat Lean's one-thread
 speed before parallelism adds more.
 
-**What LeanForth is and is not (2026-11-12).** LeanForth today is only the checking half of Lean (the kernel): it re-checks proof terms that Lean produced and exported (NDJSON), including all of Lean's `Init`. It has none of Lean's front end, the larger half: no elaborator (implicit arguments, numerals, unification), no type classes or coercions, no tactics, no pattern matching or recursion compilation, no evaluation. So it cannot yet turn a written theorem into a proof; Lean does all of that before the export. LeanForth text checked by the kernel is on a branch, not merged; there is no program verifier. The front end is plan phase 8 ([PLAN_DRAFT.md](PLAN_DRAFT.md)), being re-planned from 2026-11-12.
+**What LeanForth is and is not (2026-11-12).** LeanForth today is only the checking half of Lean (the kernel): it re-checks proof terms that Lean produced and exported (NDJSON), including all of Lean's `Init`. It has none of Lean's front end, the larger half: no elaborator (implicit arguments, numerals, unification), no type classes or coercions, no tactics, no pattern matching or recursion compilation, no evaluation. So it cannot yet turn a written theorem into a proof; Lean does all of that before the export. LeanForth text checked by the kernel is on a branch, not merged; there is no program verifier: for the clamp word LeanForth re-checks the proofs Lean wrote (plan 5.5.1, branch `program-551`). The front end is plan phase 8 ([PLAN_DRAFT.md](PLAN_DRAFT.md)), being re-planned from 2026-11-12.
 
 ## Now, next, later (updated 2026-11-12)
 
@@ -41,12 +41,21 @@ status changes when this date is older than them. Stages are those of the
   [ADR 0021](../adr/0021-front-end.md) proposed): designed 2026-11-12, no code. FE1, the first theorem proved from
   LeanForth text ($0 + n = n$ by induction, no hand-written proof term, no Lean tool), starts once the owner answers
   the syntax questions and 8.2.1c-d are merged; natural statements (8.6.10) are FE2, `add_comm` natively (8.6.11) FE5.
+- Program track, restarted 2026-11-12 after being parked since 2026-11-04: LeanForth re-checks Lean's proofs of
+  the clamp word's obligations (plan 5.5.1): integrated on branch `program-551`, not yet run by the done checker.
+  `python3 scripts/program_receipt.py export OUT.ndjson` has pinned Lean export the contract theorem and its two
+  obligations with their closure (4,277 declarations); `bin/leanforth check` accepts them, and rejects a program,
+  contract or proof changed after Lean proved it; the clamp receipt (schema 0.3, the result label removed by the
+  owner's [format] decision of 2026-11-12) states LeanForth's verdict. Lean wrote the proofs: LeanForth has no
+  tactics. The SHA-256 helper words' proofs (sha-rotr, sha-ch, sha-maj, sha-big-sigma0) are re-checked the same
+  way (2,890 declarations); their receipts wait for schema 0.4. Owner questions: the [bypass] and [runtime]
+  gates of 5.5.1.
 
 **Next**
 - The Forth refactoring batches of the three backlog reviews ([log](../development/forth-reviews/LOG.md), plan
   9.4.5), tests first, every verdict and fuel count identical.
-- Program track: LeanForth re-checks Lean's proofs of the clamp word's obligations (5.5.1), then a user command
-  `leanforth verify` (8.4.1). The track has been parked since 2026-11-04.
+- Program track: a user command `leanforth verify` (8.4.1); the SHA-256 helper words' receipts (schema 0.4, IR 0.2,
+  at the owner's [format] gate).
 - A rule-by-rule audit of AGENTS.md against practice.
 
 **Later**
@@ -268,6 +277,7 @@ the 32-bit access words exist in `src/`; building it is plan tasks
 | Program reader (Forth to program IR, 2.5.3) | [parser] | replaced by the owner's two-mode design (ADR 0019, accepted in direction). The two-mode program words (verify mode emits the program IR, run mode executes as plain Forth; the portable mode shift is primary and the alias vocabulary is kept beside it; 287 inputs after the review fixes) are **approved** 2026-11-04 after three review rounds, with stated limits (source-to-IR is tested, not proved; a standard word redefined before the words load is not noticed). Next, IR 0.2 (row below) Today's text reader stays as a cross-check, then retires |
 | LeanForth syntax words (8.1.2) | [parser] | **approved** 2026-11-03, after two clean review rounds (term-for-term equal to Lean on 67 declarations) |
 | Program receipt schema 0.2 (2.5.1) | [format] | **approved** 2026-11-03 (schema pinned by hash; any change is a new version) |
+| Program receipt schema 0.3 (5.5.1) | [format] | **decided by the owner** 2026-11-12: 0.2 without the result label (`check.label`), as check reports 0.4/0.5 and run records 0.3; 0.2 stays readable. Receipts for IR 0.2 programs take 0.4 |
 | Run-record format 0.1 (environment identity, manifest-enforced field tied to the bytes read, both import passes compared, blank-looking names refused) | [format] | **approved** 2026-11-04 after three independent review rounds (`docs/programming/RUN_RECORDS.md`) |
 | Axiom policy and defaults (owner, 2026-11-03) | policy | decided: `sorryAx` and any axiom outside the three standard ones get Lean's verdict, labelled **NOT PROVED** (the flag `--standard-axioms-only` refuses them); with no flags LeanForth is always Lean. **Exit status (owner, 2026-11-04 late): 0 like Lean by default, 6 with `--strict-axioms`.** The label and the exit status are not implemented in full yet (plan 5.3.1); the owner asked on 2026-11-04 to consider changing the rule (plan 5.3.3, options to be brought in plain words) |
 | Big-number library (`lib/bignum.fs`, for literals) | [forth-review] | review found one serious memory bug in printing; fixed and merged 2026-11-03 (`ed4dab7`, merge `4c714f5`); **approved** 2026-11-11 (owner) with literals (plan 5.2.3) |
@@ -512,7 +522,7 @@ tasks, not the plan's.
 | 3.4.3 `--json` report (`check-report-0.1`) | **done**: [format] gate approved 2026-11-04; `--strict-axioms` and `--fast` implemented (`84725e6`) |
 | 6.5.5 work linear in a term's depth | not started (the quadratic cost is the temporary price of 6.2.0 part b) |
 | 8.2.1a-g native and inline LeanForth (design accepted) | 8.2.1a, c, d: works end to end (done check docs/development/done-checks/2026-11-12-lf-files.md); owner gates [parser], [bypass], [import] approved by the owner 2026-11-12; 8.2.1b, e, f and g not started; 8.6.3 not started |
-| SHA-2 helper words (program track) | **in progress**: 4 of 8 words proved (ROTR, Ch, Maj, Σ0); SHR, Σ1, σ0, σ1 remain |
+| SHA-2 helper words (program track) | **in progress**: 4 of 8 words proved (ROTR, Ch, Maj, Σ0); SHR, Σ1, σ0, σ1 remain. Since 2026-11-12 (branch `program-551`) Lean's proofs of the four are also re-checked by `bin/leanforth check` (2,890 declarations; a changed body or proof rejected); no receipt until schema 0.4 |
 | 5.3.3 review of the axiom rule (owner, 2026-11-04) | planned; options to be brought in plain words |
 | 6.1.6 other Lean libraries (a few small ones and the largest) | planned (owner, 2026-11-03: "soon", not yet) |
 | 6.4.2 Lean's own test suites as NDJSON exports | planned (owner, 2026-11-04) |
@@ -551,23 +561,24 @@ tasks, not the plan's.
 
 | Milestone | Status and evidence / remaining work |
 | --- | --- |
-| 1. Contract and assumptions | In progress: [receipt schema 0.2](../programming/PROGRAM_RECEIPTS.md) keeps CHECK, VERIFY and RUN apart, says whether Lean or LeanForth settled each obligation, lists axioms per theorem and requires runtime, cell, stack-capacity, two's-complement, Lean, reader, generator and floating-point assumptions; 29 tests with 114 mutations; the format awaits its re-check and the owner's *[format]* approval. |
+| 1. Contract and assumptions | In progress: [receipt schema 0.3](../programming/PROGRAM_RECEIPTS.md) (0.2 without the check label, 2026-11-12) keeps CHECK, VERIFY and RUN apart, says whether Lean or LeanForth settled each obligation, lists axioms per theorem and requires runtime, cell, stack-capacity, two's-complement, Lean, reader, generator and floating-point assumptions; 29 tests with 114 mutations; the format awaits its re-check and the owner's *[format]* approval. |
 | 2. Tested Forth example | In progress: six example words with finite tests; all six now have formal contracts (plan 1.5.3, done 2026-11-03): Lean proves each word's reference model and IR meet its contract for every cell width (gcd and factorial through loop invariants) and refutes deliberately wrong models and programs, 27 theorems using at most `propext`, `Classical.choice` and `Quot.sound`. Choosing one word as the acceptance target (P2.3) remains. |
 | 3. Formal execution model | 2 of 3 done (P3.1, P3.2): IR 0.1 and its Lean semantics. Remaining: review the model against documented Forth behaviour (P3.3). |
 | 4. Model/runtime comparisons | In progress: finite comparisons of the words with Lean models (686 clamp triples, 1,296 memory cases and others); the IR interpreter (`src/program/ir-run.fs`) agrees with the host words and with Lean's evaluation of the model on 5,152 cases (5,092 also run on the host) and 300 random IR programs (2.5.4); testing is not proof. |
-| 5. Shared proof kernel | In progress only through the theorem track: the experimental declaration check exists, but program facts need data types (natural numbers, comparisons), so the first program fact checked by LeanForth arrives with phase 5 (owner answer OQ-5). |
+| 5. Shared proof kernel | In progress (2026-11-12, plan 5.5.1, integrated on branch `program-551`): the first program fact checked by LeanForth's checker: Lean's proofs of the clamp contract and its obligations, exported with their 4,277-declaration closure, accepted by `bin/leanforth check`; program, contract and proof mutants rejected. Lean wrote the proofs. |
 | 6. Forth program representation | In progress: the IR is versioned and the reader translates the example words with source locations, refusing anything outside IR 0.1; stack types, host comparison and memory remain. |
-| 7. Verification conditions | In progress: Lean references for weakest preconditions and stack depth; generator v0 (`scripts/program_vc.py`, untrusted) turns IR plus a contract into Lean obligations: clamp, checked add, checked abs and in-range discharged by Lean, three wrong contracts refuted, gcd and factorial unsupported until loop invariants (4.4.1). The first receipt (clamp) says *checked by the Lean reference, not by LeanForth*. |
+| 7. Verification conditions | In progress: Lean references for weakest preconditions and stack depth; generator v0 (`scripts/program_vc.py`, untrusted) turns IR plus a contract into Lean obligations: clamp, checked add, checked abs and in-range discharged by Lean, three wrong contracts refuted, gcd and factorial unsupported until loop invariants (4.4.1). The clamp receipt states LeanForth's verdict on Lean's proofs (`accepted-by-leanforth`, plan 5.5.1). |
 | 8. User-facing verifier | Not started. |
 | 9. Verified execution/compilation | In progress only for runtime testing; no source-to-runtime correspondence. |
 | 10. Larger executable programs | Not started. The track's destination is now most of the Forth-2012 Core word set, in five stages ([owner decision](OWNER_DECISIONS.md#program-track-goal-most-of-forth-2012-core-2026-11-02-night)). |
 
 ## Where the two tracks overlap
 
-- **One checker.** Program proofs are to be checked by the same LeanForth
-  checker as theorems (P5 depends on T5); until then program proofs are
-  checked by Lean and receipts say *checked by the Lean reference, not by
-  LeanForth*.
+- **One checker.** Program proofs are checked by the same LeanForth
+  checker as theorems: since plan 5.5.1 (2026-11-12, branch `program-551`)
+  the clamp proofs Lean wrote are exported with their closure and re-checked
+  by `bin/leanforth check`, and the receipt states that verdict; the other
+  program proofs are still checked by Lean only.
 - **One outcome vocabulary and library.** The IR reader, the NDJSON reader,
   the printer and the checking passes all report `src/lib/outcome.fs`
   outcomes and use the same records.
@@ -825,8 +836,9 @@ passed. *Planned*: not coded. No outside Lean expert has audited the checker yet
   0.3, verdict version 3); `--progress` and streamed verdicts (PRG);
   `gforth-fast` as the default engine, `--checked` opt-in (ENG); PF batch 1
   (default fuel 100,000,000, fix C1; ADR 0014 Amendment 6).
-- **Coded, not used by `leanforth check`**: the program track (runs through tests and Python scripts; there is
-  no `leanforth program` command, plan 3.4.1, 2.5.x); the record and replay
+- **Coded, not used by `leanforth check`**: the program track's IR, generator and receipts (they run through
+  tests and Python scripts; there is no `leanforth program` command, plan 3.4.1, 8.4.1; the clamp proofs' export
+  itself is checked by `leanforth check`, plan 5.5.1); the record and replay
   reader (`check --record`, `replay`: 32 declarations, no inductive types,
   `let`, literals, projections or metadata; its old limits are 64 names, 64
   levels and 64 term nodes); the test-only probe-mode inference
@@ -868,11 +880,12 @@ passed. *Planned*: not coded. No outside Lean expert has audited the checker yet
 - Not yet reported per check: large proofs have no splitting guidance (6.5.3);
   the worker count is not a setting (6.5.4); Lean's own test suites and other
   Lean libraries are not yet run (6.4.2, 6.1.6).
-- The program track's proofs are about the IR's Lean semantics, checked by
-  Lean; that Gforth runs the words as the IR says, and that the reader
+- The program track's proofs are about the IR's Lean semantics, written
+  and checked by Lean (the clamp's also re-checked by LeanForth, plan
+  5.5.1); that Gforth runs the words as the IR says, and that the reader
   translates faithfully, are tested, not proved. IR 0.2 (redefinition,
   output words) is implemented and its [parser] implementation gate is
-  approved; no receipt can describe an IR 0.2 program until receipt schema 0.3.
+  approved; no receipt can describe an IR 0.2 program until receipt schema 0.4.
 - Only Lean 4.35.0 exports in format 3.1.0 are read by default (other versions
   only with `--any-lean-version`); a file cut off cleanly between two lines
   is detected by the manifest unless `--no-manifest`; only Linux/WSL with

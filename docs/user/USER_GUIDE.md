@@ -11,7 +11,8 @@ and several parts have not passed their review gates.
 same checker ([checking a file](LEANFORTH_SYNTAX.md#checking-a-file); plan 8.2.1c-d).
 There is a Forth data model for Lean's terms, a Forth reader for Lean's
 export format, a term printer, and the first steps of a program-verification
-pipeline whose proofs are checked by Lean, not by LeanForth. This guide says what that means for you and where the trust
+pipeline whose proofs Lean writes; for the clamp word LeanForth's checker re-checks Lean's
+exported proofs and the receipt states its verdict (plan 5.5.1). This guide says what that means for you and where the trust
 boundaries are. The detailed status is in
 [project progress](../project/PROJECT_PROGRESS.md).
 

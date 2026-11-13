@@ -1,5 +1,5 @@
 {
-  "recordedAt": "2026-11-04",
+  "recordedAt": "2026-11-12",
   "ir": {
     "words": "src/program/verify.fs",
     "sha256": "651875025cec88f7ae5b6669b227df28ebd3bbcbc29f11af08370024bf5cfb50",
@@ -23,6 +23,42 @@
         "Classical.choice",
         "Quot.sound"
       ]
+    }
+  },
+  "export": {
+    "sha256": "b53290b494bc90b41646531f05b46adca6ee49d497b934021e011c29ed7df6eb",
+    "bytes": 23600210
+  },
+  "leanforth": {
+    "version": "0.1.0-dev",
+    "verdictVersion": 9,
+    "exitStatus": 0,
+    "declarations": 4277,
+    "accepted": 4277,
+    "theorems": {
+      "ProgramVC.LfClamp0.O1": {
+        "verdict": "accepted",
+        "axioms": [
+          "propext",
+          "Quot.sound"
+        ]
+      },
+      "ProgramVC.LfClamp0.O2": {
+        "verdict": "accepted",
+        "axioms": [
+          "propext",
+          "Classical.choice",
+          "Quot.sound"
+        ]
+      },
+      "ProgramVC.LfClamp0.contract": {
+        "verdict": "accepted",
+        "axioms": [
+          "propext",
+          "Classical.choice",
+          "Quot.sound"
+        ]
+      }
     }
   },
   "run": {
