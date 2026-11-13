@@ -61,7 +61,15 @@ T{ nat fh lam lf-infer nat nat fk 0 bv let lam lf-infer
 T{ nat fs 0 bv app lam lf-infer -> -1 outcome-invalid }T
 
 \ ---- Unsupported.
-T{ nat nat lf-term-pi must lf-infer -> -1 outcome-unsupported }T
+\ Pis: Sort of imax of the domains' levels and the body's, normalized.
+T{ nat>nat lv1 sort infer= nat 0 bv 0 bv eq lf-term-pi must l0 sort infer=
+   -> true outcome-ok true outcome-ok }T
+T{ l0 sort l0 sort lf-term-pi must lv1 sort infer= -> true outcome-ok }T
+T{ lv1 sort nat lf-term-pi must lv1 lf-level-succ drop sort infer= -> true outcome-ok }T
+\ A domain whose type is no sort (Lean: type expected); a domain that is
+\ itself a pi (its level needs a nested telescope: unsupported).
+T{ fk fk lf-term-pi must lf-infer -> -1 outcome-invalid }T
+T{ nat>nat nat lf-term-pi must lf-infer -> -1 outcome-unsupported }T
 T{ nat fk 0 bv let lf-infer -> -1 outcome-unsupported }T
 T{ fa fb pair 0 proj lf-infer -> -1 outcome-unsupported }T
 T{ nat 0 bv lam fk app lf-infer -> -1 outcome-unsupported }T

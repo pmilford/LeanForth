@@ -19,13 +19,15 @@
 \   variables, the body's type (one of the above) inferred and closed
 \   into pis over them (mkForallFVars), each with its lambda's name and
 \   kind.
-\ Never a guess: unsupported for a pi, let, projection or literal, an
-\ application with any other head, a lambda whose body is none of the
-\ above (they need inferForallType's getLevel and Level.normalize, let
+\ - a pi (inferForallType): its binders opened, the body's level and the
+\   domains' (getLevel) combined with mkLevelIMax' and normalized.
+\ Never a guess: unsupported for a let, projection or literal, an
+\ application with any other head, a lambda or pi whose body or domain
+\ is itself a lambda or pi or none of the above (nested telescopes, let
 \ telescopes, inferProjType: plan FE1c), a lambda's type holding a
-\ metavariable (mkForallFVars's elimMVarDeps), a beta step under a
-\ binder of the type (front/beta-inst.fs), and Sort's legacy numeric
-\ form.
+\ metavariable (mkForallFVars's elimMVarDeps), a level Lean would get by
+\ assigning a metavariable Sort ?u, a beta step under a binder of the
+\ type (front/beta-inst.fs), and Sort's legacy numeric form.
 \ Outcomes: ok; invalid for no term, a loose bound variable, a stale
 \ leaf, an unknown constant, a wrong number of levels, a function
 \ expected; unsupported as above; full when a store or slab has no room;
@@ -48,6 +50,8 @@ require ./mvars.fs
 require ./instantiate.fs
 require ./level-params.fs
 require ../present/binder-table.fs
+require ./level-simp.fs
+require ./level-normalize.fs
 require ./whnf.fs
 require ./beta-inst.fs
 
@@ -187,6 +191,41 @@ end-structure
   if-telescope ok-then? 0= if no-result exit then
   if-body ok-then? if if-close else no-result then ;
 
+\ ---- Pis (inferForallType): the binders opened (forallTelescope), the
+\ body's level and each domain's (getLevel: the type of the type, by
+\ whnfCore a sort), combined from the last binder to the first with
+\ mkLevelIMax' (front/level-simp.fs) and normalized
+\ (front/level-normalize.fs): Sort of that. A type of a type that is no
+\ sort is invalid (Lean: type expected) when whnf could not make one,
+\ unsupported when it might (a definition) or when Lean would assign a
+\ metavariable Sort ?u.
+: if-sort? ( term -- flag ) if-tag lf-tag-symbolic-sort = ;
+: if-no-sort ( type -- outcome )
+  if-head dup if-tag lf-tag-mvar = if drop outcome-unsupported exit then
+  if-firm? if outcome-invalid else outcome-unsupported then ;
+: if-sort-level ( T -- level outcome )
+  dup if-sort? if lf-term-first@ outcome-ok exit then
+  lf-whnf-core ok-then? 0= if no-result exit then
+  dup if-sort? if lf-term-first@ outcome-ok else dup if-no-sort if-fail then ;
+: if-get-level ( type -- level outcome )
+  if-body ok-then? if if-sort-level else no-result then ;
+: if-pi-telescope ( term -- body outcome )
+  if-xs slab-clear if-lams slab-clear
+  begin dup if-pi? while if-open ok-then? 0= if no-result exit then repeat outcome-ok ;
+: if-imax-step ( lvl i -- lvl' outcome )
+  if-x lf-fvar-type if-get-level ok-then? 0= if nip no-result exit then
+  swap lf-meta-imax ;
+: if-imaxes ( lvl -- lvl' outcome )
+  if-xs slab-count begin dup 0> while
+    1- tuck if-imax-step ok-then? 0= if nip no-result exit then swap
+  repeat drop outcome-ok ;
+: if-forall ( pi -- type outcome )
+  if-pi-telescope ok-then? 0= if no-result exit then
+  if-get-level ok-then? 0= if no-result exit then
+  if-imaxes ok-then? 0= if no-result exit then
+  lf-meta-level-normalize ok-then? if if-sort-new else no-result then ;
+
 : lf-infer ( term -- type outcome )
   dup lf-term-root? 0= if outcome-invalid if-fail exit then
-  dup if-lam? if if-lambda else if-body then ;
+  dup if-lam? if if-lambda exit then
+  dup if-pi? if if-forall else if-body then ;

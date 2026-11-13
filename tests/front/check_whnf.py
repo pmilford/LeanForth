@@ -49,7 +49,7 @@ def apps(f, *args):
 
 NAT, ZERO, SUCC, REC = c("Nat"), c("Nat.zero"), c("Nat.succ"), c("Nat.rec", 1)
 PROD_REC, PROD_MK = c("Prod.rec", 1, 0, 0), c("Prod.mk", 0, 0)
-LAM, LET, PROJ, SORT = "lam", "let", "proj", "sort"
+LAM, LET, PROJ, SORT, PI = "lam", "let", "proj", "sort", "pi"
 ADD = c("Nat.add")
 
 
@@ -126,6 +126,11 @@ CASES = [
     ("infer", (LAM, NAT, apps(c("Eq.refl", 1), NAT, "#0")), None),
     ("infer", (LAM, NAT, "?n"), None),
     ("infer", (LAM, NAT, (LAM, apps(c("Eq", 1), NAT, "#0", "#0"), "#0")), None),
+    ("infer", (PI, NAT, NAT), None),
+    ("infer", (PI, NAT, apps(c("Eq", 1), NAT, "#0", "#0")), None),
+    ("infer", (PI, (SORT, 0), (SORT, 0)), None),
+    ("infer", (PI, (SORT, 1), NAT), None),
+    ("infer", (PI, (PI, NAT, NAT), NAT), "FE1c a nested telescope for a pi domain"),
     ("infer", (PROJ, 0, pair("a", "b")), "FE1c inferProjType"),
     ("infer", (LET, NAT, "k", "#0"), "FE1c inferLambdaType for let"),
     ("infer", apps(REC, (LAM, NAT, NAT), "z", "s", "k"), None),
@@ -159,7 +164,9 @@ def lean(t):
     if isinstance(t, tuple) and t[0] == PROJ:
         return f"(mkProj `Prod {t[1]} {lean(t[2])})"
     if isinstance(t, tuple) and t[0] == SORT:
-        return "(mkSort Level.zero)"
+        return "(mkSort Level.zero)" if t[1] == 0 else "(mkSort (mkLevelSucc .zero))"
+    if isinstance(t, tuple) and t[0] == PI:
+        return f"(mkForall `y .default {lean(t[1])} {lean(t[2])})"
     if isinstance(t, tuple):
         return f"(mkLet `y {lean(t[1])} {lean(t[2])} {lean(t[3])})"
     if t.startswith("#"):
@@ -178,7 +185,9 @@ def forth(t):
     if isinstance(t, tuple) and t[0] == PROJ:
         return f"{forth(t[2])} {t[1]} proj"
     if isinstance(t, tuple) and t[0] == SORT:
-        return "l0 sort"
+        return "l0 sort" if t[1] == 0 else "lv1 sort"
+    if isinstance(t, tuple) and t[0] == PI:
+        return f"{forth(t[1])} {forth(t[2])} tpi"
     if isinstance(t, tuple):
         return f"{forth(t[1])} {forth(t[2])} {forth(t[3])} let"
     if t.startswith("#"):

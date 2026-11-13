@@ -20,6 +20,7 @@ menv-load lf-mctx-reset lf-lctx-reset
 : bv ( i -- t ) lf-term-bvar must ;
 : let ( type value body -- t ) rot swap lam 0 lf-let-make must ;
 : sort ( level -- t ) dup lf-level-identity must lf-hterm-sort must drop ;
+: tpi ( domain body -- t ) lf-term-pi must ;
 0 constant l0
 l0 lf-level-succ must constant lv1
 

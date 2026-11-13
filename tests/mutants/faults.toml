@@ -11952,8 +11952,10 @@ reason = "FE1c: an argument with a loose bound variable is put in without the li
 [[fault]]
 id = "fe-infer-no-whnf"
 file = "src/front/infer.fs"
-old = '''  lf-whnf-core ok-then? 0= if no-result exit then'''
-new = '''  outcome-ok ok-then? 0= if no-result exit then'''
+old = '''  dup if-pi? if outcome-ok exit then
+  lf-whnf-core ok-then? 0= if no-result exit then'''
+new = '''  dup if-pi? if outcome-ok exit then
+  outcome-ok ok-then? 0= if no-result exit then'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: a function type that is no pi (a let variable, a metavariable) is not reduced by whnfCore first"
 
@@ -11988,3 +11990,19 @@ old = '''  swap begin dup 0> while 1- tuck if-pi ok-then? 0= if nip no-result ex
 new = '''  swap 1- tuck if-pi ok-then? 0= if nip no-result exit then swap'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: only the innermost binder of a lambda is closed into a pi"
+
+[[fault]]
+id = "fe-infer-pi-imax-skipped"
+file = "src/front/infer.fs"
+old = '''  swap lf-meta-imax ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: a pi's sort leaves out its domains' levels (Type -> Nat would be Sort 1, not Sort 2)"
+
+[[fault]]
+id = "fe-infer-type-expected"
+file = "src/front/infer.fs"
+old = '''  if-head dup if-tag lf-tag-mvar = if drop outcome-unsupported exit then'''
+new = '''  drop outcome-unsupported exit'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: a domain whose type is no sort, where Lean throws type expected, answers unsupported instead of invalid"
