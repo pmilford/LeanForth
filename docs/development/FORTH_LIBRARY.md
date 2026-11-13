@@ -38,7 +38,9 @@ is added). The library audit of 2026-11-13 (plan 9.4.8) lists which libraries la
 | Portable 32-bit hashing | `src/lib/hash32.fs` | `hash-fmix` (Murmur3's finaliser), `hash-step ( h x -- h' )` and `hash-bytes ( addr u -- h )` (FNV-1a), every product masked to 32 bits, so 32- and 64-bit hosts give the same values ([below](#the-compact-store)) | New 2026-11-03; `tests/lib/hash32.fs` against values computed in Python |
 | Growable heap stores | `src/lib/slab.fs` | Plan task 1.1.5. `slab-init ( unit limit slab -- outcome )`: units of any size in one heap block that doubles by `RESIZE` up to a limit; `slab-room`, `slab-claim`, `slab-commit`, `slab-at`, `slab-top`, `slab-trim`, `slab-clear`; marks `slab-mark`, `slab-rollback`, `slab-mark-valid?` with `store.fs`'s refusals ([below](#the-compact-store)) | New 2026-11-03; `tests/lib/slab.fs` |
 | Runs (sequences that never change) | `src/lib/runs.fs` | A run is a handle (0 the empty run) to a stretch of a slab of cells, which are only appended, never changed, so runs share cells and a saved run is its handle: `run-push ( run x -- run' outcome )` (in place when the run ends at the top of the cells, else after a copy of it), `run-take` and `run-after ( run n -- run' outcome )` (no copy), `run-cat ( run1 run2 -- run outcome )` (in place when run2 begins where run1 ends), `run-count`, `run@ ( run i -- x )`, `run-valid?`, `runs-reset`, `runs-epoch` (changes with each reset), `runs-cells`; invalid for a handle that names no run or a count out of range, full when a slab cannot grow (no run made); its two slabs are members of the checker context (`context.fs`), so each context has its own runs | New 2026-11-13 (plan FE1g-1; the front end's local contexts and goal lists, `src/front/lctx-views.fs`, `goals.fs`); `tests/lib/runs.fs` (its example, every refusal, every heap refusal inside an operation, 400 random operations against a model), planted fault `fe-goal-run-no-copy` caught |
-| Stable sorting | `src/lib/sort.fs` | `sort-records ( a-addr n sorter -- outcome )` sorts n records of any size in place by the caller's order `( a-addr1 a-addr2 -- n )`, or by their keys (`sorter-key!`; `sorter-cells` and `sorter-u32s` order values); stable: insertion up to `sorter-short` (32) records, above that a bottom-up merge from runs of one record through a scratch (the caller's, `sorter-buffer!`, or the heap's: full when refused, nothing changed), its comparisons call for call those of `level-normalize.fs`'s `lf-lnorm-sort`; no recursion; invalid for a bad count, a sorter not accepted or busy, and an order or key word that changes the stack depth; a THROW out of the order is passed on, the scratch freed ([below](#sorting)) | New 2026-11-12 (the kernel refactor's batch C2 waited for it); not yet used by any module (the snapshot's three insertion sorts wait for the owner's approval of the kernel change); `tests/lib/sort.fs`, 23 planted faults each caught |
+| Stable sorting | `src/lib/sort.fs` | `sort-records ( a-addr n sorter -- outcome )` sorts n records of any size in place by the caller's order `( a-addr1 a-addr2 -- n )`, or by their keys (`sorter-key!`; `sorter-cells` and `sorter-u32s` order values); stable: insertion up to `sorter-short` (32) records, above that a bottom-up merge from runs of one record through a scratch (the caller's, `sorter-buffer!`, or the heap's: full when refused, nothing changed), its comparisons call for call those of `level-normalize.fs`'s `lf-lnorm-sort`; no recursion; invalid for a bad count, a sorter not accepted or busy, and an order or key word that changes the stack depth; a THROW out of the order is passed on, the scratch freed ([below](#sorting)) | New 2026-11-12 (the kernel refactor's batch C2 waited for it); since branch `reuse-k1` (2026-11-13, awaiting the owner's [kernel] approval) the kernel's six sorts use it: the snapshot's three lists, Level.normalize's arguments and both level substitutions' reached nodes ([below](#sorting)); `tests/lib/sort.fs`, 23 planted faults each caught |
+| Keyed memo tables | `src/lib/memo.fs` | `memo-init ( kcells vcells memo -- outcome )`: keys and values of fixed numbers of cells, entries in a slab found by an `htab.fs` table; `memo-find`/`memo-put` (keys by address), `memo-at`/`memo-claim`/`memo@`/`memo!` (keys of one or two cells), `memo-clear`, `memo-empty` (a large table made small again), `memo-cut` (newest first), a check hook (a stale value is a miss) and an admit hook (an entry may be refused) ([below](#keyed-memo-tables)) | New 2026-11-13 (branch `reuse-k1`); the checker's result caches (`caches.fs`), Lean's replace memo (`replace-memo.fs`) and the NDJSON reader's index maps use it; `tests/lib/memo.fs`, 12 planted faults each caught |
+| Priority queues | `src/lib/pqueue.fs` | `pq-init ( order pq -- outcome )`, `pq-push`, `pq-pop`, `pq-min`, `pq-count`, `pq-clear`, `pq-free`: a binary min-heap of cells on a slab by the caller's order ([below](#priority-queues)) | New 2026-11-13 (branch `reuse-k1`); the parallel scheduler's two ready queues (`env-schedule.fs`); `tests/lib/pqueue.fs`, 6 planted faults each caught |
 | Hash tables | `src/lib/htab.fs` | Open addressing over 32-bit slots, hooks for rehashing and comparing, growth at 3/4, removal by Algorithm R, `htab-spread` and `htab-presize` ([below](#the-compact-store)) | New 2026-11-03; `tests/lib/htab.fs` |
 | Hash-consed sets in two tiers | `src/lib/cons.fs`, `src/lib/pools.fs` | Each distinct record once, named by a number; a sealed input set shared read-only and scratch sets over it whose numbers continue; marks, resets, sealing; interned lists of 32-bit numbers (tuples, no fixed length) and texts ([below](#the-compact-store)) | New 2026-11-03; `tests/lib/cons.fs` |
 | Compact store | `src/core/compact.fs` and `compact-tier.fs`, `compact-names.fs`, `compact-levels.fs`, `compact-exprs.fs` | ADR 0016's Lean layer: names, levels, universe lists, literals and 16-byte expression records in input and scratch tiers ([below](#the-compact-store)) | New 2026-11-03; not yet used by the kernel; `tests/core/compact.fs`, round trips of the reference exports and of `Init` |
@@ -84,6 +86,8 @@ LeanForth, unless coupling gains a lot. Audit of `src/lib/` on 2026-11-03:
 | `sha256.fs` (SHA-256) | yes, written to this rule (2026-11-03) | requires only `portability.fs` and `module.fs`; helpers in `lf-lib-private`, 17 public words (the hashing interface and FIPS 180-4's functions), all named `sha-…` or `sha256…`; an example in its header and [below](#sha-256), run with the interface checked from a folder outside the project by `make test-sha256` |
 | `runs.fs` (sequences of cells that never change) | yes, written to this rule (2026-11-13) | requires `bounds.fs`, `outcome.fs`, `slab.fs`, `context.fs` and `module.fs` (its state is two context members, so one copy per checker context); helpers in `lf-lib-private`, 10 public words, all named `run…` or `runs…`; an example in its header, run by `tests/lib/runs.fs` without the checker |
 | `sort.fs` (stable sorting) | yes, written to this rule (2026-11-12) | requires `portability.fs`, `bounds.fs`, `outcome.fs`, `u32.fs` and `module.fs`; helpers in `lf-lib-private`, 11 public words, all named `sort…` or `sorter…`; an example in its header, run by `tests/lib/sort.fs` without the checker |
+| `memo.fs` (keyed memo tables) | yes, written to this rule (2026-11-13) | requires `portability.fs`, `bounds.fs`, `outcome.fs`, `u32.fs`, `hash32.fs`, `slab.fs`, `htab.fs` and `module.fs`; helpers in `lf-lib-private`, 17 public words, all named `memo…`; an example in its header, run by `tests/lib/memo.fs` without the checker |
+| `pqueue.fs` (priority queues) | yes, written to this rule (2026-11-13) | requires `portability.fs`, `outcome.fs`, `slab.fs` and `module.fs`; helpers in `lf-lib-private`, 8 public words, all named `pq…` or `/pqueue`; an example in its header, run by `tests/lib/pqueue.fs` without the checker |
 | `text-rule.fs` (visible text) | yes, written to this rule (2026-11-03): a UTF-8 hygiene rule with nothing of Lean | requires `bounds.fs`, `bytes.fs` (and through it `lib.fs`) and `module.fs`; helpers in `lf-lib-private`, three public words (`tr-banned?` since 2026-11-04, for callers that decode text themselves); an example in its header; `tests/lib/text-rule.fs` runs without the checker |
 | coming: the compact store (ADR 0016) | written to this rule from the start | — |
 
@@ -397,7 +401,9 @@ no state of its own.
 
 **Speed** (this machine, 2026-11-12): 100,000 cells with keys below
 1,000, 1.57 million comparisons, 0.17 s with `gforth` 1.0 and 0.31 s with
-0.7.3.
+0.7.3. Short lists (2026-11-13, `gforth-fast` 1.0, while a two-job check
+ran): 8 random cells in 0.6 µs a sort, 32 (the cut-over, by insertion)
+in 7.7 µs; `gforth` 1.0: 2 µs and 22 µs.
 
 **Tests** (`tests/lib/sort.fs`, in `make test-lib`; Gforth 1.0 and
 0.7.3; loaded under `HEX`): the public words and hidden helpers; the
@@ -434,18 +440,166 @@ the count's check, a zero order, the key word skipped, `sorter-u32s`
 reading a cell, a swallowed `THROW`, `sort-unsigned` signed), each
 caught.
 
-**Sorts in `src/` that could use it** (2026-11-12; changing them is
-kernel work under the owner's approval, or another agent's front end):
+**Callers** (branch `reuse-k1`, 2026-11-13, kernel work under the owner's
+[kernel] approval; the front end's and the re-exporter's sorts are branch
+`reuse-1`'s). The sizes are those passed on one check of all of `Init`
+(`bin/leanforth check --jobs 1 --save-snapshot`, 59,349 declarations),
+counted by a temporary counter in each caller, since removed:
 
-| Where | Kind | Equal keys |
+RK-SORT-TABLE
+
+## Keyed memo tables
+
+`src/lib/memo.fs` (2026-11-13, branch `reuse-k1`; library audit action 2;
+untrusted until reviewed): a map from keys of a fixed number of cells to
+values of a fixed number of cells, for remembering results. A standalone
+library under the owner's rule
+([above](#reusability-the-libraries-as-standalone-forth-code)): it requires
+`portability.fs`, `bounds.fs`, `outcome.fs`, `u32.fs`, `hash32.fs`,
+`slab.fs`, `htab.fs` and `module.fs`, knows nothing of Lean, and keeps its
+helpers in `lf-lib-private`.
+
+```forth
+require src/lib/memo.fs
+create sq /memo allot   2 1 sq memo-init drop     \ keys of two cells, values of one
+49 7 0 sq memo! drop   7 0 sq memo@ . .           \ -1 49
+8 0 sq memo@ .                                    \ 0: no entry
+sq memo-free
+```
+
+| Word | Stack | Meaning |
 | --- | --- | --- |
-| `src/kernel/env-snapshot.fs` `entry-sink`, `look-sort` (213–218; also `env-layers.fs` 329) | insertion; 8-byte (key, answer) pairs by the little-endian key, unsigned | the lists are distinct by key; a stable sort keeps the bytes in any case: `8 ' sort-unsigned` with `' u32-le@ sorter-key!` |
-| `env-snapshot.fs` `dep-sort` (324–330; `env-layers.fs` 326) | insertion by shifting; little-endian 32-bit slot numbers, unsigned | equal values are equal bytes: `4 ' sort-unsigned` with `' u32-le@ sorter-key!` |
-| `env-snapshot.fs` `o-sink`, `o-sort` (386–391) | insertion; name numbers by content (`o-order`) | equal content is the same name: `' o-order sorter-cells` |
-| `src/kernel/level-normalize.fs` `lf-lnorm-sort` (207–264) | insertion up to 32, else bottom-up merge through slab cells; one unit of fuel per comparison | only structurally equal levels tie; the library's comparisons are the same calls |
-| `src/kernel/level-substitute.fs` `lf-cells-sort` (65–85; used at 256 and by `mixed-level-substitute.fs` 303) | heapsort of signed cells, no scratch, not stable | the reached node indices are distinct; the library would need scratch above 32 |
-| `src/front/level-normalize.fs` `ln-insert`, `ln-sort` (121–137) | insertion by shifting; levels by `normLt` | only structurally equal levels tie |
-| `src/import/ndjson-emit.fs` `member-insert`, `members-sort` (216–225) | insertion; mdata's key tokens by their text | two equal keys are refused as invalid |
+| `/memo` | `( -- u )` | a memo record's size; the record is the caller's, and may move |
+| `memo-init` | `( kcells vcells memo -- outcome )` | an empty memo of keys of `kcells` cells (at least one) and values of `vcells` (none or more), its table made: ok; full (no heap: not live, nothing held); invalid for a bad shape |
+| `memo-free` | `( memo -- )` | its blocks given back; the record zero |
+| `memo-live?`, `memo-count`, `memo-bytes` | `( memo -- flag \| n \| u )` | whether it may be used; entries; address units held (0 when not live) |
+| `memo-find` | `( key memo -- a-addr \| 0 )` | the value cells of the key at `key` (`kcells` cells), or 0: none, refused by the check hook, not live |
+| `memo-put` | `( key memo -- a-addr outcome )` | the value cells of key's entry, found or added (key copied, values zero), for the caller to write; 0 and full (no room, admit refused) or invalid (not live), nothing changed |
+| `memo-at`, `memo-claim` | `( k1 k2 memo -- … )` | the same with a key of one or two cells on the stack (a memo of one key cell reads only `k1`) |
+| `memo@`, `memo!` | `( k1 k2 memo -- x true \| false )`, `( x k1 k2 memo -- outcome )` | the first value cell, read or written |
+| `memo-clear`, `memo-empty` | `( memo -- )` | every entry out; `memo-empty` makes a table of more than `memo-small` (1,024) slots small again, its blocks given back |
+| `memo-cut` | `( n memo -- )` | the entries from the n-th on taken out, newest first |
+| `memo-check!`, `memo-admit!` | `( xt memo -- )` | hooks: `check ( a-addr -- flag )` whether a found value still holds; `admit ( memo -- flag )` whether an entry may be added |
+
+**Algorithm and why.** Entries (key cells, then value cells) in a slab
+that doubles as it fills, found by an open-addressing hash table
+(`htab.fs`: linear probing, doubled before it is 3/4 full, Algorithm R for
+removal) whose hooks hash and compare the key cells. Every key cell is
+mixed in by its low 32 bits (Murmur3's finaliser, `hash32.fs`) and by its
+high bits when any are set, so 32- and 64-bit hosts find the same entries
+and keys that differ only above bit 31 do not collide; keys are compared
+cell by cell, never as bytes. The table keeps its hooks' address, so the
+hooks are a heap block of their own and a memo record may move (a member
+of a checker context does while modules load). A put first makes the
+table ready (it may double, even for a key present), then finds, then
+asks the admit hook, then grows the entries: the order in which the three
+memos it replaced did these steps, so a check's memory meter is charged
+exactly as before. Why so: the three copies it replaced (the checker's
+result caches, Lean's replace memo, the NDJSON reader's index maps) were
+the same table on `htab.fs` and `slab.fs`, each with its own hooks, key
+record and emptying; one library with hooks for the two kernel-specific
+rules (a kept node is valid only while it has the identity kept with it;
+entries are charged to a check's memory limit) serves all three, and the
+front end's next.
+
+**Genericity.** The caller chooses the key and value cells, and the two
+hooks; keys are given by address, or for one or two cells on the stack.
+No order of entries is promised but insertion order for `memo-cut`.
+
+**Scaling.** A find or put costs a hash of `kcells` cells and a few
+probes whatever the size (table at most 3/4 full); a put that doubles the
+table rehashes every entry once (amortised constant). Memory: an entry is
+`kcells + vcells` cells in the slab (up to twice that while it doubles)
+plus 4 to 11 bytes of 32-bit slots; at least 16 slots and the hooks'
+2 cells. No recursion; a few host-stack cells.
+
+**Speed** (this machine, 2026-11-13, `gforth-fast` 1.0, while a two-job
+check ran): 16 keys of two cells put and found 100,000 times with an
+`memo-empty` between, 3.2 million operations in 0.38 s (0.12 µs each);
+1,000,000 distinct keys put in 0.72 s and found in 0.23 s. `gforth` 1.0:
+0.93 s; 1.04 s and 0.42 s.
+
+**Callers** (counted as for the sorts above, on all of `Init`):
+
+RK-MEMO-TABLE
+
+**Tests** (`tests/lib/memo.fs`, in `make test-lib`; Gforth 1.0 and 0.7.3;
+loaded under `HEX`): the public words and hidden helpers; the header's
+example; every shape refused; a memo never made, refused by the heap (its
+hooks' block or its table) and freed; keys of one, two and three cells,
+differing in any one cell, and in their high bits only (spread over the
+table: the compared count); values written over; the check hook (a stale
+value a miss, a put finding it again) and the admit hook (asked only for
+a new entry, after the table is ready, before the entries grow); the heap
+refusing the table's growth (for a key present too) and the entries'
+growth; a moved record; cuts, clears and empties (blocks given back, hooks
+kept, a refused new table); a new entry's values zero over a cut one's
+memory; 4,000 random operations against a model. 12 planted faults
+(`lib-memo-…`) each caught; the callers' faults `cache-identity-unchecked`,
+`cache-admit-skipped`, `s6a-memo-identity-unchecked` and
+`ndjson-index-repeat-ignored` caught by the checker's and the reader's tests.
+
+## Priority queues
+
+`src/lib/pqueue.fs` (2026-11-13, branch `reuse-k1`; library audit action
+11; untrusted until reviewed): queues of cells that give back the one that
+comes out first by the caller's order. Standalone: it requires
+`portability.fs`, `outcome.fs`, `slab.fs` and `module.fs`, knows nothing of
+Lean, and keeps its helpers in `lf-lib-private`.
+
+```forth
+require src/lib/pqueue.fs  require src/lib/sort.fs   \ sort.fs for sort-signed
+create ready /pqueue allot   ' sort-signed ready pq-init drop
+7 ready pq-push drop  3 ready pq-push drop  5 ready pq-push drop
+ready pq-pop . ready pq-pop . ready pq-count .     \ 3 5 1
+ready pq-free
+```
+
+| Word | Stack | Meaning |
+| --- | --- | --- |
+| `/pqueue` | `( -- u )` | a queue record's size; the record is the caller's |
+| `pq-init` | `( order pq -- outcome )` | an empty queue by `order ( x1 x2 -- n )`, `sort.fs`'s convention (n > 0: x1 comes out after x2); invalid for an order of 0 |
+| `pq-push` | `( x pq -- outcome )` | ok; full when the heap cannot grow, nothing changed; invalid for a queue not accepted or not live |
+| `pq-min`, `pq-pop` | `( pq -- x )` | the cell that comes out first, staying or taken out (unchecked: the queue holds a cell) |
+| `pq-count` | `( pq -- n )` | cells queued |
+| `pq-clear`, `pq-free` | `( pq -- )` | every cell out; the block given back |
+
+**Algorithm and why.** A binary min-heap in a slab: a push moves the new
+cell up from the last place past each parent that comes out after it, a
+pop moves the last cell down from the root past the child that comes out
+first (the right one on a tie, as in the scheduler's heap it replaced, so
+the scheduler's queues are the same cell for cell) while that child comes
+out before it. A moving cell goes through a hole (each cell it passes
+moves into the hole, it is stored once at the end), with the comparisons
+and the result of swapping, and the hole and the moving value kept in the
+record, so the words pass one item. Why so: the scheduler's queues hold
+declaration numbers, pushed and popped in any order, up to one per
+declaration; a heap is the simplest structure with logarithmic steps, and
+no cell tied by the order is promised an order (a heap is not stable).
+
+**Genericity.** Cells, ordered by the caller's xt (values, or numbers
+naming records the order looks up).
+
+**Scaling.** At most about log2 n comparisons for a push and 2 log2 n for
+a pop; one cell per cell queued, the slab doubling from 16; no recursion.
+
+**Speed** (as above, `gforth-fast` 1.0): 16 random cells pushed and popped
+100,000 times, 1.6 million operations in 0.34 s (0.21 µs each); 1,000,000
+random cells pushed in 0.09 s and popped in 1.1 s. `gforth` 1.0: 0.75 s;
+0.22 s and 1.9 s.
+
+**Callers**: RK-PQ-LINE
+
+**Tests** (`tests/lib/pqueue.fs`, in `make test-lib`; Gforth 1.0 and 0.7.3;
+loaded under `HEX`): the public words and hidden helpers; the header's
+example; an order of 0 and a queue never made or freed; signed values,
+duplicates, unsigned values with the top bit set, an order with ties;
+clearing; the return stack checked; the heap refusing growth (full,
+nothing changed); comparisons within 10 a push and 20 a pop for 1,000
+cells; 3,000 random pushes and pops against a model and against a copy
+of the scheduler's former heap, the same cell out at every pop and the
+same heap cell for cell after every step. 6 planted faults (`lib-pq-…`)
+each caught.
 
 ## Big natural numbers
 

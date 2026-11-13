@@ -60,7 +60,8 @@ q pq-free
 \ out, tens in order.
 : by-tens ( x1 x2 -- n ) 10 / swap 10 / swap sort-signed ;
 ' by-tens q pq-init drop
-T{ 31 12 35 17 33 15 6 q pushes 6 q pops + + >r + + r> -> 44 99 }T
+: sums ( x1 .. x6 -- s1 s2 ) + + >r + + r> ;
+T{ 31 12 35 17 33 15 6 q pushes 6 q pops sums -> 44 99 }T
 q pq-free
 
 \ ---- Clearing, and stack effects with the return stack checked.

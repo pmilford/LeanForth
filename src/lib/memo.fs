@@ -12,10 +12,11 @@
 \ set (hash32.fs), so 32- and 64-bit hosts find the same entries and two
 \ keys that differ only in their high bits do not collide. The table
 \ doubles before it is 3/4 full and the slab doubles as it fills, so a
-\ find or a put costs a few probes whatever the size, and the memory is
-\ about (key + value cells + 1) cells and 4 bytes of slots per entry
-\ (between 1.3 and 2.7 slots per entry). A key is compared cell by cell,
-\ never as bytes; a hash is only a hint.
+\ find or a put costs a few probes whatever the size; an entry takes its
+\ key and value cells in the slab (up to twice that while it doubles) and
+\ 1.3 to 2.7 slots of 4 bytes. A key is compared cell by cell, never as
+\ bytes; a hash is only a hint. The table keeps its hooks' address, so
+\ they are in a heap block of the memo's own, and a memo record may move.
 \
 \ Genericity. The caller chooses the key's cells (at least one) and the
 \ value's (none, for a set of keys); keys are given by address
@@ -30,10 +31,13 @@
 \
 \ Outcomes (lib/outcome.fs): memo-init ok, invalid for a key of no cells
 \ or a negative or too large shape (nothing made), full when the heap
-\ refuses the table (the memo is then not live). memo-put ok; full when
-\ the table or the entries cannot grow or admit refuses, nothing changed;
-\ invalid for a memo that is not live. A memo that is not live (never
-\ made, refused by the heap, freed) finds nothing and holds nothing.
+\ refuses the table or its hooks' block (the memo is then not live).
+\ memo-put makes the table ready (it may double), then finds the key,
+\ then asks admit and grows the entries for a new one: ok; full when the
+\ table (so even for a key present) or the entries cannot grow or admit
+\ refuses, nothing changed; invalid for a memo that is not live. A memo
+\ that is not live (never made, refused by the heap, freed) finds nothing
+\ and holds nothing.
 \ Addresses of value cells are valid until the next memo-put, memo-claim
 \ or memo! on the memo (the entries' block may move), or memo-cut,
 \ memo-clear or memo-empty.

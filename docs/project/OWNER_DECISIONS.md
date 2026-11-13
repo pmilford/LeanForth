@@ -1296,3 +1296,7 @@ identical where the work is the same, but no code is bent to reproduce an old co
 declaration on Init, explained, and shown at the [kernel] gate. Of the eight sorts, only the kernel's level
 normalization charges fuel (one unit per comparison), and it already uses the same insertion-then-merge split at 32
 that `lib/sort.fs` copied from it.
+
+The kernel's first batch under this decision is branch `reuse-k1` (plan 9.4.8e: `lib/sort.fs` in the kernel's sorts,
+the new `lib/memo.fs` and `lib/pqueue.fs` in its memos and scheduler queues); it waits for the [kernel] gate (this
+records no new decision).

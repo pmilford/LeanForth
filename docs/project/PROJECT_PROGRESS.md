@@ -65,7 +65,9 @@ status changes when this date is older than them. Stages are those of the
 **Next**
 - Library reuse (plan 9.4.8, owner 2026-11-13): designed; its checks (9.4.8f: libraries without callers, a duplicate-code ratchet, plan rows for proposed libraries, a generated word index) integrated 2026-11-13, run by `make test`; the rule is in AGENTS.md ("Reuse first"), the Forth
   reviewer's procedure and the design checklist; an audit of `src/front` and of the 2026-11-12 library candidates is
-  running; then one library per branch beside the S slices, every copy replaced.
+  running; then one library per branch beside the S slices, every copy replaced. The kernel's first batch (9.4.8e,
+  branch `reuse-k1`): written and tested alone, `lib/sort.fs` in the kernel's six sorts and the new `lib/memo.fs` and
+  `lib/pqueue.fs` in its memos and scheduler queues; awaiting the Forth review and the owner's [kernel] approval.
 - Priority (owner, 2026-11-13 midday): the front end's slices in order, S1 then S2 ($0 + n = n$ by `by-induction` and
   `by-rw`) then S3 onwards. S2's design ([S2_INTERFACE.md](../design/S2_INTERFACE.md)) reviewed and approved by the
   owner 2026-11-13, both FE1 forms; its first branch (`s2-unfold` merge A, Lean's unfolding) merges before S1's last
