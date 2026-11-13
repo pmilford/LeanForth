@@ -31,13 +31,17 @@
 \ Outcomes: ok; invalid for no term, a loose bound variable, a stale
 \ leaf, an unknown constant, a wrong number of levels, a function
 \ expected; unsupported as above; full when a store or slab has no room;
-\ exhausted when whnfCore's fuel runs out. A failure gives -1.
+\ exhausted when whnfCore's fuel runs out (the fuel is per lf-whnf-core
+\ call, so one inference may spend it once per argument and binder). A
+\ failure gives -1.
 \ Untrusted: only the kernel's check of a finished term decides anything.
 \ State: the record if-state (inferAppType's j) and the slabs if-args
 \ (the arguments, last first), if-levels (a
 \ constant's universe arguments), if-xs and if-lams (a lambda's free
-\ variables and binders), in the checker context.
+\ variables and binders), in the checker context. Loads in decimal
+\ whatever BASE is, then restores it.
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../core/terms.fs
 require ../core/levels.fs
@@ -227,3 +231,5 @@ end-structure
   dup lf-term-root? 0= if outcome-invalid if-fail exit then
   dup if-lam? if if-lambda exit then
   dup if-pi? if if-forall else if-body then ;
+
+base !   \ the BASE this file was loaded with

@@ -736,12 +736,12 @@ On branch
 environment (`src/front/meta-env.fs`: a declaration of the loaded
 library by name, its reducibility status from FE1d's elaboration data,
 Lean's `canUnfoldDefault` and `getUnfoldableConst?` under the six
-transparency modes; `tests/front/check_unfold.py` finds 39 declarations
-of an `Init` slice and their 468 unfolding answers equal to pinned
+transparency modes; `tests/front/check_unfold.py` finds 44 declarations
+of an `Init` slice and their 528 unfolding answers equal to pinned
 Lean's) and `whnfCore` with `getStuckMVar?` (`src/front/whnf.fs`: beta,
 zeta, metavariable and let-variable heads, projections and iota on
 constructor applications, parts reduced first, fuel;
-`tests/front/check_whnf.py`: 35 of 44 cases equal,
+`tests/front/check_whnf.py`: 39 of 48 cases equal,
 9 answer unsupported). Facts Lean's `whnf` asks of definitions --
 matchers, projection functions, auxiliary recursors, `_sunfold`
 definitions -- are not in an export: a definition at the head answers

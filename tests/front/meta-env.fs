@@ -90,6 +90,13 @@ T{ s" Eq.refl" ' lf-menv-aux-recursor? fact s" Nat.succ" ' lf-menv-aux-recursor?
    -> false outcome-ok false outcome-ok }T
 T{ -1 lf-menv-matcher? lf-input-count lf-menv-aux-recursor? -1 lf-menv-smart?
    -> false outcome-invalid false outcome-invalid false outcome-invalid }T
+\ The other two names isAuxRecursor lists; HEq.ndrec is no Eq.ndrec (a
+\ definition: unsupported); Fin.succ is no Nat.succ (review fe1c-2 L3).
+T{ s" Eq.ndrec_symm" ' lf-menv-aux-recursor? fact s" Eq.ndrecOn" ' lf-menv-aux-recursor? fact
+   -> true outcome-ok true outcome-ok }T
+T{ s" HEq.ndrec" ' lf-menv-aux-recursor? fact -> false outcome-unsupported }T
+T{ s" Nat.succ" menv-name lf-menv-nat-succ? s" Fin.succ" menv-name lf-menv-nat-succ?
+   s" Nat" menv-name lf-menv-nat-succ? -> true false false }T
 
 \ ---- The queries allocate nothing.
 : queries ( -- )
@@ -109,6 +116,16 @@ T{ s" Nat.add" lf-tr-default unfoldable s" Nat.zero_add" lf-tr-default unfoldabl
    -> false outcome-unsupported false outcome-ok }T
 menv-lib lf-menv-stage!
 T{ s" Nat.add" status s" Prod.fst" unfolds -> elab-instance-reducible outcome-ok 47 }T
+\ Another stage named: its data, when read, is not this input's, and its
+\ names are numbered otherwise: unsupported (review fe1c-2 L4).
+create other /stage allot
+12 other stage-init drop  s" tests/author/init-slice.ndjson" other stage-read drop
+other lf-menv-stage!
+T{ s" Nat.add" status -> -1 outcome-unsupported }T
+s" tests/front/init-slice.elab.ndjson" other other stage-manifest manifest-digest elab-read drop
+T{ s" Nat.add" status other elab-read-against? -> -1 outcome-unsupported true }T
+menv-lib lf-menv-stage!
+T{ s" Nat.add" status -> -1 outcome-unsupported }T
 T{ menv-data menv-lib menv-digest elab-read elab-error-code -> outcome-invalid 24 }T
 T{ s" Nat.add" status s" Prod.fst" unfolds -> -1 outcome-unsupported -1 }T
 

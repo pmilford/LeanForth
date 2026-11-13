@@ -12207,3 +12207,99 @@ old = '''    lf-tag-projection of nip ws-proj endof  >r 2drop false outcome-ok r
 new = '''    >r 2drop false outcome-ok r> endcase ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "review fe1c-2 M1: getStuckMVar? of a projection applied to arguments answers none, where Lean finds the structure's metavariable"
+
+[[fault]]
+id = "fe-whnf-proj-literal-final"
+file = "src/front/whnf.fs"
+old = ''': wc-unfinal? ( rhead -- flag ) dup wc-const? if wc-const-unfinal? else wc-lit? then ;'''
+new = ''': wc-unfinal? ( rhead -- flag ) dup wc-const? if wc-const-unfinal? else drop false then ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review fe1c-2 L1: a projection of a literal stays, where Lean's toCtorIfLit turns the literal into Nat's constructors first"
+
+[[fault]]
+id = "fe-whnf-proj-unknown-final"
+file = "src/front/whnf.fs"
+old = '''  dup wc-kind dup lf-kind-definition = swap 0= or swap wc-foldable? or ;'''
+new = '''  dup wc-kind lf-kind-definition = swap wc-foldable? or ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review fe1c-2 L1: a projection of a constant no declaration has stays, where Lean's whnf throws unknown constant"
+
+[[fault]]
+id = "fe-whnf-fields-no-max"
+file = "src/front/whnf.fs"
+old = '''  wc-margs wc-from wc-margs slab-count tuck swap - 0 max swap wc-apply ;'''
+new = '''  wc-margs wc-from wc-margs slab-count tuck swap - swap wc-apply ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review fe1c-2 L1: a constructor with fewer arguments than its rule's fields (Nat.succ alone) makes the rule read before its arguments (Lean's Nat subtraction gives 0)"
+
+[[fault]]
+id = "fe-whnf-single-ignored"
+file = "src/front/whnf.fs"
+old = ''': wc-single? ( -- flag ) lf-irc-motives wc-irc 1 = ;'''
+new = ''': wc-single? ( -- flag ) true ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review fe1c-2 L1: a recursor of a nested block (Lean.Syntax.rec) is reduced as if its major premise's type were the block's first"
+
+[[fault]]
+id = "fe-whnf-zeta-ill-let"
+file = "src/front/whnf.fs"
+old = '''  dup lf-let-well? if dup lf-let-body swap lf-let-value lf-meta-instantiate1'''
+new = '''  true if dup lf-let-body swap lf-let-value lf-meta-instantiate1'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review fe1c-2 L1: a let whose binder is no lambda (an application) is reduced instead of refused"
+
+[[fault]]
+id = "fe-infer-fvar-unchecked"
+file = "src/front/infer.fs"
+old = '''  dup lf-fvar-live? if lf-fvar-type outcome-ok else outcome-invalid if-fail then ;'''
+new = '''  lf-fvar-type outcome-ok ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "review fe1c-2 L2: a stale free variable's type is read from another declaration"
+
+[[fault]]
+id = "fe-infer-mvar-stale"
+file = "src/front/infer.fs"
+old = '''  lf-mvar-type if outcome-ok else -1 outcome-invalid then ;'''
+new = '''  lf-mvar-type if outcome-ok else -1 outcome-unsupported then ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "review fe1c-2 L2: a stale metavariable answers unsupported instead of invalid"
+
+[[fault]]
+id = "fe-infer-lambda-type-unsupported"
+file = "src/front/infer.fs"
+old = '''  over lf-tag-symbolic-sort = or swap lf-tag-lam = or ;'''
+new = '''  over lf-tag-symbolic-sort = or nip ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "review fe1c-2 L2: a function whose type is a lambda answers unsupported, where Lean throws function expected"
+
+[[fault]]
+id = "fe-env-ndrecon-forgotten"
+file = "src/front/meta-env.fs"
+old = '''  dup s" ndrec" me-str? over s" ndrec_symm" me-str? or swap s" ndrecOn" me-str? or ;'''
+new = '''  dup s" ndrec" me-str? swap s" ndrec_symm" me-str? or ;'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "review fe1c-2 L3: Eq.ndrecOn, which isAuxRecursor names, answers unsupported"
+
+[[fault]]
+id = "fe-env-ndrec-any-prefix"
+file = "src/front/meta-env.fs"
+old = ''': me-eq? ( prefix -- flag ) s" Eq" me-top? ;'''
+new = ''': me-eq? ( prefix -- flag ) drop true ;'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "review fe1c-2 L3: HEq.ndrec is taken for an auxiliary recursor by its last name part"
+
+[[fault]]
+id = "fe-env-nat-succ-any-prefix"
+file = "src/front/meta-env.fs"
+old = '''  dup s" succ" me-str? if lf-name-prefix@ s" Nat" me-top? else drop false then ;'''
+new = '''  dup s" succ" me-str? if drop true else drop false then ;'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "review fe1c-2 L3: Fin.succ is taken for Nat.succ"
+
+[[fault]]
+id = "fe-env-other-stage"
+file = "src/front/meta-env.fs"
+old = '''  me-stage dup 0= if exit then dup me-fed? swap elab-read-against? and ;'''
+new = '''  me-stage 0<> elab-loaded? and ;'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "review fe1c-2 L4: a stage named that the input was not fed from, or the data not read against, gives another's statuses"

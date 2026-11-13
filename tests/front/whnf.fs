@@ -121,6 +121,21 @@ T{ prod-rec fa fb pair app fs fa app fb app whnf= -> true outcome-ok }T
 \ More of getStuckMVar?: a constant no declaration has, a quotient's
 \ lift, a constructor at the head, a Nat.succ whnf may fold.
 T{ unknown fk app lf-whnf-stuck succ fk app lf-whnf-stuck -> false outcome-ok false outcome-ok }T
+
+\ ---- Review fe1c-2 L1: a projection of a literal or of a constant no
+\ declaration has (whnf would go on: toCtorIfLit; Lean throws), Nat.succ
+\ alone as a major premise (fewer arguments than the rule's fields: the
+\ rule's right side takes none), a malformed let whose binder is an
+\ application, and a recursor of a nested block (Lean.Syntax.rec, three
+\ motives).
+: three ( -- t ) s" 3" lf-hterm-decimal must drop ;
+T{ three 0 proj lf-whnf-core unknown 0 proj lf-whnf-core
+   -> -1 outcome-unsupported -1 outcome-unsupported }T
+T{ succ recm  nat fs 0 bv app rec fm app fz app fs app 0 bv app app lam whnf=
+   -> true outcome-ok }T
+T{ fk fs fk app 0 lf-let-make must lf-whnf-core -> -1 outcome-invalid }T
+: syntax-rec ( n -- t ) >r lv1 1 s" Lean.Syntax.rec" cn r> 0 ?do fk app loop ;
+T{ 11 syntax-rec lf-whnf-core 10 syntax-rec dup whnf= -> -1 outcome-unsupported true outcome-ok }T
 T{ quot fa app lf-whnf-stuck -> false outcome-unsupported }T
 T{ ?n succ swap app succ swap app recm lf-whnf-stuck -> false outcome-unsupported }T
 \ A projection of a metavariable, alone or applied, is stuck on it (review

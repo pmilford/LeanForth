@@ -98,6 +98,10 @@ T{ -1 lf-infer 0 bv lf-infer -> -1 outcome-invalid -1 outcome-invalid }T
 T{ lv1 1 s" Nat.add" cn lf-infer 0 s" Nat.rec" cn lf-infer -> -1 outcome-invalid -1 outcome-invalid }T
 T{ fs fk app lf-infer nat fk app lf-infer -> -1 outcome-invalid -1 outcome-invalid }T
 T{ fm fk app lf-infer -> -1 outcome-invalid }T
+\ A function whose type is a lambda: whnf leaves it, so no function
+\ either (Lean: function expected; review fe1c-2 L2).
+nat 0 bv lam lf-lctx-local made constant fl
+T{ fl fk app lf-infer -> -1 outcome-invalid }T
 \ A type with an inductive type's application at the head (Nat Nat:
 \ ill-typed, but inference does not check) is no function either; a
 \ constant no declaration has is invalid (Lean: unknown constant).
@@ -153,8 +157,8 @@ T{ 0 bv fk x1 fk rb= -> true outcome-ok }T
 \ ---- Stale leaves: after the contexts are emptied, a metavariable and a
 \ free variable made before are invalid.
 lf-mctx-reset
-T{ ?n lf-infer -> -1 outcome-invalid }T
+T{ ?n lf-infer ?n fk app lf-infer -> -1 outcome-invalid -1 outcome-invalid }T
 lf-lctx-reset
-T{ fk lf-infer -> -1 outcome-invalid }T
+T{ fk lf-infer fs fk app lf-infer -> -1 outcome-invalid -1 outcome-invalid }T
 
 bye

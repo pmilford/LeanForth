@@ -37,7 +37,8 @@ NAMES = [
     "Nat.div", "Nat.zero_add", "Classical.choice", "Quot.lift", "Quot", "Quot.mk", "Eq.ndrec",
     "Nat.below", "Nat.brecOn", "Nat.add.match_1", "Nat.add._f", "outParam", "Unit.unit", "Unit",
     "Nat", "Nat.succ", "Add.add", "HAdd.mk", "Eq.refl", "Nat.mul", "Nat.pow", "Nat.lt",
-    "instLTNat", "LT.lt", "propext",
+    "instLTNat", "LT.lt", "propext", "Eq.ndrec_symm", "Eq.ndrecOn", "HEq.ndrec", "Fin.succ",
+    "Lean.Syntax.rec",
 ]
 
 LEAN_HEAD = """import Lean

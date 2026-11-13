@@ -36,6 +36,10 @@
 \ K-like ones (toCtorWhenK infers the major premise's type), a stuck
 \ major premise of a structure-like type (toCtorWhenStructure
 \ eta-expands it), and a recursor of a mutual or nested block.
+\ Let variables: Lean unfolds a let variable only when it is no "have"
+\ (nondep) declaration; core/local-context.fs has no such flag, and every
+\ let variable it holds is a let, so each is unfolded (the flag comes with
+\ the let telescopes of plan FE1c).
 \ Fuel: each step spends one; lf-whnf-fuel! sets the steps a call may
 \ take (0: lf-whnf-default-fuel); none left is exhausted, never a term.
 \ Outcomes: ok; invalid for a term or leaf that is not live, a loose
@@ -48,8 +52,10 @@
 \ Untrusted: only the kernel's check of a finished term decides anything.
 \ State: the record wc (fuel, the recursor step's term, head, data and
 \ declaration) and the slabs wc-args, wc-margs, wc-levels and wc-frames,
-\ in the checker context.
+\ in the checker context. Loads in decimal whatever BASE is, then
+\ restores it.
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../core/terms.fs
 require ../core/local-context.fs
@@ -386,3 +392,5 @@ end-structure
   dup lf-term-root? 0= if drop false outcome-invalid exit then
   dup lf-term-tag@ case lf-tag-mvar of ws-mvar endof  lf-tag-app of ws-app endof
     lf-tag-projection of ws-proj endof  >r drop true ws-none? r> endcase ;
+
+base !   \ the BASE this file was loaded with

@@ -23,9 +23,10 @@
 \ room. A failure gives -1 for the term. Untrusted.
 \ State: the record ib-state (the arguments, the walk's outcome and the
 \ memo's hash table) and the slabs ib-memo, ib-pending and ib-spine, in
-\ the checker context. The table is made afresh for each walk and freed with the
-\ context.
+\ the checker context. The table is made afresh for each walk and freed
+\ with the context. Loads in decimal whatever BASE is, then restores it.
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../lib/htab.fs
 require ../lib/hash32.fs
@@ -181,3 +182,5 @@ end-structure
   dup lf-term-root? 0= if drop -1 outcome-invalid exit then
   ib-args-ok dup ok? 0= if nip no-result exit then drop
   ib-m 0= if outcome-ok exit then ib-start ok-then? if ib-run else no-result then ;
+
+base !   \ the BASE this file was loaded with

@@ -14,8 +14,12 @@
 \   type, value and reducibility hint.
 \ - The elaboration data (FE1d): its reducibility status, Lean's
 \   ReducibilityStatus; a declaration no record names is semireducible,
-\   Lean's default. Without data read for the stage, a question that
-\   needs the status answers unsupported.
+\   Lean's default. Without data read against the stage named, or with a
+\   stage named that is not the one this context's input was fed from
+\   (its names' numbers are another's), a question that needs the status
+\   answers unsupported. An input declaration the named stage does not
+\   hold answers invalid (unreachable today: the feed makes the input
+\   from the stage's declarations).
 \ - Not available yet (plan row FE1d2, the elaboration data's second
 \   slice, closes them): matcher information (getMatcherInfo?), projection
 \   function information (getProjectionFnInfo?), the auxiliary-recursor
@@ -89,7 +93,11 @@ end-structure
 
 \ ---- Reducibility status: the elaboration data's record of the stage's
 \ declaration of the same name (the feed keeps the stage's name numbers).
-: me-data? ( -- flag ) me-stage 0<> elab-loaded? and ;
+\ Only the stage this context's names come from (the feed attached its
+\ tier) and the data was read against: another's numbers are not ours.
+: me-fed? ( stage -- flag ) stage-tier lf-name-view lf-nview-input @ = ;
+: me-data? ( -- flag )
+  me-stage dup 0= if exit then dup me-fed? swap elab-read-against? and ;
 : me-staged ( d -- d' true | false ) lf-input-name me-stage stage-find ;
 : me-status ( d -- status outcome )
   me-data? 0= if drop -1 outcome-unsupported exit then

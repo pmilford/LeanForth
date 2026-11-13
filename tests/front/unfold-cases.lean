@@ -71,3 +71,8 @@ run_meta do
   unfoldCase `instLTNat
   unfoldCase `LT.lt
   unfoldCase `propext
+  unfoldCase `Eq.ndrec_symm
+  unfoldCase `Eq.ndrecOn
+  unfoldCase `HEq.ndrec
+  unfoldCase `Fin.succ
+  unfoldCase `Lean.Syntax.rec

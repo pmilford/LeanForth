@@ -73,6 +73,7 @@ CASES = [
     ("whnf", rec("k"), None),
     ("whnf", apps(REC, "m", "z", "s"), None),
     ("whnf", rec(ZERO, "x"), None),
+    ("whnf", rec(SUCC), None),
     ("whnf", rec("?n"), None),
     ("whnf", rec(apps(SUCC, "?n")), None),
     ("whnf", rec(apps(SUCC, apps(SUCC, "k"))), "FE1c Nat offsets (cleanupNatOffsetMajor)"),

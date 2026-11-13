@@ -1,4 +1,4 @@
-{"elab_data":{"export_sha256":"ce3ea3df1e80e54dd95cacc7b4d3c0910276e7926516a7ea21fb17d3fdfd7e87","format":"leanforth-elab-data","format_version":1,"lean_githash":"eb6cafb7290e8bd5f2937522d8d804f58f02bafc","lean_version":"4.35.0","modules":["Init"],"records":{"default_instance":8,"eliminator":0,"instance":20,"reducibility":139},"records_sha256":"5d98de4ba3914a6bc6b6be081395ac71272071fb385d36940bdcc4d6336f60c8"}}
+{"elab_data":{"export_sha256":"cce94815643216bbc67bd58e181d51a247b07ffb533b7ed921d6b2435b06306f","format":"leanforth-elab-data","format_version":1,"lean_githash":"eb6cafb7290e8bd5f2937522d8d804f58f02bafc","lean_version":"4.35.0","modules":["Init"],"records":{"default_instance":8,"eliminator":0,"instance":20,"reducibility":146},"records_sha256":"7f72099f65ce1bb83a8994c2debcbca0127abaed2f34bad022ada712f681a75c"}}
 {"instance":{"class":["Add"],"name":["instAddNat"],"priority":1000,"synth_order":[]}}
 {"instance":{"class":["Decidable"],"name":["Nat","decLe"],"priority":1000,"synth_order":[]}}
 {"instance":{"class":["Decidable"],"name":["Nat","decLt"],"priority":1000,"synth_order":[]}}
@@ -57,10 +57,16 @@
 {"reducibility":{"name":["Decidable","isTrue"],"status":"reducible"}}
 {"reducibility":{"name":["Eq","casesOn"],"status":"reducible"}}
 {"reducibility":{"name":["Eq","ndrec"],"status":"reducible"}}
+{"reducibility":{"name":["Eq","ndrecOn"],"status":"reducible"}}
+{"reducibility":{"name":["Eq","ndrec_symm"],"status":"reducible"}}
 {"reducibility":{"name":["Fin","Internal","ofNat"],"status":"implicit_reducible"}}
+{"reducibility":{"name":["Fin","casesOn"],"status":"reducible"}}
+{"reducibility":{"name":["Fin","succ","match_1"],"status":"instance_reducible"}}
+{"reducibility":{"name":["Fin","succ"],"status":"implicit_reducible"}}
 {"reducibility":{"name":["Fin","val"],"status":"reducible"}}
 {"reducibility":{"name":["Function","comp"],"status":"implicit_reducible"}}
 {"reducibility":{"name":["GE","ge"],"status":"reducible"}}
+{"reducibility":{"name":["Lean","SyntaxNodeKind"],"status":"reducible"}}
 {"reducibility":{"name":["List","append","_f"],"status":"reducible"}}
 {"reducibility":{"name":["List","append","match_1"],"status":"instance_reducible"}}
 {"reducibility":{"name":["List","append"],"status":"implicit_reducible"}}
@@ -165,4 +171,5 @@
 {"reducibility":{"name":["instSubNat"],"status":"instance_reducible"}}
 {"reducibility":{"name":["ite"],"status":"implicit_reducible"}}
 {"reducibility":{"name":["namedPattern"],"status":"reducible"}}
+{"reducibility":{"name":["optParam"],"status":"reducible"}}
 {"reducibility":{"name":["outParam"],"status":"reducible"}}
