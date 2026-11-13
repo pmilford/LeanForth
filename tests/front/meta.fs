@@ -1,7 +1,7 @@
 \ Unit tests of the front end's Meta layer (plan FE1c; ADR 0021 D6): level
 \ unification (src/front/level-defeq.fs, Lean's isLevelDefEqAux), every
-\ answer and outcome, metavariable depth, assignments left and not left,
-\ deep levels and full stores. Every T{ }T checks the data stack's depth.
+\ answer and outcome, metavariable depth, assignments left and not left
+\ (also when the mark's close is refused), deep levels and full stores. Every T{ }T checks the data stack's depth.
 \ tests/front/check_meta.py compares the same cases with pinned Lean.
 \ Nothing here checks or accepts a theorem.
 require ../support/tester.fs
@@ -145,6 +145,21 @@ T{ mk one lf-meta-level-defeq lf-mctx-marks u v lf-meta-level-defeq lf-mctx-mark
    -> true outcome-ok 0 false outcome-ok 0 }T
 T{ u lnew lmax u v lmax lf-meta-level-defeq lf-mctx-marks 99999 u lf-meta-level-defeq lf-mctx-marks
    -> false outcome-unsupported 0 false outcome-invalid 0 }T
+\ The close refused (ld-close, white-box; coverage COVFU): through
+\ lf-meta-level-defeq its mark is always the latest open one, so no input
+\ reaches this. A refused commit or rollback (no mark open, or an outer
+\ mark while an inner is open) is the answer: false with the refusal's
+\ outcome, invalid, whatever the rounds gave; nothing changes. The latest
+\ mark then closes as usual: commit keeps, rollback undoes.
+: open-mark ( -- mark ) lf-mctx-mark ok? 0= abort" mark" ;
+T{ true outcome-ok 0 ld-close false outcome-unsupported 0 ld-close lf-mctx-marks
+   -> false outcome-invalid false outcome-invalid 0 }T
+lnew constant lkept
+open-mark constant outer-mark  open-mark constant inner-mark
+T{ lkept one lf-level-mvar-assign true outcome-ok outer-mark ld-close
+   lf-mctx-marks lkept lval -> outcome-ok false outcome-invalid 2 one }T
+T{ true outcome-ok inner-mark ld-close false outcome-ok outer-mark ld-close
+   lf-mctx-marks lkept lfree? -> true outcome-ok false outcome-ok 0 true }T
 
 \ ---- Malformed: a level not in the store, a stale metavariable.
 T{ 99999 u lf-meta-level-defeq u -1 lf-meta-level-defeq

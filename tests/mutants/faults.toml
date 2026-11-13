@@ -5774,6 +5774,14 @@ test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.1b: the rule's right side gets one argument too few of the parameters, motives and minor premises"
 
 [[fault]]
+id = "iota-lookup-failure-no-rule"
+file = "src/kernel/iota.fs"
+old = '''  dup lf-whnf-lookup ok-then? 0= if nip no-result exit then lf-iota-of-slot ;'''
+new = '''  dup lf-whnf-lookup ok-then? 0= if 2drop -1 outcome-ok exit then lf-iota-of-slot ;'''
+test = "$GFORTH tests/core/iota.fs"
+reason = "COVFU: a failed lookup of the head (its slot not final in a parallel run, or undecided or unsupported, K5) is taken as no recursor: whnf keeps the application and answers ok"
+
+[[fault]]
 id = "whnf-iota-hook-silent"
 file = "src/kernel/whnf.fs"
 old = '''  if lf-whnf-pending else drop lf-whnf-none outcome-ok then ;'''
@@ -12136,6 +12144,14 @@ old = '''  >r 2dup ok? and if r> lf-mctx-commit else r> lf-mctx-rollback then ld
 new = '''  >r 2dup ok? and if r> 1+ lf-mctx-commit else r> lf-mctx-rollback then drop ;'''
 test = "$GFORTH tests/front/meta.fs && $GFORTH tests/front/meta-heap.fs && $GFORTH tests/front/front.fs"
 reason = "re-check of fe1c-lnorm S4, T2 (reviewer's rv2-ldclose-wrong-mark): a refused commit is dropped and the mark stays open"
+
+[[fault]]
+id = "fe-ldefeq-closed-refusal-ignored"
+file = "src/front/level-defeq.fs"
+old = '''  dup ok? if drop else nip nip false swap then ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "COVFU: ld-closed ignores a refused commit or rollback, so the rounds' true stands although the mark could not close"
 
 [[fault]]
 id = "fe-occurs-delay-ignored"
