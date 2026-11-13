@@ -10529,3 +10529,25 @@ old = '''  2 pick lf-iota-n over lf-iota-major-idx > 0= if lf-iota-none exit the
 new = '''  2 pick lf-iota-n over lf-iota-major-idx 1+ > 0= if lf-iota-none exit then'''
 test = "$GFORTH tests/core/iota.fs"
 reason = "a recursor applied to exactly its major premise is no redex (inductive.h 83, off by one): Bool.rec motive False True Bool.true stays"
+
+[[fault]]
+id = "cov2-shift-string-leaf-bad"
+file = "src/kernel/mixed-shift.fs"
+old = '''    lf-tag-str of lf-rebuild-keep endof
+    lf-tag-symbolic-sort of lf-rebuild-keep endof
+    >r lf-rebuild-bad r> endcase ;
+\ Binary nodes (see the header): unchanged by the data word, given back'''
+new = '''    lf-tag-str of lf-rebuild-bad endof
+    lf-tag-symbolic-sort of lf-rebuild-keep endof
+    >r lf-rebuild-bad r> endcase ;
+\ Binary nodes (see the header): unchanged by the data word, given back'''
+test = "$GFORTH tests/core/mixed-shift.fs"
+reason = "lifting a term refuses a string literal as malformed"
+
+[[fault]]
+id = "cov2-instantiate-literal-leaf-bad"
+file = "src/kernel/mixed-instantiate.fs"
+old = '''    lf-tag-lit of lf-rebuild-keep endof'''
+new = '''    lf-tag-lit of lf-rebuild-bad endof'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "instantiate refuses a natural-number literal as malformed"
