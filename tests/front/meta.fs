@@ -173,6 +173,29 @@ T{ flip x app lf-meta-head-beta swap dup tag swap lf-term-second@ parts
 \ One step only, as Lean: (fun a => a) (fun b => b) x is (fun b => b) x.
 T{ id-fun id-fun app x app lf-meta-head-beta swap parts -> outcome-ok id-fun x }T
 
+\ ---- Abstraction (Lean's Expr.abstract): x y become #1 #0 in order; under
+\ a binder one more; the last of two equal entries wins; a metavariable
+\ is abstracted too; a term without them is kept, the same node.
+100000 lf-term-capacity! drop
+create xs 4 cells allot
+: xs1 ( a -- addr 1 ) xs ! xs 1 ;
+: xs2 ( a b -- addr 2 ) xs cell+ ! xs ! xs 2 ;
+: abst ( term addr n -- term' ) lf-meta-abstract ok? 0= abort" abst" ;
+: bvar# ( t -- i ) dup tag lf-tag-bvar <> abort" no bvar" lf-term-first@ ;
+x y app constant fxy0
+T{ fxy0 x xs1 abst parts swap bvar# -> y 0 }T
+T{ fxy0 x y xs2 abst parts bvar# swap bvar# -> 0 1 }T
+T{ fxy0 y x xs2 abst parts bvar# swap bvar# -> 1 0 }T
+T{ fxy0 x x xs2 abst parts swap bvar# -> y 0 }T
+T{ prop x 0 bv app lam x xs1 abst lf-term-second@ parts bvar# swap bvar# -> 0 1 }T
+T{ hole x app hole xs1 abst parts swap bvar# -> x 0 }T
+T{ prop 3 bv lam dup x xs1 abst = fxy0 dup 0 0 abst = -> true true }T
+\ Abstract then instantiate1 gives the term back (Lean's replaceFVar).
+T{ fxy0 x xs1 abst y inst parts -> y y }T
+\ Malformed: a negative count, a term not in the store.
+T{ fxy0 xs -1 lf-meta-abstract 99999 x xs1 lf-meta-abstract
+   -> -1 outcome-invalid -1 outcome-invalid }T
+
 \ ---- Resources: 10,000 binders deep, and 10,000 applications deep, on the
 \ heap stacks; a DAG of 2^40 paths in time of its size.
 100000 lf-term-capacity! drop
@@ -187,11 +210,14 @@ T{ deep-apps x inst 10000 firsts -> x }T
 : doubling ( t n -- t' ) 0 ?do dup app loop ;
 0 bv 40 doubling constant wide
 T{ wide x inst 40 firsts -> x }T
+x 10000 lams constant xdeep
+T{ xdeep x xs1 abst 10000 seconds bvar# -> 10000 }T
 \ Full: no room for one more term.
 lf-term-capacity constant term-room
 flip x app y app constant fxy
 T{ lf-term-count @ lf-term-capacity! -> outcome-ok }T
 T{ dup0 y lf-meta-instantiate1 fxy lf-meta-head-beta -> -1 outcome-full -1 outcome-full }T
+T{ fxy0 x xs1 lf-meta-abstract -> -1 outcome-full }T
 T{ term-room lf-term-capacity! dup0 y lf-meta-instantiate1 nip -> outcome-ok outcome-ok }T
 
 T{ depth -> 0 }T

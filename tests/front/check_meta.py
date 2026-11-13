@@ -3,9 +3,10 @@
 
 Each case below is run twice: by pinned Lean 4.35.0
 (tests/front/meta-cases.lean, which this script writes with --write and
-checks is up to date, calling Meta.isLevelDefEqAux, Expr.instantiate1 and
-Expr.headBeta) and by LeanForth (tests/front/meta-cases.fs, calling
-lf-level-defeq, lf-meta-instantiate1 and lf-meta-head-beta on the same
+checks is up to date, calling Meta.isLevelDefEqAux, Expr.instantiate1,
+Expr.abstract and Expr.headBeta) and by LeanForth (tests/front/meta-cases.fs, calling
+lf-level-defeq, lf-meta-instantiate1, lf-meta-abstract and
+lf-meta-head-beta on the same
 terms). Both print one line per case: the answer and every named level
 metavariable's value afterwards, or the resulting term as an S-expression.
 The lines must be equal, except that LeanForth's "unsupported" stands for
@@ -42,7 +43,8 @@ LEVELS = [
     ("(max u v)", "(max v u)", "", True), ("?a", "(max u v)", "", True),
 ]
 
-# Term cases: ("inst1", body, value) or ("beta", term). Terms: P (Prop),
+# Term cases: ("inst1", body, value), ("abst", term, [x0, ...]) or
+# ("beta", term). Terms: P (Prop),
 # x and y (free variables of type Prop), ?m (a metavariable of type
 # Prop), #i (a bound variable), ("app", f, a), ("lam", T, b), ("pi", T, b).
 LAM, PI, APP = "lam", "pi", "app"
@@ -58,6 +60,11 @@ TERMS = [
     ("beta", (APP, ID, "x")), ("beta", (APP, (APP, FLIP, "x"), "y")),
     ("beta", (APP, (APP, ID, "x"), "y")), ("beta", (APP, "x", "y")),
     ("beta", (APP, FLIP, "x")), ("beta", (APP, (APP, ID, ID), "x")), ("beta", "P"),
+    ("abst", (APP, "x", "y"), ["x"]), ("abst", (APP, "x", "y"), ["x", "y"]),
+    ("abst", (APP, "x", "y"), ["y", "x"]), ("abst", (LAM, "P", (APP, "x", "#0")), ["x"]),
+    ("abst", (PI, "P", (APP, "y", (LAM, "P", "x"))), ["x", "y"]),
+    ("abst", (APP, "?m", "x"), ["?m"]), ("abst", (APP, "x", "y"), ["x", "x"]),
+    ("abst", (APP, "x", "y"), []), ("abst", (LAM, "P", "#3"), ["x"]),
 ]
 
 
@@ -199,6 +206,9 @@ def lean_term_cases():
     for case in TERMS:
         if case[0] == "inst1":
             expr = f"(Expr.instantiate1 {term_lean(case[1])} {term_lean(case[2])})"
+        elif case[0] == "abst":
+            xs = ", ".join(term_lean(x) for x in case[2])
+            expr = f"(Expr.abstract {term_lean(case[1])} #[{xs}])"
         else:
             expr = f"(Expr.headBeta {term_lean(case[1])})"
         lines.append(f"    IO.println (← sx {expr})")
@@ -239,6 +249,9 @@ def forth_lines():
     for case in TERMS:
         if case[0] == "inst1":
             calls.append(f"{term_forth(case[1])} {term_forth(case[2])} inst1-run")
+        elif case[0] == "abst":
+            xs = " ".join(term_forth(x) for x in case[2])
+            calls.append(f"{term_forth(case[1])} {xs} {len(case[2])} xs abst-run")
         else:
             calls.append(f"{term_forth(case[1])} beta-run")
     run = subprocess.run([GFORTH, "tests/front/meta-cases.fs", "-e", " ".join(calls) + " bye"],
@@ -286,7 +299,7 @@ def main():
         print(f"check_meta: {error}")
         return 1
     print(f"Meta layer: {len(LEVELS) - len(gaps)} level unifications and {len(TERMS)} "
-          "instantiations and head-beta steps equal to pinned Lean's; "
+          "instantiations, abstractions and head-beta steps equal to pinned Lean's; "
           f"{len(gaps)} gaps answer unsupported: {'; '.join(gaps)}; harness self-test passed")
     return 0
 

@@ -76,4 +76,8 @@ defer .t
 : .term ( term outcome -- )
   dup ok? if drop .t else nip outcome-unsupported = if ." unsupported" else ." failed" then then ;
 : inst1-run ( body value -- ) lf-meta-instantiate1 .term cr ;
+create xs-buf 8 cells allot
+: xs ( x0 .. xk-1 k -- addr k )
+  dup 0 ?do dup 1- i - cells xs-buf + rot swap ! loop xs-buf swap ;
+: abst-run ( term addr n -- ) lf-meta-abstract .term cr ;
 : beta-run ( term -- ) lf-meta-head-beta .term cr ;

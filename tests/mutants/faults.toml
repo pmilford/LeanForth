@@ -10360,6 +10360,22 @@ new = '''  in-args slab-count dup 1- swap hb-lams'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: head beta goes on into a lambda that an instantiation made, where Lean's betaRev stops"
 
+[[fault]]
+id = "fe-abst-depth-ignored"
+file = "src/front/instantiate.fs"
+old = ''': in-index ( depth i -- k ) in-count swap - 1- + ;'''
+new = ''': in-index ( depth i -- k ) nip in-count swap - 1- ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: abstract does not count the binders above a free variable, so it points at the wrong binder"
+
+[[fault]]
+id = "fe-abst-mvar-kept"
+file = "src/front/instantiate.fs"
+old = ''': in-hole? ( leaf -- flag ) lf-term-tag@ dup lf-tag-fvar = swap lf-tag-mvar = or ;'''
+new = ''': in-hole? ( leaf -- flag ) lf-term-tag@ lf-tag-fvar = ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: abstract keeps a metavariable it was given, where Lean's abstract replaces it too"
+
 # --- The front end's first steps (plan FE1a-b; ADR 0021) -----------------
 
 [[fault]]

@@ -1,7 +1,8 @@
-\ Bound-variable instantiation of the front end (plan FE1c; ADR 0021 D6),
-\ ports of Lean 4.35.0's Expr.instantiate1 (Lean/Expr.lean, the
-\ extern lean_expr_instantiate1: kernel/instantiate.cpp's instantiate,
-\ which Meta uses too) and Expr.headBeta (Lean/Expr.lean's betaRev,
+\ Bound-variable instantiation and abstraction of the front end (plan
+\ FE1c; ADR 0021 D6), ports of Lean 4.35.0's Expr.instantiate1 (Lean/Expr
+\ .lean, the extern lean_expr_instantiate1: kernel/instantiate.cpp's
+\ instantiate, which Meta uses too), Expr.abstract (lean_expr_abstract,
+\ kernel/abstract.cpp) and Expr.headBeta (Lean/Expr.lean's betaRev,
 \ without its mdata and zeta options) over the term store.
 \ - lf-meta-instantiate1 ( body value -- term outcome ): body's loose
 \   bound variable 0 becomes value, each larger loose index one less. A
@@ -12,6 +13,13 @@
 \   variable: Lean then lifts it under binders (lift_loose_bvars), which
 \   Meta never needs, as it opens binders with free variables; such a
 \   value answers unsupported.
+\ - lf-meta-abstract ( term addr n -- term' outcome ): the n terms in
+\   cells at addr, x0 .. xn-1 (free variables or metavariables), become
+\   loose bound variables, xn-1 the innermost: under k binders xi is
+\   #(k + n - 1 - i), the last match winning, as Lean's loop from the
+\   end; a subterm known to hold no free variable or metavariable (its
+\   data word) is kept. Lean's abstract instantiates no metavariable, and
+\   neither does this.
 \ - lf-meta-head-beta ( term -- term' outcome ): for f a1 .. an with f a
 \   lambda, each lambda of f takes the next argument (instantiate1; for
 \   closed arguments the same term as Lean's instantiate of them all at
@@ -24,7 +32,8 @@
 \ metavariable) has its loose range computed by a walk of dag-walk.fs.
 \ Outcomes: ok; invalid for a term that is not in the store; unsupported
 \ as above; full when a store or the heap has no room. Untrusted.
-\ Words: lf-meta-instantiate1, lf-meta-head-beta, lf-meta-loose ( term --
+\ Words: lf-meta-instantiate1, lf-meta-abstract, lf-meta-head-beta,
+\ lf-meta-loose ( term --
 \ range outcome ): 1 + the largest loose bound variable index, or 0.
 \ State: the record in-state (with the memo's hash table and the loose
 \ walk), the slabs in-memo, in-pending and in-args: members of the
@@ -35,11 +44,16 @@ require ../lib/lib.fs
 require ../lib/htab.fs
 require ../lib/hash32.fs
 require ../core/terms.fs
+require ../core/local-context.fs
+require ../core/mvar-leaves.fs
 require ../present/binder-table.fs
 require ./dag-walk.fs
 
 begin-structure /in
   field: in-value              \ the term put in for bound variable 0
+  field: in-abstracting        \ true: abstract (in-xs), else instantiate1
+  field: in-xs                 \ abstract's terms: the address of their cells
+  field: in-xs#                \ and how many
   field: in-outcome            \ ok, or the walk's first failure
   2 cells +field in-key        \ the (node depth) sought in the memo
   /htab-hooks +field in-hooks  \ the memo table's hooks
@@ -64,6 +78,14 @@ end-structure
   dup in-binary? 0= if in-leaf-range true exit then
   lf-term-data@ if lf-data-loose true else false then ;
 : in-closed? ( node depth -- flag ) swap in-range if < 0= else drop false then ;
+\ For abstract: a node known to hold no free variable or metavariable
+\ (a metavariable makes a data word unknown).
+: in-hole? ( leaf -- flag ) lf-term-tag@ dup lf-tag-fvar = swap lf-tag-mvar = or ;
+: in-solid? ( node -- flag )
+  dup in-binary? 0= if in-hole? 0= exit then
+  lf-term-data@ if lf-data-fvar? 0= else false then ;
+: in-abstracting? ( -- flag ) in-state in-abstracting @ ;
+: in-kept? ( node depth -- flag ) in-abstracting? if drop in-solid? else in-closed? then ;
 
 \ The loose range by a walk, for a node whose data word is unknown.
 : in-undone ( child walk -- child true | false )
@@ -97,7 +119,7 @@ end-structure
 : in-find ( node depth -- n true | i false )
   2dup in-sought 2! in-hash in-sought swap in-tab htab-find ;
 : in-image? ( node depth -- image true | false )
-  2dup in-closed? if drop true exit then
+  2dup in-kept? if drop true exit then
   in-find if in-entry 2 cells + @ true else drop false then ;
 : in-ready? ( node depth -- flag ) in-image? dup if nip then ;
 : in-image ( node depth -- image ) in-image? drop ;
@@ -124,7 +146,17 @@ end-structure
 : in-bvar ( node depth -- image )
   swap lf-term-first@ tuck = if drop in-state in-value @ exit then
   1- lf-term-bvar in-made ;
-: in-leaf ( node depth -- image ) over in-bvar? if in-bvar else drop then ;
+: in-x ( i -- x ) cells in-state in-xs @ + @ ;
+: in-count ( -- n ) in-state in-xs# @ ;
+: in-xs-index ( leaf -- i true | false )
+  in-count begin dup while 1- 2dup in-x = if nip true exit then repeat 2drop false ;
+\ xi under depth binders: #(depth + n - 1 - i).
+: in-index ( depth i -- k ) in-count swap - 1- + ;
+: in-abstract-leaf ( node depth -- image )
+  over in-xs-index if in-index nip lf-term-bvar in-made else drop then ;
+: in-instantiate-leaf ( node depth -- image ) over in-bvar? if in-bvar else drop then ;
+: in-leaf ( node depth -- image )
+  in-abstracting? if in-abstract-leaf else in-instantiate-leaf then ;
 : in-first ( node depth -- child depth ) swap lf-term-first@ swap ;
 : in-second ( node depth -- child depth' ) over in-binder? - swap lf-term-second@ swap ;
 : in-images ( node depth -- i1 i2 )
@@ -147,8 +179,8 @@ end-structure
   in-top 2dup in-ready? if 2drop in-pop exit then
   over in-binary? if in-step-pair else 2dup in-leaf in-done then ;
 : in-busy? ( -- flag ) in-pending slab-count 0> in-state in-outcome @ ok? and ;
-: in-start ( value -- outcome )
-  in-state tuck in-value ! outcome-ok swap in-outcome !
+: in-start ( value abstracting? -- outcome )
+  in-state tuck in-abstracting ! tuck in-value ! outcome-ok swap in-outcome !
   in-memo slab-clear in-pending slab-clear in-table-make ;
 : in-run ( body -- term outcome )
   dup 0 in-push begin in-busy? while in-step repeat
@@ -159,7 +191,12 @@ end-structure
 : lf-meta-instantiate1 ( body value -- term outcome )
   2dup lf-term-pair-valid? 0= if 2drop -1 outcome-invalid exit then
   dup in-value-ok ok-then? 0= if nip no-result exit then
-  in-start ok-then? if in-run else no-result then ;
+  false in-start ok-then? if in-run else no-result then ;
+: in-xs! ( addr n -- ) in-state tuck in-xs# ! in-xs ! ;
+: lf-meta-abstract ( term addr n -- term' outcome )
+  dup 0< if 2drop drop -1 outcome-invalid exit then
+  rot dup lf-term-root? 0= if drop 2drop -1 outcome-invalid exit then
+  -rot in-xs! 0 true in-start ok-then? if in-run else no-result then ;
 
 \ Head beta: the arguments of f a1 .. an, last first, in in-args; each
 \ lambda of f takes the next one; the rest are applied.
