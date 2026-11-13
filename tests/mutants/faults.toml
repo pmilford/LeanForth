@@ -15602,8 +15602,8 @@ reason = "S1 §4: a text binder's name recorded as its kind"
 [[fault]]
 id = "fe-declevel-assign"
 file = "src/front/infer.fs"
-old = '''  dup idl-open? ok-then? 0= if nip -1 swap exit then if idl-fresh else idl-dec then ;'''
-new = '''  dup idl-open? ok-then? 0= if nip -1 swap exit then drop idl-dec ;'''
+old = '''  dup idl-open? ok-then? 0= if nip no-result exit then if idl-fresh else idl-dec then ;'''
+new = '''  dup idl-open? ok-then? 0= if nip no-result exit then drop idl-dec ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "S1 appendix D: decLevel never assigns ?u := succ ?w"
 
@@ -15630,6 +15630,259 @@ old = '''  true swap mv-number mv-was-inst mv-change ;'''
 new = '''  mv-number mv-decl true swap mvd-inst ! outcome-ok ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "S1 §3: the instance-typed flag set past the trail, kept after a rollback"
+
+[[fault]]
+id = "fe-libdec-parts-cell"
+file = "src/front/lib-decode.fs"
+old = '''  ['] lf-name-prefix@ lbd-parts! dup ok? if drop lbd-sought else no-result then ;'''
+new = '''  ['] lf-name-prefix@ lbd-parts! ok-then? if lbd-sought else no-result then ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b H1: a run name's split refused room eats the caller's cell (ok-then? takes it as x)"
+
+[[fault]]
+id = "fe-libdec-run-parts-cell"
+file = "src/front/lib-decode.fs"
+old = '''  ['] lbd-tier-prefix lbd-parts! dup ok? if drop lbd-run-parts else no-result then ;'''
+new = '''  ['] lbd-tier-prefix lbd-parts! ok-then? if lbd-run-parts else no-result then ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b H1: a tier name's split refused room eats the caller's cell"
+
+[[fault]]
+id = "fe-env-refused-handle"
+file = "src/front/meta-env.fs"
+old = ''': me-decoded ( d -- d outcome ) dup lf-libdec-decl nip dup ok? 0= if nip no-result then ;'''
+new = ''': me-decoded ( d -- d outcome ) dup lf-libdec-decl nip ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b H2: a refused decode gives its handle with full, which callers read as a decoded declaration"
+
+[[fault]]
+id = "fe-env-newest-unchecked"
+file = "src/front/meta-env.fs"
+old = ''': lf-menv-newest ( name -- d|-1 ) lf-menv-find ok? 0= if drop -1 then ;'''
+new = ''': lf-menv-newest ( name -- d|-1 ) lf-menv-find drop ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b H2: lf-menv-newest keeps a handle whose find failed"
+equivalent = "lf-menv-find gives -1 with every failing outcome in both modes (me-found, no-result, me-decoded), so the guard only restates that contract"
+
+[[fault]]
+id = "fe-defeq-named-unguarded"
+file = "src/front/defeq.fs"
+old = '''  lf-menv-find de-must if de-data true else drop false then ;'''
+new = '''  lf-menv-find drop de-data true ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b H2: isDefEqUnitLike reads a constructor's data whose decode was refused"
+
+[[fault]]
+id = "fe-libdec-seek-adds"
+file = "src/front/lib-decode.fs"
+old = '''  lf-name-text lbd-tier name-seek-str ;'''
+new = '''  lf-name-text lbd-tier name-str ;'''
+test = "python3 tests/front/test_front_imports.py"
+reason = "review s1-meta-b M1 (F22): seeking a run name adds its parts to the library's tier"
+
+[[fault]]
+id = "fe-libdec-seek-adds-run"
+file = "src/front/lib-decode.fs"
+old = '''  lf-name-text lbd-tier name-seek-str ;'''
+new = '''  lf-name-text lbd-tier name-str ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b M1: the tier's name count grows while names are sought (menv-run's tier check)"
+
+[[fault]]
+id = "fe-libdec-count-live"
+file = "src/front/lib-decode.fs"
+old = ''': lf-libdec-count ( -- n ) lbd lbd-count @ ;'''
+new = ''': lf-libdec-count ( -- n ) lbd-stage@ dup if stage-decls then ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b M2: a stage growing while bound moves the text handles into the library's"
+
+[[fault]]
+id = "fe-lfc-open-keeps-run"
+file = "src/cli/check-lf.fs"
+old = '''  >r lfc-env! lf-menv-reset elab-reset ck-stage stage-free r> lfc-library-read'''
+new = '''  >r lfc-env! elab-reset ck-stage stage-free r> lfc-library-read'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b M2: a failed re-open leaves the run mode bound to the stage it freed"
+
+[[fault]]
+id = "fe-libdec-clean-kept"
+file = "src/front/lib-decode.fs"
+old = ''': lbd-clean ( outcome walk -- outcome ) over ok? if drop else dw-memo-erase then ;'''
+new = ''': lbd-clean ( outcome walk -- outcome ) drop ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b M3 (F1): a refused walk's nodes under way stay, so the next decode reads a cycle"
+
+[[fault]]
+id = "fe-libdec-height"
+file = "src/front/lib-decode.fs"
+old = ''': lbd-height ( r -- ) dup lbd-d lbd-stage@ staged-hint@ swap lbr@ lbr-height ! ;'''
+new = ''': lbd-height ( r -- ) drop ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b M3 (F2): a definition's height never decoded"
+
+[[fault]]
+id = "fe-libdec-k"
+file = "src/front/lib-decode.fs"
+old = ''': lbd-k ( d -- flag ) lbd-stage@ staged-k? ;'''
+new = ''': lbd-k ( d -- flag ) drop false ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b M3 (F3): a K recursor decoded as none"
+
+[[fault]]
+id = "fe-libdec-flags"
+file = "src/front/lib-decode.fs"
+old = ''': lbd-t-flags ( r -- outcome ) lbd-d lbd-flags lbd-d, ;'''
+new = ''': lbd-t-flags ( r -- outcome ) drop 0 lbd-d, ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b M3 (F4): a type's recursive flag never decoded"
+
+[[fault]]
+id = "fe-libdec-reflexive"
+file = "src/front/lib-decode.fs"
+old = '''    lf-ity-reflexive-bit and or ;'''
+new = '''    drop ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b M3: a reflexive type's flag never decoded (the re-export library's Wide)"
+
+[[fault]]
+id = "fe-env-text-params"
+file = "src/front/meta-env.fs"
+old = '''  me-tparams slab-count over mtx-params ! r@ swap mtx-params# !'''
+new = '''  me-tparams slab-count over mtx-params ! 0 swap mtx-params# !'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b M3 (F5): a text declaration's universe parameters never recorded"
+
+[[fault]]
+id = "fe-env-add-giveback"
+file = "src/front/meta-env.fs"
+old = '''  me-texts slab-at dup /mtx erase me-text-made dup ok? 0= if -1 me-texts slab-commit then'''
+new = '''  me-texts slab-at dup /mtx erase me-text-made'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b M3 (F7): a text declaration refused room stays visible, half made"
+
+[[fault]]
+id = "fe-libdec-giveback-leak"
+file = "src/front/lib-decode.fs"
+old = ''': lbd-giveback ( r -- ) lbd-free-record -1 lbd-records slab-commit ;'''
+new = ''': lbd-giveback ( r -- ) drop -1 lbd-records slab-commit ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b M3 (F8): a refused declaration's blocks leak when its record is given back"
+
+[[fault]]
+id = "fe-env-lib-boundary"
+file = "src/front/meta-env.fs"
+old = ''': me-way ( d -- d k ) me-run? 0= if 0 exit then dup me-lib# u< if 1 else 2 then ;'''
+new = ''': me-way ( d -- d k ) me-run? 0= if 0 exit then dup me-lib# 1- u< if 1 else 2 then ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b M3 (F11): the last library declaration read as a text declaration"
+
+[[fault]]
+id = "fe-declevel-imax"
+file = "src/front/infer.fs"
+old = '''  lf-level-tag@ dup lf-level-tag-max = swap lf-level-tag-imax = or ;'''
+new = '''  lf-level-tag@ lf-level-tag-max = ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b M3 (F14): getDecLevel's imax not processed as a max"
+equivalent = "getDecLevel normalizes first, as Lean's does: an imax whose right side decrements is never zero, so normalization makes it a max; any imax left has a right side that cannot decrement, which fails both ways (Lean's decAux keeps the same case)"
+
+[[fault]]
+id = "fe-defeq-synth-flag"
+file = "src/front/defeq.fs"
+old = '''  lf-meta-synth-pending ok-then? 0= if de-abort exit then if outcome-unsupported de-abort
+    then ;'''
+new = '''  lf-meta-synth-pending ok-then? 0= if de-abort exit then drop ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "review s1-meta-b M3 (F17): a synthPending hook that fills the metavariable is ignored, so the retry Lean makes is skipped"
+
+[[fault]]
+id = "fe-lfc-close-keeps-run"
+file = "src/cli/check-lf.fs"
+old = '''  lf-menv-reset elab-reset 0 lf-author-library! ck-stage stage-free 0 0 lfc-env! ;'''
+new = '''  elab-reset 0 lf-author-library! ck-stage stage-free 0 0 lfc-env! ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b M3 (F19): lfc-library-close leaves the run mode bound to the freed stage"
+
+[[fault]]
+id = "fe-libdec-unsupported"
+file = "src/front/lib-decode.fs"
+old = '''    nip outcome-unsupported no-result rot endcase ;'''
+new = '''    nip outcome-invalid no-result rot endcase ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b M3: an mdata expression decoded as malformed, not as not supported yet"
+
+[[fault]]
+id = "fe-libdec-block"
+file = "src/front/lib-decode.fs"
+old = '''  dup lbd-kind-of dup 0= if 2drop outcome-invalid exit then'''
+new = '''  dup lbd-kind-of dup 0= if 2drop outcome-ok exit then'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b M3: an inductive block decoded as a declaration of no kind"
+equivalent = "a block's type is none in the stage (stage-records.fs), so the type step refuses it invalid too: the kind check only refuses it first"
+
+[[fault]]
+id = "fe-libdec-imax"
+file = "src/front/lib-decode.fs"
+old = '''    tag-level-max of lbd-max endof  tag-level-imax of lbd-imax endof'''
+new = '''    tag-level-max of lbd-max endof  tag-level-imax of lbd-max endof'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b L3: an imax level decoded as a max"
+
+[[fault]]
+id = "fe-libdec-seek-room"
+file = "src/front/lib-decode.fs"
+old = '''    lbd-parts lbd-pop lbd-seek ok-then? 0= if no-result exit then'''
+new = '''    lbd-parts lbd-pop lbd-seek drop'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b L1: a sought part refused room reads as an unknown constant (invalid), not full"
+
+[[fault]]
+id = "fe-env-kind-clamped"
+file = "src/front/meta-env.fs"
+old = ''': lf-menv-add ( decl -- outcome ) dup me-kind-known? if me-add else drop-invalid then ;'''
+new = ''': lf-menv-add ( decl -- outcome ) me-add ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b L2: a text declaration of a kind beyond the four is taken for another"
+
+[[fault]]
+id = "fe-libdec-kinds-unchecked"
+file = "src/front/lib-decode.fs"
+old = '''  over lbd-in? 0= if slab-clear drop outcome-invalid exit then
+'''
+new = ''''''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b L2: binder kinds read for a declaration number beyond the library"
+
+[[fault]]
+id = "fe-libdec-steps-short"
+file = "src/front/lib-decode.fs"
+old = '''  ' lbd-s-hint , ' lbd-s-data , 0 ,'''
+new = '''  ' lbd-s-hint , 0 , 0 ,'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b B2: the step list ends before the inductive data"
+
+[[fault]]
+id = "fe-libdec-type-chain"
+file = "src/front/lib-decode.fs"
+old = '''['] lbd-t-indices ok-with ['] lbd-t-nested ok-with'''
+new = '''['] lbd-t-indices ok-with'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b L3: a type's nested count left out, so its data is laid out wrong"
+
+[[fault]]
+id = "fe-dw-want-never"
+file = "src/front/dag-walk.fs"
+old = '''  2dup dw-done? if 2drop false else drop true then ;'''
+new = '''  2drop false ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "review s1-meta-b B3: a walk never descends, so a node is made from children never made"
+
+[[fault]]
+id = "fe-declevel-assign-kept"
+file = "src/front/infer.fs"
+old = '''  rot swap lf-level-mvar-assign dup ok? 0= if nip no-result then ;'''
+new = '''  rot swap lf-level-mvar-assign ;'''
+test = "$GFORTH tests/front/menv-run.fs"
+reason = "getDecLevel's assignment refused room still answers the fresh ?w, not -1"
 
 [[fault]]
 id = "fe-inst-branch"

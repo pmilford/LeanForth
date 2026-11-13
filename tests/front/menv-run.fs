@@ -13,7 +13,8 @@
 \    (no record), the last library handle and the first text one, a text
 \    declaration found (lf-menv-add) with its universe parameters, an
 \    unknown or invalid name, a number beyond the library, a kind beyond
-\    the four, an expression not supported yet (mdata); facts without
+\    the four, an expression not supported yet (mdata), imax, a reflexive
+\    type, let and have, a big literal (the re-export library); facts without
 \    data unsupported; binder kinds of a library and a text declaration;
 \    getDecLevel's every case; the instance-typed flag and its rollback;
 \    the stage's tier unchanged by decoding (review s1-meta-b M1);
@@ -243,6 +244,18 @@ T{ outcome-ok worst ! each-refused dup refusals ! 1 > worst @ -> true outcome-ok
 : no-leak? ( -- flag )
   0 blocks-at true refusals @ 1+ 1 do over i blocks-at = and loop nip ;
 T{ all-again? no-leak? -> true true }T
+\ isDefEqUnitLike between two free variables of type PUnit, PUnit decoded
+\ first: each allocation refused in turn gives full or true, never a read
+\ of the data of PUnit.unit when its decode was refused (H2).
+: punit ( -- t ) level1 0 u! s" PUnit" 1 cst ;
+punit lf-lctx-local made constant fv  punit lf-lctx-local made constant fw
+: unit-at ( k -- flag outcome )
+  ck-stage lf-menv-library! s" PUnit" d-of drop heap-refusals ! fv fw lf-meta-defeq
+  0 heap-refusals ! ;
+: unit-ok? ( flag outcome -- flag ) dup ok? if drop else nip outcome-full = then ;
+: unit-note ( flag outcome -- outcome ) tuck unit-ok? 0= if dup worst ! then ;
+: unit-refused ( -- k ) 0 begin 1+ dup unit-at unit-note ok? until ;
+T{ outcome-ok worst ! unit-refused 1 > worst @ -> true outcome-ok }T
 \ A name's parts on a slab with room for one: the second part's room
 \ refused, a find answers full and keeps the cell below it, as does a
 \ tier name's run name.
@@ -252,14 +265,15 @@ T{ one-room 777 s" Nat.add" nm refuse-one lf-menv-find 0 heap-refusals !
    -> 777 -1 outcome-full }T
 T{ 777 s" Nat.add" d-of ck-stage staged-name@ one-room refuse-one lf-libdec-run-name
    0 heap-refusals ! -> 777 -1 outcome-full }T
-\ A sought part refused room (the tier's names filled to their slab's
-\ capacity first, by the test): full, not "unknown constant".
+\ A sought part refused room (the parts' slab grown again, then the
+\ tier's names filled to their slab's capacity, by the test): full, not
+\ "unknown constant".
 : tier-names@ ( -- cons ) ck-stage stage-tier tier-names ;
 : names-full? ( -- flag ) tier-names@ cons-records dup slab-count swap slab-capacity = ;
 : name-add ( u -- ) 0 swap ck-stage stage-tier name-num 2drop ;
 : fill-names ( -- ) 1000000 begin names-full? 0= while dup name-add 1+ repeat drop ;
-T{ fill-names s" Nat.add" nm refuse-one lf-menv-find 0 heap-refusals !
-   -> -1 outcome-full }T
+T{ s" Nat.add" d-of drop fill-names s" Nat.add" nm refuse-one lf-menv-find
+   0 heap-refusals ! -> -1 outcome-full }T
 \ The same for getDecLevel's assignment (?u := succ ?w); a type whose
 \ level cannot be inferred passes its failure on.
 : dec-at ( k -- level outcome )
@@ -268,14 +282,22 @@ T{ fill-names s" Nat.add" nm refuse-one lf-menv-find 0 heap-refusals !
 T{ outcome-ok worst ! dec-refused 0> worst @ -> true outcome-ok }T
 T{ 0 lf-term-bvar drop lf-meta-dec-level nip -> outcome-invalid }T
 
-\ ---- 2. An expression not supported yet: Quot.mk's type is an mdata
-\ node (an exporter writes one only when asked): unsupported, and the
-\ next declaration decodes.
-: mdata-lib ( -- c-addr u )
-  s" tests/core/check-block-cases/replay-quot.mk-mdata-type.ndjson" ;
-T{ mdata-lib false lfc-library-open -> outcome-ok }T
-T{ s" Quot.mk" nm lf-menv-find s" Quot.lift" nm lf-menv-find nip
-   -> -1 outcome-unsupported outcome-ok }T
+\ ---- 2. The re-export test's library, every record kind of the
+\ exporter (tests/core/reexport/kinds.lean): Nat.add's type holds an
+\ mdata node there (--export-mdata), an expression not supported yet;
+\ imax in a level (Sort (imax u v)), a reflexive type's flags, let and
+\ have values and a literal beyond 64 bits decode.
+: kinds-lib ( -- c-addr u ) s" tests/core/reexport/kinds.ndjson" ;
+T{ kinds-lib false lfc-library-open s" Nat.add" nm lf-menv-find
+   -> outcome-ok -1 outcome-unsupported }T
+: codomain-level ( c-addr u -- level ) d-of lf-menv-type lf-term-second@ lf-term-second@
+  lf-term-first@ ;
+T{ s" ReexportKinds.arrow" codomain-level lf-level-tag@ -> lf-level-tag-imax }T
+T{ s" ReexportKinds.Wide" d-of lf-menv-data lf-ity-flags lf-more-field
+   -> lf-ity-rec-bit lf-ity-reflexive-bit or }T
+: valued? ( c-addr u -- flag ) d-of lf-menv-value nip ;
+T{ s" ReexportKinds.kept" valued? s" ReexportKinds.twice" valued? s" ReexportKinds.big" valued?
+   -> true true true }T
 
 \ ---- 4. lfc-library-close leaves the run mode; a failed re-open leaves
 \ none bound to the stage it freed.
