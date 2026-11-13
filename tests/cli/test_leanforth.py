@@ -1019,6 +1019,22 @@ class Behaviour(unittest.TestCase):
         self.assertEqual((status, run("--help")[1], run("-h")[1]), (0, out, out))
         self.help_codes_match_tally(out)
 
+    def test_verify_listed(self):
+        """capabilities and help list verify (plan 8.4.1c) and say what V1 needs (owner,
+        2026-11-13)."""
+        status, out, _ = run("capabilities")
+        supported = out.split("Mathlib: ")[0]
+        self.assertEqual(status, 0)
+        self.assertIn("  verify: one Forth word against its contract (plan 8.4.1, V1): pinned "
+                      "Lean\n", supported)
+        self.assertIn("needs Python 3 and the pinned Lean 4.35.0 (owner, 2026-11-13: V1 only)\n",
+                      supported)
+        status, out, _ = run("help")
+        self.assertEqual(status, 0)
+        self.assertIn("  verify SOURCE.fs --contract CONTRACT [--out DIR] [--json] [--detail]\n"
+                      "        [--write-ir]\n  verify --replay RECEIPT [--rerun] [--json]\n", out)
+        self.assertIn("needs Python 3 and the\n      pinned Lean 4.35.0 (V1 only)", out)
+
     def help_codes_match_tally(self, out):
         """help's exit codes and their order of severity are tally.fs's, and the
         command line's manual gives the same order (FRP review C2: user text that

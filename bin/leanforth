@@ -37,6 +37,21 @@ root=$(cd "$(dirname "$self")/.." && pwd -P) || {
   exit 5
 }
 
+# verify (plan 8.4.1c): checking a Forth word against its contract runs the driver
+# scripts/program_verify.py, which needs Python 3 and the pinned Lean 4.35.0 (the owner
+# allowed both for V1 only, 2026-11-13) and starts this command's check itself. Its exit
+# status is the CLI's, 0 to 6; any other (Python missing, a crash of the interpreter) is
+# an internal fault, 5, never a verdict.
+if [ "${1:-}" = verify ]; then
+  shift
+  python3 -I "$root/scripts/program_verify.py" "$@" </dev/null
+  status=$?
+  case $status in
+    0 | 1 | 2 | 3 | 4 | 5 | 6) exit "$status" ;;
+    *) printf 'error: internal: leanforth verify ended with status %s\n' "$status"; exit 5 ;;
+  esac
+fi
+
 # --fast and --checked among the options of check, replay or print (not the
 # value of --record, --fuel, --name, --statement, --save-snapshot or --snapshot).
 fast=false

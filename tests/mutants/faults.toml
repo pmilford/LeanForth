@@ -14759,6 +14759,141 @@ new = '''base @'''
 test = "$GFORTH tests/front/goals.fs"
 reason = "FE1g-1 review L1: mvars.fs reads its numbers (16, 31) in the BASE it is loaded with"
 
+# --- leanforth verify's driver v0 (plan 8.4.1b; scripts/program_verify.py) --
+
+[[fault]]
+id = "verify-rejected-not-disagree"
+file = "scripts/program_verify.py"
+old = '''VERDICT_PROBLEMS = [("checkers-disagree", {"rejected"}),'''
+new = '''VERDICT_PROBLEMS = [("proof-undecided", {"rejected"}),'''
+test = "python3 tests/program/test_program_verify.py Checker"
+reason = "8.4.1b, review M1: a theorem LeanForth rejects after Lean accepted it is reported as undecided (2), not as the two checkers disagreeing (5)"
+quick = true
+
+[[fault]]
+id = "verify-contract-theorem-only"
+file = "scripts/program_verify.py"
+old = '''        status = receipts.check_status(found, names)'''
+new = '''        status = receipts.check_status(found, names[:1])'''
+test = "python3 tests/program/test_program_verify.py Checker"
+reason = "8.4.1b: only the contract theorem's verdict counts, so an obligation's theorem missing from LeanForth's report is treated as discharged"
+equivalent = "since review B1 the namespace check refuses an export whose report lacks an obligation's theorem (export-differs) and the counts give every declaration's verdict, so the theorems' own verdicts are a second guard"
+
+[[fault]]
+id = "verify-trusted-lean-dropped"
+file = "scripts/program_verify.py"
+old = '''        if not self.lean_ran():'''
+new = '''        if True:'''
+test = "python3 tests/program/test_program_verify.py Discharged"
+reason = "8.4.1b: a receipt whose proofs Lean wrote lacks the trusted-lean assumption"
+
+[[fault]]
+id = "verify-open-exit-zero"
+file = "scripts/program_verify.py"
+old = '''    "lean-failed": (2, "prove"),'''
+new = '''    "lean-failed": (0, "prove"),'''
+test = "python3 tests/program/test_program_verify.py Lean"
+reason = "8.4.1b: a run whose obligations stay open (Lean failed) exits 0, as if discharged"
+
+[[fault]]
+id = "verify-ir-not-compared"
+file = "scripts/program_verify.py"
+old = '''        if named != self.ir_text.encode("utf-8"):'''
+new = '''        if False:'''
+test = "python3 tests/program/test_program_verify.py Malformed"
+reason = "8.4.1b: the contract's ir file is not compared with the IR the program words write, so a stale IR file can stand for the source"
+quick = true
+
+[[fault]]
+id = "verify-axioms-not-compared"
+file = "scripts/program_verify.py"
+old = '''            receipts.lean_agrees(self.lean, self.leanforth, names)'''
+new = '''            pass'''
+test = "python3 tests/program/test_program_verify.py Checker"
+reason = "8.4.1b: a receipt is written when LeanForth's axioms for a theorem differ from Lean's #print axioms"
+
+[[fault]]
+id = "verify-print-back-skipped"
+file = "scripts/program_verify.py"
+old = '''            self.printed_back(output)'''
+new = '''            pass'''
+test = "python3 tests/program/test_program_verify.py Lean"
+reason = "8.4.1b: the program Lean prints back is not compared with the IR, so a wrong translation of the IR into Lean goes unnoticed"
+
+[[fault]]
+id = "verify-source-hash-skipped"
+file = "scripts/program_verify.py"
+old = '''        if file_sha(self.source) != before:'''
+new = '''        if False:'''
+test = "python3 tests/program/test_program_verify.py Malformed"
+reason = "8.4.1b: a source changed while the program words read it is not refused"
+
+[[fault]]
+id = "verify-whole-run-ignored"
+file = "scripts/program_verify.py"
+old = '''        whole = (found.get("stopped") is False and found.get("run") == "ok"'''
+new = '''        whole = (True'''
+test = "python3 tests/program/test_program_verify.py Checker"
+reason = "8.4.1b: a LeanForth run that stopped or did not finish counts as accepted when the theorems' verdicts read accepted"
+
+[[fault]]
+id = "verify-receipt-not-atomic"
+file = "scripts/program_verify.py"
+old = '''        with open(partial, "w", encoding="utf-8") as file:'''
+new = '''        with open(path, "w", encoding="utf-8") as file:'''
+test = "python3 tests/program/test_program_verify.py Workflow"
+reason = "8.4.1b: the receipt and evidence are written in place, so a failed write leaves a file that looks complete"
+
+[[fault]]
+id = "verify-limits-ignored"
+file = "scripts/program_verify.py"
+old = '''        limits = (self.args.paths_limit, self.args.search_limit)'''
+new = '''        limits = (None, None)'''
+test = "python3 tests/program/test_program_verify.py Limits"
+reason = "8.4.1b: the generator runs without its path and search limits"
+
+[[fault]]
+id = "verify-receipt-not-validated"
+file = "scripts/program_verify.py"
+old = '''        problems = receipts.receipt_problems(receipt)
+        if problems:'''
+new = '''        problems = receipts.receipt_problems(receipt)
+        if False:'''
+test = "python3 tests/program/test_program_verify.py Workflow"
+reason = "8.4.1b: a receipt the strict reader refuses is written"
+
+[[fault]]
+id = "verify-export-invalid-ignored"
+file = "scripts/program_verify.py"
+old = '''        if read != "ok" or done.returncode == 4 or counts is None:'''
+new = '''        if counts is None:'''
+test = "python3 tests/program/test_program_verify.py Checker"
+reason = "8.4.1b: an export LeanForth refused to read is reported as an internal fault with a receipt, not as malformed input without one"
+
+[[fault]]
+id = "verify-export-change-unseen"
+file = "scripts/program_verify.py"
+old = '''        self.unchanged(export, hashes[0])'''
+new = '''        pass'''
+test = "python3 tests/program/test_program_verify.py Lean"
+reason = "8.4.1b: an export changed while LeanForth checked it is not noticed"
+
+[[fault]]
+id = "receipt-unaccounted-declarations"
+file = "scripts/program_receipt.py"
+old = '''    return found | ({"unaccounted"} if short else set())'''
+new = '''    return found'''
+test = "python3 tests/program/test_program_verify.py Shared"
+reason = "8.4.1b: an export with fewer declarations accepted than it has reads as accepted when its theorems are"
+
+[[fault]]
+id = "receipt-calls-not-followed"
+file = "scripts/program_receipt.py"
+old = '''            if words[1] not in done:'''
+new = '''            if False:'''
+test = "python3 tests/program/test_program_verify.py Discharged"
+reason = "8.4.1b: the trusted-runtime assumption leaves out the Forth words of the words and constants a word calls"
+
 [[fault]]
 id = "fe-run-unsolved-ignored"
 file = "src/front/tactic-run.fs"
@@ -15503,3 +15638,162 @@ old = '''  de-t lf-mvar-inst? if outcome-unsupported de-abort exit then'''
 new = ''''''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "S1 appendix D: an instance-typed metavariable assigned without Lean's check"
+
+# The design review of leanforth verify (2026-11-13): B1's rest and M1-M3 in the driver.
+
+[[fault]]
+id = "verify-namespace-unchecked"
+file = "scripts/program_verify.py"
+old = '''        self.namespace_problems(report)'''
+new = '''        pass'''
+test = "python3 tests/program/test_program_verify.py Checker"
+reason = "B1: an export with declarations in the contract's ProgramVC namespace that the generator did not write, or without some it did, is accepted"
+quick = true
+
+[[fault]]
+id = "verify-snapshot-report-read"
+file = "scripts/program_verify.py"
+old = '''                "leanforth-check-report", "0.4") or "snapshot" in report:'''
+new = '''                "leanforth-check-report", "0.4") or False:'''
+test = "python3 tests/program/test_program_verify.py Checker"
+reason = "M2: a development run's report (a snapshot member) is read as a final run's"
+
+[[fault]]
+id = "verify-env-lean-honoured"
+file = "scripts/program_verify.py"
+old = '''        lean = receipts.pinned_lean() if test_tools() else str(PINNED_LEAN)'''
+new = '''        lean = receipts.pinned_lean()'''
+test = "python3 tests/program/test_program_verify.py Lean"
+reason = "M3: the user command runs whatever LEAN names, not the checkout's pinned Lean"
+
+[[fault]]
+id = "verify-evidence-unnamed"
+file = "scripts/program_verify.py"
+old = '''                 self.files["manifest"], self.evidence_ref]'''
+new = '''                 self.files["manifest"]]'''
+test = "python3 tests/program/test_program_verify.py Workflow"
+reason = "M3: a receipt of a checked run does not name its evidence record in check.evidence"
+
+[[fault]]
+id = "verify-crash-exit-1"
+file = "scripts/program_verify.py"
+old = '''    os._exit(5)'''
+new = '''    os._exit(1)'''
+test = "python3 tests/program/test_program_verify.py Workflow"
+reason = "M1: a Python exception nothing caught ends with status 1, which reads as refuted"
+
+[[fault]]
+id = "verify-print-not-from-lean"
+file = "scripts/program_verify.py"
+old = '''                self.lean[key] = self.printed(output, key)'''
+new = '''                self.lean[key] = "post"'''
+test = "python3 tests/program/test_program_verify.py Lean"
+reason = "B1: the theorem and post the evidence records are not what Lean printed in this run"
+
+# leanforth verify's command, report and replay (plans 8.4.1c and 8.4.1d).
+
+[[fault]]
+id = "verify-replay-evidence-hash"
+file = "scripts/program_verify.py"
+old = '''        if file_sha(path) != sha:
+            raise Problem("replay", f"$.provenance.note: the evidence record {path} has SHA-256 "'''
+new = '''        if False:
+            raise Problem("replay", f"$.provenance.note: the evidence record {path} has SHA-256 "'''
+test = "python3 tests/program/test_program_verify.py Replay"
+reason = "8.4.1d: an evidence record changed after the receipt is read as the receipt's"
+quick = true
+
+[[fault]]
+id = "verify-replay-no-rebuild"
+file = "scripts/program_verify.py"
+old = '''            for difference in receipts.differences(given, self.build()):'''
+new = '''            for difference in []:'''
+test = "python3 tests/program/test_program_verify.py Replay"
+reason = "8.4.1d: replay never compares the receipt with the one its files and evidence give, so a changed source or a changed receipt replays clean"
+
+[[fault]]
+id = "verify-replay-lean-file-unchecked"
+file = "scripts/program_verify.py"
+old = '''        if self.gen is not None and file_sha(self.files["lean"]) != digest('''
+new = '''        if False and file_sha(self.files["lean"]) != digest('''
+test = "python3 tests/program/test_program_verify.py Replay"
+reason = "8.4.1d: a generated Lean file changed after the receipt is not compared with what the generator writes"
+
+[[fault]]
+id = "verify-rerun-evidence-unchecked"
+file = "scripts/program_verify.py"
+old = '''            self.problem("replay", f"running every step again records {difference}")'''
+new = '''            pass'''
+test = "python3 tests/program/test_program_verify.py Replay"
+reason = "8.4.1d (review M3): a receipt and its evidence changed together pass --rerun, which must compare the evidence it records again"
+
+[[fault]]
+id = "verify-report-exit-status"
+file = "scripts/program_verify.py"
+old = '''            "exitStatus": status,'''
+new = '''            "exitStatus": 0,'''
+test = "python3 tests/program/test_program_verify.py Report"
+reason = "8.4.1c: the JSON report's exit status is not the command's"
+
+[[fault]]
+id = "verify-write-ir-clears-out"
+file = "scripts/program_verify.py"
+old = '''        if not self.args.write_ir:
+            self.prepare_out()'''
+new = '''        if True:
+            self.prepare_out()'''
+test = "python3 tests/program/test_program_verify.py WriteIr"
+reason = "8.4.1c: --write-ir also makes the --out folder and removes an earlier run's receipt there, though it verifies nothing"
+
+[[fault]]
+id = "leanforth-verify-status-passed"
+file = "bin/leanforth"
+old = '''    *) printf 'error: internal: leanforth verify ended with status %s\n' "$status"; exit 5 ;;'''
+new = '''    *) exit "$status" ;;'''
+test = "python3 tests/program/test_program_verify.py Command"
+reason = "8.4.1c: an interpreter's own status (Python missing, a crash) passes through bin/leanforth verify and can read as a verdict"
+
+# --- capabilities and help list verify (plan 8.4.1c; src/cli/leanforth.fs) --
+
+[[fault]]
+id = "cli-verify-unlisted"
+file = "src/cli/leanforth.fs"
+old = '''  cli-other-commands. cli-verify-what. cli-verify-needs. ;'''
+new = '''  cli-other-commands. ;'''
+test = "python3 tests/cli/test_leanforth.py Behaviour.test_verify_listed"
+reason = "8.4.1c: capabilities does not list verify or say that V1 needs Python 3 and the pinned Lean"
+
+[[fault]]
+id = "cli-verify-usage-missing"
+file = "src/cli/leanforth.fs"
+old = '''  cli-check-usage. cli-other-usage. cli-verify-usage. cli-verify-meaning. cli-info-usage.'''
+new = '''  cli-check-usage. cli-other-usage. cli-info-usage.'''
+test = "python3 tests/cli/test_leanforth.py Behaviour.test_verify_listed"
+reason = "8.4.1c: help does not list verify's usage"
+
+[[fault]]
+id = "vc-python-fits-off-by-one"
+file = "scripts/program_vc.py"
+old = '''    return CMIN <= args[0] <= CMAX'''
+new = '''    return CMIN < args[0] <= CMAX'''
+test = "LEAN=.tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean python3 tests/program/vc_check.py --operators"
+reason = "review H1: Python's fits, which the counterexample search uses to decide refuted, disagrees with Lean's c.Fits at the smallest cell; the comparison with Lean's evaluation finds it"
+
+[[fault]]
+id = "verify-replay-exit-zero"
+file = "scripts/program_verify.py"
+old = '''            self.verdict = self.own_status(given)'''
+new = '''            self.verdict = 0'''
+test = "python3 tests/program/test_program_verify.py Replay.test_replay_exits_with_the_receipts_own_status"
+reason = "review R1: replay of an unsupported or refuted receipt exits 0, as if discharged"
+quick = true
+
+[[fault]]
+id = "verify-write-ir-any-file"
+file = "scripts/program_verify.py"
+old = '''            self.check_writable(ir_file)
+'''
+new = ''''''
+test = "python3 tests/program/test_program_verify.py WriteIr.test_write_ir_never_overwrites_other_files"
+reason = "review R3: --write-ir overwrites any checkout file the contract's ir line names (src/main.fs)"
+quick = true
