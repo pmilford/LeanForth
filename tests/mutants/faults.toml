@@ -12105,8 +12105,8 @@ reason = "FE1c: the arguments after the last whnf point are never put in, so the
 [[fault]]
 id = "fe-binst-no-beta"
 file = "src/front/beta-inst.fs"
-old = '''  if ib-head-beta then nip ;'''
-new = '''  drop nip ;'''
+old = '''  over >r ib-apply r> ib-lam? if ib-head-beta then ;'''
+new = '''  ib-apply ;'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: a lambda put in at an application's head is left applied, where instantiateBetaRevRange takes a beta step (a motive's type)"
 
@@ -12303,3 +12303,12 @@ old = '''  me-stage dup 0= if exit then dup me-fed? swap elab-read-against? and 
 new = '''  me-stage 0<> elab-loaded? and ;'''
 test = "$GFORTH tests/front/meta-env.fs"
 reason = "review fe1c-2 L4: a stage named that the input was not fed from, or the data not read against, gives another's statuses"
+
+[[fault]]
+id = "fe-whnf-structure-rec-bit"
+file = "src/front/whnf.fs"
+old = '''  swap lf-ity-flags lf-more-field lf-ity-rec-bit and 0= and ;'''
+new = '''  nip ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review fe1c-2 L1: a recursive single-constructor type without indices is taken for structure-like, where Lean's isStructureLike requires isRec false"
+gap = "no inductive type of Init is recursive with one constructor and no indices (a scan of Init's whole export, 2026-11-13), so no test over an Init slice can tell; the check stays as Lean has it"

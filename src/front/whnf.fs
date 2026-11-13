@@ -159,8 +159,9 @@ end-structure
 \ ---- Constants: the input's declaration of the name (Lean's find?).
 : wc-name ( const -- name ) lf-term-first@ lf-cref-slot lf-cref-name@ drop ;
 : wc-levels# ( const -- n ) lf-term-first@ lf-cref-slot lf-cref-pairs nip ;
+0 constant wc-no-kind   \ not a constant, or one no declaration has
 : wc-kind ( term -- kind ) dup lf-term-tag@ lf-tag-constant = if
-    lf-meta-const-decl if lf-menv-kind exit then 0 exit then drop 0 ;
+    lf-meta-const-decl if lf-menv-kind exit then wc-no-kind exit then drop wc-no-kind ;
 
 \ ---- Recursors (reduceRec). The step's term, head and inductive data
 \ are kept in wc; the arguments in wc-args, the major premise's in
@@ -365,10 +366,9 @@ end-structure
   lf-input-decl lf-idecl-data wc wc-data ! drop ws-major ;
 \ A binary node's data word is known only when no metavariable is in it
 \ (core/terms.fs): Lean's hasExprMVar is false.
-: ws-data-known? ( app -- flag ) lf-term-data@ dup if nip then ;
 : ws-kind ( e d -- false outcome )
   lf-menv-kind dup lf-kind-quotient = if 2drop false outcome-unsupported exit then
-  lf-kind-definition = if ws-data-known? ws-none? else drop false outcome-ok then ;
+  lf-kind-definition = if lf-meta-mvar-free? ws-none? else drop false outcome-ok then ;
 : ws-const ( e head -- mvar true outcome | false outcome )
   dup lf-meta-const-decl 0= if 2drop false outcome-ok exit then
   dup wc-recursor? if rot drop ws-rec else nip ws-kind then ;

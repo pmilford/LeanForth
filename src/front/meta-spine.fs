@@ -13,6 +13,12 @@
 \   declaration of a constant's name (Lean's find?; core/input.fs).
 \ - lf-meta-levels-fill ( slot slab -- outcome ): a constant reference's
 \   universe arguments, as levels, into the slab, emptied first.
+\ - lf-meta-named ( new old -- new ): a rebuilt binder gets the old one's
+\   name and kind (present/binder-table.fs), when it has them.
+\ - lf-meta-mvar-free? ( term -- flag ): no metavariable in the term, as
+\   far as the term store tells: a binary node's data word is known only
+\   then (core/terms.fs), a leaf is no metavariable (Lean's !hasExprMVar;
+\   a node whose word is unknown is taken to hold one).
 \ Unchecked: the terms are live, the constant is one, the slab is a cell
 \ slab. State: none of its own; every word takes its slab. Loads in
 \ decimal whatever BASE is, then restores it.
@@ -23,6 +29,8 @@ require ../lib/slab.fs
 require ../core/terms.fs
 require ../core/constant-references.fs
 require ../core/input.fs
+require ../core/mvar-leaves.fs
+require ../present/binder-table.fs
 
 : lf-meta-push ( x slab -- outcome )
   tuck 1 swap slab-claim ok-then? if rot slab-at ! outcome-ok else nip nip then ;
@@ -42,5 +50,10 @@ require ../core/input.fs
   dup slab-clear swap dup lf-cref-pairs nip 0 ?do
     2dup i ms-level swap lf-meta-push dup ok? 0= if nip nip unloop exit then drop
   loop 2drop outcome-ok ;
+: lf-meta-named ( new old -- new )
+  lf-pres-binder@ if 2>r dup 2r> lf-pres-binder! drop then ;
+: ms-binary? ( term -- flag ) lf-term-tag@ lf-term-binary-tag? ;
+: lf-meta-mvar-free? ( term -- flag )
+  dup ms-binary? if lf-term-data@ dup if nip then exit then lf-term-tag@ lf-tag-mvar <> ;
 
 base !   \ the BASE this file was loaded with
