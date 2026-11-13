@@ -69,16 +69,24 @@ prop mv-natural lf-mvar-new made constant hole
 defer .t
 : .pair ( t c-addr u -- ) ." (" type space dup lf-term-first@ .t space lf-term-second@ .t ." )" ;
 : .fvar ( t -- ) dup fx = if drop ." x" exit then fy = if ." y" else ." ?f" then ;
+\ A let, LET(v, fun x : T => b), as (let T v b); a projection as (proj i e).
+: .let ( t -- )
+  ." (let " dup lf-let-type .t space dup lf-let-value .t space lf-let-body .t ." )" ;
+: .proj ( t -- ) ." (proj " dup lf-proj-leaf lf-proj-idx .k space lf-proj-struct .t ." )" ;
 : (.t) ( t -- )
   dup lf-term-tag@ case
     lf-tag-app of s" app" .pair endof  lf-tag-lam of s" lam" .pair endof
     lf-tag-pi of s" pi" .pair endof  lf-tag-bvar of ." #" lf-term-first@ .k endof
     lf-tag-sort of drop ." Prop" endof  lf-tag-mvar of drop ." ?m" endof
-    lf-tag-fvar of .fvar endof  >r drop ." ??" r> endcase ;
+    lf-tag-fvar of .fvar endof  lf-tag-let of .let endof  lf-tag-projection of .proj endof
+    >r drop ." ??" r> endcase ;
 ' (.t) is .t
 : .term ( term outcome -- )
   dup ok? if drop .t else nip outcome-unsupported = if ." unsupported" else ." failed" then then ;
 : inst1-run ( body value -- ) lf-meta-instantiate1 .term cr ;
+: let-of ( type value body -- t ) rot swap lam false lf-let-make must ;
+0 s" C" lf-name-str drop constant c-name
+: proj-of ( e i -- t ) c-name swap lf-proj-of made ;
 create xs-buf 8 cells allot
 : xs ( x0 .. xk-1 k -- addr k )
   dup 0 ?do dup 1- i - cells xs-buf + rot swap ! loop xs-buf swap ;
@@ -89,7 +97,6 @@ create xs-buf 8 cells allot
 : sort-of ( level -- term ) dup lf-level-identity drop lf-hterm-sort must drop ;
 create cpairs 4 cells allot
 : cpair! ( level i -- ) 2* cells cpairs + >r dup lf-level-identity drop swap r> 2! ;
-0 s" C" lf-name-str drop constant c-name
 : const2 ( l1 l2 -- term )
   1 cpair! 0 cpair! c-name lf-name-generation @ cpairs 2 lf-cref-new must
   lf-cterm-new must drop ;

@@ -10678,3 +10678,11 @@ old = '''  dup ls-explicit? if lm-offset swap lm-offset <= else 2drop false then
 new = '''  dup ls-explicit? if lm-offset swap lm-offset < else 2drop false then ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c review L3: max (u+1) 1 stays a max, where Lean's mkLevelMax' subsumes an explicit level at an equal offset and gives u+1"
+
+[[fault]]
+id = "fe-inst-let-deeper"
+file = "src/front/instantiate.fs"
+old = ''': in-binder? ( node -- flag ) lf-term-tag@ lf-term-binder-tag? ;'''
+new = ''': in-binder? ( node -- flag ) lf-term-tag@ dup lf-term-binder-tag? swap lf-tag-let = or ;'''
+test = "python3 tests/front/check_meta.py"
+reason = "FE1c review L2: a let's second child (its lambda) is taken one binder deeper, so let's type and body shift their bound variables, unlike Lean's instantiate1"

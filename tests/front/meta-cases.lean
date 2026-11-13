@@ -31,6 +31,8 @@ partial def sx : Expr → MetaM String
   | .app f a => return s!"(app {← sx f} {← sx a})"
   | .lam _ t b _ => return s!"(lam {← sx t} {← sx b})"
   | .forallE _ t b _ => return s!"(pi {← sx t} {← sx b})"
+  | .letE _ t v b _ => return s!"(let {← sx t} {← sx v} {← sx b})"
+  | .proj _ i e => return s!"(proj {i} {← sx e})"
   | e => return s!"?? {e}"
 
 run_meta do
@@ -171,6 +173,14 @@ run_meta do
     IO.println (← sx (Expr.abstract (mkApp x y) #[x, x]))
     IO.println (← sx (Expr.abstract (mkApp x y) #[]))
     IO.println (← sx (Expr.abstract (mkLambda `a .default (mkSort Level.zero) (mkBVar 3)) #[x]))
+    IO.println (← sx (Expr.instantiate1 (mkLet `a (mkBVar 0) (mkBVar 0) (mkBVar 1)) x))
+    IO.println (← sx (Expr.instantiate1 (mkLet `a (mkSort Level.zero) (mkBVar 1) (mkApp (mkBVar 0) (mkBVar 2))) y))
+    IO.println (← sx (Expr.instantiate1 (mkProj `C 0 (mkBVar 0)) x))
+    IO.println (← sx (Expr.instantiate1 (mkLambda `a .default (mkSort Level.zero) (mkProj `C 1 (mkBVar 1))) x))
+    IO.println (← sx (Expr.abstract (mkLet `a x x (mkApp x (mkBVar 0))) #[x]))
+    IO.println (← sx (Expr.abstract (mkProj `C 1 (mkApp x y)) #[y]))
+    IO.println (← sx (Expr.headBeta (mkApp (mkLambda `a .default (mkSort Level.zero) (mkLet `a (mkBVar 0) (mkBVar 0) (mkBVar 1))) x)))
+    IO.println (← sx (Expr.headBeta (mkApp (mkLambda `a .default (mkSort Level.zero) (mkProj `C 0 (mkBVar 0))) y)))
 
 run_meta do
   withLocalDeclD `x (mkSort Level.zero) fun x => do

@@ -28,7 +28,7 @@ LEAN = os.environ.get("LEAN", ".tools/elan/toolchains/leanprover--lean4---v4.35.
 GFORTH = os.environ.get("GFORTH", "gforth")
 LIMIT = 300
 LEAN_FILE = ROOT / "tests/front/meta-cases.lean"
-LAM, PI, APP = "lam", "pi", "app"
+LAM, PI, APP, LET, PROJ = "lam", "pi", "app", "let", "proj"
 
 # Level cases: (lhs, rhs, read-only metavariables, gap?). Levels: numerals,
 # u and v (parameters), ?a .. ?d (metavariables made inside a new depth),
@@ -98,6 +98,13 @@ TERMS = [
     ("abst", (PI, "P", (APP, "y", (LAM, "P", "x"))), ["x", "y"]),
     ("abst", (APP, "?m", "x"), ["?m"]), ("abst", (APP, "x", "y"), ["x", "x"]),
     ("abst", (APP, "x", "y"), []), ("abst", (LAM, "P", "#3"), ["x"]),
+    # A let, (let T v b): T and v at the let's depth, b one deeper; a
+    # projection, (proj i e): e at its depth (review of fe1c, L2).
+    ("inst1", (LET, "#0", "#0", "#1"), "x"), ("inst1", (LET, "P", "#1", (APP, "#0", "#2")), "y"),
+    ("inst1", (PROJ, 0, "#0"), "x"), ("inst1", (LAM, "P", (PROJ, 1, "#1")), "x"),
+    ("abst", (LET, "x", "x", (APP, "x", "#0")), ["x"]), ("abst", (PROJ, 1, (APP, "x", "y")), ["y"]),
+    ("beta", (APP, (LAM, "P", (LET, "#0", "#0", "#1")), "x")),
+    ("beta", (APP, (LAM, "P", (PROJ, 0, "#0")), "y")),
 ]
 
 
@@ -202,6 +209,8 @@ partial def sx : Expr → MetaM String
   | .app f a => return s!"(app {← sx f} {← sx a})"
   | .lam _ t b _ => return s!"(lam {← sx t} {← sx b})"
   | .forallE _ t b _ => return s!"(pi {← sx t} {← sx b})"
+  | .letE _ t v b _ => return s!"(let {← sx t} {← sx v} {← sx b})"
+  | .proj _ i e => return s!"(proj {i} {← sx e})"
   | e => return s!"?? {e}"
 """
 
@@ -221,6 +230,10 @@ def lean_level_case(lhs, rhs, readonly):
 
 
 def term_lean(t):
+    if isinstance(t, tuple) and t[0] == LET:
+        return f"(mkLet `a {term_lean(t[1])} {term_lean(t[2])} {term_lean(t[3])})"
+    if isinstance(t, tuple) and t[0] == PROJ:
+        return f"(mkProj `C {t[1]} {term_lean(t[2])})"
     if isinstance(t, tuple) and t[0] == SORT:
         return f"(mkSort {level_lean(level_parse(t[1]))})"
     if isinstance(t, tuple) and t[0] == CONST:
@@ -237,6 +250,10 @@ def term_lean(t):
 
 
 def term_forth(t):
+    if isinstance(t, tuple) and t[0] == LET:
+        return f"{term_forth(t[1])} {term_forth(t[2])} {term_forth(t[3])} let-of"
+    if isinstance(t, tuple) and t[0] == PROJ:
+        return f"{term_forth(t[2])} {t[1]} proj-of"
     if isinstance(t, tuple) and t[0] == SORT:
         return f"{level_forth(level_parse(t[1]), {})} sort-of"
     if isinstance(t, tuple) and t[0] == CONST:
