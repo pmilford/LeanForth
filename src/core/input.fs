@@ -410,8 +410,7 @@ create lf-input-slabs ' lf-lit-limbs , ' lf-str-bytes ,
 \ The offset the next cell of lf-input-more gets, and appending a cell
 \ there: ok, or full when the slab has no room.
 : lf-more-here ( -- k ) lf-more-count ;
-: lf-more-append ( x -- outcome )
-  1 lf-input-more slab-claim dup ok? if drop lf-more-cell ! outcome-ok else nip nip then ;
+: lf-more-append ( x -- outcome ) lf-input-more slab-push ;
 \ Room in the name index for decl's name (the test hook of lib/store.fs is
 \ asked before it grows, as for the store's own block), and the links of
 \ declaration i.
@@ -426,9 +425,8 @@ create lf-input-slabs ' lf-lit-limbs , ' lf-str-bytes ,
 \ ok or full.
 : lf-input-param, ( params i -- params outcome ) over swap lf-param@ lf-more-append ;
 : lf-input-params, ( decl -- k outcome )
-  lf-more-here swap dup lf-idecl-params @ swap lf-idecl-arity @ 0 ?do
-    i lf-input-param, dup ok? 0= if nip unloop exit then drop
-  loop drop outcome-ok ;
+  lf-more-here swap dup lf-idecl-params @ swap lf-idecl-arity @
+  ['] lf-input-param, ok-each nip ;
 \ The copy keeps where its parameters are, never the importer's address
 \ (which differs from context to context and would change the input's
 \ fingerprint).

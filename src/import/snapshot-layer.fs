@@ -115,10 +115,9 @@ end-structure
   dup rot erase swap ! outcome-ok ;
 : ly-fam-section ( fam -- outcome )
   dup ly-fam-read ok-then? 0= if exit then dup ly-fam-units swap ly-fam-map ly-zeros ;
-: ly-sections ( ly -- outcome )
-  tier-sections# 1 do
-    i over ly-fam ly-fam-section dup ok? 0= if nip unloop exit then drop
-  loop drop outcome-ok ;
+\ Section k + 1 (section 0 is the information).
+: ly-section-next ( ly k -- ly outcome ) 1+ over ly-fam ly-fam-section ;
+: ly-sections ( ly -- outcome ) tier-sections# 1- ['] ly-section-next ok-each nip ;
 
 \ ---- Numbers here. A family's number n: the base's below its count;
 \ from it on, the own record's, entered before (ok); else 0 and invalid.

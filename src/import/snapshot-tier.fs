@@ -208,9 +208,9 @@ create tf-outs ' tf-raw-out , ' tf-le-out , ' tf-le-out , ' tf-le-out , ' tf-raw
 : tf-add ( i tf -- outcome )
   2dup tf-out ok-then2? 0= if nip nip exit then
   2swap tf-sf >r dup tier-unit rot rot 1+ r> sections-add ;
-: tf-adds ( tf -- outcome )
-  tier-sections# 1 do i over tf-add dup ok? 0= if nip unloop exit then drop loop
-  drop outcome-ok ;
+\ Sections 1 and on (section 0 is the information).
+: tf-add-next ( tf k -- tf outcome ) 1+ over tf-add ;
+: tf-adds ( tf -- outcome ) tier-sections# 1- ['] tf-add-next ok-each nip ;
 \ The information fields.
 : tf-count! ( i tf -- ) 2dup tf-data nip -rot swap ti-decls min swap ti! ;
 : tf-counts! ( stage tf -- ) nip ti-decls 1+ 1 do i over tf-count! loop drop ;
@@ -497,9 +497,8 @@ create tf-loads   \ by position, from 1
 : tf-load ( i tf -- outcome ) dup >r over 1- cells tf-loads + @ execute r> tf-limited ;
 : tf-note ( i tf -- ) 2dup tf-slab slab-count over tf-at ! swap tier-title swap tf-why ! ;
 : tf-load-noted ( i tf -- outcome ) 2dup tf-load dup ok? if nip nip exit then -rot tf-note ;
-: tf-loads-all ( tf -- outcome )
-  tier-sections# 1 do i over tf-load-noted dup ok? 0= if nip unloop exit then drop loop
-  drop outcome-ok ;
+: tf-load-next ( tf k -- tf outcome ) 1+ over tf-load-noted ;
+: tf-loads-all ( tf -- outcome ) tier-sections# 1- ['] tf-load-next ok-each nip ;
 
 \ The metadata: none (every field 0), or five texts of the tier.
 : tf-meta@ ( k tf -- u ) swap ti-meta + swap ti@ ;

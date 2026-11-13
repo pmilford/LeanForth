@@ -331,10 +331,8 @@ here meta-fields - cell / constant #meta
 : item@ ( k stage -- u ) stage-items swap cells + @ ;
 : number-add ( u stage -- outcome )
   over u32-mask u> if nip too-wide nip else stage-tuples tuple-add then ;
-: items-add ( stage -- outcome )
-  dup stage-item-count @ 0 ?do
-    i over item@ over number-add dup ok? 0= if nip unloop exit then drop
-  loop drop outcome-ok ;
+: item-add ( stage k -- stage outcome ) over item@ over number-add ;
+: items-add ( stage -- outcome ) dup stage-item-count @ ['] item-add ok-each nip ;
 : items>tuple ( stage -- t outcome )
   dup stage-tuples tuple-start dup ok? 0= if nip no-result exit then drop
   dup items-add dup ok? if drop stage-tuples tuple-end else nip no-result then ;

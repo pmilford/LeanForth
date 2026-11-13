@@ -216,9 +216,9 @@ create lf-pf-eol 10 c,
     lf-pp-put
   r@ lf-note-label <> if s\" \"" lf-pp-put then lf-pf-unit drop
   r> lf-note-label <> if lf-pf-end-line then outcome-ok ;
-: lf-pf-notes ( term -- outcome )
-  lf-note-count 0 ?do dup i lf-note-on?
-    if i lf-pf-note ok-then? 0= if unloop exit then then loop drop outcome-ok ;
+: lf-pf-note-at ( term i -- term outcome )
+  2dup lf-note-on? if lf-pf-note else drop outcome-ok then ;
+: lf-pf-notes ( term -- outcome ) lf-note-count ['] lf-pf-note-at ok-each nip ;
 
 \ Binders in scope: a variable's name, or n var#.
 : lf-pf-visible? ( j -- flag ) lf-pp-entry lf-pbind-domain @ 0< 0= ;
@@ -510,9 +510,8 @@ lf-pp-tags ' lf-pf-invalid-step xt-table: lf-pf-steps
   dup lf-pf-declarable? 0= if drop outcome-unsupported exit then
   2 lf-pf-open lf-pf-mark s" universe " lf-pp-put swap lf-pf-put-name lf-pf-unit
     outcome-ok ;
-: lf-pf-universes ( -- outcome )
-  lf-pf-universe-ids 0 ?do dup i cells + @ lf-pf-universe ok-then? 0= if unloop exit then
-    loop drop outcome-ok ;
+: lf-pf-universe-at ( addr k -- addr outcome ) cells over + @ lf-pf-universe ;
+: lf-pf-universes ( -- outcome ) lf-pf-universe-ids ['] lf-pf-universe-at ok-each nip ;
 \ A parameter: its own line, then its binder stays in scope; a part of
 \ the declaration's visit, as is a body on its own line.
 : lf-pf-param-line ( binder frames cont -- ... frames next ) 2 lf-pf-open lf-pf-head ;
