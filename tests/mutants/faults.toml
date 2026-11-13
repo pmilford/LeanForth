@@ -10670,3 +10670,11 @@ old = '''  dup lf-level-mvar-live? if mvl-number mvl-decl mvl-depth @ else drop 
 new = '''  drop 0 ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1c review L5: every level metavariable reads as made at depth 0, so one made inside withNewMCtxDepth looks read-only"
+
+[[fault]]
+id = "fe-lsimp-explicit-strict"
+file = "src/front/level-simp.fs"
+old = '''  dup ls-explicit? if lm-offset swap lm-offset <= else 2drop false then ;'''
+new = '''  dup ls-explicit? if lm-offset swap lm-offset < else 2drop false then ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c review L3: max (u+1) 1 stays a max, where Lean's mkLevelMax' subsumes an explicit level at an equal offset and gives u+1"

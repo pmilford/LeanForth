@@ -64,7 +64,7 @@ LOPS = [
     ("max", "u+1", "u"), ("max", "u", "u+1"), ("max", "u", "v"), ("max", "u+1", "v+2"),
     ("imax", "u", "1"), ("imax", "u", "0"), ("imax", "0", "u"), ("imax", "u", "u"),
     ("imax", "u", "v"), ("imax", "u", "(max v 1)"), ("imax", "u", "(imax v 1)"),
-    ("imax", "1", "(imax u v)"),
+    ("imax", "1", "(imax u v)"), ("max", "u+1", "1"), ("max", "1", "u+1"),
 ]
 SORT, CONST = "sort", "const"
 TPARAMS = [

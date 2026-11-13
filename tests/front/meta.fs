@@ -308,6 +308,9 @@ T{ one u limax nz? u one limax nz? -> false true }T
 \ offset; else a new max.
 T{ u u lmx zero u lmx u zero lmx -> u u u }T
 T{ one two lmx u 2 lsuccs dup one lmx = -> two true }T
+\ At an equal offset the explicit side is subsumed too: max (u+1) 1 and
+\ max 1 (u+1) are u+1.
+T{ u lsucc dup one lmx = u lsucc dup one swap lmx = -> true true }T
 T{ u v lmax dup u lmx = u v lmax dup v swap lmx = -> true true }T
 T{ u lsucc dup u lmx = u dup lsucc lmx ld-pred -> true u }T
 T{ u v lmx dup ls-tag swap lf-level-first@ -> lf-level-tag-max u }T

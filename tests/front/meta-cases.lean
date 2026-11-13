@@ -194,6 +194,8 @@ run_meta do
     IO.println (pl [] (mkLevelIMax' (mkLevelParam `u) (mkLevelMax (mkLevelParam `v) (Nat.repeat mkLevelSucc 1 Level.zero))))
     IO.println (pl [] (mkLevelIMax' (mkLevelParam `u) (mkLevelIMax (mkLevelParam `v) (Nat.repeat mkLevelSucc 1 Level.zero))))
     IO.println (pl [] (mkLevelIMax' (Nat.repeat mkLevelSucc 1 Level.zero) (mkLevelIMax (mkLevelParam `u) (mkLevelParam `v))))
+    IO.println (pl [] (mkLevelMax' (Nat.repeat mkLevelSucc 1 (mkLevelParam `u)) (Nat.repeat mkLevelSucc 1 Level.zero)))
+    IO.println (pl [] (mkLevelMax' (Nat.repeat mkLevelSucc 1 Level.zero) (Nat.repeat mkLevelSucc 1 (mkLevelParam `u))))
     IO.println (pl [] (Level.instantiateParams (Nat.repeat mkLevelSucc 1 (mkLevelParam `u)) [`u] [(Nat.repeat mkLevelSucc 2 Level.zero)]))
     IO.println (pl [] (Level.instantiateParams (mkLevelParam `v) [`u] [(Nat.repeat mkLevelSucc 1 Level.zero)]))
     IO.println (pl [] (Level.instantiateParams (mkLevelParam `u) [`u, `u] [(Nat.repeat mkLevelSucc 1 Level.zero), (Nat.repeat mkLevelSucc 2 Level.zero)]))
