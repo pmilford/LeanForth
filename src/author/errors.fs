@@ -227,7 +227,7 @@ create lfa-catalogue
   s" elaboration incomplete: a hole (metavariable) is left in the declaration"
   lfa-invalid,
   lfa-e-unused-universe
-  s" unused universe parameter: neither the statement nor the proof uses it"
+  s" unused universe parameter: the statement (or a definition's value) must use it"
   lfa-invalid,
   lfa-e-malformed
   s" malformed elaboration: a term that is no node, or a value unfit for the declaration"

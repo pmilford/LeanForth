@@ -148,7 +148,7 @@ is elaborated yet:
 | `explicit:` and the other binder words | `( t -- )` | a binder whose type is the tree as written |
 | `:=` | `( t -- )` | the statement, as in the kernel form |
 | `by` | `( -- )` | right after `:=`: a tactic proof follows (69 elsewhere or twice) |
-| `end NAME` | `( t -- )` | checks the declaration's shape (errors 19, 20, 22) and keeps the proof's tree, then elaborates it, which stops today: elaborating is plan FE1e (71, unsupported). Once FE1e gives the type and value, the hand-over (`src/front/handover.fs`, plan FE1f) instantiates every assigned metavariable, stops at a hole still reachable (74, invalid) or at a universe parameter of the declaration that neither its statement nor its proof uses (75, invalid, as Lean's "unused universe parameter"), refuses malformed terms (76, invalid: a term that is no node, a theorem or definition without a value, an axiom with one) and an instantiation step not ported yet (77, unsupported), and records the declaration; its records reach the kernel as a kernel-form text's do |
+| `end NAME` | `( t -- )` | checks the declaration's shape (errors 19, 20, 22) and keeps the proof's tree, then elaborates it, which stops today: elaborating is plan FE1e (71, unsupported). Once FE1e gives the type and value, the hand-over (`src/front/handover.fs`, plan FE1f) instantiates every assigned metavariable, stops at a hole still reachable (74, invalid) or at a universe parameter of the declaration that is unused (75, invalid, as Lean's "unused universe parameter": a theorem's or axiom's counted in its statement alone, a definition's in its statement and value), refuses malformed terms (76, invalid: a term that is no node, a theorem or definition without a value, an axiom with one) and an instantiation step not ported yet (77, unsupported), and records the declaration; its records reach the kernel as a kernel-form text's do |
 | `by-induction`, `by-case:`, `by-rfl`, `by-exact` | | tactics: not supported yet in either form (72) |
 | the other kernel-form words (`Prop`, `fun`, `var#`, `^`, ...) | | not supported yet in natural form (70) |
 | `'`, `+`, `=`, `*`, `≤` in kernel-form text | | refused (58) |
@@ -395,7 +395,7 @@ below it).
 | 72 | unsupported | not supported yet: tactics (plan FE1g) |
 | 73 | unsupported | not supported yet: how many arguments the name takes depends on unfolding its type |
 | 74 | invalid | elaboration incomplete: a hole (metavariable) is left in the declaration |
-| 75 | invalid | unused universe parameter: neither the statement nor the proof uses it |
+| 75 | invalid | unused universe parameter: the statement (or a definition's value) must use it |
 | 76 | invalid | malformed elaboration: a term that is no node, or a value unfit for the declaration |
 | 77 | unsupported | not supported yet: this step of instantiating metavariables (plan FE1c) |
 

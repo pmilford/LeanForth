@@ -42,6 +42,7 @@ findings neither fixed nor turned into plan tasks. A row that raises the style b
 | 2026-11-12 | `72766de..cccf51b` | fe6a: ctorIdx, casesOn for several motives, answers to the first review (binders checked against Lean's environment) | forth-reviewer (Opus), style, fidelity and re-check | [report](2026-11-12-fe6a-2.md) | 0 blocking; N1-N4, one style point | sent to the FE6a agent |
 | 2026-11-12 | `651da64..3b6d640` | fe1f: the hand-over of a finished declaration (reach.fs, handover.fs, the reached-only writer) | forth-reviewer (Opus), style and gates [bypass] Q1-Q4 | [report](2026-11-12-fe1f.md) | BLOCKING: M1 theorem without a value, M2 unreached level written as zero; L1-L7, I1-I4 | fixed in 3b6d640..452fabc |
 | 2026-11-12 | `3b6d640..452fabc` | fe1f follow-up: M1, M2, lows; unused universe parameters (75); codes 76, 77 | forth-reviewer (Opus), re-check | [report](2026-11-12-fe1f.md), last section | 0 blocking; N1 (theorem universe parameters from the statement alone, Lean fidelity), N2 | N1 and N2 recorded in plan row FE1f, being fixed on fe1f |
+| 2026-11-13 | `452fabc..b8085b9` | fe1f follow-up: N1 (a theorem's and an axiom's universe parameters from the statement alone, a definition's from statement and value, as Lean), N2 | forth-reviewer (Opus), re-check | [report](2026-11-12-fe1f.md), last section | 0 blocking; L-a (hole vs unused-parameter order), I-a, I-b | sent to the FE1f agent; I-b for plan row FE1e |
 
 ## Backlog
 

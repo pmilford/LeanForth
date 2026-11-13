@@ -11,11 +11,13 @@
 \ - lf-handover ( decl type value -- outcome ) instantiates both
 \   (front/mvars.fs), refuses them when either still reaches a metavariable,
 \   term or level (core/reach.fs: only what they reach counts, so a hole
-\   left elsewhere in the stores blocks nothing) or when neither uses a
-\   universe parameter decl names (Lean's sortDeclLevelParams: "unused
-\   universe parameter"; decl's order of them is kept, as Lean keeps the
-\   order written), and else records them in decl. A refusal gives back
-\   every node, level and constant reference the hand-over made
+\   left elsewhere in the stores blocks nothing) or when a universe
+\   parameter decl names is unused (Lean's sortDeclLevelParams: "unused
+\   universe parameter"; a definition's counted in its type and value, a
+\   theorem's and an axiom's in the type alone; decl's order of them is
+\   kept, as Lean keeps the order written), and else records them in
+\   decl. A refusal gives back every node, level and constant reference
+\   the hand-over made
 \   (core/scratch-marks.fs) and leaves decl as it was. Outcomes: ok;
 \   invalid for a hole left (elaboration incomplete), an unused universe
 \   parameter, a term that is no node, or a value that does not fit decl's
@@ -67,16 +69,24 @@ end-structure
 \ What the type and value reach (core/reach.fs): no metavariable, term or
 \ level (else invalid, elaboration incomplete, error 74), and every
 \ universe parameter the declaration names (else invalid, as Lean's
-\ sortDeclLevelParams: "unused universe parameter", error 75).
+\ sortDeclLevelParams: "unused universe parameter", error 75), counted as
+\ Lean counts them: a definition's in its type and value, a theorem's and
+\ an axiom's in the type alone (Lean elaborates a theorem's proof after
+\ its header, elabAsync; pinned Lean refuses theorem t.{v} : True :=
+\ (fun (_ : Sort v) => True.intro) PUnit.{v}, review fe1f N1). The type is
+\ marked and swept first, then the value.
 : lfh-names ( -- addr n ) lfh-decl@ dup lf-fdecl-universe swap lf-fdecl-universes @ ;
 : lfh-unused? ( addr n -- flag )
   0 ?do dup @ lf-reach-param? 0= if drop true unloop exit then cell+ loop drop false ;
+: lfh-def? ( -- flag ) lfh-decl@ lf-fdecl-kind @ lf-decl-def = ;
+: lfh-unused-of ( type-unused? -- flag ) lfh-def? if drop lfh-names lfh-unused? then ;
 : lfh-refuse ( code -- outcome ) lfh-why! outcome-invalid ;
-: lfh-judge ( -- outcome )
-  lf-reach-holes? if lfa-e-incomplete lfh-refuse exit then
-  lfh-names lfh-unused? if lfa-e-unused-universe lfh-refuse else outcome-ok then ;
+: lfh-judge ( type-unused? -- outcome )
+  lf-reach-holes? if drop lfa-e-incomplete lfh-refuse exit then
+  lfh-unused-of if lfa-e-unused-universe lfh-refuse else outcome-ok then ;
+: lfh-type-unused? ( type -- flag ) lf-reach-term lf-reach-sweep lfh-names lfh-unused? ;
 : lfh-reached ( type value -- outcome )
-  lf-reach-term lf-reach-term lf-reach-sweep lfh-judge ;
+  swap lfh-type-unused? swap lf-reach-term lf-reach-sweep lfh-judge ;
 : lfh-checked ( type value -- outcome )
   lf-reach-open 0= if 2drop outcome-full exit then lfh-reached lf-reach-close ;
 : lfh-whole ( type value -- type value outcome ) 2dup lfh-checked ;
