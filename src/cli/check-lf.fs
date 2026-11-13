@@ -129,7 +129,10 @@ end-structure
 \ ---- The elaboration data (--elab-data; plan row FE1d): read against
 \ the library's names, before they are sealed, and its export's SHA-256:
 \ a snapshot's export's, the manifest check's digest, or, for a library
-\ read without its manifest, the file hashed here (cli/check-run.fs).
+\ read without its manifest, the file hashed here (cli/check-run.fs); a
+\ library that cannot be hashed refuses the data (elab-unhashed, error 26).
+\ Not with a layered snapshot (refused by the command line): the hash is
+\ the base's, the names the layers' too.
 : lfc-elab-file! ( c-addr u -- ) lfc lfc-elab-file 2! ;
 : lfc-elab-failed? ( -- flag ) lfc lfc-elab-failed @ ;
 : lfc-manifest-sha ( -- addr ) ck-stage stage-manifest manifest-digest ;
@@ -139,7 +142,7 @@ end-structure
   lfc lfc-env 2@ ck-sha-file ck-digest swap ;
 : lfc-elab-read ( -- outcome )
   lfc lfc-elab-file 2@ ck-stage lfc-export-sha
-  ok-then? if elab-read else nip nip nip then ;
+  ok-then? if elab-read else nip nip nip elab-unhashed then ;
 : lfc-elab-step ( -- outcome )
   lfc lfc-elab-file @ 0= if outcome-ok exit then
   lfc-elab-read dup ok? 0= lfc lfc-elab-failed ! ;

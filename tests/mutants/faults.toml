@@ -10349,8 +10349,8 @@ quick = true
 [[fault]]
 id = "fe-priority-ignored"
 file = "src/front/elab-data.fs"
-old = '''  ed-inst swap c" priority" ed-member ed-u32 ['] inst-priority ed-put ;'''
-new = '''  ed-inst swap c" priority" ed-member ed-u32 nip 0 swap ['] inst-priority ed-put ;'''
+old = '''  ed-inst swap c" priority" ed-member ed-u32 ['] ed-inst-priority ed-put ;'''
+new = '''  ed-inst swap c" priority" ed-member ed-u32 nip 0 swap ['] ed-inst-priority ed-put ;'''
 test = "$GFORTH tests/front/elab-data.fs"
 reason = "design 8.4: an instance's priority is kept as 0"
 
@@ -10369,3 +10369,116 @@ old = '''  lfc-elab-read dup ok? 0= lfc lfc-elab-failed ! ;'''
 new = '''  outcome-ok ;'''
 test = "python3 tests/front/test_elab_data.py"
 reason = "check --elab-data never reads the file: damaged data passes and the text runs"
+
+# The faults of the Forth review of fe1d (L3), each caught by the tests.
+[[fault]]
+id = "fe-elab-class-kind-unchecked"
+file = "src/front/elab-data.fs"
+old = '''  ed-decl dup ok? 0= if exit then drop dup ed-type? if outcome-ok else ed-kind-bad then ;'''
+new = '''  ed-decl ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "review fe1d L3: a class that is no inductive type (or an instance named as a class) is read"
+
+[[fault]]
+id = "fe-elab-instance-twice"
+file = "src/front/elab-data.fs"
+old = '''  over elab-instance-of if 2drop drop ed-e-instance ed-bad exit then'''
+new = ''''''
+test = "python3 tests/front/test_elab_data.py"
+reason = "review fe1d L3: two instance records of one declaration are read, their numbers mixed"
+
+[[fault]]
+id = "fe-elab-default-twice"
+file = "src/front/elab-data.fs"
+old = '''  if drop ed-e-default ed-bad exit then'''
+new = '''  if drop outcome-ok exit then'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "review fe1d L3: a default instance given twice is read"
+
+[[fault]]
+id = "fe-elab-lean-unchecked"
+file = "src/front/elab-data.fs"
+old = '''  ed-e-lean ed-or-other ;'''
+new = '''  2drop outcome-ok ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "review fe1d L3: data written by another Lean version or revision is read"
+
+[[fault]]
+id = "fe-elab-version-unchecked"
+file = "src/front/elab-data.fs"
+old = '''  ed-e-version ed-or-other ;'''
+new = '''  2drop outcome-ok ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "review fe1d L3: another format version is read as version 1"
+
+[[fault]]
+id = "fe-elab-u32-unbounded"
+file = "src/front/elab-data.fs"
+old = '''  dup u32-mask u> if ed-e-number outcome-unsupported ed-fail exit then'''
+new = ''''''
+test = "python3 tests/front/test_elab_data.py"
+reason = "review fe1d L3: a priority or synthesis-order entry beyond 2^32 - 1 is kept"
+
+[[fault]]
+id = "fe-elab-sealed-accepted"
+file = "src/front/elab-data.fs"
+old = '''  elab elab-sha sha256-init dup stage-sealed? if ed-sealed exit then'''
+new = '''  elab elab-sha sha256-init'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "review fe1d L3: a sealed stage is read, its names never found"
+
+[[fault]]
+id = "fe-elab-eliminator-for-any-kind"
+file = "src/front/elab-data.fs"
+old = '''  elab elab-key tuck ed-key-kind ! tuck ed-key-one ! dup ed-key-one over ed-key-types !'''
+new = '''  elab elab-key tuck ed-key-kind ! tuck ed-key-one ! dup ed-key-one over ed-key-types ! 0 over ed-key-kind !'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "review fe1d L3: elab-eliminator-for looks up the induction eliminator whatever kind is asked"
+
+[[fault]]
+id = "fe-elab-head-shape-unchecked"
+file = "src/front/elab-data.fs"
+old = '''  drop ed-head-keys ed-shape? ed-e-malformed ed-or-bad ;'''
+new = '''  2drop outcome-ok ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "review fe1d L3: a header with a member added is read"
+
+[[fault]]
+id = "fe-elab-record-shape-unchecked"
+file = "src/front/elab-data.fs"
+old = '''  dup ed-red-keys ed-shape? 0= if drop ed-malformed exit then'''
+new = ''''''
+test = "python3 tests/front/test_elab_data.py"
+reason = "review fe1d L3: a reducibility record with a member added is read"
+
+[[fault]]
+id = "fe-elab-status-choice-off"
+file = "src/front/elab-data.fs"
+old = '''  ok-then? if 1+ ed-status-fact else nip then ;'''
+new = '''  ok-then? if ed-status-fact else nip then ;'''
+test = "$GFORTH tests/front/elab-data.fs"
+reason = "review fe1d L3: each status read as the one before it (reducible as none)"
+
+[[fault]]
+id = "fe-elab-no-manifest-uses-manifest"
+file = "src/cli/check-lf.fs"
+old = '''  lfc lfc-env 2@ ck-sha-file ck-digest swap ;'''
+new = '''  lfc-manifest-sha outcome-ok ;'''
+test = "$GFORTH tests/front/elab-check-lf.fs"
+reason = "review fe1d L3: with --no-manifest the data is checked against a digest no manifest check made"
+
+[[fault]]
+id = "fe-elab-layered-accepted"
+file = "src/cli/leanforth.fs"
+old = '''  cli-elab-layered? if cli-elab-layers exit then 0 ;'''
+new = '''  0 ;'''
+test = "python3 tests/front/test_elab_data.py"
+reason = "review fe1d L1: --elab-data with a layered snapshot is read, the base's hash vouching for the layers' names"
+
+[[fault]]
+id = "fe-elab-unhashed-ignored"
+file = "src/cli/check-lf.fs"
+old = '''  ok-then? if elab-read else nip nip nip elab-unhashed then ;'''
+new = '''  ok-then? if elab-read else nip nip nip drop outcome-ok then ;'''
+test = "$GFORTH tests/front/elab-check-lf.fs"
+reason = "review fe1d L2: a library that cannot be hashed lets the text run without its data"

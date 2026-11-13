@@ -47,9 +47,28 @@ and, once FE1e is built, in LeanForth text `0 n +` finds it the way Lean's
 it can make a declaration accepted, since every term the front end builds
 is checked by the kernel ([ADR 0021](../adr/0021-front-end.md) D1). It can
 change what a statement *means* (a wrong instance would make `+` mean
-something else), which is why it is checked record by record against the
-export, refused whole on any mismatch, and why every statement will be
-printed back in three forms ([parser] gate).
+something else). What LeanForth checks and what it takes on trust:
+
+- **Checked against the export:** the file's form (every line, member and
+  number; the records of each kind and their SHA-256 as the header
+  states), that the header names the library's export by its SHA-256,
+  that every name is exactly one declaration of the library, and the
+  *kind* of each: a class is an inductive type, an instance or an
+  eliminator is not one. No declaration is named twice.
+- **Taken on trust from pinned Lean:** everything the export cannot
+  confirm by names and kinds alone. That an instance or default instance
+  belongs to the class its record names (Lean takes the class from the
+  conclusion of the instance's type; a record "class `Mul`, instance
+  `instAddNat`" passes today), priorities, synthesis orders, which
+  default instance a class has, reducibility statuses, and which
+  eliminator Lean's `induction` and `cases` use. These are pinned Lean's
+  output, bound to the export only by its SHA-256, which is not a key:
+  anyone can write a file with the right hash and other values.
+- **Still to come:** plan row FE1e checks each instance's and default
+  instance's class against its type's conclusion, unfolding reducible
+  definitions as Lean does, before the elaborator uses them; for the rest
+  the guard is that every statement is printed back in three forms and
+  compared with Lean's ([parser] gate).
 
 ## Making it: `scripts/export-elab.sh`
 
@@ -196,21 +215,30 @@ printed with its text (`at line 2 (error 12): unknown name`):
 | 23 | `name lookup failed` | as the lookup's | the stage's name lookup failed |
 | 24 | `the library's stage is sealed: its names cannot be looked up` | invalid | called with a sealed stage (a Forth caller's mistake) |
 | 25 | `a read in progress` | invalid | called during a read (a Forth caller's mistake) |
+| 26 | `the library's export could not be hashed` | as the hash's (full: no room for its buffer) | with `--no-manifest`, the library file could not be hashed again |
 
 Misuse is refused before anything runs:
 `--elab-data` without `--env` or `--snapshot` ("needs --env or
---snapshot, the library it describes") or with an export instead of a
-text ("goes only with a LeanForth text").
+--snapshot, the library it describes"), with an export instead of a
+text ("goes only with a LeanForth text"), and with a layered snapshot
+(`--snapshot BASE --snapshot LAYER`: "does not go with a layered snapshot
+yet"; the hash checked would be the base's export's while the names
+would also be the layers', so a record naming a layer's declaration would
+pass as the base's).
 
 ## The Forth interface (`src/front/elab-data.fs`)
 
 Untrusted, fail-closed; its state is in the checker context (ADR 0009).
 Declarations are the stage's declaration numbers (`src/import/stage.fs`).
+The words that take a record number `i` do not check it: `i` must be
+below `elab-count` of its kind. Only the `elab-*` words below are the
+interface; the module's helpers and fields are named `ed-*`.
 
 | Word | Stack effect | What it does |
 | --- | --- | --- |
 | `elab-read` | `( c-addr u stage sha -- outcome )` | read the file against a stage read and not sealed, and the export's 32-byte SHA-256 at `sha` |
 | `elab-error`, `elab-error-line`, `elab-error-code`, `elab-error-why` | `( -- line c-addr u )` | where and why the last read failed: its line, its [code](#errors) and text |
+| `elab-unhashed` | `( outcome -- outcome )` | for a caller that could not hash the export: refuse with error 26 at line 0, nothing loaded |
 | `elab-loaded?` | `( -- flag )` | the last read was ok |
 | `elab-reset` | `( -- )` | forget everything |
 | `elab-count` | `( kind -- n )` | records of a kind: `elab-instance`, `elab-default`, `elab-reducibility`, `elab-eliminator` |
@@ -228,18 +256,23 @@ Declarations are the stage's declaration numbers (`src/import/stage.fs`).
 - `make test-elab-data` (in `make test`): `tests/front/elab-data.fs`, the
   reader's words (every kind read back, eliminators found by kind and
   type, a refused read keeps nothing, a later read replaces an earlier
-  one, a missing file, a read during a read and a sealed stage refused,
-  each of the 10 allocations of a read in a new context refused in turn:
-  full, never another outcome, no block kept; error codes and texts, BASE
-  kept); `tests/front/test_elab_data.py`, the finisher (kept and left
-  out, deterministic, 8 refusals), the schema (52 good lines, 11 wrong
-  ones), the [error catalogue](#errors) against the reader's, and the command
+  one, a missing file, a read during a read, a sealed stage and a name two
+  declarations of the stage have (error 13) refused, each of the 10
+  allocations of a read in a new context refused in turn: full, never
+  another outcome, no block kept; error codes and texts, BASE kept);
+  `tests/front/elab-check-lf.fs`, the check step (`--no-manifest`: the
+  library hashed again, and the hash's buffer refused: error 26, full);
+  `tests/front/test_elab_data.py`, the finisher (kept and left out,
+  deterministic, 8 refusals), the schema (52 good lines, 11 wrong ones),
+  the [error catalogue](#errors) against the reader's, and the command
   line: the good data with an export, a snapshot and `--no-manifest`, 16
-  eliminators (the table grows), the verdicts unchanged, 3 misuses and 63
-  damaged files, each refused with its line, code, text and exit status.
-  Both run on Gforth 0.7.3 too. Block coverage of `src/front/elab-data.fs`
-  over `make test`: 526 of 531 blocks (the 5 left are listed in
-  `tests/coverage-baseline.json`).
+  eliminators (the table grows), the verdicts unchanged, 4 misuses (a
+  layered snapshot among them) and 63 damaged files, each refused with
+  its line, code, text and exit status. All run on Gforth 0.7.3 too.
+  Never run by `make test` (listed in `tests/coverage-baseline.json`): a
+  name lookup that fails in an open tier (error 23), a tier name beyond
+  the stage's name-to-declaration array, no room while the eliminators'
+  table grows, and a THROW inside a read.
 - `make reference-elab-data` (in `make check`, pinned Lean):
   `tests/front/elab-init.sh`, about 60 s. `scripts/export-elab.sh`
   reproduces `tests/front/init-slice.elab.ndjson` byte for byte; for all
@@ -254,11 +287,14 @@ Declarations are the stage's declaration numbers (`src/import/stage.fs`).
   instances of `OfNat` and `HAdd`, Nat's eliminators `Nat.recAux` and
   `Nat.casesAuxOn`); every line is valid under the schema.
 - Planted faults (`tests/mutants/faults.toml`, `fe-elab-*` and
-  `fe-priority-ignored`), each caught: an unknown name, a wrong kind,
-  another export, a changed record count or SHA-256, a reducibility or an
-  eliminator given twice, a refused read that keeps records, a priority
-  kept as 0, names looked up part by part at the root, and
-  `--elab-data` ignored.
+  `fe-priority-ignored`), each caught: an unknown name, a wrong kind (of
+  an instance, of a class), another export, a changed record count or
+  SHA-256, an instance, default instance, reducibility or eliminator
+  given twice, a refused read that keeps records, a priority kept as 0,
+  names looked up part by part at the root, another Lean or format
+  version, the 32-bit bound, a sealed stage, the header's and a record's
+  shape, the status mapping, the eliminator's kind ignored in a lookup,
+  `--no-manifest` using the manifest's digest, and `--elab-data` ignored.
 
 ## Limits and what is left
 
@@ -272,4 +308,8 @@ Declarations are the stage's declaration numbers (`src/import/stage.fs`).
   `export` aliases come with later rows (design §4.9).
 - Scoped entries (active only after `open`) are not exported.
 - A name several declarations of the library have is refused; a single
-  export has none, but a snapshot with layers could.
+  export has none.
+- Not with a layered snapshot (refused): that needs data for each layer
+  and a hash of each.
+- The class an instance names is not checked against its type (above,
+  "Trust"); plan row FE1e adds that check.

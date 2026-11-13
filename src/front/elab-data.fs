@@ -7,8 +7,14 @@
 \ per line: docs/programming/ELABORATION_DATA.md and
 \ schemas/elab-data-1.schema.json. Untrusted and fail-closed: the data
 \ never reaches the kernel, and nothing it holds can make a declaration
-\ accepted; it can change what a statement means, which is why every
-\ record is checked here and every statement is printed back.
+\ accepted; it can change what a statement means. What is checked here
+\ is the file's form, its export's SHA-256, and the names and kinds of
+\ the declarations it names (below). The rest is pinned Lean's output
+\ taken on trust, bound to the export only by that unkeyed hash: that an
+\ instance belongs to the class its record names (plan row FE1e checks
+\ it against the instance's type), priorities, synthesis orders, the
+\ default instances, reducibility statuses and which eliminator a type
+\ has; every statement is printed back as the guard for it.
 \ LeanForth-specific (Lean's attributes, the importer stage's names).
 \ Requires: lib/bytes.fs, json.fs, sha256.fs, htab.fs, hash32.fs, and
 \ import/stage.fs (and through it import/manifest.fs's JSON helpers).
@@ -41,7 +47,9 @@
 \ keeps nothing: every table is empty afterwards, as after elab-reset.
 \ elab-error ( -- line c-addr u ) gives the line of the failure (1 the
 \ header; after the last line, the number of lines read; 0 before the
-\ file is open) and why: elab-error-line and elab-error-why apart.
+\ file is open) and why: elab-error-line, elab-error-code (stable, 1-26)
+\ and elab-error-why apart. elab-unhashed ( outcome -- outcome ) refuses
+\ for a caller that could not hash the export (error 26).
 \
 \ The data kept, numbered from 0 in file order, its declarations the
 \ stage's declaration numbers: elab-count ( kind -- n );
@@ -52,6 +60,9 @@
 \ ( i -- kind d ), elab-eliminator-types ( i -- addr n ) (cells),
 \ elab-eliminator-for ( d kind -- i true | false ) (the eliminator whose
 \ one target type is d). elab-loaded? says whether the last read was ok.
+\ Unchecked: the words that take i read record i whatever it is; i must
+\ be below elab-count of its kind. The elab-* words are the interface;
+\ helpers, fields and tables are named ed-*.
 \
 \ Example (the export read but not sealed, its manifest checked):
 \   create lib /stage allot   12 lib stage-init drop
@@ -92,20 +103,20 @@ require ../import/stage.fs
 
 \ ---- State.
 begin-structure /ed-inst
-  field: inst-decl   field: inst-class   field: inst-priority
-  field: inst-order   field: inst-order#   \ its synthesis order in elab-orders
+  field: ed-inst-decl   field: ed-inst-class   field: ed-inst-priority
+  field: ed-inst-order   field: ed-inst-order#   \ its synthesis order in elab-orders
 end-structure
 begin-structure /ed-dflt
-  field: dflt-class   field: dflt-decl   field: dflt-priority
+  field: ed-dflt-class   field: ed-dflt-decl   field: ed-dflt-priority
 end-structure
 begin-structure /ed-elim
-  field: elim-kind   field: elim-decl
-  field: elim-types   field: elim-types#   \ its target types in elab-types
+  field: ed-elim-kind   field: ed-elim-decl
+  field: ed-elim-types   field: ed-elim-types#   \ its target types in elab-types
 end-structure
 \ An eliminator's key, kind and target types (cells), as the table
-\ compares it; ekey-one holds the type of a key made for one type.
+\ compares it; ed-key-one holds the type of a key made for one type.
 begin-structure /ed-key
-  field: ekey-kind   field: ekey-types   field: ekey-types#   field: ekey-one
+  field: ed-key-kind   field: ed-key-types   field: ed-key-types#   field: ed-key-one
 end-structure
 begin-structure /elab
   /reader +field elab-reader
@@ -150,7 +161,7 @@ end-structure
 16 constant ed-e-default   17 constant ed-e-reducibility
 18 constant ed-e-eliminator   19 constant ed-e-number   20 constant ed-e-count
 21 constant ed-e-sha   22 constant ed-e-room   23 constant ed-e-lookup
-24 constant ed-e-sealed   25 constant ed-e-busy
+24 constant ed-e-sealed   25 constant ed-e-busy   26 constant ed-e-hash
 create ed-messages
   s" none" counted,
   s" file missing or unreadable" counted,
@@ -178,6 +189,7 @@ create ed-messages
   s" name lookup failed" counted,
   s" the library's stage is sealed: its names cannot be looked up" counted,
   s" a read in progress" counted,
+  s" the library's export could not be hashed" counted,
   0 0 counted,
 : ed-message ( code -- c-addr u ) ed-messages swap 0 ?do key-next loop count ;
 : ed-line ( -- n ) elab elab-reader reader-position nip nip ;
@@ -192,14 +204,14 @@ create ed-messages
 
 \ ---- Facts per declaration of the stage: bits 0-2 its reducibility
 \ status, bit 3 a default instance, from bit 4 its instance's number + 1.
-7 constant facts-status   8 constant facts-default   4 constant facts-shift
+7 constant ed-facts-status   8 constant ed-facts-default   4 constant ed-facts-shift
 : ed-fact ( d -- addr ) elab-facts slab-at ;
 : ed-fact@ ( d -- x ) dup elab-facts slab-count u< if ed-fact @ else drop 0 then ;
 : ed-facts-made ( n -- outcome )
   dup elab-facts slab-claim ed-roomed ok-then? if ed-fact swap cells erase outcome-ok
   else nip then ;
-: elab-status ( d -- status ) ed-fact@ facts-status and ;
-: elab-instance-of ( d -- i true | false ) ed-fact@ facts-shift rshift +1>number ;
+: elab-status ( d -- status ) ed-fact@ ed-facts-status and ;
+: elab-instance-of ( d -- i true | false ) ed-fact@ ed-facts-shift rshift +1>number ;
 
 \ ---- The records kept.
 : ed-inst ( i -- addr ) elab-insts slab-at ;
@@ -207,26 +219,27 @@ create ed-messages
 : ed-elim ( i -- addr ) elab-elims slab-at ;
 : ed-types ( first n -- addr n ) swap elab-types slab-at swap ;
 : elab-instance@ ( i -- d class priority )
-  ed-inst dup inst-decl @ over inst-class @ rot inst-priority @ ;
+  ed-inst dup ed-inst-decl @ over ed-inst-class @ rot ed-inst-priority @ ;
 : elab-instance-order ( i -- addr n )
-  ed-inst dup inst-order @ swap inst-order# @ swap elab-orders slab-at swap ;
+  ed-inst dup ed-inst-order @ swap ed-inst-order# @ swap elab-orders slab-at swap ;
 : elab-default@ ( i -- class d priority )
-  ed-dflt dup dflt-class @ over dflt-decl @ rot dflt-priority @ ;
-: elab-eliminator@ ( i -- kind d ) ed-elim dup elim-kind @ swap elim-decl @ ;
+  ed-dflt dup ed-dflt-class @ over ed-dflt-decl @ rot ed-dflt-priority @ ;
+: elab-eliminator@ ( i -- kind d ) ed-elim dup ed-elim-kind @ swap ed-elim-decl @ ;
 : elab-eliminator-types ( i -- addr n )
-  ed-elim dup elim-types @ swap elim-types# @ ed-types ;
+  ed-elim dup ed-elim-types @ swap ed-elim-types# @ ed-types ;
 
 \ ---- The eliminators' table (lib/htab.fs): entries are eliminator
 \ numbers, keyed by kind and target types; the hooks make an entry's key
 \ in elab-probe, never in the key being looked up.
 : ed-key! ( i key -- )
-  >r dup elab-eliminator@ drop r@ ekey-kind ! elab-eliminator-types r@ ekey-types# !
-  r> ekey-types ! ;
-: ed-key-cells ( key -- addr u ) dup ekey-types @ swap ekey-types# @ cells ;
+  >r dup elab-eliminator@ drop r@ ed-key-kind ! elab-eliminator-types r@ ed-key-types# !
+  r> ed-key-types ! ;
+: ed-key-cells ( key -- addr u ) dup ed-key-types @ swap ed-key-types# @ cells ;
 : ed-key-hash ( key -- h )
-  dup ekey-kind @ hash-fmix swap ed-key-cells bounds ?do i @ hash-step 1 cells +loop ;
+  dup ed-key-kind @ hash-fmix swap ed-key-cells bounds ?do i @ hash-step 1 cells +loop ;
+: ed-same-kind? ( key1 key2 -- flag ) ed-key-kind @ swap ed-key-kind @ = ;
 : ed-same-key? ( key1 key2 -- flag )
-  2dup ekey-kind @ swap ekey-kind @ = >r ed-key-cells rot ed-key-cells compare 0= r> and ;
+  2dup ed-same-kind? >r ed-key-cells rot ed-key-cells compare 0= r> and ;
 : ed-probe ( n -- key ) elab elab-probe tuck ed-key! ;
 : ed-rehash ( n htab -- h ) drop ed-probe ed-key-hash ;
 : ed-same ( n key htab -- flag ) drop swap ed-probe ed-same-key? ;
@@ -241,8 +254,8 @@ create ed-hooks /htab-hooks allot  ' ed-rehash ' ed-same ed-hooks htab-hooks!
 : ed-key-find ( key -- n true | i false ) dup ed-key-hash ed-table htab-find ;
 : elab-eliminator-for ( d kind -- i true | false )
   ed-table? 0= if 2drop false exit then
-  elab elab-key tuck ekey-kind ! tuck ekey-one ! dup ekey-one over ekey-types !
-  1 over ekey-types# ! ed-key-find dup 0= if nip then ;
+  elab elab-key tuck ed-key-kind ! tuck ed-key-one ! dup ed-key-one over ed-key-types !
+  1 over ed-key-types# ! ed-key-find dup 0= if nip then ;
 
 \ ---- Forgetting: every table empty, the counts zero, nothing loaded.
 : ed-slabs-clear ( -- )
@@ -251,6 +264,9 @@ create ed-hooks /htab-hooks allot  ' ed-rehash ' ed-same ed-hooks htab-hooks!
 : elab-reset ( -- )
   ed-slabs-clear ed-table? if ed-table htab-clear then false elab elab-loaded !
   elab elab-counts elab-kinds cells erase ;
+\ A caller that could not compute the export's SHA-256 refuses the data
+\ with error 26 at line 0, its outcome kept; nothing is loaded.
+: elab-unhashed ( outcome -- outcome ) elab-reset ed-e-hash swap ed-fail ;
 
 \ ---- Tables of keys: counted strings ending with an empty one
 \ (import/manifest.fs's exact-keys? reads them). ed-key-index finds a
@@ -259,14 +275,14 @@ create ed-hooks /htab-hooks allot  ' ed-rehash ' ed-same ed-hooks htab-hooks!
   -rot 2>r 0 swap begin dup count nip while
     dup count 2r@ compare 0= if drop 2r> 2drop true exit then key-next swap 1+ swap
   repeat 2drop 2r> 2drop false ;
-create kind-names
+create ed-kind-names
   s" instance" counted, s" default_instance" counted, s" reducibility" counted,
   s" eliminator" counted, 0 0 counted,
-create status-names
+create ed-status-names
   s" reducible" counted, s" irreducible" counted, s" implicit_reducible" counted,
   s" instance_reducible" counted, 0 0 counted,
-create elim-names  s" induction" counted, s" cases" counted, 0 0 counted,
-: ed-kind-name ( kind -- c-addr ) kind-names swap 0 ?do key-next loop ;
+create ed-elim-names  s" induction" counted, s" cases" counted, 0 0 counted,
+: ed-kind-name ( kind -- c-addr ) ed-kind-names swap 0 ?do key-next loop ;
 
 \ ---- Members of the object value: shape? holds when it has exactly the
 \ table's keys; ed-member gives a key's value, -1 when absent.
@@ -347,73 +363,75 @@ create elim-names  s" induction" counted, s" cases" counted, 0 0 counted,
   tuck ed-claim ok-then? if rot slab-at ! outcome-ok else nip nip then ;
 
 \ ---- Instances: name, class, priority, synthesis order.
-create inst-keys
+create ed-inst-keys
   s" class" counted, s" name" counted, s" priority" counted, s" synth_order" counted,
   0 0 counted,
 : ed-inst-fact ( d i -- outcome )
   over elab-instance-of if 2drop drop ed-e-instance ed-bad exit then
-  1+ facts-shift lshift swap ed-fact +! outcome-ok ;
+  1+ ed-facts-shift lshift swap ed-fact +! outcome-ok ;
 : ed-inst-named ( i d -- i d outcome ) 2dup swap ed-inst-fact ;
-: ed-inst-decl ( value i -- outcome )
+: ed-inst-decl! ( value i -- outcome )
   swap c" name" ed-member ed-no-type dup ok? if drop ed-inst-named then
-  rot ed-inst -rot ['] inst-decl ed-put ;
-: ed-inst-class ( value i -- outcome )
-  ed-inst swap c" class" ed-member ed-a-type ['] inst-class ed-put ;
-: ed-inst-priority ( value i -- outcome )
-  ed-inst swap c" priority" ed-member ed-u32 ['] inst-priority ed-put ;
+  rot ed-inst -rot ['] ed-inst-decl ed-put ;
+: ed-inst-class! ( value i -- outcome )
+  ed-inst swap c" class" ed-member ed-a-type ['] ed-inst-class ed-put ;
+: ed-inst-priority! ( value i -- outcome )
+  ed-inst swap c" priority" ed-member ed-u32 ['] ed-inst-priority ed-put ;
 : ed-order-item ( item -- outcome ) ed-u32 ok-then? if elab-orders ed-push then ;
 : ed-order-span ( addr -- )
-  elab-orders slab-count over inst-order @ - swap inst-order# ! ;
-: ed-inst-order ( value i -- outcome )
-  ed-inst elab-orders slab-count over inst-order ! swap c" synth_order" ed-member
+  elab-orders slab-count over ed-inst-order @ - swap ed-inst-order# ! ;
+: ed-inst-order! ( value i -- outcome )
+  ed-inst elab-orders slab-count over ed-inst-order ! swap c" synth_order" ed-member
   ['] ed-order-item ed-array-items swap ed-order-span ;
-create inst-steps
-  ' ed-inst-decl , ' ed-inst-class , ' ed-inst-priority , ' ed-inst-order , 0 ,
+create ed-inst-steps
+  ' ed-inst-decl! , ' ed-inst-class! , ' ed-inst-priority! , ' ed-inst-order! , 0 ,
 : ed-on-instance ( value -- outcome )
-  dup inst-keys ed-shape? 0= if drop ed-malformed exit then
-  elab-insts ed-claim ok-then? if inst-steps ed-steps else nip then ;
+  dup ed-inst-keys ed-shape? 0= if drop ed-malformed exit then
+  elab-insts ed-claim ok-then? if ed-inst-steps ed-steps else nip then ;
 
 \ ---- Default instances: class, name, priority.
-create dflt-keys  s" class" counted, s" name" counted, s" priority" counted, 0 0 counted,
+create ed-dflt-keys
+  s" class" counted, s" name" counted, s" priority" counted, 0 0 counted,
 : ed-dflt-fact ( d -- d outcome )
-  dup ed-fact dup @ facts-default and
+  dup ed-fact dup @ ed-facts-default and
   if drop ed-e-default ed-bad exit then
-  dup @ facts-default or swap ! outcome-ok ;
-: ed-dflt-decl ( value i -- outcome )
+  dup @ ed-facts-default or swap ! outcome-ok ;
+: ed-dflt-decl! ( value i -- outcome )
   ed-dflt swap c" name" ed-member ed-no-type dup ok? if drop ed-dflt-fact then
-  ['] dflt-decl ed-put ;
-: ed-dflt-class ( value i -- outcome )
-  ed-dflt swap c" class" ed-member ed-a-type ['] dflt-class ed-put ;
-: ed-dflt-priority ( value i -- outcome )
-  ed-dflt swap c" priority" ed-member ed-u32 ['] dflt-priority ed-put ;
-create dflt-steps  ' ed-dflt-decl , ' ed-dflt-class , ' ed-dflt-priority , 0 ,
+  ['] ed-dflt-decl ed-put ;
+: ed-dflt-class! ( value i -- outcome )
+  ed-dflt swap c" class" ed-member ed-a-type ['] ed-dflt-class ed-put ;
+: ed-dflt-priority! ( value i -- outcome )
+  ed-dflt swap c" priority" ed-member ed-u32 ['] ed-dflt-priority ed-put ;
+create ed-dflt-steps  ' ed-dflt-decl! , ' ed-dflt-class! , ' ed-dflt-priority! , 0 ,
 : ed-on-default ( value -- outcome )
-  dup dflt-keys ed-shape? 0= if drop ed-malformed exit then
-  elab-dflts ed-claim ok-then? if dflt-steps ed-steps else nip then ;
+  dup ed-dflt-keys ed-shape? 0= if drop ed-malformed exit then
+  elab-dflts ed-claim ok-then? if ed-dflt-steps ed-steps else nip then ;
 
 \ ---- Reducibility: name, status; no declaration twice.
-create red-keys  s" name" counted, s" status" counted, 0 0 counted,
+create ed-red-keys  s" name" counted, s" status" counted, 0 0 counted,
 : ed-status-fact ( d status -- outcome )
   over elab-status if 2drop ed-e-reducibility ed-bad exit then
   swap ed-fact +! outcome-ok ;
 : ed-on-reducibility ( value -- outcome )
-  dup red-keys ed-shape? 0= if drop ed-malformed exit then
+  dup ed-red-keys ed-shape? 0= if drop ed-malformed exit then
   dup c" name" ed-member ed-decl ok-then? 0= if nip exit then
-  swap c" status" ed-member status-names ed-choice
+  swap c" status" ed-member ed-status-names ed-choice
   ok-then? if 1+ ed-status-fact else nip then ;
 
 \ ---- Eliminators: kind, name, target types; one per kind and types.
-create elim-keys  s" kind" counted, s" name" counted, s" types" counted, 0 0 counted,
-: ed-elim-kind ( value i -- outcome )
-  ed-elim swap c" kind" ed-member elim-names ed-choice ['] elim-kind ed-put ;
-: ed-elim-decl ( value i -- outcome )
-  ed-elim swap c" name" ed-member ed-no-type ['] elim-decl ed-put ;
+create ed-elim-keys  s" kind" counted, s" name" counted, s" types" counted, 0 0 counted,
+: ed-elim-kind! ( value i -- outcome )
+  ed-elim swap c" kind" ed-member ed-elim-names ed-choice ['] ed-elim-kind ed-put ;
+: ed-elim-decl! ( value i -- outcome )
+  ed-elim swap c" name" ed-member ed-no-type ['] ed-elim-decl ed-put ;
 : ed-type-item ( item -- outcome ) ed-decl ok-then? if elab-types ed-push then ;
-: ed-types-span ( addr -- ) elab-types slab-count over elim-types @ - swap elim-types# ! ;
-: ed-elim-types ( value i -- outcome )
-  ed-elim elab-types slab-count over elim-types ! swap c" types" ed-member
+: ed-types-span ( addr -- )
+  elab-types slab-count over ed-elim-types @ - swap ed-elim-types# ! ;
+: ed-elim-types! ( value i -- outcome )
+  ed-elim elab-types slab-count over ed-elim-types ! swap c" types" ed-member
   ['] ed-type-item ed-array-items swap ed-types-span ;
-create elim-steps  ' ed-elim-kind , ' ed-elim-decl , ' ed-elim-types , 0 ,
+create ed-elim-steps  ' ed-elim-kind! , ' ed-elim-decl! , ' ed-elim-types! , 0 ,
 \ Eliminator i into the table, unless one of its key is there.
 : ed-twice ( i n -- outcome ) 2drop ed-e-eliminator ed-bad ;
 : ed-elim-insert ( i -- outcome )
@@ -421,28 +439,28 @@ create elim-steps  ' ed-elim-kind , ' ed-elim-decl , ' ed-elim-types , 0 ,
   dup elab elab-key tuck ed-key! ed-key-find
   if ed-twice else ed-table htab-put outcome-ok then ;
 : ed-on-eliminator ( value -- outcome )
-  dup elim-keys ed-shape? 0= if drop ed-malformed exit then
-  elab-elims ed-claim ok-then? 0= if nip exit then tuck elim-steps ed-steps
+  dup ed-elim-keys ed-shape? 0= if drop ed-malformed exit then
+  elab-elims ed-claim ok-then? 0= if nip exit then tuck ed-elim-steps ed-steps
   ok-then? if ed-elim-insert then ;
 
 \ ---- Lines. Each is one JSON object with one member: the header's key
 \ elab_data, or a record kind, whose value is an object.
-create kind-handlers
+create ed-kind-handlers
   ' ed-on-instance , ' ed-on-default , ' ed-on-reducibility , ' ed-on-eliminator ,
 : ed-one-member? ( -- flag ) 0 json-object ed-view json-items-of if 1 = else false then ;
 : ed-object-value? ( -- flag ) 2 ed-view json-kind-at json-object = ;
 : ed-wrapped? ( -- flag ) ed-one-member? if ed-object-value? else false then ;
 : ed-tally ( kind -- ) cells elab elab-counts + 1 swap +! ;
-: ed-dispatch ( value kind -- outcome ) dup ed-tally cells kind-handlers + @ execute ;
+: ed-dispatch ( value kind -- outcome ) dup ed-tally cells ed-kind-handlers + @ execute ;
 : ed-on-record ( -- outcome )
   ed-wrapped? 0= if ed-malformed exit then
-  1 ed-view json-text@ kind-names ed-key-index
+  1 ed-view json-text@ ed-kind-names ed-key-index
   0= if ed-e-kind ed-bad exit then
   2 swap ed-dispatch ;
 
 \ ---- The header: its format and version first, so that another version
 \ is told as such, then its shape, Lean, the export and the numbers.
-create head-keys
+create ed-head-keys
   s" export_sha256" counted, s" format" counted, s" format_version" counted,
   s" lean_githash" counted, s" lean_version" counted, s" modules" counted,
   s" records" counted, s" records_sha256" counted, 0 0 counted,
@@ -456,7 +474,7 @@ create head-keys
   drop c" format_version" ed-member ed-view natural-at if s" 1" compare 0= else false then
   ed-e-version ed-or-other ;
 : ed-head-shape ( value i -- outcome )
-  drop head-keys ed-shape? ed-e-malformed ed-or-bad ;
+  drop ed-head-keys ed-shape? ed-e-malformed ed-or-bad ;
 : ed-head-lean ( value i -- outcome )
   drop dup c" lean_version" ed-member pinned-lean-version ed-text=
   swap c" lean_githash" ed-member pinned-lean-githash ed-text= and
@@ -471,7 +489,7 @@ create head-keys
   tuck ed-kind-name ed-member ed-view json-u if swap ed-expected ! outcome-ok
   else drop ed-malformed then ;
 : ed-head-records ( value i -- outcome )
-  drop c" records" ed-member dup kind-names ed-shape? 0= if drop ed-malformed exit then
+  drop c" records" ed-member dup ed-kind-names ed-shape? 0= if drop ed-malformed exit then
   elab-kinds 0 do dup i ed-expect dup ok? 0= if nip unloop exit then drop loop
   drop outcome-ok ;
 : ed-head-hash ( value i -- outcome )
@@ -482,13 +500,13 @@ create head-keys
   ed-view json-kind@ json-string = if outcome-ok else ed-malformed then ;
 : ed-head-modules ( value i -- outcome )
   drop c" modules" ed-member ['] ed-module-item ed-array-items ;
-create head-steps
+create ed-head-steps
   ' ed-head-format , ' ed-head-version , ' ed-head-shape , ' ed-head-lean ,
   ' ed-head-export , ' ed-head-records , ' ed-head-hash , ' ed-head-modules , 0 ,
 : ed-head-key? ( -- flag ) 1 ed-view json-text@ s" elab_data" compare 0= ;
 : ed-on-header ( -- outcome )
   ed-wrapped? if ed-head-key? else false then 0= if ed-e-header ed-bad exit then
-  2 0 head-steps ed-steps ;
+  2 0 ed-head-steps ed-steps ;
 
 \ ---- The file, line by line; each record line hashed before it is
 \ parsed (parsing decodes its strings in place). A line that cannot be

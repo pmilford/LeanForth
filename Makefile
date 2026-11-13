@@ -777,10 +777,11 @@ test: test-sha256 test-sections test-manifest
 test-differential: reference-manifest
 
 # The elaboration data (plan row FE1d; docs/programming/ELABORATION_DATA.md):
-# the reader's unit tests, then its finisher and every damaged file through
-# leanforth check --elab-data. Gforth and Python 3 only.
+# the reader's unit tests and the check step's, then its finisher and every
+# damaged file through leanforth check --elab-data. Gforth and Python 3 only.
 test-elab-data:
 	$(RUN) $(GFORTH) tests/front/elab-data.fs
+	$(RUN) $(GFORTH) tests/front/elab-check-lf.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/test_elab_data.py
 # With pinned Lean: scripts/export-elab.sh reproduces the init slice's data
 # byte for byte, and for all of Init its records equal pinned Lean's own

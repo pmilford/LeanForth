@@ -187,7 +187,8 @@ ERRORS = ["file missing or unreadable", "no line, or a line without its line fee
           "a reducibility named twice", "two eliminators for the same types",
           "a number beyond 2^32 - 1", "records differ in number from the header",
           "records differ from their SHA-256", "no room", "name lookup failed",
-          "the library's stage is sealed: its names cannot be looked up", "a read in progress"]
+          "the library's stage is sealed: its names cannot be looked up", "a read in progress",
+          "the library's export could not be hashed"]
 
 
 def refusal(line, reason):
@@ -397,7 +398,9 @@ def command_line(work):
         fail(f"wrong data with --no-manifest: exit {status}: {out[-300:]}")
     misuse = [(["--elab-data", str(GOOD), str(TEXT)], "--elab-data needs --env or --snapshot"),
               (["--elab-data", str(GOOD), str(SLICE)], "--elab-data goes only with a LeanForth text"),
-              (["--elab-data"], "an option without its value")]
+              (["--elab-data"], "an option without its value"),
+              (["--snapshot", str(snapshot), "--snapshot", str(snapshot), "--elab-data",
+                str(GOOD), str(TEXT)], "--elab-data does not go with a layered snapshot yet")]
     for args, message in misuse:
         done = subprocess.run([str(LEANFORTH), "check", *args], stdin=subprocess.DEVNULL,
                               capture_output=True, text=True, timeout=LIMIT)

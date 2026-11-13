@@ -943,16 +943,24 @@ variable cli-info#
 : cli-env-opens? ( -- flag )
   cli-library-file dup 0= if 2drop true exit then
   r/o bin open-file if drop false else close-file drop true then ;
-: cli-elab-alone? ( -- flag )
-  cli-elab-file nip 0<> cli-library-file nip 0= cli-snapshot? 0= and and ;
+\ --elab-data needs a library, and not a layered snapshot yet: the hash
+\ checked would be the base's, the names the layers' too (review fe1d L1).
+: cli-elab? ( -- flag ) cli-elab-file nip 0<> ;
+: cli-elab-alone? ( -- flag ) cli-elab? cli-library-file nip 0= cli-snapshot? 0= and and ;
 : cli-elab-alone ( -- code )
   s" --elab-data needs --env or --snapshot, the library it describes" cli-misuse-snap ;
+: cli-elab-layered? ( -- flag ) cli-elab? cli-state opt-layers# @ 0<> and ;
+: cli-elab-layers ( -- code )
+  s" --elab-data does not go with a layered snapshot yet" cli-misuse-snap ;
+: cli-elab-misuse ( -- code | 0 )
+  cli-elab-alone? if cli-elab-alone exit then
+  cli-elab-layered? if cli-elab-layers exit then 0 ;
 : cli-elab-misplaced? ( -- code true | false )
   cli-state opt-elab @ 0= if false exit then
   s" --elab-data goes only with a LeanForth text (FILE.lf)" cli-misuse-snap true ;
 : cli-text-refused ( -- code | 0 )
   cli-text-misused? if cli-text-misuse exit then
-  cli-elab-alone? if cli-elab-alone exit then cli-snap-misuse ;
+  cli-elab-misuse ?dup if exit then cli-snap-misuse ;
 : cli-text-command ( -- code )
   cli-text-refused ?dup if exit then
   cli-opens? 0= if ." error: cannot open the LeanForth text" cr exit-malformed exit then

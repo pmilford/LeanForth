@@ -5,7 +5,8 @@
 \ declaration; the synthetic eliminators found by kind and type; a
 \ refused read keeps nothing (every table empty, nothing loaded), a later
 \ read works again and replaces the earlier one; a missing file, a call
-\ during a read and a sealed stage refused; every allocation that fails
+\ during a read, a sealed stage and a name two declarations of the stage
+\ have (error 13) refused; every allocation that fails
 \ gives full or ok, never anything else, and leaks no heap block; the
 \ reader and its JSON view give back their blocks after every read.
 \ Loaded under HEX: loading must not depend on BASE, and must leave BASE
@@ -78,7 +79,10 @@ T{ s" tests/front/cut-off.elab.ndjson" lib digest elab-read empty? elab-error-li
    -> outcome-invalid true 27 true 20 }T
 \ Every code has its text, the first and the last as documented.
 T{ 0 ed-message s" none" compare 1 ed-message s" file missing or unreadable" compare
-   25 ed-message s" a read in progress" compare -> 0 0 0 }T
+   26 ed-message s" the library's export could not be hashed" compare -> 0 0 0 }T
+\ elab-unhashed: error 26 at line 0, the outcome kept, nothing loaded.
+T{ good lib digest elab-read outcome-full elab-unhashed elab-error-code elab-error-line
+   empty? -> outcome-ok outcome-full 26 0 true }T
 T{ elims lib digest elab-read good lib digest elab-read counts -> outcome-ok outcome-ok 3 2 18 0 }T
 T{ elab-reset empty? -> true }T
 T{ s" tests/front/no-such.ndjson" lib digest elab-read elab-error-line
@@ -94,6 +98,33 @@ T{ 12 sealed stage-init slice sealed stage-load -> outcome-ok outcome-ok }T
 T{ good sealed sealed stage-manifest manifest-digest elab-read empty?
    -> outcome-invalid true }T
 T{ s" the library's stage is sealed: its names cannot be looked up" why? -> true }T
+
+\ A name two declarations have (error 13): the slice read, then one more
+\ read into the same stage (stage-extend, stage-produce) declaring
+\ instAddNat again, as an axiom of type Prop; the data's first record
+\ names it.
+create twice /stage allot
+create line-buf 256 allot
+: produce ( c-addr u -- outcome ) tuck line-buf swap move line-buf swap twice stage-line ;
+\ The pinned metadata line, built in line-buf piece by piece.
+: +line ( offset c-addr u -- offset' ) rot 2dup + >r line-buf + swap move r> ;
+: meta-line ( -- c-addr u )
+  0 s\" {\"meta\":{\"exporter\":{\"name\":\"lean4export\",\"version\":\"3.1.0\"}," +line
+  s\" \"format\":{\"version\":\"3.1.0\"},\"lean\":{\"githash\":" +line
+  s\" \"eb6cafb7290e8bd5f2937522d8d804f58f02bafc\",\"version\":\"4.35.0\"}}}" +line
+  line-buf swap ;
+: produced? ( outcome -- flag ) ok? ;
+: second-decl ( -- outcome )
+  meta-line twice stage-line dup produced? 0= if exit then drop
+  s\" {\"in\":1,\"str\":{\"pre\":0,\"str\":\"instAddNat\"}}" produce
+  dup produced? 0= if exit then drop
+  s\" {\"ie\":0,\"sort\":0}" produce dup produced? 0= if exit then drop
+  s\" {\"axiom\":{\"isUnsafe\":false,\"levelParams\":[],\"name\":1,\"type\":0}}" produce ;
+T{ 12 twice stage-init slice twice stage-read twice stage-extend
+   ' second-decl twice stage-produce -> outcome-ok outcome-ok outcome-ok outcome-ok }T
+T{ good twice digest elab-read elab-error-line elab-error-code empty?
+   -> outcome-invalid 2 13 true }T
+T{ twice stage-free -> }T
 
 \ Resources: the k-th allocation refused, for every k until a read needs
 \ none, each in a new context, whose tables all start empty: full or ok,
