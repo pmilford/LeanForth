@@ -55,9 +55,7 @@ lf-level-walk-room context-walk: lf-lscope-walk
 : lf-lscope-slot ( i -- addr ) cells lf-lscope-context + ;
 : lf-lscope-id@ ( i -- id ) lf-lscope-slot @ ;
 \ Search the first n entries; the caller has validated n.
-: lf-lscope-in? ( id n -- flag )
-  cells lf-lscope-context tuck + swap ?do dup i @ = if drop true unloop exit then
-  cell +loop drop false ;
+: lf-lscope-in? ( id n -- flag ) lf-lscope-context swap cells-has? ;
 : lf-lscope-member? ( id -- flag ) lf-lscope-context-count @ lf-lscope-in? ;
 \ Every entry is positive and differs from every other; the count was
 \ checked first. Separate from visit fuel. A few entries are compared

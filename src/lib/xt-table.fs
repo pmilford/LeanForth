@@ -25,6 +25,7 @@
 \ xt-table:, written only while loading.
 
 require ./portability.fs
+require ./bounds.fs
 require ./module.fs
 
 lf-lib-private module-open
@@ -36,7 +37,7 @@ begin-structure /xt-table
 end-structure
 lf-lib-private set-current
 : xt-table-at ( i table -- addr ) /xt-table + swap cells + ;
-: xt-table-in? ( i table -- flag ) xt-table-size @ 0 swap within ;
+: xt-table-in? ( i table -- flag ) xt-table-size @ index? ;
 : xt-table-fill ( table -- )
   dup xt-table-size @ 0 ?do dup xt-table-default @ over i swap xt-table-at ! loop drop ;
 : xt-table-room ( n -- n ) dup 1 max-n 1 cells / within 0= abort" xt-table: bad size" ;

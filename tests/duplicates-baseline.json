@@ -224,11 +224,10 @@
   "tokens": 11
  },
  "20086de961a5": {
-  "copies": 3,
+  "copies": 2,
   "members": [
    "src/core/constant-references.fs:lf-cref-args-ok?",
-   "src/core/terms.fs:lf-tin-leaf-node?",
-   "src/front/beta-inst.fs:ib-beta?"
+   "src/core/terms.fs:lf-tin-leaf-node?"
   ],
   "tokens": 9
  },
@@ -313,14 +312,6 @@
   ],
   "tokens": 17
  },
- "2dcf123821d3": {
-  "copies": 2,
-  "members": [
-   "src/core/statement-match.fs:lf-stmt-bvar?",
-   "src/kernel/inductive-block.fs:lf-ind-bvar?"
-  ],
-  "tokens": 11
- },
  "2ddc9e2bcd0c": {
   "copies": 2,
   "members": [
@@ -368,14 +359,6 @@
    "src/program/verify-semantics.fs:pv-replay-all"
   ],
   "tokens": 14
- },
- "3419187dccb4": {
-  "copies": 2,
-  "members": [
-   "src/front/beta-inst.fs:ib-range",
-   "src/front/instantiate.fs:in-range"
-  ],
-  "tokens": 15
  },
  "344531dcbf86": {
   "copies": 2,
@@ -425,13 +408,13 @@
   ],
   "tokens": 11
  },
- "38cdee56c301": {
+ "3a7e8de14c92": {
   "copies": 2,
   "members": [
-   "src/front/constructions.fs:rec-apply",
-   "src/front/ctor-idx.fs:alts,"
+   "src/front/constructions.fs:recon",
+   "src/front/constructions.fs:cases"
   ],
-  "tokens": 18
+  "tokens": 12
  },
  "3b3436b29391": {
   "copies": 2,
@@ -449,13 +432,13 @@
   ],
   "tokens": 10
  },
- "3edf03958e4e": {
+ "3e32d6911a9e": {
   "copies": 2,
   "members": [
-   "src/front/constructions.fs:index-binder",
-   "src/front/constructions.fs:minor-binder"
+   "src/front/beta-inst.fs:ib-leaf-range",
+   "src/front/instantiate.fs:in-leaf-range"
   ],
-  "tokens": 8
+  "tokens": 9
  },
  "416c92370979": {
   "copies": 2,
@@ -529,6 +512,14 @@
    "src/lib/store.fs:store-zeroed-block"
   ],
   "tokens": 12
+ },
+ "4bb7ecc96328": {
+  "copies": 2,
+  "members": [
+   "src/front/constructions.fs:index-binder",
+   "src/front/constructions.fs:minor-binder"
+  ],
+  "tokens": 9
  },
  "4c5832d9a918": {
   "copies": 2,
@@ -704,6 +695,15 @@
   ],
   "tokens": 15
  },
+ "66e8f8ed3148": {
+  "copies": 3,
+  "members": [
+   "src/front/constructions.fs:recon-binders",
+   "src/front/constructions.fs:cases-binders",
+   "src/front/ctor-idx.fs:idx-value!"
+  ],
+  "tokens": 9
+ },
  "67974d5cd896": {
   "copies": 2,
   "members": [
@@ -788,14 +788,6 @@
   ],
   "tokens": 8
  },
- "76538c6626d6": {
-  "copies": 2,
-  "members": [
-   "src/core/statement-match.fs:lf-stmt-bvar-token",
-   "src/core/statement-match.fs:lf-stmt-param-token"
-  ],
-  "tokens": 9
- },
  "76b055871c86": {
   "copies": 2,
   "members": [
@@ -864,14 +856,6 @@
   ],
   "tokens": 12
  },
- "8074ad8879cd": {
-  "copies": 2,
-  "members": [
-   "src/import/snapshot-tier.fs:tf-adds",
-   "src/import/snapshot-tier.fs:tf-loads-all"
-  ],
-  "tokens": 18
- },
  "8249b0825756": {
   "copies": 2,
   "members": [
@@ -911,14 +895,6 @@
    "src/front/constructions.fs:aux-alike?"
   ],
   "tokens": 17
- },
- "8a6236391cd0": {
-  "copies": 2,
-  "members": [
-   "src/front/constructions.fs:recon-binders",
-   "src/front/constructions.fs:cases-binders"
-  ],
-  "tokens": 9
  },
  "8a905bbc14b4": {
   "copies": 2,
@@ -1161,23 +1137,6 @@
   ],
   "tokens": 11
  },
- "b38b8418aa06": {
-  "copies": 2,
-  "members": [
-   "src/front/beta-inst.fs:ib-leaf-range",
-   "src/front/instantiate.fs:in-leaf-range"
-  ],
-  "tokens": 9
- },
- "b56b2bf7443f": {
-  "copies": 3,
-  "members": [
-   "src/front/goal-print.fs:gp-child",
-   "src/front/instantiate.fs:in-loose-pending",
-   "src/front/tactic-basic.fs:lfb-pending"
-  ],
-  "tokens": 22
- },
  "b58e685515f5": {
   "copies": 2,
   "members": [
@@ -1193,14 +1152,6 @@
    "src/import/ndjson-count.fs:.json-offset"
   ],
   "tokens": 11
- },
- "b5d7f424c24a": {
-  "copies": 2,
-  "members": [
-   "src/front/constructions.fs:recon",
-   "src/front/constructions.fs:cases"
-  ],
-  "tokens": 12
  },
  "b6f4f28ce792": {
   "copies": 2,
@@ -1241,15 +1192,6 @@
    "src/front/instantiate.fs:in-keep"
   ],
   "tokens": 20
- },
- "bd962c454540": {
-  "copies": 3,
-  "members": [
-   "src/front/constructions.fs:aux-then",
-   "src/import/stage.fs:and-then",
-   "src/lib/outcome.fs:ok-with"
-  ],
-  "tokens": 10
  },
  "bdff6f0de167": {
   "copies": 4,
@@ -1424,6 +1366,15 @@
   ],
   "tokens": 9
  },
+ "cd00161ee80b": {
+  "copies": 3,
+  "members": [
+   "src/front/goal-print.fs:gp-child",
+   "src/front/instantiate.fs:in-loose-pending",
+   "src/front/tactic-basic.fs:lfb-pending"
+  ],
+  "tokens": 22
+ },
  "d0295f55413b": {
   "copies": 2,
   "members": [
@@ -1589,9 +1540,8 @@
   "tokens": 17
  },
  "e16da60270e8": {
-  "copies": 3,
+  "copies": 2,
   "members": [
-   "src/core/statement-match.fs:lf-stmt-binary",
    "src/core/statement-match.fs:lf-stmt-lbinary",
    "src/core/terms.fs:lf-term-given?"
   ],
@@ -1638,6 +1588,22 @@
    "src/kernel/env-import.fs:e-block"
   ],
   "tokens": 17
+ },
+ "e56a6e4c0d27": {
+  "copies": 2,
+  "members": [
+   "src/core/terms.fs:lf-term-bvar-is?",
+   "src/present/proof-outline.fs:lf-ol-same?"
+  ],
+  "tokens": 10
+ },
+ "e5d964117b30": {
+  "copies": 2,
+  "members": [
+   "src/front/beta-inst.fs:ib-range",
+   "src/front/instantiate.fs:in-range"
+  ],
+  "tokens": 15
  },
  "e9365edb85b2": {
   "copies": 2,
@@ -1790,14 +1756,6 @@
    "src/front/instantiate.fs:in-images"
   ],
   "tokens": 8
- },
- "fa1590b7fb4c": {
-  "copies": 2,
-  "members": [
-   "src/author/declarations.fs:lfa-has-universe?",
-   "src/present/print-forth.fs:lf-pf-decl-universe?"
-  ],
-  "tokens": 18
  },
  "fd7de67d1368": {
   "copies": 3,

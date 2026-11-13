@@ -42,6 +42,7 @@
 \ lf-print-term. On a failure the text sent to the sink so far is
 \ incomplete.
 
+require ../lib/bounds.fs
 require ../lib/xt-table.fs
 require ./term-printer.fs
 require ./note-table.fs
@@ -321,9 +322,7 @@ lf-pf-level-tags ' lf-pf-invalid-step xt-table: lf-pf-level-steps
 : lf-pf-universe-ids ( -- addr n )
   lf-pforth lf-pforth-decl @ ?dup 0= if 0 0 exit then
   dup lf-fdecl-universe swap lf-fdecl-universes @ 0 max lf-decl-universe-capacity min ;
-: lf-pf-decl-universe? ( id -- flag )
-  lf-pf-universe-ids 0 ?do 2dup i cells + @ = if 2drop true unloop exit then loop
-  2drop false ;
+: lf-pf-decl-universe? ( id -- flag ) lf-pf-universe-ids cells-has? ;
 : lf-pf-dotted-decl? ( -- flag )
   lf-pforth lf-pforth-decl @ ?dup 0= if false exit then
   lf-fdecl-name @ ?dup 0= if false exit then lf-name-prefix@ 0<> ;

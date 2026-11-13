@@ -94,11 +94,7 @@ require ./instantiate.fs
   2dup = if 2drop true outcome-ok exit then
   over lf-term-tag@ over lf-term-tag@ <> if 2drop false outcome-ok exit then
   over lf-term-binary? if eq-parts else eq-leaf then ;
-: eq-more? ( -- flag ) eq-pairs slab-count 0> ;
-: eq-next ( -- flag outcome ) eq-pairs slab-2pop eq-step ;
-: eq-run ( -- flag outcome )
-  begin eq-more? while eq-next dup ok? 0= if nip false swap exit then drop
-  0= if false outcome-ok exit then repeat true outcome-ok ;
+: eq-run ( -- flag outcome ) eq-pairs ['] eq-step lf-meta-pairs-all ;
 : lf-meta-eqv ( a b -- flag outcome )
   2dup lf-term-pair-valid? 0= if 2drop false outcome-invalid exit then
   2dup = if 2drop true outcome-ok exit then
@@ -118,10 +114,8 @@ require ./instantiate.fs
 \ last, must be #0, #1, ... and what is left must have no loose variable.
 : eq-lams ( e -- body n )
   0 swap begin dup lf-term-lam? while lf-term-second@ swap 1+ swap repeat swap ;
-: eq-bvar? ( t i -- flag )
-  over lf-term-bvar? if swap lf-term-first@ = else 2drop false then ;
 : eq-arg-i? ( body i -- flag )
-  over lf-term-app? if swap lf-term-second@ swap eq-bvar? else 2drop false then ;
+  over lf-term-app? if swap lf-term-second@ swap lf-term-bvar-is? else 2drop false then ;
 : eq-peel ( body n -- f flag )
   0 ?do dup i eq-arg-i? 0= if false unloop exit then lf-term-first@ loop true ;
 : eq-closed ( e f -- f' flag outcome )

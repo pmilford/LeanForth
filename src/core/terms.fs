@@ -451,6 +451,9 @@ create lf-tbind-hooks /htab-hooks allot
 : lf-term-bvar? ( index -- flag ) lf-tag-bvar lf-term-tag? ;
 : lf-term-binary? ( index -- flag ) lf-term-tag@ lf-term-binary-tag? ;
 : lf-term-binder? ( index -- flag ) lf-term-tag@ lf-term-binder-tag? ;
+\ Whether the node is the bound variable #n.
+: lf-term-bvar-is? ( index n -- flag )
+  over lf-term-bvar? if swap lf-term-first@ = else 2drop false then ;
 \ The end of a store mark as a term number: the nodes below it (input
 \ nodes included) are older than the mark.
 : lf-term-mark-end ( mark -- n ) mark-count @ lf-term-base + ;

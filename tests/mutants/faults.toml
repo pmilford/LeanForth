@@ -5436,8 +5436,8 @@ reason = "8.2.1d: the look-ahead makes group words for the tokens of a \\ commen
 [[fault]]
 id = "lf-extend-drops-library"
 file = "src/import/stage.fs"
-old = '''  dup maps-again ['] tier-marked and-then staging-empty stage-state! ;'''
-new = '''  dup own-clear ['] tier-marked and-then staging-empty stage-state! ;'''
+old = '''  dup maps-again ['] tier-marked ok-with staging-empty stage-state! ;'''
+new = '''  dup own-clear ['] tier-marked ok-with staging-empty stage-state! ;'''
 test = "$GFORTH tests/core/stage.fs"
 reason = "8.2.1d: extending a stage drops the library's declarations, so the text's constants resolve to nothing"
 
@@ -10581,8 +10581,8 @@ reason = "FE1c: instantiate1 keeps a loose index above the value instead of lowe
 [[fault]]
 id = "fe-inst-binder-depth-lost"
 file = "src/front/instantiate.fs"
-old = ''': in-second ( node depth -- child depth' ) over in-binder? - swap lf-term-second@ swap ;'''
-new = ''': in-second ( node depth -- child depth' ) swap lf-term-second@ swap ;'''
+old = '''  over lf-term-binder? - swap lf-term-second@ swap ;'''
+new = '''  swap lf-term-second@ swap ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: instantiate1 does not count a binder, so it replaces a variable that binder binds"
 
@@ -12134,16 +12134,16 @@ reason = "FE1c review L3: max (u+1) 1 stays a max, where Lean's mkLevelMax' subs
 [[fault]]
 id = "fe-inst-let-deeper"
 file = "src/front/instantiate.fs"
-old = ''': in-binder? ( node -- flag ) lf-term-tag@ lf-term-binder-tag? ;'''
-new = ''': in-binder? ( node -- flag ) lf-term-tag@ dup lf-term-binder-tag? swap lf-tag-let = or ;'''
+old = '''  over lf-term-binder? - swap lf-term-second@ swap ;'''
+new = '''  over lf-term-tag@ dup lf-term-binder-tag? swap lf-tag-let = or - swap lf-term-second@ swap ;'''
 test = "python3 tests/front/check_meta.py"
 reason = "FE1c review L2: a let's second child (its lambda) is taken one binder deeper, so let's type and body shift their bound variables, unlike Lean's instantiate1"
 
 [[fault]]
 id = "fe-lsimp-push-full-ignored"
 file = "src/front/level-simp.fs"
-old = '''  if drop ls-pairs slab-at 2! outcome-ok else nip nip nip then ;'''
-new = '''  if drop ls-pairs slab-at 2! outcome-ok else nip nip nip drop outcome-ok then ;'''
+old = ''': ls-push ( a b -- outcome ) ls-pairs slab-2push ;'''
+new = ''': ls-push ( a b -- outcome ) ls-pairs slab-2push drop outcome-ok ;'''
 test = "$GFORTH tests/front/meta-heap.fs"
 reason = "FE1c review L4: level equality whose pair stack the heap cannot grow answers as if the pair were equal, instead of full"
 
@@ -14297,6 +14297,80 @@ reason = "index? as `0 n within`: for a negative n every i >= 0 is an index"
 quick = true
 
 [[fault]]
+id = "lib-bounds-cells-has-negated"
+file = "src/lib/bounds.fs"
+old = ''': cells-has? ( x addr n -- flag ) cells-index dup if nip then ;'''
+new = ''': cells-has? ( x addr n -- flag ) cells-index dup if nip then 0= ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "cells-has? answers the opposite: lctx-views's isSubPrefixOf skips the free variables it must keep"
+
+[[fault]]
+id = "core-term-binary-as-binder"
+file = "src/core/terms.fs"
+old = ''': lf-term-binary? ( index -- flag ) lf-term-tag@ lf-term-binary-tag? ;'''
+new = ''': lf-term-binary? ( index -- flag ) lf-term-tag@ lf-term-binder-tag? ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "an application is not binary: walks that use the shared test skip its children"
+
+[[fault]]
+id = "core-term-bvar-is-any"
+file = "src/core/terms.fs"
+old = '''  over lf-term-bvar? if swap lf-term-first@ = else 2drop false then ;'''
+new = '''  drop lf-term-bvar? ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "lf-term-bvar-is? takes any bound variable for #n: etaExpanded? and statements accept the wrong index"
+
+[[fault]]
+id = "core-term-const-any-leaf"
+file = "src/core/constant-term-boundary.fs"
+old = ''': lf-term-const? ( index -- flag ) lf-tag-constant lf-term-tag? ;'''
+new = ''': lf-term-const? ( index -- flag ) lf-term-binary? 0= ;'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "every leaf reads as a constant (a bound variable among them)"
+
+[[fault]]
+id = "fe-lnorm-order-reversed"
+file = "src/front/level-normalize.fs"
+old = ''': ln-order ( earlier later -- n ) swap ln-lt? 1 and ;'''
+new = ''': ln-order ( earlier later -- n ) ln-lt? 1 and ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "Level.normalize sorts a max's arguments by normLt reversed (sort.fs's order is given the earlier record first)"
+quick = true
+
+[[fault]]
+id = "fe-lnorm-sort-refusal-lost"
+file = "src/front/level-normalize.fs"
+old = '''  ['] ln-order ln-sorter sorter-cells ['] ln-sorted ok-and ln-refuse ;'''
+new = '''  ['] ln-order ln-sorter sorter-cells ['] ln-sorted ok-and drop ;'''
+test = "$GFORTH tests/front/meta-heap.fs"
+reason = "a merge whose scratch the heap refuses leaves the arguments unsorted and the normal form wrong, not full"
+
+[[fault]]
+id = "fe-pairs-all-past-difference"
+file = "src/front/level-simp.fs"
+old = '''  0= if 2drop false outcome-ok exit then repeat 2drop true outcome-ok ;'''
+new = '''  drop repeat 2drop true outcome-ok ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "a comparison of pairs goes on past a pair that differs: Level.beq and Expr.eqv answer true for different levels and terms"
+quick = true
+
+[[fault]]
+id = "fe-rec-apply-one-short"
+file = "src/front/constructions.fs"
+old = ''': rec-apply ( f job -- e outcome ) dup rec-total swap ['] apply-arg ok-fold ;'''
+new = ''': rec-apply ( f job -- e outcome ) dup rec-total 1- swap ['] apply-arg ok-fold ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "the recursor of casesOn and recOn misses its last argument (the major premise)"
+
+[[fault]]
+id = "imp-emit-members-reversed"
+file = "src/import/ndjson-emit.fs"
+old = ''': member-order ( key-earlier key-later -- n ) swap emit-view @ key< 1 and ;'''
+new = ''': member-order ( key-earlier key-later -- n ) emit-view @ key< 1 and ;'''
+test = "$GFORTH tests/core/ndjson-emit.fs"
+reason = "mdata's members are re-exported in reverse key order, not the exporter's bytes"
+
+[[fault]]
 id = "lib-bounds-cells-index-off"
 file = "src/lib/bounds.fs"
 old = '''  0 max 0 ?do 2dup i cells + @ = if 2drop i true unloop exit then loop 2drop false ;'''
@@ -14397,7 +14471,7 @@ reason = "FE1c: a free variable out of the metavariable's scope is accepted (?n 
 [[fault]]
 id = "fe-defeq-eta-reduce-off"
 file = "src/front/assign-check.fs"
-old = '''  over lf-meta-app? 0= if drop false outcome-ok exit then'''
+old = '''  over lf-term-app? 0= if drop false outcome-ok exit then'''
 new = '''  drop false outcome-ok exit'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c: mkLambdaFVars without etaReduce: ?t j =?= Nat.succ j assigns fun x => Nat.succ x, not Nat.succ"
@@ -14826,8 +14900,8 @@ reason = "FE1g-1: two equal literals made apart compare different, so h1 h2 : 0 
 [[fault]]
 id = "fe-goal-except-ignored"
 file = "src/front/lctx-views.fs"
-old = '''  ?do dup i @ = if drop true unloop exit then cell +loop drop false ;'''
-new = '''  2drop drop false ;'''
+old = ''': lv-skip? ( fvar -- flag ) lv lv-except @ lv lv-except# @ cells-has? ;'''
+new = ''': lv-skip? ( fvar -- flag ) drop false ;'''
 test = "$GFORTH tests/front/goals.fs"
 reason = "FE1g-1: isSubPrefixOf skips none of exceptFVars, so checkAssignment's pattern variables count against the assignment"
 

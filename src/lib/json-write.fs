@@ -3,7 +3,7 @@
 \ knowledge, for receipts, the derivation log, the API and the round trip
 \ of decoded export records. Untrusted.
 \ Requires: json.fs (the integer grammar and token tapes, for jw-copy) and
-\ bytes.fs (UTF-8 checks), which json.fs loads.
+\ bytes.fs (UTF-8 checks), which json.fs loads; outcome.fs.
 \ State: none of its own. Every word takes a writer record made by
 \ json-writer: or jw-init, so separate writers are independent; one writer
 \ is single-threaded. A writer may be a context member: declare it with
@@ -77,6 +77,7 @@
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./json.fs
+require ./outcome.fs
 
 \ Writer states: what may come next.
 0 constant jw-idle                 \ nothing: before jw-start, or after jw-end
@@ -143,7 +144,7 @@ max-n /jw-header - constant jw-most
 
 \ Outcomes. The first failure since jw-start wins.
 : jw-outcome ( writer -- outcome ) jw-status @ outcome-sane ;
-: jw-fail ( outcome writer -- ) jw-status dup @ ok? if ! else 2drop then ;
+: jw-fail ( outcome writer -- ) jw-status outcome-first! ;
 : jw-invalid ( writer -- ) outcome-invalid swap jw-fail ;
 \ Keep a true flag; for a false one, fail the writer with outcome.
 : jw-check ( flag outcome writer -- flag ) rot if 2drop true else jw-fail false then ;

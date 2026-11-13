@@ -50,6 +50,10 @@ T{ lf-tag-constant 0 0 lf-term-add -> 0 true }T
 \ A constant's fields are its reference's index and 0; the reference's
 \ identity is stamped beside it, a full cell (step S4).
 T{ 0 lf-term-read 0 lf-cterm-ref -> lf-tag-constant 0 0 true 0 rid @ }T
+\ lf-term-const?: a constant node, not a node of another kind.
+T{ 0 lf-term-const? lf-tag-bvar 0 term-tag! 0 lf-term-const? -> true false }T
+lf-tag-constant 0 term-tag!
+T{ 0 lf-term-const? -> true }T
 : raw-constant ( -- )
   false lf-term-sharing! lf-tag-constant 0 rid @ lf-term-add 0= abort" raw" drop
   true lf-term-sharing! ;

@@ -63,6 +63,7 @@ require ../lib/lib.fs
 require ../lib/bytes.fs
 require ../lib/json.fs
 require ../lib/json-write.fs
+require ../lib/sort.fs
 require ./ndjson.fs
 
 \ Byte buffers on the heap: a block, its size and the bytes it holds, from
@@ -114,6 +115,9 @@ begin-structure /reexporter
   field: reexport-lines            \ lines written
   field: reexport-mark             \ the output's size where the current line starts
   data-most cells +field reexport-members   \ mdata's key tokens, sorted
+  data-most cells +field reexport-scratch   \ the sort's merge scratch
+  /sorter +field reexport-sorter   \ the key tokens' sorter, by their text
+  field: reexport-view             \ the view whose key tokens are sorted
   reexport-depth reexport-key-room jw-size +field reexport-writer
 end-structure
 create reexporter /reexporter allot  reexporter /reexporter erase
@@ -130,13 +134,15 @@ export: reexported
 : emit-lines ( -- addr ) reexporter reexport-lines ;
 : emit-mark ( -- addr ) reexporter reexport-mark ;
 : data-key ( i -- addr ) cells reexporter reexport-members + ;
+: emit-sorter ( -- sorter ) reexporter reexport-sorter ;
+: emit-view ( -- addr ) reexporter reexport-view ;
 \ Stop loading when a check made while loading fails.
 : load-check ( flag -- ) 0= abort" ndjson-emit: inconsistent tables" ;
 reexport-depth reexport-key-room emit-w jw-init load-check
 
 \ Failure: the first one since reexport-begin stays.
 : emit-status ( -- outcome ) emit-outcome @ ;
-: emit-fail ( outcome -- ) emit-status ok? if emit-outcome ! else drop then ;
+: emit-fail ( outcome -- ) emit-outcome outcome-first! ;
 : emit-invalid ( -- ) outcome-invalid emit-fail ;
 \ Bytes into a buffer; a buffer that cannot take them fails as full.
 : emit-bytes ( c-addr u buffer -- ) buffer-append 0= if outcome-full emit-fail then ;
@@ -213,16 +219,16 @@ create hint-texts  2 ,  s" opaque" counted,  s" abbrev" counted,
 \ copied (an object inside a value must already be in order, which Lean
 \ never writes: the writer refuses it as invalid). Two equal keys are
 \ invalid too; more than data-most members are full. The key tokens are
-\ sorted by insertion, in the module record.
+\ sorted in the module record by lib/sort.fs (stable; by insertion up to
+\ 32 members, with the comparisons of the insertion sort this module had,
+\ merged above through the record's scratch, so never full).
 : key< ( key1 key2 view -- flag ) tuck json-text@ 2>r json-text@ 2r> compare 0< ;
-: member-pair ( j -- addr-j addr-j-1 ) dup data-key swap 1- data-key ;
-: member-smaller? ( j view -- flag ) >r member-pair @ swap @ swap r> key< ;
-: members-exchange ( j -- ) member-pair 2dup @ swap @ rot ! swap ! ;
-: member-insert ( j view -- )
-  begin over 0> while 2dup member-smaller? while over members-exchange swap 1- swap repeat
-  then 2drop ;
+\ sort.fs's order: positive when the later key goes before the earlier.
+: member-order ( key-earlier key-later -- n ) swap emit-view @ key< 1 and ;
 : members-sort ( n view -- )
-  over 1 > if swap 1 ?do i over member-insert loop else nip then drop ;
+  emit-view ! 0 data-key swap emit-sorter sort-records emit-fail ;
+' member-order emit-sorter sorter-cells ok? load-check
+reexporter reexport-scratch data-most cells emit-sorter sorter-buffer!
 \ The key of the next member: after the value that follows key.
 : member-next ( key view -- key' ) swap 1+ swap json-next ;
 : members-collect ( object view -- )

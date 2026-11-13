@@ -141,7 +141,7 @@ lf-lib set-current
   upto? and ;
 \ Whether unit i is in use, 0 <= i < count, in a live slab.
 : slab-valid? ( i slab -- flag )
-  dup slab-live? if slab-count 0 swap within else 2drop false then ;
+  dup slab-live? if slab-count index? else 2drop false then ;
 \ Unchecked: the address of unit i, and of the first free unit.
 : slab-at ( i slab -- addr ) tuck slab-unit * swap slab-block @ + ;
 \ Unit 0's address, for callers that step through units themselves.
@@ -315,7 +315,7 @@ lf-lib-private set-current
   slab-generation swap slab-mark-epoch @ = r> r> and and ;
 \ Its entry is on the stack and the count marked is not above the count.
 : slab-mark-held? ( mark slab -- flag )
-  2dup swap slab-mark-entry @ swap slab-depth @ 0 swap within >r
+  2dup swap slab-mark-entry @ swap slab-depth @ index? >r
   slab-count swap slab-mark-count @ swap upto? r> and ;
 : slab-mark-same? ( mark slab -- flag )
   over >r swap slab-mark-entry @ swap slab-entry 2@ r> slab-mark-count 2@ d= ;

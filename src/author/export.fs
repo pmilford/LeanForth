@@ -105,7 +105,7 @@ end-structure
 
 \ The outcome so far: the first refusal stays.
 : lfx-ok? ( -- flag ) lfx lfx-outcome @ ok? ;
-: lfx-refuse ( outcome -- ) lfx-ok? if lfx lfx-outcome ! else drop then ;
+: lfx-refuse ( outcome -- ) lfx lfx-outcome outcome-first! ;
 
 \ A line: one JSON text into the line buffer (the writer's limit keeps it
 \ inside), then to the sink, unless something was refused.
@@ -281,7 +281,7 @@ lf-tag-app lf-tag-bit lf-tag-bvar lf-tag-bit or lf-tag-constant lf-tag-bit or
 : lfx-binary? ( term -- flag ) lf-term-tag@ lf-tag-bit lf-binary-tags and 0<> ;
 : lfx-visit ( h term -- h' )
   dup lfx-binary? if dup lf-term-first@ lfx-mark lf-term-second@ lfx-mark exit then
-  dup lf-term-tag@ lf-tag-constant = if lfx-const-height max else drop then ;
+  dup lf-term-const? if lfx-const-height max else drop then ;
 : lfx-reached ( h term -- h' ) dup lfx-marked? if lfx-visit else drop then ;
 : lfx-sweep ( h top -- h' ) 0 swap do i lfx-reached -1 +loop ;
 \ A value that is no node, refused when its record is written, marks

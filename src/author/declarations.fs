@@ -103,8 +103,7 @@ end-structure
 
 \ universe NAME, right after the declaration's name: a level parameter.
 : lfa-universes ( -- addr n ) lfa-this dup lf-fdecl-universe swap lf-fdecl-universes @ ;
-: lfa-has-universe? ( name -- flag )
-  lfa-universes 0 ?do 2dup i cells + @ = if 2drop true unloop exit then loop 2drop false ;
+: lfa-has-universe? ( name -- flag ) lfa-universes cells-has? ;
 : lfa-universe-add ( name -- )
   lfa-universes nip lf-decl-universe-capacity < lfa-e-many-levels lfa-must
   lfa-universes cells + ! 1 lfa-this lf-fdecl-universes +! ;

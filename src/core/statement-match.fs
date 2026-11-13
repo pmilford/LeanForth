@@ -133,8 +133,7 @@ end-structure
   swap lf-term-first@ lf-stmt-term lf-stmt-push and ;
 : lf-stmt-binary ( node tag -- flag )
   over swap lf-term-tag? if lf-stmt-children else drop false then ;
-: lf-stmt-bvar? ( node n -- flag )
-  over lf-term-bvar? if swap lf-term-first@ = else 2drop false then ;
+
 : lf-stmt-sort ( node -- flag )
   dup lf-tag-symbolic-sort lf-term-tag? 0= if drop false exit then
   lf-term-first@ lf-stmt-lpush ;
@@ -173,7 +172,7 @@ end-structure
     3 of lf-tag-app lf-stmt-binary endof  4 of lf-stmt-sort endof
     5 of lf-stmt-const? endof  nip false swap endcase ;
 : lf-stmt-bvar-token ( node c-addr u -- flag )
-  1 /string lf-stmt-number if lf-stmt-bvar? else 2drop false then ;
+  1 /string lf-stmt-number if lf-term-bvar-is? else 2drop false then ;
 : lf-stmt-term-token ( node c-addr u -- flag )
   dup 0= if 2drop drop false exit then
   s" #" lf-stmt-prefix? if lf-stmt-bvar-token else lf-stmt-letter then ;

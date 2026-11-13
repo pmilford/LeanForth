@@ -1,10 +1,11 @@
 \ Range and memory predicates used to validate input before forming
 \ addresses. Signed comparisons only, so no bound can wrap around. No state.
-\ Interface: between? upto? cells-zero? index? cells-index. Example:
+\ Interface: between? upto? cells-zero? index? cells-index cells-has?.
+\ Example:
 \   create primes 2 , 3 , 5 , 7 ,
 \   3 4 index?  4 4 index?  0 -1 index?    \ true false false
 \   5 primes 4 cells-index                 \ 2 true
-\   4 primes 4 cells-index                 \ false
+\   4 primes 4 cells-index  7 primes 4 cells-has?    \ false true
 
 require ./portability.fs
 
@@ -24,3 +25,5 @@ require ./portability.fs
 \ and true; or false. n <= 0 reads nothing.
 : cells-index ( x addr n -- i true | false )
   0 max 0 ?do 2dup i cells + @ = if 2drop i true unloop exit then loop 2drop false ;
+\ Whether one of the n cells from addr holds x.
+: cells-has? ( x addr n -- flag ) cells-index dup if nip then ;

@@ -171,6 +171,11 @@ T{ nat fu 0 bv app lam lf-meta-eta-expanded -> fu true outcome-ok }T
 T{ nat 0 bv lam lf-meta-eta-expanded rot drop -> false outcome-ok }T
 T{ succ s" Nat.succ" lf-meta-const-named? succ s" Nat" lf-meta-const-named? -> true false }T
 T{ fk s" Nat" lf-meta-const-named? succ s" succ" lf-meta-const-named? -> false false }T
+\ Names of any number of parts (core/statement-match.fs's lf-name-dotted?).
+: abc ( -- id )
+  0 s" A" lf-name-str drop s" B" lf-name-str drop s" C" lf-name-str drop ;
+T{ s" A.B.C" abc lf-meta-name? s" B.C" abc lf-meta-name? s" X.A.B.C" abc lf-meta-name?
+   -> true false false }T
 T{ fu fk app fx app lf-meta-head lf-lb-undef lf-lb-true lf-lb-false -> fu 2 1 0 }T
 \ isPropQuick, isProofQuick, isAlwaysZero.
 T{ fe lf-meta-proof-quick fk lf-meta-proof-quick 0 bv lf-meta-proof-quick
