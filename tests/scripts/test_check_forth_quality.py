@@ -57,6 +57,32 @@ class LogRanges(unittest.TestCase):
         self.assertEqual(cfq.RANGE.findall("no range `abc..def` here"), [])
 
 
+class LibraryProposals(unittest.TestCase):
+    def row(self, date, findings, open_="0"):
+        return f"| {date} | `aaaaaaa..bbbbbbb` | scope | reviewer | report | {findings} | {open_} |"
+
+    def test_uncited_proposal_fails(self):
+        row = self.row("2026-11-13", "0 blocking; propose a new lib/ file for sorting")
+        self.assertEqual(len(cfq.uncited_proposals(row)), 1)
+
+    def test_cited_proposal_passes(self):
+        for cite in ("plan 9.4.8a", "FE1i-4", "slice S2", "row 9.4.8"):
+            row = self.row("2026-11-13", f"a new library word, {cite}")
+            self.assertEqual(cfq.uncited_proposals(row), [], cite)
+
+    def test_open_column_counts(self):
+        row = self.row("2026-11-14", "0 blocking", "extract the library from x.fs")
+        self.assertEqual(len(cfq.uncited_proposals(row)), 1)
+
+    def test_older_rows_and_other_text_are_ignored(self):
+        old = self.row("2026-11-12", "new lib/ file proposed")
+        plain = self.row("2026-11-13", "0 blocking; 2 low", "0")
+        self.assertEqual(cfq.uncited_proposals(old + "\n" + plain + "\nnot a row"), [])
+
+    def test_todays_log_holds(self):
+        self.assertEqual(cfq.uncited_proposals(cfq.LOG.read_text(encoding="utf-8")), [])
+
+
 class Tree(unittest.TestCase):
     def test_todays_tree_holds_its_baseline(self):
         self.assertEqual(cfq.ratchet(), [])
