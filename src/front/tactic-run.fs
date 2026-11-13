@@ -331,7 +331,7 @@ s" by-sorry" tac-k-sorry lfr-spell
 \ For the tactics: a constant with no universe argument or one, an
 \ application.
 : lf-tac-const0 ( c-addr u -- term ) 0 lfr-const ;
-: lf-tac-const1 ( level c-addr u -- term ) rot lfr-pair! 1 lfr-const ;
+: lf-tac-const1 ( level c-addr u -- term ) 2>r lfr-pair! 2r> 1 lfr-const ;
 : lf-tac-app ( f a -- t ) lfr-app ;
 : lfr-sorry-term ( type level -- term )
   lfr-pair! s" sorryAx" 1 lfr-const swap lfr-app s" Bool.false" 0 lfr-const lfr-app ;

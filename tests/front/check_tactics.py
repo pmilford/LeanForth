@@ -48,7 +48,28 @@ GOLDEN = ROOT / "tests/front/tactics.golden"
 SLICE = "tests/front/tactic-slice.ndjson"
 RUN_SLICE_NAMES = ["Nat.zero_add", "sorryAx", "Bool.false"]
 RUN_SLICE = "tests/front/run-slice.ndjson"
-RUN_FILES = ["tests/front/05-unsolved.lf", "tests/front/06-sorry.lf"]
+RUN_FILES = ["tests/front/05-unsolved.lf", "tests/front/06-sorry.lf",
+             "tests/front/07-intro-exact.lf", "tests/front/08-rfl.lf"]
+BASIC_TWIN = ROOT / "tests/front/tactic-basic.fs"
+# FE1g-4's errors: each theorem's first message and the lines under it, as
+# pinned Lean prints them and as tests/front/tactic-basic.fs pins them
+# (message, lines; the Forth test holds the lines as one s\" literal, the
+# blank line of Lean's tactic errors its first \n).
+BASIC_ERRORS = {
+    "intro_twice": ("Tactic `introN` failed: There are no additional binders or `let` "
+                    "bindings in the goal to introduce", ["", "p : Prop", "a✝ : p", "⊢ p"]),
+    "exact_sort": ("Type mismatch", ["  p", "has type", "  Prop",
+                                     "of sort `Type` but is expected to have type", "  p",
+                                     "of sort `Prop`"]),
+    "exact_wrong": ("Type mismatch", ["  h", "has type", "  q",
+                                      "but is expected to have type", "  p"]),
+    "refl_wrong": ("Tactic `rfl` failed: The left-hand side",
+                   ["  p", "is not definitionally equal to the right-hand side", "  q", "",
+                    "p q : Prop", "⊢ p = q"]),
+}
+# The terms pinned Lean prints for the two proofs the kernel accepts in
+# tests/front/tactic-basic.fs (which compares LeanForth's node by node).
+BASIC_TERMS = ["fun (p : Prop) (h : p) => h", "fun (p : Prop) => @Eq.refl.{1} Prop p"]
 RUN_LEAN = ROOT / "tests/front/tactic-run.lean"
 RUN_TWIN = ROOT / "tests/front/tactic-run.fs"
 # The goal lines under Lean's "unsolved goals" for zero_add_open, which
@@ -218,6 +239,17 @@ def check_run_lean():
     pinned = 's\\" ' + "\\n".join(LEAN_GOALS) + '"'
     if pinned not in RUN_TWIN.read_text(encoding="utf-8"):
         raise Failure(f"tests/front/tactic-run.fs does not pin the goal lines {pinned}")
+    basic = BASIC_TWIN.read_text(encoding="utf-8")
+    for name, (message, lines) in BASIC_ERRORS.items():
+        said = by_name.get(name, [])
+        if not said or said[0][:2] != ("error", message) or said[0][2][:len(lines)] != lines:
+            raise Failure(f"tactic-run.lean: {name}: {said[:1]!r}")
+        pinned = 's\\" ' + "\\n".join(lines) + '"'
+        if pinned not in basic:
+            raise Failure(f"tests/front/tactic-basic.fs does not pin {name}'s lines {pinned}")
+    for term in BASIC_TERMS:
+        if term not in out:
+            raise Failure(f"tactic-run.lean: pinned Lean does not print {term}")
 
 
 def main_lean():

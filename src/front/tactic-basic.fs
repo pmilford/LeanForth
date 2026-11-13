@@ -97,6 +97,8 @@ begin-structure /tb
   field: tb-term        \ exact's term, or rfl's left side
   field: tb-type        \ its type, or rfl's right side
   field: tb-want        \ the goal's type
+  field: tb-sort        \ a type mismatch message: the term's type's type
+  field: tb-want-sort   \ and the goal's type's type
   field: tb-from        \ the metavariable count when the step began
   field: tb-pi          \ intro's binder
   field: tb-dom         \ its domain, head-beta reduced
@@ -237,10 +239,27 @@ defer lf-tac-elab ( node expected -- term outcome )
 : lfb-typed ( -- ) tb tb-term @ lf-infer lf-tac-must tb tb-type ! ;
 : lfb-guarded ( -- ) tb tb-type @ lfb-opaque-free tb tb-want @ lfb-opaque-free ;
 \ Lean's throwTypeMismatchError: the term, its type, the type expected.
+\ (mkHasTypeButIsExpectedMsg: when the two types' own types are not
+\ defeq, both are named, "of sort"; when either cannot be inferred, not.)
+: lfb-sort ( t -- sort true | false ) lf-infer ok? dup 0= if nip then ;
+: lfb-sorts ( -- flag )
+  tb tb-type @ lfb-sort 0= if false exit then tb tb-sort !
+  tb tb-want @ lfb-sort 0= if false exit then tb tb-want-sort ! true ;
+: lfb-sorted? ( -- flag )
+  lfb-sorts 0= if false exit then
+  tb tb-sort @ tb tb-want-sort @ lf-tac-defeq ok? if 0= else drop false then ;
+: lfb-inline. ( term -- outcome ) s" `" lf-pp-emit lfb-term. s" `" lf-pp-emit ;
 : lfb-has. ( -- outcome ) s\" \nhas type\n" tb tb-type @ lfb-line. ;
 : lfb-but. ( -- outcome ) s\" \nbut is expected to have type\n" tb tb-want @ lfb-line. ;
-: lfb-mismatch. ( x -- outcome )
-  drop tb tb-term @ lfb-indented. ['] lfb-has. ok-and ['] lfb-but. ok-and ;
+: lfb-of. ( -- outcome ) s\" \nof sort " lf-pp-emit tb tb-sort @ lfb-inline. ;
+: lfb-but-sort. ( -- outcome )
+  s"  but is expected to have type" lf-pp-emit s\" \n" tb tb-want @ lfb-line. ;
+: lfb-of-want. ( -- outcome ) s\" \nof sort " lf-pp-emit tb tb-want-sort @ lfb-inline. ;
+: lfb-plain. ( -- outcome ) lfb-has. ['] lfb-but. ok-and ;
+: lfb-sorted. ( -- outcome )
+  lfb-has. ['] lfb-of. ok-and ['] lfb-but-sort. ok-and ['] lfb-of-want. ok-and ;
+: lfb-types. ( -- outcome ) lfb-sorted? if lfb-sorted. else lfb-plain. then ;
+: lfb-mismatch. ( x -- outcome ) drop tb tb-term @ lfb-indented. ['] lfb-types. ok-and ;
 : lfb-matched ( -- )
   tb tb-type @ tb tb-want @ lf-tac-defeq lf-tac-must
   0= if ['] lfb-mismatch. lfa-e-tac-mismatch lfb-failed then ;

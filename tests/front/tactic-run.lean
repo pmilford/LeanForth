@@ -22,3 +22,30 @@ theorem sorry_twice (p : Prop) : p := by
 
 #print axioms zero_add_sorry
 #print axioms sorry_p
+
+-- The first tactics (plan FE1g-4; tests/front/tactic-basic.fs, 07-intro-exact.lf, 08-rfl.lf).
+-- intro h; exact h: fun (p : Prop) (h : p) => h.
+theorem self_imp (p : Prop) : p → p := by
+  intro h
+  exact h
+-- rfl: fun (p : Prop) => @Eq.refl.{1} Prop p.
+theorem refl_p (p : Prop) : p = p := by
+  rfl
+-- A second intro with nothing to introduce (LeanForth: error 94, the goal).
+theorem intro_twice (p : Prop) : p → p := by
+  intro
+  intro
+-- exact with a term of another type (LeanForth: error 96, the same lines),
+-- the types of other sorts, then of the same sort.
+theorem exact_sort (p : Prop) : p → p := by
+  intro h
+  exact p
+theorem exact_wrong (p q : Prop) (h : q) : p := by
+  exact h
+-- rfl on two different sides (LeanForth: error 97, the same lines).
+theorem refl_wrong (p q : Prop) : p = q := by
+  rfl
+set_option pp.all true in
+#print self_imp
+set_option pp.all true in
+#print refl_p
