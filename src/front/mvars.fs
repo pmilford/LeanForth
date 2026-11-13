@@ -49,10 +49,11 @@
 \ the kernel's check of the finished term decides anything.
 \ - Marks (Lean's checkpointDefEq): lf-mctx-mark opens one; lf-mctx-rollback
 \   undoes every assignment made since, plain, level or delayed;
-\   lf-mctx-commit keeps them. Marks nest.
+\   lf-mctx-commit keeps them. Marks nest; only the latest open mark may
+\   be rolled back or committed (any other is refused, invalid).
 \ Words: lf-mctx-reset, lf-mctx-deeper, lf-mctx-shallower, lf-mctx-depth;
-\ lf-mctx-mark ( -- mark ), lf-mctx-rollback ( mark -- ), lf-mctx-commit
-\ ( mark -- ); lf-mvar-new ( type kind -- mvar outcome ), lf-mvar-live?, lf-mvar-type,
+\ lf-mctx-mark ( -- mark outcome ), lf-mctx-rollback ( mark -- outcome ),
+\ lf-mctx-commit ( mark -- outcome ), lf-mctx-marks ( -- n ); lf-mvar-new ( type kind -- mvar outcome ), lf-mvar-live?, lf-mvar-type,
 \ lf-mvar-kind, lf-mvar-value, lf-mvar-lctx, lf-mvar-assignable?,
 \ lf-mvar-assign ( mvar value -- outcome ), lf-delay-fvar ( fvar --
 \ outcome ), lf-mvar-delay ( mvar pending n -- outcome ), lf-mvar-delayed
@@ -65,8 +66,8 @@
 \ outcome ), lf-instantiate-mvars ( term -- term' outcome ).
 \ State: the record mctx (with three walk records of dag-walk.fs and the
 \ spine table, heap blocks that live only while a walk runs), the stores
-\ mv-exprs, mv-levels and mv-fvars and the slabs mv-trail and mv-args, in
-\ the checker context (ADR 0009).
+\ mv-exprs, mv-levels and mv-fvars and the slabs mv-trail, mv-marks and
+\ mv-args, in the checker context (ADR 0009).
 
 require ../lib/lib.fs
 require ../core/terms.fs
@@ -108,7 +109,6 @@ begin-structure /mctx
   field: mctx-epoch       \ leaves of another epoch are stale
   field: mctx-depth
   field: mctx-target      \ the metavariable an occurs check seeks
-  field: mctx-marks       \ marks open (lf-mctx-mark)
   /dw +field mctx-walk    \ the term walks
   /dw +field mctx-lwalk   \ the level walks
   /dw +field mctx-hwalk   \ the search for a metavariable, inside a term walk
@@ -120,6 +120,7 @@ store-header context-record: mv-exprs
 store-header context-record: mv-levels
 store-header context-record: mv-fvars
 1 cells context-slab: mv-trail    \ assignments under a mark: number * 4 + kind
+1 cells context-slab: mv-marks    \ per open mark, the trail's length when made
 
 \ The stores: heap stores that grow up to the heap (plan task 6.2.0).
 16 constant mv-room
@@ -138,10 +139,11 @@ store-header context-record: mv-fvars
 : lf-mctx-depth ( -- n ) mctx mctx-depth @ ;
 : lf-mctx-deeper ( -- ) 1 mctx mctx-depth +! ;
 : lf-mctx-shallower ( -- ) lf-mctx-depth 1- 0 max mctx mctx-depth ! ;
-: mv-marks ( -- addr ) mctx mctx-marks ;
+: lf-mctx-marks ( -- n ) mv-marks slab-count ;
 : lf-mctx-reset ( -- )
   mv-exprs store-clear mv-levels store-clear mv-fvars store-clear mv-trail slab-clear
-  mctx-epoch@ 1+ mv-epoch-mask and mctx mctx-epoch ! 0 mctx mctx-depth ! 0 mv-marks ! ;
+  mv-marks slab-clear mctx-epoch@ 1+ mv-epoch-mask and mctx mctx-epoch !
+  0 mctx mctx-depth ! ;
 
 \ Live leaves: a term leaf is the one its record names (term leaves are
 \ never shared, so a leaf of an emptied context is never a new record's);
@@ -282,17 +284,21 @@ store-header context-record: mv-fvars
 \ context and restores it when the comparison fails): while a mark is
 \ open each assignment, plain, level or delayed, is noted on the trail
 \ mv-trail (its record's number * 4 + its kind) before it is stored; a
-\ trail the heap cannot grow refuses the assignment (full). Rolling back
-\ to a mark undoes the assignments noted after it, latest first; a commit
-\ keeps them, for an outer mark to undo; when the last mark closes the
-\ trail is emptied. Metavariables made after a mark stay made, unassigned
-\ (Lean's restored context no longer has them; no term then refers to
-\ them).
+\ trail the heap cannot grow refuses the assignment (full). A mark is its
+\ depth among the open marks (1, 2, ...); mv-marks keeps, per open mark,
+\ the trail's length when it was made. Rolling back the latest open mark
+\ undoes the assignments noted after it, latest first; committing it
+\ keeps them, for an outer mark to undo; either closes it, and when the
+\ last mark closes the trail is emptied. Any other mark (an inner mark
+\ already closed, an outer one while an inner is open, a stale one) is
+\ refused, invalid, and nothing changes. Metavariables made after a mark
+\ stay made, unassigned (Lean's restored context no longer has them; no
+\ term then refers to them).
 0 constant mv-was-value
 1 constant mv-was-level
 2 constant mv-was-delay
 : mv-note ( n kind -- outcome )
-  mv-marks @ 0= if 2drop outcome-ok exit then swap 2 lshift or
+  lf-mctx-marks 0= if 2drop outcome-ok exit then swap 2 lshift or
   1 mv-trail slab-claim dup ok? if drop mv-trail slab-at ! outcome-ok else nip nip then ;
 : mv-store ( value addr n kind -- outcome )
   mv-note dup ok? if drop ! outcome-ok else nip nip then ;
@@ -301,11 +307,18 @@ store-header context-record: mv-fvars
     mv-was-level of mvl-decl mvl-value endof  swap mv-decl mvd-pending swap endcase ;
 : mv-trail-top ( -- entry ) mv-trail dup slab-count 1- swap slab-at @ ;
 : mv-undo ( -- ) mv-trail-top mv-undo-cell -1 swap ! -1 mv-trail slab-commit ;
-: mv-unmark ( -- ) mv-marks @ 1- 0 max dup mv-marks ! 0= if mv-trail slab-clear then ;
-: lf-mctx-mark ( -- mark ) 1 mv-marks +! mv-trail slab-count ;
-: lf-mctx-rollback ( mark -- )
-  begin dup mv-trail slab-count < while mv-undo repeat drop mv-unmark ;
-: lf-mctx-commit ( mark -- ) drop mv-unmark ;
+: mv-undo-to ( length -- ) begin dup mv-trail slab-count < while mv-undo repeat drop ;
+: mv-latest? ( mark -- flag ) dup 0> swap lf-mctx-marks = and ;
+: mv-mark-length ( -- length ) lf-mctx-marks 1- mv-marks slab-at @ ;
+: mv-unmark ( -- ) -1 mv-marks slab-commit lf-mctx-marks 0= if mv-trail slab-clear then ;
+: lf-mctx-mark ( -- mark outcome )
+  1 mv-marks slab-claim dup ok? 0= if nip 0 swap exit then
+  drop mv-trail slab-count swap mv-marks slab-at ! lf-mctx-marks outcome-ok ;
+: lf-mctx-rollback ( mark -- outcome )
+  mv-latest? 0= if outcome-invalid exit then
+  mv-mark-length mv-undo-to mv-unmark outcome-ok ;
+: lf-mctx-commit ( mark -- outcome )
+  mv-latest? 0= if outcome-invalid exit then mv-unmark outcome-ok ;
 
 \ ---- Assignment: once, to a live leaf, the occurs check passed; a walk
 \ that fails gives its own outcome and nothing is assigned.

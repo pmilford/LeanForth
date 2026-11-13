@@ -10706,7 +10706,7 @@ reason = "FE1c tidy-up c: a rollback leaves the assignments made since its mark,
 [[fault]]
 id = "fe-mctx-mark-unnoted"
 file = "src/front/mvars.fs"
-old = '''  mv-marks @ 0= if 2drop outcome-ok exit then swap 2 lshift or'''
+old = '''  lf-mctx-marks 0= if 2drop outcome-ok exit then swap 2 lshift or'''
 new = '''  2drop outcome-ok exit'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1c tidy-up c: assignments under a mark are not noted, so no rollback can undo them"
@@ -10714,8 +10714,8 @@ reason = "FE1c tidy-up c: assignments under a mark are not noted, so no rollback
 [[fault]]
 id = "fe-mctx-commit-clears"
 file = "src/front/mvars.fs"
-old = ''': lf-mctx-commit ( mark -- ) drop mv-unmark ;'''
-new = ''': lf-mctx-commit ( mark -- ) drop mv-unmark mv-trail slab-clear ;'''
+old = '''  mv-latest? 0= if outcome-invalid exit then mv-unmark outcome-ok ;'''
+new = '''  mv-latest? 0= if outcome-invalid exit then mv-unmark mv-trail slab-clear outcome-ok ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1c tidy-up c: an inner commit forgets its assignments, so the outer rollback cannot undo them"
 
@@ -10786,8 +10786,8 @@ reason = "FE1c: level unification compares max v u with max u v unnormalized and
 [[fault]]
 id = "fe-ldefeq-false-kept"
 file = "src/front/level-defeq.fs"
-old = '''  >r 2dup ok? and if r> lf-mctx-commit else r> lf-mctx-rollback then ;'''
-new = '''  >r r> lf-mctx-commit ;'''
+old = '''  >r 2dup ok? and if r> lf-mctx-commit else r> lf-mctx-rollback then drop ;'''
+new = '''  lf-mctx-commit drop ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: a false level unification (0 =?= max ?c (?f+1)) keeps ?c := 0, which Lean's checkpointDefEq rolls back"
 
@@ -10854,3 +10854,11 @@ old = '''  mv-spine-block 0= if drop -1 outcome-full exit then'''
 new = '''  mv-spine-block drop'''
 test = "$GFORTH tests/front/meta-heap.fs"
 reason = "FE1c tidy-up d: instantiateMVars runs with no spine table when the heap refuses it, instead of answering full"
+
+[[fault]]
+id = "fe-mctx-any-mark"
+file = "src/front/mvars.fs"
+old = ''': mv-latest? ( mark -- flag ) dup 0> swap lf-mctx-marks = and ;'''
+new = ''': mv-latest? ( mark -- flag ) drop lf-mctx-marks 0> ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1c review of fe1c-lnorm L1: a stale or out-of-order rollback (an inner mark again after its commit) undoes the wrong assignments and closes the outer mark"
