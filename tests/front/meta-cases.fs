@@ -1,0 +1,79 @@
+\ The front end's Meta answers printed for tests/front/check_meta.py,
+\ which compares them with pinned Lean's on the same cases (plan FE1c).
+\ It runs the code the script generates: one line per case, the answer of
+\ lf-level-defeq (true, false, unsupported) and each named level
+\ metavariable's instantiated value, or the term lf-meta-instantiate1 or
+\ lf-meta-head-beta gives, as an S-expression ((app F A), (lam T B),
+\ (pi T B), #i, Prop, x, y, ?m). Test support only: printing recurses on
+\ the host stack, which the small cases allow.
+require ../../src/main.fs
+require ../../src/front/level-defeq.fs
+require ../../src/front/instantiate.fs
+
+lf-author-begin
+: must ( x flag -- x ) 0= abort" meta-cases: no room" ;
+: .k ( n -- ) 0 .r ;
+
+\ Levels and the case's named metavariables (up to 8).
+0 constant zero
+: lsucc ( l -- l' ) lf-level-succ must ;
+: lmax ( a b -- l ) lf-level-max must ;
+101 lf-level-param must constant u
+102 lf-level-param must constant v
+create mv-names 16 cells allot
+variable #mv
+: mv ( i -- leaf ) 2* cells mv-names + @ ;
+: mv-char ( i -- c ) 2* cells mv-names + cell+ @ ;
+: add-mv ( c -- ) lf-level-mvar-new ok? 0= abort" meta-cases: mvar"
+  #mv @ 2* cells mv-names + tuck ! cell+ ! 1 #mv +! ;
+: name? ( leaf -- c true | false )
+  #mv @ 0 ?do dup i mv = if drop i mv-char true unloop exit then loop drop false ;
+: .mv ( leaf -- ) name? if emit else ." ?_" then ;
+defer .lev
+: .lmax ( l -- ) ." (max " dup lf-level-first@ .lev space lf-level-second@ .lev ." )" ;
+: .lparam ( l -- ) lf-level-first@ 101 = if ." u" else ." v" then ;
+: .lbase ( base -- )
+  dup lf-level-tag@ case
+    lf-level-tag-param of .lparam endof
+    lf-level-tag-mvar of .mv endof
+    lf-level-tag-max of .lmax endof
+    >r drop ." ??" r> endcase ;
+: (.lev) ( l -- )
+  ld-offset over lf-level-tag@ lf-level-tag-zero = if nip .k exit then
+  swap .lbase ?dup if ." +" .k then ;
+' (.lev) is .lev
+: .answer ( flag outcome -- )
+  dup ok? if drop if ." true" else ." false" then exit then
+  nip outcome-unsupported = if ." unsupported" else ." failed" then ;
+: .values ( -- )
+  #mv @ 0 ?do space i mv-char emit ." =" i mv lf-level-instantiate-mvars drop .lev loop ;
+: level-case ( -- ) lf-mctx-reset 0 #mv ! ;
+: level-run ( l r -- ) lf-level-defeq .answer .values cr ;
+
+\ Terms: Prop, two free variables x y : Prop, a metavariable ?m : Prop.
+: app ( f a -- t ) lf-term-app must ;
+: lam ( type body -- t ) lf-term-lam must ;
+: tpi ( type body -- t ) lf-term-pi must ;
+: bv ( i -- t ) lf-term-bvar must ;
+: made ( x outcome -- x ) ok? 0= abort" meta-cases: not made" ;
+: room ( outcome -- ) ok? 0= abort" meta-cases: no room" ;
+100000 lf-term-capacity! room  100000 lf-level-capacity! room
+0 lf-term-sort must constant prop
+lf-mctx-reset lf-lctx-reset
+prop lf-lctx-local made constant fx
+prop lf-lctx-local made constant fy
+prop mv-natural lf-mvar-new made constant hole
+defer .t
+: .pair ( t c-addr u -- ) ." (" type space dup lf-term-first@ .t space lf-term-second@ .t ." )" ;
+: .fvar ( t -- ) dup fx = if drop ." x" exit then fy = if ." y" else ." ?f" then ;
+: (.t) ( t -- )
+  dup lf-term-tag@ case
+    lf-tag-app of s" app" .pair endof  lf-tag-lam of s" lam" .pair endof
+    lf-tag-pi of s" pi" .pair endof  lf-tag-bvar of ." #" lf-term-first@ .k endof
+    lf-tag-sort of drop ." Prop" endof  lf-tag-mvar of drop ." ?m" endof
+    lf-tag-fvar of .fvar endof  >r drop ." ??" r> endcase ;
+' (.t) is .t
+: .term ( term outcome -- )
+  dup ok? if drop .t else nip outcome-unsupported = if ." unsupported" else ." failed" then then ;
+: inst1-run ( body value -- ) lf-meta-instantiate1 .term cr ;
+: beta-run ( term -- ) lf-meta-head-beta .term cr ;
