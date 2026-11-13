@@ -137,8 +137,9 @@ TERMS = [
 # value when one is given; ("d", c, fvars, p), ?c delayed-assigned with
 # the free variables (x, y) and the pending metavariable ?p. Every
 # metavariable is made first, then each assignment in order. The gaps:
-# an argument with a loose bound variable (instantiate1 does not lift it)
-# and a let that betaRev zeta-reduces.
+# an argument with a loose bound variable (instantiate1 does not lift it),
+# a let that betaRev zeta-reduces, and Lean's second instantiation of an
+# assigned head's beta result.
 MINST = [
     ([("m", "f", FLIP)], (APP, (APP, "?f", "x"), "y"), False),
     ([("m", "g", (LAM, "P", "?h")), ("m", "h", "x")], (APP, "?g", "y"), False),
@@ -159,6 +160,30 @@ MINST = [
     ([("m", "p", "x"), ("d", "d", ["x"], "p")], "?d", False),
     ([("m", "p", (APP, "y", "x")), ("d", "d", ["x", "y"], "p")], (APP, (APP, "?d", "y"), "x"),
      False),
+    # The review of fe1c-lnorm (2026-11-13), M1 and L2: a delayed head with
+    # k = 0 free variables, surplus arguments beta-reduced in the delayed
+    # step, pending values left alone for a bare or under-applied head,
+    # chained and nested delayed heads; and the gaps of Lean's second pass
+    # over an assigned head's beta result (a ready delayed metavariable
+    # landing at a head).
+    ([("m", "p", "x"), ("d", "d", [], "p")], (APP, "?d", "y"), False),
+    ([("m", "p", ID), ("d", "d", [], "p")], (APP, (APP, "?d", "y"), "x"), False),
+    ([("m", "p", "x"), ("d", "d", [], "p")], "?d", False),
+    ([("m", "p", ID), ("d", "d", ["x"], "p")], (APP, (APP, "?d", "y"), "P"), False),
+    ([("m", "p", (APP, "x", "x")), ("d", "d", ["x"], "p")], (APP, (APP, (APP, "?d", "y"), "x"), "P"),
+     False),
+    ([("m", "f", FLIP), ("m", "p", (LAM, "P", (APP, (APP, "?f", "#0"), "x"))),
+      ("d", "d", ["x"], "p")], "?d", False),
+    ([("m", "f", FLIP), ("m", "p", (LAM, "P", (APP, (APP, "?f", "#0"), "x"))),
+      ("d", "d", ["x", "y"], "p")], (APP, "?d", "y"), False),
+    ([("m", "q", "x"), ("d", "e", ["x"], "q"), ("m", "p", (APP, "?e", "y")), ("d", "d", ["y"], "p")],
+     (APP, "?d", "x"), False),
+    ([("m", "q", "x"), ("d", "e", ["x"], "q"), ("m", "p", (APP, "x", "y")), ("d", "d", ["x"], "p")],
+     (APP, "?d", "?e"), False),
+    ([("m", "p", "x"), ("d", "d", ["x"], "p"), ("m", "f", (LAM, "P", (APP, "#0", "y")))],
+     (APP, "?f", "?d"), True),
+    ([("m", "p", "x"), ("d", "d", ["x"], "p"), ("m", "f", "?d")], (APP, "?f", "y"), True),
+    ([("m", "q", "x"), ("d", "e", ["x"], "q"), ("m", "f", ID)], (APP, (APP, "?f", "?e"), "y"), True),
 ]
 
 

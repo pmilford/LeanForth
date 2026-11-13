@@ -10841,8 +10841,8 @@ reason = "FE1c tidy-up d: ?f a with ?f := fun x => b is not beta-reduced, where 
 [[fault]]
 id = "fe-delayed-ready-unchecked"
 file = "src/front/mvars.fs"
-old = '''  swap mv-ready if swap mv-spine drop mv-delayed else mctx mctx-walk mv-rebuild then ;'''
-new = '''  2drop mctx mctx-walk mv-rebuild ;'''
+old = '''  swap mv-delay-for if mv-delay-step else mv-node-rebuild then ;'''
+new = '''  2drop mv-node-rebuild ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1c tidy-up d: ?d x with a ready delayed assignment keeps ?d, where Lean puts the pending value in"
 
@@ -11806,8 +11806,8 @@ reason = "FE1c review Q5: a Sort keeps its level after the level's image changes
 [[fault]]
 id = "fe-inst-zeta-guessed"
 file = "src/front/mvars.fs"
-old = ''': mv-lam-code ( f n -- 0|1|2 ) mv-lams if lf-let? 1 and 2 swap - else drop 0 then ;'''
-new = ''': mv-lam-code ( f n -- 0|1|2 ) mv-lams if drop 2 else drop 0 then ;'''
+old = '''  mv-lams if lf-let? if mv-zeta-met else mv-lams-run-out then'''
+new = '''  mv-lams if drop mv-lams-run-out'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1c tidy-up d: ?l a with ?l := let c := v; fun x => b is applied without zeta, a term Lean's betaRev (useZeta) never gives; it must answer unsupported"
 
@@ -11997,3 +11997,23 @@ old = '''  nip remap-let-body ['] remap-let-joined frame-under ;'''
 new = '''  nip remap-let-body ['] remap-let-joined frame-call ;'''
 test = "$GFORTH tests/front/constructions.fs"
 reason = "a letE's body is renumbered as if outside its binder: its own variable #0 becomes #1"
+
+[[fault]]
+id = "fe-inst-delayed-unreduced"
+file = "src/front/mvars.fs"
+old = '''  if drop mv-unported exit then
+  0 mv-apply mv-headed ;
+: mv-delay-step ( node rec -- image )'''
+new = '''  if drop mv-unported exit then
+  0 mv-apply ;
+: mv-delay-step ( node rec -- image )'''
+test = "$GFORTH tests/front/front.fs"
+reason = "review of fe1c-lnorm M1: the delayed step applies fun xs => value to the arguments without reducing it, where Lean beta-reduces (?d x is Prop)"
+
+[[fault]]
+id = "fe-inst-second-pass-ignored"
+file = "src/front/mvars.fs"
+old = '''  mv-delays? if mv-spine-head mv-delay-rec dup if nip then else drop false then ;'''
+new = '''  drop false ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "review of fe1c-lnorm M1: an assigned head's beta result with a ready delayed metavariable at a head is returned as it is, where Lean's second pass puts its value in; it must answer unsupported"

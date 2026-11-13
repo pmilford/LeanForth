@@ -127,17 +127,36 @@ T{ 1 heap-refusals ! me 0 lf-meta-level-defeq me free? lf-mctx-marks
    -> false outcome-full true open-marks }T
 T{ 1 heap-refusals ! lf-mctx-mark lf-mctx-marks -> 0 outcome-full open-marks }T
 T{ 0 heap-refusals ! close-marks lf-mctx-marks -> 0 }T
-\ instantiateMVars (mvars.fs): ?f x .. x, 100 arguments, with
-\ ?f := fun a => a: the spine table, the walk, the argument slab and the
-\ beta step's heap, each refused in turn; then x applied to 99 x's.
+\ instantiateMVars (mvars.fs). First, while the argument slab has no
+\ block yet (heap-watch.fs sees its first allocation, not its growth):
+\ ?d delayed over x forty times, ?p := x, ?d x .. x with 40 arguments,
+\ the 1st, 2nd, ... allocation refused until the slab has its block;
+\ each of these runs, the one whose slab block was refused among them,
+\ answers full with no result (review of fe1c-lnorm, M2: the delayed step
+\ read past the slab and crashed). Then the same with every allocation
+\ refused in turn, and ?f x .. x, 100 arguments, ?f := fun a => a.
 lf-mctx-reset
 : tnew ( -- mvar ) prop mv-natural lf-mvar-new made ;
+tnew constant tp  tnew constant td
+T{ tp x lf-mvar-assign -> outcome-ok }T
+: delay-fvars ( n -- ) 0 ?do x lf-delay-fvar drop loop ;
+40 delay-fvars
+T{ td tp 40 lf-mvar-delay -> outcome-ok }T
+td 40 apps constant td-spine
+: delay-op ( -- term outcome ) td-spine lf-instantiate-mvars ;
+: cold-run ( k -- )
+  heap-refusals ! delay-op 0 heap-refusals !
+  outcome-full <> abort" meta-heap: not full" -1 <> abort" meta-heap: a result" ;
+: cold-runs ( -- n ) 0 begin 1+ dup cold-run mv-args slab-capacity until ;
+T{ mv-args slab-capacity cold-runs 1 > mv-args slab-capacity 0> -> 0 true true }T
+\ A whole run first makes the blocks the walks keep (instantiate.fs's memo).
+T{ delay-op -> x outcome-ok }T
+-1 none !
+T{ ' delay-op refusing 0> swap ok? rot -> true true x }T
 tnew constant tf
 T{ tf prop 0 lf-term-bvar must lf-term-lam must lf-mvar-assign -> outcome-ok }T
 tf 100 apps constant tf-spine
 : mvinst-op ( -- term outcome ) tf-spine lf-instantiate-mvars ;
--1 none !
-T{ tf x lf-term-app must lf-instantiate-mvars -> x outcome-ok }T
 T{ ' mvinst-op refusing 0> swap ok? rot 99 firsts -> true true x }T
 
 T{ depth -> 0 }T

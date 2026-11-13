@@ -320,12 +320,32 @@ T{ gz let-fun lf-mvar-assign gz prop app lf-instantiate-mvars -> outcome-ok -1 o
 T{ gz lf-instantiate-mvars -> let-fun outcome-ok }T
 \ A delayed assignment whose pending value still holds a metavariable is
 \ left in place, its arguments instantiated (Lean's has_expr_mvar test).
+1000 lf-term-capacity! drop
 mv-natural new constant pend2  mv-natural new constant dm2  mv-natural new constant hole2
 T{ pend2 x hole2 app lf-mvar-assign x lf-delay-fvar dm2 pend2 1 lf-mvar-delay
    -> outcome-ok outcome-ok outcome-ok }T
 T{ dm2 f prop app app lf-instantiate-mvars swap parts2 -> outcome-ok dm2 prop }T
+\ Lean instantiates an assigned head's beta result again, which here
+\ would put in ?dm's value (?f9 := ?dm, ?f9 x): that second pass is not
+\ ported, so unsupported (review of fe1c-lnorm, M1).
+mv-natural new constant f9
+T{ f9 dm lf-mvar-assign f9 x app lf-instantiate-mvars -> outcome-ok -1 outcome-unsupported }T
+\ Two free variables take the arguments in order: ?dm4 over x, y2 with
+\ ?p4 := x y2, so ?dm4 y2 x is y2 x.
+prop lf-lctx-local drop constant y2
+mv-natural new constant p4  mv-natural new constant dm4
+T{ p4 x y2 app lf-mvar-assign x lf-delay-fvar y2 lf-delay-fvar dm4 p4 2 lf-mvar-delay
+   -> outcome-ok outcome-ok outcome-ok outcome-ok }T
+T{ dm4 y2 app x app lf-instantiate-mvars swap parts2 -> outcome-ok y2 x }T
+\ With no free variable (k = 0) the value takes the arguments: ?dm5 x
+\ with ?p5 := fun a => a is x.
+mv-natural new constant p5  mv-natural new constant dm5
+T{ p5 prop 0 lf-term-bvar drop lam2 lf-mvar-assign dm5 p5 0 lf-mvar-delay
+   -> outcome-ok outcome-ok }T
+T{ dm5 x app lf-instantiate-mvars dm5 lf-instantiate-mvars -> x outcome-ok dm5 outcome-ok }T
 T{ prop f app lf-instantiate-mvars nip -> outcome-ok }T
-T{ mv-natural new lf-mvar-lctx -> 1 true }T
+\ A new metavariable sees the two free variables, x and y2.
+T{ mv-natural new lf-mvar-lctx -> 2 true }T
 
 \ Out of room: a context whose store may hold one more metavariable
 \ makes it, then refuses the next (full), changing nothing.
