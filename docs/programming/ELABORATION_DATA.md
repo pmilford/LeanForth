@@ -2,11 +2,15 @@
 
 Plan row FE1d ([plan](../project/PLAN_DRAFT.md#phase-8-front-end-fe1fe12-2026-11-12-replaces-831-and-832);
 [ADR 0021](../adr/0021-front-end.md) D10; [front-end design](../design/FRONT_END.md#49-elaboration-data)).
-Status (2026-11-12): **tested alone** in the stages of
+Status (2026-11-12): **integrated** in the stages of
 [DONE_CHECKER.md](../development/DONE_CHECKER.md#stages): the exporter,
 the reader and `leanforth check --elab-data` exist and are tested, against
-pinned Lean on all of `Init`; nothing uses the data yet (the elaborator,
-FE1e and FE1g, is not built).
+pinned Lean on all of `Init`; the implementer ran `check --snapshot
+INIT.lfsnap --elab-data init.elab.ndjson tests/author/19-add-zero.lf` on
+a snapshot of all of `Init` (the data read whole, 13.7 s and 0.6 GB in
+all; the slice's data refused there as another export's); the done
+checker has not run it. Nothing uses the data yet (the elaborator, FE1e
+and FE1g, is not built).
 
 ## What it is and why
 
@@ -225,13 +229,17 @@ Declarations are the stage's declaration numbers (`src/import/stage.fs`).
   reader's words (every kind read back, eliminators found by kind and
   type, a refused read keeps nothing, a later read replaces an earlier
   one, a missing file, a read during a read and a sealed stage refused,
-  every refused allocation full or ok with no block kept, BASE kept);
-  `tests/front/test_elab_data.py`, the finisher (kept and left out,
-  deterministic, 8 refusals), the schema (52 good lines, 11 wrong ones),
-  and the command line: the good data with an export, a snapshot and
-  `--no-manifest`, the verdicts unchanged, 3 misuses and 50 damaged
-  files, each refused with its line, reason and exit status. Both run on
-  Gforth 0.7.3 too.
+  each of the 10 allocations of a read in a new context refused in turn:
+  full, never another outcome, no block kept; error codes and texts, BASE
+  kept); `tests/front/test_elab_data.py`, the finisher (kept and left
+  out, deterministic, 8 refusals), the schema (52 good lines, 11 wrong
+  ones), the [error catalogue](#errors) against the reader's, and the command
+  line: the good data with an export, a snapshot and `--no-manifest`, 16
+  eliminators (the table grows), the verdicts unchanged, 3 misuses and 63
+  damaged files, each refused with its line, code, text and exit status.
+  Both run on Gforth 0.7.3 too. Block coverage of `src/front/elab-data.fs`
+  over `make test`: 526 of 531 blocks (the 5 left are listed in
+  `tests/coverage-baseline.json`).
 - `make reference-elab-data` (in `make check`, pinned Lean):
   `tests/front/elab-init.sh`, about 60 s. `scripts/export-elab.sh`
   reproduces `tests/front/init-slice.elab.ndjson` byte for byte; for all
