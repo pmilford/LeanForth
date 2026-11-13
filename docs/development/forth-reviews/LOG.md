@@ -80,6 +80,7 @@ findings neither fixed nor turned into plan tasks. A row that raises the style b
 | 2026-11-13 | `7d08d494..d0ffdaec` | s1-meta merge A (slice S1): one tree-shaped undo trail in mvars.fs, meta-config.fs, the stuck signal, the whnf words, the error-range header | forth-reviewer (Opus), one round, probe | [report](2026-11-13-s1-meta-a.md) | 0 blocking; M1-M3 and L1 test gaps (four reviewer faults survived), L2-L4, S1-S3 | fixed in d0ffdaec..47943d3a |
 | 2026-11-13 | `d0ffdaec..47943d3a` | s1-meta merge A follow-up: the missing tests and five faults, L2-L4, S1-S3 | forth-reviewer (Opus), short re-check | [report](2026-11-13-s1-meta-a.md), last section | 0 findings | L2's test when s1-elab sets the stuck bit |
 | 2026-11-13 | `995a1c45..a1f13431` | `leanforth verify` listed in help and capabilities (verify-b, plan 8.4.1c, V1) | forth-reviewer (Opus), one short round, probe | [report](2026-11-13-verify-cli.md) | 0 blocking; 1 low (`--write-ir` shown as an option of a full run, not its own mode) | the low to plan 8.4.1 (V1 follow-up) |
+| 2026-11-13 | main `c1f0cd19` + `s1-meta-b`, `s1-synth`, `s2-unfold` heads | library-reuse audit of src/front and of the 2026-11-12 library candidates (plan 9.4.8) | forth-reviewer (Opus), read-only audit | [report](2026-11-13-library-audit.md) | 3 high, 5 medium, 4 low: 11 library actions (about 27 push/pop copies, two near-identical term walkers, 7 hand-written sorts, about 130 copies of one outcome loop); no library documents its full profile | plan 9.4.8a-k; process fixes (c) in AGENTS.md and checks |
 
 ## Backlog
 

@@ -15,6 +15,9 @@ Usage: python3 scripts/check-forth-quality.py [--update-baseline] [--strict | --
    word (below the project average of 2026-11-12), and its globals listed in the baseline only by an update.
    --update-baseline rewrites the baseline from the tree; do it only in a commit whose Forth review accepts the
    growth, and say so in the review's log row.
+3. Library proposals (owner, 2026-11-13, plan 9.4.8f). A LOG.md row dated 2026-11-13 or later whose Findings or
+   Open text proposes a new `lib/` file or library word must cite a plan row id (`9.4.8a`, `FE1i-4`, `S2`): a
+   library a review proposes is a plan task, never only a note in a report.
 """
 import json
 import pathlib
@@ -49,6 +52,23 @@ def unreviewed():
     return [c for c in commits if c not in covered
             and any(p.startswith("src/") and p.endswith(".fs")
                     for p in git("diff-tree", "--no-commit-id", "--name-only", "-r", c).split())]
+
+
+PROPOSAL = re.compile(r"\b(?:new|propos\w*|extract\w*)\b[^|]{0,60}?(?:\blib/|\blibrar(?:y|ies)\b)", re.I)
+PLAN_ID = re.compile(r"\b(?:\d+\.\d+(?:\.\d+)?[a-z]?|FE\d+[a-z]?(?:-\d+)?|S\d+)\b")
+LIBRARY_RULE_FROM = "2026-11-13"
+
+
+def uncited_proposals(text):
+    """Rows (dated from LIBRARY_RULE_FROM) that propose a library without citing a plan row id."""
+    bad = []
+    for row in text.splitlines():
+        cells = [c.strip() for c in row.split("|")]
+        if len(cells) > 7 and cells[1] >= LIBRARY_RULE_FROM and re.match(r"\d{4}-\d\d-\d\d$", cells[1]):
+            findings = cells[6] + " " + cells[7]
+            if PROPOSAL.search(findings) and not PLAN_ID.search(findings):
+                bad.append(f"{cells[1]} {cells[2]}")
+    return bad
 
 
 def counts():
@@ -103,6 +123,11 @@ def main(argv):
         for c in missing:
             print("  " + git("log", "-1", "--format=%h %s", c).strip())
         failed = strict
+    proposals = uncited_proposals(LOG.read_text(encoding="utf-8"))
+    if proposals:
+        print("forth review log: rows propose a library without a plan row id (AGENTS.md, Reuse first):")
+        print("\n".join("  " + r for r in proposals))
+        failed = True
     problems = ratchet()
     if problems:
         print("forth quality ratchet: counts grew beyond tests/forth-quality-baseline.json "

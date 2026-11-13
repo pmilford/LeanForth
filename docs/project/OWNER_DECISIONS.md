@@ -1239,3 +1239,60 @@ slowly) prioritize the S2 path (and the following S? paths)".
    plan rows and progress lines are kept current.
 3. **The front end's slices first:** S1 to its done check, then S2 ($0 + n = n$ by `by-induction` and `by-rw`), then
    S3 onwards, each designed and reviewed before its code (plan 9.4.7).
+
+### Slice S2 approved; S1's order amended; V1's gates (2026-11-13, early afternoon)
+
+From the [S2 design note](../design/S2_INTERFACE.md) and its [design review](../development/design-reviews/2026-11-13-s2.md)
+(blocking B1, B2 and M1-M4 fixed in the text), the owner chose every recommendation:
+
+1. **S2's design approved,** both forms of FE1 included: by rewriting (`by-induction-with`, `by-rw[ ]`) and the plan's
+   `by-case:`/`by-exact` form, which needs Lean's smart unfolding (S3's `by-decide` needs it too). FE1 is done only when
+   the done checker runs both on all of `Init`.
+2. **S1's order amended:** S2's merge A (`s2-unfold`: lazy delta and unfolding, measured to be needed by S1's `#check`
+   midpoint and its test C1) is built after s1-meta-b and s1-synth and merges before s1-elab; the elaboration data goes
+   to format 3 so that an older file is refused, never read as "no smart unfolding" (decided at merge A's [import]
+   gate; S6's planned format becomes 4). S1_INTERFACE.md §11, amendment of 2026-11-13.
+3. **[format] the step log** (`check --steps FILE|-`, NDJSON `leanforth-tactic-steps` version 1 with a schema, only for
+   accepted declarations, read by nothing that decides) and S1's deferred `by-sorry` open-part wording: approved as
+   designed; the gate is checked again with the real output at S2's end.
+4. **`leanforth verify` V1's gates approved** on the reviewer's recommendation, after the review fixes were probed:
+   [bypass] (nothing reaches "discharged" without LeanForth's kernel re-checking Lean's proof of the exact stated
+   contract), [format] (report 0.1, whose exit 0 requires a discharged result; receipt 0.3 unchanged), [parser] (the
+   contract translation). V1's done check follows when a slot is free; V2-V4 stay parked.
+
+### Library reuse (2026-11-13, afternoon)
+
+The owner, on learning that `lib/sort.fs` had no caller while new front-end code hand-wrote an insertion sort, and
+that the library candidates of the 2026-11-12 backlog reviews were never extracted: "improve the code design and
+development process so we reuse libraries and develop new ones as needed. this is really a bad problem and should
+never happen. you need to code like an experienced expert programmer. not a beginner. write reusable high quality
+code. add that to memory and agents.md", choosing a library audit of the front end now and a library stream beside
+the S slices, the libraries S2 would otherwise duplicate first.
+
+- **Rule** (AGENTS.md "Reuse first, and write code as an experienced expert would"): look before writing; a library
+  first when something general is missing, every existing copy replaced in the same branch; a "Reuse" part in every
+  design and brief; re-implementation and libraries without callers are blocking review findings
+  ([FORTH_REVIEWER.md](../development/FORTH_REVIEWER.md), the design checklist of
+  [DESIGN_STAGE_REVIEW.md](../development/DESIGN_STAGE_REVIEW.md)).
+- **Work** (plan 9.4.8): the audit's library plan, one library per branch; kernel copies under the [kernel] gate.
+
+### Library reuse: high priority, the whole code base (2026-11-13, afternoon)
+
+The owner: "I view this refactor/reuse as fairly high priority. so we will fix all the existing code including the
+kernel. do it carefully, but don't overtest each change, you should be able to do several at the same time. use unit
+testing a lot on individual changes. some might cause subtle problems in backward compatibility, so expect to debug
+that. report the number of lines of code before and after and the library use and also any new libraries found to
+develop." Plan 9.4.8 runs beside the S slices at high priority: every copy the audit found is replaced, the kernel's
+under the [kernel] gate (identical verdicts, fuel and snapshot bytes on Init); each branch batches several changes,
+unit-tests each one, and runs its tier once. Reports give lines of code and library use before and after
+(baseline at `14423237`: 202 Forth files, 61,177 lines, 37,800 code lines, 15,015 words; 30 libraries with 1,610 words,
+361 of them used outside `lib/`) and the new libraries found.
+
+**Fuel in the reuse work** (the owner, same afternoon: "a general sort with two algorithms split at n=32 might have
+different fuel than a single algorithm not split … be careful forcing fuel to be identical with a big refactor").
+Fuel is LeanForth's own work budget per declaration (`--fuel`, default 100,000,000), not Lean's; it only decides when
+a check stops as exhausted. Verdicts, diagnostics and snapshot bytes must stay identical; fuel is expected to stay
+identical where the work is the same, but no code is bent to reproduce an old count: a difference is measured per
+declaration on Init, explained, and shown at the [kernel] gate. Of the eight sorts, only the kernel's level
+normalization charges fuel (one unit per comparison), and it already uses the same insertion-then-merge split at 32
+that `lib/sort.fs` copied from it.

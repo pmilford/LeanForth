@@ -8,6 +8,15 @@ component. Measured 2026-11-02 at commit `4779924`; library entries updated the 
 with another folder ([source layout](../../src/README.md)); the superseded
 variants were retired on 2026-11-02.
 
+## What each library documents (owner, 2026-11-13)
+
+Every library's section here gives, as [Sorting](#sorting) does: **algorithm** (what it does and why that method);
+**genericity** (what the caller supplies: comparison or key words, record sizes, capacities; what it assumes of the
+data); **scaling** (cost for small and large inputs, cut-overs, scratch memory, recursion or host-stack depth);
+**measured speed** at a small and a large size, with the machine and Gforth version; and **callers and their mix**
+(each calling module and the sizes it passes, measured on a real run such as Init or Mathlib, updated when a caller
+is added). The library audit of 2026-11-13 (plan 9.4.8) lists which libraries lack which part.
+
 ## What exists
 
 | Facility | Module(s) | What it is | State |

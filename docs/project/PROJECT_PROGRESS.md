@@ -63,8 +63,13 @@ status changes when this date is older than them. Stages are those of the
   way (2,890 declarations); their receipts wait for schema 0.4.
 
 **Next**
+- Library reuse (plan 9.4.8, owner 2026-11-13): designed; its checks (9.4.8f: libraries without callers, a duplicate-code ratchet, plan rows for proposed libraries, a generated word index) integrated 2026-11-13, run by `make test`; the rule is in AGENTS.md ("Reuse first"), the Forth
+  reviewer's procedure and the design checklist; an audit of `src/front` and of the 2026-11-12 library candidates is
+  running; then one library per branch beside the S slices, every copy replaced.
 - Priority (owner, 2026-11-13 midday): the front end's slices in order, S1 then S2 ($0 + n = n$ by `by-induction` and
-  `by-rw`) then S3 onwards; S2's design note is written and reviewed while S1's last branches are built. No automatic
+  `by-rw`) then S3 onwards. S2's design ([S2_INTERFACE.md](../design/S2_INTERFACE.md)) reviewed and approved by the
+  owner 2026-11-13, both FE1 forms; its first branch (`s2-unfold` merge A, Lean's unfolding) merges before S1's last
+  branch, which needs it (S1's order amended). No automatic
   Mathlib run until changes need one.
 - The design stage (plan 9.4.7, owner 2026-11-13): every design reviewed before code and approved by the owner as a
   one-page summary; the plan re-cut into slices S1-S6, V1-V4 and SC1 (PLAN_DRAFT "Slices"); the reviews of the existing
@@ -92,8 +97,8 @@ status changes when this date is older than them. Stages are those of the
   to end (four discharged, three refuted, two unsupported, the SHA words refused as needing receipt 0.4); the command
   `bin/leanforth verify` with its JSON report and `--write-ir` (8.4.1c), `--replay`/`--rerun` (8.4.1d), listed in
   `help` and `capabilities`: tested alone; the user guide (8.4.1n) written; the V1 review's findings fixed and probed
-  (an unproved receipt's replay exits 2; `--write-ir` writes only `.ir` files). Waiting: the owner's [bypass],
-  [format] and [parser] approvals, then V1's done check. The SHA-256 helper words' receipts (schema 0.4, IR 0.2, at
+  (an unproved receipt's replay exits 2; `--write-ir` writes only `.ir` files); the owner approved its [bypass],
+  [format] and [parser] gates 2026-11-13. Waiting: V1's done check. The SHA-256 helper words' receipts (schema 0.4, IR 0.2, at
   the owner's [format] gate).
 - A rule-by-rule audit of AGENTS.md against practice.
 - Snapshots that read the two previous format and verdict versions (6.2.5c): designed, the owner's four questions
@@ -103,6 +108,8 @@ status changes when this date is older than them. Stages are those of the
   check is owed.
 
 **Later**
+- A faster sort for short lists (`lib/sort.fs` below its cut-over of 32; plan 9.4.8i, owner 2026-11-13): only if
+  benchmarks and traces of the callers' list sizes show it is worthwhile.
 - Proof development (owner, 2026-11-12; long term, after strict Lean compatibility): research note
   [PROOF_DEVELOPMENT.md](../design/PROOF_DEVELOPMENT.md), plan rows PD1–PD15, all not started; PD1, Lean's `sorry`
   reported NOT PROVED with the conditional report, is decided (ADR 0021 Amendment 1) and fits with FE1g and FE5.
