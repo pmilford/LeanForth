@@ -6,7 +6,8 @@
 -- (LeanForth: error 89 at by with the same lines).
 theorem zero_add_open (n : Nat) : 0 + n = n := by
 
--- 06-sorry.lf: accepted with the warning "declaration uses `sorry`".
+-- 06-sorry.lf: accepted with the warning "declaration uses `sorry`" (an
+-- error under -DwarningAsError=true; the theorem is added all the same).
 theorem zero_add_sorry (n : Nat) : 0 + n = n := by
   sorry
 

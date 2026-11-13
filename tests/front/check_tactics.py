@@ -25,8 +25,10 @@ read; an alternative with no tactic refused); and on
 tests/front/tactic-run.lean pinned Lean gives the outcomes the runner's
 tests pin: unsolved goals at by with exactly the goal lines
 tests/front/tactic-run.fs compares (LEAN_GOALS), sorry accepted with the
-warning "declaration uses `sorry`" and sorryAx among the axioms, and "No
-goals to be solved" at a second sorry.
+warning "declaration uses `sorry`" (an error under -DwarningAsError=true,
+which every Lean run of the tests passes; the theorem is added all the
+same) and sorryAx its one axiom, and "No goals to be solved" at a second
+sorry.
 
 Usage: GFORTH=... python3 tests/front/check_tactics.py
        LEAN=... python3 tests/front/check_tactics.py --lean
@@ -177,8 +179,9 @@ def check_shapes():
 
 def lean_messages(path):
     """Pinned Lean's messages on path: (line, kind, text, following lines)."""
-    run = subprocess.run([LEAN, str(path)], cwd=ROOT, stdin=subprocess.DEVNULL,
-                         capture_output=True, text=True, timeout=LIMIT)
+    run = subprocess.run([LEAN, "-DwarningAsError=true", str(path)], cwd=ROOT,
+                         stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                         timeout=LIMIT)
     head = re.compile(r"^[^:]*:(\d+):\d+: (error|warning): (.*)$")
     messages = []
     for line in (run.stdout + run.stderr).splitlines():
@@ -203,7 +206,9 @@ def check_run_lean():
         raise Failure(f"tactic-run.lean: zero_add_open: {unsolved!r}")
     for name in ("zero_add_sorry", "sorry_p"):
         said = [(kind, text) for kind, text, _ in by_name.get(name, [])]
-        if said != [("warning", "declaration uses `sorry`")]:
+        # Lean's warning, an error under -DwarningAsError=true (as every
+        # Lean run of the tests); the theorem is added all the same.
+        if said != [("error", "declaration uses `sorry`")]:
             raise Failure(f"tactic-run.lean: {name}: {said!r}")
         if f"'{name}' depends on axioms: [sorryAx]" not in out:
             raise Failure(f"tactic-run.lean: {name} does not depend on sorryAx alone")
