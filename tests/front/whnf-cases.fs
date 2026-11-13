@@ -82,6 +82,10 @@ defer .t
 : .outcome ( outcome -- ) dup outcome-unsupported = if drop ." unsupported" else outcome-text type then ;
 : whnf-run ( term -- ) lf-whnf-core dup ok? if drop .t else nip .outcome then cr ;
 : infer-run ( term -- ) lf-infer dup ok? if drop .t else nip .outcome then cr ;
+create rxs-buf 8 cells allot
+: rxs ( x0 .. xn-1 n -- addr n ) dup 0 ?do dup 1- i - cells rxs-buf + rot swap ! loop rxs-buf swap ;
+: ibeta-run ( body addr m -- )
+  lf-meta-instantiate-rev-beta dup ok? if drop .t else nip .outcome then cr ;
 : stuck-run ( term -- )
   lf-whnf-stuck dup ok? 0= if nip .outcome cr exit then
   drop if .t else ." none" then cr ;

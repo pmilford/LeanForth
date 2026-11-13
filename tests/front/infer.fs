@@ -128,6 +128,10 @@ create xs 4 cells allot
 : rb= ( body addr m expected -- flag outcome )
   >r lf-meta-instantiate-rev-beta r> swap >r same? r> ;
 T{ 0 bv fk x1 fk rb= 1 bv fk x1 0 bv rb= -> true outcome-ok true outcome-ok }T
+\ Loose indices beyond the arguments are m less, under binders too
+\ (review fe1c-2 re-check N1).
+T{ 2 bv fk x1 1 bv rb= 5 bv fk fa x2 3 bv rb= -> true outcome-ok true outcome-ok }T
+T{ nat 3 bv lam fk x1 nat 2 bv lam rb= 3 bv fk x1 2 bv rb= -> true outcome-ok true outcome-ok }T
 T{ nat 1 bv lam fk x1 nat fk lam rb= nat 0 bv lam fk x1 nat 0 bv lam rb=
    -> true outcome-ok true outcome-ok }T
 T{ 0 bv fa app sfun x1 fs fa app rb= -> true outcome-ok }T

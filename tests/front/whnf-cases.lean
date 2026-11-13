@@ -23,6 +23,9 @@ def whnfCase (e : Expr) : MetaM Unit := do IO.println (← sx (← whnfCore e))
 
 def inferCase (e : Expr) : MetaM Unit := do IO.println (← sx (← inferType e))
 
+def ibetaCase (e : Expr) (args : Array Expr) : MetaM Unit :=
+  do IO.println (← sx (e.instantiateBetaRevRange 0 args.size args))
+
 def stuckCase (e : Expr) : MetaM Unit := do
   match ← getStuckMVar? e with
   | some id => IO.println (← sx (mkMVar id))
@@ -112,6 +115,13 @@ run_meta do
     inferCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) (mkLambda `y .default (mkConst `Nat []) (mkConst `Nat []))) z) s) k)
     inferCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) (mkLambda `y .default (mkConst `Nat []) (mkApp (mkApp (mkApp (mkConst `Eq [(mkLevelSucc .zero)]) (mkConst `Nat [])) (mkBVar 0)) (mkBVar 0)))) z) s) k)
     inferCase (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) (mkLambda `y .default (mkConst `Nat []) (mkConst `Nat []))) z) s)
+    ibetaCase (mkBVar 2) #[k]
+    ibetaCase (mkBVar 3) #[k]
+    ibetaCase (mkBVar 5) #[k, a]
+    ibetaCase (mkLambda `y .default (mkConst `Nat []) (mkBVar 3)) #[k]
+    ibetaCase (mkApp (mkBVar 0) a) #[(mkLambda `y .default (mkConst `Nat []) (mkApp s (mkBVar 0)))]
+    ibetaCase (mkApp (mkApp (mkBVar 1) (mkBVar 0)) (mkBVar 2)) #[a, (mkLambda `y .default (mkConst `Nat []) (mkApp s (mkBVar 0)))]
+    ibetaCase (mkLambda `y .default (mkConst `Nat []) (mkApp (mkBVar 1) (mkBVar 0))) #[(mkLambda `y .default (mkConst `Nat []) (mkApp s (mkBVar 0)))]
     stuckCase n
     stuckCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) n)
     stuckCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) k)

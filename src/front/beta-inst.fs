@@ -109,7 +109,7 @@ end-structure
 : ib-bvar ( node depth -- image )
   over lf-term-first@ swap - dup 0< if drop exit then
   dup ib-m < if nip ib-x exit then
-  nip lf-term-first@ ib-m - lf-term-bvar ib-made ;
+  drop lf-term-first@ ib-m - lf-term-bvar ib-made ;
 : ib-leaf ( node depth -- image ) over ib-bvar? if ib-bvar else drop then ;
 
 \ Binary nodes: children's images, the node rebuilt when one changes.

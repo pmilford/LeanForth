@@ -64,8 +64,9 @@ def pair(a, b):
 SFUN = (LAM, NAT, apps("s", "#0"))
 
 
-# (kind, term, gap): kind "whnf" (whnfCore), "stuck" (getStuckMVar?) or
-# "infer" (inferType);
+# (kind, term, gap): kind "whnf" (whnfCore), "stuck" (getStuckMVar?),
+# "infer" (inferType) or "ibeta" (Expr.instantiateBetaRevRange of a body
+# and its arguments, given as (body, [a0, ...]));
 # gap: None, or the plan item that closes it (LeanForth answers unsupported).
 CASES = [
     ("whnf", rec(apps(SUCC, "k")), None),
@@ -138,6 +139,14 @@ CASES = [
     ("infer", apps(REC, (LAM, NAT, apps(c("Eq", 1), NAT, "#0", "#0")), "z", "s", "k"), None),
     ("infer", apps(REC, (LAM, NAT, NAT), "z", "s"),
      "FE1c instantiateBetaRevRange under a binder (liftLooseBVars)"),
+    ("ibeta", ("#2", ["k"]), None),
+    ("ibeta", ("#3", ["k"]), None),
+    ("ibeta", ("#5", ["k", "a"]), None),
+    ("ibeta", ((LAM, NAT, "#3"), ["k"]), None),
+    ("ibeta", (apps("#0", "a"), [SFUN]), None),
+    ("ibeta", (apps("#1", "#0", "#2"), ["a", SFUN]), None),
+    ("ibeta", ((LAM, NAT, apps("#1", "#0")), [SFUN]),
+     "FE1c instantiateBetaRevRange under a binder (liftLooseBVars)"),
     ("stuck", "?n", None),
     ("stuck", rec("?n"), None),
     ("stuck", rec("k"), None),
@@ -199,6 +208,21 @@ def forth(t):
     return t if t in MVARS else "f" + t
 
 
+def lean_case(kind, t):
+    if kind != "ibeta":
+        return lean(t)
+    body, args = t
+    return f"{lean(body)} #[{', '.join(lean(a) for a in args)}]"
+
+
+def forth_case(kind, t):
+    """An ibeta case's arguments, the last first: bound variable 0's first."""
+    if kind != "ibeta":
+        return forth(t)
+    body, args = t
+    return f"{forth(body)} {' '.join(forth(a) for a in reversed(args))} {len(args)} rxs"
+
+
 LEAN_HEAD = """import Lean
 open Lean Meta
 
@@ -223,6 +247,9 @@ partial def sx : Expr → MetaM String
 def whnfCase (e : Expr) : MetaM Unit := do IO.println (← sx (← whnfCore e))
 
 def inferCase (e : Expr) : MetaM Unit := do IO.println (← sx (← inferType e))
+
+def ibetaCase (e : Expr) (args : Array Expr) : MetaM Unit :=
+  do IO.println (← sx (e.instantiateBetaRevRange 0 args.size args))
 
 def stuckCase (e : Expr) : MetaM Unit := do
   match ← getStuckMVar? e with
@@ -252,7 +279,7 @@ LEAN_SETUP = """run_meta do
 
 
 def lean_source():
-    calls = "\n".join(f"    {kind}Case {lean(t)}" for kind, t, _ in CASES)
+    calls = "\n".join(f"    {kind}Case {lean_case(kind, t)}" for kind, t, _ in CASES)
     return LEAN_HEAD + "\n" + LEAN_SETUP + calls + "\n"
 
 
@@ -273,7 +300,7 @@ def lean_lines():
 
 
 def forth_lines():
-    calls = " ".join(f"{forth(t)} {kind}-run" for kind, t, _ in CASES)
+    calls = " ".join(f"{forth_case(kind, t)} {kind}-run" for kind, t, _ in CASES)
     return run([GFORTH, "tests/front/whnf-cases.fs", "-e", calls + " bye"])
 
 
@@ -316,7 +343,7 @@ def main():
         self_test()
         gaps, mdata = [], []
         for (kind, term, gap), want, got in zip(CASES, lean_lines(), forth_lines()):
-            text = judge(f"{kind} {forth(term)}", gap, want, got)
+            text = judge(f"{kind} {forth_case(kind, term)}", gap, want, got)
             if text:
                 gaps.append(f"{kind} {text}")
             note = mdata_note(kind, gap, want)
@@ -325,7 +352,8 @@ def main():
     except Failure as error:
         print(f"check_whnf: {error}")
         return 1
-    print(f"whnfCore, getStuckMVar? and inferType: {len(CASES) - len(gaps)} of {len(CASES)} "
+    print(f"whnfCore, getStuckMVar?, inferType and instantiateBetaRevRange: "
+          f"{len(CASES) - len(gaps)} of {len(CASES)} "
           "cases equal to "
           f"pinned Lean's; {len(gaps)} gaps answer unsupported, Lean's answer shown: "
           f"{'; '.join(gaps)}; {len(mdata)} of the equal cases equal only once Lean's "

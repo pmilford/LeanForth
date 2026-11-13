@@ -12113,8 +12113,8 @@ reason = "FE1c: a lambda put in at an application's head is left applied, where 
 [[fault]]
 id = "fe-binst-no-shift"
 file = "src/front/beta-inst.fs"
-old = '''  nip lf-term-first@ ib-m - lf-term-bvar ib-made ;'''
-new = '''  nip lf-term-first@ lf-term-bvar ib-made ;'''
+old = '''  drop lf-term-first@ ib-m - lf-term-bvar ib-made ;'''
+new = '''  drop lf-term-first@ lf-term-bvar ib-made ;'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: a loose bound variable above the arguments keeps its index instead of m less"
 
