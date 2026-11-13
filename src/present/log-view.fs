@@ -48,17 +48,16 @@ require ../lib/bytes.fs
 require ../core/derivation-log.fs
 require ../core/input.fs
 
-\ A node being rebuilt: its tag and its two fields, first and second (as
-\ 2! and 2@ keep a pair: lv-node-fields 2@ gives first second).
+\ A node being rebuilt: its tag and its two fields, first and second.
 begin-structure /lv-node
   field: lv-node-tag
-  2 cells +field lv-node-fields
+  field: lv-node-first
+  field: lv-node-second
 end-structure
-: lv-node-second ( node -- addr ) lv-node-fields ;
-: lv-node-first ( node -- addr ) lv-node-fields cell+ ;
 : lv-node! ( tag first second node -- )
-  swap over lv-node-second ! swap over lv-node-first ! lv-node-tag ! ;
-: lv-node@ ( node -- tag first second ) dup lv-node-tag @ swap lv-node-fields 2@ ;
+  tuck lv-node-second ! tuck lv-node-first ! lv-node-tag ! ;
+: lv-node@ ( node -- tag first second )
+  dup lv-node-tag @ swap dup lv-node-first @ swap lv-node-second @ ;
 
 begin-structure /lf-lv
   field: lf-lv-sink          \ xt ( c-addr u -- ) of the finished text
@@ -277,19 +276,32 @@ lf-walk-room context-walk2: lf-lv-pairs
 \ made. A walk has fuel enough for every copy (each is marked once); one
 \ that fails, or a build that fails, leaves no mark. Levels refer only to
 \ levels, so a term's build may rebuild its levels, nesting once.
-\ Levels and terms are rebuilt by the same words: kind is true for levels,
-\ false for terms, and the words just below choose by it. Each kind has
-\ its walk, its cells of made copies and its node record in the block.
+\ Levels and terms are rebuilt by the same words: kind is a record of
+\ what differs, lf-lv-level-kind or lf-lv-term-kind (filled below, once
+\ the words it names are defined; read-only afterwards), which the words
+\ just below read. Each kind has its walk, its cells of made copies and
+\ its node record in the block.
 lf-walk-room context-walk: lf-lv-level-work
 lf-walk-room context-walk: lf-lv-term-work
-: lf-lv-work ( kind -- walk ) if lf-lv-level-work else lf-lv-term-work then ;
-: lf-lv-made-at ( k kind -- addr )
-  if lf-lv lf-lv-lmade else lf-lv lf-lv-made then swap cells + ;
-: lf-lv-rec ( kind -- node ) if lf-lv lf-lv-lnode else lf-lv lf-lv-tnode then ;
-: lf-lv-copies ( kind -- n ) if lf-log-level-copies else lf-log-term-copies then ;
-: lf-lv-input? ( ref kind -- flag ) if lf-level-valid? else lf-term-valid? then ;
-: lf-lv-copy-node ( k kind -- tag first second )
-  if lf-log-level-node@ else lf-log-term-node@ then ;
+begin-structure /lv-kind
+  field: lvk-work      \ xt ( -- walk ) of its marking walk
+  field: lvk-made      \ offset in the block of its cells of made copies
+  field: lvk-node      \ offset in the block of its node record
+  field: lvk-copies    \ xt ( -- n ): the log's copies of the kind
+  field: lvk-valid     \ xt ( ref -- flag ): an input object of the kind
+  field: lvk-read      \ xt ( k -- tag first second ): copy k's node
+  field: lvk-kids      \ xt ( tag first second walk -- outcome ): children marked
+  field: lvk-fields    \ xt ( node -- flag ): the record's fields rebuilt
+  field: lvk-add       \ xt ( k node -- node true | false ): added to its store
+end-structure
+align here /lv-kind allot constant lf-lv-level-kind
+align here /lv-kind allot constant lf-lv-term-kind
+: lf-lv-work ( kind -- walk ) lvk-work @ execute ;
+: lf-lv-made-at ( k kind -- addr ) lvk-made @ lf-lv + swap cells + ;
+: lf-lv-rec ( kind -- node ) lvk-node @ lf-lv + ;
+: lf-lv-copies ( kind -- n ) lvk-copies @ execute ;
+: lf-lv-input? ( ref kind -- flag ) lvk-valid @ execute ;
+: lf-lv-copy-node ( k kind -- tag first second ) lvk-read @ execute ;
 : lf-lv-made? ( addr -- index true | false ) @ dup 0> if 1- true else drop false then ;
 : lf-lv-unmarked ( addr -- ) dup @ -1 = if 0 swap ! else drop then ;
 : lf-lv-valid ( index flag -- index true | false ) dup 0= if nip then ;
@@ -319,8 +331,7 @@ lf-walk-room context-walk: lf-lv-term-work
   lf-level-binary-tag? if r> lf-lv-mark-pair else 2drop r> drop outcome-ok then ;
 : lf-lv-tmark-kids ( tag first second walk -- outcome )
   >r rot lf-term-binary-tag? if r> lf-lv-mark-pair else 2drop r> drop outcome-ok then ;
-: lf-lv-mark-kids ( tag first second walk -- outcome )
-  dup walk-arg @ if lf-lv-lmark-kids else lf-lv-tmark-kids then ;
+: lf-lv-mark-kids ( tag first second walk -- outcome ) dup walk-arg @ lvk-kids @ execute ;
 \ The copy visited, marked unless it is marked or made already.
 : lf-lv-visited ( walk -- k kind ) dup walk-node @ swap walk-arg @ ;
 : lf-lv-unseen? ( walk -- flag )
@@ -363,8 +374,8 @@ defer lf-lv-level ( ref -- level true | false )
   swap lv-node-second swap lf-lv-known! ;
 : lf-lv-lfields! ( node -- flag )
   dup lv-node-tag @ dup lf-level-tag-succ =
-  if drop lv-node-first true lf-lv-known! exit then
-  lf-level-binary-tag? if true lf-lv-both-known! else drop true then ;
+  if drop lv-node-first lf-lv-level-kind lf-lv-known! exit then
+  lf-level-binary-tag? if lf-lv-level-kind lf-lv-both-known! else drop true then ;
 \ A term leaf's fields: a symbolic Sort's level rebuilt, a copied constant
 \ reference rebuilt (its second field then 0).
 : lf-lv-level! ( addr -- flag ) dup @ lf-lv-level if swap ! true else drop false then ;
@@ -377,9 +388,8 @@ defer lf-lv-level ( ref -- level true | false )
     lf-tag-constant of lf-lv-cref! endof nip true swap endcase ;
 : lf-lv-tfields! ( node -- flag )
   dup lv-node-tag @ lf-term-binary-tag?
-  if false lf-lv-both-known! else lf-lv-tleaf! then ;
-: lf-lv-fields! ( kind -- flag )
-  dup lf-lv-rec swap if lf-lv-lfields! else lf-lv-tfields! then ;
+  if lf-lv-term-kind lf-lv-both-known! else lf-lv-tleaf! then ;
+: lf-lv-fields! ( kind -- flag ) dup lf-lv-rec swap lvk-fields @ execute ;
 \ A term takes its binder's name from its partner (lf-lv-names).
 : lf-lv-name-from ( term node -- )
   lf-pres-binder@ if lf-pres-binder! drop else drop then ;
@@ -388,8 +398,20 @@ defer lf-lv-level ( ref -- level true | false )
 : lf-lv-ladd ( k node -- level true | false ) nip lv-node@ lf-level-add ;
 : lf-lv-tadd ( k node -- term true | false )
   lv-node@ lf-term-add if swap lf-lv-named true else drop false then ;
-: lf-lv-add ( k kind -- node true | false )
-  dup lf-lv-rec swap if lf-lv-ladd else lf-lv-tadd then ;
+: lf-lv-add ( k kind -- node true | false ) dup lf-lv-rec swap lvk-add @ execute ;
+\ The two kinds, filled field by field: the level kind's value, then the
+\ term kind's, then the field.
+: lvk-both! ( level-x term-x field-xt -- )
+  tuck lf-lv-term-kind swap execute ! lf-lv-level-kind swap execute ! ;
+' lf-lv-level-work ' lf-lv-term-work ' lvk-work lvk-both!
+0 lf-lv-lmade 0 lf-lv-made ' lvk-made lvk-both!
+0 lf-lv-lnode 0 lf-lv-tnode ' lvk-node lvk-both!
+' lf-log-level-copies ' lf-log-term-copies ' lvk-copies lvk-both!
+' lf-level-valid? ' lf-term-valid? ' lvk-valid lvk-both!
+' lf-log-level-node@ ' lf-log-term-node@ ' lvk-read lvk-both!
+' lf-lv-lmark-kids ' lf-lv-tmark-kids ' lvk-kids lvk-both!
+' lf-lv-lfields! ' lf-lv-tfields! ' lvk-fields lvk-both!
+' lf-lv-ladd ' lf-lv-tadd ' lvk-add lvk-both!
 : lf-lv-made! ( k kind node -- node ) dup 1+ 2swap lf-lv-made-at ! ;
 : lf-lv-build ( k kind -- node true | false )
   2dup lf-lv-read dup lf-lv-fields! 0= if 2drop false exit then
@@ -410,9 +432,9 @@ defer lf-lv-level ( ref -- level true | false )
 : lf-lv-rebuilt ( ref kind -- node true | false )
   lf-lv-lost? if 2drop false exit then over 0< 0= if lf-lv-input exit then
   over lf-log-copy? if swap lf-log-copy-index swap lf-lv-copy else 2drop false then ;
-: lf-lv-level-rebuilt ( ref -- level true | false ) true lf-lv-rebuilt ;
+: lf-lv-level-rebuilt ( ref -- level true | false ) lf-lv-level-kind lf-lv-rebuilt ;
 ' lf-lv-level-rebuilt is lf-lv-level
-: lf-lv-term ( ref -- term true | false ) false lf-lv-rebuilt ;
+: lf-lv-term ( ref -- term true | false ) lf-lv-term-kind lf-lv-rebuilt ;
 \ Forget the rebuilt nodes: the stores back to the input marks. A rollback
 \ that fails is counted (then nothing more is rebuilt or printed).
 : lf-lv-release ( -- )
@@ -539,23 +561,35 @@ defer lf-lv-level ( ref -- level true | false )
 : lf-lv-published ( s -- )
   s" d" lf-lv-put dup lf-lv-a lf-lv-n s" , " lf-lv-put lf-lv-b lf-lv-n s"  dependencies"
   lf-lv-put ;
-\ What a step relates, by its rule: an inference rule's term and type,
-\ then a CASE with one arm per rule (read as a table), the comparisons and
-\ term rules (codes below lf-rule-resolve) apart from the environment's;
-\ any other rule's a as a declaration.
-: lf-lv-term-rule ( s rule -- )
-  case lf-rule-whnf of lf-lv-reduced endof lf-rule-beta of lf-lv-beta endof
-    lf-rule-defeq of lf-lv-defeq endof lf-rule-level-eq of lf-lv-levels endof
-    lf-rule-instantiate of lf-lv-beta endof lf-rule-shift of lf-lv-shifted endof
-    lf-rule-instantiate-levels of lf-lv-with-levels endof swap lf-lv-decl endcase ;
-: lf-lv-env-rule ( s rule -- )
-  case lf-rule-resolve of lf-lv-resolve endof lf-rule-universe-arity of lf-lv-arity endof
-    lf-rule-proposition of lf-lv-formed endof lf-rule-type of lf-lv-formed endof
-    lf-rule-declaration of lf-lv-defined endof lf-rule-publish of lf-lv-published endof
-    lf-rule-universe-parameter of lf-lv-a lf-lv-name-id endof swap lf-lv-decl endcase ;
-: lf-lv-relates ( s -- )
-  dup lf-lv-rule dup lf-lv-infer-rule? if drop lf-lv-typed exit then
-  dup lf-rule-resolve < if lf-lv-term-rule else lf-lv-env-rule then ;
+: lf-lv-parameter ( s -- ) lf-lv-a lf-lv-name-id ;
+\ What a step relates, by its rule: a word ( s -- ) for each rule code
+\ below lf-rule-limit, in a table filled once while loading (read-only
+\ afterwards): an inference rule's term and type, each comparison's, term
+\ rule's and environment rule's own, and any other rule's a as a
+\ declaration, as for a code outside the table.
+align here lf-rule-limit cells allot constant lf-lv-relaters
+: lf-lv-relater! ( xt rule -- ) cells lf-lv-relaters + ! ;
+: lf-lv-relaters-fill ( -- )
+  lf-rule-limit 0 do ['] lf-lv-decl i lf-lv-relater! loop
+  lf-rule-form 1+ lf-rule-sort do ['] lf-lv-typed i lf-lv-relater! loop ;
+lf-lv-relaters-fill
+' lf-lv-reduced lf-rule-whnf lf-lv-relater!
+' lf-lv-beta lf-rule-beta lf-lv-relater!
+' lf-lv-defeq lf-rule-defeq lf-lv-relater!
+' lf-lv-levels lf-rule-level-eq lf-lv-relater!
+' lf-lv-beta lf-rule-instantiate lf-lv-relater!
+' lf-lv-shifted lf-rule-shift lf-lv-relater!
+' lf-lv-with-levels lf-rule-instantiate-levels lf-lv-relater!
+' lf-lv-resolve lf-rule-resolve lf-lv-relater!
+' lf-lv-arity lf-rule-universe-arity lf-lv-relater!
+' lf-lv-formed lf-rule-proposition lf-lv-relater!
+' lf-lv-formed lf-rule-type lf-lv-relater!
+' lf-lv-defined lf-rule-declaration lf-lv-relater!
+' lf-lv-published lf-rule-publish lf-lv-relater!
+' lf-lv-parameter lf-rule-universe-parameter lf-lv-relater!
+: lf-lv-relater ( rule -- xt )
+  dup 0 lf-rule-limit within if cells lf-lv-relaters + @ else drop ['] lf-lv-decl then ;
+: lf-lv-relates ( s -- ) dup lf-lv-rule lf-lv-relater execute ;
 : lf-lv-premise-list ( s -- )
   dup lf-lv-premises dup 0= if 2drop exit then s"   ← " lf-lv-put
   0 ?do i if s" , " lf-lv-put then dup i lf-lv-premise lf-lv-step loop drop ;

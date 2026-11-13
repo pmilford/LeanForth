@@ -5216,8 +5216,8 @@ reason = "a copied successor level does not mark its copied child, which is then
 [[fault]]
 id = "log-view-shift-listed-as-redex"
 file = "src/present/log-view.fs"
-old = '''lf-rule-shift of lf-lv-shifted endof'''
-new = '''lf-rule-shift of lf-lv-beta endof'''
+old = '''' lf-lv-shifted lf-rule-shift lf-lv-relater!'''
+new = '''' lf-lv-beta lf-rule-shift lf-lv-relater!'''
 test = "$GFORTH tests/core/derivation-log.fs"
 reason = "a shift step's line shows a redex instead of the shifted term and its amount"
 
@@ -12073,3 +12073,46 @@ old = ''': irx-lit-fits ( index fits? -- ) if drop else irx-unfit! then ;'''
 new = ''': irx-lit-fits ( index fits? -- ) 2drop ;'''
 test = "$GFORTH tests/program/ir-run.fs"
 reason = "FRP F: a literal beyond the cell is not marked unfit, so it runs as a wrapped number instead of the model's unmodeled"
+
+# --- the step list's rule table (src/present/log-view.fs; the
+# refactor-present review's L3, plan 9.4.5) ---------------------------------
+
+[[fault]]
+id = "log-view-relater-unguarded"
+file = "src/present/log-view.fs"
+old = '''  dup 0 lf-rule-limit within if cells lf-lv-relaters + @ else drop ['] lf-lv-decl then ;'''
+new = '''  cells lf-lv-relaters + @ ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "refactor-present L3: a rule code outside the table reads a cell past it"
+
+[[fault]]
+id = "log-view-form-not-typed"
+file = "src/present/log-view.fs"
+old = '''  lf-rule-form 1+ lf-rule-sort do ['] lf-lv-typed i lf-lv-relater! loop ;'''
+new = '''  lf-rule-form lf-rule-sort do ['] lf-lv-typed i lf-lv-relater! loop ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "refactor-present L3: a form step's line shows a declaration instead of its term and type"
+
+[[fault]]
+id = "log-view-kinds-kids-swapped"
+file = "src/present/log-view.fs"
+old = '''' lf-lv-lmark-kids ' lf-lv-tmark-kids ' lvk-kids lvk-both!'''
+new = '''' lf-lv-tmark-kids ' lf-lv-lmark-kids ' lvk-kids lvk-both!'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "refactor-present L2: each kind marks its copies' children as the other kind's"
+
+[[fault]]
+id = "log-view-kinds-share-made"
+file = "src/present/log-view.fs"
+old = '''0 lf-lv-lmade 0 lf-lv-made ' lvk-made lvk-both!'''
+new = '''0 lf-lv-made 0 lf-lv-made ' lvk-made lvk-both!'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "refactor-present L2: level copies are recorded as made in the term copies' cells"
+
+[[fault]]
+id = "log-view-node-fields-swapped"
+file = "src/present/log-view.fs"
+old = '''  dup lv-node-tag @ swap dup lv-node-first @ swap lv-node-second @ ;'''
+new = '''  dup lv-node-tag @ swap dup lv-node-second @ swap lv-node-first @ ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "refactor-present I1: a rebuilt node's first and second fields are read swapped"
