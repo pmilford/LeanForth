@@ -129,6 +129,23 @@ back in the text form and `make check` compares it with the IR file.
 `make check` also plants two faults that Lean must reject: a postcondition
 changed without its proofs, and the program's MAX and MIN exchanged.
 
+**No contract text enters the Lean file as code** (since 2026-11-13, after
+review B1 of the [verify design](../design/VERIFY_COMMAND.md)). Only the
+expression parser's output becomes Lean terms. The contract's `statement`
+is not copied into the file at all (it stays in the summary and the
+receipt): before, it was a doc comment, and a statement holding
+`` -/ macro_rules | `($a ≥ $b) => `($a ≤ $a) /-- `` ended the comment and
+redefined `≥`, so that pinned Lean proved a false clamp contract. Names
+and paths that still appear inside comments or string literals (the
+contract's id, word and path, its `ir` path, the IR's names and source
+path) are refused, as malformed, when they hold `-/` or `/-` (Lean's
+comment delimiters; its block comments nest), a quote or backslash where
+they sit inside a string, or a control, format or separator character
+(Unicode Cc, Cf, Cs, Zl, Zp); the statement and the stack effect are
+refused for the same characters. `tests/program/vc_check.py` runs the
+reviewer's contract and a hostile corpus, and checks that any other
+statement gives the same Lean file.
+
 ## Results (2026-11-02)
 
 | Word | Contract | Paths (obligations) | Status |

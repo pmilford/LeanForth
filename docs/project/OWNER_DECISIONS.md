@@ -1155,3 +1155,42 @@ and small follow-ups go into the branch that caused them. Kept unchanged: plante
 change to `src/`, both Gforth versions, the daily uncached run and the done checker. Items 1 and 2 at push time need
 scripts (plan 9.4.6); until they land, `scripts/push.sh` keeps running both CI jobs in full.
 
+
+### Gate approvals and omega (2026-11-13, morning)
+
+Asked in plain language with the reviewers' summaries (reports in `docs/development/forth-reviews/`):
+
+- **Snapshot compatibility, plan 6.2.5c steps c1-c5 [format][kernel][import]: approved,** with the relaxed "copied from
+  the old file" mark in base snapshots accepted until step c6 adds a record of which files are upgrades (it changes
+  labels only, never a verdict). Evidence: every older snapshot is re-checked in full today and equals a fresh check
+  (all of Init, 59,349 declarations, 0 differences); the review and its three re-checks are not blocking; 25 planted
+  faults caught. Risk accepted: a future rule change with a wrong "reach" note is caught only by the comparison tests on
+  the test snapshots, so each such note is reviewed with its change.
+- **Elaboration data format 2 (FE1e1) [import][format]: approved;** format 2 replaces format 1. The kernel never reads
+  this file.
+- **The job pool fails closed when the host refuses threads [runtime]: approved.** The rare hang when a thread dies
+  during start-up stays a plan task.
+- **FE1i, omega:** "The improvements to omega are good, hide them behind an improved performance flag so we can do both,
+  default is full compatibility." So: by default `by-omega` is a port of Lean 4.35.0's omega, succeeding and failing
+  exactly where Lean does; improvements beyond Lean's (goals Lean's omega cannot close, or faster search) go behind an
+  opt-in flag, reported as such, and never change the default outcome. The flag's name and report wording are settled
+  in the FE1i design before FE1i-5 starts.
+
+### Design stage (2026-11-13, morning; plan 9.4.7)
+
+The owner asked to review the design stage ("seems like too many sub tasks and is the design reviewed"); the count is
+in [DESIGN_STAGE_REVIEW.md](../development/DESIGN_STAGE_REVIEW.md): eight designs, about 7,000 lines in about 14 hours,
+about 95 sub-steps, none independently reviewed before code; six kinds of design problems found late. The owner chose
+every recommendation:
+
+1. **A design review before code.** An independent reviewer (not the author) reviews each design once, with a re-check
+   if needed, against the checklist of the review note: Lean fidelity of functions and data structures; what the next
+   layers need (consumers); work in flight on the same files; slices that each end in a command a user can run, with
+   tests and documentation in the slice; trust and gates; size; the owner's questions with recommendations. Then the
+   owner approves a one-page summary before code starts. Kernel designs keep AGENTS.md's ADR gate on top.
+2. **The plan re-cut into user-visible slices:** S1-S6 (front end), V1-V4 (`leanforth verify`) and one slice for the
+   rest of snapshot compatibility, about 11 slices in place of about 50 sub-steps; running work folds into its slice.
+3. **A design's main text about 300 lines,** Lean-source notes and long tables in an appendix.
+4. **The existing, never-reviewed designs reviewed now:** the front-end designs together before S1 goes further, and
+   VERIFY_COMMAND before V1 merges.
+

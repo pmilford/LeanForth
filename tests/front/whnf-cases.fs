@@ -38,15 +38,19 @@ variable cn-k  variable cn-name
 : rec ( -- t ) lv1 1 s" Nat.rec" cn ;
 
 \ Free variables, let variables and metavariables, with their names.
-create names 32 cells allot  variable #names
+create names 64 cells allot  variable #names   \ 32 names (defeq-cases.fs adds some)
 : named ( term c -- ) #names @ 2* cells names + tuck cell+ ! ! 1 #names +! ;
-: local ( type c -- fvar ) swap lf-lctx-local made tuck swap named ;
+\ Each free variable also enters the current local context (Lean's
+\ withLocalDecl), which the metavariables made after it see.
+: in-view ( fvar -- fvar )
+  dup 0 0 lf-local-new made lf-mctx-view swap lf-view-push made lf-mctx-view! ;
+: local ( type c -- fvar ) swap lf-lctx-local made in-view tuck swap named ;
 nat char m local constant fm   nat char z local constant fz   nat char s local constant fs
 nat char k local constant fk   nat char x local constant fx   nat char a local constant fa
 nat char b local constant fb
 l0 l0 2 s" Prod" cn nat app nat app char p local constant fp
 nat fs 0 bv app lam constant sfun
-nat sfun lf-lctx-let made constant fg  fg char g named
+nat sfun lf-lctx-let made in-view constant fg  fg char g named
 nat mv-natural lf-mvar-new made constant ?n  ?n char n named
 nat mv-natural lf-mvar-new made constant ?h  ?h char h named
 nat mv-natural lf-mvar-new made constant ?f  ?f char f named

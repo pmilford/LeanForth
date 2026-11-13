@@ -424,12 +424,20 @@
   "words": 29
  },
  "src/front/elab-data.fs": {
-  "globals": 15,
+  "globals": 37,
   "long lines": 0,
   "long words": 0,
   "rstack": 23,
-  "shuffles": 13,
-  "words": 144
+  "shuffles": 27,
+  "words": 298
+ },
+ "src/front/elab-keys.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 2,
+  "words": 27
  },
  "src/front/mvars.fs": {
   "globals": 0,
@@ -880,7 +888,7 @@
   "words": 29
  },
  "src/kernel/verdict-version.fs": {
-  "globals": 0,
+  "globals": 1,
   "long lines": 1,
   "long words": 0,
   "rstack": 0,

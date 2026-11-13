@@ -4,7 +4,8 @@
 Usage: python3 tests/cli/run_group.py N      (N = 1..4)
 
 Parts 1-3 name their slow classes (measured 2026-11-12: MemoryPerCheck 36 s, Jobs 24 s, Imports 13 s on one core;
-since the evening the slowest tests of MemoryPerCheck and Jobs run their cases two at a time, about half as long);
+since the evening the slowest tests of MemoryPerCheck and Jobs run their cases two at a time, about half as long;
+OlderSnapshots, the snapshots of older verdict versions, about 90 s, joined part 1 that night);
 part 4 runs every other class, so a new class always runs somewhere and nothing is skipped."""
 import pathlib
 import sys
@@ -14,7 +15,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import test_leanforth as cli  # noqa: E402
 
 PARTS = {
-    1: ["MemoryPerCheck", "Progress", "Slice", "VerdictGuard"],
+    1: ["MemoryPerCheck", "Progress", "Slice", "VerdictGuard", "OlderSnapshots"],
     2: ["Jobs", "TextJobs", "Engines", "Fuel", "Resources"],
     3: ["Imports", "Snapshots", "Layers", "AsCopied"],
 }

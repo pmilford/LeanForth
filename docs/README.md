@@ -81,6 +81,8 @@ features they describe.
 - [process-audits/](development/process-audits/2026-11-12-agents-md.md) — audits of the AGENTS.md rules against practice.
 - [ci-results.log](development/ci-results.log) — every push's local CI results with the Gforth and Lean versions (written by `scripts/push.sh`).
 - [FORTH_LIBRARY.md](development/FORTH_LIBRARY.md) — inventory of reusable Forth facilities and what is still missing.
+- [design-reviews/LOG.md](development/design-reviews/LOG.md) — the independent design reviews required before code (owner, 2026-11-13): reports and verdicts.
+- [DESIGN_STAGE_REVIEW.md](development/DESIGN_STAGE_REVIEW.md) — 2026-11-13 review of the design stage: eight designs, about 95 sub-steps, none reviewed before code; the design review checklist and the re-cut into user-visible slices (plan 9.4.7, decided by the owner).
 - [TEST_WORKFLOW_REVIEW.md](development/TEST_WORKFLOW_REVIEW.md) — 2026-11-13 count of repeated test runs on four small tasks (`lib/sort.fs`, `lib/bigint.fs`, FE1g-1, coverage follow-ups) and proposals for less repetition (plan 9.4.6, owner decisions open).
 - [TEST_COVERAGE_REVIEW.md](development/TEST_COVERAGE_REVIEW.md) — 2026-11-02 coverage review: findings and their status.
 - [INSTALLATION_LOG.md](development/INSTALLATION_LOG.md) — every install and verification command actually run.

@@ -173,7 +173,7 @@ end-structure
 : if-pi ( body i -- pi outcome )
   dup if-x lf-fvar-type over if-abstract ok-then? 0= if nip nip no-result exit then
   rot lf-term-pi 0= if drop -1 outcome-full exit then
-  swap if-lams slab-at @ lf-meta-named outcome-ok ;
+  swap if-lams slab-at @ lf-meta-named ;
 : if-close ( type -- type' outcome )
   if-xs slab-count tuck if-abstract ok-then? 0= if nip no-result exit then
   swap begin dup 0> while 1- tuck if-pi ok-then? 0= if nip no-result exit then swap repeat

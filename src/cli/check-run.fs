@@ -191,6 +191,8 @@ begin-structure /ck
   field: ck-any-lean             \ true: an export of any Lean version (ck-any-version!)
   field: ck-jobs-asked           \ workers of a parallel check (ck-jobs!); 0, 1: serial
   field: ck-serial-why           \ why workers were asked for but not used (ck-why-*), or 0
+  field: ck-pool-made            \ workers the pool ran with (ck-pool-started?)
+  field: ck-pool-lacked          \ and those it started without: the host refused them
   field: ck-print                \ the fed input's fingerprint: every worker's must be it
   /ck-lend +field ck-lent       \ the references the workers read (ck-lent!)
   /ck-lend +field ck-lend-now   \ and as they are now (ck-moved?)
@@ -234,6 +236,8 @@ begin-structure /ck
   field: ck-snap-bad             \ true: the snapshot was refused
   field: ck-layers               \ layers loaded on the base
   field: ck-lay-ids              \ per layer loaded, its identity (ck-layer-id), or 0
+  field: ck-jobs-kept            \ the workers asked for, kept while a snapshot loads
+  field: ck-carry-xt             \ ( -- ) run after the carry pass, or 0 (ck-carried!)
 end-structure
 create ck-state /ck allot  ck-state /ck erase
 create ck-snap /snap allot  ck-snap snap-init   \ the snapshot loaded (a base)
@@ -274,6 +278,11 @@ create ck-worker-feed /feed allot  ck-worker-feed /feed erase
 \ (negative) refusal.
 1 constant ck-why-host         \ threads here need an x86-64 host (ADR 0009)
 : ck-why ( -- n ) ck-state ck-serial-why @ ;
+\ Workers the pool ran with, and those it started without because the
+\ host refused them (it then runs with those it made, lib/task.fs): 0
+\ when it made all, and always on the serial host, which makes none.
+: ck-made ( -- n ) ck-state ck-pool-made @ ;
+: ck-lacked ( -- n ) ck-state ck-pool-lacked @ ;
 : ck-jobs ( -- n ) ck-state ck-jobs-asked @ ;
 : ck-parallel? ( -- flag ) ck-jobs 1 > ;
 : ck-staged-names ( -- n ) ck-state ck-names# @ ;
@@ -408,6 +417,13 @@ create ck-line ck-line-room 2 + allot
 \ An export checked against a snapshot (ck-snapshot-import) is read on
 \ into the snapshot's tier, then sealed.
 : ck-importing? ( -- flag ) ck-state ck-importing @ ;
+\ A carry run (plan step 6.2.5c3; kernel/env-import.fs, "The carry
+\ pass"): the snapshot is a base of an older verdict version inside the
+\ window, so its results are carried where the steps since cannot reach
+\ and the rest checked again. The import pass runs in a carry run of a
+\ snapshot alone as with an export, over the snapshot's own declarations.
+: ck-carrying? ( -- flag ) ck-state ck-snapped @ ck-snap snap-carry @ and ;
+: ck-passing? ( -- flag ) ck-importing? ck-carrying? or ;
 \ Not after a refused snapshot (ck-snapshot-import's outcome not ok).
 : ck-continued ( c-addr u checked? -- outcome )
   ck-state ck-snap-bad @ if drop 2drop outcome-invalid exit then
@@ -511,7 +527,7 @@ create ck-line ck-line-room 2 + allot
   ck-staged ck-staging ck-phase-end ck-staging ck-fail ;
 \ After an import's feed: the input as the import pass reads it.
 : ck-import-input ( -- outcome )
-  ck-importing? if ck-import imp-input else outcome-ok then ;
+  ck-passing? if ck-import imp-input else outcome-ok then ;
 : ck-fed-all ( -- outcome )
   ck-fed dup ok? if drop ck-import-input then dup ok? if ck-print! ck-workers then ;
 : ck-feed-phase ( -- outcome )
@@ -548,10 +564,19 @@ create ck-line ck-line-room 2 + allot
 \ ---- Checking, one declaration at a time.
 : ck-diag! ( addr -- )
   >r lf-diag@ r@ kept-code ! r@ kept-site ! r@ kept-second ! r> kept-first ! ;
-\ Keep what declaration d's check left, with the outcome it published.
-: ck-keep ( outcome d -- )
+\ Keep what declaration d's check left, with the outcome it published;
+\ in a carry run, whether d (and its block) answers as the snapshot's
+\ slot it was judged against (env-import.fs imp-same, I3).
+: ck-keep-facts ( outcome d -- )
   2dup ck-used over ck-kept cks-fuel ! dup ck-step-reached over ck-kept kept-step !
   ck-kept dup ck-diag! kept-outcome ! ;
+\ A carry run that checks what it does not carry; with --snapshot-stale-ok
+\ that rest is published from the snapshot instead (stale), so no slot is
+\ checked here and none may answer as a saved one (review of snap-compat
+\ M1: a stale slot compared with itself would let its users be carried).
+: ck-rechecking? ( -- flag ) ck-carrying? snap-stale-allowed @ 0= and ;
+: ck-same ( d -- ) ck-rechecking? if ck-import imp-same else drop then ;
+: ck-keep ( outcome d -- ) dup ck-same ck-keep-facts ;
 \ Check declaration d: whether the run must stop, after a fault of the
 \ publisher or a THROW in the check (the context is then spent); a stop
 \ is kept (ck-faulted?).
@@ -572,9 +597,31 @@ create ck-line ck-line-room 2 + allot
 \ A declaration taken from a snapshot before the run (ck-import-pass): its
 \ slot is final, its facts the snapshot's.
 : ck-taken? ( d -- flag )
-  ck-importing? if ck-import imp-source 0< 0= else drop false then ;
+  ck-passing? if ck-import imp-source 0< 0= else drop false then ;
+\ A carry run's declaration not taken before the run for its answers is
+\ judged again on its turn (plan step 6.2.5c4; env-import.fs imp-decide):
+\ taken now, with its block, their facts the snapshot's (ck-span-facts);
+\ a failure to take stops the run. ck-pre is the same decision before a
+\ parallel run hands d out (env-schedule.fs lf-sched-pre!).
+: ck-deferred? ( d -- flag )
+  ck-rechecking? if dup lf-env-published? 0= swap ck-import imp-deferred? and
+  else drop false then ;
+: ck-fact-of ( k -- )
+  dup ck-import imp-source over ck-kept snap-fact swap ck-kept cks-fuel ! ;
+: ck-span-facts ( d -- ) begin dup ck-fact-of 1+ dup member-here? 0= until drop ;
+: ck-turn ( d -- stop? )
+  dup ck-deferred? 0= if drop false exit then
+  dup ck-import imp-decide 1 = if drop ck-span-facts false exit then ok? 0= nip ck-stop! ;
+\ A failure to take stops the parallel run at d, as the serial run stops
+\ there (the hook's answer 3; review of snap-compat L4).
+: ck-pre-failed ( d outcome -- n ) 2drop true ck-state ck-faulted ! 3 ;
+: ck-pre ( d -- n )
+  dup ck-deferred? 0= if drop 0 exit then
+  dup ck-import imp-decide over ok? 0= if drop ck-pre-failed exit then
+  nip dup 1 = if drop ck-span-facts 1 else nip then ;
 : ck-next ( d -- stop? )
-  dup 1+ ck-state ck-stepped ! dup ck-taken? if drop false exit then
+  dup 1+ ck-state ck-stepped ! dup ck-turn if drop true exit then
+  dup ck-taken? if drop false exit then
   dup lf-env-published? if ck-trailing false else ck-step then ;
 
 \ The run's own environment, by identity (never another one that happens
@@ -765,15 +812,19 @@ create ck-pline-parts
   dup 0 ?do i ck-jobs-trail loop ck-unkeep ;
 \ A tick after each job gives out what became final (ck-advance).
 : ck-tick! ( -- ) ck-watching? if ['] ck-tick lf-sched-tick! then ;
+: ck-pre! ( -- ) ck-rechecking? if ['] ck-pre lf-sched-pre! then ;
 : ck-jobs-run ( -- )
-  ck-tick! ck-check-word ['] ck-keep ['] ck-worker-new ['] lf-sched-run context-catch
-  throw ck-jobs-facts ;
+  ck-tick! ck-pre! ck-check-word ['] ck-keep ['] ck-worker-new ['] lf-sched-run
+  context-catch throw ck-jobs-facts ;
 \ The pool is started before the run, so that a refusal (no threads, as
 \ near the process limit) leaves the whole run to the serial one, with the
-\ workers freed and the cause kept for the report.
+\ workers freed and the cause kept for the report. A pool the host made
+\ only some workers of runs the checks on those; the shortfall is kept.
+: ck-lacked! ( -- )
+  workers-running dup ck-state ck-pool-made ! pool-size swap - ck-state ck-pool-lacked ! ;
 : ck-pool-started? ( -- flag )
-  lf-sched-pool-start ?dup if ck-state ck-serial-why ! lf-sched-free false
-  else true then ;
+  lf-sched-pool-start ?dup if ck-state ck-serial-why ! lf-sched-free false exit then
+  ck-lacked! true ;
 : ck-steps-any ( n -- )
   ck-relent ck-jobs-run? if lf-sched-plan ok? if ck-pool-started? if
     drop ck-jobs-run ck-finished exit then then then
@@ -792,27 +843,33 @@ create ck-pline-parts
 : ck-snap-refused ( outcome -- )
   ck-state ck-loaded ! ck-staging ck-state ck-failed ! true ck-state ck-faulted !
   true ck-state ck-snap-bad ! ck-env-free ;
+\ Only where every slot not taken was published from the snapshot
+\ (snap-fill): a snapshot alone, not carried or carried with
+\ --snapshot-stale-ok (the rest shown stale).
+: ck-filled? ( -- flag )
+  ck-snapped? ck-importing? 0= and ck-check-word ['] snap-fill = and ;
 : ck-snap-after ( -- )
-  ck-snapped? ck-importing? 0= and 0= if exit then
+  ck-filled? 0= if exit then
   ck-snap snap-same? dup ok? if drop ck-snap-facts else ck-snap-refused then ;
 \ An export checked against a snapshot: first the import pass
 \ (kernel/env-import.fs), whose taken declarations keep the snapshot's
 \ fuel and diagnostic; a pass that fails refuses the snapshot, the run
 \ stopped before any check. True when the run goes on.
-: ck-import-facts ( -- )
-  lf-input-count 0 ?do
-    i ck-import imp-source dup 0< if drop else
-      i ck-kept snap-fact i ck-kept cks-fuel ! then
-  loop ;
+: ck-import-facts ( -- ) lf-input-count 0 ?do i ck-taken? if i ck-fact-of then loop ;
 : ck-import-refused ( outcome -- )
   c" a slot taken from it was published otherwise" ck-import imp-k @ ck-snap snap-note
   ck-snap-refused ;
 : ck-import-pass ( -- flag )
-  ck-importing? 0= if true exit then
+  ck-passing? 0= if true exit then
   ck-import imp-pass dup ok? if drop ck-import-facts true exit then
   ck-import-refused false ;
+\ After a carry run's pass, before any check: the caller's word, which
+\ says how many it carried and will check again (the owner, 2026-11-12).
+: ck-carried! ( xt -- ) ck-state ck-carry-xt ! ;
+: ck-carried. ( -- ) ck-carrying? if ck-state ck-carry-xt @ ?dup if execute then then ;
 : ck-run-all ( -- outcome )
-  ck-import-pass if lf-input-count ck-steps-any ck-snap-after then ck-confirm ck-tally ;
+  ck-import-pass if ck-carried. lf-input-count ck-steps-any ck-snap-after then
+  ck-confirm ck-tally ;
 : ck-checking-run ( -- outcome )
   ck-facts dup ok? if drop ck-env then dup ok? if drop ck-run-all then ;
 : ck-check ( -- ) ck-phase-begin ck-checking-run ck-outcome! ck-checking ck-phase-end ;
@@ -910,13 +967,20 @@ create ck-manifest-path manifest-name-room 16 + allot
   ck-manifest-text 2@ drop ?dup if free drop then 0 0 ck-manifest-text 2! ;
 \ A declaration's facts for the snapshot: its fuel used and kept step.
 : ck-fact ( d -- fuel step ) dup ck-fuel-of swap ck-kept ;
-\ A snapshot is written after a final run (a base), or after an export
+\ A snapshot is written after a final run (a base), after an export
 \ checked against a base alone (a layer of that base: ADR 0020 amendment
-\ 1, F5; plan step SN4), never after a run of a snapshot alone or of
-\ layers.
+\ 1, F5; plan step SN4), or after a run of a base alone (the base written
+\ again with this build's versions, plan step 6.2.5c5, R8: the upgrade of
+\ an older one, its carried results marked taken); never after a run of
+\ layers or one that shows results stale.
 : ck-layers# ( -- n ) ck-state ck-layers @ ;
+: ck-unstale? ( -- flag ) ck-snap snap-stale @ ck-carrying? ck-filled? and or 0= ;
+\ An export checked against a snapshot of an older verdict version would
+\ write a layer of this build's version on a base no build loads it on:
+\ refused until plan step 6.2.5c7 (review of snap-compat L7).
+: ck-carry-import? ( -- flag ) ck-importing? ck-carrying? and ;
 : ck-save-kind? ( -- flag )
-  ck-snapped? 0= ck-importing? ck-layers# 0= and or ;
+  ck-snapped? 0= ck-layers# 0= ck-unstale? and ck-carry-import? 0= and or ;
 : ck-saveable? ( -- flag )
   ck-loaded? ck-outcome ok? and ck-stopped? 0= and ck-save-kind? and ;
 \ A layer: what was not taken, numbered on from the base's.
@@ -925,10 +989,21 @@ create ck-manifest-path manifest-name-room 16 + allot
   ck-snap snap-sum ck-import imp-firsts@ ck-out snap-layer-base!
   ck-import imp-layer-slots ck-out snap-layer-slots!
   ck-import imp-layer-decls ck-out snap-layer-decls! outcome-ok ;
+\ An upgraded base names the export its snapshot names: the same
+\ identity, flags and manifest (no export is read).
+: ck-old-export ( -- )
+  ck-snap snap-export-sha ck-snap snap-export-bytes ck-snap snap-export-lines
+  ck-snap snap-flags ck-out snap-export!
+  ck-snap snap-manifest-sha ck-out snap-manifest-sha! ;
+: ck-old-manifest ( -- )
+  ss-manifest ck-snap snap-block ss-manifest ck-snap snap-size ck-out snap-manifest! ;
+: ck-export-id ( -- outcome )
+  ck-snapped? ck-importing? 0= and if ck-old-export ck-old-manifest outcome-ok exit then
+  ck-snap-export dup ok? 0= if exit then drop ck-snap-manifest ;
 : ck-snap-prepared ( info-addr info-u -- outcome )
   ck-out snap-begin dup ok? 0= if nip nip exit then drop ck-out snap-info!
-  ck-snap-export dup ok? 0= if exit then drop ['] ck-fact ck-out snap-facts!
-  ck-snap-manifest dup ok? ck-importing? and if drop ck-layer-set then ;
+  ['] ck-fact ck-out snap-facts! ck-export-id dup ok? ck-importing? and
+  if drop ck-layer-set then ;
 : ck-snap-written ( file-addr file-u info-addr info-u -- outcome )
   ck-snap-prepared dup ok? 0= if nip nip exit then drop
   ck-fuel-budget ck-stage ck-out snap-save ;
@@ -993,11 +1068,33 @@ end-structure
   ck-layer-names 2@ nip 0 ?do
     i ck-layer dup ok? 0= if nip nip unloop exit then drop 1 ck-state ck-layers +!
   loop 2drop outcome-ok ;
+\ A base of an older verdict version inside the window is carried alone
+\ or with an export; with layers (plan step 6.2.5c7), or with an export
+\ and --snapshot-stale-ok, it is stale when that flag is given (every
+\ result taken labelled stale), else refused (unsupported, "older base
+\ with layers"; review of snap-compat L1).
+: ck-uncarried? ( -- flag )
+  ck-layer-names 2@ nip 0<> ck-importing? snap-stale-allowed @ and or ;
+: ck-uncarried ( -- outcome )
+  outcome-unsupported c" older base with layers" ck-snap snap-refuse ;
+: ck-carry-or-stale ( -- outcome )
+  ck-snap snap-carry @ ck-uncarried? and 0= if outcome-ok exit then
+  snap-stale-allowed @ 0= if ck-uncarried exit then
+  false ck-snap snap-carry ! true ck-snap snap-stale ! outcome-ok ;
 : ck-snap-base ( -- outcome )
   ck-snap-read dup ok? 0= if exit then drop ck-firsts!
-  ck-stage-slots ck-snap snap-read dup ok? 0= if exit then drop ck-layers-load ;
+  ck-stage-slots ck-snap snap-read dup ok? 0= if exit then drop
+  ck-carry-or-stale dup ok? 0= if exit then drop ck-layers-load ;
+\ The snapshot's declarations kept aside for the import pass (imp-keep),
+\ its carry pass set when it is of an older verdict version (imp-carry!).
+: ck-older! ( -- )
+  ck-snap snap-carry @ if ck-snap snap-verdict ck-import imp-carry! then ;
+: ck-keep-aside ( -- outcome )
+  ck-stage ck-import imp-keep dup ok? 0= if exit then drop ck-older!
+  ck-import imp-sn@ ck-snap snap-n @ = flag>outcome ;
 : ck-snap-tier ( -- outcome )
-  ck-snap-base dup ok? 0= if exit then drop ck-stage stage-seal ;
+  ck-snap-base dup ok? 0= if exit then drop
+  ck-carrying? if ck-keep-aside dup ok? 0= if exit then drop then ck-stage stage-seal ;
 : ck-snap-opened ( c-addr u fuel xt -- outcome )
   >r ck-snap snap-open dup ok? 0= if r> drop exit then drop r> execute
   dup ok? if ck-snap snap-fuel ck-state ck-budget ! then ;
@@ -1018,11 +1115,33 @@ end-structure
 : ck-snap-only? ( -- flag ) ck-snapped? ck-importing? 0= and ;
 : ck-snap-named ( c-addr u -- )
   ck-state ck-snap-file 2! true ck-state ck-snapped ! ck-snap snap-loading ! ;
+\ Every slot is published from the snapshot (snap-fill), serially; but a
+\ carry run checks what it does not carry, with the workers asked for,
+\ unless --snapshot-stale-ok shows that rest stale instead.
+: ck-jobs-back ( -- ) ck-state ck-jobs-kept @ ck-state ck-jobs-asked ! ;
+: ck-filling ( -- )
+  ck-rechecking? if ck-jobs-back else ['] snap-fill ck-check-word! then ;
+\ A carry run of a snapshot alone after a step that changed the importer
+\ (reach-reading; review of snap-compat M2): the snapshot's records are
+\ the older build's reading of the export, so nothing is carried or
+\ checked again from them: stale with --snapshot-stale-ok, else refused
+\ (unsupported, "export reading": check the export, or check it against
+\ the snapshot, whose import pass reads it again).
+: ck-reread? ( -- flag )
+  ck-carrying? ck-importing? 0= and if ck-import imp-rereads? else false then ;
+: ck-unread ( -- outcome )
+  outcome-unsupported c" export reading" ck-snap snap-refuse ck-snap-fails
+  ck-staging ck-state ck-failed ! ;
+: ck-reading ( -- outcome )
+  ck-reread? 0= if outcome-ok exit then snap-stale-allowed @ 0= if ck-unread exit then
+  false ck-snap snap-carry ! true ck-snap snap-stale ! outcome-ok ;
+\ After the snapshot's phase: the reading, then the stage fed.
+: ck-snap-rest ( -- outcome )
+  ck-reading dup ok? 0= if exit then drop ck-filling ck-stage-facts
+  ck-feed-phase dup ok? if ck-input-facts ck-snap-slots then ;
 : ck-snapshot-load ( c-addr u fuel -- outcome )
-  >r 2dup ck-snap-named r> 0 ck-state ck-jobs-asked !
-  ['] snap-fill ck-check-word! ck-snap-phase dup ok? if drop ck-stage-facts
-  ck-feed-phase dup ok? if ck-input-facts ck-snap-slots then then dup ck-state ck-loaded !
-  ;
+  >r 2dup ck-snap-named r> ck-jobs ck-state ck-jobs-kept ! 0 ck-state ck-jobs-asked !
+  ck-snap-phase dup ok? if drop ck-snap-rest then dup ck-state ck-loaded ! ;
 
 \ ---- An export checked against a snapshot (ADR 0020 D5; plan step SN4;
 \ kernel/env-import.fs). ck-snapshot-import ( c-addr u fuel -- outcome ),
@@ -1036,10 +1155,7 @@ end-structure
 \ ck-check then runs the pass first (ck-import-pass) and checks the rest,
 \ in parallel with --jobs. Kept: ck-importing?, ck-layers#, and in
 \ ck-import the counts.
-: ck-snap-kept ( -- outcome )
-  ck-snap-base dup ok? 0= if exit then drop
-  ck-stage ck-import imp-keep dup ok? 0= if exit then drop
-  ck-import imp-sn@ ck-snap snap-n @ = flag>outcome ;
+: ck-snap-kept ( -- outcome ) ck-snap-base dup ok? 0= if exit then drop ck-keep-aside ;
 : ck-snapshot-import ( c-addr u fuel -- outcome )
   >r 2dup ck-snap-named r> true ck-state ck-importing ! ck-phase-begin
   ['] ck-snap-kept ck-snap-opened ck-snap-fails
@@ -1048,9 +1164,19 @@ end-structure
 \ Whether a snapshot loaded (the base or a layer) is stale: of an older
 \ verdict version, which --snapshot-stale-ok let load (env-snapshot.fs
 \ snap-stale-allowed); its results are then reported as stale.
+\ In a carry run with --snapshot-stale-ok, what is not carried is stale.
 : ck-stale? ( -- flag )
   ck-snapped? 0= if false exit then
-  ck-snap snap-stale @ ck-layers# 0 ?do i ck-layer-stale? or loop ;
+  ck-snap snap-stale @ ck-carrying? ck-filled? and or
+  ck-layers# 0 ?do i ck-layer-stale? or loop ;
+\ A carry run (plan step 6.2.5c3): d carried, its result of the snapshot's
+\ older verdict version taken because this build's changes since cannot
+\ affect it; how many; why d was checked again (env-import.fs imp-reason,
+\ 0 for none); how many were checked again for one why.
+: ck-carried? ( d -- flag ) ck-carrying? if ck-taken? else drop false then ;
+: ck-carried# ( -- n ) ck-carrying? if ck-taken# else 0 then ;
+: ck-reason ( d -- why ) ck-carrying? if ck-import imp-reason else drop 0 then ;
+: ck-again# ( why -- n ) 0 lf-input-count 0 ?do over i ck-reason = - loop nip ;
 \ Declarations checked in this run: final, not taken from the snapshot
 \ (a stopped run checked fewer than it did not take; review rvSN4 m3).
 : ck-checked# ( -- n )
@@ -1061,5 +1187,7 @@ end-structure
   ck-verdicts? 0= if 0 exit then
   0 lf-input-count 0 ?do i lf-env-origin lf-origin-saved = - loop ;
 : ck-other# ( -- n ) ck-import imp-other# ;
+\ Results labelled stale: taken from the snapshot, not carried.
+: ck-stale# ( -- n ) ck-verdicts? if ck-saved# ck-carried# - else 0 then ;
 
 base !   \ the BASE this file was loaded with

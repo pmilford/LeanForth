@@ -185,25 +185,34 @@ wrong twins of the first two rejected, in 16 to 19 s and 0.6 GB each
 in this run"). `--env` and `--snapshot` do not go together.
 
 **The library's elaboration data** (`--elab-data DATA`, plan row FE1d).
-Lean's instances, default instances, reducibility and the eliminators of
-`induction` and `cases` are not in an export; `scripts/export-elab.sh`
+Several facts are not in an export: Lean's classes, its instances (with
+their order in Lean's instance tree), default instances, reducibility, the
+eliminators of `induction` and `cases`, and the tags, matchers and
+projection functions that Meta's whnf reads. `scripts/export-elab.sh`
 writes them for the export's modules with pinned Lean, beside the export
-([ELABORATION_DATA.md](../programming/ELABORATION_DATA.md)). With
-`--elab-data DATA` and a library (`--env` or `--snapshot`), DATA is read
-after the library and before the text runs, and checked against the
-library: written for its export (the SHA-256 its manifest, its snapshot or,
-with `--no-manifest`, the file itself gives), every name one of its
-declarations of the right kind, nothing missing, added or changed. The
-values themselves (which class an instance serves, priorities,
+([ELABORATION_DATA.md](../programming/ELABORATION_DATA.md), format 2).
+With `--elab-data DATA` and a library (`--env` or `--snapshot`), DATA is
+read after the library and before the text runs, and checked against the
+library:
+
+- it is written for its export (the SHA-256 that its manifest, its
+  snapshot or, with `--no-manifest`, the file itself gives);
+- every name is one of its declarations, of the right kind;
+- instance keys are well formed;
+- ranks have no gap;
+- matchers and projections fit their types;
+- nothing is missing, added or changed.
+
+The values themselves (which class an instance serves, ranks, priorities,
 reducibility) are pinned Lean's, taken on trust
 ([what is checked](../programming/ELABORATION_DATA.md#what-it-is-and-why)).
-The counts read are printed first; the verdicts are those of the same run
-without it, since nothing uses the data yet (the elaborator of plan rows
+The counts read are printed first. The verdicts are those of the same run
+without the data, since nothing uses it yet (the elaborator of plan rows
 FE1e and FE1g will):
 
 ```console
 $ bin/leanforth check --env tests/author/init-slice.ndjson --elab-data tests/front/init-slice.elab.ndjson tests/author/19-add-zero.lf | head -1
-elaboration data: 3 instances, 2 default instances, 18 reducibility statuses, 0 eliminators
+elaboration data: 3 instances, 2 default instances, 18 reducibility statuses, 0 eliminators, 54 instances left out, 3 classes, 5 tags, 4 matchers, 3 projections
 ```
 
 Refused data stops the run before the text runs, with the line, the
@@ -214,7 +223,7 @@ test file `tests/front/cut-off.elab.ndjson` lacks its last record:
 
 ```console
 $ bin/leanforth check --env tests/author/init-slice.ndjson --elab-data tests/front/cut-off.elab.ndjson tests/author/19-add-zero.lf
-error: invalid: the elaboration data was refused at line 27 (error 20): records differ in number from the header; the LeanForth text was not checked
+error: invalid: the elaboration data was refused at line 96 (error 20): records differ in number from the header; the LeanForth text was not checked
 ```
 
 `--elab-data` without `--env` or `--snapshot`, with an export instead of
@@ -297,7 +306,7 @@ wrong word builds a different term, which the checker checks as it is.
 | --- | --- |
 | `check [--env EXPORT \| --snapshot FILE] [--no-manifest] [--fuel N] [--resources] [--checked] [--strict-axioms] [--any-lean-version] [--jobs N] [--progress[=SECONDS]] [--memory-per-check MB] [--elab-data DATA] FILE.lf` | Check a [LeanForth text](#checking-leanforth-text): its declarations built by LeanForth's words and checked as an export's, against the library export EXPORT (its manifest checked unless `--no-manifest`) or a snapshot FILE when one is given; a text that stops with an error is not checked; DATA, the library's [elaboration data](../programming/ELABORATION_DATA.md), is checked against the library first, and refused data stops the run |
 | `check [--no-manifest] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--jobs N] [--progress[=SECONDS]] [--memory-per-check MB] [--save-snapshot FILE] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text; with `--jobs N`, check with [N workers at once](#parallel-checking---jobs); with `--memory-per-check MB`, give each check [at most MB megabytes of scratch](#memory-per-check---memory-per-check); with `--progress`, write [a status line](#progress-and-partial-results---progress) to standard error every minute; with `--save-snapshot FILE`, also write the checked environment to FILE ([snapshots](#snapshots---save-snapshot-and---snapshot)) |
-| `check --snapshot FILE [--snapshot LAYER ...] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--no-manifest] [--jobs N] [--save-snapshot LAYER] [--snapshot-stale-ok] [EXPORT]` | Report the verdicts a [snapshot](#snapshots---save-snapshot-and---snapshot) and its layers hold, each labelled as taken from it and not re-checked; with EXPORT, check it against them, taking what they vouch for and checking the rest, and with `--save-snapshot`, write what was checked as a layer: for development and research only |
+| `check --snapshot FILE [--snapshot LAYER ...] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--no-manifest] [--jobs N] [--save-snapshot LAYER] [--snapshot-stale-ok] [EXPORT]` | Report the verdicts a [snapshot](#snapshots---save-snapshot-and---snapshot) and its layers hold, each labelled as taken from it and not re-checked (of one of the two previous verdict versions, [carrying](#older-snapshots-two-verdict-versions-back) what this build's changes cannot reach and checking the rest); with EXPORT, check it against them, taking what they vouch for and checking the rest, and with `--save-snapshot`, write what was checked as a layer; without EXPORT, `--save-snapshot NEW` writes the snapshot again with this build's versions (an upgrade): for development and research only |
 | `check [--no-manifest] [--fuel N] [--checked] [--strict-axioms] --record RECORD EXPORT` | Check a small export (read straight into the checker's stores) and also write its [run record](#run-records-and-replay) |
 | `replay [--no-manifest] [--fuel N] [--checked] EXPORT RECORD` | Check the export again and compare the new run record with RECORD; print the replay report |
 | `print [--no-manifest] [--fuel N] [--checked] [--detail] [--name NAME] [--latex] [--statement FORMS] [--kernel] [--any-lean-version] EXPORT`, or `print --lf [--no-manifest] [--fuel N] [--checked] [--any-lean-version] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration; `--lf` writes the whole export as one [LeanForth text](#writing-an-export-as-leanforth-text) |
@@ -360,7 +369,9 @@ Options:
   share one copy of the input; each adds only its own scratch and caches
   (the resource report says how many were made). On a host that is not x86-64
   (threads without memory barriers) or where the thread pool cannot start,
-  the check runs one declaration at a time and the resource report says why.
+  the check runs one declaration at a time and the resource report says why;
+  where the system starts only some of the threads (near its process
+  limit), the workers share those, and the report says how many started.
 - `--memory-per-check MB` (`check` only, not with `--record`) gives each
   declaration's check at most MB megabytes (of 2^20 bytes) of scratch; a
   check that would pass it is *full* ([memory per check](#memory-per-check---memory-per-check)).
@@ -817,7 +828,13 @@ workers: 2.3 seconds, against 16.3). When no worker can be
 made (no memory; or, from a Forth session, a context that ran checks
 before, whose input then has another fingerprint than a new worker's),
 the run checks one declaration at a time, and the resource report says
-so. With `--resources` the
+so. When the system refuses threads (near its process limit, `ulimit
+-u`), the run uses the worker threads it could start, with the same
+output, and `--resources` says how many under the workers line, for
+example `worker tasks started: 6 (the system refused 2 more)` for
+`--jobs 8`; when it refuses every one, the run checks one declaration at
+a time and the report says "the thread pool could not start (code
+-4100)". With `--resources` the
 report adds a line naming the workers and how many checks were handed
 out, run again, refused by readiness or forced (the last two are 0 unless
 LeanForth's plan of which declaration needs which is wrong).
@@ -1102,8 +1119,10 @@ OQ-3). The exit status follows the verdicts as in a final run. A
 snapshot is refused (nothing reported as checked) when it is damaged,
 altered or cut short (status 4, `error: invalid: the snapshot was
 refused: …` naming the section, and the record when there is one), when
-it was written by another verdict version (stale: check the export again,
-or see [stale snapshots](#stale-snapshots---snapshot-stale-ok))
+it was written by a verdict version newer than this build's or more than
+two older (check the export again, or see
+[older snapshots](#older-snapshots-two-verdict-versions-back) and
+[stale snapshots](#stale-snapshots---snapshot-stale-ok))
 or format version or is a layer given without its base (status 2), or for other
 settings: `--fuel N` other than the snapshot's (by default its own
 fuel is used) or another axiom allowlist (status 4). A snapshot of an
@@ -1247,16 +1266,82 @@ twice; a layer given first is refused as `layer`
 with several `--snapshot` options is refused, status 4), and FILE must not
 be the snapshot read.
 
+#### Older snapshots (two verdict versions back)
+
+*Plan steps 6.2.5c1-c3 ([SNAPSHOT_COMPATIBILITY.md](../design/SNAPSHOT_COMPATIBILITY.md),
+ADR 0020 Amendment 5); the [format], [kernel] and [import] gates are
+owed.* A snapshot written under one of the two verdict versions before
+this build's loads without a flag. Each change of the verdict version
+has a **reach** in `src/kernel/verdict-version.fs`: the declarations it
+can possibly affect (all of them, inductive blocks, nested blocks, ...).
+LeanForth **carries** a saved result -- verdict, fuel, axioms, lists --
+only when the declaration lies outside the reach of every change since
+the snapshot's version, its saved outcome is not *full*, *invalid* or
+*exhausted*, and every result its lookups reach was carried too or,
+checked again in this run, gives the same answers (its verdict, axioms,
+warnings, recipe, shape and marks; plan step 6.2.5c4: decided on the
+declaration's turn, or with `--jobs` before it is handed to a worker); it
+checks everything else again, so every result shown is this build's
+(the owner, 2026-11-12: exact verdict and fuel). Before checking, the
+text report says how many it will check again and why ("at most" while
+some wait for their turn):
+
+```text
+carry: a snapshot of verdict version 8, this build's 9: 0 results carried; to check again: 2 (2 inside the reach of verdict version 9's change)
+Implies: accepted (checked in this run: inside the reach of verdict version 9's change); axioms: none
+...
+snapshot: unfold.lfsnap (sha256 86623af8…), export sha256 99b7bfa6…, verdict version 8 (this build: 9), written by LeanForth 2ad871ec…: 0 results carried from it, not re-checked in this run
+carried: this build's changes since that verdict version cannot affect them
+checked again: 2 (2 inside the reach of verdict version 9's change)
+```
+
+A carried result reads `accepted (from snapshot of verdict version 8,
+carried: this build's changes since cannot affect it; not re-checked in
+this run)`; in JSON it is `provenance` `snapshot`, with
+`snapshot.verdictVersion` the file's (the report's members for the
+carried and checked-again counts come with its next version, a [format]
+decision). Today's steps 9 (and 3-5) reach every declaration, so a
+snapshot of version 7 or 8 is checked again whole, as the tests show on
+the fixtures in `tests/snapshots/` (every result equal to a fresh
+check's); narrower steps carry more. With an export (`check --snapshot
+OLD EXPORT`) the same rule decides what the import pass takes.
+
+**Upgrading a snapshot** (plan step 6.2.5c5): `check --snapshot OLD
+--save-snapshot NEW`, with no export, writes NEW as a base of this
+build's versions over OLD's records and export (no export is read), its
+carried results marked as taken from OLD (slot provenance 2), the rest
+as checked in this run; NEW then loads as this build's version. On the
+fixtures every field the verdict version covers in NEW equals this
+build's own snapshot of the export. It is refused with layers (status 4)
+and with `--snapshot-stale-ok`. Not yet: layers on an older base or older
+layers (plan step 6.2.5c7: refused, `older base with layers` or `older
+layer`, status 2, or all stale with `--snapshot-stale-ok`), and a layer
+written after an export checked against an older base (`the snapshot was
+not written: invalid`, status 4: upgrade the base first). A snapshot
+older than the window (`note: this build reads snapshots of verdict
+versions 7 to 9`) or newer than this build is refused (status 2). After
+a change of how LeanForth reads exports (a step whose reach holds
+`reach-reading`; none so far), an older snapshot is refused alone
+(`export reading`, status 2): its records are the older build's reading
+of the export, so check the export, or check it against the snapshot,
+whose import pass reads it again; `--snapshot-stale-ok` shows it stale.
+With `--snapshot-stale-ok` nothing is checked: what is not carried at
+once, users of results not carried included, is shown stale.
+
 #### Stale snapshots (`--snapshot-stale-ok`)
 
 *A development flag the owner approved (2026-11-11; ADR 0020 amendment
-3).* A snapshot written under an older verdict version (the checker's
-rules changed since) is refused by default. With `--snapshot-stale-ok`
+3).* A snapshot written under a verdict version older than the window
+above is refused by default. With `--snapshot-stale-ok`
 it loads, and every result taken from it is labelled stale, never as
 this build's verdict: `from a stale snapshot (an older verdict version),
 not this build's verdict` in the text, with `stale:` lines that count
 them, and `stale-snapshot` (or `uses-stale-snapshot` for one checked here
-but resting on them) in JSON, where `snapshot.stale` gives the count. A
+but resting on them) in JSON, where `snapshot.stale` gives the count.
+Inside the window the flag means "carry, and show the rest stale instead
+of checking it": carried results as above, every other one shown with its
+saved result, labelled stale (with an export, or layers, every result is
+stale, as before). A
 snapshot of a newer verdict version than this build's is refused still,
 the flag needs `--snapshot`, and it does not go with `--save-snapshot`
 (a stale verdict is never written into another snapshot). Use it to look
@@ -1268,9 +1353,13 @@ run supports a claim.
 1. **Save the base once.** A final run of a library writes its snapshot
    (`check --jobs N --save-snapshot mathlib.lfsnap mathlib.ndjson`; every
    full Mathlib run saves one, owner 2026-11-11). The snapshot is valid
-   for every LeanForth build of the same verdict version; a bump of the
-   verdict version needs it written again (or `--snapshot-stale-ok` for a
-   look in the meantime).
+   for every LeanForth build of the same verdict version; the next two
+   verdict versions load it and check again what their changes can reach
+   ([older snapshots](#older-snapshots-two-verdict-versions-back)), and
+   `check --snapshot OLD --save-snapshot NEW` writes it again with the new
+   version (an upgrade, without reading the export); later ones need it
+   written again from the export (or `--snapshot-stale-ok` for a look in
+   the meantime).
 2. **Check a dependent library or a slice against it.**
    `check --snapshot mathlib.lfsnap physlib.ndjson` reads the dependent
    export (which holds every Mathlib declaration it uses) on into the

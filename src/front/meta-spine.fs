@@ -13,15 +13,23 @@
 \   declaration of a constant's name (Lean's find?; core/input.fs).
 \ - lf-meta-levels-fill ( slot slab -- outcome ): a constant reference's
 \   universe arguments, as levels, into the slab, emptied first.
-\ - lf-meta-named ( new old -- new ): a rebuilt binder gets the old one's
-\   name and kind (present/binder-table.fs), when it has them.
+\ - lf-meta-named ( new old -- new outcome ): a rebuilt binder gets the
+\   old one's name and kind (present/binder-table.fs), when it has them;
+\   full when the table has no room for them (a rebuilt node that is an
+\   input node keeps its record's: ok).
 \ - lf-meta-mvar-free? ( term -- flag ): no metavariable in the term, as
 \   far as the term store tells: a binary node's data word is known only
 \   then (core/terms.fs), a leaf is no metavariable (Lean's !hasExprMVar;
 \   a node whose word is unknown is taken to hold one).
+\ - lf-meta-fvar-free? ( term -- flag ): the term's data word shows no
+\   free variable (false when the store keeps no word for it).
+\ - lf-meta-tag? ( term tag -- flag ): the term's tag is tag;
+\   lf-meta-fvar? ( term -- flag ): a free variable.
+\ - lf-meta-args# ( term -- n ): the number of arguments of its spine.
+\ - lf-meta-pop ( slab -- x ): the slab's last cell, taken off.
 \ Unchecked: the terms are live, the constant is one, the slab is a cell
-\ slab. State: none of its own; every word takes its slab. Loads in
-\ decimal whatever BASE is, then restores it.
+\ slab (not empty for lf-meta-pop). State: none of its own; every word
+\ takes its slab. Loads in decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
@@ -29,6 +37,7 @@ require ../lib/slab.fs
 require ../core/terms.fs
 require ../core/constant-references.fs
 require ../core/input.fs
+require ../core/local-context.fs
 require ../core/mvar-leaves.fs
 require ../present/binder-table.fs
 
@@ -50,10 +59,17 @@ require ../present/binder-table.fs
   dup slab-clear swap dup lf-cref-pairs nip 0 ?do
     2dup i ms-level swap lf-meta-push dup ok? 0= if nip nip unloop exit then drop
   loop 2drop outcome-ok ;
-: lf-meta-named ( new old -- new )
-  lf-pres-binder@ if 2>r dup 2r> lf-pres-binder! drop then ;
+: ms-full ( outcome -- outcome' ) outcome-full = if outcome-full else outcome-ok then ;
+: lf-meta-named ( new old -- new outcome )
+  lf-pres-binder@ if 2>r dup 2r> lf-pres-binder! ms-full else outcome-ok then ;
 : ms-binary? ( term -- flag ) lf-term-tag@ lf-term-binary-tag? ;
 : lf-meta-mvar-free? ( term -- flag )
   dup ms-binary? if lf-term-data@ dup if nip then exit then lf-term-tag@ lf-tag-mvar <> ;
+: lf-meta-fvar-free? ( term -- flag ) lf-term-data@ if lf-data-fvar? 0= else false then ;
+: lf-meta-tag? ( term tag -- flag ) swap lf-term-tag@ = ;
+: lf-meta-fvar? ( term -- flag ) lf-tag-fvar lf-meta-tag? ;
+: lf-meta-args# ( term -- n )
+  0 swap begin dup lf-meta-app? while lf-term-first@ swap 1+ swap repeat drop ;
+: lf-meta-pop ( slab -- x ) dup slab-count 1- over slab-at @ -1 rot slab-commit ;
 
 base !   \ the BASE this file was loaded with
