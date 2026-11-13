@@ -4949,8 +4949,8 @@ quick = true
 [[fault]]
 id = "cli-statement-forms-wrong-bit"
 file = "src/cli/print.fs"
-old = '''  2dup s" lean" compare 0= if 2drop lf-form-lean exit then'''
-new = '''  2dup s" lean" compare 0= if 2drop lf-form-mathematics exit then'''
+old = '''  lf-form-lean , s" lean" counted,'''
+new = '''  lf-form-mathematics , s" lean" counted,'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Print"
 reason = "--statement lean selects the mathematics line"
 quick = true
@@ -11472,3 +11472,71 @@ old = '''    lf-tag-lit of lf-rebuild-keep endof'''
 new = '''    lf-tag-lit of lf-rebuild-bad endof'''
 test = "$GFORTH tests/core/mixed-instantiate.fs"
 reason = "instantiate refuses a natural-number literal as malformed"
+
+# --- print's and print --lf's words, help's exit codes (src/cli/print.fs,
+# print-lf.fs, leanforth.fs; the FRP review's batch C, plan 9.4.5) --------
+
+[[fault]]
+id = "pr-ends-unguarded"
+file = "src/cli/print.fs"
+old = '''  2 pick over u< if 2drop false exit then
+  2swap 2 pick pr-split 2rot compare 0= ;'''
+new = '''  2swap 2 pick pr-split 2rot compare 0= ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "FRP C4: a part longer than the text is compared with the bytes before it"
+
+[[fault]]
+id = "pr-named-any-separator"
+file = "src/cli/print.fs"
+old = '''    r> lf-name-prefix@ dup if >r pr-dot? 0= if r> drop 2drop false exit then r> then'''
+new = '''    r> lf-name-prefix@ dup if >r pr-dot? drop r> then'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "FRP C4: any character between two components passes for the dot (--name)"
+
+[[fault]]
+id = "pr-item-keeps-comma"
+file = "src/cli/print.fs"
+old = ''': pr-cut ( c u c2 u2 -- rest-addr rest-u c u' ) rot over - >r 1 /string rot r> ;'''
+new = ''': pr-cut ( c u c2 u2 -- rest-addr rest-u c u' ) rot over - >r rot r> ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "FRP C4: the rest of a --statement list keeps its comma"
+
+[[fault]]
+id = "pr-form-text-bit"
+file = "src/cli/print.fs"
+old = '''  lf-form-text , s" text" counted,'''
+new = '''  lf-form-lean , s" text" counted,'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "FRP C3: --statement text selects the Lean form"
+
+[[fault]]
+id = "fl-reason-past-table"
+file = "src/cli/print-lf.fs"
+old = '''  dup 0 fl-reasons within 0= if drop s" ?" exit then'''
+new = '''  dup 0 fl-reasons 1+ within 0= if drop s" ?" exit then'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "FRP C5: a number past the reasons reads a text after the table"
+
+[[fault]]
+id = "fl-universes-one-slot"
+file = "src/cli/print-lf.fs"
+old = '''  0 ?do dup i lf-param@ i fl-universe ! loop drop ;'''
+new = '''  0 ?do dup i lf-param@ 0 fl-universe ! loop drop ;'''
+test = "python3 tests/author/check_author.py"
+reason = "FRP C5: print --lf writes every universe parameter of a declaration into the first"
+
+[[fault]]
+id = "fl-whole-type-value-swapped"
+file = "src/cli/print-lf.fs"
+old = ''': fl-type-value ( idecl -- type value ) dup lf-idecl-type @ swap lf-idecl-value @ ;'''
+new = ''': fl-type-value ( idecl -- type value ) dup lf-idecl-value @ swap lf-idecl-type @ ;'''
+test = "python3 tests/author/check_author.py"
+reason = "FRP C5: print --lf writes a declaration's value as its statement"
+
+[[fault]]
+id = "cli-codes-order-stale"
+file = "src/cli/leanforth.fs"
+old = '''  ."   5, 4, 1, 3, 2, 6 wins" cr ;'''
+new = '''  ."   5, 4, 3, 1, 2, 6 wins" cr ;'''
+test = "python3 tests/cli/test_leanforth.py Behaviour.test_informational"
+reason = "FRP C2: help states an order of severity that is not tally.fs's"

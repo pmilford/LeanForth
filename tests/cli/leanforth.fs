@@ -687,5 +687,87 @@ T{ lf-sched-init lf-sched lf-sch-states /slab erase lf-sched-plan
 sched-unlent
 T{ depth -> 0 }T
 
+\ print's text words (cli/print.fs; FRP review C3, C4). pr-ends? ( c u pa
+\ pu -- c u' flag ): the text without the part, true; or false (u' then
+\ unspecified). The part longer than the text, empty, or all of it.
+: abc ( -- c-addr u ) s" abc" ;
+\ The text abc ends with c-addr u: u' and the flag, and whether c-addr
+\ stayed abc's.
+: ends ( c-addr u -- u' flag same? ) abc 2swap pr-ends? rot abc drop = ;
+T{ s" bc" ends -> 1 true true }T
+T{ s" abc" ends -> 0 true true }T
+T{ s" " ends -> 3 true true }T
+T{ s" xc" ends rot drop -> false true }T
+T{ s" ab" ends rot drop -> false true }T
+T{ s" zabc" ends rot drop -> false true }T
+T{ abc drop 0 s" " pr-ends? rot drop -> 0 true }T
+T{ abc drop 0 s" a" pr-ends? rot drop -> 0 false }T
+\ A part longer than the text is refused before any byte is read, even
+\ when the bytes before the text would match it.
+: zabc ( -- c-addr u ) s" zabc" ;
+T{ zabc 1 /string zabc pr-ends? nip nip -> false }T
+\ pr-item ( c u -- rest-addr rest-u item-addr item-u ): the first name of
+\ a comma-separated list and the rest after its comma, else the end.
+: item ( c-addr u -- rest-u item-addr item-u ) pr-item 2swap nip -rot ;
+: lean ( -- c-addr u ) s" lean" ;
+T{ s" lean,text" item s" lean" compare -> 4 0 }T
+T{ s" lean,text" pr-item 2drop s" text" compare -> 0 }T
+T{ lean pr-item lean d= -rot lean + 0 d= -> true true }T
+T{ s" ,x" item nip -> 1 0 }T
+T{ s" a," item s" a" compare -> 0 0 }T
+T{ s" " item nip -> 0 0 }T
+\ pr-form-bit and pr-forms (--statement): each name's bit, all of them,
+\ any other text 0; a list joined by commas, refused when empty, with an
+\ empty or unknown name, or ending with a comma.
+T{ s" lean" pr-form-bit s" text" pr-form-bit -> lf-form-lean lf-form-text }T
+T{ s" mathematics" pr-form-bit s" leanforth" pr-form-bit
+   -> lf-form-mathematics lf-form-leanforth }T
+T{ s" all" pr-form-bit s" " pr-form-bit s" al" pr-form-bit s" alll" pr-form-bit
+   -> lf-forms-all 0 0 0 }T
+T{ s" Lean" pr-form-bit s" lean " pr-form-bit s" leanforth," pr-form-bit -> 0 0 0 }T
+T{ s" lean" pr-forms s" lean,text,leanforth" pr-forms -> lf-form-lean true 13 true }T
+T{ s" all" pr-forms s" lean,lean" pr-forms -> lf-forms-all true lf-form-lean true }T
+T{ s" " pr-forms s" lean," pr-forms s" ,lean" pr-forms -> false false false }T
+T{ s" lean,,text" pr-forms s" lean,bogus" pr-forms s" ," pr-forms -> false false false }T
+\ pr-named? ( c-addr u id -- flag ): the text spells the name: components
+\ joined by dots, numbers in decimal; a name longer than the text, a text
+\ longer than the name, an empty component.
+: nm ( prefix c-addr u -- id ) lf-name-str 0= abort" nm: no name" ;
+: nm# ( prefix n -- id ) lf-name-num 0= abort" nm#: no name" ;
+fresh constant names-context
+0 s" Nat" nm constant n-nat
+n-nat s" add_zero" nm constant n-add-zero
+n-nat 12 nm# constant n-nat-12
+0 s" " nm constant n-empty
+0 s" a" nm s" " nm constant n-a-empty
+T{ s" Nat.add_zero" n-add-zero pr-named? s" Nat" n-nat pr-named? -> true true }T
+T{ s" Nat.12" n-nat-12 pr-named? s" Nat.1" n-nat-12 pr-named? -> true false }T
+T{ s" add_zero" n-add-zero pr-named? s" Nat.add_zer" n-add-zero pr-named? -> false false }T
+T{ s" XNat.add_zero" n-add-zero pr-named? s" .Nat.add_zero" n-add-zero pr-named?
+   -> false false }T
+T{ s" Nat_add_zero" n-add-zero pr-named? s" zero" n-add-zero pr-named? -> false false }T
+T{ s" " n-empty pr-named? s" x" n-empty pr-named? s" " n-nat pr-named? -> true false false }T
+T{ s" a." n-a-empty pr-named? s" a" n-a-empty pr-named? -> true false }T
+names-context back
+
+\ print --lf's reasons (cli/print-lf.fs; FRP review C5): each one's text,
+\ and "?" for any other code.
+: reason ( reason c-addr u -- flag ) rot fl-reason-text compare 0= ;
+T{ fl-inductive s" an inductive type" reason
+   fl-constructor s" an inductive type's constructor" reason -> true true }T
+T{ fl-recursor s" a recursor" reason fl-quotient s" a quotient constant" reason
+   -> true true }T
+T{ fl-block s" an inductive block's header" reason fl-opaque s" an opaque constant" reason
+   -> true true }T
+T{ fl-unsafe s" an unsafe or partial declaration" reason
+   fl-arity s" more than 8 universe parameters" reason -> true true }T
+T{ fl-unsupported s" a name, literal or term form the words cannot write" reason
+   -> true }T
+T{ fl-invalid s" a term the input does not hold (let, metadata) or malformed" reason
+   -> true }T
+T{ fl-fuel s" the printer ran out of fuel or room" reason -> true }T
+T{ fl-none s" ?" reason -1 s" ?" reason fl-reasons 1+ s" ?" reason -> true true true }T
+T{ depth -> 0 }T
+
 cases-done
 bye
