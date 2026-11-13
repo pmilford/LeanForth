@@ -154,8 +154,8 @@ end-structure
   de-aborted? if drop 2drop exit then
   de-save dup ok? 0= if de-abort drop 2drop exit then drop 0 df df-m ! de-regs! ;
 : de-spend? ( -- flag )
-  df df-fuel @ dup 0> if 1- df df-fuel ! true else drop outcome-exhausted de-abort false
-  then ;
+  df df-fuel @ dup 0> if 1- df df-fuel ! true exit then
+  drop outcome-exhausted de-abort false ;
 : de-goto ( t s entry -- ) de-aborted? de-spend? 0= or if drop 2drop exit then de-regs! ;
 defer de-solve-x ( -- )   \ isExprDefEqAux
 defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
@@ -177,32 +177,30 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
   df df-next @ de-stall = if outcome-invalid de-abort then ;
 : de-loop ( -- ) begin df df-next @ de-done <> while de-step repeat ;
 \ Marks: checkpointDefEq keeps the assignments when the answer is true.
-: de-mark? ( -- flag ) lf-mctx-mark dup ok? if drop df df-m ! true else nip de-abort false
-  then ;
+: de-mark? ( -- flag )
+  lf-mctx-mark dup ok? if drop df df-m ! true else nip de-abort false then ;
 : de-close ( r -- r )
   de-m 0 df df-m ! over lf-lb-true = if lf-mctx-commit else lf-mctx-rollback then
   dup ok? if drop else de-abort then ;
 : de-close-k ( r -- ) de-close de-return ;
 : de-roll ( -- ) de-m ?dup if lf-mctx-rollback drop 0 df df-m ! then ;
-: de-unwind ( -- ) de-roll begin de-frames slab-count 0> while de-pop nip if
-  lf-mctx-shallower then
-  de-roll repeat ;
+: de-unframe ( -- ) de-pop nip if lf-mctx-shallower then de-roll ;
+: de-unwind ( -- ) de-roll begin de-frames slab-count 0> while de-unframe repeat ;
 
 \ ---- Cells: arrays of an activation, from de-x on.
 : de-cell ( i -- addr ) de-cells slab-at ;
-: de-push ( x -- flag ) de-cells lf-meta-push dup ok? if drop true else de-abort false
-  then ;
+: de-push ( x -- flag )
+  de-cells lf-meta-push dup ok? if drop true else de-abort false then ;
 : de-truncate ( n -- ) de-cells slab-count - de-cells slab-commit ;
-: de-claim ( n -- i flag ) de-cells slab-claim dup ok? if drop true else de-abort false
-  then ;
-: de-args# ( t -- n ) 0 swap begin dup lf-meta-app? while lf-term-first@ swap 1+ swap
-  repeat drop ;
+: de-claim ( n -- i flag )
+  de-cells slab-claim dup ok? if drop true else de-abort false then ;
+: de-args# ( t -- n )
+  0 swap begin dup lf-meta-app? while lf-term-first@ swap 1+ swap repeat drop ;
 : de-fill ( t i n -- )
-  begin dup 0> while 1- >r over lf-term-second@ over r@ + de-cell ! swap lf-term-first@
-  swap r>
-  repeat drop 2drop ;
-: de-push-args ( t n -- flag ) dup de-claim 0= if drop 2drop false exit then swap de-fill
-  true ;
+  begin dup 0> while 1- >r over lf-term-second@
+  over r@ + de-cell ! swap lf-term-first@ swap r> repeat drop 2drop ;
+: de-push-args ( t n -- flag )
+  dup de-claim 0= if drop 2drop false exit then swap de-fill true ;
 
 \ ---- Shapes and small steps.
 : de-tag? ( t tag -- flag ) swap lf-term-tag@ = ;
@@ -214,11 +212,11 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 : de-const-name ( const -- name ) lf-term-first@ lf-cref-slot lf-cref-name@ drop ;
 : de-decl ( const -- d true | false ) lf-meta-const-decl ;
 : de-kind? ( head kind -- flag )
-  over de-const? if swap de-decl if lf-menv-kind = else drop false then else 2drop false
-  then ;
+  over de-const? if swap de-decl if lf-menv-kind = else drop false then
+  else 2drop false then ;
 : de-head-defn? ( t -- flag )
-  lf-meta-head dup de-const? if de-decl if lf-menv-kind lf-kind-definition = else true
-  then
+  lf-meta-head dup de-const? if de-decl if lf-menv-kind lf-kind-definition =
+  else true then
   else drop false then ;
 : de-eqv-of ( a b -- flag ) lf-meta-eqv dup ok? if drop else de-abort drop false then ;
 : de-eqv? ( -- flag ) de-t de-s de-eqv-of ;
@@ -250,20 +248,20 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 : de-level-pair ( c1 c2 i -- flag ) tuck de-level@ >r de-level@ r> de-level-defeq? ;
 : de-levels ( c1 c2 -- lbool )
   over de-levels# over de-levels# <> if 2drop lf-lb-false exit then
-  over de-levels# 0 ?do 2dup i de-level-pair 0= if 2drop unloop lf-lb-false exit then loop
-  2drop lf-lb-true ;
+  over de-levels# 0 ?do 2dup i de-level-pair 0=
+  if 2drop unloop lf-lb-false exit then loop 2drop lf-lb-true ;
 : de-same-const? ( h1 h2 -- flag )
   over de-const? over de-const? and if de-const-name swap de-const-name lf-name-same?
   else 2drop false then ;
 
 \ ---- isDefEqProofIrrel.
 : de-pi-types ( -- )
-  de-t de-infer 0= if drop exit then de-s de-infer 0= if 2drop exit then ['] de-pass
-  de-solve ;
+  de-t de-infer 0= if drop exit then de-s de-infer 0=
+  if 2drop exit then ['] de-pass de-solve ;
 : de-pi-check ( -- )
   de-t de-infer 0= if drop exit then dup lf-meta-is-prop de-must 0= if 2drop exit then
-  if de-s de-infer 0= if 2drop exit then ['] de-pass de-solve else drop lf-lb-undef
-  de-return then ;
+  if de-s de-infer 0= if 2drop exit then ['] de-pass de-solve
+  else drop lf-lb-undef de-return then ;
 : de-pirrel ( -- )
   de-t lf-meta-proof-quick de-must 0= if drop exit then
   case lf-lb-false of lf-lb-undef de-return endof  lf-lb-true of de-pi-types endof
@@ -286,8 +284,8 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 : de-same-binder? ( -- flag )
   de-t lf-term-tag@ dup de-s lf-term-tag@ = swap lf-term-binder-tag? and ;
 : de-open-body ( body fvar -- body' flag ) lf-meta-instantiate1 de-must ;
-: de-bind-push ( fvar -- fvar flag ) dup de-push if de-s lf-term-first@ de-push else false
-  then ;
+: de-bind-push ( fvar -- fvar flag )
+  dup de-push if de-s lf-term-first@ de-push else false then ;
 : de-bind-bodies ( fvar -- flag )
   de-t lf-term-second@ over de-open-body 0= if 2drop false exit then de-t!
   de-s lf-term-second@ swap de-open-body 0= if drop false exit then de-s! true ;
@@ -297,8 +295,8 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 : de-bind-n ( -- n ) de-cells slab-count de-x - 2/ ;
 : de-bind-done ( r -- ) de-x de-truncate de-return ;
 defer de-bind-dom ( -- )
-: de-bind-dom-k ( r -- ) lf-lb-true = if de-y+ de-bind-dom else lf-lb-false de-bind-done
-  then ;
+: de-bind-dom-k ( r -- )
+  lf-lb-true = if de-y+ de-bind-dom else lf-lb-false de-bind-done then ;
 :noname ( -- )
   de-y de-bind-n < 0= if de-t de-s ['] de-bind-done de-solve exit then
   de-x de-y 2* + dup de-cell @ lf-fvar-type swap 1+ de-cell @ ['] de-bind-dom-k de-solve ;
@@ -320,11 +318,10 @@ is de-bind-dom
   lf-mvar-type drop lf-meta-class-none? 0= if outcome-unsupported de-abort then ;
 : de-try-synth ( t -- ) de-stuck-mvar if de-synth-pending then ;
 : de-unstuck ( t -- )
-  de-stuck-mvar if de-synth-pending lf-defeq-stuck de-flag? if outcome-unsupported
-  de-abort then
-  then ;
-: de-hints ( t -- ) dup de-mvar? if drop exit then de-head-defn? if outcome-unsupported
-  de-abort then ;
+  de-stuck-mvar if de-synth-pending lf-defeq-stuck de-flag?
+  if outcome-unsupported de-abort then then ;
+: de-hints ( t -- )
+  dup de-mvar? if drop exit then de-head-defn? if outcome-unsupported de-abort then ;
 : de-on-failure ( -- ) de-t de-unstuck de-s de-unstuck de-t de-hints de-s de-hints ;
 
 \ ---- isDefEqArgs (t and s applications with one head, the parameter
@@ -371,12 +368,12 @@ is de-bind-dom
 defer de-args-first ( -- )
 defer de-args-rest ( -- )
 defer de-args-post ( -- )
-: de-args-first-k ( r -- ) lf-lb-true = if de-y+ de-args-first else lf-lb-false
-  de-args-done then ;
-: de-args-rest-k ( r -- ) lf-lb-true = if de-y+ de-args-rest else lf-lb-false de-args-done
-  then ;
-: de-args-post-k ( r -- ) lf-lb-true = if de-y+ de-args-post else lf-lb-false de-args-done
-  then ;
+: de-args-first-k ( r -- )
+  lf-lb-true = if de-y+ de-args-first else lf-lb-false de-args-done then ;
+: de-args-rest-k ( r -- )
+  lf-lb-true = if de-y+ de-args-rest else lf-lb-false de-args-done then ;
+: de-args-post-k ( r -- )
+  lf-lb-true = if de-y+ de-args-post else lf-lb-false de-args-done then ;
 : de-first-go ( code -- stop? )
   case 0 of false endof  1 of de-y de-pair ['] de-args-first-k de-solve true endof
     2 of de-y de-pair ['] de-args-first-k de-solve de-bump true endof
@@ -390,8 +387,8 @@ defer de-args-post ( -- )
 : de-post@ ( j -- i ) de-post0 + de-cell @ ;
 :noname ( -- )
   de-y de-post# < 0= if lf-lb-true de-args-done exit then
-  de-y de-post@ dup de-info drop lf-binder-instance = if dup de-pair de-try-synth
-  de-try-synth then
+  de-y de-post@ dup de-info drop lf-binder-instance = if
+  dup de-pair de-try-synth de-try-synth then
   de-pair ['] de-args-post-k de-solve de-bump ; is de-args-post
 : de-args ( -- )
   de-t de-args# de-s de-args# <> if lf-lb-false de-return exit then
@@ -400,15 +397,15 @@ defer de-args-post ( -- )
 \ ---- isDefEqApp, under a checkpoint: one constant at both heads, the
 \ arguments then the universe levels; else the heads, then the arguments.
 : de-app-c ( r -- )
-  lf-lb-true = if de-t lf-meta-head de-s lf-meta-head de-levels else lf-lb-false then
-  de-close-k ;
+  lf-lb-true = if de-t lf-meta-head de-s lf-meta-head de-levels
+  else lf-lb-false then de-close-k ;
 : de-app-f ( r -- )
   lf-lb-true = 0= if lf-lb-false de-close-k exit then
   ['] de-close-k de-then de-t de-s ['] de-args de-invoke ;
 : de-app ( -- )
   de-mark? 0= if exit then de-t lf-meta-head de-s lf-meta-head 2dup de-same-const?
-  if 2drop ['] de-app-c de-then de-t de-s ['] de-args de-invoke else ['] de-app-f de-solve
-  then ;
+  if 2drop ['] de-app-c de-then de-t de-s ['] de-args de-invoke
+  else ['] de-app-f de-solve then ;
 
 \ ---- checkTypesAndAssign (t := ?m, s := v): the types compared at
 \ implicit transparency or above, then ?m := v.
@@ -419,7 +416,8 @@ defer de-args-post ( -- )
   dup outcome-invalid = if drop outcome-unsupported then de-abort ;
 : de-ct-k ( r -- )
   lf-lb-true = 0= if lf-lb-false de-return exit then
-  de-t de-s lf-mvar-assign dup ok? if drop lf-lb-true de-return else de-assign-failed then ;
+  de-t de-s lf-mvar-assign dup ok? if drop lf-lb-true de-return
+  else de-assign-failed then ;
 : de-check-types ( -- )
   de-t de-mvar? 0= if lf-lb-false de-return exit then
   de-t lf-mvar-type 0= if outcome-invalid de-abort exit then
@@ -438,8 +436,8 @@ defer de-args-post ( -- )
 : de-simp ( arg -- arg' flag )
   dup lf-meta-head lf-meta-mvar-free? 0= if de-inst de-aborted? if false exit then then
   begin dup de-let-fvar? while lf-fvar-value repeat true ;
-: de-pa-simp ( i -- flag ) de-pa-arg dup @ de-simp 0= if 2drop false exit then swap ! true
-  ;
+: de-pa-simp ( i -- flag )
+  de-pa-arg dup @ de-simp 0= if 2drop false exit then swap ! true ;
 : de-pa-dup? ( a i -- flag ) false swap 0 ?do over i de-pa-arg @ = or loop nip ;
 : de-pa-pattern? ( i -- flag )
   dup de-pa-arg @ dup de-fvar? 0= if 2drop false exit then
@@ -455,17 +453,17 @@ defer de-args-post ( -- )
 \ constApprox's default case with no arguments: ?m := v once more
 \ checked; with arguments only under constApprox (not ported).
 : de-assign-const ( -- )
-  de-s de-pa-check de-aborted? if 2drop exit then if de-pa-types else drop lf-lb-false
-  de-pa-ret then ;
+  de-s de-pa-check de-aborted? if 2drop exit then if de-pa-types
+  else drop lf-lb-false de-pa-ret then ;
 : de-const-approx ( -- )
   de-pa-n 0= if de-assign-const exit then
-  lf-defeq-const de-flag? if outcome-unsupported de-abort else lf-lb-false de-pa-ret then
-  ;
+  lf-defeq-const de-flag? if outcome-unsupported de-abort
+  else lf-lb-false de-pa-ret then ;
 \ First-order approximation (foApprox), v head-beta reduced in de-y:
 \ ?m a1 .. an =?= f b is an =?= b and ?m a1 .. an-1 =?= f under a
 \ checkpoint; else Lean unfolds v (not ported) or goes on.
-: de-fo-lhs ( -- t ) de-mvar de-pa-n 0 ?do i de-pa-arg @ lf-term-app de-made 0= if unloop
-  exit then loop ;
+: de-fo-lhs ( -- t )
+  de-mvar de-pa-n 0 ?do i de-pa-arg @ lf-term-app de-made 0= if unloop exit then loop ;
 : de-fo-aux-1 ( r -- )
   lf-lb-true = 0= if lf-lb-false de-close-k exit then
   de-t lf-term-first@ de-s lf-term-first@ ['] de-close-k de-solve ;
@@ -480,8 +478,8 @@ defer de-args-post ( -- )
   de-pa-n 0> de-y lf-meta-app? and 0= if de-fo-fail exit then
   ['] de-fo-k de-then de-fo-lhs de-y ['] de-fo-aux de-invoke ;
 : de-pa-final ( -- )
-  de-s de-inst de-aborted? if drop exit then dup lf-meta-head de-mvar = if drop de-fo exit
-  then
+  de-s de-inst de-aborted? if drop exit then dup lf-meta-head de-mvar =
+  if drop de-fo exit then
   de-pa-check de-aborted? if 2drop exit then if de-pa-abstract else drop de-fo then ;
 : de-pa-loop ( -- )
   begin de-y de-pa-n < while de-y de-pa-simp 0= if exit then
@@ -504,19 +502,19 @@ defer de-args-post ( -- )
 : de-ms-k ( r -- )
   lf-lb-true = if lf-lb-true de-return exit then
   de-mvar lf-mvar-assignable? 0= if lf-lb-false de-return exit then
-  lf-defeq-const de-flag? if outcome-unsupported de-abort else lf-lb-false de-return then
-  ;
+  lf-defeq-const de-flag? if outcome-unsupported de-abort
+  else lf-lb-false de-return then ;
 : de-mvar-self ( -- )
   de-t de-args# de-s de-args# <> if lf-lb-false de-return exit then
   ['] de-ms-k de-then de-t de-s ['] de-args de-invoke ;
-: de-ckpt-assign ( -- ) de-mark? if ['] de-close-k de-then de-t de-s ['] de-assign
-  de-invoke then ;
+: de-ckpt-assign ( -- )
+  de-mark? if ['] de-close-k de-then de-t de-s ['] de-assign de-invoke then ;
 : de-mm-st ( r -- )
-  dup lf-lb-true = if de-return exit then drop ['] de-pass de-then de-t de-s ['] de-assign
-  de-invoke ;
+  dup lf-lb-true = if de-return exit then drop ['] de-pass de-then de-t
+  de-s ['] de-assign de-invoke ;
 : de-mm-ts ( r -- )
-  dup lf-lb-true = if de-return exit then drop ['] de-pass de-then de-s de-t ['] de-assign
-  de-invoke ;
+  dup lf-lb-true = if de-return exit then drop ['] de-pass de-then de-s
+  de-t ['] de-assign de-invoke ;
 : de-mvar-mvar ( -- )
   de-s de-mvar? de-t de-mvar? 0= and
   if ['] de-mm-st de-then de-s de-t else ['] de-mm-ts de-then de-t de-s then
@@ -536,8 +534,8 @@ defer de-args-post ( -- )
 : de-off-value ( a k1 v2 -- code )
   2dup > if 2drop drop lf-lb-false de-off-const else swap - de-lit de-off-pair then ;
 : de-value-off ( v1 b k2 -- code )
-  rot 2dup > if 2drop drop lf-lb-false de-off-const else swap - de-lit swap de-off-pair
-  then ;
+  rot 2dup > if 2drop drop lf-lb-false de-off-const
+  else swap - de-lit swap de-off-pair then ;
 : de-off-a ( a k1 -- code )
   de-s lf-meta-offset de-must 0= if 2drop 2drop drop 0 exit then
   if de-off-both exit then 2drop
@@ -572,8 +570,8 @@ defer de-args-post ( -- )
 : de-unit-data? ( data -- flag )
   dup de-nonrec? if lf-ity-ctors@ drop @ de-ctor-fields 0= else drop false then ;
 : de-unit-type? ( type -- flag )
-  lf-meta-head dup lf-kind-inductive de-kind? if de-decl drop de-data de-unit-data? else
-  drop false then ;
+  lf-meta-head dup lf-kind-inductive de-kind? if de-decl drop de-data de-unit-data?
+  else drop false then ;
 : de-late-u ( r -- ) lf-lb-true = if lf-lb-true else lf-lb-undef then de-return ;
 : de-late-type ( -- type flag )
   de-t de-infer 0= if false exit then de-whnf 0= if false exit then
@@ -595,12 +593,12 @@ defer de-args-post ( -- )
   dup de-args# 1 3 within 0= if drop false exit then
   lf-meta-head dup de-const? if de-nat-name? else drop false then ;
 : de-nat-unported? ( -- flag )
-  de-t de-ground? de-s de-ground? and if de-t de-nat-op? de-s de-nat-op? or else false
-  then ;
+  de-t de-ground? de-s de-ground? and if de-t de-nat-op? de-s de-nat-op? or
+  else false then ;
 : de-ctor? ( t -- flag ) lf-meta-head lf-kind-constructor de-kind? ;
 : de-ctor-arity ( ctor -- n )
-  de-decl drop de-data dup lf-ict-params lf-more-field swap lf-ict-fields lf-more-field +
-  ;
+  de-decl drop de-data
+  dup lf-ict-params lf-more-field swap lf-ict-fields lf-more-field + ;
 : de-ctor-induct ( ctor -- data )
   de-decl drop de-data lf-ict-induct lf-more-field lf-input-newest de-data ;
 : de-ctor-fields-of ( ctor -- n ) de-decl drop de-data lf-ict-fields lf-more-field ;
@@ -620,18 +618,18 @@ defer de-quick-x ( -- )
   dup lf-let? 0= if false outcome-ok exit then
   dup lf-let-body lf-meta-loose ok-then? 0= if false swap exit then
   if false else lf-let-body true then outcome-ok ;
-: de-consume ( e -- e' flag ) begin de-let-step de-must 0= if drop false exit then 0=
-  until true ;
+: de-consume ( e -- e' flag )
+  begin de-let-step de-must 0= if drop false exit then 0= until true ;
 : de-quick-lit ( -- ) de-t de-s lf-lit-same? lf-lb de-return ;
-: de-quick-sort ( -- ) de-t lf-term-first@ de-s lf-term-first@ de-level-defeq? lf-lb
-  de-return ;
+: de-quick-sort ( -- )
+  de-t lf-term-first@ de-s lf-term-first@ de-level-defeq? lf-lb de-return ;
 : de-quick-binder ( -- )
-  de-eqv? if lf-lb-true de-return exit then ['] de-pass de-then de-t de-s ['] de-binding
-  de-invoke ;
+  de-eqv? if lf-lb-true de-return exit then ['] de-pass de-then de-t
+  de-s ['] de-binding de-invoke ;
 : de-live? ( -- flag ) de-t lf-fvar-live? de-s lf-fvar-live? and ;
 : de-quick-fvar ( -- )
-  de-live? 0= if outcome-invalid de-abort exit then  de-t de-s = if lf-lb-true de-return
-  exit then
+  de-live? 0= if outcome-invalid de-abort exit then  de-t de-s =
+  if lf-lb-true de-return exit then
   de-t lf-fvar-let? de-s lf-fvar-let? or if lf-lb-undef de-return exit then
   ['] de-pass de-then de-t de-s ['] de-pirrel de-invoke ;
 : de-assigned? ( head -- flag ) dup de-mvar? if de-unassigned? 0= else drop false then ;
@@ -642,16 +640,16 @@ defer de-quick-x ( -- )
   dup lf-meta-head de-delayed? 0= if false exit then
   dup de-inst 2dup de-eqv-of if drop false else nip true then ;
 : de-same-mvar? ( -- flag ) de-t lf-meta-head dup de-mvar? swap de-s lf-meta-head = and ;
-: de-assignable? ( t -- flag ) lf-meta-head dup de-mvar? if lf-mvar-assignable? else drop
-  false then ;
+: de-assignable? ( t -- flag )
+  lf-meta-head dup de-mvar? if lf-mvar-assignable? else drop false then ;
 : de-both-fixed-k ( r -- )
   dup lf-lb-undef <> if de-return exit then drop
-  lf-defeq-stuck de-flag? if outcome-unsupported de-abort else lf-lb-false de-return then
-  ;
+  lf-defeq-stuck de-flag? if outcome-unsupported de-abort
+  else lf-lb-false de-return then ;
 : de-assignables ( -- )
   de-t de-assignable? de-s de-assignable? 2dup and if 2drop de-mvar-mvar exit then
-  2dup or 0= if 2drop ['] de-both-fixed-k de-then de-t de-s ['] de-pirrel de-invoke exit
-  then
+  2dup or 0= if 2drop ['] de-both-fixed-k de-then de-t
+  de-s ['] de-pirrel de-invoke exit then
   drop if de-t de-s else de-s de-t then ['] de-pass de-then ['] de-assign2 de-invoke ;
 : de-requick ( t s -- true ) ['] de-quick-x de-goto true ;
 \ An assigned head instantiated or a delayed one expanded, and
@@ -678,14 +676,14 @@ defer de-quick-x ( -- )
     lf-tag-fvar of de-quick-fvar endof  >r de-quick-other r> endcase ;
 : de-quick ( -- )
   de-t de-consume 0= if drop exit then de-t!  de-s de-consume 0= if drop exit then de-s!
-  de-t lf-term-tag@ de-s lf-term-tag@ over = if de-quick-same else drop de-quick-other
-  then ;
+  de-t lf-term-tag@ de-s lf-term-tag@ over = if de-quick-same
+  else drop de-quick-other then ;
 ' de-quick is de-quick-x
 
 \ ---- isExprDefEqExpensive and isExprDefEqAuxImpl.
 : de-consts ( -- )
-  de-t de-const-name de-s de-const-name lf-name-same? 0= if lf-lb-false de-return exit
-  then
+  de-t de-const-name de-s de-const-name lf-name-same? 0=
+  if lf-lb-false de-return exit then
   de-t de-s de-levels de-return ;
 : de-fb-late ( r -- ) lf-lb-true = lf-lb de-return ;
 : de-exp-app ( r -- )
@@ -704,13 +702,13 @@ defer de-quick-x ( -- )
   swap ['] de-top-x de-invoke ;
 : de-es-k2 ( r -- ) lf-lb-true = if lf-lb-true de-return else de-exp-shape then ;
 : de-exp-es2 ( -- )
-  de-s de-t de-eta-struct if ['] de-es-k2 de-then de-s de-t de-es-types else de-exp-shape
-  then ;
+  de-s de-t de-eta-struct if ['] de-es-k2 de-then de-s de-t de-es-types
+  else de-exp-shape then ;
 : de-es-k1 ( r -- ) lf-lb-true = if lf-lb-true de-return else de-exp-es2 then ;
 : de-exp-delta ( -- )
   de-t de-delta? de-s de-delta? or if outcome-unsupported de-abort exit then
-  de-t de-s de-eta-struct if ['] de-es-k1 de-then de-t de-s de-es-types else de-exp-es2
-  then ;
+  de-t de-s de-eta-struct if ['] de-es-k1 de-then de-t de-s de-es-types
+  else de-exp-es2 then ;
 : de-exp-o ( r -- ) dup lf-lb-undef = if drop de-exp-delta else de-return then ;
 : de-exp-nat ( -- )
   de-nat-unported? if outcome-unsupported de-abort exit then
@@ -722,8 +720,8 @@ defer de-quick-x ( -- )
   de-t de-whnf 0= if 2drop exit then de-s de-whnf 0= if 2drop drop exit then
   de-changed? if rot drop ['] de-solve-x de-goto else 2drop execute then ;
 : de-exp-proj ( -- )
-  de-t lf-proj? de-s lf-proj? or if outcome-unsupported de-abort else ['] de-exp-nat
-  de-rewhnf then ;
+  de-t lf-proj? de-s lf-proj? or if outcome-unsupported de-abort
+  else ['] de-exp-nat de-rewhnf then ;
 : de-exp-e2 ( r -- ) dup lf-lb-undef = if drop de-exp-proj else de-return then ;
 : de-exp-e1 ( r -- )
   dup lf-lb-undef <> if de-return exit then drop
@@ -749,8 +747,8 @@ defer de-quick-x ( -- )
   df df-limit @ ?dup 0= if lf-defeq-default-fuel then df df-fuel !
   lf-defeq-ctx de-flag? lf-meta-ctx-approx! ;
 : de-answer ( -- flag outcome )
-  df df-result @ dup lf-lb-undef = if drop false outcome-invalid exit then lf-lb-true =
-  outcome-ok ;
+  df df-result @ dup lf-lb-undef =
+  if drop false outcome-invalid exit then lf-lb-true = outcome-ok ;
 : de-finish ( -- flag outcome )
   df df-outcome @ ok? if de-answer else de-unwind false df df-outcome @ then ;
 : lf-meta-defeq ( t s -- flag outcome )

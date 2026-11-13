@@ -56,8 +56,8 @@ end-structure
 : no-split ( c-addr u -- c-addr i rest u' )
   2dup s" ." search if 2>r r@ - 2r> 1 /string else 2drop 0 -1 then ;
 : no-seek ( prefix c-addr i -- name outcome )
-  lf-name-tier name-seek-str dup ok? if over 0< if 2drop -1 outcome-unsupported then then
-  ;
+  lf-name-tier name-seek-str dup ok? if over 0<
+  if 2drop -1 outcome-unsupported then then ;
 : no-name ( c-addr u -- name outcome )
   0 -rot begin no-split 2>r no-seek ok-then? 0= if 2r> 2drop no-result exit then
   2r> dup 0< until 2drop outcome-ok ;
@@ -65,8 +65,8 @@ end-structure
 : no-zero? ( -- flag ) 0 lf-level-tag@ lf-level-tag-zero = ;
 : no-zeros ( k -- outcome )
   no-zero? 0= if drop outcome-invalid exit then
-  0 ?do 0 lf-level-identity 0= if unloop outcome-invalid exit then 0 i no-pair 2! loop
-  outcome-ok ;
+  0 ?do 0 lf-level-identity 0=
+  if unloop outcome-invalid exit then 0 i no-pair 2! loop outcome-ok ;
 : no-made ( index identity true | false -- term outcome )
   if drop outcome-ok else -1 outcome-full then ;
 : no-ref ( name -- term outcome )
@@ -82,8 +82,8 @@ end-structure
 : no-lit ( u -- term outcome ) lf-hterm-cell no-made ;
 
 \ ---- mkNatLit and mkNatAdd.
-: no-app-nat ( f outcome -- t outcome ) ok-then? if lf-meta-nat no-app else no-result then
-  ;
+: no-app-nat ( f outcome -- t outcome )
+  ok-then? if lf-meta-nat no-app else no-result then ;
 : no-ofnat ( -- f outcome ) s" OfNat.ofNat" 1 no-const no-app-nat ;
 : no-inst-lit ( lit -- t outcome )
   s" instOfNatNat" 0 no-const ok-then? if swap outcome-ok no-app else nip no-result then ;
@@ -103,11 +103,11 @@ end-structure
 
 \ ---- Shapes: n arguments and a constant of the name at the head
 \ (Lean's match_expr).
-: no-args ( t -- n ) 0 swap begin dup lf-meta-app? while lf-term-first@ swap 1+ swap
-  repeat drop ;
+: no-args ( t -- n )
+  0 swap begin dup lf-meta-app? while lf-term-first@ swap 1+ swap repeat drop ;
 : no-is? ( t n c-addr u -- flag )
-  2>r over no-args = if lf-meta-head 2r> lf-meta-const-named? else drop 2r> 2drop false
-  then ;
+  2>r over no-args = if lf-meta-head 2r> lf-meta-const-named?
+  else drop 2r> 2drop false then ;
 \ Argument i, the first 0, of t with n arguments.
 : no-arg ( t i n -- a ) swap - 1- 0 ?do lf-term-first@ loop lf-term-second@ ;
 : no-inst-addnat? ( t -- flag ) 0 s" instAddNat" no-is? ;
@@ -142,8 +142,8 @@ end-structure
 : no-push-sides ( t -- code outcome )
   no-sides swap >r no-push dup ok? if drop r> no-push else r> drop then 0 swap ;
 : no-lit-step ( lit -- code outcome )
-  dup lf-lit-small? if lf-lit-cell no-add-acc 0 swap else drop 0 outcome-unsupported then
-  ;
+  dup lf-lit-small? if lf-lit-cell no-add-acc 0 swap
+  else drop 0 outcome-unsupported then ;
 : no-succ-step ( t -- code outcome )
   0 1 no-push-arg dup ok? if drop 1 no-add-acc then 0 swap ;
 : no-ofnat-step ( t -- code outcome )
@@ -187,8 +187,8 @@ end-structure
   dup 4 s" Add.add" no-is? if 4 no-inst-layer exit then
   dup 6 s" HAdd.hAdd" no-is? if 6 no-inst-layer else 0 0 then ;
 \ v more for the offset: false when it passes a cell.
-: no-off+ ( v -- flag ) no no-off @ over + tuck u> if drop false else no no-off ! true
-  then ;
+: no-off+ ( v -- flag )
+  no no-off @ over + tuck u> if drop false else no no-off ! true then ;
 : no-go ( a -- true outcome ) no no-e ! true outcome-ok ;
 \ An addition a + b: b's value adds to the offset and a goes on; with
 \ none, the layer is no offset.
@@ -202,8 +202,8 @@ end-structure
 : no-off-step ( -- go? outcome )
   no no-e @ no-layer dup 1 = if 2drop 1 no-off+ drop no-go exit then
   dup 2 = if drop no-add-layer else no-off-end then ;
-: no-off-loop ( -- outcome ) begin no-off-step ok-then? 0= if exit then 0= until
-  outcome-ok ;
+: no-off-loop ( -- outcome )
+  begin no-off-step ok-then? 0= if exit then 0= until outcome-ok ;
 : lf-meta-offset ( e -- s k flag outcome )
   no no-e ! 0 no no-off ! no-off-step dup ok? if over if drop no-off-loop then then
   no no-e @ no no-off @ 2swap ;

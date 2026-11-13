@@ -83,8 +83,8 @@ end-structure
 : ac-prefix? ( mvar -- flag )
   ac-scope ac-m ac-scope 2dup > 0= if 2drop true exit then
   2dup - >r swap ac-between r> = ;
-: ac-sees-x? ( mvar -- flag ) false ac ac-n @ 0 ?do over i ac-x lf-meta-sees? or loop nip
-  ;
+: ac-sees-x? ( mvar -- flag )
+  false ac ac-n @ 0 ?do over i ac-x lf-meta-sees? or loop nip ;
 
 \ ---- Images: 0 fine, 1 out of scope, 2 failed (Lean's two exceptions).
 0 constant ac-fine  1 constant ac-scope-fail  2 constant ac-fail
@@ -102,8 +102,8 @@ end-structure
   ac-m swap lf-mvar-occurs? dup ok? if drop else ac-refuse-with drop false then ;
 : ac-typed ( mvar -- ) lf-mvar-type if ac-occurs-in if true ac ac-hit ! then then ;
 : ac-other ( mvar -- image )
-  lf-mvar-assignable? 0= if ac-fail exit then ac ac-approx @ if ac-refuse else ac-fail
-  then ;
+  lf-mvar-assignable? 0= if ac-fail exit then ac ac-approx @ if ac-refuse
+  else ac-fail then ;
 : ac-pending ( mvar -- flag ) lf-mvar-delayed if 2drop ac-occurs-in else false then ;
 : ac-mvar ( mvar -- image )
   dup ac-m = if drop ac-fail exit then  dup lf-mvar-value if 2drop ac-refuse exit then
@@ -129,8 +129,8 @@ end-structure
 : ac-img ( node -- image ) ac-wk dw-image ;
 : ac-let ( let -- image )
   dup lf-let-binder ac-inner? 0= if lf-let-value ac-img exit then
-  dup lf-let-type ac-img over lf-let-value ac-img ac-first-fail swap lf-let-body ac-img
-  ac-first-fail ;
+  dup lf-let-type ac-img
+  over lf-let-value ac-img ac-first-fail swap lf-let-body ac-img ac-first-fail ;
 : ac-pair ( node -- image )
   dup lf-let? if ac-let exit then
   dup lf-term-first@ ac-img swap lf-term-second@ ac-img ac-first-fail ;
@@ -164,8 +164,8 @@ end-structure
     if nip unloop false swap exit then or loop outcome-ok ;
 : ac-locals? ( -- flag ) ac-m ac-sees-x? ;
 : ac-solid? ( v -- flag )
-  dup ac-binary? if ac-ground? exit then lf-term-tag@ dup lf-tag-fvar <> swap lf-tag-mvar
-  <> and ;
+  dup ac-binary? if ac-ground? exit then lf-term-tag@
+  dup lf-tag-fvar <> swap lf-tag-mvar <> and ;
 : ac-verdict ( v image outcome -- v' flag outcome )
   dup ok? 0= if nip false swap exit then drop 0= ac ac-hit @ 0= and outcome-ok ;
 : ac-run ( v -- v' flag outcome )
@@ -173,8 +173,8 @@ end-structure
   ac-locals? ac ac-locals !  false ac ac-hit !
   dup ['] ac-pending-child ['] ac-build ac-walk-set dw-run ac-verdict ;
 : lf-meta-check-assignment ( mvar addr n v -- v' flag outcome )
-  >r ac-xs! r> ac-x-occurs? ok-then? 0= if false swap exit then if false outcome-ok exit
-  then
+  >r ac-xs! r> ac-x-occurs? ok-then? 0= if false swap exit then
+  if false outcome-ok exit then
   dup ac-solid? if true outcome-ok else ac-run then ;
 
 \ ---- mkLambdaFVars xs v (etaReduce), from the last xi to the first.
@@ -192,8 +192,8 @@ end-structure
 : ac-dep-leaf ( node -- 0|1 )
   dup lf-term-tag@ lf-tag-mvar = if ac-sees-x? 1 and else drop 0 then ;
 : ac-dep-build ( node walk -- 0|1 )
-  drop dup ac-dep-inner? if dup lf-term-first@ ac-img swap lf-term-second@ ac-img or exit
-  then
+  drop dup ac-dep-inner? if
+  dup lf-term-first@ ac-img swap lf-term-second@ ac-img or exit then
   dup ac-binary? if drop 0 else ac-dep-leaf then ;
 : ac-deps? ( term -- flag outcome )
   ['] ac-dep-pending ['] ac-dep-build ac-walk-set dw-run swap 0<> swap ;
@@ -202,8 +202,8 @@ end-structure
     if nip unloop false swap exit then or loop outcome-ok ;
 : ac-unported? ( v -- flag outcome )
   ac-let-between? if drop true outcome-ok exit then
-  ac-deps? ok-then? 0= if false swap exit then if true outcome-ok else ac-types-deps? then
-  ;
+  ac-deps? ok-then? 0= if false swap exit then if true outcome-ok
+  else ac-types-deps? then ;
 
 \ One binder: fun x => f x, x not in f, is f; else a lambda.
 : ac-eta ( e x -- e' flag outcome )
@@ -219,8 +219,8 @@ end-structure
   2dup ac-x ac-eta ok-then? 0= if >r 2drop drop r> no-result exit then
   if nip nip outcome-ok else drop ac-lam then ;
 : ac-binders ( v -- lam outcome )
-  ac ac-n @ begin dup 0> while 1- tuck ac-binder ok-then? 0= if nip no-result exit then
-  swap
+  ac ac-n @ begin dup 0> while 1- tuck ac-binder ok-then? 0=
+  if nip no-result exit then swap
   repeat drop outcome-ok ;
 : lf-meta-mk-lambda ( addr n v -- lam outcome )
   over 0= if nip nip outcome-ok exit then
