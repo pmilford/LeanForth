@@ -1013,6 +1013,16 @@ private `lf-sch-and` replaced by the identical library word `outcome-and` (lib/o
 behaviour-identical (same body `over ok? if nip else drop then`, same stack effect, same argument order at every call
 site; faults frk-sched-add-pushes-first and frk-sched-outcomes-ored caught). Review: forth-reviews/2026-11-12-refactor-fri.md.
 
+### Order and snapshot stability (2026-11-12, late evening)
+
+- **FE6a early:** the generated definitions of inductive types (casesOn, recOn, noConfusion, below, brecOn), compared
+  node for node with Lean's for every inductive type of Init, may start before FE1-FE5 (branch fe6a), because it is
+  independent and later steps need it.
+- **Snapshot stability first tomorrow:** the owner wants to stop regenerating the Mathlib snapshot so often. Plan
+  6.2.5c (read snapshots of the previous one or two format and verdict versions, reusing only results a change cannot
+  affect) is the first infrastructure task of 2026-11-13. Any future snapshot addition (such as elaboration data) is
+  added as an optional section; refactors must keep snapshot bytes identical.
+
 ### No result labels (2026-11-12, evening)
 
 The owner: "I find the constant repetition of experimental and not independently audited, one NOT PROVED not useful.
