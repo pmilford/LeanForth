@@ -11,9 +11,11 @@
 \   type and value while unassigned holes stay in the stores; the
 \   all-nodes writer still refuses any hole anywhere;
 \ - the hand-over: accepted when complete; refused (invalid) when a hole
-\   remains reachable, term or level; a refusal gives back every node it
-\   made and leaves the declaration as it was (rollback), also when the
-\   heap fails at each allocation (full);
+\   remains reachable, term or level, also a stale one of an emptied
+\   context, or when a universe parameter is unused (as Lean); a refusal
+\   gives back every node it made and leaves the declaration as it was
+\   (rollback), also when the heap fails at each allocation (full); a
+\   term 10,000 applications deep;
 \ - through the command line (cli-check, the path every text takes:
 \   stage-produce, the feed, check-declaration): tests/front/00-add-zero.lf
 \   stops as not supported until FE1e (exit 2) with no elaborator; with a
@@ -224,6 +226,24 @@ T{ reached-records same-records? -> outcome-ok true }T
 \ A store whose count is not valid cannot be marked: refused, nothing kept.
 T{ kernel lf-term-count @ -1 lf-term-count ! d0 ty0 @ va0 @ lf-handover swap lf-term-count !
    -> outcome-invalid }T
+\ A hole of an emptied context (a declaration before, lf-mctx-reset as
+\ every declaration's start does): stale, so never assigned, and still a
+\ hole the hand-over refuses.
+T{ kernel ty hole vh ! lf-mctx-reset vh @ va0 @ lf-mvar-assign -> outcome-invalid }T
+T{ d0 ty vh @ lf-handover why -> outcome-invalid 74 }T
+\ A term 10,000 applications deep over one hole: the instantiation's walk
+\ and the reach marks use no host stack (dag-walk.fs heap stacks; one
+\ sweep), refused while the hole is free, accepted once it is assigned (a
+\ Pi, so no beta step is asked for).
+: deepen ( t -- t' ) dup lf-tag-app lf-term-binary drop ;
+: deep ( t n -- t' ) 0 ?do deepen loop ;
+variable dt
+lf-term-capacity constant rooms
+T{ 30000 lf-term-capacity! -> outcome-ok }T
+T{ kernel ty hole vh ! vh @ 10000 deep dt ! d0 dt @ -1 lf-handover -> outcome-invalid }T
+T{ vh @ ty0 @ assign d0 dt @ -1 lf-handover ty dt @ = -> outcome-ok false }T
+T{ ty lf-term-tag@ ty lf-term-first@ dup lf-term-first@ = -> lf-tag-app false }T
+T{ kernel rooms lf-term-capacity! -> outcome-ok }T
 T{ lfc-library-close -> }T
 
 \ ---- Through the command line: the path of every text.
