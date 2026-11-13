@@ -381,7 +381,7 @@
   "long words": 0,
   "rstack": 23,
   "shuffles": 13,
-  "words": 142
+  "words": 144
  },
  "src/import/checker-input.fs": {
   "globals": 5,
