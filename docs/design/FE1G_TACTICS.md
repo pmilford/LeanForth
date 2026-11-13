@@ -1,5 +1,7 @@
 # FE1g: the first tactics, designed
 
+> **2026-11-13:** for slice S1, [S1_INTERFACE.md](S1_INTERFACE.md) overrides this design where they differ (when tactics run, §3.2; the trail of §4.2; error codes, §4.6; fuel, §4.5; binder kinds).
+
 **Status (2026-11-13): designed; FE1g-2 written and tested alone
 (`src/front/tactic-syntax.fs`: the words of §3.2 but `.goals` read into a
 record, their blocks' shape checked, error codes 80 to 88 of §4.6;
