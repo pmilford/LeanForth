@@ -34,7 +34,8 @@
 \ Words: lf-libdec-stage! ( stage -- ) binds the library (0: none) and
 \ forgets every decoded record; lf-libdec-reset ( -- ) forgets them and
 \ the library; lf-libdec-stage ( -- stage ) the library bound;
-\ lf-libdec-count ( -- n ) the library's declarations;
+\ lf-libdec-count ( -- n ) the library's declarations when it was bound
+\ (the stage's count then: one that grows later adds none);
 \ lf-libdec-find ( name -- d outcome ) the newest declaration of a run
 \ name, invalid when none; lf-libdec-decl ( d -- r outcome ) declaration
 \ d decoded (memoized), invalid beyond the library or for a kind with
@@ -45,11 +46,13 @@
 \ ( n -- name outcome ) a tier name's run name; lf-tier-kinds ( e tier
 \ slab -- outcome ) the binder kinds (0-3, Lean's BinderInfo) of e's
 \ leading Pi binders, read from the tier's tags (S1 §4); lf-libdec-kinds
-\ ( d slab -- outcome ) those of library declaration d's type. Outcomes:
-\ ok; invalid as above; unsupported as above; full when a store, a slab
-\ or the heap refuses (a refused declaration is given back whole).
-\ State: one context record, lbd (the stage, the stamps, the memo and the
-\ two walks), and the slabs lbd-records, lbd-parts, lbd-pairs and
+\ ( d slab -- outcome ) those of library declaration d's type, none and
+\ invalid for d beyond the library. Outcomes: ok; invalid as above;
+\ unsupported as above; full when a store, a slab or the heap refuses (a
+\ refused declaration is given back whole, and a walk that stops forgets
+\ its nodes under way, so that the next decode starts again).
+\ State: one context record, lbd (the stage, its count when bound, the
+\ stamps, the memo and the two walks), and the slabs lbd-records, lbd-parts, lbd-pairs and
 \ lbd-data, members of the checker context (ADR 0009); every record's
 \ parameters and data are heap blocks of their own, so their addresses
 \ hold for the run. Untrusted front-end code. Loads in decimal whatever
@@ -74,6 +77,7 @@ require ./dag-walk.fs
 
 begin-structure /lbd
   field: lbd-stage        \ the library's stage, or 0
+  field: lbd-count        \ its declarations when bound: the memo's size
   field: lbd-terms-gen    \ the stores' generations the memos are for
   field: lbd-levels-gen
   field: lbd-names-gen
@@ -83,6 +87,7 @@ begin-structure /lbd
 end-structure
 /lbd context-record: lbd
 begin-structure /lbr
+  field: lbr-decl         \ the stage's declaration it decodes
   field: lbr-kind         \ lf-kind-* (core/input.fs)
   field: lbr-name         \ the run's name
   field: lbr-type
@@ -102,7 +107,8 @@ end-structure
 : lbd-tier ( -- tier ) lbd-stage@ stage-tier ;
 : lbd-tuples ( -- cons ) lbd-tier tier-tuples ;
 : lf-libdec-stage ( -- stage ) lbd-stage@ ;
-: lf-libdec-count ( -- n ) lbd-stage@ dup if stage-decls then ;
+: lf-libdec-count ( -- n ) lbd lbd-count @ ;
+: lbd-in? ( d -- flag ) lf-libdec-count u< ;
 : lbd-push ( x slab -- outcome )
   1 over slab-claim ok-then? if swap slab-at ! outcome-ok else nip nip then ;
 : lbd-pop ( slab -- x ) dup slab-count 1- over slab-at @ -1 rot slab-commit ;
@@ -125,24 +131,29 @@ end-structure
   lbd lbd-xwalk dw-free lbd lbd-lwalk dw-free lbd-stamp! ;
 ' lbd-forget context-teardown
 : lbd-current ( -- ) lbd-stale? if lbd-forget then ;
-: lf-libdec-reset ( -- ) lbd-forget 0 lbd lbd-stage ! ;
-: lf-libdec-stage! ( stage -- ) lf-libdec-reset lbd lbd-stage ! ;
+: lf-libdec-reset ( -- ) lbd-forget 0 lbd lbd-stage ! 0 lbd lbd-count ! ;
+: lbd-decls ( stage -- n ) dup if stage-decls then ;
+: lf-libdec-stage! ( stage -- )
+  lf-libdec-reset dup lbd-decls lbd lbd-count ! lbd lbd-stage ! ;
 
 \ ---- Names. A run name sought in the tier part by part, root first
-\ (-1: the tier has none); a tier name made in the run's store.
+\ (-1: the tier has none; full when the tier has no room for the
+\ candidate it compares); a tier name made in the run's store.
 : lbd-parts! ( n xt -- outcome )
   >r lbd-parts slab-clear begin dup while
     dup lbd-parts lbd-push ok-then? 0= if r> drop exit then r@ execute
   repeat r> 2drop outcome-ok ;
 : lbd-tier-prefix ( n -- n' ) lbd-tier name-prefix@ ;
 : lbd-num? ( id -- flag ) lf-name-tag@ lf-name-tag-num = ;
-: lbd-seek ( n id -- n' )
-  dup lbd-num? if lf-name-payload lbd-tier name-seek-num drop exit then
-  lf-name-text lbd-tier name-seek-str drop ;
-: lbd-sought ( -- n )
-  0 begin lbd-parts slab-count over 0< 0= and while lbd-parts lbd-pop lbd-seek repeat ;
+: lbd-seek ( n id -- n' outcome )
+  dup lbd-num? if lf-name-payload lbd-tier name-seek-num exit then
+  lf-name-text lbd-tier name-seek-str ;
+: lbd-sought ( -- n outcome )
+  0 begin lbd-parts slab-count over 0< 0= and while
+    lbd-parts lbd-pop lbd-seek ok-then? 0= if no-result exit then
+  repeat outcome-ok ;
 : lbd-tier-name ( id -- n outcome )
-  ['] lf-name-prefix@ lbd-parts! ok-then? if lbd-sought outcome-ok else -1 swap then ;
+  ['] lf-name-prefix@ lbd-parts! dup ok? if drop lbd-sought else no-result then ;
 : lbd-num-name? ( n -- flag ) lbd-tier name-tag@ tag-name-num = ;
 : lbd-run-part ( id n -- id' true | false )
   dup lbd-num-name? if lbd-tier name-number@ lf-name-num else lbd-tier name-text@
@@ -152,19 +163,17 @@ end-structure
     lbd-parts lbd-pop lbd-run-part 0= if -1 outcome-full exit then
   repeat outcome-ok ;
 : lf-libdec-run-name ( n -- name outcome )
-  ['] lbd-tier-prefix lbd-parts! ok-then? if lbd-run-parts else -1 swap then ;
+  ['] lbd-tier-prefix lbd-parts! dup ok? if drop lbd-run-parts else no-result then ;
 : lbd-staged ( n -- d outcome )
   dup 0< if drop -1 outcome-invalid exit then
   lbd-stage@ stage-find if outcome-ok else -1 outcome-invalid then ;
 : lf-libdec-find ( name -- d outcome )
   lbd-stage@ 0= if drop -1 outcome-invalid exit then
-  lbd-tier-name ok-then? if lbd-staged else -1 swap then ;
+  lbd-tier-name ok-then? if lbd-staged else no-result then ;
 
 \ ---- The walks kept for the run (dag-walk.fs): their tables made at the
 \ first use, for every node the tier holds; a walk that stops erases the
 \ memo (its nodes under way would read as a cycle), a done node is read.
-: lbd-want ( child walk -- child true | false ) 2dup dw-done? if 2drop false else drop
-  true then ;
 : lbd-refuse ( x outcome walk -- image ) over ok? if 2drop else dw-refuse drop -1 then ;
 : lbd-tables ( n walk -- outcome )
   dup dw-memo @ if 2drop outcome-ok exit then
@@ -181,8 +190,8 @@ end-structure
 : lbd-ltag ( l -- tag ) lbd-tier level-tag@ ;
 : lbd-la ( l -- l' ) lbd-tier level-a@ ;
 : lbd-lb ( l -- l' ) lbd-tier level-b@ ;
-: lbd-a? ( l walk -- child true | false ) swap lbd-la swap lbd-want ;
-: lbd-b? ( l walk -- child true | false ) swap lbd-lb swap lbd-want ;
+: lbd-a? ( l walk -- child true | false ) swap lbd-la swap dw-want ;
+: lbd-b? ( l walk -- child true | false ) swap lbd-lb swap dw-want ;
 : lbd-ab? ( l walk -- child true | false ) 2dup lbd-a? if nip nip true else lbd-b? then ;
 : lbd-max-tag? ( tag -- flag ) dup tag-level-max = swap tag-level-imax = or ;
 : lbd-l-pending ( l walk -- child true | false )
@@ -191,19 +200,20 @@ end-structure
 : lbd-limg ( l -- index ) lbd-lwalk@ dw-image ;
 : lbd-two ( l -- left right ) dup lbd-la lbd-limg swap lbd-lb lbd-limg ;
 : lbd-param ( l -- index outcome )
-  lbd-tier level-name@ lf-libdec-run-name ok-then? if lf-level-param lbd-made else -1 swap
-    then ;
-: lbd-l-pair ( l tag -- index outcome )
-  tag-level-max = >r lbd-two r> if lf-level-max else lf-level-imax then lbd-made ;
+  lbd-tier level-name@ lf-libdec-run-name ok-then? if lf-level-param lbd-made else
+    no-result then ;
+: lbd-succ ( l -- index outcome ) lbd-la lbd-limg lf-level-succ lbd-made ;
+: lbd-max ( l -- index outcome ) lbd-two lf-level-max lbd-made ;
+: lbd-imax ( l -- index outcome ) lbd-two lf-level-imax lbd-made ;
 : lbd-l-make ( l -- index outcome )
-  dup lbd-ltag case tag-level-zero of drop 0 outcome-ok endof
-    tag-level-succ of lbd-la lbd-limg lf-level-succ lbd-made endof
-    tag-level-param of lbd-param endof
-    dup lbd-max-tag? if lbd-l-pair 0 else nip -1 outcome-invalid rot then endcase ;
+  dup lbd-ltag case
+    tag-level-zero of drop 0 outcome-ok endof  tag-level-succ of lbd-succ endof
+    tag-level-max of lbd-max endof  tag-level-imax of lbd-imax endof
+    tag-level-param of lbd-param endof  nip outcome-invalid no-result rot endcase ;
 : lbd-l-build ( l walk -- index ) >r lbd-l-make r> lbd-refuse ;
 : lbd-levels# ( -- n ) lbd-tier tier-levels cons-numbers ;
 : lbd-level ( l -- index outcome )
-  lbd-levels# lbd-lwalk@ lbd-tables ok-then? if lbd-lwalk@ lbd-walk else -1 swap then ;
+  lbd-levels# lbd-lwalk@ lbd-tables ok-then? if lbd-lwalk@ lbd-walk else no-result then ;
 
 \ ---- Expressions: children first (an application's and a binder's two,
 \ a letE's type, value and body, a projection's structure).
@@ -212,7 +222,7 @@ end-structure
 : lbd-ea ( e -- e' ) lbd-tier expr-a@ ;
 : lbd-eb ( e -- e' ) lbd-tier expr-b@ ;
 : lbd-ebody ( e -- e' ) lbd-tier expr-body@ ;
-: lbd-x? ( e walk xt -- child true | false ) rot swap execute swap lbd-want ;
+: lbd-x? ( e walk xt -- child true | false ) rot swap execute swap dw-want ;
 : lbd-xa? ( e walk -- child true | false ) ['] lbd-ea lbd-x? ;
 : lbd-xb? ( e walk -- child true | false ) ['] lbd-eb lbd-x? ;
 : lbd-xab? ( e walk -- child true | false ) 2dup lbd-xa? if nip nip true else lbd-xb? then
@@ -228,7 +238,7 @@ end-structure
   lbd-made ;
 : lbd-bvar ( e -- term outcome ) lbd-ea lf-term-bvar lbd-made ;
 : lbd-sort ( e -- term outcome )
-  lbd-ea lbd-level ok-then? if lf-term-symbolic-sort lbd-made else -1 swap then ;
+  lbd-ea lbd-level ok-then? if lf-term-symbolic-sort lbd-made else no-result then ;
 : lbd-nat ( e -- term outcome )
   lbd-ea lbd-tier tier-texts text@ lf-hterm-decimal if drop outcome-ok else -1
     outcome-full then ;
@@ -247,10 +257,10 @@ end-structure
   lf-name-generation @ 0 lbd-pairs slab-at lbd-pairs slab-count lf-cref-new
   if lf-cterm-new if drop outcome-ok exit then then -1 outcome-full ;
 : lbd-const ( e -- term outcome )
-  dup lbd-eb lbd-args ok-then? 0= if -1 swap exit then
-  lbd-ea lf-libdec-run-name ok-then? if lbd-cterm else -1 swap then ;
+  dup lbd-eb lbd-args ok-then? 0= if no-result exit then
+  lbd-ea lf-libdec-run-name ok-then? if lbd-cterm else no-result then ;
 : lbd-proj ( e -- term outcome )
-  dup lbd-tier expr-payload@ lf-libdec-run-name ok-then? 0= if nip -1 swap exit then
+  dup lbd-tier expr-payload@ lf-libdec-run-name ok-then? 0= if nip no-result exit then
   over lbd-eb rot lbd-ea lbd-img -rot lf-proj-of ;
 \ A binder, named as the tier names it when its node has no name yet.
 : lbd-node ( e tag -- term true | false )
@@ -271,19 +281,19 @@ end-structure
 : lbd-let-named ( e -- lam outcome )
   dup lbd-let-lam if swap 0 lbd-named else drop -1 outcome-full then ;
 : lbd-let ( e tag -- term outcome )
-  tag-let-nondep = >r dup lbd-let-named ok-then? 0= if nip r> drop -1 swap exit then
+  tag-let-nondep = >r dup lbd-let-named ok-then? 0= if nip r> drop no-result exit then
   swap lbd-eb lbd-img swap r> lf-let-make lbd-made ;
 : lbd-plain ( e tag -- term outcome )
   case tag-app of lbd-app endof  tag-bvar of lbd-bvar endof  tag-sort of lbd-sort endof
     tag-const of lbd-const endof  tag-proj of lbd-proj endof  tag-nat of lbd-nat endof
-    nip -1 outcome-unsupported rot endcase ;
+    nip outcome-unsupported no-result rot endcase ;
 : lbd-x-make ( e -- term outcome )
   dup lbd-tag dup binder-tag? if lbd-binder exit then
   dup let-tag? if lbd-let exit then lbd-plain ;
 : lbd-x-build ( e walk -- term ) >r lbd-x-make r> lbd-refuse ;
 : lbd-exprs# ( -- n ) lbd-tier tier-exprs cons-numbers ;
 : lbd-term ( e -- term outcome )
-  lbd-exprs# lbd-xwalk@ lbd-tables ok-then? if lbd-xwalk@ lbd-walk else -1 swap then ;
+  lbd-exprs# lbd-xwalk@ lbd-tables ok-then? if lbd-xwalk@ lbd-walk else no-result then ;
 :noname ( -- )
   ['] lbd-l-pending lbd-lwalk@ dw-pending ! ['] lbd-l-build lbd-lwalk@ dw-build !
   ['] lbd-x-pending lbd-xwalk@ dw-pending ! ['] lbd-x-build lbd-xwalk@ dw-build ! ;
@@ -296,22 +306,28 @@ end-structure
   dup slab-clear >r begin 2dup lbd-pi-in? while
     r@ lbd-kind+ ok-then? 0= if nip r> drop exit then tuck expr-b@ swap
   repeat 2drop r> drop outcome-ok ;
-: lf-libdec-kinds ( d slab -- outcome ) >r lbd-stage@ staged-type@ lbd-tier r>
-  lf-tier-kinds ;
+: lf-libdec-kinds ( d slab -- outcome )
+  over lbd-in? 0= if slab-clear drop outcome-invalid exit then
+  >r lbd-stage@ staged-type@ lbd-tier r> lf-tier-kinds ;
 
-\ ---- A declaration's record, filled step by step ( d r -- outcome ).
+\ ---- A declaration's record, filled step by step ( r -- outcome ): the
+\ steps read the stage's declaration the record names (lbr-decl).
 create lbd-kinds   \ per staged kind from kind-axiom on; 0: none (a block)
   lf-kind-axiom , lf-kind-definition , lf-kind-theorem , lf-kind-opaque ,
   lf-kind-quotient , 0 , lf-kind-inductive , lf-kind-constructor , lf-kind-recursor ,
 here lbd-kinds - 1 cells / constant lbd-kinds#
-: lbd-kind-of ( d -- kind )
-  lbd-stage@ staged-kind@ kind-axiom - dup 0 lbd-kinds# within if cells lbd-kinds + @ else
+kind-recursor kind-axiom - 1+ lbd-kinds# <>
+[if] .( lib-decode.fs: lbd-kinds needs one entry per staged kind) cr abort [then]
+: lbd-d ( r -- d ) lbr@ lbr-decl @ ;
+: lbd-staged-kind ( r -- kind ) lbd-d lbd-stage@ staged-kind@ ;
+: lbd-kind-of ( r -- kind )
+  lbd-staged-kind kind-axiom - dup 0 lbd-kinds# within if cells lbd-kinds + @ else
     drop 0 then ;
-: lbd-s-kind ( d r -- outcome )
-  swap lbd-kind-of dup 0= if 2drop outcome-invalid exit then
-  over lbr@ lbr-kind ! -1 swap lbr@ lbr-value ! outcome-ok ;
-: lbd-s-name ( d r -- outcome )
-  swap lbd-stage@ staged-name@ lf-libdec-run-name ok-then? if swap lbr@ lbr-name !
+: lbd-s-kind ( r -- outcome )
+  dup lbd-kind-of dup 0= if 2drop outcome-invalid exit then
+  swap lbr@ lbr-kind ! outcome-ok ;
+: lbd-s-name ( r -- outcome )
+  dup lbd-d lbd-stage@ staged-name@ lf-libdec-run-name ok-then? if swap lbr@ lbr-name !
     outcome-ok else nip then ;
 \ The universe parameters: a heap block of their run names.
 : lbd-block ( n field -- outcome )
@@ -324,43 +340,42 @@ here lbd-kinds - 1 cells / constant lbd-kinds#
 : lbd-params-fill ( t n addr -- outcome )
   swap outcome-ok swap 0 ?do drop 2dup i swap lbd-param, dup ok? 0= if leave then loop nip
     nip ;
-: lbd-s-params ( d r -- outcome )
-  swap lbd-params-t rot lbr@ 2dup lbr-params# ! lbr-params
+: lbd-s-params ( r -- outcome )
+  dup lbd-d lbd-params-t rot lbr@ 2dup lbr-params# ! lbr-params
   2dup lbd-block ok-then? if @ lbd-params-fill else nip nip then ;
 \ The type, and the value of a definition, theorem or opaque declaration.
 : lbd-term! ( e r xt -- outcome )
   >r swap lbd-term ok-then? if swap lbr@ r> execute ! outcome-ok else nip r> drop then ;
-: lbd-s-type ( d r -- outcome ) swap lbd-stage@ staged-type@ swap ['] lbr-type lbd-term! ;
+: lbd-s-type ( r -- outcome )
+  dup lbd-d lbd-stage@ staged-type@ swap ['] lbr-type lbd-term! ;
 : lbd-valued? ( r -- flag )
   lbr@ lbr-kind @ dup lf-kind-definition = over lf-kind-theorem = or swap lf-kind-opaque =
     or ;
-: lbd-s-value ( d r -- outcome )
-  dup lbd-valued? if swap lbd-stage@ staged-value@ swap ['] lbr-value lbd-term! else 2drop
-    outcome-ok then ;
+: lbd-s-value ( r -- outcome )
+  dup lbd-valued? if dup lbd-d lbd-stage@ staged-value@ swap ['] lbr-value lbd-term! else
+    drop outcome-ok then ;
 \ A definition's hints, its height when they are regular (else opaque, 0).
 : lbd-def? ( r -- flag ) lbr@ lbr-kind @ lf-kind-definition = ;
-: lbd-height ( d r -- )
-  over lbd-stage@ staged-hints@ lf-hint-regular = if swap lbd-stage@ staged-hint@ swap
-    lbr@ lbr-height ! else 2drop then ;
-: lbd-s-hint ( d r -- outcome )
-  dup lbd-def? if 2dup swap lbd-stage@ staged-hints@ swap lbr@ lbr-hint ! lbd-height else
-    2drop then outcome-ok ;
+: lbd-hints ( r -- hints ) lbd-d lbd-stage@ staged-hints@ ;
+: lbd-height ( r -- ) dup lbd-d lbd-stage@ staged-hint@ swap lbr@ lbr-height ! ;
+: lbd-hint! ( r -- )
+  dup lbd-hints 2dup swap lbr@ lbr-hint ! lf-hint-regular = if lbd-height else drop then ;
+: lbd-s-hint ( r -- outcome ) dup lbd-def? if lbd-hint! else drop then outcome-ok ;
 \ Inductive data, as the feed lays it out (import/feed.fs), names as run
 \ names: a type [params indices nested flags] all ctors; a constructor
 \ [induct cidx params fields]; a recursor [params indices motives minors k]
-\ all rules (count, then constructor, fields and right side of each).
+\ all rules (count, then constructor, fields and right side of each). One
+\ step ( r -- outcome ) per item, chained with ok-with.
 : lbd-d, ( x -- outcome ) lbd-data lbd-push ;
-: lbd-item ( d k -- u ) swap lbd-stage@ staged-item ;
-: lbd-via ( d outcome k xt -- d outcome )
-  rot dup ok? 0= if nip nip exit then drop >r over swap lbd-item r> execute ;
-: lbd-x, ( d outcome xt -- d outcome ) over ok? if nip over swap execute lbd-d, else drop
-  then ;
+: lbd-item ( r k -- u ) swap lbd-d lbd-stage@ staged-item ;
+: lbd-n, ( r k -- outcome ) lbd-item lbd-d, ;
 : lbd-name, ( n -- outcome ) lf-libdec-run-name ok-then? if lbd-d, then ;
 : lbd-list, ( t -- outcome )
   dup lbd-tuples tuple-length dup lbd-d, ok-then? 0= if nip exit then
   0 ?do i over lbd-tuples tuple-item lbd-name, dup ok? 0= if nip unloop exit then drop
     loop
   drop outcome-ok ;
+: lbd-names, ( r k -- outcome ) lbd-item lbd-list, ;
 : lbd-rhs, ( e -- outcome ) lbd-term ok-then? if lbd-d, then ;
 : lbd-rule-x ( u j -- outcome )
   /rule-items mod case rule-ctor-item of lbd-name, endof rule-rhs-item of lbd-rhs, endof
@@ -374,53 +389,68 @@ here lbd-kinds - 1 cells / constant lbd-kinds#
   dup lbd-stage@ staged-rec? lf-ity-rec-bit and swap lbd-stage@ staged-reflexive?
     lf-ity-reflexive-bit and or ;
 : lbd-k ( d -- flag ) lbd-stage@ staged-k? ;
-: lbd-type-data ( d -- d outcome )
-  outcome-ok more-type-params ['] lbd-d, lbd-via more-type-indices ['] lbd-d, lbd-via
-  more-type-nested ['] lbd-d, lbd-via ['] lbd-flags lbd-x,
-  more-type-all ['] lbd-list, lbd-via more-type-ctors ['] lbd-list, lbd-via ;
-: lbd-ctor-data ( d -- d outcome )
-  outcome-ok more-ctor-induct ['] lbd-name, lbd-via more-ctor-cidx ['] lbd-d, lbd-via
-  more-ctor-params ['] lbd-d, lbd-via more-ctor-fields ['] lbd-d, lbd-via ;
-: lbd-rec-data ( d -- d outcome )
-  outcome-ok more-rec-params ['] lbd-d, lbd-via more-rec-indices ['] lbd-d, lbd-via
-  more-rec-motives ['] lbd-d, lbd-via more-rec-minors ['] lbd-d, lbd-via ['] lbd-k lbd-x,
-  more-rec-all ['] lbd-list, lbd-via more-rec-rules ['] lbd-rules lbd-via ;
-: lbd-kind-data ( d kind -- d outcome )
+: lbd-t-params ( r -- outcome ) more-type-params lbd-n, ;
+: lbd-t-indices ( r -- outcome ) more-type-indices lbd-n, ;
+: lbd-t-nested ( r -- outcome ) more-type-nested lbd-n, ;
+: lbd-t-flags ( r -- outcome ) lbd-d lbd-flags lbd-d, ;
+: lbd-t-all ( r -- outcome ) more-type-all lbd-names, ;
+: lbd-t-ctors ( r -- outcome ) more-type-ctors lbd-names, ;
+: lbd-type-data ( r -- outcome )
+  outcome-ok ['] lbd-t-params ok-with ['] lbd-t-indices ok-with ['] lbd-t-nested ok-with
+  ['] lbd-t-flags ok-with ['] lbd-t-all ok-with ['] lbd-t-ctors ok-with nip ;
+: lbd-c-induct ( r -- outcome ) more-ctor-induct lbd-item lbd-name, ;
+: lbd-c-cidx ( r -- outcome ) more-ctor-cidx lbd-n, ;
+: lbd-c-params ( r -- outcome ) more-ctor-params lbd-n, ;
+: lbd-c-fields ( r -- outcome ) more-ctor-fields lbd-n, ;
+: lbd-ctor-data ( r -- outcome )
+  outcome-ok ['] lbd-c-induct ok-with ['] lbd-c-cidx ok-with ['] lbd-c-params ok-with
+  ['] lbd-c-fields ok-with nip ;
+: lbd-r-params ( r -- outcome ) more-rec-params lbd-n, ;
+: lbd-r-indices ( r -- outcome ) more-rec-indices lbd-n, ;
+: lbd-r-motives ( r -- outcome ) more-rec-motives lbd-n, ;
+: lbd-r-minors ( r -- outcome ) more-rec-minors lbd-n, ;
+: lbd-r-k ( r -- outcome ) lbd-d lbd-k lbd-d, ;
+: lbd-r-all ( r -- outcome ) more-rec-all lbd-names, ;
+: lbd-r-rules ( r -- outcome ) more-rec-rules lbd-item lbd-rules ;
+: lbd-rec-data ( r -- outcome )
+  outcome-ok ['] lbd-r-params ok-with ['] lbd-r-indices ok-with ['] lbd-r-motives ok-with
+  ['] lbd-r-minors ok-with ['] lbd-r-k ok-with ['] lbd-r-all ok-with
+  ['] lbd-r-rules ok-with nip ;
+: lbd-kind-data ( r kind -- outcome )
   case kind-type of lbd-type-data endof  kind-ctor of lbd-ctor-data endof
-    kind-recursor of lbd-rec-data endof  outcome-ok swap endcase ;
+    kind-recursor of lbd-rec-data endof  nip outcome-ok swap endcase ;
 : lbd-keep ( r -- outcome )
   lbd-data slab-count dup 0= if 2drop outcome-ok exit then
   over lbr@ lbr-data lbd-block ok-then? 0= if exit then
   lbr@ lbr-data @ 0 lbd-data slab-at swap lbd-data slab-count cells move outcome-ok ;
-: lbd-s-data ( d r -- outcome )
-  lbd-data slab-clear swap dup lbd-stage@ staged-kind@ lbd-kind-data nip ok-then? if
-    lbd-keep then ;
-create lbd-steps
+: lbd-s-data ( r -- outcome )
+  lbd-data slab-clear dup dup lbd-staged-kind lbd-kind-data ok-then? if lbd-keep then ;
+create lbd-steps   \ ( r -- outcome ) each, in order (outcome-steps); 0 ends them
   ' lbd-s-kind , ' lbd-s-name , ' lbd-s-params , ' lbd-s-type , ' lbd-s-value ,
-  ' lbd-s-hint , ' lbd-s-data ,
-here lbd-steps - 1 cells / constant lbd-steps#
-: lbd-step ( d r k -- d r outcome ) >r 2dup r> cells lbd-steps + @ execute ;
-: lbd-fill ( d r -- outcome )
-  outcome-ok lbd-steps# 0 do drop i lbd-step dup ok? 0= if leave then loop nip nip ;
+  ' lbd-s-hint , ' lbd-s-data , 0 ,
+: lbd-fill ( r -- outcome ) lbd-steps outcome-steps ;
 
 \ ---- Records: claimed blank, kept in the memo when filled, else given
 \ back with their blocks.
-: lbd-new ( -- r outcome ) 1 lbd-records slab-claim dup ok? if over lbr@ /lbr erase then ;
+: lbd-blank ( d addr -- ) dup /lbr erase -1 over lbr-value ! lbr-decl ! ;
+: lbd-new ( d -- r outcome )
+  1 lbd-records slab-claim ok-then? 0= if nip no-result exit then
+  tuck lbr@ lbd-blank outcome-ok ;
 : lbd-memo@ ( d -- addr ) cells lbd lbd-memo @ + ;
-: lbd-memo! ( d r -- ) 1+ swap lbd-memo@ ! ;
+: lbd-remember ( r -- ) dup 1+ swap lbd-d lbd-memo@ ! ;
 : lbd-memo-ready ( -- outcome )
   lbd lbd-memo @ if outcome-ok exit then
   lf-libdec-count cells 1 max dup allocate if 2drop outcome-full exit then
   tuck swap erase lbd lbd-memo ! outcome-ok ;
 : lbd-giveback ( r -- ) lbd-free-record -1 lbd-records slab-commit ;
 : lbd-decode ( d -- r outcome )
-  lbd-new ok-then? 0= if nip -1 swap exit then
-  2dup lbd-fill dup ok? if drop tuck lbd-memo! outcome-ok else >r nip lbd-giveback -1 r>
-    then ;
+  lbd-new ok-then? 0= if no-result exit then
+  dup lbd-fill dup ok? if drop dup lbd-remember outcome-ok exit then
+  swap lbd-giveback no-result ;
 : lbd-known ( d -- r true | false ) lbd-memo@ @ +1>number ;
 : lf-libdec-decl ( d -- r outcome )
-  lbd-current dup lf-libdec-count u< 0= if drop -1 outcome-invalid exit then
-  lbd-memo-ready ok-then? 0= if -1 swap exit then
+  lbd-current dup lbd-in? 0= if drop -1 outcome-invalid exit then
+  lbd-memo-ready ok-then? 0= if no-result exit then
   dup lbd-known if nip outcome-ok else lbd-decode then ;
 : lf-libdec-kind ( r -- kind ) lbr@ lbr-kind @ ;
 : lf-libdec-dname ( r -- name ) lbr@ lbr-name @ ;

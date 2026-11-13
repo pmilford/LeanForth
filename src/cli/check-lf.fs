@@ -236,12 +236,13 @@ end-structure
 \ when checked? is true, into the stage, not sealed, and lets the words
 \ name its constants (lfc-find, in this context) and the Meta layer read
 \ its declarations (front/meta-env.fs's run mode; any elaboration data
-\ read before is dropped: it was read against the stage freed);
-\ lfc-library-close frees the stage and the words name none again. A
-\ text's run binds the run mode to the stage (lfc-settings!) and
+\ read before is dropped: it was read against the stage freed; the run
+\ mode is left first, so that a read that fails leaves none bound to the
+\ stage freed); lfc-library-close frees the stage and the words name none
+\ again. A text's run binds the run mode to the stage (lfc-settings!) and
 \ lfc-empty leaves it, emptying the metavariable context too (S1 §1).
 : lfc-library-open ( c-addr u checked? -- outcome )
-  >r lfc-env! elab-reset ck-stage stage-free r> lfc-library-read
+  >r lfc-env! lf-menv-reset elab-reset ck-stage stage-free r> lfc-library-read
   dup ok? if ['] lfc-find lf-author-library! ck-stage lf-menv-library! then ;
 : lfc-library-close ( -- )
   lf-menv-reset elab-reset 0 lf-author-library! ck-stage stage-free 0 0 lfc-env! ;

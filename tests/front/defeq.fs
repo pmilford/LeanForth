@@ -337,6 +337,18 @@ T{ lf-tr-reducible lf-defeq-mode! 0 s" Nat.add" cn fk dq lf-tr-default lf-defeq-
   rot with-flags shallower lf-tr-default lf-defeq-mode! ;
 T{ lf-defeq-elab lf-defeq-stuck or hint-twin lf-defeq-elab hint-twin
    -> false lf-meta-stuck false outcome-unsupported }T
+\ synthPending's hook (S1 appendix D; branch s1-synth sets it) on the
+\ natural ?r : Nat, whose type might be a class, stuck in the same twin
+\ under isDefEqStuckEx: a hook that fills it asks for Lean's retry, not
+\ ported (unsupported); one that does not leaves the stuck signal.
+: synth-yes ( mvar -- flag outcome ) drop true outcome-ok ;
+: synth-no ( mvar -- flag outcome ) drop false outcome-ok ;
+: synth-twin ( xt -- flag outcome )
+  is lf-meta-synth-pending lf-tr-reducible lf-defeq-mode! deeper ?r rec-major
+  0 s" Nat.add" cn lf-defeq-elab lf-defeq-stuck or with-flags shallower
+  lf-tr-default lf-defeq-mode! ['] de-synth-later is lf-meta-synth-pending ;
+T{ ' synth-yes synth-twin ' synth-no synth-twin
+   -> false outcome-unsupported false lf-meta-stuck }T
 \ getFunInfo's kinds come from the declared type: a store binder that
 \ the binder table names may be another binder's (the store shares equal
 \ nodes), so unsupported, here and through isDefEqArgs.
