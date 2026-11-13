@@ -267,7 +267,7 @@ s" by-sorry" tac-k-sorry lfr-spell
 \ parent before it (the reader's order: a block's steps follow it).
 : lfr-depth ( -- n ) trun-frames slab-count ;
 : lfr-frame ( k -- addr ) trun-frames slab-at ;
-: lfr-top ( -- addr ) lfr-depth 1- lfr-frame ;
+: lfr-top ( -- addr ) trun-frames slab-last ;
 : lfr-frame! ( i rest addr -- ) tuck tfr-rest ! over 1+ over tfr-next ! tfr-step ! ;
 : lf-tac-block ( i rest -- ) 1 trun-frames slab-claim lfr-must lfr-frame lfr-frame! ;
 : lfr-inside? ( b j -- flag )
@@ -282,7 +282,7 @@ s" by-sorry" tac-k-sorry lfr-spell
   dup trun trun-step ! lfr-spend? 0= if drop lfa-e-tac-fuel lf-tac-fail then lfr-act ;
 : lfr-go ( j -- ) dup 1+ lfr-top tfr-next ! lfr-step ;
 \ A block's end: done at its place, the goals outside it put back.
-: lfr-pop ( -- ) -1 trun-frames slab-commit ;
+: lfr-pop ( -- ) trun-frames slab-drop ;
 : lfr-end-block ( -- )
   lfr-top dup tfr-step @ swap tfr-rest @ lfr-pop swap lf-tac-done lfr-goals! ;
 : lfr-advance ( -- ) lfr-top lfr-next if lfr-go else lfr-end-block then ;
@@ -322,7 +322,7 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lfr-text+ ( c-addr u -- )
   dup trun-text slab-claim ok? if trun-text slab-at swap move else lfr-text-cut then ;
 : lfr-goal-text ( goal -- outcome ) ['] lf-goal-print ['] lfr-text+ lfr-printed ;
-: lfr-part ( -- addr ) trun-parts slab-count 1- trun-parts slab-at ;
+: lfr-part ( -- addr ) trun-parts slab-last ;
 \ A span of trun-text: where it begins, then its length once written.
 : lfr-span-end ( first addr -- length ) tuck ! lfr-text# swap @ - ;
 : lfr-name-kept ( -- )
@@ -377,7 +377,7 @@ s" by-sorry" tac-k-sorry lfr-spell
   lfr-trail-mark ok-then? 0= if no-result exit then
   1 trun-saves slab-claim ok-then? 0= if lfr-unmark exit then
   tuck lfr-save lfr-fill outcome-ok ;
-: lfr-drop-save ( -- ) -1 trun-saves slab-commit ;
+: lfr-drop-save ( -- ) trun-saves slab-drop ;
 \ A slab's count back to n (blocks, parts and text only grow in a try).
 : lfr-cut-to ( n slab -- ) tuck slab-count - swap slab-commit ;
 : lfr-back ( addr -- )
