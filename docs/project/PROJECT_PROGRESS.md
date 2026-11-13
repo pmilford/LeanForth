@@ -46,8 +46,10 @@ status changes when this date is older than them. Stages are those of the
   declaration to the kernel) tested alone, reached by no user command before FE1e; FE6a (casesOn, recOn and ctorIdx
   built as Lean builds them, compared over Init) tested alone; FE1c's environment view, whnfCore and first inferType cases tested alone; FE1g-2 (tactic proofs
   read; a well-formed one stops "not supported yet") tested alone; FE1i-4 (signed big integers, `lib/bigint.fs`)
-  tested alone. On branches: FE1c's instantiateMVars beta and delayed steps and marks as serials (reviewed, merge
-  pending); FE1e1 (elaboration data format 2: reviewed, waiting for the owner's [import]/[format] approval). Designed:
+  tested alone; FE1c's instantiateMVars beta and delayed steps and marks as serials tested alone (179 of 187 cases
+  equal to pinned Lean). On branches: FE1e1 (elaboration data format 2: reviewed, waiting for the owner's
+  [import]/[format] approval); the job pool failing closed when threads are refused (reviewed, waiting for the owner's
+  [runtime] approval). Library: `lib/sort.fs` (a stable sort the kernel's sorts can adopt, FRK C2) tested alone. Designed:
   FE1e, FE1g, FE1i, FE2. Nothing is proved by
   LeanForth yet. Natural statements (8.6.10) are FE2, `add_comm` natively (8.6.11) FE5.
 - Program track, restarted 2026-11-12 after being parked since 2026-11-04: LeanForth re-checks Lean's proofs of

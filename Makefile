@@ -254,7 +254,10 @@ test-harness:
 # report its stack sizes); task-overflow.fs and its serial twin test
 # stack overflows inside jobs. tests/lib/task-bench.fs is report-only.
 # test_json_write.py checks the JSON writer against Python's json.dumps.
+# sort.fs tests the sorting library against reference sorts (and the
+# snapshot's insertion sorts, copied) on both Gforths.
 test-lib:
+	$(RUN) $(GFORTH) tests/lib/sort.fs
 	$(RUN) $(GFORTH) tests/lib/lib.fs
 	$(RUN) $(GFORTH) tests/lib/lib-model.fs
 	$(RUN) $(GFORTH) tests/lib/context.fs

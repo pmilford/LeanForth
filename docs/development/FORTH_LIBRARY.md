@@ -28,6 +28,7 @@ variants were retired on 2026-11-02.
 | Tables of execution tokens | `src/lib/xt-table.fs` | `xt-table: ( n default "name" -- )` makes a table of n execution tokens, each the default; `xt-table! ( xt i table -- )` sets entry i and aborts outside the table, so a table filled while loading never writes beside it; `xt-table@ ( i table -- xt )` gives entry i, or the default for any other index, so an index read from data (a node's tag, a log step's rule) needs no check of its own. Helpers private (ADR 0010); no state of its own | New 2026-11-13 (plan task 9.4.5, the item-2 Forth review's L5); the printers' and the step list's tag and rule tables (`src/present/term-printer.fs`, `print-forth.fs`, `log-view.fs`); tested in `tests/lib/lib.fs` |
 | Portable 32-bit hashing | `src/lib/hash32.fs` | `hash-fmix` (Murmur3's finaliser), `hash-step ( h x -- h' )` and `hash-bytes ( addr u -- h )` (FNV-1a), every product masked to 32 bits, so 32- and 64-bit hosts give the same values ([below](#the-compact-store)) | New 2026-11-03; `tests/lib/hash32.fs` against values computed in Python |
 | Growable heap stores | `src/lib/slab.fs` | Plan task 1.1.5. `slab-init ( unit limit slab -- outcome )`: units of any size in one heap block that doubles by `RESIZE` up to a limit; `slab-room`, `slab-claim`, `slab-commit`, `slab-at`, `slab-top`, `slab-trim`, `slab-clear`; marks `slab-mark`, `slab-rollback`, `slab-mark-valid?` with `store.fs`'s refusals ([below](#the-compact-store)) | New 2026-11-03; `tests/lib/slab.fs` |
+| Stable sorting | `src/lib/sort.fs` | `sort-records ( a-addr n sorter -- outcome )` sorts n records of any size in place by the caller's order `( a-addr1 a-addr2 -- n )`, or by their keys (`sorter-key!`; `sorter-cells` and `sorter-u32s` order values); stable: insertion up to `sorter-short` (32) records, above that a bottom-up merge from runs of one record through a scratch (the caller's, `sorter-buffer!`, or the heap's: full when refused, nothing changed), its comparisons call for call those of `level-normalize.fs`'s `lf-lnorm-sort`; no recursion; invalid for a bad count, a sorter not accepted or busy, and an order or key word that changes the stack depth; a THROW out of the order is passed on, the scratch freed ([below](#sorting)) | New 2026-11-12 (the kernel refactor's batch C2 waited for it); not yet used by any module (the snapshot's three insertion sorts wait for the owner's approval of the kernel change); `tests/lib/sort.fs`, 23 planted faults each caught |
 | Hash tables | `src/lib/htab.fs` | Open addressing over 32-bit slots, hooks for rehashing and comparing, growth at 3/4, removal by Algorithm R, `htab-spread` and `htab-presize` ([below](#the-compact-store)) | New 2026-11-03; `tests/lib/htab.fs` |
 | Hash-consed sets in two tiers | `src/lib/cons.fs`, `src/lib/pools.fs` | Each distinct record once, named by a number; a sealed input set shared read-only and scratch sets over it whose numbers continue; marks, resets, sealing; interned lists of 32-bit numbers (tuples, no fixed length) and texts ([below](#the-compact-store)) | New 2026-11-03; `tests/lib/cons.fs` |
 | Compact store | `src/core/compact.fs` and `compact-tier.fs`, `compact-names.fs`, `compact-levels.fs`, `compact-exprs.fs` | ADR 0016's Lean layer: names, levels, universe lists, literals and 16-byte expression records in input and scratch tiers ([below](#the-compact-store)) | New 2026-11-03; not yet used by the kernel; `tests/core/compact.fs`, round trips of the reference exports and of `Init` |
@@ -71,6 +72,7 @@ LeanForth, unless coupling gains a lot. Audit of `src/lib/` on 2026-11-03:
 | `outcome.fs` (ok, invalid, exhausted, unknown, rejected, unsupported, full) | LeanForth's shared result vocabulary | deliberately shared: one vocabulary for every module |
 | `sections.fs` (sectioned binary files) | yes, written to this rule (2026-11-11): requires `portability.fs`, `module.fs`, `outcome.fs`, `u32.fs`, `sha256.fs`; helpers private; 14 public words, all `sections…`; an example in its header, run with the interface checked from a folder outside the project by `make test-sections` |
 | `sha256.fs` (SHA-256) | yes, written to this rule (2026-11-03) | requires only `portability.fs` and `module.fs`; helpers in `lf-lib-private`, 17 public words (the hashing interface and FIPS 180-4's functions), all named `sha-…` or `sha256…`; an example in its header and [below](#sha-256), run with the interface checked from a folder outside the project by `make test-sha256` |
+| `sort.fs` (stable sorting) | yes, written to this rule (2026-11-12) | requires `portability.fs`, `bounds.fs`, `outcome.fs`, `u32.fs` and `module.fs`; helpers in `lf-lib-private`, 11 public words, all named `sort…` or `sorter…`; an example in its header, run by `tests/lib/sort.fs` without the checker |
 | `text-rule.fs` (visible text) | yes, written to this rule (2026-11-03): a UTF-8 hygiene rule with nothing of Lean | requires `bounds.fs`, `bytes.fs` (and through it `lib.fs`) and `module.fs`; helpers in `lf-lib-private`, three public words (`tr-banned?` since 2026-11-04, for callers that decode text themselves); an example in its header; `tests/lib/text-rule.fs` runs without the checker |
 | coming: the compact store (ADR 0016) | written to this rule from the start | — |
 
@@ -301,6 +303,138 @@ leave the old file and no partial; Python reads every file written with
 field-by-field and Forth-2012 u32 paths write byte-identical files; two
 writes are identical; the header's example and the exact public interface
 are checked from a folder outside the project.
+
+## Sorting
+
+`src/lib/sort.fs` (2026-11-12; untrusted until reviewed): stable sorting
+of records in place. The kernel refactor review (batch C2,
+[the review](forth-reviews/2026-11-12-backlog-kernel.md); I2 of
+[its follow-up](forth-reviews/2026-11-12-refactor-frk.md)) found three
+hand-written insertion sorts in `src/kernel/env-snapshot.fs` that should
+be one library word; their results, a snapshot's bytes, depend on the
+order of records with equal keys. A standalone library under the owner's
+rule ([above](#reusability-the-libraries-as-standalone-forth-code)): it
+requires `portability.fs`, `bounds.fs`, `outcome.fs`, `u32.fs` and
+`module.fs`, knows nothing of Lean, and keeps its helpers in
+`lf-lib-private`.
+
+```forth
+require src/lib/sort.fs
+create by-value /sorter allot   create numbers 5 , 3 , 9 , 3 ,
+' sort-signed by-value sorter-cells drop
+numbers 4 by-value sort-records .     \ 0 (ok); numbers holds 3 3 5 9
+create by-key /sorter allot           \ 8-byte (key, payload) pairs by the first 32-bit field
+8 ' sort-unsigned by-key sorter-init drop  ' u32@ by-key sorter-key!
+```
+
+| Word | Stack | Meaning |
+| --- | --- | --- |
+| `/sorter` | `( -- u )` | a sorter record's size; the record is the caller's |
+| `sorter-init` | `( size order sorter -- outcome )` | records of `size` address units ordered by `order ( a-addr1 a-addr2 -- n )`; invalid for a size below 1 or order 0 (every sort then refuses the sorter); clears every setting |
+| `sorter-cells`, `sorter-u32s` | `( order sorter -- outcome )` | cells, or packed 32-bit fields (`u32.fs`), ordered by value: `order ( x1 x2 -- n )` |
+| `sorter-key!` | `( fetch sorter -- )` | the order is given `fetch ( a-addr -- x )` of each record instead of its address |
+| `sorter-buffer!` | `( addr u sorter -- )` | the caller's scratch of `u` address units, used by a merge that fits in it |
+| `sorter-short` | `( sorter -- addr )` | setting: up to this many records by insertion (`sort-short`, 32, after `sorter-init`) |
+| `sort-records` | `( a-addr n sorter -- outcome )` | sorts the `n` records at `a-addr` in place |
+| `sort-signed`, `sort-unsigned` | `( x1 x2 -- n )` | orders of values: -1, 0 or 1 |
+
+**The order.** It is given the earlier record first, never a record and
+itself; a positive result means the earlier record goes after the later,
+zero or negative leave them in their order. So the sort is stable, and
+for any order that is a total preorder its result is the unique stable
+one: exactly an insertion sort's, equal keys included. Any other order
+(one that stops deciding when its fuel runs out, or one at random) still
+leaves a permutation of the records. The order and the key word must take
+their arguments and give one result; the depth is checked after every
+call, before the result is used.
+
+**Design.** Up to `sorter-short` records are sorted by insertion: each
+record from the second on is compared with the earlier ones, nearest
+first, while the order is positive (the comparisons of an insertion sort
+by exchanging neighbours, at most n(n−1)/2) and then rotated into place;
+no memory is needed, which suits the short lists the checker sorts most.
+Above the cut-over, a bottom-up merge sort from runs of one record: in
+each pass runs are merged in pairs from the start (a last run without a
+partner stays), the right run's record first only when the order is
+positive; at most n·⌈log2 n⌉ comparisons, the fewest of the stable
+methods tried, and comparisons cost an `EXECUTE` or two each. These are,
+call for call, the comparisons of `lf-lnorm-sort` in
+`src/kernel/level-normalize.fs`, whose cut-over is also 32, so a
+comparison that spends a unit of fuel spends the same. Each merge reads
+its runs in the records' own memory, writes the scratch and copies the
+result back in one `MOVE`: the order only ever sees addresses of the
+records themselves, and at every call they are a permutation of the
+input. Records move only by `MOVE` (no byte access, as
+`scripts/check-portable-forth.py` requires of `src/lib`), an insertion's
+rotation going through a temp of four cells in the sorter, a larger
+record in several parts. No recursion: the host's stacks hold a few cells
+whatever n is. The sort runs under `CATCH`, so that its scratch is freed
+and the sorter ready again after a `THROW`.
+
+**Outcomes.** ok; invalid with nothing done for a negative n, n records
+whose address units would not fit a cell, or a sorter that `sorter-init`
+did not accept or that is sorting already (a nested call from its own
+order); invalid when the order or key word changed the stack depth, the
+records then in some order (a permutation); full, nothing changed, when n
+is above the cut-over and the heap refuses the n·size address units of
+scratch (the caller's buffer is used instead when it holds them). A
+`THROW` out of the order or key word is passed on, the records a
+permutation of the input, the scratch freed and the sorter ready (a
+`THROW` with the library's own code, −4131, reads as invalid). One sort
+at a time per sorter; separate sorters are independent; the library has
+no state of its own.
+
+**Speed** (this machine, 2026-11-12): 100,000 cells with keys below
+1,000, 1.57 million comparisons, 0.17 s with `gforth` 1.0 and 0.31 s with
+0.7.3.
+
+**Tests** (`tests/lib/sort.fs`, in `make test-lib`; Gforth 1.0 and
+0.7.3; loaded under `HEX`): the public words and hidden helpers; the
+orders at their edges; the sorter's settings and every refusal (nothing
+compared or changed); empty, one, two, sorted, reversed, all-equal,
+duplicate and paired lists of up to 1,000 cells on both paths; every
+list of up to 6 cells over 3 keys and 1,000 random lists of up to 200
+cells under four cut-overs, each equal record for record and comparison
+for comparison to a reference insertion sort and a reference copy of
+`lf-lnorm-sort`'s merge sort, and merged lists of up to 2,000 cells equal
+to the insertion sort's result; records of 1, 4 (both through
+`sorter-u32s` and through `sorter-key!`), a cell, 24 and 100 address
+units against the reference on their positions, the words after the
+sorter untouched; the snapshot's three insertion sorts, copied from
+`env-snapshot.fs`, against the library byte for byte on 200 random lists
+of up to 80 records each, under two cut-overs; the cut-over (no heap block held at 32 records, one
+at 33); 100,000 random records against a counting sort, within
+n·⌈log2 n⌉ comparisons, and 100,000 nearly sorted ones against the
+insertion sort; the caller's buffer, used with the heap refusing; a
+refused scratch (full, the records unchanged, nothing held, the sorter
+ready); the return stack, the caller's cells and the constant depth at
+which the order is called; orders whose results are large or that use
+the return stack; order and key words that leave two results or none
+(invalid, a permutation, nothing held); `THROW`s at three points (passed
+on, a permutation, nothing held, the sorter ready); nested sorts with
+the same sorter (refused) and another one; orders with a budget, equal
+call for call to the references, and orders at random (a permutation);
+the header's example; unsigned 32-bit values with bit 31 set. 23 planted
+faults (`lib-sort-…` in `tests/mutants/faults.toml`: stability on each
+path, the cut-over, a lost run rest, the output cursor, the scratch's
+freeing, the busy flag, both depth checks, the buffer's size, the full
+outcome, the merge width, the rotation's parts, the helpers made public,
+the count's check, a zero order, the key word skipped, `sorter-u32s`
+reading a cell, a swallowed `THROW`, `sort-unsigned` signed), each
+caught.
+
+**Sorts in `src/` that could use it** (2026-11-12; changing them is
+kernel work under the owner's approval, or another agent's front end):
+
+| Where | Kind | Equal keys |
+| --- | --- | --- |
+| `src/kernel/env-snapshot.fs` `entry-sink`, `look-sort` (213–218; also `env-layers.fs` 329) | insertion; 8-byte (key, answer) pairs by the little-endian key, unsigned | the lists are distinct by key; a stable sort keeps the bytes in any case: `8 ' sort-unsigned` with `' u32-le@ sorter-key!` |
+| `env-snapshot.fs` `dep-sort` (324–330; `env-layers.fs` 326) | insertion by shifting; little-endian 32-bit slot numbers, unsigned | equal values are equal bytes: `4 ' sort-unsigned` with `' u32-le@ sorter-key!` |
+| `env-snapshot.fs` `o-sink`, `o-sort` (386–391) | insertion; name numbers by content (`o-order`) | equal content is the same name: `' o-order sorter-cells` |
+| `src/kernel/level-normalize.fs` `lf-lnorm-sort` (207–264) | insertion up to 32, else bottom-up merge through slab cells; one unit of fuel per comparison | only structurally equal levels tie; the library's comparisons are the same calls |
+| `src/kernel/level-substitute.fs` `lf-cells-sort` (65–85; used at 256 and by `mixed-level-substitute.fs` 303) | heapsort of signed cells, no scratch, not stable | the reached node indices are distinct; the library would need scratch above 32 |
+| `src/front/level-normalize.fs` `ln-insert`, `ln-sort` (121–137) | insertion by shifting; levels by `normLt` | only structurally equal levels tie |
+| `src/import/ndjson-emit.fs` `member-insert`, `members-sort` (216–225) | insertion; mdata's key tokens by their text | two equal keys are refused as invalid |
 
 ## Big natural numbers
 
