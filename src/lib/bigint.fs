@@ -286,7 +286,7 @@ end-structure
 
 \ The sign and digits of a text: -1 and what follows a leading minus sign,
 \ else 1 and the whole text.
-: minus? ( addr u -- flag ) if c@ [char] - = else drop false then ;
+: minus? ( addr u -- flag ) 1 min s" -" compare 0= ;
 : sign-split ( addr u -- addr' u' s ) 2dup minus? if 1 /string -1 else 1 then ;
 : int-text? ( addr u -- flag ) sign-split drop digits? ;
 : text-sign ( build -- ) dup build-a @ over build-b @ sign-split nip nip swap sign! ;
@@ -294,7 +294,7 @@ end-structure
 : text-of ( build -- i outcome ) dup text-sign dup build-args text-mag settle ;
 \ The text of a negative integer, made above a build: the minus sign goes
 \ just before the magnitude's digits. On failure the build is given back.
-: minus ( addr u -- addr' u' ) swap 1 chars - [char] - over c! swap 1+ ;
+: minus ( addr u -- addr' u' ) swap 1 chars - s" -" drop over 1 chars move swap 1+ ;
 : no-text ( outcome -- 0 0 outcome ) >r 0 0 r> ;
 : digits-of ( build -- addr u outcome )
   dup build-a @ int-mag swap build-arena @ big>decimal ;

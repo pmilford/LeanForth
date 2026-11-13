@@ -295,7 +295,8 @@ T{ s" -9" int ar ' bigint-toNat rs-checked s" 0" nat-gives? -> true }T
 T{ s" 9" nat ar ' nat>bigint rs-checked s" 9" gives? -> true }T
 T{ -9 ar ' n>bigint rs-checked s" -9" gives? -> true }T
 T{ s" -9" ar ' decimal>bigint rs-checked s" -9" gives? -> true }T
-T{ s" -9" int ar ' bigint>decimal rs-checked >r s" -9" compare r> -> 0 outcome-ok }T
+: printed-as? ( c-addr u outcome c-addr2 u2 -- flag ) 2>r outcome-ok = -rot 2r> compare 0= and ;
+T{ s" -9" int ar ' bigint>decimal rs-checked s" -9" printed-as? -> true }T
 T{ s" -9" int ' bigint>n rs-checked s" -9" int ' bigint-sign rs-checked -> -9 true -1 }T
 T{ s" -9" int s" 4" int ' bigint-compare rs-checked s" -9" int ' bigint-valid? rs-checked -> -1 true }T
 T{ s" -9" int ' bigint-magnitude rs-checked s" 9" nat big= -> true }T
