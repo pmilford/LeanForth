@@ -139,7 +139,9 @@ The same proof by `case` and `exact` is `tests/front/01-zero-add.lf`
 (`by-case: succ k ih =>  ' Nat.succ ih congrArg by-exact  by-end`); one
 tactic alone, `tests/front/02-add-zero-rfl.lf` and
 `tests/front/03-zero-add-exact.lf`. Blocks nest (a `by-case:` inside a
-case, an induction inside an alternative) as deep as memory allows.
+case, an induction inside an alternative, as in
+`tests/front/04-nested-ih.lf`, whose inner `ih` hides the outer one) as
+deep as memory allows.
 
 **Mistakes in the shape** each stop at their word with a code (every code
 is in the [programming reference](../programming/LEANFORTH_WORDS.md#errors)):
