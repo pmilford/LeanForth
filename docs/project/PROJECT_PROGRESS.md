@@ -108,6 +108,8 @@ status changes when this date is older than them. Stages are those of the
   check is owed.
 
 **Later**
+- A faster sort for short lists (`lib/sort.fs` below its cut-over of 32; plan 9.4.8i, owner 2026-11-13): only if
+  benchmarks and traces of the callers' list sizes show it is worthwhile.
 - Proof development (owner, 2026-11-12; long term, after strict Lean compatibility): research note
   [PROOF_DEVELOPMENT.md](../design/PROOF_DEVELOPMENT.md), plan rows PD1–PD15, all not started; PD1, Lean's `sorry`
   reported NOT PROVED with the conditional report, is decided (ADR 0021 Amendment 1) and fits with FE1g and FE5.
