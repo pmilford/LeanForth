@@ -10,7 +10,7 @@ see [project progress](project/PROJECT_PROGRESS.md). Documents marked
 | --- | --- |
 | New to the project or to Lean terms | The [user guide](user/USER_GUIDE.md) (what LeanForth is and is not, and a reading path for each audience), [reading a Lean proof](user/READING_A_LEAN_PROOF.md), [terms for new readers](user/TERMS_FOR_NEW_READERS.md), then [concepts in three forms](user/CONCEPTS.md) |
 | Installing and running the tests | [Project README](../README.md#installing-the-pinned-tools-and-running-the-tests), [WSL setup](user/SETUP_WSL.md), [running the checks](user/RUNNING_THE_CHECKS.md) |
-| Following progress or plans | [Project progress](project/PROJECT_PROGRESS.md), [development roadmap](project/DEVELOPMENT_ROADMAP.md) |
+| Following progress or plans | [Project progress](project/PROJECT_PROGRESS.md), [development roadmap](project/DEVELOPMENT_ROADMAP.md), [front-end design](design/FRONT_END.md) |
 | Writing or reviewing code (human or agent) | [AGENTS.md](../AGENTS.md), [architecture](development/ARCHITECTURE.md), [source layout](../src/README.md), [testing strategy](development/TESTING_STRATEGY.md), [Forth reviewer guide](development/FORTH_REVIEWER.md), [done checker](development/DONE_CHECKER.md) |
 | An AI tool, or writing one | [For AI tools](user/AI_TOOLS.md) |
 
@@ -55,6 +55,10 @@ features they describe.
 - [PROGRAM_VC.md](programming/PROGRAM_VC.md) — verification-condition generator v0 and contract language: obligations and contract theorems checked by Lean (not by LeanForth), wrong contracts refuted, and the generated clamp receipt.
 - [SHA256_SPEC.md](programming/SHA256_SPEC.md) — SHA-256 specified in Lean from FIPS 180-4 (flagship stage SHA-1): NIST vectors and the constants checked by Lean's kernel, lemmas for the later stages, what is and is not proved (implemented, checked by Lean, not by LeanForth; nothing yet about the Forth code).
 - Lean reference models for individual programs: [checked addition](programming/CHECKED_ADD_REFERENCE.md), [factorial](programming/FACTORIAL_REFERENCE.md), [gcd](programming/GCD_REFERENCE.md), [stack and memory](programming/MEMORY_PROGRAM_REFERENCE.md), [memory copy](programming/MEMORY_COPY_REFERENCE.md), [memory swap](programming/MEMORY_SWAP_REFERENCE.md).
+
+## `design/` — designs of components not built yet
+
+- [FRONT_END.md](design/FRONT_END.md) — LeanForth's front end (design, nothing built): what Lean's elaborator, unification, type classes, coercions, tactics, pattern matching, recursion, generated definitions, `simp`, Mathlib's tactics and evaluation do, each measured in Lean 4.35.0's sources; the planned untrusted Forth architecture re-checked by the kernel; what "full Lean" means; milestones FE1–FE12 with FE1 ($0 + n = n$ by induction) specified in full; questions for the owner.
 
 ## `development/` — contributing, testing and tooling
 
@@ -122,7 +126,8 @@ approval; the others are proposals.
 [0017](adr/0017-leanforth-syntax.md) LeanForth Forth syntax for theorems and proofs (accepted as the design basis) ·
 [0018](adr/0018-exceptions.md) when to use `CATCH` and `THROW` (proposed; piloted on level substitution) ·
 [0019](adr/0019-program-words-two-modes.md) program words in two modes: the same source loaded with a LeanForth vocabulary that emits IR, or with ordinary Forth to run it (accepted in direction; mode shift or alias still open; [prototype](development/measurements/two-mode-prototype-2026-11-03/README.md)) ·
-[0020](adr/0020-checked-snapshot.md) the checked-environment snapshot: a library checked once, saved position-independently with format and verdict versions, reloaded to check a dependent library with exactly a fresh check's verdicts, labelled as saved results (accepted 2026-11-12; plan task 6.2.5).
+[0020](adr/0020-checked-snapshot.md) the checked-environment snapshot: a library checked once, saved position-independently with format and verdict versions, reloaded to check a dependent library with exactly a fresh check's verdicts, labelled as saved results (accepted 2026-11-12; plan task 6.2.5) ·
+[0021](adr/0021-front-end.md) the front end: an untrusted elaborator and tactic engine in Forth whose every result the kernel re-checks; natural LeanForth as postfix words that build a Lean-shaped syntax tree; Lean's behaviour by default (proposed 2026-11-12; plan FE1–FE12).
 
 ## `reviews/` — review packets and records
 
