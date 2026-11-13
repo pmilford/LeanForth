@@ -190,8 +190,14 @@ T{ refl-head lf-term-first@ lf-cref-slot lf-cref-pairs drop 0 lf-cref-pair@ drop
 T{ s" by-rfl end t" proof nrun err -> outcome-invalid 97 1 43 }T
 T{ detail s\"   p\nis not definitionally equal to the right-hand side\n  q\n\np q : Prop\n⊢ p = q"
    compare -> 0 }T
-\ Not an equation: 93; not equal with a metavariable in a side: 93.
+\ Not an equation: 93 (p; Ne p q, a relation of three arguments too, which
+\ Lean's apply_rfl would try with @[refl] lemmas, plan FE5); not equal
+\ with a metavariable in a side: 93.
 ' just-p stating
+T{ s" by-rfl end t" proof nrun err -> outcome-unsupported 93 1 43 }T
+: ne-pq ( -- type )
+  p-prop prop s" q" binder q ! level1 0 u! s" Ne" 1 cst prop app p @ app q @ app ;
+' ne-pq stating
 T{ s" by-rfl end t" proof nrun err -> outcome-unsupported 93 1 43 }T
 : eq-hole ( -- type )
   p-prop prop s" q" binder q ! p @ q @ prop mv-natural lf-mvar-new made arrow eq-of ;

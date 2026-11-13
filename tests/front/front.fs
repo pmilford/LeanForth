@@ -311,12 +311,14 @@ mv-natural new constant f
 prop prop lf-tag-lam lf-term-binary drop constant fun1
 T{ f fun1 lf-mvar-assign f lf-instantiate-mvars -> outcome-ok fun1 outcome-ok }T
 T{ f prop app lf-instantiate-mvars -> prop outcome-ok }T
-\ Not ported, unsupported: an argument with a loose bound variable
-\ (fun z => ?f z; instantiate1 does not lift it), and a value that
-\ betaRev would zeta-reduce (?g Prop with ?g := let c := Prop; fun a => a).
+\ An argument with a loose bound variable is put in where no binder of
+\ the value lies around it (fun z => ?f z is fun z => Prop; plan FE1g-4;
+\ under such a binder Lean lifts it, unsupported: tests/front/meta.fs).
+\ Not ported, unsupported: a value that betaRev would zeta-reduce (?g
+\ Prop with ?g := let c := Prop; fun a => a).
 : lam2 ( type body -- t ) lf-term-lam 0= abort" lam" ;
 : parts2 ( t -- a b ) dup lf-term-first@ swap lf-term-second@ ;
-T{ prop f 0 lf-term-bvar drop app lam2 lf-instantiate-mvars -> -1 outcome-unsupported }T
+T{ prop f 0 lf-term-bvar drop app lam2 lf-instantiate-mvars swap parts2 -> outcome-ok prop prop }T
 mv-natural new constant gz
 prop prop 0 lf-term-bvar drop lam2 false lf-let-make drop constant let-fun
 T{ gz let-fun lf-mvar-assign gz prop app lf-instantiate-mvars -> outcome-ok -1 outcome-unsupported }T

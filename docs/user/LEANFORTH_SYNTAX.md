@@ -165,10 +165,13 @@ case are read: Lean parses both, and refuses them only when it runs them
 **Running** (plan FE1g-3; tested with statements built by hand until plan
 FE1e). The steps run in order on a list of goals, the statement's goal
 first, as Lean runs them; LeanForth stops at the first error, Lean goes
-on to report more. Today `by-sorry` runs; every other tactic stops at its
-word, "not supported yet" with the plan step that ports it (error 80:
-FE1g-4 for `by-rfl`, `by-exact`, `by-intro:`, FE1g-5 for induction and
-cases, FE1g-6 for rewriting), followed by the goals at that point. A goal
+on to report more. Today `by-sorry`, `by-intro:`, `by-exact` and `by-rfl`
+run (plan FE1g-4: Lean's `intro`, `exact` and `rfl`, with Lean's error
+texts for a goal with nothing to introduce, a term of another type and
+two sides that are not equal); every other tactic stops at its word, "not
+supported yet" with the plan step that ports it (error 80: FE1g-5 for
+induction and cases, FE1g-6 for rewriting), followed by the goals at
+that point. A goal
 left when the proof ends is Lean's "unsolved goals" at `by` (error 89),
 the goals printed as Lean prints them; a tactic with no goal left is
 Lean's "No goals to be solved" (error 90); each step spends one unit of

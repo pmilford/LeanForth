@@ -215,7 +215,8 @@ T{ prop 2 bv lam x inst lf-term-second@ dup tag swap lf-term-first@ -> lf-tag-bv
 \ variable; under one Lean lifts it, not ported: unsupported. A value
 \ holding a metavariable is closed (its range by a walk).
 T{ 0 bv 0 bv lf-meta-instantiate1 swap dup tag swap lf-term-first@ -> outcome-ok lf-tag-bvar 0 }T
-T{ 0 bv x 0 bv app dup >r lf-meta-instantiate1 swap r> = -> outcome-ok true }T
+: put-in? ( value -- outcome flag ) dup 0 bv swap lf-meta-instantiate1 -rot = ;
+T{ x 0 bv app put-in? -> outcome-ok true }T
 T{ prop 1 bv lam 0 bv lf-meta-instantiate1 -> -1 outcome-unsupported }T
 prop mv-natural lf-mvar-new drop constant hole
 T{ hole x app lf-meta-loose x 1 bv app lf-meta-loose -> 0 outcome-ok 2 outcome-ok }T

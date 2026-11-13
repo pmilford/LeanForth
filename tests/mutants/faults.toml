@@ -10597,10 +10597,10 @@ reason = "FE1c: a rebuilt binder loses its name and kind, so the term differs fr
 [[fault]]
 id = "fe-inst-loose-value"
 file = "src/front/instantiate.fs"
-old = ''': in-closed-ok ( range -- outcome ) 0= if outcome-ok else outcome-unsupported then ;'''
-new = ''': in-closed-ok ( range -- outcome ) drop outcome-ok ;'''
+old = '''  0> in-state in-lifts @ and if outcome-unsupported in-fail then ;'''
+new = '''  drop ;'''
 test = "$GFORTH tests/front/meta.fs"
-reason = "FE1c: a value with a loose bound variable is put in unlifted, a term Lean never makes"
+reason = "FE1c (narrowed by FE1g-4, which puts such a value in where no binder lies around it): a value with loose bound variables is put in under a binder without the lifting Lean does, so it is captured"
 
 [[fault]]
 id = "fe-beta-counts-result"
@@ -14582,8 +14582,8 @@ reason = "FE1g-3: by-sorry's sorryAx gets level 0 whatever the goal's sort (Lean
 [[fault]]
 id = "fe-run-restore-keeps"
 file = "src/front/tactic-run.fs"
-old = ''': lfr-rolled ( addr -- outcome ) dup lfr-back tsv-mark @ lf-mctx-rollback ;'''
-new = ''': lfr-rolled ( addr -- outcome ) dup lfr-back tsv-mark @ lf-mctx-commit ;'''
+old = '''  dup lfr-back dup tsv-view @ lf-mctx-view! tsv-mark @ lf-mctx-rollback ;'''
+new = '''  dup lfr-back dup tsv-view @ lf-mctx-view! tsv-mark @ lf-mctx-commit ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "FE1g-3: a failed attempt keeps its assignments, tags and kinds (Lean's restore skipped)"
 
@@ -14651,6 +14651,7 @@ new = '''  ." : " lf-author-code lf-author-message type lfa-.number lfa-.see ;''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "FE1g-3: a tactic error is printed without the goals Lean prints under it"
 
+[[fault]]
 id = "pool-wait-reads-zero"
 file = "src/lib/task.fs"
 old = ''': wait-refused? ( job -- flag ) 0= lf-owner @ 0<> or ;'''
@@ -14714,3 +14715,67 @@ old = '''  cli-lacked. cli-sched. ;'''
 new = '''  cli-sched. ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "POOL: --resources does not say that the system refused worker tasks"
+
+[[fault]]
+id = "fe-intro-no-delay"
+file = "src/front/tactic-basic.fs"
+old = '''  lfb-hyp lfb-view lfb-body swap lfb-new lfb-aux dup lfb-delayed lfb-value lfb-assigned'''
+new = '''  lfb-hyp lfb-view lfb-body swap lfb-new tb tb-new @ ['] lf-term-lam lfb-over lfb-assigned'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "FE1g-4 (design 8.3): intro assigns fun h => ?new without the delayed assignment, so h stays free in the value"
+
+[[fault]]
+id = "fe-intro-name-accessible"
+file = "src/front/tactic-basic.fs"
+old = '''  ?dup if nip 0 exit then lfb-own lf-local-inaccessible ;'''
+new = '''  ?dup if nip 0 exit then lfb-own 0 ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "FE1g-4: intro _ makes an accessible hypothesis where Lean's is hygienic (printed a✝)"
+
+[[fault]]
+id = "fe-rfl-no-defeq"
+file = "src/front/tactic-basic.fs"
+old = '''  tb tb-term @ tb tb-type @ lf-tac-defeq lf-tac-must'''
+new = '''  true'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "FE1g-4 (design 8.3): rfl closes p = q with Eq.refl without isDefEq"
+
+[[fault]]
+id = "fe-rfl-non-eq"
+file = "src/front/tactic-basic.fs"
+old = ''': lfb-eq? ( t -- flag ) lfb-spine 3 = swap lfb-eq-head? and ;'''
+new = ''': lfb-eq? ( t -- flag ) lfb-spine 3 = nip ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "FE1g-4 (design 8.3): the Eq head check dropped, so Ne p q reaches eq_refl and fails as invalid where Lean's apply_rfl would look for @[refl] lemmas"
+
+[[fault]]
+id = "fe-exact-mismatch-kept"
+file = "src/front/tactic-basic.fs"
+old = '''  0= if ['] lfb-mismatch. lfa-e-tac-mismatch lfb-failed then ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "FE1g-4: exact assigns a term whose type is not the goal's"
+
+[[fault]]
+id = "fe-exact-new-holes-ignored"
+file = "src/front/tactic-basic.fs"
+old = '''  dup ['] lfb-new? lfb-holds? if lfa-e-tac-unassigned lf-tac-fail then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "FE1g-4: a metavariable exact's term made and left unassigned is not reported as Lean's don't know how to synthesize"
+
+[[fault]]
+id = "fe-exact-scope-ignored"
+file = "src/front/tactic-basic.fs"
+old = ''': lfb-in-scope ( e -- e ) dup ['] lfb-outside? lfb-holds? if lfb-unassignable then ;'''
+new = ''': lfb-in-scope ( e -- e ) ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "FE1g-4: exact assigns a term with a free variable outside the goal's context (Lean's checkAssignment refuses it)"
+
+[[fault]]
+id = "fe-exact-sorts-ignored"
+file = "src/front/tactic-basic.fs"
+old = ''': lfb-types. ( -- outcome ) lfb-sorted? if lfb-sorted. else lfb-plain. then ;'''
+new = ''': lfb-types. ( -- outcome ) lfb-plain. ;'''
+test = "$GFORTH tests/front/tactic-basic.fs"
+reason = "FE1g-4: the type mismatch text leaves out the sorts Lean names when the two types' types differ"

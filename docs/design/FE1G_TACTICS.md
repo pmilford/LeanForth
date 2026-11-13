@@ -9,7 +9,10 @@ own local context, tags, the goal list and the proof state, the text of
 and tested alone on branch `fe1g3`** (§4.8: the run at `end NAME`, blocks
 as heap frames, focus, done, saved states, fuel, `by-sorry`, the closing
 over the binders and FE1f's hand-over, error codes 80 and 89 to 93;
-reached by no user command until FE1e elaborates statements). The rest
+reached by no user command until FE1e elaborates statements); **FE1g-4,
+written and tested alone on the same branch** (§4.9: `by-intro:`,
+`by-exact`, `by-rfl`, terms equal to pinned Lean's for the FE1 cases
+that need no library definition unfolded; error codes 94 to 99). The rest
 is not built. This is the
 design of plan row FE1g (proof state and tactics) of
 [the plan](../project/PLAN_DRAFT.md), part of FE1 ($0 + n = n$ proved
@@ -621,6 +624,48 @@ FE1g-3 as far as it goes before FE1e (`src/front/tactic-run.fs`; tests
   during `leanforth check` (tested); FE1e must let the Meta layer see the
   library while a text runs. The end-to-end test that reaches the
   kernel therefore uses a stand-in statement `p` for `p : Prop`.
+
+### 4.9 What FE1g-4 built (2026-11-13, branch `fe1g3`)
+
+`src/front/tactic-basic.fs` sets the rows of `by-intro:`, `by-exact` and
+`by-rfl` (§5.1-5.3); tests `tests/front/tactic-basic.fs`, Lean twins in
+`tests/front/tactic-run.lean` (checked by `check_tactics.py --lean`).
+
+- **`by-intro:`** as §5.1, its new goal's old goal assigned `fun x => ?n
+  x` with `?n` delayed-assigned `[x] := new goal`, as Lean's `elimMVar`
+  makes it; `theorem self_imp (p : Prop) : p → p := by intro h; exact h`
+  gives Lean's `fun (p : Prop) (h : p) => h` node for node and the kernel
+  accepts it (through `cli-check`, stand-in statement). `intro _` makes
+  the hypothesis inaccessible, printed `a✝` as pinned Lean prints it.
+  Not supported yet (99): `intro rfl` (Lean substitutes, FE5), a `let`,
+  and a binder whose kind is not known explicit (review fe1c-3 R1: the
+  presentation table's kind of a shared node may be another's; an
+  instance binder would need Lean's `isClass?`, FE3). Error 94 is Lean's
+  introN text with the goal after a blank line.
+- **Instantiation** (`instantiate.fs`): instantiating `fun x => ?n x`
+  puts a loose bound variable into `?n`'s delayed value; Lean lifts such
+  values under binders (`lift_loose_bvars`). `lf-meta-instantiate1` now
+  puts one in where no binder of the body lies around the variable (the
+  FE1 cases) and still answers unsupported under a binder (FE1c).
+- **`by-exact`** as §5.2: the term from `lf-tac-elab` (FE1e's
+  `Tactic.elabTerm`; until FE1e error 71, tests set a stand-in), its type
+  from `infer.fs`, FE1c's `isDefEq` (`defeq.fs`, the elaborator's
+  configuration). Lean compares with synthetic opaque metavariables
+  assignable (`withAssignableSyntheticOpaque`), which `defeq.fs` does not
+  offer: either type holding one answers 93 first. Lean's Type mismatch
+  text (with "of sort" lines when the two types' types differ, as
+  `mkHasTypeButIsExpectedMsg`), 95 for a metavariable the term made and
+  left, 98 for a free variable outside the goal's context; a term with an
+  older open metavariable answers 93 (Lean's `checkAssignment` would
+  restrict it: FE1c's `assign-check.fs` is not called yet).
+- **`by-rfl`** as §5.3 on goals whose type is `Eq` with three arguments
+  after instantiation and whnfCore: `theorem refl_p (p : Prop) : p = p :=
+  by rfl` gives Lean's `fun (p : Prop) => @Eq.refl.{1} Prop p`; error 97
+  is apply_rfl's text. `0 + n = n` and the like need `isDefEq` to unfold
+  `HAdd.hAdd` (lazy delta, unsupported in FE1c) and the Meta layer to see
+  the library while a text runs (FE1e).
+- **Not as Lean yet** (plan 8.6): `addPPExplicitToExposeDiff` in the
+  error texts and Lean's line breaks past width 120.
 
 ## 5. The tactics of FE1
 
