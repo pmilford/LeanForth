@@ -29,7 +29,11 @@ against the coverage classes of [the coverage review](TEST_COVERAGE_REVIEW.md) a
    success/failure results. Trace return-stack use through loops, `EXIT`,
    `UNLOOP`, and calls; check loop bounds, empty ranges and nesting. Verify flags
    are consumed correctly and that callers use the actual returned convention.
-3. Check idiom and factoring against [the Forth style guide](FORTH_STYLE.md),
+3. Before judging factoring, look for existing words in the generated word index
+   ([LIBRARY_WORDS.md](LIBRARY_WORDS.md)) and read the duplicate report
+   (`python3 scripts/check-duplicates.py --report`; plan 9.4.8f): a new copy of an indexed word or a new
+   duplicate group is a finding.
+   Check idiom and factoring against [the Forth style guide](FORTH_STYLE.md),
    which is the project standard. Run
    `python3 scripts/forth-metrics.py --words 10 <files>` on the reviewed files
    and include its summary in the report. Raise a finding — with a concrete
@@ -53,14 +57,30 @@ against the coverage classes of [the coverage review](TEST_COVERAGE_REVIEW.md) a
    Do not shorten code by dropping validation, obscuring control flow,
    weakening resource bounds, or hiding a trust boundary; when a longer word is
    genuinely clearer, it must say why in a comment.
-   **Reuse (owner, 2026-11-13; AGENTS.md "Reuse first").** For every new
-   word that does something general (sorting, tables, maps, heaps, stacks and
-   frames for non-recursive walks, memo caches, growable arrays, bounds,
-   outcome chains, parsing, text and JSON helpers), search `src/lib/`
-   ([FORTH_LIBRARY.md](FORTH_LIBRARY.md)) and the other modules for an
-   existing word; a re-implementation, a general operation buried in a module
-   where a library belongs, or a new library with no caller is a finding that
-   blocks the merge, with the existing word or the library to write named.
+3a. **Reuse: look beyond the diff** (owner, 2026-11-13; AGENTS.md "Reuse
+   first"). Mandatory in every review, whatever its size or report length; a
+   review that skips it is incomplete. The reviewer must:
+   - list each new or changed word that does something general: sorting,
+     searching, tables, maps, heaps, stacks and frames for non-recursive
+     walks, term or tree walks, memo caches, growable arrays, bounds and index
+     checks, outcome chains and loops, number and text formatting, parsing,
+     JSON;
+   - for each, search for an existing word that already does it: the library
+     words ([FORTH_LIBRARY.md](FORTH_LIBRARY.md), `src/README.md`'s `lib/`
+     row, and the generated word index [LIBRARY_WORDS.md](LIBRARY_WORDS.md)), then
+     `grep -rn` across all of `src/` by name and by shape (the same loop, the
+     same push and pop, the same tag test), not only the changed files;
+   - run `python3 scripts/check-duplicates.py` and
+     `python3 scripts/check-lib-callers.py` (plan 9.4.8f) and
+     quote their new entries; when the coordinator names branches in flight,
+     compare their copies of the same operation too;
+   - check the reverse: a general operation written inside a Lean module
+     that belongs in `lib/` or a shared module, a module started as a copy of
+     another (renamed prefixes), and a new library word with no caller.
+   Each such case is a **blocking** finding that names the existing word to
+   use, or the library or shared word to write and every copy it replaces. It
+   is fixed before the merge, or the coordinator records a plan row in a named
+   slice and the review cites it; "left as a note" is not an outcome.
 4. Examine cell arithmetic, signed versus unsigned comparisons, overflow,
    alignment, address arithmetic, capacities, initialization and lifetime.
    Check array and arena bounds before access; identify caller-owned storage and
@@ -105,6 +125,11 @@ trigger, consequence, and a practical remedy or test. Distinguish demonstrated
 bugs from potential risks, documented limitations and style suggestions; do not
 invent a failure. Note well-factored code when no improvement is justified.
 
+Report reuse in its own section in every review, even when nothing is found:
+what was searched (the index, the `grep` patterns, the duplicate and caller
+checks) and each finding with the word to use or the library to write. A
+one-line "Reuse: none" without the searches is not a review.
+
 Report Forth style in its own section, not as an afterthought: the metrics
 summary, then each style-guide finding with the proposed factoring, written
 as Forth (new word names and stack comments). Style findings are not optional
@@ -132,3 +157,19 @@ interface by another module, and the non-standard `>=`. Each came with a
 Forth refactoring. That review ran while the style guide was still
 uncommitted, so it is not a clean before-and-after comparison. Repeat such
 an evaluation on another module after major guideline changes.
+
+## Evaluation of the reviewer (2026-11-13): reuse
+
+The [library audit](forth-reviews/2026-11-13-library-audit.md) found about 27 hand-written push and pop copies on
+slabs, two term walkers sharing 37 identical words, 7 hand-written sorts beside an unused `lib/sort.fs`, and about 130
+copies of one outcome loop, almost all merged after a logged Forth review. Why the reviews missed them: they read the
+diff, and nothing told them to search `lib/` or the rest of `src/` for the same operation, so a hand-written sort
+looked correct in isolation; there was no compact index of library words; the one reuse proposal (review fe1c-2, S2:
+`slab-push` in `lib/slab.fs`, 2026-11-12) was a suggestion that the re-check accepted as "a plan note", and no plan
+row followed; the coordinator asked for short one-round reviews to save tokens, which discouraged looking beyond the
+change; and parallel branches were invisible to each review. Changes: step 3a and the reuse section of the report,
+both mandatory and blocking; the generated word index, the duplicate detector and the library-caller check (plan
+9.4.8f); a library proposal must cite a plan row before the review is logged. Repeat the evaluation with planted reuse
+defects (plan 9.4.8h): a branch with a hand-written sort, a module started as a renamed copy of another and a new
+library word with no caller; the reviewer must find all three.
+

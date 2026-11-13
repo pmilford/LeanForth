@@ -1275,3 +1275,24 @@ the S slices, the libraries S2 would otherwise duplicate first.
   ([FORTH_REVIEWER.md](../development/FORTH_REVIEWER.md), the design checklist of
   [DESIGN_STAGE_REVIEW.md](../development/DESIGN_STAGE_REVIEW.md)).
 - **Work** (plan 9.4.8): the audit's library plan, one library per branch; kernel copies under the [kernel] gate.
+
+### Library reuse: high priority, the whole code base (2026-11-13, afternoon)
+
+The owner: "I view this refactor/reuse as fairly high priority. so we will fix all the existing code including the
+kernel. do it carefully, but don't overtest each change, you should be able to do several at the same time. use unit
+testing a lot on individual changes. some might cause subtle problems in backward compatibility, so expect to debug
+that. report the number of lines of code before and after and the library use and also any new libraries found to
+develop." Plan 9.4.8 runs beside the S slices at high priority: every copy the audit found is replaced, the kernel's
+under the [kernel] gate (identical verdicts, fuel and snapshot bytes on Init); each branch batches several changes,
+unit-tests each one, and runs its tier once. Reports give lines of code and library use before and after
+(baseline at `14423237`: 202 Forth files, 61,177 lines, 37,800 code lines, 15,015 words; 30 libraries with 1,610 words,
+361 of them used outside `lib/`) and the new libraries found.
+
+**Fuel in the reuse work** (the owner, same afternoon: "a general sort with two algorithms split at n=32 might have
+different fuel than a single algorithm not split … be careful forcing fuel to be identical with a big refactor").
+Fuel is LeanForth's own work budget per declaration (`--fuel`, default 100,000,000), not Lean's; it only decides when
+a check stops as exhausted. Verdicts, diagnostics and snapshot bytes must stay identical; fuel is expected to stay
+identical where the work is the same, but no code is bent to reproduce an old count: a difference is measured per
+declaration on Init, explained, and shown at the [kernel] gate. Of the eight sorts, only the kernel's level
+normalization charges fuel (one unit per comparison), and it already uses the same insertion-then-merge split at 32
+that `lib/sort.fs` copied from it.

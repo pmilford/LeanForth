@@ -83,6 +83,7 @@ features they describe.
 - [process-audits/](development/process-audits/2026-11-12-agents-md.md) — audits of the AGENTS.md rules against practice.
 - [ci-results.log](development/ci-results.log) — every push's local CI results with the Gforth and Lean versions (written by `scripts/push.sh`).
 - [FORTH_LIBRARY.md](development/FORTH_LIBRARY.md) — inventory of reusable Forth facilities and what is still missing.
+- [LIBRARY_WORDS.md](development/LIBRARY_WORDS.md) — generated index of the public words of `src/lib/` (`scripts/lib-index.py`).
 - [design-reviews/LOG.md](development/design-reviews/LOG.md) — the independent design reviews required before code (owner, 2026-11-13): reports and verdicts.
 - [DESIGN_STAGE_REVIEW.md](development/DESIGN_STAGE_REVIEW.md) — 2026-11-13 review of the design stage: eight designs, about 95 sub-steps, none reviewed before code; the design review checklist and the re-cut into user-visible slices (plan 9.4.7, decided by the owner).
 - [TEST_WORKFLOW_REVIEW.md](development/TEST_WORKFLOW_REVIEW.md) — 2026-11-13 count of repeated test runs on four small tasks (`lib/sort.fs`, `lib/bigint.fs`, FE1g-1, coverage follow-ups) and proposals for less repetition (plan 9.4.6, owner decisions open).
@@ -90,6 +91,7 @@ features they describe.
 - [INSTALLATION_LOG.md](development/INSTALLATION_LOG.md) — every install and verification command actually run.
 - [VERSIONS.md](development/VERSIONS.md) — observed tool versions and pinned download hashes.
 - [PROFILING.md](development/PROFILING.md) — opt-in time and memory measurement; results in [measurements/](development/measurements/).
+- [Reuse baseline](development/measurements/reuse-2026-11-13/README.md) — lines of Forth per folder and each library's use outside `lib/` before the reuse work of plan 9.4.8 (2026-11-13).
 - [Lean kernel profile](development/measurements/lean-kernel-profile-2026-11-02/README.md) — where Lean 4.35.0's kernel spends its time on `Init`, `Std` and a Mathlib slice (by function family, measured with perf), per-declaration times and the slowest declarations, and a nanoda comparison (2026-11-02).
 - [Two-mode program words prototype](development/measurements/two-mode-prototype-2026-11-03/README.md) — throwaway evidence for ADR 0019: the real example sources, run by Forth's interpreter with a LeanForth vocabulary, give byte-identical IR on Gforth 1.0.0 and 0.7.3; run mode, replayed reader tests, hostile inputs, an IR round trip, planted faults, a symbolic demo, the mode shift (a third interpreter state, on both Gforths) and defining words and loops in both designs (2026-11-03).
 - [KERNEL_START.md](development/KERNEL_START.md) — prerequisites for starting the trusted kernel.

@@ -63,7 +63,7 @@ status changes when this date is older than them. Stages are those of the
   way (2,890 declarations); their receipts wait for schema 0.4.
 
 **Next**
-- Library reuse (plan 9.4.8, owner 2026-11-13): designed; the rule is in AGENTS.md ("Reuse first"), the Forth
+- Library reuse (plan 9.4.8, owner 2026-11-13): designed; its checks (9.4.8f: libraries without callers, a duplicate-code ratchet, plan rows for proposed libraries, a generated word index) integrated 2026-11-13, run by `make test`; the rule is in AGENTS.md ("Reuse first"), the Forth
   reviewer's procedure and the design checklist; an audit of `src/front` and of the 2026-11-12 library candidates is
   running; then one library per branch beside the S slices, every copy replaced.
 - Priority (owner, 2026-11-13 midday): the front end's slices in order, S1 then S2 ($0 + n = n$ by `by-induction` and
@@ -108,6 +108,8 @@ status changes when this date is older than them. Stages are those of the
   check is owed.
 
 **Later**
+- A faster sort for short lists (`lib/sort.fs` below its cut-over of 32; plan 9.4.8i, owner 2026-11-13): only if
+  benchmarks and traces of the callers' list sizes show it is worthwhile.
 - Proof development (owner, 2026-11-12; long term, after strict Lean compatibility): research note
   [PROOF_DEVELOPMENT.md](../design/PROOF_DEVELOPMENT.md), plan rows PD1–PD15, all not started; PD1, Lean's `sorry`
   reported NOT PROVED with the conditional report, is decided (ADR 0021 Amendment 1) and fits with FE1g and FE5.
