@@ -162,6 +162,24 @@ T{ 4 outcome-ok answer? 4 outcome-rejected answer? -1 outcome-full answer? -> tr
 T{ 5 outcome-ok answer? -1 7 answer? -> false false }T
 T{ 4 outcome-ok holder? 4 outcome-rejected holder? 4 outcome-full holder? -> true false false }T
 
+\ ---- The lookup layout, named once (environment.fs; review FRK B): a
+\ key's name and kind; an answer's slot + 1 and its outcome or holder
+\ bits; a new name or slot + 1 above the same low bits; up to the largest
+\ name (below 2^27) and the one key beyond the input; a list entry.
+: big-name ( -- n ) 1 27 lshift 1- ;
+T{ 5 lf-look-other lf-look-key dup lf-look-name swap lf-look-kind -> 5 lf-look-other }T
+T{ big-name lf-look-quot lf-look-key dup lf-look-name swap lf-look-kind -> big-name 8 }T
+T{ lf-look-outside dup lf-look-name swap lf-look-kind -> 1 28 lshift 1- 15 }T
+T{ 9 outcome-rejected lf-look-answer dup lf-look-slot+1 swap lf-look-outcome -> 10 4 }T
+T{ -1 outcome-full lf-look-answer dup lf-look-slot+1 swap lf-look-outcome -> 0 6 }T
+T{ 9 outcome-ok lf-look-answer lf-look-holder or lf-look-outcome -> lf-look-holder }T
+T{ 5 lf-look-other lf-look-key 77 lf-look-renumber -> 77 lf-look-other lf-look-key }T
+T{ 5 lf-look-quot lf-look-key big-name lf-look-renumber -> big-name lf-look-quot lf-look-key }T
+T{ 9 outcome-unknown lf-look-answer 4 lf-look-reslot -> 3 outcome-unknown lf-look-answer }T
+T{ 2 lf-look-holder lf-look-answer big-name lf-look-reslot lf-look-slot+1 -> big-name }T
+T{ 5 lf-look-any lf-look-key 6 ' lf-look-renumber rs-checked -> 6 lf-look-any lf-look-key }T
+T{ /look-entry -> 2 cells }T
+
 \ ---- A key beyond the input as written (review FRK F4): without the
 \ environment's tier of names or the canon tier, or for a number the
 \ environment's tier does not hold, refused (invalid) and never read past

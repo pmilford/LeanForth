@@ -167,13 +167,11 @@ require ./whnf.fs
   drop r> outcome-ok ;
 
 \ The whole computation, from e's type T.
-: lf-iproj-then ( frame outcome xt -- frame' outcome )
-  over ok? if nip execute else drop then ;
 : lf-iproj-result ( L E Ty P r outcome -- type status ) 2>r 2drop 2drop 2r> ;
 : lf-iproj-compute ( L E T -- type status )
   lf-minfer-whnf-job ok-then? 0= if nip nip no-result exit then
-  0 0 outcome-ok ['] lf-iproj-start lf-iproj-then ['] lf-iproj-prop lf-iproj-then
-  ['] lf-iproj-fields lf-iproj-then ['] lf-iproj-end lf-iproj-then lf-iproj-result ;
+  0 0 outcome-ok ['] lf-iproj-start ok-and ['] lf-iproj-prop ok-and
+  ['] lf-iproj-fields ok-and ['] lf-iproj-end ok-and lf-iproj-result ;
 
 \ The hook's steps: e's type is a child visit, the leaf and e saved
 \ across it; e, a source term read under the scope, is then closed.

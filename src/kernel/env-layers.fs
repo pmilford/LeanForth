@@ -127,12 +127,12 @@ end-structure
   2dup lay-sn @ u< if drop exit then tuck lay-sn @ - swap lay-map @ ly@ ;
 : lay-key ( key lay -- key' )
   over lf-look-outside = if drop exit then
-  over 4 rshift over lay-names @ u< if drop exit then
-  >r dup 15 and swap 4 rshift r> lay-ly ly-name
-  ok? if 4 lshift or else 2drop lf-look-outside then ;
+  over lf-look-name over lay-names @ u< if drop exit then
+  >r dup lf-look-name r> lay-ly ly-name
+  ok? if lf-look-renumber else 2drop lf-look-outside then ;
 : lay-answer ( answer lay -- answer' )
   over lf-look-slot+1 ?dup 0= if drop exit then
-  1- swap lay-slot# 1+ 4 lshift swap 15 and or ;
+  1- swap lay-slot# 1+ lf-look-reslot ;
 : lay-from ( j lay -- dk lk ) lay-snap snap-starts @ swap 2* cells + 2@ swap ;
 : lay-entry ( j lay -- key answer )
   2dup lay-snap look-key over lay-key >r

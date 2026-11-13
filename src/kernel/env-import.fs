@@ -263,7 +263,7 @@ variable imp-current
 : answer-taken ( answer imp -- answer' true | false )
   over lf-look-slot+1 ?dup 0= if drop true exit then
   1- swap imp-from @ ua@ ?dup 0= if drop false exit then
-  4 lshift swap 15 and or true ;
+  lf-look-reslot true ;
 \ The candidate's entry i against S's entry j.
 : entry-same? ( i j imp -- flag )
   rot lf-look-at 2@ swap rot answer-taken 0= if 2drop false exit then

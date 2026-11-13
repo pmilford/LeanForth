@@ -200,9 +200,6 @@ variable snap-stale-allowed  false snap-stale-allowed !
 : id-sha! ( c-addr k snap -- ) id-sha 32 move ;
 : snap-slot ( d snap -- addr ) ss-slots swap snap-block swap sl-fields# u32s * + ;
 : slot-env ( d -- slot ) lf-env lf-env-slot ;
-\ A lookup's key: its name and kind (environment.fs, "Lookups").
-: key-name ( key -- name ) 4 rshift ;
-: key-kind ( key -- kind ) lf-look-kinds 1- and ;
 \ The (key, answer) pairs of a list as written, little-endian; a list
 \ sorted by key again (ascending, unsigned), by insertion.
 : entry@ ( addr k -- key answer ) 8 * + dup u32-le@ swap 4 + u32-le@ ;
@@ -318,7 +315,7 @@ create snap-site-tables /sites allot  snap-site-tables /sites erase
 \ written (snap-s): an answer's slot + 1 field.
 : answer-renum ( answer snap -- answer' )
   over lf-look-slot+1 ?dup 0= if drop exit then
-  1- swap snap-s 1+ 4 lshift swap 15 and or ;
+  1- swap snap-s 1+ lf-look-reslot ;
 \ n slot numbers as little-endian fields at addr sorted ascending (a
 \ layer's are numbered again, so their order may change).
 : dep-sort ( addr n -- )
@@ -363,7 +360,7 @@ create snap-outers /outers allot  snap-outers /outers erase
   canon ?dup if dup tier-free free drop then snap-outers outers-list block-free
   snap-outers outers-names block-free snap-outers outers-bytes block-free
   snap-outers /outers erase ;
-: key-beyond? ( key -- flag ) key-name outers-in# u< 0= ;
+: key-beyond? ( key -- flag ) lf-look-name outers-in# u< 0= ;
 \ Whether slot's list ends with a name beyond (such keys are its last).
 : slot-outer? ( slot -- flag )
   canon 0= if drop false exit then
@@ -398,7 +395,7 @@ create snap-outers /outers allot  snap-outers /outers erase
   snap-outers outers-list ! snap-outers outers-room ! outcome-ok ;
 : outer-put ( addr n name -- addr n' ) >r 2dup cells + r> swap ! 1+ ;
 : outer-key ( addr n slot key -- addr n' slot )
-  dup key-beyond? if key-name swap >r outer-put r> else drop then ;
+  dup key-beyond? if lf-look-name swap >r outer-put r> else drop then ;
 : outers-of ( addr slot -- addr n )
   0 swap dup lf-slot-looked @ 0 ?do i over lf-slot-look drop outer-key loop drop ;
 \ Name n of the environment's tier made canon's: n' and ok; or -1 and
@@ -466,8 +463,8 @@ create snap-outers /outers allot  snap-outers /outers erase
 \ A key as written: a name beyond the input made canon's (key' ok), or -1
 \ and canon-copy's failure; the outcome is passed up to snap-save.
 : canon-key ( key -- key' outcome )
-  dup key-kind swap key-name canon-copy ok-then? 0= if nip no-result exit then
-  lf-look-kinds * + outcome-ok ;
+  dup lf-look-name canon-copy ok-then? 0= if nip no-result exit then
+  lf-look-renumber outcome-ok ;
 : key-written ( key -- key' outcome ) dup key-beyond? if canon-key else outcome-ok then ;
 \ The key at addr as written: ok, or the failure with nothing written.
 : look-written ( addr key -- outcome )
@@ -722,15 +719,15 @@ create snap-outers /outers allot  snap-outers /outers erase
   over dep@ swap rot >r dup >r dep-ok? r> swap r> and swap ;
 : deps-ok? ( c snap -- flag )
   swap >r -1 true rot r> 0 ?do dup snap-dk @ i + dep-step loop drop nip ;
-: key-quot-ok? ( key -- flag ) dup key-kind lf-look-quot <> swap key-name 0= or ;
+: key-quot-ok? ( key -- flag ) dup lf-look-kind lf-look-quot <> swap lf-look-name 0= or ;
 : key-ok? ( key snap -- flag )
   over lf-look-outside = if 2drop true exit then
-  over key-name swap snap-names @ u< over key-kind lf-look-quot u> 0= and
+  over lf-look-name swap snap-names @ u< over lf-look-kind lf-look-quot u> 0= and
   swap key-quot-ok? and ;
 \ An answer's low bits: an outcome, or the holder bit with ok (a
 \ generated recursor's holder: environment.fs lf-look-holder-answer).
 : answer-low? ( answer -- flag )
-  lf-look-kinds 1- and dup outcome-in? swap lf-look-holder = or ;
+  lf-look-outcome dup outcome-in? swap lf-look-holder = or ;
 : answer-ok? ( answer snap -- flag )
   snap-head @ swap dup answer-low? >r lf-look-slot+1 < 0= r> and ;
 : looks-ok? ( c snap -- flag )
