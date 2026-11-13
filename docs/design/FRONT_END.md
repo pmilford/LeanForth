@@ -76,7 +76,7 @@ smallest piece that proves something real: FE1, $0 + n = n$ by induction.
 | Milestone | What a user can do when it is done | Size |
 | --- | --- | --- |
 | FE1 | Prove $0 + n = n$ in LeanForth with `induction`, `rfl` and `exact`, no proof term written by hand, no Lean tool run | L (8 steps) |
-| FE2 | Write any statement and term proof as naturally as in Lean (implicit arguments, numerals, `+`, `=`, `fun`, `let`, holes) | L |
+| FE2 | Write any statement and term proof as naturally as in Lean (implicit arguments, numerals, `+`, `=`, `fun`, `let`, holes); designed in [FE2_TERMS.md](FE2_TERMS.md) | L |
 | FE3 | Declare classes and instances; instance search as Lean's | L |
 | FE4 | Coercions (`↑n`, a natural number used as an integer) | M |
 | FE5 | The everyday tactics (`intro`, `apply`, `cases`, `rw`, `constructor`, `calc` …); `add_comm` and Cantor's theorem of the demos proved natively | L |
@@ -441,6 +441,12 @@ Proposed rules (spellings are [questions 1–4](#9-questions-for-the-owner)):
 - **Commands** keep Lean's `#` names, which no Lean identifier can contain
   (ADR 0017 rule R1): `#check`, `#print`, `#reduce`, `#eval`, `#synth`.
   `.goals` prints the goals, as Forth's `.s` prints the stack.
+
+The words for the rest of Lean's term language (`fun`, `∀` with every
+binder kind, inferred types, holes, `@`, named arguments, `let`, `have`,
+`show`, ascription, anonymous constructors, field notation, literals and
+the remaining operators) are FE2's, designed in [FE2_TERMS.md](FE2_TERMS.md)
+§2, with three spelling questions for the owner.
 
 ### 4.3 The elaborator core
 
