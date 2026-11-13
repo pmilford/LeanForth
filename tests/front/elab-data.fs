@@ -142,9 +142,11 @@ T{ 26 elab-left-out@ -> 300 1 elab-not-exported }T
 \ Classes: Add (0), HAdd (1, out-parameter 2 and out-level 2), OfNat (2).
 T{ s" Add" top elab-class-of s" HAdd" top elab-class-of s" Nat" top elab-class-of
    -> 0 true 1 true false }T
-T{ 1 elab-class@ 1 elab-class-out-params swap @ 1 elab-class-out-levels swap @
-   -> s" HAdd" top 1 2 1 2 }T
-T{ 2 elab-class-out-params nip 2 elab-class-out-levels nip -> 0 0 }T
+\ Counts first, so that a wrong span fails here and is never read.
+T{ 1 elab-class-out-params nip 1 elab-class-out-levels nip 2 elab-class-out-params nip
+   2 elab-class-out-levels nip -> 1 1 0 0 }T
+T{ 1 elab-class@ 1 elab-class-out-params drop @ 1 elab-class-out-levels drop @
+   -> s" HAdd" top 2 2 }T
 T{ s" instAddNat" top elab-class-of -> false }T
 
 \ Tags.
