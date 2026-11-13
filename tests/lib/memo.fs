@@ -69,8 +69,11 @@ T{ 5 1 2 z memo! 1 2 z memo-claim key3 z memo-put
    -> outcome-invalid 0 outcome-invalid 0 outcome-invalid }T
 z memo-clear  z memo-empty  0 z memo-cut  5 z memo-cut
 T{ z dead? -> false 0 0 }T
-\ The heap refuses the table: full, nothing held, the same as never made.
+\ The heap refuses the hooks' block, or the table after it: full, nothing
+\ held, the same as never made.
 T{ 1 heap-refusals !  2 1 z memo-init z dead? blocks -> outcome-full false 0 0 0 }T
+T{ 2 heap-refusals !  2 1 z memo-init z dead? blocks -> outcome-full false 0 0 0 }T
+T{ heap-refusals @ -> 0 }T
 T{ 5 1 2 z memo! 1 2 z memo@ -> outcome-invalid false }T
 z memo-free
 T{ z dead? blocks -> false 0 0 0 }T
@@ -83,7 +86,7 @@ T{ 11 5 7 m memo! m memo-count 5 0 m memo@ -> outcome-ok 2 11 true }T
 T{ -1 -1 0 m memo! 0 0 0 m memo! -1 0 m memo@ 0 0 m memo@ -> outcome-ok outcome-ok -1 true 0 true }T
 \ 16 slots of 32 bits and 16 entries of two cells.
 T{ m memo-bytes -> 16 u32s 32 cells + }T
-T{ blocks -> 2 }T
+T{ blocks -> 3 }T
 m memo-free
 
 \ ---- Keys of two cells, differing in either.
@@ -190,9 +193,9 @@ p memo-free
 \ larger one small again, its blocks given back, the hooks kept.
 0 c memo-cut   0 admits !
 T{ 20 puts c memo-bytes c memo-clear c memo-bytes = c memo-count 5 0 c memo@ -> true 0 false }T
-T{ 20 puts c memo-bytes c memo-empty c memo-bytes = c memo-count blocks -> true 0 2 }T
-T{ 2000 puts c memo-count blocks -> 2000 2 }T
-T{ c memo-empty c memo-count c memo-bytes c memo-live? blocks -> 0 16 u32s true 1 }T
+T{ 20 puts c memo-bytes c memo-empty c memo-bytes = c memo-count blocks -> true 0 3 }T
+T{ 2000 puts c memo-count blocks -> 2000 3 }T
+T{ c memo-empty c memo-count c memo-bytes c memo-live? blocks -> 0 16 u32s true 2 }T
 T{ 0 admits !  3 put admits @ 3 0 c memo@ -> outcome-ok 1 1003 true }T
 \ The heap refuses the new table: the memo is no longer live, holds nothing.
 T{ 2000 puts 1 heap-refusals ! c memo-empty c dead? blocks -> false 0 0 0 }T
@@ -201,6 +204,17 @@ T{ 3 put -> outcome-invalid }T
 T{ 3 put c memo-count admits @ -> outcome-ok 1 2000 }T
 c memo-free
 T{ blocks -> 0 }T
+
+\ ---- A memo record may move (a member of a checker context does while
+\ modules load): a copy, the old record erased, finds and keeps as before.
+create moved /memo allot
+2 1 p memo-init made
+T{ 5 1 2 p memo! -> outcome-ok }T
+p moved /memo move   p /memo erase
+T{ 1 2 moved memo@ 6 3 4 moved memo! 3 4 moved memo@ -> 5 true outcome-ok 6 true }T
+: fill-moved ( n -- ) 0 ?do i i 9 moved memo! drop loop ;
+T{ 40 fill-moved 39 9 moved memo@ 1 2 moved memo@ -> 39 true 5 true }T
+moved memo-free
 
 \ ---- Stack effects with the return stack checked.
 2 1 p memo-init made

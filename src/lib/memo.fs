@@ -58,10 +58,11 @@
 \
 \ Interface: /memo memo-init memo-free memo-live? memo-count memo-bytes
 \ memo-find memo-put memo-at memo-claim memo@ memo! memo-clear memo-empty
-\ memo-cut memo-check! memo-admit! memo-small. State: none of its own but
-\ the table hooks (read-only); every word takes a memo record made by the
-\ caller (in the dictionary or inside a larger record), which owns its
-\ heap blocks until memo-free. One memo is single-threaded; separate memos
+\ memo-cut memo-check! memo-admit! memo-small. State: none of its own;
+\ every word takes a memo record made by the caller (in the dictionary or
+\ inside a larger record, which may move: a member of a checker context
+\ moves while modules load), which owns its heap blocks (the table, its
+\ hooks, the entries) until memo-free. One memo is single-threaded; separate memos
 \ are independent. Requires portability.fs, bounds.fs, outcome.fs,
 \ u32.fs, hash32.fs, slab.fs, htab.fs and module.fs; helpers are private
 \ in lf-lib-private (ADR 0010). Loads in decimal whatever BASE is, then
@@ -89,6 +90,7 @@ lf-lib-private set-current
   field: memo-check             \ xt ( a-addr -- flag ): a found value holds; or 0
   field: memo-admit             \ xt ( memo -- flag ): an entry may be added; or 0
   2 cells +field memo-probe     \ the key of memo-at and memo-claim while they run
+  field: memo-hooks             \ the table's hooks, a heap block (it never moves)
 end-structure
 4 constant memo-first-log2      \ a new table's slots: 16
 lf-lib set-current
@@ -111,22 +113,28 @@ lf-lib-private set-current
 \ (the table is the memo's first field, so htab is the memo).
 : memo-rehash ( n htab -- h ) tuck memo-entry swap memo-hash ;
 : memo-same ( n key htab -- flag ) >r swap r@ memo-entry r> memo-kcells @ memo-cells= ;
-\ One read-only record of the hooks for every memo: a table keeps its
-\ hooks' address, so they must not live in a memo record that may move
-\ (a member of a checker context moves while modules load).
-create memo-hooks /htab-hooks allot   ' memo-rehash ' memo-same memo-hooks htab-hooks!
+\ A table keeps its hooks' address, so they are in a heap block of their
+\ own, not in the memo record, which may move.
+: memo-hooks-new ( memo -- outcome )
+  /htab-hooks allocate if 2drop outcome-full exit then
+  ['] memo-rehash ['] memo-same 2 pick htab-hooks! swap memo-hooks ! outcome-ok ;
+: memo-hooks-free ( memo -- ) memo-hooks dup @ ?dup if free drop then 0 swap ! ;
 
 \ ---- Making and freeing. A shape: a key of at least one cell, a value of
 \ none or more, an entry's cells within a cell's count of address units.
 : memo-shape? ( kcells vcells -- flag )
   over 1 max-n cell / between? if swap max-n cell / swap - upto? else 2drop false then ;
 : memo-shape! ( kcells vcells memo -- ) tuck memo-vcells ! memo-kcells ! ;
-\ The slab (no heap yet; its shape is sound, so slab-init gives ok), then
-\ the table of 16 slots: ok, or full with no block.
+\ The slab (no heap yet; its shape is sound, so slab-init gives ok), the
+\ hooks and the table of 16 slots: ok, or full with no block held.
 : memo-slab ( memo -- ) dup memo-unit dup slab-limit-max rot memo-entries slab-init drop ;
+: memo-table-new ( memo -- outcome )
+  memo-first-log2 over memo-hooks @ rot memo-table htab-init ;
+: memo-blocks ( memo -- outcome ) dup memo-hooks-new ok-then? if memo-table-new then ;
+: memo-release ( memo -- )
+  dup memo-table htab-free dup memo-entries slab-free memo-hooks-free ;
 : memo-make ( memo -- outcome )
-  dup memo-slab memo-first-log2 memo-hooks rot memo-table htab-init ;
-: memo-release ( memo -- ) dup memo-table htab-free memo-entries slab-free ;
+  dup memo-slab dup memo-blocks dup ok? if nip else swap memo-release then ;
 lf-lib set-current
 \ Format a record as an empty memo of keys of kcells cells and values of
 \ vcells cells, with its table made: ok; full when the heap refuses (the

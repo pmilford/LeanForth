@@ -1107,8 +1107,8 @@ reason = "6.5.5: an open source node is keyed by its own skeleton, not its close
 [[fault]]
 id = "cache-identity-unchecked"
 file = "src/kernel/caches.fs"
-old = '''  lf-cent-values over lf-term-identity if = else drop false then dup 0= if nip then ;'''
-new = '''  lf-cent-values drop true ;'''
+old = '''  dup lf-cache-vcells 2 <> if drop exit then'''
+new = '''  drop exit'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "a cached value whose node was discarded is used"
 
@@ -1530,10 +1530,10 @@ reason = "6.2.0: normalize opens a visit without making room on its frames, so a
 [[fault]]
 id = "lnorm-merge-unsorted"
 file = "src/kernel/level-normalize.fs"
-old = '''    lf-lnorm-right-first? if lf-lnorm-j else lf-lnorm-i then lf-lnorm-take repeat'''
-new = '''    lf-lnorm-right-first? drop lf-lnorm-i lf-lnorm-take repeat'''
+old = '''  2dup lf-lnorm-scratch ok? if lf-lnorm-sorted exit then'''
+new = '''  2dup lf-lnorm-scratch ok? if 2drop exit then'''
 test = "$GFORTH tests/core/level-compare.fs"
-reason = "plan task 6.2.0: the merge of a long argument list never takes the right run first, so a max of 40 parameters is not sorted"
+reason = "plan task 6.2.0: a long argument list (a max of 40 parameters), sorted by lib/sort.fs's merge, is left unsorted"
 
 [[fault]]
 id = "ndjson-self-reference"
@@ -1554,9 +1554,9 @@ reason = "a sparse index is taken as its ordinal: a reference to it then names n
 
 [[fault]]
 id = "ndjson-index-repeat-ignored"
-file = "src/import/ndjson.fs"
-old = '''  >r over r@ imap-pair if rot drop r> ordinal! outcome-ok else r> pair-add then ;'''
-new = '''  >r over r@ imap-pair if 2drop drop r> drop outcome-ok else r> pair-add then ;'''
+file = "src/lib/memo.fs"
+old = '''  2dup memo-look if rot drop swap memo-value-at outcome-ok else swap memo-add then ;'''
+new = '''  2dup memo-look if drop nip memo-probe outcome-ok else swap memo-add then ;'''
 test = "$GFORTH tests/core/ndjson.fs"
 reason = "an index given again keeps naming the first record, where Lean's Export.Parse takes the later one"
 
@@ -7345,8 +7345,8 @@ reason = "S0/S3: a listed term is never entered in the set, so a term is listed 
 [[fault]]
 id = "s0-mls-build-unsorted"
 file = "src/kernel/mixed-level-substitute.fs"
-old = '''  lf-mls-sorted lf-mls-reached @ 0 ?do'''
-new = '''  lf-mls-reached @ 0 ?do'''
+old = ''': lf-mls-ready ( -- outcome ) lf-mls-image-room dup ok? if drop lf-mls-sorted then ;'''
+new = ''': lf-mls-ready ( -- outcome ) lf-mls-image-room ;'''
 test = "$GFORTH tests/core/mixed-level-substitute.fs"
 reason = "S0: the build follows the audit's order, so a parent is built before its children"
 
@@ -7377,18 +7377,18 @@ reason = "S0: any earlier walk's stamp is read as fresh, so reached levels are n
 [[fault]]
 id = "s0-lsubst-build-unsorted"
 file = "src/kernel/level-substitute.fs"
-old = '''  lf-lsubst-sorted lf-lsubst-reached @ 0 ?do'''
-new = '''  lf-lsubst-reached @ 0 ?do'''
+old = '''  lf-lsubst-sorted dup ok? 0= if exit then drop'''
+new = '''  outcome-ok dup ok? 0= if exit then drop'''
 test = "$GFORTH tests/core/level-substitute.fs"
 reason = "S0: the build follows the walk's order, so a parent is built before its children"
 
 [[fault]]
-id = "s0-heap-left-child-only"
+id = "s0-lsubst-sort-full-unrecorded"
 file = "src/kernel/level-substitute.fs"
-old = '''  2* 1+ 2dup 1+ > if dup dup 1+ 4 pick lf-cells-less? - then ;'''
-new = '''  2* 1+ ;'''
+old = '''  dup outcome-full = if lf-lsubst-reached @ lf-lsubst-crowded drop then ;'''
+new = '''  ;'''
 test = "$GFORTH tests/core/level-substitute.fs"
-reason = "S0: the heapsort's sift ignores a larger right child, so some arrangements come out unsorted"
+reason = "reuse-k1: a sort of the reached nodes refused its scratch by the heap is full without a diagnostic (the heapsort it replaced needed none)"
 
 [[fault]]
 id = "s0-lnorm-stamp-not-bumped"
@@ -8050,8 +8050,8 @@ reason = "6.5.5: the memo keyed without the call's stamp gives a closing under o
 [[fault]]
 id = "s6a-memo-identity-unchecked"
 file = "src/kernel/replace-memo.fs"
-old = '''  3 cells + dup @ swap cell+ @ over lf-term-identity if = else drop false then'''
-new = '''  3 cells + dup @ swap cell+ @ over lf-term-identity if 2drop true else drop false then'''
+old = '''  dup @ lf-term-identity if swap cell+ @ = else drop false then ;'''
+new = '''  dup @ lf-term-identity if 2drop true else drop false then ;'''
 test = "$GFORTH tests/core/mixed-instantiate.fs"
 reason = "6.5.5: a kept result is given back after it was discarded and its index taken by another node"
 
@@ -9649,7 +9649,7 @@ gap = "no fixture yet has one slot whose names beyond the input a parallel run m
 [[fault]]
 id = "sn5-outer-unsorted"
 file = "src/kernel/env-snapshot.fs"
-old = '''  swap slot-env looks-put nip nip r> r> r> if look-sort else 2drop then ;'''
+old = '''  swap slot-env looks-put nip nip r> r> r> if look-sort outcome-and else 2drop then ;'''
 new = '''  swap slot-env looks-put nip nip r> r> r> drop 2drop ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
 reason = "SN5: a list with names beyond the input written unsorted after their keys are made the written names', which the loader refuses"
@@ -15685,3 +15685,174 @@ new = ''''''
 test = "python3 tests/program/test_program_verify.py WriteIr.test_write_ir_never_overwrites_other_files"
 reason = "review R3: --write-ir overwrites any checkout file the contract's ir line names (src/main.fs)"
 quick = true
+
+# --- reuse-k1 (2026-11-13): lib/memo.fs, lib/pqueue.fs and the kernel's
+# sorts, memos and queues moved onto the libraries -----------------------
+
+[[fault]]
+id = "lib-memo-high-bits-ignored"
+file = "src/lib/memo.fs"
+old = ''': memo-mix ( h x -- h' ) tuck hash-step swap 16 rshift 16 rshift ?dup if hash-step then ;'''
+new = ''': memo-mix ( h x -- h' ) hash-step ;'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "keys that differ only above bit 31 all hash alike: found, but one long probe run (the compared count on a 64-bit host)"
+
+[[fault]]
+id = "lib-memo-key-short"
+file = "src/lib/memo.fs"
+old = ''': memo-same ( n key htab -- flag ) >r swap r@ memo-entry r> memo-kcells @ memo-cells= ;'''
+new = ''': memo-same ( n key htab -- flag ) >r swap r@ memo-entry r> memo-kcells @ 1- memo-cells= ;'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "the last key cell is not compared: keys differing only there are one entry"
+
+[[fault]]
+id = "lib-memo-check-skipped"
+file = "src/lib/memo.fs"
+old = '''  tuck memo-value-at tuck swap memo-valid? 0= if drop 0 then ;'''
+new = '''  memo-value-at ;'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "a value the check hook refuses (stale) is found"
+
+[[fault]]
+id = "lib-memo-overwrite-lost"
+file = "src/lib/memo.fs"
+old = '''  2dup memo-look if rot drop swap memo-value-at outcome-ok else swap memo-add then ;'''
+new = '''  2dup memo-look if drop nip memo-probe outcome-ok else swap memo-add then ;'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "a put of a key present writes beside the entry: the old value stays"
+
+[[fault]]
+id = "lib-memo-admit-skipped"
+file = "src/lib/memo.fs"
+old = '''  dup memo-admitted? 0= if drop 2drop 0 outcome-full exit then'''
+new = '''  \ admit not asked'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "the admit hook is never asked: a refused entry (a check's memory limit) is added"
+
+[[fault]]
+id = "lib-memo-value-not-zeroed"
+file = "src/lib/memo.fs"
+old = '''  >r tuck swap r@ memo-table htab-put dup r@ memo-blank tuck r@ memo-key!'''
+new = '''  >r tuck swap r@ memo-table htab-put tuck r@ memo-key!'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "a new entry's value cells keep what a cut entry left there"
+
+[[fault]]
+id = "lib-memo-cut-one-short"
+file = "src/lib/memo.fs"
+old = '''  swap 0 max swap begin 2dup memo-count < while dup memo-drop-last repeat 2drop ;'''
+new = '''  swap 1+ 0 max swap begin 2dup memo-count < while dup memo-drop-last repeat 2drop ;'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "memo-cut keeps the n-th entry"
+
+[[fault]]
+id = "lib-memo-cut-table-kept"
+file = "src/lib/memo.fs"
+old = '''  dup memo-last swap 2dup memo-rehash swap >r r@ memo-table htab-remove drop'''
+new = '''  dup memo-last swap 2dup memo-rehash swap >r 2drop'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "a cut entry stays in the table: found again from memory past the count"
+
+[[fault]]
+id = "lib-memo-empty-never-shrinks"
+file = "src/lib/memo.fs"
+old = '''  dup memo-small? if memo-clear else memo-remake then ;'''
+new = '''  memo-clear ;'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "memo-empty keeps a large table's memory"
+
+[[fault]]
+id = "lib-memo-free-leaks"
+file = "src/lib/memo.fs"
+old = ''': memo-free ( memo -- ) dup memo-release /memo erase ;'''
+new = ''': memo-free ( memo -- ) /memo erase ;'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "memo-free gives back no block"
+
+[[fault]]
+id = "lib-memo-shape-zero-key"
+file = "src/lib/memo.fs"
+old = '''  over 1 max-n cell / between? if swap max-n cell / swap - upto? else 2drop false then ;'''
+new = '''  over 0 max-n cell / between? if swap max-n cell / swap - upto? else 2drop false then ;'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "a memo of keys of no cells is accepted"
+
+[[fault]]
+id = "lib-memo-table-refusal-leaks"
+file = "src/lib/memo.fs"
+old = '''  dup memo-slab dup memo-blocks dup ok? if nip else swap memo-release then ;'''
+new = '''  dup memo-slab memo-blocks ;'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "a table the heap refuses after the hooks' block leaves that block held"
+
+[[fault]]
+id = "lib-pq-tie-left"
+file = "src/lib/pqueue.fs"
+old = '''  over 1+ over pq-in? if >r dup 1+ swap r> pq-cells-after? 0= else 2drop false then ;'''
+new = '''  over 1+ over pq-in? if >r dup 1+ r> pq-cells-after? else 2drop false then ;'''
+test = "$GFORTH tests/lib/pqueue.fs"
+reason = "a tie between children takes the left one: cells come out in order, but the heap is not the scheduler's former one cell for cell"
+
+[[fault]]
+id = "lib-pq-up-stops"
+file = "src/lib/pqueue.fs"
+old = '''  dup pq-hole @ 0> if dup pq-parent swap pq-cell-after? else drop false then ;'''
+new = '''  dup false if dup pq-parent swap pq-cell-after? else drop false then ;'''
+test = "$GFORTH tests/lib/pqueue.fs"
+reason = "a pushed cell never moves up: the smallest is not at the root"
+
+[[fault]]
+id = "lib-pq-down-left-only"
+file = "src/lib/pqueue.fs"
+old = ''': pq-child ( pq -- c ) dup pq-hole @ 2* 1+ tuck swap pq-right? if 1+ then ;'''
+new = ''': pq-child ( pq -- c ) dup pq-hole @ 2* 1+ tuck swap pq-right? drop ;'''
+test = "$GFORTH tests/lib/pqueue.fs"
+reason = "a cell moving down follows the left child only: cells come out out of order"
+
+[[fault]]
+id = "lib-pq-pop-no-sift"
+file = "src/lib/pqueue.fs"
+old = '''  dup pq-cells slab-top @ over pq-held ! 0 over pq-hole ! pq-down ;'''
+new = '''  dup pq-cells slab-top @ over pq-held ! 0 over pq-hole ! pq-settle ;'''
+test = "$GFORTH tests/lib/pqueue.fs"
+reason = "after a pop the last cell stays at the root"
+
+[[fault]]
+id = "lib-pq-settle-lost"
+file = "src/lib/pqueue.fs"
+old = ''': pq-up ( pq -- ) begin dup pq-rises? while dup pq-parent over pq-fill repeat pq-settle ;'''
+new = ''': pq-up ( pq -- ) begin dup pq-rises? while dup pq-parent over pq-fill repeat drop ;'''
+test = "$GFORTH tests/lib/pqueue.fs"
+reason = "a pushed cell is never stored: its place keeps garbage"
+
+[[fault]]
+id = "lib-pq-order-unchecked"
+file = "src/lib/pqueue.fs"
+old = '''  dup pq-order @ 0= if 2drop outcome-invalid exit then'''
+new = '''  \ the order is not checked'''
+test = "$GFORTH tests/lib/pqueue.fs"
+reason = "a queue refused for an order of 0 takes cells"
+
+[[fault]]
+id = "lnorm-after-reversed"
+file = "src/kernel/level-normalize.fs"
+old = '''  lf-lnorm-spend lf-lnorm-ok? if swap lf-lnorm-lt negate else 2drop 0 then ;'''
+new = '''  lf-lnorm-spend lf-lnorm-ok? if lf-lnorm-lt negate else 2drop 0 then ;'''
+test = "$GFORTH tests/core/level-compare.fs"
+reason = "reuse-k1: the arguments' order given to lib/sort.fs reversed: normal forms sorted descending, not by is_norm_lt"
+
+[[fault]]
+id = "cache-admit-skipped"
+file = "src/kernel/caches.fs"
+old = '''  ['] lf-cache-admit over lf-cache-table memo-admit! lf-cache-checked ;'''
+new = '''  lf-cache-checked ;'''
+test = "$GFORTH tests/core/check-declaration.fs"
+reason = "reuse-k1: new cache entries are not charged to a check's memory limit"
+
+[[fault]]
+id = "sn-dep-sort-skipped"
+file = "src/kernel/env-snapshot.fs"
+old = ''': dep-sort ( addr n -- outcome ) /snap-dep le-sort ;'''
+new = ''': dep-sort ( addr n -- outcome ) 2drop outcome-ok ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "reuse-k1: a list of dependencies is written and merged unsorted"

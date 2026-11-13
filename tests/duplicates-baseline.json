@@ -151,14 +151,6 @@
   ],
   "tokens": 16
  },
- "16c594fc2f0a": {
-  "copies": 2,
-  "members": [
-   "src/kernel/level-normalize.fs:lf-lnorm-swap",
-   "src/lib/bignum.fs:exchange"
-  ],
-  "tokens": 8
- },
  "16ef53f91e89": {
   "copies": 2,
   "members": [
@@ -190,14 +182,6 @@
    "src/kernel/inductive-recursor.fs:lf-rcr-fields!"
   ],
   "tokens": 21
- },
- "1d664efb3c24": {
-  "copies": 2,
-  "members": [
-   "src/kernel/env-snapshot.fs:look-sort",
-   "src/kernel/env-snapshot.fs:o-sort"
-  ],
-  "tokens": 9
  },
  "1ed0c1a81df1": {
   "copies": 2,
@@ -376,14 +360,6 @@
    "src/front/instantiate.fs:in-range"
   ],
   "tokens": 15
- },
- "344531dcbf86": {
-  "copies": 2,
-  "members": [
-   "src/front/mvars.fs:mv-app-pending",
-   "src/kernel/caches.fs:lf-cache-node@"
-  ],
-  "tokens": 8
  },
  "3555000a639a": {
   "copies": 2,
