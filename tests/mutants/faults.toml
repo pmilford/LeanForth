@@ -5118,16 +5118,16 @@ reason = "¬ is not tight in mathematical text: ¬(1 = 2) prints as ¬1 = 2"
 [[fault]]
 id = "printer-string-leaf-invalid"
 file = "src/present/term-printer.fs"
-old = '''    lf-tag-str of ['] lf-pp-str-step endof ['] lf-pp-invalid-step swap endcase ;'''
-new = '''    ['] lf-pp-invalid-step swap endcase ;'''
+old = '''' lf-pp-str-step lf-tag-str lf-pp-step!'''
+new = '''' lf-pp-invalid-step lf-tag-str lf-pp-step!'''
 test = "$GFORTH tests/present/term-printer.fs"
 reason = "the printer's leaf dispatch loses the string literal arm: a string prints as invalid"
 
 [[fault]]
 id = "forth-mode-literal-invalid"
 file = "src/present/print-forth.fs"
-old = '''    lf-tag-lit of ['] lf-pf-lit-step endof lf-tag-str of ['] lf-pf-str-step endof'''
-new = '''    lf-tag-str of ['] lf-pf-str-step endof'''
+old = '''' lf-pf-lit-step lf-tag-lit lf-pf-step!'''
+new = '''' lf-pf-invalid-step lf-tag-lit lf-pf-step!'''
 test = "$GFORTH tests/author/author.fs"
 reason = "the Forth mode's leaf dispatch loses the number literal arm: 7 lit# prints as invalid"
 
@@ -12116,3 +12116,38 @@ old = '''  dup lv-node-tag @ swap dup lv-node-first @ swap lv-node-second @ ;'''
 new = '''  dup lv-node-tag @ swap dup lv-node-second @ swap lv-node-first @ ;'''
 test = "$GFORTH tests/core/derivation-log.fs"
 reason = "refactor-present I1: a rebuilt node's first and second fields are read swapped"
+
+# --- the printers' tag tables (src/present/term-printer.fs, print-forth.fs;
+# the refactor-present review's L3, plan 9.4.5) ------------------------------
+
+[[fault]]
+id = "pp-tag-step-unguarded"
+file = "src/present/term-printer.fs"
+old = '''  dup 0 lf-pp-tags within if cells lf-pp-steps + @ else drop ['] lf-pp-invalid-step then ;'''
+new = '''  cells lf-pp-steps + @ ;'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "refactor-present L3: a corrupted tag past the table reads a cell after it as the step"
+
+[[fault]]
+id = "pp-literal-step-missing"
+file = "src/present/term-printer.fs"
+old = '''' lf-pp-lit-step lf-tag-lit lf-pp-step!'''
+new = '''' lf-pp-invalid-step lf-tag-lit lf-pp-step!'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "refactor-present L3: a number literal no longer prints"
+
+[[fault]]
+id = "pf-projection-as-leaf"
+file = "src/present/print-forth.fs"
+old = '''' lf-pf-app lf-tag-projection lf-pf-step!'''
+new = '''' lf-pf-proj-step lf-tag-projection lf-pf-step!'''
+test = "$GFORTH tests/author/author.fs"
+reason = "refactor-present L3: an applied projection is written as a projection leaf"
+
+[[fault]]
+id = "pf-imax-level-missing"
+file = "src/present/print-forth.fs"
+old = '''' lf-pf-binary lf-level-tag-imax lf-pf-level-step!'''
+new = '''' lf-pf-invalid-step lf-level-tag-imax lf-pf-level-step!'''
+test = "python3 tests/author/check_author.py"
+reason = "refactor-present L3: print --lf refuses an imax level"

@@ -395,15 +395,27 @@ defer lf-pp-lam-groups ( node frames -- ... frames next )
 \ A string literal (core/string-literals.fs): quoted as Lean quotes it
 \ (print-strings.fs).
 : lf-pp-str-step ( term pos frames -- outcome frames 0 ) >r drop lf-pp-string r> 0 ;
-\ The leaves that are no atom; any other tag is invalid.
-: lf-pp-leaf-step ( tag -- xt )
-  case lf-tag-proj of ['] lf-pp-proj-step endof lf-tag-lit of ['] lf-pp-lit-step endof
-    lf-tag-str of ['] lf-pp-str-step endof ['] lf-pp-invalid-step swap endcase ;
+\ The step that prints a term, by its tag, from a table filled once while
+\ loading (read-only afterwards): Sorts, binders, the leaves that are no
+\ atom, then applications, variables and constants (lf-pp-applied-tag?),
+\ which win; any other tag, or one outside the table, is invalid.
+32 constant lf-pp-tags   \ every term tag is below it (core/terms.fs's lf-tag-bit)
+align here lf-pp-tags cells allot constant lf-pp-steps
+: lf-pp-step! ( xt tag -- ) cells lf-pp-steps + ! ;
+: lf-pp-steps-invalid ( -- ) lf-pp-tags 0 do ['] lf-pp-invalid-step i lf-pp-step! loop ;
+: lf-pp-steps-applied ( -- )
+  lf-pp-tags 0 do i lf-pp-applied-tag? if ['] lf-pp-app i lf-pp-step! then loop ;
+lf-pp-steps-invalid
+' lf-pp-concrete-step lf-tag-sort lf-pp-step!
+' lf-pp-symbolic lf-tag-symbolic-sort lf-pp-step!
+' lf-pp-lam lf-tag-lam lf-pp-step!
+' lf-pp-pi lf-tag-pi lf-pp-step!
+' lf-pp-proj-step lf-tag-proj lf-pp-step!
+' lf-pp-lit-step lf-tag-lit lf-pp-step!
+' lf-pp-str-step lf-tag-str lf-pp-step!
+lf-pp-steps-applied
 : lf-pp-tag-step ( tag -- xt )
-  dup lf-pp-applied-tag? if drop ['] lf-pp-app exit then
-  case lf-tag-sort of ['] lf-pp-concrete-step endof
-    lf-tag-symbolic-sort of ['] lf-pp-symbolic endof lf-tag-lam of ['] lf-pp-lam endof
-    lf-tag-pi of ['] lf-pp-pi endof dup lf-pp-leaf-step swap endcase ;
+  dup 0 lf-pp-tags within if cells lf-pp-steps + @ else drop ['] lf-pp-invalid-step then ;
 : lf-pp-term ( term pos frames -- ... frames next )
   2 pick lf-pp-tag if lf-pp-tag-step else ['] lf-pp-invalid-step then execute ;
 ' lf-pp-term is lf-pp-term-step

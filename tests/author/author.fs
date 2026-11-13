@@ -529,6 +529,10 @@ T{ 0 lf-author-decl lf-fdecl-type @ forth-text rot rot s" Prop explicit: x x fun
 T{ 0 lf-author-decl lf-fdecl-type @ -1 lf-print-forth-term -> outcome-invalid }T
 T{ 0 lf-author-decl lf-fdecl-type @ 1 lf-print-forth-term -> outcome-exhausted }T
 T{ 99 1000 lf-print-forth-term -> outcome-invalid }T
+\ A term or level of a tag no step writes is invalid (refactor-present
+\ review L3): a metavariable leaf, and a Sort of a metavariable level.
+T{ 0 0 lf-mvar-leaf drop forth-text nip nip -> outcome-invalid }T
+T{ 0 0 lf-level-mvar-leaf drop lf-term-symbolic-sort drop forth-text nip nip -> outcome-invalid }T
 \ An import stub without a type prints as it was written (review N1).
 : printed ( -- c-addr u outcome )
   0 fout# ! ['] fout+ lf-print-unicode lf-print-setup 1000 lf-author-print >r fout fout# @ r> ;
