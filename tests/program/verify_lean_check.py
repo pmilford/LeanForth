@@ -19,7 +19,7 @@ export must be removed and its manifest kept. The files of the last run, and wha
 printed (verify.out), stay in
 build/verify-lean/NAME (ignored by git). make check runs lf-clamp and
 wrong-clamp-swapped (about 100 s each, two workers); --all runs all thirteen
-(the plan's acceptance: about 12 minutes), recorded in
+(the plan's acceptance: about 13 minutes), recorded in
 docs/programming/PROGRAM_VERIFY.md. --write writes the golden receipts
 instead of comparing them.
 """

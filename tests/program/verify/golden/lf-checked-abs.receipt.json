@@ -84,10 +84,10 @@
       },
       {
         "path": "OUT/lf-checked-abs.ndjson.manifest.json",
-        "sha256": "9055e974d239a27ba916a4e59dd80c1c5d5937af85adafd8a0b5ed574d92aede"
+        "sha256": "2a2a6b66d3f7bbacc23b135f10111e2ee4d03bb438516afb734d0bcff9273a99"
       }
     ],
-    "note": "Lean 4.35.0 wrote the proofs of ProgramVC.LfCheckedAbs0.contract and its path obligations, from the tactic scripts of the untrusted generator, and its exporter wrote them with every declaration they use, 4,313 in all, to the export with SHA-256 aace226dde77cf7c5b0a6fd60ccf4e0910b87023b36040c6f0cef86fdcca768e whose manifest is OUT/lf-checked-abs.ndjson.manifest.json. LeanForth's checker re-checked that export and accepted all 4,313 of them, these theorems among them: the status is LeanForth's verdict. LeanForth has no tactics yet and wrote no proof."
+    "note": "Lean 4.35.0 wrote the proofs of ProgramVC.LfCheckedAbs0.contract and its path obligations, from the tactic scripts of the untrusted generator, and its exporter wrote them with every declaration they use, 4,313 in all, to the export with SHA-256 b4ccf611ff9af7e4760156273296d855b4789dddde76cb990bcab4078ef1686a whose manifest is OUT/lf-checked-abs.ndjson.manifest.json. LeanForth's checker re-checked that export and accepted all 4,313 of them, these theorems among them: the status is LeanForth's verdict. LeanForth has no tactics yet and wrote no proof."
   },
   "verify": {
     "status": "discharged",

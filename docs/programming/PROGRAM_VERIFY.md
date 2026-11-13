@@ -73,11 +73,13 @@ stops before Lean for an unsupported word. SOURCE.fs, CONTRACT and `--out`
 must lie inside the LeanForth checkout, since receipt 0.3 names files
 relative to it (plan 8.4.1j makes receipts for other folders).
 
-Run on 2026-11-13 (each run about 100 s on two workers, nearly all of it
-LeanForth's check of the IR semantics' closure; standard input closed):
+Run on 2026-11-13 by `tests/program/verify_lean_check.py --all` (each Lean run about
+100 s on two workers with other agents running, nearly all of it LeanForth's check of
+the IR semantics' closure; standard input closed; what it printed is kept in
+`build/verify-lean/NAME/verify.out`):
 
 ```text
-$ python3 scripts/program_verify.py src/program/clamp.fs --contract tests/program/contracts/lf-clamp.contract --out build/ver1/lf-clamp; echo "exit status $?"
+$ python3 scripts/program_verify.py src/program/clamp.fs --contract tests/program/contracts/lf-clamp.contract --out build/verify-lean/lf-clamp; echo "exit status $?"
 word: lf-clamp ( value lower upper -- result true | false ), src/program/clamp.fs:12, sha256 e4444161…
 IR: 0.1, sha256 65187502…, equal to tests/program/ir/clamp.ir
 contract: lf-clamp/0, tests/program/contracts/lf-clamp.contract, sha256 841a7163…
@@ -85,7 +87,7 @@ obligations: 2, from the untrusted generator program_vc.py 0.1
   O1: If lower > upper: the word leaves false (bottom first), and the postcondition holds.
   O2: If lower ≤ upper: the word leaves min(max(value, lower), upper), true (bottom first), and the postcondition holds.
 proofs: written by Lean 4.35.0 from the generator's tactic scripts; Lean printed the program back equal to the IR
-export: build/ver1/lf-clamp/lf-clamp.ndjson and its manifest (23,600,297 bytes)
+export: build/verify-lean/lf-clamp/lf-clamp.ndjson and its manifest (23,596,094 bytes)
 ProgramVC.LfClamp0.contract: accepted; axioms: propext, Classical.choice, Quot.sound
 ProgramVC.LfClamp0.O1: accepted; axioms: propext, Quot.sound
 ProgramVC.LfClamp0.O2: accepted; axioms: propext, Classical.choice, Quot.sound
@@ -93,7 +95,7 @@ check: accepted-by-leanforth: LeanForth's checker re-checked the export and acce
 verify: discharged, settled by accepted-by-leanforth
 run: not-run (plan 8.4.2)
 lf-clamp: contract lf-clamp/0 discharged (2 of 2 obligations; Lean wrote the proofs, LeanForth's checker accepted them); about the IR, under the receipt's 8 assumptions; compiled code is not covered
-receipt: build/ver1/lf-clamp/lf-clamp.receipt.json (schema 0.3)
+receipt: build/verify-lean/lf-clamp/lf-clamp.receipt.json (schema 0.3)
 exit status 0
 ```
 
@@ -101,18 +103,18 @@ A wrong contract (MAX and MIN exchanged), refuted: LeanForth's checker
 accepted Lean's proof that the contract is false.
 
 ```text
-$ python3 scripts/program_verify.py src/program/clamp.fs --contract tests/program/contracts/wrong-clamp-swapped.contract --out build/ver1/wrong-clamp-swapped; echo "exit status $?"
+$ python3 scripts/program_verify.py src/program/clamp.fs --contract tests/program/contracts/wrong-clamp-swapped.contract --out build/verify-lean/wrong-clamp-swapped; echo "exit status $?"
 ...
 obligations: none: the untrusted generator program_vc.py 0.1 found inputs that break the contract
   refutation: on 64-bit cells with value = -3, lower = -3, upper = -2, the word leaves -3, -1 (true) (bottom first); the postcondition fails
 proofs: written by Lean 4.35.0 from the generator's tactic scripts; Lean printed the program back equal to the IR
-export: build/ver1/wrong-clamp-swapped/lf-clamp.ndjson and its manifest (23,388,200 bytes)
+export: build/verify-lean/wrong-clamp-swapped/lf-clamp.ndjson and its manifest (23,383,215 bytes)
 ProgramVC.LfClampWrongSwapped.refuted: accepted; axioms: propext, Classical.choice, Quot.sound
 check: accepted-by-leanforth: LeanForth's checker re-checked the export and accepted all 4295 declarations; each theorem's axioms equal Lean's #print axioms
 verify: refuted, settled by accepted-by-leanforth
 run: not-run (plan 8.4.2)
 lf-clamp: contract lf-clamp/wrong-swapped NOT VERIFIED: refuted: on 64-bit cells with value = -3, lower = -3, upper = -2, the word leaves -3, -1 (true) (bottom first); the postcondition fails
-receipt: build/ver1/wrong-clamp-swapped/lf-clamp.receipt.json (schema 0.3)
+receipt: build/verify-lean/wrong-clamp-swapped/lf-clamp.receipt.json (schema 0.3)
 exit status 1
 ```
 
@@ -127,9 +129,9 @@ The text is v0's: its exact form, `--json` and the report schema are plan
 | 1 | Runs the program words (`src/program/verify.fs`, ADR 0019) on the whole source file: they write its IR, or refuse a token with its diagnostic; the file is hashed before and after | `trusted-reader` (tested, not proved) |
 | 2 | Reads the contract, finds its word in the IR, removes by name the files an earlier run wrote in `--out`, and requires the contract's `ir` file to be the IR just written, byte for byte | untrusted |
 | 3 | Refuses an IR 0.2 word (receipt schema 0.4 awaits the owner); runs the generator for this contract alone, within the path and search limits: the obligations, the contract theorem and their tactic scripts, or the theorem `refuted` | `untrusted-generator` |
-| 4 | Pinned Lean compiles the generated file (warnings are errors, so `sorry` fails): it writes the proofs, prints the program back, which must equal the IR, and reports `#print axioms`; `scripts/export.sh` writes the theorems with every declaration they use and the manifest | `trusted-lean` |
+| 4 | Pinned Lean compiles the generated file (warnings are errors, so `sorry` fails), run inside `--out` so that the module name it derives from the path, which the export's private names carry, is `obligations` whatever the folder: the same word and contract give the same export bytes anywhere. It writes the proofs, prints the program back, which must equal the IR, and reports `#print axioms`; `scripts/export.sh` writes the theorems with every declaration they use and the manifest | `trusted-lean` |
 | 6 | `bin/leanforth check --json` checks the export, a final run (no snapshot); export and manifest hashed before and after | `trusted-leanforth`, the only judge |
-| 7 | The check status from LeanForth's verdicts on every declaration; each accepted theorem's axioms must equal Lean's | untrusted, from the report |
+| 7 | The check status from LeanForth's verdicts on every declaration; each kind of verdict other than accepted is a problem of its own, so the exit status follows the CLI's order as `bin/leanforth check`'s does; each accepted theorem's axioms must equal Lean's | untrusted, from the report |
 | 8 | Builds the receipt, has the strict reader check it, and writes the evidence record and the receipt, each to a `.partial` file renamed when complete; removes the export unless `--keep-export` | untrusted; the reader checks it |
 
 (Step 5, the statement fixed by LeanForth itself, is plan 8.4.1e–f.)
@@ -176,7 +178,8 @@ this run's; a run that stops leaves no receipt.
 ## Exit statuses and problem codes
 
 The CLI's statuses, the most severe first when several apply: 5, 4, 1,
-3, 2, 6, 0. Each problem prints one line `error: CODE: MESSAGE`; a run
+3, 2, 6, 0 (LeanForth's verdicts of several kinds, say one theorem
+unknown and another out of fuel, give one problem each, and status 3). Each problem prints one line `error: CODE: MESSAGE`; a run
 that writes no receipt ends with `WORD: NOT VERIFIED: CODE; no receipt
 written`. `tests/program/test_program_verify.py` reaches every code and
 checks that each is listed here.
@@ -275,7 +278,7 @@ its date and `--out` folder.
   runs `lf-clamp` and `wrong-clamp-swapped` end to end from the command
   line with pinned Lean (cached when the Makefile's Lean cache is on) and
   LeanForth, against their golden receipts.
-- `make reference-program-verify-all`: all thirteen contracts (about 12
+- `make reference-program-verify-all`: all thirteen contracts (about 13
   minutes; not part of `make check`).
 - Planted faults in `tests/mutants/faults.toml` (ids `verify-…`), each
   caught by a named test.

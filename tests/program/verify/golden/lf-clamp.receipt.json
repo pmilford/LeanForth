@@ -84,10 +84,10 @@
       },
       {
         "path": "OUT/lf-clamp.ndjson.manifest.json",
-        "sha256": "6a0c0112253eacb10f7d755813cd37a888f81920887f0fd3c660cae817662981"
+        "sha256": "63b6b913b83d5569bdfc1e3feb9a1286bf859fde7349d29aadbb2073b284b3cd"
       }
     ],
-    "note": "Lean 4.35.0 wrote the proofs of ProgramVC.LfClamp0.contract and its path obligations, from the tactic scripts of the untrusted generator, and its exporter wrote them with every declaration they use, 4,277 in all, to the export with SHA-256 ddb64b9a5ca6188890a1c8337915eff742ea5f85290a4bebc4fb81380bf8ad5b whose manifest is OUT/lf-clamp.ndjson.manifest.json. LeanForth's checker re-checked that export and accepted all 4,277 of them, these theorems among them: the status is LeanForth's verdict. LeanForth has no tactics yet and wrote no proof."
+    "note": "Lean 4.35.0 wrote the proofs of ProgramVC.LfClamp0.contract and its path obligations, from the tactic scripts of the untrusted generator, and its exporter wrote them with every declaration they use, 4,277 in all, to the export with SHA-256 65b1d388127d8df9aa2bc697279b89116d5d17116464874687cc2521cdfc99f2 whose manifest is OUT/lf-clamp.ndjson.manifest.json. LeanForth's checker re-checked that export and accepted all 4,277 of them, these theorems among them: the status is LeanForth's verdict. LeanForth has no tactics yet and wrote no proof."
   },
   "verify": {
     "status": "discharged",

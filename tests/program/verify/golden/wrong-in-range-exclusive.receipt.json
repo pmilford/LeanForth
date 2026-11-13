@@ -68,10 +68,10 @@
       },
       {
         "path": "OUT/lf-in-range.ndjson.manifest.json",
-        "sha256": "1fa09b9df5e9340ec59f7f85fe88efbb7a4700b73df78c6cea66b86a4f6c1079"
+        "sha256": "c53175b4fca93b94d8c1463db77293503a56b6539ff2fff8a8af3c16368c19de"
       }
     ],
-    "note": "Lean 4.35.0 wrote the proof of ProgramVC.LfInRangeWrongExclusive.refuted, that the contract is false, from the tactic scripts of the untrusted generator, and its exporter wrote them with every declaration they use, 4,304 in all, to the export with SHA-256 791abeb86173428814e7c19be417941b1b419cd93f0a1e74f5e3e1513b3011b4 whose manifest is OUT/lf-in-range.ndjson.manifest.json. LeanForth's checker re-checked that export and accepted all 4,304 of them, these theorems among them: the status is LeanForth's verdict. LeanForth has no tactics yet and wrote no proof."
+    "note": "Lean 4.35.0 wrote the proof of ProgramVC.LfInRangeWrongExclusive.refuted, that the contract is false, from the tactic scripts of the untrusted generator, and its exporter wrote them with every declaration they use, 4,304 in all, to the export with SHA-256 101e6a11bde905916f0a65dca4cd87d0838e63f09d583ee403090692ea0376da whose manifest is OUT/lf-in-range.ndjson.manifest.json. LeanForth's checker re-checked that export and accepted all 4,304 of them, these theorems among them: the status is LeanForth's verdict. LeanForth has no tactics yet and wrote no proof."
   },
   "verify": {
     "status": "refuted",

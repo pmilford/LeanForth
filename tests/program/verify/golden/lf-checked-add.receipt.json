@@ -109,10 +109,10 @@
       },
       {
         "path": "OUT/lf-checked-add.ndjson.manifest.json",
-        "sha256": "b77e7d104fb50cbcd55b15c0fc1700c85fd4b04d0afa33cf9c15ad8c948de992"
+        "sha256": "ee8a7bdc7e97ddc475baaf580a5829fa4e6ae690a7a7db533da46840d759084c"
       }
     ],
-    "note": "Lean 4.35.0 wrote the proofs of ProgramVC.LfCheckedAdd0.contract and its path obligations, from the tactic scripts of the untrusted generator, and its exporter wrote them with every declaration they use, 4,308 in all, to the export with SHA-256 987a037df052de2ba66eae9222afe0ddeaac7944d827e1dff2f4788881b3ebd0 whose manifest is OUT/lf-checked-add.ndjson.manifest.json. LeanForth's checker re-checked that export and accepted all 4,308 of them, these theorems among them: the status is LeanForth's verdict. LeanForth has no tactics yet and wrote no proof."
+    "note": "Lean 4.35.0 wrote the proofs of ProgramVC.LfCheckedAdd0.contract and its path obligations, from the tactic scripts of the untrusted generator, and its exporter wrote them with every declaration they use, 4,308 in all, to the export with SHA-256 f89acb56b5d3c40a2b5e7e5d4beb33d98d642d3fb06023fd36c51acc8c351f97 whose manifest is OUT/lf-checked-add.ndjson.manifest.json. LeanForth's checker re-checked that export and accepted all 4,308 of them, these theorems among them: the status is LeanForth's verdict. LeanForth has no tactics yet and wrote no proof."
   },
   "verify": {
     "status": "discharged",

@@ -696,7 +696,7 @@ reference-program-verify-clamp:
 reference-program-verify-refuted:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) \
 	  python3 tests/program/verify_lean_check.py wrong-clamp-swapped
-# All thirteen committed contracts, the plan's acceptance (about 12 minutes of
+# All thirteen committed contracts, the plan's acceptance (about 13 minutes of
 # two workers): run by hand, not part of make check.
 reference-program-verify-all:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/program/verify_lean_check.py --all
