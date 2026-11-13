@@ -1,0 +1,92 @@
+\ Unit tests of the front end's whnfCore and getStuckMVar? (plan FE1c;
+\ src/front/whnf.fs) over the Init slice, with the variables of
+\ tests/front/whnf-cases.fs: every step (beta, zeta, metavariable and let
+\ variable heads, iota) with its result; every outcome -- ok, unsupported
+\ (definition, projection, quotient and K-like heads, literal and
+\ non-inert major premises), invalid (no term, a loose bound variable, a
+\ malformed let), exhausted (the fuel), full (a refused allocation) --
+\ and that a failed call leaves nothing that changes the next one.
+\ Every T{ }T checks the data stack's depth. tests/front/check_whnf.py
+\ compares the results with pinned Lean's.
+include ../support/tester.fs
+include ../support/heap-watch.fs
+require ./whnf-cases.fs
+
+\ Terms equal node for node (test only: recursion on the host stack).
+: leaf= ( t1 t2 -- flag )
+  over lf-term-first@ over lf-term-first@ = >r lf-term-second@ swap lf-term-second@ = r> and ;
+: same? ( t1 t2 -- flag )
+  2dup = if 2drop true exit then
+  over lf-term-tag@ over lf-term-tag@ <> if 2drop false exit then
+  over lf-term-tag@ lf-term-binary-tag? 0= if leaf= exit then
+  over lf-term-first@ over lf-term-first@ recurse 0= if 2drop false exit then
+  lf-term-second@ swap lf-term-second@ recurse ;
+: whnf= ( term expected -- flag outcome ) >r lf-whnf-core r> swap >r same? r> ;
+: recm ( major -- t ) >r rec fm app fz app fs app r> app ;
+
+\ ---- Full: the first call's first allocation (its spine's slab)
+\ refused; the same call again works.
+T{ 1 heap-refusals ! fk succ swap app recm lf-whnf-core heap-refusals @ -> -1 outcome-full 0 }T
+T{ fk succ swap app recm lf-whnf-core nip -> outcome-ok }T
+
+\ ---- Iota: Nat.rec on Nat.succ k and Nat.zero, extra arguments, stuck.
+T{ fk succ swap app recm  fs fk app fk recm app whnf= -> true outcome-ok }T
+T{ zero recm fz whnf= -> true outcome-ok }T
+T{ zero recm fx app  fz fx app whnf= -> true outcome-ok }T
+T{ fk recm dup whnf= -> true outcome-ok }T
+T{ rec fm app fz app fs app dup whnf= -> true outcome-ok }T
+T{ ?n recm dup whnf= -> true outcome-ok }T
+\ Beta, zeta, heads.
+T{ nat 0 bv lam fk app fk whnf= -> true outcome-ok }T
+T{ nat fk fs 0 bv app let fs fk app whnf= -> true outcome-ok }T
+T{ ?f fk app fs fk app whnf= ?h fk app dup whnf= -> true outcome-ok true outcome-ok }T
+T{ fg fk app fs fk app whnf= fg sfun whnf= -> true outcome-ok true outcome-ok }T
+T{ succ fk app dup whnf= -> true outcome-ok }T
+
+\ ---- Unsupported: a definition, a projection, a quotient's lift, a
+\ K-like recursor, a structure's eta, a Nat.succ that whnf may fold.
+T{ 0 s" Nat.add" cn fk app fk app lf-whnf-core -> -1 outcome-unsupported }T
+T{ fp s" Prod" menv-name 0 lf-proj-of made lf-whnf-core -> -1 outcome-unsupported }T
+: quot ( -- t ) lv1 lv1 2 s" Quot.lift" cn nat app fx app nat app fs app fb app ;
+T{ quot lv1 1 s" Quot.mk" cn nat app fx app fa app app lf-whnf-core
+   -> -1 outcome-unsupported }T
+T{ lv1 lv1 2 s" Eq.rec" cn nat app fa app fm app fx app fa app fk app lf-whnf-core
+   -> -1 outcome-unsupported }T
+: prod-rec ( -- t ) lv1 l0 l0 3 s" Prod.rec" cn nat app nat app fm app fs app ;
+T{ prod-rec fp app lf-whnf-core -> -1 outcome-unsupported }T
+T{ fk succ swap app succ swap app recm lf-whnf-core -> -1 outcome-unsupported }T
+T{ nat 0 bv lam fk app recm lf-whnf-core -> -1 outcome-unsupported }T
+
+\ ---- Invalid: no term, a loose bound variable, a malformed let.
+T{ -1 lf-whnf-core 0 bv lf-whnf-core -> -1 outcome-invalid -1 outcome-invalid }T
+T{ fk fs 0 lf-let-make must lf-whnf-core -> -1 outcome-invalid }T
+T{ 0 bv fk app lf-whnf-core -> -1 outcome-invalid }T
+
+\ ---- Fuel: each step spends one; none left is exhausted.
+: twice ( -- t ) nat 0 bv lam  nat 0 bv lam fk app app ;
+T{ 2 lf-whnf-fuel! twice lf-whnf-core -> -1 outcome-exhausted }T
+T{ 3 lf-whnf-fuel! twice fk whnf= -> true outcome-ok }T
+T{ 0 lf-whnf-fuel! twice fk whnf= -> true outcome-ok }T
+
+\ ---- getStuckMVar?.
+T{ ?n lf-whnf-stuck -> ?n true outcome-ok }T
+T{ ?n recm lf-whnf-stuck ?h fk app lf-whnf-stuck -> ?n true outcome-ok ?h true outcome-ok }T
+T{ fk recm lf-whnf-stuck fs fk app lf-whnf-stuck -> false outcome-ok false outcome-ok }T
+T{ ?n succ swap app recm lf-whnf-stuck -> false outcome-ok }T
+T{ 0 s" Nat.add" cn fk app fk app lf-whnf-stuck -> false outcome-ok }T
+T{ 0 s" Nat.add" cn ?n app fk app lf-whnf-stuck -> false outcome-unsupported }T
+T{ ?f lf-whnf-stuck fp s" Prod" menv-name 0 lf-proj-of made lf-whnf-stuck
+   -> false outcome-unsupported false outcome-unsupported }T
+T{ -1 lf-whnf-stuck fk lf-whnf-stuck -> false outcome-invalid false outcome-ok }T
+\ A K-like recursor is never stuck (isRecStuck?).
+: eq-rec ( major -- t ) >r lv1 lv1 2 s" Eq.rec" cn nat app fa app fm app fx app fa app r> app ;
+T{ ?h eq-rec lf-whnf-stuck ?h eq-rec lf-whnf-core -> false outcome-ok -1 outcome-unsupported }T
+
+\ ---- A delayed-assigned metavariable at the head: unsupported (Lean's
+\ whnfDelayedAssigned? is not ported).
+nat mv-natural lf-mvar-new made constant ?d
+0 fx lf-delay-fvar made drop  0 ?d ?n 1 lf-mvar-delay made drop
+T{ ?d fk app lf-whnf-core ?d lf-whnf-stuck -> -1 outcome-unsupported false outcome-unsupported }T
+T{ ?d fk app recm lf-whnf-core -> -1 outcome-unsupported }T
+
+bye

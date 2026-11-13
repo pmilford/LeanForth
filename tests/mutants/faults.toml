@@ -11404,3 +11404,67 @@ old = '''  dup me-decl? if dup me-ndrec? if drop true outcome-ok exit then then 
 new = '''  me-defn-fact ;'''
 test = "$GFORTH tests/front/meta-env.fs"
 reason = "FE1c: Eq.ndrec, which Lean's isAuxRecursor names itself, answers unsupported"
+
+[[fault]]
+id = "fe-whnf-iota-prefix-dropped"
+file = "src/front/whnf.fs"
+old = ''': wc-prefixed ( rhs -- rhs' outcome ) wc-args wc-from 0 wc-prefix wc-apply ;'''
+new = ''': wc-prefixed ( rhs -- rhs' outcome ) wc-args wc-from 0 0 wc-apply ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "FE1c: iota applies the rule's right side without the recursor's parameters, motives and minor premises"
+
+[[fault]]
+id = "fe-whnf-iota-rest-dropped"
+file = "src/front/whnf.fs"
+old = '''  wc-args wc-from wc-major-at 1+ wc-args slab-count wc-apply ;'''
+new = '''  wc-args wc-from wc-major-at 1+ dup wc-apply ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "FE1c: iota drops the arguments after the major premise (Nat.rec m z s Nat.zero x gives z, not z x)"
+
+[[fault]]
+id = "fe-whnf-structure-eta-guessed"
+file = "src/front/whnf.fs"
+old = ''': wc-eta? ( mhead data -- flag ) wc-structure-like? if wc-exact? 0= else drop false then ;'''
+new = ''': wc-eta? ( mhead data -- flag ) 2drop false ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "FE1c: a stuck major premise of a structure is left stuck, where Lean eta-expands it (toCtorWhenStructure)"
+
+[[fault]]
+id = "fe-whnf-succ-fold-ignored"
+file = "src/front/whnf.fs"
+old = '''  wc-succ? if 0 wc-margs wc-arg dup wc-inert? swap wc-lit? or 0= else false then ;'''
+new = '''  drop false ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "FE1c: Nat.succ of a term whnf may fold or offset (Nat.succ (Nat.succ k)) reduces by the rule, where Lean's field differs"
+
+[[fault]]
+id = "fe-whnf-definition-head-guessed"
+file = "src/front/whnf.fs"
+old = '''  lf-menv-kind dup lf-kind-definition = swap lf-kind-quotient = or ;'''
+new = '''  lf-menv-kind lf-kind-quotient = ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "FE1c: a definition at the head ends whnfCore without the matcher and auxiliary-recursor facts Lean asks for"
+
+[[fault]]
+id = "fe-whnf-k-ignored"
+file = "src/front/whnf.fs"
+old = ''': wc-k? ( -- flag ) lf-irc-k wc-irc 0<> ;'''
+new = ''': wc-k? ( -- flag ) false ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "FE1c: a K-like recursor (Eq.rec) reduces or sticks without toCtorWhenK's inferred type, and getStuckMVar? reports its major premise"
+
+[[fault]]
+id = "fe-whnf-fuel-unspent"
+file = "src/front/whnf.fs"
+old = ''': wc-spend ( -- flag ) wc wc-fuel @ dup 0> if 1- wc wc-fuel ! true else drop false then ;'''
+new = ''': wc-spend ( -- flag ) true ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "FE1c: whnfCore runs without fuel, so a long reduction never ends exhausted"
+
+[[fault]]
+id = "fe-whnf-delayed-head"
+file = "src/front/whnf.fs"
+old = '''  wc-delayed? if outcome-unsupported wc-drop-fail else wc-done then ;'''
+new = '''  drop wc-done ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "FE1c: a delayed-assigned metavariable at the head ends whnfCore, where Lean may put its value in (whnfDelayedAssigned?)"
