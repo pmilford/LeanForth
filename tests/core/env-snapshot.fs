@@ -203,7 +203,8 @@ ck-release
 : kept? ( outcome -- flag ) dup outcome-full = swap outcome-ok = or ;
 : load-kept? ( -- flag )
   true ['] load-at made 1+ 1 ?do i load-at drop kept? and loop ;
-T{ ' load-at made 0> load-kept? 1 load-at 0 load-at -> true true outcome-full 0 outcome-ok 0 }T
+T{ ' load-at made 0> load-kept? 1 load-at 0 load-at
+   -> true true outcome-full 0 outcome-ok 0 }T
 T{ depth -> 0 }T
 snap-file delete-file drop
 failures @ 0= [if] ." The lookup lists, I2 and the snapshot round trip hold." cr [then]

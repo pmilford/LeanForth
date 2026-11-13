@@ -25,7 +25,8 @@ variable kind-was
   unforged cs-unload ;
 T{ ' as-recursor forged -> outcome-unsupported lf-diag-unsupported-kind lf-kind-recursor
    lf-safety-safe }T
-T{ ' as-nothing forged -> outcome-unsupported lf-diag-unsupported-kind 99 lf-safety-safe }T
+T{ ' as-nothing forged
+   -> outcome-unsupported lf-diag-unsupported-kind 99 lf-safety-safe }T
 : plain ( budget -- outcome ) s" proj.data" cs-load cs-at cs-unload ;
 T{ cs-plenty plain -1 plain -> outcome-ok outcome-invalid }T
 T{ lf-check-no-maker -> 0 -1 }T
