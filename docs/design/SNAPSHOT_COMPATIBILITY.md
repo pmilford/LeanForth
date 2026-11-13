@@ -8,6 +8,56 @@ needs the owner's [format], [kernel] and [import] decisions
 [section 11](#11-questions-for-the-owner). The implementation steps are plan
 rows 6.2.5c1-6.2.5c8 of the [plan draft](../project/PLAN_DRAFT.md).
 
+**Implementation (written and tested alone, branch `snap-compat`, agent
+SNAPI, 2026-11-12; not merged: the [format], [kernel] and [import]
+gates are owed).** Steps c1 (the reach table, window and union), c2 (the
+fixtures of versions 7, 8 and 9, `scripts/write-snapshot-fixtures.sh`,
+byte identity), c3 (the carry pass, first version: C5 as I1.3, decided
+before the checks; labels, the count first, `--snapshot-stale-ok`
+inside the window, the refusals and their notes), c5 (`--snapshot OLD
+--save-snapshot NEW` without an export) and c4 (branch `snap-compat-c4`:
+I3, a declaration not taken for its answers judged again on its turn,
+serially in `check-run.fs` `ck-next` and with `--jobs` before it is
+handed out, through a new hook of the scheduler, `env-schedule.fs`
+`lf-sched-pre!`; in carry runs only: a dependent export's import pass
+against a snapshot of this build's version keeps I1.3, so Amendment 2's
+open item 4 stays open). Measured on all of `Init` (`gforth-fast`,
+`--jobs 2`, a loaded 10-core machine; `.claude/work/SNAPI/init/`): its
+snapshot of verdict version 8, written by the build of `2ad871e` (132.9
+MB, 24 min), loaded by the build of `cc4cdb4`: every one of the 59,349
+declarations checked again (step 9 reaches everything), 0 differences
+from a fresh check of the export in verdict, fuel, axioms, diagnostic,
+counts and exit status; 27 min and 0.86 GB against 20 min and 0.83 GB
+fresh (loading and feeding the snapshot 15 s against 61 s staging and
+feeding the export; the checks' difference is the machine's other
+load). Departures, for the gates: (1)
+the carried and checked-again counts are in the text report only; the
+JSON members wait for the report's next version; (2) a layer on an older
+base, an older layer, and an older base with an export and
+`--snapshot-stale-ok` stay stale or refused until c7; (3) an upgraded
+base marks its carried slots taken (provenance 2, R8), so the loader
+now accepts provenance 1-3 in a base, where it accepted only 0 (review
+rvSN3 m3), until c6's lineage section tells an upgraded base apart; (4)
+c4's I3 compares the answer fields (outcome, axiom set, warnings,
+recipe, shape and marks) and is tested only against pretended later
+steps (`tests/core/env-import.fs`): no step in today's window leaves a
+result outside its reach whose lookups reach one checked again; (5) the reach bits without an
+evaluator yet (mutual blocks, literals, projections, lets, scratch
+names, names) count as reaching everything; no entry in the window uses
+one. The review of 2026-11-13 (its report `2026-11-13-snap-compat.md` in
+`docs/development/forth-reviews/`, saved there with the merge)
+found M1 (with `--snapshot-stale-ok` users of stale results were carried:
+no slot is compared as answering the same in such a run now,
+`check-run.fs` `ck-rechecking?`) and M2 (an importer change: the
+`reach-reading` bit, below); its L1-L7 are fixed too (refusal reasons
+`older base with layers`, `older layer`, `export reading` with their
+notes; the Python model with I3; the stale count never negative; a hook
+answer that stops the parallel run at a failure; the early flag of every
+candidate; "wait" at the frontier taken as "check it"; no layer written
+after an export checked against an older base); S1 (the reach bits kept
+in a record field while judging) and S5 (`why`'s four items) stay, as
+removing them would add stack shuffles the style ratchet counts.
+
 The owner (2026-11-12): "the snapshots should attempt to read backward
 compatible 1-2 versions prior", and "I'd like to not have to regenerate the
 saved version so often"; later the same evening: any future snapshot
@@ -240,6 +290,7 @@ the slot and outcome each got).
 | `reach-scratch-names` | a lookup key names a name beyond the input (ADR 0020 Amendment 3) | lookups |
 | `reach-not-accepted` | `d`'s saved outcome is not *accepted* | slot |
 | `reach-names` | a lookup key names one of the step's listed names (a builtin's reduction, for example `Nat.add`'s) | lookups, names |
+| `reach-reading` | always; and a snapshot of a version before the step is not carried without its export (below) | -- |
 
 **Why one level of lookups is enough.** By I2 (ADR 0020 D5), enforced in
 test builds by `lf-env-i2-checks`, a check reads only slots that its
@@ -262,10 +313,20 @@ declaration and the slots its lookups answered.* The step's author argues
 it in the bump commit; the step's [kernel] review checks the argument
 against the diff. `reach-all` is the default and the only entry allowed for
 a change to the lookup rules (ADR 0012 E5), the fuel model as a whole, the
-publisher, the importer's reading of an export, or anything shared by every
-check. The evidence the bump commit records (section 6): every golden slot
-the step moved, and every `Init` declaration whose stored fields moved in
-the both-ways comparison (ADR 0020 D3), lies inside the reach.
+publisher, or anything shared by every check. The evidence the bump commit
+records (section 6): every golden slot the step moved, and every `Init`
+declaration whose stored fields moved in the both-ways comparison (ADR 0020
+D3), lies inside the reach.
+
+**A change to the importer's reading of an export** takes `reach-all
+reach-reading or` (review of snap-compat M2, 2026-11-13). Without an
+export, the input of a carry run is the snapshot's own tier, the older
+build's reading of the export, so even a declaration checked again would
+not be this build's result for the export: a base whose steps since hold
+`reach-reading` is refused when loaded alone (*unsupported*, "export
+reading": check the export, or check it against the snapshot, whose
+import pass reads it again with this build's importer) and shown stale
+with `--snapshot-stale-ok`; an upgrade (R8) of it is refused likewise.
 
 **Composition.** For a file of verdict version `V`, the reach is the union
 of the entries `V + 1` to `Vb`, every predicate evaluated on the saved
@@ -411,7 +472,10 @@ checking it"**: inside the window, carried results as above, and every
 declaration that would be checked again shown with its saved result,
 labelled stale as today; beyond the verdict window (its format inside its
 window), every result stale, as today. It still needs `--snapshot`, still
-refuses `--save-snapshot`, and stale results never count anywhere.
+refuses `--save-snapshot`, and stale results never count anywhere. Since no
+declaration is checked in such a run, none answers as a saved one (I3)
+and none waits for its turn: what the first pass did not carry stays
+stale, its users included (review of snap-compat M1).
 
 ### R8 Saving an upgraded snapshot
 

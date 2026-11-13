@@ -151,8 +151,12 @@ require ./check-run.fs
   dup lf-origin-checked <> ck-stale? and if cj-stale-text exit then
   case lf-origin-saved of s" snapshot" endof lf-origin-uses of s" uses-snapshot" endof
     s" checked" rot endcase ;
+\ A result carried from a snapshot of an older verdict version (plan step
+\ 6.2.5c3) is the snapshot's, never stale.
+: cj-from ( d -- c-addr u )
+  dup ck-carried? if drop s" snapshot" else lf-env-origin cj-origin-text then ;
 : cj-provenance ( d -- )
-  ck-snapped? if lf-env-origin cj-origin-text s" provenance" cj-text else drop then ;
+  ck-snapped? if cj-from s" provenance" cj-text else drop then ;
 : cj-decl ( d -- )
   cj-object dup s" index" cj-number dup cj-name-text s" name" cj-text
   dup cj-verdict-text s" verdict" cj-text dup cj-detail dup cj-provenance cj-fuel-used
@@ -252,7 +256,7 @@ create cj-hex 64 allot
 : cj-stale ( -- )
   ck-stale? 0= if s" stale" cj-null-member exit then
   s" stale" cj-key cj-object lf-verdict-version s" thisVerdictVersion" cj-number
-  ck-saved# s" results" cj-number cj-end-object ;
+  ck-stale# s" results" cj-number cj-end-object ;
 : cj-snapshot ( -- )
   ck-snapped? 0= if exit then s" development" s" mode" cj-text
   ck-snap snap-id 0= if s" snapshot" cj-null-member exit then
