@@ -21,14 +21,16 @@
 \ task-unbalanced, task-overflow, or FREE's ior. 0 means only that the
 \ word returned, never that a check was accepted; on any other value the
 \ context's contents must be discarded. The task that submitted a job
-\ waits for it, exactly once, outside any job. A refused submission (job
+\ waits for it, exactly once, outside any job; job-wait refuses job 0
+\ (task-refused), reading nothing. A refused submission (job
 \ 0, ior nonzero) runs and claims nothing; refused are: an address that
 \ is not a context, the main context, the caller's current context or a
 \ context another job owns, and any submission inside a job
-\ (task-refused); a full queue (task-queue-full); workers that cannot be
-\ created (task-no-worker); stack settings below the largest need a
-\ module stated (task-stacks-small); and, on the cooperative host, every
-\ submission after an overflow that left a guard zone (task-overflow).
+\ (task-refused); a full queue (task-queue-full); a pool none of whose
+\ workers could be created (task-no-worker); stack settings below the
+\ largest need a module stated (task-stacks-small); and, on the
+\ cooperative host, every submission after an overflow that left a guard
+\ zone (task-overflow).
 \
 \ job-wait-any ( addr n -- k ) waits until the first of the n jobs whose
 \ handles are the cells at addr (0 for none) has finished and gives its
@@ -39,7 +41,14 @@
 \ sets it, stopping a running pool), and runs until pool-stop, which lets
 \ the workers finish every queued job first. One task outside the pool
 \ (normally the main task) drives it: it alone submits, waits, and starts
-\ and stops the pool.
+\ and stops the pool. When the host refuses a worker (no thread near the
+\ process limit, ulimit -u; no memory for its stacks), the pool runs with
+\ the workers made before it, which workers-running ( -- n ) gives, and
+\ is refused (task-no-worker) only when it made none; results do not
+\ depend on the number of workers. spawn-limit! ( n -- ) makes the host
+\ refuse every worker beyond n running, as it would near its limit, so
+\ that tests reach that failure deterministically (-1, the default: no
+\ limit but the host's).
 \
 \ Rules for a job's word: it reaches mutable state only through its own
 \ context; it may read data that no task changes while jobs run; it never
@@ -125,8 +134,9 @@ begin-structure /pool
   field: pool-broken      \ true after an overflow beyond a guard zone
   field: pool-stack-bytes \ bytes per stack of each worker (0.7.3)
   field: pool-threads     \ worker threads to join when stopping (1.0)
+  field: pool-spawn-limit \ workers running beyond which the host refuses one
 end-structure
-create task-pool /pool allot  task-pool /pool erase
+create task-pool /pool allot  task-pool /pool erase  true task-pool pool-spawn-limit !
 create task-queue task-queue-jobs cells allot
 
 begin-structure /job
@@ -142,6 +152,14 @@ end-structure
 \ zone and the scratch room.
 : task-stack-bytes ( -- u )
   task-data-cells task-return-cells max task-guard-cells + cells task-scratch-bytes + ;
+\ The host's limit on the workers running (see the header): -1, the
+\ default, is the largest unsigned number, so no limit but the host's.
+\ spawn-allowed? tells whether the host makes one more worker; read by
+\ the driving task while it starts the pool, when no worker leaves.
+: spawn-limit! ( n -- ) task-pool pool-spawn-limit ! ;
+: spawn-allowed? ( -- flag ) task-pool dup pool-live @ swap pool-spawn-limit @ u< ;
+\ What pthread_create gives when the host refuses a thread (EAGAIN).
+11 constant host-refused
 
 \ Running a job, in a worker or (serial host) in the submitting task.
 \ job-call runs xt above the job's own address, a sentinel, and throws
@@ -271,7 +289,7 @@ task-host task-threads = [if]
 \ Start task on the rest of the calling word and give pthread_create's
 \ error number: the steps of Gforth 1.0's (activate) in unix/pthread.fs,
 \ which drops that number. Compile-only. A task whose thread could not be
-\ created is not freed (Gforth has no word for that).
+\ created is disposed of by task-unmade (below).
 : (spawn) ( task -- errno )
   r> over save-task swap 's ! >r pthread-id r@ 's 0 thread_start r> pthread_create ;
 \ Each worker owns its heap strings. Gforth 1.0's newtask4 copies the
@@ -303,8 +321,18 @@ create worker-ids task-cores pthreads allot
 : worker-id! ( task -- )
   pthread-id swap 's task-pool pool-threads @ worker-id 1 pthreads move
   1 task-pool pool-threads +! ;
+\ The thread started (worker-start), or, beyond the spawn limit, refused
+\ as the host refuses one (host-refused, no thread made).
+: worker-try ( task -- errno )
+  spawn-allowed? if worker-start else drop host-refused then ;
+\ A task whose thread was not made: its two pipes closed, as Gforth's
+\ kill-task closes a task's own (pthread.fs:221), so that refusals do not
+\ use up file descriptors; its stacks stay allocated (Gforth 1.0 has no
+\ word that frees a task that never ran).
+: pipe-close ( addr task -- ) 's @ ?dup if close-file drop then ;
+: task-unmade ( task -- ) epiper over pipe-close epipew swap pipe-close ;
 : worker-launch ( task -- errno )
-  dup worker-joinable dup worker-start dup if nip else swap worker-id! then ;
+  dup worker-joinable dup worker-try ?dup if swap task-unmade exit then worker-id! 0 ;
 : workers-join ( -- )
   task-pool pool-threads @ 0 ?do i worker-id 0 pthread_join drop loop
   0 task-pool pool-threads ! ;
@@ -316,8 +344,11 @@ task-host task-cooperative = [if]
 : worker-body ( -- ) rp@ cell+ backtrace-rp0 ! worker-run ;
 \ The caller continues at once; the new task runs worker-body in its turn.
 : worker-go ( task -- ) activate worker-body ;
+\ A task of another layout, or one beyond the spawn limit, is freed
+\ (tasker.fs's kill) and never runs.
+: worker-fits? ( task -- flag ) task-shaped? spawn-allowed? and ;
 : worker-launch ( task -- errno )
-  dup task-shaped? 0= if kill 1 exit then dup guards-fill worker-go 0 ;
+  dup worker-fits? 0= if kill host-refused exit then dup guards-fill worker-go 0 ;
 : task-make ( -- task ) task-stacks newtask ;
 : workers-join ( -- ) ;
 [then]
@@ -349,16 +380,19 @@ task-host task-serial = [if]
 \ Starting and stopping the pool. pool-start starts it, unless it runs,
 \ and gives 0; or task-stacks-small, starting nothing, when the stack
 \ settings do not cover the largest need a module stated (context-need,
-\ context.fs); or task-no-worker after stopping the workers it started
-\ when one cannot be created. It seals the context layout first, so no
-\ need can be stated later. pool-stop lets the workers finish every
-\ queued job, then waits until all have left; it aborts inside a job.
+\ context.fs); or task-no-worker when not one worker could be created.
+\ When the host refuses a worker after others were made, the pool runs
+\ with those (workers-running), until it is stopped; none is tried after
+\ the first refusal. It seals the context layout first, so no need can
+\ be stated later. pool-stop lets the workers finish every queued job,
+\ then waits until all have left; it aborts inside a job.
 task-host task-serial = [if]
 : pool-size ( -- n ) 0 ;
 [else]
 : pool-size ( -- n ) task-workers 1 max task-cores min ;
 [then]
-: pool-running? ( -- flag ) task-pool pool-live @ 0> ;
+: workers-running ( -- n ) task-pool pool-live @ ;
+: pool-running? ( -- flag ) workers-running 0> ;
 : worker-added ( -- ) pool-lock 1 task-pool pool-live +! pool-unlock ;
 : worker-add ( -- ior ) worker-spawn dup 0= if worker-added then ;
 : pool-fill ( n -- ior ) 0 ?do worker-add ?dup if unloop exit then loop 0 ;
@@ -368,9 +402,10 @@ task-host task-serial = [if]
   false task-pool pool-stopping ! pool-unlock ;
 : pool-stop ( -- ) lf-owner @ abort" pool-stop: inside a job" pool-halt workers-join ;
 : pool-stacks? ( -- flag ) context-needs job-stacks-cover? ;
+\ A refusal after a worker was made leaves the pool running with fewer.
 : pool-fresh ( -- ior )
   task-stack-bytes task-pool pool-stack-bytes !
-  pool-size pool-fill dup if pool-stop then ;
+  pool-size pool-fill pool-running? if drop 0 then ;
 : pool-start ( -- ior )
   pool-running? if 0 exit then
   context-seal pool-stacks? if pool-fresh else task-stacks-small then ;
@@ -400,11 +435,13 @@ task-host task-serial = [if]
   dup job-claim 0= if task-refused job-drop exit then
   job-launched dup if >r job-unclaim r> job-drop then ;
 
-\ Waiting. Inside a job job-wait refuses, leaving the job alone.
+\ Waiting. job-wait refuses inside a job, leaving the job alone, and for
+\ job 0, the handle of a refused submission, which it never reads.
 : job-await ( job -- )
   pool-lock begin dup job-done @ 0= while change-wait repeat pool-unlock drop ;
+: wait-refused? ( job -- flag ) 0= lf-owner @ 0<> or ;
 : job-wait ( job -- ior )
-  lf-owner @ if drop task-refused exit then
+  dup wait-refused? if drop task-refused exit then
   dup job-await job-unclaim dup job-ior @ swap free ior-first ;
 
 \ Waiting for the first of several jobs (a scheduler that keeps one job

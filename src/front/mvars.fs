@@ -488,7 +488,7 @@ end-structure
 : mv-refuse ( outcome -- ) mv-twalk dw-refuse ;
 : mv-image ( node -- image ) mv-twalk dw-image ;
 : mv-unported ( -- -1 ) outcome-unsupported mv-refuse -1 ;
-: mv-named ( new old -- new ) lf-pres-binder@ if 2>r dup 2r> lf-pres-binder! drop then ;
+: mv-named ( new old -- new ) lf-meta-named mv-refuse ;
 : mv-same-pair? ( i1 i2 node -- i1 i2 flag )
   >r 2dup r@ lf-term-second@ = swap r> lf-term-first@ = and ;
 : mv-rebuild ( node walk -- image )

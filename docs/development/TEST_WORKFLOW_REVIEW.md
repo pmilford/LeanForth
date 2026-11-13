@@ -3,7 +3,7 @@
 The owner, 2026-11-13: "it seems like we are doing too many similar tests on small task results, that is slowing down
 progress … count the repetition in testing and propose improvements in work flow, including design." This note counts
 what ran on four recent tasks and proposes changes. The proposals change rules the owner set (AGENTS.md "Work process",
-`.claude/CLAUDE.md` "Checks" and "Git"), so none is in force until the owner decides; plan row 9.4.6 tracks them.
+`.claude/CLAUDE.md` "Checks" and "Git"), and the owner decided them on 2026-11-13 (below); plan row 9.4.6 tracks the scripts they need.
 
 ## How the counts were made
 
@@ -200,3 +200,10 @@ The assurance stays as it is: every test of every file the change reaches still 
    crash safety? *Recommendation: yes, but only if you want the extra safety;* it changes the remote.
 4. A library lands with its first caller? *Recommendation: yes,* except libraries you ask for on their own.
 5. Run the 0.7.3 job by change tier, with its full run daily? *Recommendation: yes.*
+
+## Decisions (owner, 2026-11-13)
+
+The owner chose the recommendation on questions 1-4; question 5 (the 0.7.3 job by tier, its full run daily) was
+decided with question 2. Recorded in [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md), "Less repeated testing";
+the rules are in AGENTS.md. Until the scripts of plan 9.4.6 land, `scripts/push.sh` keeps running both CI jobs in full.
+

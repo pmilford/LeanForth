@@ -929,7 +929,10 @@ test-front:
 	  src/front/cases-several.fs \
 	  src/front/meta-env.fs src/front/meta-spine.fs src/front/whnf.fs src/front/beta-inst.fs \
 	  src/front/infer.fs src/front/tactic-syntax.fs \
-	  src/front/lctx-views.fs src/front/goals.fs src/front/goal-print.fs src/front/tactic-run.fs; do \
+	  src/front/lctx-views.fs src/front/goals.fs src/front/goal-print.fs \
+	  src/front/term-eqv.fs src/front/prop-quick.fs \
+	  src/front/assign-check.fs src/front/nat-offset.fs src/front/fun-info.fs src/front/defeq.fs \
+	  src/front/tactic-run.fs; do \
 	  out=$$($(RUN) $(GFORTH) $$m -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
 	  if [ -n "$$out" ]; then printf '%s printed while loading:\n%s\n' "$$m" "$$out" >&2; exit 1; fi; \
 	done
@@ -942,6 +945,8 @@ test-front:
 	$(RUN) $(GFORTH) tests/front/meta-env.fs
 	$(RUN) $(GFORTH) tests/front/whnf.fs
 	$(RUN) $(GFORTH) tests/front/infer.fs
+	$(RUN) $(GFORTH) tests/front/defeq.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_defeq.py --golden
 	$(RUN) $(GFORTH) tests/front/tactic-syntax.fs
 	@out=$$($(RUN) $(GFORTH) tests/front/tactic-run.fs 2>&1) || \
 	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "tactic-run.fs: all tests passed"
@@ -954,13 +959,15 @@ test-front:
 # against pinned Lean's (tests/front/check_meta.py: isLevelDefEqAux,
 # instantiate1, abstract, headBeta, instantiateLevelParams;
 # tests/front/check_unfold.py: reducibility, canUnfold, getUnfoldableConst?;
-# tests/front/check_whnf.py: whnfCore, getStuckMVar?, inferType); pinned
+# tests/front/check_whnf.py: whnfCore, getStuckMVar?, inferType;
+# tests/front/check_defeq.py: isDefEq); pinned
 # Lean reproduces the tactic tests' export (tests/front/tactic-slice.ndjson).
 reference-front:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_front.py
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_meta.py
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_unfold.py
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_whnf.py
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_defeq.py
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_tactics.py --lean
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_goals.py --lean
 

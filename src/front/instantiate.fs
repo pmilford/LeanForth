@@ -48,6 +48,7 @@ require ../core/local-context.fs
 require ../core/mvar-leaves.fs
 require ../present/binder-table.fs
 require ./dag-walk.fs
+require ./meta-spine.fs
 
 begin-structure /in
   field: in-value              \ the term put in for bound variable 0
@@ -163,7 +164,7 @@ end-structure
   2dup in-first in-image >r in-second in-image r> swap ;
 : in-same-pair? ( i1 i2 node -- i1 i2 flag )
   >r 2dup r@ lf-term-second@ = swap r> lf-term-first@ = and ;
-: in-named ( new old -- new ) lf-pres-binder@ if 2>r dup 2r> lf-pres-binder! drop then ;
+: in-named ( new old -- new ) lf-meta-named in-fail ;
 : in-rebuild ( i1 i2 node -- image )
   dup >r lf-term-tag@ lf-term-binary
   if r> in-named else r> drop outcome-full in-fail -1 then ;

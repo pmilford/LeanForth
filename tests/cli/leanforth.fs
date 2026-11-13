@@ -645,6 +645,31 @@ order-
   r> need-cell ! r> back ;
 T{ 3 refused-run -> serial-wide task-stacks-small false }T
 T{ 10 refused-run -> serial-wide task-stacks-small false }T
+\ A system that refuses worker threads, as near its process limit
+\ (lib/task.fs's spawn-limit!): refusing all, the pool's refusal named and
+\ the run serial; refusing some, the run on the workers made, the number
+\ made and refused kept for the report; the serial run's facts each time.
+: limited-run ( jobs limit -- h why run? made lacked )
+  spawn-limit! fresh >r wide rot run-with sched-facts ck-why ck-jobs-run? ck-made
+  ck-lacked ck-release -1 spawn-limit! r> back ;
+: asked ( jobs -- n ) task-cores min ;
+T{ 3 0 limited-run -> serial-wide task-no-worker false 0 0 }T
+T{ 3 1 limited-run -> serial-wide 0 true 1 3 asked 1- }T
+T{ 10 2 limited-run -> serial-wide 0 true 2 10 asked 2 - }T
+T{ 3 -1 limited-run -> serial-wide 0 true 3 asked 0 }T
+\ The report's workers line, and the line of the tasks the system refused
+\ (Gforth 1.0, which captures output).
+[defined] >string-execute [if]
+: limited-report ( limit -- c-addr u )
+  spawn-limit! fresh >r wide 2 run-with ['] cli-jobs. >string-execute ck-release
+  -1 spawn-limit! r> back ;
+: workers-line ( -- c-addr u ) s"   workers: 2 (--jobs), on " ;
+: lacked-line ( -- c-addr u )
+  s\" cores\n    worker tasks started: 1 (the system refused 1 more)\n    checks handed out" ;
+: holds? ( c-addr u c-addr' u' -- flag ) search nip nip ;
+T{ 1 limited-report 2dup workers-line holds? -rot lacked-line holds? -> true true }T
+T{ -1 limited-report 2dup workers-line holds? -rot s" worker tasks" holds? -> true false }T
+[then]
 \ Every worker lost: each check of the two first declarations throws and
 \ no replacement can be made. The run ends (it spun forever with entries
 \ past the stop left in the ready heap), stopped at the second declaration

@@ -34,12 +34,17 @@ OpenAI Codex. Codex-era docs (`docs/project/CODEX_HANDOFF.md`, `prompts/FIRST_CO
 - Inner loop: the focused test of what you change (the test file itself, its
   module's target, or `make test-changed`).
 - `make test` — Forth and Python tests, about 8 s (36 s one target at a
-  time); run before every commit.
+  time; about 3 min at `JOBS=2`). Which suite a branch runs, once, at its
+  end, follows the change tiers of `AGENTS.md` (owner, 2026-11-13, plan
+  9.4.6); never re-run a suite on a tree that already passed it.
 - `make check` — `make test` plus every pinned-Lean comparison: about
   45 s when pinned Lean's runs are replayed from the shared Lean cache
   (`.claude/work/lean-cache` of the main checkout), about 70 s with an empty
   cache, about 75 s with `LEAN_CACHE=0` (as CI runs it); 345 s one target at
-  a time without the cache. Run it once, at the end of a task.
+  a time without the cache; about 8 min at `JOBS=2`. Run it once, at the
+  end of a branch whose tier needs it.
+- Reviewers probe and plant their own faults; they do not repeat the
+  implementer's recorded suite runs on the same head.
 - GitHub CI is off at the owner's request (2026-11-11). Before every push run
   its two jobs locally under `ulimit -u 500`: `make check` (Lean cache on for
   merges, `LEAN_CACHE=0` once a day) and
@@ -67,9 +72,10 @@ OpenAI Codex. Codex-era docs (`docs/project/CODEX_HANDOFF.md`, `prompts/FIRST_CO
 
 ## Git
 
-- Commit and push to `main` automatically after each work session and at safe
-  checkpoints once `make test` passes (owner instruction, 2026-11-02; see
-  `AGENTS.md`), after CI's two jobs pass locally. Never force-push or rewrite pushed history.
+- Commit and push to `main` automatically at checkpoints (about every two to
+  three hours, at session end, or when a needed branch lands; owner
+  instructions 2026-11-02 and 2026-11-13; see `AGENTS.md`), after CI's two
+  jobs pass locally; documentation-only commits ride with the next push. Never force-push or rewrite pushed history.
   Remote changes and new tags still need the user's approval.
 - Commit subjects follow the existing style: short imperative sentence, no
   prefix (for example "Diagnose mixed definition type and value pairs").

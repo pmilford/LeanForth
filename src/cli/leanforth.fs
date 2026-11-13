@@ -626,10 +626,15 @@ create cli-fed-ops
   ."     from a new one's): checked one at a time" cr ;
 \ Cores that run workers at once: all on threads, one when they take turns.
 : cli-cores ( -- n ) task-host task-threads = if task-cores else 1 then ;
+\ A pool the system made fewer worker tasks for than workers (near its
+\ process limit; lib/task.fs): the workers took turns on those it made.
+: cli-lacked. ( -- )
+  ck-lacked 0= if exit then ."     worker tasks started: " ck-made .decimal
+  ."  (the system refused " ck-lacked .decimal ."  more)" cr ;
 : cli-jobs. ( -- )
   ck-parallel? 0= if exit then ck-jobs-run? 0= if cli-no-workers. exit then
   ."   workers: " ck-jobs .decimal ."  (--jobs), on " cli-cores .decimal ."  cores" cr
-  cli-sched. ;
+  cli-lacked. cli-sched. ;
 : cli-resources. ( -- )
   ." resources:" cr cli-times. cli-memory. cli-engine. cli-jobs. cli-input. cli-fuel.
   cli-tops. ;
@@ -906,11 +911,19 @@ variable cli-info#
   ." ; the LeanForth text was not checked" cr outcome>code cli-code! ;
 \ The elaboration data read, by kind, before the verdicts.
 : cli-elab-count. ( kind -- ) elab-count .decimal ;
+\ The kinds format 1 had, then the kinds format 2 added.
+: cli-elab-format1 ( -- )
+  elab-instance cli-elab-count. ."  instances, " elab-default cli-elab-count.
+  ."  default instances, " elab-reducibility cli-elab-count.
+  ."  reducibility statuses, " elab-eliminator cli-elab-count. ."  eliminators" ;
+: cli-elab-format2 ( -- )
+  ." , " elab-left-out cli-elab-count. ."  instances left out, "
+  elab-class cli-elab-count. ."  classes, " elab-tag cli-elab-count. ."  tags, "
+  elab-matcher cli-elab-count. ."  matchers, " elab-projection cli-elab-count.
+  ."  projections" ;
 : cli-elab-note ( -- )
-  cli-elab-file nip 0= if exit then ." elaboration data: " elab-instance cli-elab-count.
-  ."  instances, " elab-default cli-elab-count. ."  default instances, "
-  elab-reducibility cli-elab-count. ."  reducibility statuses, "
-  elab-eliminator cli-elab-count. ."  eliminators" cr ;
+  cli-elab-file nip 0= if exit then ." elaboration data: " cli-elab-format1
+  cli-elab-format2 cr ;
 : cli-text-error ( -- )
   ." error: " lf-author-code lf-author-outcome dup outcome-text type
   ." : the LeanForth text was not checked: " lf-author-error. cr outcome>code cli-code! ;

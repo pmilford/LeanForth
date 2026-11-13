@@ -48,9 +48,9 @@ status changes when this date is older than them. Stages are those of the
   read; a well-formed one stops "not supported yet") tested alone; FE1g-1 (each goal's own local context, the goal
   list and `.goals` printed as Lean prints goals: 15 of 18 states equal) tested alone; the library `lib/runs.fs`; FE1i-4 (signed big integers, `lib/bigint.fs`)
   tested alone; FE1c's instantiateMVars beta and delayed steps and marks as serials tested alone (179 of 187 cases
-  equal to pinned Lean). On branches: FE1e1 (elaboration data format 2: reviewed, waiting for the owner's
-  [import]/[format] approval); the job pool failing closed when threads are refused (reviewed, waiting for the owner's
-  [runtime] approval). Library: `lib/sort.fs` (a stable sort the kernel's sorts can adopt, FRK C2) tested alone. Designed:
+  equal to pinned Lean). On main since 2026-11-13, approved by the owner: FE1e1 (elaboration data format 2,
+  [import]/[format]) and the job pool failing closed when threads are refused ([runtime]). FE1c's term unification (Lean's `isDefEq`: 87 of 107 cases equal to pinned Lean, 20 answer unsupported) tested alone.
+  Library: `lib/sort.fs` (a stable sort the kernel's sorts can adopt, FRK C2) tested alone. Designed:
   FE1e, FE1g, FE1i, FE2. Nothing is proved by
   LeanForth yet. Natural statements (8.6.10) are FE2, `add_comm` natively (8.6.11) FE5.
 - Program track, restarted 2026-11-12 after being parked since 2026-11-04: LeanForth re-checks Lean's proofs of
@@ -65,7 +65,8 @@ status changes when this date is older than them. Stages are those of the
 **Next**
 - Less repeated testing of small work (plan 9.4.6, owner 2026-11-13): designed
   ([review](../development/TEST_WORKFLOW_REVIEW.md): `lib/sort.fs` took about 12 full-suite runs and 2-3 hours of
-  machine time to reach GitHub; 3.6 hours of CI in six hours of pushes); five owner questions open.
+  machine time to reach GitHub; 3.6 hours of CI in six hours of pushes); decided by the owner 2026-11-13, rules in
+  AGENTS.md, the scripts not started.
 - The Forth refactoring batches of the three backlog reviews ([log](../development/forth-reviews/LOG.md), plan
   9.4.5), tests first, every verdict and fuel count identical.
 - Program track: a user command `leanforth verify` (8.4.1): designed 2026-11-13 ([design](../design/VERIFY_COMMAND.md),
@@ -76,7 +77,7 @@ status changes when this date is older than them. Stages are those of the
 - Snapshots that read the two previous format and verdict versions (6.2.5c): designed, the owner's four questions
   answered 2026-11-12 ([design](../design/SNAPSHOT_COMPATIBILITY.md), ADR 0020 Amendment 5 proposed); steps c1 to c5
   written and tested alone on branch `snap-compat` (`edb5554`), the Forth review and its three re-checks not blocking,
-  waiting for the owner's [format], [kernel] and [import] approval.
+  approved by the owner 2026-11-13; being merged with the kernel refactor.
 
 **Later**
 - Proof development (owner, 2026-11-12; long term, after strict Lean compatibility): research note

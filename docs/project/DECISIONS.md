@@ -92,6 +92,14 @@ are indexed here.
   one image, a task pool, no process sharding (one copy of the environment, no serialization, 0.7.3's cooperative
   tasker still tests interleaving in CI). Development runs may reuse saved results labelled not re-checked; final
   runs never do (rejected: always re-checking in development, slow at Mathlib scale).
+- **A job pool the host refuses workers for runs with those it made** (2026-11-13, branch `pool-fail-closed`,
+  [runtime] gate pending): near the process limit `tests/lib/task.fs` crashed in `job-await`, waiting for the 0 a
+  refused `job-submit` gave. Now `job-wait` refuses job 0 (`task-refused`); `pool-start` keeps the workers made
+  before a refusal (results never depend on their number) and gives `task-no-worker` only when none was made, so
+  `check --jobs N` slows down instead of falling back to one at a time; `spawn-limit!` makes the host refuse in
+  tests. Rejected: stopping every worker at the first refusal (the old rule: a whole run serial for one missing
+  thread), retrying with fewer workers in the scheduler (the same result with more code outside the library), and
+  remembering a refusal so later submissions fail at once (the host may have threads again).
 - **Exceptions: `THROW` only inside one operation** ([ADR 0018](../adr/0018-exceptions.md), accepted 2026-11-03).
   Rejected: outcomes only (plumbing, hand-written rollback), throwing every non-ok outcome, throwing outcome numbers,
   Gforth's `exception` numbers, catching host errors in inner boundaries. A Gforth 1.0 worker-backtrace heap
