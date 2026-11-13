@@ -95,22 +95,38 @@ def rejection(text, demo):
     raise Mismatch(f"{demo['id']}: the wrong twin was not rejected by name:\n{text[-800:]}")
 
 
-def section(demo, work):
-    # Each demo gets its own folder: the Lean cache sizes every file on LEAN_PATH, and a demo
-    # running beside it would otherwise add and remove files there.
+def prepared(demo, work):
+    """The demo's own folder, made: Lean's #check line, the export and its wrong twin. Each
+    demo gets its own folder: the Lean cache sizes every file on LEAN_PATH, and a demo
+    running beside it would otherwise add and remove files there."""
     work = os.path.join(work, demo["id"])
     os.makedirs(work)
     lean = lean_check(demo, work)
     path = export(demo, work)
-    code, checked = leanforth("check", path)
-    if code != 0:
-        raise Mismatch(f"{demo['id']}: leanforth check exit {code}:\n{checked[-800:]}")
     twin = f"{work}/{demo['id']}-wrong.ndjson"
     run([sys.executable, str(HERE / "wrong_twin.py"), path, twin])
-    wrong_code, wrong = leanforth("check", "--no-manifest", twin)
+    return {"lean": lean, "export": path, "twin": twin}
+
+
+def checks(demo, made):
+    """The demo's three LeanForth runs, (name, arguments, cost): check, the wrong twin's
+    check and print. Each only reads its files, so all of them can run side by side;
+    the cost (print checks with the log on: about 1.6 times check) orders them."""
+    size = os.path.getsize(made["export"])
+    return [("check", ["check", made["export"]], size),
+            ("wrong", ["check", "--no-manifest", made["twin"]], size),
+            ("print", ["print", "--name", demo["theorem"], made["export"]], 2 * size)]
+
+
+def section(demo, made, done):
+    """The demo's part of the golden file from its runs (done: name -> (code, text))."""
+    lean, (code, checked) = made["lean"], done["check"]
+    if code != 0:
+        raise Mismatch(f"{demo['id']}: leanforth check exit {code}:\n{checked[-800:]}")
+    wrong_code, wrong = done["wrong"]
     if wrong_code != 1:
         raise Mismatch(f"{demo['id']}: the wrong twin gave exit {wrong_code}, not 1:\n{wrong[-800:]}")
-    code, printed = leanforth("print", "--name", demo["theorem"], path)
+    code, printed = done["print"]
     if code != 0:
         raise Mismatch(f"{demo['id']}: leanforth print exit {code}:\n{printed[-800:]}")
     body = header(printed)
@@ -124,11 +140,26 @@ def section(demo, work):
             f"-- wrong twin\n{wrong_code}\n{rejection(wrong, demo)}\n-- print\n{body}\n")
 
 
+SIDE_BY_SIDE = 4   # runs at once, as before: Lean's, then LeanForth's
+
+
+def all_sections(work):
+    """Every demo's section, in DEMOS order. The demos are independent (own module, export
+    and twin files), so Lean's runs for them go side by side, then all fifteen LeanForth
+    runs, the costliest first, so that no demo's three runs wait for one another."""
+    with concurrent.futures.ThreadPoolExecutor(max_workers=SIDE_BY_SIDE) as pool:
+        made = list(pool.map(lambda demo: prepared(demo, work), DEMOS))
+        runs = sorted(((demo["id"], name, arguments, cost) for demo, m in zip(DEMOS, made)
+                       for name, arguments, cost in checks(demo, m)), key=lambda r: -r[3])
+        started = {(i, name): pool.submit(leanforth, *arguments) for i, name, arguments, _ in runs}
+        return [section(demo, m, {name: started[demo["id"], name].result()
+                                  for name in ("check", "wrong", "print")})
+                for demo, m in zip(DEMOS, made)]
+
+
 def main(write):
     with tempfile.TemporaryDirectory() as work:
-        # The demos are independent (own module, export and twin files), so they run side by side.
-        with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, len(DEMOS))) as pool:
-            text = "".join(pool.map(lambda demo: section(demo, work), DEMOS))
+        text = "".join(all_sections(work))
     if write:
         GOLDEN.write_text(text, encoding="utf-8")
         pathlib.Path("docs/user/DEMOS.md").write_text(page(text), encoding="utf-8")

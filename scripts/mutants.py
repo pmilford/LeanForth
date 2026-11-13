@@ -62,8 +62,9 @@ REQUIRED = ("id", "file", "old", "new", "test", "reason")
 OPTIONAL = ("equivalent", "gap", "quick")
 ID = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 # Directories never copied: version control, the local toolchains (linked
-# instead when present, see copy_tree) and agents' scratch files.
-SKIPPED = {".git", ".tools", ".claude", "__pycache__", ".profiling"}
+# instead when present, see copy_tree), agents' scratch files and make's
+# shared results (build/, ignored by git; review L3 of speed-lf).
+SKIPPED = {".git", ".tools", ".claude", "__pycache__", ".profiling", "build"}
 # Environment variables of an enclosing make that must not reach a test.
 MAKE_VARIABLES = ("MAKEFLAGS", "MAKELEVEL", "MFLAGS", "MAKEOVERRIDES")
 
@@ -332,6 +333,9 @@ def run_faults(root, chosen, args):
         copy = work / "tree"
         copy.mkdir()
         copy_tree(root, copy)
+        # The tests' scratch files (tests/support/scratch.fs) go to this run's own folder.
+        (work / "scratch").mkdir()
+        env["LF_TEST_SCRATCH"] = str(work / "scratch")
         if not controls(chosen, copy, env, args.timeout):
             return 2, None
         counts = {"caught": 0, "known equivalent": 0, "known gap": 0, "unexpected": 0}
