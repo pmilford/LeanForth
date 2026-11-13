@@ -18,14 +18,17 @@
 \   every node, level and constant reference the hand-over made
 \   (core/scratch-marks.fs) and leaves decl as it was. Outcomes: ok;
 \   invalid for a hole left (elaboration incomplete), an unused universe
-\   parameter or a term that is no node; unsupported for an instantiation
+\   parameter, a term that is no node, or a value that does not fit decl's
+\   kind (a theorem's or definition's must be a node, an axiom's -1);
+\   unsupported for an instantiation
 \   step not ported yet (the beta step and delayed assignments, plan
 \   FE1c); full for no room.
 \ - In natural text, end NAME runs the elaborator (lf-front-elaborate, a
 \   deferred word plan FE1e sets; until then error 71, not supported yet,
 \   as before), then lf-front-hand-over, which stops the run at end NAME on
-\   a refusal: error 74 for a hole left (or a term that is no node), 75 for
-\   an unused universe parameter, 71 for a step not ported, 60 for no
+\   a refusal: error 74 for a hole left, 75 for an unused universe
+\   parameter, 76 for terms that are malformed (no node, a value unfit for
+\   the kind), 77 for an instantiation step not ported yet, 60 for no
 \   room. The run's records then go to the kernel by the path of every
 \   text (cli/check-lf.fs: author/export.fs's lf-author-export-reached,
 \   the importer stage's stage-produce, the feed, check-declaration), and
@@ -84,9 +87,15 @@ end-structure
   nip nip lfh-mark lf-scratch-rollback drop ;
 : lfh-go ( type value -- outcome )
   lfh-made dup ok? if drop lfh-keep outcome-ok else lfh-back then ;
-: lfh-start ( decl -- ) lfh lfh-decl ! lfa-e-incomplete lfh-why! ;
+: lfh-start ( decl -- ) lfh lfh-decl ! lfa-e-malformed lfh-why! ;
+\ A theorem's or definition's value is a node; an axiom has none, -1
+\ (review fe1f M1): any other shape is refused, nothing made.
+: lfh-axiom? ( -- flag ) lfh-decl@ lf-fdecl-kind @ lf-decl-def > ;
+: lfh-shaped? ( value -- flag ) lfh-axiom? if -1 = else 0< 0= then ;
+: lfh-marked ( type value -- outcome )
+  lfh-mark lf-scratch-mark dup ok? if drop lfh-go else nip nip then ;
 : lf-handover ( decl type value -- outcome )
-  rot lfh-start lfh-mark lf-scratch-mark dup ok? if drop lfh-go else nip nip then ;
+  rot lfh-start dup lfh-shaped? if lfh-marked else 2drop outcome-invalid then ;
 
 \ ---- Natural text: end NAME.
 \ The elaborator (plan FE1e): the declaration's type and value, closed
@@ -95,9 +104,11 @@ end-structure
 : lfh-later ( -- type value ) lfa-e-elaborate lfa-fail ;
 defer lf-front-elaborate ( -- type value )
 ' lfh-later is lf-front-elaborate
-\ A refusal's error at end NAME: the hand-over's own for invalid.
+\ A refusal's error at end NAME: the hand-over's own for invalid (a hole
+\ 74, an unused universe parameter 75, else malformed 76), no room 60, an
+\ instantiation step not ported 77.
 : lfh-code ( outcome -- code )
   case outcome-invalid of lfh lfh-why @ endof outcome-full of lfa-e-terms-full endof
-    lfa-e-elaborate swap endcase ;
+    lfa-e-instantiate swap endcase ;
 : lf-front-hand-over ( type value -- )
   lf-front-header -rot lf-handover dup ok? if drop else lfh-code lfa-fail then ;

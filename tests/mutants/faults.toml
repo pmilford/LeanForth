@@ -5310,8 +5310,8 @@ quick = true
 [[fault]]
 id = "lf-export-height-one"
 file = "src/author/export.fs"
-old = ''': lfx-value-height ( value -- h ) lfx-unmark dup lfx-mark 0 swap lfx-sweep 1+ ;'''
-new = ''': lfx-value-height ( value -- h ) drop 1 ;'''
+old = '''  dup lfx-node? 0= if drop 1 exit then lfx-unmark dup lfx-mark 0 swap lfx-sweep 1+ ;'''
+new = '''  drop 1 ;'''
 test = "$GFORTH tests/author/author.fs"
 reason = "8.2.1c: every definition's hint is height 1, not Lean's (getMaxHeight + 1)"
 
@@ -5355,8 +5355,8 @@ reason = "H1: a declaration's universe parameters reversed: PairSort.{v, u} for 
 [[fault]]
 id = "lf-export-universe-arguments-first"
 file = "src/author/export.fs"
-old = '''  0 ?do dup i lf-cref-pair@ drop lfx-level# lfx-u loop drop lfx-w jw-close-array ;'''
-new = '''  0 ?do dup 0 lf-cref-pair@ drop lfx-level# lfx-u loop drop lfx-w jw-close-array ;'''
+old = '''  0 ?do dup i lf-cref-pair@ drop lfx-level-ref lfx-u loop drop lfx-w jw-close-array ;'''
+new = '''  0 ?do dup 0 lf-cref-pair@ drop lfx-level-ref lfx-u loop drop lfx-w jw-close-array ;'''
 test = "GFORTH=$GFORTH python3 tests/author/check_author.py --records"
 reason = "H1: every universe argument written as the first: 06-universes's PairOf names PairSort.{v, v}, not PairSort.{v, u}"
 
@@ -5459,8 +5459,8 @@ reason = "M2: a bare projection leaf accepted as a proof, argument or binder typ
 [[fault]]
 id = "lf-export-leaf-reference-written"
 file = "src/author/export.fs"
-old = ''': lfx-expr-ref ( term -- n ) lfx-expr# dup 0< if outcome-unsupported lfx-refuse then ;'''
-new = ''': lfx-expr-ref ( term -- n ) lfx-expr# ;'''
+old = ''': lfx-expr-ref ( term -- n ) lfx-expr-of dup 0< if outcome-unsupported lfx-refuse then ;'''
+new = ''': lfx-expr-ref ( term -- n ) lfx-expr-of ;'''
 test = "$GFORTH tests/author/author.fs"
 reason = "M2: a reference to a projection's leaf written as a number (-1), which the stage refuses as a bad reference of an export the user never sees"
 
@@ -11328,4 +11328,40 @@ old = ''': lfc-reached? ( -- flag ) lfa-kernel-form? 0= lf-holes? or ;'''
 new = ''': lfc-reached? ( -- flag ) lfa-kernel-form? 0= ;'''
 test = "$GFORTH tests/front/handover.fs"
 reason = "FE1f: a text that turns to the kernel form after a natural declaration is written whole, so the elaborator's unused hole refuses its records"
+quick = true
+
+[[fault]]
+id = "fe-reach-succ-part"
+file = "src/core/reach.fs"
+old = '''  dup lf-level-tag@ case lf-level-tag-succ of lf-level-first@ lr-level! endof'''
+new = '''  dup lf-level-tag@ case lf-level-tag-succ of drop endof'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f M2: a successor's level is not reached, so Type u would be written as Type and a hole under u + 1 missed"
+quick = true
+
+[[fault]]
+id = "fe-reach-max-second"
+file = "src/core/reach.fs"
+old = ''': lr-level-pair ( level -- ) dup lf-level-first@ lr-level! lf-level-second@ lr-level! ;'''
+new = ''': lr-level-pair ( level -- ) lf-level-first@ lr-level! ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f M2: the second part of a max or imax is not reached"
+quick = true
+
+[[fault]]
+id = "fe-handover-any-value"
+file = "src/front/handover.fs"
+old = ''': lfh-shaped? ( value -- flag ) lfh-axiom? if -1 = else 0< 0= then ;'''
+new = ''': lfh-shaped? ( value -- flag ) drop true ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f M1: a theorem with no value, or an axiom with one, is recorded"
+quick = true
+
+[[fault]]
+id = "fe-writer-no-node-check"
+file = "src/author/export.fs"
+old = ''': lfx-expr-of ( term -- n ) dup lfx-node? if lfx-expr# else drop -1 then ;'''
+new = ''': lfx-expr-of ( term -- n ) lfx-expr# ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f M1: a declaration's value -1 is written as the number read outside the writer's table"
 quick = true

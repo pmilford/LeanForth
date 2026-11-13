@@ -38,11 +38,11 @@ T{ library true lfc-library-open -> outcome-ok }T
 : d0 ( -- decl ) 0 lf-author-decl ;
 : ty ( -- t ) d0 lf-fdecl-type @ ;
 : va ( -- v ) d0 lf-fdecl-value @ ;
-\ add_zero' in the kernel form, its type and value reference.
+\ add_zero' in the kernel form, its type and value kept.
 variable ty0  variable va0
 : kernel ( -- ) lf-author-begin add-zero-kernel lf-author-file drop ty ty0 ! va va0 ! ;
 
-\ Records, captured: the current capture and one reference for comparison.
+\ Records, captured: the current capture and one kept for comparison.
 16384 constant room
 create caught room allot  variable caught#  variable lines
 create reference room allot  variable reference#
@@ -56,7 +56,7 @@ create reference room allot  variable reference#
 : keep ( -- ) caught reference caught# @ move caught# @ reference# ! ;
 : same-records? ( -- flag ) caught caught# @ reference reference# @ compare 0= ;
 
-\ The stores' counts, reference and compared (rollback).
+\ The stores' counts, kept and compared (rollback).
 variable tc  variable lc  variable rc
 : counts! ( -- ) lf-term-count @ tc ! lf-level-count @ lc ! lf-cref-count @ rc ! ;
 : counts? ( -- flag )
@@ -99,6 +99,15 @@ T{ lhole @ eq-at -1 lf-holes-reached? -> true outcome-ok }T
 : sort-of ( level -- t ) dup lf-level-identity drop lf-hterm-sort drop drop ;
 T{ lhole @ 1 lfa-level-number lf-level-tag-max lf-level-binary nip -> true }T
 T{ lf-level-count @ 1- sort-of -1 lf-holes-reached? -> true outcome-ok }T
+\ Only through a successor, and only through the second part of a max or
+\ an imax (review fe1f M2): Sort (?l + 1), Sort (max 1 ?l), Sort (imax 1 ?l).
+: second-to-1 ( level tag -- level' ) >r 1 lfa-level-number swap r> lf-level-binary drop ;
+T{ lhole @ lf-level-succ drop sort-of -1 lf-holes-reached? -> true outcome-ok }T
+T{ lhole @ lf-level-tag-max second-to-1 sort-of -1 lf-holes-reached? -> true outcome-ok }T
+T{ lhole @ lf-level-tag-imax second-to-1 sort-of -1 lf-holes-reached? -> true outcome-ok }T
+\ A corrupted negative count is taken as none (review fe1f L4).
+T{ lf-term-count @ -1 lf-term-count ! ty va lf-holes-reached? rot lf-term-count !
+   -> false outcome-ok }T
 \ A Sort naming no level of the store (a broken node): the level is never
 \ marked, nothing is written outside the table.
 T{ 1000000 lf-term-symbolic-sort drop dup -1 lf-holes-reached? rot lf-term-tag@
@@ -132,14 +141,29 @@ T{ kernel -> }T
 T{ ' refusing lf-author-export-reached -> outcome-invalid }T
 T{ 1 heap-refusals ! reached-records lines @ -> outcome-full 0 }T
 T{ reached-records same-records? -> outcome-ok true }T
+\ Universe levels (review fe1f M2): Type u, max u v, imax u v and a
+\ constant at u + 1 give the same records from both writers, every level
+\ being reached; none is ever written as zero.
+: levels ( -- outcome )
+  lf-author-begin s" kernel-form axiom A universe u u Type end A" lf-author-text drop
+  s" axiom B universe u universe v u v level-max Sort end B" lf-author-text drop
+  s" axiom C universe u universe v u v level-imax Sort end C" lf-author-text drop
+  s" axiom Q universe u A u 1 level+ ^ end Q" lf-author-text ;
+T{ levels all-records -> outcome-ok outcome-ok }T keep
+T{ reached-records same-records? lf-author-count -> outcome-ok true 4 }T
+T{ s\" {\"il\":2,\"succ\":1}" caught caught# @ 2swap search nip nip -> true }T
+T{ s\" \"max\":[" caught caught# @ 2swap search nip nip -> true }T
+T{ s\" \"imax\":[" caught caught# @ 2swap search nip nip -> true }T
+\ add_zero's records again, the reference for the hand-over below.
+T{ kernel all-records -> outcome-ok }T keep
 
 \ ---- The hand-over (front/handover.fs).
-\ Complete: the kernel-form terms are reference as they are.
+\ Complete: the kernel-form terms are kept as they are.
 T{ kernel d0 ty va lf-handover ty va -> outcome-ok ty0 @ va0 @ }T
 \ A hole at the root of the value: refused, the declaration unchanged.
 variable vh
 T{ ty hole vh ! counts! d0 ty vh @ lf-handover counts? va -> outcome-invalid true va0 @ }T
-\ Assigned: reference as its value, and the records are the kernel-form path's.
+\ Assigned: kept as its value, and the records are the kernel-form path's.
 T{ vh @ va0 @ assign d0 ty vh @ lf-handover va -> outcome-ok va0 @ }T
 T{ reached-records same-records? -> outcome-ok true }T
 
@@ -195,9 +219,24 @@ T{ poly v-too d0 ty ty hole lf-handover why -> outcome-invalid 74 }T
 
 \ A term that is no node, an axiom's missing value, and a hole's
 \ instantiation not ported yet (the beta step of ?f Nat, ?f := a lambda):
-\ never reference.
+\ never kept.
 T{ kernel d0 lf-term-count @ va lf-handover ty -> outcome-invalid ty0 @ }T
-T{ d0 ty -1 lf-handover va -> outcome-ok -1 }T
+\ A value that does not fit the kind (review fe1f M1): a theorem's must be
+\ a node, so -1 and -2 are refused, nothing kept; an axiom's must be -1.
+T{ d0 ty -1 lf-handover va why -> outcome-invalid va0 @ 76 }T
+T{ d0 ty -2 lf-handover va -> outcome-invalid va0 @ }T
+: axiom-a ( -- ) lf-author-begin s" kernel-form axiom A Prop end A" lf-author-text drop ;
+T{ axiom-a d0 ty -1 lf-handover va -> outcome-ok -1 }T
+T{ axiom-a d0 ty ty lf-handover va -> outcome-invalid -1 }T
+\ The writers refuse a theorem or a definition whose value is no node,
+\ put there by hand, never writing a number read outside their tables.
+T{ kernel -1 d0 lf-fdecl-value ! all-records reached-records
+   -> outcome-unsupported outcome-unsupported }T
+T{ kernel -2 d0 lf-fdecl-value ! all-records -> outcome-unsupported }T
+: def-a ( -- ) lf-author-begin s" kernel-form def a 0 Type := Prop end a" lf-author-text drop ;
+T{ def-a -1 d0 lf-fdecl-value ! all-records reached-records
+   -> outcome-unsupported outcome-unsupported }T
+T{ s\" \"value\"" caught caught# @ 2swap search nip nip -> false }T
 variable fa
 T{ kernel va hole dup va assign ty lf-term-first@ lf-tag-app lf-term-binary swap fa !
    -> true }T
@@ -240,8 +279,8 @@ T{ d0 ty vh @ lf-handover why -> outcome-invalid 74 }T
 variable dt
 lf-term-capacity constant rooms
 T{ 30000 lf-term-capacity! -> outcome-ok }T
-T{ kernel ty hole vh ! vh @ 10000 deep dt ! d0 dt @ -1 lf-handover -> outcome-invalid }T
-T{ vh @ ty0 @ assign d0 dt @ -1 lf-handover ty dt @ = -> outcome-ok false }T
+T{ kernel ty hole vh ! vh @ 10000 deep dt ! d0 dt @ va0 @ lf-handover why -> outcome-invalid 74 }T
+T{ vh @ ty0 @ assign d0 dt @ va0 @ lf-handover ty dt @ = -> outcome-ok false }T
 T{ ty lf-term-tag@ ty lf-term-first@ dup lf-term-first@ = -> lf-tag-app false }T
 T{ kernel rooms lf-term-capacity! -> outcome-ok }T
 T{ lfc-library-close -> }T
@@ -311,12 +350,15 @@ T{ ' lfh-later elaborating add-zero-natural check -> 2 }T
 
 \ The natural end's other refusals, read directly against the library: an
 \ instantiation step not ported yet (the beta step of ?f Nat with ?f := a
-\ lambda) is error 71, no room for the hand-over's walk error 60.
+\ lambda) is error 77, no room for the hand-over's walk error 60, a
+\ theorem given no value (malformed, review fe1f M1, L5) error 76.
 : natural ( -- outcome ) lf-author-begin add-zero-natural lf-author-file ;
 : beta ( -- type value ) direct over hole dup rot assign nat app ;
 : no-room-left ( -- type value ) direct 1 heap-refusals ! ;
+: no-value ( -- type value ) direct drop -1 ;
 T{ library true lfc-library-open -> outcome-ok }T
-T{ ' beta elaborating natural lf-author-code -> outcome-unsupported 71 }T
+T{ ' beta elaborating natural lf-author-code -> outcome-unsupported 77 }T
+T{ ' no-value elaborating natural lf-author-code -> outcome-invalid 76 }T
 T{ ' no-room-left elaborating natural lf-author-code -> outcome-full 60 }T
 T{ ' direct elaborating natural ty 0< va 0< -> outcome-ok false false }T
 \ The header the elaborator reads: the statement and the proof kept as

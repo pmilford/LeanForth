@@ -175,10 +175,16 @@ end-structure
 : lfx-names ( -- ) lf-name-count @ 1 ?do i lfx-name loop ;
 
 \ Levels: {"il":N,"succ":L}, "max":[A,B], "imax":[A,B] or "param":NAME.
-\ Every zero is level 0, which the format never writes.
+\ Every zero is level 0, which the format never writes. A level no record
+\ holds (not wanted, or no level of the store) is numbered -1, and a
+\ reference to it refuses the run (unsupported), never written as zero.
+: lfx-level-node? ( level -- flag ) 0 lf-level-count @ within ;
+: lfx-level-of ( level -- n ) dup lfx-level-node? if lfx-level# else drop -1 then ;
+: lfx-level-ref ( level -- n )
+  lfx-level-of dup 0< if outcome-unsupported lfx-refuse 0 max then ;
 : lfx-pair ( slot c-addr u -- )
-  lfx-key lfx-w jw-open-array dup node-first @ lfx-level# lfx-u
-  node-second @ lfx-level# lfx-u lfx-w jw-close-array ;
+  lfx-key lfx-w jw-open-array dup node-first @ lfx-level-ref lfx-u
+  node-second @ lfx-level-ref lfx-u lfx-w jw-close-array ;
 \ Two CASEs, one arm per tag written (zero never is); any other tag is
 \ refused (unsupported), never written as another level (review S6).
 : lfx-binary-level ( slot -- )
@@ -187,23 +193,27 @@ end-structure
     nip outcome-unsupported lfx-refuse endcase ;
 : lfx-level-body ( slot -- )
   dup node-tag @ case
-    lf-level-tag-succ of node-first @ lfx-level# s" succ" lfx-member endof
+    lf-level-tag-succ of node-first @ lfx-level-ref s" succ" lfx-member endof
     lf-level-tag-param of node-first @ s" param" lfx-member endof
     >r lfx-binary-level r> endcase ;
 : lfx-zero? ( level -- flag ) lf-level-slot node-tag @ lf-level-tag-zero = ;
 : lfx-level-line ( n slot -- ) swap s" il" lfx-record lfx-level-body lfx-close lfx-emit ;
-: lfx-level-skip? ( level -- flag ) dup lfx-zero? swap lfx-level-wanted? 0= or ;
 : lfx-level ( next level -- next' )
-  dup lfx-level-skip? if 0 swap lfx-level! exit then
+  dup lfx-zero? if 0 swap lfx-level! exit then
+  dup lfx-level-wanted? 0= if -1 swap lfx-level! exit then
   2dup lfx-level! lf-level-slot over swap lfx-level-line 1+ ;
 : lfx-levels ( -- ) 1 lf-level-count @ 0 ?do i lfx-level loop drop ;
 
 \ Expressions: {"ie":N, then the node's own member}. A reference to a
-\ projection's leaf, which no record holds, is refused (unsupported; the
-\ words never make one, values.fs), never written as a number.
-: lfx-expr-ref ( term -- n ) lfx-expr# dup 0< if outcome-unsupported lfx-refuse then ;
+\ projection's leaf, which no record holds (the words never make one,
+\ values.fs), to a node not wanted, or to no node of the store (a
+\ declaration's value -1, review fe1f M1) is refused (unsupported), never
+\ written as a number.
+: lfx-node? ( term -- flag ) 0 lf-term-count @ within ;
+: lfx-expr-of ( term -- n ) dup lfx-node? if lfx-expr# else drop -1 then ;
+: lfx-expr-ref ( term -- n ) lfx-expr-of dup 0< if outcome-unsupported lfx-refuse then ;
 : lfx-ref ( term c-addr u -- ) rot lfx-expr-ref 0 max -rot lfx-member ;
-: lfx-sort ( term -- ) lf-term-first@ lfx-level# s" sort" lfx-member ;
+: lfx-sort ( term -- ) lf-term-first@ lfx-level-ref s" sort" lfx-member ;
 : lfx-bvar ( term -- ) lf-term-first@ s" bvar" lfx-member ;
 : lfx-app ( term -- )
   s" app" lfx-inner dup lf-term-second@ s" arg" lfx-ref lf-term-first@ s" fn" lfx-ref
@@ -219,7 +229,7 @@ end-structure
   lf-term-first@ s" type" lfx-ref lfx-close ;
 : lfx-levels-of ( addr count -- )
   s" us" lfx-key lfx-w jw-open-array
-  0 ?do dup i lf-cref-pair@ drop lfx-level# lfx-u loop drop lfx-w jw-close-array ;
+  0 ?do dup i lf-cref-pair@ drop lfx-level-ref lfx-u loop drop lfx-w jw-close-array ;
 : lfx-const ( term -- )
   s" const" lfx-inner lf-term-first@ lf-cref-slot
   dup lf-cref-name@ drop s" name" lfx-member lf-cref-pairs lfx-levels-of lfx-close ;
@@ -274,7 +284,10 @@ lf-tag-app lf-tag-bit lf-tag-bvar lf-tag-bit or lf-tag-constant lf-tag-bit or
   dup lf-term-tag@ lf-tag-constant = if lfx-const-height max else drop then ;
 : lfx-reached ( h term -- h' ) dup lfx-marked? if lfx-visit else drop then ;
 : lfx-sweep ( h top -- h' ) 0 swap do i lfx-reached -1 +loop ;
-: lfx-value-height ( value -- h ) lfx-unmark dup lfx-mark 0 swap lfx-sweep 1+ ;
+\ A value that is no node, refused when its record is written, marks
+\ nothing outside the table.
+: lfx-value-height ( value -- h )
+  dup lfx-node? 0= if drop 1 exit then lfx-unmark dup lfx-mark 0 swap lfx-sweep 1+ ;
 
 \ Declarations: {"thm":{...}}, {"def":{...}}, {"axiom":{...}}.
 : lfx-params ( decl -- )

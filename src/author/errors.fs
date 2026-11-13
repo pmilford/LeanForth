@@ -96,6 +96,8 @@ require ./source.fs
 73 constant lfa-e-arity-unknown  \ unsupported: arguments that depend on unfolding (FE1c)
 74 constant lfa-e-incomplete     \ a hole is left in the elaborated declaration (FE1f)
 75 constant lfa-e-unused-universe \ a universe parameter nothing uses (FE1f)
+76 constant lfa-e-malformed      \ the elaborator's terms are malformed (FE1f)
+77 constant lfa-e-instantiate    \ unsupported: an instantiation step (FE1c)
 
 \ The catalogue: one message record per code, in order, each followed by
 \ its text and aligned; a record with code 0 closes it.
@@ -227,6 +229,12 @@ create lfa-catalogue
   lfa-e-unused-universe
   s" unused universe parameter: neither the statement nor the proof uses it"
   lfa-invalid,
+  lfa-e-malformed
+  s" malformed elaboration: a term that is no node, or a value unfit for the declaration"
+  lfa-invalid,
+  lfa-e-instantiate
+  s" not supported yet: this step of instantiating metavariables (plan FE1c)"
+  lfa-unsupported,
   0 outcome-invalid s" " lfa-message,
 
 \ The catalogue record of a code; an unknown code gives the closing record.

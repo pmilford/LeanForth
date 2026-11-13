@@ -12,8 +12,9 @@
 \ and the hand-over refuses a declaration that reaches a hole
 \ (front/handover.fs), so a hole left unreachable in the stores, a
 \ metavariable the elaborator made and no longer uses, blocks nothing.
-\ The stores' own nodes only, numbered from 0: authoring runs read no
-\ input view (core/terms.fs). Untrusted, like the writer and the front end.
+\ Every term number from 0, an input view's too (core/terms.fs; authoring
+\ runs read none); a negative count is taken as none. Untrusted, like the
+\ writer and the front end.
 \ Words: lf-reach-open ( -- flag ) the tables, for every node there is
 \ now, nothing reached (false: no heap); lf-reach-close ( -- ) frees them;
 \ lf-reach-term ( term -- ) a root (anything that is no node of the store,
@@ -52,8 +53,13 @@ end-structure
 : lr-block ( u addr -- flag ) swap 1 max allocate if drop 0 then dup rot ! 0<> ;
 : lr-erased ( n addr -- flag ) over cells over lr-block if @ swap cells erase true
   else 2drop false then ;
+\ A store's count, a corrupted negative one taken as none (review fe1f L4).
+: lr-count ( addr -- n ) @ 0 max ;
+\ Every term number: under an input view the store's own nodes start
+\ lf-term-base higher (core/terms.fs), and the view's are marked too.
 : lr-counts ( -- )
-  lf-term-count @ lf-reach lf-reach-term# ! lf-level-count @ lf-reach lf-reach-level# ! ;
+  lf-term-count lr-count lf-term-base + lf-reach lf-reach-term# !
+  lf-level-count lr-count lf-reach lf-reach-level# ! ;
 : lf-reach-close ( -- )
   lf-reach lf-reach-terms heap-release lf-reach lf-reach-levels heap-release ;
 : lf-reach-open ( -- flag )
@@ -85,13 +91,13 @@ end-structure
   dup lf-term-tag@ dup lf-term-binary-tag? if drop lr-pair else lr-leaf then ;
 : lr-visit ( term -- ) dup lf-reached? if lr-parts else drop then ;
 
-\ A reached level's parts.
-: lr-level-tag ( level -- tag ) lf-level-slot node-tag @ ;
-: lr-level-pair ( level -- )
-  lf-level-slot dup node-first @ lr-level! node-second @ lr-level! ;
+\ A reached level's parts: a CASE with one arm per kind of level that has
+\ parts.
+: lr-level-pair ( level -- ) dup lf-level-first@ lr-level! lf-level-second@ lr-level! ;
 : lr-level-parts ( level -- )
-  dup lr-level-tag dup lf-level-binary-tag? if drop lr-level-pair exit then
-  lf-level-tag-succ = if lf-level-slot node-first @ lr-level! else drop then ;
+  dup lf-level-tag@ case lf-level-tag-succ of lf-level-first@ lr-level! endof
+    lf-level-tag-max of lr-level-pair endof lf-level-tag-imax of lr-level-pair endof
+    nip endcase ;
 : lr-level-visit ( level -- ) dup lf-level-reached? if lr-level-parts else drop then ;
 
 \ The sweeps, newest node first (n nodes; none when n is 0).
