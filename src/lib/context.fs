@@ -102,6 +102,9 @@ require ./slab.fs
 
 lf-lib-private module-open
 
+\ Every word below is private (lf-lib-private) except those defined
+\ after an `lf-lib set-current` and before the next `lf-lib-private
+\ set-current`: the Interface list of the header.
 lf-lib set-current
 begin-structure /context-header
 lf-lib-private set-current
@@ -234,10 +237,21 @@ context-bytes allocate0 throw dup context-sized context-main!
 : member-append ( member -- )
   dup context-last @ ?dup if member-link ! else context-first ! then context-last ! ;
 : member-add ( member -- ) dup member-run member-append ;
-\ Add a member to a list of members of one kind (walks, frames records,
-\ slabs) whose blocks a teardown word frees: a node, laid down in the
-\ dictionary, of the node added before (or 0) and the member's offset.
+\ Lists of members of one kind (walks, frames records, slabs) whose blocks
+\ a teardown word frees: nodes laid down in the dictionary, newest first.
+begin-structure /listed
+  field: listed-next       \ the node added before, or 0
+  field: listed-offset     \ the member's offset in a context
+end-structure
+0 listed-next 0<> 0 listed-offset cell <> or /listed 2 cells <> or
+[if] .( context.fs: member-listed lays down /listed out of order) cr abort [then]
+\ Add a member to a list: its node's fields laid down in their order.
 : member-listed ( member list -- member ) here over @ , swap ! dup member-offset @ , ;
+\ A listed member's address in the current context.
+: listed-member ( node -- addr ) listed-offset @ lf-context @ + ;
+\ Run xt ( addr -- ) on each member of the list, newest first.
+: listed-each ( list xt -- )
+  swap @ begin ?dup while 2dup listed-member swap execute listed-next @ repeat drop ;
 
 \ Initialisers ( addr member -- ). The context is zeroed beforehand.
 : member-zeroed ( addr member -- ) 2drop ;
@@ -325,14 +339,11 @@ lf-lib-private set-current
 variable context-slabs
 : member-slab ( addr member -- )
   member-width @ max-n over / rot slab-init ok? 0= abort" context: bad slab" ;
-: slabs-free ( -- )
-  context-slabs @ begin ?dup while dup cell+ @ lf-context @ + slab-free @ repeat ;
+: slabs-free ( -- ) context-slabs ['] slab-free listed-each ;
 ' slabs-free context-teardown
-: walks-free ( -- )
-  context-walks @ begin ?dup while dup cell+ @ lf-context @ + walk-free @ repeat ;
+: walks-free ( -- ) context-walks ['] walk-free listed-each ;
 ' walks-free context-teardown
-: frames-free ( -- )
-  context-frame-list @ begin ?dup while dup cell+ @ lf-context @ + frame-free @ repeat ;
+: frames-free ( -- ) context-frame-list ['] frame-free listed-each ;
 ' frames-free context-teardown
 : slab-listed ( member -- member ) context-slabs member-listed ;
 lf-lib set-current

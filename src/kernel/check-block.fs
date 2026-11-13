@@ -126,8 +126,6 @@ end-structure
 \ B3's rejections replace what the structural comparison recorded on the
 \ way (a difference is undecided there, and decisive here).
 : lf-blk-replace ( n1 n2 code -- outcome ) lf-blk-site swap lf-diag! outcome-rejected ;
-\ Run xt ( -- outcome ) only when the outcome so far is ok.
-: lf-blk-then ( outcome xt -- outcome ) over ok? if nip execute else drop then ;
 
 \ Inference jobs in environment mode on the block's fuel (mixed-infer.fs).
 : lf-blk-job ( -- ) lf-ind-fuel @ lf-minfer-start-env ;
@@ -557,8 +555,8 @@ end-structure
   lf-ind-aux@ 0= if outcome-ok exit then
   true lf-blk-keys! lf-blk-job lf-blk-keys-typed lf-blk-refuel false lf-blk-keys! ;
 : lf-blk-build ( -- outcome )
-  lf-nest-rec-names ['] lf-blk-built lf-blk-then ['] lf-nest-restore-all lf-blk-then
-  ['] lf-blk-aux-fresh lf-blk-then ['] lf-blk-keys lf-blk-then ;
+  lf-nest-rec-names ['] lf-blk-built ok-and ['] lf-nest-restore-all ok-and
+  ['] lf-blk-aux-fresh ok-and ['] lf-blk-keys ok-and ;
 
 \ ---------------------------------------------------------------------------
 \ Step 13, B3. Name lists equal name by name.
@@ -679,7 +677,7 @@ here lf-b3-rec - 2 cells / constant lf-b3-rec#
   lf-ind-in-types@ 0 ?do i lf-blk-shape dup ok? 0= if unloop exit then drop loop
   outcome-ok ;
 : lf-blk-compare ( -- outcome )
-  lf-blk-shapes ['] lf-blk-ctors-b3 lf-blk-then ['] lf-blk-recs-b3 lf-blk-then ;
+  lf-blk-shapes ['] lf-blk-ctors-b3 ok-and ['] lf-blk-recs-b3 ok-and ;
 
 \ Step 14, B4: each type's fields Lean's replay ignores, against what
 \ LeanForth computed (its numIndices; isRec and isReflexive, the audit's
@@ -721,7 +719,7 @@ here lf-b4-tests - 2 cells / constant lf-b4-tests#
 : lf-blk-done ( -- outcome ) outcome-ok ;
 \ Step 4: T1, then a nested block's translation (elim_nested_inductive_fn,
 \ whose get_params is T1).
-: lf-blk-t1 ( -- outcome ) lf-ind-t1 ['] lf-nest-translate lf-blk-then ;
+: lf-blk-t1 ( -- outcome ) lf-ind-t1 ['] lf-nest-translate ok-and ;
 create lf-blk-steps
   ' lf-ind-audit , ' lf-ind-t0 , ' lf-ind-c1 , ' lf-blk-t1 , ' lf-blk-t5 ,
   ' lf-blk-types , ' lf-blk-done , ' lf-blk-done , ' lf-blk-ctors ,

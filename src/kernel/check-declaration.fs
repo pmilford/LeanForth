@@ -102,8 +102,6 @@ lf-walk-room context-walk: lf-check-walker
 : lf-check-value-root ( -- term ) lf-check-decl lf-idecl-value @ ;
 : lf-check-theorem? ( -- flag ) lf-check-decl lf-idecl-kind @ lf-kind-theorem = ;
 : lf-check-site ( -- site ) c" check-declaration lf-check-declaration" ;
-\ Run xt ( -- outcome ) only when the outcome so far is ok.
-: lf-check-then ( outcome xt -- outcome ) over ok? if nip execute else drop then ;
 \ Keep a step's result, passing its outcome on.
 : lf-check-keep ( x outcome -- outcome ) swap lf-check-found ! ;
 
@@ -180,7 +178,7 @@ lf-walk-room context-walk: lf-check-walker
 : lf-check-u2 ( -- outcome ) ['] lf-check-forms lf-check-both ;
 : lf-check-v1 ( -- outcome ) ['] lf-check-closed lf-check-both ;
 : lf-check-audit ( -- outcome )
-  lf-check-u1 ['] lf-check-u2 lf-check-then ['] lf-check-v1 lf-check-then ;
+  lf-check-u1 ['] lf-check-u2 ok-and ['] lf-check-v1 ok-and ;
 
 \ Step 4: the declared type's type, in a new inference job in environment
 \ mode, with the fuel the audit left.
@@ -217,7 +215,7 @@ lf-walk-room context-walk: lf-check-walker
 : lf-check-restart ( -- outcome )
   lf-minfer-fuel @ lf-input-rollback ok-then? if lf-minfer-start-env outcome-ok then ;
 : lf-check-infer-value ( -- outcome ) lf-check-value-root lf-minfer-walk lf-check-keep ;
-: lf-check-value ( -- outcome ) lf-check-restart ['] lf-check-infer-value lf-check-then ;
+: lf-check-value ( -- outcome ) lf-check-restart ['] lf-check-infer-value ok-and ;
 \ Step 8 (D1-D5): the value's type against the declared type.
 : lf-check-compare ( -- outcome )
   lf-check-found @ lf-check-claim lf-minfer-agree
@@ -391,7 +389,7 @@ lf-check-steps# 1+ constant lf-step-done
 \ its outcome (lf-env-finish), as described above; full past its memory
 \ limit, which then stops.
 : lf-check-declaration ( -- )
-  lf-check-begin ['] lf-check-kind-run lf-check-then lf-check-over lf-env-finish
+  lf-check-begin ['] lf-check-kind-run ok-and lf-check-over lf-env-finish
   lf-meter-stop ;
 
 \ Check every declaration of this context's intact input, in input order,

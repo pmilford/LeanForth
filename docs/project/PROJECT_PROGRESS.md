@@ -44,9 +44,11 @@ status changes when this date is older than them. Stages are those of the
   assignment marks) tested alone; FE1c (Lean's level unification and normalize, instantiate and head beta: 153 cases
   equal to pinned Lean) tested alone in part; FE1d (elaboration data) integrated; FE1f (the hand-over of an elaborated
   declaration to the kernel) tested alone, reached by no user command before FE1e; FE6a (casesOn, recOn and ctorIdx
-  built as Lean builds them, compared over Init) tested alone. On branches, under review: FE1c's environment view,
-  whnfCore and first inferType cases; FE1e1 (elaboration data format 2); FE1g-2 (tactic proofs read; a well-formed one
-  stops "not supported yet"); FE1i-4 (signed big integers). Designed: FE1e, FE1g, FE1i, FE2. Nothing is proved by
+  built as Lean builds them, compared over Init) tested alone; FE1c's environment view, whnfCore and first inferType cases tested alone; FE1g-2 (tactic proofs
+  read; a well-formed one stops "not supported yet") tested alone; FE1i-4 (signed big integers, `lib/bigint.fs`)
+  tested alone. On branches: FE1c's instantiateMVars beta and delayed steps and marks as serials (reviewed, merge
+  pending); FE1e1 (elaboration data format 2: reviewed, waiting for the owner's [import]/[format] approval). Designed:
+  FE1e, FE1g, FE1i, FE2. Nothing is proved by
   LeanForth yet. Natural statements (8.6.10) are FE2, `add_comm` natively (8.6.11) FE5.
 - Program track, restarted 2026-11-12 after being parked since 2026-11-04: LeanForth re-checks Lean's proofs of
   the clamp word's obligations (plan 5.5.1): works end to end (done check docs/development/done-checks/2026-11-12-program-track.md); owner gates [bypass] and [runtime] approved 2026-11-12, merged.

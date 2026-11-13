@@ -157,6 +157,9 @@ s" gforth" environment? [if] 2drop
 \ align; a longer one aborts. For tables of names built while loading.
 : counted, ( c-addr u -- )
   dup 255 > abort" counted, string too long" dup c, here swap dup allot move align ;
+\ The address after a counted string counted, laid down: the next one of a
+\ table of them.
+: counted-next ( c-addr -- c-addr' ) count + aligned ;
 
 \ Strict framing of one line: no carriage return anywhere (so no CRLF
 \ line ends) and no UTF-8 byte-order mark at its start. UTF-8 validity is

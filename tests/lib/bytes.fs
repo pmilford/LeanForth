@@ -136,6 +136,11 @@ T{ here aligned here = -> true }T
 create long-name 256 allot
 T{ long-name 255 counted, here aligned here = -> true }T
 T{ long-name 256 ' counted, catch nip nip -> -2 }T
+\ counted-next steps from one counted string of a table to the next.
+create two-names s" ab" counted, s" " counted, s" xyz" counted,  here constant names-end
+T{ two-names counted-next count s" " compare -> 0 }T
+T{ two-names counted-next counted-next count s" xyz" compare -> 0 }T
+T{ two-names counted-next counted-next counted-next names-end = -> true }T
 
 \ The line reader on fixtures. composition.ndjson: 35 lines, 1,787 bytes,
 \ the longest (the metadata, line 1) 172 bytes.

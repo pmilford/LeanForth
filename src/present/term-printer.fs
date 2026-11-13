@@ -38,6 +38,7 @@
 \ limit (lf-print-limit!). After a failure the sink has received a partial
 \ text. The sink rules are in print-job.fs.
 
+require ../lib/xt-table.fs
 require ./print-analysis.fs
 require ./print-strings.fs
 
@@ -374,8 +375,8 @@ defer lf-pp-lam-groups ( node frames -- ... frames next )
   ['] lf-pp-fun-end r@ frame-save lf-pp-fun r> lf-pp-lam-groups ;
 
 \ Dispatch on the node's tag. Variables and constants print through the
-\ application printer, which decides on @ for them too; a CASE with one
-\ arm for each other tag (read as a table) gives the visit's first step.
+\ application printer, which decides on @ for them too; a table by tag
+\ (lf-pp-steps, below) gives the visit's first step for each other tag.
 : lf-pp-applied-tag? ( tag -- flag )
   dup lf-pp-app-tag? over lf-tag-bvar = or swap lf-tag-constant = or ;
 \ A projection leaf (core/projections.fs; plan task 5.2.2) prints as its
@@ -395,15 +396,25 @@ defer lf-pp-lam-groups ( node frames -- ... frames next )
 \ A string literal (core/string-literals.fs): quoted as Lean quotes it
 \ (print-strings.fs).
 : lf-pp-str-step ( term pos frames -- outcome frames 0 ) >r drop lf-pp-string r> 0 ;
-\ The leaves that are no atom; any other tag is invalid.
-: lf-pp-leaf-step ( tag -- xt )
-  case lf-tag-proj of ['] lf-pp-proj-step endof lf-tag-lit of ['] lf-pp-lit-step endof
-    lf-tag-str of ['] lf-pp-str-step endof ['] lf-pp-invalid-step swap endcase ;
-: lf-pp-tag-step ( tag -- xt )
-  dup lf-pp-applied-tag? if drop ['] lf-pp-app exit then
-  case lf-tag-sort of ['] lf-pp-concrete-step endof
-    lf-tag-symbolic-sort of ['] lf-pp-symbolic endof lf-tag-lam of ['] lf-pp-lam endof
-    lf-tag-pi of ['] lf-pp-pi endof dup lf-pp-leaf-step swap endcase ;
+\ The step that prints a term, by its tag, from a table filled once while
+\ loading (read-only afterwards): Sorts, binders, the leaves that are no
+\ atom, then applications, variables and constants (lf-pp-applied-tag?),
+\ which win; any other tag, or one outside the table, is invalid
+\ (lib/xt-table.fs; a tag the table cannot hold aborts the load).
+32 constant lf-pp-tags   \ every term tag is below it (core/terms.fs's lf-tag-bit)
+lf-pp-tags ' lf-pp-invalid-step xt-table: lf-pp-steps
+: lf-pp-step! ( xt tag -- ) lf-pp-steps xt-table! ;
+: lf-pp-steps-applied ( -- )
+  lf-pp-tags 0 do i lf-pp-applied-tag? if ['] lf-pp-app i lf-pp-step! then loop ;
+' lf-pp-concrete-step lf-tag-sort lf-pp-step!
+' lf-pp-symbolic lf-tag-symbolic-sort lf-pp-step!
+' lf-pp-lam lf-tag-lam lf-pp-step!
+' lf-pp-pi lf-tag-pi lf-pp-step!
+' lf-pp-proj-step lf-tag-proj lf-pp-step!
+' lf-pp-lit-step lf-tag-lit lf-pp-step!
+' lf-pp-str-step lf-tag-str lf-pp-step!
+lf-pp-steps-applied
+: lf-pp-tag-step ( tag -- xt ) lf-pp-steps xt-table@ ;
 : lf-pp-term ( term pos frames -- ... frames next )
   2 pick lf-pp-tag if lf-pp-tag-step else ['] lf-pp-invalid-step then execute ;
 ' lf-pp-term is lf-pp-term-step

@@ -1068,6 +1068,9 @@ Each as recommended ([FE1E_APPLICATIONS.md](../design/FE1E_APPLICATIONS.md) §8,
    [review](../development/forth-reviews/2026-11-12-refactor-frk.md), every change behaviour-identical by trace) and
    the branch is not slower than main (the implementer's back-to-back CPU pair, pending at the time of the decision;
    the result is recorded below when it arrives). If either fails, FRK waits for the owner.
+   **Conditions met (2026-11-13, 00:58):** the implementer's back-to-back Init runs at the same load gave branch
+   -5.5% CPU and memory +0.9% (means of both pairs: main 1421.2 s, branch 1419.5 s user), every report and fuel count
+   equal; both CI jobs pass on eb9695f. FRK merged into tonight's build.
 3. **`sorry` in LeanForth text** (amends ADR 0021 D3; [ADR 0021 Amendment 1](../adr/0021-front-end.md)): allow the
    explicit `sorry` exactly as Lean does, reported NOT PROVED with `sorryAx` named, never counted as proved. The owner
    added: "it needs to report the other parts of a check are good somehow for development, I almost wonder if it is

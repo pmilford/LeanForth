@@ -191,13 +191,12 @@ end-structure
 \ The build, between the copy of the block record and its return. The
 \ type slot d opens its block (its header's first member), and is the
 \ block's type d - first.
-: lf-genrec-then ( outcome xt -- outcome ) over ok? if nip execute else drop then ;
 : lf-genrec-layout ( -- outcome ) lf-ind-layout if outcome-ok else outcome-invalid then ;
 : lf-genrec-facts ( d -- outcome )
   dup lf-input-decl lf-idecl-header dup 0= if 2drop outcome-invalid exit then
   lf-hdr-first lf-more-field tuck - lf-genrec-state lf-genrec-which !
-  lf-ind-open nip ['] lf-genrec-layout lf-genrec-then
-  ['] lf-genrec-fields lf-genrec-then ;
+  lf-ind-open nip ['] lf-genrec-layout ok-and
+  ['] lf-genrec-fields ok-and ;
 : lf-genrec-made ( -- outcome )
   0 lf-genrec-ctor-cells slab-at lf-recursor-build-at dup ok? 0= if exit then
   lf-genrec-state lf-genrec-which @ lf-ind-ty lf-ty-rec-type @
@@ -205,8 +204,8 @@ end-structure
 : lf-genrec-run ( d pairs fuel -- fuel' outcome )
   >r over lf-genrec-facts dup ok? 0= if nip nip r> swap exit then drop
   r> lf-ind-fuel ! swap lf-genrec-large? lf-genrec-elim lf-genrec-pairs
-  ['] lf-genrec-types lf-genrec-then ['] lf-genrec-ctors lf-genrec-then
-  ['] lf-genrec-made lf-genrec-then lf-ind-fuel @ swap ;
+  ['] lf-genrec-types ok-and ['] lf-genrec-ctors ok-and
+  ['] lf-genrec-made ok-and lf-ind-fuel @ swap ;
 \ The block record, and every unit of the domains, type records and
 \ constructors' records slabs (the record does not say how many the
 \ interrupted check filled): copied aside, full when the heap cannot hold
