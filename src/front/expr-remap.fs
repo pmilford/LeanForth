@@ -19,12 +19,16 @@
 \ An expression without such variables (its loose range, kept in every
 \ record, at most the base) is kept as it is, so closed parts are never
 \ walked. Applications, binders and projections are rebuilt; a variable
-\ renumbered; a letE or mdata record is unsupported for now (no recursor
-\ of Init holds one; plan row FE6). Each visit costs one unit of fuel
-\ (remap-fuel per run): exhausted beyond it; full when the tier or the
-\ pass's stack cannot grow; invalid for a busy record. Untrusted front-end
-\ code: a wrong result is caught by the comparison with Lean's and by the
-\ kernel's check.
+\ renumbered; a letE or mdata record is unsupported for now (eight
+\ structures of Init hold one, plan row FE6). With remap-erase! set, the
+\ pass also makes every binder anonymous and plain (name 0, default
+\ information), to compare terms as Lean's Expr equality does; it then
+\ walks every node but leaves. Each visit costs one unit of fuel
+\ (remap-fuel per run, or what remap-fuel! sets): exhausted beyond it;
+\ full when the tier or the pass's stack cannot grow; invalid for a busy
+\ record. A node shared by several parents is visited once per path.
+\ Untrusted front-end code: a wrong result is caught by the comparison
+\ with Lean's and by the kernel's check.
 \
 \ Example (in the scratch tier s over an input tier):
 \   create r /remap allot  s r remap-init
@@ -44,6 +48,7 @@ begin-structure /remap
   field: remap-x                \ the map's first number (drop, or a)
   field: remap-y                \ its second (lift, or h)
   field: remap-erase            \ true: binder names made anonymous too
+  field: remap-limit            \ fuel for each run
 end-structure
 
 \ Visits allowed in one run.
@@ -124,8 +129,10 @@ end-structure
   2dup remap-clean? if remap-keep exit then 2dup remap-tag remap-kind ;
 
 \ The interface.
-: remap-init ( tier remap -- ) ['] remap-visit over frame-init remap-tier ! ;
+: remap-init ( tier remap -- )
+  ['] remap-visit over frame-init remap-fuel over remap-limit ! remap-tier ! ;
 : remap-free ( remap -- ) frame-free ;
+: remap-fuel! ( visits remap -- ) remap-limit ! ;
 : remap-set ( x y xt remap -- ) tuck remap-map ! tuck remap-y ! remap-x ! ;
 : remap-shift! ( drop lift remap -- ) ['] shift-map swap remap-set ;
 : remap-swap! ( a h remap -- ) ['] swap-map swap remap-set ;
@@ -135,5 +142,5 @@ end-structure
 \ e with its loose variables at or past the cutoff renumbered by the map
 \ set last: the result's number and ok, or -1 and the outcome (above).
 : remap-run ( e remap -- e' outcome )
-  remap-fuel over frame-budget drop 0 swap frame-run ;
+  dup remap-limit @ over frame-budget drop 0 swap frame-run ;
 : remap-at ( e cutoff remap -- e' outcome ) tuck remap-cutoff! remap-run ;
