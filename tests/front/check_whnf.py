@@ -138,8 +138,10 @@ CASES = [
     ("infer", (LET, NAT, "k", "#0"), "FE1c inferLambdaType for let"),
     ("infer", apps(REC, (LAM, NAT, NAT), "z", "s", "k"), None),
     ("infer", apps(REC, (LAM, NAT, apps(c("Eq", 1), NAT, "#0", "#0")), "z", "s", "k"), None),
-    ("infer", apps(REC, (LAM, NAT, NAT), "z", "s"),
-     "FE1c instantiateBetaRevRange under a binder (liftLooseBVars)"),
+    # Under a binder of the type, the loose argument is put in where the
+    # motive's body has no binder around it (plan FE1g-4); the case that
+    # needs Lean's liftLooseBVars is tests/front/infer.fs's (unsupported).
+    ("infer", apps(REC, (LAM, NAT, NAT), "z", "s"), None),
     ("ibeta", ("#2", ["k"]), None),
     ("ibeta", ("#3", ["k"]), None),
     ("ibeta", ("#5", ["k", "a"]), None),
