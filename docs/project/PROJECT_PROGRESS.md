@@ -36,6 +36,10 @@ status changes when this date is older than them. Stages are those of the
   reviews (the parallel scheduler's use after free when memory is full; a snapshot layer's full reported as invalid;
   Gforth-only words outside the portability layer).
 - 2026-11-13 02:00: all of Mathlib on the final build (verdict version 9), saving its snapshot.
+- The front end, LeanForth's own elaborator and tactics (plan FE1-FE12, replacing 8.3.1-8.3.2; [design](../design/FRONT_END.md),
+  [ADR 0021](../adr/0021-front-end.md) proposed): designed 2026-11-12, no code. FE1, the first theorem proved from
+  LeanForth text ($0 + n = n$ by induction, no hand-written proof term, no Lean tool), starts once the owner answers
+  the syntax questions and 8.2.1c-d are merged; natural statements (8.6.10) are FE2, `add_comm` natively (8.6.11) FE5.
 
 **Next**
 - The Forth refactoring batches of the three backlog reviews ([log](../development/forth-reviews/LOG.md), plan
@@ -43,7 +47,6 @@ status changes when this date is older than them. Stages are those of the
 - Program track: LeanForth re-checks Lean's proofs of the clamp word's obligations (5.5.1), then a user command
   `leanforth verify` (8.4.1). The track has been parked since 2026-11-04.
 - A rule-by-rule audit of AGENTS.md against practice.
-- Natural LeanForth for writing statements (8.6.10) and a first theorem proved in LeanForth (8.6.11).
 
 **Later**
 - Snapshots that read the one or two previous versions (6.2.5c).
