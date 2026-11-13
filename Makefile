@@ -922,7 +922,8 @@ test-front:
 	  src/front/level-map.fs src/front/expr-remap.fs src/front/constructions.fs src/front/ctor-idx.fs \
 	  src/front/cases-several.fs \
 	  src/front/meta-env.fs src/front/meta-spine.fs src/front/whnf.fs src/front/beta-inst.fs \
-	  src/front/infer.fs src/front/tactic-syntax.fs; do \
+	  src/front/infer.fs src/front/tactic-syntax.fs \
+	  src/front/runs.fs src/front/lctx-views.fs src/front/goals.fs src/front/goal-print.fs; do \
 	  out=$$($(RUN) $(GFORTH) $$m -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
 	  if [ -n "$$out" ]; then printf '%s printed while loading:\n%s\n' "$$m" "$$out" >&2; exit 1; fi; \
 	done
@@ -937,6 +938,8 @@ test-front:
 	$(RUN) $(GFORTH) tests/front/infer.fs
 	$(RUN) $(GFORTH) tests/front/tactic-syntax.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_tactics.py
+	$(RUN) $(GFORTH) tests/front/goals.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_goals.py
 
 # The natural reader's trees against pinned Lean's macro expansion of the
 # same statements (tests/front/operators.lean); the Meta layer's answers
@@ -951,6 +954,7 @@ reference-front:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_unfold.py
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_whnf.py
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_tactics.py --lean
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_goals.py --lean
 
 # Lean's generated definitions (casesOn, recOn, ctorIdx; plan FE6) built by
 # src/front/constructions.fs and ctor-idx.fs for every inductive type of Init, against

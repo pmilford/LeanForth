@@ -62,8 +62,7 @@ begin-structure /lf-ldecl
   field: lf-ldecl-fvar       \ the free variable's node
   field: lf-ldecl-identity   \ that node's identity
   field: lf-ldecl-type       \ its type, a term node
-  field: lf-ldecl-value      \ a let variable's value, or -1
-  field: lf-ldecl-nondep     \ true for a have: the value is hidden (Lean's nondep)
+  field: lf-ldecl-value      \ a let variable's value, or -1; a have's as -2 - value
   field: lf-ldecl-depth      \ binders around its binder, or -1 (see below)
 end-structure
 
@@ -98,8 +97,7 @@ store-header context-record: lf-lctx
 : lf-lctx-node ( -- fvar true | false ) lf-tag-fvar lf-lctx-count @ 0 lf-term-add ;
 : lf-ldecl-fill ( type value fvar addr -- )
   >r dup r@ lf-ldecl-fvar ! lf-term-identity drop r@ lf-ldecl-identity !
-  r@ lf-ldecl-value ! r@ lf-ldecl-type ! r> -1 over lf-ldecl-depth !
-  false swap lf-ldecl-nondep ! ;
+  r@ lf-ldecl-value ! r@ lf-ldecl-type ! -1 r> lf-ldecl-depth ! ;
 \ The entry is charged to a check's memory limit (core/scratch-meter.fs)
 \ just before it is made, after its node, as the stores charge theirs, so
 \ that no reading misses a charged record (review rvRS F4); a refused one
@@ -145,15 +143,20 @@ store-header context-record: lf-lctx
 : lf-fvar-number ( fvar -- n ) lf-term-first@ ;
 : lf-fvar-decl ( fvar -- addr ) lf-fvar-number lf-ldecl ;
 : lf-fvar-type ( fvar -- type ) lf-fvar-decl lf-ldecl-type @ ;
-: lf-fvar-value ( fvar -- value ) lf-fvar-decl lf-ldecl-value @ ;
-\ A have's value is hidden: Lean's whnf leaves the variable as it is and
-\ its isLet is false (LocalContext.lean, LocalDecl.isLet, value?).
-: lf-fvar-nondep? ( fvar -- flag ) lf-fvar-decl lf-ldecl-nondep @ ;
-: lf-fvar-let? ( fvar -- flag ) dup lf-fvar-value 0< 0= swap lf-fvar-nondep? 0= and ;
+\ A have (Lean's ldecl with nondep := true) keeps its value hidden in the
+\ value field, as -2 - value, so that an entry keeps the size the check's
+\ memory meter charges (core/scratch-meter.fs): Lean's whnf leaves such a
+\ variable as it is, and its isLet is false (LocalContext.lean,
+\ LocalDecl.isLet, value?). lf-fvar-value gives the value either way.
+: lf-hidden ( value -- code ) negate 2 - ;
+: lf-fvar-code ( fvar -- code ) lf-fvar-decl lf-ldecl-value @ ;
+: lf-fvar-value ( fvar -- value ) lf-fvar-code dup -1 < if 2 + negate then ;
+: lf-fvar-nondep? ( fvar -- flag ) lf-fvar-code -1 < ;
+: lf-fvar-let? ( fvar -- flag ) lf-fvar-code 0< 0= ;
 \ Lean's mkLetDecl with nondep := true: a let variable whose value is
 \ hidden (a have), made as lf-lctx-let makes one.
 : lf-lctx-have ( type value -- fvar outcome )
-  lf-lctx-let dup ok? if over lf-fvar-decl lf-ldecl-nondep true swap ! then ;
+  lf-lctx-let dup ok? if over lf-fvar-decl lf-ldecl-value dup @ lf-hidden swap ! then ;
 \ Where the free variable's binder stands: how many binders surround it,
 \ as the checker that made it records (inference: its scope's depth), or
 \ -1 when none was recorded. The derivation log (derivation-log.fs) reads

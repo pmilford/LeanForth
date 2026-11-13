@@ -65,7 +65,8 @@ require ./present/proof-outline.fs
 \ instantiation and abstraction, level simplification and normalization,
 \ universe-parameter instantiation, the view of the environment
 \ (reducibility and unfolding under each transparency), whnfCore and the
-\ first cases of type inference.
+\ first cases of type inference; the tactic framework's goals, each with
+\ its own local context, the goal list and their text (plan FE1g-1).
 require ./front/level-map.fs
 require ./front/mvars.fs
 require ./front/level-defeq.fs
@@ -77,6 +78,7 @@ require ./front/meta-env.fs
 require ./front/whnf.fs
 require ./front/beta-inst.fs
 require ./front/infer.fs
+require ./front/goal-print.fs
 
 \ The command line: check, replay, print, count, reexport, version,
 \ capabilities. It loads the staging of exports into the checker's input,
