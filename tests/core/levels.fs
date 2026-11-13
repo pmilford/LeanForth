@@ -52,6 +52,17 @@ T{ 2 lf-level-param lf-level-count @ -> 5 true 6 }T
 true lf-term-sharing!
 T{ 2 lf-level-param -> 1 true }T
 T{ level-mark lf-level-rollback lf-level-count @ -> outcome-ok 5 }T
+\ Each field takes part (review FRI B2): records equal but for the tag,
+\ the first or the second field are new levels; each made again is the
+\ level already made.
+T{ level-mark lf-levels store-mark -> outcome-ok }T
+T{ lf-level-tag-max 1 2 lf-level-add lf-level-tag-imax 1 2 lf-level-add
+   lf-level-tag-max 2 2 lf-level-add lf-level-tag-max 1 1 lf-level-add
+   -> 5 true 6 true 7 true 8 true }T
+T{ lf-level-tag-max 1 1 lf-level-add lf-level-tag-max 2 2 lf-level-add
+   lf-level-tag-imax 1 2 lf-level-add lf-level-tag-max 1 2 lf-level-add
+   -> 8 true 7 true 6 true 5 true }T
+T{ level-mark lf-level-rollback lf-level-count @ -> outcome-ok 5 }T
 \ The table holds the five records left, and after a reset the zero level.
 T{ lf-level-table htab-count -> 5 }T
 

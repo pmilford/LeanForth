@@ -7744,8 +7744,8 @@ reason = "FX7: a level node is skipped the first time and checked only when reac
 [[fault]]
 id = "s3-terms-collision-equal"
 file = "src/core/terms.fs"
-old = '''  >r r@ 2 cells + @ = swap r@ cell+ @ = and swap r> @ = and ;'''
-new = '''  >r 2drop r> @ = ;'''
+old = '''  >r r@ sought-second @ = swap r@ sought-first @ = and swap r> sought-tag @ = and ;'''
+new = '''  >r 2drop r> sought-tag @ = ;'''
 test = "$GFORTH tests/core/terms.fs"
 reason = "S3: a record found in the table counts as equal when only its tag is (a collision taken for equality)"
 
@@ -8132,7 +8132,7 @@ reason = "S6C: a reference reset leaves the generation, so the memo keeps a cons
 [[fault]]
 id = "s4-levels-collision-equal"
 file = "src/core/levels.fs"
-old = '''  >r lf-level-slot node@ r> lf-term-key= ;'''
+old = '''  >r lf-level-slot node@ r> lf-sought= ;'''
 new = '''  2drop drop true ;'''
 test = "$GFORTH tests/core/levels.fs"
 reason = "S4: a level found under the same hash run is taken as equal without comparing its fields"
@@ -10526,3 +10526,43 @@ old = ''': lf-copier-under ( c copier tag -- c copier c' ) over lf-copier-inner 
 new = ''': lf-copier-under ( c copier tag -- c copier c' ) drop over ;'''
 test = "GFORTH=$GFORTH python3 tests/present/check_outline.py"
 reason = "FRI B3: a binder's body is copied in its binder's own context, not under the binder"
+
+[[fault]]
+id = "fri-b2-sought-first-ignored"
+file = "src/core/terms.fs"
+old = '''  >r r@ sought-second @ = swap r@ sought-first @ = and swap r> sought-tag @ = and ;'''
+new = '''  >r r@ sought-second @ = nip swap r> sought-tag @ = and ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "FRI B2: a record found whose first field differs counts as equal (terms and levels share lf-sought=)"
+
+[[fault]]
+id = "fri-b2-sought-second-ignored"
+file = "src/core/terms.fs"
+old = '''  >r r@ sought-second @ = swap r@ sought-first @ = and swap r> sought-tag @ = and ;'''
+new = '''  >r drop true swap r@ sought-first @ = and swap r> sought-tag @ = and ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "FRI B2: a level or term found whose second field differs counts as equal"
+
+[[fault]]
+id = "fri-b2-sought-hash-key"
+file = "src/core/terms.fs"
+old = '''  dup >r lf-sought! r@ dup lf-sought@ lf-fields-hash r> drop ;'''
+new = '''  dup >r lf-sought! r@ dup lf-sought@ drop 0 lf-fields-hash r> drop ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "FRI B2: a record is sought under a hash without its second field, so an equal record entered under the full hash is not found"
+
+[[fault]]
+id = "fri-b2-tin-given-unfindable"
+file = "src/core/terms.fs"
+old = '''  dup lf-term-reusable? if lf-term-findable? else drop false then ;'''
+new = '''  lf-term-reusable? ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "FRI B2: an input node is given before the check reached it (agent PF's hook not asked)"
+
+[[fault]]
+id = "fri-b2-let-lam-mode"
+file = "src/core/terms.fs"
+old = ''': lf-tin-let-lam? ( index -- flag ) lf-tin-code lf-tin-modes and lf-tin-let-lam = ;'''
+new = ''': lf-tin-let-lam? ( index -- flag ) lf-tin-code lf-tin-modes and lf-tin-raw = ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "FRI B2: a let's lambda is not recognised (its binder name, its unit), a raw node taken for one"

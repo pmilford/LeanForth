@@ -275,12 +275,26 @@ end-structure
   dup lf-tleaf-tag over lf-tleaf-first @ rot lf-tleaf-second @ ;
 : lf-tnode-rehash ( n htab -- h ) drop lf-tleaf lf-tleaf-node @ hash-fmix ;
 : lf-tnode-same ( n key htab -- flag ) drop swap lf-tleaf lf-tleaf-node @ = ;
-\ The fields hash as a store record's (lf-term-hash below, the same mix).
-: lf-tfields-hash ( tag first second -- h ) rot hash-fmix rot hash-step swap hash-step ;
-: lf-tfields-rehash ( n htab -- h ) drop lf-tleaf lf-tleaf-fields lf-tfields-hash ;
-: lf-tfields= ( tag first second addr -- flag )
-  >r r@ 2 cells + @ = rot r@ @ = rot r> cell+ @ = and and ;
-: lf-tfields-same ( n key htab -- flag ) drop >r lf-tleaf lf-tleaf-fields r> lf-tfields= ;
+\ The record a hash table is asked for (the input view's lf-tin-key, the
+\ store's lf-term-key, levels.fs's lf-level-key): a tag and two fields,
+\ hashed alike, and whether a record's fields are the ones sought.
+begin-structure /lf-sought
+  field: sought-tag
+  field: sought-first
+  field: sought-second
+end-structure
+: lf-sought! ( tag first second key -- )
+  tuck sought-second ! tuck sought-first ! sought-tag ! ;
+: lf-sought@ ( key -- tag first second )
+  dup sought-tag @ over sought-first @ rot sought-second @ ;
+: lf-sought= ( tag first second key -- flag )
+  >r r@ sought-second @ = swap r@ sought-first @ = and swap r> sought-tag @ = and ;
+: lf-fields-hash ( tag first second -- h ) rot hash-fmix rot hash-step swap hash-step ;
+\ The key's hash after its fields are stored.
+: lf-sought-hash! ( tag first second key -- key h )
+  dup >r lf-sought! r@ dup lf-sought@ lf-fields-hash r> drop ;
+: lf-tfields-rehash ( n htab -- h ) drop lf-tleaf lf-tleaf-fields lf-fields-hash ;
+: lf-tfields-same ( n key htab -- flag ) drop >r lf-tleaf lf-tleaf-fields r> lf-sought= ;
 create lf-tnode-hooks /htab-hooks allot
 ' lf-tnode-rehash ' lf-tnode-same lf-tnode-hooks htab-hooks!
 create lf-tfields-hooks /htab-hooks allot
@@ -289,10 +303,8 @@ create lf-tfields-hooks /htab-hooks allot
 : lf-tin-leaf ( index -- entry | 0 )
   dup hash-fmix lf-term-view lf-tview-nodes htab-find if lf-tleaf else drop 0 then ;
 \ The record sought, and its hash, for a table's find.
-3 cells context-record: lf-tin-key
-: lf-tin-key! ( tag first second -- key h )
-  lf-tin-key tuck 2 cells + ! tuck cell+ ! tuck ! dup >r @ r@ cell+ @ r@ 2 cells + @
-  lf-tfields-hash r> swap ;
+/lf-sought context-record: lf-tin-key
+: lf-tin-key! ( tag first second -- key h ) lf-tin-key lf-sought-hash! ;
 \ A node below the horizon, when one is set (see lf-term-horizon! below;
 \ the cell holds the horizon plus one, 0 for none).
 : lf-tin-before? ( node -- flag )
@@ -346,10 +358,11 @@ create lf-tfields-hooks /htab-hooks allot
 : lf-tin-head ( index -- head ) lf-tin-at quad-head u32@ ;
 : lf-tin-binder-kind ( head -- name kind )
   dup head-payload swap head-tag tag-lam - 3 and ;
+\ Whether input node index is a let's lambda (read from the let's records).
+: lf-tin-let-lam? ( index -- flag ) lf-tin-code lf-tin-modes and lf-tin-let-lam = ;
 : lf-term-input-binder@ ( index -- name kind true | false )
   dup lf-term-input? 0= if drop false exit then
-  dup lf-tin-code lf-tin-modes and lf-tin-let-lam =
-  if lf-tin-head head-payload 0 true exit then
+  dup lf-tin-let-lam? if lf-tin-head head-payload 0 true exit then
   dup 1 and if lf-tin-head dup head-tag binder-tag? else 0 then
   if lf-tin-binder-kind true else drop false then ;
 \ The entry number of an input leaf node, or false.
@@ -365,7 +378,7 @@ create lf-tfields-hooks /htab-hooks allot
   lf-term-input-records lf-term-view lf-tview-leaves slab-count + ;
 : lf-term-input-unit ( index -- u true | false )
   dup 1 and if 1 rshift true exit then
-  dup lf-tin-code lf-tin-modes and lf-tin-let-lam = if 1 rshift 1+ true exit then
+  dup lf-tin-let-lam? if 1 rshift 1+ true exit then
   lf-tin-leaf# if lf-term-input-records + true else false then ;
 \ The stamp an input leaf carries (its level's or reference's identity
 \ in this context, generation-handles.fs), 0 for none.
@@ -378,8 +391,8 @@ create lf-tfields-hooks /htab-hooks allot
 \ (lf-term-input-binder), found by tag and children, binder name and
 \ information ignored, as Lean's == ignores them. A slot holds the node.
 : lf-tbind-fields ( n -- tag first second ) dup lf-tin-tag@ swap lf-tin-fields@ ;
-: lf-tbind-rehash ( n htab -- h ) drop lf-tbind-fields lf-tfields-hash ;
-: lf-tbind-same ( n key htab -- flag ) drop >r lf-tbind-fields r> lf-tfields= ;
+: lf-tbind-rehash ( n htab -- h ) drop lf-tbind-fields lf-fields-hash ;
+: lf-tbind-same ( n key htab -- flag ) drop >r lf-tbind-fields r> lf-sought= ;
 create lf-tbind-hooks /htab-hooks allot
 ' lf-tbind-rehash ' lf-tbind-same lf-tbind-hooks htab-hooks!
 : lf-tin-binder-find ( tag first second -- node true | false )
@@ -498,7 +511,7 @@ defer lf-term-leaf-data ( tag first second -- data )
 \ ---------------------------------------------------------------------------
 \ Hash-consing (see the header).
 /htab context-record: lf-term-table
-3 cells context-record: lf-term-key        \ the record sought: tag first second
+/lf-sought context-record: lf-term-key   \ the record sought: tag first second
 1 cells context-record: lf-term-share-off   \ true when this context does not share
 \ Tags whose leaves are never shared, a bit each; set while loading.
 variable lf-term-unshared-tags   0 lf-term-unshared-tags !
@@ -523,17 +536,14 @@ defer lf-term-findable? ( n -- flag )
 
 \ The table's hooks: the hash of record n from its fields, and whether
 \ live record n equals the record sought (and may be given).
-: lf-term-hash ( tag first second -- h ) rot hash-fmix rot hash-step swap hash-step ;
-: lf-term-rehash ( n htab -- h ) drop lf-term-slot lf-term-fields@ lf-term-hash ;
-: lf-term-key= ( tag first second key -- flag )
-  >r r@ 2 cells + @ = swap r@ cell+ @ = and swap r> @ = and ;
+: lf-term-rehash ( n htab -- h ) drop lf-term-slot lf-term-fields@ lf-fields-hash ;
 \ The fields are compared before the hook is asked, which a probe then
 \ asks only of the one live record equal to the key, never of the others
 \ its run passes (agent PERF1: the hook reads the environment's validity,
 \ about 5% of Init's checking time when asked of every record probed).
 \ Neither changes what the other reads, so the order changes no answer.
 \ Unchecked (lf-term-equal?, lf-term-given?): record n is live.
-: lf-term-equal? ( n key -- flag ) >r lf-term-slot lf-term-fields@ r> lf-term-key= ;
+: lf-term-equal? ( n key -- flag ) >r lf-term-slot lf-term-fields@ r> lf-sought= ;
 : lf-term-given? ( n key -- flag )
   over swap lf-term-equal? if lf-term-findable? else drop false then ;
 : lf-term-same ( n key htab -- flag )
@@ -561,7 +571,7 @@ create lf-term-hooks /htab-hooks allot
 \ made while sharing was off, or that the table could not take, is not),
 \ and every record from count up to the store's count.
 : lf-term-forget ( index -- )
-  dup lf-term-slot lf-term-fields@ lf-term-hash lf-term-table htab-remove drop ;
+  dup lf-term-slot lf-term-fields@ lf-fields-hash lf-term-table htab-remove drop ;
 : lf-term-unlist ( count -- )
   lf-term-table htab-live? 0= if drop exit then
   lf-term-base tuck + swap lf-term-count @ + swap ?do
@@ -677,7 +687,7 @@ defer lf-term-view-hook ( -- outcome )
 : lf-tleaf-by-node ( n -- )
   dup lf-tleaf lf-tleaf-node @ dup hash-fmix lf-term-view lf-tview-nodes htab-find
   if 2drop else lf-term-view lf-tview-nodes htab-put then ;
-: lf-tleaf-hash ( n -- key h ) lf-tleaf lf-tleaf-fields lf-tfields-hash lf-tin-key swap ;
+: lf-tleaf-hash ( n -- key h ) lf-tleaf lf-tleaf-fields lf-fields-hash lf-tin-key swap ;
 : lf-tleaf-by-fields ( n -- )
   dup lf-tleaf lf-tleaf-fields lf-tin-leaf-find if 2drop exit then
   dup lf-tleaf-hash lf-term-view lf-tview-fields htab-find
@@ -775,13 +785,9 @@ defer lf-term-view-hook ( -- outcome )
 \ Hash-consed: the equal node, or a new node entered at the empty slot
 \ the find gave (nothing changes the table in between). A table that
 \ cannot grow (no heap) only costs sharing.
-: lf-term-key! ( tag first second -- )
-  lf-term-key 2 cells + ! lf-term-key cell+ ! lf-term-key ! ;
-: lf-term-key@ ( -- tag first second )
-  lf-term-key @ lf-term-key cell+ @ lf-term-key 2 cells + @ ;
+: lf-term-key@ ( -- tag first second ) lf-term-key lf-sought@ ;
 : lf-term-find ( tag first second -- n true | i false )
-  2 pick 2 pick 2 pick lf-term-hash >r lf-term-key!
-  lf-term-key r> lf-term-table htab-find ;
+  lf-term-key lf-sought-hash! lf-term-table htab-find ;
 : lf-term-enter ( i index true | i false -- index true | false )
   if tuck swap lf-term-table htab-put true else drop false then ;
 \ An equal node found is given only where an allocation would be allowed
@@ -831,10 +837,13 @@ defer lf-term-reusable? ( n -- flag )
     lf-tag-bvar of rot drop lf-tin-bvar endof
     lf-tag-lam of lf-tin-binder endof  lf-tag-pi of lf-tin-binder endof
     lf-tin-leaf-tag? if lf-tin-leaf-find else 2drop drop false then 0 endcase ;
+\ An input node found may be given when it is reusable and findable (the
+\ hook asked only of a reusable one).
+: lf-tin-may? ( n -- flag )
+  dup lf-term-reusable? if lf-term-findable? else drop false then ;
 : lf-tin-given ( tag first second -- n true | false )
   lf-term-viewed? 0= if 2drop drop false exit then
-  lf-tin-sought dup if over lf-term-reusable? 0= if 2drop false exit then then
-  dup if over lf-term-findable? 0= if 2drop false then then ;
+  lf-tin-sought 0= if false exit then dup lf-tin-may? dup 0= if nip then ;
 : lf-term-cons ( tag first second -- index true | false )
   lf-term-table htab-ready ok? 0= if lf-term-append exit then
   2 pick 2 pick 2 pick lf-tin-given if nip nip nip lf-term-found exit then

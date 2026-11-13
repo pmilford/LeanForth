@@ -204,6 +204,15 @@ lf-tag-sort lf-term-unshare
 T{ 9 lf-term-sort 9 lf-term-sort lf-term-sharing? -> 5 true 6 true true }T
 0 lf-term-unshared-tags !
 T{ 9 lf-term-sort -> 7 true }T
+\ Each field takes part (review FRI B2): records equal but for the tag,
+\ the first or the second field are new nodes; each made again is the
+\ node already made.
+T{ hc-mark lf-terms store-mark -> outcome-ok }T
+T{ 0 1 lf-term-app 1 1 lf-term-app 0 1 lf-term-lam 0 1 lf-term-pi
+   -> 8 true 9 true 10 true 11 true }T
+T{ 0 1 lf-term-pi 0 1 lf-term-lam 1 1 lf-term-app 0 1 lf-term-app
+   -> 11 true 10 true 9 true 8 true }T
+T{ hc-mark lf-term-rollback lf-term-count @ -> outcome-ok 8 }T
 \ A field beyond 32 bits, or a negative one, is refused as a full store.
 lf-diag-clear
 T{ 1 32 lshift lf-term-bvar  lf-tag-bvar -1 0 lf-term-add  lf-term-count @ -> false false 8 }T
