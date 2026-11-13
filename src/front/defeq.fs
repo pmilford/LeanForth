@@ -401,7 +401,7 @@ defer de-args-post ( -- )
 : de-pa-args ( -- addr n ) 0 de-pa-arg de-pa-n ;
 : de-mvar ( -- mvar ) de-t lf-meta-head ;
 : de-pa-ret ( r -- ) de-x de-truncate de-return ;
-: de-scope ( fvar -- flag ) de-mvar lf-mvar-lctx 0= if 0 then swap lf-fvar-number > ;
+: de-scope ( fvar -- flag ) de-mvar swap lf-meta-sees? ;
 : de-let-fvar? ( t -- flag ) dup de-fvar? if lf-fvar-let? else drop false then ;
 : de-simp ( arg -- arg' flag )
   dup lf-meta-head lf-meta-mvar-free? 0= if de-inst de-aborted? if false exit then then
