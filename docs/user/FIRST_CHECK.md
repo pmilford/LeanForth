@@ -4,9 +4,9 @@ The checker (first built as plan task 2.2.3) is [kernel] code that has
 not yet passed its review gate (`AGENTS.md`). Every result it accepts is
 printed *accepted*, with the axioms the result depends on. Until the
 owner has approved the checker, Lean's own kernel is the referee. What it
-checks is a proof that Lean produced and exported; LeanForth text cannot yet be
-checked (plan 8.2.1a-g, not started), so nothing on this page was proved from
-LeanForth input.
+checks is a proof that Lean produced and exported; LeanForth text is checked by
+`leanforth check FILE.lf` since 2026-11-12 ([checking a file](LEANFORTH_SYNTAX.md#checking-a-file)),
+but nothing on this page is LeanForth input.
 
 This page shows one real check from start to end: the `composition`
 theorem, read from the file that Lean's exporter wrote, checked by

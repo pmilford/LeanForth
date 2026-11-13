@@ -1,6 +1,6 @@
 # LeanForth
 
-**LeanForth today is only the checking half of Lean (the kernel): it re-checks proof terms that Lean produced and exported (NDJSON), including all of Lean's `Init`. It has none of Lean's front end, the larger half: no elaborator (implicit arguments, numerals, unification), no type classes or coercions, no tactics, no pattern matching or recursion compilation, no evaluation. So it cannot yet turn a written theorem into a proof; Lean does all of that before the export. LeanForth text checked by the kernel is on a branch, not merged; there is no program verifier. The front end is plan phase 8 ([docs/project/PLAN_DRAFT.md](docs/project/PLAN_DRAFT.md)), being re-planned from 2026-11-12.**
+**LeanForth today is only the checking half of Lean (the kernel): it re-checks proof terms that Lean produced and exported (NDJSON), including all of Lean's `Init`. It has none of Lean's front end, the larger half: no elaborator (implicit arguments, numerals, unification), no type classes or coercions, no tactics, no pattern matching or recursion compilation, no evaluation. So it cannot yet turn a written theorem into a proof; Lean does all of that before the export. Since 2026-11-12, `leanforth check [--env EXPORT] FILE.lf` also checks LeanForth text whose proofs are written by hand as kernel proof terms (plan 8.2.1a, c, d; the owner's gates pending). There is no program verifier. The front end is plan phase 8 ([docs/project/PLAN_DRAFT.md](docs/project/PLAN_DRAFT.md)), being re-planned from 2026-11-12.**
 
 See the [project progress report](docs/project/PROJECT_PROGRESS.md) for both product
 tracks, importer limits, and a reproducible code inventory.
@@ -37,7 +37,7 @@ What it loads is unverified code in progress, exercised by the tests.
 
 | Path | Contents |
 | --- | --- |
-| `bin/leanforth` | The command line, version 0: `check` (with `--record`), `print`, `replay`, `count`, `reexport`, `version`, `capabilities`; exit statuses 0–6, 6 (NOT PROVED) only with `--strict-axioms`; `gforth-fast` is already the default engine (`--fast` is accepted and changes nothing). `check FILE.lf` (LeanForth text) exits 4: it is not built ([manual](docs/user/COMMAND_LINE.md)). |
+| `bin/leanforth` | The command line, version 0: `check` (with `--record`), `print`, `replay`, `count`, `reexport`, `version`, `capabilities`; exit statuses 0–6, 6 (NOT PROVED) only with `--strict-axioms`; `gforth-fast` is already the default engine (`--fast` is accepted and changes nothing). `check [--env EXPORT | --snapshot FILE] FILE.lf` checks LeanForth text, against a library export of Lean's such as `Init` ([manual](docs/user/COMMAND_LINE.md#checking-leanforth-text)). |
 | `src/main.fs` | The loader for all current code, and the command line's Forth entry point (`src/cli/`). |
 | `src/lib/` | General Forth tools with no Lean knowledge: bounded stores, tagged nodes, the shared outcome vocabulary, walk and frames records, per-task contexts, a worker pool, a line reader with UTF-8 checks and a JSON reader. |
 | `src/core/` | Lean's data model, 10 modules: the term store (`terms.fs`), names, universe levels, sessions and stale-handle checks, constant references. |

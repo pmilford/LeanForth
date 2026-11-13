@@ -1,0 +1,16 @@
+\ Lean: theorem add_zero' (n : Nat) : n + 0 = n := Eq.refl n
+\ A proof term of its own, not a library lemma: Eq.refl n proves n = n,
+\ and the checker must see that n + 0 reduces to n (Nat.add's definition,
+\ by its second argument). Against an export of Init (plan 8.2.1d):
+\   leanforth check --env tests/author/init-slice.ndjson tests/author/19-add-zero.lf
+\ Lean's 0 is OfNat.ofNat Nat (nat_lit 0) (instOfNatNat (nat_lit 0)).
+theorem add_zero'
+  Nat explicit: n
+  Eq 1 ^ Nat $
+    HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $  instHAdd 0 ^ Nat $ instAddNat $  $  n $
+      OfNat.ofNat 0 ^ Nat $  0 lit# $  instOfNatNat 0 lit# $  $  $
+  $
+    n $
+:=
+  Eq.refl 1 ^ Nat $ n $
+end add_zero'

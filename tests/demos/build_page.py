@@ -65,9 +65,9 @@ proof terms in Lean's export** and rejects a deliberately wrong copy. You do
 not need to know Lean or Forth to read the mathematics.
 
 **What this page does and does not show.** LeanForth checks proofs that Lean
-produced and exported. LeanForth text cannot yet be checked by LeanForth's
-kernel (plan 8.2.1 and 8.6.11 are not built), so nothing here was proved from
-LeanForth input. The "LeanForth words" below are the statement printed from
+produced and exported. LeanForth text can be checked since 2026-11-12
+([checking a file](LEANFORTH_SYNTAX.md#checking-a-file), plan 8.2.1c-d), but the demos below were
+not written as LeanForth input. The "LeanForth words" below are the statement printed from
 Lean's export as an `axiom` form with no proof; they show what is checked, are
 not runnable input, and running them does not check anything.
 
@@ -104,9 +104,9 @@ instead of *P*, where *P* is the original statement. The checker must say
 OUTRO = """## What this does not show
 
 - The proofs are Lean's; LeanForth reads Lean's export of them and checks the
-  proof terms again. LeanForth text cannot yet be checked: the words shown are the
-  statement printed from the export, not input, and LeanForth has proved nothing from
-  its own input ([plan](../project/PLAN_DRAFT.md), 8.2.1 and 8.6.11).
+  proof terms again. The words shown are the statement printed from the export, not
+  input; LeanForth text is checked since 2026-11-12, but these demos were not
+  written as LeanForth input ([plan](../project/PLAN_DRAFT.md), 8.2.1 and 8.6.11).
 - The proof outline (reasons between proof lines, [PROOF_OUTLINE.md](PROOF_OUTLINE.md))
   has templates for small propositional proofs only. These proofs are induction
   and arithmetic; the checker's log of each is complete or cut at the bound

@@ -8,12 +8,17 @@
 \   term: every declaration as a tree dump without labels and notes
 \     (dump.fs), compared term for term with pinned Lean's export of the
 \     same declarations by check_author.py (lean_terms.py);
+\   record: each export record the kernel is given (export.fs), compared
+\     by check_author.py with the term: lines and with pinned Lean's
+\     export of the fixture's Lean source;
 \   words: every declaration printed as LeanForth words (print-forth.fs);
 \   round trip: the printed words run again, in a new checker context,
 \     and printed again: the terms (with binder names and kinds, levels,
 \     constants and universe arguments, labels and notes, compared by an
 \     independent tree dump, dump.fs) and the text must be the same.
-\ Usage: gforth tests/author/report.fs -e 's" FILE" report bye'
+\ Usage: gforth tests/author/report.fs -e 's" FILE" report bye'; for a
+\ text that names a library's constants, report-library.fs (the library's
+\ constants are named, never reported: lfa-library?).
 \ The corpus tests (corpus-cases.fs, corpus-lean.fs) reuse its round trip.
 \ Test-only; not a public interface.
 require ../../src/author/runner.fs
@@ -74,13 +79,18 @@ variable into   variable into#
 ' capture is dump-out
 : to-capture ( -- ) ['] capture lf-print-unicode lf-print-setup ;
 : print-words ( -- outcome ) to-capture print-fuel lf-author-print ;
-: dump-all ( -- ) lf-author-count 0 ?do i lf-author-decl dump-decl loop ;
+\ The text's own declarations, not the library constants it named.
+: own ( i xt -- ) over lfa-library? if 2drop else swap lf-author-decl swap execute then ;
+: dump-all ( -- ) lf-author-count 0 ?do i ['] dump-decl own loop ;
 
 \ The round trip, in a new context: the words of the first run (words1)
 \ run there; they are printed and dumped again (words2, dump2). Each
-\ context has its own printer settings, so the sink is set in both.
+\ context has its own printer settings, so the sink is set in both, and
+\ its own library setting (the library's finder, lfa-library).
 variable trip
+variable trip-finder  0 trip-finder !
 : second-run ( -- outcome )
+  trip-finder @ lf-author-library!
   lf-author-begin words1 words1# @ lf-author-text dup ok? 0= if exit then drop
   words2 words2# capture-into print-words dup ok? 0= if exit then drop
   dump2 dump2# capture-into dump-all outcome-ok ;
@@ -114,12 +124,18 @@ variable line-start
   bounds ?do line-start @ if ." term: " then i 1 type i c@ 10 = line-start ! loop ;
 : .terms ( -- )
   ['] term-out is dump-out false dump-notes? ! true line-start !
-  lf-author-count 0 ?do i lf-author-decl dump-decl loop
+  lf-author-count 0 ?do i ['] dump-decl own loop
   ['] capture is dump-out true dump-notes? ! ;
+: .own ( i -- ) dup ['] .declaration own dup lfa-library? if drop else .notes then ;
+\ The records export.fs hands the kernel (lf-author-export), each line
+\ starting with record: , then the export's outcome when it is not ok.
+: record-out ( c-addr u -- outcome ) ." record: " type cr outcome-ok ;
+: .records ( -- )
+  ['] record-out lf-author-export dup ok? if drop exit then
+  ." records: " outcome-text type cr ;
 : report-run ( -- )
   ['] type lf-print-unicode lf-print-setup
-  lf-author-count 0 ?do i lf-author-decl .declaration i .notes loop .terms .printed
-  round-trip ;
+  lf-author-count 0 ?do i .own loop .terms .records .printed round-trip ;
 : report ( c-addr u -- )
   lf-author-begin lf-author-file dup ok?
   if drop ." ran: ok" cr report-run exit then

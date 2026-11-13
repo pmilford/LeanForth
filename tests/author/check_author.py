@@ -6,11 +6,22 @@ Usage (from the repository root; GFORTH and LEAN name the toolchains):
   python3 tests/author/check_author.py --write    regenerate tests/author/fixtures.golden
   python3 tests/author/check_author.py --lean     the terms and the lean: lines against Lean
   python3 tests/author/check_author.py --faults   planted faults (needs Lean too)
+  python3 tests/author/check_author.py --records  the export records only (and Lean's,
+                                                  when LEAN is set)
 
 1. Golden: tests/author/report.fs runs every fixture tests/author/*.lf; the
    output must equal fixtures.golden, every fixture that ran must report a
    round trip with the same terms and the same text, and every other one an
    error with its line and column.
+   Records: the export records the kernel is given for every fixture that
+   ran (src/author/export.fs, report.fs's record: lines) must read as an
+   export and hold each theorem, definition and axiom exactly as the words
+   built it (kind, universe parameters, type and value, node for node,
+   binder names and kinds too), once, in file order, and nothing else.
+   With --lean (and --records with LEAN set) each declaration's whole
+   record must equal pinned Lean's export of the fixture's Lean source
+   (kind, name, all, levelParams, hints, safety, isUnsafe, type and value
+   apart from binder names and kinds, which that exporter merges).
 2. Catalogue: the error table of docs/programming/LEANFORTH_WORDS.md gives
    exactly the codes and messages of src/author/errors.fs, in order.
 3. Layering: no module that src/core, src/kernel or src/main.fs loads,
@@ -67,14 +78,28 @@ HERE = pathlib.Path("tests/author")
 GOLDEN = HERE / "fixtures.golden"
 DOC = pathlib.Path("docs/programming/LEANFORTH_WORDS.md")
 SAME = "round trip: terms, names, kinds, labels and notes same; printed text same"
+# Fixtures that name the constants of Lean's library (plan task 8.2.1d), with
+# the export they run against: a slice of Init (scripts/export.sh, Init and
+# the names in INIT_SLICE, with their dependencies). The term printer has no
+# types for a library's constants, so their arguments print explicitly; their
+# Lean sources print with pp.explicit too.
+INIT_SLICE = HERE / "init-slice.ndjson"
+INIT_NAMES = ["Nat.add_comm", "Eq.refl", "HAdd.hAdd", "instHAdd", "instAddNat", "OfNat.ofNat",
+              "instOfNatNat", "id", "Id", "True.intro", "And.intro", "Nat.rec", "Nat.succ",
+              "congrArg"]
+LIBRARIES = {stem: str(INIT_SLICE)
+             for stem in ("07-add-comm", "14-case", "19-add-zero", "20-zero-add")}
+LIBRARIES["08-monoid"] = str(HERE / "monoid-slice.ndjson")   # the class alone, made by Lean
 
 # Lean's line -> the term printer's line, where they differ, with the reason.
+PRIVATE = ("Lean prints a private declaration by its short name, marked private; the "
+           "words have no private declarations and name it in full, numeric part and all")
+TWICE = "_private.tests.reference.author-21-numeric-name.0.twice"
 KNOWN = {
-    "08-monoid": {
-        "fun {M} [MyMonoid M] a ↦ MyMonoid.mul_one a":
-            ("fun {M} [inst : MyMonoid M] a ↦ MyMonoid.mul_one a",
-             "Lean omits an instance binder's name that the printed body does not show; "
-             "the term printer shows it because the term uses it (ADR 0017, example 8)"),
+    "21-numeric-name": {
+        "private theorem twice : ∀ (p : Prop), p → p :=":
+            (f"theorem {TWICE} : ∀ (p : Prop), p → p :=", PRIVATE),
+        "fun p h ↦ twice p h": (f"fun p h ↦ {TWICE} p h", PRIVATE),
     },
 }
 
@@ -100,8 +125,8 @@ FAULTS = [
      [(PRINT, "  >r r@ frame-restore swap ok-then? if lf-pf-notes then r> 0 ;",
        "  >r r@ frame-restore drop r> 0 ;")]),
     ("$ swaps function and argument", "any",
-     [("src/author/words.fs", ": lfa-two-terms ( a b -- ta tb ) swap lfa>term swap lfa>term ;",
-       ": lfa-two-terms ( a b -- ta tb ) lfa>term swap lfa>term ;")]),
+     [("src/author/words.fs", ": lfa-fn-arg ( f a -- tf ta ) swap lfa>function swap lfa>term ;",
+       ": lfa-fn-arg ( f a -- tf ta ) lfa>term swap lfa>function ;")]),
     ("-> does not shift", "any",
      [("src/author/build.fs", "over lf-term-first@ swap < if exit then", "drop exit")]),
     ("spelling check ignored", "lean",
@@ -134,8 +159,8 @@ FAULTS = [
     ("5: leading zeros in numeric name parts", "any",
      [(DECLS, "  2dup lfa-leading-zero? 0= lfa-e-bad-name lfa-must\n", "")]),
     ("5: declarations not told apart by name", "any",
-     [(DECLS, "  lfa-decl-count 0 ?do dup i lfa-decl-name = if drop true unloop exit then loop"
-              " drop\n  false ;", "  drop false ;")]),
+     [(DECLS, ": lfa-declared? ( name -- flag ) lfa-decl-find dup if nip then ;",
+       ": lfa-declared? ( name -- flag ) drop false ;")]),
     ("5: labels and notes printed whatever their text", "any",
      [(PRINT, "  dup lf-pf-spellable-note? 0= if drop outcome-unsupported exit then\n", "")]),
     ("6: a long line reported at the line before", "any",
@@ -167,8 +192,17 @@ def fixtures():
     return sorted(HERE.glob("*.lf"))
 
 
+def run_word(fixture):
+    """The driver and its word for the fixture: with the library it names, if any."""
+    library = LIBRARIES.get(pathlib.Path(fixture).stem)
+    if library:
+        return "tests/author/report-library.fs", f's" {library}" s" {fixture}" report-with'
+    return "tests/author/report.fs", f's" {fixture}" report'
+
+
 def report(fixture, root="."):
-    command = [GFORTH, "tests/author/report.fs", "-e", f's" {fixture}" report bye']
+    driver, word = run_word(fixture)
+    command = [GFORTH, driver, "-e", f"{word} bye"]
     run = subprocess.run(command, cwd=root, stdin=subprocess.DEVNULL, capture_output=True,
                          timeout=120)
     text = run.stdout.decode("utf-8") + run.stderr.decode("utf-8")
@@ -212,6 +246,61 @@ def check_golden(write):
     errors = len(texts) - trips
     print(f"authoring words: {len(texts)} fixtures equal {GOLDEN}; {trips} round trips "
           f"identical (terms and text), {errors} mistakes stopped with line and column")
+    check_records(texts)
+
+
+# ---- The records the kernel is given (src/author/export.fs; H1 of the
+# review of 2026-11-12): each fixture's record: lines, read as an export,
+# against the terms the words built (here) and against pinned Lean's export
+# of the fixture's Lean source (check_lean).
+def forth_records(text):
+    """The records export.fs wrote for a fixture (its record: lines)."""
+    lines = [line[len("record: "):] for line in text.splitlines() if line.startswith("record: ")]
+    try:
+        return Export(lines, leanforth=True)
+    except (ExportError, KeyError, ValueError) as error:
+        raise Failure(f"the records do not read as an export: {error!r}") from error
+
+
+def own_terms(text):
+    """The fixture's own theorems, definitions and axioms (term: lines), not its stubs."""
+    return {name: decl for name, decl in forth_terms(text).items() if decl[0] != STUB}
+
+
+def records_differ(stem, text):
+    """Where the records differ from the words' terms: each theorem, definition
+    and axiom written once, in file order, with its kind, universe parameters,
+    type and value node for node (binder names and kinds too); nothing else."""
+    records, own = forth_records(text), own_terms(text)
+    if records.order != list(own) or "\nrecords: " in text:
+        return [f"{stem}: records declare {records.order}, the words {list(own)}"]
+    try:
+        return [f"{stem}: {name}: {what}\n  record: {want}\n  words: {got}"
+                for name, decl in own.items()
+                for what, got, want in term_parts(decl, records.declaration(name), lambda t: t)
+                if got != want]
+    except (ExportError, KeyError) as error:
+        return [f"{stem}: a record names what no record before it holds: {error!r}"]
+
+
+def check_records(texts):
+    differ = [line for stem, text in sorted(texts.items()) if text.startswith("ran: ok")
+              for line in records_differ(stem, text)]
+    if differ:
+        raise Failure("the records differ from the words' terms:\n" + "\n".join(differ))
+    decls = sum(len(own_terms(text)) for text in texts.values() if text.startswith("ran: ok"))
+    print(f"export records: {decls} declarations of the fixtures written as the words built "
+          "them (kind, universe parameters, type and value, node for node)")
+
+
+def lean_records_differ(stem, text, export):
+    """Where the records differ from pinned Lean's export of the fixture's Lean
+    source: each declaration's whole record (kind, name, all, levelParams,
+    hints, safety, type and value apart from binder names and kinds)."""
+    records = forth_records(text)
+    return [f"{stem}: {name}: record\n  Lean's export: {want}\n  LeanForth's:   {got}"
+            for name in own_terms(text)
+            for got, want in [(records.resolved(name), export.resolved(name))] if got != want]
 
 
 DUMP = (": dump ( -- ) lfa-catalogue begin dup lfa-last? 0= while dup lfa-message-code @ 0 .r"
@@ -252,15 +341,22 @@ def loads(path, seen):
 
 
 def check_layering():
-    roots = [pathlib.Path("src/main.fs")] + sorted(pathlib.Path("src/core").glob("*.fs")) + \
-        sorted(pathlib.Path("src/kernel").glob("*.fs"))
+    """The kernel never loads the words (ADR 0017 Amendment 1: since plan task
+    8.2.1c the command line does, through src/cli/check-lf.fs, so main.fs does
+    too; the kernel, the data model and the importer must not)."""
+    roots = sorted(pathlib.Path("src/core").glob("*.fs")) + \
+        sorted(pathlib.Path("src/kernel").glob("*.fs")) + \
+        sorted(pathlib.Path("src/import").glob("*.fs"))
     author = pathlib.Path("src/author").resolve()
     for root in roots:
         bad = [p for p in loads(root, set()) if author in p.parents]
         if bad:
             raise Failure(f"{root} loads the authoring program: {bad[0]}")
-    print(f"layering: none of {len(roots)} checker modules (main.fs, core/, kernel/) "
-          "loads src/author")
+    lf = pathlib.Path("src/cli/check-lf.fs")
+    if not any(author in p.parents for p in loads(lf, set())):
+        raise Failure(f"{lf} no longer loads the authoring words: update this check")
+    print(f"layering: none of {len(roots)} checker modules (core/, kernel/, import/) "
+          "loads src/author; the command line does (cli/check-lf.fs)")
 
 
 def check_corpus():
@@ -468,7 +564,7 @@ def compare_terms(stem, forth, lean):
     """Where the words' declarations differ from Lean's, term for term: from
     Lean's environment exactly, and from the pinned export apart from binder
     names and kinds (which the exporter merges)."""
-    _, dumps, exported = lean
+    _, dumps, exported, _ = lean
     differ = []
     for name, decl in forth.items():
         decl = known_names(stem, decl)
@@ -516,28 +612,76 @@ def lean_reference(texts):
                 exported = {name: export.declaration(name) for name in names}
             except ExportError as error:
                 raise Failure(str(error)) from error
-            reference[path.stem] = (printed, dumps, exported)
+            reference[path.stem] = (printed, dumps, exported, export)
     return reference
 
 
+def flat(lines):
+    """Lean's #print lines with each continuation (an indented line, where
+    Lean's formatter broke a line at a space) joined to the line before."""
+    out = []
+    for line in lines:
+        if line.startswith("  ") and out:
+            out[-1] += " " + line.strip()
+        else:
+            out.append(line)
+    return out
+
+
+def library_lines(printed, lines):
+    """A fixture with a library (review L4): the term printer has no types for
+    the library's constants, so it shows every argument and marks each such
+    application with @; the Lean source prints with pp.explicit, which marks
+    only those with implicit arguments, and a raw literal n as nat_lit n,
+    where the term printer writes n. Compared joined, without @ and nat_lit."""
+    lean = [re.sub(r"\(nat_lit (\d+)\)", r"\1", line) for line in flat(printed)]
+    return [line.replace("@", "") for line in lean], [line.replace("@", "") for line in lines]
+
+
 def lean_differences(stem, reference, text):
-    printed = reference[stem][0]
-    return (compare(stem, printed, forth_lean(text)),
-            compare_terms(stem, forth_terms(text), reference[stem]))
+    """The lean: lines (for a fixture with a library as library_lines says),
+    the terms and the records."""
+    printed, lines = reference[stem][0], forth_lean(text)
+    if stem in LIBRARIES:
+        printed, lines = library_lines(printed, lines)
+    return (compare(stem, printed, lines),
+            compare_terms(stem, forth_terms(text), reference[stem]),
+            lean_records_differ(stem, text, reference[stem][3]))
+
+
+def check_lean_records(texts, reference):
+    differ = [line for stem in reference for line in records_differ(stem, texts[stem])
+              + lean_records_differ(stem, texts[stem], reference[stem][3])]
+    if differ:
+        raise Failure("records differ from pinned Lean's export:\n" + "\n".join(differ))
+    decls = sum(len(own_terms(texts[stem])) for stem in reference)
+    print(f"export records equal pinned Lean's export of the Lean sources: {decls} "
+          f"declarations of {len(reference)} fixtures (kind, name, levelParams, hints, "
+          "safety, type and value)")
+
+
+def check_records_only():
+    """--records: the records against the words' terms and, with LEAN set,
+    against pinned Lean's export (the writer's planted faults run this)."""
+    texts = outputs()
+    check_records(texts)
+    if os.environ.get("LEAN"):
+        check_lean_records(texts, lean_reference(texts))
 
 
 def check_lean():
     texts = outputs()
     reference = lean_reference(texts)
     lines = decls = terms = 0
-    for stem, (printed, _, _) in reference.items():
-        differ_text, differ_terms = lean_differences(stem, reference, texts[stem])
+    for stem, (printed, _, _, _) in reference.items():
+        differ_text, differ_terms, _ = lean_differences(stem, reference, texts[stem])
         if differ_terms:
             raise Failure("terms differ from pinned Lean's export:\n" + "\n".join(differ_terms))
         if differ_text:
             raise Failure("lean: lines differ from pinned Lean:\n" + "\n".join(differ_text))
         counted = compared_terms(forth_terms(texts[stem]))
-        decls, terms, lines = decls + counted[0], terms + counted[1], lines + len(printed)
+        shown = len(flat(printed) if stem in LIBRARIES else printed)
+        decls, terms, lines = decls + counted[0], terms + counted[1], lines + shown
     known = sum(len(v) for v in KNOWN.values())
     names = sum(len(v) for v in KNOWN_NAMES.values())
     print(f"authoring words build Lean's terms, term for term: {decls} declarations of "
@@ -546,7 +690,239 @@ def check_lean():
           f"{names} listed binder name) and to the pinned export (apart from binder names "
           "and kinds, which that exporter merges)")
     print(f"authoring words agree with pinned Lean's #print: {lines} lines "
-          f"({known} known printer difference, listed with its reason)")
+          f"({known} known printer differences, listed with their reasons; the "
+          f"{len(LIBRARIES)} fixtures with a library compared without @ and line breaks)")
+    check_lean_records(texts, reference)
+
+
+# ---- LeanForth text checked by the kernel (plan tasks 8.2.1c-d; ADR 0017
+# Amendments 1 and 2): `leanforth check [--env EXPORT] FILE.lf`.
+WRONG = HERE / "wrong"
+# Fixtures that stop before anything is checked, with check's exit code: a
+# mistake in the text (4), a stub (4: error 48), a line too long (3: full).
+TEXT_EXIT = {"10a-missing-app": 4, "10b-typo": 4, "10c-universe": 4, "10d-case": 4,
+             "13-structure-ctor": 4, "17-long-line": 3}
+VERDICT = re.compile(r"^(?!error:)(\S+): "
+                     r"(accepted|rejected|unsupported|unknown|exhausted|full|invalid)", re.M)
+WRONG_LIBRARIES = {"07-add-comm": str(INIT_SLICE), "19-add-zero": str(INIT_SLICE),
+                   "20-zero-add": str(INIT_SLICE)}
+
+
+def library_of(path):
+    return LIBRARIES.get(path.stem) if path.parent == HERE else WRONG_LIBRARIES.get(path.stem)
+
+
+def leanforth_check(path, library=None, *options):
+    """bin/leanforth check of a text: (exit code, its output)."""
+    command = ["bin/leanforth", "check", *options]
+    command += ["--env", library] if library else []
+    run = subprocess.run(command + [str(path)], stdin=subprocess.DEVNULL, capture_output=True,
+                         timeout=TEST_LIMIT)
+    return run.returncode, run.stdout.decode("utf-8", "replace") + run.stderr.decode()
+
+
+def printed_name(name):
+    """A dump's name (#N a numeric part) as check prints it, guillemets aside."""
+    return re.sub(r"(^|\.)#(\d+)", r"\1\2", name)
+
+
+def own_verdicts(path, out):
+    """(name, verdict or None) for each of the text's own theorems, definitions
+    and axioms, by name (review L3): the names from the words' run of the
+    text (report.fs), the verdicts from check's lines."""
+    found = {name.replace("«", "").replace("»", ""): verdict
+             for name, verdict in VERDICT.findall(out)}
+    names = [printed_name(name) for name in own_terms(report(str(path)))]
+    return [(name, found.get(name)) for name in names]
+
+
+def text_checked(path, want_code, want_verdict):
+    code, out = leanforth_check(path, library_of(path))
+    if code != want_code:
+        raise Failure(f"check {path}: exit {code}, want {want_code}:\n{out[-600:]}")
+    verdicts = own_verdicts(path, out) if want_verdict else []
+    if want_verdict and (not verdicts or any(v != want_verdict for _, v in verdicts)):
+        raise Failure(f"check {path}: not every declaration {want_verdict}: {verdicts}\n"
+                      f"{out[-600:]}")
+    if code in (2, 3, 4) and (VERDICT.search(out) or "was not checked" not in out):
+        raise Failure(f"check {path}: a failed text must not be checked:\n{out[-600:]}")
+    return out
+
+
+def check_texts():
+    """Every fixture checked as text: those whose Lean source pinned Lean
+    accepts are accepted (exit 0), the others stop with their error; every
+    wrong twin is rejected (exit 1)."""
+    for path in fixtures():
+        want = TEXT_EXIT.get(path.stem, 0)
+        text_checked(path, want, "accepted" if want == 0 else None)
+    wrong = sorted(WRONG.glob("*.lf"))
+    for path in wrong:
+        text_checked(path, 1, "rejected")
+    print(f"leanforth check FILE.lf: {len(fixtures()) - len(TEXT_EXIT)} fixtures accepted, "
+          f"{len(TEXT_EXIT)} stopped before any check, {len(wrong)} wrong twins rejected")
+
+
+# A constant of the Init slice whose name has a numeric part (lfc-part's
+# numeric branch, review L4).
+NUMERIC = "_private.Init.Data.Nat.Basic.0.Nat.zero_add.match_1_1"
+
+
+# Texts written here, each with check's options, library, exit code and a
+# line the output must hold: every outcome of a text and of the command.
+def cli_cases():
+    slice_ = str(INIT_SLICE)
+    head = "theorem t\n  Nat explicit: n\n  Eq 1 ^ Nat $ n $ n $\n:=\n"
+    return [
+        ("axiom", "axiom ax\n  Prop implicit: P  P\nend ax\n"
+         "theorem uses\n  Prop implicit: Q  Q\n:=\n  ax Q $\nend uses\n", [], None, 0,
+         "uses: accepted; axioms: unlisted; NOT PROVED: depends on ax"),
+        ("axiom strict", "axiom ax\n  Prop implicit: P  P\nend ax\n"
+         "theorem uses\n  Prop implicit: Q  Q\n:=\n  ax Q $\nend uses\n", ["--strict-axioms"],
+         None, 6, "NOT PROVED"),
+        ("library refl", head + "  Eq.refl 1 ^ Nat $ n $\nend t\n", [], slice_, 0,
+         "t: accepted"),
+        ("library, a long word in comments", head + "  Eq.refl 1 ^ Nat $ n $  ( https://"
+         + "a" * 320 + " )  note\" " + "b" * 320 + "\"\nend t\n", [], slice_, 0, "t: accepted"),
+        ("library wrong case", head + "  eq.refl 1 ^ Nat $ n $\nend t\n", [], slice_, 4,
+         "error 1 at line:col 5:3 (token `eq.refl`)"),
+        ("library typo", head + "  Eq.reff 1 ^ Nat $ n $\nend t\n", [], slice_, 4,
+         "error 1 at line:col 5:3"),
+        ("library name taken", "theorem Nat.add_comm\n  Prop explicit: p p\n:=\n  p\n"
+         "end Nat.add_comm\n", [], slice_, 4, "error 28 at line:col 1:9"),
+        ("library name with a numeric part taken", f"theorem {NUMERIC}\n  Prop explicit: p p\n"
+         f":=\n  p\nend {NUMERIC}\n", [], slice_, 4, "error 28 at line:col 1:9"),
+        ("library name with another numeric part", head + "  "
+         + NUMERIC.replace(".0.", ".1.") + "\nend t\n", [], slice_, 4, "error 1 at line:col 5:3"),
+        ("1024 records, the library's among them", "".join(
+            f"axiom a{i} Prop end a{i}\n" for i in range(1022)) + head
+         + "  Eq.refl 1 ^ Nat $ n $\nend t\n", [], slice_, 3,
+         "error 66 at line:col 1025:3 (token `Eq`)"),
+        ("library unread manifest", "theorem t Prop explicit: p p explicit: h p := "
+         "identity p $ h $ end t\n", ["--no-manifest"], "tests/reference/identity.ndjson", 0,
+         "t: accepted"),
+        ("a library name of no declaration", "theorem t Prop explicit: p p := proof end t\n",
+         ["--no-manifest"], "tests/reference/identity.ndjson", 4,
+         "error 1 at line:col 1:33 (token `proof`)"),
+        ("library not an export", "theorem t Prop explicit: p p := p end t\n",
+         ["--no-manifest"], "tests/author/01-identity.lf", 4,
+         "error: invalid: unexpected character (line 1, byte 0)"),
+        ("open of a library namespace, a gap (8.2.1d)", "open Nat\n" + head
+         + "  Eq.refl 1 ^ Nat $ n $\nend t\n", [], slice_, 4,
+         "error 26 at line:col 1:6 (token `Nat`)"),
+        ("library short name", "namespace Eq\n" + head + "  refl 1 ^ Nat $ n $\nend t\n"
+         "end Eq\n", [], slice_, 2, "error 55 at line:col 6:3 (token `refl`)"),
+        ("stub with library", "import-stub Nat end Nat\n", [], slice_, 4,
+         "error 48 at line:col 1:1 (token `import-stub`)"),
+        ("stub alone", "protected import-stub N.x end N.x\n", [], None, 4, "error 48"),
+        ("nothing", "\\ a comment\n", [], None, 4, "error 49"),
+        ("error after a good one", "theorem t\n  Prop explicit: p  p\n:=\n  p\nend t\n"
+         "theorem u\n  Prop\n:=\n  x\nend u\n", [], None, 4,
+         "the LeanForth text was not checked: error 1 at line:col 9:3 (token `x`)"),
+        ("error after a good one, outside", "theorem t\n  Prop implicit: P  P explicit: h  P\n"
+         ":=\n  h\nend t\nnope\n", [], None, 4,
+         "the LeanForth text was not checked: error 1 at line:col 6:1 (token `nope`)"),
+        ("not supported", "theorem t\n  Prop explicit: p  p\n:=\n  p let:\nend t\n", [], None,
+         2, "error 51 at line:col 4:5 (token `let:`)"),
+        ("bare projection leaf", "axiom S 0 Type end S\ndef d\n  0 Type\n:=\n  0 proj# S\nend d\n",
+         [], None, 4, "error 56 at line:col 6:1 (token `end`)"),
+        ("unknown in library run", head + "  n\nend t\n" + "theorem u Prop := x end u\n",
+         [], slice_, 4, "error 1"),
+        ("fuel", (HERE / "20-zero-add.lf").read_text(encoding="utf-8"), ["--fuel", "50"],
+         slice_, 3, "zero_add': exhausted"),
+        ("jobs", (HERE / "07-add-comm.lf").read_text(encoding="utf-8"), ["--jobs", "2"],
+         slice_, 0, "add_comm': accepted"),
+        ("no library file", "theorem t Prop explicit: p p := p end t\n", [],
+         "no-such-library.ndjson", 4, "error: cannot open the export"),
+        ("json", "theorem t Prop explicit: p p := p end t\n", ["--json"], None, 4,
+         "not with a text"),
+    ]
+
+
+def check_text_cases():
+    with tempfile.TemporaryDirectory() as work:
+        for name, text, options, library, want, line in cli_cases():
+            path = pathlib.Path(work) / "case.lf"
+            path.write_text(text, encoding="utf-8")
+            code, out = leanforth_check(path, library, *options)
+            if want == 4 and VERDICT.search(out):
+                raise Failure(f"check case {name}: a verdict beside an error:\n{out[-800:]}")
+            if code != want or line not in out:
+                raise Failure(f"check case {name}: exit {code} (want {want}), "
+                              f"want the line {line!r}:\n{out[-800:]}")
+        code, out = leanforth_check(HERE / "01-identity.lf", None, "--env")
+        if code != 4:
+            raise Failure(f"--env without its export: exit {code}")
+        run = subprocess.run(["bin/leanforth", "check", "--env", str(INIT_SLICE),
+                              "tests/reference/composition.ndjson"], stdin=subprocess.DEVNULL,
+                             capture_output=True, timeout=TEST_LIMIT)
+        if run.returncode != 4 or b"--env goes only with a LeanForth text" not in run.stdout:
+            raise Failure(f"--env with an export: exit {run.returncode}")
+        check_snapshot_cases(pathlib.Path(work))
+    print(f"leanforth check FILE.lf: {len(cli_cases()) + 5} cases of every outcome and misuse, "
+          "a snapshot as the library among them")
+
+
+def check_snapshot_cases(work):
+    """The library from a snapshot of the Init slice (check --snapshot FILE
+    FILE.lf): its declarations taken from it, the text's checked."""
+    snap = work / "slice.lfsnap"
+    subprocess.run(["bin/leanforth", "check", "--save-snapshot", str(snap), str(INIT_SLICE)],
+                   stdin=subprocess.DEVNULL, capture_output=True, timeout=TEST_LIMIT, check=True)
+    code, out = leanforth_check(HERE / "07-add-comm.lf", None, "--snapshot", str(snap))
+    taken = "60 declarations: 60 accepted; 59 from the snapshot, 1 checked in this run"
+    if code != 0 or taken not in out or "add_comm': accepted (checked in this run, uses " \
+            "results from the snapshot); axioms: none" not in out:
+        raise Failure(f"07-add-comm.lf against a snapshot: exit {code}:\n{out[-800:]}")
+    code, out = leanforth_check(WRONG / "07-add-comm.lf", None, "--snapshot", str(snap))
+    if code != 1 or "add_comm': rejected" not in out:
+        raise Failure(f"the wrong twin against a snapshot: exit {code}:\n{out[-800:]}")
+    code, out = leanforth_check(HERE / "07-add-comm.lf", str(INIT_SLICE), "--snapshot", str(snap))
+    if code != 4 or "not with a text" not in out:
+        raise Failure(f"--env with --snapshot: exit {code}:\n{out[-400:]}")
+
+
+def check_wrong_lean():
+    """Pinned Lean refuses every wrong twin's Lean source, as check rejects
+    the text (check_texts)."""
+    with tempfile.TemporaryDirectory() as work:
+        for path in sorted(WRONG.glob("*.lf")):
+            source = pathlib.Path(f"tests/reference/author-wrong-{path.stem}.lean")
+            run = subprocess.run([LEAN, "-DwarningAsError=true", "-o",
+                                  str(pathlib.Path(work) / "Wrong.olean"), str(source)],
+                                 stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                                 timeout=TEST_LIMIT)
+            if run.returncode == 0 or "error" not in run.stdout + run.stderr:
+                raise Failure(f"pinned Lean accepts {source}, whose text check rejects")
+    print(f"pinned Lean refuses all {len(list(WRONG.glob('*.lf')))} wrong twins, "
+          "as leanforth check rejects them")
+
+
+def check_slices():
+    """scripts/export.sh with pinned Lean reproduces the two library exports
+    the fixtures run against, byte for byte: a slice of Init and the class of
+    08-monoid (its Lean source compiled, then MyMonoid.mul_one exported)."""
+    with tempfile.TemporaryDirectory() as work:
+        work = pathlib.Path(work)
+        env = dict(os.environ, LEAN=LEAN, LEAN_PATH=str(work))
+        run = subprocess.run([LEAN, "-DwarningAsError=true", "-o", str(work / "AuthorMonoid.olean"),
+                              "tests/reference/author-08-monoid.lean"], stdin=subprocess.DEVNULL,
+                             capture_output=True, timeout=TEST_LIMIT, env=env)
+        if run.returncode != 0:
+            raise Failure("pinned Lean refuses tests/reference/author-08-monoid.lean")
+        for out, args in ((INIT_SLICE, ["Init", "--", *INIT_NAMES]),
+                          (HERE / "monoid-slice.ndjson", ["AuthorMonoid", "--",
+                                                          "MyMonoid.mul_one"])):
+            made = work / out.name
+            subprocess.run(["bash", "scripts/export.sh", str(made), *args], env=env,
+                           stdin=subprocess.DEVNULL, capture_output=True, timeout=TEST_LIMIT,
+                           check=True)
+            for suffix in ("", ".manifest.json"):
+                mine = pathlib.Path(str(out) + suffix).read_bytes()
+                if pathlib.Path(str(made) + suffix).read_bytes() != mine:
+                    raise Failure(f"scripts/export.sh does not reproduce {out}{suffix}")
+    print("library exports reproduced byte for byte: tests/author/init-slice.ndjson, "
+          "monoid-slice.ndjson and their manifests")
 
 
 def planted(root, fault):
@@ -613,8 +989,12 @@ def main(args):
     try:
         if "--lean" in args:
             check_lean()
+            check_wrong_lean()
+            check_slices()
         elif "--faults" in args:
             check_faults()
+        elif "--records" in args:
+            check_records_only()
         else:
             check_golden("--write" in args)
             if "--write" not in args:
@@ -622,6 +1002,8 @@ def main(args):
                 check_layering()
                 check_corpus()
                 check_lf_files()
+                check_texts()
+                check_text_cases()
     except (Failure, OSError, subprocess.SubprocessError) as error:
         print(f"check_author: {error}", file=sys.stderr)
         return 1

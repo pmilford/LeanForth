@@ -5,6 +5,18 @@ lean: fun {P} proof ↦ proof
 term: 0 identity
 term:   type (pi P 1 (Sort 0) (pi proof 0 #0 #1))
 term:   value (lam P 1 (Sort 0) (lam proof 0 #0 #0))
+record: {"meta":{"exporter":{"name":"leanforth","version":"0.1.0-dev"},"format":{"version":"3.1.0"},"lean":{"githash":"none","version":"4.35.0"}}}
+record: {"in":1,"str":{"pre":0,"str":"identity"}}
+record: {"in":2,"str":{"pre":0,"str":"P"}}
+record: {"in":3,"str":{"pre":0,"str":"proof"}}
+record: {"ie":0,"sort":0}
+record: {"bvar":0,"ie":1}
+record: {"bvar":1,"ie":2}
+record: {"ie":3,"lam":{"binderInfo":"default","body":1,"name":3,"type":1}}
+record: {"forallE":{"binderInfo":"default","body":2,"name":3,"type":1},"ie":4}
+record: {"ie":5,"lam":{"binderInfo":"implicit","body":3,"name":2,"type":0}}
+record: {"forallE":{"binderInfo":"implicit","body":4,"name":2,"type":0},"ie":6}
+record: {"thm":{"all":[1],"levelParams":[],"name":1,"type":6,"value":5}}
 words:
 theorem identity
   Prop implicit: P
@@ -21,6 +33,37 @@ lean: fun {A B C} f g value ↦ g (f value)
 term: 0 composition
 term:   type (pi A 1 (Sort 0) (pi B 1 (Sort 0) (pi C 1 (Sort 0) (pi f 0 (pi [arrow] 0 #2 #2) (pi g 0 (pi [arrow] 0 #2 #2) (pi [arrow] 0 #4 #3))))))
 term:   value (lam A 1 (Sort 0) (lam B 1 (Sort 0) (lam C 1 (Sort 0) (lam f 0 (pi [arrow] 0 #2 #2) (lam g 0 (pi [arrow] 0 #2 #2) (lam value 0 #4 (app #1 (app #2 #0))))))))
+record: {"meta":{"exporter":{"name":"leanforth","version":"0.1.0-dev"},"format":{"version":"3.1.0"},"lean":{"githash":"none","version":"4.35.0"}}}
+record: {"in":1,"str":{"pre":0,"str":"composition"}}
+record: {"in":2,"str":{"pre":0,"str":"A"}}
+record: {"in":3,"str":{"pre":0,"str":"B"}}
+record: {"in":4,"str":{"pre":0,"str":"C"}}
+record: {"in":5,"str":{"pre":0,"str":"f"}}
+record: {"in":6,"str":{"pre":0,"str":"g"}}
+record: {"in":7,"str":{"pre":0,"str":"value"}}
+record: {"ie":0,"sort":0}
+record: {"bvar":2,"ie":1}
+record: {"bvar":1,"ie":2}
+record: {"forallE":{"binderInfo":"default","body":1,"name":0,"type":1},"ie":3}
+record: {"forallE":{"binderInfo":"default","body":1,"name":0,"type":1},"ie":4}
+record: {"bvar":4,"ie":5}
+record: {"bvar":3,"ie":6}
+record: {"forallE":{"binderInfo":"default","body":6,"name":0,"type":5},"ie":7}
+record: {"bvar":0,"ie":8}
+record: {"app":{"arg":8,"fn":1},"ie":9}
+record: {"app":{"arg":9,"fn":2},"ie":10}
+record: {"ie":11,"lam":{"binderInfo":"default","body":10,"name":7,"type":5}}
+record: {"ie":12,"lam":{"binderInfo":"default","body":11,"name":6,"type":4}}
+record: {"forallE":{"binderInfo":"default","body":7,"name":6,"type":4},"ie":13}
+record: {"ie":14,"lam":{"binderInfo":"default","body":12,"name":5,"type":3}}
+record: {"forallE":{"binderInfo":"default","body":13,"name":5,"type":3},"ie":15}
+record: {"ie":16,"lam":{"binderInfo":"implicit","body":14,"name":4,"type":0}}
+record: {"forallE":{"binderInfo":"implicit","body":15,"name":4,"type":0},"ie":17}
+record: {"ie":18,"lam":{"binderInfo":"implicit","body":16,"name":3,"type":0}}
+record: {"forallE":{"binderInfo":"implicit","body":17,"name":3,"type":0},"ie":19}
+record: {"ie":20,"lam":{"binderInfo":"implicit","body":18,"name":2,"type":0}}
+record: {"forallE":{"binderInfo":"implicit","body":19,"name":2,"type":0},"ie":21}
+record: {"thm":{"all":[1],"levelParams":[],"name":1,"type":21,"value":20}}
 words:
 theorem composition
   Prop implicit: A
@@ -40,6 +83,30 @@ lean: fun {A} {P} {x} proof ↦ proof
 term: 0 type_identity
 term:   type (pi A 1 (Sort (succ 0)) (pi P 1 (pi [arrow] 0 #0 (Sort 0)) (pi x 1 #1 (pi proof 0 (app #1 #0) (app #2 #1)))))
 term:   value (lam A 1 (Sort (succ 0)) (lam P 1 (pi [arrow] 0 #0 (Sort 0)) (lam x 1 #1 (lam proof 0 (app #1 #0) #0))))
+record: {"meta":{"exporter":{"name":"leanforth","version":"0.1.0-dev"},"format":{"version":"3.1.0"},"lean":{"githash":"none","version":"4.35.0"}}}
+record: {"in":1,"str":{"pre":0,"str":"type_identity"}}
+record: {"in":2,"str":{"pre":0,"str":"A"}}
+record: {"in":3,"str":{"pre":0,"str":"P"}}
+record: {"in":4,"str":{"pre":0,"str":"x"}}
+record: {"in":5,"str":{"pre":0,"str":"proof"}}
+record: {"il":1,"succ":0}
+record: {"ie":0,"sort":1}
+record: {"ie":1,"sort":0}
+record: {"bvar":0,"ie":2}
+record: {"forallE":{"binderInfo":"default","body":1,"name":0,"type":2},"ie":3}
+record: {"bvar":1,"ie":4}
+record: {"app":{"arg":2,"fn":4},"ie":5}
+record: {"bvar":2,"ie":6}
+record: {"app":{"arg":4,"fn":6},"ie":7}
+record: {"ie":8,"lam":{"binderInfo":"default","body":2,"name":5,"type":5}}
+record: {"forallE":{"binderInfo":"default","body":7,"name":5,"type":5},"ie":9}
+record: {"ie":10,"lam":{"binderInfo":"implicit","body":8,"name":4,"type":4}}
+record: {"forallE":{"binderInfo":"implicit","body":9,"name":4,"type":4},"ie":11}
+record: {"ie":12,"lam":{"binderInfo":"implicit","body":10,"name":3,"type":3}}
+record: {"forallE":{"binderInfo":"implicit","body":11,"name":3,"type":3},"ie":13}
+record: {"ie":14,"lam":{"binderInfo":"implicit","body":12,"name":2,"type":0}}
+record: {"forallE":{"binderInfo":"implicit","body":13,"name":2,"type":0},"ie":15}
+record: {"thm":{"all":[1],"levelParams":[],"name":1,"type":15,"value":14}}
 words:
 theorem type_identity
   0 Type implicit: A
@@ -58,6 +125,31 @@ lean: fun {A} {P} {x} proof ↦ proof
 term: 0 poly_identity u:u
 term:   type (pi A 1 (Sort (param u)) (pi P 1 (pi [arrow] 0 #0 (Sort 0)) (pi x 1 #1 (pi proof 0 (app #1 #0) (app #2 #1)))))
 term:   value (lam A 1 (Sort (param u)) (lam P 1 (pi [arrow] 0 #0 (Sort 0)) (lam x 1 #1 (lam proof 0 (app #1 #0) #0))))
+record: {"meta":{"exporter":{"name":"leanforth","version":"0.1.0-dev"},"format":{"version":"3.1.0"},"lean":{"githash":"none","version":"4.35.0"}}}
+record: {"in":1,"str":{"pre":0,"str":"poly_identity"}}
+record: {"in":2,"str":{"pre":0,"str":"u"}}
+record: {"in":3,"str":{"pre":0,"str":"A"}}
+record: {"in":4,"str":{"pre":0,"str":"P"}}
+record: {"in":5,"str":{"pre":0,"str":"x"}}
+record: {"in":6,"str":{"pre":0,"str":"proof"}}
+record: {"il":1,"param":2}
+record: {"ie":0,"sort":1}
+record: {"ie":1,"sort":0}
+record: {"bvar":0,"ie":2}
+record: {"forallE":{"binderInfo":"default","body":1,"name":0,"type":2},"ie":3}
+record: {"bvar":1,"ie":4}
+record: {"app":{"arg":2,"fn":4},"ie":5}
+record: {"bvar":2,"ie":6}
+record: {"app":{"arg":4,"fn":6},"ie":7}
+record: {"ie":8,"lam":{"binderInfo":"default","body":2,"name":6,"type":5}}
+record: {"forallE":{"binderInfo":"default","body":7,"name":6,"type":5},"ie":9}
+record: {"ie":10,"lam":{"binderInfo":"implicit","body":8,"name":5,"type":4}}
+record: {"forallE":{"binderInfo":"implicit","body":9,"name":5,"type":4},"ie":11}
+record: {"ie":12,"lam":{"binderInfo":"implicit","body":10,"name":4,"type":3}}
+record: {"forallE":{"binderInfo":"implicit","body":11,"name":4,"type":3},"ie":13}
+record: {"ie":14,"lam":{"binderInfo":"implicit","body":12,"name":3,"type":0}}
+record: {"forallE":{"binderInfo":"implicit","body":13,"name":3,"type":0},"ie":15}
+record: {"thm":{"all":[1],"levelParams":[2],"name":1,"type":15,"value":14}}
 words:
 theorem poly_identity
   universe u
@@ -87,6 +179,41 @@ term:   value (lam α 1 (Sort (param u)) (lam x 0 #0 (app (app (const fixtureId 
 term: 0 fixtureUse
 term:   type (pi P 1 (Sort 0) (pi h 0 #0 #1))
 term:   value (lam P 1 (Sort 0) (lam h 0 #0 (app (app (const fixtureId 0) #1) #0)))
+record: {"meta":{"exporter":{"name":"leanforth","version":"0.1.0-dev"},"format":{"version":"3.1.0"},"lean":{"githash":"none","version":"4.35.0"}}}
+record: {"in":1,"str":{"pre":0,"str":"fixtureId"}}
+record: {"in":2,"str":{"pre":0,"str":"u"}}
+record: {"in":3,"str":{"pre":0,"str":"α"}}
+record: {"in":4,"str":{"pre":0,"str":"x"}}
+record: {"in":5,"str":{"pre":0,"str":"fixturePoly"}}
+record: {"in":6,"str":{"pre":0,"str":"fixtureUse"}}
+record: {"in":7,"str":{"pre":0,"str":"P"}}
+record: {"in":8,"str":{"pre":0,"str":"h"}}
+record: {"il":1,"param":2}
+record: {"ie":0,"sort":1}
+record: {"bvar":0,"ie":1}
+record: {"bvar":1,"ie":2}
+record: {"ie":3,"lam":{"binderInfo":"default","body":1,"name":4,"type":1}}
+record: {"forallE":{"binderInfo":"default","body":2,"name":4,"type":1},"ie":4}
+record: {"ie":5,"lam":{"binderInfo":"implicit","body":3,"name":3,"type":0}}
+record: {"forallE":{"binderInfo":"implicit","body":4,"name":3,"type":0},"ie":6}
+record: {"const":{"name":1,"us":[1]},"ie":7}
+record: {"app":{"arg":2,"fn":7},"ie":8}
+record: {"app":{"arg":1,"fn":8},"ie":9}
+record: {"ie":10,"lam":{"binderInfo":"default","body":9,"name":4,"type":1}}
+record: {"forallE":{"binderInfo":"default","body":2,"name":4,"type":1},"ie":11}
+record: {"ie":12,"lam":{"binderInfo":"implicit","body":10,"name":3,"type":0}}
+record: {"forallE":{"binderInfo":"implicit","body":11,"name":3,"type":0},"ie":13}
+record: {"ie":14,"sort":0}
+record: {"const":{"name":1,"us":[0]},"ie":15}
+record: {"app":{"arg":2,"fn":15},"ie":16}
+record: {"app":{"arg":1,"fn":16},"ie":17}
+record: {"ie":18,"lam":{"binderInfo":"default","body":17,"name":8,"type":1}}
+record: {"forallE":{"binderInfo":"default","body":2,"name":8,"type":1},"ie":19}
+record: {"ie":20,"lam":{"binderInfo":"implicit","body":18,"name":7,"type":14}}
+record: {"forallE":{"binderInfo":"implicit","body":19,"name":7,"type":14},"ie":21}
+record: {"def":{"all":[1],"hints":{"regular":1},"levelParams":[2],"name":1,"safety":"safe","type":6,"value":5}}
+record: {"def":{"all":[5],"hints":{"regular":2},"levelParams":[2],"name":5,"safety":"safe","type":13,"value":12}}
+record: {"thm":{"all":[6],"levelParams":[],"name":6,"type":21,"value":20}}
 words:
 def fixtureId
   universe u
@@ -122,6 +249,8 @@ lean: def PairSort.{u, v} : Sort u → Sort v → Type (max u v) :=
 lean: fun _A _B ↦ Sort (max u v)
 lean: def ImaxSort.{u, v} : Sort u → Sort v → Type (imax u v) :=
 lean: fun _A _B ↦ Sort (imax u v)
+lean: def PairOf.{u, v} : Sort u → Sort v → Type (max u v) :=
+lean: fun A B ↦ PairSort B A
 term: 1 Big u:u
 term:   type (Sort (succ (succ (param u))))
 term:   value (Sort (succ (param u)))
@@ -131,6 +260,57 @@ term:   value (lam _A 0 (Sort (param u)) (lam _B 0 (Sort (param v)) (Sort (max (
 term: 1 ImaxSort u:u u:v
 term:   type (pi _A 0 (Sort (param u)) (pi _B 0 (Sort (param v)) (Sort (succ (imax (param u) (param v))))))
 term:   value (lam _A 0 (Sort (param u)) (lam _B 0 (Sort (param v)) (Sort (imax (param u) (param v)))))
+term: 1 PairOf u:u u:v
+term:   type (pi A 0 (Sort (param u)) (pi B 0 (Sort (param v)) (Sort (succ (max (param u) (param v))))))
+term:   value (lam A 0 (Sort (param u)) (lam B 0 (Sort (param v)) (app (app (const PairSort (param v) (param u)) #0) #1)))
+record: {"meta":{"exporter":{"name":"leanforth","version":"0.1.0-dev"},"format":{"version":"3.1.0"},"lean":{"githash":"none","version":"4.35.0"}}}
+record: {"in":1,"str":{"pre":0,"str":"Big"}}
+record: {"in":2,"str":{"pre":0,"str":"u"}}
+record: {"in":3,"str":{"pre":0,"str":"PairSort"}}
+record: {"in":4,"str":{"pre":0,"str":"v"}}
+record: {"in":5,"str":{"pre":0,"str":"_A"}}
+record: {"in":6,"str":{"pre":0,"str":"_B"}}
+record: {"in":7,"str":{"pre":0,"str":"ImaxSort"}}
+record: {"in":8,"str":{"pre":0,"str":"PairOf"}}
+record: {"in":9,"str":{"pre":0,"str":"A"}}
+record: {"in":10,"str":{"pre":0,"str":"B"}}
+record: {"il":1,"param":2}
+record: {"il":2,"succ":1}
+record: {"il":3,"succ":2}
+record: {"il":4,"param":4}
+record: {"il":5,"max":[1,4]}
+record: {"il":6,"succ":5}
+record: {"il":7,"imax":[1,4]}
+record: {"il":8,"succ":7}
+record: {"ie":0,"sort":3}
+record: {"ie":1,"sort":2}
+record: {"ie":2,"sort":1}
+record: {"ie":3,"sort":4}
+record: {"ie":4,"sort":6}
+record: {"ie":5,"sort":5}
+record: {"ie":6,"lam":{"binderInfo":"default","body":5,"name":6,"type":3}}
+record: {"forallE":{"binderInfo":"default","body":4,"name":6,"type":3},"ie":7}
+record: {"ie":8,"lam":{"binderInfo":"default","body":6,"name":5,"type":2}}
+record: {"forallE":{"binderInfo":"default","body":7,"name":5,"type":2},"ie":9}
+record: {"ie":10,"sort":8}
+record: {"ie":11,"sort":7}
+record: {"ie":12,"lam":{"binderInfo":"default","body":11,"name":6,"type":3}}
+record: {"forallE":{"binderInfo":"default","body":10,"name":6,"type":3},"ie":13}
+record: {"ie":14,"lam":{"binderInfo":"default","body":12,"name":5,"type":2}}
+record: {"forallE":{"binderInfo":"default","body":13,"name":5,"type":2},"ie":15}
+record: {"const":{"name":3,"us":[4,1]},"ie":16}
+record: {"bvar":0,"ie":17}
+record: {"app":{"arg":17,"fn":16},"ie":18}
+record: {"bvar":1,"ie":19}
+record: {"app":{"arg":19,"fn":18},"ie":20}
+record: {"ie":21,"lam":{"binderInfo":"default","body":20,"name":10,"type":3}}
+record: {"forallE":{"binderInfo":"default","body":4,"name":10,"type":3},"ie":22}
+record: {"ie":23,"lam":{"binderInfo":"default","body":21,"name":9,"type":2}}
+record: {"forallE":{"binderInfo":"default","body":22,"name":9,"type":2},"ie":24}
+record: {"def":{"all":[1],"hints":{"regular":1},"levelParams":[2],"name":1,"safety":"safe","type":0,"value":1}}
+record: {"def":{"all":[3],"hints":{"regular":1},"levelParams":[2,4],"name":3,"safety":"safe","type":9,"value":8}}
+record: {"def":{"all":[7],"hints":{"regular":1},"levelParams":[2,4],"name":7,"safety":"safe","type":15,"value":14}}
+record: {"def":{"all":[8],"hints":{"regular":2},"levelParams":[2,4],"name":8,"safety":"safe","type":24,"value":23}}
 words:
 def Big
   universe u
@@ -158,81 +338,65 @@ def ImaxSort
 :=
   u v level-imax Sort
 end ImaxSort
+
+def PairOf
+  universe u
+  universe v
+  u Sort explicit: A
+  v Sort explicit: B
+  u v level-max Type
+:=
+  PairSort v ^ u ^ B $ A $
+end PairOf
 round trip: terms, names, kinds, labels and notes same; printed text same
 == 07-add-comm
 ran: ok
-type: Eq.{u_1} : {α : Sort u_1} → α → α → Prop
-type: HAdd.hAdd.{u, v, w} : {α : Type u} → {β : Type v} → {γ : @outParam (Type w)} → [self : @HAdd α β γ] → α → β → γ
-lean: theorem add_comm' : ∀ (n m : Nat), Eq (HAdd.hAdd n m) (HAdd.hAdd m n) :=
+lean: theorem add_comm' : ∀ (n m : Nat), @Eq Nat (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) n m) (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) m n) :=
 lean: fun n m ↦ Nat.add_comm n m
-term: 3 Nat
-term:   type none
-term:   value none
-term: 3 instAddNat
-term:   type none
-term:   value none
-term: 3 instHAdd u:u_1
-term:   type none
-term:   value none
-term: 3 HAdd u:u u:v u:w
-term:   type none
-term:   value none
-term: 3 outParam u:u
-term:   type none
-term:   value none
-term: 3 Nat.add_comm protected
-term:   type none
-term:   value none
-term: 3 Eq u:u_1
-term:   type (pi α 1 (Sort (param u_1)) (pi [arrow] 0 #0 (pi [arrow] 0 #1 (Sort 0))))
-term:   value none
-term: 3 HAdd.hAdd u:u u:v u:w
-term:   type (pi α 1 (Sort (succ (param u))) (pi β 1 (Sort (succ (param v))) (pi γ 1 (app (const outParam (succ (succ (param w)))) (Sort (succ (param w)))) (pi self 3 (app (app (app (const HAdd (param u) (param v) (param w)) #2) #1) #0) (pi [arrow] 0 #3 (pi [arrow] 0 #3 #3))))))
-term:   value none
 term: 0 add_comm'
 term:   type (pi n 0 (const Nat) (pi m 0 (const Nat) (app (app (app (const Eq (succ 0)) (const Nat)) (app (app (app (app (app (app (const HAdd.hAdd 0 0 0) (const Nat)) (const Nat)) (const Nat)) (app (app (const instHAdd 0) (const Nat)) (const instAddNat))) #1) #0)) (app (app (app (app (app (app (const HAdd.hAdd 0 0 0) (const Nat)) (const Nat)) (const Nat)) (app (app (const instHAdd 0) (const Nat)) (const instAddNat))) #0) #1))))
 term:   value (lam n 0 (const Nat) (lam m 0 (const Nat) (app (app (const Nat.add_comm) #1) #0)))
+record: {"meta":{"exporter":{"name":"leanforth","version":"0.1.0-dev"},"format":{"version":"3.1.0"},"lean":{"githash":"none","version":"4.35.0"}}}
+record: {"in":1,"str":{"pre":0,"str":"add_comm'"}}
+record: {"in":2,"str":{"pre":0,"str":"Nat"}}
+record: {"in":3,"str":{"pre":0,"str":"n"}}
+record: {"in":4,"str":{"pre":0,"str":"m"}}
+record: {"in":5,"str":{"pre":0,"str":"Eq"}}
+record: {"in":6,"str":{"pre":0,"str":"HAdd"}}
+record: {"in":7,"str":{"pre":6,"str":"hAdd"}}
+record: {"in":8,"str":{"pre":0,"str":"instHAdd"}}
+record: {"in":9,"str":{"pre":0,"str":"instAddNat"}}
+record: {"in":10,"str":{"pre":2,"str":"add_comm"}}
+record: {"il":1,"succ":0}
+record: {"const":{"name":2,"us":[]},"ie":0}
+record: {"const":{"name":5,"us":[1]},"ie":1}
+record: {"app":{"arg":0,"fn":1},"ie":2}
+record: {"const":{"name":7,"us":[0,0,0]},"ie":3}
+record: {"app":{"arg":0,"fn":3},"ie":4}
+record: {"app":{"arg":0,"fn":4},"ie":5}
+record: {"app":{"arg":0,"fn":5},"ie":6}
+record: {"const":{"name":8,"us":[0]},"ie":7}
+record: {"app":{"arg":0,"fn":7},"ie":8}
+record: {"const":{"name":9,"us":[]},"ie":9}
+record: {"app":{"arg":9,"fn":8},"ie":10}
+record: {"app":{"arg":10,"fn":6},"ie":11}
+record: {"bvar":1,"ie":12}
+record: {"app":{"arg":12,"fn":11},"ie":13}
+record: {"bvar":0,"ie":14}
+record: {"app":{"arg":14,"fn":13},"ie":15}
+record: {"app":{"arg":15,"fn":2},"ie":16}
+record: {"app":{"arg":14,"fn":11},"ie":17}
+record: {"app":{"arg":12,"fn":17},"ie":18}
+record: {"app":{"arg":18,"fn":16},"ie":19}
+record: {"const":{"name":10,"us":[]},"ie":20}
+record: {"app":{"arg":12,"fn":20},"ie":21}
+record: {"app":{"arg":14,"fn":21},"ie":22}
+record: {"ie":23,"lam":{"binderInfo":"default","body":22,"name":4,"type":0}}
+record: {"forallE":{"binderInfo":"default","body":19,"name":4,"type":0},"ie":24}
+record: {"ie":25,"lam":{"binderInfo":"default","body":23,"name":3,"type":0}}
+record: {"forallE":{"binderInfo":"default","body":24,"name":3,"type":0},"ie":26}
+record: {"thm":{"all":[1],"levelParams":[],"name":1,"type":26,"value":25}}
 words:
-import-stub Nat
-end Nat
-
-import-stub instAddNat
-end instAddNat
-
-import-stub instHAdd
-  universe u_1
-end instHAdd
-
-import-stub HAdd
-  universe u
-  universe v
-  universe w
-end HAdd
-
-import-stub outParam
-  universe u
-end outParam
-
-protected import-stub Nat.add_comm
-end Nat.add_comm
-
-import-stub Eq
-  universe u_1
-  u_1 Sort implicit: α
-  α α Prop -> ->
-end Eq
-
-import-stub HAdd.hAdd
-  universe u
-  universe v
-  universe w
-  u Type implicit: α
-  v Type implicit: β
-  outParam w 2 level+ ^ w Type $ implicit: γ
-  HAdd u ^ v ^ w ^ α $ β $ γ $ instance: self
-  α β γ -> ->
-end HAdd.hAdd
-
 theorem add_comm'
   Nat explicit: n
   Nat explicit: m
@@ -245,66 +409,59 @@ end add_comm'
 round trip: terms, names, kinds, labels and notes same; printed text same
 == 08-monoid
 ran: ok
-type: MyMonoid.{u} : Type u → Type u
-type: Eq.{u_1} : {α : Sort u_1} → α → α → Prop
-type: MyMonoid.mul.{u} : {M : Type u} → [self : MyMonoid M] → M → M → M
-type: MyMonoid.one.{u} : {M : Type u} → [self : MyMonoid M] → M
-type: MyMonoid.mul_one.{u} : {M : Type u} → [self : MyMonoid M] → (a : M) → Eq (MyMonoid.mul a MyMonoid.one) a
-lean: theorem MyMonoid.mul_one'.{u} : ∀ {M : Type u} [inst : MyMonoid M] (a : M), Eq (MyMonoid.mul a MyMonoid.one) a :=
-lean: fun {M} [inst : MyMonoid M] a ↦ MyMonoid.mul_one a
-term: 3 MyMonoid u:u
-term:   type (pi M 0 (Sort (succ (param u))) (Sort (succ (param u))))
-term:   value none
-term: 3 Eq u:u_1
-term:   type (pi α 1 (Sort (param u_1)) (pi [arrow] 0 #0 (pi [arrow] 0 #1 (Sort 0))))
-term:   value none
-term: 3 MyMonoid.mul u:u
-term:   type (pi M 1 (Sort (succ (param u))) (pi self 3 (app (const MyMonoid (param u)) #0) (pi [arrow] 0 #1 (pi [arrow] 0 #2 #3))))
-term:   value none
-term: 3 MyMonoid.one u:u
-term:   type (pi M 1 (Sort (succ (param u))) (pi self 3 (app (const MyMonoid (param u)) #0) #1))
-term:   value none
-term: 3 MyMonoid.mul_one u:u
-term:   type (pi M 1 (Sort (succ (param u))) (pi self 3 (app (const MyMonoid (param u)) #0) (pi a 0 #1 (app (app (app (const Eq (succ (param u))) #2) (app (app (app (app (const MyMonoid.mul (param u)) #2) #1) #0) (app (app (const MyMonoid.one (param u)) #2) #1))) #0))))
-term:   value none
+lean: theorem MyMonoid.mul_one'.{u} : ∀ {M : Type u} [inst : @MyMonoid M] (a : M), @Eq M (@MyMonoid.mul M inst a (@MyMonoid.one M inst)) a :=
+lean: fun {M} [inst : @MyMonoid M] a ↦ @MyMonoid.mul_one M inst a
 term: 0 MyMonoid.mul_one' u:u
 term:   type (pi M 1 (Sort (succ (param u))) (pi inst 3 (app (const MyMonoid (param u)) #0) (pi a 0 #1 (app (app (app (const Eq (succ (param u))) #2) (app (app (app (app (const MyMonoid.mul (param u)) #2) #1) #0) (app (app (const MyMonoid.one (param u)) #2) #1))) #0))))
 term:   value (lam M 1 (Sort (succ (param u))) (lam inst 3 (app (const MyMonoid (param u)) #0) (lam a 0 #1 (app (app (app (const MyMonoid.mul_one (param u)) #2) #1) #0))))
+record: {"meta":{"exporter":{"name":"leanforth","version":"0.1.0-dev"},"format":{"version":"3.1.0"},"lean":{"githash":"none","version":"4.35.0"}}}
+record: {"in":1,"str":{"pre":0,"str":"MyMonoid"}}
+record: {"in":2,"str":{"pre":1,"str":"mul_one'"}}
+record: {"in":3,"str":{"pre":0,"str":"u"}}
+record: {"in":4,"str":{"pre":0,"str":"M"}}
+record: {"in":5,"str":{"pre":1,"str":"MyMonoid"}}
+record: {"in":6,"str":{"pre":0,"str":"inst"}}
+record: {"in":7,"str":{"pre":0,"str":"a"}}
+record: {"in":8,"str":{"pre":1,"str":"Eq"}}
+record: {"in":9,"str":{"pre":0,"str":"Eq"}}
+record: {"in":10,"str":{"pre":5,"str":"mul"}}
+record: {"in":11,"str":{"pre":1,"str":"mul"}}
+record: {"in":12,"str":{"pre":5,"str":"one"}}
+record: {"in":13,"str":{"pre":1,"str":"one"}}
+record: {"in":14,"str":{"pre":5,"str":"mul_one"}}
+record: {"in":15,"str":{"pre":1,"str":"mul_one"}}
+record: {"il":1,"param":3}
+record: {"il":2,"succ":1}
+record: {"ie":0,"sort":2}
+record: {"const":{"name":1,"us":[1]},"ie":1}
+record: {"bvar":0,"ie":2}
+record: {"app":{"arg":2,"fn":1},"ie":3}
+record: {"bvar":1,"ie":4}
+record: {"const":{"name":9,"us":[2]},"ie":5}
+record: {"bvar":2,"ie":6}
+record: {"app":{"arg":6,"fn":5},"ie":7}
+record: {"const":{"name":11,"us":[1]},"ie":8}
+record: {"app":{"arg":6,"fn":8},"ie":9}
+record: {"app":{"arg":4,"fn":9},"ie":10}
+record: {"app":{"arg":2,"fn":10},"ie":11}
+record: {"const":{"name":13,"us":[1]},"ie":12}
+record: {"app":{"arg":6,"fn":12},"ie":13}
+record: {"app":{"arg":4,"fn":13},"ie":14}
+record: {"app":{"arg":14,"fn":11},"ie":15}
+record: {"app":{"arg":15,"fn":7},"ie":16}
+record: {"app":{"arg":2,"fn":16},"ie":17}
+record: {"const":{"name":15,"us":[1]},"ie":18}
+record: {"app":{"arg":6,"fn":18},"ie":19}
+record: {"app":{"arg":4,"fn":19},"ie":20}
+record: {"app":{"arg":2,"fn":20},"ie":21}
+record: {"ie":22,"lam":{"binderInfo":"default","body":21,"name":7,"type":4}}
+record: {"forallE":{"binderInfo":"default","body":17,"name":7,"type":4},"ie":23}
+record: {"ie":24,"lam":{"binderInfo":"instImplicit","body":22,"name":6,"type":3}}
+record: {"forallE":{"binderInfo":"instImplicit","body":23,"name":6,"type":3},"ie":25}
+record: {"ie":26,"lam":{"binderInfo":"implicit","body":24,"name":4,"type":0}}
+record: {"forallE":{"binderInfo":"implicit","body":25,"name":4,"type":0},"ie":27}
+record: {"thm":{"all":[2],"levelParams":[3],"name":2,"type":27,"value":26}}
 words:
-import-stub MyMonoid
-  universe u
-  u Type explicit: M
-  u Type
-end MyMonoid
-
-import-stub Eq
-  universe u_1
-  u_1 Sort implicit: α
-  α α Prop -> ->
-end Eq
-
-import-stub MyMonoid.mul
-  universe u
-  u Type implicit: M
-  MyMonoid u ^ M $ instance: self
-  M M M -> ->
-end MyMonoid.mul
-
-import-stub MyMonoid.one
-  universe u
-  u Type implicit: M
-  MyMonoid u ^ M $ instance: self
-  M
-end MyMonoid.one
-
-import-stub MyMonoid.mul_one
-  universe u
-  u Type implicit: M
-  MyMonoid u ^ M $ instance: self
-  M explicit: a
-  Eq u 1 level+ ^ M $ MyMonoid.mul u ^ M $ self $ a $ MyMonoid.one u ^ M $ self $ $ $ a $
-end MyMonoid.mul_one
-
 theorem MyMonoid.mul_one'
   universe u
   u Type implicit: M
@@ -325,6 +482,46 @@ note: chain/to-D (line 14), by a person: h finishes the chain: a proof of D
 term: 0 chain
 term:   type (pi A 1 (Sort 0) (pi B 1 (Sort 0) (pi C 1 (Sort 0) (pi D 1 (Sort 0) (pi f 0 (pi [arrow] 0 #3 #3) (pi g 0 (pi [arrow] 0 #3 #3) (pi h 0 (pi [arrow] 0 #3 #3) (pi [arrow] 0 #6 #4))))))))
 term:   value (lam A 1 (Sort 0) (lam B 1 (Sort 0) (lam C 1 (Sort 0) (lam D 1 (Sort 0) (lam f 0 (pi [arrow] 0 #3 #3) (lam g 0 (pi [arrow] 0 #3 #3) (lam h 0 (pi [arrow] 0 #3 #3) (lam a 0 #6 (app #1 (app #2 (app #3 #0)))))))))))
+record: {"meta":{"exporter":{"name":"leanforth","version":"0.1.0-dev"},"format":{"version":"3.1.0"},"lean":{"githash":"none","version":"4.35.0"}}}
+record: {"in":1,"str":{"pre":0,"str":"chain"}}
+record: {"in":2,"str":{"pre":0,"str":"A"}}
+record: {"in":3,"str":{"pre":0,"str":"B"}}
+record: {"in":4,"str":{"pre":0,"str":"C"}}
+record: {"in":5,"str":{"pre":0,"str":"D"}}
+record: {"in":6,"str":{"pre":0,"str":"f"}}
+record: {"in":7,"str":{"pre":0,"str":"g"}}
+record: {"in":8,"str":{"pre":0,"str":"h"}}
+record: {"in":9,"str":{"pre":0,"str":"a"}}
+record: {"ie":0,"sort":0}
+record: {"bvar":3,"ie":1}
+record: {"bvar":2,"ie":2}
+record: {"forallE":{"binderInfo":"default","body":1,"name":0,"type":1},"ie":3}
+record: {"forallE":{"binderInfo":"default","body":1,"name":0,"type":1},"ie":4}
+record: {"forallE":{"binderInfo":"default","body":1,"name":0,"type":1},"ie":5}
+record: {"bvar":6,"ie":6}
+record: {"bvar":4,"ie":7}
+record: {"forallE":{"binderInfo":"default","body":7,"name":0,"type":6},"ie":8}
+record: {"bvar":0,"ie":9}
+record: {"app":{"arg":9,"fn":1},"ie":10}
+record: {"app":{"arg":10,"fn":2},"ie":11}
+record: {"bvar":1,"ie":12}
+record: {"app":{"arg":11,"fn":12},"ie":13}
+record: {"ie":14,"lam":{"binderInfo":"default","body":13,"name":9,"type":6}}
+record: {"ie":15,"lam":{"binderInfo":"default","body":14,"name":8,"type":5}}
+record: {"forallE":{"binderInfo":"default","body":8,"name":8,"type":5},"ie":16}
+record: {"ie":17,"lam":{"binderInfo":"default","body":15,"name":7,"type":4}}
+record: {"forallE":{"binderInfo":"default","body":16,"name":7,"type":4},"ie":18}
+record: {"ie":19,"lam":{"binderInfo":"default","body":17,"name":6,"type":3}}
+record: {"forallE":{"binderInfo":"default","body":18,"name":6,"type":3},"ie":20}
+record: {"ie":21,"lam":{"binderInfo":"implicit","body":19,"name":5,"type":0}}
+record: {"forallE":{"binderInfo":"implicit","body":20,"name":5,"type":0},"ie":22}
+record: {"ie":23,"lam":{"binderInfo":"implicit","body":21,"name":4,"type":0}}
+record: {"forallE":{"binderInfo":"implicit","body":22,"name":4,"type":0},"ie":24}
+record: {"ie":25,"lam":{"binderInfo":"implicit","body":23,"name":3,"type":0}}
+record: {"forallE":{"binderInfo":"implicit","body":24,"name":3,"type":0},"ie":26}
+record: {"ie":27,"lam":{"binderInfo":"implicit","body":25,"name":2,"type":0}}
+record: {"forallE":{"binderInfo":"implicit","body":26,"name":2,"type":0},"ie":28}
+record: {"thm":{"all":[1],"levelParams":[],"name":1,"type":28,"value":27}}
 words:
 theorem chain
   Prop implicit: A
@@ -356,6 +553,72 @@ term:   value (lam A 1 (Sort 0) (lam B 1 (Sort 0) (lam C 1 (Sort 0) (lam f 0 (pi
 term: 0 chain
 term:   type (pi A 1 (Sort 0) (pi B 1 (Sort 0) (pi C 1 (Sort 0) (pi D 1 (Sort 0) (pi f 0 (pi [arrow] 0 #3 #3) (pi g 0 (pi [arrow] 0 #3 #3) (pi h 0 (pi [arrow] 0 #3 #3) (pi [arrow] 0 #6 #4))))))))
 term:   value (lam A 1 (Sort 0) (lam B 1 (Sort 0) (lam C 1 (Sort 0) (lam D 1 (Sort 0) (lam f 0 (pi [arrow] 0 #3 #3) (lam g 0 (pi [arrow] 0 #3 #3) (lam h 0 (pi [arrow] 0 #3 #3) (lam a 0 #6 (app #1 (app (app (app (app (app (app (const composition) #7) #6) #5) #3) #2) #0))))))))))
+record: {"meta":{"exporter":{"name":"leanforth","version":"0.1.0-dev"},"format":{"version":"3.1.0"},"lean":{"githash":"none","version":"4.35.0"}}}
+record: {"in":1,"str":{"pre":0,"str":"composition"}}
+record: {"in":2,"str":{"pre":0,"str":"A"}}
+record: {"in":3,"str":{"pre":0,"str":"B"}}
+record: {"in":4,"str":{"pre":0,"str":"C"}}
+record: {"in":5,"str":{"pre":0,"str":"f"}}
+record: {"in":6,"str":{"pre":0,"str":"g"}}
+record: {"in":7,"str":{"pre":0,"str":"value"}}
+record: {"in":8,"str":{"pre":0,"str":"chain"}}
+record: {"in":9,"str":{"pre":0,"str":"D"}}
+record: {"in":10,"str":{"pre":0,"str":"h"}}
+record: {"in":11,"str":{"pre":0,"str":"a"}}
+record: {"ie":0,"sort":0}
+record: {"bvar":2,"ie":1}
+record: {"bvar":1,"ie":2}
+record: {"forallE":{"binderInfo":"default","body":1,"name":0,"type":1},"ie":3}
+record: {"forallE":{"binderInfo":"default","body":1,"name":0,"type":1},"ie":4}
+record: {"bvar":4,"ie":5}
+record: {"bvar":3,"ie":6}
+record: {"forallE":{"binderInfo":"default","body":6,"name":0,"type":5},"ie":7}
+record: {"bvar":0,"ie":8}
+record: {"app":{"arg":8,"fn":1},"ie":9}
+record: {"app":{"arg":9,"fn":2},"ie":10}
+record: {"ie":11,"lam":{"binderInfo":"default","body":10,"name":7,"type":5}}
+record: {"ie":12,"lam":{"binderInfo":"default","body":11,"name":6,"type":4}}
+record: {"forallE":{"binderInfo":"default","body":7,"name":6,"type":4},"ie":13}
+record: {"ie":14,"lam":{"binderInfo":"default","body":12,"name":5,"type":3}}
+record: {"forallE":{"binderInfo":"default","body":13,"name":5,"type":3},"ie":15}
+record: {"ie":16,"lam":{"binderInfo":"implicit","body":14,"name":4,"type":0}}
+record: {"forallE":{"binderInfo":"implicit","body":15,"name":4,"type":0},"ie":17}
+record: {"ie":18,"lam":{"binderInfo":"implicit","body":16,"name":3,"type":0}}
+record: {"forallE":{"binderInfo":"implicit","body":17,"name":3,"type":0},"ie":19}
+record: {"ie":20,"lam":{"binderInfo":"implicit","body":18,"name":2,"type":0}}
+record: {"forallE":{"binderInfo":"implicit","body":19,"name":2,"type":0},"ie":21}
+record: {"forallE":{"binderInfo":"default","body":6,"name":0,"type":6},"ie":22}
+record: {"forallE":{"binderInfo":"default","body":6,"name":0,"type":6},"ie":23}
+record: {"forallE":{"binderInfo":"default","body":6,"name":0,"type":6},"ie":24}
+record: {"bvar":6,"ie":25}
+record: {"forallE":{"binderInfo":"default","body":5,"name":0,"type":25},"ie":26}
+record: {"const":{"name":1,"us":[]},"ie":27}
+record: {"bvar":7,"ie":28}
+record: {"app":{"arg":28,"fn":27},"ie":29}
+record: {"app":{"arg":25,"fn":29},"ie":30}
+record: {"bvar":5,"ie":31}
+record: {"app":{"arg":31,"fn":30},"ie":32}
+record: {"app":{"arg":6,"fn":32},"ie":33}
+record: {"app":{"arg":1,"fn":33},"ie":34}
+record: {"app":{"arg":8,"fn":34},"ie":35}
+record: {"app":{"arg":35,"fn":2},"ie":36}
+record: {"ie":37,"lam":{"binderInfo":"default","body":36,"name":11,"type":25}}
+record: {"ie":38,"lam":{"binderInfo":"default","body":37,"name":10,"type":24}}
+record: {"forallE":{"binderInfo":"default","body":26,"name":10,"type":24},"ie":39}
+record: {"ie":40,"lam":{"binderInfo":"default","body":38,"name":6,"type":23}}
+record: {"forallE":{"binderInfo":"default","body":39,"name":6,"type":23},"ie":41}
+record: {"ie":42,"lam":{"binderInfo":"default","body":40,"name":5,"type":22}}
+record: {"forallE":{"binderInfo":"default","body":41,"name":5,"type":22},"ie":43}
+record: {"ie":44,"lam":{"binderInfo":"implicit","body":42,"name":9,"type":0}}
+record: {"forallE":{"binderInfo":"implicit","body":43,"name":9,"type":0},"ie":45}
+record: {"ie":46,"lam":{"binderInfo":"implicit","body":44,"name":4,"type":0}}
+record: {"forallE":{"binderInfo":"implicit","body":45,"name":4,"type":0},"ie":47}
+record: {"ie":48,"lam":{"binderInfo":"implicit","body":46,"name":3,"type":0}}
+record: {"forallE":{"binderInfo":"implicit","body":47,"name":3,"type":0},"ie":49}
+record: {"ie":50,"lam":{"binderInfo":"implicit","body":48,"name":2,"type":0}}
+record: {"forallE":{"binderInfo":"implicit","body":49,"name":2,"type":0},"ie":51}
+record: {"thm":{"all":[1],"levelParams":[],"name":1,"type":21,"value":20}}
+record: {"thm":{"all":[8],"levelParams":[],"name":8,"type":51,"value":50}}
 words:
 theorem composition
   Prop implicit: A
@@ -399,6 +662,32 @@ lean: fun {A} {P} h y ↦ h
 term: 0 strict_example
 term:   type (pi A 1 (Sort (succ 0)) (pi P 1 (pi [arrow] 0 #0 (Sort 0)) (pi h 0 (pi x 2 #1 (app #1 #0)) (pi y 0 #2 (app #2 #0)))))
 term:   value (lam A 1 (Sort (succ 0)) (lam P 1 (pi [arrow] 0 #0 (Sort 0)) (lam h 0 (pi x 2 #1 (app #1 #0)) (lam y 0 #2 (app #1 #0)))))
+record: {"meta":{"exporter":{"name":"leanforth","version":"0.1.0-dev"},"format":{"version":"3.1.0"},"lean":{"githash":"none","version":"4.35.0"}}}
+record: {"in":1,"str":{"pre":0,"str":"strict_example"}}
+record: {"in":2,"str":{"pre":0,"str":"A"}}
+record: {"in":3,"str":{"pre":0,"str":"P"}}
+record: {"in":4,"str":{"pre":0,"str":"x"}}
+record: {"in":5,"str":{"pre":0,"str":"h"}}
+record: {"in":6,"str":{"pre":0,"str":"y"}}
+record: {"il":1,"succ":0}
+record: {"ie":0,"sort":1}
+record: {"ie":1,"sort":0}
+record: {"bvar":0,"ie":2}
+record: {"forallE":{"binderInfo":"default","body":1,"name":0,"type":2},"ie":3}
+record: {"bvar":1,"ie":4}
+record: {"app":{"arg":2,"fn":4},"ie":5}
+record: {"forallE":{"binderInfo":"strictImplicit","body":5,"name":4,"type":4},"ie":6}
+record: {"bvar":2,"ie":7}
+record: {"app":{"arg":2,"fn":7},"ie":8}
+record: {"ie":9,"lam":{"binderInfo":"default","body":5,"name":6,"type":7}}
+record: {"forallE":{"binderInfo":"default","body":8,"name":6,"type":7},"ie":10}
+record: {"ie":11,"lam":{"binderInfo":"default","body":9,"name":5,"type":6}}
+record: {"forallE":{"binderInfo":"default","body":10,"name":5,"type":6},"ie":12}
+record: {"ie":13,"lam":{"binderInfo":"implicit","body":11,"name":3,"type":3}}
+record: {"forallE":{"binderInfo":"implicit","body":12,"name":3,"type":3},"ie":14}
+record: {"ie":15,"lam":{"binderInfo":"implicit","body":13,"name":2,"type":0}}
+record: {"forallE":{"binderInfo":"implicit","body":14,"name":2,"type":0},"ie":16}
+record: {"thm":{"all":[1],"levelParams":[],"name":1,"type":16,"value":15}}
 words:
 theorem strict_example
   0 Type implicit: A
@@ -417,6 +706,23 @@ lean: fun Q q ↦ q
 term: 0 hyg_used
 term:   type (pi P._@.Main._hyg.#3 0 (Sort 0) (pi [arrow] 0 #0 #1))
 term:   value (lam Q 0 (Sort 0) (lam q 0 #0 #0))
+record: {"meta":{"exporter":{"name":"leanforth","version":"0.1.0-dev"},"format":{"version":"3.1.0"},"lean":{"githash":"none","version":"4.35.0"}}}
+record: {"in":1,"str":{"pre":0,"str":"hyg_used"}}
+record: {"in":2,"str":{"pre":0,"str":"P"}}
+record: {"in":3,"str":{"pre":2,"str":"_@"}}
+record: {"in":4,"str":{"pre":3,"str":"Main"}}
+record: {"in":5,"str":{"pre":4,"str":"_hyg"}}
+record: {"in":6,"num":{"i":3,"pre":5}}
+record: {"in":7,"str":{"pre":0,"str":"Q"}}
+record: {"in":8,"str":{"pre":0,"str":"q"}}
+record: {"ie":0,"sort":0}
+record: {"bvar":0,"ie":1}
+record: {"bvar":1,"ie":2}
+record: {"forallE":{"binderInfo":"default","body":2,"name":0,"type":1},"ie":3}
+record: {"forallE":{"binderInfo":"default","body":3,"name":6,"type":0},"ie":4}
+record: {"ie":5,"lam":{"binderInfo":"default","body":1,"name":8,"type":1}}
+record: {"ie":6,"lam":{"binderInfo":"default","body":5,"name":7,"type":0}}
+record: {"thm":{"all":[1],"levelParams":[],"name":1,"type":4,"value":6}}
 words:
 theorem hyg_used
   Prop explicit: P._@.Main._hyg.3 P._@.Main._hyg.3 P._@.Main._hyg.3 -> forall
@@ -438,6 +744,49 @@ term:   value none
 term: 3 MyMonoid.mk u:u
 term:   type (pi M 1 (Sort (succ (param u))) (pi mul 0 (pi [arrow] 0 #0 (pi [arrow] 0 #1 #2)) (pi one 0 #1 (pi mul_one 0 (pi a 0 #2 (app (app (app (const Eq (succ (param u))) #3) (app (app #2 #0) #1)) #0)) (app (const MyMonoid (param u)) #3)))))
 term:   value none
+record: {"meta":{"exporter":{"name":"leanforth","version":"0.1.0-dev"},"format":{"version":"3.1.0"},"lean":{"githash":"none","version":"4.35.0"}}}
+record: {"in":1,"str":{"pre":0,"str":"MyMonoid"}}
+record: {"in":2,"str":{"pre":0,"str":"u"}}
+record: {"in":3,"str":{"pre":0,"str":"M"}}
+record: {"in":4,"str":{"pre":0,"str":"Eq"}}
+record: {"in":5,"str":{"pre":0,"str":"u_1"}}
+record: {"in":6,"str":{"pre":0,"str":"α"}}
+record: {"in":7,"str":{"pre":1,"str":"mk"}}
+record: {"in":8,"str":{"pre":0,"str":"mul"}}
+record: {"in":9,"str":{"pre":0,"str":"one"}}
+record: {"in":10,"str":{"pre":0,"str":"a"}}
+record: {"in":11,"str":{"pre":0,"str":"mul_one"}}
+record: {"il":1,"param":2}
+record: {"il":2,"succ":1}
+record: {"il":3,"param":5}
+record: {"ie":0,"sort":2}
+record: {"forallE":{"binderInfo":"default","body":0,"name":3,"type":0},"ie":1}
+record: {"ie":2,"sort":3}
+record: {"ie":3,"sort":0}
+record: {"bvar":0,"ie":4}
+record: {"forallE":{"binderInfo":"default","body":3,"name":0,"type":4},"ie":5}
+record: {"bvar":1,"ie":6}
+record: {"forallE":{"binderInfo":"default","body":3,"name":0,"type":6},"ie":7}
+record: {"forallE":{"binderInfo":"default","body":7,"name":0,"type":4},"ie":8}
+record: {"forallE":{"binderInfo":"implicit","body":8,"name":6,"type":2},"ie":9}
+record: {"forallE":{"binderInfo":"default","body":6,"name":0,"type":4},"ie":10}
+record: {"bvar":2,"ie":11}
+record: {"forallE":{"binderInfo":"default","body":11,"name":0,"type":6},"ie":12}
+record: {"forallE":{"binderInfo":"default","body":12,"name":0,"type":4},"ie":13}
+record: {"const":{"name":4,"us":[2]},"ie":14}
+record: {"bvar":3,"ie":15}
+record: {"app":{"arg":15,"fn":14},"ie":16}
+record: {"app":{"arg":4,"fn":11},"ie":17}
+record: {"app":{"arg":6,"fn":17},"ie":18}
+record: {"app":{"arg":18,"fn":16},"ie":19}
+record: {"app":{"arg":4,"fn":19},"ie":20}
+record: {"forallE":{"binderInfo":"default","body":20,"name":10,"type":11},"ie":21}
+record: {"const":{"name":1,"us":[1]},"ie":22}
+record: {"app":{"arg":15,"fn":22},"ie":23}
+record: {"forallE":{"binderInfo":"default","body":23,"name":11,"type":21},"ie":24}
+record: {"forallE":{"binderInfo":"default","body":24,"name":9,"type":6},"ie":25}
+record: {"forallE":{"binderInfo":"default","body":25,"name":8,"type":13},"ie":26}
+record: {"forallE":{"binderInfo":"implicit","body":26,"name":3,"type":0},"ie":27}
 words:
 import-stub MyMonoid
   universe u
@@ -462,23 +811,12 @@ end MyMonoid.mk
 round trip: terms, names, kinds, labels and notes same; printed text same
 == 14-case
 ran: ok
-type: id.{u} : {α : Sort u} → α → α
-type: Id.{u} : Type u → Type u
 lean: def caseVar : {X : Type} → X → X :=
 lean: fun {X} x ↦ x
-lean: def bothIds : Id Nat → Id Nat :=
-lean: fun f ↦ id f
+lean: def bothIds : @Id Nat → @Id Nat :=
+lean: fun f ↦ @id (@Id Nat) f
 lean: def propVar : Prop → Prop :=
 lean: fun prop ↦ prop
-term: 3 Nat
-term:   type none
-term:   value none
-term: 3 id u:u
-term:   type (pi α 1 (Sort (param u)) (pi a 0 #0 #1))
-term:   value none
-term: 3 Id u:u
-term:   type (pi type 0 (Sort (succ (param u))) (Sort (succ (param u))))
-term:   value none
 term: 1 caseVar
 term:   type (pi X 1 (Sort (succ 0)) (pi x 0 #0 #1))
 term:   value (lam X 1 (Sort (succ 0)) (lam x 0 #0 #0))
@@ -488,23 +826,40 @@ term:   value (lam f 0 (app (const Id 0) (const Nat)) (app (app (const id (succ 
 term: 1 propVar
 term:   type (pi prop 0 (Sort 0) (Sort 0))
 term:   value (lam prop 0 (Sort 0) #0)
+record: {"meta":{"exporter":{"name":"leanforth","version":"0.1.0-dev"},"format":{"version":"3.1.0"},"lean":{"githash":"none","version":"4.35.0"}}}
+record: {"in":1,"str":{"pre":0,"str":"caseVar"}}
+record: {"in":2,"str":{"pre":0,"str":"X"}}
+record: {"in":3,"str":{"pre":0,"str":"x"}}
+record: {"in":4,"str":{"pre":0,"str":"bothIds"}}
+record: {"in":5,"str":{"pre":0,"str":"Id"}}
+record: {"in":6,"str":{"pre":0,"str":"Nat"}}
+record: {"in":7,"str":{"pre":0,"str":"f"}}
+record: {"in":8,"str":{"pre":0,"str":"id"}}
+record: {"in":9,"str":{"pre":0,"str":"propVar"}}
+record: {"in":10,"str":{"pre":0,"str":"prop"}}
+record: {"il":1,"succ":0}
+record: {"ie":0,"sort":1}
+record: {"bvar":0,"ie":1}
+record: {"bvar":1,"ie":2}
+record: {"ie":3,"lam":{"binderInfo":"default","body":1,"name":3,"type":1}}
+record: {"forallE":{"binderInfo":"default","body":2,"name":3,"type":1},"ie":4}
+record: {"ie":5,"lam":{"binderInfo":"implicit","body":3,"name":2,"type":0}}
+record: {"forallE":{"binderInfo":"implicit","body":4,"name":2,"type":0},"ie":6}
+record: {"const":{"name":5,"us":[0]},"ie":7}
+record: {"const":{"name":6,"us":[]},"ie":8}
+record: {"app":{"arg":8,"fn":7},"ie":9}
+record: {"const":{"name":8,"us":[1]},"ie":10}
+record: {"app":{"arg":9,"fn":10},"ie":11}
+record: {"app":{"arg":1,"fn":11},"ie":12}
+record: {"ie":13,"lam":{"binderInfo":"default","body":12,"name":7,"type":9}}
+record: {"forallE":{"binderInfo":"default","body":9,"name":7,"type":9},"ie":14}
+record: {"ie":15,"sort":0}
+record: {"ie":16,"lam":{"binderInfo":"default","body":1,"name":10,"type":15}}
+record: {"forallE":{"binderInfo":"default","body":15,"name":10,"type":15},"ie":17}
+record: {"def":{"all":[1],"hints":{"regular":1},"levelParams":[],"name":1,"safety":"safe","type":6,"value":5}}
+record: {"def":{"all":[4],"hints":{"regular":2},"levelParams":[],"name":4,"safety":"safe","type":14,"value":13}}
+record: {"def":{"all":[9],"hints":{"regular":1},"levelParams":[],"name":9,"safety":"safe","type":17,"value":16}}
 words:
-import-stub Nat
-end Nat
-
-import-stub id
-  universe u
-  u Sort implicit: α
-  α explicit: a
-  α
-end id
-
-import-stub Id
-  universe u
-  u Type explicit: type
-  u Type
-end Id
-
 def caseVar
   0 Type implicit: X
   X explicit: x
@@ -534,6 +889,19 @@ lean: fun {X} x ↦ x
 term: 1 caseVar
 term:   type (pi X 1 (Sort (succ 0)) (pi x 0 #0 #1))
 term:   value (lam X 1 (Sort (succ 0)) (lam x 0 #0 #0))
+record: {"meta":{"exporter":{"name":"leanforth","version":"0.1.0-dev"},"format":{"version":"3.1.0"},"lean":{"githash":"none","version":"4.35.0"}}}
+record: {"in":1,"str":{"pre":0,"str":"caseVar"}}
+record: {"in":2,"str":{"pre":0,"str":"X"}}
+record: {"in":3,"str":{"pre":0,"str":"x"}}
+record: {"il":1,"succ":0}
+record: {"ie":0,"sort":1}
+record: {"bvar":0,"ie":1}
+record: {"bvar":1,"ie":2}
+record: {"ie":3,"lam":{"binderInfo":"default","body":1,"name":3,"type":1}}
+record: {"forallE":{"binderInfo":"default","body":2,"name":3,"type":1},"ie":4}
+record: {"ie":5,"lam":{"binderInfo":"implicit","body":3,"name":2,"type":0}}
+record: {"forallE":{"binderInfo":"implicit","body":4,"name":2,"type":0},"ie":6}
+record: {"def":{"all":[1],"hints":{"regular":1},"levelParams":[],"name":1,"safety":"safe","type":6,"value":5}}
 words:
 def caseVar
   0 Type implicit: X
@@ -620,6 +988,50 @@ term:   value (const X.d)
 term: 1 W.t9
 term:   type (Sort (succ 0))
 term:   value (const Y.Z.h)
+record: {"meta":{"exporter":{"name":"leanforth","version":"0.1.0-dev"},"format":{"version":"3.1.0"},"lean":{"githash":"none","version":"4.35.0"}}}
+record: {"in":1,"str":{"pre":0,"str":"c"}}
+record: {"in":2,"str":{"pre":0,"str":"A"}}
+record: {"in":3,"str":{"pre":2,"str":"c"}}
+record: {"in":4,"str":{"pre":2,"str":"B"}}
+record: {"in":5,"str":{"pre":4,"str":"c"}}
+record: {"in":6,"str":{"pre":0,"str":"X"}}
+record: {"in":7,"str":{"pre":6,"str":"c"}}
+record: {"in":8,"str":{"pre":6,"str":"d"}}
+record: {"in":9,"str":{"pre":0,"str":"Y"}}
+record: {"in":10,"str":{"pre":9,"str":"Z"}}
+record: {"in":11,"str":{"pre":10,"str":"h"}}
+record: {"in":12,"str":{"pre":2,"str":"t1"}}
+record: {"in":13,"str":{"pre":2,"str":"t2"}}
+record: {"in":14,"str":{"pre":4,"str":"t3"}}
+record: {"in":15,"str":{"pre":4,"str":"t4"}}
+record: {"in":16,"str":{"pre":4,"str":"t5"}}
+record: {"in":17,"str":{"pre":2,"str":"t6"}}
+record: {"in":18,"str":{"pre":2,"str":"t7"}}
+record: {"in":19,"str":{"pre":2,"str":"t8"}}
+record: {"in":20,"str":{"pre":0,"str":"W"}}
+record: {"in":21,"str":{"pre":20,"str":"t9"}}
+record: {"il":1,"succ":0}
+record: {"ie":0,"sort":1}
+record: {"ie":1,"sort":0}
+record: {"const":{"name":3,"us":[]},"ie":2}
+record: {"const":{"name":5,"us":[]},"ie":3}
+record: {"const":{"name":8,"us":[]},"ie":4}
+record: {"const":{"name":11,"us":[]},"ie":5}
+record: {"def":{"all":[1],"hints":{"regular":1},"levelParams":[],"name":1,"safety":"safe","type":0,"value":1}}
+record: {"def":{"all":[3],"hints":{"regular":1},"levelParams":[],"name":3,"safety":"safe","type":0,"value":1}}
+record: {"def":{"all":[5],"hints":{"regular":1},"levelParams":[],"name":5,"safety":"safe","type":0,"value":1}}
+record: {"def":{"all":[7],"hints":{"regular":1},"levelParams":[],"name":7,"safety":"safe","type":0,"value":1}}
+record: {"def":{"all":[8],"hints":{"regular":1},"levelParams":[],"name":8,"safety":"safe","type":0,"value":1}}
+record: {"def":{"all":[11],"hints":{"regular":1},"levelParams":[],"name":11,"safety":"safe","type":0,"value":1}}
+record: {"def":{"all":[12],"hints":{"regular":2},"levelParams":[],"name":12,"safety":"safe","type":0,"value":2}}
+record: {"def":{"all":[13],"hints":{"regular":2},"levelParams":[],"name":13,"safety":"safe","type":0,"value":2}}
+record: {"def":{"all":[14],"hints":{"regular":2},"levelParams":[],"name":14,"safety":"safe","type":0,"value":3}}
+record: {"def":{"all":[15],"hints":{"regular":2},"levelParams":[],"name":15,"safety":"safe","type":0,"value":3}}
+record: {"def":{"all":[16],"hints":{"regular":2},"levelParams":[],"name":16,"safety":"safe","type":0,"value":3}}
+record: {"def":{"all":[17],"hints":{"regular":2},"levelParams":[],"name":17,"safety":"safe","type":0,"value":2}}
+record: {"def":{"all":[18],"hints":{"regular":2},"levelParams":[],"name":18,"safety":"safe","type":0,"value":2}}
+record: {"def":{"all":[19],"hints":{"regular":2},"levelParams":[],"name":19,"safety":"safe","type":0,"value":4}}
+record: {"def":{"all":[21],"hints":{"regular":2},"levelParams":[],"name":21,"safety":"safe","type":0,"value":5}}
 words:
 def c
   0 Type
@@ -790,6 +1202,50 @@ term:   value (const A.x)
 term: 1 P.t8
 term:   type (Sort (succ 0))
 term:   value (const q)
+record: {"meta":{"exporter":{"name":"leanforth","version":"0.1.0-dev"},"format":{"version":"3.1.0"},"lean":{"githash":"none","version":"4.35.0"}}}
+record: {"in":1,"str":{"pre":0,"str":"bar"}}
+record: {"in":2,"str":{"pre":0,"str":"N"}}
+record: {"in":3,"str":{"pre":2,"str":"bar"}}
+record: {"in":4,"str":{"pre":2,"str":"baz"}}
+record: {"in":5,"str":{"pre":0,"str":"A"}}
+record: {"in":6,"str":{"pre":5,"str":"x"}}
+record: {"in":7,"str":{"pre":5,"str":"B"}}
+record: {"in":8,"str":{"pre":7,"str":"x"}}
+record: {"in":9,"str":{"pre":0,"str":"P"}}
+record: {"in":10,"str":{"pre":9,"str":"q"}}
+record: {"in":11,"str":{"pre":0,"str":"q"}}
+record: {"in":12,"str":{"pre":2,"str":"t1"}}
+record: {"in":13,"str":{"pre":2,"str":"t2"}}
+record: {"in":14,"str":{"pre":2,"str":"t3"}}
+record: {"in":15,"str":{"pre":2,"str":"t4"}}
+record: {"in":16,"str":{"pre":0,"str":"M"}}
+record: {"in":17,"str":{"pre":16,"str":"t5"}}
+record: {"in":18,"str":{"pre":16,"str":"t6"}}
+record: {"in":19,"str":{"pre":7,"str":"t7"}}
+record: {"in":20,"str":{"pre":9,"str":"t8"}}
+record: {"il":1,"succ":0}
+record: {"ie":0,"sort":1}
+record: {"ie":1,"sort":0}
+record: {"const":{"name":1,"us":[]},"ie":2}
+record: {"const":{"name":3,"us":[]},"ie":3}
+record: {"const":{"name":4,"us":[]},"ie":4}
+record: {"const":{"name":6,"us":[]},"ie":5}
+record: {"const":{"name":11,"us":[]},"ie":6}
+record: {"def":{"all":[1],"hints":{"regular":1},"levelParams":[],"name":1,"safety":"safe","type":0,"value":1}}
+record: {"def":{"all":[3],"hints":{"regular":1},"levelParams":[],"name":3,"safety":"safe","type":0,"value":1}}
+record: {"def":{"all":[4],"hints":{"regular":1},"levelParams":[],"name":4,"safety":"safe","type":0,"value":1}}
+record: {"def":{"all":[6],"hints":{"regular":1},"levelParams":[],"name":6,"safety":"safe","type":0,"value":1}}
+record: {"def":{"all":[8],"hints":{"regular":1},"levelParams":[],"name":8,"safety":"safe","type":0,"value":1}}
+record: {"def":{"all":[10],"hints":{"regular":1},"levelParams":[],"name":10,"safety":"safe","type":0,"value":1}}
+record: {"def":{"all":[11],"hints":{"regular":1},"levelParams":[],"name":11,"safety":"safe","type":0,"value":1}}
+record: {"def":{"all":[12],"hints":{"regular":2},"levelParams":[],"name":12,"safety":"safe","type":0,"value":2}}
+record: {"def":{"all":[13],"hints":{"regular":2},"levelParams":[],"name":13,"safety":"safe","type":0,"value":3}}
+record: {"def":{"all":[14],"hints":{"regular":2},"levelParams":[],"name":14,"safety":"safe","type":0,"value":4}}
+record: {"def":{"all":[15],"hints":{"regular":2},"levelParams":[],"name":15,"safety":"safe","type":0,"value":2}}
+record: {"def":{"all":[17],"hints":{"regular":2},"levelParams":[],"name":17,"safety":"safe","type":0,"value":4}}
+record: {"def":{"all":[18],"hints":{"regular":2},"levelParams":[],"name":18,"safety":"safe","type":0,"value":2}}
+record: {"def":{"all":[19],"hints":{"regular":2},"levelParams":[],"name":19,"safety":"safe","type":0,"value":5}}
+record: {"def":{"all":[20],"hints":{"regular":2},"levelParams":[],"name":20,"safety":"safe","type":0,"value":6}}
 words:
 def bar
   0 Type
@@ -880,4 +1336,210 @@ def P.t8
 :=
   root: q
 end P.t8
+round trip: terms, names, kinds, labels and notes same; printed text same
+== 19-add-zero
+ran: ok
+lean: theorem add_zero' : ∀ (n : Nat), @Eq Nat (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) n (@OfNat.ofNat Nat 0 (instOfNatNat 0))) n :=
+lean: fun n ↦ @Eq.refl Nat n
+term: 0 add_zero'
+term:   type (pi n 0 (const Nat) (app (app (app (const Eq (succ 0)) (const Nat)) (app (app (app (app (app (app (const HAdd.hAdd 0 0 0) (const Nat)) (const Nat)) (const Nat)) (app (app (const instHAdd 0) (const Nat)) (const instAddNat))) #0) (app (app (app (const OfNat.ofNat 0) (const Nat)) (lit 0 0)) (app (const instOfNatNat) (lit 0 0))))) #0))
+term:   value (lam n 0 (const Nat) (app (app (const Eq.refl (succ 0)) (const Nat)) #0))
+record: {"meta":{"exporter":{"name":"leanforth","version":"0.1.0-dev"},"format":{"version":"3.1.0"},"lean":{"githash":"none","version":"4.35.0"}}}
+record: {"in":1,"str":{"pre":0,"str":"add_zero'"}}
+record: {"in":2,"str":{"pre":0,"str":"Nat"}}
+record: {"in":3,"str":{"pre":0,"str":"n"}}
+record: {"in":4,"str":{"pre":0,"str":"Eq"}}
+record: {"in":5,"str":{"pre":0,"str":"HAdd"}}
+record: {"in":6,"str":{"pre":5,"str":"hAdd"}}
+record: {"in":7,"str":{"pre":0,"str":"instHAdd"}}
+record: {"in":8,"str":{"pre":0,"str":"instAddNat"}}
+record: {"in":9,"str":{"pre":0,"str":"OfNat"}}
+record: {"in":10,"str":{"pre":9,"str":"ofNat"}}
+record: {"in":11,"str":{"pre":0,"str":"instOfNatNat"}}
+record: {"in":12,"str":{"pre":4,"str":"refl"}}
+record: {"il":1,"succ":0}
+record: {"const":{"name":2,"us":[]},"ie":0}
+record: {"const":{"name":4,"us":[1]},"ie":1}
+record: {"app":{"arg":0,"fn":1},"ie":2}
+record: {"const":{"name":6,"us":[0,0,0]},"ie":3}
+record: {"app":{"arg":0,"fn":3},"ie":4}
+record: {"app":{"arg":0,"fn":4},"ie":5}
+record: {"app":{"arg":0,"fn":5},"ie":6}
+record: {"const":{"name":7,"us":[0]},"ie":7}
+record: {"app":{"arg":0,"fn":7},"ie":8}
+record: {"const":{"name":8,"us":[]},"ie":9}
+record: {"app":{"arg":9,"fn":8},"ie":10}
+record: {"app":{"arg":10,"fn":6},"ie":11}
+record: {"bvar":0,"ie":12}
+record: {"app":{"arg":12,"fn":11},"ie":13}
+record: {"const":{"name":10,"us":[0]},"ie":14}
+record: {"app":{"arg":0,"fn":14},"ie":15}
+record: {"ie":16,"natVal":"0"}
+record: {"app":{"arg":16,"fn":15},"ie":17}
+record: {"const":{"name":11,"us":[]},"ie":18}
+record: {"app":{"arg":16,"fn":18},"ie":19}
+record: {"app":{"arg":19,"fn":17},"ie":20}
+record: {"app":{"arg":20,"fn":13},"ie":21}
+record: {"app":{"arg":21,"fn":2},"ie":22}
+record: {"app":{"arg":12,"fn":22},"ie":23}
+record: {"const":{"name":12,"us":[1]},"ie":24}
+record: {"app":{"arg":0,"fn":24},"ie":25}
+record: {"app":{"arg":12,"fn":25},"ie":26}
+record: {"ie":27,"lam":{"binderInfo":"default","body":26,"name":3,"type":0}}
+record: {"forallE":{"binderInfo":"default","body":23,"name":3,"type":0},"ie":28}
+record: {"thm":{"all":[1],"levelParams":[],"name":1,"type":28,"value":27}}
+words:
+theorem add_zero'
+  Nat explicit: n
+  Eq 1 ^ Nat $ HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $ instHAdd 0 ^ Nat $ instAddNat $ $ n
+    $ OfNat.ofNat 0 ^ Nat $ 0 lit# $ instOfNatNat 0 lit# $ $ $ $ n $
+:=
+  Eq.refl 1 ^ Nat $ n $
+end add_zero'
+round trip: terms, names, kinds, labels and notes same; printed text same
+== 20-zero-add
+ran: ok
+lean: theorem zero_add' : ∀ (n : Nat), @Eq Nat (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) (@OfNat.ofNat Nat 0 (instOfNatNat 0)) n) n :=
+lean: fun n ↦ @Nat.rec (fun k ↦ @Eq Nat (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) (@OfNat.ofNat Nat 0 (instOfNatNat 0)) k) k) (@Eq.refl Nat (@OfNat.ofNat Nat 0 (instOfNatNat 0))) (fun k ih ↦ @congrArg Nat Nat (@HAdd.hAdd Nat Nat Nat (@instHAdd Nat instAddNat) (@OfNat.ofNat Nat 0 (instOfNatNat 0)) k) k Nat.succ ih) n
+term: 0 zero_add'
+term:   type (pi n 0 (const Nat) (app (app (app (const Eq (succ 0)) (const Nat)) (app (app (app (app (app (app (const HAdd.hAdd 0 0 0) (const Nat)) (const Nat)) (const Nat)) (app (app (const instHAdd 0) (const Nat)) (const instAddNat))) (app (app (app (const OfNat.ofNat 0) (const Nat)) (lit 0 0)) (app (const instOfNatNat) (lit 0 0)))) #0)) #0))
+term:   value (lam n 0 (const Nat) (app (app (app (app (const Nat.rec 0) (lam k 0 (const Nat) (app (app (app (const Eq (succ 0)) (const Nat)) (app (app (app (app (app (app (const HAdd.hAdd 0 0 0) (const Nat)) (const Nat)) (const Nat)) (app (app (const instHAdd 0) (const Nat)) (const instAddNat))) (app (app (app (const OfNat.ofNat 0) (const Nat)) (lit 0 0)) (app (const instOfNatNat) (lit 0 0)))) #0)) #0))) (app (app (const Eq.refl (succ 0)) (const Nat)) (app (app (app (const OfNat.ofNat 0) (const Nat)) (lit 0 0)) (app (const instOfNatNat) (lit 0 0))))) (lam k 0 (const Nat) (lam ih 0 (app (app (app (const Eq (succ 0)) (const Nat)) (app (app (app (app (app (app (const HAdd.hAdd 0 0 0) (const Nat)) (const Nat)) (const Nat)) (app (app (const instHAdd 0) (const Nat)) (const instAddNat))) (app (app (app (const OfNat.ofNat 0) (const Nat)) (lit 0 0)) (app (const instOfNatNat) (lit 0 0)))) #0)) #0) (app (app (app (app (app (app (const congrArg (succ 0) (succ 0)) (const Nat)) (const Nat)) (app (app (app (app (app (app (const HAdd.hAdd 0 0 0) (const Nat)) (const Nat)) (const Nat)) (app (app (const instHAdd 0) (const Nat)) (const instAddNat))) (app (app (app (const OfNat.ofNat 0) (const Nat)) (lit 0 0)) (app (const instOfNatNat) (lit 0 0)))) #1)) #1) (const Nat.succ)) #0)))) #0))
+record: {"meta":{"exporter":{"name":"leanforth","version":"0.1.0-dev"},"format":{"version":"3.1.0"},"lean":{"githash":"none","version":"4.35.0"}}}
+record: {"in":1,"str":{"pre":0,"str":"zero_add'"}}
+record: {"in":2,"str":{"pre":0,"str":"Nat"}}
+record: {"in":3,"str":{"pre":0,"str":"n"}}
+record: {"in":4,"str":{"pre":0,"str":"Eq"}}
+record: {"in":5,"str":{"pre":0,"str":"HAdd"}}
+record: {"in":6,"str":{"pre":5,"str":"hAdd"}}
+record: {"in":7,"str":{"pre":0,"str":"instHAdd"}}
+record: {"in":8,"str":{"pre":0,"str":"instAddNat"}}
+record: {"in":9,"str":{"pre":0,"str":"OfNat"}}
+record: {"in":10,"str":{"pre":9,"str":"ofNat"}}
+record: {"in":11,"str":{"pre":0,"str":"instOfNatNat"}}
+record: {"in":12,"str":{"pre":2,"str":"rec"}}
+record: {"in":13,"str":{"pre":0,"str":"k"}}
+record: {"in":14,"str":{"pre":4,"str":"refl"}}
+record: {"in":15,"str":{"pre":0,"str":"ih"}}
+record: {"in":16,"str":{"pre":0,"str":"congrArg"}}
+record: {"in":17,"str":{"pre":2,"str":"succ"}}
+record: {"il":1,"succ":0}
+record: {"const":{"name":2,"us":[]},"ie":0}
+record: {"const":{"name":4,"us":[1]},"ie":1}
+record: {"app":{"arg":0,"fn":1},"ie":2}
+record: {"const":{"name":6,"us":[0,0,0]},"ie":3}
+record: {"app":{"arg":0,"fn":3},"ie":4}
+record: {"app":{"arg":0,"fn":4},"ie":5}
+record: {"app":{"arg":0,"fn":5},"ie":6}
+record: {"const":{"name":7,"us":[0]},"ie":7}
+record: {"app":{"arg":0,"fn":7},"ie":8}
+record: {"const":{"name":8,"us":[]},"ie":9}
+record: {"app":{"arg":9,"fn":8},"ie":10}
+record: {"app":{"arg":10,"fn":6},"ie":11}
+record: {"const":{"name":10,"us":[0]},"ie":12}
+record: {"app":{"arg":0,"fn":12},"ie":13}
+record: {"ie":14,"natVal":"0"}
+record: {"app":{"arg":14,"fn":13},"ie":15}
+record: {"const":{"name":11,"us":[]},"ie":16}
+record: {"app":{"arg":14,"fn":16},"ie":17}
+record: {"app":{"arg":17,"fn":15},"ie":18}
+record: {"app":{"arg":18,"fn":11},"ie":19}
+record: {"bvar":0,"ie":20}
+record: {"app":{"arg":20,"fn":19},"ie":21}
+record: {"app":{"arg":21,"fn":2},"ie":22}
+record: {"app":{"arg":20,"fn":22},"ie":23}
+record: {"ie":24,"lam":{"binderInfo":"default","body":23,"name":13,"type":0}}
+record: {"const":{"name":12,"us":[0]},"ie":25}
+record: {"app":{"arg":24,"fn":25},"ie":26}
+record: {"const":{"name":14,"us":[1]},"ie":27}
+record: {"app":{"arg":0,"fn":27},"ie":28}
+record: {"app":{"arg":18,"fn":28},"ie":29}
+record: {"app":{"arg":29,"fn":26},"ie":30}
+record: {"const":{"name":16,"us":[1,1]},"ie":31}
+record: {"app":{"arg":0,"fn":31},"ie":32}
+record: {"app":{"arg":0,"fn":32},"ie":33}
+record: {"bvar":1,"ie":34}
+record: {"app":{"arg":34,"fn":19},"ie":35}
+record: {"app":{"arg":35,"fn":33},"ie":36}
+record: {"app":{"arg":34,"fn":36},"ie":37}
+record: {"const":{"name":17,"us":[]},"ie":38}
+record: {"app":{"arg":38,"fn":37},"ie":39}
+record: {"app":{"arg":20,"fn":39},"ie":40}
+record: {"ie":41,"lam":{"binderInfo":"default","body":40,"name":15,"type":23}}
+record: {"ie":42,"lam":{"binderInfo":"default","body":41,"name":13,"type":0}}
+record: {"app":{"arg":42,"fn":30},"ie":43}
+record: {"app":{"arg":20,"fn":43},"ie":44}
+record: {"ie":45,"lam":{"binderInfo":"default","body":44,"name":3,"type":0}}
+record: {"forallE":{"binderInfo":"default","body":23,"name":3,"type":0},"ie":46}
+record: {"thm":{"all":[1],"levelParams":[],"name":1,"type":46,"value":45}}
+words:
+theorem zero_add'
+  Nat explicit: n
+  Eq 1 ^ Nat $ HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $ instHAdd 0 ^ Nat $ instAddNat $ $
+    OfNat.ofNat 0 ^ Nat $ 0 lit# $ instOfNatNat 0 lit# $ $ $ n $ $ n $
+:=
+  Nat.rec 0 ^ Nat explicit: k Eq 1 ^ Nat $ HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $
+    instHAdd 0 ^ Nat $ instAddNat $ $ OfNat.ofNat 0 ^ Nat $ 0 lit# $ instOfNatNat 0 lit# $
+    $ $ k $ $ k $ fun label: motive $ Eq.refl 1 ^ Nat $ OfNat.ofNat 0 ^ Nat $ 0 lit# $
+    instOfNatNat 0 lit# $ $ $ label: base $ Nat explicit: k Eq 1 ^ Nat $ HAdd.hAdd 0 ^ 0 ^
+    0 ^ Nat $ Nat $ Nat $ instHAdd 0 ^ Nat $ instAddNat $ $ OfNat.ofNat 0 ^ Nat $ 0 lit# $
+    instOfNatNat 0 lit# $ $ $ k $ $ k $ explicit: ih congrArg 1 ^ 1 ^ Nat $ Nat $
+    HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $ instHAdd 0 ^ Nat $ instAddNat $ $ OfNat.ofNat
+    0 ^ Nat $ 0 lit# $ instOfNatNat 0 lit# $ $ $ k $ $ k $ Nat.succ $ ih $ fun fun
+    label: step $ n $
+end zero_add'
+round trip: terms, names, kinds, labels and notes same; printed text same
+== 21-numeric-name
+ran: ok
+lean: theorem _private.tests.reference.author-21-numeric-name.0.twice : ∀ (p : Prop), p → p :=
+lean: fun p h ↦ h
+lean: theorem useTwice : ∀ (p : Prop), p → p :=
+lean: fun p h ↦ _private.tests.reference.author-21-numeric-name.0.twice p h
+term: 0 _private.tests.reference.author-21-numeric-name.#0.twice
+term:   type (pi p 0 (Sort 0) (pi h 0 #0 #1))
+term:   value (lam p 0 (Sort 0) (lam h 0 #0 #0))
+term: 0 useTwice
+term:   type (pi p 0 (Sort 0) (pi h 0 #0 #1))
+term:   value (lam p 0 (Sort 0) (lam h 0 #0 (app (app (const _private.tests.reference.author-21-numeric-name.#0.twice) #1) #0)))
+record: {"meta":{"exporter":{"name":"leanforth","version":"0.1.0-dev"},"format":{"version":"3.1.0"},"lean":{"githash":"none","version":"4.35.0"}}}
+record: {"in":1,"str":{"pre":0,"str":"_private"}}
+record: {"in":2,"str":{"pre":1,"str":"tests"}}
+record: {"in":3,"str":{"pre":2,"str":"reference"}}
+record: {"in":4,"str":{"pre":3,"str":"author-21-numeric-name"}}
+record: {"in":5,"num":{"i":0,"pre":4}}
+record: {"in":6,"str":{"pre":5,"str":"twice"}}
+record: {"in":7,"str":{"pre":0,"str":"p"}}
+record: {"in":8,"str":{"pre":0,"str":"h"}}
+record: {"in":9,"str":{"pre":0,"str":"useTwice"}}
+record: {"ie":0,"sort":0}
+record: {"bvar":0,"ie":1}
+record: {"bvar":1,"ie":2}
+record: {"ie":3,"lam":{"binderInfo":"default","body":1,"name":8,"type":1}}
+record: {"forallE":{"binderInfo":"default","body":2,"name":8,"type":1},"ie":4}
+record: {"ie":5,"lam":{"binderInfo":"default","body":3,"name":7,"type":0}}
+record: {"forallE":{"binderInfo":"default","body":4,"name":7,"type":0},"ie":6}
+record: {"const":{"name":6,"us":[]},"ie":7}
+record: {"app":{"arg":2,"fn":7},"ie":8}
+record: {"app":{"arg":1,"fn":8},"ie":9}
+record: {"ie":10,"lam":{"binderInfo":"default","body":9,"name":8,"type":1}}
+record: {"forallE":{"binderInfo":"default","body":2,"name":8,"type":1},"ie":11}
+record: {"ie":12,"lam":{"binderInfo":"default","body":10,"name":7,"type":0}}
+record: {"forallE":{"binderInfo":"default","body":11,"name":7,"type":0},"ie":13}
+record: {"thm":{"all":[6],"levelParams":[],"name":6,"type":6,"value":5}}
+record: {"thm":{"all":[9],"levelParams":[],"name":9,"type":13,"value":12}}
+words:
+theorem _private.tests.reference.author-21-numeric-name.0.twice
+  Prop explicit: p
+  p explicit: h
+  p
+:=
+  h
+end _private.tests.reference.author-21-numeric-name.0.twice
+
+theorem useTwice
+  Prop explicit: p
+  p explicit: h
+  p
+:=
+  _private.tests.reference.author-21-numeric-name.0.twice p $ h $
+end useTwice
 round trip: terms, names, kinds, labels and notes same; printed text same

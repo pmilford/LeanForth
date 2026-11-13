@@ -11,12 +11,14 @@ interface for running and printing, every error code, and the limits.
 
 The authoring words build terms in LeanForth's stores; they decide
 nothing. Only the checker can accept a theorem, and nothing here is part
-of a verdict. The checker never loads `src/author/`: `make test` checks
-that no module `src/main.fs`, `src/core/` or `src/kernel/` loads reaches
-it (`tests/author/check_author.py`). Running proof text executes the
-author's words in the same Forth image as the stores; the separate
-authoring process that will hand the checker serialized terms only is
-plan task 8.2.1 and is not built.
+of a verdict. The kernel never loads `src/author/`: `make test` checks
+that no module of `src/core/`, `src/kernel/` or `src/import/` reaches it
+(`tests/author/check_author.py`). Since plan task 8.2.1c the command line
+does (`src/cli/check-lf.fs`, so `src/main.fs` too): `leanforth check
+FILE.lf` runs the text in the checker's Gforth, sealed (ADR 0017
+Amendment 1, A5), and hands the declarations it made to the kernel as
+export records through the importer stage ([checking text](#checking-text-the-export-and-the-library),
+[ADR 0017 Amendment 2](../adr/0017-leanforth-syntax.md#amendment-2-leanforth-text-checked-by-the-kernel-2026-11-12)).
 
 ## Modules
 
@@ -31,8 +33,11 @@ plan task 8.2.1 and is not built.
 | `src/author/groups.fs` | the wordlists, syntax words, name groups and their entries; the numbers check | `lfa-entries`, `lfa-groups` |
 | `src/author/namespaces.fs` | namespaces, `open`, and which constant a name means (Lean's resolution) | `lfa-spaces`, `lfa-knowns` |
 | `src/author/declarations.fs` | declarations, universes, binders | `lfa-current` |
+| `src/author/library.fs` | a library's constants, found through a finder (8.2.1d); checked runs refuse stubs | `lfa-library` |
 | `src/author/words.fs` | the vocabulary (LF-WORDS) | none |
-| `src/author/runner.fs` | running text and files; the public interface | `lfa-run` |
+| `src/author/export.fs` | a run's declarations as export records, to a sink (8.2.1c) | `lfx` |
+| `src/author/runner.fs` | running text and files; the look-ahead for a library; the public interface | `lfa-run` |
+| `src/cli/check-lf.fs` | `leanforth check FILE.lf`: the library, the text and its records into the stage | `lfc` (and check-run.fs's) |
 | `src/present/note-table.fs` | labels and notes per term | `lf-notes` |
 | `src/present/print-forth.fs` | the term printer's Forth mode | `lf-pforth` (and the printer's) |
 
@@ -70,7 +75,7 @@ universe level or a number, *c* a constant waiting for universe arguments,
 | `var#` | `( n -- t )` | bound variable n (de Bruijn index) |
 | `root:` NAME | `( -- c )` | the constant NAME in LF-CONST, whatever else has the name |
 | `lit#` | `( n -- t )` | the natural-number literal n (Lean's `Expr.lit (.natVal n)`; a number of one cell, at most 2^63 - 1). `OfNat.ofNat 0 ^ Nat $ 0 lit# $ instOfNatNat 0 lit# $ $ $` is Lean's `(0 : Nat)` |
-| `proj#` NAME | `( i -- t )` | the projection leaf of field i (from 0) of the structure NAME, a full name of a declared constant; `$` applies it to e, which makes Lean's `Expr.proj S i e`: `0 proj# Prod p $` is `p.1` |
+| `proj#` NAME | `( i -- t )` | the projection leaf of field i (from 0) of the structure NAME, a full name of a declared constant; `$` applies it to e, which makes Lean's `Expr.proj S i e`: `0 proj# Prod p $` is `p.1`. The leaf is a term only as the function of `$`; anywhere else (an argument, a statement, a proof, a binder's type, a label) the run stops with error 56 |
 | `label:` NAME | `( t -- t )` | a step label, unique in the declaration |
 | `note"` text`"`, `ai-note"` text`"` | `( t -- t )` | a note by a person, by an AI |
 | `\`, `(` | `( -- )` | comments, as in Forth, on one line |
@@ -138,6 +143,10 @@ keyword or contains a character no unquoted Lean identifier has (ADR
 | `lf-print-forth-term` | `( term fuel -- outcome )` | a closed term as words |
 | `lf-print-forth-decl` | `( decl fuel -- outcome )` | a `/lf-fdecl` record as words |
 | `lf-note-add` | `( c-addr u kind term -- i outcome )` | a label or note on a term (`note-table.fs`) |
+| `lf-author-export` | `( sink -- outcome )` | the run's theorems, definitions and axioms as export records, a line at a time to sink `( c-addr u -- outcome )` (`export.fs`) |
+| `lf-author-library!` | `( finder\|0 -- )` | the library a run may name: finder `( name -- universes height true \| false )`, or none (`library.fs`) |
+| `lf-author-checked!` | `( flag -- )` | true: a checked run, which refuses `import-stub` (error 48) |
+| `lfc-library-open`, `lfc-library-close` | `( c-addr u checked? -- outcome )`, `( -- )` | an export as the library of later runs, outside `check` (`cli/check-lf.fs`) |
 
 A run's outcome is ok, or that of its first error: invalid (a mistake),
 unsupported (a form not built yet) or full (out of room). An error stops
@@ -192,6 +201,60 @@ A5):
   a `VALUE`, `DEFER` or `VARIABLE`: Gforth 1.0's `->` recognizer writes
   any of those it finds in the search order. A test checks every word of
   the three lists on Gforth 1.0.
+
+### Checking text: the export and the library
+
+`leanforth check [--env EXPORT | --snapshot FILE] FILE.lf`
+([the command line](../user/COMMAND_LINE.md#checking-leanforth-text);
+plan tasks 8.2.1c-d; ADR 0017 Amendment 2) runs in this order
+(`src/cli/check-lf.fs`, `ck-lf-load`, in place of `ck-load`):
+
+1. **The library.** With `--env`, the export is read into the importer
+   stage (`stage-read`, its manifest checked unless `--no-manifest`) and
+   not sealed; with `--snapshot`, the snapshot's tier is loaded as for
+   `check --snapshot FILE EXPORT`. Without either, the stage is empty.
+2. **The text**, a checked run (`lf-author-checked!`, so `import-stub`
+   stops with error 48) with the finder `lfc-find`, which looks a name of
+   the run up in the stage's names (`name-seek-str`, part by part) and
+   declarations (one declaration of that name, its universe parameters and
+   its height when it is a definition with regular hints). A constant
+   named for the first time gets a record of kind `lfa-decl-library`
+   (`constants.fs`): never printed, never exported. While a library is
+   set, the runner's **look-ahead** gives every token of a line, up to a
+   `\` comment, that no word list of the run has and that is not
+   number-like, a group word in LF-CONST before the line runs, so that a
+   library name reaches `lfa-const-run` and Lean's resolution (§9). Error
+   55: a one-part name that reaches a library constant through a namespace
+   (its export does not say whether it is protected); error 28: a
+   declaration that takes a library constant's name. A run that declares
+   nothing of its own stops with error 49. The stores get the room the heap
+   has during the run (`lfc-rooms`), and their settings back after.
+3. **The records.** `stage-extend` keeps the library's declarations and
+   `stage-produce` reads the lines `lf-author-export` writes: a metadata
+   record (exporter `leanforth`, read with `stage-any-version!`), every
+   name of the name store in ID order, every level but zero and every term
+   node but a projection's leaf in store order (the stores only append, so
+   a record names earlier ones only), then each theorem, definition (hints
+   regular, height one above the highest definition its value names) and
+   axiom. Each line is a JSON text of `src/lib/json-write.fs`, its keys in
+   Lean's sorted order (the writer's sorted mode) and its strings escaped
+   as Lean's `Json.compress` escapes them: the same format as pinned Lean's
+   export, not the same bytes (the numbering is store order, nodes are not
+   merged as lean4export merges them, the metadata names LeanForth). A
+   reference to a projection's leaf or a level of an unknown tag is
+   refused (unsupported), never written. The stage is
+   sealed and fed; the run goes on as an export's (`ck-check`, the import
+   pass first for a snapshot), and `cli/leanforth.fs` prints the report.
+   `make test` compares each fixture's records with the words' terms and
+   `make check` with pinned Lean's export of its Lean source.
+4. **A text that stops** (any error of the run) is not staged, sealed or
+   checked: `lfc-failed?` is true and the command line prints the error
+   (`lf-author-error.`) with its outcome's exit status. A text that ran
+   but whose records the writer or the stage refused is not checked
+   either: `lfc-refused?` is true and the error is said of the text. Each
+   text's run starts with both flags cleared (`lfc-fresh`), and the
+   stores' room and term sharing are given back after the words and the
+   records, even after a THROW, which then passes on.
 
 The printer's Forth mode returns ok; invalid for a malformed term or a
 variable bound by an arrow; unsupported for a name it cannot spell (a
@@ -264,11 +327,15 @@ below it).
 | 45 | invalid | LeanForth text runs only while Forth interprets, never while it compiles |
 | 46 | invalid | a character no line may hold (a control or format character, or no UTF-8) |
 | 47 | full | out of room: the search order holds more wordlists than a run can save |
+| 48 | invalid | import-stub is never checked: name the library with --env and use its constant |
+| 49 | invalid | nothing to check: the text declares no theorem, definition or axiom |
 | 50 | unsupported | not supported yet: natural-number literals need literal nodes (ADR 0017 section 14) |
 | 51 | unsupported | not supported yet: designed in ADR 0017 but not built yet |
 | 52 | unsupported | not supported yet: holes are filled by the elaborator (plan task 8.3.1) |
 | 53 | unsupported | not supported yet: _root_ in a declaration's name |
 | 54 | unsupported | not supported yet: export and the aliases it makes |
+| 55 | unsupported | not supported yet: a library constant by a short name; write the full name |
+| 56 | invalid | a projection leaf is no term: apply it with $ to the term it projects |
 | 60 | full | out of room: the term store is full |
 | 61 | full | out of room: the level store is full or the level too large |
 | 62 | full | out of room: the name store is full or the name too long |
@@ -332,16 +399,34 @@ a run while Forth compiles refused with nothing compiled, characters a
 line may not hold, a Forth exception's token, lines counted per text,
 Forth-word names as harmless groups, a later `lfa-group:` never run, the
 dictionary reserve and, on Gforth 1.0, `0 ->NAME` throwing −21 for every
-word of the sealed lists) and
-`tests/author/check_author.py` (22 example files against
-`fixtures.golden`, which records each declaration's terms as a tree dump,
-with a round trip each; this table; the layering check; round trips over
-the term printer's 50 cases and the five Lean exports); the syntax page's
+word of the sealed lists; the export's lines, heights, levels, literals
+and binder kinds, a sink's refusal, a full line and an unsupported node;
+a library's constant found by a finder, its record and height, errors 1,
+28, 48 and 55; the look-ahead's group words, a comment and a number-like
+token; the look-ahead stopping at the reserve), `tests/core/stage.fs`
+(`stage-produce` and `stage-extend`: lines a producer hands over, a
+refusal rolled back, an extended read keeping both reads' declarations)
+and `tests/author/check_author.py` (25 example files against
+`fixtures.golden`, which records each declaration's terms as a tree dump
+and the export records the kernel is given, with a round trip each, the
+five that name a library run with it through
+`tests/author/report-library.fs`; the records against the terms; this
+table; the layering check; round
+trips over the term printer's 50 cases and the five Lean exports; and
+`leanforth check` on every example file, 19 accepted and 6 stopped before
+any check, each verdict found by its declaration's name, on the four wrong
+twins in `tests/author/wrong/`, rejected, and
+the command cases of every outcome and misuse); the syntax page's
 examples. Run the unit tests with Gforth 0.7.3 too when the runner
 changes: the numbers check is host-sensitive.
 
-`make check` (target `reference-author`) compares with Lean, for the 16
-example files with a Lean source (`tests/reference/author-*.lean`):
+`make check` (target `reference-author`) compares with Lean, for the 19
+example files with a Lean source (`tests/reference/author-*.lean`); pinned
+Lean refuses the Lean sources of the four wrong twins
+(`tests/reference/author-wrong-*.lean`); and `scripts/export.sh` reproduces
+the two library exports byte for byte (`tests/author/init-slice.ndjson`,
+59 declarations of `Init`, and `monoid-slice.ndjson`, the class of
+`08-monoid.lf`):
 
 - **Terms, term for term** (`tests/author/lean_terms.py`). Pinned Lean
   compiles the source; a Lean metaprogram writes each declaration as Lean
@@ -361,8 +446,24 @@ example files with a Lean source (`tests/reference/author-*.lean`):
   files `16-namespaces.lf` and `18-protected.lf` put Lean's name resolution
   under this comparison, protected constants included.
 - **Text**: pinned Lean's `#print` of every declaration against the
-  example's `lean:` lines, one known printer difference listed with its
-  reason.
+  example's `lean:` lines; for the five that name a library, Lean prints
+  with `pp.explicit` and the lines are compared joined (Lean breaks long
+  lines), without `@` and with `nat_lit n` read as `n`: the printer has no
+  types for a library's constants, so it shows their every argument and
+  marks each such application with `@`, where Lean marks only those with
+  implicit arguments. Two listed differences, with their reason
+  (`21-numeric-name.lf`'s private theorem, which Lean prints by its short
+  name).
+- **Records** (review of 2026-11-12, H1): the export records `export.fs`
+  writes for each example (`report.fs`'s `record:` lines) must equal, for
+  every theorem, definition and axiom, the words' terms (in `make test`)
+  and pinned Lean's export of the Lean source: kind, name, `all`,
+  `levelParams`, hints (Lean's height), safety, type and value (apart from
+  binder names and kinds, which that exporter merges). `06-universes.lf`
+  names a constant with two different universe arguments and
+  `21-numeric-name.lf` declares a name with a numeric part. The writer's
+  planted faults (`lf-export-…` in `tests/mutants/faults.toml`) are caught
+  by `check_author.py --records`.
 - **Planted faults**: 24, each caught. Seven are faults in the printer and
   the words; seventeen each undo one fix of the review of 2026-11-03 or of
   its re-review (protected constants). The spelling check disabled, "every

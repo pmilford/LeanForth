@@ -4,17 +4,8 @@
 \ Lean: def caseVar {X : Type} (x : X) : X := x
 \       def bothIds (f : Id Nat) : Id Nat := id f
 \       def propVar (prop : Prop) : Prop := prop
-import-stub Nat end Nat
-import-stub id
-  universe u
-  u Sort implicit: α
-  α explicit: a  α forall
-end id
-import-stub Id
-  universe u
-  u Type explicit: type  u Type forall
-end Id
-
+\ Nat, id and Id are Init's (plan task 8.2.1d):
+\   leanforth check --env tests/author/init-slice.ndjson tests/author/14-case.lf
 def caseVar
   0 Type implicit: X
   X explicit: x

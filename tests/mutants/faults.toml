@@ -4956,6 +4956,14 @@ reason = "a binder or constant name with a line end or a bidirectional control r
 quick = true
 
 [[fault]]
+id = "forth-stub-without-type-refused"
+file = "src/present/print-forth.fs"
+old = '''  >r lf-fdecl-type @ dup 0< if drop outcome-ok r> 0 exit then r> lf-pf-type-params ;'''
+new = '''  >r lf-fdecl-type @ dup 0< if drop outcome-invalid r> 0 exit then r> lf-pf-type-params ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "an import stub without a type no longer prints (review lf-files-2 N1: the branch's fixtures had stopped reaching it)"
+
+[[fault]]
 id = "forth-block-banned-name-written"
 file = "src/present/print-forth.fs"
 old = '''  2dup tr-rule? 0= if 2drop false exit then'''
@@ -5188,8 +5196,8 @@ reason = "a line that ends with Forth compiling goes on unnoticed (A5 row 5)"
 [[fault]]
 id = "author-line-characters-unchecked"
 file = "src/author/runner.fs"
-old = '''  2dup lfa-line! lfa-line-chars lfa-order! lfa-floats! evaluate lfa-line-end ;'''
-new = '''  2dup lfa-line! lfa-order! lfa-floats! evaluate lfa-line-end ;'''
+old = '''  2dup lfa-line! lfa-line-chars lfa-order! 2dup lfa-ahead lfa-floats! evaluate'''
+new = '''  2dup lfa-line! lfa-order! 2dup lfa-ahead lfa-floats! evaluate'''
 test = "$GFORTH tests/author/author.fs"
 reason = "control and format characters and bytes that are not UTF-8 reach Forth's interpreter, which splits tokens differently from an editor (A5 row 7)"
 quick = true
@@ -5243,6 +5251,218 @@ new = '''' lfa-w-sketch lfa-word import
 get-current lf-words set-current 0 value lfa-trap set-current'''
 test = "$GFORTH tests/author/author.fs"
 reason = "a VALUE in LF-WORDS, which Gforth 1.0's ->x recognizer writes from proof text (A5 row 2; caught on Gforth 1.0, where the test runs)"
+
+# --- LeanForth text checked by the kernel (plan tasks 8.2.1c-d; ADR 0017
+# Amendment 2): src/author/export.fs, library.fs, runner.fs's look-ahead,
+# src/import/stage.fs's produce and extend, src/cli/check-lf.fs.
+
+[[fault]]
+id = "lf-failed-text-checked"
+file = "src/cli/check-lf.fs"
+old = ''': lfc-made ( c-addr u -- outcome ) lfc-run dup ok? if drop lfc-records then ;'''
+new = ''': lfc-made ( c-addr u -- outcome ) lfc-run drop lfc-records ;'''
+test = "GFORTH=$GFORTH python3 tests/author/check_author.py"
+reason = "8.2.1c: a text that stopped with an error is still checked; the declarations before the error get verdicts (accepted lines) beside the error"
+quick = true
+
+[[fault]]
+id = "lf-stub-accepted"
+file = "src/author/words.fs"
+old = '''  dup lf-decl-stub = lfa-checked? and 0= lfa-e-stub-checked lfa-must lfa-declare ;'''
+new = '''  lfa-declare ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "8.2.1d: import-stub accepted in a checked run, with or without a library: an unchecked assumption reaches the check"
+quick = true
+
+[[fault]]
+id = "lf-check-not-checked-run"
+file = "src/cli/check-lf.fs"
+old = ''': lfc-settings! ( -- ) lfc-finder lf-author-library! true lf-author-checked! ;'''
+new = ''': lfc-settings! ( -- ) lfc-finder lf-author-library! false lf-author-checked! ;'''
+test = "GFORTH=$GFORTH python3 tests/author/check_author.py"
+reason = "8.2.1d: leanforth check runs the text unchecked, so import-stub is accepted with a library"
+
+[[fault]]
+id = "lf-library-short-name"
+file = "src/author/namespaces.fs"
+old = '''  dup lfa-library-short? 0= lfa-e-library-short lfa-must'''
+new = ''''''
+test = "$GFORTH tests/author/author.fs"
+reason = "8.2.1d: a one-part name through a namespace reaches a library constant the export does not say is not protected; Lean may resolve it elsewhere"
+
+[[fault]]
+id = "lf-library-name-taken"
+file = "src/author/declarations.fs"
+old = '''  2dup lfa-end-token! lfa-full! lfa-full lfa-library-free'''
+new = '''  2dup lfa-end-token! lfa-full!'''
+test = "$GFORTH tests/author/author.fs"
+reason = "8.2.1d: a declaration takes a library constant's name, which Lean refuses (already declared)"
+
+[[fault]]
+id = "lf-export-app-swapped"
+file = "src/author/export.fs"
+old = '''  s" app" lfx-inner dup lf-term-second@ s" arg" lfx-ref lf-term-first@ s" fn" lfx-ref'''
+new = '''  s" app" lfx-inner dup lf-term-first@ s" arg" lfx-ref lf-term-second@ s" fn" lfx-ref'''
+test = "GFORTH=$GFORTH python3 tests/author/check_author.py"
+reason = "8.2.1c: the export swaps function and argument: the kernel checks another term than the words built"
+quick = true
+
+[[fault]]
+id = "lf-export-height-one"
+file = "src/author/export.fs"
+old = ''': lfx-value-height ( value -- h ) lfx-unmark dup lfx-mark 0 swap lfx-sweep 1+ ;'''
+new = ''': lfx-value-height ( value -- h ) drop 1 ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "8.2.1c: every definition's hint is height 1, not Lean's (getMaxHeight + 1)"
+
+[[fault]]
+id = "lf-look-ahead-comment"
+file = "src/author/runner.fs"
+old = '''  begin lfa-next-token dup while 2dup lfa-comment? if 2drop 2drop exit then'''
+new = '''  begin lfa-next-token dup while'''
+test = "$GFORTH tests/author/author.fs"
+reason = "8.2.1d: the look-ahead makes group words for the tokens of a \\ comment too"
+
+[[fault]]
+id = "lf-extend-drops-library"
+file = "src/import/stage.fs"
+old = '''  dup maps-again ['] tier-marked and-then staging-empty stage-state! ;'''
+new = '''  dup own-clear ['] tier-marked and-then staging-empty stage-state! ;'''
+test = "$GFORTH tests/core/stage.fs"
+reason = "8.2.1d: extending a stage drops the library's declarations, so the text's constants resolve to nothing"
+
+# The writer's faults of the review of 2026-11-12 (H1), each caught by the
+# records comparison (check_author.py --records): the records against the
+# words' terms, and with LEAN against pinned Lean's export of each fixture.
+
+[[fault]]
+id = "lf-export-max-imax-swapped"
+file = "src/author/export.fs"
+old = '''  dup node-tag @ case lf-level-tag-max of s" max" lfx-pair endof'''
+new = '''  dup node-tag @ case lf-level-tag-max of s" imax" lfx-pair endof'''
+test = "GFORTH=$GFORTH python3 tests/author/check_author.py --records"
+reason = "H1: max and imax swapped: 06-universes's PairSort checked as Type (imax u v); its record's type differs from the words' term"
+quick = true
+
+[[fault]]
+id = "lf-export-level-params-reversed"
+file = "src/author/export.fs"
+old = '''  swap lf-fdecl-universes @ 0 ?do dup i cells + @ lfx-u loop drop lfx-w jw-close-array ;'''
+new = '''  swap lf-fdecl-universes @ dup 0 ?do over over 1- i - cells + @ lfx-u loop 2drop lfx-w jw-close-array ;'''
+test = "GFORTH=$GFORTH python3 tests/author/check_author.py --records"
+reason = "H1: a declaration's universe parameters reversed: PairSort.{v, u} for PairSort.{u, v}"
+
+[[fault]]
+id = "lf-export-universe-arguments-first"
+file = "src/author/export.fs"
+old = '''  0 ?do dup i lf-cref-pair@ drop lfx-level# lfx-u loop drop lfx-w jw-close-array ;'''
+new = '''  0 ?do dup 0 lf-cref-pair@ drop lfx-level# lfx-u loop drop lfx-w jw-close-array ;'''
+test = "GFORTH=$GFORTH python3 tests/author/check_author.py --records"
+reason = "H1: every universe argument written as the first: 06-universes's PairOf names PairSort.{v, v}, not PairSort.{v, u}"
+
+[[fault]]
+id = "lf-export-numeric-part"
+file = "src/author/export.fs"
+old = '''  s" num" lfx-inner dup lf-name-payload s" i" lfx-member'''
+new = '''  s" num" lfx-inner dup lf-name-payload 1+ s" i" lfx-member'''
+test = "GFORTH=$GFORTH python3 tests/author/check_author.py --records"
+reason = "H1: numeric name parts written one too high: 21-numeric-name's _private....0.twice declared as ....1.twice"
+
+[[fault]]
+id = "lf-library-height-zero"
+file = "src/cli/check-lf.fs"
+old = ''': lfc-height ( d -- h ) dup lfc-regular? if ck-stage staged-hint@ else drop 0 then ;'''
+new = ''': lfc-height ( d -- h ) drop 0 ;'''
+test = 'test -n "$LEAN" && GFORTH=$GFORTH python3 tests/author/check_author.py --records'
+reason = "H1: library definitions' heights read as 0: 14-case's bothIds (naming Init's id and Id, height 1) gets height 1, Lean's 2"
+
+[[fault]]
+id = "lf-look-ahead-reads-comment-text"
+file = "src/author/runner.fs"
+old = '''    2dup lfa-group-ahead lfa-read-text repeat 2drop 2drop ;'''
+new = '''    lfa-group-ahead repeat 2drop 2drop ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "M1: the look-ahead makes group words of the text in ( comments and notes: a long word there stops a library run (error 62), a \\ there hides the rest of the line"
+
+[[fault]]
+id = "lf-export-ie-first-always"
+file = "src/author/export.fs"
+old = '''  dup lfx-ie-last? if lfx-body lfx-ie else swap lfx-ie lfx-body then ;'''
+new = '''  swap lfx-ie lfx-body ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "S7: \"ie\" always first, not in Lean's key order; the writer's sorted mode then refuses app, bvar, const and forallE lines"
+
+[[fault]]
+id = "lf-export-python-escapes"
+file = "src/author/export.fs"
+old = '''  true lfx-w jw-sorted ! true lfx-w jw-lean ! ;'''
+new = '''  true lfx-w jw-sorted ! ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "S7: names' strings escaped as Python's json escapes them (a tab as \\t), not as Lean's Json.compress (\\u0009)"
+
+[[fault]]
+id = "lf-export-unknown-level-tag"
+file = "src/author/export.fs"
+old = '''    nip outcome-unsupported lfx-refuse endcase ;'''
+new = '''    nip endcase ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "S6: a level of a tag the format has no record for is written without its member instead of refused"
+
+[[fault]]
+id = "lf-records-refusal-unrecorded"
+file = "src/cli/check-lf.fs"
+old = ''': lfc-records ( -- outcome ) lfc-produce dup ok? 0= lfc lfc-refused ! ;'''
+new = ''': lfc-records ( -- outcome ) lfc-produce ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "L4: a text whose records the writer or the stage refused is reported as an export's staging error, at a line of records the user never sees"
+
+[[fault]]
+id = "lf-records-message-dropped"
+file = "src/cli/leanforth.fs"
+old = '''  lfc-failed? if cli-text-error exit then lfc-refused? if cli-records-error exit then'''
+new = '''  lfc-failed? if cli-text-error exit then'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "L4: the refused records' message is lost (caught on Gforth 1.0, where the test captures the output)"
+
+[[fault]]
+id = "lf-text-flags-stale"
+file = "src/cli/leanforth.fs"
+old = '''  lfc-fresh cli-text-loaded ok? if cli-text-lines ck-check then cli-text-report ;'''
+new = '''  cli-text-loaded ok? if cli-text-lines ck-check then cli-text-report ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "N3: an earlier text's failure flag stays for the next run of the session, which then reports that text's error instead of its own (a snapshot that does not open)"
+
+[[fault]]
+id = "lf-names-room-kept"
+file = "src/cli/check-lf.fs"
+old = ''': lfc-rooms-back ( -- outcome ) ck-restore lfc lfc-names @ lf-name-capacity! ck-first ;'''
+new = ''': lfc-rooms-back ( -- outcome ) ck-restore ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "N4: the name store keeps the room the words had after a text's run"
+
+[[fault]]
+id = "lf-making-uncaught"
+file = "src/cli/check-lf.fs"
+old = '''  catch dup if nip nip outcome-invalid swap then ;'''
+new = '''  execute 0 ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "N5: a THROW while a text's records are made skips the give-back: the stores keep the words' room and term sharing stays changed"
+
+[[fault]]
+id = "lf-leaf-as-term"
+file = "src/author/values.fs"
+old = ''': lfa>term+ ( value -- term fresh ) lfa>any+ lfa-whole ;'''
+new = ''': lfa>term+ ( value -- term fresh ) lfa>any+ ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "M2: a bare projection leaf accepted as a proof, argument or binder type; the export then refers to a node no record holds"
+
+[[fault]]
+id = "lf-export-leaf-reference-written"
+file = "src/author/export.fs"
+old = ''': lfx-expr-ref ( term -- n ) lfx-expr# dup 0< if outcome-unsupported lfx-refuse then ;'''
+new = ''': lfx-expr-ref ( term -- n ) lfx-expr# ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "M2: a reference to a projection's leaf written as a number (-1), which the stage refuses as a bad reference of an export the user never sees"
 
 # --- mutual inductive blocks (plan task 5.2.5a; ADR 0015 §13, test plan 7) ---
 # src/kernel/check-block.fs (steps 6-8 per type, E1, C3 per type),
@@ -8369,8 +8589,8 @@ gap = "no table row has a let in a constructor's type that hides a nonuniform oc
 [[fault]]
 id = "s5b-author-proj-as-app"
 file = "src/author/build.fs"
-old = '''  lf-term-tag@ lf-tag-proj = if lf-tag-projection else lf-tag-app then ;'''
-new = '''  drop lf-tag-app ;'''
+old = ''': lfa-app-tag ( f -- tag ) lfa-leaf? if lf-tag-projection else lf-tag-app then ;'''
+new = ''': lfa-app-tag ( f -- tag ) drop lf-tag-app ;'''
 test = "python3 tests/author/check_author.py"
 reason = "S5B: the authors' $ applies a projection leaf as a function instead of making a projection"
 

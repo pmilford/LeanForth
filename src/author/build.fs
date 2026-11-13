@@ -53,8 +53,8 @@ require ./errors.fs
 : lfa-made ( index true | false -- term ) 0= if lfa-e-terms-full lfa-fail then ;
 \ An application, or a projection when f is a projection leaf
 \ (core/projections.fs): the authors' $ applies a leaf to its term.
-: lfa-app-tag ( f -- tag )
-  lf-term-tag@ lf-tag-proj = if lf-tag-projection else lf-tag-app then ;
+: lfa-leaf? ( term -- flag ) lf-term-tag@ lf-tag-proj = ;
+: lfa-app-tag ( f -- tag ) lfa-leaf? if lf-tag-projection else lf-tag-app then ;
 : lfa-new-app ( f a -- term ) over lfa-app-tag lf-term-binary lfa-made ;
 : lfa-new-bvar ( i -- term ) lf-term-bvar lfa-made ;
 : lfa-new-sort ( level -- term )

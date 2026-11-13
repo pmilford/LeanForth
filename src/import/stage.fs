@@ -181,12 +181,15 @@ create pinned-meta
 
 \ ---- Reading. A failed read rolls the stage back: the tier to the mark
 \ stage-init took, the maps to their first entries, no declarations.
-: own-clear ( stage -- outcome )
+\ The export-index maps back to their first entries, no reason kept (also
+\ stage-extend's, below).
+: maps-again ( stage -- outcome )
   dup stage-name-map slab-clear dup stage-level-map slab-clear
-  dup stage-expr-map slab-clear dup stage-decl-records slab-clear
-  dup stage-by-name slab-clear dup stage-lines slab-clear dup stage-noted slab-clear
-  0 over stage-mdata ! 0 over stage-marks ! 0 over stage-other !
-  0 over stage-why ! maps-start ;
+  dup stage-expr-map slab-clear 0 over stage-why ! maps-start ;
+: own-clear ( stage -- outcome )
+  dup stage-decl-records slab-clear dup stage-by-name slab-clear
+  dup stage-lines slab-clear dup stage-noted slab-clear
+  0 over stage-mdata ! 0 over stage-marks ! 0 over stage-other ! maps-again ;
 : stage-rollback ( stage -- outcome )
   dup stage-start over stage-tier tier-rollback ['] own-clear and-then
   staging-empty stage-state! ;
@@ -365,6 +368,35 @@ binder-reaches
   dup stage-reopen ok-then? if stage-read else nip nip then ;
 : stage-continue-unchecked ( c-addr u stage -- outcome )
   dup stage-reopen ok-then? if stage-read-unchecked else nip nip then ;
+
+\ ---- Records made in this process (plan tasks 8.2.1c-d; ADR 0017
+\ Amendment 2). stage-produce ( xt stage -- outcome ) reads, as
+\ stage-read-unchecked reads a file, the lines a producer hands over:
+\ xt ( -- outcome ) gives each line to stage-line ( c-addr u stage --
+\ outcome ) of this stage and returns its first outcome that is not ok
+\ (or ok); the lines are then ended as a file's (export-end). A line is
+\ decoded in place, so the producer must not need its bytes afterwards.
+\ The LeanForth words' export (author/export.fs) is such a producer. With
+\ the same rules as a read: an empty stage only, filled after an ok one,
+\ rolled back to empty after any other outcome or a THROW.
+\ stage-extend ( stage -- outcome ) readies a filled stage -- a library
+\ export read and not sealed -- for one more read whose declarations join
+\ the first's: the export-index maps start again and the declarations,
+\ their name chains and lines stay, so the next read names the first
+\ read's records only by their content, and at sealing its constants
+\ resolve among every declaration of both. A tier mark is taken first; a
+\ failed read then rolls back to empty, the first read's declarations
+\ gone too. Invalid unless the stage is filled.
+: stage-line ( c-addr u stage -- outcome ) stage-export export-line ;
+\ stage-reading's reader takes ( c-addr u stage ): here the producer's xt
+\ and a 0 stand in for the file's name, which a producer has none of.
+: produced ( xt 0 stage -- outcome )
+  nip dup stage-export export-restart swap execute
+  ok-then? if stage-export export-end then ;
+: stage-produce ( xt stage -- outcome ) 0 swap ['] produced stage-reading ;
+: stage-extend ( stage -- outcome )
+  dup staging-filled stage-in? 0= if drop outcome-invalid exit then
+  dup maps-again ['] tier-marked and-then staging-empty stage-state! ;
 
 \ ---- Finding declarations (after sealing; unchecked numbers as above).
 \ The newest declaration of name n; the one staged before d of the same

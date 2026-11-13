@@ -267,6 +267,52 @@ T{ 1 st stage-meta-text s" 0.1.0" compare 2 st stage-meta-text s" 3.1.0" compare
 T{ st stage-export export-map-bytes 0> st stage-unmap st stage-export export-map-bytes
    -> true 0 }T
 st stage-free
+\ Records made in this process (plan tasks 8.2.1c-d): stage-produce reads
+\ the lines a producer hands to stage-line, as a file's; stage-extend keeps
+\ a filled stage's declarations for one more read. The producer here hands
+\ over the lines of the constant fixture's export, one at a time.
+create pline 4096 allot  variable pfile
+: pline-next ( -- c-addr u true | false )
+  pline 4094 pfile @ read-line throw if pline swap true else drop false then ;
+: pline-staged ( -- outcome )
+  begin pline-next while st stage-line dup ok? 0= if exit then drop repeat outcome-ok ;
+: produce-file ( -- outcome ) fixture r/o open-file throw pfile ! pline-staged
+  pfile @ close-file drop ;
+: refuse-now ( -- outcome ) outcome-invalid ;
+T{ 12 st stage-init ' produce-file st stage-produce phase -> outcome-ok outcome-ok 2 }T
+T{ st stage-seal st stage-decls -> outcome-ok 3 }T
+st stage-free
+\ A producer's refusal rolls the stage back to empty; only an empty stage
+\ takes a producer's lines.
+T{ 12 st stage-init ' refuse-now st stage-produce phase st stage-decls
+   -> outcome-ok outcome-invalid staging-empty 0 }T
+T{ fixture st stage-load ' produce-file st stage-produce -> outcome-ok outcome-invalid }T
+st stage-free
+\ Extended: the composition export, then the fixture's records; both reads'
+\ declarations are kept and the constants resolve among them all.
+T{ 12 st stage-init composition st stage-read st stage-decls -> outcome-ok outcome-ok 1 }T
+T{ st stage-extend phase -> outcome-ok staging-empty }T
+T{ ' produce-file st stage-produce st stage-decls -> outcome-ok 4 }T
+T{ 0 s" fixtureUse" tier name-seek-str nip 0 s" composition" tier name-seek-str nip st stage-seal
+   -> outcome-ok outcome-ok outcome-ok }T
+st stage-free
+\ Only a filled stage is extended: not an empty or a sealed one.
+T{ 12 st stage-init st stage-extend -> outcome-ok outcome-invalid }T
+T{ fixture st stage-load st stage-extend -> outcome-ok outcome-invalid }T
+st stage-free
+\ A failed read after stage-extend rolls back to empty, the first read's
+\ declarations gone too (review L4); so does a producer's THROW, which
+\ passes on, and the stage takes a new read afterwards.
+T{ 12 st stage-init composition st stage-read st stage-extend
+   -> outcome-ok outcome-ok outcome-ok }T
+T{ ' refuse-now st stage-produce phase st stage-decls
+   -> outcome-invalid staging-empty 0 }T
+st stage-free
+: throw-now ( -- outcome ) 77 throw ;
+T{ 12 st stage-init ' throw-now st ' stage-produce catch nip nip phase st stage-decls
+   -> outcome-ok 77 staging-empty 0 }T
+T{ composition st stage-read st stage-decls -> outcome-ok 1 }T
+st stage-free
 T{ live-blocks @ blocks-at-start - -> 0 }T
 T{ depth -> 0 }T
 bye

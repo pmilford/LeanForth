@@ -1,0 +1,15 @@
+\ A wrong twin of tests/author/07-add-comm.lf: the arguments of Nat.add_comm
+\ swapped, so the proof states m + n = n + m, not n + m = m + n.
+\ Lean: theorem add_comm' (n m : Nat) : n + m = m + n := Nat.add_comm m n
+\ (pinned Lean refuses it: tests/reference/author-wrong-07-add-comm.lean)
+theorem add_comm'
+  Nat explicit: n
+  Nat explicit: m
+  Eq 1 ^ Nat $
+    HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $  instHAdd 0 ^ Nat $ instAddNat $  $  n $ m $
+  $
+    HAdd.hAdd 0 ^ 0 ^ 0 ^ Nat $ Nat $ Nat $  instHAdd 0 ^ Nat $ instAddNat $  $  m $ n $
+  $
+:=
+  Nat.add_comm m $ n $
+end add_comm'

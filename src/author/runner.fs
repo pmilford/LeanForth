@@ -28,9 +28,12 @@
 \ by an EVALUATE that sees only lfa-group:.
 \
 \ Untrusted: the words build terms, which only the checker can accept.
-\ The checker does not load this module yet (tests/author/check_author.py
-\ checks that src/core and src/kernel never require src/author); plan
-\ 8.2.1c joins them in one Gforth.
+\ Since plan task 8.2.1c the command line loads this module in the
+\ checker's Gforth (cli/check-lf.fs: leanforth check FILE.lf), which
+\ hands the declarations a run made to the kernel through export.fs; the
+\ kernel itself never loads it (tests/author/check_author.py checks that
+\ src/core and src/kernel never require src/author). With a library
+\ (library.fs) each line is looked ahead before it runs (see below).
 \ State: one context record, lfa-run; the modules below have their own.
 \
 \ Public words:
@@ -45,7 +48,9 @@
 \   lf-author-error. ( -- )  lf-author-code ( -- code )  (errors.fs)
 
 require ../lib/lib.fs
+require ../lib/bytes.fs
 require ./words.fs
+require ./export.fs
 
 1024 constant lfa-line-capacity
 
@@ -135,12 +140,53 @@ end-structure
   lfa-the-line lfa-bad-offset dup 0< if drop exit then
   0 0 rot lfa-line swap 1+ lfa-pos lfa-e-character lfa-fail-at ;
 
+\ The look-ahead (ADR 0017 Amendment 1, A4, the portable path; plan task
+\ 8.2.1d): with a library (library.fs), before a line runs, each of its
+\ tokens up to a \ comment, outside ( comments and notes, that no wordlist
+\ of the run has and that is not number-like gets a group word in
+\ LF-CONST, which when it runs resolves
+\ the name as Lean does, the library's constants included. It decides
+\ nothing: a token that names no constant stops there as unknown (error
+\ 1), and the line's numbers are still checked as the words read it. The
+\ current token is left as the line began.
+: lfa-has-word? ( c-addr u wid -- flag ) search-wordlist dup if nip then 0<> ;
+: lfa-worded? ( c-addr u -- flag )
+  2dup lf-words lfa-has-word? if 2drop true exit then
+  2dup lf-locals lfa-has-word? if 2drop true exit then lf-consts lfa-has-word? ;
+: lfa-ahead? ( c-addr u -- flag )
+  2dup lfa-number-like? if 2drop false else lfa-worded? 0= then ;
+\ The token an error of the look-ahead points at; the line counts as read
+\ only as far as before, so its numbers are still checked.
+: lfa-token-at ( c-addr u -- )
+  lfa-source lfa-source-length ! lfa-source lfa-source-text @ - 1+ lfa-source
+  lfa-source-column ! ;
+: lfa-group-ahead ( c-addr u -- )
+  2dup lfa-ahead? if 2dup lfa-token-at lf-consts lfa-group drop else 2drop then ;
+\ The text a parsing word reads is no token (review M1): \ ends the line's
+\ tokens, ( skips to its ), note" and ai-note" to their " (words.fs).
+: lfa-token= ( c-addr u c-addr2 u2 -- flag ) compare 0= ;
+: lfa-comment? ( c-addr u -- flag ) s" \" lfa-token= ;
+: lfa-quote? ( c-addr u -- flag )
+  2dup s\" note\"" lfa-token= if 2drop true exit then s\" ai-note\"" lfa-token= ;
+: lfa-closer ( c-addr u -- char|0 )
+  2dup lfa-quote? if 2drop [char] " exit then s" (" lfa-token= [char] ) and ;
+: lfa-past ( c-addr u char -- c-addr' u' ) byte-scan dup if 1 /string then ;
+: lfa-read-text ( c-addr u token-addr token-u -- c-addr' u' )
+  lfa-closer ?dup if lfa-past then ;
+: lfa-look-ahead ( c-addr u -- )
+  begin lfa-next-token dup while 2dup lfa-comment? if 2drop 2drop exit then
+    2dup lfa-group-ahead lfa-read-text repeat 2drop 2drop ;
+: lfa-ahead ( c-addr u -- )
+  lfa-library-on? if lfa-look-ahead 1 lfa-source lfa-source-column !
+    0 lfa-source lfa-source-length ! else 2drop then ;
+
 \ Running: each line with LeanForth's order, its last numbers checked; at
 \ the end, no declaration may be open and no value left.
 : lfa-line-end ( -- )
   lfa-interpreting? lfa-e-compiling lfa-must lfa-the-line nip lfa-read-to ;
 : lfa-eval-line ( c-addr u -- )
-  2dup lfa-line! lfa-line-chars lfa-order! lfa-floats! evaluate lfa-line-end ;
+  2dup lfa-line! lfa-line-chars lfa-order! 2dup lfa-ahead lfa-floats! evaluate
+  lfa-line-end ;
 : lfa-ended ( -- ) depth lfa-floor = lfa-inside? 0= and lfa-e-unfinished lfa-must ;
 : lfa-lines ( -- ) begin lfa-next-line? while lfa-eval-line repeat lfa-ended ;
 
@@ -196,12 +242,17 @@ end-structure
 : lf-author-decl ( i -- decl ) lfa-decl ;
 : lf-author-notes ( i -- first end ) lfa-decl dup lfa-decl-notes @ swap
   lfa-decl-notes-end @ ;
-\ The printer asks whether a name is a constant: any declaration of the run.
+\ The printer asks whether a name is a constant: any declaration of the
+\ run, or of the checker's input, which the printer asks when it writes an
+\ export (print --lf, in the same Gforth since plan task 8.2.1c).
 : lfa-name-declared? ( name -- flag )
+  dup lf-pf-input-const? if drop true exit then
   false lfa-decl-count 0 ?do over i lfa-decl lf-fdecl-name @ = or loop nip ;
 ' lfa-name-declared? is lf-pf-const-exists?
 create lfa-blank-line 10 c,
+\ A library constant's record (library.fs) is never printed.
 : lfa-print-one ( fuel i -- outcome )
+  dup lfa-library? if 2drop outcome-ok exit then
   dup if lfa-blank-line 1 lf-pp-emit then lfa-decl swap lf-print-forth-decl ;
 : lf-author-print ( fuel -- outcome )
   lf-author-count 0 ?do dup i lfa-print-one ok-then? 0= if unloop exit then loop

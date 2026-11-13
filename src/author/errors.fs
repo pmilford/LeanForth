@@ -67,12 +67,16 @@ require ./source.fs
 45 constant lfa-e-compiling      \ a run started, or a line ended, while Forth compiles
 46 constant lfa-e-character      \ a character no line may hold
 47 constant lfa-e-search-order   \ the caller's search order is too long to save
+48 constant lfa-e-stub-checked   \ import-stub in a checked run
+49 constant lfa-e-nothing        \ a checked text that declares nothing
 50 constant lfa-e-literal        \ unsupported: natural-number literals
 51 constant lfa-e-sketch
   \ unsupported: let, have, projections, strings, by, import
 52 constant lfa-e-hole           \ unsupported: holes are for the elaborator
 53 constant lfa-e-root-name      \ unsupported: _root_ in a declaration's name
 54 constant lfa-e-export         \ unsupported: export and its aliases
+55 constant lfa-e-library-short  \ unsupported: a short name of a library constant
+56 constant lfa-e-leaf           \ a projection leaf anywhere but before $
 60 constant lfa-e-terms-full     \ the term store is full
 61 constant lfa-e-levels-full    \ the level store or a level is too large
 62 constant lfa-e-names-full     \ the name store is full, or a name too long
@@ -161,6 +165,11 @@ create lfa-catalogue
   lfa-invalid,
   lfa-e-search-order
   s" out of room: the search order holds more wordlists than a run can save" lfa-full,
+  lfa-e-stub-checked
+  s" import-stub is never checked: name the library with --env and use its constant"
+  lfa-invalid,
+  lfa-e-nothing s" nothing to check: the text declares no theorem, definition or axiom"
+  lfa-invalid,
   lfa-e-literal
   s" not supported yet: natural-number literals need literal nodes (ADR 0017 section 14)"
   lfa-unsupported,
@@ -171,6 +180,11 @@ create lfa-catalogue
   lfa-unsupported,
   lfa-e-root-name s" not supported yet: _root_ in a declaration's name" lfa-unsupported,
   lfa-e-export s" not supported yet: export and the aliases it makes" lfa-unsupported,
+  lfa-e-library-short
+  s" not supported yet: a library constant by a short name; write the full name"
+  lfa-unsupported,
+  lfa-e-leaf s" a projection leaf is no term: apply it with $ to the term it projects"
+  lfa-invalid,
   lfa-e-terms-full s" out of room: the term store is full" lfa-full,
   lfa-e-levels-full s" out of room: the level store is full or the level too large"
     lfa-full,

@@ -209,7 +209,8 @@ cli-options
 \ After every check: no stage, the names detached, every capacity back.
 : capacities? ( -- flag )
   lf-term-capacity lf-term-default = lf-input-capacity lf-input-default = and
-  lf-level-capacity lf-level-default = and lf-cref-capacity lf-cref-default = and ;
+  lf-level-capacity lf-level-default = and lf-cref-capacity lf-cref-default = and
+  lf-name-capacity lf-name-default = and ;
 : released? ( -- flag )
   ck-stage stage-state @ 0= lf-name-viewed? 0= and capacities? and ck-restored ok? and ;
 T{ chain cli-check released? -> 0 true }T
@@ -353,6 +354,38 @@ T{ fed# 1+ in-context -> 5 true true }T
   context-main context-use r> context-free throw ;
 T{ 1 refused -> 3 ck-feeding false false 0 true }T
 T{ fed# 1+ refused -> 3 -1 true true 1 true }T
+
+\ A LeanForth text whose records do not reach the stage (review L4): with
+\ the export writer's line limit lowered, the text runs but the writer
+\ refuses its records (full): the text is not checked, the code is 3, said
+\ of the text (cli-records-error), and everything is given back.
+: identity-text ( -- c-addr u ) s" tests/author/01-identity.lf" ;
+: refused-text ( -- code refused? failed? phase released? )
+  20 lfx lfx-writer jw-limit ! identity-text cli-check lfx-line-capacity lfx lfx-writer jw-limit !
+  lfc-refused? lfc-failed? ck-phase-failed released? ;
+T{ refused-text -> 3 true false ck-staging true }T
+T{ identity-text cli-check lfc-refused? released? -> 0 false true }T
+\ A text that stopped leaves no flag for the next run of the session
+\ (review N3): a snapshot that does not open is said as such (4), not as
+\ the earlier text's error (3, a line too long).
+: after-stopped ( -- code code' failed? )
+  cli-options s" tests/author/17-long-line.lf" cli-check s" tests/cli/no-such.lfsnap"
+  cli-snapshot! identity-text cli-check cli-options lfc-failed? ;
+T{ after-stopped -> 3 4 false }T
+\ A THROW while a text's records are made (review N5): the stores are
+\ emptied and given back their room and term sharing, then it passes on.
+: throws ( c-addr u -- outcome ) 2drop lf-term-sharing? 0= lf-term-sharing! 77 throw ;
+: thrown-text ( -- code room? sharing? )
+  lf-term-sharing? identity-text ['] throws ['] lfc-making catch >r 2drop drop r>
+  capacities? rot lf-term-sharing? = ;
+T{ thrown-text -> 77 true true }T
+[defined] >string-execute [if]
+: refused-message ( -- code flag )
+  20 lfx lfx-writer jw-limit ! identity-text ['] cli-check >string-execute
+  lfx-line-capacity lfx lfx-writer jw-limit !
+  s" error: full: the records written for the LeanForth text were refused" search nip nip ;
+T{ refused-message -> 3 true }T
+[then]
 
 \ A run that stops in the publisher: a THROW before declaration 1's slot
 \ is final. The run is invalid (that slot is open), the code a fault's;

@@ -7,8 +7,9 @@
 \ means, as Lean resolves it; var# and root:; source positions on nodes;
 \ labels and notes; the runner restoring the caller's settings; the note
 \ table and the printer's Forth mode on their own, which refuses labels
-\ and notes it cannot spell. The 21 example files, their round trips and
-\ the comparison with Lean are in check_author.py.
+\ and notes it cannot spell; the export's records (export.fs). The example
+\ files, their round trips, their records and the comparison with Lean
+\ are in check_author.py.
 require ../support/tester.fs
 require ../../src/author/runner.fs
 
@@ -525,6 +526,11 @@ T{ 0 lf-author-decl lf-fdecl-type @ forth-text rot rot s" Prop explicit: x x fun
 T{ 0 lf-author-decl lf-fdecl-type @ -1 lf-print-forth-term -> outcome-invalid }T
 T{ 0 lf-author-decl lf-fdecl-type @ 1 lf-print-forth-term -> outcome-exhausted }T
 T{ 99 1000 lf-print-forth-term -> outcome-invalid }T
+\ An import stub without a type prints as it was written (review N1).
+: printed ( -- c-addr u outcome )
+  0 fout# ! ['] fout+ lf-print-unicode lf-print-setup 1000 lf-author-print >r fout fout# @ r> ;
+T{ s" import-stub X end X" run printed rot rot s\" import-stub X\nend X\n" compare
+   -> outcome-ok outcome-ok 0 }T
 \ Number literals and projections: n lit# and i proj# NAME build the leaves,
 \ shared when equal, and print as the words that built them.
 T{ s" import-stub Nat end Nat import-stub Prod end Prod def f Prod explicit: p Nat := 0 proj# Prod p $ end f def g Nat := 7 lit# end g def h Nat := 7 lit# end h"
@@ -536,6 +542,18 @@ T{ 4 lf-author-decl lf-fdecl-value @ forth-text rot rot s" 7 lit#" compare -> ou
 T{ 2 lf-author-decl lf-fdecl-value @ forth-text rot rot s" Prod explicit: p 0 proj# Prod p $ fun" compare
    -> outcome-ok 0 }T
 T{ s" import-stub Nat end Nat def f Nat := 0 proj# Missing end f" fails drop drop -> lfa-e-unknown-constant }T
+\ A projection leaf is a term only as the function of $ (review M2): as a
+\ proof, an argument, a binder's type, under -> or a label it stops the run
+\ (error 56) at the word that takes it; applied, it is a projection.
+T{ s" axiom S 0 Type end S def d 0 Type := 0 proj# S end d" fails -> 56 1 48 }T
+T{ s" axiom S 0 Type end S def d 0 Type := Prop 0 proj# S $ end d" fails -> 56 1 53 }T
+T{ s" axiom S 0 Type end S def d 0 proj# S explicit: x 0 Type := Prop end d" fails
+   -> 56 1 38 }T
+T{ s" axiom S 0 Type end S def d 0 Type := 0 proj# S Prop -> end d" fails -> 56 1 53 }T
+T{ s" axiom S 0 Type end S def d 0 Type := 0 proj# S label: a end d" fails -> 56 1 55 }T
+T{ lf-author-code lf-author-outcome -> outcome-invalid }T
+T{ s" axiom S 0 Type end S def d S explicit: s 0 Type := 0 proj# S s $ end d" run
+   -> outcome-ok }T
 \ A label or note the words cannot read back as itself (added through the
 \ note table, not by the words) is refused, never printed as live words.
 : noted ( c-addr u kind -- outcome )
@@ -571,6 +589,129 @@ T{ s\" \xc2\xab\xc2\xbb" lf-pf-plain? -> true }T
 T{ s\" \xc2\xabab" lf-pf-plain? -> true }T
 T{ s\" a\xc2\xa0b" lf-pf-plain? -> true }T
 
+\ The export of a run's declarations (export.fs, plan task 8.2.1c): one
+\ export record a line to a sink, the metadata first; theorem t makes its
+\ two names, four expressions and itself.
+8192 constant lines-max
+create lines lines-max allot  variable lines#  variable lines-n
+: line-sink ( c-addr u -- outcome )
+  dup lines# @ + lines-max > if 2drop outcome-full exit then
+  tuck lines lines# @ + swap move lines# +! 1 lines-n +! outcome-ok ;
+: export-now ( -- outcome ) 0 lines# ! 0 lines-n ! ['] line-sink lf-author-export ;
+: exported ( c-addr u -- outcome ) run drop export-now ;
+: holds? ( c-addr u -- flag ) lines lines# @ 2swap search nip nip ;
+T{ s" theorem t Prop explicit: p p := p end t" exported lines-n @ -> outcome-ok 8 }T
+T{ s\" \"name\":\"leanforth\"" holds? s\" {\"in\":1,\"str\":{\"pre\":0,\"str\":\"t\"}}" holds?
+   -> true true }T
+T{ s\" {\"thm\":{\"all\":[1],\"levelParams\":[],\"name\":1,\"type\":3,\"value\":2}}" holds?
+   -> true }T
+\ Lean's heights: a definition one above the highest it names.
+T{ s" def a 0 Type := Prop end a def b 0 Type := a end b" exported -> outcome-ok }T
+T{ s\" \"hints\":{\"regular\":1}" holds? s\" \"hints\":{\"regular\":2}" holds? -> true true }T
+\ Levels, universe parameters, literals and binder kinds as Lean writes them.
+T{ s" def five 0 Type := 5 lit# end five" exported s\" \"natVal\":\"5\"" holds?
+   -> outcome-ok true }T
+T{ s" theorem k universe u u Sort implicit: x x := x end k" exported -> outcome-ok }T
+T{ s\" {\"il\":1,\"param\":2}" holds? s\" \"binderInfo\":\"implicit\"" holds? -> true true }T
+T{ s\" \"levelParams\":[2]" holds? -> true }T
+\ Lean's key order and escapes (review S7): bvar, app, const and forallE
+\ before "ie", the rest after; a name's non-ASCII bytes as they are.
+T{ s" theorem t Prop explicit: p p := p end t" exported -> outcome-ok }T
+T{ s\" {\"bvar\":0,\"ie\":1}" holds? s\" {\"ie\":0,\"sort\":0}" holds? -> true true }T
+T{ s\" {\"forallE\":{\"binderInfo\":\"default\",\"body\":1,\"name\":2,\"type\":0},\"ie\":3}"
+   holds? -> true }T
+T{ s\" theorem \xce\xb1 Prop explicit: p p := p end \xce\xb1" exported -> outcome-ok }T
+T{ s\" \"str\":\"\xce\xb1\"" holds? -> true }T
+\ A tab, which no text's name holds (it splits tokens), put in the name
+\ store by hand: \u0009 as Lean writes it, not \t.
+T{ 0 s\" a\tb" lf-name-str nip export-now -> true outcome-ok }T
+T{ s\" \"str\":\"a\\u0009b\"" holds? -> true }T
+T{ s" def a 0 Type := Prop end a def b 0 Type := a end b" exported -> outcome-ok }T
+T{ s\" {\"const\":{\"name\":1,\"us\":[]},\"ie\":" holds? -> true }T
+T{ s" theorem t Prop explicit: f Prop explicit: x f x $ := Prop end t" exported
+   s\" {\"app\":{\"arg\":" holds? -> outcome-ok true }T
+\ The sink's refusal stops it at the line refused; a line past the writer's
+\ limit is full; a node no record holds is unsupported.
+variable calls
+: refusing ( c-addr u -- outcome ) 2drop 1 calls +! outcome-invalid ;
+T{ s" theorem t Prop explicit: p p := p end t" run 0 calls ! ' refusing lf-author-export
+   calls @ -> outcome-ok outcome-invalid 1 }T
+T{ 20 lfx lfx-writer jw-limit ! export-now -> outcome-full }T
+lfx-line-capacity lfx lfx-writer jw-limit !
+T{ 0 0 lf-tag-let lf-term-binary nip export-now -> true outcome-unsupported }T
+\ A projection, a binder without a recorded name (made by hand) and the
+\ heights: an axiom named in a value counts 0, so does a constant whose
+\ record is gone (renamed by hand), a definition its own height.
+T{ s" axiom S 0 Type end S def d S explicit: s 0 Type := 0 proj# S s $ end d" exported
+   s\" {\"ie\":3,\"proj\":{\"idx\":0,\"struct\":2,\"typeName\":1}}" holds? -> outcome-ok true }T
+T{ 0 0 lf-tag-pi lf-term-binary nip export-now -> true outcome-ok }T
+T{ s\" \"binderInfo\":\"default\",\"body\":0,\"name\":0,\"type\":0" holds? -> true }T
+T{ s" axiom a 0 Type end a def b 0 Type := a end b" exported
+   s\" \"hints\":{\"regular\":1}" holds? -> outcome-ok true }T
+T{ s" def a 0 Type := Prop end a def b 0 Type := a end b" run -> outcome-ok }T
+T{ 0 s" zz" lf-name-str drop 0 lfa-decl lf-fdecl-name ! export-now -> outcome-ok }T
+T{ s\" \"hints\":{\"regular\":2}" holds? -> false }T
+\ A numbering table the heap cannot give: false, the cell 0.
+variable no-block
+T{ max-n no-block lfx-block no-block @ -> false 0 }T
+\ A reference to a projection's leaf is refused, never written (review M2).
+T{ s" theorem t Prop explicit: p p := p end t" exported -> outcome-ok }T
+T{ 1 0 lf-hterm-proj drop drop 0 swap lf-tag-app lf-term-binary nip export-now
+   -> true outcome-unsupported }T
+T{ s" 18446744073709551615" holds? -> false }T
+\ A level of a tag the format has no record for is refused (review S6).
+T{ s" theorem t Prop explicit: p p := p end t" exported -> outcome-ok }T
+T{ 7 0 0 lf-level-new nip export-now -> true outcome-unsupported }T
+
+\ A library (library.fs, plan task 8.2.1d): a finder that knows Lib.c,
+\ Lib.k and Lib.m, of no universe parameters, definitions of height 3. Its
+\ constant gets a record of kind library, which the export never writes.
+: part= ( id c-addr u -- flag ) rot lf-name-text compare 0= ;
+: c-or-k? ( name -- flag ) dup s" c" part= over s" k" part= or swap s" m" part= or ;
+: lib-c? ( name -- flag )
+  dup c-or-k? swap lf-name-prefix@ dup if s" Lib" part= else drop false then and ;
+: lib-finder ( name -- universes height true | false ) lib-c? if 0 3 true else false then ;
+: with-lib ( c-addr u -- outcome ) ['] lib-finder lf-author-library! run 0 lf-author-library! ;
+: lib-fails ( c-addr u -- code line col ) with-lib drop err ;
+T{ s" def d 0 Type := Lib.c end d" with-lib lf-author-count -> outcome-ok 2 }T
+T{ 0 lfa-library? 1 lfa-library? 1 lfa-decl lfa-decl-height @ -> false true 3 }T
+T{ ' lib-finder lf-author-library! export-now 0 lf-author-library! -> outcome-ok }T
+T{ s\" \"hints\":{\"regular\":4}" holds? lines-n @ -> true 8 }T
+\ Errors: an unknown name; a short name through a namespace (55); a name
+\ the library has (28); a stub in a checked run (48, at the stub's word).
+T{ s" def d 0 Type := Lib.d end d" lib-fails -> 1 1 17 }T
+T{ s" namespace Lib def e 0 Type := c end e end Lib" lib-fails -> 55 1 31 }T
+T{ lf-author-code lf-author-outcome -> outcome-unsupported }T
+T{ s" def Lib.c 0 Type := Prop end Lib.c" lib-fails -> 28 1 5 }T
+\ A name the text declared twice, with a library: its record is the
+\ file's, not the library's, and the second declaration is refused.
+T{ s" def x 0 Type := Prop end x def x 0 Type := Prop end x" lib-fails -> 28 1 32 }T
+T{ true lf-author-checked! s" import-stub X end X" fails -> 48 1 1 }T
+T{ s" protected import-stub N.x end N.x" fails false lf-author-checked! -> 48 1 11 }T
+T{ s" import-stub X end X" run -> outcome-ok }T
+\ The look-ahead: every token of a line up to a \ comment that has no word
+\ gets a group word; a number-like one none, and it is still refused.
+T{ s" def d 0 Type := Lib.c end d \ Zzz.q" with-lib -> outcome-ok }T
+T{ s" Zzz.q" lf-consts search-wordlist s" Lib.c" lf-consts search-wordlist nip -> 0 -1 }T
+T{ s" def d 0 Type := Lib.c $10 end d" lib-fails -> 35 1 23 }T
+T{ s" -7" lf-consts search-wordlist -> 0 }T
+\ The text of a ( comment and of notes is no token (review M1): it gets no
+\ group word, a \ in it ends nothing (Lib.k, first named here, after one),
+\ and a long word in it is no name (no error 62 or 66).
+T{ s\" def d 0 Type := Lib.c ( Zzz.p ) note\" Zzz.n\" ai-note\" Zzz.a\" end d" with-lib
+   -> outcome-ok }T
+T{ s" Zzz.p" lf-consts search-wordlist s" Zzz.n" lf-consts search-wordlist
+   s" Zzz.a" lf-consts search-wordlist -> 0 0 0 }T
+T{ s\" def d 0 Type := ( a \\ b ) Lib.k note\" \\ \" end d" with-lib -> outcome-ok }T
+: long-comment ( -- c-addr u )
+  text0 s" def d 0 Type := Lib.c ( x" text+ s" y" 320 times s" ) end d" text+ text$ ;
+T{ long-comment with-lib -> outcome-ok }T
+T{ s\" def d 0 Type := Lib.c note\" ( Zzz.u end d" lib-fails -> 37 1 23 }T
+\ An unclosed ( with a library stops at its word (error 42); a \ in an
+\ ai-note" ends nothing either (Lib.m, first named here, after it).
+T{ s" def d 0 Type := Lib.c ( Zzz.v end d" lib-fails -> 42 1 23 }T
+T{ s\" def d 0 Type := Prop ai-note\" a \\ b\" Lib.m $ end d" with-lib -> outcome-ok }T
+
 \ The dictionary reserve (p05): with fewer than lfa-dictionary-reserve
 \ address units unused, no group word is made (error 66, full), while
 \ names that have one still work. Last in this file: the space taken here
@@ -579,6 +720,8 @@ unused lfa-dictionary-reserve - 1+ allot
 T{ s" axiom aNameAfterTheReserve Prop end aNameAfterTheReserve" fails drop drop -> 66 }T
 T{ lf-author-code lf-author-outcome -> outcome-full }T
 T{ s" theorem t Prop explicit: p p := p end t" run -> outcome-ok }T
+\ The look-ahead stops there too, at the token that needs a new group word.
+T{ s" def t 0 Type := Lib.zz end t" lib-fails -> 66 1 17 }T
 
 cr .( author.fs: all tests passed) cr
 bye

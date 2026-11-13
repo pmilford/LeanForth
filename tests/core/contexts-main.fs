@@ -104,7 +104,9 @@ dict-finish
 \ records), the scheduler's (lf-sched), the environment registry and the
 \ job pool's (task-pool, task-queue, the worker threads' ids). A planted
 \ fault, a check that writes a shared cell inside its job, is caught.
-create par-copy dict-bytes allot
+\ The copy is in the heap: the dictionary may have less room left than it
+\ holds (under make coverage's counters it overflowed).
+dict-bytes allocate throw constant par-copy
 : in-record? ( addr record size -- flag ) over + within ;
 : par-run-records? ( addr -- flag )
   dup ck-state /ck in-record? over ck-stage /stage in-record? or
