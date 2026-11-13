@@ -10283,7 +10283,7 @@ reason = "a notation row may start at an unaligned address (works on x86-64, fau
 [[fault]]
 id = "fe-elab-unknown-name-accepted"
 file = "src/front/elab-data.fs"
-old = '''  ed-decls 0= if 0 c" unknown name" ed-bad exit then'''
+old = '''  ed-decls 0= if 0 ed-e-unknown ed-bad exit then'''
 new = '''  ed-decls 0= if 0 outcome-ok exit then'''
 test = "python3 tests/front/test_elab_data.py"
 reason = "a name no declaration has is taken as declaration 0: the unknown-name files are accepted"
@@ -10299,7 +10299,7 @@ reason = "an instance or eliminator that is an inductive type is accepted"
 [[fault]]
 id = "fe-elab-export-unchecked"
 file = "src/front/elab-data.fs"
-old = '''  c" elaboration data of another export" ed-or-bad ;'''
+old = '''  ed-e-export ed-or-bad ;'''
 new = '''  2drop outcome-ok ;'''
 test = "$GFORTH tests/front/elab-data.fs"
 reason = "the header's export SHA-256 is not compared: data of another export is read"
@@ -10324,7 +10324,7 @@ reason = "the records' SHA-256 is not compared: a changed priority is read"
 [[fault]]
 id = "fe-elab-duplicate-reducibility"
 file = "src/front/elab-data.fs"
-old = '''  over elab-status if 2drop c" a reducibility named twice" ed-bad exit then'''
+old = '''  over elab-status if 2drop ed-e-reducibility ed-bad exit then'''
 new = ''''''
 test = "python3 tests/front/test_elab_data.py"
 reason = "a declaration's reducibility given twice is read, the two statuses mixed"

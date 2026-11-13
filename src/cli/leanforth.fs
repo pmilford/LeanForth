@@ -900,8 +900,8 @@ variable cli-info#
 : cli-elab-error ( -- )
   ." error: " ck-read-outcome dup outcome-text type
   ." : the elaboration data was refused at line " elab-error-line .decimal
-  ." : " elab-error-why type ." ; the LeanForth text was not checked" cr
-  outcome>code cli-code! ;
+  ."  (error " elab-error-code .decimal ." ): " elab-error-why type
+  ." ; the LeanForth text was not checked" cr outcome>code cli-code! ;
 \ The elaboration data read, by kind, before the verdicts.
 : cli-elab-count. ( kind -- ) elab-count .decimal ;
 : cli-elab-note ( -- )

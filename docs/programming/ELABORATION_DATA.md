@@ -137,7 +137,7 @@ reason, and the outcome's exit status (4 invalid, 2 unsupported, 3 full):
 
 ```console
 $ bin/leanforth check --env tests/author/init-slice.ndjson --elab-data DAMAGED.ndjson tests/author/19-add-zero.lf
-error: invalid: the elaboration data was refused at line 2: unknown name; the LeanForth text was not checked
+error: invalid: the elaboration data was refused at line 2 (error 12): unknown name; the LeanForth text was not checked
 ```
 
 What the reader checks, each failure refused with its reason:
@@ -157,7 +157,40 @@ What the reader checks, each failure refused with its reason:
 | every line ends with a line feed and is at most 1 MB | `no line, or a line without its line feed`, `a line longer than the limit` | invalid, full |
 | the file opens | `file missing or unreadable` | invalid |
 
-A refused read keeps nothing. Misuse is refused before anything runs:
+A refused read keeps nothing. Each refusal has a stable error code,
+printed with its text (`at line 2 (error 12): unknown name`):
+
+## Errors
+
+| Code | Text | Outcome | When |
+| --- | --- | --- | --- |
+| 1 | `file missing or unreadable` | invalid | the file cannot be opened |
+| 2 | `no line, or a line without its line feed` | invalid | an empty file, or a last line cut off |
+| 3 | `a line longer than the limit` | full | a line of more than 1 MB |
+| 4 | `not one JSON value within the limits` | invalid (full past 65,536 tokens or 8 levels) | a line that is not JSON |
+| 5 | `no header` | invalid | line 1 is not `{"elab_data": {...}}` |
+| 6 | `not elaboration data` | invalid | the header's format is another |
+| 7 | `another format version` | unsupported | `format_version` is not 1 |
+| 8 | `another Lean version` | unsupported | written by another Lean version or revision |
+| 9 | `elaboration data of another export` | invalid | `export_sha256` is not the library's |
+| 10 | `malformed line` | invalid | a member missing, added or of the wrong type; a malformed name |
+| 11 | `unknown record kind` | invalid | a record of a kind this format does not have |
+| 12 | `unknown name` | invalid | no declaration of the library has the name |
+| 13 | `a name several declarations have` | invalid | the library has more than one declaration of the name |
+| 14 | `a declaration of the wrong kind` | invalid | a class that is no inductive type, an instance or eliminator that is one |
+| 15 | `an instance named twice` | invalid | two instance records of one declaration |
+| 16 | `a default instance named twice` | invalid | two default-instance records of one declaration |
+| 17 | `a reducibility named twice` | invalid | two reducibility records of one declaration |
+| 18 | `two eliminators for the same types` | invalid | two eliminators of one kind with the same target types |
+| 19 | `a number beyond 2^32 - 1` | unsupported | a priority or synthesis-order entry that large |
+| 20 | `records differ in number from the header` | invalid | records missing or added |
+| 21 | `records differ from their SHA-256` | invalid | a record changed |
+| 22 | `no room` | full | the heap has no room for the tables |
+| 23 | `name lookup failed` | as the lookup's | the stage's name lookup failed |
+| 24 | `the library's stage is sealed: its names cannot be looked up` | invalid | called with a sealed stage (a Forth caller's mistake) |
+| 25 | `a read in progress` | invalid | called during a read (a Forth caller's mistake) |
+
+Misuse is refused before anything runs:
 `--elab-data` without `--env` or `--snapshot` ("needs --env or
 --snapshot, the library it describes") or with an export instead of a
 text ("goes only with a LeanForth text").
@@ -170,7 +203,7 @@ Declarations are the stage's declaration numbers (`src/import/stage.fs`).
 | Word | Stack effect | What it does |
 | --- | --- | --- |
 | `elab-read` | `( c-addr u stage sha -- outcome )` | read the file against a stage read and not sealed, and the export's 32-byte SHA-256 at `sha` |
-| `elab-error`, `elab-error-line`, `elab-error-why` | `( -- line c-addr u )` | where and why the last read failed |
+| `elab-error`, `elab-error-line`, `elab-error-code`, `elab-error-why` | `( -- line c-addr u )` | where and why the last read failed: its line, its [code](#errors) and text |
 | `elab-loaded?` | `( -- flag )` | the last read was ok |
 | `elab-reset` | `( -- )` | forget everything |
 | `elab-count` | `( kind -- n )` | records of a kind: `elab-instance`, `elab-default`, `elab-reducibility`, `elab-eliminator` |

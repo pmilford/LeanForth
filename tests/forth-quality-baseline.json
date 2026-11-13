@@ -375,6 +375,14 @@
   "shuffles": 0,
   "words": 2
  },
+ "src/front/elab-data.fs": {
+  "globals": 14,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 23,
+  "shuffles": 13,
+  "words": 138
+ },
  "src/import/checker-input.fs": {
   "globals": 5,
   "long lines": 0,

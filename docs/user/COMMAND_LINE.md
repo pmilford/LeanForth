@@ -193,7 +193,7 @@ reason and the outcome's exit status (4 malformed or of another export,
 
 ```console
 $ bin/leanforth check --snapshot init-slice.lfsnap --elab-data other.elab.ndjson tests/author/19-add-zero.lf
-error: invalid: the elaboration data was refused at line 1: elaboration data of another export; the LeanForth text was not checked
+error: invalid: the elaboration data was refused at line 1 (error 9): elaboration data of another export; the LeanForth text was not checked
 ```
 
 `--elab-data` without `--env` or `--snapshot`, or with an export instead

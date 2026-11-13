@@ -29,6 +29,7 @@ import hashlib
 import json
 import os
 import pathlib
+import re
 import subprocess
 import sys
 import tempfile
@@ -170,6 +171,32 @@ def check(data, library=("--env", str(SLICE))):
 
 
 REFUSED = "the elaboration data was refused at line"
+# The reader's error codes and texts, which are stable: the catalogue of
+# docs/programming/ELABORATION_DATA.md, "Errors" (checked in errors_documented).
+ERRORS = ["file missing or unreadable", "no line, or a line without its line feed",
+          "a line longer than the limit", "not one JSON value within the limits", "no header",
+          "not elaboration data", "another format version", "another Lean version",
+          "elaboration data of another export", "malformed line", "unknown record kind",
+          "unknown name", "a name several declarations have", "a declaration of the wrong kind",
+          "an instance named twice", "a default instance named twice",
+          "a reducibility named twice", "two eliminators for the same types",
+          "a number beyond 2^32 - 1", "records differ in number from the header",
+          "records differ from their SHA-256", "no room", "name lookup failed",
+          "the library's stage is sealed: its names cannot be looked up", "a read in progress"]
+
+
+def refusal(line, reason):
+    """The refusal line's text for a reason, written whole or by its start."""
+    (text,) = [t for t in ERRORS if t.startswith(reason)]
+    return f"{REFUSED} {line} (error {ERRORS.index(text) + 1}): {text}"
+
+
+def errors_documented():
+    """The documentation's catalogue lists exactly ERRORS, in order."""
+    doc = (ROOT / "docs/programming/ELABORATION_DATA.md").read_text()
+    rows = re.findall(r"^\| (\d+) \| `([^`]+)` \|", doc.split("## Errors", 1)[-1], re.M)
+    if rows != [(str(k), t) for k, t in enumerate(ERRORS, 1)]:
+        fail(f"the error catalogue of ELABORATION_DATA.md differs: {rows}")
 
 
 def damaged_cases():
@@ -282,7 +309,7 @@ def run_case(work, case):
     if content is not None:
         data.write_text(content, encoding="utf-8")
     status, out = check(data)
-    want = f"{REFUSED} {line}: {reason}"
+    want = refusal(line, reason)
     if status != code or want not in out or "accepted" in out:
         return f"{name}: exit {status} (wanted {code}); wanted '{want}'; got {out[-300:]!r}"
     return None
@@ -368,6 +395,7 @@ def main():
         if path.read_text() != made():
             fail(f"{path} is not what {made.__name__}() writes")
     schema_cases()
+    errors_documented()
     with tempfile.TemporaryDirectory() as work:
         work = pathlib.Path(work)
         finisher_cases(work)

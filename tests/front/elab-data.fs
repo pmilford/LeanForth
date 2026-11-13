@@ -65,11 +65,15 @@ T{ s" Eq" top elab-induction elab-eliminator-for -> false }T
   s" instAddNat" top elab-instance-of 0= and s" Nat" top elab-induction elab-eliminator-for 0=
   and ;
 T{ elims lib zero-sha elab-read empty? elab-error-line s" elaboration data of another export"
-   why? -> outcome-invalid true 1 true }T
-T{ good lib digest elab-read counts -> outcome-ok 3 2 18 0 }T
+   why? elab-error-code -> outcome-invalid true 1 true 9 }T
+T{ good lib digest elab-read counts elab-error-code -> outcome-ok 3 2 18 0 0 }T
 \ Refused after its last line: none of the records it read stays.
 T{ s" tests/front/cut-off.elab.ndjson" lib digest elab-read empty? elab-error-line
-   s" records differ in number from the header" why? -> outcome-invalid true 27 true }T
+   s" records differ in number from the header" why? elab-error-code
+   -> outcome-invalid true 27 true 20 }T
+\ Every code has its text, the first and the last as documented.
+T{ 0 ed-message s" none" compare 1 ed-message s" file missing or unreadable" compare
+   25 ed-message s" a read in progress" compare -> 0 0 0 }T
 T{ elims lib digest elab-read good lib digest elab-read counts -> outcome-ok outcome-ok 3 2 18 0 }T
 T{ elab-reset empty? -> true }T
 T{ s" tests/front/no-such.ndjson" lib digest elab-read elab-error-line

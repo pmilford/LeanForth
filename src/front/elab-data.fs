@@ -118,7 +118,7 @@ begin-structure /elab
   field: elab-export                 \ during a read: the export's SHA-256
   field: elab-reading                \ true during a read
   field: elab-loaded                 \ true: the last read was ok
-  field: elab-why                    \ counted string: why it failed, or 0
+  field: elab-code                   \ why it failed: an error code, or 0
   field: elab-at                     \ the line it failed at
   elab-kinds cells +field elab-counts     \ records read of each kind
   elab-kinds cells +field elab-expected   \ the header's numbers
@@ -139,14 +139,55 @@ end-structure
 : elab-count ( kind -- n ) cells elab elab-counts + @ ;
 : elab-loaded? ( -- flag ) elab elab-loaded @ ;
 
-\ Failing: why, at the current line; the outcome given.
+\ Failing: an error code, stable (docs/programming/ELABORATION_DATA.md,
+\ "Errors"; ed-messages holds each one's text, 0 none), at the current
+\ line, with the outcome given.
+1 constant ed-e-file   2 constant ed-e-line   3 constant ed-e-long
+4 constant ed-e-json   5 constant ed-e-header   6 constant ed-e-format
+7 constant ed-e-version   8 constant ed-e-lean   9 constant ed-e-export
+10 constant ed-e-malformed   11 constant ed-e-kind   12 constant ed-e-unknown
+13 constant ed-e-several   14 constant ed-e-wrong-kind   15 constant ed-e-instance
+16 constant ed-e-default   17 constant ed-e-reducibility
+18 constant ed-e-eliminator   19 constant ed-e-number   20 constant ed-e-count
+21 constant ed-e-sha   22 constant ed-e-room   23 constant ed-e-lookup
+24 constant ed-e-sealed   25 constant ed-e-busy
+create ed-messages
+  s" none" counted,
+  s" file missing or unreadable" counted,
+  s" no line, or a line without its line feed" counted,
+  s" a line longer than the limit" counted,
+  s" not one JSON value within the limits" counted,
+  s" no header" counted,
+  s" not elaboration data" counted,
+  s" another format version" counted,
+  s" another Lean version" counted,
+  s" elaboration data of another export" counted,
+  s" malformed line" counted,
+  s" unknown record kind" counted,
+  s" unknown name" counted,
+  s" a name several declarations have" counted,
+  s" a declaration of the wrong kind" counted,
+  s" an instance named twice" counted,
+  s" a default instance named twice" counted,
+  s" a reducibility named twice" counted,
+  s" two eliminators for the same types" counted,
+  s" a number beyond 2^32 - 1" counted,
+  s" records differ in number from the header" counted,
+  s" records differ from their SHA-256" counted,
+  s" no room" counted,
+  s" name lookup failed" counted,
+  s" the library's stage is sealed: its names cannot be looked up" counted,
+  s" a read in progress" counted,
+  0 0 counted,
+: ed-message ( code -- c-addr u ) ed-messages swap 0 ?do key-next loop count ;
 : ed-line ( -- n ) elab elab-reader reader-position nip nip ;
-: ed-fail ( why outcome -- outcome ) ed-line elab elab-at ! swap elab elab-why ! ;
-: ed-bad ( why -- outcome ) outcome-invalid ed-fail ;
-: ed-malformed ( -- outcome ) c" malformed line" ed-bad ;
-: ed-roomed ( outcome -- outcome ) dup ok? 0= if c" no room" swap ed-fail then ;
+: ed-fail ( code outcome -- outcome ) ed-line elab elab-at ! swap elab elab-code ! ;
+: ed-bad ( code -- outcome ) outcome-invalid ed-fail ;
+: ed-malformed ( -- outcome ) ed-e-malformed ed-bad ;
+: ed-roomed ( outcome -- outcome ) dup ok? 0= if ed-e-room swap ed-fail then ;
 : elab-error-line ( -- line ) elab elab-at @ ;
-: elab-error-why ( -- c-addr u ) elab elab-why @ ?dup if count else s" none" then ;
+: elab-error-code ( -- code ) elab elab-code @ ;
+: elab-error-why ( -- c-addr u ) elab-error-code ed-message ;
 : elab-error ( -- line c-addr u ) elab-error-line elab-error-why ;
 
 \ ---- Facts per declaration of the stage: bits 0-2 its reducibility
@@ -190,11 +231,16 @@ end-structure
 : ed-rehash ( n htab -- h ) drop ed-probe ed-key-hash ;
 : ed-same ( n key htab -- flag ) drop swap ed-probe ed-same-key? ;
 create ed-hooks /htab-hooks allot  ' ed-rehash ' ed-same ed-hooks htab-hooks!
+\ The table is made by the first read, so that a context holds no heap
+\ block for it until then, and emptied by every later one.
 : ed-table ( -- htab ) elab elab-table ;
-:noname ( -- ) 4 ed-hooks ed-table htab-init drop ; context-setup
 :noname ( -- ) ed-table htab-free ; context-teardown
+: ed-table? ( -- flag ) ed-table htab-live? ;
+: ed-table-ready ( -- outcome )
+  ed-table? if ed-table htab-clear outcome-ok exit then 4 ed-hooks ed-table htab-init ;
 : ed-key-find ( key -- n true | i false ) dup ed-key-hash ed-table htab-find ;
 : elab-eliminator-for ( d kind -- i true | false )
+  ed-table? 0= if 2drop false exit then
   elab elab-key tuck ekey-kind ! tuck ekey-one ! dup ekey-one over ekey-types !
   1 over ekey-types# ! ed-key-find dup 0= if nip then ;
 
@@ -203,7 +249,7 @@ create ed-hooks /htab-hooks allot  ' ed-rehash ' ed-same ed-hooks htab-hooks!
   elab-facts slab-clear elab-insts slab-clear elab-orders slab-clear
   elab-dflts slab-clear elab-elims slab-clear elab-types slab-clear ;
 : elab-reset ( -- )
-  ed-slabs-clear ed-table htab-clear false elab elab-loaded !
+  ed-slabs-clear ed-table? if ed-table htab-clear then false elab elab-loaded !
   elab elab-counts elab-kinds cells erase ;
 
 \ ---- Tables of keys: counted strings ending with an empty one
@@ -232,7 +278,7 @@ create elim-names  s" induction" counted, s" cases" counted, 0 0 counted,
 \ A natural number of at most 32 bits.
 : ed-u32 ( index -- u outcome )
   ed-view json-u 0= if 0 ed-malformed exit then
-  dup u32-mask u> if c" a number beyond 2^32 - 1" outcome-unsupported ed-fail exit then
+  dup u32-mask u> if ed-e-number outcome-unsupported ed-fail exit then
   outcome-ok ;
 \ One of the table's texts: its place.
 : ed-choice ( index table -- k outcome )
@@ -252,7 +298,7 @@ create elim-names  s" induction" counted, s" cases" counted, 0 0 counted,
 \ (-1: no such name; a part beyond 32 bits names none).
 : ed-tier ( -- tier ) ed-stage stage-tier ;
 : ed-looked ( n outcome -- n outcome )
-  dup ok? 0= if c" name lookup failed" swap ed-fail then ;
+  dup ok? 0= if ed-e-lookup swap ed-fail then ;
 : ed-part-text ( prefix item -- n outcome )
   ed-view json-text@ ed-tier name-seek-str ed-looked ;
 : ed-part-number ( prefix item -- n outcome )
@@ -277,12 +323,12 @@ create elim-names  s" induction" counted, s" cases" counted, 0 0 counted,
   dup 0< if drop false exit then ed-stage 2dup stage-by-name slab-count u<
   if resolution else 2drop false then ;
 : ed-name-decl ( n -- d outcome )
-  ed-decls 0= if 0 c" unknown name" ed-bad exit then
-  +1>number if outcome-ok else 0 c" a name several declarations have" ed-bad then ;
+  ed-decls 0= if 0 ed-e-unknown ed-bad exit then
+  +1>number if outcome-ok else 0 ed-e-several ed-bad then ;
 : ed-decl ( index -- d outcome ) ed-name dup ok? if drop ed-name-decl then ;
 \ The same, of the kind wanted: an inductive type, or any but one.
 : ed-type? ( d -- flag ) ed-stage staged-kind@ kind-type = ;
-: ed-kind-bad ( d -- d outcome ) c" a declaration of the wrong kind" ed-bad ;
+: ed-kind-bad ( d -- d outcome ) ed-e-wrong-kind ed-bad ;
 : ed-a-type ( index -- d outcome )
   ed-decl dup ok? 0= if exit then drop dup ed-type? if outcome-ok else ed-kind-bad then ;
 : ed-no-type ( index -- d outcome )
@@ -305,7 +351,7 @@ create inst-keys
   s" class" counted, s" name" counted, s" priority" counted, s" synth_order" counted,
   0 0 counted,
 : ed-inst-fact ( d i -- outcome )
-  over elab-instance-of if 2drop drop c" an instance named twice" ed-bad exit then
+  over elab-instance-of if 2drop drop ed-e-instance ed-bad exit then
   1+ facts-shift lshift swap ed-fact +! outcome-ok ;
 : ed-inst-named ( i d -- i d outcome ) 2dup swap ed-inst-fact ;
 : ed-inst-decl ( value i -- outcome )
@@ -331,7 +377,7 @@ create inst-steps
 create dflt-keys  s" class" counted, s" name" counted, s" priority" counted, 0 0 counted,
 : ed-dflt-fact ( d -- d outcome )
   dup ed-fact dup @ facts-default and
-  if drop c" a default instance named twice" ed-bad exit then
+  if drop ed-e-default ed-bad exit then
   dup @ facts-default or swap ! outcome-ok ;
 : ed-dflt-decl ( value i -- outcome )
   ed-dflt swap c" name" ed-member ed-no-type dup ok? if drop ed-dflt-fact then
@@ -348,7 +394,7 @@ create dflt-steps  ' ed-dflt-decl , ' ed-dflt-class , ' ed-dflt-priority , 0 ,
 \ ---- Reducibility: name, status; no declaration twice.
 create red-keys  s" name" counted, s" status" counted, 0 0 counted,
 : ed-status-fact ( d status -- outcome )
-  over elab-status if 2drop c" a reducibility named twice" ed-bad exit then
+  over elab-status if 2drop ed-e-reducibility ed-bad exit then
   swap ed-fact +! outcome-ok ;
 : ed-on-reducibility ( value -- outcome )
   dup red-keys ed-shape? 0= if drop ed-malformed exit then
@@ -369,7 +415,7 @@ create elim-keys  s" kind" counted, s" name" counted, s" types" counted, 0 0 cou
   ['] ed-type-item ed-array-items swap ed-types-span ;
 create elim-steps  ' ed-elim-kind , ' ed-elim-decl , ' ed-elim-types , 0 ,
 \ Eliminator i into the table, unless one of its key is there.
-: ed-twice ( i n -- outcome ) 2drop c" two eliminators for the same types" ed-bad ;
+: ed-twice ( i n -- outcome ) 2drop ed-e-eliminator ed-bad ;
 : ed-elim-insert ( i -- outcome )
   ed-table htab-ready ed-roomed dup ok? 0= if nip exit then drop
   dup elab elab-key tuck ed-key! ed-key-find
@@ -391,7 +437,7 @@ create kind-handlers
 : ed-on-record ( -- outcome )
   ed-wrapped? 0= if ed-malformed exit then
   1 ed-view json-text@ kind-names ed-key-index
-  0= if c" unknown record kind" ed-bad exit then
+  0= if ed-e-kind ed-bad exit then
   2 swap ed-dispatch ;
 
 \ ---- The header: its format and version first, so that another version
@@ -405,21 +451,21 @@ create head-keys
   swap if drop outcome-ok else outcome-unsupported ed-fail then ;
 : ed-head-format ( value i -- outcome )
   drop c" format" ed-member s" leanforth-elab-data" ed-text=
-  c" not elaboration data" ed-or-bad ;
+  ed-e-format ed-or-bad ;
 : ed-head-version ( value i -- outcome )
   drop c" format_version" ed-member ed-view natural-at if s" 1" compare 0= else false then
-  c" another format version" ed-or-other ;
+  ed-e-version ed-or-other ;
 : ed-head-shape ( value i -- outcome )
-  drop head-keys ed-shape? c" malformed line" ed-or-bad ;
+  drop head-keys ed-shape? ed-e-malformed ed-or-bad ;
 : ed-head-lean ( value i -- outcome )
   drop dup c" lean_version" ed-member pinned-lean-version ed-text=
   swap c" lean_githash" ed-member pinned-lean-githash ed-text= and
-  c" another Lean version" ed-or-other ;
+  ed-e-lean ed-or-other ;
 : ed-export-hex ( -- c-addr u )
   elab elab-export @ elab elab-hex sha256-hex elab elab-hex sha-digest-bytes 2* ;
 : ed-head-export ( value i -- outcome )
   drop c" export_sha256" ed-member ed-export-hex ed-text=
-  c" elaboration data of another export" ed-or-bad ;
+  ed-e-export ed-or-bad ;
 : ed-expected ( kind -- addr ) cells elab elab-expected + ;
 : ed-expect ( object kind -- outcome )
   tuck ed-kind-name ed-member ed-view json-u if swap ed-expected ! outcome-ok
@@ -441,20 +487,20 @@ create head-steps
   ' ed-head-export , ' ed-head-records , ' ed-head-hash , ' ed-head-modules , 0 ,
 : ed-head-key? ( -- flag ) 1 ed-view json-text@ s" elab_data" compare 0= ;
 : ed-on-header ( -- outcome )
-  ed-wrapped? if ed-head-key? else false then 0= if c" no header" ed-bad exit then
+  ed-wrapped? if ed-head-key? else false then 0= if ed-e-header ed-bad exit then
   2 0 head-steps ed-steps ;
 
 \ ---- The file, line by line; each record line hashed before it is
 \ parsed (parsing decodes its strings in place). A line that cannot be
 \ read is the one after the last line read.
 : ed-line-why ( outcome -- why )
-  outcome-full = if c" a line longer than the limit" exit then
-  c" no line, or a line without its line feed" ;
+  outcome-full = if ed-e-long exit then
+  ed-e-line ;
 : ed-unread ( outcome -- outcome ) dup ed-line-why swap ed-fail 1 elab elab-at +! ;
 : ed-next-line ( -- c-addr u outcome )
   elab elab-reader reader-line dup ok? 0= if ed-unread then ;
 : ed-parse ( c-addr u -- outcome )
-  ed-view json-parse dup ok? 0= if c" not one JSON value within the limits" swap ed-fail
+  ed-view json-parse dup ok? 0= if ed-e-json swap ed-fail
   then ;
 : ed-header ( -- outcome )
   ed-next-line ok-then2? if ed-parse dup ok? if drop ed-on-header then then ;
@@ -472,11 +518,11 @@ create head-steps
   elab elab-digest elab elab-sha sha256-final elab elab-digest elab elab-hex sha256-hex
   elab elab-hex sha-digest-bytes 2* elab elab-records over compare 0= ;
 : ed-ends ( -- outcome )
-  ed-counts-same? 0= if c" records differ in number from the header" ed-bad exit then
-  ed-hash-same? c" records differ from their SHA-256" ed-or-bad ;
+  ed-counts-same? 0= if ed-e-count ed-bad exit then
+  ed-hash-same? ed-e-sha ed-or-bad ;
 : ed-open ( c-addr u -- outcome )
   elab elab-reader reader-open
-  dup ok? 0= if c" file missing or unreadable" swap ed-fail then ;
+  dup ok? 0= if ed-e-file swap ed-fail then ;
 : ed-steps-all ( c-addr u -- outcome )
   ed-open dup ok? if drop ed-header then dup ok? if drop ed-records then
   dup ok? if drop ed-ends then ;
@@ -489,17 +535,19 @@ create head-steps
   elab-depth-limit ed-view json-init
   dup ok? if elab-token-limit ed-view json-token-limit ! then ;
 : ed-sealed ( stage -- outcome )
-  drop c" the library's stage is sealed: its names cannot be looked up" ed-bad ;
+  drop ed-e-sealed ed-bad ;
+\ After an ok outcome, xt ( -- outcome ); no room is told as such.
+: ed-then ( outcome xt -- outcome ) over ok? if nip execute ed-roomed else drop then ;
 : ed-start ( stage sha -- outcome )
-  elab-reset 0 elab elab-why ! 0 elab elab-at ! elab elab-export ! dup elab elab-stage !
+  elab-reset 0 elab elab-code ! 0 elab elab-at ! elab elab-export ! dup elab elab-stage !
   elab elab-sha sha256-init dup stage-sealed? if ed-sealed exit then
-  stage-decls ed-facts-made dup ok? if drop ed-views ed-roomed then ;
+  stage-decls ed-facts-made ['] ed-table-ready ed-then ['] ed-views ed-then ;
 : ed-close ( outcome -- outcome )
   elab elab-reader dup reader-close drop reader-free ed-view json-free
   false elab elab-reading ! dup ok? dup elab elab-loaded ! 0= if elab-reset then ;
 : ed-caught ( c-addr u -- outcome code )
   ['] ed-steps-all catch dup if nip nip outcome-invalid swap then ;
-: ed-busy ( c-addr u stage sha -- outcome ) 2drop 2drop c" a read in progress" ed-bad ;
+: ed-busy ( c-addr u stage sha -- outcome ) 2drop 2drop ed-e-busy ed-bad ;
 : elab-read ( c-addr u stage sha -- outcome )
   elab elab-reading @ if ed-busy exit then
   ed-start ok-then2? if true elab elab-reading ! ed-caught else 0 then
