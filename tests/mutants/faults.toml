@@ -10622,3 +10622,20 @@ old = '''  2 pick lf-walk-seen-at? if drop lf-walk-skip exit then execute ;'''
 new = '''  2 pick lf-walk-seen-at? drop execute ;'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "FRI B8: a (node, depth) pair reached before is walked again"
+
+[[fault]]
+id = "fri-b7-exprs-walk-outcome-ignored"
+file = "src/import/stage.fs"
+old = '''    i 2 pick 2 pick execute dup ok? 0= if nip nip unloop exit then drop'''
+new = '''    i 2 pick 2 pick execute drop'''
+test = "GFORTH=$GFORTH python3 tests/core/test_stage.py"
+reason = "FRI B7: a constant that resolves to no declaration is passed over and the stage seals"
+
+[[fault]]
+id = "fri-b7-exprs-walk-let-as-one"
+file = "src/import/stage.fs"
+old = '''    i 2 pick stage-tier expr-next i -'''
+new = '''    1'''
+test = "GFORTH=$GFORTH python3 tests/core/test_stage.py"
+reason = "FRI B7: a letE's body record is walked as an expression of its own"
+gap = "the two walkers (record-resolve, reach-note) leave a body record as they found it in every fixture; no test reads a difference"
