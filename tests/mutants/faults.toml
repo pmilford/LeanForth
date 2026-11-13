@@ -11484,3 +11484,13 @@ old = '''  dup lf-slot-accepted? 0= if 2drop 0 outcome-ok exit then'''
 new = '''  dup lf-slot-accepted? 0= if 2drop 0 outcome-invalid exit then'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "the axiom table stops at a rejected slot below an accepted declaration, so that declaration's axioms cannot be reported"
+
+[[fault]]
+id = "cov2-warnings-of-rejected"
+file = "src/kernel/environment.fs"
+old = '''  dup lf-slot-accepted? if lf-slot-warnings @ outcome-ok
+  else drop 0 outcome-invalid then ;'''
+new = '''  dup lf-slot-accepted? if lf-slot-warnings @ outcome-ok
+  else drop 0 outcome-ok then ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "a rejected declaration's warnings are given as none and ok, as if it had been accepted"

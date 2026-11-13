@@ -1182,6 +1182,12 @@ T{ secret-axioms -> 12 12 1 outcome-ok }T
   s" after.rejected-block-then-def-rec" case-path staged ok? must fuel checked
   0 rests-on 2 rests-on finish ;
 T{ after-rejected -> 0 outcome-invalid 0 outcome-ok }T
+\ The same run's warnings: none for the accepted definition; a rejected
+\ slot and a declaration past the run have none to give (0 invalid).
+: warnings-around ( -- bits outcome bits outcome bits outcome )
+  s" after.rejected-block-then-def-rec" case-path staged ok? must fuel checked
+  2 lf-env-warnings 0 lf-env-warnings lf-input-count lf-env-warnings finish ;
+T{ warnings-around -> 0 outcome-ok 0 outcome-invalid 0 outcome-invalid }T
 
 \ 8. The statement matcher (core/statement-match.fs) and the allowlist
 \ (core/axiom-allowlist.fs) on Lean's own export of propext,
