@@ -174,8 +174,7 @@ variable imp-current
   loop drop ;
 : imp-keep ( stage imp -- outcome )
   dup /imp erase tuck imp-stage ! dup keep-firsts
-  dup keep-copy dup ok? 0= if nip exit then drop
-  dup keep-slots dup ok? 0= if nip exit then drop keep-names ;
+  outcome-ok ['] keep-copy ok-with ['] keep-slots ok-with ['] keep-names ok-with nip ;
 : imp-sn@ ( imp -- n ) imp-sn @ ;
 
 \ ---- The input, after the export was read, sealed and fed: each
@@ -187,12 +186,16 @@ variable imp-current
   2dup imp-stage @ staged-at over imp-stage @ slot-record? 0= if 2drop exit then
   >r over r> imp-staged-of @ ua! 1+ ;
 : e-count ( imp -- n ) imp-stage @ stage-decls ;
-: imp-input ( imp -- outcome )
-  dup e-count over imp-staged-of ua-new dup ok? 0= if nip exit then drop
+: imp-staged-room ( imp -- outcome ) dup e-count swap imp-staged-of ua-new ;
+\ Each input declaration's staged number: invalid unless one per slot.
+: imp-input-slots ( imp -- outcome )
   0 over e-count 0 ?do i 2 pick input-slot loop
-  dup lf-input-count <> if 2drop outcome-invalid exit then
-  over imp-n ! dup imp-n @ over imp-from ua-new dup ok? 0= if nip exit then drop
-  dup imp-sn @ swap imp-to ua-new ;
+  dup lf-input-count <> if 2drop outcome-invalid exit then swap imp-n ! outcome-ok ;
+: imp-from-room ( imp -- outcome ) dup imp-n @ swap imp-from ua-new ;
+: imp-to-room ( imp -- outcome ) dup imp-sn @ swap imp-to ua-new ;
+: imp-input ( imp -- outcome )
+  outcome-ok ['] imp-staged-room ok-with ['] imp-input-slots ok-with
+  ['] imp-from-room ok-with ['] imp-to-room ok-with nip ;
 
 \ ---- I1.1, the same content.
 : e-decl ( ie imp -- addr ) imp-stage @ staged-at ;
@@ -263,7 +266,7 @@ variable imp-current
 : answer-taken ( answer imp -- answer' true | false )
   over lf-look-slot+1 ?dup 0= if drop true exit then
   1- swap imp-from @ ua@ ?dup 0= if drop false exit then
-  4 lshift swap 15 and or true ;
+  lf-look-reslot true ;
 \ The candidate's entry i against S's entry j.
 : entry-same? ( i j imp -- flag )
   rot lf-look-at 2@ swap rot answer-taken 0= if 2drop false exit then
@@ -387,12 +390,16 @@ variable imp-current
 : imp-block ( u addr -- outcome )
   >r 1 max dup allocate if 2drop r> drop outcome-full exit then
   tuck swap erase r> ! outcome-ok ;
-: layer-room ( imp -- outcome )
-  dup imp-n @ over imp-renum ua-new dup ok? 0= if nip exit then drop
-  dup imp-n @ over imp-lslots ua-new dup ok? 0= if nip exit then drop
-  dup e-count /staged * over imp-ldecls imp-block dup ok? 0= if nip exit then drop
-  dup e-count over imp-llines ua-new dup ok? 0= if nip exit then drop
+: imp-renum-room ( imp -- outcome ) dup imp-n @ swap imp-renum ua-new ;
+: imp-lslots-room ( imp -- outcome ) dup imp-n @ swap imp-lslots ua-new ;
+: imp-ldecls-room ( imp -- outcome ) dup e-count /staged * swap imp-ldecls imp-block ;
+: imp-llines-room ( imp -- outcome ) dup e-count swap imp-llines ua-new ;
+: imp-lnewest-room ( imp -- outcome )
   dup imp-stage @ stage-tier tier-names cons-numbers swap imp-lnewest ua-new ;
+: layer-room ( imp -- outcome )
+  outcome-ok ['] imp-renum-room ok-with ['] imp-lslots-room ok-with
+  ['] imp-ldecls-room ok-with ['] imp-llines-room ok-with ['] imp-lnewest-room ok-with
+  nip ;
 : imp-layer ( imp -- outcome )
   dup imp-current ! dup layer-room dup ok? 0= if nip exit then drop
   0 over imp-ln ! 0 over imp-ldn ! dup imp-n @ 0 ?do i over renum-one loop layer-decls ;

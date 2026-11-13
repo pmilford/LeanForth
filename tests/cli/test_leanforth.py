@@ -2368,6 +2368,17 @@ class Snapshots(unittest.TestCase):
         self.refused(write(changed), 4, "invalid: the snapshot was refused: sections")
         self.refused(write(data[:len(data) - 4096]), 4,
                      "invalid: the snapshot was refused: header or section table")
+        # The identity changed without its SHA-256; the slots' section given
+        # another unit size, the header resealed (review FRK C3).
+        _, _, _, identity, _ = table[10]
+        changed = bytearray(data)
+        changed[identity] ^= 1
+        self.refused(write(changed), 4, "invalid: the snapshot was refused: identity")
+        changed = bytearray(data)
+        put32(changed, 96 + 64 * SLOTS + 4, 36)
+        put32(changed, 96 + 64 * SLOTS + 8, 2 * table[SLOTS][2])
+        self.refused(write(resealed(changed, table)), 4,
+                     "invalid: the snapshot was refused: section table")
 
     def test_review_faults(self):
         """Review rvSN3's crafted snapshots, each refused or shown safely:
