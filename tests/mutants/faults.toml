@@ -11510,3 +11510,13 @@ old = '''  lf-env-checking 0= if drop outcome-invalid exit then nip'''
 new = '''  lf-env-checking 0= if drop outcome-rejected exit then nip'''
 test = "$GFORTH tests/core/quot.fs"
 reason = "a block checked outside any check is rejected, a verdict, instead of refused as invalid"
+
+[[fault]]
+id = "cov2-whnf-node-not-in-store"
+file = "src/kernel/whnf.fs"
+old = '''  over lf-term-valid? 0= if nip outcome-invalid swap lf-whnf-failed exit then
+  over lf-whnf-easy? if lf-whnf-keep exit then'''
+new = '''  over lf-term-valid? 0= if lf-whnf-keep exit then
+  over lf-whnf-easy? if lf-whnf-keep exit then'''
+test = "$GFORTH tests/core/defeq.fs"
+reason = "whnf gives back a node that is not in the store as its own normal form instead of refusing it"
