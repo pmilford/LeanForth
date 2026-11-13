@@ -25,6 +25,8 @@ of §12 passes its own review gate (`AGENTS.md`): Lean's published rules,
 agreeing pinned-Lean differential tests reaching every outcome, an
 independent AI review, and the owner's approval of a plain summary.
 
+Approval status: accepted 2026-11-03, gate: design (Q3 and Q4, one gate per implementation task), [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Data types, axioms and imports (2026-11-03, late night)"
+
 ## Summary in plain words
 
 Almost every real Lean statement mentions a **data type**: the natural
@@ -1789,6 +1791,8 @@ verdict changed.
 
 ## Amendment (review rvUNNI; agent FX8, 2026-11-11)
 
+Approval status: status unclear (no owner decision found); it says not through its gate, and no owner entry names agent FX8
+
 Experimental [kernel][format] code, **not through its gate**. The
 independent review of tasks 5.2.7 and 5.2.5b (rvUNNI, one blocking
 finding) compared LeanForth with the official checker (lean4export's
@@ -1855,6 +1859,8 @@ pinned Lean accepts it, its export is reproduced byte for byte, and
 LeanForth and the official checker accept all 107 declarations.
 
 ## Amendment (follow-up of task 5.2.1b: diagnostic 81's routes; agent IO, 2026-11-11)
+
+Approval status: accepted 2026-11-12, gate: not stated, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names IO (diagnostic-81 routes)
 
 Experimental [kernel] code, **not through its gate**. No new rule: three
 places now do what Lean 4.35.0 does where LeanForth answered *unknown*.
@@ -1926,6 +1932,8 @@ places now do what Lean 4.35.0 does where LeanForth answered *unknown*.
 
 ## Amendment (review rvKN; agent FXK, 2026-11-12)
 
+Approval status: accepted 2026-11-12, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names NS with FXK
+
 Experimental [kernel] code, **not through its gate**. No new rule: the
 block's walks now do Lean's work, no more.
 
@@ -1982,6 +1990,8 @@ before and after give the same report but for one declaration's fuel
 version 7 (`verdict-version.fs`).
 
 ## Amendment (review MO, 2026-11-12)
+
+Approval status: accepted 2026-11-12, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Second approval round of 2026-11-12 (afternoon)"; the entry names MO
 
 Experimental [kernel] code, **not through its gate**. No new rule: the
 nested passes now do Lean's work, no more.

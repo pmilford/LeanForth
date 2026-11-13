@@ -153,4 +153,6 @@ records and `prompts/FIRST_CODEX_TASK.md` still use those old paths. Old
 
 ADR 0007 (Sort representation boundary) was numbered 0005 until 2026-11-02.
 `make test` runs `scripts/check-doc-links.py`, which fails on any broken
-link or `docs/` path outside the historical records.
+link or `docs/` path outside the historical records, and `scripts/check-adr-status.py`, which fails when an
+ADR or an ADR amendment lacks its "Approval status:" line (proposed, accepted with date, gate and
+`OWNER_DECISIONS.md`, superseded, or "status unclear (no owner decision found)").

@@ -5,6 +5,8 @@ a conservative extension of ADRs 0002–0005 and 0007, not full Lean compatibili
 The existing experimental probes and NDJSON preview do not validate or
 register declarations. No theorem may be accepted on this proposal alone.
 
+Approval status: status unclear (no owner decision found); the ADR's own text says draft, not approved (its 2026-11-05 amendment is accepted, below)
+
 ## Candidate contract
 
 - A check uses one protected, immutable environment snapshot mapping full
@@ -419,6 +421,8 @@ not establish general Lean compatibility or kernel soundness. Human review
 is still required for any trusted implementation or declaration import.
 
 ## Amendment (2026-11-05): axioms, opaque declarations, allowlist v1
+
+Approval status: accepted 2026-11-11, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-11"; the entry names axioms with allowlist v1, opaque declarations and quotients (plan 5.3.1-5.3.2, 4.2.6)
 
 Status: **implemented, not through the review gate** [kernel][import][format]
 (plan tasks 5.3.1, 4.2.6; agent AX, branch `ax-axioms-quot`). It follows the

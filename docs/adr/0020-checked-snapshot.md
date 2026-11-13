@@ -19,6 +19,8 @@ parallel verdicts equal serial ones), and designs for the store as it will
 be after agents S5B (the checker reads lets and projections in place, the
 copy deleted) and S7 (`--jobs`: a scheduler and parallel publishing).
 
+Approval status: accepted 2026-11-12, gate: format, import, kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; design points in section "Later decisions of 2026-11-11"
+
 ## Summary in plain words
 
 Checking all of Mathlib would take LeanForth about fifteen hours on one
@@ -469,6 +471,8 @@ files, tests and planted faults, is kept with the agents' work notes.
 
 ## Amendment 1 (2026-11-11): step SN3, and the owner's decisions F1 and F5
 
+Approval status: accepted 2026-11-12, gate: not stated, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names ADR 0020 and Amendments 1-3
+
 *Agent SN3; [kernel] (the lookup recording, I2) and [format] (snapshot
 format 1, check report 0.3) review pending, and the owner's approval.*
 
@@ -569,6 +573,8 @@ dependencies and lookups take about 729,263 × (4 × 20 + 8 × 36) bytes,
 0.27 GB.
 
 ## Amendment 2 (2026-11-11): step SN4, dependent exports and layers
+
+Approval status: accepted 2026-11-12, gate: not stated, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names ADR 0020 and Amendments 1-3
 
 *Agent SN4; [kernel] (I1, I2: what a loaded snapshot vouches for) and
 [import] (continued staging, layers) review pending, and the owner's
@@ -671,6 +677,8 @@ exactly, so a declaration whose lookups reach a re-checked one is checked
 again even when that one's verdict did not change (sound, slower).
 
 ## Amendment 3 (2026-11-11): step SN5
+
+Approval status: accepted 2026-11-12, gate: not stated, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names Amendments 1-3, corrected by G1 in the second round
 
 *Agent SN5; [kernel] (the seal's names), [format] (report 0.3's new
 members) review pending, and the owner's approval. The flag below is the
@@ -783,6 +791,8 @@ check's in fuel or in a verdict near the fuel budget (env-import.fs,
 COMMAND_LINE.md). Amendment 4 did that task.
 
 ## Amendment 4 (2026-11-11): fuel independent of the tier's numbering (agent PF; review rvSN4 B1)
+
+Approval status: accepted 2026-11-12, gate: not stated, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names ADR 0020 Amendment 4
 
 *[kernel] review owed (ADR 0014 Amendment 7).* B1: a check's fuel, and so
 a verdict near the fuel budget, depended on the other records of the

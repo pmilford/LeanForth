@@ -3,6 +3,8 @@
 Status: **proposed; human review required before trusted implementation**.
 This extends ADR 0004. It does not approve a kernel, importer, or theorem.
 
+Approval status: status unclear (no owner decision found); the ADR's own text says proposed
+
 ## Problem
 
 Concrete inference interprets `lf-tag-sort`'s payload as a universe number.
