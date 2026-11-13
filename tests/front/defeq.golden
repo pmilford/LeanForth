@@ -88,3 +88,19 @@ false
 true (app (app Nat.add.{} k) x) (app (app Nat.add.{} k) x)
 false
 false
+false
+true (app (app Nat.add.{} k) x) (app (app Nat.add.{} k) x)
+true (app u k) (app u k)
+true (lam (app (app id.{2} Sort 1) Nat.{}) #0) (lam (app (app id.{2} Sort 1) Nat.{}) #0)
+false
+false
+true (app (app (app (app Prod.mk.{0,0} Nat.{}) Nat.{}) a) b) (app (app (app (app Prod.mk.{0,0} Nat.{}) Nat.{}) a) b)
+false
+true (app Nat.succ.{} (app (app (app OfNat.ofNat.{0} Nat.{}) 9223372036854775807) (app instOfNatNat.{} 9223372036854775807))) 9223372036854775808
+false
+true (app Nat.succ.{} (app (app (app OfNat.ofNat.{0} Nat.{}) 18446744073709551614) (app instOfNatNat.{} 18446744073709551614))) 18446744073709551615
+true (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) (app (app (app OfNat.ofNat.{0} Nat.{}) 4611686018427387904) (app instOfNatNat.{} 4611686018427387904))) (app (app (app OfNat.ofNat.{0} Nat.{}) 4611686018427387904) (app instOfNatNat.{} 4611686018427387904)))) (app (app (app OfNat.ofNat.{0} Nat.{}) 4611686018427387904) (app instOfNatNat.{} 4611686018427387904))) 13835058055282163712
+true (app Nat.succ.{} (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) (app (app (app OfNat.ofNat.{0} Nat.{}) 0) (app instOfNatNat.{} 0))) (app (app (app OfNat.ofNat.{0} Nat.{}) 4611686018427387904) (app instOfNatNat.{} 4611686018427387904)))) (app (app (app OfNat.ofNat.{0} Nat.{}) 4611686018427387904) (app instOfNatNat.{} 4611686018427387904)))) (app (app (app OfNat.ofNat.{0} Nat.{}) 4611686018427387904) (app instOfNatNat.{} 4611686018427387904)))) 13835058055282163713
+true (app Nat.succ.{} (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) (app (app (app OfNat.ofNat.{0} Nat.{}) 4611686018427387904) (app instOfNatNat.{} 4611686018427387904))) (app (app (app OfNat.ofNat.{0} Nat.{}) 4611686018427387904) (app instOfNatNat.{} 4611686018427387904)))) (app (app (app OfNat.ofNat.{0} Nat.{}) 4611686018427387904) (app instOfNatNat.{} 4611686018427387904))))) (app Nat.succ.{} (app (app (app (app (app (app HAdd.hAdd.{0,0,0} Nat.{}) Nat.{}) Nat.{}) (app (app instHAdd.{0} Nat.{}) instAddNat.{})) k) (app (app (app OfNat.ofNat.{0} Nat.{}) 13835058055282163712) (app instOfNatNat.{} 13835058055282163712))))
+false
+true (app i e) (app i (proj 0 p))

@@ -463,7 +463,7 @@ defer de-args-post ( -- )
   tuck swap de-pa-dup? if drop false exit then de-scope 0= lf-defeq-quasi de-flag? or ;
 : de-pa-locals? ( -- flag ) false de-pa-n 0 ?do i de-pa-arg @ de-scope or loop ;
 : de-pa-check ( v -- v' flag )
-  >r de-mvar de-pa-args r> lf-meta-check-assignment de-must 0= if drop false then ;
+  de-mvar de-pa-args lf-meta-pattern! lf-meta-check-assignment de-must 0= if drop false then ;
 : de-pa-types ( v -- ) de-mvar swap ['] de-pa-ret de-then ['] de-check-types de-invoke ;
 \ Quasi-patterns need Lean's isTypeCorrect: not ported.
 : de-pa-abstract ( v -- )

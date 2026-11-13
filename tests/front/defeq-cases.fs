@@ -2,7 +2,7 @@
 \ variables of tests/front/whnf-cases.fs and, made after them in this
 \ order, the metavariables ?r : Nat, ?t : Nat -> Nat and ?y : Nat -> Nat
 \ -> Nat, the free variables j : Nat, e c : a = b, u : Nat -> Nat, v w :
-\ PUnit.{1}, and the synthetic opaque ?o : Nat, as
+\ PUnit.{1}, i : a = b -> Nat, and the synthetic opaque ?o : Nat, as
 \ tests/front/defeq-cases.lean makes them (names unique without case:
 \ Gforth's are case-insensitive). One line per case: "true", then both
 \ sides with their metavariables instantiated, or "false", or
@@ -10,7 +10,8 @@
 \ is rolled back after it, so no case sees another's assignments; eq-dq
 \ uses the elaborator's configuration (foApprox, ctxApprox: Lean's
 \ run_meta), meta-dq Meta's default, deep-dq the elaborator's one depth
-\ deeper (withNewMCtxDepth), red-dq reducible transparency.
+\ deeper (withNewMCtxDepth), red-dq, inst-dq and impl-dq reducible,
+\ instances and implicit transparency.
 \ Test support only: printing recurses on the host stack, which the
 \ small cases allow.
 
@@ -37,6 +38,7 @@ nat>nat char u local constant fu
 : punit ( -- t ) lv1 1 s" PUnit" cn ;
 punit char v local constant fv
 punit char w local constant fw
+eqab nat tpi char i local constant fi
 nat mv-opaque lf-mvar-new made constant ?o  ?o char o named
 
 : defeq-show ( t s flag outcome -- )
@@ -51,3 +53,5 @@ nat mv-opaque lf-mvar-new made constant ?o  ?o char o named
 : deep-dq ( t s -- ) lf-defeq-elab lf-defeq-flags! lf-mctx-deeper dq-case
   lf-mctx-shallower ;
 : red-dq ( t s -- ) lf-tr-reducible lf-defeq-mode! eq-dq ;
+: inst-dq ( t s -- ) lf-tr-instances lf-defeq-mode! eq-dq ;
+: impl-dq ( t s -- ) lf-tr-implicit lf-defeq-mode! eq-dq ;

@@ -40,7 +40,7 @@
 \ invalid for a term that is not live; full when a store or the heap has
 \ no room. Untrusted.
 \ State: the slab fi-params (kind, prop and free variable per
-\ parameter) and the record fi (the kinds' source), in the checker
+\ parameter) and the record fi-state (the kinds' source), in the checker
 \ context (ADR 0009); valid until the next lf-meta-fun-info.
 
 require ../lib/lib.fs
@@ -64,7 +64,7 @@ require ./prop-quick.fs
 begin-structure /fi
   field: fi-source   \ the declared type's pi of the next parameter, or -1
 end-structure
-/fi context-record: fi
+/fi context-record: fi-state
 : fi-tag ( t -- tag ) lf-term-tag@ ;
 
 \ ---- whnf's fixed points.
@@ -114,7 +114,7 @@ end-structure
 \ shares equal nodes, binder-table.fs), so its kind is unknown; one it
 \ does not name is explicit, as every front-end binder made without a
 \ kind (whose copies are refused, not dropped, when the table is full).
-: fi-src ( -- addr ) fi fi-source ;
+: fi-src ( -- addr ) fi-state fi-source ;
 : fi-store-kind ( pi -- kind true | false )
   lf-pres-binder@ if 2drop false else lf-binder-default true then ;
 : fi-kind ( -- kind true | false )

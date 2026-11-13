@@ -18,8 +18,35 @@ require ./defeq-cases.fs
 \ A mark of the test's own around a case that assigns, and its rollback.
 : own-mark ( -- ) lf-mctx-mark 2drop ;
 : own-back ( -- ) lf-mctx-latest lf-mctx-rollback drop ;
-: clean? ( -- flag ) lf-mctx-marks 0= lf-mctx-depth 0= and ;
 : free? ( mvar -- flag ) lf-mvar-value dup if nip 0= else drop true then ;
+: chk ( mvar addr n v -- v' flag outcome ) >r lf-meta-pattern! r> lf-meta-check-assignment ;
+
+\ More variables: a let out of ?n's scope, a free variable whose type
+\ holds ?n, metavariables in ?n's context whose type holds ?n (?w) or
+\ that is delayed (?d), one whose context adds j (?z), a level
+\ metavariable ?u and ?M : Sort (?u + 1), a dead free variable.
+: anon ( type -- fvar ) lf-lctx-local made in-view ;
+nat fk lf-lctx-let made in-view constant fl
+lv1 1 s" Eq" cn nat app ?n app ?n app anon constant fq
+: n-view ( -- view ) ?n lf-mvar-view drop ;
+: at-n ( type -- mvar ) mv-natural n-view lf-mvar-new-at made ;
+0 s" Fin" cn ?n app at-n constant ?w
+nat at-n constant ?d
+: j-local ( -- local ) lf-mctx-view dup fj lf-view-find drop lf-view-local ;
+: view+j ( -- view ) n-view j-local lf-view-push made ;
+nat mv-natural view+j lf-mvar-new-at made constant ?z
+lf-level-mvar-new made constant ?u
+?u lf-level-succ must sort mv-natural lf-mvar-new made constant ?M
+: dead-fvar ( -- fvar ) lf-term-base lf-term-count @ + nat lf-lctx-local made swap lf-lctx-drop ;
+dead-fvar constant fdead
+create xs 2 cells allot  fj xs !  fk xs cell+ !
+create xk 1 cells allot  fk xk !
+create xq 1 cells allot  fq xq !
+create xaj 2 cells allot  fa xaj !  fj xaj cell+ !
+lf-lctx-count @ constant lctx0  lf-mctx-view constant view0
+\ No mark open, no new depth, the local context as before.
+: clean? ( -- flag )
+  lf-mctx-marks 0= lf-mctx-depth 0= and lf-lctx-count @ lctx0 = and lf-mctx-view view0 = and ;
 : ofnat ( n -- t ) >r l0 1 s" OfNat.ofNat" cn nat app r@ nlit app
   0 s" instOfNatNat" cn r> nlit app app ;
 : hadd ( a b -- t ) >r >r l0 l0 l0 3 s" HAdd.hAdd" cn nat app nat app nat app
@@ -132,10 +159,9 @@ T{ eqab lf-meta-prop-quick nat lf-meta-prop-quick nat 0 bv lam lf-meta-prop-quic
    -> lf-lb-true outcome-ok lf-lb-false outcome-ok lf-lb-false outcome-ok }T
 T{ l0 lf-meta-always-zero? lv1 lf-meta-always-zero? -> true outcome-ok false outcome-ok }T
 \ checkAssignment and mkLambdaFVars.
-create xs 2 cells allot  fj xs !  fk xs cell+ !
-T{ ?n xs 0 fk lf-meta-check-assignment ?n xs 0 fj lf-meta-check-assignment
+T{ ?n xs 0 fk chk ?n xs 0 fj chk
    -> fk true outcome-ok fj false outcome-ok }T
-T{ ?n xs 0 succ ?n app lf-meta-check-assignment rot drop ?r xs 1 fj lf-meta-check-assignment
+T{ ?n xs 0 succ ?n app chk rot drop ?r xs 1 fj chk
    -> false outcome-ok fj true outcome-ok }T
 T{ xs 1 succ fj app lf-meta-mk-lambda xs 1 fk lf-meta-mk-lambda swap nat fk lam same
    -> succ outcome-ok outcome-ok true }T
@@ -198,19 +224,95 @@ T{ input-nat nat lf-meta-eqv input-type lv1 sort lf-meta-eqv input-type l0 sort 
 T{ fp 0 proj fp 1 proj lf-meta-eqv -> false outcome-ok }T
 \ checkAssignment's refusals: an out-of-scope let variable, a variable
 \ out of scope inside a beta-redex or under ctxApprox, hasCtxLocals.
-nat fk lf-lctx-let made in-view constant fl
-create xk 1 cells allot  fk xk !
-T{ ?n xs 0 fl lf-meta-check-assignment rot drop ?n xs 0 nat fj lam fk app
-   lf-meta-check-assignment rot drop -> false outcome-unsupported false outcome-unsupported }T
-T{ true lf-meta-ctx-approx! ?n xs 0 ?t fj app lf-meta-check-assignment rot drop
-   false lf-meta-ctx-approx! ?n xk 1 ?h lf-meta-check-assignment
+T{ ?n xs 0 fl chk rot drop ?n xs 0 nat fj lam fk app
+   chk rot drop -> false outcome-unsupported false outcome-unsupported }T
+T{ true lf-meta-ctx-approx! ?n xs 0 ?t fj app chk rot drop
+   false lf-meta-ctx-approx! ?n xk 1 ?h chk
    -> false outcome-unsupported ?h false outcome-ok }T
-T{ ?n xs 0 nat fk fj let lf-meta-check-assignment rot drop -> false outcome-ok }T
+T{ ?n xs 0 nat fk fj let chk rot drop -> false outcome-ok }T
 \ mkLambdaFVars: an xi in a metavariable's scope (elimMVarDeps) or a let
 \ between the xi: not ported.
-create xaj 2 cells allot  fa xaj !  fj xaj cell+ !
 T{ xk 1 ?n lf-meta-mk-lambda xaj 2 fk lf-meta-mk-lambda
    -> -1 outcome-unsupported -1 outcome-unsupported }T
+
+\ ---- Pins of the fe1c-3 review (2026-11-13).
+\ Offsets and values are unsigned cells: 2^63, 2^64 - 1 and sums past
+\ 2^63 are values; a sum past 2^64 has no cell (unsupported).
+1 62 lshift constant q62
+: sum3 ( -- t ) q62 ofnat q62 ofnat hadd q62 ofnat hadd ;
+T{ sum3 lf-meta-eval-nat -> q62 3 * true outcome-ok }T
+T{ succ ?h q62 ofnat hadd q62 ofnat hadd q62 ofnat hadd app lf-meta-offset
+   -> ?h q62 3 * 1+ true outcome-ok }T
+T{ own-mark succ ?h app max-n 1+ nlit dq ?h inst max-n ofnat same own-back
+   -> true outcome-ok true }T
+T{ own-mark succ ?h app -1 nlit dq ?h inst -2 ofnat same own-back -> true outcome-ok true }T
+T{ succ ?h 1 63 lshift ofnat hadd app 5 nlit dq ?h free? -> false outcome-ok true }T
+T{ -1 nlit 1 nlit nat-add lf-meta-eval-nat -> 0 false outcome-unsupported }T
+T{ fk -1 nlit nat-add succ swap app lf-meta-offset nip nip nip -> outcome-unsupported }T
+\ evalNat takes HAdd.hAdd only with instHAdd Nat instAddNat.
+: inst-x ( -- inst ) l0 1 s" instHAdd" cn nat app fx app ;
+T{ 2 nlit 3 nlit inst-x hadd-by lf-meta-eval-nat -> 0 false outcome-ok }T
+\ Universe lists: == compares every level; isDefEq pair by pair, false
+\ when one list ends first; a definition whose levels differ is unfolded
+\ on both sides (lazy delta: unsupported).
+: hadd-c ( l -- t ) >r l0 l0 r> 3 s" HAdd.hAdd" cn ;
+T{ l0 hadd-c lv1 hadd-c lf-meta-eqv l0 hadd-c lv1 hadd-c dq
+   -> false outcome-ok false outcome-unsupported }T
+: prod-c ( l -- t ) >r l0 r> 2 s" Prod.mk" cn ;
+T{ l0 prod-c lv1 prod-c dq l0 prod-c l0 1 s" Prod.mk" cn dq -> false outcome-ok false outcome-ok }T
+T{ l0 1 s" OfNat.ofNat" cn l0 l0 2 s" OfNat.ofNat" cn dq -> false outcome-unsupported }T
+\ String literals by their text.
+: slit ( c-addr u -- t ) lf-str-new made drop ;
+T{ s" ab" slit s" ab" slit dq s" ab" slit s" ac" slit dq -> true outcome-ok false outcome-ok }T
+T{ s" ab" slit s" ab" slit lf-meta-eqv s" ab" slit s" ac" slit lf-meta-eqv
+   -> true outcome-ok false outcome-ok }T
+\ ?n =?= n + k: first-order approximation without arguments fails (no
+\ unfolding needed), but processAssignment' asks whnf (FE1d2; Lean: false).
+T{ ?n ?n fk nat-add dq ?n free? -> false outcome-unsupported true }T
+\ checkAssignment: ?n in an xi's type, in a metavariable's type, through
+\ a delayed assignment; ?z's context less j is a prefix of ?n's.
+T{ ?n xq 1 fk chk -> fk false outcome-ok }T
+T{ ?n xs 0 ?w chk rot drop -> false outcome-ok }T
+T{ own-mark ?d ?n 0 lf-mvar-delay ?n xs 0 ?d chk rot drop own-back
+   -> outcome-ok false outcome-ok }T
+T{ false lf-meta-ctx-approx! ?n xs 1 ?z chk ?n xs 0 ?z chk rot drop
+   -> ?z true outcome-ok false outcome-ok }T
+\ Under ctxApprox Lean would give ?z a smaller context: not ported.
+T{ true lf-meta-ctx-approx! ?n xs 0 ?z chk rot drop false lf-meta-ctx-approx!
+   -> false outcome-unsupported }T
+\ A stale metavariable, a free variable no longer in the context.
+: stale ( -- mvar ) ?n lf-term-first@ ?n lf-term-second@ 1+ lf-mvar-leaf must ;
+T{ stale xs 0 fk chk rot drop ?n xs 0 fdead chk rot drop
+   -> false outcome-invalid false outcome-invalid }T
+\ A quasi-pattern (k is in ?t's scope) needs isTypeCorrect: unsupported.
+T{ ?t fk app succ fk app lf-defeq-elab lf-defeq-quasi or with-flags
+   -> false outcome-unsupported }T
+\ processAssignment' after a level comparison that failed on a level
+\ metavariable (Sort (?u + 1) against Prop): unsupported, never retried.
+: rec-prop ( -- t ) rec nat l0 sort lam app eqab app nat l0 sort 0 bv lam lam app zero app ;
+T{ ?M rec-prop dq ?M free? -> false outcome-unsupported true }T
+\ ifNatExpr asks for Nat one depth deeper: ?ty stays free.
+lv1 sort mv-natural lf-mvar-new made constant ?ty
+: hadd-ty ( a b -- t ) >r >r l0 l0 l0 3 s" HAdd.hAdd" cn nat app nat app ?ty app
+  l0 1 s" instHAdd" cn nat app 0 s" instAddNat" cn app app r> app r> app ;
+T{ own-mark fk 1 ofnat hadd-ty succ fk app dq ?ty free? own-back -> false outcome-unsupported true }T
+\ The types of an assignment at reducible transparency are compared at
+\ implicit (withImplicitConfig): id Nat might unfold there.
+: id-nat ( -- t ) lv2 1 s" id" cn lv1 sort app nat app ;
+T{ lf-tr-reducible lf-defeq-mode! ?t id-nat 0 bv lam dq lf-tr-default lf-defeq-mode!
+   -> false outcome-unsupported }T
+\ isDefEqMVarSelf: a read-only ?t (one depth deeper) is false even under
+\ constApprox.
+T{ lf-mctx-deeper ?t fk app ?t fx app lf-defeq-elab lf-defeq-const or with-flags
+   lf-mctx-shallower -> false outcome-ok }T
+\ Unification hints: a failure with a definition at the head might match
+\ a hint (Init's or another library's): unsupported, never false.
+T{ lf-tr-reducible lf-defeq-mode! 0 s" Nat.add" cn fk dq lf-tr-default lf-defeq-mode!
+   -> false outcome-unsupported }T
+\ A constructor short of its arguments is no structure eta; a proof
+\ argument is skipped (Lean's answer, though e and p.1 differ in type).
+T{ fp 0 0 2 s" Prod.mk" cn nat app nat app fa app dq -> false outcome-ok }T
+T{ fi fe app fi fp 0 proj app dq -> true outcome-ok }T
 
 \ ---- Resources: each allocation refused in turn gives full or the
 \ answer, and leaves nothing behind.
@@ -227,8 +329,18 @@ variable fulls  variable pair-xt
   clean? and ?h free? and ?t free? and ;
 : refusals-sound? ( xt -- flag )
   pair-xt ! 0 fulls ! true 300 1 do i refusal-sound? and loop ;
+\ Through isDefEqArgs, under binders, and an assignment abstracted over
+\ j (mkLambdaFVars): every path that allocates.
+: args-pair ( -- t s ) fu ?h app fu fk app ;
+: lam-pair ( -- t s ) nat ?t 0 bv app lam nat succ 0 bv app lam ;
+: abs-pair ( -- t s ) ?t fj app succ fk fj nat-add app ;
 T{ ' offset-pair refusals-sound? fulls @ 0> -> true true }T
 T{ ' eta-pair refusals-sound? fulls @ 0> -> true true }T
+T{ ' args-pair refusals-sound? fulls @ 0> -> true true }T
+T{ ' lam-pair refusals-sound? fulls @ 0> -> true true }T
+T{ ' abs-pair refusals-sound? fulls @ 0> -> true true }T
+T{ own-mark args-pair dq own-back own-mark lam-pair dq own-back own-mark abs-pair dq own-back
+   -> true outcome-ok true outcome-ok true outcome-ok }T
 T{ own-mark offset-pair dq ?h free? own-back -> true outcome-ok false }T
 \ A call frees what it allocates (its slabs keep their room).
 T{ own-mark live-blocks @ offset-pair dq 2drop live-blocks @ = own-back clean? -> true true }T

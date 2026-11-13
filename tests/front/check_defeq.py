@@ -5,7 +5,8 @@ Each case asks isDefEq t s over the slice tests/front/whnf-slice.ndjson,
 with the variables of tests/front/check_whnf.py and, made after them,
 the metavariables ?r : Nat, ?t : Nat -> Nat, ?y : Nat -> Nat -> Nat, the
 free variables j : Nat (out of their scope), e c : a = b, u : Nat ->
-Nat, v w : PUnit.{1} and the synthetic opaque ?o : Nat. Pinned Lean
+Nat, v w : PUnit.{1}, i : a = b -> Nat and the synthetic opaque ?o :
+Nat. Pinned Lean
 4.35.0 (tests/front/defeq-cases.lean, which this script writes with
 --write and checks is up to date) prints "true" and both sides with
 their metavariables instantiated, or "false"; LeanForth
@@ -13,7 +14,8 @@ their metavariables instantiated, or "false"; LeanForth
 starts from the same metavariable context (Lean restores its saved
 state, LeanForth rolls back a mark). Kinds: eq under the elaborator's
 configuration (run_meta: foApprox, ctxApprox), meta under Meta's default,
-deep one depth deeper (withNewMCtxDepth), red at reducible transparency.
+deep one depth deeper (withNewMCtxDepth), red, inst and impl at reducible,
+instances and implicit transparency.
 The lines must be equal, except for the cases listed as gaps, where
 LeanForth must answer unsupported (a step not ported; the plan item is
 named) and Lean's answer is shown. A harness self-test first checks that
@@ -39,7 +41,7 @@ LIMIT = 300
 LEAN_FILE = ROOT / "tests/front/defeq-cases.lean"
 GOLDEN = ROOT / "tests/front/defeq.golden"
 
-FVARS = set("mzskxabpgjecuvw")
+FVARS = set("mzskxabpgjecuvwi")
 MVARS = {"?n": "n", "?h": "h", "?f": "f", "?q": "q", "?r": "r", "?t": "t", "?y": "y", "?o": "o"}
 LAM, LET, PROJ, SORT, PI, LIT = "lam", "let", "proj", "sort", "pi", "lit"
 
@@ -191,6 +193,30 @@ CASES = [
     ("red", apps(ADD, "k", "x"), apps(ADD, "k", "x"), None),
     ("red", apps(ADD, "k", "x"), apps(ADD, "x", "k"), "FE1d2 whnfCore's matcher facts"),
     ("eq", apps(ADD, "k", "x"), apps(ADD, "x", "k"), "FE1d2 whnfCore's matcher facts"),
+    # Instances and implicit transparency, with arguments; at reducible,
+    # an assignment's types compared at implicit (id Nat unfolds there).
+    ("inst", apps("u", "k"), apps("u", "x"), None),
+    ("inst", apps(ADD, "k", "x"), apps(ADD, "k", "?n"),
+     "FE1e instance facts (getUnfoldableConst? at instances)"),
+    ("impl", apps("u", "?n"), apps("u", "k"), None),
+    ("red", "?t", lam("#0", apps(c("id", 2), (SORT, 1), NAT)), "FE1d2 lazy delta reduction"),
+    ("red", ADD, "k", "FE1c unification hints (the hint table)"),
+    ("eq", "?n", apps(ADD, "?n", "k"), "FE1d2 whnf's delta (processAssignment')"),
+    ("impl", pair("a", "b"), pair("a", "?n"), None),
+    ("inst", ADD, "k", "FE1c isDefEqProjInst (projection facts, FE1d2)"),
+    # Offsets and values are unsigned cells (review B1).
+    ("eq", succ("?h"), (LIT, 2**63), None),
+    ("eq", succ(hadd("?h", ofnat(2**63))), (LIT, 5), None),
+    ("eq", succ("?h"), (LIT, 2**64 - 1), None),
+    ("eq", hadd(hadd(ofnat(2**62), ofnat(2**62)), ofnat(2**62)), (LIT, 3 * 2**62),
+     "FE1d2 whnfCore's matcher facts"),
+    ("eq", succ(hadd(hadd(hadd("?h", ofnat(2**62)), ofnat(2**62)), ofnat(2**62))),
+     (LIT, 3 * 2**62 + 1), None),
+    ("eq", succ(hadd("k", hadd(hadd(ofnat(2**62), ofnat(2**62)), ofnat(2**62)))),
+     succ("?h"), None),
+    # A constructor short of its arguments; a proof argument skipped.
+    ("eq", "p", apps(PROD_MK, NAT, NAT, "a"), None),
+    ("eq", apps("i", "e"), apps("i", (PROJ, 0, "p")), None),
 ]
 
 
@@ -294,6 +320,12 @@ def deepCase (t s : Expr) : MetaM Unit := answer t s (withNewMCtxDepth (isDefEq 
 
 def redCase (t s : Expr) : MetaM Unit := answer t s (withReducible (isDefEq t s))
 
+def instCase (t s : Expr) : MetaM Unit :=
+  answer t s (withTransparency .instances (isDefEq t s))
+
+def implCase (t s : Expr) : MetaM Unit :=
+  answer t s (withTransparency .implicit (isDefEq t s))
+
 def nat : Expr := mkConst ``Nat
 """
 
@@ -324,8 +356,9 @@ LEAN_SETUP = """run_meta do
   withLocalDeclD `u nat2 fun u => do
   withLocalDeclD `v (mkConst ``PUnit [Level.one]) fun v => do
   withLocalDeclD `w (mkConst ``PUnit [Level.one]) fun w => do
+  withLocalDeclD `i (mkForall `y .default eqab nat) fun i => do
   let o ← mkFreshExprMVar nat (kind := .syntheticOpaque) (userName := `o)
-  let _ := (m, z, k, x, p, g, n, h, q, r, t, y, j, e, c, u, v, w, o)
+  let _ := (m, z, k, x, p, g, n, h, q, r, t, y, j, e, c, u, v, w, i, o)
 """
 
 

@@ -4,12 +4,14 @@
 \ CheckAssignmentQuick, which give the same verdicts) and of
 \ mkLambdaFVars xs v (etaReduce := true) as processAssignment uses it
 \ (Lean/MetavarContext.lean, mkBinding).
-\ lf-meta-check-assignment ( mvar addr n v -- v' flag outcome ): may ?m
-\ := fun x1 .. xn => v be made, the xi the n free variables in cells at
-\ addr? false (Lean's none) when ?m occurs in an xi's type, else v with
-\ its metavariables instantiated is walked:
-\ - a free variable is in ?m's scope when it was in the local context
-\   when ?m was made (mvars.fs); else it must be one of the xi (else the
+\ lf-meta-pattern! ( mvar addr n -- ) names ?m and the xi, the n free
+\ variables in cells at addr (kept while the next words run);
+\ lf-meta-check-assignment ( v -- v' flag outcome ): may ?m := fun x1
+\ .. xn => v be made? invalid for a stale ?m; false (Lean's none) when ?m
+\ occurs in an xi's type, else v with its metavariables instantiated is
+\ walked:
+\ - a free variable is in ?m's scope when ?m's own local context holds it
+\   (lf-mvar-sees?); else it must be one of the xi (else the
 \   check fails, "out of scope");
 \ - a metavariable: ?m itself fails (the occurs check); with an xi in
 \   ?m's own scope (Lean's hasCtxLocals) every other one fails; a
@@ -163,9 +165,10 @@ end-structure
   lf-instantiate-mvars ok-then? 0= if -1 false rot exit then
   ac-locals? ac ac-locals !  false ac ac-hit !
   dup ['] ac-pending-child ['] ac-build ac-walk-set dw-run ac-verdict ;
-: lf-meta-check-assignment ( mvar addr n v -- v' flag outcome )
-  >r ac-xs! r> ac-x-occurs? ok-then? 0= if false swap exit then
-  if false outcome-ok exit then
+: lf-meta-pattern! ( mvar addr n -- ) ac-xs! ;
+: lf-meta-check-assignment ( v -- v' flag outcome )
+  ac-m lf-mvar-live? 0= if false outcome-invalid exit then
+  ac-x-occurs? ok-then? 0= if false swap exit then if false outcome-ok exit then
   dup ac-solid? if true outcome-ok else ac-run then ;
 
 \ ---- mkLambdaFVars xs v (etaReduce), from the last xi to the first.
