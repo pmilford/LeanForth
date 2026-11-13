@@ -65,17 +65,12 @@ variable forging  false forging !
   carry-phase dup ok? 0= if exit then drop ck-filling ck-stage-facts
   ck-feed-phase dup ok? if ck-input-facts ck-snap-slots then dup ck-state ck-loaded ! ;
 create par-out 512 cells allot  create par-fuel 512 cells allot
-create par-taken 512 cells allot  variable par-launched
+create par-taken 512 cells allot  variable par-launched  variable par-n
 : par-keep ( -- )
-  lf-input-count 0 ?do
+  lf-input-count dup par-n ! 0 ?do
     i lf-env-outcome par-out i cells + ! i ck-fuel-of par-fuel i cells + !
     i ck-taken? par-taken i cells + !
   loop ;
-: par-same-at? ( i -- flag )
-  dup lf-env-outcome over par-out swap cells + @ =
-  over ck-fuel-of 2 pick par-fuel swap cells + @ = and
-  swap dup ck-taken? swap par-taken swap cells + @ = and ;
-: par-same? ( -- flag ) true lf-input-count 0 ?do i par-same-at? and loop ;
 create this-path 64 allot  variable this-len
 : this+ ( c-addr u -- ) tuck this-path this-len @ + swap move this-len +! ;
 : this-nested ( -- c-addr u )
@@ -447,7 +442,12 @@ T{ ck-carried# reach10 why# + lf-input-count = -> true }T
 keep-taken ck-release
 \ The parallel run, made first in this file (see its top), against the
 \ fresh check and the serial run: the same outcomes, fuel and set carried.
-T{ par-launched @ 0> par-same? -> true true }T
+: at ( i addr -- x ) swap cells + @ ;
+: par-same-at? ( i -- flag )
+  dup par-out at over fresh-out at = over par-fuel at 2 pick fresh-fuel2 at = and
+  swap dup par-taken at swap taken-serial at = and ;
+: par-same? ( -- flag ) true par-n @ 0 ?do i par-same-at? and loop ;
+T{ par-launched @ 0> par-n @ 107 = par-same? -> true true true }T
 true forging ! 1 definitions-run
 T{ ck-outcome same-as-fresh2? why-answers why# 0> -> outcome-ok true true }T
 false forging ! ck-release
