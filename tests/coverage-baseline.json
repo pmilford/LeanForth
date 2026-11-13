@@ -483,8 +483,8 @@
   },
   "src/kernel/iota.fs": {
    "blocks": 508,
-   "never_run": 62,
-   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+   "never_run": 63,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed Allowance 62 -> 63 (2026-11-13): one block of iota.fs runs in some full runs and not in others (63 in the push run of f29a526d, 62 and 66/67 elsewhere): a cache hit or miss that depends on which worker checks which declaration first under --jobs, as the fe1c review's Q4 found; plan: find the block with coverage.py --uncovered over two runs and pin it with a deterministic test."
   },
   "src/kernel/level-compare.fs": {
    "blocks": 99,
