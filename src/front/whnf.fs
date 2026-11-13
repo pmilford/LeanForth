@@ -341,7 +341,8 @@ end-structure
   wc wc-facts @ 0= if drop false exit then
   dup ['] lf-menv-matcher? wc-fact-no? swap ['] lf-menv-aux-recursor? wc-fact-no? and ;
 : wc-decl-head ( e head d -- e' flag outcome )
-  dup wc-inert-defn? if 2drop wc-done exit then dup wc-blocked? if drop wc-unsupported exit then
+  dup wc-inert-defn? if 2drop wc-done exit then
+  dup wc-blocked? if drop wc-unsupported exit then
   dup wc-recursor? if wc-iota else 2drop wc-done then ;
 : wc-const-head ( e head -- e' flag outcome )
   dup lf-meta-const-decl if wc-decl-head else drop wc-done then ;
@@ -374,7 +375,8 @@ end-structure
     wc-turn dup ok? 0= if nip exit then drop
   0= until outcome-ok ;
 : wc-core ( term facts -- term' outcome )
-  wc wc-facts ! dup lf-term-root? 0= if drop -1 outcome-invalid exit then wc-start wc-loop ;
+  wc wc-facts ! dup lf-term-root? 0= if drop -1 outcome-invalid exit then
+  wc-start wc-loop ;
 : lf-whnf-core ( term -- term' outcome ) false wc-core ;
 
 \ ---- whnf (lf-meta-whnf): what whnfCore leaves, unless reduceNat? or
@@ -386,7 +388,8 @@ end-structure
 : wm-head-named? ( e xt -- flag )
   swap wm-head dup wc-const? if wc-name swap execute else 2drop false then ;
 : wm-succ-inert? ( e -- flag )
-  dup ['] lf-menv-nat-succ? wm-head-named? if lf-term-second@ wc-inert? else drop false then ;
+  dup ['] lf-menv-nat-succ? wm-head-named?
+  if lf-term-second@ wc-inert? else drop false then ;
 : wm-nat? ( e -- flag )
   dup lf-meta-args# 1 3 within over ['] lf-menv-nat-name? wm-head-named? and
   if wm-succ-inert? 0= else drop false then ;
@@ -399,7 +402,8 @@ end-structure
 : wm-proj-inst ( d -- outcome )
   lf-meta-mode lf-tr-instances = if wm-proj-fact else drop outcome-ok then ;
 : wm-firm ( app? d -- outcome )
-  dup wm-thm-all? if 2drop outcome-unsupported exit then swap if wm-proj-inst else drop outcome-ok then ;
+  dup wm-thm-all? if 2drop outcome-unsupported exit then
+  swap if wm-proj-inst else drop outcome-ok then ;
 : wm-const ( app? const -- outcome )
   wc-name lf-meta-mode lf-menv-unfoldable ok-then? 0= if nip nip exit then
   if 2drop outcome-unsupported else wm-firm then ;
@@ -415,17 +419,22 @@ end-structure
   lf-meta-mode swap lf-defeq-mode! swap lf-meta-whnf rot lf-defeq-mode! ;
 : lf-meta-whnf-r ( e -- e' outcome ) lf-tr-reducible wm-at ;
 : lf-meta-whnf-forall ( e -- e' outcome )
-  dup lf-meta-whnf ok-then? 0= if nip no-result exit then dup wm-pi? if nip else drop then outcome-ok ;
+  dup lf-meta-whnf ok-then? 0= if nip no-result exit then
+  dup wm-pi? if nip else drop then outcome-ok ;
 \ instantiateForall's step: e made a pi (whnf when it is none), its body
 \ instantiated with p.
-: wm-to-pi ( e -- pi outcome ) dup wm-pi? if outcome-ok else drop -1 outcome-invalid then ;
+: wm-to-pi ( e -- pi outcome )
+  dup wm-pi? if outcome-ok else drop -1 outcome-invalid then ;
 : wm-pi ( e -- pi outcome )
-  dup wm-pi? if outcome-ok exit then lf-meta-whnf ok-then? if wm-to-pi else no-result then ;
+  dup wm-pi? if outcome-ok exit then
+  lf-meta-whnf ok-then? if wm-to-pi else no-result then ;
 : wm-inst ( e p -- e' outcome )
-  swap wm-pi ok-then? if lf-term-second@ swap lf-meta-instantiate1 else nip no-result then ;
+  swap wm-pi ok-then? 0= if nip no-result exit then
+  lf-term-second@ swap lf-meta-instantiate1 ;
 : lf-meta-instantiate-forall ( e addr n -- e' outcome )
-  cells over + swap ?do i @ wm-inst ok-then? 0= if no-result unloop exit then 1 cells +loop
-  outcome-ok ;
+  cells over + swap ?do
+    i @ wm-inst ok-then? 0= if no-result unloop exit then
+  1 cells +loop outcome-ok ;
 
 \ ---- getStuckMVar?: the unassigned metavariable at the head, or one
 \ that is a recursor's major premise (isRecStuck?: none for a K-like

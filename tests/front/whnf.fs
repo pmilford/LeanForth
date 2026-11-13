@@ -203,6 +203,11 @@ T{ 0 s" Nat.zero_add" cn lf-meta-whnf nip 0 s" Nat.zero_add" cn lf-tr-all in-mod
    -> outcome-ok -1 outcome-unsupported }T
 T{ hadd-kx lf-tr-instances in-mode l0 l0 l0 3 s" HAdd.hAdd" cn lf-tr-instances in-mode nip
    -> -1 outcome-unsupported outcome-ok }T
+\ At instances, an application of a definition that is no projection and
+\ that the transparency does not unfold stays (three arguments: no Nat
+\ operation reduceNat? reads).
+T{ 0 s" Nat.div" cn fk app fx app fk app dup lf-tr-instances in-mode drop same?
+   -> true }T
 \ Without the facts (no data read against the stage) a definition's head
 \ is unsupported, as in whnfCore.
 0 lf-menv-stage!

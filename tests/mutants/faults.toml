@@ -12262,7 +12262,7 @@ reason = "FE1c: a stale level metavariable inside a max is compared (false) inst
 [[fault]]
 id = "fe-level-open-read-only"
 file = "src/front/mvars.fs"
-old = '''  dup lf-level-mvar-live? if lf-level-mvar-depth lf-mctx-level-depth < 0= else drop false then ;'''
+old = '''  dup lf-level-mvar-live? if mvl-depth-open? else drop false then ;'''
 new = '''  lf-level-mvar-live? ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: hasAssignableLevelMVar counts a read-only metavariable, so a pair Lean answers false is postponed (unsupported)"
@@ -12310,8 +12310,8 @@ reason = "FE1c tidy-up d: instantiateMVars runs with no spine table when the hea
 [[fault]]
 id = "fe-mctx-any-mark"
 file = "src/front/mvars.fs"
-old = ''': mv-latest? ( mark -- flag ) lf-mctx-marks if mv-latest mvs-serial @ = else drop false then ;'''
-new = ''': mv-latest? ( mark -- flag ) drop lf-mctx-marks 0> ;'''
+old = '''  lf-mctx-marks if mv-latest mvs-serial @ = else drop false then ;'''
+new = '''  drop lf-mctx-marks 0> ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1c review of fe1c-lnorm L1: a stale or out-of-order rollback (an inner mark again after its commit) undoes the wrong assignments and closes the outer mark"
 
@@ -14533,7 +14533,7 @@ reason = "FE1c review M2: getFunInfo's telescope leaves its free variables in th
 [[fault]]
 id = "fe-defeq-nat-check-same-depth"
 file = "src/front/defeq.fs"
-old = '''  de-aborted? if exit then false lf-mctx-depth{ de-must if de-frame de-regs + ! else drop then ;'''
+old = '''  false lf-mctx-depth{ de-must if de-frame de-regs + ! else drop then ;'''
 new = '''  ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c review M3: ifNatExpr's Nat test at the caller's depth"
@@ -14926,8 +14926,8 @@ reason = "S1 §3: a switch undoes to the common ancestor but never redoes the ta
 [[fault]]
 id = "fe-trail-no-undo"
 file = "src/front/mvars.fs"
-old = '''  mv-redos slab-clear mv-at swap mv-climbs ok-then? if mv-back-to mv-redo-all outcome-ok then ;'''
-new = '''  mv-redos slab-clear mv-at swap mv-climbs ok-then? if drop mv-redo-all outcome-ok then ;'''
+old = '''  ok-then? if mv-back-to mv-redo-all outcome-ok then ;'''
+new = '''  ok-then? if drop mv-redo-all outcome-ok then ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "S1 §3: a switch keeps the current branch's changes and adds the target's"
 
@@ -14998,7 +14998,8 @@ reason = "S1 §2: isDefEqGuarded passes the stuck signal on instead of answering
 [[fault]]
 id = "fe-stuck-level-false"
 file = "src/front/level-defeq.fs"
-old = '''  2dup ld-mvar-side? lf-defeq-stuck lf-meta-flag? and if lf-meta-stuck ld-end else ld-no then ;'''
+old = '''  2dup ld-mvar-side? lf-defeq-stuck lf-meta-flag? and
+  if lf-meta-stuck ld-end else ld-no then ;'''
 new = '''  ld-no ;'''
 test = "GFORTH=$GFORTH python3 tests/front/check_defeq.py --golden"
 reason = "S1 §2: a stuck level pair with a metavariable answers false under isDefEqStuckEx (LevelDefEq.lean:169 throws)"
@@ -15070,7 +15071,8 @@ reason = "S1 appendix D: whnfR leaves the transparency reducible (Lean's withTra
 [[fault]]
 id = "fe-whnf-forall-no-whnf"
 file = "src/front/whnf.fs"
-old = '''  dup wm-pi? if outcome-ok exit then lf-meta-whnf ok-then? if wm-to-pi else no-result then ;'''
+old = '''  dup wm-pi? if outcome-ok exit then
+  lf-meta-whnf ok-then? if wm-to-pi else no-result then ;'''
 new = '''  wm-to-pi ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "S1 appendix D: instantiateForall refuses a type that is a pi only after whnf"

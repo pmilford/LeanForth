@@ -185,7 +185,8 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 : de-bump ( -- )
   df df-mode @ de-rank lf-tr-implicit de-rank < if lf-tr-implicit df df-mode ! then ;
 : de-deeper ( -- )
-  de-aborted? if exit then false lf-mctx-depth{ de-must if de-frame de-regs + ! else drop then ;
+  de-aborted? if exit then
+  false lf-mctx-depth{ de-must if de-frame de-regs + ! else drop then ;
 : de-pop ( -- k scope )
   de-frame dup df df-k de-regs move de-regs + @ df df-k @ swap -1 de-frames slab-commit ;
 : de-shallow ( scope -- flag )
@@ -743,7 +744,8 @@ defer de-quick-x ( -- )
 \ isDefEqAppFallback: the late cases after isDefEqOnFailure; its stuck
 \ signal caught, raised again unless the late cases answer true.
 : de-fb-late ( r -- ) lf-lb-true = lf-lb de-return ;
-: de-fb-stuck ( r -- ) lf-lb-true = if lf-lb-true de-return else lf-meta-stuck de-abort then ;
+: de-fb-stuck ( r -- )
+  lf-lb-true = if lf-lb-true de-return else lf-meta-stuck de-abort then ;
 : de-exp-app ( r -- )
   dup lf-lb-true = if de-return exit then drop de-on-failure
   if ['] de-fb-stuck else ['] de-fb-late then de-then de-t de-s ['] de-late de-invoke ;

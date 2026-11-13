@@ -145,7 +145,8 @@ require ./level-normalize.fs
 \ holds an assignable metavariable; else false, or the stuck signal.
 : ld-mvar-side? ( l r -- flag ) lf-level-mvar? swap lf-level-mvar? or ;
 : ld-fixed ( l r -- l r code )
-  2dup ld-mvar-side? lf-defeq-stuck lf-meta-flag? and if lf-meta-stuck ld-end else ld-no then ;
+  2dup ld-mvar-side? lf-defeq-stuck lf-meta-flag? and
+  if lf-meta-stuck ld-end else ld-no then ;
 : ld-stuck ( l r -- l r code )
   over lf-level-assignable-mvar? outcome-unsupported ld-when dup ld-undef? 0= if exit then
   drop dup lf-level-assignable-mvar? outcome-unsupported ld-when

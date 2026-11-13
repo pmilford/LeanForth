@@ -36,7 +36,8 @@
 \
 \ Transparency modes (meta-config.fs, numbered as Lean's TransparencyMode
 \ constructors): lf-tr-all, lf-tr-default, lf-tr-reducible,
-\ lf-tr-instances, lf-tr-none, lf-tr-implicit. canUnfoldDefault: none unfolds nothing, all everything,
+\ lf-tr-instances, lf-tr-none, lf-tr-implicit. canUnfoldDefault: none
+\ unfolds nothing, all everything,
 \ default all but an irreducible declaration; reducible a reducible one;
 \ instances also an instance-reducible one; implicit also an
 \ implicit-reducible one.
@@ -141,13 +142,15 @@ end-structure
 \ Eq.ndrecOn are auxiliary recursors by name. Smart unfolding: unsupported
 \ for a definition (no data has it yet).
 : me-data-fact ( d xt -- flag outcome )
-  swap me-staged if swap execute dup if nip then outcome-ok else drop false outcome-invalid then ;
+  swap me-staged 0= if drop false outcome-invalid exit then
+  swap execute dup if nip then outcome-ok ;
 : me-known-fact ( d xt -- flag outcome )
   me-data? if me-data-fact else 2drop false outcome-unsupported then ;
 : me-defn-fact ( d xt -- flag outcome )
   over me-decl? 0= if 2drop false outcome-invalid exit then
   over me-defn? if me-known-fact else 2drop false outcome-ok then ;
-: me-aux-tag ( d -- 0 true | false ) elab-tag-aux-recursor elab-tagged? dup if 0 swap then ;
+: me-aux-tag ( d -- 0 true | false )
+  elab-tag-aux-recursor elab-tagged? dup if 0 swap then ;
 : lf-menv-matcher? ( d -- flag outcome ) ['] elab-matcher-of me-defn-fact ;
 : lf-menv-proj-fn? ( d -- flag outcome ) ['] elab-projection-of me-defn-fact ;
 : lf-menv-smart? ( d -- flag outcome )
@@ -171,6 +174,7 @@ end-structure
 : lf-menv-nat-succ? ( name -- flag )
   dup s" succ" me-str? if lf-name-prefix@ s" Nat" me-top? else drop false then ;
 \ Whether a name is in Nat's namespace, Nat.x (whnf's reduceNat?).
-: lf-menv-nat-name? ( name -- flag ) lf-name-prefix@ dup if s" Nat" me-top? else drop false then ;
+: lf-menv-nat-name? ( name -- flag )
+  lf-name-prefix@ dup if s" Nat" me-top? else drop false then ;
 
 base !   \ the BASE this file was loaded with

@@ -361,8 +361,9 @@ end-structure
 \ The level walk seeks the target, or with the target -1 an assignable
 \ metavariable (Lean's isLevelMVarAssignable: live, made at the
 \ context's levelAssignDepth or deeper), with -2 a stale one.
+: mvl-depth-open? ( level -- flag ) lf-level-mvar-depth lf-mctx-level-depth < 0= ;
 : mvl-open? ( level -- flag )
-  dup lf-level-mvar-live? if lf-level-mvar-depth lf-mctx-level-depth < 0= else drop false then ;
+  dup lf-level-mvar-live? if mvl-depth-open? else drop false then ;
 : mvl-stale? ( level -- flag )
   dup lf-level-mvar? if lf-level-mvar-live? 0= else drop false then ;
 : mvl-hit? ( node -- flag )
@@ -425,12 +426,13 @@ end-structure
 6 constant mv-was-fvars#
 \ The field an entry names: the record's (of mv-levels for a level
 \ assignment, else of mv-exprs) at the kind's offset.
-create mv-offsets
-  0 mvd-value ,  0 mvl-value ,  0 mvd-pending ,  0 mvd-tag ,  0 mvd-kind ,
-  0 mvd-fvars ,  0 mvd-fvars# ,
+: mv-offset ( kind -- u )
+  case mv-was-value of 0 mvd-value endof  mv-was-level of 0 mvl-value endof
+    mv-was-delay of 0 mvd-pending endof  mv-was-tag of 0 mvd-tag endof
+    mv-was-kind of 0 mvd-kind endof  mv-was-fvars of 0 mvd-fvars endof
+    0 mvd-fvars# swap endcase ;
 : mv-record ( n kind -- addr ) mv-was-level = if mvl-decl else mv-decl then ;
-: mv-cell ( entry -- addr )
-  dup 3 rshift over 7 and mv-record swap 7 and cells mv-offsets + @ + ;
+: mv-cell ( entry -- addr ) dup 3 rshift over 7 and mv-record swap 7 and mv-offset + ;
 : mv-entry ( n kind -- entry ) swap 3 lshift or ;
 : mvt ( i -- addr ) mv-trail slab-at ;
 : mv-parent ( i -- i' ) mvt mvt-parent @ ;
@@ -448,23 +450,27 @@ create mv-offsets
   mv-entry lf-mctx-marks 0= if mv-cell ! outcome-ok exit then
   1 mv-trail slab-claim ok-then? if mv-noted outcome-ok else nip nip then ;
 \ Room for n changes that then cannot fail.
-: mv-trail-room ( n -- outcome ) lf-mctx-marks if mv-trail slab-room else drop outcome-ok then ;
+: mv-trail-room ( n -- outcome )
+  lf-mctx-marks if mv-trail slab-room else drop outcome-ok then ;
 
 \ The scopes.
 0 constant mv-plain   1 constant mv-deep
 : mv-latest ( -- addr ) lf-mctx-marks 1- mv-marks slab-at ;
-: mv-latest? ( mark -- flag ) lf-mctx-marks if mv-latest mvs-serial @ = else drop false then ;
+: mv-latest? ( mark -- flag )
+  lf-mctx-marks if mv-latest mvs-serial @ = else drop false then ;
 : mv-scope? ( mark kind -- flag )
   swap mv-latest? if mv-latest mvs-kind @ = else drop false then ;
 : mv-serial ( -- n ) 1 mctx mctx-serial +! mctx mctx-serial @ ;
 : mv-scope-trail ( addr -- addr )
-  mv-trail slab-count over mvs-length ! mv-at over mvs-entry ! mv-snaps slab-count over mvs-snaps ! ;
+  mv-trail slab-count over mvs-length ! mv-at over mvs-entry !
+  mv-snaps slab-count over mvs-snaps ! ;
 : mv-scope-depths ( addr -- addr )
   lf-mctx-depth over mvs-depth ! lf-mctx-level-depth over mvs-ldepth ! ;
 : mv-scope-fill ( kind addr -- serial )
   tuck mvs-kind ! mv-scope-trail mv-scope-depths mv-serial tuck swap mvs-serial ! ;
 : mv-open ( kind -- mark outcome )
-  1 mv-marks slab-claim ok-then? 0= if nip 0 swap exit then mv-marks slab-at mv-scope-fill outcome-ok ;
+  1 mv-marks slab-claim ok-then? 0= if nip 0 swap exit then
+  mv-marks slab-at mv-scope-fill outcome-ok ;
 : mv-cut ( n slab -- ) tuck slab-count - swap slab-commit ;
 : mv-back-to ( i -- ) begin dup mv-at <> while mv-at mv-undo repeat drop ;
 : mv-undo-scope ( -- ) mv-latest dup mvs-entry @ mv-back-to mvs-length @ mv-trail mv-cut ;
@@ -495,11 +501,12 @@ create mv-offsets
 : mv-key ( -- addr ) mctx mctx-key ;
 : mvp-below? ( i -- flag ) mvp mvp-serial @ mv-key @ < ;
 : mv-halve ( lo hi -- lo' hi' )
-  2dup + 2/ dup mvp-below? if 1+ rot drop swap else nip then ;
+  2dup + 2/ dup mvp-below? if >r nip r> 1+ swap else nip then ;
 : mv-bisect ( -- i ) 0 mv-snaps slab-count begin 2dup < while mv-halve repeat drop ;
 : mvp-hit? ( i -- flag )
   dup mv-snaps slab-count < if mvp mvp-serial @ mv-key @ = else drop false then ;
-: mv-snap-index ( snap -- i true | false ) mv-key ! mv-bisect dup mvp-hit? dup 0= if nip then ;
+: mv-snap-index ( snap -- i true | false )
+  mv-key ! mv-bisect dup mvp-hit? dup 0= if nip then ;
 : mv-snap-fill ( addr -- serial ) mv-at over mvp-at ! mv-serial tuck swap mvp-serial ! ;
 : mv-snap-new ( -- snap outcome )
   1 mv-snaps slab-claim ok-then? if mvp mv-snap-fill outcome-ok else 0 swap then ;
@@ -518,13 +525,16 @@ create mv-offsets
   2dup > if swap mv-parent swap outcome-ok exit then
   dup mv-redo-push dup ok? if drop mv-parent outcome-ok then ;
 : mv-climbs ( a b -- c outcome )
-  begin 2dup <> while mv-climb ok-then? 0= if nip -1 swap exit then repeat drop outcome-ok ;
+  begin 2dup <> while mv-climb ok-then? 0= if nip -1 swap exit then repeat
+  drop outcome-ok ;
 : mv-redo-pop ( -- i ) mv-redos dup slab-count 1- swap slab-at @ -1 mv-redos slab-commit ;
 : mv-redo-all ( -- ) begin mv-redos slab-count while mv-redo-pop mv-redo repeat ;
 : mv-goto ( i -- outcome )
-  mv-redos slab-clear mv-at swap mv-climbs ok-then? if mv-back-to mv-redo-all outcome-ok then ;
+  mv-redos slab-clear mv-at swap mv-climbs
+  ok-then? if mv-back-to mv-redo-all outcome-ok then ;
 : lf-mctx-switch ( snap -- outcome )
-  lf-mctx-marks 0= if drop outcome-invalid exit then mv-snap-at if mv-goto else outcome-invalid then ;
+  lf-mctx-marks 0= if drop outcome-invalid exit then
+  mv-snap-at if mv-goto else outcome-invalid then ;
 
 \ ---- Assignment: once, to a live leaf, the occurs check passed; a walk
 \ that fails gives its own outcome and nothing is assigned.
@@ -536,7 +546,8 @@ create mv-offsets
   dup lf-term-valid? 0= if 2drop outcome-invalid exit then
   over mv-free? 0= if 2drop outcome-invalid exit then lf-mvar-occurs? mv-occurs-outcome ;
 : lf-mvar-assign ( mvar value -- outcome )
-  2dup mv-sound dup ok? 0= if nip nip exit then drop swap mv-number mv-was-value mv-change ;
+  2dup mv-sound dup ok? 0= if nip nip exit then drop
+  swap mv-number mv-was-value mv-change ;
 : mvl-free? ( level -- flag )
   dup lf-level-mvar-live? if mvl-number mvl-decl mvl-value @ 0< else drop false then ;
 : mvl-sound ( mvar value -- outcome )
@@ -544,7 +555,8 @@ create mv-offsets
   over mvl-free? 0= if 2drop outcome-invalid exit then
   lf-level-mvar-occurs? mv-occurs-outcome ;
 : lf-level-mvar-assign ( level value -- outcome )
-  2dup mvl-sound dup ok? 0= if nip nip exit then drop swap mvl-number mv-was-level mv-change ;
+  2dup mvl-sound dup ok? 0= if nip nip exit then drop
+  swap mvl-number mv-was-level mv-change ;
 
 \ A tag (a name ID, or 0 for none) and a kind, set on a live metavariable
 \ whether assigned or not, as Lean's setTag and setKind.
@@ -568,10 +580,12 @@ create mv-offsets
 : mv-delay-ok ( mvar pending n -- mvar pending n outcome )
   >r 2dup r@ mv-delayable? r> swap if 3 mv-trail-room else outcome-invalid then ;
 : mv-delay-fvars ( n i -- i )
-  2dup mv-was-fvars# mv-change drop swap mv-fvars# swap - over mv-was-fvars mv-change drop ;
+  2dup mv-was-fvars# mv-change drop
+  swap mv-fvars# swap - over mv-was-fvars mv-change drop ;
 : mv-delay-set ( pending n i -- ) mv-delay-fvars mv-was-delay mv-change drop ;
 : lf-mvar-delay ( mvar pending n -- outcome )
-  mv-delay-ok dup ok? 0= if nip nip nip exit then drop rot mv-number mv-delay-set outcome-ok ;
+  mv-delay-ok dup ok? 0= if nip nip nip exit then drop
+  >r swap mv-number r> swap mv-delay-set outcome-ok ;
 : lf-mvar-delayed ( mvar -- pending addr n true | false )
   mv-of 0= if false exit then dup mvd-pending @ dup 0< if 2drop false exit then
   swap dup mvd-fvars @ mv-fvars store-slot swap mvd-fvars# @ true ;
