@@ -191,6 +191,8 @@ begin-structure /ck
   field: ck-any-lean             \ true: an export of any Lean version (ck-any-version!)
   field: ck-jobs-asked           \ workers of a parallel check (ck-jobs!); 0, 1: serial
   field: ck-serial-why           \ why workers were asked for but not used (ck-why-*), or 0
+  field: ck-pool-made            \ workers the pool ran with (ck-pool-started?)
+  field: ck-pool-lacked          \ and those it started without: the host refused them
   field: ck-print                \ the fed input's fingerprint: every worker's must be it
   /ck-lend +field ck-lent       \ the references the workers read (ck-lent!)
   /ck-lend +field ck-lend-now   \ and as they are now (ck-moved?)
@@ -274,6 +276,11 @@ create ck-worker-feed /feed allot  ck-worker-feed /feed erase
 \ (negative) refusal.
 1 constant ck-why-host         \ threads here need an x86-64 host (ADR 0009)
 : ck-why ( -- n ) ck-state ck-serial-why @ ;
+\ Workers the pool ran with, and those it started without because the
+\ host refused them (it then runs with those it made, lib/task.fs): 0
+\ when it made all, and always on the serial host, which makes none.
+: ck-made ( -- n ) ck-state ck-pool-made @ ;
+: ck-lacked ( -- n ) ck-state ck-pool-lacked @ ;
 : ck-jobs ( -- n ) ck-state ck-jobs-asked @ ;
 : ck-parallel? ( -- flag ) ck-jobs 1 > ;
 : ck-staged-names ( -- n ) ck-state ck-names# @ ;
@@ -770,10 +777,13 @@ create ck-pline-parts
   throw ck-jobs-facts ;
 \ The pool is started before the run, so that a refusal (no threads, as
 \ near the process limit) leaves the whole run to the serial one, with the
-\ workers freed and the cause kept for the report.
+\ workers freed and the cause kept for the report. A pool the host made
+\ only some workers of runs the checks on those; the shortfall is kept.
+: ck-lacked! ( -- )
+  workers-running dup ck-state ck-pool-made ! pool-size swap - ck-state ck-pool-lacked ! ;
 : ck-pool-started? ( -- flag )
-  lf-sched-pool-start ?dup if ck-state ck-serial-why ! lf-sched-free false
-  else true then ;
+  lf-sched-pool-start ?dup if ck-state ck-serial-why ! lf-sched-free false exit then
+  ck-lacked! true ;
 : ck-steps-any ( n -- )
   ck-relent ck-jobs-run? if lf-sched-plan ok? if ck-pool-started? if
     drop ck-jobs-run ck-finished exit then then then
