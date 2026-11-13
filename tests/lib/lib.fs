@@ -410,6 +410,32 @@ T{ 7 steps-none stepped -> outcome-ok 0 }T
 T{ outcome-ok steps-ab stepped -> outcome-ok 121 }T
 T{ outcome-unknown steps-ab stepped -> outcome-unknown 12 }T
 T{ outcome-full steps-ab ' stepped rs-checked -> outcome-full 12 }T
+\ ok-and: a step ( i*x -- j*x outcome ) run only while the outcome so far
+\ is ok (review FRK A); a failure, or a value outside the vocabulary,
+\ passes through with the values below it, the step not run.
+: step-c ( x -- x' outcome ) 1+ step-trail @ 10 * 3 + step-trail ! outcome-ok ;
+: step-u ( x -- x outcome ) step-trail @ 10 * 4 + step-trail ! outcome-unknown ;
+: anded ( x outcome xt -- x' outcome trail ) 0 step-trail ! ok-and step-trail @ ;
+T{ 7 outcome-ok ' step-c anded -> 8 outcome-ok 3 }T
+T{ 7 outcome-ok ' step-u anded -> 7 outcome-unknown 4 }T
+T{ 7 outcome-full ' step-c anded -> 7 outcome-full 0 }T
+T{ 7 outcome-exhausted ' step-c anded 7 99 ' step-c anded -> 7 2 0 7 99 0 }T
+T{ 0 step-trail ! 5 outcome-ok ' step-c ok-and ' step-u ok-and ' step-c ok-and step-trail @
+  -> 6 outcome-unknown 34 }T
+T{ 5 outcome-ok ' step-c ' anded rs-checked 5 outcome-rejected ' step-c ' anded rs-checked
+  -> 6 outcome-ok 3 5 outcome-rejected 0 }T
+\ ok-with: a step ( x -- outcome ) on x, which stays below, run only while
+\ the outcome so far is ok; a failure passes through, the step not run.
+: step-d ( x -- outcome ) step-trail @ 10 * + step-trail ! outcome-ok ;
+: step-e ( x -- outcome ) step-trail @ 10 * + step-trail ! outcome-exhausted ;
+: withed ( x outcome xt -- x outcome trail ) 0 step-trail ! ok-with step-trail @ ;
+T{ 4 outcome-ok ' step-d withed -> 4 outcome-ok 4 }T
+T{ 4 outcome-ok ' step-e withed -> 4 outcome-exhausted 4 }T
+T{ 4 outcome-invalid ' step-d withed 4 -5 ' step-d withed -> 4 1 0 4 -5 0 }T
+T{ 0 step-trail ! 3 outcome-ok ' step-d ok-with ' step-e ok-with ' step-d ok-with step-trail @
+  -> 3 outcome-exhausted 33 }T
+T{ 4 outcome-ok ' step-d ' withed rs-checked 4 outcome-full ' step-d ' withed rs-checked
+  -> 4 outcome-ok 4 4 outcome-full 0 }T
 
 \ walk: refuses a capacity below 1.
 : bad-walk? ( addr u -- flag ) ['] evaluate catch dup if nip nip then 0<> ;

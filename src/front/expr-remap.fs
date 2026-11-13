@@ -16,6 +16,8 @@
 \     is gone: unsupported), others become r - drop + lift.
 \   swap ( a h ): r < a becomes r + h; a <= r < a + h becomes r - a; the
 \     rest stay.
+\   table ( addr n ) and a delta: r < n becomes the cell at addr + r
+\     cells (a negative one refused), others r + delta.
 \ An expression without such variables (its loose range, kept in every
 \ record, at most the base) is kept as it is, so closed parts are never
 \ walked. Applications, binders, letE records (the body under the
@@ -50,6 +52,7 @@ begin-structure /remap
   field: remap-y                \ its second (lift, or h)
   field: remap-erase            \ true: binder names made anonymous too
   field: remap-limit            \ fuel for each run
+  field: remap-delta            \ the table map's shift past its table
 end-structure
 
 \ Visits allowed in one run.
@@ -62,6 +65,10 @@ end-structure
 : swap-map ( r remap -- r' true )
   2dup remap-x @ < if remap-y @ + true exit then
   2dup swap-in? if remap-x @ - else drop then true ;
+: table-at ( r remap -- r' true | false )
+  remap-x @ swap cells + @ dup 0< if drop false else true then ;
+: table-map ( r remap -- r' true | false )
+  2dup remap-y @ < if table-at exit then remap-delta @ + true ;
 
 \ Reading the record and the expression being visited.
 : remap-tier@ ( remap -- tier ) remap-tier @ ;
@@ -158,6 +165,9 @@ end-structure
 : remap-set ( x y xt remap -- ) tuck remap-map ! tuck remap-y ! remap-x ! ;
 : remap-shift! ( drop lift remap -- ) ['] shift-map swap remap-set ;
 : remap-swap! ( a h remap -- ) ['] swap-map swap remap-set ;
+\ The table map: n cells at addr, then delta (remap-delta!).
+: remap-table! ( addr n remap -- ) ['] table-map swap remap-set ;
+: remap-delta! ( delta remap -- ) remap-delta ! ;
 \ Erase binder names (flag true) in the runs that follow, or keep them.
 : remap-erase! ( flag remap -- ) remap-erase ! ;
 \ Erase names and renumber nothing: Lean's Expr equality, as numbers.

@@ -466,7 +466,6 @@ defer lf-whnf-iota ( app frames -- ... frames next )
 \ A step that ends its visit with a failure: no result.
 : lf-whnf-failed ( outcome frames -- -1 outcome frames 0 ) >r no-result r> 0 ;
 : lf-whnf-keep ( node frames -- node outcome frames 0 ) outcome-ok swap 0 ;
-: lf-whnf-ended ( node outcome frames -- node outcome frames 0 ) 0 ;
 
 \ The cheap_proj mode (see the header). A visit's first step sets the
 \ visit's mode; where that changes it, the step that puts the old one

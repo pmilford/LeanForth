@@ -7,8 +7,11 @@ branch `fe1` (Forth review pending):** FE1a, the natural reader
 as not supported yet where elaboration or a tactic would begin; the
 kernel form needs `kernel-form`), and FE1b, the metavariable context
 (`src/front/mvars.fs`, `core/mvar-leaves.fs`), is tested alone (no command
-makes metavariables yet; the export writer refuses any). Nothing else in
-this document is built. It is
+makes metavariables yet; the export writer refuses any). FE1f's hand-over
+(`src/front/handover.fs`: instantiate, refuse a reachable hole, write
+only what the declaration reaches, through the stage to the kernel) is
+tested alone on branch `fe1f`, driven by a stand-in elaborator; FE1d's
+elaboration data is integrated. Nothing else in this document is built. It is
 the design and plan for the half of Lean that LeanForth does not have: the
 part that turns what a person writes into the full proof term the kernel
 checks. The architecture and trust boundary are proposed in
@@ -98,11 +101,12 @@ smallest piece that proves something real: FE1, $0 + n = n$ by induction.
 | Printing a checked statement in LeanForth words, Lean notation and mathematics | integrated (`leanforth print`, plan 8.6.2); the notation table maps `HAdd.hAdd` to `+` for printing only |
 | Holes `_` | refused: error 52, "holes are filled by the elaborator" |
 | Metavariable context (FE1b): metavariables, assignment, occurs check, instantiation | tested alone (`tests/front/front.fs`; compared with pinned Lean by `tests/front/check_meta.py`); the beta step and delayed assignments' values are put in as Lean does (FE1c), except an argument with loose bound variables and a let that betaRev zeta-reduces (unsupported) |
+| Hand-over of an elaborated declaration to the kernel (FE1f) | tested alone on branch `fe1f` (`tests/front/handover.fs`, with a stand-in elaborator): holes instantiated, a reachable hole refused (error 74), an unused universe parameter refused as Lean refuses it (error 75), only the nodes the declaration reaches written, through the stage to the kernel; no user command reaches it before FE1e |
 | Elaborator, unification, implicit arguments, numerals as Lean reads them | not started |
 | Type classes, coercions | not started |
 | Tactics and proof states | not started |
 | Pattern matching, recursion | not started |
-| Generated definitions for new data types (FE6) | `T.casesOn` and `T.recOn` written and tested alone on branch `fe6a` (`src/front/constructions.fs`): built from a loaded export's `T.rec` as Lean builds them, and compared with Lean's own on all of Init (`make reference-constructions`): of 597 `casesOn`, 436 equal node for node, 160 equal up to binder names and binder information (Lean's exporter shares terms that differ only in those), 0 different, 1 unsupported (`Lean.Syntax`, a nested type: `casesOn` with several motives is not ported yet); of 576 `recOn`, 539, 37, 0 and 0. Not yet used for LeanForth's own data types, which need FE2–FE5; the kernel builds `T.rec` when it checks a data type, as Lean's kernel does; `noConfusion`, `below`, `brecOn`, `ctorIdx`, `sizeOf` and the injectivity lemmas not started |
+| Generated definitions for new data types (FE6) | `T.casesOn`, `T.recOn` and `T.ctorIdx` written and tested alone on branch `fe6a` (`src/front/constructions.fs`, `cases-several.fs`, `ctor-idx.fs`): built from a loaded export's `T.rec`, `T`'s type and constructors as Lean builds them, and compared with Lean's own on all of Init (`make reference-constructions`): of 597 `casesOn`, 436 equal node for node, 161 equal up to binder names and binder information (Lean's exporter shares terms that differ only in those), 0 different, 0 unsupported (`cases-several.fs` builds it for a recursor with several motives, such as the nested `Lean.Syntax`); of 576 `recOn`, 539, 37, 0 and 0; of 397 `ctorIdx`, 0, 397, 0 and 0 (Lean gives its arrow's binder a fresh hygienic name). Limit (review fe6a M1): the binder names and binder information come from the export's `T.rec` and `T`'s type, and an export may show a shared term's (Lean's `Expr` equality ignores them); against pinned Lean's environment (`tests/reference/constructions-binders.lean`, macro scopes erased) the binders are exact for 565 `casesOn`, 544 `recOn` and 328 `ctorIdx`, the others differing in names (30, 30, 69) or also in binder information (2, 2, 0: `Equivalence`'s `symm` explicit where Lean's is implicit). An exact source (the elaboration data, or an export without sharing) is owed before the front end uses these definitions. Not yet used for LeanForth's own data types, which need FE2–FE5; the kernel builds `T.rec` when it checks a data type, as Lean's kernel does; `noConfusionType` and `noConfusion` (they need the front end's type inference and definitional equality, FE1c), `below`, `brecOn` (type inference of levels), `sizeOf` and the injectivity lemmas not started |
 | `simp`, decision procedures, Mathlib's tactics | not started |
 | Evaluation (`#eval`, `#reduce`) | not started (the kernel reduces terms internally, with no user command) |
 | Natural LeanForth (plan 8.6.10): the natural reader (FE1a) | integrated on branch `fe1`: natural text is the default and is read into Lean-shaped syntax trees (`binrel% Eq (binop% HAdd.hAdd 0 n) n`, compared with pinned Lean's macro expansion); nothing is elaborated yet |
@@ -459,8 +463,9 @@ and `author/`, never `kernel/`):
   with kind, depth, local context, type, assignment and delayed
   assignment; instantiation and abstraction as Lean's `MetavarContext`.
   Metavariables are new leaf kinds in the term and level stores; the export
-  writer refuses any of them (ADR 0021 D2), so the kernel can never receive
-  one.
+  writer refuses any that a declaration it writes reaches (for kernel-form
+  text, any in the stores; ADR 0021 D2), so the kernel can never receive
+  one, and one the elaborator left unused blocks nothing.
 - **Meta-level reduction, type inference and unification**: a port of
   `Meta/WHNF.lean`, `InferType.lean`, `ExprDefEq.lean` and `LevelDefEq.lean`
   with transparency levels, its own caches and fuel. It does not call the
@@ -741,9 +746,29 @@ level unifications that need Lean's `solveSelfMax` or `decLevel?` of a
 max, and six instantiations (an argument with loose bound variables, a
 let that betaRev zeta-reduces, a let in a delayed value, and three where Lean instantiates an
 assigned head's beta result a second time), not ported yet, answer
-unsupported. `whnf`, `inferType`, term unification, `Nat` offsets,
-caches and fuel are not started; they need the front end's view of the
-environment, which FE1d's elaboration data completes.
+unsupported.
+On branch
+`fe1c-2`, written and tested alone: the front end's view of the
+environment (`src/front/meta-env.fs`: a declaration of the loaded
+library by name, its reducibility status from FE1d's elaboration data,
+Lean's `canUnfoldDefault` and `getUnfoldableConst?` under the six
+transparency modes; `tests/front/check_unfold.py` finds 44 declarations
+of an `Init` slice and their 528 unfolding answers equal to pinned
+Lean's) and `whnfCore` with `getStuckMVar?` (`src/front/whnf.fs`: beta,
+zeta, metavariable and let-variable heads, projections and iota on
+constructor applications, parts reduced first, fuel;
+`tests/front/check_whnf.py`: 39 of 48 cases equal,
+9 answer unsupported). Facts Lean's `whnf` asks of definitions --
+matchers, projection functions, auxiliary recursors, `_sunfold`
+definitions -- are not in an export: a definition at the head answers
+unsupported until plan row FE1d2 adds them to the elaboration data.
+`inferType`'s first cases (`src/front/infer.fs`: constants, variables,
+metavariables, sorts, applications of them, lambdas and pis, with Lean's
+`instantiateBetaRevRange` in `src/front/beta-inst.fs`) are written and
+tested alone; 26 of 30 inference cases equal pinned Lean's, two only
+once Lean's metadata (mdata), which the export leaves out, is dropped.
+`whnf` with delta, the rest of `inferType`, term unification, `Nat`
+offsets and caches are not started.
 
 Size: L, eight S–M steps; *speculative* 4,000 to 7,000 lines of Forth
 source and as much in tests. Needs: 8.2.1c and 8.2.1d (branch

@@ -1,0 +1,13 @@
+\ FE1f's acceptance file (plan row FE1f): a natural term proof.
+\ Lean: theorem add_zero' (n : Nat) : n + 0 = n := Eq.refl n
+\ Today the statement and the proof are read into Lean's syntax trees and
+\ the text stops at end as not supported yet (error 71, exit 2): the
+\ elaborator that turns them into the kernel's terms is plan FE1e. The
+\ hand-over that sends the elaborated terms to the kernel (FE1f) is
+\ tested with a stand-in elaborator in tests/front/handover.fs.
+theorem add_zero'
+  Nat explicit: n
+  n 0 + n =
+:=
+  n Eq.refl
+end add_zero'

@@ -156,10 +156,11 @@ end-structure
   lfa-binder-at @ lfa-e-statement lfa-fail-see ;
 : lfa-params-tight ( -- ) lfa-depth 0 ?do i lfa-no-gap loop ;
 
+\ An axiom or import stub: a statement and no value, no := (review fe1f L7).
+: lfa-statement-only? ( -- flag ) lfa-this-kind lf-decl-def > ;
 \ := takes the statement; the binders open now are the parameters.
-: lfa-definable? ( -- flag ) lfa-inside? if lfa-this-kind lf-decl-def > 0= lfa-params 0<
-  and
-  else false then ;
+: lfa-definable? ( -- flag )
+  lfa-inside? if lfa-statement-only? 0= lfa-params 0< and else false then ;
 \ lfa-define-check, first thing, with the statement on top; then the
 \ statement taken (a term here, a syntax node in src/front/reader.fs);
 \ then lfa-define-done.
@@ -203,20 +204,22 @@ end-structure
   lfa-full 2dup lf-consts lfa-constant! 2dup lfa-prefixes-known
   dup 0 ?do over i lfa-dot-at? if 2dup i lfa-short-word then loop 2drop ;
 : lfa-record-decl ( type value -- )
-  lfa-close-params lfa-this tuck lf-fdecl-value ! tuck lf-fdecl-type !
-  lf-note-count swap lfa-decl-notes-end ! ;
+  lfa-close-params lfa-this tuck lf-fdecl-value ! lf-fdecl-type ! ;
 : lfa-publish ( -- )
   lfa-this dup lf-fdecl-type @ dup 0< if 2drop exit then
   swap lf-fdecl-name @ swap lf-pres-declare ok? lfa-e-entries-full lfa-must ;
-: lfa-finish ( type value -- )
-  lfa-record-decl lfa-publish lfa-current lfa-current-entries @ lfa-entries-cut
-    lfa-register
-  lfa-scope-close lfa-items-reset ;
+: lfa-notes-end ( -- ) lf-note-count lfa-this lfa-decl-notes-end ! ;
+\ The declaration made, its type and value recorded (by lfa-record-decl
+\ here, by the front end's hand-over in natural text, front/handover.fs):
+\ the end of its notes, its words, and its scope closed.
+: lfa-declared ( -- )
+  lfa-notes-end lfa-publish lfa-current lfa-current-entries @ lfa-entries-cut
+  lfa-register lfa-scope-close lfa-items-reset ;
+: lfa-finish ( type value -- ) lfa-record-decl lfa-declared ;
 : lfa-end-check ( c-addr u -- )
   lfa-current lfa-current-token lfa-text compare 0= lfa-e-end-name lfa-must ;
 : lfa-end-declaration ( above c-addr u -- )
-  lfa-end-check lfa-this-kind lf-decl-def > if lfa-statement-end -1 else lfa-proof-end
-    then
+  lfa-end-check lfa-statement-only? if lfa-statement-end -1 else lfa-proof-end then
   lfa-this lf-fdecl-type @ swap lfa-finish ;
 
 \ A constant's name, run: resolved in the declaration's namespace (its

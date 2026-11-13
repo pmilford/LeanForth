@@ -44,10 +44,12 @@ here canon-stores - 1 cells / constant canon-stores#
 \ found through its list of their offsets (private to lib/context.fs).
 lf-lib-private order+
 : canon-slab-list ( -- node ) context-slabs @ ;
+: canon-listed-at ( node -- slab ) listed-member ;
+: canon-next ( node -- node' ) listed-next @ ;
 order-
-: canon-listed-at ( node -- slab ) cell+ @ lf-context @ + ;
 : canon-listed ( dst -- dst )
-  canon-slab-list begin ?dup while >r dup r@ canon-listed-at canon-slab r> @ repeat ;
+  canon-slab-list begin ?dup while >r dup r@ canon-listed-at canon-slab r> canon-next
+  repeat ;
 \ Hash tables (lib/htab.fs; compact-store plan step S3): the term store's
 \ hash-consing table (core/terms.fs), the level store's and the
 \ references' (core/levels.fs, core/constant-references.fs; step S4), the
@@ -98,7 +100,8 @@ order-
 : canon-shape-digest ( h slab -- h' )
   >r r@ slab-capacity canon-mix r@ slab-unit canon-mix r> slab-limit canon-mix ;
 : canon-listed-digest ( h -- h' )
-  canon-slab-list begin ?dup while >r r@ canon-listed-at canon-shape-digest r> @ repeat ;
+  canon-slab-list begin ?dup while >r r@ canon-listed-at canon-shape-digest r> canon-next
+  repeat ;
 \ The table's size and entries (its slots' order follows its history).
 : canon-htab-digest ( h htab -- h' ) dup htab-slots rot swap canon-mix swap htab-count canon-mix ;
 : canon-core-digest ( h -- h' )

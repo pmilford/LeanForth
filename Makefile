@@ -291,6 +291,7 @@ test-core:
 	$(RUN) $(GFORTH) tests/core/defeq.fs
 	$(RUN) $(GFORTH) tests/core/whnf.fs
 	$(RUN) $(GFORTH) tests/core/mixed-level-substitute.fs
+	$(RUN) $(GFORTH) tests/core/mixed-level-substitute-crowded.fs
 	$(RUN) $(GFORTH) tests/core/mixed-signature-probe.fs
 	$(RUN) $(GFORTH) tests/core/mixed-signature-lifecycle.fs
 	$(RUN) $(GFORTH) tests/core/mixed-signature-audit.fs
@@ -802,6 +803,26 @@ reference-bignum:
 test: test-bignum
 test-differential: reference-bignum
 
+# Signed big integers with Lean's Int semantics (plan step FE1i-4;
+# src/lib/bigint.fs, a standalone library over bignum.fs): unit tests of
+# every word and outcome, every room from 0 cells up and no heap use; then
+# 9,906 integer pairs (7,906 edge, 2,000 random), 13 operations each,
+# against a model that follows Lean's definitions, and the header's example
+# and interface from a folder outside the project. Gforth and Python 3 only.
+test-bigint:
+	$(RUN) $(GFORTH) tests/lib/bigint.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/lib/bigint_differential.py --pairs 2000
+
+# 17,906 pairs (10,000 random) computed by pinned Lean's own Int, line for
+# line, and 300 results decided by Lean's kernel (decide +kernel), each also
+# rejected with its value changed.
+reference-bigint:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/lib/bigint_differential.py --lean
+
+.PHONY: test-bigint reference-bigint
+test: test-bigint
+test-differential: reference-bigint
+
 # SHA-256 (src/lib/sha256.fs, a standalone library; docs/development/FORTH_LIBRARY.md):
 # FIPS 180-4's vectors, every split of messages up to 200 bytes, the named
 # functions against independent models and the fast round against the plain
@@ -884,15 +905,20 @@ reference-author:
 .PHONY: test-author reference-author
 test: test-author
 
-# The front end's first steps (plan FE1a-c, ADR 0021): the natural reader's
-# syntax trees and refusals, the metavariable context, and the Meta layer's
-# level unification and instantiation. Its modules load alone, printing
-# nothing.
+# The front end's first steps (plan FE1a-c, FE1f, FE6a, ADR 0021): the
+# natural reader's syntax trees and refusals, the metavariable context, the
+# Meta layer's level unification and instantiation, the hand-over of a
+# finished declaration to the kernel, and the generated definitions. Its
+# modules load alone, printing nothing.
 test-front:
 	@for m in src/front/syntax.fs src/front/dag-walk.fs src/front/reader.fs src/front/mvars.fs \
-	  src/core/mvar-leaves.fs src/front/level-defeq.fs src/front/instantiate.fs \
+	  src/front/handover.fs src/core/mvar-leaves.fs src/core/reach.fs \
+	  src/front/level-defeq.fs src/front/instantiate.fs \
 	  src/front/level-simp.fs src/front/level-params.fs src/front/level-normalize.fs \
-	  src/front/level-map.fs src/front/expr-remap.fs src/front/constructions.fs; do \
+	  src/front/level-map.fs src/front/expr-remap.fs src/front/constructions.fs src/front/ctor-idx.fs \
+	  src/front/cases-several.fs \
+	  src/front/meta-env.fs src/front/meta-spine.fs src/front/whnf.fs src/front/beta-inst.fs \
+	  src/front/infer.fs; do \
 	  out=$$($(RUN) $(GFORTH) $$m -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
 	  if [ -n "$$out" ]; then printf '%s printed while loading:\n%s\n' "$$m" "$$out" >&2; exit 1; fi; \
 	done
@@ -900,17 +926,26 @@ test-front:
 	$(RUN) $(GFORTH) tests/front/meta.fs
 	$(RUN) $(GFORTH) tests/front/meta-heap.fs
 	$(RUN) $(GFORTH) tests/front/constructions.fs
+	@out=$$($(RUN) $(GFORTH) tests/front/handover.fs 2>&1) || \
+	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "handover.fs: all tests passed"
+	$(RUN) $(GFORTH) tests/front/meta-env.fs
+	$(RUN) $(GFORTH) tests/front/whnf.fs
+	$(RUN) $(GFORTH) tests/front/infer.fs
 
 # The natural reader's trees against pinned Lean's macro expansion of the
 # same statements (tests/front/operators.lean); the Meta layer's answers
 # against pinned Lean's (tests/front/check_meta.py: isLevelDefEqAux,
-# instantiate1, abstract, headBeta, instantiateLevelParams).
+# instantiate1, abstract, headBeta, instantiateLevelParams;
+# tests/front/check_unfold.py: reducibility, canUnfold, getUnfoldableConst?;
+# tests/front/check_whnf.py: whnfCore, getStuckMVar?, inferType).
 reference-front:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_front.py
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_meta.py
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_unfold.py
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_whnf.py
 
-# Lean's generated definitions (casesOn, recOn; plan FE6) built by
-# src/front/constructions.fs for every inductive type of Init, against
+# Lean's generated definitions (casesOn, recOn, ctorIdx; plan FE6) built by
+# src/front/constructions.fs and ctor-idx.fs for every inductive type of Init, against
 # Lean's own in the same export, with pinned counts.
 reference-constructions:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/front/constructions-init.sh
