@@ -301,6 +301,9 @@ T{ ' unassigned elaborating add-zero-natural check lf-author-code -> 4 74 }T
 T{ lfa-error lfa-err-at @ lfa-pos> -> 13 1 }T
 \ A wrong term reaches the kernel and is rejected there.
 T{ ' wrong elaborating add-zero-natural check outcome-rejected tally -> 1 1 }T
+\ A natural declaration, then the kernel form (tests/front/mixed.lf): the
+\ hole the stand-in left unused blocks nothing; both accepted.
+T{ ' assigned elaborating s" tests/front/mixed.lf" check outcome-ok tally -> 0 accepted 1+ }T
 \ The same process after all of that: the same verdicts.
 T{ ' direct elaborating add-zero-natural check outcome-ok tally -> 0 accepted }T
 \ The elaborator back to plan FE1e's place-holder.

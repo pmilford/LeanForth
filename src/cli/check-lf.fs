@@ -195,10 +195,13 @@ end-structure
 : lfc-line ( c-addr u -- outcome ) ck-stage stage-line ;
 \ A natural text's declarations come from the front end's hand-over
 \ (front/handover.fs): only what they reach is written, so a metavariable
-\ the elaborator left unused blocks nothing (author/export.fs). A text in
-\ the kernel form is written whole, as before.
+\ the elaborator left unused blocks nothing (author/export.fs); so too for
+\ a text that turned to the kernel form after natural declarations and
+\ holds their metavariables. A kernel-form text, which holds none, is
+\ written whole, as before.
+: lfc-reached? ( -- flag ) lfa-kernel-form? 0= lf-holes? or ;
 : lfc-write ( -- outcome )
-  ['] lfc-line lfa-kernel-form? if lf-author-export else lf-author-export-reached then ;
+  ['] lfc-line lfc-reached? if lf-author-export-reached else lf-author-export then ;
 : lfc-extended ( -- outcome ) lfc-library? if ck-stage stage-extend else outcome-ok then ;
 : lfc-produce ( -- outcome )
   lfc-extended dup ok? 0= if exit then drop

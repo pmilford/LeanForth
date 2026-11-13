@@ -11234,7 +11234,7 @@ quick = true
 [[fault]]
 id = "fe-check-lf-all-nodes"
 file = "src/cli/check-lf.fs"
-old = '''  ['] lfc-line lfa-kernel-form? if lf-author-export else lf-author-export-reached then ;'''
+old = '''  ['] lfc-line lfc-reached? if lf-author-export-reached else lf-author-export then ;'''
 new = '''  ['] lfc-line lf-author-export ;'''
 test = "$GFORTH tests/front/handover.fs"
 reason = "FE1f: a natural text is written whole, so an unused hole refuses its records"
@@ -11319,4 +11319,13 @@ old = '''  lf-level-slot dup node-tag @ lf-level-tag-param = swap node-first @ r
 new = '''  lf-level-slot node-tag @ lf-level-tag-param = nip ;'''
 test = "$GFORTH tests/front/handover.fs"
 reason = "FE1f: any universe parameter reached counts as every one, so an unused one is kept"
+quick = true
+
+[[fault]]
+id = "fe-check-lf-mixed-whole"
+file = "src/cli/check-lf.fs"
+old = ''': lfc-reached? ( -- flag ) lfa-kernel-form? 0= lf-holes? or ;'''
+new = ''': lfc-reached? ( -- flag ) lfa-kernel-form? 0= ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "FE1f: a text that turns to the kernel form after a natural declaration is written whole, so the elaborator's unused hole refuses its records"
 quick = true
