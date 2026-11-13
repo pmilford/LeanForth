@@ -717,10 +717,22 @@ and head beta (`instantiate.fs`), level equality with `mkLevelMax'` and
 `mkLevelIMax'` (`level-simp.fs`) and universe-parameter instantiation
 (`level-params.fs`) are written and tested alone; `make reference-front`
 compares 85 cases with pinned Lean (83 equal; two level unifications over
-max answer unsupported until `Level.normalize` is ported). `whnf`,
-`inferType`, term unification, `Nat` offsets, caches and fuel are not
-started; they need the front end's view of the environment, which FE1d's
-elaboration data completes.
+max answer unsupported until `Level.normalize` is ported). On branch
+`fe1c-2`, written and tested alone: the front end's view of the
+environment (`src/front/meta-env.fs`: a declaration of the loaded
+library by name, its reducibility status from FE1d's elaboration data,
+Lean's `canUnfoldDefault` and `getUnfoldableConst?` under the six
+transparency modes; `tests/front/check_unfold.py` finds 39 declarations
+of an `Init` slice and their 468 unfolding answers equal to pinned
+Lean's) and `whnfCore` with `getStuckMVar?` (`src/front/whnf.fs`: beta,
+zeta, metavariable and let-variable heads, iota on constructor
+applications, fuel; `tests/front/check_whnf.py`: 26 of 33 cases equal,
+7 answer unsupported). Facts Lean's `whnf` asks of definitions --
+matchers, projection functions, auxiliary recursors, `_sunfold`
+definitions -- are not in an export: a definition at the head answers
+unsupported until plan row FE1d2 adds them to the elaboration data.
+`whnf` with delta, projections, `inferType`, term unification, `Nat`
+offsets and caches are not started.
 
 Size: L, eight S–M steps; *speculative* 4,000 to 7,000 lines of Forth
 source and as much in tests. Needs: 8.2.1c and 8.2.1d (branch

@@ -1,4 +1,4 @@
-{"elab_data":{"export_sha256":"babda354898f3879d6b7fdf1c93cb6f7d0fb1daf1ad08e2fc1b816a368d9b8eb","format":"leanforth-elab-data","format_version":1,"lean_githash":"eb6cafb7290e8bd5f2937522d8d804f58f02bafc","lean_version":"4.35.0","modules":["Init"],"records":{"default_instance":8,"eliminator":0,"instance":20,"reducibility":139},"records_sha256":"5d98de4ba3914a6bc6b6be081395ac71272071fb385d36940bdcc4d6336f60c8"}}
+{"elab_data":{"export_sha256":"ce3ea3df1e80e54dd95cacc7b4d3c0910276e7926516a7ea21fb17d3fdfd7e87","format":"leanforth-elab-data","format_version":1,"lean_githash":"eb6cafb7290e8bd5f2937522d8d804f58f02bafc","lean_version":"4.35.0","modules":["Init"],"records":{"default_instance":8,"eliminator":0,"instance":20,"reducibility":139},"records_sha256":"5d98de4ba3914a6bc6b6be081395ac71272071fb385d36940bdcc4d6336f60c8"}}
 {"instance":{"class":["Add"],"name":["instAddNat"],"priority":1000,"synth_order":[]}}
 {"instance":{"class":["Decidable"],"name":["Nat","decLe"],"priority":1000,"synth_order":[]}}
 {"instance":{"class":["Decidable"],"name":["Nat","decLt"],"priority":1000,"synth_order":[]}}

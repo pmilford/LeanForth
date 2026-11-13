@@ -1,5 +1,5 @@
 {
-  "bytes": 612645,
+  "bytes": 607854,
   "export_format": "3.1.0",
   "exporter": "lean4export",
   "exporter_version": "3.1.0",
@@ -38,5 +38,5 @@
     "name.num": 697,
     "name.str": 1228
   },
-  "sha256": "babda354898f3879d6b7fdf1c93cb6f7d0fb1daf1ad08e2fc1b816a368d9b8eb"
+  "sha256": "ce3ea3df1e80e54dd95cacc7b4d3c0910276e7926516a7ea21fb17d3fdfd7e87"
 }

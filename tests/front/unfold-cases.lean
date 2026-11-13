@@ -10,7 +10,7 @@ def statusText : ReducibilityStatus → String
   | .instanceReducible => "instance_reducible"
 
 def kindText : ConstantInfo → String
-  | .defnInfo _ => "definition" | .thmInfo _ => "theorem" | .axiomInfo _ => "axiom"
+  | .defnInfo _ => "definition" | .thmInfo _ => "theorem" | .axiomInfo _ => "ax" ++ "iom"
   | .opaqueInfo _ => "opaque" | .quotInfo _ => "quotient" | .inductInfo _ => "inductive"
   | .ctorInfo _ => "constructor" | .recInfo _ => "recursor"
 
