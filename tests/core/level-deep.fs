@@ -156,5 +156,26 @@ T{ geq-60 lf-lnorm-data-cells at-most swap lf-lnorm-return-cells at-most
 T{ 200 painted-geq geq-60 near? verdict @ -> true outcome-ok }T
 300 painted-names 2constant names-300
 T{ verdict @ names-300 names-31 near? -> outcome-unknown true }T
+\ The arguments' sort (lib/sort.fs): 60 arguments, pushed as the max's
+\ and again normalized (120 cells), are merged through 60 scratch cells
+\ above them in the argument stack. With that stack given back to one
+\ cell, a normalization grows it four times for the pushes (to 128 cells)
+\ and once for the scratch; each growth refused in turn is full, recorded
+\ as a full work stack with the cells in use and the capacity (the
+\ scratch's: 120 of 128), and with none refused the answer is Lean's.
+: pair-60 ( -- l1 l2 )
+  lf-name-reset lf-level-reset lf-lscope-context-reset 60 max-chain
+  0 s" q" lf-name-str must param ;
+T{ pair-60 10000000 lf-level-equivalent -> false outcome-ok }T
+: trimmed-60 ( k -- flag outcome left code )
+  pair-60 lf-lnorm-arg-cells slab-trim drop lf-diag-clear rot heap-refusals !
+  10000000 lf-level-equivalent heap-refusals @ 0 heap-refusals ! lf-diag-code@ ;
+: growths-60 ( -- flag outcome n ) max-n trimmed-60 drop max-n swap - ;
+T{ growths-60 -> false outcome-ok 5 }T
+T{ 1 trimmed-60 -> false outcome-full 0 lf-diag-work-stack-full }T
+T{ 4 trimmed-60 -> false outcome-full 0 lf-diag-work-stack-full }T
+T{ 5 trimmed-60 -> false outcome-full 0 lf-diag-work-stack-full }T
+T{ lf-diag@ 2drop -> 120 128 }T
+T{ 6 trimmed-60 -> false outcome-ok 1 lf-diag-none }T
 lf-level-default lf-level-capacity! drop  lf-name-default lf-name-capacity! drop
 bye

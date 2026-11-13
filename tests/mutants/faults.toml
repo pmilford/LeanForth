@@ -15856,3 +15856,11 @@ old = ''': dep-sort ( addr n -- outcome ) /snap-dep le-sort ;'''
 new = ''': dep-sort ( addr n -- outcome ) 2drop outcome-ok ;'''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "reuse-k1: a list of dependencies is written and merged unsorted"
+
+[[fault]]
+id = "lnorm-scratch-refusal-ignored"
+file = "src/kernel/level-normalize.fs"
+old = '''  drop lf-lnorm-arg @ lf-lnorm-crowded ;'''
+new = '''  2drop ;'''
+test = "$GFORTH tests/core/level-deep.fs"
+reason = "reuse-k1: a merge whose scratch the heap refuses leaves the arguments unsorted and the call ok, where it is full"
