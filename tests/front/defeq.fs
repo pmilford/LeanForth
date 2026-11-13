@@ -400,5 +400,7 @@ T{ 0 refused-inst drop implicit? 0 refused-i1 drop implicit? clean? -> true true
 T{ own-mark offset-pair dq ?h free? own-back -> true outcome-ok false }T
 \ A call frees what it allocates (its slabs keep their room).
 T{ own-mark live-blocks @ offset-pair dq 2drop live-blocks @ = own-back clean? -> true true }T
+\ The fed input as loading left it (S1 §1, trust point 3).
+T{ lf-input-intact? -> true }T
 
 bye
