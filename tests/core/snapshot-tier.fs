@@ -19,8 +19,10 @@
 \ table that may not grow (full), and the misuses: saving a stage not
 \ sealed, loading into a stage read before. Every heap block is given
 \ back (heap-watch.fs). tests/core/test_stage.py covers loading in
-\ another process and stage-continue. Scratch files go to /tmp.
+\ another process and stage-continue. Scratch files go to LF_TEST_SCRATCH's
+\ folder, else /tmp (tests/support/scratch.fs).
 include ../support/tester.fs
+include ../support/scratch.fs
 include ../support/heap-watch.fs
 require ../../src/main.fs
 decimal
@@ -30,9 +32,9 @@ live-blocks @ constant blocks-at-start
 create sa /stage allot  sa /stage erase
 create sb /stage allot  sb /stage erase
 create tf /tier-file allot  tf tier-file-init
-: file-a ( -- c-addr u ) s" /tmp/lf-snapshot-tier-a.bin" ;
-: file-b ( -- c-addr u ) s" /tmp/lf-snapshot-tier-b.bin" ;
-: file-c ( -- c-addr u ) s" /tmp/lf-snapshot-tier-c.bin" ;
+s" lf-snapshot-tier-a.bin" scratch-file 2constant file-a
+s" lf-snapshot-tier-b.bin" scratch-file 2constant file-b
+s" lf-snapshot-tier-c.bin" scratch-file 2constant file-c
 : composition ( -- c-addr u ) s" tests/reference/composition.ndjson" ;
 : fixture ( -- c-addr u ) s" tests/reference/constant-fixture.ndjson" ;
 : poly ( -- c-addr u ) s" tests/reference/poly-identity.ndjson" ;
@@ -89,7 +91,7 @@ T{ s" tests/core/stage-cases/marks.ndjson" false stage-a sa stage-marks @ 0> sa 
    -> 0 true }T
 \ Metadata naming other versions (read after stage-any-version!): its five
 \ texts saved and given back by the loaded stage.
-: other-file ( -- c-addr u ) s" /tmp/lf-snapshot-tier-other.ndjson" ;
+s" lf-snapshot-tier-other.ndjson" scratch-file 2constant other-file
 : meta-start ( -- c-addr u )
   s\" {\"meta\":{\"exporter\":{\"name\":\"otherexport\",\"version\":\"9.9.9\"}," ;
 : meta-end ( -- c-addr u )
@@ -238,6 +240,11 @@ T{ fresh-img 1 2 0 peek head-tag tag-name-str = -> true }T
 T{ fresh-img $FF 1 name-at c! 1 name-word 1 2 12 poke 1 forged 2 forged attempted
    -> outcome-invalid true }T
 T{ fresh-img a-def 1- 9 0 peek a-def 9 0 poke 9 forged attempted -> outcome-invalid true }T
+\ A line that is none, first or later; a line going back (review FRI B7).
+T{ fresh-img staged-none 0 9 0 poke 9 forged attempted -> outcome-invalid true }T
+T{ fresh-img staged-none a-def 9 0 poke 9 forged attempted -> outcome-invalid true }T
+T{ fresh-img staged-none sa stage-decls 1- 9 0 poke 9 forged attempted -> outcome-invalid true }T
+T{ fresh-img a-def 1- 9 0 peek 1- a-def 9 0 poke 9 forged attempted -> outcome-invalid true }T
 : levelled-const ( -- e )
   sa stage-tier tier-exprs cons-numbers 0 ?do
     i sa stage-tier expr-tag@ tag-const =
@@ -285,6 +292,20 @@ T{ 16 sb stage-init s" tests/reference/identity.ndjson" sb stage-read file-b sb 
    sb stage-free -> outcome-ok outcome-ok outcome-invalid }T
 T{ 16 sb stage-init file-a sb tf tier-load file-a sb tf tier-load sb stage-state @
    sb stage-free -> outcome-ok outcome-ok outcome-invalid staging-filled }T
+\ A tier of one declaration whose line is none (review of refactor-fri
+\ L1): no later line is compared with it, so only the first line's check
+\ refuses it. identity.ndjson's tier, saved, is copied into img.
+sa stage-free
+s" tests/reference/identity.ndjson" true stage-a ok? must save-a ok? must
+T{ sa stage-decls -> 1 }T
+file-a slurp 2constant one-good
+: one-img ( -- ) one-good img swap move ;
+: attempted-one ( -- outcome flag )
+  img one-good nip file-c spit fresh-b file-c sb tf tier-load sb fresh?
+  sb stage-free gap @ free throw ;
+T{ one-img attempted-one -> outcome-ok false }T
+T{ one-img staged-none 0 9 0 poke 9 forged attempted-one -> outcome-invalid true }T
+one-good drop free throw
 img free throw  good drop free throw  sa stage-free
 T{ live-blocks @ blocks-before-faults - -> 0 }T
 

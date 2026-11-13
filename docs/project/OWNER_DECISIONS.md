@@ -991,6 +991,90 @@ Forth reviews of lf-files and lf-files-2 with re-checks, not blocking (LOG.md); 
 (no elaborator or tactics yet).
 
 
+### Program track: LeanForth re-checks Lean's program proofs (2026-11-12, evening; plan 5.5.1)
+
+The owner approved both gates, choosing each recommendation, after the done check
+(done-checks/2026-11-12-program-track.md: works end to end):
+
+- **[bypass]:** the clamp receipt relies on Lean's elaborator and exporter having written the contract and the program
+  faithfully (assumption A6, stated in every receipt; supported by Lean printing the program back equal to the IR file).
+  Lean wrote and checked the proofs; LeanForth's checker re-checked the export (4,277 declarations) and rejects changed
+  program, contract and proof copies; the same for the four SHA helper words' proofs (2,890 declarations).
+- **[runtime]:** the receipt's runtime assumptions as stated: one 64-bit two's-complement cell per value, the IR means
+  what the Forth source does, Gforth runs the 13 words used as the IR says (tested on 986 cases, not proved), the stacks
+  have room.
+- Receipt schema 0.3 drops the label (the owner's no-label decision); SHA receipts take 0.4 at its [format] gate.
+  Nobody has proved SHA-256 as a whole, and `leanforth verify` (8.4.1) does not exist.
+
+### Kernel refactor edit (2026-11-12, evening; [kernel] gate)
+
+The owner approved, on condition of the re-check, the one src/kernel edit of the FRI refactor: `src/kernel/env-schedule.fs`'s
+private `lf-sch-and` replaced by the identical library word `outcome-and` (lib/outcome.fs). The re-check confirmed it
+behaviour-identical (same body `over ok? if nip else drop then`, same stack effect, same argument order at every call
+site; faults frk-sched-add-pushes-first and frk-sched-outcomes-ored caught). Review: forth-reviews/2026-11-12-refactor-fri.md.
+
+### Order and snapshot stability (2026-11-12, late evening)
+
+- **FE6a early:** the generated definitions of inductive types (casesOn, recOn, noConfusion, below, brecOn), compared
+  node for node with Lean's for every inductive type of Init, may start before FE1-FE5 (branch fe6a), because it is
+  independent and later steps need it.
+- **Snapshot stability first tomorrow:** the owner wants to stop regenerating the Mathlib snapshot so often. Plan
+  6.2.5c (read snapshots of the previous one or two format and verdict versions, reusing only results a change cannot
+  affect) is the first infrastructure task of 2026-11-13. Any future snapshot addition (such as elaboration data) is
+  added as an optional section; refactors must keep snapshot bytes identical.
+- **Work tempo (22:00):** "I'm trying to get as much into tonight's build as possible, you will be working after
+  mathlib too, without waiting for me. You seem to be delaying work." The coordinator's own 23:45 stop and 01:00
+  merge freeze are withdrawn: agents report reviewable ranges early and keep working; work continues overnight,
+  during and after the full Mathlib run, without waiting for the owner. Real limits only: owner gates, CPU during the
+  run, and no change to the main checkout while the run loads its source.
+
+### Reading older snapshots: design questions answered (2026-11-12, 22:15)
+
+The owner answered the four questions of the 6.2.5c design
+([SNAPSHOT_COMPATIBILITY.md](../design/SNAPSHOT_COMPATIBILITY.md), ADR 0020 Amendment 5), each as recommended:
+1. **How far back:** two versions, for both the format version and the verdict version. Older ones are refused (exit
+   2) and can still be viewed with `--snapshot-stale-ok`, marked stale.
+2. **Exact results:** a result carried from an older snapshot must equal this build's fresh check, verdict and fuel; a
+   change that may move fuel re-checks everything it can reach.
+3. **Automatic re-check:** when an older snapshot needs re-checks, LeanForth does them, first printing how many and
+   why; `--save-snapshot NEW` keeps the upgraded snapshot; `--snapshot-stale-ok` gives the quick look instead.
+4. **Batching:** changes that move verdicts or fuel are merged together, at most once a day, before the nightly full
+   run, which saves the new Mathlib snapshot. Changes that leave verdicts and fuel identical are not held back.
+
+These settle the design's choices. The amendment stays **proposed**: the code (sub-steps 6.2.5c1-c8) still goes
+through the [format], [kernel] and [import] gates (Lean comparisons, an independent review, the owner's approval of
+the summary) before it is accepted.
+
+### Front-end designs FE1e and FE1g: questions answered (2026-11-12, about 22:40)
+
+Each as recommended ([FE1E_APPLICATIONS.md](../design/FE1E_APPLICATIONS.md) §8,
+[FE1G_TACTICS.md](../design/FE1G_TACTICS.md) §10):
+1. **Instance-search limits (FE1e):** LeanForth uses its own fuel. Lean stops a search after a count of its own
+   allocations or at depth 512, which LeanForth cannot reproduce; where Lean would give up and LeanForth finds an
+   answer, the kernel still checks the result and the case is listed in BEYOND_LEAN.md. Nothing unchecked is accepted.
+2. **Induction case syntax (FE1g):** Lean's `| tag names =>` lines, one `by-end` closing the group and every
+   `by-case:` block (e.g. `n by-induction-with | zero => by-rfl | succ k ih => by-rw[ ' Nat.add_succ ih ] by-end`).
+3. **`by-rw` in FE1:** yes; the first native proof uses Lean's own rewrite proof, which is also the proof the
+   explained-proofs output (8.6.12) describes line by line.
+
+### Kernel fixes, the kernel refactor and `sorry` (2026-11-12, late night)
+
+1. **KFIX approved [kernel]** (about 23:00): the five stack fixes on out-of-room paths of
+   src/kernel/mixed-level-substitute.fs and level-substitute.fs (B1-B5, found by the COV2 tests; in one case a valid
+   declaration could have been reported as rejected when memory ran out), and the unused `lf-whnf-ended` removed.
+   Evidence: [review](../development/forth-reviews/2026-11-12-kfix-mls.md), not blocking; the crowded test in `make
+   test`; planted faults caught. For tonight's build, after its two low follow-ups and CI.
+2. **FRK approved [kernel] on condition** that the correctness review finds nothing blocking (met:
+   [review](../development/forth-reviews/2026-11-12-refactor-frk.md), every change behaviour-identical by trace) and
+   the branch is not slower than main (the implementer's back-to-back CPU pair, pending at the time of the decision;
+   the result is recorded below when it arrives). If either fails, FRK waits for the owner.
+3. **`sorry` in LeanForth text** (amends ADR 0021 D3; [ADR 0021 Amendment 1](../adr/0021-front-end.md)): allow the
+   explicit `sorry` exactly as Lean does, reported NOT PROVED with `sorryAx` named, never counted as proved. The owner
+   added: "it needs to report the other parts of a check are good somehow for development, I almost wonder if it is
+   better for sorry to be true instead, so proof is called valid if sorry section is true". So the report says that
+   everything else was checked, that the statement holds if each open part is true, and lists each open part with its
+   statement; it never says "proved". No automatic error recovery.
+
 ### No result labels (2026-11-12, evening)
 
 The owner: "I find the constant repetition of experimental and not independently audited, one NOT PROVED not useful.
@@ -1000,3 +1084,41 @@ withdrawn: no label on results, in reports, in the JSON report or in documents (
 of the check report decided by the owner). Verdicts are unchanged, including NOT PROVED for a declaration that uses an
 axiom outside the allowlist. The outside audit (plan 9.2.1) and the review gates stay.
 
+
+### Approval round of 2026-11-12, night (approval pack)
+
+The owner answered the 18-item approval pack at about 22:25 on 2026-11-12, in four groups, every item as recommended.
+The pack is `.claude/work/APPROVALS-2026-11-13.md` (a working file, not tracked; its file name says 11-13, the approval
+date is 2026-11-12). Each ADR's "Approval status:" line now cites this section.
+
+- **Items 1-3, superseded (wording only):** ADR 0001 superseded by ADRs 0011, 0012, 0014, 0015, 0016; ADR 0002
+  superseded by ADR 0007 item 5, ADR 0011, ADR 0014 and the 2026-11-05 amendment of ADR 0006; ADR 0003's base text
+  superseded by ADR 0014, with its Amendment 1 staying accepted. No code change.
+- **Items 4-7, accepted under their gates:** ADR 0004 [kernel][format], with levels compared as ADR 0011 Amendment 1
+  says and the "experiment" wording marked replaced; ADR 0005 [kernel][import][format]; ADR 0006 [kernel][import], with
+  the empty allowlist marked replaced by the 2026-11-05 amendment and "theorems never unfold" by ADR 0012; ADR 0007
+  [kernel], with the dead "owner answer O2" reference replaced by the entry "Legacy retirement and the first checker's
+  rules (2026-11-02, evening)".
+- **Item 8, conditional:** ADR 0009 Amendment 1 (context members may own heap memory; no Lean rule, touches [runtime]
+  memory safety) approved on condition that the Forth review of `src/lib/context.fs` finds nothing blocking. The review
+  was pending when this was recorded; the ADR line stays "proposed" with the conditional approval noted. **Condition met
+  (2026-11-12, 22:50):** the Forth review ([2026-11-12-context.md](../development/forth-reviews/2026-11-12-context.md))
+  found nothing blocking (3 low, 4 info), so Amendment 1 is accepted; its findings (missing tests of the first-code
+  promise and of freeing grown walks, a usage example, private helpers, one named failure word) are plan work.
+- **Item 9:** ADR 0014 Amendment 2 (shared terms cost nodes, not paths), gate [kernel].
+- **Item 10:** ADR 0015 FX8 amendment (review rvUNNI), gates [kernel][format]; covered by the 2026-11-11 items A7, A8
+  and C3 (gate recorded 2026-11-12 night: [kernel][format]). Its "not through its gate" and "decision pending" text is
+  updated.
+- **Item 11:** ADR 0021 decisions D1, D2, D3, D5 and D7 approved, gates [bypass][axioms]; the ADR as a whole stays
+  proposed until FE1 passes its [parser] gate.
+- **Item 12:** ADR 0014 Amendments 1, 3, 4, 5 (caches, node-based fuel, audits once per check): gate [kernel].
+- **Item 13:** ADR 0014 Amendments 7, 8 and ADR 0020 Amendment 4 (limits per check): gate [kernel].
+- **Item 14:** parallel checking, ADR 0009 Amendment 2, ADR 0012 Amendment 2, ADR 0016 Amendment 2: gates
+  [kernel][runtime].
+- **Item 15:** snapshots, ADR 0020 Amendments 1-3: gates [format][import][kernel].
+- **Item 16:** ADR 0015 Amendment IO (diagnostic-81 routes): gate [kernel].
+- **Item 17:** the default engine `gforth-fast` is a [runtime] decision; the default fuel of 100,000,000 per declaration
+  is a [kernel] limit; downloads and CPU use: no gate (gate recorded 2026-11-12 night, for "Later decisions of
+  2026-11-11").
+- **Item 18:** the strict export header and the official export checker as referee for hand-made files (C5, C6): gate
+  [import]; the local-CI rule: no gate (process) (gate recorded 2026-11-12 night, for "Approval round of 2026-11-11").

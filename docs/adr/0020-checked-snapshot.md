@@ -19,6 +19,8 @@ parallel verdicts equal serial ones), and designs for the store as it will
 be after agents S5B (the checker reads lets and projections in place, the
 copy deleted) and S7 (`--jobs`: a scheduler and parallel publishing).
 
+Approval status: accepted 2026-11-12, gate: format, import, kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; design points in section "Later decisions of 2026-11-11"
+
 ## Summary in plain words
 
 Checking all of Mathlib would take LeanForth about fifteen hours on one
@@ -469,6 +471,8 @@ files, tests and planted faults, is kept with the agents' work notes.
 
 ## Amendment 1 (2026-11-11): step SN3, and the owner's decisions F1 and F5
 
+Approval status: accepted 2026-11-12, gate: format, import and kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names ADR 0020 and Amendments 1-3 (gate recorded 2026-11-12 night: format, import and kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
+
 *Agent SN3; [kernel] (the lookup recording, I2) and [format] (snapshot
 format 1, check report 0.3) review pending, and the owner's approval.*
 
@@ -569,6 +573,8 @@ dependencies and lookups take about 729,263 × (4 × 20 + 8 × 36) bytes,
 0.27 GB.
 
 ## Amendment 2 (2026-11-11): step SN4, dependent exports and layers
+
+Approval status: accepted 2026-11-12, gate: format, import and kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names ADR 0020 and Amendments 1-3 (gate recorded 2026-11-12 night: format, import and kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
 
 *Agent SN4; [kernel] (I1, I2: what a loaded snapshot vouches for) and
 [import] (continued staging, layers) review pending, and the owner's
@@ -671,6 +677,8 @@ exactly, so a declaration whose lookups reach a re-checked one is checked
 again even when that one's verdict did not change (sound, slower).
 
 ## Amendment 3 (2026-11-11): step SN5
+
+Approval status: accepted 2026-11-12, gate: format, import and kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names Amendments 1-3, corrected by G1 in the second round (gate recorded 2026-11-12 night: format, import and kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
 
 *Agent SN5; [kernel] (the seal's names), [format] (report 0.3's new
 members) review pending, and the owner's approval. The flag below is the
@@ -784,6 +792,8 @@ COMMAND_LINE.md). Amendment 4 did that task.
 
 ## Amendment 4 (2026-11-11): fuel independent of the tier's numbering (agent PF; review rvSN4 B1)
 
+Approval status: accepted 2026-11-12, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names ADR 0020 Amendment 4 (gate recorded 2026-11-12 night: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
+
 *[kernel] review owed (ADR 0014 Amendment 7).* B1: a check's fuel, and so
 a verdict near the fuel budget, depended on the other records of the
 tier: the binder table gave a binder a check makes the first record of
@@ -821,6 +831,79 @@ compares the `nonDep` flag, which stays part of the class. The let pair
 is in `tests/cli/cross_snapshot.py`. Nor did a check's memory count
 (`--memory-per-check`) hold across exports: references made before the
 check were given uncharged; ADR 0014 Amendment 8's corrections fix it.
+
+## Amendment 5 (2026-11-12): reading older format and verdict versions (plan task 6.2.5c)
+
+Approval status: proposed
+
+*Agent SNAPC; a design, nothing built; [format], [kernel] and [import]
+decisions owed. The owner answered the design's four questions on 2026-11-12
+(two versions back; exact verdict and fuel; automatic re-check with the count
+printed first; verdict-moving changes merged once a day), each as
+recommended ([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md), "Reading older
+snapshots: design questions answered"). The design in full, with
+its rules R1-R9, tests, costs and rejected alternatives:
+[SNAPSHOT_COMPATIBILITY.md](../design/SNAPSHOT_COMPATIBILITY.md).* The
+owner (2026-11-12): "the snapshots should attempt to read backward
+compatible 1-2 versions prior"; "I'd like to not have to regenerate the
+saved version so often"; future additions as optional sections. This
+amends D3 (identity), D6 (failures) and Amendment 3's
+`--snapshot-stale-ok` as follows.
+
+- **A window of two** (R1). A build reads the format versions `Fb - 2` to
+  `Fb` and takes results of the verdict versions `Vb - 2` to `Vb`, its own
+  being `Fb` and `Vb`; newer ones, and formats older than the window, are
+  refused (*unsupported*, status 2); a verdict version older than the
+  window only with `--snapshot-stale-ok`, every result stale.
+- **Formats** (R2). Format 1's seventeen sections stay required; optional
+  sections (kinds 256 and up, ascending, once each) follow, are skipped
+  when unknown or unused, read and checked when used, and may never change a
+  verdict or a stored field; kinds 18-255 are reserved and refused. The
+  writer writes the lowest format that describes the file: 1 without an
+  optional section (today's bytes), 2 with one. A change to the required
+  sections makes a new format and ships with a translator from the
+  previous one, applied before the unchanged record checks; translators
+  are kept while their source format is in the window. A change that
+  bumps neither version writes the same bytes in every section but the
+  information section.
+- **The reach table** (R3). Every verdict-version step gets, beside its
+  changelog entry in `src/kernel/verdict-version.fs`, a machine-readable
+  reach: bits whose predicates are decided from the snapshot alone (the
+  declaration's kind, saved outcome and recipe, its saved lookups and their
+  answers, and construct marks of its terms and of the terms of the
+  declarations its lookups answered); `reach-all` is the default. Its
+  obligation S-R: every check that can run code the step changed satisfies
+  the predicate; the bump commit argues it and records that every field
+  the step moved, on the golden exports and all of `Init`, lies inside it;
+  the step's [kernel] review checks it. Proposed entries for steps 2-9:
+  2 `reach-scratch-names`; 3, 4, 5 and 9 `reach-all`; 6 and 7
+  `reach-block-any`; 8 `reach-block-nested`.
+- **The carry pass** (R4, R5). For a declaration whose saved slot is of an
+  older verdict version in the window: carried (published with its saved
+  outcome, fuel and fields, provenance *snapshot*, its origin version) when
+  its content is the same (I1.1), its saved outcome is not *full*,
+  *invalid* or *exhausted* (I1.2), it is outside the reach of the steps
+  since, the settings are the file's, and its saved lookups give the same
+  answers (I1.3 with **I3**: a slot checked again in this run answers the
+  same when its outcome, marks, axiom set, warnings, recipe and shape equal
+  the saved ones; slots hold no fuel or diagnostic, so no check reads
+  another's); otherwise checked in this run, with its reason. Re-checks
+  spread to users exactly as far as answers change. I3 holds for a
+  dependent export's import pass too (Amendment 2's open item 4).
+- **Layers** (R6). Each file of a stack is judged on its own; a shared
+  declaration of two versions keeps the newer file's slot; an upgraded or
+  rewritten base names the files it was made from in an optional
+  *lineage* section, through which their layers load when the tier is the
+  same. With another fuel limit than the file's, only results the limit
+  could change are checked again (claim F-L, to be tested first).
+- **Output and saving** (R7, R8). A carried result is labelled with the
+  version it was carried from and is never shown as checked in this run;
+  `--snapshot-stale-ok` becomes "carry, and show the rest stale instead of
+  checking it". `check --snapshot OLD --save-snapshot NEW` without an
+  export writes NEW as a base of this build's versions. Only final runs
+  count in compatibility numbers, as before.
+
+Implementation: plan rows 6.2.5c1-6.2.5c8.
 
 ## Questions for the owner
 

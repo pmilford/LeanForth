@@ -1,10 +1,12 @@
 # ADR 0002: candidate first typing rules
 
-Status: draft for human technical review; not approved or implemented. This
+Status: superseded (see the approval status below); the text that follows was a draft, kept as history. This
 document describes a possible initial subset of Lean 4.35.0, not the complete
 Lean kernel. The implementation must not confer theorem validity on the basis
 of this draft before review. Follow the Lean reference and pinned implementation
 when resolving any discrepancy.
+
+Approval status: superseded by ADR 0007 item 5 (the concrete-universe path retired), ADR 0011, ADR 0014 (Lean's definitional-equality procedure) and the 2026-11-05 amendment of ADR 0006 (allowlist v1) (owner approved 2026-11-12, night, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)"); its rules are not approved as a design, its test models stay as Lean comparisons
 
 ## Inputs and boundaries
 

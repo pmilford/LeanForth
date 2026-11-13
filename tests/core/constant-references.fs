@@ -191,6 +191,14 @@ name-id @ lf-name-generation @ args 2 lf-cref-key!
 T{ 0 lf-cref-key lf-cref-table lf-cref-same -> true }T
 name-id @ lf-name-generation @ other-args 2 lf-cref-key!
 T{ 0 lf-cref-key lf-cref-table lf-cref-same -> false }T
+\ Each field of the key takes part (review FRI B2): another name,
+\ generation or arity, the rest equal, is not the record.
+name-id @ 1+ lf-name-generation @ args 2 lf-cref-key!
+T{ 0 lf-cref-key lf-cref-table lf-cref-same -> false }T
+name-id @ lf-name-generation @ 1+ args 2 lf-cref-key!
+T{ 0 lf-cref-key lf-cref-table lf-cref-same -> false }T
+name-id @ lf-name-generation @ args 1 lf-cref-key!
+T{ 0 lf-cref-key lf-cref-table lf-cref-same -> false }T
 create cref-mark /store-mark allot
 T{ cref-mark lf-crefs store-mark -> outcome-ok }T
 T{ args 2 ref other-args 2 ref -> 0 1 true 3 4 true }T

@@ -217,15 +217,15 @@ here meta-fields - cell / constant #meta
   dup >r list-item r> record>stage tuck export>level tuck swap stage-tier level-valid? ;
 : tuple-add? ( u valid? stage -- outcome )
   swap if stage-tuples tuple-add else 2drop outcome-invalid then ;
-: tuple-item, ( list record xt k -- list record xt outcome )
-  >r 2 pick 2 pick r> -rot 3 pick execute 3 pick record>stage tuple-add? ;
+\ Item k of the list through xt, added to the tuple begun.
+: tuple-item, ( k list record xt -- outcome ) over >r execute r> record>stage tuple-add? ;
 : list-items, ( list record xt -- outcome )
   2 pick 2 pick list-count 0 ?do
-    i tuple-item, dup ok? 0= if nip nip nip unloop exit then drop
+    i 3 pick 3 pick 3 pick tuple-item, ok-then3? 0= if unloop exit then
   loop drop 2drop outcome-ok ;
 : list>tuple ( list record xt -- t outcome )
-  over record>stage stage-tuples tuple-start dup ok? 0= if nip nip nip no-result exit then
-  drop over >r list-items, dup ok? if drop r> record>stage stage-tuples tuple-end
+  over record>stage stage-tuples tuple-start ok-then3? 0= if no-result exit then
+  over >r list-items, dup ok? if drop r> record>stage stage-tuples tuple-end
   else r> drop no-result then ;
 : names>tuple ( list record -- t outcome ) ['] list-name list>tuple ;
 : levels>tuple ( list record -- t outcome ) ['] list-level list>tuple ;

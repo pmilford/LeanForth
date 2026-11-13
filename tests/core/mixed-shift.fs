@@ -11,6 +11,8 @@ require ../../src/core/names.fs
 require ../../src/core/symbolic-session.fs
 require ../../src/core/tagged-sort-boundary.fs
 require ../../src/core/terms.fs
+require ../../src/core/literals.fs
+require ../../src/core/string-literals.fs
 require ../../src/kernel/mixed-shift.fs
 require ../support/store-faults.fs
 
@@ -182,4 +184,16 @@ T{ 7 8 lf-term-app -> 9 true }T
 T{ 9 term-serial 0 1 100 lf-mixed-shift -> 16 term-serial outcome-ok }T
 T{ 12 lf-term-read 14 lf-term-read -> lf-tag-app 10 11 true lf-tag-app 2 13 true }T
 T{ 11 lf-term-read 13 lf-term-read -> lf-tag-bvar 2 0 true lf-tag-bvar 2 0 true }T
+\ Literal leaves are kept as they are (coverage COV2): #0 5 "ab" shifted
+\ by one is #1 5 "ab", over the same literal nodes.
+setup
+variable lit-node  variable str-node
+: lit-leaf ( -- node ) 5 lf-hterm-cell 0= abort" lit" drop dup lit-node ! ;
+: str-leaf ( -- node ) s" ab" lf-str-new ok? 0= abort" str" drop dup str-node ! ;
+: app ( f a -- node ) lf-term-app 0= abort" app" ;
+: lit-root ( -- node identity ) 2 lit-leaf app str-leaf app dup lf-term-identity drop ;
+: parts ( node -- var-index lit str )
+  dup lf-term-first@ dup lf-term-first@ lf-term-first@ swap lf-term-second@
+  rot lf-term-second@ ;
+T{ lit-root 0 1 100 lf-mixed-shift nip swap parts -> outcome-ok 1 lit-node @ str-node @ }T
 bye

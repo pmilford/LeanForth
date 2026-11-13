@@ -1174,6 +1174,20 @@ variable seen-axioms
   s" postulate.declared-and-used" case-path staged ok? must fuel checked
   2 rests-on drop 1 rests-on drop 0 rests-on finish ;
 T{ secret-axioms -> 12 12 1 outcome-ok }T
+\ A rejected declaration has no axiom set: asked for one, invalid, none
+\ given. An accepted one after two rejected ones (a block refused, then a
+\ definition) rests on no axiom: the rejected slots get the empty row
+\ (coverage COV2).
+: after-rejected ( -- n outcome n outcome )
+  s" after.rejected-block-then-def-rec" case-path staged ok? must fuel checked
+  0 rests-on 2 rests-on finish ;
+T{ after-rejected -> 0 outcome-invalid 0 outcome-ok }T
+\ The same run's warnings: none for the accepted definition; a rejected
+\ slot and a declaration past the run have none to give (0 invalid).
+: warnings-around ( -- bits outcome bits outcome bits outcome )
+  s" after.rejected-block-then-def-rec" case-path staged ok? must fuel checked
+  2 lf-env-warnings 0 lf-env-warnings lf-input-count lf-env-warnings finish ;
+T{ warnings-around -> 0 outcome-ok 0 outcome-invalid 0 outcome-invalid }T
 
 \ 8. The statement matcher (core/statement-match.fs) and the allowlist
 \ (core/axiom-allowlist.fs) on Lean's own export of propext,
@@ -1215,6 +1229,20 @@ T{ choice s" P S u0 P A C Inhabited 1 u0 #0 #1" matches? -> false }T    \ a name
 T{ choice s" P S u0 P A C Nonempty 0 #0 #1" matches? -> false }T        \ an arity
 T{ choice s" P S u0 L A C Nonempty 1 u0 #0 #1" matches? -> false }T     \ a binder
 T{ choice s" P S u0 P A C Nonempty 1 u0 #0 #1" 5 fueled -> false outcome-exhausted }T
+\ Odd tokens (review FRI B5): a letter doubled or in lower case, a level
+\ letter where a term stands and a term letter where a level stands, a
+\ bare # or u: each differs.
+T{ choice s" PP S u0 P A C Nonempty 1 u0 #0 #1" matches? -> false }T
+T{ choice s" P SALP u0 P A C Nonempty 1 u0 #0 #1" matches? -> false }T
+T{ choice s" P S u0 P A C Nonempty 1 sz #0 #1" matches? -> false }T
+T{ choice s" p S u0 P A C Nonempty 1 u0 #0 #1" matches? -> false }T
+T{ choice s" P S u0 P A CC Nonempty 1 u0 #0 #1" matches? -> false }T
+T{ choice s" P S u0 P A c Nonempty 1 u0 #0 #1" matches? -> false }T
+T{ choice s" P S P P A C Nonempty 1 u0 #0 #1" matches? -> false }T
+T{ choice s" P z u0 P A C Nonempty 1 u0 #0 #1" matches? -> false }T
+T{ choice s" P S u P A C Nonempty 1 u0 #0 #1" matches? -> false }T
+T{ choice s" P S u0 P A C Nonempty 1 zz #0 #1" matches? -> false }T
+T{ choice s" P S u0 P A C Nonempty 1 u0 # #1" matches? -> false }T
 \ Universe parameters by position: Quot.lift's two swapped differ.
 : lift-swapped ( -- c-addr u )
   s" P S u1 P P #0 P #1 S z P S u0 P P #2 #1 P P #3 P #4 P A A #4 #1 #0 A A A C Eq 1 u0 #4 A #3 #2 A #3 #1 P A A C Quot 1 u1 #4 #3 #3" ;

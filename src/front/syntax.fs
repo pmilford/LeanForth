@@ -13,7 +13,10 @@
 \                 (Lean's binop% f a b)
 \   syn-k-binrel  the same for a relation (Lean's binrel% f a b)
 \ So 0 n + n = is binrel% Eq (binop% HAdd.hAdd 0 n) n, and x y f, with f
-\ taking two explicit arguments, is app f [x, y]. Nodes are in a heap
+\ taking two explicit arguments, is app f [x, y]. An operator's name is
+\ Lean's hygienic one (HAdd.hAdd✝, Eq✝ in Lean's expansion): it always
+\ means the global constant, so the elaborator (plan FE1e) resolves it at
+\ the root, never through namespace, open or a local binder. Nodes are in a heap
 \ store that grows up to a limit, only the heap's (plan task 6.2.0);
 \ indices stay valid until syn-reset, which a new declaration does, and
 \ addresses until the next node. Untrusted: a tree says what was written,

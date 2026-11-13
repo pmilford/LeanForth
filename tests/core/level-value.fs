@@ -150,6 +150,18 @@ T{ 1 100 lf-level-value-assigned -> -1 outcome-unknown }T
 T{ 42 7 lf-lassign-add -> true }T
 T{ 1 100 lf-level-value-assigned -> 7 outcome-ok }T
 T{ 1 100 lf-level-value -> -1 outcome-unknown }T
+\ Refusals before any evaluation (coverage pass COV2): an evaluation mode
+\ that is none of the three; the table's entry forged to ID 0 after it
+\ was added (each entry is checked again before use), then put back;
+\ lf-level-apart? whose left or right root is no level (the left one is
+\ evaluated first; either failure ends the comparison): false invalid.
+T{ 1 100 99 lf-level-value-run -> -1 outcome-invalid }T
+: id-cell ( -- addr ) 0 lf-lassign-id-cells slab-at ;
+T{ 0 id-cell ! 1 100 lf-level-value-assigned -> -1 outcome-invalid }T
+T{ 42 id-cell ! 1 100 lf-level-value-assigned -> 7 outcome-ok }T
+T{ 99 1 100 lf-level-apart? -> false outcome-invalid }T
+T{ 1 99 100 lf-level-apart? -> false outcome-invalid }T
+T{ 1 1 100 lf-level-apart? -> false outcome-ok }T
 T{ 43 lf-lscope-context-add -> true }T
 T{ 1 100 lf-level-value-assigned -> -1 outcome-invalid }T
 \ Generation saturation fails closed instead of wrapping into stale snapshots.

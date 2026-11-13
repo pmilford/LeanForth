@@ -1,7 +1,9 @@
 # ADR 0007: distinguish concrete and symbolic Sorts — proposal
 
-Status: **proposed; human review required before trusted implementation**.
+Status: **accepted** (see the approval status below).
 This extends ADR 0004. It does not approve a kernel, importer, or theorem.
+
+Approval status: accepted 2026-11-12, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)"; the owner approved it on the pack's recommendation, with the dead reference "owner answer O2" in item 5 replaced by the real entry
 
 ## Problem
 
@@ -30,7 +32,7 @@ polymorphic correctness.
    saturation, context ownership and stale term handles must fail closed; a
    reused integer index is not evidence of the same universe. Mutable global
    arenas and raw memory writes remain experimental host assumptions.
-5. *Updated 2026-11-02 (owner answer O2).* Concrete inference and the
+5. *Updated 2026-11-02 (owner decision "Legacy retirement and the first checker's rules (2026-11-02, evening)" in [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md)).* Concrete inference and the
    concrete declaration probes were retired with the other superseded
    modules; every current checker pass accepts symbolic Sorts only (a
    concrete universe n is the level succ^n zero) and rejects a concrete

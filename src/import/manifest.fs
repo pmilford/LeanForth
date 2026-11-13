@@ -315,7 +315,7 @@ create version-checks
 \ A handler of the export that calls it gets invalid, as from export-read,
 \ and changes nothing of the read in progress.
 : manifest-read ( c-addr u m -- outcome )
-  dup manifest-export @ export-idle dup ok? 0= if nip nip nip exit then drop
+  dup manifest-export @ export-idle ok-then3? 0= if exit then
   dup >r ['] manifest-steps catch r> manifest-release throw ;
 
 base !   \ the BASE this file was loaded with (not reached when loading throws)

@@ -18,6 +18,8 @@ It builds on [ADR 0009](0009-reentrant-state-and-parallel-checking.md)
 environment and context storage, E1; finding a constant, E5), and on the
 estimates of [SCALE_ASSESSMENT.md](../project/SCALE_ASSESSMENT.md).
 
+Approval status: accepted 2026-11-03, gate: design, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Gate answers and working guidelines (2026-11-03)"
+
 ## Summary in plain words
 
 To check all of Mathlib, LeanForth must hold about 106 million term nodes
@@ -1121,6 +1123,8 @@ needed (Rejected alternatives).
 
 ## Amendment 1 (2026-11-04): constants Lean's kernel generates
 
+Approval status: accepted 2026-11-04, gate: kernel and import, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Data types, first step: condition met (2026-11-04, late)"; the entry closes the owner's condition that a file leaving out T.rec gets LeanForth's own recursor
+
 *Context.* The owner approved plan task 5.2.1a on condition that, with no
 flags, LeanForth's verdicts are exactly Lean's
 ([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md)). Lean's
@@ -1185,6 +1189,8 @@ constructors or recursors but no type (Lean's replay refuses those:
 importer stage them so that the checker gives those verdicts.
 
 ## Amendment 2 (2026-11-11): one input shared by a parallel check's workers
+
+Approval status: accepted 2026-11-12, gate: kernel and runtime, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names SH (one shared input), decided in section "Later decisions of 2026-11-11" (gate recorded 2026-11-12 night: kernel and runtime, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
 
 Step S8 of the compact-store plan (agent SH, branch `sh-shared-input`;
 plan task 7.2.1; the owner's decision of 2026-11-11: "should be also for
@@ -1341,6 +1347,8 @@ per term number) is the driving context's alone. Planted faults `sh-*`
 caught.
 
 ## Amendment 3 (2026-11-12): bytes per scratch term node (agent PERF1, plan task 6.5.9 in part)
+
+Approval status: accepted 2026-11-12, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Third approval round of 2026-11-12"; the entry names PERF1 (plan 6.5.8, 6.5.9)
 
 C6 left a worker's scratch "not yet known". Counted from the layouts on a
 64-bit host, each term node of a context's store held, per node of the

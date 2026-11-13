@@ -11,7 +11,8 @@ and several parts have not passed their review gates.
 same checker ([checking a file](LEANFORTH_SYNTAX.md#checking-a-file); plan 8.2.1c-d).
 There is a Forth data model for Lean's terms, a Forth reader for Lean's
 export format, a term printer, and the first steps of a program-verification
-pipeline whose proofs are checked by Lean, not by LeanForth. This guide says what that means for you and where the trust
+pipeline whose proofs Lean writes; for the clamp word LeanForth's checker re-checks Lean's
+exported proofs and the receipt states its verdict (plan 5.5.1). This guide says what that means for you and where the trust
 boundaries are. The detailed status is in
 [project progress](../project/PROJECT_PROGRESS.md).
 
@@ -68,8 +69,9 @@ tools.
   in LeanForth's own Forth syntax is planned (plan phase 8).
 - **Not yet audited by an outside Lean expert** (planned: plan task 9.2.1,
   owner decision 1).
-- **Not a proof of compiled code or hardware.** A verified Forth word is
-  correct against its stated semantics and assumptions; the receipt lists
+- **Not a proof of compiled code or hardware.** Once the verifier exists, a verified
+  word will be correct only against its stated semantics and assumptions;
+  LeanForth has verified no word yet. The receipt lists
   them (the host Forth, cell size, the reader's translation, …). Runtime
   tests are reported separately and are never called proof.
 - **Not something that parsing, testing or an AI can make true.** A
@@ -88,7 +90,7 @@ for a person to read.
 | Data model and library | `src/core/`, `src/lib/` | Stores terms, levels and names; walks, outcomes, contexts | Verdicts will depend on them, so they fall under the same gate |
 | Export reader | `src/import/ndjson.fs`, `checker-input.fs`, `stage.fs` | Decodes Lean's NDJSON export and stages it as the checker's input (and, not yet read by the checker, into the compact store) | Untrusted, fail-closed: it rejects anything malformed and decides nothing about proofs |
 | Command line | `bin/leanforth`, `src/cli/` | Runs the reader and the checker; prints each declaration's verdict as the checker published it; exit status | Untrusted: it can misreport a failure, never make a declaration accepted |
-| Program reader | `src/program/ir-reader.fs` | Translates Forth source into the program IR | Untrusted; receipts name it as the assumption `trusted-reader` |
+| Program words | `src/program/verify.fs` | Translates Forth source into the program IR | Untrusted; receipts name it as the assumption `trusted-reader` |
 | Term printer | `src/present/` | Prints terms as Lean does | Presentation only; the checker never loads it |
 | Proof outlines, tactics, AI tools, explanations | planned | Presentation and proof search | Untrusted; explanations are labelled as templates, reconstructions or AI-written |
 | Lean, Python preview, test scripts | `tests/` | Referee and test oracles | Development tools only |

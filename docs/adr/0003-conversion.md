@@ -1,11 +1,13 @@
 # ADR 0003: candidate conservative conversion
 
-Status: proposed for human technical review. No theorem may be accepted using
+Status: base text superseded by ADR 0014 (see the approval status below); Amendment 1 stays accepted. No theorem may be accepted using
 this design until the rules, implementation and tests have been reviewed.
 This describes a deliberately incomplete step toward Lean 4.35.0, not Lean's
 complete definitional-equality algorithm. [Amendment 1](#amendment-1-proposed-comparing-under-binders-whose-domains-differ)
 (proposed, 2026-11-02) answers the binder-domain question this record left
 open.
+
+Approval status: superseded by ADR 0014 (the base text; owner approved 2026-11-12, night, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)"); Amendment 1 below stays accepted and unchanged
 
 ## Purpose and inputs
 
@@ -102,6 +104,8 @@ candidate cannot make an ill-typed term or an unsupported Lean feature into an
 accepted theorem. An expert human review is required by the project gate.
 
 ## Amendment 1 (proposed): comparing under binders whose domains differ
+
+Approval status: accepted 2026-11-02, gate: first-checker rules (G6, G7); implementation needs its own gate, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Legacy retirement and the first checker's rules (2026-11-02, evening)"; the word proposed in the heading or Status line below was true when written
 
 Status: **rule accepted** by the owner on 2026-11-02 (G6, with G7 extending ADR 0011's D4; [gate](../reviews/FIRST_CHECKER_GATE.md#owners-answer-second-set)); the implementation still needs its own gate approval. Previously: proposed, 2026-11-02 (plan task 2.1.2). A checker rule: it
 passes the [kernel] gate in `AGENTS.md` only with the owner's approval of

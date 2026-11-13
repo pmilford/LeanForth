@@ -50,7 +50,7 @@ lfa-numeral-capacity 1 cells 0 context-store: lfa-numerals
   lfa-numerals store-new-slot lfa-e-values-full lfa-must drop ! ;
 : lfa-numeral-at ( -- pos )
   lfa-numerals store-count @ dup 0> lfa-e-not-value lfa-must
-  1- dup lfa-numerals store-count ! lfa-numerals store-slot @ ;
+  1- lfa-numerals store-slot @ lfa-numerals store-drop ;
 \ The tokens c-addr u of the line, every one a plain decimal: in natural
 \ form, their positions, in order.
 : lfa-token-pos ( c-addr -- pos ) lfa-offset 1+ lfa-line swap lfa-pos ;

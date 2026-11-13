@@ -5,6 +5,8 @@ the parallel method ([owner decisions](../project/OWNER_DECISIONS.md#planning-an
 in-progress modules; changes no typing or conversion rule. It answers roadmap
 item C1 in part and sets the direction for C2.
 
+Approval status: accepted 2026-11-02, gate: design, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Planning answers (2026-11-02, later the same day)"
+
 ## Problem
 
 Checking a large development is mostly independent work: once the
@@ -107,6 +109,8 @@ Nothing can run twice at once in one Forth image.
 
 ## Amendment 1 (2026-11-03): context members that own heap memory
 
+Approval status: accepted 2026-11-12, gate: none (library rule; touches [runtime] memory safety), [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)": the owner's approval was conditional on the Forth review of src/lib/context.fs, which found nothing blocking ([report](../development/forth-reviews/2026-11-12-context.md); its low findings are plan work)
+
 **The rule until now.** A context member held no `ALLOCATE`d memory
 ([the library notes](../development/FORTH_LIBRARY.md#design-per-task-contexts-and-how-modules-convert),
 "Rules for converted modules"): `context-free` gave back the context's own
@@ -164,6 +168,8 @@ planted faults in `tests/mutants/faults.toml` (`context-teardown-…`,
 `context-new-failure-leaks`) are each caught. Run on Gforth 1.0 and 0.7.3.
 
 ## Amendment 2 (2026-11-11): the scheduler, built
+
+Approval status: accepted 2026-11-12, gate: kernel and runtime, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names S7 (check --jobs N) (gate recorded 2026-11-12 night: kernel and runtime, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
 
 **What.** `leanforth check --jobs N` (plan tasks 6.5.4, 7.3.1; default
 1, the serial run, unchanged) checks with N worker contexts, each a job of

@@ -1,0 +1,448 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/pmilford/LeanForth/schemas/program-receipt-0.3.schema.json",
+  "title": "LeanForth program receipt, schema version 0.3",
+  "description": "What is known about one Forth word: whether a proof was checked and by whom (check), whether the proof obligations of its contract are discharged and by which check (verify), what runtime tests showed (run), and every assumption these rest on. The three statuses are kept apart; there is deliberately no field that merges them into one verdict. Documented in docs/programming/PROGRAM_RECEIPTS.md, which also lists the rules JSON Schema cannot state; scripts/program_receipt.py validate checks both. Texts and notes are unchecked prose. Version 0.3 is version 0.2 without check.label: the owner withdrew the result label on 2026-11-12, and check.status alone says who checked what.",
+  "$comment": "Uses only the keywords that tests/support/schema_subset.py implements; it refuses any other keyword, so the schema cannot silently rely on an unchecked rule. Patterns are ECMA-262 regular expressions for the u flag, which schema_subset.py reads as Python regular expressions giving ^, $ and . their ECMA-262 meaning: start and end of the whole string, and any character but a line terminator. Characters outside the Basic Multilingual Plane are therefore written as JSON escapes, not as regex escapes. Schema 0.2, approved by the owner on 2026-11-03, stays unchanged next to this file and is still read; schema 0.1, a draft never approved, stays unchanged as a record, and readers refuse receipts that name it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "schemaVersion", "provenance", "program", "contract", "check", "verify",
+    "run", "assumptions", "tools"],
+  "properties": {
+    "schema": {"const": "leanforth-program-receipt"},
+    "schemaVersion": {"const": "0.3"},
+    "provenance": {"$ref": "#/$defs/provenance"},
+    "program": {"$ref": "#/$defs/program"},
+    "contract": {"$ref": "#/$defs/contract"},
+    "check": {"$ref": "#/$defs/check"},
+    "verify": {"$ref": "#/$defs/verify"},
+    "run": {"$ref": "#/$defs/run"},
+    "assumptions": {
+      "description": "Every receipt names its runtime, cell-size, two's-complement and stack-capacity assumptions.",
+      "type": "array",
+      "minItems": 4,
+      "items": {"$ref": "#/$defs/assumption"},
+      "allOf": [
+        {"contains": {"$ref": "#/$defs/kindTrustedRuntime"}},
+        {"contains": {"$ref": "#/$defs/kindHostCells"}},
+        {"contains": {"$ref": "#/$defs/kindTwosComplement"}},
+        {"contains": {"$ref": "#/$defs/kindStackCapacity"}}
+      ]
+    },
+    "tools": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/tool"}
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "An obligation counts as discharged or refuted only when a checker checked the proof, whatever the verify status; verify statuses discharged and refuted need such an obligation, so they need the check too.",
+      "if": {"properties": {"verify": {"properties": {"obligations": {
+        "contains": {"$ref": "#/$defs/settledObligation"}}}}}},
+      "then": {"properties": {"check": {"properties": {"status": {"$ref": "#/$defs/positiveCheck"}}}}}
+    },
+    {
+      "$comment": "verify.settledBy names the check that settled the obligations, so it is the check's own status: a discharge by the Lean reference cannot be passed off as LeanForth's.",
+      "if": {"properties": {"check": {"properties": {"status": {"const": "checked-by-lean-reference"}}}}},
+      "then": {"properties": {"verify": {"properties": {
+        "settledBy": {"const": "checked-by-lean-reference"}}}}}
+    },
+    {
+      "if": {"properties": {"check": {"properties": {"status": {"const": "accepted-by-leanforth"}}}}},
+      "then": {"properties": {"verify": {"properties": {
+        "settledBy": {"const": "accepted-by-leanforth"}}}}}
+    },
+    {
+      "$comment": "Discharged obligations from an untrusted generator prove the contract only through the contract's own statement in Lean, proved from them; it must be named, with the contract's file.",
+      "if": {"properties": {"verify": {"properties": {"status": {"const": "discharged"}}}}},
+      "then": {"properties": {"contract": {"required": ["lean", "file"]}}}
+    },
+    {
+      "$comment": "Obligations from a generator rest on that generator, which is untrusted.",
+      "if": {"properties": {"verify": {"required": ["generator"]}}},
+      "then": {"properties": {"assumptions": {"contains": {"$ref": "#/$defs/kindUntrustedGenerator"}}}}
+    },
+    {
+      "$comment": "A checked theorem is about the IR the reader produced from the source; without the IR nothing ties it to the source.",
+      "if": {"properties": {"check": {"properties": {"status": {"$ref": "#/$defs/positiveCheck"}}}}},
+      "then": {"properties": {"program": {"properties": {"ir": {"type": "object"}}}}}
+    },
+    {
+      "$comment": "Obligations are generated from the IR and the contract; without the IR there is nothing to generate them from.",
+      "if": {"properties": {"verify": {"properties": {"status": {"not": {"const": "not-generated"}}}}}},
+      "then": {"properties": {"program": {"properties": {"ir": {"type": "object"}}}}}
+    },
+    {
+      "$comment": "A check by LeanForth rests on LeanForth's own checker, a named trusted component.",
+      "if": {"properties": {"check": {"properties": {"status": {"const": "accepted-by-leanforth"}}}}},
+      "then": {"properties": {
+        "assumptions": {"contains": {"$ref": "#/$defs/kindTrustedLeanForth"}},
+        "tools": {"contains": {"$ref": "#/$defs/toolLeanForth"}}}}
+    },
+    {
+      "$comment": "Only a receipt checked by LeanForth rests on LeanForth's checker; no other receipt may claim that it does.",
+      "if": {"properties": {"check": {"properties": {"status": {
+        "not": {"const": "accepted-by-leanforth"}}}}}},
+      "then": {"properties": {"assumptions": {"items": {
+        "not": {"$ref": "#/$defs/kindTrustedLeanForth"}}}}}
+    },
+    {
+      "$comment": "A Lean check rests on the pinned Lean toolchain.",
+      "if": {"properties": {"check": {"properties": {"status": {"const": "checked-by-lean-reference"}}}}},
+      "then": {"properties": {
+        "assumptions": {"contains": {"$ref": "#/$defs/kindTrustedLean"}},
+        "tools": {"contains": {"$ref": "#/$defs/toolLean"}}}}
+    },
+    {
+      "$comment": "A program translated to IR rests on the reader that translated it.",
+      "if": {"properties": {"program": {"properties": {"ir": {"type": "object"}}}}},
+      "then": {"properties": {"assumptions": {"contains": {"$ref": "#/$defs/kindTrustedReader"}}}}
+    },
+    {
+      "$comment": "Floating-point code must state its floating-point caveats.",
+      "if": {"properties": {"program": {"properties": {"floatingPoint": {"const": true}}}}},
+      "then": {"properties": {"assumptions": {"contains": {"$ref": "#/$defs/kindFloatingPoint"}}}}
+    }
+  ],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "text": {
+      "description": "Unchecked prose: no control characters (Unicode Cc), no format characters (Cf as of Unicode 15.1: bidirectional controls, zero-width characters, tags), no line or paragraph separators and no surrogates, so a text shows what it says and cannot start a new line.",
+      "type": "string",
+      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u0600-\\u0605\\u061c\\u06dd\\u070f\\u0890\\u0891\\u08e2\\u180e\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u2064\\u2066-\\u206f\\ud800-\\udfff\\ufeff\\ufff9-\\ufffb\ud804\udcbd\ud804\udccd\ud80d\udc30-\ud80d\udc3f\ud82f\udca0-\ud82f\udca3\ud834\udd73-\ud834\udd7a\udb40\udc01\udb40\udc20-\udb40\udc7f]*$"
+    },
+    "nonEmpty": {
+      "description": "Text with at least one printable ASCII character other than a space, so it cannot be blank or invisible.",
+      "allOf": [{"$ref": "#/$defs/text"}, {"pattern": "[!-~]"}]
+    },
+    "path": {
+      "description": "A path relative to the repository root, inside it: segments separated by single slashes, none starting with a dot (so no .., no .git, no hidden file).",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*(/[A-Za-z0-9_][A-Za-z0-9_.-]*)*$"
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"$ref": "#/$defs/path"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": {"enum": ["gforth", "lean", "leanforth", "python"]},
+        "version": {"$ref": "#/$defs/nonEmpty"},
+        "commit": {"type": "string", "pattern": "^[0-9a-f]{7,40}$"}
+      }
+    },
+    "checker": {
+      "description": "A tool that checks proofs: Lean or LeanForth.",
+      "allOf": [{"$ref": "#/$defs/tool"},
+        {"properties": {"name": {"enum": ["lean", "leanforth"]}}}]
+    },
+    "provenance": {
+      "description": "example: written by hand to illustrate the schema, never evidence. generated: written by the named tool from the runs it records.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "createdAt"],
+      "properties": {
+        "kind": {"enum": ["example", "generated"]},
+        "generator": {"$ref": "#/$defs/tool"},
+        "createdAt": {"type": "string",
+          "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"},
+        "note": {"$ref": "#/$defs/nonEmpty"}
+      },
+      "if": {"properties": {"kind": {"const": "generated"}}},
+      "then": {"required": ["generator"]}
+    },
+    "program": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["word", "stackEffect", "source", "ir", "floatingPoint"],
+      "properties": {
+        "word": {
+          "description": "The word's name as the IR writes it: printable ASCII, letters in lower case (the reader folds A-Z as Gforth does).",
+          "type": "string", "pattern": "^[!-@\\[-~]+$"},
+        "stackEffect": {"allOf": [{"$ref": "#/$defs/text"}, {"pattern": "^\\( .* \\)$"}]},
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "line", "sha256"],
+          "properties": {
+            "path": {"$ref": "#/$defs/path"},
+            "line": {"type": "integer", "minimum": 1},
+            "sha256": {"$ref": "#/$defs/sha256"}
+          }
+        },
+        "ir": {
+          "description": "The program IR the reader produced (docs/programming/PROGRAM_IR.md), or null when the word was not translated.",
+          "anyOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["version", "sha256"],
+              "properties": {
+                "version": {"const": "0.1"},
+                "sha256": {"$ref": "#/$defs/sha256"}
+              }
+            }
+          ]
+        },
+        "floatingPoint": {"type": "boolean"}
+      }
+    },
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "statement"],
+      "properties": {
+        "id": {"$ref": "#/$defs/nonEmpty"},
+        "statement": {"$ref": "#/$defs/nonEmpty"},
+        "lean": {"$ref": "#/$defs/nonEmpty"},
+        "file": {"$ref": "#/$defs/file"}
+      }
+    },
+    "allowedAxiom": {"enum": ["propext", "Classical.choice", "Quot.sound"]},
+    "positiveCheck": {"enum": ["checked-by-lean-reference", "accepted-by-leanforth"]},
+    "settledObligation": {"required": ["status"],
+      "properties": {"status": {"enum": ["discharged", "refuted"]}}},
+    "theorem": {
+      "description": "A theorem the checker was given, and the axioms it depends on (AGENTS.md: report each accepted theorem's axioms).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "axioms"],
+      "properties": {
+        "name": {"$ref": "#/$defs/nonEmpty"},
+        "axioms": {"type": "array", "items": {"$ref": "#/$defs/allowedAxiom"}}
+      }
+    },
+    "check": {
+      "description": "Whether a proof about the word was checked, and by which checker.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "axioms", "evidence"],
+      "properties": {
+        "status": {"enum": ["not-checked", "checked-by-lean-reference", "accepted-by-leanforth",
+          "rejected", "unsupported", "failed"]},
+        "checker": {"$ref": "#/$defs/checker"},
+        "theorems": {"type": "array", "items": {"$ref": "#/$defs/theorem"}},
+        "axioms": {
+          "description": "All axioms the checked theorems depend on, the union of each theorem's: only those of the owner's allowlist, and none unless a theorem was checked.",
+          "type": "array", "items": {"$ref": "#/$defs/allowedAxiom"}},
+        "evidence": {"type": "array", "items": {"$ref": "#/$defs/file"}},
+        "note": {"$ref": "#/$defs/nonEmpty"}
+      },
+      "allOf": [
+        {
+          "$comment": "Only a positive check names axioms; a failed or missing check has accepted nothing.",
+          "if": {"properties": {"status": {"not": {"$ref": "#/$defs/positiveCheck"}}}},
+          "then": {"properties": {
+            "axioms": {"maxItems": 0},
+            "theorems": {"items": {"properties": {"axioms": {"maxItems": 0}}}}}}
+        },
+        {
+          "$comment": "Every result other than not-checked names the checker that gave it.",
+          "if": {"properties": {"status": {"not": {"const": "not-checked"}}}},
+          "then": {"required": ["checker"]}
+        },
+        {
+          "if": {"properties": {"status": {"const": "checked-by-lean-reference"}}},
+          "then": {
+            "required": ["checker", "theorems"],
+            "properties": {
+              "checker": {"properties": {"name": {"const": "lean"}}},
+              "theorems": {"minItems": 1},
+              "evidence": {"minItems": 1}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "accepted-by-leanforth"}}},
+          "then": {
+            "required": ["checker", "theorems"],
+            "properties": {
+              "checker": {"properties": {"name": {"const": "leanforth"}}},
+              "theorems": {"minItems": 1},
+              "evidence": {"minItems": 1}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "not-checked"}}},
+          "then": {
+            "properties": {
+              "checker": false,
+              "theorems": false,
+              "evidence": {"maxItems": 0}
+            }
+          }
+        }
+      ]
+    },
+    "obligation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "statement", "status"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^O[0-9]+$"},
+        "statement": {"$ref": "#/$defs/nonEmpty"},
+        "status": {"enum": ["open", "discharged", "refuted"]},
+        "theorem": {"$ref": "#/$defs/nonEmpty"}
+      },
+      "$comment": "A discharged or refuted obligation names the checked theorem that settles it; an open one names none.",
+      "if": {"$ref": "#/$defs/settledObligation"},
+      "then": {"required": ["theorem"]},
+      "else": {"properties": {"theorem": false}}
+    },
+    "verify": {
+      "description": "Whether the proof obligations generated from the word's IR and contract are discharged, and which check settled them.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "obligations"],
+      "properties": {
+        "status": {"enum": ["not-generated", "open", "discharged", "refuted", "unsupported"]},
+        "settledBy": {
+          "description": "The check that settled (discharged or refuted) the obligations: the check part's own status, so checked-by-lean-reference says Lean settled them, not LeanForth.",
+          "$ref": "#/$defs/positiveCheck"},
+        "generator": {"$ref": "#/$defs/tool"},
+        "obligations": {"type": "array", "items": {"$ref": "#/$defs/obligation"}},
+        "note": {"$ref": "#/$defs/nonEmpty"}
+      },
+      "allOf": [
+        {
+          "$comment": "settledBy is present exactly when an obligation is discharged or refuted.",
+          "if": {"properties": {"obligations": {"contains": {"$ref": "#/$defs/settledObligation"}}}},
+          "then": {"required": ["settledBy"]},
+          "else": {"properties": {"settledBy": false}}
+        },
+        {
+          "$comment": "A generator gave every result but not-generated; not-generated has no generator and no obligations.",
+          "if": {"properties": {"status": {"const": "not-generated"}}},
+          "then": {"properties": {"obligations": {"maxItems": 0}, "generator": false}},
+          "else": {"required": ["generator"]}
+        },
+        {
+          "if": {"properties": {"status": {"const": "discharged"}}},
+          "then": {
+            "properties": {"obligations": {
+              "minItems": 1,
+              "items": {"properties": {"status": {"const": "discharged"}}, "required": ["theorem"]}
+            }}
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "open"}}},
+          "then": {"properties": {"obligations": {
+            "contains": {"properties": {"status": {"const": "open"}}},
+            "items": {"properties": {"status": {"enum": ["open", "discharged"]}}}
+          }}}
+        },
+        {
+          "if": {"properties": {"status": {"const": "refuted"}}},
+          "then": {"properties": {"obligations": {
+            "contains": {"properties": {"status": {"const": "refuted"}}}
+          }}}
+        },
+        {
+          "$comment": "unsupported: the generator could not produce the obligations, so it lists none; a partial list could be read as the whole.",
+          "if": {"properties": {"status": {"const": "unsupported"}}},
+          "then": {"properties": {"obligations": {"maxItems": 0}}}
+        }
+      ]
+    },
+    "run": {
+      "description": "Runtime evidence: tests executed on a named host. Testing is not proof.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "cases", "failures", "label"],
+      "properties": {
+        "status": {"enum": ["not-run", "passed", "failed"]},
+        "host": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["forth", "version", "os", "arch", "cellBits"],
+          "properties": {
+            "forth": {"$ref": "#/$defs/nonEmpty"},
+            "version": {"$ref": "#/$defs/nonEmpty"},
+            "os": {"$ref": "#/$defs/nonEmpty"},
+            "arch": {"$ref": "#/$defs/nonEmpty"},
+            "cellBits": {"type": "integer", "minimum": 16}
+          }
+        },
+        "cases": {"type": "integer", "minimum": 0},
+        "failures": {"type": "integer", "minimum": 0},
+        "label": {"$ref": "#/$defs/nonEmpty"},
+        "evidence": {"type": "array", "items": {"$ref": "#/$defs/file"}},
+        "note": {"$ref": "#/$defs/nonEmpty"}
+      },
+      "allOf": [
+        {
+          "$comment": "Each result has its own label, so a failed or missing run can never carry a pass's label.",
+          "if": {"properties": {"status": {"const": "not-run"}}},
+          "then": {"properties": {
+            "cases": {"const": 0},
+            "failures": {"const": 0},
+            "label": {"const": "not run"},
+            "host": false,
+            "evidence": {"maxItems": 0}
+          }}
+        },
+        {
+          "if": {"properties": {"status": {"const": "passed"}}},
+          "then": {
+            "required": ["host", "evidence"],
+            "properties": {
+              "cases": {"minimum": 1},
+              "failures": {"const": 0},
+              "label": {"const": "runtime-tested; testing is not proof"},
+              "evidence": {"minItems": 1}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "failed"}}},
+          "then": {
+            "required": ["host", "evidence"],
+            "properties": {
+              "failures": {"minimum": 1},
+              "label": {"const": "runtime tests failed"},
+              "evidence": {"minItems": 1}
+            }
+          }
+        }
+      ]
+    },
+    "assumption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "text"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^A[0-9]+$"},
+        "kind": {"enum": ["host-cells", "twos-complement", "division", "stack-capacity",
+          "trusted-runtime", "trusted-reader", "trusted-lean", "trusted-leanforth",
+          "untrusted-generator", "floating-point", "other"]},
+        "text": {"$ref": "#/$defs/nonEmpty"}
+      }
+    },
+    "kindTrustedRuntime": {"required": ["kind"], "properties": {"kind": {"const": "trusted-runtime"}}},
+    "kindHostCells": {"required": ["kind"], "properties": {"kind": {"const": "host-cells"}}},
+    "kindTwosComplement": {"required": ["kind"],
+      "properties": {"kind": {"const": "twos-complement"}}},
+    "kindStackCapacity": {"required": ["kind"], "properties": {"kind": {"const": "stack-capacity"}}},
+    "kindTrustedLean": {"required": ["kind"], "properties": {"kind": {"const": "trusted-lean"}}},
+    "kindTrustedReader": {"required": ["kind"], "properties": {"kind": {"const": "trusted-reader"}}},
+    "kindTrustedLeanForth": {"required": ["kind"],
+      "properties": {"kind": {"const": "trusted-leanforth"}}},
+    "kindUntrustedGenerator": {"required": ["kind"],
+      "properties": {"kind": {"const": "untrusted-generator"}}},
+    "toolLean": {"required": ["name"], "properties": {"name": {"const": "lean"}}},
+    "toolLeanForth": {"required": ["name"], "properties": {"name": {"const": "leanforth"}}},
+    "kindFloatingPoint": {"required": ["kind"], "properties": {"kind": {"const": "floating-point"}}}
+  }
+}

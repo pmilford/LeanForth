@@ -173,16 +173,17 @@ store-header context-record: mv-fvars
   -1 over mvd-value ! -1 swap mvd-pending ! ;
 : mv-fill ( type kind leaf addr -- )
   dup /mvd erase dup mv-scope! tuck mvd-leaf ! tuck mvd-kind ! mvd-type ! ;
-: mv-slot ( store -- addr true | false )
-  dup store-ready ok? 0= if drop false exit then
-  store-new-slot if drop true else false then ;
-: mv-claim ( type kind leaf -- mvar outcome )
-  mv-exprs mv-slot 0= if drop 2drop -1 outcome-full exit then
-  over >r mv-fill r> outcome-ok ;
-: mv-leaf-new ( -- leaf true | false ) mv-exprs store-count @ mctx-epoch@ lf-mvar-leaf ;
+\ The record is claimed first and its leaf made next; a leaf the term
+\ store refuses gives the record back (store-drop), so a refusal changes
+\ nothing.
+: mv-slot ( store -- addr index true | false )
+  dup store-ready ok? 0= if drop false exit then store-new-slot ;
+: mv-leafed ( type kind addr n -- mvar outcome )
+  mctx-epoch@ lf-mvar-leaf 0= if drop 2drop mv-exprs store-drop -1 outcome-full exit then
+  dup >r swap mv-fill r> outcome-ok ;
 : lf-mvar-new ( type kind -- mvar outcome )
   over lf-term-valid? over mv-kind? and 0= if 2drop -1 outcome-invalid exit then
-  mv-leaf-new if mv-claim else 2drop -1 outcome-full then ;
+  mv-exprs mv-slot if mv-leafed else 2drop -1 outcome-full then ;
 : lf-mvar-assignable? ( mvar -- flag )
   mv-of 0= if false exit then
   dup mvd-kind @ mv-opaque <> swap mvd-depth @ lf-mctx-depth = and ;
@@ -206,12 +207,11 @@ store-header context-record: mv-fvars
   dup lf-level-mvar-live? if mvl-number mvl-decl mvl-depth @ else drop -1 then ;
 : mvl-fill ( leaf addr -- )
   tuck mvl-leaf ! lf-mctx-depth over mvl-depth ! -1 swap mvl-value ! ;
-: mvl-claim ( leaf -- level outcome )
-  mv-levels mv-slot 0= if drop -1 outcome-full exit then
-  over swap mvl-fill outcome-ok ;
+: mvl-leafed ( addr n -- level outcome )
+  mctx-epoch@ lf-level-mvar-leaf 0= if drop mv-levels store-drop -1 outcome-full exit then
+  tuck swap mvl-fill outcome-ok ;
 : lf-level-mvar-new ( -- level outcome )
-  mv-levels store-count @ mctx-epoch@ lf-level-mvar-leaf
-  if mvl-claim else -1 outcome-full then ;
+  mv-levels mv-slot if mvl-leafed else -1 outcome-full then ;
 
 \ ---- Walks (dag-walk.fs). A term's children are its two parts
 \ (application, binders, let, projection) and, for an assigned
@@ -348,7 +348,7 @@ store-header context-record: mv-fvars
 \ the pending metavariable.
 : lf-delay-fvar ( fvar -- outcome )
   dup lf-fvar-live? 0= if drop outcome-invalid exit then
-  mv-fvars mv-slot if ! outcome-ok else drop outcome-full then ;
+  mv-fvars mv-slot if drop ! outcome-ok else drop outcome-full then ;
 : mv-fvars# ( -- n ) mv-fvars store-count @ ;
 : mv-delayable? ( mvar pending n -- flag )
   0 mv-fvars# 1+ within swap lf-mvar-live? and swap mv-free? and ;

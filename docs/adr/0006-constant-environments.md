@@ -1,9 +1,11 @@
 # ADR 0006: constant environments — proposal
 
-Status: **draft for human review; not approved or implemented**. This proposes
+Status: **accepted** (see the approval status below), with two base sentences replaced (marked below). This proposes
 a conservative extension of ADRs 0002–0005 and 0007, not full Lean compatibility.
 The existing experimental probes and NDJSON preview do not validate or
 register declarations. No theorem may be accepted on this proposal alone.
+
+Approval status: accepted 2026-11-12, gate: kernel and import, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)"; the owner approved it on the pack's recommendation, with two base sentences marked replaced (the empty allowlist by the 2026-11-05 amendment, theorem unfolding by ADR 0012); its 2026-11-05 amendment stays accepted as below
 
 ## Candidate contract
 
@@ -41,7 +43,7 @@ register declarations. No theorem may be accepted on this proposal alone.
   definition or theorem may depend only on already accepted records, with
   transitive assumptions computed from those records. Imported names, export
   order, hashes and successful parsing are not proof of validation.
-- Keep the initial axiom allowlist empty. Any later entry requires explicit
+- *Replaced by the 2026-11-05 amendment below (allowlist v1: `propext`, `Classical.choice`, `Quot.sound`).* Keep the initial axiom allowlist empty. Any later entry requires explicit
   human approval of its structured name, exact universe parameters and type,
   safety and provenance, with versioned policy and an audit trail; a name alone
   is insufficient. Check that an authorized axiom's type is well formed in
@@ -52,7 +54,7 @@ register declarations. No theorem may be accepted on this proposal alone.
 
 ## Conversion and state
 
-Initially permit constant typing with conservative conversion: identical
+*The statement that theorems never unfold is replaced by ADR 0012 (and ADR 0014), which follow Lean: delta unfolds definitions and theorems, not axioms or opaque declarations.* Initially permit constant typing with conservative conversion: identical
 constant heads may compare equal only with reviewed equality of all universe
 arguments; unknown remains unknown. Definition unfolding is a separately
 reviewed extension: unfold only a previously checked safe definition, with its
@@ -419,6 +421,8 @@ not establish general Lean compatibility or kernel soundness. Human review
 is still required for any trusted implementation or declaration import.
 
 ## Amendment (2026-11-05): axioms, opaque declarations, allowlist v1
+
+Approval status: accepted 2026-11-11, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-11"; the entry names axioms with allowlist v1, opaque declarations and quotients (plan 5.3.1-5.3.2, 4.2.6)
 
 Status: **implemented, not through the review gate** [kernel][import][format]
 (plan tasks 5.3.1, 4.2.6; agent AX, branch `ax-axioms-quot`). It follows the

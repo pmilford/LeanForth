@@ -73,9 +73,8 @@ store-header context-record: lf-levels
 \ The hash-consing table (see the header): its hooks hash record n from
 \ its fields and tell whether allocated record n equals the record sought.
 /htab context-record: lf-level-table
-3 cells context-record: lf-level-key   \ the record sought: tag first second
-: lf-level-hash ( tag first second -- h ) rot hash-fmix rot hash-step swap hash-step ;
-: lf-level-rehash ( n htab -- h ) drop lf-level-slot node@ lf-level-hash ;
+/lf-sought context-record: lf-level-key   \ the record sought (terms.fs)
+: lf-level-rehash ( n htab -- h ) drop lf-level-slot node@ lf-fields-hash ;
 \ Whether level n may be given for a record made equal to it: a hook, by
 \ default always; kernel/check-declaration.fs sets it so that in a check a
 \ level made before it is given only once the check reached it, as for
@@ -85,19 +84,15 @@ defer lf-level-findable? ( n -- flag )
 : lf-level-same ( n key htab -- flag )
   drop over lf-levels store-at? 0= if 2drop false exit then
   over lf-level-findable? 0= if 2drop false exit then
-  >r lf-level-slot node@ r> lf-term-key= ;
+  >r lf-level-slot node@ r> lf-sought= ;
 create lf-level-hooks /htab-hooks allot
 ' lf-level-rehash ' lf-level-same lf-level-hooks htab-hooks!
 : lf-level-table-make ( -- ) 4 lf-level-hooks lf-level-table htab-init drop ;
 ' lf-level-table-make context-setup
 :noname ( -- ) lf-level-table htab-free ; context-teardown
-: lf-level-key! ( tag first second -- )
-  lf-level-key 2 cells + ! lf-level-key cell+ ! lf-level-key ! ;
-: lf-level-key@ ( -- tag first second )
-  lf-level-key @ lf-level-key cell+ @ lf-level-key 2 cells + @ ;
+: lf-level-key@ ( -- tag first second ) lf-level-key lf-sought@ ;
 : lf-level-find ( tag first second -- n true | i false )
-  2 pick 2 pick 2 pick lf-level-hash >r lf-level-key!
-  lf-level-key r> lf-level-table htab-find ;
+  lf-level-key lf-sought-hash! lf-level-table htab-find ;
 \ Enter the new record index at the empty slot i the find gave.
 : lf-level-enter ( i index true | i false -- index true | false )
   if tuck swap lf-level-table htab-put true else drop false then ;
@@ -105,7 +100,7 @@ create lf-level-hooks /htab-hooks allot
 \ sharing was off, or that the table could not take, is not), and every
 \ record from count up to the store's count.
 : lf-level-forget ( index -- )
-  dup lf-level-slot node@ lf-level-hash lf-level-table htab-remove drop ;
+  dup lf-level-slot node@ lf-fields-hash lf-level-table htab-remove drop ;
 : lf-level-unlist ( count -- )
   lf-level-table htab-live? 0= if drop exit then
   lf-level-count @ swap ?do i lf-level-forget loop ;

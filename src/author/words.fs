@@ -42,9 +42,13 @@ require ./library.fs
 \ export makes aliases, which change what names mean: not built yet.
 : lfa-w-export ( -- ) lfa-e-export lfa-fail ;
 \ Errors of end point at end itself, so its name is not made current.
-: lfa-w-end ( -- )
-  lfa-above parse-name dup 0<> lfa-e-no-name lfa-must lfa-read!
-  lfa-inside? if lfa-end-declaration else rot drop lfa-end-namespace then ;
+\ Inside a declaration xt ( above c-addr u -- ) ends it, the kernel form's
+\ or natural form's (src/front/reader.fs); outside, end closes a namespace.
+: lfa-end-head ( -- above c-addr u )
+  lfa-above parse-name dup 0<> lfa-e-no-name lfa-must lfa-read! ;
+: lfa-end-tail ( above c-addr u xt -- )
+  lfa-inside? if execute else drop rot drop lfa-end-namespace then ;
+: lfa-w-end ( -- ) lfa-end-head ['] lfa-end-declaration lfa-end-tail ;
 
 \ Binders: t explicit: NAME and the other kinds; fun and forall close.
 : lfa-w-explicit ( t -- ) 1 lfa-args lf-binder-default lfa-binder-word ;

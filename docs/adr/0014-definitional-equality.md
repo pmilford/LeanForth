@@ -12,6 +12,8 @@ derivation log, accepted) and ADR 0016 (the compact store, accepted), and
 answers gate question G5 of [the first checker's gate](../reviews/FIRST_CHECKER_GATE.md#questions-for-you)
 (do theorems unfold?).
 
+Approval status: accepted 2026-11-03, gate: design (G5, Q-A to Q-D), [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Gate answers and working guidelines (2026-11-03)"
+
 ## Summary in plain words
 
 **What this is about.** To check a proof, a checker must often decide
@@ -1347,6 +1349,8 @@ approval.** `let` terms (Q7) leave U2:
 
 ## Amendment 1: the caches as built (plan task 4.2.7, 2026-11-05, proposed)
 
+Approval status: accepted 2026-11-11, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-11"; the entry names result caches (4.2.7); the word proposed in the heading or Status line below was true when written (gate recorded 2026-11-12 night: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
+
 Status: proposed; [kernel] gate owed (review, owner). Code:
 `src/kernel/caches.fs`, hooks in `whnf.fs`, `defeq.fs`, `mixed-infer.fs`,
 `mixed-convert.fs`, `mixed-open.fs`.
@@ -1453,6 +1457,8 @@ structure eta, need a closed major premise and an inference job
 
 ## Amendment 2: shared terms cost their nodes, not their paths (agent EX, 2026-11-10, proposed)
 
+Approval status: accepted 2026-11-12, gate: kernel (LeanForth's own audits and Lean-style caching; no Lean rule changed), [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)"; approved with Amendments 3-5
+
 **Finding.** The 17 declarations of `Init`'s first 1,000,000 export lines
 that ended *exhausted* at 2,000,000 fuel (36% of all fuel; the official
 checker accepts the prefix in 5.8 s) are `omega`-style proofs of a few
@@ -1517,6 +1523,8 @@ the Array.Extract `omega` proofs this costs 10–20 million fuel (9 of the
 Amendment 3's, 2026-11-11.)
 
 ## Amendment 3: substitution as Lean's replace, node facts from the data word, inferred types keyed by the opened term (agent S6A, 2026-11-11, proposed)
+
+Approval status: accepted 2026-11-11, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-11"; the entry names the fuel model of Amendments 3-5; the word proposed in the heading or Status line below was true when written (gate recorded 2026-11-12 night: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
 
 Status: proposed; [kernel] gate owed (review, owner's approval of the fuel
 model below). Plan task 6.5.5, parts (a), (d) and (e) of compact-store
@@ -1635,6 +1643,8 @@ finding 2), and the check's fixed scratch room above (a temporary gap:
 scratch room, as it does `feed-term-room`).
 
 ## Amendment 4: each node audited once per check (compact-store plan step S6 (c), agent S6C, 2026-11-11, proposed)
+
+Approval status: accepted 2026-11-11, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-11"; the entry names Amendment 4 (audits once per node per check); the word proposed in the heading or Status line below was true when written (gate recorded 2026-11-12 night: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
 
 Status: proposed; [kernel] gate owed. It changes LeanForth's own
 fail-closed defence, not a rule of Lean's: no typing, reduction or
@@ -1805,6 +1815,8 @@ hash-consed before step S4. `instantiate_lparams` per node is step S6 (b).
 
 ## Amendment 5: == at every pair, caches keyed by node (compact-store plan step S4, agent S4, 2026-11-11, proposed)
 
+Approval status: accepted 2026-11-11, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-11"; the entry names the fuel model of Amendments 3-5; the word proposed in the heading or Status line below was true when written (gate recorded 2026-11-12 night: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
+
 Status: proposed; [kernel] gate owed. Code: `src/kernel/mixed-compare.fs`
 (`lf-expr-equal`), `src/kernel/caches.fs`,
 `src/kernel/mixed-level-substitute.fs`, `src/kernel/level-compare.fs`;
@@ -1871,6 +1883,8 @@ check`; planted faults `s4-eq-*`, `s4-cache-key-stale-node`,
 `s4-fvmemo-children-live`, `s4-mls-*`, `s4-lcmp-memo-*`, all caught.
 
 ## Amendment 6: an argument put into a closed Pi body is not closed; a closed key's facts from its data word (agent PF, 2026-11-11, proposed)
+
+Approval status: accepted 2026-11-12, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names PF C1 (an argument put into a body without loose variables is not closed first); the word proposed in the heading or Status line below was true when written
 
 Status: proposed; [kernel] gate owed. Code: `src/kernel/mixed-infer.fs`
 (`lf-minfer-put-closed`), `src/kernel/caches.fs` (`lf-copy-id`). No
@@ -1973,6 +1987,8 @@ every older snapshot is refused as stale (or labelled stale with
 verdict version and fuel setting and 99 slots' fuel moved, all to less.
 
 ## Amendment 7: a check's fuel independent of the other records of the tier (agent PF, review rvSN4 B1, 2026-11-11, proposed)
+
+Approval status: accepted 2026-11-12, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names Amendment 7; the word proposed in the heading or Status line below was true when written (gate recorded 2026-11-12 night: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
 
 Status: proposed; [kernel] gate owed. Code: `src/import/feed.fs`
 (`feed-enter`, `feed-merge`), `src/core/terms.fs`
@@ -2109,6 +2125,8 @@ prefix.
   (`tests/cli/golden-snapshots`) are written again with verdict version 4.
 
 ## Amendment 8: resource limits per check, fuel and memory (agent MB, 2026-11-11, proposed)
+
+Approval status: accepted 2026-11-12, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names Amendment 8; the word proposed in the heading or Status line below was true when written (gate recorded 2026-11-12 night: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
 
 Status: proposed; no typing, reduction or conversion rule changes, and
 without the new option no outcome, fuel count or diagnostic changes (no
@@ -2260,6 +2278,8 @@ the change (AGENTS.md, review gates) before it counts as reviewed.
 
 ## Amendment 9: an application typed aside from its spine's head (agent R5, 2026-11-11, proposed)
 
+Approval status: accepted 2026-11-12, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names Amendment 9; the word proposed in the heading or Status line below was true when written
+
 Status: proposed; [kernel] gate owed. Written as Amendment 8 on branch
 `r5-roots`; renumbered 9 at the merge with agent PF's Amendment 7 (verdict
 version 4) and agent MB's Amendment 8; this amendment is verdict version 5.
@@ -2352,6 +2372,8 @@ declarations less, 27 more (at most +0.17% each).
 
 ## Amendment 10: Lean's infer-only typing, what it skips and what it throws (agent CK, plan task 4.2.7d, 2026-11-12, proposed)
 
+Approval status: accepted 2026-11-12, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Second approval round of 2026-11-12 (afternoon)"; the entry names Amendment 10; the word proposed in the heading or Status line below was true when written
+
 Status: proposed; [kernel] gate owed (review rvKN finding 3, owner
 approval of the task on 2026-11-12). Verdict version 9. Code:
 `src/kernel/mixed-infer.fs` (`lf-minfer-lam` and the words before it,
@@ -2442,6 +2464,8 @@ declaration the same but fuel; fuel 654,546,896 → 654,719,715 (+0.03%),
 less (at most −3.3%); 650 s wall, 0.86 GB peak.
 
 ## Amendment 11: a speed and memory pass with every verdict and fuel unchanged (agent PERF1, Q12, plan tasks 6.5.8 and 6.5.9, 2026-11-12, accepted)
+
+Approval status: accepted 2026-11-12, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Third approval round of 2026-11-12"; the entry names Amendment 11 (plan 6.5.8, 6.5.9)
 
 Status: **accepted** [kernel] by the owner on 2026-11-12 (OWNER_DECISIONS.md, third approval round),
 after reviews rvPF1, the perf1 Forth review and the pf1-fix review of

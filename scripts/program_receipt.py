@@ -1,18 +1,25 @@
 #!/usr/bin/env python3
-"""Program receipts v0 from the actual checks (task 2.5.6).
+"""Program receipts from the actual checks (tasks 2.5.6 and 5.5.1).
 
 Usage (from the repository root):
   python3 scripts/program_receipt.py write   # receipt and printed form from recorded evidence
   python3 scripts/program_receipt.py validate RECEIPT.json...   # read strictly, check the rules
   python3 scripts/program_receipt.py verify RECEIPT.json   # validate, recompute and compare
   GFORTH=... LEAN=... python3 scripts/program_receipt.py record --out EVIDENCE.json
+  LEAN=... python3 scripts/program_receipt.py export OUT.ndjson   # the export LeanForth checks
 Options: --contract (default tests/program/contracts/lf-clamp.contract),
---evidence, --out, --markdown.
+--evidence, --out, --markdown, --manifest-out (record: also save the
+export's manifest there, to pin a new export), --keep FOLDER (record: keep
+the export and the snapshot of LeanForth's check in FOLDER, for
+tests/program/clamp_mutants.py; make check records once for both tests).
 
-A receipt (schema 0.2, docs/programming/PROGRAM_RECEIPTS.md) states what is
+A receipt (schema 0.3, docs/programming/PROGRAM_RECEIPTS.md) states what is
 known about one word, in three separate parts:
-  CHECK  which theorems Lean checked (the contract theorem and the path
-         obligations of scripts/program_vc.py), each with its axioms;
+  CHECK  LeanForth's verdict on the contract theorem and the path
+         obligations of scripts/program_vc.py: Lean wrote the proofs, its
+         exporter wrote them with every declaration they use, and
+         LeanForth's checker (bin/leanforth check) checked that export;
+         each accepted theorem with its axioms;
   VERIFY whether the obligations generated from the IR and the contract
          are discharged, and by which check;
   RUN    what the three-way runtime comparison of the IR interpreter, the
@@ -20,23 +27,27 @@ known about one word, in three separate parts:
 and every assumption they rest on.
 
 `write` builds the receipt only from the repository (source, IR, contract,
-the generated obligations and their summary, hashed as they are) and from
-an evidence record, which `record` makes by running Lean and Gforth:
-Lean's version and the axioms of each theorem, the runtime counts, and the
-hash of the IR that the program words (src/program/verify.fs, ADR 0019)
-write for the word's source, which must be the IR file's, byte for byte.
+the generated obligations and their summary, the pinned export's manifest,
+hashed as they are) and from an evidence record, which `record` makes by
+running Lean, Lean's exporter, LeanForth and Gforth: Lean's version and its
+own axiom report for each theorem, the export's hash, LeanForth's verdict
+and axioms for each theorem, the runtime counts, and the hash of the IR that
+the program words (src/program/verify.fs, ADR 0019) write for the word's
+source, which must be the IR file's, byte for byte. `export` writes the
+export alone, for a user to check with bin/leanforth check.
 `validate` reads any receipt the way every reader here does: strict JSON
 (tests/support/schema_subset.py: no duplicate keys, no fractions, no lone
-surrogates, bounded nesting), schema 0.2 and the rules JSON Schema cannot
-state (rule_problems). Only schema 0.2 is read: 0.1 was a draft the owner
-never approved, and a receipt that names it is refused (it would otherwise
-escape 0.2's rules). `verify` validates, then rebuilds the receipt the same
-way and reports every field that differs, so a receipt edited by hand, or
-one whose files changed since, is rejected. Each problem is one line
-`FILE: CODE: PATH: MESSAGE` on standard error, CODE one of unreadable,
-not-strict-json, superseded-version, unknown-version, schema, rule, replay;
-the exit status is 0 when there is none, 1 when there is one and 2 for a
-usage error. A receipt that verifies is
+surrogates, bounded nesting), its schema (0.3, or 0.2, which the owner
+approved on 2026-11-03 and which stays readable) and the rules JSON Schema
+cannot state (rule_problems). 0.1 was a draft the owner never approved, and
+a receipt that names it is refused (it would otherwise escape 0.2's rules).
+`verify` validates, then rebuilds the receipt the same way and reports
+every field that differs, so a receipt edited by hand, or one whose files
+changed since, is rejected; only 0.3 receipts are rebuilt. Each problem is
+one line `FILE: CODE: PATH: MESSAGE` on standard error, CODE one of
+unreadable, not-strict-json, superseded-version, unknown-version, schema,
+rule, replay; the exit status is 0 when there is none, 1 when there is one
+and 2 for a usage error. A receipt that verifies is
 consistent with the repository and the evidence; it is not an approval of
 anything, and it passes no review gate. Untrusted tooling.
 """
@@ -62,9 +73,14 @@ from schema_subset import (MAX_SAFE_INTEGER, InstanceError, Validator,  # noqa: 
                            load_strict)
 TEST_LIMIT = int(os.environ.get("TEST_TIMEOUT", "1800"))  # seconds; make exports it
 
-VERSION = "0.2"
-SCHEMA_VERSION = "0.2"
+VERSION = "0.3"
+SCHEMA_VERSION = "0.3"   # what write produces
 SCHEMA = ROOT / "schemas" / f"program-receipt-{SCHEMA_VERSION}.schema.json"
+# The versions read, each against its own schema: 0.2, approved by the owner
+# on 2026-11-03, stays readable; 0.3 is 0.2 without check.label (the owner
+# withdrew the result label on 2026-11-12). Receipts for IR 0.2 programs
+# (the SHA-256 words) will take version 0.4 at the owner's [format] gate.
+READ_VERSIONS = ("0.2", "0.3")
 # Drafts the owner never approved. Their schema files stay unchanged as a
 # record, but a receipt naming one is refused: 0.2 closed holes 0.1 has.
 SUPERSEDED_VERSIONS = ("0.1",)
@@ -72,13 +88,23 @@ CONTRACT = "tests/program/contracts/lf-clamp.contract"
 VC_LEAN = "tests/program/vc/obligations.lean"
 VC_SUMMARY = "tests/program/vc/obligations.json"
 TABLE = "tests/program/ir-run-table.fs"
-CHECK_EVIDENCE = [VC_LEAN, "scripts/program_vc.py"]
+# The export of the contract theorem and its obligations with their closure,
+# pinned by its manifest (scripts/export.sh writes both; the export itself,
+# 23 MB, is made again by `export` or `record`, byte for byte).
+EXPORT_MANIFEST = "tests/program/vc/lf-clamp.ndjson.manifest.json"
+EXPORT_MODULE = "ProgramVC"
+CHECK_EVIDENCE = [VC_LEAN, "scripts/program_vc.py", "scripts/export.sh", EXPORT_MANIFEST]
 RUN_EVIDENCE = [TABLE, "src/program/ir-run.fs", "tests/program/ir_run_differential.py",
                 "tests/reference/program-ir-run.lean"]
 IR_WORDS = "src/program/verify.fs"   # the program words that write the IR (ADR 0019)
+VERDICT_VERSION = "src/kernel/verdict-version.fs"
+LEANFORTH_JOBS = "2"   # workers of LeanForth's check (owner's CPU rule, 2026-11-12)
 ALLOWED_AXIOMS = ["propext", "Classical.choice", "Quot.sound"]
-CHECK_LABEL = "checked by the Lean reference, not by LeanForth"
+AXIOM_BITS = {1: "propext", 2: "Classical.choice", 4: "Quot.sound"}   # check report 0.4
 RUN_LABEL = "runtime-tested; testing is not proof"
+# LeanForth's verdicts on the theorems, and the check status they give: the
+# first status whose verdicts occur wins; all accepted is the only positive one.
+CHECK_FROM_VERDICTS = [("rejected", {"rejected"}), ("unsupported", {"unsupported", "unknown"})]
 
 
 def sha256(path):
@@ -118,13 +144,13 @@ def obligation_text(o):
 
 
 def refuse_ir_02(ir_text, path):
-    """Schema 0.2 has program.ir.version "0.1" only: a receipt for an IR 0.2
-    program (output words, LSHIFT or -ROT) needs schema 0.3, which the owner
+    """Schema 0.3 has program.ir.version "0.1" only: a receipt for an IR 0.2
+    program (output words, LSHIFT or -ROT) needs schema 0.4, which the owner
     decides at the [format] gate (docs/programming/PROGRAM_RECEIPTS.md,
-    "Schema 0.3"). Until then none is written."""
+    "Schema 0.4"). Until then none is written."""
     if ir_text.split("\n", 1)[0] != "lf-ir 0.1":
         raise SystemExit(f"{path} is not IR 0.1: a receipt for an IR 0.2 program needs receipt "
-                         "schema 0.3 (program.ir.version \"0.2\" and program.output), which "
+                         "schema 0.4 (program.ir.version \"0.2\" and program.output), which "
                          "awaits the owner's [format] gate; no receipt written")
 
 
@@ -204,14 +230,29 @@ def assumptions(word, prims, cases, version=""):
          "text": "The data and return stacks have room for the word's items; stack overflow "
                  "is not modeled."},
         {"id": "A6", "kind": "trusted-lean",
-         "text": "Lean 4.35.0, the pinned toolchain, checked the theorems correctly."},
+         "text": f"Lean 4.35.0, the pinned toolchain, elaborated {VC_LEAN} and its exporter "
+                 "(lean4export 3.1.0, through scripts/export.sh) wrote the export faithfully: "
+                 "the contract statement, the IR semantics and the program that LeanForth "
+                 "checked mean what that Lean source says. Lean also wrote the proofs, from "
+                 "the generator's tactic scripts, and checked them itself; that check is not "
+                 "relied on here, since LeanForth's checker checked the export again."},
         {"id": "A7", "kind": "untrusted-generator",
          "text": "The obligations come from an untrusted generator (scripts/program_vc.py). "
-                 "This is safe only because the contract theorem Lean proved is stated "
-                 "against the IR semantics copied verbatim from "
-                 "tests/reference/program-ir.lean, and Lean prints the generated program "
-                 f"back equal to the IR file; {word}'s proof is not checked by LeanForth."},
+                 "This is safe only because the contract theorem is stated against the IR "
+                 "semantics copied verbatim from tests/reference/program-ir.lean, and Lean "
+                 "prints the generated program back equal to the IR file."},
     ]
+
+
+def leanforth_assumption(leanforth):
+    """The trusted-leanforth assumption of a receipt LeanForth's checker accepted."""
+    return {"id": "A8", "kind": "trusted-leanforth",
+            "text": f"LeanForth's checker (bin/leanforth check, {leanforth['version']}, verdict "
+                    f"version {leanforth['verdictVersion']}) checked every declaration of the "
+                    f"export correctly: it accepted all {leanforth['accepted']:,} of them, the "
+                    "contract theorem, its obligations and every definition, inductive type "
+                    "and lemma they use, directly or not, each with its axioms. It follows "
+                    "Lean 4.35.0's kernel rules; it has no tactics and wrote no proof."}
 
 
 def prim_words(ir_text, word):
@@ -231,6 +272,87 @@ def allowlist_order(axioms):
     return [a for a in ALLOWED_AXIOMS if a in axioms] + sorted(set(axioms) - set(ALLOWED_AXIOMS))
 
 
+def check_status(leanforth, names):
+    """The check status LeanForth's verdicts on the theorems give: accepted-by-leanforth
+    only when it accepted every one of them; a theorem accepted but NOT PROVED (an axiom
+    outside the allowlist) has no status in schema 0.3, so no receipt is written."""
+    verdicts = {verdict_of(leanforth, n) for n in names}
+    if verdicts == {"accepted"}:
+        for name in names:
+            if set(leanforth["theorems"][name]["axioms"]) - set(ALLOWED_AXIOMS):
+                raise SystemExit(f"{name}: accepted by LeanForth but NOT PROVED (an axiom outside "
+                                 "the allowlist); schema 0.3 has no status for it, no receipt "
+                                 "written")
+        return "accepted-by-leanforth"
+    return next((status for status, found in CHECK_FROM_VERDICTS if verdicts & found), "failed")
+
+
+def verdict_of(leanforth, name):
+    return leanforth["theorems"].get(name, {}).get("verdict", "missing")
+
+
+def lean_agrees(lean, leanforth, names):
+    """LeanForth's axioms for each accepted theorem must be Lean's own (#print axioms)."""
+    for name in names:
+        if sorted(leanforth["theorems"][name]["axioms"]) != sorted(lean["axioms"][name]):
+            raise SystemExit(f"{name}: LeanForth reports axioms {leanforth['theorems'][name]} and "
+                             f"Lean {lean['axioms'][name]}; no receipt written")
+
+
+def pinned_export(evidence):
+    """The evidence must be about the export the manifest in the repository pins."""
+    manifest = read_json(EXPORT_MANIFEST)
+    if evidence["export"] != {"sha256": manifest["sha256"], "bytes": manifest["bytes"]}:
+        raise SystemExit(f"the evidence is about another export than {EXPORT_MANIFEST} pins: "
+                         f"{evidence['export']}")
+
+
+def leanforth_version(leanforth):
+    return f"{leanforth['version']}, verdict version {leanforth['verdictVersion']}"
+
+
+def check_part(status, contract_theorem, theorems, evidence):
+    lean, leanforth = evidence["lean"], evidence["leanforth"]
+    verdicts = "; ".join(f"{t['name']} {verdict_of(leanforth, t['name'])}" for t in theorems)
+    said = (f"accepted all {leanforth['accepted']:,} of them, these theorems among them"
+            if status == "accepted-by-leanforth" else f"gave these verdicts: {verdicts}")
+    return {
+        "status": status,
+        "checker": {"name": "leanforth", "version": leanforth_version(leanforth)},
+        "theorems": theorems,
+        "axioms": allowlist_order({a for t in theorems for a in t["axioms"]}),
+        "evidence": [file_ref(p) for p in CHECK_EVIDENCE],
+        "note": f"Lean {lean['version']} wrote the proofs of {contract_theorem} and its path "
+                "obligations, from the tactic scripts of the untrusted generator, and its "
+                "exporter wrote them with every declaration they use, "
+                f"{leanforth['declarations']:,} in all, to the export with SHA-256 "
+                f"{evidence['export']['sha256']} that {EXPORT_MANIFEST} pins. "
+                f"LeanForth's checker re-checked that export and {said}: the status is "
+                "LeanForth's verdict. LeanForth has no tactics yet and wrote no proof.",
+    }
+
+
+def verify_part(status, vc):
+    settled = status == "accepted-by-leanforth"
+    part = {"status": "discharged" if settled else "open"}
+    if settled:
+        part["settledBy"] = status
+    part["generator"] = {"name": "python",
+                         "version": f"program_vc.py {program_vc.GENERATOR_VERSION}"}
+    part["obligations"] = [
+        dict({"id": o["id"], "statement": obligation_text(o)},
+             **({"status": "discharged", "theorem": o["theorem"]} if settled else
+                {"status": "open"}))
+        for o in vc["obligations"]]
+    part["note"] = ("One obligation per path through the word's IR (IF splits a path), "
+                    "generated by an untrusted generator from the IR and the contract; " +
+                    ("each is discharged by the theorem named with it, which Lean proved and "
+                     "LeanForth's checker accepted." if settled else
+                     "none is discharged, since LeanForth's checker did not accept the "
+                     "theorems."))
+    return part
+
+
 def build(contract_path, evidence):
     contract = program_vc.parse_contract(Path(contract_path).read_text(encoding="utf-8"),
                                          contract_path)
@@ -244,16 +366,27 @@ def build(contract_path, evidence):
     if written != wanted:
         raise SystemExit(f"the evidence does not show the program words ({IR_WORDS}) "
                          f"writing {contract['ir']} from {source} as they are: {written}")
-    lean, run = evidence["lean"], evidence["run"]
+    pinned_export(evidence)
+    lean, leanforth, run = evidence["lean"], evidence["leanforth"], evidence["run"]
     contract_theorem = f"{vc['namespace']}.contract"
     names = [contract_theorem] + [o["theorem"] for o in vc["obligations"]]
     if sorted(names) != sorted(vc["theorems"]):
         raise SystemExit(f"{contract['id']}: the theorems in {VC_SUMMARY} are not the contract "
                          "theorem and one per obligation")
-    theorems = [{"name": n, "axioms": allowlist_order(lean["axioms"][n])} for n in names]
-    axioms = allowlist_order({a for t in theorems for a in t["axioms"]})
+    status = check_status(leanforth, names)
+    accepted = status == "accepted-by-leanforth"
+    if accepted:
+        lean_agrees(lean, leanforth, names)
+    theorems = [{"name": n, "axioms": allowlist_order(leanforth["theorems"][n]["axioms"])
+                 if accepted else []} for n in names]
     host = {"forth": run["forth"], "version": run["version"], "os": run["os"],
             "arch": run["arch"], "cellBits": run["cellBits"]}
+    trusted = assumptions(word, prim_words(ir_text, word), run["cases"],
+                          version_sentence(word, word_line(ir_text, word),
+                                           later_version(ir_text, Path(source).read_text(
+                                               encoding="utf-8"), word)))
+    if accepted:
+        trusted.append(leanforth_assumption(leanforth))
     return {
         "schema": "leanforth-program-receipt",
         "schemaVersion": SCHEMA_VERSION,
@@ -276,30 +409,8 @@ def build(contract_path, evidence):
         },
         "contract": {"id": contract["id"], "statement": contract["statement"],
                      "lean": contract_theorem, "file": file_ref(contract_path)},
-        "check": {
-            "status": "checked-by-lean-reference",
-            "checker": {"name": "lean", "version": lean["version"], "commit": lean["commit"]},
-            "theorems": theorems,
-            "label": CHECK_LABEL,
-            "axioms": axioms,
-            "evidence": [file_ref(p) for p in CHECK_EVIDENCE],
-            "note": f"Lean proved {contract_theorem}, the contract stated against the IR "
-                    "semantics for every cell width, input and stack below, from the path "
-                    "obligations listed under verify. Checked by Lean 4.35.0, not by "
-                    "LeanForth, whose checker cannot check programs yet.",
-        },
-        "verify": {
-            "status": "discharged",
-            "settledBy": "checked-by-lean-reference",
-            "generator": {"name": "python", "version": f"program_vc.py {program_vc.GENERATOR_VERSION}"},
-            "obligations": [{"id": o["id"], "statement": obligation_text(o),
-                             "status": "discharged", "theorem": o["theorem"]}
-                            for o in vc["obligations"]],
-            "note": "One obligation per path through the word's IR (IF splits a path), "
-                    "generated by an untrusted generator from the IR and the contract; each "
-                    "is discharged by the Lean theorem named with it, checked by the Lean "
-                    "reference, not by LeanForth.",
-        },
+        "check": check_part(status, contract_theorem, theorems, evidence),
+        "verify": verify_part(status, vc),
         "run": {
             "status": "passed" if run["failures"] == 0 else "failed",
             "host": host,
@@ -312,11 +423,9 @@ def build(contract_path, evidence):
                     f"evaluation of the model agreed on all {run['leanAgreed']} clamp cases, "
                     "including failures the host cannot run (too few inputs, no fuel).",
         },
-        "assumptions": assumptions(word, prim_words(ir_text, word), run["cases"],
-                                   version_sentence(word, word_line(ir_text, word),
-                                                    later_version(ir_text, Path(source).read_text(
-                                                        encoding="utf-8"), word))),
+        "assumptions": trusted,
         "tools": [{"name": "lean", "version": lean["version"], "commit": lean["commit"]},
+                  {"name": "leanforth", "version": leanforth_version(leanforth)},
                   {"name": run["forth"], "version": run["version"]},
                   {"name": "python", "version": f"program_vc.py {program_vc.GENERATOR_VERSION}"}],
     }
@@ -351,15 +460,16 @@ def markdown(receipt):
     out.append(f"  IR:     version {p['ir']['version']}, sha256 {short(p['ir']['sha256'])}")
     out += wrapped("Contract", f"{c['id']}: {c['statement']}")
     out.append("")
-    proved = "; ".join(f"{t['name']} (axioms {', '.join(t['axioms']) or 'none'})"
+    axioms = "; ".join(f"{t['name']} ({', '.join(t['axioms']) or 'none'})"
                        for t in check["theorems"])
-    out += wrapped("CHECK", f"{check['status']} — {check['label']}. Lean "
-                   f"{check['checker']['version']} ({check['checker']['commit'][:8]}) proved "
-                   f"{proved}. All axioms: {', '.join(check['axioms'])}.")
-    out += wrapped("VERIFY", f"{verify['status']}, settled by {verify['settledBy']} — "
-                   f"{len(verify['obligations'])} obligations generated from the IR and the "
-                   "contract by an untrusted generator; each discharged by the Lean theorem "
-                   "named below.")
+    out += wrapped("CHECK", f"{check['status']}, by {check['checker']['name']} "
+                   f"{check['checker']['version']}. {check['note']} Axioms of each theorem: "
+                   f"{axioms}. All axioms: {', '.join(check['axioms']) or 'none'}.")
+    settled = (f"settled by {verify['settledBy']}" if "settledBy" in verify
+               else "nothing settled")
+    out += wrapped("VERIFY", f"{verify['status']}, {settled} — {len(verify['obligations'])} "
+                   "obligations generated from the IR and the contract by an untrusted "
+                   "generator, each listed below with the theorem that discharges it.")
     host = run["host"]
     out += wrapped("RUN", f"{run['status']} — {run['label']}. {host['forth']} "
                    f"{host['version']}, {host['os']} {host['arch']}, {host['cellBits']}-bit "
@@ -371,23 +481,90 @@ def markdown(receipt):
     out.append("")
     out.append("Proof outline (from the verification conditions)")
     for o in verify["obligations"]:
-        out += wrapped(f"  {o['id']}", f"{o['statement']} [{o['theorem']}]", indent=6)
-    out += wrapped("  ∎", f"The paths cover every input, so {c['lean']} holds: the word "
-                   "returns normally and the postcondition holds for every cell width, "
-                   "input and stack below.", indent=6)
+        out += wrapped(f"  {o['id']}", f"{o['statement']} [{o.get('theorem', o['status'])}]",
+                       indent=6)
+    if verify["status"] == "discharged":
+        out += wrapped("  ∎", f"The paths cover every input, so {c['lean']} holds: the word "
+                       "returns normally and the postcondition holds for every cell width, "
+                       "input and stack below.", indent=6)
     out += ["```", ""]
     return "\n".join(out)
 
 
 # ----------------------------------------------------------------- recording
 
-def command(args, both=False):
+def command(args, both=False, env=None):
     """A command's standard output (and error, when both), or stop on failure."""
     done = subprocess.run(args, capture_output=True, text=True, timeout=TEST_LIMIT,
-                          stdin=subprocess.DEVNULL)
+                          stdin=subprocess.DEVNULL, env=None if env is None else
+                          dict(os.environ, **env))
     if done.returncode != 0:
         raise SystemExit(f"{' '.join(args)} failed:\n{done.stdout}{done.stderr}")
     return done.stdout + done.stderr if both else done.stdout
+
+
+def export_theorems(lean, theorems, out, source=VC_LEAN, module=EXPORT_MODULE):
+    """Pinned Lean compiles source (the obligations file) as module in a scratch folder, and
+    its exporter writes the theorems with every declaration they use to out, with the
+    manifest beside it (scripts/export.sh). Returns Lean's compiler output, which holds its
+    axiom reports."""
+    with tempfile.TemporaryDirectory() as folder:
+        output = command([lean, "-DwarningAsError=true", "-o",
+                          str(Path(folder) / f"{module}.olean"), source])
+        command(["bash", str(ROOT / "scripts" / "export.sh"), str(Path(out).resolve()),
+                 module, "--", *theorems], env={"LEAN_PATH": folder, "LEAN": lean})
+    return output
+
+
+def lean_axioms(output, theorems):
+    """Each theorem's axioms from Lean's `#print axioms` lines in its compiler output."""
+    axioms = {}
+    for theorem in theorems:
+        match = re.search(rf"'{re.escape(theorem)}' depends on axioms: \[(.*)\]", output)
+        if not match:
+            raise SystemExit(f"no axiom report for {theorem}")
+        axioms[theorem] = [a.strip() for a in match.group(1).split(",") if a.strip()]
+    return axioms
+
+
+def pinned_lean():
+    """$LEAN, else the project's pinned Lean 4.35.0 (never an elan proxy)."""
+    return os.environ.get("LEAN", str(ROOT / ".tools/elan/toolchains/leanprover--lean4---v4.35.0"
+                                             "/bin/lean"))
+
+
+def leanforth_check(export, theorems, snapshot=None):
+    """LeanForth's check of the export (bin/leanforth check --json): its version, the counts,
+    the exit status and the verdict and axioms of each theorem. With snapshot, a file name,
+    the check also writes the checked environment there (--save-snapshot; the verdicts are
+    the same), for a later check of the export with changed copies added (clamp_mutants.py)."""
+    saving = ["--save-snapshot", str(snapshot)] if snapshot else []
+    done = subprocess.run(["bash", str(ROOT / "bin" / "leanforth"), "check", "--json", "--jobs",
+                           LEANFORTH_JOBS, *saving, str(export)], capture_output=True, text=True,
+                          timeout=TEST_LIMIT, stdin=subprocess.DEVNULL)
+    try:
+        report = load_strict(done.stdout)
+    except InstanceError as error:
+        raise SystemExit(f"leanforth check gave no JSON report ({done.returncode}): {error}\n"
+                         f"{done.stderr[-2000:]}") from None
+    found = {d["name"]: d for d in report["declarations"] if d["name"] in theorems}
+    verdicts = {name: {"verdict": found[name]["verdict"] if name in found else "missing",
+                       "axioms": axiom_names(found.get(name, {}))} for name in theorems}
+    version = command(["bash", str(ROOT / "bin" / "leanforth"), "version"]).split("\n")[0]
+    return {"version": version.split()[-1],
+            "verdictVersion": int(re.search(r"(\d+) constant lf-verdict-version",
+                                            (ROOT / VERDICT_VERSION).read_text()).group(1)),
+            "exitStatus": done.returncode, "declarations": report["counts"]["declarations"],
+            "accepted": report["counts"]["accepted"], "theorems": verdicts}
+
+
+def axiom_names(declaration):
+    """An accepted declaration's axioms from its axiomBits (check report 0.4); bit 8, an axiom
+    outside the allowlist, is named by its notProvedBy list."""
+    bits = declaration.get("axiomBits", 0)
+    others = list(declaration.get("notProvedBy", [])) or (
+        ["an axiom outside the allowlist"] if bits & 8 else [])
+    return [name for bit, name in AXIOM_BITS.items() if bits & bit] + others
 
 
 def ir_written(gforth, ir_path):
@@ -416,21 +593,45 @@ def ir_written(gforth, ir_path):
             "source": before}
 
 
-def record(contract_path):
-    """Run Lean and Gforth now and return the evidence the receipt needs."""
-    lean, gforth = os.environ.get("LEAN", "lean"), os.environ.get("GFORTH", "gforth")
+KEPT_EXPORT, KEPT_SNAPSHOT = "lf-clamp.ndjson", "lf-clamp.lfsnap"   # record --keep FOLDER
+KEPT = (KEPT_EXPORT, f"{KEPT_EXPORT}.manifest.json", KEPT_SNAPSHOT)
+
+
+def kept_snapshot(folder):
+    """The snapshot record --keep made in folder; stop when the check wrote none, so that no
+    earlier run's snapshot is ever read in its place (review L3 of speed-lf)."""
+    snapshot = Path(folder) / KEPT_SNAPSHOT
+    if not snapshot.is_file() or snapshot.stat().st_size == 0:
+        raise SystemExit(f"LeanForth's check wrote no snapshot {snapshot}")
+    return snapshot
+
+
+def record(contract_path, manifest_out=None, keep=None):
+    """Run Lean, its exporter, LeanForth and Gforth now and return the evidence the receipt
+    needs; with manifest_out, also save the fresh export's manifest there. With keep, a
+    folder, the export (KEPT_EXPORT, its manifest beside it) is written there and kept, and
+    LeanForth's check also saves its snapshot there (KEPT_SNAPSHOT), which must then exist:
+    make check records once, and the receipt's test and the clamp mutants' test both read
+    the result. The files KEPT of an earlier run are removed first, by name."""
+    lean, gforth = pinned_lean(), os.environ.get("GFORTH", "gforth")
     contract = program_vc.parse_contract(Path(contract_path).read_text(encoding="utf-8"),
                                          contract_path)
     vc = vc_entry(contract["id"])
     written = ir_written(gforth, contract["ir"])
     version = re.match(r"Lean \(version ([0-9.]+),", command([lean, "--version"])).group(1)
-    output = command([lean, "-DwarningAsError=true", VC_LEAN])
-    axioms = {}
-    for theorem in vc["theorems"]:
-        match = re.search(rf"'{re.escape(theorem)}' depends on axioms: \[(.*)\]", output)
-        if not match:
-            raise SystemExit(f"no axiom report for {theorem}")
-        axioms[theorem] = [a.strip() for a in match.group(1).split(",") if a.strip()]
+    for name in KEPT if keep else ():
+        (Path(keep) / name).unlink(missing_ok=True)
+    with tempfile.TemporaryDirectory() as directory:
+        folder = Path(keep or directory)
+        export = folder / KEPT_EXPORT
+        output = export_theorems(lean, vc["theorems"], export)
+        manifest = read_json(f"{export}.manifest.json")
+        if manifest_out:
+            Path(manifest_out).write_bytes(Path(f"{export}.manifest.json").read_bytes())
+        leanforth = leanforth_check(export, vc["theorems"], keep and folder / KEPT_SNAPSHOT)
+        if keep:
+            kept_snapshot(folder)
+    axioms = lean_axioms(output, vc["theorems"])
     table = command([gforth, TABLE]).splitlines()
     clamp = [line for line in table if line.startswith("# clamp ")]
     counts = dict(zip(clamp[0].split()[2::2], map(int, clamp[0].split()[3::2])))
@@ -442,6 +643,8 @@ def record(contract_path):
         "ir": written,
         "lean": {"version": version, "commit": command([lean, "--githash"]).strip(),
                  "axioms": axioms},
+        "export": {"sha256": manifest["sha256"], "bytes": manifest["bytes"]},
+        "leanforth": leanforth,
         "run": {"forth": forth[0], "version": forth[1], "os": platform.system().lower(),
                 "arch": platform.machine().replace("_", "-"), "cellBits": 64,
                 "cases": counts["host"], "failures": counts["mismatches"],
@@ -463,8 +666,9 @@ def lean_agreement(lean, lines):
 # --------------------------------------------------------------------- reading
 
 @functools.lru_cache(maxsize=None)
-def validator():
-    return Validator(read_json(SCHEMA))
+def validator(version=SCHEMA_VERSION):
+    """The validator of a schema version the reader reads."""
+    return Validator(read_json(ROOT / "schemas" / f"program-receipt-{version}.schema.json"))
 
 
 def repeated(where, what, items):
@@ -479,7 +683,8 @@ def repeated(where, what, items):
 
 
 def rule_problems(receipt):
-    """Schema 0.2's rules that JSON Schema cannot state, for a receipt the schema accepts.
+    """The rules of schemas 0.2 and 0.3 that JSON Schema cannot state, for a receipt the
+    schema accepts (the two versions have the same rules).
 
     Ids, theorem names and axioms are distinct; check.axioms is the union of
     the theorems' axioms; a settled obligation's theorem, and for a
@@ -516,12 +721,13 @@ def receipt_problems(receipt):
     """Problems of a parsed receipt: its schema version, schema and rules."""
     version = receipt.get("schemaVersion") if isinstance(receipt, dict) else None
     shown = json.dumps(version, ensure_ascii=False)
+    read = " and ".join(READ_VERSIONS)
     if isinstance(version, str) and version in SUPERSEDED_VERSIONS:
         return [f"superseded-version: $.schemaVersion: {shown} was a draft that was never "
-                f"approved; only {SCHEMA_VERSION} is read"]
-    if version != SCHEMA_VERSION:
-        return [f"unknown-version: $.schemaVersion: {shown} is not {SCHEMA_VERSION}"]
-    problems = [f"schema: {p}" for p in validator().errors(receipt)]
+                f"approved; only {read} are read"]
+    if not isinstance(version, str) or version not in READ_VERSIONS:
+        return [f"unknown-version: $.schemaVersion: {shown} is not {read}"]
+    problems = [f"schema: {p}" for p in validator(version).errors(receipt)]
     return problems or [f"rule: {p}" for p in rule_problems(receipt)]
 
 
@@ -575,15 +781,27 @@ def dump(receipt):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("action", choices=["write", "validate", "verify", "record"])
+    parser.add_argument("action", choices=["write", "validate", "verify", "record", "export"])
     parser.add_argument("receipts", nargs="*")
     parser.add_argument("--contract", default=CONTRACT)
     parser.add_argument("--evidence", default="tests/program/receipts/generated/lf-clamp-evidence.json")
     parser.add_argument("--out", default="tests/program/receipts/generated/lf-clamp.json")
     parser.add_argument("--markdown", default="tests/program/receipts/generated/lf-clamp.md")
+    parser.add_argument("--manifest-out")
+    parser.add_argument("--keep")
     args = parser.parse_args()
     if args.action == "record":
-        Path(args.out).write_text(dump(record(args.contract)), encoding="utf-8")
+        Path(args.out).write_text(dump(record(args.contract, args.manifest_out, args.keep)),
+                                  encoding="utf-8")
+        return 0
+    if args.action == "export":
+        if len(args.receipts) != 1:
+            parser.error("export needs one output file, OUT.ndjson")
+        vc = vc_entry(program_vc.parse_contract(Path(args.contract).read_text(encoding="utf-8"),
+                                                args.contract)["id"])
+        export_theorems(pinned_lean(), vc["theorems"], args.receipts[0])
+        print(f"wrote {args.receipts[0]} and its manifest: {', '.join(vc['theorems'])} with "
+              "every declaration they use; check it with bin/leanforth check")
         return 0
     if args.action == "write":
         receipt = build(args.contract, read_json(args.evidence))

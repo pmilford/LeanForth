@@ -1,6 +1,8 @@
 # ADR 0001: initial core fragment
 
-Status: proposed; human review required before kernel implementation.
+Status: superseded (see the approval status below); kept as history.
+
+Approval status: superseded by ADRs 0011, 0012, 0014, 0015 and 0016 (the checker's scope and rules; owner approved the wording 2026-11-12, night, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)"); this text is history and its fragment is not what the checker covers; no code change
 
 ## Goal
 

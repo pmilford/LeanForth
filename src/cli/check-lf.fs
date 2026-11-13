@@ -36,12 +36,17 @@
 \ lfc-fresh ( -- ) clears both, before a text's run (ck-lf-load does,
 \ and the command line before anything else of a text's run);
 \ lfc-library-open ( c-addr u checked? -- outcome ) and lfc-library-close
-\ ( -- ), a library for the words outside check (see below).
+\ ( -- ), a library for the words outside check (see below);
+\ lfc-elab-file! ( c-addr u -- ) names the library's elaboration data
+\ (--elab-data, plan row FE1d; 0 0 none), read and checked after the
+\ library and before the text runs (front/elab-data.fs), and
+\ lfc-elab-failed? ( -- flag ) says whether it was refused (then
+\ elab-error tells where and why, and the text did not run).
 \ Untrusted, like the stage and the words: neither can make a declaration
 \ accepted; only check-declaration and the publisher decide.
 \ State: one context record, lfc (the library's name, whether the text
 \ failed or its records were refused, the settings kept while the words
-\ run).
+\ run, the elaboration data's name and whether it was refused).
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
@@ -49,6 +54,7 @@ require ../core/input.fs
 require ../author/runner.fs
 require ../front/reader.fs
 require ../import/stage.fs
+require ../front/elab-data.fs
 require ./check-run.fs
 
 begin-structure /lfc
@@ -57,6 +63,8 @@ begin-structure /lfc
   field: lfc-refused             \ true: its records did not reach the stage whole
   field: lfc-sharing             \ the term store's sharing before the run
   field: lfc-names               \ the name store's capacity setting before it
+  2 cells +field lfc-elab-file   \ the elaboration data's file name, or 0 0
+  field: lfc-elab-failed         \ true: the elaboration data was refused
 end-structure
 /lfc context-record: lfc
 
@@ -65,8 +73,9 @@ end-structure
 : lfc-library? ( -- flag ) lfc lfc-env @ 0<> ck-importing? or ;
 : lfc-failed? ( -- flag ) lfc lfc-failed @ ;
 : lfc-refused? ( -- flag ) lfc lfc-refused @ ;
-\ Neither flag set: at the start of each text's run (review N3).
-: lfc-fresh ( -- ) false lfc lfc-failed ! false lfc lfc-refused ! ;
+\ No flag set: at the start of each text's run (review N3).
+: lfc-fresh ( -- )
+  false lfc lfc-failed ! false lfc lfc-refused ! false lfc lfc-elab-failed ! ;
 
 \ ---- The stores' room while the words run: the name store's setting and
 \ those of check-run.fs's table (ck-rooms: terms, levels, references and
@@ -106,9 +115,10 @@ end-structure
 
 \ ---- What the natural reader asks of a library constant (front/reader.fs,
 \ lfn-library-arity): how many explicit binders its type's telescope has,
-\ or -1 when the telescope ends in something that may unfold to more (an
-\ application of a definition, a let, a projection or metadata), and
-\ whether it is a definition itself (so a type headed by it may unfold).
+\ or -1 when the telescope ends in something that Lean's whnf may unfold
+\ to more (an application of a definition or of a lambda, which whnf
+\ beta-reduces, a let, a projection or metadata), and whether it is a
+\ definition itself (so a type headed by it may unfold).
 : lfc-tag ( e -- tag ) lfc-tier expr-tag@ ;
 : lfc-def? ( d -- flag ) ck-stage staged-kind@ kind-def = ;
 : lfc-pi? ( e -- flag ) lfc-tag tag-pi tag-let within ;
@@ -117,10 +127,12 @@ end-structure
   0 swap begin dup lfc-pi? while tuck lfc-explicit swap lfc-tier expr-b@ repeat ;
 : lfc-head ( e -- e' ) begin dup lfc-tag tag-app = while lfc-tier expr-a@ repeat ;
 : lfc-const-unfolds? ( e -- flag ) lfc-tier expr-a@ lfc-decl if lfc-def? else false then ;
+: lfc-redex-tag? ( tag -- flag )
+  dup tag-lam tag-pi within over let-tag? or over tag-let-body = or
+  over tag-proj = or swap tag-mdata = or ;
 : lfc-unfolds? ( e -- flag )
-  lfc-head dup lfc-tag case tag-const of lfc-const-unfolds? endof
-    tag-proj of drop true endof tag-mdata of drop true endof
-    nip dup let-tag? over tag-let-body = or swap endcase ;
+  lfc-head dup lfc-tag dup tag-const =
+  if drop lfc-const-unfolds? else nip lfc-redex-tag? then ;
 : lfc-arity ( name -- arity unfolds? true | false )
   lfc-name lfc-decl 0= if false exit then
   dup lfc-def? swap ck-stage staged-type@ lfc-telescope lfc-unfolds? if drop -1 then
@@ -140,6 +152,29 @@ end-structure
 : lfc-stage-start ( checked? -- outcome )
   ck-importing? if drop outcome-ok exit then
   lfc-library? if lfc-library-read exit then drop lfc-log2 ck-stage stage-init ;
+
+\ ---- The elaboration data (--elab-data; plan row FE1d): read against
+\ the library's names, before they are sealed, and its export's SHA-256:
+\ a snapshot's export's, the manifest check's digest, or, for a library
+\ read without its manifest, the file hashed here (cli/check-run.fs); a
+\ library that cannot be hashed refuses the data (elab-unhashed, error 26).
+\ Not with a layered snapshot (refused by the command line): the hash is
+\ the base's, the names the layers' too.
+: lfc-elab-file! ( c-addr u -- ) lfc lfc-elab-file 2! ;
+: lfc-elab-failed? ( -- flag ) lfc lfc-elab-failed @ ;
+: lfc-manifest-sha ( -- addr ) ck-stage stage-manifest manifest-digest ;
+: lfc-export-sha ( -- addr outcome )
+  ck-importing? if ck-snap snap-export-sha outcome-ok exit then
+  ck-state ck-checked-read @ if lfc-manifest-sha outcome-ok exit then
+  lfc lfc-env 2@ ck-sha-file ck-digest swap ;
+: lfc-elab-read ( -- outcome )
+  lfc lfc-elab-file 2@ ck-stage lfc-export-sha
+  ok-then? if elab-read else nip nip nip elab-unhashed then ;
+: lfc-elab-step ( -- outcome )
+  lfc lfc-elab-file @ 0= if outcome-ok exit then
+  lfc-elab-read dup ok? 0= lfc lfc-elab-failed ! ;
+: lfc-library-ready ( checked? -- outcome )
+  lfc-stage-start dup ok? if drop lfc-elab-step then ;
 
 \ ---- The text: run by the words, a checked run with the library's finder.
 : lfc-finder ( -- xt|0 ) lfc-library? if ['] lfc-find else 0 then ;
@@ -196,7 +231,7 @@ end-structure
 \ ---- Loading, as ck-load (cli/check-run.fs): the staging phase is the
 \ library's reading, the text's run and its records, and the seal.
 : lfc-staging ( c-addr u checked? -- outcome )
-  lfc-fresh lfc-stage-start ok-then? if lfc-text else nip then
+  lfc-fresh lfc-library-ready ok-then? if lfc-text else nip then
   dup ok? if drop ck-stage stage-seal then ;
 : lfc-stage-phase ( c-addr u checked? -- outcome )
   ck-phase-begin lfc-staging ck-staging ck-phase-end ck-staging ck-fail ;

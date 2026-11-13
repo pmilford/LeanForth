@@ -208,4 +208,16 @@ T{ s" k.eq-variable-proof" 97 23 whole -> true true outcome-full }T
 T{ s" k.eq-different-ends" 101 29 whole -> true true outcome-full }T
 T{ s" iota.prod-eta" 89 19 whole -> true true outcome-full }T
 
+\ ---------------------------------------------------------------------------
+\ 1, 7 (coverage COV2). A recursor applied to fewer arguments than its
+\ major premise's place is no redex (inductive_reduce_rec, inductive.h
+\ 83: major_idx >= nargs): Bool.rec motive False True, the target's type
+\ without its major premise, is its own whnf, and so is the recursor
+\ alone.
+: whnf-of ( node -- node' outcome ) ['] cs-whnf cs-pass! cs-plenty cs-pass ;
+: no-redex ( -- )
+  T{ cs-type lf-term-first@ whnf-of -> cs-type lf-term-first@ outcome-ok }T
+  T{ cs-type lf-term-first@ lf-term-first@ dup whnf-of -rot = -> outcome-ok true }T ;
+s" iota.bool-true" ' no-redex outcome-ok cs-probe-gives
+
 bye
