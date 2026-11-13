@@ -1125,3 +1125,33 @@ date is 2026-11-12). Each ADR's "Approval status:" line now cites this section.
   2026-11-11").
 - **Item 18:** the strict export header and the official export checker as referee for hand-made files (C5, C6): gate
   [import]; the local-CI rule: no gate (process) (gate recorded 2026-11-12 night, for "Approval round of 2026-11-11").
+
+### Less repeated testing (2026-11-13, morning; plan 9.4.6)
+
+The owner asked why small tasks take so long to reach GitHub; the count is in
+[TEST_WORKFLOW_REVIEW.md](../development/TEST_WORKFLOW_REVIEW.md) (`lib/sort.fs`: about twelve full-suite runs and two
+to three hours of machine time to reach GitHub; six hours of pushes spent 3.6 hours in CI). The owner chose every
+recommendation:
+
+1. **Reuse a recorded pass for an identical tree.** When the exact tree (`git rev-parse HEAD^{tree}`) already passed a
+   suite with the same Gforth and Lean, a later merge or push reuses that record instead of re-running it. Agents rebase
+   on main before their final run so that most merges keep the tested tree.
+2. **Tests by change tier, the full suite once a day and before every tag.** Documentation only: the documentation and
+   progress checks. Tests only: the changed tests, their faults and the coverage of the files they test. A library
+   nothing loads yet: its own tests on both Gforths, its faults and coverage. Front end: the front-end targets and the
+   files they load. Kernel, core, import, cli, the Makefile or scripts: the whole of `make check`. A tier never skips a
+   test of a file the change can reach. The full suite, Gforth 0.7.3 included, runs once a day (with `LEAN_CACHE=0`)
+   and before every tag.
+3. **Pushes at checkpoints** (about every two to three hours, at the end of a session, or when a branch someone needs
+   lands), with documentation-only commits riding along, instead of after every merge. Every branch stays committed
+   locally in the meantime. Work branches are not pushed to GitHub.
+4. **Bigger steps.** A new library lands with its first real caller in one branch (libraries the owner asks for on their
+   own excepted), and plan steps are sized by a user-visible result, not one layer at a time.
+
+Also adopted with these, as the review proposed: each branch runs its tier's suite once, at the end, on the head it hands
+over (focused tests while working, nothing again after a review fix unless the fix reaches a file outside the tier);
+reviewers run their own probes and planted faults and do not repeat the implementer's recorded runs; coverage allowances
+and small follow-ups go into the branch that caused them. Kept unchanged: planted faults, the Forth style review of every
+change to `src/`, both Gforth versions, the daily uncached run and the done checker. Items 1 and 2 at push time need
+scripts (plan 9.4.6); until they land, `scripts/push.sh` keeps running both CI jobs in full.
+

@@ -23,6 +23,9 @@ boundaries, malformed input, negative behavior and actual interfaces. Check
 that comments and documentation describe stack effects, assumptions and trust
 boundaries accurately, and that no untrusted result authorizes a proof.
 Use the bundled Gforth when available and say exactly what was or was not run.
+Do not repeat the implementer's recorded suite runs on the same head (owner,
+2026-11-13, plan 9.4.6): run your own probes, your own planted faults, the
+changed test files and the pinned-Lean comparisons your questions need.
 Report actionable findings first, ordered by severity, with file and line links,
 reproduction and suggested fix or factoring, then a separate Forth style
 section (metrics summary and style findings). State uncertainties and remaining
