@@ -53,10 +53,10 @@
 \ record, or text that is not an optional minus sign followed by one or more
 \ decimal digits (leading zeros allowed; "-0" is 0); full when the arena has
 \ no room or a magnitude would have more bits than the arena's limit
-\ (bignum.fs: Lean's 2^30 unless big-limit! sets another), also for an
-\ intermediate value one bit longer than the result. A failure gives -1 in
-\ the result's place (bigint>decimal: 0 0) and leaves the arena's top where
-\ it was. The checks are O(1), as bignum.fs's; bigint-compare, bigint-sign,
+\ (bignum.fs: Lean's 2^30 unless big-limit! sets another; no value on the
+\ way is longer than the result or an operand). A failure gives -1 in the
+\ result's place (bigint>decimal: 0 0) and leaves the arena's top where it
+\ was. The checks are O(1), as bignum.fs's; bigint-compare, bigint-sign,
 \ bigint>n and bigint-magnitude trust their argument (bigint-valid? first).
 \ Text read must not lie in the arena's free part.
 \
