@@ -494,9 +494,10 @@ when Lean's tactic would.
 - `by-case: TAG NAMES… =>` focuses the goal of that case and names its new
   hypotheses, as Lean's `case TAG NAMES… =>`; the names end at `=>`. The
   case must be finished before the next `by-case:` or `end`.
-- `end NAME` with goals left is an error that prints them; there is no
-  `sorry`, and nothing is ever filled in to carry on after an error
-  (ADR 0021 D3).
+- `end NAME` with goals left is an error that prints them; nothing is
+  ever filled in to carry on after an error (ADR 0021 D3). The explicit
+  `sorry`, as in Lean, closes a goal and leaves the declaration NOT
+  PROVED, with the open parts listed (ADR 0021 Amendment 1).
 - `.goals` prints the goals at any point (at the prompt this is the
   interactive view; in a file, a debugging aid); errors print the goals
   too. For AI tools the same in JSON.
@@ -523,6 +524,7 @@ on the same source.
 elaboration data; built-in simprocs re-implemented as Forth words (279 in
 Lean core, prioritised by use). `decide` uses the front end's reduction and
 leaves the real check to the kernel. `omega` and later `grind` are ports.
+FE1i's first slice of both is designed in [FE1I_AUTOMATION.md](FE1I_AUTOMATION.md).
 Mathlib's tactics are ports too, each with its extensions (`norm_num`: 81,
 `positivity`: 119) written as Forth words: Mathlib's Lean code cannot run
 in LeanForth (that would be meaning (C) of §3). `native_decide`,
@@ -560,7 +562,8 @@ with it.
 
 The rules of ADR 0021: the front end has no way to publish a declaration
 except through the kernel's check of export records; no metavariable
-reaches the kernel; no `sorry` and no error recovery; the axioms of each
+reaches the kernel; no error recovery, and the explicit `sorry` only as
+in Lean, reported NOT PROVED with its open parts (ADR 0021 Amendment 1); the axioms of each
 accepted theorem are the kernel's report, unchanged; every verdict line
 shows the checked statement; every elaboration rule that decides what a
 statement means passes the [parser] gate and is compared with pinned Lean;
@@ -693,7 +696,9 @@ five times LeanForth today.
   ```
 
   Its term is the one shown in §2.1; FE1's term must equal it node for
-  node, binder names `n a` included.
+  node, binder names `n a` included (Lean stores them with macro scopes,
+  `n._@…_hyg.15`; they are compared with the scopes erased,
+  [FE1G_TACTICS.md](FE1G_TACTICS.md) §2.3).
 
 ### 8.2 What FE1 needs, and nothing more
 
@@ -706,18 +711,26 @@ FE1 reaches; every other case answers *unsupported* with its token.
 | FE1b | Metavariable context: expression and level metavariables, local contexts, assignment, instantiation, delayed assignment for `intro` under binders; the export writer's refusal of metavariables | `MetavarContext.lean`, parts of `Meta/Basic.lean` |
 | FE1c | Meta-level `whnf`, type inference and `isDefEq` at default and instances transparency: first-order and pattern unification, level unification, lazy delta by height, `Nat` literals and offsets (needed for $0 + (k + 1) \equiv$ `Nat.succ (Nat.add 0 k)`), caches, fuel | parts of `WHNF.lean`, `InferType.lean`, `ExprDefEq.lean`, `LevelDefEq.lean`, `Offset.lean` |
 | FE1d | Elaboration data, first slice: pinned Lean writes instances, default instances, reducibility and `induction_eliminator` for an export; LeanForth reads and validates it; `--elab-data FILE` and the manifest's entry | — (new Lean exporter) |
-| FE1e | Application elaboration with implicit and instance arguments and expected-type propagation; numerals with the default instance; `binop%`/`binrel%` trees for `+` and `=`; instance synthesis (tabled resolution for `HAdd Nat Nat ?γ`, `Add Nat`, `OfNat Nat 0`); the synthetic-metavariable rounds | parts of `App.lean`, `Extra.lean`, `BuiltinTerm.lean`, `SynthInstance.lean`, `SyntheticMVars.lean` |
+| FE1e | Application elaboration with implicit and instance arguments and expected-type propagation; numerals with the default instance; `binop%`/`binrel%` trees for `+` and `=`; instance synthesis (tabled resolution for `HAdd Nat Nat ?γ`, `Add Nat`, `OfNat Nat 0`); the synthetic-metavariable rounds. Designed in full in [FE1E_APPLICATIONS.md](FE1E_APPLICATIONS.md) (the acceptance trace, the instance-class check, sub-steps FE1e0–FE1e8) | parts of `App.lean`, `Extra.lean`, `BuiltinTerm.lean`, `SynthInstance.lean`, `SyntheticMVars.lean`, `DiscrTree` |
 | FE1f | Declaration: header elaboration, universe parameters, `:= by` opens the proof state, the finished term instantiated and sent as export records to the kernel | parts of `MutualDef.lean`, `Term.lean` |
-| FE1g | Proof state and tactics: goals, `.goals`, `by-induction` (eliminator from the elaboration data, motive, one goal per minor premise with its tag), `by-case: … =>`, `by-rfl` (`Eq.refl` at default transparency), `by-exact` | parts of `Elab/Tactic/Basic.lean`, `Induction.lean`, `Meta/Tactic/Induction.lean`, `ElimInfo.lean`, `Rfl.lean` |
+| FE1g | Proof state and tactics: goals, `.goals`, `by-induction` (eliminator from the elaboration data, motive, one goal per minor premise with its tag), `by-case: … =>`, `by-rfl` (`Eq.refl` at default transparency), `by-exact`; designed in detail in [FE1G_TACTICS.md](FE1G_TACTICS.md) (also alternatives, `by-intro:` and `by-rw[ … ]`) | parts of `Elab/Tactic/Basic.lean`, `Induction.lean`, `Meta/Tactic/Induction.lean`, `ElimInfo.lean`, `Rfl.lean` |
 | FE1h | Tests of every class below, planted faults, the user page in three forms, the done-checker run | — |
+| FE1i | Brought forward by the owner (2026-11-12), right after FE1: the first proofs LeanForth finds by itself, `by-decide` (a faithful port of Lean's `decide`: identical term) and a first slice of `by-omega` (linear arithmetic over `Nat` and `Int`: Lean's outcome required, its term measured). Designed in full in [FE1I_AUTOMATION.md](FE1I_AUTOMATION.md): pinned Lean's terms for the target lines and nearby cases, the kernel check of them (nothing missing), the port of `omega` recommended over a procedure of LeanForth's own, tests, sub-steps FE1i-1–9 and three owner questions | `Elab/Tactic/Decide.lean`, `Elab/Tactic/Omega/` (1,704 lines), `FalseOrByContra.lean`, `Meta/Canonicalizer.lean` |
 
-FE1c's status (2026-11-12, branch `fe1c`): level unification without max
-(`src/front/level-defeq.fs`), bound-variable instantiation, abstraction
-and head beta (`instantiate.fs`), level equality with `mkLevelMax'` and
-`mkLevelIMax'` (`level-simp.fs`) and universe-parameter instantiation
-(`level-params.fs`) are written and tested alone; `make reference-front`
-compares 85 cases with pinned Lean (83 equal; two level unifications over
-max answer unsupported until `Level.normalize` is ported). On branch
+FE1c's status (2026-11-12, branch `fe1c-lnorm`): level unification
+(`src/front/level-defeq.fs`, Lean's `isLevelDefEqAux` under
+`checkpointDefEq`: both sides instantiated and normalized, the
+assignments of a false answer rolled back), `Level.normalize` and Lean's
+`Name.cmp` (`level-normalize.fs`), bound-variable instantiation,
+abstraction and head beta (`instantiate.fs`), level equality with
+`mkLevelMax'` and `mkLevelIMax'` (`level-simp.fs`), universe-parameter
+instantiation (`level-params.fs`) and marks with rollback of
+metavariable assignments (`mvars.fs`, for `checkpointDefEq`) are written
+and tested alone; `make reference-front` compares 155 cases with pinned
+Lean: 153 equal, and two level unifications that need Lean's
+`solveSelfMax` or `decLevel?` of a max (not ported yet) answer
+unsupported. 
+On branch
 `fe1c-2`, written and tested alone: the front end's view of the
 environment (`src/front/meta-env.fs`: a declaration of the loaded
 library by name, its reducibility status from FE1d's elaboration data,

@@ -23,7 +23,18 @@
 
 require ../lib/lib.fs
 require ../core/levels.fs
-require ./level-defeq.fs
+
+\ Shapes, shared with level-defeq.fs and level-normalize.fs: Lean's
+\ getLevelOffset and getOffset, the base under the successors and their
+\ number; Lean's == on two leaves, one node or a record of the same fields.
+: ld-succ? ( level -- flag ) lf-level-tag@ lf-level-tag-succ = ;
+: ld-param? ( level -- flag ) lf-level-tag@ lf-level-tag-param = ;
+: ld-pred ( level -- level' ) lf-level-first@ ;
+: ld-offset ( level -- base k ) 0 begin over ld-succ? while 1+ swap ld-pred swap repeat ;
+: ld-base ( level -- base ) ld-offset drop ;
+: ld-record ( level -- addr u ) lf-level-slot /node ;
+: ld-same? ( a b -- flag )
+  2dup = if 2drop true exit then >r ld-record r> ld-record compare 0= ;
 
 2 cells context-slab: ls-pairs
 : ls-push ( a b -- outcome )

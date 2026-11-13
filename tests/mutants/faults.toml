@@ -1580,6 +1580,47 @@ test = "python3 tests/cli/test_leanforth.py OtherLean"
 reason = "check --any-lean-version on another Lean version's export prints no note that its verdicts are Lean 4.35.0's"
 
 [[fault]]
+id = "clamp-taken-problems-silent"
+file = "tests/program/clamp_mutants.py"
+old = '''    return ([f"from the snapshot: {taken}, expected {want}"] if taken != want else []) + (
+        [f"provenance not as expected: {wrong[:5]}"] if wrong else [])'''
+new = '''    return []'''
+test = "python3 tests/program/clamp_mutants.py --test"
+reason = "the snapshot accounting of the clamp and SHA mutant checks finds nothing: a copy taken from the snapshot, or an original checked again, would pass (review L2 of speed-lf)"
+
+[[fault]]
+id = "program-clamp-stale-snapshot"
+file = "scripts/program_receipt.py"
+old = '''    if not snapshot.is_file() or snapshot.stat().st_size == 0:'''
+new = '''    if False:'''
+test = "python3 tests/program/clamp_mutants.py --test"
+reason = "record --keep accepts a check that wrote no snapshot, so an earlier run's snapshot could be read in its place (review L3 of speed-lf)"
+
+[[fault]]
+id = "cli-text-jobs-note-missing"
+file = "src/cli/leanforth.fs"
+old = '''  cli-json? if exit then cli-text-jobs-note true cli-state run-noted !'''
+new = '''  cli-json? if exit then true cli-state run-noted !'''
+test = "python3 tests/cli/test_leanforth.py TextJobs"
+reason = "check --jobs N with a LeanForth text checks one declaration at a time without saying so (plan 8.2.1c's notes)"
+
+[[fault]]
+id = "cli-text-jobs-note-at-one"
+file = "src/cli/leanforth.fs"
+old = ''': cli-text-jobs-note ( -- ) cli-jobs 1 > if cli-serial-text cli-note then ;'''
+new = ''': cli-text-jobs-note ( -- ) cli-jobs 0 > if cli-serial-text cli-note then ;'''
+test = "python3 tests/cli/test_leanforth.py TextJobs"
+reason = "check --jobs 1 with a LeanForth text says --jobs does not apply, though one worker is what it asked for"
+
+[[fault]]
+id = "cli-capabilities-no-text"
+file = "src/cli/leanforth.fs"
+old = '''  ." supported:" cr cli-check-input. cli-check-rules. cli-text-check.'''
+new = '''  ." supported:" cr cli-check-input. cli-check-rules.'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "capabilities does not list checking a LeanForth text (check [--env EXPORT | --snapshot FILE] FILE.lf)"
+
+[[fault]]
 id = "ndjson-anonymous-name"
 file = "src/import/ndjson.fs"
 old = '''  tuck name-of 2dup anonymous? if 2drop bad-ref else rot drop then ;'''
@@ -10327,6 +10368,76 @@ new = ''': lf-nt-end ( row -- ) here over - swap lf-nt-next ! ;'''
 test = "$GFORTH tests/present/notation.fs"
 reason = "a notation row may start at an unaligned address (works on x86-64, faults elsewhere): rows-aligned? catches it (review refactor-present L1d)"
 
+# Plan 5.5.1 (2026-11-12): the program receipt states LeanForth's verdict on
+# Lean's exported clamp proofs, and the export mutation tool
+# (scripts/program_receipt.py, tests/program/clamp_mutants.py).
+
+[[fault]]
+id = "p551-any-theorem-accepted"
+file = "scripts/program_receipt.py"
+old = '''    if verdicts == {"accepted"}:'''
+new = '''    if "accepted" in verdicts:'''
+test = "python3 tests/program/receipt_check.py"
+reason = "5.5.1: a receipt says accepted-by-leanforth when LeanForth rejected an obligation but accepted the contract theorem"
+quick = true
+
+[[fault]]
+id = "p551-not-proved-accepted"
+file = "scripts/program_receipt.py"
+old = '''            if set(leanforth["theorems"][name]["axioms"]) - set(ALLOWED_AXIOMS):'''
+new = '''            if False:'''
+test = "python3 tests/program/receipt_check.py"
+reason = "5.5.1: a theorem that depends on sorryAx (NOT PROVED) is written into a receipt as accepted"
+
+[[fault]]
+id = "p551-unfinished-as-unsupported"
+file = "scripts/program_receipt.py"
+old = '''    return next((status for status, found in CHECK_FROM_VERDICTS if verdicts & found), "failed")'''
+new = '''    return next((status for status, found in CHECK_FROM_VERDICTS if verdicts & found), "unsupported")'''
+test = "python3 tests/program/receipt_check.py"
+reason = "5.5.1: a check that ran out of fuel, or a theorem missing from the report, is called unsupported, not failed"
+
+[[fault]]
+id = "p551-axioms-not-compared"
+file = "scripts/program_receipt.py"
+old = '''        if sorted(leanforth["theorems"][name]["axioms"]) != sorted(lean["axioms"][name]):'''
+new = '''        if False:'''
+test = "python3 tests/program/receipt_check.py"
+reason = "5.5.1: a receipt is written when LeanForth's axioms for a theorem differ from Lean's #print axioms"
+
+[[fault]]
+id = "p551-export-not-pinned"
+file = "scripts/program_receipt.py"
+old = '''    if evidence["export"] != {"sha256": manifest["sha256"], "bytes": manifest["bytes"]}:'''
+new = '''    if False:'''
+test = "python3 tests/program/receipt_check.py"
+reason = "5.5.1: a receipt is written from LeanForth's verdict on another export than the pinned one"
+quick = true
+
+[[fault]]
+id = "p551-bit8-unnamed"
+file = "scripts/program_receipt.py"
+old = '''        ["an axiom outside the allowlist"] if bits & 8 else [])'''
+new = '''        [] if bits & 8 else [])'''
+test = "python3 tests/program/receipt_check.py"
+reason = "5.5.1: an accepted declaration with an unnamed axiom outside the allowlist reads as having none, so NOT PROVED is lost"
+
+[[fault]]
+id = "p551-mutant-reuses-later-expression"
+file = "tests/program/clamp_mutants.py"
+old = '''        if found is None or self.where["ie", found] >= self.limit:'''
+new = '''        if found is None:'''
+test = "python3 tests/program/clamp_mutants.py --test"
+reason = "5.5.1: an in-place mutant reuses an expression defined after the declaration, so the export is malformed and its rejection says nothing about the change"
+
+[[fault]]
+id = "p551-copies-without-change"
+file = "tests/program/clamp_mutants.py"
+old = '''            changes = {**renaming, **(export.swaps(pairs) if field == "value" else {})}'''
+new = '''            changes = dict(renaming)'''
+test = "python3 tests/program/sha_export_check.py"
+reason = "5.5.1: a mutant copy keeps its original's body, so the checks of changed words and proofs test nothing (needs pinned Lean)"
+
 # --- The front end's Meta layer (plan FE1c; ADR 0021 D6) -----------------
 
 [[fault]]
@@ -10340,34 +10451,34 @@ reason = "FE1c: a level metavariable of an outer depth is assigned inside a deep
 [[fault]]
 id = "fe-level-deeper-ignored"
 file = "src/front/level-defeq.fs"
-old = '''  2dup swap ld-deeper? if 2dup swap ld-assign else 2dup ld-assign then ;'''
-new = '''  2dup ld-assign ;'''
+old = '''  2dup swap ld-deeper? if 2dup swap ld-assign exit then'''
+new = '''  2dup swap ld-deeper? drop'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: ?o =?= ?d assigns ?o := ?d where Lean assigns the deeper ?d := ?o (isMVarWithGreaterDepth)"
 
 [[fault]]
 id = "fe-level-assigned-not-instantiated"
 file = "src/front/level-defeq.fs"
-old = ''': ld-assigned? ( l r -- flag ) ld-set? swap ld-set? or ;'''
-new = ''': ld-assigned? ( l r -- flag ) 2drop false ;'''
+old = ''': ld-fresh ( level -- level' outcome )'''
+new = ''': ld-fresh ( level -- level' outcome ) lf-meta-level-normalize exit'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: an assigned level metavariable is compared as if free (Lean instantiates first)"
 
 [[fault]]
 id = "fe-level-postponed-false"
 file = "src/front/level-defeq.fs"
-old = '''  2dup ld-open? swap ld-open? or if outcome-unsupported ld-end else ld-no then ;'''
-new = '''  ld-no ;'''
+old = '''  over lf-level-assignable-mvar? outcome-unsupported ld-when dup ld-undef? 0= if exit then'''
+new = '''  ld-no exit'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: a pair Lean postpones answers false, a guess, where it must be unsupported"
 
 [[fault]]
 id = "fe-level-max-guessed"
 file = "src/front/level-defeq.fs"
-old = ''': ld-flat? ( l r -- flag ) ld-plain? swap ld-plain? and ;'''
-new = ''': ld-flat? ( l r -- flag ) 2drop true ;'''
+old = '''  dup ls-max? if outcome-unsupported ld-end else ld-undef then ;'''
+new = '''  ld-yes ;'''
 test = "$GFORTH tests/front/meta.fs"
-reason = "FE1c: levels with max are solved without Lean's normalization: a guess where it must be unsupported"
+reason = "FE1c: ?m =?= max ?m u answers true without Lean's solveSelfMax (not ported): a guess where it must be unsupported"
 
 [[fault]]
 id = "fe-inst-no-shift"
@@ -10480,75 +10591,6 @@ old = '''  lp-l-parts if lm-simp-max else drop lf-meta-max then lp-l-result ;'''
 new = '''  lp-l-parts drop drop lf-meta-max lp-l-result ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: a max whose parts stay is made again where Lean's updateMax! keeps it (simpLevelMax')"
-# Plan 5.5.1 (2026-11-12): the program receipt states LeanForth's verdict on
-# Lean's exported clamp proofs, and the export mutation tool
-# (scripts/program_receipt.py, tests/program/clamp_mutants.py).
-
-[[fault]]
-id = "p551-any-theorem-accepted"
-file = "scripts/program_receipt.py"
-old = '''    if verdicts == {"accepted"}:'''
-new = '''    if "accepted" in verdicts:'''
-test = "python3 tests/program/receipt_check.py"
-reason = "5.5.1: a receipt says accepted-by-leanforth when LeanForth rejected an obligation but accepted the contract theorem"
-quick = true
-
-[[fault]]
-id = "p551-not-proved-accepted"
-file = "scripts/program_receipt.py"
-old = '''            if set(leanforth["theorems"][name]["axioms"]) - set(ALLOWED_AXIOMS):'''
-new = '''            if False:'''
-test = "python3 tests/program/receipt_check.py"
-reason = "5.5.1: a theorem that depends on sorryAx (NOT PROVED) is written into a receipt as accepted"
-
-[[fault]]
-id = "p551-unfinished-as-unsupported"
-file = "scripts/program_receipt.py"
-old = '''    return next((status for status, found in CHECK_FROM_VERDICTS if verdicts & found), "failed")'''
-new = '''    return next((status for status, found in CHECK_FROM_VERDICTS if verdicts & found), "unsupported")'''
-test = "python3 tests/program/receipt_check.py"
-reason = "5.5.1: a check that ran out of fuel, or a theorem missing from the report, is called unsupported, not failed"
-
-[[fault]]
-id = "p551-axioms-not-compared"
-file = "scripts/program_receipt.py"
-old = '''        if sorted(leanforth["theorems"][name]["axioms"]) != sorted(lean["axioms"][name]):'''
-new = '''        if False:'''
-test = "python3 tests/program/receipt_check.py"
-reason = "5.5.1: a receipt is written when LeanForth's axioms for a theorem differ from Lean's #print axioms"
-
-[[fault]]
-id = "p551-export-not-pinned"
-file = "scripts/program_receipt.py"
-old = '''    if evidence["export"] != {"sha256": manifest["sha256"], "bytes": manifest["bytes"]}:'''
-new = '''    if False:'''
-test = "python3 tests/program/receipt_check.py"
-reason = "5.5.1: a receipt is written from LeanForth's verdict on another export than the pinned one"
-quick = true
-
-[[fault]]
-id = "p551-bit8-unnamed"
-file = "scripts/program_receipt.py"
-old = '''        ["an axiom outside the allowlist"] if bits & 8 else [])'''
-new = '''        [] if bits & 8 else [])'''
-test = "python3 tests/program/receipt_check.py"
-reason = "5.5.1: an accepted declaration with an unnamed axiom outside the allowlist reads as having none, so NOT PROVED is lost"
-
-[[fault]]
-id = "p551-mutant-reuses-later-expression"
-file = "tests/program/clamp_mutants.py"
-old = '''        if found is None or self.where["ie", found] >= self.limit:'''
-new = '''        if found is None:'''
-test = "python3 tests/program/clamp_mutants.py --test"
-reason = "5.5.1: an in-place mutant reuses an expression defined after the declaration, so the export is malformed and its rejection says nothing about the change"
-
-[[fault]]
-id = "p551-copies-without-change"
-file = "tests/program/clamp_mutants.py"
-old = '''            changes = {**renaming, **(export.swaps(pairs) if field == "value" else {})}'''
-new = '''            changes = dict(renaming)'''
-test = "python3 tests/program/sha_export_check.py"
-reason = "5.5.1: a mutant copy keeps its original's body, so the checks of changed words and proofs test nothing (needs pinned Lean)"
 
 # --- The front end's first steps (plan FE1a-b; ADR 0021) -----------------
 
@@ -11356,6 +11398,372 @@ new = '''  swap ly-fam-map @ ly@ 1- outcome-ok ;'''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "review I2: an own record not entered (map 0) is given as number -1"
 gap = "not equivalent: every record builder refuses -1 in the same step, but a declaration field naming a letE's body record would be refused by ly-enter instead of ly-decls; no layer fixture forges one"
+
+# --- Coverage tests of the kernel, second pass (COV2, 2026-11-12): is_geq's
+# max and imax cases (tests/core/level-geq.fs), terms without a data word
+# (tests/core/no-data-terms.fs, tests/core/mixed-level-substitute.fs).
+
+[[fault]]
+id = "cov2-geq-max-right-side-skipped"
+file = "src/kernel/level-geq.fs"
+old = '''  if lf-geq-rhs r> lf-geq-then else 2drop false r> 0 then ;'''
+new = '''  if 2drop true r> 0 else 2drop false r> 0 then ;'''
+test = "$GFORTH tests/core/level-geq.fs"
+reason = "is_geq(l1, max a b) true once l1 >= a, b never compared: u >= max u v holds"
+
+[[fault]]
+id = "cov2-geq-imax-left-side"
+file = "src/kernel/level-geq.fs"
+old = '''  2 pick lf-geq-imax? if >r swap lf-geq-rhs swap r> lf-geq-then exit then'''
+new = '''  2 pick lf-geq-imax? if >r swap lf-geq-lhs swap r> lf-geq-then exit then'''
+test = "$GFORTH tests/core/level-geq.fs"
+reason = "is_geq(imax a b, l2) asks a >= l2 instead of b >= l2 (level.cpp 532): imax u v >= u holds"
+quick = true
+
+[[fault]]
+id = "cov2-geq-max-rhs-case-dropped"
+file = "src/kernel/level-geq.fs"
+old = '''  dup lf-geq-max? if r> lf-geq-both exit then'''
+new = '''  false if r> lf-geq-both exit then'''
+test = "$GFORTH tests/core/level-geq.fs"
+reason = "is_geq's l2-a-max case (level.cpp 527) skipped: succ (max u v) >= max u v is no longer shown"
+
+[[fault]]
+id = "cov2-whnf-scan-bound-off-by-one"
+file = "src/kernel/whnf.fs"
+old = '''  nip walk-context @ < if outcome-ok else outcome-unknown then ;'''
+new = '''  nip walk-context @ 1+ < if outcome-ok else outcome-unknown then ;'''
+test = "$GFORTH tests/core/no-data-terms.fs"
+reason = "has_loose_bvars of a node without a data word misses a variable one past its binders: fun _ => #1 counts as closed"
+quick = true
+
+[[fault]]
+id = "cov2-whnf-scan-fvar-ignored"
+file = "src/kernel/whnf.fs"
+old = '''  dup lf-tag-fvar = if drop 2drop drop outcome-unknown exit then lf-whnf-scan-dispatch ;'''
+new = '''  dup lf-tag-fvar = if drop 2drop drop outcome-ok exit then lf-whnf-scan-dispatch ;'''
+test = "$GFORTH tests/core/no-data-terms.fs"
+reason = "has_fvar of a node without a data word ignores its free variables, so lazy delta and is_def_eq_core treat it as closed"
+
+[[fault]]
+id = "cov2-whnf-scan-answer-inverted"
+file = "src/kernel/whnf.fs"
+old = '''  dup outcome-unknown = if drop true outcome-ok exit then'''
+new = '''  dup outcome-unknown = if drop false outcome-ok exit then'''
+test = "$GFORTH tests/core/no-data-terms.fs"
+reason = "a scan that stops at a loose variable answers closed: zeta puts an open value for the variable without its lift"
+
+[[fault]]
+id = "cov2-mls-no-data-closed"
+file = "src/kernel/mixed-level-substitute.fs"
+old = ''': lf-mls-closed? ( node -- flag ) lf-term-data@ if lf-data-params? 0= else false then ;'''
+new = ''': lf-mls-closed? ( node -- flag ) lf-term-data@ if lf-data-params? 0= else true then ;'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "a term without a data word is taken as having no universe parameter: its levels are never substituted"
+quick = true
+
+[[fault]]
+id = "cov2-caches-known-without-data"
+file = "src/kernel/caches.fs"
+old = '''  swap lf-cs-facts 0= if drop false exit then
+  swap ['] lf-whnf-scan-visit ='''
+new = '''  swap lf-cs-facts 0= if drop false true exit then
+  swap ['] lf-whnf-scan-visit ='''
+test = "$GFORTH tests/core/no-data-terms.fs"
+reason = "the caches' hook answers 'closed' for a node without a data word instead of letting whnf.fs walk it"
+
+[[fault]]
+id = "cov2-str-app-refusal-unknown"
+file = "src/kernel/string-literals.fs"
+old = ''': lf-sx-app ( f a -- node outcome ) lf-term-app if outcome-ok else -1 outcome-full then ;'''
+new = ''': lf-sx-app ( f a -- node outcome ) lf-term-app if outcome-ok else -1 outcome-unknown then ;'''
+test = "$GFORTH tests/core/string-literals.fs"
+reason = "a full term store while a string literal is expanded reads as undecided, not out of room"
+
+[[fault]]
+id = "cov2-str-const-refusal-rejected"
+file = "src/kernel/string-literals.fs"
+old = '''  0= if -1 outcome-full exit then
+  lf-cterm-new if drop outcome-ok else -1 outcome-full then ;'''
+new = '''  0= if -1 outcome-rejected exit then
+  lf-cterm-new if drop outcome-ok else -1 outcome-full then ;'''
+test = "$GFORTH tests/core/string-literals.fs"
+reason = "a reference store that cannot grow while the expansion's constants are made rejects the declaration: a resource failure stored as a verdict"
+quick = true
+
+[[fault]]
+id = "cov2-str-cell-refusal-unknown"
+file = "src/kernel/string-literals.fs"
+old = '''  >r lf-hterm-cell 0= if r> drop -1 outcome-full exit then drop'''
+new = '''  >r lf-hterm-cell 0= if r> drop -1 outcome-unknown exit then drop'''
+test = "$GFORTH tests/core/string-literals.fs"
+reason = "a character's literal cell that the store cannot hold reads as undecided, not out of room"
+
+[[fault]]
+id = "cov2-defeq-lazy-failure-unknown"
+file = "src/kernel/defeq.fs"
+old = ''': lf-lz-t-back ( tn' outcome frames -- ... frames next )
+  >r ok-then? 0= if r> lf-dq-end-failed exit then'''
+new = ''': lf-lz-t-back ( tn' outcome frames -- ... frames next )
+  >r ok-then? 0= if drop outcome-unknown r> lf-dq-end-failed exit then'''
+test = "$GFORTH tests/core/defeq-sweeps.fs"
+reason = "lazy delta turns the failure of t's unfolding (out of fuel) into undecided: exhausted is no longer reported"
+quick = true
+
+[[fault]]
+id = "cov2-defeq-eta-field-failure-unknown"
+file = "src/kernel/defeq.fs"
+old = '''  >r ok-then? 0= if r> lf-es-fail exit then
+  0= if false r> lf-es-answer exit then'''
+new = '''  >r ok-then? 0= if drop outcome-unknown r> lf-es-fail exit then
+  0= if false r> lf-es-answer exit then'''
+test = "$GFORTH tests/core/defeq-sweeps.fs"
+reason = "structure eta turns a field comparison that ran out of fuel into undecided"
+
+[[fault]]
+id = "cov2-check-u1-any-kind"
+file = "src/kernel/check-declaration.fs"
+old = '''  lf-check-decl dup lf-idecl-kind @ lf-check-kind? 0= if lf-check-out-of-scope exit then'''
+new = '''  lf-check-decl dup lf-idecl-kind @ lf-check-kind? 0= if drop outcome-ok exit then'''
+test = "$GFORTH tests/core/check-forged.fs"
+reason = "U1 passes a declaration of a kind check-declaration does not check; its check goes on as if it were in scope"
+quick = true
+
+[[fault]]
+id = "cov2-lvalue-forged-id-accepted"
+file = "src/kernel/level-value.fs"
+old = '''  if swap lf-lassign-in? 0= else 2drop false then ;'''
+new = '''  if swap lf-lassign-in? 0= else 2drop true then ;'''
+test = "$GFORTH tests/core/level-value.fs"
+reason = "an assignment entry whose ID is no parameter of the context (forged after it was added) passes the table's check"
+
+[[fault]]
+id = "cov2-lvalue-any-mode"
+file = "src/kernel/level-value.fs"
+old = '''    lf-lvalue-free of true endof lf-lvalue-witness of true endof false swap endcase ;'''
+new = '''    lf-lvalue-free of true endof lf-lvalue-witness of true endof true swap endcase ;'''
+test = "$GFORTH tests/core/level-value.fs"
+reason = "an evaluation mode that is none of the three is run instead of refused"
+
+[[fault]]
+id = "cov2-convert-reset-keeps-frames"
+file = "src/kernel/mixed-convert.fs"
+old = '''  lf-mconvert-frames frame-reset lf-open-reset lf-defeq-reset ;'''
+new = '''  lf-open-reset lf-defeq-reset ;'''
+test = "$GFORTH tests/core/mixed-convert.fs"
+reason = "the recovery after a THROW leaves the conversion's frames busy: every later conversion is refused"
+
+[[fault]]
+id = "cov2-expr-equal-negative-fuel"
+file = "src/kernel/mixed-compare.fs"
+old = '''  lf-mcompare-walker walk-budget 0= if 2drop false outcome-invalid exit then
+  2dup = if 2drop true outcome-ok exit then'''
+new = '''  lf-mcompare-walker walk-budget 0= if 2drop true outcome-ok exit then
+  2dup = if 2drop true outcome-ok exit then'''
+test = "$GFORTH tests/core/mixed-compare.fs"
+reason = "Lean's == with negative fuel answers 'equal' instead of refusing"
+quick = true
+
+[[fault]]
+id = "cov2-snap-alloc-refusal-ok"
+file = "src/kernel/env-snapshot.fs"
+old = '''  >r over 1 max allocate if drop 2drop r> drop outcome-full exit then'''
+new = '''  >r over 1 max allocate if drop 2drop r> drop outcome-ok exit then'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "a snapshot section the heap cannot hold is taken as written: the save reports ok for a file without it"
+quick = true
+
+[[fault]]
+id = "cov2-iota-major-index-off-by-one"
+file = "src/kernel/iota.fs"
+old = '''  2 pick lf-iota-n over lf-iota-major-idx > 0= if lf-iota-none exit then'''
+new = '''  2 pick lf-iota-n over lf-iota-major-idx 1+ > 0= if lf-iota-none exit then'''
+test = "$GFORTH tests/core/iota.fs"
+reason = "a recursor applied to exactly its major premise is no redex (inductive.h 83, off by one): Bool.rec motive False True Bool.true stays"
+
+[[fault]]
+id = "cov2-shift-string-leaf-bad"
+file = "src/kernel/mixed-shift.fs"
+old = '''    lf-tag-str of lf-rebuild-keep endof
+    lf-tag-symbolic-sort of lf-rebuild-keep endof
+    >r lf-rebuild-bad r> endcase ;
+\ Binary nodes (see the header): unchanged by the data word, given back'''
+new = '''    lf-tag-str of lf-rebuild-bad endof
+    lf-tag-symbolic-sort of lf-rebuild-keep endof
+    >r lf-rebuild-bad r> endcase ;
+\ Binary nodes (see the header): unchanged by the data word, given back'''
+test = "$GFORTH tests/core/mixed-shift.fs"
+reason = "lifting a term refuses a string literal as malformed"
+
+[[fault]]
+id = "cov2-instantiate-literal-leaf-bad"
+file = "src/kernel/mixed-instantiate.fs"
+old = '''    lf-tag-lit of lf-rebuild-keep endof'''
+new = '''    lf-tag-lit of lf-rebuild-bad endof'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "instantiate refuses a natural-number literal as malformed"
+
+[[fault]]
+id = "fe-lparams-empty-walked"
+file = "src/front/level-params.fs"
+old = ''': lp-run ( term -- term' outcome ) lp-count if lp-walk dw-run else outcome-ok then ;'''
+new = ''': lp-run ( term -- term' outcome ) lp-walk dw-run ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c review L1: with no names Sort (max u u) becomes Sort u, where Lean's instantiateLevelParams returns the term as it is"
+
+[[fault]]
+id = "fe-level-mvar-depth-zero"
+file = "src/front/mvars.fs"
+old = '''  dup lf-level-mvar-live? if mvl-number mvl-decl mvl-depth @ else drop -1 then ;'''
+new = '''  drop 0 ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1c review L5: every level metavariable reads as made at depth 0, so one made inside withNewMCtxDepth looks read-only"
+
+[[fault]]
+id = "fe-lsimp-explicit-strict"
+file = "src/front/level-simp.fs"
+old = '''  dup ls-explicit? if lm-offset swap lm-offset <= else 2drop false then ;'''
+new = '''  dup ls-explicit? if lm-offset swap lm-offset < else 2drop false then ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c review L3: max (u+1) 1 stays a max, where Lean's mkLevelMax' subsumes an explicit level at an equal offset and gives u+1"
+
+[[fault]]
+id = "fe-inst-let-deeper"
+file = "src/front/instantiate.fs"
+old = ''': in-binder? ( node -- flag ) lf-term-tag@ lf-term-binder-tag? ;'''
+new = ''': in-binder? ( node -- flag ) lf-term-tag@ dup lf-term-binder-tag? swap lf-tag-let = or ;'''
+test = "python3 tests/front/check_meta.py"
+reason = "FE1c review L2: a let's second child (its lambda) is taken one binder deeper, so let's type and body shift their bound variables, unlike Lean's instantiate1"
+
+[[fault]]
+id = "fe-lsimp-push-full-ignored"
+file = "src/front/level-simp.fs"
+old = '''  if drop ls-pairs slab-at 2! outcome-ok else nip nip nip then ;'''
+new = '''  if drop ls-pairs slab-at 2! outcome-ok else nip nip nip drop outcome-ok then ;'''
+test = "$GFORTH tests/front/meta-heap.fs"
+reason = "FE1c review L4: level equality whose pair stack the heap cannot grow answers as if the pair were equal, instead of full"
+
+[[fault]]
+id = "fe-mctx-rollback-keeps"
+file = "src/front/mvars.fs"
+old = ''': mv-undo ( -- ) mv-trail-top mv-undo-cell -1 swap ! -1 mv-trail slab-commit ;'''
+new = ''': mv-undo ( -- ) mv-trail-top mv-undo-cell drop -1 mv-trail slab-commit ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1c tidy-up c: a rollback leaves the assignments made since its mark, where Lean's checkpointDefEq restores the metavariable context"
+
+[[fault]]
+id = "fe-mctx-mark-unnoted"
+file = "src/front/mvars.fs"
+old = '''  mv-marks @ 0= if 2drop outcome-ok exit then swap 2 lshift or'''
+new = '''  2drop outcome-ok exit'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1c tidy-up c: assignments under a mark are not noted, so no rollback can undo them"
+
+[[fault]]
+id = "fe-mctx-commit-clears"
+file = "src/front/mvars.fs"
+old = ''': lf-mctx-commit ( mark -- ) drop mv-unmark ;'''
+new = ''': lf-mctx-commit ( mark -- ) drop mv-unmark mv-trail slab-clear ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1c tidy-up c: an inner commit forgets its assignments, so the outer rollback cannot undo them"
+
+[[fault]]
+id = "fe-lnorm-names-reversed"
+file = "src/front/level-normalize.fs"
+old = '''  if lf-meta-name-cmp 0< else 2drop outcome-invalid ln-refuse false then ;'''
+new = '''  if lf-meta-name-cmp 0> else 2drop outcome-invalid ln-refuse false then ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c Level.normalize: max u v sorts to max v u, against Lean's normLt (Name.lt)"
+
+[[fault]]
+id = "fe-lnorm-explicit-kept"
+file = "src/front/level-normalize.fs"
+old = ''': ln-first ( -- i ) ln-plain dup ln-subsumed? 0= if 1- 0 max then ;'''
+new = ''': ln-first ( -- i ) ln-plain 1- 0 max ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c Level.normalize: max (u+1) 1 keeps the explicit 1, which Lean's isExplicitSubsumed drops"
+
+[[fault]]
+id = "fe-lnorm-duplicate-kept"
+file = "src/front/level-normalize.fs"
+old = ''': ln-new-base? ( j -- flag ) dup ln-arg @ ld-base swap 1- ln-arg @ ld-base ln-eq? 0= ;'''
+new = ''': ln-new-base? ( j -- flag ) drop true ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c Level.normalize: max u u stays a max, where Lean's mkMaxAux keeps one argument per base"
+
+[[fault]]
+id = "fe-lnorm-offset-outside"
+file = "src/front/level-normalize.fs"
+old = '''  over ld-base ln-max? if ln-images r> ln-max-image exit then ln-imax r> ln-succs ;'''
+new = '''  over ld-base ln-max? if ln-images 0 ln-max-image r> ln-succs exit then ln-imax r> ln-succs ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c Level.normalize: (max u v)+1 keeps its offset outside, where Lean pushes it into the arguments"
+
+[[fault]]
+id = "fe-lnorm-imax-never-zero-ignored"
+file = "src/front/level-normalize.fs"
+old = '''  if ln-images 0 ln-max-image else ln-images ln-imax-aux then ;'''
+new = '''  drop ln-images ln-imax-aux ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c Level.normalize: imax u (v+1) stays an imax, where Lean normalizes max u (v+1)"
+
+[[fault]]
+id = "fe-lnorm-name-end-ignored"
+file = "src/front/level-normalize.fs"
+old = '''  0= swap 0= swap - ;'''
+new = '''  2drop 0 ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c Name.cmp: a name that ends first (w against u.v) no longer comes first"
+
+[[fault]]
+id = "fe-lnorm-ctor-order"
+file = "src/front/level-normalize.fs"
+old = ''': ln-ctor ( level -- n ) ln-tag dup 4 < if dup 0<> 2 and + else 3 - then ;'''
+new = ''': ln-ctor ( level -- n ) ln-tag ;'''
+test = "python3 tests/front/check_meta.py"
+reason = "FE1c Level.normalize: bases of different kinds in LeanForth's tag order, not Lean's ctorToNat (a parameter after a max)"
+
+[[fault]]
+id = "fe-ldefeq-not-normalized"
+file = "src/front/level-defeq.fs"
+old = '''  lf-level-instantiate-mvars dup ok? if drop lf-meta-level-normalize then ;'''
+new = '''  lf-level-instantiate-mvars ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: level unification compares max v u with max u v unnormalized and answers false, where Lean's isLevelDefEqAux normalizes both sides and answers true"
+
+[[fault]]
+id = "fe-ldefeq-false-kept"
+file = "src/front/level-defeq.fs"
+old = '''  >r 2dup ok? and if r> lf-mctx-commit else r> lf-mctx-rollback then ;'''
+new = '''  >r r> lf-mctx-commit ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: a false level unification (0 =?= max ?c (?f+1)) keeps ?c := 0, which Lean's checkpointDefEq rolls back"
+
+[[fault]]
+id = "fe-ldefeq-conjunction-half"
+file = "src/front/level-defeq.fs"
+old = '''  2dup lf-level-second@ ld-push dup ok? 0= if ld-end exit then'''
+new = '''  outcome-ok dup ok? 0= if ld-end exit then'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: 0 =?= max ?c u compares only 0 with ?c and answers true, where Lean also needs 0 =?= u"
+
+[[fault]]
+id = "fe-ldefeq-stale-unchecked"
+file = "src/front/level-defeq.fs"
+old = '''  over lf-level-stale-mvar? outcome-invalid ld-when dup ld-undef? 0= if exit then drop'''
+new = '''  ld-undef exit'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: a stale level metavariable inside a max is compared (false) instead of refused (invalid)"
+
+[[fault]]
+id = "fe-level-open-read-only"
+file = "src/front/mvars.fs"
+old = '''  dup lf-level-mvar-live? if lf-level-mvar-depth lf-mctx-depth < 0= else drop false then ;'''
+new = '''  lf-level-mvar-live? ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: hasAssignableLevelMVar counts a read-only metavariable, so a pair Lean answers false is postponed (unsupported)"
+
+# --- fe1c-2: the environment view, whnfCore, inferType (plan FE1c) ---
 
 [[fault]]
 id = "fe-env-instances-unfold-implicit"

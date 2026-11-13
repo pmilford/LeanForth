@@ -8,14 +8,16 @@
 \ (partial deleted, old file intact), a failed rename; and the argument
 \ errors. tests/lib/test_sections.py checks the same format with an
 \ independent reader and compares the block and field-by-field paths.
-\ Run from the project root; scratch files go to /tmp.
+\ Run from the project root; scratch files go to LF_TEST_SCRATCH's folder,
+\ else /tmp (tests/support/scratch.fs).
 include ../support/tester.fs
+include ../support/scratch.fs
 require ../../src/lib/sections.fs
 lf-lib-private order+
 
-s" /tmp/lf-sections-unit.bin" 2constant path
-s" /tmp/lf-sections-unit.bin.partial" 2constant path-partial
-s" /tmp/lf-sections-unit2.bin" 2constant path2
+s" lf-sections-unit.bin" scratch-file 2constant path
+s" lf-sections-unit.bin.partial" scratch-file 2constant path-partial
+s" lf-sections-unit2.bin" scratch-file 2constant path2
 
 \ ---- whole-file helpers (the heap block is never freed: tests are short)
 : slurp ( c-addr u -- addr n | 0 -1 )
@@ -154,7 +156,7 @@ T{ load-work 1 20 poke32 resign attempt -> outcome-invalid }T
 T{ load-work 1 90 poke32 resign attempt -> outcome-invalid }T
 T{ load-work 1 4 0 slot poke32 resign attempt -> outcome-invalid }T
 T{ load-work attempt -> outcome-ok }T
-T{ s" /tmp/lf-sections-missing.bin" sf sections-open -> outcome-invalid }T
+T{ s" lf-sections-missing.bin" scratch-file sf sections-open -> outcome-invalid }T
 
 \ ---- other numbers of sections
 create tiny 8 allot
@@ -209,6 +211,6 @@ T{ path-partial gone? -> true }T
 T{ sg sections-init  tiny 1 1 $100000000 sg sections-add -> outcome-invalid }T
 T{ 1 16 sg sections-field! -> outcome-invalid }T
 T{ longname 501 sg sections-write -> outcome-full }T
-T{ s" /tmp/lf-sections-no-dir/x.bin" sg sections-write -> outcome-invalid }T
+T{ s" lf-sections-no-dir/x.bin" scratch-file sg sections-write -> outcome-invalid }T
 
 bye

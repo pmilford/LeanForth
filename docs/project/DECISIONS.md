@@ -15,7 +15,7 @@ are indexed here.
 - **Kernel and execution design.** Indexed DAGs against pointer trees, per-check arenas against reference counting,
   FFI outside the kernel: settled later by [ADR 0016](../adr/0016-compact-store.md) and
   [ADR 0009](../adr/0009-reentrant-state-and-parallel-checking.md); typing rules in
-  [ADR 0001](../adr/0001-core-fragment.md) and [ADR 0002](../adr/0002-core-rules.md) (status unclear there).
+  [ADR 0001](../adr/0001-core-fragment.md) and [ADR 0002](../adr/0002-core-rules.md) (both superseded 2026-11-12 by ADRs 0007 item 5, 0011, 0012, 0014, 0015 and 0016).
 - **First examples: a polymorphic composition proof and a bounded integer clamp.** Both now exist; see
   [PROJECT_PROGRESS.md](PROJECT_PROGRESS.md) and [PROGRAM_EXAMPLE.md](../programming/PROGRAM_EXAMPLE.md).
 - **Symbolic universes and the Sort boundary.** [ADR 0004](../adr/0004-symbolic-universes.md),

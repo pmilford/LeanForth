@@ -1349,7 +1349,7 @@ approval.** `let` terms (Q7) leave U2:
 
 ## Amendment 1: the caches as built (plan task 4.2.7, 2026-11-05, proposed)
 
-Approval status: accepted 2026-11-11, gate: not stated, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-11"; the entry names result caches (4.2.7); the word proposed in the heading or Status line below was true when written
+Approval status: accepted 2026-11-11, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-11"; the entry names result caches (4.2.7); the word proposed in the heading or Status line below was true when written (gate recorded 2026-11-12 night: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
 
 Status: proposed; [kernel] gate owed (review, owner). Code:
 `src/kernel/caches.fs`, hooks in `whnf.fs`, `defeq.fs`, `mixed-infer.fs`,
@@ -1457,7 +1457,7 @@ structure eta, need a closed major premise and an inference job
 
 ## Amendment 2: shared terms cost their nodes, not their paths (agent EX, 2026-11-10, proposed)
 
-Approval status: status unclear (no owner decision found); its heading says proposed, and the owner's entries name Amendments 3-5 but not this one
+Approval status: accepted 2026-11-12, gate: kernel (LeanForth's own audits and Lean-style caching; no Lean rule changed), [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)"; approved with Amendments 3-5
 
 **Finding.** The 17 declarations of `Init`'s first 1,000,000 export lines
 that ended *exhausted* at 2,000,000 fuel (36% of all fuel; the official
@@ -1524,7 +1524,7 @@ Amendment 3's, 2026-11-11.)
 
 ## Amendment 3: substitution as Lean's replace, node facts from the data word, inferred types keyed by the opened term (agent S6A, 2026-11-11, proposed)
 
-Approval status: accepted 2026-11-11, gate: not stated, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-11"; the entry names the fuel model of Amendments 3-5; the word proposed in the heading or Status line below was true when written
+Approval status: accepted 2026-11-11, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-11"; the entry names the fuel model of Amendments 3-5; the word proposed in the heading or Status line below was true when written (gate recorded 2026-11-12 night: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
 
 Status: proposed; [kernel] gate owed (review, owner's approval of the fuel
 model below). Plan task 6.5.5, parts (a), (d) and (e) of compact-store
@@ -1644,7 +1644,7 @@ scratch room, as it does `feed-term-room`).
 
 ## Amendment 4: each node audited once per check (compact-store plan step S6 (c), agent S6C, 2026-11-11, proposed)
 
-Approval status: accepted 2026-11-11, gate: not stated, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-11"; the entry names Amendment 4 (audits once per node per check); the word proposed in the heading or Status line below was true when written
+Approval status: accepted 2026-11-11, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-11"; the entry names Amendment 4 (audits once per node per check); the word proposed in the heading or Status line below was true when written (gate recorded 2026-11-12 night: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
 
 Status: proposed; [kernel] gate owed. It changes LeanForth's own
 fail-closed defence, not a rule of Lean's: no typing, reduction or
@@ -1815,7 +1815,7 @@ hash-consed before step S4. `instantiate_lparams` per node is step S6 (b).
 
 ## Amendment 5: == at every pair, caches keyed by node (compact-store plan step S4, agent S4, 2026-11-11, proposed)
 
-Approval status: accepted 2026-11-11, gate: not stated, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-11"; the entry names the fuel model of Amendments 3-5; the word proposed in the heading or Status line below was true when written
+Approval status: accepted 2026-11-11, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-11"; the entry names the fuel model of Amendments 3-5; the word proposed in the heading or Status line below was true when written (gate recorded 2026-11-12 night: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
 
 Status: proposed; [kernel] gate owed. Code: `src/kernel/mixed-compare.fs`
 (`lf-expr-equal`), `src/kernel/caches.fs`,
@@ -1988,7 +1988,7 @@ verdict version and fuel setting and 99 slots' fuel moved, all to less.
 
 ## Amendment 7: a check's fuel independent of the other records of the tier (agent PF, review rvSN4 B1, 2026-11-11, proposed)
 
-Approval status: accepted 2026-11-12, gate: not stated, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names Amendment 7; the word proposed in the heading or Status line below was true when written
+Approval status: accepted 2026-11-12, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names Amendment 7; the word proposed in the heading or Status line below was true when written (gate recorded 2026-11-12 night: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
 
 Status: proposed; [kernel] gate owed. Code: `src/import/feed.fs`
 (`feed-enter`, `feed-merge`), `src/core/terms.fs`
@@ -2126,7 +2126,7 @@ prefix.
 
 ## Amendment 8: resource limits per check, fuel and memory (agent MB, 2026-11-11, proposed)
 
-Approval status: accepted 2026-11-12, gate: not stated, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names Amendment 8; the word proposed in the heading or Status line below was true when written
+Approval status: accepted 2026-11-12, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names Amendment 8; the word proposed in the heading or Status line below was true when written (gate recorded 2026-11-12 night: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
 
 Status: proposed; no typing, reduction or conversion rule changes, and
 without the new option no outcome, fuel count or diagnostic changes (no

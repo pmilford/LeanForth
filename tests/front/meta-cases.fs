@@ -1,7 +1,7 @@
 \ The front end's Meta answers printed for tests/front/check_meta.py,
 \ which compares them with pinned Lean's on the same cases (plan FE1c).
 \ It runs the code the script generates: one line per case, the answer of
-\ lf-level-defeq (true, false, unsupported) and each named level
+\ lf-meta-level-defeq (true, false, unsupported) and each named level
 \ metavariable's instantiated value, or the term lf-meta-instantiate1 or
 \ lf-meta-head-beta gives, as an S-expression ((app F A), (lam T B),
 \ (pi T B), #i, Prop, x, y, ?m). Test support only: printing recurses on
@@ -10,6 +10,7 @@ require ../../src/main.fs
 require ../../src/front/level-defeq.fs
 require ../../src/front/instantiate.fs
 require ../../src/front/level-params.fs
+require ../../src/front/level-normalize.fs
 
 lf-author-begin
 : must ( x flag -- x ) 0= abort" meta-cases: no room" ;
@@ -19,8 +20,15 @@ lf-author-begin
 0 constant zero
 : lsucc ( l -- l' ) lf-level-succ must ;
 : lmax ( a b -- l ) lf-level-max must ;
-101 lf-level-param must constant u
-102 lf-level-param must constant v
+\ Parameters u, v, w and u.v, their names in the name store (Lean orders
+\ parameters by name).
+: name1 ( c-addr u -- id ) 0 -rot lf-name-str must ;
+s" u" name1 constant u-name  s" v" name1 constant v-name  s" w" name1 constant w-name
+u-name s" v" lf-name-str must constant uv-name
+u-name lf-level-param must constant u
+v-name lf-level-param must constant v
+w-name lf-level-param must constant w
+uv-name lf-level-param must constant uv
 create mv-names 16 cells allot
 variable #mv
 : mv ( i -- leaf ) 2* cells mv-names + @ ;
@@ -33,7 +41,8 @@ variable #mv
 defer .lev
 : .lmax ( l -- ) ." (max " dup lf-level-first@ .lev space lf-level-second@ .lev ." )" ;
 : .limax ( l -- ) ." (imax " dup lf-level-first@ .lev space lf-level-second@ .lev ." )" ;
-: .lparam ( l -- ) lf-level-first@ 101 = if ." u" else ." v" then ;
+: .name ( id -- ) dup lf-name-prefix@ ?dup if recurse ." ." then lf-name-text type ;
+: .lparam ( l -- ) lf-level-first@ .name ;
 : .lbase ( base -- )
   dup lf-level-tag@ case
     lf-level-tag-param of .lparam endof
@@ -51,7 +60,7 @@ defer .lev
 : .values ( -- )
   #mv @ 0 ?do space i mv-char emit ." =" i mv lf-level-instantiate-mvars drop .lev loop ;
 : level-case ( -- ) lf-mctx-reset 0 #mv ! ;
-: level-run ( l r -- ) lf-level-defeq .answer .values cr ;
+: level-run ( l r -- ) lf-meta-level-defeq .answer .values cr ;
 
 \ Terms: Prop, two free variables x y : Prop, a metavariable ?m : Prop.
 : app ( f a -- t ) lf-term-app must ;
@@ -69,16 +78,24 @@ prop mv-natural lf-mvar-new made constant hole
 defer .t
 : .pair ( t c-addr u -- ) ." (" type space dup lf-term-first@ .t space lf-term-second@ .t ." )" ;
 : .fvar ( t -- ) dup fx = if drop ." x" exit then fy = if ." y" else ." ?f" then ;
+\ A let, LET(v, fun x : T => b), as (let T v b); a projection as (proj i e).
+: .let ( t -- )
+  ." (let " dup lf-let-type .t space dup lf-let-value .t space lf-let-body .t ." )" ;
+: .proj ( t -- ) ." (proj " dup lf-proj-leaf lf-proj-idx .k space lf-proj-struct .t ." )" ;
 : (.t) ( t -- )
   dup lf-term-tag@ case
     lf-tag-app of s" app" .pair endof  lf-tag-lam of s" lam" .pair endof
     lf-tag-pi of s" pi" .pair endof  lf-tag-bvar of ." #" lf-term-first@ .k endof
     lf-tag-sort of drop ." Prop" endof  lf-tag-mvar of drop ." ?m" endof
-    lf-tag-fvar of .fvar endof  >r drop ." ??" r> endcase ;
+    lf-tag-fvar of .fvar endof  lf-tag-let of .let endof  lf-tag-projection of .proj endof
+    >r drop ." ??" r> endcase ;
 ' (.t) is .t
 : .term ( term outcome -- )
   dup ok? if drop .t else nip outcome-unsupported = if ." unsupported" else ." failed" then then ;
 : inst1-run ( body value -- ) lf-meta-instantiate1 .term cr ;
+: let-of ( type value body -- t ) rot swap lam false lf-let-make must ;
+0 s" C" lf-name-str drop constant c-name
+: proj-of ( e i -- t ) c-name swap lf-proj-of made ;
 create xs-buf 8 cells allot
 : xs ( x0 .. xk-1 k -- addr k )
   dup 0 ?do dup 1- i - cells xs-buf + rot swap ! loop xs-buf swap ;
@@ -89,7 +106,6 @@ create xs-buf 8 cells allot
 : sort-of ( level -- term ) dup lf-level-identity drop lf-hterm-sort must drop ;
 create cpairs 4 cells allot
 : cpair! ( level i -- ) 2* cells cpairs + >r dup lf-level-identity drop swap r> 2! ;
-0 s" C" lf-name-str drop constant c-name
 : const2 ( l1 l2 -- term )
   1 cpair! 0 cpair! c-name lf-name-generation @ cpairs 2 lf-cref-new must
   lf-cterm-new must drop ;
@@ -110,5 +126,6 @@ create names-buf 4 cells allot  create levels-buf 4 cells allot
 : limax ( a b -- l ) lf-level-imax must ;
 : max-run ( u v -- ) lf-meta-max .level cr ;
 : imax-run ( u v -- ) lf-meta-imax .level cr ;
+: norm-run ( level -- ) lf-meta-level-normalize .level cr ;
 : ilp-run ( term k -- ) >r names-buf levels-buf r> lf-meta-instantiate-level-params .term cr ;
 : beta-run ( term -- ) lf-meta-head-beta .term cr ;

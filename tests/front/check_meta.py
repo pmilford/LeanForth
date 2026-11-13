@@ -3,17 +3,20 @@
 
 Each case below is run twice: by pinned Lean 4.35.0
 (tests/front/meta-cases.lean, which this script writes with --write and
-checks is up to date, calling Meta.isLevelDefEqAux, Expr.instantiate1,
-Expr.abstract and Expr.headBeta) and by LeanForth (tests/front/meta-cases.fs, calling
-lf-level-defeq, lf-meta-instantiate1, lf-meta-abstract and
-lf-meta-head-beta on the same
-terms). Both print one line per case: the answer and every named level
-metavariable's value afterwards, or the resulting term as an S-expression.
-The lines must be equal, except that LeanForth's "unsupported" stands for
-Lean's postponed level pair, and for the cases listed as gaps (levels with
-max, which Lean normalizes and LeanForth does not port yet), where
-LeanForth must answer unsupported and Lean's answer is shown. A harness
-self-test first checks that a wrong line is told apart.
+checks is up to date, calling Meta.isLevelDefEqAux under a saved state
+restored when it answers false (as checkpointDefEq does, without
+processing postponed pairs), Expr.instantiate1, Expr.abstract,
+Expr.headBeta, mkLevelMax', mkLevelIMax', instantiateParams,
+instantiateLevelParams and Level.normalize) and by LeanForth
+(tests/front/meta-cases.fs, calling lf-meta-level-defeq and the other
+lf-meta-* words on the same levels and terms). Both print one line per
+case: the answer and every named level metavariable's value afterwards,
+or the resulting level or term as an S-expression. The lines must be
+equal, except that LeanForth's "unsupported" stands for Lean's postponed
+level pair, and for the cases listed as gaps (Lean's solveSelfMax and
+decLevel? of a max, not ported yet), where LeanForth must answer
+unsupported and Lean's answer is shown. A harness self-test first checks
+that a wrong line is told apart.
 
 Usage: LEAN=... GFORTH=... python3 tests/front/check_meta.py [--write]
 """
@@ -28,7 +31,7 @@ LEAN = os.environ.get("LEAN", ".tools/elan/toolchains/leanprover--lean4---v4.35.
 GFORTH = os.environ.get("GFORTH", "gforth")
 LIMIT = 300
 LEAN_FILE = ROOT / "tests/front/meta-cases.lean"
-LAM, PI, APP = "lam", "pi", "app"
+LAM, PI, APP, LET, PROJ = "lam", "pi", "app", "let", "proj"
 
 # Level cases: (lhs, rhs, read-only metavariables, gap?). Levels: numerals,
 # u and v (parameters), ?a .. ?d (metavariables made inside a new depth),
@@ -41,7 +44,14 @@ LEVELS = [
     ("?a+1", "v", "", False), ("0", "?a+1", "", False), ("?a", "?b", "", False),
     ("?r", "1", "r", False), ("?r", "?a", "r", False), ("?a+1", "?r", "r", False),
     ("?r+1", "?s", "rs", False), ("(max u v)", "(max u v)", "", False),
-    ("(max u v)", "(max v u)", "", True), ("?a", "(max u v)", "", True),
+    ("(max u v)", "(max v u)", "", False), ("?a", "(max u v)", "", False),
+    ("0", "(max ?a ?b)", "", False), ("0", "(max ?a u)", "", False), ("0", "(max ?a ?b+1)", "", False),
+    ("0", "(imax u ?a)", "", False), ("(imax u 0)", "1", "", False),
+    ("(max u v)", "u", "", False), ("u", "(imax u u)", "", False),
+    ("(max ?r u)", "u", "r", False), ("?a", "(imax u ?a)", "", False),
+    ("(max u ?a)", "(max u v)", "", False), ("?a+1", "(max u v)", "", False),
+    ("(max (max ?a v) u)", "(max u (max v w))", "", False), ("?a", "(max ?b+1 u)", "", False),
+    ("?a", "(max ?a u)", "", True), ("?a+1", "(max u+1 v+1)", "", True),
 ]
 
 # Universe-parameter cases: (level, names, levels, gap?) for
@@ -64,7 +74,22 @@ LOPS = [
     ("max", "u+1", "u"), ("max", "u", "u+1"), ("max", "u", "v"), ("max", "u+1", "v+2"),
     ("imax", "u", "1"), ("imax", "u", "0"), ("imax", "0", "u"), ("imax", "u", "u"),
     ("imax", "u", "v"), ("imax", "u", "(max v 1)"), ("imax", "u", "(imax v 1)"),
-    ("imax", "1", "(imax u v)"),
+    ("imax", "1", "(imax u v)"), ("max", "u+1", "1"), ("max", "1", "u+1"),
+]
+# Level.normalize: levels over u, v, w, u.v (parameters) and ?a, ?b
+# (metavariables made in that order).
+NORMS = [
+    "0", "u+3", "(max u v)", "(max v u)", "(max u u)", "(max (max u v) u)", "(max u+1 u)",
+    "(max 1 2)", "(max 0 u)", "(max 2 u+1)", "(max 1 u+1)", "(max u v)+1",
+    "(max (max w v) (max u.v u))", "(max u.v w)", "(imax u v)", "(imax u 0)", "(imax 0 u)",
+    "(imax 1 u)", "(imax u u)", "(imax u v+1)", "(imax u v+1)+2", "(imax u (max v 1))",
+    "(imax (max v u) w)", "(imax 1 (max v u))", "(imax 1 (max v u))+1",
+    "(max (imax 1 (max v u))+1 w)", "(max ?b ?a)", "(max ?a u)", "(max ?a+1 ?a)",
+    "(max (max u 2) (max v 1))", "(max (max u 2) (max v+2 1))", "(max (imax u v) (imax u w))",
+    "(max (imax u w) (imax u v))", "(max (max v w) (max u v))", "(imax u (imax v 1))",
+    "(max u+2 (max v+1 u))", "(max (max u v)+1 (max v u+2))", "(imax (imax u v) (imax v u))",
+    "(max (imax u+1 v) (imax u v))", "(max (max u 0) 0)", "(max 0 0)", "(max 3 (max 1 2))",
+    "(imax u+1 (max 0 0))", "(max ?b+1 (max ?a+2 ?b))",
 ]
 SORT, CONST = "sort", "const"
 TPARAMS = [
@@ -74,6 +99,7 @@ TPARAMS = [
     ((APP, "x", "y"), ["u"], ["1"], False), ((CONST, "0", "1"), ["u"], ["v"], False),
     ((SORT, "(max u v)"), ["u"], ["1"], False),
     ((SORT, "(imax u v)"), ["v"], ["0"], False),
+    ((SORT, "(max u u)"), [], [], False),
 ]
 
 # Term cases: ("inst1", body, value), ("abst", term, [x0, ...]) or
@@ -97,10 +123,17 @@ TERMS = [
     ("abst", (PI, "P", (APP, "y", (LAM, "P", "x"))), ["x", "y"]),
     ("abst", (APP, "?m", "x"), ["?m"]), ("abst", (APP, "x", "y"), ["x", "x"]),
     ("abst", (APP, "x", "y"), []), ("abst", (LAM, "P", "#3"), ["x"]),
+    # A let, (let T v b): T and v at the let's depth, b one deeper; a
+    # projection, (proj i e): e at its depth (review of fe1c, L2).
+    ("inst1", (LET, "#0", "#0", "#1"), "x"), ("inst1", (LET, "P", "#1", (APP, "#0", "#2")), "y"),
+    ("inst1", (PROJ, 0, "#0"), "x"), ("inst1", (LAM, "P", (PROJ, 1, "#1")), "x"),
+    ("abst", (LET, "x", "x", (APP, "x", "#0")), ["x"]), ("abst", (PROJ, 1, (APP, "x", "y")), ["y"]),
+    ("beta", (APP, (LAM, "P", (LET, "#0", "#0", "#1")), "x")),
+    ("beta", (APP, (LAM, "P", (PROJ, 0, "#0")), "y")),
 ]
 
 
-CASES = len(LEVELS) + len(TERMS) + len(LOPS) + len(LPARAMS) + len(TPARAMS)
+CASES = len(LEVELS) + len(TERMS) + len(LOPS) + len(LPARAMS) + len(TPARAMS) + len(NORMS)
 
 
 class Failure(Exception):
@@ -149,7 +182,7 @@ def level_forth(t, index):
     if kind == "num":
         return "zero" + " lsucc" * t[1]
     if kind == "param":
-        return t[1]
+        return {"u.v": "uv"}.get(t[1], t[1])
     if kind == "mvar":
         return f"{index[t[1]]} mv"
     if kind == "max":
@@ -185,8 +218,10 @@ partial def pl (ms : List (LMVarId × String)) (l : Level) : String :=
   | some s => if k == 0 then s else s!"{s}+{k}"
 
 def levelCase (ms : List (LMVarId × String)) (l r : Level) : MetaM Unit := do
+  let s ← saveState
   let res ← isLevelDefEqAux l r
   let ans := if (← getPostponed).size > 0 then "postponed" else toString res
+  unless res do s.restore
   let vs ← ms.mapM fun (id, n) => do
     return s!" {n}={pl ms (← instantiateLevelMVars (mkLevelMVar id))}"
   IO.println (ans ++ String.join vs)
@@ -201,6 +236,8 @@ partial def sx : Expr → MetaM String
   | .app f a => return s!"(app {← sx f} {← sx a})"
   | .lam _ t b _ => return s!"(lam {← sx t} {← sx b})"
   | .forallE _ t b _ => return s!"(pi {← sx t} {← sx b})"
+  | .letE _ t v b _ => return s!"(let {← sx t} {← sx v} {← sx b})"
+  | .proj _ i e => return s!"(proj {i} {← sx e})"
   | e => return s!"?? {e}"
 """
 
@@ -220,6 +257,10 @@ def lean_level_case(lhs, rhs, readonly):
 
 
 def term_lean(t):
+    if isinstance(t, tuple) and t[0] == LET:
+        return f"(mkLet `a {term_lean(t[1])} {term_lean(t[2])} {term_lean(t[3])})"
+    if isinstance(t, tuple) and t[0] == PROJ:
+        return f"(mkProj `C {t[1]} {term_lean(t[2])})"
     if isinstance(t, tuple) and t[0] == SORT:
         return f"(mkSort {level_lean(level_parse(t[1]))})"
     if isinstance(t, tuple) and t[0] == CONST:
@@ -236,6 +277,10 @@ def term_lean(t):
 
 
 def term_forth(t):
+    if isinstance(t, tuple) and t[0] == LET:
+        return f"{term_forth(t[1])} {term_forth(t[2])} {term_forth(t[3])} let-of"
+    if isinstance(t, tuple) and t[0] == PROJ:
+        return f"{term_forth(t[2])} {t[1]} proj-of"
     if isinstance(t, tuple) and t[0] == SORT:
         return f"{level_forth(level_parse(t[1]), {})} sort-of"
     if isinstance(t, tuple) and t[0] == CONST:
@@ -291,9 +336,17 @@ def lean_param_cases():
     return "\n".join(lines)
 
 
+def lean_norm_cases():
+    lines = ["run_meta do", "  let ma ← mkFreshLevelMVar", "  let mb ← mkFreshLevelMVar",
+             '  let ms := [(ma.mvarId!, "a"), (mb.mvarId!, "b")]']
+    lines += [f"  IO.println (pl ms (Level.normalize {level_lean(level_parse(l))}))" for l in NORMS]
+    return "\n".join(lines)
+
+
 def lean_source():
     text = LEAN_HEAD + "\n" + "\n\n".join(lean_level_case(l, r, ro) for l, r, ro, _ in LEVELS)
-    return text + "\n\n" + lean_term_cases() + "\n\n" + lean_param_cases() + "\n"
+    return (text + "\n\n" + lean_term_cases() + "\n\n" + lean_param_cases() + "\n\n"
+            + lean_norm_cases() + "\n")
 
 
 def lean_lines():
@@ -330,7 +383,7 @@ def forth_lines():
             calls.append(f"{term_forth(case[1])} {xs} {len(case[2])} xs abst-run")
         else:
             calls.append(f"{term_forth(case[1])} beta-run")
-    ids = {"u": "101", "v": "102"}
+    ids = {"u": "u-name", "v": "v-name"}
     for op, u, v in LOPS:
         calls.append(f"{level_forth(level_parse(u), {})} {level_forth(level_parse(v), {})} "
                      f"{op}-run")
@@ -342,6 +395,8 @@ def forth_lines():
         calls.append(f"{' '.join(ids[n] for n in names)} {len(names)} params "
                      f"{' '.join(level_forth(level_parse(l), {}) for l in levels)} {len(levels)} args "
                      f"{term_forth(term)} {len(names)} ilp-run")
+    calls.append("level-case char a add-mv char b add-mv")
+    calls += [f"{level_forth(level_parse(l), {'a': 0, 'b': 1})} norm-run" for l in NORMS]
     run = subprocess.run([GFORTH, "tests/front/meta-cases.fs", "-e", " ".join(calls) + " bye"],
                          cwd=ROOT, stdin=subprocess.DEVNULL, capture_output=True, text=True,
                          timeout=LIMIT)
@@ -375,9 +430,10 @@ def main():
         gaps = []
         names = ([f"{l} =?= {r}" for l, r, _, _ in LEVELS] + [str(c) for c in TERMS]
                  + [f"{op} {u} {v}" for op, u, v in LOPS]
-                 + [f"{c[0]} {c[1]} := {c[2]}" for c in LPARAMS + TPARAMS])
+                 + [f"{c[0]} {c[1]} := {c[2]}" for c in LPARAMS + TPARAMS]
+                 + [f"normalize {l}" for l in NORMS])
         gap_flags = ([g for _, _, _, g in LEVELS] + [False] * (len(TERMS) + len(LOPS))
-                     + [c[3] for c in LPARAMS + TPARAMS])
+                     + [c[3] for c in LPARAMS + TPARAMS] + [False] * len(NORMS))
         for name, gap, want, got in zip(names, gap_flags, lean, forth):
             if gap:
                 if not got.startswith("unsupported"):
@@ -392,7 +448,8 @@ def main():
     print(f"Meta layer: {CASES - len(gaps)} cases equal to pinned Lean's "
           f"({len(LEVELS)} level unifications, {len(TERMS)} instantiations, abstractions and "
           f"head-beta steps, {len(LOPS)} mkLevelMax'/mkLevelIMax', "
-          f"{len(LPARAMS) + len(TPARAMS)} universe-parameter instantiations); "
+          f"{len(LPARAMS) + len(TPARAMS)} universe-parameter instantiations, "
+          f"{len(NORMS)} Level.normalize); "
           f"{len(gaps)} gaps answer unsupported: {'; '.join(gaps)}; harness self-test passed")
     return 0
 

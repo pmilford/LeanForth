@@ -20,14 +20,15 @@
 \ Layers) cover both ways on every fixture, the refusals and the planted
 \ faults. Test-only.
 
+include ../support/scratch.fs
 include ../support/heap-watch.fs
 create lf-env-i2-checks   \ compiles the I2 assertion into environment.fs
 require ../../src/main.fs
 include ../support/tester.fs
 decimal
 
-: base-file ( -- c-addr u ) s" /tmp/leanforth-env-import-base.lfsnap" ;
-: layer-file ( -- c-addr u ) s" /tmp/leanforth-env-import-layer.lfsnap" ;
+s" leanforth-env-import-base.lfsnap" scratch-file 2constant base-file
+s" leanforth-env-import-layer.lfsnap" scratch-file 2constant layer-file
 : dependent ( -- c-addr u ) s" tests/cli/dependent.ndjson" ;
 variable failures  0 failures !
 : must ( flag c-addr u -- ) rot if 2drop else ." failed: " type cr 1 failures +! then ;
@@ -101,8 +102,8 @@ nums 0 dep-sort
 \ and with the stage's tuples trimmed and their next growth refused, a
 \ constant's universe arguments, a recursor's rules, the expressions and
 \ the recursor's declaration are full (they were invalid).
-: base2-file ( -- c-addr u ) s" /tmp/leanforth-env-import-base2.lfsnap" ;
-: layer2-file ( -- c-addr u ) s" /tmp/leanforth-env-import-layer2.lfsnap" ;
+s" leanforth-env-import-base2.lfsnap" scratch-file 2constant base2-file
+s" leanforth-env-import-layer2.lfsnap" scratch-file 2constant layer2-file
 20000000 ck-start s" tests/reference/identity.ndjson" true ck-load ok? s" base2 load" must
 ck-check base2-file s" {}" ck-snapshot-save ok? s" base2 save" must ck-release
 20000000 ck-start 0 0 ck-layers! base2-file -1 ck-snapshot-import ok? s" import2" must
@@ -253,7 +254,7 @@ T{ records ly ly-decls ly ly-where @ -> outcome-ok outcome-ok 0 }T
 layer2-done
 \ A layer holding an opaque declaration (review of refactor-fri L2): its
 \ data, the names of its block, translated as a definition's.
-: layer3-file ( -- c-addr u ) s" /tmp/leanforth-env-import-layer3.lfsnap" ;
+s" leanforth-env-import-layer3.lfsnap" scratch-file 2constant layer3-file
 : opaque-export ( -- c-addr u ) s" tests/core/check-block-cases/opaque.accepted.ndjson" ;
 20000000 ck-start 0 0 ck-layers! base2-file -1 ck-snapshot-import ok? s" import3" must
 opaque-export false ck-load ok? s" import3 load" must ck-check

@@ -18,12 +18,14 @@
 \ the files, their determinism and the planted faults. Test-only.
 
 create lf-env-i2-checks   \ compiles the I2 assertion into environment.fs
+include ../support/heap-watch.fs   \ the refusals at the end
 require ../../src/main.fs
 include ../support/tester.fs
 include ../support/checks.fs
+include ../support/scratch.fs
 decimal
 
-: snap-file ( -- c-addr u ) s" /tmp/leanforth-env-snapshot-test.lfsnap" ;
+s" leanforth-env-snapshot-test.lfsnap" scratch-file 2constant snap-file
 \ The exports: the pinned ones with their manifests, then the fixtures.
 create checked-exports
   s" tests/reference/composition.ndjson" 2,  s" tests/reference/constant-fixture.ndjson"
@@ -178,6 +180,31 @@ T{ snap-outers /outers erase ck-stage canon-tier -> outcome-ok }T
 T{ top-outer canon-key swap lf-look-kinds 1- and -> outcome-ok lf-look-fresh }T
 T{ lf-look-outside canon-key -> -1 outcome-invalid }T
 outers-free ck-release
+
+\ ---- The heap refusing (coverage COV2; tests/support/heap-watch.fs):
+\ each allocation of a snapshot's save refused in turn is full; each of
+\ its load (the run's context made first, then the refusal armed) is
+\ full, or ok where the load does without the room (allocations 42-56
+\ of the first load of tests/cli/inductive.ndjson today), never another
+\ outcome; a save and a load with nothing refused are ok after.
+s" tests/cli/inductive.ndjson" true fresh
+: save ( -- outcome ) snap-file s" {}" ck-snapshot-save ;
+: save-at ( k -- outcome left ) heap-refusals ! save heap-refusals @ 0 heap-refusals ! ;
+: load-at ( k -- outcome left )
+  20000000 ck-start heap-refusals ! snap-file -1 ck-snapshot-load
+  heap-refusals @ 0 heap-refusals ! ck-release ;
+\ The allocations a first run of xt ( k -- outcome left ) makes, and
+\ whether each refused in turn gives full (ok when a later run, its
+\ arrays grown by the first, no longer makes that allocation).
+: made ( xt -- n ) max-n swap execute nip max-n swap - ;
+: full-at? ( k xt -- flag ) execute 0= if outcome-full = else outcome-ok = then ;
+: all-full? ( xt -- flag ) true over made 1+ 1 ?do i 2 pick full-at? and loop nip ;
+T{ ' save-at made 0> ' save-at all-full? save -> true true outcome-ok }T
+ck-release
+: kept? ( outcome -- flag ) dup outcome-full = swap outcome-ok = or ;
+: load-kept? ( -- flag )
+  true ['] load-at made 1+ 1 ?do i load-at drop kept? and loop ;
+T{ ' load-at made 0> load-kept? 1 load-at 0 load-at -> true true outcome-full 0 outcome-ok 0 }T
 T{ depth -> 0 }T
 snap-file delete-file drop
 failures @ 0= [if] ." The lookup lists, I2 and the snapshot round trip hold." cr [then]

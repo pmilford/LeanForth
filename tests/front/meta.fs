@@ -21,105 +21,141 @@ lf-author-begin lf-mctx-reset
 0 constant zero
 zero lsucc constant one
 one lsucc constant two
-101 lparam constant u
-102 lparam constant v
+0 s" u" lf-name-str drop constant u-id  0 s" v" lf-name-str drop constant v-id
+u-id lparam constant u
+v-id lparam constant v
 
 \ ---- Pass and fail, without metavariables (Lean: getLevelOffset ==, then
 \ solve in both orders).
-T{ u u lf-level-defeq -> true outcome-ok }T
-T{ zero zero lf-level-defeq one one lf-level-defeq -> true outcome-ok true outcome-ok }T
-T{ zero one lf-level-defeq one zero lf-level-defeq -> false outcome-ok false outcome-ok }T
-T{ u v lf-level-defeq u zero lf-level-defeq zero u lf-level-defeq
-   -> false outcome-ok false outcome-ok false outcome-ok }T
-T{ u lsucc u lf-level-defeq u u 2 lsuccs lf-level-defeq
+T{ u u lf-meta-level-defeq -> true outcome-ok }T
+T{ zero zero lf-meta-level-defeq one one lf-meta-level-defeq
+   -> true outcome-ok true outcome-ok }T
+T{ zero one lf-meta-level-defeq one zero lf-meta-level-defeq
    -> false outcome-ok false outcome-ok }T
-T{ u 3 lsuccs u 3 lsuccs lf-level-defeq -> true outcome-ok }T
+T{ u v lf-meta-level-defeq u zero lf-meta-level-defeq zero u lf-meta-level-defeq
+   -> false outcome-ok false outcome-ok false outcome-ok }T
+T{ u lsucc u lf-meta-level-defeq u u 2 lsuccs lf-meta-level-defeq
+   -> false outcome-ok false outcome-ok }T
+T{ u 3 lsuccs u 3 lsuccs lf-meta-level-defeq -> true outcome-ok }T
 \ succ u against zero: solve gives undef (decLevel? 0 has none), then
 \ solve 0 (succ u) false.
-T{ u lsucc zero lf-level-defeq -> false outcome-ok }T
+T{ u lsucc zero lf-meta-level-defeq -> false outcome-ok }T
 \ Equal records made without sharing (the authoring context's setting).
-T{ 101 lparam dup u = swap u lf-level-defeq -> false true outcome-ok }T
+T{ u-id lparam dup u = swap u lf-meta-level-defeq -> false true outcome-ok }T
 
 \ ---- Metavariables: assigned the other side.
 lnew constant a
-T{ a one lf-level-defeq a lval -> true outcome-ok one }T
+T{ a one lf-meta-level-defeq a lval -> true outcome-ok one }T
 \ ?a is now 1: the instantiated levels are compared.
-T{ a one lf-level-defeq a two lf-level-defeq a lsucc two lf-level-defeq
+T{ a one lf-meta-level-defeq a two lf-meta-level-defeq a lsucc two lf-meta-level-defeq
    -> true outcome-ok false outcome-ok true outcome-ok }T
 lnew constant bm
-T{ two bm lsucc lf-level-defeq bm lval -> true outcome-ok one }T
+T{ two bm lsucc lf-meta-level-defeq bm lval -> true outcome-ok one }T
 \ ?c + 1 =?= ?d: solve (?c + 1) ?d is undef (Lean's rule for (_, ?v)
 \ comes before decLevel?), then solve ?d (?c + 1) assigns ?d.
 lnew constant c  lnew constant d
-T{ c lsucc d lf-level-defeq -> true outcome-ok }T
+T{ c lsucc d lf-meta-level-defeq -> true outcome-ok }T
 T{ d lval ld-pred c lfree? -> c true }T
 \ ?e =?= u + 2; ?f =?= ?f + 1 is false (the same base, Lean's first rule).
 lnew constant e  lnew constant f
 u 2 lsuccs constant u2
-T{ e u2 lf-level-defeq e lval -> true outcome-ok u2 }T
-T{ f f lsucc lf-level-defeq f lfree? -> false outcome-ok true }T
-T{ f f lf-level-defeq -> true outcome-ok }T
+T{ e u2 lf-meta-level-defeq e lval -> true outcome-ok u2 }T
+T{ f f lsucc lf-meta-level-defeq f lfree? -> false outcome-ok true }T
+T{ f f lf-meta-level-defeq -> true outcome-ok }T
 \ u + 1 =?= ?g + 2 peels to u =?= ?g + 1: false, ?g left free.
 lnew constant lg
-T{ u lsucc lg 2 lsuccs lf-level-defeq lg lfree? -> false outcome-ok true }T
+T{ u lsucc lg 2 lsuccs lf-meta-level-defeq lg lfree? -> false outcome-ok true }T
 \ 0 =?= ?h: solve 0 ?h is undef, solve ?h 0 assigns.
 lnew constant h
-T{ zero h lf-level-defeq h lval -> true outcome-ok zero }T
+T{ zero h lf-meta-level-defeq h lval -> true outcome-ok zero }T
 \ succ u against a parameter is false; zero against a successor.
 lnew constant li
-T{ li lsucc v lf-level-defeq li lfree? -> false outcome-ok true }T
-T{ zero li lsucc lf-level-defeq -> false outcome-ok }T
+T{ li lsucc v lf-meta-level-defeq li lfree? -> false outcome-ok true }T
+T{ zero li lsucc lf-meta-level-defeq -> false outcome-ok }T
 
 \ ---- Depth (Lean's isReadOnly and isMVarWithGreaterDepth). A level
 \ metavariable made outside is read-only inside a deeper context.
 lf-mctx-reset lnew constant lout
 lf-mctx-deeper lnew constant inner
-T{ lout one lf-level-defeq lout lfree? -> false outcome-ok true }T
+T{ lout one lf-meta-level-defeq lout lfree? -> false outcome-ok true }T
 \ Two metavariables: the deeper one is assigned the other.
-T{ lout inner lf-level-defeq inner lval lout lfree? -> true outcome-ok lout true }T
+T{ lout inner lf-meta-level-defeq inner lval lout lfree? -> true outcome-ok lout true }T
 \ Postponed by Lean (an assignable metavariable, both solves undef):
 \ unsupported, nothing assigned.
 lnew constant p
-T{ p lsucc lout lf-level-defeq p lfree? -> false outcome-unsupported true }T
+T{ p lsucc lout lf-meta-level-defeq p lfree? -> false outcome-unsupported true }T
 \ Neither side assignable: false.
 lf-mctx-shallower lnew lf-mctx-deeper constant q
-T{ lout lsucc q lf-level-defeq q lfree? -> false outcome-ok true }T
+T{ lout lsucc q lf-meta-level-defeq q lfree? -> false outcome-ok true }T
 \ At depth 0 ?q is free: ?q := ?lout + 1.
 lf-mctx-shallower
-T{ lout lsucc q lf-level-defeq q lval ld-pred lout lfree? -> true outcome-ok lout true }T
+T{ lout lsucc q lf-meta-level-defeq q lval ld-pred lout lfree?
+   -> true outcome-ok lout true }T
 \ Back at depth 0, ?o =?= ?d with ?d made at depth 1: Lean assigns the
 \ deeper one, ?d := ?o (isMVarWithGreaterDepth), not ?o := ?d.
 lnew constant lo  lf-mctx-deeper lnew constant ldp  lf-mctx-shallower
-T{ lo ldp lf-level-defeq ldp lval lo lfree? -> true outcome-ok lo true }T
+T{ lo ldp lf-meta-level-defeq ldp lval lo lfree? -> true outcome-ok lo true }T
 
-\ ---- Not ported: max and imax (Lean normalizes them first).
-lf-mctx-reset lnew constant m
-T{ u v lmax u v lmax lf-level-defeq -> true outcome-ok }T
-T{ u v lmax v u lmax lf-level-defeq -> false outcome-unsupported }T
-T{ m u v lmax lf-level-defeq m lfree? -> false outcome-unsupported true }T
-T{ u zero lf-level-imax drop one lf-level-defeq -> false outcome-unsupported }T
-\ A metavariable assigned a max is instantiated, then unsupported.
+\ ---- max and imax: both sides normalized first (Level.normalize), so
+\ max v u is max u v; ?m is assigned the normal form; imax u 0 is 0.
+\ (These four were unsupported before Level.normalize was ported.)
+lf-mctx-reset 100000 lf-level-capacity! drop lnew constant m
+: parts2 ( l -- a b ) dup lf-level-first@ swap lf-level-second@ ;
+T{ u v lmax u v lmax lf-meta-level-defeq -> true outcome-ok }T
+T{ u v lmax v u lmax lf-meta-level-defeq -> true outcome-ok }T
+T{ m v u lmax lf-meta-level-defeq m lval parts2 -> true outcome-ok u v }T
+T{ u zero lf-level-imax drop one lf-meta-level-defeq -> false outcome-ok }T
+\ A metavariable assigned a max is instantiated: max u v =?= u is false.
 lnew constant ln
-T{ ln u v lmax lf-level-mvar-assign ln u lf-level-defeq
-   -> outcome-ok false outcome-unsupported }T
+T{ ln u v lmax lf-level-mvar-assign ln u lf-meta-level-defeq
+   -> outcome-ok false outcome-ok }T
+\ 0 =?= max ?a ?b: both parts, ?a := 0 and ?b := 0. 0 =?= max ?c (?f+1)
+\ (sorted ?c first): ?c := 0, then 0 =?= ?f+1 is false and ?c's
+\ assignment is rolled back (checkpointDefEq); 0 =?= max ?c u compares u
+\ first (a parameter sorts before a metavariable): false at once.
+\ 0 =?= imax u ?d: ?d := 0.
+lnew constant ma  lnew constant mb  lnew constant mc  lnew constant md  lnew constant mf
+T{ zero ma mb lmax lf-meta-level-defeq ma lval mb lval -> true outcome-ok zero zero }T
+T{ zero mc mf lsucc lmax lf-meta-level-defeq mc lfree? mf lfree? -> false outcome-ok true true }T
+T{ zero mc u lmax lf-meta-level-defeq mc lfree? -> false outcome-ok true }T
+T{ zero u md lf-level-imax drop lf-meta-level-defeq md lval -> true outcome-ok zero }T
+\ Not ported: ?m =?= max ?m u (Lean's solveSelfMax) and succ ?m against a
+\ max (decLevel?): unsupported, nothing assigned. A stuck pair with an
+\ assignable metavariable inside a max: unsupported (Lean postpones);
+\ with none (?r read-only): false.
+lnew constant me
+T{ me me u lmax lf-meta-level-defeq me lfree? -> false outcome-unsupported true }T
+\ ?e =?= imax u ?e: ?e occurs in a level that is no max: undef both ways,
+\ then postponed (unsupported).
+T{ me u me lf-level-imax drop lf-meta-level-defeq me lfree? -> false outcome-unsupported true }T
+T{ me lsucc u lsucc v lsucc lmax lf-meta-level-defeq me lfree?
+   -> false outcome-unsupported true }T
+T{ u me lmax u v lmax lf-meta-level-defeq -> false outcome-unsupported }T
+lf-mctx-deeper
+T{ u me lmax u v lmax lf-meta-level-defeq -> false outcome-ok }T
+lf-mctx-shallower
+\ A stale metavariable inside a max: invalid.
+lnew constant mold
+lf-mctx-reset
+T{ u mold lmax u lf-meta-level-defeq -> false outcome-invalid }T
 
 \ ---- Malformed: a level not in the store, a stale metavariable.
-T{ 99999 u lf-level-defeq u -1 lf-level-defeq
+T{ 99999 u lf-meta-level-defeq u -1 lf-meta-level-defeq
    -> false outcome-invalid false outcome-invalid }T
 lnew constant old
-T{ lf-mctx-reset old one lf-level-defeq -> false outcome-invalid }T
-T{ one old lsucc lf-level-defeq -> false outcome-invalid }T
+T{ lf-mctx-reset old one lf-meta-level-defeq -> false outcome-invalid }T
+T{ one old lsucc lf-meta-level-defeq -> false outcome-invalid }T
 
 \ ---- Resources: 10,000 successors are peeled and counted in loops.
 lf-mctx-reset 100000 lf-level-capacity! drop
 u 10000 lsuccs constant tall
-T{ tall u 10000 lsuccs lf-level-defeq tall u 9999 lsuccs lf-level-defeq
+T{ tall u 10000 lsuccs lf-meta-level-defeq tall u 9999 lsuccs lf-meta-level-defeq
    -> true outcome-ok false outcome-ok }T
 lnew constant w
-T{ w 10000 lsuccs tall lf-level-defeq w lval -> true outcome-ok u }T
+T{ w 10000 lsuccs tall lf-meta-level-defeq w lval -> true outcome-ok u }T
 \ ?x + 10000 with ?x := 1 is instantiated (a new level) and compared.
 lnew constant lx
-T{ lx one lf-level-mvar-assign lx 10000 lsuccs zero 10001 lsuccs lf-level-defeq
+T{ lx one lf-level-mvar-assign lx 10000 lsuccs zero 10001 lsuccs lf-meta-level-defeq
    -> outcome-ok true outcome-ok }T
 
 \ ---- Instantiation of bound variables (src/front/instantiate.fs, Lean's
@@ -227,7 +263,7 @@ T{ term-room lf-term-capacity! dup0 y lf-meta-instantiate1 nip -> outcome-ok out
 \ ---- Universe parameters (src/front/level-params.fs, Lean's
 \ Level.instantiateParams and Expr.instantiateLevelParams).
 lf-mctx-reset
-create ps 2 cells allot  101 ps !  102 ps cell+ !
+create ps 2 cells allot  u-id ps !  v-id ps cell+ !
 create ls 2 cells allot
 : ls! ( a b -- ) ls cell+ ! ls ! ;
 : lps ( level n -- level' outcome ) >r ps ls r> lf-meta-level-params ;
@@ -237,7 +273,7 @@ T{ u lsucc 1 lps swap ld-pred -> outcome-ok one }T
 T{ v 1 lps two 2 lps -> v outcome-ok two outcome-ok }T
 T{ v 2 lps -> two outcome-ok }T
 \ The first equal name wins (getParamSubst): u u -> 1 2.
-T{ 101 ps cell+ ! u 2 lps 102 ps cell+ ! -> one outcome-ok }T
+T{ u-id ps cell+ ! u 2 lps v-id ps cell+ ! -> one outcome-ok }T
 \ max over parameters: rebuilt with mkLevelMax' (max 1 2 is 2); a max
 \ without one is kept as it is.
 : same-under ( a b c -- flag c ) >r = r> ;
@@ -278,6 +314,9 @@ T{ su-lam 2 ilp drop lf-pres-binder@ drop nip -> lf-binder-implicit }T
 \ Nothing to change: the same node; a count of 0 changes nothing.
 T{ prop x app dup 2 ilp drop = cuv dup 0 ilp drop = -> true true }T
 T{ u sort-of dup 0 ilp drop = -> true }T
+\ No names: Sort (max u u) is kept as it is (Lean's empty-list test), but
+\ the Level version simplifies it (Lean has no such test there).
+T{ u u lmax sort-of dup 0 ilp drop = u u lmax 0 lps -> true u outcome-ok }T
 \ A Sort over max u v (with u := 1, v := ?la): Sort (max 1 ?la).
 T{ u v lmax sort-of 2 ilp drop lf-term-first@ dup ls-tag swap lf-level-second@
    -> lf-level-tag-max la }T
@@ -302,6 +341,9 @@ T{ one u limax nz? u one limax nz? -> false true }T
 \ offset; else a new max.
 T{ u u lmx zero u lmx u zero lmx -> u u u }T
 T{ one two lmx u 2 lsuccs dup one lmx = -> two true }T
+\ At an equal offset the explicit side is subsumed too: max (u+1) 1 and
+\ max 1 (u+1) are u+1.
+T{ u lsucc dup one lmx = u lsucc dup one swap lmx = -> true true }T
 T{ u v lmax dup u lmx = u v lmax dup v swap lmx = -> true true }T
 T{ u lsucc dup u lmx = u dup lsucc lmx ld-pred -> true u }T
 T{ u v lmx dup ls-tag swap lf-level-first@ -> lf-level-tag-max u }T
@@ -324,6 +366,57 @@ T{ su-deep 2 ilp drop 10000 firsts lf-term-first@ -> one }T
 lf-term-capacity constant room2
 T{ lf-term-count @ lf-term-capacity! su-lam 2 ilp -> outcome-ok -1 outcome-full }T
 T{ room2 lf-term-capacity! -> outcome-ok }T
+
+200000 lf-level-capacity! drop
+\ ---- Level.normalize (src/front/level-normalize.fs); check_meta.py
+\ compares 44 cases with pinned Lean.
+: nf ( l -- l' ) lf-meta-level-normalize ok? 0= abort" nf" ;
+\ Kept, the same node: a level over zero, a parameter or a metavariable.
+T{ u 3 lsuccs dup nf = zero dup nf = -> true true }T
+\ Sorted by name, a duplicate and a subsumed explicit level dropped, the
+\ offset pushed into a max but kept over an imax that is never zero.
+T{ v u lmax nf u v lmax l= u u lmax nf u l= u lsucc one lmax nf u lsucc l= -> true true true }T
+T{ u v lmax lsucc nf u lsucc v lsucc lmax l= -> true }T
+T{ u v lsucc limax 2 lsuccs nf u v lsucc lmax 2 lsuccs l= -> true }T
+\ imax: zero for a zero right side, the right side for a left side 1.
+T{ u zero limax nf one v limax nf -> zero v }T
+\ mkIMaxAux's other rules: imax 0 u is u; imax u u is u; else an imax.
+T{ zero u limax nf u u limax nf u v limax nf ls-tag -> u u lf-level-tag-imax }T
+\ normLt on two imax bases: by their first sides, then by their second
+\ when the first are equal; equal bases by offset.
+lnew constant mz
+T{ u mz limax u v limax lmax nf u v limax u mz limax lmax l= -> true }T
+T{ v u limax u v limax lmax nf u v limax v u limax lmax l= -> true }T
+T{ u v limax lsucc u v limax lmax nf u v limax lsucc l= -> true }T
+\ Zero against zero inside a max: max 0 0 is 0.
+T{ zero zero lmax nf -> zero }T
+\ Lean's Name.cmp: by prefixes first (w before u.v), a number before a
+\ string (u.1 before z), then by bytes.
+: nm ( prefix c-addr u -- id ) lf-name-str 0= abort" name" ;
+0 s" w" nm constant w-id  u-id s" v" nm constant uv-id  0 s" z" nm constant z-id
+T{ u-id v-id lf-meta-name-cmp v-id u-id lf-meta-name-cmp u-id u-id lf-meta-name-cmp
+   -> -1 1 0 }T
+T{ w-id uv-id lf-meta-name-cmp uv-id w-id lf-meta-name-cmp -> -1 1 }T
+T{ u-id 2 lf-name-num drop u-id 1 lf-name-num drop lf-meta-name-cmp -> 1 }T
+T{ u-id 1 lf-name-num drop z-id lf-meta-name-cmp 0 s" ab" nm 0 s" abc" nm lf-meta-name-cmp
+   -> -1 -1 }T
+\ Malformed: a level not in the store; a parameter whose name is no name.
+T{ 99999 lf-meta-level-normalize 999999 lparam v lmax lf-meta-level-normalize
+   -> -1 outcome-invalid -1 outcome-invalid }T
+\ Deep and wide: 10,000 successors over a max; a max of 200 metavariables
+\ made newest first, sorted oldest first (idempotent, the newest last).
+\ Each inner max of the chain gets its own normal form: about n^2 / 2 new
+\ levels.
+T{ v u lmax 10000 lsuccs nf lf-level-second@ ld-offset -> v 10000 }T
+variable newest
+: wide-max ( n -- l ) lnew swap 1 ?do lnew dup newest ! swap lmax loop ;
+lf-mctx-reset 200 wide-max nf constant w200
+T{ w200 dup nf l= w200 lf-level-second@ newest @ = -> true true }T
+\ Full: no room for the normal form.
+lf-level-capacity constant level-room
+v u lmax constant vu
+T{ lf-level-count @ lf-level-capacity! vu lf-meta-level-normalize -> outcome-ok -1 outcome-full }T
+T{ level-room lf-level-capacity! vu lf-meta-level-normalize nip -> outcome-ok outcome-ok }T
 
 T{ depth -> 0 }T
 cr .( meta.fs: all tests passed) cr

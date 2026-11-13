@@ -306,7 +306,12 @@ repeated by the done check; it also accepted the unchanged export. `make
 check` (`reference-program-mutants`) puts all three changes into one
 export, each changed declaration added under its own name next to the
 originals, and requires LeanForth to accept the originals and reject the
-five changed theorems, in one run instead of three; `make test` checks the
+five changed theorems, in one run instead of three. That run reads the
+snapshot of the unchanged export's own check (`check --save-snapshot`,
+made once per `make check` by the target `program-clamp-record`, which also
+records the receipt's evidence): the 4,277 originals, every one accepted
+there, are taken from it unchanged and only the seven copies are checked,
+in about 10 s instead of a second check of the whole export; `make test` checks the
 tool itself on a small fixture (its changes are well formed and accepted
 where they keep the proof). `make check` also has pinned Lean reject the
 same program and postcondition changes in the Lean source
@@ -321,7 +326,8 @@ input) with every declaration they use, 2,890 in all, and LeanForth's
 checker accepts every one, each theorem with the axioms Lean's
 `#print axioms` reports. `sha-ch`'s body with AND and XOR exchanged, under
 its old proof, and `shaCh_correct`'s proof with the lemmas of `sha-ch` and
-`sha-maj` exchanged are rejected
+`sha-maj` exchanged are rejected, checked against the snapshot the
+export's own check saved, as for the clamp mutants
 ([`tests/program/sha_export_check.py`](../../tests/program/sha_export_check.py),
 `make check` target `reference-program-sha-export`, 2026-11-12). There is
 no receipt for them yet: they are IR 0.2 programs, and their receipts need

@@ -15,8 +15,10 @@ partial def pl (ms : List (LMVarId × String)) (l : Level) : String :=
   | some s => if k == 0 then s else s!"{s}+{k}"
 
 def levelCase (ms : List (LMVarId × String)) (l r : Level) : MetaM Unit := do
+  let s ← saveState
   let res ← isLevelDefEqAux l r
   let ans := if (← getPostponed).size > 0 then "postponed" else toString res
+  unless res do s.restore
   let vs ← ms.mapM fun (id, n) => do
     return s!" {n}={pl ms (← instantiateLevelMVars (mkLevelMVar id))}"
   IO.println (ans ++ String.join vs)
@@ -31,6 +33,8 @@ partial def sx : Expr → MetaM String
   | .app f a => return s!"(app {← sx f} {← sx a})"
   | .lam _ t b _ => return s!"(lam {← sx t} {← sx b})"
   | .forallE _ t b _ => return s!"(pi {← sx t} {← sx b})"
+  | .letE _ t v b _ => return s!"(let {← sx t} {← sx v} {← sx b})"
+  | .proj _ i e => return s!"(proj {i} {← sx e})"
   | e => return s!"?? {e}"
 
 run_meta do
@@ -142,6 +146,81 @@ run_meta do
     levelCase [(ma.mvarId!, "a")] ma (mkLevelMax (mkLevelParam `u) (mkLevelParam `v))
 
 run_meta do
+  withNewMCtxDepth do
+    let ma ← mkFreshLevelMVar
+    let mb ← mkFreshLevelMVar
+    levelCase [(ma.mvarId!, "a"), (mb.mvarId!, "b")] (Nat.repeat mkLevelSucc 0 Level.zero) (mkLevelMax ma mb)
+
+run_meta do
+  withNewMCtxDepth do
+    let ma ← mkFreshLevelMVar
+    levelCase [(ma.mvarId!, "a")] (Nat.repeat mkLevelSucc 0 Level.zero) (mkLevelMax ma (mkLevelParam `u))
+
+run_meta do
+  withNewMCtxDepth do
+    let ma ← mkFreshLevelMVar
+    let mb ← mkFreshLevelMVar
+    levelCase [(ma.mvarId!, "a"), (mb.mvarId!, "b")] (Nat.repeat mkLevelSucc 0 Level.zero) (mkLevelMax ma (Nat.repeat mkLevelSucc 1 mb))
+
+run_meta do
+  withNewMCtxDepth do
+    let ma ← mkFreshLevelMVar
+    levelCase [(ma.mvarId!, "a")] (Nat.repeat mkLevelSucc 0 Level.zero) (mkLevelIMax (mkLevelParam `u) ma)
+
+run_meta do
+  withNewMCtxDepth do
+    levelCase [] (mkLevelIMax (mkLevelParam `u) (Nat.repeat mkLevelSucc 0 Level.zero)) (Nat.repeat mkLevelSucc 1 Level.zero)
+
+run_meta do
+  withNewMCtxDepth do
+    levelCase [] (mkLevelMax (mkLevelParam `u) (mkLevelParam `v)) (mkLevelParam `u)
+
+run_meta do
+  withNewMCtxDepth do
+    levelCase [] (mkLevelParam `u) (mkLevelIMax (mkLevelParam `u) (mkLevelParam `u))
+
+run_meta do
+  let mr ← mkFreshLevelMVar
+  withNewMCtxDepth do
+    levelCase [(mr.mvarId!, "r")] (mkLevelMax mr (mkLevelParam `u)) (mkLevelParam `u)
+
+run_meta do
+  withNewMCtxDepth do
+    let ma ← mkFreshLevelMVar
+    levelCase [(ma.mvarId!, "a")] ma (mkLevelIMax (mkLevelParam `u) ma)
+
+run_meta do
+  withNewMCtxDepth do
+    let ma ← mkFreshLevelMVar
+    levelCase [(ma.mvarId!, "a")] (mkLevelMax (mkLevelParam `u) ma) (mkLevelMax (mkLevelParam `u) (mkLevelParam `v))
+
+run_meta do
+  withNewMCtxDepth do
+    let ma ← mkFreshLevelMVar
+    levelCase [(ma.mvarId!, "a")] (Nat.repeat mkLevelSucc 1 ma) (mkLevelMax (mkLevelParam `u) (mkLevelParam `v))
+
+run_meta do
+  withNewMCtxDepth do
+    let ma ← mkFreshLevelMVar
+    levelCase [(ma.mvarId!, "a")] (mkLevelMax (mkLevelMax ma (mkLevelParam `v)) (mkLevelParam `u)) (mkLevelMax (mkLevelParam `u) (mkLevelMax (mkLevelParam `v) (mkLevelParam `w)))
+
+run_meta do
+  withNewMCtxDepth do
+    let ma ← mkFreshLevelMVar
+    let mb ← mkFreshLevelMVar
+    levelCase [(ma.mvarId!, "a"), (mb.mvarId!, "b")] ma (mkLevelMax (Nat.repeat mkLevelSucc 1 mb) (mkLevelParam `u))
+
+run_meta do
+  withNewMCtxDepth do
+    let ma ← mkFreshLevelMVar
+    levelCase [(ma.mvarId!, "a")] ma (mkLevelMax ma (mkLevelParam `u))
+
+run_meta do
+  withNewMCtxDepth do
+    let ma ← mkFreshLevelMVar
+    levelCase [(ma.mvarId!, "a")] (Nat.repeat mkLevelSucc 1 ma) (mkLevelMax (Nat.repeat mkLevelSucc 1 (mkLevelParam `u)) (Nat.repeat mkLevelSucc 1 (mkLevelParam `v)))
+
+run_meta do
   withLocalDeclD `x (mkSort Level.zero) fun x => do
   withLocalDeclD `y (mkSort Level.zero) fun y => do
     let m ← mkFreshExprMVar (mkSort Level.zero)
@@ -171,6 +250,14 @@ run_meta do
     IO.println (← sx (Expr.abstract (mkApp x y) #[x, x]))
     IO.println (← sx (Expr.abstract (mkApp x y) #[]))
     IO.println (← sx (Expr.abstract (mkLambda `a .default (mkSort Level.zero) (mkBVar 3)) #[x]))
+    IO.println (← sx (Expr.instantiate1 (mkLet `a (mkBVar 0) (mkBVar 0) (mkBVar 1)) x))
+    IO.println (← sx (Expr.instantiate1 (mkLet `a (mkSort Level.zero) (mkBVar 1) (mkApp (mkBVar 0) (mkBVar 2))) y))
+    IO.println (← sx (Expr.instantiate1 (mkProj `C 0 (mkBVar 0)) x))
+    IO.println (← sx (Expr.instantiate1 (mkLambda `a .default (mkSort Level.zero) (mkProj `C 1 (mkBVar 1))) x))
+    IO.println (← sx (Expr.abstract (mkLet `a x x (mkApp x (mkBVar 0))) #[x]))
+    IO.println (← sx (Expr.abstract (mkProj `C 1 (mkApp x y)) #[y]))
+    IO.println (← sx (Expr.headBeta (mkApp (mkLambda `a .default (mkSort Level.zero) (mkLet `a (mkBVar 0) (mkBVar 0) (mkBVar 1))) x)))
+    IO.println (← sx (Expr.headBeta (mkApp (mkLambda `a .default (mkSort Level.zero) (mkProj `C 0 (mkBVar 0))) y)))
 
 run_meta do
   withLocalDeclD `x (mkSort Level.zero) fun x => do
@@ -194,6 +281,8 @@ run_meta do
     IO.println (pl [] (mkLevelIMax' (mkLevelParam `u) (mkLevelMax (mkLevelParam `v) (Nat.repeat mkLevelSucc 1 Level.zero))))
     IO.println (pl [] (mkLevelIMax' (mkLevelParam `u) (mkLevelIMax (mkLevelParam `v) (Nat.repeat mkLevelSucc 1 Level.zero))))
     IO.println (pl [] (mkLevelIMax' (Nat.repeat mkLevelSucc 1 Level.zero) (mkLevelIMax (mkLevelParam `u) (mkLevelParam `v))))
+    IO.println (pl [] (mkLevelMax' (Nat.repeat mkLevelSucc 1 (mkLevelParam `u)) (Nat.repeat mkLevelSucc 1 Level.zero)))
+    IO.println (pl [] (mkLevelMax' (Nat.repeat mkLevelSucc 1 Level.zero) (Nat.repeat mkLevelSucc 1 (mkLevelParam `u))))
     IO.println (pl [] (Level.instantiateParams (Nat.repeat mkLevelSucc 1 (mkLevelParam `u)) [`u] [(Nat.repeat mkLevelSucc 2 Level.zero)]))
     IO.println (pl [] (Level.instantiateParams (mkLevelParam `v) [`u] [(Nat.repeat mkLevelSucc 1 Level.zero)]))
     IO.println (pl [] (Level.instantiateParams (mkLevelParam `u) [`u, `u] [(Nat.repeat mkLevelSucc 1 Level.zero), (Nat.repeat mkLevelSucc 2 Level.zero)]))
@@ -212,3 +301,53 @@ run_meta do
     IO.println (← sx (Expr.instantiateLevelParams (mkConst `C [(Nat.repeat mkLevelSucc 0 Level.zero), (Nat.repeat mkLevelSucc 1 Level.zero)]) [`u] [(mkLevelParam `v)]))
     IO.println (← sx (Expr.instantiateLevelParams (mkSort (mkLevelMax (mkLevelParam `u) (mkLevelParam `v))) [`u] [(Nat.repeat mkLevelSucc 1 Level.zero)]))
     IO.println (← sx (Expr.instantiateLevelParams (mkSort (mkLevelIMax (mkLevelParam `u) (mkLevelParam `v))) [`v] [(Nat.repeat mkLevelSucc 0 Level.zero)]))
+    IO.println (← sx (Expr.instantiateLevelParams (mkSort (mkLevelMax (mkLevelParam `u) (mkLevelParam `u))) [] []))
+
+run_meta do
+  let ma ← mkFreshLevelMVar
+  let mb ← mkFreshLevelMVar
+  let ms := [(ma.mvarId!, "a"), (mb.mvarId!, "b")]
+  IO.println (pl ms (Level.normalize (Nat.repeat mkLevelSucc 0 Level.zero)))
+  IO.println (pl ms (Level.normalize (Nat.repeat mkLevelSucc 3 (mkLevelParam `u))))
+  IO.println (pl ms (Level.normalize (mkLevelMax (mkLevelParam `u) (mkLevelParam `v))))
+  IO.println (pl ms (Level.normalize (mkLevelMax (mkLevelParam `v) (mkLevelParam `u))))
+  IO.println (pl ms (Level.normalize (mkLevelMax (mkLevelParam `u) (mkLevelParam `u))))
+  IO.println (pl ms (Level.normalize (mkLevelMax (mkLevelMax (mkLevelParam `u) (mkLevelParam `v)) (mkLevelParam `u))))
+  IO.println (pl ms (Level.normalize (mkLevelMax (Nat.repeat mkLevelSucc 1 (mkLevelParam `u)) (mkLevelParam `u))))
+  IO.println (pl ms (Level.normalize (mkLevelMax (Nat.repeat mkLevelSucc 1 Level.zero) (Nat.repeat mkLevelSucc 2 Level.zero))))
+  IO.println (pl ms (Level.normalize (mkLevelMax (Nat.repeat mkLevelSucc 0 Level.zero) (mkLevelParam `u))))
+  IO.println (pl ms (Level.normalize (mkLevelMax (Nat.repeat mkLevelSucc 2 Level.zero) (Nat.repeat mkLevelSucc 1 (mkLevelParam `u)))))
+  IO.println (pl ms (Level.normalize (mkLevelMax (Nat.repeat mkLevelSucc 1 Level.zero) (Nat.repeat mkLevelSucc 1 (mkLevelParam `u)))))
+  IO.println (pl ms (Level.normalize (Nat.repeat mkLevelSucc 1 (mkLevelMax (mkLevelParam `u) (mkLevelParam `v)))))
+  IO.println (pl ms (Level.normalize (mkLevelMax (mkLevelMax (mkLevelParam `w) (mkLevelParam `v)) (mkLevelMax (mkLevelParam `u.v) (mkLevelParam `u)))))
+  IO.println (pl ms (Level.normalize (mkLevelMax (mkLevelParam `u.v) (mkLevelParam `w))))
+  IO.println (pl ms (Level.normalize (mkLevelIMax (mkLevelParam `u) (mkLevelParam `v))))
+  IO.println (pl ms (Level.normalize (mkLevelIMax (mkLevelParam `u) (Nat.repeat mkLevelSucc 0 Level.zero))))
+  IO.println (pl ms (Level.normalize (mkLevelIMax (Nat.repeat mkLevelSucc 0 Level.zero) (mkLevelParam `u))))
+  IO.println (pl ms (Level.normalize (mkLevelIMax (Nat.repeat mkLevelSucc 1 Level.zero) (mkLevelParam `u))))
+  IO.println (pl ms (Level.normalize (mkLevelIMax (mkLevelParam `u) (mkLevelParam `u))))
+  IO.println (pl ms (Level.normalize (mkLevelIMax (mkLevelParam `u) (Nat.repeat mkLevelSucc 1 (mkLevelParam `v)))))
+  IO.println (pl ms (Level.normalize (Nat.repeat mkLevelSucc 2 (mkLevelIMax (mkLevelParam `u) (Nat.repeat mkLevelSucc 1 (mkLevelParam `v))))))
+  IO.println (pl ms (Level.normalize (mkLevelIMax (mkLevelParam `u) (mkLevelMax (mkLevelParam `v) (Nat.repeat mkLevelSucc 1 Level.zero)))))
+  IO.println (pl ms (Level.normalize (mkLevelIMax (mkLevelMax (mkLevelParam `v) (mkLevelParam `u)) (mkLevelParam `w))))
+  IO.println (pl ms (Level.normalize (mkLevelIMax (Nat.repeat mkLevelSucc 1 Level.zero) (mkLevelMax (mkLevelParam `v) (mkLevelParam `u)))))
+  IO.println (pl ms (Level.normalize (Nat.repeat mkLevelSucc 1 (mkLevelIMax (Nat.repeat mkLevelSucc 1 Level.zero) (mkLevelMax (mkLevelParam `v) (mkLevelParam `u))))))
+  IO.println (pl ms (Level.normalize (mkLevelMax (Nat.repeat mkLevelSucc 1 (mkLevelIMax (Nat.repeat mkLevelSucc 1 Level.zero) (mkLevelMax (mkLevelParam `v) (mkLevelParam `u)))) (mkLevelParam `w))))
+  IO.println (pl ms (Level.normalize (mkLevelMax mb ma)))
+  IO.println (pl ms (Level.normalize (mkLevelMax ma (mkLevelParam `u))))
+  IO.println (pl ms (Level.normalize (mkLevelMax (Nat.repeat mkLevelSucc 1 ma) ma)))
+  IO.println (pl ms (Level.normalize (mkLevelMax (mkLevelMax (mkLevelParam `u) (Nat.repeat mkLevelSucc 2 Level.zero)) (mkLevelMax (mkLevelParam `v) (Nat.repeat mkLevelSucc 1 Level.zero)))))
+  IO.println (pl ms (Level.normalize (mkLevelMax (mkLevelMax (mkLevelParam `u) (Nat.repeat mkLevelSucc 2 Level.zero)) (mkLevelMax (Nat.repeat mkLevelSucc 2 (mkLevelParam `v)) (Nat.repeat mkLevelSucc 1 Level.zero)))))
+  IO.println (pl ms (Level.normalize (mkLevelMax (mkLevelIMax (mkLevelParam `u) (mkLevelParam `v)) (mkLevelIMax (mkLevelParam `u) (mkLevelParam `w)))))
+  IO.println (pl ms (Level.normalize (mkLevelMax (mkLevelIMax (mkLevelParam `u) (mkLevelParam `w)) (mkLevelIMax (mkLevelParam `u) (mkLevelParam `v)))))
+  IO.println (pl ms (Level.normalize (mkLevelMax (mkLevelMax (mkLevelParam `v) (mkLevelParam `w)) (mkLevelMax (mkLevelParam `u) (mkLevelParam `v)))))
+  IO.println (pl ms (Level.normalize (mkLevelIMax (mkLevelParam `u) (mkLevelIMax (mkLevelParam `v) (Nat.repeat mkLevelSucc 1 Level.zero)))))
+  IO.println (pl ms (Level.normalize (mkLevelMax (Nat.repeat mkLevelSucc 2 (mkLevelParam `u)) (mkLevelMax (Nat.repeat mkLevelSucc 1 (mkLevelParam `v)) (mkLevelParam `u)))))
+  IO.println (pl ms (Level.normalize (mkLevelMax (Nat.repeat mkLevelSucc 1 (mkLevelMax (mkLevelParam `u) (mkLevelParam `v))) (mkLevelMax (mkLevelParam `v) (Nat.repeat mkLevelSucc 2 (mkLevelParam `u))))))
+  IO.println (pl ms (Level.normalize (mkLevelIMax (mkLevelIMax (mkLevelParam `u) (mkLevelParam `v)) (mkLevelIMax (mkLevelParam `v) (mkLevelParam `u)))))
+  IO.println (pl ms (Level.normalize (mkLevelMax (mkLevelIMax (Nat.repeat mkLevelSucc 1 (mkLevelParam `u)) (mkLevelParam `v)) (mkLevelIMax (mkLevelParam `u) (mkLevelParam `v)))))
+  IO.println (pl ms (Level.normalize (mkLevelMax (mkLevelMax (mkLevelParam `u) (Nat.repeat mkLevelSucc 0 Level.zero)) (Nat.repeat mkLevelSucc 0 Level.zero))))
+  IO.println (pl ms (Level.normalize (mkLevelMax (Nat.repeat mkLevelSucc 0 Level.zero) (Nat.repeat mkLevelSucc 0 Level.zero))))
+  IO.println (pl ms (Level.normalize (mkLevelMax (Nat.repeat mkLevelSucc 3 Level.zero) (mkLevelMax (Nat.repeat mkLevelSucc 1 Level.zero) (Nat.repeat mkLevelSucc 2 Level.zero)))))
+  IO.println (pl ms (Level.normalize (mkLevelIMax (Nat.repeat mkLevelSucc 1 (mkLevelParam `u)) (mkLevelMax (Nat.repeat mkLevelSucc 0 Level.zero) (Nat.repeat mkLevelSucc 0 Level.zero)))))
+  IO.println (pl ms (Level.normalize (mkLevelMax (Nat.repeat mkLevelSucc 1 mb) (mkLevelMax (Nat.repeat mkLevelSucc 2 ma) mb))))
