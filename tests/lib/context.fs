@@ -147,8 +147,9 @@ T{ ' c-bad-setup ' context-setup catch nip bad-runs @ -> 66 1 }T
 T{ context-bytes -> bytes-before }T
 \ Members are laid down aligned whatever HERE was.
 1 allot  ' noop context-setup
+lf-lib-private order+
 T{ context-last @ dup aligned = -> true }T
-align
+order-  align
 
 \ A frames record as a member: initialised with frame-init in the main
 \ context and in every new one; its visitor reaches it through its
@@ -190,8 +191,11 @@ variable late-setup-fails  0 late-setup-fails !
 variable tear-count  variable early-at  variable late-at  variable tear-context
 variable tear-throws  0 tear-throws !  variable tear-unbalance  0 tear-unbalance !
 variable tear-careless  0 tear-careless !
+variable tear-early-throws  0 tear-early-throws !
 : tear-tick ( addr -- ) 1 tear-count +! tear-count @ swap ! ;
-: c-tear-early ( -- ) early-at tear-tick c-heap-free ;
+\ On request it throws, after it freed what it found.
+: c-tear-early ( -- )
+  early-at tear-tick c-heap-free tear-early-throws @ ?dup if throw then ;
 \ On request it also selects the main context before it throws, as a
 \ helper that saves and restores lf-context without CATCH would.
 : c-tear-late ( -- )
@@ -205,6 +209,9 @@ variable tear-careless  0 tear-careless !
 8 constant mwalk
 mcap /node 0 context-store: m-store
 mwalk context-walk: m-walk
+\ Growable arrays, empty (no heap block) until reserved.
+1 cells context-slab: m-slab
+2 cells context-slab: m-slab2
 
 \ ---------------------------------------------------------------------------
 \ New contexts: fresh members, sealed layout, independent state.
@@ -357,6 +364,34 @@ T{ context-new throw context-free blocks-held c-heap @ main-heap = -> 92 0 true 
 1 late-setup-fails !
 T{ context-new blocks-held -> 0 56 0 }T
 0 late-setup-fails !
+\ Two teardown words that throw different codes: context-free gives the
+\ code of the one that ran first, the newest (the context review's L1).
+91 tear-throws !  93 tear-early-throws !
+T{ context-new throw context-free blocks-held -> 91 0 }T
+\ A setup word and a teardown word that both throw in context-new: it
+\ gives the setup word's code, which came first, and holds no block.
+1 late-setup-fails !
+T{ context-new blocks-held -> 0 56 0 }T
+0 late-setup-fails !  0 tear-throws !  0 tear-early-throws !
+\ A context's walk grown past its first room into a heap block: freeing
+\ the context gives that block back too (walks-free).
+: m-walk-fill ( n -- ) 0 ?do i m-walk walk-push drop loop ;
+context-new throw constant ctx6
+ctx6 context-use  mwalk 2* m-walk-fill
+T{ m-walk walk-pending @ m-walk walk-heap @ 0<> blocks-held -> mwalk 2* true 3 }T
+context-main context-use
+T{ ctx6 context-free blocks-held -> 0 0 }T
+\ A context's slab member reserved into a heap block: freeing the context
+\ gives it back (slabs-free; the item-1 review's L1).
+context-new throw constant ctx7
+ctx7 context-use
+T{ m-slab slab-count m-slab slab-capacity blocks-held -> 0 0 2 }T
+T{ 100 m-slab slab-reserve m-slab slab-capacity 99 > blocks-held -> outcome-ok true 3 }T
+\ Both slab members, the older and the newer: every listed member is freed
+\ (listed-each; the item-2 review's L2).
+T{ 10 m-slab2 slab-reserve blocks-held -> outcome-ok 4 }T
+context-main context-use
+T{ ctx7 context-free blocks-held -> 0 0 }T
 
 \ ---------------------------------------------------------------------------
 \ Randomized model: three contexts, each with a store and a walk record,

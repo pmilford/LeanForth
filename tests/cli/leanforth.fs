@@ -504,6 +504,10 @@ variable throw-at  -1 throw-at !
 T{ composition same? kinds same? nested same? -> true true true }T
 \ Nothing refused by readiness, nothing run again: the readiness sets hold.
 T{ nested 3 facts-of drop rot drop -> 0 0 }T
+\ The plan's readiness edges, a count for reports (lf-sched-edges): the
+\ nested export's later declarations wait on earlier ones (COV2).
+: edges-of ( c-addr u jobs -- n ) fresh >r run-with lf-sched-edges ck-release r> back ;
+T{ nested 3 edges-of 0> -> true }T
 nested 1 facts-of 2drop drop constant serial-nested
 \ A stress run: the nested export, many small interleaved checks, at 8
 \ workers five times, each time the serial run's facts.
@@ -632,13 +636,40 @@ T{ 2 dupl-same 4 dupl-same and 7 dupl-same and -> true }T
 T{ 3 dupl-same 10 dupl-same and -> true }T
 \ A pool that cannot start (worker stacks below the contexts' need): the
 \ serial run's facts, no workers in the report, the pool's refusal named.
+lf-lib-private order+   \ the layout record is private to lib/context.fs
 : need-cell ( -- addr ) context-layout layout-data-need ;
+order-
 : refused-run ( jobs -- h why run? )
   fresh >r need-cell @ >r 1000000000 need-cell !
   wide rot run-with sched-facts ck-why ck-jobs-run? ck-release
   r> need-cell ! r> back ;
 T{ 3 refused-run -> serial-wide task-stacks-small false }T
 T{ 10 refused-run -> serial-wide task-stacks-small false }T
+\ A system that refuses worker threads, as near its process limit
+\ (lib/task.fs's spawn-limit!): refusing all, the pool's refusal named and
+\ the run serial; refusing some, the run on the workers made, the number
+\ made and refused kept for the report; the serial run's facts each time.
+: limited-run ( jobs limit -- h why run? made lacked )
+  spawn-limit! fresh >r wide rot run-with sched-facts ck-why ck-jobs-run? ck-made
+  ck-lacked ck-release -1 spawn-limit! r> back ;
+: asked ( jobs -- n ) task-cores min ;
+T{ 3 0 limited-run -> serial-wide task-no-worker false 0 0 }T
+T{ 3 1 limited-run -> serial-wide 0 true 1 3 asked 1- }T
+T{ 10 2 limited-run -> serial-wide 0 true 2 10 asked 2 - }T
+T{ 3 -1 limited-run -> serial-wide 0 true 3 asked 0 }T
+\ The report's workers line, and the line of the tasks the system refused
+\ (Gforth 1.0, which captures output).
+[defined] >string-execute [if]
+: limited-report ( limit -- c-addr u )
+  spawn-limit! fresh >r wide 2 run-with ['] cli-jobs. >string-execute ck-release
+  -1 spawn-limit! r> back ;
+: workers-line ( -- c-addr u ) s"   workers: 2 (--jobs), on " ;
+: lacked-line ( -- c-addr u )
+  s\" cores\n    worker tasks started: 1 (the system refused 1 more)\n    checks handed out" ;
+: holds? ( c-addr u c-addr' u' -- flag ) search nip nip ;
+T{ 1 limited-report 2dup workers-line holds? -rot lacked-line holds? -> true true }T
+T{ -1 limited-report 2dup workers-line holds? -rot s" worker tasks" holds? -> true false }T
+[then]
 \ Every worker lost: each check of the two first declarations throws and
 \ no replacement can be made. The run ends (it spun forever with entries
 \ past the stop left in the ready heap), stopped at the second declaration
@@ -679,6 +710,94 @@ sched-unlent
 T{ lf-sched-init lf-sched lf-sch-states /slab erase lf-sched-plan
    -> outcome-ok outcome-invalid }T
 sched-unlent
+T{ depth -> 0 }T
+
+\ print's text words (cli/print.fs; FRP review C3, C4). pr-ends? ( c u pa
+\ pu -- c u' flag ): the text without the part, true; or false (u' then
+\ unspecified). The part longer than the text, empty, or all of it.
+: abc ( -- c-addr u ) s" abc" ;
+\ The text abc ends with c-addr u: u' and the flag, and whether c-addr
+\ stayed abc's.
+: ends ( c-addr u -- u' flag same? ) abc 2swap pr-ends? rot abc drop = ;
+T{ s" bc" ends -> 1 true true }T
+T{ s" abc" ends -> 0 true true }T
+T{ s" " ends -> 3 true true }T
+T{ s" xc" ends rot drop -> false true }T
+T{ s" ab" ends rot drop -> false true }T
+T{ s" zabc" ends rot drop -> false true }T
+T{ abc drop 0 s" " pr-ends? rot drop -> 0 true }T
+T{ abc drop 0 s" a" pr-ends? rot drop -> 0 false }T
+\ A part longer than the text is refused before any byte is read, even
+\ when the bytes before the text would match it.
+: zabc ( -- c-addr u ) s" zabc" ;
+T{ zabc 1 /string zabc pr-ends? nip nip -> false }T
+\ pr-item ( c u -- rest-addr rest-u item-addr item-u ): the first name of
+\ a comma-separated list and the rest after its comma, else the end.
+: item ( c-addr u -- rest-u item-addr item-u ) pr-item 2swap nip -rot ;
+: lean ( -- c-addr u ) s" lean" ;
+T{ s" lean,text" item s" lean" compare -> 4 0 }T
+T{ s" lean,text" pr-item 2drop s" text" compare -> 0 }T
+T{ lean pr-item lean d= -rot lean + 0 d= -> true true }T
+T{ s" ,x" item nip -> 1 0 }T
+T{ s" a," item s" a" compare -> 0 0 }T
+T{ s" " item nip -> 0 0 }T
+\ pr-form-bit and pr-forms (--statement): each name's bit, all of them,
+\ any other text 0; a list joined by commas, refused when empty, with an
+\ empty or unknown name, or ending with a comma.
+T{ s" lean" pr-form-bit s" text" pr-form-bit -> lf-form-lean lf-form-text }T
+T{ s" mathematics" pr-form-bit s" leanforth" pr-form-bit
+   -> lf-form-mathematics lf-form-leanforth }T
+T{ s" all" pr-form-bit s" " pr-form-bit s" al" pr-form-bit s" alll" pr-form-bit
+   -> lf-forms-all 0 0 0 }T
+T{ s" Lean" pr-form-bit s" lean " pr-form-bit s" leanforth," pr-form-bit -> 0 0 0 }T
+T{ s" lean" pr-forms s" lean,text,leanforth" pr-forms -> lf-form-lean true 13 true }T
+T{ s" all" pr-forms s" lean,lean" pr-forms -> lf-forms-all true lf-form-lean true }T
+T{ s" " pr-forms s" lean," pr-forms s" ,lean" pr-forms -> false false false }T
+T{ s" lean,,text" pr-forms s" lean,bogus" pr-forms s" ," pr-forms -> false false false }T
+\ pr-named? ( c-addr u id -- flag ): the text spells the name: components
+\ joined by dots, numbers in decimal; a name longer than the text, a text
+\ longer than the name, an empty component.
+: nm ( prefix c-addr u -- id ) lf-name-str 0= abort" nm: no name" ;
+: nm# ( prefix n -- id ) lf-name-num 0= abort" nm#: no name" ;
+fresh constant names-context
+0 s" Nat" nm constant n-nat
+n-nat s" add_zero" nm constant n-add-zero
+n-nat 12 nm# constant n-nat-12
+0 s" " nm constant n-empty
+0 s" a" nm s" " nm constant n-a-empty
+T{ s" Nat.add_zero" n-add-zero pr-named? s" Nat" n-nat pr-named? -> true true }T
+T{ s" Nat.12" n-nat-12 pr-named? s" Nat.1" n-nat-12 pr-named? -> true false }T
+T{ s" add_zero" n-add-zero pr-named? s" Nat.add_zer" n-add-zero pr-named? -> false false }T
+T{ s" XNat.add_zero" n-add-zero pr-named? s" .Nat.add_zero" n-add-zero pr-named?
+   -> false false }T
+T{ s" Nat_add_zero" n-add-zero pr-named? s" zero" n-add-zero pr-named? -> false false }T
+T{ s" " n-empty pr-named? s" x" n-empty pr-named? s" " n-nat pr-named? -> true false false }T
+T{ s" a." n-a-empty pr-named? s" a" n-a-empty pr-named? -> true false }T
+names-context back
+
+\ print --lf's reasons (cli/print-lf.fs; FRP review C5): each one's text,
+\ and "?" for any other code.
+: reason ( reason c-addr u -- flag ) rot fl-reason-text compare 0= ;
+T{ fl-inductive s" an inductive type" reason
+   fl-constructor s" an inductive type's constructor" reason -> true true }T
+T{ fl-recursor s" a recursor" reason fl-quotient s" a quotient constant" reason
+   -> true true }T
+T{ fl-block s" an inductive block's header" reason fl-opaque s" an opaque constant" reason
+   -> true true }T
+T{ fl-unsafe s" an unsafe or partial declaration" reason
+   fl-arity s" more than 8 universe parameters" reason -> true true }T
+T{ fl-unsupported s" a name, literal or term form the words cannot write" reason
+   -> true }T
+T{ fl-invalid s" a term the input does not hold (let, metadata) or malformed" reason
+   -> true }T
+T{ fl-fuel s" the printer ran out of fuel or room" reason -> true }T
+T{ fl-none s" ?" reason -1 s" ?" reason fl-reasons 1+ s" ?" reason -> true true true }T
+
+\ The progress interval never wraps (FRP review D4): its seconds become
+\ microseconds as a double, so max-n seconds after a mark have not
+\ passed, and 0 seconds have.
+ck-marks!
+T{ max-n ck-state ck-prog-mark ck-after? 0 ck-state ck-prog-mark ck-after? -> false true }T
 T{ depth -> 0 }T
 
 cases-done

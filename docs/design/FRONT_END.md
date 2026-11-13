@@ -7,8 +7,11 @@ branch `fe1` (Forth review pending):** FE1a, the natural reader
 as not supported yet where elaboration or a tactic would begin; the
 kernel form needs `kernel-form`), and FE1b, the metavariable context
 (`src/front/mvars.fs`, `core/mvar-leaves.fs`), is tested alone (no command
-makes metavariables yet; the export writer refuses any). Nothing else in
-this document is built. It is
+makes metavariables yet; the export writer refuses any). FE1f's hand-over
+(`src/front/handover.fs`: instantiate, refuse a reachable hole, write
+only what the declaration reaches, through the stage to the kernel) is
+tested alone on branch `fe1f`, driven by a stand-in elaborator; FE1d's
+elaboration data is integrated. Nothing else in this document is built. It is
 the design and plan for the half of Lean that LeanForth does not have: the
 part that turns what a person writes into the full proof term the kernel
 checks. The architecture and trust boundary are proposed in
@@ -52,8 +55,8 @@ theorem zero_add'
   0 n + n =
 := by
   n by-induction
-  by-case: zero =>       by-rfl
-  by-case: succ k ih =>  ' Nat.succ ih congrArg by-exact
+  by-case: zero =>       by-rfl                           by-end
+  by-case: succ k ih =>  ' Nat.succ ih congrArg by-exact  by-end
 end zero_add'
 ```
 
@@ -76,7 +79,7 @@ smallest piece that proves something real: FE1, $0 + n = n$ by induction.
 | Milestone | What a user can do when it is done | Size |
 | --- | --- | --- |
 | FE1 | Prove $0 + n = n$ in LeanForth with `induction`, `rfl` and `exact`, no proof term written by hand, no Lean tool run | L (8 steps) |
-| FE2 | Write any statement and term proof as naturally as in Lean (implicit arguments, numerals, `+`, `=`, `fun`, `let`, holes) | L |
+| FE2 | Write any statement and term proof as naturally as in Lean (implicit arguments, numerals, `+`, `=`, `fun`, `let`, holes); designed in [FE2_TERMS.md](FE2_TERMS.md) | L |
 | FE3 | Declare classes and instances; instance search as Lean's | L |
 | FE4 | Coercions (`↑n`, a natural number used as an integer) | M |
 | FE5 | The everyday tactics (`intro`, `apply`, `cases`, `rw`, `constructor`, `calc` …); `add_comm` and Cantor's theorem of the demos proved natively | L |
@@ -97,11 +100,13 @@ smallest piece that proves something real: FE1, $0 + n = n$ by induction.
 | `leanforth check FILE.lf` | on `main`: refuses LeanForth text (exit 4). On branch `lf-files-2` (not merged): integrated, its gates pending (ADR 0017 Amendment 2); it checks hand-written kernel terms such as `20-zero-add.lf` against an export of `Init` |
 | Printing a checked statement in LeanForth words, Lean notation and mathematics | integrated (`leanforth print`, plan 8.6.2); the notation table maps `HAdd.hAdd` to `+` for printing only |
 | Holes `_` | refused: error 52, "holes are filled by the elaborator" |
-| Metavariable context (FE1b): metavariables, assignment, occurs check, instantiation | tested alone on branch `fe1` (`tests/front/front.fs`); the beta step and delayed assignments' values answer unsupported until FE1c |
+| Metavariable context (FE1b): metavariables, assignment, occurs check, instantiation | tested alone (`tests/front/front.fs`; compared with pinned Lean by `tests/front/check_meta.py`); the beta step and delayed assignments' values are put in as Lean does (FE1c), except an argument with loose bound variables and a let that betaRev zeta-reduces (unsupported) |
+| Hand-over of an elaborated declaration to the kernel (FE1f) | tested alone on branch `fe1f` (`tests/front/handover.fs`, with a stand-in elaborator): holes instantiated, a reachable hole refused (error 74), an unused universe parameter refused as Lean refuses it (error 75), only the nodes the declaration reaches written, through the stage to the kernel; no user command reaches it before FE1e |
 | Elaborator, unification, implicit arguments, numerals as Lean reads them | not started |
 | Type classes, coercions | not started |
 | Tactics and proof states | not started |
-| Pattern matching, recursion, generated definitions for new data types | not started (the kernel builds `T.rec` when it checks a data type, as Lean's kernel does; everything else comes from Lean's export) |
+| Pattern matching, recursion | not started |
+| Generated definitions for new data types (FE6) | `T.casesOn`, `T.recOn` and `T.ctorIdx` written and tested alone on branch `fe6a` (`src/front/constructions.fs`, `cases-several.fs`, `ctor-idx.fs`): built from a loaded export's `T.rec`, `T`'s type and constructors as Lean builds them, and compared with Lean's own on all of Init (`make reference-constructions`): of 597 `casesOn`, 436 equal node for node, 161 equal up to binder names and binder information (Lean's exporter shares terms that differ only in those), 0 different, 0 unsupported (`cases-several.fs` builds it for a recursor with several motives, such as the nested `Lean.Syntax`); of 576 `recOn`, 539, 37, 0 and 0; of 397 `ctorIdx`, 0, 397, 0 and 0 (Lean gives its arrow's binder a fresh hygienic name). Limit (review fe6a M1): the binder names and binder information come from the export's `T.rec` and `T`'s type, and an export may show a shared term's (Lean's `Expr` equality ignores them); against pinned Lean's environment (`tests/reference/constructions-binders.lean`, macro scopes erased) the binders are exact for 565 `casesOn`, 544 `recOn` and 328 `ctorIdx`, the others differing in names (30, 30, 69) or also in binder information (2, 2, 0: `Equivalence`'s `symm` explicit where Lean's is implicit). An exact source (the elaboration data, or an export without sharing) is owed before the front end uses these definitions. Not yet used for LeanForth's own data types, which need FE2–FE5; the kernel builds `T.rec` when it checks a data type, as Lean's kernel does; `noConfusionType` and `noConfusion` (they need the front end's type inference and definitional equality, FE1c), `below`, `brecOn` (type inference of levels), `sizeOf` and the injectivity lemmas not started |
 | `simp`, decision procedures, Mathlib's tactics | not started |
 | Evaluation (`#eval`, `#reduce`) | not started (the kernel reduces terms internally, with no user command) |
 | Natural LeanForth (plan 8.6.10): the natural reader (FE1a) | integrated on branch `fe1`: natural text is the default and is read into Lean-shaped syntax trees (`binrel% Eq (binop% HAdd.hAdd 0 n) n`, compared with pinned Lean's macro expansion); nothing is elaborated yet |
@@ -441,6 +446,12 @@ Proposed rules (spellings are [questions 1–4](#9-questions-for-the-owner)):
   (ADR 0017 rule R1): `#check`, `#print`, `#reduce`, `#eval`, `#synth`.
   `.goals` prints the goals, as Forth's `.s` prints the stack.
 
+The words for the rest of Lean's term language (`fun`, `∀` with every
+binder kind, inferred types, holes, `@`, named arguments, `let`, `have`,
+`show`, ascription, anonymous constructors, field notation, literals and
+the remaining operators) are FE2's, designed in [FE2_TERMS.md](FE2_TERMS.md)
+§2, with three spelling questions for the owner.
+
 ### 4.3 The elaborator core
 
 Planned folder `src/front/` (untrusted; uses `lib/`, `core/`, `present/`
@@ -452,8 +463,9 @@ and `author/`, never `kernel/`):
   with kind, depth, local context, type, assignment and delayed
   assignment; instantiation and abstraction as Lean's `MetavarContext`.
   Metavariables are new leaf kinds in the term and level stores; the export
-  writer refuses any of them (ADR 0021 D2), so the kernel can never receive
-  one.
+  writer refuses any that a declaration it writes reaches (for kernel-form
+  text, any in the stores; ADR 0021 D2), so the kernel can never receive
+  one, and one the elaborator left unused blocks nothing.
 - **Meta-level reduction, type inference and unification**: a port of
   `Meta/WHNF.lean`, `InferType.lean`, `ExprDefEq.lean` and `LevelDefEq.lean`
   with transparency levels, its own caches and fuel. It does not call the
@@ -493,10 +505,13 @@ when Lean's tactic would.
   hypothesis.
 - `by-case: TAG NAMES… =>` focuses the goal of that case and names its new
   hypotheses, as Lean's `case TAG NAMES… =>`; the names end at `=>`. The
-  case must be finished before the next `by-case:` or `end`.
-- `end NAME` with goals left is an error that prints them; there is no
-  `sorry`, and nothing is ever filled in to carry on after an error
-  (ADR 0021 D3).
+  case is a block closed by `by-end`, which must find its goal finished;
+  blocks nest (owner, 2026-11-12; [FE1G_TACTICS.md](FE1G_TACTICS.md) §3,
+  with Lean's `| tag names =>` alternatives after `by-induction-with`).
+- `end NAME` with goals left is an error that prints them; nothing is
+  ever filled in to carry on after an error (ADR 0021 D3). The explicit
+  `sorry`, as in Lean, closes a goal and leaves the declaration NOT
+  PROVED, with the open parts listed (ADR 0021 Amendment 1).
 - `.goals` prints the goals at any point (at the prompt this is the
   interactive view; in a file, a debugging aid); errors print the goals
   too. For AI tools the same in JSON.
@@ -523,6 +538,7 @@ on the same source.
 elaboration data; built-in simprocs re-implemented as Forth words (279 in
 Lean core, prioritised by use). `decide` uses the front end's reduction and
 leaves the real check to the kernel. `omega` and later `grind` are ports.
+FE1i's first slice of both is designed in [FE1I_AUTOMATION.md](FE1I_AUTOMATION.md).
 Mathlib's tactics are ports too, each with its extensions (`norm_num`: 81,
 `positivity`: 119) written as Forth words: Mathlib's Lean code cannot run
 in LeanForth (that would be meaning (C) of §3). `native_decide`,
@@ -560,7 +576,8 @@ with it.
 
 The rules of ADR 0021: the front end has no way to publish a declaration
 except through the kernel's check of export records; no metavariable
-reaches the kernel; no `sorry` and no error recovery; the axioms of each
+reaches the kernel; no error recovery, and the explicit `sorry` only as
+in Lean, reported NOT PROVED with its open parts (ADR 0021 Amendment 1); the axioms of each
 accepted theorem are the kernel's report, unchanged; every verdict line
 shows the checked statement; every elaboration rule that decides what a
 statement means passes the [parser] gate and is compared with pinned Lean;
@@ -673,8 +690,8 @@ five times LeanForth today.
     0 n + n =
   := by
     n by-induction
-    by-case: zero =>       by-rfl
-    by-case: succ k ih =>  ' Nat.succ ih congrArg by-exact
+    by-case: zero =>       by-rfl                           by-end
+    by-case: succ k ih =>  ' Nat.succ ih congrArg by-exact  by-end
   end zero_add'
   ```
 
@@ -693,7 +710,9 @@ five times LeanForth today.
   ```
 
   Its term is the one shown in §2.1; FE1's term must equal it node for
-  node, binder names `n a` included.
+  node, binder names `n a` included (Lean stores them with macro scopes,
+  `n._@…_hyg.15`; they are compared with the scopes erased,
+  [FE1G_TACTICS.md](FE1G_TACTICS.md) §2.3).
 
 ### 8.2 What FE1 needs, and nothing more
 
@@ -706,10 +725,52 @@ FE1 reaches; every other case answers *unsupported* with its token.
 | FE1b | Metavariable context: expression and level metavariables, local contexts, assignment, instantiation, delayed assignment for `intro` under binders; the export writer's refusal of metavariables | `MetavarContext.lean`, parts of `Meta/Basic.lean` |
 | FE1c | Meta-level `whnf`, type inference and `isDefEq` at default and instances transparency: first-order and pattern unification, level unification, lazy delta by height, `Nat` literals and offsets (needed for $0 + (k + 1) \equiv$ `Nat.succ (Nat.add 0 k)`), caches, fuel | parts of `WHNF.lean`, `InferType.lean`, `ExprDefEq.lean`, `LevelDefEq.lean`, `Offset.lean` |
 | FE1d | Elaboration data, first slice: pinned Lean writes instances, default instances, reducibility and `induction_eliminator` for an export; LeanForth reads and validates it; `--elab-data FILE` and the manifest's entry | — (new Lean exporter) |
-| FE1e | Application elaboration with implicit and instance arguments and expected-type propagation; numerals with the default instance; `binop%`/`binrel%` trees for `+` and `=`; instance synthesis (tabled resolution for `HAdd Nat Nat ?γ`, `Add Nat`, `OfNat Nat 0`); the synthetic-metavariable rounds | parts of `App.lean`, `Extra.lean`, `BuiltinTerm.lean`, `SynthInstance.lean`, `SyntheticMVars.lean` |
+| FE1e | Application elaboration with implicit and instance arguments and expected-type propagation; numerals with the default instance; `binop%`/`binrel%` trees for `+` and `=`; instance synthesis (tabled resolution for `HAdd Nat Nat ?γ`, `Add Nat`, `OfNat Nat 0`); the synthetic-metavariable rounds. Designed in full in [FE1E_APPLICATIONS.md](FE1E_APPLICATIONS.md) (the acceptance trace, the instance-class check, sub-steps FE1e0–FE1e8) | parts of `App.lean`, `Extra.lean`, `BuiltinTerm.lean`, `SynthInstance.lean`, `SyntheticMVars.lean`, `DiscrTree` |
 | FE1f | Declaration: header elaboration, universe parameters, `:= by` opens the proof state, the finished term instantiated and sent as export records to the kernel | parts of `MutualDef.lean`, `Term.lean` |
-| FE1g | Proof state and tactics: goals, `.goals`, `by-induction` (eliminator from the elaboration data, motive, one goal per minor premise with its tag), `by-case: … =>`, `by-rfl` (`Eq.refl` at default transparency), `by-exact` | parts of `Elab/Tactic/Basic.lean`, `Induction.lean`, `Meta/Tactic/Induction.lean`, `ElimInfo.lean`, `Rfl.lean` |
+| FE1g | Proof state and tactics: goals, `.goals`, `by-induction` (eliminator from the elaboration data, motive, one goal per minor premise with its tag), `by-case: … =>`, `by-rfl` (`Eq.refl` at default transparency), `by-exact`; designed in detail in [FE1G_TACTICS.md](FE1G_TACTICS.md) (also alternatives, `by-intro:` and `by-rw[ … ]`) | parts of `Elab/Tactic/Basic.lean`, `Induction.lean`, `Meta/Tactic/Induction.lean`, `ElimInfo.lean`, `Rfl.lean` |
 | FE1h | Tests of every class below, planted faults, the user page in three forms, the done-checker run | — |
+| FE1i | Brought forward by the owner (2026-11-12), right after FE1: the first proofs LeanForth finds by itself, `by-decide` (a faithful port of Lean's `decide`: identical term) and a first slice of `by-omega` (linear arithmetic over `Nat` and `Int`: Lean's outcome required, its term measured). Designed in full in [FE1I_AUTOMATION.md](FE1I_AUTOMATION.md): pinned Lean's terms for the target lines and nearby cases, the kernel check of them (nothing missing), the port of `omega` recommended over a procedure of LeanForth's own, tests, sub-steps FE1i-1–9 and three owner questions | `Elab/Tactic/Decide.lean`, `Elab/Tactic/Omega/` (1,704 lines), `FalseOrByContra.lean`, `Meta/Canonicalizer.lean` |
+
+FE1c's status (2026-11-12, branch `fe1c-lnorm`): level unification
+(`src/front/level-defeq.fs`, Lean's `isLevelDefEqAux` under
+`checkpointDefEq`: both sides instantiated and normalized, the
+assignments of a false answer rolled back), `Level.normalize` and Lean's
+`Name.cmp` (`level-normalize.fs`), bound-variable instantiation,
+abstraction and head beta (`instantiate.fs`), level equality with
+`mkLevelMax'` and `mkLevelIMax'` (`level-simp.fs`), universe-parameter
+instantiation (`level-params.fs`) and marks with rollback of
+metavariable assignments (`mvars.fs`, for `checkpointDefEq`) are written
+and tested alone, and `instantiateMVars` (`mvars.fs`) beta-reduces an
+assigned head, and a ready delayed head as `fun xs => value` against all
+its arguments, as Lean's C++ `instantiate_mvars` does; `make
+reference-front` compares 187 cases with pinned Lean: 179 equal; two
+level unifications that need Lean's `solveSelfMax` or `decLevel?` of a
+max, and six instantiations (an argument with loose bound variables, a
+let that betaRev zeta-reduces, a let in a delayed value, and three where Lean instantiates an
+assigned head's beta result a second time), not ported yet, answer
+unsupported.
+On branch
+`fe1c-2`, written and tested alone: the front end's view of the
+environment (`src/front/meta-env.fs`: a declaration of the loaded
+library by name, its reducibility status from FE1d's elaboration data,
+Lean's `canUnfoldDefault` and `getUnfoldableConst?` under the six
+transparency modes; `tests/front/check_unfold.py` finds 44 declarations
+of an `Init` slice and their 528 unfolding answers equal to pinned
+Lean's) and `whnfCore` with `getStuckMVar?` (`src/front/whnf.fs`: beta,
+zeta, metavariable and let-variable heads, projections and iota on
+constructor applications, parts reduced first, fuel;
+`tests/front/check_whnf.py`: 39 of 48 cases equal,
+9 answer unsupported). Facts Lean's `whnf` asks of definitions --
+matchers, projection functions, auxiliary recursors, `_sunfold`
+definitions -- are not in an export: a definition at the head answers
+unsupported until plan row FE1d2 adds them to the elaboration data.
+`inferType`'s first cases (`src/front/infer.fs`: constants, variables,
+metavariables, sorts, applications of them, lambdas and pis, with Lean's
+`instantiateBetaRevRange` in `src/front/beta-inst.fs`) are written and
+tested alone; 26 of 30 inference cases equal pinned Lean's, two only
+once Lean's metadata (mdata), which the export leaves out, is dropped.
+`whnf` with delta, the rest of `inferType`, term unification, `Nat`
+offsets and caches are not started.
 
 Size: L, eight S–M steps; *speculative* 4,000 to 7,000 lines of Forth
 source and as much in tests. Needs: 8.2.1c and 8.2.1d (branch

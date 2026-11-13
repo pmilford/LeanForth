@@ -1,16 +1,17 @@
-\ FE1's theorem in natural LeanForth (docs/design/FRONT_END.md section 8.1).
+\ FE1's theorem in natural LeanForth (docs/design/FRONT_END.md section 8.1,
+\ with by-end, docs/design/FE1G_TACTICS.md 3.1).
 \ Lean: theorem zero_add' (n : Nat) : 0 + n = n := by
 \         induction n
 \         case zero => rfl
 \         case succ k ih => exact congrArg Nat.succ ih
-\ Today (plan FE1a) the statement is read into Lean's syntax tree and the
-\ text stops at the first tactic word, not supported yet (error 72, exit 2);
-\ elaboration and tactics are plan FE1c-g.
+\ Today (plan FE1g-2) the tactic proof is read whole and its shape is
+\ checked; end stops as not supported yet (error 80, exit 2): elaboration
+\ and running the tactics are plan FE1c-g.
 theorem zero_add'
   Nat explicit: n
   0 n + n =
 := by
   n by-induction
-  by-case: zero =>       by-rfl
-  by-case: succ k ih =>  ' Nat.succ ih congrArg by-exact
+  by-case: zero =>       by-rfl                           by-end
+  by-case: succ k ih =>  ' Nat.succ ih congrArg by-exact  by-end
 end zero_add'

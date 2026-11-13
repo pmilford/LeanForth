@@ -38,6 +38,7 @@ export records through the importer stage ([checking text](#checking-text-the-ex
 | `src/author/words.fs` | the vocabulary (LF-WORDS) | none |
 | `src/front/syntax.fs` | the syntax store: Lean-shaped trees of natural text, with positions (FE1a) | `syn-store` |
 | `src/front/reader.fs` | the natural meanings of the words (FE1a) | `lfn-decl` |
+| `src/front/tactic-syntax.fs` | tactic proofs read: the tactic words' natural meanings, block shapes, hypotheses' names, the record of steps (FE1g-2) | `tac-read`, `tac-steps`, `tac-args` |
 | `src/front/dag-walk.fs`, `src/front/mvars.fs`, `src/core/mvar-leaves.fs` | the metavariable context and its walks (FE1b); metavariable leaves | `mctx`, `mv-exprs`, `mv-levels`, `mv-fvars` |
 | `src/author/export.fs` | a run's declarations as export records, to a sink (8.2.1c) | `lfx` |
 | `src/author/runner.fs` | running text and files; the look-ahead for a library; the public interface | `lfa-run` |
@@ -147,9 +148,15 @@ is elaborated yet:
 | `=`, `≤` | `( a b -- t )` | Lean's `binrel% Eq a b`, `binrel% LE.le a b` |
 | `explicit:` and the other binder words | `( t -- )` | a binder whose type is the tree as written |
 | `:=` | `( t -- )` | the statement, as in the kernel form |
-| `by` | `( -- )` | right after `:=`: a tactic proof follows (69 elsewhere or twice) |
-| `end NAME` | `( t -- )` | checks the declaration's shape (errors 19, 20, 22), then stops: elaborating is plan FE1e-f (71, unsupported) |
-| `by-induction`, `by-case:`, `by-rfl`, `by-exact` | | tactics: not supported yet in either form (72) |
+| `by` | `( -- )` | right after `:=`: a tactic proof follows (69 elsewhere or twice), read by `src/front/tactic-syntax.fs` |
+| `end NAME` | `( t -- )` | checks the declaration's shape (errors 19, 20, 22) and keeps the proof's tree, then elaborates it, which stops today: elaborating is plan FE1e (71, unsupported). Once FE1e gives the type and value, the hand-over (`src/front/handover.fs`, plan FE1f) instantiates every assigned metavariable, stops at a hole still reachable (74, invalid) or at a universe parameter of the declaration that is unused (75, invalid, as Lean's "unused universe parameter": a theorem's or axiom's counted in its statement alone, a definition's in its statement and value), refuses malformed terms (76, invalid: a term that is no node, a theorem or definition without a value, an axiom with one) and an instantiation step not ported yet (77, unsupported), and records the declaration; its records reach the kernel as a kernel-form text's do. After `:= by`: every block closed (82) and no value left (86), then it stops: running tactics is plan FE1g-3 (80, unsupported) |
+| `t by-exact`, `t by-induction`, `t by-induction-with` | `( t -- )` | a tactic step with its term; `by-induction-with` opens a block of alternatives up to `by-end` |
+| `by-rfl`, `by-intro: NAME` | `( -- )` | a tactic step; `by-intro:`'s name (or `_`) is a hypothesis until its block ends |
+| `\| TAG NAMES… =>`, `by-case: TAG NAMES… =>` | `( -- )` | an alternative of the `by-induction-with` it is right inside (up to the next `\|` or `by-end`), a case block (up to its `by-end`); the header on one line, its names hypotheses of the block |
+| `by-end` | `( -- )` | closes the innermost `by-induction-with` or `by-case:` |
+| `by-rw[`, `by-rewrite[` … `]` | `( -- )`, `( r1 .. rn -- )` | the values built between the brackets are the rules, in order; a hypothesis there takes no values (applied with `$`: `ih k $`) |
+| `=>` | | ends a header; alone, error 84 |
+| the tactic words in kernel-form text | | not supported (72) |
 | the other kernel-form words (`Prop`, `fun`, `var#`, `^`, ...) | | not supported yet in natural form (70) |
 | `'`, `+`, `=`, `*`, `≤` in kernel-form text | | refused (58) |
 
@@ -157,9 +164,19 @@ Each operator word is checked against the printer's notation table while
 the reader loads (`present/notation-table.fs`: the row of the constant
 must spell the word). The Forth interface adds `lf-author-kernel ( -- )`
 (the marker, for a caller that runs kernel-form text without it),
-`lf-front-statement ( -- node )` and `lf-front-by ( -- pos )`, and the
-syntax store's words (`src/front/syntax.fs`). `leanforth print --lf`
-writes `kernel-form` as its first line.
+`lf-front-statement ( -- node )`, `lf-front-by ( -- pos )` and
+`lf-front-proof ( -- node )`, the syntax store's words
+(`src/front/syntax.fs`), the elaborator's hook `lf-front-elaborate ( --
+type value )` and the hand-over `lf-handover ( decl type value -- outcome
+)` (`src/front/handover.fs`), and the tactic record of
+the declaration being read (`src/front/tactic-syntax.fs`, whose header
+documents its format, `lf-tactic-format`, 1): `lf-tactic-proof? ( --
+flag )`, `lf-tactic-count ( -- n )`, `lf-tactic-step ( i -- addr )` (the
+fields `tac-kind`, `tac-parent`, `tac-at`, `tac-from`, `tac-to`,
+`tac-arrow`, `tac-name`, `tac-first`, `tac-count`, `tac-inner`) and
+`lf-tactic-arg ( j -- x pos )`; a hypothesis reads as a syntax node of
+kind `syn-k-hyp`. `leanforth print --lf` writes `kernel-form` as its
+first line.
 
 ## Forth interface
 
@@ -391,10 +408,36 @@ below it).
 | 71 | unsupported | not supported yet: elaborating natural LeanForth (plan FE1e-f) |
 | 72 | unsupported | not supported yet: tactics (plan FE1g) |
 | 73 | unsupported | not supported yet: how many arguments the name takes depends on unfolding its type |
+| 74 | invalid | elaboration incomplete: a hole (metavariable) is left in the declaration |
+| 75 | invalid | unused universe parameter: the statement (or a definition's value) must use it |
+| 76 | invalid | malformed elaboration: a term that is no node, or a value unfit for the declaration |
+| 77 | unsupported | not supported yet: this step of instantiating metavariables (plan FE1c) |
+| 80 | unsupported | not supported yet: running tactics (plan FE1g-3); the tactic proof was read whole |
+| 81 | invalid | a tactic word belongs in a tactic proof, after := by |
+| 82 | invalid | a block is still open: by-end closes by-induction-with and by-case:, ] closes by-rw[ |
+| 83 | invalid | no block of this word's kind is open (\| belongs right inside by-induction-with) |
+| 84 | invalid | a header is TAG NAMES... => on one line, after \| or by-case:; names are no words |
+| 85 | invalid | an alternative or a by-case: block needs at least one tactic |
+| 86 | invalid | wrong number of values: by-exact and by-induction take one, the others none |
+| 87 | unsupported | not supported yet: how many values a hypothesis takes is known when tactics run |
+| 88 | full | out of room: the tactic store is full |
+
+Codes come in ranges (`src/author/errors.fs`): 1 to 73 the words, the
+runner, the stores and natural text read (FE1a); 74 to 79 elaboration and
+the hand-over (FE1c, FE1e, FE1f; 74 to 77 used); 80 to 89 tactic proofs
+(FE1g; 80 to 88 used); 90 on free. Codes 80 to 88 are the tactic proofs'
+(`src/front/tactic-syntax.fs`, plan FE1g-2): 80 names `end` and, as the
+second place, `by`; 82 names the word and the open block's
+(by-induction-with for an alternative, by-rw[ for a word inside the
+brackets).
 
 The tests reach every code: `tests/author/author.fs` all but 39 and the
 natural form's (57 to 59 and 68 to 73, which `tests/front/front.fs`
-reaches, 68 with the syntax store's limit lowered; 58 both), and 39 the
+reaches, 68 with the syntax store's limit lowered; 58 both; 74 to 77,
+which `tests/front/handover.fs` reaches with an elaborator of its own, the
+real one being plan FE1e; 80 to 88, which `tests/front/tactic-syntax.fs`
+reaches, 88 with the tactic stores' limits lowered and with the heap
+refusing), and 39 the
 example file `17-long-line.lf` (a line of 1024 characters or more in a
 file). Proof text cannot reach 34, since it cannot write a
 negative number and each value is used once; the unit tests reach it by

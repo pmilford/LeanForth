@@ -178,4 +178,12 @@ T{ term-serial -> serial-start @ }T
 order-setup
 T{ 6 h 7 h 1000 lf-mixed-convert-keeping lf-mconvert-fuel @ -> outcome-unknown 960 }T
 T{ 6 h 7 h 1000 lf-mixed-compare lf-mcompare-fuel @ -> outcome-unknown 978 }T
+\ A conversion whose frames are still busy (a THROW left a visit open on
+\ them; forged here) is refused before any mark is taken: invalid, no
+\ fuel left; lf-mixed-convert-reset, the recovery after such a THROW,
+\ makes them idle, and the same conversion runs again (coverage COV2).
+: busy ( -- ) 1 lf-mconvert-frames frame-depth ! ;
+T{ busy 3 h 3 h 1000 lf-mixed-convert lf-mconvert-fuel @ -> outcome-invalid 0 }T
+T{ lf-mixed-convert-reset lf-mconvert-frames frame-busy? -> false }T
+T{ 3 h 3 h 1000 lf-mixed-convert -> outcome-ok }T
 bye

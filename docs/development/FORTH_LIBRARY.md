@@ -15,22 +15,26 @@ variants were retired on 2026-11-02.
 | Bounded record stores | `src/lib/store.fs` | `store:` defining word: a fixed number of fixed-width records with an allocation count, a reset generation that saturates to a poisoned state, an identity per record that never repeats, and a sealed shape so header corruption fails closed. `store-size` and `store-init` make the same store in memory obtained at run time (`ALLOCATE`, or a region of a context); `store-plan?` also refuses a size that would not fit in a cell. **Marks** (plan task 1.1.3): `store-mark ( mark store -- outcome )` records the store, its generation, serial and count in a `/store-mark` record the caller provides (fields `mark-store`, `mark-generation`, `mark-serial`, `mark-count`); `store-rollback ( mark store -- outcome )` restores the count, giving back every record allocated since, and never rewinds identities; `store-mark-valid? ( mark store -- flag )` tells whether it would. A rollback is refused, invalid with nothing changed, for a mark of another store, from another generation (a reset since), above the current count, of an invalid or poisoned store, or stale: records below its count must be older than the mark and the one at its count newer, so a mark below which an earlier rollback went and records were allocated again is refused. Marks are not capabilities: a forged record that passes these checks is accepted. **Heap stores** (plan task 1.1.5, ADR 0016 C9 step 3, 2026-11-03): `store-heap-init ( capacity width base store -- outcome )` puts the header in the caller's memory (it may move, as a context member does) and the block of identities and records on the heap; `store-grow ( store -- outcome )` doubles the block, at least 16 more records, up to the limit, when every record is in use (full at the limit, with no heap, or when the test hook refuses; nothing changed then); `store-limit! ( limit store -- outcome )` sets the limit (at least the count; a larger block shrinks); `store-heap-free`. The block and the limit are sealed shape fields; marks stay valid while the block grows; an address from `store-slot` is valid only until the next growth | New 2026-11-02; used by the term, level and name stores; heap stores (the checker's five stores) tested in `tests/lib/lib.fs` (growth, limit, marks across growth, shrinking, freeing); unit-tested in `tests/lib/lib.fs`, run-time stores in `tests/lib/context.fs`; marks 2026-11-02 in `tests/lib/store-mark.fs` (every refusal, and 20,000 random operations against a model that kills a mark when the count drops below it or the store is reset), used by the checked environment's input (`src/core/input.fs`); the hand-written count saving in the existing modules is not converted yet |
 | Tagged nodes | `src/lib/node.fs` | `BEGIN-STRUCTURE` record of tag and two fields, with whole-node `node!`/`node@` and `node-new`/`node-read` on a store | New 2026-11-02; terms and levels |
 | Range checks | `src/lib/bounds.fs` | `between?` and `upto?` (inclusive, signed, never wrapping) and `cells-zero?` | New 2026-11-02 |
-| Outcome vocabulary | `src/lib/outcome.fs` | ok, invalid, exhausted (out of fuel), unknown, rejected, unsupported and full (out of room: a store, work stack, frame, depth or size limit) (ADR 0008), with `ok?`, `outcome-sane`, `flag>outcome` and `room>outcome` (a validity or room flag as ok, else invalid or full), `visit-outcome` (the one rule for a visit bounded by fuel and room: no fuel is exhausted whatever the room, then no room is full), the continue-on-ok steps `ok-then?`, `ok-then2?`, `ok-then3?`, `ok-keep?` and `ok-keep2?`, `outcome-and` (two outcomes as one, the first failure), `outcome-steps` (a 0-ended list of steps run to the first failure; review FRI B6), `no-result`, and `outcome-text` (each outcome's name, for reports) | New 2026-11-02; every core and kernel module uses it; the per-module status aliases were removed |
+| Outcome vocabulary | `src/lib/outcome.fs` | ok, invalid, exhausted (out of fuel), unknown, rejected, unsupported and full (out of room: a store, work stack, frame, depth or size limit) (ADR 0008), with `ok?`, `outcome-sane`, `flag>outcome` and `room>outcome` (a validity or room flag as ok, else invalid or full), `visit-outcome` (the one rule for a visit bounded by fuel and room: no fuel is exhausted whatever the room, then no room is full), the continue-on-ok steps `ok-then?`, `ok-then2?`, `ok-then3?`, `ok-keep?` and `ok-keep2?`, `outcome-and` (two outcomes as one, the first failure), `outcome-steps` (a 0-ended list of steps run to the first failure; review FRI B6), `ok-and` and `ok-with` (a step run only while the outcome so far is ok, on the values below or on a value kept below; review FRK A), `no-result`, and `outcome-text` (each outcome's name, for reports) | New 2026-11-02; every core and kernel module uses it; the per-module status aliases were removed |
 | DAG walks | `src/lib/walk.fs` | `walk:` defining word: fuel, current node, one visitor cell and a bounded work stack in one record; `walk-run` drives a visitor and `walk-visit` reads and dispatches a node. A push without room is full whatever fuel is left (checked where the push happens), and a root that cannot be pushed means a corrupted capacity, which is invalid. `walk-size`/`walk-init` and `walk2-size`/`walk2-init` make the same records at run time. The walk words keep no state of their own; each module's walk records are members of the checker context, one set per context | New 2026-11-02; level scope, Sort representation, session and handle audits use it |
 | Passes on an explicit stack | `src/lib/frame.fs` | A frames record: fuel, visits in progress, the visitor (set once), a context cell (such as a binder depth), a job cell, and the pass's stack, a heap block that grows by doubling (plan task 6.2.0). A visit is a chain of steps `( ... frames -- ... frames next )` run by a loop (`frame-run`, `frame-loop`, `frame-steps`), never nested on the host's stacks: a step either asks for a child's visit with `frame-call` or `frame-under` (one context level deeper), naming the step that continues with the child's `( result outcome )`, or returns `( result outcome frames 0 )`; values kept across a child's visit go on the pass's stack (`frame-save`, `frame-restore`, `frame-pick`, `frame-drop`; up to `frame-spare` cells a visit, all its steps together; a save past the block throws `frame-overrun`, -4111, instead of writing outside it, for 0.5% more instructions on the trial workload). `frame-admit` says why a visit cannot open: an unsound stack is invalid, then no fuel left is exhausted, then a stack the heap cannot grow full (the fuel decides first); `frame-under` is full at context `max-n`. `frame-open` opens a visit of another kind (mixed-infer.fs: inference and the rejection analysis share one record), and a step may run a loop of its own on the same record. A busy record refuses a new budget or pass; `frame-reset` recovers after a THROW; `frame-free` gives the stack back. Host-stack use is a constant whatever the depth | New 2026-11-02, explicit stack 2026-11-04; the kernel's shift, instantiate, beta and opening passes, inference and the analysis, normalize, is_geq and level evaluation use it; unit tests and a randomized model test |
-| Checker contexts | `src/lib/context.fs` | One `ALLOCATE`d record per worker for all of a check's mutable state ([ADR 0009](../adr/0009-reentrant-state-and-parallel-checking.md)), reached through the `USER` variable `lf-context` (a plain variable on hosts without Gforth's `USER`). Modules declare members while they load: `context-record:`, `context-store:`, `context-walk:`, `context-walk2:`, `context-frames:` (a frames record, set up with `frame-init`), and `context-setup` for set-up words; a refused declaration changes nothing. Each member's name is a colon definition that adds its offset, a literal, to `lf-context @`. Modules also state how deep their checks nest on the host stacks (`context-need`), which the job pool checks. `context-new`, `context-use` and `context-free` make, select and free contexts. Each context is idle or owned by one job; each task has an owner token `lf-owner` and may select only contexts it owns (the main task: idle ones); owned contexts cannot be freed. `context-in-job?` says whether the current task runs a job or a check; the checked environment's serial driver gives a check the token `context-check-owner`, so every in-job guard refuses it too. `context-claim` and `context-release` (the job pool's) are refused there as well. `call-balanced ( x xt -- )` runs a word above a cell and throws `context-unbalanced` (-4096) when the word changed the stack depth or that cell (the checked environment's serial driver uses it; `task.fs`'s `job-call` still has its own copy); `context-catch ( i*x xt -- j*x ior )` is `CATCH` that restores the current context afterwards | New 2026-11-02; ownership, frames members and atomic declarations 2026-11-02 after an independent review; every module of `src/core/` and `src/kernel/` keeps its state in it since 2026-11-02 (see the design below); tested in `tests/lib/context.fs`, including a randomized model with context switches at every step, and with real checker work in `tests/core/contexts.fs` |
-| Job pool | `src/lib/task.fs` | `job-submit ( context xt -- job ior )` and `job-wait ( job -- ior )`: a fixed pool of long-lived workers (at most one per logical core, setting `task-workers`) fed from a bounded queue; POSIX threads with a mutex and two condition variables on Gforth 1.0, the cooperative `tasker.fs` on Gforth 0.7.3, and a serial path elsewhere (or when forced, for tests). A job's context is owned by the job until it is waited for. Wrong stack effects give `task-unbalanced`; stack overflows never report success (guard pages on 1.0, canary zones on 0.7.3); a worker that cannot be created is reported (`task-no-worker`). `job-stacks-cover?` tells whether the workers' stacks hold a recursion requirement, and the pool refuses to start with stack settings below the largest need modules stated (`task-stacks-small`). On Gforth 1.0 each worker owns its exception-backtrace and error-stack strings (a new task copies the creator's user area, and shared strings were corrupted by concurrent THROWs). Job rules: never parse or use `PAD` (one buffer for all tasks on Gforth 1.0), use `<# #>` text before the job yields (one buffer on 0.7.3), and restore `BASE` if a job changes it (a worker starts with the main task's). `job-wait-any ( addr n -- k )` waits for the first of several jobs (a scheduler that keeps one job per worker) and `pool-workers! ( n -- )` sets the pool's size for its next start. Loaded by the parallel scheduler (`src/kernel/env-schedule.fs`, `check --jobs`) since 2026-11-11 | New 2026-11-02; pool replaced one thread per task the same day; `tests/lib/task.fs` and `task-serial.fs` compare jobs and interleaved contexts with serial runs for 1, 2 and all workers and reach every refusal; `task-overflow.fs` and `task-overflow-serial.fs` overflow both stacks inside jobs; `tests/lib/task-bench.fs` measures speed-up |
-| Line reader and UTF-8 | `src/lib/bytes.fs` | `reader:` record over a Forth-2012 file: whole lines in one heap buffer that grows for long lines up to a limit, strict framing (final line feed; `text-framed` refuses carriage returns and a byte-order mark), line numbers and double-cell file offsets; `utf8-length`, `utf8-valid?`, `utf8-decode` and `utf8-put` (RFC 3629, no overlongs or surrogates); `counted,`; `heap-claim` and `heap-release` for owned heap buffers; `fnv-step` and `bytes-mix` (an FNV-style mix of bytes into a hash, used by the checked environment's input fingerprint). Uses Gforth's native `scan` behind an adapter, with a portable loop otherwise. Loads in decimal whatever `BASE` is, and restores it | New 2026-11-02; unit-tested against an independent UTF-8 model in `tests/lib/bytes.fs`, which loads it under `HEX` and counts heap blocks to show that a second `reader-init` frees the first buffer |
+| Checker contexts | `src/lib/context.fs` | One `ALLOCATE`d record per worker for all of a check's mutable state ([ADR 0009](../adr/0009-reentrant-state-and-parallel-checking.md)), reached through the `USER` variable `lf-context` (a plain variable on hosts without Gforth's `USER`). Modules declare members while they load: `context-record:`, `context-store:`, `context-walk:`, `context-walk2:`, `context-frames:` (a frames record, set up with `frame-init`), and `context-setup` for set-up words; a refused declaration changes nothing. Each member's name is a colon definition that adds its offset, a literal, to `lf-context @`. Modules also state how deep their checks nest on the host stacks (`context-need`), which the job pool checks. `context-new`, `context-use` and `context-free` make, select and free contexts. Each context is idle or owned by one job; each task has an owner token `lf-owner` and may select only contexts it owns (the main task: idle ones); owned contexts cannot be freed. `context-in-job?` says whether the current task runs a job or a check; the checked environment's serial driver gives a check the token `context-check-owner`, so every in-job guard refuses it too. `context-claim` and `context-release` (the job pool's) are refused there as well. `call-balanced ( x xt -- )` runs a word above a cell and throws `context-unbalanced` (-4096) when the word changed the stack depth or that cell (the checked environment's serial driver uses it; `task.fs`'s `job-call` still has its own copy); `context-catch ( i*x xt -- j*x ior )` is `CATCH` that restores the current context afterwards. `context-slab:` declares a growable array member and `context-teardown` a word that frees a member's heap blocks with its context. The header lists the interface and gives an example; every other word is private (`lf-lib-private`, since 2026-11-12) | New 2026-11-02; ownership, frames members and atomic declarations 2026-11-02 after an independent review; every module of `src/core/` and `src/kernel/` keeps its state in it since 2026-11-02 (see the design below); tested in `tests/lib/context.fs`, including a randomized model with context switches at every step, and with real checker work in `tests/core/contexts.fs` |
+| Job pool | `src/lib/task.fs` | `job-submit ( context xt -- job ior )` and `job-wait ( job -- ior )`: a fixed pool of long-lived workers (at most one per logical core, setting `task-workers`) fed from a bounded queue; POSIX threads with a mutex and two condition variables on Gforth 1.0, the cooperative `tasker.fs` on Gforth 0.7.3, and a serial path elsewhere (or when forced, for tests). A job's context is owned by the job until it is waited for. Wrong stack effects give `task-unbalanced`; stack overflows never report success (guard pages on 1.0, canary zones on 0.7.3); when the host refuses a worker (near its process limit) the pool runs with those it made, and is refused (`task-no-worker`) only when it made none (`spawn-limit!` makes the host refuse in tests); `job-wait` refuses job 0, a refused submission's handle. `job-stacks-cover?` tells whether the workers' stacks hold a recursion requirement, and the pool refuses to start with stack settings below the largest need modules stated (`task-stacks-small`). On Gforth 1.0 each worker owns its exception-backtrace and error-stack strings (a new task copies the creator's user area, and shared strings were corrupted by concurrent THROWs). Job rules: never parse or use `PAD` (one buffer for all tasks on Gforth 1.0), use `<# #>` text before the job yields (one buffer on 0.7.3), and restore `BASE` if a job changes it (a worker starts with the main task's). `job-wait-any ( addr n -- k )` waits for the first of several jobs (a scheduler that keeps one job per worker) and `pool-workers! ( n -- )` sets the pool's size for its next start. Loaded by the parallel scheduler (`src/kernel/env-schedule.fs`, `check --jobs`) since 2026-11-11 | New 2026-11-02; pool replaced one thread per task the same day; `tests/lib/task.fs` and `task-serial.fs` compare jobs and interleaved contexts with serial runs for 1, 2 and all workers and reach every refusal, a host that refuses all or some workers among them; `task-overflow.fs` and `task-overflow-serial.fs` overflow both stacks inside jobs; `tests/lib/task-bench.fs` measures speed-up |
+| Line reader and UTF-8 | `src/lib/bytes.fs` | `reader:` record over a Forth-2012 file: whole lines in one heap buffer that grows for long lines up to a limit, strict framing (final line feed; `text-framed` refuses carriage returns and a byte-order mark), line numbers and double-cell file offsets; `utf8-length`, `utf8-valid?`, `utf8-decode` and `utf8-put` (RFC 3629, no overlongs or surrogates); `counted,` and `counted-next` (the next counted string of a table of them); `heap-claim` and `heap-release` for owned heap buffers; `fnv-step` and `bytes-mix` (an FNV-style mix of bytes into a hash, used by the checked environment's input fingerprint). Uses Gforth's native `scan` behind an adapter, with a portable loop otherwise. Loads in decimal whatever `BASE` is, and restores it | New 2026-11-02; unit-tested against an independent UTF-8 model in `tests/lib/bytes.fs`, which loads it under `HEX` and counts heap blocks to show that a second `reader-init` frees the first buffer |
 | JSON reader | `src/lib/json.fs` | `json:` view record: a fail-closed, non-recursive RFC 8259 parser of one text into a growable token tape (containers know their item count and extent), escapes decoded in place, numbers kept as digit text, limits on depth, tokens, string and number length; `json-find`, `json-next`, `json-natural`, `json-u`, `digits>u` and `decimal>u` (decimal, independent of `BASE`); kind-checked `json-items-of` and `json-kind-at`. Loads in decimal whatever `BASE` is, and restores it | New 2026-11-02; malformed corpus and every limit tested in `tests/lib/json.fs`, loaded under `HEX` |
 | JSON writer | `src/lib/json-write.fs` | Plan task 3.1.3. A writer record (`json-writer: ( depth room "name" -- )`, or `jw-size` and `jw-init` in memory the caller owns, such as a context member) writes one JSON text to the caller's sink xt `( c-addr u -- )`: `jw-start ( sink writer -- )`, then `jw-string`, `jw-n` (signed cell), `jw-u` (unsigned cell), `jw-digits` (integer text of any size, as `json.fs` keeps it), `jw-bool`, `jw-null`, `jw-open-object`, `jw-key`, `jw-close-object`, `jw-open-array`, `jw-close-array`, or `jw-copy ( index view writer -- )` of a value `json.fs` parsed; `jw-end ( writer -- outcome )`. Every call takes the writer last and returns nothing. Deterministic bytes: no whitespace; members in call order, and with `jw-sorted` set each object's keys must strictly increase in byte order (code point order), checked against the last key kept in a key pool of `room` bytes; integers in decimal whatever `BASE` is, `-0` written `0`; strings escaped only as `\"`, `\\`, `\b \f \n \r \t` and `\u00xx` (lowercase) for other bytes below 32, everything else, valid UTF-8 included, as itself, which are the bytes of Python's `json.dumps(v, separators=(",", ":"), ensure_ascii=False)`; with the setting `jw-lean` (2026-11-03, for the NDJSON re-exporter) the bytes of Lean 4.35.0's `Json.compress` instead, which writes backspace, tab and form feed as `\u0008`, `\u0009` and `\u000c`; no real numbers (`jw-copy` of one is unsupported). The first failing call writes nothing and its outcome sticks until the next `jw-start` (`jw-outcome` reads it): invalid for calls out of order (a close that does not match its open or follows a key, a value where a key is due, a second value, `jw-end` before the value is complete, writes before `jw-start` or after `jw-end`), invalid UTF-8, bad integer text or flags, keys out of order in sorted mode, and any call from inside the writer's own sink (`jw-reset` or `jw-init` there fails the text when the sink returns); full past the byte limit `jw-limit` (so a buffer of n bytes never overflows), the depth or the key pool. So `jw-end` gives ok only for exactly one complete JSON value, and the sink only ever receives a prefix of one. After a THROW out of a writer word the caller discards the text and calls `jw-reset` (a THROW outside the sink leaves no mark); a sink that writes over the string or view being written is unchecked. No state of its own; `jw-copy` is a loop over the value's tokens, without recursion (a container it opens records the index of the token after it, and closes there), so a few stack cells serve any depth the writer allows. Loads in decimal whatever `BASE` is, and restores it | New 2026-11-02; `tests/lib/json-write.fs` (180 assertions: every word's positive and negative cases, every limit at and one past its bound, sorted keys, keys refused as strings are, the sink rules including `jw-reset` and `jw-init` from inside the sink, a copy 10,000 containers deep and copies stopped by a failed close, two interleaved writers and a context member, 2,000 random strings and 2,000 random cells written and read back by `json.fs`, and all 138 lines of `tests/reference/*.ndjson` plus 16 lines with every other record kind of lean4export 3.1.0, `tests/lib/json-write-corpus.ndjson`, copied back byte for byte in both key modes; Lean's escapes for every byte below 32, keys, copies and `jw-limit`, 2026-11-03), loaded and partly run under `HEX`; `tests/lib/test_json_write.py` compares 300 random values written with the writer's words and 150 non-canonical texts copied with `jw-copy` against Python's `json.dumps`, 40 copies of values nested up to 64 deep, plus 50 refusals with their exact prefixes; 21 planted faults each caught, and after the independent review (2026-11-02) 6 more, one per fix reverted or broken, on Gforth 0.7.3 and 1.0 |
 | Packed 32-bit fields | `src/lib/u32.fs` | `u32@ ( addr -- u )` and `u32! ( u addr -- )` read and write an unsigned 32-bit field; `u32s ( n -- au )` sizes *n* fields; `u32-mask` is the 32-bit mask on any cell size. Gforth's `l@`/`l!` where the host has them and a load-time check (`u32-sound?`) shows they are unsigned 32-bit access: a value with bit 31 set comes back unchanged, and the four characters after the field keep their values; otherwise, or when `lf-u32-portable` is defined first, the Forth-2012 `u32-bytes@`/`u32-bytes!` (four characters, least significant first, an order the module fixes; public for the tests only). `u32!` keeps the low 32 bits; on a 32-bit host a value of 2³¹ or more reads back as a negative cell, so compare with `U<`. Loads in decimal whatever `BASE` is, and restores it. The layout of packed records is defined by arithmetic on the values, never by byte order, and packed memory is never written to a file as it is (the little-endian block words `u32s>le`, `le>u32s`, `u32-le!`, `u32-le@` convert, for sectioned files). The only non-text module allowed byte access (`scripts/check-portable-forth.py`) | New 2026-11-02 for the compact store ([ADR 0016](../adr/0016-compact-store.md), accepted 2026-11-03); not loaded by `lib.fs`; used since 2026-11-03 by the compact store's modules ([below](#the-compact-store)); both versions tested on every host in `tests/lib/lib.fs`, which loads it under `HEX` and asserts that Gforth's words are in use, shows the check refusing a sign-extending fetch and a cell-wide store, and loads it again under `BASE` 8 with `lf-u32-portable` defined to get the Forth-2012 version; after the independent review (2026-11-02) 6 planted faults each caught |
-| Wordlist modules | `src/lib/module.fs` | The two library wordlists of [ADR 0010](../adr/0010-wordlists.md) (accepted), `lf-lib` (public, pushed onto the search order once) and `lf-lib-private` (helpers), and its four words `order+`, `order-`, `module-open`, `module-close` | New 2026-11-03; used so far only by the compact store's library modules below (the ADR's migration converts the others); tests reach helpers with `lf-lib-private order+` |
+| Wordlist modules | `src/lib/module.fs` | The two library wordlists of [ADR 0010](../adr/0010-wordlists.md) (accepted), `lf-lib` (public, pushed onto the search order once) and `lf-lib-private` (helpers), and its four words `order+`, `order-`, `module-open`, `module-close` | New 2026-11-03; used by the compact store's library modules below, `sha256.fs`, `text-rule.fs`, `text-run.fs` and, since 2026-11-12, `context.fs` (the ADR's migration converts the others); tests reach helpers with `lf-lib-private order+` |
+| Tables of execution tokens | `src/lib/xt-table.fs` | `xt-table: ( n default "name" -- )` makes a table of n execution tokens, each the default; `xt-table! ( xt i table -- )` sets entry i and aborts outside the table, so a table filled while loading never writes beside it; `xt-table@ ( i table -- xt )` gives entry i, or the default for any other index, so an index read from data (a node's tag, a log step's rule) needs no check of its own. Helpers private (ADR 0010); no state of its own | New 2026-11-13 (plan task 9.4.5, the item-2 Forth review's L5); the printers' and the step list's tag and rule tables (`src/present/term-printer.fs`, `print-forth.fs`, `log-view.fs`); tested in `tests/lib/lib.fs` |
 | Portable 32-bit hashing | `src/lib/hash32.fs` | `hash-fmix` (Murmur3's finaliser), `hash-step ( h x -- h' )` and `hash-bytes ( addr u -- h )` (FNV-1a), every product masked to 32 bits, so 32- and 64-bit hosts give the same values ([below](#the-compact-store)) | New 2026-11-03; `tests/lib/hash32.fs` against values computed in Python |
 | Growable heap stores | `src/lib/slab.fs` | Plan task 1.1.5. `slab-init ( unit limit slab -- outcome )`: units of any size in one heap block that doubles by `RESIZE` up to a limit; `slab-room`, `slab-claim`, `slab-commit`, `slab-at`, `slab-top`, `slab-trim`, `slab-clear`; marks `slab-mark`, `slab-rollback`, `slab-mark-valid?` with `store.fs`'s refusals ([below](#the-compact-store)) | New 2026-11-03; `tests/lib/slab.fs` |
+| Runs (sequences that never change) | `src/lib/runs.fs` | A run is a handle (0 the empty run) to a stretch of a slab of cells, which are only appended, never changed, so runs share cells and a saved run is its handle: `run-push ( run x -- run' outcome )` (in place when the run ends at the top of the cells, else after a copy of it), `run-take` and `run-after ( run n -- run' outcome )` (no copy), `run-cat ( run1 run2 -- run outcome )` (in place when run2 begins where run1 ends), `run-count`, `run@ ( run i -- x )`, `run-valid?`, `runs-reset`, `runs-epoch` (changes with each reset), `runs-cells`; invalid for a handle that names no run or a count out of range, full when a slab cannot grow (no run made); its two slabs are members of the checker context (`context.fs`), so each context has its own runs | New 2026-11-13 (plan FE1g-1; the front end's local contexts and goal lists, `src/front/lctx-views.fs`, `goals.fs`); `tests/lib/runs.fs` (its example, every refusal, every heap refusal inside an operation, 400 random operations against a model), planted fault `fe-goal-run-no-copy` caught |
+| Stable sorting | `src/lib/sort.fs` | `sort-records ( a-addr n sorter -- outcome )` sorts n records of any size in place by the caller's order `( a-addr1 a-addr2 -- n )`, or by their keys (`sorter-key!`; `sorter-cells` and `sorter-u32s` order values); stable: insertion up to `sorter-short` (32) records, above that a bottom-up merge from runs of one record through a scratch (the caller's, `sorter-buffer!`, or the heap's: full when refused, nothing changed), its comparisons call for call those of `level-normalize.fs`'s `lf-lnorm-sort`; no recursion; invalid for a bad count, a sorter not accepted or busy, and an order or key word that changes the stack depth; a THROW out of the order is passed on, the scratch freed ([below](#sorting)) | New 2026-11-12 (the kernel refactor's batch C2 waited for it); not yet used by any module (the snapshot's three insertion sorts wait for the owner's approval of the kernel change); `tests/lib/sort.fs`, 23 planted faults each caught |
 | Hash tables | `src/lib/htab.fs` | Open addressing over 32-bit slots, hooks for rehashing and comparing, growth at 3/4, removal by Algorithm R, `htab-spread` and `htab-presize` ([below](#the-compact-store)) | New 2026-11-03; `tests/lib/htab.fs` |
 | Hash-consed sets in two tiers | `src/lib/cons.fs`, `src/lib/pools.fs` | Each distinct record once, named by a number; a sealed input set shared read-only and scratch sets over it whose numbers continue; marks, resets, sealing; interned lists of 32-bit numbers (tuples, no fixed length) and texts ([below](#the-compact-store)) | New 2026-11-03; `tests/lib/cons.fs` |
 | Compact store | `src/core/compact.fs` and `compact-tier.fs`, `compact-names.fs`, `compact-levels.fs`, `compact-exprs.fs` | ADR 0016's Lean layer: names, levels, universe lists, literals and 16-byte expression records in input and scratch tiers ([below](#the-compact-store)) | New 2026-11-03; not yet used by the kernel; `tests/core/compact.fs`, round trips of the reference exports and of `Init` |
 | Big natural numbers | `src/lib/bignum.fs` | Arbitrary-precision naturals for Lean's `Nat` literals ([below](#big-natural-numbers)): numbers in an arena the caller provides (`/big-arena`, `big-arena-init`; `big-mark` and `big-release` give back what was made since a mark), one-cell limbs whose width is counted (`limb-bits`), decimal reading and printing (`decimal>big`, `big>decimal`), conversion to and from a cell (`u>big`, `big>u`), comparison (`big-compare`, `big=`, `big<=`), and the operations Lean 4.35.0's kernel computes on literals (`big+ big- big* big/ big-mod big-gcd big-and big-or big-xor big-lshift big-rshift big-pow`, each `( a b arena -- c outcome )`). Schoolbook multiplication with Karatsuba from 48 limbs, Knuth's algorithm D, Lehmer's gcd. Outcomes ok, invalid (a malformed or released number, text or arena) and full (no room, or more bits than the arena's limit, by default Lean's 2^30). No state; loads in decimal whatever `BASE` is | New 2026-11-02 (plan task 5.2.3, library part); not yet used by the kernel (task 5.1.4); `tests/lib/bignum.fs` reaches every outcome; `make test` compares 37,585 cases with Python's integers on the running Gforth and catches 22 planted faults; review fixes of 2026-11-03 (printing overwrote the number below its text, stale operands, two speed fixes) with guarded-arena sweeps; `make check` has 984 of them computed by pinned Lean's kernel |
+| Signed big integers | `src/lib/bigint.fs` | Lean 4.35.0's `Int` over `bignum.fs` ([below](#signed-big-integers)): an integer is a sign cell (-1, 0, 1) followed by a bignum magnitude, made at the top of a bignum arena; `bigint+ bigint- bigint* bigint-ediv bigint-emod` `( a b arena -- c outcome )` (Lean's `/` and `%` on `Int` are `Int.ediv` and `Int.emod`), `bigint-bmod` and `bigint-pow` `( x m arena -- c outcome )` with a natural number `m`, `bigint-negate`, `bigint-gcd`, `bigint-natAbs` and `bigint-toNat` (natural-number results), `bigint-compare`, `bigint-sign`, `bigint-magnitude` (in place), `nat>bigint`, `n>bigint`, `bigint>n`, `decimal>bigint`, `bigint>decimal`, `bigint-valid?`. Outcomes ok, invalid, full as `bignum.fs`'s. Standalone: requires `bignum.fs`, `bounds.fs`, `outcome.fs`, `portability.fs` and `module.fs`; helpers private (ADR 0010); no state; no host recursion of its own; loads in decimal whatever `BASE` is | New 2026-11-13 (plan step FE1i-4, for `by-omega` and `by-decide`); tested alone, on branch `fe1i4-bigint`; no tactic uses it yet. `make test-bigint`: unit tests of every word and outcome, every room from 0 cells up, no heap use; 9,906 pairs against a model of Lean's definitions; the header's example and exact interface from outside the project. `make reference-bigint`: 17,906 pairs (10,000 random) equal pinned Lean's own `Int`, line for line, and 300 kernel-decided equations. 17 planted faults (`fe-bigint-…`) each caught; Forth review 2026-11-13 not blocking, its M1, L1, L2, S1 fixed |
 | SHA-256 | `src/lib/sha256.fs` | FIPS 180-4 SHA-256, incremental ([below](#sha-256)): `sha256:` (or `/sha256` address units of the caller's memory), `sha256-init ( sha -- )`, `sha256-update ( c-addr u sha -- )` with pieces of any size, `sha256-final ( c-addr sha -- )` for the 32-byte digest, `sha256-hex ( c-addr1 c-addr2 -- )` for its 64 lowercase hexadecimal digits. One word per FIPS function (`sha-rotr`, `sha-shr`, `sha-ch`, `sha-maj`, `sha-big-sigma0`, `sha-big-sigma1`, `sha-small-sigma0`, `sha-small-sigma1`), the plain round and schedule built from them, and on cells of 64 bits or more a fast round and schedule with the functions written out in place. Standalone: requires only `portability.fs` and `module.fs`; helpers private in `lf-lib-private` (ADR 0010); no state of its own; nothing fails. Loads in decimal whatever `BASE` is | New 2026-11-03 (plan task 3.2.6, for the export manifests); the program track's flagship verification target; `make test-sha256`: NIST vectors, every split of messages up to 200 bytes, the functions against independent models, the fast round against the plain one, 306 random messages against Python's `hashlib` on both paths, the header's example and the exact public interface checked from a folder outside the project; 14 planted faults each caught |
 | Visible text | `src/lib/text-rule.fs` | `tr-rule? ( c-addr u -- flag )`: valid UTF-8 with no control, format, line or paragraph separator or surrogate character (Unicode Cc, Cf, Zl, Zp, Cs); `tr-banned? ( code -- flag )`: a code point no such text holds; `tr-shown? ( c-addr u -- flag )`: also a character that is seen, not a space, a blank-looking filler, a combining mark or a default-ignorable code point. The rule of program receipts 0.2 and of run records; tables generated from Unicode 15.1 by `scripts/text_rule_tables.py`. Requires `bounds.fs`, `bytes.fs` and `module.fs`; helpers private; no state | New 2026-11-03 (run records, plan task 2.2.5); `tests/lib/text-rule.fs` on its own; every code point compared with the run-record schema's patterns by `tests/core/test_run_records.py` |
 | Portability adapter | `src/lib/portability.fs` | Forth-2012 definitions of `>=`, `<=`, `0<=`, `0>=`, `-rot`, `max-n`, `cell` and the structure words, compiled only where the host lacks them. `scripts/check-portable-forth.py` refuses a module under `src/` that uses one of them without loading this file, directly or through the files it loads | New 2026-11-02; defines nothing under Gforth except `max-n`; `cell` and the load check added 2026-11-02 |
@@ -60,6 +64,7 @@ LeanForth, unless coupling gains a lot. Audit of `src/lib/` on 2026-11-03:
 | Library | General purpose? | What ties it to LeanForth today |
 | --- | --- | --- |
 | `bignum.fs` (natural numbers) | yes; no Lean code (Lean only in comments) | needs `outcome.fs`, `bounds.fs`, `portability.fs` (104 lines); naturals only (subtraction stops at 0, as Lean's `Nat`); all helper names public. Shown working from an unrelated folder on both Gforths |
+| `bigint.fs` (signed integers) | yes, written to this rule (2026-11-13); Lean only in comments: its semantics are Lean's `Int`, which is also ordinary Euclidean division | requires `bignum.fs`, `bounds.fs`, `outcome.fs`, `portability.fs` and `module.fs`; helpers in `lf-lib-private`, 20 public words (`bigint…`, `nat>bigint`, `n>bigint`, `decimal>bigint`); an example in its header, run with the exact interface checked from a folder outside the project by `make test-bigint` |
 | `json.fs` (RFC 8259 reader), `json-write.fs` | yes | `json.fs` requires `bytes.fs`, which requires the whole `lib.fs` (contexts, walk records, frames) although it uses little of it; helper names public |
 | `bytes.fs` (bounded line reader, UTF-8) | yes, with strict framing rules chosen for Lean's exports (no carriage return, no byte-order mark, final line feed) | requires all of `lib.fs`; the framing rules should become options |
 | `u32.fs` (32-bit access) | yes | none beyond `portability.fs` |
@@ -68,6 +73,8 @@ LeanForth, unless coupling gains a lot. Audit of `src/lib/` on 2026-11-03:
 | `outcome.fs` (ok, invalid, exhausted, unknown, rejected, unsupported, full) | LeanForth's shared result vocabulary | deliberately shared: one vocabulary for every module |
 | `sections.fs` (sectioned binary files) | yes, written to this rule (2026-11-11): requires `portability.fs`, `module.fs`, `outcome.fs`, `u32.fs`, `sha256.fs`; helpers private; 14 public words, all `sections…`; an example in its header, run with the interface checked from a folder outside the project by `make test-sections` |
 | `sha256.fs` (SHA-256) | yes, written to this rule (2026-11-03) | requires only `portability.fs` and `module.fs`; helpers in `lf-lib-private`, 17 public words (the hashing interface and FIPS 180-4's functions), all named `sha-…` or `sha256…`; an example in its header and [below](#sha-256), run with the interface checked from a folder outside the project by `make test-sha256` |
+| `runs.fs` (sequences of cells that never change) | yes, written to this rule (2026-11-13) | requires `bounds.fs`, `outcome.fs`, `slab.fs`, `context.fs` and `module.fs` (its state is two context members, so one copy per checker context); helpers in `lf-lib-private`, 10 public words, all named `run…` or `runs…`; an example in its header, run by `tests/lib/runs.fs` without the checker |
+| `sort.fs` (stable sorting) | yes, written to this rule (2026-11-12) | requires `portability.fs`, `bounds.fs`, `outcome.fs`, `u32.fs` and `module.fs`; helpers in `lf-lib-private`, 11 public words, all named `sort…` or `sorter…`; an example in its header, run by `tests/lib/sort.fs` without the checker |
 | `text-rule.fs` (visible text) | yes, written to this rule (2026-11-03): a UTF-8 hygiene rule with nothing of Lean | requires `bounds.fs`, `bytes.fs` (and through it `lib.fs`) and `module.fs`; helpers in `lf-lib-private`, three public words (`tr-banned?` since 2026-11-04, for callers that decode text themselves); an example in its header; `tests/lib/text-rule.fs` runs without the checker |
 | coming: the compact store (ADR 0016) | written to this rule from the start | — |
 
@@ -299,6 +306,138 @@ field-by-field and Forth-2012 u32 paths write byte-identical files; two
 writes are identical; the header's example and the exact public interface
 are checked from a folder outside the project.
 
+## Sorting
+
+`src/lib/sort.fs` (2026-11-12; untrusted until reviewed): stable sorting
+of records in place. The kernel refactor review (batch C2,
+[the review](forth-reviews/2026-11-12-backlog-kernel.md); I2 of
+[its follow-up](forth-reviews/2026-11-12-refactor-frk.md)) found three
+hand-written insertion sorts in `src/kernel/env-snapshot.fs` that should
+be one library word; their results, a snapshot's bytes, depend on the
+order of records with equal keys. A standalone library under the owner's
+rule ([above](#reusability-the-libraries-as-standalone-forth-code)): it
+requires `portability.fs`, `bounds.fs`, `outcome.fs`, `u32.fs` and
+`module.fs`, knows nothing of Lean, and keeps its helpers in
+`lf-lib-private`.
+
+```forth
+require src/lib/sort.fs
+create by-value /sorter allot   create numbers 5 , 3 , 9 , 3 ,
+' sort-signed by-value sorter-cells drop
+numbers 4 by-value sort-records .     \ 0 (ok); numbers holds 3 3 5 9
+create by-key /sorter allot           \ 8-byte (key, payload) pairs by the first 32-bit field
+8 ' sort-unsigned by-key sorter-init drop  ' u32@ by-key sorter-key!
+```
+
+| Word | Stack | Meaning |
+| --- | --- | --- |
+| `/sorter` | `( -- u )` | a sorter record's size; the record is the caller's |
+| `sorter-init` | `( size order sorter -- outcome )` | records of `size` address units ordered by `order ( a-addr1 a-addr2 -- n )`; invalid for a size below 1 or order 0 (every sort then refuses the sorter); clears every setting |
+| `sorter-cells`, `sorter-u32s` | `( order sorter -- outcome )` | cells, or packed 32-bit fields (`u32.fs`), ordered by value: `order ( x1 x2 -- n )` |
+| `sorter-key!` | `( fetch sorter -- )` | the order is given `fetch ( a-addr -- x )` of each record instead of its address |
+| `sorter-buffer!` | `( addr u sorter -- )` | the caller's scratch of `u` address units, used by a merge that fits in it |
+| `sorter-short` | `( sorter -- addr )` | setting: up to this many records by insertion (`sort-short`, 32, after `sorter-init`) |
+| `sort-records` | `( a-addr n sorter -- outcome )` | sorts the `n` records at `a-addr` in place |
+| `sort-signed`, `sort-unsigned` | `( x1 x2 -- n )` | orders of values: -1, 0 or 1 |
+
+**The order.** It is given the earlier record first, never a record and
+itself; a positive result means the earlier record goes after the later,
+zero or negative leave them in their order. So the sort is stable, and
+for any order that is a total preorder its result is the unique stable
+one: exactly an insertion sort's, equal keys included. Any other order
+(one that stops deciding when its fuel runs out, or one at random) still
+leaves a permutation of the records. The order and the key word must take
+their arguments and give one result; the depth is checked after every
+call, before the result is used.
+
+**Design.** Up to `sorter-short` records are sorted by insertion: each
+record from the second on is compared with the earlier ones, nearest
+first, while the order is positive (the comparisons of an insertion sort
+by exchanging neighbours, at most n(n−1)/2) and then rotated into place;
+no memory is needed, which suits the short lists the checker sorts most.
+Above the cut-over, a bottom-up merge sort from runs of one record: in
+each pass runs are merged in pairs from the start (a last run without a
+partner stays), the right run's record first only when the order is
+positive; at most n·⌈log2 n⌉ comparisons, the fewest of the stable
+methods tried, and comparisons cost an `EXECUTE` or two each. These are,
+call for call, the comparisons of `lf-lnorm-sort` in
+`src/kernel/level-normalize.fs`, whose cut-over is also 32, so a
+comparison that spends a unit of fuel spends the same. Each merge reads
+its runs in the records' own memory, writes the scratch and copies the
+result back in one `MOVE`: the order only ever sees addresses of the
+records themselves, and at every call they are a permutation of the
+input. Records move only by `MOVE` (no byte access, as
+`scripts/check-portable-forth.py` requires of `src/lib`), an insertion's
+rotation going through a temp of four cells in the sorter, a larger
+record in several parts. No recursion: the host's stacks hold a few cells
+whatever n is. The sort runs under `CATCH`, so that its scratch is freed
+and the sorter ready again after a `THROW`.
+
+**Outcomes.** ok; invalid with nothing done for a negative n, n records
+whose address units would not fit a cell, or a sorter that `sorter-init`
+did not accept or that is sorting already (a nested call from its own
+order); invalid when the order or key word changed the stack depth, the
+records then in some order (a permutation); full, nothing changed, when n
+is above the cut-over and the heap refuses the n·size address units of
+scratch (the caller's buffer is used instead when it holds them). A
+`THROW` out of the order or key word is passed on, the records a
+permutation of the input, the scratch freed and the sorter ready (a
+`THROW` with the library's own code, −4131, reads as invalid). One sort
+at a time per sorter; separate sorters are independent; the library has
+no state of its own.
+
+**Speed** (this machine, 2026-11-12): 100,000 cells with keys below
+1,000, 1.57 million comparisons, 0.17 s with `gforth` 1.0 and 0.31 s with
+0.7.3.
+
+**Tests** (`tests/lib/sort.fs`, in `make test-lib`; Gforth 1.0 and
+0.7.3; loaded under `HEX`): the public words and hidden helpers; the
+orders at their edges; the sorter's settings and every refusal (nothing
+compared or changed); empty, one, two, sorted, reversed, all-equal,
+duplicate and paired lists of up to 1,000 cells on both paths; every
+list of up to 6 cells over 3 keys and 1,000 random lists of up to 200
+cells under four cut-overs, each equal record for record and comparison
+for comparison to a reference insertion sort and a reference copy of
+`lf-lnorm-sort`'s merge sort, and merged lists of up to 2,000 cells equal
+to the insertion sort's result; records of 1, 4 (both through
+`sorter-u32s` and through `sorter-key!`), a cell, 24 and 100 address
+units against the reference on their positions, the words after the
+sorter untouched; the snapshot's three insertion sorts, copied from
+`env-snapshot.fs`, against the library byte for byte on 200 random lists
+of up to 80 records each, under two cut-overs; the cut-over (no heap block held at 32 records, one
+at 33); 100,000 random records against a counting sort, within
+n·⌈log2 n⌉ comparisons, and 100,000 nearly sorted ones against the
+insertion sort; the caller's buffer, used with the heap refusing; a
+refused scratch (full, the records unchanged, nothing held, the sorter
+ready); the return stack, the caller's cells and the constant depth at
+which the order is called; orders whose results are large or that use
+the return stack; order and key words that leave two results or none
+(invalid, a permutation, nothing held); `THROW`s at three points (passed
+on, a permutation, nothing held, the sorter ready); nested sorts with
+the same sorter (refused) and another one; orders with a budget, equal
+call for call to the references, and orders at random (a permutation);
+the header's example; unsigned 32-bit values with bit 31 set. 23 planted
+faults (`lib-sort-…` in `tests/mutants/faults.toml`: stability on each
+path, the cut-over, a lost run rest, the output cursor, the scratch's
+freeing, the busy flag, both depth checks, the buffer's size, the full
+outcome, the merge width, the rotation's parts, the helpers made public,
+the count's check, a zero order, the key word skipped, `sorter-u32s`
+reading a cell, a swallowed `THROW`, `sort-unsigned` signed), each
+caught.
+
+**Sorts in `src/` that could use it** (2026-11-12; changing them is
+kernel work under the owner's approval, or another agent's front end):
+
+| Where | Kind | Equal keys |
+| --- | --- | --- |
+| `src/kernel/env-snapshot.fs` `entry-sink`, `look-sort` (213–218; also `env-layers.fs` 329) | insertion; 8-byte (key, answer) pairs by the little-endian key, unsigned | the lists are distinct by key; a stable sort keeps the bytes in any case: `8 ' sort-unsigned` with `' u32-le@ sorter-key!` |
+| `env-snapshot.fs` `dep-sort` (324–330; `env-layers.fs` 326) | insertion by shifting; little-endian 32-bit slot numbers, unsigned | equal values are equal bytes: `4 ' sort-unsigned` with `' u32-le@ sorter-key!` |
+| `env-snapshot.fs` `o-sink`, `o-sort` (386–391) | insertion; name numbers by content (`o-order`) | equal content is the same name: `' o-order sorter-cells` |
+| `src/kernel/level-normalize.fs` `lf-lnorm-sort` (207–264) | insertion up to 32, else bottom-up merge through slab cells; one unit of fuel per comparison | only structurally equal levels tie; the library's comparisons are the same calls |
+| `src/kernel/level-substitute.fs` `lf-cells-sort` (65–85; used at 256 and by `mixed-level-substitute.fs` 303) | heapsort of signed cells, no scratch, not stable | the reached node indices are distinct; the library would need scratch above 32 |
+| `src/front/level-normalize.fs` `ln-insert`, `ln-sort` (121–137) | insertion by shifting; levels by `normLt` | only structurally equal levels tie |
+| `src/import/ndjson-emit.fs` `member-insert`, `members-sort` (216–225) | insertion; mdata's key tokens by their text | two equal keys are refused as invalid |
+
 ## Big natural numbers
 
 `src/lib/bignum.fs` (plan section 6.8 and task 5.2.3, library part,
@@ -492,6 +631,87 @@ no padded copy of the tail.
   `big+` and `big-` with 1.
 - Speed for Mathlib: profile real literal workloads before tuning further
   (double-limb Lehmer steps for gcd; fewer claims for small powers).
+
+## Signed big integers
+
+`src/lib/bigint.fs` (plan step FE1i-4, 2026-11-13; design
+[FE1I_AUTOMATION.md](../design/FE1I_AUTOMATION.md), section 5.2): Lean
+4.35.0's `Int` for `by-omega`'s coefficients and `by-decide`'s `Int`
+literals, over `bignum.fs`. Untrusted; the kernel does not use it (Lean's
+kernel computes on `Nat` literals only, and reduces `Int` operations to
+them through their definitions).
+
+**What it computes**, as Lean's definitions in `Init/Data/Int` say (pinned
+toolchain: `DivMod/Basic.lean`, `Gcd.lean`, `Pow.lean`, `Basic.lean`). Lean's
+`/` and `%` on `Int` are `Int.ediv` and `Int.emod` (the `Div` and `Mod`
+instances, lines 111–118); `Int.div` no longer exists in 4.35.0 (checked:
+`#check @Int.div` is an unknown constant). `Int.tdiv`, `Int.fdiv` and
+`Int.bdiv` are not provided: `omega` does not use them.
+
+| Lean | Word | Result |
+| --- | --- | --- |
+| `a + b`, `a - b`, `a * b`, `-a` | `bigint+ bigint- bigint* bigint-negate` | as usual |
+| `a / b` (`Int.ediv`) | `bigint-ediv` | ⌊a / b⌋ for b > 0, ⌈a / b⌉ for b < 0; a / 0 = 0 |
+| `a % b` (`Int.emod`) | `bigint-emod` | a − b (a / b): 0 ≤ a % b < \|b\| for b ≠ 0; a % 0 = a |
+| `Int.bmod x m`, `m : Nat` | `bigint-bmod` | r = x % m, then r if r < (m + 1) / 2, else r − m; x bmod 0 = x |
+| `Int.gcd a b : Nat` | `bigint-gcd` | gcd(\|a\|, \|b\|) |
+| `a ^ e`, `e : Nat` | `bigint-pow` | a^e; a^0 = 1 |
+| `Int.natAbs`, `Int.toNat` | `bigint-natAbs`, `bigint-toNat` | \|a\|; a, or 0 for a < 0 |
+| `Int.sign`, `compare` | `bigint-sign`, `bigint-compare` | −1, 0 or 1 (cells) |
+
+The same in the three forms, for a negative dividend: mathematically
+⌊−12 / 7⌋ = −2 and −12 − 7·(−2) = 2; in Lean `(-12 : Int) / 7 = -2` and
+`(-12 : Int) % 7 = 2`; in Forth `s" -12" ar decimal>bigint drop s" 7" ar
+decimal>bigint drop ar bigint-ediv` gives the integer −2 (the header's
+example prints both).
+
+**Design.** An integer is the address of a sign cell, −1, 0 or 1, followed
+by its magnitude, a `bignum.fs` number; the sign is 0 exactly for 0, so
+each integer has one form (`bigint-valid?` checks this in O(1)), and
+`bigint-magnitude` is the magnitude in place. Every result is built in a
+four-cell record claimed at the arena's top (the result's sign, the arena
+and the operands): the magnitude is made above it with `bignum.fs`'s
+operations, any intermediate numbers above that, and at the end the
+magnitude is moved down so that the record's place becomes the integer
+(its first field is the sign cell); a failure gives back the record and
+everything above it. Natural-number results take the record's place the
+same way. A negative quotient is ⌈\|a\| / \|b\|⌉ = (\|a\| − 1) / \|b\| + 1,
+a negative dividend's remainder \|b\| − (\|a\| mod \|b\|) or 0, as Lean's
+`negSucc` cases; `bmod` keeps r when r < m − r (both say 2r < m) and
+otherwise gives −(m − r). The number 1 these steps use is made in the
+arena, so the library has no data of its own. Operands are checked as
+`bignum.fs`'s are (well formed, not reaching into the arena's free part,
+a sound arena record) before anything is claimed, so invalid input wins
+over no room; so is text read by `decimal>bigint` (review L1: text in the
+free part would be overwritten by the build before it is read).
+
+**Tests.** `tests/lib/bigint.fs` (loaded under `HEX`): the
+representation, every word on signs and zero, Lean's documented examples
+of `/`, `%` and `bmod`, `bmod`'s boundary 2r = m − 1, m, m + 1, carries
+across limbs at 2^64, 2^300-size values, the most negative cell, every
+kind of malformed text, malformed, released and straddling operands and
+texts and a corrupted arena (invalid, nothing made), the bit limit, every
+room from 0 to 240 cells between guard cells for every operation (from 0
+to 80 for printing), no heap use (`tests/support/heap-watch.fs` refuses
+the next allocation and it stays pending), both stacks balanced, operands
+unchanged; every block of the module runs (289 of 289, Gforth 1.0's
+`coverage.fs`). `tests/lib/bigint_differential.py` prints 13 results per
+integer pair with `tests/lib/bigint-cases.fs` (7,906 edge pairs and seeded
+random ones up to 3,600 bits, a quarter a = qb + r) and requires each line
+to equal a model that follows Lean's definitions case by case
+(`make test-bigint`: 2,000 random pairs); a self-test shows that the
+comparison refuses the same lines with one value changed; then it runs the
+header's example and checks the exact interface from a folder outside the
+project. `make reference-bigint` runs
+pinned Lean on the same 17,906 pairs (10,000 random) as a program whose
+source holds them (so the Lean cache keys on them): Lean's own `Int`
+gives the same lines as the Forth library and the model; then 300 of the
+model's results as `example … := by decide +kernel` are all proved by
+Lean's kernel and all 300 with the value changed are rejected. On
+Gforth 1.0 and 0.7.3 (64-bit hosts only). Planted faults: 17 `fe-bigint-…`
+entries in `tests/mutants/faults.toml`, each caught (the design's
+`fe-bigint-ediv-sign` by the comparison with pinned Lean: 1,655 of 8,206
+pairs differ from Lean's own `Int`).
 
 ## The compact store
 
@@ -982,12 +1202,26 @@ context. The adapter chooses one of three hosts when it loads:
 | `task-slack-cells` | 64 | Cells of each stack the worker's own words use below a job's word |
 | `task-guard-cells` | 1,024 | Canary cells beyond each stack on Gforth 0.7.3 |
 | `task-queue-jobs` | 1,024 | Most jobs queued and not yet taken by a worker |
+| `spawn-limit! ( n -- )` | -1 (no limit but the host's) | For tests: the host refuses every worker beyond n running, as it refuses a thread near its process limit (`ulimit -u`), so that tests reach that failure deterministically; read while the pool starts |
+
+When the host refuses a worker (no thread near the process limit, no
+memory for its stacks), the pool keeps the workers it made before and
+runs with them, trying no more until it is stopped; `workers-running ( --
+n )` gives how many run. Results never depend on the number of workers,
+so this changes only the speed; `pool-start` (and so `job-submit`) is
+refused with `task-no-worker` only when not one worker could be made. A
+Gforth 1.0 task whose thread was refused has its two pipes closed (its
+stacks stay allocated: Gforth has no word that frees a task that never
+ran); a Gforth 0.7.3 task is freed. `job-wait` refuses job 0, the handle
+a refused submission gives, with `task-refused`, and reads nothing: on
+2026-11-13, near the process limit, `tests/lib/task.fs` waited for such a
+0 and crashed in `job-await`.
 
 | Refusal (job 0) | Code |
 | --- | --- |
 | not a context, the main context, the caller's current context, a context another job owns, or a submission inside a job (`job-wait` inside a job gives the same) | `task-refused` (-4098) |
 | the queue holds `task-queue-jobs` jobs | `task-queue-full` (-4099) |
-| a worker task or thread could not be created (the workers already started are stopped) | `task-no-worker` (-4100) |
+| not one worker task or thread could be created (when some could, the pool runs with those) | `task-no-worker` (-4100) |
 | the stack settings do not cover the largest need a module stated (`context-need`); nothing is started | `task-stacks-small` (-4101) |
 | Gforth 0.7.3, after an overflow that left a guard zone | `task-overflow` (-4097) |
 

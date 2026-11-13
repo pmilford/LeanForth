@@ -254,7 +254,13 @@ test-harness:
 # report its stack sizes); task-overflow.fs and its serial twin test
 # stack overflows inside jobs. tests/lib/task-bench.fs is report-only.
 # test_json_write.py checks the JSON writer against Python's json.dumps.
+# runs.fs tests the runs library (sequences of cells that never change)
+# against a model, outside the checker.
+# sort.fs tests the sorting library against reference sorts (and the
+# snapshot's insertion sorts, copied) on both Gforths.
 test-lib:
+	$(RUN) $(GFORTH) tests/lib/sort.fs
+	$(RUN) $(GFORTH) tests/lib/runs.fs
 	$(RUN) $(GFORTH) tests/lib/lib.fs
 	$(RUN) $(GFORTH) tests/lib/lib-model.fs
 	$(RUN) $(GFORTH) tests/lib/context.fs
@@ -291,6 +297,7 @@ test-core:
 	$(RUN) $(GFORTH) tests/core/defeq.fs
 	$(RUN) $(GFORTH) tests/core/whnf.fs
 	$(RUN) $(GFORTH) tests/core/mixed-level-substitute.fs
+	$(RUN) $(GFORTH) tests/core/mixed-level-substitute-crowded.fs
 	$(RUN) $(GFORTH) tests/core/mixed-signature-probe.fs
 	$(RUN) $(GFORTH) tests/core/mixed-signature-lifecycle.fs
 	$(RUN) $(GFORTH) tests/core/mixed-signature-audit.fs
@@ -305,6 +312,7 @@ test-core:
 	$(RUN) $(GFORTH) tests/core/level-value.fs
 	$(RUN) $(GFORTH) tests/core/level-compare.fs
 	$(RUN) $(GFORTH) tests/core/level-deep.fs
+	$(RUN) $(GFORTH) tests/core/level-geq.fs
 	$(RUN) $(GFORTH) tests/core/infer-deep.fs
 	$(RUN) $(GFORTH) tests/core/contexts.fs
 	$(RUN) $(GFORTH) tests/core/contexts-serial.fs
@@ -730,14 +738,24 @@ test-kernel-reduction:
 	$(RUN) $(GFORTH) tests/core/generated-recursor.fs
 	$(RUN) $(GFORTH) tests/core/mixed-head.fs
 	$(RUN) $(GFORTH) tests/core/mixed-rebuild.fs
+	$(RUN) $(GFORTH) tests/core/no-data-terms.fs
 test-kernel-blocks:
 	$(RUN) $(GFORTH) tests/core/inductive-block.fs
 	$(RUN) $(GFORTH) tests/core/inductive-recursor.fs
 test-kernel-nested:
 	$(RUN) $(GFORTH) tests/core/inductive-nested.fs
+# The second coverage pass (COV2, 2026-11-12): terms without a data word
+# (no-data-terms.fs, above), string literals' expansion under refused
+# allocations, a crowded store and sampled fuel, and sampled fuel through
+# definitional equality's eta, unit-like and lazy-delta steps. About 6 s.
+test-kernel-passes:
+	$(RUN) $(GFORTH) tests/core/string-literals.fs
+	$(RUN) $(GFORTH) tests/core/defeq-sweeps.fs
+	$(RUN) $(GFORTH) tests/core/check-forged.fs
+	$(RUN) $(GFORTH) tests/core/heap-refusals.fs
 
-.PHONY: test-kernel-reduction test-kernel-blocks test-kernel-nested
-test: test-kernel-reduction test-kernel-blocks test-kernel-nested
+.PHONY: test-kernel-reduction test-kernel-blocks test-kernel-nested test-kernel-passes
+test: test-kernel-reduction test-kernel-blocks test-kernel-nested test-kernel-passes
 
 # Run records and their replay (plan task 2.2.5; docs/programming/RUN_RECORDS.md):
 # unit tests of src/import/run-record.fs and run-replay.fs (every fixture, each
@@ -790,6 +808,26 @@ reference-bignum:
 .PHONY: test-bignum reference-bignum
 test: test-bignum
 test-differential: reference-bignum
+
+# Signed big integers with Lean's Int semantics (plan step FE1i-4;
+# src/lib/bigint.fs, a standalone library over bignum.fs): unit tests of
+# every word and outcome, every room from 0 cells up and no heap use; then
+# 9,906 integer pairs (7,906 edge, 2,000 random), 13 operations each,
+# against a model that follows Lean's definitions, and the header's example
+# and interface from a folder outside the project. Gforth and Python 3 only.
+test-bigint:
+	$(RUN) $(GFORTH) tests/lib/bigint.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/lib/bigint_differential.py --pairs 2000
+
+# 17,906 pairs (10,000 random) computed by pinned Lean's own Int, line for
+# line, and 300 results decided by Lean's kernel (decide +kernel), each also
+# rejected with its value changed.
+reference-bigint:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/lib/bigint_differential.py --lean
+
+.PHONY: test-bigint reference-bigint
+test: test-bigint
+test-differential: reference-bigint
 
 # SHA-256 (src/lib/sha256.fs, a standalone library; docs/development/FORTH_LIBRARY.md):
 # FIPS 180-4's vectors, every split of messages up to 200 bytes, the named
@@ -873,25 +911,64 @@ reference-author:
 .PHONY: test-author reference-author
 test: test-author
 
-# The front end's first steps (plan FE1a-b, ADR 0021): the natural reader's
-# syntax trees and refusals, and the metavariable context. Its modules load
-# alone, printing nothing.
+# The front end's first steps (plan FE1a-c, FE1f, FE1g-2, FE6a, ADR 0021):
+# the natural reader's syntax trees and refusals, the metavariable context,
+# the Meta layer's level unification and instantiation, the hand-over of a
+# finished declaration to the kernel, the generated definitions, and
+# tactic proofs read (their records, golden, and every malformed shape,
+# also through leanforth check). Its modules load alone, printing nothing.
 test-front:
 	@for m in src/front/syntax.fs src/front/dag-walk.fs src/front/reader.fs src/front/mvars.fs \
-	  src/core/mvar-leaves.fs; do \
+	  src/front/handover.fs src/core/mvar-leaves.fs src/core/reach.fs \
+	  src/front/level-defeq.fs src/front/instantiate.fs \
+	  src/front/level-simp.fs src/front/level-params.fs src/front/level-normalize.fs \
+	  src/front/level-map.fs src/front/expr-remap.fs src/front/constructions.fs src/front/ctor-idx.fs \
+	  src/front/cases-several.fs \
+	  src/front/meta-env.fs src/front/meta-spine.fs src/front/whnf.fs src/front/beta-inst.fs \
+	  src/front/infer.fs src/front/tactic-syntax.fs \
+	  src/front/lctx-views.fs src/front/goals.fs src/front/goal-print.fs; do \
 	  out=$$($(RUN) $(GFORTH) $$m -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
 	  if [ -n "$$out" ]; then printf '%s printed while loading:\n%s\n' "$$m" "$$out" >&2; exit 1; fi; \
 	done
 	$(RUN) $(GFORTH) tests/front/front.fs
+	$(RUN) $(GFORTH) tests/front/meta.fs
+	$(RUN) $(GFORTH) tests/front/meta-heap.fs
+	$(RUN) $(GFORTH) tests/front/constructions.fs
+	@out=$$($(RUN) $(GFORTH) tests/front/handover.fs 2>&1) || \
+	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "handover.fs: all tests passed"
+	$(RUN) $(GFORTH) tests/front/meta-env.fs
+	$(RUN) $(GFORTH) tests/front/whnf.fs
+	$(RUN) $(GFORTH) tests/front/infer.fs
+	$(RUN) $(GFORTH) tests/front/tactic-syntax.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_tactics.py
+	$(RUN) $(GFORTH) tests/front/goals.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_goals.py
 
 # The natural reader's trees against pinned Lean's macro expansion of the
-# same statements (tests/front/operators.lean).
+# same statements (tests/front/operators.lean); the Meta layer's answers
+# against pinned Lean's (tests/front/check_meta.py: isLevelDefEqAux,
+# instantiate1, abstract, headBeta, instantiateLevelParams;
+# tests/front/check_unfold.py: reducibility, canUnfold, getUnfoldableConst?;
+# tests/front/check_whnf.py: whnfCore, getStuckMVar?, inferType); pinned
+# Lean reproduces the tactic tests' export (tests/front/tactic-slice.ndjson).
 reference-front:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_front.py
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_meta.py
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_unfold.py
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_whnf.py
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_tactics.py --lean
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_goals.py --lean
 
-.PHONY: test-front reference-front
+# Lean's generated definitions (casesOn, recOn, ctorIdx; plan FE6) built by
+# src/front/constructions.fs and ctor-idx.fs for every inductive type of Init, against
+# Lean's own in the same export, with pinned counts.
+reference-constructions:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/front/constructions-init.sh
+
+.PHONY: test-front reference-front reference-constructions
 test: test-front
 test-differential: reference-front
+test-differential: reference-constructions
 test-differential: reference-author
 
 # Planted faults (plan task 1.4.2; docs/development/TESTING_STRATEGY.md,

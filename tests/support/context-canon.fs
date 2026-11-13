@@ -26,6 +26,8 @@ create canon-stores ' lf-terms , ' lf-levels , ' lf-names , ' lf-crefs , ' lf-in
 [defined] syn-store [if] ' syn-store , [then]
 \ And the metavariable context's stores (src/front/mvars.fs, plan FE1b).
 [defined] mv-exprs [if] ' mv-exprs , ' mv-levels , ' mv-fvars , [then]
+\ And the tactic record's stores (src/front/tactic-syntax.fs, plan FE1g-2).
+[defined] tac-steps [if] ' tac-steps , ' tac-args , [then]
 here canon-stores - 1 cells / constant canon-stores#
 : canon-store# ( i -- store ) cells canon-stores + @ execute ;
 : canon-mix ( h x -- h' ) swap 31 * + ;
@@ -41,10 +43,15 @@ here canon-stores - 1 cells / constant canon-stores#
 : canon-log-digest ( h -- h' ) ;
 [then]
 \ The growable arrays of context-slab: (lib/context.fs, plan task 6.2.0),
-\ found through its list of their offsets.
-: canon-listed-at ( node -- slab ) cell+ @ lf-context @ + ;
+\ found through its list of their offsets (private to lib/context.fs).
+lf-lib-private order+
+: canon-slab-list ( -- node ) context-slabs @ ;
+: canon-listed-at ( node -- slab ) listed-member ;
+: canon-next ( node -- node' ) listed-next @ ;
+order-
 : canon-listed ( dst -- dst )
-  context-slabs @ begin ?dup while >r dup r@ canon-listed-at canon-slab r> @ repeat ;
+  canon-slab-list begin ?dup while >r dup r@ canon-listed-at canon-slab r> canon-next
+  repeat ;
 \ Hash tables (lib/htab.fs; compact-store plan step S3): the term store's
 \ hash-consing table (core/terms.fs), the level store's and the
 \ references' (core/levels.fs, core/constant-references.fs; step S4), the
@@ -95,7 +102,8 @@ here canon-stores - 1 cells / constant canon-stores#
 : canon-shape-digest ( h slab -- h' )
   >r r@ slab-capacity canon-mix r@ slab-unit canon-mix r> slab-limit canon-mix ;
 : canon-listed-digest ( h -- h' )
-  context-slabs @ begin ?dup while >r r@ canon-listed-at canon-shape-digest r> @ repeat ;
+  canon-slab-list begin ?dup while >r r@ canon-listed-at canon-shape-digest r> canon-next
+  repeat ;
 \ The table's size and entries (its slots' order follows its history).
 : canon-htab-digest ( h htab -- h' ) dup htab-slots rot swap canon-mix swap htab-count canon-mix ;
 : canon-core-digest ( h -- h' )

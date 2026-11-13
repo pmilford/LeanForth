@@ -30,8 +30,12 @@ boundaries accurately, and that no untrusted result authorizes a proof.
 
 Use the bundled Gforth (`.tools/gforth/bin/gforth`) when available and say
 exactly what was or was not run. Bash is for running tests and read-only
-inspection only. Use `make test` or `make check` (which call the pinned Lean
-binary directly); never run the elan proxies without `ELAN_HOME=.tools/elan`.
+inspection only. Do not repeat the implementer's recorded suite runs on the
+same head (owner, 2026-11-13, plan 9.4.6): run your own probes, your own
+planted faults, the changed test files and the pinned-Lean comparisons your
+questions need. When you call Lean, use the make targets (which call the
+pinned Lean binary directly); never run the elan proxies without
+`ELAN_HOME=.tools/elan`.
 
 Report actionable findings first, ordered by severity, with `path:line`
 references, reproduction and suggested fix or factoring, then a separate

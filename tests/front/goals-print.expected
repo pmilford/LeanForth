@@ -1,0 +1,85 @@
+=== t1.start
+n : Nat
+⊢ 0 + n = n
+=== t1.zero
+case zero
+⊢ 0 + 0 = 0
+=== t1.succ
+case succ
+k : Nat
+ih : 0 + k = k
+⊢ 0 + (k + 1) = k + 1
+=== t1.rewritten
+case succ
+k : Nat
+ih : 0 + k = k
+⊢ (0 + k).succ = k + 1
+=== t5.cases
+case zero
+⊢ 0 + 0 = 0
+
+case succ
+n✝ : Nat
+a✝ : 0 + n✝ = n✝
+⊢ 0 + (n✝ + 1) = n✝ + 1
+=== t8
+a b : Nat
+p q : Prop
+h : p
+x : Nat := a + b
+y : Nat
+⊢ True
+=== t9.cases
+case zero
+n : Nat
+h : 0 = 0
+⊢ True
+
+case succ
+n n✝ : Nat
+a✝ : n✝ = n✝ → True
+h : n✝ + 1 = n✝ + 1
+⊢ True
+=== c2
+n✝ n : Nat
+⊢ n + n✝ = n + n✝
+=== c4
+x y✝ : Nat
+⊢ x = x
+=== s1
+x✝¹ x✝ x : Nat
+⊢ True
+=== s2
+x✝² x✝¹ x✝ : Nat
+⊢ True
+=== d2
+a b c : Nat
+h h' : a = b
+q : b = c
+⊢ True
+=== d127
+y : Nat := ⋯
+⊢ y = y
+=== e1
+
+=== e2
+case left
+p : Prop
+hp : p
+⊢ p
+
+case right
+p : Prop
+hp : p
+⊢ p
+=== e3
+x : Nat
+y : Nat := x + 1
+⊢ y = x + 1
+=== g1
+n : Nat
+⊢ ∀ (m : Nat), m = m
+=== g3
+n : Nat
+h : ∀ (k : Nat), k = n
+⊢ True

@@ -130,8 +130,6 @@ end-structure
 : lf-nest-take ( node c -- )
   lf-nest-state lf-nest-depth ! dup lf-nest-state lf-nest-node !
   lf-ind-spine nip lf-nest-state lf-nest-n ! ;
-\ Run xt ( -- outcome ) only when the outcome so far is ok.
-: lf-nest-then ( outcome xt -- outcome ) over ok? if nip execute else drop then ;
 \ N3, Lean's "ill-formed declaration" and "failed to restore" (x: the
 \ node or name met).
 : lf-nest-shape ( x -- -1 outcome )
@@ -373,8 +371,8 @@ end-structure
 : lf-nest-make-type ( J -- outcome )
   lf-kind-inductive lf-nest-decl ok-then? 0= if exit then lf-nest-state lf-nest-j-decl !
   lf-nest-grow-type ok-then? 0= if exit then lf-nest-state lf-nest-aux-at !
-  outcome-ok ['] lf-nest-type-named lf-nest-then ['] lf-nest-type-typed lf-nest-then
-  ['] lf-nest-type-keyed lf-nest-then ['] lf-nest-type-ctors lf-nest-then ;
+  outcome-ok ['] lf-nest-type-named ok-and ['] lf-nest-type-typed ok-and
+  ['] lf-nest-type-keyed ok-and ['] lf-nest-type-ctors ok-and ;
 \ Every type of I's block, in its all list's order: (a ok), a I's own.
 : lf-nest-all ( -- items n )
   lf-nest-state lf-nest-slot @ lf-input-decl lf-idecl-data lf-ity-all@ ;
@@ -515,7 +513,7 @@ end-structure
 \ exhausted.
 : lf-nest-translate ( -- outcome )
   lf-ind-maybe? 0= if outcome-ok exit then
-  lf-nest-begin ['] lf-nest-queue lf-nest-then lf-nest-end ;
+  lf-nest-begin ['] lf-nest-queue ok-and lf-nest-end ;
 
 \ ---------------------------------------------------------------------------
 \ The restoration. Which auxiliary type a constant names (a, or -1);
@@ -593,7 +591,7 @@ end-structure
 \ a block that is not nested.
 : lf-nest-restore-all ( -- outcome )
   lf-ind-aux@ 0= if outcome-ok exit then
-  lf-nest-names ['] lf-nest-recs-back lf-nest-then ['] lf-nest-rules-back lf-nest-then ;
+  lf-nest-names ['] lf-nest-recs-back ok-and ['] lf-nest-rules-back ok-and ;
 \ Before they are built: each auxiliary type's recursor named T.rec_i,
 \ i from 1 in the types' order, T the block's first type
 \ (mk_aux_rec_name_map; its T.rec named at step 6); full when a name

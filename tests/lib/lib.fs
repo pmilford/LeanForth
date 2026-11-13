@@ -410,6 +410,32 @@ T{ 7 steps-none stepped -> outcome-ok 0 }T
 T{ outcome-ok steps-ab stepped -> outcome-ok 121 }T
 T{ outcome-unknown steps-ab stepped -> outcome-unknown 12 }T
 T{ outcome-full steps-ab ' stepped rs-checked -> outcome-full 12 }T
+\ ok-and: a step ( i*x -- j*x outcome ) run only while the outcome so far
+\ is ok (review FRK A); a failure, or a value outside the vocabulary,
+\ passes through with the values below it, the step not run.
+: step-c ( x -- x' outcome ) 1+ step-trail @ 10 * 3 + step-trail ! outcome-ok ;
+: step-u ( x -- x outcome ) step-trail @ 10 * 4 + step-trail ! outcome-unknown ;
+: anded ( x outcome xt -- x' outcome trail ) 0 step-trail ! ok-and step-trail @ ;
+T{ 7 outcome-ok ' step-c anded -> 8 outcome-ok 3 }T
+T{ 7 outcome-ok ' step-u anded -> 7 outcome-unknown 4 }T
+T{ 7 outcome-full ' step-c anded -> 7 outcome-full 0 }T
+T{ 7 outcome-exhausted ' step-c anded 7 99 ' step-c anded -> 7 2 0 7 99 0 }T
+T{ 0 step-trail ! 5 outcome-ok ' step-c ok-and ' step-u ok-and ' step-c ok-and step-trail @
+  -> 6 outcome-unknown 34 }T
+T{ 5 outcome-ok ' step-c ' anded rs-checked 5 outcome-rejected ' step-c ' anded rs-checked
+  -> 6 outcome-ok 3 5 outcome-rejected 0 }T
+\ ok-with: a step ( x -- outcome ) on x, which stays below, run only while
+\ the outcome so far is ok; a failure passes through, the step not run.
+: step-d ( x -- outcome ) step-trail @ 10 * + step-trail ! outcome-ok ;
+: step-e ( x -- outcome ) step-trail @ 10 * + step-trail ! outcome-exhausted ;
+: withed ( x outcome xt -- x outcome trail ) 0 step-trail ! ok-with step-trail @ ;
+T{ 4 outcome-ok ' step-d withed -> 4 outcome-ok 4 }T
+T{ 4 outcome-ok ' step-e withed -> 4 outcome-exhausted 4 }T
+T{ 4 outcome-invalid ' step-d withed 4 -5 ' step-d withed -> 4 1 0 4 -5 0 }T
+T{ 0 step-trail ! 3 outcome-ok ' step-d ok-with ' step-e ok-with ' step-d ok-with step-trail @
+  -> 3 outcome-exhausted 33 }T
+T{ 4 outcome-ok ' step-d ' withed rs-checked 4 outcome-full ' step-d ' withed rs-checked
+  -> 4 outcome-ok 4 4 outcome-full 0 }T
 
 \ walk: refuses a capacity below 1.
 : bad-walk? ( addr u -- flag ) ['] evaluate catch dup if nip nip then 0<> ;
@@ -774,6 +800,31 @@ T{ le-a le-back 8 le>u32s  le-back 8 u32s le-src 8 u32s compare -> 0 }T
 T{ le-b le-back 8 le>u32s-fields  le-back 8 u32s le-src 8 u32s compare -> 0 }T
 T{ le-src u32@ le-a u32-le@ = -> true }T
 T{ le-src le-a 0 u32s>le  le-a le-back 0 le>u32s -> }T
+
+\ Tables of execution tokens (src/lib/xt-table.fs): every entry the default
+\ until set; the default for any other index, negative or too large; a
+\ write outside the table and a bad size abort, changing nothing.
+require ../../src/lib/xt-table.fs
+: xt-one ( -- n ) 1 ;   : xt-three ( -- n ) 3 ;   : xt-other ( -- n ) -1 ;
+4 ' xt-other xt-table: xt-by-tag
+' xt-one 1 xt-by-tag xt-table!   ' xt-three 3 xt-by-tag xt-table!
+: xt-run ( i -- n ) xt-by-tag xt-table@ execute ;
+T{ 0 xt-run 1 xt-run 2 xt-run 3 xt-run -> -1 1 -1 3 }T
+T{ 4 xt-run -1 xt-run max-n xt-run max-n negate xt-run -> -1 -1 -1 -1 }T
+T{ xt-by-tag xt-table-size @ xt-by-tag xt-table-default @ -> 4 ' xt-other }T
+\ A table of one entry, set: the default still answers every other index.
+1 ' xt-other xt-table: xt-single   ' xt-one 0 xt-single xt-table!
+T{ 0 xt-single xt-table@ 1 xt-single xt-table@ -> ' xt-one ' xt-other }T
+: xt-set-fails ( xt i table -- ior ) ['] xt-table! catch dup if nip nip nip then ;
+T{ ' xt-one 4 xt-by-tag xt-set-fails ' xt-one -1 xt-by-tag xt-set-fails -> -2 -2 }T
+T{ ' xt-one max-n xt-by-tag xt-set-fails -> -2 }T
+T{ 4 xt-by-tag xt-table@ 0 xt-by-tag xt-table@ 2 xt-run -> ' xt-other ' xt-other -1 }T
+: xt-made-fails ( c-addr u -- ior ) ['] evaluate catch dup if nip nip then ;
+T{ s" 0 ' xt-one xt-table: xt-none" xt-made-fails [undefined] xt-none -> -2 true }T
+T{ s" -1 ' xt-one xt-table: xt-neg" xt-made-fails [undefined] xt-neg -> -2 true }T
+T{ s" max-n ' xt-one xt-table: xt-huge" xt-made-fails [undefined] xt-huge -> -2 true }T
+\ The record: its size, then the entries after the header.
+T{ xt-by-tag /xt-table + 3 cells + @ -> ' xt-three }T
 
 \ Defining lf-u32-portable before the file loads forces the Forth-2012
 \ version. The file is loaded again for this, last, under BASE 8, where 8

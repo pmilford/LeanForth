@@ -60,8 +60,25 @@ require ./present/proof-outline.fs
 
 \ The front end (ADR 0021, plan FE1; untrusted, never loaded by the
 \ kernel): the natural reader (front/reader.fs, which the command line
-\ loads through cli/check-lf.fs) and the metavariable context.
+\ loads through cli/check-lf.fs), the metavariable context, and the first
+\ pieces of the Meta layer (plan FE1c): level unification, bound-variable
+\ instantiation and abstraction, level simplification and normalization,
+\ universe-parameter instantiation, the view of the environment
+\ (reducibility and unfolding under each transparency), whnfCore and the
+\ first cases of type inference; the tactic framework's goals, each with
+\ its own local context, the goal list and their text (plan FE1g-1).
+require ./front/level-map.fs
 require ./front/mvars.fs
+require ./front/level-defeq.fs
+require ./front/instantiate.fs
+require ./front/level-simp.fs
+require ./front/level-params.fs
+require ./front/level-normalize.fs
+require ./front/meta-env.fs
+require ./front/whnf.fs
+require ./front/beta-inst.fs
+require ./front/infer.fs
+require ./front/goal-print.fs
 
 \ The command line: check, replay, print, count, reexport, version,
 \ capabilities. It loads the staging of exports into the checker's input,

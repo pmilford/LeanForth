@@ -1045,6 +1045,39 @@ These settle the design's choices. The amendment stays **proposed**: the code (s
 through the [format], [kernel] and [import] gates (Lean comparisons, an independent review, the owner's approval of
 the summary) before it is accepted.
 
+### Front-end designs FE1e and FE1g: questions answered (2026-11-12, about 22:40)
+
+Each as recommended ([FE1E_APPLICATIONS.md](../design/FE1E_APPLICATIONS.md) §8,
+[FE1G_TACTICS.md](../design/FE1G_TACTICS.md) §10):
+1. **Instance-search limits (FE1e):** LeanForth uses its own fuel. Lean stops a search after a count of its own
+   allocations or at depth 512, which LeanForth cannot reproduce; where Lean would give up and LeanForth finds an
+   answer, the kernel still checks the result and the case is listed in BEYOND_LEAN.md. Nothing unchecked is accepted.
+2. **Induction case syntax (FE1g):** Lean's `| tag names =>` lines, one `by-end` closing the group and every
+   `by-case:` block (e.g. `n by-induction-with | zero => by-rfl | succ k ih => by-rw[ ' Nat.add_succ ih ] by-end`).
+3. **`by-rw` in FE1:** yes; the first native proof uses Lean's own rewrite proof, which is also the proof the
+   explained-proofs output (8.6.12) describes line by line.
+
+### Kernel fixes, the kernel refactor and `sorry` (2026-11-12, late night)
+
+1. **KFIX approved [kernel]** (about 23:00): the five stack fixes on out-of-room paths of
+   src/kernel/mixed-level-substitute.fs and level-substitute.fs (B1-B5, found by the COV2 tests; in one case a valid
+   declaration could have been reported as rejected when memory ran out), and the unused `lf-whnf-ended` removed.
+   Evidence: [review](../development/forth-reviews/2026-11-12-kfix-mls.md), not blocking; the crowded test in `make
+   test`; planted faults caught. For tonight's build, after its two low follow-ups and CI.
+2. **FRK approved [kernel] on condition** that the correctness review finds nothing blocking (met:
+   [review](../development/forth-reviews/2026-11-12-refactor-frk.md), every change behaviour-identical by trace) and
+   the branch is not slower than main (the implementer's back-to-back CPU pair, pending at the time of the decision;
+   the result is recorded below when it arrives). If either fails, FRK waits for the owner.
+   **Conditions met (2026-11-13, 00:58):** the implementer's back-to-back Init runs at the same load gave branch
+   -5.5% CPU and memory +0.9% (means of both pairs: main 1421.2 s, branch 1419.5 s user), every report and fuel count
+   equal; both CI jobs pass on eb9695f. FRK merged into tonight's build.
+3. **`sorry` in LeanForth text** (amends ADR 0021 D3; [ADR 0021 Amendment 1](../adr/0021-front-end.md)): allow the
+   explicit `sorry` exactly as Lean does, reported NOT PROVED with `sorryAx` named, never counted as proved. The owner
+   added: "it needs to report the other parts of a check are good somehow for development, I almost wonder if it is
+   better for sorry to be true instead, so proof is called valid if sorry section is true". So the report says that
+   everything else was checked, that the statement holds if each open part is true, and lists each open part with its
+   statement; it never says "proved". No automatic error recovery.
+
 ### No result labels (2026-11-12, evening)
 
 The owner: "I find the constant repetition of experimental and not independently audited, one NOT PROVED not useful.
@@ -1053,4 +1086,72 @@ don't really think you need to label anything like that at all, or even pre-alph
 withdrawn: no label on results, in reports, in the JSON report or in documents (task PA removes it; a [format] change
 of the check report decided by the owner). Verdicts are unchanged, including NOT PROVED for a declaration that uses an
 axiom outside the allowlist. The outside audit (plan 9.2.1) and the review gates stay.
+
+
+### Approval round of 2026-11-12, night (approval pack)
+
+The owner answered the 18-item approval pack at about 22:25 on 2026-11-12, in four groups, every item as recommended.
+The pack is `.claude/work/APPROVALS-2026-11-13.md` (a working file, not tracked; its file name says 11-13, the approval
+date is 2026-11-12). Each ADR's "Approval status:" line now cites this section.
+
+- **Items 1-3, superseded (wording only):** ADR 0001 superseded by ADRs 0011, 0012, 0014, 0015, 0016; ADR 0002
+  superseded by ADR 0007 item 5, ADR 0011, ADR 0014 and the 2026-11-05 amendment of ADR 0006; ADR 0003's base text
+  superseded by ADR 0014, with its Amendment 1 staying accepted. No code change.
+- **Items 4-7, accepted under their gates:** ADR 0004 [kernel][format], with levels compared as ADR 0011 Amendment 1
+  says and the "experiment" wording marked replaced; ADR 0005 [kernel][import][format]; ADR 0006 [kernel][import], with
+  the empty allowlist marked replaced by the 2026-11-05 amendment and "theorems never unfold" by ADR 0012; ADR 0007
+  [kernel], with the dead "owner answer O2" reference replaced by the entry "Legacy retirement and the first checker's
+  rules (2026-11-02, evening)".
+- **Item 8, conditional:** ADR 0009 Amendment 1 (context members may own heap memory; no Lean rule, touches [runtime]
+  memory safety) approved on condition that the Forth review of `src/lib/context.fs` finds nothing blocking. The review
+  was pending when this was recorded; the ADR line stays "proposed" with the conditional approval noted. **Condition met
+  (2026-11-12, 22:50):** the Forth review ([2026-11-12-context.md](../development/forth-reviews/2026-11-12-context.md))
+  found nothing blocking (3 low, 4 info), so Amendment 1 is accepted; its findings (missing tests of the first-code
+  promise and of freeing grown walks, a usage example, private helpers, one named failure word) are plan work.
+- **Item 9:** ADR 0014 Amendment 2 (shared terms cost nodes, not paths), gate [kernel].
+- **Item 10:** ADR 0015 FX8 amendment (review rvUNNI), gates [kernel][format]; covered by the 2026-11-11 items A7, A8
+  and C3 (gate recorded 2026-11-12 night: [kernel][format]). Its "not through its gate" and "decision pending" text is
+  updated.
+- **Item 11:** ADR 0021 decisions D1, D2, D3, D5 and D7 approved, gates [bypass][axioms]; the ADR as a whole stays
+  proposed until FE1 passes its [parser] gate.
+- **Item 12:** ADR 0014 Amendments 1, 3, 4, 5 (caches, node-based fuel, audits once per check): gate [kernel].
+- **Item 13:** ADR 0014 Amendments 7, 8 and ADR 0020 Amendment 4 (limits per check): gate [kernel].
+- **Item 14:** parallel checking, ADR 0009 Amendment 2, ADR 0012 Amendment 2, ADR 0016 Amendment 2: gates
+  [kernel][runtime].
+- **Item 15:** snapshots, ADR 0020 Amendments 1-3: gates [format][import][kernel].
+- **Item 16:** ADR 0015 Amendment IO (diagnostic-81 routes): gate [kernel].
+- **Item 17:** the default engine `gforth-fast` is a [runtime] decision; the default fuel of 100,000,000 per declaration
+  is a [kernel] limit; downloads and CPU use: no gate (gate recorded 2026-11-12 night, for "Later decisions of
+  2026-11-11").
+- **Item 18:** the strict export header and the official export checker as referee for hand-made files (C5, C6): gate
+  [import]; the local-CI rule: no gate (process) (gate recorded 2026-11-12 night, for "Approval round of 2026-11-11").
+
+### Less repeated testing (2026-11-13, morning; plan 9.4.6)
+
+The owner asked why small tasks take so long to reach GitHub; the count is in
+[TEST_WORKFLOW_REVIEW.md](../development/TEST_WORKFLOW_REVIEW.md) (`lib/sort.fs`: about twelve full-suite runs and two
+to three hours of machine time to reach GitHub; six hours of pushes spent 3.6 hours in CI). The owner chose every
+recommendation:
+
+1. **Reuse a recorded pass for an identical tree.** When the exact tree (`git rev-parse HEAD^{tree}`) already passed a
+   suite with the same Gforth and Lean, a later merge or push reuses that record instead of re-running it. Agents rebase
+   on main before their final run so that most merges keep the tested tree.
+2. **Tests by change tier, the full suite once a day and before every tag.** Documentation only: the documentation and
+   progress checks. Tests only: the changed tests, their faults and the coverage of the files they test. A library
+   nothing loads yet: its own tests on both Gforths, its faults and coverage. Front end: the front-end targets and the
+   files they load. Kernel, core, import, cli, the Makefile or scripts: the whole of `make check`. A tier never skips a
+   test of a file the change can reach. The full suite, Gforth 0.7.3 included, runs once a day (with `LEAN_CACHE=0`)
+   and before every tag.
+3. **Pushes at checkpoints** (about every two to three hours, at the end of a session, or when a branch someone needs
+   lands), with documentation-only commits riding along, instead of after every merge. Every branch stays committed
+   locally in the meantime. Work branches are not pushed to GitHub.
+4. **Bigger steps.** A new library lands with its first real caller in one branch (libraries the owner asks for on their
+   own excepted), and plan steps are sized by a user-visible result, not one layer at a time.
+
+Also adopted with these, as the review proposed: each branch runs its tier's suite once, at the end, on the head it hands
+over (focused tests while working, nothing again after a review fix unless the fix reaches a file outside the tier);
+reviewers run their own probes and planted faults and do not repeat the implementer's recorded runs; coverage allowances
+and small follow-ups go into the branch that caused them. Kept unchanged: planted faults, the Forth style review of every
+change to `src/`, both Gforth versions, the daily uncached run and the done checker. Items 1 and 2 at push time need
+scripts (plan 9.4.6); until they land, `scripts/push.sh` keeps running both CI jobs in full.
 

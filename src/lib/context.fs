@@ -6,9 +6,10 @@
 \
 \ Modules declare their state as members of the context layout while they
 \ load: context-record: (a zeroed record), context-store:, context-walk:,
-\ context-walk2: and context-frames: each define name ( -- addr ), the
-\ member's address in the current context; context-setup registers a word
-\ that sets a module's state up, such as clearing a base-1 store. Each
+\ context-walk2:, context-frames: and context-slab: each define name
+\ ( -- addr ), the member's address in the current context; context-setup
+\ registers a word that sets a module's state up, such as clearing a
+\ base-1 store. Each
 \ declaration grows the main context, which the main task uses from the
 \ start, and initialises the new member in it at once, so a program that
 \ never makes another context runs as before. A declaration that is
@@ -62,9 +63,29 @@
 \ Modules also state, while they load, how deep their checks nest on the
 \ host stacks (context-need); the job pool refuses smaller worker stacks.
 \
+\ Example: a module's growable walk and a record that owns a heap block,
+\ declared while it loads; a new context, used and freed.
+\   8 context-walk: my-walk              \ my-walk ( -- walk ), in every context
+\   1 cells context-record: my-buffer    \ a heap block, or 0
+\   : my-buffer-free ( -- ) my-buffer @ ?dup if free drop then 0 my-buffer ! ;
+\   ' my-buffer-free context-teardown
+\   context-new throw constant my-context
+\   my-context context-use  64 allocate throw my-buffer !  context-main context-use
+\   my-context context-free throw        \ runs my-buffer-free, frees the walk's block
+\
+\ Interface: lf-context lf-owner context-check-owner context-in-job?
+\ context-unbalanced ?call-balanced call-balanced allocate0 /context-header
+\ context-owner context-bytes context-main context-seal context-sealed?
+\ context? context-idle? context-use context-record: context-store:
+\ context-walk: context-walk2: context-frames: context-slab: context-setup
+\ context-teardown context-need context-needs context-new context-free
+\ context-claim context-release context-catch. Every other word is private
+\ (lf-lib-private; ADR 0010): tests reach it with `lf-lib-private order+`.
+\
 \ State: the layout record, context-layout, with the stated stack needs
-\ and the teardown words (shared; read-only once sealed, and only the main
-\ task declares members, needs and teardowns), the main context it points to,
+\ and the teardown words, and the lists of walk, frames and slab members
+\ (shared; read-only once sealed, and only the main task declares members,
+\ needs and teardowns), the main context it points to,
 \ and lf-context and lf-owner (per task). Never keep a member's address
 \ across a context switch or a declaration: while modules load, each
 \ declaration may move the main context. Never ALLOT or compile after
@@ -73,15 +94,25 @@
 
 require ./bounds.fs
 require ./portability.fs
+require ./module.fs
 require ./store.fs
 require ./walk.fs
 require ./frame.fs
 require ./slab.fs
 
+lf-lib-private module-open
+
+\ Every word below is private (lf-lib-private) except those defined
+\ after an `lf-lib set-current` and before the next `lf-lib-private
+\ set-current`: the Interface list of the header.
+lf-lib set-current
 begin-structure /context-header
+lf-lib-private set-current
   field: context-size      \ bytes in the context; zeroed by context-free
+lf-lib set-current
   field: context-owner     \ the owner's token, or 0 while idle
 end-structure
+lf-lib-private set-current
 
 begin-structure /context-layout
   field: layout-bytes      \ size of every context so far
@@ -110,6 +141,7 @@ begin-structure /member
   field: member-xt         \ setup word, or frames visitor
 end-structure
 
+lf-lib set-current
 \ The current task's context and owner token.
 [defined] udp [defined] next-task and
 [if] user lf-context user lf-owner [else] variable lf-context variable lf-owner [then]
@@ -138,8 +170,10 @@ end-structure
 
 : context-bytes ( -- u ) context-layout layout-bytes @ ;
 : context-main ( -- context ) context-layout layout-main @ ;
+lf-lib-private set-current
 : context-first ( -- addr ) context-layout layout-first ;
 : context-last ( -- addr ) context-layout layout-last ;
+lf-lib set-current
 : context-seal ( -- ) true context-layout layout-sealed ! ;
 : context-sealed? ( -- flag ) context-layout layout-sealed @ ;
 
@@ -149,10 +183,13 @@ end-structure
 \ another token than the current task's.
 : context? ( addr -- flag ) ?dup if context-size @ context-bytes = else false then ;
 : context-idle? ( context -- flag ) context-owner @ 0= ;
+lf-lib-private set-current
 : context-mine? ( context -- flag ) context-owner @ lf-owner @ = ;
+lf-lib set-current
 : context-use ( context -- )
   dup context? 0= abort" context-use: not a context"
   dup context-mine? 0= abort" context-use: owned by another job" lf-context ! ;
+lf-lib-private set-current
 
 \ The main context. Each declaration first RESIZEs it to the new layout
 \ size and zeroes the new tail, so a failure changes nothing.
@@ -200,6 +237,21 @@ context-bytes allocate0 throw dup context-sized context-main!
 : member-append ( member -- )
   dup context-last @ ?dup if member-link ! else context-first ! then context-last ! ;
 : member-add ( member -- ) dup member-run member-append ;
+\ Lists of members of one kind (walks, frames records, slabs) whose blocks
+\ a teardown word frees: nodes laid down in the dictionary, newest first.
+begin-structure /listed
+  field: listed-next       \ the node added before, or 0
+  field: listed-offset     \ the member's offset in a context
+end-structure
+0 listed-next 0<> 0 listed-offset cell <> or /listed 2 cells <> or
+[if] .( context.fs: member-listed lays down /listed out of order) cr abort [then]
+\ Add a member to a list: its node's fields laid down in their order.
+: member-listed ( member list -- member ) here over @ , swap ! dup member-offset @ , ;
+\ A listed member's address in the current context.
+: listed-member ( node -- addr ) listed-offset @ lf-context @ + ;
+\ Run xt ( addr -- ) on each member of the list, newest first.
+: listed-each ( list xt -- )
+  swap @ begin ?dup while 2dup listed-member swap execute listed-next @ repeat drop ;
 
 \ Initialisers ( addr member -- ). The context is zeroed beforehand.
 : member-zeroed ( addr member -- ) 2drop ;
@@ -211,6 +263,7 @@ context-bytes allocate0 throw dup context-sized context-main!
 : member-frames ( addr member -- ) member-xt @ swap frame-init ;
 : member-setup ( addr member -- ) nip member-xt @ execute ;
 
+lf-lib set-current
 \ Declaring words. A bad size, shape or capacity aborts and defines
 \ nothing, as for store: and walk:.
 : context-record: ( size "name" -- )
@@ -219,28 +272,32 @@ context-bytes allocate0 throw dup context-sized context-main!
   >r 2dup r@ store-plan? 0= abort" context-store: bad shape"
   2dup store-size ['] member-store member: member-shape!
   r> over member-base ! member-add ;
+lf-lib-private set-current
 \ A context's walks are growable (walk.fs): capacity is their first room;
 \ their heap blocks are freed with the context (walks-free, below).
 variable context-walks
-: walk-listed ( member -- member ) here context-walks @ , over member-offset @ , context-walks ! ;
+: walk-listed ( member -- member ) context-walks member-listed ;
 : context-walked ( capacity width "name" -- )
   2dup walk-plan? 0= abort" context-walk: bad capacity"
   2dup walk-span ['] member-walk member: member-shape! walk-listed member-add ;
+lf-lib set-current
 : context-walk: ( capacity "name" -- ) 1 context-walked ;
 : context-walk2: ( capacity "name" -- ) 2 context-walked ;
+lf-lib-private set-current
 \ A frames record (frame.fs) of the visitor xt, which reaches the record
 \ through its frames argument; its stack is freed with the context
 \ (frames-free, below). A module that embeds frames in a record of its own
 \ registers a teardown that frees them (mixed-shift.fs).
 variable context-frame-list
-: frames-listed ( member -- member )
-  here context-frame-list @ , over member-offset @ , context-frame-list ! ;
+: frames-listed ( member -- member ) context-frame-list member-listed ;
+lf-lib set-current
 : context-frames: ( xt "name" -- )
   /frames ['] member-frames member: tuck member-xt ! frames-listed member-add ;
 \ Run xt ( -- ) now in the main context, and in every new context after
 \ the members declared before it are initialised.
 : context-setup ( xt -- )
   0 context-open ['] member-setup member, tuck member-xt ! member-add ;
+lf-lib-private set-current
 
 \ Teardown words, laid down in the dictionary as they are registered and
 \ linked newest first, so that a member registered later is torn down
@@ -251,11 +308,13 @@ begin-structure /teardown
 end-structure
 : teardown-link-in ( teardown -- )
   context-layout layout-teardowns 2dup @ swap teardown-link ! ! ;
+lf-lib set-current
 \ Run xt ( -- ) in every context that is freed (see the header); aborts
 \ once the layout is sealed, like every declaration.
 : context-teardown ( xt -- )
   context-sealed? abort" context: teardown declared after context-new"
   align here /teardown allot tuck teardown-xt ! teardown-link-in ;
+lf-lib-private set-current
 \ Running them. teardown-call runs xt balanced and gives 0 or its THROW
 \ code; ior-earlier keeps the first nonzero code. Each teardown word runs
 \ with the context selected afresh, so that one which threw while another
@@ -280,20 +339,18 @@ end-structure
 variable context-slabs
 : member-slab ( addr member -- )
   member-width @ max-n over / rot slab-init ok? 0= abort" context: bad slab" ;
-: slabs-free ( -- )
-  context-slabs @ begin ?dup while dup cell+ @ lf-context @ + slab-free @ repeat ;
+: slabs-free ( -- ) context-slabs ['] slab-free listed-each ;
 ' slabs-free context-teardown
-: walks-free ( -- )
-  context-walks @ begin ?dup while dup cell+ @ lf-context @ + walk-free @ repeat ;
+: walks-free ( -- ) context-walks ['] walk-free listed-each ;
 ' walks-free context-teardown
-: frames-free ( -- )
-  context-frame-list @ begin ?dup while dup cell+ @ lf-context @ + frame-free @ repeat ;
+: frames-free ( -- ) context-frame-list ['] frame-free listed-each ;
 ' frames-free context-teardown
-: slab-listed ( member -- member )
-  here context-slabs @ , over member-offset @ , context-slabs ! ;
+: slab-listed ( member -- member ) context-slabs member-listed ;
+lf-lib set-current
 : context-slab: ( width "name" -- )
   dup 1 < abort" context-slab: bad width"
   /slab ['] member-slab member: tuck member-width ! slab-listed member-add ;
+lf-lib-private set-current
 
 \ Stack needs: the deepest nesting, in data and return-stack cells, that
 \ any module states for one of its checks (such as mixed-beta.fs's nested
@@ -301,12 +358,14 @@ variable context-slabs
 \ the largest of each is kept, and task.fs's pool-start refuses worker
 \ stacks that do not cover it.
 : context-max! ( n addr -- ) dup @ rot max swap ! ;
+lf-lib set-current
 : context-need ( data-cells return-cells -- )
   context-sealed? abort" context: need stated after context-new"
   context-layout layout-return-need context-max!
   context-layout layout-data-need context-max! ;
 : context-needs ( -- data-cells return-cells )
   context-layout dup layout-data-need @ swap layout-return-need @ ;
+lf-lib-private set-current
 
 \ Making and freeing contexts, only outside jobs (these abort inside one).
 \ context-new gives a new, idle context and 0, or 0 and the ior of a
@@ -321,12 +380,16 @@ variable context-slabs
 : context-fill ( context -- ior )
   lf-context @ >r lf-context ! ['] context-members catch r> lf-context ! ;
 : context-discard ( context -- ior ) 0 over context-size ! free ;
+\ Undo a context whose filling failed with ior: tear it down and free it.
+: context-undo ( context ior -- ior' )
+  over context-torn ior-earlier swap context-discard ior-earlier ;
 : context-made ( context -- context ior )
-  dup context-fill dup 0= if exit then
-  swap dup context-torn rot swap ior-earlier swap context-discard ior-earlier 0 swap ;
+  dup context-fill dup 0= if exit then context-undo 0 swap ;
+lf-lib set-current
 : context-new ( -- context ior )
   context-outside-job context-seal
   context-bytes allocate0 ?dup if nip 0 swap exit then dup context-sized context-made ;
+lf-lib-private set-current
 \ Free an idle context made by context-new: run its teardown words, then
 \ free its block, and give the first teardown word's THROW code, or else
 \ FREE's ior. If it is the current task's context, the task returns to
@@ -336,10 +399,12 @@ variable context-slabs
   dup context? 0= abort" context-free: not a context"
   dup context-main = abort" context-free: the main context"
   dup context-idle? 0= abort" context-free: owned by a job" ;
+lf-lib set-current
 : context-free ( context -- ior )
   context-outside-job context-freeable
   dup lf-context @ = if context-main lf-context ! then
   dup context-torn swap context-discard ior-earlier ;
+lf-lib-private set-current
 
 \ Claiming for a job (task.fs). context-claim makes owner, a nonzero
 \ token, the owner of an idle context and gives true; it gives false and
@@ -358,6 +423,7 @@ variable context-slabs
 : context-claimable? ( context -- flag )
   context-in-job? if drop false exit then
   dup context? if context-other? else drop false then ;
+lf-lib set-current
 : context-claim ( owner context -- flag )
   dup context-claimable? if context-owner ! true else 2drop false then ;
 : context-release ( context -- ) context-outside-job 0 swap context-owner ! ;
@@ -366,3 +432,5 @@ variable context-slabs
 \ selected or threw: ior is 0 or xt's THROW code, as for CATCH. The owner
 \ token, lf-owner, is not restored.
 : context-catch ( i*x xt -- j*x ior ) lf-context @ >r catch r> lf-context ! ;
+
+module-close

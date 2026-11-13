@@ -471,7 +471,7 @@ files, tests and planted faults, is kept with the agents' work notes.
 
 ## Amendment 1 (2026-11-11): step SN3, and the owner's decisions F1 and F5
 
-Approval status: accepted 2026-11-12, gate: not stated, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names ADR 0020 and Amendments 1-3
+Approval status: accepted 2026-11-12, gate: format, import and kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names ADR 0020 and Amendments 1-3 (gate recorded 2026-11-12 night: format, import and kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
 
 *Agent SN3; [kernel] (the lookup recording, I2) and [format] (snapshot
 format 1, check report 0.3) review pending, and the owner's approval.*
@@ -574,7 +574,7 @@ dependencies and lookups take about 729,263 × (4 × 20 + 8 × 36) bytes,
 
 ## Amendment 2 (2026-11-11): step SN4, dependent exports and layers
 
-Approval status: accepted 2026-11-12, gate: not stated, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names ADR 0020 and Amendments 1-3
+Approval status: accepted 2026-11-12, gate: format, import and kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names ADR 0020 and Amendments 1-3 (gate recorded 2026-11-12 night: format, import and kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
 
 *Agent SN4; [kernel] (I1, I2: what a loaded snapshot vouches for) and
 [import] (continued staging, layers) review pending, and the owner's
@@ -678,7 +678,7 @@ again even when that one's verdict did not change (sound, slower).
 
 ## Amendment 3 (2026-11-11): step SN5
 
-Approval status: accepted 2026-11-12, gate: not stated, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names Amendments 1-3, corrected by G1 in the second round
+Approval status: accepted 2026-11-12, gate: format, import and kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names Amendments 1-3, corrected by G1 in the second round (gate recorded 2026-11-12 night: format, import and kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
 
 *Agent SN5; [kernel] (the seal's names), [format] (report 0.3's new
 members) review pending, and the owner's approval. The flag below is the
@@ -792,7 +792,7 @@ COMMAND_LINE.md). Amendment 4 did that task.
 
 ## Amendment 4 (2026-11-11): fuel independent of the tier's numbering (agent PF; review rvSN4 B1)
 
-Approval status: accepted 2026-11-12, gate: not stated, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names ADR 0020 Amendment 4
+Approval status: accepted 2026-11-12, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names ADR 0020 Amendment 4 (gate recorded 2026-11-12 night: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
 
 *[kernel] review owed (ADR 0014 Amendment 7).* B1: a check's fuel, and so
 a verdict near the fuel budget, depended on the other records of the

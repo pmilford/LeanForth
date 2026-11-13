@@ -106,14 +106,16 @@ file is in the **kernel form** (proof terms written in full), which its
 first word says: `kernel-form`. Without it the text is read as natural
 LeanForth, the default since 2026-11-12 (ADR 0021; plan FE1), which is
 read into syntax trees but not elaborated yet: a natural declaration stops
-at its `end` with error 71, a tactic word with error 72 and a kernel-form
-word such as `Prop` with error 70, all "not supported yet" (exit 2), and
-nothing is checked ([two forms](LEANFORTH_SYNTAX.md#two-forms-kernel-form-and-natural-leanforth)).
+at its `end` with error 71, a tactic proof (read whole, its blocks
+checked, not run: plan FE1g-3) at its `end` with error 80, and a
+kernel-form word such as `Prop` with error 70, all "not supported yet"
+(exit 2), and nothing is checked ([two forms](LEANFORTH_SYNTAX.md#two-forms-kernel-form-and-natural-leanforth),
+[tactic proofs](LEANFORTH_SYNTAX.md#tactic-proofs-read-not-yet-run)).
 FE1's theorem $0 + n = n$, written in natural LeanForth with tactics:
 
 ```console
 $ bin/leanforth check --env tests/author/init-slice.ndjson tests/front/01-zero-add.lf; echo "exit status $?"
-error: unsupported: the LeanForth text was not checked: error 72 at line:col 13:5 (token `by-induction`): not supported yet: tactics (plan FE1g)
+error: unsupported: the LeanForth text was not checked: error 80 at line:col 17:1 (token `end`): not supported yet: running tactics (plan FE1g-3); the tactic proof was read whole; see line:col 13:4
 exit status 2
 ```
 
@@ -183,25 +185,34 @@ wrong twins of the first two rejected, in 16 to 19 s and 0.6 GB each
 in this run"). `--env` and `--snapshot` do not go together.
 
 **The library's elaboration data** (`--elab-data DATA`, plan row FE1d).
-Lean's instances, default instances, reducibility and the eliminators of
-`induction` and `cases` are not in an export; `scripts/export-elab.sh`
+Several facts are not in an export: Lean's classes, its instances (with
+their order in Lean's instance tree), default instances, reducibility, the
+eliminators of `induction` and `cases`, and the tags, matchers and
+projection functions that Meta's whnf reads. `scripts/export-elab.sh`
 writes them for the export's modules with pinned Lean, beside the export
-([ELABORATION_DATA.md](../programming/ELABORATION_DATA.md)). With
-`--elab-data DATA` and a library (`--env` or `--snapshot`), DATA is read
-after the library and before the text runs, and checked against the
-library: written for its export (the SHA-256 its manifest, its snapshot or,
-with `--no-manifest`, the file itself gives), every name one of its
-declarations of the right kind, nothing missing, added or changed. The
-values themselves (which class an instance serves, priorities,
+([ELABORATION_DATA.md](../programming/ELABORATION_DATA.md), format 2).
+With `--elab-data DATA` and a library (`--env` or `--snapshot`), DATA is
+read after the library and before the text runs, and checked against the
+library:
+
+- it is written for its export (the SHA-256 that its manifest, its
+  snapshot or, with `--no-manifest`, the file itself gives);
+- every name is one of its declarations, of the right kind;
+- instance keys are well formed;
+- ranks have no gap;
+- matchers and projections fit their types;
+- nothing is missing, added or changed.
+
+The values themselves (which class an instance serves, ranks, priorities,
 reducibility) are pinned Lean's, taken on trust
 ([what is checked](../programming/ELABORATION_DATA.md#what-it-is-and-why)).
-The counts read are printed first; the verdicts are those of the same run
-without it, since nothing uses the data yet (the elaborator of plan rows
+The counts read are printed first. The verdicts are those of the same run
+without the data, since nothing uses it yet (the elaborator of plan rows
 FE1e and FE1g will):
 
 ```console
 $ bin/leanforth check --env tests/author/init-slice.ndjson --elab-data tests/front/init-slice.elab.ndjson tests/author/19-add-zero.lf | head -1
-elaboration data: 3 instances, 2 default instances, 18 reducibility statuses, 0 eliminators
+elaboration data: 3 instances, 2 default instances, 18 reducibility statuses, 0 eliminators, 54 instances left out, 3 classes, 5 tags, 4 matchers, 3 projections
 ```
 
 Refused data stops the run before the text runs, with the line, the
@@ -212,7 +223,7 @@ test file `tests/front/cut-off.elab.ndjson` lacks its last record:
 
 ```console
 $ bin/leanforth check --env tests/author/init-slice.ndjson --elab-data tests/front/cut-off.elab.ndjson tests/author/19-add-zero.lf
-error: invalid: the elaboration data was refused at line 27 (error 20): records differ in number from the header; the LeanForth text was not checked
+error: invalid: the elaboration data was refused at line 96 (error 20): records differ in number from the header; the LeanForth text was not checked
 ```
 
 `--elab-data` without `--env` or `--snapshot`, with an export instead of
@@ -358,7 +369,9 @@ Options:
   share one copy of the input; each adds only its own scratch and caches
   (the resource report says how many were made). On a host that is not x86-64
   (threads without memory barriers) or where the thread pool cannot start,
-  the check runs one declaration at a time and the resource report says why.
+  the check runs one declaration at a time and the resource report says why;
+  where the system starts only some of the threads (near its process
+  limit), the workers share those, and the report says how many started.
 - `--memory-per-check MB` (`check` only, not with `--record`) gives each
   declaration's check at most MB megabytes (of 2^20 bytes) of scratch; a
   check that would pass it is *full* ([memory per check](#memory-per-check---memory-per-check)).
@@ -815,7 +828,13 @@ workers: 2.3 seconds, against 16.3). When no worker can be
 made (no memory; or, from a Forth session, a context that ran checks
 before, whose input then has another fingerprint than a new worker's),
 the run checks one declaration at a time, and the resource report says
-so. With `--resources` the
+so. When the system refuses threads (near its process limit, `ulimit
+-u`), the run uses the worker threads it could start, with the same
+output, and `--resources` says how many under the workers line, for
+example `worker tasks started: 6 (the system refused 2 more)` for
+`--jobs 8`; when it refuses every one, the run checks one declaration at
+a time and the report says "the thread pool could not start (code
+-4100)". With `--resources` the
 report adds a line naming the workers and how many checks were handed
 out, run again, refused by readiness or forced (the last two are 0 unless
 LeanForth's plan of which declaration needs which is wrong).
@@ -1067,7 +1086,12 @@ leaves a file that looks complete): the text ends with `snapshot: written
 to two.lfsnap`, or `error: the snapshot was not written: …` with that
 outcome's exit status when the run did not decide every declaration or
 the file could not be written. `--jobs 1` and `--jobs 4` write the same
-bytes, and so do two runs of one build.
+bytes, and so do two runs of one build. The snapshot's information text
+names the build: the checkout's git commit and whether its tracked files
+differed from it when the run started. A run started after an edit or a
+commit in the checkout therefore writes another information text, and so
+another identity (the header's SHA-256), with every other section the
+same.
 
 The second reads no export: it loads the snapshot (every section's
 SHA-256 and every record checked; the publisher re-checks every saved

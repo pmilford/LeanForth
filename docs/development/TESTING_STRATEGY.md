@@ -273,6 +273,7 @@ average 1–8). *Before*: commit `8148f3f`, before these changes. *No cache*:
 | `reference-author` | check | 69.4 | 60.6 | 13.2 |
 | `reference-reexport` | check | 2.0 | 1.8 | 0.5 |
 | `reference-compact-init` | check | 78.5 | 57.3 | 40.7 |
+| `reference-constructions` | check | — | — | about 90 (new 2026-11-12, plan FE6; one run, `nice -n 10`, other agents running) |
 | `mutants-check` | check | 0.1 | 0.0 | 0.0 |
 | `test-compact-faults` | check | 7.5 | 6.9 | 6.1 |
 | `test-lean-cache` | test | — | 2.6 | 2.6 |
@@ -430,7 +431,7 @@ time, as `scripts/export.sh` builds `export_manifest.py`'s, is not seen).
 | `src/program/` | `test-program`, `test-program-ir`, `test-program-ir-run` |
 | `src/present/` | `test-present`; `test-printer-differential` |
 | `src/author/` | `test-author`; `reference-author` |
-| `src/front/`, `src/core/mvar-leaves.fs` | `test-front`; `test-author` (the export writer's refusal, the marker); `reference-front` (pinned Lean's macro expansion) |
+| `src/front/`, `src/core/mvar-leaves.fs` | `test-front`; `test-author` (the export writer's refusal, the marker); `reference-front` (pinned Lean's macro expansion); `reference-constructions` (`casesOn`, `recOn` and `ctorIdx` built for every type of Init and compared with Lean's export, and their binder names and information with pinned Lean's environment; plan FE6) |
 | `tests/reference/*.lean` | the target that runs the file (`make check-changed` finds it) |
 | `scripts/lean-cache.py`, the Makefile | `test-lean-cache`, then `make check` |
 | `docs/` | `check-docs`, `check-doc-examples` |

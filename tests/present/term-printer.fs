@@ -117,6 +117,12 @@ T{ t1 @ fuel lf-print-term -> outcome-ok }T
 T{ args{ s" k" t-const t2 ! lf-cref-reset t2 @ fuel lf-print-term -> outcome-invalid }T
 T{ t-prop t3 ! 99 t3 @ term-tag! t3 @ fuel lf-print-term -> outcome-invalid
   }T
+\ Every tag no step prints, below the printer's table and at its end
+\ (refactor-present review L3): 0, a free variable's, a metavariable's,
+\ 31 and 32.
+: tag-printed ( tag -- outcome ) t-prop t3 ! t3 @ term-tag! t3 @ fuel lf-print-term ;
+T{ 0 tag-printed 9 tag-printed 16 tag-printed -> outcome-invalid outcome-invalid outcome-invalid }T
+T{ 31 tag-printed 32 tag-printed -1 tag-printed -> outcome-invalid outcome-invalid outcome-invalid }T
 T{ 999 lf-level-param must ssort fuel lf-print-term -> outcome-invalid }T
 \ A print is refused at its root when a store's seal is broken, the count
 \ still sound (compact-store plan step S2: its reads check the index).
@@ -382,6 +388,12 @@ T{ s\" a_b\\{}~ c" t-str
 0 mode
 T{ s\" \xc3\xa9" t-str t1 ! 1 t1 @ term-second! t1 @ fuel lf-print-term
    -> outcome-invalid }T
+\ A number literal (core/literals.fs) prints in decimal; one longer than a
+\ cell as its count of limbs.
+create lit-seven 7 ,   create lit-wide 1 , 1 ,
+: t-lit ( addr n -- t ) lf-hterm-lit must drop ;
+T{ lit-seven 1 t-lit s" 7" shows -> }T
+T{ lit-wide 2 t-lit s" (literal of 2 limbs)" shows -> }T
 
 \ A projection (core/projections.fs) prints as its leaf, the structure's
 \ name and Lean's field number from 1, applied to the projected term, and

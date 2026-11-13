@@ -183,4 +183,7 @@ T{ graph-u graph-u' equal-fuel 900 > -> true outcome-ok true }T
 T{ graph-u graph-v equal-fuel 900 > -> false outcome-ok true }T
 T{ graph-u graph-u' 1000 lf-mixed-compare -> outcome-exhausted }T
 T{ graph-u graph-u' -1 lf-mixed-equal lf-mcompare-fuel @ -> false outcome-invalid 0 }T
+\ Lean's == itself (lf-expr-equal) with negative fuel: refused before it
+\ looks at either term, even one node with itself (coverage COV2).
+T{ graph-u drop dup -1 lf-expr-equal -> false outcome-invalid }T
 bye

@@ -305,6 +305,31 @@ create layers3 2 cells allot  layer3-file layers3 2!
 : layered3 ( -- outcome ) 20000000 ck-start layers3 1 ck-layers! base2-file -1 ck-snapshot-import ;
 T{ layered3 ck-release -> outcome-ok }T
 layer3-file delete-file drop
+\ A layer's diagnostic sites go after its base's own (review FRK L1;
+\ fault frk-lay-site0-lost): the base, composition-wrong-argument, is
+\ rejected with a site text; the layer adds a theorem whose type is not a
+\ proposition (Lean rejects it too), rejected with another site; with the
+\ base and the layer every declaration is taken, each with its own site.
+: base4-file ( -- c-addr u ) s" /tmp/leanforth-env-import-base4.lfsnap" ;
+: layer4-file ( -- c-addr u ) s" /tmp/leanforth-env-import-layer4.lfsnap" ;
+: sites-export ( -- c-addr u ) s" tests/core/env-import-sites.ndjson" ;
+: base4-export ( -- c-addr u )
+  s" tests/core/check-declaration-cases/composition-wrong-argument.ndjson" ;
+: kept-text ( d -- c-addr u ) ck-kept kept-site @ ?dup if count else 0 0 then ;
+: decl-site? ( d -- flag ) kept-text s" check-declaration lf-check-declaration" compare 0= ;
+: infer-site? ( d -- flag ) kept-text s" mixed-infer lf-mixed-infer" compare 0= ;
+20000000 ck-start base4-export false ck-load ok? s" base4 load" must ck-check
+base4-file s" {}" ck-snapshot-save ok? s" base4 save" must ck-release
+20000000 ck-start 0 0 ck-layers! base4-file -1 ck-snapshot-import ok? s" import4" must
+sites-export false ck-load ok? s" import4 load" must ck-check
+T{ ck-taken# 0 infer-site? 1 decl-site? -> 1 true true }T
+layer4-file s" {}" ck-snapshot-save ok? s" layer4 save" must ck-release
+create layers4 2 cells allot  layer4-file layers4 2!
+20000000 ck-start layers4 1 ck-layers! base4-file -1 ck-snapshot-import ok? s" layered4" must
+sites-export false ck-load ok? s" layered4 load" must ck-check
+T{ ck-taken# 0 infer-site? 1 decl-site? -> 2 true true }T
+ck-release
+base4-file delete-file drop  layer4-file delete-file drop
 T{ heap-refusals @ -> 0 }T
 T{ depth -> 0 }T
 base2-file delete-file drop  layer2-file delete-file drop

@@ -18,6 +18,7 @@
 \ the files, their determinism and the planted faults. Test-only.
 
 create lf-env-i2-checks   \ compiles the I2 assertion into environment.fs
+include ../support/heap-watch.fs   \ the refusals at the end
 require ../../src/main.fs
 include ../support/tester.fs
 include ../support/checks.fs
@@ -185,6 +186,24 @@ T{ 4 outcome-ok answer? 4 outcome-rejected answer? -1 outcome-full answer? -> tr
 T{ 5 outcome-ok answer? -1 7 answer? -> false false }T
 T{ 4 outcome-ok holder? 4 outcome-rejected holder? 4 outcome-full holder? -> true false false }T
 
+\ ---- The lookup layout, named once (environment.fs; review FRK B): a
+\ key's name and kind; an answer's slot + 1 and its outcome or holder
+\ bits; a new name or slot + 1 above the same low bits; up to the largest
+\ name (below 2^27) and the one key beyond the input; a list entry.
+: big-name ( -- n ) 1 27 lshift 1- ;
+T{ 5 lf-look-other lf-look-key dup lf-look-name swap lf-look-kind -> 5 lf-look-other }T
+T{ big-name lf-look-quot lf-look-key dup lf-look-name swap lf-look-kind -> big-name 8 }T
+T{ lf-look-outside dup lf-look-name swap lf-look-kind -> 1 28 lshift 1- 15 }T
+T{ 9 outcome-rejected lf-look-answer dup lf-look-slot+1 swap lf-look-outcome -> 10 4 }T
+T{ -1 outcome-full lf-look-answer dup lf-look-slot+1 swap lf-look-outcome -> 0 6 }T
+T{ 9 outcome-ok lf-look-answer lf-look-holder or lf-look-outcome -> lf-look-holder }T
+T{ 5 lf-look-other lf-look-key 77 lf-look-renumber -> 77 lf-look-other lf-look-key }T
+T{ 5 lf-look-quot lf-look-key big-name lf-look-renumber -> big-name lf-look-quot lf-look-key }T
+T{ 9 outcome-unknown lf-look-answer 4 lf-look-reslot -> 3 outcome-unknown lf-look-answer }T
+T{ 2 lf-look-holder lf-look-answer big-name lf-look-reslot lf-look-slot+1 -> big-name }T
+T{ 5 lf-look-any lf-look-key 6 ' lf-look-renumber rs-checked -> 6 lf-look-any lf-look-key }T
+T{ /look-entry -> 2 cells }T
+
 \ ---- A key beyond the input as written (review FRK F4): without the
 \ environment's tier of names or the canon tier, or for a number the
 \ environment's tier does not hold, refused (invalid) and never read past
@@ -201,6 +220,102 @@ T{ snap-outers /outers erase ck-stage canon-tier -> outcome-ok }T
 T{ top-outer canon-key swap lf-look-kinds 1- and -> outcome-ok lf-look-fresh }T
 T{ lf-look-outside canon-key -> -1 outcome-invalid }T
 outers-free ck-release
+
+\ ---- The heap refusing (coverage COV2; tests/support/heap-watch.fs):
+\ each allocation of a snapshot's save refused in turn is full; each of
+\ its load (the run's context made first, then the refusal armed) is
+\ full, or ok where the load does without the room (allocations 42-56
+\ of the first load of tests/cli/inductive.ndjson today), never another
+\ outcome; a save and a load with nothing refused are ok after.
+s" tests/cli/inductive.ndjson" true fresh
+: save ( -- outcome ) snap-file s" {}" ck-snapshot-save ;
+: save-at ( k -- outcome left ) heap-refusals ! save heap-refusals @ 0 heap-refusals ! ;
+: load-at ( k -- outcome left )
+  20000000 ck-start heap-refusals ! snap-file -1 ck-snapshot-load
+  heap-refusals @ 0 heap-refusals ! ck-release ;
+\ The allocations a first run of xt ( k -- outcome left ) makes, and
+\ whether each refused in turn gives full (ok when a later run, its
+\ arrays grown by the first, no longer makes that allocation).
+: made ( xt -- n ) max-n swap execute nip max-n swap - ;
+: full-at? ( k xt -- flag ) execute 0= if outcome-full = else outcome-ok = then ;
+: all-full? ( xt -- flag ) true over made 1+ 1 ?do i 2 pick full-at? and loop nip ;
+T{ ' save-at made 0> ' save-at all-full? save -> true true outcome-ok }T
+ck-release
+: kept? ( outcome -- flag ) dup outcome-full = swap outcome-ok = or ;
+: load-kept? ( -- flag )
+  true ['] load-at made 1+ 1 ?do i load-at drop kept? and loop ;
+T{ ' load-at made 0> load-kept? 1 load-at 0 load-at
+   -> true true outcome-full 0 outcome-ok 0 }T
+
+\ ---- The header's checks in order (review FRK C3), on a record in
+\ memory: each refusal with its outcome and reason, the first only; an
+\ older verdict version loads only when allowed, marked stale; a base with
+\ a layer field set is unsupported; a layer must name its base.
+create hs /snap allot
+create hs-sha 32 allot  hs-sha 32 erase  7 hs-sha c!
+: head-fresh ( -- ) hs snap-init 1000 hs snap-head! -1 hs snap-asked ! ;
+: layer-fresh ( -- )
+  hs snap-init true hs snap-layered ! hs-sha hs snap-base-sha 32 move
+  1000 hs snap-head! -1 hs snap-asked ! hs-sha hs snap-expect ! ;
+: why? ( c-addr u -- flag ) hs snap-why @ ?dup if count compare 0= else 2drop false then ;
+: hs-header ( -- outcome ) hs snap-header ;
+head-fresh
+T{ hs-header hs snap-why @ hs snap-stale @ -> outcome-ok 0 false }T
+head-fresh 0 sh-mark hs head!  2 sh-version hs head!
+T{ hs-header s" not a LeanForth snapshot" why? -> outcome-invalid true }T
+head-fresh 2 sh-version hs head!  0 sh-allow-bits hs head!
+T{ hs-header s" format version" why? -> outcome-unsupported true }T
+head-fresh lf-verdict-version 1+ sh-verdict hs head!
+T{ hs-header s" verdict version" why? -> outcome-unsupported true }T
+head-fresh 1 sh-verdict hs head!
+T{ hs-header s" verdict version" why? hs snap-stale @ -> outcome-unsupported true false }T
+true snap-stale-allowed !  head-fresh 1 sh-verdict hs head!
+T{ hs-header hs snap-stale @ -> outcome-ok true }T
+false snap-stale-allowed !
+head-fresh 5 hs snap-asked !
+T{ hs-header s" fuel" why? -> outcome-invalid true }T
+head-fresh 1000 hs snap-asked !
+T{ hs-header -> outcome-ok }T
+head-fresh lf-allowlist-version 1+ sh-allow-version hs head!
+T{ hs-header s" axiom allowlist" why? -> outcome-invalid true }T
+head-fresh lf-allowlist-bits 1+ sh-allow-bits hs head!
+T{ hs-header s" axiom allowlist" why? -> outcome-invalid true }T
+head-fresh 1 sh-layers hs head!
+T{ hs-header s" layer" why? -> outcome-unsupported true }T
+head-fresh 1 15 hs head!
+T{ hs-header s" layer" why? -> outcome-unsupported true }T
+layer-fresh
+T{ hs-header hs snap-why @ -> outcome-ok 0 }T
+layer-fresh 2 sh-layers hs head!
+T{ hs-header s" base snapshot of the layer" why? -> outcome-invalid true }T
+layer-fresh 3 sh-base 7 + hs head!
+T{ hs-header s" base snapshot of the layer" why? -> outcome-invalid true }T
+head-fresh hs-sha hs snap-expect !
+T{ hs-header s" base snapshot of the layer" why? -> outcome-invalid true }T
+head-fresh
+T{ hs ' snap-header rs-checked -> outcome-ok }T
+\ The same through snap-open on a saved file (snap-checks after the
+\ header): the run's fuel or the file's (-1) opens it, another is refused;
+\ a base opened as a layer is refused, as is a missing file.
+create hs-firsts 8 cells allot  hs-firsts 8 cells erase
+: hs-done ( -- ) hs snap-close hs snap-free ;
+s" tests/reference/constant-fixture.ndjson" true fresh
+T{ snap-file s" {}" ck-snapshot-save -> outcome-ok }T
+ck-release
+T{ snap-file -1 hs snap-open hs snap-why @ -> outcome-ok 0 }T  hs-done
+T{ snap-file 20000000 hs snap-open -> outcome-ok }T  hs-done
+T{ snap-file 5 hs snap-open s" fuel" why? -> outcome-invalid true }T  hs-done
+\ A base whose first number of a tier section (identity 21-28) is not 0
+\ claims a layer's place: unsupported, the first and the eighth alike
+\ (review FRK L1; fault frk-firsts-zero-short).
+: firsts-forged ( k -- outcome )
+  snap-file -1 hs snap-open drop 1 si-firsts rot + hs id! hs firsts-placed ;
+T{ 0 firsts-forged s" layer" why? -> outcome-unsupported true }T  hs-done
+T{ 7 firsts-forged s" layer" why? -> outcome-unsupported true }T  hs-done
+T{ snap-file -1 hs snap-open hs firsts-placed -> outcome-ok outcome-ok }T  hs-done
+T{ snap-file -1 hs-sha hs-firsts hs snap-layer-open s" base snapshot of the layer" why?
+   -> outcome-invalid true }T  hs-done
+T{ s" /nonexistent/leanforth.lfsnap" -1 hs snap-open -> outcome-invalid }T  hs snap-free
 T{ depth -> 0 }T
 snap-file delete-file drop
 failures @ 0= [if] ." The lookup lists, I2 and the snapshot round trip hold." cr [then]

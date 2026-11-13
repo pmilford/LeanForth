@@ -21,7 +21,7 @@ speed before parallelism adds more.
 
 **What LeanForth is and is not (2026-11-12).** LeanForth today is only the checking half of Lean (the kernel): it re-checks proof terms that Lean produced and exported (NDJSON), including all of Lean's `Init`. It has none of Lean's front end, the larger half: no elaborator (implicit arguments, numerals, unification), no type classes or coercions, no tactics, no pattern matching or recursion compilation, no evaluation. So it cannot yet turn a written theorem into a proof; Lean does all of that before the export. LeanForth text is checked by the kernel since 2026-11-12 (plan 8.2.1a, c, d); there is no program verifier: for the clamp word LeanForth re-checks the proofs Lean wrote (plan 5.5.1, branch `program-551`). The front end is plan phase 8 ([PLAN_DRAFT.md](PLAN_DRAFT.md)), being re-planned from 2026-11-12.
 
-## Now, next, later (updated 2026-11-12)
+## Now, next, later (updated 2026-11-13)
 
 The single list of what is being worked on (owner, 2026-11-12; replaces the near-term queue of
 [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md), stale since 2026-11-03). `scripts/push.sh` refuses to push plan
@@ -36,14 +36,23 @@ status changes when this date is older than them. Stages are those of the
   ratchet, the documentation the done-checker audit found overstated or stale, and real bugs from the Forth backlog
   reviews (the parallel scheduler's use after free when memory is full; a snapshot layer's full reported as invalid;
   Gforth-only words outside the portability layer).
-- 2026-11-13 02:00: all of Mathlib on the final build (verdict version 9), saving its snapshot.
+- All of Mathlib on the night's build (`d789e45f`, verdict version 9, 2026-11-13): 729,263 of 729,263 accepted, snapshot saved; see the Mathlib line below.
 - The front end, LeanForth's own elaborator and tactics (plan FE1-FE12, replacing 8.3.1-8.3.2; [design](../design/FRONT_END.md),
-  [ADR 0021](../adr/0021-front-end.md) proposed; the owner's syntax answers in OWNER_DECISIONS.md). FE1, the first
-  theorem proved from LeanForth text ($0 + n = n$ by induction, no hand-written proof term, no Lean tool), is being
-  built: FE1a (natural reader: `0 n + n =` read as Lean's own tree, compared with pinned Lean) integrated, a natural
-  file stops at its first tactic with "not supported yet"; FE1b (metavariable context) tested alone; FE1d (elaboration-data
-  exporter, `scripts/export-elab.sh`, `check --elab-data`) integrated; FE1c (unification) on a branch; FE1e-FE1h not started. Nothing is proved by LeanForth yet.
-  Natural statements (8.6.10) are FE2, `add_comm` natively (8.6.11) FE5.
+  [ADR 0021](../adr/0021-front-end.md) proposed, D1-D3, D5, D7 and Amendment 1 (`sorry` as in Lean) decided by the
+  owner). FE1, the first theorem proved from LeanForth text ($0 + n = n$ by induction, no hand-written proof term, no
+  Lean tool), is being built. On main (2026-11-13): FE1a (natural reader) integrated; FE1b (metavariables, with
+  assignment marks) tested alone; FE1c (Lean's level unification and normalize, instantiate and head beta: 153 cases
+  equal to pinned Lean) tested alone in part; FE1d (elaboration data) integrated; FE1f (the hand-over of an elaborated
+  declaration to the kernel) tested alone, reached by no user command before FE1e; FE6a (casesOn, recOn and ctorIdx
+  built as Lean builds them, compared over Init) tested alone; FE1c's environment view, whnfCore and first inferType cases tested alone; FE1g-2 (tactic proofs
+  read; a well-formed one stops "not supported yet") tested alone; FE1g-1 (each goal's own local context, the goal
+  list and `.goals` printed as Lean prints goals: 15 of 18 states equal) tested alone; the library `lib/runs.fs`; FE1i-4 (signed big integers, `lib/bigint.fs`)
+  tested alone; FE1c's instantiateMVars beta and delayed steps and marks as serials tested alone (179 of 187 cases
+  equal to pinned Lean). On branches: FE1e1 (elaboration data format 2: reviewed, waiting for the owner's
+  [import]/[format] approval); the job pool failing closed when threads are refused (reviewed, waiting for the owner's
+  [runtime] approval). Library: `lib/sort.fs` (a stable sort the kernel's sorts can adopt, FRK C2) tested alone. Designed:
+  FE1e, FE1g, FE1i, FE2. Nothing is proved by
+  LeanForth yet. Natural statements (8.6.10) are FE2, `add_comm` natively (8.6.11) FE5.
 - Program track, restarted 2026-11-12 after being parked since 2026-11-04: LeanForth re-checks Lean's proofs of
   the clamp word's obligations (plan 5.5.1): works end to end (done check docs/development/done-checks/2026-11-12-program-track.md); owner gates [bypass] and [runtime] approved 2026-11-12, merged.
   `python3 scripts/program_receipt.py export OUT.ndjson` has pinned Lean export the contract theorem and its two
@@ -54,22 +63,32 @@ status changes when this date is older than them. Stages are those of the
   way (2,890 declarations); their receipts wait for schema 0.4.
 
 **Next**
+- Less repeated testing of small work (plan 9.4.6, owner 2026-11-13): designed
+  ([review](../development/TEST_WORKFLOW_REVIEW.md): `lib/sort.fs` took about 12 full-suite runs and 2-3 hours of
+  machine time to reach GitHub; 3.6 hours of CI in six hours of pushes); decided by the owner 2026-11-13, rules in
+  AGENTS.md, the scripts not started.
 - The Forth refactoring batches of the three backlog reviews ([log](../development/forth-reviews/LOG.md), plan
   9.4.5), tests first, every verdict and fuel count identical.
-- Program track: a user command `leanforth verify` (8.4.1); the SHA-256 helper words' receipts (schema 0.4, IR 0.2,
-  at the owner's [format] gate).
+- Program track: a user command `leanforth verify` (8.4.1): designed 2026-11-13 ([design](../design/VERIFY_COMMAND.md),
+  sub-steps 8.4.1a–n, six owner questions); nothing built. Its first steps need no owner answer: the driver that runs
+  5.5.1's pipeline for any IR 0.1 word (8.4.1b), the contract reader (8.4.1g) and receipt writer (8.4.1h) in Forth. The
+  SHA-256 helper words' receipts (schema 0.4, IR 0.2, at the owner's [format] gate).
 - A rule-by-rule audit of AGENTS.md against practice.
-- Snapshots that read the two previous format and verdict versions (6.2.5c): designed (proposed, awaiting the
-  owner), [design](../design/SNAPSHOT_COMPATIBILITY.md), ADR 0020 Amendment 5; steps 6.2.5c1-c5 are the first
-  infrastructure task of 2026-11-13 (owner, "Order and snapshot stability").
+- Snapshots that read the two previous format and verdict versions (6.2.5c): designed, the owner's four questions
+  answered 2026-11-12 ([design](../design/SNAPSHOT_COMPATIBILITY.md), ADR 0020 Amendment 5 proposed); steps c1 to c5
+  written and tested alone on branch `snap-compat` (`edb5554`), the Forth review and its three re-checks not blocking,
+  waiting for the owner's [format], [kernel] and [import] approval.
 
 **Later**
+- Proof development (owner, 2026-11-12; long term, after strict Lean compatibility): research note
+  [PROOF_DEVELOPMENT.md](../design/PROOF_DEVELOPMENT.md), plan rows PD1–PD15, all not started; PD1, Lean's `sorry`
+  reported NOT PROVED with the conditional report, is decided (ADR 0021 Amendment 1) and fits with FE1g and FE5.
 - Speed: the export reader and the remaining validity checks; Physlib; `print --snapshot` (8.6.9); term memory
   (6.5.9); a second Forth system and a 32-bit host (9.4.1); no Python requirement (9.4.3).
 
 ## Where things stand, in plain words
 
-**Mathlib checked:** 729,263 of 729,263 declarations of the pinned Mathlib export (Mathlib `v4.35.0`, commit `56a0058`, export sha256 `18448e5d...59c6`; checked-declaration coverage, not estimated effort) accepted, run on build `b74a04d` (2026-11-12; run record `.claude/work/overnight/full-b74a04d.txt`, untracked, read by the audit [done-checks/2026-11-12-audit.md](../development/done-checks/2026-11-12-audit.md)); not re-run on the current build (verdict version 9 run scheduled for the night of 2026-11-12). [Details](#full-mathlib).
+**Mathlib checked:** 729,263 of 729,263 declarations of the pinned Mathlib export (Mathlib `v4.35.0`, commit `56a0058`, export sha256 `18448e5d...59c6`; checked-declaration coverage, not estimated effort) accepted, run on build `d789e45f` (verdict version 9) on 2026-11-13, 02:16-04:38, with `--jobs 8 --fuel 250000000 --memory-per-check 8192`: 8,504 s wall, 58,130 s user, 22.6 GB peak, exit 0, its snapshot saved (2.30 GB); the machine was shared with other work, so the time is not a clean measurement (run record `.claude/work/overnight/full-d789e45f.txt`, with `run-v9.log` and `full-d789e45f.err`, untracked). The gates before it passed: the arena (84 bad inputs rejected, 124 good accepted, 4 good declined as expected) and all of `Init` (59,349 accepted). Earlier: the same count on build `b74a04d` (2026-11-12, 12,134 s, read by the audit [done-checks/2026-11-12-audit.md](../development/done-checks/2026-11-12-audit.md)). [Details](#full-mathlib).
 
 **Plan row statuses (2026-11-12):** every status in [PLAN_DRAFT.md](PLAN_DRAFT.md) now uses the stage words of [DONE_CHECKER.md](../development/DONE_CHECKER.md) (`scripts/check-progress.py` checks all rows, dated or not). Earlier wording was mapped on each row's own evidence and kept in the row as `was "..."`; rows that said "done" without a done-checker report were lowered with "done check owed"; rows the [audit](../development/done-checks/2026-11-12-audit.md) ran are "works end to end".
 
@@ -579,7 +598,7 @@ tasks, not the plan's.
 | 5. Shared proof kernel | In progress (2026-11-12, plan 5.5.1, works end to end (done check docs/development/done-checks/2026-11-12-program-track.md); owner gates [bypass], [runtime] approved by the owner 2026-11-12; branch not merged): the first program fact checked by LeanForth's checker: Lean's proofs of the clamp contract and its obligations, exported with their 4,277-declaration closure, accepted by `bin/leanforth check`; exports with a changed program IR term, postcondition or proof term rejected. Lean wrote the proofs; LeanForth wrote none. |
 | 6. Forth program representation | In progress: the IR is versioned and the reader translates the example words with source locations, refusing anything outside IR 0.1; stack types, host comparison and memory remain. |
 | 7. Verification conditions | In progress: Lean references for weakest preconditions and stack depth; generator v0 (`scripts/program_vc.py`, untrusted) turns IR plus a contract into Lean obligations: clamp, checked add, checked abs and in-range discharged by Lean, three wrong contracts refuted, gcd and factorial unsupported until loop invariants (4.4.1). The clamp receipt states LeanForth's verdict on Lean's proofs (`accepted-by-leanforth`, plan 5.5.1). |
-| 8. User-facing verifier | Not started. |
+| 8. User-facing verifier | Designed (2026-11-13, plan 8.4.1, [design](../design/VERIFY_COMMAND.md)); nothing built. |
 | 9. Verified execution/compilation | In progress only for runtime testing; no source-to-runtime correspondence. |
 | 10. Larger executable programs | Not started. The track's destination is now most of the Forth-2012 Core word set, in five stages ([owner decision](OWNER_DECISIONS.md#program-track-goal-most-of-forth-2012-core-2026-11-02-night)). |
 

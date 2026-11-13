@@ -1,0 +1,25 @@
+\ An induction inside an alternative, both naming their hypothesis ih
+\ (pinned Lean accepts the Lean form, 2026-11-13): in the inner zero case
+\ ih is the outer alternative's, in the inner succ case the inner one's.
+\ Lean: theorem zero_add_nested (n m : Nat) : 0 + n = n := by
+\         induction n with
+\         | zero => rfl
+\         | succ k ih =>
+\           induction m with
+\           | zero => rw [Nat.add_succ, ih]
+\           | succ j ih => exact ih
+\ Today (plan FE1g-2) it is read and stops at end as not supported yet
+\ (error 80, exit 2). Constants: tests/front/tactic-slice.ndjson.
+theorem zero_add_nested
+  Nat explicit: n  Nat explicit: m
+  0 n + n =
+:= by
+  n by-induction-with
+  | zero =>       by-rfl
+  | succ k ih =>
+    m by-induction-with
+    | zero =>       by-rw[ ' Nat.add_succ ih ]
+    | succ j ih =>  ih by-exact
+    by-end
+  by-end
+end zero_add_nested

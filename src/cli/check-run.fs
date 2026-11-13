@@ -102,6 +102,8 @@
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../lib/slab.fs
+require ../lib/bytes.fs
+require ../lib/sha256.fs
 require ../core/input.fs
 require ../core/diagnostics.fs
 require ../kernel/environment.fs
@@ -162,6 +164,17 @@ ck-phases constant ck-opening
 10 constant ck-top-room   \ declarations in the list of the most fuel used
 320 constant ck-pline-room   \ bytes of a progress line
 
+\ What workers reading this context's references depend on, as
+\ lf-cref-lending gives it (core/constant-references.fs; ck-lent!).
+begin-structure /ck-lend
+  field: ck-lend-records         \ the address of its store's records
+  field: ck-lend-pool            \ of its pool
+  field: ck-lend-slots           \ the size of its table
+  field: ck-lend-count           \ and the count
+end-structure
+/ck-lend lf-cref-lent# cells <>
+[if] .( check-run.fs: one field per cell lf-cref-lending gives) cr abort [then]
+
 begin-structure /ck
   field: ck-budget               \ fuel each check starts with
   field: ck-failed               \ the phase that failed, or -1
@@ -178,9 +191,11 @@ begin-structure /ck
   field: ck-any-lean             \ true: an export of any Lean version (ck-any-version!)
   field: ck-jobs-asked           \ workers of a parallel check (ck-jobs!); 0, 1: serial
   field: ck-serial-why           \ why workers were asked for but not used (ck-why-*), or 0
+  field: ck-pool-made            \ workers the pool ran with (ck-pool-started?)
+  field: ck-pool-lacked          \ and those it started without: the host refused them
   field: ck-print                \ the fed input's fingerprint: every worker's must be it
-  lf-cref-lent# cells +field ck-lent  \ the references the workers read (ck-lent!)
-  lf-cref-lent# cells +field ck-lend-now   \ and as they are now (ck-moved?)
+  /ck-lend +field ck-lent       \ the references the workers read (ck-lent!)
+  /ck-lend +field ck-lend-now   \ and as they are now (ck-moved?)
   field: ck-remade               \ times the workers were made again (ck-relent)
   field: ck-checker              \ the check word ( -- ) (ck-check-word!)
   ck-switches# cells +field ck-switched    \ the checker's switches, for each worker
@@ -263,6 +278,11 @@ create ck-worker-feed /feed allot  ck-worker-feed /feed erase
 \ (negative) refusal.
 1 constant ck-why-host         \ threads here need an x86-64 host (ADR 0009)
 : ck-why ( -- n ) ck-state ck-serial-why @ ;
+\ Workers the pool ran with, and those it started without because the
+\ host refused them (it then runs with those it made, lib/task.fs): 0
+\ when it made all, and always on the serial host, which makes none.
+: ck-made ( -- n ) ck-state ck-pool-made @ ;
+: ck-lacked ( -- n ) ck-state ck-pool-lacked @ ;
 : ck-jobs ( -- n ) ck-state ck-jobs-asked @ ;
 : ck-parallel? ( -- flag ) ck-jobs 1 > ;
 : ck-staged-names ( -- n ) ck-state ck-names# @ ;
@@ -485,11 +505,11 @@ create ck-line ck-line-room 2 + allot
 \ the import pass of a run against a snapshot may), the workers are made
 \ again (ck-relent; ck-remades counts it).
 : ck-lending ( addr -- )
-  >r lf-cref-lending r@ 3 cells + ! r@ 2 cells + ! r@ cell+ ! r> ! ;
+  >r lf-cref-lending r@ ck-lend-count ! r@ ck-lend-slots ! r@ ck-lend-pool !
+  r> ck-lend-records ! ;
 : ck-lent! ( -- ) ck-state ck-lent ck-lending ;
 : ck-moved? ( -- flag )
-  ck-state ck-lend-now dup ck-lending lf-cref-lent# cells ck-state ck-lent over compare
-  0<> ;
+  ck-state ck-lend-now dup ck-lending /ck-lend ck-state ck-lent over compare 0<> ;
 : ck-remades ( -- n ) ck-state ck-remade @ ;
 : ck-workers ( -- )
   ck-parallel? 0= if exit then
@@ -727,15 +747,31 @@ create ck-line ck-line-room 2 + allot
 : ck-eta+ ( -- ) ck-eta if ck-n+ s"  s" else s" unknown" then ck-pl+ ;
 : ck-resident+ ( -- )
   ck-resident if 1000000 / ck-n+ s"  MB" else s" ? MB" then ck-pl+ ;
+\ Its parts after "progress: ", read-only: an entry each, a cell, a word
+\ ( -- ) that adds a number or a text (0 ends the table), then the text
+\ that follows it, counted.
+: ck-elapsed+ ( -- ) ck-elapsed-s ck-n+ ;
+: ck-done+ ( -- ) ck-done ck-n+ ;
+: ck-count+ ( -- ) lf-input-count ck-n+ ;
+: ck-percent+ ( -- ) ck-percent ck-n+ ;
+: ck-accepted+ ( -- ) ck-state ck-accepted @ ck-n+ ;
+: ck-others+ ( -- ) ck-state ck-others @ ck-n+ ;
+: ck-rate+ ( -- ) ck-rate ck-n+ ;
+create ck-pline-parts
+  ' ck-elapsed+ , s"  s elapsed; " counted,
+  ' ck-done+ , s" /" counted,
+  ' ck-count+ , s"  declarations final (" counted,
+  ' ck-percent+ , s" %); " counted,
+  ' ck-accepted+ , s"  accepted, " counted,
+  ' ck-others+ , s"  other; " counted,
+  ' ck-rate+ , s"  declarations/s; eta " counted,
+  ' ck-eta+ , s" ; resident " counted,
+  ' ck-resident+ , s" " counted,
+  0 ,
+: ck-part+ ( part -- part' ) dup @ execute cell+ dup count ck-pl+ counted-next ;
 : ck-progress-line ( -- )
-  0 ck-state ck-pline# !
-  s" progress: " ck-pl+ ck-elapsed-s ck-n+ s"  s elapsed; " ck-pl+
-  ck-done ck-n+ s" /" ck-pl+ lf-input-count ck-n+ s"  declarations final (" ck-pl+
-  ck-percent ck-n+ s" %); " ck-pl+
-  ck-state ck-accepted @ ck-n+ s"  accepted, " ck-pl+
-  ck-state ck-others @ ck-n+ s"  other; " ck-pl+
-  ck-rate ck-n+ s"  declarations/s; eta " ck-pl+ ck-eta+ s" ; resident " ck-pl+
-  ck-resident+ s\" \n" ck-pl+ ;
+  0 ck-state ck-pline# ! s" progress: " ck-pl+
+  ck-pline-parts begin dup @ while ck-part+ repeat drop s\" \n" ck-pl+ ;
 \ Written to stderr, whatever stdout holds, and the interval started again.
 : ck-report ( -- )
   ck-progress-line ck-state ck-pline ck-state ck-pline# @ stderr write-file drop
@@ -782,10 +818,13 @@ create ck-line ck-line-room 2 + allot
   context-catch throw ck-jobs-facts ;
 \ The pool is started before the run, so that a refusal (no threads, as
 \ near the process limit) leaves the whole run to the serial one, with the
-\ workers freed and the cause kept for the report.
+\ workers freed and the cause kept for the report. A pool the host made
+\ only some workers of runs the checks on those; the shortfall is kept.
+: ck-lacked! ( -- )
+  workers-running dup ck-state ck-pool-made ! pool-size swap - ck-state ck-pool-lacked ! ;
 : ck-pool-started? ( -- flag )
-  lf-sched-pool-start ?dup if ck-state ck-serial-why ! lf-sched-free false
-  else true then ;
+  lf-sched-pool-start ?dup if ck-state ck-serial-why ! lf-sched-free false exit then
+  ck-lacked! true ;
 : ck-steps-any ( n -- )
   ck-relent ck-jobs-run? if lf-sched-plan ok? if ck-pool-started? if
     drop ck-jobs-run ck-finished exit then then then
@@ -997,17 +1036,23 @@ create ck-lay /lay allot  ck-lay /lay erase   \ the layer being loaded
   ck-lay lay-ly ly-why @ ?dup if ck-lay lay-ly ly-where @ exit then c" layer" -1 ;
 : ck-lay-refused ( outcome -- outcome ) ck-lay-why ck-snap snap-note ;
 \ Each layer loaded, for the reports (review rvSN4 M1): its header's
-\ SHA-256, then its export's (32 bytes each), then its verdict version
-\ (a cell, negated when stale: --snapshot-stale-ok); its base is ck-snap's.
-64 1 cells + constant ck-lay-id-size
-: ck-layer-id ( k -- addr ) ck-lay-id-size * ck-state ck-lay-ids @ + ;
-: ck-layer-verdict ( k -- n ) ck-layer-id 64 + @ abs ;
-: ck-layer-stale? ( k -- flag ) ck-layer-id 64 + @ 0< ;
+\ SHA-256, then its export's (sha-digest-bytes each), then its verdict
+\ version (a cell, negated when stale: --snapshot-stale-ok); its base is
+\ ck-snap's.
+begin-structure /ck-layer-id
+  sha-digest-bytes +field ck-lid-sum      \ the layer header's SHA-256
+  sha-digest-bytes +field ck-lid-export   \ its export's
+  field: ck-lid-verdict                   \ its verdict version, negated when stale
+end-structure
+: ck-layer-id ( k -- addr ) /ck-layer-id * ck-state ck-lay-ids @ + ;
+: ck-layer-verdict ( k -- n ) ck-layer-id ck-lid-verdict @ abs ;
+: ck-layer-stale? ( k -- flag ) ck-layer-id ck-lid-verdict @ 0< ;
 : ck-lay-version ( -- n )
   ck-lay lay-snap dup snap-verdict swap snap-stale @ if negate then ;
 : ck-lay-kept ( k -- )
-  ck-layer-id ck-lay lay-snap snap-sum over 32 move
-  ck-lay lay-snap snap-export-sha over 32 + 32 move ck-lay-version swap 64 + ! ;
+  ck-layer-id ck-lay lay-snap snap-sum over ck-lid-sum sha-digest-bytes move
+  ck-lay lay-snap snap-export-sha over ck-lid-export sha-digest-bytes move
+  ck-lay-version swap ck-lid-verdict ! ;
 \ For an export (ck-importing?), a layer keeps a twin of a loaded
 \ declaration whose lookups differ (env-layers.fs lay-twins).
 : ck-layer ( sn names k -- sn names outcome )
@@ -1015,7 +1060,7 @@ create ck-lay /lay allot  ck-lay /lay erase   \ the layer being loaded
   r@ ck-layer@ ck-snap snap-fuel ck-lay lay-load
   dup ok? if r@ ck-lay-kept else ck-lay-refused then r> drop ck-lay lay-free ;
 : ck-lay-ids-made ( -- outcome )
-  ck-layer-names 2@ nip ck-lay-id-size * 1 max allocate if drop outcome-full exit then
+  ck-layer-names 2@ nip /ck-layer-id * 1 max allocate if drop outcome-full exit then
   ck-state ck-lay-ids ! outcome-ok ;
 : ck-layers-load ( -- outcome )
   ck-lay-ids-made dup ok? 0= if exit then drop

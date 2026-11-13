@@ -691,7 +691,7 @@ the changes below adds or changes a rule of this design.
 
 ## Amendment 2 (2026-11-11): the parallel scheduler
 
-Approval status: accepted 2026-11-12, gate: not stated, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names S7 (check --jobs N)
+Approval status: accepted 2026-11-12, gate: kernel and runtime, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names S7 (check --jobs N) (gate recorded 2026-11-12 night: kernel and runtime, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
 
 E7's scheduler is built (`src/kernel/env-schedule.fs`, plan task 7.3.1;
 `check --jobs N`, default 1; [kernel] [runtime] review pending). It adds
