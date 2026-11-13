@@ -324,6 +324,34 @@ other agents loaded (load 6-16 on 10 cores; wall seconds):
 The demos and the two command-line tests use the same CPU as before (about
 200 s, 34 s and 22 s); only their waiting is gone.
 
+**leanforth verify (plans 8.4.1b-d, 2026-11-13).** Five targets,
+[PROGRAM_VERIFY.md](../programming/PROGRAM_VERIFY.md); seconds of the last
+`make check JOBS=2` with the Lean cache on 242d056a (other agents running):
+
+| Target | Suite | Seconds |
+| --- | --- | ---: |
+| `test-program-verify-driver` (stand-in tools: outcomes, Lean, limits) | test | 11.3 |
+| `test-program-verify-driver-input` (stand-in tools: verdicts, malformed input, workflow) | test | 19.2 |
+| `test-program-verify-command` (`bin/leanforth verify`, `--json`, `--write-ir`, replay) | test | 9.9 |
+| `reference-program-verify-clamp` (`lf-clamp` end to end, LeanForth `--jobs 2`) | check | 112.9 |
+| `reference-program-verify-refuted` (`wrong-clamp-swapped` end to end) | check | 116.6 |
+| `reference-program-verify-all` (all thirteen contracts, by hand) | — | 737 (once) |
+
+Lean's compile and export in the two `check` targets go through the Lean
+cache like every pinned-Lean run (the driver honours `LEAN` and
+`LEANEXPORT` under the Makefile's test switch `LEANFORTH_VERIFY_TEST_TOOLS=1`),
+so a cached run replays them and `LEAN_CACHE=0` runs them; what remains,
+about 90 s each, is LeanForth's final check of the IR semantics' closure
+(4,277 and 4,295 declarations), which no cache may replace.
+`program-clamp-record` (5.5.1) checks a different export (the committed
+nine-contract obligations file, whose module name its private names
+carry), so it cannot stand for `reference-program-verify-clamp`; one check
+for both would mean re-basing the 5.5.1 receipt on the driver (review M7).
+`make check JOBS=2` with the cache took 789 s on 242d056a (exit 0; the sum
+of every command's time 1,433 s) against about 8 minutes for main's run
+recorded at 39357876 (sum 847 s); the two end-to-end runs add about 230 s
+of command time.
+
 `reference-compact-init` fell from 78.5 s to 57.3 s by running
 `compact-verify.sh`'s two Gforth runs side by side, and to 40.7 s with
 the export of `Init` replayed; staging it into the compact store and

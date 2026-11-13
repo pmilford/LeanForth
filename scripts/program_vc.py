@@ -85,6 +85,22 @@ class Malformed(Exception):
     """The IR text or contract is not well formed."""
 
 
+class Limit(Exception):
+    """A limit given to the generator was reached (scripts/program_verify.py's
+    --paths-limit and --search-limit): code is paths-limit or search-limit."""
+
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
+
+
+# Limits leanforth verify gives (plan 8.4.1b; None: unbounded, as generate()):
+# paths double with each IF, and the counterexample search tries
+# len(CANDIDATES) ** inputs combinations (12^5 = 248,832 for five inputs).
+PATHS_LIMIT = 256
+SEARCH_LIMIT = 250_000
+
+
 # Text from a contract or an IR file never enters the generated Lean file as
 # code: only the expression parser's output does (lean() below). The
 # contract's statement does not enter it at all (it stays in the summary).
@@ -553,11 +569,19 @@ def apply_prim(name, args):
 class Executor:
     """Symbolic execution of IR 0.1 without loops."""
 
-    def __init__(self, defs, inputs):
+    def __init__(self, defs, inputs, max_paths=None):
         self.defs = {name: (kind, body) for name, kind, body in defs}
         self.inputs = inputs
         self.depth = 0          # deepest call nesting seen
         self.facts = set()      # side facts the proofs need, such as (1 : Int) < c.bits
+        self.max_paths = max_paths
+
+    def bounded(self, paths):
+        """paths, unless there are more than max_paths of them."""
+        if self.max_paths is not None and len(paths) > self.max_paths:
+            raise Limit("paths-limit", f"the word has more than {self.max_paths} paths "
+                        "(the path limit)")
+        return paths
 
     def prim(self, name, st):
         arity = ARITY[name]
@@ -605,6 +629,7 @@ class Executor:
         out = []
         for st2, outcome in self.instr(body[0], st, depth):
             out += self.block(body[1:], st2, depth) if outcome == "next" else [(st2, outcome)]
+            self.bounded(out)
         return out
 
     def instr(self, instr, st, depth):
@@ -962,17 +987,33 @@ def post_holds(contract, env, values):
                for case in contract["cases"])
 
 
+CANDIDATES = [-3, -2, -1, 0, 1, 2, 3, 10, CMIN, CMIN + 1, CMAX - 1, CMAX]
+
+
 def candidates(count):
-    values = [-3, -2, -1, 0, 1, 2, 3, 10, CMIN, CMIN + 1, CMAX - 1, CMAX]
-    return itertools.product(values, repeat=count)
+    return itertools.product(CANDIDATES, repeat=count)
 
 
-def counterexample(contract, paths):
+def counterexample(contract, paths, max_cases=None, notes=None):
+    """The first candidate inputs that break the contract, with the reason, or
+    None; a Limit when the search would try more than max_cases of them. When it
+    finds none, it adds to notes (a list) what makes the search say little: no
+    candidate meets the preconditions, or candidates that no case covers (the
+    contract then says nothing about them)."""
     inputs = contract["inputs"]
+    cases = len(CANDIDATES) ** len(inputs)
+    if max_cases is not None and cases > max_cases:
+        raise Limit("search-limit", f"the counterexample search would try {cases:,} input "
+                    f"combinations ({len(CANDIDATES)} values for each of {len(inputs)} inputs), "
+                    f"more than the search limit {max_cases:,}")
+    met, uncovered = 0, []
     for combo in candidates(len(inputs)):
         env = dict(zip(inputs, combo))
         if not all(evaluate_cond(p, env) for p in contract["pre"]):
             continue
+        met += 1
+        if not any(evaluate_cond(case["guard"], env) for case in contract["cases"]):
+            uncovered.append(combo)
         taken = [(st, oc) for st, oc in paths if all(evaluate_cond(c, env) for c in st.conds)]
         if len(taken) != 1:
             raise AssertionError(f"{len(taken)} paths taken for {combo}")
@@ -982,6 +1023,13 @@ def counterexample(contract, paths):
         values = [evaluate(v, env) for v in st.data]
         if not post_holds(contract, env, values):
             return combo, "the postcondition fails"
+    if notes is not None and not met:
+        notes.append(f"no candidate meets pre: none of the {cases:,} candidate inputs meets the "
+                     "preconditions, so the search tried nothing")
+    if notes is not None and uncovered:
+        example = ", ".join(f"{x} = {v}" for x, v in zip(inputs, uncovered[0]))
+        notes.append(f"inputs no case covers: {len(uncovered):,} of the {met:,} candidates that "
+                     f"meet pre, for example {example}; the contract says nothing about them")
     return None
 
 
@@ -1019,10 +1067,11 @@ CLOSE = ("try simp only [Cells.Fits, flag, decide_eq_true_eq, List.cons.injEq, a
 
 
 class Generator:
-    def __init__(self, contract, defs, source):
+    def __init__(self, contract, defs, source, limits=(None, None)):
         self.contract, self.defs, self.source = contract, defs, source
         self.name = camel(contract["id"])
         self.inputs = contract["inputs"]
+        self.max_paths, self.max_cases = limits
 
     def binders(self):
         return " ".join(self.inputs)
@@ -1037,18 +1086,33 @@ class Generator:
             [f"pre{i}" for i in range(1, len(self.contract["pre"]) + 1)]
 
     def run(self):
-        executor = Executor(self.defs, self.inputs)
+        executor = Executor(self.defs, self.inputs, self.max_paths)
         if self.contract["word"] not in executor.defs:
             raise Malformed(f"no word {self.contract['word']} in the IR")
         start = State([], [("var", x) for x in self.inputs], [])
-        paths = executor.call(self.contract["word"], start, 1)
+        paths = executor.bounded(executor.call(self.contract["word"], start, 1))
         self.paths, self.fuel, self.facts = paths, executor.depth, sorted(executor.facts)
-        self.refutation = counterexample(self.contract, paths)
+        self.notes = []
+        self.refutation = counterexample(self.contract, paths, self.max_cases, self.notes)
         return self
 
     def stack_of(self, st):
         """A path's output, top first as the model's lists are."""
         return list(reversed(st.data))
+
+    def output_on(self, combo):
+        """What the word does on 64-bit cells with these inputs: the values it
+        leaves (bottom first), or the reason its path fails, as text."""
+        env = dict(zip(self.inputs, combo))
+        for st, outcome in self.paths:
+            if all(evaluate_cond(c, env) for c in st.conds):
+                if outcome != "next":
+                    return f"the IR fails ({outcome[1]})"
+                values = [evaluate(v, env) for v in st.data]
+                names = {-1: "true", 0: "false"}
+                shown = ", ".join(f"{v} ({names[v]})" if v in names else str(v) for v in values)
+                return f"the word leaves {shown or 'nothing'} (bottom first)"
+        raise AssertionError(f"no path taken for {combo}")
 
     def obligation_statement(self, k, st, outcome):
         conds = [f"(p{j} : {lean(c)})" for j, c in enumerate(st.conds, 1)]
@@ -1185,6 +1249,8 @@ class Generator:
                  "stackEffect": self.contract["stack"], "statement": self.contract["statement"],
                  "namespace": f"ProgramVC.{self.name}", "fuel": self.fuel,
                  "theorems": self.theorems}
+        if self.notes:
+            entry["searchNotes"] = self.notes
         if self.refutation:
             combo, reason = self.refutation
             entry["status"] = "refuted"
@@ -1278,25 +1344,42 @@ macro "vc_fits" : tactic => `(tactic| (simp [Cells.Fits, cells64, Cells.min, Cel
 
 
 def generate(contract_paths):
-    model_lines = Path(MODEL).read_text(encoding="utf-8").splitlines()
-    (first, last), printer = model_ranges(model_lines)
-    sections, summary, sources = [], [], []
+    """The Lean file and the summary for the contracts at these paths, each
+    with the IR file its `ir` line names."""
+    items = []
     for path in contract_paths:
         contract = parse_contract(read_contract(path), path)
-        ir_text = Path(contract["ir"]).read_text(encoding="utf-8")
+        items.append((contract, Path(contract["ir"]).read_text(encoding="utf-8")))
+    text, summary, _ = generate_parsed(items)
+    return text, summary
+
+
+def generate_parsed(items, limits=(None, None)):
+    """The Lean file, the summary and the generators (None for an unsupported
+    contract) for (parsed contract, IR text) pairs; limits are the path and
+    counterexample-search limits (Limit when one is reached), None for none.
+    scripts/program_verify.py passes the IR text the program words wrote and
+    the contract text it read, so nothing is read twice."""
+    model_lines = Path(MODEL).read_text(encoding="utf-8").splitlines()
+    (first, last), printer = model_ranges(model_lines)
+    sections, summary, sources, generators = [], [], [], []
+    for contract, ir_text in items:
+        path = contract["path"]
         checked_text(ir_source(ir_text), f"{contract['ir']}: the source path", quoted=True)
         sources.append(f"  {path} with {contract['ir']} (sha256 "
                        f"{hashlib.sha256(ir_text.encode()).hexdigest()[:16]}...)")
         defs = parse_ir(ir_text)
         try:
-            gen = Generator(contract, defs, ir_source(ir_text)).run()
+            gen = Generator(contract, defs, ir_source(ir_text), limits).run()
         except Unsupported as reason:
             summary.append({"id": contract["id"], "word": contract["word"], "contract": path,
                             "ir": contract["ir"], "status": "unsupported",
                             "reason": str(reason), "obligations": [], "theorems": []})
+            generators.append(None)
             continue
         sections += gen.lean_section()
         summary.append(gen.summary())
+        generators.append(gen)
     text = HEADER.format(version=GENERATOR_VERSION, sources="\n".join(sources), model=MODEL,
                          first=first, last=last)
     text += "\n".join(model_lines[first - 1:last]) + "\n-- END VERBATIM\n\n"
@@ -1304,7 +1387,7 @@ def generate(contract_paths):
     text += f"-- BEGIN VERBATIM {MODEL} {printer[0]}-{printer[1]}\n"
     text += "\n".join(model_lines[printer[0] - 1:printer[1]]) + "\n" + COMMON
     text += "\n".join(sections) + "end ProgramVC\n"
-    return text, summary
+    return text, summary, generators
 
 
 def main():

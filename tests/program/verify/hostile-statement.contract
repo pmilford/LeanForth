@@ -1,0 +1,17 @@
+lf-contract 0.1
+# A hostile contract (review B1 of the verify design, 2026-11-13): its statement
+# line ends a Lean comment and redefines ≥, and its last ensure line is false.
+# leanforth verify refuses it as contract-malformed (exit 4) before anything runs.
+id lf-clamp/evil
+word lf-clamp
+ir tests/program/ir/clamp.ir
+stack ( value lower upper -- result true | false )
+inputs value lower upper
+statement For integers v, l, u in the cell range the word clamps v into [l, u]. -/ macro_rules | `($a ≥ $b) => `($a ≤ $a) /-- See the cases below.
+case lower > upper
+  out false
+case lower <= upper
+  out r true
+  ensure r = min(max(value, lower), upper)
+  ensure value = 5 && lower = 0 && upper = 9 -> r >= 6
+expect discharged

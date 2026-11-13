@@ -4,6 +4,7 @@ Usage (from the repository root):
   python3 tests/program/vc_check.py               # make test: Python only
   LEAN=... python3 tests/program/vc_check.py --lean   # make check
   python3 tests/program/vc_check.py --write       # regenerate the golden files
+  LEAN=... python3 tests/program/vc_check.py --operators   # the operator comparison alone
 
 Without --lean: scripts/program_vc.py, run on the contracts below, must
 write exactly the committed tests/program/vc/obligations.lean and
@@ -29,7 +30,11 @@ only Lean's propext, Classical.choice and Quot.sound, requires every
 program Lean prints back to equal its IR file without source locations,
 and plants two faults that Lean must reject: a postcondition changed
 without its proofs, and a program changed (MAX for MIN) without its
-contract. Checked by the Lean reference, not by LeanForth.
+contract. Checked by the Lean reference, not by LeanForth. It also
+compares, for every contract operator, Python's evaluation (which decides
+`refuted`) with Lean's evaluation of the operator's translation, on every
+pair of the search's twelve candidates and 64-bit cells (review H1 of the
+verify design, 2026-11-13).
 """
 import json
 import os
@@ -168,7 +173,8 @@ def hostile_problems():
         problems.append("the small contract the hostile IR cases change is not discharged")
     if "\nset_option autoImplicit false\n" not in GOLDEN_LEAN.read_text(encoding="utf-8"):
         problems.append("the generated Lean file does not set autoImplicit false")
-    return problems + harmless_problems(clamp, statement) + crlf_problems(clamp)
+    return (problems + harmless_problems(clamp, statement) + crlf_problems(clamp)
+            + search_note_problems(clamp))
 
 
 # The probe review's other false contracts (2026-11-13), each discharged before the fix.
@@ -212,6 +218,32 @@ def crlf_problems(clamp):
         texts.append((lean.replace(str(path), "C"), summary[0]["status"]))
     return [] if texts[0] == texts[1] and texts[0][1] == "discharged" else [
         "a contract with CRLF line ends reads otherwise than with LF"]
+
+
+def summary_of(contract_text):
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "c.contract"
+        path.write_text(contract_text, encoding="utf-8")
+        return program_vc.generate([str(path)])[1][0]
+
+
+def search_note_problems(clamp):
+    """The search says when it tried nothing (no candidate meets pre) and which inputs no
+    case covers (review M4 of the verify design); the committed contracts have neither, so
+    their summaries have no notes."""
+    problems = []
+    impossible = clamp.replace("case lower > upper", "pre lower > 100 && lower < 50\n"
+                               "case lower > upper")
+    uncovered = clamp.split("case lower <= upper", 1)[0] + "expect discharged\n"
+    for name, text, expected in (("an impossible pre", impossible, "no candidate meets pre"),
+                                 ("only the case lower > upper", uncovered,
+                                  "inputs no case covers: 936 of the 1,728 candidates")):
+        notes = summary_of(text).get("searchNotes", [])
+        if not any(note.startswith(expected) for note in notes):
+            problems.append(f"search notes for {name}: {notes}, expected {expected}")
+    if "searchNotes" in summary_of(clamp):
+        problems.append("the clamp contract has search notes")
+    return problems
 
 
 def harmless_problems(clamp, statement):
@@ -313,7 +345,7 @@ def lean_problems(lean):
               Path(entry["ir"]).read_text(encoding="utf-8").splitlines()]
         if programs.get(name) != ir:
             problems.append(f"{name}: the program Lean prints differs from {entry['ir']}")
-    return problems + planted_problems(lean)
+    return problems + planted_problems(lean) + operator_problems(lean)
 
 
 PLANTS = [
@@ -325,6 +357,66 @@ PLANTS = [
      '("lf-clamp", .word [.prim .twoDup, .prim .gt, .ifElse [.prim .twoDrop, .prim .drop, '
      '.prim .false, .exit] [], .prim .toR, .prim .min, .prim .fromR, .prim .max'),
 ]
+
+
+# Every operator of contract language 0.1, in the forms the parser reads; a and b range
+# over the search's candidates (program_vc.CANDIDATES), c is 64-bit cells.
+OPERATORS = ["a + b", "a - b", "a * b", "-a", "a - -b", "min(a, b)", "max(a, b)", "abs(a)",
+             "flag(a < b)", "flag(a = b && b = a)", "cell.max", "cell.min", "a = b",
+             "a <> b", "a < b", "a <= b", "a > b", "a >= b", "a < b && b <= a",
+             "a < b || b < a", "!(a < b)", "a < b -> b < a", "a <= b -> a < b -> a = b",
+             "fits(a)", "fits(a + b)", "fits(a * b)", "fits(cell.max + 1)",
+             "fits(cell.min - 1)", "true", "false", "a + 3 * b - 10 = 0", "abs(a) >= 0"]
+OPERATOR_SECTION = """
+-- vc_check.py: each contract operator's translation evaluated on the candidates.
+instance vcFitsDecidable (c : Cells) (x : Int) : Decidable (c.Fits x) :=
+  inferInstanceAs (Decidable (c.min ≤ x ∧ x ≤ c.max))
+def vcValues : List Int := [VALUES]
+def vcPairs : List (Int × Int) := vcValues.flatMap fun a => vcValues.map fun b => (a, b)
+"""
+
+
+def is_condition(expr):
+    return expr[0] in ("cmp", "and", "or", "not", "implies", "bool") or (
+        expr[0] == "fn" and expr[1] == "fits")
+
+
+def operator_cases():
+    """(Lean line, Python's results as Lean prints them) for each operator."""
+    pairs = [(a, b) for a in program_vc.CANDIDATES for b in program_vc.CANDIDATES]
+    cases = []
+    for number, text in enumerate(OPERATORS):
+        expr = program_vc.ExprParser(text).parse()
+        condition = is_condition(expr)
+        body = (f"decide ({program_vc.lean(expr)})" if condition
+                else f"({program_vc.lean(expr)} : Int)")
+        found = [(program_vc.evaluate_cond if condition else program_vc.evaluate)(
+            expr, {"a": a, "b": b}) for a, b in pairs]
+        shown = ", ".join(("true" if v else "false") if condition else str(v) for v in found)
+        cases.append((f'#eval IO.println ("op{number} " ++ toString (vcPairs.map fun (a, b) => '
+                      f"let c := cells64; {body}))", f"op{number} [{shown}]"))
+    return cases
+
+
+def operator_problems(lean):
+    text, _, _ = program_vc.generate_parsed([])
+    cases = operator_cases()
+    section = OPERATOR_SECTION.replace(
+        "VALUES", ", ".join(str(v) for v in program_vc.CANDIDATES)) + "\n".join(
+        line for line, _ in cases) + "\n"
+    text = text.replace("end ProgramVC\n", section + "\nend ProgramVC\n")
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "operators.lean"
+        path.write_text(text, encoding="utf-8")
+        code, output = run_lean(lean, path)
+    if code != 0:
+        errors = [line for line in output.splitlines() if "error" in line]
+        return ["Lean failed on the operators' file:\n" + "\n".join(errors[:10])]
+    printed = {line.split(" ", 1)[0]: line for line in output.splitlines()
+               if line.startswith("op")}
+    return [f"operator {OPERATORS[n]}: Lean {printed.get(f'op{n}', 'nothing')[:120]}, "
+            f"Python {expected[:120]}" for n, (_, expected) in enumerate(cases)
+            if printed.get(f"op{n}") != expected]
 
 
 def planted_problems(lean):
@@ -347,6 +439,11 @@ def main():
         GOLDEN_LEAN.write_text(text, encoding="utf-8")
         GOLDEN_JSON.write_text(summary_text, encoding="utf-8")
         return 0
+    if "--operators" in sys.argv:   # the operator comparison alone (its planted fault)
+        problems = operator_problems(os.environ.get("LEAN", "lean"))
+        for problem in problems:
+            print(problem, file=sys.stderr)
+        return 1 if problems else 0
     problems = offline_problems()
     if "--lean" in sys.argv and not problems:
         problems = lean_problems(os.environ.get("LEAN", "lean"))

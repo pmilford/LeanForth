@@ -123,7 +123,7 @@ comparison must reject a known-wrong table).
 | P9 | Depth analyzer cannot show it rejects before reading; running out of fuel returns the same result as invalid input | Later |
 | P10 | Nothing ties the Forth source of `lf-clamp` to the Lean model `clampCode` | Later |
 | P11 | The memory model's `trace` function is not proved equal to the `execute` the proofs use | Later |
-| P12 | No seeded random property tables; no end-to-end *specify → check → run → receipt* tests (no such workflow exists yet) | Later |
+| P12 | No seeded random property tables; no end-to-end *specify → check → run → receipt* tests (no such workflow exists yet) | In part (2026-11-13, plan 8.4.1b): *specify → check → receipt* runs end to end for every committed contract (`scripts/program_verify.py`, `tests/program/verify_lean_check.py`; clamp and a wrong contract in `make check`, every outcome with stand-in tools in `make test`); *run* waits for 8.4.2, the random tables for later |
 
 ## Duplicate experimental code (roadmap Q9)
 
