@@ -991,6 +991,21 @@ Forth reviews of lf-files and lf-files-2 with re-checks, not blocking (LOG.md); 
 (no elaborator or tactics yet).
 
 
+### Program track: LeanForth re-checks Lean's program proofs (2026-11-12, evening; plan 5.5.1)
+
+The owner approved both gates, choosing each recommendation, after the done check
+(done-checks/2026-11-12-program-track.md: works end to end):
+
+- **[bypass]:** the clamp receipt relies on Lean's elaborator and exporter having written the contract and the program
+  faithfully (assumption A6, stated in every receipt; supported by Lean printing the program back equal to the IR file).
+  Lean wrote and checked the proofs; LeanForth's checker re-checked the export (4,277 declarations) and rejects changed
+  program, contract and proof copies; the same for the four SHA helper words' proofs (2,890 declarations).
+- **[runtime]:** the receipt's runtime assumptions as stated: one 64-bit two's-complement cell per value, the IR means
+  what the Forth source does, Gforth runs the 13 words used as the IR says (tested on 986 cases, not proved), the stacks
+  have room.
+- Receipt schema 0.3 drops the label (the owner's no-label decision); SHA receipts take 0.4 at its [format] gate.
+  Nobody has proved SHA-256 as a whole, and `leanforth verify` (8.4.1) does not exist.
+
 ### No result labels (2026-11-12, evening)
 
 The owner: "I find the constant repetition of experimental and not independently audited, one NOT PROVED not useful.
