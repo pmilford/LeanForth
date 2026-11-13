@@ -6,6 +6,8 @@ words through Forth's own interpreter, built the terms in LeanForth's
 existing stores, printed them with the term printer, and ran its own
 printed words again.
 
+Approval status: accepted 2026-11-02, gate: design (decisions 1-4), [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Progress marks and program-reader names (2026-11-02, night)"; the implementation passed the parser gate 2026-11-03, section "Gate answers and working guidelines (2026-11-03)"
+
 **[Amendment 1](#amendment-1-accepted-leanforth-text-run-by-forth-itself-at-the-prompt-from-files-and-inline)
 (accepted by the owner on 2026-11-04, design gate [parser] and
 [bypass]):** with LeanForth loaded, Forth's own interpreter runs
@@ -1315,6 +1317,8 @@ for case-sensitive wordlists), and
 
 ## Amendment 1 (accepted): LeanForth text run by Forth itself, at the prompt, from files and inline
 
+Approval status: accepted 2026-11-04, gate: parser (design), [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Native LeanForth: where theorems run, inline use, library vocabularies (2026-11-04, late)"
+
 **Status: accepted by the owner on 2026-11-04** (design gate [parser] and
 [bypass]; [decisions](../project/OWNER_DECISIONS.md#native-leanforth-where-theorems-run-inline-use-library-vocabularies-2026-11-04-late)):
 question 1 *yes*, question 2 *yes*, question 3 *"Lets do 1, but carefully
@@ -2445,6 +2449,8 @@ written and read between guillemets (`N.«0».f`), distinct from the numeric
 part (`N.0.f`). Untrusted authoring and presentation only; no checker change.
 
 ## Amendment 2: LeanForth text checked by the kernel (2026-11-12)
+
+Approval status: accepted 2026-11-12, gate: parser, bypass, import, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "LeanForth text checked by the kernel (2026-11-12, evening; [parser][bypass][import] gates)"
 
 **Status: accepted [parser][bypass][import] by the owner on 2026-11-12
 (OWNER_DECISIONS.md, "LeanForth text checked by the kernel"), after the

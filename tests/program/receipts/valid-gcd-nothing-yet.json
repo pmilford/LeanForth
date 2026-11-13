@@ -1,6 +1,6 @@
 {
   "schema": "leanforth-program-receipt",
-  "schemaVersion": "0.2",
+  "schemaVersion": "0.3",
   "provenance": {
     "kind": "example",
     "createdAt": "2026-11-02",
@@ -23,7 +23,6 @@
   },
   "check": {
     "status": "not-checked",
-    "label": "not checked",
     "axioms": [],
     "evidence": []
   },

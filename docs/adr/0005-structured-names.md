@@ -4,6 +4,8 @@ Status: **draft for human review; not approved for trusted use**. Lean names
 are needed for universe parameters, constants and declaration identities.
 This proposal does not authorize any declaration or axiom.
 
+Approval status: status unclear (no owner decision found); the ADR's own text says draft, not approved
+
 ## Candidate representation
 
 Represent anonymous names and chains of `str(prefix, component)` and

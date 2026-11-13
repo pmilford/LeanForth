@@ -169,7 +169,7 @@ make `true` mean one thing on the host and another in the IR
 
 ```sh
 make test-program-ir-run        # unit tests, interpreter against host, VC and receipt goldens
-make reference-program-ir-run   # the same against pinned Lean (about 26 s)
+make reference-program-ir-run   # the same against pinned Lean (about 154 s with `JOBS=2 LEAN_CACHE=0`, 2026-11-12, since it also records the clamp receipt's evidence)
 gforth -e '7 constant ir-run-seed' tests/program/ir-run-table.fs      # another seed
 GFORTH=gforth LEAN=... python3 tests/program/ir_run_differential.py --lean --seed 3 --programs 1500
 ```

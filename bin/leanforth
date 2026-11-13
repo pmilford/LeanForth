@@ -46,7 +46,8 @@ case ${1:-} in
     previous=
     for argument in "${@:2}"; do
       case $previous in
-        --record | --fuel | --name | --statement | --save-snapshot | --snapshot | --env) ;;
+        --record | --fuel | --name | --statement | --save-snapshot | --snapshot | --env | \
+        --elab-data) ;;
         *) case $argument in
              --fast) fast=true ;;
              --checked) checked=true ;;
@@ -119,7 +120,7 @@ if [ "${1:-}" = reexport ] || [ "${1:-}" = check ]; then
     case $previous in
       --record) target=$argument ;;
       --save-snapshot) target=$argument what=FILE ;;
-      --fuel | --snapshot | --env) ;;
+      --fuel | --snapshot | --env | --elab-data) ;;
       *) case $argument in -*) ;; *) files+=("$argument") ;; esac ;;
     esac
     previous=$argument

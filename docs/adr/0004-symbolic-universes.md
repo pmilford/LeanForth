@@ -5,6 +5,8 @@ proposal extends the concrete-only scope in ADR 0002 and does not resolve its
 conversion soundness obligations. The current Forth experiments store syntax
 and evaluate concrete graphs; they cannot check a polymorphic declaration.
 
+Approval status: status unclear (no owner decision found); the ADR's own text says draft, not approved
+
 ## Motivation and proposed syntax
 
 Lean declarations and Mathlib use named universe parameters. Propose finite

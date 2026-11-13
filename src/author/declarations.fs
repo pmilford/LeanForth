@@ -160,9 +160,14 @@ end-structure
 : lfa-definable? ( -- flag ) lfa-inside? if lfa-this-kind lf-decl-def > 0= lfa-params 0<
   and
   else false then ;
-: lfa-define ( -- )
+\ lfa-define-check, first thing, with the statement on top; then the
+\ statement taken (a term here, a syntax node in src/front/reader.fs);
+\ then lfa-define-done.
+: lfa-define-check ( -- )
   lfa-definable? lfa-e-define-here lfa-must 1 lfa-e-statement lfa-exactly
-  lfa-params-tight lfa>term lfa-this lf-fdecl-type ! lfa-depth lfa-params! ;
+  lfa-params-tight ;
+: lfa-define-done ( -- ) lfa-depth lfa-params! ;
+: lfa-define ( -- ) lfa-define-check lfa>term lfa-this lf-fdecl-type ! lfa-define-done ;
 
 \ end NAME of a declaration: the proof (or, for an axiom or import stub,
 \ the statement) is the one value above the parameters; an import stub
@@ -171,9 +176,10 @@ end-structure
 : lfa-same-binders ( -- )
   lfa-depth lfa-params = if exit then lfa-innermost lfa-binder-at @ lfa-e-open-binder
   lfa-fail-see ;
-: lfa-proof-end ( above -- value )
-  lfa-params 0< 0= lfa-e-no-define lfa-must lfa-same-binders
-  1 = lfa-e-proof lfa-must lfa>term ;
+\ Before a declaration's proof is taken: := was there, and no binder of
+\ the proof is still open (shared with src/front/reader.fs).
+: lfa-proof-ready ( -- ) lfa-params 0< 0= lfa-e-no-define lfa-must lfa-same-binders ;
+: lfa-proof-end ( above -- value ) lfa-proof-ready 1 = lfa-e-proof lfa-must lfa>term ;
 : lfa-no-statement? ( above -- flag ) 0= lfa-depth 0= and lfa-this-kind lf-decl-stub =
   and ;
 : lfa-statement-end ( above -- )

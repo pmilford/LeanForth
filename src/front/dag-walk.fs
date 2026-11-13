@@ -39,10 +39,15 @@ end-structure
   dup dw-outcome @ ok? if dw-outcome ! else 2drop then ;
 : dw-ok? ( walk -- flag ) dw-outcome @ ok? ;
 
-\ The memo.
+\ The memo: one cell per node, 0 unseen, 1 under way, image + 2 made. A
+\ walk's images are 0 or more (terms, levels, flags); a build that
+\ refuses the walk may leave -1, which reads as "under way", but a refused
+\ walk takes no further step. A node beyond the memo (a value given back
+\ since it was assigned) is never done; its visit ends the walk invalid.
 : dw-cell ( node walk -- addr ) dw-memo @ swap cells + ;
 : dw-state ( node walk -- n ) dw-cell @ ;
-: dw-done? ( node walk -- flag ) dw-state 1 > ;
+: dw-in? ( node walk -- flag ) dw-size @ 0 swap within ;
+: dw-done? ( node walk -- flag ) 2dup dw-in? if dw-state 1 > else 2drop false then ;
 : dw-image ( node walk -- image ) dw-state 2 - ;
 : dw-made ( image node walk -- ) dw-cell swap 2 + swap ! ;
 
@@ -71,7 +76,6 @@ end-structure
 \ One step: the node on top is made when its children are, else its first
 \ pending child goes on top; a child under way is a cycle.
 \ A node beyond the memo is no node of the walk: invalid.
-: dw-in? ( node walk -- flag ) dw-size @ 0 swap within ;
 : dw-pending? ( node walk -- child true | false ) dup dw-pending @ execute ;
 : dw-cycle? ( child walk -- flag ) 2dup dw-in? if dw-state 1 = else 2drop true then ;
 : dw-descend ( child walk -- )

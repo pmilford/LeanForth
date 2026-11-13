@@ -1,22 +1,29 @@
 # Verification conditions and the clamp receipt
 
 **Status: implemented, version 0 (2026-11-02, tasks 2.5.5 and 2.5.6 of
-the [plan draft](../project/PLAN_DRAFT.md)).** The generator is untrusted
-Python; everything it produces is checked by Lean 4.35.0 — *checked by the
-Lean reference, not by LeanForth*, whose checker cannot check programs
-before data types arrive (phase 5). The receipt format is
-[schema 0.2](PROGRAM_RECEIPTS.md), under the *[format]* gate; nothing here
-has passed a review gate.
+the [plan draft](../project/PLAN_DRAFT.md)); the clamp proofs re-checked by
+LeanForth since 2026-11-12 (task 5.5.1).** The generator is untrusted
+Python; Lean 4.35.0 proves everything it produces, from the tactic scripts
+it writes. For the clamp contract, Lean's exporter then writes the
+contract theorem and its two obligations with every declaration they use,
+and LeanForth's checker (`bin/leanforth check`) checks that export again:
+the clamp receipt ([schema 0.3](PROGRAM_RECEIPTS.md)) states LeanForth's
+verdict. Lean wrote the proofs and LeanForth re-checked them; LeanForth
+has no tactics yet. The other contracts below are checked by Lean only.
 
 ```text
 Forth source ─reader─▶ IR ─┐
                            ├─ scripts/program_vc.py ─▶ obligations + contract theorem ─▶ Lean
-contract (text) ───────────┘        (untrusted)              (Lean file)                 │
-runtime comparison (PROGRAM_IR_RUN.md) ─────────────────────────────────┐               │
-                                     scripts/program_receipt.py ◀───────┴── evidence ◀──┘
-                                                  │
-                                                  ▼
-                          receipt (JSON, schema 0.2) and its printed form
+contract (text) ───────────┘        (untrusted)              (Lean file)       (writes the proofs)
+                                                                                         │
+                                       export with the closure (scripts/export.sh) ◀─────┘
+                                                                                         │
+runtime comparison (PROGRAM_IR_RUN.md) ───────────┐       LeanForth's checker ◀──────────┘
+                                                  │       (bin/leanforth check)
+                     scripts/program_receipt.py ◀─┴──── evidence ◀─┘
+                                  │
+                                  ▼
+             receipt (JSON, schema 0.3) and its printed form
 ```
 
 ## One example in three forms
@@ -193,25 +200,33 @@ the receipt ([JSON](../../tests/program/receipts/generated/lf-clamp.json),
 [printed form](../../tests/program/receipts/generated/lf-clamp.md)) from
 the repository files at their current hashes — the source and the line of
 its colon, the IR, the contract, the generated obligations and their
-summary, the runtime comparison's files — and from an evidence record
+summary, the export step and the pinned export's manifest, the runtime
+comparison's files — and from an evidence record
 ([`lf-clamp-evidence.json`](../../tests/program/receipts/generated/lf-clamp-evidence.json))
-that `record` makes by running Lean (version, commit, each theorem's
-axioms) and Gforth (the clamp cases of the three-way comparison, and
+that `record` makes by running Lean (version, commit, its own axiom report
+for each theorem), Lean's exporter (the export's hash and size, which must
+be the ones [`lf-clamp.ndjson.manifest.json`](../../tests/program/vc/lf-clamp.ndjson.manifest.json)
+pins), LeanForth (`bin/leanforth check --json --jobs 2`: its version and
+verdict version, the declarations it accepted, and each theorem's verdict
+and axioms) and Gforth (the clamp cases of the three-way comparison, and
 Lean's agreement on them).
 
 It keeps the three answers apart:
 
 | Part | Clamp receipt says |
 | --- | --- |
-| CHECK | `checked-by-lean-reference`, label *checked by the Lean reference, not by LeanForth*: Lean 4.35.0 proved `ProgramVC.LfClamp0.contract`, `O1` and `O2`, each listed with its axioms (`O1` propext and Quot.sound, the others also Classical.choice) |
-| VERIFY | `discharged`, `settledBy` `checked-by-lean-reference`: two obligations from the untrusted generator, each with its theorem, discharged by Lean, not by LeanForth |
+| CHECK | `accepted-by-leanforth`: Lean 4.35.0 wrote the proofs of `ProgramVC.LfClamp0.contract`, `O1` and `O2`; its exporter wrote them with every declaration they use, 4,277, to the pinned export; LeanForth's checker re-checked the export and accepted all 4,277. Each theorem with its axioms as LeanForth reports them (`O1` propext and Quot.sound, the others also Classical.choice), equal to Lean's `#print axioms` |
+| VERIFY | `discharged`, `settledBy` `accepted-by-leanforth`: two obligations from the untrusted generator, each discharged by its theorem, which Lean proved and LeanForth's checker accepted |
 | RUN | `passed`, label *runtime-tested; testing is not proof*: Gforth 1.0.0, Linux x86-64, 64-bit cells, 986 cases, 0 failures; Lean's model agreed on all 991 clamp cases |
 
-and lists seven assumptions: host cells, two's complement, the trusted
+and lists eight assumptions: host cells, two's complement, the trusted
 reader (which finds names ignoring letter case, as Gforth does), the trusted runtime
-(Gforth executes 2DUP, >, … as the IR semantics says), stack capacity, the
-trusted Lean, and the untrusted generator made safe by stating the
-contract against the IR semantics (kind `untrusted-generator`).
+(Gforth executes 2DUP, >, … as the IR semantics says), stack capacity,
+the trusted Lean (it elaborated the obligations file and its exporter
+wrote the export faithfully; its own check of the proofs is not relied
+on), the untrusted generator made safe by stating the contract against
+the IR semantics (kind `untrusted-generator`), and LeanForth's checker
+(kind `trusted-leanforth`).
 
 `scripts/program_receipt.py verify RECEIPT.json` reads the receipt
 strictly, checks its schema and the rules beyond JSON Schema, then
@@ -219,21 +234,99 @@ rebuilds it and reports every field that differs, so a hand-edited
 receipt, or one whose files changed since, is rejected
 ([reading a receipt](PROGRAM_RECEIPTS.md#reading-a-receipt)). `make test`
 ([`tests/program/receipt_check.py`](../../tests/program/receipt_check.py))
-checks the golden output, strict reading, schema 0.2 and its rules
+checks the golden output, strict reading, schema 0.3 and its rules
 ([`tests/support/schema_subset.py`](../../tests/support/schema_subset.py)),
-that the receipt is checked by the Lean reference with every obligation
+that the receipt is accepted by LeanForth with every obligation
 discharged by a named theorem and every path inside the repository,
-verification, and that tampered receipts (changed hashes, statuses,
-labels, counts, theorems, axioms, assumptions, an added `verified` field,
-a path outside the repository) are refused by the layer named with each,
-and tampered texts (duplicate keys, fractions, a lone surrogate, deep
-nesting) by the strict reader. `make check` records the evidence again and
-requires it to equal the committed record.
+verification, that tampered receipts (changed hashes, statuses, a label
+put back, counts, theorems, axioms, assumptions, an added `verified`
+field, a path outside the repository) are refused by the layer named with
+each, and tampered texts (duplicate keys, fractions, a lone surrogate,
+deep nesting) by the strict reader; and that evidence in which LeanForth
+rejected a theorem, did not decide it or did not finish gives a receipt
+that says so and discharges nothing, while evidence with a NOT PROVED
+theorem, LeanForth's axioms other than Lean's or another export gives
+none. `make check` records the evidence again (Lean, the export, LeanForth,
+Gforth) and requires it to equal the committed record, and the fresh
+export's manifest to equal the pinned one byte for byte.
 
 A receipt that verifies is consistent with the repository and the
 evidence. It is not an approval: the receipt format, the reader and the
-generator are all under the review gates of `AGENTS.md`, and the receipt
-must be validated again against the schema version the review settles on.
+generator are all under the review gates of `AGENTS.md`.
+
+### LeanForth re-checks the clamp proofs (plan 5.5.1)
+
+What LeanForth checks is Lean's export, not LeanForth text: Lean wrote the
+proofs (from the generator's tactic scripts) and LeanForth's checker
+checked them again, with every definition, inductive type and lemma they
+use, from the pinned Lean's own `Init` up. LeanForth has no tactics yet.
+The IR's Lean model uses a nested inductive type (`Instr`, whose `ifElse`
+and `loop` hold lists of instructions) and well-founded recursion (`run`),
+which LeanForth checks since plan task 5.2.5.
+
+Run on 2026-11-12 (the export takes about 10 s, each check about 45 s on
+two workers; the folder is any scratch folder):
+
+```text
+$ python3 scripts/program_receipt.py export /tmp/clamp/lf-clamp.ndjson
+wrote /tmp/clamp/lf-clamp.ndjson and its manifest: ProgramVC.LfClamp0.O1, ProgramVC.LfClamp0.O2, ProgramVC.LfClamp0.contract with every declaration they use; check it with bin/leanforth check
+$ bin/leanforth check --jobs 2 /tmp/clamp/lf-clamp.ndjson | tail -3      # exit status 0
+ProgramVC.LfClamp0.contract: accepted; axioms: propext, Classical.choice, Quot.sound
+4277 declarations: 4277 accepted
+accepted: 4277; axioms: propext, Classical.choice, Quot.sound (allowlisted); none NOT PROVED
+$ python3 tests/program/clamp_mutants.py program /tmp/clamp/lf-clamp.ndjson /tmp/clamp/program-mutant.ndjson
+/tmp/clamp/program-mutant.ndjson: program, 11 new expressions
+$ bin/leanforth check --jobs 2 /tmp/clamp/program-mutant.ndjson | grep -v ': accepted'   # exit status 1
+ProgramVC.LfClamp0.contract: rejected
+  rejected: argument type mismatch (D1-D5); diagnostic 59 at mixed-infer lf-mixed-infer: 0 0
+4277 declarations: 4276 accepted, 1 rejected
+accepted: 4276; axioms: propext, Classical.choice, Quot.sound (allowlisted); none NOT PROVED
+```
+
+`python3 scripts/program_receipt.py record` runs the same export and check
+(with `--json`) for the receipt's evidence, and `write` then writes the
+receipt; `make check` does both and compares them with the committed ones.
+
+An export whose program IR term, postcondition or proof term was changed after Lean proved it is rejected by LeanForth's checker.
+[`tests/program/clamp_mutants.py`](../../tests/program/clamp_mutants.py)
+(untrusted test tool) changes one declaration of the export and leaves
+everything else as it was, writing a fresh manifest so that the rejection
+is the kernel's and not the manifest check's:
+
+| Mutant | Change | LeanForth | Lean's official checker |
+| --- | --- | --- | --- |
+| `program` | MAX and MIN exchanged in `ProgramVC.LfClamp0.program` | `contract` rejected, exit 1 | rejected, exit 1 |
+| `contract` | min and max exchanged in the postcondition `post` (the refuted contract `wrong-clamp-swapped`) | `O1` and `O2` rejected, so `contract` (it uses them), exit 1 | rejected, exit 1 |
+| `proof` | the lemma `ir_max` replaced by `ir_min` in `contract`'s proof term | `contract` rejected, exit 1 | rejected, exit 1 |
+
+The official checker's column cannot be reproduced from the repository: it is
+one manual run on 2026-11-12 of Lean's kernel on the same files (the arena
+build of lean4export v4.35.0's checker, kept outside the repository), not
+repeated by the done check; it also accepted the unchanged export. `make
+check` (`reference-program-mutants`) puts all three changes into one
+export, each changed declaration added under its own name next to the
+originals, and requires LeanForth to accept the originals and reject the
+five changed theorems, in one run instead of three; `make test` checks the
+tool itself on a small fixture (its changes are well formed and accepted
+where they keep the proof). `make check` also has pinned Lean reject the
+same program and postcondition changes in the Lean source
+(`vc_check.py --lean`).
+
+**The SHA-256 helper words** (stage SHA-2 of the flagship target) go
+through the same pipeline: pinned Lean compiles
+`tests/reference/program-ir.lean`, its exporter writes `shaRotr_correct`,
+`shaCh_correct`, `shaMaj_correct` and `shaBigSigma0_correct` (each word of
+`src/program/sha-words.fs` computes FIPS 180-4's function for every 32-bit
+input) with every declaration they use, 2,890 in all, and LeanForth's
+checker accepts every one, each theorem with the axioms Lean's
+`#print axioms` reports. `sha-ch`'s body with AND and XOR exchanged, under
+its old proof, and `shaCh_correct`'s proof with the lemmas of `sha-ch` and
+`sha-maj` exchanged are rejected
+([`tests/program/sha_export_check.py`](../../tests/program/sha_export_check.py),
+`make check` target `reference-program-sha-export`, 2026-11-12). There is
+no receipt for them yet: they are IR 0.2 programs, and their receipts need
+schema 0.4, at the owner's [format] gate
+([receipts](PROGRAM_RECEIPTS.md#schema-04-what-ir-02-receipts-need)).
 
 ## Running
 
@@ -242,6 +335,10 @@ python3 scripts/program_vc.py --out FILE.lean --summary FILE.json CONTRACT...
 python3 tests/program/vc_check.py --write          # regenerate the committed obligations
 python3 scripts/program_receipt.py write           # regenerate the receipt from the evidence
 python3 scripts/program_receipt.py verify tests/program/receipts/generated/lf-clamp.json
-GFORTH=... LEAN=... python3 scripts/program_receipt.py record --out EVIDENCE.json
-make test-program-ir-run reference-program-ir-run
+GFORTH=... LEAN=... python3 scripts/program_receipt.py record --out EVIDENCE.json \
+    [--manifest-out tests/program/vc/lf-clamp.ndjson.manifest.json]   # to pin a new export
+python3 scripts/program_receipt.py export OUT.ndjson   # pinned Lean: the clamp proofs' export
+bin/leanforth check --jobs 2 OUT.ndjson                # LeanForth's verdict on it
+python3 tests/program/clamp_mutants.py program|contract|proof OUT.ndjson MUTANT.ndjson
+make test-program-ir-run reference-program-ir-run reference-program-mutants
 ```

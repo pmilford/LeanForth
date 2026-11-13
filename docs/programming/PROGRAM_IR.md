@@ -3,8 +3,8 @@
 **Status: IR 0.1 implemented and untrusted (2026-11-02, tasks 2.5.2 and
 2.5.3 of the [plan draft](../project/PLAN_DRAFT.md)); IR 0.2 implemented
 and untrusted (2026-11-04, [ADR 0019 Amendment 1](../adr/0019-program-words-two-modes.md#amendment-1-proposed-ir-02-redefinition-output-words-and-sha-2),
-approved in design by the owner), before its [parser] implementation
-gate.** The IR's semantics is a Lean model, checked by Lean, not by
+approved in design by the owner; its [parser] implementation gate was
+approved on 2026-11-04).** The IR's semantics is a Lean model, checked by Lean, not by
 LeanForth. What turns Forth source into IR is ordinary, unverified Forth:
 since 2026-11-03 the
 [program words](#the-program-words-correctness-mode) of ADR 0019, which run
@@ -906,10 +906,10 @@ whole (review rvIR3, L1; `tests/program/verify.fs` runs it with a small
 heap). The IR 0.1 reader stays IR 0.1 and refuses
 every IR 0.2 input; the IR interpreter reads both versions and refuses an
 IR 0.2 instruction under an IR 0.1 version line. Reason 2 now reads "a
-Forth word outside IR 0.2". Receipts are not changed: schema 0.2 has
+Forth word outside IR 0.2". Receipts are not changed: schemas 0.2 and 0.3 have
 `program.ir.version` "0.1" only, so the receipt generator refuses to write
-one for an IR 0.2 program until the owner decides schema 0.3 at the
-[format] gate ([receipts](PROGRAM_RECEIPTS.md#schema-03-what-ir-02-receipts-need)).
+one for an IR 0.2 program until the owner decides schema 0.4 at the
+[format] gate ([receipts](PROGRAM_RECEIPTS.md#schema-04-what-ir-02-receipts-need)).
 
 **Lean (Parts 7 and 8 of `program-ir.lean`).** `Prim` gains `lshift` and
 `negRot`, `Instr` gains `out`; `run` gives an output word its stack effect
@@ -930,7 +930,7 @@ theorems check unchanged, with the same axioms.
 helper words of `src/lib/sha256.fs`, character for character
 (`check_program_ir.py` checks it): `sha-mask`, `sha-w32`, `sha-shr`,
 `sha-rotr`, `sha-ch`, `sha-maj` and `sha-big-sigma0`. Its IR is
-[`sha-words.ir`](../../tests/program/ir/sha-words.ir), and Part 8 proves,
+[`sha-words.ir`](../../tests/program/ir/sha-words.ir), and Lean proves, in Part 8,
 for every cell width of at least 33 bits, every 32-bit word x, y, z (a
 cell holding `x.toNat`), every count n below 32 and every stack below:
 
@@ -947,7 +947,7 @@ The arithmetic heart, `rotr_value`, shows that the right shift or'ed with
 the left shift cut to the cell, and'ed with `65536 dup * 1-` (2^32 − 1 on
 every such width, also on 33 bits where 2^32 wraps), is ROTR. All use
 only `propext`, `Classical.choice` and `Quot.sound`. Plain Gforth runs the
-words on FIPS 180-4's values (`tests/program/verify.fs`). Not established:
+words on FIPS 180-4's values (`tests/program/verify.fs`; a test, not a proof). Lean wrote and checked these proofs; LeanForth wrote none, and nobody has proved SHA-256 as a whole. Not established:
 that `src/lib/sha256.fs` runs this code (it defines the same words with
 the same text but does not load this file yet, the stage's next step), and
 on 64-bit hosts its round and schedule do not call these words at all

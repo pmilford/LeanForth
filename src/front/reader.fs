@@ -56,10 +56,9 @@ end-structure
 : lfn-arg-new ( app -- ) syn-arg-new lfa-e-syntax-full lfa-must ;
 
 \ Syntax values.
-lfa-kind-const 1+ constant lfn-kind-syntax
-: lfn-value ( node -- value ) lfn-kind-syntax swap 0 lfa-item-new ;
+: lfn-value ( node -- value ) lfa-kind-syntax swap 0 lfa-item-new ;
 : lfn-item ( item -- node )
-  dup lfa-item-kind @ lfn-kind-syntax = lfa-e-universe-term lfa-must lfa-item-first @ ;
+  dup lfa-item-kind @ lfa-kind-syntax = lfa-e-universe-term lfa-must lfa-item-first @ ;
 : lfn-numeral ( n -- node ) syn-k-num lfa-numeral-at lfn-new swap syn-a! ;
 \ A value or a number taken from the stack, as a node.
 : lfn>syntax ( cell -- node ) dup 0< if lfa-take lfn-item else lfn-numeral then ;
@@ -129,15 +128,21 @@ defer lfn-library-arity ( name -- arity unfolds? true | false )
 : lfn-w-app ( f a -- t ) 2 lfa-args lfn-two >r lfn-function r> lfn-arg-add lfn-value ;
 
 \ Operator words: Lean's macro (binop% or binrel%) of a constant, over
-\ two values; the constant's row in the notation table must spell it as
-\ the word is spelt.
+\ two values. An operator is a word op ( -- kind c-addr u ) that gives
+\ the macro's kind and the constant's name; the constant's row in the
+\ notation table must spell it as the word is spelt.
 : lfn-operands ( node lhs rhs -- node ) >r syn-b! r> syn-c! ;
-: lfn-operator ( a b kind c-addr u -- t )
-  lfa-intern >r >r lfn-two r> lfa-here lfn-new -rot lfn-operands r> syn-a! lfn-value ;
-: lfn-w-add ( a b -- t ) 2 lfa-args syn-k-binop s" HAdd.hAdd" lfn-operator ;
-: lfn-w-mul ( a b -- t ) 2 lfa-args syn-k-binop s" HMul.hMul" lfn-operator ;
-: lfn-w-eq ( a b -- t ) 2 lfa-args syn-k-binrel s" Eq" lfn-operator ;
-: lfn-w-le ( a b -- t ) 2 lfa-args syn-k-binrel s" LE.le" lfn-operator ;
+: lfn-operator ( a b op -- t )
+  >r lfn-two r> execute lfa-intern >r lfa-here lfn-new -rot lfn-operands
+  r> syn-a! lfn-value ;
+: lfn-op-add ( -- kind c-addr u ) syn-k-binop s" HAdd.hAdd" ;
+: lfn-op-mul ( -- kind c-addr u ) syn-k-binop s" HMul.hMul" ;
+: lfn-op-eq ( -- kind c-addr u ) syn-k-binrel s" Eq" ;
+: lfn-op-le ( -- kind c-addr u ) syn-k-binrel s" LE.le" ;
+: lfn-w-add ( a b -- t ) 2 lfa-args ['] lfn-op-add lfn-operator ;
+: lfn-w-mul ( a b -- t ) 2 lfa-args ['] lfn-op-mul lfn-operator ;
+: lfn-w-eq ( a b -- t ) 2 lfa-args ['] lfn-op-eq lfn-operator ;
+: lfn-w-le ( a b -- t ) 2 lfa-args ['] lfn-op-le lfn-operator ;
 \ An infix spelling is the operator with a blank on each side (" + ").
 : lfn-inner ( c-addr u -- c-addr' u' ) dup 2 < if exit then 1 /string 1- ;
 : lfn-spelt? ( c-addr u word-addr word-u -- flag )
@@ -159,8 +164,7 @@ s" LE.le" lfn-notation ≤
 
 \ := takes the statement, as in the kernel form (author/declarations.fs).
 : lfn-w-define ( -- )
-  lfa-definable? lfa-e-define-here lfa-must 1 lfa-e-statement lfa-exactly
-  lfa-params-tight lfn>syntax lfn-decl lfn-decl-statement ! lfa-depth lfa-params! ;
+  lfa-define-check lfn>syntax lfn-decl lfn-decl-statement ! lfa-define-done ;
 \ by: right after := (no value and no binder since), once.
 : lfn-by-here? ( -- flag )
   lfa-above 0= lfa-inside? and lfa-params 0< 0= and lfa-depth lfa-params = and
@@ -169,15 +173,12 @@ s" LE.le" lfn-notation ≤
 \ end NAME of a declaration: the proof (or an axiom's statement) is in
 \ place, and elaboration is what comes next (plan FE1e-f).
 : lfn-proof-shape ( above -- )
-  lfa-params 0< 0= lfa-e-no-define lfa-must lfa-same-binders
-  lf-front-by 0< if 1 = else 0= then lfa-e-proof lfa-must ;
+  lfa-proof-ready lf-front-by 0< if 1 = else 0= then lfa-e-proof lfa-must ;
 : lfn-shape ( above -- )
   lfa-this-kind lf-decl-def > if 1 = lfa-e-statement lfa-must else lfn-proof-shape then ;
 : lfn-end-declaration ( above c-addr u -- )
   lfa-end-check lfn-shape lfa-e-elaborate lfa-fail ;
-: lfn-w-end ( -- )
-  lfa-above parse-name dup 0<> lfa-e-no-name lfa-must lfa-read!
-  lfa-inside? if lfn-end-declaration else rot drop lfa-end-namespace then ;
+: lfn-w-end ( -- ) lfa-end-head ['] lfn-end-declaration lfa-end-tail ;
 
 \ The natural meanings (author/groups.fs, lfa-natural!).
 ' lfn-w-tick lfa-natural! '

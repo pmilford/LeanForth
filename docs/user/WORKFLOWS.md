@@ -110,26 +110,29 @@ What each step means for you:
 
 ## Verifying a Forth program
 
-You write an ordinary Forth word and state its contract. LeanForth
-translates the word into a small intermediate language (the program IR),
-whose meaning is defined in Lean, produces proof obligations from the
-contract, checks their proofs, and writes a receipt that keeps three
-answers apart: was a proof *checked*, are the obligations *verified*, and
-did the word *run* correctly in tests.
+Today, for the committed example words, the program words write the
+program IR (a small intermediate language whose meaning is defined in
+Lean), a Python generator writes the proof obligations from the contract,
+Lean writes and checks the proofs, and, for clamp, LeanForth's checker
+re-checks Lean's export and a Python script writes a receipt that keeps
+three answers apart: was a proof *checked*, are the obligations *proved*,
+and did the word *run* correctly in tests. No command does this for your
+own word: `leanforth verify` (plan 8.4.1) is not started and does not
+exist. The box drawn with a dashed outline below is that missing command.
 
 ```mermaid
 flowchart TD
   fs["Forth source<br/>src/program/clamp.fs, examples.fs"]
   contract["Contract: what the word needs and guarantees<br/>a contract file, e.g. tests/program/contracts/lf-clamp.contract"]
-  rdr["IR reader<br/>src/program/ir-reader.fs<br/>untrusted, named in receipts as trusted-reader"]
+  rdr["Program words<br/>src/program/verify.fs<br/>untrusted, named in receipts as trusted-reader"]
   ir["Program IR 0.1, text form<br/>tests/program/ir/"]
   model["IR semantics in Lean<br/>tests/reference/program-ir.lean<br/>proves each word's IR equals its reference model"]
   interp["IR interpreter vs host word vs Lean model<br/>src/program/ir-run.fs, task 2.5.4"]
   vc["Verification-condition generator v0<br/>obligations from IR and contract<br/>scripts/program_vc.py, untrusted, task 2.5.5"]
-  leanchk["Proofs checked by Lean<br/>labelled: not by LeanForth"]
-  lfchk["Proofs checked by the LeanForth checker<br/>phase 5, with data types"]
+  leanchk["Proofs written and checked by Lean<br/>tactic scripts from the generator"]
+  lfchk["Lean's proofs exported with their closure<br/>re-checked by the LeanForth checker<br/>bin/leanforth check, task 5.5.1, clamp"]
   run["RUN: tests on Gforth<br/>make test-program<br/>testing is not proof"]
-  receipt["Receipt, schema 0.2<br/>check, verify and run kept apart<br/>first receipt: clamp, task 2.5.6"]
+  receipt["Receipt, schema 0.3<br/>check, verify and run kept apart<br/>clamp: LeanForth's verdict, task 5.5.1"]
 
   fs --> rdr --> ir
   ir --> model --> leanchk
@@ -137,28 +140,30 @@ flowchart TD
   ir --> vc
   contract --> vc
   vc --> leanchk
-  vc --> lfchk
+  leanchk --> lfchk
   fs --> run
-  leanchk --> receipt
   lfchk --> receipt
   interp --> receipt
   run --> receipt
 
-  classDef planned stroke-dasharray: 6 4
+  cmd["leanforth verify<br/>plan 8.4.1, not started"]
+  cmd -.-> fs
+
   classDef gate stroke-width: 3px
-  class lfchk planned
   class lfchk gate
+  classDef missing stroke-dasharray: 5 5
+  class cmd missing
 ```
 
 What exists today, for the six example words (clamp, checked add, checked
 abs, in-range, factorial, gcd):
 
-- The **IR reader** translates their source into IR 0.1 with the source
+- The **program words** (`src/program/verify.fs`; the earlier `src/program/ir-reader.fs` is kept for comparison) translate their source into IR 0.1 with the source
   location of every token, and refuses anything outside IR 0.1 with a
   diagnostic ([program IR](../programming/PROGRAM_IR.md)).
 - **Lean proves**, for every cell width, that each word's IR returns
   exactly what its reference model returns, and refutes two deliberately
-  wrong programs. These proofs are checked by Lean, not by LeanForth.
+  wrong programs. These proofs are written and checked by Lean, not by LeanForth.
 - **Runtime tests** compare the host words with Lean models on finite
   input tables.
 - The **IR interpreter** runs IR as the Lean model does and agrees with
@@ -168,11 +173,16 @@ abs, in-range, factorial, gcd):
   into Lean obligations; Lean proves them for clamp, checked add, checked
   abs and in-range, and refutes three wrong contracts
   ([verification conditions](../programming/PROGRAM_VC.md)).
-- The **receipt format** exists as a JSON Schema
+- For **clamp**, Lean's exporter writes the contract theorem and its two
+  obligations with every declaration they use (4,277), and **LeanForth's
+  checker re-checks that export** and accepts it; an export whose program IR
+  term, postcondition or proof term was changed after Lean proved it is
+  rejected (plan 5.5.1). Lean wrote the proofs; LeanForth has no tactics
+  yet and wrote no proof.
+- The **receipt format** exists as a JSON Schema, version 0.3
   ([program receipts](../programming/PROGRAM_RECEIPTS.md)), and the first
-  receipt, for clamp, is generated: *checked by the Lean reference, not by
-  LeanForth*, obligations discharged, 986 runs passed. The reader and the
-  format await the owner's review gates.
+  receipt, for clamp, is generated: `accepted-by-leanforth` (LeanForth's
+  verdict on Lean's proofs), obligations discharged, 986 runs passed.
 
 Not established: that Gforth runs the words as the IR semantics says (the
 interpreter comparison tests it; testing is not proof), that the reader's

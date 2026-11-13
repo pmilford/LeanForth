@@ -7,7 +7,7 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/author/constants.fs": {
-   "blocks": 16,
+   "blocks": 7,
    "never_run": 0
   },
   "src/author/declarations.fs": {
@@ -39,7 +39,7 @@
    "never_run": 0
   },
   "src/author/namespaces.fs": {
-   "blocks": 176,
+   "blocks": 174,
    "never_run": 1,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
@@ -69,22 +69,22 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/cli/check-json.fs": {
-   "blocks": 299,
+   "blocks": 302,
    "never_run": 12,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/cli/check-lf.fs": {
    "blocks": 179,
-   "never_run": 9,
-   "reason": "new file (plan 8.2.1c-d; agent LF2, 2026-11-12): four refusals no input reaches: a library declaration without levelParams (the stage refuses every named declaration without them: named-ok?, src/import/stage-records.fs:443-445), the stage refused at stage-init (no heap), stage-extend after a library read that succeeded, the stores' capacity settings refused; and (plan FE1a, branch fe1) five branches of lfc-arity no Init-slice constant reaches: a name no declaration has (lfc-arity is asked only for library constants), a type head naming no declaration, a telescope ending in a projection or metadata, and a type that may unfold (the fault fe-unfold-ignored is listed as the same gap)"
+   "never_run": 6,
+   "reason": "four refusals no input reaches: a library declaration without levelParams (the stage refuses every named declaration without them: named-ok?, src/import/stage-records.fs:443-445), the stage refused at stage-init (no heap), stage-extend after a library read that succeeded, the stores' capacity settings refused; and (plan FE1a) two branches of lfc-arity no Init-slice constant reaches (measured 6 at the fe1 merge, review fe1ab re-check; fe1d's --elab-data code is fully run)"
   },
   "src/cli/check-run.fs": {
-   "blocks": 903,
-   "never_run": 53,
+   "blocks": 898,
+   "never_run": 60,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/cli/leanforth.fs": {
-   "blocks": 1427,
+   "blocks": 1347,
    "never_run": 114,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
@@ -123,7 +123,7 @@
   },
   "src/core/compact-names.fs": {
    "blocks": 140,
-   "never_run": 4,
+   "never_run": 5,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/core/compact-tier.fs": {
@@ -133,17 +133,17 @@
   },
   "src/core/compact.fs": {
    "blocks": 19,
-   "never_run": 0,
+   "never_run": 3,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/core/constant-references.fs": {
-   "blocks": 355,
+   "blocks": 354,
    "never_run": 18,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/core/constant-term-boundary.fs": {
-   "blocks": 512,
-   "never_run": 26,
+   "blocks": 518,
+   "never_run": 28,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/core/constant-term-scope.fs": {
@@ -153,7 +153,7 @@
   },
   "src/core/derivation-log.fs": {
    "blocks": 686,
-   "never_run": 42,
+   "never_run": 44,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/core/diagnostics.fs": {
@@ -176,18 +176,18 @@
    "never_run": 0
   },
   "src/core/level-scope.fs": {
-   "blocks": 187,
-   "never_run": 6,
+   "blocks": 182,
+   "never_run": 7,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/core/levels.fs": {
    "blocks": 182,
-   "never_run": 8,
+   "never_run": 10,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/core/literals.fs": {
    "blocks": 86,
-   "never_run": 8,
+   "never_run": 14,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/core/local-context.fs": {
@@ -243,8 +243,8 @@
    "never_run": 0
   },
   "src/core/terms.fs": {
-   "blocks": 694,
-   "never_run": 46,
+   "blocks": 692,
+   "never_run": 47,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/core/unsupported-forms.fs": {
@@ -254,8 +254,13 @@
   },
   "src/front/dag-walk.fs": {
    "blocks": 76,
-   "never_run": 5,
-   "reason": "new file (plan FE1a-b, branch fe1, 2026-11-12): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded, a child beyond the walk memo and the reader default finder before cli/check-lf.fs sets it are never run"
+   "never_run": 4,
+   "reason": "new file (plan FE1a-b, 2026-11-12; tightened at the merge, review fe1ab re-check): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded and the reader default finder before cli/check-lf.fs sets it are never run"
+  },
+  "src/front/elab-data.fs": {
+   "blocks": 534,
+   "never_run": 4,
+   "reason": "new file (plan FE1d, 2026-11-12): four refusals no test input reaches: a name lookup that fails in an open tier (ed-looked, error 23), a tier name beyond the stage's name-to-declaration array (ed-decls), no room while the eliminators' table grows (the allocation-refusal test reads 4 eliminators), and a THROW inside a read (ed-caught)"
   },
   "src/front/instantiate.fs": {
    "blocks": 288,
@@ -279,8 +284,8 @@
   },
   "src/front/mvars.fs": {
    "blocks": 429,
-   "never_run": 5,
-   "reason": "new file (plan FE1a-b, branch fe1, 2026-11-12): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded, a child beyond the walk memo and the reader default finder before cli/check-lf.fs sets it are never run"
+   "never_run": 4,
+   "reason": "new file (plan FE1a-b, 2026-11-12; tightened at the merge, review fe1ab re-check): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded and the reader default finder before cli/check-lf.fs sets it are never run"
   },
   "src/front/reader.fs": {
    "blocks": 147,
@@ -327,7 +332,7 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/import/run-record.fs": {
-   "blocks": 501,
+   "blocks": 503,
    "never_run": 19,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
@@ -337,23 +342,23 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/import/snapshot-layer.fs": {
-   "blocks": 485,
-   "never_run": 77,
+   "blocks": 479,
+   "never_run": 96,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/import/snapshot-tier.fs": {
    "blocks": 644,
-   "never_run": 43,
+   "never_run": 47,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/import/stage-records.fs": {
    "blocks": 461,
-   "never_run": 30,
+   "never_run": 33,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/import/stage.fs": {
-   "blocks": 310,
-   "never_run": 6,
+   "blocks": 297,
+   "never_run": 9,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/caches.fs": {
@@ -367,7 +372,7 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/check-declaration.fs": {
-   "blocks": 307,
+   "blocks": 304,
    "never_run": 10,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
@@ -377,13 +382,13 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/env-import.fs": {
-   "blocks": 415,
-   "never_run": 29,
+   "blocks": 412,
+   "never_run": 37,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/env-layers.fs": {
-   "blocks": 372,
-   "never_run": 22,
+   "blocks": 371,
+   "never_run": 36,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/env-publish.fs": {
@@ -392,8 +397,8 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/env-schedule.fs": {
-   "blocks": 695,
-   "never_run": 73,
+   "blocks": 688,
+   "never_run": 76,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/env-signature.fs": {
@@ -402,7 +407,7 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/env-snapshot.fs": {
-   "blocks": 862,
+   "blocks": 814,
    "never_run": 58,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
@@ -438,7 +443,7 @@
   },
   "src/kernel/iota.fs": {
    "blocks": 508,
-   "never_run": 66,
+   "never_run": 67,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/level-compare.fs": {
@@ -571,12 +576,12 @@
   },
   "src/lib/bytes.fs": {
    "blocks": 209,
-   "never_run": 4,
+   "never_run": 6,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/lib/cons.fs": {
    "blocks": 208,
-   "never_run": 8,
+   "never_run": 11,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/lib/context.fs": {
@@ -605,7 +610,7 @@
   },
   "src/lib/json.fs": {
    "blocks": 513,
-   "never_run": 6,
+   "never_run": 8,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/lib/lib.fs": {
@@ -647,12 +652,12 @@
   },
   "src/lib/slab.fs": {
    "blocks": 176,
-   "never_run": 3,
+   "never_run": 6,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/lib/store-columns.fs": {
    "blocks": 68,
-   "never_run": 3,
+   "never_run": 4,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/lib/store.fs": {
@@ -683,8 +688,8 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/binder-table.fs": {
-   "blocks": 194,
-   "never_run": 6,
+   "blocks": 188,
+   "never_run": 7,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/latex-text.fs": {
@@ -693,18 +698,18 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/log-check.fs": {
-   "blocks": 205,
-   "never_run": 8,
+   "blocks": 187,
+   "never_run": 10,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/log-view.fs": {
-   "blocks": 755,
-   "never_run": 45,
+   "blocks": 754,
+   "never_run": 99,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/notation-table.fs": {
-   "blocks": 57,
-   "never_run": 0,
+   "blocks": 50,
+   "never_run": 1,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/note-table.fs": {
@@ -738,8 +743,8 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/print-notation.fs": {
-   "blocks": 249,
-   "never_run": 6,
+   "blocks": 231,
+   "never_run": 30,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/print-strings.fs": {
@@ -753,7 +758,7 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/proof-outline.fs": {
-   "blocks": 911,
+   "blocks": 912,
    "never_run": 110,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
@@ -763,7 +768,7 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/term-printer.fs": {
-   "blocks": 495,
+   "blocks": 494,
    "never_run": 8,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },

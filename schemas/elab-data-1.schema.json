@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/pmilford/LeanForth/schemas/elab-data-1.schema.json",
+  "title": "LeanForth elaboration data, format version 1: one line",
+  "description": "Every line of an elaboration-data file (plan row FE1d; ADR 0021 D10), written by scripts/export-elab.sh with pinned Lean 4.35.0 for a Lean export and read by `leanforth check --elab-data FILE` (src/front/elab-data.fs). Line 1 is the header ({\"elab_data\": ...}); every later line is one record: an instance, a default instance, a reducibility status or an eliminator. A name is the array of its parts, root first (Nat.add is [\"Nat\",\"add\"]); a part is a string or a natural number. Documented in docs/programming/ELABORATION_DATA.md. The Forth reader also refuses what a schema cannot say: a header anywhere but on line 1 or a record on line 1, a name that is not exactly one declaration of the export or of the wrong kind, a declaration named twice, two eliminators of one kind for the same types, numbers of records or a SHA-256 of the records that differ from the header, another export's SHA-256, and repeated keys.",
+  "$comment": "Uses only the keywords that tests/support/schema_subset.py implements.",
+  "anyOf": [
+    {"$ref": "#/$defs/header"},
+    {"$ref": "#/$defs/instance"},
+    {"$ref": "#/$defs/default_instance"},
+    {"$ref": "#/$defs/reducibility"},
+    {"$ref": "#/$defs/eliminator"}
+  ],
+  "$defs": {
+    "name": {
+      "description": "A Lean name: its parts, root first, each a string or a natural number below 2^32 (a larger part names no declaration of an export LeanForth reads).",
+      "type": "array", "minItems": 1,
+      "items": {"anyOf": [{"type": "string"}, {"type": "integer", "minimum": 0}]}
+    },
+    "u32": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+    "count": {"type": "integer", "minimum": 0},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "header": {
+      "type": "object", "additionalProperties": false, "required": ["elab_data"],
+      "properties": {"elab_data": {
+        "type": "object", "additionalProperties": false,
+        "required": ["format", "format_version", "lean_version", "lean_githash", "export_sha256",
+          "modules", "records", "records_sha256"],
+        "properties": {
+          "format": {"const": "leanforth-elab-data"},
+          "format_version": {"const": 1},
+          "lean_version": {"const": "4.35.0"},
+          "lean_githash": {"const": "eb6cafb7290e8bd5f2937522d8d804f58f02bafc"},
+          "export_sha256": {"description": "The SHA-256 of the Lean export the data belongs to, as its manifest records it.", "$ref": "#/$defs/sha256"},
+          "modules": {"description": "The modules exported.", "type": "array", "items": {"type": "string"}},
+          "records": {
+            "description": "The records of each kind on the lines that follow.",
+            "type": "object", "additionalProperties": false,
+            "required": ["instance", "default_instance", "reducibility", "eliminator"],
+            "properties": {
+              "instance": {"$ref": "#/$defs/count"},
+              "default_instance": {"$ref": "#/$defs/count"},
+              "reducibility": {"$ref": "#/$defs/count"},
+              "eliminator": {"$ref": "#/$defs/count"}
+            }
+          },
+          "records_sha256": {"description": "The SHA-256 of every line after the header, each with its line feed.", "$ref": "#/$defs/sha256"}
+        }
+      }}
+    },
+    "instance": {
+      "type": "object", "additionalProperties": false, "required": ["instance"],
+      "properties": {"instance": {
+        "description": "An instance (Lean's instance attribute): the declaration, its class (an inductive type), its priority and the order in which its arguments are synthesized.",
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "class", "priority", "synth_order"],
+        "properties": {
+          "name": {"$ref": "#/$defs/name"},
+          "class": {"$ref": "#/$defs/name"},
+          "priority": {"$ref": "#/$defs/u32"},
+          "synth_order": {"type": "array", "items": {"$ref": "#/$defs/u32"}}
+        }
+      }}
+    },
+    "default_instance": {
+      "type": "object", "additionalProperties": false, "required": ["default_instance"],
+      "properties": {"default_instance": {
+        "description": "A default instance (Lean's default_instance attribute): its class, the instance and its priority.",
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "class", "priority"],
+        "properties": {
+          "name": {"$ref": "#/$defs/name"},
+          "class": {"$ref": "#/$defs/name"},
+          "priority": {"$ref": "#/$defs/u32"}
+        }
+      }}
+    },
+    "reducibility": {
+      "type": "object", "additionalProperties": false, "required": ["reducibility"],
+      "properties": {"reducibility": {
+        "description": "A declaration whose reducibility status (Lean's getReducibilityStatus) is not the default, semireducible.",
+        "type": "object", "additionalProperties": false, "required": ["name", "status"],
+        "properties": {
+          "name": {"$ref": "#/$defs/name"},
+          "status": {"enum": ["reducible", "irreducible", "implicit_reducible", "instance_reducible"]}
+        }
+      }}
+    },
+    "eliminator": {
+      "type": "object", "additionalProperties": false, "required": ["eliminator"],
+      "properties": {"eliminator": {
+        "description": "A custom eliminator: induction for @[induction_eliminator], cases for @[cases_eliminator]; the eliminator and the head constants of its explicit targets' types, Lean's key.",
+        "type": "object", "additionalProperties": false, "required": ["kind", "name", "types"],
+        "properties": {
+          "kind": {"enum": ["induction", "cases"]},
+          "name": {"$ref": "#/$defs/name"},
+          "types": {"type": "array", "items": {"$ref": "#/$defs/name"}}
+        }
+      }}
+    }
+  }
+}

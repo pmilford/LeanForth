@@ -8,17 +8,18 @@ the files named below on the day it was written; nothing here is new
 behaviour.
 
 The short answer: the three `+` never share a name, and the one theorem
-that says when they agree is checked. **Forth's `+` wraps around at the
+that says when they agree is proved by Lean. **Forth's `+` wraps around at the
 cell size. The program track's model of it wraps the same way. Lean's
-mathematical `+` never wraps.** A program is verified against a stated
-contract about its *Forth* `+`, so an overflow shows up as a failed
+mathematical `+` never wraps.** A program's contract is stated
+about its *Forth* `+`, so an overflow shows up as a failed
 contract, not as a silent change of meaning.
 
 Words used here: a *cell* is the unit a Forth stack holds (64 bits on the
 development host, Gforth 1.0 on Linux); *wrapping* means that a result too
 large for the cell comes back around, so that the largest cell plus 1 is
-the smallest cell (two's complement); the *program track* is the part of
-LeanForth that checks Forth programs against Lean models of them (the
+the smallest cell (two's complement); the *program track* is the part of the
+project in which Lean proves that a Forth word's IR meets its contract (for
+clamp, LeanForth re-checks Lean's proof) (the
 [program IR](../programming/PROGRAM_IR.md), [ADR 0019](../adr/0019-program-words-two-modes.md)).
 
 ## The three, in three forms

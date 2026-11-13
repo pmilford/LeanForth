@@ -26,6 +26,8 @@ output, in
 [two-mode-prototype-2026-11-03](../development/measurements/two-mode-prototype-2026-11-03/README.md).
 The design still passes the [parser] gate before any code relies on it.
 
+Approval status: accepted 2026-11-03, gate: design (adopted in direction), [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Gate answers and working guidelines (2026-11-03)"; parser gate 2026-11-04, section "Program words and run records approved (2026-11-04)"
+
 **Implemented, 2026-11-03, before the [parser] gate** (first follow-up
 below): both designs for IR 0.1 in `src/program/`, the mode shift
 (`verify.fs`) primary and the separate vocabulary (`verify-alias.fs`)
@@ -1050,6 +1052,8 @@ each host reads odd tokens with only one word list visible),
 from the same folder.
 
 ## Amendment 1 (proposed): IR 0.2, redefinition, output words and SHA-2
+
+Approval status: accepted 2026-11-04, gate: parser (design, then implementation), [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "IR 0.2 design approved (2026-11-04)"; implementation: section "IR 0.2 implementation approved (2026-11-04, late)"; the word proposed in the heading or Status line below was true when written
 
 **Status: approved in design by the owner on 2026-11-04 [parser];
 implemented the same day, before its [parser] implementation gate (below).**

@@ -991,6 +991,38 @@ Forth reviews of lf-files and lf-files-2 with re-checks, not blocking (LOG.md); 
 (no elaborator or tactics yet).
 
 
+### Program track: LeanForth re-checks Lean's program proofs (2026-11-12, evening; plan 5.5.1)
+
+The owner approved both gates, choosing each recommendation, after the done check
+(done-checks/2026-11-12-program-track.md: works end to end):
+
+- **[bypass]:** the clamp receipt relies on Lean's elaborator and exporter having written the contract and the program
+  faithfully (assumption A6, stated in every receipt; supported by Lean printing the program back equal to the IR file).
+  Lean wrote and checked the proofs; LeanForth's checker re-checked the export (4,277 declarations) and rejects changed
+  program, contract and proof copies; the same for the four SHA helper words' proofs (2,890 declarations).
+- **[runtime]:** the receipt's runtime assumptions as stated: one 64-bit two's-complement cell per value, the IR means
+  what the Forth source does, Gforth runs the 13 words used as the IR says (tested on 986 cases, not proved), the stacks
+  have room.
+- Receipt schema 0.3 drops the label (the owner's no-label decision); SHA receipts take 0.4 at its [format] gate.
+  Nobody has proved SHA-256 as a whole, and `leanforth verify` (8.4.1) does not exist.
+
+### Kernel refactor edit (2026-11-12, evening; [kernel] gate)
+
+The owner approved, on condition of the re-check, the one src/kernel edit of the FRI refactor: `src/kernel/env-schedule.fs`'s
+private `lf-sch-and` replaced by the identical library word `outcome-and` (lib/outcome.fs). The re-check confirmed it
+behaviour-identical (same body `over ok? if nip else drop then`, same stack effect, same argument order at every call
+site; faults frk-sched-add-pushes-first and frk-sched-outcomes-ored caught). Review: forth-reviews/2026-11-12-refactor-fri.md.
+
+### Order and snapshot stability (2026-11-12, late evening)
+
+- **FE6a early:** the generated definitions of inductive types (casesOn, recOn, noConfusion, below, brecOn), compared
+  node for node with Lean's for every inductive type of Init, may start before FE1-FE5 (branch fe6a), because it is
+  independent and later steps need it.
+- **Snapshot stability first tomorrow:** the owner wants to stop regenerating the Mathlib snapshot so often. Plan
+  6.2.5c (read snapshots of the previous one or two format and verdict versions, reusing only results a change cannot
+  affect) is the first infrastructure task of 2026-11-13. Any future snapshot addition (such as elaboration data) is
+  added as an optional section; refactors must keep snapshot bytes identical.
+
 ### No result labels (2026-11-12, evening)
 
 The owner: "I find the constant repetition of experimental and not independently audited, one NOT PROVED not useful.

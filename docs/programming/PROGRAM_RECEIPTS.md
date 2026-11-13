@@ -1,15 +1,19 @@
-# Program receipts, schema version 0.2
+# Program receipts, schema version 0.3
 
-**Status: version 0.2 approved by the owner on 2026-11-03 ([format] gate;
-schema SHA-256 `bb76793e1cba339d…`, pinned by a test; any change is a new
-version). Implemented as a schema with examples, a validator and a strict
-reader (version 0.2, 2026-11-03; the draft 0.1 of 2026-11-02, task 2.5.1
-of the [plan draft](../project/PLAN_DRAFT.md), is superseded and refused).
-The clamp
-receipt of task 2.5.6 is generated** by `scripts/program_receipt.py` from
-the actual checks ([verification conditions and the clamp
-receipt](PROGRAM_VC.md)). The format falls under the *[format]* review gate
-of `AGENTS.md`: it is a proposal until the owner approves it.
+**Status: version 0.3 (2026-11-12) is version 0.2 without `check.label`,
+a [format] change the owner decided on 2026-11-12, when results stopped
+carrying a label (check reports 0.4 and 0.5 and run records 0.3 dropped it
+the same day). Version 0.2, approved by the owner on 2026-11-03 ([format]
+gate; schema SHA-256 `bb76793e1cba339d…`), stays unchanged and readable;
+the draft 0.1 of 2026-11-02 is superseded and refused. Implemented as
+schemas with examples, a validator and a strict reader. The clamp receipt
+is generated** by `scripts/program_receipt.py` from the actual checks
+([verification conditions and the clamp receipt](PROGRAM_VC.md)). Since
+plan task 5.5.1 (2026-11-12) its CHECK part is LeanForth's verdict: Lean
+wrote the proofs, its exporter wrote them with every declaration they use,
+and LeanForth's checker (`bin/leanforth check`) re-checked that export.
+Receipts for IR 0.2 programs (the SHA-256 helper words) will take version
+0.4 at the owner's [format] gate ([below](#schema-04-what-ir-02-receipts-need)).
 
 A program receipt records what is known about one Forth word, and on what
 it rests. It answers three separate questions and never merges them into
@@ -27,22 +31,29 @@ look at all three parts and at the assumptions; that is deliberate
 (`AGENTS.md`: compiled code and runtimes are trusted boundaries to report,
 and a source proof does not verify them).
 
-- **Schema:** [`schemas/program-receipt-0.2.schema.json`](../../schemas/program-receipt-0.2.schema.json)
+- **Schema:** [`schemas/program-receipt-0.3.schema.json`](../../schemas/program-receipt-0.3.schema.json)
   (JSON Schema draft 2020-12, subset below; its patterns are also valid
-  ECMA-262 expressions for the `u` flag). The superseded draft 0.1,
+  ECMA-262 expressions for the `u` flag). Version 0.2,
+  [`schemas/program-receipt-0.2.schema.json`](../../schemas/program-receipt-0.2.schema.json),
+  is kept unchanged and still read; the superseded draft 0.1,
   [`schemas/program-receipt-0.1.schema.json`](../../schemas/program-receipt-0.1.schema.json),
   is kept unchanged as a record only: the reader refuses every receipt
   that names it ([versioning](#versioning)).
 - **The generated receipt:** [`tests/program/receipts/generated/lf-clamp.json`](../../tests/program/receipts/generated/lf-clamp.json)
-  and its [printed form](../../tests/program/receipts/generated/lf-clamp.md).
+  and its [printed form](../../tests/program/receipts/generated/lf-clamp.md),
+  from the evidence [`lf-clamp-evidence.json`](../../tests/program/receipts/generated/lf-clamp-evidence.json)
+  and the pinned export's manifest
+  [`tests/program/vc/lf-clamp.ndjson.manifest.json`](../../tests/program/vc/lf-clamp.ndjson.manifest.json).
 - **Examples:** [`tests/program/receipts/`](../../tests/program/receipts/):
   three valid hand-written receipts (clamp checked by the Lean reference
-  without obligations; gcd with nothing checked or run yet; the shape a
-  phase 5 receipt checked by LeanForth will have) and four invalid ones,
-  each rejected for one pinned reason. The 0.1 examples and the 0.1 clamp
-  receipt are kept in [`tests/program/receipts/0.1/`](../../tests/program/receipts/0.1/)
-  as a record, and the reader refuses them. Hand-written examples are never
-  evidence.
+  without obligations; gcd with nothing checked or run yet; the shape of a
+  receipt checked by LeanForth) and four invalid ones, each rejected for
+  one pinned reason, one of them a 0.3 receipt with the withdrawn label put
+  back. The 0.2 examples and the 0.2 clamp receipt (checked by the Lean
+  reference, before 5.5.1) are kept in [`tests/program/receipts/0.2/`](../../tests/program/receipts/0.2/),
+  read but not rebuilt; the 0.1 ones in [`tests/program/receipts/0.1/`](../../tests/program/receipts/0.1/)
+  as a record, and the reader refuses them. Hand-written examples are
+  never evidence.
 - **Validator:** [`tests/support/schema_subset.py`](../../tests/support/schema_subset.py),
   Python standard library only.
 - **Reader:** `scripts/program_receipt.py validate` reads a receipt
@@ -69,40 +80,51 @@ Take `lf-clamp ( value lower upper -- result true | false )`.
 
 Its generated receipt says:
 
-- **check: `checked-by-lean-reference`.** Lean 4.35.0 checked
+- **check: `accepted-by-leanforth`.** Lean 4.35.0 wrote the proofs of
   `ProgramVC.LfClamp0.contract`, `ProgramVC.LfClamp0.O1` and
-  `ProgramVC.LfClamp0.O2`. Each theorem lists its own axioms (`O1`:
-  propext and Quot.sound; the other two also Classical.choice), and
-  `check.axioms` lists their union. The label must read *checked by the
-  Lean reference, not by LeanForth*: LeanForth's own checker cannot check
-  programs before data types arrive (phase 5, owner answer OQ-5).
-- **verify: `discharged`, settled by `checked-by-lean-reference`.** The
+  `ProgramVC.LfClamp0.O2`, from the tactic scripts the untrusted generator
+  wrote, and its exporter (`scripts/export.sh`) wrote them with every
+  declaration they use, 4,277 in all, to an export of 23.6 MB that the
+  committed manifest `tests/program/vc/lf-clamp.ndjson.manifest.json` pins
+  (SHA-256 `b53290b4…`; `make check` makes it again, byte for byte).
+  LeanForth's checker (`bin/leanforth check --jobs 2`, LeanForth
+  0.1.0-dev, verdict version 9) re-checked that export and accepted all
+  4,277 declarations: the status is LeanForth's verdict. Each theorem
+  lists its axioms as LeanForth reports them (`O1`: propext and
+  Quot.sound; the other two also Classical.choice), and `make check`
+  requires them to equal Lean's own `#print axioms`; `check.axioms` lists
+  their union. LeanForth has no tactics yet: it wrote no proof.
+- **verify: `discharged`, settled by `accepted-by-leanforth`.** The
   untrusted generator `scripts/program_vc.py` produced two obligations from
-  the IR and the contract, one per path through the word; Lean discharged
-  each with the theorem named with it. `verify.settledBy` says which check
-  did that: the Lean reference, not LeanForth.
+  the IR and the contract, one per path through the word; each is
+  discharged by the theorem named with it, which Lean proved and
+  LeanForth's checker accepted.
 - **run: `passed`.** The three-way runtime comparison ran 986 cases on
   Gforth 1.0.0, Linux x86-64, 64-bit cells, with 0 failures; Lean's model
-  agreed on all 991 clamp cases. The label must read *runtime-tested;
+  agreed on all 991 clamp cases. The run label reads *runtime-tested;
   testing is not proof*.
 
-and lists seven assumptions: one signed host cell per value, two's
+and lists eight assumptions: one signed host cell per value, two's
 complement, the program words (`src/program/verify.fs`, ADR 0019's mode
-shift; since 2026-11-03, in place of today's reader) wrote the IR from the
-source faithfully (`trusted-reader`; renaming that kind is a question for
-the [format] gate), Gforth executes the words as the IR semantics says
-(`trusted-runtime`), the stacks have room, Lean checked the theorems
-correctly (`trusted-lean`), and the obligations come from an untrusted
-generator, safe only because the contract theorem is stated against the IR
-semantics (`untrusted-generator`).
+shift) wrote the IR from the source faithfully (`trusted-reader`), Gforth
+executes the words as the IR semantics says (`trusted-runtime`), the
+stacks have room, Lean elaborated the Lean source and its exporter wrote
+the export faithfully, so that the statement, the IR semantics and the
+program LeanForth checked mean what the source says (`trusted-lean`; Lean's
+own check of the proofs is not relied on), the obligations come from an
+untrusted generator, safe only because the contract theorem is stated
+against the IR semantics (`untrusted-generator`), and LeanForth's checker
+checked every declaration of the export correctly (`trusted-leanforth`).
 
-When LeanForth's checker accepts the obligations (phase 5), `check` becomes
-`accepted-by-leanforth` with the label *experimental — not independently
-audited* and the assumption that LeanForth's checker accepted the proofs
-correctly (`trusted-leanforth`), and `verify.settledBy` becomes
-`accepted-by-leanforth`; `valid-clamp-future-leanforth.json` shows the
-shape. `run` stays separate: a source proof says nothing about the compiler
-or the runtime.
+A receipt never says more than LeanForth's verdict. When LeanForth rejects
+one of the theorems, `check` is `rejected` (`unsupported` for unknown or
+unsupported, `failed` when it did not finish), `verify` is `open` with no
+obligation discharged, and there is no `trusted-leanforth` assumption.
+Evidence in which a theorem depends on an axiom outside the allowlist
+(NOT PROVED), in which LeanForth's axioms differ from Lean's, or which is
+about another export than the pinned one gives no receipt at all.
+`tests/program/receipt_check.py` builds each of these cases. `run` stays
+separate: a source proof says nothing about the compiler or the runtime.
 
 ## Rules the schema enforces
 
@@ -113,7 +135,7 @@ status has accepted nothing. A *settled* obligation is `discharged` or
 
 | Rule | Why |
 | --- | --- |
-| Each `check.status` has exactly one label: `not-checked` *not checked*; `checked-by-lean-reference` *checked by the Lean reference, not by LeanForth*; `accepted-by-leanforth` *experimental — not independently audited*; `rejected` *rejected by the checker*; `unsupported` *not supported by the checker*; `failed` *check did not complete* | A failure can never carry a success's label; owner decision 1 labels every accepted result until an outside audit |
+| `check` has no `label` (0.3): a receipt with one is refused, the withdrawn result label included | The owner withdrew result labels on 2026-11-12; `check.status` alone says who checked what, and a failure's status can never be a success's |
 | Each `run.status` has exactly one label: `not-run` *not run*; `passed` *runtime-tested; testing is not proof*; `failed` *runtime tests failed* | A failed or missing run can never carry a pass's label |
 | `checked-by-lean-reference` needs checker `lean`, at least one theorem and one evidence file; `accepted-by-leanforth` the same with checker `leanforth`; any checker is `lean` or `leanforth` | A Lean check can never be passed off as LeanForth's, and a script is not a checker |
 | Each theorem in `check.theorems` lists its own `axioms`, and `check.axioms` their union; axioms may be only `propext`, `Classical.choice` and `Quot.sound`, whatever the status, and only a positive check may name any | The owner's axiom policy, reported per theorem (`AGENTS.md`); `sorryAx` and `Lean.ofReduceBool` can never appear in a receipt |
@@ -136,7 +158,7 @@ evidence**. Generated receipts say `generated` and name the tool.
 ## Rules beyond JSON Schema
 
 JSON Schema cannot compare one field with another, so the reader checks
-these rules of schema 0.2 after the schema (`rule_problems` in
+these rules of schemas 0.2 and 0.3 (they are the same) after the schema (`rule_problems` in
 `scripts/program_receipt.py`):
 
 - assumption ids, obligation ids and theorem names are distinct, and no
@@ -166,12 +188,13 @@ Read the parts, not the prose.
 ```sh
 python3 -I scripts/program_receipt.py validate RECEIPT.json...    # strict JSON, schema, rules
 python3 -I scripts/program_receipt.py verify tests/program/receipts/generated/lf-clamp.json
-python3 -I tests/support/schema_subset.py schemas/program-receipt-0.2.schema.json RECEIPT.json
+python3 -I tests/support/schema_subset.py schemas/program-receipt-0.3.schema.json RECEIPT.json
 ```
 
 `validate` reads each receipt with the strict loader, requires
-`schemaVersion` 0.2, and checks schema 0.2 and the rules beyond JSON
-Schema; `verify` does the same for one receipt and then replays it. A
+`schemaVersion` 0.3 or 0.2, and checks that version's schema and the rules
+beyond JSON Schema; `verify` does the same for one receipt and then
+replays it, which only a 0.3 receipt can pass (the generator writes 0.3). A
 receipt that names the superseded draft 0.1 is refused with its own code:
 0.1 lacks the rules 0.2 added, so reading it would let a receipt escape
 them by naming the older version. Both print nothing and exit 0 when there
@@ -183,7 +206,7 @@ and exit 1 (2 for a usage error). Each line is `FILE: CODE: PATH: MESSAGE`:
 | `unreadable` | The file cannot be opened or is not UTF-8; nothing else is checked |
 | `not-strict-json` | The file is not strict JSON (see below); nothing else is checked |
 | `superseded-version` | `schemaVersion` is `0.1`, a draft that was never approved; nothing else is checked |
-| `unknown-version` | `schemaVersion` is missing or is not `0.2` |
+| `unknown-version` | `schemaVersion` is missing or is neither `0.2` nor `0.3` |
 | `schema` | The schema refuses the receipt; PATH is the JSON path, such as `$.run.label` |
 | `rule` | A rule beyond JSON Schema fails |
 | `replay` (`verify` only) | The field differs from the receipt rebuilt from the repository and the recorded evidence |
@@ -234,12 +257,16 @@ above, and one for every finding of the review of 2026-11-03) and each
 mutation that breaks a rule beyond JSON Schema fails for its stated reason,
 checks the validator's own rules, plants a fault in the validator (it stops
 checking `contains`) and in the rules (they stop finding duplicates) to
-show that the suites catch them, pins schemas 0.1 and 0.2 by their hashes,
+show that the suites catch them, pins schemas 0.1, 0.2 and 0.3 by their
+hashes, checks that every 0.3 receipt validates under 0.2 with its label
+put back and every 0.2 one under 0.3 with it taken out (so 0.3 removed the
+label and nothing else),
 checks that every 0.1 receipt, and each hole 0.2 closed written into a 0.1
 receipt, is refused as `superseded-version`, and checks that the JSON
 receipt below is the generated one. `receipt_check.py`
-checks the generated receipt and that tampered receipts and texts are
-refused by the layer named with each.
+checks the generated receipt, that tampered receipts and texts are
+refused by the layer named with each, and the receipts that LeanForth's
+other verdicts give.
 
 ## A complete receipt
 
@@ -248,15 +275,15 @@ The generated clamp receipt (`tests/program/receipts/generated/lf-clamp.json`):
 ```json
 {
   "schema": "leanforth-program-receipt",
-  "schemaVersion": "0.2",
+  "schemaVersion": "0.3",
   "provenance": {
     "kind": "generated",
     "generator": {
       "name": "python",
-      "version": "program_receipt.py 0.2"
+      "version": "program_receipt.py 0.3"
     },
-    "createdAt": "2026-11-04",
-    "note": "Written by scripts/program_receipt.py from the repository files named below, at the hashes given, and the evidence recorded on 2026-11-04 by make check. A receipt is a statement of evidence, not an approval; it passes no review gate."
+    "createdAt": "2026-11-12",
+    "note": "Written by scripts/program_receipt.py from the repository files named below, at the hashes given, and the evidence recorded on 2026-11-12 by make check. A receipt is a statement of evidence, not an approval; it passes no review gate."
   },
   "program": {
     "word": "lf-clamp",
@@ -282,11 +309,10 @@ The generated clamp receipt (`tests/program/receipts/generated/lf-clamp.json`):
     }
   },
   "check": {
-    "status": "checked-by-lean-reference",
+    "status": "accepted-by-leanforth",
     "checker": {
-      "name": "lean",
-      "version": "4.35.0",
-      "commit": "eb6cafb7290e8bd5f2937522d8d804f58f02bafc"
+      "name": "leanforth",
+      "version": "0.1.0-dev, verdict version 9"
     },
     "theorems": [
       {
@@ -313,7 +339,6 @@ The generated clamp receipt (`tests/program/receipts/generated/lf-clamp.json`):
         ]
       }
     ],
-    "label": "checked by the Lean reference, not by LeanForth",
     "axioms": [
       "propext",
       "Classical.choice",
@@ -327,13 +352,21 @@ The generated clamp receipt (`tests/program/receipts/generated/lf-clamp.json`):
       {
         "path": "scripts/program_vc.py",
         "sha256": "0d53fdfa2b959b6dda8eeed78e9082a811d01fb3a912186f426ba5238faa690b"
+      },
+      {
+        "path": "scripts/export.sh",
+        "sha256": "3ad758381ff3a6312940e696dae2bc423884aeef34c402c43851ccd53f78d855"
+      },
+      {
+        "path": "tests/program/vc/lf-clamp.ndjson.manifest.json",
+        "sha256": "eae3f015023667f0fa8d12e84cd5d2df0c1cb4e0aaf73306790759fd4e026d8d"
       }
     ],
-    "note": "Lean proved ProgramVC.LfClamp0.contract, the contract stated against the IR semantics for every cell width, input and stack below, from the path obligations listed under verify. Checked by Lean 4.35.0, not by LeanForth, whose checker cannot check programs yet."
+    "note": "Lean 4.35.0 wrote the proofs of ProgramVC.LfClamp0.contract and its path obligations, from the tactic scripts of the untrusted generator, and its exporter wrote them with every declaration they use, 4,277 in all, to the export with SHA-256 b53290b494bc90b41646531f05b46adca6ee49d497b934021e011c29ed7df6eb that tests/program/vc/lf-clamp.ndjson.manifest.json pins. LeanForth's checker re-checked that export and accepted all 4,277 of them, these theorems among them: the status is LeanForth's verdict. LeanForth has no tactics yet and wrote no proof."
   },
   "verify": {
     "status": "discharged",
-    "settledBy": "checked-by-lean-reference",
+    "settledBy": "accepted-by-leanforth",
     "generator": {
       "name": "python",
       "version": "program_vc.py 0.1"
@@ -352,7 +385,7 @@ The generated clamp receipt (`tests/program/receipts/generated/lf-clamp.json`):
         "theorem": "ProgramVC.LfClamp0.O2"
       }
     ],
-    "note": "One obligation per path through the word's IR (IF splits a path), generated by an untrusted generator from the IR and the contract; each is discharged by the Lean theorem named with it, checked by the Lean reference, not by LeanForth."
+    "note": "One obligation per path through the word's IR (IF splits a path), generated by an untrusted generator from the IR and the contract; each is discharged by the theorem named with it, which Lean proved and LeanForth's checker accepted."
   },
   "run": {
     "status": "passed",
@@ -415,12 +448,17 @@ The generated clamp receipt (`tests/program/receipts/generated/lf-clamp.json`):
     {
       "id": "A6",
       "kind": "trusted-lean",
-      "text": "Lean 4.35.0, the pinned toolchain, checked the theorems correctly."
+      "text": "Lean 4.35.0, the pinned toolchain, elaborated tests/program/vc/obligations.lean and its exporter (lean4export 3.1.0, through scripts/export.sh) wrote the export faithfully: the contract statement, the IR semantics and the program that LeanForth checked mean what that Lean source says. Lean also wrote the proofs, from the generator's tactic scripts, and checked them itself; that check is not relied on here, since LeanForth's checker checked the export again."
     },
     {
       "id": "A7",
       "kind": "untrusted-generator",
-      "text": "The obligations come from an untrusted generator (scripts/program_vc.py). This is safe only because the contract theorem Lean proved is stated against the IR semantics copied verbatim from tests/reference/program-ir.lean, and Lean prints the generated program back equal to the IR file; lf-clamp's proof is not checked by LeanForth."
+      "text": "The obligations come from an untrusted generator (scripts/program_vc.py). This is safe only because the contract theorem is stated against the IR semantics copied verbatim from tests/reference/program-ir.lean, and Lean prints the generated program back equal to the IR file."
+    },
+    {
+      "id": "A8",
+      "kind": "trusted-leanforth",
+      "text": "LeanForth's checker (bin/leanforth check, 0.1.0-dev, verdict version 9) checked every declaration of the export correctly: it accepted all 4,277 of them, the contract theorem, its obligations and every definition, inductive type and lemma they use, directly or not, each with its axioms. It follows Lean 4.35.0's kernel rules; it has no tactics and wrote no proof."
     }
   ],
   "tools": [
@@ -428,6 +466,10 @@ The generated clamp receipt (`tests/program/receipts/generated/lf-clamp.json`):
       "name": "lean",
       "version": "4.35.0",
       "commit": "eb6cafb7290e8bd5f2937522d8d804f58f02bafc"
+    },
+    {
+      "name": "leanforth",
+      "version": "0.1.0-dev, verdict version 9"
     },
     {
       "name": "gforth",
@@ -451,7 +493,8 @@ and a draft that a later version supersedes is not read at all: it lacks
 rules the later version added, so the reader refuses a receipt that names
 it (`superseded-version`) rather than let the receipt choose the weaker
 rules. What happens to receipts of an approved version when a later
-version comes is for the owner to decide at the gate.
+version comes is for the owner to decide at the gate; for 0.2, approved,
+the reader keeps reading it.
 
 - **0.1** (2026-11-02): the first draft, never approved. It was tightened in
   place after an independent review, before any receipt had been
@@ -482,21 +525,32 @@ version comes is for the owner to decide at the gate.
   `trusted-reader` assumption's text changed (redefinitions of the file's
   own words are now accepted as versions, numbers may carry Forth-2012's
   prefixes), and the evidence's date.
+- **0.3** (2026-11-12), a [format] change the owner decided on 2026-11-12:
+  results carry no "experimental", "not independently audited" or
+  "pre-alpha" label, so `check.label` and its one-label-per-status rules
+  are gone; nothing else changed (a test puts the label back into every
+  0.3 receipt and validates it under 0.2). `run.label` stays: it says that
+  testing is not proof, a trust boundary `AGENTS.md` requires receipts to
+  state, not a label on a result. The clamp receipt became 0.3 with plan
+  task 5.5.1, when its CHECK part became LeanForth's verdict; the 0.2
+  receipt, checked by the Lean reference, is kept in
+  `tests/program/receipts/0.2/`.
 
-### Schema 0.3: what IR 0.2 receipts need
+### Schema 0.4: what IR 0.2 receipts need
 
 [IR 0.2](PROGRAM_IR.md#ir-02) is implemented, but no receipt can describe
-an IR 0.2 program yet: schema 0.2's `program.ir.version` is the constant
+an IR 0.2 program yet: schema 0.3's `program.ir.version` is the constant
 `"0.1"`, and nothing in it says that a word prints. So
 `scripts/program_receipt.py` refuses to write a receipt for an IR whose
-first line is not `lf-ir 0.1` ("needs receipt schema 0.3 … awaits the
+first line is not `lf-ir 0.1` ("needs receipt schema 0.4 … awaits the
 owner's [format] gate; no receipt written"), and `tests/program/receipt_check.py`
 checks that refusal. Receipts of IR 0.1 programs, version names such as
-`lf-clamp'1` included, stay schema 0.2 (`program.word` admits `'`; the
+`lf-clamp'1` included, stay schema 0.3 (`program.word` admits `'`; the
 `trusted-reader` assumption then says which later version the name means
-after loading). Schema 0.3, proposed by ADR 0019 Amendment 1 (A4) and to
+after loading). Schema 0.4 (proposed by ADR 0019 Amendment 1, A4, as 0.3;
+renumbered on 2026-11-12, when the owner's label decision took 0.3) is to
 be decided at the [format] gate with the first IR 0.2 receipt (a SHA-2
-helper word), would change exactly two things:
+helper word); it would change exactly two things:
 
 1. `program.ir.version`: `"0.1"` or `"0.2"`.
 2. `program.output` (boolean, required): true when the word or any word it
@@ -509,7 +563,7 @@ helper word), would change exactly two things:
    captured standard output with the events Lean's `Event.render` gives.
 
 The pending renaming of `trusted-reader` could ride along. Nothing of
-this is implemented; the schema file stays 0.2.
+this is implemented; the newest schema file is 0.3.
 
 The plan extends the schema to theorem receipts (task 3.4.3) and wraps it
 in the versioned JSON-RPC interface (task 3.5.1, [interface

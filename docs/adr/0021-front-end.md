@@ -17,6 +17,8 @@ Amendment 1, accepted, and Amendment 2 on branch `lf-files-2`, proposed),
 part of Lean's front end does, its measured size, and the plan — is in
 [the front-end design](../design/FRONT_END.md).
 
+Approval status: proposed (the owner answered front-end questions 1-4 and 6-8 on 2026-11-12, see OWNER_DECISIONS.md section "Front-end syntax (2026-11-12, evening; docs/design/FRONT_END.md §9)"; the ADR as a whole stays proposed until FE1 is built and reviewed)
+
 ## Summary in plain words
 
 LeanForth checks proof terms; it cannot yet *make* them. Lean's front end
