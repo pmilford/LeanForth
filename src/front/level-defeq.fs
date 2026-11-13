@@ -161,6 +161,10 @@ require ./level-normalize.fs
   >r 2dup ok? and if r> lf-mctx-commit else r> lf-mctx-rollback then drop ;
 : ld-mark ( l r -- l r mark true | outcome false )
   lf-mctx-mark dup ok? if drop true else nip nip nip false then ;
+\ As checkpointDefEq restores the context on an exception: a THROW inside
+\ the rounds rolls the mark back and is thrown on.
+: ld-run ( l r mark -- flag outcome )
+  >r ['] ld-loop catch ?dup if nip nip r> lf-mctx-rollback drop throw then r> ld-close ;
 : lf-meta-level-defeq ( l r -- flag outcome )
   2dup lf-level-pair-valid? 0= if 2drop false outcome-invalid exit then
-  ld-pairs slab-clear ld-mark 0= if false swap exit then >r ld-loop r> ld-close ;
+  ld-pairs slab-clear ld-mark if ld-run else false swap then ;
