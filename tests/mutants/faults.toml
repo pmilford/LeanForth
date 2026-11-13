@@ -10420,3 +10420,30 @@ new = '''  swap lf-cs-facts 0= if drop false true exit then
   swap ['] lf-whnf-scan-visit ='''
 test = "$GFORTH tests/core/no-data-terms.fs"
 reason = "the caches' hook answers 'closed' for a node without a data word instead of letting whnf.fs walk it"
+
+[[fault]]
+id = "cov2-str-app-refusal-unknown"
+file = "src/kernel/string-literals.fs"
+old = ''': lf-sx-app ( f a -- node outcome ) lf-term-app if outcome-ok else -1 outcome-full then ;'''
+new = ''': lf-sx-app ( f a -- node outcome ) lf-term-app if outcome-ok else -1 outcome-unknown then ;'''
+test = "$GFORTH tests/core/string-literals.fs"
+reason = "a full term store while a string literal is expanded reads as undecided, not out of room"
+
+[[fault]]
+id = "cov2-str-const-refusal-rejected"
+file = "src/kernel/string-literals.fs"
+old = '''  0= if -1 outcome-full exit then
+  lf-cterm-new if drop outcome-ok else -1 outcome-full then ;'''
+new = '''  0= if -1 outcome-rejected exit then
+  lf-cterm-new if drop outcome-ok else -1 outcome-full then ;'''
+test = "$GFORTH tests/core/string-literals.fs"
+reason = "a reference store that cannot grow while the expansion's constants are made rejects the declaration: a resource failure stored as a verdict"
+quick = true
+
+[[fault]]
+id = "cov2-str-cell-refusal-unknown"
+file = "src/kernel/string-literals.fs"
+old = '''  >r lf-hterm-cell 0= if r> drop -1 outcome-full exit then drop'''
+new = '''  >r lf-hterm-cell 0= if r> drop -1 outcome-unknown exit then drop'''
+test = "$GFORTH tests/core/string-literals.fs"
+reason = "a character's literal cell that the store cannot hold reads as undecided, not out of room"
