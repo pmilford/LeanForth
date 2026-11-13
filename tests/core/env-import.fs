@@ -162,6 +162,81 @@ layer2-done
 layer2-ready
 T{ tuples-refused ly ly-exprs -> outcome-full }T
 layer2-done
+
+\ ---- Forged layers (review FRI B1, test gaps class 2): the layer's
+\ sections read, one record changed in memory, then its records (or its
+\ declarations) entered: each refusal is invalid and names the section
+\ and the record (ly-why, ly-where); freed and read again, the same layer
+\ enters (class 6).
+: layer2-raw ( -- ) base2-read layer2-open ;
+: rec ( j i -- addr ) ly ly-rec ;
+: first-of ( i -- u ) ly ly-first ;
+: lists ( -- addr ) lp-lists ly ly-block ;
+: why? ( c-addr u -- flag ) ly ly-why @ count compare 0= ;
+: refused-at ( -- j ) ly ly-where @ ;
+: forge! ( tag payload addr -- ) >r pack-head r> quad-head u32! ;
+\ The first own record of family i with tag, -1 for none.
+: first-tagged ( tag i -- j|-1 )
+  dup ly ly-units 0 ?do
+    2dup i swap rec ly-head drop = if 2drop i unloop exit then
+  loop 2drop -1 ;
+: records ( -- outcome ) ly ly-records ;
+: refused? ( outcome c-addr u j -- flag ) refused-at = >r why? r> and swap outcome-invalid = and ;
+: str-name ( -- j ) tag-name-str lp-names first-tagged ;
+: an-app ( -- j ) tag-app lp-exprs first-tagged ;
+\ A constant's head forged, its number kept (its tag may change).
+variable forged
+: forge-head ( tag payload -- ) first-const dup forged ! lp-exprs rec forge! ;
+layer2-raw
+T{ str-name 0< an-app 0< first-const 0< recursor 0< -> false false false false }T
+layer2-done
+\ A name's bytes past the pool's end, or in the base's bytes.
+layer2-raw  99999999 str-name lp-names rec quad-b u32!
+T{ records s" names" str-name refused? -> true }T
+layer2-done
+layer2-raw  0 str-name lp-names rec quad-b u32!
+T{ records s" names" str-name refused? -> true }T
+layer2-done
+\ A list whose length runs past the section.
+layer2-raw  99999 lists u32!
+T{ records s" lists" 0 refused? -> true }T
+layer2-done
+\ A constant whose universe arguments name an item of a list, not its start.
+layer2-raw  first-const lp-exprs rec quad-b dup u32@ 1+ swap u32!
+T{ records s" expressions" first-const refused? -> true }T
+layer2-done
+\ A let without its body record after it.
+layer2-raw  tag-let 0 forge-head
+T{ records s" expressions" forged @ refused? -> true }T
+layer2-done
+\ An application that refers to itself, or to a later own expression.
+layer2-raw  an-app lp-exprs first-of + an-app lp-exprs rec quad-a u32!
+T{ records s" expressions" an-app refused? -> true }T
+layer2-done
+layer2-raw  an-app 1+ lp-exprs first-of + an-app lp-exprs rec quad-a u32!
+T{ records s" expressions" an-app refused? -> true }T
+layer2-done
+\ A constant with a payload, and a record of no kind (a free variable,
+\ which no export holds, and tag 31).
+layer2-raw  tag-const 1 forge-head
+T{ records s" expressions" forged @ refused? -> true }T
+layer2-done
+layer2-raw  tag-fvar 0 forge-head
+T{ records s" expressions" forged @ refused? -> true }T
+layer2-done
+layer2-raw  31 0 forge-head
+T{ records s" expressions" forged @ refused? -> true }T
+layer2-done
+\ A declaration of no kind, its records entered.
+layer2-raw
+T{ records -> outcome-ok }T
+recursor forged !  30 0 pack-head forged @ ly ly-decl staged-head u32!
+T{ ly ly-decls s" declarations" forged @ refused? -> true }T
+layer2-done
+\ The same layer, unforged, enters whole after all of these (class 6).
+layer2-raw
+T{ records ly ly-decls ly ly-where @ -> outcome-ok outcome-ok 0 }T
+layer2-done
 T{ heap-refusals @ -> 0 }T
 T{ depth -> 0 }T
 base2-file delete-file drop  layer2-file delete-file drop
