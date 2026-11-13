@@ -59,7 +59,8 @@
 \ (elab-semireducible when no record names d); elab-eliminator@
 \ ( i -- kind d ), elab-eliminator-types ( i -- addr n ) (cells),
 \ elab-eliminator-for ( d kind -- i true | false ) (the eliminator whose
-\ one target type is d). elab-loaded? says whether the last read was ok.
+\ one target type is d). elab-loaded? says whether the last read was ok;
+\ elab-read-against? ( stage -- flag ) whether it was, against that stage.
 \ Unchecked: the words that take i read record i whatever it is; i must
 \ be below elab-count of its kind. The elab-* words are the interface;
 \ helpers, fields and tables are named ed-*.
@@ -149,6 +150,7 @@ end-structure
 : ed-stage ( -- stage ) elab elab-stage @ ;
 : elab-count ( kind -- n ) cells elab elab-counts + @ ;
 : elab-loaded? ( -- flag ) elab elab-loaded @ ;
+: elab-read-against? ( stage -- flag ) elab elab-stage @ = elab-loaded? and ;
 
 \ Failing: an error code, stable (docs/programming/ELABORATION_DATA.md,
 \ "Errors"; ed-messages holds each one's text, 0 none), at the current

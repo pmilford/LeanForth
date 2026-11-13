@@ -63,13 +63,19 @@ require ./present/proof-outline.fs
 \ loads through cli/check-lf.fs), the metavariable context, and the first
 \ pieces of the Meta layer (plan FE1c): level unification, bound-variable
 \ instantiation and abstraction, level simplification and normalization,
-\ and universe-parameter instantiation.
+\ universe-parameter instantiation, the view of the environment
+\ (reducibility and unfolding under each transparency), whnfCore and the
+\ first cases of type inference.
 require ./front/mvars.fs
 require ./front/level-defeq.fs
 require ./front/instantiate.fs
 require ./front/level-simp.fs
 require ./front/level-params.fs
 require ./front/level-normalize.fs
+require ./front/meta-env.fs
+require ./front/whnf.fs
+require ./front/beta-inst.fs
+require ./front/infer.fs
 
 \ The command line: check, replay, print, count, reexport, version,
 \ capabilities. It loads the staging of exports into the checker's input,

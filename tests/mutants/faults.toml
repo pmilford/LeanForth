@@ -12288,3 +12288,357 @@ old = '''  tuck table-size 0 ?do -1 over i swap table-cell ! loop drop ;'''
 new = '''  2drop ;'''
 test = "$GFORTH tests/front/constructions.fs"
 reason = "review fe6a-2 N3: the table keeps an earlier renumbering's cells instead of refusing: FE6.Odd.casesOn differs"
+
+[[fault]]
+id = "fe-env-instances-unfold-implicit"
+file = "src/front/meta-env.fs"
+old = ''': me-instances ( -- mask ) me-reducible elab-instance-reducible me-bit or ;'''
+new = ''': me-instances ( -- mask ) me-reducible elab-instance-reducible me-bit or 8 or ;'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "FE1c: instances transparency also unfolds implicit-reducible declarations, which Lean's canUnfoldDefault does only at implicit"
+
+[[fault]]
+id = "fe-env-default-unfolds-irreducible"
+file = "src/front/meta-env.fs"
+old = ''': me-default ( -- mask ) me-every elab-irreducible me-bit invert and ;'''
+new = ''': me-default ( -- mask ) me-every ;'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "FE1c: default transparency unfolds an irreducible declaration (Nat.div)"
+
+[[fault]]
+id = "fe-env-no-data-guessed"
+file = "src/front/meta-env.fs"
+old = '''  me-data? 0= if drop -1 outcome-unsupported exit then'''
+new = '''  me-data? 0= if drop elab-semireducible outcome-ok exit then'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "FE1c: without elaboration data the status is guessed as Lean's default instead of answering unsupported"
+
+[[fault]]
+id = "fe-env-missing-fact-guessed"
+file = "src/front/meta-env.fs"
+old = '''  me-defn? if false outcome-unsupported else false outcome-ok then ;'''
+new = '''  drop false outcome-ok ;'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "FE1c: a definition's matcher, projection, auxiliary-recursor or smart-unfolding fact, which LeanForth lacks, is answered false (Lean: true for Nat.add.match_1, HAdd.hAdd, Nat.casesOn, Nat.add)"
+
+[[fault]]
+id = "fe-env-theorem-unfoldable"
+file = "src/front/meta-env.fs"
+old = '''  over me-defn? if over swap lf-menv-can-unfold else drop false outcome-ok then ;'''
+new = '''  over lf-menv-kind lf-kind-axiom < if over swap lf-menv-can-unfold else drop false outcome-ok then ;'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "FE1c: getUnfoldableConst? gives a theorem, which Lean never unfolds there"
+
+[[fault]]
+id = "fe-env-ndrec-forgotten"
+file = "src/front/meta-env.fs"
+old = '''  dup me-decl? if dup me-ndrec? if drop true outcome-ok exit then then me-defn-fact ;'''
+new = '''  me-defn-fact ;'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "FE1c: Eq.ndrec, which Lean's isAuxRecursor names itself, answers unsupported"
+
+[[fault]]
+id = "fe-whnf-iota-prefix-dropped"
+file = "src/front/whnf.fs"
+old = ''': wc-prefixed ( rhs -- rhs' outcome ) wc-args wc-from 0 wc-prefix wc-apply ;'''
+new = ''': wc-prefixed ( rhs -- rhs' outcome ) wc-args wc-from 0 0 wc-apply ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "FE1c: iota applies the rule's right side without the recursor's parameters, motives and minor premises"
+
+[[fault]]
+id = "fe-whnf-iota-rest-dropped"
+file = "src/front/whnf.fs"
+old = '''  wc-args wc-from wc-major-at 1+ wc-args slab-count wc-apply ;'''
+new = '''  wc-args wc-from wc-major-at 1+ dup wc-apply ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "FE1c: iota drops the arguments after the major premise (Nat.rec m z s Nat.zero x gives z, not z x)"
+
+[[fault]]
+id = "fe-whnf-structure-eta-guessed"
+file = "src/front/whnf.fs"
+old = ''': wc-eta? ( mhead data -- flag ) wc-structure-like? if wc-exact? 0= else drop false then ;'''
+new = ''': wc-eta? ( mhead data -- flag ) 2drop false ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "FE1c: a stuck major premise of a structure is left stuck, where Lean eta-expands it (toCtorWhenStructure)"
+
+[[fault]]
+id = "fe-whnf-succ-fold-ignored"
+file = "src/front/whnf.fs"
+old = '''  wc-succ? if 0 wc-margs lf-meta-arg dup wc-inert? swap wc-lit? or 0= else false then ;'''
+new = '''  drop false ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "FE1c: Nat.succ of a term whnf may fold or offset (Nat.succ (Nat.succ k)) reduces by the rule, where Lean's field differs"
+
+[[fault]]
+id = "fe-whnf-definition-head-guessed"
+file = "src/front/whnf.fs"
+old = '''  lf-menv-kind dup lf-kind-definition = swap lf-kind-quotient = or ;'''
+new = '''  lf-menv-kind lf-kind-quotient = ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "FE1c: a definition at the head ends whnfCore without the matcher and auxiliary-recursor facts Lean asks for"
+
+[[fault]]
+id = "fe-whnf-k-ignored"
+file = "src/front/whnf.fs"
+old = ''': wc-k? ( -- flag ) lf-irc-k wc-irc 0<> ;'''
+new = ''': wc-k? ( -- flag ) false ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "FE1c: a K-like recursor (Eq.rec) reduces or sticks without toCtorWhenK's inferred type, and getStuckMVar? reports its major premise"
+
+[[fault]]
+id = "fe-whnf-fuel-unspent"
+file = "src/front/whnf.fs"
+old = ''': wc-spend ( -- flag ) wc wc-fuel @ dup 0> if 1- wc wc-fuel ! true else drop false then ;'''
+new = ''': wc-spend ( -- flag ) true ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "FE1c: whnfCore runs without fuel, so a long reduction never ends exhausted"
+
+[[fault]]
+id = "fe-whnf-delayed-head"
+file = "src/front/whnf.fs"
+old = '''  wc-delayed? if outcome-unsupported wc-drop-fail else wc-done then ;'''
+new = '''  drop wc-done ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "FE1c: a delayed-assigned metavariable at the head ends whnfCore, where Lean may put its value in (whnfDelayedAssigned?)"
+
+[[fault]]
+id = "fe-whnf-proj-params-skipped"
+file = "src/front/whnf.fs"
+old = '''  wc-proj-at swap wc-ctor-params + dup wc-margs slab-count <'''
+new = '''  wc-proj-at nip dup wc-margs slab-count <'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "FE1c: a projection takes the constructor's argument at the field's index without skipping its parameters ((Prod.mk Nat Nat a b).1 gives Nat)"
+
+[[fault]]
+id = "fe-whnf-frame-not-resumed"
+file = "src/front/whnf.fs"
+old = '''  begin dup 0= wc-framed? and while drop wc-resume dup ok? 0= if exit then drop repeat'''
+new = '''  begin false while drop wc-resume dup ok? 0= if exit then drop repeat'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "FE1c: a reduced part (a major premise, a projection's structure) is given as the result instead of resuming its frame"
+
+[[fault]]
+id = "fe-whnf-frame-term-lost"
+file = "src/front/whnf.fs"
+old = '''  wc-top dup wcf-aux @ wc wc-aux ! dup wcf-term @ wc wc-e ! wcf-kind @'''
+new = '''  wc-top dup wcf-aux @ wc wc-aux ! wcf-kind @'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "FE1c: a resumed frame works on the term of the step that ran last, not its own (a nested recursor)"
+
+[[fault]]
+id = "fe-infer-levels-unchecked"
+file = "src/front/infer.fs"
+old = ''': if-levels-ok? ( slot d -- flag ) lf-input-params nip swap lf-cref-pairs nip = ;'''
+new = ''': if-levels-ok? ( slot d -- flag ) 2drop true ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: a constant with the wrong number of universe levels gets a type, where Lean throws"
+
+[[fault]]
+id = "fe-infer-args-left-loose"
+file = "src/front/infer.fs"
+old = '''  if-n if-flush ;'''
+new = '''  outcome-ok ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: the arguments after the last whnf point are never put in, so the type keeps loose bound variables"
+
+[[fault]]
+id = "fe-binst-no-beta"
+file = "src/front/beta-inst.fs"
+old = '''  if ib-head-beta then nip ;'''
+new = '''  drop nip ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: a lambda put in at an application's head is left applied, where instantiateBetaRevRange takes a beta step (a motive's type)"
+
+[[fault]]
+id = "fe-binst-no-shift"
+file = "src/front/beta-inst.fs"
+old = '''  drop lf-term-first@ ib-m - lf-term-bvar ib-made ;'''
+new = '''  drop lf-term-first@ lf-term-bvar ib-made ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: a loose bound variable above the arguments keeps its index instead of m less"
+
+[[fault]]
+id = "fe-binst-order"
+file = "src/front/beta-inst.fs"
+old = ''': ib-x ( k -- x ) cells ib-state ib-xs @ + @ ;'''
+new = ''': ib-x ( k -- x ) ib-state ib-xs# @ 1- swap - cells ib-state ib-xs @ + @ ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: the arguments are put in in the wrong order (instantiate, not instantiateRev)"
+
+[[fault]]
+id = "fe-binst-loose-argument"
+file = "src/front/beta-inst.fs"
+old = '''  lf-meta-loose ok-then? if 0= if outcome-ok else outcome-unsupported then then ;'''
+new = '''  lf-meta-loose nip ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: an argument with a loose bound variable is put in without the lifting Lean does"
+
+[[fault]]
+id = "fe-infer-no-whnf"
+file = "src/front/infer.fs"
+old = ''': if-to-pi ( type -- pi outcome )
+  lf-whnf-core ok-then? 0= if no-result exit then'''
+new = ''': if-to-pi ( type -- pi outcome )
+  outcome-ok ok-then? 0= if no-result exit then'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: a function type that is no pi (a let variable, a metavariable) is not reduced by whnfCore first"
+
+[[fault]]
+id = "fe-infer-no-pi-accepted"
+file = "src/front/infer.fs"
+old = '''  if-head if-firm? if outcome-invalid else outcome-unsupported then ;'''
+new = '''  drop outcome-unsupported ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: a function expected (Lean throws) answers unsupported instead of invalid"
+
+[[fault]]
+id = "fe-infer-lambda-domain-open"
+file = "src/front/infer.fs"
+old = '''  dup if-x lf-fvar-type over if-abstract ok-then? 0= if nip nip no-result exit then'''
+new = '''  dup if-x lf-fvar-type 0 if-abstract ok-then? 0= if nip nip no-result exit then'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: a lambda's inferred pi keeps the earlier binders' free variables in a later domain instead of abstracting them"
+
+[[fault]]
+id = "fe-infer-lambda-holes"
+file = "src/front/infer.fs"
+old = '''  over if-holes? if 2drop -1 outcome-unsupported exit then'''
+new = '''  over drop false if 2drop -1 outcome-unsupported exit then'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: a lambda's type holding a metavariable is closed without Lean's elimMVarDeps"
+
+[[fault]]
+id = "fe-infer-lambda-one-binder"
+file = "src/front/infer.fs"
+old = '''  swap begin dup 0> while 1- tuck if-pi ok-then? 0= if nip no-result exit then swap repeat'''
+new = '''  swap 1- tuck if-pi ok-then? 0= if nip no-result exit then swap'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: only the innermost binder of a lambda is closed into a pi"
+
+[[fault]]
+id = "fe-infer-pi-imax-skipped"
+file = "src/front/infer.fs"
+old = '''  swap lf-meta-imax ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: a pi's sort leaves out its domains' levels (Type -> Nat would be Sort 1, not Sort 2)"
+
+[[fault]]
+id = "fe-infer-type-expected"
+file = "src/front/infer.fs"
+old = '''  if-head dup if-tag lf-tag-mvar = if drop outcome-unsupported exit then'''
+new = '''  drop outcome-unsupported exit'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: a domain whose type is no sort, where Lean throws type expected, answers unsupported instead of invalid"
+
+[[fault]]
+id = "fe-whnf-succ-name-unchecked"
+file = "src/front/whnf.fs"
+old = '''  dup wc-const? if wc-name lf-menv-nat-succ? wc-margs slab-count 1 = and'''
+new = '''  dup dup if wc-name lf-menv-nat-succ? wc-margs slab-count 1 = and'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review fe1c-2 M2: a major premise's head that is no constant is read as a constant reference (an unchecked store read; a free variable with Nat.succ's reference number answers unsupported)"
+
+[[fault]]
+id = "fe-whnf-stuck-proj-head"
+file = "src/front/whnf.fs"
+old = '''    lf-tag-projection of nip ws-proj endof  >r 2drop false outcome-ok r> endcase ;'''
+new = '''    >r 2drop false outcome-ok r> endcase ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review fe1c-2 M1: getStuckMVar? of a projection applied to arguments answers none, where Lean finds the structure's metavariable"
+
+[[fault]]
+id = "fe-whnf-proj-literal-final"
+file = "src/front/whnf.fs"
+old = ''': wc-unfinal? ( rhead -- flag ) dup wc-const? if wc-const-unfinal? else wc-lit? then ;'''
+new = ''': wc-unfinal? ( rhead -- flag ) dup wc-const? if wc-const-unfinal? else drop false then ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review fe1c-2 L1: a projection of a literal stays, where Lean's toCtorIfLit turns the literal into Nat's constructors first"
+
+[[fault]]
+id = "fe-whnf-proj-unknown-final"
+file = "src/front/whnf.fs"
+old = '''  dup wc-kind dup lf-kind-definition = swap 0= or swap wc-foldable? or ;'''
+new = '''  dup wc-kind lf-kind-definition = swap wc-foldable? or ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review fe1c-2 L1: a projection of a constant no declaration has stays, where Lean's whnf throws unknown constant"
+
+[[fault]]
+id = "fe-whnf-fields-no-max"
+file = "src/front/whnf.fs"
+old = '''  wc-margs wc-from wc-margs slab-count tuck swap - 0 max swap wc-apply ;'''
+new = '''  wc-margs wc-from wc-margs slab-count tuck swap - swap wc-apply ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review fe1c-2 L1: a constructor with fewer arguments than its rule's fields (Nat.succ alone) makes the rule read before its arguments (Lean's Nat subtraction gives 0)"
+
+[[fault]]
+id = "fe-whnf-single-ignored"
+file = "src/front/whnf.fs"
+old = ''': wc-single? ( -- flag ) lf-irc-motives wc-irc 1 = ;'''
+new = ''': wc-single? ( -- flag ) true ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review fe1c-2 L1: a recursor of a nested block (Lean.Syntax.rec) is reduced as if its major premise's type were the block's first"
+
+[[fault]]
+id = "fe-whnf-zeta-ill-let"
+file = "src/front/whnf.fs"
+old = '''  dup lf-let-well? if dup lf-let-body swap lf-let-value lf-meta-instantiate1'''
+new = '''  true if dup lf-let-body swap lf-let-value lf-meta-instantiate1'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review fe1c-2 L1: a let whose binder is no lambda (an application) is reduced instead of refused"
+
+[[fault]]
+id = "fe-infer-fvar-unchecked"
+file = "src/front/infer.fs"
+old = '''  dup lf-fvar-live? if lf-fvar-type outcome-ok else outcome-invalid if-fail then ;'''
+new = '''  lf-fvar-type outcome-ok ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "review fe1c-2 L2: a stale free variable's type is read from another declaration"
+
+[[fault]]
+id = "fe-infer-mvar-stale"
+file = "src/front/infer.fs"
+old = '''  lf-mvar-type if outcome-ok else -1 outcome-invalid then ;'''
+new = '''  lf-mvar-type if outcome-ok else -1 outcome-unsupported then ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "review fe1c-2 L2: a stale metavariable answers unsupported instead of invalid"
+
+[[fault]]
+id = "fe-infer-lambda-type-unsupported"
+file = "src/front/infer.fs"
+old = '''  over lf-tag-symbolic-sort = or swap lf-tag-lam = or ;'''
+new = '''  over lf-tag-symbolic-sort = or nip ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "review fe1c-2 L2: a function whose type is a lambda answers unsupported, where Lean throws function expected"
+
+[[fault]]
+id = "fe-env-ndrecon-forgotten"
+file = "src/front/meta-env.fs"
+old = '''  dup s" ndrec" me-str? over s" ndrec_symm" me-str? or swap s" ndrecOn" me-str? or ;'''
+new = '''  dup s" ndrec" me-str? swap s" ndrec_symm" me-str? or ;'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "review fe1c-2 L3: Eq.ndrecOn, which isAuxRecursor names, answers unsupported"
+
+[[fault]]
+id = "fe-env-ndrec-any-prefix"
+file = "src/front/meta-env.fs"
+old = ''': me-eq? ( prefix -- flag ) s" Eq" me-top? ;'''
+new = ''': me-eq? ( prefix -- flag ) drop true ;'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "review fe1c-2 L3: HEq.ndrec is taken for an auxiliary recursor by its last name part"
+
+[[fault]]
+id = "fe-env-nat-succ-any-prefix"
+file = "src/front/meta-env.fs"
+old = '''  dup s" succ" me-str? if lf-name-prefix@ s" Nat" me-top? else drop false then ;'''
+new = '''  dup s" succ" me-str? if drop true else drop false then ;'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "review fe1c-2 L3: Fin.succ is taken for Nat.succ"
+
+[[fault]]
+id = "fe-env-other-stage"
+file = "src/front/meta-env.fs"
+old = '''  me-stage dup 0= if exit then dup me-fed? swap elab-read-against? and ;'''
+new = '''  me-stage 0<> elab-loaded? and ;'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "review fe1c-2 L4: a stage named that the input was not fed from, or the data not read against, gives another's statuses"

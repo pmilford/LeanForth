@@ -741,9 +741,29 @@ metavariable assignments (`mvars.fs`, for `checkpointDefEq`) are written
 and tested alone; `make reference-front` compares 155 cases with pinned
 Lean: 153 equal, and two level unifications that need Lean's
 `solveSelfMax` or `decLevel?` of a max (not ported yet) answer
-unsupported. `whnf`, `inferType`, term unification, `Nat` offsets,
-caches and fuel are not started; they need the front end's view of the
-environment, which FE1d's elaboration data completes.
+unsupported. 
+On branch
+`fe1c-2`, written and tested alone: the front end's view of the
+environment (`src/front/meta-env.fs`: a declaration of the loaded
+library by name, its reducibility status from FE1d's elaboration data,
+Lean's `canUnfoldDefault` and `getUnfoldableConst?` under the six
+transparency modes; `tests/front/check_unfold.py` finds 44 declarations
+of an `Init` slice and their 528 unfolding answers equal to pinned
+Lean's) and `whnfCore` with `getStuckMVar?` (`src/front/whnf.fs`: beta,
+zeta, metavariable and let-variable heads, projections and iota on
+constructor applications, parts reduced first, fuel;
+`tests/front/check_whnf.py`: 39 of 48 cases equal,
+9 answer unsupported). Facts Lean's `whnf` asks of definitions --
+matchers, projection functions, auxiliary recursors, `_sunfold`
+definitions -- are not in an export: a definition at the head answers
+unsupported until plan row FE1d2 adds them to the elaboration data.
+`inferType`'s first cases (`src/front/infer.fs`: constants, variables,
+metavariables, sorts, applications of them, lambdas and pis, with Lean's
+`instantiateBetaRevRange` in `src/front/beta-inst.fs`) are written and
+tested alone; 26 of 30 inference cases equal pinned Lean's, two only
+once Lean's metadata (mdata), which the export leaves out, is dropped.
+`whnf` with delta, the rest of `inferType`, term unification, `Nat`
+offsets and caches are not started.
 
 Size: L, eight S–M steps; *speculative* 4,000 to 7,000 lines of Forth
 source and as much in tests. Needs: 8.2.1c and 8.2.1d (branch
