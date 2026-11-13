@@ -9,7 +9,9 @@ Usage (from the repository root):
   LEAN=... python3 scripts/program_receipt.py export OUT.ndjson   # the export LeanForth checks
 Options: --contract (default tests/program/contracts/lf-clamp.contract),
 --evidence, --out, --markdown, --manifest-out (record: also save the
-export's manifest there, to pin a new export).
+export's manifest there, to pin a new export), --keep FOLDER (record: keep
+the export and the snapshot of LeanForth's check in FOLDER, for
+tests/program/clamp_mutants.py; make check records once for both tests).
 
 A receipt (schema 0.3, docs/programming/PROGRAM_RECEIPTS.md) states what is
 known about one word, in three separate parts:
@@ -531,11 +533,14 @@ def pinned_lean():
                                              "/bin/lean"))
 
 
-def leanforth_check(export, theorems):
+def leanforth_check(export, theorems, snapshot=None):
     """LeanForth's check of the export (bin/leanforth check --json): its version, the counts,
-    the exit status and the verdict and axioms of each theorem."""
+    the exit status and the verdict and axioms of each theorem. With snapshot, a file name,
+    the check also writes the checked environment there (--save-snapshot; the verdicts are
+    the same), for a later check of the export with changed copies added (clamp_mutants.py)."""
+    saving = ["--save-snapshot", str(snapshot)] if snapshot else []
     done = subprocess.run(["bash", str(ROOT / "bin" / "leanforth"), "check", "--json", "--jobs",
-                           LEANFORTH_JOBS, str(export)], capture_output=True, text=True,
+                           LEANFORTH_JOBS, *saving, str(export)], capture_output=True, text=True,
                           timeout=TEST_LIMIT, stdin=subprocess.DEVNULL)
     try:
         report = load_strict(done.stdout)
@@ -588,9 +593,15 @@ def ir_written(gforth, ir_path):
             "source": before}
 
 
-def record(contract_path, manifest_out=None):
+KEPT_EXPORT, KEPT_SNAPSHOT = "lf-clamp.ndjson", "lf-clamp.lfsnap"   # record --keep FOLDER
+
+
+def record(contract_path, manifest_out=None, keep=None):
     """Run Lean, its exporter, LeanForth and Gforth now and return the evidence the receipt
-    needs; with manifest_out, also save the fresh export's manifest there."""
+    needs; with manifest_out, also save the fresh export's manifest there. With keep, a
+    folder, the export (KEPT_EXPORT, its manifest beside it) is written there and kept, and
+    LeanForth's check also saves its snapshot there (KEPT_SNAPSHOT): make check records
+    once, and the receipt's test and the clamp mutants' test both read the result."""
     lean, gforth = pinned_lean(), os.environ.get("GFORTH", "gforth")
     contract = program_vc.parse_contract(Path(contract_path).read_text(encoding="utf-8"),
                                          contract_path)
@@ -598,12 +609,13 @@ def record(contract_path, manifest_out=None):
     written = ir_written(gforth, contract["ir"])
     version = re.match(r"Lean \(version ([0-9.]+),", command([lean, "--version"])).group(1)
     with tempfile.TemporaryDirectory() as directory:
-        export = Path(directory) / "lf-clamp.ndjson"
+        folder = Path(keep or directory)
+        export = folder / KEPT_EXPORT
         output = export_theorems(lean, vc["theorems"], export)
         manifest = read_json(f"{export}.manifest.json")
         if manifest_out:
             Path(manifest_out).write_bytes(Path(f"{export}.manifest.json").read_bytes())
-        leanforth = leanforth_check(export, vc["theorems"])
+        leanforth = leanforth_check(export, vc["theorems"], keep and folder / KEPT_SNAPSHOT)
     axioms = lean_axioms(output, vc["theorems"])
     table = command([gforth, TABLE]).splitlines()
     clamp = [line for line in table if line.startswith("# clamp ")]
@@ -761,9 +773,10 @@ def main():
     parser.add_argument("--out", default="tests/program/receipts/generated/lf-clamp.json")
     parser.add_argument("--markdown", default="tests/program/receipts/generated/lf-clamp.md")
     parser.add_argument("--manifest-out")
+    parser.add_argument("--keep")
     args = parser.parse_args()
     if args.action == "record":
-        Path(args.out).write_text(dump(record(args.contract, args.manifest_out)),
+        Path(args.out).write_text(dump(record(args.contract, args.manifest_out, args.keep)),
                                   encoding="utf-8")
         return 0
     if args.action == "export":

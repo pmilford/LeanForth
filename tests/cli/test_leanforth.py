@@ -43,7 +43,9 @@
    prints the same bytes on every run.
 4. count prints what src/import/ndjson-count.fs prints, and reexport writes
    a copy equal to the export, byte for byte, for every reference export.
-5. version, capabilities and help exit 0; capabilities states the limits.
+5. version, capabilities and help exit 0; capabilities states the limits
+   and lists checking a LeanForth text; --jobs N with a text says that it
+   checks one declaration at a time (TextJobs).
 6. print prints each declaration's proof outline exactly as the outline's
    golden file has it (all five reference exports, one declaration by
    name, every step with --detail); a declaration not accepted is refused,
@@ -68,6 +70,7 @@
 
 Run with GFORTH set to the Forth binary (the Makefile does this).
 """
+import concurrent.futures
 import hashlib
 import json
 import os
@@ -208,6 +211,17 @@ def run(*args, cwd=ROOT, gforth=GFORTH, tool=TOOL):
     result = subprocess.run([str(tool), *args], cwd=cwd, env=dict(os.environ, GFORTH=gforth),
                             stdin=subprocess.DEVNULL, capture_output=True, timeout=TEST_LIMIT)
     return result.returncode, result.stdout.decode(), result.stderr.decode()
+
+
+# Independent runs of one test (each with its own files, or only reading) go side by
+# side, at most this many at once: make check runs two targets at once (JOBS=2).
+SIDE_BY_SIDE = 2
+
+
+def side_by_side(function, items):
+    """function of each item, at most SIDE_BY_SIDE at once; the results in items' order."""
+    with concurrent.futures.ThreadPoolExecutor(max_workers=SIDE_BY_SIDE) as pool:
+        return list(pool.map(function, items))
 
 
 class ExitCodes(unittest.TestCase):
@@ -1863,9 +1877,15 @@ class Jobs(unittest.TestCase):
         return status, got
 
     def test_same_output(self):
-        for args in CASES_ALL + self.MORE:
-            self.assertEqual(self.text(*args), self.text("--jobs", "3", *args), args)
-            self.assertEqual(self.json(*args), self.json("--jobs", "4", *args), args)
+        """Each case's four runs, the cases side by side (each only reads its export)."""
+        cases = CASES_ALL + self.MORE
+
+        def four(args):
+            return (self.text(*args), self.text("--jobs", "3", *args),
+                    self.json(*args), self.json("--jobs", "4", *args))
+        for args, (text, text3, json1, json4) in zip(cases, side_by_side(four, cases)):
+            self.assertEqual(text, text3, args)
+            self.assertEqual(json1, json4, args)
 
     def test_resources(self):
         status, out, _ = run("check", "--resources", "--jobs", "2", "tests/cli/nested.ndjson")
@@ -2115,20 +2135,26 @@ class MemoryPerCheck(unittest.TestCase):
         the others (and the reviewer's larger probe: full fresh, accepted
         in the others)."""
         with tempfile.TemporaryDirectory() as tmp:
-            exports = {}
-            for kind in ["refs", "refsz", "refsbz"]:
-                exports[kind] = str(Path(tmp) / f"{kind}.ndjson")
-                made = subprocess.run([sys.executable, str(ROOT / "tests/cli/jobs/gen.py"), kind,
+            exports = {kind: str(Path(tmp) / f"{kind}.ndjson") for kind in ["refs", "refsz",
+                                                                            "refsbz"]}
+
+            def made(kind):
+                done = subprocess.run([sys.executable, str(ROOT / "tests/cli/jobs/gen.py"), kind,
                                        "2800"], capture_output=True, check=True)
-                Path(exports[kind]).write_bytes(made.stdout)
+                Path(exports[kind]).write_bytes(done.stdout)
+            side_by_side(made, exports)
             snapshot = str(Path(tmp) / "refsz.lfsnap")
-            self.assertEqual(run("check", "--no-manifest", "--save-snapshot", snapshot,
-                                 exports["refsz"])[0], 0)
             limit = ["--no-manifest", "--memory-per-check", "1"]
+            # The snapshot written beside the three checks that do not read it, then the one
+            # that does; every run only reads its export.
+            first = side_by_side(lambda args: run("check", *args), [
+                ["--no-manifest", "--save-snapshot", snapshot, exports["refsz"]],
+                [*limit, exports["refs"]], [*limit, exports["refsbz"]],
+                [*limit, "--jobs", "2", exports["refsbz"]]])
+            self.assertEqual(first[0][0], 0)
             seen = []
-            for args in [[exports["refs"]], ["--snapshot", snapshot, exports["refs"]],
-                         [exports["refsbz"]], ["--jobs", "2", exports["refsbz"]]]:
-                status, out = run("check", *limit, *args)[:2]
+            for status, out, _ in first[1:2] + [run("check", *limit, "--snapshot", snapshot,
+                                                    exports["refs"])] + first[2:]:
                 found = re.search(r"^B: (\w+)\n  (.*)$", out, re.M)
                 seen.append((status, found and found.groups()))
             self.assertEqual(seen[0][:1] + seen[0][1][:1], (3, "full"), seen[0])

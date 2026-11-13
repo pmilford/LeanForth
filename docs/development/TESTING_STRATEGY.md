@@ -103,7 +103,16 @@ target's output in one piece (`--output-sync=target`, GNU make 4.0 or
 later). Every target writes only into temporary folders of its own
 (`mktemp -d`, Python's `tempfile`), never into a fixed path or the tree: a
 `make -j8 check` of the unchanged suite (commit `8148f3f`) passed and left
-no file of the tree changed. `tests/core/compact-verify.sh` runs its two
+no file of the tree changed. A Forth test that writes files names them with
+`scratch-file` (`tests/support/scratch.fs`): in the folder `LF_TEST_SCRATCH`
+names, which the Makefile makes for each such command and removes after it
+(`scripts/with-scratch.sh`), and `scripts/mutants.py` for its run, else in
+`/tmp`; before 2026-11-12 four tests wrote fixed `/tmp` names, and two
+worktrees running `tests/lib/sections.fs` at once failed a push on Gforth
+0.7.3. The exceptions to "its own folders" are the shared results
+`build/inductive-expected.out` and `build/program-clamp/` (below), each
+made once per make run by a target the others wait for.
+`tests/core/compact-verify.sh` runs its two
 independent Gforth runs side by side. A failing target stops make from
 starting others; make waits for the running ones, prints
 `make: *** [Makefile:LINE: TARGET] Error N` naming the target, and exits
@@ -278,6 +287,40 @@ checks the program, contract and proof mutants in one export of 4,284
 declarations (122 s), and `reference-program-sha-export` the
 SHA-256 helper words' 2,890 declarations twice (86 s); measured
 with `JOBS=2 LEAN_CACHE=0` on a loaded machine (load 6-8 on 10 cores), 2026-11-12: 154 s, 122 s and 86 s.
+
+**The same checks, done once (2026-11-12, evening).** Each of these
+targets checked the same input twice. Now `program-clamp-record` records
+the clamp evidence once per make run, its LeanForth check also writing a
+snapshot (`check --save-snapshot`), into `build/program-clamp/`;
+`reference-program-ir-run` compares that evidence with the committed one,
+and `reference-program-mutants` checks its export with the seven changed
+copies against the snapshot (`check --snapshot`): the 4,277 originals are
+taken from it unchanged and only the copies are checked. The test requires
+both that every declaration of the export alone was accepted (exit 0) and
+that exactly the originals came from the snapshot (`snapshot.import`, each
+declaration's `provenance`). `reference-program-sha-export` does the same
+within its own run.
+`reference-demos` starts all fifteen LeanForth runs of its five demos (check,
+wrong twin, print) side by side, the costliest first, four at a time as
+before, instead of each demo's three one after another. In `tests/cli`,
+`MemoryPerCheck.test_snapshot_pair` and `Jobs.test_same_output` run their
+independent cases two at a time. Every assertion is kept. Measured with
+`JOBS=2`, the Lean cache on, old and new run back to back on a machine
+other agents loaded (load 6-16 on 10 cores; wall seconds):
+
+| Target or test | Before | After |
+| --- | ---: | ---: |
+| `program-clamp-record` (new; the clamp check, once) | — | 110.8 |
+| `reference-program-ir-run` (own commands after the record) | 137.5 | 11.5 |
+| `reference-program-mutants` (after the record) | 127.9 | 13.9 |
+| `reference-program-sha-export` | 63.9 | 42.2 |
+| the three together (`make ... JOBS=2`), CPU | 192 wall, 597 CPU | 125 wall, 308 CPU |
+| `reference-demos` (two runs each) | 98.7, 84.2 | 69.7, 68.2 |
+| `MemoryPerCheck.test_snapshot_pair` (two runs each) | 39.9, 30.8 | 20.4, 17.9 |
+| `Jobs.test_same_output` (two runs each) | 24.1, 21.0 | 12.0, 11.4 |
+
+The demos and the two command-line tests use the same CPU as before (about
+200 s, 34 s and 22 s); only their waiting is gone.
 
 `reference-compact-init` fell from 78.5 s to 57.3 s by running
 `compact-verify.sh`'s two Gforth runs side by side, and to 40.7 s with

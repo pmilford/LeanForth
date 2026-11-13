@@ -38,7 +38,11 @@ is the kernel's.
 --constants lists the constants a declaration's type or value refers to,
 for choosing a mutation. --test checks the rebuilding on a committed export
 (Python and Gforth); with --lean it exports the clamp theorems with pinned
-Lean, checks the copies with LeanForth and requires the verdicts of COPIES.
+Lean and checks them with LeanForth, saving the checked environment as a
+snapshot (make check does both once, for this and the receipt's test:
+program-clamp-record), then checks the copies against that snapshot (the
+originals, unchanged, taken from it; every copy checked) and requires
+every original accepted and the verdicts of COPIES.
 Untrusted test tool: it never accepts anything.
 """
 import json
@@ -298,19 +302,57 @@ def self_test():
     return problems
 
 
-def lean_test():
-    """The clamp copies against LeanForth: the originals accepted, each copy as COPIES says."""
+# The clamp export checked alone, with the snapshot of that check: make check records the
+# receipt's evidence once per run (target program-clamp-record, `program_receipt.py record
+# --keep DIR`) and names DIR here; run alone, without it, this script checks the export itself.
+RECORDED = os.environ.get("PROGRAM_CLAMP_RECORDED")
+
+
+def checked_clamp(folder):
+    """(export, snapshot, LeanForth's evidence of the export checked alone): those of make
+    check's record, else made in folder the way record makes them."""
     sys.path.insert(0, str(ROOT / "scripts"))
     import program_receipt  # noqa: E402
+    if RECORDED:
+        evidence = program_receipt.read_json(Path(RECORDED) / "evidence.json")
+        return (Path(RECORDED) / program_receipt.KEPT_EXPORT,
+                Path(RECORDED) / program_receipt.KEPT_SNAPSHOT, evidence["leanforth"])
+    export, snapshot = (Path(folder) / program_receipt.KEPT_EXPORT,
+                        Path(folder) / program_receipt.KEPT_SNAPSHOT)
+    vc = program_receipt.vc_entry("lf-clamp/0")
+    program_receipt.export_theorems(program_receipt.pinned_lean(), vc["theorems"], export)
+    return export, snapshot, program_receipt.leanforth_check(export, vc["theorems"], snapshot)
+
+
+def taken_problems(report, declarations, copied_names):
+    """The check of an export with copies added, against the snapshot of the export's own
+    check of its declarations: every original taken from it unchanged, every copy (named
+    in copied_names) checked in this run."""
+    taken = (report.get("snapshot") or {}).get("import")
+    want = {"taken": declarations, "checked": len(copied_names), "otherContent": 0}
+    wrong = [d["name"] for d in report["declarations"]
+             if (d.get("provenance") == "snapshot") == (d["name"] in copied_names)]
+    return ([f"from the snapshot: {taken}, expected {want}"] if taken != want else []) + (
+        [f"provenance not as expected: {wrong[:5]}"] if wrong else [])
+
+
+def lean_test():
+    """The clamp copies against LeanForth: the export checked alone (exit 0, every declaration
+    accepted), then the copies against the snapshot of that check, the originals taken
+    from it unchanged: the originals accepted, each copy as COPIES says."""
     problems = []
     with tempfile.TemporaryDirectory() as folder:
-        export, mutants = Path(folder) / "lf-clamp.ndjson", Path(folder) / "mutants.ndjson"
-        vc = program_receipt.vc_entry("lf-clamp/0")
-        program_receipt.export_theorems(program_receipt.pinned_lean(), vc["theorems"], export)
+        export, snapshot, alone = checked_clamp(folder)
+        import program_receipt  # noqa: E402 (on the path since checked_clamp)
+        if alone["exitStatus"] != 0 or alone["accepted"] != alone["declarations"]:
+            problems.append(f"the export alone: exit {alone['exitStatus']}, "
+                            f"{alone['accepted']} of {alone['declarations']} accepted")
+        mutants = Path(folder) / "mutants.ndjson"
         mutants.write_text(copies(export.read_text(encoding="utf-8")), encoding="utf-8")
         subprocess.run([sys.executable, str(ROOT / "scripts" / "export_manifest.py"),
                         str(mutants)], check=True, stdin=subprocess.DEVNULL)
-        code, report = leanforth(mutants, "--jobs", program_receipt.LEANFORTH_JOBS)
+        code, report = leanforth(mutants, "--jobs", program_receipt.LEANFORTH_JOBS, "--snapshot",
+                                 str(snapshot))
     verdicts = {d["name"]: d["verdict"] for d in report["declarations"]}
     expected = {SPACE + n: "accepted" for n in ORIGINALS}
     expected.update({SPACE + new: verdict for new, _, _, _, verdict in COPIES})
@@ -320,7 +362,8 @@ def lean_test():
     others = [n for n, v in verdicts.items() if v != "accepted" and n not in expected]
     if others or code != 1:
         problems.append(f"exit {code}, other declarations not accepted: {others[:5]}")
-    return problems, report
+    copied_names = {SPACE + new for new, *_ in COPIES}
+    return problems + taken_problems(report, alone["declarations"], copied_names), report
 
 
 def main(arguments):

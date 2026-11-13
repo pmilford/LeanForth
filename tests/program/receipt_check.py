@@ -25,7 +25,9 @@ With --record it also runs Lean, its exporter, LeanForth and Gforth again
 (scripts/program_receipt.py record) and requires the fresh evidence to
 equal the committed evidence in everything but its date, and the fresh
 export's manifest to equal the pinned one byte for byte, so the receipt's
-CHECK and RUN parts are what the tools report today.
+CHECK and RUN parts are what the tools report today. Under make check the
+recording is the target program-clamp-record's, run once before this
+script in the same make run (PROGRAM_CLAMP_RECORDED names its folder).
 """
 import copy
 from pathlib import Path
@@ -363,16 +365,31 @@ def version_problems():
     return problems
 
 
+# make check records the evidence once per run (target program-clamp-record:
+# `program_receipt.py record --out DIR/evidence.json --manifest-out DIR/manifest.json
+# --keep DIR`) and names DIR here; tests/program/clamp_mutants.py checks its mutants
+# against the snapshot kept there, instead of checking the export a second time.
+# Run alone, without PROGRAM_CLAMP_RECORDED, this script records for itself.
+RECORDED = os.environ.get("PROGRAM_CLAMP_RECORDED")
+
+
+def recording_problems(folder):
+    """Record the evidence and the export's manifest into folder; a problem if that fails."""
+    done = subprocess.run([sys.executable, "scripts/program_receipt.py", "record", "--out",
+                           str(folder / "evidence.json"), "--manifest-out",
+                           str(folder / "manifest.json")],
+                          capture_output=True, text=True, timeout=TEST_LIMIT)
+    return [] if done.returncode == 0 else [f"recording evidence failed:\n{done.stdout}{done.stderr}"]
+
+
 def record_problems():
     with tempfile.TemporaryDirectory() as directory:
-        fresh_path = Path(directory) / "evidence.json"
-        manifest = Path(directory) / "manifest.json"
-        done = subprocess.run([sys.executable, "scripts/program_receipt.py", "record", "--out",
-                               str(fresh_path), "--manifest-out", str(manifest)],
-                              capture_output=True, text=True, timeout=TEST_LIMIT)
-        if done.returncode != 0:
-            return [f"recording evidence failed:\n{done.stdout}{done.stderr}"]
-        fresh = program_receipt.read_json(fresh_path)
+        folder = Path(RECORDED or directory)
+        failed = [] if RECORDED else recording_problems(folder)
+        if failed:
+            return failed
+        fresh = program_receipt.read_json(folder / "evidence.json")
+        manifest = folder / "manifest.json"
         pinned = manifest.read_bytes() == Path(program_receipt.EXPORT_MANIFEST).read_bytes()
     committed = program_receipt.read_json(EVIDENCE)
     fresh["recordedAt"] = committed["recordedAt"]
