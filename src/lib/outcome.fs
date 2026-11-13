@@ -4,7 +4,10 @@
 \ ok? or compare it with a named outcome, never with IF directly. Running
 \ out of fuel (exhausted: more time would help) and running out of room
 \ (full: more memory or a larger limit would help) are distinct, and
-\ neither is ever ok.
+\ neither is ever ok. Chains of steps that stop at the first failure:
+\ outcome-and, outcome-steps, ok-and, ok-with, the ok-then and ok-keep
+\ words, and the loops ok-each and ok-fold; outcome-first! keeps a first
+\ failure in a cell.
 \ No state, no dependencies.
 
 0 constant outcome-ok           \ succeeded; for a comparison, shown equal
@@ -65,6 +68,28 @@
   dup ok? if drop true else 2swap 2drop false then ;
 \ A failure that has no result: -1 in the result's place.
 : no-result ( outcome -- -1 outcome ) -1 swap ;
+\ Run the step xt ( i*x k -- i*x outcome ) for k = 0, 1, ... n-1 while it
+\ gives ok: ok, or the first outcome that is not ok, after which no step
+\ runs. The values below k are the steps' to read and replace, keeping
+\ their number (a step that changes them makes a fold). n <= 0 runs
+\ nothing. The xt is the index of an outer loop run once and read with J,
+\ so each step finds i*x and k alone on the data stack. Example, a check
+\ of each cell of a table: `table 3 ['] cell-ok ok-each nip` with
+\ `: cell-ok ( table k -- table outcome ) cells over + @ checked ;`.
+: ok-each ( i*x n xt -- i*x outcome )
+  dup 1+ swap ?do 0 max 0 ?do i j execute dup ok? 0= if unloop unloop exit then drop
+  loop loop outcome-ok ;
+\ A fold with a context: x := xt ( x k y -- x' outcome ) for k = 0, 1,
+\ ... n-1, y given to every step, while ok: the last x' and ok, or the
+\ failing step's x' (-1 when it has none) and its outcome. n <= 0 gives x
+\ and ok. Example, applying f to each argument of a job: `f n job
+\ ['] apply-arg ok-fold` with apply-arg ( f k job -- f' outcome ).
+: ok-fold ( x n y xt -- x' outcome )
+  dup 1+ swap ?do swap 0 max 0 ?do tuck i swap j execute ok-keep? 0= if
+  unloop unloop exit then swap loop loop drop outcome-ok ;
+\ Keep the first failure in a cell: store the outcome only while the cell
+\ holds ok, so a later outcome, ok or not, never hides an earlier failure.
+: outcome-first! ( outcome a-addr -- ) dup @ ok? if ! else 2drop then ;
 \ The outcome's name, as diagnostics write it. A value outside the
 \ vocabulary is named "invalid", as outcome-sane reads it, and so is any
 \ value the CASE does not list. One arm per outcome, two to a line: seven

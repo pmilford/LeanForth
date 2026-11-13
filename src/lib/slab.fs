@@ -36,18 +36,31 @@
 \ grows by one per slab-clear and saturates to -1, poisoned, as store.fs's
 \ does; a spent mark serial makes slab-mark full.
 \
-\ Example: a byte pool of at most 1 MB, a text kept in it, and a rollback.
+\ Stacks: a slab used as a stack keeps one value (units of a cell) or one
+\ pair (two cells) per unit, the newest on top: slab-push and slab-pop,
+\ slab-2push and slab-2pop, slab-last (the newest unit's address) and
+\ slab-drop. A push has slab-claim's outcomes, and is invalid for units
+\ too narrow for what it stores; a pop, drop or slab-last of an empty slab
+\ throws slab-underflow (-4132), since callers test slab-count first.
+\
+\ Example: a byte pool of at most 1 MB, a text kept in it, and a rollback;
+\ then a stack of cells.
 \   create pool /slab allot    create here-mark /slab-mark allot
 \   1 chars 1048576 pool slab-init drop
 \   here-mark pool slab-mark drop
 \   s" Nat" dup pool slab-claim drop pool slab-at swap move    \ units 0 .. 2
 \   here-mark pool slab-rollback drop    \ the count is 0 again
 \   pool slab-free
+\   create todo /slab allot   1 cells 1000 todo slab-init drop
+\   7 todo slab-push drop  8 todo slab-push drop
+\   todo slab-pop todo slab-pop todo slab-count    \ 8 7 0
+\   todo slab-free
 \
 \ Interface: /slab slab-init slab-free slab-live? slab-valid? slab-count
 \ slab-capacity slab-limit slab-unit slab-at slab-top slab-room
 \ slab-reserve slab-claim slab-commit slab-trim slab-clear slab-bytes
-\ slab-used-bytes slab-limit-max slab-offset
+\ slab-used-bytes slab-limit-max slab-offset slab-push slab-pop
+\ slab-2push slab-2pop slab-last slab-drop slab-underflow
 \ slab-generation /slab-mark slab-mark slab-mark-valid? slab-rollback
 \ slab-mark-count. State: none of its own; every word takes a slab record
 \ made by the caller (in the dictionary or inside a larger record) and a
@@ -206,6 +219,44 @@ lf-lib set-current
   dup slab-live? 0= if drop outcome-invalid exit then
   dup slab-count 1 max over slab-capacity = if drop outcome-ok exit then
   dup slab-count 1 max swap slab-resize ;
+-4132 constant slab-underflow   \ THROW code: no newest unit to pop, drop or read
+lf-lib-private set-current
+
+\ A stack on a slab: the newest unit is the top, one value or pair to a
+\ unit. Whether the slab is live and its units hold u address units.
+: slab-wide? ( u slab -- flag ) dup slab-live? if slab-unit u<= else 2drop false then ;
+\ A unit claimed for a push: its address and ok; or -1 and full (as
+\ slab-claim), or invalid for a slab not live or too narrow.
+: slab-claim-one ( slab -- addr outcome )
+  1 over slab-claim ok-then? if swap slab-at outcome-ok else nip no-result then ;
+: slab-claim-wide ( u slab -- addr outcome )
+  tuck slab-wide? if slab-claim-one else drop outcome-invalid no-result then ;
+\ The newest unit, of a live slab whose units hold u address units; else
+\ throw slab-underflow.
+: slab-newest-unit ( u slab -- addr )
+  tuck slab-wide? over slab-count 0> and 0= if slab-underflow throw then
+  dup slab-count 1- swap slab-at ;
+\ The newest unit given back, and its address: its contents stay until
+\ the next claim.
+: slab-shed ( slab -- ) -1 swap slab-used +! ;
+: slab-take ( u slab -- addr ) tuck slab-newest-unit swap slab-shed ;
+
+lf-lib set-current
+\ Push a cell, or a pair (stored by 2!, so slab-2pop gives x1 x2 back):
+\ ok; full when the slab cannot grow; invalid, nothing changed, for a
+\ slab that is not live or whose units are narrower than a cell (two).
+: slab-push ( x slab -- outcome )
+  cell swap slab-claim-wide ok-then? if ! outcome-ok else nip then ;
+: slab-2push ( x1 x2 slab -- outcome )
+  2 cells swap slab-claim-wide ok-then? if 2! outcome-ok else nip nip then ;
+\ Pop the newest cell or pair; slab-drop gives the newest unit back and
+\ slab-last is its address. An empty slab, or one not live or too narrow,
+\ throws slab-underflow, nothing changed: callers test slab-count first,
+\ so this is a fault in the caller, never an outcome.
+: slab-pop ( slab -- x ) cell swap slab-take @ ;
+: slab-2pop ( slab -- x1 x2 ) 2 cells swap slab-take 2@ ;
+: slab-drop ( slab -- ) 1 swap slab-take drop ;
+: slab-last ( slab -- addr ) 1 swap slab-newest-unit ;
 lf-lib-private set-current
 
 \ Clearing: the count and the mark stack go to 0 and the generation grows
@@ -234,12 +285,12 @@ lf-lib-private set-current
   dup slab-depth @ over slab-marks-room @ < if drop outcome-ok else slab-marks-grow then ;
 : slab-serial+ ( slab -- serial ) slab-serial 1 over +! @ ;
 \ Unchecked: push an entry for the current count; there is room.
-: slab-push ( slab -- )
+: slab-entry-push ( slab -- )
   >r r@ slab-count r@ slab-serial+ r@ dup slab-depth @ swap slab-entry mark-entry!
   1 r> slab-depth +! ;
 : slab-new-entry ( slab -- outcome )
   dup slab-serial @ max-n = if drop outcome-full exit then
-  dup slab-marks-ready dup ok? if drop slab-push outcome-ok else nip then ;
+  dup slab-marks-ready dup ok? if drop slab-entry-push outcome-ok else nip then ;
 \ An entry for the current count on top of the stack.
 : slab-entry-ready ( slab -- outcome )
   dup slab-marked? if drop outcome-ok else slab-new-entry then ;

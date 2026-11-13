@@ -14208,6 +14208,102 @@ new = ''': sort-unsigned ( u1 u2 -- n ) 2dup = if 2drop 0 else < 2* 1+ then ;'''
 test = "$GFORTH tests/lib/sort.fs"
 reason = "sort-unsigned compares signed: a value with the top bit set sorts first"
 
+# --- stacks on slabs, loops over outcomes, index checks (src/lib/slab.fs,
+# outcome.fs, bounds.fs; plan 9.4.8a, the library audit's actions 1, 4, 10)
+
+[[fault]]
+id = "lib-slab-push-narrow"
+file = "src/lib/slab.fs"
+old = '''  tuck slab-wide? if slab-claim-one else drop outcome-invalid no-result then ;'''
+new = '''  nip slab-claim-one ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "a push into units narrower than a cell (two) writes past its unit instead of being invalid"
+quick = true
+
+[[fault]]
+id = "lib-slab-pop-empty"
+file = "src/lib/slab.fs"
+old = '''  tuck slab-wide? over slab-count 0> and 0= if slab-underflow throw then'''
+new = '''  tuck slab-wide? 0= if slab-underflow throw then'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "a pop of an empty slab reads before its block and leaves the count -1 instead of throwing slab-underflow"
+quick = true
+
+[[fault]]
+id = "lib-slab-pop-kept"
+file = "src/lib/slab.fs"
+old = ''': slab-shed ( slab -- ) -1 swap slab-used +! ;'''
+new = ''': slab-shed ( slab -- ) drop ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "a pop reads the newest unit but keeps it: the same value comes back again"
+
+[[fault]]
+id = "lib-slab-2push-swapped"
+file = "src/lib/slab.fs"
+old = '''  2 cells swap slab-claim-wide ok-then? if 2! outcome-ok else nip nip then ;'''
+new = '''  2 cells swap slab-claim-wide ok-then? if >r swap r> 2! outcome-ok else nip nip then ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "a pair is stored swapped, so slab-2pop (and slab-last's 2@) give x2 x1"
+
+[[fault]]
+id = "lib-slab-last-oldest"
+file = "src/lib/slab.fs"
+old = '''  dup slab-count 1- swap slab-at ;'''
+new = '''  0 swap slab-at ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "the stack's top is the oldest unit: pops come back first in, first out"
+
+[[fault]]
+id = "lib-outcome-each-past-failure"
+file = "src/lib/outcome.fs"
+old = '''  dup 1+ swap ?do 0 max 0 ?do i j execute dup ok? 0= if unloop unloop exit then drop'''
+new = '''  dup 1+ swap ?do 0 max 0 ?do i j execute drop'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "ok-each runs every step and reports ok whatever they gave: a failure is lost"
+quick = true
+
+[[fault]]
+id = "lib-outcome-each-negative"
+file = "src/lib/outcome.fs"
+old = '''  dup 1+ swap ?do 0 max 0 ?do i j execute dup ok? 0= if unloop unloop exit then drop'''
+new = '''  dup 1+ swap ?do 0 ?do i j execute dup ok? 0= if unloop unloop exit then drop'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "ok-each with a negative count runs steps (?DO wraps round) instead of none"
+
+[[fault]]
+id = "lib-outcome-fold-result-lost"
+file = "src/lib/outcome.fs"
+old = '''  dup 1+ swap ?do swap 0 max 0 ?do tuck i swap j execute ok-keep? 0= if'''
+new = '''  dup 1+ swap ?do swap 0 max 0 ?do tuck i swap j execute ok-then? 0= if'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "a failing ok-fold step's result is replaced by the context y: the caller reads y as the result"
+
+[[fault]]
+id = "lib-outcome-first-overwritten"
+file = "src/lib/outcome.fs"
+old = ''': outcome-first! ( outcome a-addr -- ) dup @ ok? if ! else 2drop then ;'''
+new = ''': outcome-first! ( outcome a-addr -- ) ! ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "a later outcome, ok among them, overwrites the first failure"
+quick = true
+
+[[fault]]
+id = "lib-bounds-index-within"
+file = "src/lib/bounds.fs"
+old = ''': index? ( i n -- flag ) over 0< if 2drop false else < then ;'''
+new = ''': index? ( i n -- flag ) 0 swap within ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "index? as `0 n within`: for a negative n every i >= 0 is an index"
+quick = true
+
+[[fault]]
+id = "lib-bounds-cells-index-off"
+file = "src/lib/bounds.fs"
+old = '''  0 max 0 ?do 2dup i cells + @ = if 2drop i true unloop exit then loop 2drop false ;'''
+new = '''  0 max 0 ?do 2dup i cells + @ = if 2drop i 1+ true unloop exit then loop 2drop false ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "cells-index gives the index after the match"
+
 # --- the front end's isDefEq (src/front/defeq.fs and its helpers; plan FE1c)
 
 [[fault]]

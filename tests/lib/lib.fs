@@ -69,6 +69,21 @@ T{ -1 max-n upto? -> false }T
 T{ 0 -1 upto? -> false }T
 T{ 3 -5 upto? max-n -5 upto? -> false false }T
 T{ 3 7 ' upto? rs-checked -> true }T
+\ index?: 0 <= i < n, signed; false for every i when n <= 0, where
+\ `0 n within` would take any i >= 0 for a negative n.
+T{ 0 1 index? 4 5 index? 5 5 index? -1 5 index? -> true true false false }T
+T{ 0 0 index? 0 -1 index? 3 -1 index? max-n 1+ 0 index? -> false false false false }T
+T{ 3 max-n 1+ index? max-n 1- max-n index? max-n max-n index? -> false true false }T
+T{ 2 0 -1 within 2 -1 index? -> true false }T
+T{ 2 3 ' index? rs-checked -> true }T
+\ cells-index: the first cell equal to x, from 0 below n.
+create some-cells 4 , -1 , 9 , -1 , 0 ,
+T{ 4 some-cells 5 cells-index -1 some-cells 5 cells-index -> 0 true 1 true }T
+T{ 0 some-cells 5 cells-index 0 some-cells 4 cells-index -> 4 true false }T
+T{ 9 some-cells 2 cells-index 9 some-cells 3 cells-index -> false 2 true }T
+T{ 4 some-cells 0 cells-index 4 some-cells -3 cells-index 7 some-cells 5 cells-index
+   -> false false false }T
+T{ 9 some-cells 5 ' cells-index rs-checked -> 2 true }T
 
 \ cells-zero?: any nonzero cell in range makes it false.
 create zero-cells 3 cells allot
@@ -436,6 +451,49 @@ T{ 0 step-trail ! 3 outcome-ok ' step-d ok-with ' step-e ok-with ' step-d ok-wit
   -> 3 outcome-exhausted 33 }T
 T{ 4 outcome-ok ' step-d ' withed rs-checked 4 outcome-full ' step-d ' withed rs-checked
   -> 4 outcome-ok 4 4 outcome-full 0 }T
+\ ok-each: the step ( i*x k -- i*x outcome ) for k = 0 .. n-1 while ok;
+\ it sees the values below k and may replace them (a fold); n <= 0 runs
+\ nothing. step-k keeps a trail of the k it saw and fails at k = 3.
+: step-k ( x k -- x outcome )
+  dup step-trail @ 10 * + 1+ step-trail ! 3 = if outcome-unknown else outcome-ok then ;
+: eached ( x n xt -- x outcome trail ) 0 step-trail ! ok-each step-trail @ ;
+T{ 7 3 ' step-k eached -> 7 outcome-ok 123 }T
+T{ 7 6 ' step-k eached -> 7 outcome-unknown 1234 }T
+T{ 7 0 ' step-k eached 7 -5 ' step-k eached 7 max-n invert ' step-k eached
+   -> 7 outcome-ok 0 7 outcome-ok 0 7 outcome-ok 0 }T
+T{ 7 6 ' step-k ' eached rs-checked -> 7 outcome-unknown 1234 }T
+\ A fold: the sum of k * k below n, and a step that uses the return stack.
+: square+ ( sum k -- sum' outcome ) dup * + outcome-ok ;
+: square+r ( sum k -- sum' outcome ) >r r@ r> * + outcome-ok ;
+T{ 0 5 ' square+ ok-each 0 5 ' square+r ok-each -> 30 outcome-ok 30 outcome-ok }T
+\ No value below k, and two; the failing step's values are kept.
+: step-full ( k -- outcome ) 2 = if outcome-full else outcome-ok then ;
+: pair-step ( a b k -- a' b' outcome ) + swap 1+ swap dup 10 > if outcome-full else outcome-ok then ;
+T{ 9 ' step-full ok-each 2 ' step-full ok-each -> outcome-full outcome-ok }T
+T{ 0 0 9 ' pair-step ok-each -> 6 15 outcome-full }T
+\ Nested: each step runs a loop of its own.
+: nested-squares ( sum k -- sum' outcome ) ['] square+ ok-each ;
+T{ 0 4 ' nested-squares ok-each -> 6 outcome-ok }T
+\ A step that leaves an outcome outside the vocabulary stops the loop.
+: step-odd ( k -- outcome ) drop 99 ;
+T{ 3 ' step-odd ok-each -> 99 }T
+\ ok-fold: x := step ( x k y -- x' outcome ), y given to every step and
+\ kept; the failing step's x' and outcome.
+: fold-step ( x k y -- x' outcome )
+  >r 10 * + r> + dup 100 > if drop -1 outcome-exhausted else outcome-ok then ;
+T{ 0 3 5 ' fold-step ok-fold -> 45 outcome-ok }T
+T{ 0 5 5 ' fold-step ok-fold -> -1 outcome-exhausted }T
+T{ 4 0 5 ' fold-step ok-fold 4 -2 5 ' fold-step ok-fold -> 4 outcome-ok 4 outcome-ok }T
+T{ 1 2 3 ' fold-step ' ok-fold rs-checked -> 17 outcome-ok }T
+: fold-k ( x k y -- x' outcome ) drop step-k ;
+T{ 0 step-trail ! 0 6 0 ' fold-k ok-fold step-trail @ -> 0 outcome-unknown 1234 }T
+\ outcome-first!: the first failure stays; ok never overwrites one.
+variable first-cell
+T{ outcome-ok first-cell ! outcome-ok first-cell outcome-first! first-cell @ -> outcome-ok }T
+T{ outcome-full first-cell outcome-first! first-cell @ -> outcome-full }T
+T{ outcome-invalid first-cell outcome-first! outcome-ok first-cell outcome-first! first-cell @
+   -> outcome-full }T
+T{ outcome-unknown first-cell ' outcome-first! rs-checked first-cell @ -> outcome-full }T
 
 \ walk: refuses a capacity below 1.
 : bad-walk? ( addr u -- flag ) ['] evaluate catch dup if nip nip then 0<> ;
