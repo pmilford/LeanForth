@@ -440,6 +440,17 @@ create lf-tbind-hooks /htab-hooks allot
   dup lf-term-input? if lf-tin-first@ else lf-term-slot lf-term-first-at + u32@ then ;
 : lf-term-second@ ( index -- second )
   dup lf-term-input? if lf-tin-second@ else lf-term-slot lf-term-second-at + u32@ then ;
+\ The node's kind, by its tag, unchecked as lf-term-tag@: a tag; an
+\ application, lambda, Pi or bound variable; a binary node (two
+\ children) or a binder (lambda or Pi). A constant's is
+\ constant-term-boundary.fs's lf-term-const?, beside its tag.
+: lf-term-tag? ( index tag -- flag ) swap lf-term-tag@ = ;
+: lf-term-app? ( index -- flag ) lf-tag-app lf-term-tag? ;
+: lf-term-lam? ( index -- flag ) lf-tag-lam lf-term-tag? ;
+: lf-term-pi? ( index -- flag ) lf-tag-pi lf-term-tag? ;
+: lf-term-bvar? ( index -- flag ) lf-tag-bvar lf-term-tag? ;
+: lf-term-binary? ( index -- flag ) lf-term-tag@ lf-term-binary-tag? ;
+: lf-term-binder? ( index -- flag ) lf-term-tag@ lf-term-binder-tag? ;
 \ The end of a store mark as a term number: the nodes below it (input
 \ nodes included) are older than the mark.
 : lf-term-mark-end ( mark -- n ) mark-count @ lf-term-base + ;

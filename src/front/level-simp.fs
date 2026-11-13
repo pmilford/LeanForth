@@ -37,10 +37,8 @@ require ../core/levels.fs
   2dup = if 2drop true exit then >r ld-record r> ld-record compare 0= ;
 
 2 cells context-slab: ls-pairs
-: ls-push ( a b -- outcome )
-  1 ls-pairs slab-claim dup ok?
-  if drop ls-pairs slab-at 2! outcome-ok else nip nip nip then ;
-: ls-pop ( -- a b ) ls-pairs dup slab-count 1- swap slab-at 2@ -1 ls-pairs slab-commit ;
+: ls-push ( a b -- outcome ) ls-pairs slab-2push ;
+: ls-pop ( -- a b ) ls-pairs slab-2pop ;
 : ls-more? ( -- flag ) ls-pairs slab-count 0> ;
 : ls-start ( a b -- outcome ) ls-pairs slab-clear ls-push ;
 : ls-tag ( level -- tag ) lf-level-tag@ ;

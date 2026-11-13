@@ -94,7 +94,7 @@ create lf-lean-types
   lf-lean-nonempty , lf-lean-nonempty-intro , 1 ,
 3 constant lf-lean-types#
 : lf-lean-type ( k -- spec ) 3 * cells lf-lean-types + ;
-: lf-lean-named? ( id k -- flag ) lf-lean-type @ lf-stmt-named lf-stmt-name? ;
+: lf-lean-named? ( id k -- flag ) lf-lean-type @ lf-stmt-named lf-name-dotted? ;
 : lf-lean-spec ( id -- spec|0 )
   lf-lean-types# 0 ?do
     dup i lf-lean-named? if drop i lf-lean-type unloop exit then

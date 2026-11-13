@@ -109,6 +109,13 @@ T{ 0 mw mx lmax lf-meta-level-defeq -> true outcome-ok }T
 : free? ( level -- flag ) lf-level-mvar-value dup if nip then 0= ;
 variable newest
 : wide ( n -- l ) lnew swap 1 ?do lnew dup newest ! lmax loop ;
+\ Level.normalize of a max of 40 metavariables: lib/sort.fs merges more
+\ than 32 arguments through a scratch the heap may refuse; sorted oldest
+\ first, the newest last.
+40 wide constant w40  newest @ constant w40-newest
+: wide-norm-op ( -- level outcome ) w40 lf-meta-level-normalize ;
+-1 none !
+T{ ' wide-norm-op refusing 0> swap ok? rot lf-level-second@ w40-newest = -> true true true }T
 20 wide constant w20
 : conj-op ( -- flag outcome ) 0 w20 lf-meta-level-defeq ;
 : stuck-op ( -- flag outcome ) u md lmax u v lmax lf-meta-level-defeq ;

@@ -51,21 +51,18 @@ end-structure
 1 cells context-slab: ib-spine     \ the beta case's arguments, last first
 :noname ( -- ) ib-state ib-table htab-free ; context-teardown
 
-: ib-fail ( outcome -- ) ib-state ib-outcome dup @ ok? if ! else 2drop then ;
-: ib-tag ( node -- tag ) lf-term-tag@ ;
-: ib-binary? ( node -- flag ) ib-tag lf-term-binary-tag? ;
-: ib-binder? ( node -- flag ) ib-tag lf-term-binder-tag? ;
-: ib-bvar? ( node -- flag ) ib-tag lf-tag-bvar = ;
-: ib-app? ( node -- flag ) ib-tag lf-tag-app = ;
-: ib-head ( node -- head ) begin dup ib-app? while lf-term-first@ repeat ;
+: ib-fail ( outcome -- ) ib-state ib-outcome outcome-first! ;
+: ib-head ( node -- head ) begin dup lf-term-app? while lf-term-first@ repeat ;
 \ An application whose head is a bound variable: Lean's beta case.
-: ib-beta? ( node -- flag ) dup ib-app? if ib-head ib-bvar? else drop false then ;
+: ib-beta? ( node -- flag )
+  dup lf-term-app? if ib-head lf-term-bvar? else drop false then ;
 
 \ Kept as it is: no loose bound variable at the depth (a binary node's
 \ data word, unknown when it holds a metavariable: then visited).
-: ib-leaf-range ( leaf -- range ) dup ib-bvar? if lf-term-first@ 1+ else drop 0 then ;
+: ib-leaf-range ( leaf -- range )
+  dup lf-term-bvar? if lf-term-first@ 1+ else drop 0 then ;
 : ib-range ( node -- range true | false )
-  dup ib-binary? 0= if ib-leaf-range true exit then
+  dup lf-term-binary? 0= if ib-leaf-range true exit then
   lf-term-data@ if lf-data-loose true else false then ;
 : ib-closed? ( node depth -- flag ) swap ib-range if < 0= else drop false then ;
 
@@ -94,11 +91,9 @@ end-structure
   ib-claim dup ib-entry 2@ ib-find drop ib-tab htab-put outcome-ok ;
 
 \ The stack.
-: ib-top ( -- node depth ) ib-pending dup slab-count 1- swap slab-at 2@ ;
-: ib-pop ( -- ) -1 ib-pending slab-commit ;
-: ib-push ( node depth -- )
-  1 ib-pending slab-claim dup ok?
-  if drop ib-pending slab-at 2! else ib-fail drop 2drop then ;
+: ib-top ( -- node depth ) ib-pending slab-last 2@ ;
+: ib-pop ( -- ) ib-pending slab-drop ;
+: ib-push ( node depth -- ) ib-pending slab-2push ib-fail ;
 : ib-push-if ( node depth -- pushed? )
   2dup ib-ready? if 2drop false else ib-push true then ;
 
@@ -111,17 +106,18 @@ end-structure
   over lf-term-first@ swap - dup 0< if drop exit then
   dup ib-m < if nip ib-x exit then
   drop lf-term-first@ ib-m - lf-term-bvar ib-made ;
-: ib-leaf ( node depth -- image ) over ib-bvar? if ib-bvar else drop then ;
+: ib-leaf ( node depth -- image ) over lf-term-bvar? if ib-bvar else drop then ;
 
 \ Binary nodes: children's images, the node rebuilt when one changes.
 : ib-first ( node depth -- child depth ) swap lf-term-first@ swap ;
-: ib-second ( node depth -- child depth' ) over ib-binder? - swap lf-term-second@ swap ;
+: ib-second ( node depth -- child depth' )
+  over lf-term-binder? - swap lf-term-second@ swap ;
 : ib-images ( node depth -- i1 i2 )
   2dup ib-first ib-image >r ib-second ib-image r> swap ;
 : ib-same-pair? ( i1 i2 node -- i1 i2 flag )
   >r 2dup r@ lf-term-second@ = swap r> lf-term-first@ = and ;
 : ib-rebuild ( i1 i2 node -- image )
-  dup >r ib-tag lf-term-binary
+  dup >r lf-term-tag@ lf-term-binary
   if r> lf-meta-named ib-fail else r> drop outcome-full ib-fail -1 then ;
 : ib-pair-image ( node depth -- image )
   over >r ib-images r@ ib-same-pair? if 2drop r> exit then r> ib-rebuild ;
@@ -129,16 +125,13 @@ end-structure
 \ The beta case: the head's image applied to the spine's arguments'
 \ images (each at the depth, in ib-spine, last first), one head beta step
 \ taken when the head's image is a lambda (Lean's betaRev).
-: ib-spine-fill ( node -- outcome )
-  ib-spine slab-clear begin dup ib-app? while
-    dup lf-term-second@ ib-spine lf-meta-push dup ok? 0= if nip exit then drop
-    lf-term-first@ repeat drop outcome-ok ;
-: ib-spine-arg ( i -- arg ) ib-spine dup slab-count 1- rot - swap slab-at @ ;
+: ib-spine-fill ( node -- outcome ) ib-spine lf-meta-spine nip ;
+: ib-spine-arg ( i -- arg ) ib-spine lf-meta-arg ;
 : ib-apply ( f depth -- f' )
   ib-spine slab-count 0 ?do
     i ib-spine-arg over ib-image rot swap lf-term-app ib-made swap
   loop drop ;
-: ib-lam? ( term -- flag ) dup 0< if drop false else ib-tag lf-tag-lam = then ;
+: ib-lam? ( term -- flag ) dup 0< if drop false else lf-term-lam? then ;
 : ib-head-beta ( f -- f' )
   dup 0< if exit then lf-meta-head-beta dup ok? if drop else ib-fail drop -1 then ;
 : ib-head-image ( node depth -- image ) swap ib-head swap ib-bvar ;
@@ -149,7 +142,7 @@ end-structure
   tuck ib-head-image swap ib-beta-apply ;
 : ib-arg ( node depth -- arg depth ) swap lf-term-second@ swap ;
 : ib-args-pushed? ( node depth -- pushed? )
-  false -rot begin over ib-app? while
+  false -rot begin over lf-term-app? while
     2dup ib-arg ib-push-if if rot drop true -rot then ib-first
   repeat 2drop ;
 
@@ -163,7 +156,7 @@ end-structure
 : ib-step ( -- )
   ib-top 2dup ib-ready? if 2drop ib-pop exit then
   over ib-beta? if ib-step-beta exit then
-  over ib-binary? if ib-step-pair else 2dup ib-leaf ib-done then ;
+  over lf-term-binary? if ib-step-pair else 2dup ib-leaf ib-done then ;
 : ib-busy? ( -- flag ) ib-pending slab-count 0> ib-state ib-outcome @ ok? and ;
 : ib-start ( -- outcome )
   outcome-ok ib-state ib-outcome ! ib-memo slab-clear ib-pending slab-clear

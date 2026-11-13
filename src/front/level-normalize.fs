@@ -30,18 +30,22 @@
 \ arguments are its sides' normal forms flattened, which after the sort
 \ and the dropping are getMaxArgsAux's. No depth needs the host's stacks
 \ (plan task 6.2.0), and a level shared in a DAG is normalized once (Lean
-\ walks a max's arguments once per path). Cost: an insertion sort, and
-\ each max of a chain gets its own normal form, so a max of n arguments
-\ costs about n^2 comparisons and n^2 / 2 new levels (Lean: n log n
-\ comparisons); plan FE1c lists bringing it down.
+\ walks a max's arguments once per path). Cost: the arguments are sorted
+\ by lib/sort.fs (stable: by insertion up to 32 of them, the comparisons
+\ of the insertion sort this module had, merged above, at most n log2 n
+\ comparisons; Lean: n log n), but each max of a chain gets its own
+\ normal form, so a max of n arguments costs about n^2 / 2 new levels;
+\ plan FE1c lists bringing that down.
 \ Outcomes: ok; invalid for a level not in the store or a parameter whose
 \ name is no valid name; full when the store or the heap has no room.
 \ Untrusted front-end code.
 \ Words: lf-meta-level-normalize, lf-meta-name-cmp.
-\ State: the record ln-state (the walk, the offset pushed into a max) and
-\ the slabs ln-args and ln-todo, members of the checker context (ADR 0009).
+\ State: the record ln-state (the walk, the offset pushed into a max, the
+\ sorter) and the slabs ln-args and ln-todo, members of the checker
+\ context (ADR 0009).
 
 require ../lib/lib.fs
+require ../lib/sort.fs
 require ../core/levels.fs
 require ../core/names.fs
 require ../core/mvar-leaves.fs
@@ -51,6 +55,7 @@ require ./level-simp.fs
 begin-structure /ln
   field: ln-k           \ the offset pushed into a max's arguments
   /dw +field ln-dw      \ the walk
+  /sorter +field ln-by  \ the arguments' sorter, by normLt
 end-structure
 /ln context-record: ln-state
 1 cells context-slab: ln-args   \ a max's arguments
@@ -118,23 +123,25 @@ end-structure
   dup ln-leaf? if r> ln-leaves< else r> ln-other< then true ;
 : ln-lt? ( l1 l2 -- flag ) begin ln-strip ln-step 0= while repeat ;
 
-\ The arguments: flattened through max nodes, then sorted by insertion.
+\ The arguments: flattened through max nodes, then sorted by normLt.
 : ln-arg ( i -- addr ) ln-args slab-at ;
 : ln-count ( -- n ) ln-args slab-count ;
-: ln-put ( level slab -- )
-  1 over slab-claim dup ok? if drop swap slab-at ! else ln-refuse 2drop drop then ;
-: ln-pop ( -- level ) ln-todo dup slab-count 1- swap slab-at @ -1 ln-todo slab-commit ;
+: ln-put ( level slab -- ) slab-push ln-refuse ;
+: ln-pop ( -- level ) ln-todo slab-pop ;
 : ln-spread ( level -- )
   dup ln-max? 0= if ln-args ln-put exit then
   dup lf-level-second@ ln-todo ln-put lf-level-first@ ln-todo ln-put ;
 : ln-flatten ( a b -- )
   ln-args slab-clear ln-todo slab-clear ln-todo ln-put ln-todo ln-put
   begin ln-todo slab-count 0> while ln-pop ln-spread repeat ;
-: ln-before? ( x j -- x j flag ) dup 0> if 2dup 1- ln-arg @ ln-lt? else false then ;
-: ln-insert ( i -- )
-  dup ln-arg @ swap begin ln-before? while dup 1- ln-arg @ over ln-arg ! 1- repeat
-  ln-arg ! ;
-: ln-sort ( -- ) ln-count 1 max 1 ?do i ln-insert loop ;
+\ sort.fs's order: positive when the later argument goes before the
+\ earlier. The sort is full when the heap refuses a merge's scratch.
+: ln-order ( earlier later -- n ) swap ln-lt? 1 and ;
+: ln-sorter ( -- sorter ) ln-state ln-by ;
+: ln-sorted ( -- outcome )
+  ln-args slab-base ln-count ln-sorter sort-records ;
+: ln-sort ( -- )
+  ['] ln-order ln-sorter sorter-cells ['] ln-sorted ok-and ln-refuse ;
 
 \ skipExplicit and isExplicitSubsumed: the first argument kept.
 : ln-explicit? ( level -- flag ) ld-base ln-zero? ;
