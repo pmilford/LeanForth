@@ -132,8 +132,38 @@ TERMS = [
     ("beta", (APP, (LAM, "P", (PROJ, 0, "#0")), "y")),
 ]
 
+# instantiateMVars: (declarations, term, gap?). The declarations, in
+# order: ("m", c, value or None), a metavariable ?c : Prop, assigned the
+# value when one is given; ("d", c, fvars, p), ?c delayed-assigned with
+# the free variables (x, y) and the pending metavariable ?p. Every
+# metavariable is made first, then each assignment in order. The gaps:
+# an argument with a loose bound variable (instantiate1 does not lift it)
+# and a let that betaRev zeta-reduces.
+MINST = [
+    ([("m", "f", FLIP)], (APP, (APP, "?f", "x"), "y"), False),
+    ([("m", "g", (LAM, "P", "?h")), ("m", "h", "x")], (APP, "?g", "y"), False),
+    ([("m", "k", ID), ("m", "f", (LAM, "P", (APP, "#0", "x")))], (APP, "?f", "?k"), False),
+    ([("m", "f", FLIP)], (LAM, "P", (APP, (APP, "?f", "#0"), "x")), True),
+    ([("m", "l", (LET, "P", "x", (LAM, "P", (APP, "#0", "#1"))))], (APP, "?l", "y"), True),
+    ([("m", "n", "x")], (APP, "?n", "y"), False),
+    ([("m", "k", ID)], (APP, (APP, "?k", "x"), "y"), False),
+    ([("m", "f", FLIP)], (APP, "?f", "x"), False),
+    ([("m", "f", ID)], (APP, (APP, "?f", "x"), (APP, "?f", "y")), False),
+    ([("m", "f", FLIP)], (LAM, "P", (APP, (APP, "?f", "x"), "y")), False),
+    ([("m", "p", (APP, "x", "y")), ("d", "d", ["x"], "p")], (APP, "?d", "y"), False),
+    ([("m", "p", "x"), ("d", "d", ["x"], "p")], (APP, (APP, "?d", "y"), "x"), False),
+    ([("m", "p", (APP, "x", "y")), ("d", "d", ["x", "y"], "p")], (APP, "?d", "x"), False),
+    ([("m", "p", None), ("d", "d", ["x"], "p")], (APP, "?d", "y"), False),
+    ([("m", "q", None), ("m", "p", (APP, "x", "?q")), ("d", "d", ["x"], "p")],
+     (APP, "?d", "y"), False),
+    ([("m", "p", "x"), ("d", "d", ["x"], "p")], "?d", False),
+    ([("m", "p", (APP, "y", "x")), ("d", "d", ["x", "y"], "p")], (APP, (APP, "?d", "y"), "x"),
+     False),
+]
 
-CASES = len(LEVELS) + len(TERMS) + len(LOPS) + len(LPARAMS) + len(TPARAMS) + len(NORMS)
+
+CASES = (len(LEVELS) + len(TERMS) + len(LOPS) + len(LPARAMS) + len(TPARAMS) + len(NORMS)
+         + len(MINST))
 
 
 class Failure(Exception):
@@ -273,6 +303,8 @@ def term_lean(t):
         return f"({maker} `a .default {term_lean(a)} {term_lean(b)})"
     if t.startswith("#"):
         return f"(mkBVar {t[1:]})"
+    if t.startswith("?") and t != "?m":
+        return f"m{t[1]}"
     return {"P": "(mkSort Level.zero)", "x": "x", "y": "y", "?m": "m"}[t]
 
 
@@ -291,6 +323,8 @@ def term_forth(t):
         return f"{term_forth(a)} {term_forth(b)} {word}"
     if t.startswith("#"):
         return f"{t[1:]} bv"
+    if t.startswith("?") and t != "?m":
+        return f"char {t[1]} mvn"
     return {"P": "prop", "x": "fx", "y": "fy", "?m": "hole"}[t]
 
 
@@ -343,10 +377,39 @@ def lean_norm_cases():
     return "\n".join(lines)
 
 
+def lean_minst_case(decls, term):
+    lines = ["run_meta do",
+             "  withLocalDeclD `x (mkSort Level.zero) fun x => do",
+             "  withLocalDeclD `y (mkSort Level.zero) fun y => do",
+             "    let _ := (x, y)"]
+    lines += [f"    let m{d[1]} ← mkFreshExprMVar (mkSort Level.zero)" for d in decls]
+    for d in decls:
+        if d[0] == "m" and d[2] is not None:
+            lines.append(f"    m{d[1]}.mvarId!.assign {term_lean(d[2])}")
+        elif d[0] == "d":
+            fvars = ", ".join(d[2])
+            lines.append(f"    assignDelayedMVar m{d[1]}.mvarId! #[{fvars}] m{d[3]}.mvarId!")
+    lines.append(f"    IO.println (← sx (← instantiateMVars {term_lean(term)}))")
+    return "\n".join(lines)
+
+
+def forth_minst_case(decls, term):
+    calls = ["mvar-case"] + [f"char {d[1]} new-mv" for d in decls]
+    for d in decls:
+        if d[0] == "m" and d[2] is not None:
+            calls.append(f"{term_forth(d[2])} char {d[1]} assign-mv")
+        elif d[0] == "d":
+            fvs = " ".join(f"{term_forth(v)} delay-fv" for v in d[2])
+            calls.append(f"{fvs} {len(d[2])} char {d[1]} char {d[3]} delay-mv")
+    calls.append(f"{term_forth(term)} inst-run")
+    return " ".join(calls)
+
+
 def lean_source():
     text = LEAN_HEAD + "\n" + "\n\n".join(lean_level_case(l, r, ro) for l, r, ro, _ in LEVELS)
     return (text + "\n\n" + lean_term_cases() + "\n\n" + lean_param_cases() + "\n\n"
-            + lean_norm_cases() + "\n")
+            + lean_norm_cases() + "\n\n"
+            + "\n\n".join(lean_minst_case(d, t) for d, t, _ in MINST) + "\n")
 
 
 def lean_lines():
@@ -397,6 +460,7 @@ def forth_lines():
                      f"{term_forth(term)} {len(names)} ilp-run")
     calls.append("level-case char a add-mv char b add-mv")
     calls += [f"{level_forth(level_parse(l), {'a': 0, 'b': 1})} norm-run" for l in NORMS]
+    calls += [forth_minst_case(d, t) for d, t, _ in MINST]
     run = subprocess.run([GFORTH, "tests/front/meta-cases.fs", "-e", " ".join(calls) + " bye"],
                          cwd=ROOT, stdin=subprocess.DEVNULL, capture_output=True, text=True,
                          timeout=LIMIT)
@@ -431,9 +495,11 @@ def main():
         names = ([f"{l} =?= {r}" for l, r, _, _ in LEVELS] + [str(c) for c in TERMS]
                  + [f"{op} {u} {v}" for op, u, v in LOPS]
                  + [f"{c[0]} {c[1]} := {c[2]}" for c in LPARAMS + TPARAMS]
-                 + [f"normalize {l}" for l in NORMS])
+                 + [f"normalize {l}" for l in NORMS]
+                 + [f"instantiateMVars {t} with {d}" for d, t, _ in MINST])
         gap_flags = ([g for _, _, _, g in LEVELS] + [False] * (len(TERMS) + len(LOPS))
-                     + [c[3] for c in LPARAMS + TPARAMS] + [False] * len(NORMS))
+                     + [c[3] for c in LPARAMS + TPARAMS] + [False] * len(NORMS)
+                     + [g for _, _, g in MINST])
         for name, gap, want, got in zip(names, gap_flags, lean, forth):
             if gap:
                 if not got.startswith("unsupported"):
@@ -449,7 +515,7 @@ def main():
           f"({len(LEVELS)} level unifications, {len(TERMS)} instantiations, abstractions and "
           f"head-beta steps, {len(LOPS)} mkLevelMax'/mkLevelIMax', "
           f"{len(LPARAMS) + len(TPARAMS)} universe-parameter instantiations, "
-          f"{len(NORMS)} Level.normalize); "
+          f"{len(NORMS)} Level.normalize, {len(MINST)} instantiateMVars); "
           f"{len(gaps)} gaps answer unsupported: {'; '.join(gaps)}; harness self-test passed")
     return 0
 

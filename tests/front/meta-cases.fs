@@ -127,5 +127,17 @@ create names-buf 4 cells allot  create levels-buf 4 cells allot
 : max-run ( u v -- ) lf-meta-max .level cr ;
 : imax-run ( u v -- ) lf-meta-imax .level cr ;
 : norm-run ( level -- ) lf-meta-level-normalize .level cr ;
+
+\ instantiateMVars cases: metavariables ?a .. ?z : Prop in slots by
+\ letter, assigned or delayed-assigned, in a fresh context each.
+create mvs 26 cells allot
+: inst-slot ( c -- addr ) [char] a - cells mvs + ;
+: mvn ( c -- mvar ) inst-slot @ ;
+: new-mv ( c -- ) prop mv-natural lf-mvar-new made swap inst-slot ! ;
+: assign-mv ( value c -- ) mvn swap lf-mvar-assign room ;
+: delay-fv ( fvar -- ) lf-delay-fvar room ;
+: delay-mv ( k c p -- ) mvn swap mvn swap rot lf-mvar-delay room ;
+: mvar-case ( -- ) lf-mctx-reset ;
+: inst-run ( term -- ) lf-instantiate-mvars .term cr ;
 : ilp-run ( term k -- ) >r names-buf levels-buf r> lf-meta-instantiate-level-params .term cr ;
 : beta-run ( term -- ) lf-meta-head-beta .term cr ;

@@ -35,12 +35,14 @@
 \   over a level metavariable gets the level's value, a constant whose
 \   universe arguments hold one gets a new reference with the levels'
 \   images (level-map.fs), and a node that changes nothing stays the same
-\   node. Two steps
-\   of Lean's need the instantiation of bound variables (plan FE1c) and
-\   answer unsupported until then, never another term: the beta step for
-\   ?f a when ?f's value is a lambda, and putting in a delayed assignment's
-\   value once its pending metavariable is assigned (an unassigned one
-\   stays, as in Lean, and the export writer refuses the hole).
+\   node. As Lean's C++ instantiate_mvars: ?f a1 .. an with ?f assigned
+\   is beta-reduced at the head (betaRev); ?d a1 .. an with a delayed
+\   assignment of k <= n free variables, once its pending metavariable's
+\   value is assigned and holds no metavariable, is that value with the
+\   arguments put in (an unassigned one stays, and the export writer
+\   refuses the hole); see "Terms" below. Two cases answer unsupported,
+\   never another term: an argument with loose bound variables, and a
+\   let that betaRev would zeta-reduce.
 \ Outcomes: ok; invalid for a stale or unknown leaf, an assigned one, an
 \ occurs-check failure or a cycle; full when a store or the heap has no
 \ room; unsupported as above. Untrusted: whatever the context says, only
@@ -61,10 +63,10 @@
 \ lf-level-mvar-occurs?, lf-level-assignable-mvar? ( level -- flag
 \ outcome ), lf-level-stale-mvar?, lf-level-instantiate-mvars ( level -- level'
 \ outcome ), lf-instantiate-mvars ( term -- term' outcome ).
-\ State: the record mctx (with the two walk records of dag-walk.fs, whose
-\ heap blocks live only while a walk runs), the stores mv-exprs,
-\ mv-levels and mv-fvars and the slab mv-trail, in the checker context
-\ (ADR 0009).
+\ State: the record mctx (with three walk records of dag-walk.fs and the
+\ spine table, heap blocks that live only while a walk runs), the stores
+\ mv-exprs, mv-levels and mv-fvars and the slabs mv-trail and mv-args, in
+\ the checker context (ADR 0009).
 
 require ../lib/lib.fs
 require ../core/terms.fs
@@ -77,7 +79,9 @@ require ../core/tagged-sort-boundary.fs
 require ../core/mvar-leaves.fs
 require ../present/binder-table.fs
 require ./dag-walk.fs
+require ../core/let-terms.fs
 require ./level-map.fs
+require ./instantiate.fs
 
 0 constant mv-natural
 1 constant mv-synthetic
@@ -107,8 +111,11 @@ begin-structure /mctx
   field: mctx-marks       \ marks open (lf-mctx-mark)
   /dw +field mctx-walk    \ the term walks
   /dw +field mctx-lwalk   \ the level walks
+  /dw +field mctx-hwalk   \ the search for a metavariable, inside a term walk
+  field: mctx-spine       \ heap, while terms are instantiated: the spine table
 end-structure
 /mctx context-record: mctx
+1 cells context-slab: mv-args     \ an application's argument images, last first
 store-header context-record: mv-exprs
 store-header context-record: mv-levels
 store-header context-record: mv-fvars
@@ -221,9 +228,9 @@ store-header context-record: mv-fvars
   swap mv-value-of if swap mv-undone else drop false then ;
 : mv-pair-images ( node walk -- i1 i2 )
   over lf-term-first@ over dw-image >r swap lf-term-second@ swap dw-image r> swap ;
-: mv-term-walk ( build -- walk )
-  mctx mctx-walk tuck dw-build ! ['] mv-term-pending over dw-pending !
-  lf-term-base lf-term-count @ + over dw-size ! ;
+: mv-walk ( build pending walk -- walk )
+  tuck dw-pending ! tuck dw-build ! lf-term-base lf-term-count @ + over dw-size ! ;
+: mv-term-walk ( build -- walk ) ['] mv-term-pending mctx mctx-walk mv-walk ;
 : mv-target ( -- addr ) mctx mctx-target ;
 : mv-occurs-build ( node walk -- 0|1 )
   over mv-target @ = if 2drop 1 exit then
@@ -360,42 +367,124 @@ store-header context-record: mv-fvars
   over mvl-succ? if mvl-succ-build else mvl-leaf-build then ;
 : lf-level-instantiate-mvars ( level -- level' outcome ) ['] mvl-build mvl-walk dw-run ;
 
-\ Terms: a binary node whose parts change is rebuilt with the binder's
-\ name and kind; a Sort gets its level's image; an assigned metavariable
-\ is its value's image; a constant gets its levels' images.
+\ Terms, as Lean's instantiateMVars (its C++ instantiate_mvars): a binary
+\ node whose parts change is rebuilt with the binder's name and kind; a
+\ Sort gets its level's image; an assigned metavariable is its value's
+\ image; a constant gets its levels' images. An application ?f a1 .. an
+\ whose head ?f is assigned is its value's image applied to the
+\ arguments' images and beta-reduced at the head (Lean's betaRev,
+\ instantiate.fs's lf-meta-head-beta), the result not instantiated again;
+\ with a delayed assignment of k free variables, k <= n, whose pending
+\ metavariable's value is assigned and, instantiated, holds no
+\ metavariable, it is that value with the free variables abstracted, the
+\ first k arguments put in and the rest applied; any other application
+\ gets its parts' images. Not ported, answered unsupported: a let that
+\ betaRev would zeta-reduce, and an argument with loose bound variables
+\ (an application under a binder), which instantiate1 does not lift.
 : mv-refuse ( outcome -- ) mctx mctx-walk dw-refuse ;
+: mv-image ( node -- image ) mctx mctx-walk dw-image ;
 : mv-named ( new old -- new ) lf-pres-binder@ if 2>r dup 2r> lf-pres-binder! drop then ;
 : mv-same-pair? ( i1 i2 node -- i1 i2 flag )
   >r 2dup r@ lf-term-second@ = swap r> lf-term-first@ = and ;
-\ Lean's instantiateMVars beta-reduces ?f a when ?f's value is a lambda,
-\ and puts a delayed assignment's value in once its pending metavariable
-\ is assigned; both need the front end's instantiation of bound variables
-\ (plan FE1c) and answer unsupported until then, never another term.
-: mv-lambda? ( term -- flag ) lf-term-tag@ lf-tag-lam = ;
-: mv-beta? ( node walk -- flag )
-  over lf-term-tag@ lf-tag-app = 0= if 2drop false exit then
-  swap lf-term-first@ dup mv-value-of
-  if drop swap dw-image mv-lambda? else 2drop false then ;
-: mv-ready? ( pending -- flag ) lf-mvar-value dup if nip then ;
-: mv-delayed-ready? ( term -- flag ) lf-mvar-delayed if 2drop mv-ready? else false then ;
 : mv-rebuild ( node walk -- image )
   over >r mv-pair-images r@ mv-same-pair? if 2drop r> exit then
   r@ lf-term-tag@ lf-term-binary if r> mv-named exit then r> outcome-full mv-refuse ;
-: mv-pair-build ( node walk -- image )
-  2dup mv-beta? if drop outcome-unsupported mv-refuse else mv-rebuild then ;
+: mv-remapped ( image outcome -- image ) dup ok? if drop else mv-refuse then ;
+: mv-made ( term true | false -- term ) 0= if outcome-full mv-refuse -1 then ;
+
+\ The walk's children: a delayed metavariable's also its pending one's
+\ value, once assigned; a search for a metavariable, through parts only.
+: mv-pending-value ( mvar -- value true | false )
+  lf-mvar-delayed if 2drop lf-mvar-value else false then ;
+: mv-delay-pending ( node walk -- child true | false )
+  swap mv-pending-value if swap mv-undone else drop false then ;
+: mv-inst-pending ( node walk -- child true | false )
+  2dup mv-term-pending if nip nip true exit then
+  over lf-mvar? if mv-delay-pending else 2drop false then ;
+: mv-hole-pending ( node walk -- child true | false )
+  over mv-binary? if mv-pair-pending else 2drop false then ;
+: mv-hole-build ( node walk -- 0|1 )
+  over mv-binary? if mv-pair-images or else drop lf-mvar? 1 and then ;
+: mv-holes? ( term -- flag outcome )
+  ['] mv-hole-build ['] mv-hole-pending mctx mctx-hwalk mv-walk dw-run swap 0<> swap ;
+
+\ An application's spine. The spine table (a heap block for the walk,
+\ two cells per node) keeps each application's head and argument count,
+\ from its first part's, so a node finds them at once. mv-spine puts the
+\ arguments' images in mv-args, the last first (a_j is n - j there).
+: mv-app? ( node -- flag ) lf-term-tag@ lf-tag-app = ;
+: mv-spine-cell ( node -- addr ) 2* cells mctx mctx-spine @ + ;
+: mv-spine-set ( node -- )
+  dup lf-term-first@ dup mv-app? if mv-spine-cell 2@ 1+ else 1 then
+  rot mv-spine-cell 2! ;
+: mv-args# ( -- n ) mv-args slab-count ;
+: mv-nth ( j -- image ) mv-args# swap - mv-args slab-at @ ;
+: mv-arg-put ( image -- )
+  1 mv-args slab-claim dup ok? if drop mv-args slab-at ! else mv-refuse 2drop then ;
+: mv-spine ( node -- head )
+  mv-args slab-clear begin dup mv-app? while dup lf-term-second@ mv-image mv-arg-put
+  lf-term-first@ repeat ;
+\ f applied to a_s+1 .. a_n.
+: mv-apply ( f s -- f' ) mv-args# swap ?do i 1+ mv-nth lf-term-app mv-made loop ;
+
+\ The beta step, Lean's betaRev of f, the head's value image, with the n
+\ arguments: f's first n lambdas take them all (lf-meta-head-beta); a let
+\ before they run out would be zeta-reduced (not ported); else f's
+\ lambdas run out first and the node is its parts' images (its first
+\ part, with one argument fewer, is already the beta-reduced term).
+: mv-lam? ( term -- flag ) lf-term-tag@ lf-tag-lam = ;
+: mv-lams ( f n -- f' m )
+  0 swap 0 ?do over mv-lam? 0= if leave then swap lf-term-second@ swap 1+ loop ;
+: mv-lam-code ( f n -- 0|1|2 )
+  tuck mv-lams rot = if drop 0 else lf-let? 1 and 2 swap - then ;
+: mv-beta-all ( node f -- image )
+  swap mv-spine drop 0 mv-apply lf-meta-head-beta mv-remapped ;
+: mv-zeta ( node f -- image ) 2drop outcome-unsupported mv-refuse -1 ;
+: mv-beta-at ( node head n -- image )
+  swap mv-image tuck swap mv-lam-code case 0 of mv-beta-all endof 1 of mv-zeta endof
+    >r drop mctx mctx-walk mv-rebuild r> endcase ;
+: mv-assigned? ( head -- flag ) mv-value-of dup if nip then ;
+
+\ The delayed step, for exactly k arguments (with more, the first part is
+\ already the value put in, and the node is its parts' images).
+: mv-delay-of ( head -- addr k value true | false )
+  lf-mvar-delayed 0= if false exit then rot lf-mvar-value if true else 2drop false then ;
+: mv-solid ( term -- term flag )
+  dup mv-holes? dup ok? if drop 0= else mv-refuse drop false then ;
+: mv-ready ( n head -- value addr k true | false )
+  mv-delay-of 0= if drop false exit then
+  >r rot over <> if 2drop r> drop false exit then
+  r> mv-image mv-solid if -rot true else 2drop drop false then ;
+: mv-put-args ( e k -- e' )
+  begin dup 0> while >r r@ mv-nth lf-meta-instantiate1 mv-remapped r> 1- repeat drop ;
+: mv-delayed ( value addr k -- image )
+  dup >r lf-meta-abstract mv-remapped r@ mv-put-args r> mv-apply ;
+: mv-delayed-app ( node value addr k -- image ) 2>r >r mv-spine drop r> 2r> mv-delayed ;
+: mv-delay-at ( node head n -- image )
+  swap mv-ready if mv-delayed-app else mctx mctx-walk mv-rebuild then ;
+
+: mv-app-build ( node walk -- image )
+  drop dup mv-spine-set dup mv-spine-cell 2@ over mv-assigned?
+  if mv-beta-at else mv-delay-at then ;
+: mv-pair-build ( node walk -- image ) over mv-app? if mv-app-build else mv-rebuild then ;
 \ A Sort's level and a constant's universe arguments get their images
 \ (level-map.fs rebuilds the node when one changes).
 : mv-level-image ( level -- level' )
   lf-level-instantiate-mvars dup ok? if drop else mv-refuse then ;
-: mv-remapped ( image outcome -- image ) dup ok? if drop else mv-refuse then ;
 : mv-sort-build ( node -- image ) ['] mv-level-image lf-meta-sort-remap mv-remapped ;
 : mv-const-build ( node -- image ) ['] mv-level-image lf-meta-const-remap mv-remapped ;
 : mv-leaf-build ( node walk -- image )
-  over mv-delayed-ready? if drop outcome-unsupported mv-refuse exit then
   over mv-value-of if swap dw-image nip else drop then ;
 : mv-leaf-kind ( node walk -- image )
   over lf-term-tag@ case lf-tag-symbolic-sort of drop mv-sort-build endof
     lf-tag-constant of drop mv-const-build endof drop mv-leaf-build 0 endcase ;
 : mv-build ( node walk -- image )
   over mv-binary? if mv-pair-build else mv-leaf-kind then ;
-: lf-instantiate-mvars ( term -- term' outcome ) ['] mv-build mv-term-walk dw-run ;
+: mv-spine-block ( -- flag )
+  lf-term-base lf-term-count @ + 2* cells 1 max allocate
+  if drop false exit then mctx mctx-spine ! true ;
+: mv-inst-run ( term -- term' outcome )
+  ['] mv-build ['] mv-inst-pending mctx mctx-walk mv-walk dw-run ;
+: lf-instantiate-mvars ( term -- term' outcome )
+  mv-spine-block 0= if drop -1 outcome-full exit then
+  mv-inst-run mctx mctx-spine heap-release ;

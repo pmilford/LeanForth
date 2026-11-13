@@ -110,6 +110,18 @@ T{ 0 mw mx lmax lf-meta-level-defeq -> true outcome-ok }T
 false none !
 T{ ' conj-op refusing 0> mc lf-level-mvar-value -> true outcome-ok true 0 true }T
 T{ ' stuck-op refusing 0> md free? -> false outcome-unsupported true true }T
+\ instantiateMVars (mvars.fs): ?f x .. x, 100 arguments, with
+\ ?f := fun a => a: the spine table, the walk, the argument slab and the
+\ beta step's heap, each refused in turn; then x applied to 99 x's.
+lf-mctx-reset
+: tnew ( -- mvar ) prop mv-natural lf-mvar-new made ;
+tnew constant tf
+T{ tf prop 0 lf-term-bvar must lf-term-lam must lf-mvar-assign -> outcome-ok }T
+tf 100 apps constant tf-spine
+: mvinst-op ( -- term outcome ) tf-spine lf-instantiate-mvars ;
+-1 none !
+T{ tf x lf-term-app must lf-instantiate-mvars -> x outcome-ok }T
+T{ ' mvinst-op refusing 0> swap ok? rot 99 firsts -> true true x }T
 
 T{ depth -> 0 }T
 cr .( meta-heap.fs: all tests passed) cr

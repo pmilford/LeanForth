@@ -10642,18 +10642,18 @@ reason = "FE1b: a constant over ?u keeps ?u after ?u is assigned"
 [[fault]]
 id = "fe-beta-unchecked"
 file = "src/front/mvars.fs"
-old = ''': mv-beta? ( node walk -- flag )'''
-new = ''': mv-beta? ( node walk -- flag ) 2drop false exit'''
+old = '''  if mv-beta-at else mv-delay-at then ;'''
+new = '''  2drop drop mctx mctx-walk mv-rebuild ;'''
 test = "$GFORTH tests/front/front.fs"
-reason = "FE1b: ?f a with ?f := fun x => b instantiates to a term Lean's instantiateMVars never gives (it beta-reduces)"
+reason = "FE1c tidy-up d: ?f a with ?f := fun x => b is not beta-reduced, where Lean's instantiateMVars reduces it"
 
 [[fault]]
 id = "fe-delayed-ready-unchecked"
 file = "src/front/mvars.fs"
-old = ''': mv-delayed-ready? ( term -- flag ) lf-mvar-delayed if 2drop mv-ready? else false then ;'''
-new = ''': mv-delayed-ready? ( term -- flag ) drop false ;'''
+old = '''  swap mv-ready if mv-delayed-app else mctx mctx-walk mv-rebuild then ;'''
+new = '''  2drop mctx mctx-walk mv-rebuild ;'''
 test = "$GFORTH tests/front/front.fs"
-reason = "FE1b: a ready delayed assignment is left in place where Lean puts its value in"
+reason = "FE1c tidy-up d: ?d x with a ready delayed assignment keeps ?d, where Lean puts the pending value in"
 
 [[fault]]
 id = "fe-lparams-empty-walked"
@@ -10830,3 +10830,27 @@ old = '''  if drop outcome-ok else nip lmap-sort-new then ;'''
 new = '''  2drop outcome-ok ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c review Q5: a Sort keeps its level after the level's image changes"
+
+[[fault]]
+id = "fe-inst-zeta-guessed"
+file = "src/front/mvars.fs"
+old = '''  tuck mv-lams rot = if drop 0 else lf-let? 1 and 2 swap - then ;'''
+new = '''  tuck mv-lams rot = if drop 0 else drop 2 then ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1c tidy-up d: ?l a with ?l := let c := v; fun x => b is applied without zeta, a term Lean's betaRev (useZeta) never gives; it must answer unsupported"
+
+[[fault]]
+id = "fe-inst-delayed-holes-ignored"
+file = "src/front/mvars.fs"
+old = '''  dup mv-holes? dup ok? if drop 0= else mv-refuse drop false then ;'''
+new = '''  true ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1c tidy-up d: a delayed assignment whose pending value still holds a metavariable is put in, where Lean leaves ?d a"
+
+[[fault]]
+id = "fe-inst-spine-table-unchecked"
+file = "src/front/mvars.fs"
+old = '''  mv-spine-block 0= if drop -1 outcome-full exit then'''
+new = '''  mv-spine-block drop'''
+test = "$GFORTH tests/front/meta-heap.fs"
+reason = "FE1c tidy-up d: instantiateMVars runs with no spine table when the heap refuses it, instead of answering full"

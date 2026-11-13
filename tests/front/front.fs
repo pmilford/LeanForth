@@ -275,15 +275,35 @@ T{ dm lf-mvar-delayed first-fvar -> pend x 1 true }T
 T{ dm prop lf-mvar-assign dm pend 1 lf-mvar-delay -> outcome-invalid outcome-invalid }T
 T{ pend lf-mvar-delayed -> false }T
 T{ dm lf-instantiate-mvars -> dm outcome-ok }T
-\ Once the pending one is assigned, Lean would put the value in: not
-\ supported yet (plan FE1c), never another term.
-T{ pend prop lf-mvar-assign dm lf-instantiate-mvars -> outcome-ok -1 outcome-unsupported }T
-\ So is Lean's beta step for ?f a when ?f := fun x : Prop => Prop; ?f alone
-\ is the lambda.
+\ Once the pending one is assigned (?pend := Prop), ?dm alone stays (as
+\ in Lean's instantiate_mvars) and ?dm x is the value with x abstracted
+\ and the argument put in: Prop. (Both were unsupported before plan FE1c
+\ ported the step.)
+T{ pend prop lf-mvar-assign dm lf-instantiate-mvars -> outcome-ok dm outcome-ok }T
+T{ dm x app lf-instantiate-mvars -> prop outcome-ok }T
+\ Lean's beta step: ?f Prop with ?f := fun x : Prop => Prop is Prop; ?f
+\ alone is the lambda. (Unsupported before plan FE1c.)
 mv-natural new constant f
 prop prop lf-tag-lam lf-term-binary drop constant fun1
 T{ f fun1 lf-mvar-assign f lf-instantiate-mvars -> outcome-ok fun1 outcome-ok }T
-T{ f prop app lf-instantiate-mvars -> -1 outcome-unsupported }T
+T{ f prop app lf-instantiate-mvars -> prop outcome-ok }T
+\ Not ported, unsupported: an argument with a loose bound variable
+\ (fun z => ?f z; instantiate1 does not lift it), and a value that
+\ betaRev would zeta-reduce (?g Prop with ?g := let c := Prop; fun a => a).
+: lam2 ( type body -- t ) lf-term-lam 0= abort" lam" ;
+: parts2 ( t -- a b ) dup lf-term-first@ swap lf-term-second@ ;
+T{ prop f 0 lf-term-bvar drop app lam2 lf-instantiate-mvars -> -1 outcome-unsupported }T
+mv-natural new constant g
+prop prop 0 lf-term-bvar drop lam2 false lf-let-make drop constant let-fun
+T{ g let-fun lf-mvar-assign g prop app lf-instantiate-mvars -> outcome-ok -1 outcome-unsupported }T
+\ ?g alone, and ?g with no argument the let would meet, stay plain.
+T{ g lf-instantiate-mvars -> let-fun outcome-ok }T
+\ A delayed assignment whose pending value still holds a metavariable is
+\ left in place, its arguments instantiated (Lean's has_expr_mvar test).
+mv-natural new constant pend2  mv-natural new constant dm2  mv-natural new constant hole2
+T{ pend2 x hole2 app lf-mvar-assign x lf-delay-fvar dm2 pend2 1 lf-mvar-delay
+   -> outcome-ok outcome-ok outcome-ok }T
+T{ dm2 f prop app app lf-instantiate-mvars swap parts2 -> outcome-ok dm2 prop }T
 T{ prop f app lf-instantiate-mvars nip -> outcome-ok }T
 T{ mv-natural new lf-mvar-lctx -> 1 true }T
 
