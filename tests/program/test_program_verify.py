@@ -29,6 +29,17 @@ checker). tests/program/verify_lean_check.py runs it with the real tools.
    read; the export removed unless --keep-export; a failed write leaves no
    receipt and no partial file; two runs give the same bytes.
 5. The shared helpers of scripts/program_receipt.py the driver uses.
+6. The command (plan 8.4.1c): bin/leanforth verify, its exit statuses (any
+   other status of the interpreter is 5), --json (one report the schema
+   accepts, its statuses the receipt's, its exit status the command's, the
+   same on every run but for measured), --write-ir.
+7. Replay (plan 8.4.1d): a receipt replays clean, also with --rerun; each
+   tampering is refused with its code: the source, the contract, its IR
+   file, the generated Lean file, the manifest, the evidence record (by its
+   hash), a status, an axiom, an added field, a duplicate id, an old or
+   unknown version, a duplicate key, a missing file, a receipt verify did
+   not write; a receipt and its evidence changed together replay clean and
+   --rerun refuses them.
 """
 import contextlib
 import copy
@@ -36,6 +47,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -47,6 +59,8 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 import program_receipt  # noqa: E402
 import program_verify  # noqa: E402
+sys.path.insert(0, str(ROOT / "tests" / "support"))
+from schema_subset import Validator, load_strict  # noqa: E402
 sys.path.insert(0, str(ROOT / "tests" / "program"))
 import verify_lean_check  # noqa: E402
 
@@ -900,6 +914,254 @@ class Shared(unittest.TestCase):
         for code in program_verify.CODES:
             self.assertIn(f"`{code}`", doc, code)
             self.assertIn(f'"{code}"', tests.replace(f'"{code}": (', ""), code)
+
+
+REPORT_SCHEMA = Validator(load_strict(
+    (ROOT / "schemas" / "verify-report-0.1.schema.json").read_text(encoding="utf-8")))
+
+
+def report_of(text):
+    """The one JSON text --json printed, read strictly and checked against the schema."""
+    report = load_strict(text)
+    errors = REPORT_SCHEMA.errors(report)
+    if errors:
+        raise AssertionError(f"report refused by its schema: {errors[:3]}")
+    return report
+
+
+class Report(unittest.TestCase):
+    """--json (plan 8.4.1c): one report the schema accepts, consistent with the run."""
+
+    CASES = [("lf-clamp", None, 0), ("wrong-clamp-swapped", None, 1), ("lf-gcd", None, 2),
+             ("lf-clamp", {"lean": "fail"}, 2), ("lf-clamp", {"verdicts": {"O1": "rejected"}}, 5),
+             ("lf-clamp", {"axioms": {"O1": ["propext"]}, "bits": {"O1": 7}}, 5),
+             ("sha-ch", None, 2)]
+
+    def test_reports(self):
+        for contract, fake, expected in self.CASES:
+            with self.subTest((contract, fake)), scratch() as out:
+                status, text = verify(contract, out, fake, extra=["--json"])
+                self.assertEqual(status, expected, text)
+                report = report_of(text)
+                self.assertEqual(report["exitStatus"], status)
+                word = "lf-gcd" if contract == "lf-gcd" else "sha-ch" if contract == "sha-ch" \
+                    else "lf-clamp"
+                receipt = receipt_at(out, word)
+                if receipt is None:
+                    self.assertIsNone(report["receipt"])
+                    self.assertEqual((report["check"], report["verify"]), (None, None))
+                    self.assertTrue(report["problems"])
+                    continue
+                self.assertEqual((report["check"], report["verify"], report["run"]),
+                                 (receipt["check"]["status"], receipt["verify"]["status"],
+                                  receipt["run"]["status"]))
+                path = Path(out) / f"{word}.receipt.json"
+                self.assertEqual(report["receipt"], {
+                    "path": rel(path), "schemaVersion": "0.3",
+                    "sha256": program_verify.digest(path.read_bytes())})
+                self.assertEqual([o["id"] for o in report["obligations"]],
+                                 [o["id"] for o in receipt["verify"]["obligations"]])
+
+    def test_same_on_every_run_but_measured(self):
+        with scratch() as out:
+            reports = []
+            for _ in range(2):
+                status, text = verify("lf-clamp", out, extra=["--json"])
+                report = report_of(text)
+                report.pop("measured")
+                reports.append(report)
+            self.assertEqual(reports[0], reports[1])
+            self.assertEqual([s["step"] for s in reports[0]["steps"]],
+                             ["command-line", "read-word", "read-contract", "generate", "prove",
+                              "check", "write"])
+            self.assertTrue(all(s["outcome"] == "ok" for s in reports[0]["steps"]))
+            self.assertTrue(reports[0]["contract"]["theorem"].startswith(
+                "ProgramVC.LfClamp0.contract"))
+
+    def test_a_usage_error_is_text(self):
+        status, text = cli(["--json"])
+        self.assertEqual((status, problem_codes(text)), (4, ["usage"]), text)
+
+
+class WriteIr(unittest.TestCase):
+    def test_write_ir(self):
+        with scratch() as folder:
+            fixture = Fixture(folder, ": w ( n -- n n ) dup ;\n", ONE_INPUT.format(
+                word="w", inputs="n").replace("  out m\n", "  out n n\n"))
+            fixture.ir.unlink()
+            status, text = run(fixture.argv("--write-ir"))
+            self.assertEqual(status, 0, text)
+            self.assertIn(f"ir: wrote {rel(fixture.ir)}", text)
+            self.assertFalse(fixture.out.exists())
+            done = subprocess.run(program_receipt.program_words_args(GFORTH, rel(fixture.source)),
+                                  cwd=ROOT, capture_output=True, text=True, timeout=120,
+                                  stdin=subprocess.DEVNULL)
+            self.assertEqual(fixture.ir.read_text(), program_receipt.program_words_output(
+                done.stdout)[1])
+            status, text = run(fixture.argv())
+            self.assertEqual(status, 0, text)
+            fixture.ir.unlink()
+            status, text = run(fixture.argv())
+            self.assertEqual((status, problem_codes(text)), (4, ["contract-ir-differs"]), text)
+
+    def test_write_ir_inside_the_checkout_only(self):
+        clamp = (CONTRACTS / "lf-clamp.contract").read_text(encoding="utf-8")
+        with scratch() as folder:
+            path = Path(folder) / "c.contract"
+            path.write_text(clamp.replace("ir tests/program/ir/clamp.ir", "ir ../x.ir"),
+                            encoding="utf-8")
+            status, text = cli(["src/program/clamp.fs", "--contract", path, "--write-ir"])
+            self.assertEqual((status, problem_codes(text)), (4, ["contract-malformed"]), text)
+
+
+class Command(unittest.TestCase):
+    """bin/leanforth verify (plan 8.4.1c)."""
+
+    def leanforth(self, argv, env=None):
+        variables = {**os.environ, "GFORTH": GFORTH, **(env or {})}
+        done = subprocess.run(["bash", str(ROOT / "bin" / "leanforth"), "verify", *map(str, argv)],
+                              cwd=ROOT, env=variables, capture_output=True, text=True,
+                              timeout=600, stdin=subprocess.DEVNULL)
+        return done.returncode, done.stdout + done.stderr
+
+    def test_statuses(self):
+        status, text = self.leanforth([])
+        self.assertEqual((status, problem_codes(text)), (4, ["usage"]), text)
+        self.assertIn("try: leanforth verify --help", text)
+        with scratch() as out:
+            status, text = self.leanforth(["src/program/examples.fs", "--contract",
+                                           CONTRACTS / "lf-gcd.contract", "--out", out])
+            self.assertEqual(status, 2, text)
+            self.assertIsNotNone(receipt_at(out, "lf-gcd"))
+        status, text = self.leanforth(["--help"])
+        self.assertEqual(status, 0, text)
+        self.assertIn("usage: leanforth verify", text)
+
+    def test_any_other_status_is_5(self):
+        with scratch() as folder:
+            fake = Path(folder) / "python3"
+            fake.write_text("#!/bin/sh\nexit 9\n", encoding="utf-8")
+            fake.chmod(0o755)
+            status, text = self.leanforth(["--help"], env={
+                "PATH": f"{folder}:{os.environ['PATH']}"})
+            self.assertEqual(status, 5, text)
+            self.assertIn("error: internal: leanforth verify ended with status 9", text)
+
+
+class Replay(unittest.TestCase):
+    """--replay and --replay --rerun (plan 8.4.1d)."""
+
+    def made(self, folder):
+        """A discharged receipt (stand-in tools) of a word of the folder's own, whose
+        source, contract and IR file a test may change."""
+        fixture = Fixture(folder, ": w ( n -- n n ) dup ;\n", ONE_INPUT.format(
+            word="w", inputs="n").replace("  out m\n", "  out n n\n"))
+        status, text = run(fixture.argv())
+        self.assertEqual(status, 0, text)
+        return fixture, rel(fixture.out / "w.receipt.json")
+
+    def replay(self, receipt, *extra):
+        return run(["--replay", receipt, *extra])
+
+    def test_clean(self):
+        with scratch() as folder:
+            _, receipt = self.made(folder)
+            for extra in ((), ("--rerun",)):
+                status, text = self.replay(receipt, *extra)
+                self.assertEqual((status, problem_codes(text)), (0, []), text)
+                self.assertIn("the receipt is what its files and its evidence give", text)
+            status, text = self.replay(receipt, "--json")
+            self.assertEqual(report_of(text)["mode"], "replay")
+            status, text = self.replay(receipt, "--rerun", "--json")
+            self.assertEqual(report_of(text)["mode"], "rerun")
+
+    def tamper(self, change, expected, code):
+        with scratch() as folder:
+            fixture, receipt = self.made(folder)
+            change(fixture, ROOT / receipt)
+            status, text = self.replay(receipt)
+            self.assertEqual(status, expected, text)
+            self.assertIn(code, problem_codes(text), text)
+            return text
+
+    def test_files_changed_after_the_receipt(self):
+        def append(path, text="\n"):
+            with open(path, "a", encoding="utf-8") as file:
+                file.write(text)
+        cases = [
+            ("the source", lambda f, r: append(f.source, "\\ a comment\n"),
+             "$.program.source.sha256"),
+            ("the contract", lambda f, r: f.contract.write_text(
+                f.contract.read_text().replace("A test word.", "Another word."))),
+            ("the IR file", lambda f, r: append(f.ir)),
+            ("the generated Lean file", lambda f, r: append(f.out / "obligations.lean",
+                                                             "-- changed\n"),
+             "is not the file the generator writes"),
+            ("the manifest", lambda f, r: (f.out / "w.ndjson.manifest.json").write_text(
+                (f.out / "w.ndjson.manifest.json").read_text().replace('"bytes": ', '"bytes": 1')),
+             "is not the manifest"),
+            ("the manifest's bytes only", lambda f, r: append(f.out / "w.ndjson.manifest.json"),
+             "$.check.evidence[3].sha256"),
+            ("the evidence record", lambda f, r: append(f.out / "w.evidence.json"),
+             "the evidence record"),
+        ]
+        for name, change, *said in cases:
+            with self.subTest(name):
+                text = self.tamper(change, 1, "replay")
+                for words in said:
+                    self.assertIn(words, text)
+
+    def test_receipts_changed(self):
+        def edited(edit):
+            def change(fixture, receipt):
+                data = json.loads(receipt.read_text())
+                edit(data)
+                receipt.write_text(program_receipt.dump(data))
+            return change
+        cases = [
+            ("a theorem's axioms under-reported", edited(
+                lambda r: r["check"]["theorems"][0].update(axioms=["propext"])), 1, "replay"),
+            ("verify said open", edited(lambda r: r["verify"].update(status="open")), 4,
+             "schema"),
+            ("an added verified field", edited(lambda r: r.update(verified=True)), 4, "schema"),
+            ("a duplicate assumption id", edited(
+                lambda r: r["assumptions"][1].update(id="A1")), 4, "rule"),
+            ("an unknown version", edited(lambda r: r.update(schemaVersion="9.9")), 4,
+             "unknown-version"),
+            ("a duplicate key", lambda f, r: r.write_text(r.read_text().replace(
+                '"schemaVersion": "0.3",', '"schemaVersion": "0.3", "schemaVersion": "0.3",')),
+             4, "not-strict-json"),
+            ("the receipt removed", lambda f, r: r.unlink(), 4, "unreadable"),
+        ]
+        for name, change, expected, code in cases:
+            with self.subTest(name):
+                self.tamper(change, expected, code)
+
+    def test_other_receipts(self):
+        for path, expected, code in (
+                ("tests/program/receipts/0.1/generated-lf-clamp.json", 4, "superseded-version"),
+                ("tests/program/receipts/generated/lf-clamp.json", 1, "replay")):
+            with self.subTest(path):
+                status, text = self.replay(path)
+                self.assertEqual((status, problem_codes(text)), (expected, [code]), text)
+
+    def test_receipt_and_evidence_changed_together(self):
+        """Changed consistently, they replay clean: only --rerun refuses them (review M3)."""
+        with scratch() as folder:
+            fixture, receipt = self.made(folder)
+            evidence = fixture.out / "w.evidence.json"
+            data = json.loads(evidence.read_text())
+            data["lean"]["axioms"] = {k: ["propext"] for k in data["lean"]["axioms"]}
+            evidence.write_text(program_receipt.dump(data))
+            sha = program_verify.digest(evidence.read_bytes())
+            text = (ROOT / receipt).read_text()
+            old = re.search(r"evidence\.json, SHA-256 ([0-9a-f]{64})", text).group(1)
+            (ROOT / receipt).write_text(text.replace(old, sha))
+            status, text = self.replay(receipt)
+            self.assertEqual((status, problem_codes(text)), (0, []), text)
+            status, text = self.replay(receipt, "--rerun")
+            self.assertEqual(status, 1, text)
+            self.assertIn("running every step again records", text)
 
 
 if __name__ == "__main__":

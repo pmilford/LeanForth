@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/pmilford/LeanForth/schemas/verify-report-0.1.schema.json",
+  "title": "leanforth verify report, version 0.1",
+  "description": "What one run of leanforth verify (or --replay) found, as one JSON text: the word, the contract, the steps, the obligations, the receipt's three statuses, the problems and the exit status. Every member but measured is the same on every run with the same inputs and tools. The receipt (schema program-receipt 0.3) is the record of the claim; this report repeats its statuses and names it by its SHA-256. Documented in docs/programming/PROGRAM_VERIFY.md; draft for the [format] gate of plan 8.4.1c.",
+  "$comment": "Uses only the keywords tests/support/schema_subset.py implements.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "schemaVersion", "mode", "word", "contract", "steps", "obligations",
+    "searchNotes", "check", "verify", "run", "receipt", "problems", "exitStatus", "measured"],
+  "properties": {
+    "schema": {"const": "leanforth-verify-report"},
+    "schemaVersion": {"const": "0.1"},
+    "mode": {"enum": ["lean", "replay", "rerun"]},
+    "word": {"anyOf": [{"type": "null"}, {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "stackEffect", "source", "ir"],
+      "properties": {
+        "name": {"type": "string"}, "stackEffect": {"type": "string"},
+        "source": {"type": "object", "additionalProperties": false,
+          "required": ["path", "line", "sha256"],
+          "properties": {"path": {"type": "string"}, "line": {"type": "integer", "minimum": 1},
+            "sha256": {"$ref": "#/$defs/sha256"}}},
+        "ir": {"anyOf": [{"type": "null"}, {"type": "object", "additionalProperties": false,
+          "required": ["version", "sha256"],
+          "properties": {"version": {"type": "string"}, "sha256": {"$ref": "#/$defs/sha256"}}}]}}}]},
+    "contract": {"anyOf": [{"type": "null"}, {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "path", "sha256", "lean", "theorem", "post"],
+      "properties": {
+        "id": {"type": "string"}, "path": {"type": "string"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "lean": {"type": ["string", "null"]},
+        "theorem": {"type": ["string", "null"]},
+        "post": {"type": ["string", "null"]}}}]},
+    "steps": {"type": "array", "items": {
+      "type": "object", "additionalProperties": false, "required": ["step", "outcome"],
+      "properties": {
+        "step": {"enum": ["command-line", "read-word", "read-contract", "generate", "prove",
+          "check", "write", "replay", "rerun"]},
+        "outcome": {"type": "string", "pattern": "^[a-z0-9.-]+$"}}}},
+    "obligations": {"type": "array", "items": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "statement", "status", "theorem", "verdict", "axioms"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^O[0-9]+$"},
+        "statement": {"type": "string"},
+        "status": {"enum": ["open", "discharged", "refuted"]},
+        "theorem": {"type": ["string", "null"]},
+        "verdict": {"type": ["string", "null"]},
+        "axioms": {"type": "array", "items": {"type": "string"}}}}},
+    "searchNotes": {"type": "array", "items": {"type": "string"}},
+    "check": {"anyOf": [{"type": "null"}, {"enum": ["not-checked", "accepted-by-leanforth",
+      "rejected", "unsupported", "failed"]}]},
+    "verify": {"anyOf": [{"type": "null"}, {"enum": ["open", "discharged", "refuted",
+      "unsupported"]}]},
+    "run": {"anyOf": [{"type": "null"}, {"const": "not-run"}]},
+    "receipt": {"anyOf": [{"type": "null"}, {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "schemaVersion", "sha256"],
+      "properties": {"path": {"type": "string"}, "schemaVersion": {"const": "0.3"},
+        "sha256": {"$ref": "#/$defs/sha256"}}}]},
+    "problems": {"type": "array", "items": {
+      "type": "object", "additionalProperties": false, "required": ["code", "step", "message"],
+      "properties": {
+        "code": {"type": "string", "pattern": "^[a-z0-9.-]+$"},
+        "step": {"type": "string"}, "message": {"type": "string"}}}},
+    "exitStatus": {"type": "integer", "minimum": 0, "maximum": 6},
+    "measured": {"type": "object", "additionalProperties": false,
+      "required": ["millisecondsPerStep"],
+      "properties": {"millisecondsPerStep": {"type": "object"}}}
+  },
+  "allOf": [
+    {
+      "$comment": "Exit status 0 only with a discharged receipt and no problem.",
+      "if": {"properties": {"exitStatus": {"const": 0}}},
+      "then": {"properties": {"problems": {"maxItems": 0}}}
+    },
+    {
+      "$comment": "A discharged verify needs LeanForth's acceptance.",
+      "if": {"properties": {"verify": {"const": "discharged"}}},
+      "then": {"properties": {"check": {"const": "accepted-by-leanforth"}}}
+    }
+  ],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

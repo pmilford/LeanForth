@@ -687,6 +687,9 @@ test-program-verify-driver:
 	GFORTH=$(GFORTH) $(RUN) $(VERIFY_DRIVER_TESTS) Discharged Refuted Unsupported Lean Limits
 test-program-verify-driver-input:
 	GFORTH=$(GFORTH) $(RUN) $(VERIFY_DRIVER_TESTS) Checker Malformed Workflow Shared
+# The command (8.4.1c: bin/leanforth verify, --json, --write-ir) and replay (8.4.1d).
+test-program-verify-command:
+	GFORTH=$(GFORTH) $(RUN) $(VERIFY_DRIVER_TESTS) Report WriteIr Command Replay
 
 # The driver end to end from the command line with pinned Lean and LeanForth's
 # checker (--jobs 2, a final run): lf-clamp discharged and wrong-clamp-swapped
@@ -705,9 +708,9 @@ reference-program-verify-all:
 	LEANFORTH_VERIFY_TEST_TOOLS=1 LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) \
 	  python3 tests/program/verify_lean_check.py --all
 
-.PHONY: test-program-verify-driver test-program-verify-driver-input \
+.PHONY: test-program-verify-driver test-program-verify-driver-input test-program-verify-command \
 	reference-program-verify-clamp reference-program-verify-refuted reference-program-verify-all
-test: test-program-verify-driver test-program-verify-driver-input
+test: test-program-verify-driver test-program-verify-driver-input test-program-verify-command
 test-differential: reference-program-verify-clamp reference-program-verify-refuted
 
 # Store marks (plan task 1.1.3) and the checked environment v0 (ADR 0012,

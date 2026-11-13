@@ -14773,8 +14773,8 @@ quick = true
 [[fault]]
 id = "verify-contract-theorem-only"
 file = "scripts/program_verify.py"
-old = '''        status = receipts.check_status(self.leanforth, names)'''
-new = '''        status = receipts.check_status(self.leanforth, names[:1])'''
+old = '''        status = receipts.check_status(found, names)'''
+new = '''        status = receipts.check_status(found, names[:1])'''
 test = "python3 tests/program/test_program_verify.py Checker"
 reason = "8.4.1b: only the contract theorem's verdict counts, so an obligation's theorem missing from LeanForth's report is treated as discharged"
 equivalent = "since review B1 the namespace check refuses an export whose report lacks an obligation's theorem (export-differs) and the counts give every declaration's verdict, so the theorems' own verdicts are a second guard"
@@ -14831,8 +14831,8 @@ reason = "8.4.1b: a source changed while the program words read it is not refuse
 [[fault]]
 id = "verify-whole-run-ignored"
 file = "scripts/program_verify.py"
-old = '''        whole = report.get("stopped") is False and report.get("run") == "ok"'''
-new = '''        whole = True'''
+old = '''        whole = (found.get("stopped") is False and found.get("run") == "ok"'''
+new = '''        whole = (True'''
 test = "python3 tests/program/test_program_verify.py Checker"
 reason = "8.4.1b: a LeanForth run that stopped or did not finish counts as accepted when the theorems' verdicts read accepted"
 
@@ -15098,3 +15098,66 @@ old = '''                self.lean[key] = self.printed(output, key)'''
 new = '''                self.lean[key] = "post"'''
 test = "python3 tests/program/test_program_verify.py Lean"
 reason = "B1: the theorem and post the evidence records are not what Lean printed in this run"
+
+# leanforth verify's command, report and replay (plans 8.4.1c and 8.4.1d).
+
+[[fault]]
+id = "verify-replay-evidence-hash"
+file = "scripts/program_verify.py"
+old = '''        if file_sha(path) != sha:
+            raise Problem("replay", f"$.provenance.note: the evidence record {path} has SHA-256 "'''
+new = '''        if False:
+            raise Problem("replay", f"$.provenance.note: the evidence record {path} has SHA-256 "'''
+test = "python3 tests/program/test_program_verify.py Replay"
+reason = "8.4.1d: an evidence record changed after the receipt is read as the receipt's"
+quick = true
+
+[[fault]]
+id = "verify-replay-no-rebuild"
+file = "scripts/program_verify.py"
+old = '''            for difference in receipts.differences(given, self.build()):'''
+new = '''            for difference in []:'''
+test = "python3 tests/program/test_program_verify.py Replay"
+reason = "8.4.1d: replay never compares the receipt with the one its files and evidence give, so a changed source or a changed receipt replays clean"
+
+[[fault]]
+id = "verify-replay-lean-file-unchecked"
+file = "scripts/program_verify.py"
+old = '''        if self.gen is not None and file_sha(self.files["lean"]) != digest('''
+new = '''        if False and file_sha(self.files["lean"]) != digest('''
+test = "python3 tests/program/test_program_verify.py Replay"
+reason = "8.4.1d: a generated Lean file changed after the receipt is not compared with what the generator writes"
+
+[[fault]]
+id = "verify-rerun-evidence-unchecked"
+file = "scripts/program_verify.py"
+old = '''            self.problem("replay", f"running every step again records {difference}")'''
+new = '''            pass'''
+test = "python3 tests/program/test_program_verify.py Replay"
+reason = "8.4.1d (review M3): a receipt and its evidence changed together pass --rerun, which must compare the evidence it records again"
+
+[[fault]]
+id = "verify-report-exit-status"
+file = "scripts/program_verify.py"
+old = '''            "exitStatus": status,'''
+new = '''            "exitStatus": 0,'''
+test = "python3 tests/program/test_program_verify.py Report"
+reason = "8.4.1c: the JSON report's exit status is not the command's"
+
+[[fault]]
+id = "verify-write-ir-clears-out"
+file = "scripts/program_verify.py"
+old = '''        if not self.args.write_ir:
+            self.prepare_out()'''
+new = '''        if True:
+            self.prepare_out()'''
+test = "python3 tests/program/test_program_verify.py WriteIr"
+reason = "8.4.1c: --write-ir also makes the --out folder and removes an earlier run's receipt there, though it verifies nothing"
+
+[[fault]]
+id = "leanforth-verify-status-passed"
+file = "bin/leanforth"
+old = '''    *) printf 'error: internal: leanforth verify ended with status %s\n' "$status"; exit 5 ;;'''
+new = '''    *) exit "$status" ;;'''
+test = "python3 tests/program/test_program_verify.py Command"
+reason = "8.4.1c: an interpreter's own status (Python missing, a crash) passes through bin/leanforth verify and can read as a verdict"

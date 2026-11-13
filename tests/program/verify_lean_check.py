@@ -6,7 +6,7 @@ Usage (from the repository root):
   ... --write CONTRACT... | --all --write                                     # new golden files
 
 For each named contract of tests/program/contracts/ (by file name without
-.contract), runs `python3 -I scripts/program_verify.py SOURCE --contract
+.contract), runs `bin/leanforth verify SOURCE --contract
 CONTRACT --out build/verify-lean/NAME` as a user would, with the real program
 words, the generator, pinned Lean (LEAN, the Makefile's cache when it is on),
 Lean's exporter and LeanForth's checker (bin/leanforth check --json --jobs 2,
@@ -70,7 +70,7 @@ def run(name, write):
     """The problems of one contract's run."""
     source, word, status, verify = EXPECTED[name]
     out = OUT / name   # the driver removes an earlier run's files there, by name
-    done = subprocess.run([sys.executable, "-I", "scripts/program_verify.py", source,
+    done = subprocess.run(["bash", "bin/leanforth", "verify", source,
                            "--contract", f"tests/program/contracts/{name}.contract", "--out",
                            str(out.relative_to(ROOT))], cwd=ROOT, capture_output=True,
                           text=True, timeout=TEST_LIMIT, stdin=subprocess.DEVNULL)

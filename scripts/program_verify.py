@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""leanforth verify, driver v0 (plan 8.4.1b; docs/design/VERIFY_COMMAND.md).
+"""leanforth verify, V1 (plans 8.4.1b-d; docs/programming/PROGRAM_VERIFY.md).
 
 Usage (from any folder; the files must lie inside the LeanForth checkout):
-  python3 scripts/program_verify.py SOURCE.fs --contract CONTRACT [--out DIR]
+  leanforth verify SOURCE.fs --contract CONTRACT [--out DIR] [--json] [--detail]
       [--fuel N] [--jobs N] [--memory-per-check MB] [--checked]
       [--lean-time-limit SECONDS] [--keep-export] [--paths-limit N] [--search-limit N]
-      [--detail]
+  leanforth verify SOURCE.fs --contract CONTRACT --write-ir
+  leanforth verify --replay RECEIPT [--rerun] [--json]
+(bin/leanforth verify runs this script; python3 scripts/program_verify.py is the same.)
 
 Checks one Forth word against one contract (contract language 0.1,
 docs/programming/PROGRAM_VC.md), the pipeline of plan 5.5.1 for any word:
@@ -34,6 +36,16 @@ and never about compiled code. It says `discharged` only when LeanForth
 accepted the contract theorem, every obligation's theorem and every
 declaration of the export, each theorem with allowlisted axioms equal to
 Lean's; `refuted` only when it accepted the theorem `refuted`.
+
+--json prints one JSON text instead, leanforth-verify-report 0.1
+(schemas/verify-report-0.1.schema.json). --write-ir writes the IR the
+program words write for SOURCE.fs to the file the contract's `ir` line
+names, to be read and kept beside the contract, and does nothing else.
+--replay reads a receipt strictly, checks the evidence record it names by
+its SHA-256, and rebuilds the receipt from the files it names (the
+generator run again, the generated Lean file compared) and that record:
+every field that differs is a problem `replay` (exit 1); --rerun also runs
+every step again into a scratch folder and compares the new receipt.
 
 Writes in --out (default verify-out/WORD in the current folder), after
 removing by name the files an earlier run wrote there: obligations.lean,
@@ -70,6 +82,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import time
 import traceback
 
 
@@ -90,6 +103,7 @@ import program_vc  # noqa: E402
 from schema_subset import InstanceError, load_strict  # noqa: E402
 
 VERSION = "0.1"
+REPORT_VERSION = "0.1"   # leanforth-verify-report
 GENERATOR = {"name": "python", "version": f"program_vc.py {program_vc.GENERATOR_VERSION}"}
 # A path receipt 0.3 can name: relative, inside the checkout, no segment starting with a dot.
 RECEIPT_PATH = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]*(/[A-Za-z0-9_][A-Za-z0-9_.-]*)*")
@@ -143,6 +157,14 @@ CODES = {
     "axioms-differ": (5, "decide"),
     "internal": (5, None),
     "receipt-not-written": (4, "write"),
+    # --replay: the receipt reader's codes (scripts/program_receipt.py) and replay itself
+    "unreadable": (4, "replay"),
+    "not-strict-json": (4, "replay"),
+    "superseded-version": (4, "replay"),
+    "unknown-version": (4, "replay"),
+    "schema": (4, "replay"),
+    "rule": (4, "replay"),
+    "replay": (1, "replay"),
 }
 SEVERITY = (5, 4, 1, 3, 2, 6, 0)   # the CLI's order: the first that occurs is the status
 # The program words' outcome (ADR 0008) when they refuse the source, as an exit status.
@@ -166,6 +188,10 @@ class Problem(Exception):
         self.status = CODES[code][0] if status is None else status
 
 
+class Finished(Exception):
+    """The run ends here with what it has said (--write-ir)."""
+
+
 class Parser(argparse.ArgumentParser):
     def error(self, message):
         raise Problem("usage", message)
@@ -178,9 +204,13 @@ def positive(text):
 
 
 def parse(argv):
-    parser = Parser(prog="program_verify.py", description=__doc__.splitlines()[0])
-    parser.add_argument("source", metavar="SOURCE.fs")
-    parser.add_argument("--contract", required=True)
+    parser = Parser(prog="leanforth verify", description=__doc__.splitlines()[0])
+    parser.add_argument("source", metavar="SOURCE.fs", nargs="?")
+    parser.add_argument("--contract")
+    parser.add_argument("--json", action="store_true")
+    parser.add_argument("--write-ir", action="store_true")
+    parser.add_argument("--replay", metavar="RECEIPT")
+    parser.add_argument("--rerun", action="store_true")
     parser.add_argument("--out")
     parser.add_argument("--fuel", type=positive)
     parser.add_argument("--jobs", type=positive, default=int(receipts.LEANFORTH_JOBS))
@@ -191,7 +221,15 @@ def parse(argv):
     parser.add_argument("--detail", action="store_true")
     parser.add_argument("--paths-limit", type=positive, default=program_vc.PATHS_LIMIT)
     parser.add_argument("--search-limit", type=positive, default=program_vc.SEARCH_LIMIT)
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.replay is not None and (args.source or args.contract or args.write_ir):
+        raise Problem("usage", "--replay takes a receipt alone, not SOURCE.fs, --contract or "
+                      "--write-ir")
+    if args.replay is None and not (args.source and args.contract):
+        raise Problem("usage", "SOURCE.fs and --contract are needed (or --replay RECEIPT)")
+    if args.rerun and args.replay is None:
+        raise Problem("usage", "--rerun goes with --replay")
+    return args
 
 
 def digest(data):
@@ -330,36 +368,104 @@ class Verify:
         self.export = self.out = self.files = self.vc = self.gen = None
         self.lean = self.leanforth = self.manifest = None
         self.check_status = "not-checked"
-        self.tool_files, self.evidence_ref = {}, None
+        self.tool_files, self.evidence_ref, self.created, self.receipt = {}, None, None, None
+        self.quiet, self.lines, self.steps, self.step = False, [], [], None
+        self.times, self.contract, self.forth = {}, None, None
+        self.replaying = False
 
     # ------------------------------------------------------------------ output
 
     def say(self, line):
-        print(line, flush=True)
+        """One line of the text report (kept, not printed, with --json or inside --rerun)."""
+        if self.quiet or self.args.json:
+            self.lines.append(line)
+        else:
+            print(line, flush=True)
 
     def problem(self, code, message, status=None):
         """Record a problem the run goes on after (a receipt is still written)."""
         status = CODES[code][0] if status is None else status
-        self.problems.append((code, message, status))
+        self.problems.append((code, message, status, self.step))
         self.say(f"error: {code}: {message}")
 
     def exit_status(self):
-        found = {status for _, _, status in self.problems} | {self.verdict or 0}
+        found = {p[2] for p in self.problems} | {self.verdict or 0}
         return next(s for s in SEVERITY if s in found)
 
+    def enter(self, step):
+        """Start a step (the JSON report's steps): the one before ends ok, or with the first
+        problem found in it."""
+        if self.step is not None:
+            codes = [p[0] for p in self.problems if p[3] == self.step]
+            self.steps.append({"step": self.step, "outcome": codes[0] if codes else "ok"})
+            self.times[self.step] = int((time.monotonic() - self.started) * 1000)
+        self.step, self.started = step, time.monotonic()
+
+    def report(self, status):
+        """The run as one JSON text, leanforth-verify-report 0.1."""
+        receipt, vc = self.receipt, self.vc
+        theorems = (self.leanforth or {}).get("theorems", {})
+        obligations = [] if receipt is None else [
+            {"id": o["id"], "statement": o["statement"], "status": o["status"],
+             "theorem": o.get("theorem"),
+             "verdict": theorems.get(o.get("theorem") or "", {}).get("verdict"),
+             "axioms": theorems.get(o.get("theorem") or "", {}).get("axioms", [])}
+            for o in receipt["verify"]["obligations"]]
+        word = None if receipt is None else {
+            "name": receipt["program"]["word"], "stackEffect": receipt["program"]["stackEffect"],
+            "source": receipt["program"]["source"], "ir": receipt["program"]["ir"]}
+        contract = None if self.contract is None else {
+            "id": self.contract["id"], "path": self.contract_path, "sha256": self.contract_sha,
+            "lean": None if receipt is None else receipt["contract"].get("lean"),
+            "theorem": (self.lean or {}).get("statement"), "post": (self.lean or {}).get("post")}
+        return {
+            "schema": "leanforth-verify-report", "schemaVersion": REPORT_VERSION,
+            "mode": self.mode, "word": word, "contract": contract, "steps": self.steps,
+            "obligations": obligations,
+            "searchNotes": [] if vc is None else vc.get("searchNotes", []),
+            "check": None if receipt is None else receipt["check"]["status"],
+            "verify": None if receipt is None else receipt["verify"]["status"],
+            "run": None if receipt is None else receipt["run"]["status"],
+            "receipt": None if self.receipt_path is None else {
+                "path": self.receipt_path, "schemaVersion": receipt["schemaVersion"],
+                "sha256": file_sha(self.receipt_path)},
+            "problems": [{"code": c, "step": s or "command-line", "message": m}
+                         for c, m, _, s in self.problems],
+            "exitStatus": status,
+            "measured": {"millisecondsPerStep": self.times}}
+
+    def finish(self, status):
+        """The exit status, after the JSON report when one was asked for."""
+        self.enter(None)
+        if self.args.json and not self.quiet:
+            print(json.dumps(self.report(status), ensure_ascii=False), flush=True)
+        return status
+
     # --------------------------------------------------------------- the steps
+
+    mode = "lean"
 
     def run(self):
         """Every step; the exit status."""
         try:
+            self.enter("command-line")
             self.locate()
             os.chdir(ROOT)   # the generator and the receipt's helpers read paths from here
+            self.enter("read-word")
             self.read_word()
+            self.enter("read-contract")
             self.read_contract()
+            self.enter("generate")
             self.generate()
-            if self.gen is not None and self.prove():
-                self.check()
+            if self.gen is not None:
+                self.enter("prove")
+                if self.prove():
+                    self.enter("check")
+                    self.check()
+            self.enter("write")
             self.write()
+        except Finished:
+            pass
         except Problem as stop:
             self.problem(stop.code, stop.message, stop.status)
             self.say(f"{self.word or self.source}: NOT VERIFIED: {stop.code}; no receipt written")
@@ -371,7 +477,7 @@ class Verify:
             self.say(f"{self.word or self.source}: NOT VERIFIED: internal; no receipt written")
         finally:
             self.remove_export()
-        return self.exit_status()
+        return self.finish(self.exit_status())
 
     def locate(self):
         """Step 0: the source, the contract and --out as paths inside the checkout."""
@@ -434,7 +540,8 @@ class Verify:
             raise Problem("contract-malformed", str(error) or type(error).__name__) from None
         self.contract_sha = digest(data)
         self.word = self.contract["word"]
-        self.prepare_out()
+        if not self.args.write_ir:
+            self.prepare_out()
         if not re.search(rf"^word {re.escape(self.word)} @", self.ir_text, re.M):
             raise Problem("word-not-found", f"{self.source} defines no word {self.word} (names "
                           "are as the IR writes them, lower case)")
@@ -442,6 +549,13 @@ class Verify:
         if not RECEIPT_PATH.fullmatch(ir_file) or (ROOT / ir_file).resolve() != ROOT / ir_file:
             raise Problem("contract-malformed", f"{self.contract_path}: its ir line {ir_file} "
                           "does not name a file inside the checkout")
+        if self.args.write_ir:
+            atomic(ROOT / ir_file, self.ir_text)
+            self.say(f"ir: wrote {ir_file}, the IR the program words write for {self.source} "
+                     f"(IR {self.ir_text.split(chr(10), 1)[0].split()[-1]}, sha256 "
+                     f"{short(self.ir_sha)}); keep it beside the contract and run leanforth "
+                     "verify without --write-ir")
+            raise Finished()
         try:
             named = (ROOT / ir_file).read_bytes()
         except OSError as error:
@@ -464,11 +578,7 @@ class Verify:
         self.name = safe_name(self.word)
         if self.out is None:
             self.out = checkout_path(os.path.join(self.cwd, "verify-out", self.name), "--out")
-        self.files = {"lean": f"{self.out}/obligations.lean",
-                      "export": f"{self.out}/{self.name}.ndjson",
-                      "manifest": f"{self.out}/{self.name}.ndjson.manifest.json",
-                      "evidence": f"{self.out}/{self.name}.evidence.json",
-                      "receipt": f"{self.out}/{self.name}.receipt.json"}
+        self.files = self.files_for(self.out, self.name)
         try:
             (ROOT / self.out).mkdir(parents=True, exist_ok=True)
             for key in ("lean", "export", "manifest", "evidence", "receipt"):
@@ -494,7 +604,8 @@ class Verify:
             self.say(f"note: search: {note}")
         if self.gen is None:
             self.say(f"obligations: none, from the untrusted generator {GENERATOR['version']}")
-            self.problem("generator-unsupported", self.vc["reason"])
+            if not self.replaying:
+                self.problem("generator-unsupported", self.vc["reason"])
             return
         if self.vc["status"] == "refuted":
             self.say(f"obligations: none: the untrusted generator {GENERATOR['version']} found "
@@ -507,6 +618,9 @@ class Verify:
                 self.say(f"  {o['id']}: {receipts.obligation_text(o)}")
         main = self.vc["theorems"][-1]   # the contract theorem, or refuted
         text += POST_PRINT.format(namespace=self.vc["namespace"], theorem=main)
+        self.lean_text = text
+        if self.replaying:
+            return
         self.lean_text = text
         try:
             (ROOT / self.files["lean"]).write_text(text, encoding="utf-8")
@@ -619,6 +733,12 @@ class Verify:
             raise Problem("internal", f"Lean printed no {key}")
         return found.group(1)
 
+    def files_for(self, out, name):
+        """The files a run writes in out for the word's file name."""
+        return {"lean": f"{out}/obligations.lean", "export": f"{out}/{name}.ndjson",
+                "manifest": f"{out}/{name}.ndjson.manifest.json",
+                "evidence": f"{out}/{name}.evidence.json", "receipt": f"{out}/{name}.receipt.json"}
+
     def printed_back(self, output):
         """Lean's print-back of the generated program must be the IR (without locations)."""
         name = self.vc["namespace"].split(".")[-1]
@@ -675,7 +795,9 @@ class Verify:
                           f"{json.dumps(report['read'])[:300]}")
         self.leanforth = {**identity, "exitStatus": done.returncode,
                           "declarations": counts["declarations"], "accepted": counts["accepted"],
-                          "counts": counts, "theorems": receipts.leanforth_theorems(report, names)}
+                          "counts": counts, "theorems": receipts.leanforth_theorems(report, names),
+                          "run": report.get("run"), "stopped": report.get("stopped"),
+                          "reportExitStatus": report.get("exitStatus")}
         self.namespace_problems(report)
         self.decide(report, names)
 
@@ -695,12 +817,17 @@ class Verify:
             raise Problem("export-differs", f"the export's ProgramVC declarations are not the "
                           f"generator's: extra {extra[:5]}, missing {missing[:5]}")
 
+    def status_of(self, names):
+        """The check status LeanForth's recorded verdicts give: accepted only when every
+        declaration was accepted and the run finished whole with exit status 0."""
+        found = self.leanforth
+        status = receipts.check_status(found, names)
+        whole = (found.get("stopped") is False and found.get("run") == "ok"
+                 and found["exitStatus"] == 0 and found.get("reportExitStatus") == 0)
+        return "failed" if status == "accepted-by-leanforth" and not whole else status
+
     def decide(self, report, names):
-        status = receipts.check_status(self.leanforth, names)
-        whole = report.get("stopped") is False and report.get("run") == "ok"
-        if status == "accepted-by-leanforth" and not (whole and self.leanforth["exitStatus"] == 0
-                                                      and report.get("exitStatus") == 0):
-            status = "failed"
+        status = self.status_of(names)
         for name in names:
             found = self.leanforth["theorems"][name]
             axioms = f"; axioms: {axioms_text(found['axioms'])}" if found["verdict"] == \
@@ -749,7 +876,7 @@ class Verify:
             raise Problem("internal", f"the receipt built is not valid: {problems[:3]}")
         for key, text in (("evidence", evidence), ("receipt", receipts.dump(receipt))):
             atomic(ROOT / self.files[key], text)
-        self.receipt_path = self.files["receipt"]
+        self.receipt_path, self.receipt = self.files["receipt"], receipt
         self.say_outcome(receipt)
         self.say(f"receipt: {self.receipt_path} (schema {receipt['schemaVersion']})")
 
@@ -771,6 +898,8 @@ class Verify:
         else:
             self.say(f"{self.word}: {contract} NOT VERIFIED: open: no obligation is discharged "
                      f"({self.check_status})")
+            for o in verify["obligations"]:
+                self.say(f"  {o['id']} open: {o['statement']}")
         expect = self.contract.get("expect")
         if expect and expect != status:
             self.say(f"note: the contract expects {expect}; verify found {status}")
@@ -798,7 +927,7 @@ class Verify:
             "provenance": {
                 "kind": "generated",
                 "generator": {"name": "python", "version": f"program_verify.py {VERSION}"},
-                "createdAt": datetime.date.today().isoformat(),
+                "createdAt": self.created or datetime.date.today().isoformat(),
                 "note": "Written by leanforth verify (scripts/program_verify.py) from the files "
                         "named below, at the hashes given, and the evidence record it wrote "
                         f"beside this receipt, {self.evidence_ref['path']}, SHA-256 "
@@ -885,6 +1014,13 @@ class Verify:
                     a["text"] = ("The untrusted generator (scripts/program_vc.py) found the word "
                                  f"outside what it supports ({self.vc['reason']}) and made no "
                                  "obligation; no theorem was stated or checked.")
+        if self.lean_ran():
+            for a in found:
+                if a["kind"] == "untrusted-generator":
+                    a["text"] += (" The contract's translation into post is not checked: what is "
+                                  "proved is the theorem and post as Lean printed them, recorded "
+                                  "in the evidence record with their SHA-256 (post "
+                                  f"{self.lean['postSha256']}).")
         if accepted:
             found.append(receipts.leanforth_assumption(
                 self.leanforth, "theorem refuted" if refuted else
@@ -902,6 +1038,7 @@ class Verify:
                        "source": self.source_sha},
                 "generator": self.vc,
                 "tools": self.tool_files,
+                "forth": self.forth,
                 "testTools": test_tools(),
                 "lean": self.lean,
                 "export": None if self.manifest is None else
@@ -914,6 +1051,178 @@ class Verify:
             (ROOT / f"{self.export}.partial").unlink(missing_ok=True)
             if not self.args.keep_export:
                 (ROOT / self.export).unlink(missing_ok=True)
+
+
+EVIDENCE_NOTE = re.compile(r"beside this receipt, (\S+), SHA-256 ([0-9a-f]{64})\.")
+
+
+class Replay(Verify):
+    """--replay RECEIPT (plan 8.4.1d): the receipt read strictly (the reader's codes, exit 4),
+    the evidence record it names checked by its SHA-256, and the receipt rebuilt from the
+    files it names as they are now and that record: the generator runs again (no Lean, no
+    LeanForth) and must give the recorded summary and the generated Lean file byte for byte;
+    the manifest must be the recorded export's. Every difference is a problem `replay`
+    (exit 1). A receipt and its evidence record changed together, consistently, replay
+    clean: only --rerun, which runs every step again into a scratch folder of build/ and
+    compares the new receipt, re-establishes the verdict itself."""
+
+    mode = "replay"
+
+    def run(self):
+        try:
+            self.enter("replay")
+            self.receipt_path = checkout_path(self.args.replay, "the receipt")
+            os.chdir(ROOT)
+            self.replaying = True
+            given = self.read_receipt()
+            evidence = self.read_evidence(given)
+            self.restore(given, evidence)
+            for difference in receipts.differences(given, self.build()):
+                self.problem("replay", difference)
+            if self.args.rerun:
+                self.mode = "rerun"
+                self.enter("rerun")
+                self.rerun(given, evidence)
+            self.receipt = given
+            self.say(f"replay: {self.receipt_path}: " + (
+                "the receipt is what its files and its evidence give" + (
+                    ", and running every step again gives it too" if self.args.rerun else "")
+                if not self.problems else f"NOT VERIFIED: {len(self.problems)} problems"))
+        except Finished:
+            pass
+        except Problem as stop:
+            self.problem(stop.code, stop.message, stop.status)
+            self.say(f"replay: {self.receipt_path}: NOT VERIFIED: {stop.code}")
+        except Exception as error:   # a fault of the driver's: never a verdict (exit 1)
+            self.problem("internal", f"{type(error).__name__}: {error}")
+            self.say(f"replay: {self.receipt_path}: NOT VERIFIED: internal")
+        return self.finish(self.exit_status())
+
+    def read_receipt(self):
+        receipt, problems = receipts.read_file(ROOT / self.receipt_path)
+        for problem in problems:
+            code, _, message = problem.partition(": ")
+            self.problem(code, message)
+        if problems:
+            self.say(f"replay: {self.receipt_path}: NOT VERIFIED: the receipt is not read")
+            raise Finished()
+        writer = receipt["provenance"].get("generator", {}).get("version", "")
+        if not writer.startswith("program_verify.py "):
+            raise Problem("replay", f"$.provenance.generator: {writer!r} did not write it; only "
+                          "leanforth verify's receipts are replayed here")
+        return receipt
+
+    def read_evidence(self, receipt):
+        """The evidence record the receipt names, whose SHA-256 must be the one named."""
+        found = EVIDENCE_NOTE.search(receipt["provenance"].get("note", ""))
+        if not found:
+            raise Problem("replay", "$.provenance.note: names no evidence record")
+        path, sha = found.groups()
+        if file_sha(path) != sha:
+            raise Problem("replay", f"$.provenance.note: the evidence record {path} has SHA-256 "
+                          f"{file_sha(path)}, the receipt names {sha}")
+        try:
+            evidence = receipts.read_json(ROOT / path, max_integer=2 ** 64)
+        except SystemExit as error:
+            raise Problem("unreadable", f"{path}: {error}") from None
+        self.evidence_ref = {"path": path, "sha256": sha}
+        return evidence
+
+    def restore(self, receipt, evidence):
+        """This run's state from the files as they are now and the evidence record."""
+        program = receipt["program"]
+        self.source, self.word = program["source"]["path"], program["word"]
+        self.contract_path = receipt["contract"]["file"]["path"]
+        self.out = str(Path(self.receipt_path).parent.as_posix())
+        self.name, self.created = safe_name(self.word), receipt["provenance"]["createdAt"]
+        self.files = self.files_for(self.out, self.name)
+        self.source_sha = file_sha(self.source) or "missing"
+        try:
+            data = (ROOT / self.contract_path).read_bytes()
+            self.contract = program_vc.parse_contract(data.decode("utf-8"), self.contract_path)
+            self.ir_text = (ROOT / self.contract["ir"]).read_bytes().decode("utf-8")
+        except (OSError, UnicodeDecodeError, program_vc.Malformed) as error:
+            raise Problem("replay", f"the contract or its IR file cannot be read again: "
+                          f"{error}") from None
+        self.contract_sha, self.ir_sha = digest(data), digest(self.ir_text.encode("utf-8"))
+        options = evidence.get("options", {})
+        self.args.paths_limit = options.get("pathsLimit", program_vc.PATHS_LIMIT)
+        self.args.search_limit = options.get("searchLimit", program_vc.SEARCH_LIMIT)
+        self.quiet = True    # the obligations were listed when the receipt was written
+        try:
+            self.generate()
+        except (Problem, receipts.Refusal) as error:
+            raise Problem("replay", "the generator cannot run on the files as they are now: "
+                          f"{error}") from None
+        finally:
+            self.quiet = False
+        for difference in receipts.differences(self.vc, evidence.get("generator")):
+            self.problem("replay", f"the generator's summary now: {difference}")
+        if self.gen is not None and file_sha(self.files["lean"]) != digest(
+                self.lean_text.encode("utf-8")):
+            self.problem("replay", f"{self.files['lean']} is not the file the generator writes")
+        self.lean, self.leanforth = evidence.get("lean"), evidence.get("leanforth")
+        self.forth, self.tool_files = evidence.get("forth"), evidence.get("tools", {})
+        self.manifest = evidence.get("export")
+        if self.manifest is not None:
+            self.manifest_problems()
+        if self.leanforth is not None:
+            self.check_status = self.status_of(self.theorem_names())
+            accepted = self.check_status == "accepted-by-leanforth"
+            self.verdict = (1 if self.vc["status"] == "refuted" else 0) if accepted else None
+
+    def manifest_problems(self):
+        try:
+            found = receipts.read_json(ROOT / self.files["manifest"])
+        except SystemExit as error:
+            self.problem("replay", f"{self.files['manifest']}: {error}")
+            return
+        if {"sha256": found.get("sha256"), "bytes": found.get("bytes")} != self.manifest:
+            self.problem("replay", f"{self.files['manifest']} is not the manifest of the export "
+                         "the evidence records")
+
+    def rerun(self, given, evidence):
+        """Every step again, into a scratch folder of build/, with the recorded options; the
+        new receipt must be the given one but for its folder, date and evidence hash."""
+        options = evidence.get("options", {})
+        (ROOT / "build").mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=ROOT / "build", prefix="rerun-") as folder:
+            out = Path(folder).relative_to(ROOT).as_posix()
+            args = parse([self.source, "--contract", self.contract_path, "--out", out,
+                          "--jobs", str(self.args.jobs),
+                          "--lean-time-limit", str(self.args.lean_time_limit),
+                          "--paths-limit", str(options.get("pathsLimit")),
+                          "--search-limit", str(options.get("searchLimit"))]
+                         + (["--fuel", str(options["fuel"])] if options.get("fuel") else [])
+                         + (["--memory-per-check", str(options["memoryPerCheck"])]
+                            if options.get("memoryPerCheck") else [])
+                         + (["--checked"] if self.args.checked else []))
+            again = Verify(args)
+            again.quiet = True
+            status = again.run()
+            os.chdir(ROOT)
+            for code, message, _, _ in again.problems:
+                self.say(f"rerun: {code}: {message}")
+            if again.receipt is None:
+                raise Problem("replay", f"running every step again wrote no receipt (exit "
+                              f"{status})")
+            new = json.loads(normalized_receipt(receipts.dump(again.receipt), out, self.out))
+            old = json.loads(normalized_receipt(receipts.dump(given), self.out, self.out))
+            recorded = json.loads(receipts.dump(again.evidence()))
+        for difference in receipts.differences(old, new):
+            self.problem("replay", f"running every step again gives {difference}")
+        for difference in receipts.differences(*(dict(e, recordedAt=None)
+                                                 for e in (evidence, recorded))):
+            self.problem("replay", f"running every step again records {difference}")
+
+
+def normalized_receipt(text, out, into):
+    """A receipt's text with its --out folder written as into, and its date and the hash
+    of its evidence record (which holds the date and the tools' paths) masked."""
+    text = re.sub(r'"createdAt": "[0-9-]+"', '"createdAt": "DATE"', text)
+    text = re.sub(r"(evidence\.json, SHA-256 )[0-9a-f]{64}", r"\1EVIDENCE", text)
+    text = re.sub(r'(evidence\.json",\n\s*"sha256": ")[0-9a-f]{64}', r"\1EVIDENCE", text)
+    return text.replace(out, into)
 
 
 def atomic(path, text):
@@ -934,9 +1243,9 @@ def main(argv=None):
     try:
         args = parse(sys.argv[1:] if argv is None else argv)
     except Problem as stop:
-        print(f"error: usage: {stop.message}\ntry: python3 scripts/program_verify.py --help")
+        print(f"error: usage: {stop.message}\ntry: leanforth verify --help")
         return 4
-    run = Verify(args)
+    run = Replay(args) if args.replay is not None else Verify(args)
     handler = lambda signum, frame: (run.tools.stop(), sys.exit(5))  # noqa: E731
     previous = {s: signal.signal(s, handler) for s in (signal.SIGTERM, signal.SIGINT)}
     try:
