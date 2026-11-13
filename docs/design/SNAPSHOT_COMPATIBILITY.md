@@ -21,7 +21,16 @@ serially in `check-run.fs` `ck-next` and with `--jobs` before it is
 handed out, through a new hook of the scheduler, `env-schedule.fs`
 `lf-sched-pre!`; in carry runs only: a dependent export's import pass
 against a snapshot of this build's version keeps I1.3, so Amendment 2's
-open item 4 stays open). Departures, for the gates: (1)
+open item 4 stays open). Measured on all of `Init` (`gforth-fast`,
+`--jobs 2`, a loaded 10-core machine; `.claude/work/SNAPI/init/`): its
+snapshot of verdict version 8, written by the build of `2ad871e` (132.9
+MB, 24 min), loaded by the build of `cc4cdb4`: every one of the 59,349
+declarations checked again (step 9 reaches everything), 0 differences
+from a fresh check of the export in verdict, fuel, axioms, diagnostic,
+counts and exit status; 27 min and 0.86 GB against 20 min and 0.83 GB
+fresh (loading and feeding the snapshot 15 s against 61 s staging and
+feeding the export; the checks' difference is the machine's other
+load). Departures, for the gates: (1)
 the carried and checked-again counts are in the text report only; the
 JSON members wait for the report's next version; (2) a layer on an older
 base, an older layer, and an older base with an export and
