@@ -254,7 +254,7 @@ T{ records ly ly-decls ly ly-where @ -> outcome-ok outcome-ok 0 }T
 layer2-done
 \ A layer holding an opaque declaration (review of refactor-fri L2): its
 \ data, the names of its block, translated as a definition's.
-: layer3-file ( -- c-addr u ) s" /tmp/leanforth-env-import-layer3.lfsnap" ;
+s" leanforth-env-import-layer3.lfsnap" scratch-file 2constant layer3-file
 : opaque-export ( -- c-addr u ) s" tests/core/check-block-cases/opaque.accepted.ndjson" ;
 20000000 ck-start 0 0 ck-layers! base2-file -1 ck-snapshot-import ok? s" import3" must
 opaque-export false ck-load ok? s" import3 load" must ck-check

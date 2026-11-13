@@ -331,10 +331,10 @@ def run_faults(root, chosen, args):
     try:
         copy = work / "tree"
         copy.mkdir()
+        copy_tree(root, copy)
         # The tests' scratch files (tests/support/scratch.fs) go to this run's own folder.
         (work / "scratch").mkdir()
         env["LF_TEST_SCRATCH"] = str(work / "scratch")
-        copy_tree(root, copy)
         if not controls(chosen, copy, env, args.timeout):
             return 2, None
         counts = {"caught": 0, "known equivalent": 0, "known gap": 0, "unexpected": 0}
