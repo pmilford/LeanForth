@@ -23,6 +23,7 @@ menv-load lf-mctx-reset lf-lctx-reset
 : tpi ( domain body -- t ) lf-term-pi must ;
 0 constant l0
 l0 lf-level-succ must constant lv1
+lv1 lf-level-succ must constant lv2
 
 \ Constants: cn ( l1 .. lk k c-addr u -- term ).
 create lv-pairs 8 cells allot

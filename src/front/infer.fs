@@ -34,6 +34,11 @@
 \ exhausted when whnfCore's fuel runs out (the fuel is per lf-whnf-core
 \ call, so one inference may spend it once per argument and binder). A
 \ failure gives -1.
+\ Not re-entrant: one inference at a time per context uses the slabs
+\ below (whnfCore and the instantiations it calls keep their own). Each
+\ lambda or pi inferred adds its binders' free variables to the local
+\ context, which only grows while a declaration is elaborated
+\ (core/local-context.fs): the context is emptied with the declaration.
 \ Untrusted: only the kernel's check of a finished term decides anything.
 \ State: the record if-state (inferAppType's j) and the slabs if-args
 \ (the arguments, last first), if-levels (a
@@ -153,10 +158,7 @@ end-structure
 1 cells context-slab: if-lams   \ and the lambdas they opened
 : if-x ( i -- fvar ) if-xs slab-at @ ;
 : if-xs-at ( -- addr ) 0 if-xs slab-at ;
-: if-holes? ( term -- flag )
-  dup if-tag lf-term-binary-tag? if lf-term-data@ dup if nip then 0= exit then
-  if-tag lf-tag-mvar = ;
-: if-named ( new old -- new ) lf-pres-binder@ if 2>r dup 2r> lf-pres-binder! drop then ;
+: if-holes? ( term -- flag ) lf-meta-mvar-free? 0= ;
 : if-open ( lam -- body outcome )
   dup if-lams lf-meta-push ok-then? 0= if no-result exit then
   dup lf-term-first@ lf-lctx-local ok-then? 0= if if-fail exit then
@@ -171,7 +173,7 @@ end-structure
 : if-pi ( body i -- pi outcome )
   dup if-x lf-fvar-type over if-abstract ok-then? 0= if nip nip no-result exit then
   rot lf-term-pi 0= if drop -1 outcome-full exit then
-  swap if-lams slab-at @ if-named outcome-ok ;
+  swap if-lams slab-at @ lf-meta-named outcome-ok ;
 : if-close ( type -- type' outcome )
   if-xs slab-count tuck if-abstract ok-then? 0= if nip no-result exit then
   swap begin dup 0> while 1- tuck if-pi ok-then? 0= if nip no-result exit then swap repeat

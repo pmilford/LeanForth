@@ -123,6 +123,7 @@ CASES = [
                    apps(c("instHAdd", 0), NAT, c("instAddNat")), "k", "k"), None),
     ("infer", pair("a", "b"), None),
     ("infer", c("Quot.lift", 1, 1), None),
+    ("infer", c("Quot.lift", 1, 2), None),
     ("infer", (LAM, NAT, "#0"), None),
     ("infer", (LAM, NAT, (LAM, NAT, "#1")), None),
     ("infer", (LAM, NAT, apps(c("Eq.refl", 1), NAT, "#0")), None),
@@ -162,13 +163,17 @@ CASES = [
 ]
 
 
+LEAN_LEVELS = {0: "Level.zero", 1: "(mkLevelSucc .zero)", 2: "(mkLevelSucc (mkLevelSucc .zero))"}
+FORTH_LEVELS = {0: "l0", 1: "lv1", 2: "lv2"}
+
+
 class Failure(Exception):
     pass
 
 
 def lean(t):
     if isinstance(t, tuple) and t[0] == "c":
-        levels = ", ".join("(mkLevelSucc .zero)" if l == 1 else "Level.zero" for l in t[2])
+        levels = ", ".join(LEAN_LEVELS[l] for l in t[2])
         return f"(mkConst `{t[1]} [{levels}])"
     if isinstance(t, tuple) and t[0] == "app":
         return f"(mkApp {lean(t[1])} {lean(t[2])})"
@@ -189,7 +194,7 @@ def lean(t):
 
 def forth(t):
     if isinstance(t, tuple) and t[0] == "c":
-        levels = " ".join("lv1" if l == 1 else "l0" for l in t[2])
+        levels = " ".join(FORTH_LEVELS[l] for l in t[2])
         return f'{levels} {len(t[2])} s" {t[1]}" cn'.strip()
     if isinstance(t, tuple) and t[0] == "app":
         return f"{forth(t[1])} {forth(t[2])} app"

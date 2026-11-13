@@ -119,10 +119,9 @@ end-structure
   2dup ib-first ib-image >r ib-second ib-image r> swap ;
 : ib-same-pair? ( i1 i2 node -- i1 i2 flag )
   >r 2dup r@ lf-term-second@ = swap r> lf-term-first@ = and ;
-: ib-named ( new old -- new ) lf-pres-binder@ if 2>r dup 2r> lf-pres-binder! drop then ;
 : ib-rebuild ( i1 i2 node -- image )
   dup >r ib-tag lf-term-binary
-  if r> ib-named else r> drop outcome-full ib-fail -1 then ;
+  if r> lf-meta-named else r> drop outcome-full ib-fail -1 then ;
 : ib-pair-image ( node depth -- image )
   over >r ib-images r@ ib-same-pair? if 2drop r> exit then r> ib-rebuild ;
 
@@ -141,10 +140,12 @@ end-structure
 : ib-lam? ( term -- flag ) dup 0< if drop false else ib-tag lf-tag-lam = then ;
 : ib-head-beta ( f -- f' )
   dup 0< if exit then lf-meta-head-beta dup ok? if drop else ib-fail drop -1 then ;
+: ib-head-image ( node depth -- image ) swap ib-head swap ib-bvar ;
+: ib-beta-apply ( himage depth -- image )
+  over >r ib-apply r> ib-lam? if ib-head-beta then ;
 : ib-beta-image ( node depth -- image )
   over ib-spine-fill dup ok? 0= if ib-fail 2drop -1 exit then drop
-  over ib-head over ib-bvar dup >r swap ib-apply r> ib-lam?
-  if ib-head-beta then nip ;
+  tuck ib-head-image swap ib-beta-apply ;
 : ib-arg ( node depth -- arg depth ) swap lf-term-second@ swap ;
 : ib-args-pushed? ( node depth -- pushed? )
   false -rot begin over ib-app? while

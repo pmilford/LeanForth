@@ -100,6 +100,7 @@ run_meta do
     inferCase (mkApp (mkApp (mkApp (mkApp (mkApp (mkApp (mkConst `HAdd.hAdd [Level.zero, Level.zero, Level.zero]) (mkConst `Nat [])) (mkConst `Nat [])) (mkConst `Nat [])) (mkApp (mkApp (mkConst `instHAdd [Level.zero]) (mkConst `Nat [])) (mkConst `instAddNat []))) k) k)
     inferCase (mkApp (mkApp (mkApp (mkApp (mkConst `Prod.mk [Level.zero, Level.zero]) (mkConst `Nat [])) (mkConst `Nat [])) a) b)
     inferCase (mkConst `Quot.lift [(mkLevelSucc .zero), (mkLevelSucc .zero)])
+    inferCase (mkConst `Quot.lift [(mkLevelSucc .zero), (mkLevelSucc (mkLevelSucc .zero))])
     inferCase (mkLambda `y .default (mkConst `Nat []) (mkBVar 0))
     inferCase (mkLambda `y .default (mkConst `Nat []) (mkLambda `y .default (mkConst `Nat []) (mkBVar 1)))
     inferCase (mkLambda `y .default (mkConst `Nat []) (mkApp (mkApp (mkConst `Eq.refl [(mkLevelSucc .zero)]) (mkConst `Nat [])) (mkBVar 0)))

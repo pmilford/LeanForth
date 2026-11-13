@@ -1301,6 +1301,7 @@ reason = "4.2.2c: ensure_pi_core without whnf: f : dqPropFn is no function (row 
 
 # --- plan task 4.2.7d (agent CK; review rvKN 3; ADR 0014 Amendment 10):
 # Lean's infer-only typing, what it skips and what it throws ---
+
 [[fault]]
 id = "infer-not-pi-aside-unknown"
 file = "src/kernel/mixed-infer.fs"
@@ -1515,6 +1516,7 @@ old = '''  1- dup lf-lmk-stamp-cell @ swap lf-lmk-identity = ;'''
 new = '''  drop true ;'''
 test = "$GFORTH tests/core/level-compare.fs"
 reason = "level-make's kept facts are never checked against the nodes' identities, so a node rolled back and made again keeps the class of the node it replaced"
+
 [[fault]]
 id = "lnorm-frames-uncounted"
 file = "src/kernel/level-normalize.fs"
@@ -1532,6 +1534,7 @@ old = '''    lf-lnorm-right-first? if lf-lnorm-j else lf-lnorm-i then lf-lnorm-t
 new = '''    lf-lnorm-right-first? drop lf-lnorm-i lf-lnorm-take repeat'''
 test = "$GFORTH tests/core/level-compare.fs"
 reason = "plan task 6.2.0: the merge of a long argument list never takes the right run first, so a max of 40 parameters is not sorted"
+
 [[fault]]
 id = "ndjson-self-reference"
 file = "src/import/ndjson.fs"
@@ -3285,6 +3288,7 @@ old = '''  lf-crefs store-grow-refused? if outcome-full exit then'''
 new = '''  false if outcome-full exit then'''
 test = "$GFORTH tests/core/store-growth.fs"
 reason = "the review's M3: the reference pool's first reserve, in context setup, does not ask the fault hook"
+
 [[fault]]
 id = "context-teardown-selected-once"
 file = "src/lib/context.fs"
@@ -6561,6 +6565,7 @@ reason = "5.2.1c: a recursor without k is taken as K-undecided; Bool.rec stuck o
 # --- axioms, opaque declarations and quotients (plan tasks 5.3.1, 4.2.6,
 # 5.2.4: src/core/statement-match.fs, src/core/axiom-allowlist.fs,
 # src/kernel/quot.fs and their callers) ------------------------------------
+
 [[fault]]
 id = "stmt-param-any-position"
 file = "src/core/statement-match.fs"
@@ -7306,6 +7311,7 @@ reason = "rvUNNI M2, PA: a run record without the label claims version 0.2, whos
 # Since step S3 universe substitution marks them in a hash set of the call
 # (its stamp faults re-targeted at the set; s0-mls-restamp-no-erase went with
 # the stamps' column).
+
 [[fault]]
 id = "s0-mls-stamp-not-bumped"
 file = "src/kernel/mixed-level-substitute.fs"
@@ -7799,6 +7805,7 @@ reason = "S2: the parameter and free-variable bits of the data word are swapped 
 
 # Review rvPSE M1 (agent FX7): the level passes check and push a shared node's
 # children only the first time a walk reaches it.
+
 [[fault]]
 id = "fx7-mls-every-path"
 file = "src/kernel/mixed-level-substitute.fs"
@@ -8214,6 +8221,7 @@ test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "rvSN4 B1 (PF): a level found in scope is not kept as reached, so the check never gets the importer's levels back"
 
 # --- compact-store plan step S4 (agent S4) ---------------------------------
+
 [[fault]]
 id = "cache-dead-fvar"
 file = "src/kernel/caches.fs"
@@ -9658,6 +9666,7 @@ reason = "SN4: a layer's dependencies written in the order of the run's slots, n
 
 # --- plan task 6.2.5b L1 (agent CK; review rvSS 1): a layer's twin of a
 # loaded declaration with other lookups, kept for an import ---
+
 [[fault]]
 id = "lay-twins-merged"
 file = "src/kernel/env-layers.fs"
@@ -11006,6 +11015,7 @@ test = "python3 tests/front/test_elab_data.py"
 reason = "check --elab-data never reads the file: damaged data passes and the text runs"
 
 # The faults of the Forth review of fe1d (L3), each caught by the tests.
+
 [[fault]]
 id = "fe-elab-class-kind-unchecked"
 file = "src/front/elab-data.fs"
@@ -12487,8 +12497,8 @@ reason = "FE1c: the arguments after the last whnf point are never put in, so the
 [[fault]]
 id = "fe-binst-no-beta"
 file = "src/front/beta-inst.fs"
-old = '''  if ib-head-beta then nip ;'''
-new = '''  drop nip ;'''
+old = '''  over >r ib-apply r> ib-lam? if ib-head-beta then ;'''
+new = '''  ib-apply ;'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: a lambda put in at an application's head is left applied, where instantiateBetaRevRange takes a beta step (a motive's type)"
 
@@ -12685,3 +12695,20 @@ old = '''  me-stage dup 0= if exit then dup me-fed? swap elab-read-against? and 
 new = '''  me-stage 0<> elab-loaded? and ;'''
 test = "$GFORTH tests/front/meta-env.fs"
 reason = "review fe1c-2 L4: a stage named that the input was not fed from, or the data not read against, gives another's statuses"
+
+[[fault]]
+id = "fe-whnf-structure-rec-bit"
+file = "src/front/whnf.fs"
+old = '''  swap lf-ity-flags lf-more-field lf-ity-rec-bit and 0= and ;'''
+new = '''  nip ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "review fe1c-2 L1: a recursive single-constructor type without indices is taken for structure-like, where Lean's isStructureLike requires isRec false"
+gap = "no inductive type of Init is recursive with one constructor and no indices (a scan of Init's whole export, 2026-11-13), so no test over an Init slice can tell; the check stays as Lean has it"
+
+[[fault]]
+id = "fe-spine-levels-first-only"
+file = "src/front/meta-spine.fs"
+old = '''    2dup i ms-level swap lf-meta-push dup ok? 0= if nip nip unloop exit then drop'''
+new = '''    2dup 0 ms-level swap lf-meta-push dup ok? 0= if nip nip unloop exit then drop'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "review fe1c-2 re-check: every universe argument of a constant is read as its first (Quot.lift.{1,2} would get Sort 1 for beta)"
