@@ -352,11 +352,6 @@
    "never_run": 7,
    "reason": "new file (plan FE1a-b, branch fe1, 2026-11-12): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded, a child beyond the walk memo and the reader default finder before cli/check-lf.fs sets it are never run; since FE1g-2 (branch fe1g2, 2026-11-13) src/front/tactic-syntax.fs ends := by proofs itself, so lfn-w-end and the by branches of lfn-proof-shape and lfn-last (3 blocks) wait for FE1g-3's runner"
   },
-  "src/front/runs.fs": {
-   "blocks": 111,
-   "never_run": 6,
-   "reason": "new file (plan FE1g-1, branch fe1g1, 2026-11-13): never run are only the branches where the heap refuses a slab's growth inside an operation (a run's cells or record, a local, a view's copy, the goal list, a group's places, the names' codes, a let value's depth walk); tests/front/goals.fs reaches the refusal of a run's push, of the trail and of each allocation of a clear"
-  },
   "src/front/syntax.fs": {
    "blocks": 36,
    "never_run": 3,

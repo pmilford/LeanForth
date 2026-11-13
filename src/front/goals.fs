@@ -41,13 +41,13 @@
 \ State: the record pst in the checker context (ADR 0009).
 
 require ../lib/lib.fs
-require ./runs.fs
+require ../lib/runs.fs
 require ./lctx-views.fs
 require ./mvars.fs
 
 begin-structure /pst
   field: pst-goals    \ the goal list, a run
-  field: pst-epoch    \ lf-runs-epoch when it was set
+  field: pst-epoch    \ runs-epoch when it was set
   field: pst-root     \ the declaration's goal, or -1
 end-structure
 /pst context-record: pst
@@ -109,39 +109,39 @@ end-structure
 
 \ ---- The proof state.
 : lf-pst-root ( -- goal ) pst pst-root @ ;
-: gl-set ( list -- ) pst tuck pst-goals ! lf-runs-epoch swap pst-epoch ! ;
+: gl-set ( list -- ) pst tuck pst-goals ! runs-epoch swap pst-epoch ! ;
 : lf-pst-reset ( -- ) 0 gl-set -1 pst pst-root ! ;
 : lf-goals ( -- list )
-  pst dup pst-epoch @ lf-runs-epoch = if pst-goals @ else drop 0 then ;
+  pst dup pst-epoch @ runs-epoch = if pst-goals @ else drop 0 then ;
 : lf-goals! ( list -- outcome )
-  dup lf-run-valid? if gl-set outcome-ok else drop-invalid then ;
+  dup run-valid? if gl-set outcome-ok else drop-invalid then ;
 : lf-pst-open ( goal -- outcome )
   dup lf-mvar-live? 0= if drop-invalid exit then
-  0 over lf-run-push ok-then? if gl-set pst pst-root ! outcome-ok else nip then ;
+  0 over run-push ok-then? if gl-set pst pst-root ! outcome-ok else nip then ;
 
 \ The goals not assigned, in order (a new run).
 : gl-keep ( list goal -- list' outcome )
-  dup lf-goal-assigned? if drop outcome-ok else lf-run-push then ;
+  dup lf-goal-assigned? if drop outcome-ok else run-push then ;
 : gl-kept ( new list i -- new' list outcome )
-  over swap lf-run@ rot swap gl-keep >r swap r> ;
+  over swap run@ rot swap gl-keep >r swap r> ;
 : gl-unsolved ( list -- list' outcome )
-  0 swap dup lf-run-count 0 ?do
+  0 swap dup run-count 0 ?do
     i gl-kept ok-then? 0= if nip no-result unloop exit then loop
   drop outcome-ok ;
 : lf-goals-unsolved ( -- list outcome )
   lf-goals gl-unsolved ok-then? if dup gl-set outcome-ok else no-result then ;
 \ The place of the first goal not assigned, or the count.
-: gl-open-at? ( list i -- flag ) lf-run@ lf-goal-assigned? 0= ;
+: gl-open-at? ( list i -- flag ) run@ lf-goal-assigned? 0= ;
 : gl-first-open ( list -- k )
-  dup lf-run-count 0 ?do dup i gl-open-at? if drop i unloop exit then loop lf-run-count ;
+  dup run-count 0 ?do dup i gl-open-at? if drop i unloop exit then loop run-count ;
 : gl-main ( list -- goal outcome )
-  dup lf-run-count 0= if drop -1 outcome-invalid exit then
-  dup gl-set 0 lf-run@ outcome-ok ;
+  dup run-count 0= if drop -1 outcome-invalid exit then
+  dup gl-set 0 run@ outcome-ok ;
 : lf-main-goal ( -- goal outcome )
-  lf-goals dup gl-first-open lf-run-after ok-then? if gl-main else no-result then ;
+  lf-goals dup gl-first-open run-after ok-then? if gl-main else no-result then ;
 : gl-tail ( -- list outcome )
-  lf-goals dup lf-run-count 0= if drop -1 outcome-invalid else 1 lf-run-after then ;
+  lf-goals dup run-count 0= if drop -1 outcome-invalid else 1 run-after then ;
 : gl-set-ok ( list outcome -- outcome ) ok-then? if gl-set outcome-ok then ;
 : lf-replace-main ( list -- outcome )
-  gl-tail ok-then? if lf-run-cat gl-set-ok else nip then ;
-: lf-goals-append ( list -- outcome ) lf-goals swap lf-run-cat gl-set-ok ;
+  gl-tail ok-then? if run-cat gl-set-ok else nip then ;
+: lf-goals-append ( list -- outcome ) lf-goals swap run-cat gl-set-ok ;

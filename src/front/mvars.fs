@@ -18,10 +18,14 @@
 \   names and binder kinds, the one current when it was made (lf-mctx-view,
 \   Lean's Meta context lctx, which the caller extends as withLocalDecl
 \   does) or one given (lf-mvar-new-at, mkFreshExprMVarAt). Its local
-\   instances are the view's locals with a class. lf-mvar-sees? asks
-\   whether a free variable is in it (Lean's lctx.contains, for
-\   checkAssignment). A view never changes: a tactic that clears or
-\   renames a hypothesis makes a new goal (front/goals.fs).
+\   instances are the view's locals with a class. A caller that makes a
+\   free variable (entering a binder) must push its local onto the
+\   current view (lf-view-push, lf-mctx-view!) for metavariables made
+\   then to see it: one made with core/local-context.fs alone is in no
+\   view. lf-mvar-sees? asks whether a free variable is in a
+\   metavariable's view (Lean's lctx.contains, for checkAssignment). A
+\   view never changes: a tactic that clears or renames a hypothesis
+\   makes a new goal (front/goals.fs).
 \ - A tag (Lean's MetavarDecl.userName, a goal's case name: zero, succ),
 \   anonymous (0) when made; lf-mvar-tag! sets it, lf-mvar-kind! changes
 \   the kind (Lean's setTag, setKind), both noted under a mark.
@@ -87,8 +91,10 @@
 \ dag-walk.fs and the spine table, heap blocks that live only while a walk
 \ runs), the stores mv-exprs, mv-levels and mv-fvars and the slabs
 \ mv-trail, mv-marks and mv-args, in the checker context (ADR 0009); the
-\ views' state is lctx-views.fs's, emptied with lf-mctx-reset.
+\ views' state is lctx-views.fs's, emptied with lf-mctx-reset. Loads in
+\ decimal whatever BASE is, then restores it.
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../core/terms.fs
 require ../core/levels.fs
@@ -659,3 +665,4 @@ end-structure
 : lf-depends-on? ( term fvar -- flag outcome )
   swap lf-instantiate-mvars ok-then? 0= if nip false swap exit then
   swap mv-target ! mv-dep-walk ;
+base !   \ the BASE this file was loaded with

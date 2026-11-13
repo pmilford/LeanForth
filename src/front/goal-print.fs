@@ -39,8 +39,9 @@
 \ State: the record gp (the goal being printed and its view, the pending
 \ group's type, the depth walk) and the slabs gp-codes (each local's name
 \ suffix) and gp-names (the pending group's places), in the checker
-\ context (ADR 0009).
+\ context (ADR 0009). Loads in decimal whatever BASE is, then restores it.
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../core/let-terms.fs
 require ../present/term-printer.fs
@@ -208,8 +209,9 @@ end-structure
   dup gp-open gp-codes! ok-then? if gp-printed then gp-close ;
 
 \ The unsolved goals, a blank line between two, then the end of the line.
-: gp-nth ( list i -- outcome ) dup if s\" \n\n" gp-emit then lf-run@ lf-goal-print ;
+: gp-nth ( list i -- outcome ) dup if s\" \n\n" gp-emit then run@ lf-goal-print ;
 : gp-all ( list -- outcome )
-  dup lf-run-count 0 ?do dup i gp-nth dup ok? 0= if nip unloop exit then drop loop
+  dup run-count 0 ?do dup i gp-nth dup ok? 0= if nip unloop exit then drop loop
   drop s\" \n" gp-emit outcome-ok ;
 : lf-goals-print ( -- outcome ) lf-goals-unsolved ok-then? if gp-all then ;
+base !   \ the BASE this file was loaded with

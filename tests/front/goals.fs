@@ -1,5 +1,6 @@
-\ Unit tests of plan FE1g-1 (docs/design/FE1G_TACTICS.md §4.1, §5.7): runs
-\ (src/front/runs.fs); local declarations and views (lctx-views.fs); each
+\ Unit tests of plan FE1g-1 (docs/design/FE1G_TACTICS.md §4.1, §5.7; the
+\ runs these use, src/lib/runs.fs, are tests/lib/runs.fs's): local
+\ declarations and views (src/front/lctx-views.fs); each
 \ metavariable's own local context, its tag and kind, and their rollback
 \ under marks (mvars.fs); dependencies (lf-depends-on?); goals, clear,
 \ rename and the goal list of the proof state (goals.fs); the goal
@@ -9,43 +10,21 @@
 \ malformed input, stack effects (every T{ }T checks the depth),
 \ resources (a refused heap, large contexts and goal lists), state and
 \ rollback, regression pins. Nothing here checks a theorem.
+\ The modules load under HEX, each from a HEX caller (review fe1g1 L1):
+\ loading must not depend on BASE, which each restores; their numbers
+\ read in decimal.
+require ../support/tester.fs
 require ../support/heap-watch.fs
+hex require ../../src/front/lctx-views.fs base @ decimal constant base-after-views
+hex require ../../src/front/mvars.fs base @ decimal constant base-after-mvars
+hex require ../../src/front/goal-print.fs base @ decimal constant base-after-load
 require ./goal-states.fs
+T{ base-after-views base-after-mvars base-after-load -> 16 16 16 }T
+T{ lf-local-inaccessible lf-local-kind-mask lf-local-flags-mask -> 16 12 31 }T
+T{ mv-epoch-mask mv-room gp-depth-shown gp-depth-most -> 2147483647 16 254 255 }T
 
-: cells. ( run -- x1 .. xn ) dup lf-run-count 0 ?do dup i lf-run@ swap loop drop ;
+: cells. ( run -- x1 .. xn ) dup run-count 0 ?do dup i run@ swap loop drop ;
 : fresh-var ( -- fvar ) nat lf-lctx-local made ;
-
-\ ---- Runs: pushes in place or by a copy, parts without copies, joins;
-\ a run never changes.
-g-fresh
-0 7 lf-run-push made constant r7
-r7 8 lf-run-push made constant r78
-r7 9 lf-run-push made constant r79
-T{ r78 cells. r79 cells. r7 cells. -> 7 8 7 9 7 }T
-\ [7 8] was made in place (r7 ended at the top), [7 9] by a copy of [7].
-T{ rn-cells slab-count -> 4 }T
-T{ 0 lf-run-count 0 lf-run-valid? r79 lf-run-valid? 99 lf-run-valid? -> 0 true true false }T
-T{ r78 1 lf-run-take made cells. r78 1 lf-run-after made cells. -> 7 8 }T
-T{ r78 2 lf-run-take made r78 = r78 0 lf-run-after made r78 = -> true true }T
-T{ r78 0 lf-run-take made r78 2 lf-run-after made -> 0 0 }T
-T{ r78 3 lf-run-take r78 -1 lf-run-after 99 0 lf-run-take -> -1 outcome-invalid -1 outcome-invalid
-   -1 outcome-invalid }T
-T{ -5 1 lf-run-push 99 1 lf-run-push -> -1 outcome-invalid -1 outcome-invalid }T
-T{ r78 r79 lf-run-cat made cells. -> 7 8 7 9 }T
-\ A part and the part after it join in place; the empty run is neutral.
-rn-cells slab-count constant cells-before
-T{ r78 1 lf-run-take made r78 1 lf-run-after made lf-run-cat made cells. -> 7 8 }T
-T{ rn-cells slab-count cells-before = -> true }T
-T{ 0 r79 lf-run-cat made r79 = r79 0 lf-run-cat made r79 = -> true true }T
-T{ r79 99 lf-run-cat 99 r79 lf-run-cat -> -1 outcome-invalid -1 outcome-invalid }T
-\ Out of room: with the heap refusing, the push that needs a bigger slab
-\ is full with no run; afterwards pushes work again.
-: fill-up ( run -- outcome ) begin dup 1 lf-run-push dup ok? while drop nip repeat nip nip ;
-T{ 1 heap-refusals ! r7 fill-up heap-refusals @ -> outcome-full 0 }T
-T{ r7 2 lf-run-push nip r7 cells. -> outcome-ok 7 }T
-\ A reset empties every run; the epoch changes.
-lf-runs-epoch constant epoch0
-T{ lf-runs-reset r7 lf-run-valid? lf-runs-epoch epoch0 = -> false false }T
 
 \ ---- Locals: made from a live free variable, a name (or 0) and flags.
 g-fresh
@@ -245,7 +224,7 @@ g-fresh
 tgoal constant ga  tgoal constant gb  tgoal constant gc
 T{ ga lf-pst-open lf-pst-root lf-goals cells. -> outcome-ok ga ga }T
 T{ 99999 lf-pst-open lf-pst-root -> outcome-invalid ga }T
-: list3 ( -- list ) 0 ga lf-run-push made gb lf-run-push made gc lf-run-push made ;
+: list3 ( -- list ) 0 ga run-push made gb run-push made gc run-push made ;
 T{ list3 lf-goals! lf-goals cells. -> outcome-ok ga gb gc }T
 T{ 99 lf-goals! lf-goals cells. -> outcome-invalid ga gb gc }T
 T{ ga nat lf-mvar-assign lf-main-goal lf-goals cells. -> outcome-ok gb outcome-ok gb gc }T
@@ -254,11 +233,11 @@ T{ list3 lf-goals! gc nat lf-mvar-assign lf-goals-unsolved swap cells. lf-goals 
 T{ gb nat lf-mvar-assign lf-main-goal lf-goals cells. -> outcome-ok -1 outcome-invalid gb }T
 \ A delayed assignment does not count (Lean's isAssigned).
 tgoal constant gdl  tgoal constant gpend
-T{ gdl gpend 0 lf-mvar-delay 0 gdl lf-run-push made lf-goals! lf-main-goal -> outcome-ok outcome-ok gdl outcome-ok }T
+T{ gdl gpend 0 lf-mvar-delay 0 gdl run-push made lf-goals! lf-main-goal -> outcome-ok outcome-ok gdl outcome-ok }T
 tgoal constant gd  tgoal constant ge  tgoal constant gf
-: list-de ( -- list ) 0 gd lf-run-push made ge lf-run-push made ;
-T{ list-de lf-goals! 0 gf lf-run-push made lf-replace-main lf-goals cells. -> outcome-ok outcome-ok gf ge }T
-T{ 0 gd lf-run-push made lf-goals-append lf-goals cells. -> outcome-ok gf ge gd }T
+: list-de ( -- list ) 0 gd run-push made ge run-push made ;
+T{ list-de lf-goals! 0 gf run-push made lf-replace-main lf-goals cells. -> outcome-ok outcome-ok gf ge }T
+T{ 0 gd run-push made lf-goals-append lf-goals cells. -> outcome-ok gf ge gd }T
 T{ 0 lf-goals! 0 lf-replace-main lf-goals 99 lf-goals-append -> outcome-ok outcome-invalid 0 outcome-invalid }T
 T{ list-de lf-goals! lf-pst-reset lf-goals lf-pst-root -> outcome-ok 0 -1 }T
 T{ list-de lf-goals! lf-mctx-reset lf-goals -> outcome-ok 0 }T
@@ -326,7 +305,7 @@ T{ true. 0 0 unsure s" h" hyp drop goal lf-goal-print -> outcome-unsupported }T
 T{ true. 0 0 odd s" a" hyp drop odd s" b" hyp drop goal lf-goal-print -> outcome-invalid }T
 T{ true. 0 0 odd s" a" hyp drop nat 1 num s" x" let-hyp drop goal lf-goal-print
    -> outcome-invalid }T
-T{ unsure 0 0 goal 0 swap lf-run-push made lf-goals! lf-goals-print -> outcome-ok outcome-unsupported }T
+T{ unsure 0 0 goal 0 swap run-push made lf-goals! lf-goals-print -> outcome-ok outcome-unsupported }T
 true. 0 0 goal constant gstale  lf-mctx-reset
 T{ gstale lf-goal-print -> outcome-invalid }T
 \ The printer's comparison (lf-print-same?, Lean's ==) on each kind of
@@ -351,10 +330,10 @@ T{ nat fp 0 t-var t-app t-pi s" x" ex. 0 vp goal goal-text s\" p : Nat → Prop\
    compare -> 0 }T
 \ Many goals: unsolved ones printed in order, a blank line between two.
 g-fresh
-: goals-n ( n -- list ) 0 swap 0 ?do true. 0 0 goal lf-run-push made loop ;
+: goals-n ( n -- list ) 0 swap 0 ?do true. 0 0 goal run-push made loop ;
 3 goals-n lf-goals! must-ok
 T{ goals-text s\" ⊢ True\n\n⊢ True\n\n⊢ True\n" compare -> 0 }T
-T{ lf-goals 1 lf-run@ true. lf-mvar-assign goals-text s\" ⊢ True\n\n⊢ True\n" compare
+T{ lf-goals 1 run@ true. lf-mvar-assign goals-text s\" ⊢ True\n\n⊢ True\n" compare
    -> outcome-ok 0 }T
 
 \ ---- Resources: 2,000 hypotheses in one view (each push in place, so
@@ -364,7 +343,7 @@ T{ lf-goals 1 lf-run@ true. lf-mvar-assign goals-text s\" ⊢ True\n\n⊢ True\n
 g-fresh
 : many ( n -- view ) 0 swap 0 ?do nat s" h" hyp drop loop ;
 2000 many constant vbig
-T{ vbig lf-view-count rn-cells slab-count -> 2000 2000 }T
+T{ vbig lf-view-count runs-cells -> 2000 2000 }T
 true. 0 vbig goal constant gbig
 T{ gbig vbig 0 lf-view-local lf-local-fvar lf-goal-clear made lf-mvar-view drop lf-view-count
    -> 1999 }T
@@ -376,8 +355,8 @@ T{ 0 sunk ! cap-reset true. 0 vbig goal lf-goal-print s" h✝¹⁹⁹⁸ h✝¹�
 ' cap-sink lf-print-unicode lf-print-setup
 1000 goals-n constant l1000
 : assign-odd ( list -- )
-  dup lf-run-count 0 ?do i 1 and if dup i lf-run@ true. lf-mvar-assign must-ok then loop drop ;
-T{ l1000 lf-goals! l1000 assign-odd lf-goals-unsolved swap lf-run-count
+  dup run-count 0 ?do i 1 and if dup i run@ true. lf-mvar-assign must-ok then loop drop ;
+T{ l1000 lf-goals! l1000 assign-odd lf-goals-unsolved swap run-count
    -> outcome-ok outcome-ok 500 }T
 g-fresh
 0 nat s" n" hyp constant fn9 constant vn9

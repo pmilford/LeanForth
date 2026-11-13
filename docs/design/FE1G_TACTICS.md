@@ -517,7 +517,7 @@ pinned Lean.
 
 ### 4.7 What FE1g-1 built (2026-11-13, branch `fe1g1`)
 
-- **Runs** (`front/runs.fs`): sequences of cells that never change, in two
+- **Runs** (`lib/runs.fs`, a library of its own): sequences of cells that never change, in two
   heap slabs; a handle is one cell, 0 the empty run; push appends in place
   when the run ends at the slab's top, else copies it there first; take,
   after and concatenation share cells. Local contexts and goal lists are

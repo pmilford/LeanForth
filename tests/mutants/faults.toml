@@ -13778,15 +13778,15 @@ new = ''': sort-unsigned ( u1 u2 -- n ) 2dup = if 2drop 0 else < 2* 1+ then ;'''
 test = "$GFORTH tests/lib/sort.fs"
 reason = "sort-unsigned compares signed: a value with the top bit set sorts first"
 
-# --- goals of the tactic framework (plan FE1g-1: src/front/runs.fs,
+# --- goals of the tactic framework (plan FE1g-1: src/lib/runs.fs,
 # lctx-views.fs, goals.fs, goal-print.fs, the views of mvars.fs) ----------
 
 [[fault]]
 id = "fe-goal-run-no-copy"
-file = "src/front/runs.fs"
+file = "src/lib/runs.fs"
 old = '''  dup rn-top? if rn-first@ outcome-ok else rn-copied then ;'''
 new = '''  rn-first@ outcome-ok ;'''
-test = "$GFORTH tests/front/goals.fs"
+test = "$GFORTH tests/lib/runs.fs"
 reason = "FE1g-1: a push onto a run that does not end at the top appends there, so another run's cells change under it"
 
 [[fault]]
@@ -13864,15 +13864,15 @@ reason = "FE1g-1: a delayed-assigned goal counts as solved, where Lean's isAssig
 [[fault]]
 id = "fe-goal-main-kept"
 file = "src/front/goals.fs"
-old = '''  dup gl-set 0 lf-run@ outcome-ok ;'''
-new = '''  0 lf-run@ outcome-ok ;'''
+old = '''  dup gl-set 0 run@ outcome-ok ;'''
+new = '''  0 run@ outcome-ok ;'''
 test = "$GFORTH tests/front/goals.fs"
 reason = "FE1g-1: getMainGoal leaves the assigned goals before the main one in the list"
 
 [[fault]]
 id = "fe-goal-stale-list"
 file = "src/front/goals.fs"
-old = '''  pst dup pst-epoch @ lf-runs-epoch = if pst-goals @ else drop 0 then ;'''
+old = '''  pst dup pst-epoch @ runs-epoch = if pst-goals @ else drop 0 then ;'''
 new = '''  pst pst-goals @ ;'''
 test = "$GFORTH tests/front/goals.fs"
 reason = "FE1g-1: a goal list from before lf-mctx-reset is read as a list of the new context"
@@ -13964,3 +13964,27 @@ old = '''  ?do dup i @ = if drop true unloop exit then cell +loop drop false ;''
 new = '''  2drop drop false ;'''
 test = "$GFORTH tests/front/goals.fs"
 reason = "FE1g-1: isSubPrefixOf skips none of exceptFVars, so checkAssignment's pattern variables count against the assignment"
+
+[[fault]]
+id = "fe-goal-print-hex"
+file = "src/front/goal-print.fs"
+old = '''base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end'''
+new = '''base @'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "FE1g-1 review L1: goal-print.fs reads its numbers (254, 255, 100000) in the BASE it is loaded with"
+
+[[fault]]
+id = "fe-goal-views-hex"
+file = "src/front/lctx-views.fs"
+old = '''base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end'''
+new = '''base @'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "FE1g-1 review L1: lctx-views.fs reads its flag numbers (12, 16, 31) in the BASE it is loaded with"
+
+[[fault]]
+id = "fe-goal-mvars-hex"
+file = "src/front/mvars.fs"
+old = '''base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end'''
+new = '''base @'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "FE1g-1 review L1: mvars.fs reads its numbers (16, 31) in the BASE it is loaded with"

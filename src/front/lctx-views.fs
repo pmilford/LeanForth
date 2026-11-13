@@ -51,14 +51,16 @@
 \ the finished term decides.
 \ State: the slab lv-locals and the record lv (the exceptions of the
 \ comparison under way, as mvars.fs keeps an occurs check's target), and
-\ the runs of runs.fs, in the checker context (ADR 0009).
+\ the runs of lib/runs.fs, in the checker context (ADR 0009). Loads in
+\ decimal whatever BASE is, then restores it.
 
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../core/names.fs
 require ../core/name-equal.fs
 require ../core/local-context.fs
 require ../present/binder-table.fs
-require ./runs.fs
+require ../lib/runs.fs
 
 begin-structure /loc
   field: loc-fvar      \ the free variable
@@ -72,7 +74,7 @@ begin-structure /lv
   field: lv-except#    \ and how many
 end-structure
 /lv context-record: lv
-: lf-views-reset ( -- ) lv-locals slab-clear lf-runs-reset ;
+: lf-views-reset ( -- ) lv-locals slab-clear runs-reset ;
 
 3 constant lf-local-binder-mask      \ the binder kind, lf-binder-*
 4 constant lf-local-impl-detail      \ Lean's LocalDeclKind.implDetail
@@ -128,9 +130,9 @@ end-structure
 
 \ ---- Views: runs of locals, oldest first.
 0 constant lf-view-empty
-: lf-view-valid? ( view -- flag ) lf-run-valid? ;
-: lf-view-count ( view -- n ) lf-run-count ;
-: lf-view-local ( view i -- local ) lf-run@ ;
+: lf-view-valid? ( view -- flag ) run-valid? ;
+: lf-view-count ( view -- n ) run-count ;
+: lf-view-local ( view i -- local ) run@ ;
 : lv-fvar-at ( view i -- fvar ) lf-view-local lf-local-fvar ;
 : lv-holds? ( view fvar i -- view fvar flag ) >r over r> lv-fvar-at over = ;
 : lf-view-find ( view fvar -- i true | false )
@@ -138,7 +140,7 @@ end-structure
   over lf-view-count 0 ?do i lv-holds? if 2drop i true unloop exit then loop 2drop false ;
 : lf-view-push ( view local -- view' outcome )
   dup lf-local-valid? 0= if 2drop -1 outcome-invalid exit then
-  2dup lf-local-fvar lf-view-find if drop 2drop -1 outcome-invalid exit then lf-run-push ;
+  2dup lf-local-fvar lf-view-find if drop 2drop -1 outcome-invalid exit then run-push ;
 
 \ The newest accessible local of a name (an inaccessible name has macro
 \ scopes in Lean, so it never equals a name the user writes).
@@ -154,14 +156,14 @@ end-structure
 \ Erasing and renaming: the locals before place i, the changed one if
 \ any, and the locals after it.
 : lv-rest ( run1 view i -- view' outcome )
-  1+ lf-run-after ok-then? if lf-run-cat else nip no-result then ;
+  1+ run-after ok-then? if run-cat else nip no-result then ;
 : lv-without ( view i -- view' outcome )
-  2dup lf-run-take ok-then? if -rot lv-rest else nip nip no-result then ;
+  2dup run-take ok-then? if -rot lv-rest else nip nip no-result then ;
 : lf-view-erase ( view fvar -- view' outcome )
   over lf-view-valid? 0= if 2drop -1 outcome-invalid exit then
   over swap lf-view-find if lv-without else outcome-ok then ;
 : lv-front ( view i local -- view i run outcome )
-  >r 2dup lf-run-take ok-then? if r> lf-run-push else r> drop no-result then ;
+  >r 2dup run-take ok-then? if r> run-push else r> drop no-result then ;
 : lv-replaced ( view i local -- view' outcome )
   lv-front ok-then? if -rot lv-rest else nip nip no-result then ;
 : lv-renamed-at ( view i name -- view' outcome )
@@ -189,3 +191,4 @@ end-structure
 : lf-view-sub-prefix? ( view1 view2 -- flag ) 0 0 lv-except! lv-sub? ;
 : lf-view-sub-prefix-except? ( view1 view2 addr n -- flag )
   dup 0< if 2drop 2drop false exit then lv-except! lv-sub? ;
+base !   \ the BASE this file was loaded with

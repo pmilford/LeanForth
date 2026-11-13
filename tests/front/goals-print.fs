@@ -8,7 +8,7 @@ require ./goal-states.fs
 
 : show ( c-addr u -- ) ." === " type cr lf-goals-print must-ok ;
 : goals1 ( goal -- ) lf-pst-open must-ok ;
-: goals2 ( g1 g2 -- ) >r 0 swap lf-run-push made r> lf-run-push made lf-goals! must-ok ;
+: goals2 ( g1 g2 -- ) >r 0 swap run-push made r> run-push made lf-goals! must-ok ;
 : start ( -- ) g-fresh ['] type lf-print-unicode lf-print-setup ;
 : zero. ( -- t ) 0 num ;
 : one. ( -- t ) 1 num ;
