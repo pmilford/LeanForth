@@ -84,7 +84,8 @@ T{ s" Nat" d-of lf-menv-data lf-ity-ctors@ nip s" Nat.rec" d-of lf-menv-data lf-
 T{ s" Nat.rec" d-of lf-menv-data lf-irc-rules@ drop lf-irule-ctor s" Nat.zero" nm = -> true }T
 \ The same record again: memoized, nothing decoded twice.
 : rec-of ( c-addr u -- r n ) d-of lf-libdec-decl drop lbd-records slab-count ;
-T{ s" Nat.add" rec-of s" Nat.add" rec-of rot = >r = r> -> true true }T
+: alike ( r1 n1 r2 n2 -- f1 f2 ) rot = >r = r> ;
+T{ s" Nat.add" rec-of s" Nat.add" rec-of alike -> true true }T
 \ Unknown, invalid; a number beyond the library; facts with no data.
 T{ s" No.such" nm lf-menv-find -1 lf-menv-find -> -1 outcome-invalid -1 outcome-invalid }T
 T{ lf-libdec-count lf-libdec-decl -1 lf-libdec-decl -> -1 outcome-invalid -1 outcome-invalid }T

@@ -182,7 +182,8 @@ T{ fk fx app dup meta-whnf= nat fs 0 bv app lam fk app fs fk app meta-whnf=
 \ An instance (instance-reducible): unfolded at default (unsupported), left
 \ at reducible (whnfR); whnfCore alone leaves it (no matcher, no auxiliary
 \ recursor: S1 merge B).
-T{ inst-hadd lf-meta-whnf inst-hadd lf-meta-whnf-r nip inst-hadd dup lf-whnf-core >r same? r>
+: core-same? ( t -- flag outcome ) dup lf-whnf-core >r same? r> ;
+T{ inst-hadd lf-meta-whnf inst-hadd lf-meta-whnf-r nip inst-hadd core-same?
    -> -1 outcome-unsupported outcome-ok true outcome-ok }T
 T{ inst-hadd dup lf-meta-whnf-r drop same? lf-defeq-mode -> true lf-tr-default }T
 \ A projection function (semireducible in the data): unfolded at default,
