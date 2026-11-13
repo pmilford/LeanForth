@@ -36,10 +36,8 @@ require ./source.fs
 \   100-109  Meta errors a user sees: invalid universe level, the stuck
 \            signal's and the undo trail's refusals (S1, branch s1-meta)
 \   110-124  instances: failed to synthesize, the instance codes, one per
-\            unsupported instance rule (S1, branch s1-synth; front/instances.fs
-\            uses 110 type class instance expected, 112 an instance's class
-\            differs from its type's, 113 its keys differ, 114 its recorded
-\            keys are wider than its type's: unverified)
+\            unsupported instance rule (S1, branch s1-synth; 110 and 112-116
+\            are front/instances.fs's)
 \   125-139  elaboration: numerals, applications, binop%/binrel%, default
 \            instances, the declaration glue, #check, the front end's fuel,
 \            FE1E 2.7's other unsupported rows (S1, branch s1-elab)
@@ -150,6 +148,14 @@ require ./source.fs
 97 constant lfa-e-tac-rfl        \ rfl's two sides are not definitionally equal
 98 constant lfa-e-tac-assign     \ exact's term cannot be assigned to the goal
 99 constant lfa-e-tac-form       \ unsupported: this case of a tactic (a later step)
+\ The instance table and its check of the elaboration data
+\ (src/front/instances.fs, plan FE1e3; FE1E_APPLICATIONS.md 4).
+110 constant lfa-e-not-class     \ getInstances' goal is no class application
+112 constant lfa-e-inst-class    \ an instance record's class is not its type's
+113 constant lfa-e-inst-keys     \ an instance record's keys are not its type's
+114 constant lfa-e-inst-wide     \ unsupported: recorded keys wider than the type's
+115 constant lfa-e-inst-root     \ an instance filed under another class's root key
+116 constant lfa-e-default-class \ a default instance whose type is not of its class
 
 \ The catalogue: one message record per code, in order, each followed by
 \ its text and aligned; a record with code 0 closes it.
@@ -337,6 +343,22 @@ create lfa-catalogue
   lfa-e-tac-form
   s" not supported yet: this case of the tactic (FE1G_TACTICS.md 5 names its step)"
   lfa-unsupported,
+  lfa-e-not-class s" type class instance expected" lfa-invalid,
+  lfa-e-inst-class
+  s" elaboration data refused: an instance is recorded under a class its type is not of"
+  lfa-invalid,
+  lfa-e-inst-keys
+  s" elaboration data refused: an instance's recorded keys differ from its type's"
+  lfa-invalid,
+  lfa-e-inst-wide
+  s" not supported yet: an instance's recorded keys are wider than its type's (no_index)"
+  lfa-unsupported,
+  lfa-e-inst-root
+  s" elaboration data refused: an instance is filed under another root key than its class"
+  lfa-invalid,
+  lfa-e-default-class
+  s" elaboration data refused: a default instance's type is not of its recorded class"
+  lfa-invalid,
   0 outcome-invalid s" " lfa-message,
 
 \ The catalogue record of a code; an unknown code gives the closing record.

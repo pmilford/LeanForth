@@ -14309,7 +14309,7 @@ reason = "FE1c: mkLambdaFVars without etaReduce: ?t j =?= Nat.succ j assigns fun
 [[fault]]
 id = "fe-defeq-ofnat-instance-unchecked"
 file = "src/front/nat-offset.fs"
-old = ''': no-inst-ofnat? ( t -- flag ) 1 s" instOfNatNat" no-is? ;'''
+old = ''': no-inst-ofnat? ( t -- flag ) 1 s" instOfNatNat" lf-meta-app-of? ;'''
 new = ''': no-inst-ofnat? ( t -- flag ) drop true ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c: evalNat takes OfNat.ofNat Nat 2 i for 2 whatever the instance i"
@@ -14421,8 +14421,8 @@ reason = "FE1c review M3: == compares only a constant's first universe argument"
 [[fault]]
 id = "fe-defeq-hadd-instance-unchecked"
 file = "src/front/nat-offset.fs"
-old = '''  dup 2 s" instHAdd" no-is? if 1 2 no-arg no-inst-addnat? else drop false then ;'''
-new = '''  2 s" instHAdd" no-is? ;'''
+old = '''  if 1 2 lf-meta-nth-arg no-inst-addnat? else drop false then ;'''
+new = '''  nip ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c review M3: evalNat takes instHAdd Nat i for any i"
 
@@ -15462,11 +15462,11 @@ reason = "S1 appendix D: Nat.succ 2 is whnf's result (reduceNat? folds it to 3)"
 
 [[fault]]
 id = "fe-whnf-mode-kept"
-file = "src/front/whnf.fs"
-old = '''  lf-defeq-mode swap lf-defeq-mode! swap lf-meta-whnf rot lf-defeq-mode! ;'''
-new = '''  lf-defeq-mode swap lf-defeq-mode! swap lf-meta-whnf rot drop ;'''
+file = "src/front/meta-config.fs"
+old = '''  lf-defeq-mode >r lf-defeq-mode! execute r> lf-defeq-mode! ;'''
+new = '''  lf-defeq-mode! execute ;'''
 test = "$GFORTH tests/front/whnf.fs"
-reason = "S1 appendix D: whnfR leaves the transparency reducible (Lean's withTransparency restores it)"
+reason = "S1 appendix D: whnfR (lf-meta-at) leaves the transparency reducible (Lean's withTransparency restores it)"
 
 [[fault]]
 id = "fe-whnf-forall-no-whnf"
@@ -15607,8 +15607,9 @@ reason = "getUnifyKeyArgs: a read-only metavariable is other under isDefEqStuckE
 [[fault]]
 id = "fe-inst-star-last"
 file = "src/front/instances.fs"
-old = '''  dup it-push-match dup ok? if drop it-push-star else nip then ;'''
-new = '''  dup it-push-star dup ok? if drop it-push-match else nip then ;'''
+old = '''  r@ it-find-child 0 it-push ok-then? 0= if r> drop exit then
+  r> it-star-child 0 it-push ;'''
+new = '''  rot r@ it-star-child 0 it-push drop r> it-find-child 0 it-push ;'''
 test = "$GFORTH tests/front/instances.fs"
 reason = "getUnify: the star child is visited after the matching one (Lean's order lost)"
 
@@ -15631,15 +15632,15 @@ reason = "getInstances sorts the values, not their priorities: equal priorities 
 [[fault]]
 id = "fe-inst-keys-unchecked"
 file = "src/front/instances.fs"
-old = '''  it-wider = if lf-e-inst-wide it it-error ! outcome-unsupported else lf-e-inst-keys'''
-new = '''  it-wider = if lf-e-inst-wide it it-error ! outcome-unsupported else outcome-ok exit'''
+old = '''    lfa-e-inst-keys it-fail swap endcase ;'''
+new = '''    outcome-ok swap endcase ;'''
 test = "$GFORTH tests/front/instances-bad.fs"
 reason = "the §4 check accepts an instance whose recorded keys differ from its type's"
 
 [[fault]]
 id = "fe-inst-class-unchecked"
 file = "src/front/instances.fs"
-old = '''  if outcome-ok else lf-e-inst-class it-fail then ;'''
+old = '''  if outcome-ok else lfa-e-inst-class it-fail then ;'''
 new = '''  drop outcome-ok ;'''
 test = "$GFORTH tests/front/instances-bad.fs"
 reason = "the §4 check accepts an instance recorded under another class"
@@ -15647,15 +15648,15 @@ reason = "the §4 check accepts an instance recorded under another class"
 [[fault]]
 id = "fe-inst-rank-ignored"
 file = "src/front/instances.fs"
-old = '''  drop dup it-rank it-ranked slab-at ! outcome-ok ;'''
-new = '''  drop dup it-rank 0 max 0 min it-ranked slab-at ! outcome-ok ;'''
+old = ''': it-place ( v -- outcome ) dup it-rank it-ranked it-put ;'''
+new = ''': it-place ( v -- outcome ) dup it-rank 0 max 0 min it-ranked it-put ;'''
 test = "$GFORTH tests/front/instances.fs"
 reason = "a root's values are not placed by rank (the tree loses Lean's child order and values)"
 
 [[fault]]
 id = "fe-inst-wide-refused"
 file = "src/front/instances.fs"
-old = '''  it-star-over? if it-skip true it it-wide ! 1 it it-i +! true exit then'''
+old = '''  2dup it-over? if it-covered true exit then'''
 new = ''''''
 test = "$GFORTH tests/front/instances-bad.fs"
 reason = "a recorded star over a term the export lost a no_index on refuses the data instead of leaving the instance unverified"

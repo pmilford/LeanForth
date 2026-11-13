@@ -24,10 +24,18 @@
 \ - lf-dt-nat-lit ( e -- u flag outcome ): toNatLit? (Main.lean:111).
 \ - Todo lists, persistent: lf-dt-nil (-1), lf-dt-cons ( term list --
 \   list' outcome ), lf-dt-first ( list -- term ), lf-dt-rest ( list --
-\   list' ); lf-dt-star, an entry that is Lean's tmpStar.
+\   list' ); lf-dt-star, an entry that is Lean's tmpStar. A list is a
+\   chain of (rest, term) cells in the slab dk-cells, shared by every list
+\   that extends it, forgotten from a mark (lf-dt-release): lib/runs.fs's
+\   runs append at the end and keep no marks, lib/cons.fs hash-conses
+\   records; neither is a cons list.
 \ - lf-dt-mark ( -- keys texts cells ) and lf-dt-release ( keys texts
 \   cells -- ): forget every key, text and list cell made since the mark
-\   (a failed lf-dt-path leaves its keys until then).
+\   (a failed lf-dt-path leaves its keys until then); lf-dt-scoped ( i*x
+\   xt -- j*x ) runs xt between the two (its results must not be keys).
+\ - lf-dt-const? ( head -- const true | false ): a constant head;
+\   lf-dt-const-decl ( const -- d true | false ): its declaration in the
+\   data's stage (elab-decl-of).
 \ reduceDT (Main.lean:200-244) is whnfCore, unfoldDefinition? and strict
 \ eta, repeated. unfoldDefinition? acts on a definition the transparency
 \ unfolds, which needs smart unfolding's facts (S1 appendix D, plan S2):
@@ -63,12 +71,17 @@ require ./term-eqv.fs
 require ./mvars.fs
 require ./whnf.fs
 require ./infer.fs
+require ./nat-offset.fs
 require ./fun-info.fs
 require ./elab-keys.fs
 require ./elab-data.fs
 
 -1 constant lf-dt-nil
 -2 constant lf-dt-star
+begin-structure /tcell   \ a todo list's cell
+  field: tc-rest   \ the list after this cell
+  field: tc-term   \ its term
+end-structure
 begin-structure /dk
   field: dk-root   \ true: the root term (no toNatLit? or offset test)
   field: dk-path   \ true: mkPath's pushArgs, false: getUnifyKeyArgs
@@ -78,38 +91,39 @@ begin-structure /dk
   field: dk-n      \ its number of arguments
 end-structure
 /dk context-record: dk
-2 cells context-slab: dk-cells
+/tcell context-slab: dk-cells
 1 cells context-slab: dk-args
 1 cells context-slab: dk-kinds
 
-\ ---- Todo lists: a cell is (rest, term).
+\ ---- Todo lists.
 : dk-at ( list -- addr ) dk-cells slab-at ;
-: lf-dt-first ( list -- term ) dk-at cell+ @ ;
-: lf-dt-rest ( list -- list' ) dk-at @ ;
+: lf-dt-first ( list -- term ) dk-at tc-term @ ;
+: lf-dt-rest ( list -- list' ) dk-at tc-rest @ ;
 : lf-dt-cons ( term list -- list' outcome )
   1 dk-cells slab-claim ok-then? 0= if nip nip no-result exit then
-  dk-at 2! dk-cells slab-count 1- outcome-ok ;
+  tuck dk-at tuck tc-rest ! rot swap tc-term ! outcome-ok ;
+: dk-cells-back ( cells -- ) dk-cells slab-count - dk-cells slab-commit ;
 : lf-dt-mark ( -- keys texts cells ) elab-keys-mark dk-cells slab-count ;
-: lf-dt-release ( keys texts cells -- )
-  dk-cells slab-count - dk-cells slab-commit elab-keys-drop ;
+: lf-dt-release ( keys texts cells -- ) dk-cells-back elab-keys-drop ;
+: lf-dt-scoped ( i*x xt -- j*x ) lf-dt-mark 2>r >r execute r> 2r> lf-dt-release ;
 
 \ ---- Names and shapes (Lean's constant names, by text).
 : dk-head ( -- head ) dk dk-h @ ;
 : dk-e ( -- e ) dk dk-term @ ;
 : dk-name ( const -- name ) lf-term-first@ lf-cref-slot lf-cref-name@ drop ;
-: dk-is? ( e n c-addr u -- flag )
-  2>r over lf-meta-args# = if lf-meta-head 2r> lf-meta-const-named? else drop 2r> 2drop
-  false then ;
+: lf-dt-const-decl ( const -- d true | false ) dk-name elab-decl-of ;
+: lf-dt-const? ( head -- const true | false )
+  dup lf-term-tag@ lf-tag-constant = if true else drop false then ;
 : dk-last ( e -- a ) lf-term-second@ ;
-: dk-arg ( e i -- a ) over lf-meta-args# swap - 1- 0 ?do lf-term-first@ loop dk-last ;
+: dk-arg ( e i -- a ) over lf-meta-args# lf-meta-nth-arg ;
 
 \ ---- toNatLit? (Main.lean:111-146): a literal, Nat.zero, Nat.succ x and
 \ OfNat.ofNat _ x _ of a numeral x; its value, flag false for none.
 : dk-lit-small ( leaf -- u outcome )
   dup lf-lit-small? if lf-lit-cell outcome-ok else drop -1 outcome-unsupported then ;
-: dk-succ? ( e -- flag ) 1 s" Nat.succ" dk-is? ;
-: dk-ofnat? ( e -- flag ) 3 s" OfNat.ofNat" dk-is? ;
-: dk-zero? ( e -- flag ) 0 s" Nat.zero" dk-is? ;
+: dk-succ? ( e -- flag ) 1 s" Nat.succ" lf-meta-app-of? ;
+: dk-ofnat? ( e -- flag ) 3 s" OfNat.ofNat" lf-meta-app-of? ;
+: dk-zero? ( e -- flag ) 0 s" Nat.zero" lf-meta-app-of? ;
 : dk-end? ( e -- flag ) dup lf-lit-leaf? swap dk-zero? or ;
 \ One step down a numeral: ( acc e -- acc' e' more? ).
 : dk-nat-step ( acc e -- acc' e' more? )
@@ -169,22 +183,21 @@ end-structure
 : dk-kinds-make ( head n -- outcome ) lf-meta-fun-info ok-then? if dk-kinds-copy then ;
 : dk-kind ( i -- kind|-1 ) dup dk-kinds slab-count < if dk-kinds slab-at @ else drop -1
   then ;
-: dk-at-default ( e xt -- e' outcome )
-  lf-defeq-mode >r lf-tr-default lf-defeq-mode! execute r> lf-defeq-mode! ;
 : dk-sort? ( e -- flag ) lf-term-tag@ dup lf-tag-sort = swap lf-tag-symbolic-sort = or ;
+\ isType: the type's whnf at default transparency (whnfD) is a Sort.
 : dk-type? ( a -- flag outcome )
   lf-infer ok-then? 0= if false swap exit then
-  ['] lf-meta-whnf dk-at-default ok-then? if dk-sort? outcome-ok else false swap then ;
+  lf-meta-whnf-d ok-then? if dk-sort? outcome-ok else false swap then ;
 : dk-proof? ( a -- flag outcome ) lf-infer ok-then? if lf-meta-is-prop else false swap
   then ;
 : dk-implicit? ( kind -- flag ) dup lf-binder-implicit = swap lf-binder-strict = or ;
-: dk-not-type? ( a -- flag outcome ) dk-type? ok-then? if 0= outcome-ok else false swap
-  then ;
-\ A literal's type is Nat or String (inferType): no proof and no type.
+: dk-not-type? ( a -- flag outcome ) dk-type? swap 0= swap ;
+\ A literal's type is Nat or String (inferType): no proof and no type,
+\ so ignored exactly under an implicit or strict-implicit binder.
 : dk-literal? ( a -- flag ) lf-term-tag@ lf-literal-tag? ;
 : dk-ignore? ( a kind -- flag outcome )
   dup lf-binder-instance = if 2drop true outcome-ok exit then
-  over dk-literal? if 2drop false outcome-ok exit then
+  over dk-literal? if nip dk-implicit? outcome-ok exit then
   dk-implicit? if dk-not-type? else dk-proof? then ;
 \ Argument j of the slab is parameter n-1-j.
 : dk-param ( j -- kind ) dk dk-n @ swap - 1- dk-kind ;
@@ -200,8 +213,7 @@ end-structure
 
 \ ---- reduceDT: whnfCore, unfoldDefinition? (unsupported where it would
 \ act), strict eta, until none acts.
-: dk-const-head ( e -- const true | false )
-  lf-meta-head dup lf-term-tag@ lf-tag-constant = if true else drop false then ;
+: dk-const-head ( e -- const true | false ) lf-meta-head lf-dt-const? ;
 : dk-unfolds? ( e -- flag outcome )
   dk-const-head 0= if false outcome-ok exit then
   dk-name lf-defeq-mode lf-menv-unfoldable ok-then? if nip outcome-ok else nip false
@@ -226,9 +238,9 @@ end-structure
 : dk-typed-offset ( e i -- flag outcome )
   over dk-numeral-last? if dk-arg dk-nat-type? else 2drop false outcome-ok then ;
 : dk-offset? ( e -- flag outcome )
-  dup 2 s" Nat.add" dk-is? if dk-numeral-last? outcome-ok exit then
-  dup 4 s" Add.add" dk-is? if 0 dk-typed-offset exit then
-  dup 6 s" HAdd.hAdd" dk-is? if 1 dk-typed-offset exit then
+  dup 2 s" Nat.add" lf-meta-app-of? if dk-numeral-last? outcome-ok exit then
+  dup 4 s" Add.add" lf-meta-app-of? if 0 dk-typed-offset exit then
+  dup 6 s" HAdd.hAdd" lf-meta-app-of? if 1 dk-typed-offset exit then
   dk-succ? outcome-ok ;
 
 \ ---- The keys of each head.
@@ -326,7 +338,6 @@ end-structure
 
 \ ---- mkPath: pushArgs from the root until the list is empty, at
 \ reducible transparency.
-: dk-reducible{ ( -- mode ) lf-defeq-mode lf-tr-reducible lf-defeq-mode! ;
 : dk-path-step ( list root? -- list' outcome )
   >r dup lf-dt-first swap lf-dt-rest r> swap true dk-key rot drop ;
 : dk-path-loop ( type -- outcome )
@@ -334,9 +345,8 @@ end-structure
   begin over lf-dt-nil <> while dk-path-step ok-then? 0= if exit then false repeat
   2drop outcome-ok ;
 : dk-path-count ( k0 outcome -- k n outcome ) elab-keys# rot tuck - rot ;
-: lf-dt-path ( type -- k n outcome )
-  dk-reducible{ >r elab-keys# >r dk-cells slab-count >r
-  dk-path-loop r> dk-cells slab-count - dk-cells slab-commit
-  r> swap dk-path-count r> lf-defeq-mode! ;
+: dk-path-run ( type -- k n outcome )   \ the list cells it made forgotten
+  elab-keys# swap dk-cells slab-count >r dk-path-loop r> dk-cells-back dk-path-count ;
+: lf-dt-path ( type -- k n outcome ) ['] dk-path-run lf-tr-reducible lf-meta-at ;
 
 base !   \ the BASE this file was loaded with

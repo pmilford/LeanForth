@@ -14,6 +14,7 @@
 \ below elab-keys# (unchecked):
 \   elab-key-tag ( k -- tag )     elab-key-star, -other, -lit, -str,
 \                                 -const, -arrow, -proj or -foreign
+\   elab-key-star? ( k -- flag )  whether it is the star
 \   elab-key-decl ( k -- d )      a constant's or projection's declaration
 \   elab-key-idx ( k -- i )       a projection's field
 \   elab-key-arity ( k -- n )     Lean's Key.arity: the terms that follow
@@ -33,6 +34,8 @@
 \   elab-one-term? ( k n -- flag ) whether keys k .. k+n-1 are one term
 \                                 in Lean's path order: each key followed
 \                                 by as many terms as its arity
+\   elab-term-end ( k -- k' )     the key after the one term that starts
+\                                 at k (there must be one)
 \ Making them (elab-data.fs): elab-key-new ( tag -- k outcome ) a key of
 \ that tag, every field 0 (-1 when not ok); elab-key-ref! ( d k -- ) its
 \ declaration, elab-key-arity! ( n k -- ) its arity field (a projection's
@@ -70,6 +73,7 @@ end-structure
 : ek ( k -- addr ) elab-keys slab-at ;
 : elab-keys# ( -- n ) elab-keys slab-count ;
 : elab-key-tag ( k -- tag ) ek ek-tag @ ;
+: elab-key-star? ( k -- flag ) elab-key-tag elab-key-star = ;
 : elab-key-decl ( k -- d ) ek ek-ref @ ;
 : elab-key-idx ( k -- i ) ek ek-extra @ ;
 \ Arrow (its domain) and a projection (its structure) add one term.
@@ -100,6 +104,7 @@ end-structure
   1 -rot over + swap ?do
     dup 0= if drop unloop false exit then i ek-term-step
   loop 0= ;
+: elab-term-end ( k -- k' ) 1 begin over ek-term-step swap 1+ swap dup 0= until drop ;
 
 \ Making keys and texts.
 : elab-key-new ( tag -- k outcome )

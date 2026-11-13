@@ -2,91 +2,134 @@
 \ §3.3 and §4; S1_INTERFACE.md §9): Lean 4.35.0's global instance index
 \ (Lean/Meta/Instances.lean, a DiscrTree) rebuilt from the elaboration
 \ data, its getUnify (DiscrTree/Main.lean:567), getInstances
-\ (SynthInstance.lean:202), isClass?'s quick test (Meta/Basic.lean:1384)
-\ and the check of each instance against its type (§4).
+\ (SynthInstance.lean:202), getDefaultInstances (Instances.lean:430),
+\ isClass?'s quick test (Meta/Basic.lean:1384) and the check of the data
+\ against the types (FE1E §4).
+\ - lf-inst-classes ( -- outcome ): FE1E §4 "When", run by each query
+\   word below before anything else, once per data read: every instance
+\   record's root key must be the constant of its recorded class (error
+\   115), its class is recomputed from its type (step 1: forallTelescope-
+\   Reducing at default transparency, isClass?; error 112), and every
+\   default instance's type must end in its recorded class (step 3, error
+\   116). A difference refuses the data: invalid, and the same answer at
+\   every later query until lf-inst-reset. A check that cannot finish
+\   (unsupported) leaves the record unverified: trusted for its class, as
+\   the ranks are (S1 §9). Exhausted and full are answered with nothing
+\   kept of them: the pass runs again at the next query, the records it
+\   finished staying finished. Step 4 (a class's out-parameters
+\   recomputed by checkOutParam) is plan row FE1e3b; until then they rest
+\   on pinned Lean.
 \ - lf-inst-telescope ( type -- body outcome ): forallMetaTelescopeReducing
-\   (Basic.lean): a new natural metavariable for each binder, whnf where
-\   no pi is left (a pi it makes is entered, else the type as it was).
+\   (Basic.lean): a new metavariable for each binder, synthetic for an
+\   instance-implicit one, else natural; whnf where no pi is left (a pi it
+\   makes is entered, else the type as it was). A binder's kind comes from
+\   the declared type's own pi, walked beside; a pi that whnf made has
+\   none known and gets a natural metavariable (neither the class nor the
+\   keys depend on it; FE1e5, which reuses the telescope, settles it).
 \ - lf-class? ( type -- class true outcome | false outcome ): isClass?
 \   through isClassQuick?: the class (its declaration in the data's stage)
 \   at the head past the pis; false for a head that is no class; where
 \   Lean would go on to isClassExpensive? (a definition the transparency
-\   may unfold, a let, a projection, a lambda head) unsupported (plan S2,
+\   may unfold, a let, a projection, a lambda head, an assigned
+\   metavariable whose value's head is no constant) unsupported (plan S2,
 \   with delta).
 \ - lf-inst-unify ( type -- addr n outcome ): getUnify at reducible
 \   transparency: the values whose keys may unify with type, in Lean's
 \   order, as cells: an instance i (0 or more) or a left-out instance j
-\   as j invert (below 0: lf-inst-left-out?). A root's tree is built at
-\   its first query, its values inserted in rank order so that every
-\   child list is in Lean's stored order (§3.2), after each instance of
-\   the root is checked (§4 steps 1-2, at default transparency in a new
-\   depth): its class and its keys recomputed (front/discr-keys.fs) must
-\   equal the record's, else invalid and the data refused (error 112 or
-\   113); a check that cannot finish marks the instance unverified, which
-\   answers unsupported only when a search tries it (S1 §9). A star root
-\   key (a bare metavariable goal) is unsupported: never an instance
-\   problem.
+\   as j invert (below 0: lf-inst-left-out?). The root keys are those of
+\   the data's values (lf-inst-classes lists them): a query whose root key
+\   none has answers no values at once. A root's tree is built at its
+\   first query, its values inserted in rank order so that every child
+\   list is in Lean's stored order (§3.2), after each instance of the root
+\   has its keys recomputed (§4 step 2, at default transparency in a new
+\   depth): they must equal the record's, else invalid (error 113); a
+\   record whose star covers a term the type gives (Lean saw a no_index
+\   annotation, an mdata node the export drops) is unverified (error
+\   114). The tree counts only once complete: a failure keeps none of it.
+\   An unverified or left-out candidate answers unsupported only when a
+\   search tries it (S1 §9). A star root key (a bare metavariable goal) is
+\   unsupported: never an instance problem. The cells stay valid until the
+\   next query (lf-inst-unify, lf-inst-candidates) or lf-inst-reset.
 \ - lf-inst-candidates ( type -- addr n outcome ): getInstances: the goal
 \   past its pis must be a class application (else invalid, error 110,
 \   "type class instance expected"); getUnify; stably sorted by priority
-\   (src/lib/sort.fs, as Lean's insertionSort),
-\   ascending; erased values dropped. A search tries them from the last.
-\   Unsupported: a goal that is or becomes a pi and a local instance of
-\   the class (FE1E §2.7).
+\   (src/lib/sort.fs, as Lean's insertionSort), ascending; erased values
+\   dropped. A search tries them from the last. Unsupported: a goal that
+\   is or becomes a pi, a local instance of the class in the context
+\   (FE1E §2.7; invalid when the context's view is not live). The cells
+\   live as lf-inst-unify's.
+\ - lf-default-instances ( class -- addr n outcome ): getDefaultInstances:
+\   one cell per rank of the class's default instances, from rank 0 (Lean's
+\   list, the most recent first): the default-instance record
+\   (elab-default@), or a gap, lf-default-gap? ( v -- flag ), where none
+\   is usable: the export lacks it (no record of that rank,
+\   ELABORATION_DATA.md) or its step 3 could not finish. A caller that
+\   reaches a gap answers unsupported. The cells stay valid until the
+\   next lf-default-instances or lf-inst-reset.
 \ - lf-inst-priority ( v -- p ), lf-inst-left-out? ( v -- flag ),
-\   lf-inst-verified? ( i -- flag ) (false before its root's check),
-\   lf-inst-check ( i -- outcome ) (§4 steps 1-2 alone: ok, invalid on a
+\   lf-inst-verified? ( v -- flag ) (an instance whose class and keys were
+\   checked equal; false for any other value), lf-inst-check ( i --
+\   outcome ) (§4 steps 1-2 alone, nothing kept: ok, invalid on a
 \   difference, else why it could not finish), lf-inst-checked# and
-\   lf-inst-unverified# ( -- n ): the checks done and those unverified.
-\ - lf-default-instances ( class -- addr n outcome ): getDefaultInstances
-\   (Instances.lean:430): the class's default-instance records (elab-default@)
-\   in rank order.
-\ - lf-inst-error ( -- code ): the last error code; lf-inst-reset ( -- )
-\   forgets the trees and checks (after a new read of the data).
+\   lf-inst-unverified# ( -- n ): the instances whose check is final, and
+\   those of them unverified.
+\ - lf-inst-error ( -- code ): the last error code (src/author/errors.fs);
+\   lf-inst-reset ( -- ) forgets the trees, checks and the pass (after a
+\   new read of the data).
 \ Outcomes: ok; invalid as above; lf-meta-stuck from a query key (Meta
 \ layer only); unsupported; exhausted; full when a slab cannot grow.
-\ Untrusted. State: the record it (the last error, the counts, the query
-\ step) and the slabs it-roots (root key, node), it-nodes (key, first
-\ child, next sibling, first value, last value), it-vals (value, next),
-\ it-status (per instance: unchecked, ok or unverified), it-ranked (a
-\ root's values by rank), it-stack (the walk's frames: skip, todo, node)
-\ and it-out (a query's values), in the checker context (ADR 0009).
-\ Loads in decimal whatever BASE is, then restores it.
+\ Untrusted. State: the record it (the last error, the counts, the pass,
+\ a key comparison's ends) and the slabs it-roots (root key, node),
+\ it-nodes, it-vals, it-status and it-dstatus (per instance and default
+\ record: unchecked, class ok, unverified or verified), it-ranked (a
+\ root's values by rank), it-defaults (lf-default-instances' answer),
+\ it-stack (the walk's frames) and it-out (a query's values), in the
+\ checker context (ADR 0009). Loads in decimal whatever BASE is, then
+\ restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/sort.fs
+require ../author/errors.fs
 require ./discr-keys.fs
 require ./lctx-views.fs
 
-110 constant lf-e-not-class   112 constant lf-e-inst-class   113 constant lf-e-inst-keys
-114 constant lf-e-inst-wide
-0 constant it-unchecked   1 constant it-ok   2 constant it-unverified
+0 constant it-unchecked   1 constant it-class-ok   2 constant it-unverified
+3 constant it-verified
+1 constant it-passed      \ (it-pass) the pass found nothing; 0: not run; else its error
+begin-structure /kcmp     \ a comparison of recorded keys with recomputed ones
+  field: kc-d-end         \ the recorded keys' end
+  field: kc-c-end         \ the recomputed keys' end
+  field: kc-wide          \ true once a recorded star covered a term
+end-structure
 begin-structure /it
-  field: it-error      \ the last error code, or 0
-  field: it-checked    \ instances checked
-  field: it-unverified-n \ of which unverified
-  field: it-root       \ the root node being built
-  field: it-k          \ a query step: the subterm's key
-  field: it-args       \ the todo list with its arguments
-  field: it-rest       \ the todo list without them
-  field: it-dk   field: it-dn   \ a check: the recorded keys
-  field: it-ck   field: it-cn   \ and the recomputed
-  field: it-i    field: it-j    \ the walk's places in each
-  field: it-wide       \ true once a recorded star covered a term
+  field: it-error         \ the last error code, or 0
+  field: it-checked       \ instances whose check is final
+  field: it-unverified-n  \ of which unverified
+  field: it-pass          \ lf-inst-classes: 0 not run, it-passed, or the refusal's code
+  /kcmp +field it-kcmp
   /sorter +field it-sort-rec   \ getInstances' priority sort (lib/sort.fs)
 end-structure
+begin-structure /troot  field: tr-key  field: tr-node  end-structure   \ -1: not built
+begin-structure /tnode    \ a tree node; -1 for none
+  field: tn-key   field: tn-child   field: tn-sibling
+  field: tn-first   field: tn-last   \ its values: the first and last value cells
+end-structure
+begin-structure /tval  field: tv-value  field: tv-next  end-structure
+begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-structure
 /it context-record: it
-2 cells context-slab: it-roots
-5 cells context-slab: it-nodes
-2 cells context-slab: it-vals
+/troot context-slab: it-roots
+/tnode context-slab: it-nodes
+/tval context-slab: it-vals
 1 cells context-slab: it-status
+1 cells context-slab: it-dstatus
 1 cells context-slab: it-ranked
-3 cells context-slab: it-stack
+1 cells context-slab: it-defaults
+/tframe context-slab: it-stack
 1 cells context-slab: it-out
 
 : lf-inst-reset ( -- )
   it-roots slab-clear it-nodes slab-clear it-vals slab-clear it-status slab-clear
-  0 it it-checked ! 0 it it-unverified-n ! 0 it it-error ! ;
+  it-dstatus slab-clear it /it erase ;
 : lf-inst-error ( -- code ) it it-error @ ;
 : it-fail ( code -- outcome ) it it-error ! outcome-invalid ;
 : lf-inst-checked# ( -- n ) it it-checked @ ;
@@ -96,24 +139,42 @@ end-structure
   dup lf-inst-left-out? if invert elab-left-out@ 2drop else elab-instance@ nip nip then ;
 : it-keys ( v -- k n ) dup lf-inst-left-out? if invert elab-left-out-keys else
   elab-instance-keys then ;
+: it-root-key ( v -- k ) it-keys drop ;
 : it-rank ( v -- rank )
   dup lf-inst-left-out? if invert elab-left-out@ drop nip else elab-instance-rank then ;
 : it-erased? ( v -- flag )
   dup lf-inst-left-out? if invert elab-left-out@ nip nip elab-erased = else drop false
   then ;
+\ Every value, as cells: the left-out ones (below 0), then the instances.
+: it-all ( -- end start ) elab-instance elab-count elab-left-out elab-count negate ;
+: it-cells ( outcome slab -- addr n outcome ) dup slab-base swap slab-count rot ;
+\ Run xt ( k -- outcome ) for k = 0 .. n-1 while it answers ok.
+: it-each ( n xt -- outcome )
+  swap 0 ?do i over execute dup ok? 0= if nip unloop exit then drop loop drop outcome-ok ;
 
-\ ---- forallMetaTelescopeReducing.
+\ ---- forallMetaTelescopeReducing, the declared type's pi beside (src,
+\ -1 once whnf made the pis).
 : it-pi? ( e -- flag ) lf-term-tag@ lf-tag-pi = ;
-: it-enter ( pi -- body outcome )
-  dup lf-term-first@ mv-natural lf-mvar-new ok-then? 0= if nip no-result exit then
-  swap lf-term-second@ swap lf-meta-instantiate1 ;
+: it-binder ( src -- kind )   \ an input pi's binder kind, else explicit
+  dup 0< if drop lf-binder-default exit then
+  dup lf-term-input? 0= if drop lf-binder-default exit then
+  lf-term-input-binder@ if nip else lf-binder-default then ;
+: it-mv-kind ( src -- kind )
+  it-binder lf-binder-instance = if mv-synthetic else mv-natural then ;
+: it-mvar-for ( pi src -- pi mvar outcome )
+  it-mv-kind over lf-term-first@ swap lf-mvar-new ;
+: it-open ( pi mvar -- body outcome ) swap lf-term-second@ swap lf-meta-instantiate1 ;
+: it-src-body ( src -- src' ) dup 0< 0= if lf-term-second@ then ;
+: it-enter ( pi src -- body src' outcome )
+  tuck it-mvar-for ok-then? if it-open else nip no-result then rot it-src-body swap ;
 : it-whnf-pi ( e -- e' more? outcome )
   dup lf-meta-whnf ok-then? 0= if nip -1 false rot exit then
   dup it-pi? if nip true outcome-ok else drop false outcome-ok then ;
-: it-step ( e -- e' more? outcome ) dup it-pi? if it-enter true swap else it-whnf-pi
-  then ;
+: it-step ( e src -- e' src' more? outcome )
+  over it-pi? if it-enter true swap exit then drop it-whnf-pi -1 -rot ;
 : lf-inst-telescope ( type -- body outcome )
-  begin it-step ok-then? 0= if nip no-result exit then while repeat outcome-ok ;
+  dup begin it-step ok-then? 0= if nip nip no-result exit then while repeat
+  drop outcome-ok ;
 
 \ ---- isClass? by isClassQuick? (an undefined answer is unsupported).
 : it-defn-temp? ( d -- flag )   \ getConstTemp? gives a definition
@@ -124,214 +185,260 @@ end-structure
   lf-meta-const-decl 0= if false outcome-invalid exit then
   it-defn-temp? if false outcome-unsupported else false outcome-ok then ;
 : it-class-const ( const -- class true outcome | false outcome )
-  dup dk-name elab-decl-of 0= if drop false outcome-invalid exit then
+  dup lf-dt-const-decl 0= if drop false outcome-invalid exit then
   dup elab-class-of if drop nip true outcome-ok else drop it-not-class then ;
-: it-assigned-head ( mvar -- head true | false )
-  lf-mvar-value if lf-meta-head true else false then ;
-: it-head-const ( head -- const true | false )
-  dup lf-term-tag@ lf-tag-constant = if true else drop false then ;
 \ An application's head: a constant, an assigned metavariable's value's
 \ constant head (else undefined), a lambda undefined; anything else none.
 : it-mvar-head ( mvar -- class true outcome | false outcome )
-  it-assigned-head 0= if false outcome-ok exit then
-  it-head-const if it-class-const else false outcome-unsupported then ;
+  lf-mvar-value 0= if false outcome-ok exit then
+  lf-meta-head lf-dt-const? if it-class-const else false outcome-unsupported then ;
 : it-quick-head ( head -- class true outcome | false outcome )
   dup lf-term-tag@ case
     lf-tag-constant of it-class-const endof   lf-tag-mvar of it-mvar-head endof
     lf-tag-lam of drop false outcome-unsupported endof   >r drop false outcome-ok r>
     endcase ;
-: it-quick-none? ( tag -- flag )
-  dup lf-tag-bvar = over lf-tag-lit = or over lf-tag-fvar = or over lf-tag-sort = or
-  swap lf-tag-lam = or ;
-: it-quick-undef? ( tag -- flag )
-  dup lf-tag-let = over lf-tag-let-nondep = or swap lf-tag-projection = or ;
+\ isClassQuick?'s answer by the tag past the pis: the head decides (an
+\ application, a constant, a metavariable), undefined, or none (a bound
+\ or free variable, a literal, a Sort, a lambda).
+0 constant iq-none   1 constant iq-undef   2 constant iq-head
+: it-quick-kind ( tag -- kind )
+  case lf-tag-app of iq-head endof  lf-tag-constant of iq-head endof
+    lf-tag-mvar of iq-head endof  lf-tag-let of iq-undef endof
+    lf-tag-let-nondep of iq-undef endof  lf-tag-projection of iq-undef endof
+    iq-none swap endcase ;
 : it-past-pis ( e -- e' ) begin dup it-pi? while lf-term-second@ repeat ;
 : lf-class? ( type -- class true outcome | false outcome )
-  it-past-pis dup lf-term-tag@ dup it-quick-none? if 2drop false outcome-ok exit then
-  it-quick-undef? if drop false outcome-unsupported exit then lf-meta-head it-quick-head ;
+  it-past-pis dup lf-term-tag@ it-quick-kind case
+    iq-none of drop false outcome-ok endof
+    iq-undef of drop false outcome-unsupported endof
+    >r lf-meta-head it-quick-head r> endcase ;
 
-\ ---- The check of instance i (§4 steps 1 and 2).
+\ ---- The checks (§4). A check runs xt ( body r -- outcome ) on record
+\ r and the telescope of declaration d's type, in Lean's default
+\ configuration, one metavariable depth deeper; the keys, marks and
+\ metavariables it made are forgotten after.
+: it-on-type ( r d xt -- outcome )
+  >r lf-menv-type lf-inst-telescope ok-then? if swap r> execute else nip r> drop then ;
+: it-deeper ( r d xt -- outcome )
+  false lf-mctx-depth{ ok-then? 0= if nip nip nip exit then
+  >r ['] it-on-type lf-dt-scoped r> }lf-mctx-depth outcome-and ;
+: it-at-default ( r d xt -- outcome )
+  lf-meta-config 2>r lf-meta-default lf-tr-default lf-meta-config! it-deeper
+  2r> lf-meta-config! ;
 : it-decl ( i -- d outcome ) elab-instance@ 2drop elab-decl-name lf-menv-find ;
 : it-record-class ( i -- class ) elab-instance@ drop nip ;
-: it-class-same? ( body i -- flag outcome )
-  swap lf-class? ok-then? 0= if nip false swap exit then
-  if swap it-record-class = else drop false then outcome-ok ;
-\ The recorded keys against the recomputed: the same; wider, the record
-\ has a star where the type gives a term (Lean saw a no_index annotation,
-\ an mdata node the export drops: unverified, error 114); or different
-\ (invalid, error 113).
+: it-checked-by ( i xt -- outcome )
+  over it-decl ok-then? 0= if nip nip exit then swap it-at-default ;
+\ Step 1: isClass? of the body is the record's class.
+: it-class-verdict ( body i -- outcome )
+  swap lf-class? ok-then? 0= if nip exit then
+  if swap it-record-class = else drop false then
+  if outcome-ok else lfa-e-inst-class it-fail then ;
+\ Step 2: the recorded keys against the recomputed: the same; wider, the
+\ record has a star where the type gives a term (unverified, error
+\ 114); or different (invalid, error 113).
 0 constant it-same   1 constant it-wider   2 constant it-differ
-: it-d ( -- k ) it it-dk @ it it-i @ + ;
-: it-c ( -- k ) it it-ck @ it it-j @ + ;
-: it-skip ( -- ) 1 begin it-c elab-key-arity 1- + 1 it it-j +! dup 0= until drop ;
-: it-star-over? ( -- flag )
-  it-d elab-key-tag elab-key-star = it-c elab-key-tag elab-key-star <> and ;
-: it-advance ( -- flag )
-  it-star-over? if it-skip true it it-wide ! 1 it it-i +! true exit then
-  it-d it-c elab-key= dup if 1 it it-i +! 1 it it-j +! then ;
-: it-more? ( -- flag ) it it-i @ it it-dn @ < it it-j @ it it-cn @ < and ;
-: it-ends? ( -- flag ) it it-i @ it it-dn @ = it it-j @ it it-cn @ = and ;
-: it-walk-keys ( -- result )
-  begin it-more? while it-advance 0= if it-differ exit then repeat
-  it-ends? 0= if it-differ exit then it it-wide @ if it-wider else it-same then ;
+: it-kc ( -- kcmp ) it it-kcmp ;
+: it-over? ( d c -- flag ) elab-key-star? 0= swap elab-key-star? and ;
+: it-more? ( d c -- d c flag ) 2dup it-kc kc-c-end @ < swap it-kc kc-d-end @ < and ;
+: it-ends? ( d c -- flag ) it-kc kc-c-end @ = swap it-kc kc-d-end @ = and ;
+: it-covered ( d c -- d' c' ) elab-term-end swap 1+ swap true it-kc kc-wide ! ;
+: it-advance ( d c -- d' c' flag )
+  2dup it-over? if it-covered true exit then
+  2dup elab-key= dup if >r 1+ swap 1+ swap r> then ;
+: it-walk-keys ( d c -- result )
+  begin it-more? while it-advance 0= if 2drop it-differ exit then repeat
+  it-ends? 0= if it-differ exit then it-kc kc-wide @ if it-wider else it-same then ;
 : it-compare ( kc nc i -- result )
-  elab-instance-keys it it-dn ! it it-dk ! it it-cn ! it it-ck !
-  0 it it-i ! 0 it it-j ! false it it-wide ! it-walk-keys ;
+  elab-instance-keys over + it-kc kc-d-end ! -rot over + it-kc kc-c-end !
+  false it-kc kc-wide ! it-walk-keys ;
 : it-path-result ( body i -- result outcome )
-  swap lf-dt-path ok-then? if rot it-compare outcome-ok else nip nip -1 swap then ;
+  swap lf-dt-path ok-then2? 0= if nip -1 swap exit then rot it-compare outcome-ok ;
 : it-verdict ( result -- outcome )
-  dup it-same = if drop outcome-ok exit then
-  it-wider = if lf-e-inst-wide it it-error ! outcome-unsupported else lf-e-inst-keys
-  it-fail then ;
-: it-body ( i -- body outcome )
-  it-decl ok-then? 0= if no-result exit then lf-menv-type lf-inst-telescope ;
-: it-class-step ( body i -- body i outcome )
-  2dup it-class-same? ok-then? 0= if exit then
-  if outcome-ok else lf-e-inst-class it-fail then ;
-: it-body-check ( i -- outcome )
-  dup it-body ok-then? 0= if nip exit then swap
-  it-class-step dup ok? 0= if nip nip exit then drop
-  it-path-result ok-then? if it-verdict then ;
-: it-scoped ( i -- outcome )
-  false lf-mctx-depth{ ok-then? 0= if nip exit then
-  swap lf-dt-mark 2>r >r it-body-check r> 2r> lf-dt-release
-  swap }lf-mctx-depth outcome-and ;
-: lf-inst-check ( i -- outcome )
-  lf-meta-config 2>r lf-meta-default lf-tr-default lf-meta-config!
-  it-scoped 2r> lf-meta-config! ;
-: it-status-ready ( -- outcome )
-  it-status slab-count if outcome-ok exit then
-  elab-instance elab-count dup it-status slab-claim nip ok-then?
-  if it-status slab-base swap cells erase outcome-ok then ;
-: it-count ( status -- ) 1 it it-checked +! it-unverified = negate it it-unverified-n +! ;
-: it-record ( outcome i -- outcome )
-  over ok? if it-ok else it-unverified then dup it-count swap it-status slab-at ! ;
-: it-fatal? ( outcome -- flag ) dup outcome-invalid = swap outcome-full = or ;
-: it-check ( i -- outcome )
-  dup lf-inst-check dup it-fatal? if nip exit then swap it-record drop outcome-ok ;
-: lf-inst-verified? ( i -- flag )
-  dup it-status slab-count < if it-status slab-at @ it-ok = else drop false then ;
+  case it-same of outcome-ok endof
+    it-wider of lfa-e-inst-wide it it-error ! outcome-unsupported endof
+    lfa-e-inst-keys it-fail swap endcase ;
+: it-keys-verdict ( body i -- outcome ) it-path-result ok-then? if it-verdict then ;
+: it-both-verdict ( body i -- outcome )
+  2dup it-class-verdict ok-then2? if it-keys-verdict then ;
+: lf-inst-check ( i -- outcome ) ['] it-both-verdict it-checked-by ;
+\ Step 3: the head of a default instance's conclusion is its class.
+: it-default-class ( j -- class ) elab-default@ 2drop ;
+: it-head-class? ( body class -- flag )
+  swap lf-meta-head lf-dt-const? if lf-dt-const-decl if = exit then then drop false ;
+: it-default-verdict ( body j -- outcome )
+  it-default-class it-head-class? if outcome-ok else lfa-e-default-class it-fail then ;
+: it-default-decl ( j -- d outcome ) elab-default@ drop nip elab-decl-name lf-menv-find ;
+: it-default-check ( j -- outcome )
+  dup it-default-decl ok-then? 0= if nip exit then ['] it-default-verdict it-at-default ;
 
-\ ---- The trees: a node is (key, first child, next sibling, first value,
-\ last value), -1 for none; a value cell (value, next).
-: it-node ( n -- addr ) it-nodes slab-at ;
-: it-key@ ( n -- k ) it-node @ ;
-: it-child ( n -- c ) it-node cell+ @ ;
-: it-sibling ( n -- s ) it-node 2 cells + @ ;
-: it-values ( n -- v ) it-node 3 cells + @ ;
+\ ---- What the checks found, kept per record: only a final outcome (ok,
+\ or unsupported: unverified) is kept and answered ok; any other is
+\ answered as it is and the record stays as it was.
+: it-final? ( outcome -- flag ) dup ok? swap outcome-unsupported = or ;
+: it-status@ ( i -- s ) it-status slab-at @ ;
+: it-dstatus@ ( j -- s ) it-dstatus slab-at @ ;
+: it-tally ( s -- )
+  dup it-class-ok = if drop exit then
+  1 it it-checked +! it-unverified = negate it it-unverified-n +! ;
+: it-new-status ( outcome s -- s' ) swap ok? if exit then drop it-unverified ;
+: it-keep ( outcome r s slab -- outcome )
+  >r rot dup it-final? 0= if nip nip r> drop exit then
+  swap it-new-status swap r> slab-at ! outcome-ok ;
+: it-record ( outcome i s -- outcome )   \ an instance's: the counts follow
+  over >r it-status it-keep r> over ok? if it-status@ it-tally else drop then ;
+: it-slab-ready ( n slab -- outcome )   \ n zeroed cells, once
+  dup slab-count if 2drop outcome-ok exit then
+  2dup slab-claim nip ok-then? 0= if nip exit then slab-base swap cells erase outcome-ok ;
+
+\ ---- The pass (lf-inst-classes): the roots, steps 1 and 3.
+: it-root@ ( r -- addr ) it-roots slab-at ;
+: it-root-index ( k -- r | -1 )
+  it-roots slab-count 0 ?do dup i it-root@ tr-key @ elab-key= if drop i unloop exit then
+  loop drop -1 ;
+: it-root-add ( k -- outcome )   \ a data root key, once
+  dup it-root-index 0< 0= if drop outcome-ok exit then
+  1 it-roots slab-claim ok-then? 0= if nip exit then
+  it-root@ tuck tr-key ! -1 swap tr-node ! outcome-ok ;
+: it-roots-made ( -- outcome )
+  it-roots slab-clear it-all ?do i it-root-key it-root-add dup ok? 0= if unloop exit then
+  drop loop outcome-ok ;
+: it-root-class? ( i -- flag )   \ its root key is its recorded class's constant
+  dup it-root-key swap it-record-class swap
+  dup elab-key-tag elab-key-const = if elab-key-decl = else 2drop false then ;
+: it-class-pass ( i -- outcome )
+  dup it-status@ it-unchecked <> if drop outcome-ok exit then
+  dup it-root-class? 0= if drop lfa-e-inst-root it-fail exit then
+  dup ['] it-class-verdict it-checked-by swap it-class-ok it-record ;
+: it-default-pass ( j -- outcome )
+  dup it-dstatus@ it-unchecked <> if drop outcome-ok exit then
+  dup it-default-check swap it-verified it-dstatus it-keep ;
+: it-records-ready ( -- outcome )
+  elab-instance elab-count it-status it-slab-ready
+  dup ok? if drop elab-default elab-count it-dstatus it-slab-ready then ;
+: it-instances-pass ( -- outcome ) elab-instance elab-count ['] it-class-pass it-each ;
+: it-defaults-pass ( -- outcome ) elab-default elab-count ['] it-default-pass it-each ;
+: it-pass-run ( -- outcome )
+  0 it it-error ! it-records-ready ['] it-roots-made ok-and ['] it-instances-pass ok-and
+  ['] it-defaults-pass ok-and ;
+: it-pass-keep ( outcome -- outcome )
+  dup ok? if it-passed it it-pass ! exit then
+  dup outcome-invalid = if lf-inst-error it it-pass ! then ;
+: lf-inst-classes ( -- outcome )
+  it it-pass @ ?dup 0= if it-pass-run it-pass-keep exit then
+  dup it-passed = if drop outcome-ok else it-fail then ;
+: lf-inst-verified? ( v -- flag )
+  dup it-status slab-count u< if it-status@ it-verified = else drop false then ;
+
+\ ---- The trees: nodes (key, first child, next sibling, first and last
+\ value cell) and value cells (value, next), -1 for none.
+: tn@ ( n -- addr ) it-nodes slab-at ;
+: tv@ ( v -- addr ) it-vals slab-at ;
+: it-key@ ( n -- k ) tn@ tn-key @ ;
+: it-child ( n -- c ) tn@ tn-child @ ;
+: it-sibling ( n -- s ) tn@ tn-sibling @ ;
 : it-node-new ( k -- n outcome )
   1 it-nodes slab-claim ok-then? 0= if nip no-result exit then
-  tuck it-node dup 5 cells -1 fill ! outcome-ok ;
-: it-find-child ( k n -- c true | false )
-  it-child begin dup 0< 0= while 2dup it-key@ elab-key= if nip true exit then
-  it-sibling repeat
-  2drop false ;
-: it-last-sibling ( c -- addr )
-  begin dup it-sibling dup 0< 0= while nip repeat drop it-node 2 cells + ;
-: it-link ( c n -- ) dup it-child 0< if it-node cell+ ! else it-child it-last-sibling !
+  tuck tn@ dup /tnode -1 fill tn-key ! outcome-ok ;
+: it-find-child ( k n -- c | -1 )
+  it-child begin dup 0< 0= while 2dup it-key@ elab-key= if nip exit then it-sibling
+  repeat nip ;
+: it-star-child ( n -- c | -1 )
+  it-child dup 0< if exit then dup it-key@ elab-key-star? 0= if drop -1 then ;
+: it-last-sibling ( c -- addr )   \ the sibling field of c's last sibling
+  begin dup it-sibling dup 0< 0= while nip repeat drop tn@ tn-sibling ;
+: it-link ( c n -- ) dup it-child 0< if tn@ tn-child ! else it-child it-last-sibling !
   then ;
 : it-descend ( k n -- c outcome )
-  2dup it-find-child if nip nip outcome-ok exit then
+  2dup it-find-child dup 0< 0= if nip nip outcome-ok exit then drop
   swap it-node-new ok-then? 0= if nip no-result exit then tuck swap it-link outcome-ok ;
 : it-val-new ( v -- cell outcome )
   1 it-vals slab-claim ok-then? 0= if nip no-result exit then
-  tuck it-vals slab-at tuck ! -1 swap cell+ ! outcome-ok ;
-: it-append ( v n -- outcome )
-  swap it-val-new ok-then? 0= if nip exit then swap it-node 3 cells +
-  dup @ 0< if 2dup ! else 2dup cell+ @ it-vals slab-at cell+ ! then cell+ ! outcome-ok ;
+  tuck tv@ tuck tv-value ! -1 swap tv-next ! outcome-ok ;
+: it-append ( v n -- outcome )   \ v after n's last value
+  swap it-val-new ok-then? 0= if nip exit then swap tn@
+  dup tn-first @ 0< if 2dup tn-first ! else 2dup tn-last @ tv@ tv-next ! then
+  tn-last ! outcome-ok ;
 \ A value goes in by its keys after the root key.
-: it-insert ( v -- outcome )
-  it it-root @ over it-keys 1 /string bounds ?do
-    i swap it-descend ok-then? 0= if nip unloop exit then
-  loop it-append ;
+: it-below-root ( v -- end start ) it-keys over + swap 1+ ;
+: it-insert ( v node -- outcome )
+  over it-below-root ?do i swap it-descend ok-then? 0= if nip unloop exit then loop
+  it-append ;
 
-\ ---- A root's tree: its values placed by rank, checked, inserted.
-: it-root-of? ( v k -- flag ) swap it-keys drop elab-key= ;
-: it-grow-to ( n -- outcome )
-  it-ranked slab-count - dup 0> 0= if drop outcome-ok exit then
-  dup it-ranked slab-claim ok-then? 0= if nip exit then
-  it-ranked slab-at swap cells -1 fill outcome-ok ;
-: it-place ( v -- outcome )
-  dup it-rank 1+ it-grow-to dup ok? 0= if nip exit then
-  drop dup it-rank it-ranked slab-at ! outcome-ok ;
-: it-gather ( k v -- k outcome ) over 2dup it-root-of? if drop it-place else 2drop
-  outcome-ok then ;
-: it-gather-instances ( k -- k outcome )
-  elab-instance elab-count 0 ?do i it-gather dup ok? 0= if unloop exit then drop loop
-  outcome-ok ;
-: it-gather-left ( k -- k outcome )
-  elab-left-out elab-count 0 ?do i invert it-gather dup ok? 0= if unloop exit then drop
-  loop
-  outcome-ok ;
+\ ---- A root's tree: its values placed by rank, step 2 for its instances,
+\ inserted under a new node, registered at the end; nothing kept of a
+\ failure.
+: it-grow-to ( n slab -- outcome )   \ at least n cells, the new ones -1
+  tuck slab-count - dup 0> 0= if 2drop outcome-ok exit then
+  2dup swap slab-claim ok-then? 0= if nip nip exit then
+  rot slab-at swap cells -1 fill outcome-ok ;
+: it-put ( v rank slab -- outcome )
+  over 1+ over it-grow-to ok-then? 0= if nip nip exit then slab-at ! outcome-ok ;
+: it-place ( v -- outcome ) dup it-rank it-ranked it-put ;
+: it-root-of? ( v k -- flag ) swap it-root-key elab-key= ;
+: it-gather ( k -- k outcome )
+  it-ranked slab-clear it-all ?do
+    i over it-root-of? if i it-place dup ok? 0= if unloop exit then drop then
+  loop outcome-ok ;
 : it-ranked@ ( r -- v ) it-ranked slab-at @ ;
-: it-check-ranked ( -- outcome )
-  it-ranked slab-count 0 ?do i it-ranked@ dup 0< if drop else it-check
-    dup ok? 0= if unloop exit then drop then loop outcome-ok ;
-: it-insert-ranked ( -- outcome )
-  it-ranked slab-count 0 ?do i it-ranked@ it-insert dup ok? 0= if unloop exit then drop
-  loop
-  outcome-ok ;
-: it-entry ( k node -- outcome )
-  swap 1 it-roots slab-claim ok-then? 0= if nip nip exit then it-roots slab-at 2!
-  outcome-ok ;
-: it-root-node ( -- node outcome )   \ keyed by the first value's root key
-  0 it-ranked@ it-keys drop dup it-node-new ok-then? 0= if nip no-result exit then
-  tuck it-entry dup ok? if drop dup it it-root ! outcome-ok then ;
-: it-gathered ( k -- outcome )
-  it-ranked slab-clear it-gather-instances dup ok? if drop it-gather-left else nip exit
-  then nip ;
-: it-root-made ( -- node outcome )
-  it-root-node ok-then? 0= if no-result exit then
-  it-insert-ranked dup ok? 0= if nip no-result then ;
-: it-ranked-ready ( k -- outcome ) it-status-ready dup ok? if drop it-gathered else nip
-  then ;
-: it-root-build ( k -- node outcome )
-  it-ranked-ready dup ok? 0= if no-result exit then drop
-  it-ranked slab-count 0= if -1 outcome-ok exit then
-  it-check-ranked dup ok? if drop it-root-made else no-result then ;
-: it-root-find ( k -- node true | false )
-  it-roots slab-count 0 ?do dup i it-roots slab-at @ elab-key=
-    if drop i it-roots slab-at cell+ @ true unloop exit then loop drop false ;
+: it-keys-pass ( i -- outcome )
+  dup it-status@ it-class-ok <> if drop outcome-ok exit then
+  dup ['] it-keys-verdict it-checked-by swap it-verified it-record ;
+: it-rank-pass ( r -- outcome )
+  it-ranked@ dup 0< if drop outcome-ok else it-keys-pass then ;
+: it-insert-ranked ( node -- node outcome )
+  it-ranked slab-count 0 ?do i it-ranked@ over it-insert dup ok? 0= if unloop exit then
+  drop loop outcome-ok ;
+: it-filled ( k -- node outcome )
+  it-node-new ok-then? 0= if no-result exit then it-insert-ranked ;
+: it-tree-mark ( -- nodes vals ) it-nodes slab-count it-vals slab-count ;
+: it-tree-back ( nodes vals -- )
+  it-vals slab-count - it-vals slab-commit it-nodes slab-count - it-nodes slab-commit ;
+: it-tree ( k -- node outcome )
+  it-tree-mark 2>r it-filled dup ok? if 2r> 2drop else 2r> it-tree-back then ;
+: it-prepared ( k -- outcome )   \ its values by rank, step 2 for its instances
+  it-gather nip dup ok? if drop it-ranked slab-count ['] it-rank-pass it-each then ;
+: it-root-key@ ( r -- k ) it-root@ tr-key @ ;
+: it-built ( r -- node outcome )
+  dup it-root-key@ dup it-prepared ok-then? 0= if nip no-result exit then
+  it-tree ok-then? if tuck swap it-root@ tr-node ! outcome-ok else nip no-result then ;
 : it-root-get ( k -- node outcome )
-  dup it-root-find if nip outcome-ok else it-root-build then ;
+  it-root-index dup 0< if outcome-ok exit then
+  dup it-root@ tr-node @ dup 0< if drop it-built else nip outcome-ok then ;
 
 \ ---- getUnify's process (Main.lean:577-605) on a heap stack of frames
 \ (todo, node, skip): skip 0 or more visits a node; skip below 0 visits
-\ the siblings from node, each with skip (skip invert) plus its arity.
+\ the siblings from node, each with skip (skip invert) plus its arity. A
+\ node below 0 has nothing to visit and gets no frame.
+: tf@ ( i -- addr ) it-stack slab-at ;
 : it-push ( todo node skip -- outcome )
-  1 it-stack slab-claim ok-then? 0= if >r 2drop drop r> exit then
-  it-stack slab-at tuck ! tuck 2 cells + ! cell+ ! outcome-ok ;
+  over 0< if drop 2drop outcome-ok exit then
+  1 it-stack slab-claim ok-then? 0= if nip nip nip exit then
+  tf@ tuck tf-skip ! tuck tf-node ! tf-todo ! outcome-ok ;
 : it-pop ( -- todo node skip )
-  it-stack slab-count 1- it-stack slab-at dup cell+ @ over 2 cells + @ rot @
+  it-stack slab-count 1- tf@ dup tf-todo @ over tf-node @ rot tf-skip @
   -1 it-stack slab-commit ;
 : it-values-out ( node -- outcome )
-  it-values begin dup 0< 0= while
-    dup it-vals slab-at @ it-out lf-meta-push dup ok? 0= if nip exit then drop
-    it-vals slab-at cell+ @ repeat drop outcome-ok ;
-: it-visit-skip ( todo node skip -- outcome )
-  swap it-child dup 0< if drop 2drop outcome-ok exit then >r 1- invert r> swap it-push ;
-: it-push-visit ( todo node -- outcome ) 0 it-push ;
-: it-star-child ( node -- c true | false )
-  it-child dup it-key@ elab-key-tag elab-key-star = if true else drop false then ;
-: it-push-match ( node -- outcome )
-  it it-k @ swap it-find-child if it it-args @ swap it-push-visit else outcome-ok then ;
-: it-push-star ( node -- outcome )
-  it-star-child if it it-rest @ swap it-push-visit else outcome-ok then ;
-: it-star-key? ( -- flag ) it it-k @ elab-key-tag elab-key-star = ;
-: it-on-key ( node -- outcome )
-  it-star-key? if it-child it it-rest @ swap -1 it-push exit then
-  dup it-push-match dup ok? if drop it-push-star else nip then ;
-: it-keyed ( todo -- outcome )
-  dup lf-dt-rest dup it it-rest ! swap lf-dt-first false rot lf-dt-key
-  ok-then2? if it it-args ! it it-k ! outcome-ok then ;
+  tn@ tn-first @ begin dup 0< 0= while
+    dup tv@ tv-value @ it-out lf-meta-push dup ok? 0= if nip exit then drop
+    tv@ tv-next @ repeat drop outcome-ok ;
+: it-visit-skip ( todo node skip -- outcome ) swap it-child swap 1- invert it-push ;
+: it-key-of ( todo -- rest k args outcome )
+  dup lf-dt-rest tuck swap lf-dt-first false rot lf-dt-key ;
+\ Lean visits the star child first, then the child of the key: their
+\ frames go on in the other order. A star key visits every child.
+: it-on-key ( rest k args node -- outcome )
+  >r swap dup elab-key-star? if 2drop r> it-child -1 it-push exit then
+  r@ it-find-child 0 it-push ok-then? 0= if r> drop exit then
+  r> it-star-child 0 it-push ;
+: it-visit-key ( todo node -- outcome )
+  >r it-key-of ok-then3? if r> it-on-key else r> drop then ;
 : it-visit-zero ( todo node -- outcome )
   over lf-dt-nil = if nip it-values-out exit then
-  dup it-child 0< if 2drop outcome-ok exit then
-  swap it-keyed dup ok? if drop it-on-key else nip then ;
+  dup it-child 0< if 2drop outcome-ok exit then it-visit-key ;
 : it-arity ( s -- n ) it-key@ elab-key-arity ;
 \ The next sibling's frame goes on first, so that s is visited first.
 : it-siblings ( todo s base -- outcome )
-  over 0< if drop 2drop outcome-ok exit then
   >r 2dup it-sibling r@ invert it-push dup ok? 0= if nip nip r> drop exit then drop
   dup it-arity r> + it-push ;
 : it-frame ( todo node skip -- outcome )
@@ -341,19 +448,15 @@ end-structure
   outcome-ok ;
 
 \ ---- getUnify.
-: it-star-root? ( k -- flag ) elab-key-tag elab-key-star = ;
-: it-walk-from ( list node -- outcome )
-  dup 0< if 2drop outcome-ok exit then 0 it-push dup ok? if drop it-walk then ;
+: it-walk-from ( list node -- outcome ) 0 it-push dup ok? if drop it-walk then ;
 : it-unify-run ( type -- outcome )
   true lf-dt-nil lf-dt-key ok-then2? 0= if exit then
-  over it-star-root? if 2drop outcome-unsupported exit then
+  over elab-key-star? if 2drop outcome-unsupported exit then
   swap it-root-get ok-then? if it-walk-from else nip then ;
-: it-reducible ( xt -- outcome )
-  lf-defeq-mode >r lf-tr-reducible lf-defeq-mode! execute r> lf-defeq-mode! ;
-: it-out-cells ( outcome -- addr n outcome ) it-out slab-base it-out slab-count rot ;
+: it-unify-scoped ( type -- outcome ) ['] it-unify-run lf-dt-scoped ;
 : lf-inst-unify ( type -- addr n outcome )
-  it-out slab-clear it-stack slab-clear lf-dt-mark 2>r >r
-  ['] it-unify-run it-reducible r> 2r> lf-dt-release it-out-cells ;
+  it-out slab-clear it-stack slab-clear lf-inst-classes ok-then?
+  if ['] it-unify-scoped lf-tr-reducible lf-meta-at then it-out it-cells ;
 
 \ ---- getInstances.
 : it-goal-body ( type -- body outcome )
@@ -361,10 +464,11 @@ end-structure
   dup lf-meta-whnf ok-then? 0= if nip no-result exit then
   it-pi? if drop -1 outcome-unsupported else outcome-ok then ;
 : it-local? ( name view i -- flag ) lf-view-local lf-local-class = ;
-: it-locals-of? ( class -- flag )
-  elab-decl-name lf-mctx-view dup lf-view-valid? 0= if 2drop false exit then
-  dup lf-view-count 0 ?do 2dup i it-local? if 2drop true unloop exit then loop 2drop
-  false ;
+\ Unsupported when the context has a local instance of the class.
+: it-local-free ( class -- outcome )
+  elab-decl-name lf-mctx-view dup lf-view-valid? 0= if 2drop outcome-invalid exit then
+  dup lf-view-count 0 ?do 2dup i it-local? if 2drop outcome-unsupported unloop exit then
+  loop 2drop outcome-ok ;
 \ Lean's insertionSort by priority (SynthInstance.lean:214), ascending:
 \ lib/sort.fs sorts stably, so equal priorities keep getUnify's order.
 : it-prio-at ( a-addr -- p ) @ lf-inst-priority ;
@@ -374,29 +478,33 @@ end-structure
 : it-sort ( -- outcome )
   it-sorter-ready dup ok? 0= if exit then
   drop it-out slab-base it-out slab-count it-sorter sort-records ;
-: it-keep ( w v -- w' ) dup it-erased? if drop else over it-out slab-at ! 1+ then ;
+: it-kept ( w v -- w' ) dup it-erased? if drop else over it-out slab-at ! 1+ then ;
 : it-drop-erased ( -- )
-  0 it-out slab-count 0 ?do i it-out slab-at @ it-keep loop
+  0 it-out slab-count 0 ?do i it-out slab-at @ it-kept loop
   it-out slab-count - it-out slab-commit ;
 : it-class-body ( type -- body class outcome )
   it-goal-body ok-then? 0= if -1 -1 rot exit then
   dup lf-class? ok-then? 0= if nip -1 -1 rot exit then
-  if outcome-ok else lf-e-not-class it-fail -1 swap then ;
+  if outcome-ok else lfa-e-not-class it-fail -1 swap then ;
 : it-candidates ( type -- outcome )
   it-class-body ok-then2? 0= if exit then
-  it-locals-of? if drop outcome-unsupported exit then
+  it-local-free dup ok? 0= if nip exit then drop
   lf-inst-unify nip nip dup ok? if drop it-sort dup ok? if it-drop-erased then then ;
-: lf-inst-candidates ( type -- addr n outcome ) it-candidates it-out-cells ;
+: lf-inst-candidates ( type -- addr n outcome )
+  it-out slab-clear lf-inst-classes ok-then? if it-candidates then it-out it-cells ;
 
-\ ---- Default instances, by rank.
-: it-default-of? ( class i -- flag ) elab-default@ 2drop = ;
-: it-default-place ( i -- outcome )
-  dup elab-default-rank 1+ it-grow-to dup ok? 0= if nip exit then
-  drop dup elab-default-rank it-ranked slab-at ! outcome-ok ;
+\ ---- getDefaultInstances: the class's default instances by rank.
+-1 constant it-gap
+: lf-default-gap? ( v -- flag ) 0< ;
+: it-dvalue ( j -- v ) dup it-dstatus@ it-verified <> if drop it-gap then ;
+: it-dplace ( j -- outcome ) dup it-dvalue swap elab-default-rank it-defaults it-put ;
+: it-default-of? ( class j -- flag ) it-default-class = ;
+: it-defaults-of ( class -- outcome )
+  elab-default elab-count 0 ?do
+    dup i it-default-of? if i it-dplace dup ok? 0= if nip unloop exit then drop then
+  loop drop outcome-ok ;
 : lf-default-instances ( class -- addr n outcome )
-  it-ranked slab-clear elab-default elab-count 0 ?do
-    dup i it-default-of? if i it-default-place dup ok? 0= if nip 0 0 rot unloop exit
-    then drop then
-  loop drop it-ranked slab-base it-ranked slab-count outcome-ok ;
+  it-defaults slab-clear lf-inst-classes ok-then? if it-defaults-of then
+  it-defaults it-cells ;
 
 base !   \ the BASE this file was loaded with
