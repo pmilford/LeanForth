@@ -1155,3 +1155,23 @@ and small follow-ups go into the branch that caused them. Kept unchanged: plante
 change to `src/`, both Gforth versions, the daily uncached run and the done checker. Items 1 and 2 at push time need
 scripts (plan 9.4.6); until they land, `scripts/push.sh` keeps running both CI jobs in full.
 
+
+### Gate approvals and omega (2026-11-13, morning)
+
+Asked in plain language with the reviewers' summaries (reports in `docs/development/forth-reviews/`):
+
+- **Snapshot compatibility, plan 6.2.5c steps c1-c5 [format][kernel][import]: approved,** with the relaxed "copied from
+  the old file" mark in base snapshots accepted until step c6 adds a record of which files are upgrades (it changes
+  labels only, never a verdict). Evidence: every older snapshot is re-checked in full today and equals a fresh check
+  (all of Init, 59,349 declarations, 0 differences); the review and its three re-checks are not blocking; 25 planted
+  faults caught. Risk accepted: a future rule change with a wrong "reach" note is caught only by the comparison tests on
+  the test snapshots, so each such note is reviewed with its change.
+- **Elaboration data format 2 (FE1e1) [import][format]: approved;** format 2 replaces format 1. The kernel never reads
+  this file.
+- **The job pool fails closed when the host refuses threads [runtime]: approved.** The rare hang when a thread dies
+  during start-up stays a plan task.
+- **FE1i, omega:** "The improvements to omega are good, hide them behind an improved performance flag so we can do both,
+  default is full compatibility." So: by default `by-omega` is a port of Lean 4.35.0's omega, succeeding and failing
+  exactly where Lean does; improvements beyond Lean's (goals Lean's omega cannot close, or faster search) go behind an
+  opt-in flag, reported as such, and never change the default outcome. The flag's name and report wording are settled
+  in the FE1i design before FE1i-5 starts.
