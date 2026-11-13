@@ -557,8 +557,9 @@ each target's seconds (`LF_TIMING_LOG`):
 
 | Run | Wall | Target time |
 | --- | ---: | ---: |
-| `make coverage-check` (all of `make test` instrumented) | 408 s | 1,115 s |
+| `make coverage-check` (all of `make test` instrumented) | 408 s; 429 s | 1,115 s; 1,176 s |
 | `make check-rest` | 480 s | 846 s (the four parts of `test-cli` 271 s, `program-clamp-record` 153 s) |
+| `make check` (commit `3c5dbc0c`) | 632 s | 1,116 s |
 | that morning's pushes `39357876` and `2b265cb1` (log times): `make check`, `make coverage-check`, `make test` on 0.7.3 | 7.9-8.4, 4.7-5.4, 6.1-6.7 min | |
 
 Every target of `make test` passed instrumented as it does plain (the one
@@ -568,7 +569,7 @@ repositories took the counting Gforth from the environment; fixed). At
 wall time was set by its slowest chain (`program-clamp-record`, then the
 program targets, and `test-cli`), and `make test`'s other targets only
 filled free job slots; what one instrumented run saves is the target time
-of `make test` outside `test-cli`, about a third of `make check`'s. The
+of `make test` outside `test-cli`, about 270 of `make check`'s 1,116 s. The
 large savings come from the tiers and the records: a documentation push,
 14.6 minutes of suites on 2026-11-13, now runs `check-docs` and the
 targets that read its pages after the day's full run, and a push whose
