@@ -47,9 +47,10 @@
 \ checker empties) and lf-open-parts. reports them after the verdicts.
 \ Choice points (Lean's saveState and restore, for FE5's first and the
 \ rfl alternatives): lf-tac-try ( xt -- code ) runs xt from a saved state
-\ (a mark of the metavariable context, the goal list, the open blocks and
-\ the open parts) and keeps its changes when it succeeds (0), or puts
-\ the state back when it fails with an authoring error (its THROW code;
+\ (a mark of the metavariable context, the goal list, the open blocks, the
+\ open parts and the current local context) and keeps its changes when it
+\ succeeds (0), or puts the state back when it fails with an authoring
+\ error (its THROW code;
 \ the error stays recorded until lf-tac-forget); any other THROW passes
 \ on, the state put back. Fuel is not given back (nor are Lean's
 \ heartbeats); nodes made by a failed attempt stay, reached by nothing.
@@ -58,6 +59,8 @@
 \ lf-tactic-fuel-left ( -- n ), lf-tactic-action! ( xt kind -- ),
 \ lf-tac-step ( -- i ) the step running, lf-tac-main ( -- goal ),
 \ lf-tac-fail ( code -- ) (an error at the step running, with the goals),
+\ lf-tac-detail ( i*x xt -- j*x ) (xt's printing as the error's detail),
+\ lf-tac-later ( i -- ) (a step not ported yet),
 \ lf-tac-block ( i rest -- ), lf-tac-done ( i -- ), lf-tac-focus ( --
 \ rest ), lf-tac-unfocus ( rest -- ), lf-tac-save ( -- save outcome ),
 \ lf-tac-restore, lf-tac-commit ( save -- outcome ), lf-tac-try,
@@ -121,6 +124,7 @@ begin-structure /tsv      \ a saved state
   field: tsv-frames       \ how many blocks were open
   field: tsv-parts        \ how many open parts there were
   field: tsv-text         \ and their text's length
+  field: tsv-view         \ the current local context (a tactic may set it)
 end-structure
 /tsv context-slab: trun-saves
 1 cells context-slab: trun-xs       \ the binders' free variables (Lean's xs)
@@ -187,11 +191,14 @@ s" by-sorry" tac-k-sorry lfr-spell
 \ block's place; a tactic's error also shows the goals, kept as the
 \ error's detail (for the first error only: a later one is not kept).
 : lf-tac-step ( -- i ) trun trun-step @ ;
-: lfr-detail-goals ( -- outcome )
-  lf-print-settings 2>r ['] lfa-detail+ lf-print-unicode lf-print-setup lf-goals-text
-  2r> lf-print-setup ;
-: lfr-with-goals ( -- )
-  lf-author-code if exit then lfr-detail-goals ok? 0= if lfa-detail-cut then ;
+\ xt ( i*x -- j*x outcome ) printing with the term printer's sink set to
+\ sink for the while; lf-tac-detail prints into the error's detail.
+: lfr-printed ( i*x xt sink -- j*x outcome )
+  lf-print-settings 2>r lf-print-unicode lf-print-setup execute 2r> lf-print-setup ;
+: lf-tac-detail ( i*x xt -- j*x )
+  lf-author-code if drop exit then
+  ['] lfa-detail+ lfr-printed ok? 0= if lfa-detail-cut then ;
+: lfr-with-goals ( -- ) ['] lf-goals-text lf-tac-detail ;
 : lfr-at-step ( code -- ) >r lf-tac-step dup lfr-spelling rot lfr-at r> lfa-fail-at ;
 \ (With no step of the record running, a word called directly: at the
 \ current token.)
@@ -294,9 +301,7 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lfr-text-cut ( c-addr u i -- ) 2drop drop true trun trun-cut ! ;
 : lfr-text+ ( c-addr u -- )
   dup trun-text slab-claim ok? if trun-text slab-at swap move else lfr-text-cut then ;
-: lfr-goal-text ( goal -- outcome )
-  lf-print-settings 2>r ['] lfr-text+ lf-print-unicode lf-print-setup lf-goal-print
-  2r> lf-print-setup ;
+: lfr-goal-text ( goal -- outcome ) ['] lf-goal-print ['] lfr-text+ lfr-printed ;
 : lfr-part ( -- addr ) trun-parts slab-count 1- trun-parts slab-at ;
 \ A span of trun-text: where it begins, then its length once written.
 : lfr-span-end ( first addr -- length ) tuck ! lfr-text# swap @ - ;
@@ -334,7 +339,8 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lfr-latest? ( save -- flag ) dup 0< 0= swap lfr-saves 1- = and ;
 : lfr-fill ( mark addr -- )
   tuck tsv-mark ! lf-goals over tsv-goals ! lfr-depth over tsv-frames !
-  trun-parts slab-count over tsv-parts ! lfr-text# swap tsv-text ! ;
+  trun-parts slab-count over tsv-parts ! lfr-text# over tsv-text !
+  lf-mctx-view swap tsv-view ! ;
 : lfr-unmark ( mark outcome -- -1 outcome ) swap lf-mctx-rollback drop no-result ;
 : lf-tac-save ( -- save outcome )
   lf-mctx-mark ok-then? 0= if no-result exit then
@@ -346,7 +352,8 @@ s" by-sorry" tac-k-sorry lfr-spell
 : lfr-back ( addr -- )
   dup tsv-frames @ trun-frames lfr-cut-to dup tsv-parts @ trun-parts lfr-cut-to
   dup tsv-text @ trun-text lfr-cut-to tsv-goals @ lf-goals! drop ;
-: lfr-rolled ( addr -- outcome ) dup lfr-back tsv-mark @ lf-mctx-rollback ;
+: lfr-rolled ( addr -- outcome )
+  dup lfr-back dup tsv-view @ lf-mctx-view! tsv-mark @ lf-mctx-rollback ;
 : lf-tac-restore ( save -- outcome )
   dup lfr-latest? 0= if drop outcome-invalid exit then lfr-save lfr-rolled lfr-drop-save ;
 : lf-tac-commit ( save -- outcome )

@@ -74,7 +74,7 @@
 \ lf-mctx-mark ( -- mark outcome ), lf-mctx-rollback ( mark -- outcome ),
 \ lf-mctx-commit ( mark -- outcome ), lf-mctx-marks ( -- n ), lf-mctx-latest
 \ ( -- mark ); lf-mvar-new ( type kind -- mvar outcome ), lf-mvar-new-at
-\ ( type kind view -- mvar outcome ), lf-mvar-live?, lf-mvar-type,
+\ ( type kind view -- mvar outcome ), lf-mvar-count ( -- n ), lf-mvar-live?, lf-mvar-type,
 \ lf-mvar-kind, lf-mvar-value, lf-mvar-view, lf-mvar-tag ( mvar -- x true
 \ | false ), lf-mvar-sees? ( mvar fvar -- flag ), lf-mvar-tag! ( mvar name
 \ -- outcome ), lf-mvar-kind! ( mvar kind -- outcome ), lf-mvar-assignable?,
@@ -232,6 +232,9 @@ end-structure
   mv-exprs mv-slot if mv-leafed else 2drop -1 outcome-full then ;
 : lf-mvar-new-at ( type kind view -- mvar outcome )
   lf-mctx-view >r lf-mctx-view! lf-mvar-new r> lf-mctx-view! ;
+\ How many term metavariables the context has made (Lean's mvarCounter:
+\ a metavariable whose record number is at least an earlier count is new).
+: lf-mvar-count ( -- n ) mv-exprs store-count @ ;
 : lf-mvar-assignable? ( mvar -- flag )
   mv-of 0= if false exit then
   dup mvd-kind @ mv-opaque <> swap mvd-depth @ lf-mctx-depth = and ;

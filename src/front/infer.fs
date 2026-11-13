@@ -36,7 +36,9 @@
 \ failure gives -1.
 \ lf-get-level ( type -- level outcome ): Lean's getLevel, the level u of
 \ the type's inferred type once whnfCore makes it Sort u, with the same
-\ outcomes (FE1g-3's by-sorry uses it, as Lean's mkSorry does).
+\ outcomes (FE1g-3's by-sorry uses it, as Lean's mkSorry does);
+\ lf-whnf-firm? ( term -- flag ): whether whnf's delta could go further
+\ than whnfCore's result (FE1g-4's by-intro: asks).
 \ Not re-entrant: one inference at a time per context uses the slabs
 \ below (whnfCore and the instantiations it calls keep their own). Each
 \ lambda or pi inferred adds its binders' free variables to the local
@@ -225,6 +227,11 @@ end-structure
   dup lf-term-root? 0= if outcome-invalid if-fail exit then
   dup if-lam? if if-lambda exit then
   dup if-pi? if if-forall else if-body then ;
+\ Whether Lean's whnf would leave a term whnfCore made as it is: its head
+\ inert (a free variable, metavariable, sort or lambda) or a constant of
+\ the input that is no definition; false where delta might go on (a
+\ definition, or a constant the input does not hold).
+: lf-whnf-firm? ( term -- flag ) if-head if-firm? ;
 \ Lean's getLevel (Meta/InferType.lean): the level u of a type's type,
 \ which whnf must make Sort u; the cases as inferForallType's above.
 : lf-get-level ( type -- level outcome )

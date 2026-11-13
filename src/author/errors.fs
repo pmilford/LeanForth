@@ -29,8 +29,8 @@ require ./source.fs
 \ range:
 \   1-73   the words (ADR 0017), the runner, the stores, natural text read (FE1a)
 \   74-79  elaboration and the hand-over to the kernel (FE1c, FE1e, FE1f; 74-77 used)
-\   80-99  tactic proofs (FE1g; 80-93 used: 81-88 the reading of FE1g-2,
-\          80 and 89-93 the runner of FE1g-3)
+\   80-99  tactic proofs (FE1g; all used: 81-88 the reading of FE1g-2,
+\          80 and 89-93 the runner of FE1g-3, 94-99 the tactics of FE1g-4)
 \   100-   free
 1 constant lfa-e-unknown        \ no word, variable, universe or constant has the name
 2 constant lfa-e-no-name         \ a name must follow on the same line
@@ -126,6 +126,13 @@ require ./source.fs
 91 constant lfa-e-tac-fuel       \ exhausted: the tactic run's fuel is spent
 92 constant lfa-e-tac-record     \ a tactic record or proof state not as made
 93 constant lfa-e-tac-meta       \ unsupported: an inference, reduction or binder
+\ The first tactics (src/front/tactic-basic.fs, plan FE1g-4).
+94 constant lfa-e-tac-no-intro   \ intro with no binder or let to introduce
+95 constant lfa-e-tac-unassigned \ exact's term leaves a new metavariable unassigned
+96 constant lfa-e-tac-mismatch   \ exact's term has another type than the goal
+97 constant lfa-e-tac-rfl        \ rfl's two sides are not definitionally equal
+98 constant lfa-e-tac-assign     \ exact's term cannot be assigned to the goal
+99 constant lfa-e-tac-form       \ unsupported: this case of a tactic (a later step)
 
 \ The catalogue: one message record per code, in order, each followed by
 \ its text and aligned; a record with code 0 closes it.
@@ -295,6 +302,19 @@ create lfa-catalogue
   lfa-invalid,
   lfa-e-tac-meta
   s" not supported yet: a type inference, reduction or let binder the tactic needs (FE1c)"
+  lfa-unsupported,
+  lfa-e-tac-no-intro
+  s" Tactic `introN` failed: no binders or `let` bindings in the goal to introduce"
+  lfa-invalid,
+  lfa-e-tac-unassigned
+  s" don't know how to synthesize: the term leaves a metavariable it made unassigned"
+  lfa-invalid,
+  lfa-e-tac-mismatch s" Type mismatch" lfa-invalid,
+  lfa-e-tac-rfl s" Tactic `rfl` failed: The left-hand side" lfa-invalid,
+  lfa-e-tac-assign
+  s" Tactic `exact` failed: attempting to close the goal using" lfa-invalid,
+  lfa-e-tac-form
+  s" not supported yet: this case of the tactic (FE1G_TACTICS.md 5 names its step)"
   lfa-unsupported,
   0 outcome-invalid s" " lfa-message,
 
