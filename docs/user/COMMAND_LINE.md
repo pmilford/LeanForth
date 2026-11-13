@@ -188,12 +188,14 @@ elaboration data: 3 instances, 2 default instances, 18 reducibility statuses, 0 
 ```
 
 Refused data stops the run before the text runs, with the line, the
-reason and the outcome's exit status (4 malformed or of another export,
-2 another format or Lean version, 3 a line over 1 MB):
+[error code](../programming/ELABORATION_DATA.md#errors), the reason and
+the outcome's exit status (4 malformed, of another export, or not the
+library's; 2 another format or Lean version; 3 a line over 1 MB). The
+test file `tests/front/cut-off.elab.ndjson` lacks its last record:
 
 ```console
-$ bin/leanforth check --snapshot init-slice.lfsnap --elab-data other.elab.ndjson tests/author/19-add-zero.lf
-error: invalid: the elaboration data was refused at line 1 (error 9): elaboration data of another export; the LeanForth text was not checked
+$ bin/leanforth check --env tests/author/init-slice.ndjson --elab-data tests/front/cut-off.elab.ndjson tests/author/19-add-zero.lf
+error: invalid: the elaboration data was refused at line 27 (error 20): records differ in number from the header; the LeanForth text was not checked
 ```
 
 `--elab-data` without `--env` or `--snapshot`, or with an export instead

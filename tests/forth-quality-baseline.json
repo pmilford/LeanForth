@@ -376,12 +376,12 @@
   "words": 2
  },
  "src/front/elab-data.fs": {
-  "globals": 14,
+  "globals": 15,
   "long lines": 0,
   "long words": 0,
   "rstack": 23,
   "shuffles": 13,
-  "words": 138
+  "words": 142
  },
  "src/import/checker-input.fs": {
   "globals": 5,

@@ -49,13 +49,15 @@ printed back in three forms ([parser] gate).
 
 ## Making it: `scripts/export-elab.sh`
 
-```console
+```text
 $ scripts/export.sh init.ndjson Init                     # the export and its manifest
 $ scripts/export-elab.sh init.elab.ndjson init.ndjson Init
 init.elab.ndjson: 2938 instance, 34 default_instance, 7609 reducibility, 6 eliminator; left out (not declarations of the export): 31 instance, 0 default_instance, 114 reducibility, 0 eliminator
 ```
 
-`scripts/export-elab.sh OUTPUT EXPORT MODULE...` checks the Lean version
+(Shown, not run by `make check-doc-examples`, which runs the console
+examples below: it needs pinned Lean; `make reference-elab-data` runs
+it.) `scripts/export-elab.sh OUTPUT EXPORT MODULE...` checks the Lean version
 and revision as `scripts/export.sh` does, runs
 `scripts/export_elab.lean` (`lean --run`) on the modules, then
 `scripts/export_elab.py`, which
@@ -121,8 +123,7 @@ Then the records, sorted by kind and then by text:
 ## Reading it: `leanforth check --elab-data`
 
 ```console
-$ bin/leanforth check --env tests/author/init-slice.ndjson \
-    --elab-data tests/front/init-slice.elab.ndjson tests/author/19-add-zero.lf | head -1
+$ bin/leanforth check --env tests/author/init-slice.ndjson --elab-data tests/front/init-slice.elab.ndjson tests/author/19-add-zero.lf | head -1
 elaboration data: 3 instances, 2 default instances, 18 reducibility statuses, 0 eliminators
 ```
 
@@ -133,11 +134,13 @@ names and the SHA-256 of its export: the manifest check's, the
 snapshot's, or with `--no-manifest` the file's, hashed then. The verdicts
 are those of the same run without `--elab-data`: nothing uses the data
 yet. A refusal stops the run before the text runs, with the line and the
-reason, and the outcome's exit status (4 invalid, 2 unsupported, 3 full):
+reason, and the outcome's exit status (4 invalid, 2 unsupported, 3 full);
+here the test file `tests/front/cut-off.elab.ndjson`, the eliminators
+fixture with its last record cut off:
 
 ```console
-$ bin/leanforth check --env tests/author/init-slice.ndjson --elab-data DAMAGED.ndjson tests/author/19-add-zero.lf
-error: invalid: the elaboration data was refused at line 2 (error 12): unknown name; the LeanForth text was not checked
+$ bin/leanforth check --env tests/author/init-slice.ndjson --elab-data tests/front/cut-off.elab.ndjson tests/author/19-add-zero.lf
+error: invalid: the elaboration data was refused at line 27 (error 20): records differ in number from the header; the LeanForth text was not checked
 ```
 
 What the reader checks, each failure refused with its reason:

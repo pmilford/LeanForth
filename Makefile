@@ -791,6 +791,7 @@ reference-elab-data:
 .PHONY: test-elab-data reference-elab-data
 test: test-elab-data
 test-differential: reference-elab-data
+DOC_EXAMPLE_PAGES += docs/programming/ELABORATION_DATA.md
 
 # The LeanForth authoring words (plan task 8.1.2, ADR 0017; untrusted, not
 # loaded by src/main.fs, so they get their own silent-load check): unit
