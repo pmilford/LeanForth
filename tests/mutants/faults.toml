@@ -10278,6 +10278,88 @@ new = ''': lf-nt-end ( row -- ) here over - swap lf-nt-next ! ;'''
 test = "$GFORTH tests/present/notation.fs"
 reason = "a notation row may start at an unaligned address (works on x86-64, faults elsewhere): rows-aligned? catches it (review refactor-present L1d)"
 
+# --- The front end's Meta layer (plan FE1c; ADR 0021 D6) -----------------
+
+[[fault]]
+id = "fe-level-read-only-ignored"
+file = "src/front/level-defeq.fs"
+old = ''': ld-read-only? ( mvar -- flag ) ld-depth lf-mctx-depth < ;'''
+new = ''': ld-read-only? ( mvar -- flag ) drop false ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: a level metavariable of an outer depth is assigned inside a deeper one (Lean's isReadOnly)"
+
+[[fault]]
+id = "fe-level-deeper-ignored"
+file = "src/front/level-defeq.fs"
+old = '''  2dup swap ld-deeper? if 2dup swap ld-assign else 2dup ld-assign then ;'''
+new = '''  2dup ld-assign ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: ?o =?= ?d assigns ?o := ?d where Lean assigns the deeper ?d := ?o (isMVarWithGreaterDepth)"
+
+[[fault]]
+id = "fe-level-assigned-not-instantiated"
+file = "src/front/level-defeq.fs"
+old = ''': ld-assigned? ( l r -- flag ) ld-set? swap ld-set? or ;'''
+new = ''': ld-assigned? ( l r -- flag ) 2drop false ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: an assigned level metavariable is compared as if free (Lean instantiates first)"
+
+[[fault]]
+id = "fe-level-postponed-false"
+file = "src/front/level-defeq.fs"
+old = '''  2dup ld-open? swap ld-open? or if outcome-unsupported ld-end else ld-no then ;'''
+new = '''  ld-no ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: a pair Lean postpones answers false, a guess, where it must be unsupported"
+
+[[fault]]
+id = "fe-level-max-guessed"
+file = "src/front/level-defeq.fs"
+old = ''': ld-flat? ( l r -- flag ) ld-plain? swap ld-plain? and ;'''
+new = ''': ld-flat? ( l r -- flag ) 2drop true ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: levels with max are solved without Lean's normalization: a guess where it must be unsupported"
+
+[[fault]]
+id = "fe-inst-no-shift"
+file = "src/front/instantiate.fs"
+old = '''  1- lf-term-bvar in-made ;'''
+new = '''  lf-term-bvar in-made ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: instantiate1 keeps a loose index above the value instead of lowering it by one"
+
+[[fault]]
+id = "fe-inst-binder-depth-lost"
+file = "src/front/instantiate.fs"
+old = ''': in-second ( node depth -- child depth' ) over in-binder? - swap lf-term-second@ swap ;'''
+new = ''': in-second ( node depth -- child depth' ) swap lf-term-second@ swap ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: instantiate1 does not count a binder, so it replaces a variable that binder binds"
+
+[[fault]]
+id = "fe-inst-binder-name-lost"
+file = "src/front/instantiate.fs"
+old = ''': in-named ( new old -- new ) lf-pres-binder@ if 2>r dup 2r> lf-pres-binder! drop then ;'''
+new = ''': in-named ( new old -- new ) drop ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: a rebuilt binder loses its name and kind, so the term differs from Lean's"
+
+[[fault]]
+id = "fe-inst-loose-value"
+file = "src/front/instantiate.fs"
+old = ''': in-closed-ok ( range -- outcome ) 0= if outcome-ok else outcome-unsupported then ;'''
+new = ''': in-closed-ok ( range -- outcome ) drop outcome-ok ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: a value with a loose bound variable is put in unlifted, a term Lean never makes"
+
+[[fault]]
+id = "fe-beta-counts-result"
+file = "src/front/instantiate.fs"
+old = '''  dup in-args slab-count hb-depth >r in-args slab-count 1- r> hb-lams'''
+new = '''  in-args slab-count dup 1- swap hb-lams'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: head beta goes on into a lambda that an instantiation made, where Lean's betaRev stops"
+
 # --- The front end's first steps (plan FE1a-b; ADR 0021) -----------------
 
 [[fault]]

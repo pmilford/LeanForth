@@ -92,13 +92,14 @@ require ./mvars.fs
 \ undef (and Lean's occurs test before it gives undef too).
 : ld-solve-succ ( u v -- u v code ) dup ld-param? if ld-no else ld-undef then ;
 
-\ solve u v for a metavariable u.
+\ solve u v for a metavariable u: read-only, undef; a deeper metavariable
+\ v is assigned u; else u := v. (Lean's next test, u occurring in v, never
+\ holds here: v's base is not u, or the first rule had answered.)
 : ld-deeper? ( v u -- flag )
   over lf-level-mvar? if ld-depth swap ld-depth < else 2drop false then ;
 : ld-solve-mvar ( u v -- u v code )
   over ld-read-only? if ld-undef exit then
-  2dup swap ld-deeper? if 2dup swap ld-assign exit then
-  2dup ld-bases= if ld-undef else 2dup ld-assign then ;
+  2dup swap ld-deeper? if 2dup swap ld-assign else 2dup ld-assign then ;
 : ld-solve-zero ( u v -- u v code ) dup ld-succ? if ld-no else ld-undef then ;
 : ld-zero? ( level -- flag ) lf-level-tag@ lf-level-tag-zero = ;
 : ld-solve ( u v -- u v code )

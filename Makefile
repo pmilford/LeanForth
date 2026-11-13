@@ -803,21 +803,25 @@ reference-author:
 .PHONY: test-author reference-author
 test: test-author
 
-# The front end's first steps (plan FE1a-b, ADR 0021): the natural reader's
-# syntax trees and refusals, and the metavariable context. Its modules load
-# alone, printing nothing.
+# The front end's first steps (plan FE1a-c, ADR 0021): the natural reader's
+# syntax trees and refusals, the metavariable context, and the Meta layer's
+# level unification and instantiation. Its modules load alone, printing
+# nothing.
 test-front:
 	@for m in src/front/syntax.fs src/front/dag-walk.fs src/front/reader.fs src/front/mvars.fs \
-	  src/core/mvar-leaves.fs; do \
+	  src/core/mvar-leaves.fs src/front/level-defeq.fs src/front/instantiate.fs; do \
 	  out=$$($(RUN) $(GFORTH) $$m -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
 	  if [ -n "$$out" ]; then printf '%s printed while loading:\n%s\n' "$$m" "$$out" >&2; exit 1; fi; \
 	done
 	$(RUN) $(GFORTH) tests/front/front.fs
+	$(RUN) $(GFORTH) tests/front/meta.fs
 
 # The natural reader's trees against pinned Lean's macro expansion of the
-# same statements (tests/front/operators.lean).
+# same statements (tests/front/operators.lean); the Meta layer's answers
+# against pinned Lean's isLevelDefEqAux, instantiate1 and headBeta.
 reference-front:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_front.py
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_meta.py
 
 .PHONY: test-front reference-front
 test: test-front

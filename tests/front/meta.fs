@@ -83,6 +83,10 @@ T{ lout lsucc q lf-level-defeq q lfree? -> false outcome-ok true }T
 \ At depth 0 ?q is free: ?q := ?lout + 1.
 lf-mctx-shallower
 T{ lout lsucc q lf-level-defeq q lval ld-pred lout lfree? -> true outcome-ok lout true }T
+\ Back at depth 0, ?o =?= ?d with ?d made at depth 1: Lean assigns the
+\ deeper one, ?d := ?o (isMVarWithGreaterDepth), not ?o := ?d.
+lnew constant o  lf-mctx-deeper lnew constant dp  lf-mctx-shallower
+T{ o dp lf-level-defeq dp lval o lfree? -> true outcome-ok o true }T
 
 \ ---- Not ported: max and imax (Lean normalizes them first).
 lf-mctx-reset lnew constant m

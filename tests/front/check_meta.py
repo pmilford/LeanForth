@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """The front end's Meta layer against pinned Lean (plan FE1c; ADR 0021 D5, D6).
 
-Each case below is run twice: by pinned Lean 4.35.0 (a Lean file this
-script writes, calling Meta.isLevelDefEqAux, Expr.instantiate1 and
+Each case below is run twice: by pinned Lean 4.35.0
+(tests/front/meta-cases.lean, which this script writes with --write and
+checks is up to date, calling Meta.isLevelDefEqAux, Expr.instantiate1 and
 Expr.headBeta) and by LeanForth (tests/front/meta-cases.fs, calling
 lf-level-defeq, lf-meta-instantiate1 and lf-meta-head-beta on the same
 terms). Both print one line per case: the answer and every named level
@@ -13,19 +14,19 @@ max, which Lean normalizes and LeanForth does not port yet), where
 LeanForth must answer unsupported and Lean's answer is shown. A harness
 self-test first checks that a wrong line is told apart.
 
-Usage: LEAN=... GFORTH=... python3 tests/front/check_meta.py
+Usage: LEAN=... GFORTH=... python3 tests/front/check_meta.py [--write]
 """
 import os
 import pathlib
 import re
 import subprocess
 import sys
-import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 LEAN = os.environ.get("LEAN", ".tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean")
 GFORTH = os.environ.get("GFORTH", "gforth")
 LIMIT = 300
+LEAN_FILE = ROOT / "tests/front/meta-cases.lean"
 
 # Level cases: (lhs, rhs, read-only metavariables, gap?). Levels: numerals,
 # u and v (parameters), ?a .. ?d (metavariables made inside a new depth),
@@ -204,15 +205,18 @@ def lean_term_cases():
     return "\n".join(lines)
 
 
-def lean_lines():
+def lean_source():
     text = LEAN_HEAD + "\n" + "\n\n".join(lean_level_case(l, r, ro) for l, r, ro, _ in LEVELS)
-    text += "\n\n" + lean_term_cases() + "\n"
-    with tempfile.TemporaryDirectory() as tmp:
-        path = pathlib.Path(tmp) / "Meta.lean"
-        path.write_text(text, encoding="utf-8")
-        run = subprocess.run([LEAN, "-DwarningAsError=true", str(path)], cwd=ROOT,
-                             stdin=subprocess.DEVNULL, capture_output=True, text=True,
-                             timeout=LIMIT)
+    return text + "\n\n" + lean_term_cases() + "\n"
+
+
+def lean_lines():
+    if LEAN_FILE.read_text(encoding="utf-8") != lean_source():
+        raise Failure(f"{LEAN_FILE.relative_to(ROOT)} differs from the cases: "
+                      "python3 tests/front/check_meta.py --write")
+    run = subprocess.run([LEAN, "-DwarningAsError=true", str(LEAN_FILE.relative_to(ROOT))],
+                         cwd=ROOT, stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                         timeout=LIMIT)
     lines = [line for line in run.stdout.splitlines() if line.strip()]
     if run.returncode != 0 or len(lines) != len(LEVELS) + len(TERMS):
         raise Failure(f"pinned Lean: exit {run.returncode}\n{run.stdout}{run.stderr}")
@@ -261,6 +265,9 @@ def self_test():
 
 
 def main():
+    if sys.argv[1:] == ["--write"]:
+        LEAN_FILE.write_text(lean_source(), encoding="utf-8")
+        return 0
     try:
         self_test()
         lean, forth = lean_lines(), forth_lines()

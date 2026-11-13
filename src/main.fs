@@ -60,8 +60,11 @@ require ./present/proof-outline.fs
 
 \ The front end (ADR 0021, plan FE1; untrusted, never loaded by the
 \ kernel): the natural reader (front/reader.fs, which the command line
-\ loads through cli/check-lf.fs) and the metavariable context.
+\ loads through cli/check-lf.fs), the metavariable context, and the first
+\ pieces of the Meta layer: level unification and instantiation.
 require ./front/mvars.fs
+require ./front/level-defeq.fs
+require ./front/instantiate.fs
 
 \ The command line: check, replay, print, count, reexport, version,
 \ capabilities. It loads the staging of exports into the checker's input,
