@@ -536,6 +536,22 @@ T{ 99 1000 lf-print-forth-term -> outcome-invalid }T
 \ review L3): a metavariable leaf, and a Sort of a metavariable level.
 T{ 0 0 lf-mvar-leaf drop forth-text nip nip -> outcome-invalid }T
 T{ 0 0 lf-level-mvar-leaf drop lf-term-symbolic-sort drop forth-text nip nip -> outcome-invalid }T
+\ Corrupted tags (the item-2 review's L3): a term tag 0, 31, 32 or
+\ 2^32 - 1, and a level tag 7, 8 or -1 under a symbolic Sort, are invalid,
+\ inside or outside the Forth mode's tables. In a context of their own, so
+\ the corrupted records go with it.
+require ../support/store-faults.fs
+context-new throw constant tags-context
+tags-context context-use
+: forth-tag ( tag -- outcome ) dup 1000 + lf-term-sort drop tuck term-tag! forth-text nip nip ;
+: tag-level ( n -- level ) 0 swap 2000 + lf-name-num drop lf-level-param drop ;
+: forth-level-tag ( tag -- outcome )
+  dup tag-level tuck level-tag! lf-term-symbolic-sort drop forth-text nip nip ;
+T{ 0 forth-tag 31 forth-tag -> outcome-invalid outcome-invalid }T
+T{ 32 forth-tag -1 forth-tag -> outcome-invalid outcome-invalid }T
+T{ 7 forth-level-tag 8 forth-level-tag -1 forth-level-tag
+   -> outcome-invalid outcome-invalid outcome-invalid }T
+context-main context-use  tags-context context-free throw
 \ An import stub without a type prints as it was written (review N1).
 : printed ( -- c-addr u outcome )
   0 fout# ! ['] fout+ lf-print-unicode lf-print-setup 1000 lf-author-print >r fout fout# @ r> ;

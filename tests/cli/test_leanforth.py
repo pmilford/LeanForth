@@ -3027,14 +3027,16 @@ class Layers(unittest.TestCase):
         options = ["--snapshot", str(self.base), "--snapshot", str(one)]
         status, out, _ = run("check", *options)
         sha = hashlib.sha256(sectioned(one)[0][:4064]).hexdigest()
+        export_sha = hashlib.sha256(Path(DEPENDENT).read_bytes()).hexdigest()
         self.assertEqual(status, 0)
-        self.assertIn(f"layer: {one} (sha256 {sha}), export sha256 "
-                      f"{hashlib.sha256(Path(DEPENDENT).read_bytes()).hexdigest()}, "
+        self.assertIn(f"layer: {one} (sha256 {sha}), export sha256 {export_sha}, "
                       f"verdict version {verdict_version()}, on the snapshot above", out.splitlines())
         status, got, _ = report(*options)
         self.assertEqual(Imports.schema.errors(got), [])
-        self.assertEqual([(x["file"], x["sha256"], x["base"]) for x in got["snapshot"]["layers"]],
-                         [(str(one), sha, got["snapshot"]["sha256"])])
+        # Every member of a layer's JSON record (item-2 review L1).
+        self.assertEqual([(x["file"], x["sha256"], x["exportSha256"], x["base"], x["verdictVersion"])
+                          for x in got["snapshot"]["layers"]],
+                         [(str(one), sha, export_sha, got["snapshot"]["sha256"], verdict_version())])
         self.assertEqual(report("--snapshot", str(self.base))[1]["snapshot"]["layers"], [])
 
     def test_member_clash(self):

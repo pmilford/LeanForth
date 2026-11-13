@@ -243,6 +243,8 @@ begin-structure /listed
   field: listed-next       \ the node added before, or 0
   field: listed-offset     \ the member's offset in a context
 end-structure
+0 listed-next 0<> 0 listed-offset cell <> or /listed 2 cells <> or
+[if] .( context.fs: member-listed lays down /listed out of order) cr abort [then]
 \ Add a member to a list: its node's fields laid down in their order.
 : member-listed ( member list -- member ) here over @ , swap ! dup member-offset @ , ;
 \ A listed member's address in the current context.

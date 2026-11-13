@@ -801,6 +801,31 @@ T{ le-b le-back 8 le>u32s-fields  le-back 8 u32s le-src 8 u32s compare -> 0 }T
 T{ le-src u32@ le-a u32-le@ = -> true }T
 T{ le-src le-a 0 u32s>le  le-a le-back 0 le>u32s -> }T
 
+\ Tables of execution tokens (src/lib/xt-table.fs): every entry the default
+\ until set; the default for any other index, negative or too large; a
+\ write outside the table and a bad size abort, changing nothing.
+require ../../src/lib/xt-table.fs
+: xt-one ( -- n ) 1 ;   : xt-three ( -- n ) 3 ;   : xt-other ( -- n ) -1 ;
+4 ' xt-other xt-table: xt-by-tag
+' xt-one 1 xt-by-tag xt-table!   ' xt-three 3 xt-by-tag xt-table!
+: xt-run ( i -- n ) xt-by-tag xt-table@ execute ;
+T{ 0 xt-run 1 xt-run 2 xt-run 3 xt-run -> -1 1 -1 3 }T
+T{ 4 xt-run -1 xt-run max-n xt-run max-n negate xt-run -> -1 -1 -1 -1 }T
+T{ xt-by-tag xt-table-size @ xt-by-tag xt-table-default @ -> 4 ' xt-other }T
+\ A table of one entry, set: the default still answers every other index.
+1 ' xt-other xt-table: xt-single   ' xt-one 0 xt-single xt-table!
+T{ 0 xt-single xt-table@ 1 xt-single xt-table@ -> ' xt-one ' xt-other }T
+: xt-set-fails ( xt i table -- ior ) ['] xt-table! catch dup if nip nip nip then ;
+T{ ' xt-one 4 xt-by-tag xt-set-fails ' xt-one -1 xt-by-tag xt-set-fails -> -2 -2 }T
+T{ ' xt-one max-n xt-by-tag xt-set-fails -> -2 }T
+T{ 4 xt-by-tag xt-table@ 0 xt-by-tag xt-table@ 2 xt-run -> ' xt-other ' xt-other -1 }T
+: xt-made-fails ( c-addr u -- ior ) ['] evaluate catch dup if nip nip then ;
+T{ s" 0 ' xt-one xt-table: xt-none" xt-made-fails [undefined] xt-none -> -2 true }T
+T{ s" -1 ' xt-one xt-table: xt-neg" xt-made-fails [undefined] xt-neg -> -2 true }T
+T{ s" max-n ' xt-one xt-table: xt-huge" xt-made-fails [undefined] xt-huge -> -2 true }T
+\ The record: its size, then the entries after the header.
+T{ xt-by-tag /xt-table + 3 cells + @ -> ' xt-three }T
+
 \ Defining lf-u32-portable before the file loads forces the Forth-2012
 \ version. The file is loaded again for this, last, under BASE 8, where 8
 \ and 9 are not digits: it still reads its numbers in decimal and gives

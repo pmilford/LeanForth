@@ -209,8 +209,9 @@ variable tear-early-throws  0 tear-early-throws !
 8 constant mwalk
 mcap /node 0 context-store: m-store
 mwalk context-walk: m-walk
-\ A growable array, empty (no heap block) until reserved.
+\ Growable arrays, empty (no heap block) until reserved.
 1 cells context-slab: m-slab
+2 cells context-slab: m-slab2
 
 \ ---------------------------------------------------------------------------
 \ New contexts: fresh members, sealed layout, independent state.
@@ -386,6 +387,9 @@ context-new throw constant ctx7
 ctx7 context-use
 T{ m-slab slab-count m-slab slab-capacity blocks-held -> 0 0 2 }T
 T{ 100 m-slab slab-reserve m-slab slab-capacity 99 > blocks-held -> outcome-ok true 3 }T
+\ Both slab members, the older and the newer: every listed member is freed
+\ (listed-each; the item-2 review's L2).
+T{ 10 m-slab2 slab-reserve blocks-held -> outcome-ok 4 }T
 context-main context-use
 T{ ctx7 context-free blocks-held -> 0 0 }T
 

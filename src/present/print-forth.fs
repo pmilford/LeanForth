@@ -42,6 +42,7 @@
 \ lf-print-term. On a failure the text sent to the sink so far is
 \ incomplete.
 
+require ../lib/xt-table.fs
 require ./term-printer.fs
 require ./note-table.fs
 require ../lib/text-rule.fs
@@ -286,19 +287,14 @@ defer lf-pf-level-step ( level x frames -- ... frames next )
 \ The step of a visit that cannot print its node (a level or a term): invalid.
 : lf-pf-invalid-step ( x frames -- outcome frames 0 ) >r drop-invalid r> 0 ;
 8 constant lf-pf-level-tags   \ every level tag is below it (core/levels.fs)
-align here lf-pf-level-tags cells allot constant lf-pf-level-steps
-: lf-pf-level-step! ( xt tag -- ) cells lf-pf-level-steps + ! ;
-: lf-pf-levels-invalid ( -- )
-  lf-pf-level-tags 0 do ['] lf-pf-invalid-step i lf-pf-level-step! loop ;
-lf-pf-levels-invalid
+lf-pf-level-tags ' lf-pf-invalid-step xt-table: lf-pf-level-steps
+: lf-pf-level-step! ( xt tag -- ) lf-pf-level-steps xt-table! ;
 ' lf-pf-level-zero lf-level-tag-zero lf-pf-level-step!
 ' lf-pf-succ-level lf-level-tag-succ lf-pf-level-step!
 ' lf-pf-binary lf-level-tag-max lf-pf-level-step!
 ' lf-pf-binary lf-level-tag-imax lf-pf-level-step!
 ' lf-pf-level-param lf-level-tag-param lf-pf-level-step!
-: lf-pf-level-by ( tag -- xt )
-  dup 0 lf-pf-level-tags within if cells lf-pf-level-steps + @ exit then
-  drop ['] lf-pf-invalid-step ;
+: lf-pf-level-by ( tag -- xt ) lf-pf-level-steps xt-table@ ;
 : lf-pf-level-node ( level x frames -- ... frames next )
   nip over lf-level-valid?
   if over lf-level-tag@ lf-pf-level-by else ['] lf-pf-invalid-step then execute ;
@@ -450,8 +446,8 @@ defer lf-pf-term-step ( term x frames -- ... frames next )
   >r dup r@ frame-save lf-term-first@ r> ['] lf-pf-app-arg lf-pf-term ;
 
 \ A term's visit: its node, then its labels and notes, the term waiting
-\ meanwhile. The step for the node's tag: a CASE with one arm per tag,
-\ read as a table.
+\ meanwhile. The step for the node's tag comes from a table by tag
+\ (lf-pf-steps, below).
 : lf-pf-var-step ( term frames -- outcome frames 0 ) >r lf-term-first@ lf-pf-var r> 0 ;
 : lf-pf-sort-step ( term frames -- outcome frames 0 )
   >r lf-term-first@ lf-pf-concrete r> 0 ;
@@ -478,10 +474,8 @@ defer lf-pf-term-step ( term x frames -- ... frames next )
 \ (read-only afterwards): variables, constants, applications, binders,
 \ Sorts, literals and projections; any other tag, or one outside the
 \ table (term-printer.fs's lf-pp-tags), is invalid.
-align here lf-pp-tags cells allot constant lf-pf-steps
-: lf-pf-step! ( xt tag -- ) cells lf-pf-steps + ! ;
-: lf-pf-steps-invalid ( -- ) lf-pp-tags 0 do ['] lf-pf-invalid-step i lf-pf-step! loop ;
-lf-pf-steps-invalid
+lf-pp-tags ' lf-pf-invalid-step xt-table: lf-pf-steps
+: lf-pf-step! ( xt tag -- ) lf-pf-steps xt-table! ;
 ' lf-pf-var-step lf-tag-bvar lf-pf-step!
 ' lf-pf-const lf-tag-constant lf-pf-step!
 ' lf-pf-app lf-tag-app lf-pf-step!
@@ -493,8 +487,7 @@ lf-pf-steps-invalid
 ' lf-pf-lit-step lf-tag-lit lf-pf-step!
 ' lf-pf-str-step lf-tag-str lf-pf-step!
 ' lf-pf-proj-step lf-tag-proj lf-pf-step!
-: lf-pf-node-by ( tag -- xt )
-  dup 0 lf-pp-tags within if cells lf-pf-steps + @ else drop ['] lf-pf-invalid-step then ;
+: lf-pf-node-by ( tag -- xt ) lf-pf-steps xt-table@ ;
 : lf-pf-noted-end ( outcome frames -- outcome frames 0 )
   >r r@ frame-restore swap ok-then? if lf-pf-notes then r> 0 ;
 : lf-pf-noted ( term x frames -- ... frames next )
