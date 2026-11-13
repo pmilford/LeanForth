@@ -377,7 +377,7 @@ time, as `scripts/export.sh` builds `export_manifest.py`'s, is not seen).
 | `src/program/` | `test-program`, `test-program-ir`, `test-program-ir-run` |
 | `src/present/` | `test-present`; `test-printer-differential` |
 | `src/author/` | `test-author`; `reference-author` |
-| `src/front/`, `src/core/mvar-leaves.fs` | `test-front`; `test-author` (the export writer's refusal, the marker) |
+| `src/front/`, `src/core/mvar-leaves.fs` | `test-front`; `test-author` (the export writer's refusal, the marker); `reference-front` (pinned Lean's macro expansion) |
 | `tests/reference/*.lean` | the target that runs the file (`make check-changed` finds it) |
 | `scripts/lean-cache.py`, the Makefile | `test-lean-cache`, then `make check` |
 | `docs/` | `check-docs`, `check-doc-examples` |

@@ -814,8 +814,14 @@ test-front:
 	done
 	$(RUN) $(GFORTH) tests/front/front.fs
 
-.PHONY: test-front
+# The natural reader's trees against pinned Lean's macro expansion of the
+# same statements (tests/front/operators.lean).
+reference-front:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_front.py
+
+.PHONY: test-front reference-front
 test: test-front
+test-differential: reference-front
 test-differential: reference-author
 
 # Planted faults (plan task 1.4.2; docs/development/TESTING_STRATEGY.md,
