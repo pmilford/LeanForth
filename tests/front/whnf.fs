@@ -219,6 +219,11 @@ T{ 0 lf-meta-budget! nat lf-meta-whnf lf-meta-budget lf-meta-default-budget lf-m
 \ whnfForall: a pi from whnf, else the term itself; a failure passes on.
 T{ nat nat tpi fk app lf-meta-whnf-forall nat lf-meta-whnf-forall inst-hadd lf-meta-whnf-forall
    -> nat nat tpi fk app lf-whnf-core drop outcome-ok nat outcome-ok -1 outcome-unsupported }T
+T{ nat nat nat tpi lam fk app lf-meta-whnf-forall swap nat nat tpi same? -> outcome-ok true }T
+\ A constant no declaration has: invalid (Lean: unknown constant); a type
+\ whnf cannot decide passes its failure on through instantiateForall.
+T{ 0 s" motive" cn lf-meta-whnf inst-hadd fx 1 rxs lf-meta-instantiate-forall
+   -> -1 outcome-invalid -1 outcome-unsupported }T
 \ instantiateForall: (a : Sort 1) -> a with Nat is Nat; (fun _ => Nat ->
 \ Nat) k, a pi only after whnf, with x is Nat; one parameter too many is
 \ invalid (Lean throws); none leaves the term.
