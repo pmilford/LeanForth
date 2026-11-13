@@ -1054,3 +1054,38 @@ withdrawn: no label on results, in reports, in the JSON report or in documents (
 of the check report decided by the owner). Verdicts are unchanged, including NOT PROVED for a declaration that uses an
 axiom outside the allowlist. The outside audit (plan 9.2.1) and the review gates stay.
 
+
+### Approval round of 2026-11-12, night (approval pack)
+
+The owner answered the 18-item approval pack at about 22:25 on 2026-11-12, in four groups, every item as recommended.
+The pack is `.claude/work/APPROVALS-2026-11-13.md` (a working file, not tracked; its file name says 11-13, the approval
+date is 2026-11-12). Each ADR's "Approval status:" line now cites this section.
+
+- **Items 1-3, superseded (wording only):** ADR 0001 superseded by ADRs 0011, 0012, 0014, 0015, 0016; ADR 0002
+  superseded by ADR 0007 item 5, ADR 0011, ADR 0014 and the 2026-11-05 amendment of ADR 0006; ADR 0003's base text
+  superseded by ADR 0014, with its Amendment 1 staying accepted. No code change.
+- **Items 4-7, accepted under their gates:** ADR 0004 [kernel][format], with levels compared as ADR 0011 Amendment 1
+  says and the "experiment" wording marked replaced; ADR 0005 [kernel][import][format]; ADR 0006 [kernel][import], with
+  the empty allowlist marked replaced by the 2026-11-05 amendment and "theorems never unfold" by ADR 0012; ADR 0007
+  [kernel], with the dead "owner answer O2" reference replaced by the entry "Legacy retirement and the first checker's
+  rules (2026-11-02, evening)".
+- **Item 8, conditional:** ADR 0009 Amendment 1 (context members may own heap memory; no Lean rule, touches [runtime]
+  memory safety) approved on condition that the Forth review of `src/lib/context.fs` finds nothing blocking. The review
+  was pending when this was recorded; the ADR line stays "proposed" with the conditional approval noted.
+- **Item 9:** ADR 0014 Amendment 2 (shared terms cost nodes, not paths), gate [kernel].
+- **Item 10:** ADR 0015 FX8 amendment (review rvUNNI), gates [kernel][format]; covered by the 2026-11-11 items A7, A8
+  and C3 (gate recorded 2026-11-12 night: [kernel][format]). Its "not through its gate" and "decision pending" text is
+  updated.
+- **Item 11:** ADR 0021 decisions D1, D2, D3, D5 and D7 approved, gates [bypass][axioms]; the ADR as a whole stays
+  proposed until FE1 passes its [parser] gate.
+- **Item 12:** ADR 0014 Amendments 1, 3, 4, 5 (caches, node-based fuel, audits once per check): gate [kernel].
+- **Item 13:** ADR 0014 Amendments 7, 8 and ADR 0020 Amendment 4 (limits per check): gate [kernel].
+- **Item 14:** parallel checking, ADR 0009 Amendment 2, ADR 0012 Amendment 2, ADR 0016 Amendment 2: gates
+  [kernel][runtime].
+- **Item 15:** snapshots, ADR 0020 Amendments 1-3: gates [format][import][kernel].
+- **Item 16:** ADR 0015 Amendment IO (diagnostic-81 routes): gate [kernel].
+- **Item 17:** the default engine `gforth-fast` is a [runtime] decision; the default fuel of 100,000,000 per declaration
+  is a [kernel] limit; downloads and CPU use: no gate (gate recorded 2026-11-12 night, for "Later decisions of
+  2026-11-11").
+- **Item 18:** the strict export header and the official export checker as referee for hand-made files (C5, C6): gate
+  [import]; the local-CI rule: no gate (process) (gate recorded 2026-11-12 night, for "Approval round of 2026-11-11").

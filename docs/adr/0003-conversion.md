@@ -1,13 +1,13 @@
 # ADR 0003: candidate conservative conversion
 
-Status: proposed for human technical review. No theorem may be accepted using
+Status: base text superseded by ADR 0014 (see the approval status below); Amendment 1 stays accepted. No theorem may be accepted using
 this design until the rules, implementation and tests have been reviewed.
 This describes a deliberately incomplete step toward Lean 4.35.0, not Lean's
 complete definitional-equality algorithm. [Amendment 1](#amendment-1-proposed-comparing-under-binders-whose-domains-differ)
 (proposed, 2026-11-02) answers the binder-domain question this record left
 open.
 
-Approval status: status unclear (no owner decision found); the ADR's own text says proposed (its Amendment 1 is accepted, below)
+Approval status: superseded by ADR 0014 (the base text; owner approved 2026-11-12, night, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)"); Amendment 1 below stays accepted and unchanged
 
 ## Purpose and inputs
 

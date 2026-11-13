@@ -109,7 +109,8 @@ Nothing can run twice at once in one Forth image.
 
 ## Amendment 1 (2026-11-03): context members that own heap memory
 
-Approval status: status unclear (no owner decision found)
+Approval status: proposed; approved by the owner 2026-11-12 on condition that the Forth review of src/lib/context.fs finds nothing blocking (review pending), gate: none (library rule; touches [runtime] memory safety), [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)"
+Approval status: proposed (note, 2026-11-12 night) conditional approval only: the status stays proposed until that Forth review is logged in docs/development/forth-reviews/LOG.md and finds nothing blocking
 
 **The rule until now.** A context member held no `ALLOCATE`d memory
 ([the library notes](../development/FORTH_LIBRARY.md#design-per-task-contexts-and-how-modules-convert),
@@ -169,7 +170,7 @@ planted faults in `tests/mutants/faults.toml` (`context-teardown-…`,
 
 ## Amendment 2 (2026-11-11): the scheduler, built
 
-Approval status: accepted 2026-11-12, gate: not stated, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names S7 (check --jobs N)
+Approval status: accepted 2026-11-12, gate: kernel and runtime, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names S7 (check --jobs N) (gate recorded 2026-11-12 night: kernel and runtime, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
 
 **What.** `leanforth check --jobs N` (plan tasks 6.5.4, 7.3.1; default
 1, the serial run, unchanged) checks with N worker contexts, each a job of
