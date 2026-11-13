@@ -86,7 +86,7 @@ features they describe.
 ## `project/` — status, plans and decisions
 
 - [PROJECT_PROGRESS.md](project/PROJECT_PROGRESS.md) — current status of both product tracks.
-- [DEVELOPMENT_ROADMAP.md](project/DEVELOPMENT_ROADMAP.md) — milestones, acceptance criteria and the near-term queue.
+- [DEVELOPMENT_ROADMAP.md](project/DEVELOPMENT_ROADMAP.md) — milestones, acceptance criteria (the near-term queue was deleted on 2026-11-12; see "Now, next, later" in PROJECT_PROGRESS.md).
 - [PLAN_DRAFT.md](project/PLAN_DRAFT.md) — draft next-level plan (nine phases, about 130 tasks, library gaps, readable-proof mock-ups, owner questions); not approved.
 - [SCALE_ASSESSMENT.md](project/SCALE_ASSESSMENT.md) — memory and CPU needed to check all of Mathlib, what in today's design would not scale, and the recommended data structures (2026-11-02 assessment); its last section says where Lean's kernel spends its time and what LeanForth should do about it.
 - [IR 0.2 probes](development/measurements/ir-0.2-probes-2026-11-04/README.md) — evidence for ADR 0019 Amendment 1: what Gforth 1.0.0 and 0.7.3 do with redefinitions, output words, shifts and number forms, and two Lean checks (a clamp with `dup .` and ROTR on 32-bit values) (2026-11-04).
