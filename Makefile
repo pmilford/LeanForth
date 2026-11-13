@@ -706,13 +706,15 @@ test-kernel-blocks:
 test-kernel-nested:
 	$(RUN) $(GFORTH) tests/core/inductive-nested.fs
 # The second coverage pass (COV2, 2026-11-12): terms without a data word
-# (no-data-terms.fs, above) and string literals' expansion under refused
-# allocations, a crowded store and sampled fuel. About 3 s.
-test-kernel-literals:
+# (no-data-terms.fs, above), string literals' expansion under refused
+# allocations, a crowded store and sampled fuel, and sampled fuel through
+# definitional equality's eta, unit-like and lazy-delta steps. About 6 s.
+test-kernel-passes:
 	$(RUN) $(GFORTH) tests/core/string-literals.fs
+	$(RUN) $(GFORTH) tests/core/defeq-sweeps.fs
 
-.PHONY: test-kernel-reduction test-kernel-blocks test-kernel-nested test-kernel-literals
-test: test-kernel-reduction test-kernel-blocks test-kernel-nested test-kernel-literals
+.PHONY: test-kernel-reduction test-kernel-blocks test-kernel-nested test-kernel-passes
+test: test-kernel-reduction test-kernel-blocks test-kernel-nested test-kernel-passes
 
 # Run records and their replay (plan task 2.2.5; docs/programming/RUN_RECORDS.md):
 # unit tests of src/import/run-record.fs and run-replay.fs (every fixture, each

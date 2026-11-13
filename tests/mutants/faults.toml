@@ -10447,3 +10447,24 @@ old = '''  >r lf-hterm-cell 0= if r> drop -1 outcome-full exit then drop'''
 new = '''  >r lf-hterm-cell 0= if r> drop -1 outcome-unknown exit then drop'''
 test = "$GFORTH tests/core/string-literals.fs"
 reason = "a character's literal cell that the store cannot hold reads as undecided, not out of room"
+
+[[fault]]
+id = "cov2-defeq-lazy-failure-unknown"
+file = "src/kernel/defeq.fs"
+old = ''': lf-lz-t-back ( tn' outcome frames -- ... frames next )
+  >r ok-then? 0= if r> lf-dq-end-failed exit then'''
+new = ''': lf-lz-t-back ( tn' outcome frames -- ... frames next )
+  >r ok-then? 0= if drop outcome-unknown r> lf-dq-end-failed exit then'''
+test = "$GFORTH tests/core/defeq-sweeps.fs"
+reason = "lazy delta turns the failure of t's unfolding (out of fuel) into undecided: exhausted is no longer reported"
+quick = true
+
+[[fault]]
+id = "cov2-defeq-eta-field-failure-unknown"
+file = "src/kernel/defeq.fs"
+old = '''  >r ok-then? 0= if r> lf-es-fail exit then
+  0= if false r> lf-es-answer exit then'''
+new = '''  >r ok-then? 0= if drop outcome-unknown r> lf-es-fail exit then
+  0= if false r> lf-es-answer exit then'''
+test = "$GFORTH tests/core/defeq-sweeps.fs"
+reason = "structure eta turns a field comparison that ran out of fuel into undecided"
