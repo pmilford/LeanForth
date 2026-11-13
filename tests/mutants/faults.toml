@@ -11492,3 +11492,35 @@ old = '''  0 wc-top wc wc-aux ! 1 wc-top wc wc-e ! 2 wc-top -3 wc-frames slab-co
 new = '''  0 wc-top wc wc-aux ! 2 wc-top -3 wc-frames slab-commit ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "FE1c: a resumed frame works on the term of the step that ran last, not its own (a nested recursor)"
+
+[[fault]]
+id = "fe-infer-levels-unchecked"
+file = "src/front/infer.fs"
+old = ''': if-levels-ok? ( slot d -- flag ) lf-input-params nip swap lf-cref-pairs nip = ;'''
+new = ''': if-levels-ok? ( slot d -- flag ) 2drop true ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: a constant with the wrong number of universe levels gets a type, where Lean throws"
+
+[[fault]]
+id = "fe-infer-lambda-argument"
+file = "src/front/infer.fs"
+old = '''  false if-args slab-count 0 ?do i if-arg if-lam? or loop ;'''
+new = '''  false ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: a lambda argument is put in without the beta step of Lean's instantiateBetaRevRange"
+
+[[fault]]
+id = "fe-infer-no-whnf"
+file = "src/front/infer.fs"
+old = '''  lf-whnf-core ok-then? 0= if no-result exit then'''
+new = '''  outcome-ok ok-then? 0= if no-result exit then'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: a function type that is no pi (a let variable, a metavariable) is not reduced by whnfCore first"
+
+[[fault]]
+id = "fe-infer-no-pi-accepted"
+file = "src/front/infer.fs"
+old = '''  if-head if-firm? if outcome-invalid else outcome-unsupported then ;'''
+new = '''  drop outcome-unsupported ;'''
+test = "$GFORTH tests/front/infer.fs"
+reason = "FE1c: a function expected (Lean throws) answers unsupported instead of invalid"

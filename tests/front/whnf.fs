@@ -104,4 +104,32 @@ nat mv-natural lf-mvar-new made constant ?d
 T{ ?d fk app lf-whnf-core ?d lf-whnf-stuck -> -1 outcome-unsupported false outcome-unsupported }T
 T{ ?d fk app recm lf-whnf-core -> -1 outcome-unsupported }T
 
+\ ---- More heads: a let, a pi (done), a constant no declaration has
+\ (Lean's find? none: done); leaves alone.
+: unknown ( -- t ) 0 s" motive" menv-part lf-name-generation @ lv-pairs 0 lf-cref-new must
+  lf-cterm-new must drop ;
+T{ nat fs 0 bv let fk app fs fk app whnf= -> true outcome-ok }T
+T{ nat nat lf-term-pi must fk app dup whnf= unknown fk app dup whnf=
+   -> true outcome-ok true outcome-ok }T
+T{ ?f sfun whnf= fk dup whnf= -> true outcome-ok true outcome-ok }T
+\ More major premises: another type's constructor (no rule), a wrong
+\ number of levels (Lean's failK), a structure's constructor applied to
+\ exactly its parameters and fields.
+T{ fa fb pair recm dup whnf= -> true outcome-ok }T
+T{ 0 s" Nat.rec" cn fm app fz app fs app zero app dup whnf= -> true outcome-ok }T
+T{ prod-rec fa fb pair app fs fa app fb app whnf= -> true outcome-ok }T
+\ More of getStuckMVar?: a constant no declaration has, a quotient's
+\ lift, a constructor at the head, a Nat.succ whnf may fold.
+T{ unknown fk app lf-whnf-stuck succ fk app lf-whnf-stuck -> false outcome-ok false outcome-ok }T
+T{ quot fa app lf-whnf-stuck -> false outcome-unsupported }T
+T{ ?n succ swap app succ swap app recm lf-whnf-stuck -> false outcome-unsupported }T
+
+\ ---- Stale leaves: after the contexts are emptied, every metavariable
+\ and free variable made before is invalid.
+lf-mctx-reset
+T{ ?n lf-whnf-core ?n fk app lf-whnf-core ?n lf-whnf-stuck
+   -> -1 outcome-invalid -1 outcome-invalid false outcome-invalid }T
+lf-lctx-reset
+T{ fk lf-whnf-core fk fa app lf-whnf-core -> -1 outcome-invalid -1 outcome-invalid }T
+
 bye

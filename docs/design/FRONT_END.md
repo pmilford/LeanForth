@@ -732,7 +732,11 @@ constructor applications, parts reduced first, fuel;
 matchers, projection functions, auxiliary recursors, `_sunfold`
 definitions -- are not in an export: a definition at the head answers
 unsupported until plan row FE1d2 adds them to the elaboration data.
-`whnf` with delta, `inferType`, term unification, `Nat`
+`inferType`'s first cases (`src/front/infer.fs`: constants, variables,
+metavariables, sorts and applications of them) are written and tested
+alone; 15 of 19 inference cases equal pinned Lean's, two only once
+Lean's metadata (mdata), which the export leaves out, is dropped.
+`whnf` with delta, the rest of `inferType`, term unification, `Nat`
 offsets and caches are not started.
 
 Size: L, eight S–M steps; *speculative* 4,000 to 7,000 lines of Forth

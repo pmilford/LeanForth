@@ -1,17 +1,24 @@
 #!/usr/bin/env python3
-"""The front end's whnfCore and getStuckMVar? against pinned Lean (plan FE1c; ADR 0021 D6).
+"""The front end's whnfCore, getStuckMVar? and inferType against pinned Lean (plan FE1c).
 
 Each case is a term over Init's Nat, Prod, Eq and Quot (the slice
 tests/front/whnf-slice.ndjson), free variables m z s k x a b, p : Prod Nat
 Nat, a let variable g := fun y => s y, metavariables ?n ?h (unassigned)
 and ?f := fun y => s y. Pinned Lean 4.35.0 (tests/front/whnf-cases.lean,
 which this script writes with --write and checks is up to date) prints
-Meta.whnfCore's result or getStuckMVar?'s answer; LeanForth
-(tests/front/whnf-cases.fs: lf-whnf-core, lf-whnf-stuck) prints its own.
+Meta.whnfCore's result, getStuckMVar?'s answer or inferType's type;
+LeanForth (tests/front/whnf-cases.fs: lf-whnf-core, lf-whnf-stuck,
+lf-infer) prints its own.
 The lines must be equal, except for the cases listed as gaps, where
 LeanForth must answer unsupported (a fact or step not ported; the plan
 item is named) and Lean's answer is shown. A harness self-test first checks
 that a wrong line is told apart.
+
+Lean's terms may hold metadata (mdata, such as the `borrowed` mark of
+Nat.add's arguments) that lean4export leaves out, so LeanForth's library
+never has it; Lean's lines mark it <md>, and a line equal once the marks
+are dropped is counted and listed apart, as equal up to the export's
+missing mdata (plan row FE1d2).
 
 Usage: LEAN=... GFORTH=... python3 tests/front/check_whnf.py [--write]
 """
@@ -42,7 +49,7 @@ def apps(f, *args):
 
 NAT, ZERO, SUCC, REC = c("Nat"), c("Nat.zero"), c("Nat.succ"), c("Nat.rec", 1)
 PROD_REC, PROD_MK = c("Prod.rec", 1, 0, 0), c("Prod.mk", 0, 0)
-LAM, LET, PROJ = "lam", "let", "proj"
+LAM, LET, PROJ, SORT = "lam", "let", "proj", "sort"
 ADD = c("Nat.add")
 
 
@@ -57,7 +64,8 @@ def pair(a, b):
 SFUN = (LAM, NAT, apps("s", "#0"))
 
 
-# (kind, term, gap): kind "whnf" (whnfCore) or "stuck" (getStuckMVar?);
+# (kind, term, gap): kind "whnf" (whnfCore), "stuck" (getStuckMVar?) or
+# "infer" (inferType);
 # gap: None, or the plan item that closes it (LeanForth answers unsupported).
 CASES = [
     ("whnf", rec(apps(SUCC, "k")), None),
@@ -97,6 +105,26 @@ CASES = [
     ("whnf", rec(apps((LAM, NAT, "#0"), "k")), None),
     ("whnf", rec(apps(REC, "m", apps(SUCC, "z"), "s", ZERO)), None),
     ("whnf", rec(apps(ADD, "k", "k")), "FE1d2 smart unfolding and matcher facts"),
+    ("infer", ADD, None),
+    ("infer", apps(ADD, "k"), None),
+    ("infer", apps(ADD, "k", "k"), None),
+    ("infer", rec("k"), None),
+    ("infer", "k", None),
+    ("infer", "?n", None),
+    ("infer", "g", None),
+    ("infer", NAT, None),
+    ("infer", (SORT, 0), None),
+    ("infer", apps(SUCC, "k"), None),
+    ("infer", apps(c("Eq.refl", 1), NAT, "a"), None),
+    ("infer", c("HAdd.hAdd", 0, 0, 0), None),
+    ("infer", apps(c("HAdd.hAdd", 0, 0, 0), NAT, NAT, NAT,
+                   apps(c("instHAdd", 0), NAT, c("instAddNat")), "k", "k"), None),
+    ("infer", pair("a", "b"), None),
+    ("infer", c("Quot.lift", 1, 1), None),
+    ("infer", (LAM, NAT, "#0"), "FE1c inferLambdaType (telescopes)"),
+    ("infer", (PROJ, 0, pair("a", "b")), "FE1c inferProjType"),
+    ("infer", (LET, NAT, "k", "#0"), "FE1c inferLambdaType for let"),
+    ("infer", apps(REC, (LAM, NAT, NAT), "z", "s", "k"), "FE1c instantiateBetaRevRange"),
     ("stuck", "?n", None),
     ("stuck", rec("?n"), None),
     ("stuck", rec("k"), None),
@@ -123,6 +151,8 @@ def lean(t):
         return f"(mkLambda `y .default {lean(t[1])} {lean(t[2])})"
     if isinstance(t, tuple) and t[0] == PROJ:
         return f"(mkProj `Prod {t[1]} {lean(t[2])})"
+    if isinstance(t, tuple) and t[0] == SORT:
+        return "(mkSort Level.zero)"
     if isinstance(t, tuple):
         return f"(mkLet `y {lean(t[1])} {lean(t[2])} {lean(t[3])})"
     if t.startswith("#"):
@@ -140,6 +170,8 @@ def forth(t):
         return f"{forth(t[1])} {forth(t[2])} lam"
     if isinstance(t, tuple) and t[0] == PROJ:
         return f"{forth(t[2])} {t[1]} proj"
+    if isinstance(t, tuple) and t[0] == SORT:
+        return "l0 sort"
     if isinstance(t, tuple):
         return f"{forth(t[1])} {forth(t[2])} {forth(t[3])} let"
     if t.startswith("#"):
@@ -164,9 +196,13 @@ partial def sx : Expr → MetaM String
   | .forallE _ t b _ => return s!"(pi {← sx t} {← sx b})"
   | .letE _ t v b _ => return s!"(let {← sx t} {← sx v} {← sx b})"
   | .proj _ i e => return s!"(proj {i} {← sx e})"
+  | .sort l => return "Sort " ++ pl l
+  | .mdata _ e => return s!"<md>{← sx e}"
   | e => return s!"?? {e}"
 
 def whnfCase (e : Expr) : MetaM Unit := do IO.println (← sx (← whnfCore e))
+
+def inferCase (e : Expr) : MetaM Unit := do IO.println (← sx (← inferType e))
 
 def stuckCase (e : Expr) : MetaM Unit := do
   match ← getStuckMVar? e with
@@ -195,8 +231,7 @@ LEAN_SETUP = """run_meta do
 
 
 def lean_source():
-    calls = "\n".join(f"    {'whnfCase' if kind == 'whnf' else 'stuckCase'} {lean(t)}"
-                      for kind, t, _ in CASES)
+    calls = "\n".join(f"    {kind}Case {lean(t)}" for kind, t, _ in CASES)
     return LEAN_HEAD + "\n" + LEAN_SETUP + calls + "\n"
 
 
@@ -217,8 +252,7 @@ def lean_lines():
 
 
 def forth_lines():
-    calls = " ".join(f"{forth(t)} {'whnf-run' if kind == 'whnf' else 'stuck-run'}"
-                     for kind, t, _ in CASES)
+    calls = " ".join(f"{forth(t)} {kind}-run" for kind, t, _ in CASES)
     return run([GFORTH, "tests/front/whnf-cases.fs", "-e", calls + " bye"])
 
 
@@ -226,7 +260,8 @@ def self_test():
     if lean(apps("s", "?n")) != "(mkApp s n)" or forth(apps("s", "?n")) != "fs ?n app":
         raise Failure("harness self-test: terms not written as expected")
     for want, got, gap in (("(app s k)", "(app k s)", None), ("none", "unsupported", None),
-                           ("(app s k)", "(app s k)", "a gap"), ("x", "(app s k)", "a gap")):
+                           ("(app s k)", "(app s k)", "a gap"), ("x", "(app s k)", "a gap"),
+                           ("(pi <md>Nat Nat)", "(pi Nat Nat Nat)", None)):
         try:
             judge("whnf", gap, want, got)
         except Failure:
@@ -242,9 +277,14 @@ def judge(name, gap, want, got):
             raise Failure(f"{name}: a listed gap answers {got!r} (Lean: {want!r})")
         short = want if len(want) <= 40 else want[:37] + "..."
         return f"{short} ({gap})"
-    if want != got:
+    if want.replace("<md>", "") != got:
         raise Failure(f"{name}:\n  Lean:      {want}\n  LeanForth: {got}")
     return None
+
+
+def mdata_note(kind, gap, want):
+    """The case's text when Lean's answer held metadata the export drops."""
+    return None if gap or "<md>" not in want else f"{kind} {want.replace('<md>', '')}"
 
 
 def main():
@@ -253,17 +293,23 @@ def main():
         return 0
     try:
         self_test()
-        gaps = []
+        gaps, mdata = [], []
         for (kind, term, gap), want, got in zip(CASES, lean_lines(), forth_lines()):
             text = judge(f"{kind} {forth(term)}", gap, want, got)
             if text:
                 gaps.append(f"{kind} {text}")
+            note = mdata_note(kind, gap, want)
+            if note:
+                mdata.append(note)
     except Failure as error:
         print(f"check_whnf: {error}")
         return 1
-    print(f"whnfCore and getStuckMVar?: {len(CASES) - len(gaps)} of {len(CASES)} cases equal to "
+    print(f"whnfCore, getStuckMVar? and inferType: {len(CASES) - len(gaps)} of {len(CASES)} "
+          "cases equal to "
           f"pinned Lean's; {len(gaps)} gaps answer unsupported, Lean's answer shown: "
-          f"{'; '.join(gaps)}; harness self-test passed")
+          f"{'; '.join(gaps)}; {len(mdata)} of the equal cases equal only once Lean's "
+          f"mdata, which the export leaves out, is dropped: {'; '.join(mdata) or 'none'}; "
+          "harness self-test passed")
     return 0
 
 

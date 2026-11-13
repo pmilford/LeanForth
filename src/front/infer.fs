@@ -1,0 +1,132 @@
+\ The front end's type inference, first cases (plan FE1c; ADR 0021 D6): a
+\ port of Lean 4.35.0's Meta.inferType (Lean/Meta/InferType.lean,
+\ inferTypeImp) over the term store, with no use of src/kernel/. Like
+\ Lean's, it infers without checking: an ill-typed term may get a type.
+\ lf-infer ( term -- type outcome ):
+\ - a constant: its declaration's type with the universe parameters
+\   instantiated (inferConstType; another number of levels is invalid, as
+\   Lean throws); a free variable: its local declaration's type; a
+\   metavariable: its declaration's type; Sort u: Sort (u + 1);
+\ - an application f a1 .. an whose head is one of those (inferAppType):
+\   the head's type with each pi's bound variable instantiated by the
+\   next argument; a type that is no pi is reduced by whnfCore
+\   (front/whnf.fs) and must then be one (Lean's whnf: a result whnf could
+\   unfold further, its head a definition or unknown, answers unsupported;
+\   one with a free variable, metavariable, sort, lambda or any other
+\   constant at the head is invalid, as Lean throws "function expected").
+\ Never a guess: unsupported for a lambda, pi, let, projection or
+\ literal, an application with any other head (they need the telescopes
+\ of inferLambdaType and inferForallType, getLevel, inferProjType: plan
+\ FE1c), a lambda among the arguments (Lean instantiates with beta,
+\ instantiateBetaRevRange: plan FE1c), and Sort's legacy numeric form.
+\ Outcomes: ok; invalid for no term, a loose bound variable, a stale
+\ leaf, an unknown constant, a wrong number of levels, a function
+\ expected; unsupported as above; full when a store or slab has no room;
+\ exhausted when whnfCore's fuel runs out. A failure gives -1.
+\ Untrusted: only the kernel's check of a finished term decides anything.
+\ State: the slabs if-args (the arguments, last first) and if-levels (a
+\ constant's universe arguments), in the checker context.
+
+require ../lib/lib.fs
+require ../core/terms.fs
+require ../core/levels.fs
+require ../core/generation-handles.fs
+require ../core/local-context.fs
+require ../core/constant-references.fs
+require ../core/constant-term-boundary.fs
+require ../core/input.fs
+require ./mvars.fs
+require ./instantiate.fs
+require ./level-params.fs
+require ./whnf.fs
+
+1 cells context-slab: if-args     \ the application's arguments, last first
+1 cells context-slab: if-levels   \ a constant's universe arguments
+
+: if-tag ( term -- tag ) lf-term-tag@ ;
+: if-fail ( x outcome -- -1 outcome ) nip no-result ;
+
+\ ---- Leaves.
+: if-push ( x slab -- outcome )
+  tuck 1 swap slab-claim ok-then? if rot slab-at ! outcome-ok else nip nip then ;
+: if-level ( slot i -- level ) swap lf-cref-pairs drop swap lf-cref-pair@ drop ;
+: if-levels-fill ( slot -- outcome )
+  if-levels slab-clear dup lf-cref-pairs nip 0 ?do
+    dup i if-level if-levels if-push dup ok? 0= if nip unloop exit then drop
+  loop drop outcome-ok ;
+: if-decl ( const -- d true | false )
+  lf-term-first@ lf-cref-slot lf-cref-name@ drop lf-input-newest dup 0< if drop false
+  else true then ;
+: if-levels-ok? ( slot d -- flag ) lf-input-params nip swap lf-cref-pairs nip = ;
+: if-const-type ( slot d -- type outcome )
+  over if-levels-fill dup ok? 0= if nip if-fail exit then drop nip
+  dup lf-input-decl lf-idecl-type @ swap lf-input-params >r 0 if-levels slab-at r>
+  lf-meta-instantiate-level-params ;
+: if-slot ( const -- slot ) lf-term-first@ lf-cref-slot ;
+: if-const ( const -- type outcome )
+  dup if-decl 0= if outcome-invalid if-fail exit then
+  swap if-slot swap 2dup if-levels-ok? 0= if 2drop -1 outcome-invalid exit then
+  if-const-type ;
+: if-fvar ( fvar -- type outcome )
+  dup lf-fvar-live? if lf-fvar-type outcome-ok else outcome-invalid if-fail then ;
+: if-mvar ( mvar -- type outcome )
+  lf-mvar-type if outcome-ok else -1 outcome-invalid then ;
+: if-sort-new ( level -- type outcome )
+  dup lf-level-identity 0= if drop -1 outcome-full exit then
+  lf-hterm-sort if drop outcome-ok else -1 outcome-full then ;
+: if-sort ( sort -- type outcome )
+  lf-term-first@ lf-level-succ if if-sort-new else -1 outcome-full then ;
+: if-leaf ( term tag -- type outcome )
+  case lf-tag-constant of if-const endof  lf-tag-fvar of if-fvar endof
+    lf-tag-mvar of if-mvar endof  lf-tag-symbolic-sort of if-sort endof
+    lf-tag-bvar of outcome-invalid if-fail endof
+    >r outcome-unsupported if-fail r> endcase ;
+
+\ ---- Applications (inferAppType): the arguments in if-args, each
+\ instantiating the next pi of the type.
+: if-arg ( i -- term ) if-args slab-count 1- swap - if-args slab-at @ ;
+: if-app? ( term -- flag ) if-tag lf-tag-app = ;
+: if-spine ( term -- head outcome )
+  if-args slab-clear begin dup if-app? while
+    dup lf-term-second@ if-args if-push ok-then? 0= if no-result exit then
+    lf-term-first@ repeat outcome-ok ;
+: if-lam? ( term -- flag ) if-tag lf-tag-lam = ;
+: if-lambda-arg? ( -- flag )
+  false if-args slab-count 0 ?do i if-arg if-lam? or loop ;
+: if-pi? ( term -- flag ) if-tag lf-tag-pi = ;
+\ A type that is no pi: whnfCore's result must be one; an inert head
+\ (no pi whnf could make) is "function expected", anything else needs
+\ whnf's delta.
+: if-inert-tag? ( tag -- flag )
+  dup lf-tag-fvar = over lf-tag-mvar = or
+  over lf-tag-symbolic-sort = or swap lf-tag-lam = or ;
+: if-inert? ( term -- flag ) if-tag if-inert-tag? ;
+: if-head ( term -- head ) begin dup if-app? while lf-term-first@ repeat ;
+: if-firm-const? ( const -- flag )
+  if-decl if lf-menv-kind lf-kind-definition <> else false then ;
+: if-firm? ( head -- flag )
+  dup if-tag lf-tag-constant = if if-firm-const? else if-inert? then ;
+: if-no-pi ( type -- outcome )
+  if-head if-firm? if outcome-invalid else outcome-unsupported then ;
+: if-to-pi ( type -- pi outcome )
+  dup if-pi? if outcome-ok exit then
+  lf-whnf-core ok-then? 0= if no-result exit then
+  dup if-pi? if outcome-ok else dup if-no-pi if-fail then ;
+: if-step ( type i -- type' outcome )
+  swap if-to-pi ok-then? 0= if nip no-result exit then
+  lf-term-second@ swap if-arg lf-meta-instantiate1 ;
+: if-args-in ( type -- type' outcome )
+  if-args slab-count 0 ?do
+    i if-step dup ok? 0= if unloop exit then drop
+  loop outcome-ok ;
+: if-head-type ( head -- type outcome )
+  dup if-tag dup lf-tag-app = over lf-tag-lam = or swap lf-tag-pi = or
+  if outcome-unsupported if-fail else dup if-tag if-leaf then ;
+: if-app ( term -- type outcome )
+  if-spine ok-then? 0= if no-result exit then
+  if-lambda-arg? if outcome-unsupported if-fail exit then
+  if-head-type ok-then? if if-args-in else no-result then ;
+
+: lf-infer ( term -- type outcome )
+  dup lf-term-root? 0= if outcome-invalid if-fail exit then
+  dup if-app? if if-app else dup if-tag if-leaf then ;
