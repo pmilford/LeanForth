@@ -115,7 +115,7 @@ DIFFERENTIAL_TARGETS := \
 # Gforth and Python 3 only; run on every CI host and before every commit.
 # The slowest targets first (see check below).
 test: test-core test-composition-fixture test-bignum test-run-records test-environment
-test: check-docs check-lean-sources check-portable-forth check-forth-quality smoke test-harness test-lib test-core \
+test: check-tools-untracked check-docs check-lean-sources check-portable-forth check-forth-quality smoke test-harness test-lib test-core \
 	test-composition-fixture test-program test-present check-doc-examples
 
 # Fails on broken documentation links or missing docs/ paths.
@@ -146,6 +146,12 @@ check-lean-sources:
 
 # Fails if current Forth source could depend on byte order or cell size
 # (docs/development/FORTH_STYLE.md, section 8).
+# .tools holds the machine-local toolchains and Mathlib export (user data). It must never be tracked:
+# checking out a commit that tracks a .tools symlink replaced the directory on 2026-11-13.
+check-tools-untracked:
+	@if git ls-files --error-unmatch .tools >/dev/null 2>&1; then \
+	  echo "check-tools-untracked: .tools is tracked by git; run: git rm --cached .tools" >&2; exit 1; fi
+
 check-portable-forth:
 	$(RUN) python3 scripts/check-portable-forth.py
 
@@ -1246,7 +1252,7 @@ test-changed check-changed:
 	|| exit 1; if [ -z "$$targets" ]; then echo "No target uses a changed file."; \
 	else $(MAKE) --no-print-directory $$targets; fi
 
-.PHONY: test-lean-cache test-changed check-changed
+.PHONY: test-lean-cache test-changed check-changed check-tools-untracked
 test: test-lean-cache
 
 # Tested-tree records and change tiers (plan 9.4.6; TESTING_STRATEGY.md,
