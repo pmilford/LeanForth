@@ -4956,6 +4956,14 @@ reason = "a binder or constant name with a line end or a bidirectional control r
 quick = true
 
 [[fault]]
+id = "forth-stub-without-type-refused"
+file = "src/present/print-forth.fs"
+old = '''  >r lf-fdecl-type @ dup 0< if drop outcome-ok r> 0 exit then r> lf-pf-type-params ;'''
+new = '''  >r lf-fdecl-type @ dup 0< if drop outcome-invalid r> 0 exit then r> lf-pf-type-params ;'''
+test = "$GFORTH tests/author/author.fs"
+reason = "an import stub without a type no longer prints (review lf-files-2 N1: the branch's fixtures had stopped reaching it)"
+
+[[fault]]
 id = "forth-block-banned-name-written"
 file = "src/present/print-forth.fs"
 old = '''  2dup tr-rule? 0= if 2drop false exit then'''
@@ -5215,6 +5223,30 @@ old = '''  lfc-failed? if cli-text-error exit then lfc-refused? if cli-records-e
 new = '''  lfc-failed? if cli-text-error exit then'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "L4: the refused records' message is lost (caught on Gforth 1.0, where the test captures the output)"
+
+[[fault]]
+id = "lf-text-flags-stale"
+file = "src/cli/leanforth.fs"
+old = '''  lfc-fresh cli-text-loaded ok? if cli-text-lines ck-check then cli-text-report ;'''
+new = '''  cli-text-loaded ok? if cli-text-lines ck-check then cli-text-report ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "N3: an earlier text's failure flag stays for the next run of the session, which then reports that text's error instead of its own (a snapshot that does not open)"
+
+[[fault]]
+id = "lf-names-room-kept"
+file = "src/cli/check-lf.fs"
+old = ''': lfc-rooms-back ( -- outcome ) ck-restore lfc lfc-names @ lf-name-capacity! ck-first ;'''
+new = ''': lfc-rooms-back ( -- outcome ) ck-restore ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "N4: the name store keeps the room the words had after a text's run"
+
+[[fault]]
+id = "lf-making-uncaught"
+file = "src/cli/check-lf.fs"
+old = '''  catch dup if nip nip outcome-invalid swap then ;'''
+new = '''  execute 0 ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "N5: a THROW while a text's records are made skips the give-back: the stores keep the words' room and term sharing stays changed"
 
 [[fault]]
 id = "lf-leaf-as-term"

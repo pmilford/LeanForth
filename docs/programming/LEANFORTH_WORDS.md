@@ -251,7 +251,10 @@ plan tasks 8.2.1c-d; ADR 0017 Amendment 2) runs in this order
    checked: `lfc-failed?` is true and the command line prints the error
    (`lf-author-error.`) with its outcome's exit status. A text that ran
    but whose records the writer or the stage refused is not checked
-   either: `lfc-refused?` is true and the error is said of the text.
+   either: `lfc-refused?` is true and the error is said of the text. Each
+   text's run starts with both flags cleared (`lfc-fresh`), and the
+   stores' room and term sharing are given back after the words and the
+   records, even after a THROW, which then passes on.
 
 The printer's Forth mode returns ok; invalid for a malformed term or a
 variable bound by an arrow; unsupported for a name it cannot spell (a

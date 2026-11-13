@@ -915,7 +915,7 @@ variable cli-info#
   cli-layers cli-state opt-snapshot 2@ cli-asked-fuel ck-snapshot-import
   dup ok? if drop cli-text-load then ;
 : cli-text-run ( -- )
-  cli-text-loaded ok? if cli-text-lines ck-check then cli-text-report ;
+  lfc-fresh cli-text-loaded ok? if cli-text-lines ck-check then cli-text-report ;
 : cli-text-misused? ( -- flag )
   cli-record? cli-save? or cli-json? or cli-snapshot? cli-library-file nip 0<> and or ;
 : cli-text-misuse ( -- code )

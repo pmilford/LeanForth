@@ -11,7 +11,7 @@
 \   record: each export record the kernel is given (export.fs), compared
 \     by check_author.py with the term: lines and with pinned Lean's
 \     export of the fixture's Lean source;
-\   words:every declaration printed as LeanForth words (print-forth.fs);
+\   words: every declaration printed as LeanForth words (print-forth.fs);
 \   round trip: the printed words run again, in a new checker context,
 \     and printed again: the terms (with binder names and kinds, levels,
 \     constants and universe arguments, labels and notes, compared by an

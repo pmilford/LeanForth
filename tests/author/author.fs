@@ -509,6 +509,11 @@ T{ 0 lf-author-decl lf-fdecl-type @ forth-text rot rot s" Prop explicit: x x fun
 T{ 0 lf-author-decl lf-fdecl-type @ -1 lf-print-forth-term -> outcome-invalid }T
 T{ 0 lf-author-decl lf-fdecl-type @ 1 lf-print-forth-term -> outcome-exhausted }T
 T{ 99 1000 lf-print-forth-term -> outcome-invalid }T
+\ An import stub without a type prints as it was written (review N1).
+: printed ( -- c-addr u outcome )
+  0 fout# ! ['] fout+ lf-print-unicode lf-print-setup 1000 lf-author-print >r fout fout# @ r> ;
+T{ s" import-stub X end X" run printed rot rot s\" import-stub X\nend X\n" compare
+   -> outcome-ok outcome-ok 0 }T
 \ Number literals and projections: n lit# and i proj# NAME build the leaves,
 \ shared when equal, and print as the words that built them.
 T{ s" import-stub Nat end Nat import-stub Prod end Prod def f Prod explicit: p Nat := 0 proj# Prod p $ end f def g Nat := 7 lit# end g def h Nat := 7 lit# end h"
@@ -641,11 +646,11 @@ T{ s" 18446744073709551615" holds? -> false }T
 T{ s" theorem t Prop explicit: p p := p end t" exported -> outcome-ok }T
 T{ 7 0 0 lf-level-new nip export-now -> true outcome-unsupported }T
 
-\ A library (library.fs, plan task 8.2.1d): a finder that knows Lib.c and
-\ Lib.k, of no universe parameters, definitions of height 3. Its constant
-\ gets a record of kind library, which the export never writes.
+\ A library (library.fs, plan task 8.2.1d): a finder that knows Lib.c,
+\ Lib.k and Lib.m, of no universe parameters, definitions of height 3. Its
+\ constant gets a record of kind library, which the export never writes.
 : part= ( id c-addr u -- flag ) rot lf-name-text compare 0= ;
-: c-or-k? ( name -- flag ) dup s" c" part= swap s" k" part= or ;
+: c-or-k? ( name -- flag ) dup s" c" part= over s" k" part= or swap s" m" part= or ;
 : lib-c? ( name -- flag )
   dup c-or-k? swap lf-name-prefix@ dup if s" Lib" part= else drop false then and ;
 : lib-finder ( name -- universes height true | false ) lib-c? if 0 3 true else false then ;
@@ -685,6 +690,10 @@ T{ s\" def d 0 Type := ( a \\ b ) Lib.k note\" \\ \" end d" with-lib -> outcome-
   text0 s" def d 0 Type := Lib.c ( x" text+ s" y" 320 times s" ) end d" text+ text$ ;
 T{ long-comment with-lib -> outcome-ok }T
 T{ s\" def d 0 Type := Lib.c note\" ( Zzz.u end d" lib-fails -> 37 1 23 }T
+\ An unclosed ( with a library stops at its word (error 42); a \ in an
+\ ai-note" ends nothing either (Lib.m, first named here, after it).
+T{ s" def d 0 Type := Lib.c ( Zzz.v end d" lib-fails -> 42 1 23 }T
+T{ s\" def d 0 Type := Prop ai-note\" a \\ b\" Lib.m $ end d" with-lib -> outcome-ok }T
 
 \ The dictionary reserve (p05): with fewer than lfa-dictionary-reserve
 \ address units unused, no group word is made (error 66, full), while

@@ -164,8 +164,8 @@ end-structure
   2dup lfa-ahead? if 2dup lfa-token-at lf-consts lfa-group drop else 2drop then ;
 \ The text a parsing word reads is no token (review M1): \ ends the line's
 \ tokens, ( skips to its ), note" and ai-note" to their " (words.fs).
-: lfa-comment? ( c-addr u -- flag ) s" \" compare 0= ;
 : lfa-token= ( c-addr u c-addr2 u2 -- flag ) compare 0= ;
+: lfa-comment? ( c-addr u -- flag ) s" \" lfa-token= ;
 : lfa-quote? ( c-addr u -- flag )
   2dup s\" note\"" lfa-token= if 2drop true exit then s\" ai-note\"" lfa-token= ;
 : lfa-closer ( c-addr u -- char|0 )

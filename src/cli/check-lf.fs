@@ -33,6 +33,8 @@
 \ itself stopped (then lf-author-error. tells where and why);
 \ lfc-refused? ( -- flag ) whether it ran but its records did not reach
 \ the stage whole (the writer or the stage refused one; review L4);
+\ lfc-fresh ( -- ) clears both, before a text's run (ck-lf-load does,
+\ and the command line before anything else of a text's run);
 \ lfc-library-open ( c-addr u checked? -- outcome ) and lfc-library-close
 \ ( -- ), a library for the words outside check (see below).
 \ Untrusted, like the stage and the words: neither can make a declaration
@@ -62,18 +64,16 @@ end-structure
 : lfc-library? ( -- flag ) lfc lfc-env @ 0<> ck-importing? or ;
 : lfc-failed? ( -- flag ) lfc lfc-failed @ ;
 : lfc-refused? ( -- flag ) lfc lfc-refused @ ;
+\ Neither flag set: at the start of each text's run (review N3).
+: lfc-fresh ( -- ) false lfc lfc-failed ! false lfc lfc-refused ! ;
 
 \ ---- The stores' room while the words run: the name store's setting and
-\ those of check-run.fs's table (ck-capacities: terms, levels, references
-\ and the input, which the words do not use), kept as the feed keeps
-\ them (ck-save, ck-restore; the feed comes later), raised to the most a
-\ store may hold (they grow only as records are made), then given back;
-\ the first refusal is the outcome.
-: lfc-raise ( outcome k -- outcome )
-  feed-most swap ck-capacity capacity-set @ execute ck-first ;
+\ those of check-run.fs's table (ck-rooms: terms, levels, references and
+\ the input, which the words do not use; the feed comes later), raised to
+\ the most a store may hold (they grow only as records are made), then
+\ given back; the first refusal is the outcome.
 : lfc-rooms ( -- outcome )
-  ck-save lf-name-capacity lfc lfc-names ! feed-most lf-name-capacity!
-  ck-capacities# 0 do i lfc-raise loop ;
+  ck-rooms lf-name-capacity lfc lfc-names ! feed-most lf-name-capacity! ck-first ;
 : lfc-rooms-back ( -- outcome ) ck-restore lfc lfc-names @ lf-name-capacity! ck-first ;
 
 \ ---- The library's names (author/library.fs): a name of the run's name
@@ -148,9 +148,16 @@ end-structure
   lf-term-reset lf-level-reset lf-cref-reset lf-name-reset lfa-declarations-reset ;
 : lfc-records ( -- outcome ) lfc-produce dup ok? 0= lfc lfc-refused ! ;
 : lfc-made ( c-addr u -- outcome ) lfc-run dup ok? if drop lfc-records then ;
-: lfc-text ( c-addr u -- outcome )
-  lfc-sharing! lfc-rooms ok-then? if lfc-made else nip then
-  lfc-empty lfc-rooms-back ck-first lfc-sharing-back ;
+\ The making xt ( c-addr u -- outcome ) runs under CATCH, so that the
+\ stores are emptied and given back their room and sharing whatever
+\ happens; a THROW then passes on (review N5; the stage has rolled back).
+: lfc-caught ( c-addr u xt -- outcome code )
+  catch dup if nip nip outcome-invalid swap then ;
+: lfc-back ( outcome -- outcome ) lfc-empty lfc-rooms-back ck-first lfc-sharing-back ;
+: lfc-making ( c-addr u xt -- outcome )
+  lfc-sharing! lfc-rooms ok-then2? if lfc-caught else nip 0 then
+  swap lfc-back swap throw ;
+: lfc-text ( c-addr u -- outcome ) ['] lfc-made lfc-making ;
 
 \ ---- A library for a run outside check (a Forth session, the authoring
 \ tests): lfc-library-open reads the export c-addr u, its manifest checked
@@ -165,8 +172,8 @@ end-structure
 \ ---- Loading, as ck-load (cli/check-run.fs): the staging phase is the
 \ library's reading, the text's run and its records, and the seal.
 : lfc-staging ( c-addr u checked? -- outcome )
-  false lfc lfc-failed ! false lfc lfc-refused ! lfc-stage-start ok-then?
-  if lfc-text else nip then dup ok? if drop ck-stage stage-seal then ;
+  lfc-fresh lfc-stage-start ok-then? if lfc-text else nip then
+  dup ok? if drop ck-stage stage-seal then ;
 : lfc-stage-phase ( c-addr u checked? -- outcome )
   ck-phase-begin lfc-staging ck-staging ck-phase-end ck-staging ck-fail ;
 : ck-lf-load ( c-addr u checked? -- outcome )

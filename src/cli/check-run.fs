@@ -365,6 +365,13 @@ create ck-line ck-line-room 2 + allot
 : ck-give-back ( outcome k -- outcome )
   dup ck-saved-cell @ swap ck-capacity capacity-set @ execute ck-first ;
 : ck-restore ( -- outcome ) outcome-ok ck-capacities# 0 do i ck-give-back loop ;
+\ Capacity k raised to the most a store may hold; the first refusal stays.
+\ ck-rooms keeps them all and raises them, for a LeanForth text's words
+\ (cli/check-lf.fs), which give them back with ck-restore before the feed
+\ keeps them again.
+: ck-raise ( outcome k -- outcome )
+  feed-most swap ck-capacity capacity-set @ execute ck-first ;
+: ck-rooms ( -- outcome ) ck-save outcome-ok ck-capacities# 0 do i ck-raise loop ;
 \ The stores emptied, as the feed starts them.
 : ck-empty ( -- )
   lf-input-reset lf-term-reset lf-level-reset lf-cref-reset lf-lscope-context-reset ;

@@ -223,10 +223,10 @@ set-current
   dup /lfa-entry erase r> over lfa-entry-group ! dup >r lfa-spell! r> ;
 
 \ The constant whose full name is c-addr u, if there is one: the text's
-\ own, else the library's (library.fs sets lfa-library-named while
-\ loading; with no library loaded there is none).
+\ own, else the library's. library.fs sets lfa-library-named while it
+\ loads (words.fs loads it, so every run has it; with no library given,
+\ lfa-library-lookup finds none).
 defer lfa-library-named ( c-addr u -- decl true | false )
-:noname ( c-addr u -- false ) 2drop false ; is lfa-library-named
 : lfa-file-const ( c-addr u -- decl true | false )
   2dup lf-consts search-wordlist 0= if 2drop false exit then
   >body lfa-entry-constant lfa-key! lfa-entry-find

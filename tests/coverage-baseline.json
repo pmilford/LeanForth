@@ -68,7 +68,7 @@
   "src/cli/check-lf.fs": {
    "blocks": 138,
    "never_run": 4,
-   "reason": "new file (plan 8.2.1c-d; agent LF2, 2026-11-12): four refusals no input reaches: a library declaration without levelParams (Lean always writes them), the stage refused at stage-init (no heap), stage-extend after a library read that succeeded, the stores' capacity settings refused"
+   "reason": "new file (plan 8.2.1c-d; agent LF2, 2026-11-12): four refusals no input reaches: a library declaration without levelParams (the stage refuses every named declaration without them: named-ok?, src/import/stage-records.fs:443-445), the stage refused at stage-init (no heap), stage-extend after a library read that succeeded, the stores' capacity settings refused"
   },
   "src/cli/check-run.fs": {
    "blocks": 898,
