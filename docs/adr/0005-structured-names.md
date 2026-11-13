@@ -1,10 +1,10 @@
 # ADR 0005: structured names — proposal
 
-Status: **draft for human review; not approved for trusted use**. Lean names
+Status: **accepted** (see the approval status below). Lean names
 are needed for universe parameters, constants and declaration identities.
 This proposal does not authorize any declaration or axiom.
 
-Approval status: status unclear (no owner decision found); the ADR's own text says draft, not approved
+Approval status: accepted 2026-11-12, gate: kernel, import and format, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)"; the owner approved it on the pack's recommendation
 
 ## Candidate representation
 

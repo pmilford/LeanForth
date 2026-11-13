@@ -1791,9 +1791,10 @@ verdict changed.
 
 ## Amendment (review rvUNNI; agent FX8, 2026-11-11)
 
-Approval status: status unclear (no owner decision found); it says not through its gate, and no owner entry names agent FX8
+Approval status: accepted 2026-11-12, gate: kernel and format, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)"; covered in substance by the 2026-11-11 approvals of items A7, A8 and C3 (section "Approval round of 2026-11-11"), confirmed 2026-11-12 night
 
-Experimental [kernel][format] code, **not through its gate**. The
+[kernel][format] code; its gate is recorded as passed (approved 2026-11-11, items A7, A8, C3,
+confirmed 2026-11-12 night). The
 independent review of tasks 5.2.7 and 5.2.5b (rvUNNI, one blocking
 finding) compared LeanForth with the official checker (lean4export's
 `Export.Parse`, then `Kernel.Environment.replay`) on crafted exports.
@@ -1831,8 +1832,7 @@ Each fix moves LeanForth to that checker's verdict; none adds a rule.
   (mixed blocks, replay's treatment of unread skipped content) closes them.
 - **L5.** A declaration a stopped run never reached reads `not checked
   (not reached: the run stopped)`, so it cannot be taken for *skipped*.
-- **M2** ([format]; the owner's decision is pending, this is the
-  recommended form). The verdict *skipped* had changed check-report 0.1
+- **M2** ([format]; the owner approved report format 0.2 on 2026-11-11, item C3). The verdict *skipped* had changed check-report 0.1
   and run-record 0.1 in place, so a 0.1 consumer refused every new report.
   Reports and records are now version **0.2**
   (`schemas/check-report-0.2.schema.json`, `run-record-0.2.schema.json`);
@@ -1860,7 +1860,7 @@ LeanForth and the official checker accept all 107 declarations.
 
 ## Amendment (follow-up of task 5.2.1b: diagnostic 81's routes; agent IO, 2026-11-11)
 
-Approval status: accepted 2026-11-12, gate: not stated, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names IO (diagnostic-81 routes)
+Approval status: accepted 2026-11-12, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names IO (diagnostic-81 routes) (gate recorded 2026-11-12 night: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
 
 Experimental [kernel] code, **not through its gate**. No new rule: three
 places now do what Lean 4.35.0 does where LeanForth answered *unknown*.

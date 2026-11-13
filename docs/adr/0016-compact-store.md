@@ -1190,7 +1190,7 @@ importer stage them so that the checker gives those verdicts.
 
 ## Amendment 2 (2026-11-11): one input shared by a parallel check's workers
 
-Approval status: accepted 2026-11-12, gate: not stated, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names SH (one shared input), decided in section "Later decisions of 2026-11-11"
+Approval status: accepted 2026-11-12, gate: kernel and runtime, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12"; the entry names SH (one shared input), decided in section "Later decisions of 2026-11-11" (gate recorded 2026-11-12 night: kernel and runtime, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)")
 
 Step S8 of the compact-store plan (agent SH, branch `sh-shared-input`;
 plan task 7.2.1; the owner's decision of 2026-11-11: "should be also for

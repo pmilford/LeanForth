@@ -17,7 +17,7 @@ Amendment 1, accepted, and Amendment 2 on branch `lf-files-2`, proposed),
 part of Lean's front end does, its measured size, and the plan — is in
 [the front-end design](../design/FRONT_END.md).
 
-Approval status: proposed (the owner answered front-end questions 1-4 and 6-8 on 2026-11-12, see OWNER_DECISIONS.md section "Front-end syntax (2026-11-12, evening; docs/design/FRONT_END.md §9)"; the ADR as a whole stays proposed until FE1 is built and reviewed)
+Approval status: proposed (the owner answered front-end questions 1-4 and 6-8 on 2026-11-12, see OWNER_DECISIONS.md section "Front-end syntax (2026-11-12, evening; docs/design/FRONT_END.md §9)"; decisions D1, D2, D3, D5 and D7 approved by the owner 2026-11-12 night, gates [bypass] and [axioms], [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)"; the ADR as a whole stays proposed until FE1 passes its [parser] gate)
 
 ## Summary in plain words
 
