@@ -10477,3 +10477,19 @@ new = '''  lf-check-decl dup lf-idecl-kind @ lf-check-kind? 0= if drop outcome-o
 test = "$GFORTH tests/core/check-forged.fs"
 reason = "U1 passes a declaration of a kind check-declaration does not check; its check goes on as if it were in scope"
 quick = true
+
+[[fault]]
+id = "cov2-lvalue-forged-id-accepted"
+file = "src/kernel/level-value.fs"
+old = '''  if swap lf-lassign-in? 0= else 2drop false then ;'''
+new = '''  if swap lf-lassign-in? 0= else 2drop true then ;'''
+test = "$GFORTH tests/core/level-value.fs"
+reason = "an assignment entry whose ID is no parameter of the context (forged after it was added) passes the table's check"
+
+[[fault]]
+id = "cov2-lvalue-any-mode"
+file = "src/kernel/level-value.fs"
+old = '''    lf-lvalue-free of true endof lf-lvalue-witness of true endof false swap endcase ;'''
+new = '''    lf-lvalue-free of true endof lf-lvalue-witness of true endof true swap endcase ;'''
+test = "$GFORTH tests/core/level-value.fs"
+reason = "an evaluation mode that is none of the three is run instead of refused"
