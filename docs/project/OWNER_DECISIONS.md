@@ -1194,3 +1194,14 @@ every recommendation:
 4. **The existing, never-reviewed designs reviewed now:** the front-end designs together before S1 goes further, and
    VERIFY_COMMAND before V1 merges.
 
+
+### Slice S1 approved (2026-11-13, morning)
+
+The owner approved the S1 design ([S1_INTERFACE.md](../design/S1_INTERFACE.md); the front-end design review and its
+re-check in [design-reviews/](../development/design-reviews/LOG.md)) from its one-page summary: the first native proof
+`theorem t : 0 + 0 = 0 := by-rfl`, elaborated with Lean's instances and checked by the kernel, built in four branches
+(fe1g3, s1-meta, s1-synth, s1-elab), gates [import] when s1-meta and s1-synth merge and [parser] and [bypass] at S1's
+end, no kernel change. Also decided: the front end's work limit is `--elab-fuel N` (`--fuel` stays the kernel's); the
+midpoint `0 0 + 0 = #check` printing `0 + 0 = 0 : Prop` is accepted as a midpoint, never as "done" (a file of only
+`#check` lines then ends with exit 0, as in Lean, instead of error 49); `sorry` is the tactic `by-sorry` now and the term
+`sorry` in S5 (the [parser] spelling).

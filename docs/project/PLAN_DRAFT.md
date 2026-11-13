@@ -688,7 +688,7 @@ reference for what each slice contains. A slice's design is reviewed before its 
 
 | Slice | Status | Contains | Acceptance (a command a user can run) |
 | --- | --- | --- | --- |
-| S1 | **Status (2026-11-13): designed** (the design review blocked it on B1-B5; the S1 interface note being written; FE1g-3 and FE1g-4 written on branch `fe1g3`; FE1c's isDefEq, FE1e1 and FE1g-1 on main) | FE1e2-FE1e8, FE1g-3, FE1g-4, FE1d2, FE1c's lazy delta | `leanforth check` accepts `theorem t : 0 + 0 = 0 := by-rfl` written in LeanForth, elaborated with Lean's instances, the term checked by the kernel; a wrong statement refused as Lean refuses it |
+| S1 | **Status (2026-11-13): designed** (design [S1_INTERFACE.md](../design/S1_INTERFACE.md) reviewed and approved by the owner 2026-11-13; branch s1-meta merge A being written; FE1g-3 and FE1g-4 written on branch `fe1g3`; FE1c's isDefEq, FE1e1 and FE1g-1 on main) | FE1e2-FE1e8, FE1g-3, FE1g-4, FE1d2, FE1c's lazy delta | `leanforth check` accepts `theorem t : 0 + 0 = 0 := by-rfl` written in LeanForth, elaborated with Lean's instances, the term checked by the kernel; a wrong statement refused as Lean refuses it |
 | S2 | **Status (2026-11-13): designed** | FE1g-5 to FE1g-8 | FE1 itself: `0 + n = n` by `by-induction` and `by-rw`, with the step log; FE1's acceptance |
 | S3 | **Status (2026-11-13): designed** | FE1i-1 to FE1i-3 | `by-decide` on the Init examples of the FE1i design |
 | S4 | **Status (2026-11-13): designed** (FE1i-4 `lib/bigint.fs` on main, no caller yet) | FE1i-4 to FE1i-9 | `by-omega` as Lean's omega by default, improvements behind an opt-in flag (owner, 2026-11-13) |
