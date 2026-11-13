@@ -797,8 +797,13 @@ create ed-tag-members  s" name" counted, s" tag" counted, 0 0 counted,
 \ binders of a declaration's type, written out (no unfolding), and its
 \ universe parameters.
 : ed-pi? ( e -- flag ) ed-tier expr-tag@ tag-pi dup 4 + within ;
-: ed-pis ( e -- n )
-  0 swap begin dup ed-pi? while ed-tier expr-b@ swap 1+ swap repeat drop ;
+: ed-let? ( e -- flag ) ed-tier expr-tag@ let-tag? ;
+\ One binder: a Pi counts one; a let (a matcher's type may hold lets
+\ among its parameters: 13 of Init's) counts none, its body follows.
+: ed-binder ( n e -- n' e' true | n false )
+  dup ed-pi? if ed-tier expr-b@ swap 1+ swap true exit then
+  dup ed-let? if ed-tier expr-body@ true exit then drop false ;
+: ed-pis ( e -- n ) 0 swap begin ed-binder 0= until ;
 : ed-type-pis ( d -- n ) ed-stage staged-type@ ed-pis ;
 : ed-levels ( d -- n ) ed-stage staged-params@ ed-stage stage-tuples tuple-length ;
 

@@ -906,7 +906,8 @@ variable cli-info#
 : cli-elab-count. ( kind -- ) elab-count .decimal ;
 : cli-elab-instances ( -- )
   elab-instance cli-elab-count. ."  instances, " elab-default cli-elab-count.
-  ."  default instances, " elab-reducibility cli-elab-count. ."  reducibility statuses, " ;
+  ."  default instances, " elab-reducibility cli-elab-count.
+  ."  reducibility statuses, " ;
 : cli-elab-classes ( -- )
   elab-eliminator cli-elab-count. ."  eliminators, " elab-left-out cli-elab-count.
   ."  instances left out, " elab-class cli-elab-count. ."  classes, " ;

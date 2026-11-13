@@ -162,7 +162,7 @@ examples further down are run.
 
 Measured on 2026-11-12 (development machine), `Init` takes about 12 s:
 about 6 s for Lean and 6 s for reading the 346 MB export; the file is
-3.6 MB. The init slice of the tests (`tests/author/init-slice.ndjson`, 59
+2.6 MB. The init slice of the tests (`tests/author/init-slice.ndjson`, 59
 declarations) gives `tests/front/init-slice.elab.ndjson`:
 
 - 3 classes (`Add`, `HAdd` with out-parameter 2, `OfNat`);
@@ -567,12 +567,12 @@ counts it, so the data needs no new format version):
     status mapping, the eliminator's kind ignored in a lookup,
     `--no-manifest` using the manifest's digest, and `--elab-data`
     ignored;
-  - format 2's checks: each of codes 27-38 skipped, a foreign constant
-    allowed in an instance's keys, a key's arity read off by one, a
-    literal's digits not checked, the rank table's root ignored, a
-    left-out instance's keys stored as an instance's, a class's
-    out-parameters read as its out-levels, and the exporter's rank walk
-    with children reversed.
+  - format 2's checks (21 faults): each of codes 27-38 skipped, a foreign
+    constant allowed in an instance's keys, foreign constants refused in
+    a left-out instance's keys, an arrow key's arity read as 0, equal
+    texts compared by their offsets, a literal's digits not checked,
+    ranks compared without their root keys, a class's out-levels stored
+    as its out-parameters, and the finisher's rank check skipped.
 
 ## Limits and what is left
 

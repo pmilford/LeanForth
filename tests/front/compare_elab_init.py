@@ -33,9 +33,10 @@ from schema_subset import Validator, load_strict  # noqa: E402
 # Lean's counts against the records written (+ those left out).
 LEAN_KINDS = {"class": ("class",), "instance": ("instance", "instance_left_out"),
               "default_instance": ("default_instance",), "reducibility": ("reducibility",),
-              "eliminator": ("eliminator",), "tag": ("tag",)}
+              "eliminator": ("eliminator",), "tag": ("tag",), "matcher": ("matcher",),
+              "projection": ("projection",)}
 KINDS = ("class", "instance", "instance_left_out", "default_instance", "reducibility",
-         "eliminator", "tag")
+         "eliminator", "tag", "matcher", "projection", "sunfold")
 
 
 def pairs(text):
@@ -115,7 +116,7 @@ def main(finish, lean, forth, data, order):
         problems.append(f"Lean's statuses add up to {lean_statuses}")
     lean_samples = sorted(line for line in lean_text.splitlines() if line.startswith("sample"))
     forth_samples = sorted(line for line in forth_text.splitlines() if line.startswith("sample"))
-    if lean_samples != forth_samples or len(lean_samples) < 9:
+    if lean_samples != forth_samples or len(lean_samples) < 19:
         problems.append(f"samples differ: Lean {lean_samples}, LeanForth {forth_samples}")
     validator = Validator(load_strict((ROOT / "schemas/elab-data-2.schema.json").read_text()))
     for number, line in enumerate(open(data, encoding="utf-8"), 1):
