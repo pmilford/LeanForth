@@ -104,7 +104,7 @@ end-structure
   repeat nip outcome-ok ;
 : wc-arg ( i slab -- term ) tuck slab-count 1- swap - swap slab-at @ ;
 : wc-nth ( i -- term ) wc wc-src @ wc-arg ;
-: wc-app1 ( f a -- f' outcome ) lf-term-app if outcome-ok else drop -1 outcome-full then ;
+: wc-app1 ( f a -- f' outcome ) lf-term-app if outcome-ok else -1 outcome-full then ;
 \ f applied to arguments from to to-1 of the slab wc-src names.
 : wc-apply ( f from to -- f' outcome )
   swap ?do i wc-nth wc-app1 ok-then? 0= if -1 swap unloop exit then loop outcome-ok ;

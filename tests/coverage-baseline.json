@@ -262,6 +262,11 @@
    "never_run": 4,
    "reason": "new file (plan FE1d, 2026-11-12): four refusals no test input reaches: a name lookup that fails in an open tier (ed-looked, error 23), a tier name beyond the stage's name-to-declaration array (ed-decls), no room while the eliminators' table grows (the allocation-refusal test reads 4 eliminators), and a THROW inside a read (ed-caught)"
   },
+  "src/front/infer.fs": {
+   "blocks": 169,
+   "never_run": 13,
+   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the branches where the heap or a store refuses room (full) in a level list, a Sort's level or a spine, and a stale metavariable"
+  },
   "src/front/instantiate.fs": {
    "blocks": 288,
    "never_run": 9,
@@ -282,6 +287,11 @@
    "never_run": 12,
    "reason": "new file (plan FE1c, branch fe1c, 2026-11-12): never run are the branches where the heap or a store refuses room (full) inside a walk, a comparison or a rebuild, and defensive defaults that no well-formed input reaches"
   },
+  "src/front/meta-env.fs": {
+   "blocks": 125,
+   "never_run": 3,
+   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are a declaration of the input that the stage does not hold (the feed keeps the stage's names: only a broken input reaches it) and the name tests of a numeric part and of a prefix that is not top-level, which no declaration of the slice named succ or ndrec has"
+  },
   "src/front/mvars.fs": {
    "blocks": 429,
    "never_run": 4,
@@ -296,6 +306,11 @@
    "blocks": 36,
    "never_run": 3,
    "reason": "new file (plan FE1a-b, branch fe1, 2026-11-12): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded, a child beyond the walk memo and the reader default finder before cli/check-lf.fs sets it are never run"
+  },
+  "src/front/whnf.fs": {
+   "blocks": 503,
+   "never_run": 17,
+   "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the branches where the heap or a store refuses room (full) inside a rebuild, a level list, a spine, a rule's application or a frame, and defensive defaults no well-formed input reaches (a recursor whose block names no declaration)"
   },
   "src/import/checker-input.fs": {
    "blocks": 294,

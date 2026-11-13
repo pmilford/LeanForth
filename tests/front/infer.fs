@@ -58,6 +58,17 @@ T{ -1 lf-infer 0 bv lf-infer -> -1 outcome-invalid -1 outcome-invalid }T
 T{ lv1 1 s" Nat.add" cn lf-infer 0 s" Nat.rec" cn lf-infer -> -1 outcome-invalid -1 outcome-invalid }T
 T{ fs fk app lf-infer nat fk app lf-infer -> -1 outcome-invalid -1 outcome-invalid }T
 T{ fm fk app lf-infer -> -1 outcome-invalid }T
+\ A type with an inductive type's application at the head (Nat Nat:
+\ ill-typed, but inference does not check) is no function either; a
+\ constant no declaration has is invalid (Lean: unknown constant).
+nat nat app lf-lctx-local made constant fw
+T{ fw fk app lf-infer -> -1 outcome-invalid }T
+: unknown ( -- t ) 0 s" motive" menv-part lf-name-generation @ lv-pairs 0 lf-cref-new must
+  lf-cterm-new must drop ;
+T{ unknown lf-infer unknown fk app lf-infer -> -1 outcome-invalid -1 outcome-invalid }T
+\ A type that is a definition alone: whnf would unfold it (unsupported).
+lv1 1 s" outParam" cn lf-lctx-local made constant ft
+T{ ft fk app lf-infer -> -1 outcome-unsupported }T
 T{ 0 bv fk app lf-infer -> -1 outcome-invalid }T
 
 \ ---- Exhausted: whnfCore's fuel runs out on a type that is no pi.
