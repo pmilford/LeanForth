@@ -1239,3 +1239,23 @@ slowly) prioritize the S2 path (and the following S? paths)".
    plan rows and progress lines are kept current.
 3. **The front end's slices first:** S1 to its done check, then S2 ($0 + n = n$ by `by-induction` and `by-rw`), then
    S3 onwards, each designed and reviewed before its code (plan 9.4.7).
+
+### Slice S2 approved; S1's order amended; V1's gates (2026-11-13, early afternoon)
+
+From the [S2 design note](../design/S2_INTERFACE.md) and its [design review](../development/design-reviews/2026-11-13-s2.md)
+(blocking B1, B2 and M1-M4 fixed in the text), the owner chose every recommendation:
+
+1. **S2's design approved,** both forms of FE1 included: by rewriting (`by-induction-with`, `by-rw[ ]`) and the plan's
+   `by-case:`/`by-exact` form, which needs Lean's smart unfolding (S3's `by-decide` needs it too). FE1 is done only when
+   the done checker runs both on all of `Init`.
+2. **S1's order amended:** S2's merge A (`s2-unfold`: lazy delta and unfolding, measured to be needed by S1's `#check`
+   midpoint and its test C1) is built after s1-meta-b and s1-synth and merges before s1-elab; the elaboration data goes
+   to format 3 so that an older file is refused, never read as "no smart unfolding" (decided at merge A's [import]
+   gate; S6's planned format becomes 4). S1_INTERFACE.md §11, amendment of 2026-11-13.
+3. **[format] the step log** (`check --steps FILE|-`, NDJSON `leanforth-tactic-steps` version 1 with a schema, only for
+   accepted declarations, read by nothing that decides) and S1's deferred `by-sorry` open-part wording: approved as
+   designed; the gate is checked again with the real output at S2's end.
+4. **`leanforth verify` V1's gates approved** on the reviewer's recommendation, after the review fixes were probed:
+   [bypass] (nothing reaches "discharged" without LeanForth's kernel re-checking Lean's proof of the exact stated
+   contract), [format] (report 0.1, whose exit 0 requires a discharged result; receipt 0.3 unchanged), [parser] (the
+   contract translation). V1's done check follows when a slot is free; V2-V4 stay parked.
