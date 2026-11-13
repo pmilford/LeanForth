@@ -1022,6 +1022,28 @@ site; faults frk-sched-add-pushes-first and frk-sched-outcomes-ored caught). Rev
   6.2.5c (read snapshots of the previous one or two format and verdict versions, reusing only results a change cannot
   affect) is the first infrastructure task of 2026-11-13. Any future snapshot addition (such as elaboration data) is
   added as an optional section; refactors must keep snapshot bytes identical.
+- **Work tempo (22:00):** "I'm trying to get as much into tonight's build as possible, you will be working after
+  mathlib too, without waiting for me. You seem to be delaying work." The coordinator's own 23:45 stop and 01:00
+  merge freeze are withdrawn: agents report reviewable ranges early and keep working; work continues overnight,
+  during and after the full Mathlib run, without waiting for the owner. Real limits only: owner gates, CPU during the
+  run, and no change to the main checkout while the run loads its source.
+
+### Reading older snapshots: design questions answered (2026-11-12, 22:15)
+
+The owner answered the four questions of the 6.2.5c design
+([SNAPSHOT_COMPATIBILITY.md](../design/SNAPSHOT_COMPATIBILITY.md), ADR 0020 Amendment 5), each as recommended:
+1. **How far back:** two versions, for both the format version and the verdict version. Older ones are refused (exit
+   2) and can still be viewed with `--snapshot-stale-ok`, marked stale.
+2. **Exact results:** a result carried from an older snapshot must equal this build's fresh check, verdict and fuel; a
+   change that may move fuel re-checks everything it can reach.
+3. **Automatic re-check:** when an older snapshot needs re-checks, LeanForth does them, first printing how many and
+   why; `--save-snapshot NEW` keeps the upgraded snapshot; `--snapshot-stale-ok` gives the quick look instead.
+4. **Batching:** changes that move verdicts or fuel are merged together, at most once a day, before the nightly full
+   run, which saves the new Mathlib snapshot. Changes that leave verdicts and fuel identical are not held back.
+
+These settle the design's choices. The amendment stays **proposed**: the code (sub-steps 6.2.5c1-c8) still goes
+through the [format], [kernel] and [import] gates (Lean comparisons, an independent review, the owner's approval of
+the summary) before it is accepted.
 
 ### No result labels (2026-11-12, evening)
 
