@@ -316,8 +316,39 @@ T{ 99999 lf-goal-print lf-print-notation? -> outcome-invalid false }T
 nat mv-natural lf-mvar-new made constant mfz  mfz nat nat t-lam lf-mvar-assign must-ok
 T{ cap-reset nat mfz 0 t-var t-app t-lam 0 0 goal lf-goal-print lf-print-notation?
    -> outcome-unsupported false }T
+\ The same failure in a hypothesis's type; a hypothesis of a type the
+\ printer cannot compare (an importer's unsupported leaf) beside another;
+\ a group the printer cannot print when a let ends it; a goal that fails
+\ among the goals of .goals.
+nat mfz 0 t-var t-app t-lam constant unsure
+lf-form-mdata lf-hterm-unsupported must drop constant odd
+T{ true. 0 0 unsure s" h" hyp drop goal lf-goal-print -> outcome-unsupported }T
+T{ true. 0 0 odd s" a" hyp drop odd s" b" hyp drop goal lf-goal-print -> outcome-invalid }T
+T{ true. 0 0 odd s" a" hyp drop nat 1 num s" x" let-hyp drop goal lf-goal-print
+   -> outcome-invalid }T
+T{ unsure 0 0 goal 0 swap lf-run-push made lf-goals! lf-goals-print -> outcome-ok outcome-unsupported }T
 true. 0 0 goal constant gstale  lf-mctx-reset
 T{ gstale lf-goal-print -> outcome-invalid }T
+\ The printer's comparison (lf-print-same?, Lean's ==) on each kind of
+\ leaf and node: literals, strings, projections and their leaves, lets (a
+\ let and a have differ here, where Lean's == ignores nonDep); a leaf it
+\ does not know and negative fuel are invalid.
+g-fresh
+: same? ( a b -- flag ) fuel lf-print-same? must-ok ;
+: str. ( c-addr u -- t ) lf-str-new must-ok drop ;
+: proj. ( e i -- t ) >r s" Prod" nm r> lf-proj-of made ;
+: let. ( nondep -- t ) >r 1 num nat 0 t-var t-lam r> lf-let-make must ;
+T{ 1 num 1 num same? 1 num 2 num same? s" ab" str. s" ab" str. same? s" ab" str. s" ac" str. same?
+   -> true false true false }T
+T{ nat 0 proj. nat 0 proj. same? nat 0 proj. nat 1 proj. same? false let. false let. same?
+   true let. false let. same? -> true false true false }T
+T{ lf-form-mdata lf-hterm-unsupported must drop dup fuel lf-print-same? nat nat -1 lf-print-same?
+   -> false outcome-invalid false outcome-invalid }T
+\ A Π whose body's head is a hypothesis of an arrow type ending in Prop
+\ is a proposition (Lean's isPropQuick reads the variable's type): ∀.
+0 nat t-prop t-pi s" p" hyp constant fp constant vp
+T{ nat fp 0 t-var t-app t-pi s" x" ex. 0 vp goal goal-text s\" p : Nat → Prop\n⊢ ∀ (x : Nat), p x"
+   compare -> 0 }T
 \ Many goals: unsolved ones printed in order, a blank line between two.
 g-fresh
 : goals-n ( n -- list ) 0 swap 0 ?do true. 0 0 goal lf-run-push made loop ;
