@@ -184,11 +184,11 @@ s" LE.le" lfn-notation ≤
 : lfn-proof-shape ( above -- )
   lfa-proof-ready lf-front-by 0< if 1 = else 0= then lfa-e-proof lfa-must ;
 : lfn-shape ( above -- )
-  lfa-this-kind lf-decl-def > if 1 = lfa-e-statement lfa-must else lfn-proof-shape then ;
+  lfa-statement-only? if 1 = lfa-e-statement lfa-must else lfn-proof-shape then ;
 : lfn-last ( above -- node ) if lfn>syntax else -1 then ;
-: lfn-keep ( node -- )
-  lfa-this-kind lf-decl-def > if lfn-decl lfn-decl-statement else lfn-decl lfn-decl-proof
-  then ! ;
+: lfn-kept ( -- addr )
+  lfa-statement-only? if lfn-decl lfn-decl-statement else lfn-decl lfn-decl-proof then ;
+: lfn-keep ( node -- ) lfn-kept ! ;
 : lfn-end-declaration ( above c-addr u -- )
   lfa-end-check dup lfn-shape lfn-last lfn-keep
   lf-front-elaborate lf-front-hand-over lfa-declared ;

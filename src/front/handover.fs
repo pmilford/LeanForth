@@ -41,6 +41,9 @@
 require ../lib/lib.fs
 require ../core/scratch-marks.fs
 require ../core/reach.fs
+require ../present/print-forth.fs
+require ../author/errors.fs
+require ../author/form.fs
 require ../author/declarations.fs
 require ./mvars.fs
 
@@ -83,17 +86,15 @@ end-structure
 \ Kept, or given back: a refusal stands whatever the rollback says.
 : lfh-keep ( type value -- ) lfh-decl@ tuck lf-fdecl-value ! lf-fdecl-type ! ;
 : lfh-mark ( -- scratch ) lfh lfh-scratch ;
-: lfh-back ( type value outcome -- outcome )
-  nip nip lfh-mark lf-scratch-rollback drop ;
+: lfh-back ( outcome -- outcome ) lfh-mark lf-scratch-rollback drop ;
 : lfh-go ( type value -- outcome )
-  lfh-made dup ok? if drop lfh-keep outcome-ok else lfh-back then ;
+  lfh-made ok-then2? if lfh-keep outcome-ok else lfh-back then ;
 : lfh-start ( decl -- ) lfh lfh-decl ! lfa-e-malformed lfh-why! ;
 \ A theorem's or definition's value is a node; an axiom has none, -1
 \ (review fe1f M1): any other shape is refused, nothing made.
 : lfh-axiom? ( -- flag ) lfh-decl@ lf-fdecl-kind @ lf-decl-def > ;
 : lfh-shaped? ( value -- flag ) lfh-axiom? if -1 = else 0< 0= then ;
-: lfh-marked ( type value -- outcome )
-  lfh-mark lf-scratch-mark dup ok? if drop lfh-go else nip nip then ;
+: lfh-marked ( type value -- outcome ) lfh-mark lf-scratch-mark ok-then2? if lfh-go then ;
 : lf-handover ( decl type value -- outcome )
   rot lfh-start dup lfh-shaped? if lfh-marked else 2drop outcome-invalid then ;
 
@@ -111,4 +112,5 @@ defer lf-front-elaborate ( -- type value )
   case outcome-invalid of lfh lfh-why @ endof outcome-full of lfa-e-terms-full endof
     lfa-e-instantiate swap endcase ;
 : lf-front-hand-over ( type value -- )
-  lf-front-header -rot lf-handover dup ok? if drop else lfh-code lfa-fail then ;
+  lf-front-header -rot lf-handover dup ok? 0= if lfh-code lfa-fail then
+  drop lfa-front-made! ;

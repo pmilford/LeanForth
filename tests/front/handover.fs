@@ -141,6 +141,18 @@ T{ kernel -> }T
 T{ ' refusing lf-author-export-reached -> outcome-invalid }T
 T{ 1 heap-refusals ! reached-records lines @ -> outcome-full 0 }T
 T{ reached-records same-records? -> outcome-ok true }T
+\ No heap for the second reach table, or for the numbering tables after
+\ them (review fe1f L1): full, no line; every run of the reached writer
+\ gives back every block it took.
+T{ 2 heap-refusals ! reached-records lines @ -> outcome-full 0 }T
+T{ 3 heap-refusals ! reached-records lines @ -> outcome-full 0 }T
+T{ live-blocks @ reached-records live-blocks @ rot = -> outcome-ok true }T
+T{ live-blocks @ 2 heap-refusals ! reached-records live-blocks @ rot = -> outcome-full true }T
+\ A level hole nothing reaches is neither written nor refused by the
+\ reached writer; the all-nodes writer refuses it.
+T{ lf-level-mvar-new nip reached-records same-records? -> outcome-ok outcome-ok true }T
+T{ all-records lines @ -> outcome-invalid 0 }T
+T{ kernel -> }T
 \ Universe levels (review fe1f M2): Type u, max u v, imax u v and a
 \ constant at u + 1 give the same records from both writers, every level
 \ being reached; none is ever written as zero.
@@ -343,6 +355,21 @@ T{ ' wrong elaborating add-zero-natural check outcome-rejected tally -> 1 1 }T
 \ A natural declaration, then the kernel form (tests/front/mixed.lf): the
 \ hole the stand-in left unused blocks nothing; both accepted.
 T{ ' assigned elaborating s" tests/front/mixed.lf" check outcome-ok tally -> 0 accepted 1+ }T
+\ An axiom, a definition and a theorem (tests/front/three.lf, review fe1f
+\ L1), each through the hand-over: someNat : Nat (a hole made and left
+\ unused), two : Nat := 2 (a raw literal; it finds the axiom's hole stale,
+\ its context emptied at its own start), and add_zero' with a note on its
+\ type (its notes end set, L2). All accepted; the axiom NOT PROVED.
+variable ax-hole  variable stale-seen
+: noted ( type value -- type value ) over >r s" a note" lf-note-person r> lf-note-add 2drop ;
+: per-kind ( -- type value )
+  lf-front-header lf-fdecl-kind @ case
+    lf-decl-axiom of nat dup hole ax-hole ! -1 endof
+    lf-decl-def of ax-hole @ lf-mvar-live? 0= stale-seen ! nat 2 raw-lit endof
+    >r direct noted r> endcase ;
+: three ( -- c-addr u ) s" tests/front/three.lf" ;
+T{ false stale-seen ! ' per-kind elaborating three check stale-seen @ -> 0 true }T
+T{ outcome-ok tally cli-not-proved @ -> accepted 2 + 1 }T
 \ The same process after all of that: the same verdicts.
 T{ ' direct elaborating add-zero-natural check outcome-ok tally -> 0 accepted }T
 \ The elaborator back to plan FE1e's place-holder.
@@ -372,5 +399,14 @@ T{ lf-front-proof syn-kind@ lf-front-statement syn-kind@ lf-front-by
   s" theorem add_zero' universe u Nat explicit: n n 0 + n = := n Eq.refl end add_zero'"
   lf-author-text ;
 T{ ' direct elaborating with-u lf-author-code -> outcome-invalid 75 }T
+\ The three declarations read directly: each own declaration's notes end
+\ is set, add_zero's holding its one note (review fe1f L2), and the run
+\ is marked as the front end's (L3); a kernel-form run is not.
+: own-decl ( c-addr u -- i ) lfa-intern lfa-decl-find drop ;
+: notes# ( c-addr u -- n ) own-decl lf-author-notes swap - ;
+T{ ' per-kind elaborating lf-author-begin three lf-author-file lfa-front-made? -> outcome-ok true }T
+T{ s" someNat" notes# s" two" notes# s" add_zero'" notes# -> 0 0 1 }T
+T{ s" two" own-decl lfa-decl lf-fdecl-value @ lf-term-tag@ -> lf-tag-lit }T
+T{ kernel lfa-front-made? -> false }T
 T{ ' lfh-later elaborating lfc-library-close -> }T
 bye

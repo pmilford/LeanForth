@@ -10402,8 +10402,8 @@ reason = "5.5.1: a mutant copy keeps its original's body, so the checks of chang
 [[fault]]
 id = "fe-natural-not-default"
 file = "src/author/form.fs"
-old = '''  false lfa-form lfa-form-kernel ! -1 lfa-form lfa-form-tick ! lfa-numerals store-clear ;'''
-new = '''  true lfa-form lfa-form-kernel ! -1 lfa-form lfa-form-tick ! lfa-numerals store-clear ;'''
+old = '''  false lfa-form lfa-form-kernel ! -1 lfa-form lfa-form-tick ! lfa-numerals store-clear'''
+new = '''  true lfa-form lfa-form-kernel ! -1 lfa-form lfa-form-tick ! lfa-numerals store-clear'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1a: a run starts in the kernel form, so natural text is read as kernel terms (owner decision 4)"
 quick = true
@@ -11243,8 +11243,8 @@ quick = true
 [[fault]]
 id = "fe-handover-no-rollback"
 file = "src/front/handover.fs"
-old = '''  nip nip lfh-mark lf-scratch-rollback drop ;'''
-new = '''  nip nip ;'''
+old = ''': lfh-back ( outcome -- outcome ) lfh-mark lf-scratch-rollback drop ;'''
+new = ''': lfh-back ( outcome -- outcome ) ;'''
 test = "$GFORTH tests/front/handover.fs"
 reason = "FE1f: a refused hand-over keeps the nodes its instantiation made"
 quick = true
@@ -11324,7 +11324,7 @@ quick = true
 [[fault]]
 id = "fe-check-lf-mixed-whole"
 file = "src/cli/check-lf.fs"
-old = ''': lfc-reached? ( -- flag ) lfa-kernel-form? 0= lf-holes? or ;'''
+old = ''': lfc-reached? ( -- flag ) lfa-front-made? ;'''
 new = ''': lfc-reached? ( -- flag ) lfa-kernel-form? 0= ;'''
 test = "$GFORTH tests/front/handover.fs"
 reason = "FE1f: a text that turns to the kernel form after a natural declaration is written whole, so the elaborator's unused hole refuses its records"
@@ -11364,4 +11364,58 @@ old = ''': lfx-expr-of ( term -- n ) dup lfx-node? if lfx-expr# else drop -1 the
 new = ''': lfx-expr-of ( term -- n ) lfx-expr# ;'''
 test = "$GFORTH tests/front/handover.fs"
 reason = "review fe1f M1: a declaration's value -1 is written as the number read outside the writer's table"
+quick = true
+
+[[fault]]
+id = "fe-front-made-unset"
+file = "src/front/handover.fs"
+old = '''  drop lfa-front-made! ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f L3: a handed-over declaration does not mark the run, so its text is written whole and the elaborator's unused hole refuses its records"
+quick = true
+
+[[fault]]
+id = "fe-root-theorems-only"
+file = "src/author/export.fs"
+old = '''  dup lfa-decl-kind lf-decl-stub < 0= if drop exit then'''
+new = '''  dup lfa-decl-kind lf-decl-theorem <> if drop exit then'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f L1: an axiom's or definition's terms are no roots, so the reached writer leaves them out"
+quick = true
+
+[[fault]]
+id = "fe-reached-all-levels"
+file = "src/author/export.fs"
+old = '''  lfx-reaching? if lf-level-reached? else drop true then ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f L1: the reached writer writes every level, an unused level hole among them"
+quick = true
+
+[[fault]]
+id = "fe-reach-write-leak"
+file = "src/author/export.fs"
+old = '''  lf-reach-close ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f L1: the reached writer keeps its reach tables' heap blocks"
+quick = true
+
+[[fault]]
+id = "fe-lfn-fresh-no-mctx-reset"
+file = "src/front/reader.fs"
+old = '''  syn-reset lf-mctx-reset -1 lfn-decl lfn-decl-statement ! -1 lfn-decl lfn-decl-by !'''
+new = '''  syn-reset -1 lfn-decl lfn-decl-statement ! -1 lfn-decl lfn-decl-by !'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f L1: a declaration's metavariables stay live into the next declaration"
+quick = true
+
+[[fault]]
+id = "fe-notes-end-unset"
+file = "src/author/declarations.fs"
+old = '''  lfa-notes-end lfa-publish lfa-current lfa-current-entries @ lfa-entries-cut'''
+new = '''  lfa-publish lfa-current lfa-current-entries @ lfa-entries-cut'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f L2: a declaration's notes end is never set"
 quick = true
