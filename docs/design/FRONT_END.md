@@ -693,7 +693,9 @@ five times LeanForth today.
   ```
 
   Its term is the one shown in §2.1; FE1's term must equal it node for
-  node, binder names `n a` included.
+  node, binder names `n a` included (Lean stores them with macro scopes,
+  `n._@…_hyg.15`; they are compared with the scopes erased,
+  [FE1G_TACTICS.md](FE1G_TACTICS.md) §2.3).
 
 ### 8.2 What FE1 needs, and nothing more
 
@@ -708,7 +710,7 @@ FE1 reaches; every other case answers *unsupported* with its token.
 | FE1d | Elaboration data, first slice: pinned Lean writes instances, default instances, reducibility and `induction_eliminator` for an export; LeanForth reads and validates it; `--elab-data FILE` and the manifest's entry | — (new Lean exporter) |
 | FE1e | Application elaboration with implicit and instance arguments and expected-type propagation; numerals with the default instance; `binop%`/`binrel%` trees for `+` and `=`; instance synthesis (tabled resolution for `HAdd Nat Nat ?γ`, `Add Nat`, `OfNat Nat 0`); the synthetic-metavariable rounds | parts of `App.lean`, `Extra.lean`, `BuiltinTerm.lean`, `SynthInstance.lean`, `SyntheticMVars.lean` |
 | FE1f | Declaration: header elaboration, universe parameters, `:= by` opens the proof state, the finished term instantiated and sent as export records to the kernel | parts of `MutualDef.lean`, `Term.lean` |
-| FE1g | Proof state and tactics: goals, `.goals`, `by-induction` (eliminator from the elaboration data, motive, one goal per minor premise with its tag), `by-case: … =>`, `by-rfl` (`Eq.refl` at default transparency), `by-exact` | parts of `Elab/Tactic/Basic.lean`, `Induction.lean`, `Meta/Tactic/Induction.lean`, `ElimInfo.lean`, `Rfl.lean` |
+| FE1g | Proof state and tactics: goals, `.goals`, `by-induction` (eliminator from the elaboration data, motive, one goal per minor premise with its tag), `by-case: … =>`, `by-rfl` (`Eq.refl` at default transparency), `by-exact`; designed in detail in [FE1G_TACTICS.md](FE1G_TACTICS.md) (also alternatives, `by-intro:` and `by-rw[ … ]`) | parts of `Elab/Tactic/Basic.lean`, `Induction.lean`, `Meta/Tactic/Induction.lean`, `ElimInfo.lean`, `Rfl.lean` |
 | FE1h | Tests of every class below, planted faults, the user page in three forms, the done-checker run | — |
 
 Size: L, eight S–M steps; *speculative* 4,000 to 7,000 lines of Forth

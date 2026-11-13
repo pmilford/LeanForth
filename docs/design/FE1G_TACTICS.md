@@ -63,7 +63,7 @@ to; Init/Tactics.lean line 632):
 | `induction n with` | `⊢ 0 + n = n` | eliminator `Nat.recAux` (attribute `induction_eliminator`, Init/Data/Nat/Basic.lean line 37); level `?u`, motive `?motive : Nat → Sort ?u`; `?zero : ?motive 0` tagged `zero`; `?succ : (n : Nat) → ?motive n → ?motive (n + 1)` tagged `succ`; `?motive := fun n => 0 + n = n`, so `?u := 0`; `?g := @Nat.recAux.{?u} ?motive ?zero ?succ n` | `case zero ⊢ 0 + 0 = 0`; `case succ k : Nat, ih : 0 + k = k ⊢ 0 + (k + 1) = k + 1` (both with `n` cleared) |
 | `\| zero => rfl` | `case zero ⊢ 0 + 0 = 0` | `0 + 0` and `0` are definitionally equal (default transparency): `@Eq.refl.{1} Nat (0 + 0)` | none in this case |
 | `\| succ k ih =>` | the `succ` goal | `introN 2 [k, ih]`: `?succ := fun k ih => ?s k ih` with `?s` delayed-assigned to the new goal over `k ih` | `k : Nat, ih : 0 + k = k ⊢ 0 + (k + 1) = k + 1` |
-| `rewrite [Nat.add_succ]` | as above | `Nat.add_succ : ∀ (n m : Nat), n + Nat.succ m = Nat.succ (n + m)`; new `?n ?m`; `kabstract` finds `0 + (k + 1)` (`?n := 0`, `?m := k`, by the `Nat` offset rule) but not `k + 1`; motive `fun _a => _a = k + 1`; old goal `:= Eq.mpr (id (congrArg motive (Nat.add_succ 0 k))) ?r1` | `⊢ (0 + k).succ = k + 1` |
+| `rewrite [Nat.add_succ]` | as above | `Nat.add_succ : ∀ (n m : Nat), n + Nat.succ m = Nat.succ (n + m)`; new `?n ?m`; `kabstract` at reducible transparency finds `0 + (k + 1)` (`?n := 0`, `?m := k`, by the `Nat` offset rule) but not `k + 1`; motive `fun _a => _a = k + 1`; old goal `:= Eq.mpr (id (congrArg motive (Nat.add_succ 0 k))) ?r1` | `⊢ (0 + k).succ = k + 1` |
 | `rewrite [ih]` | as above | finds `0 + k`; motive `fun _a => Nat.succ _a = k + 1` | `⊢ k.succ = k + 1` |
 | `with_reducible rfl` (inside `try`) | as above | `Nat.succ k` and `k + 1` equal at reducible transparency (offsets): `@Eq.refl.{1} Nat (Nat.succ k)` | none |
 
@@ -154,6 +154,13 @@ gives such hypotheses the erased name and marks them inaccessible (printed
 | `theorem t3 (p : Prop) : p → p := by intro h; exact h` | `p : Prop ⊢ p → p` → `p : Prop, h : p ⊢ p` → none | `fun (p : Prop) (h : p) => h` |
 | `theorem t4 (n : Nat) : 0 + n = n := by exact Nat.zero_add n` | `n : Nat ⊢ 0 + n = n` → none | `fun (n : Nat) => Nat.zero_add n` |
 
+Two more rewrites, for the occurrence rules of `kabstract` (§5.6):
+
+| Lean | Motive in the term | Closed by |
+| --- | --- | --- |
+| `theorem t6 (k : Nat) (ih : 0 + k = k) : (0 + k) + (0 + k) = k + k := by rw [ih]` | `fun (_a : Nat) => _a + _a = k + k` (both occurrences) | `@Eq.refl.{1} Nat (k + k)` |
+| `theorem t7 (a b : Nat) (h : a = b) : a + a = b + b := by rw [h]` | `fun (_a : Nat) => _a + _a = b + b` (the side is a free variable: every syntactic occurrence, no unification) | `@Eq.refl.{1} Nat (b + b)` |
+
 How `rfl` ran in t2 (`set_option trace.Elab.step true`): the `rfl` syntax
 has four macro rules, tried newest first (Lean's `getEntries` lists the
 most recent first; `evalTactic`'s `expandEval` tries them in that order,
@@ -197,7 +204,8 @@ above): `p1.lean` (the five terms with `set_option pp.all true` and
 `#print`), `p2.lean` (`trace_state` between steps and the wrong proofs),
 `p3.lean` (`trace.Elab.step` and `trace.Elab.tactic.backtrack` for `rfl`),
 `p4.lean` (`import Lean` and a `#eval` printing `repr` of the stored values,
-for §2.3). Each was run as
+for §2.3), `p5.lean` (t6, t7, `decide` and `omega`, for §2.4 and §7). Each
+was run as
 
 ```sh
 bash -c 'ulimit -u 500; timeout -k 5 120 nice -n 10 \
@@ -256,6 +264,11 @@ theorem self_imp    Prop explicit: p  p p ->      := by  by-intro: h  h by-exact
 theorem zero_add_ex Nat explicit: n   0 n + n =   := by  n Nat.zero_add by-exact   end zero_add_ex
 ```
 
+(`self_imp` needs `Prop` and `->` in natural form, which FE1a left for
+later (plan FE2); no statement FE1a can read has a Π to introduce. Until
+they exist, FE1g-4 tests `by-intro:` in Forth unit tests on goals built
+directly, and `self_imp` joins the file when FE2's words land.)
+
 Read aloud, `n by-induction-with | zero => by-rfl | succ k ih => by-rw[
 ' Nat.add_succ ih ] by-end` is "by induction on $n$: in the case zero, by
 computation; in the case succ with $k$ and the hypothesis `ih`, by
@@ -291,13 +304,19 @@ Rules:
 - **Blocks.** `by-induction-with … by-end` and `by-case: … by-end` are
   blocks, like Forth's `CASE … ENDCASE`; blocks nest, and every block ends
   with `by-end` (question 1). `end NAME` with a block open is an error.
-  Where a block's text must be read again or skipped (an alternative
+  `by-induction-with` first scans its block's text (up to the matching
+  `by-end`, skipping nested blocks) for its alternatives' headers `| TAG
+  NAMES… =>`, so that their names are checked before any alternative runs,
+  as Lean's `checkAltNames` does (§2.5). Where a block's text must be read
+  again or skipped (an alternative
   that applies to several goals later, `by-first`, `by-try`, `<;>` in
   FE5), the block's source span is kept and run again with the text runner
   (`lib/text-run.fs`), as Lean elaborates the same syntax again.
 - **Term arguments come from the stack.** `by-exact` takes one value;
   `by-rw[` marks the stack depth and `]` takes every value built since,
-  in order, as the rules; `←` after a rule (`' Nat.add_comm ←`) marks it
+  in order, as the rules (each value is syntax; `]` elaborates the first
+  rule, rewrites with it, then elaborates the next, as Lean's
+  `withRWRulesSeq` does); `←` after a rule (`' Nat.add_comm ←`) marks it
   right-to-left (FE5; unsupported in FE1). A tactic word that finds the
   wrong number of values is a malformed-input error. A rule that is a
   theorem is written with `'` (`' Nat.add_succ`), as Lean writes the bare
@@ -328,8 +347,26 @@ One context record (ADR 0009), `pst`, holds:
 **Goals** are FE1b's term metavariables of kind *synthetic opaque*.
 FE1g adds to each metavariable record of `front/mvars.fs` a **tag** (a name
 ID, Lean's `MetavarDecl.userName`, set by `induction` to `zero`, `succ`,
-cleared by `case`) and a per-hypothesis **inaccessible** flag on the
-free variables a tactic introduces without a user name.
+cleared by `case`).
+
+**Each goal has its own local context.** In Lean every metavariable
+carries a `LocalContext`, and tactics change it per goal: `induction`
+clears the target `n` from both cases' goals (`tryClear`), `introN` adds
+different hypotheses in different cases, `case` renames hypotheses in one
+goal only. The names matter for the term, not only for display:
+`mkLambdaFVars` takes each binder's name from the goal's local context
+(the motive's `fun n =>`, the alternatives' `fun k ih =>`). FE1b's model,
+"a metavariable sees the first *count* free variables of the one
+growing local context", cannot express a cleared or renamed hypothesis.
+FE1g-1 therefore replaces `mvd-lctx` (a count) by a **context view**: an
+ordered run of entries (free variable, user name, binder kind,
+inaccessible flag) in an append-only heap store, shared by goals until one
+changes it (a change appends a new run). The free variables' types and
+values stay in `core/local-context.fs`, which keeps neither names nor
+binder kinds; the view adds them, as Lean's `LocalDecl` has them. FE1c's
+assignment check (Lean's `checkAssignment`: a value may only use free
+variables of the metavariable's context) asks the view; this is a change
+to FE1b's interface that FE1c must use, to be agreed before either lands.
 
 **The goal list** is a list of metavariable leaves. It lives in an
 append-only heap store of cells (`lib/store.fs`); a list is a pair (start,
@@ -434,7 +471,8 @@ when FE1g-1 lands, after FE1e's):
 | `lfa-e-tac-not-inductive` | `Tactic \`induction\` failed: major premise type is not an inductive type …` | invalid |
 | `lfa-e-tac-alt-name` | `Invalid alternative name …` / `Duplicate alternative name …` / `Missing alternative name …` | invalid |
 | `lfa-e-tac-alt-missing` | `Alternative … has not been provided` | invalid |
-| `lfa-e-tac-alt-names` | `Too many variable names provided at alternative …` | invalid |
+| `lfa-e-tac-alt-names` | `Too many variable names provided at alternative …` (alternatives) / `too many variable names provided` (`case`) | invalid |
+| `lfa-e-tac-unassigned` | `don't know how to synthesize …` (`exact` left a new metavariable unassigned) | invalid |
 | `lfa-e-tac-case-tag` | `Case tag … not found.` | invalid |
 | `lfa-e-tac-no-pattern` | `Tactic \`rewrite\` failed: Did not find an occurrence of the pattern …` | invalid |
 | `lfa-e-tac-motive` | `motive is not type correct` / `Motive is dependent` (`rewrite`) | invalid |
@@ -503,18 +541,22 @@ assignment; on other relations it uses `@[refl]` lemmas.
 
 FE1 subset: when the goal's type, instantiated, has the constant `Eq` at
 its head with three arguments, alternatives (1) and (2) fail without a
-trace (unifying `Iff ?a ?a` or `HEq ?a ?b ?a ?b`... with an `Eq`
+trace (unifying `Iff ?a ?a` or `@HEq ?α ?a ?α ?a` with an `Eq`
 application: three different inductive types, nothing unfolds, so
 `isDefEq` is false at every transparency and their state is restored), so
 FE1g runs (3) directly and, if its `isDefEq` is false, reports (4)'s error
 `lfa-e-tac-rfl` (the same `isDefEq` test fails). Unsupported: a goal
 whose head is anything but `Eq` (`HEq`, `Iff`, a relation with `@[refl]`
 lemmas, a definition that unfolds to one): FE5 ports `exact` of
-`Iff.rfl`/`HEq.rfl` and the `@[refl]` table from the elaboration data. A
-planted fault (§8) checks that skipping (1) and (2) never changes a term.
+`Iff.rfl`/`HEq.rfl` and the `@[refl]` table from the elaboration data. The
+comparisons of §8 check every `rfl` of the acceptance files against Lean;
+the fault `fe-rfl-non-eq` (§8.3) checks the unsupported answer.
 
 ### 5.4 `by-induction`, `by-induction-with` (Lean `induction t [with …]`; `Elab/Tactic/Induction.lean` `evalInduction`, `evalInductionCore`, `ElimApp.mkElimApp`, `setMotiveArg`, `evalAlts`; `Meta/Tactic/ElimInfo.lean`)
 
+The `induction` tactic of Lean 4.35.0 does not go through
+`Meta/Tactic/Induction.lean`'s `MVarId.induction` (an older,
+recursor-only procedure); it builds the eliminator application itself.
 Algorithm, for one target without `using` and `generalizing`:
 
 1. **Target.** Elaborate `t` (FE1e, no expected type). If it is not a free
@@ -578,12 +620,17 @@ equations (only `cases` makes them). The term must equal Lean's
 
 Algorithm: find a goal whose tag, macro scopes erased, *is* the given tag;
 else one whose tag ends with it; else one whose tag begins with it (else
-"Case tag … not found."). Rename its last inaccessible hypotheses, newest
-last, with the given names (`_` keeps one inaccessible); more names than
-inaccessible hypotheses is an error. Clear the goal's tag; run the block
-with only that goal (`closeUsingOrAdmit`: it must be closed at `by-end`);
-the other goals stay as they were. Renaming changes the local context's
-display names only, not the binder names already in the term (§2.2).
+"Case tag … not found."). Rename (`Elab/Tactic/RenameInaccessibles.lean`):
+walk the goal's local context from the newest hypothesis back; each one
+that is inaccessible (made by a tactic without a user name) or shadowed (a
+newer hypothesis has its name) takes the *last* remaining given name (`_`
+leaves it as it is) until the names run out; names left over are the
+error "too many variable names provided" (Lean logs it and goes on;
+LeanForth stops). The renamed context goes to a new goal assigned to the
+old one. Clear the goal's tag; run the block with only that goal
+(`closeUsingOrAdmit`: it must be closed at `by-end`); the other goals stay
+as they were. Renaming changes the local context's display names only,
+not the binder names already in the term (§2.2).
 
 FE1 subset: one tag per `by-case:` (Lean's `case a | b =>` is
 unsupported), the three tag searches, renaming. The binder names stay
@@ -603,14 +650,21 @@ rfl)`. `rewrite` takes the rules in order; for each:
    synthetic for instance binders); the conclusion must be `@Eq α lhs
    rhs` (or `Iff`, made an equation with `propext`: unsupported in FE1).
    `lhs` may not be a metavariable application.
-3. **kabstract** the instantiated goal type `e` over `lhs`, with the
-   rewrite's transparency (*instances*): visit `e` left to right
-   (application: function, then argument; binders: domain, then body with
-   one more bound variable); a subterm with no loose bound variables whose
-   head symbol and number of arguments equal the pattern's is tested with
-   `isDefEq`; on success (which may assign the rule's metavariables) it
-   becomes the bound variable of its depth; no occurrence is the error
-   "Did not find an occurrence of the pattern".
+3. **kabstract** the instantiated goal type `e` over `lhs`, under the
+   rewrite's configuration (`Rewrite.Config`, Init/Meta/Defs.lean line
+   1729: transparency *reducible*, offset constraints on, all
+   occurrences). If `lhs` is a free variable, every syntactic occurrence is
+   abstracted, with no unification (t7 of §2.4). Otherwise visit `e` in
+   pre-order, left to right (a node is tested before its children; an
+   application's function before its argument; a binder's domain before its
+   body, which has one more bound variable): a node with loose bound
+   variables is not tested; a node whose head symbol and number of
+   arguments equal the pattern's is tested with `isDefEq` against the
+   pattern (instantiated by earlier matches); a match (which may assign the
+   rule's metavariables) becomes the bound variable of its depth and its
+   children are not visited; otherwise its children are. Every match is
+   abstracted (t6 of §2.4). No match is the error "Did not find an
+   occurrence of the pattern".
 4. **The motive** `fun (_a : α) => eAbst` must type-check (Lean's
    `Meta.check`; else "motive is not type correct") and its body's type
    must equal `e`'s type with `_a` free (else "Motive is dependent").
@@ -631,9 +685,9 @@ right, at the goal (no `at h`), with all their metavariables assigned by
 `kabstract`, `Eq` conclusions. Unsupported: `←`, `at`, `Iff` rules,
 definitions (equation lemmas), rules leaving new goals, `occs` and other
 configuration, and any `isDefEq` step FE1c answers unsupported. FE1c must
-supply `isDefEq` at the *instances* and *reducible* transparencies with
-Lean's `Nat` offset rule (§2.1 needs `k + 1 =?= Nat.succ ?m` and
-`Nat.succ k =?= k + 1`) and `Meta.check` of the motive (its type
+supply `isDefEq` at the *reducible* transparency (as well as default, for
+`rfl`) with Lean's `Nat` offset rule (§2.1 needs `k + 1 =?= Nat.succ ?m`
+and `Nat.succ k =?= k + 1`), and `Meta.check` of the motive (its type
 inference).
 
 ### 5.7 `.goals` (Lean `trace_state`)
@@ -672,10 +726,17 @@ only steps that took effect remain):
 writes, per declaration, one header line and one line per step:
 
 ```json
-{"tactic_steps":{"format":"leanforth-tactic-steps","format_version":1,"declaration":"zero_add''","steps":5}}
-{"step":1,"parent":0,"tactic":"induction","rule":"induction","eliminator":"Nat.recAux","target":"n","goal_before":{"tag":null,"hyps":[["n","Nat"]],"target":"0 + n = n"},"goals_after":[{"tag":"zero","hyps":[],"target":"0 + 0 = 0"},{"tag":"succ","hyps":[["k","Nat"],["ih","0 + k = k"]],"target":"0 + (k + 1) = k + 1"}],"refs":["Nat.recAux"],"source":"9:5"}
-{"step":3,"parent":1,"tactic":"rewrite","rule":"rewrite","statement":"n + Nat.succ m = Nat.succ (n + m)","direction":"ltr","location":[1],"goal_before":{"tag":"succ","target":"0 + (k + 1) = k + 1"},"goals_after":[{"tag":"succ","target":"(0 + k).succ = k + 1"}],"refs":["Nat.add_succ"],"source":"11:19"}
+{"tactic_steps":{"format":"leanforth-tactic-steps","format_version":1,"declaration":"zero_add''","steps":7}}
+{"step":1,"parent":0,"tactic":"induction","rule":"induction","eliminator":"Nat.recAux","target":"n","goal_before":{"tag":null,"hyps":[["n","Nat"]],"target":"0 + n = n"},"goals_after":[{"tag":"zero","hyps":[],"target":"0 + 0 = 0"},{"tag":"succ","hyps":[],"target":"∀ (n : Nat), 0 + n = n → 0 + (n + 1) = n + 1"}],"refs":["Nat.recAux"],"source":"9:5"}
+{"step":4,"parent":1,"tactic":"alternative","rule":"case-split","case":"succ","names":["k","ih"],"goal_before":{"tag":"succ","hyps":[],"target":"∀ (n : Nat), 0 + n = n → 0 + (n + 1) = n + 1"},"goals_after":[{"tag":"succ","hyps":[["k","Nat"],["ih","0 + k = k"]],"target":"0 + (k + 1) = k + 1"}],"refs":[],"source":"11:3"}
+{"step":5,"parent":4,"tactic":"rewrite","rule":"rewrite","statement":"n + Nat.succ m = Nat.succ (n + m)","direction":"ltr","location":[1],"goal_before":{"tag":"succ","target":"0 + (k + 1) = k + 1"},"goals_after":[{"tag":"succ","target":"(0 + k).succ = k + 1"}],"refs":["Nat.add_succ"],"source":"11:26"}
 ```
+
+(Steps 2 and 3 are the `zero` alternative and its `rfl`; 6 and 7 the
+rewrite with `ih` and the closing `rfl`. With `with`, the cases' fields are
+introduced by each alternative, a step of rule `case-split`; without it,
+the induction step's own `goals_after` already hold them with inaccessible
+names, and a `by-case:` step records the renaming.)
 
 Terms appear in Lean's notation (the printer's Unicode form) and, under
 `"kernel"`, in kernel form for tools. The JSON Schema
@@ -724,18 +785,23 @@ statements proved or refused) and a kernel-accepted term; identical terms
 measured, not required. They plug into this framework as ordinary tactic
 words:
 
-- **`by-decide`** (Lean `decide`, `Elab/Tactic/ElabTerm.lean` `evalDecide`
-  and `Meta`'s `Decidable` handling): elaborate `Decidable p` for the goal
-  `p` by instance synthesis (FE3's tabled resolution; FE1i needs at least
-  the instances of `Nat`'s `=`, `≤`, `<`, `∧`, `¬`), evaluate
-  `Decidable.decide p` with the front end's `whnf` at default transparency
-  with the `Nat` literal arithmetic (FE1c's `reduceNat?`, `lib/bignum.fs`)
-  to `true`; then close the goal with Lean's term `of_decide_eq_true
-  (Eq.refl true)` (the kernel re-does the computation). `false` gives
-  Lean's error ("decide failed … evaluates to false"); a stuck evaluation
-  gives Lean's "failed to reduce to true/false". Needs: `whnf` with delta
-  and `Nat` literals (FE1c), instance synthesis (FE1e), and this
-  framework's goal and error handling.
+- **`by-decide`** (Lean `decide`, `Elab/Tactic/Decide.lean`
+  `evalDecideCore`, `doElab`): through `closeMainGoalUsing` (§5.2), the
+  goal's type `p`, instantiated and zeta-reduced, must contain no
+  metavariable and no free variable (Lean: "Expected type must not contain
+  free variables", observed for `n + 1 = n`); synthesize `Decidable p`
+  (instance synthesis, FE1e/FE3; FE1i needs at least the instances of
+  `Nat`'s `=`, `≤`, `<`, `∧`, `¬`); put `Decidable.decide p inst` in weak
+  head normal form at (at least) default transparency with the `Nat`
+  literal arithmetic (FE1c's `whnf`, `lib/bignum.fs`); if the result is
+  `true`, the goal `:= @of_decide_eq_true p inst (@id.{0} (@Eq.{1} Bool
+  (@Decidable.decide p inst) true) (@Eq.refl.{1} Bool true))` (observed
+  for `2 + 2 = 4`); the kernel then re-does the computation. Otherwise
+  Lean's diagnosis (evaluates to `false`, or failed to reduce, naming the
+  stuck subterm). The `+kernel`, `+native` and `+revert` options are
+  unsupported (`+native` permanently: `Lean.ofReduceBool`). Only the
+  outcome is required (plan FE1i); the term, which this recipe should make
+  identical, is compared and the result reported.
 - **`by-omega`** (Lean `omega`, `Elab/Tactic/Omega/`): a port of Lean's
   algorithm (facts collected from hypotheses and the negated goal,
   linear combinations over `Int`, the omega decision procedure, the proof
@@ -743,11 +809,28 @@ words:
   linear arithmetic with `+`, numerals, `=`, `≤`, `<`. It works on the
   goal through this framework (`falseOrByContra`, `intro` of the negation,
   `exact` of the found contradiction), so it records steps like any
-  tactic (rule `omega`, explained as "by linear arithmetic").
+  tactic (rule `omega`, explained as "by linear arithmetic"). Pinned Lean
+  proves `n + m = m + n` by `omega` and refuses `n + 1 = n` with "omega
+  could not prove the goal: a possible counterexample may satisfy the
+  constraints …"; FE1i refuses with the same kind of error (the
+  counterexample text is measured, not required).
 - Both are words of the tactic vocabulary, take no arguments in FE1i,
   and answer unsupported for anything outside their slice. Their terms are
   compared with Lean's and the comparison reported, but only the outcome
   is required.
+
+**What FE9's `simp` will need from this framework** (noted only;
+`Elab/Tactic/Simp.lean`, `Meta/Tactic/Simp/Main.lean` `simpTargetCore`,
+`Meta/Tactic/Simp/Types.lean` `applySimpResultToTarget`): `simp` rewrites
+the goal's instantiated target to a new expression with a proof of their
+equality and then uses the same `replaceTargetEq` as `rw` (§5.6), or
+`replaceTargetDefEq` when no proof is needed, or closes the goal with
+`of_eq_true` when the result is `True`. So FE9 reuses the goal list,
+saved states, errors and step log unchanged and adds the simplifier
+itself (simp sets from the elaboration data, discrimination trees of FE3,
+congruence, simprocs); its step record lists the lemmas used (Lean's
+`usedSimps`), which is what an explanation "by simplification with …"
+needs.
 
 ## 8. Tests
 
@@ -772,7 +855,8 @@ must see it refused.
 
 ### 8.2 Coverage classes ([TEST_COVERAGE_REVIEW.md](../development/TEST_COVERAGE_REVIEW.md))
 
-1. **Pass, fail and every outcome.** Accepted: the five theorems of §2.
+1. **Pass, fail and every outcome.** Accepted: the theorems of §2 (t3
+   once natural `Prop` and `->` exist).
    Front-end failure (exit 4, nothing checked): each wrong proof of §2.5,
    with the error code and position compared with Lean's first message.
    Unsupported (exit 2 at the token): `using`, `generalizing`, `←`, `at`,
@@ -812,17 +896,23 @@ must see it refused.
 
 ### 8.3 Planted faults (`tests/mutants/faults.toml`)
 
-`fe-rfl-no-defeq` (caught by the kernel's rejection), `fe-rfl-skip-alts`
-(alternatives (1)–(2) run in the wrong order: caught by the error-message
-test), `fe-eliminator-ignored` (`Nat.rec` instead of `Nat.recAux`: caught
+`fe-rfl-no-defeq` (caught by the kernel's rejection), `fe-rfl-non-eq`
+(the `Eq` head check dropped, so an `Iff` goal reaches `eq_refl` and
+fails as invalid: caught by the unsupported test of class 1),
+`fe-eliminator-ignored` (`Nat.rec` instead of `Nat.recAux`: caught
 by the term comparison), `fe-intro-no-delay` (the old goal assigned
-without the delayed assignment: caught by the term comparison or the
-hole check), `fe-alt-names-late` (alternative names checked after running
+`fun h => ?new` without the delayed assignment, so `h` stays free in
+`?new`'s value: caught where the term meets the export's audit, which
+refuses a free variable (`core/unsupported-forms.fs`), and by the term
+comparison), `fe-alt-names-late` (alternative names checked after running
 the alternatives: caught by the first-error test of §2.5),
 `fe-case-unclosed` (a block ends with its goal open: caught by the
-unsolved-goals test), `fe-kabstract-default-transparency` (`kabstract` at
-default transparency: it also abstracts `k + 1`, changing the motive:
-caught by the term comparison), `fe-rw-no-rfl` (`rw` without its `try
+unsolved-goals test), `fe-kabstract-first-only` (only the first match
+abstracted: t6's motive becomes `fun _a => _a + (0 + k) = k + k` and its
+`rfl` fails: caught by the term comparison and the unsolved-goals test),
+`fe-kabstract-fvar-unify` (a free-variable side matched with `isDefEq`
+instead of syntactically: caught by a unit test where the two differ),
+`fe-rw-no-rfl` (`rw` without its `try
 rfl`: caught by the unsolved-goals test), `fe-mpr-instantiated-target`
 (`Eq.mpr` given the instantiated target: the same final term after
 instantiation, so *not* caught by the term test; caught by a unit test of
@@ -838,12 +928,12 @@ each with its tests and a logged Forth review.
 
 | Step | What | Needs | Size |
 | --- | --- | --- | --- |
-| FE1g-1 | Trail of the metavariable context (save, restore, commit) in `front/mvars.fs`; goal tags; inaccessible flags; the goal-list store; the proof-state record; `.goals` | FE1b (on `main`); shared with FE1c's `checkpointDefEq` | M |
+| FE1g-1 | Trail of the metavariable context (save, restore, commit) in `front/mvars.fs`; goal tags; per-goal context views (names, binder kinds, inaccessible flags) replacing `mvd-lctx`'s count; the goal-list store; the proof-state record; `.goals` | FE1b (on `main`); the trail and the views shared with FE1c (`checkpointDefEq`, `checkAssignment`): agree the interface first | M |
 | FE1g-2 | Reader words: `by-` tactic words, `by-induction-with`, `\|`, `by-case:`, `by-end`, `by-rw[ ]`, block frames on a heap stack, kept source spans, the malformed-input errors | FE1a (on `main`): can start now | S–M |
 | FE1g-3 | Runner: `:= by` opens the proof state after FE1e elaborates the statement; focus, closeUsingOrAdmit, choice points; error records with goals; fuel; `end NAME` assembles the value and calls FE1f's hand-over | FE1e, FE1f | M |
 | FE1g-4 | `by-exact`, `by-intro:`, `by-rfl` (eq_refl path, the alternatives' order and error) | FE1c (`isDefEq`, `whnf`, `inferType`), FE1e, FE1b's delayed assignments and beta step | S–M |
 | FE1g-5 | `by-induction`, `by-induction-with`, alternatives, `by-case:` (ElimInfo, mkElimApp, setMotiveArg, introN with names, tryClear, checkAltNames, findTag?, renameInaccessibles) | FE1c, FE1d (eliminator records), FE1g-4 | M |
-| FE1g-6 | `by-rewrite[ ]`, `by-rw[ ]` (kabstract, motive checks, congrArg, replaceTargetEq, `try (with_reducible rfl)`) | FE1c at instances and reducible transparency with `Nat` offsets and `Meta.check`; FE1g-4 | M |
+| FE1g-6 | `by-rewrite[ ]`, `by-rw[ ]` (kabstract, motive checks, congrArg, replaceTargetEq, `try (with_reducible rfl)`) | FE1c at reducible transparency with `Nat` offsets, and `Meta.check`; FE1g-4 | M |
 | FE1g-7 | Step log, `--steps`, `schemas/tactic-steps-1.schema.json`; the hook 8.6.12's printer reads | FE1g-3 | S |
 | FE1g-8 | `tests/front/fe1g.lean` and `.lf`, the slice with `Nat.recAux`'s eliminator record, `check_fe1g.py` (terms and goals node for node, binder names with scopes erased), the wrong-proof table, the faults of §8.3 | FE1g-1 to 7 | M |
 
@@ -875,9 +965,10 @@ cannot. FE1h (tests of all of FE1 and the done check) follows; FE1i
    proof you asked for (8.6.12: "0 + (k + 1) = (0 + k) + 1 — by the
    definition of +; = k + 1 — by the induction hypothesis") is the proof
    by rewriting of §2.1, step for step. *Recommendation: yes*, as FE1g-6
-   (size M): `rw` is one of the most used tactics (Init's own proof of a
-   neighbouring lemma is `rw [Nat.add_succ, …]`), so FE5 would need it
-   anyway, and with it FE1's demonstration is the explained proof.
+   (size M): `rw` is one of the most used tactics (`rw [` occurs about
+   7,000 times in Init's sources, a text count; Init proves a neighbouring
+   lemma with `rw [Nat.add_succ, …]`), so FE5 would need it anyway, and
+   with it FE1's demonstration is the explained proof.
 
 ## 11. Limits of this design
 
