@@ -7391,8 +7391,8 @@ reason = "FX6 L2: the reader's index maps stay allocated through the check"
 [[fault]]
 id = "ex-marks-ignore-depth"
 file = "src/core/constant-term-boundary.fs"
-old = '''  tuck @ = if cell+ @ < 0= else 2drop false then ;'''
-new = '''  tuck @ = if 2drop true else 2drop false then ;'''
+old = '''  tuck unit-stamp @ = if unit-kept @ < 0= else 2drop false then ;'''
+new = '''  tuck unit-stamp @ = if 2drop true else 2drop false then ;'''
 test = "$GFORTH tests/core/constant-term-scope.fs"
 reason = "EX: a node the scope walk checked under a binder is skipped outside it, so #0 shared there and outside passes"
 
@@ -7819,7 +7819,7 @@ reason = "S3: a child's image is read one place past it in the sorted list"
 [[fault]]
 id = "s6c-memo-no-identity"
 file = "src/core/constant-term-boundary.fs"
-old = '''  cell+ @ swap lf-term-identity if = else drop false then ;'''
+old = '''  unit-kept @ swap lf-term-identity if = else drop false then ;'''
 new = '''  2drop true ;'''
 test = "$GFORTH tests/core/constant-term-boundary.fs"
 reason = "S6C: a kept unit is taken without its identity: a rolled-back index made again passes unchecked"
@@ -9765,8 +9765,8 @@ reason = "R5 (ADR 0014 Am. 8): a spine's arguments read under the scope put in w
 [[fault]]
 id = "fxk-pairs-one-depth"
 file = "src/core/constant-term-boundary.fs"
-old = '''  cell+ @ 2 pick = if 2drop drop true else lf-pairs-seen? then ;'''
-new = '''  cell+ @ 2 pick = if 2drop drop true else 2drop drop false then ;'''
+old = '''  unit-kept @ 2 pick = if 2drop drop true else lf-pairs-seen? then ;'''
+new = '''  unit-kept @ 2 pick = if 2drop drop true else 2drop drop false then ;'''
 test = "$GFORTH tests/core/constant-term-boundary.fs"
 reason = "rvKN 1: an exact-depth walk keeps only the first depth a node was reached at, so a depth met again is walked again"
 
@@ -10590,3 +10590,35 @@ old = '''  2dup ckey-name @ swap lf-crec-name @ = >r'''
 new = '''  true >r'''
 test = "$GFORTH tests/core/constant-references.fs"
 reason = "FRI B2: a reference of another name, the rest equal, is taken as the record"
+
+[[fault]]
+id = "fri-b8-walk-once-no-skip"
+file = "src/core/constant-term-boundary.fs"
+old = '''  2 pick lf-walk-seen? if drop lf-walk-skip exit then execute ;'''
+new = '''  2 pick lf-walk-seen? drop execute ;'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "FRI B8: a node the run reached before is walked again (its fuel and its subtree's)"
+
+[[fault]]
+id = "fri-b8-mark-fields-swapped"
+file = "src/core/constant-term-boundary.fs"
+old = ''': lf-mark-set ( depth run unit -- ) tuck unit-stamp ! unit-kept ! ;'''
+new = ''': lf-mark-set ( depth run unit -- ) tuck unit-kept ! unit-stamp ! ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "FRI B8: a walk's mark keeps the depth where the run belongs, so marks are read as other runs'"
+
+[[fault]]
+id = "fri-b8-audit-mark-fields-swapped"
+file = "src/core/constant-term-boundary.fs"
+old = '''  over lf-term-identity drop rot lf-mark-at tuck unit-kept ! unit-stamp ! ;'''
+new = '''  over lf-term-identity drop rot lf-mark-at tuck unit-stamp ! unit-kept ! ;'''
+test = "$GFORTH tests/core/constant-term-boundary.fs"
+reason = "FRI B8: the audit memo keeps a node's identity as its epoch, so no node is ever held as checked"
+
+[[fault]]
+id = "fri-b8-walk-once-at-no-skip"
+file = "src/core/constant-term-boundary.fs"
+old = '''  2 pick lf-walk-seen-at? if drop lf-walk-skip exit then execute ;'''
+new = '''  2 pick lf-walk-seen-at? drop execute ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "FRI B8: a (node, depth) pair reached before is walked again"
