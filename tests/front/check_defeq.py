@@ -106,6 +106,8 @@ CASES = [
     ("eq", "u", lam(apps("u", "#0")), None),
     ("eq", lam(succ("#0")), SUCC, None),
     ("eq", lam(apps("?t", "#0")), "u", None),
+    ("eq", lam(apps("?t", "#0")), SUCC, None),
+    ("eq", lam(apps("?t", "#0")), lam(apps("u", "#0")), None),
     # Proof irrelevance.
     ("eq", "e", "c", None),
     ("eq", "e", REFL_A, None),

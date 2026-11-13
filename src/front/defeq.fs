@@ -412,10 +412,14 @@ defer de-args-post ( -- )
 
 \ ---- checkTypesAndAssign (t := ?m, s := v): the types compared at
 \ implicit transparency or above, then ?m := v.
+\ mvars.fs refuses an assignment Lean would make (the metavariable was
+\ assigned meanwhile, which checkAssignment's checks rule out):
+\ unsupported; a full store stays full.
+: de-assign-failed ( outcome -- )
+  dup outcome-invalid = if drop outcome-unsupported then de-abort ;
 : de-ct-k ( r -- )
   lf-lb-true = 0= if lf-lb-false de-return exit then
-  de-t de-s lf-mvar-assign ok? if lf-lb-true de-return else outcome-unsupported de-abort
-  then ;
+  de-t de-s lf-mvar-assign dup ok? if drop lf-lb-true de-return else de-assign-failed then ;
 : de-check-types ( -- )
   de-t de-mvar? 0= if lf-lb-false de-return exit then
   de-t lf-mvar-type 0= if outcome-invalid de-abort exit then
