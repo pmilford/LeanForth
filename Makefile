@@ -291,6 +291,7 @@ test-core:
 	$(RUN) $(GFORTH) tests/core/defeq.fs
 	$(RUN) $(GFORTH) tests/core/whnf.fs
 	$(RUN) $(GFORTH) tests/core/mixed-level-substitute.fs
+	$(RUN) $(GFORTH) tests/core/mixed-level-substitute-crowded.fs
 	$(RUN) $(GFORTH) tests/core/mixed-signature-probe.fs
 	$(RUN) $(GFORTH) tests/core/mixed-signature-lifecycle.fs
 	$(RUN) $(GFORTH) tests/core/mixed-signature-audit.fs
@@ -884,16 +885,21 @@ reference-author:
 .PHONY: test-author reference-author
 test: test-author
 
-# The front end's first steps (plan FE1a-c, ADR 0021): the natural reader's
-# syntax trees and refusals, the metavariable context, and the Meta layer's
-# level unification and instantiation; tactic proofs read (FE1g-2): their
-# records, golden, and every malformed shape, also through leanforth
-# check. Its modules load alone, printing nothing.
+# The front end's first steps (plan FE1a-c, FE1f, FE1g-2, FE6a, ADR 0021):
+# the natural reader's syntax trees and refusals, the metavariable context,
+# the Meta layer's level unification and instantiation, the hand-over of a
+# finished declaration to the kernel, the generated definitions, and
+# tactic proofs read (their records, golden, and every malformed shape,
+# also through leanforth check). Its modules load alone, printing nothing.
 test-front:
 	@for m in src/front/syntax.fs src/front/dag-walk.fs src/front/reader.fs src/front/mvars.fs \
-	  src/core/mvar-leaves.fs src/front/level-defeq.fs src/front/instantiate.fs \
+	  src/front/handover.fs src/core/mvar-leaves.fs src/core/reach.fs \
+	  src/front/level-defeq.fs src/front/instantiate.fs \
 	  src/front/level-simp.fs src/front/level-params.fs src/front/level-normalize.fs \
-	  src/front/expr-remap.fs src/front/constructions.fs src/front/tactic-syntax.fs; do \
+	  src/front/expr-remap.fs src/front/constructions.fs src/front/ctor-idx.fs \
+	  src/front/cases-several.fs \
+	  src/front/meta-env.fs src/front/meta-spine.fs src/front/whnf.fs src/front/beta-inst.fs \
+	  src/front/infer.fs src/front/tactic-syntax.fs; do \
 	  out=$$($(RUN) $(GFORTH) $$m -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
 	  if [ -n "$$out" ]; then printf '%s printed while loading:\n%s\n' "$$m" "$$out" >&2; exit 1; fi; \
 	done
@@ -901,21 +907,30 @@ test-front:
 	$(RUN) $(GFORTH) tests/front/meta.fs
 	$(RUN) $(GFORTH) tests/front/meta-heap.fs
 	$(RUN) $(GFORTH) tests/front/constructions.fs
+	@out=$$($(RUN) $(GFORTH) tests/front/handover.fs 2>&1) || \
+	  { printf '%s\n' "$$out" | tail -20 >&2; exit 1; }; echo "handover.fs: all tests passed"
+	$(RUN) $(GFORTH) tests/front/meta-env.fs
+	$(RUN) $(GFORTH) tests/front/whnf.fs
+	$(RUN) $(GFORTH) tests/front/infer.fs
 	$(RUN) $(GFORTH) tests/front/tactic-syntax.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_tactics.py
 
 # The natural reader's trees against pinned Lean's macro expansion of the
 # same statements (tests/front/operators.lean); the Meta layer's answers
 # against pinned Lean's (tests/front/check_meta.py: isLevelDefEqAux,
-# instantiate1, abstract, headBeta, instantiateLevelParams); pinned Lean
-# reproduces the tactic tests' export (tests/front/tactic-slice.ndjson).
+# instantiate1, abstract, headBeta, instantiateLevelParams;
+# tests/front/check_unfold.py: reducibility, canUnfold, getUnfoldableConst?;
+# tests/front/check_whnf.py: whnfCore, getStuckMVar?, inferType); pinned
+# Lean reproduces the tactic tests' export (tests/front/tactic-slice.ndjson).
 reference-front:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_front.py
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_meta.py
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_unfold.py
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_whnf.py
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_tactics.py --lean
 
-# Lean's generated definitions (casesOn, recOn; plan FE6) built by
-# src/front/constructions.fs for every inductive type of Init, against
+# Lean's generated definitions (casesOn, recOn, ctorIdx; plan FE6) built by
+# src/front/constructions.fs and ctor-idx.fs for every inductive type of Init, against
 # Lean's own in the same export, with pinned counts.
 reference-constructions:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/front/constructions-init.sh

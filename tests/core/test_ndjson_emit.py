@@ -56,7 +56,7 @@ NOT_EXPORTS = {
         "another exporter's and Lean version's metadata, with sparse and repeated indices "
         "(--any-lean-version): the re-exporter reads the pinned versions only",
     **{f"tests/front/{name}.elab.ndjson": "elaboration data (docs/programming/ELABORATION_DATA.md)"
-       for name in ("init-slice", "eliminators", "cut-off")},
+       for name in ("init-slice", "eliminators", "cut-off", "whnf-slice")},
 }
 SEED = 20261103
 SPELLINGS = int(os.environ.get("LF_REEXPORT_SPELLINGS", "2"))

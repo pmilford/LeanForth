@@ -125,7 +125,7 @@ create lf-mls-set-hooks /htab-hooks allot
 \ A list or set the heap cannot grow is full, recorded with its count and
 \ room.
 : lf-mls-crowded ( n -- n )
-  dup dup lf-mls-reached-cells slab-capacity lf-mls-site
+  dup lf-mls-reached-cells slab-capacity lf-mls-site
   lf-diag-work-stack-full lf-diag-note ;
 : lf-mls-list ( index -- outcome )
   lf-mls-reached @ lf-mls-reached-cells lf-cells-add
@@ -202,7 +202,7 @@ create lf-mls-set-hooks /htab-hooks allot
 : lf-mls-walk ( root -- status )
   ['] lf-mls-visit lf-mls-walker walk-run lf-mls-walker lf-mls-site lf-diag-walk ;
 : lf-mls-audit-from ( root -- status )
-  lf-mls-unseen ok-then? 0= if nip exit then lf-mls-walk lf-mls-forget ;
+  lf-mls-unseen ok-then? if lf-mls-walk lf-mls-forget then ;
 
 \ The source audit alone, as mixed-signature-audit runs it on a candidate
 \ signature: every term reachable from root and every source level against
@@ -251,7 +251,7 @@ create lf-mls-set-hooks /htab-hooks allot
 : lf-mls-arg-room ( addr count -- addr count outcome )
   dup lf-mls-arg-pairs slab-hold ;
 : lf-mls-substituted ( slot -- changed outcome )
-  lf-cref-pairs lf-mls-arg-room ok-then? 0= if nip nip false swap exit then
+  lf-cref-pairs lf-mls-arg-room ok-then? 0= if nip false swap exit then
   2dup lf-mls-args! dup ok?
   if drop lf-mls-changed? outcome-ok else nip nip false swap then ;
 : lf-mls-new-constant ( slot -- index outcome )
@@ -303,7 +303,7 @@ create lf-mls-set-hooks /htab-hooks allot
 : lf-mls-sorted ( -- ) 0 lf-mls-reached-cells slab-at lf-mls-reached @ lf-cells-sort ;
 : lf-mls-image-room ( -- outcome )
   lf-mls-reached @ lf-mls-image-cells slab-hold dup outcome-full = if
-    lf-mls-reached @ dup lf-mls-image-cells slab-capacity lf-mls-site
+    lf-mls-reached @ lf-mls-image-cells slab-capacity lf-mls-site
     lf-diag-work-stack-full lf-diag-note then ;
 : lf-mls-build ( -- outcome )
   lf-mls-image-room dup ok? 0= if exit then drop
