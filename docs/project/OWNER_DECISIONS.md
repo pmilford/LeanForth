@@ -1057,6 +1057,24 @@ Each as recommended ([FE1E_APPLICATIONS.md](../design/FE1E_APPLICATIONS.md) §8,
 3. **`by-rw` in FE1:** yes; the first native proof uses Lean's own rewrite proof, which is also the proof the
    explained-proofs output (8.6.12) describes line by line.
 
+### Kernel fixes, the kernel refactor and `sorry` (2026-11-12, late night)
+
+1. **KFIX approved [kernel]** (about 23:00): the five stack fixes on out-of-room paths of
+   src/kernel/mixed-level-substitute.fs and level-substitute.fs (B1-B5, found by the COV2 tests; in one case a valid
+   declaration could have been reported as rejected when memory ran out), and the unused `lf-whnf-ended` removed.
+   Evidence: [review](../development/forth-reviews/2026-11-12-kfix-mls.md), not blocking; the crowded test in `make
+   test`; planted faults caught. For tonight's build, after its two low follow-ups and CI.
+2. **FRK approved [kernel] on condition** that the correctness review finds nothing blocking (met:
+   [review](../development/forth-reviews/2026-11-12-refactor-frk.md), every change behaviour-identical by trace) and
+   the branch is not slower than main (the implementer's back-to-back CPU pair, pending at the time of the decision;
+   the result is recorded below when it arrives). If either fails, FRK waits for the owner.
+3. **`sorry` in LeanForth text** (amends ADR 0021 D3; [ADR 0021 Amendment 1](../adr/0021-front-end.md)): allow the
+   explicit `sorry` exactly as Lean does, reported NOT PROVED with `sorryAx` named, never counted as proved. The owner
+   added: "it needs to report the other parts of a check are good somehow for development, I almost wonder if it is
+   better for sorry to be true instead, so proof is called valid if sorry section is true". So the report says that
+   everything else was checked, that the statement holds if each open part is true, and lists each open part with its
+   statement; it never says "proved". No automatic error recovery.
+
 ### No result labels (2026-11-12, evening)
 
 The owner: "I find the constant repetition of experimental and not independently audited, one NOT PROVED not useful.

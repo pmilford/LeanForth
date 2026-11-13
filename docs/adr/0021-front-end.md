@@ -313,3 +313,23 @@ The Lean runs: `.tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean
 -DwarningAsError=true FILE.lean` (never an elan proxy) on the theorem of the
 Context with `set_option pp.explicit true` and `pp.universes true`; sizes:
 the script in [the design's appendix](../design/FRONT_END.md#appendix-measurement-commands).
+
+## Amendment 1 (2026-11-12, late night): `sorry` as in Lean, with a conditional report
+
+Approval status: proposed; the owner decided it on 2026-11-12 (late night), [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Kernel fixes, the kernel refactor and `sorry` (2026-11-12, late night)"; the code's [parser] and [format] gates are owed when it is built
+
+This replaces the first sentence of D3 ("There is no `sorry` word"); the rest of D3 stands (no error recovery: a
+failed tactic or elaboration still stops the text, and LeanForth never fills a failure with `sorryAx` by itself).
+
+- **`sorry` exactly as Lean has it.** The explicit word `sorry` (a term or a tactic, as in Lean) closes a goal with
+  `sorryAx`, as Lean 4.35.0 does. The kernel checks everything else in the declaration. The verdict is Lean's (the
+  declaration is accepted with its axioms), and LeanForth reports it **NOT PROVED**, with `sorryAx` named, as it
+  already does for exported declarations that use it; it is never counted as proved.
+- **A report for proof development** (the owner: "it needs to report the other parts of a check are good somehow for
+  development … so proof is called valid if sorry section is true"). For a declaration with open parts the report
+  says, in plain words: everything except the open parts was checked by the kernel; the statement holds **if** each
+  open part is true; and it lists each open part with its statement (the goal `sorry` closed, in the three forms),
+  its source position, and the declarations that depend on it. It never says "proved". The exact wording and the JSON
+  fields are a [format] decision when the code is built.
+- Owner's reason: their example "a theorem that has two subparts … force one to be true to check the other" is
+  Lean's own `sorry`, and LeanForth behaves exactly as Lean by default.
