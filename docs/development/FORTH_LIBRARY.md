@@ -446,7 +446,25 @@ caught.
 (`bin/leanforth check --jobs 1 --save-snapshot`, 59,349 declarations),
 counted by a temporary counter in each caller, since removed:
 
-RK-SORT-TABLE
+| Caller | Records and order | Sorts on Init | Of n: 0–1 / 2–8 / 9–32 / 33–256 / more; largest | Why the result is the one before |
+| --- | --- | --- | --- | --- |
+| `src/kernel/level-normalize.fs` `lf-lnorm-sort` (Level.normalize's arguments) | cells by `is_norm_lt`, one unit of fuel per comparison; scratch above the arguments in their stack | 24,545 | 0 / 24,524 / 21 / 0 / 0; 16 | the library's comparisons are, call for call, those of the insertion and merge sorts it replaced (same cut-over, 32), so the fuel too; only structurally equal levels tie |
+| `src/kernel/level-substitute.fs` `lf-lsubst-sorted` (the reached levels) | cells, signed; scratch from the heap above 32 | 13,021,899 | 9,983,236 / 3,035,860 / 2,803 / 0 / 0; 15 | the walk lists each node once: distinct keys have one ascending order (the heapsort it replaced was not stable, which distinct keys make irrelevant) |
+| `src/kernel/mixed-level-substitute.fs` `lf-mls-sorted` (the reached terms) | cells, signed; scratch: the images' cells, not written yet, so never full | 3,230,996 | 1,102 / 1,400,953 / 1,713,117 / 114,599 / 1,225; 2,259 | as above: the audit lists each term once |
+| `src/kernel/env-snapshot.fs` `dep-sort` (a slot's dependencies, written and merged by `env-layers.fs`) | 4-byte little-endian slot numbers, unsigned (`u32-le@` key) | 59,349 | 1,020 / 16,147 / 31,799 / 10,383 / 0; 246 | a stable sort of a total order: the unique result of the insertion sort it replaced |
+| `env-snapshot.fs` `look-sort` (a slot's lookups, when it has names beyond the input) | 8-byte (key, answer) pairs by the little-endian key, unsigned | 8 | 0 / 0 / 8 / 0 / 0; 32 | as above (the keys of a list are distinct) |
+| `env-snapshot.fs` `o-sort` (a slot's names beyond the input) | cells by `o-order`, the names' content | 8 | 0 / 0 / 8 / 0 / 0; 9 | as above: equal content is the same name |
+
+All six share the one `sort-short` cut-over; the snapshot's three share
+one sorter in the writer's record (`snap-outers`), one sort at a time,
+and the others one sorter each in their job's record. A sort above the
+cut-over that needs heap scratch the heap refuses is full: the snapshot's
+save or merge then fails full, and a level substitution is full,
+recorded as a full work stack (the insertion sorts and the heapsort they
+replaced needed no memory). On all of `Init`, checked with the branch and
+with `main` (`--jobs 2`, and `--jobs 1` with the counters), every verdict,
+every fuel count (654,719,715 in all) and the saved snapshot's bytes are
+the same.
 
 ## Keyed memo tables
 
@@ -521,7 +539,13 @@ check ran): 16 keys of two cells put and found 100,000 times with an
 
 **Callers** (counted as for the sorts above, on all of `Init`):
 
-RK-MEMO-TABLE
+| Caller | Key, value (cells) and hooks | Entries when emptied on Init: count; mean; 0–1 / 2–8 / 9–32 / 33–256 / more; largest |
+| --- | --- | --- |
+| `src/kernel/caches.fs`, the five result caches (inferred types ×2, whnf_core, whnf, unfolding) | (identity, 0) → (node, identity); check: the node still has the identity (`replace-memo.fs`'s `lf-kept-node?`); admit: the check's memory meter | 1,750,307 empties; 20.2; 1,284,190 / 136,440 / 158,586 / 143,520 / 27,571; 45,514 |
+| `caches.fs`, the two pair caches (`m_success`, `m_failure`) | (smaller, larger identity) → none; admit as above | 701,894; 9.9; 484,870 / 80,136 / 98,224 / 34,362 / 4,302; 12,844 |
+| `caches.fs`, the free-variable memo | (node, identity) → flag; admit as above | 345,757; 77.1; 187,506 / 29,688 / 47,800 / 58,830 / 21,933; 102,937 |
+| `src/kernel/replace-memo.fs` (Lean's replace cache, one per pass kind and context) | (identity, offset, stamp) → (result, identity); check as above; `memo-cut` takes a call's entries out | 228,961 empties; 186; 24,860 / 45,237 / 77,995 / 62,744 / 18,125; 469,055 (stamped entries kept up to 2^20). Per call taken out: 22,299,167 calls; 5.6; 10,297,605 / 8,065,922 / 3,158,428 / 773,321 / 3,891; 4,107 |
+| `src/import/ndjson.fs`, the index maps (one per record family) | index → ordinal (one cell each) | none: every index of `Init` is its own ordinal, so no map is made (`tests/core/ndjson.fs` makes them) |
 
 **Tests** (`tests/lib/memo.fs`, in `make test-lib`; Gforth 1.0 and 0.7.3;
 loaded under `HEX`): the public words and hidden helpers; the header's
@@ -588,7 +612,14 @@ a pop; one cell per cell queued, the slab doubling from 16; no recursion.
 random cells pushed in 0.09 s and popped in 1.1 s. `gforth` 1.0: 0.75 s;
 0.22 s and 1.9 s.
 
-**Callers**: RK-PQ-LINE
+**Callers**: `src/kernel/env-schedule.fs`, the parallel scheduler's two
+ready queues (declaration numbers, `sort-signed`), pushed and popped in
+the driving task only. On all of `Init` with `--jobs 2` (counted by a
+temporary counter, since removed): 57,919 pushes, the queue then holding
+7,049 cells on average and 17,071 at most (0–1: 45, 2–8: 179, 9–32: 293,
+33–256: 1,584, more: 55,818); the serial run (`--jobs 1`) schedules
+nothing. The scheduler's verdicts and snapshot are the serial run's, the
+same as before the change (see [Sorting](#sorting)).
 
 **Tests** (`tests/lib/pqueue.fs`, in `make test-lib`; Gforth 1.0 and 0.7.3;
 loaded under `HEX`): the public words and hidden helpers; the header's
