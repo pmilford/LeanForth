@@ -15,8 +15,10 @@ partial def pl (ms : List (LMVarId × String)) (l : Level) : String :=
   | some s => if k == 0 then s else s!"{s}+{k}"
 
 def levelCase (ms : List (LMVarId × String)) (l r : Level) : MetaM Unit := do
+  let s ← saveState
   let res ← isLevelDefEqAux l r
   let ans := if (← getPostponed).size > 0 then "postponed" else toString res
+  unless res do s.restore
   let vs ← ms.mapM fun (id, n) => do
     return s!" {n}={pl ms (← instantiateLevelMVars (mkLevelMVar id))}"
   IO.println (ans ++ String.join vs)
@@ -142,6 +144,81 @@ run_meta do
   withNewMCtxDepth do
     let ma ← mkFreshLevelMVar
     levelCase [(ma.mvarId!, "a")] ma (mkLevelMax (mkLevelParam `u) (mkLevelParam `v))
+
+run_meta do
+  withNewMCtxDepth do
+    let ma ← mkFreshLevelMVar
+    let mb ← mkFreshLevelMVar
+    levelCase [(ma.mvarId!, "a"), (mb.mvarId!, "b")] (Nat.repeat mkLevelSucc 0 Level.zero) (mkLevelMax ma mb)
+
+run_meta do
+  withNewMCtxDepth do
+    let ma ← mkFreshLevelMVar
+    levelCase [(ma.mvarId!, "a")] (Nat.repeat mkLevelSucc 0 Level.zero) (mkLevelMax ma (mkLevelParam `u))
+
+run_meta do
+  withNewMCtxDepth do
+    let ma ← mkFreshLevelMVar
+    let mb ← mkFreshLevelMVar
+    levelCase [(ma.mvarId!, "a"), (mb.mvarId!, "b")] (Nat.repeat mkLevelSucc 0 Level.zero) (mkLevelMax ma (Nat.repeat mkLevelSucc 1 mb))
+
+run_meta do
+  withNewMCtxDepth do
+    let ma ← mkFreshLevelMVar
+    levelCase [(ma.mvarId!, "a")] (Nat.repeat mkLevelSucc 0 Level.zero) (mkLevelIMax (mkLevelParam `u) ma)
+
+run_meta do
+  withNewMCtxDepth do
+    levelCase [] (mkLevelIMax (mkLevelParam `u) (Nat.repeat mkLevelSucc 0 Level.zero)) (Nat.repeat mkLevelSucc 1 Level.zero)
+
+run_meta do
+  withNewMCtxDepth do
+    levelCase [] (mkLevelMax (mkLevelParam `u) (mkLevelParam `v)) (mkLevelParam `u)
+
+run_meta do
+  withNewMCtxDepth do
+    levelCase [] (mkLevelParam `u) (mkLevelIMax (mkLevelParam `u) (mkLevelParam `u))
+
+run_meta do
+  let mr ← mkFreshLevelMVar
+  withNewMCtxDepth do
+    levelCase [(mr.mvarId!, "r")] (mkLevelMax mr (mkLevelParam `u)) (mkLevelParam `u)
+
+run_meta do
+  withNewMCtxDepth do
+    let ma ← mkFreshLevelMVar
+    levelCase [(ma.mvarId!, "a")] ma (mkLevelIMax (mkLevelParam `u) ma)
+
+run_meta do
+  withNewMCtxDepth do
+    let ma ← mkFreshLevelMVar
+    levelCase [(ma.mvarId!, "a")] (mkLevelMax (mkLevelParam `u) ma) (mkLevelMax (mkLevelParam `u) (mkLevelParam `v))
+
+run_meta do
+  withNewMCtxDepth do
+    let ma ← mkFreshLevelMVar
+    levelCase [(ma.mvarId!, "a")] (Nat.repeat mkLevelSucc 1 ma) (mkLevelMax (mkLevelParam `u) (mkLevelParam `v))
+
+run_meta do
+  withNewMCtxDepth do
+    let ma ← mkFreshLevelMVar
+    levelCase [(ma.mvarId!, "a")] (mkLevelMax (mkLevelMax ma (mkLevelParam `v)) (mkLevelParam `u)) (mkLevelMax (mkLevelParam `u) (mkLevelMax (mkLevelParam `v) (mkLevelParam `w)))
+
+run_meta do
+  withNewMCtxDepth do
+    let ma ← mkFreshLevelMVar
+    let mb ← mkFreshLevelMVar
+    levelCase [(ma.mvarId!, "a"), (mb.mvarId!, "b")] ma (mkLevelMax (Nat.repeat mkLevelSucc 1 mb) (mkLevelParam `u))
+
+run_meta do
+  withNewMCtxDepth do
+    let ma ← mkFreshLevelMVar
+    levelCase [(ma.mvarId!, "a")] ma (mkLevelMax ma (mkLevelParam `u))
+
+run_meta do
+  withNewMCtxDepth do
+    let ma ← mkFreshLevelMVar
+    levelCase [(ma.mvarId!, "a")] (Nat.repeat mkLevelSucc 1 ma) (mkLevelMax (Nat.repeat mkLevelSucc 1 (mkLevelParam `u)) (Nat.repeat mkLevelSucc 1 (mkLevelParam `v)))
 
 run_meta do
   withLocalDeclD `x (mkSort Level.zero) fun x => do

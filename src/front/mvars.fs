@@ -57,7 +57,8 @@
 \ outcome ), lf-level-mvar-live?, lf-level-mvar-value, lf-level-mvar-depth
 \ ( level -- depth ), lf-level-mvar-assign
 \ ( level value -- outcome ), lf-mvar-occurs? ( mvar term -- flag outcome ),
-\ lf-level-mvar-occurs?, lf-level-instantiate-mvars ( level -- level'
+\ lf-level-mvar-occurs?, lf-level-assignable-mvar? ( level -- flag
+\ outcome ), lf-level-stale-mvar?, lf-level-instantiate-mvars ( level -- level'
 \ outcome ), lf-instantiate-mvars ( term -- term' outcome ).
 \ State: the record mctx (with the two walk records of dag-walk.fs, whose
 \ heap blocks live only while a walk runs), the stores mv-exprs,
@@ -249,13 +250,25 @@ store-header context-record: mv-fvars
 : mvl-walk ( build -- walk )
   mctx mctx-lwalk tuck dw-build ! ['] mvl-pending over dw-pending !
   lf-level-count @ over dw-size ! ;
+\ The level walk seeks the target, or with the target -1 an assignable
+\ metavariable (Lean's isLevelMVarAssignable: live, made at the
+\ context's depth or deeper), with -2 a stale one.
+: mvl-open? ( level -- flag )
+  dup lf-level-mvar-live? if lf-level-mvar-depth lf-mctx-depth < 0= else drop false then ;
+: mvl-stale? ( level -- flag )
+  dup lf-level-mvar? if lf-level-mvar-live? 0= else drop false then ;
+: mvl-hit? ( node -- flag )
+  mv-target @ case -1 of mvl-open? endof -2 of mvl-stale? endof tuck = swap endcase ;
 : mvl-occurs-build ( node walk -- 0|1 )
-  over mv-target @ = if 2drop 1 exit then
+  over mvl-hit? if 2drop 1 exit then
   over mvl-binary? if mvl-pair-images or exit then
   over mvl-succ? if swap mvl-first swap dw-image exit then
   swap mvl-value-of if swap dw-image else drop 0 then ;
 : lf-level-mvar-occurs? ( mvar level -- flag outcome )
   swap mv-target ! ['] mvl-occurs-build mvl-walk dw-run swap 0<> swap ;
+\ Lean's hasAssignableLevelMVar; a stale metavariable anywhere.
+: lf-level-assignable-mvar? ( level -- flag outcome ) -1 swap lf-level-mvar-occurs? ;
+: lf-level-stale-mvar? ( level -- flag outcome ) -2 swap lf-level-mvar-occurs? ;
 
 \ ---- Marks, for Lean's checkpointDefEq (it saves the metavariable
 \ context and restores it when the comparison fails): while a mark is
@@ -277,7 +290,7 @@ store-header context-record: mv-fvars
   mv-note dup ok? if drop ! outcome-ok else nip nip then ;
 : mv-undo-cell ( entry -- addr )
   dup 2 rshift swap 3 and case mv-was-value of mv-decl mvd-value endof
-    mv-was-level of mvl-decl mvl-value endof  >r mv-decl mvd-pending r> endcase ;
+    mv-was-level of mvl-decl mvl-value endof  swap mv-decl mvd-pending swap endcase ;
 : mv-trail-top ( -- entry ) mv-trail dup slab-count 1- swap slab-at @ ;
 : mv-undo ( -- ) mv-trail-top mv-undo-cell -1 swap ! -1 mv-trail slab-commit ;
 : mv-unmark ( -- ) mv-marks @ 1- 0 max dup mv-marks ! 0= if mv-trail slab-clear then ;

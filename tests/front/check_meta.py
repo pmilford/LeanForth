@@ -3,17 +3,20 @@
 
 Each case below is run twice: by pinned Lean 4.35.0
 (tests/front/meta-cases.lean, which this script writes with --write and
-checks is up to date, calling Meta.isLevelDefEqAux, Expr.instantiate1,
-Expr.abstract and Expr.headBeta) and by LeanForth (tests/front/meta-cases.fs, calling
-lf-meta-level-defeq, lf-meta-instantiate1, lf-meta-abstract and
-lf-meta-head-beta on the same
-terms). Both print one line per case: the answer and every named level
-metavariable's value afterwards, or the resulting term as an S-expression.
-The lines must be equal, except that LeanForth's "unsupported" stands for
-Lean's postponed level pair, and for the cases listed as gaps (levels with
-max, which Lean normalizes and LeanForth does not port yet), where
-LeanForth must answer unsupported and Lean's answer is shown. A harness
-self-test first checks that a wrong line is told apart.
+checks is up to date, calling Meta.isLevelDefEqAux under a saved state
+restored when it answers false (as checkpointDefEq does, without
+processing postponed pairs), Expr.instantiate1, Expr.abstract,
+Expr.headBeta, mkLevelMax', mkLevelIMax', instantiateParams,
+instantiateLevelParams and Level.normalize) and by LeanForth
+(tests/front/meta-cases.fs, calling lf-meta-level-defeq and the other
+lf-meta-* words on the same levels and terms). Both print one line per
+case: the answer and every named level metavariable's value afterwards,
+or the resulting level or term as an S-expression. The lines must be
+equal, except that LeanForth's "unsupported" stands for Lean's postponed
+level pair, and for the cases listed as gaps (Lean's solveSelfMax and
+decLevel? of a max, not ported yet), where LeanForth must answer
+unsupported and Lean's answer is shown. A harness self-test first checks
+that a wrong line is told apart.
 
 Usage: LEAN=... GFORTH=... python3 tests/front/check_meta.py [--write]
 """
@@ -41,7 +44,14 @@ LEVELS = [
     ("?a+1", "v", "", False), ("0", "?a+1", "", False), ("?a", "?b", "", False),
     ("?r", "1", "r", False), ("?r", "?a", "r", False), ("?a+1", "?r", "r", False),
     ("?r+1", "?s", "rs", False), ("(max u v)", "(max u v)", "", False),
-    ("(max u v)", "(max v u)", "", True), ("?a", "(max u v)", "", True),
+    ("(max u v)", "(max v u)", "", False), ("?a", "(max u v)", "", False),
+    ("0", "(max ?a ?b)", "", False), ("0", "(max ?a u)", "", False), ("0", "(max ?a ?b+1)", "", False),
+    ("0", "(imax u ?a)", "", False), ("(imax u 0)", "1", "", False),
+    ("(max u v)", "u", "", False), ("u", "(imax u u)", "", False),
+    ("(max ?r u)", "u", "r", False), ("?a", "(imax u ?a)", "", False),
+    ("(max u ?a)", "(max u v)", "", False), ("?a+1", "(max u v)", "", False),
+    ("(max (max ?a v) u)", "(max u (max v w))", "", False), ("?a", "(max ?b+1 u)", "", False),
+    ("?a", "(max ?a u)", "", True), ("?a+1", "(max u+1 v+1)", "", True),
 ]
 
 # Universe-parameter cases: (level, names, levels, gap?) for
@@ -208,8 +218,10 @@ partial def pl (ms : List (LMVarId × String)) (l : Level) : String :=
   | some s => if k == 0 then s else s!"{s}+{k}"
 
 def levelCase (ms : List (LMVarId × String)) (l r : Level) : MetaM Unit := do
+  let s ← saveState
   let res ← isLevelDefEqAux l r
   let ans := if (← getPostponed).size > 0 then "postponed" else toString res
+  unless res do s.restore
   let vs ← ms.mapM fun (id, n) => do
     return s!" {n}={pl ms (← instantiateLevelMVars (mkLevelMVar id))}"
   IO.println (ans ++ String.join vs)

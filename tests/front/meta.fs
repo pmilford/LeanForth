@@ -96,16 +96,45 @@ T{ lout lsucc q lf-meta-level-defeq q lval ld-pred lout lfree?
 lnew constant lo  lf-mctx-deeper lnew constant ldp  lf-mctx-shallower
 T{ lo ldp lf-meta-level-defeq ldp lval lo lfree? -> true outcome-ok lo true }T
 
-\ ---- Not ported: max and imax (Lean normalizes them first).
-lf-mctx-reset lnew constant m
+\ ---- max and imax: both sides normalized first (Level.normalize), so
+\ max v u is max u v; ?m is assigned the normal form; imax u 0 is 0.
+\ (These four were unsupported before Level.normalize was ported.)
+lf-mctx-reset 100000 lf-level-capacity! drop lnew constant m
+: parts2 ( l -- a b ) dup lf-level-first@ swap lf-level-second@ ;
 T{ u v lmax u v lmax lf-meta-level-defeq -> true outcome-ok }T
-T{ u v lmax v u lmax lf-meta-level-defeq -> false outcome-unsupported }T
-T{ m u v lmax lf-meta-level-defeq m lfree? -> false outcome-unsupported true }T
-T{ u zero lf-level-imax drop one lf-meta-level-defeq -> false outcome-unsupported }T
-\ A metavariable assigned a max is instantiated, then unsupported.
+T{ u v lmax v u lmax lf-meta-level-defeq -> true outcome-ok }T
+T{ m v u lmax lf-meta-level-defeq m lval parts2 -> true outcome-ok u v }T
+T{ u zero lf-level-imax drop one lf-meta-level-defeq -> false outcome-ok }T
+\ A metavariable assigned a max is instantiated: max u v =?= u is false.
 lnew constant ln
 T{ ln u v lmax lf-level-mvar-assign ln u lf-meta-level-defeq
-   -> outcome-ok false outcome-unsupported }T
+   -> outcome-ok false outcome-ok }T
+\ 0 =?= max ?a ?b: both parts, ?a := 0 and ?b := 0. 0 =?= max ?c (?f+1)
+\ (sorted ?c first): ?c := 0, then 0 =?= ?f+1 is false and ?c's
+\ assignment is rolled back (checkpointDefEq); 0 =?= max ?c u compares u
+\ first (a parameter sorts before a metavariable): false at once.
+\ 0 =?= imax u ?d: ?d := 0.
+lnew constant ma  lnew constant mb  lnew constant mc  lnew constant md  lnew constant mf
+T{ zero ma mb lmax lf-meta-level-defeq ma lval mb lval -> true outcome-ok zero zero }T
+T{ zero mc mf lsucc lmax lf-meta-level-defeq mc lfree? mf lfree? -> false outcome-ok true true }T
+T{ zero mc u lmax lf-meta-level-defeq mc lfree? -> false outcome-ok true }T
+T{ zero u md lf-level-imax drop lf-meta-level-defeq md lval -> true outcome-ok zero }T
+\ Not ported: ?m =?= max ?m u (Lean's solveSelfMax) and succ ?m against a
+\ max (decLevel?): unsupported, nothing assigned. A stuck pair with an
+\ assignable metavariable inside a max: unsupported (Lean postpones);
+\ with none (?r read-only): false.
+lnew constant me
+T{ me me u lmax lf-meta-level-defeq me lfree? -> false outcome-unsupported true }T
+T{ me lsucc u lsucc v lsucc lmax lf-meta-level-defeq me lfree?
+   -> false outcome-unsupported true }T
+T{ u me lmax u v lmax lf-meta-level-defeq -> false outcome-unsupported }T
+lf-mctx-deeper
+T{ u me lmax u v lmax lf-meta-level-defeq -> false outcome-ok }T
+lf-mctx-shallower
+\ A stale metavariable inside a max: invalid.
+lnew constant mold
+lf-mctx-reset
+T{ u mold lmax u lf-meta-level-defeq -> false outcome-invalid }T
 
 \ ---- Malformed: a level not in the store, a stale metavariable.
 T{ 99999 u lf-meta-level-defeq u -1 lf-meta-level-defeq

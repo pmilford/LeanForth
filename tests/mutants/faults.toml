@@ -10291,34 +10291,34 @@ reason = "FE1c: a level metavariable of an outer depth is assigned inside a deep
 [[fault]]
 id = "fe-level-deeper-ignored"
 file = "src/front/level-defeq.fs"
-old = '''  2dup swap ld-deeper? if 2dup swap ld-assign else 2dup ld-assign then ;'''
-new = '''  2dup ld-assign ;'''
+old = '''  2dup swap ld-deeper? if 2dup swap ld-assign exit then'''
+new = '''  2dup swap ld-deeper? drop'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: ?o =?= ?d assigns ?o := ?d where Lean assigns the deeper ?d := ?o (isMVarWithGreaterDepth)"
 
 [[fault]]
 id = "fe-level-assigned-not-instantiated"
 file = "src/front/level-defeq.fs"
-old = ''': ld-assigned? ( l r -- flag ) ld-set? swap ld-set? or ;'''
-new = ''': ld-assigned? ( l r -- flag ) 2drop false ;'''
+old = ''': ld-fresh ( level -- level' outcome )'''
+new = ''': ld-fresh ( level -- level' outcome ) lf-meta-level-normalize exit'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: an assigned level metavariable is compared as if free (Lean instantiates first)"
 
 [[fault]]
 id = "fe-level-postponed-false"
 file = "src/front/level-defeq.fs"
-old = '''  2dup ld-open? swap ld-open? or if outcome-unsupported ld-end else ld-no then ;'''
-new = '''  ld-no ;'''
+old = '''  over lf-level-assignable-mvar? outcome-unsupported ld-when dup ld-undef? 0= if exit then'''
+new = '''  ld-no exit'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: a pair Lean postpones answers false, a guess, where it must be unsupported"
 
 [[fault]]
 id = "fe-level-max-guessed"
 file = "src/front/level-defeq.fs"
-old = ''': ld-flat? ( l r -- flag ) ld-plain? swap ld-plain? and ;'''
-new = ''': ld-flat? ( l r -- flag ) 2drop true ;'''
+old = '''  dup ls-max? if outcome-unsupported ld-end else ld-undef then ;'''
+new = '''  ld-yes ;'''
 test = "$GFORTH tests/front/meta.fs"
-reason = "FE1c: levels with max are solved without Lean's normalization: a guess where it must be unsupported"
+reason = "FE1c: ?m =?= max ?m u answers true without Lean's solveSelfMax (not ported): a guess where it must be unsupported"
 
 [[fault]]
 id = "fe-inst-no-shift"
@@ -10774,3 +10774,43 @@ old = ''': ln-ctor ( level -- n ) ln-tag dup 4 < if dup 0<> 2 and + else 3 - the
 new = ''': ln-ctor ( level -- n ) ln-tag ;'''
 test = "python3 tests/front/check_meta.py"
 reason = "FE1c Level.normalize: bases of different kinds in LeanForth's tag order, not Lean's ctorToNat (a parameter after a max)"
+
+[[fault]]
+id = "fe-ldefeq-not-normalized"
+file = "src/front/level-defeq.fs"
+old = '''  lf-level-instantiate-mvars dup ok? if drop lf-meta-level-normalize then ;'''
+new = '''  lf-level-instantiate-mvars ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: level unification compares max v u with max u v unnormalized and answers false, where Lean's isLevelDefEqAux normalizes both sides and answers true"
+
+[[fault]]
+id = "fe-ldefeq-false-kept"
+file = "src/front/level-defeq.fs"
+old = '''  >r 2dup ok? and if r> lf-mctx-commit else r> lf-mctx-rollback then ;'''
+new = '''  >r r> lf-mctx-commit ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: a false level unification (0 =?= max ?c (?f+1)) keeps ?c := 0, which Lean's checkpointDefEq rolls back"
+
+[[fault]]
+id = "fe-ldefeq-conjunction-half"
+file = "src/front/level-defeq.fs"
+old = '''  2dup lf-level-second@ ld-push dup ok? 0= if ld-end exit then'''
+new = '''  outcome-ok dup ok? 0= if ld-end exit then'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: 0 =?= max ?c u compares only 0 with ?c and answers true, where Lean also needs 0 =?= u"
+
+[[fault]]
+id = "fe-ldefeq-stale-unchecked"
+file = "src/front/level-defeq.fs"
+old = '''  over lf-level-stale-mvar? outcome-invalid ld-when dup ld-undef? 0= if exit then drop'''
+new = '''  ld-undef exit'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: a stale level metavariable inside a max is compared (false) instead of refused (invalid)"
+
+[[fault]]
+id = "fe-level-open-read-only"
+file = "src/front/mvars.fs"
+old = '''  dup lf-level-mvar-live? if lf-level-mvar-depth lf-mctx-depth < 0= else drop false then ;'''
+new = '''  lf-level-mvar-live? ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: hasAssignableLevelMVar counts a read-only metavariable, so a pair Lean answers false is postponed (unsupported)"
