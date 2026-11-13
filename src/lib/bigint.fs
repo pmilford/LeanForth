@@ -64,8 +64,8 @@
 \   create ar /big-arena allot   65536 allocate throw 65536 ar big-arena-init
 \   ar big-mark constant start
 \   s" -12" ar decimal>bigint drop   s" 7" ar decimal>bigint drop
-\   2dup ar bigint-ediv drop ar bigint>decimal drop type     \ -2
-\   ar bigint-emod drop ar bigint>decimal drop type          \ 2
+\   2dup ar bigint-ediv drop ar bigint>decimal drop type space    \ -2
+\   ar bigint-emod drop ar bigint>decimal drop type               \ 2
 \   start ar big-release drop
 \
 \ Interface: bigint-valid? bigint-sign bigint-magnitude bigint-compare
@@ -164,9 +164,9 @@ end-structure
 : zero-fix ( i -- ) dup int-mag @ 0= if 0 swap ! else drop then ;
 \ End the build with m as the integer's magnitude, or as a natural number
 \ in the build's place; or, on failure, give back the build.
-: place ( build m -- i ) over int-mag land cell - dup zero-fix ;
+: int-land ( build m -- i ) over int-mag land cell - dup zero-fix ;
 : settle ( build m outcome -- i outcome )
-  ok-then? if place outcome-ok else given-back then ;
+  ok-then? if int-land outcome-ok else given-back then ;
 : nat-settle ( build m outcome -- big outcome )
   ok-then? if over land outcome-ok else given-back then ;
 \ Run a step xt ( build -- c outcome ) on a build that was made; or pass on
