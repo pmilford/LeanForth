@@ -11813,6 +11813,14 @@ test = "$GFORTH tests/front/tactic-syntax.fs"
 reason = "FE1g-2, review fe1g2 L1: a hypothesis read with nothing below it still leaves a doubt, so ih n by-exact (two values for certain) is 87, not the mistake 86"
 
 [[fault]]
+id = "fe-tac-doubt-kept"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-takes ( want -- ) >r lfa-above r> lft-count false lft-hyp! ;'''
+new = ''': lft-takes ( want -- ) >r lfa-above r> lft-count ;'''
+test = "$GFORTH tests/front/tactic-syntax.fs"
+reason = "FE1g-2, re-check of review fe1g2 L-1: the doubt a hypothesis leaves outlives its tactic word, so after k ih $ by-exact the mistake n n by-exact answers 87 instead of 86"
+
+[[fault]]
 id = "fe-tac-proof-after-run"
 file = "src/front/tactic-syntax.fs"
 old = ''': lft-proof? ( -- flag ) lft-open 0< 0= lfa-inside? and ;'''

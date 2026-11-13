@@ -167,7 +167,13 @@ hypothesis takes is known only once the tactic that introduces it runs
 (error 87). So `k ih by-exact` answers 87, while `ih n by-exact`, with
 `n` a variable, is a mistake (86: `ih` comes first and takes nothing
 from `n`); inside `by-rw[ ]` no doubt arises, since there every value is
-a rule. A hypothesis can be used until its
+a rule.
+
+**`k ih` reads two ways.** Inside `by-rw[ ]` it is two rules, `k` and
+`ih` (Lean's `rw [k, ih]`); outside the brackets it is one term, `ih`
+applied to `k` when `ih` takes an argument (Lean's `ih k`), as every name
+takes its explicit arguments. To rewrite with `ih` applied to `k`, write
+`by-rw[ ih k $ ]`. A hypothesis can be used until its
 block ends (a `by-intro:`'s until the end of the block it is in); one
 named like a variable hides the variable while it is in scope.
 

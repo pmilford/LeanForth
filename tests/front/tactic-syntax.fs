@@ -193,8 +193,11 @@ T{ 3 args@ nip 3 0 arg-node kind 3 1 arg-node kind -> 2 syn-k-hyp syn-k-hyp }T
 T{ s" by-intro: h h by-rfl end t" proof nfails -> 86 1 57 }T
 T{ s" by-intro: h h end t" proof nfails -> 86 1 57 }T
 T{ s" by-intro: h by-exact end t" proof nfails -> 86 1 55 }T
-\ The hypothesis flag ends with its tactic word.
+\ The doubt ends with its tactic word: after k ih $ by-exact (ih read
+\ with k below it), n n by-exact is a mistake again (review fe1g2 L-1).
 T{ s" by-intro: h h by-exact n n by-exact end t" proof nfails -> 86 1 70 }T
+T{ s" n by-induction-with | succ k ih => k ih $ by-exact n n by-exact" proof nfails
+   -> 86 1 98 }T
 
 \ ---- Hypotheses: their scope is their block (an alternative or case;
 \ by-intro:'s, the block it is in); a hypothesis newer than a variable of
