@@ -47,6 +47,8 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 import program_receipt  # noqa: E402
 import program_verify  # noqa: E402
+sys.path.insert(0, str(ROOT / "tests" / "program"))
+import verify_lean_check  # noqa: E402
 
 DRIVER = ROOT / "scripts" / "program_verify.py"
 FAKE = ROOT / "tests" / "program" / "verify" / "fake_lean.py"
@@ -280,6 +282,16 @@ class Unsupported(unittest.TestCase):
                 self.assertFalse((Path(out) / "obligations.lean").exists())
                 self.assertIn("NOT VERIFIED: unsupported: loops need invariants", text)
 
+    def test_golden_receipts(self):
+        for contract in UNSUPPORTED:
+            with self.subTest(contract), scratch() as out:
+                verify(contract, out)
+                found = verify_lean_check.normalized(
+                    (Path(out) / f"{contract}.receipt.json").read_text(encoding="utf-8"),
+                    Path(out).resolve())
+                self.assertEqual(found, (GOLDEN / f"{contract}.receipt.json").read_text(
+                    encoding="utf-8"))
+
     def test_literal_two(self):
         with scratch() as folder:
             fixture = Fixture(folder, ": w ( n -- m ) 2 + ;\n", contract_text())
@@ -320,7 +332,7 @@ class Lean(unittest.TestCase):
     def test_time_limit(self):
         for fake in ({"lean": "sleep"}, {"export": "sleep"}):
             with self.subTest(fake), scratch() as out:
-                status, text = verify("lf-clamp", out, fake, ["--lean-time-limit", "2"])
+                status, text = verify("lf-clamp", out, fake, ["--lean-time-limit", "1"])
                 self.assertEqual(status, 3, text)
                 self.assertEqual(problem_codes(text), ["lean-time-limit"])
                 receipt = receipt_at(out, "lf-clamp")
@@ -682,6 +694,17 @@ class Workflow(unittest.TestCase):
                         texts = [r[2][name].decode().replace(rel(o), "OUT")
                                  for r, o in zip(results, (first, second))]
                         self.assertEqual(texts[0], texts[1], name)
+
+    def test_invalid_receipt_never_written(self):
+        real = program_receipt.assumptions
+        without_runtime = lambda *a, **k: [x for x in real(*a, **k)  # noqa: E731
+                                           if x["kind"] != "trusted-runtime"]
+        with scratch() as out, mock.patch.object(program_receipt, "assumptions",
+                                                 without_runtime):
+            status, text = verify("lf-clamp", out)
+            self.assertEqual((status, problem_codes(text)), (5, ["internal"]), text)
+            self.assertIn("the receipt built is not valid", text)
+            self.assertIsNone(receipt_at(out, "lf-clamp"))
 
     def test_expect_note(self):
         with scratch() as folder:

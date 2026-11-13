@@ -1,6 +1,9 @@
 # `leanforth verify`: checking a Forth word against its contract
 
-**Status (2026-11-13): designed (plan 8.4.1); nothing is built.** This
+**Status (2026-11-13): designed (plan 8.4.1); step 8.4.1b, the driver
+v0 `scripts/program_verify.py`, is tested alone
+([PROGRAM_VERIFY.md](../programming/PROGRAM_VERIFY.md)); the command
+`bin/leanforth verify` (8.4.1c) is not built.** This
 document designs the program track's first user command, `leanforth
 verify WORD.fs --contract FILE`, end to end: what it reads, the steps it
 runs, what is trusted at each step, what it prints and returns, the

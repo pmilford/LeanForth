@@ -66,9 +66,12 @@ status changes when this date is older than them. Stages are those of the
 - The Forth refactoring batches of the three backlog reviews ([log](../development/forth-reviews/LOG.md), plan
   9.4.5), tests first, every verdict and fuel count identical.
 - Program track: a user command `leanforth verify` (8.4.1): designed 2026-11-13 ([design](../design/VERIFY_COMMAND.md),
-  sub-steps 8.4.1a–n, six owner questions); nothing built. Its first steps need no owner answer: the driver that runs
-  5.5.1's pipeline for any IR 0.1 word (8.4.1b), the contract reader (8.4.1g) and receipt writer (8.4.1h) in Forth. The
-  SHA-256 helper words' receipts (schema 0.4, IR 0.2, at the owner's [format] gate).
+  sub-steps 8.4.1a–n, six owner questions). The driver that runs 5.5.1's pipeline for any IR 0.1 word (8.4.1b,
+  `scripts/program_verify.py`, [PROGRAM_VERIFY.md](../programming/PROGRAM_VERIFY.md)): tested alone 2026-11-13 on
+  branch `verify-b`, every committed contract run end to end (four discharged, three refuted, two unsupported, the SHA
+  words refused as needing receipt 0.4); its [bypass] gate waits for the owner. Next without the owner: replay and
+  tampering (8.4.1d), the contract reader (8.4.1g) and receipt writer (8.4.1h) in Forth. The SHA-256 helper words'
+  receipts (schema 0.4, IR 0.2, at the owner's [format] gate).
 - A rule-by-rule audit of AGENTS.md against practice.
 - Snapshots that read the two previous format and verdict versions (6.2.5c): designed, the owner's four questions
   answered 2026-11-12 ([design](../design/SNAPSHOT_COMPATIBILITY.md), ADR 0020 Amendment 5 proposed); steps c1 to c5
@@ -594,7 +597,7 @@ tasks, not the plan's.
 | 5. Shared proof kernel | In progress (2026-11-12, plan 5.5.1, works end to end (done check docs/development/done-checks/2026-11-12-program-track.md); owner gates [bypass], [runtime] approved by the owner 2026-11-12; branch not merged): the first program fact checked by LeanForth's checker: Lean's proofs of the clamp contract and its obligations, exported with their 4,277-declaration closure, accepted by `bin/leanforth check`; exports with a changed program IR term, postcondition or proof term rejected. Lean wrote the proofs; LeanForth wrote none. |
 | 6. Forth program representation | In progress: the IR is versioned and the reader translates the example words with source locations, refusing anything outside IR 0.1; stack types, host comparison and memory remain. |
 | 7. Verification conditions | In progress: Lean references for weakest preconditions and stack depth; generator v0 (`scripts/program_vc.py`, untrusted) turns IR plus a contract into Lean obligations: clamp, checked add, checked abs and in-range discharged by Lean, three wrong contracts refuted, gcd and factorial unsupported until loop invariants (4.4.1). The clamp receipt states LeanForth's verdict on Lean's proofs (`accepted-by-leanforth`, plan 5.5.1). |
-| 8. User-facing verifier | Designed (2026-11-13, plan 8.4.1, [design](../design/VERIFY_COMMAND.md)); nothing built. |
+| 8. User-facing verifier | Designed (2026-11-13, plan 8.4.1, [design](../design/VERIFY_COMMAND.md)); its driver v0 (8.4.1b, `scripts/program_verify.py`) tested alone 2026-11-13: one word and one contract to a receipt, Lean writing the proofs and LeanForth's checker re-checking them; no `bin/leanforth verify` yet (8.4.1c). |
 | 9. Verified execution/compilation | In progress only for runtime testing; no source-to-runtime correspondence. |
 | 10. Larger executable programs | Not started. The track's destination is now most of the Forth-2012 Core word set, in five stages ([owner decision](OWNER_DECISIONS.md#program-track-goal-most-of-forth-2012-core-2026-11-02-night)). |
 

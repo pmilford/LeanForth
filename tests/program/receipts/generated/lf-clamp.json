@@ -76,7 +76,7 @@
       },
       {
         "path": "scripts/program_vc.py",
-        "sha256": "0d53fdfa2b959b6dda8eeed78e9082a811d01fb3a912186f426ba5238faa690b"
+        "sha256": "4b69a5015f660035768aebd2bf33c539a5289cfd01c575894ac8ea8bb0f21f9d"
       },
       {
         "path": "scripts/export.sh",

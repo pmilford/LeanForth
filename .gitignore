@@ -7,3 +7,5 @@ __pycache__/
 /.claude/work/
 /.claude/worktrees/
 /build/
+# leanforth verify's default output folder (scripts/program_verify.py --out)
+/verify-out/

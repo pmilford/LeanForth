@@ -336,6 +336,14 @@ schema 0.4, at the owner's [format] gate
 
 ## Running
 
+For one word and one contract, the whole pipeline (program words, this
+generator for that contract alone, pinned Lean, the export, LeanForth's
+checker, a receipt) is one command since plan 8.4.1b,
+`python3 scripts/program_verify.py SOURCE.fs --contract CONTRACT`
+([PROGRAM_VERIFY.md](PROGRAM_VERIFY.md)); it gives the generator a path
+limit and a counterexample-search limit (`program_vc.generate_parsed`).
+The pieces, one at a time:
+
 ```sh
 python3 scripts/program_vc.py --out FILE.lean --summary FILE.json CONTRACT...
 python3 tests/program/vc_check.py --write          # regenerate the committed obligations

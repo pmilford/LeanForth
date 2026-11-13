@@ -14004,3 +14004,137 @@ old = '''base @ decimal   \ the numbers below are decimal; the BASE kept here re
 new = '''base @'''
 test = "$GFORTH tests/front/goals.fs"
 reason = "FE1g-1 review L1: mvars.fs reads its numbers (16, 31) in the BASE it is loaded with"
+
+# --- leanforth verify's driver v0 (plan 8.4.1b; scripts/program_verify.py) --
+
+[[fault]]
+id = "verify-rejected-not-1"
+file = "scripts/program_verify.py"
+old = '''CHECK_PROBLEM = {"rejected": "proof-rejected", "unsupported": "proof-undecided"}'''
+new = '''CHECK_PROBLEM = {"rejected": "proof-undecided", "unsupported": "proof-undecided"}'''
+test = "python3 tests/program/test_program_verify.py Checker"
+reason = "8.4.1b: a rejected theorem is reported as undecided (exit 2), not rejected (exit 1)"
+quick = true
+
+[[fault]]
+id = "verify-contract-theorem-only"
+file = "scripts/program_verify.py"
+old = '''        status = receipts.check_status(self.leanforth, names)'''
+new = '''        status = receipts.check_status(self.leanforth, names[:1])'''
+test = "python3 tests/program/test_program_verify.py Checker"
+reason = "8.4.1b: only the contract theorem's verdict counts, so an obligation's theorem missing from LeanForth's report is treated as discharged"
+
+[[fault]]
+id = "verify-trusted-lean-dropped"
+file = "scripts/program_verify.py"
+old = '''        if not self.lean_ran():'''
+new = '''        if True:'''
+test = "python3 tests/program/test_program_verify.py Discharged"
+reason = "8.4.1b: a receipt whose proofs Lean wrote lacks the trusted-lean assumption"
+
+[[fault]]
+id = "verify-open-exit-zero"
+file = "scripts/program_verify.py"
+old = '''    "lean-failed": (2, "prove"),'''
+new = '''    "lean-failed": (0, "prove"),'''
+test = "python3 tests/program/test_program_verify.py Lean"
+reason = "8.4.1b: a run whose obligations stay open (Lean failed) exits 0, as if discharged"
+
+[[fault]]
+id = "verify-ir-not-compared"
+file = "scripts/program_verify.py"
+old = '''        if named != self.ir_text.encode("utf-8"):'''
+new = '''        if False:'''
+test = "python3 tests/program/test_program_verify.py Malformed"
+reason = "8.4.1b: the contract's ir file is not compared with the IR the program words write, so a stale IR file can stand for the source"
+quick = true
+
+[[fault]]
+id = "verify-axioms-not-compared"
+file = "scripts/program_verify.py"
+old = '''            receipts.lean_agrees(self.lean, self.leanforth, names)'''
+new = '''            pass'''
+test = "python3 tests/program/test_program_verify.py Checker"
+reason = "8.4.1b: a receipt is written when LeanForth's axioms for a theorem differ from Lean's #print axioms"
+
+[[fault]]
+id = "verify-print-back-skipped"
+file = "scripts/program_verify.py"
+old = '''            self.printed_back(output)'''
+new = '''            pass'''
+test = "python3 tests/program/test_program_verify.py Lean"
+reason = "8.4.1b: the program Lean prints back is not compared with the IR, so a wrong translation of the IR into Lean goes unnoticed"
+
+[[fault]]
+id = "verify-source-hash-skipped"
+file = "scripts/program_verify.py"
+old = '''        if file_sha(self.source) != before:'''
+new = '''        if False:'''
+test = "python3 tests/program/test_program_verify.py Malformed"
+reason = "8.4.1b: a source changed while the program words read it is not refused"
+
+[[fault]]
+id = "verify-whole-run-ignored"
+file = "scripts/program_verify.py"
+old = '''        whole = report.get("stopped") is False and report.get("run") == "ok"'''
+new = '''        whole = True'''
+test = "python3 tests/program/test_program_verify.py Checker"
+reason = "8.4.1b: a LeanForth run that stopped or did not finish counts as accepted when the theorems' verdicts read accepted"
+
+[[fault]]
+id = "verify-receipt-not-atomic"
+file = "scripts/program_verify.py"
+old = '''        with open(partial, "w", encoding="utf-8") as file:'''
+new = '''        with open(path, "w", encoding="utf-8") as file:'''
+test = "python3 tests/program/test_program_verify.py Workflow"
+reason = "8.4.1b: the receipt and evidence are written in place, so a failed write leaves a file that looks complete"
+
+[[fault]]
+id = "verify-limits-ignored"
+file = "scripts/program_verify.py"
+old = '''        limits = (self.args.paths_limit, self.args.search_limit)'''
+new = '''        limits = (None, None)'''
+test = "python3 tests/program/test_program_verify.py Limits"
+reason = "8.4.1b: the generator runs without its path and search limits"
+
+[[fault]]
+id = "verify-receipt-not-validated"
+file = "scripts/program_verify.py"
+old = '''        problems = receipts.receipt_problems(receipt)
+        if problems:'''
+new = '''        problems = receipts.receipt_problems(receipt)
+        if False:'''
+test = "python3 tests/program/test_program_verify.py Workflow"
+reason = "8.4.1b: a receipt the strict reader refuses is written"
+
+[[fault]]
+id = "verify-export-invalid-ignored"
+file = "scripts/program_verify.py"
+old = '''        if read != "ok" or done.returncode == 4 or counts is None:'''
+new = '''        if counts is None:'''
+test = "python3 tests/program/test_program_verify.py Checker"
+reason = "8.4.1b: an export LeanForth refused to read is reported as an internal fault with a receipt, not as malformed input without one"
+
+[[fault]]
+id = "verify-export-change-unseen"
+file = "scripts/program_verify.py"
+old = '''        self.unchanged(export, hashes[0])'''
+new = '''        pass'''
+test = "python3 tests/program/test_program_verify.py Lean"
+reason = "8.4.1b: an export changed while LeanForth checked it is not noticed"
+
+[[fault]]
+id = "receipt-unaccounted-declarations"
+file = "scripts/program_receipt.py"
+old = '''    return found | ({"unaccounted"} if short else set())'''
+new = '''    return found'''
+test = "python3 tests/program/test_program_verify.py Shared"
+reason = "8.4.1b: an export with fewer declarations accepted than it has reads as accepted when its theorems are"
+
+[[fault]]
+id = "receipt-calls-not-followed"
+file = "scripts/program_receipt.py"
+old = '''            if words[1] not in done:'''
+new = '''            if False:'''
+test = "python3 tests/program/test_program_verify.py Discharged"
+reason = "8.4.1b: the trusted-runtime assumption leaves out the Forth words of the words and constants a word calls"

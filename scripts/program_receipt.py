@@ -317,7 +317,8 @@ def export_verdicts(leanforth):
     counts = leanforth.get("counts", {})
     found = {VERDICT_OF_COUNT.get(key, key) for key, n in counts.items()
              if n and key not in NOT_VERDICTS}
-    return found | ({"unaccounted"} if leanforth["accepted"] != leanforth["declarations"] else set())
+    short = leanforth["accepted"] != leanforth["declarations"]
+    return found | ({"unaccounted"} if short else set())
 
 
 # check report 0.4's counts: by verdict, as the verdicts the declarations carry, and the
