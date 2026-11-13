@@ -10493,3 +10493,22 @@ old = '''    lf-lvalue-free of true endof lf-lvalue-witness of true endof false 
 new = '''    lf-lvalue-free of true endof lf-lvalue-witness of true endof true swap endcase ;'''
 test = "$GFORTH tests/core/level-value.fs"
 reason = "an evaluation mode that is none of the three is run instead of refused"
+
+[[fault]]
+id = "cov2-convert-reset-keeps-frames"
+file = "src/kernel/mixed-convert.fs"
+old = '''  lf-mconvert-frames frame-reset lf-open-reset lf-defeq-reset ;'''
+new = '''  lf-open-reset lf-defeq-reset ;'''
+test = "$GFORTH tests/core/mixed-convert.fs"
+reason = "the recovery after a THROW leaves the conversion's frames busy: every later conversion is refused"
+
+[[fault]]
+id = "cov2-expr-equal-negative-fuel"
+file = "src/kernel/mixed-compare.fs"
+old = '''  lf-mcompare-walker walk-budget 0= if 2drop false outcome-invalid exit then
+  2dup = if 2drop true outcome-ok exit then'''
+new = '''  lf-mcompare-walker walk-budget 0= if 2drop true outcome-ok exit then
+  2dup = if 2drop true outcome-ok exit then'''
+test = "$GFORTH tests/core/mixed-compare.fs"
+reason = "Lean's == with negative fuel answers 'equal' instead of refusing"
+quick = true
