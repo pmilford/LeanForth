@@ -580,7 +580,7 @@ def program : Program := [
 -- The program printed back in the IR text form, for comparison with the IR.
 #eval IO.print ("vc-program LfClamp0\n" ++ render "src/program/clamp.fs" program ++ "vc-program-end\n")
 
-/-- For integers v, l, u in the cell range: if l ≤ u the word returns r = min(max(v, l), u) and true, so l ≤ r ≤ u, r = v when l ≤ v ≤ u, r = l when v < l and r = u when v > u; if l > u it consumes its three inputs and returns false. Cells below are kept. -/
+/-- The postcondition: each case's guard implies its output and its ensures (the contract's statement is not copied here). -/
 def post (c : Cells) (value lower upper : Int) (out : List Int) : Prop :=
   (lower > upper → out = [0]) ∧
     (lower ≤ upper → ∃ r : Int, out = [(-1), r] ∧ (r = (min (max value lower) upper)) ∧ ((lower ≤ r) ∧ (r ≤ upper)) ∧ (((lower ≤ value) ∧ (value ≤ upper)) → (r = value)) ∧ ((value < lower) → (r = lower)) ∧ ((value > upper) → (r = upper)))
@@ -665,7 +665,7 @@ def program : Program := [
 -- The program printed back in the IR text form, for comparison with the IR.
 #eval IO.print ("vc-program LfCheckedAdd0\n" ++ render "src/program/examples.fs" program ++ "vc-program-end\n")
 
-/-- For integers a, b in the cell range: if a + b is in the cell range the word returns a + b and true, otherwise false; no addition it performs wraps. Cells below are kept. -/
+/-- The postcondition: each case's guard implies its output and its ensures (the contract's statement is not copied here). -/
 def post (c : Cells) (a b : Int) (out : List Int) : Prop :=
   (c.Fits (a + b) → ∃ s : Int, out = [(-1), s] ∧ (s = (a + b))) ∧
     (¬(c.Fits (a + b)) → out = [0])
@@ -828,7 +828,7 @@ def program : Program := [
 -- The program printed back in the IR text form, for comparison with the IR.
 #eval IO.print ("vc-program LfCheckedAbs0\n" ++ render "src/program/examples.fs" program ++ "vc-program-end\n")
 
-/-- For an integer n in the cell range: if n is the smallest cell the word returns false; otherwise it returns |n| and true, and |n| is in the cell range. Cells below are kept. -/
+/-- The postcondition: each case's guard implies its output and its ensures (the contract's statement is not copied here). -/
 def post (c : Cells) (n : Int) (out : List Int) : Prop :=
   (n = c.min → out = [0]) ∧
     (n ≠ c.min → ∃ m : Int, out = [(-1), m] ∧ (m = (if n < 0 then -n else n)) ∧ ((0 ≤ m) ∧ (m ≤ c.max)))
@@ -908,7 +908,7 @@ def program : Program := [
 -- The program printed back in the IR text form, for comparison with the IR.
 #eval IO.print ("vc-program LfInRange0\n" ++ render "src/program/examples.fs" program ++ "vc-program-end\n")
 
-/-- For integers v, l, u in the cell range: if l > u the word returns false; otherwise it returns a flag that is true (-1) exactly when l ≤ v ≤ u and false (0) otherwise, then true. Cells below are kept. -/
+/-- The postcondition: each case's guard implies its output and its ensures (the contract's statement is not copied here). -/
 def post (c : Cells) (value lower upper : Int) (out : List Int) : Prop :=
   (lower > upper → out = [0]) ∧
     (lower ≤ upper → ∃ f : Int, out = [(-1), f] ∧ (f = (flag (decide ((lower ≤ value) ∧ (value ≤ upper))))))
@@ -980,7 +980,7 @@ def program : Program := [
 -- The program printed back in the IR text form, for comparison with the IR.
 #eval IO.print ("vc-program LfClampWrongSwapped\n" ++ render "src/program/clamp.fs" program ++ "vc-program-end\n")
 
-/-- Wrong on purpose: claims the result is max(min(v, l), u). -/
+/-- The postcondition: each case's guard implies its output and its ensures (the contract's statement is not copied here). -/
 def post (c : Cells) (value lower upper : Int) (out : List Int) : Prop :=
   (lower > upper → out = [0]) ∧
     (lower ≤ upper → ∃ r : Int, out = [(-1), r] ∧ (r = (max (min value lower) upper)))
@@ -1025,7 +1025,7 @@ def program : Program := [
 -- The program printed back in the IR text form, for comparison with the IR.
 #eval IO.print ("vc-program LfCheckedAddWrongTotal\n" ++ render "src/program/examples.fs" program ++ "vc-program-end\n")
 
-/-- Wrong on purpose: claims every sum of two cells is returned with true. -/
+/-- The postcondition: each case's guard implies its output and its ensures (the contract's statement is not copied here). -/
 def post (c : Cells) (a b : Int) (out : List Int) : Prop :=
   (True → ∃ s : Int, out = [(-1), s] ∧ (s = (a + b)))
 
@@ -1069,7 +1069,7 @@ def program : Program := [
 -- The program printed back in the IR text form, for comparison with the IR.
 #eval IO.print ("vc-program LfInRangeWrongExclusive\n" ++ render "src/program/examples.fs" program ++ "vc-program-end\n")
 
-/-- Wrong on purpose: claims the flag is true exactly when l < v < u. -/
+/-- The postcondition: each case's guard implies its output and its ensures (the contract's statement is not copied here). -/
 def post (c : Cells) (value lower upper : Int) (out : List Int) : Prop :=
   (lower > upper → out = [0]) ∧
     (lower ≤ upper → ∃ f : Int, out = [(-1), f] ∧ (f = (flag (decide ((lower < value) ∧ (value < upper))))))

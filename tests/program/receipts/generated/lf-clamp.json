@@ -72,11 +72,11 @@
     "evidence": [
       {
         "path": "tests/program/vc/obligations.lean",
-        "sha256": "d0ccb1a2c3c8ecb6397f83b68d052605922f63264c22186748def0fd5ef77ecf"
+        "sha256": "6d0c701a4c9107946ea2478d5832f6fe2718a7d35c1e514e7476e4de34d0a92f"
       },
       {
         "path": "scripts/program_vc.py",
-        "sha256": "0d53fdfa2b959b6dda8eeed78e9082a811d01fb3a912186f426ba5238faa690b"
+        "sha256": "6c720f37b66db895e351e2198832e458dbb49bc5b603c948e73665faead9f581"
       },
       {
         "path": "scripts/export.sh",

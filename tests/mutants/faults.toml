@@ -14619,3 +14619,40 @@ old = '''  cli-lacked. cli-sched. ;'''
 new = '''  cli-sched. ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "POOL: --resources does not say that the system refused worker tasks"
+
+# --- Contract text kept out of the generated Lean file (review B1 of the verify
+# design, 2026-11-13; scripts/program_vc.py) ---------------------------------
+
+[[fault]]
+id = "vc-comment-delimiters-allowed"
+file = "scripts/program_vc.py"
+old = '''    bad = [d for d in ("-/", "/-") + (('"', "\\") if quoted else ()) if d in text]'''
+new = '''    bad = [d for d in (('"', "\\") if quoted else ()) if d in text]'''
+test = "python3 tests/program/vc_check.py"
+reason = "B1: a contract text holding -/ is accepted, so a statement, id or path can end a Lean comment and inject code (the reviewer's false clamp contract)"
+quick = true
+
+[[fault]]
+id = "vc-hidden-characters-allowed"
+file = "scripts/program_vc.py"
+old = '''    hidden = [f"U+{ord(ch):04X}" for ch in text if unicodedata.category(ch) in HIDDEN]'''
+new = '''    hidden = [f"U+{ord(ch):04X}" for ch in text if False]'''
+test = "python3 tests/program/vc_check.py"
+reason = "B1: control and format characters (a right-to-left override, a zero-width space) pass into names, paths and statements, where they can hide what a text says"
+
+[[fault]]
+id = "vc-word-quote-allowed"
+file = "scripts/program_vc.py"
+old = '''    checked_text(contract["word"], f"{path}: the word line", quoted=True)'''
+new = '''    checked_text(contract["word"], f"{path}: the word line", quoted=False)'''
+test = "python3 tests/program/vc_check.py"
+reason = "B1: a word name with a quote or backslash reaches a Lean string literal (callWord ... \"WORD\") and can end it"
+equivalent = "the contract's word must also be a name of the IR, and the IR's names are refused with a quote or backslash (vc_check.py's IR cases), so the contract is refused either way; the check on the word line is kept as a second guard"
+
+[[fault]]
+id = "vc-statement-copied"
+file = "scripts/program_vc.py"
+old = '''        out += ["/-- The postcondition: each case's guard implies its output and its ensures "'''
+new = '''        out += [f"/-- {self.contract['statement']} -/", "/-- The postcondition: each case's guard implies its output and its ensures "'''
+test = "python3 tests/program/vc_check.py"
+reason = "B1: the contract's statement is copied into the generated Lean file again, as before the review"

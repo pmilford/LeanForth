@@ -43,6 +43,7 @@ import json
 from pathlib import Path
 import re
 import sys
+import unicodedata
 
 GENERATOR_VERSION = "0.1"
 MODEL = "tests/reference/program-ir.lean"
@@ -84,6 +85,29 @@ class Malformed(Exception):
     """The IR text or contract is not well formed."""
 
 
+# Text from a contract or an IR file never enters the generated Lean file as
+# code: only the expression parser's output does (lean() below). The
+# contract's statement does not enter it at all (it stays in the summary).
+# Names and paths enter only inside comments and string literals, so each must
+# be unable to end or open a Lean comment (-/ and /-; Lean's block comments
+# nest), and a name or path inside a string unable to end it or escape (" and
+# \); and no text may hold control, format or separator characters (Unicode
+# Cc, Cf, Cs, Zl, Zp), which could hide what it says. Review B1 of the verify
+# design (2026-11-13): a statement holding `-/ macro_rules ... /--` made Lean
+# accept a false contract.
+HIDDEN = ("Cc", "Cf", "Cs", "Zl", "Zp")
+
+
+def checked_text(text, what, quoted=False):
+    """text, or Malformed when it could change the generated Lean file (see above)."""
+    bad = [d for d in ("-/", "/-") + (('"', "\\") if quoted else ()) if d in text]
+    hidden = [f"U+{ord(ch):04X}" for ch in text if unicodedata.category(ch) in HIDDEN]
+    if bad or hidden:
+        raise Malformed(f"{what} holds {', '.join(bad + hidden[:3])}, which the generated "
+                        "Lean file cannot hold safely: refused")
+    return text
+
+
 # ---------------------------------------------------------------- the IR text
 
 PRIM_NAMES = {
@@ -116,7 +140,7 @@ def parse_block(lines, i):
         elif head == "lit" and len(words) == 2 and re.fullmatch(r"-?[0-9]+", words[1]):
             body.append(("lit", int(words[1])))
         elif head == "call" and len(words) == 2:
-            body.append(("call", words[1]))
+            body.append(("call", checked_text(words[1], "a called name", quoted=True)))
         elif words == ["exit"]:
             body.append(("exit",))
         elif words == ["if"]:
@@ -156,6 +180,7 @@ def parse_ir(text):
         if len(lines[i]) != 2 or lines[i][0] not in ("word", "constant"):
             raise Malformed(f"unexpected line {i + 1}")
         kind, name = lines[i]
+        checked_text(name, f"the name {name!r}", quoted=True)
         body, i = parse_block(lines, i + 1)
         if i >= len(lines) or lines[i] != ["end"]:
             raise Malformed(f"definition {name} not closed")
@@ -350,6 +375,10 @@ def parse_contract(text, path):
     for case in contract["cases"]:
         if case["out"] is None:
             raise Malformed(f"{path}: a case without out")
+    checked_text(path, "the contract's path")
+    for field in ("id", "ir", "statement", "stack"):
+        checked_text(contract[field], f"{path}: the {field} line")
+    checked_text(contract["word"], f"{path}: the word line", quoted=True)
     return contract
 
 
@@ -1058,7 +1087,8 @@ class Generator:
                 "-- The program printed back in the IR text form, for comparison with the IR.",
                 f'#eval IO.print ("vc-program {self.name}\\n" ++ render "{self.source}" program ++ '
                 '"vc-program-end\\n")', ""]
-        out += [f"/-- {self.contract['statement']} -/",
+        out += ["/-- The postcondition: each case's guard implies its output and its ensures "
+                "(the contract's statement is not copied here). -/",
                 f"def post (c : Cells) ({self.binders()} : Int) (out : List Int) : Prop :=",
                 f"  {lean_post(self.contract)}", ""]
         if self.refutation:
@@ -1188,6 +1218,7 @@ def generate(contract_paths):
     for path in contract_paths:
         contract = parse_contract(Path(path).read_text(encoding="utf-8"), path)
         ir_text = Path(contract["ir"]).read_text(encoding="utf-8")
+        checked_text(ir_source(ir_text), f"{contract['ir']}: the source path", quoted=True)
         sources.append(f"  {path} with {contract['ir']} (sha256 "
                        f"{hashlib.sha256(ir_text.encode()).hexdigest()[:16]}...)")
         defs = parse_ir(ir_text)

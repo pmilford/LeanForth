@@ -11,7 +11,13 @@ obligations.json (golden output); the file's copies of the IR semantics
 must be verbatim; every contract must come out as its `expect` line says
 (discharged, refuted or unsupported); and the generator must refute a
 contract mutated to be wrong, refuse a loop, and refuse a malformed
-contract.
+contract. No contract text may enter the Lean file except the expression
+parser's output (review B1 of the verify design, 2026-11-13): the
+reviewer's contract, whose statement closed a comment and redefined `≥` so
+that Lean accepted a false clamp contract, and a hostile corpus (comment
+delimiters, quotes and control or format characters in each text, name and
+path, of the contract and of the IR) are refused; any other statement gives
+the same Lean file.
 
 With --lean it also has Lean 4.35.0 check the golden file (warnings are
 errors, so `sorry` fails), requires every theorem the summary names to use
@@ -58,15 +64,111 @@ def expectations(summary):
     return problems
 
 
-def status_of(contract_text):
+def status_of(contract_text, ir_text=None, folder=""):
+    """The generator's status for a contract text (and, with ir_text, an IR file of its
+    own, which the text names as IR), written in a temporary folder (or its subfolder)."""
     with tempfile.TemporaryDirectory() as directory:
-        path = Path(directory) / "mutant.contract"
+        path = Path(directory) / folder / "mutant.contract"
+        path.parent.mkdir(exist_ok=True)
+        if ir_text is not None:
+            (Path(directory) / "mutant.ir").write_text(ir_text, encoding="utf-8")
+            contract_text = contract_text.replace("IR", str(Path(directory) / "mutant.ir"))
         path.write_text(contract_text, encoding="utf-8")
         try:
             _, summary = program_vc.generate([str(path)])
         except program_vc.Malformed:
             return "malformed"
     return summary[0]["status"]
+
+
+# The reviewer's contract (review B1, 2026-11-13): with its statement copied into
+# a doc comment, `-/` ended the comment and the macro made every `≥` a `≤`, so
+# pinned Lean proved the false ensure line and the search, which never tries
+# 5, 0 and 9, found no counterexample.
+EVIL = """lf-contract 0.1
+id lf-clamp/evil
+word lf-clamp
+ir tests/program/ir/clamp.ir
+stack ( value lower upper -- result true | false )
+inputs value lower upper
+STATEMENT
+case lower > upper
+  out false
+case lower <= upper
+  out r true
+  ensure r = min(max(value, lower), upper)
+  ensure value = 5 && lower = 0 && upper = 9 -> r >= 6
+expect discharged
+""".replace("STATEMENT", "statement For integers v, l, u in the cell range the word clamps v "
+            "into [l, u]. -/ macro_rules | `($a ≥ $b) => `($a ≤ $a) /-- See the cases below.")
+# An IR file of one word, for names and source paths the IR brings in.
+SMALL_IR = "lf-ir 0.1\nsource SOURCE\nword NAME @1:1\n  prim dup @1:10\nend @1:14\n"
+SMALL = """lf-contract 0.1
+id small/0
+word w
+ir IR
+stack ( n -- n n )
+inputs n
+statement Duplicates n.
+case true
+  out n n
+"""
+
+
+def hostile_problems():
+    clamp = Path(CONTRACTS[0]).read_text(encoding="utf-8")
+    statement = clamp.split("\nstatement ", 1)[1].split("\n", 1)[0]
+    cases = [("the reviewer's contract", EVIL, None, "")]
+    for name, text in [("-/", "a -/ b"), ("/-", "a /- b"),
+                       ("a right-to-left override", "a \u202e b"),
+                       ("a zero-width space", "a\u200bb"), ("a bell", "a \x07 b"),
+                       ("a soft hyphen", "a\u00adb")]:
+        cases.append((f"a statement with {name}", clamp.replace(statement, text), None, ""))
+    cases += [
+        ("an id with -/", clamp.replace("id lf-clamp/0", "id lf-clamp-/0"), None, ""),
+        ("an id with /-", clamp.replace("id lf-clamp/0", "id lf-clamp/-0"), None, ""),
+        ("an id with a format character", clamp.replace("id lf-clamp/0", "id lf-clamp\u2066/0"),
+         None, ""),
+        ("a word with a quote", clamp.replace("word lf-clamp", 'word lf-clamp"'), None, ""),
+        ("a word with a backslash", clamp.replace("word lf-clamp", "word lf-clamp\\"), None, ""),
+        ("a word with -/", clamp.replace("word lf-clamp", "word lf-/clamp"), None, ""),
+        ("an ir path with -/", clamp.replace("ir tests/program/ir/clamp.ir",
+                                             "ir tests/program/ir-/clamp.ir"), None, ""),
+        ("a stack effect with a control character",
+         clamp.replace("( value lower", "( \x1b value lower"), None, ""),
+        ("a contract path with -/", clamp, None, "x-"),
+        ("an IR name with a quote", SMALL,
+         SMALL_IR.replace("NAME", 'w"x').replace("SOURCE", "w.fs"), ""),
+        ("an IR name with a backslash", SMALL, SMALL_IR.replace("NAME", "w\\").replace(
+            "SOURCE", "w.fs"), ""),
+        ("an IR source path with a quote", SMALL, SMALL_IR.replace("NAME", "w").replace(
+            "SOURCE", 'w".fs'), ""),
+        ("an IR source path with /-", SMALL, SMALL_IR.replace("NAME", "w").replace(
+            "SOURCE", "a/-w.fs"), ""),
+    ]
+    problems = []
+    for name, text, ir_text, folder in cases:
+        got = status_of(text, ir_text, folder)
+        if got != "malformed":
+            problems.append(f"hostile contract ({name}): {got}, expected malformed")
+    if status_of(SMALL, SMALL_IR.replace("NAME", "w").replace("SOURCE", "w.fs")) != "discharged":
+        problems.append("the small contract the hostile IR cases change is not discharged")
+    return problems + harmless_problems(clamp, statement)
+
+
+def harmless_problems(clamp, statement):
+    """Any statement the reader accepts gives the same Lean file, and none appears in it."""
+    texts = []
+    for other in (statement, "Nothing at all.",
+                  "macro_rules | `($a ≥ $b) => `($a ≤ $a) and #eval 1; theorem x : False"):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "c.contract"
+            path.write_text(clamp.replace(statement, other), encoding="utf-8")
+            text, _ = program_vc.generate([str(path)])
+        texts.append(text.replace(str(path), "CONTRACT"))
+        if other in text:
+            return [f"the statement {other[:30]!r} appears in the generated Lean file"]
+    return [] if len(set(texts)) == 1 else ["the statement changes the generated Lean file"]
 
 
 def negative_problems():
@@ -100,7 +202,7 @@ def offline_problems():
     copies, copied = copy_problems(GOLDEN_LEAN.read_text(encoding="utf-8"))
     problems += copies + ([] if copied == {program_vc.MODEL} else ["no verbatim copies"])
     problems += expectations(json.loads(summary_text))
-    return problems + negative_problems()
+    return problems + negative_problems() + hostile_problems()
 
 
 def run_lean(lean, path):
