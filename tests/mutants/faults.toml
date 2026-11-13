@@ -11356,3 +11356,51 @@ new = '''  swap ly-fam-map @ ly@ 1- outcome-ok ;'''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "review I2: an own record not entered (map 0) is given as number -1"
 gap = "not equivalent: every record builder refuses -1 in the same step, but a declaration field naming a letE's body record would be refused by ly-enter instead of ly-decls; no layer fixture forges one"
+
+[[fault]]
+id = "fe-env-instances-unfold-implicit"
+file = "src/front/meta-env.fs"
+old = '''    lf-tr-instances of 18 endof lf-tr-implicit of 26 endof 0 swap endcase ;'''
+new = '''    lf-tr-instances of 26 endof lf-tr-implicit of 26 endof 0 swap endcase ;'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "FE1c: instances transparency also unfolds implicit-reducible declarations, which Lean's canUnfoldDefault does only at implicit"
+
+[[fault]]
+id = "fe-env-default-unfolds-irreducible"
+file = "src/front/meta-env.fs"
+old = '''  case lf-tr-all of 31 endof lf-tr-default of 27 endof lf-tr-reducible of 2 endof'''
+new = '''  case lf-tr-all of 31 endof lf-tr-default of 31 endof lf-tr-reducible of 2 endof'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "FE1c: default transparency unfolds an irreducible declaration (Nat.div)"
+
+[[fault]]
+id = "fe-env-no-data-guessed"
+file = "src/front/meta-env.fs"
+old = '''  me-data? 0= if drop -1 outcome-unsupported exit then'''
+new = '''  me-data? 0= if drop elab-semireducible outcome-ok exit then'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "FE1c: without elaboration data the status is guessed as Lean's default instead of answering unsupported"
+
+[[fault]]
+id = "fe-env-missing-fact-guessed"
+file = "src/front/meta-env.fs"
+old = '''  me-defn? if false outcome-unsupported else false outcome-ok then ;'''
+new = '''  drop false outcome-ok ;'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "FE1c: a definition's matcher, projection, auxiliary-recursor or smart-unfolding fact, which LeanForth lacks, is answered false (Lean: true for Nat.add.match_1, HAdd.hAdd, Nat.casesOn, Nat.add)"
+
+[[fault]]
+id = "fe-env-theorem-unfoldable"
+file = "src/front/meta-env.fs"
+old = '''  over me-defn? if over swap lf-menv-can-unfold else drop false outcome-ok then ;'''
+new = '''  over lf-menv-kind lf-kind-axiom < if over swap lf-menv-can-unfold else drop false outcome-ok then ;'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "FE1c: getUnfoldableConst? gives a theorem, which Lean never unfolds there"
+
+[[fault]]
+id = "fe-env-ndrec-forgotten"
+file = "src/front/meta-env.fs"
+old = '''  dup me-decl? if dup me-ndrec? if drop true outcome-ok exit then then me-defn-fact ;'''
+new = '''  me-defn-fact ;'''
+test = "$GFORTH tests/front/meta-env.fs"
+reason = "FE1c: Eq.ndrec, which Lean's isAuxRecursor names itself, answers unsupported"

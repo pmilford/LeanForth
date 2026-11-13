@@ -62,13 +62,15 @@ require ./present/proof-outline.fs
 \ kernel): the natural reader (front/reader.fs, which the command line
 \ loads through cli/check-lf.fs), the metavariable context, and the first
 \ pieces of the Meta layer (plan FE1c): level unification, bound-variable
-\ instantiation and abstraction, level simplification and
-\ universe-parameter instantiation.
+\ instantiation and abstraction, level simplification,
+\ universe-parameter instantiation and the view of the environment
+\ (reducibility and unfolding under each transparency).
 require ./front/mvars.fs
 require ./front/level-defeq.fs
 require ./front/instantiate.fs
 require ./front/level-simp.fs
 require ./front/level-params.fs
+require ./front/meta-env.fs
 
 \ The command line: check, replay, print, count, reexport, version,
 \ capabilities. It loads the staging of exports into the checker's input,
