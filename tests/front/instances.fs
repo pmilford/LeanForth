@@ -77,7 +77,7 @@ T{ lv1 ?tv 0 ofnat deeper-count -> 23 }T
   over lf-inst-priority over lf-inst-priority <> if 2drop true exit then
   it-rank swap it-rank > ;
 : stable? ( addr n -- flag )
-  true swap 1 ?do over i cells + dup cell- @ swap @ pair-ok? and loop nip ;
+  true swap 1 ?do over i cells + dup 1 cells - @ swap @ pair-ok? and loop nip ;
 T{ lv1 ?tv add cands stable? -> true }T
 T{ lv1 ?tv 0 ofnat cands stable? -> true }T
 
