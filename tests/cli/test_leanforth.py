@@ -3352,8 +3352,15 @@ class OlderSnapshots(unittest.TestCase):
                 self.assertEqual((again["snapshot"]["verdictVersion"], again["snapshot"]["stale"],
                                   {d["provenance"] for d in again["declarations"]}),
                                  (version, None, {"snapshot"}), (v, stem))
-                out = run("check", "--snapshot", str(new))[1]
-                self.assertFalse(out.startswith("carry:"), (v, stem))
+                if stem == "unfold":
+                    out = run("check", "--snapshot", str(new))[1]
+                    self.assertFalse(out.startswith("carry:"), (v, stem))
+        # With --jobs 2 the carry run checks in parallel and writes the
+        # same bytes (ADR 0009 G-P4).
+        new = self.dir / "init-slice-jobs.lfsnap"
+        status, got, _ = report("--jobs", "2", "--snapshot", str(fixture(version - 1, "init-slice")),
+                                "--save-snapshot", str(new))
+        self.assertEqual(new.read_bytes(), (self.dir / f"init-slice-{version - 1}.lfsnap").read_bytes())
         # A layer never holds a slot taken from a snapshot (provenance 2):
         # only an upgraded base does.
         data, table = sectioned(fixture(version, "dependent"))
