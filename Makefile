@@ -893,7 +893,8 @@ test-front:
 	  src/core/mvar-leaves.fs src/front/level-defeq.fs src/front/instantiate.fs \
 	  src/front/level-simp.fs src/front/level-params.fs src/front/level-normalize.fs \
 	  src/front/expr-remap.fs src/front/constructions.fs \
-	  src/front/meta-env.fs src/front/whnf.fs src/front/beta-inst.fs src/front/infer.fs; do \
+	  src/front/meta-env.fs src/front/meta-spine.fs src/front/whnf.fs src/front/beta-inst.fs \
+	  src/front/infer.fs; do \
 	  out=$$($(RUN) $(GFORTH) $$m -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
 	  if [ -n "$$out" ]; then printf '%s printed while loading:\n%s\n' "$$m" "$$out" >&2; exit 1; fi; \
 	done

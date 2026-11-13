@@ -56,6 +56,7 @@ require ./level-params.fs
 require ../present/binder-table.fs
 require ./level-simp.fs
 require ./level-normalize.fs
+require ./meta-spine.fs
 require ./whnf.fs
 require ./beta-inst.fs
 
@@ -70,16 +71,7 @@ end-structure
 : if-fail ( x outcome -- -1 outcome ) nip no-result ;
 
 \ ---- Leaves.
-: if-push ( x slab -- outcome )
-  tuck 1 swap slab-claim ok-then? if rot slab-at ! outcome-ok else nip nip then ;
-: if-level ( slot i -- level ) swap lf-cref-pairs drop swap lf-cref-pair@ drop ;
-: if-levels-fill ( slot -- outcome )
-  if-levels slab-clear dup lf-cref-pairs nip 0 ?do
-    dup i if-level if-levels if-push dup ok? 0= if nip unloop exit then drop
-  loop drop outcome-ok ;
-: if-decl ( const -- d true | false )
-  lf-term-first@ lf-cref-slot lf-cref-name@ drop lf-input-newest dup 0< if drop false
-  else true then ;
+: if-levels-fill ( slot -- outcome ) if-levels lf-meta-levels-fill ;
 : if-levels-ok? ( slot d -- flag ) lf-input-params nip swap lf-cref-pairs nip = ;
 : if-const-type ( slot d -- type outcome )
   over if-levels-fill dup ok? 0= if nip if-fail exit then drop nip
@@ -87,7 +79,7 @@ end-structure
   lf-meta-instantiate-level-params ;
 : if-slot ( const -- slot ) lf-term-first@ lf-cref-slot ;
 : if-const ( const -- type outcome )
-  dup if-decl 0= if outcome-invalid if-fail exit then
+  dup lf-meta-const-decl 0= if outcome-invalid if-fail exit then
   swap if-slot swap 2dup if-levels-ok? 0= if 2drop -1 outcome-invalid exit then
   if-const-type ;
 : if-fvar ( fvar -- type outcome )
@@ -112,11 +104,7 @@ end-structure
 \ (instantiateBetaRevRange, front/beta-inst.fs). In if-args, last first,
 \ they are the m = i - j cells from n - i on, the last one first, as
 \ instantiateRev takes them.
-: if-app? ( term -- flag ) if-tag lf-tag-app = ;
-: if-spine ( term -- head outcome )
-  if-args slab-clear begin dup if-app? while
-    dup lf-term-second@ if-args if-push ok-then? 0= if no-result exit then
-    lf-term-first@ repeat outcome-ok ;
+: if-spine ( term -- head outcome ) if-args lf-meta-spine ;
 : if-lam? ( term -- flag ) if-tag lf-tag-lam = ;
 : if-pi? ( term -- flag ) if-tag lf-tag-pi = ;
 \ A type that is no pi: whnfCore's result must be one; an inert head
@@ -126,9 +114,9 @@ end-structure
   dup lf-tag-fvar = over lf-tag-mvar = or
   over lf-tag-symbolic-sort = or swap lf-tag-lam = or ;
 : if-inert? ( term -- flag ) if-tag if-inert-tag? ;
-: if-head ( term -- head ) begin dup if-app? while lf-term-first@ repeat ;
+: if-head ( term -- head ) begin dup lf-meta-app? while lf-term-first@ repeat ;
 : if-firm-const? ( const -- flag )
-  if-decl if lf-menv-kind lf-kind-definition <> else false then ;
+  lf-meta-const-decl if lf-menv-kind lf-kind-definition <> else false then ;
 : if-firm? ( head -- flag )
   dup if-tag lf-tag-constant = if if-firm-const? else if-inert? then ;
 : if-no-pi ( type -- outcome )
@@ -170,9 +158,9 @@ end-structure
   if-tag lf-tag-mvar = ;
 : if-named ( new old -- new ) lf-pres-binder@ if 2>r dup 2r> lf-pres-binder! drop then ;
 : if-open ( lam -- body outcome )
-  dup if-lams if-push ok-then? 0= if no-result exit then
+  dup if-lams lf-meta-push ok-then? 0= if no-result exit then
   dup lf-term-first@ lf-lctx-local ok-then? 0= if if-fail exit then
-  dup if-xs if-push ok-then? 0= if if-fail exit then
+  dup if-xs lf-meta-push ok-then? 0= if if-fail exit then
   swap lf-term-second@ swap lf-meta-instantiate1 ;
 : if-telescope ( term -- body outcome )
   if-xs slab-clear if-lams slab-clear
@@ -188,7 +176,8 @@ end-structure
   if-xs slab-count tuck if-abstract ok-then? 0= if nip no-result exit then
   swap begin dup 0> while 1- tuck if-pi ok-then? 0= if nip no-result exit then swap repeat
   drop outcome-ok ;
-: if-body ( term -- type outcome ) dup if-app? if if-app else dup if-tag if-leaf then ;
+: if-body ( term -- type outcome )
+  dup lf-meta-app? if if-app else dup if-tag if-leaf then ;
 : if-lambda ( lam -- type outcome )
   if-telescope ok-then? 0= if no-result exit then
   if-body ok-then? if if-close else no-result then ;

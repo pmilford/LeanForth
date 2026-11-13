@@ -34,6 +34,7 @@ require ../core/terms.fs
 require ../core/mvar-leaves.fs
 require ../present/binder-table.fs
 require ./instantiate.fs
+require ./meta-spine.fs
 
 begin-structure /ib
   field: ib-xs                 \ the arguments: the address of their cells
@@ -128,11 +129,9 @@ end-structure
 \ The beta case: the head's image applied to the spine's arguments'
 \ images (each at the depth, in ib-spine, last first), one head beta step
 \ taken when the head's image is a lambda (Lean's betaRev).
-: ib-push-cell ( x slab -- outcome )
-  tuck 1 swap slab-claim ok-then? if rot slab-at ! outcome-ok else nip nip then ;
 : ib-spine-fill ( node -- outcome )
   ib-spine slab-clear begin dup ib-app? while
-    dup lf-term-second@ ib-spine ib-push-cell dup ok? 0= if nip exit then drop
+    dup lf-term-second@ ib-spine lf-meta-push dup ok? 0= if nip exit then drop
     lf-term-first@ repeat drop outcome-ok ;
 : ib-spine-arg ( i -- arg ) ib-spine dup slab-count 1- rot - swap slab-at @ ;
 : ib-apply ( f depth -- f' )

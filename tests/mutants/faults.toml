@@ -12025,7 +12025,7 @@ reason = "FE1c: a stuck major premise of a structure is left stuck, where Lean e
 [[fault]]
 id = "fe-whnf-succ-fold-ignored"
 file = "src/front/whnf.fs"
-old = '''  wc-succ? if 0 wc-margs wc-arg dup wc-inert? swap wc-lit? or 0= else false then ;'''
+old = '''  wc-succ? if 0 wc-margs lf-meta-arg dup wc-inert? swap wc-lit? or 0= else false then ;'''
 new = '''  drop false ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "FE1c: Nat.succ of a term whnf may fold or offset (Nat.succ (Nat.succ k)) reduces by the rule, where Lean's field differs"

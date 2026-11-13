@@ -70,6 +70,7 @@ require ./mvars.fs
 require ./instantiate.fs
 require ./level-params.fs
 require ./meta-env.fs
+require ./meta-spine.fs
 
 100000 constant lf-whnf-default-fuel
 begin-structure /wc
@@ -105,17 +106,7 @@ end-structure
 : wc-2drop-fail ( x y outcome -- -1 false outcome ) nip nip wc-fail ;
 
 \ ---- Spines: the arguments of f a1 .. an in a slab, an first.
-: wc-push ( x slab -- outcome )
-  tuck 1 swap slab-claim ok-then? if rot slab-at ! outcome-ok else nip nip then ;
-: wc-app? ( term -- flag ) lf-term-tag@ lf-tag-app = ;
-: wc-peel ( term slab -- f outcome )
-  over lf-term-second@ swap wc-push swap lf-term-first@ swap ;
-: wc-spine ( term slab -- head outcome )
-  dup slab-clear swap begin dup wc-app? while
-    over wc-peel ok-then? 0= if nip -1 swap exit then
-  repeat nip outcome-ok ;
-: wc-arg ( i slab -- term ) tuck slab-count 1- swap - swap slab-at @ ;
-: wc-nth ( i -- term ) wc wc-src @ wc-arg ;
+: wc-nth ( i -- term ) wc wc-src @ lf-meta-arg ;
 : wc-app1 ( f a -- f' outcome ) lf-term-app if outcome-ok else -1 outcome-full then ;
 \ f applied to arguments from to to-1 of the slab wc-src names.
 : wc-apply ( f from to -- f' outcome )
@@ -167,11 +158,9 @@ end-structure
 
 \ ---- Constants: the input's declaration of the name (Lean's find?).
 : wc-name ( const -- name ) lf-term-first@ lf-cref-slot lf-cref-name@ drop ;
-: wc-decl ( const -- d true | false )
-  wc-name lf-input-newest dup 0< if drop false else true then ;
 : wc-levels# ( const -- n ) lf-term-first@ lf-cref-slot lf-cref-pairs nip ;
 : wc-kind ( term -- kind ) dup lf-term-tag@ lf-tag-constant = if
-    wc-decl if lf-menv-kind exit then 0 exit then drop 0 ;
+    lf-meta-const-decl if lf-menv-kind exit then 0 exit then drop 0 ;
 
 \ ---- Recursors (reduceRec). The step's term, head and inductive data
 \ are kept in wc; the arguments in wc-args, the major premise's in
@@ -186,7 +175,7 @@ end-structure
 : wc-term ( -- e ) wc wc-e @ ;
 : wc-stay ( -- e false outcome ) wc-term wc-done ;
 : wc-short? ( -- flag ) wc-args slab-count wc-major-at > 0= ;
-: wc-major ( -- term ) wc-major-at wc-args wc-arg ;
+: wc-major ( -- term ) wc-major-at wc-args lf-meta-arg ;
 
 \ The rule of a constructor: its right side and fields, or none.
 : wc-rule? ( name rule -- flag ) lf-irule-ctor = ;
@@ -215,16 +204,13 @@ end-structure
   dup wc-const? if wc-name lf-menv-nat-succ? wc-margs slab-count 1 = and
   else drop false then ;
 : wc-foldable? ( head -- flag )
-  wc-succ? if 0 wc-margs wc-arg dup wc-inert? swap wc-lit? or 0= else false then ;
+  wc-succ? if 0 wc-margs lf-meta-arg dup wc-inert? swap wc-lit? or 0= else false then ;
 
 \ The universe arguments of the recursor's constant, as levels.
-: wc-level ( slot i -- level ) swap lf-cref-pairs drop swap lf-cref-pair@ drop ;
 : wc-levels-fill ( const -- outcome )
-  wc-levels slab-clear lf-term-first@ lf-cref-slot dup lf-cref-pairs nip 0 ?do
-    dup i wc-level wc-levels wc-push dup ok? 0= if nip unloop exit then drop
-  loop drop outcome-ok ;
+  lf-term-first@ lf-cref-slot wc-levels lf-meta-levels-fill ;
 : wc-levels-at ( -- addr ) 0 wc-levels slab-at ;
-: wc-rec-params ( -- names n ) wc wc-head @ wc-decl drop lf-input-params ;
+: wc-rec-params ( -- names n ) wc wc-head @ lf-meta-const-decl drop lf-input-params ;
 : wc-levels-ok? ( -- flag ) wc-rec-params nip wc wc-head @ wc-levels# = ;
 : wc-rhs-levels ( rhs -- rhs' outcome )
   wc wc-head @ wc-levels-fill dup ok? 0= if nip no-result exit then drop
@@ -258,7 +244,7 @@ end-structure
   swap lf-ity-flags lf-more-field lf-ity-rec-bit and 0= and ;
 : wc-ctor? ( mhead -- flag ) wc-kind lf-kind-constructor = ;
 : wc-ctor-arity ( mhead -- n )
-  wc-decl drop lf-input-decl lf-idecl-data dup lf-ict-params lf-more-field
+  lf-meta-const-decl drop lf-input-decl lf-idecl-data dup lf-ict-params lf-more-field
   swap lf-ict-fields lf-more-field + ;
 : wc-exact? ( mhead -- flag )
   dup wc-ctor? if wc-ctor-arity wc-margs slab-count = else drop false then ;
@@ -288,10 +274,10 @@ end-structure
 \ r's head decides.
 : wc-rec-frame ( -- outcome )
   wc wc-aux @ lf-input-decl lf-idecl-data wc wc-data !
-  wc-term wc-args wc-spine ok-then? if wc wc-head ! outcome-ok then ;
+  wc-term wc-args lf-meta-spine ok-then? if wc wc-head ! outcome-ok then ;
 : wc-rec-resume ( r -- e' flag outcome )
   wc-rec-frame dup ok? 0= if wc-drop-fail exit then drop
-  wc-margs wc-spine ok-then? if wc-major-head else wc-fail then ;
+  wc-margs lf-meta-spine ok-then? if wc-major-head else wc-fail then ;
 
 \ ---- Projections (projectCore?): the structure's whnf r, a constructor
 \ applied to more than its parameters and the field's index, gives that
@@ -304,15 +290,15 @@ end-structure
 : wc-unfinal? ( rhead -- flag ) dup wc-const? if wc-const-unfinal? else wc-lit? then ;
 : wc-proj-at ( p -- k ) lf-proj-leaf lf-proj-idx ;
 : wc-ctor-params ( ctor -- n )
-  wc-decl drop lf-input-decl lf-idecl-data lf-ict-params lf-more-field ;
+  lf-meta-const-decl drop lf-input-decl lf-idecl-data lf-ict-params lf-more-field ;
 : wc-field ( rhead p -- x true | false )
   wc-proj-at swap wc-ctor-params + dup wc-margs slab-count <
-  if wc-margs wc-arg true else drop false then ;
+  if wc-margs lf-meta-arg true else drop false then ;
 : wc-project ( rhead p -- x true | false )
   over wc-ctor? if wc-field else 2drop false then ;
-: wc-proj-frame ( -- p outcome ) wc-term wc-args wc-spine ;
+: wc-proj-frame ( -- p outcome ) wc-term wc-args lf-meta-spine ;
 : wc-proj-resume ( r -- e' flag outcome )
-  wc-margs wc-spine ok-then? 0= if wc-fail exit then
+  wc-margs lf-meta-spine ok-then? 0= if wc-fail exit then
   dup wc-unfinal? if drop outcome-unsupported wc-fail exit then
   wc-proj-frame ok-then? 0= if wc-drop-fail exit then
   wc-project if wc-rebuild wc-go else wc-stay then ;
@@ -325,7 +311,7 @@ end-structure
   lf-menv-kind dup lf-kind-definition = swap lf-kind-quotient = or ;
 : wc-recursor? ( d -- flag ) lf-menv-kind lf-kind-recursor = ;
 : wc-const-head ( e head -- e' flag outcome )
-  dup wc-decl 0= if drop wc-done exit then
+  dup lf-meta-const-decl 0= if drop wc-done exit then
   dup wc-blocked? if drop wc-unsupported exit then
   dup wc-recursor? if wc-iota else 2drop wc-done then ;
 
@@ -339,14 +325,14 @@ end-structure
   dup wc-lam? if drop lf-meta-head-beta wc-go exit then
   dup lf-let? if wc-let-head else dup lf-term-tag@ wc-head-tag then ;
 : wc-app ( e -- e' flag outcome )
-  dup wc-args wc-spine ok-then? if wc-head-step else wc-drop-fail then ;
+  dup wc-args lf-meta-spine ok-then? if wc-head-step else wc-drop-fail then ;
 : wc-leaf-step ( e tag -- e' flag outcome )
   case lf-tag-mvar of wc-mvar endof  lf-tag-fvar of wc-fvar endof
     lf-tag-projection of dup wc-proj-head endof
     lf-tag-bvar of outcome-invalid wc-drop-fail endof  >r wc-done r> endcase ;
 : wc-step ( e -- e' flag outcome )
   dup lf-let? if wc-zeta wc-go exit then
-  dup wc-app? if wc-app else dup lf-term-tag@ wc-leaf-step then ;
+  dup lf-meta-app? if wc-app else dup lf-term-tag@ wc-leaf-step then ;
 : wc-spend ( -- flag ) wc wc-fuel @ dup 0> if 1- wc wc-fuel ! true else drop false then ;
 : wc-next ( e flag -- e' flag' outcome )
   begin dup 0= wc-framed? and while drop wc-resume dup ok? 0= if exit then drop repeat
@@ -374,7 +360,7 @@ end-structure
   dup wc-ctor? swap wc-inert-major? or ws-none? ;
 : ws-major ( -- mvar true outcome | false outcome )
   wc-k? wc-short? or if false outcome-ok exit then
-  wc-major wc-margs wc-spine ok-then? if ws-major-head else false swap then ;
+  wc-major wc-margs lf-meta-spine ok-then? if ws-major-head else false swap then ;
 : ws-rec ( head d -- mvar true outcome | false outcome )
   lf-input-decl lf-idecl-data wc wc-data ! drop ws-major ;
 \ A binary node's data word is known only when no metavariable is in it
@@ -384,16 +370,16 @@ end-structure
   lf-menv-kind dup lf-kind-quotient = if 2drop false outcome-unsupported exit then
   lf-kind-definition = if ws-data-known? ws-none? else drop false outcome-ok then ;
 : ws-const ( e head -- mvar true outcome | false outcome )
-  dup wc-decl 0= if 2drop false outcome-ok exit then
+  dup lf-meta-const-decl 0= if 2drop false outcome-ok exit then
   dup wc-recursor? if rot drop ws-rec else nip ws-kind then ;
 \ A projection (Lean: getStuckMVar? of its structure's whnf): a structure
 \ whose head is a plain metavariable is stuck on it, as whnf leaves it;
 \ any other would need whnf first.
 : ws-proj ( proj -- mvar true outcome | false outcome )
-  lf-proj-struct wc-margs wc-spine ok-then? 0= if false swap exit then
+  lf-proj-struct wc-margs lf-meta-spine ok-then? 0= if false swap exit then
   dup wc-plain-mvar? if true outcome-ok else drop false outcome-unsupported then ;
 : ws-app ( e -- mvar true outcome | false outcome )
-  dup wc-args wc-spine ok-then? 0= if nip false swap exit then
+  dup wc-args lf-meta-spine ok-then? 0= if nip false swap exit then
   dup lf-term-tag@ case
     lf-tag-mvar of nip ws-mvar endof  lf-tag-constant of ws-const endof
     lf-tag-projection of nip ws-proj endof  >r 2drop false outcome-ok r> endcase ;
