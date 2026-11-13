@@ -324,6 +324,12 @@ T{ w wmax lf-level-mvar-assign w lf-level-mvar-value -> outcome-invalid false }T
 T{ w one lf-level-mvar-assign w 99999 lf-level-mvar-assign -> outcome-ok outcome-invalid }T
 T{ wmax lf-level-instantiate-mvars swap dup wmax = swap mvl-first -> outcome-ok false one }T
 T{ fixed lf-level-instantiate-mvars -> fixed outcome-ok }T
+\ The occurs check follows an assigned level metavariable to its value;
+\ a Sort over a level with none is kept.
+T{ lf-level-mvar-new nip -> outcome-ok }T
+lf-level-count @ 1- constant v
+T{ v wmax lf-level-mvar-assign v lf-level-mvar-value -> outcome-ok wmax true }T
+T{ one sort-of dup lf-instantiate-mvars swap rot = -> outcome-ok true }T
 T{ 0 lf-level-mvar-value 5 mctx-epoch@ lf-level-mvar-leaf drop lf-level-mvar-live? -> false false }T
 \ A broken (cyclic) level assignment, made by hand: the level, a Sort over
 \ it and a constant over it all end invalid.
