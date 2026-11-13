@@ -43,7 +43,13 @@ in contract language 0.1 ([PROGRAM_VC.md](PROGRAM_VC.md#the-contract-language-ve
 *true*):
 
 ```lean
-THEOREM
+ProgramVC.LfClamp0.contract (c : ProgramIR.Cells) (fuel : Nat) (value lower upper : Int) (tail rs : List Int)
+  (f1 : c.Fits value) (f2 : c.Fits lower) (f3 : c.Fits upper) :
+  ∃ out,
+    ProgramIR.callWord c ProgramVC.LfClamp0.program (fuel + 1) "lf-clamp"
+          { data := upper :: lower :: value :: tail, rets := rs } =
+        ProgramIR.Result.next { data := out ++ tail, rets := rs } ∧
+      ProgramVC.LfClamp0.post c value lower upper out
 ```
 
 ## A first run, step by step
@@ -101,7 +107,22 @@ kept in `build/verify-lean/NAME/verify.out`):
 
 ```text
 $ bin/leanforth verify src/program/clamp.fs --contract tests/program/contracts/lf-clamp.contract --out build/verify-lean/lf-clamp; echo "exit status $?"
-CLAMP
+word: lf-clamp ( value lower upper -- result true | false ), src/program/clamp.fs:12, sha256 e4444161…
+IR: 0.1, sha256 65187502…, equal to tests/program/ir/clamp.ir
+contract: lf-clamp/0, tests/program/contracts/lf-clamp.contract, sha256 841a7163…
+obligations: 2, from the untrusted generator program_vc.py 0.1
+  O1: If lower > upper: the word leaves false (bottom first), and the postcondition holds.
+  O2: If lower ≤ upper: the word leaves min(max(value, lower), upper), true (bottom first), and the postcondition holds.
+proofs: written by Lean 4.35.0 from the generator's tactic scripts; Lean printed the program back equal to the IR
+export: build/verify-lean/lf-clamp/lf-clamp.ndjson and its manifest (23,596,094 bytes)
+ProgramVC.LfClamp0.contract: accepted; axioms: propext, Classical.choice, Quot.sound
+ProgramVC.LfClamp0.O1: accepted; axioms: propext, Quot.sound
+ProgramVC.LfClamp0.O2: accepted; axioms: propext, Classical.choice, Quot.sound
+check: accepted-by-leanforth: LeanForth's checker re-checked the export and accepted all 4277 declarations; each theorem's axioms equal Lean's #print axioms
+verify: discharged, settled by accepted-by-leanforth
+run: not-run (plan 8.4.2)
+lf-clamp: contract lf-clamp/0 discharged (2 of 2 obligations; Lean wrote the proofs, LeanForth's checker accepted them); about the IR, under the receipt's 8 assumptions; compiled code is not covered
+receipt: build/verify-lean/lf-clamp/lf-clamp.receipt.json (schema 0.3)
 exit status 0
 ```
 
@@ -110,7 +131,17 @@ accepted Lean's proof that the contract is false.
 
 ```text
 $ bin/leanforth verify src/program/clamp.fs --contract tests/program/contracts/wrong-clamp-swapped.contract --out build/verify-lean/wrong-clamp-swapped; echo "exit status $?"
-SWAPPED
+...
+obligations: none: the untrusted generator program_vc.py 0.1 found inputs that break the contract
+  refutation: on 64-bit cells with value = -3, lower = -3, upper = -2, the word leaves -3, -1 (true) (bottom first); the postcondition fails
+proofs: written by Lean 4.35.0 from the generator's tactic scripts; Lean printed the program back equal to the IR
+export: build/verify-lean/wrong-clamp-swapped/lf-clamp.ndjson and its manifest (23,383,215 bytes)
+ProgramVC.LfClampWrongSwapped.refuted: accepted; axioms: propext, Classical.choice, Quot.sound
+check: accepted-by-leanforth: LeanForth's checker re-checked the export and accepted all 4295 declarations; each theorem's axioms equal Lean's #print axioms
+verify: refuted, settled by accepted-by-leanforth
+run: not-run (plan 8.4.2)
+lf-clamp: contract lf-clamp/wrong-swapped NOT VERIFIED: refuted: on 64-bit cells with value = -3, lower = -3, upper = -2, the word leaves -3, -1 (true) (bottom first); the postcondition fails
+receipt: build/verify-lean/wrong-clamp-swapped/lf-clamp.receipt.json (schema 0.3)
 exit status 1
 ```
 

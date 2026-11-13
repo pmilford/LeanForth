@@ -200,7 +200,7 @@
     {
       "id": "A7",
       "kind": "untrusted-generator",
-      "text": "The obligations come from an untrusted generator (scripts/program_vc.py). This is safe only because the contract theorem is stated against the IR semantics copied verbatim from tests/reference/program-ir.lean, and Lean prints the generated program back equal to the IR file."
+      "text": "The obligations come from an untrusted generator (scripts/program_vc.py). This is safe only because the contract theorem is stated against the IR semantics copied verbatim from tests/reference/program-ir.lean, and Lean prints the generated program back equal to the IR file. The contract's translation into post is not checked: what is proved is the theorem and post as Lean printed them, recorded in the evidence record with their SHA-256 (post f4405f80ca31f85aaf9427fcddf802f81e7c0e8ddb7850f6410a6d52874e4416)."
     },
     {
       "id": "A8",
