@@ -39,8 +39,9 @@
 \ in a heap store, and their arguments in another. Step fields: tac-kind
 \ (tac-k-*); tac-parent, the block it is in (-1 for the proof itself);
 \ tac-at, its word's position; tac-from and tac-to, its text: from just
-\ past the step before it to just past its last word (a block's closing
-\ word; an alternative's last tactic; -1 while open); tac-arrow, a
+\ past the step before it (the proof: from its by) to just past its last
+\ word (a block's closing word, end NAME's name for the proof; an
+\ alternative's last tactic; -1 while open); tac-arrow, a
 \ header's => (else -1); tac-name, a header's tag (a name ID, else 0);
 \ tac-first and tac-count, its arguments; tac-inner, the tactics right
 \ inside a block; tac-entries, the names in scope before a header's.
