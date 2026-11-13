@@ -63,6 +63,9 @@ status changes when this date is older than them. Stages are those of the
   way (2,890 declarations); their receipts wait for schema 0.4.
 
 **Next**
+- Library reuse (plan 9.4.8, owner 2026-11-13): designed; the rule is in AGENTS.md ("Reuse first"), the Forth
+  reviewer's procedure and the design checklist; an audit of `src/front` and of the 2026-11-12 library candidates is
+  running; then one library per branch beside the S slices, every copy replaced.
 - Priority (owner, 2026-11-13 midday): the front end's slices in order, S1 then S2 ($0 + n = n$ by `by-induction` and
   `by-rw`) then S3 onwards. S2's design ([S2_INTERFACE.md](../design/S2_INTERFACE.md)) reviewed and approved by the
   owner 2026-11-13, both FE1 forms; its first branch (`s2-unfold` merge A, Lean's unfolding) merges before S1's last
