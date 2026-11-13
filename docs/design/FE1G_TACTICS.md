@@ -1,9 +1,12 @@
 # FE1g: the first tactics, designed
 
-**Status (2026-11-12): designed; FE1g-2 written and tested alone on
-branch `fe1g2`** (`src/front/tactic-syntax.fs`: the words of §3.2 but
-`.goals` read into a record, their blocks' shape checked, error codes 80
-to 88 of §4.6; nothing runs). The rest is not built. This is the
+**Status (2026-11-13): designed; FE1g-2 written and tested alone
+(`src/front/tactic-syntax.fs`: the words of §3.2 but `.goals` read into a
+record, their blocks' shape checked, error codes 80 to 88 of §4.6;
+nothing runs); FE1g-1 written and tested alone on branch `fe1g1`** (§4.7:
+each metavariable's own local context, tags, the goal list and the
+proof state, the text of `.goals`; nothing runs a tactic yet). The rest
+is not built. This is the
 design of plan row FE1g (proof state and tactics) of
 [the plan](../project/PLAN_DRAFT.md), part of FE1 ($0 + n = n$ proved
 from LeanForth text), detailed from [FRONT_END.md](FRONT_END.md) §4.5 and
@@ -511,6 +514,45 @@ tactic, as Lean's parser does (85, at the word that ends it, with its
 `=>`, where Lean reports, as the second place);
 `tests/front/tactic-shapes.lean` keeps these shapes checked against
 pinned Lean.
+
+### 4.7 What FE1g-1 built (2026-11-13, branch `fe1g1`)
+
+- **Runs** (`front/runs.fs`): sequences of cells that never change, in two
+  heap slabs; a handle is one cell, 0 the empty run; push appends in place
+  when the run ends at the slab's top, else copies it there first; take,
+  after and concatenation share cells. Local contexts and goal lists are
+  runs, so a saved one is a handle, as Lean's persistent values are.
+- **Locals and views** (`front/lctx-views.fs`): a local is Lean's
+  `LocalDecl` (free variable, user name, binder kind, `LocalDeclKind`,
+  inaccessible flag, a local instance's class); a view is a run of locals,
+  Lean's `LocalContext`: push (`mkLocalDecl`), erase, rename
+  (`setUserName`), find, `findFromUserName?`, `isSubPrefixOf` with and
+  without `exceptFVars`. The types and values stay in
+  `core/local-context.fs`, which now keeps Lean's `nondep` flag
+  (`lf-lctx-have`; a have's value is hidden, so `whnf` leaves the variable
+  as Lean's `whnfEasyCases` does).
+- **Metavariables** (`front/mvars.fs`): each has its view (the current
+  one, Lean's Meta `lctx`, or one given: `mkFreshExprMVarAt`) and a tag;
+  `lf-mvar-sees?` is `lctx.contains`; the trail of the marks also restores
+  tags and kinds with their old values (this is §4.2's trail: FE1b's marks
+  extended, not a second mechanism); `lf-depends-on?` is
+  `exprDependsOn`.
+- **Goals** (`front/goals.fs`): `mkFreshExprMVarAt` for a synthetic opaque
+  goal, `MVarId.clear` and `MVarId.rename` (a new goal in a new view, the
+  old one assigned), the proof state's goal list with `getMainGoal`,
+  `getUnsolvedGoals`, `replaceMainGoal`, `appendGoals`. FE1g-3 adds the
+  runner's fields (open blocks, fuel, step count) to the record `pst`.
+- **`.goals`** (`front/goal-print.fs`): §5.7 as Lean's `ppGoal`:
+  `sanitizeNames` tombstones (`n✝`, `x✝¹`), groups of one type
+  (`a b : Nat`, Lean's `==`), lets with their values or `⋯` past
+  `approxDepth` 254, hidden implementation details, `case TAG`, a blank
+  line between goals. `tests/front/check_goals.py` compares 18 goal states
+  with pinned Lean's `trace_state`: 15 print the same; 3 differ by gaps of
+  the term printer (plan 8.6: `x.succ` for `Nat.succ x`, `∀` where Lean
+  infers that a Π is a proposition). Also not as Lean yet (plan 8.6):
+  lines Lean breaks past width 120, a binder Lean renames because its body
+  uses a hypothesis of that name, Lean's numbers of anonymous
+  metavariables (`?m.N`) and its display of delayed assignments.
 
 ## 5. The tactics of FE1
 
