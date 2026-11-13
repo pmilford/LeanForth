@@ -20,9 +20,10 @@ selects check-portable-forth and smoke, a changed Markdown file check-docs,
 a changed Makefile every target.
 
 This is a heuristic for an agent's inner loop, not a proof that the other
-targets are unaffected: run `make test` before every commit and `make check`
-at the end. Most tests load src/main.fs, so a change to a checker module
-still selects most targets. Needs git, make and Python 3.
+targets are unaffected: at the end of a branch run its change tier's suites
+(make tier; scripts/test-tier.py builds the tiers on these functions). Most
+tests load src/main.fs, so a change to a checker module still selects most
+targets. Needs git, make and Python 3.
 """
 import argparse
 import glob
@@ -35,9 +36,15 @@ from concurrent.futures import ThreadPoolExecutor
 PATH = re.compile(r"(?<![\w./-])(?:\./)?((?:src|tests|scripts|docs)/[\w.*/+-]*[\w*])")
 FORTH_LOAD = re.compile(r"\b(?:require|include|needs)\s+(\S+\.fs)\b", re.IGNORECASE)
 PY_IMPORT = re.compile(r"^\s*(?:from\s+(\w+)\s+import|import\s+(\w+))", re.MULTILINE)
-DOCSTRING = re.compile(r'^(?:#.*\n|\s*\n)*(?:"""|\'\'\').*?(?:"""|\'\'\')', re.DOTALL)
+# Anchored at the start of the text (\A), comment lines matched one line at a
+# time: the earlier form (DOTALL, re.sub at every position) backtracked over
+# whole files and took minutes per run (2026-11-13).
+DOCSTRING = re.compile(r'\A(?:#[^\n]*\n|[ \t]*\n)*(?:"""|\'\'\')[\s\S]*?(?:"""|\'\'\')')
 COMMENT = {".fs": "\\", ".py": "#", ".sh": "#"}
-AGGREGATES = {"test": ["test"], "check": ["test", "test-differential", "check"]}
+# make check is make test plus check-rest (the Makefile, plan 9.4.6).
+AGGREGATES = {"test": ["test"], "check": ["check", "test", "check-rest", "test-differential"]}
+# A target-specific variable line of make's database ("target: VAR := value").
+TARGET_VARIABLE = re.compile(r"^\s*[\w.-]+\s*(?:::=|:=|\?=|\+=|!=|=)")
 TEXT_LIMIT = 2 * 1024 * 1024
 
 
@@ -52,13 +59,27 @@ def changed_files(base):
     return sorted(set(names))
 
 
-def leaf_targets(aggregate):
-    database = subprocess.run(["make", "-pn", aggregate], capture_output=True, text=True).stdout
+def make_env():
+    """The environment without an enclosing make's flags (its jobs, its goals)."""
+    return {k: v for k, v in os.environ.items()
+            if k not in ("MAKEFLAGS", "MAKELEVEL", "MFLAGS", "MAKEOVERRIDES")}
+
+
+def prerequisites_of(aggregate):
+    """{target: [prerequisite, ...]} from make's database, first rule line each."""
+    database = subprocess.run(["make", "-pn", aggregate], capture_output=True, text=True,
+                              env=make_env()).stdout
     prerequisites = {}
     for line in database.splitlines():
         match = re.match(r"^([\w-]+):(?!=)(.*)$", line)
-        if match and match.group(1) not in prerequisites:
-            prerequisites[match.group(1)] = match.group(2).split()
+        if match and match.group(1) not in prerequisites and not TARGET_VARIABLE.match(match.group(2)):
+            prerequisites[match.group(1)] = match.group(2).replace("|", " ").split()
+    return prerequisites
+
+
+def leaf_targets(aggregate, prerequisites=None):
+    """The prerequisites of the aggregate's targets, aggregates left out, in make's order."""
+    prerequisites = prerequisites if prerequisites is not None else prerequisites_of(aggregate)
     targets = []
     for name in AGGREGATES[aggregate]:
         targets += [t for t in prerequisites.get(name, []) if t not in AGGREGATES["check"]]
@@ -67,7 +88,7 @@ def leaf_targets(aggregate):
 
 def recipe(target):
     return subprocess.run(["make", "-n", "--no-print-directory", "-j1", target],
-                          capture_output=True, text=True).stdout
+                          capture_output=True, text=True, env=make_env()).stdout
 
 
 def named_files(text):

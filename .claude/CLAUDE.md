@@ -36,7 +36,9 @@ OpenAI Codex. Codex-era docs (`docs/project/CODEX_HANDOFF.md`, `prompts/FIRST_CO
 - `make test` — Forth and Python tests, about 8 s (36 s one target at a
   time; about 3 min at `JOBS=2`). Which suite a branch runs, once, at its
   end, follows the change tiers of `AGENTS.md` (owner, 2026-11-13, plan
-  9.4.6); never re-run a suite on a tree that already passed it.
+  9.4.6): `make tier JOBS=2` runs them (`DRY_RUN=1` lists them) and records
+  each pass per tree; never re-run a suite on a tree that already passed it
+  (`make once GOALS=...` reuses the record).
 - `make check` — `make test` plus every pinned-Lean comparison: about
   45 s when pinned Lean's runs are replayed from the shared Lean cache
   (`.claude/work/lean-cache` of the main checkout), about 70 s with an empty
@@ -49,7 +51,10 @@ OpenAI Codex. Codex-era docs (`docs/project/CODEX_HANDOFF.md`, `prompts/FIRST_CO
   its two jobs locally under `ulimit -u 500`: `make check` (Lean cache on for
   merges, `LEAN_CACHE=0` once a day) and
   `make test GFORTH=$PWD/.claude/work/A/gforth073.sh` (Gforth 0.7.3); check
-  both exit codes and record them, as `AGENTS.md` requires.
+  both exit codes and record them, as `AGENTS.md` requires. `scripts/push.sh`
+  does this by change tier: its full tier is `make coverage-check`,
+  `make check-rest` and the 0.7.3 `make test`, and it reuses passes recorded
+  for the identical tree (`scripts/push.sh --dry-run` shows the plan).
 
 ## Reviews
 

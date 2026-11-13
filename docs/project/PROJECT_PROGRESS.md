@@ -68,10 +68,14 @@ status changes when this date is older than them. Stages are those of the
   front-end designs and of VERIFY_COMMAND both blocking (S1 on five design gaps, V1 on contract text reaching Lean;
   [design reviews](../development/design-reviews/LOG.md)); an S1 interface note and a hotfix of main's contract
   generator in progress.
-- Less repeated testing of small work (plan 9.4.6, owner 2026-11-13): designed
+- Less repeated testing of small work (plan 9.4.6, owner 2026-11-13): tested alone
   ([review](../development/TEST_WORKFLOW_REVIEW.md): `lib/sort.fs` took about 12 full-suite runs and 2-3 hours of
   machine time to reach GitHub; 3.6 hours of CI in six hours of pushes); decided by the owner 2026-11-13, rules in
-  AGENTS.md, the scripts not started.
+  AGENTS.md. The scripts are written and tested on throw-away repositories: `make tier` runs a branch's change tier
+  once and records each pass per tree, `make once GOALS=...` reuses a recorded pass, and `scripts/push.sh` runs by
+  tier, reuses recorded passes, runs the full set with `LEAN_CACHE=0` once a day and runs `make test` once per full
+  tier, instrumented ([TESTING_STRATEGY.md](../development/TESTING_STRATEGY.md), "Change tiers and tested-tree
+  records"). Not yet integrated: the first push with them follows the merge.
 - The Forth refactoring batches of the three backlog reviews ([log](../development/forth-reviews/LOG.md), plan
   9.4.5), tests first, every verdict and fuel count identical.
 - Program track: a user command `leanforth verify` (8.4.1): designed 2026-11-13 ([design](../design/VERIFY_COMMAND.md),
