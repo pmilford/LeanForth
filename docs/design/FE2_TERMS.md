@@ -174,10 +174,13 @@ writes the LeanForth text back.
    Lean's `forallTelescopeReducing`; this lifts error 73), **not counting
    `optParam` and `autoParam` binders** (Lean fills those when no argument
    is left, so they are given with `$` or `named:`). For a variable the
-   telescope is its binder's type, elaborated for this count alone in a
-   saved state that is then rolled back (FE1g's undo trail), so the real
-   elaboration still happens later in Lean's order; a type that is a hole
-   or whose head is a metavariable counts 0, and such a variable is
+   telescope is its binder's type. To know it while reading, the reader
+   keeps a *scratch* local context of the open binders, each type
+   elaborated when its binder word runs; the scratch work is rolled back
+   to a mark (FE1g's undo trail) before the real elaboration starts at
+   `:=` or `end NAME`, so that one still runs from the tree in Lean's
+   order and the scratch work can never change the term. A type that is
+   a hole or whose head is a metavariable counts 0, and such a variable is
    applied with `$` (`f 1 $`). An auto-bound name (§3.9) counts 0.
 4. **`named:` values are taken first.** `v named: x` makes a named
    argument; a name word first takes every named argument on top of the
@@ -691,7 +694,7 @@ as FE3 and FE4 land (instances, coercions).
 | `lf-elab-postpone` | `( node expected -- mvar outcome )` | `postponeElabTerm` |
 | `lf-elab-header` | `( decl -- type outcome )` | header with auto-bound loop and universe parameters |
 | `lf-elab-field` | `( node expected -- term outcome )` | `elabAppLValsAux` |
-| `lf-arity` | `( node -- n )` | the reader's count of §2.1 (scratch elaboration, rolled back) |
+| `lf-arity` | `( node -- n )` | the reader's count of §2.1, in the scratch context of the open binders (rolled back before the real elaboration) |
 | `lf-print-natural` | `( term width -- outcome )` | the natural printer |
 
 State (ADR 0009): members of the checker context: the postponed
@@ -901,6 +904,10 @@ page, each file starting with `set_option pp.all true`):
   to a Π takes more values than a Lean user might expect (its explicit
   binders after unfolding count); `' NAME … $` is the way out. The
   printer writes what reads back, so printed text is always right.
+- Binder types are elaborated twice: once in the reader's scratch context
+  for the argument counts, once for real. The cost is measured in FE2a;
+  if it matters, the scratch count can stop at the first binder type
+  whose head is syntactically a sort, an arrow or a variable.
 - `sorry` tags and macro-scoped binder names are compared erased; both
   carry source positions, which differ between `.lf` and `.lean` files.
 - A type mismatch answers *unsupported* until FE4 (§1.3), where Lean
