@@ -408,6 +408,9 @@ T{ u-id v-id lf-meta-name-cmp v-id u-id lf-meta-name-cmp u-id u-id lf-meta-name-
    -> -1 1 0 }T
 T{ w-id uv-id lf-meta-name-cmp uv-id w-id lf-meta-name-cmp -> -1 1 }T
 T{ u-id 2 lf-name-num drop u-id 1 lf-name-num drop lf-meta-name-cmp -> 1 }T
+T{ u-id 1 lf-name-num drop u-id 2 lf-name-num drop lf-meta-name-cmp -> -1 }T
+\ Equal last parts: the prefixes decide (a.1 before b.1).
+T{ 0 s" a" nm 1 lf-name-num drop 0 s" b" nm 1 lf-name-num drop lf-meta-name-cmp -> -1 }T
 T{ u-id 1 lf-name-num drop z-id lf-meta-name-cmp 0 s" ab" nm 0 s" abc" nm lf-meta-name-cmp
    -> -1 -1 }T
 \ Malformed: a level not in the store; a parameter whose name is no name.

@@ -281,6 +281,14 @@ T{ dm lf-instantiate-mvars -> dm outcome-ok }T
 \ ported the step.)
 T{ pend prop lf-mvar-assign dm lf-instantiate-mvars -> outcome-ok dm outcome-ok }T
 T{ dm x app lf-instantiate-mvars -> prop outcome-ok }T
+\ With one argument more than its free variables, the value put in is
+\ applied to the rest: ?dm x x is Prop x.
+T{ dm x app x app lf-instantiate-mvars swap dup lf-term-first@ swap lf-term-second@
+   -> outcome-ok prop x }T
+\ A delayed assignment whose pending one is unassigned stays applied.
+mv-natural new constant pend3  mv-natural new constant dm3
+T{ x lf-delay-fvar dm3 pend3 1 lf-mvar-delay -> outcome-ok outcome-ok }T
+T{ dm3 x app lf-instantiate-mvars swap lf-term-first@ -> outcome-ok dm3 }T
 \ Lean's beta step: ?f Prop with ?f := fun x : Prop => Prop is Prop; ?f
 \ alone is the lambda. (Unsupported before plan FE1c.)
 mv-natural new constant f

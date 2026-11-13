@@ -264,8 +264,8 @@
   },
   "src/front/level-defeq.fs": {
    "blocks": 130,
-   "never_run": 4,
-   "reason": "measured 2026-11-12 on fe1c-lnorm: never run are the full branches of the conjunction's pair stack ld-pairs (70, 130) and of lf-meta-level= on the bases or on a normalized side (82, 94), each needing the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)"
+   "never_run": 3,
+   "reason": "measured 2026-11-12 on fe1c-lnorm: never run are lf-meta-level='s full branch on the bases or on a normalized side (82, 94: its pair slab is grown by earlier deep tests, so no refusal reaches it) and the CATCH branch that rolls the mark back on a THROW (167: no input makes the rounds throw)"
   },
   "src/front/level-normalize.fs": {
    "blocks": 242,
@@ -274,8 +274,8 @@
   },
   "src/front/level-params.fs": {
    "blocks": 217,
-   "never_run": 6,
-   "reason": "measured 2026-11-12 on fe1c-lnorm after review L4: never run are imax rebuilt with mkLevelIMax' when a part changes (84), the case default of a level tag without parameters (95), a binder rebuild the term store refuses (125, 126), a Sort whose level is unchanged (137: the walk skips a Sort without a parameter first) and a constant reference made but its term refused (154)"
+   "never_run": 4,
+   "reason": "measured 2026-11-12 on fe1c-lnorm: never run are imax rebuilt with mkLevelIMax' when a part changes (83), the case default of a level tag without parameters (94) and a binder rebuild the term store refuses (124, 125)"
   },
   "src/front/level-simp.fs": {
    "blocks": 189,
@@ -284,8 +284,8 @@
   },
   "src/front/mvars.fs": {
    "blocks": 429,
-   "never_run": 8,
-   "reason": "measured 2026-11-12 on fe1c-lnorm: never run are the load-time aborts of a heap that cannot hold the stores (120, 121), store-new-slot failing after store-ready succeeded (167), the trail of marks refusing a note and the assignment or delay refused with it (288, 290, 337: the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)), and mv-block and mv-const-new refusing a constant's level pairs (410, 415)"
+   "never_run": 7,
+   "reason": "measured 2026-11-12 on fe1c-lnorm: never run are the load-time aborts of a heap that cannot hold the stores (130, 131), store-new-slot failing after store-ready succeeded (178), a delayed assignment's trail note refused (359), and in instantiateMVars the term store refusing an application (407), the argument slab and the metavariable search refused (437, 467: the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use))"
   },
   "src/front/reader.fs": {
    "blocks": 147,
