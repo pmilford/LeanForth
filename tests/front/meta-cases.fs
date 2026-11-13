@@ -10,6 +10,7 @@ require ../../src/main.fs
 require ../../src/front/level-defeq.fs
 require ../../src/front/instantiate.fs
 require ../../src/front/level-params.fs
+require ../../src/front/level-normalize.fs
 
 lf-author-begin
 : must ( x flag -- x ) 0= abort" meta-cases: no room" ;
@@ -19,8 +20,15 @@ lf-author-begin
 0 constant zero
 : lsucc ( l -- l' ) lf-level-succ must ;
 : lmax ( a b -- l ) lf-level-max must ;
-101 lf-level-param must constant u
-102 lf-level-param must constant v
+\ Parameters u, v, w and u.v, their names in the name store (Lean orders
+\ parameters by name).
+: name1 ( c-addr u -- id ) 0 -rot lf-name-str must ;
+s" u" name1 constant u-name  s" v" name1 constant v-name  s" w" name1 constant w-name
+u-name s" v" lf-name-str must constant uv-name
+u-name lf-level-param must constant u
+v-name lf-level-param must constant v
+w-name lf-level-param must constant w
+uv-name lf-level-param must constant uv
 create mv-names 16 cells allot
 variable #mv
 : mv ( i -- leaf ) 2* cells mv-names + @ ;
@@ -33,7 +41,8 @@ variable #mv
 defer .lev
 : .lmax ( l -- ) ." (max " dup lf-level-first@ .lev space lf-level-second@ .lev ." )" ;
 : .limax ( l -- ) ." (imax " dup lf-level-first@ .lev space lf-level-second@ .lev ." )" ;
-: .lparam ( l -- ) lf-level-first@ 101 = if ." u" else ." v" then ;
+: .name ( id -- ) dup lf-name-prefix@ ?dup if recurse ." ." then lf-name-text type ;
+: .lparam ( l -- ) lf-level-first@ .name ;
 : .lbase ( base -- )
   dup lf-level-tag@ case
     lf-level-tag-param of .lparam endof
@@ -117,5 +126,6 @@ create names-buf 4 cells allot  create levels-buf 4 cells allot
 : limax ( a b -- l ) lf-level-imax must ;
 : max-run ( u v -- ) lf-meta-max .level cr ;
 : imax-run ( u v -- ) lf-meta-imax .level cr ;
+: norm-run ( level -- ) lf-meta-level-normalize .level cr ;
 : ilp-run ( term k -- ) >r names-buf levels-buf r> lf-meta-instantiate-level-params .term cr ;
 : beta-run ( term -- ) lf-meta-head-beta .term cr ;

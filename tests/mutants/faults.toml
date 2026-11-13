@@ -10718,3 +10718,59 @@ old = ''': lf-mctx-commit ( mark -- ) drop mv-unmark ;'''
 new = ''': lf-mctx-commit ( mark -- ) drop mv-unmark mv-trail slab-clear ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1c tidy-up c: an inner commit forgets its assignments, so the outer rollback cannot undo them"
+
+[[fault]]
+id = "fe-lnorm-names-reversed"
+file = "src/front/level-normalize.fs"
+old = '''  if lf-meta-name-cmp 0< else 2drop outcome-invalid ln-refuse false then ;'''
+new = '''  if lf-meta-name-cmp 0> else 2drop outcome-invalid ln-refuse false then ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c Level.normalize: max u v sorts to max v u, against Lean's normLt (Name.lt)"
+
+[[fault]]
+id = "fe-lnorm-explicit-kept"
+file = "src/front/level-normalize.fs"
+old = ''': ln-first ( -- i ) ln-plain dup ln-subsumed? 0= if 1- 0 max then ;'''
+new = ''': ln-first ( -- i ) ln-plain 1- 0 max ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c Level.normalize: max (u+1) 1 keeps the explicit 1, which Lean's isExplicitSubsumed drops"
+
+[[fault]]
+id = "fe-lnorm-duplicate-kept"
+file = "src/front/level-normalize.fs"
+old = ''': ln-new-base? ( j -- flag ) dup ln-arg @ ld-base swap 1- ln-arg @ ld-base ln-eq? 0= ;'''
+new = ''': ln-new-base? ( j -- flag ) drop true ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c Level.normalize: max u u stays a max, where Lean's mkMaxAux keeps one argument per base"
+
+[[fault]]
+id = "fe-lnorm-offset-outside"
+file = "src/front/level-normalize.fs"
+old = '''  over ld-base ln-max? if ln-images r> ln-max-image exit then ln-imax r> ln-succs ;'''
+new = '''  over ld-base ln-max? if ln-images 0 ln-max-image r> ln-succs exit then ln-imax r> ln-succs ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c Level.normalize: (max u v)+1 keeps its offset outside, where Lean pushes it into the arguments"
+
+[[fault]]
+id = "fe-lnorm-imax-never-zero-ignored"
+file = "src/front/level-normalize.fs"
+old = '''  if ln-images 0 ln-max-image else ln-images ln-imax-aux then ;'''
+new = '''  drop ln-images ln-imax-aux ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c Level.normalize: imax u (v+1) stays an imax, where Lean normalizes max u (v+1)"
+
+[[fault]]
+id = "fe-lnorm-name-end-ignored"
+file = "src/front/level-normalize.fs"
+old = '''  0= swap 0= swap - ;'''
+new = '''  2drop 0 ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c Name.cmp: a name that ends first (w against u.v) no longer comes first"
+
+[[fault]]
+id = "fe-lnorm-ctor-order"
+file = "src/front/level-normalize.fs"
+old = ''': ln-ctor ( level -- n ) ln-tag dup 4 < if dup 0<> 2 and + else 3 - then ;'''
+new = ''': ln-ctor ( level -- n ) ln-tag ;'''
+test = "python3 tests/front/check_meta.py"
+reason = "FE1c Level.normalize: bases of different kinds in LeanForth's tag order, not Lean's ctorToNat (a parameter after a max)"

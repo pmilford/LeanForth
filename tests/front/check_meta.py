@@ -66,6 +66,21 @@ LOPS = [
     ("imax", "u", "v"), ("imax", "u", "(max v 1)"), ("imax", "u", "(imax v 1)"),
     ("imax", "1", "(imax u v)"), ("max", "u+1", "1"), ("max", "1", "u+1"),
 ]
+# Level.normalize: levels over u, v, w, u.v (parameters) and ?a, ?b
+# (metavariables made in that order).
+NORMS = [
+    "0", "u+3", "(max u v)", "(max v u)", "(max u u)", "(max (max u v) u)", "(max u+1 u)",
+    "(max 1 2)", "(max 0 u)", "(max 2 u+1)", "(max 1 u+1)", "(max u v)+1",
+    "(max (max w v) (max u.v u))", "(max u.v w)", "(imax u v)", "(imax u 0)", "(imax 0 u)",
+    "(imax 1 u)", "(imax u u)", "(imax u v+1)", "(imax u v+1)+2", "(imax u (max v 1))",
+    "(imax (max v u) w)", "(imax 1 (max v u))", "(imax 1 (max v u))+1",
+    "(max (imax 1 (max v u))+1 w)", "(max ?b ?a)", "(max ?a u)", "(max ?a+1 ?a)",
+    "(max (max u 2) (max v 1))", "(max (max u 2) (max v+2 1))", "(max (imax u v) (imax u w))",
+    "(max (imax u w) (imax u v))", "(max (max v w) (max u v))", "(imax u (imax v 1))",
+    "(max u+2 (max v+1 u))", "(max (max u v)+1 (max v u+2))", "(imax (imax u v) (imax v u))",
+    "(max (imax u+1 v) (imax u v))", "(max (max u 0) 0)", "(max 0 0)", "(max 3 (max 1 2))",
+    "(imax u+1 (max 0 0))", "(max ?b+1 (max ?a+2 ?b))",
+]
 SORT, CONST = "sort", "const"
 TPARAMS = [
     ((SORT, "u"), ["u"], ["1"], False), ((CONST, "u", "v"), ["u", "v"], ["1", "0"], False),
@@ -108,7 +123,7 @@ TERMS = [
 ]
 
 
-CASES = len(LEVELS) + len(TERMS) + len(LOPS) + len(LPARAMS) + len(TPARAMS)
+CASES = len(LEVELS) + len(TERMS) + len(LOPS) + len(LPARAMS) + len(TPARAMS) + len(NORMS)
 
 
 class Failure(Exception):
@@ -157,7 +172,7 @@ def level_forth(t, index):
     if kind == "num":
         return "zero" + " lsucc" * t[1]
     if kind == "param":
-        return t[1]
+        return {"u.v": "uv"}.get(t[1], t[1])
     if kind == "mvar":
         return f"{index[t[1]]} mv"
     if kind == "max":
@@ -309,9 +324,17 @@ def lean_param_cases():
     return "\n".join(lines)
 
 
+def lean_norm_cases():
+    lines = ["run_meta do", "  let ma ← mkFreshLevelMVar", "  let mb ← mkFreshLevelMVar",
+             '  let ms := [(ma.mvarId!, "a"), (mb.mvarId!, "b")]']
+    lines += [f"  IO.println (pl ms (Level.normalize {level_lean(level_parse(l))}))" for l in NORMS]
+    return "\n".join(lines)
+
+
 def lean_source():
     text = LEAN_HEAD + "\n" + "\n\n".join(lean_level_case(l, r, ro) for l, r, ro, _ in LEVELS)
-    return text + "\n\n" + lean_term_cases() + "\n\n" + lean_param_cases() + "\n"
+    return (text + "\n\n" + lean_term_cases() + "\n\n" + lean_param_cases() + "\n\n"
+            + lean_norm_cases() + "\n")
 
 
 def lean_lines():
@@ -348,7 +371,7 @@ def forth_lines():
             calls.append(f"{term_forth(case[1])} {xs} {len(case[2])} xs abst-run")
         else:
             calls.append(f"{term_forth(case[1])} beta-run")
-    ids = {"u": "101", "v": "102"}
+    ids = {"u": "u-name", "v": "v-name"}
     for op, u, v in LOPS:
         calls.append(f"{level_forth(level_parse(u), {})} {level_forth(level_parse(v), {})} "
                      f"{op}-run")
@@ -360,6 +383,8 @@ def forth_lines():
         calls.append(f"{' '.join(ids[n] for n in names)} {len(names)} params "
                      f"{' '.join(level_forth(level_parse(l), {}) for l in levels)} {len(levels)} args "
                      f"{term_forth(term)} {len(names)} ilp-run")
+    calls.append("level-case char a add-mv char b add-mv")
+    calls += [f"{level_forth(level_parse(l), {'a': 0, 'b': 1})} norm-run" for l in NORMS]
     run = subprocess.run([GFORTH, "tests/front/meta-cases.fs", "-e", " ".join(calls) + " bye"],
                          cwd=ROOT, stdin=subprocess.DEVNULL, capture_output=True, text=True,
                          timeout=LIMIT)
@@ -393,9 +418,10 @@ def main():
         gaps = []
         names = ([f"{l} =?= {r}" for l, r, _, _ in LEVELS] + [str(c) for c in TERMS]
                  + [f"{op} {u} {v}" for op, u, v in LOPS]
-                 + [f"{c[0]} {c[1]} := {c[2]}" for c in LPARAMS + TPARAMS])
+                 + [f"{c[0]} {c[1]} := {c[2]}" for c in LPARAMS + TPARAMS]
+                 + [f"normalize {l}" for l in NORMS])
         gap_flags = ([g for _, _, _, g in LEVELS] + [False] * (len(TERMS) + len(LOPS))
-                     + [c[3] for c in LPARAMS + TPARAMS])
+                     + [c[3] for c in LPARAMS + TPARAMS] + [False] * len(NORMS))
         for name, gap, want, got in zip(names, gap_flags, lean, forth):
             if gap:
                 if not got.startswith("unsupported"):
@@ -410,7 +436,8 @@ def main():
     print(f"Meta layer: {CASES - len(gaps)} cases equal to pinned Lean's "
           f"({len(LEVELS)} level unifications, {len(TERMS)} instantiations, abstractions and "
           f"head-beta steps, {len(LOPS)} mkLevelMax'/mkLevelIMax', "
-          f"{len(LPARAMS) + len(TPARAMS)} universe-parameter instantiations); "
+          f"{len(LPARAMS) + len(TPARAMS)} universe-parameter instantiations, "
+          f"{len(NORMS)} Level.normalize); "
           f"{len(gaps)} gaps answer unsupported: {'; '.join(gaps)}; harness self-test passed")
     return 0
 

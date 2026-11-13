@@ -6,7 +6,8 @@
 \ not refused gives the right answer. Operations: instantiate1, abstract,
 \ headBeta (src/front/instantiate.fs), level equality (level-simp.fs),
 \ universe-parameter instantiation of a level and of a term
-\ (level-params.fs). Nothing here checks a theorem.
+\ (level-params.fs), Level.normalize (level-normalize.fs). Nothing here
+\ checks a theorem.
 require ../support/tester.fs
 require ../support/heap-watch.fs
 require ../../src/main.fs
@@ -58,12 +59,15 @@ T{ ' beta-op refusing 0> swap ok? rot lf-term-second@ -> true true x }T
 \ Levels: two equal 1000-successor levels made apart (sharing is off in
 \ the authoring context); u + 1000 with u := 1; a constant C.{u, u} under
 \ 100 applications with u := 1.
-101 lf-level-param must constant u
+0 s" u" lf-name-str must constant u-id
+0 s" v" lf-name-str must constant v-id
+u-id lf-level-param must constant u
+v-id lf-level-param must constant v
 0 lf-level-succ must constant one
 : lsuccs ( l n -- l' ) 0 ?do lf-level-succ must loop ;
 u 1000 lsuccs constant tall1
 u 1000 lsuccs constant tall2
-create ps 101 ,  create ls one ,
+create ps u-id ,  create ls one ,
 : leq-op ( -- flag outcome ) tall1 tall2 lf-meta-level= ;
 : lps-op ( -- level outcome ) tall1 ps ls 1 lf-meta-level-params ;
 create cpairs 4 cells allot
@@ -81,6 +85,15 @@ T{ ' leq-op refusing 0> -> true outcome-ok true }T
 -1 none !
 T{ ' lps-op refusing 0> swap ok? rot 1000 lfirsts -> true true one }T
 T{ ' ilp-op refusing 0> swap ok? rot 100 firsts clevel -> true true one }T
+\ Level.normalize (level-normalize.fs): max (v+500) (max u 1) under 500
+\ successors is max (u+500) (v+1000); a small one first gives its slabs
+\ their blocks.
+: lmax ( a b -- l ) lf-level-max must ;
+v 500 lsuccs u one lmax lmax 500 lsuccs constant nmax
+T{ v u lmax lf-meta-level-normalize nip -> outcome-ok }T
+: norm-op ( -- level outcome ) nmax lf-meta-level-normalize ;
+T{ ' norm-op refusing 0> swap ok? rot dup lf-level-first@ 500 lfirsts swap
+   lf-level-second@ 1000 lfirsts -> true true u v }T
 
 T{ depth -> 0 }T
 cr .( meta-heap.fs: all tests passed) cr

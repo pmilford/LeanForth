@@ -21,8 +21,9 @@ lf-author-begin lf-mctx-reset
 0 constant zero
 zero lsucc constant one
 one lsucc constant two
-101 lparam constant u
-102 lparam constant v
+0 s" u" lf-name-str drop constant u-id  0 s" v" lf-name-str drop constant v-id
+u-id lparam constant u
+v-id lparam constant v
 
 \ ---- Pass and fail, without metavariables (Lean: getLevelOffset ==, then
 \ solve in both orders).
@@ -40,7 +41,7 @@ T{ u 3 lsuccs u 3 lsuccs lf-meta-level-defeq -> true outcome-ok }T
 \ solve 0 (succ u) false.
 T{ u lsucc zero lf-meta-level-defeq -> false outcome-ok }T
 \ Equal records made without sharing (the authoring context's setting).
-T{ 101 lparam dup u = swap u lf-meta-level-defeq -> false true outcome-ok }T
+T{ u-id lparam dup u = swap u lf-meta-level-defeq -> false true outcome-ok }T
 
 \ ---- Metavariables: assigned the other side.
 lnew constant a
@@ -230,7 +231,7 @@ T{ term-room lf-term-capacity! dup0 y lf-meta-instantiate1 nip -> outcome-ok out
 \ ---- Universe parameters (src/front/level-params.fs, Lean's
 \ Level.instantiateParams and Expr.instantiateLevelParams).
 lf-mctx-reset
-create ps 2 cells allot  101 ps !  102 ps cell+ !
+create ps 2 cells allot  u-id ps !  v-id ps cell+ !
 create ls 2 cells allot
 : ls! ( a b -- ) ls cell+ ! ls ! ;
 : lps ( level n -- level' outcome ) >r ps ls r> lf-meta-level-params ;
@@ -240,7 +241,7 @@ T{ u lsucc 1 lps swap ld-pred -> outcome-ok one }T
 T{ v 1 lps two 2 lps -> v outcome-ok two outcome-ok }T
 T{ v 2 lps -> two outcome-ok }T
 \ The first equal name wins (getParamSubst): u u -> 1 2.
-T{ 101 ps cell+ ! u 2 lps 102 ps cell+ ! -> one outcome-ok }T
+T{ u-id ps cell+ ! u 2 lps v-id ps cell+ ! -> one outcome-ok }T
 \ max over parameters: rebuilt with mkLevelMax' (max 1 2 is 2); a max
 \ without one is kept as it is.
 : same-under ( a b c -- flag c ) >r = r> ;
@@ -333,6 +334,46 @@ T{ su-deep 2 ilp drop 10000 firsts lf-term-first@ -> one }T
 lf-term-capacity constant room2
 T{ lf-term-count @ lf-term-capacity! su-lam 2 ilp -> outcome-ok -1 outcome-full }T
 T{ room2 lf-term-capacity! -> outcome-ok }T
+
+200000 lf-level-capacity! drop
+\ ---- Level.normalize (src/front/level-normalize.fs); check_meta.py
+\ compares 44 cases with pinned Lean.
+: nf ( l -- l' ) lf-meta-level-normalize ok? 0= abort" nf" ;
+\ Kept, the same node: a level over zero, a parameter or a metavariable.
+T{ u 3 lsuccs dup nf = zero dup nf = -> true true }T
+\ Sorted by name, a duplicate and a subsumed explicit level dropped, the
+\ offset pushed into a max but kept over an imax that is never zero.
+T{ v u lmax nf u v lmax l= u u lmax nf u l= u lsucc one lmax nf u lsucc l= -> true true true }T
+T{ u v lmax lsucc nf u lsucc v lsucc lmax l= -> true }T
+T{ u v lsucc limax 2 lsuccs nf u v lsucc lmax 2 lsuccs l= -> true }T
+\ imax: zero for a zero right side, the right side for a left side 1.
+T{ u zero limax nf one v limax nf -> zero v }T
+\ Lean's Name.cmp: by prefixes first (w before u.v), a number before a
+\ string (u.1 before z), then by bytes.
+: nm ( prefix c-addr u -- id ) lf-name-str 0= abort" name" ;
+0 s" w" nm constant w-id  u-id s" v" nm constant uv-id  0 s" z" nm constant z-id
+T{ u-id v-id lf-meta-name-cmp v-id u-id lf-meta-name-cmp u-id u-id lf-meta-name-cmp
+   -> -1 1 0 }T
+T{ w-id uv-id lf-meta-name-cmp uv-id w-id lf-meta-name-cmp -> -1 1 }T
+T{ u-id 1 lf-name-num drop z-id lf-meta-name-cmp 0 s" ab" nm 0 s" abc" nm lf-meta-name-cmp
+   -> -1 -1 }T
+\ Malformed: a level not in the store; a parameter whose name is no name.
+T{ 99999 lf-meta-level-normalize 999999 lparam v lmax lf-meta-level-normalize
+   -> -1 outcome-invalid -1 outcome-invalid }T
+\ Deep and wide: 10,000 successors over a max; a max of 200 metavariables
+\ made newest first, sorted oldest first (idempotent, the newest last).
+\ Each inner max of the chain gets its own normal form: about n^2 / 2 new
+\ levels.
+T{ v u lmax 10000 lsuccs nf lf-level-second@ ld-offset -> v 10000 }T
+variable newest
+: wide-max ( n -- l ) lnew swap 1 ?do lnew dup newest ! swap lmax loop ;
+lf-mctx-reset 200 wide-max nf constant w200
+T{ w200 dup nf l= w200 lf-level-second@ newest @ = -> true true }T
+\ Full: no room for the normal form.
+lf-level-capacity constant level-room
+v u lmax constant vu
+T{ lf-level-count @ lf-level-capacity! vu lf-meta-level-normalize -> outcome-ok -1 outcome-full }T
+T{ level-room lf-level-capacity! vu lf-meta-level-normalize nip -> outcome-ok outcome-ok }T
 
 T{ depth -> 0 }T
 cr .( meta.fs: all tests passed) cr
