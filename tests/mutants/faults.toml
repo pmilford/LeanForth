@@ -10521,3 +10521,11 @@ new = '''  >r over 1 max allocate if drop 2drop r> drop outcome-ok exit then'''
 test = "$GFORTH tests/core/env-snapshot.fs"
 reason = "a snapshot section the heap cannot hold is taken as written: the save reports ok for a file without it"
 quick = true
+
+[[fault]]
+id = "cov2-iota-major-index-off-by-one"
+file = "src/kernel/iota.fs"
+old = '''  2 pick lf-iota-n over lf-iota-major-idx > 0= if lf-iota-none exit then'''
+new = '''  2 pick lf-iota-n over lf-iota-major-idx 1+ > 0= if lf-iota-none exit then'''
+test = "$GFORTH tests/core/iota.fs"
+reason = "a recursor applied to exactly its major premise is no redex (inductive.h 83, off by one): Bool.rec motive False True Bool.true stays"
