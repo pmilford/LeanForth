@@ -77,6 +77,8 @@ findings neither fixed nor turned into plan tasks. A row that raises the style b
 | 2026-11-13 | merge `5a9d65a` | snap-compat: main 437feb84 (FRK kernel refactor) merged into the branch; env-import.fs and env-snapshot.fs conflicts resolved | forth-reviewer (Opus), resolution-only (owner's rule of 2026-11-13) | [report](2026-11-13-snap-compat.md), last section | 0 findings | none |
 | 2026-11-13 | `7d627919..67d71882` | fe1g3: the tactic runner and the first tactics (plan FE1g-3, FE1g-4; slice S1): tactic-run.fs, tactic-basic.fs, by-sorry, instantiate.fs's loose value at depth 0 | forth-reviewer (Opus), one round, probe | [report](2026-11-13-fe1g3.md) | 0 blocking; M1 (no test with two binders), M2 style, L1-L10 | fixed in 67d71882..b171fc9c; M2 and S-L1..3 plan notes |
 | 2026-11-13 | `67d71882..b171fc9c` | fe1g3 follow-up: M1, L1-L10 | forth-reviewer (Opus), short re-check | [report](2026-11-13-fe1g3.md), last section | 0 blocking; 2 low (no fault on `lfa-more,`; `lf-tac-defeq`'s throwing exit untested) | the two lows to the FE1g row |
+| 2026-11-13 | `7d08d494..d0ffdaec` | s1-meta merge A (slice S1): one tree-shaped undo trail in mvars.fs, meta-config.fs, the stuck signal, the whnf words, the error-range header | forth-reviewer (Opus), one round, probe | [report](2026-11-13-s1-meta-a.md) | 0 blocking; M1-M3 and L1 test gaps (four reviewer faults survived), L2-L4, S1-S3 | fixed in d0ffdaec..47943d3a |
+| 2026-11-13 | `d0ffdaec..47943d3a` | s1-meta merge A follow-up: the missing tests and five faults, L2-L4, S1-S3 | forth-reviewer (Opus), short re-check | [report](2026-11-13-s1-meta-a.md), last section | 0 findings | L2's test when s1-elab sets the stuck bit |
 
 ## Backlog
 
