@@ -156,6 +156,13 @@ T{ va bname s" p" name= -> true }T
 T{ s" end t" proof nrun err -> outcome-invalid 89 1 40 }T
 T{ token s" by" compare detail lean-goals compare cut? -> 0 0 false }T
 T{ lfa-error lfa-err-see @ -> -1 }T
+[defined] >string-execute [if]
+\ As the command line prints it: the message, then Lean's goal lines.
+: printed ( -- c-addr u ) ['] lf-author-error. >string-execute ;
+: unsolved-line ( -- c-addr u )
+  s\" error 89 at line:col 1:40 (token `by`): unsolved goals\nn : Nat\n⊢ 0 + n = n" ;
+T{ printed unsolved-line compare -> 0 }T
+[then]
 
 \ ---- 1. Tactics not ported yet: 80 at the word, its plan step, the goals.
 : later ( c-addr u -- code line col plan ) proof nrun drop err plan# ;
@@ -238,9 +245,10 @@ T{ :noname 1 2 parent! ; s" by-rw[ ] by-sorry end t" breaks -> 92 }T
 T{ :noname 1 2 parent! ; s" by-sorry by-sorry end t" breaks -> 92 }T
 \ The record unbroken: the stand-in alone runs.
 T{ :noname ; s" by-sorry end t" breaks -> 0 }T
-\ A second by in the record where a step is (a misplaced kind passes the
-\ check only through the row, which refuses it too).
+\ A second by in the record where a step is: the check refuses it, and so
+\ would its row (run here directly, the step running the last record's).
 T{ tac-k-by lfr-row trow-run @ -> ' lfr-misplaced }T
+T{ 1 ' lfr-misplaced catch nip lf-author-code -> lf-author-throw 92 }T
 
 \ ---- 1. The hand-over's refusal: a test tactic that leaves a hole in
 \ the value (a natural metavariable of type p): error 74 at end.

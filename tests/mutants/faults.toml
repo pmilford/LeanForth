@@ -14004,3 +14004,99 @@ old = '''base @ decimal   \ the numbers below are decimal; the BASE kept here re
 new = '''base @'''
 test = "$GFORTH tests/front/goals.fs"
 reason = "FE1g-1 review L1: mvars.fs reads its numbers (16, 31) in the BASE it is loaded with"
+
+[[fault]]
+id = "fe-run-unsolved-ignored"
+file = "src/front/tactic-run.fs"
+old = ''': lf-tac-done ( i -- ) lfr-unsolved run-count if lfr-unsolved-at else drop then ;'''
+new = ''': lf-tac-done ( i -- ) lfr-unsolved 2drop ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3: a block (or the proof) ends with goals left and no unsolved-goals error, so an open goal reaches the hand-over"
+
+[[fault]]
+id = "fe-run-fuel-free"
+file = "src/front/tactic-run.fs"
+old = '''  lf-tactic-fuel-left dup 0> if 1- trun trun-fuel ! true else drop false then ;'''
+new = '''  true ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3: a step spends no fuel, so a run never ends exhausted"
+
+[[fault]]
+id = "fe-run-sorry-level-zero"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-level ( type -- level ) lf-get-level lfr-meta-must ;'''
+new = ''': lfr-level ( type -- level ) drop 0 ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3: by-sorry's sorryAx gets level 0 whatever the goal's sort (Lean's getLevel skipped): wrong for a goal in Type"
+
+[[fault]]
+id = "fe-run-restore-keeps"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-rolled ( addr -- outcome ) dup lfr-back tsv-mark @ lf-mctx-rollback ;'''
+new = ''': lfr-rolled ( addr -- outcome ) dup lfr-back tsv-mark @ lf-mctx-commit ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3: a failed attempt keeps its assignments, tags and kinds (Lean's restore skipped)"
+
+[[fault]]
+id = "fe-run-unfocus-drops-rest"
+file = "src/front/tactic-run.fs"
+old = ''': lf-tac-unfocus ( rest -- ) lfr-unsolved swap run-cat lfr-must lfr-goals! ;'''
+new = ''': lf-tac-unfocus ( rest -- ) drop lfr-unsolved lfr-goals! ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3: Lean's focus loses the goals after the main one when the block ends"
+
+[[fault]]
+id = "fe-run-no-abstract"
+file = "src/front/tactic-run.fs"
+old = '''  >r lf-instantiate-mvars lfr-close-must lfr-n lfr-abstract r> lfr-wraps ;'''
+new = '''  >r lf-instantiate-mvars lfr-close-must r> lfr-wraps ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3: mkLambdaFVars without the abstraction: the binders' free variables stay free in the value and the type"
+
+[[fault]]
+id = "fe-run-nested-as-children"
+file = "src/front/tactic-run.fs"
+old = '''  begin 2dup lfr-inside? while 2dup lfr-parent = if exit then 1+ repeat ;'''
+new = '''  begin 2dup lfr-inside? while exit repeat ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3: a block runs the steps nested in its blocks as its own, so they run twice and outside their focus"
+
+[[fault]]
+id = "fe-run-record-unchecked"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-checked ( -- ) lfr-record-ok? 0= if lfa-e-tac-record lfa-fail then ;'''
+new = ''': lfr-checked ( -- ) ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3: a malformed tactic record (a kind out of range, a parent after its step) runs unchecked"
+
+[[fault]]
+id = "fe-run-sorry-no-part"
+file = "src/front/tactic-run.fs"
+old = '''  drop lf-tac-main dup lfr-open-part dup lfr-sorry-of 0 lf-replace-main lfr-must'''
+new = '''  drop lf-tac-main dup drop dup lfr-sorry-of 0 lf-replace-main lfr-must'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3: by-sorry closes a goal without recording the open part, so the report misses it (ADR 0021 Amendment 1)"
+
+[[fault]]
+id = "fe-run-parts-kept"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-run-fresh ( -- ) lfr-run-fresh-before execute lfr-parts-reset ;'''
+new = ''': lfr-run-fresh ( -- ) lfr-run-fresh-before execute ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3: a new run reports the open parts of the run before it"
+
+[[fault]]
+id = "fe-run-plan-unprinted"
+file = "src/author/errors.fs"
+old = '''    lfa-e-tac-run of lfa-.plan endof endcase ;'''
+new = '''    endcase ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3: error 80 no longer says which plan step ports the tactic"
+
+[[fault]]
+id = "fe-run-detail-unprinted"
+file = "src/author/errors.fs"
+old = '''  ." : " lf-author-code lf-author-message type lfa-.number lfa-.see lfa-.detail ;'''
+new = '''  ." : " lf-author-code lf-author-message type lfa-.number lfa-.see ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "FE1g-3: a tactic error is printed without the goals Lean prints under it"

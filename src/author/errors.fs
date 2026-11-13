@@ -140,10 +140,11 @@ end-structure
 : lfa-message-text ( message -- c-addr u )
   dup lfa-message-chars swap lfa-message-length @ ;
 : lfa-message-next ( message -- message' ) lfa-message-text chars + aligned ;
-: lfa-invalid, ( code c-addr u -- ) outcome-invalid -rot lfa-message, ;
-: lfa-unsupported, ( code c-addr u -- ) outcome-unsupported -rot lfa-message, ;
-: lfa-full, ( code c-addr u -- ) outcome-full -rot lfa-message, ;
-: lfa-exhausted, ( code c-addr u -- ) outcome-exhausted -rot lfa-message, ;
+: lfa-of, ( code c-addr u outcome -- ) -rot lfa-message, ;
+: lfa-invalid, ( code c-addr u -- ) outcome-invalid lfa-of, ;
+: lfa-unsupported, ( code c-addr u -- ) outcome-unsupported lfa-of, ;
+: lfa-full, ( code c-addr u -- ) outcome-full lfa-of, ;
+: lfa-exhausted, ( code c-addr u -- ) outcome-exhausted lfa-of, ;
 create lfa-catalogue
   lfa-e-unknown
   s" unknown name: no syntax word, bound variable, universe parameter or constant has it"

@@ -72,7 +72,10 @@
 \ being built) and the slabs trun-frames, trun-saves, trun-xs and
 \ trun-locals (one declaration's run), trun-parts and trun-text (the
 \ open parts of the whole run, emptied by lfa-run-fresh), in the checker
-\ context (ADR 0009). Loads in decimal whatever BASE is, then restores it.
+\ context (ADR 0009); the table of rows lfr-rows is shared, set while the
+\ modules load (lf-tactic-action!) and read-only afterwards (a test may
+\ change a row in its own single-threaded run). Loads in decimal whatever
+\ BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
@@ -381,7 +384,9 @@ s" by-sorry" tac-k-sorry lfr-spell
   lf-mctx-view dup lf-view-count 0 ?do dup i lfr-binder+ loop drop ;
 : lfr-n ( -- n ) trun-xs slab-count ;
 : lfr-abstract ( e k -- e' ) 0 trun-xs slab-at swap lf-meta-abstract lfr-close-must ;
-: lfr-domain ( k -- d ) dup trun-xs slab-at @ lf-fvar-type swap lfr-abstract ;
+: lfr-type ( k -- type )
+  trun-xs slab-at @ lf-fvar-type lf-instantiate-mvars lfr-close-must ;
+: lfr-domain ( k -- d ) dup lfr-type swap lfr-abstract ;
 : lfr-named ( t k -- t )
   trun-locals slab-at @ dup lf-local-name swap lf-local-binder >r over swap r>
   lf-pres-binder! lfr-ok ;
