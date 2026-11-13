@@ -295,7 +295,7 @@ wrong word builds a different term, which the checker checks as it is.
 | --- | --- |
 | `check [--env EXPORT \| --snapshot FILE] [--no-manifest] [--fuel N] [--resources] [--checked] [--strict-axioms] [--any-lean-version] [--jobs N] [--progress[=SECONDS]] [--memory-per-check MB] [--elab-data DATA] FILE.lf` | Check a [LeanForth text](#checking-leanforth-text): its declarations built by LeanForth's words and checked as an export's, against the library export EXPORT (its manifest checked unless `--no-manifest`) or a snapshot FILE when one is given; a text that stops with an error is not checked; DATA, the library's [elaboration data](../programming/ELABORATION_DATA.md), is checked against the library first, and refused data stops the run |
 | `check [--no-manifest] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--jobs N] [--progress[=SECONDS]] [--memory-per-check MB] [--save-snapshot FILE] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text; with `--jobs N`, check with [N workers at once](#parallel-checking---jobs); with `--memory-per-check MB`, give each check [at most MB megabytes of scratch](#memory-per-check---memory-per-check); with `--progress`, write [a status line](#progress-and-partial-results---progress) to standard error every minute; with `--save-snapshot FILE`, also write the checked environment to FILE ([snapshots](#snapshots---save-snapshot-and---snapshot)) |
-| `check --snapshot FILE [--snapshot LAYER ...] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--no-manifest] [--jobs N] [--save-snapshot LAYER] [--snapshot-stale-ok] [EXPORT]` | Report the verdicts a [snapshot](#snapshots---save-snapshot-and---snapshot) and its layers hold, each labelled as taken from it and not re-checked; with EXPORT, check it against them, taking what they vouch for and checking the rest, and with `--save-snapshot`, write what was checked as a layer: for development and research only |
+| `check --snapshot FILE [--snapshot LAYER ...] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--no-manifest] [--jobs N] [--save-snapshot LAYER] [--snapshot-stale-ok] [EXPORT]` | Report the verdicts a [snapshot](#snapshots---save-snapshot-and---snapshot) and its layers hold, each labelled as taken from it and not re-checked (of one of the two previous verdict versions, [carrying](#older-snapshots-two-verdict-versions-back) what this build's changes cannot reach and checking the rest); with EXPORT, check it against them, taking what they vouch for and checking the rest, and with `--save-snapshot`, write what was checked as a layer; without EXPORT, `--save-snapshot NEW` writes the snapshot again with this build's versions (an upgrade): for development and research only |
 | `check [--no-manifest] [--fuel N] [--checked] [--strict-axioms] --record RECORD EXPORT` | Check a small export (read straight into the checker's stores) and also write its [run record](#run-records-and-replay) |
 | `replay [--no-manifest] [--fuel N] [--checked] EXPORT RECORD` | Check the export again and compare the new run record with RECORD; print the replay report |
 | `print [--no-manifest] [--fuel N] [--checked] [--detail] [--name NAME] [--latex] [--statement FORMS] [--kernel] [--any-lean-version] EXPORT`, or `print --lf [--no-manifest] [--fuel N] [--checked] [--any-lean-version] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration; `--lf` writes the whole export as one [LeanForth text](#writing-an-export-as-leanforth-text) |
@@ -1276,12 +1276,20 @@ decision). Today's steps 9 (and 3-5) reach every declaration, so a
 snapshot of version 7 or 8 is checked again whole, as the tests show on
 the fixtures in `tests/snapshots/` (every result equal to a fresh
 check's); narrower steps carry more. With an export (`check --snapshot
-OLD EXPORT`) the same rule decides what the import pass takes. Not yet:
-layers on an older base or older layers (plan step 6.2.5c7: refused, or
-all stale with `--snapshot-stale-ok`), and writing the upgraded snapshot
-(`--save-snapshot`, step 6.2.5c5). A snapshot older than the window
-(`note: this build reads snapshots of verdict versions 7 to 9`) or newer
-than this build is refused (status 2).
+OLD EXPORT`) the same rule decides what the import pass takes.
+
+**Upgrading a snapshot** (plan step 6.2.5c5): `check --snapshot OLD
+--save-snapshot NEW`, with no export, writes NEW as a base of this
+build's versions over OLD's records and export (no export is read), its
+carried results marked as taken from OLD (slot provenance 2), the rest
+as checked in this run; NEW then loads as this build's version. On the
+fixtures every field the verdict version covers in NEW equals this
+build's own snapshot of the export. It is refused with layers (status 4)
+and with `--snapshot-stale-ok`. Not yet: layers on an older base or older
+layers (plan step 6.2.5c7: refused, or all stale with
+`--snapshot-stale-ok`). A snapshot older than the window (`note: this
+build reads snapshots of verdict versions 7 to 9`) or newer than this
+build is refused (status 2).
 
 #### Stale snapshots (`--snapshot-stale-ok`)
 
@@ -1310,9 +1318,11 @@ run supports a claim.
    full Mathlib run saves one, owner 2026-11-11). The snapshot is valid
    for every LeanForth build of the same verdict version; the next two
    verdict versions load it and check again what their changes can reach
-   ([older snapshots](#older-snapshots-two-verdict-versions-back)); later
-   ones need it written again (or `--snapshot-stale-ok` for a look in the
-   meantime).
+   ([older snapshots](#older-snapshots-two-verdict-versions-back)), and
+   `check --snapshot OLD --save-snapshot NEW` writes it again with the new
+   version (an upgrade, without reading the export); later ones need it
+   written again from the export (or `--snapshot-stale-ok` for a look in
+   the meantime).
 2. **Check a dependent library or a slice against it.**
    `check --snapshot mathlib.lfsnap physlib.ndjson` reads the dependent
    export (which holds every Mathlib declaration it uses) on into the

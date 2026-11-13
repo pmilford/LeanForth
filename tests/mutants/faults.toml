@@ -9332,10 +9332,10 @@ reason = "rvSN3 m2: a saved fuel used above the fuel per declaration loads"
 [[fault]]
 id = "rvsn3-provenance-unchecked"
 file = "src/kernel/env-snapshot.fs"
-old = '''  swap sl-provenance swap fld@ swap snap-layer? 1 and u> 0= ;'''
-new = '''  2drop true ;'''
+old = ''': prov-ok? ( addr snap -- flag ) prov-max swap sl-provenance swap fld@ u< 0= ;'''
+new = ''': prov-ok? ( addr snap -- flag ) 2drop true ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_review_faults"
-reason = "rvSN3 m3: a base snapshot's slot with a provenance a final run never writes loads"
+reason = "rvSN3 m3: a base snapshot's slot with a provenance no run writes (above 3; 1-3 since plan step 6.2.5c5, an upgraded base) loads"
 
 [[fault]]
 id = "rvsn3-added-unblocked"
@@ -11335,3 +11335,35 @@ old = '''  ck-layer-names 2@ nip 0<> ck-importing? snap-stale-allowed @ and or ;
 new = '''  ck-importing? snap-stale-allowed @ and ;'''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "6.2.5c3: a base of an older version carried under layers (mixed stacks are step 6.2.5c7): with --snapshot-stale-ok its results are no longer all stale"
+
+[[fault]]
+id = "snapc-upgrade-no-export-id"
+file = "src/cli/check-run.fs"
+old = '''  ck-snapped? ck-importing? 0= and if ck-old-export ck-old-manifest outcome-ok exit then'''
+new = '''  ck-snapped? ck-importing? 0= and if ck-old-manifest outcome-ok exit then'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py OlderSnapshots.test_upgrade"
+reason = "6.2.5c5: an upgraded base written without the export's identity its snapshot names"
+
+[[fault]]
+id = "snapc-upgrade-stale-written"
+file = "src/cli/check-run.fs"
+old = ''': ck-unstale? ( -- flag ) ck-snap snap-stale @ ck-carrying? ck-filled? and or 0= ;'''
+new = ''': ck-unstale? ( -- flag ) true ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "6.2.5c5: results shown stale (--snapshot-stale-ok) written into a snapshot"
+
+[[fault]]
+id = "snapc-upgrade-untaken"
+file = "src/kernel/env-snapshot.fs"
+old = '''  swap lf-slot-saved @ 0<> prov-taken and or ;'''
+new = '''  nip ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "6.2.5c5 (R8): a carried slot written into the upgraded base without the taken mark"
+
+[[fault]]
+id = "snapc-prov-layer-wide"
+file = "src/kernel/env-snapshot.fs"
+old = ''': prov-max ( snap -- u ) snap-layer? if 1 else prov-taken 1 or then ;'''
+new = ''': prov-max ( snap -- u ) drop prov-taken 1 or ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py OlderSnapshots.test_upgrade"
+reason = "6.2.5c5: a layer's slot taken from a snapshot (provenance 2) accepted; only an upgraded base holds such slots"

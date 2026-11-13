@@ -8,6 +8,29 @@ needs the owner's [format], [kernel] and [import] decisions
 [section 11](#11-questions-for-the-owner). The implementation steps are plan
 rows 6.2.5c1-6.2.5c8 of the [plan draft](../project/PLAN_DRAFT.md).
 
+**Implementation (written and tested alone, branch `snap-compat`, agent
+SNAPI, 2026-11-12; not merged: the [format], [kernel] and [import]
+gates are owed).** Steps c1 (the reach table, window and union), c2 (the
+fixtures of versions 7, 8 and 9, `scripts/write-snapshot-fixtures.sh`,
+byte identity), c3 (the carry pass, first version: C5 as I1.3, decided
+before the checks; labels, the count first, `--snapshot-stale-ok`
+inside the window, the refusals and their notes) and c5 (`--snapshot OLD
+--save-snapshot NEW` without an export). Departures, for the gates: (1)
+the carried and checked-again counts are in the text report only; the
+JSON members wait for the report's next version; (2) a layer on an older
+base, an older layer, and an older base with an export and
+`--snapshot-stale-ok` stay stale or refused until c7; (3) an upgraded
+base marks its carried slots taken (provenance 2, R8), so the loader
+now accepts provenance 1-3 in a base, where it accepted only 0 (review
+rvSN3 m3), until c6's lineage section tells an upgraded base apart; (4)
+c4 is not built: its decision on readiness needs the scheduler
+(`env-schedule.fs`) to let the driving task carry a declaration before
+handing it out, or `--jobs 1` and `--jobs N` would carry different sets
+and write different files (ADR 0009 G-P4); (5) the reach bits without an
+evaluator yet (mutual blocks, literals, projections, lets, scratch
+names, names) count as reaching everything; no entry in the window uses
+one.
+
 The owner (2026-11-12): "the snapshots should attempt to read backward
 compatible 1-2 versions prior", and "I'd like to not have to regenerate the
 saved version so often"; later the same evening: any future snapshot

@@ -2366,8 +2366,9 @@ class Snapshots(unittest.TestCase):
         for field, value, why in [
                 (9, 0x7FFFFFFF, "slots (record 0)"), (10, 0x7FFFFFFF, "slots (record 0)"),
                 (9, 1 + len(data), "slots (record 0)"),
-                (8, 0xFFFF, "slots (record 0)"), (2, 1, "slots (record 0)"),
-                (2, 3, "slots (record 0)")]:
+                # provenance 1-3 is a base written again (plan step 6.2.5c5)
+                (8, 0xFFFF, "slots (record 0)"), (2, 4, "slots (record 0)"),
+                (2, 7, "slots (record 0)")]:
             self.refused(slot_changed(field, value), 4,
                          f"invalid: the snapshot was refused: {why}")
         for key in [(0x7FFFFFF << 4) | 0, (1 << 4) | 8]:
@@ -2453,10 +2454,12 @@ class Snapshots(unittest.TestCase):
         for args, why in [
                 (["--record", "r.json", "--snapshot", str(path)],
                  "--snapshot and --save-snapshot do not go with --record"),
-                (["--snapshot", str(path), "--save-snapshot", "x"],
-                 "--snapshot and --save-snapshot go together only with an export (a layer)")]:
+                (["--snapshot", str(path), "--snapshot", str(path), "--save-snapshot",
+                  str(self.dir / "x")],
+                 "--save-snapshot without an export writes one snapshot again, not its layers")]:
             status, out, _ = run("check", *args)
             self.assertEqual((status, out.splitlines()[0]), (4, f"error: {why}"), args)
+        self.assertFalse((self.dir / "x").exists())
         status, out, _ = run("check", "--save-snapshot", CHAIN, CHAIN)
         self.assertEqual((status, out), (4, "error: FILE must not be EXPORT\n"))
         status, out, _ = run("check", "--save-snapshot", str(self.dir / "u"), "--no-manifest",
@@ -3325,6 +3328,43 @@ class OlderSnapshots(unittest.TestCase):
         print(f"\nOlderSnapshots differential: {tally['runs']} runs, {tally['carried']} carried, "
               f"{tally['again']} checked again, 0 differences", file=sys.stderr)
 
+    def test_upgrade(self):
+        """check --snapshot OLD --save-snapshot NEW (plan step 6.2.5c5, R8):
+        NEW is a base of this build's versions over OLD's tier and export,
+        every field the verdict version covers equal to this build's own
+        snapshot of the export (the v<this> fixture), provenance aside (a
+        carried result is marked taken); NEW loads as this build's version
+        and reports what the upgrade run reported."""
+        version = verdict_version()
+        for v in range(version - 2, version + 1):
+            for stem in FIXTURE_EXPORTS:
+                new = self.dir / f"{stem}-{v}.lfsnap"
+                status, got, _ = report("--snapshot", str(fixture(v, stem)), "--save-snapshot",
+                                        str(new))
+                fields, own = golden_fields(new), golden_fields(fixture(version, stem))
+                for rows in (fields["slots"], own["slots"]):
+                    for row in rows:
+                        row["fields"][2] = 0
+                self.assertEqual(fields, own, (v, stem))
+                again_status, again, _ = report("--snapshot", str(new))
+                self.assertEqual((again_status, self.exact(again)), (status, self.exact(got)),
+                                 (v, stem))
+                self.assertEqual((again["snapshot"]["verdictVersion"], again["snapshot"]["stale"],
+                                  {d["provenance"] for d in again["declarations"]}),
+                                 (version, None, {"snapshot"}), (v, stem))
+                out = run("check", "--snapshot", str(new))[1]
+                self.assertFalse(out.startswith("carry:"), (v, stem))
+        # A layer never holds a slot taken from a snapshot (provenance 2):
+        # only an upgraded base does.
+        data, table = sectioned(fixture(version, "dependent"))
+        put32(data, table[SLOTS][3] + 4 * 2, 2)
+        forged = self.dir / "forged-layer.lfsnap"
+        forged.write_bytes(bytes(resealed(data, table, SLOTS)))
+        status, out, _ = run("check", "--snapshot", str(fixture(version, "inductive")),
+                             "--snapshot", str(forged))
+        self.assertEqual((status, out.splitlines()[0].split(":")[:3]),
+                         (4, ["error", " invalid", " the snapshot was refused"]))
+
     def test_stale_and_refused(self):
         """--snapshot-stale-ok inside the window: what is carried, and the
         rest shown stale, never checked (R7); with an export, or with
@@ -3367,6 +3407,23 @@ class OlderSnapshots(unittest.TestCase):
         status, got, _ = report("--snapshot-stale-ok", "--snapshot", str(forged))
         self.assertEqual((status, {d["provenance"] for d in got["declarations"]}),
                          (0, {"stale-snapshot"}))
+        # An older fixture damaged fails closed as a current one does: cut
+        # short, a slot's byte changed without its SHA-256, a slot's
+        # outcome out of range with its SHA-256 made again.
+        data, table = sectioned(fixture(v, "unfold"))
+        slots = table[SLOTS][3]
+        changed = bytearray(data)
+        changed[slots] ^= 1
+        forged.write_bytes(bytes(changed))
+        self.assertEqual(run("check", "--snapshot", str(forged))[:2][0], 4)
+        forged.write_bytes(bytes(data[:len(data) - 4096]))
+        self.assertEqual(run("check", "--snapshot", str(forged))[:2][0], 4)
+        changed = bytearray(data)
+        put32(changed, slots, 7)
+        forged.write_bytes(bytes(resealed(changed, table, SLOTS)))
+        status, out, _ = run("check", "--snapshot", str(forged))
+        self.assertEqual((status, out.splitlines()[0]),
+                         (4, "error: invalid: the snapshot was refused: slots (record 0)"))
 
 
 if __name__ == "__main__":

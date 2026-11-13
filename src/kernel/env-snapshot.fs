@@ -684,8 +684,11 @@ create snap-outers /outers allot  snap-outers /outers erase
 \ A slot's own fields: an outcome, marks, axiom bits within the
 \ allowlist's; B4 warning bits, a recipe and a shape as the checker makes
 \ them (review FRK F5); fuel used -1 (not known) or at most the fuel per
-\ declaration; provenance 0 in a base snapshot (written by a final run),
-\ at most 1 (rests on saved results) in a layer (review rvSN3 m2, m3).
+\ declaration; provenance at most 1 (rests on saved results) in a layer
+\ (review rvSN3 m2, m3), and in a base 0 (written by a final run) or, in
+\ a base written again by a run of an older one (plan step 6.2.5c5, R8),
+\ also 1, 2 (taken from it) and 3; ADR 0020 Amendment 5's lineage
+\ section (plan step 6.2.5c6) will tell such a base apart.
 : sl-at ( addr k -- u ) swap fld@ ;
 : outcome-in? ( u -- flag ) outcome-full u> 0= ;
 \ The warning bits: inductive-block.fs's lf-warn-* (1-16) and quot.fs's
@@ -709,8 +712,8 @@ create snap-outers /outers allot  snap-outers /outers erase
 : fuel-ok? ( addr snap -- flag )
   snap-fuel swap sl-fuel swap fld2@ tuck < 0= swap -1 < 0= and ;
 : snap-layer? ( snap -- flag ) sh-layers swap head@ 0<> ;
-: prov-ok? ( addr snap -- flag )
-  swap sl-provenance swap fld@ swap snap-layer? 1 and u> 0= ;
+: prov-max ( snap -- u ) snap-layer? if 1 else prov-taken 1 or then ;
+: prov-ok? ( addr snap -- flag ) prov-max swap sl-provenance swap fld@ u< 0= ;
 \ Its site: none, or a counted string inside the site texts.
 : site-room ( snap -- base size ) ss-sites over snap-block swap ss-sites swap snap-size ;
 : site-ok? ( n snap -- flag )

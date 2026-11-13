@@ -900,13 +900,15 @@ create ck-manifest-path manifest-name-room 16 + allot
   ck-manifest-text 2@ drop ?dup if free drop then 0 0 ck-manifest-text 2! ;
 \ A declaration's facts for the snapshot: its fuel used and kept step.
 : ck-fact ( d -- fuel step ) dup ck-fuel-of swap ck-kept ;
-\ A snapshot is written after a final run (a base), or after an export
+\ A snapshot is written after a final run (a base), after an export
 \ checked against a base alone (a layer of that base: ADR 0020 amendment
-\ 1, F5; plan step SN4), never after a run of a snapshot alone or of
-\ layers.
+\ 1, F5; plan step SN4), or after a run of a base alone (the base written
+\ again with this build's versions, plan step 6.2.5c5, R8: the upgrade of
+\ an older one, its carried results marked taken); never after a run of
+\ layers or one that shows results stale.
 : ck-layers# ( -- n ) ck-state ck-layers @ ;
-: ck-save-kind? ( -- flag )
-  ck-snapped? 0= ck-importing? ck-layers# 0= and or ;
+: ck-unstale? ( -- flag ) ck-snap snap-stale @ ck-carrying? ck-filled? and or 0= ;
+: ck-save-kind? ( -- flag ) ck-snapped? 0= ck-layers# 0= ck-unstale? and or ;
 : ck-saveable? ( -- flag )
   ck-loaded? ck-outcome ok? and ck-stopped? 0= and ck-save-kind? and ;
 \ A layer: what was not taken, numbered on from the base's.
@@ -915,10 +917,21 @@ create ck-manifest-path manifest-name-room 16 + allot
   ck-snap snap-sum ck-import imp-firsts@ ck-out snap-layer-base!
   ck-import imp-layer-slots ck-out snap-layer-slots!
   ck-import imp-layer-decls ck-out snap-layer-decls! outcome-ok ;
+\ An upgraded base names the export its snapshot names: the same
+\ identity, flags and manifest (no export is read).
+: ck-old-export ( -- )
+  ck-snap snap-export-sha ck-snap snap-export-bytes ck-snap snap-export-lines
+  ck-snap snap-flags ck-out snap-export!
+  ck-snap snap-manifest-sha ck-out snap-manifest-sha! ;
+: ck-old-manifest ( -- )
+  ss-manifest ck-snap snap-block ss-manifest ck-snap snap-size ck-out snap-manifest! ;
+: ck-export-id ( -- outcome )
+  ck-snapped? ck-importing? 0= and if ck-old-export ck-old-manifest outcome-ok exit then
+  ck-snap-export dup ok? 0= if exit then drop ck-snap-manifest ;
 : ck-snap-prepared ( info-addr info-u -- outcome )
   ck-out snap-begin dup ok? 0= if nip nip exit then drop ck-out snap-info!
-  ck-snap-export dup ok? 0= if exit then drop ['] ck-fact ck-out snap-facts!
-  ck-snap-manifest dup ok? ck-importing? and if drop ck-layer-set then ;
+  ['] ck-fact ck-out snap-facts! ck-export-id dup ok? ck-importing? and
+  if drop ck-layer-set then ;
 : ck-snap-written ( file-addr file-u info-addr info-u -- outcome )
   ck-snap-prepared dup ok? 0= if nip nip exit then drop
   ck-fuel-budget ck-stage ck-out snap-save ;

@@ -347,6 +347,48 @@ T{ ck-outcome same-as-fresh2? lf-i2-misses @ -> outcome-ok true 0 }T
 T{ ck-taken# 0> reach10 why# 0> why-answers why# 0> -> true true true }T
 T{ ck-taken# whys# + lf-input-count = -> true }T
 ck-release
+\ ---- A snapshot alone of a pretended older version (plan steps 6.2.5c3
+\ and c5), loaded as ck-snapshot-load loads one, its record marked older
+\ by hand (snap-carry) before its tier is read: nested.ndjson's results
+\ carried outside the pretended reach (nested blocks), the rest checked,
+\ every outcome and fuel as fresh; then written again as a base of this
+\ build's versions, each carried slot marked taken (provenance 2), each
+\ checked one not; that base loads as this build's, every outcome and fuel
+\ as fresh.
+s" leanforth-env-import-upgraded.lfsnap" scratch-file 2constant upgraded
+create carried-flags 512 cells allot
+: carry-tier ( -- outcome )
+  true ck-snap snap-carry ! ck-snap-tier
+  ['] pretend ck-import imp-steps ! lf-verdict-version 1+ ck-import imp-top ! ;
+: carry-phase ( c-addr u -- outcome )
+  ck-phase-begin -1 ['] carry-tier ck-snap-opened ck-snap-fails
+  ck-staging ck-phase-end ck-staging ck-fail ;
+: carry-alone ( c-addr u -- outcome )
+  2dup ck-snap-named carry-phase dup ok? 0= if exit then drop ck-filling ck-stage-facts
+  ck-feed-phase dup ok? if ck-input-facts ck-snap-slots then dup ck-state ck-loaded ! ;
+: keep-carried ( -- ) lf-input-count 0 ?do i ck-taken? carried-flags i cells + ! loop ;
+: taken-mark? ( d -- flag ) sl-provenance swap saved prov-taken and 0<> ;
+: marks-kept? ( -- flag )
+  true lf-input-count 0 ?do i taken-mark? carried-flags i cells + @ = and loop ;
+reach-block-nested pretended ! 20000000 ck-start 0 0 ck-layers!
+T{ nested-snap carry-alone -> outcome-ok }T
+T{ ck-carrying? ck-check-word ' lf-check-declaration = -> true true }T
+ck-check
+T{ ck-outcome ck-verdicts? same-as-fresh2? ck-carried# reach10 why# -> outcome-ok true true 72 35 }T
+keep-carried
+T{ upgraded s" {}" ck-snapshot-save -> outcome-ok }T
+ck-release
+20000000 ck-start upgraded -1 ck-snapshot-load ok? s" upgraded load" must ck-check
+T{ ck-outcome ck-carrying? same-as-fresh2? marks-kept? -> outcome-ok false true true }T
+ck-release  upgraded delete-file drop
+\ With --snapshot-stale-ok the rest is shown stale (published from the
+\ snapshot, snap-fill), and nothing is written.
+true snap-stale-allowed ! 20000000 ck-start 0 0 ck-layers!
+T{ nested-snap carry-alone ck-check-word ' snap-fill = -> outcome-ok true }T
+ck-check
+T{ ck-outcome ck-carried# ck-stale? -> outcome-ok 72 true }T
+T{ upgraded s" {}" ck-snapshot-save upgraded r/o open-file nip 0<> -> outcome-invalid true }T
+false snap-stale-allowed ! ck-release
 \ A snapshot written at a fuel limit some checks ran out of: nothing in
 \ the pretended reach, still every exhausted result checked again (C2),
 \ as a fresh check at that limit gives it.

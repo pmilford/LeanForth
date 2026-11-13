@@ -831,13 +831,16 @@ variable cli-info#
   cli-fed-tally cli-fed-report ;
 \ check --snapshot FILE: the snapshot's verdicts, published again from it
 \ (cli/check-run.fs ck-snapshot-load), no export read; each further
-\ --snapshot LAYER a layer loaded on it (kernel/env-layers.fs).
+\ --snapshot LAYER a layer loaded on it (kernel/env-layers.fs). With
+\ --save-snapshot NEW (no layer), FILE written again as a base of this
+\ build's versions (plan step 6.2.5c5): an older one upgraded. The text
+\ report's first line in a carry run is cli-carry. (plan step 6.2.5c3).
 : cli-layers ( -- ) cli-state opt-layers @ cli-state opt-layers# @ ck-layers! ;
 : cli-carry-first ( -- ) cli-json? 0= if ['] cli-carry. ck-carried! then ;
 : cli-snapshot-run ( -- )
   cli-layers cli-carry-first cli-state opt-snapshot 2@ cli-asked-fuel
   ck-snapshot-load
-  ok? if ck-check then
+  ok? if ck-check cli-snapshot-save then
   cli-fed-tally cli-fed-report ;
 \ check --snapshot FILE EXPORT: the export read on into the snapshot's
 \ tier, what is the snapshot's taken from it, the rest checked (plan step
@@ -930,7 +933,10 @@ variable cli-info#
 \ Snapshots (ADR 0020 D6): neither --snapshot nor --save-snapshot goes
 \ with --record; both together write a layer, so only with an export.
 : cli-snap-misused? ( -- flag ) cli-record? cli-snapshot? cli-save? or and ;
-: cli-snap-both? ( -- flag ) cli-snapshot? cli-save? and cli-files @ 0= and ;
+\ Without an export they write the snapshot again with this build's
+\ versions (plan step 6.2.5c5), of one snapshot: not with layers.
+: cli-snap-both? ( -- flag )
+  cli-snapshot? cli-save? and cli-files @ 0= and cli-state opt-layers# @ 0<> and ;
 : cli-misuse-snap ( c-addr u -- code )
   ." error: " type cr ." try: leanforth help" cr exit-malformed ;
 \ --snapshot-stale-ok reads a snapshot; a stale verdict is never written
@@ -944,7 +950,7 @@ variable cli-info#
   cli-snap-misused? if s" --snapshot and --save-snapshot do not go with --record"
     cli-misuse-snap exit then
   cli-snap-both? if
-  s" --snapshot and --save-snapshot go together only with an export (a layer)"
+  s" --save-snapshot without an export writes one snapshot again, not its layers"
     cli-misuse-snap exit then
   cli-save? cli-snapshot? and if
     cli-state opt-save 2@ cli-state opt-snapshot 2@ compare 0=
@@ -1302,7 +1308,8 @@ variable cli-info#
   ."       the verdicts a snapshot holds, labelled, not re-checked (development" cr
   ."       and research only: a final run re-checks the export); with EXPORT," cr
   ."       its declarations the snapshot holds unchanged taken from it, the rest" cr
-  ."       checked (with --save-snapshot LAYER, written as a layer of FILE);" cr
+  ."       checked (with --save-snapshot LAYER, written as a layer of FILE;" cr
+  ."       without EXPORT, --save-snapshot NEW writes FILE again, upgraded);" cr
   ."       of one of the two verdict versions before this build's, what this" cr
   ."       build's changes can reach is checked again, the rest carried;" cr
   ."       --snapshot-stale-ok shows instead what is not carried, or every" cr
