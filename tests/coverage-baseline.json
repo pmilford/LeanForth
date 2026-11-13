@@ -1,5 +1,5 @@
 {
- "runs": 1762,
+ "runs": 1770,
  "files": {
   "src/author/build.fs": {
    "blocks": 250,
@@ -264,8 +264,8 @@
   },
   "src/front/mvars.fs": {
    "blocks": 429,
-   "never_run": 4,
-   "reason": "new file (plan FE1a-b, 2026-11-12; tightened at the merge, review fe1ab re-check): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded and the reader default finder before cli/check-lf.fs sets it are never run"
+   "never_run": 8,
+   "reason": "measured 2026-11-12 on fe1c-lnorm: never run are the load-time aborts of a heap that cannot hold the stores (120, 121), store-new-slot failing after store-ready succeeded (167), the trail of marks refusing a note and the assignment or delay refused with it (288, 290, 337: the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)), and mv-block and mv-const-new refusing a constant's level pairs (410, 415)"
   },
   "src/front/reader.fs": {
    "blocks": 147,
@@ -802,6 +802,31 @@
    "blocks": 28,
    "never_run": 1,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/front/instantiate.fs": {
+   "blocks": 288,
+   "never_run": 3,
+   "reason": "measured 2026-11-12 on fe1c-lnorm after review L4 (meta-heap.fs refuses each allocation): never run are in-instantiate-leaf's non-variable leaf at a depth whose range test kept nothing (157), a failing loose-range walk inside instantiate1's value check (190: the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)), and head beta's application refused by the term store after the lambdas were taken (221)"
+  },
+  "src/front/level-defeq.fs": {
+   "blocks": 130,
+   "never_run": 4,
+   "reason": "measured 2026-11-12 on fe1c-lnorm: never run are the full branches of the conjunction's pair stack ld-pairs (70, 130) and of lf-meta-level= on the bases or on a normalized side (82, 94), each needing the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)"
+  },
+  "src/front/level-normalize.fs": {
+   "blocks": 242,
+   "never_run": 3,
+   "reason": "new file (plan FE1c, branch fe1c-lnorm, 2026-11-12): never run are the full branches of lf-meta-level= and lf-meta-never-zero? inside a normalize (67, 69) and of the argument slabs ln-args and ln-todo (125), each needing the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)"
+  },
+  "src/front/level-params.fs": {
+   "blocks": 217,
+   "never_run": 6,
+   "reason": "measured 2026-11-12 on fe1c-lnorm after review L4: never run are imax rebuilt with mkLevelIMax' when a part changes (84), the case default of a level tag without parameters (95), a binder rebuild the term store refuses (125, 126), a Sort whose level is unchanged (137: the walk skips a Sort without a parameter first) and a constant reference made but its term refused (154)"
+  },
+  "src/front/level-simp.fs": {
+   "blocks": 189,
+   "never_run": 10,
+   "reason": "measured 2026-11-12 on fe1c-lnorm after review L4: never run are ld-same? on two different records of equal fields (37: the tests' unshared equal levels differ in a field first) and the full branches of level equality, isNeverZero, mkLevelMax''s rules and lm-take's ended code (56, 65, 73, 82, 85, 95, 113, 120, 121), each needing the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)"
   }
  }
 }
