@@ -513,8 +513,9 @@ class Checker(unittest.TestCase):
                  ({"extra": ["ProgramVC.LfClamp0.O1.sneaky"]}, 5),
                  ({"drop": ["post"]}, 5), ({"drop": ["program"]}, 5),
                  ({"verdicts": {"O2": "absent"}, "extra": []}, 5),
+                 ({"extra": ["ProgramVC.LfClamp0.contract._simp_x"]}, 5),
                  ({"extra": ["ProgramVC.LfClamp0.O1._proof_1_4", "ProgramVC.ir_max._proof_1_1",
-                             "ProgramIR.anything"]}, 0)]
+                             "ProgramVC.LfClamp0.contract._simp_1_7", "ProgramIR.anything"]}, 0)]
         for fake, expected in cases:
             with self.subTest(fake), scratch() as out:
                 status, text = verify("lf-clamp", out, fake)

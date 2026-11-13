@@ -8,7 +8,7 @@
       "version": "program_verify.py 0.1"
     },
     "createdAt": "DATE",
-    "note": "Written by leanforth verify (scripts/program_verify.py) from the files named below, at the hashes given, and the evidence it recorded beside this receipt. A receipt is a statement of evidence, not an approval; it passes no review gate."
+    "note": "Written by leanforth verify (scripts/program_verify.py) from the files named below, at the hashes given, and the evidence record it wrote beside this receipt, OUT/lf-checked-abs.evidence.json, SHA-256 EVIDENCE. A receipt is a statement of evidence, not an approval; it passes no review gate."
   },
   "program": {
     "word": "lf-checked-abs",
@@ -72,11 +72,11 @@
     "evidence": [
       {
         "path": "OUT/obligations.lean",
-        "sha256": "d833fae9308479e89eba920f865ead607ee025762fc13463d28018e455c2b0a8"
+        "sha256": "868890fc38a7c91844e3659ed91ec49a50b5221d23c7b0f5785d3e6d586eb521"
       },
       {
         "path": "scripts/program_vc.py",
-        "sha256": "4b69a5015f660035768aebd2bf33c539a5289cfd01c575894ac8ea8bb0f21f9d"
+        "sha256": "04012f147279ee03b4fc689dfa104025b830bc2f65233d6e96226cae958301f0"
       },
       {
         "path": "scripts/export.sh",
@@ -85,6 +85,10 @@
       {
         "path": "OUT/lf-checked-abs.ndjson.manifest.json",
         "sha256": "2a2a6b66d3f7bbacc23b135f10111e2ee4d03bb438516afb734d0bcff9273a99"
+      },
+      {
+        "path": "OUT/lf-checked-abs.evidence.json",
+        "sha256": "EVIDENCE"
       }
     ],
     "note": "Lean 4.35.0 wrote the proofs of ProgramVC.LfCheckedAbs0.contract and its path obligations, from the tactic scripts of the untrusted generator, and its exporter wrote them with every declaration they use, 4,313 in all, to the export with SHA-256 b4ccf611ff9af7e4760156273296d855b4789dddde76cb990bcab4078ef1686a whose manifest is OUT/lf-checked-abs.ndjson.manifest.json. LeanForth's checker re-checked that export and accepted all 4,313 of them, these theorems among them: the status is LeanForth's verdict. LeanForth has no tactics yet and wrote no proof."

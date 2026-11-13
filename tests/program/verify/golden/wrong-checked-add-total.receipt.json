@@ -8,7 +8,7 @@
       "version": "program_verify.py 0.1"
     },
     "createdAt": "DATE",
-    "note": "Written by leanforth verify (scripts/program_verify.py) from the files named below, at the hashes given, and the evidence it recorded beside this receipt. A receipt is a statement of evidence, not an approval; it passes no review gate."
+    "note": "Written by leanforth verify (scripts/program_verify.py) from the files named below, at the hashes given, and the evidence record it wrote beside this receipt, OUT/lf-checked-add.evidence.json, SHA-256 EVIDENCE. A receipt is a statement of evidence, not an approval; it passes no review gate."
   },
   "program": {
     "word": "lf-checked-add",
@@ -56,11 +56,11 @@
     "evidence": [
       {
         "path": "OUT/obligations.lean",
-        "sha256": "b3ae3314cdc80c7f0982d6d591e961730a729546c127a6b1a19c0f345f8a8b0c"
+        "sha256": "95e7fcb0b0446c7b7818ece86bb87a3eadcbeea524016de75b19d8cd1e4632c7"
       },
       {
         "path": "scripts/program_vc.py",
-        "sha256": "4b69a5015f660035768aebd2bf33c539a5289cfd01c575894ac8ea8bb0f21f9d"
+        "sha256": "04012f147279ee03b4fc689dfa104025b830bc2f65233d6e96226cae958301f0"
       },
       {
         "path": "scripts/export.sh",
@@ -69,6 +69,10 @@
       {
         "path": "OUT/lf-checked-add.ndjson.manifest.json",
         "sha256": "c1f3e8b993613c7001c0a22113230ecae4e4c3c164d38f0af1e9c54eaa9171dc"
+      },
+      {
+        "path": "OUT/lf-checked-add.evidence.json",
+        "sha256": "EVIDENCE"
       }
     ],
     "note": "Lean 4.35.0 wrote the proof of ProgramVC.LfCheckedAddWrongTotal.refuted, that the contract is false, from the tactic scripts of the untrusted generator, and its exporter wrote them with every declaration they use, 4,302 in all, to the export with SHA-256 e3939de601471c99387279405a683f0ee0ffe31c0ce93e804300eaaed27bf409 whose manifest is OUT/lf-checked-add.ndjson.manifest.json. LeanForth's checker re-checked that export and accepted all 4,302 of them, these theorems among them: the status is LeanForth's verdict. LeanForth has no tactics yet and wrote no proof."

@@ -8,7 +8,7 @@
       "version": "program_verify.py 0.1"
     },
     "createdAt": "DATE",
-    "note": "Written by leanforth verify (scripts/program_verify.py) from the files named below, at the hashes given, and the evidence it recorded beside this receipt. A receipt is a statement of evidence, not an approval; it passes no review gate."
+    "note": "Written by leanforth verify (scripts/program_verify.py) from the files named below, at the hashes given, and the evidence record it wrote beside this receipt, OUT/lf-clamp.evidence.json, SHA-256 EVIDENCE. A receipt is a statement of evidence, not an approval; it passes no review gate."
   },
   "program": {
     "word": "lf-clamp",
@@ -72,11 +72,11 @@
     "evidence": [
       {
         "path": "OUT/obligations.lean",
-        "sha256": "0038a9ec528e5ae8ca2724fa0a34e13eb3f41426879494a902b27ce17ff4e132"
+        "sha256": "eee01a490920c6b7e055d4db0c03637d54c4931e4c593dd341b18aa9b5f1b252"
       },
       {
         "path": "scripts/program_vc.py",
-        "sha256": "4b69a5015f660035768aebd2bf33c539a5289cfd01c575894ac8ea8bb0f21f9d"
+        "sha256": "04012f147279ee03b4fc689dfa104025b830bc2f65233d6e96226cae958301f0"
       },
       {
         "path": "scripts/export.sh",
@@ -85,6 +85,10 @@
       {
         "path": "OUT/lf-clamp.ndjson.manifest.json",
         "sha256": "63b6b913b83d5569bdfc1e3feb9a1286bf859fde7349d29aadbb2073b284b3cd"
+      },
+      {
+        "path": "OUT/lf-clamp.evidence.json",
+        "sha256": "EVIDENCE"
       }
     ],
     "note": "Lean 4.35.0 wrote the proofs of ProgramVC.LfClamp0.contract and its path obligations, from the tactic scripts of the untrusted generator, and its exporter wrote them with every declaration they use, 4,277 in all, to the export with SHA-256 65b1d388127d8df9aa2bc697279b89116d5d17116464874687cc2521cdfc99f2 whose manifest is OUT/lf-clamp.ndjson.manifest.json. LeanForth's checker re-checked that export and accepted all 4,277 of them, these theorems among them: the status is LeanForth's verdict. LeanForth has no tactics yet and wrote no proof."

@@ -107,9 +107,10 @@ POST_PRINT = ("\n-- Added by leanforth verify: what is proved, as Lean elaborate
               '#eval IO.println "vc-statement-begin"\n#check {theorem}\n'
               '#eval IO.println "vc-statement-end"\n')
 # The declarations the generator writes outside a contract's namespace, and the auxiliary
-# lemmas Lean adds under a declaration (`O1._proof_1_4`).
+# lemmas Lean adds under a declaration (`O1._proof_1_4`, `contract._simp_1_7`: abstracted
+# proofs and simp lemmas; any other name under them is refused).
 COMMON_NAMES = ("ir_max", "ir_min", "ir_cell_min", "ir_shift_one", "ir_not_lt", "cells64")
-AUXILIARY = r"\._proof_\d+(_\d+)*"
+AUXILIARY = r"\._(proof|simp)_\d+(_\d+)*"
 
 # Each problem code: its exit status (None: given with the problem) and its step.
 CODES = {
