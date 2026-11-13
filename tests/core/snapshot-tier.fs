@@ -19,8 +19,10 @@
 \ table that may not grow (full), and the misuses: saving a stage not
 \ sealed, loading into a stage read before. Every heap block is given
 \ back (heap-watch.fs). tests/core/test_stage.py covers loading in
-\ another process and stage-continue. Scratch files go to /tmp.
+\ another process and stage-continue. Scratch files go to LF_TEST_SCRATCH's
+\ folder, else /tmp (tests/support/scratch.fs).
 include ../support/tester.fs
+include ../support/scratch.fs
 include ../support/heap-watch.fs
 require ../../src/main.fs
 decimal
@@ -30,9 +32,9 @@ live-blocks @ constant blocks-at-start
 create sa /stage allot  sa /stage erase
 create sb /stage allot  sb /stage erase
 create tf /tier-file allot  tf tier-file-init
-: file-a ( -- c-addr u ) s" /tmp/lf-snapshot-tier-a.bin" ;
-: file-b ( -- c-addr u ) s" /tmp/lf-snapshot-tier-b.bin" ;
-: file-c ( -- c-addr u ) s" /tmp/lf-snapshot-tier-c.bin" ;
+s" lf-snapshot-tier-a.bin" scratch-file 2constant file-a
+s" lf-snapshot-tier-b.bin" scratch-file 2constant file-b
+s" lf-snapshot-tier-c.bin" scratch-file 2constant file-c
 : composition ( -- c-addr u ) s" tests/reference/composition.ndjson" ;
 : fixture ( -- c-addr u ) s" tests/reference/constant-fixture.ndjson" ;
 : poly ( -- c-addr u ) s" tests/reference/poly-identity.ndjson" ;
@@ -89,7 +91,7 @@ T{ s" tests/core/stage-cases/marks.ndjson" false stage-a sa stage-marks @ 0> sa 
    -> 0 true }T
 \ Metadata naming other versions (read after stage-any-version!): its five
 \ texts saved and given back by the loaded stage.
-: other-file ( -- c-addr u ) s" /tmp/lf-snapshot-tier-other.ndjson" ;
+s" lf-snapshot-tier-other.ndjson" scratch-file 2constant other-file
 : meta-start ( -- c-addr u )
   s\" {\"meta\":{\"exporter\":{\"name\":\"otherexport\",\"version\":\"9.9.9\"}," ;
 : meta-end ( -- c-addr u )
