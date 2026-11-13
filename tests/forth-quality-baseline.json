@@ -1333,7 +1333,7 @@
   "long words": 0,
   "rstack": 23,
   "shuffles": 27,
-  "words": 291
+  "words": 295
  },
  "src/front/elab-keys.fs": {
   "globals": 0,

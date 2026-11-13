@@ -520,9 +520,11 @@ def format2_cases():
         # 12: unknown names in keys.
         case("unknown key constant", c(nat, '{"arity":0,"const":["Natt"]}],'
                                             '"name":["instAddNat"]'), 4, "unknown name"),
-        case("left-out projection key unknown", c('{"arity":0,"const":["Dyadic"]}',
-                                                  '{"arity":0,"idx":0,"proj":["Dyadic"]}'),
-             4, "unknown name"),
+        case("instance projection key unknown", c(nat, '{"arity":0,"idx":0,"proj":["Natt"]}],'
+                                                       '"name":["instAddNat"]'), 4, "unknown name"),
+        case("left-out projection key malformed", c('{"arity":0,"const":["Dyadic"]}',
+                                                    '{"arity":0,"idx":"0","proj":["Dyadic"]}'),
+             4, "malformed"),
         # 10: malformed keys and members.
         case("key word unknown", c('"star","star","star"', '"star","starr","star"'), 4,
              "malformed"),
@@ -623,6 +625,9 @@ def command_line(work):
                                       '"discr_names":[["h"],null],"name":["Nat","add","match_1"]'),
         "a matcher into Prop only": swap('"num_params":0,"u_elim_pos":0}',
                                          '"num_params":0,"u_elim_pos":null}'),
+        "a left-out projection of a structure the slice lacks": swap(
+            '{"arity":1,"const":["BitVec"]},"star"],"name":["BitVec","instAdd"]',
+            '{"arity":0,"idx":0,"proj":["BitVec"]},"star"],"name":["BitVec","instAdd"]'),
     }
     for what, records in accepted.items():
         path = work / (re.sub(r"\W+", "-", what) + ".ndjson")

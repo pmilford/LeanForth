@@ -598,7 +598,25 @@ create ed-word-tags  elab-key-star , elab-key-other , elab-key-arrow ,
   dup c" const" ed-member ed-const-key ok-then? if swap ed-key-arity else nip then ;
 : ed-proj-key ( value -- k outcome )
   c" proj" ed-member ed-a-type ok-then? if elab-key-proj ed-decl-key else no-result then ;
+\ A projection of a structure no declaration has (while elab-foreign is
+\ set): a foreign key whose text is 2, the field and the structure's
+\ parts, and whose arity field is Lean's Key.arity, one more than its
+\ arguments.
+: ed-idx-text ( value -- outcome ) c" idx" ed-member ed-u32 ok-then? if ed-text-u32 then ;
+: ed-proj-text ( value -- outcome )
+  2 ed-text-u32 ok-then? 0= if exit then dup ed-idx-text ok-then? 0= if exit then
+  c" proj" ed-member ['] ed-foreign-part ed-array-items ;
+: ed-proj-arity ( k value -- outcome )
+  c" arity" ed-member ed-u32 ok-then? 0= if nip exit then
+  1+ swap elab-key-arity! outcome-ok ;
+: ed-foreign-proj ( value -- outcome )
+  elab-key-foreign elab-key-new ok-then? 0= if nip exit then
+  dup elab-key-text-start over ed-proj-text ok-then? 0= if nip exit then
+  dup elab-key-text-end swap ed-proj-arity ;
+: ed-foreign-name? ( index -- flag )
+  ed-name ok-then? if ed-foreign? else drop false then ;
 : ed-key-proj ( value -- outcome )
+  dup c" proj" ed-member ed-foreign-name? if ed-foreign-proj exit then
   dup ed-proj-key ok-then? 0= if nip exit then
   over ed-key-idx ok-then? if swap ed-key-arity else nip then ;
 \ A texted key: its text kept first, then the key.

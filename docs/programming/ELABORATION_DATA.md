@@ -243,7 +243,7 @@ kind by text:
 | --- | --- |
 | `class` | `name` (the class), `out_params` (the positions of its out-parameters), `out_level_params` (the positions of its universe parameters that occur only in out-parameters) |
 | `instance` | `name` (the instance), `class`, `priority` (natural, below 2^32), `synth_order` (naturals: the order in which its instance arguments are synthesized), `keys`, `rank` (its place under its root key, the first of its keys) |
-| `instance_left_out` | a value of Lean's instance tree that is no `instance` record: `name`, `keys`, `priority`, `rank`, and `reason`, either `erased` (in Lean's tree but never a candidate) or `not_exported` (the export lacks its declaration; Lean would try it, so FE1e answers *unsupported* when it is a candidate, design §2.7). Its keys may name a constant the export lacks: the reader keeps such a name as a *foreign* key, which no query of the library can equal |
+| `instance_left_out` | a value of Lean's instance tree that is no `instance` record: `name`, `keys`, `priority`, `rank`, and `reason`, either `erased` (in Lean's tree but never a candidate) or `not_exported` (the export lacks its declaration; Lean would try it, so FE1e answers *unsupported* when it is a candidate, design §2.7). Its keys may name a constant, or project a structure, that the export lacks: the reader keeps such a key as a *foreign* key, which no query of the library can equal |
 | `default_instance` | `class`, `name` (the instance), `priority`, `rank` (its place in Lean's `getDefaultInstances` of the class, the most recent first) |
 | `reducibility` | `name`, `status`: one of `reducible`, `irreducible`, `implicit_reducible`, `instance_reducible` |
 | `eliminator` | `kind` (`induction` or `cases`), `name` (the eliminator), `types` (the names of the explicit targets' types) |
@@ -297,7 +297,7 @@ What the reader checks, each failure refused with its reason:
 | its export SHA-256 is the library's | `elaboration data of another export` | invalid |
 | every line is one JSON object of a known kind with exactly its members | `not one JSON value within the limits`, `unknown record kind`, `malformed line` | invalid |
 | the kind is one this reader reads | `a record kind this reader does not read yet` (`sunfold`) | unsupported |
-| every name is exactly one declaration of the library (a left-out instance's key constants: or none, kept as foreign keys) | `unknown name`, `a name several declarations have` | invalid |
+| every name is exactly one declaration of the library (a left-out instance's key constants and projected structures: or none, kept as foreign keys) | `unknown name`, `a name several declarations have` | invalid |
 | of the right kind: a class an inductive type; an instance, eliminator, tagged declaration or projection function not one; a matcher a definition; a projection's constructor a constructor; a projection key's structure an inductive type | `a declaration of the wrong kind` | invalid |
 | an instance's and a default instance's class has a class record before it | `a class without its class record before it` | invalid |
 | every key one of Lean's forms (a literal's digits canonical), and an instance's or left-out instance's keys one term | `malformed line`, `keys that are not one term` | invalid |
@@ -419,8 +419,8 @@ Example, in three forms, of what the words give for the slice's data:
 | `elab-projection@`, `elab-projection-decl`, `elab-projection-class?` | `( p -- ctor params idx )`, `( p -- d )`, `( p -- flag )` | projection `p` |
 | `elab-key-tag` | `( k -- tag )` | `elab-key-star`, `-other`, `-lit`, `-str`, `-const`, `-arrow`, `-proj`, `-foreign` |
 | `elab-key-decl`, `elab-key-idx` | `( k -- d )`, `( k -- i )` | a constant's or projection's declaration; a projection's field |
-| `elab-key-arity` | `( k -- n )` | Lean's `Key.arity` (the table above; a foreign constant's arguments) |
-| `elab-key-text` | `( k -- c-addr u )` | a literal's digits, a string literal's bytes, a foreign constant's name (each part as 32-bit fields: 0, the length and the bytes of a string, or 1 and the number) |
+| `elab-key-arity` | `( k -- n )` | Lean's `Key.arity` (the table above; for a foreign key, its own, as Lean's key had it) |
+| `elab-key-text` | `( k -- c-addr u )` | a literal's digits, a string literal's bytes, a foreign key's text: a constant's name, each part as 32-bit fields (0, the length and the bytes of a string, or 1 and the number); a projection's field 2, its index, then its structure's name |
 | `elab-key=`, `elab-key-hash` | `( k1 k2 -- flag )`, `( k -- h )` | Lean's equality of keys, texts compared byte for byte; a 32-bit hash equal for equal keys |
 | `elab-one-term?` | `( k n -- flag )` | keys `k` .. `k+n-1` make one term in Lean's path order |
 | `elab-keys#` | `( -- n )` | the keys kept |
@@ -519,10 +519,10 @@ counts it, so the data needs no new format version):
     - the schema: 190 good lines and 22 wrong ones;
     - the [error catalogue](#errors) against the reader's;
     - the command line: the good data with an export, a snapshot and
-      `--no-manifest`, 16 eliminators (the table grows), 3 accepted
+      `--no-manifest`, 16 eliminators (the table grows), 4 accepted
       variants, the verdicts unchanged, and 4 misuses (a layered snapshot
       among them);
-    - 110 damaged files, each refused with its line, code, text and exit
+    - 111 damaged files, each refused with its line, code, text and exit
       status and never "accepted": format 1's checks, format 2's (codes
       27-38, the key forms, ranks, matchers, projections), and a format-1
       file.

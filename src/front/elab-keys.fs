@@ -4,10 +4,11 @@
 \ instance table (FE1e3). A key is one of Lean's DiscrTree.Key: star,
 \ other, arrow, a natural-number literal, a string literal, a constant
 \ applied to n arguments, a projection of field i of a structure applied
-\ to n arguments -- or, in an instance the export lacks, a foreign
-\ constant: a name no declaration of the library has, kept as text, which
-\ no query of the library can equal. LeanForth-specific (Lean's keys over
-\ the importer stage's declaration numbers). Untrusted.
+\ to n arguments -- or, in an instance the export lacks, a foreign key: a
+\ constant, or a projection of a structure, that no declaration of the
+\ library has, kept as text, which no query of the library can equal.
+\ LeanForth-specific (Lean's keys over the importer stage's declaration
+\ numbers). Untrusted.
 \
 \ Keys are numbered from 0 in the order kept. Reading them, for any key k
 \ below elab-keys# (unchecked):
@@ -16,14 +17,15 @@
 \   elab-key-decl ( k -- d )      a constant's or projection's declaration
 \   elab-key-idx ( k -- i )       a projection's field
 \   elab-key-arity ( k -- n )     Lean's Key.arity: the terms that follow
-\                                 k in a path (a constant's or foreign
-\                                 constant's arguments; a projection's
-\                                 plus one, its structure; arrow 1, its
-\                                 domain; 0 otherwise)
+\                                 k in a path (a constant's arguments; a
+\                                 projection's plus one, its structure;
+\                                 arrow 1, its domain; a foreign key's
+\                                 arity field, which is Lean's; 0
+\                                 otherwise)
 \   elab-key-text ( k -- c-addr u ) a literal's decimal digits (canonical:
 \                                 no sign, no leading zero), a string
-\                                 literal's bytes, a foreign constant's
-\                                 name as elab-data.fs encodes it; valid
+\                                 literal's bytes, a foreign key's name
+\                                 as elab-data.fs encodes it; valid
 \                                 until texts are next added
 \   elab-key= ( k1 k2 -- flag )   Lean's equality of keys (Key's BEq);
 \                                 texts compared byte for byte
