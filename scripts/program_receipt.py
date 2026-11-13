@@ -107,6 +107,16 @@ RUN_LABEL = "runtime-tested; testing is not proof"
 CHECK_FROM_VERDICTS = [("rejected", {"rejected"}), ("unsupported", {"unsupported", "unknown"})]
 
 
+class Refusal(SystemExit):
+    """No receipt can be written, and why: the problem code that
+    scripts/program_verify.py reports (docs/design/VERIFY_COMMAND.md §4) and
+    a message. Uncaught it stops this script with the message, as SystemExit."""
+
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.problem = code
+
+
 def sha256(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
@@ -119,7 +129,7 @@ def word_line(ir_text, word):
     """The source line of a word's colon, from the IR's location."""
     match = re.search(rf"^word {re.escape(word)} @(\d+):\d+$", ir_text, re.M)
     if not match:
-        raise SystemExit(f"no located word {word} in the IR")
+        raise Refusal("word-not-found", f"no located word {word} in the IR")
     return int(match.group(1))
 
 
@@ -149,9 +159,10 @@ def refuse_ir_02(ir_text, path):
     decides at the [format] gate (docs/programming/PROGRAM_RECEIPTS.md,
     "Schema 0.4"). Until then none is written."""
     if ir_text.split("\n", 1)[0] != "lf-ir 0.1":
-        raise SystemExit(f"{path} is not IR 0.1: a receipt for an IR 0.2 program needs receipt "
-                         "schema 0.4 (program.ir.version \"0.2\" and program.output), which "
-                         "awaits the owner's [format] gate; no receipt written")
+        raise Refusal("ir-needs-receipt-0.4",
+                      f"{path} is not IR 0.1: a receipt for an IR 0.2 program needs receipt "
+                      "schema 0.4 (program.ir.version \"0.2\" and program.output), which "
+                      "awaits the owner's [format] gate; no receipt written")
 
 
 def source_name(source_lines, kind, line, column):
@@ -171,7 +182,7 @@ def later_version(ir_text, source_text, word):
     names = [(n, int(l), source_name(lines, k, int(l), int(c))) for k, n, l, c in found]
     mine = [d for d in names if d[0] == word]
     if len(mine) != 1:
-        raise SystemExit(f"no single located definition {word} in the IR")
+        raise Refusal("word-not-found", f"no single located definition {word} in the IR")
     versions = [d for d in names if d[2] == mine[0][2]]
     return None if versions[-1][0] == word else versions[-1][:2]
 
@@ -185,11 +196,28 @@ def version_sentence(word, line, later):
             "cover, though words compiled before that line still call this one.")
 
 
-def assumptions(word, prims, cases, version=""):
+NOT_RUN = "no runtime test ran here (RUN: not run; plan 8.4.2)"
+# How the receipt's IR was written again, for the trusted-reader assumption.
+READER_CHECKED = ("recording the evidence wrote this IR again with the program words, and make "
+                  "test compares them with the IR named here and with the earlier reader "
+                  "(src/program/ir-reader.fs).")
+
+
+def assumptions(word, prims, cases, version="", *, lean_file=VC_LEAN,
+                stated="the contract theorem is", checked=READER_CHECKED):
+    """The assumptions A1-A7 of a receipt about word: prims are the Forth words it executes,
+    cases the runtime comparison's count, or None when none ran (leanforth verify); version
+    the trusted reader's sentence on a redefined name; Lean elaborated lean_file; `stated`
+    names the theorem stated against the IR semantics; `checked` says how the IR was
+    written again."""
+    tested = (f"The runtime comparison tested this on {cases} cases; it does not prove it."
+              if cases is not None else f"Not tested: {NOT_RUN}.")
     return [
         {"id": "A1", "kind": "host-cells",
          "text": "Every value is one signed host cell. The Lean theorems hold for every cell "
-                 "width of at least two bits; the runtime comparison ran on 64-bit cells."},
+                 "width of at least two bits; " +
+                 ("the runtime comparison ran on 64-bit cells." if cases is not None else
+                  f"{NOT_RUN}.")},
         {"id": "A2", "kind": "twos-complement",
          "text": "Cells are two's complement, so the host's arithmetic wraps as the IR "
                  "semantics says (src/lib/portability.fs)."},
@@ -219,18 +247,14 @@ def assumptions(word, prims, cases, version=""):
                  "after it in the same session uses, other than the words under test: "
                  "definitions of host words outside those word sets, such as Gforth's own, "
                  "are accepted and would change what such code, a test harness for example, "
-                 "means. Nothing proves the translation; recording the evidence wrote this "
-                 "IR again with the program words, and make test compares them with the IR "
-                 "named here and with the earlier reader (src/program/ir-reader.fs)."
-                 + version},
+                 f"means. Nothing proves the translation; {checked}" + version},
         {"id": "A4", "kind": "trusted-runtime",
-         "text": f"Gforth and its compiler execute {prims} as the IR semantics says. The "
-                 f"runtime comparison tested this on {cases} cases; it does not prove it."},
+         "text": f"Gforth and its compiler execute {prims} as the IR semantics says. {tested}"},
         {"id": "A5", "kind": "stack-capacity",
          "text": "The data and return stacks have room for the word's items; stack overflow "
                  "is not modeled."},
         {"id": "A6", "kind": "trusted-lean",
-         "text": f"Lean 4.35.0, the pinned toolchain, elaborated {VC_LEAN} and its exporter "
+         "text": f"Lean 4.35.0, the pinned toolchain, elaborated {lean_file} and its exporter "
                  "(lean4export 3.1.0, through scripts/export.sh) wrote the export faithfully: "
                  "the contract statement, the IR semantics and the program that LeanForth "
                  "checked mean what that Lean source says. Lean also wrote the proofs, from "
@@ -238,30 +262,44 @@ def assumptions(word, prims, cases, version=""):
                  "relied on here, since LeanForth's checker checked the export again."},
         {"id": "A7", "kind": "untrusted-generator",
          "text": "The obligations come from an untrusted generator (scripts/program_vc.py). "
-                 "This is safe only because the contract theorem is stated against the IR "
+                 f"This is safe only because {stated} stated against the IR "
                  "semantics copied verbatim from tests/reference/program-ir.lean, and Lean "
                  "prints the generated program back equal to the IR file."},
     ]
 
 
-def leanforth_assumption(leanforth):
-    """The trusted-leanforth assumption of a receipt LeanForth's checker accepted."""
+def leanforth_assumption(leanforth, what="contract theorem, its obligations"):
+    """The trusted-leanforth assumption of a receipt LeanForth's checker accepted; what names
+    the theorems checked."""
     return {"id": "A8", "kind": "trusted-leanforth",
             "text": f"LeanForth's checker (bin/leanforth check, {leanforth['version']}, verdict "
                     f"version {leanforth['verdictVersion']}) checked every declaration of the "
                     f"export correctly: it accepted all {leanforth['accepted']:,} of them, the "
-                    "contract theorem, its obligations and every definition, inductive type "
+                    f"{what} and every definition, inductive type "
                     "and lemma they use, directly or not, each with its axioms. It follows "
                     "Lean 4.35.0's kernel rules; it has no tactics and wrote no proof."}
 
 
-def prim_words(ir_text, word):
-    """The Forth words of a word's body, in order of first use, upper case."""
-    body = ir_text.split(f"word {word} ", 1)[1].split("\nend", 1)[0].splitlines()[1:]
-    seen = []
-    for line in body:
+def ir_body(ir_text, name):
+    """The body lines of the definition name (a word or a constant) in the IR text."""
+    found = re.search(rf"^(?:word|constant) {re.escape(name)} @[^\n]*\n(.*?)^end",
+                      ir_text, re.M | re.S)
+    return found.group(1).splitlines() if found else []
+
+
+def prim_words(ir_text, word, seen=None, done=None):
+    """The Forth words a word executes, in order of first use, upper case: those of its
+    body and, where it calls a word or a constant of the file, those of the callee."""
+    seen, done = ([] if seen is None else seen), ({word} if done is None else done)
+    for line in ir_body(ir_text, word):
         words = program_vc.ir_tokens(line)
-        name = words[1] if words[:1] == ["prim"] else words[0] if words else ""
+        if words[:1] == ["call"] and len(words) == 2:
+            if words[1] not in done:
+                done.add(words[1])
+                prim_words(ir_text, words[1], seen, done)
+            continue
+        name = words[1] if words[:1] == ["prim"] else "" if words[:1] == ["lit"] else \
+            words[0] if words else ""
         if name and name.upper() not in seen:
             seen.append(name.upper())
     return ", ".join(seen[:-1]) + " and " + seen[-1] if len(seen) > 1 else "".join(seen)
@@ -272,17 +310,35 @@ def allowlist_order(axioms):
     return [a for a in ALLOWED_AXIOMS if a in axioms] + sorted(set(axioms) - set(ALLOWED_AXIOMS))
 
 
+def export_verdicts(leanforth):
+    """The verdicts LeanForth gave the export's declarations: those its counts record
+    (leanforth verify's evidence), and "unaccounted" when it accepted fewer declarations
+    than the export has (a check that did not accept everything never reads as accepted)."""
+    counts = leanforth.get("counts", {})
+    found = {VERDICT_OF_COUNT.get(key, key) for key, n in counts.items()
+             if n and key not in NOT_VERDICTS}
+    return found | ({"unaccounted"} if leanforth["accepted"] != leanforth["declarations"] else set())
+
+
+# check report 0.4's counts: by verdict, as the verdicts the declarations carry, and the
+# two that are not verdicts (the total, and NOT PROVED, a mark on accepted declarations)
+VERDICT_OF_COUNT = {"notChecked": "not-checked"}
+NOT_VERDICTS = ("declarations", "notProved")
+
+
 def check_status(leanforth, names):
-    """The check status LeanForth's verdicts on the theorems give: accepted-by-leanforth
-    only when it accepted every one of them; a theorem accepted but NOT PROVED (an axiom
-    outside the allowlist) has no status in schema 0.3, so no receipt is written."""
-    verdicts = {verdict_of(leanforth, n) for n in names}
+    """The check status LeanForth's verdicts give: accepted-by-leanforth only when it
+    accepted every one of the theorems and every declaration of the export; a theorem
+    accepted but NOT PROVED (an axiom outside the allowlist) has no status in schema 0.3,
+    so no receipt is written."""
+    verdicts = {verdict_of(leanforth, n) for n in names} | export_verdicts(leanforth)
     if verdicts == {"accepted"}:
         for name in names:
             if set(leanforth["theorems"][name]["axioms"]) - set(ALLOWED_AXIOMS):
-                raise SystemExit(f"{name}: accepted by LeanForth but NOT PROVED (an axiom outside "
-                                 "the allowlist); schema 0.3 has no status for it, no receipt "
-                                 "written")
+                raise Refusal("not-proved",
+                              f"{name}: accepted by LeanForth but NOT PROVED (an axiom outside "
+                              "the allowlist); schema 0.3 has no status for it, no receipt "
+                              "written")
         return "accepted-by-leanforth"
     return next((status for status, found in CHECK_FROM_VERDICTS if verdicts & found), "failed")
 
@@ -295,8 +351,9 @@ def lean_agrees(lean, leanforth, names):
     """LeanForth's axioms for each accepted theorem must be Lean's own (#print axioms)."""
     for name in names:
         if sorted(leanforth["theorems"][name]["axioms"]) != sorted(lean["axioms"][name]):
-            raise SystemExit(f"{name}: LeanForth reports axioms {leanforth['theorems'][name]} and "
-                             f"Lean {lean['axioms'][name]}; no receipt written")
+            raise Refusal("axioms-differ",
+                          f"{name}: LeanForth reports axioms {leanforth['theorems'][name]} and "
+                          f"Lean {lean['axioms'][name]}; no receipt written")
 
 
 def pinned_export(evidence):
@@ -311,28 +368,36 @@ def leanforth_version(leanforth):
     return f"{leanforth['version']}, verdict version {leanforth['verdictVersion']}"
 
 
-def check_part(status, contract_theorem, theorems, evidence):
+def check_part(status, contract_theorem, theorems, evidence, files=CHECK_EVIDENCE,
+               pinned=f"that {EXPORT_MANIFEST} pins", proofs=None):
+    """The check part: LeanForth's verdict on Lean's export of the theorems. files are the
+    evidence files, pinned says what pins the export, proofs what Lean proved (by default
+    the contract theorem and its path obligations)."""
     lean, leanforth = evidence["lean"], evidence["leanforth"]
     verdicts = "; ".join(f"{t['name']} {verdict_of(leanforth, t['name'])}" for t in theorems)
     said = (f"accepted all {leanforth['accepted']:,} of them, these theorems among them"
             if status == "accepted-by-leanforth" else f"gave these verdicts: {verdicts}")
+    proofs = proofs or f"the proofs of {contract_theorem} and its path obligations"
     return {
         "status": status,
         "checker": {"name": "leanforth", "version": leanforth_version(leanforth)},
         "theorems": theorems,
         "axioms": allowlist_order({a for t in theorems for a in t["axioms"]}),
-        "evidence": [file_ref(p) for p in CHECK_EVIDENCE],
-        "note": f"Lean {lean['version']} wrote the proofs of {contract_theorem} and its path "
-                "obligations, from the tactic scripts of the untrusted generator, and its "
+        "evidence": [file_ref(p) for p in files],
+        "note": f"Lean {lean['version']} wrote {proofs}, from the tactic scripts of the "
+                "untrusted generator, and its "
                 "exporter wrote them with every declaration they use, "
                 f"{leanforth['declarations']:,} in all, to the export with SHA-256 "
-                f"{evidence['export']['sha256']} that {EXPORT_MANIFEST} pins. "
+                f"{evidence['export']['sha256']} {pinned}. "
                 f"LeanForth's checker re-checked that export and {said}: the status is "
                 "LeanForth's verdict. LeanForth has no tactics yet and wrote no proof.",
     }
 
 
-def verify_part(status, vc):
+def verify_part(status, vc, unsettled="LeanForth's checker did not accept the theorems"):
+    """The verify part from the check status: every obligation of the generator's summary
+    vc discharged when LeanForth accepted the theorems, else every one open, because of
+    what `unsettled` says."""
     settled = status == "accepted-by-leanforth"
     part = {"status": "discharged" if settled else "open"}
     if settled:
@@ -348,8 +413,7 @@ def verify_part(status, vc):
                     "generated by an untrusted generator from the IR and the contract; " +
                     ("each is discharged by the theorem named with it, which Lean proved and "
                      "LeanForth's checker accepted." if settled else
-                     "none is discharged, since LeanForth's checker did not accept the "
-                     "theorems."))
+                     f"none is discharged, since {unsettled}."))
     return part
 
 
@@ -503,16 +567,28 @@ def command(args, both=False, env=None):
     return done.stdout + done.stderr if both else done.stdout
 
 
+def lean_compile_args(lean, source, folder, module=EXPORT_MODULE):
+    """Pinned Lean compiling source (an obligations file) as module into folder; warnings
+    are errors, so `sorry` fails."""
+    return [lean, "-DwarningAsError=true", "-o", str(Path(folder) / f"{module}.olean"), source]
+
+
+def export_args(out, theorems, module=EXPORT_MODULE):
+    """scripts/export.sh writing the theorems of the compiled module with every declaration
+    they use to out, and the manifest beside it (LEAN_PATH names the compiled module's
+    folder, LEAN the pinned Lean)."""
+    return ["bash", str(ROOT / "scripts" / "export.sh"), str(Path(out).resolve()), module, "--",
+            *theorems]
+
+
 def export_theorems(lean, theorems, out, source=VC_LEAN, module=EXPORT_MODULE):
     """Pinned Lean compiles source (the obligations file) as module in a scratch folder, and
     its exporter writes the theorems with every declaration they use to out, with the
     manifest beside it (scripts/export.sh). Returns Lean's compiler output, which holds its
     axiom reports."""
     with tempfile.TemporaryDirectory() as folder:
-        output = command([lean, "-DwarningAsError=true", "-o",
-                          str(Path(folder) / f"{module}.olean"), source])
-        command(["bash", str(ROOT / "scripts" / "export.sh"), str(Path(out).resolve()),
-                 module, "--", *theorems], env={"LEAN_PATH": folder, "LEAN": lean})
+        output = command(lean_compile_args(lean, source, folder, module))
+        command(export_args(out, theorems, module), env={"LEAN_PATH": folder, "LEAN": lean})
     return output
 
 
@@ -533,29 +609,48 @@ def pinned_lean():
                                              "/bin/lean"))
 
 
+LEANFORTH = ["bash", str(ROOT / "bin" / "leanforth")]   # the checker, as the CLI starts it
+
+
+def leanforth_args(export, options=("--jobs", LEANFORTH_JOBS)):
+    """LeanForth's final check of the export with its JSON report (no snapshot is read)."""
+    return [*LEANFORTH, "check", "--json", *options, str(export)]
+
+
+def leanforth_identity():
+    """LeanForth's version (bin/leanforth version) and verdict version."""
+    version = command([*LEANFORTH, "version"]).split("\n")[0]
+    return {"version": version.split()[-1],
+            "verdictVersion": int(re.search(r"(\d+) constant lf-verdict-version",
+                                            (ROOT / VERDICT_VERSION).read_text()).group(1))}
+
+
+def leanforth_theorems(report, theorems):
+    """The verdict and axioms LeanForth's check report gives each theorem ("missing" for one
+    it does not list)."""
+    found = {d["name"]: d for d in report["declarations"] if d["name"] in theorems}
+    return {name: {"verdict": found[name]["verdict"] if name in found else "missing",
+                   "axioms": axiom_names(found.get(name, {}))} for name in theorems}
+
+
 def leanforth_check(export, theorems, snapshot=None):
     """LeanForth's check of the export (bin/leanforth check --json): its version, the counts,
     the exit status and the verdict and axioms of each theorem. With snapshot, a file name,
     the check also writes the checked environment there (--save-snapshot; the verdicts are
     the same), for a later check of the export with changed copies added (clamp_mutants.py)."""
     saving = ["--save-snapshot", str(snapshot)] if snapshot else []
-    done = subprocess.run(["bash", str(ROOT / "bin" / "leanforth"), "check", "--json", "--jobs",
-                           LEANFORTH_JOBS, *saving, str(export)], capture_output=True, text=True,
+    done = subprocess.run(leanforth_args(export, ["--jobs", LEANFORTH_JOBS, *saving]),
+                          capture_output=True, text=True,
                           timeout=TEST_LIMIT, stdin=subprocess.DEVNULL)
     try:
         report = load_strict(done.stdout)
     except InstanceError as error:
         raise SystemExit(f"leanforth check gave no JSON report ({done.returncode}): {error}\n"
                          f"{done.stderr[-2000:]}") from None
-    found = {d["name"]: d for d in report["declarations"] if d["name"] in theorems}
-    verdicts = {name: {"verdict": found[name]["verdict"] if name in found else "missing",
-                       "axioms": axiom_names(found.get(name, {}))} for name in theorems}
-    version = command(["bash", str(ROOT / "bin" / "leanforth"), "version"]).split("\n")[0]
-    return {"version": version.split()[-1],
-            "verdictVersion": int(re.search(r"(\d+) constant lf-verdict-version",
-                                            (ROOT / VERDICT_VERSION).read_text()).group(1)),
+    return {**leanforth_identity(),
             "exitStatus": done.returncode, "declarations": report["counts"]["declarations"],
-            "accepted": report["counts"]["accepted"], "theorems": verdicts}
+            "accepted": report["counts"]["accepted"],
+            "theorems": leanforth_theorems(report, theorems)}
 
 
 def axiom_names(declaration):
@@ -565,6 +660,26 @@ def axiom_names(declaration):
     others = list(declaration.get("notProvedBy", [])) or (
         ["an axiom outside the allowlist"] if bits & 8 else [])
     return [name for bit, name in AXIOM_BITS.items() if bits & bit] + others
+
+
+FORTH_PATH = r"[\w./-]+"   # a source path the program words' Forth string can hold
+
+
+def program_words_args(gforth, source):
+    """Gforth running the program words (ADR 0019's correctness mode) on the source file at
+    the path source (relative to the checkout; FORTH_PATH): they print its IR, then their
+    outcome (ADR 0008's number), a refusal's diagnostic line before it."""
+    return [gforth, IR_WORDS, "-e", f's" {source}" lf-verify-file .', "-e", "bye"]
+
+
+def program_words_output(out):
+    """(outcome, IR text, diagnostic) from the program words' output: the outcome a number
+    (None when the last line is not one), the IR text up to the diagnostic line, which a
+    refusal prints before the outcome (`unsupported @13:7: ...`; None when ok)."""
+    *lines, last = out.rstrip("\n").split("\n")
+    outcome = int(last.strip()) if re.fullmatch(r"\s*[0-9]+\s*", last) else None
+    diagnostic = lines.pop() if outcome not in (0, None) and lines else None
+    return outcome, "\n".join(lines) + "\n", diagnostic
 
 
 def ir_written(gforth, ir_path):
@@ -578,13 +693,12 @@ def ir_written(gforth, ir_path):
     built yet (ADR 0019 section 5); the runner reads every byte of the file,
     with no limit."""
     source = program_vc.ir_source(Path(ir_path).read_text(encoding="utf-8"))
-    if not re.fullmatch(r"[\w./-]+", source):
+    if not re.fullmatch(FORTH_PATH, source):
         raise SystemExit(f"source path not usable in a Forth string: {source}")
     before = sha256(source)
-    out = command([gforth, IR_WORDS, "-e", f's" {source}" lf-verify-file .', "-e", "bye"])
-    *lines, outcome = out.rstrip("\n").split("\n")
-    text = "\n".join(lines) + "\n"
-    if outcome.strip() != "0" or text != Path(ir_path).read_text(encoding="utf-8"):
+    out = command(program_words_args(gforth, source))
+    outcome, text, _ = program_words_output(out)
+    if outcome != 0 or text != Path(ir_path).read_text(encoding="utf-8"):
         raise SystemExit(f"the program words ({IR_WORDS}) do not write {ir_path} for "
                          f"{source}:\n{out}")
     if sha256(source) != before:

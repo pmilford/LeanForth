@@ -1,0 +1,21 @@
+lf-contract 0.1
+# sha-ch is an IR 0.2 word (src/program/sha-words.fs uses LSHIFT and
+# -ROT): leanforth verify refuses it, since its receipt needs schema 0.4,
+# which awaits the owner's [format] gate (plan 8.4.1k). Contract language
+# 0.1 has no bitwise operations either; what the word computes is proved by
+# Lean (shaCh_correct in tests/reference/program-ir.lean) and its export
+# re-checked by LeanForth (make reference-program-sha-export). This
+# contract states only the range of the result. No expect line: the
+# outcome is the refusal, not one of the generator's.
+id sha-ch/0
+word sha-ch
+ir tests/program/ir/sha-words.ir
+stack ( x y z -- u )
+inputs x y z
+statement For 32-bit words x, y, z the word returns a 32-bit word (FIPS 180-4's Ch(x, y, z), which this contract language cannot state).
+pre 0 <= x && x <= 4294967295
+pre 0 <= y && y <= 4294967295
+pre 0 <= z && z <= 4294967295
+case true
+  out r
+  ensure 0 <= r && r <= 4294967295
