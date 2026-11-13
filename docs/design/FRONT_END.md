@@ -523,6 +523,7 @@ on the same source.
 elaboration data; built-in simprocs re-implemented as Forth words (279 in
 Lean core, prioritised by use). `decide` uses the front end's reduction and
 leaves the real check to the kernel. `omega` and later `grind` are ports.
+FE1i's first slice of both is designed in [FE1I_AUTOMATION.md](FE1I_AUTOMATION.md).
 Mathlib's tactics are ports too, each with its extensions (`norm_num`: 81,
 `positivity`: 119) written as Forth words: Mathlib's Lean code cannot run
 in LeanForth (that would be meaning (C) of §3). `native_decide`,
@@ -712,6 +713,7 @@ FE1 reaches; every other case answers *unsupported* with its token.
 | FE1f | Declaration: header elaboration, universe parameters, `:= by` opens the proof state, the finished term instantiated and sent as export records to the kernel | parts of `MutualDef.lean`, `Term.lean` |
 | FE1g | Proof state and tactics: goals, `.goals`, `by-induction` (eliminator from the elaboration data, motive, one goal per minor premise with its tag), `by-case: … =>`, `by-rfl` (`Eq.refl` at default transparency), `by-exact`; designed in detail in [FE1G_TACTICS.md](FE1G_TACTICS.md) (also alternatives, `by-intro:` and `by-rw[ … ]`) | parts of `Elab/Tactic/Basic.lean`, `Induction.lean`, `Meta/Tactic/Induction.lean`, `ElimInfo.lean`, `Rfl.lean` |
 | FE1h | Tests of every class below, planted faults, the user page in three forms, the done-checker run | — |
+| FE1i | Brought forward by the owner (2026-11-12), right after FE1: the first proofs LeanForth finds by itself, `by-decide` (a faithful port of Lean's `decide`: identical term) and a first slice of `by-omega` (linear arithmetic over `Nat` and `Int`: Lean's outcome required, its term measured). Designed in full in [FE1I_AUTOMATION.md](FE1I_AUTOMATION.md): pinned Lean's terms for the target lines and nearby cases, the kernel check of them (nothing missing), the port of `omega` recommended over a procedure of LeanForth's own, tests, sub-steps FE1i-1–9 and three owner questions | `Elab/Tactic/Decide.lean`, `Elab/Tactic/Omega/` (1,704 lines), `FalseOrByContra.lean`, `Meta/Canonicalizer.lean` |
 
 Size: L, eight S–M steps; *speculative* 4,000 to 7,000 lines of Forth
 source and as much in tests. Needs: 8.2.1c and 8.2.1d (branch
