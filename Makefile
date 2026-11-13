@@ -623,9 +623,12 @@ test-program-ir-run:
 # evidence, the export and the snapshot (ignored by git). The two targets
 # below read them instead of each checking the export again (about 100 s of
 # two workers each); run alone, their scripts record for themselves.
+# An earlier run's files are removed first, by name (the export and snapshot by
+# program_receipt.py record --keep, which also fails when no snapshot was written).
 PROGRAM_CLAMP := $(CURDIR)/build/program-clamp
 program-clamp-record:
 	mkdir -p $(PROGRAM_CLAMP)
+	rm -f $(PROGRAM_CLAMP)/evidence.json $(PROGRAM_CLAMP)/manifest.json
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 scripts/program_receipt.py record \
 	  --out $(PROGRAM_CLAMP)/evidence.json --manifest-out $(PROGRAM_CLAMP)/manifest.json \
 	  --keep $(PROGRAM_CLAMP)

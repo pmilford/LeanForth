@@ -594,20 +594,33 @@ def ir_written(gforth, ir_path):
 
 
 KEPT_EXPORT, KEPT_SNAPSHOT = "lf-clamp.ndjson", "lf-clamp.lfsnap"   # record --keep FOLDER
+KEPT = (KEPT_EXPORT, f"{KEPT_EXPORT}.manifest.json", KEPT_SNAPSHOT)
+
+
+def kept_snapshot(folder):
+    """The snapshot record --keep made in folder; stop when the check wrote none, so that no
+    earlier run's snapshot is ever read in its place (review L3 of speed-lf)."""
+    snapshot = Path(folder) / KEPT_SNAPSHOT
+    if not snapshot.is_file() or snapshot.stat().st_size == 0:
+        raise SystemExit(f"LeanForth's check wrote no snapshot {snapshot}")
+    return snapshot
 
 
 def record(contract_path, manifest_out=None, keep=None):
     """Run Lean, its exporter, LeanForth and Gforth now and return the evidence the receipt
     needs; with manifest_out, also save the fresh export's manifest there. With keep, a
     folder, the export (KEPT_EXPORT, its manifest beside it) is written there and kept, and
-    LeanForth's check also saves its snapshot there (KEPT_SNAPSHOT): make check records
-    once, and the receipt's test and the clamp mutants' test both read the result."""
+    LeanForth's check also saves its snapshot there (KEPT_SNAPSHOT), which must then exist:
+    make check records once, and the receipt's test and the clamp mutants' test both read
+    the result. The files KEPT of an earlier run are removed first, by name."""
     lean, gforth = pinned_lean(), os.environ.get("GFORTH", "gforth")
     contract = program_vc.parse_contract(Path(contract_path).read_text(encoding="utf-8"),
                                          contract_path)
     vc = vc_entry(contract["id"])
     written = ir_written(gforth, contract["ir"])
     version = re.match(r"Lean \(version ([0-9.]+),", command([lean, "--version"])).group(1)
+    for name in KEPT if keep else ():
+        (Path(keep) / name).unlink(missing_ok=True)
     with tempfile.TemporaryDirectory() as directory:
         folder = Path(keep or directory)
         export = folder / KEPT_EXPORT
@@ -616,6 +629,8 @@ def record(contract_path, manifest_out=None, keep=None):
         if manifest_out:
             Path(manifest_out).write_bytes(Path(f"{export}.manifest.json").read_bytes())
         leanforth = leanforth_check(export, vc["theorems"], keep and folder / KEPT_SNAPSHOT)
+        if keep:
+            kept_snapshot(folder)
     axioms = lean_axioms(output, vc["theorems"])
     table = command([gforth, TABLE]).splitlines()
     clamp = [line for line in table if line.startswith("# clamp ")]

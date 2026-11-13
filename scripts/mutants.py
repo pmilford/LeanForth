@@ -62,8 +62,9 @@ REQUIRED = ("id", "file", "old", "new", "test", "reason")
 OPTIONAL = ("equivalent", "gap", "quick")
 ID = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 # Directories never copied: version control, the local toolchains (linked
-# instead when present, see copy_tree) and agents' scratch files.
-SKIPPED = {".git", ".tools", ".claude", "__pycache__", ".profiling"}
+# instead when present, see copy_tree), agents' scratch files and make's
+# shared results (build/, ignored by git; review L3 of speed-lf).
+SKIPPED = {".git", ".tools", ".claude", "__pycache__", ".profiling", "build"}
 # Environment variables of an enclosing make that must not reach a test.
 MAKE_VARIABLES = ("MAKEFLAGS", "MAKELEVEL", "MFLAGS", "MAKEOVERRIDES")
 

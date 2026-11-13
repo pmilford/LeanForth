@@ -2,7 +2,8 @@
 
 scripts/with-scratch.sh COMMAND runs COMMAND with LF_TEST_SCRATCH naming a new,
 empty folder of its own, passes COMMAND's exit status on and removes the
-folder afterwards, also after a failure; two runs at once get two folders.
+folder afterwards, also after a failure and when stopped by SIGTERM (make's
+timeout), SIGINT or SIGHUP; two runs at once get two folders.
 tests/support/scratch.fs's scratch-file puts a file name in that folder, or
 in /tmp when LF_TEST_SCRATCH is unset or empty; its stack effect is checked.
 
@@ -63,6 +64,18 @@ class WithScratch(unittest.TestCase):
     def test_missing_command(self):
         done = wrapped("/no/such/command")
         self.assertEqual(done.returncode, 127)
+
+    def test_folder_removed_when_stopped(self):
+        """Stopped by a signal as make's timeout stops a test (SIGTERM to the
+        process group), or by SIGINT or SIGHUP: the folder is removed."""
+        for signal in ("TERM", "INT", "HUP"):
+            done = subprocess.run(["timeout", "-s", signal, "1", SCRIPT, "sh", "-c",
+                                   'echo "$LF_TEST_SCRATCH"; sleep 30'], capture_output=True,
+                                  text=True, timeout=LIMIT, stdin=subprocess.DEVNULL)
+            folder = done.stdout.strip()
+            self.assertEqual(done.returncode, 124, signal)
+            self.assertTrue(folder.startswith(tempfile.gettempdir()), (signal, folder))
+            self.assertFalse(os.path.exists(folder), signal)
 
 
 class ScratchFile(unittest.TestCase):

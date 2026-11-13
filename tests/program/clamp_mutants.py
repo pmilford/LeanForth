@@ -37,7 +37,8 @@ is the kernel's.
 
 --constants lists the constants a declaration's type or value refers to,
 for choosing a mutation. --test checks the rebuilding on a committed export
-(Python and Gforth); with --lean it exports the clamp theorems with pinned
+(Python and Gforth) and the snapshot accounting of the --lean test
+(taken_problems) on fabricated reports; with --lean it exports the clamp theorems with pinned
 Lean and checks them with LeanForth, saving the checked environment as a
 snapshot (make check does both once, for this and the receipt's test:
 program-clamp-record), then checks the copies against that snapshot (the
@@ -316,12 +317,13 @@ def checked_clamp(folder):
     if RECORDED:
         evidence = program_receipt.read_json(Path(RECORDED) / "evidence.json")
         return (Path(RECORDED) / program_receipt.KEPT_EXPORT,
-                Path(RECORDED) / program_receipt.KEPT_SNAPSHOT, evidence["leanforth"])
-    export, snapshot = (Path(folder) / program_receipt.KEPT_EXPORT,
-                        Path(folder) / program_receipt.KEPT_SNAPSHOT)
+                program_receipt.kept_snapshot(RECORDED), evidence["leanforth"])
+    export = Path(folder) / program_receipt.KEPT_EXPORT
     vc = program_receipt.vc_entry("lf-clamp/0")
     program_receipt.export_theorems(program_receipt.pinned_lean(), vc["theorems"], export)
-    return export, snapshot, program_receipt.leanforth_check(export, vc["theorems"], snapshot)
+    alone = program_receipt.leanforth_check(export, vc["theorems"],
+                                            Path(folder) / program_receipt.KEPT_SNAPSHOT)
+    return export, program_receipt.kept_snapshot(folder), alone
 
 
 def taken_problems(report, declarations, copied_names):
@@ -334,6 +336,63 @@ def taken_problems(report, declarations, copied_names):
              if (d.get("provenance") == "snapshot") == (d["name"] in copied_names)]
     return ([f"from the snapshot: {taken}, expected {want}"] if taken != want else []) + (
         [f"provenance not as expected: {wrong[:5]}"] if wrong else [])
+
+
+def taken_report(provenances, counts=(2, 1, 0)):
+    """A fabricated report of a check against a snapshot: declarations a, b and the copy c
+    with the given provenances (None: no provenance member), and the import's counts
+    (taken, checked, otherContent), or None for a report without a snapshot."""
+    declarations = [dict({"name": name}, **({} if p is None else {"provenance": p}))
+                    for name, p in zip("abc", provenances)]
+    snapshot = None if counts is None else {"import": dict(zip(
+        ("taken", "checked", "otherContent"), counts))}
+    return {"snapshot": snapshot, "declarations": declarations}
+
+
+# (what is wrong, provenances of a, b, c, import counts): each must be flagged.
+TAKEN_WRONG = [
+    ("a copy taken from the snapshot", ("snapshot", "snapshot", "snapshot"), (3, 0, 0)),
+    ("a copy taken, the counts as expected", ("snapshot", "snapshot", "snapshot"), (2, 1, 0)),
+    ("an original checked again", ("snapshot", "checked", "checked"), (2, 1, 0)),
+    ("an original without provenance", ("snapshot", None, "checked"), (2, 1, 0)),
+    ("one original fewer taken", ("snapshot", "snapshot", "checked"), (1, 1, 0)),
+    ("one more checked", ("snapshot", "snapshot", "checked"), (2, 2, 0)),
+    ("a name the snapshot holds with other content", ("snapshot", "snapshot", "checked"),
+     (2, 1, 1)),
+    ("no snapshot at all (a plain check)", ("checked", "checked", "checked"), None),
+]
+
+
+def kept_self_test():
+    """program_receipt.kept_snapshot (review L3 of speed-lf): a folder without the snapshot,
+    or with an empty one, stops; a written one is returned."""
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import program_receipt  # noqa: E402
+    problems = []
+    with tempfile.TemporaryDirectory() as folder:
+        snapshot = Path(folder) / program_receipt.KEPT_SNAPSHOT
+        for written in (None, b""):
+            if written is not None:
+                snapshot.write_bytes(written)
+            try:
+                program_receipt.kept_snapshot(folder)
+                problems.append(f"kept_snapshot took {'an empty' if written == b'' else 'no'} file")
+            except SystemExit:
+                pass
+        snapshot.write_bytes(b"x")
+        if program_receipt.kept_snapshot(folder) != snapshot:
+            problems.append("kept_snapshot did not give the snapshot written")
+    return problems
+
+
+def taken_self_test():
+    """taken_problems on fabricated reports, without Lean (review L2 of speed-lf): the report
+    a right check against the export's snapshot gives has no problem; each of TAKEN_WRONG
+    has one."""
+    right = taken_problems(taken_report(("snapshot", "snapshot", "checked")), 2, {"c"})
+    problems = [f"taken_problems flags a correct report: {right}"] if right else []
+    return problems + [f"taken_problems misses {what}" for what, provenances, counts in TAKEN_WRONG
+                       if not taken_problems(taken_report(provenances, counts), 2, {"c"})]
 
 
 def lean_test():
@@ -373,7 +432,7 @@ def main(arguments):
         print("\n".join(export.constants(record[arguments[3]])))
         return 0
     if arguments[:1] == ["--test"]:
-        problems = self_test()
+        problems = self_test() + taken_self_test() + kept_self_test()
         report = None
         if "--lean" in arguments and not problems:
             problems, report = lean_test()
@@ -381,7 +440,8 @@ def main(arguments):
             print(problem, file=sys.stderr)
         if problems:
             return 1
-        print("clamp mutants: rebuilding checked on the constant fixture" + (
+        print("clamp mutants: rebuilding checked on the constant fixture, the snapshot "
+              f"accounting on {len(TAKEN_WRONG) + 1} fabricated reports" + (
             f"; LeanForth accepted the originals and rejected {sum(v == 'rejected' for *_, v in COPIES)}"
             f" mutated theorems of {report['counts']['declarations']:,} declarations "
             "(program, contract and proof changed)" if report else ""))

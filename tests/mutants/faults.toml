@@ -1580,6 +1580,23 @@ test = "python3 tests/cli/test_leanforth.py OtherLean"
 reason = "check --any-lean-version on another Lean version's export prints no note that its verdicts are Lean 4.35.0's"
 
 [[fault]]
+id = "clamp-taken-problems-silent"
+file = "tests/program/clamp_mutants.py"
+old = '''    return ([f"from the snapshot: {taken}, expected {want}"] if taken != want else []) + (
+        [f"provenance not as expected: {wrong[:5]}"] if wrong else [])'''
+new = '''    return []'''
+test = "python3 tests/program/clamp_mutants.py --test"
+reason = "the snapshot accounting of the clamp and SHA mutant checks finds nothing: a copy taken from the snapshot, or an original checked again, would pass (review L2 of speed-lf)"
+
+[[fault]]
+id = "program-clamp-stale-snapshot"
+file = "scripts/program_receipt.py"
+old = '''    if not snapshot.is_file() or snapshot.stat().st_size == 0:'''
+new = '''    if False:'''
+test = "python3 tests/program/clamp_mutants.py --test"
+reason = "record --keep accepts a check that wrote no snapshot, so an earlier run's snapshot could be read in its place (review L3 of speed-lf)"
+
+[[fault]]
 id = "cli-text-jobs-note-missing"
 file = "src/cli/leanforth.fs"
 old = '''  cli-json? if exit then cli-text-jobs-note true cli-state run-noted !'''
