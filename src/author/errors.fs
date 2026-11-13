@@ -36,7 +36,10 @@ require ./source.fs
 \   100-109  Meta errors a user sees: invalid universe level, the stuck
 \            signal's and the undo trail's refusals (S1, branch s1-meta)
 \   110-124  instances: failed to synthesize, the instance codes, one per
-\            unsupported instance rule (S1, branch s1-synth)
+\            unsupported instance rule (S1, branch s1-synth; front/instances.fs
+\            uses 110 type class instance expected, 112 an instance's class
+\            differs from its type's, 113 its keys differ, 114 its recorded
+\            keys are wider than its type's: unverified)
 \   125-139  elaboration: numerals, applications, binop%/binrel%, default
 \            instances, the declaration glue, #check, the front end's fuel,
 \            FE1E 2.7's other unsupported rows (S1, branch s1-elab)

@@ -379,6 +379,10 @@ end-structure
   wc wc-facts ! dup lf-term-root? 0= if drop -1 outcome-invalid exit then
   wc-start wc-loop ;
 : lf-whnf-core ( term -- term' outcome ) false wc-core ;
+\ whnfCore asking meta-env.fs's format 2 facts, as lf-meta-whnf's first
+\ step (a definition no matcher and no auxiliary recursor stays as it is):
+\ the DiscrTree's reduceDT (front/discr-keys.fs) starts with it.
+: lf-meta-whnf-core ( term -- term' outcome ) true wc-core ;
 
 \ ---- whnf (lf-meta-whnf): what whnfCore leaves, unless reduceNat? or
 \ unfoldDefinition? would act on it (unsupported).

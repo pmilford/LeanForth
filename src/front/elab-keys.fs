@@ -40,7 +40,10 @@
 \ is every byte added between elab-key-text-start ( k -- ) and
 \ elab-key-text-end ( k -- ), each run of bytes by elab-text-room
 \ ( n -- addr outcome ), whose addr is valid until the next room;
-\ elab-keys-clear ( -- ) forgets every key and text. Outcomes (ADR 0008):
+\ elab-keys-clear ( -- ) forgets every key and text; elab-keys-mark
+\ ( -- keys texts ) and elab-keys-drop ( keys texts -- ) forget those made
+\ since the mark. A query's free variable has its own tag, elab-key-fvar
+\ (its term in the declaration field), which no data key has. Outcomes (ADR 0008):
 \ ok, or full when the heap has no room.
 \
 \ State: two context slabs: elab-keys (four cells a key: tag, arity
@@ -54,7 +57,7 @@ require ../lib/hash32.fs
 
 0 constant elab-key-star    1 constant elab-key-other   2 constant elab-key-lit
 3 constant elab-key-str     4 constant elab-key-const   5 constant elab-key-arrow
-6 constant elab-key-proj    7 constant elab-key-foreign
+6 constant elab-key-proj    7 constant elab-key-foreign 8 constant elab-key-fvar
 
 begin-structure /ek
   field: ek-tag   field: ek-arity   \ the head: equal keys have equal heads
@@ -111,5 +114,10 @@ end-structure
 : elab-key-text-start ( k -- ) ek-texts# swap ek ek-ref ! ;
 : elab-key-text-end ( k -- ) ek dup ek-ref @ ek-texts# swap - swap ek-extra ! ;
 : elab-keys-clear ( -- ) elab-keys slab-clear elab-texts slab-clear ;
+\ Keys made for a while (front/discr-keys.fs's paths and query keys): a
+\ mark of the keys and texts so far, and forgetting all made after it.
+: elab-keys-mark ( -- keys texts ) elab-keys# ek-texts# ;
+: elab-keys-drop ( keys texts -- )
+  ek-texts# - elab-texts slab-commit elab-keys# - elab-keys slab-commit ;
 
 base !   \ the BASE this file was loaded with

@@ -902,6 +902,20 @@ reference-elab-data:
 .PHONY: test-elab-data reference-elab-data
 test: test-elab-data
 test-differential: reference-elab-data
+
+# The instance table (plans FE1e2 and FE1e3; S1_INTERFACE.md §9): keys,
+# isClass?, getUnify and getInstances over the Init slice, Gforth only;
+# with pinned Lean, every Init instance's class and keys recomputed and
+# getInstances compared with pinned Lean's #synth traces (a few minutes).
+test-instances:
+	$(RUN) $(GFORTH) tests/front/instances.fs
+	$(RUN) $(GFORTH) tests/front/instances-bad.fs
+reference-synth: RUN := timeout 3000
+reference-synth:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/front/synth-init.sh
+.PHONY: test-instances reference-synth
+test: test-instances
+test-differential: reference-synth
 DOC_EXAMPLE_PAGES += docs/programming/ELABORATION_DATA.md
 
 # The LeanForth authoring words (plan task 8.1.2, ADR 0017; untrusted, not

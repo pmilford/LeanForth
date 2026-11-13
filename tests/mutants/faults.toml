@@ -990,7 +990,7 @@ reason = "S1: a Pi whose domain fails keeps its older mark on the stack"
 id = "rebuild-mark-leaked"
 file = "src/kernel/mixed-rebuild.fs"
 old = '''  lf-scratch-drop dup ok? if exit then nip nip lf-rebuild-none ;'''
-new = '''  drop outcome-ok ;'''
+new = '''  it-wider = if lf-e-inst-wide it it-error ! outcome-unsupported else drop outcome-ok exit'''
 test = "$GFORTH tests/core/mixed-infer.fs"
 reason = "S1: a successful rebuild keeps its mark on the stack, above the inference step's own"
 
@@ -1169,7 +1169,7 @@ reason = "instantiate_value_lparams skipped: the value keeps the declaration's o
 id = "whnf-arguments-dropped"
 file = "src/kernel/whnf.fs"
 old = '''  lf-whnf-spine-args ok-then? if lf-whnf-apply else nip no-result then ;'''
-new = '''  drop outcome-ok ;'''
+new = '''  it-wider = if lf-e-inst-wide it it-error ! outcome-unsupported else drop outcome-ok exit'''
 test = "$GFORTH tests/core/whnf.fs"
 reason = "unfold_definition does not apply the arguments again (tc 595)"
 
@@ -3542,7 +3542,7 @@ reason = "rvRP3 round 3: rr-start's metadata read of other bytes than it hashed 
 id = "rr-manifest-read-unmatched"
 file = "src/import/run-record.fs"
 old = '''  ok? if rr-manifest-seen rr-matches else outcome-ok then ;'''
-new = '''  drop outcome-ok ;'''
+new = '''  it-wider = if lf-e-inst-wide it it-error ! outcome-unsupported else drop outcome-ok exit'''
 test = "python3 tests/core/test_run_records.py"
 reason = "rvRP3 round 3: rr-start's manifest check of other bytes than it hashed is recorded as ok"
 
@@ -4299,7 +4299,7 @@ reason = "C1 skipped: a constructor returning T Nat is not rejected as Lean's no
 id = "ind-skip-universe"
 file = "src/kernel/check-block.fs"
 old = '''  lf-blk-geq? ok-then? 0= if exit then if outcome-ok else lf-blk-predicate then ;'''
-new = '''  drop outcome-ok ;'''
+new = '''  it-wider = if lf-e-inst-wide it it-error ! outcome-unsupported else drop outcome-ok exit'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "U1 skipped: a Type-valued block with a field Type is accepted (Lean: universeTooBig)"
 quick = true
@@ -4820,7 +4820,7 @@ reason = "5.2.1b: P1 skipped, the type in a Pi's domain allowed; (Bad -> Nat) ->
 id = "rec-non-valid-accepted"
 file = "src/kernel/check-block.fs"
 old = '''  if outcome-ok else lf-diag-non-valid lf-pos-fail then ;'''
-new = '''  drop outcome-ok ;'''
+new = '''  it-wider = if lf-e-inst-wide it it-error ! outcome-unsupported else drop outcome-ok exit'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "5.2.1b: P2 skipped; f (Bad f) -> Bad f is accepted"
 
@@ -6624,7 +6624,7 @@ reason = "the re-check expects no own bit, so every axiom is published invalid"
 id = "quot-builtin-unwarned"
 file = "src/kernel/quot.fs"
 old = '''  0= if lf-warn-quot-record lf-env-warnings! then outcome-ok ;'''
-new = '''  drop outcome-ok ;'''
+new = '''  it-wider = if lf-e-inst-wide it it-error ! outcome-unsupported else drop outcome-ok exit'''
 test = "$GFORTH tests/core/check-block.fs"
 reason = "a quotient record with another type than Lean's own is accepted without its warning (replay-quot.mk-given-quot-type)"
 
@@ -7120,7 +7120,7 @@ reason = "rvKC M1, S5B: the term store's capacity is not set to the copies plus 
 id = "skip-u1-unsafe-checked"
 file = "src/kernel/check-declaration.fs"
 old = '''  dup lf-idecl-safety @ lf-safety-safe = if drop outcome-ok else lf-check-skip then ;'''
-new = '''  drop outcome-ok ;'''
+new = '''  it-wider = if lf-e-inst-wide it it-error ! outcome-unsupported else drop outcome-ok exit'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "5.2.7: an unsafe or partial declaration is checked as a safe one, never skipped as Lean's replay skips it"
 
@@ -7144,7 +7144,7 @@ reason = "5.2.7: an unsafe declaration whose name an earlier one has is skipped,
 id = "skip-name-not-taken"
 file = "src/kernel/environment.fs"
 old = '''  dup 0< if drop outcome-ok else lf-env-declared then ;'''
-new = '''  drop outcome-ok ;'''
+new = '''  it-wider = if lf-e-inst-wide it it-error ! outcome-unsupported else drop outcome-ok exit'''
 test = "$GFORTH tests/core/check-declaration.fs"
 reason = "5.2.7: N2 ignores a skipped declaration of the name; a later safe one of it is accepted, where lean4export's parser refuses the file"
 
@@ -9133,7 +9133,7 @@ reason = "SN2: a loaded set's table is built one size short; adopting refuses it
 id = "sn2-counts-unchecked"
 file = "src/import/snapshot-tier.fs"
 old = '''  tf-counts? flag>outcome ;'''
-new = '''  drop outcome-ok ;'''
+new = '''  it-wider = if lf-e-inst-wide it it-error ! outcome-unsupported else drop outcome-ok exit'''
 test = "$GFORTH tests/core/snapshot-tier.fs"
 reason = "SN2: a family's count in the information section is not compared with its section's"
 
@@ -9658,7 +9658,7 @@ reason = "SN5: a list with names beyond the input written unsorted after their k
 id = "sn4-layer-verdicts-uncompared"
 file = "src/kernel/env-layers.fs"
 old = '''  swap >r true r> 0 ?do 3 pick i + 3 pick i + 3 pick verdict-same? and loop nip nip nip ;'''
-new = '''  2drop 2drop true ;'''
+new = '''  it-wider = if lf-e-inst-wide it it-error ! outcome-unsupported else drop outcome-ok exit'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
 reason = "SN4: a declaration two layers hold is loaded once though their verdicts differ"
 
@@ -12623,7 +12623,7 @@ reason = "the parameters stay explicit: List.ctorIdx's first binder is not impli
 id = "fe6-ctoridx-recursor-params"
 file = "src/front/ctor-idx.fs"
 old = '''  dup type-names swap aux-built-params ! outcome-ok ;'''
-new = '''  drop outcome-ok ;'''
+new = '''  it-wider = if lf-e-inst-wide it it-error ! outcome-unsupported else drop outcome-ok exit'''
 test = "$GFORTH tests/front/constructions.fs"
 reason = "ctorIdx is compared with the recursor's universe parameters, not the type's: List's differ"
 
@@ -12639,7 +12639,7 @@ reason = "T's motive counted from the outermost: RvNest.R's casesOn keeps the wr
 id = "fe6-several-hypotheses-kept"
 file = "src/front/cases-several.fs"
 old = '''  dup closed-end ok-keep? 0= if nip exit then over unit-fold mtype! ;'''
-new = '''  drop outcome-ok ;'''
+new = '''  it-wider = if lf-e-inst-wide it it-error ! outcome-unsupported else drop outcome-ok exit'''
 test = "$GFORTH tests/front/constructions.fs"
 reason = "hypotheses about other motives keep them, which casesOn's value has no binder for: refused, not Lean's"
 
@@ -13164,7 +13164,7 @@ reason = "FE1c: only the innermost binder of a lambda is closed into a pi"
 id = "fe-infer-pi-imax-skipped"
 file = "src/front/infer.fs"
 old = '''  swap lf-meta-imax ;'''
-new = '''  drop outcome-ok ;'''
+new = '''  it-wider = if lf-e-inst-wide it it-error ! outcome-unsupported else drop outcome-ok exit'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: a pi's sort leaves out its domains' levels (Type -> Nat would be Sort 1, not Sort 2)"
 
@@ -15434,3 +15434,85 @@ old = '''    if args.bind:
 new = ''''''
 test = "python3 tests/front/test_elab_data.py"
 reason = "M6: scripts/export-elab.sh writes data the export's manifest does not name"
+
+# --- s1-synth: FE1e2 discrimination-tree keys, FE1e3 the instance table ---
+
+[[fault]]
+id = "fe-keys-instance-indexed"
+file = "src/front/discr-keys.fs"
+old = '''  dup lf-binder-instance = if 2drop true outcome-ok exit then'''
+new = '''  dup lf-binder-instance = if 2drop false outcome-ok exit then'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "ignoreArg: an instance-implicit argument is indexed, not a star (Nat.decLe's keys differ)"
+
+[[fault]]
+id = "fe-keys-succ-uncounted"
+file = "src/front/discr-keys.fs"
+old = '''  dup dk-succ? if dk-last swap 1+ swap true exit then'''
+new = '''  dup dk-succ? if dk-last true exit then'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "toNatLit?: Nat.succ adds nothing to the numeral's value"
+
+[[fault]]
+id = "fe-keys-stuck-dropped"
+file = "src/front/discr-keys.fs"
+old = '''  dk-stuck-const? ok-then? if if lf-meta-stuck else outcome-ok then then ;'''
+new = '''  dk-stuck-const? ok-then? if drop outcome-ok then ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "getUnifyKeyArgs: a recursor stuck on a metavariable is keyed instead of raising the stuck signal"
+
+[[fault]]
+id = "fe-keys-readonly-other"
+file = "src/front/discr-keys.fs"
+old = '''  dk-stuck-ex? dk-head lf-mvar-assignable? or if dk-star else dk-other then ;'''
+new = '''  dk-head lf-mvar-assignable? if dk-star else dk-other then ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "getUnifyKeyArgs: a read-only metavariable is other under isDefEqStuckEx (candidates lost)"
+
+[[fault]]
+id = "fe-inst-star-last"
+file = "src/front/instances.fs"
+old = '''  dup it-push-match dup ok? if drop it-push-star else nip then ;'''
+new = '''  dup it-push-star dup ok? if drop it-push-match else nip then ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "getUnify: the star child is visited after the matching one (Lean's order lost)"
+
+[[fault]]
+id = "fe-inst-sort-unstable"
+file = "src/front/instances.fs"
+old = '''  it-prio@ > ;'''
+new = '''  it-prio@ >= ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "getInstances: the priority sort is not stable (equal priorities change order)"
+
+[[fault]]
+id = "fe-inst-keys-unchecked"
+file = "src/front/instances.fs"
+old = '''  it-wider = if lf-e-inst-wide it it-error ! outcome-unsupported else lf-e-inst-keys'''
+new = '''  it-wider = if lf-e-inst-wide it it-error ! outcome-unsupported else outcome-ok exit'''
+test = "$GFORTH tests/front/instances-bad.fs"
+reason = "the §4 check accepts an instance whose recorded keys differ from its type's"
+
+[[fault]]
+id = "fe-inst-class-unchecked"
+file = "src/front/instances.fs"
+old = '''  if outcome-ok else lf-e-inst-class it-fail then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/front/instances-bad.fs"
+reason = "the §4 check accepts an instance recorded under another class"
+
+[[fault]]
+id = "fe-inst-rank-ignored"
+file = "src/front/instances.fs"
+old = '''  drop dup it-rank it-ranked slab-at ! outcome-ok ;'''
+new = '''  drop dup it-rank 0 max 0 min it-ranked slab-at ! outcome-ok ;'''
+test = "$GFORTH tests/front/instances.fs"
+reason = "a root's values are not placed by rank (the tree loses Lean's child order and values)"
+
+[[fault]]
+id = "fe-inst-wide-refused"
+file = "src/front/instances.fs"
+old = '''  it-star-over? if it-skip true it it-wide ! 1 it it-i +! true exit then'''
+new = ''''''
+test = "$GFORTH tests/front/instances-bad.fs"
+reason = "a recorded star over a term the export lost a no_index on refuses the data instead of leaving the instance unverified"

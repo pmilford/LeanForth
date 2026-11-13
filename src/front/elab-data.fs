@@ -64,7 +64,7 @@
 \ table is empty afterwards, as after elab-reset.
 \ elab-error ( -- line c-addr u ) gives the line of the failure (1 the
 \ header; after the last line, the number of lines read; 0 before the
-\ file is open) and why: elab-error-line, elab-error-code (stable, 1-38)
+\ file is open) and why: elab-error-line, elab-error-code (stable, 1-39)
 \ and elab-error-why apart. elab-unhashed ( outcome -- outcome ) refuses
 \ for a caller that could not hash the export (error 26).
 \
@@ -88,7 +88,9 @@
 \ false ), elab-projection@ ( p -- ctor params idx ), elab-projection-decl
 \ ( p -- d ), elab-projection-class? ( p -- flag ). elab-loaded? says
 \ whether the last read was ok; elab-read-against? ( stage -- flag )
-\ whether it was, against that stage. Unchecked: the words that take a
+\ whether it was, against that stage; elab-decl-of ( name -- d true |
+\ false ) a name's declaration in that stage, elab-decl-name ( d -- name )
+\ the name of one. Unchecked: the words that take a
 \ record number read that record whatever it is; it must be below
 \ elab-count of its kind (an alternative a below the sum of the matchers'
 \ alternatives). The elab-* words are the interface; helpers, fields and
@@ -238,6 +240,10 @@ end-structure
 : elab-count ( kind -- n ) cells elab elab-counts + @ ;
 : elab-loaded? ( -- flag ) elab elab-loaded @ ;
 : elab-read-against? ( stage -- flag ) elab elab-stage @ = elab-loaded? and ;
+\ The declaration of a name (of the stage tier's names, which a fed
+\ context's input shares) in the stage the data was read against.
+: elab-decl-of ( name -- d true | false ) ed-stage stage-find ;
+: elab-decl-name ( d -- name ) ed-stage staged-name@ ;
 
 \ Failing: an error code, stable (docs/programming/ELABORATION_DATA.md,
 \ "Errors"; ed-messages holds each one's text, 0 none), at the current

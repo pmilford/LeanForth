@@ -438,11 +438,26 @@ Example, in three forms, of what the words give for the slice's data:
 | `elab-key=`, `elab-key-hash` | `( k1 k2 -- flag )`, `( k -- h )` | Lean's equality of keys, texts compared byte for byte; a 32-bit hash equal for equal keys |
 | `elab-one-term?` | `( k n -- flag )` | keys `k` .. `k+n-1` make one term in Lean's path order |
 | `elab-keys#` | `( -- n )` | the keys kept |
+| `elab-decl-of`, `elab-decl-name` | `( name -- d true \| false )`, `( d -- name )` | a name's declaration in the stage the data was read against, and back |
+| `elab-bind!` | `( c-addr u -- )` | the records SHA-256 (64 hexadecimal digits) the next `elab-read` must find in the header, or `0 0`: the export manifest's `elab_records_sha256` (error 39) |
 
 `elab-keys.fs` also has the words `elab-data.fs` builds keys with
 (`elab-key-new`, `elab-key-ref!`, `elab-key-arity!`, `elab-key-idx!`,
 `elab-key-text-start`, `elab-key-text-end`, `elab-text-room`,
-`elab-keys-clear`); its header documents them.
+`elab-keys-clear`), and those `front/discr-keys.fs` makes a query's keys
+with (`elab-keys-mark`, `elab-keys-drop`, the tag `elab-key-fvar`, which
+no data key has); its header documents them.
+
+**Using the instance records (FE1e2, FE1e3; branch `s1-synth`, tested
+alone).** `src/front/discr-keys.fs` recomputes Lean's keys (`lf-dt-path`,
+mkPath; `lf-dt-key`, getUnifyKeyArgs) and `src/front/instances.fs`
+rebuilds Lean's instance tree from the ranks, checks each instance's class
+and keys against its type when its root is first queried (`lf-inst-check`;
+a difference refuses the data, error 112 or 113; a record whose star covers
+a term the type gives, as a `no_index` annotation the export drops leaves
+it, makes that instance unverified, error 114), and answers getInstances
+(`lf-inst-candidates`). `make reference-synth` recomputes every Init
+instance and compares getInstances with pinned Lean's `#synth` traces.
 
 ## Smart-unfolding bodies: designed, not built
 
