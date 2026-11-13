@@ -73,7 +73,8 @@ status changes when this date is older than them. Stages are those of the
 - Less repeated testing of small work (plan 9.4.6, owner 2026-11-13): tested alone
   ([review](../development/TEST_WORKFLOW_REVIEW.md): `lib/sort.fs` took about 12 full-suite runs and 2-3 hours of
   machine time to reach GitHub; 3.6 hours of CI in six hours of pushes); decided by the owner 2026-11-13, rules in
-  AGENTS.md. The scripts are written and tested on throw-away repositories: `make tier` runs a branch's change tier
+  AGENTS.md. On main since 2026-11-13; its review's four blocking findings (tests a change could reach but the tier
+  skipped) fixed by falling back to bigger tiers and spot-checked. The scripts are tested on throw-away repositories: `make tier` runs a branch's change tier
   once and records each pass per tree, `make once GOALS=...` reuses a recorded pass, and `scripts/push.sh` runs by
   tier, reuses recorded passes, runs the full set with `LEAN_CACHE=0` once a day and runs `make test` once per full
   tier, instrumented ([TESTING_STRATEGY.md](../development/TESTING_STRATEGY.md), "Change tiers and tested-tree
