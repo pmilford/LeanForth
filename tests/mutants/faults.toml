@@ -13422,3 +13422,72 @@ new = ''': ck-layer-verdict ( k -- n ) ck-layer-id ck-lid-verdict @ ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
 reason = "item-2 review L1: a stale layer's verdict version is reported negative"
 gap = "no test loads a stale layer (--snapshot-stale-ok on a layer of an older verdict version): making one needs a snapshot written by an older build; the base snapshot's stale path is tested"
+
+# --- the job pool when the host refuses workers (src/lib/task.fs, agent
+# POOL, 2026-11-13: tests/lib/task.fs crashed in job-await near the
+# process limit, waiting for the 0 a refused job-submit gave) ------------
+
+[[fault]]
+id = "pool-wait-reads-zero"
+file = "src/lib/task.fs"
+old = ''': wait-refused? ( job -- flag ) 0= lf-owner @ 0<> or ;'''
+new = ''': wait-refused? ( job -- flag ) drop lf-owner @ 0<> ;'''
+test = "$GFORTH tests/lib/task.fs"
+reason = "POOL: job-wait reads job 0's fields (the crash of 2026-11-13, when the host refused every worker)"
+quick = true
+
+[[fault]]
+id = "pool-limit-ignored"
+file = "src/lib/task.fs"
+old = ''': spawn-allowed? ( -- flag ) task-pool dup pool-live @ swap pool-spawn-limit @ u< ;'''
+new = ''': spawn-allowed? ( -- flag ) true ;'''
+test = "$GFORTH tests/lib/task.fs"
+reason = "POOL: the spawn limit never refuses a worker, so no test reaches the host's refusal"
+
+[[fault]]
+id = "pool-limit-one-more"
+file = "src/lib/task.fs"
+old = ''': spawn-allowed? ( -- flag ) task-pool dup pool-live @ swap pool-spawn-limit @ u< ;'''
+new = ''': spawn-allowed? ( -- flag ) task-pool dup pool-live @ swap pool-spawn-limit @ u> 0= ;'''
+test = "$GFORTH tests/lib/task.fs"
+reason = "POOL: the host refuses only the worker after the limit's"
+
+[[fault]]
+id = "pool-refusal-stops-all"
+file = "src/lib/task.fs"
+old = '''  pool-size pool-fill pool-running? if drop 0 then ;'''
+new = '''  pool-size pool-fill dup if pool-stop then ;'''
+test = "$GFORTH tests/lib/task.fs"
+reason = "POOL: one refused worker stops those made (the old all-or-nothing), so check --jobs ran one at a time near the process limit"
+
+[[fault]]
+id = "pool-refusal-hidden"
+file = "src/lib/task.fs"
+old = '''  pool-size pool-fill pool-running? if drop 0 then ;'''
+new = '''  pool-size pool-fill drop 0 ;'''
+test = "$GFORTH tests/lib/task.fs"
+reason = "POOL: a pool that made no worker reports success, so its jobs would wait for ever"
+
+[[fault]]
+id = "pool-refused-pipes-kept"
+file = "src/lib/task.fs"
+old = ''': task-unmade ( task -- ) epiper over pipe-close epipew swap pipe-close ;'''
+new = ''': task-unmade ( task -- ) drop ;'''
+test = "$GFORTH tests/lib/task.fs"
+reason = "POOL: a task whose thread the host refused keeps its two pipes open, so refusals use up file descriptors (Gforth 1.0)"
+
+[[fault]]
+id = "pool-lacked-unkept"
+file = "src/cli/check-run.fs"
+old = '''  ck-lacked! true ;'''
+new = '''  true ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "POOL: a run on fewer workers than asked keeps no count of those the host refused"
+
+[[fault]]
+id = "pool-lacked-unsaid"
+file = "src/cli/leanforth.fs"
+old = '''  cli-lacked. cli-sched. ;'''
+new = '''  cli-sched. ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "POOL: --resources does not say that the system refused worker tasks"

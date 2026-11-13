@@ -626,10 +626,15 @@ create cli-fed-ops
   ."     from a new one's): checked one at a time" cr ;
 \ Cores that run workers at once: all on threads, one when they take turns.
 : cli-cores ( -- n ) task-host task-threads = if task-cores else 1 then ;
+\ A pool the system made fewer worker tasks for than workers (near its
+\ process limit; lib/task.fs): the workers took turns on those it made.
+: cli-lacked. ( -- )
+  ck-lacked 0= if exit then ."     worker tasks started: " ck-made .decimal
+  ."  (the system refused " ck-lacked .decimal ."  more)" cr ;
 : cli-jobs. ( -- )
   ck-parallel? 0= if exit then ck-jobs-run? 0= if cli-no-workers. exit then
   ."   workers: " ck-jobs .decimal ."  (--jobs), on " cli-cores .decimal ."  cores" cr
-  cli-sched. ;
+  cli-lacked. cli-sched. ;
 : cli-resources. ( -- )
   ." resources:" cr cli-times. cli-memory. cli-engine. cli-jobs. cli-input. cli-fuel.
   cli-tops. ;

@@ -360,7 +360,9 @@ Options:
   share one copy of the input; each adds only its own scratch and caches
   (the resource report says how many were made). On a host that is not x86-64
   (threads without memory barriers) or where the thread pool cannot start,
-  the check runs one declaration at a time and the resource report says why.
+  the check runs one declaration at a time and the resource report says why;
+  where the system starts only some of the threads (near its process
+  limit), the workers share those, and the report says how many started.
 - `--memory-per-check MB` (`check` only, not with `--record`) gives each
   declaration's check at most MB megabytes (of 2^20 bytes) of scratch; a
   check that would pass it is *full* ([memory per check](#memory-per-check---memory-per-check)).
@@ -817,7 +819,13 @@ workers: 2.3 seconds, against 16.3). When no worker can be
 made (no memory; or, from a Forth session, a context that ran checks
 before, whose input then has another fingerprint than a new worker's),
 the run checks one declaration at a time, and the resource report says
-so. With `--resources` the
+so. When the system refuses threads (near its process limit, `ulimit
+-u`), the run uses the worker threads it could start, with the same
+output, and `--resources` says how many under the workers line, for
+example `worker tasks started: 6 (the system refused 2 more)` for
+`--jobs 8`; when it refuses every one, the run checks one declaration at
+a time and the report says "the thread pool could not start (code
+-4100)". With `--resources` the
 report adds a line naming the workers and how many checks were handed
 out, run again, refused by readiness or forced (the last two are 0 unless
 LeanForth's plan of which declaration needs which is wrong).

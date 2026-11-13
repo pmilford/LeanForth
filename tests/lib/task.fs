@@ -79,7 +79,8 @@ T{ batch -> 0 }T
 \ Any number of workers gives the serial results: the pool restarts with
 \ 1, 2 and every core; each count is kept between 1 and task-cores.
 : with-workers ( n -- ) pool-stop to task-workers pool-start throw ;
-: live ( -- n ) task-pool pool-live @ ;
+: live ( -- n ) workers-running ;
+T{ pool-running? live task-pool pool-live @ = -> pooled? true }T
 T{ 1 with-workers live batch -> pooled? 1 and 0 }T
 T{ 2 with-workers live batch -> pooled? 2 task-cores min and 0 }T
 T{ 0 with-workers live -> pooled? 1 and }T
@@ -167,6 +168,11 @@ create not-a-context 4 cells allot  not-a-context 4 cells erase
 T{ not-a-context ' dag-run job-submit -> 0 task-refused }T
 T{ 0 ' dag-run job-submit -> 0 task-refused }T
 T{ context-main ' dag-run job-submit -> 0 task-refused }T
+\ A refused submission's handle, 0, is refused by job-wait, which reads
+\ nothing (it once read job 0's fields and crashed: tests/lib/task.fs
+\ waited for the 0 that job-submit gave when the host refused every
+\ worker, near its process limit).
+T{ 0 job-wait 0 ' job-wait rs-checked -> task-refused task-refused }T
 context-new throw constant c1
 c1 context-use
 T{ c1 ' dag-run job-submit -> 0 task-refused }T
@@ -279,6 +285,30 @@ T{ pool-stop max-n 8 cells / to task-data-cells pool-start live -> task-no-worke
 T{ c3 ' noop job-submit c3 context-idle? -> 0 task-no-worker true }T
 normal-cells to task-data-cells
 T{ pool-start live c3 ' noop job-submit throw job-wait -> 0 pooled? task-cores and 0 }T
+\ A host that refuses workers, as near its process limit (spawn-limit!):
+\ refusing every one, the pool is refused, nothing is claimed, and
+\ job-wait refuses the 0 handle; refusing some, the pool runs with those
+\ made, and every job gives the serial results, a throw its code; the
+\ limit lifted, the pool starts whole again.
+: limited ( n -- ior ) pool-stop spawn-limit! pool-start ;
+T{ 0 limited live -> task-no-worker 0 }T
+T{ c3 ' noop job-submit c3 context-idle? -> 0 task-no-worker true }T
+T{ c3 ' noop job-submit drop job-wait c3 context-idle? -> task-refused true }T
+T{ 1 limited live batch -> 0 1 0 }T
+T{ 2 limited live batch run-thrower -> 0 2 task-cores min 0 37 }T
+T{ -1 limited live batch -> 0 task-cores 0 }T
+\ Each refused task is disposed of: on Gforth 1.0 its two pipes are
+\ closed (task-unmade), so twenty refusals leave as many files open as
+\ before (counted with the pool stopped, as each worker has its own
+\ pipes); on 0.7.3 it is freed (tasker.fs's kill).
+threads? [if]
+: fd-count ( -- n )
+  s" /proc/self/fd" open-dir throw >r 0
+  begin pad 256 r@ read-dir throw nip while 1+ repeat r> close-dir throw ;
+: refusals ( n -- ) 0 ?do 0 limited drop loop -1 spawn-limit! ;
+T{ pool-stop fd-count 20 refusals fd-count = -> true }T
+T{ pool-start live -> 0 task-cores }T
+[then]
 \ Stack settings below the stated need: the pool does not start, every
 \ submission is refused and nothing is claimed, until the setting is back.
 task-return-cells constant normal-return
@@ -290,6 +320,9 @@ normal-return to task-return-cells
 T{ pool-start live c3 ' noop job-submit throw job-wait -> 0 pooled? task-cores and 0 }T
 c3 context-free throw
 T{ depth -> 0 }T
+[else]
+\ The serial host makes no worker, so a spawn limit changes nothing.
+T{ 0 spawn-limit! pool-stop pool-start live -1 spawn-limit! -> 0 0 }T
 [then]
 
 \ job-wait-any, a scheduler's wait for the first of several jobs: -1 when
