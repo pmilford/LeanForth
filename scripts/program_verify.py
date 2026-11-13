@@ -524,7 +524,8 @@ class Verify:
             done = self.tools.run([gforth, "--version"], 120)
         except (OSError, subprocess.TimeoutExpired) as error:
             raise Problem("internal", f"{gforth} --version: {error}") from None
-        return ((done.stdout + done.stderr).split() + ["gforth", "unknown"])[:2]
+        found = re.search(r"\bgforth (\d[\w.-]*)", done.stdout + done.stderr)
+        return ["gforth", found.group(1) if found else "unknown"]   # a wrapper may say none
 
     def read_contract(self):
         """Step 2: the contract, its word in the IR, and its ir file equal to the IR."""

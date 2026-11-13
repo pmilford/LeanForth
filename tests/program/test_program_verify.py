@@ -305,8 +305,10 @@ class Unsupported(unittest.TestCase):
                 found = verify_lean_check.normalized(
                     (Path(out) / f"{contract}.receipt.json").read_text(encoding="utf-8"),
                     Path(out).resolve())
-                self.assertEqual(found, (GOLDEN / f"{contract}.receipt.json").read_text(
-                    encoding="utf-8"))
+                golden = (GOLDEN / f"{contract}.receipt.json").read_text(encoding="utf-8")
+                # the Gforth that ran (a coverage wrapper under make coverage) aside
+                self.assertEqual(*(re.sub(r'("name": "gforth",\n\s*"version": ")[^"]*"',
+                                          r'\1GFORTH"', text) for text in (found, golden)))
 
     def test_literal_two(self):
         with scratch() as folder:
@@ -853,6 +855,21 @@ class Workflow(unittest.TestCase):
             self.assertEqual((status, problem_codes(text)), (5, ["internal"]), text)
             self.assertIn("the receipt built is not valid", text)
             self.assertIsNone(receipt_at(out, "lf-clamp"))
+
+    def test_gforth_without_a_version(self):
+        """A Gforth (a wrapper, as under make coverage) whose --version names no version is
+        recorded as version unknown, never as its text."""
+        with scratch() as folder:
+            wrapper = Path(folder) / "gforth"
+            wrapper.write_text(f'#!/bin/sh\nif [ "$1" = --version ]; then echo "error: no"; '
+                               f'exit 0; fi\nexec {GFORTH} "$@"\n', encoding="utf-8")
+            wrapper.chmod(0o755)
+            status, text = cli(["src/program/examples.fs", "--contract",
+                                CONTRACTS / "lf-gcd.contract", "--out", Path(folder) / "out"],
+                               env={"GFORTH": str(wrapper)})
+            self.assertEqual(status, 2, text)
+            tools = receipt_at(Path(folder) / "out", "lf-gcd")["tools"]
+            self.assertIn({"name": "gforth", "version": "unknown"}, tools)
 
     def test_expect_note(self):
         with scratch() as folder:
