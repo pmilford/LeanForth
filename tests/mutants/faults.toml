@@ -11424,3 +11424,27 @@ old = '''  ck-snapped? 0= ck-layers# 0= ck-unstale? and ck-carry-import? 0= and 
 new = '''  ck-snapped? 0= ck-layers# 0= ck-unstale? and or ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py OlderSnapshots.test_stale_and_refused"
 reason = "review of snap-compat L7: an export checked against an older base writes a layer no build loads"
+
+[[fault]]
+id = "snapc-stale-count-negative"
+file = "src/cli/check-run.fs"
+old = ''': ck-stale# ( -- n ) ck-verdicts? if ck-saved# ck-carried# - else 0 then ;'''
+new = ''': ck-stale# ( -- n ) ck-saved# ck-carried# - ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review of snap-compat L3: a failed carry run with --snapshot-stale-ok counts what the first pass carried as negative stale results"
+
+[[fault]]
+id = "snapc-pre-failed-checks"
+file = "src/cli/check-run.fs"
+old = ''': ck-pre-failed ( d outcome -- n ) 2drop true ck-state ck-faulted ! 3 ;'''
+new = ''': ck-pre-failed ( d outcome -- n ) 2drop true ck-state ck-faulted ! 0 ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review of snap-compat L4: a failure to take in a parallel run hands the declaration out to be checked instead of stopping the run there"
+
+[[fault]]
+id = "snapc-pre-stop-unset"
+file = "src/kernel/env-schedule.fs"
+old = ''': lf-sch-pre-stop ( d -- ) dup lf-sch-stop! lf-sch-done swap lf-sch-state! ;'''
+new = ''': lf-sch-pre-stop ( d -- ) lf-sch-done swap lf-sch-state! ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review of snap-compat L4: the hook's answer 3 marks d done without stopping the run at d"

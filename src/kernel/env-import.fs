@@ -342,7 +342,7 @@ constant reach-unjudged
 : nested? ( d -- flag ) sl-recipe swap saved lf-recipe-aux-shift rshift 0<> ;
 : in-block? ( kind -- flag ) dup member-kind? swap block? or ;
 \ A kind's own bit: the export's kinds axiom .. quotient, in that order.
-5 constant reach-kinds#
+kind-quot kind-axiom - 1+ constant reach-kinds#
 : kind-reach ( kind -- bits )
   kind-axiom - dup reach-kinds# u< if reach-kind-axiom swap lshift else drop 0 then ;
 : kind-holds ( kind -- bits )

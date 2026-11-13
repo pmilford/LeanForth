@@ -816,11 +816,7 @@ create ck-line ck-line-room 2 + allot
 \ (kernel/env-import.fs), whose taken declarations keep the snapshot's
 \ fuel and diagnostic; a pass that fails refuses the snapshot, the run
 \ stopped before any check. True when the run goes on.
-: ck-import-facts ( -- )
-  lf-input-count 0 ?do
-    i ck-import imp-source dup 0< if drop else
-      i ck-kept snap-fact i ck-kept cks-fuel ! then
-  loop ;
+: ck-import-facts ( -- ) lf-input-count 0 ?do i ck-taken? if i ck-fact-of then loop ;
 : ck-import-refused ( outcome -- )
   c" a slot taken from it was published otherwise" ck-import imp-k @ ck-snap snap-note
   ck-snap-refused ;

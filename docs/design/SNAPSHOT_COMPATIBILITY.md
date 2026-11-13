@@ -44,7 +44,8 @@ steps (`tests/core/env-import.fs`): no step in today's window leaves a
 result outside its reach whose lookups reach one checked again; (5) the reach bits without an
 evaluator yet (mutual blocks, literals, projections, lets, scratch
 names, names) count as reaching everything; no entry in the window uses
-one. The review of 2026-11-13 (`.claude/work/pending-reports/2026-11-13-snap-compat.md`)
+one. The review of 2026-11-13 (its report `2026-11-13-snap-compat.md` in
+`docs/development/forth-reviews/`, saved there with the merge)
 found M1 (with `--snapshot-stale-ok` users of stale results were carried:
 no slot is compared as answering the same in such a run now,
 `check-run.fs` `ck-rechecking?`) and M2 (an importer change: the

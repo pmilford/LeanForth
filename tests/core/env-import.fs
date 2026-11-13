@@ -469,7 +469,16 @@ T{ ck-stale# 0< -> false }T
   lf-input-count 0 ?do i ck-import imp-reason why-answers = if i unloop exit then loop -1 ;
 T{ first-user s" from a stale snapshot" says? -> true }T
 [then]
-false snap-stale-allowed ! ck-release
+ck-release
+\ The same run with every definition's saved axiom set forged: the
+\ publisher refuses a stale definition published from the snapshot, the
+\ run fails, and with no verdict the stale count is 0, never what the
+\ first pass carried taken from none (review of snap-compat L3).
+true forging ! 20000000 ck-start 0 0 ck-layers!
+T{ nested-snap carry-alone -> outcome-ok }T
+ck-check
+T{ ck-outcome ck-carried# 0> ck-stale# -> outcome-invalid true 0 }T
+false forging ! false snap-stale-allowed ! ck-release
 \ ---- A step that changed the importer (reach-reading; review of
 \ snap-compat M2): a snapshot alone is refused (unsupported, "export
 \ reading"), with no stale count (no verdict: review L3); with
@@ -497,6 +506,16 @@ ck-release
 ' waits lf-sched-pre!
 T{ 0 lf-sch-pre-of 5 lf-sch-pre-of -> 0 2 }T
 0 lf-sched-pre!
+\ Answer 3 (L4): the run stops at d, d done, as the serial run stops at a
+\ failure to take there (ck-pre-failed answers 3 and keeps the fault).
+: stops ( d -- n ) drop 3 ;
+20000000 ck-start s" tests/cli/inductive.ndjson" true ck-load ok? s" hook load" must
+ck-facts drop ck-env drop lf-sched-init drop lf-sched-plan ok? s" hook plan" must
+' stops lf-sched-pre!
+T{ lf-sched-stop 2 lf-sch-pre-done? lf-sched-stop 2 lf-sch-state@ lf-sch-done =
+   -> lf-input-count true 2 true }T
+T{ 4 outcome-invalid ck-pre-failed ck-faulted? -> 3 true }T
+0 lf-sched-pre! ck-release
 \ ---- Out of room in a carry run's load (review of snap-compat): every
 \ heap allocation it makes -- keep-sds, input-maps and same-maps among
 \ them -- refused in turn gives full, never invalid; ok only where the
