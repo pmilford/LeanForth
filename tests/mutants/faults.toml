@@ -12021,3 +12021,27 @@ old = '''  2dup value-alike? 0= if 2drop false exit then params-same? ;'''
 new = '''  params-same? ;'''
 test = "$GFORTH tests/front/constructions.fs"
 reason = "review fe6a L2: values are not compared up to binder names: Or's casesOn passes as Lean's Or.recOn"
+
+[[fault]]
+id = "fe6-several-unit-shift"
+file = "src/front/cases-several.fs"
+old = '''  dup aux-remap >r 0 r@ remap-cutoff! motive-place 1+ r> remap-shift! ;'''
+new = '''  dup aux-remap >r 0 r@ remap-cutoff! motive-place r> remap-shift! ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "review fe6a-2 N3: another motive's binders lifted one short: FE6.Even.casesOn's parameter reference differs"
+
+[[fault]]
+id = "fe6-several-index-drop"
+file = "src/front/cases-several.fs"
+old = '''  1 rot aux-remap remap-shift! ;'''
+new = '''  0 rot aux-remap remap-shift! ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "review fe6a-2 N3: the index's type loses the kept motive's place: FE6.Even.casesOn differs"
+
+[[fault]]
+id = "fe6-several-table-unfilled"
+file = "src/front/cases-several.fs"
+old = '''  tuck table-size 0 ?do -1 over i swap table-cell ! loop drop ;'''
+new = '''  2drop ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "review fe6a-2 N3: the table keeps an earlier renumbering's cells instead of refusing: FE6.Odd.casesOn differs"

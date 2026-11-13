@@ -57,7 +57,8 @@ require ./constructions.fs
   ok-then? if aux-table-room ! outcome-ok else nip then ;
 : table-cell ( r job -- addr ) aux-table @ swap cells + ;
 : table-size ( lead job -- n ) aux-motives @ + ;
-: table-start ( lead job -- ) tuck table-size cells swap aux-table @ swap 255 fill ;
+: table-start ( lead job -- )
+  tuck table-size 0 ?do -1 over i swap table-cell ! loop drop ;
 : main-cell ( lead job -- addr ) tuck main-slot + swap table-cell ;
 : table-delta! ( lead t job -- ) >r 1+ swap r@ table-size - r> aux-remap remap-delta! ;
 : table-map! ( lead job -- )
@@ -99,16 +100,20 @@ require ./constructions.fs
 : several-type! ( job -- outcome ) dup several-conclusion type-around ;
 
 \ ---- PUnit.{u} and PUnit.unit.{u}, u the motive's universe.
-: punit-name ( job -- n ) >r 0 s" PUnit" r> aux-tier name-str drop ;
-: unit-name ( job -- n ) >r r@ punit-name s" unit" r> aux-tier name-str drop ;
+\ The names, made in the scratch tier when the input lacks them: the
+\ number and ok, or -1 and full.
+: punit-name ( job -- n outcome ) >r 0 s" PUnit" r> aux-tier name-str ;
+: unit-name ( job -- n outcome )
+  >r r@ punit-name ok-then? 0= if r> drop no-result exit then
+  s" unit" r> aux-tier name-str ;
 : elim-add ( job -- outcome )
   dup rec-params over aux-names ! 0 over param-level
   ok-keep? if swap aux-tuples tuple-add else nip then ;
 : elim-levels ( job -- t outcome ) dup tuple-begin ['] elim-add aux-then tuple-done ;
 : elim-const ( n job -- e outcome )
   tuck elim-levels ok-keep? if rot aux-tier expr-const else failed-past then ;
-: punit ( job -- e outcome ) dup punit-name swap elim-const ;
-: unit-body ( job -- e outcome ) dup unit-name swap elim-const ;
+: punit ( job -- e outcome ) dup punit-name ok-keep? if swap elim-const then ;
+: unit-body ( job -- e outcome ) dup unit-name ok-keep? if swap elim-const then ;
 
 \ ---- A minor premise in casesOn's value: its type with every
 \ hypothesis about another motive ending in PUnit.{u}, moved into the

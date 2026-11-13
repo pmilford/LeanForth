@@ -9,14 +9,28 @@
 \ when T has one constructor. The parameters and indices are the binders
 \ of T's type made implicit (withImplicitBinderInfos), the fields of each
 \ constructor the binders of its type after the parameters. Lean names
-\ the arrow's binder afresh (mkArrow); here it is x, so the type equals
-\ Lean's up to binder names (aux-alike?).
+\ the arrow's binder afresh (mkArrow, x with macro scopes); here it is x,
+\ so no type equals Lean's export node for node, only up to binder names
+\ (aux-alike?), and other names come from T's type and constructors as the
+\ export shows them, which may be a shared term's (constructions.fs, the
+\ limit of review fe6a M1).
+\ When Lean makes one: mkCtorIdx itself skips a Prop former and a type
+\ eliminating only into Prop (unsupported here, with that reason); but
+\ mkAuxConstructions calls it only when Nat is already declared (hasNat),
+\ the option genCtorIdx can turn it off, a private type's is not exported,
+\ and Lean.Grind.ToInt's dates from stage0. None of that is in an export,
+\ so this builds one for every type that passes mkCtorIdx's own tests:
+\ on Init twelve types Lean has none for (PUnit, PEmpty, Empty, Inhabited,
+\ Decidable and BEq, declared before Nat; the private HasModel and four
+\ private structures of Std.Format; Lean.Grind.ToInt), pinned by name in
+\ tests/front/constructions-init.sh. The front end decides with its own
+\ environment and options when it declares a type (plan FE6).
 \ Outcomes: ok with the type and value (aux-type@, aux-value@);
-\ unsupported, with the reason, where Lean makes no ctorIdx (a Prop
-\ former, or a type eliminating only into Prop) and for a type whose Sort
-\ only reduction shows; invalid for a constructor missing from the
-\ export; otherwise as aux-cases-on. Untrusted front-end code, compared
-\ with Lean's by tests/front/constructions-init.sh.
+\ unsupported, with the reason, as above and for a type whose Sort only
+\ reduction shows; invalid for a constructor missing from the export;
+\ full when the scratch tier refuses a name; otherwise as aux-cases-on.
+\ Untrusted front-end code, compared with Lean's by
+\ tests/front/constructions-init.sh.
 \ State: none of its own; the job record (/aux) holds everything.
 
 require ./constructions.fs
@@ -46,16 +60,21 @@ require ./constructions.fs
 : nat-literal ( u job -- e outcome )
   >r digits r@ aux-tier tier-texts text-intern
   ok-then? if r> aux-tier expr-nat else r> drop no-result then ;
-: top-name ( c-addr u job -- n ) >r 0 -rot r> aux-tier name-str drop ;
+\ A top-level name, made in the scratch tier when the input lacks it: its
+\ number and ok, or -1 and full.
+: top-name ( c-addr u job -- n outcome ) >r 0 -rot r> aux-tier name-str ;
 : empty-levels ( job -- t outcome ) dup tuple-begin tuple-done ;
+: nat-name ( job -- n outcome ) >r s" Nat" r> top-name ;
 : nat-const ( job -- e outcome )
-  dup empty-levels ok-keep? 0= if exit then
-  swap >r s" Nat" r@ top-name swap r> aux-tier expr-const ;
-\ The binder x, as a fun and as a Pi, with domain dom around body.
-: x-name ( job -- n ) >r s" x" r> top-name ;
+  dup nat-name ok-keep? 0= if exit then
+  swap dup empty-levels ok-keep? if swap aux-tier expr-const else failed-past then ;
+\ The binder x, as a fun and as a Pi, with domain dom around body; its
+\ name made once per build (x-ready).
+: x-ready ( job -- outcome )
+  >r s" x" r@ top-name ok-then? if r> aux-x ! outcome-ok else r> drop then ;
 : x-lam ( dom body job -- e outcome )
-  >r r@ x-name 0 lam-head -rot r> aux-tier expr-make ;
-: x-pi ( dom body job -- e outcome ) >r r@ x-name 0 pi-head -rot r> aux-tier expr-make ;
+  >r r@ aux-x @ 0 lam-head -rot r> aux-tier expr-make ;
+: x-pi ( dom body job -- e outcome ) >r r@ aux-x @ 0 pi-head -rot r> aux-tier expr-make ;
 \ T.{us} applied to the parameters, from variable pfirst down, then to
 \ the indices, from variable k - 1 down (k the indices).
 : down-var ( f i job -- e outcome ) tuck aux-span @ swap - swap apply-var ;
@@ -159,7 +178,7 @@ require ./constructions.fs
   dup prop-former? if no-prop exit then dup large? 0= if no-large exit then
   dup type-names swap aux-built-params ! outcome-ok ;
 : ctor-idx ( job -- outcome )
-  dup idx-ready ['] xs-binders aux-then ['] idx-type! aux-then
+  dup idx-ready ['] x-ready aux-then ['] xs-binders aux-then ['] idx-type! aux-then
   ['] idx-value! aux-then nip ;
 : aux-ctor-idx ( d job -- outcome )
   tuck aux-begin ['] ctor-idx aux-then swap aux-because ;
