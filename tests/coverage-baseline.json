@@ -252,6 +252,11 @@
    "never_run": 1,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
+  "src/front/assign-check.fs": {
+   "blocks": 314,
+   "never_run": 24,
+   "reason": "new file (plan FE1c, branch fe1c-3, 2026-11-13; measured over make test-front): never run are the walks' full and invalid branches (a dead free variable, an occurs check or instantiation refused for room), a delayed-assigned metavariable in the value (no fixture makes a delayed assignment), an assigned metavariable left after instantiation (unreachable: lf-instantiate-mvars replaces every one) and a let's parts when its binder holds no free variable"
+  },
   "src/front/beta-inst.fs": {
    "blocks": 230,
    "never_run": 11,
@@ -277,6 +282,11 @@
    "never_run": 4,
    "reason": "new file (plan FE1a-b, 2026-11-12; tightened at the merge, review fe1ab re-check): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded and the reader default finder before cli/check-lf.fs sets it are never run"
   },
+  "src/front/defeq.fs": {
+   "blocks": 1208,
+   "never_run": 158,
+   "reason": "new file (plan FE1c, branch fe1c-3, 2026-11-13; measured over make test-front, with tests/front/defeq.fs and check_defeq.py --golden's 90 cases): never run are failure branches inside the machine's steps that the two allocation-refusal scans do not reach (a frame, cell, mark or new term refused, an eqv, whnfCore, inferType or instantiation failing midway), the steps after an earlier abort (aborts are sticky, the step only returns), the stalled-step guard (a broken step), and Lean paths the slice's fixtures do not meet: instance-implicit arguments with a stuck metavariable (trySynthPending), eta-unassigned implicit arguments, a first-order approximation whose lhs cannot be built, quasi-pattern arguments (isTypeCorrect), processAssignment' retrying after a tainted level comparison"
+  },
   "src/front/elab-data.fs": {
    "blocks": 534,
    "never_run": 4,
@@ -286,6 +296,11 @@
    "blocks": 152,
    "never_run": 11,
    "reason": "new file (plan FE6, casesOn and recOn): the blocks never run are failure branches after a scratch tier, tuple or heap block that cannot grow (expr-make, tuple-add, allocate) and refusals Lean's recursors never reach (hypotheses before fields, a recursor type shorter than its numbers, a type whose Sort only reduction shows); tests for them need a tier that refuses on demand Measured 2026-11-13 over make test-front (review fe6a-2 N4)."
+  },
+  "src/front/fun-info.fs": {
+   "blocks": 195,
+   "never_run": 31,
+   "reason": "new file (plan FE1c, branch fe1c-3, 2026-11-13; measured over make test-front): never run are the full and unsupported branches of a telescope (a local, a record, an instantiation or whnfCore refused; a type whnf would unfold), a parameter type that is a pi or might become one under a class head (no fixture has a higher-order out-parameter), and isProp's failures after isPropQuick (inferType or whnfCore refused)"
   },
   "src/front/infer.fs": {
    "blocks": 260,
@@ -332,6 +347,16 @@
    "never_run": 7,
    "reason": "measured 2026-11-12 on fe1c-lnorm: never run are the load-time aborts of a heap that cannot hold the stores (130, 131), store-new-slot failing after store-ready succeeded (178), a delayed assignment's trail note refused (359), and in instantiateMVars the term store refusing an application (407), the argument slab and the metavariable search refused (437, 467: the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use))"
   },
+  "src/front/nat-offset.fs": {
+   "blocks": 313,
+   "never_run": 36,
+   "reason": "new file (plan FE1c, branch fe1c-3, 2026-11-13; measured over make test-front): never run are the failures of making a constant (a name the context lacks, a level store without zero, a reference or term refused), a literal or sum beyond a cell, an evaluation stack refused, the offset layer codes for an Add.add or HAdd.hAdd whose instance comparison fails for room, and the forms of Lean's evalNat left unported (division, modulo, power, Sub and HSub through Add's path)"
+  },
+  "src/front/prop-quick.fs": {
+   "blocks": 263,
+   "never_run": 31,
+   "reason": "new file (plan FE1c, branch fe1c-3, 2026-11-13; measured over make test-front): never run are the full branches of the level and binder stacks and of a head's type (inferType refused), a metavariable head without a declaration, and shapes no test term has: a let at an application's head, a let in a type passed by isArrowProposition, a legacy numeric Sort"
+  },
   "src/front/reader.fs": {
    "blocks": 147,
    "never_run": 7,
@@ -346,6 +371,11 @@
    "blocks": 191,
    "never_run": 3,
    "reason": "new file (plan FE1g-2, branch fe1g2, 2026-11-13): the two load-time aborts of tac-heap (no heap for the tactic stores) and the defensive branch of lft-bracketed? (a hypothesis read outside a tactic proof, which the hypotheses' scopes rule out) are never run"
+  },
+  "src/front/term-eqv.fs": {
+   "blocks": 190,
+   "never_run": 19,
+   "reason": "new file (plan FE1c, branch fe1c-3, 2026-11-13; measured over make test-front): never run are the pair stack refused (full), level comparisons failing for room, two equal leaves of distinct nodes that only an unshared store makes (constants with levels, literals, projection leaves, other leaves), and etaExpanded?'s loose-range walk refused"
   },
   "src/front/whnf.fs": {
    "blocks": 487,
