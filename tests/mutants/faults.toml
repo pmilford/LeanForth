@@ -11949,3 +11949,195 @@ old = '''  nip remap-let-body ['] remap-let-joined frame-under ;'''
 new = '''  nip remap-let-body ['] remap-let-joined frame-call ;'''
 test = "$GFORTH tests/front/constructions.fs"
 reason = "a letE's body is renumbered as if outside its binder: its own variable #0 becomes #1"
+
+# --- the sorting library (src/lib/sort.fs; FRK batch C2's library) -------
+
+[[fault]]
+id = "lib-sort-insert-unstable"
+file = "src/lib/sort.fs"
+old = '''  tuck sort-size - over sorter-mid @ rot sort-after? ;'''
+new = '''  tuck sort-size - over sorter-mid @ swap rot sort-after? 0= ;'''
+test = "$GFORTH tests/lib/sort.fs"
+reason = "insertion moves a record below an equal one: sorted, but not stable, and not the references' comparisons"
+quick = true
+
+[[fault]]
+id = "lib-sort-merge-unstable"
+file = "src/lib/sort.fs"
+old = '''  dup sorter-left @ over sorter-right @ rot sort-after? ;'''
+new = '''  dup sorter-right @ over sorter-left @ rot sort-after? 0= ;'''
+test = "$GFORTH tests/lib/sort.fs"
+reason = "a merge takes the right run's record first on a tie: sorted, but not stable (not the insertion sort's result)"
+quick = true
+
+[[fault]]
+id = "lib-sort-after-ties"
+file = "src/lib/sort.fs"
+old = '''  depth >r sort-compare depth r> 2 - <> if sort-unbalanced throw then 0> ;'''
+new = '''  depth >r sort-compare depth r> 2 - <> if sort-unbalanced throw then 0< 0= ;'''
+test = "$GFORTH tests/lib/sort.fs"
+reason = "an order of zero counts as after on both paths: equal keys change places"
+
+[[fault]]
+id = "lib-sort-cutover-early"
+file = "src/lib/sort.fs"
+old = ''': sort-by-merge? ( sorter -- flag ) dup sort-count swap sorter-short @ > ;'''
+new = ''': sort-by-merge? ( sorter -- flag ) dup sort-count swap sorter-short @ >= ;'''
+test = "$GFORTH tests/lib/sort.fs"
+reason = "32 records are merged, with scratch, where the cut-over (and lf-lnorm-sort) sorts them by insertion"
+
+[[fault]]
+id = "lib-sort-default-short"
+file = "src/lib/sort.fs"
+old = '''  sort-short over sorter-short ! tuck sorter-order ! sorter-size ! ;'''
+new = '''  sort-short 1+ over sorter-short ! tuck sorter-order ! sorter-size ! ;'''
+test = "$GFORTH tests/lib/sort.fs"
+reason = "a new sorter's cut-over is 33, not sort-short: 33 records sorted by insertion"
+
+[[fault]]
+id = "lib-sort-left-rest-lost"
+file = "src/lib/sort.fs"
+old = '''  dup sort-left-rest sort-back ;'''
+new = '''  sort-back ;'''
+test = "$GFORTH tests/lib/sort.fs"
+reason = "a merge drops the left run's rest when the right run is used up first: records lost"
+quick = true
+
+[[fault]]
+id = "lib-sort-out-stuck"
+file = "src/lib/sort.fs"
+old = '''  >r over - r@ sorter-out @ swap dup r> sorter-out +! move ;'''
+new = '''  >r over - r@ sorter-out @ swap r> drop move ;'''
+test = "$GFORTH tests/lib/sort.fs"
+reason = "the merge's output does not move on: every record written over the first"
+
+[[fault]]
+id = "lib-sort-scratch-leak"
+file = "src/lib/sort.fs"
+old = '''  dup sorter-owned @ ?dup if free drop then'''
+new = '''  dup sorter-owned @ ?dup if drop then'''
+test = "$GFORTH tests/lib/sort.fs"
+reason = "the heap scratch is never freed (heap-watch counts the blocks held)"
+quick = true
+
+[[fault]]
+id = "lib-sort-busy-stuck"
+file = "src/lib/sort.fs"
+old = '''  0 over sorter-owned ! false swap sorter-busy ! ;'''
+new = '''  0 swap sorter-owned ! ;'''
+test = "$GFORTH tests/lib/sort.fs"
+reason = "a sorter stays busy after its first sort and refuses every later one"
+
+[[fault]]
+id = "lib-sort-depth-unchecked"
+file = "src/lib/sort.fs"
+old = '''  depth >r sort-compare depth r> 2 - <> if sort-unbalanced throw then 0> ;'''
+new = '''  sort-compare 0> ;'''
+test = "$GFORTH tests/lib/sort.fs"
+reason = "an order that leaves two results or none is not refused: the sort runs on a broken stack"
+
+[[fault]]
+id = "lib-sort-key-unchecked"
+file = "src/lib/sort.fs"
+old = '''  depth >r execute depth r> 1- <> if sort-unbalanced throw then ;'''
+new = '''  execute ;'''
+test = "$GFORTH tests/lib/sort.fs"
+reason = "a key word that leaves two results is not refused: the next fetch takes a key for the sorter"
+
+[[fault]]
+id = "lib-sort-busy-unchecked"
+file = "src/lib/sort.fs"
+old = '''  dup sort-size 0> over sorter-order @ 0<> and swap sorter-busy @ 0= and ;'''
+new = '''  dup sort-size 0> swap sorter-order @ 0<> and ;'''
+test = "$GFORTH tests/lib/sort.fs"
+reason = "a busy sorter is not refused: a nested sort from its own order overwrites the outer sort's state"
+
+[[fault]]
+id = "lib-sort-buffer-small"
+file = "src/lib/sort.fs"
+old = ''': sort-buffered? ( sorter -- flag ) dup sorter-room @ swap sort-total < 0= ;'''
+new = ''': sort-buffered? ( sorter -- flag ) dup sorter-room @ swap sort-total 2/ < 0= ;'''
+test = "$GFORTH tests/lib/sort.fs"
+reason = "the caller's buffer is used when it holds half the records: the merge writes past it"
+
+[[fault]]
+id = "lib-sort-full-as-invalid"
+file = "src/lib/sort.fs"
+old = '''  dup sort-total allocate if 2drop outcome-full else swap sort-owned! outcome-ok then ;'''
+new = '''  dup sort-total allocate if 2drop outcome-invalid else swap sort-owned! outcome-ok then ;'''
+test = "$GFORTH tests/lib/sort.fs"
+reason = "a refused scratch is reported invalid, not full (ADR 0008: out of room)"
+
+[[fault]]
+id = "lib-sort-width-quadrupled"
+file = "src/lib/sort.fs"
+old = ''': sort-widen ( sorter -- ) sorter-width dup @ 2* swap ! ;'''
+new = ''': sort-widen ( sorter -- ) sorter-width dup @ 2* 2* swap ! ;'''
+test = "$GFORTH tests/lib/sort.fs"
+reason = "the runs grow fourfold per pass, so runs that are not sorted are merged"
+
+[[fault]]
+id = "lib-sort-rotate-past-temp"
+file = "src/lib/sort.fs"
+old = '''    2dup sort-chunk min tuck swap sort-roll - repeat 2drop ;'''
+new = '''    2dup sort-chunk 2* min tuck swap sort-roll - repeat 2drop ;'''
+test = "$GFORTH tests/lib/sort.fs"
+reason = "a record above the temp's size is rotated in parts twice the temp: writes past the sorter (s3-guard)"
+
+[[fault]]
+id = "lib-sort-helpers-public"
+file = "src/lib/sort.fs"
+old = '''begin-structure /sorter
+lf-lib-private set-current'''
+new = '''begin-structure /sorter
+lf-lib set-current'''
+test = "$GFORTH tests/lib/sort.fs"
+reason = "the sorter's private fields become public words (ADR 0010)"
+
+[[fault]]
+id = "lib-sort-count-unchecked"
+file = "src/lib/sort.fs"
+old = '''  dup sort-usable? if max-n swap sort-size / upto? else 2drop false then ;'''
+new = '''  dup sort-usable? if 2drop true else 2drop false then ;'''
+test = "$GFORTH tests/lib/sort.fs"
+reason = "a negative count, or one whose records would not fit a cell's address units, is accepted"
+
+[[fault]]
+id = "lib-sort-order-zero"
+file = "src/lib/sort.fs"
+old = ''': sort-plan? ( size order -- flag ) 0<> swap 0> and ;'''
+new = ''': sort-plan? ( size order -- flag ) drop 0> ;'''
+test = "$GFORTH tests/lib/sort.fs"
+reason = "sorter-init accepts no order (0), which a sort would EXECUTE"
+
+[[fault]]
+id = "lib-sort-key-skipped"
+file = "src/lib/sort.fs"
+old = ''': sort-key ( a-addr sorter -- x ) sorter-fetch @ ?dup if sort-fetched then ;'''
+new = ''': sort-key ( a-addr sorter -- x ) drop ;'''
+test = "$GFORTH tests/lib/sort.fs"
+reason = "the key word is never called: the order is given addresses instead of keys"
+
+[[fault]]
+id = "lib-sort-u32-as-cell"
+file = "src/lib/sort.fs"
+old = '''  >r 1 u32s swap r@ sorter-init ['] u32@ r> sorter-key! ;'''
+new = '''  >r 1 u32s swap r@ sorter-init ['] @ r> sorter-key! ;'''
+test = "$GFORTH tests/lib/sort.fs"
+reason = "sorter-u32s reads a cell for a packed 32-bit field: the next field's bits join the key"
+
+[[fault]]
+id = "lib-sort-throw-swallowed"
+file = "src/lib/sort.fs"
+old = '''  dup sort-unbalanced = if drop outcome-invalid else throw outcome-ok then ;'''
+new = '''  dup sort-unbalanced = if drop outcome-invalid else drop outcome-ok then ;'''
+test = "$GFORTH tests/lib/sort.fs"
+reason = "a THROW out of the order is not passed on: the sort reports ok on records half sorted"
+
+[[fault]]
+id = "lib-sort-unsigned-as-signed"
+file = "src/lib/sort.fs"
+old = ''': sort-unsigned ( u1 u2 -- n ) 2dup = if 2drop 0 else u< 2* 1+ then ;'''
+new = ''': sort-unsigned ( u1 u2 -- n ) 2dup = if 2drop 0 else < 2* 1+ then ;'''
+test = "$GFORTH tests/lib/sort.fs"
+reason = "sort-unsigned compares signed: a value with the top bit set sorts first"
