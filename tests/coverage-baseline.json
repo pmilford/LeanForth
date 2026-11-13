@@ -268,9 +268,9 @@
    "reason": "new file (plan FE1a-b, 2026-11-12; tightened at the merge, review fe1ab re-check): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded and the reader default finder before cli/check-lf.fs sets it are never run"
   },
   "src/front/elab-data.fs": {
-   "blocks": 534,
-   "never_run": 4,
-   "reason": "new file (plan FE1d, 2026-11-12): four refusals no test input reaches: a name lookup that fails in an open tier (ed-looked, error 23), a tier name beyond the stage's name-to-declaration array (ed-decls), no room while the eliminators' table grows (the allocation-refusal test reads 4 eliminators), and a THROW inside a read (ed-caught)"
+   "blocks": 1055,
+   "never_run": 9,
+   "reason": "new file (plan FE1d, 2026-11-12): four refusals no test input reaches: a name lookup that fails in an open tier (ed-looked, error 23), a tier name beyond the stage's name-to-declaration array (ed-decls), no room while the eliminators' table grows (the allocation-refusal test reads 4 eliminators), and a THROW inside a read (ed-caught). Format 2 (plan FE1e1, 2026-11-13): five more: a let among a matcher's parameters (ed-binder; 13 of Init's matchers, read by make reference-elab-data, none in a slice), no room for a foreign key or a texted key or its text (ed-foreign-proj, ed-proj-text, ed-text-key: the allocation-refusal test refuses each allocation in turn but none falls on these claims), and a name lookup that fails after a left-out instance's name had a valid form (ed-left-name, as error 23)"
   },
   "src/front/expr-remap.fs": {
    "blocks": 152,

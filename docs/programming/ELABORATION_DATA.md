@@ -527,17 +527,27 @@ counts it, so the data needs no new format version):
     - the schema: 190 good lines and 22 wrong ones;
     - the [error catalogue](#errors) against the reader's;
     - the command line: the good data with an export, a snapshot and
-      `--no-manifest`, 16 eliminators (the table grows), 4 accepted
-      variants, the verdicts unchanged, and 4 misuses (a layered snapshot
-      among them);
-    - 115 damaged files, each refused with its line, code, text and exit
+      `--no-manifest`, 16 eliminators (the table grows), 6 accepted
+      variants (an erased left-out instance the library has, a
+      discriminant's name, a matcher into `Prop` only, a projection key of
+      the slice's structure and of one it lacks, a string literal key),
+      the verdicts unchanged, and 4 misuses (a layered snapshot among
+      them);
+    - 126 damaged files, each refused with its line, code, text and exit
       status and never "accepted": format 1's checks, format 2's (codes
-      27-38, the key forms, ranks, matchers, projections), and a format-1
-      file.
-  - Never run by `make test` (listed in `tests/coverage-baseline.json`):
-    - a name lookup that fails in an open tier (error 23);
+      27-38, the key forms, ranks, matchers, projections, every new
+      record kind with a member added), and a format-1 file.
+  - Never run by `make test` (9 blocks, listed with their reasons in
+    `tests/coverage-baseline.json`):
+    - a name lookup that fails in an open tier (error 23), also after a
+      left-out instance's name had a valid form;
     - a tier name beyond the stage's name-to-declaration array;
-    - no room while the eliminators' or the ranks' table grows;
+    - no room while the eliminators' table grows;
+    - no room for a foreign key, a texted key or its text (the
+      allocation-refusal test refuses each allocation in turn, but none
+      falls on these claims);
+    - a let among a matcher's parameters (13 of `Init`'s matchers, read
+      by `make reference-elab-data`; no slice has one);
     - a THROW inside a read.
 - `make reference-elab-data` (in `make check`, pinned Lean):
   `tests/front/elab-init.sh`, about 4 minutes on a busy machine (2026-11-12).

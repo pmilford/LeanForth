@@ -541,6 +541,25 @@ def format2_cases():
                                                      {"arity": 0, "const": ["Natt"]}],
                           "name": ["Nat", "add"], "priority": 1000, "rank": 30,
                           "synth_order": []}})]), 4, n + 2, "unknown name"),
+        case("left-out name not a list", c(LEFT0, '"name":"toAdd"'), 4, "malformed"),
+        case("constant key name malformed", c(nat, '{"arity":0,"const":[1.5]}],'
+                                                   '"name":["instAddNat"]'), 4, "malformed"),
+        case("projection key name malformed", c(nat, '{"arity":0,"idx":0,"proj":[1.5]}],'
+                                                     '"name":["instAddNat"]'), 4, "malformed"),
+        case("projection key index a text", c(nat, '{"arity":0,"idx":"0","proj":["Nat"]}],'
+                                                   '"name":["instAddNat"]'), 4, "malformed"),
+        case("foreign projection arity a text",
+             c(BITVEC_CONST, BITVEC_PROJ.replace('"arity":0', '"arity":"0"')), 4, "malformed"),
+        case("left-out with another member", c(LEFT0, LEFT0 + ',"x":1'), 4, "malformed"),
+        case("class with another member", c('{"class":{"name":["Add"]',
+                                            '{"class":{"x":1,"name":["Add"]'), 4, "malformed"),
+        case("tag with another member", c('"tag":"cases_on"', '"tag":"cases_on","x":1'), 4,
+             "malformed"),
+        case("matcher with another member", c(MATCH, MATCH + ',"x":1'), 4, "malformed"),
+        case("projection with another member", c(PROJ, PROJ + ',"x":1'), 4, "malformed"),
+        case("discriminant names not a list",
+             c('"discr_names":[null,null],"name":["Nat","add","match_1"]',
+               '"discr_names":2,"name":["Nat","add","match_1"]'), 4, "malformed"),
         case("instance projection key unknown", c(nat, '{"arity":0,"idx":0,"proj":["Natt"]}],'
                                                        '"name":["instAddNat"]'), 4, "unknown name"),
         case("left-out projection key malformed", c('{"arity":0,"const":["Dyadic"]}',
@@ -647,6 +666,10 @@ def command_line(work):
         "a matcher into Prop only": swap('"num_params":0,"u_elim_pos":0}',
                                          '"num_params":0,"u_elim_pos":null}'),
         "a left-out projection of a structure the slice lacks": swap(BITVEC_CONST, BITVEC_PROJ),
+        "a projection of a structure of the slice": swap(
+            BITVEC_CONST, BITVEC_PROJ.replace('"proj":["BitVec"]', '"proj":["Nat"]')),
+        "a string literal key": swap('"star",{"lit":"0"}],"name":["Zero","toOfNat0"]',
+                                     '"star",{"lit_str":"0"}],"name":["Zero","toOfNat0"]'),
     }
     for what, records in accepted.items():
         path = work / (re.sub(r"\W+", "-", what) + ".ndjson")
