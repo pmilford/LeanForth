@@ -41,10 +41,13 @@ here canon-stores - 1 cells / constant canon-stores#
 : canon-log-digest ( h -- h' ) ;
 [then]
 \ The growable arrays of context-slab: (lib/context.fs, plan task 6.2.0),
-\ found through its list of their offsets.
+\ found through its list of their offsets (private to lib/context.fs).
+lf-lib-private order+
+: canon-slab-list ( -- node ) context-slabs @ ;
+order-
 : canon-listed-at ( node -- slab ) cell+ @ lf-context @ + ;
 : canon-listed ( dst -- dst )
-  context-slabs @ begin ?dup while >r dup r@ canon-listed-at canon-slab r> @ repeat ;
+  canon-slab-list begin ?dup while >r dup r@ canon-listed-at canon-slab r> @ repeat ;
 \ Hash tables (lib/htab.fs; compact-store plan step S3): the term store's
 \ hash-consing table (core/terms.fs), the level store's and the
 \ references' (core/levels.fs, core/constant-references.fs; step S4), the
@@ -95,7 +98,7 @@ here canon-stores - 1 cells / constant canon-stores#
 : canon-shape-digest ( h slab -- h' )
   >r r@ slab-capacity canon-mix r@ slab-unit canon-mix r> slab-limit canon-mix ;
 : canon-listed-digest ( h -- h' )
-  context-slabs @ begin ?dup while >r r@ canon-listed-at canon-shape-digest r> @ repeat ;
+  canon-slab-list begin ?dup while >r r@ canon-listed-at canon-shape-digest r> @ repeat ;
 \ The table's size and entries (its slots' order follows its history).
 : canon-htab-digest ( h htab -- h' ) dup htab-slots rot swap canon-mix swap htab-count canon-mix ;
 : canon-core-digest ( h -- h' )
