@@ -82,7 +82,8 @@ def rel(path):
 def run(argv, fake=None, lean=str(FAKE), env=None):
     """The driver inside this process with the stand-ins: (exit status, printed text)."""
     variables = {"GFORTH": GFORTH, "LEAN": lean, "LEANEXPORT": str(FAKE),
-                 "VERIFY_FAKE": json.dumps(fake or {}), **(env or {})}
+                 program_verify.TEST_TOOLS: "1", "VERIFY_FAKE": json.dumps(fake or {}),
+                 **(env or {})}
     printed = io.StringIO()
     with mock.patch.dict(os.environ, variables), \
             mock.patch.object(program_receipt, "LEANFORTH",
@@ -362,6 +363,46 @@ class Lean(unittest.TestCase):
                 self.assertEqual((status, problem_codes(text)), (4, ["file-changed"]), text)
                 self.assertIsNone(receipt_at(out, "lf-clamp"))
 
+    def test_post_printed_by_lean(self):
+        """Review B1: the postcondition comes from Lean's own print in this run, recorded and
+        hashed in the evidence; --detail prints it."""
+        with scratch() as out:
+            status, text = verify("lf-clamp", out, extra=["--detail"])
+            self.assertEqual(status, 0, text)
+            self.assertIn("post, as Lean printed it in this run (the statement proved):\n"
+                          "  def ProgramVC.LfClamp0.post : Cells → List Int → Prop :=", text)
+            evidence = json.loads((Path(out) / "lf-clamp.evidence.json").read_text())
+            post = evidence["lean"]["post"]
+            self.assertTrue(post.startswith("def ProgramVC.LfClamp0.post"))
+            self.assertEqual(evidence["lean"]["postSha256"],
+                             program_verify.digest(post.encode("utf-8")))
+            self.assertIn("#print ProgramVC.LfClamp0.post",
+                          (Path(out) / "obligations.lean").read_text())
+        with scratch() as out:
+            status, text = verify("lf-clamp", out, {"lean": "no-post"})
+            self.assertEqual((status, problem_codes(text)), (5, ["internal"]), text)
+
+    def test_pinned_tools_unless_testing(self):
+        """Review M3: without the test switch LEAN and LEANEXPORT are ignored and the
+        checkout's pinned Lean runs; the evidence names every tool with its SHA-256."""
+        with scratch() as out, mock.patch.object(program_verify, "PINNED_LEAN",
+                                                 Path("/nonexistent/lean")):
+            status, text = verify("lf-clamp", out, env={program_verify.TEST_TOOLS: "0"})
+            self.assertEqual((status, problem_codes(text)), (4, ["lean-not-found"]), text)
+            self.assertIn("/nonexistent/lean", text)
+        with scratch() as out, mock.patch.object(program_verify, "PINNED_LEAN", FAKE):
+            status, text = verify("lf-clamp", out, lean="/nonexistent/lean",
+                                  env={program_verify.TEST_TOOLS: "0", "LEANEXPORT": "/no"})
+            self.assertEqual(status, 0, text)
+            evidence = json.loads((Path(out) / "lf-clamp.evidence.json").read_text())
+            self.assertFalse(evidence["testTools"])
+            self.assertEqual(evidence["tools"]["lean"]["path"], rel(FAKE))
+            self.assertEqual(evidence["tools"]["lean"]["sha256"],
+                             program_verify.digest(FAKE.read_bytes()))
+            self.assertEqual(evidence["tools"]["leanexport"]["path"],
+                             rel(FAKE.parent / "leanexport"))
+            self.assertEqual(set(evidence["tools"]), {"gforth", "lean", "leanexport"})
+
     def test_lean_not_found(self):
         with scratch() as out:
             status, text = verify("lf-clamp", out, lean="/nonexistent/lean")
@@ -373,9 +414,9 @@ class Checker(unittest.TestCase):
     """LeanForth's verdicts as the receipt's check status: only all accepted is positive."""
 
     CASES = [  # (stand-in, exit status, problem, check status)
-        ({"verdicts": {"contract": "rejected"}}, 1, "proof-rejected", "rejected"),
-        ({"verdicts": {"O2": "rejected"}}, 1, "proof-rejected", "rejected"),
-        ({"other": "rejected"}, 1, "proof-rejected", "rejected"),
+        ({"verdicts": {"contract": "rejected"}}, 5, "checkers-disagree", "rejected"),
+        ({"verdicts": {"O2": "rejected"}}, 5, "checkers-disagree", "rejected"),
+        ({"other": "rejected"}, 5, "checkers-disagree", "rejected"),
         ({"verdicts": {"contract": "unknown"}}, 2, "proof-undecided", "unsupported"),
         ({"verdicts": {"O1": "unsupported"}}, 2, "proof-undecided", "unsupported"),
         ({"verdicts": {"contract": "exhausted"}, "exit": 3}, 3, "proof-exhausted", "failed"),
@@ -394,8 +435,8 @@ class Checker(unittest.TestCase):
         in the CLI's order (as bin/leanforth check's)."""
         cases = [({"verdicts": {"contract": "unknown"}, "other": "exhausted", "exit": 3}, 3,
                   ["proof-undecided", "proof-exhausted"], "unsupported"),
-                 ({"verdicts": {"O1": "rejected", "O2": "exhausted"}, "exit": 1}, 1,
-                  ["proof-rejected", "proof-exhausted"], "rejected"),
+                 ({"verdicts": {"O1": "rejected", "O2": "exhausted"}, "exit": 1}, 5,
+                  ["checkers-disagree", "proof-exhausted"], "rejected"),
                  ({"verdicts": {"O1": "invalid", "O2": "unknown"}, "exit": 5}, 5,
                   ["proof-undecided", "internal"], "unsupported")]
         for fake, expected, codes, check in cases:
@@ -422,7 +463,7 @@ class Checker(unittest.TestCase):
     def test_refuted_not_accepted(self):
         with scratch() as out:
             status, text = verify("wrong-clamp-swapped", out, {"verdicts": {"refuted": "rejected"}})
-            self.assertEqual(status, 1, text)
+            self.assertEqual((status, problem_codes(text)), (5, ["checkers-disagree"]), text)
             receipt = receipt_at(out, "lf-clamp")
             self.assertEqual((receipt["check"]["status"], receipt["verify"]["status"]),
                              ("rejected", "open"))
@@ -442,6 +483,33 @@ class Checker(unittest.TestCase):
                 self.assertEqual((status, problem_codes(text)), (expected, [code]), text)
                 self.assertIsNone(receipt_at(out, "lf-clamp"))
                 self.assertIn("no receipt written", text)
+
+    def test_final_run_report_only(self):
+        """Review M2: only a final run's check report 0.4 is read; no receipt otherwise."""
+        for fake in ({"reportVersion": "0.3"}, {"snapshot": True}):
+            with self.subTest(fake), scratch() as out:
+                status, text = verify("lf-clamp", out, fake)
+                self.assertEqual((status, problem_codes(text)), (5, ["internal"]), text)
+                self.assertIn("not a final run's check report 0.4", text)
+                self.assertIsNone(receipt_at(out, "lf-clamp"))
+
+    def test_namespace_is_the_generators(self):
+        """Review B1: the export's ProgramVC declarations are exactly the generator's, with
+        only Lean's auxiliary lemmas under them."""
+        cases = [({"extra": ["ProgramVC.LfClamp0.sneaky"]}, 5),
+                 ({"extra": ["ProgramVC.ir_evil"]}, 5),
+                 ({"extra": ["ProgramVC.LfClamp0.O1.sneaky"]}, 5),
+                 ({"drop": ["post"]}, 5), ({"drop": ["program"]}, 5),
+                 ({"verdicts": {"O2": "absent"}, "extra": []}, 5),
+                 ({"extra": ["ProgramVC.LfClamp0.O1._proof_1_4", "ProgramVC.ir_max._proof_1_1",
+                             "ProgramIR.anything"]}, 0)]
+        for fake, expected in cases:
+            with self.subTest(fake), scratch() as out:
+                status, text = verify("lf-clamp", out, fake)
+                self.assertEqual(status, expected, text)
+                if expected:
+                    self.assertEqual(problem_codes(text)[:1], ["export-differs"], text)
+                    self.assertIsNone(receipt_at(out, "lf-clamp"))
 
     def test_options_reach_the_checker(self):
         seen = []
@@ -528,6 +596,9 @@ class Malformed(unittest.TestCase):
                                                     "min(value)")),
             ("an ir line outside the checkout", clamp.replace(
                 "ir tests/program/ir/clamp.ir", "ir ../clamp.ir")),
+            ("an unbound name", clamp.replace("-> r = upper", "-> r = default")),
+            ("no case", clamp.split("case lower > upper", 1)[0]),
+            ("a second word line", clamp + "word lf-clamp\n"),
             ("deep nesting", clamp.replace("ensure r = min(", "ensure r = " + "(" * 5000 +
                                            "min(").replace("upper)\n", "upper)" + ")" * 5000 +
                                                            "\n", 1)),
@@ -709,6 +780,41 @@ class Workflow(unittest.TestCase):
                         texts = [r[2][name].decode().replace(rel(o), "OUT")
                                  for r, o in zip(results, (first, second))]
                         self.assertEqual(texts[0], texts[1], name)
+
+    def test_evidence_named_in_the_receipt(self):
+        """Review M3: the receipt names the evidence record with its SHA-256: in check.evidence
+        when something was checked, and always in its provenance note."""
+        for contract, word, checked in (("lf-clamp", "lf-clamp", True),
+                                        ("lf-gcd", "lf-gcd", False)):
+            with self.subTest(contract), scratch() as out:
+                verify(contract, out)
+                path = Path(out) / f"{word}.evidence.json"
+                sha = program_verify.digest(path.read_bytes())
+                receipt = receipt_at(out, word)
+                self.assertIn(f"{rel(path)}, SHA-256 {sha}", receipt["provenance"]["note"])
+                refs = [e for e in receipt["check"]["evidence"] if e["path"] == rel(path)]
+                self.assertEqual(refs, [{"path": rel(path), "sha256": sha}] if checked else [])
+
+    def test_a_python_fault_is_5(self):
+        """Review M1: a fault of the driver's ends with status 5, never 1."""
+        with scratch() as out, mock.patch.object(
+                program_verify.program_vc, "generate_parsed", side_effect=RuntimeError("boom")):
+            status, text = verify("lf-clamp", out)
+            self.assertEqual((status, problem_codes(text)), (5, ["internal"]), text)
+        done = subprocess.run([sys.executable, "-I", "-c", "import sys; sys.path.insert(0, "
+                               "'scripts'); import program_verify; raise RuntimeError('boom')"],
+                              cwd=ROOT, capture_output=True, text=True, timeout=60)
+        self.assertEqual(done.returncode, 5, done.stdout + done.stderr)
+        self.assertIn("error: internal: RuntimeError: boom", done.stdout)
+
+    def test_search_notes_printed(self):
+        clamp = (CONTRACTS / "lf-clamp.contract").read_text(encoding="utf-8")
+        with scratch() as folder:
+            path = Path(folder) / "c.contract"
+            path.write_text(clamp.split("case lower <= upper", 1)[0], encoding="utf-8")
+            status, text = run(["src/program/clamp.fs", "--contract", path, "--out",
+                                Path(folder) / "out"])
+            self.assertIn("note: search: inputs no case covers: 936 of the 1,728", text)
 
     def test_invalid_receipt_never_written(self):
         real = program_receipt.assumptions

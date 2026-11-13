@@ -14,7 +14,7 @@ What it does is set by VERIFY_FAKE, a JSON object (every member optional):
   version    the Lean version it reports (default "4.35.0")
   lean       "ok"; "fail" (exit 1 with an error); "sleep" (sleep 30 s); "mutate" (print
              the program back with one line changed); "no-axioms" (no #print axioms lines);
-             "touch" (append a line to the file it compiles)
+             "touch" (append a line to the file it compiles); "no-post" (no printed post)
   axioms     {short theorem name: [axioms]} as Lean reports them (default propext,
              Quot.sound for every theorem)
   export     "ok"; "fail" (exit 1); "sleep"; "no-manifest" (an export export.sh's
@@ -22,6 +22,10 @@ What it does is set by VERIFY_FAKE, a JSON object (every member optional):
   check      LeanForth's check: "ok" (every declaration accepted; the default),
              "no-report", "invalid-read", "stopped", "not-run", "touch" (append a line
              to the export it checks)
+  reportVersion  the check report's schemaVersion (default "0.4")
+  snapshot   true: the report has a snapshot member (a development run's)
+  extra      [names]: declarations of the export besides the generator's (accepted)
+  drop       [short names]: the generator's program or post left out of the report
   verdicts   {short theorem name: verdict} for the theorems (default accepted; "absent":
              the report does not list it)
   bits       {short theorem name: axiomBits} for accepted theorems (default 5)
@@ -72,6 +76,9 @@ def compile_lean(args):
     if behaviour == "mutate":
         lines[-2] = lines[-2].replace("min", "max") + " "
     print("\n".join([f"vc-program {name}", *lines, "vc-program-end"]))
+    if behaviour != "no-post" and "vc-post-begin" in text:
+        print(f"vc-post-begin\ndef ProgramVC.{name}.post : Cells → List Int → Prop :=\n"
+              "fun c out => True\nvc-post-end")
     if behaviour != "no-axioms":
         for short in names:
             axioms = FAKE.get("axioms", {}).get(short, ["propext", "Quot.sound"])
@@ -113,6 +120,11 @@ def check(export_path):
             file.write("\n")
     name, names = theorems((export_path.parent / "obligations.lean").read_text(encoding="utf-8"))
     entries = [declaration(0, "ProgramIR.run", FAKE.get("other", "accepted"))]
+    for short in ("program", "post"):
+        if short not in FAKE.get("drop", ()):
+            entries.append(declaration(len(entries), f"ProgramVC.{name}.{short}", "accepted"))
+    for extra in FAKE.get("extra", ()):
+        entries.append(declaration(len(entries), extra, "accepted"))
     for short in names:
         verdict = FAKE.get("verdicts", {}).get(short, "accepted")
         if verdict != "absent":   # a theorem the report does not list
@@ -125,12 +137,15 @@ def check(export_path):
     counts = {"declarations": len(entries), **counts,
               "notProved": sum(e.get("notProved", False) for e in entries)}
     exit_status = FAKE.get("exit", 0 if counts["accepted"] == len(entries) else 1)
-    report = {"schema": "leanforth-check-report", "schemaVersion": "0.4",
+    report = {"schema": "leanforth-check-report",
+              "schemaVersion": FAKE.get("reportVersion", "0.4"),
               "read": {"outcome": "invalid" if behaviour == "invalid-read" else "ok"},
               "run": "not-run" if behaviour == "not-run" else "invalid"
               if behaviour == "stopped" else "ok",
               "stopped": behaviour == "stopped", "declarations": entries, "counts": counts,
               "exitStatus": 4 if behaviour == "invalid-read" else exit_status}
+    if FAKE.get("snapshot"):
+        report["snapshot"] = {"layers": 1}
     print(json.dumps(report))
     return report["exitStatus"]
 

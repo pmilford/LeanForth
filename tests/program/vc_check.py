@@ -146,6 +146,7 @@ def hostile_problems():
         ("an IR source path with /-", SMALL, SMALL_IR.replace("NAME", "w").replace(
             "SOURCE", "a/-w.fs"), ""),
     ]
+    cases += contract_rule_cases(clamp)
     problems = []
     for name, text, ir_text, folder in cases:
         got = status_of(text, ir_text, folder)
@@ -153,7 +154,70 @@ def hostile_problems():
             problems.append(f"hostile contract ({name}): {got}, expected malformed")
     if status_of(SMALL, SMALL_IR.replace("NAME", "w").replace("SOURCE", "w.fs")) != "discharged":
         problems.append("the small contract the hostile IR cases change is not discharged")
-    return problems + harmless_problems(clamp, statement)
+    return problems + harmless_problems(clamp, statement) + search_note_problems(clamp)
+
+
+def contract_rule_cases(clamp):
+    """Contracts the reader refuses since review M4 (2026-11-13): no case, a line given
+    twice, a name read but never bound, a name Lean already has."""
+    no_cases = clamp.split("case lower > upper", 1)[0] + "expect discharged\n"
+    cases = [("no case", no_cases)]
+    for key, line in (("id", "id lf-clamp/1"), ("word", "word lf-clamp"),
+                      ("ir", "ir tests/program/ir/clamp.ir"), ("stack", "stack ( a -- b )"),
+                      ("statement", "statement Twice."), ("inputs", "inputs value lower upper"),
+                      ("expect", "expect refuted")):
+        cases.append((f"a second {key} line", clamp + line + "\n"))
+    cases += [
+        ("an ensure reading an unbound name", clamp.replace(
+            "ensure value > upper -> r = upper", "ensure value > upper -> r = foo")),
+        ("an ensure reading default", clamp.replace(
+            "ensure value > upper -> r = upper", "ensure r >= default")),
+        ("a guard reading an unbound name", clamp.replace("case lower > upper",
+                                                          "case lower > bound")),
+        ("a pre reading an unbound name", clamp.replace("case lower > upper",
+                                                        "pre lower > bound\ncase lower > upper")),
+        ("a result read in another case", clamp.replace("  out false", "  out false\n"
+                                                        "  ensure r = 0")),
+        ("an input named default", clamp.replace("inputs value lower upper",
+                                                 "inputs value lower default")
+         .replace("upper", "default").replace("inputs value lower default",
+                                              "inputs value lower default")),
+        ("an input named max", clamp.replace("inputs value lower upper", "inputs value lower max")),
+        ("an input named ir_max", clamp.replace("inputs value lower upper",
+                                                "inputs value lower ir_max")),
+        ("an input named twice", clamp.replace("inputs value lower upper",
+                                               "inputs value lower lower")),
+        ("a result named default", clamp.replace("out r true", "out default true")
+         .replace("ensure r ", "ensure default ").replace("-> r ", "-> default ")
+         .replace("&& r <=", "&& default <=")),
+        ("a result named out", clamp.replace("out r true", "out out true")),
+    ]
+    return [(name, text, None, "") for name, text in cases]
+
+
+def summary_of(contract_text):
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "c.contract"
+        path.write_text(contract_text, encoding="utf-8")
+        return program_vc.generate([str(path)])[1][0]
+
+
+def search_note_problems(clamp):
+    """The search says when it tried nothing (no candidate meets pre) and which inputs no
+    case covers; the committed contracts have neither, so their summaries have no notes."""
+    problems = []
+    impossible = clamp.replace("case lower > upper", "pre lower > 100 && lower < 50\n"
+                               "case lower > upper")
+    uncovered = clamp.split("case lower <= upper", 1)[0] + "expect discharged\n"
+    for name, text, expected in (("an impossible pre", impossible, "no candidate meets pre"),
+                                 ("only the case lower > upper", uncovered,
+                                  "inputs no case covers: 936 of the 1,728 candidates")):
+        notes = summary_of(text).get("searchNotes", [])
+        if not any(note.startswith(expected) for note in notes):
+            problems.append(f"search notes for {name}: {notes}, expected {expected}")
+    if "searchNotes" in summary_of(clamp):
+        problems.append("the clamp contract has search notes")
+    return problems
 
 
 def harmless_problems(clamp, statement):
@@ -171,6 +235,20 @@ def harmless_problems(clamp, statement):
     return [] if len(set(texts)) == 1 else ["the statement changes the generated Lean file"]
 
 
+# lf-euclid ( a b -- gcd ) loops (BEGIN ... WHILE ... REPEAT): unsupported by v0.
+EUCLID = """lf-contract 0.1
+id lf-euclid/0
+word lf-euclid
+ir tests/program/ir/examples.ir
+stack ( a b -- gcd )
+inputs a b
+statement Euclid's loop.
+case a >= 0 && b >= 0
+  out d
+  ensure d >= 0
+"""
+
+
 def negative_problems():
     clamp = Path(CONTRACTS[0]).read_text(encoding="utf-8")
     problems = []
@@ -179,9 +257,7 @@ def negative_problems():
                                                 "max(min(value, lower), upper)"), "refuted"),
         ("an off-by-one bound", clamp.replace("lower <= r && r <= upper",
                                               "lower < r && r <= upper"), "refuted"),
-        ("a loop word", clamp.replace("word lf-clamp", "word lf-euclid")
-         .replace("tests/program/ir/clamp.ir", "tests/program/ir/examples.ir")
-         .replace("inputs value lower upper", "inputs value lower"), "unsupported"),
+        ("a loop word", EUCLID, "unsupported"),
         ("an input named c", clamp.replace("inputs value lower upper", "inputs value c upper"),
          "malformed"),
     ]

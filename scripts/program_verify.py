@@ -5,6 +5,7 @@ Usage (from any folder; the files must lie inside the LeanForth checkout):
   python3 scripts/program_verify.py SOURCE.fs --contract CONTRACT [--out DIR]
       [--fuel N] [--jobs N] [--memory-per-check MB] [--checked]
       [--lean-time-limit SECONDS] [--keep-export] [--paths-limit N] [--search-limit N]
+      [--detail]
 
 Checks one Forth word against one contract (contract language 0.1,
 docs/programming/PROGRAM_VC.md), the pipeline of plan 5.5.1 for any word:
@@ -40,14 +41,22 @@ WORD.ndjson (removed after the check unless --keep-export),
 WORD.ndjson.manifest.json, WORD.evidence.json and WORD.receipt.json.
 
 Prints one line per step, `error: CODE: MESSAGE` for each problem, and a
-summary line that says `discharged` or `NOT VERIFIED`. Exit status, the
-CLI's (most severe first: 5, 4, 1, 3, 2, 6, 0): 0 discharged; 1 refuted or
-a theorem rejected; 2 undecided (unsupported, Lean failed, LeanForth
-unsupported or unknown); 3 a resource limit; 4 malformed input, a file
-outside the checkout, a tool not found; 5 an internal fault; 6 a theorem
+summary line that says `discharged` or `NOT VERIFIED`; --detail also
+prints the postcondition as Lean printed it in this run. Exit status, the
+CLI's (most severe first: 5, 4, 1, 3, 2, 6, 0): 0 discharged; 1 refuted;
+2 undecided (unsupported, Lean failed, LeanForth unsupported or unknown);
+3 a resource limit; 4 malformed input, a file outside the checkout, a tool
+not found; 5 an internal fault, or the two checkers disagree (LeanForth
+rejected what Lean accepted; any Python fault too, never 1); 6 a theorem
 NOT PROVED (an axiom outside the allowlist). Problem codes: CODES below
 and docs/programming/PROGRAM_VERIFY.md. Untrusted tooling: the receipt
 is checked by `python3 scripts/program_receipt.py validate`.
+
+Tools: the checkout's pinned Lean 4.35.0 and its leanexport, whatever LEAN
+and LEANEXPORT say, except under LEANFORTH_VERIFY_TEST_TOOLS=1, which the
+test suites set (stand-ins, the Lean cache); Gforth is $GFORTH, else the
+checkout's, else gforth on the PATH. The evidence record names each tool
+run with its SHA-256.
 """
 import argparse
 import datetime
@@ -61,7 +70,18 @@ import signal
 import subprocess
 import sys
 import tempfile
+import traceback
 
+
+def crashed(kind, error, trace):
+    """An exception nothing caught is an internal fault, exit status 5 (review M1):
+    Python's own status 1 would read as refuted."""
+    traceback.print_exception(kind, error, trace)
+    print(f"error: internal: {kind.__name__}: {error}", flush=True)
+    os._exit(5)
+
+
+sys.excepthook = crashed
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "tests" / "support"))
@@ -75,6 +95,18 @@ GENERATOR = {"name": "python", "version": f"program_vc.py {program_vc.GENERATOR_
 RECEIPT_PATH = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]*(/[A-Za-z0-9_][A-Za-z0-9_.-]*)*")
 LOCATION = re.compile(r" @\d+:\d+$")   # an IR line's source location
 PROGRAM_WORDS_LIMIT = 600   # seconds for the program words (they read one file)
+PINNED_LEAN = (ROOT / ".tools" / "elan" / "toolchains" / "leanprover--lean4---v4.35.0"
+               / "bin" / "lean")
+TEST_TOOLS = "LEANFORTH_VERIFY_TEST_TOOLS"   # =1: LEAN and LEANEXPORT are honoured (tests only)
+# Appended to the generator's file: Lean prints the postcondition as it elaborated it,
+# the statement that is proved, for the report and the evidence (review B1).
+POST_PRINT = ("\n-- Added by leanforth verify: the postcondition as Lean elaborated it.\n"
+              '#eval IO.println "vc-post-begin"\n#print {namespace}.post\n'
+              '#eval IO.println "vc-post-end"\n')
+# The declarations the generator writes outside a contract's namespace, and the auxiliary
+# lemmas Lean adds under a declaration (`O1._proof_1_4`).
+COMMON_NAMES = ("ir_max", "ir_min", "ir_cell_min", "ir_shift_one", "ir_not_lt", "cells64")
+AUXILIARY = r"\._proof_\d+(_\d+)*"
 
 # Each problem code: its exit status (None: given with the problem) and its step.
 CODES = {
@@ -99,7 +131,8 @@ CODES = {
     "export-failed": (5, "prove"),
     "file-changed": (4, None),
     "export-invalid": (4, "check"),
-    "proof-rejected": (1, "check"),
+    "export-differs": (5, "check"),
+    "checkers-disagree": (5, "check"),
     "proof-undecided": (2, "check"),
     "proof-exhausted": (3, "check"),
     "not-proved": (6, "check"),
@@ -113,7 +146,9 @@ REFUSED_STATUS = {1: 4, 2: 3, 3: 2, 4: 1, 5: 2, 6: 3}
 # LeanForth's verdicts other than accepted, as problem codes; any other verdict (invalid,
 # not checked, a theorem missing, a stopped run) is an internal fault. Each kind found is
 # reported, so the exit status follows the CLI's order, as bin/leanforth check's does.
-VERDICT_PROBLEMS = [("proof-rejected", {"rejected"}),
+# Lean accepted every declaration before LeanForth checks the export, so a rejection is
+# the two checkers disagreeing (review M1): one of them is wrong, status 5.
+VERDICT_PROBLEMS = [("checkers-disagree", {"rejected"}),
                     ("proof-undecided", {"unknown", "unsupported"}),
                     ("proof-exhausted", {"exhausted", "full"})]
 
@@ -149,6 +184,7 @@ def parse(argv):
     parser.add_argument("--checked", action="store_true")
     parser.add_argument("--lean-time-limit", type=positive, default=1800, metavar="SECONDS")
     parser.add_argument("--keep-export", action="store_true")
+    parser.add_argument("--detail", action="store_true")
     parser.add_argument("--paths-limit", type=positive, default=program_vc.PATHS_LIMIT)
     parser.add_argument("--search-limit", type=positive, default=program_vc.SEARCH_LIMIT)
     return parser.parse_args(argv)
@@ -195,6 +231,22 @@ def find_gforth():
     """$GFORTH, else the checkout's pinned Gforth, else gforth on the PATH."""
     pinned = ROOT / ".tools" / "gforth" / "bin" / "gforth"
     return os.environ.get("GFORTH") or (str(pinned) if pinned.is_file() else "gforth")
+
+
+def test_tools():
+    return os.environ.get(TEST_TOOLS) == "1"
+
+
+def tool_record(tool):
+    """A tool as the evidence names it: its path (relative to the checkout when inside it)
+    and the SHA-256 of its file, or None when it is not a file."""
+    found = tool if "/" in tool else shutil.which(tool)
+    if not found or not Path(found).is_file():
+        return {"path": tool, "sha256": None}
+    absolute = os.path.abspath(found)
+    inside = absolute.startswith(str(ROOT) + os.sep)
+    return {"path": os.path.relpath(absolute, ROOT) if inside else absolute,
+            "sha256": digest(Path(absolute).read_bytes())}
 
 
 def runnable(tool):
@@ -274,6 +326,7 @@ class Verify:
         self.export = self.out = self.files = self.vc = self.gen = None
         self.lean = self.leanforth = self.manifest = None
         self.check_status = "not-checked"
+        self.tool_files, self.evidence_ref = {}, None
 
     # ------------------------------------------------------------------ output
 
@@ -353,6 +406,7 @@ class Verify:
         self.source_sha, self.ir_text = before, text
         self.ir_sha = digest(text.encode("utf-8"))
         self.forth = self.forth_version(gforth)
+        self.tool_files = {"gforth": tool_record(gforth)}
 
     def forth_version(self, gforth):
         """The Forth's name and version (gforth --version), for the receipt's tools."""
@@ -432,6 +486,8 @@ class Verify:
         except program_vc.Malformed as error:
             raise Problem("contract-malformed", str(error)) from None
         self.vc, self.gen = summary[0], generators[0]
+        for note in self.vc.get("searchNotes", []):
+            self.say(f"note: search: {note}")
         if self.gen is None:
             self.say(f"obligations: none, from the untrusted generator {GENERATOR['version']}")
             self.problem("generator-unsupported", self.vc["reason"])
@@ -445,6 +501,7 @@ class Verify:
                      f"generator {GENERATOR['version']}")
             for o in self.vc["obligations"]:
                 self.say(f"  {o['id']}: {receipts.obligation_text(o)}")
+        text += POST_PRINT.format(namespace=self.vc["namespace"])
         self.lean_text = text
         try:
             (ROOT / self.files["lean"]).write_text(text, encoding="utf-8")
@@ -462,8 +519,9 @@ class Verify:
         return f"on 64-bit cells with {inputs}, {output}; {why}"
 
     def lean_tool(self):
-        """The pinned Lean ($LEAN, else the checkout's), its version and commit."""
-        lean = receipts.pinned_lean()
+        """The pinned Lean, its version and commit: the checkout's, or under the test switch
+        $LEAN (a stand-in or the Lean cache)."""
+        lean = receipts.pinned_lean() if test_tools() else str(PINNED_LEAN)
         if not runnable(lean):
             raise Problem("lean-not-found", f"{lean} is not a program; install the pinned Lean "
                           "4.35.0 with scripts/install-lean.sh")
@@ -475,7 +533,16 @@ class Verify:
         found = re.match(r"Lean \(version ([0-9.]+),", version)
         if not found or found.group(1) != "4.35.0":
             raise Problem("lean-not-found", f"{lean} is not Lean 4.35.0: {version.strip()[:80]}")
+        self.tool_files["lean"] = tool_record(lean)
         return lean, {"version": found.group(1), "commit": commit}
+
+    def exporter(self, lean):
+        """LEANEXPORT for scripts/export.sh: the pinned toolchain's leanexport, or under the
+        test switch $LEANEXPORT when set."""
+        chosen = os.environ.get("LEANEXPORT") if test_tools() else None
+        chosen = chosen or str(Path(lean).parent / "leanexport")
+        self.tool_files["leanexport"] = tool_record(chosen)
+        return chosen
 
     def prove(self):
         """Step 4a: pinned Lean writes the proofs (warnings are errors), prints the program
@@ -502,17 +569,24 @@ class Verify:
                              f"{done.returncode}): {lean_errors(output)}")
                 return False
             self.printed_back(output)
+            self.lean["post"] = self.printed_post(output)
+            self.lean["postSha256"] = digest(self.lean["post"].encode("utf-8"))
             try:
                 self.lean["axioms"] = receipts.lean_axioms(output, theorems)
             except SystemExit as error:
                 raise Problem("internal", f"Lean's output: {error}") from None
             self.say("proofs: written by Lean 4.35.0 from the generator's tactic scripts; Lean "
                      "printed the program back equal to the IR")
+            if self.args.detail:
+                self.say("post, as Lean printed it in this run (the statement proved):")
+                for line in self.lean["post"].splitlines():
+                    self.say(f"  {line}")
             self.export = self.files["export"]
             try:
                 done = self.tools.run(receipts.export_args(ROOT / self.files["export"],
                                                           theorems),
-                                      limit, env={"LEAN_PATH": folder, "LEAN": lean})
+                                      limit, env={"LEAN_PATH": folder, "LEAN": lean,
+                                                  "LEANEXPORT": self.exporter(lean)})
             except subprocess.TimeoutExpired:
                 self.problem("lean-time-limit", f"Lean's exporter ran over {limit} s; nothing "
                              "was checked")
@@ -530,6 +604,13 @@ class Verify:
     def unchanged(self, path, sha):
         if file_sha(path) != sha:
             raise Problem("file-changed", f"{path} changed during the run")
+
+    def printed_post(self, output):
+        """The postcondition Lean printed between the markers POST_PRINT adds."""
+        found = re.search(r"^vc-post-begin\n(.*?)^vc-post-end$", output, re.M | re.S)
+        if not found or not found.group(1).strip():
+            raise Problem("internal", "Lean printed no postcondition")
+        return found.group(1)
 
     def printed_back(self, output):
         """Lean's print-back of the generated program must be the IR (without locations)."""
@@ -577,13 +658,35 @@ class Verify:
             self.problem("internal", f"LeanForth's check gave no report (status "
                          f"{done.returncode}): {error}; {done.stderr.strip()[-200:]}")
             return
+        if (report.get("schema"), report.get("schemaVersion")) != (
+                "leanforth-check-report", "0.4") or "snapshot" in report:
+            raise Problem("internal", "LeanForth's report is not a final run's check report "
+                          f"0.4: {report.get('schemaVersion')!r}, snapshot "
+                          f"{'snapshot' in report}")
         if read != "ok" or done.returncode == 4 or counts is None:
             raise Problem("export-invalid", f"LeanForth refused the export {export}: "
                           f"{json.dumps(report['read'])[:300]}")
         self.leanforth = {**identity, "exitStatus": done.returncode,
                           "declarations": counts["declarations"], "accepted": counts["accepted"],
                           "counts": counts, "theorems": receipts.leanforth_theorems(report, names)}
+        self.namespace_problems(report)
         self.decide(report, names)
+
+    def namespace_problems(self, report):
+        """The export's declarations named in the generator's ProgramVC namespace must be
+        exactly the generator's (program, post, the theorems), with only Lean's auxiliary
+        lemmas under them, and every one of them present (review B1)."""
+        space = self.vc["namespace"]
+        own = {f"{space}.program", f"{space}.post", *self.vc["theorems"]}
+        common = {f"ProgramVC.{n}" for n in COMMON_NAMES}
+        aux = re.compile("(" + "|".join(map(re.escape, sorted(own | common))) + ")" + AUXILIARY)
+        names = {d["name"] for d in report["declarations"]}
+        extra = sorted(n for n in names if n.startswith("ProgramVC.")
+                       and n not in own | common and not aux.fullmatch(n))
+        missing = sorted(own - names)
+        if extra or missing:
+            raise Problem("export-differs", f"the export's ProgramVC declarations are not the "
+                          f"generator's: extra {extra[:5]}, missing {missing[:5]}")
 
     def decide(self, report, names):
         status = receipts.check_status(self.leanforth, names)
@@ -628,14 +731,16 @@ class Verify:
         return "refuted" if self.vc["status"] == "refuted" else "discharged"
 
     def write(self):
-        """Step 8: the evidence record and the receipt, each written atomically."""
+        """Step 8: the evidence record and the receipt, which names it with its SHA-256,
+        each written atomically."""
+        evidence = receipts.dump(self.evidence())
+        self.evidence_ref = {"path": self.files["evidence"],
+                             "sha256": digest(evidence.encode("utf-8"))}
         receipt = self.build()
         problems = receipts.receipt_problems(receipt)
         if problems:
             raise Problem("internal", f"the receipt built is not valid: {problems[:3]}")
-        evidence = self.evidence()
-        for key, text in (("evidence", receipts.dump(evidence)), ("receipt",
-                                                                    receipts.dump(receipt))):
+        for key, text in (("evidence", evidence), ("receipt", receipts.dump(receipt))):
             atomic(ROOT / self.files[key], text)
         self.receipt_path = self.files["receipt"]
         self.say_outcome(receipt)
@@ -688,9 +793,10 @@ class Verify:
                 "generator": {"name": "python", "version": f"program_verify.py {VERSION}"},
                 "createdAt": datetime.date.today().isoformat(),
                 "note": "Written by leanforth verify (scripts/program_verify.py) from the files "
-                        "named below, at the hashes given, and the evidence it recorded beside "
-                        "this receipt. A receipt is a statement of evidence, not an approval; "
-                        "it passes no review gate."},
+                        "named below, at the hashes given, and the evidence record it wrote "
+                        f"beside this receipt, {self.evidence_ref['path']}, SHA-256 "
+                        f"{self.evidence_ref['sha256']}. A receipt is a statement of evidence, "
+                        "not an approval; it passes no review gate."},
             "program": {"word": self.word, "stackEffect": self.contract["stack"],
                         "source": {"path": self.source,
                                    "line": receipts.word_line(self.ir_text, self.word),
@@ -721,7 +827,7 @@ class Verify:
             self.leanforth["theorems"][n]["axioms"]) if accepted else []}
             for n in self.theorem_names()]
         files = [self.files["lean"], "scripts/program_vc.py", "scripts/export.sh",
-                 self.files["manifest"]]
+                 self.files["manifest"], self.evidence_ref]
         proofs = (f"the proof of {self.theorem_names()[0]}, that the contract is false" if
                   refuted else None)
         return receipts.check_part(
@@ -788,6 +894,8 @@ class Verify:
                 "ir": {"words": receipts.IR_WORDS, "sha256": self.ir_sha,
                        "source": self.source_sha},
                 "generator": self.vc,
+                "tools": self.tool_files,
+                "testTools": test_tools(),
                 "lean": self.lean,
                 "export": None if self.manifest is None else
                 {"sha256": self.manifest["sha256"], "bytes": self.manifest["bytes"]},

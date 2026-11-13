@@ -73,6 +73,15 @@ def model_ranges(lines):
         (at("def Prim.word"), last_before_blank(at("def render ")))
 
 RESERVED = re.compile(r"(c|fuel|tail|rs|out|g|h|this|[fhp][0-9]+|pre[0-9]+)$")
+# Lower-case names the generated Lean file uses or Lean defines, which an input or a
+# result name could shadow or an unbound name could silently mean (review M4 of the
+# verify design: `default` is 0 in Int): refused as names; ir_ and vc_ names too.
+LEAN_NAMES = frozenset(
+    "default id max min abs flag fits decide bitwise post program contract refuted run step "
+    "lookup render cells64 callword true false fun let have show from at by do then else if "
+    "match with in theorem def open end namespace section variable universe where instance "
+    "structure class inductive macro syntax notation import sorry rfl trivial omega simp "
+    "exact intro and or not example abbrev opaque axiom calc obtain cases".split())
 CELL_BITS = 64               # counterexamples are searched and refuted on 64-bit cells
 CMIN, CMAX = -(1 << (CELL_BITS - 1)), (1 << (CELL_BITS - 1)) - 1
 
@@ -352,6 +361,53 @@ class ExprParser:
         raise Malformed(f"unexpected {token}")
 
 
+def lean_name_problem(name, result=False):
+    """Why a contract's own name, an input or (result) a result of a case, is not allowed,
+    or None. A result is bound inside post, where only post's own parameters clash with
+    it; the proofs' hypothesis names (g, h, p1, ...) do not."""
+    clash = name in RESULT_RESERVED if result else RESERVED.match(name)
+    if not re.fullmatch(r"[a-z][a-z0-9_]*", name) or clash:
+        return "is not allowed"
+    if name in LEAN_NAMES or name.startswith(("ir_", "vc_")):
+        return "is a name the generated Lean file or Lean uses"
+    return None
+
+
+RESULT_RESERVED = ("c", "fuel", "tail", "rs", "out", "this")
+
+
+def variables(expr, found=None):
+    """The names an expression reads."""
+    found = set() if found is None else found
+    if isinstance(expr, tuple):
+        if expr[0] == "var":
+            found.add(expr[1])
+        for part in expr[1:]:
+            variables(part, found)
+    return found
+
+
+def binding_problems(contract):
+    """Names a contract reads but never binds (an input, or a result of the case): in
+    Lean such a name would be an error at best and a global (`default`) at worst."""
+    inputs, problems = set(contract["inputs"]), []
+    for expr in contract["pre"]:
+        problems += sorted(variables(expr) - inputs)
+    for case in contract["cases"]:
+        results = {t for t in case["out"] if out_item(t, inputs)[0] == "unknown"}
+        for name in sorted(results):
+            if lean_name_problem(name, result=True):
+                problems.append(f"{name} (a result name that "
+                                f"{lean_name_problem(name, result=True)})")
+        problems += sorted(variables(case["guard"]) - inputs)
+        for expr, _ in case["ensure"]:
+            problems += sorted(variables(expr) - inputs - results)
+    return problems
+
+
+SINGLE_LINES = ("id", "word", "ir", "stack", "statement", "expect", "inputs")
+
+
 def parse_contract(text, path):
     contract = {"path": path, "pre": [], "cases": [], "file": None}
     case = None
@@ -364,6 +420,8 @@ def parse_contract(text, path):
                 raise Malformed(f"{path}: not a contract 0.1")
             continue
         key, _, rest = line.strip().partition(" ")
+        if key in SINGLE_LINES and key in contract:
+            raise Malformed(f"{path}:{number}: a second {key} line")
         indented = line.startswith(" ")
         if indented and case is None:
             raise Malformed(f"{path}:{number}: indented line outside a case")
@@ -386,11 +444,19 @@ def parse_contract(text, path):
         if field not in contract:
             raise Malformed(f"{path}: no {field}")
     for name in contract["inputs"]:
-        if not re.fullmatch(r"[a-z][a-z0-9_]*", name) or RESERVED.match(name):
-            raise Malformed(f"{path}: input name {name} is not allowed")
+        if lean_name_problem(name):
+            raise Malformed(f"{path}: input name {name} {lean_name_problem(name)}")
+    if len(set(contract["inputs"])) != len(contract["inputs"]):
+        raise Malformed(f"{path}: an input named twice")
+    if not contract["cases"]:
+        raise Malformed(f"{path}: no case: the contract would state nothing")
     for case in contract["cases"]:
         if case["out"] is None:
             raise Malformed(f"{path}: a case without out")
+    unbound = binding_problems(contract)
+    if unbound:
+        raise Malformed(f"{path}: names neither an input nor a result of their case: "
+                        f"{', '.join(unbound)}")
     checked_text(path, "the contract's path")
     for field in ("id", "ir", "statement", "stack"):
         checked_text(contract[field], f"{path}: the {field} line")
@@ -930,19 +996,26 @@ def candidates(count):
     return itertools.product(CANDIDATES, repeat=count)
 
 
-def counterexample(contract, paths, max_cases=None):
+def counterexample(contract, paths, max_cases=None, notes=None):
     """The first candidate inputs that break the contract, with the reason, or
-    None; a Limit when the search would try more than max_cases of them."""
+    None; a Limit when the search would try more than max_cases of them. When it
+    finds none, it adds to notes (a list) what makes the search say little: no
+    candidate meets the preconditions, or candidates that no case covers (the
+    contract then says nothing about them)."""
     inputs = contract["inputs"]
     cases = len(CANDIDATES) ** len(inputs)
     if max_cases is not None and cases > max_cases:
         raise Limit("search-limit", f"the counterexample search would try {cases:,} input "
                     f"combinations ({len(CANDIDATES)} values for each of {len(inputs)} inputs), "
                     f"more than the search limit {max_cases:,}")
+    met, uncovered = 0, []
     for combo in candidates(len(inputs)):
         env = dict(zip(inputs, combo))
         if not all(evaluate_cond(p, env) for p in contract["pre"]):
             continue
+        met += 1
+        if not any(evaluate_cond(case["guard"], env) for case in contract["cases"]):
+            uncovered.append(combo)
         taken = [(st, oc) for st, oc in paths if all(evaluate_cond(c, env) for c in st.conds)]
         if len(taken) != 1:
             raise AssertionError(f"{len(taken)} paths taken for {combo}")
@@ -952,6 +1025,13 @@ def counterexample(contract, paths, max_cases=None):
         values = [evaluate(v, env) for v in st.data]
         if not post_holds(contract, env, values):
             return combo, "the postcondition fails"
+    if notes is not None and not met:
+        notes.append(f"no candidate meets pre: none of the {cases:,} candidate inputs meets the "
+                     "preconditions, so the search tried nothing")
+    if notes is not None and uncovered:
+        example = ", ".join(f"{x} = {v}" for x, v in zip(inputs, uncovered[0]))
+        notes.append(f"inputs no case covers: {len(uncovered):,} of the {met:,} candidates that "
+                     f"meet pre, for example {example}; the contract says nothing about them")
     return None
 
 
@@ -1014,7 +1094,8 @@ class Generator:
         start = State([], [("var", x) for x in self.inputs], [])
         paths = executor.bounded(executor.call(self.contract["word"], start, 1))
         self.paths, self.fuel, self.facts = paths, executor.depth, sorted(executor.facts)
-        self.refutation = counterexample(self.contract, paths, self.max_cases)
+        self.notes = []
+        self.refutation = counterexample(self.contract, paths, self.max_cases, self.notes)
         return self
 
     def stack_of(self, st):
@@ -1170,6 +1251,8 @@ class Generator:
                  "stackEffect": self.contract["stack"], "statement": self.contract["statement"],
                  "namespace": f"ProgramVC.{self.name}", "fuel": self.fuel,
                  "theorems": self.theorems}
+        if self.notes:
+            entry["searchNotes"] = self.notes
         if self.refutation:
             combo, reason = self.refutation
             entry["status"] = "refuted"

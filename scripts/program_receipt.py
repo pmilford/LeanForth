@@ -377,7 +377,8 @@ def check_part(status, contract_theorem, theorems, evidence, files=CHECK_EVIDENC
                pinned=f"that {EXPORT_MANIFEST} pins", proofs=None):
     """The check part: LeanForth's verdict on Lean's export of the theorems. files are the
     evidence files, pinned says what pins the export, proofs what Lean proved (by default
-    the contract theorem and its path obligations)."""
+    the contract theorem and its path obligations). A file is a path, hashed now, or a
+    reference {path, sha256} already hashed."""
     lean, leanforth = evidence["lean"], evidence["leanforth"]
     verdicts = "; ".join(f"{t['name']} {verdict_of(leanforth, t['name'])}" for t in theorems)
     said = (f"accepted all {leanforth['accepted']:,} of them, these theorems among them"
@@ -388,7 +389,7 @@ def check_part(status, contract_theorem, theorems, evidence, files=CHECK_EVIDENC
         "checker": {"name": "leanforth", "version": leanforth_version(leanforth)},
         "theorems": theorems,
         "axioms": allowlist_order({a for t in theorems for a in t["axioms"]}),
-        "evidence": [file_ref(p) for p in files],
+        "evidence": [p if isinstance(p, dict) else file_ref(p) for p in files],
         "note": f"Lean {lean['version']} wrote {proofs}, from the tactic scripts of the "
                 "untrusted generator, and its "
                 "exporter wrote them with every declaration they use, "
@@ -602,6 +603,9 @@ def lean_axioms(output, theorems):
     axioms = {}
     for theorem in theorems:
         match = re.search(rf"'{re.escape(theorem)}' depends on axioms: \[(.*)\]", output)
+        if not match and f"'{theorem}' does not depend on any axioms" in output:
+            axioms[theorem] = []
+            continue
         if not match:
             raise SystemExit(f"no axiom report for {theorem}")
         axioms[theorem] = [a.strip() for a in match.group(1).split(",") if a.strip()]
