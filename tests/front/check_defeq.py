@@ -200,6 +200,8 @@ CASES = [
      "FE1e instance facts (getUnfoldableConst? at instances)"),
     ("impl", apps("u", "?n"), apps("u", "k"), None),
     ("red", "?t", lam("#0", apps(c("id", 2), (SORT, 1), NAT)), "FE1d2 lazy delta reduction"),
+    ("red", apps(c("Eq.refl", 1), ADD, "a"), apps(c("Eq.refl", 1), c("Nat.mul"), "a"),
+     "FE1d2 lazy delta reduction"),
     ("red", ADD, "k", "FE1c unification hints (the hint table)"),
     ("eq", "?n", apps(ADD, "?n", "k"), "FE1d2 whnf's delta (processAssignment')"),
     ("impl", pair("a", "b"), pair("a", "?n"), None),

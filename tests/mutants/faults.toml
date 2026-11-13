@@ -10589,7 +10589,7 @@ reason = "FE1c: instantiate1 does not count a binder, so it replaces a variable 
 [[fault]]
 id = "fe-inst-binder-name-lost"
 file = "src/front/instantiate.fs"
-old = ''': in-named ( new old -- new ) lf-pres-binder@ if 2>r dup 2r> lf-pres-binder! drop then ;'''
+old = ''': in-named ( new old -- new ) lf-meta-named in-fail ;'''
 new = ''': in-named ( new old -- new ) drop ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: a rebuilt binder loses its name and kind, so the term differs from Lean's"
@@ -10875,7 +10875,7 @@ reason = "FE1b: instantiation leaves assigned metavariables in place"
 [[fault]]
 id = "fe-binder-names-lost"
 file = "src/front/mvars.fs"
-old = ''': mv-named ( new old -- new ) lf-pres-binder@ if 2>r dup 2r> lf-pres-binder! drop then ;'''
+old = ''': mv-named ( new old -- new ) lf-meta-named mv-refuse ;'''
 new = ''': mv-named ( new old -- new ) drop ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1b: a rebuilt binder loses its name and kind (Lean's terms keep them)"
@@ -13847,8 +13847,8 @@ reason = "FE1c: isDefEqBinding compares the bodies only (fun y : Nat => y =?= fu
 [[fault]]
 id = "fe-defeq-levels-ignored"
 file = "src/front/defeq.fs"
-old = '''  over de-levels# over de-levels# <> if 2drop lf-lb-false exit then'''
-new = '''  2drop lf-lb-true exit'''
+old = '''  2dup de-levels-min 0 ?do 2dup i de-level-pair 0='''
+new = '''  0 0 ?do 2dup i de-level-pair 0='''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c: two constants of one name are equal whatever their universe levels (PUnit.{1} =?= PUnit.{2})"
 
@@ -13907,6 +13907,224 @@ old = ''': eq-name= ( a b -- flag ) 2dup = if 2drop true else lf-name-same? then
 new = ''': eq-name= ( a b -- flag ) 2drop true ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c: Lean's == takes two constants of the same levels for equal whatever their names"
+
+[[fault]]
+id = "fe-defeq-xi-type-occurs-off"
+file = "src/front/assign-check.fs"
+old = '''  ac-x-occurs? ok-then? 0= if false swap exit then if false outcome-ok exit then'''
+new = '''  false outcome-ok ok-then? 0= if false swap exit then if false outcome-ok exit then'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M3: checkAssignment allows ?n := fun q => k with ?n in q's type"
+
+[[fault]]
+id = "fe-defeq-mvar-type-occurs-off"
+file = "src/front/assign-check.fs"
+old = ''': ac-typed ( mvar -- ) lf-mvar-type if ac-occurs-in if true ac ac-hit ! then then ;'''
+new = ''': ac-typed ( mvar -- ) drop ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M3: typeOccursCheck off: ?n := ?w with ?w : Fin ?n"
+
+[[fault]]
+id = "fe-defeq-delayed-occurs-off"
+file = "src/front/assign-check.fs"
+old = ''': ac-pending ( mvar -- flag ) lf-mvar-delayed if 2drop ac-occurs-in else false then ;'''
+new = ''': ac-pending ( mvar -- flag ) drop false ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M3: the occurs check does not follow a delayed assignment to its pending ?n"
+
+[[fault]]
+id = "fe-defeq-prefix-always"
+file = "src/front/assign-check.fs"
+old = '''  ac-view ac-m ac-view ac ac-xs @ ac ac-n @ lf-view-sub-prefix-except? ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M3: isSubPrefixOf always true: ?z, whose context adds j, passes"
+
+[[fault]]
+id = "fe-defeq-prefix-no-except"
+file = "src/front/assign-check.fs"
+old = '''  ac-view ac-m ac-view ac ac-xs @ ac ac-n @ lf-view-sub-prefix-except? ;'''
+new = '''  ac-view ac-m ac-view ac ac-xs @ 0 lf-view-sub-prefix-except? ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M3: isSubPrefixOf does not except the xi: ?z fails although j is one"
+
+[[fault]]
+id = "fe-defeq-stale-mvar"
+file = "src/front/assign-check.fs"
+old = '''  ac-m lf-mvar-live? 0= if false outcome-invalid exit then'''
+new = '''  '''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M3: checkAssignment for a stale metavariable answers instead of invalid"
+
+[[fault]]
+id = "fe-defeq-quasi-untyped"
+file = "src/front/defeq.fs"
+old = ''': de-pa-locals? ( -- flag ) false de-pa-n 0 ?do i de-pa-arg @ de-scope or loop ;'''
+new = ''': de-pa-locals? ( -- flag ) false ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M3: a quasi-pattern assignment without Lean's isTypeCorrect (unported)"
+
+[[fault]]
+id = "fe-defeq-taint-ignored"
+file = "src/front/defeq.fs"
+old = '''  df df-taint @ if drop outcome-unsupported de-abort exit then'''
+new = '''  false if drop outcome-unsupported de-abort exit then'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M3: processAssignment' retries after a level comparison failed on ?u"
+
+[[fault]]
+id = "fe-defeq-level-taint-never"
+file = "src/front/defeq.fs"
+old = ''': de-level-taint ( l r -- ) de-may-assign? swap de-may-assign? or if true df df-taint ! then ;'''
+new = ''': de-level-taint ( l r -- ) 2drop ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M3/L1: a false level comparison on a level metavariable never taints"
+
+[[fault]]
+id = "fe-defeq-implicit-bump-off"
+file = "src/front/defeq.fs"
+old = '''  df df-mode @ de-rank lf-tr-implicit de-rank < if lf-tr-implicit df df-mode ! then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M3: withImplicitConfig never raises reducible to implicit for implicit arguments"
+
+[[fault]]
+id = "fe-defeq-offset-signed"
+file = "src/front/defeq.fs"
+old = '''  2dup u> if 2drop drop lf-lb-false de-off-const else swap - de-lit de-off-pair then ;'''
+new = '''  2dup > if 2drop drop lf-lb-false de-off-const else swap - de-lit de-off-pair then ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review B1: Nat.succ ?h =?= 2^63 compared signed answers false"
+
+[[fault]]
+id = "fe-defeq-eqv-first-level"
+file = "src/front/term-eqv.fs"
+old = '''  over lf-cref-pairs nip 0 ?do'''
+new = '''  over lf-cref-pairs nip 1 min 0 ?do'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M3: == compares only a constant's first universe argument"
+
+[[fault]]
+id = "fe-defeq-hadd-instance-unchecked"
+file = "src/front/nat-offset.fs"
+old = '''  dup 2 s" instHAdd" no-is? if 1 2 no-arg no-inst-addnat? else drop false then ;'''
+new = '''  2 s" instHAdd" no-is? ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M3: evalNat takes instHAdd Nat i for any i"
+
+[[fault]]
+id = "fe-defeq-sum-wraps"
+file = "src/front/nat-offset.fs"
+old = '''  no no-acc @ 2dup + tuck u> if 2drop outcome-unsupported exit then'''
+new = '''  no no-acc @ 2dup + tuck 2drop false if 2drop outcome-unsupported exit then'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M3: evalNat's sum wraps past 2^64 instead of answering unsupported"
+
+[[fault]]
+id = "fe-defeq-offset-wraps"
+file = "src/front/nat-offset.fs"
+old = '''  no no-off @ over + tuck u> if drop false else no no-off ! true then ;'''
+new = '''  no no-off @ over + nip no no-off ! true ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M3: isOffset?'s offset wraps past 2^64 instead of answering unsupported"
+
+[[fault]]
+id = "fe-defeq-partial-ctor-eta"
+file = "src/front/defeq.fs"
+old = '''  dup lf-meta-head de-ctor-arity over de-args# <> if 2drop 0 exit then'''
+new = '''  '''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M3: isDefEqEtaStruct on Prod.mk Nat Nat a, short of an argument"
+
+[[fault]]
+id = "fe-defeq-mvar-self-readonly"
+file = "src/front/defeq.fs"
+old = '''  de-mvar lf-mvar-assignable? 0= if lf-lb-false de-return exit then'''
+new = '''  '''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M3: isDefEqMVarSelf tries constApprox on a read-only metavariable"
+
+[[fault]]
+id = "fe-defeq-hints-off"
+file = "src/front/defeq.fs"
+old = '''  dup de-mvar? if drop exit then de-head-defn? if outcome-unsupported de-abort then ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M3/L4: a failure under a definition head ignores unification hints"
+
+[[fault]]
+id = "fe-defeq-proofs-compared"
+file = "src/front/defeq.fs"
+old = '''  dup de-info nip swap dup de-a1 de-abs-mvar? swap de-a2 de-abs-mvar? or 0= and ;'''
+new = '''  drop false ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M3: isDefEqArgs compares a proof argument that Lean skips"
+
+[[fault]]
+id = "fe-defeq-kind-shared"
+file = "src/front/fun-info.fs"
+old = '''  lf-pres-binder@ if 2drop false else lf-binder-default true then ;'''
+new = '''  lf-pres-binder@ if nip true else lf-binder-default true then ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M1: getFunInfo reads a kind from a shared store node's binder entry"
+
+[[fault]]
+id = "fe-defeq-copy-drops-full"
+file = "src/front/meta-spine.fs"
+old = '''  lf-pres-binder@ if 2>r dup 2r> lf-pres-binder! ms-full else outcome-ok then ;'''
+new = '''  lf-pres-binder@ if 2>r dup 2r> lf-pres-binder! drop outcome-ok else outcome-ok then ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M1: a rebuilt binder loses its kind when the binder table is full"
+
+[[fault]]
+id = "fe-defeq-inst-copy-drops-full"
+file = "src/front/instantiate.fs"
+old = ''': in-named ( new old -- new ) lf-meta-named in-fail ;'''
+new = ''': in-named ( new old -- new ) lf-meta-named drop ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M1: instantiate1 drops a full binder table and loses the kind"
+
+[[fault]]
+id = "fe-defeq-mvars-copy-drops-full"
+file = "src/front/mvars.fs"
+old = ''': mv-named ( new old -- new ) lf-meta-named mv-refuse ;'''
+new = ''': mv-named ( new old -- new ) lf-meta-named drop ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M1: instantiateMVars drops a full binder table and loses the kind"
+
+[[fault]]
+id = "fe-defeq-lctx-kept"
+file = "src/front/defeq.fs"
+old = ''': de-restore ( view mark -- ) lf-lctx-drop lf-mctx-view! ;'''
+new = ''': de-restore ( view mark -- ) 2drop ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M2: binders leave their free variables in the local context"
+
+[[fault]]
+id = "fe-defeq-fun-info-lctx-kept"
+file = "src/front/fun-info.fs"
+old = ''': lf-meta-fun-info ( f n -- m outcome ) fi-mark >r fi-run r> lf-lctx-drop ;'''
+new = ''': lf-meta-fun-info ( f n -- m outcome ) fi-mark >r fi-run r> drop ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M2: getFunInfo's telescope leaves its free variables in the local context"
+
+[[fault]]
+id = "fe-defeq-nat-check-same-depth"
+file = "src/front/defeq.fs"
+old = ''': de-deeper ( -- ) de-aborted? if exit then true de-frame de-regs + ! lf-mctx-deeper ;'''
+new = ''': de-deeper ( -- ) ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M3: ifNatExpr's Nat test at the caller's depth"
+equivalent = "ifNatExpr tests the type of t, which isDefEqOffset reaches only as a literal or a Nat.succ application (whnfCore answers unsupported for an addition, plan FE1d2): its type is Nat, with no metavariable to assign"
+
+[[fault]]
+id = "fe-defeq-unit-recursive"
+file = "src/front/defeq.fs"
+old = '''  swap lf-ity-flags lf-more-field lf-ity-rec-bit and 0= and ;'''
+new = '''  nip ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c review M3: isDefEqUnitLike and isDefEqEtaStruct accept a recursive type"
+gap = "only a recursive one-constructor inductive without indices tells the two apart (unit-like needs no fields, so it cannot be recursive); the Init slice has none"
 
 # --- goals of the tactic framework (plan FE1g-1: src/lib/runs.fs,
 # lctx-views.fs, goals.fs, goal-print.fs, the views of mvars.fs) ----------

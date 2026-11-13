@@ -94,6 +94,7 @@ true (app u k) (app u k)
 true (lam (app (app id.{2} Sort 1) Nat.{}) #0) (lam (app (app id.{2} Sort 1) Nat.{}) #0)
 false
 false
+false
 true (app (app (app (app Prod.mk.{0,0} Nat.{}) Nat.{}) a) b) (app (app (app (app Prod.mk.{0,0} Nat.{}) Nat.{}) a) b)
 false
 true (app Nat.succ.{} (app (app (app OfNat.ofNat.{0} Nat.{}) 9223372036854775807) (app instOfNatNat.{} 9223372036854775807))) 9223372036854775808

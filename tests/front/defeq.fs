@@ -186,9 +186,9 @@ T{ fk 2 nlit add-nat succ swap app lf-meta-offset -> fk 3 true outcome-ok }T
 : off-sk ( e -- s k ) lf-meta-offset 2drop ;
 T{ fk fx s" Nat.add" nat-op dup succ swap app off-sk rot rot = -> 1 true }T
 \ An instance that is not Nat's node for node: Lean asks isDefEq.
-: hadd-by ( a b inst -- t ) >r >r >r l0 l0 l0 3 s" HAdd.hAdd" cn nat app nat app nat app
+: hadd-by ( inst a b -- t ) >r >r >r l0 l0 l0 3 s" HAdd.hAdd" cn nat app nat app nat app
   r> app r> app r> app ;
-T{ fk 2 nlit fx hadd-by lf-meta-offset 2swap 2drop -> false outcome-unsupported }T
+T{ fx fk 2 nlit hadd-by lf-meta-offset 2swap 2drop -> false outcome-unsupported }T
 \ whnf's fixed points, isProp, getFunInfoNArgs, isClassQuick?.
 T{ fk lf-meta-whnf-final? succ fk app lf-meta-whnf-final? succ 2 nlit app lf-meta-whnf-final?
    -> true true false }T
@@ -251,7 +251,7 @@ T{ -1 nlit 1 nlit nat-add lf-meta-eval-nat -> 0 false outcome-unsupported }T
 T{ fk -1 nlit nat-add succ swap app lf-meta-offset nip nip nip -> outcome-unsupported }T
 \ evalNat takes HAdd.hAdd only with instHAdd Nat instAddNat.
 : inst-x ( -- inst ) l0 1 s" instHAdd" cn nat app fx app ;
-T{ 2 nlit 3 nlit inst-x hadd-by lf-meta-eval-nat -> 0 false outcome-ok }T
+T{ inst-x 2 nlit 3 nlit hadd-by lf-meta-eval-nat -> 0 false outcome-ok }T
 \ Universe lists: == compares every level; isDefEq pair by pair, false
 \ when one list ends first; a definition whose levels differ is unfolded
 \ on both sides (lazy delta: unsupported).
@@ -291,16 +291,13 @@ T{ ?t fk app succ fk app lf-defeq-elab lf-defeq-quasi or with-flags
 \ metavariable (Sort (?u + 1) against Prop): unsupported, never retried.
 : rec-prop ( -- t ) rec nat l0 sort lam app eqab app nat l0 sort 0 bv lam lam app zero app ;
 T{ ?M rec-prop dq ?M free? -> false outcome-unsupported true }T
-\ ifNatExpr asks for Nat one depth deeper: ?ty stays free.
-lv1 sort mv-natural lf-mvar-new made constant ?ty
-: hadd-ty ( a b -- t ) >r >r l0 l0 l0 3 s" HAdd.hAdd" cn nat app nat app ?ty app
-  l0 1 s" instHAdd" cn nat app 0 s" instAddNat" cn app app r> app r> app ;
-T{ own-mark fk 1 ofnat hadd-ty succ fk app dq ?ty free? own-back -> false outcome-unsupported true }T
-\ The types of an assignment at reducible transparency are compared at
-\ implicit (withImplicitConfig): id Nat might unfold there.
-: id-nat ( -- t ) lv2 1 s" id" cn lv1 sort app nat app ;
-T{ lf-tr-reducible lf-defeq-mode! ?t id-nat 0 bv lam dq lf-tr-default lf-defeq-mode!
-   -> false outcome-unsupported }T
+\ At reducible transparency an implicit argument is compared at implicit
+\ (withImplicitConfig), where Nat.add and Nat.mul are delta candidates
+\ (lazy delta: unsupported, FE1d2); at reducible they are not (false).
+: refl-of ( name u -- t ) 0 -rot cn refl ;
+T{ lf-tr-reducible lf-defeq-mode! s" Nat.add" refl-of s" Nat.mul" refl-of dq
+   0 s" Nat.add" cn 0 s" Nat.mul" cn dq lf-tr-default lf-defeq-mode!
+   -> false outcome-unsupported false outcome-ok }T
 \ isDefEqMVarSelf: a read-only ?t (one depth deeper) is false even under
 \ constApprox.
 T{ lf-mctx-deeper ?t fk app ?t fx app lf-defeq-elab lf-defeq-const or with-flags
@@ -309,6 +306,13 @@ T{ lf-mctx-deeper ?t fk app ?t fx app lf-defeq-elab lf-defeq-const or with-flags
 \ a hint (Init's or another library's): unsupported, never false.
 T{ lf-tr-reducible lf-defeq-mode! 0 s" Nat.add" cn fk dq lf-tr-default lf-defeq-mode!
    -> false outcome-unsupported }T
+\ getFunInfo's kinds come from the declared type: a store binder that
+\ the binder table names may be another binder's (the store shares equal
+\ nodes), so unsupported, here and through isDefEqArgs.
+: imp! ( pi -- pi ) dup 0 lf-binder-implicit lf-pres-binder! drop ;
+nat punit tpi imp! mv-natural lf-mvar-new made constant ?imp
+T{ ?imp 1 lf-meta-fun-info nip ?imp fk app ?imp fx app dq
+   -> outcome-unsupported false outcome-unsupported }T
 \ A constructor short of its arguments is no structure eta; a proof
 \ argument is skipped (Lean's answer, though e and p.1 differ in type).
 T{ fp 0 0 2 s" Prod.mk" cn nat app nat app fa app dq -> false outcome-ok }T
@@ -341,6 +345,27 @@ T{ ' lam-pair refusals-sound? fulls @ 0> -> true true }T
 T{ ' abs-pair refusals-sound? fulls @ 0> -> true true }T
 T{ own-mark args-pair dq own-back own-mark lam-pair dq own-back own-mark abs-pair dq own-back
    -> true outcome-ok true outcome-ok true outcome-ok }T
+\ A rebuilt binder keeps its name and kind, or the call answers full
+\ (instantiateMVars and instantiate1 copy the binder table's entry). The
+\ new binder node is the first one past the table's room, so its entry
+\ needs the heap, which each scan refuses in turn.
+nat ?h tpi imp! constant pi-h
+nat 1 bv tpi imp! constant pi-1
+424242 nlit constant v1  434343 nlit constant v2
+variable filler  5000000 filler !
+: next-held? ( -- flag ) lf-term-base lf-term-count @ + lf-pres-held? ;
+: to-edge ( -- ) begin next-held? while filler @ nlit drop 1 filler +! repeat ;
+: implicit? ( t -- flag ) lf-pres-binder@ if nip lf-binder-implicit = else false then ;
+: kept? ( t outcome -- flag )
+  dup outcome-full = if 2drop true else ok? swap implicit? and then ;
+: refused-inst ( k -- t outcome )
+  own-mark ?h v1 lf-mvar-assign drop heap-refusals ! pi-h lf-instantiate-mvars
+  0 heap-refusals ! own-back ;
+: refused-i1 ( k -- t outcome )
+  heap-refusals ! pi-1 v2 lf-meta-instantiate1 0 heap-refusals ! ;
+: copies-sound? ( xt -- flag ) to-edge true 300 1 do i 2 pick execute kept? and loop nip ;
+T{ ' refused-inst copies-sound? ' refused-i1 copies-sound? -> true true }T
+T{ 0 refused-inst drop implicit? 0 refused-i1 drop implicit? clean? -> true true true }T
 T{ own-mark offset-pair dq ?h free? own-back -> true outcome-ok false }T
 \ A call frees what it allocates (its slabs keep their room).
 T{ own-mark live-blocks @ offset-pair dq 2drop live-blocks @ = own-back clean? -> true true }T

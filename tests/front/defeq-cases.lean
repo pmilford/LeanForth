@@ -171,6 +171,7 @@ run_meta do
   instCase (mkApp (mkApp (mkConst `Nat.add []) k) x) (mkApp (mkApp (mkConst `Nat.add []) k) n)
   implCase (mkApp u n) (mkApp u k)
   redCase t (mkLambda `y .default (mkApp (mkApp (mkConst `id [(mkLevelSucc Level.one)]) (mkSort Level.one)) (mkConst `Nat [])) (mkBVar 0))
+  redCase (mkApp (mkApp (mkConst `Eq.refl [Level.one]) (mkConst `Nat.add [])) a) (mkApp (mkApp (mkConst `Eq.refl [Level.one]) (mkConst `Nat.mul [])) a)
   redCase (mkConst `Nat.add []) k
   eqCase n (mkApp (mkApp (mkConst `Nat.add []) n) k)
   implCase (mkApp (mkApp (mkApp (mkApp (mkConst `Prod.mk [Level.zero, Level.zero]) (mkConst `Nat [])) (mkConst `Nat [])) a) b) (mkApp (mkApp (mkApp (mkApp (mkConst `Prod.mk [Level.zero, Level.zero]) (mkConst `Nat [])) (mkConst `Nat [])) a) n)
