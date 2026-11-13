@@ -324,6 +324,31 @@ other agents loaded (load 6-16 on 10 cores; wall seconds):
 The demos and the two command-line tests use the same CPU as before (about
 200 s, 34 s and 22 s); only their waiting is gone.
 
+**leanforth verify's driver (plan 8.4.1b, 2026-11-13).** Four targets,
+[PROGRAM_VERIFY.md](../programming/PROGRAM_VERIFY.md):
+
+| Target | Suite | Seconds (`JOBS=2`, Lean cache on, other agents running) |
+| --- | --- | ---: |
+| `test-program-verify-driver` (stand-in tools: outcomes, Lean, limits) | test | 8.1 |
+| `test-program-verify-driver-input` (stand-in tools: verdicts, malformed input, workflow) | test | 13.8 |
+| `reference-program-verify-clamp` (`lf-clamp` end to end, LeanForth `--jobs 2`) | check | 97.3 |
+| `reference-program-verify-refuted` (`wrong-clamp-swapped` end to end) | check | 103.1 |
+| `reference-program-verify-all` (all thirteen contracts, by hand) | — | 822 (once, 2026-11-13) |
+
+Lean's compile and export in the two `check` targets go through the Lean
+cache like every pinned-Lean run (`LEAN=$(LEAN)`, `LEANEXPORT`), so a cached
+run replays them and `LEAN_CACHE=0` runs them; what remains, about 90 s
+each, is LeanForth's final check of the IR semantics' closure (4,277 and
+4,295 declarations), which no cache may replace. `program-clamp-record`
+(5.5.1) checks a different export (the committed nine-contract obligations
+file, whose module name its private names carry), so it cannot stand for
+`reference-program-verify-clamp`; one check for both would mean re-basing the
+5.5.1 receipt on the driver. `make check JOBS=2` with the cache took 682 s on
+2026-11-13 with these targets (exit 0; `.claude/work/VER1/check-timing.txt`,
+the sum of every command's time 1,248 s), against about 8 minutes for
+main's last recorded run (39357876, sum 847 s); the two end-to-end runs add
+about 200 s of command time.
+
 `reference-compact-init` fell from 78.5 s to 57.3 s by running
 `compact-verify.sh`'s two Gforth runs side by side, and to 40.7 s with
 the export of `Init` replayed; staging it into the compact store and
