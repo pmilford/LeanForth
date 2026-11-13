@@ -52,7 +52,19 @@ LEVELS = [
 LPARAMS = [
     ("u+1", ["u"], ["2"], False), ("v", ["u"], ["1"], False), ("u", ["u", "u"], ["1", "2"], False),
     ("(max 1 0)", ["u"], ["1"], False), ("u+2", ["u", "v"], ["v+1", "0"], False),
-    ("(max u v)", ["u"], ["1"], True),
+    ("(max u v)", ["u"], ["1"], False), ("(max u v)", ["u", "v"], ["1", "2"], False),
+    ("(imax u v)", ["v"], ["1"], False), ("(imax u v)", ["u", "v"], ["v", "0"], False),
+    ("(max (max u v) u)", ["v"], ["u"], False),
+]
+
+# mkLevelMax' and mkLevelIMax' on two levels: ("max" | "imax", u, v).
+LOPS = [
+    ("max", "u", "u"), ("max", "0", "u"), ("max", "u", "0"), ("max", "1", "2"),
+    ("max", "u+2", "1"), ("max", "(max u v)", "u"), ("max", "v", "(max u v)"),
+    ("max", "u+1", "u"), ("max", "u", "u+1"), ("max", "u", "v"), ("max", "u+1", "v+2"),
+    ("imax", "u", "1"), ("imax", "u", "0"), ("imax", "0", "u"), ("imax", "u", "u"),
+    ("imax", "u", "v"), ("imax", "u", "(max v 1)"), ("imax", "u", "(imax v 1)"),
+    ("imax", "1", "(imax u v)"),
 ]
 SORT, CONST = "sort", "const"
 TPARAMS = [
@@ -60,7 +72,8 @@ TPARAMS = [
     ((LAM, (SORT, "u"), (SORT, "u+1")), ["u"], ["v"], False),
     ((PI, (SORT, "v"), (APP, (CONST, "u", "v"), "#0")), ["v"], ["u+1"], False),
     ((APP, "x", "y"), ["u"], ["1"], False), ((CONST, "0", "1"), ["u"], ["v"], False),
-    ((SORT, "(max u v)"), ["u"], ["1"], True),
+    ((SORT, "(max u v)"), ["u"], ["1"], False),
+    ((SORT, "(imax u v)"), ["v"], ["0"], False),
 ]
 
 # Term cases: ("inst1", body, value), ("abst", term, [x0, ...]) or
@@ -87,7 +100,7 @@ TERMS = [
 ]
 
 
-CASES = len(LEVELS) + len(TERMS) + len(LPARAMS) + len(TPARAMS)
+CASES = len(LEVELS) + len(TERMS) + len(LOPS) + len(LPARAMS) + len(TPARAMS)
 
 
 class Failure(Exception):
@@ -103,13 +116,14 @@ def level_parse(text):
         return ("succ", level_parse(m.group(1)), int(m.group(2)))
     if text.isdigit():
         return ("num", int(text))
-    if text.startswith("(max "):
-        inner = text[5:-1]
-        depth = 0
-        for i, ch in enumerate(inner):
-            depth += {"(": 1, ")": -1}.get(ch, 0)
-            if ch == " " and depth == 0:
-                return ("max", level_parse(inner[:i]), level_parse(inner[i + 1:]))
+    for op in ("max", "imax"):
+        if text.startswith(f"({op} "):
+            inner = text[len(op) + 2:-1]
+            depth = 0
+            for i, ch in enumerate(inner):
+                depth += {"(": 1, ")": -1}.get(ch, 0)
+                if ch == " " and depth == 0:
+                    return (op, level_parse(inner[:i]), level_parse(inner[i + 1:]))
     if text.startswith("?"):
         return ("mvar", text[1])
     return ("param", text)
@@ -125,6 +139,8 @@ def level_lean(t):
         return f"m{t[1]}"
     if kind == "max":
         return f"(mkLevelMax {level_lean(t[1])} {level_lean(t[2])})"
+    if kind == "imax":
+        return f"(mkLevelIMax {level_lean(t[1])} {level_lean(t[2])})"
     return f"(Nat.repeat mkLevelSucc {t[2]} {level_lean(t[1])})"
 
 
@@ -138,6 +154,8 @@ def level_forth(t, index):
         return f"{index[t[1]]} mv"
     if kind == "max":
         return f"{level_forth(t[1], index)} {level_forth(t[2], index)} lmax"
+    if kind == "imax":
+        return f"{level_forth(t[1], index)} {level_forth(t[2], index)} limax"
     return level_forth(t[1], index) + " lsucc" * t[2]
 
 
@@ -160,6 +178,7 @@ partial def pl (ms : List (LMVarId × String)) (l : Level) : String :=
     | .param n => some n.toString
     | .mvar id => some ((ms.lookup id).getD "?_")
     | .max x y => some s!"(max {pl ms x} {pl ms y})"
+    | .imax x y => some s!"(imax {pl ms x} {pl ms y})"
     | _ => some "??"
   match base with
   | none => toString k
@@ -259,6 +278,10 @@ def lean_param_cases():
     lines = ["run_meta do",
              "  withLocalDeclD `x (mkSort Level.zero) fun x => do",
              "  withLocalDeclD `y (mkSort Level.zero) fun y => do"]
+    for op, u, v in LOPS:
+        maker = "mkLevelMax'" if op == "max" else "mkLevelIMax'"
+        lines.append(f"    IO.println (pl [] ({maker} {level_lean(level_parse(u))} "
+                     f"{level_lean(level_parse(v))}))")
     for level, names, levels, _ in LPARAMS:
         lines.append(f"    IO.println (pl [] (Level.instantiateParams "
                      f"{level_lean(level_parse(level))} {lean_names(names)} {lean_levels(levels)}))")
@@ -308,6 +331,9 @@ def forth_lines():
         else:
             calls.append(f"{term_forth(case[1])} beta-run")
     ids = {"u": "101", "v": "102"}
+    for op, u, v in LOPS:
+        calls.append(f"{level_forth(level_parse(u), {})} {level_forth(level_parse(v), {})} "
+                     f"{op}-run")
     for level, names, levels, _ in LPARAMS:
         calls.append(f"{' '.join(ids[n] for n in names)} {len(names)} params "
                      f"{' '.join(level_forth(level_parse(l), {}) for l in levels)} {len(levels)} args "
@@ -348,8 +374,9 @@ def main():
         lean, forth = lean_lines(), forth_lines()
         gaps = []
         names = ([f"{l} =?= {r}" for l, r, _, _ in LEVELS] + [str(c) for c in TERMS]
+                 + [f"{op} {u} {v}" for op, u, v in LOPS]
                  + [f"{c[0]} {c[1]} := {c[2]}" for c in LPARAMS + TPARAMS])
-        gap_flags = ([g for _, _, _, g in LEVELS] + [False] * len(TERMS)
+        gap_flags = ([g for _, _, _, g in LEVELS] + [False] * (len(TERMS) + len(LOPS))
                      + [c[3] for c in LPARAMS + TPARAMS])
         for name, gap, want, got in zip(names, gap_flags, lean, forth):
             if gap:
@@ -364,7 +391,8 @@ def main():
         return 1
     print(f"Meta layer: {CASES - len(gaps)} cases equal to pinned Lean's "
           f"({len(LEVELS)} level unifications, {len(TERMS)} instantiations, abstractions and "
-          f"head-beta steps, {len(LPARAMS) + len(TPARAMS)} universe-parameter instantiations); "
+          f"head-beta steps, {len(LOPS)} mkLevelMax'/mkLevelIMax', "
+          f"{len(LPARAMS) + len(TPARAMS)} universe-parameter instantiations); "
           f"{len(gaps)} gaps answer unsupported: {'; '.join(gaps)}; harness self-test passed")
     return 0
 

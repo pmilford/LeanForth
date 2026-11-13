@@ -235,9 +235,15 @@ T{ v 1 lps two 2 lps -> v outcome-ok two outcome-ok }T
 T{ v 2 lps -> two outcome-ok }T
 \ The first equal name wins (getParamSubst): u u -> 1 2.
 T{ 101 ps cell+ ! u 2 lps 102 ps cell+ ! -> one outcome-ok }T
-\ max over parameters: unsupported (Lean simplifies with mkLevelMax');
-\ max without one is kept.
-T{ u v lmax 2 lps one zero lmax dup 2 lps >r = r> -> -1 outcome-unsupported true outcome-ok }T
+\ max over parameters: rebuilt with mkLevelMax' (max 1 2 is 2); a max
+\ without one is kept as it is.
+: same-under ( a b c -- flag c ) >r = r> ;
+T{ u v lmax 2 lps one zero lmax dup 2 lps same-under -> two outcome-ok true outcome-ok }T
+\ A max whose parts stay is simplified in place (simpLevelMax'): the
+\ same node when no rule applies.
+T{ u v lmax dup 0 lps drop = -> true }T
+\ max u v with only u named: max 1 v, a new max (no rule applies).
+T{ u v lmax 1 lps swap dup ls-tag swap lf-level-second@ -> outcome-ok lf-level-tag-max v }T
 \ Malformed: a negative count, a level not in the store.
 T{ u ps ls -1 lf-meta-level-params 99999 1 lps -> -1 outcome-invalid -1 outcome-invalid }T
 \ Terms: Sort u and C.{u, v} take the levels; a binder keeps its name.
@@ -261,8 +267,43 @@ T{ su-lam 2 ilp drop parts lf-term-first@ swap lf-term-first@ -> one one }T
 T{ su-lam 2 ilp drop lf-pres-binder@ drop nip -> lf-binder-implicit }T
 \ Nothing to change: the same node; a count of 0 changes nothing.
 T{ prop x app dup 2 ilp drop = cuv dup 0 ilp drop = -> true true }T
-\ max over a parameter inside a term: unsupported, never a term.
-T{ u v lmax sort-of 2 ilp -> -1 outcome-unsupported }T
+\ A Sort over max u v (with u := 1, v := ?la): Sort (max 1 ?la).
+T{ u v lmax sort-of 2 ilp drop lf-term-first@ dup ls-tag swap lf-level-second@
+   -> lf-level-tag-max la }T
+
+\ ---- Level equality and Lean's cheap simplifications (src/front/
+\ level-simp.fs: Level.beq, isNeverZero, mkLevelMax', mkLevelIMax').
+: l= ( a b -- flag ) lf-meta-level= ok? 0= abort" l=" ;
+: nz? ( l -- flag ) lf-meta-never-zero? ok? 0= abort" nz" ;
+: lmx ( a b -- l ) lf-meta-max ok? 0= abort" lmx" ;
+: limx ( a b -- l ) lf-meta-imax ok? 0= abort" limx" ;
+: limax ( a b -- l ) lf-level-imax 0= abort" imax" ;
+\ Equality by structure: equal levels made twice, and unequal ones.
+T{ u lsucc v lmax u lsucc v lmax l= u lsucc v lmax v lsucc u lmax l= -> true false }T
+T{ u 3 lsuccs u 3 lsuccs l= u 3 lsuccs u 2 lsuccs l= u v l= -> true false false }T
+T{ u v limax u v lmax l= one one l= -> false true }T
+\ isNeverZero: a successor, or one through max or imax's second side.
+T{ one nz? u nz? zero nz? u one lmax nz? -> true false false true }T
+T{ one u limax nz? u one limax nz? -> false true }T
+\ mkLevelMax': u u is u; a zero side gives the other; an explicit level
+\ below the other's offset is subsumed (max 1 2 is 2, max (u+2) 1 is
+\ u+2); an argument of a max is subsumed; the same base keeps the larger
+\ offset; else a new max.
+T{ u u lmx zero u lmx u zero lmx -> u u u }T
+T{ one two lmx u 2 lsuccs dup one lmx = -> two true }T
+T{ u v lmax dup u lmx = u v lmax dup v swap lmx = -> true true }T
+T{ u lsucc dup u lmx = u dup lsucc lmx ld-pred -> true u }T
+T{ u v lmx dup ls-tag swap lf-level-first@ -> lf-level-tag-max u }T
+\ mkLevelIMax': v never zero gives the max; v zero gives v; u zero gives
+\ v; u u is u; else a new imax.
+T{ u one limx dup ls-tag swap lf-level-second@ -> lf-level-tag-max one }T
+T{ u zero limx zero u limx u u limx -> zero u u }T
+T{ u v limx ls-tag -> lf-level-tag-imax }T
+\ The simp forms give d where a new node would be made.
+T{ u v 7 lm-simp-max u v 7 lm-simp-imax one two 7 lm-simp-max
+   -> 7 outcome-ok 7 outcome-ok two outcome-ok }T
+\ Deep: equality and isNeverZero over 10,000 successors in loops.
+T{ u 10000 lsuccs u 10000 lsuccs l= zero 10000 lsuccs v lmax nz? -> true true }T
 T{ cuv ps ls -1 lf-meta-instantiate-level-params 99999 2 ilp
    -> -1 outcome-invalid -1 outcome-invalid }T
 \ Deep: 10,000 applications over Sort u; full: no room for a term.

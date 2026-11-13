@@ -32,12 +32,14 @@ variable #mv
 : .mv ( leaf -- ) name? if emit else ." ?_" then ;
 defer .lev
 : .lmax ( l -- ) ." (max " dup lf-level-first@ .lev space lf-level-second@ .lev ." )" ;
+: .limax ( l -- ) ." (imax " dup lf-level-first@ .lev space lf-level-second@ .lev ." )" ;
 : .lparam ( l -- ) lf-level-first@ 101 = if ." u" else ." v" then ;
 : .lbase ( base -- )
   dup lf-level-tag@ case
     lf-level-tag-param of .lparam endof
     lf-level-tag-mvar of .mv endof
     lf-level-tag-max of .lmax endof
+    lf-level-tag-imax of .limax endof
     >r drop ." ??" r> endcase ;
 : (.lev) ( l -- )
   ld-offset over lf-level-tag@ lf-level-tag-zero = if nip .k exit then
@@ -105,5 +107,8 @@ create names-buf 4 cells allot  create levels-buf 4 cells allot
 : .level ( level outcome -- )
   dup ok? if drop .lev else nip outcome-unsupported = if ." unsupported" else ." failed" then then ;
 : lps-run ( level k -- ) >r names-buf levels-buf r> lf-meta-level-params .level cr ;
+: limax ( a b -- l ) lf-level-imax must ;
+: max-run ( u v -- ) lf-meta-max .level cr ;
+: imax-run ( u v -- ) lf-meta-imax .level cr ;
 : ilp-run ( term k -- ) >r names-buf levels-buf r> lf-meta-instantiate-level-params .term cr ;
 : beta-run ( term -- ) lf-meta-head-beta .term cr ;

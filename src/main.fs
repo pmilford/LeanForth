@@ -61,10 +61,13 @@ require ./present/proof-outline.fs
 \ The front end (ADR 0021, plan FE1; untrusted, never loaded by the
 \ kernel): the natural reader (front/reader.fs, which the command line
 \ loads through cli/check-lf.fs), the metavariable context, and the first
-\ pieces of the Meta layer: level unification and instantiation.
+\ pieces of the Meta layer (plan FE1c): level unification, bound-variable
+\ instantiation and abstraction, level simplification and
+\ universe-parameter instantiation.
 require ./front/mvars.fs
 require ./front/level-defeq.fs
 require ./front/instantiate.fs
+require ./front/level-simp.fs
 require ./front/level-params.fs
 
 \ The command line: check, replay, print, count, reexport, version,

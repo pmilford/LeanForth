@@ -10387,18 +10387,10 @@ reason = "FE1c: a parameter named twice takes the last level, where Lean's getPa
 [[fault]]
 id = "fe-lparams-offset-lost"
 file = "src/front/level-params.fs"
-old = '''  lp-mapped if swap lp-shift else drop outcome-ok then ;'''
-new = '''  lp-mapped if nip nip outcome-ok else drop outcome-ok then ;'''
+old = '''  nip lf-level-succ lm-made lp-l-result ;'''
+new = '''  nip ;'''
 test = "$GFORTH tests/front/meta.fs"
-reason = "FE1c: u + 1 with u := 1 becomes 1, the successors above the parameter dropped"
-
-[[fault]]
-id = "fe-lparams-max-guessed"
-file = "src/front/level-params.fs"
-old = '''  dup ld-offset swap dup lp-param? 0= if 2drop drop -1 outcome-unsupported exit then'''
-new = '''  dup ld-offset swap dup lp-param? 0= if 2drop outcome-ok exit then'''
-test = "$GFORTH tests/front/meta.fs"
-reason = "FE1c: a max over a parameter is kept unchanged, a guess where Lean substitutes and simplifies"
+reason = "FE1c: u + 1 with u := 1 becomes 1, the successor above the parameter dropped"
 
 [[fault]]
 id = "fe-lparams-const-kept"
@@ -10407,6 +10399,38 @@ old = ''': lp-const-build ( node -- image ) dup lp-cref-moves? if lp-const-new t
 new = ''': lp-const-build ( node -- image ) ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: a constant keeps its universe parameters after instantiateLevelParams"
+
+[[fault]]
+id = "fe-lsimp-subsumption-skipped"
+file = "src/front/level-simp.fs"
+old = '''  dup ls-zero? lm-u and ?dup if exit then lm-subsumes ?dup if exit then'''
+new = '''  dup ls-zero? lm-u and ?dup if exit then'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: mkLevelMax' 2 1 makes max 2 1 where Lean's subsumption rule gives 2"
+
+[[fault]]
+id = "fe-lsimp-never-zero-first-only"
+file = "src/front/level-simp.fs"
+old = '''  drop lf-level-second@ ls-push1 false swap ;'''
+new = '''  2drop false outcome-ok ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: isNeverZero does not look at a max's second side (max u 1 is never zero)"
+
+[[fault]]
+id = "fe-lsimp-leaf-tag-only"
+file = "src/front/level-simp.fs"
+old = '''  over ls-leaf? if ld-same? outcome-ok else ls-parts then ;'''
+new = '''  over ls-leaf? if 2drop true outcome-ok else ls-parts then ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: level equality takes two parameters of different names as equal"
+
+[[fault]]
+id = "fe-lparams-max-always-new"
+file = "src/front/level-params.fs"
+old = '''  lp-l-parts if lm-simp-max else drop lf-meta-max then lp-l-result ;'''
+new = '''  lp-l-parts drop drop lf-meta-max lp-l-result ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: a max whose parts stay is made again where Lean's updateMax! keeps it (simpLevelMax')"
 
 # --- The front end's first steps (plan FE1a-b; ADR 0021) -----------------
 
