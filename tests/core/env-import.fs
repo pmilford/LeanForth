@@ -488,6 +488,12 @@ false forging ! false snap-stale-allowed ! ck-release
 reach-all reach-reading or pretended ! 20000000 ck-start 0 0 ck-layers!
 T{ nested-snap carry-alone ck-snap-bad? ck-stale# -> outcome-unsupported true 0 }T
 T{ ck-snap snap-why @ count s" export reading" compare -> 0 }T
+[defined] >string-execute [if]
+: reading-note? ( -- flag )
+  ['] cli-window-note >string-execute s" note: this build reads exports otherwise" search
+  nip nip ;
+T{ reading-note? -> true }T
+[then]
 ck-release
 true snap-stale-allowed ! 20000000 ck-start 0 0 ck-layers!
 T{ nested-snap carry-alone ck-carrying? ck-stale? -> outcome-ok false true }T
