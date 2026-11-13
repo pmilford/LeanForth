@@ -1174,6 +1174,14 @@ variable seen-axioms
   s" postulate.declared-and-used" case-path staged ok? must fuel checked
   2 rests-on drop 1 rests-on drop 0 rests-on finish ;
 T{ secret-axioms -> 12 12 1 outcome-ok }T
+\ A rejected declaration has no axiom set: asked for one, invalid, none
+\ given. An accepted one after two rejected ones (a block refused, then a
+\ definition) rests on no axiom: the rejected slots get the empty row
+\ (coverage COV2).
+: after-rejected ( -- n outcome n outcome )
+  s" after.rejected-block-then-def-rec" case-path staged ok? must fuel checked
+  0 rests-on 2 rests-on finish ;
+T{ after-rejected -> 0 outcome-invalid 0 outcome-ok }T
 
 \ 8. The statement matcher (core/statement-match.fs) and the allowlist
 \ (core/axiom-allowlist.fs) on Lean's own export of propext,

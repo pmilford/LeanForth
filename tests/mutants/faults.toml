@@ -11467,3 +11467,20 @@ new = '''  lf-env-limit c" environment lf-env-own-name" lf-diag-too-early lf-dia
 test = "$GFORTH tests/core/check-forged.fs"
 reason = "N2 that meets a holder type not yet final (a check begun too early) rejects the declaration: a scheduling state stored as a verdict"
 quick = true
+
+[[fault]]
+id = "cov2-axiom-deps-of-rejected"
+file = "src/kernel/environment.fs"
+old = '''  over lf-env-accepted nip ok? 0= if 2drop outcome-invalid exit then'''
+new = '''  over lf-env-accepted nip ok? 0= if 2drop outcome-ok exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "a rejected declaration's axiom set is given as empty and ok: a report could list it as resting on no axiom"
+quick = true
+
+[[fault]]
+id = "cov2-axiom-row-rejected-slot-fails"
+file = "src/kernel/environment.fs"
+old = '''  dup lf-slot-accepted? 0= if 2drop 0 outcome-ok exit then'''
+new = '''  dup lf-slot-accepted? 0= if 2drop 0 outcome-invalid exit then'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "the axiom table stops at a rejected slot below an accepted declaration, so that declaration's axioms cannot be reported"
