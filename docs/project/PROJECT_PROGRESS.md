@@ -63,6 +63,11 @@ status changes when this date is older than them. Stages are those of the
   way (2,890 declarations); their receipts wait for schema 0.4.
 
 **Next**
+- The design stage (plan 9.4.7, owner 2026-11-13): every design reviewed before code and approved by the owner as a
+  one-page summary; the plan re-cut into slices S1-S6, V1-V4 and SC1 (PLAN_DRAFT "Slices"); the reviews of the existing
+  front-end designs and of VERIFY_COMMAND both blocking (S1 on five design gaps, V1 on contract text reaching Lean;
+  [design reviews](../development/design-reviews/LOG.md)); an S1 interface note and a hotfix of main's contract
+  generator in progress.
 - Less repeated testing of small work (plan 9.4.6, owner 2026-11-13): designed
   ([review](../development/TEST_WORKFLOW_REVIEW.md): `lib/sort.fs` took about 12 full-suite runs and 2-3 hours of
   machine time to reach GitHub; 3.6 hours of CI in six hours of pushes); decided by the owner 2026-11-13, rules in
@@ -76,8 +81,9 @@ status changes when this date is older than them. Stages are those of the
 - A rule-by-rule audit of AGENTS.md against practice.
 - Snapshots that read the two previous format and verdict versions (6.2.5c): designed, the owner's four questions
   answered 2026-11-12 ([design](../design/SNAPSHOT_COMPATIBILITY.md), ADR 0020 Amendment 5 proposed); steps c1 to c5
-  written and tested alone on branch `snap-compat` (`edb5554`), the Forth review and its three re-checks not blocking,
-  approved by the owner 2026-11-13; being merged with the kernel refactor.
+  integrated (merged 2026-11-13, owner approved [format][kernel][import]): `check --snapshot OLD` reads a snapshot of
+  either previous verdict version, says how many results it checks again, and `--save-snapshot NEW` upgrades it; a done
+  check is owed.
 
 **Later**
 - Proof development (owner, 2026-11-12; long term, after strict Lean compatibility): research note

@@ -37,6 +37,48 @@ variable failures  0 failures !
 T{ lf-look-outside lf-env-replay -> false }T
 T{ 5 lf-look-other lf-look-key lf-env-replay -> false }T
 
+
+\ ---- The carry pass's helpers (plan steps 6.2.5c3-c5), and its run with
+\ two workers (step c4), made here first: workers are made only in a
+\ context whose stores no run used before (cli/check-run.fs
+\ ck-workers-made). The snapshot of nested.ndjson of this build's
+\ version (tests/snapshots/v<this>/), judged as if a step after it
+\ reached the definitions (pretend): what looks one up is carried, judged
+\ before it is handed out (env-schedule.fs lf-sched-pre!). Compared below
+\ with the fresh check and the serial run.
+variable pretended
+: pretend ( k -- bits ) drop pretended @ ;
+\ forging: every definition's saved axiom set made another (step c4's test).
+variable forging  false forging !
+: forge-defs ( -- )
+  ck-import imp-sn@ 0 ?do
+    i ck-import d-kind kind-def = if lf-allowlist-bits sl-axioms i ck-snap snap-slot fld! then
+  loop ;
+: carry-tier ( -- outcome )
+  true ck-snap snap-carry ! ck-snap-tier forging @ if forge-defs then
+  ['] pretend ck-import imp-steps ! lf-verdict-version 1+ ck-import imp-top ! ;
+: carry-phase ( c-addr u -- outcome )
+  ck-phase-begin -1 ['] carry-tier ck-snap-opened ck-snap-fails
+  ck-staging ck-phase-end ck-staging ck-fail ;
+: carry-alone ( c-addr u -- outcome )
+  2dup ck-snap-named ck-jobs ck-state ck-jobs-kept ! 0 ck-state ck-jobs-asked !
+  carry-phase dup ok? if drop ck-snap-rest then dup ck-state ck-loaded ! ;
+create par-out 512 cells allot  create par-fuel 512 cells allot
+create par-taken 512 cells allot  variable par-launched  variable par-n
+: par-keep ( -- )
+  lf-input-count dup par-n ! 0 ?do
+    i lf-env-outcome par-out i cells + ! i ck-fuel-of par-fuel i cells + !
+    i ck-taken? par-taken i cells + !
+  loop ;
+create this-path 64 allot  variable this-len
+: this+ ( c-addr u -- ) tuck this-path this-len @ + swap move this-len +! ;
+: this-nested ( -- c-addr u )
+  0 this-len ! s" tests/snapshots/v" this+ lf-verdict-version 0 <# #s #> this+
+  s" /nested.lfsnap" this+ this-path this-len @ ;
+reach-kind-definition pretended ! 20000000 ck-start 2 ck-jobs! 0 0 ck-layers!
+this-nested carry-alone ok? s" parallel load" must ck-check ck-outcome ok? s" parallel run" must
+par-keep lf-sched-launched par-launched ! ck-release
+
 \ The fresh check's outcomes and fuel, then the same export's through the
 \ base's snapshot.
 create fresh-outcomes 64 cells allot
@@ -293,6 +335,255 @@ T{ depth -> 0 }T
 base2-file delete-file drop  layer2-file delete-file drop
 
 base-file delete-file drop  layer-file delete-file drop
+
+\ ---- The carry pass (plan step 6.2.5c3; env-import.fs "The carry
+\ pass"). The reach bits of a kind, by the export's kind numbers.
+T{ kind-axiom kind-reach kind-def kind-reach kind-thm kind-reach kind-opaque kind-reach
+   -> reach-kind-axiom reach-kind-definition reach-kind-theorem reach-kind-opaque }T
+T{ kind-quot kind-reach kind-type kind-reach kind-ctor kind-reach -> reach-kind-quotient 0 0 }T
+T{ kind-type kind-holds kind-recursor kind-holds kind-inductive kind-holds
+   -> reach-block-any reach-block-any reach-block-any }T
+T{ kind-def kind-holds kind-quot kind-holds -> 0 reach-quotient }T
+T{ 8 lf-look-quot lf-look-key key-holds 8 lf-look-find lf-look-key key-holds -> reach-quotient 0 }T
+T{ 3 outcome-ok lf-look-answer holder-holds 3 outcome-ok lf-look-answer lf-look-holder or
+   holder-holds -> 0 reach-block-any }T
+\ A snapshot of this build judged as if a step 10 after its version
+\ reached what pretend gives (imp-top, imp-steps set by hand; no entry of
+\ the window reaches less than everything yet): nested.ndjson against
+\ its own snapshot. Every outcome and fuel is the fresh check's, I2 holds,
+\ and the counts are as the pretended reach says.
+s" leanforth-env-import-nested.lfsnap" scratch-file 2constant nested-snap
+: nested-file ( -- c-addr u ) s" tests/cli/nested.ndjson" ;
+create fresh-out 512 cells allot  create fresh-fuel2 512 cells allot
+: keep-fresh2 ( -- )
+  lf-input-count 512 > abort" env-import: too many declarations"
+  lf-input-count 0 ?do
+    i lf-env-outcome fresh-out i cells + ! i ck-fuel-of fresh-fuel2 i cells + !
+  loop ;
+: same-as-fresh2? ( -- flag )
+  true lf-input-count 0 ?do
+    i lf-env-outcome fresh-out i cells + @ = and i ck-fuel-of fresh-fuel2 i cells + @ = and
+  loop ;
+20000000 ck-start nested-file true ck-load ok? s" nested load" must ck-check
+ck-verdicts? s" nested verdicts" must keep-fresh2
+nested-snap s" {}" ck-snapshot-save ok? s" nested save" must ck-release
+: carried-run ( bits -- )
+  pretended ! 20000000 ck-start 0 0 ck-layers! nested-snap -1 ck-snapshot-import ok?
+  s" carry import" must 9 ck-import imp-carry! ['] pretend ck-import imp-steps !
+  lf-verdict-version 1+ ck-import imp-top ! 0 lf-i2-misses ! nested-file true ck-load ok?
+  s" carry load" must ck-check ;
+: why# ( why -- n ) 0 lf-input-count 0 ?do over i ck-import imp-reason = - loop nip ;
+: reach10 ( -- why ) lf-verdict-version 1+ step-why ;
+: whys# ( -- n ) reach10 why# why-answers why# + why-outcome why# + ;
+\ The pretended step reaches nested blocks only: those and what looks
+\ them up are in its reach (35 of 107), the rest carried.
+reach-block-nested carried-run
+T{ ck-outcome ck-verdicts? same-as-fresh2? lf-i2-misses @ -> outcome-ok true true 0 }T
+T{ ck-taken# reach10 why# why-answers why# why-outcome why# -> 72 35 0 0 }T
+\ The labels of a carry run, the snapshot marked older by hand
+\ (snap-carry): a carried result names the version it comes from, one
+\ checked again says why (text); in JSON a carried result is the
+\ snapshot's, never stale, also when the rest is (snap-stale).
+: first-taken ( flag -- d ) lf-input-count 0 ?do i ck-taken? over = if drop i unloop exit then
+  loop drop -1 ;
+true ck-snap snap-carry !
+[defined] >string-execute [if]
+: says? ( d c-addr u -- flag ) rot ['] cli-verdict. >string-execute 2swap search nip nip ;
+T{ true first-taken s" (from snapshot of verdict version 9, carried: this build's changes"
+   says? -> true }T
+T{ false first-taken s" (checked in this run: inside the reach of verdict version 10's change"
+   says? -> true }T
+[then]
+T{ true first-taken cj-from s" snapshot" compare -> 0 }T
+true ck-snap snap-stale !
+T{ true first-taken cj-from s" snapshot" compare false first-taken ck-carried? -> 0 false }T
+ck-release
+\ It reaches everything: nothing carried; nothing: all carried.
+reach-all carried-run
+T{ ck-outcome same-as-fresh2? ck-taken# reach10 why# lf-input-count =
+   -> outcome-ok true 0 true }T
+ck-release
+0 carried-run
+T{ ck-outcome same-as-fresh2? ck-taken# lf-input-count = whys# -> outcome-ok true true 0 }T
+ck-release
+\ Definitions only: what looks one up is checked again for its answers.
+reach-kind-definition carried-run
+T{ ck-outcome same-as-fresh2? lf-i2-misses @ -> outcome-ok true 0 }T
+T{ ck-taken# 0> reach10 why# 0> why-answers why# 0> -> true true true }T
+T{ ck-taken# whys# + lf-input-count = -> true }T
+ck-release
+\ ---- A snapshot alone of a pretended older version (plan steps 6.2.5c3
+\ and c5), loaded as ck-snapshot-load loads one, its record marked older
+\ by hand (snap-carry) before its tier is read: nested.ndjson's results
+\ carried outside the pretended reach (nested blocks), the rest checked,
+\ every outcome and fuel as fresh; then written again as a base of this
+\ build's versions, each carried slot marked taken (provenance 2), each
+\ checked one not; that base loads as this build's, every outcome and fuel
+\ as fresh.
+s" leanforth-env-import-upgraded.lfsnap" scratch-file 2constant upgraded
+create carried-flags 512 cells allot
+: keep-carried ( -- ) lf-input-count 0 ?do i ck-taken? carried-flags i cells + ! loop ;
+: taken-mark? ( d -- flag ) sl-provenance swap saved prov-taken and 0<> ;
+: marks-kept? ( -- flag )
+  true lf-input-count 0 ?do i taken-mark? carried-flags i cells + @ = and loop ;
+reach-block-nested pretended ! 20000000 ck-start 0 0 ck-layers!
+T{ nested-snap carry-alone -> outcome-ok }T
+T{ ck-carrying? ck-check-word ' lf-check-declaration = -> true true }T
+ck-check
+T{ ck-outcome ck-verdicts? same-as-fresh2? ck-carried# reach10 why# -> outcome-ok true true 72 35 }T
+keep-carried
+T{ upgraded s" {}" ck-snapshot-save -> outcome-ok }T
+ck-release
+20000000 ck-start upgraded -1 ck-snapshot-load ok? s" upgraded load" must ck-check
+T{ ck-outcome ck-carrying? same-as-fresh2? marks-kept? -> outcome-ok false true true }T
+ck-release  upgraded delete-file drop
+\ With --snapshot-stale-ok the rest is shown stale (published from the
+\ snapshot, snap-fill), and nothing is written.
+true snap-stale-allowed ! 20000000 ck-start 0 0 ck-layers!
+T{ nested-snap carry-alone ck-check-word ' snap-fill = -> outcome-ok true }T
+ck-check
+T{ ck-outcome ck-carried# ck-stale? -> outcome-ok 72 true }T
+T{ upgraded s" {}" ck-snapshot-save upgraded r/o open-file nip 0<> -> outcome-invalid true }T
+false snap-stale-allowed ! ck-release
+\ Without an input read (no import pass: released), no reason is kept.
+T{ 0 ck-import imp-reason -> 0 }T
+\ ---- I3 and the decision on readiness (plan step 6.2.5c4): definitions
+\ pretended in reach are checked again and answer as their saved slots
+\ (this build gives the same fields), so what looks one up is carried,
+\ judged on its turn: serially, and with two workers the same set before
+\ handing out (env-schedule.fs lf-sched-pre!). With every definition's
+\ saved axiom set forged, a definition checked again answers otherwise,
+\ and its users are checked again (why-answers).
+create taken-serial 512 cells allot
+: keep-taken ( -- ) lf-input-count 0 ?do i ck-taken? taken-serial i cells + ! loop ;
+: taken-same? ( -- flag )
+  true lf-input-count 0 ?do taken-serial i cells + @ i ck-taken? = and loop ;
+: definitions-run ( jobs -- )
+  reach-kind-definition pretended ! 20000000 ck-start ck-jobs! 0 0 ck-layers!
+  nested-snap carry-alone ok? s" definitions load" must 0 lf-i2-misses ! ck-check ;
+1 definitions-run
+T{ ck-outcome same-as-fresh2? lf-i2-misses @ why-answers why# reach10 why# 0>
+   -> outcome-ok true 0 0 true }T
+T{ ck-carried# reach10 why# + lf-input-count = -> true }T
+keep-taken ck-release
+\ The parallel run, made first in this file (see its top), against the
+\ fresh check and the serial run: the same outcomes, fuel and set carried.
+: at ( i addr -- x ) swap cells + @ ;
+: par-same-at? ( i -- flag )
+  dup par-out at over fresh-out at = over par-fuel at 2 pick fresh-fuel2 at = and
+  swap dup par-taken at swap taken-serial at = and ;
+: par-same? ( -- flag ) true par-n @ 0 ?do i par-same-at? and loop ;
+T{ par-launched @ 0> par-n @ 107 = par-same? -> true true true }T
+true forging ! 1 definitions-run
+T{ ck-outcome same-as-fresh2? why-answers why# 0> -> outcome-ok true true }T
+false forging ! ck-release
+\ ---- With --snapshot-stale-ok (review of snap-compat M1): what the first
+\ pass carries is all that is carried; nothing is checked here, so no
+\ slot answers as a saved one and nothing waits for its turn: the 16
+\ users of the definitions stay stale, never labelled carried.
+variable first-carried
+: note-first ( -- ) ck-carried# first-carried ! ;
+true snap-stale-allowed ! reach-kind-definition pretended ! 20000000 ck-start 0 0 ck-layers!
+' note-first ck-carried!
+T{ nested-snap carry-alone ck-rechecking? -> outcome-ok false }T
+ck-check
+T{ ck-outcome ck-carried# first-carried @ = why-answers why# ck-stale? -> outcome-ok true 16 true }T
+T{ ck-stale# 0< -> false }T
+[defined] >string-execute [if]
+: first-user ( -- d )
+  lf-input-count 0 ?do i ck-import imp-reason why-answers = if i unloop exit then loop -1 ;
+T{ first-user s" from a stale snapshot" says? -> true }T
+[then]
+ck-release
+\ The same run with every definition's saved axiom set forged: the
+\ publisher refuses a stale definition published from the snapshot, the
+\ run fails, and with no verdict the stale count is 0, never what the
+\ first pass carried taken from none (review of snap-compat L3).
+true forging ! 20000000 ck-start 0 0 ck-layers!
+T{ nested-snap carry-alone -> outcome-ok }T
+ck-check
+T{ ck-outcome ck-carried# 0> ck-stale# -> outcome-invalid true 0 }T
+false forging ! false snap-stale-allowed ! ck-release
+\ ---- A step that changed the importer (reach-reading; review of
+\ snap-compat M2): a snapshot alone is refused (unsupported, "export
+\ reading"), with no stale count (no verdict: review L3); with
+\ --snapshot-stale-ok every result is stale, none carried; with its
+\ export, the import pass reads it again and every declaration is
+\ checked, as fresh.
+reach-all reach-reading or pretended ! 20000000 ck-start 0 0 ck-layers!
+T{ nested-snap carry-alone ck-snap-bad? ck-stale# -> outcome-unsupported true 0 }T
+T{ ck-snap snap-why @ count s" export reading" compare -> 0 }T
+[defined] >string-execute [if]
+: reading-note? ( -- flag )
+  ['] cli-window-note >string-execute s" note: this build reads exports otherwise" search
+  nip nip ;
+T{ reading-note? -> true }T
+[then]
+ck-release
+true snap-stale-allowed ! 20000000 ck-start 0 0 ck-layers!
+T{ nested-snap carry-alone ck-carrying? ck-stale? -> outcome-ok false true }T
+ck-check
+T{ ck-outcome ck-carried# ck-saved# lf-input-count = -> outcome-ok 0 true }T
+false snap-stale-allowed ! ck-release
+20000000 ck-start 0 0 ck-layers! nested-snap -1 ck-snapshot-import ok? s" reading import" must
+9 ck-import imp-carry! ' pretend ck-import imp-steps ! 10 ck-import imp-top !
+nested-file true ck-load ok? s" reading load" must ck-check
+T{ ck-outcome same-as-fresh2? ck-taken# -> outcome-ok true 0 }T
+ck-release
+\ ---- The scheduler's hook (review of snap-compat L6): an answer "wait"
+\ (2) for a declaration at the frontier, every slot below it final, is
+\ "check it" (0); beyond it, "wait".
+: waits ( d -- n ) drop 2 ;
+' waits lf-sched-pre!
+T{ 0 lf-sch-pre-of 5 lf-sch-pre-of -> 0 2 }T
+0 lf-sched-pre!
+\ Answer 3 (L4): the run stops at d, d done, as the serial run stops at a
+\ failure to take there (ck-pre-failed answers 3 and keeps the fault).
+: stops ( d -- n ) drop 3 ;
+20000000 ck-start s" tests/cli/inductive.ndjson" true ck-load ok? s" hook load" must
+ck-facts drop ck-env drop lf-sched-init drop lf-sched-plan ok? s" hook plan" must
+' stops lf-sched-pre!
+T{ lf-sched-stop 2 lf-sch-pre-done? lf-sched-stop 2 lf-sch-state@ lf-sch-done =
+   -> lf-input-count true 2 true }T
+T{ 4 outcome-invalid ck-pre-failed ck-faulted? -> 3 true }T
+0 lf-sched-pre! ck-release
+\ ---- Out of room in a carry run's load (review of snap-compat): every
+\ heap allocation it makes -- keep-sds, input-maps and same-maps among
+\ them -- refused in turn gives full, never invalid; ok only where the
+\ refusal was the seal's trim of a slab (stage.fs stage-seal: the slab
+\ keeps its room), 11 of them.
+: carried-load ( -- outcome )
+  0 pretended ! 20000000 ck-start 0 0 ck-layers! nested-snap carry-alone ;
+: c-allocations ( -- n )
+  max-n heap-refusals ! carried-load drop max-n heap-refusals @ - 0 heap-refusals ! ck-release ;
+: c-refusing ( k -- outcome reached? )
+  heap-refusals ! carried-load heap-refusals @ 0= 0 heap-refusals ! ck-release ;
+: c-trimmed ( outcome -- n ) ok? 1 and ;
+: c-full? ( k -- trims flag ) c-refusing swap dup c-trimmed swap dup ok? swap outcome-full = or rot and ;
+: c-all-full? ( -- trims flag )
+  0 true c-allocations 1+ 1 ?do i c-full? rot and >r + r> loop ;
+c-allocations drop   \ the first load makes some allocations once (lazily); later ones do not
+T{ c-allocations 20 > c-all-full? -> true 11 true }T
+\ A snapshot written at a fuel limit some checks ran out of: nothing in
+\ the pretended reach, still every exhausted result checked again (C2),
+\ as a fresh check at that limit gives it.
+s" leanforth-env-import-low.lfsnap" scratch-file 2constant low-snap
+3000 ck-start nested-file true ck-load ok? s" low load" must ck-check keep-fresh2
+low-snap s" {}" ck-snapshot-save ok? s" low save" must ck-release
+0 pretended ! 3000 ck-start 0 0 ck-layers! low-snap -1 ck-snapshot-import ok? s" low import" must
+9 ck-import imp-carry! ' pretend ck-import imp-steps ! 10 ck-import imp-top !
+nested-file true ck-load ok? s" low run" must ck-check
+T{ ck-outcome same-as-fresh2? why-outcome why# 0> reach10 why# -> outcome-ok true true 0 }T
+ck-release  low-snap delete-file drop
+nested-snap delete-file drop
+\ A base of an older verdict version is not carried under layers, nor
+\ with an export and --snapshot-stale-ok (plan step 6.2.5c7): stale or
+\ refused instead (check-run.fs ck-carry-or-stale).
+20000000 ck-start
+T{ layers 1 ck-layers! ck-uncarried? 0 0 ck-layers! ck-uncarried? -> true false }T
+T{ true ck-state ck-importing ! ck-uncarried? true snap-stale-allowed ! ck-uncarried? -> false true }T
+false snap-stale-allowed ! ck-release
+T{ depth -> 0 }T
 T{ failures @ -> 0 }T
 failures @ 0= [if] ." The import pass, its I2 build and layers hold." cr [then]
 bye

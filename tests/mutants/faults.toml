@@ -9413,10 +9413,10 @@ reason = "rvSN3 m2: a saved fuel used above the fuel per declaration loads"
 [[fault]]
 id = "rvsn3-provenance-unchecked"
 file = "src/kernel/env-snapshot.fs"
-old = '''  swap sl-provenance swap fld@ swap snap-layer? 1 and u> 0= ;'''
-new = '''  2drop true ;'''
+old = ''': prov-ok? ( addr snap -- flag ) prov-max swap sl-provenance swap fld@ u< 0= ;'''
+new = ''': prov-ok? ( addr snap -- flag ) 2drop true ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_review_faults"
-reason = "rvSN3 m3: a base snapshot's slot with a provenance a final run never writes loads"
+reason = "rvSN3 m3: a base snapshot's slot with a provenance no run writes (above 3; 1-3 since plan step 6.2.5c5, an upgraded base) loads"
 
 [[fault]]
 id = "rvsn3-added-unblocked"
@@ -9466,7 +9466,7 @@ reason = "SN4: a block's member compared alone, not the whole block; the block's
 [[fault]]
 id = "sn4-answer-untranslated"
 file = "src/kernel/env-import.fs"
-old = '''  1- swap imp-from @ ua@ ?dup 0= if drop false exit then
+old = '''  1- swap s-of ?dup 0= if drop false exit then
   lf-look-reslot true ;'''
 new = '''  2drop true ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
@@ -9475,7 +9475,7 @@ reason = "SN4: a lookup's answer compared without translating its slot to the sn
 [[fault]]
 id = "sn4-undecided-matched"
 file = "src/kernel/env-import.fs"
-old = '''  over replay-all if lf-env-early? 0= if answers-same? exit then then 2drop false ;'''
+old = '''  over replay-all if dup early? 0= if answers-same? exit then then 2drop false ;'''
 new = '''  over replay-all if answers-same? exit then 2drop false ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
 reason = "SN4: a lookup that met a slot not taken (to be checked in this run) is not refused as no match"
@@ -9507,7 +9507,7 @@ reason = "SN4: a taken slot not labelled as taken from the snapshot, nor its use
 [[fault]]
 id = "sn4-trailing-alone"
 file = "src/kernel/env-import.fs"
-old = '''  over d-trailing? if 2drop drop false exit then
+old = '''  over d-trailing? if dup imp-k @ 1- over why@ why exit then
 '''
 new = ''''''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
@@ -11696,6 +11696,210 @@ test = "$GFORTH tests/core/env-import.fs"
 reason = "review I2: an own record not entered (map 0) is given as number -1"
 gap = "not equivalent: every record builder refuses -1 in the same step, but a declaration field naming a letE's body record would be refused by ly-enter instead of ly-decls; no layer fixture forges one"
 
+# --- reading older snapshots (plan task 6.2.5c; src/kernel/verdict-version.fs) ---
+[[fault]]
+id = "snapc-reach-entry-dropped"
+file = "src/kernel/verdict-version.fs"
+old = '''  7 , reach-block-any , 0 ,
+'''
+new = ''''''
+test = "python3 tests/cli/test_leanforth.py ReachTable"
+reason = "6.2.5c1: a step's reach entry dropped (step 7, outside the steps today's window needs; dropping step 8's or 9's stops the build loading, verdict-version.fs's abort)"
+
+[[fault]]
+id = "snapc-reach-union-short"
+file = "src/kernel/verdict-version.fs"
+old = '''  0 swap 1+ lf-verdict-version 1+ tuck min ?do i lf-vstep-bits or loop ;'''
+new = '''  0 swap 2 + lf-verdict-version 1+ tuck min ?do i lf-vstep-bits or loop ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "6.2.5c1: the reach after a version leaves out the step just after it"
+
+[[fault]]
+id = "snapc-reach-union-top-short"
+file = "src/kernel/verdict-version.fs"
+old = '''  0 swap 1+ lf-verdict-version 1+ tuck min ?do i lf-vstep-bits or loop ;'''
+new = '''  0 swap 1+ lf-verdict-version tuck min ?do i lf-vstep-bits or loop ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "6.2.5c1: the reach after a version leaves out this build's own step"
+
+[[fault]]
+id = "snapc-window-wider"
+file = "src/kernel/verdict-version.fs"
+old = '''2 constant lf-snapshot-window'''
+new = '''3 constant lf-snapshot-window'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "6.2.5c1: the window one version wider (a version three back read)"
+
+[[fault]]
+id = "snapc-step9-narrowed"
+file = "src/kernel/verdict-version.fs"
+old = '''  9 , reach-all , 0 ,'''
+new = '''  9 , reach-block-any , 0 ,'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py OlderSnapshots.test_carried"
+reason = "6.2.5c3: step 9's reach narrowed to inductive blocks: unfold's definitions would be carried from version 8 with its fuel (impliesSelf 65, this build 68)"
+
+[[fault]]
+id = "snapc-reach-ignored"
+file = "src/kernel/env-import.fs"
+old = '''  2dup reach-why ?dup if why exit then
+'''
+new = ''''''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "6.2.5c3: C3 ignored: every result of an older snapshot carried, whatever the steps since reach"
+
+[[fault]]
+id = "snapc-exhausted-carried"
+file = "src/kernel/env-import.fs"
+old = '''  dup outcome-full = over outcome-invalid = or swap outcome-exhausted = or ;'''
+new = '''  dup outcome-full = swap outcome-invalid = or ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "6.2.5c3 (C2, I1.2): a result that ran out of fuel carried or taken"
+
+[[fault]]
+id = "snapc-carried-label-dropped"
+file = "src/cli/leanforth.fs"
+old = '''  ck-carried? if cli-carried-from. exit then'''
+new = '''  drop'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "6.2.5c3: a carried result shown as taken from the snapshot, without the older verdict version it comes from"
+
+[[fault]]
+id = "snapc-carried-json-stale"
+file = "src/cli/check-json.fs"
+old = '''  dup ck-carried? if drop s" snapshot" else lf-env-origin cj-origin-text then ;'''
+new = '''  lf-env-origin cj-origin-text ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "6.2.5c3: with --snapshot-stale-ok a carried result labelled stale-snapshot in JSON"
+
+[[fault]]
+id = "snapc-count-not-first"
+file = "src/cli/leanforth.fs"
+old = ''': cli-carry-first ( -- ) cli-json? 0= if ['] cli-carry. ck-carried! then ;'''
+new = ''': cli-carry-first ( -- ) ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py OlderSnapshots.test_carried"
+reason = "6.2.5c3 (owner Q3): the count of declarations checked again not printed before the checks"
+
+[[fault]]
+id = "snapc-layers-carried"
+file = "src/cli/check-run.fs"
+old = '''  ck-layer-names 2@ nip 0<> ck-importing? snap-stale-allowed @ and or ;'''
+new = '''  ck-importing? snap-stale-allowed @ and ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "6.2.5c3: a base of an older version carried under layers (mixed stacks are step 6.2.5c7): with --snapshot-stale-ok its results are no longer all stale"
+
+[[fault]]
+id = "snapc-upgrade-no-export-id"
+file = "src/cli/check-run.fs"
+old = '''  ck-snapped? ck-importing? 0= and if ck-old-export ck-old-manifest outcome-ok exit then'''
+new = '''  ck-snapped? ck-importing? 0= and if ck-old-manifest outcome-ok exit then'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py OlderSnapshots.test_upgrade"
+reason = "6.2.5c5: an upgraded base written without the export's identity its snapshot names"
+
+[[fault]]
+id = "snapc-upgrade-stale-written"
+file = "src/cli/check-run.fs"
+old = ''': ck-unstale? ( -- flag ) ck-snap snap-stale @ ck-carrying? ck-filled? and or 0= ;'''
+new = ''': ck-unstale? ( -- flag ) true ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "6.2.5c5: results shown stale (--snapshot-stale-ok) written into a snapshot"
+
+[[fault]]
+id = "snapc-upgrade-untaken"
+file = "src/kernel/env-snapshot.fs"
+old = '''  swap lf-slot-saved @ 0<> prov-taken and or ;'''
+new = '''  nip ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "6.2.5c5 (R8): a carried slot written into the upgraded base without the taken mark"
+
+[[fault]]
+id = "snapc-prov-layer-wide"
+file = "src/kernel/env-snapshot.fs"
+old = ''': prov-max ( snap -- u ) snap-layer? if 1 else prov-taken 1 or then ;'''
+new = ''': prov-max ( snap -- u ) drop prov-taken 1 or ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py OlderSnapshots.test_upgrade"
+reason = "6.2.5c5: a layer's slot taken from a snapshot (provenance 2) accepted; only an upgraded base holds such slots"
+
+[[fault]]
+id = "snapc-i3-outcome-only"
+file = "src/kernel/env-snapshot.fs"
+old = ''': alike? ( d slot -- flag ) 2dup 5 fields-upto? if marks-same? else 2drop false then ;'''
+new = ''': alike? ( d slot -- flag ) 1 fields-upto? ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "6.2.5c4 (I3): a slot checked again answers as the saved one when only its outcome is the same (a definition whose axiom set differs lets its users be carried)"
+
+[[fault]]
+id = "snapc-i3-off"
+file = "src/kernel/env-import.fs"
+old = '''  dup alike-here? if dup same-from! same-to! else drop then ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "6.2.5c4: I3 never applied: users of a slot checked again with the same answers are checked again too (c3's rule)"
+
+[[fault]]
+id = "snapc-pre-ignored"
+file = "src/kernel/env-schedule.fs"
+old = '''  over lf-sch-pre-done? if 2drop exit then
+'''
+new = ''''''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "6.2.5c4: with --jobs a declaration waiting for its turn is handed out to be checked, never carried: a parallel carry run carries another set than the serial one"
+
+[[fault]]
+id = "snapc-stale-rechecks"
+file = "src/cli/check-run.fs"
+old = ''': ck-rechecking? ( -- flag ) ck-carrying? snap-stale-allowed @ 0= and ;'''
+new = ''': ck-rechecking? ( -- flag ) ck-carrying? ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review of snap-compat M1: with --snapshot-stale-ok a stale slot answers as itself, so users of stale results are carried on their turn, labelled this build's"
+
+[[fault]]
+id = "snapc-reading-ignored"
+file = "src/cli/check-run.fs"
+old = '''  ck-carrying? ck-importing? 0= and if ck-import imp-rereads? else false then ;'''
+new = '''  false ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review of snap-compat M2: after an importer change a snapshot alone is carried from the older build's reading of the export"
+
+[[fault]]
+id = "snapc-frontier-wait"
+file = "src/kernel/env-schedule.fs"
+old = '''  dup lf-sch-pre-asked dup 2 = if over lf-sch-front@ > 0= if drop 0 then then nip ;'''
+new = '''  lf-sch-pre-asked ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review of snap-compat L6: a declaration at the frontier answered 'wait' waits forever"
+
+[[fault]]
+id = "snapc-carry-import-saved"
+file = "src/cli/check-run.fs"
+old = '''  ck-snapped? 0= ck-layers# 0= ck-unstale? and ck-carry-import? 0= and or ;'''
+new = '''  ck-snapped? 0= ck-layers# 0= ck-unstale? and or ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py OlderSnapshots.test_stale_and_refused"
+reason = "review of snap-compat L7: an export checked against an older base writes a layer no build loads"
+
+[[fault]]
+id = "snapc-stale-count-negative"
+file = "src/cli/check-run.fs"
+old = ''': ck-stale# ( -- n ) ck-verdicts? if ck-saved# ck-carried# - else 0 then ;'''
+new = ''': ck-stale# ( -- n ) ck-saved# ck-carried# - ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review of snap-compat L3: a failed carry run with --snapshot-stale-ok counts what the first pass carried as negative stale results"
+
+[[fault]]
+id = "snapc-pre-failed-checks"
+file = "src/cli/check-run.fs"
+old = ''': ck-pre-failed ( d outcome -- n ) 2drop true ck-state ck-faulted ! 3 ;'''
+new = ''': ck-pre-failed ( d outcome -- n ) 2drop true ck-state ck-faulted ! 0 ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review of snap-compat L4: a failure to take in a parallel run hands the declaration out to be checked instead of stopping the run there"
+
+[[fault]]
+id = "snapc-pre-stop-unset"
+file = "src/kernel/env-schedule.fs"
+old = ''': lf-sch-pre-stop ( d -- ) dup lf-sch-stop! lf-sch-done swap lf-sch-state! ;'''
+new = ''': lf-sch-pre-stop ( d -- ) lf-sch-done swap lf-sch-state! ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review of snap-compat L4: the hook's answer 3 marks d done without stopping the run at d"
+
 # --- Coverage tests of the kernel, second pass (COV2, 2026-11-12): is_geq's
 # max and imax cases (tests/core/level-geq.fs), terms without a data word
 # (tests/core/no-data-terms.fs, tests/core/mixed-level-substitute.fs).
@@ -13578,8 +13782,8 @@ reason = "FRK A (imp-input): the last step's failure is the import's outcome"
 [[fault]]
 id = "frk-imp-keep-no-names"
 file = "src/kernel/env-import.fs"
-old = '''  outcome-ok ['] keep-copy ok-with ['] keep-slots ok-with ['] keep-names ok-with nip ;'''
-new = '''  outcome-ok ['] keep-copy ok-with ['] keep-slots ok-with nip ;'''
+old = '''  ['] keep-names ok-with nip ;'''
+new = '''  nip ;'''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "FRK A (imp-keep): S's newest declaration of each name is not kept, so a name query of the import finds none"
 
