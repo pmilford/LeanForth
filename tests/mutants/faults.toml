@@ -10512,3 +10512,12 @@ new = '''  lf-mcompare-walker walk-budget 0= if 2drop true outcome-ok exit then
 test = "$GFORTH tests/core/mixed-compare.fs"
 reason = "Lean's == with negative fuel answers 'equal' instead of refusing"
 quick = true
+
+[[fault]]
+id = "cov2-snap-alloc-refusal-ok"
+file = "src/kernel/env-snapshot.fs"
+old = '''  >r over 1 max allocate if drop 2drop r> drop outcome-full exit then'''
+new = '''  >r over 1 max allocate if drop 2drop r> drop outcome-ok exit then'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "a snapshot section the heap cannot hold is taken as written: the save reports ok for a file without it"
+quick = true
