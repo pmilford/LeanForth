@@ -1291,9 +1291,16 @@ variable cli-info#
   ."   print: a readable proof outline of each accepted declaration, from the" cr
   ."     checker's derivation log (plan tasks 2.4.1, 2.4.4; untrusted presentation)" cr
   ."   count, reexport: exports of any size, up to all of Mathlib" cr ;
+\ verify is bin/leanforth's: it starts scripts/program_verify.py, which needs
+\ Python 3 and the pinned Lean (the owner's V1 decision of 2026-11-13).
+: cli-verify-what. ( -- )
+  ."   verify: one Forth word against its contract (plan 8.4.1, V1): pinned Lean" cr
+  ."     writes the proofs, this checker re-checks them, a receipt records it;" cr ;
+: cli-verify-needs. ( -- )
+  ."     needs Python 3 and the pinned Lean 4.35.0 (owner, 2026-11-13: V1 only)" cr ;
 : cli-checks. ( -- )
   ." supported:" cr cli-check-input. cli-check-rules. cli-text-check.
-  cli-other-commands. ;
+  cli-other-commands. cli-verify-what. cli-verify-needs. ;
 : cli-lacks. ( -- )
   ." not yet supported (check answers unsupported or unknown, exit 2):" cr
   ."   a block with both safe and unsafe members (5.2.7 part b)," cr
@@ -1384,13 +1391,21 @@ variable cli-info#
   ."   count [--no-manifest] EXPORT     count the export's records by kind" cr
   ."   reexport [--no-manifest] EXPORT COPY" cr
   ."       write the export again, byte for byte as Lean's exporter writes it" cr ;
+: cli-verify-usage. ( -- )
+  ."   verify SOURCE.fs --contract CONTRACT [--out DIR] [--json] [--detail]" cr
+  ."         [--write-ir]" cr
+  ."   verify --replay RECEIPT [--rerun] [--json]" cr ;
+: cli-verify-meaning. ( -- )
+  ."       check one Forth word against its contract; needs Python 3 and the" cr
+  ."       pinned Lean 4.35.0 (V1 only); leanforth verify --help lists its options" cr ;
 : cli-info-usage. ( -- )
   ."   version        versions of LeanForth, its Forth host and the format read" cr
   ."   capabilities   what this build supports, what it does not, and its limits" cr
   ."   help           this text" cr ;
 : cli-usage. ( -- )
   ." usage: leanforth COMMAND [OPTION]... [FILE]..." cr
-  cli-check-usage. cli-other-usage. cli-info-usage. cli-engine-usage. ;
+  cli-check-usage. cli-other-usage. cli-verify-usage. cli-verify-meaning. cli-info-usage.
+  cli-engine-usage. ;
 : cli-codes. ( -- )
   ." exit status: 0 all accepted (or done), 1 something rejected," cr
   ."   2 unsupported or unknown, 3 a resource limit, 4 malformed input or" cr

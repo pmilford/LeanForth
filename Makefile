@@ -178,8 +178,11 @@ test-differential: $(DIFFERENTIAL_TARGETS)
 # reference-program-ir-run 33, reference-inductive 29, reference-cli 19, ...; since plan
 # 5.5.1 (2026-11-12) program-clamp-record runs LeanForth once on the clamp proofs'
 # 4,277-declaration export (about 100 s, 2 workers) for reference-program-ir-run and
-# reference-program-mutants, which wait for it.
-CHECK_FIRST := program-clamp-record reference-program-sha-export reference-demos \
+# reference-program-mutants, which wait for it; since plan 8.4.1b (2026-11-13)
+# reference-program-verify-clamp and -refuted each run leanforth verify's driver end
+# to end (about 100 s, 2 workers).
+CHECK_FIRST := program-clamp-record reference-program-verify-clamp \
+	reference-program-verify-refuted reference-program-sha-export reference-demos \
 	reference-program-ir-run reference-program-mutants reference-author reference test-cli \
 	reference-compact-init test-inductive-table reference-inductive reference-cli test-doc-examples-lean \
 	test-depth-differential test-depth-fed-differential test-universe-many-differential \
@@ -693,6 +696,42 @@ reference-program-sha-export:
 	reference-program-sha-export
 test: test-program-ir-run
 test-differential: reference-program-ir-run reference-program-mutants reference-program-sha-export
+
+# leanforth verify's driver v0 (plan 8.4.1b; docs/programming/PROGRAM_VERIFY.md):
+# every outcome, exit status and problem code, malformed input, limits and
+# state, with the real program words and generator and stand-ins for Lean, its
+# exporter and LeanForth's checker; in two halves that run side by side.
+# Gforth and Python 3 only.
+VERIFY_DRIVER_TESTS := python3 tests/program/test_program_verify.py
+test-program-verify-driver:
+	GFORTH=$(GFORTH) $(RUN) $(VERIFY_DRIVER_TESTS) Discharged Refuted Unsupported Lean Limits
+test-program-verify-driver-input:
+	GFORTH=$(GFORTH) $(RUN) $(VERIFY_DRIVER_TESTS) Checker Malformed Workflow Shared
+# The command (8.4.1c: bin/leanforth verify, --json, --write-ir) and replay (8.4.1d).
+test-program-verify-command:
+	GFORTH=$(GFORTH) $(RUN) $(VERIFY_DRIVER_TESTS) Report WriteIr Command Replay
+
+# The driver end to end from the command line with pinned Lean and LeanForth's
+# checker (--jobs 2, a final run): lf-clamp discharged and wrong-clamp-swapped
+# refuted, each against its golden receipt (about 100 s of two workers each). The
+# test switch LEANFORTH_VERIFY_TEST_TOOLS=1 lets the driver use LEAN and LEANEXPORT
+# (here the Lean cache); without it the driver runs the checkout's pinned Lean.
+reference-program-verify-clamp:
+	LEANFORTH_VERIFY_TEST_TOOLS=1 LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) \
+	  python3 tests/program/verify_lean_check.py lf-clamp
+reference-program-verify-refuted:
+	LEANFORTH_VERIFY_TEST_TOOLS=1 LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) \
+	  python3 tests/program/verify_lean_check.py wrong-clamp-swapped
+# All thirteen committed contracts, the plan's acceptance (about 13 minutes of
+# two workers): run by hand, not part of make check.
+reference-program-verify-all:
+	LEANFORTH_VERIFY_TEST_TOOLS=1 LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) \
+	  python3 tests/program/verify_lean_check.py --all
+
+.PHONY: test-program-verify-driver test-program-verify-driver-input test-program-verify-command \
+	reference-program-verify-clamp reference-program-verify-refuted reference-program-verify-all
+test: test-program-verify-driver test-program-verify-driver-input test-program-verify-command
+test-differential: reference-program-verify-clamp reference-program-verify-refuted
 
 # Store marks (plan task 1.1.3) and the checked environment v0 (ADR 0012,
 # plan task 2.2.2): unit and failure-path tests, and checks interleaved as

@@ -162,7 +162,11 @@ they sit inside a string, or a control, format or separator character
 (Unicode Cc, Cf, Cs, Zl, Zp); the statement and the stack effect are
 refused for the same characters. `tests/program/vc_check.py` runs the
 reviewer's contract and a hostile corpus, and checks that any other
-statement gives the same Lean file.
+statement gives the same Lean file. With `--lean` it also compares, for
+each of 32 operator forms, Python's evaluation (which decides `refuted`)
+with Lean's evaluation of the translation on all 144 pairs of the
+search's candidates on 64-bit cells (review H1); `--operators` runs that
+comparison alone.
 
 ## Results (2026-11-02)
 
@@ -370,6 +374,14 @@ schema 0.4, at the owner's [format] gate
 ([receipts](PROGRAM_RECEIPTS.md#schema-04-what-ir-02-receipts-need)).
 
 ## Running
+
+For one word and one contract, the whole pipeline (program words, this
+generator for that contract alone, pinned Lean, the export, LeanForth's
+checker, a receipt) is one command since plan 8.4.1b,
+`python3 scripts/program_verify.py SOURCE.fs --contract CONTRACT`
+([PROGRAM_VERIFY.md](PROGRAM_VERIFY.md)); it gives the generator a path
+limit and a counterexample-search limit (`program_vc.generate_parsed`).
+The pieces, one at a time:
 
 ```sh
 python3 scripts/program_vc.py --out FILE.lean --summary FILE.json CONTRACT...

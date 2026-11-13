@@ -79,6 +79,7 @@ findings neither fixed nor turned into plan tasks. A row that raises the style b
 | 2026-11-13 | `67d71882..b171fc9c` | fe1g3 follow-up: M1, L1-L10 | forth-reviewer (Opus), short re-check | [report](2026-11-13-fe1g3.md), last section | 0 blocking; 2 low (no fault on `lfa-more,`; `lf-tac-defeq`'s throwing exit untested) | the two lows to the FE1g row |
 | 2026-11-13 | `7d08d494..d0ffdaec` | s1-meta merge A (slice S1): one tree-shaped undo trail in mvars.fs, meta-config.fs, the stuck signal, the whnf words, the error-range header | forth-reviewer (Opus), one round, probe | [report](2026-11-13-s1-meta-a.md) | 0 blocking; M1-M3 and L1 test gaps (four reviewer faults survived), L2-L4, S1-S3 | fixed in d0ffdaec..47943d3a |
 | 2026-11-13 | `d0ffdaec..47943d3a` | s1-meta merge A follow-up: the missing tests and five faults, L2-L4, S1-S3 | forth-reviewer (Opus), short re-check | [report](2026-11-13-s1-meta-a.md), last section | 0 findings | L2's test when s1-elab sets the stuck bit |
+| 2026-11-13 | `995a1c45..a1f13431` | `leanforth verify` listed in help and capabilities (verify-b, plan 8.4.1c, V1) | forth-reviewer (Opus), one short round, probe | [report](2026-11-13-verify-cli.md) | 0 blocking; 1 low (`--write-ir` shown as an option of a full run, not its own mode) | the low to plan 8.4.1 (V1 follow-up) |
 
 ## Backlog
 

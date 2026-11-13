@@ -312,6 +312,7 @@ wrong word builds a different term, which the checker checks as it is.
 | `print [--no-manifest] [--fuel N] [--checked] [--detail] [--name NAME] [--latex] [--statement FORMS] [--kernel] [--any-lean-version] EXPORT`, or `print --lf [--no-manifest] [--fuel N] [--checked] [--any-lean-version] EXPORT` | Check the export and print each accepted declaration's [readable proof](#printing-a-readable-proof), or with `--detail` every step of the checker's log; `--name` prints one declaration; `--lf` writes the whole export as one [LeanForth text](#writing-an-export-as-leanforth-text) |
 | `count [--no-manifest] EXPORT` | Count the export's records by kind ([the reader's counter](../development/NDJSON_READER.md#using-it)), for exports of any size |
 | `reexport [--no-manifest] EXPORT COPY` | Write the export again into COPY, byte for byte as Lean's exporter writes it ([re-export](../development/NDJSON_READER.md#re-export)); after an error COPY is incomplete and must be discarded |
+| `verify SOURCE.fs --contract CONTRACT [--out DIR] [--json] [--detail] [--write-ir] [--fuel N] [--jobs N] [--memory-per-check MB] [--checked] [--lean-time-limit S] [--keep-export] [--paths-limit N] [--search-limit N]`, or `verify --replay RECEIPT [--rerun] [--json]` | Check one Forth word against its contract: pinned Lean writes the proofs, LeanForth's checker re-checks them, a receipt (schema 0.3) records the result; `--replay` rebuilds a receipt from its files and evidence. Needs Python 3 and the pinned Lean 4.35.0 (owner, 2026-11-13: for V1 only). The manual is [PROGRAM_VERIFY.md](../programming/PROGRAM_VERIFY.md) |
 | `version` (or `--version`) | Versions of LeanForth, its Forth host, the export format it reads, and the git commit |
 | `capabilities` | What this build supports, what it does not, and its limits |
 | `help` (or `--help`, `-h`) | The usage text |
@@ -1707,6 +1708,9 @@ supported:
   print: a readable proof outline of each accepted declaration, from the
     checker's derivation log (plan tasks 2.4.1, 2.4.4; untrusted presentation)
   count, reexport: exports of any size, up to all of Mathlib
+  verify: one Forth word against its contract (plan 8.4.1, V1): pinned Lean
+    writes the proofs, this checker re-checks them, a receipt records it;
+    needs Python 3 and the pinned Lean 4.35.0 (owner, 2026-11-13: V1 only)
 Mathlib: all 729,263 declarations of its Lean export accepted on build b74a04d
   (fuel 250M, --memory-per-check 8192, --no-manifest); not re-run since
 not yet supported (check answers unsupported or unknown, exit 2):
