@@ -134,8 +134,8 @@ end-structure
 : me-texts-clear ( -- )
   me-texts slab-clear me-tparams slab-clear me-tkinds slab-clear me-gen menv menv-gen ! ;
 : me-texts-current ( -- ) me-gen menv menv-gen @ <> if me-texts-clear then ;
-: lf-menv-reset ( -- ) false menv menv-run ! 0 lf-menv-stage! me-texts-clear
-  lf-libdec-reset ;
+: lf-menv-reset ( -- )
+  false menv menv-run ! 0 lf-menv-stage! me-texts-clear lf-libdec-reset ;
 : lf-menv-library! ( stage -- ) lf-menv-reset lf-libdec-stage! true menv menv-run ! ;
 
 \ ---- Handles: the way a handle is read (0 fed, 1 library, 2 text) and a

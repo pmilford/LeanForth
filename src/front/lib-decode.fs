@@ -291,10 +291,10 @@ end-structure
 
 \ ---- Binder kinds (S1 §4): e's leading Pi binders, from the tier's tags.
 : lbd-pi-in? ( e tier -- flag ) expr-tag@ tag-pi tag-let within ;
+: lbd-kind+ ( e tier slab -- e tier outcome ) >r 2dup expr-tag@ tag-pi - r> lbd-push ;
 : lf-tier-kinds ( e tier slab -- outcome )
   dup slab-clear >r begin 2dup lbd-pi-in? while
-    2dup expr-tag@ tag-pi - r@ lbd-push ok-then? 0= if nip r> drop exit then tuck expr-b@
-      swap
+    r@ lbd-kind+ ok-then? 0= if nip r> drop exit then tuck expr-b@ swap
   repeat 2drop r> drop outcome-ok ;
 : lf-libdec-kinds ( d slab -- outcome ) >r lbd-stage@ staged-type@ lbd-tier r>
   lf-tier-kinds ;

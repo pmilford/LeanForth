@@ -574,8 +574,8 @@ end-structure
   2dup lf-user-name? swap lf-mvar-live? and 0= if 2drop outcome-invalid exit then
   swap mv-number mv-was-tag mv-change ;
 : lf-mvar-mark-inst ( mvar -- outcome )
-  dup lf-mvar-live? 0= if drop outcome-invalid exit then true swap mv-number mv-was-inst
-    mv-change ;
+  dup lf-mvar-live? 0= if drop outcome-invalid exit then
+  true swap mv-number mv-was-inst mv-change ;
 : lf-mvar-inst? ( mvar -- flag ) 0 mvd-inst mv-field 0= if false then ;
 : lf-mvar-kind! ( mvar kind -- outcome )
   2dup mv-kind? swap lf-mvar-live? and 0= if 2drop outcome-invalid exit then

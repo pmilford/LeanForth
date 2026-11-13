@@ -153,7 +153,8 @@ def make_lean(work):
     lean, _ = lean_tool("lean")
     path = work / "lean.txt"
     with open(path, "wb") as out:
-        subprocess.run([lean, str(ROOT / "tests/reference/binder-kinds.lean")], stdout=out,
+        subprocess.run([lean, "-DwarningAsError=true", str(ROOT / "tests/reference/binder-kinds.lean")],
+                       stdout=out,
                        check=True, cwd=ROOT)
     return path
 

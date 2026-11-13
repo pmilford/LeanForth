@@ -15562,8 +15562,8 @@ reason = "S1 §1: lfc-empty leaves the run mode and its decoded library behind"
 [[fault]]
 id = "fe-env-intact"
 file = "src/front/meta-env.fs"
-old = ''': lf-menv-reset ( -- ) false menv menv-run ! 0 lf-menv-stage! me-texts-clear lf-libdec-reset ;'''
-new = ''': lf-menv-reset ( -- ) false menv menv-run ! 0 lf-menv-stage! me-texts-clear lf-libdec-reset lf-term-reset ;'''
+old = '''  false menv menv-run ! 0 lf-menv-stage! me-texts-clear lf-libdec-reset ;'''
+new = '''  false menv menv-run ! 0 lf-menv-stage! me-texts-clear lf-libdec-reset lf-term-reset ;'''
 test = "$GFORTH tests/front/meta-env.fs"
 reason = "S1 §1 trust point 3: a front-end reset writes below the fed input's marks"
 
@@ -15586,8 +15586,8 @@ reason = "S1 merge B: whnfCore leaves a recursor as an inert definition"
 [[fault]]
 id = "fe-kinds-tag"
 file = "src/front/lib-decode.fs"
-old = '''    2dup expr-tag@ tag-pi - r@ lbd-push ok-then? 0= if nip r> drop exit then tuck expr-b@ swap'''
-new = '''    2dup expr-tag@ tag-lam - r@ lbd-push ok-then? 0= if nip r> drop exit then tuck expr-b@ swap'''
+old = ''': lbd-kind+ ( e tier slab -- e tier outcome ) >r 2dup expr-tag@ tag-pi - r> lbd-push ;'''
+new = ''': lbd-kind+ ( e tier slab -- e tier outcome ) >r 2dup expr-tag@ tag-lam - r> lbd-push ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "S1 §4: a library binder's kind read off the wrong tag base"
 
@@ -15626,8 +15626,8 @@ reason = "S1 appendix D: succ u decremented to itself"
 [[fault]]
 id = "fe-inst-trail"
 file = "src/front/mvars.fs"
-old = '''  dup lf-mvar-live? 0= if drop outcome-invalid exit then true swap mv-number mv-was-inst mv-change ;'''
-new = '''  dup lf-mvar-live? 0= if drop outcome-invalid exit then mv-number mv-decl true swap mvd-inst ! outcome-ok ;'''
+old = '''  true swap mv-number mv-was-inst mv-change ;'''
+new = '''  mv-number mv-decl true swap mvd-inst ! outcome-ok ;'''
 test = "$GFORTH tests/front/menv-run.fs"
 reason = "S1 §3: the instance-typed flag set past the trail, kept after a rollback"
 
