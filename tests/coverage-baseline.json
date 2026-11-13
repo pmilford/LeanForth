@@ -1,5 +1,5 @@
 {
- "runs": 1762,
+ "runs": 1770,
  "files": {
   "src/author/build.fs": {
    "blocks": 250,
@@ -256,6 +256,26 @@
    "blocks": 76,
    "never_run": 5,
    "reason": "new file (plan FE1a-b, branch fe1, 2026-11-12): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded, a child beyond the walk memo and the reader default finder before cli/check-lf.fs sets it are never run"
+  },
+  "src/front/instantiate.fs": {
+   "blocks": 288,
+   "never_run": 9,
+   "reason": "new file (plan FE1c, branch fe1c, 2026-11-12): never run are the branches where the heap or a store refuses room (full) inside a walk, a comparison or a rebuild, and defensive defaults that no well-formed input reaches"
+  },
+  "src/front/level-defeq.fs": {
+   "blocks": 130,
+   "never_run": 2,
+   "reason": "new file (plan FE1c, branch fe1c, 2026-11-12): never run are the branches where the heap or a store refuses room (full) inside a walk, a comparison or a rebuild, and defensive defaults that no well-formed input reaches"
+  },
+  "src/front/level-params.fs": {
+   "blocks": 217,
+   "never_run": 13,
+   "reason": "new file (plan FE1c, branch fe1c, 2026-11-12): never run are the branches where the heap or a store refuses room (full) inside a walk, a comparison or a rebuild, and defensive defaults that no well-formed input reaches"
+  },
+  "src/front/level-simp.fs": {
+   "blocks": 189,
+   "never_run": 12,
+   "reason": "new file (plan FE1c, branch fe1c, 2026-11-12): never run are the branches where the heap or a store refuses room (full) inside a walk, a comparison or a rebuild, and defensive defaults that no well-formed input reaches"
   },
   "src/front/mvars.fs": {
    "blocks": 429,
