@@ -19,6 +19,8 @@ give **exactly Lean 4.35.0's verdicts** — an *unknown* where Lean decides
 is a gap to close, never a feature — and match or beat Lean's one-thread
 speed before parallelism adds more.
 
+**What LeanForth is and is not (2026-11-12).** LeanForth today is only the checking half of Lean (the kernel): it re-checks proof terms that Lean produced and exported (NDJSON), including all of Lean's `Init`. It has none of Lean's front end, the larger half: no elaborator (implicit arguments, numerals, unification), no type classes or coercions, no tactics, no pattern matching or recursion compilation, no evaluation. So it cannot yet turn a written theorem into a proof; Lean does all of that before the export. LeanForth text checked by the kernel is on a branch, not merged; there is no program verifier. The front end is plan phase 8 ([PLAN_DRAFT.md](PLAN_DRAFT.md)), being re-planned from 2026-11-12.
+
 ## Now, next, later (updated 2026-11-12)
 
 The single list of what is being worked on (owner, 2026-11-12; replaces the near-term queue of

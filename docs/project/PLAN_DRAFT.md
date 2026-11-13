@@ -95,6 +95,8 @@ has been through that process yet.
 
 ### What is missing
 
+**The front end (2026-11-12).** LeanForth today is only the checking half of Lean (the kernel): it re-checks proof terms that Lean produced and exported (NDJSON), including all of Lean's `Init`. It has none of Lean's front end, the larger half: no elaborator (implicit arguments, numerals, unification), no type classes or coercions, no tactics, no pattern matching or recursion compilation, no evaluation. So it cannot yet turn a written theorem into a proof; Lean does all of that before the export. LeanForth text checked by the kernel is on a branch, not merged; there is no program verifier. Phase 8 below covered the front end in only two rows (8.3.1, 8.3.2); it is being re-planned (owner, 2026-11-12).
+
 In the order this plan addresses it: a checker with the three outcomes
 (accepted, rejected, unsupported/unknown); a checked environment of
 declarations; definition unfolding; data types (needed for `Nat`, `Eq` and

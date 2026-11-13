@@ -1,6 +1,6 @@
 # LeanForth
 
-**Today LeanForth re-checks proofs that Lean produced and exported (NDJSON), including all of Lean's `Init`; it does not yet check LeanForth text, and it has no program verifier.**
+**LeanForth today is only the checking half of Lean (the kernel): it re-checks proof terms that Lean produced and exported (NDJSON), including all of Lean's `Init`. It has none of Lean's front end, the larger half: no elaborator (implicit arguments, numerals, unification), no type classes or coercions, no tactics, no pattern matching or recursion compilation, no evaluation. So it cannot yet turn a written theorem into a proof; Lean does all of that before the export. LeanForth text checked by the kernel is on a branch, not merged; there is no program verifier. The front end is plan phase 8 ([docs/project/PLAN_DRAFT.md](docs/project/PLAN_DRAFT.md)), being re-planned from 2026-11-12.**
 
 See the [project progress report](docs/project/PROJECT_PROGRESS.md) for both product
 tracks, importer limits, and a reproducible code inventory.
