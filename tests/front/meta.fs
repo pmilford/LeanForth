@@ -125,6 +125,9 @@ T{ zero u md lf-level-imax drop lf-meta-level-defeq md lval -> true outcome-ok z
 \ with none (?r read-only): false.
 lnew constant me
 T{ me me u lmax lf-meta-level-defeq me lfree? -> false outcome-unsupported true }T
+\ ?e =?= imax u ?e: ?e occurs in a level that is no max: undef both ways,
+\ then postponed (unsupported).
+T{ me u me lf-level-imax drop lf-meta-level-defeq me lfree? -> false outcome-unsupported true }T
 T{ me lsucc u lsucc v lsucc lmax lf-meta-level-defeq me lfree?
    -> false outcome-unsupported true }T
 T{ u me lmax u v lmax lf-meta-level-defeq -> false outcome-unsupported }T
@@ -377,6 +380,16 @@ T{ u v lmax lsucc nf u lsucc v lsucc lmax l= -> true }T
 T{ u v lsucc limax 2 lsuccs nf u v lsucc lmax 2 lsuccs l= -> true }T
 \ imax: zero for a zero right side, the right side for a left side 1.
 T{ u zero limax nf one v limax nf -> zero v }T
+\ mkIMaxAux's other rules: imax 0 u is u; imax u u is u; else an imax.
+T{ zero u limax nf u u limax nf u v limax nf ls-tag -> u u lf-level-tag-imax }T
+\ normLt on two imax bases: by their first sides, then by their second
+\ when the first are equal; equal bases by offset.
+lnew constant mz
+T{ u mz limax u v limax lmax nf u v limax u mz limax lmax l= -> true }T
+T{ v u limax u v limax lmax nf u v limax v u limax lmax l= -> true }T
+T{ u v limax lsucc u v limax lmax nf u v limax lsucc l= -> true }T
+\ Zero against zero inside a max: max 0 0 is 0.
+T{ zero zero lmax nf -> zero }T
 \ Lean's Name.cmp: by prefixes first (w before u.v), a number before a
 \ string (u.1 before z), then by bytes.
 : nm ( prefix c-addr u -- id ) lf-name-str 0= abort" name" ;
@@ -384,6 +397,7 @@ T{ u zero limax nf one v limax nf -> zero v }T
 T{ u-id v-id lf-meta-name-cmp v-id u-id lf-meta-name-cmp u-id u-id lf-meta-name-cmp
    -> -1 1 0 }T
 T{ w-id uv-id lf-meta-name-cmp uv-id w-id lf-meta-name-cmp -> -1 1 }T
+T{ u-id 2 lf-name-num drop u-id 1 lf-name-num drop lf-meta-name-cmp -> 1 }T
 T{ u-id 1 lf-name-num drop z-id lf-meta-name-cmp 0 s" ab" nm 0 s" abc" nm lf-meta-name-cmp
    -> -1 -1 }T
 \ Malformed: a level not in the store; a parameter whose name is no name.

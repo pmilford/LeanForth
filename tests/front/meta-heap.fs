@@ -94,6 +94,22 @@ T{ v u lmax lf-meta-level-normalize nip -> outcome-ok }T
 : norm-op ( -- level outcome ) nmax lf-meta-level-normalize ;
 T{ ' norm-op refusing 0> swap ok? rot dup lf-level-first@ 500 lfirsts swap
    lf-level-second@ 1000 lfirsts -> true true u v }T
+\ Level unification (level-defeq.fs): 0 =?= max ?a (max ?b ?c), true
+\ through normalization, a conjunction, occurs checks and assignments
+\ under a mark; max u ?d =?= max u v, stuck (unsupported). A refused run
+\ answers full and false and rolls its assignments back. A small one
+\ first gives the trail and the pair stack their blocks.
+lf-mctx-reset
+: lnew ( -- level ) lf-level-mvar-new made ;
+lnew constant ma  lnew constant mb  lnew constant mc  lnew constant md
+lnew constant mw  lnew constant mx
+T{ 0 mw mx lmax lf-meta-level-defeq -> true outcome-ok }T
+: free? ( level -- flag ) lf-level-mvar-value dup if nip then 0= ;
+: conj-op ( -- flag outcome ) 0 ma mb mc lmax lmax lf-meta-level-defeq ;
+: stuck-op ( -- flag outcome ) u md lmax u v lmax lf-meta-level-defeq ;
+false none !
+T{ ' conj-op refusing 0> mc lf-level-mvar-value -> true outcome-ok true 0 true }T
+T{ ' stuck-op refusing 0> md free? -> false outcome-unsupported true true }T
 
 T{ depth -> 0 }T
 cr .( meta-heap.fs: all tests passed) cr
