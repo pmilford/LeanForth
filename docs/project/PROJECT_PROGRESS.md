@@ -63,6 +63,9 @@ status changes when this date is older than them. Stages are those of the
   way (2,890 declarations); their receipts wait for schema 0.4.
 
 **Next**
+- Priority (owner, 2026-11-13 midday): the front end's slices in order, S1 then S2 ($0 + n = n$ by `by-induction` and
+  `by-rw`) then S3 onwards; S2's design note is written and reviewed while S1's last branches are built. No automatic
+  Mathlib run until changes need one.
 - The design stage (plan 9.4.7, owner 2026-11-13): every design reviewed before code and approved by the owner as a
   one-page summary; the plan re-cut into slices S1-S6, V1-V4 and SC1 (PLAN_DRAFT "Slices"); the reviews of the existing
   front-end designs and of VERIFY_COMMAND both blocking (S1 on five design gaps, V1 on contract text reaching Lean;
@@ -82,7 +85,8 @@ status changes when this date is older than them. Stages are those of the
   records"). Not yet integrated: the first push with them follows the merge.
 - The Forth refactoring batches of the three backlog reviews ([log](../development/forth-reviews/LOG.md), plan
   9.4.5), tests first, every verdict and fuel count identical.
-- Program track: a user command `leanforth verify` (8.4.1): designed 2026-11-13 ([design](../design/VERIFY_COMMAND.md),
+- Program track: a user command `leanforth verify` (8.4.1), slowed down by the owner 2026-11-13 (midday: the front
+  end's slices first; V1's review fixes finish and merge, V2-V4 wait): designed 2026-11-13 ([design](../design/VERIFY_COMMAND.md),
   sub-steps 8.4.1a–n, six owner questions); nothing built. Its first steps need no owner answer: the driver that runs
   5.5.1's pipeline for any IR 0.1 word (8.4.1b), the contract reader (8.4.1g) and receipt writer (8.4.1h) in Forth. The
   SHA-256 helper words' receipts (schema 0.4, IR 0.2, at the owner's [format] gate).

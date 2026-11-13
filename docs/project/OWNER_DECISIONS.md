@@ -1225,3 +1225,17 @@ From the design review of [VERIFY_COMMAND.md](../design/VERIFY_COMMAND.md)
 
 Open with V3: `sorry` in program proofs (as in Lean, never inserted by `verify`, exit 6); with FE2: contracts as
 LeanForth text.
+
+### Priorities: the S slices first (2026-11-13, midday)
+
+The owner, at about 11:45: "I don't think we require an automatic mathlib run tonight. I don't think we are making
+enough changes to require it yet. slow down the work on program correctness (but keep it up to date and moving very
+slowly) prioritize the S2 path (and the following S? paths)".
+
+1. **No automatic Mathlib run tonight.** The restored export stays ready; a full-Mathlib run waits for changes that
+   need it (kernel, import or snapshot changes) or the owner's request.
+2. **`leanforth verify` slowed down.** V1's work in flight (its review fixes) is finished, probed and merged, and its
+   three gate questions ([bypass], [format], [parser]) are asked with the next batch; V2-V4 wait. The program track's
+   plan rows and progress lines are kept current.
+3. **The front end's slices first:** S1 to its done check, then S2 ($0 + n = n$ by `by-induction` and `by-rw`), then
+   S3 onwards, each designed and reviewed before its code (plan 9.4.7).
