@@ -8462,8 +8462,8 @@ reason = "S5, S5B: an application or binder above an mdata expression is read in
 [[fault]]
 id = "s5-feed-copy-not-found"
 file = "src/import/feed.fs"
-old = '''    2dup swap feed-copy-at dup @ 4 pick = if nip nip nip cell+ 2@ exit then drop'''
-new = '''    2dup swap feed-copy-at dup @ 4 pick <> if nip nip nip cell+ 2@ exit then drop'''
+old = '''  swap feed-copy-at tuck copy-e @ = and ;'''
+new = '''  swap feed-copy-at tuck copy-e @ <> and ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "S5: a copied expression's term is looked up wrongly"
 
@@ -8653,8 +8653,8 @@ reason = "S5B: the printer no longer prints a projection as its leaf applied to 
 [[fault]]
 id = "s5b-view-let-value-raw"
 file = "src/import/feed.fs"
-old = '''  2dup feed-let-lam-node >r over swap feed-tier expr-b@ lf-tin-child r> 0'''
-new = '''  2dup feed-let-lam-node >r over swap feed-tier expr-b@ r> 0'''
+old = '''  2dup feed-let-lam-node >r over swap feed-tier expr-b@ lf-tin-child r> rot feed-leaf0! ;'''
+new = '''  2dup feed-let-lam-node >r over swap feed-tier expr-b@ r> rot feed-leaf0! ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "S5B: an input let's value is read as a record number, not as its term number"
 
@@ -10450,3 +10450,54 @@ new = '''    i 3 pick 3 pick 3 pick tuple-item, drop'''
 test = "GFORTH=$GFORTH python3 tests/core/test_stage.py"
 reason = "FRI B7: a list item that fails is skipped and the list made a tuple without it"
 gap = "the reader checks each list whole when it decodes a record (ndjson.fs), and the memory limit fails again later; a forged reader record with a JSON view is needed"
+
+[[fault]]
+id = "fri-b4-args-first-only"
+file = "src/import/feed.fs"
+old = '''  dup >r 0 ?do over i 2 pick feed-arg loop 2drop r> outcome-ok ;'''
+new = '''  dup >r 0 ?do over 0 2 pick feed-arg loop 2drop r> outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "FRI B4: every universe argument of a constant is filled from its first (Quot.lift.{u, v} gets u twice)"
+
+[[fault]]
+id = "fri-b4-args-room-ignored"
+file = "src/import/feed.fs"
+old = '''  if nip nip outcome-full exit then
+  dup >r 0 ?do over i 2 pick feed-arg loop 2drop r> outcome-ok ;'''
+new = '''  if nip nip outcome-ok exit then
+  dup >r 0 ?do over i 2 pick feed-arg loop 2drop r> outcome-ok ;'''
+test = "$GFORTH tests/core/check-block.fs"
+reason = "FRI B4: no room for a constant's universe arguments is taken as success"
+gap = "the pair buffer grows on the heap; only an exhausted heap refuses it, and no test exhausts the heap while feeding"
+
+[[fault]]
+id = "fri-b4-mdata-read-in-place"
+file = "src/import/feed.fs"
+old = '''  case tag-mdata of 2drop true endof  tag-proj of feed-a-copied? endof'''
+new = '''  case tag-mdata of 2drop false endof  tag-proj of feed-a-copied? endof'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "FRI B4: an mdata expression is read in place instead of copied (unsupported becomes invalid)"
+
+[[fault]]
+id = "fri-b4-let-above-mdata-in-place"
+file = "src/import/feed.fs"
+old = '''    tag-let of feed-let-copied? endof  tag-let-nondep of feed-let-copied? endof'''
+new = '''    tag-let of 2drop false endof  tag-let-nondep of feed-let-copied? endof'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "FRI B4: a let above an mdata expression is read in place"
+
+[[fault]]
+id = "fri-b4-binder-above-mdata-in-place"
+file = "src/import/feed.fs"
+old = '''    binder-tag? if feed-child-copied? else 2drop false then 0 endcase ;'''
+new = '''    drop 2drop false 0 endcase ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "FRI B4: a binder above an mdata expression is read in place"
+
+[[fault]]
+id = "fri-b4-leaf-fields-swapped"
+file = "src/import/feed.fs"
+old = ''': feed-leaf0! ( first second e -- outcome ) 0 swap feed-leaf! ;'''
+new = ''': feed-leaf0! ( first second e -- outcome ) >r swap r> 0 swap feed-leaf! ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "FRI B4: a literal's, projection's or let's leaf gets its two fields swapped"
