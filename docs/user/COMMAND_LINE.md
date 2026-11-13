@@ -1069,7 +1069,12 @@ leaves a file that looks complete): the text ends with `snapshot: written
 to two.lfsnap`, or `error: the snapshot was not written: …` with that
 outcome's exit status when the run did not decide every declaration or
 the file could not be written. `--jobs 1` and `--jobs 4` write the same
-bytes, and so do two runs of one build.
+bytes, and so do two runs of one build. The snapshot's information text
+names the build: the checkout's git commit and whether its tracked files
+differed from it when the run started. A run started after an edit or a
+commit in the checkout therefore writes another information text, and so
+another identity (the header's SHA-256), with every other section the
+same.
 
 The second reads no export: it loads the snapshot (every section's
 SHA-256 and every record checked; the publisher re-checks every saved

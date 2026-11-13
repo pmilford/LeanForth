@@ -9622,6 +9622,14 @@ test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Imports"
 reason = "SN5: a check that made names beyond its input (a nested block) is published full instead of with those names, so it is never taken"
 
 [[fault]]
+id = "det-information-jobs"
+file = "src/cli/leanforth.fs"
+old = '''  s\" ,\"cellBits\":" cli-info+ 1 cells 8 * cli-number-text cli-info+'''
+new = '''  s\" ,\"cellBits\":" cli-info+ 1 cells 8 * cli-jobs 1 > - cli-number-text cli-info+'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_same_bytes"
+reason = "DET (2026-11-13): the information section holds a figure of the run (here --jobs), so --jobs 4 writes other bytes than --jobs 1; test_same_bytes pins the commit, not the information, and compares every byte"
+
+[[fault]]
 id = "sn5-outer-unordered"
 file = "src/kernel/env-snapshot.fs"
 old = '''  snap-outers outers-list @ swap outers-of 2dup o-sort'''

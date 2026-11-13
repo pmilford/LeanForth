@@ -206,9 +206,11 @@ TEXT_JOBS_NOTE = ("note: --jobs does not apply to LeanForth text yet; checking o
                   "declaration at a time")
 
 
-def run(*args, cwd=ROOT, gforth=GFORTH, tool=TOOL):
-    """The exit status and everything printed, standard output first."""
-    result = subprocess.run([str(tool), *args], cwd=cwd, env=dict(os.environ, GFORTH=gforth),
+def run(*args, cwd=ROOT, gforth=GFORTH, tool=TOOL, env=None):
+    """The exit status and everything printed, standard output first; env,
+    variables set for this run only."""
+    result = subprocess.run([str(tool), *args], cwd=cwd,
+                            env=dict(os.environ, GFORTH=gforth, **(env or {})),
                             stdin=subprocess.DEVNULL, capture_output=True, timeout=TEST_LIMIT)
     return result.returncode, result.stdout.decode(), result.stderr.decode()
 
@@ -2239,9 +2241,16 @@ class Snapshots(unittest.TestCase):
     each labelled as taken from the snapshot (text, and report 0.5, which
     the schema accepts, and which set back to 0.3 with the withdrawn label
     0.3 accepts); --jobs 1 and --jobs 4, and two runs, write the
-    same bytes; a damaged, altered or stale snapshot is refused (planted
-    faults, each file's SHA-256s made again so that only the snapshot's own
-    checks can refuse it); the misuses are refused (status 4)."""
+    same bytes, and a run in a changed checkout differs only in the
+    information that names the build; a damaged, altered or stale snapshot
+    is refused (planted faults, each file's SHA-256s made again so that
+    only the snapshot's own checks can refuse it); the misuses are refused
+    (status 4)."""
+
+    # The information section (kernel/env-snapshot.fs, the last): the only
+    # part that names the build, with the commit bin/leanforth read and
+    # whether tracked files differed from it when the run started.
+    INFO = 16
 
     schema = Validator(json.loads((ROOT / "schemas/check-report-0.5.schema.json").read_text()))
     final = Validator(json.loads((ROOT / "schemas/check-report-0.4.schema.json").read_text()))
@@ -2306,14 +2315,74 @@ class Snapshots(unittest.TestCase):
         status, out, _ = run("check", "--save-snapshot", str(self.dir / "t"), FIXTURE)
         self.assertEqual(out.splitlines()[-1], f"snapshot: written to {self.dir / 't'}")
 
+    def pinned(self):
+        """Variables for a run whose information names no commit: git finds
+        no repository, so neither an edit or commit in the checkout while
+        the test runs nor git failing under a thread limit changes the
+        bytes (on 2026-11-13 a coverage run failed test_same_bytes when the
+        checkout changed between two of its runs: modified false, then
+        true)."""
+        return {"GIT_DIR": str(self.dir / "no-repository")}
+
+    def written(self, path, *args, env=None):
+        """The bytes check --save-snapshot PATH ARGS wrote, after checking
+        that the run decided every declaration and wrote PATH itself (never
+        an earlier file left there)."""
+        self.assertFalse(path.exists(), path)
+        status, out, err = run("check", "--json", "--save-snapshot", str(path), *args, env=env)
+        got = json.loads(out)
+        self.assertEqual((got["run"], got["stopped"], path.is_file()), ("ok", False, True),
+                         (args, status, err))
+        return path.read_bytes()
+
     def test_same_bytes(self):
-        for args in [[INDUCTIVE], ["tests/cli/nested.ndjson"],
-                     ["--no-manifest", "tests/cli/jobs/dupl80.ndjson"]]:
-            one, _, _ = self.saved(*args, name="one")
-            four, _, _ = self.saved("--jobs", "4", *args, name="four")
-            again, _, _ = self.saved(*args, name="again")
-            self.assertEqual(one.read_bytes(), four.read_bytes(), args)
-            self.assertEqual(one.read_bytes(), again.read_bytes(), args)
+        for k, args in enumerate([[INDUCTIVE], ["tests/cli/nested.ndjson"],
+                                  ["--no-manifest", "tests/cli/jobs/dupl80.ndjson"]]):
+            one, four, again = (self.written(self.dir / f"{name}{k}", *jobs, *args,
+                                             env=self.pinned())
+                                for name, jobs in [("one", []), ("four", ["--jobs", "4"]),
+                                                   ("again", [])])
+            self.assertEqual(one, four, args)
+            self.assertEqual(one, again, args)
+
+    def apart_from_build(self, path):
+        """A snapshot's bytes without what names the build -- the
+        information section's bytes, its count, length and SHA-256 in the
+        table, and the header's SHA-256 -- and its information without the
+        commit and modified values; and those values."""
+        data, table = sectioned(path)
+        kind, _, _, offset, length = table[self.INFO]
+        self.assertEqual((kind, len(table)), (self.INFO + 1, self.INFO + 1))
+        entry = 96 + 64 * self.INFO
+        info = json.loads(bytes(data[offset:offset + length]))
+        tree = {key: info.pop(key) for key in ("commit", "modified")}
+        kept = (data[:entry + 8] + data[entry + 16:entry + 24] + data[entry + 64:4064]
+                + data[4096:offset])
+        return bytes(kept), info, tree
+
+    def test_build_named_apart(self):
+        # A run in a changed checkout: an empty index (GIT_INDEX_FILE) shows
+        # git every tracked file deleted, so the information says modified
+        # true; beside a pinned run (commit null, modified false) it writes
+        # other bytes, as on 2026-11-13, but the same everywhere else.
+        pinned = self.dir / "pinned"
+        self.written(pinned, INDUCTIVE, env=self.pinned())
+        changed = self.dir / "changed"
+        self.written(changed, "--jobs", "4", INDUCTIVE,
+                     env={"GIT_INDEX_FILE": str(self.dir / "no-index")})
+        kept, info, tree = self.apart_from_build(pinned)
+        self.assertEqual(tree, {"commit": None, "modified": False})
+        *rest, tree = self.apart_from_build(changed)
+        self.assertEqual(rest, [kept, info])
+        if tree["commit"] is not None:   # a git checkout
+            self.assertEqual(tree["modified"], True)
+            self.assertNotEqual(pinned.read_bytes(), changed.read_bytes())
+        # Nothing else is left out: one bit of a slot is seen.
+        data, table = sectioned(changed)
+        data[table[SLOTS][3]] ^= 1
+        tampered = self.dir / "tampered"
+        tampered.write_bytes(bytes(resealed(data, table, SLOTS)))
+        self.assertNotEqual(self.apart_from_build(tampered)[0], kept)
 
     def refused(self, path, status, text, *args):
         got, out, _ = run("check", "--snapshot", str(path), *args)
