@@ -221,6 +221,41 @@ T{ 2 substitute-count -> outcome-invalid }T
 T{ counts@ -> 5 5 1 }T
 2 actuals pair!
 T{ 2 substitute-count -> 4 root-id @ outcome-ok }T
+\ Terms without a data word (core/terms.fs: a bound variable of index
+\ lf-data-unknown or more, and every term above it) are audited and
+\ rebuilt as before compact-store step S4, never skipped as closed: app
+\ (Sort p) (bvar U) becomes app (Sort q) (bvar U), the same variable
+\ kept as its own image; the variable alone is its own image.
+setup
+: no-data-var ( -- index id ) lf-data-unknown lf-hterm-bvar 0= abort" bvar" ;
+: no-data-app ( -- index id )
+  result @ result-id @ no-data-var lf-hterm-app 0= abort" app" ;
+no-data-var 2constant var-u
+no-data-app 2constant app-u
+T{ var-u drop lf-term-data@ app-u drop lf-term-data@ -> false false }T
+: substituted ( index id -- index' id' outcome ) formals actuals 2 500 lf-mixed-level-substitute ;
+: halves ( index -- second first ) dup lf-term-second@ swap lf-term-first@ ;
+T{ var-u substituted -> var-u outcome-ok }T
+T{ app-u substituted nip swap halves lf-term-read
+   -> outcome-ok app-u drop lf-term-second@ lf-tag-symbolic-sort 2 0 true }T
+T{ lf-mls-set htab-count lf-mls-reached @ -> 0 3 }T
+\ The heap refusing to grow the replacements' array (trimmed first): full
+\ with no diagnostic, every count as before; the next call grows it.
+\ (Refusals of the set of reached terms, the reached list and the images,
+\ which leave the stack wrong, are in
+\ tests/core/mixed-level-substitute-crowded.fs, out of make test.)
+: outcome-of ( index id 0 | status -- outcome ) dup ok? if nip nip then ;
+: refused ( -- outcome diag reached? )
+  lf-diag-clear 1 heap-refusals ! app-u substituted outcome-of
+  lf-diag-code@ heap-refusals @ 0= 0 heap-refusals ! ;
+create counted 3 cells allot
+: counts! ( -- ) counts@ counted 2 cells + ! counted cell+ ! counted ! ;
+: kept? ( -- flag )
+  counts@ counted 2 cells + @ = swap counted cell+ @ = and swap counted @ = and ;
+: actuals-refused ( -- outcome diag reached? )
+  counts! lf-mls-actual-cells slab-trim drop refused ;
+T{ actuals-refused kept? -> outcome-full 0 true true }T
+T{ app-u substituted outcome-of -> outcome-ok }T
 \ A full reference store: the constant, whose levels change, needs a new
 \ reference, and there is no room for it. That is full, and every count
 \ is restored.

@@ -305,6 +305,7 @@ test-core:
 	$(RUN) $(GFORTH) tests/core/level-value.fs
 	$(RUN) $(GFORTH) tests/core/level-compare.fs
 	$(RUN) $(GFORTH) tests/core/level-deep.fs
+	$(RUN) $(GFORTH) tests/core/level-geq.fs
 	$(RUN) $(GFORTH) tests/core/infer-deep.fs
 	$(RUN) $(GFORTH) tests/core/contexts.fs
 	$(RUN) $(GFORTH) tests/core/contexts-serial.fs
@@ -730,14 +731,24 @@ test-kernel-reduction:
 	$(RUN) $(GFORTH) tests/core/generated-recursor.fs
 	$(RUN) $(GFORTH) tests/core/mixed-head.fs
 	$(RUN) $(GFORTH) tests/core/mixed-rebuild.fs
+	$(RUN) $(GFORTH) tests/core/no-data-terms.fs
 test-kernel-blocks:
 	$(RUN) $(GFORTH) tests/core/inductive-block.fs
 	$(RUN) $(GFORTH) tests/core/inductive-recursor.fs
 test-kernel-nested:
 	$(RUN) $(GFORTH) tests/core/inductive-nested.fs
+# The second coverage pass (COV2, 2026-11-12): terms without a data word
+# (no-data-terms.fs, above), string literals' expansion under refused
+# allocations, a crowded store and sampled fuel, and sampled fuel through
+# definitional equality's eta, unit-like and lazy-delta steps. About 6 s.
+test-kernel-passes:
+	$(RUN) $(GFORTH) tests/core/string-literals.fs
+	$(RUN) $(GFORTH) tests/core/defeq-sweeps.fs
+	$(RUN) $(GFORTH) tests/core/check-forged.fs
+	$(RUN) $(GFORTH) tests/core/heap-refusals.fs
 
-.PHONY: test-kernel-reduction test-kernel-blocks test-kernel-nested
-test: test-kernel-reduction test-kernel-blocks test-kernel-nested
+.PHONY: test-kernel-reduction test-kernel-blocks test-kernel-nested test-kernel-passes
+test: test-kernel-reduction test-kernel-blocks test-kernel-nested test-kernel-passes
 
 # Run records and their replay (plan task 2.2.5; docs/programming/RUN_RECORDS.md):
 # unit tests of src/import/run-record.fs and run-replay.fs (every fixture, each
