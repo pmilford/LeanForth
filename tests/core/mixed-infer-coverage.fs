@@ -190,15 +190,15 @@ T{ second-signature s" second" 0 reference 0 make-sort make-app prop-arrow make-
 fresh-session
 T{ 0 make-sort 0 make-var 0 make-var 0 make-var make-lam make-lam make-lam status-of
   -> outcome-rejected }T
-: context-claim ( -- node )
+: binder-claim ( -- node )
   1 make-sort 0 make-var 1 make-sort 0 make-var 3 make-var
   make-pi make-pi make-pi make-pi ;
-: context-value ( result -- node )
+: binder-value ( result -- node )
   >r 1 make-sort 0 make-var 1 make-sort 0 make-var r> make-var make-lam make-lam
   make-lam make-lam ;
 fresh-session
-T{ context-claim 2 context-value probe -> outcome-ok }T
-T{ context-claim 0 context-value probe -> outcome-rejected }T
+T{ binder-claim 2 binder-value probe -> outcome-ok }T
+T{ binder-claim 0 binder-value probe -> outcome-rejected }T
 
 \ T5.3 lf-mixed-compare is syntactic: different Sort levels and a redex
 \ against its reduct are unknown, never equal.

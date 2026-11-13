@@ -3112,8 +3112,8 @@ quick = true
 [[fault]]
 id = "context-new-failure-leaks"
 file = "src/lib/context.fs"
-old = '''  swap dup context-torn rot swap ior-earlier swap context-discard ior-earlier 0 swap ;'''
-new = '''  swap context-discard ior-earlier 0 swap ;'''
+old = '''  over context-torn ior-earlier swap context-discard ior-earlier ;'''
+new = '''  swap context-discard ior-earlier ;'''
 test = "$GFORTH tests/lib/context.fs"
 reason = "a context-new whose setup word fails gives back its block but not the heap blocks earlier setup words made"
 
@@ -3281,8 +3281,8 @@ reason = "the context review's L1 (c): a context's walk that grew into a heap bl
 [[fault]]
 id = "context-new-ior-order"
 file = "src/lib/context.fs"
-old = '''  swap dup context-torn rot swap ior-earlier swap context-discard ior-earlier 0 swap ;'''
-new = '''  swap dup context-torn rot ior-earlier swap context-discard ior-earlier 0 swap ;'''
+old = '''  over context-torn ior-earlier swap context-discard ior-earlier ;'''
+new = '''  over context-torn swap ior-earlier swap context-discard ior-earlier ;'''
 test = "$GFORTH tests/lib/context.fs"
 reason = "the context review's L1 (b): a failed context-new gives a teardown word's code instead of the setup word's, which came first"
 

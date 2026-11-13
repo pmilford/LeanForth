@@ -147,8 +147,9 @@ T{ ' c-bad-setup ' context-setup catch nip bad-runs @ -> 66 1 }T
 T{ context-bytes -> bytes-before }T
 \ Members are laid down aligned whatever HERE was.
 1 allot  ' noop context-setup
+lf-lib-private order+
 T{ context-last @ dup aligned = -> true }T
-align
+order-  align
 
 \ A frames record as a member: initialised with frame-init in the main
 \ context and in every new one; its visitor reaches it through its
