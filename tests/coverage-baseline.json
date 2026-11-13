@@ -447,8 +447,8 @@
   },
   "src/kernel/level-substitute.fs": {
    "blocks": 284,
-   "never_run": 13,
-   "reason": "COV2 2026-11-12: lf-lsubst-crowded (136-141) leaves an extra cell when the reached list cannot grow: bug B4, tests/core/mixed-level-substitute-crowded.fs, kept out of make test. The rest is not yet reviewed"
+   "never_run": 6,
+   "reason": "KFIX 2026-11-12, measured at 5c5aad6: the full reached list (lf-lsubst-crowded, bug B4 fixed) runs in tests/core/mixed-level-substitute-crowded.fs. Not yet reviewed: the invalid exits for a parameter context, formal, root, actual or level store that is not valid (116, 147, 177, 243, 290) and a refused rollback (267)"
   },
   "src/kernel/level-value.fs": {
    "blocks": 262,
@@ -492,8 +492,8 @@
   },
   "src/kernel/mixed-level-substitute.fs": {
    "blocks": 398,
-   "never_run": 43,
-   "reason": "COV2 2026-11-12: the projection, literal and string arms of the audit and the build (175-178, 291-293) are unreachable by design (those leaves always have a data word without a universe parameter, constant-term-boundary.fs, so lf-mls-closed? skips them); the refusals of the reached set, the reached list and the images (127-135, 192-193, 205, 305-309) leave the stack wrong: bugs B1-B3, tests/core/mixed-level-substitute-crowded.fs, kept out of make test. The rest is not yet reviewed"
+   "never_run": 25,
+   "reason": "KFIX 2026-11-12, measured at 5c5aad6: the full paths of the reached set, the reached list, the images and a constant's level pairs (bugs B1-B3 and B5, fixed) run in tests/core/mixed-level-substitute-crowded.fs. Unreachable by design: the projection, literal and string arms of the audit and the build (175-178, 291-293: those leaves always have a data word without a universe parameter, constant-term-boundary.fs, so lf-mls-closed? skips them) and lf-mls-again? (180), used nowhere. Not yet reviewed: a set that refuses to grow while marking (142), a term found again when marked (143), a refused second push (165) and the invalid exits behind the graph audit (149, 168, 179, 228, 237, 264, 296, 332)"
   },
   "src/kernel/mixed-open.fs": {
    "blocks": 279,
@@ -541,9 +541,9 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/whnf.fs": {
-   "blocks": 599,
-   "never_run": 54,
-   "reason": "COV2 2026-11-12, unreachable by design: the defaults main.fs replaces whenever the checker loads -- lf-whnf-known's (235) and its answer (243: caches.fs's hook answers only for a node with a data word, which lf-whnf-word answers first), and the default iota hook lf-whnf-recursor?, lf-whnf-iota-const and lf-whnf-iota-head's constant branch (442-453, iota.fs's lf-iota replaces it); lf-whnf-ended (469) is used nowhere. The other failure exits are not yet reviewed"
+   "blocks": 598,
+   "never_run": 53,
+   "reason": "COV2 2026-11-12, unreachable by design: the defaults main.fs replaces whenever the checker loads -- lf-whnf-known's (235) and its answer (243: caches.fs's hook answers only for a node with a data word, which lf-whnf-word answers first), and the default iota hook lf-whnf-recursor?, lf-whnf-iota-const and lf-whnf-iota-head's constant branch (442-453, iota.fs's lf-iota replaces it); the unused lf-whnf-ended was deleted (KFIX, measured at 5c5aad6). The other failure exits are not yet reviewed"
   },
   "src/lib/bignum.fs": {
    "blocks": 820,
