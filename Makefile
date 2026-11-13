@@ -878,7 +878,8 @@ test: test-author
 # alone, printing nothing.
 test-front:
 	@for m in src/front/syntax.fs src/front/dag-walk.fs src/front/reader.fs src/front/mvars.fs \
-	  src/core/mvar-leaves.fs src/front/expr-remap.fs src/front/constructions.fs; do \
+	  src/core/mvar-leaves.fs src/front/expr-remap.fs src/front/constructions.fs \
+	  src/front/ctor-idx.fs; do \
 	  out=$$($(RUN) $(GFORTH) $$m -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
 	  if [ -n "$$out" ]; then printf '%s printed while loading:\n%s\n' "$$m" "$$out" >&2; exit 1; fi; \
 	done
@@ -890,8 +891,8 @@ test-front:
 reference-front:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_front.py
 
-# Lean's generated definitions (casesOn, recOn; plan FE6) built by
-# src/front/constructions.fs for every inductive type of Init, against
+# Lean's generated definitions (casesOn, recOn, ctorIdx; plan FE6) built by
+# src/front/constructions.fs and ctor-idx.fs for every inductive type of Init, against
 # Lean's own in the same export, with pinned counts.
 reference-constructions:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/front/constructions-init.sh

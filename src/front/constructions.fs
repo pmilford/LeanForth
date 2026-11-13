@@ -78,6 +78,9 @@ begin-structure /aux
   field: aux-step-xt            \ the fold's step ( x i job -- x' outcome )
   field: aux-arg                \ the recursor's arguments ( j job -- e outcome )
   field: aux-body               \ the value's body ( job -- e outcome )
+  field: aux-ctor               \ the constructor being read (ctorIdx)
+  field: aux-names              \ a tuple of universe parameter names
+  field: aux-built-params       \ the result's universe parameters
   field: aux-why                \ counted string: why unsupported, or 0
   field: aux-built-type         \ the result
   field: aux-built-value
@@ -236,15 +239,27 @@ end-structure
   over aux-pis ok-keep? if swap aux-built-type ! outcome-ok else nip then ;
 
 \ ---- The value: T.rec.{params} applied, the block's funs around it.
-: rec-param ( i job -- name ) dup rec-params swap aux-tuples tuple-item ;
-: param-level ( i job -- l outcome ) tuck rec-param swap aux-tier level-param ;
+\ Universe argument lists: the parameters a tuple of names (aux-names)
+\ holds, as levels, after any levels already added.
+: name-param ( i job -- name ) dup aux-names @ swap aux-tuples tuple-item ;
+: param-level ( i job -- l outcome ) tuck name-param swap aux-tier level-param ;
 : level-add ( i job -- outcome )
   tuck param-level ok-keep? if swap aux-tuples tuple-add else nip then ;
-: param-count ( job -- n ) dup rec-params swap aux-tuples tuple-length ;
-: rec-levels ( job -- t outcome )
-  dup aux-tuples tuple-start ok-then? 0= if no-result exit then
-  dup param-count over ['] level-add aux-each
+: names-count ( job -- n ) dup aux-names @ swap aux-tuples tuple-length ;
+: levels-add ( t job -- outcome )
+  tuck aux-names ! dup names-count swap ['] level-add aux-each ;
+: level-one, ( job -- outcome )
+  level-zero over aux-tier level-succ
+  ok-keep? if swap aux-tuples tuple-add else nip then ;
+: tuple-begin ( job -- outcome ) aux-tuples tuple-start ;
+: tuple-done ( job outcome -- t outcome )
   ok-then? if aux-tuples tuple-end else no-result then ;
+: type-names ( job -- t ) dup aux-type @ swap decl-of staged-params@ ;
+: rec-levels-add ( job -- outcome ) dup rec-params swap levels-add ;
+: type-levels-add ( job -- outcome ) dup type-names swap levels-add ;
+: rec-levels ( job -- t outcome ) dup tuple-begin ['] rec-levels-add aux-then tuple-done ;
+: type-levels ( job -- t outcome )
+  dup tuple-begin ['] type-levels-add aux-then tuple-done ;
 : rec-const ( job -- e outcome )
   dup rec-levels ok-keep? if swap dup >r recursor-name swap r> aux-tier expr-const then ;
 \ Argument j of the recursor: its variable, renumbered as the conclusion's.
@@ -357,7 +372,8 @@ end-structure
 : short-type ( job -- outcome )
   c" a recursor type shorter than its numbers" swap aux-invalid ;
 : aux-shape ( job -- outcome )
-  dup rec-whole? 0= if short-type exit then dup rec-total swap aux-reserve ;
+  dup rec-params over aux-built-params ! dup rec-whole? 0= if short-type exit then
+  dup rec-total swap aux-reserve ;
 : aux-begin ( d job -- outcome )
   dup aux-clear tuck aux-recursor ok-then? if aux-shape then ;
 \ recOn (mkRecOn; mkRecOnViaCasesOn? for the structure case).
@@ -392,7 +408,7 @@ end-structure
 : lean-type ( d job -- e ) decl-of staged-type@ ;
 : lean-value ( d job -- e ) decl-of staged-value@ ;
 : lean-params ( d job -- t ) decl-of staged-params@ ;
-: params-same? ( d job -- flag ) tuck lean-params swap rec-params = ;
+: params-same? ( d job -- flag ) tuck lean-params swap aux-built-params @ = ;
 : type-same? ( d job -- flag ) tuck lean-type swap aux-type@ = ;
 : value-same? ( d job -- flag ) tuck lean-value swap aux-value@ = ;
 : aux-same? ( d job -- flag )

@@ -9,7 +9,7 @@
 \ Lean's exporter shares terms equal but for them, so an export's names
 \ need not be the generator's), different and unsupported. Usage:
 \   gforth tests/front/constructions-init.fs -e 's" EXPORT" fe6-report bye'
-require ../../src/front/constructions.fs
+require ../../src/front/ctor-idx.fs
 
 create init /stage allot
 create job /aux allot
@@ -18,18 +18,21 @@ create job /aux allot
   dup init stage-tier name-tag@ tag-name-str = if init stage-tier name-text@ type
   else init stage-tier name-number@ 0 .r then ;
 : name. ( n -- )
-  dup 0= if drop exit then dup init stage-tier name-prefix@ dup if recurse ." ." else drop then
+  dup 0= if drop exit then
+  dup init stage-tier name-prefix@ dup if recurse ." ." else drop then
   part. ;
 \ The tallies of each construction k: generated, equal, alike, different,
 \ unsupported.
 5 constant columns
-create tallies 2 columns * cells allot
+3 constant kinds
+create tallies kinds columns * cells allot
 : tally ( k col -- addr ) swap columns * + cells tallies + ;
 : bump ( k col -- ) tally 1 swap +! ;
 : kind? ( d -- flag ) init staged-kind@ kind-type = ;
 : lean-decl ( c-addr u -- d true | false ) job aux-named ;
 : why. ( -- ) job aux-why @ ?dup if count type else ." (no reason)" then ;
-: suffix. ( k -- ) if ." recOn" else ." casesOn" then ;
+: suffix. ( k -- )
+  case 0 of ." casesOn" endof 1 of ." recOn" endof ." ctorIdx" endcase ;
 : which. ( k -- ) job type-name name. ." ." suffix. ;
 : compared ( d' k -- )
   over job aux-same? if 1 bump drop exit then
@@ -48,10 +51,11 @@ create tallies 2 columns * cells allot
   ."  unsupported " 4 count. cr ;
 : each-type ( -- )
   init stage-decls 0 ?do i kind? if
-    i ['] aux-cases-on s" casesOn" 0 try-one i ['] aux-rec-on s" recOn" 1 try-one then
+    i ['] aux-cases-on s" casesOn" 0 try-one i ['] aux-rec-on s" recOn" 1 try-one
+    i ['] aux-ctor-idx s" ctorIdx" 2 try-one then
   loop ;
 : fe6-report ( export-addr export-u -- )
-  tallies 2 columns * cells erase
+  tallies kinds columns * cells erase
   12 init stage-init drop init stage-load dup ok? 0= if ." export " 0 .r cr exit then drop
   init job aux-init dup ok? 0= if ." job " 0 .r cr exit then drop
-  each-type 0 line. 1 line. job aux-free ;
+  each-type 0 line. 1 line. 2 line. job aux-free ;

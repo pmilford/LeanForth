@@ -11250,7 +11250,7 @@ gap = "not equivalent: every record builder refuses -1 in the same step, but a d
 [[fault]]
 id = "fe6-motive-universe"
 file = "src/front/constructions.fs"
-old = ''': param-level ( i job -- l outcome ) tuck rec-param swap aux-tier level-param ;'''
+old = ''': param-level ( i job -- l outcome ) tuck name-param swap aux-tier level-param ;'''
 new = ''': param-level ( i job -- l outcome ) 2drop level-zero outcome-ok ;'''
 test = "$GFORTH tests/front/constructions.fs"
 reason = "T.rec is applied at universe 0 for the motive's universe (and the others): Nat.casesOn's value differs from Lean's"
@@ -11335,3 +11335,35 @@ old = '''  nip remap-let-body ['] remap-let-joined frame-under ;'''
 new = '''  nip remap-let-body ['] remap-let-joined frame-call ;'''
 test = "$GFORTH tests/front/constructions.fs"
 reason = "a letE's body is renumbered as if outside its binder: its own variable #0 becomes #1"
+
+[[fault]]
+id = "fe6-ctoridx-universe"
+file = "src/front/constructions.fs"
+old = '''  level-zero over aux-tier level-succ'''
+new = '''  level-zero outcome-ok'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "ctorIdx applies T.casesOn at motive universe 0, not 1: Nat.ctorIdx's value differs from Lean's"
+
+[[fault]]
+id = "fe6-ctoridx-index"
+file = "src/front/ctor-idx.fs"
+old = '''  dup ctor-index over nat-literal ok-keep? 0= if exit then'''
+new = '''  dup ctor-index 1+ over nat-literal ok-keep? 0= if exit then'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "each alternative answers its constructor's index plus one: Nat.ctorIdx differs"
+
+[[fault]]
+id = "fe6-ctoridx-explicit"
+file = "src/front/ctor-idx.fs"
+old = ''': implicit ( head -- head' ) dup head-payload swap plain-binder 1+ swap pack-head ;'''
+new = ''': implicit ( head -- head' ) ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "the parameters stay explicit: List.ctorIdx's first binder is not implicit"
+
+[[fault]]
+id = "fe6-ctoridx-recursor-params"
+file = "src/front/ctor-idx.fs"
+old = '''  dup type-names swap aux-built-params ! outcome-ok ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "ctorIdx is compared with the recursor's universe parameters, not the type's: List's differ"

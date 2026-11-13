@@ -3,8 +3,9 @@
 # of Init (plan row FE6; make reference-constructions): Init exported with
 # the pinned leanexport (the export of tests/core/compact-init.sh, checked
 # by its SHA-256) and its manifest written; then for every inductive type
-# whose T.casesOn or T.recOn is in the export, src/front/constructions.fs
-# builds it from T.rec and tests/front/constructions-init.fs compares it
+# whose T.casesOn, T.recOn or T.ctorIdx is in the export,
+# src/front/constructions.fs and ctor-idx.fs build it from T.rec, T's
+# type and constructors and tests/front/constructions-init.fs compares it
 # with Lean's node for node. The counts must be the pinned ones below:
 # every definition equal, exactly or up to binder names and binder
 # information (which the kernel ignores and Lean's exporter shares terms
@@ -38,10 +39,11 @@ python3 scripts/export_manifest.py "$work/init.ndjson" >/dev/null
   </dev/null >"$work/forth.txt"
 cat "$work/forth.txt"
 expected="casesOn generated 597 equal 436 equal-up-to-binders 160 different 0 unsupported 1
-recOn generated 576 equal 539 equal-up-to-binders 37 different 0 unsupported 0"
+recOn generated 576 equal 539 equal-up-to-binders 37 different 0 unsupported 0
+ctorIdx generated 397 equal 0 equal-up-to-binders 397 different 0 unsupported 0"
 actual=$(grep ' generated ' "$work/forth.txt")
 if [ "$actual" != "$expected" ]; then
   printf 'Counts differ from the pinned ones:\n%s\n' "$expected" >&2
   exit 1
 fi
-echo "casesOn and recOn: the pinned counts, none different"
+echo "casesOn, recOn and ctorIdx: the pinned counts, none different"
