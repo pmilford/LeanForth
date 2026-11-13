@@ -1140,8 +1140,7 @@ the ones above (without numbers), read Lean's NDJSON exports (all of
 Mathlib), print terms as Lean does, and run its first checker, whose rules
 the owner approved on 2026-11-02 and whose code (plan task 2.2.3) has not
 yet passed its review gate. It checks `composition` from its export and
-accepts it, labelled *accepted (experimental, not independently audited);
-axioms: none*, and rejects a broken copy ([first check](FIRST_CHECK.md)).
+accepts it, printing *accepted; axioms: none*, and rejects a broken copy ([first check](FIRST_CHECK.md)).
 Its scope covers terms like `composition`; theorems that use `And`, other
 inductive types or numbers are outside it and are answered *unsupported*
 until phase 5 (non-recursive types such as `And` are checked since task

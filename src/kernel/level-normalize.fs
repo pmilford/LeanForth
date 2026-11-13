@@ -4,8 +4,8 @@
 \ mk_succ (446-452), is_norm_lt (395-418) and is_equivalent (518-521) --
 \ and of Lean's name order for parameters (name.cpp 191-220; strings by
 \ lean_string_lt, object.cpp 2210-2215: bytes, then length), on the
-\ simplifying constructors of level-make. [kernel] code: experimental,
-\ not through the review gate. Untrusted.
+\ simplifying constructors of level-make. [kernel] code: not through
+\ the review gate (AGENTS.md). Untrusted.
 \ Lean's normalize is incomplete on purpose: an imax normalizes to
 \ mk_imax of its normalized sides, and a max that mk_imax makes there is
 \ not sorted again. So two levels with equal values for every assignment

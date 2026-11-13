@@ -776,8 +776,7 @@ def cli_cases():
     return [
         ("axiom", "axiom ax\n  Prop implicit: P  P\nend ax\n"
          "theorem uses\n  Prop implicit: Q  Q\n:=\n  ax Q $\nend uses\n", [], None, 0,
-         "uses: accepted (experimental, not independently audited); axioms: unlisted; "
-         "NOT PROVED: depends on ax"),
+         "uses: accepted; axioms: unlisted; NOT PROVED: depends on ax"),
         ("axiom strict", "axiom ax\n  Prop implicit: P  P\nend ax\n"
          "theorem uses\n  Prop implicit: Q  Q\n:=\n  ax Q $\nend uses\n", ["--strict-axioms"],
          None, 6, "NOT PROVED"),
@@ -872,8 +871,8 @@ def check_snapshot_cases(work):
                    stdin=subprocess.DEVNULL, capture_output=True, timeout=TEST_LIMIT, check=True)
     code, out = leanforth_check(HERE / "07-add-comm.lf", None, "--snapshot", str(snap))
     taken = "60 declarations: 60 accepted; 59 from the snapshot, 1 checked in this run"
-    if code != 0 or taken not in out or "add_comm': accepted (experimental, not independently " \
-            "audited; checked in this run, uses results from the snapshot)" not in out:
+    if code != 0 or taken not in out or "add_comm': accepted (checked in this run, uses " \
+            "results from the snapshot); axioms: none" not in out:
         raise Failure(f"07-add-comm.lf against a snapshot: exit {code}:\n{out[-800:]}")
     code, out = leanforth_check(WRONG / "07-add-comm.lf", None, "--snapshot", str(snap))
     if code != 1 or "add_comm': rejected" not in out:

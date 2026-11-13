@@ -3,8 +3,7 @@
 \ with get_rec_rule_for and is_constructor_app, inductive.cpp 53-60 and
 \ 114-122), which reduce_recursor (type_checker.cpp 393-407) calls from
 \ whnf_core, behind whnf.fs's hook lf-whnf-iota (set here, while
-\ loading). [kernel] code: experimental, not through the review gate, not
-\ independently audited.
+\ loading). [kernel] code: not through the review gate (AGENTS.md).
 \
 \ For an application whose head names a recursor that a usable slot holds
 \ (its record B3 found equal to Lean's: numbers, k, rules), and that has

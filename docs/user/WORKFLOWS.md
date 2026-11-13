@@ -46,7 +46,7 @@ flowchart TD
   chk["First checker<br/>ADR 0011 rules approved; rejection rules in progress (2.2.1),<br/>declaration check next (2.2.3)"]
   pub["Publisher<br/>writes each slot once, ok only<br/>ADR 0012, v0 written, under review"]
   env["Checked environment<br/>library of accepted declarations<br/>v0 written, under review"]
-  out["One verdict per declaration<br/>accepted (experimental) / rejected / unsupported / unknown<br/>invalid / exhausted / full"]
+  out["One verdict per declaration<br/>accepted / rejected / unsupported / unknown<br/>invalid / exhausted / full"]
   print["Term printer, src/present<br/>statement and proof in Lean notation, ASCII or LaTeX"]
   more["Axiom list, receipt, proof outline<br/>tasks 2.2.5, 2.4.4, 3.4"]
   ref["Lean's verdicts on the same cases<br/>differential tests in make check"]
@@ -91,9 +91,7 @@ What each step means for you:
 4. **The checker** gives each declaration exactly one outcome
    ([outcomes](CONCEPTS.md#outcomes)). Its rules are approved; the checker
    runs from the shell on Lean's exports (all of `Init` on this build), but has
-   not passed its review gate, so every declaration it
-   accepts is labelled *experimental, not independently audited*
-   ([first check](FIRST_CHECK.md)).
+   not passed its review gate ([first check](FIRST_CHECK.md)).
 5. **The publisher and the checked environment** keep the accepted
    declarations; a later declaration may use only earlier accepted ones,
    and a failed check changes nothing

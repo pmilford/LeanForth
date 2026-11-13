@@ -18,7 +18,8 @@
 \ records none, keeps no 40 bytes per term node for it (plan task 6.5.9;
 \ until 2026-11-12 it was a column of the term store, lib/store-columns.fs,
 \ which every context grew with its store). A unit beyond the slab's
-\ capacity reads as an empty entry.
+\ capacity reads as an empty entry; recording one the heap has no room
+\ for is full.
 
 require ../lib/lib.fs
 require ../lib/slab.fs
@@ -53,17 +54,14 @@ begin-structure /lf-pres
   lf-pres-declaration-capacity /lf-pdecl * +field lf-pres-decls
 end-structure
 /lf-pres context-record: lf-pres
-/slab context-record: lf-pres-terms
-: lf-pres-terms-make ( -- ) /lf-pterm dup slab-limit-max lf-pres-terms slab-init drop ;
-' lf-pres-terms-make context-setup
-:noname ( -- ) lf-pres-terms slab-free ; context-teardown
+/lf-pterm context-slab: lf-pres-terms
 
 \ A store record's entry: unit u of the slab is term lf-term-base + u, the
 \ term store's own records following the input nodes of a view
 \ (core/terms.fs). Unchecked: the unit is held (lf-pres-held?, or
 \ lf-pres-hold gave ok).
 : lf-pres-unit ( term -- u ) lf-term-base - ;
-: lf-pres-entry ( term -- entry ) lf-pres-unit lf-pres-terms column-at ;
+: lf-pres-entry ( term -- entry ) lf-pres-unit lf-pres-terms slab-at ;
 : lf-pres-held? ( term -- flag ) lf-pres-unit lf-pres-terms slab-capacity u< ;
 \ Room for term's entry, new units empty: ok, or full when the heap has
 \ none.
@@ -85,30 +83,45 @@ end-structure
   ! ;
 : lf-pres-live ( term -- identity true | false )
   dup lf-term-input? if drop false else lf-term-identity then ;
-: lf-pres-claim ( term -- entry true | false )
-  dup lf-pres-live 0= if drop false exit then
-  over lf-pres-hold ok? 0= if 2drop false exit then
-  swap lf-pres-entry 2dup lf-pterm-identity @ = if nip else tuck lf-pres-blank then true ;
-\ The entry of a live term, only when it was recorded for that term.
-: lf-pres-current ( term -- entry true | false )
-  dup lf-pres-live 0= if drop false exit then
-  over lf-pres-held? 0= if 2drop false exit then
+\ Claiming a term's entry: the entry and ok; else -1 and invalid for a
+\ term that is not live, or -1 and the slab's refusal, full when the heap
+\ has no room for the term's unit (review rvPF1 4). Before the slab, the
+\ column grew with the term store, so such a term could not be made at
+\ all (the term store was full); now the term is made and only its entry
+\ is refused. The callers of lf-pres-binder! and lf-pres-source! in
+\ cli/print.fs, author/build.fs and present/log-view.fs drop the outcome:
+\ a refused entry loses only that binder name or source ID in the
+\ printed text, never a verdict (review of pf1-fix L4).
+: lf-pres-take ( identity term -- entry )
+  lf-pres-entry 2dup lf-pterm-identity @ = if nip else tuck lf-pres-blank then ;
+: lf-pres-claim ( term -- entry outcome )
+  dup lf-pres-live 0= if drop-invalid no-result exit then
+  over lf-pres-hold ok-then2? if swap lf-pres-take outcome-ok else no-result then ;
+\ The entry of a live term, only when it was recorded for that term: a
+\ live term whose unit the slab holds (a read never grows the slab), and
+\ an entry stamped with its identity.
+: lf-pres-held ( term -- term identity true | false )
+  dup lf-pres-live if over lf-pres-held? dup 0= if nip nip then else drop false then ;
+: lf-pres-recorded ( term identity -- entry true | false )
   swap lf-pres-entry tuck lf-pterm-identity @ = dup 0= if nip then ;
+: lf-pres-current ( term -- entry true | false )
+  lf-pres-held if lf-pres-recorded else false then ;
 : lf-pres-known ( n -- n true | false ) dup 0< if drop false else true then ;
 
 \ Record a binder's name ID and kind on a live lambda or Pi node. The name
 \ must be a valid ID of the current name store (0, anonymous, is valid).
-\ Anything else is invalid and changes nothing.
+\ Anything else is invalid, and a node whose entry the heap has no room
+\ for is full; either changes nothing.
 : lf-pres-kind? ( kind -- flag ) lf-binder-default lf-binder-instance between? ;
 : lf-pres-naming? ( name kind -- flag ) lf-pres-kind? swap lf-name-valid? and ;
 : lf-pres-binder-node? ( term -- flag )
   lf-term-read if 2drop lf-tag-lam lf-tag-pi 1+ within else false then ;
-: lf-pres-node ( term -- entry true | false )
-  dup lf-pres-binder-node? if lf-pres-claim else drop false then ;
+: lf-pres-node ( term -- entry outcome )
+  dup lf-pres-binder-node? if lf-pres-claim else drop-invalid no-result then ;
 : lf-pres-binder-set ( name kind entry -- )
   tuck lf-pterm-kind ! lf-name-generation @ over lf-pterm-names ! lf-pterm-name ! ;
 : lf-pres-binder-to ( name kind term -- outcome )
-  lf-pres-node if lf-pres-binder-set outcome-ok else 2drop outcome-invalid then ;
+  lf-pres-node ok-keep2? if lf-pres-binder-set outcome-ok else nip then ;
 : lf-pres-binder! ( term name kind -- outcome )
   2dup lf-pres-naming? if rot lf-pres-binder-to else 2drop drop-invalid then ;
 
@@ -128,10 +141,12 @@ end-structure
   if dup lf-pterm-name @ swap lf-pterm-kind @ true else drop false then ;
 
 \ Source record ID of any live term: an opaque nonnegative number chosen
-\ by the importer, such as the NDJSON line or expression index.
+\ by the importer, such as the NDJSON line or expression index. A negative
+\ ID or a term that is not live is invalid, a term whose entry the heap
+\ has no room for full; either changes nothing.
 : lf-pres-source! ( term source -- outcome )
   dup 0< if 2drop outcome-invalid exit then
-  swap lf-pres-claim if lf-pterm-source ! outcome-ok else drop-invalid then ;
+  swap lf-pres-claim ok-keep? if lf-pterm-source ! outcome-ok else nip then ;
 : lf-pres-source@ ( term -- source true | false )
   lf-pres-current if lf-pterm-source @ lf-pres-known else false then ;
 

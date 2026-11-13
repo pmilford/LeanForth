@@ -1,7 +1,7 @@
 \ The checker's result caches, as Lean's type checker keeps them (ADR 0014
 \ Q10 and its Amendment 1; plan task 4.2.7): ports of type_checker::state
 \ (type_checker.h 25-49) at the referee commit eb6cafb7. [kernel] code:
-\ experimental, not through the review gate, not independently audited.
+\ not through the review gate (AGENTS.md).
 \
 \ What is cached, and where (Lean's lines in type_checker.cpp):
 \ - inferred types, one table per mode, m_infer_type[infer_only]: looked

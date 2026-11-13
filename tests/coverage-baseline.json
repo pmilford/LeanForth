@@ -1,5 +1,5 @@
 {
- "runs": 1580,
+ "runs": 1591,
  "files": {
   "src/author/build.fs": {
    "blocks": 250,
@@ -130,7 +130,7 @@
   },
   "src/core/constant-references.fs": {
    "blocks": 354,
-   "never_run": 20,
+   "never_run": 18,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/core/constant-term-boundary.fs": {
@@ -213,7 +213,7 @@
   },
   "src/core/statement-match.fs": {
    "blocks": 390,
-   "never_run": 54,
+   "never_run": 50,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/core/string-literals.fs": {
@@ -306,17 +306,17 @@
   },
   "src/kernel/caches.fs": {
    "blocks": 505,
-   "never_run": 56,
+   "never_run": 55,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/check-block.fs": {
    "blocks": 804,
-   "never_run": 45,
+   "never_run": 27,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/check-declaration.fs": {
    "blocks": 304,
-   "never_run": 11,
+   "never_run": 10,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/defeq.fs": {
@@ -346,7 +346,7 @@
   },
   "src/kernel/env-signature.fs": {
    "blocks": 168,
-   "never_run": 20,
+   "never_run": 14,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/env-snapshot.fs": {
@@ -361,32 +361,32 @@
   },
   "src/kernel/generated-recursor.fs": {
    "blocks": 227,
-   "never_run": 32,
+   "never_run": 25,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/inductive-block.fs": {
    "blocks": 702,
-   "never_run": 42,
+   "never_run": 31,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/inductive-nested.fs": {
    "blocks": 654,
-   "never_run": 78,
+   "never_run": 57,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/inductive-recursor.fs": {
    "blocks": 384,
-   "never_run": 19,
+   "never_run": 16,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/infer-proj.fs": {
    "blocks": 195,
-   "never_run": 32,
+   "never_run": 18,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/iota.fs": {
    "blocks": 508,
-   "never_run": 98,
+   "never_run": 67,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/level-compare.fs": {
@@ -395,7 +395,7 @@
   },
   "src/kernel/level-geq.fs": {
    "blocks": 80,
-   "never_run": 15,
+   "never_run": 14,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/level-make.fs": {
@@ -410,7 +410,7 @@
   },
   "src/kernel/level-substitute.fs": {
    "blocks": 284,
-   "never_run": 14,
+   "never_run": 13,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/level-value.fs": {
@@ -440,7 +440,7 @@
   },
   "src/kernel/mixed-head.fs": {
    "blocks": 49,
-   "never_run": 2,
+   "never_run": 0,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/mixed-infer.fs": {
@@ -465,12 +465,12 @@
   },
   "src/kernel/mixed-rebuild.fs": {
    "blocks": 86,
-   "never_run": 14,
+   "never_run": 3,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/mixed-shift.fs": {
    "blocks": 128,
-   "never_run": 4,
+   "never_run": 3,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/mixed-signature-audit.fs": {
@@ -485,12 +485,12 @@
   },
   "src/kernel/quot.fs": {
    "blocks": 205,
-   "never_run": 19,
+   "never_run": 12,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/reduce-nat.fs": {
    "blocks": 156,
-   "never_run": 50,
+   "never_run": 14,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/replace-memo.fs": {
@@ -505,7 +505,7 @@
   },
   "src/kernel/whnf.fs": {
    "blocks": 599,
-   "never_run": 93,
+   "never_run": 90,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/lib/bignum.fs": {
@@ -578,6 +578,11 @@
    "blocks": 69,
    "never_run": 1,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/lib/portability.fs": {
+   "blocks": 18,
+   "never_run": 4,
+   "reason": "measured 2026-11-12 at 86ad63b (new in review-bugs 36c59c6): host fallbacks, compiled only where the host lacks the word; which 4 blocks never run not yet reviewed"
   },
   "src/lib/sections.fs": {
    "blocks": 331,

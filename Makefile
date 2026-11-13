@@ -661,6 +661,33 @@ test-check-block:
 test: test-check-block
 DOC_EXAMPLE_PAGES += docs/user/FIRST_CHECK.md
 
+# The kernel modules the review of 2026-11-12 found without a test file of
+# their own (docs/development/forth-reviews/2026-11-12-backlog-kernel.md,
+# section 3), on cases of check-block-cases/ (tests/support/case-sweeps.fs):
+# the stack effects and outcomes of their words, run inside a check, and
+# fuel, refused allocations and crowded stores inside each pass -- iota and
+# projections, projection inference, quotients, Nat literals, the
+# environment's answers to inference, Lean's generated recursor, heads and
+# the rebuild helpers; then sampled sweeps of whole block checks for the
+# block, recursor and nested passes. Gforth only; about 9 s on one core.
+test-kernel-reduction:
+	$(RUN) $(GFORTH) tests/core/iota.fs
+	$(RUN) $(GFORTH) tests/core/reduce-nat.fs
+	$(RUN) $(GFORTH) tests/core/quot.fs
+	$(RUN) $(GFORTH) tests/core/infer-proj.fs
+	$(RUN) $(GFORTH) tests/core/env-signature.fs
+	$(RUN) $(GFORTH) tests/core/generated-recursor.fs
+	$(RUN) $(GFORTH) tests/core/mixed-head.fs
+	$(RUN) $(GFORTH) tests/core/mixed-rebuild.fs
+test-kernel-blocks:
+	$(RUN) $(GFORTH) tests/core/inductive-block.fs
+	$(RUN) $(GFORTH) tests/core/inductive-recursor.fs
+test-kernel-nested:
+	$(RUN) $(GFORTH) tests/core/inductive-nested.fs
+
+.PHONY: test-kernel-reduction test-kernel-blocks test-kernel-nested
+test: test-kernel-reduction test-kernel-blocks test-kernel-nested
+
 # Run records and their replay (plan task 2.2.5; docs/programming/RUN_RECORDS.md):
 # unit tests of src/import/run-record.fs and run-replay.fs (every fixture, each
 # failure, replay findings), then records written to files for the five pinned
@@ -964,9 +991,14 @@ DOC_EXAMPLE_PAGES += docs/user/PROOF_OUTLINE.md
 # output, from other folders, against the counter and the re-exporter, and
 # with a broken Gforth. The page's console examples run in check-doc-examples.
 # Gforth and Python 3 only.
-test-cli:
+# The command-line tests run as four parts that make can run at once
+# (tests/cli/run_group.py; 236 s on one core in one part, 2026-11-12).
+test-cli: test-cli-forth test-cli-1 test-cli-2 test-cli-3 test-cli-4
+test-cli-forth:
 	$(RUN) $(GFORTH) tests/cli/leanforth.fs
-	GFORTH=$(GFORTH) $(RUN) python3 tests/cli/test_leanforth.py
+test-cli-1 test-cli-2 test-cli-3 test-cli-4:
+	GFORTH=$(GFORTH) $(RUN) python3 tests/cli/run_group.py $(subst test-cli-,,$@)
+.PHONY: test-cli-forth test-cli-1 test-cli-2 test-cli-3 test-cli-4
 
 # Pinned Lean accepts the two Lean fixtures of the command line's tests and
 # scripts/export.sh reproduces their exports and manifests byte for byte.

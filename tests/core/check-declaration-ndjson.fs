@@ -387,6 +387,61 @@ unstage
 T{ let-file fed 0 lf-input-decl lf-idecl-value @ lf-term-base < lf-term-count @
    -> outcome-ok true 0 }T
 unstage
+\ The same rule for a copy the importer made in the term store, below the
+\ input's term mark (checker-input.fs copies every expression), found
+\ through the term table (terms.fs's lf-term-same asks lf-term-findable?
+\ of the record equal to the key; review rvPF1 1): outside a check a
+\ lambda equal to the copy of composition's value is the copy; with the
+\ audit memo on and new epochs it is a new node until an audit of this
+\ check reached the copy, and then it is the copy again.
+: copied-value ( -- node ) lf-input-count 1- lf-input-decl lf-idecl-value @ ;
+: value-again ( -- node )
+  copied-value dup lf-term-first@ swap lf-term-second@ lf-term-lam must ;
+T{ s" tests/reference/composition.ndjson" cin-read copied-value 0 lf-input-mark-count <
+   value-again copied-value = -> outcome-ok true true }T
+lf-memo-on lf-audit-memo! lf-audit-renew
+T{ value-again copied-value = -> false }T
+T{ copied-value dup lf-term-identity drop fuel lf-cterm-check -> outcome-ok }T
+T{ value-again copied-value = -> true }T
+lf-memo-auto lf-audit-memo!
+\ References and levels likewise (review rvRS F1; review of pf1-fix L1),
+\ for the constant fixture's first constant, whose reference and level
+\ the importer made: outside a check an equal reference is that one and
+\ no shadow is made; with the memo on and new epochs neither counts as
+\ reached, and an equal reference is that one through a new shadow
+\ record, until an audit of this check checked the constant; a unit kept
+\ for another identity at the same number, or in an earlier epoch, does
+\ not count.
+\ The reference's level pairs are copied to PAD first: lf-cref-new must
+\ never be given the pool's own (the pool may move).
+: first-constant ( -- node )
+  lf-term-count @ 0 ?do i lf-term-tag@ lf-tag-constant = if i unloop exit then loop -1 ;
+: fixture-ref ( -- cref ) first-constant lf-term-first@ ;
+: pairs-to-pad ( addr count -- addr' count ) tuck 2* cells pad swap move pad swap ;
+: ref-pairs ( -- addr count )
+  fixture-ref dup lf-cref-current lf-cref-levels must pairs-to-pad ;
+: ref-fields ( -- name generation addr count )
+  fixture-ref dup lf-cref-current lf-cref-read must drop ref-pairs ;
+: ref-again ( -- cref made )
+  lf-cref-count @ ref-fields lf-cref-new must drop swap lf-cref-count @ swap - ;
+: ref-level ( -- level ) ref-pairs drop @ ;
+: both-reached? ( -- flag flag )
+  fixture-ref lf-cref-findable? ref-level lf-level-findable? ;
+T{ s" tests/reference/constant-fixture.ndjson" cin-read -> outcome-ok }T
+T{ both-reached? ref-again -> true true fixture-ref 0 }T
+lf-memo-on lf-audit-memo! lf-audit-renew
+T{ both-reached? ref-again -> false false fixture-ref 1 }T
+T{ first-constant dup lf-term-identity drop fuel lf-cterm-check -> outcome-ok }T
+T{ both-reached? -> true true }T
+: unit-identities+! ( n -- )
+  dup fixture-ref lf-cref-reach-unit +! ref-level lf-level-reach-unit +! ;
+1 unit-identities+!
+T{ both-reached? -> false false }T
+-1 unit-identities+!
+T{ both-reached? -> true true }T
+lf-audit-renew
+T{ both-reached? -> false false }T
+lf-memo-auto lf-audit-memo!
 
 \ ADR 0012 E5 against the name-to-declaration array (ADR 0016 C4): with
 \ names interned in the input tier, the environment reads a name's chain;

@@ -3,8 +3,8 @@
 \ constant's universe parameters (ADR 0011, Amendment 1): instantiate
 \ (level.cpp 317-340) with replace (261-277), update_succ (301-306) and
 \ update_max (308-315), so a rebuilt max or imax is simplified by mk_max or
-\ mk_imax (level-make.fs). [kernel] code: experimental, not through the
-\ review gate. Untrusted. IDs are opaque cells standing for interned Lean
+\ mk_imax (level-make.fs). [kernel] code: not through the review gate
+\ (AGENTS.md). Untrusted. IDs are opaque cells standing for interned Lean
 \ names; raw indices cannot detect stale references after a reset. This
 \ neither checks declarations nor authorizes proofs. No level equality,
 \ serialization or cross-store handles are provided. The caller's two

@@ -90,9 +90,8 @@ decides this is the [notation table](TERM_PRINTER.md#notation-the-table-and-the-
 
 **Trust.** The printer is presentation code: nothing it prints is evidence
 that anything was checked, and the checker never loads it. The verdict under
-each statement is the checker's. Until an outside Lean expert has audited the
-checker, every accepted result is *experimental, not independently audited*.
-"accepted ... axioms: propext, Quot.sound" says which of Lean's standard axioms
+each statement is the checker's.
+"accepted; axioms: propext, Quot.sound" says which of Lean's standard axioms
 the proof depends on; the two are on the allowlist.
 
 **The wrong twin.** For each theorem, `tests/demos/wrong_twin.py` copies the

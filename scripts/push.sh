@@ -18,6 +18,8 @@ exec 9>"$D/push.lock"; flock -n 9 || { echo "push.sh: another push run is in pro
 [ "$(git rev-parse --abbrev-ref HEAD)" = main ] || { echo "push.sh: not on main"; exit 1; }
 [ -z "$(git status --porcelain --untracked-files=no)" ] || { echo "push.sh: uncommitted changes"; exit 1; }
 JOBS=8; [ "$(cat .claude/work/CPU_MODE 2>/dev/null)" = day ] && JOBS=2
+# Gforth 0.7.3 spins forever after an error; a forgotten probe slows every test run (2026-11-12: 3 h at 100%).
+ps -eo pid,etimes,args | awk '$2 > 3600 && $3 ~ /gforth/ {print "push.sh: warning: gforth running " int($2/60) " min: pid " $1}'
 CACHE=""; [ "${1:-}" = --no-cache ] && CACHE="LEAN_CACHE=0"
 export LF_TIMING_LOG="$PWD/$D/$H-timing.txt"; : > "$LF_TIMING_LOG"
 python3 scripts/check-progress.py origin/main; p=$?

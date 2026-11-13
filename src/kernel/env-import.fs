@@ -1,6 +1,6 @@
 \ Dependent exports checked against a snapshot (ADR 0020 D5; plan task
-\ 6.2.5, step SN4). [kernel][import] code: experimental, not through the
-\ review gate, not independently audited; LeanForth-specific.
+\ 6.2.5, step SN4). [kernel][import] code: not through the review gate
+\ (AGENTS.md); LeanForth-specific.
 \
 \ check --snapshot S EXPORT (cli/check-run.fs ck-snapshot-import): S's
 \ tier is loaded (import/snapshot-tier.fs) and the export staged on into
@@ -286,14 +286,18 @@ variable imp-current
   2 pick 2 pick fill-span e-open? 0= if 2drop drop false exit then
   replayed? ;
 
-\ ---- Taking. imp-fill is the check word of the publication.
+\ ---- Taking. imp-fill is the check word of the publication: a saved
+\ lookup that cannot be asked again or a dependency not taken publishes
+\ the slot invalid, which take refuses (review FRK F3: the replay's
+\ result was dropped).
 : depend-all ( d imp -- flag )
   swap saved-deps bounds ?do
     i snap@ dep@ over dep-taken 1- lf-env-depend ok? 0= if drop false unloop exit then
   loop drop true ;
+: fill-refused ( d imp -- ) 2drop outcome-invalid lf-env-finish ;
 : imp-fill ( -- )
-  imp@ dup imp-d @ swap over replay-all drop
-  2dup depend-all 0= if 2drop outcome-invalid lf-env-finish exit then
+  imp@ dup imp-d @ swap over replay-all 0= if fill-refused exit then
+  2dup depend-all 0= if fill-refused exit then
   drop dup fill-marks dup fill-span dup lf-env-span! over swap fill-shapes lf-env-saved!
   sl-outcome swap saved lf-env-finish ;
 : take-mark ( k d imp -- )

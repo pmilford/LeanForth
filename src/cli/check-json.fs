@@ -1,9 +1,9 @@
 \ The JSON report of `leanforth check --json` (plan tasks 3.4.3 and, the
 \ command line's part, 6.5.2): one JSON text in the format
-\ leanforth-check-report, version 0.2 (schemas/check-report-0.2.schema.json;
-\ docs/user/COMMAND_LINE.md, "JSON output") for a final run, or 0.3
-\ (schemas/check-report-0.3.schema.json; plan step SN3) for a run of a
-\ loaded snapshot (check --snapshot): 0.2's members, the export null, and
+\ leanforth-check-report, version 0.4 (schemas/check-report-0.4.schema.json;
+\ docs/user/COMMAND_LINE.md, "JSON output") for a final run, or 0.5
+\ (schemas/check-report-0.5.schema.json; plan step SN3) for a run of a
+\ loaded snapshot (check --snapshot): 0.4's members, the export null, and
 \ "mode" development, a "snapshot" member (the file, its identity, its
 \ versions, the export it was written from, the information of the build
 \ that wrote it) and on each declaration its "provenance" (checked,
@@ -45,8 +45,7 @@ require ./check-run.fs
 
 8 0 json-writer: cj-writer
 : cj-schema ( -- c-addr u ) s" leanforth-check-report" ;
-: cj-version ( -- c-addr u ) ck-snapped? if s" 0.3" else s" 0.2" then ;
-: cj-label ( -- c-addr u ) s" experimental, not independently audited" ;
+: cj-version ( -- c-addr u ) ck-snapped? if s" 0.5" else s" 0.4" then ;
 
 \ Writing values and members.
 : cj-key ( c-addr u -- ) cj-writer jw-key ;
@@ -136,12 +135,11 @@ require ./check-run.fs
 : cj-axioms ( d -- )
   dup lf-env-axioms drop dup s" axiomBits" cj-number
   lf-env-unproved 0<> dup s" notProved" cj-flag if cj-not-proved-by else drop then ;
-: cj-accepted ( d -- ) cj-label s" label" cj-text cj-axioms ;
-\ What follows the verdict: the label and axioms of an accepted one, the
-\ diagnostic of any other that began.
+\ What follows the verdict: the axioms of an accepted one, the diagnostic
+\ of any other that began.
 : cj-detail ( d -- )
   dup cj-began? 0= if drop exit then
-  dup lf-env-outcome ok? if cj-accepted else cj-diagnostic then ;
+  dup lf-env-outcome ok? if cj-axioms else cj-diagnostic then ;
 \ A check's fuel used, null when it is not known (cli/check-run.fs).
 : cj-fuel-used ( d -- ) s" fuel" cj-key ck-fuel-of dup 0< if drop cj-null else cj-n then ;
 \ Where its verdict comes from (0.3): checked, snapshot, uses-snapshot.
@@ -269,8 +267,7 @@ create cj-hex 64 allot
   cj-text ;
 : cj-head ( c-addr u checked? -- )
   cj-schema s" schema" cj-text cj-version s" schemaVersion" cj-text >r cj-export
-  r> if s" checked" else s" not-checked" then s" manifest" cj-text
-  cj-label s" label" cj-text cj-snapshot ;
+  r> if s" checked" else s" not-checked" then s" manifest" cj-text cj-snapshot ;
 \ anyLeanVersion only with --any-lean-version, so that a report without it
 \ is as before.
 : cj-any-lean ( -- ) ck-any-version? if true s" anyLeanVersion" cj-flag then ;

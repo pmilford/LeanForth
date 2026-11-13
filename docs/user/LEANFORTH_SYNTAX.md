@@ -1,7 +1,7 @@
 # LeanForth syntax: theorems and proofs as Forth words
 
-**Status (2026-11-12): integrated, experimental, not independently
-audited.** The words of [ADR 0017](../adr/0017-leanforth-syntax.md), which
+**Status (2026-11-12): integrated; the [parser] review gate is
+pending.** The words of [ADR 0017](../adr/0017-leanforth-syntax.md), which
 the owner approved as the design, exist in `src/author/` (plan task
 8.1.2): you write a theorem, a definition and its proof as Forth words,
 run them, get your mistakes back with line and column, and print the
@@ -10,9 +10,8 @@ result back as words or in Lean's notation. Since 2026-11-12 (plan tasks
 **`leanforth check FILE.lf` checks such a file with LeanForth's checker**,
 and with `--env EXPORT` the file uses the constants of Lean's library
 (such as `Nat`, `Eq.refl` and `Nat.add_comm` from `Init`) by their Lean
-names: see [checking a file](#checking-a-file). Every accepted result is
-*experimental — not independently audited*, and the words still pass the
-[parser] review gate of `AGENTS.md`. Not built yet (designed in
+names: see [checking a file](#checking-a-file). The words have still to
+pass the [parser] review gate of `AGENTS.md`. Not built yet (designed in
 [ADR 0017 Amendment 1](../adr/0017-leanforth-syntax.md#amendment-1-accepted-leanforth-text-run-by-forth-itself-at-the-prompt-from-files-and-inline),
 plan 8.2.1e–g): text typed at the prompt or passed in from a Forth
 program, a check at each `end NAME` (today the whole file is checked when
@@ -155,9 +154,9 @@ one that checks Lean's exports; the report is the same as for an export
 
 ```console
 $ bin/leanforth check tests/author/01-identity.lf
-identity: accepted (experimental, not independently audited); axioms: none
+identity: accepted; axioms: none
 1 declaration: 1 accepted
-accepted: 1 (experimental, not independently audited); axioms: none
+accepted: 1; axioms: none
 ```
 
 **A proof of your own, using Lean's library.** *Mathematics:* for every
@@ -183,9 +182,9 @@ end add_zero'
 
 ```console
 $ bin/leanforth check --env tests/author/init-slice.ndjson tests/author/19-add-zero.lf | tail -3
-add_zero': accepted (experimental, not independently audited); axioms: none
+add_zero': accepted; axioms: none
 60 declarations: 60 accepted
-accepted: 60 (experimental, not independently audited); axioms: none
+accepted: 60; axioms: none
 ```
 
 *Lean*, which accepts the same theorem with the same term (the tests
@@ -218,7 +217,7 @@ theorem zero_add' (n : Nat) : 0 + n = n :=
 
 ```console
 $ bin/leanforth check --env tests/author/init-slice.ndjson tests/author/20-zero-add.lf | tail -1
-accepted: 60 (experimental, not independently audited); axioms: none
+accepted: 60; axioms: none
 ```
 
 **What happens to a file.** Forth's own interpreter runs it line by line

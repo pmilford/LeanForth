@@ -5,10 +5,9 @@ exported, and since 2026-11-12 LeanForth text; it does not yet verify a
 program.** From the shell, `bin/leanforth check FILE.ndjson`
 ([the command line](COMMAND_LINE.md)) checks a Lean 4.35.0 export of any
 size (all of Lean's `Init` and, on an earlier build, all of Mathlib's
-729,263 declarations were accepted), but the checker is experimental
-[kernel] code, several parts have not passed their review gates, and every
-result it accepts is labelled *accepted (experimental, not independently
-audited)*. `leanforth check [--env EXPORT] FILE.lf` checks LeanForth text with the
+729,263 declarations were accepted), but the checker is [kernel] code
+and several parts have not passed their review gates.
+`leanforth check [--env EXPORT] FILE.lf` checks LeanForth text with the
 same checker ([checking a file](LEANFORTH_SYNTAX.md#checking-a-file); plan 8.2.1c-d).
 There is a Forth data model for Lean's terms, a Forth reader for Lean's
 export format, a term printer, and the first steps of a program-verification
@@ -54,12 +53,11 @@ tools.
 
 ## What LeanForth is not
 
-- **Not yet a checker you can rely on.** It does re-check real libraries
+- **A checker still in its review gates.** It re-checks real libraries
   that Lean exported. The first checker ([ADR 0011](../adr/0011-definite-rejection.md), rules
   approved on 2026-11-02) accepts and rejects definitions, theorems, inductive types
   (also recursive and mutual), `let`, literals, projections and quotients,
-  but several of these parts have not passed their review gates and none
-  is independently audited. It accepted all of Lean's `Init` and, on build
+  but several of these parts have not passed their review gates. It accepted all of Lean's `Init` and, on build
   `b74a04d` (not re-run since), all 729,263 declarations of Mathlib's export,
   with nested inductive types; a few constructs (metadata, blocks mixing safe
   and unsafe members; unsafe and partial declarations are skipped as Lean skips
@@ -68,9 +66,8 @@ tools.
   proof terms. Writing proofs — the elaborator, tactics, `simp` — stays in
   Lean; you check a Lean file by exporting it. Writing theorems and proofs
   in LeanForth's own Forth syntax is planned (plan phase 8).
-- **Not trusted.** Even after the review gate, every accepted result is
-  labelled *experimental — not independently audited* until an outside Lean
-  expert has audited the checker (owner decision 1).
+- **Not yet audited by an outside Lean expert** (planned: plan task 9.2.1,
+  owner decision 1).
 - **Not a proof of compiled code or hardware.** A verified Forth word is
   correct against its stated semantics and assumptions; the receipt lists
   them (the host Forth, cell size, the reader's translation, …). Runtime

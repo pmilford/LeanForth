@@ -3,14 +3,14 @@
 add_comm_by_induction : ∀ (m n : Nat), m + n = n + m
 -- check
 52 declarations: 52 accepted
-accepted: 52 (experimental, not independently audited); axioms: none
+accepted: 52; axioms: none
 -- wrong twin
 1
 add_comm_by_induction: rejected
   rejected: declared type mismatch (D1-D5); diagnostic 60 at check-declaration lf-check-declaration: 0 0
 -- print
 Theorem add_comm_by_induction
-  accepted (experimental, not independently audited); axioms: none
+  accepted; axioms: none
   Statement in Lean:        ∀ (m n : Nat), m + n = n + m
   Statement in math text:   ∀ (m n : ℕ), m + n = n + m
   Statement in mathematics: $\forall (m\ n : \mathbb{N}),\ m + n = n + m$
@@ -28,14 +28,14 @@ Theorem add_comm_by_induction
 gauss_sum : ∀ (n : Nat), 2 * sumTo n = n * (n + 1)
 -- check
 1442 declarations: 1442 accepted
-accepted: 1442 (experimental, not independently audited); axioms: propext, Quot.sound (allowlisted); none NOT PROVED
+accepted: 1442; axioms: propext, Quot.sound (allowlisted); none NOT PROVED
 -- wrong twin
 1
 gauss_sum: rejected
   rejected: declared type mismatch (D1-D5); diagnostic 60 at check-declaration lf-check-declaration: 0 0
 -- print
 Theorem gauss_sum
-  accepted (experimental, not independently audited); axioms: propext, Quot.sound
+  accepted; axioms: propext, Quot.sound
   Statement in Lean:        ∀ (n : Nat), 2 * sumTo n = n * (n + 1)
   Statement in math text:   ∀ (n : ℕ), 2 · sumTo n = n · (n + 1)
   Statement in mathematics: $\forall (n : \mathbb{N}),\ 2 \cdot \mathsf{sumTo}\ n = n \cdot (n + 1)$
@@ -54,14 +54,14 @@ Theorem gauss_sum
 odd_sum : ∀ (n : Nat), sumOdd n = n ^ 2
 -- check
 1445 declarations: 1445 accepted
-accepted: 1445 (experimental, not independently audited); axioms: propext, Quot.sound (allowlisted); none NOT PROVED
+accepted: 1445; axioms: propext, Quot.sound (allowlisted); none NOT PROVED
 -- wrong twin
 1
 odd_sum: rejected
   rejected: declared type mismatch (D1-D5); diagnostic 60 at check-declaration lf-check-declaration: 0 0
 -- print
 Theorem odd_sum
-  accepted (experimental, not independently audited); axioms: propext, Quot.sound
+  accepted; axioms: propext, Quot.sound
   Statement in Lean:        ∀ (n : Nat), sumOdd n = n ^ 2
   Statement in math text:   ∀ (n : ℕ), sumOdd n = n²
   Statement in mathematics: $\forall (n : \mathbb{N}),\ \mathsf{sumOdd}\ n = n^{2}$
@@ -78,14 +78,14 @@ Theorem odd_sum
 cantor : ∀ (α : Type), ¬∃ f, ∀ (g : α → Prop), ∃ a, f a = g
 -- check
 16 declarations: 16 accepted
-accepted: 16 (experimental, not independently audited); axioms: none
+accepted: 16; axioms: none
 -- wrong twin
 1
 cantor: rejected
   rejected: declared type mismatch (D1-D5); diagnostic 60 at check-declaration lf-check-declaration: 0 0
 -- print
 Theorem cantor
-  accepted (experimental, not independently audited); axioms: none
+  accepted; axioms: none
   Statement in Lean:        ∀ (α : Type), ¬∃ f, ∀ (g : α → Prop), ∃ a, f a = g
   Statement in math text:   ∀ (α : Type), ¬(∃ f, ∀ (g : α → Prop), ∃ a, f a = g)
   Statement in mathematics: $\forall (\alpha : \mathrm{Type}),\ \neg (\exists f,\ \forall (g : \alpha \to \mathrm{Prop}),\ \exists a,\ f\ a = g)$
@@ -101,14 +101,14 @@ Theorem cantor
 sqrt2_irrational : ¬∃ a b, b > 0 ∧ a ^ 2 = 2 * b ^ 2
 -- check
 1591 declarations: 1591 accepted
-accepted: 1591 (experimental, not independently audited); axioms: propext, Quot.sound (allowlisted); none NOT PROVED
+accepted: 1591; axioms: propext, Quot.sound (allowlisted); none NOT PROVED
 -- wrong twin
 1
 sqrt2_irrational: rejected
   rejected: declared type mismatch (D1-D5); diagnostic 60 at check-declaration lf-check-declaration: 0 0
 -- print
 Theorem sqrt2_irrational
-  accepted (experimental, not independently audited); axioms: propext, Quot.sound
+  accepted; axioms: propext, Quot.sound
   Statement in Lean:        ¬∃ a b, b > 0 ∧ a ^ 2 = 2 * b ^ 2
   Statement in math text:   ¬(∃ a b, b > 0 ∧ a² = 2 · b²)
   Statement in mathematics: $\neg (\exists a\ b,\ b > 0 \wedge a^{2} = 2 \cdot b^{2})$

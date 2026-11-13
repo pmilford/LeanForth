@@ -44,6 +44,7 @@ status changes when this date is older than them. Stages are those of the
 - Natural LeanForth for writing statements (8.6.10) and a first theorem proved in LeanForth (8.6.11).
 
 **Later**
+- Snapshots that read the one or two previous versions (6.2.5c).
 - Speed: the export reader and the remaining validity checks; Physlib; `print --snapshot` (8.6.9); term memory
   (6.5.9); a second Forth system and a 32-bit host (9.4.1); no Python requirement (9.4.3).
 
@@ -77,8 +78,7 @@ run on version 9 is scheduled for the night of 2026-11-12. **Approved by the
 owner on 2026-11-12:** S5/S5B, S7, IO, SN2-SN5, PF C1, SH, PF task 6, MB, R5, NS,
 MO, K1, L1, G1 with their review fixes ([decisions](OWNER_DECISIONS.md)). **In
 progress:** one speed and memory pass (PERF1) that keeps every verdict and fuel.
-Every accepted result is *experimental — not independently
-audited*. Details: [Limitations](#limitations), [Full Mathlib](#full-mathlib);
+Details: [Limitations](#limitations), [Full Mathlib](#full-mathlib);
 the sections below are the 2026-11-04 snapshot except where dated.
 
 **LeanForth can now check its first declarations, experimentally.** Given
@@ -93,9 +93,8 @@ accepted, 28 rejected with Lean's kind of error, 11 unknown, 8 unsupported,
 *accepted* small declarations that Lean *rejects*, because it built and
 compared universe levels differently from Lean. **Fixed the same day:**
 LeanForth now ports Lean's own level code exactly, and all 49 universe
-cases and 69 table cases give Lean's answers. Nothing it says is trusted yet: the declaration check and the
-checked environment it publishes into are still in their review gates, and
-every acceptance is labelled *experimental — not independently audited*.
+cases and 69 table cases give Lean's answers. The declaration check and the
+checked environment it publishes into are still in their review gates.
 
 **A design in progress, to be completed and compatible later (owner,
 2026-11-04).** Everything LeanForth cannot do or does differently from Lean
@@ -250,6 +249,7 @@ the 32-bit access words exist in `src/`; building it is plan tasks
 | Unfolding: `whnf`, delta, the quick equality check (plan 4.2.2b-c; agent U4, `998b89d`) | [kernel] | **approved** 2026-11-11 (owner) with the full lazy strategy (4.2.2d), after review rvCONV's two blocking findings were fixed (FX1) |
 | Report format `check-report-0.1` (`--json`, schema `schemas/check-report-0.1.schema.json`; plan 3.4.3) | [format] | **approved** 2026-11-04 (owner); review fixes merged (`dd38dee`: inconsistent exit-0 reports refused, `--fuel` bounded, a run that stops is never ok); `--strict-axioms` and `--fast` merged (`84725e6`) |
 | Report format `check-report-0.2` and run records `run-record-0.2` (the *skipped* verdict of unsafe and partial declarations, plan 5.2.7; schemas `schemas/check-report-0.2.schema.json`, `schemas/run-record-0.2.schema.json`; the 0.1 files kept unchanged, and reports without *skipped* still validate under 0.1) | [format] | **approved** 2026-11-11 (owner; review rvUNNI M2 recommended a version bump over changing 0.1 in place; agent FX8) |
+| Report formats `check-report-0.4` (final runs) and `check-report-0.5` (snapshot runs), run records `run-record-0.3`: 0.2, 0.3 and 0.2 without the member `label` (schemas `schemas/check-report-0.4.schema.json`, `schemas/check-report-0.5.schema.json`, `schemas/run-record-0.3.schema.json`; the earlier files kept unchanged, and every new report and record with the label put back validates under them) | [format] | **decided** 2026-11-12 (owner: results carry no label; agent PA made new versions, as rvUNNI M2 did) |
 | Approval round of 2026-11-11 ([OWNER_DECISIONS.md](OWNER_DECISIONS.md#approval-round-of-2026-11-11)): unfolding and the lazy strategy, `let`, eta, proof irrelevance, structures and projections, K-like recursors, literals, axioms with allowlist v1, opaque declarations and quotients, nested inductive types, unsafe and partial declarations skipped; result caches, compact-store steps S0-S4 and S6, the fuel model of ADR 0014 Amendments 3-5; importer numbering, `--any-lean-version`, Lean's JSON spellings, `print --lf` numeric name parts, print hooks | [kernel], [import], [format] | **approved** 2026-11-11 (owner), each after Lean-compared tests and an independent review with its blocking findings fixed; the export header stays strict by default, and Lean's official export checker is the referee for hand-made export files. Not yet asked (review done or running, approval owed): compact-store S5 and S5B, S7, IO, snapshots SN2-SN5, PF C1 and the 100,000,000 default fuel (ADR 0014 Amendment 6), SH |
 | Native and inline LeanForth, ADR 0017 Amendment 1 (plan 8.2.1) | design | **accepted** 2026-11-04 with the owner's answers (OQ-1 revised, `lf[ ]lf` with `param:`, libraries as vocabularies, case rules); each step 8.2.1a-g has its own gate ([parser], [bypass]; 8.2.1g [kernel]) |
 | Printer review fixes (names escaped in every form, growable lines; plan 8.6.2) | untrusted presentation | merged `bba87db` after independent review; no owner gate |
@@ -313,7 +313,7 @@ sizes are relative and dates are not estimated.
    SHA-256 and byte-identical verdicts on replay); and the first readable
    proof of `composition` from the derivation log (ADR 0013, plan
    2.4.1 and 2.4.4). *You will see:* the five pinned examples print
-   *accepted (experimental, not independently audited); axioms: none*,
+   *accepted; axioms: none*,
    every broken copy prints *rejected* or *unsupported*, and
    `composition` prints as a short readable proof.
 2. **Lean files in, a command-line tool out — release 0.1 (phase 3).**
@@ -579,7 +579,7 @@ tasks, not the plan's.
 | Records of the pinned Mathlib export decoded and checked for shape and references | 110,895,826 of 110,895,826 (100%), field for field equal to Python's `json` module | lines of export SHA-256 `18448e5d…59c6` |
 | Expression nodes staged into the compact store | all of Mathlib's 105,894,257; since compact-store step S5 (2026-11-11) the checker reads them in place, copying only `let`, projection and metadata nodes and the nodes above them (2.4% of `Init`'s) | nodes of the pinned export |
 | Expression nodes fed into the checker's own stores | `Init`: 6,099,054 nodes of its 59,349 declarations; Mathlib: the first sixth (119,472 declarations) checked, the first third (217,032) staged and fed at fuel 1 on 2026-11-10 (loading only, no check); since step S5 only `let`, projection and metadata nodes and those above them are copied | the checker's stores grow with memory |
-| Declarations checked by LeanForth | Mathlib: **729,263 of 729,263 (100%) accepted** on `b74a04d` (2026-11-12, fuel 250,000,000, 8 workers): the same verdict as Lean on every declaration, 1 NOT PROVED (`sorryAx`); 3.37 h, 25.6 CPU hours, 29.4 GB. `Init`: **59,349 of 59,349 (100%) accepted**, exit 0. Experimental, not independently audited | constants of the pinned Mathlib export with its dependencies; `Init`'s own count |
+| Declarations checked by LeanForth | Mathlib: **729,263 of 729,263 (100%) accepted** on `b74a04d` (2026-11-12, fuel 250,000,000, 8 workers): the same verdict as Lean on every declaration, 1 NOT PROVED (`sorryAx`); 3.37 h, 25.6 CPU hours, 29.4 GB. `Init`: **59,349 of 59,349 (100%) accepted**, exit 0 | constants of the pinned Mathlib export with its dependencies; `Init`'s own count |
 | Share of Mathlib the checker accepts | 99.88% (728,360 of 729,263) at fuel 20,000,000; a run at the new default fuel of 100,000,000 that also saves a snapshot is next | all declarations of the pinned export |
 | T6 importer acceptance tasks done | 0 of 4 | roadmap T6 |
 | Other Lean libraries imported (plan 6.1.6) | 0 | planned: a few small ones and the largest |
@@ -781,8 +781,8 @@ State on main at `0627845` (2026-11-11 evening): `bin/leanforth check` on all of
 **Status words.** *Coded and used*: `leanforth check` runs it by default.
 *Coded, not used*: code and tests exist, `check` does not run it.
 *Merged, gate owed*: used by `check`, but its human-review gate has not been
-passed. *Planned*: not coded. Every accepted result stays *experimental, not
-independently audited*; no outside Lean expert has audited the checker.
+passed. *Planned*: not coded. No outside Lean expert has audited the checker yet
+(plan 9.2.1).
 
 - **Mathlib: all checked once, 99.88% accepted.** On `a43539e` (fuel
   20,000,000, 4 workers) 728,360 of 729,263 declarations were accepted, 0

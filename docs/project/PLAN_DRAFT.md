@@ -174,7 +174,7 @@ arrive in phase 5. The plan says so rather than hiding it.
 | Phase | What you will be able to see | Theorem track | Program track | Needs | Main gates |
 | --- | --- | --- | --- | --- | --- |
 | **1 Clean foundation** (in progress) | Same behaviour, smaller clearer code; `src/legacy/` gone; one command each for coverage and planted-fault reports | refactor core and kernel onto `src/lib/`; retire legacy | example words and depth analyzer onto the library; better comparison tables | — | [forth-review], [owner] for deletion |
-| **2 First checked declaration** | The five pinned Lean examples print *accepted — experimental, not independently audited; axioms: none*; every deliberately broken copy prints *rejected* or *unsupported*, never accepted; a readable proof of `composition` | rejection rules, checked environment, declaration checker, readable proofs v0 | clamp receipt: real Forth source → program IR → proof obligations (checked by Lean, labelled not-yet-LeanForth) → runtime tests | 1 | [kernel] ×3, [format], [owner] |
+| **2 First checked declaration** | The five pinned Lean examples print *accepted; axioms: none*; every deliberately broken copy prints *rejected* or *unsupported*, never accepted; a readable proof of `composition` | rejection rules, checked environment, declaration checker, readable proofs v0 | clamp receipt: real Forth source → program IR → proof obligations (checked by Lean, labelled not-yet-LeanForth) → runtime tests | 1 | [kernel] ×3, [format], [owner] |
 | **3 Lean input in Forth, CLI and API v0** — release 0.1 | `leanforth check file.ndjson` with no Python; `leanforth print`; `leanforth serve` speaking versioned JSON-RPC with schemas and golden examples | Forth JSON and Lean-export reader; capacity stage S1 | `leanforth program` prints program receipts | 1 (reader), 2 (end to end) | [import], [format], [bypass] |
 | **4 Definitions that compute** | Declarations that need earlier definitions unfolded are accepted; "unknown" answers fall measurably; proofs say "by definition of f" | unfolding, universe-level equality, eta, proof irrelevance, let, caches | loops with invariants and bounded memory in the IR; obligations still Lean-checked | 2 | [kernel] per feature |
 | **5 Data types; first real Lean code** — release 0.2 | `n + 0 = n` and `0 + n = n` (by induction), with every declaration they depend on, checked from real Lean output and printed readably | inductive types, recursors, structures, literals, quotients, axiom allowlist v1 | **first program fact checked by LeanForth itself** (clamp contract) | 3, 4 | [kernel] per feature, [axiom], [owner] |
@@ -299,8 +299,7 @@ gets a Forth review and records `make forth-metrics` before and after.
 
 **Outcome.** For the five pinned fixtures (`composition`, `identity`,
 `type-identity`, `poly-identity`, `constant-fixture` in `tests/reference/`)
-LeanForth prints *accepted — experimental, not independently audited;
-axioms: none*. For every deliberately broken copy it prints *rejected* or,
+LeanForth prints *accepted; axioms: none*. For every deliberately broken copy it prints *rejected* or,
 where the expected-results table says so, *unsupported* — never accepted. A
 readable proof of `composition` is printed (§7). Program track: a clamp
 receipt connects the actual Forth source to proof obligations and runtime
@@ -346,7 +345,7 @@ approval recorded in `docs/reviews/`; PROJECT_PROGRESS.md updated.
 | --- | --- | --- | --- | --- | --- |
 | 2.3.1 | Independent AI review of the exact diff by a fresh agent given the code, not our conclusions | No unresolved findings; review file in `docs/reviews/` | 2.2.4 | — | S |
 | 2.3.2 | Plain-language summary for the owner: what it does, evidence, risks, recommendation | Owner approval recorded with date and commit | 2.3.1 | [owner] | S |
-| 2.3.3 | Label every accepted result *experimental — not independently audited*; update PROJECT_PROGRESS.md (T5, Q5–Q7) | Label tested in output | 2.3.2 | — | S |
+| 2.3.3 | Label every accepted result *experimental — not independently audited* (withdrawn by the owner, 2026-11-12); update PROJECT_PROGRESS.md (T5, Q5–Q7) | Label tested in output | 2.3.2 | — | S |
 
 **WP 2.4 Readable proofs v0** (untrusted printer; parallel lane; design in §7)
 
@@ -535,6 +534,7 @@ workstream (W7):
 | 6.2.4 | The remaining fixed tables outside the verdict, made growable or argued fixed (plan task 6.2.0, part (b), 2026-11-04): the derivation log's capacities (1,024 records, 256 open rules, 2,048 term and 512 level copies, 256 copied references with 2,048 arguments, 4,096 tasks per copy -- a hard cap per copy; at any of them the log is truncated, the verdict unchanged); the printers' (8 universe parameters per printed declaration, 64 notes in 4,096 bytes, 32 presentation declarations, 32 outline sets, the log view's 1,024-byte buffer); the authoring words' (512 items, 256 entries, 4,096 spelling bytes, 16 open orders, 256 definitions, 32 known names in 1,024 bytes, 16 namespaces, 256-byte texts, 1,024-byte lines). Format guards stay fixed on purpose and are documented: JSON nesting 64 and 65,536 tokens per export line, lines of 64 MiB, manifest and run-record sizes; and, named by review rvKC B-L3, the re-exporter's guards, which mirror the reader's (`reexport-buffer-limit` 256 MiB, four times the reader's longest line, `reexport-depth` 64, `reexport-key-room` 4,096 bytes, `data-most` 256 mdata members), run replay's for a record of the fixed 0.1 schema (`rp-token-limit` 16,384 tokens, `rp-depth` 8, `rp-path-room` 128 bytes), and the interpreter record's 16 search-order word lists (`run-settings-order-max`; Forth-2012 asks for 8). Presentation choices, also fixed on purpose: the check report's 10 declarations of most fuel (`ck-top-room`) and run replay's 32 findings kept (`rp-kept`). Run records 0.1 write `parameters` and `referenceLevels` as 64, a legacy value, not a limit (record 0.2 corrects them). `leanforth print`'s tables are the print path's rewrite's (agent PR) | Each table grows with the heap or is documented as a deliberate bound; printing, outlines and authoring at Mathlib's sizes | 6.2.0 | — | M |
 | 6.2.5 | **Status (2026-11-11 evening): in progress -- SN0 design (ADR 0020), SN1 sections, SN2 tier save/load, SN3 environment save/reload (report 0.3), SN4 dependent imports and layers, SN5 stale flag (`--snapshot-stale-ok`), golden verdict guard and rvSN4 fixes are merged; reviews owed/owner approval owed [kernel][format][import]. `Init` against its own snapshot: all 59,349 taken, 48.7 s against 749 s fresh. Open: review rvSN4 blocking finding B1 (a taken slot's fuel can differ from a fresh check's; PF task 6, so exhausted slots are never taken), load cost target not met (Init snapshot 133 MB loads in 22.7 s; Mathlib predicted 2.1 GB, about 90 s), replay deferred, the Mathlib snapshot not yet saved (next full run saves it). Earlier status: design started (agent SN0); implementation after S5B and S7 merge, in parallel with the full Mathlib compatibility runs, before Physlib (6.1.8) (owner, 2026-11-11: "plan for snapshot sounds good"; "make the snapshot slightly higher priority").** Checked-environment snapshot: check a library once, save its checked environment to a binary file, load it in seconds to check new proofs or a dependent library (Physlib on Mathlib) -- as Lean loads pre-checked `.olean` files instead of re-checking `import Mathlib`. Replaces the 64-name `check --record`/`replay` ("--record on any size"). Owner's requirements (2026-11-11): **position independent** -- every reference an index or offset inside the file, no address, word-size and byte-order fixed (AGENTS: architecture-independent serialized terms), so it loads anywhere, memory-mapped or read; and **not tied to the LeanForth build**, so non-breaking changes (printer improvements, speed changes that keep every verdict) keep it valid. Proposed identity in its header: the export's SHA-256 and manifest; a *snapshot format version* (layout; a change needs a converter or a rebuild); and a *verdict version* of the checker's rules, bumped by any change that could change a verdict (a Lean rule, the fuel model, an audit), kept by a change shown not to (the both-ways comparison: identical verdicts on all of `Init`, the arena and a Mathlib sample); a loader refuses a snapshot whose versions or hashes differ. Under the OQ-3 answer, results taken from a snapshot are labelled as such (development and research mode) and a full-trust run re-checks from the export | Mathlib checked once, saved, reloaded in another process at another address with identical verdicts; a dependent file checked against the loaded snapshot gives the same verdicts as checking everything; a printer-only change and a verdict-preserving speed change both load the old snapshot; a verdict-version bump, a wrong export hash, a truncated or altered file all refused (planted faults); load time and memory measured | 6.1.1, 6.2.2 | [format], [import], [kernel] (what a loaded snapshot vouches for) | L |
 | 6.2.5b | **Status (2026-11-12): done** (merged c19a2f5, agent CK; review rvCK not blocking; owner approved 2026-11-12): L1 for an import pass, a layer's unit whose lookups differ from its loaded twin's is kept beside it (`nested`'s aux case: 108 of 108 taken, was 94; loaded alone, merged as before), ADR 0020 Amendment 3 corrected; G1 `let-b` in the guard. Was **not started** (owner approved, tasks L1 and G1 of review rvSS). L1: when a layer's declaration equals a loaded one in content, outcome and fuel but its name lookups differ, keep the layer's slot (`src/kernel/env-layers.fs` merge rule), so nested blocks re-checked in the layer run are replayed from it (now: correct verdicts, a few re-checked); correct ADR 0020 Amendment 3's "unchanged". G1: add an export with `==` lets to the verdict-version guard's golden snapshots, so a missed version bump for lets is caught. |
+| 6.2.5c | **Status (2026-11-12): not started; longer term (owner, 2026-11-12: "the snapshots should attempt to read backward compatible 1-2 versions prior").** Read snapshots saved by the one or two previous format and verdict versions instead of refusing them (today an older verdict version loads only with `--snapshot-stale-ok`, every result labelled stale). Design first: an older *format* version is translated on load; an older *verdict* version may reuse a saved result only where the verdict-version changelog (src/kernel/verdict-version.fs) shows the change cannot affect it (e.g. a fuel-only change for a declaration accepted under the new limit), otherwise the declaration is re-checked; never a stale verdict reported as this build's | Snapshots of the two previous versions load; every reused result equal to a fresh check's (verdict and fuel); results that may differ re-checked; tests with saved snapshots of each supported older version | 6.2.5, 6.2.5b | [format], [kernel] | M |
 | 6.3.1 | Unsupported-feature ledger per stage: every unsupported reason counted | Drives the next feature priorities | 3.2.3 | — | S (recurring) |
 | 6.4.1 | Corpus differential (T7): Lean's verdict for each declaration, plus mutated subsets that must be rejected; optional second referee (lean4lean, nanoda; N12) | Mismatches triaged, none hidden | 6.1.1 | — | M |
 | 6.4.2 | Lean's own test suites (owner, 2026-11-04: "review the lean test suites and plan to be able to run them - I assume as ndjson exports?"): review the pinned Lean 4.35.0 repository's tests and any published test collections for independent kernel checkers, classify them (kernel-relevant; elaborator, parser, tactic or compiler only, which a kernel checker cannot run), and build a harness: each test file Lean accepts is compiled with the pinned toolchain and exported to NDJSON with its manifest, and LeanForth must give Lean's verdict on every declaration; tests where Lean's kernel refuses a declaration are captured as exports of the refused declaration (the method of `tests/reference/inductive-expected.lean`, which writes refused cases through Lean's `Kernel.Environment.add`) | Classification table with counts; harness runs the kernel-relevant tests in `make check` or a nightly target; every disagreement triaged, none hidden; temporary gaps named with the task that closes them | 6.4.1 | — | M–L |
@@ -661,7 +661,7 @@ Lean. **Roadmap:** T10.1–T10.4, P6–P9, D1.
 | 9.1.1 | R1: reproduce several published Lean results of several pages; record sources, versions, licences, assumptions; compare with Lean | Checked results with axioms reported | S4 | — | L |
 | 9.1.2 | R2: a longer recent theorem | as above | 9.1.1 | — | L |
 | 9.1.3 | R3: an open-problem investigation with transparent status; failed attempts kept | A solution is reported only with a checked proof of the exact statement | 9.1.2 | — | L |
-| 9.2.1 | Outside Lean-expert audit (owner decision 1); remove the *not independently audited* label only for the audited scope | Audit report and owner decision recorded | phase 5 at least | [owner] | — |
+| 9.2.1 | Outside Lean-expert audit (owner decision 1); results carry no label since 2026-11-12 (owner) | Audit report and owner decision recorded | phase 5 at least | [owner] | — |
 | 9.3.1 | Upgrade procedure for later Lean and Mathlib releases (T9.5) | Rehearsed on one upgrade | S5 | — | M |
 | 9.4.1 | Portability: a second Forth host and a 32-bit host (X7, T1.4). **Owner, 2026-11-10 (longer term): add one or two more Forth systems.** Candidates to evaluate: SwiftForth (FORTH, Inc.; Windows, Linux, macOS), VFX Forth (MPE; Windows, Linux, macOS), Win32Forth (Windows, free) and pForth (portable ANS Forth written in C); choose by licence, Forth-2012 coverage, 64- and 32-bit availability and how they run in CI | Portable suite passes there; limits documented | — | [runtime] | M–L |
 | 9.4.2 | **Status (2026-11-10): not started; longer term (owner, 2026-11-10).** Review the Forth language checker (`scripts/check-portable-forth.py`, `make forth-metrics`, the independent Forth reviewer `docs/development/FORTH_REVIEWER.md` with `.claude/agents/forth-reviewer.md` and `.codex/agents/forth-reviewer.toml`) and see how it can be improved; then write it up as a separate, reusable skill or agent with its own documentation and examples, so other Forth projects can use it | A review note with findings acted on; the skill or agent published in a form others can install, run on a second Forth code base | — | — | M |
@@ -916,8 +916,8 @@ Recommendation: (a) write checked declarations back out in the same
 lean4export NDJSON format LeanForth reads — then Lean itself can check what
 LeanForth checked, a strong independent cross-check (N9, N12); (b) receipts
 as JSON per the schema (2.5.1, 3.5.1), binding input SHA-256, declaration
-name, statement hash, checker version and commit, axioms, outcome and the
-*not independently audited* label; (c) under the owner's storage
+name, statement hash, checker version and commit, axioms and outcome;
+(c) under the owner's storage
 recommendation ("nothing saved to disk is trusted without being checked
 again", OWNER_DECISIONS.md) loading saved results means re-checking them.
 Whether a reviewed "trusted cache" should ever skip that is OQ-3.
@@ -1045,7 +1045,7 @@ end-theorem
 Printed:
 
 ```text
-Theorem composition            accepted · experimental, not independently audited
+Theorem composition            accepted
   For all propositions A, B, C: if A implies B, and B implies C, then A implies C.
   Axioms: none.   Input: tests/reference/composition.ndjson (sha256 …)
 
@@ -1074,7 +1074,7 @@ Proof.
   question for 8.1.1, because they already mean arithmetic in Forth).
 
 ```text
-Theorem Nat.add_zero           accepted · experimental, not independently audited
+Theorem Nat.add_zero           accepted
   For every natural number n,  n + 0 = n.
   Axioms: none.   Uses 14 earlier declarations, all accepted (list: --deps).
 
@@ -1092,7 +1092,7 @@ Proof.
 ### 7.3 Phase 5: `0 + n = n` (induction with sub-proofs)
 
 ```text
-Theorem Nat.zero_add           accepted · experimental, not independently audited
+Theorem Nat.zero_add           accepted
   For every natural number n,  0 + n = n.
 Proof (reconstructed from the proof term). By induction on n.
                                        [Nat recursor, property: n ↦ 0 + n = n]  s1
@@ -1120,7 +1120,7 @@ Contract, for integers v, l, u in the host cell range:
              so l ≤ r ≤ u;  r = v when l ≤ v ≤ u;  r = l when v < l;  r = u when v > u.
   if l > u:  consumes its three inputs and returns false.
 Source proof:  phase 2 — obligations O1–O4 checked by Lean 4.35.0 (reference), NOT by LeanForth
-               phase 5 — obligations O1–O4 accepted by LeanForth · experimental, not independently audited
+               phase 5 — obligations O1–O4 accepted by LeanForth
 Runtime:       tested on Gforth 1.0.0, x86-64, 64-bit cells (343 + 343 + 1,470 + 784 cases). Testing is not proof.
 Assumptions:   the reader translated the source into IR correctly; host >, MAX and MIN are signed-cell
                integer operations; no data- or return-stack overflow; Gforth behaves as documented.

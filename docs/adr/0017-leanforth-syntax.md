@@ -2448,7 +2448,7 @@ part (`N.0.f`). Untrusted authoring and presentation only; no checker change.
 
 **Status: proposed and built 2026-11-12 (plan tasks 8.2.1c and 8.2.1d,
 agent LF1, branch `lf-files`); integrated, not through its [parser],
-[bypass] and [import] gates, not independently audited.** It records how
+[bypass] and [import] gates.** It records how
 Amendment 1's A1, A3, A4 and A6 were built and where the build differs
 from them. It changes no typing or conversion rule, no axiom rule and no
 kernel module: the declarations reach the kernel through the importer
@@ -2562,8 +2562,8 @@ printer's types for library constants (a library constant prints with
 all its arguments, `@Eq Nat …`, where Lean hides the implicit ones; the
 terms are the same).
 
-**B6. After the Forth and gate review of 2026-11-12** (the report
-`2026-11-12-lf-files` in the Forth review folder, on `main`; agent LF2,
+**B6. After the Forth and gate review of 2026-11-12**
+([report](../development/forth-reviews/2026-11-12-lf-files.md); agent LF2,
 branch `lf-files-2`). (1) *The records are compared* (H1):
 `tests/author/report.fs` prints the records `export.fs` writes, and
 `check_author.py` reads them as an export and compares every declaration

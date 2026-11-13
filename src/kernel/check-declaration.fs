@@ -46,16 +46,15 @@
 \
 \ lf-check-input checks every declaration of this context's input in a
 \ new environment; lf-check-verdict. prints a slot's verdict afterwards,
-\ an accepted one as "accepted (experimental, not independently audited);
-\ axioms: none" or the axioms' names, from the set the slot holds
-\ (AGENTS.md, ADR 0011).
+\ an accepted one as "accepted; axioms: none" or the axioms' names, from
+\ the set the slot holds (AGENTS.md, ADR 0011).
 \ The printing words run after a check, never inside one.
 \
-\ [kernel] code: experimental, not through the review gate, not
-\ independently audited. Limits: the stores' capacity settings (default
-\ 64 terms and levels; lf-term-capacity! and the like), the heap (the
-\ passes' explicit stacks grow with the depth: plan task 6.2.0), the
-\ fuel, the environment and inference.
+\ [kernel] code: not through the review gate (AGENTS.md). Limits: the
+\ stores' capacity settings (default 64 terms and levels;
+\ lf-term-capacity! and the like), the heap (the passes' explicit stacks
+\ grow with the depth: plan task 6.2.0), the fuel, the environment and
+\ inference.
 \ State: one record, lf-check-state (the budget, the fuel left in the
 \ audit, the step reached, the declaration checked and the last result),
 \ and one walk record, lf-check-walker (the U2 audit), both members of the
@@ -309,8 +308,9 @@ lf-check-steps# 1+ constant lf-step-done
 \ importer's feed) every node is given.
 \ Whether the memo is on is asked only of a node made before the check,
 \ and once (agent PERF1: it reads the environment's validity, and was
-\ asked of every node given and again by lf-audit-reached?); the answer
-\ is the same, as both are only read.
+\ asked of every node given and again before the memo was read); the
+\ answer is the same, as both are only read. Levels and references below
+\ take the same shape (Forth review of perf1, finding 5).
 : lf-check-before? ( n -- flag ) 0 lf-input-mark-count < ;
 : lf-check-reached? ( n -- flag ) lf-audit-on? if lf-audit-held? else drop true then ;
 : lf-check-findable ( n -- flag )
@@ -320,18 +320,20 @@ lf-check-steps# 1+ constant lf-step-done
 \ mark, once a scope check of this check found it), but the zero level,
 \ which every store holds from its reset.
 : lf-check-level-before? ( n -- flag ) dup 0<> swap 1 lf-input-mark-count < and ;
+: lf-check-level-reached? ( n -- flag )
+  lf-audit-on? if lf-audit-level-held? else drop true then ;
 : lf-check-level-findable ( n -- flag )
-  lf-audit-on? 0= if drop true exit then
-  dup lf-check-level-before? if lf-audit-level-reached? else drop true then ;
+  dup lf-check-level-before? if lf-check-level-reached? else drop true then ;
 ' lf-check-level-findable is lf-level-findable?
 \ References likewise (review rvRS F1): one made before the check, below
 \ the input's reference mark, once an audit of this check checked a
 \ constant node holding it; so a check makes, and its memory limit counts,
 \ the same references fresh, against a snapshot and in any export.
 : lf-check-cref-before? ( n -- flag ) lf-input-cref-k lf-input-mark-count < ;
+: lf-check-cref-reached? ( n -- flag )
+  lf-audit-on? if lf-audit-cref-held? else drop true then ;
 : lf-check-cref-findable ( n -- flag )
-  lf-audit-on? 0= if drop true exit then
-  dup lf-check-cref-before? if lf-audit-cref-reached? else drop true then ;
+  dup lf-check-cref-before? if lf-check-cref-reached? else drop true then ;
 ' lf-check-cref-findable is lf-cref-findable?
 \ The check's scratch, in the bytes core/scratch-meter.fs counts for a
 \ check's memory limit: the term nodes, levels and references above the
@@ -406,13 +408,12 @@ lf-check-steps# 1+ constant lf-step-done
   swap lf-check-budget lf-env-new dup ok? if drop lf-check-used then ;
 
 \ Reports, after a run (within lf-env-view's snapshot) or within a later
-\ check's: declaration d's verdict, an accepted one labelled, with the
-\ axiom set its slot holds: none, or the allowlist's names of its listed
-\ bits (in Lean's order of names, as #print axioms sorts them), then
-\ "unlisted" for any axiom outside the allowlist, which makes the
-\ declaration NOT PROVED (the command line names those axioms: their
-\ names are file text, which only its printer shows safely).
-: lf-check-label ( -- c-addr u ) s" accepted (experimental, not independently audited)" ;
+\ check's: declaration d's verdict, an accepted one with the axiom set its
+\ slot holds: none, or the allowlist's names of its listed bits (in
+\ Lean's order of names, as #print axioms sorts them), then "unlisted"
+\ for any axiom outside the allowlist, which makes the declaration NOT
+\ PROVED (the command line names those axioms: their names are file
+\ text, which only its printer shows safely).
 \ Bit's name when bits holds it, then a comma when a higher bit follows.
 : lf-check-axiom. ( bits bit -- bits )
   2dup and 0= if drop exit then
@@ -423,7 +424,7 @@ lf-check-steps# 1+ constant lf-step-done
   lf-axiom-propext lf-check-axiom. lf-axiom-choice lf-check-axiom.
   lf-axiom-sound lf-check-axiom. lf-axiom-unlisted lf-check-axiom. drop ;
 : lf-check-accepted. ( d -- )
-  lf-check-label type ." ; "
+  ." accepted; "
   lf-env-axioms ok? if lf-check-axioms. else drop ." axioms: ?" then ;
 \ Any other: "skipped" for one Lean's replay skips (lf-env-skipped?), else
 \ its outcome's name.

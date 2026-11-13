@@ -1,6 +1,6 @@
 # LeanForth
 
-**Status: development version. Today LeanForth re-checks proofs that Lean produced and exported (NDJSON), including all of Lean's `Init`; since 2026-11-12 it also checks LeanForth text, `leanforth check [--env EXPORT] FILE.lf` (plan 8.2.1c-d, integrated, gates pending); it has no program verifier. The checker is experimental and not independently audited.**
+**Today LeanForth re-checks proofs that Lean produced and exported (NDJSON), including all of Lean's `Init`; since 2026-11-12 it also checks LeanForth text, `leanforth check [--env EXPORT] FILE.lf` (plan 8.2.1c-d, integrated, gates pending); it has no program verifier.**
 
 See the [project progress report](docs/project/PROJECT_PROGRESS.md) for both product
 tracks, importer limits, and a reproducible code inventory.
@@ -23,11 +23,10 @@ Proposed baseline: Windows 11 desktop; WSL2 Ubuntu development; Gforth 1.0 (refe
 
 ## Where the code is
 
-There is **no checker you can rely on yet**. The first checker is
-experimental and not through its review gate; `bin/leanforth check
+The first checker is not through its review gate; `bin/leanforth check
 FILE.ndjson` runs it on a Lean export of any size (all of Lean's `Init`)
-and prints each declaration's verdict, labelled *experimental, not
-independently audited* when accepted, then a summary, with `--resources`
+and prints each declaration's verdict, with its axioms when accepted,
+then a summary, with `--resources`
 the time, memory and fuel used, and with `--json` all of it as JSON
 ([the command line](docs/user/COMMAND_LINE.md)). `src/main.fs` loads all
 current code (`gforth src/main.fs`) by requiring the top modules; every
@@ -91,9 +90,8 @@ shows and what it does not.
 `make test-program` includes clamp and [five additional executable Forth
 examples](docs/programming/PROGRAM_EXAMPLES.md). They are runtime tested, not verified.
 
-These tests run the experimental checker on Lean's exports and compare it with
-pinned Lean; they do not show that it is correct (it is not independently
-audited). The checker re-checks proofs that Lean exported; LeanForth text
+These tests run the checker on Lean's exports and compare it with
+pinned Lean; they do not show that it is correct. The checker re-checks proofs that Lean exported; LeanForth text
 cannot yet be checked by the kernel (plan 8.2.1a-g, not started). The
 [core ADR](docs/adr/0001-core-fragment.md) and [program example](docs/programming/PROGRAM_EXAMPLE.md)
 needed human review before implementation.

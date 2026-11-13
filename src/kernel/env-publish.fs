@@ -145,7 +145,7 @@
 \ with the THROW code; 0 for a publication that ended without a final
 \ slot).
 \
-\ [kernel] code: experimental, not through the review gate.
+\ [kernel] code: not through the review gate (AGENTS.md).
 \ State: none of its own. It writes environments (environment.fs), whose
 \ header holds the publisher's pool mark, reads the candidate in the
 \ current context and writes that context's worker record. A test that

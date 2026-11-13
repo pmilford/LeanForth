@@ -1,6 +1,6 @@
 \ Layered snapshots loaded on a base (ADR 0020 amendment 1, F5; plan task
-\ 6.2.5, step SN4). [kernel][format] code: experimental, not through the
-\ review gate; LeanForth-specific.
+\ 6.2.5, step SN4). [kernel][format] code: not through the review gate
+\ (AGENTS.md); LeanForth-specific.
 \
 \ After a base's tier is read into a stage and its environment's sections
 \ read into the base record (env-snapshot.fs snap-tier, snap-read), each
@@ -129,7 +129,7 @@ end-structure
   over lf-look-outside = if drop exit then
   over 4 rshift over lay-names @ u< if drop exit then
   >r dup 15 and swap 4 rshift r> lay-ly ly-name
-  if 4 lshift or else 2drop lf-look-outside then ;
+  ok? if 4 lshift or else 2drop lf-look-outside then ;
 : lay-answer ( answer lay -- answer' )
   over lf-look-slot+1 ?dup 0= if drop exit then
   1- swap lay-slot# 1+ 4 lshift swap 15 and or ;
@@ -196,15 +196,19 @@ end-structure
     r@ lay-older
   repeat 2drop drop -1 true r> drop ;
 : lay-refuse ( c-addr lay -- outcome ) >r outcome-invalid swap r@ lay-ui @ r> lay-note ;
+\ The same for a failure with its own outcome (full stays full).
+: lay-blame ( outcome c-addr lay -- outcome ) dup lay-ui @ swap lay-note ;
 \ Loaded before: the slots refer to the loaded ones, of the same verdicts.
 : lay-first-slot ( first lay -- s ) dup lay-ud @ 1 > if swap 1+ swap then lay-slot-of ;
 : lay-take ( j s n lay -- )
   swap 0 ?do over i + 3 pick i + 2 pick lay-map @ ly! loop 2drop drop ;
-\ New: its declarations entered, its slots after those loaded.
+\ New: its declarations entered, its slots after those loaded; a
+\ declaration the stage refuses keeps its outcome (full when the heap or
+\ the stage's limit refuses; review FRI F1).
 : lay-enter-all ( lay -- outcome )
   dup lay-ud @ 0 ?do
     dup lay-ui @ i + over lay-ly ly-enter dup ok? 0= if
-      drop c" declarations" swap lay-refuse unloop exit then drop
+      swap c" declarations" swap lay-blame unloop exit then drop
   loop drop outcome-ok ;
 : lay-new! ( k lay -- )
   >r r@ lay-cur @ over + over r@ lay-uj @ + r@ lay-map @ ly!

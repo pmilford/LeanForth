@@ -44,7 +44,7 @@
 \ The terms go into the term store as scratch above the input, live until
 \ the check's rollback; nothing here is trusted: check-block.fs compares
 \ them with the exported recursor (B3), as Lean's replay does.
-\ [kernel] code: experimental, not through the review gate.
+\ [kernel] code: not through the review gate (AGENTS.md).
 \ State: the block's record lf-ind-state (inductive-block.fs): the facts
 \ check-block.fs computed; and here, in lf-rcr-state and its slabs, the
 \ build's first failure, the universe arguments of its constants (the
