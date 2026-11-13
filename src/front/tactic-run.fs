@@ -353,9 +353,14 @@ s" by-sorry" tac-k-sorry lfr-spell
   tuck tsv-mark ! lf-goals over tsv-goals ! lfr-depth over tsv-frames !
   trun-parts slab-count over tsv-parts ! lfr-text# over tsv-text !
   lf-mctx-view swap tsv-view ! ;
-: lfr-unmark ( mark outcome -- -1 outcome ) swap lf-mctx-rollback drop no-result ;
+\ The metavariable context's trail (front/mvars.fs's marks, last in,
+\ first out): the one place to change when the trail's interface does.
+: lfr-trail-mark ( -- mark outcome ) lf-mctx-mark ;
+: lfr-trail-undo ( mark -- outcome ) lf-mctx-rollback ;
+: lfr-trail-keep ( mark -- outcome ) lf-mctx-commit ;
+: lfr-unmark ( mark outcome -- -1 outcome ) swap lfr-trail-undo drop no-result ;
 : lf-tac-save ( -- save outcome )
-  lf-mctx-mark ok-then? 0= if no-result exit then
+  lfr-trail-mark ok-then? 0= if no-result exit then
   1 trun-saves slab-claim ok-then? 0= if lfr-unmark exit then
   tuck lfr-save lfr-fill outcome-ok ;
 : lfr-drop-save ( -- ) -1 trun-saves slab-commit ;
@@ -365,12 +370,12 @@ s" by-sorry" tac-k-sorry lfr-spell
   dup tsv-frames @ trun-frames lfr-cut-to dup tsv-parts @ trun-parts lfr-cut-to
   dup tsv-text @ trun-text lfr-cut-to tsv-goals @ lf-goals! drop ;
 : lfr-rolled ( addr -- outcome )
-  dup lfr-back dup tsv-view @ lf-mctx-view! tsv-mark @ lf-mctx-rollback ;
+  dup lfr-back dup tsv-view @ lf-mctx-view! tsv-mark @ lfr-trail-undo ;
 : lf-tac-restore ( save -- outcome )
   dup lfr-latest? 0= if drop outcome-invalid exit then lfr-save lfr-rolled lfr-drop-save ;
 : lf-tac-commit ( save -- outcome )
   dup lfr-latest? 0= if drop outcome-invalid exit then
-  lfr-save tsv-mark @ lf-mctx-commit lfr-drop-save ;
+  lfr-save tsv-mark @ lfr-trail-keep lfr-drop-save ;
 : lfr-kept ( save code -- code ) swap lf-tac-commit drop ;
 : lfr-undone ( save code -- code ) swap lf-tac-restore drop ;
 : lfr-caught ( save code -- code )

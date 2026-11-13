@@ -14582,8 +14582,8 @@ reason = "FE1g-3: by-sorry's sorryAx gets level 0 whatever the goal's sort (Lean
 [[fault]]
 id = "fe-run-restore-keeps"
 file = "src/front/tactic-run.fs"
-old = '''  dup lfr-back dup tsv-view @ lf-mctx-view! tsv-mark @ lf-mctx-rollback ;'''
-new = '''  dup lfr-back dup tsv-view @ lf-mctx-view! tsv-mark @ lf-mctx-commit ;'''
+old = ''': lfr-trail-undo ( mark -- outcome ) lf-mctx-rollback ;'''
+new = ''': lfr-trail-undo ( mark -- outcome ) lf-mctx-commit ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "FE1g-3: a failed attempt keeps its assignments, tags and kinds (Lean's restore skipped)"
 
