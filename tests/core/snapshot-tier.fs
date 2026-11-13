@@ -290,6 +290,20 @@ T{ 16 sb stage-init s" tests/reference/identity.ndjson" sb stage-read file-b sb 
    sb stage-free -> outcome-ok outcome-ok outcome-invalid }T
 T{ 16 sb stage-init file-a sb tf tier-load file-a sb tf tier-load sb stage-state @
    sb stage-free -> outcome-ok outcome-ok outcome-invalid staging-filled }T
+\ A tier of one declaration whose line is none (review of refactor-fri
+\ L1): no later line is compared with it, so only the first line's check
+\ refuses it. identity.ndjson's tier, saved, is copied into img.
+sa stage-free
+s" tests/reference/identity.ndjson" true stage-a ok? must save-a ok? must
+T{ sa stage-decls -> 1 }T
+file-a slurp 2constant one-good
+: one-img ( -- ) one-good img swap move ;
+: attempted-one ( -- outcome flag )
+  img one-good nip file-c spit fresh-b file-c sb tf tier-load sb fresh?
+  sb stage-free gap @ free throw ;
+T{ one-img attempted-one -> outcome-ok false }T
+T{ one-img staged-none 0 9 0 poke 9 forged attempted-one -> outcome-invalid true }T
+one-good drop free throw
 img free throw  good drop free throw  sa stage-free
 T{ live-blocks @ blocks-before-faults - -> 0 }T
 

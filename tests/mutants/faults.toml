@@ -10431,7 +10431,6 @@ old = '''  2 pick u32@ staged-none = if 2drop drop false exit then'''
 new = ''''''
 test = "$GFORTH tests/core/snapshot-tier.fs"
 reason = "FRI B7: a first declaration whose line is none loads"
-gap = "only with a single declaration: a later line is never above none, so the next pair refuses it; no one-declaration tier fixture yet"
 
 [[fault]]
 id = "fri-b7-list-item-unchecked"
@@ -10466,9 +10465,8 @@ old = '''  if nip nip outcome-full exit then
   dup >r 0 ?do over i 2 pick feed-arg loop 2drop r> outcome-ok ;'''
 new = '''  if nip nip outcome-ok exit then
   dup >r 0 ?do over i 2 pick feed-arg loop 2drop r> outcome-ok ;'''
-test = "$GFORTH tests/core/check-block.fs"
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "FRI B4: no room for a constant's universe arguments is taken as success"
-gap = "the pair buffer grows on the heap; only an exhausted heap refuses it, and no test exhausts the heap while feeding"
 
 [[fault]]
 id = "fri-b4-mdata-read-in-place"
@@ -10638,4 +10636,40 @@ old = '''    i 2 pick stage-tier expr-next i -'''
 new = '''    1'''
 test = "GFORTH=$GFORTH python3 tests/core/test_stage.py"
 reason = "FRI B7: a letE's body record is walked as an expression of its own"
-gap = "the two walkers (record-resolve, reach-note) leave a body record as they found it in every fixture; no test reads a difference"
+equivalent = "record-resolve acts on constants only, and reach-note's table (reach-checks) gives a letE's body record reach-none, so walking that record as an expression changes nothing (review of refactor-fri L1)"
+
+# --- the review of refactor-fri (2026-11-12-refactor-fri.md, L2 and I2) ---
+
+[[fault]]
+id = "fri-l2-let-nondep-read-in-place"
+file = "src/import/feed.fs"
+old = '''    tag-let of feed-let-copied? endof  tag-let-nondep of feed-let-copied? endof'''
+new = '''    tag-let of feed-let-copied? endof  tag-let-nondep of 2drop false endof'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "review L2: a non-dependent let whose body is copied (stage-cases/marks-nondep.ndjson) is read in place"
+
+[[fault]]
+id = "fri-l2-layer-opaque-kind"
+file = "src/import/snapshot-layer.fs"
+old = '''  dup kind-def = over kind-thm = or swap kind-opaque = or ;'''
+new = '''  dup kind-def = swap kind-thm = or ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review L2: an opaque declaration's data in a layer is refused as a kind with none"
+
+[[fault]]
+id = "fri-i2-copy-of-e-unchecked"
+file = "src/import/feed.fs"
+old = '''  swap feed-copy-at tuck feed-copied-e @ = and ;'''
+new = '''  swap feed-copy-at nip ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "review I2: the copy found by the search is taken without asking whether it is e's"
+equivalent = "feed-copy@ is asked only through feed-term@, for a dirty expression, whose copy feed-kept entered before any parent asks for it (children have smaller numbers); the first copy not below e is then e's own"
+
+[[fault]]
+id = "fri-i2-xlate-unentered"
+file = "src/import/snapshot-layer.fs"
+old = '''  swap ly-fam-map @ ly@ dup if 1- outcome-ok else outcome-invalid then ;'''
+new = '''  swap ly-fam-map @ ly@ 1- outcome-ok ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "review I2: an own record not entered (map 0) is given as number -1"
+gap = "not equivalent: every record builder refuses -1 in the same step, but a declaration field naming a letE's body record would be refused by ly-enter instead of ly-decls; no layer fixture forges one"
