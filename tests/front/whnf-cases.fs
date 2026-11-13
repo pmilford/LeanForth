@@ -38,7 +38,7 @@ variable cn-k  variable cn-name
 : rec ( -- t ) lv1 1 s" Nat.rec" cn ;
 
 \ Free variables, let variables and metavariables, with their names.
-create names 32 cells allot  variable #names
+create names 64 cells allot  variable #names   \ 32 names (defeq-cases.fs adds some)
 : named ( term c -- ) #names @ 2* cells names + tuck cell+ ! ! 1 #names +! ;
 : local ( type c -- fvar ) swap lf-lctx-local made tuck swap named ;
 nat char m local constant fm   nat char z local constant fz   nat char s local constant fs

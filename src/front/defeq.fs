@@ -156,7 +156,8 @@ end-structure
 : de-spend? ( -- flag )
   df df-fuel @ dup 0> if 1- df df-fuel ! true else drop outcome-exhausted de-abort false then ;
 : de-goto ( t s entry -- ) de-aborted? de-spend? 0= or if drop 2drop exit then de-regs! ;
-defer de-solve-x ( -- )
+defer de-solve-x ( -- )   \ isExprDefEqAux
+defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 : de-solve ( t s k -- ) de-then ['] de-solve-x de-invoke ;
 \ The callee of the last call runs at implicit transparency or above,
 \ or one depth deeper (withNewMCtxDepth).
@@ -213,7 +214,9 @@ defer de-solve-x ( -- )
 : de-eqv? ( -- flag ) de-t de-s de-eqv-of ;
 : de-inst ( t -- t' ) lf-instantiate-mvars de-must drop ;
 : de-whnf ( t -- t' flag ) lf-whnf-core de-must ;
-: de-infer ( t -- type flag ) lf-infer de-must ;
+\ inferType; a literal's type is Nat (infer.fs has no literal case).
+: de-infer ( t -- type flag )
+  dup lf-term-tag@ lf-tag-lit = if drop lf-meta-nat de-must exit then lf-infer de-must ;
 : de-unassigned? ( mvar -- flag ) lf-mvar-value dup if nip then 0= ;
 : de-free-mvar? ( t -- flag )
   dup de-mvar? if dup lf-mvar-assignable? swap de-unassigned? and else drop false then ;
@@ -552,10 +555,16 @@ defer de-args-post ( -- )
   de-decl drop de-data dup lf-ict-params lf-more-field swap lf-ict-fields lf-more-field + ;
 : de-ctor-induct ( ctor -- data )
   de-decl drop de-data lf-ict-induct lf-more-field lf-input-newest de-data ;
-: de-eta-struct ( a b -- )
-  dup de-ctor? 0= if 2drop exit then swap de-ctor? if drop exit then
-  dup lf-meta-head de-ctor-arity over de-args# <> if drop exit then
-  lf-meta-head de-ctor-induct de-nonrec? if outcome-unsupported de-abort then ;
+: de-ctor-fields-of ( ctor -- n ) de-decl drop de-data lf-ict-fields lf-more-field ;
+\ isDefEqEtaStruct a b with b a constructor application of a non-recursive
+\ structure and a none: code 1 when it has no fields (Lean then compares
+\ the two types under a checkpoint), else 0 (false); with fields Lean
+\ compares projections (unsupported, as projections are, plan FE1c).
+: de-eta-struct ( a b -- code )
+  dup de-ctor? 0= if 2drop 0 exit then over de-ctor? if 2drop 0 exit then
+  dup lf-meta-head de-ctor-arity over de-args# <> if 2drop 0 exit then
+  nip lf-meta-head dup de-ctor-induct de-nonrec? 0= if drop 0 exit then
+  de-ctor-fields-of 0= if 1 else outcome-unsupported de-abort 0 then ;
 
 \ ---- isDefEqQuick.
 defer de-quick-x ( -- )
@@ -626,9 +635,17 @@ defer de-quick-x ( -- )
   de-t lf-meta-app? de-s lf-meta-app? and
   if ['] de-exp-app de-then de-t de-s ['] de-app de-invoke exit then
   ['] de-exp-late de-then de-t de-s ['] de-late de-invoke ;
+\ Structure eta both ways (each a checkpointed isDefEq of the types).
+: de-es-types ( a b -- )
+  de-infer 0= if 2drop exit then swap de-infer 0= if 2drop drop exit then
+  swap ['] de-top-x de-invoke ;
+: de-es-k2 ( r -- ) lf-lb-true = if lf-lb-true de-return else de-exp-shape then ;
+: de-exp-es2 ( -- )
+  de-s de-t de-eta-struct if ['] de-es-k2 de-then de-s de-t de-es-types else de-exp-shape then ;
+: de-es-k1 ( r -- ) lf-lb-true = if lf-lb-true de-return else de-exp-es2 then ;
 : de-exp-delta ( -- )
   de-t de-delta? de-s de-delta? or if outcome-unsupported de-abort exit then
-  de-t de-s de-eta-struct de-s de-t de-eta-struct de-exp-shape ;
+  de-t de-s de-eta-struct if ['] de-es-k1 de-then de-t de-s de-es-types else de-exp-es2 then ;
 : de-exp-o ( r -- ) dup lf-lb-undef = if drop de-exp-delta else de-return then ;
 : de-exp-nat ( -- )
   de-nat-unported? if outcome-unsupported de-abort exit then
@@ -654,6 +671,7 @@ defer de-quick-x ( -- )
 
 \ ---- isDefEq: checkpointDefEq of isExprDefEqAux.
 : de-top ( -- ) de-mark? if de-t de-s ['] de-close-k de-solve then ;
+' de-top is de-top-x
 : de-start ( t s -- )
   de-frames slab-clear de-cells slab-clear 0 df df-m ! ['] de-top de-regs!
   df df-mode0 @ df df-mode ! outcome-ok df df-outcome ! false df df-taint !
