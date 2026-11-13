@@ -287,7 +287,7 @@ accepted: 4276; axioms: propext, Classical.choice, Quot.sound (allowlisted); non
 (with `--json`) for the receipt's evidence, and `write` then writes the
 receipt; `make check` does both and compares them with the committed ones.
 
-A program, contract or proof changed after Lean proved it is rejected.
+An export whose program IR term, postcondition or proof term was changed after Lean proved it is rejected by LeanForth's checker.
 [`tests/program/clamp_mutants.py`](../../tests/program/clamp_mutants.py)
 (untrusted test tool) changes one declaration of the export and leaves
 everything else as it was, writing a fresh manifest so that the rejection
@@ -299,9 +299,10 @@ is the kernel's and not the manifest check's:
 | `contract` | min and max exchanged in the postcondition `post` (the refuted contract `wrong-clamp-swapped`) | `O1` and `O2` rejected, so `contract` (it uses them), exit 1 | rejected, exit 1 |
 | `proof` | the lemma `ir_max` replaced by `ir_min` in `contract`'s proof term | `contract` rejected, exit 1 | rejected, exit 1 |
 
-The official checker's column is one run on 2026-11-12 of Lean's kernel on
-the same files (the arena build of lean4export v4.35.0's checker, kept
-outside the repository); it also accepted the unchanged export. `make
+The official checker's column cannot be reproduced from the repository: it is
+one manual run on 2026-11-12 of Lean's kernel on the same files (the arena
+build of lean4export v4.35.0's checker, kept outside the repository), not
+repeated by the done check; it also accepted the unchanged export. `make
 check` (`reference-program-mutants`) puts all three changes into one
 export, each changed declaration added under its own name next to the
 originals, and requires LeanForth to accept the originals and reject the
