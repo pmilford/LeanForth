@@ -1,34 +1,40 @@
 \ The front end's whnfCore (plan FE1c; ADR 0021 D6): a port of Lean
-\ 4.35.0's Meta.whnfCore (Lean/Meta/WHNF.lean, with whnfEasyCases and
-\ reduceRec) under Meta's default configuration (beta, zeta, zetaDelta,
-\ zetaHave and iota on), over the term store, with no use of src/kernel/.
+\ 4.35.0's Meta.whnfCore (Lean/Meta/WHNF.lean, with whnfEasyCases,
+\ reduceRec and projectCore?) under Meta's default configuration (beta,
+\ zeta, zetaDelta, zetaHave, iota and proj := yesWithDelta on), over the
+\ term store, with no use of src/kernel/.
 \ lf-whnf-core ( term -- term' outcome ) repeats one step on the term
 \ until none applies:
 \ - a sort, binder, literal or constant is itself; a loose bound variable
 \   is invalid (Lean panics);
 \ - an assigned metavariable is its value; a let variable of the local
 \   context its value (zetaDelta); a let is its body with the value put in;
+\ - a projection reduces its structure first (a frame, below); when that
+\   is a constructor applied to more than its parameters and the field's
+\   index, it is that argument; else the projection stays;
 \ - an application f a1 .. an: a lambda head takes the arguments
-\   (lf-meta-head-beta); an assigned metavariable, a let variable or a let
-\   at the head is replaced as above, the arguments kept; a recursor at
-\   the head reduces when its major premise is a constructor application
+\   (lf-meta-head-beta); an assigned metavariable, a let variable, a let
+\   or a projection at the head is replaced as above, the arguments kept;
+\   a recursor at the head reduces its major premise first, then, when
+\   that is a constructor application, fires the constructor's rule
 \   (iota: the rule's right side, its universe parameters instantiated,
 \   applied to the parameters, motives and minor premises, the
 \   constructor's fields and the arguments after the major premise); any
 \   other head, an unassigned metavariable included, ends the reduction.
+\ Frames: where Lean calls whnf on a part (a projection's structure, a
+\ recursor's major premise), the step keeps (kind, term, aux) on the heap
+\ stack wc-frames and goes on with the part; when the part is done the
+\ frame resumes with it. Lean's whnf adds delta and Nat literal folding to
+\ whnfCore; a part whose whnfCore ends where whnf would do more (a
+\ definition, an unknown constant, a literal, Nat.succ of what reduceNat?
+\ or the Nat offsets would change) answers unsupported.
 \ Never a guess: unsupported for what Lean decides with a fact or a step
 \ not ported yet -- a definition at the head (Lean first asks whether it
 \ is a matcher, then whether it is an auxiliary recursor: facts the
-\ export lacks, front/meta-env.fs, plan FE1d2), a projection (Lean
-\ reduces the structure with whnf, delta included: plan FE1c's whnf), a
-\ quotient's lift or ind, a delayed-assigned metavariable at the head,
-\ and, for a recursor: K-like ones (toCtorWhenK infers the major
-\ premise's type), a natural-number literal as major premise (toCtorIfLit
-\ and the Nat offsets), a major premise whose whnf may differ from itself
-\ (whnf reduces it first: anything but a constructor application, a free
-\ variable, an unassigned metavariable, a sort or a binder, and Nat.succ
-\ of anything but those or a literal, which reduceNat? would fold), a
-\ stuck major premise of a structure-like type (toCtorWhenStructure
+\ export lacks, front/meta-env.fs, plan FE1d2), a quotient's lift or ind,
+\ a delayed-assigned metavariable at the head, and, for a recursor:
+\ K-like ones (toCtorWhenK infers the major premise's type), a stuck
+\ major premise of a structure-like type (toCtorWhenStructure
 \ eta-expands it), and a recursor of a mutual or nested block.
 \ Fuel: each step spends one; lf-whnf-fuel! sets the steps a call may
 \ take (0: lf-whnf-default-fuel); none left is exhausted, never a term.
@@ -40,8 +46,9 @@
 \ head, or a recursor's major premise that is one; unsupported where it
 \ would need whnf, a projection or a definition's facts.
 \ Untrusted: only the kernel's check of a finished term decides anything.
-\ State: the record wc (fuel, the recursor step's term, head and data)
-\ and the slabs wc-args, wc-margs and wc-levels, in the checker context.
+\ State: the record wc (fuel, the recursor step's term, head, data and
+\ declaration) and the slabs wc-args, wc-margs, wc-levels and wc-frames,
+\ in the checker context.
 
 require ../lib/lib.fs
 require ../core/terms.fs
@@ -66,13 +73,16 @@ begin-structure /wc
   field: wc-e        \ the recursor step's term,
   field: wc-head     \ its head constant,
   field: wc-data     \ the recursor's inductive data
+  field: wc-aux      \ a frame's third cell: the recursor's declaration
 end-structure
 /wc context-record: wc
 1 cells context-slab: wc-args     \ the term's arguments, last first
 1 cells context-slab: wc-margs    \ the major premise's arguments, last first
 1 cells context-slab: wc-levels   \ the recursor's universe arguments
+1 cells context-slab: wc-frames   \ the frames: kind, term, aux each
 : lf-whnf-fuel! ( n -- ) wc wc-limit ! ;
-: wc-start ( -- ) wc wc-limit @ ?dup 0= if lf-whnf-default-fuel then wc wc-fuel ! ;
+: wc-start ( -- )
+  wc-frames slab-clear wc wc-limit @ ?dup 0= if lf-whnf-default-fuel then wc wc-fuel ! ;
 
 \ ---- Results of a step ( -- term flag outcome ): flag true goes on.
 : wc-done ( term -- term false outcome ) false outcome-ok ;
@@ -100,6 +110,19 @@ end-structure
   swap ?do i wc-nth wc-app1 ok-then? 0= if -1 swap unloop exit then loop outcome-ok ;
 : wc-from ( slab -- ) wc wc-src ! ;
 : wc-rebuild ( head -- term outcome ) wc-args wc-from 0 wc-args slab-count wc-apply ;
+
+\ ---- Frames: a step that needs the whnf of a part (a projection's
+\ structure, a recursor's major premise) keeps (kind, term, aux) on
+\ wc-frames and goes on with the part; when the part is done, the frame
+\ resumes with it (wc-resume), as Lean's call of whnf returns.
+0 constant wc-proj-kind   1 constant wc-rec-kind
+: wc-frame ( kind e aux -- outcome )
+  >r swap wc-frames wc-push >r wc-frames wc-push r> outcome-and
+  r> wc-frames wc-push outcome-and ;
+: wc-top ( k -- x ) wc-frames slab-count 1- swap - wc-frames slab-at @ ;
+: wc-pop ( -- kind )
+  0 wc-top wc wc-aux ! 1 wc-top wc wc-e ! 2 wc-top -3 wc-frames slab-commit ;
+: wc-framed? ( -- flag ) wc-frames slab-count 0> ;
 
 \ ---- Leaves: metavariables, let variables, lets.
 : wc-delayed? ( mvar -- flag ) lf-mvar-delayed dup if nip nip nip then ;
@@ -241,9 +264,47 @@ end-structure
 : wc-reduce-rec ( -- e' flag outcome )
   wc-short? if wc-stay exit then
   wc-k? wc-single? 0= or if outcome-unsupported wc-no exit then
-  wc-major wc-margs wc-spine ok-then? if wc-major-head else wc-no then ;
+  wc-major wc-rec-kind wc-term wc wc-aux @ wc-frame wc-go ;
 : wc-iota ( e head d -- e' flag outcome )
-  lf-input-decl lf-idecl-data wc wc-data ! wc wc-head ! wc wc-e ! wc-reduce-rec ;
+  dup wc wc-aux ! lf-input-decl lf-idecl-data wc wc-data ! wc wc-head ! wc wc-e !
+  wc-reduce-rec ;
+\ Resumed with the major premise's whnf r: the step's state again, then
+\ r's head decides.
+: wc-rec-frame ( -- outcome )
+  wc wc-aux @ lf-input-decl lf-idecl-data wc wc-data !
+  wc-term wc-args wc-spine ok-then? if wc wc-head ! outcome-ok then ;
+: wc-rec-resume ( r -- e' flag outcome )
+  wc-rec-frame dup ok? 0= if wc-drop-fail exit then drop
+  wc-margs wc-spine ok-then? if wc-major-head else wc-no then ;
+
+\ ---- Projections (projectCore?): the structure's whnf r, a constructor
+\ applied to more than its parameters and the field's index, gives that
+\ argument; any other r leaves the projection. An r whnf would reduce
+\ further (a definition, an unknown constant, Nat.succ it folds, a
+\ literal, which toCtorIfLit turns into Nat's constructors) answers
+\ unsupported.
+: wc-const? ( term -- flag ) lf-term-tag@ lf-tag-constant = ;
+: wc-const-unfinal? ( rhead -- flag )
+  dup wc-kind dup lf-kind-definition = swap 0= or swap wc-foldable? or ;
+: wc-unfinal? ( rhead -- flag ) dup wc-const? if wc-const-unfinal? else wc-lit? then ;
+: wc-proj-at ( p -- k ) lf-proj-leaf lf-proj-idx ;
+: wc-ctor-params ( ctor -- n )
+  wc-decl drop lf-input-decl lf-idecl-data lf-ict-params lf-more-field ;
+: wc-field ( rhead p -- x true | false )
+  wc-proj-at swap wc-ctor-params + dup wc-margs slab-count <
+  if wc-margs wc-arg true else drop false then ;
+: wc-project ( rhead p -- x true | false )
+  over wc-ctor? if wc-field else 2drop false then ;
+: wc-proj-frame ( -- p outcome ) wc-term wc-args wc-spine ;
+: wc-proj-resume ( r -- e' flag outcome )
+  wc-margs wc-spine ok-then? 0= if wc-no exit then
+  dup wc-unfinal? if drop outcome-unsupported wc-no exit then
+  wc-proj-frame ok-then? 0= if wc-drop-fail exit then
+  wc-project if wc-rebuild wc-go else wc-stay then ;
+: wc-proj-head ( e head -- e' flag outcome )
+  lf-proj-struct wc-proj-kind rot 0 wc-frame wc-go ;
+: wc-resume ( r -- e' flag outcome )
+  wc-pop wc-rec-kind = if wc-rec-resume else wc-proj-resume then ;
 
 : wc-blocked? ( d -- flag )
   lf-menv-kind dup lf-kind-definition = swap lf-kind-quotient = or ;
@@ -256,7 +317,7 @@ end-structure
 \ ---- One step.
 : wc-head-tag ( e head tag -- e' flag outcome )
   case lf-tag-mvar of wc-mvar-head endof  lf-tag-fvar of wc-fvar-head endof
-    lf-tag-constant of wc-const-head endof  lf-tag-projection of wc-unsupported endof
+    lf-tag-constant of wc-const-head endof  lf-tag-projection of wc-proj-head endof
     lf-tag-bvar of wc-invalid endof  >r drop wc-done r> endcase ;
 : wc-lam? ( term -- flag ) lf-term-tag@ lf-tag-lam = ;
 : wc-head-step ( e head -- e' flag outcome )
@@ -266,15 +327,19 @@ end-structure
   dup wc-args wc-spine ok-then? if wc-head-step else wc-drop-fail then ;
 : wc-leaf-step ( e tag -- e' flag outcome )
   case lf-tag-mvar of wc-mvar endof  lf-tag-fvar of wc-fvar endof
-    lf-tag-projection of outcome-unsupported wc-drop-fail endof
+    lf-tag-projection of dup wc-proj-head endof
     lf-tag-bvar of outcome-invalid wc-drop-fail endof  >r wc-done r> endcase ;
 : wc-step ( e -- e' flag outcome )
   dup lf-let? if wc-zeta wc-go exit then
   dup wc-app? if wc-app else dup lf-term-tag@ wc-leaf-step then ;
 : wc-spend ( -- flag ) wc wc-fuel @ dup 0> if 1- wc wc-fuel ! true else drop false then ;
+: wc-next ( e flag -- e' flag' outcome )
+  begin dup 0= wc-framed? and while drop wc-resume dup ok? 0= if exit then drop repeat
+  outcome-ok ;
+: wc-turn ( e -- e' flag outcome ) wc-step dup ok? if drop wc-next then ;
 : wc-loop ( e -- e' outcome )
   begin wc-spend 0= if drop -1 outcome-exhausted exit then
-    wc-step dup ok? 0= if nip exit then drop
+    wc-turn dup ok? 0= if nip exit then drop
   0= until outcome-ok ;
 : lf-whnf-core ( term -- term' outcome )
   dup lf-term-root? 0= if drop -1 outcome-invalid exit then wc-start wc-loop ;

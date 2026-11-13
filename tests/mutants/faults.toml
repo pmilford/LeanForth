@@ -11468,3 +11468,27 @@ old = '''  wc-delayed? if outcome-unsupported wc-drop-fail else wc-done then ;''
 new = '''  drop wc-done ;'''
 test = "$GFORTH tests/front/whnf.fs"
 reason = "FE1c: a delayed-assigned metavariable at the head ends whnfCore, where Lean may put its value in (whnfDelayedAssigned?)"
+
+[[fault]]
+id = "fe-whnf-proj-params-skipped"
+file = "src/front/whnf.fs"
+old = '''  wc-proj-at swap wc-ctor-params + dup wc-margs slab-count <'''
+new = '''  wc-proj-at nip dup wc-margs slab-count <'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "FE1c: a projection takes the constructor's argument at the field's index without skipping its parameters ((Prod.mk Nat Nat a b).1 gives Nat)"
+
+[[fault]]
+id = "fe-whnf-frame-not-resumed"
+file = "src/front/whnf.fs"
+old = '''  begin dup 0= wc-framed? and while drop wc-resume dup ok? 0= if exit then drop repeat'''
+new = '''  begin false while drop wc-resume dup ok? 0= if exit then drop repeat'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "FE1c: a reduced part (a major premise, a projection's structure) is given as the result instead of resuming its frame"
+
+[[fault]]
+id = "fe-whnf-frame-term-lost"
+file = "src/front/whnf.fs"
+old = '''  0 wc-top wc wc-aux ! 1 wc-top wc wc-e ! 2 wc-top -3 wc-frames slab-commit ;'''
+new = '''  0 wc-top wc wc-aux ! 2 wc-top -3 wc-frames slab-commit ;'''
+test = "$GFORTH tests/front/whnf.fs"
+reason = "FE1c: a resumed frame works on the term of the step that ran last, not its own (a nested recursor)"

@@ -14,6 +14,7 @@ partial def sx : Expr → MetaM String
   | .lam _ t b _ => return s!"(lam {← sx t} {← sx b})"
   | .forallE _ t b _ => return s!"(pi {← sx t} {← sx b})"
   | .letE _ t v b _ => return s!"(let {← sx t} {← sx v} {← sx b})"
+  | .proj _ i e => return s!"(proj {i} {← sx e})"
   | e => return s!"?? {e}"
 
 def whnfCase (e : Expr) : MetaM Unit := do IO.println (← sx (← whnfCore e))
@@ -64,6 +65,17 @@ run_meta do
     whnfCase (mkApp (mkApp (mkConst `Classical.choice [(mkLevelSucc .zero)]) (mkConst `Nat [])) x)
     whnfCase (mkApp (mkApp (mkApp (mkApp (mkApp (mkApp (mkConst `Eq.rec [(mkLevelSucc .zero), (mkLevelSucc .zero)]) (mkConst `Nat [])) a) m) x) a) (mkApp (mkApp (mkConst `Eq.refl [(mkLevelSucc .zero)]) (mkConst `Nat [])) a))
     whnfCase (mkApp (mkApp (mkApp (mkApp (mkApp (mkApp (mkConst `Quot.lift [(mkLevelSucc .zero), (mkLevelSucc .zero)]) (mkConst `Nat [])) x) (mkConst `Nat [])) s) b) (mkApp (mkApp (mkApp (mkConst `Quot.mk [(mkLevelSucc .zero)]) (mkConst `Nat [])) x) a))
+    whnfCase (mkProj `Prod 0 (mkApp (mkApp (mkApp (mkApp (mkConst `Prod.mk [Level.zero, Level.zero]) (mkConst `Nat [])) (mkConst `Nat [])) a) b))
+    whnfCase (mkProj `Prod 1 (mkApp (mkApp (mkApp (mkApp (mkConst `Prod.mk [Level.zero, Level.zero]) (mkConst `Nat [])) (mkConst `Nat [])) a) b))
+    whnfCase (mkProj `Prod 0 p)
+    whnfCase (mkProj `Prod 2 (mkApp (mkApp (mkApp (mkApp (mkConst `Prod.mk [Level.zero, Level.zero]) (mkConst `Nat [])) (mkConst `Nat [])) a) b))
+    whnfCase (mkApp (mkProj `Prod 0 (mkApp (mkApp (mkApp (mkApp (mkConst `Prod.mk [Level.zero, Level.zero]) (mkConst `Nat [])) (mkConst `Nat [])) (mkLambda `y .default (mkConst `Nat []) (mkApp s (mkBVar 0)))) b)) k)
+    whnfCase (mkProj `Prod 0 (mkApp (mkConst `Nat.succ []) k))
+    whnfCase (mkProj `Prod 0 (mkApp (mkApp (mkConst `Nat.add []) k) k))
+    whnfCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) (mkLet `y (mkConst `Nat []) k (mkApp (mkConst `Nat.succ []) (mkBVar 0))))
+    whnfCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) (mkApp (mkLambda `y .default (mkConst `Nat []) (mkBVar 0)) k))
+    whnfCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) (mkApp (mkConst `Nat.succ []) z)) s) (mkConst `Nat.zero [])))
+    whnfCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) (mkApp (mkApp (mkConst `Nat.add []) k) k))
     stuckCase n
     stuckCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) n)
     stuckCase (mkApp (mkApp (mkApp (mkApp (mkConst `Nat.rec [(mkLevelSucc .zero)]) m) z) s) k)

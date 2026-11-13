@@ -42,12 +42,19 @@ def apps(f, *args):
 
 NAT, ZERO, SUCC, REC = c("Nat"), c("Nat.zero"), c("Nat.succ"), c("Nat.rec", 1)
 PROD_REC, PROD_MK = c("Prod.rec", 1, 0, 0), c("Prod.mk", 0, 0)
-LAM, LET = "lam", "let"
+LAM, LET, PROJ = "lam", "let", "proj"
 ADD = c("Nat.add")
 
 
 def rec(*args):
     return apps(REC, "m", "z", "s", *args)
+
+
+def pair(a, b):
+    return apps(PROD_MK, NAT, NAT, a, b)
+
+
+SFUN = (LAM, NAT, apps("s", "#0"))
 
 
 # (kind, term, gap): kind "whnf" (whnfCore) or "stuck" (getStuckMVar?);
@@ -79,6 +86,17 @@ CASES = [
      "FE1c inferType and isDefEq (toCtorWhenK)"),
     ("whnf", apps(c("Quot.lift", 1, 1), NAT, "x", NAT, "s", "b", apps(c("Quot.mk", 1), NAT, "x", "a")),
      "FE1c quotient reduction (reduceQuotRec)"),
+    ("whnf", (PROJ, 0, pair("a", "b")), None),
+    ("whnf", (PROJ, 1, pair("a", "b")), None),
+    ("whnf", (PROJ, 0, "p"), None),
+    ("whnf", (PROJ, 2, pair("a", "b")), None),
+    ("whnf", apps((PROJ, 0, pair(SFUN, "b")), "k"), None),
+    ("whnf", (PROJ, 0, apps(SUCC, "k")), None),
+    ("whnf", (PROJ, 0, apps(ADD, "k", "k")), "FE1d2 smart unfolding and matcher facts"),
+    ("whnf", rec((LET, NAT, "k", apps(SUCC, "#0"))), None),
+    ("whnf", rec(apps((LAM, NAT, "#0"), "k")), None),
+    ("whnf", rec(apps(REC, "m", apps(SUCC, "z"), "s", ZERO)), None),
+    ("whnf", rec(apps(ADD, "k", "k")), "FE1d2 smart unfolding and matcher facts"),
     ("stuck", "?n", None),
     ("stuck", rec("?n"), None),
     ("stuck", rec("k"), None),
@@ -103,6 +121,8 @@ def lean(t):
         return f"(mkApp {lean(t[1])} {lean(t[2])})"
     if isinstance(t, tuple) and t[0] == LAM:
         return f"(mkLambda `y .default {lean(t[1])} {lean(t[2])})"
+    if isinstance(t, tuple) and t[0] == PROJ:
+        return f"(mkProj `Prod {t[1]} {lean(t[2])})"
     if isinstance(t, tuple):
         return f"(mkLet `y {lean(t[1])} {lean(t[2])} {lean(t[3])})"
     if t.startswith("#"):
@@ -118,6 +138,8 @@ def forth(t):
         return f"{forth(t[1])} {forth(t[2])} app"
     if isinstance(t, tuple) and t[0] == LAM:
         return f"{forth(t[1])} {forth(t[2])} lam"
+    if isinstance(t, tuple) and t[0] == PROJ:
+        return f"{forth(t[2])} {t[1]} proj"
     if isinstance(t, tuple):
         return f"{forth(t[1])} {forth(t[2])} {forth(t[3])} let"
     if t.startswith("#"):
@@ -141,6 +163,7 @@ partial def sx : Expr → MetaM String
   | .lam _ t b _ => return s!"(lam {← sx t} {← sx b})"
   | .forallE _ t b _ => return s!"(pi {← sx t} {← sx b})"
   | .letE _ t v b _ => return s!"(let {← sx t} {← sx v} {← sx b})"
+  | .proj _ i e => return s!"(proj {i} {← sx e})"
   | e => return s!"?? {e}"
 
 def whnfCase (e : Expr) : MetaM Unit := do IO.println (← sx (← whnfCore e))

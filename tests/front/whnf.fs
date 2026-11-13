@@ -43,10 +43,26 @@ T{ ?f fk app fs fk app whnf= ?h fk app dup whnf= -> true outcome-ok true outcome
 T{ fg fk app fs fk app whnf= fg sfun whnf= -> true outcome-ok true outcome-ok }T
 T{ succ fk app dup whnf= -> true outcome-ok }T
 
-\ ---- Unsupported: a definition, a projection, a quotient's lift, a
-\ K-like recursor, a structure's eta, a Nat.succ that whnf may fold.
+\ ---- Frames: the major premise and a projection's structure are
+\ reduced first (a let, a beta step, an assigned metavariable, an inner
+\ recursor), then the step resumes.
+: pair ( a b -- t ) >r >r l0 l0 2 s" Prod.mk" cn nat app nat app r> app r> app ;
+T{ fa fb pair 0 proj fa whnf= fa fb pair 1 proj fb whnf= -> true outcome-ok true outcome-ok }T
+T{ fp 0 proj dup whnf= fa fb pair 2 proj dup whnf= -> true outcome-ok true outcome-ok }T
+T{ sfun fb pair 0 proj fk app fs fk app whnf= -> true outcome-ok }T
+T{ nat fk succ 0 bv app let recm  fs fk app fk recm app whnf= -> true outcome-ok }T
+T{ nat 0 bv lam fk app recm dup whnf= -> true outcome-ok }T
+T{ rec fm app fz succ swap app app fs app zero app recm  fs fz app fz recm app whnf=
+   -> true outcome-ok }T
+T{ fk succ swap app 0 proj fk whnf= -> true outcome-ok }T
+\ The structure or major premise needs what whnf would do next.
+T{ 0 s" Nat.add" cn fa fb pair app 0 proj lf-whnf-core -> -1 outcome-unsupported }T
+T{ 0 s" Nat.add" cn 0 proj lf-whnf-core -> -1 outcome-unsupported }T
+T{ 0 s" Nat.add" cn recm lf-whnf-core -> -1 outcome-unsupported }T
+
+\ ---- Unsupported: a definition, a quotient's lift, a K-like recursor, a
+\ structure's eta, a Nat.succ that whnf may fold.
 T{ 0 s" Nat.add" cn fk app fk app lf-whnf-core -> -1 outcome-unsupported }T
-T{ fp s" Prod" menv-name 0 lf-proj-of made lf-whnf-core -> -1 outcome-unsupported }T
 : quot ( -- t ) lv1 lv1 2 s" Quot.lift" cn nat app fx app nat app fs app fb app ;
 T{ quot lv1 1 s" Quot.mk" cn nat app fx app fa app app lf-whnf-core
    -> -1 outcome-unsupported }T
@@ -55,7 +71,6 @@ T{ lv1 lv1 2 s" Eq.rec" cn nat app fa app fm app fx app fa app fk app lf-whnf-co
 : prod-rec ( -- t ) lv1 l0 l0 3 s" Prod.rec" cn nat app nat app fm app fs app ;
 T{ prod-rec fp app lf-whnf-core -> -1 outcome-unsupported }T
 T{ fk succ swap app succ swap app recm lf-whnf-core -> -1 outcome-unsupported }T
-T{ nat 0 bv lam fk app recm lf-whnf-core -> -1 outcome-unsupported }T
 
 \ ---- Invalid: no term, a loose bound variable, a malformed let.
 T{ -1 lf-whnf-core 0 bv lf-whnf-core -> -1 outcome-invalid -1 outcome-invalid }T

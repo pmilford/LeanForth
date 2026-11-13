@@ -64,8 +64,11 @@ defer .t
 : .pair ( t c-addr u -- ) ." (" type space dup lf-term-first@ .t space lf-term-second@ .t ." )" ;
 : .let ( t -- )
   ." (let " dup lf-let-type .t space dup lf-let-value .t space lf-let-body .t ." )" ;
+: .proj ( t -- ) ." (proj " dup lf-proj-leaf lf-proj-idx 0 .r space lf-proj-struct .t ." )" ;
+: proj ( e i -- t ) >r s" Prod" menv-name r> lf-proj-of made ;
 :noname ( t -- )
   dup lf-let? if .let exit then
+  dup lf-proj? if .proj exit then
   dup lf-term-tag@ case
     lf-tag-app of s" app" .pair endof  lf-tag-lam of s" lam" .pair endof
     lf-tag-pi of s" pi" .pair endof  lf-tag-bvar of ." #" lf-term-first@ 0 .r endof
