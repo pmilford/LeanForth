@@ -213,6 +213,14 @@ T{ cu const-level cu lf-instantiate-mvars swap dup cu = swap const-level
    -> u outcome-ok false one }T
 T{ one const-over dup lf-instantiate-mvars drop = -> true }T
 T{ lf-mctx-reset u lf-level-mvar-live? u one lf-level-mvar-assign -> false outcome-invalid }T
+\ With the level store sharing by content, a new level metavariable of the
+\ same number is another leaf (another epoch), and the old one stays stale.
+true lf-term-sharing! lf-mctx-reset
+T{ lf-level-mvar-new nip -> outcome-ok }T
+lf-level-count @ 1- constant u0
+T{ lf-mctx-reset lf-level-mvar-new -> lf-level-count @ 1- outcome-ok }T
+T{ u0 lf-level-mvar-live? lf-level-count @ 1- dup u0 = swap lf-level-mvar-live? -> false false true }T
+false lf-term-sharing!
 
 \ Binders keep their name and kind when a part changes.
 lf-mctx-reset mv-natural new constant body

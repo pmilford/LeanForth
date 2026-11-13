@@ -123,15 +123,17 @@ store-header context-record: mv-fvars
   mv-exprs store-clear mv-levels store-clear mv-fvars store-clear
   mctx-epoch@ 1+ mv-epoch-mask and mctx mctx-epoch ! 0 mctx mctx-depth ! ;
 
-\ Live leaves: of this epoch, naming a record whose leaf they are.
+\ Live leaves: a term leaf is the one its record names (term leaves are
+\ never shared, so a leaf of an emptied context is never a new record's);
+\ a level leaf, which the level store may share by content, also carries
+\ this context's epoch.
 : mv-number ( leaf -- n ) lf-term-first@ ;
 : mv-decl ( n -- addr ) mv-exprs store-slot ;
-: mv-shape? ( term -- flag ) dup lf-mvar? swap lf-term-second@ mctx-epoch@ = and ;
 : mv-own? ( term -- flag )
   dup mv-number dup mv-exprs store-valid?
   if mv-decl mvd-leaf @ = else 2drop false then ;
 : lf-mvar-live? ( term -- flag )
-  dup lf-term-valid? if dup mv-shape? if mv-own? exit then then drop false ;
+  dup lf-term-valid? if dup lf-mvar? if mv-own? exit then then drop false ;
 : mv-of ( mvar -- addr true | false )
   dup lf-mvar-live? if mv-number mv-decl true else drop false then ;
 : mv-field ( mvar offset -- x true | false ) swap mv-of if + @ true else drop false then ;

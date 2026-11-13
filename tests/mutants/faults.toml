@@ -5246,8 +5246,8 @@ reason = "the EVALUATE that makes a group word searches FORTH, where a later wor
 [[fault]]
 id = "author-value-in-sealed-list"
 file = "src/author/words.fs"
-old = '''' lfa-w-sketch lfa-word import'''
-new = '''' lfa-w-sketch lfa-word import
+old = '''' lfa-w-sketch lfa-word-both import'''
+new = '''' lfa-w-sketch lfa-word-both import
 get-current lf-words set-current 0 value lfa-trap set-current'''
 test = "$GFORTH tests/author/author.fs"
 reason = "a VALUE in LF-WORDS, which Gforth 1.0's ->x recognizer writes from proof text (A5 row 2; caught on Gforth 1.0, where the test runs)"
@@ -10277,3 +10277,226 @@ old = ''': lf-nt-end ( row -- ) align here over - swap lf-nt-next ! ;'''
 new = ''': lf-nt-end ( row -- ) here over - swap lf-nt-next ! ;'''
 test = "$GFORTH tests/present/notation.fs"
 reason = "a notation row may start at an unaligned address (works on x86-64, faults elsewhere): rows-aligned? catches it (review refactor-present L1d)"
+
+# --- The front end's first steps (plan FE1a-b; ADR 0021) -----------------
+
+[[fault]]
+id = "fe-natural-not-default"
+file = "src/author/form.fs"
+old = '''  false lfa-form lfa-form-kernel ! -1 lfa-form lfa-form-tick ! lfa-numerals store-clear ;'''
+new = '''  true lfa-form lfa-form-kernel ! -1 lfa-form lfa-form-tick ! lfa-numerals store-clear ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1a: a run starts in the kernel form, so natural text is read as kernel terms (owner decision 4)"
+quick = true
+
+[[fault]]
+id = "fe-marker-ignored"
+file = "src/author/form.fs"
+old = ''': lfa-kernel-form! ( -- ) true lfa-form lfa-form-kernel ! ;'''
+new = ''': lfa-kernel-form! ( -- ) ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1a: the kernel-form marker does nothing; kernel-form text then stops as natural text"
+
+[[fault]]
+id = "fe-marker-anywhere"
+file = "src/author/words.fs"
+old = ''': lfa-w-kernel-form ( -- ) lfa-inside? 0= lfa-e-form-here lfa-must lfa-kernel-form! ;'''
+new = ''': lfa-w-kernel-form ( -- ) lfa-kernel-form! ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1a: kernel-form switches the form inside a declaration, between a natural statement and its proof"
+
+[[fault]]
+id = "fe-printer-no-marker"
+file = "src/cli/print-lf.fs"
+old = ''': fl-marker ( -- ) s\" kernel-form\n" fl-out ;'''
+new = ''': fl-marker ( -- ) ;'''
+test = "GFORTH=$GFORTH python3 tests/author/check_author.py"
+reason = "FE1a: print --lf writes kernel-form text without the marker, which then reads back as natural text and stops"
+
+[[fault]]
+id = "fe-numeral-positions-lost"
+file = "src/author/form.fs"
+old = '''  lfa-kernel-form? if 2drop exit then'''
+new = '''  2drop exit'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1a: the numbers' positions are not kept, so a numeral has no position (error 34 where the tree was due)"
+
+[[fault]]
+id = "fe-args-reversed"
+file = "src/front/reader.fs"
+old = ''': lfn-fill ( v1 .. vn app n -- app ) ?dup if 0 swap 1- do i lfn-take-arg -1 +loop then ;'''
+new = ''': lfn-fill ( v1 .. vn app n -- app ) ?dup if 0 do i lfn-take-arg loop then ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1a: a name's arguments are taken in reverse, x y f becoming f y x (congrArg's order test)"
+quick = true
+
+[[fault]]
+id = "fe-operands-swapped"
+file = "src/front/reader.fs"
+old = ''': lfn-two ( x y -- nx ny ) lfn>syntax >r lfn>syntax r> ;'''
+new = ''': lfn-two ( x y -- nx ny ) lfn>syntax >r lfn>syntax r> swap ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1a: 0 n + builds binop% HAdd.hAdd n 0, a different statement"
+
+[[fault]]
+id = "fe-tick-ignored"
+file = "src/front/reader.fs"
+old = '''  lfa-untick if drop lfn-value exit then'''
+new = '''  lfa-untick drop'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1a: ' NAME still takes the name's arguments, so ' Nat.succ n congrArg reads differently"
+
+[[fault]]
+id = "fe-arity-guess"
+file = "src/front/reader.fs"
+old = '''  dup 0< 0= lfa-e-arity-unknown lfa-must'''
+new = '''  0 max'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1a: a name whose argument count depends on unfolding takes none instead of stopping unsupported (error 73)"
+
+[[fault]]
+id = "fe-by-anywhere"
+file = "src/front/reader.fs"
+old = '''  lfa-above 0= lfa-inside? and lfa-params 0< 0= and lfa-depth lfa-params = and'''
+new = '''  true'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1a: by is taken before :=, after a value or twice (error 69 expected)"
+
+[[fault]]
+id = "fe-end-no-shape"
+file = "src/front/reader.fs"
+old = '''  lfa-end-check lfn-shape lfa-e-elaborate lfa-fail ;'''
+new = '''  lfa-end-check drop lfa-e-elaborate lfa-fail ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1a: end of a natural declaration no longer checks := and the one proof (errors 19 and 20)"
+
+[[fault]]
+id = "fe-library-arity-all-binders"
+file = "src/cli/check-lf.fs"
+old = ''': lfc-explicit ( n e -- n' ) lfc-tag tag-pi = if 1+ then ;'''
+new = ''': lfc-explicit ( n e -- n' ) drop 1+ ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1a: implicit and instance binders are counted too, so n Eq.refl takes two values (error 3)"
+
+[[fault]]
+id = "fe-unfold-ignored"
+file = "src/cli/check-lf.fs"
+old = ''': lfc-const-unfolds? ( e -- flag ) lfc-tier expr-a@ lfc-decl if lfc-def? else false then ;'''
+new = ''': lfc-const-unfolds? ( e -- flag ) drop false ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1a: a constant whose type ends in a definition's application gets a fixed argument count"
+gap = "no constant of the Init slice (tests/author/init-slice.ndjson) has a type ending in a definition's application; a slice with one (such as a Set-valued constant) is plan FE1c's"
+
+[[fault]]
+id = "fe-type-head-unfold-ignored"
+file = "src/cli/check-lf.fs"
+old = '''  dup lfc-def? swap ck-stage staged-type@ lfc-telescope lfc-unfolds? if drop -1 then'''
+new = '''  false swap ck-stage staged-type@ lfc-telescope lfc-unfolds? if drop -1 then'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1a: a variable whose type is headed by a definition (Nat.add) gets argument count 0, guessing what whnf may change"
+
+[[fault]]
+id = "fe-mvar-to-kernel"
+file = "src/author/export.fs"
+old = '''  lfx-start lf-holes? if outcome-invalid lfx-refuse else lfx-write then'''
+new = '''  lfx-start false if outcome-invalid lfx-refuse else lfx-write then'''
+test = "$GFORTH tests/author/author.fs"
+reason = "FE1b, ADR 0021 D2: the export writer passes a metavariable towards the kernel"
+quick = true
+
+[[fault]]
+id = "fe-no-occurs-check"
+file = "src/front/mvars.fs"
+old = '''  over mv-free? 0= if 2drop outcome-invalid exit then lf-mvar-occurs? mv-occurs-outcome ;'''
+new = '''  over mv-free? 0= if 2drop outcome-invalid exit then 2drop outcome-ok ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1b: ?a := ?a x is assigned, a cyclic assignment"
+quick = true
+
+[[fault]]
+id = "fe-level-no-occurs-check"
+file = "src/front/mvars.fs"
+old = '''  lf-level-mvar-occurs? mv-occurs-outcome ;'''
+new = '''  2drop outcome-ok ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1b: ?u := succ ?u is assigned"
+
+[[fault]]
+id = "fe-assign-twice"
+file = "src/front/mvars.fs"
+old = ''': mv-free? ( mvar -- flag ) mv-of if mv-unassigned? else false then ;'''
+new = ''': mv-free? ( mvar -- flag ) mv-of if drop true else false then ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1b: an assigned (or delayed-assigned) metavariable is assigned again"
+
+[[fault]]
+id = "fe-stale-mvar"
+file = "src/front/mvars.fs"
+old = '''  dup lf-term-valid? if dup lf-mvar? if mv-own? exit then then drop false ;'''
+new = '''  dup lf-term-valid? if dup lf-mvar? if drop true exit then then drop false ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1b: a leaf of an earlier context, or one no record names, counts as live"
+
+[[fault]]
+id = "fe-level-epoch-ignored"
+file = "src/front/mvars.fs"
+old = '''  mv-levels store-count @ mctx-epoch@ lf-level-mvar-leaf'''
+new = '''  mv-levels store-count @ 0 lf-level-mvar-leaf'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1b: with sharing on, a new level metavariable is the old leaf of the same number, which comes back to life"
+
+[[fault]]
+id = "fe-goal-assignable"
+file = "src/front/mvars.fs"
+old = '''  dup mvd-kind @ mv-opaque <> swap mvd-depth @ lf-mctx-depth = and ;'''
+new = '''  mvd-depth @ lf-mctx-depth = ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1b: a goal (synthetic opaque) counts as assignable by unification"
+
+[[fault]]
+id = "fe-instantiate-skips-value"
+file = "src/front/mvars.fs"
+old = '''  over mv-value-of if swap dw-image nip else drop then ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1b: instantiation leaves assigned metavariables in place"
+
+[[fault]]
+id = "fe-binder-names-lost"
+file = "src/front/mvars.fs"
+old = ''': mv-named ( new old -- new ) lf-pres-binder@ if 2>r dup 2r> lf-pres-binder! drop then ;'''
+new = ''': mv-named ( new old -- new ) drop ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1b: a rebuilt binder loses its name and kind (Lean's terms keep them)"
+
+[[fault]]
+id = "fe-sort-level-kept"
+file = "src/front/mvars.fs"
+old = '''  mv-sort-level 0= if exit then 2dup swap lf-term-first@ = if drop exit then'''
+new = '''  exit'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1b: Sort ?u keeps ?u after ?u is assigned"
+
+[[fault]]
+id = "fe-const-levels-kept"
+file = "src/front/mvars.fs"
+old = ''': mv-const-build ( node -- image ) dup mv-cref-moves? if mv-const-new then ;'''
+new = ''': mv-const-build ( node -- image ) ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1b: a constant over ?u keeps ?u after ?u is assigned"
+
+[[fault]]
+id = "fe-beta-unchecked"
+file = "src/front/mvars.fs"
+old = ''': mv-beta? ( node walk -- flag )'''
+new = ''': mv-beta? ( node walk -- flag ) 2drop false exit'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1b: ?f a with ?f := fun x => b instantiates to a term Lean's instantiateMVars never gives (it beta-reduces)"
+
+[[fault]]
+id = "fe-delayed-ready-unchecked"
+file = "src/front/mvars.fs"
+old = ''': mv-delayed-ready? ( term -- flag ) lf-mvar-delayed if 2drop mv-ready? else false then ;'''
+new = ''': mv-delayed-ready? ( term -- flag ) drop false ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1b: a ready delayed assignment is left in place where Lean puts its value in"
