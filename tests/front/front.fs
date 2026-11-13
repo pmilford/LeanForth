@@ -288,17 +288,110 @@ T{ dm lf-mvar-delayed first-fvar -> pend x 1 true }T
 T{ dm prop lf-mvar-assign dm pend 1 lf-mvar-delay -> outcome-invalid outcome-invalid }T
 T{ pend lf-mvar-delayed -> false }T
 T{ dm lf-instantiate-mvars -> dm outcome-ok }T
-\ Once the pending one is assigned, Lean would put the value in: not
-\ supported yet (plan FE1c), never another term.
-T{ pend prop lf-mvar-assign dm lf-instantiate-mvars -> outcome-ok -1 outcome-unsupported }T
-\ So is Lean's beta step for ?f a when ?f := fun x : Prop => Prop; ?f alone
-\ is the lambda.
+\ Once the pending one is assigned (?pend := Prop), ?dm alone stays (as
+\ in Lean's instantiate_mvars) and ?dm x is the value with x abstracted
+\ and the argument put in: Prop. (Both were unsupported before plan FE1c
+\ ported the step.)
+T{ pend prop lf-mvar-assign dm lf-instantiate-mvars -> outcome-ok dm outcome-ok }T
+T{ dm x app lf-instantiate-mvars -> prop outcome-ok }T
+\ With one argument more than its free variables, the value put in is
+\ applied to the rest: ?dm x x is Prop x.
+T{ dm x app x app lf-instantiate-mvars swap dup lf-term-first@ swap lf-term-second@
+   -> outcome-ok prop x }T
+\ A delayed assignment whose pending one is unassigned stays applied.
+mv-natural new constant pend3  mv-natural new constant dm3
+T{ x lf-delay-fvar dm3 pend3 1 lf-mvar-delay -> outcome-ok outcome-ok }T
+T{ dm3 x app lf-instantiate-mvars swap lf-term-first@ -> outcome-ok dm3 }T
+\ Lean's beta step: ?f Prop with ?f := fun x : Prop => Prop is Prop; ?f
+\ alone is the lambda. (Unsupported before plan FE1c.)
 mv-natural new constant f
 prop prop lf-tag-lam lf-term-binary drop constant fun1
 T{ f fun1 lf-mvar-assign f lf-instantiate-mvars -> outcome-ok fun1 outcome-ok }T
-T{ f prop app lf-instantiate-mvars -> -1 outcome-unsupported }T
+T{ f prop app lf-instantiate-mvars -> prop outcome-ok }T
+\ Not ported, unsupported: an argument with a loose bound variable
+\ (fun z => ?f z; instantiate1 does not lift it), and a value that
+\ betaRev would zeta-reduce (?g Prop with ?g := let c := Prop; fun a => a).
+: lam2 ( type body -- t ) lf-term-lam 0= abort" lam" ;
+: parts2 ( t -- a b ) dup lf-term-first@ swap lf-term-second@ ;
+T{ prop f 0 lf-term-bvar drop app lam2 lf-instantiate-mvars -> -1 outcome-unsupported }T
+mv-natural new constant gz
+prop prop 0 lf-term-bvar drop lam2 false lf-let-make drop constant let-fun
+T{ gz let-fun lf-mvar-assign gz prop app lf-instantiate-mvars -> outcome-ok -1 outcome-unsupported }T
+\ ?g alone, and ?g with no argument the let would meet, stay plain.
+T{ gz lf-instantiate-mvars -> let-fun outcome-ok }T
+\ A delayed assignment whose pending value still holds a metavariable is
+\ left in place, its arguments instantiated (Lean's has_expr_mvar test).
+1000 lf-term-capacity! drop
+mv-natural new constant pend2  mv-natural new constant dm2  mv-natural new constant hole2
+T{ pend2 x hole2 app lf-mvar-assign x lf-delay-fvar dm2 pend2 1 lf-mvar-delay
+   -> outcome-ok outcome-ok outcome-ok }T
+T{ dm2 f prop app app lf-instantiate-mvars swap parts2 -> outcome-ok dm2 prop }T
+\ Lean instantiates an assigned head's beta result again, which here
+\ would put in ?dm's value (?f9 := ?dm, ?f9 x): that second pass is not
+\ ported, so unsupported (review of fe1c-lnorm, M1).
+mv-natural new constant f9
+T{ f9 dm lf-mvar-assign f9 x app lf-instantiate-mvars -> outcome-ok -1 outcome-unsupported }T
+\ Two free variables take the arguments in order: ?dm4 over x, y2 with
+\ ?p4 := x y2, so ?dm4 y2 x is y2 x.
+prop lf-lctx-local drop constant y2
+mv-natural new constant p4  mv-natural new constant dm4
+T{ p4 x y2 app lf-mvar-assign x lf-delay-fvar y2 lf-delay-fvar dm4 p4 2 lf-mvar-delay
+   -> outcome-ok outcome-ok outcome-ok outcome-ok }T
+T{ dm4 y2 app x app lf-instantiate-mvars swap parts2 -> outcome-ok y2 x }T
+\ The occurs check follows a delayed assignment to its pending
+\ metavariable, as Lean's occursCheck: with ?dm6 delayed to ?p6, ?p6
+\ occurs in x ?dm6, so ?p6 := x ?dm6 is refused (review of
+\ fe1c-lnorm-2, L2); ?p6 := x is not.
+mv-natural new constant p6  mv-natural new constant dm6
+T{ x lf-delay-fvar dm6 p6 1 lf-mvar-delay p6 x dm6 app lf-mvar-occurs?
+   -> outcome-ok outcome-ok true outcome-ok }T
+T{ p6 x dm6 app lf-mvar-assign p6 x lf-mvar-assign -> outcome-invalid outcome-ok }T
+\ The re-check of fe1c-lnorm (N2, N3): ?f10 ?dm with ?f10 := fun a => a y2
+\ and ?dm ready needs Lean's second pass (P4): unsupported. Surplus
+\ arguments are reduced in the delayed step (P12): ?dm7 y2 Prop with
+\ ?p7 := fun b => b is Prop. A let in the delayed value would be
+\ zeta-reduced (Q4): unsupported.
+mv-natural new constant f10
+T{ f10 prop 0 lf-term-bvar drop y2 app lam2 lf-mvar-assign f10 dm app lf-instantiate-mvars
+   -> outcome-ok -1 outcome-unsupported }T
+mv-natural new constant p7  mv-natural new constant dm7
+T{ p7 prop 0 lf-term-bvar drop lam2 lf-mvar-assign x lf-delay-fvar dm7 p7 1 lf-mvar-delay
+   -> outcome-ok outcome-ok outcome-ok }T
+T{ dm7 y2 app prop app lf-instantiate-mvars -> prop outcome-ok }T
+mv-natural new constant p8  mv-natural new constant dm8
+y2 prop prop 0 lf-term-bvar drop lam2 lam2 false lf-let-make drop constant let-id
+T{ p8 let-id lf-mvar-assign x lf-delay-fvar dm8 p8 1 lf-mvar-delay
+   -> outcome-ok outcome-ok outcome-ok }T
+T{ dm8 y2 app prop app lf-instantiate-mvars -> -1 outcome-unsupported }T
+\ A pending value that holds its own application (P3b, review R3): Lean
+\ finds it not ready, so ?d12 x stays, its argument instantiated.
+mv-natural new constant p12  mv-natural new constant d12
+T{ p12 x d12 y2 app app lf-mvar-assign x lf-delay-fvar d12 p12 1 lf-mvar-delay
+   -> outcome-ok outcome-ok outcome-ok }T
+T{ d12 x app lf-instantiate-mvars swap parts2 -> outcome-ok d12 x }T
+\ A pending value beyond the term store (its terms given back after the
+\ assignment, review R1): the walk reads no memo past its block and ends
+\ invalid.
+mv-natural new constant p11  mv-natural new constant d11
+T{ x lf-delay-fvar d11 p11 1 lf-mvar-delay -> outcome-ok outcome-ok }T
+d11 x app constant root11
+create sm11 /lf-scratch allot
+T{ sm11 lf-scratch-mark -> outcome-ok }T
+\ (100,000 applications, so the value's index lies far past the memo.)
+lf-term-count @ 200000 + lf-term-capacity! drop
+: xapps ( t n -- t' ) 0 ?do x app loop ;
+x 100000 xapps constant v11
+T{ p11 v11 lf-mvar-assign sm11 lf-scratch-rollback -> outcome-ok outcome-ok }T
+T{ root11 lf-instantiate-mvars -> -1 outcome-invalid }T
+\ With no free variable (k = 0) the value takes the arguments: ?dm5 x
+\ with ?p5 := fun a => a is x.
+mv-natural new constant p5  mv-natural new constant dm5
+T{ p5 prop 0 lf-term-bvar drop lam2 lf-mvar-assign dm5 p5 0 lf-mvar-delay
+   -> outcome-ok outcome-ok }T
+T{ dm5 x app lf-instantiate-mvars dm5 lf-instantiate-mvars -> x outcome-ok dm5 outcome-ok }T
 T{ prop f app lf-instantiate-mvars nip -> outcome-ok }T
-T{ mv-natural new lf-mvar-lctx -> 1 true }T
+\ A new metavariable sees the two free variables, x and y2.
+T{ mv-natural new lf-mvar-lctx -> 2 true }T
 
 \ Out of room: a context whose store may hold one more metavariable
 \ makes it, then refuses the next (full), changing nothing.
@@ -393,31 +486,63 @@ T{ 1 cells mv-limit mv-fvars store-limit! -> outcome-ok }T
 
 \ Marks (Lean's checkpointDefEq): a rollback undoes the assignments made
 \ since its mark, plain, level and delayed, and only those; a commit keeps
-\ them for an mark-out mark; marks nest; the trail empties with the last.
+\ them for an outer mark; marks nest; the trail empties with the last.
+\ A mark is a serial number, never given twice.
 lf-mctx-reset
 : lnew ( -- level ) lf-level-mvar-new ok? 0= abort" lnew" ;
 : lfree? ( level -- flag ) lf-level-mvar-value dup if nip then 0= ;
 : tfree? ( mvar -- flag ) lf-mvar-value dup if nip then 0= ;
+: mark ( -- mark ) lf-mctx-mark ok? 0= abort" mark" ;
 lnew constant lma  lnew constant lmb  mv-natural new constant ta  mv-natural new constant tb
-variable mark-out  variable mark-in
-T{ lf-mctx-mark dup mark-out ! lma one lf-level-mvar-assign -> 0 outcome-ok }T
-T{ lf-mctx-mark dup mark-in ! ta prop lf-mvar-assign lmb one lf-level-mvar-assign
-   -> 1 outcome-ok outcome-ok }T
-T{ mark-in @ lf-mctx-rollback lma lfree? lmb lfree? ta tfree? -> false true true }T
-T{ mv-trail slab-count mv-marks @ -> 1 1 }T
-T{ mark-out @ lf-mctx-commit lma lfree? mv-trail slab-count mv-marks @ -> false 0 0 }T
-\ An mark-in commit, then the mark-out rollback undoes both; a delayed
+lnew constant lmc  lnew constant lmd  lnew constant lme
+variable mark-out  variable mark-in  variable mark-in2
+T{ mark dup mark-out ! 0> lma one lf-level-mvar-assign -> true outcome-ok }T
+T{ mark dup mark-in ! mark-out @ > ta prop lf-mvar-assign lmb one lf-level-mvar-assign
+   -> true outcome-ok outcome-ok }T
+T{ mark-in @ lf-mctx-rollback lma lfree? lmb lfree? ta tfree? -> outcome-ok false true true }T
+T{ mv-trail slab-count lf-mctx-marks -> 1 1 }T
+T{ mark-out @ lf-mctx-commit lma lfree? mv-trail slab-count lf-mctx-marks
+   -> outcome-ok false 0 0 }T
+\ An inner commit, then the outer rollback undoes both; a delayed
 \ assignment is undone too.
-T{ lf-mctx-mark mark-out ! lf-mctx-mark mark-in ! lmb one lf-level-mvar-assign -> outcome-ok }T
-T{ mark-in @ lf-mctx-commit tb ta 0 lf-mvar-delay mark-out @ lf-mctx-rollback -> outcome-ok }T
+T{ mark mark-out ! mark mark-in ! lmb one lf-level-mvar-assign -> outcome-ok }T
+T{ mark-in @ lf-mctx-commit tb ta 0 lf-mvar-delay mark-out @ lf-mctx-rollback
+   -> outcome-ok outcome-ok outcome-ok }T
 T{ lmb lfree? tb lf-mvar-delayed lma lfree? -> true false false }T
-\ Without a mark nothing is noted; a rollback with no mark open undoes
-\ nothing and leaves the count at 0.
+\ Only the latest open mark closes: an inner mark committed and then
+\ rolled back again, an outer mark while an inner is open, 0 (the
+\ refused mark) or a number never given are refused, invalid, and change
+\ nothing.
+T{ mark mark-out ! lmc one lf-level-mvar-assign mark mark-in ! lmd one lf-level-mvar-assign
+   -> outcome-ok outcome-ok }T
+T{ mark-out @ lf-mctx-rollback mark-in @ lf-mctx-commit mark-in @ lf-mctx-rollback
+   -> outcome-invalid outcome-ok outcome-invalid }T
+T{ lmd lfree? lf-mctx-marks 0 lf-mctx-commit 99999 lf-mctx-rollback
+   -> false 1 outcome-invalid outcome-invalid }T
+\ A closed inner mark whose place a newer mark takes is still refused
+\ (review of fe1c-lnorm-2, L1): the newer mark's assignment stays.
+T{ mark mark-in2 ! lme one lf-level-mvar-assign mark-in @ lf-mctx-rollback lme lfree?
+   -> outcome-ok outcome-invalid false }T
+T{ mark-in2 @ lf-mctx-rollback mark-out @ lf-mctx-rollback lmc lfree? lmd lfree? lf-mctx-marks
+   -> outcome-ok outcome-ok true true 0 }T
+\ Without a mark nothing is noted; a rollback or commit with no mark open,
+\ 0 among them, is refused.
 T{ lmb one lf-level-mvar-assign mv-trail slab-count -> outcome-ok 0 }T
-T{ 0 lf-mctx-rollback lmb lfree? mv-marks @ -> false 0 }T
+T{ mark-out @ lf-mctx-rollback 0 lf-mctx-commit lmb lfree? lf-mctx-marks
+   -> outcome-invalid outcome-invalid false 0 }T
 \ A refused assignment notes nothing: ?a is assigned already.
-T{ lf-mctx-mark mark-out ! lma one lf-level-mvar-assign mv-trail slab-count -> outcome-invalid 0 }T
-T{ mark-out @ lf-mctx-rollback lma lfree? lf-mctx-reset mv-marks @ -> false 0 }T
+lma one lf-level-mvar-assign drop
+T{ mark mark-out ! lma one lf-level-mvar-assign mv-trail slab-count -> outcome-invalid 0 }T
+\ A mark from before lf-mctx-reset is refused by the marks after it.
+T{ lf-mctx-reset mark mark-out @ lf-mctx-commit swap lf-mctx-commit lf-mctx-marks
+   -> outcome-invalid outcome-ok 0 }T
+\ So is one rolled back before a reset when the next reset's first mark
+\ follows (review R2: a reset does not start the serials again).
+T{ lf-mctx-reset mark dup mark-out ! lf-mctx-rollback lf-mctx-reset mark
+   mark-out @ lf-mctx-commit swap lf-mctx-commit -> outcome-ok outcome-invalid outcome-ok }T
+\ lf-mctx-latest: the latest open mark, 0 when none is open.
+T{ lf-mctx-latest mark dup lf-mctx-latest = swap lf-mctx-rollback -> 0 true outcome-ok }T
+lf-mctx-reset
 
 \ A stale value: one the term store gave back after it was assigned (rolled
 \ back past it) is no node of a walk, whose memo ends below it; the walk

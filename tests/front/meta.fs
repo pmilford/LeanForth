@@ -138,6 +138,13 @@ lf-mctx-shallower
 lnew constant mold
 lf-mctx-reset
 T{ u mold lmax u lf-meta-level-defeq -> false outcome-invalid }T
+\ No answer leaves its mark open (review of fe1c-lnorm-2, T2): true,
+\ false, unsupported, invalid.
+lnew constant mk
+T{ mk one lf-meta-level-defeq lf-mctx-marks u v lf-meta-level-defeq lf-mctx-marks
+   -> true outcome-ok 0 false outcome-ok 0 }T
+T{ u lnew lmax u v lmax lf-meta-level-defeq lf-mctx-marks 99999 u lf-meta-level-defeq lf-mctx-marks
+   -> false outcome-unsupported 0 false outcome-invalid 0 }T
 
 \ ---- Malformed: a level not in the store, a stale metavariable.
 T{ 99999 u lf-meta-level-defeq u -1 lf-meta-level-defeq
@@ -321,6 +328,16 @@ T{ u u lmax sort-of dup 0 ilp drop = u u lmax 0 lps -> true u outcome-ok }T
 T{ u v lmax sort-of 2 ilp drop lf-term-first@ dup ls-tag swap lf-level-second@
    -> lf-level-tag-max la }T
 
+\ The shared rebuild of a Sort or constant (src/front/level-map.fs): an
+\ image that keeps every level keeps the node; one taking u to 1
+\ rebuilds it.
+: keep-level ( level -- level ) ;
+: u-to-one ( level -- level' ) dup u = if drop one then ;
+T{ u sort-of dup ' keep-level lf-meta-sort-remap drop = -> true }T
+T{ u sort-of ' u-to-one lf-meta-sort-remap swap lf-term-first@ -> outcome-ok one }T
+T{ cuv dup ' keep-level lf-meta-const-remap drop = -> true }T
+T{ cuv ' u-to-one lf-meta-const-remap swap dup 0 clevel swap 1 clevel -> outcome-ok one v }T
+
 \ ---- Level equality and Lean's cheap simplifications (src/front/
 \ level-simp.fs: Level.beq, isNeverZero, mkLevelMax', mkLevelIMax').
 : l= ( a b -- flag ) lf-meta-level= ok? 0= abort" l=" ;
@@ -398,6 +415,9 @@ T{ u-id v-id lf-meta-name-cmp v-id u-id lf-meta-name-cmp u-id u-id lf-meta-name-
    -> -1 1 0 }T
 T{ w-id uv-id lf-meta-name-cmp uv-id w-id lf-meta-name-cmp -> -1 1 }T
 T{ u-id 2 lf-name-num drop u-id 1 lf-name-num drop lf-meta-name-cmp -> 1 }T
+T{ u-id 1 lf-name-num drop u-id 2 lf-name-num drop lf-meta-name-cmp -> -1 }T
+\ Equal last parts: the prefixes decide (a.1 before b.1).
+T{ 0 s" a" nm 1 lf-name-num drop 0 s" b" nm 1 lf-name-num drop lf-meta-name-cmp -> -1 }T
 T{ u-id 1 lf-name-num drop z-id lf-meta-name-cmp 0 s" ab" nm 0 s" abc" nm lf-meta-name-cmp
    -> -1 -1 }T
 \ Malformed: a level not in the store; a parameter whose name is no name.

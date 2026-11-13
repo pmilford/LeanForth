@@ -10629,7 +10629,7 @@ reason = "FE1c: u + 1 with u := 1 becomes 1, the successor above the parameter d
 [[fault]]
 id = "fe-lparams-const-kept"
 file = "src/front/level-params.fs"
-old = ''': lp-const-build ( node -- image ) dup lp-cref-moves? if lp-const-new then ;'''
+old = ''': lp-const-build ( node -- image ) ['] lp-image lf-meta-const-remap lp-remapped ;'''
 new = ''': lp-const-build ( node -- image ) ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: a constant keeps its universe parameters after instantiateLevelParams"
@@ -10867,15 +10867,15 @@ reason = "FE1b: a rebuilt binder loses its name and kind (Lean's terms keep them
 [[fault]]
 id = "fe-sort-level-kept"
 file = "src/front/mvars.fs"
-old = '''  mv-sort-level 0= if exit then 2dup swap lf-term-first@ = if drop exit then'''
-new = '''  exit'''
+old = ''': mv-sort-build ( node -- image ) ['] mv-level-image lf-meta-sort-remap mv-remapped ;'''
+new = ''': mv-sort-build ( node -- image ) ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1b: Sort ?u keeps ?u after ?u is assigned"
 
 [[fault]]
 id = "fe-const-levels-kept"
 file = "src/front/mvars.fs"
-old = ''': mv-const-build ( node -- image ) dup mv-cref-moves? if mv-const-new then ;'''
+old = ''': mv-const-build ( node -- image ) ['] mv-level-image lf-meta-const-remap mv-remapped ;'''
 new = ''': mv-const-build ( node -- image ) ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1b: a constant over ?u keeps ?u after ?u is assigned"
@@ -10883,18 +10883,18 @@ reason = "FE1b: a constant over ?u keeps ?u after ?u is assigned"
 [[fault]]
 id = "fe-beta-unchecked"
 file = "src/front/mvars.fs"
-old = ''': mv-beta? ( node walk -- flag )'''
-new = ''': mv-beta? ( node walk -- flag ) 2drop false exit'''
+old = '''  if mv-beta-at else mv-delay-at then ;'''
+new = '''  2drop drop mctx mctx-walk mv-rebuild ;'''
 test = "$GFORTH tests/front/front.fs"
-reason = "FE1b: ?f a with ?f := fun x => b instantiates to a term Lean's instantiateMVars never gives (it beta-reduces)"
+reason = "FE1c tidy-up d: ?f a with ?f := fun x => b is not beta-reduced, where Lean's instantiateMVars reduces it"
 
 [[fault]]
 id = "fe-delayed-ready-unchecked"
 file = "src/front/mvars.fs"
-old = ''': mv-delayed-ready? ( term -- flag ) lf-mvar-delayed if 2drop mv-ready? else false then ;'''
-new = ''': mv-delayed-ready? ( term -- flag ) drop false ;'''
+old = '''  swap mv-delay-ready if mv-delay-step else mv-node-rebuild then ;'''
+new = '''  2drop mv-node-rebuild ;'''
 test = "$GFORTH tests/front/front.fs"
-reason = "FE1b: a ready delayed assignment is left in place where Lean puts its value in"
+reason = "FE1c tidy-up d: ?d x with a ready delayed assignment keeps ?d, where Lean puts the pending value in"
 
 [[fault]]
 id = "lib-store-drop-below-base"
@@ -11732,7 +11732,7 @@ reason = "FE1c tidy-up c: a rollback leaves the assignments made since its mark,
 [[fault]]
 id = "fe-mctx-mark-unnoted"
 file = "src/front/mvars.fs"
-old = '''  mv-marks @ 0= if 2drop outcome-ok exit then swap 2 lshift or'''
+old = '''  lf-mctx-marks 0= if 2drop outcome-ok exit then swap 2 lshift or'''
 new = '''  2drop outcome-ok exit'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1c tidy-up c: assignments under a mark are not noted, so no rollback can undo them"
@@ -11740,8 +11740,8 @@ reason = "FE1c tidy-up c: assignments under a mark are not noted, so no rollback
 [[fault]]
 id = "fe-mctx-commit-clears"
 file = "src/front/mvars.fs"
-old = ''': lf-mctx-commit ( mark -- ) drop mv-unmark ;'''
-new = ''': lf-mctx-commit ( mark -- ) drop mv-unmark mv-trail slab-clear ;'''
+old = '''  mv-latest? 0= if outcome-invalid exit then mv-unmark outcome-ok ;'''
+new = '''  mv-latest? 0= if outcome-invalid exit then mv-unmark mv-trail slab-clear outcome-ok ;'''
 test = "$GFORTH tests/front/front.fs"
 reason = "FE1c tidy-up c: an inner commit forgets its assignments, so the outer rollback cannot undo them"
 
@@ -11812,8 +11812,8 @@ reason = "FE1c: level unification compares max v u with max u v unnormalized and
 [[fault]]
 id = "fe-ldefeq-false-kept"
 file = "src/front/level-defeq.fs"
-old = '''  >r 2dup ok? and if r> lf-mctx-commit else r> lf-mctx-rollback then ;'''
-new = '''  >r r> lf-mctx-commit ;'''
+old = '''  >r 2dup ok? and if r> lf-mctx-commit else r> lf-mctx-rollback then ld-closed ;'''
+new = '''  lf-mctx-commit drop ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: a false level unification (0 =?= max ?c (?f+1)) keeps ?c := 0, which Lean's checkpointDefEq rolls back"
 
@@ -11840,6 +11840,54 @@ old = '''  dup lf-level-mvar-live? if lf-level-mvar-depth lf-mctx-depth < 0= els
 new = '''  lf-level-mvar-live? ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: hasAssignableLevelMVar counts a read-only metavariable, so a pair Lean answers false is postponed (unsupported)"
+
+[[fault]]
+id = "fe-lmap-old-levels"
+file = "src/front/level-map.fs"
+old = '''  0 ?do dup i lf-cref-pair@ drop lmap-image i lmap-at lmap-pair! loop drop ;'''
+new = '''  0 ?do dup i lf-cref-pair@ drop i lmap-at lmap-pair! loop drop ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c review Q5: a rebuilt constant keeps its old universe arguments instead of their images"
+
+[[fault]]
+id = "fe-lmap-sort-same"
+file = "src/front/level-map.fs"
+old = '''  if drop outcome-ok else nip lmap-sort-new then ;'''
+new = '''  2drop outcome-ok ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c review Q5: a Sort keeps its level after the level's image changes"
+
+[[fault]]
+id = "fe-inst-zeta-guessed"
+file = "src/front/mvars.fs"
+old = '''  mv-lams if lf-let? if mv-zeta-met else mv-lams-run-out then'''
+new = '''  mv-lams if drop mv-lams-run-out'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1c tidy-up d: ?l a with ?l := let c := v; fun x => b is applied without zeta, a term Lean's betaRev (useZeta) never gives; it must answer unsupported"
+
+[[fault]]
+id = "fe-inst-delayed-holes-ignored"
+file = "src/front/mvars.fs"
+old = '''  dup mv-holes? dup ok? if drop 0= else mv-refuse drop false then ;'''
+new = '''  true ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1c tidy-up d: a delayed assignment whose pending value still holds a metavariable is put in, where Lean leaves ?d a"
+
+[[fault]]
+id = "fe-inst-spine-table-unchecked"
+file = "src/front/mvars.fs"
+old = '''  mv-spine-block 0= if drop -1 outcome-full exit then'''
+new = '''  mv-spine-block drop'''
+test = "$GFORTH tests/front/meta-heap.fs"
+reason = "FE1c tidy-up d: instantiateMVars runs with no spine table when the heap refuses it, instead of answering full"
+
+[[fault]]
+id = "fe-mctx-any-mark"
+file = "src/front/mvars.fs"
+old = ''': mv-latest? ( mark -- flag ) lf-mctx-marks if mv-latest cell+ @ = else drop false then ;'''
+new = ''': mv-latest? ( mark -- flag ) drop lf-mctx-marks 0> ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1c review of fe1c-lnorm L1: a stale or out-of-order rollback (an inner mark again after its commit) undoes the wrong assignments and closes the outer mark"
 
 [[fault]]
 id = "cov2-env-n2-holder-unsupported-as-unknown"
@@ -12003,6 +12051,115 @@ old = '''  nip remap-let-body ['] remap-let-joined frame-under ;'''
 new = '''  nip remap-let-body ['] remap-let-joined frame-call ;'''
 test = "$GFORTH tests/front/constructions.fs"
 reason = "a letE's body is renumbered as if outside its binder: its own variable #0 becomes #1"
+
+[[fault]]
+id = "fe-inst-delayed-unreduced"
+file = "src/front/mvars.fs"
+old = '''  if drop mv-unported exit then
+  0 mv-apply mv-headed ;
+: mv-delay-step ( node rec -- image )'''
+new = '''  if drop mv-unported exit then
+  0 mv-apply ;
+: mv-delay-step ( node rec -- image )'''
+test = "$GFORTH tests/front/front.fs"
+reason = "review of fe1c-lnorm M1: the delayed step applies fun xs => value to the arguments without reducing it, where Lean beta-reduces (?d x is Prop)"
+
+[[fault]]
+id = "fe-inst-second-pass-ignored"
+file = "src/front/mvars.fs"
+old = '''  mv-delays? if mv-spine-head mv-delay-rec dup if nip then else drop false then ;'''
+new = '''  drop false ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "review of fe1c-lnorm M1: an assigned head's beta result with a ready delayed metavariable at a head is returned as it is, where Lean's second pass puts its value in; it must answer unsupported"
+
+[[fault]]
+id = "fe-mctx-mark-serial-reused"
+file = "src/front/mvars.fs"
+old = ''': mv-serial ( -- n ) 1 mctx mctx-serial +! mctx mctx-serial @ ;'''
+new = ''': mv-serial ( -- n ) lf-mctx-marks ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "review of fe1c-lnorm-2 L1: a mark is its depth again, so a closed inner mark whose place a newer mark takes rolls back the newer mark's assignments"
+
+[[fault]]
+id = "fe-inst-argput-silent"
+file = "src/front/mvars.fs"
+old = '''  1 mv-args slab-claim dup ok? if drop mv-args slab-at ! else mv-refuse 2drop then ;'''
+new = '''  1 mv-args slab-claim dup ok? if drop mv-args slab-at ! else 2drop drop then ;'''
+test = "$GFORTH tests/front/meta-heap.fs"
+reason = "re-check of fe1c-lnorm N1 (reviewer's rv2-argput-silent): a refused argument is dropped without refusing the walk, a term with an argument missing answered ok"
+
+[[fault]]
+id = "fe-inst-argput-unchecked"
+file = "src/front/mvars.fs"
+old = '''  1 mv-args slab-claim dup ok? if drop mv-args slab-at ! else mv-refuse 2drop then ;'''
+new = '''  1 mv-args slab-claim drop mv-args slab-at ! ;'''
+test = "$GFORTH tests/front/meta-heap.fs"
+reason = "re-check of fe1c-lnorm N1 (reviewer's rv2-argput-unchecked): a refused argument is stored at index -1"
+
+[[fault]]
+id = "fe-inst-lands-args-ignored"
+file = "src/front/mvars.fs"
+old = '''  swap mv-spine drop dup mv-lands? mv-args-land? or if drop mv-unported exit then'''
+new = '''  swap mv-spine drop dup mv-lands? if drop mv-unported exit then'''
+test = "$GFORTH tests/front/meta.fs && $GFORTH tests/front/meta-heap.fs && $GFORTH tests/front/front.fs"
+reason = "re-check of fe1c-lnorm N2: an argument with a ready delayed head is substituted without Lean's second pass (P4: ?d y where Lean gives y); it must answer unsupported"
+
+[[fault]]
+id = "fe-inst-delay-for-exact"
+file = "src/front/mvars.fs"
+old = '''  tuck mv-rec-k 1 max < if drop false exit then true ;'''
+new = '''  tuck mv-rec-k 1 max <> if drop false exit then true ;'''
+test = "$GFORTH tests/front/meta.fs && $GFORTH tests/front/meta-heap.fs && $GFORTH tests/front/front.fs"
+reason = "re-check of fe1c-lnorm N2: only exactly max(k, 1) arguments take the delayed step, surplus arguments are not reduced (P12: Lean gives Prop)"
+
+[[fault]]
+id = "fe-inst-delay-zeta-ignored"
+file = "src/front/mvars.fs"
+old = '''  swap mv-spine drop dup mv-args# mv-after-lams mv-zeta-met =
+  if drop mv-unported exit then'''
+new = '''  swap mv-spine drop'''
+test = "$GFORTH tests/front/meta.fs && $GFORTH tests/front/meta-heap.fs && $GFORTH tests/front/front.fs"
+reason = "re-check of fe1c-lnorm N3: a let in the delayed value is applied without zeta (Q4: Lean gives Prop); it must answer unsupported"
+
+[[fault]]
+id = "fe-ldefeq-close-refusal-dropped"
+file = "src/front/level-defeq.fs"
+old = '''  >r 2dup ok? and if r> lf-mctx-commit else r> lf-mctx-rollback then ld-closed ;'''
+new = '''  >r 2dup ok? and if r> 1+ lf-mctx-commit else r> lf-mctx-rollback then drop ;'''
+test = "$GFORTH tests/front/meta.fs && $GFORTH tests/front/meta-heap.fs && $GFORTH tests/front/front.fs"
+reason = "re-check of fe1c-lnorm S4, T2 (reviewer's rv2-ldclose-wrong-mark): a refused commit is dropped and the mark stays open"
+
+[[fault]]
+id = "fe-occurs-delay-ignored"
+file = "src/front/mvars.fs"
+old = '''  over lf-mvar? if swap mv-delay-leaf else 2drop false then ;'''
+new = '''  2drop false ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "review of fe1c-lnorm-2 L2: the occurs check does not follow a delayed assignment to its pending metavariable, accepting ?p := x ?d with ?d delayed to ?p (Lean's occursCheck refuses)"
+
+[[fault]]
+id = "fe-inst-pending-under-way"
+file = "src/front/mvars.fs"
+old = '''  tuck swap dw-new? if true else drop false then ;'''
+new = '''  tuck swap dw-state 1 > if drop false else true then ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "re-check of fe1c-lnorm L2 (P3b): a pending value that holds its own application is pushed again, a cycle (invalid) where Lean finds the value not ready and keeps ?d x"
+
+[[fault]]
+id = "fe-walk-new-unbounded"
+file = "src/front/dag-walk.fs"
+old = ''': dw-new? ( node walk -- flag ) 2dup dw-in? if dw-state 0= else 2drop true then ;'''
+new = ''': dw-new? ( node walk -- flag ) dw-state 0= ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "re-check of fe1c-lnorm R1: a pending value beyond the memo is read from past the memo block, so ?d x answers ok instead of invalid"
+
+[[fault]]
+id = "fe-mctx-reset-serial"
+file = "src/front/mvars.fs"
+old = '''  0 mctx mctx-depth ! ;'''
+new = '''  0 mctx mctx-depth ! 0 mctx mctx-serial ! ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "re-check of fe1c-lnorm R2: lf-mctx-reset starts the serials again, so a mark from before the reset closes the first mark after it"
 
 [[fault]]
 id = "fe6-ctoridx-universe"

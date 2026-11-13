@@ -916,7 +916,7 @@ test-front:
 	  src/front/handover.fs src/core/mvar-leaves.fs src/core/reach.fs \
 	  src/front/level-defeq.fs src/front/instantiate.fs \
 	  src/front/level-simp.fs src/front/level-params.fs src/front/level-normalize.fs \
-	  src/front/expr-remap.fs src/front/constructions.fs src/front/ctor-idx.fs \
+	  src/front/level-map.fs src/front/expr-remap.fs src/front/constructions.fs src/front/ctor-idx.fs \
 	  src/front/cases-several.fs \
 	  src/front/meta-env.fs src/front/meta-spine.fs src/front/whnf.fs src/front/beta-inst.fs \
 	  src/front/infer.fs src/front/tactic-syntax.fs; do \

@@ -48,6 +48,9 @@ end-structure
 : dw-state ( node walk -- n ) dw-cell @ ;
 : dw-in? ( node walk -- flag ) dw-size @ 0 swap within ;
 : dw-done? ( node walk -- flag ) 2dup dw-in? if dw-state 1 > else 2drop false then ;
+\ Never met: neither under way nor made; a node beyond the memo counts as
+\ new, so pushing it ends the walk invalid.
+: dw-new? ( node walk -- flag ) 2dup dw-in? if dw-state 0= else 2drop true then ;
 : dw-image ( node walk -- image ) dw-state 2 - ;
 : dw-made ( image node walk -- ) dw-cell swap 2 + swap ! ;
 

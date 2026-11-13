@@ -66,6 +66,7 @@ require ./present/proof-outline.fs
 \ universe-parameter instantiation, the view of the environment
 \ (reducibility and unfolding under each transparency), whnfCore and the
 \ first cases of type inference.
+require ./front/level-map.fs
 require ./front/mvars.fs
 require ./front/level-defeq.fs
 require ./front/instantiate.fs

@@ -100,7 +100,7 @@ smallest piece that proves something real: FE1, $0 + n = n$ by induction.
 | `leanforth check FILE.lf` | on `main`: refuses LeanForth text (exit 4). On branch `lf-files-2` (not merged): integrated, its gates pending (ADR 0017 Amendment 2); it checks hand-written kernel terms such as `20-zero-add.lf` against an export of `Init` |
 | Printing a checked statement in LeanForth words, Lean notation and mathematics | integrated (`leanforth print`, plan 8.6.2); the notation table maps `HAdd.hAdd` to `+` for printing only |
 | Holes `_` | refused: error 52, "holes are filled by the elaborator" |
-| Metavariable context (FE1b): metavariables, assignment, occurs check, instantiation | tested alone on branch `fe1` (`tests/front/front.fs`); the beta step and delayed assignments' values answer unsupported until FE1c |
+| Metavariable context (FE1b): metavariables, assignment, occurs check, instantiation | tested alone (`tests/front/front.fs`; compared with pinned Lean by `tests/front/check_meta.py`); the beta step and delayed assignments' values are put in as Lean does (FE1c), except an argument with loose bound variables and a let that betaRev zeta-reduces (unsupported) |
 | Hand-over of an elaborated declaration to the kernel (FE1f) | tested alone on branch `fe1f` (`tests/front/handover.fs`, with a stand-in elaborator): holes instantiated, a reachable hole refused (error 74), an unused universe parameter refused as Lean refuses it (error 75), only the nodes the declaration reaches written, through the stage to the kernel; no user command reaches it before FE1e |
 | Elaborator, unification, implicit arguments, numerals as Lean reads them | not started |
 | Type classes, coercions | not started |
@@ -740,10 +740,15 @@ abstraction and head beta (`instantiate.fs`), level equality with
 `mkLevelMax'` and `mkLevelIMax'` (`level-simp.fs`), universe-parameter
 instantiation (`level-params.fs`) and marks with rollback of
 metavariable assignments (`mvars.fs`, for `checkpointDefEq`) are written
-and tested alone; `make reference-front` compares 155 cases with pinned
-Lean: 153 equal, and two level unifications that need Lean's
-`solveSelfMax` or `decLevel?` of a max (not ported yet) answer
-unsupported. 
+and tested alone, and `instantiateMVars` (`mvars.fs`) beta-reduces an
+assigned head, and a ready delayed head as `fun xs => value` against all
+its arguments, as Lean's C++ `instantiate_mvars` does; `make
+reference-front` compares 187 cases with pinned Lean: 179 equal; two
+level unifications that need Lean's `solveSelfMax` or `decLevel?` of a
+max, and six instantiations (an argument with loose bound variables, a
+let that betaRev zeta-reduces, a let in a delayed value, and three where Lean instantiates an
+assigned head's beta result a second time), not ported yet, answer
+unsupported.
 On branch
 `fe1c-2`, written and tested alone: the front end's view of the
 environment (`src/front/meta-env.fs`: a declaration of the loaded

@@ -155,9 +155,18 @@ require ./level-normalize.fs
 : ld-loop ( l r -- flag outcome )
   ld-stale dup ld-undef? 0= if ld-answer exit then drop
   begin ld-round ld-follow dup ld-again = while drop repeat ld-answer ;
-\ checkpointDefEq: kept when true, else rolled back.
+\ checkpointDefEq: kept when true, else rolled back. The mark is the
+\ latest open one, so neither is refused; a refusal would be the answer.
+: ld-closed ( flag outcome close -- flag outcome )
+  dup ok? if drop else nip nip false swap then ;
 : ld-close ( flag outcome mark -- flag outcome )
-  >r 2dup ok? and if r> lf-mctx-commit else r> lf-mctx-rollback then ;
+  >r 2dup ok? and if r> lf-mctx-commit else r> lf-mctx-rollback then ld-closed ;
+: ld-mark ( l r -- l r mark true | outcome false )
+  lf-mctx-mark dup ok? if drop true else nip nip nip false then ;
+\ As checkpointDefEq restores the context on an exception: a THROW inside
+\ the rounds rolls the mark back and is thrown on.
+: ld-run ( l r mark -- flag outcome )
+  >r ['] ld-loop catch ?dup if nip nip r> lf-mctx-rollback drop throw then r> ld-close ;
 : lf-meta-level-defeq ( l r -- flag outcome )
   2dup lf-level-pair-valid? 0= if 2drop false outcome-invalid exit then
-  ld-pairs slab-clear lf-mctx-mark >r ld-loop r> ld-close ;
+  ld-pairs slab-clear ld-mark if ld-run else false swap then ;

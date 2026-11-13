@@ -77,10 +77,10 @@ end-structure
 : ln-going? ( a b -- flag )
   2dup = if 2drop false exit then
   2dup ln-both? if ln-str? swap ln-str? = else 2drop false then ;
-: ln-sign ( n -- -1|0|1 ) dup 0> 1 and swap 0< or ;
+: ln-ucmp ( u1 u2 -- -1|0|1 ) 2dup = if 2drop 0 exit then u< if -1 else 1 then ;
 : ln-part ( a b -- n )
   over ln-str? if lf-name-text rot lf-name-text 2swap compare exit then
-  lf-name-payload swap lf-name-payload swap - ln-sign ;
+  lf-name-payload swap lf-name-payload swap ln-ucmp ;
 : ln-keep ( n a b -- n' a b ) 2dup ln-part ?dup if >r rot drop r> -rot then ;
 : ln-up ( a b -- a' b' ) lf-name-prefix@ swap lf-name-prefix@ swap ;
 : ln-ends ( a b -- n )

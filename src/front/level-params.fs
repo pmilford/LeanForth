@@ -15,8 +15,8 @@
 \   outcome ): every Sort's level and every constant's universe arguments
 \   in term, as above; a node whose data word shows no parameter (Lean's
 \   hasLevelParam test) is kept, so is a node whose parts do not change;
-\   a constant gets a new reference with its levels' images (as
-\   mvars.fs's instantiation makes one), a binder keeps its name and kind;
+\   a constant gets a new reference with its levels' images (level-map.fs,
+\   shared with mvars.fs's instantiation), a binder keeps its name and kind;
 \   with n = 0 the term is returned as it is, as Lean does for empty lists.
 \ Both walks are dag-walk.fs's, one over levels and one over terms (a
 \ memo per node, heap stacks: no depth needs the host's stacks, plan task
@@ -25,9 +25,8 @@
 \ the store; full when a store or the heap has no room. Untrusted
 \ front-end code.
 \ Words: lf-meta-level-params, lf-meta-instantiate-level-params.
-\ State: the record lp-state (the substitution, the walks, the heap block
-\ of level pairs while a constant is rebuilt), a member of the checker
-\ context (ADR 0009).
+\ State: the record lp-state (the substitution and the walks), a member of
+\ the checker context (ADR 0009).
 
 require ../lib/lib.fs
 require ../core/terms.fs
@@ -39,12 +38,12 @@ require ../core/tagged-sort-boundary.fs
 require ../present/binder-table.fs
 require ./dag-walk.fs
 require ./level-simp.fs
+require ./level-map.fs
 
 begin-structure /lp
   field: lp-names-at     \ address of the parameter names' cells
   field: lp-levels-at    \ address of their levels' cells
   field: lp-n            \ how many
-  field: lp-pairs        \ heap, while a constant is rebuilt: its level pairs
   /dw +field lp-dw       \ the term walk
   /dw +field lp-ldw      \ the level walk
 end-structure
@@ -127,37 +126,12 @@ end-structure
 : lp-parts ( node walk -- i1 i2 node kept? ) over >r lp-images r@ lp-same? r> swap ;
 : lp-pair-build ( node walk -- image ) lp-parts if nip nip else lp-rebuild then ;
 
-\ A Sort over a level that changes gets a new leaf.
+\ A Sort's level and a constant's universe arguments get their images
+\ (level-map.fs rebuilds the node when one changes).
 : lp-image ( level -- level' ) lp-level dup ok? if drop else lp-refuse then ;
-: lp-identity ( level -- identity ) lf-level-identity 0= if 0 then ;
-: lp-sort-new ( level -- image )
-  dup lp-identity lf-hterm-sort if drop else outcome-full lp-refuse -1 then ;
-: lp-sort-build ( node -- image )
-  dup lf-term-first@ lp-image 2dup swap lf-term-first@ =
-  if drop else nip lp-sort-new then ;
-
-\ A constant whose universe arguments change gets a reference to the same
-\ name with each argument's image, built in a heap block of (level,
-\ identity) pairs freed at once (core/constant-references.fs).
-: lp-cref ( term -- slot ) lf-term-first@ lf-cref-slot ;
-: lp-moves? ( flag addr i -- flag' ) lf-cref-pair@ drop dup lp-image <> or ;
-: lp-cref-moves? ( term -- flag )
-  lp-cref lf-cref-pairs false swap 0 ?do over i lp-moves? loop nip ;
-: lp-pairs-at ( i -- addr ) 2* cells lp-state lp-pairs @ + ;
-: lp-pair! ( level addr -- ) >r dup lp-identity swap r> 2! ;
-: lp-image-pairs ( addr count -- )
-  0 ?do dup i lf-cref-pair@ drop lp-image i lp-pairs-at lp-pair! loop drop ;
-: lp-block ( count -- flag )
-  2* cells 1 max allocate if drop false exit then lp-state lp-pairs ! true ;
-: lp-ref-new ( slot -- term true | false )
-  dup lf-cref-name@ rot lf-cref-pairs nip lp-state lp-pairs @ swap lf-cref-new
-  if lf-cterm-new if drop true exit then then false ;
-: lp-const-new ( node -- image )
-  dup lp-cref lf-cref-pairs dup lp-block 0=
-  if 2drop outcome-full lp-refuse exit then
-  lp-image-pairs dup lp-cref lp-ref-new lp-state lp-pairs heap-release
-  if nip else outcome-full lp-refuse then ;
-: lp-const-build ( node -- image ) dup lp-cref-moves? if lp-const-new then ;
+: lp-remapped ( image outcome -- image ) dup ok? if drop else lp-refuse then ;
+: lp-sort-build ( node -- image ) ['] lp-image lf-meta-sort-remap lp-remapped ;
+: lp-const-build ( node -- image ) ['] lp-image lf-meta-const-remap lp-remapped ;
 
 : lp-leaf-build ( node -- image )
   dup lf-term-tag@ case lf-tag-symbolic-sort of lp-sort-build endof

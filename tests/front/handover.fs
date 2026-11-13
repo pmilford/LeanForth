@@ -279,10 +279,19 @@ T{ s\" \"value\"" caught caught# @ 2swap search nip nip -> false }T
 : no-level ( -- ) kernel 1000000 lf-term-symbolic-sort drop d0 lf-fdecl-type ! ;
 T{ no-level all-records reached-records -> outcome-unsupported outcome-unsupported }T
 T{ s\" {\"thm\"" caught caught# @ 2swap search nip nip -> false }T
+\ ?h t with ?h := the value: instantiateMVars beta-reduces it, as Lean
+\ does (plan FE1c), so the hand-over takes a new value node.
 variable fa
 T{ kernel va hole dup va assign ty lf-term-first@ lf-tag-app lf-term-binary swap fa !
    -> true }T
-T{ counts! d0 ty fa @ lf-handover counts? va -> outcome-unsupported true va0 @ }T
+T{ counts! d0 ty fa @ lf-handover counts? va va0 @ = -> outcome-ok false false }T
+\ A step not ported yet (a let betaRev would zeta-reduce: ?g := let c :=
+\ t; the value, applied): unsupported, nothing kept, the value as it was.
+: let-over ( v body -- let ) over swap lf-term-lam drop false lf-let-make drop ;
+variable fz
+T{ kernel va hole dup ty lf-term-first@ va let-over assign
+   ty lf-term-first@ lf-tag-app lf-term-binary swap fz ! -> true }T
+T{ counts! d0 ty fz @ lf-handover counts? va -> outcome-unsupported true va0 @ }T
 
 \ No heap at each allocation the hand-over makes (the instantiation's
 \ walks of terms and of each constant's levels, the reach tables), the
@@ -298,7 +307,9 @@ variable all-full
   outcome-full = and all-full @ and all-full ! true ;
 : full-each ( -- k flag )
   true all-full ! 0 begin full-step 0= over 1000 > or until all-full @ ;
-T{ full-each -> 21 true }T   \ 20 allocations, each refused in turn
+\ 22 allocations, each refused in turn (the instantiation's spine table
+\ and argument slab among them, plan FE1c).
+T{ full-each -> 23 true }T
 T{ setup vh @ va0 @ assign d0 tp @ vh @ lf-handover ty ty0 @ = -> outcome-ok false }T
 
 \ Made again in the same process: the same records.
@@ -406,15 +417,19 @@ T{ ' direct elaborating add-zero-natural check outcome-ok tally -> 0 accepted }T
 T{ ' lfh-later elaborating add-zero-natural check -> 2 }T
 
 \ The natural end's other refusals, read directly against the library: an
-\ instantiation step not ported yet (the beta step of ?f Nat with ?f := a
-\ lambda) is error 77, no room for the hand-over's walk error 60, a
-\ theorem given no value (malformed, review fe1f M1, L5) error 76.
+\ instantiation step not ported yet (a let that betaRev would zeta-reduce:
+\ ?g Nat with ?g := let c := Nat; a lambda) is error 77, no room for the
+\ hand-over's walk error 60, a theorem given no value (malformed, review
+\ fe1f M1, L5) error 76. The beta step of ?f Nat with ?f := a lambda is
+\ ported (plan FE1c): the reduced value reaches the kernel.
 : natural ( -- outcome ) lf-author-begin add-zero-natural lf-author-file ;
 : beta ( -- type value ) direct over hole dup rot assign nat app ;
+: zeta ( -- type value ) direct over hole dup rot nat swap let-over assign nat app ;
 : no-room-left ( -- type value ) direct 1 heap-refusals ! ;
 : no-value ( -- type value ) direct drop -1 ;
 T{ library true lfc-library-open -> outcome-ok }T
-T{ ' beta elaborating natural lf-author-code -> outcome-unsupported 77 }T
+T{ ' zeta elaborating natural lf-author-code -> outcome-unsupported 77 }T
+T{ ' beta elaborating natural lf-author-code -> outcome-ok 0 }T
 T{ ' no-value elaborating natural lf-author-code -> outcome-invalid 76 }T
 T{ ' no-room-left elaborating natural lf-author-code -> outcome-full 60 }T
 T{ ' direct elaborating natural ty 0< va 0< -> outcome-ok false false }T
