@@ -76,7 +76,7 @@ smallest piece that proves something real: FE1, $0 + n = n$ by induction.
 | Milestone | What a user can do when it is done | Size |
 | --- | --- | --- |
 | FE1 | Prove $0 + n = n$ in LeanForth with `induction`, `rfl` and `exact`, no proof term written by hand, no Lean tool run | L (8 steps) |
-| FE2 | Write any statement and term proof as naturally as in Lean (implicit arguments, numerals, `+`, `=`, `fun`, `let`, holes) | L |
+| FE2 | Write any statement and term proof as naturally as in Lean (implicit arguments, numerals, `+`, `=`, `fun`, `let`, holes); designed in [FE2_TERMS.md](FE2_TERMS.md) | L |
 | FE3 | Declare classes and instances; instance search as Lean's | L |
 | FE4 | Coercions (`↑n`, a natural number used as an integer) | M |
 | FE5 | The everyday tactics (`intro`, `apply`, `cases`, `rw`, `constructor`, `calc` …); `add_comm` and Cantor's theorem of the demos proved natively | L |
@@ -101,7 +101,8 @@ smallest piece that proves something real: FE1, $0 + n = n$ by induction.
 | Elaborator, unification, implicit arguments, numerals as Lean reads them | not started |
 | Type classes, coercions | not started |
 | Tactics and proof states | not started |
-| Pattern matching, recursion, generated definitions for new data types | not started (the kernel builds `T.rec` when it checks a data type, as Lean's kernel does; everything else comes from Lean's export) |
+| Pattern matching, recursion | not started |
+| Generated definitions for new data types (FE6) | `T.casesOn` and `T.recOn` written and tested alone on branch `fe6a` (`src/front/constructions.fs`): built from a loaded export's `T.rec` as Lean builds them, and compared with Lean's own on all of Init (`make reference-constructions`): of 597 `casesOn`, 436 equal node for node, 160 equal up to binder names and binder information (Lean's exporter shares terms that differ only in those), 0 different, 1 unsupported (`Lean.Syntax`, a nested type: `casesOn` with several motives is not ported yet); of 576 `recOn`, 539, 37, 0 and 0. Not yet used for LeanForth's own data types, which need FE2–FE5; the kernel builds `T.rec` when it checks a data type, as Lean's kernel does; `noConfusion`, `below`, `brecOn`, `ctorIdx`, `sizeOf` and the injectivity lemmas not started |
 | `simp`, decision procedures, Mathlib's tactics | not started |
 | Evaluation (`#eval`, `#reduce`) | not started (the kernel reduces terms internally, with no user command) |
 | Natural LeanForth (plan 8.6.10): the natural reader (FE1a) | integrated on branch `fe1`: natural text is the default and is read into Lean-shaped syntax trees (`binrel% Eq (binop% HAdd.hAdd 0 n) n`, compared with pinned Lean's macro expansion); nothing is elaborated yet |
@@ -441,6 +442,12 @@ Proposed rules (spellings are [questions 1–4](#9-questions-for-the-owner)):
   (ADR 0017 rule R1): `#check`, `#print`, `#reduce`, `#eval`, `#synth`.
   `.goals` prints the goals, as Forth's `.s` prints the stack.
 
+The words for the rest of Lean's term language (`fun`, `∀` with every
+binder kind, inferred types, holes, `@`, named arguments, `let`, `have`,
+`show`, ascription, anonymous constructors, field notation, literals and
+the remaining operators) are FE2's, designed in [FE2_TERMS.md](FE2_TERMS.md)
+§2, with three spelling questions for the owner.
+
 ### 4.3 The elaborator core
 
 Planned folder `src/front/` (untrusted; uses `lib/`, `core/`, `present/`
@@ -494,9 +501,10 @@ when Lean's tactic would.
 - `by-case: TAG NAMES… =>` focuses the goal of that case and names its new
   hypotheses, as Lean's `case TAG NAMES… =>`; the names end at `=>`. The
   case must be finished before the next `by-case:` or `end`.
-- `end NAME` with goals left is an error that prints them; there is no
-  `sorry`, and nothing is ever filled in to carry on after an error
-  (ADR 0021 D3).
+- `end NAME` with goals left is an error that prints them; nothing is
+  ever filled in to carry on after an error (ADR 0021 D3). The explicit
+  `sorry`, as in Lean, closes a goal and leaves the declaration NOT
+  PROVED, with the open parts listed (ADR 0021 Amendment 1).
 - `.goals` prints the goals at any point (at the prompt this is the
   interactive view; in a file, a debugging aid); errors print the goals
   too. For AI tools the same in JSON.
@@ -561,7 +569,8 @@ with it.
 
 The rules of ADR 0021: the front end has no way to publish a declaration
 except through the kernel's check of export records; no metavariable
-reaches the kernel; no `sorry` and no error recovery; the axioms of each
+reaches the kernel; no error recovery, and the explicit `sorry` only as
+in Lean, reported NOT PROVED with its open parts (ADR 0021 Amendment 1); the axioms of each
 accepted theorem are the kernel's report, unchanged; every verdict line
 shows the checked statement; every elaboration rule that decides what a
 statement means passes the [parser] gate and is compared with pinned Lean;

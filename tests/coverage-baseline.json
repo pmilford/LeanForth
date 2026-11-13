@@ -252,6 +252,11 @@
    "never_run": 1,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
+  "src/front/constructions.fs": {
+   "blocks": 424,
+   "never_run": 50,
+   "reason": "new file (plan FE6, casesOn and recOn): the blocks never run are failure branches after a scratch tier, tuple or heap block that cannot grow (expr-make, tuple-add, allocate) and refusals Lean's recursors never reach (hypotheses before fields, a recursor type shorter than its numbers, a type whose Sort only reduction shows); tests for them need a tier that refuses on demand"
+  },
   "src/front/dag-walk.fs": {
    "blocks": 76,
    "never_run": 4,
@@ -261,6 +266,11 @@
    "blocks": 534,
    "never_run": 4,
    "reason": "new file (plan FE1d, 2026-11-12): four refusals no test input reaches: a name lookup that fails in an open tier (ed-looked, error 23), a tier name beyond the stage's name-to-declaration array (ed-decls), no room while the eliminators' table grows (the allocation-refusal test reads 4 eliminators), and a THROW inside a read (ed-caught)"
+  },
+  "src/front/expr-remap.fs": {
+   "blocks": 141,
+   "never_run": 12,
+   "reason": "new file (plan FE6, casesOn and recOn): the blocks never run are failure branches after a scratch tier, tuple or heap block that cannot grow (expr-make, tuple-add, allocate) and refusals Lean's recursors never reach (hypotheses before fields, a recursor type shorter than its numbers, a type whose Sort only reduction shows); tests for them need a tier that refuses on demand"
   },
   "src/front/mvars.fs": {
    "blocks": 429,
@@ -343,12 +353,12 @@
   },
   "src/kernel/caches.fs": {
    "blocks": 505,
-   "never_run": 43,
+   "never_run": 42,
    "reason": "COV2 2026-11-12, unreachable by design: the answers of lf-cs-known (343-344, with lf-bits-open? 275), lf-co-unchanged? (349) and lf-ci-range (354-356) need a data word, and their callers ask them only for a node without one (whnf.fs, mixed-open.fs and mixed-infer.fs read the word first; inference audits terms closed, so lf-ci-range is never asked). The table and memo refusals and the rest are not yet reviewed"
   },
   "src/kernel/check-block.fs": {
    "blocks": 804,
-   "never_run": 27,
+   "never_run": 26,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/check-declaration.fs": {
@@ -393,7 +403,7 @@
   },
   "src/kernel/environment.fs": {
    "blocks": 1245,
-   "never_run": 71,
+   "never_run": 59,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/generated-recursor.fs": {
@@ -423,7 +433,7 @@
   },
   "src/kernel/iota.fs": {
    "blocks": 508,
-   "never_run": 63,
+   "never_run": 62,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/level-compare.fs": {
@@ -522,7 +532,7 @@
   },
   "src/kernel/quot.fs": {
    "blocks": 205,
-   "never_run": 12,
+   "never_run": 11,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/reduce-nat.fs": {
@@ -542,7 +552,7 @@
   },
   "src/kernel/whnf.fs": {
    "blocks": 599,
-   "never_run": 54,
+   "never_run": 52,
    "reason": "COV2 2026-11-12, unreachable by design: the defaults main.fs replaces whenever the checker loads -- lf-whnf-known's (235) and its answer (243: caches.fs's hook answers only for a node with a data word, which lf-whnf-word answers first), and the default iota hook lf-whnf-recursor?, lf-whnf-iota-const and lf-whnf-iota-head's constant branch (442-453, iota.fs's lf-iota replaces it); lf-whnf-ended (469) is used nowhere. The other failure exits are not yet reviewed"
   },
   "src/lib/bignum.fs": {

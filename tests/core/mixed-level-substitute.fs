@@ -233,7 +233,8 @@ setup
 no-data-var 2constant var-u
 no-data-app 2constant app-u
 T{ var-u drop lf-term-data@ app-u drop lf-term-data@ -> false false }T
-: substituted ( index id -- index' id' outcome ) formals actuals 2 500 lf-mixed-level-substitute ;
+: substituted ( index id -- index' id' outcome )
+  formals actuals 2 500 lf-mixed-level-substitute ;
 : halves ( index -- second first ) dup lf-term-second@ swap lf-term-first@ ;
 T{ var-u substituted -> var-u outcome-ok }T
 T{ app-u substituted nip swap halves lf-term-read

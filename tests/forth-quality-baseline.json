@@ -921,11 +921,11 @@
  },
  "src/lib/context.fs": {
   "globals": 6,
-  "long lines": 1,
+  "long lines": 0,
   "long words": 0,
   "rstack": 21,
-  "shuffles": 8,
-  "words": 73
+  "shuffles": 7,
+  "words": 75
  },
  "src/lib/frame.fs": {
   "globals": 0,
