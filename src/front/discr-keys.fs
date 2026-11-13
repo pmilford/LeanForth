@@ -11,7 +11,8 @@
 \   order (a key, then the terms it has: a constant's arguments, first to
 \   last, a projection's arguments then its structure, an arrow's domain).
 \   Each argument ignoreArg drops is a star: an instance-implicit one, an
-\   implicit or strict-implicit one that is no type, a proof.
+\   implicit or strict-implicit one that is no type (isType: whnfD of its
+\   type is a Sort; a literal never is), a proof.
 \ - lf-dt-key ( e root? list -- k list' outcome ): getUnifyKeyArgs
 \   (Main.lean:350, isMatch false), at the configured transparency (the
 \   caller's withReducible): e's key at k, e's arguments put on the todo

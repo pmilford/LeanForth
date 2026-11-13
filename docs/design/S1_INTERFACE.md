@@ -209,7 +209,10 @@ classes). Pinned Lean tries one candidate per problem: `OfNat ?T 0` `instOfNatQ`
 coordinator). Unverified among them: none. `make reference-synth` (`check_synth.py`) recomputes all 2,938 Init
 instances: 2,321 equal, 0 refused, 617 unverified (616 need a definition unfolded, S2's delta; 1,
 `Int.instNeZeroOfNatOfNat`, has a recorded star where its type gives a term, a `no_index` the export drops: error 114,
-an exporter task); getInstances gives pinned Lean's candidates in order on all 13 problems compared.
+an exporter task); getInstances gives pinned Lean's candidates in order on all 13 problems compared. Re-run after the
+s1-synth review's fixes (2026-11-13: every record's class and root key and every default instance's class checked at
+the first query, FE1E §4 "When"; a literal under an implicit binder a star): unchanged, 2,321 equal, 0 refused, 617
+unverified, 13 of 13 problems in Lean's order.
 
 ## 10. `by-exact` (M1)
 

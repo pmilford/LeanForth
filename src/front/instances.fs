@@ -28,7 +28,8 @@
 \   keys depend on it; FE1e5, which reuses the telescope, settles it).
 \ - lf-class? ( type -- class true outcome | false outcome ): isClass?
 \   through isClassQuick?: the class (its declaration in the data's stage)
-\   at the head past the pis; false for a head that is no class; where
+\   at the head past the pis; false for a head that is no class (a
+\   constant no declaration has included, as Lean's getConstTemp?); where
 \   Lean would go on to isClassExpensive? (a definition the transparency
 \   may unfold, a let, a projection, a lambda head, an assigned
 \   metavariable whose value's head is no constant) unsupported (plan S2,
