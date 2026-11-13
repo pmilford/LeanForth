@@ -125,6 +125,13 @@ T{ s" 1 2 +" nfails -> 4 1 5 }T
 T{ base @ get-current s" theorem t Nat explicit: n n := n end t" nrun drop
    base @ get-current rot = -rot = -> true true }T
 
+\ Out of room: a syntax store that may hold 3 nodes stops the run full
+\ (68) at the word that needed a fourth; nothing is left on the stack.
+T{ syn-reset 3 syn-store store-limit! -> outcome-ok }T
+T{ s" theorem t Nat explicit: n 0 n + n = := n end t" nfails -> 68 1 31 }T
+T{ lf-author-code lf-author-outcome -> outcome-full }T
+T{ syn-limit syn-store store-limit! -> outcome-ok }T
+
 \ The syntax store on its own: kinds, fields, arguments, positions.
 T{ syn-reset syn-count -> 0 }T
 T{ syn-k-app 65537 syn-new -> 0 true }T
@@ -256,6 +263,14 @@ T{ f prop app lf-instantiate-mvars -> -1 outcome-unsupported }T
 T{ prop f app lf-instantiate-mvars nip -> outcome-ok }T
 T{ mv-natural new lf-mvar-lctx -> 1 true }T
 
+\ Out of room: a context whose store may hold one more metavariable
+\ makes it, then refuses the next (full), changing nothing.
+T{ lf-mctx-reset 1 mv-exprs store-limit! -> outcome-ok }T
+T{ prop mv-natural lf-mvar-new nip prop mv-natural lf-mvar-new mv-exprs store-count @
+   -> outcome-ok -1 outcome-full 1 }T
+T{ 1 mv-levels store-limit! lf-level-mvar-new nip lf-level-mvar-new
+   -> outcome-ok outcome-ok -1 outcome-full }T
+T{ /mvd mv-limit mv-exprs store-limit! /mvl mv-limit mv-levels store-limit! -> outcome-ok outcome-ok }T
 \ Resources: a term 10,000 applications deep around a metavariable is
 \ instantiated on the heap stack (no host-stack depth), every node rebuilt.
 lf-mctx-reset 200000 lf-term-capacity! drop

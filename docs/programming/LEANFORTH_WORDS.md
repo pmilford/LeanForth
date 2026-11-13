@@ -34,7 +34,11 @@ export records through the importer stage ([checking text](#checking-text-the-ex
 | `src/author/namespaces.fs` | namespaces, `open`, and which constant a name means (Lean's resolution) | `lfa-spaces`, `lfa-knowns` |
 | `src/author/declarations.fs` | declarations, universes, binders | `lfa-current` |
 | `src/author/library.fs` | a library's constants, found through a finder (8.2.1d); checked runs refuse stubs | `lfa-library` |
+| `src/author/form.fs` | the run's form, natural (the default) or kernel (`kernel-form`); the numerals' positions; the pending `'` | `lfa-form`, `lfa-numerals` |
 | `src/author/words.fs` | the vocabulary (LF-WORDS) | none |
+| `src/front/syntax.fs` | the syntax store: Lean-shaped trees of natural text, with positions (FE1a) | `syn-store` |
+| `src/front/reader.fs` | the natural meanings of the words (FE1a) | `lfn-decl` |
+| `src/front/dag-walk.fs`, `src/front/mvars.fs`, `src/core/mvar-leaves.fs` | the metavariable context and its walks (FE1b); metavariable leaves | `mctx`, `mv-exprs`, `mv-levels`, `mv-fvars` |
 | `src/author/export.fs` | a run's declarations as export records, to a sink (8.2.1c) | `lfx` |
 | `src/author/runner.fs` | running text and files; the look-ahead for a library; the public interface | `lfa-run` |
 | `src/cli/check-lf.fs` | `leanforth check FILE.lf`: the library, the text and its records into the stage | `lfc` (and check-run.fs's) |
@@ -122,6 +126,40 @@ number). Each syntax word is a Lean
 keyword or contains a character no unquoted Lean identifier has (ADR
 0017, rule R1), and must be in the printer's list of the words it writes
 (checked when `words.fs` loads).
+
+### Natural LeanForth and the kernel form (plan FE1a)
+
+Since 2026-11-12 every word has a meaning in each of two forms
+([ADR 0021](../adr/0021-front-end.md) D8; owner decisions 1-4 of
+2026-11-12). A run starts in **natural** form; `kernel-form`, outside any
+declaration, switches it to the **kernel form** of the table above for the
+rest of the run (error 57 inside a declaration). In natural form the words
+build a syntax tree (`src/front/syntax.fs`), not kernel terms, and nothing
+is elaborated yet:
+
+| Word | Stack effect | Meaning in natural form |
+| --- | --- | --- |
+| a name | `( a1 .. ak -- t )` | the application of the constant or variable to as many values as its type has explicit binders (a library constant's from its type's telescope, a variable's from its binder's type as written); 73 when that count depends on unfolding a definition |
+| a number | `( -- n )` | a numeral (Lean's `OfNat`), at its own line and column |
+| `' NAME` | `( -- t )` | the function NAME, applied to nothing (59 when no name follows on the line) |
+| `$` | `( f a -- t )` | one more argument: an application made by a name takes it as its next one |
+| `+`, `*` | `( a b -- t )` | Lean's `binop% HAdd.hAdd a b`, `binop% HMul.hMul a b` |
+| `=`, `≤` | `( a b -- t )` | Lean's `binrel% Eq a b`, `binrel% LE.le a b` |
+| `explicit:` and the other binder words | `( t -- )` | a binder whose type is the tree as written |
+| `:=` | `( t -- )` | the statement, as in the kernel form |
+| `by` | `( -- )` | right after `:=`: a tactic proof follows (69 elsewhere or twice) |
+| `end NAME` | `( t -- )` | checks the declaration's shape (errors 19, 20, 22), then stops: elaborating is plan FE1e-f (71, unsupported) |
+| `by-induction`, `by-case:`, `by-rfl`, `by-exact` | | tactics: not supported yet in either form (72) |
+| the other kernel-form words (`Prop`, `fun`, `var#`, `^`, ...) | | not supported yet in natural form (70) |
+| `'`, `+`, `=`, `*`, `≤` in kernel-form text | | refused (58) |
+
+Each operator word is checked against the printer's notation table while
+the reader loads (`present/notation-table.fs`: the row of the constant
+must spell the word). The Forth interface adds `lf-author-kernel ( -- )`
+(the marker, for a caller that runs kernel-form text without it),
+`lf-front-statement ( -- node )` and `lf-front-by ( -- pos )`, and the
+syntax store's words (`src/front/syntax.fs`). `leanforth print --lf`
+writes `kernel-form` as its first line.
 
 ## Forth interface
 
@@ -354,9 +392,11 @@ below it).
 | 72 | unsupported | not supported yet: tactics (plan FE1g) |
 | 73 | unsupported | not supported yet: how many arguments the name takes depends on unfolding its type |
 
-The tests reach every code: `tests/author/author.fs` all but 39, which
-the example file `17-long-line.lf` reaches (a line of 1024 characters or
-more in a file). Proof text cannot reach 34, since it cannot write a
+The tests reach every code: `tests/author/author.fs` all but 39 and the
+natural form's (57 to 59 and 68 to 73, which `tests/front/front.fs`
+reaches, 68 with the syntax store's limit lowered; 58 both), and 39 the
+example file `17-long-line.lf` (a line of 1024 characters or more in a
+file). Proof text cannot reach 34, since it cannot write a
 negative number and each value is used once; the unit tests reach it by
 calling the words with a used value and with a variable outside its
 binder. Code 41 is reachable: very many numbers overflow Forth's data
