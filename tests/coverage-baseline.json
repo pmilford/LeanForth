@@ -287,6 +287,16 @@
    "never_run": 11,
    "reason": "new file (plan FE6, casesOn and recOn): the blocks never run are failure branches after a scratch tier, tuple or heap block that cannot grow (expr-make, tuple-add, allocate) and refusals Lean's recursors never reach (hypotheses before fields, a recursor type shorter than its numbers, a type whose Sort only reduction shows); tests for them need a tier that refuses on demand Measured 2026-11-13 over make test-front (review fe6a-2 N4)."
   },
+  "src/front/goal-print.fs": {
+   "blocks": 283,
+   "never_run": 4,
+   "reason": "new file (plan FE1g-1, branch fe1g1, 2026-11-13): never run are only the branches where the heap refuses a slab's growth inside an operation (a run's cells or record, a local, a view's copy, the goal list, a group's places, the names' codes, a let value's depth walk); tests/front/goals.fs reaches the refusal of a run's push, of the trail and of each allocation of a clear"
+  },
+  "src/front/goals.fs": {
+   "blocks": 172,
+   "never_run": 6,
+   "reason": "new file (plan FE1g-1, branch fe1g1, 2026-11-13): never run are only the branches where the heap refuses a slab's growth inside an operation (a run's cells or record, a local, a view's copy, the goal list, a group's places, the names' codes, a let value's depth walk); tests/front/goals.fs reaches the refusal of a run's push, of the trail and of each allocation of a clear"
+  },
   "src/front/infer.fs": {
    "blocks": 260,
    "never_run": 19,
@@ -296,6 +306,11 @@
    "blocks": 288,
    "never_run": 3,
    "reason": "measured 2026-11-12 on fe1c-lnorm after review L4 (meta-heap.fs refuses each allocation): never run are in-instantiate-leaf's non-variable leaf at a depth whose range test kept nothing (157), a failing loose-range walk inside instantiate1's value check (190: the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)), and head beta's application refused by the term store after the lambdas were taken (221)"
+  },
+  "src/front/lctx-views.fs": {
+   "blocks": 174,
+   "never_run": 8,
+   "reason": "new file (plan FE1g-1, branch fe1g1, 2026-11-13): never run are only the branches where the heap refuses a slab's growth inside an operation (a run's cells or record, a local, a view's copy, the goal list, a group's places, the names' codes, a let value's depth walk); tests/front/goals.fs reaches the refusal of a run's push, of the trail and of each allocation of a clear"
   },
   "src/front/level-defeq.fs": {
    "blocks": 130,
@@ -336,6 +351,11 @@
    "blocks": 147,
    "never_run": 7,
    "reason": "new file (plan FE1a-b, branch fe1, 2026-11-12): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded, a child beyond the walk memo and the reader default finder before cli/check-lf.fs sets it are never run; since FE1g-2 (branch fe1g2, 2026-11-13) src/front/tactic-syntax.fs ends := by proofs itself, so lfn-w-end and the by branches of lfn-proof-shape and lfn-last (3 blocks) wait for FE1g-3's runner"
+  },
+  "src/front/runs.fs": {
+   "blocks": 111,
+   "never_run": 6,
+   "reason": "new file (plan FE1g-1, branch fe1g1, 2026-11-13): never run are only the branches where the heap refuses a slab's growth inside an operation (a run's cells or record, a local, a view's copy, the goal list, a group's places, the names' codes, a let value's depth walk); tests/front/goals.fs reaches the refusal of a run's push, of the trail and of each allocation of a clear"
   },
   "src/front/syntax.fs": {
    "blocks": 36,
