@@ -2,7 +2,7 @@
 
 Plan slice S2 ([PLAN_DRAFT.md](../project/PLAN_DRAFT.md#phase-8-slices-owner-2026-11-13)). Status (2026-11-13):
 **written and reviewed** (plan 9.4.7; [design review](../development/design-reviews/2026-11-13-s2.md): B1, B2, M1-M4 and
-L1-L8 fixed in this text), awaiting the owner's approval.
+L1-L8 fixed in this text), **approved by the owner 2026-11-13** ([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md), "Slice S2 approved").
 It designs FE1g-5 to FE1g-8, FE1c's lazy delta, FE1d2's `_sunfold` bodies, `Meta.check` of the rewrite motive and FE1h
 (FE1's done check) on top of S1 ([S1_INTERFACE.md](S1_INTERFACE.md), whose words it uses). Where
 [FE1G_TACTICS.md](FE1G_TACTICS.md), [FRONT_END.md](FRONT_END.md) §8 or
