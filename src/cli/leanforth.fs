@@ -921,10 +921,14 @@ variable cli-info#
   ." error: " ck-read-outcome dup outcome-text type
   ." : the records written for the LeanForth text were refused; the text was not checked"
   cr outcome>code cli-code! ;
+\ After the verdicts, in the text report, the open parts by-sorry left
+\ (front/tactic-run.fs; ADR 0021 Amendment 1: the JSON report's fields
+\ wait for the owner's [format] decision).
+: cli-open-parts ( -- ) cli-json? 0= if lf-open-parts. then ;
 : cli-text-report ( -- )
   lfc-elab-failed? if cli-elab-error exit then
   lfc-failed? if cli-text-error exit then lfc-refused? if cli-records-error exit then
-  cli-fed-tally cli-fed-report ;
+  cli-fed-tally cli-fed-report cli-open-parts ;
 \ --jobs N with a text: no worker can share the run's input (the words'
 \ run moved this context's stores on, see ck-workers-made), so the text
 \ is checked one declaration at a time, and a note says so first.

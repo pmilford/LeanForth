@@ -84,6 +84,9 @@ end-structure
 \ with TYPE, Unicode, no universes and no limit. The frames' visitor is
 \ never run: every visit names its own first step (lf-pp-call).
 : lf-print-setup ( sink options -- ) lf-pjob tuck lf-pjob-options ! lf-pjob-sink ! ;
+\ The settings lf-print-setup made, for a caller that prints elsewhere for
+\ a while and then sets them back.
+: lf-print-settings ( -- sink options ) lf-pjob dup lf-pjob-sink @ swap lf-pjob-options @ ;
 \ Notation (print-notation.fs): off until the caller turns it on; it
 \ survives lf-print-setup, which sets only the sink and the options.
 : lf-print-notation! ( flag -- ) lf-pjob lf-pjob-notation ! ;

@@ -79,6 +79,11 @@ lfa-numeral-capacity 1 cells 0 context-store: lfa-numerals
 \ last one (src/front/reader.fs sets it).
 defer lfa-declaration-fresh ( -- )
 :noname ( -- ) ; is lfa-declaration-fresh
+\ A run starts (lf-author-begin): the front end forgets what it kept for
+\ the whole of the last run (src/front/tactic-run.fs sets it: the open
+\ parts by-sorry left, which the command line reports after the checks).
+defer lfa-run-fresh ( -- )
+:noname ( -- ) ; is lfa-run-fresh
 
 \ A name word's value in natural form (src/front/reader.fs sets it).
 : lfa-no-natural ( value -- value' ) drop lfa-e-natural-later lfa-fail ;

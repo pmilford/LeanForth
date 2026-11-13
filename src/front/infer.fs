@@ -34,6 +34,9 @@
 \ exhausted when whnfCore's fuel runs out (the fuel is per lf-whnf-core
 \ call, so one inference may spend it once per argument and binder). A
 \ failure gives -1.
+\ lf-get-level ( type -- level outcome ): Lean's getLevel, the level u of
+\ the type's inferred type once whnfCore makes it Sort u, with the same
+\ outcomes (FE1g-3's by-sorry uses it, as Lean's mkSorry does).
 \ Not re-entrant: one inference at a time per context uses the slabs
 \ below (whnfCore and the instantiations it calls keep their own). Each
 \ lambda or pi inferred adds its binders' free variables to the local
@@ -222,5 +225,8 @@ end-structure
   dup lf-term-root? 0= if outcome-invalid if-fail exit then
   dup if-lam? if if-lambda exit then
   dup if-pi? if if-forall else if-body then ;
+\ Lean's getLevel (Meta/InferType.lean): the level u of a type's type,
+\ which whnf must make Sort u; the cases as inferForallType's above.
+: lf-get-level ( type -- level outcome ) lf-infer ok-then? if if-sort-level else no-result then ;
 
 base !   \ the BASE this file was loaded with

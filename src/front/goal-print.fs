@@ -30,9 +30,11 @@
 \ uses a hypothesis of that name, metavariable numbers and delayed
 \ assignments), the text differs: plan 8.6 owns those gaps
 \ (tests/front/goals-print.lean lists the ones met).
-\ Words: lf-goal-print ( goal -- outcome ), lf-goals-print ( -- outcome )
-\ (the proof state's unsolved goals, then the end of the line; FE1g-3
-\ runs it for the word .goals), to the term printer's sink (lf-print-setup).
+\ Words: lf-goal-print ( goal -- outcome ), lf-goals-text ( -- outcome )
+\ (the proof state's unsolved goals, a blank line between two, as a
+\ tactic error shows them: tactic-run.fs), lf-goals-print ( -- outcome )
+\ (the same, then the end of the line, for the word .goals), to the term
+\ printer's sink (lf-print-setup).
 \ Outcomes: ok; invalid for a goal that is no live metavariable; what an
 \ instantiation or the printer answers (exhausted, full, unsupported). On
 \ a failure part of the text is written. Untrusted presentation.
@@ -208,10 +210,13 @@ end-structure
   dup lf-mvar-live? 0= if drop-invalid exit then
   dup gp-open gp-codes! ok-then? if gp-printed then gp-close ;
 
-\ The unsolved goals, a blank line between two, then the end of the line.
+\ The unsolved goals, a blank line between two (Lean's goalsToMessageData,
+\ what a tactic's error shows under its message); trace_state then ends
+\ the line.
 : gp-nth ( list i -- outcome ) dup if s\" \n\n" gp-emit then run@ lf-goal-print ;
 : gp-all ( list -- outcome )
   dup run-count 0 ?do dup i gp-nth dup ok? 0= if nip unloop exit then drop loop
-  drop s\" \n" gp-emit outcome-ok ;
-: lf-goals-print ( -- outcome ) lf-goals-unsolved ok-then? if gp-all then ;
+  drop outcome-ok ;
+: lf-goals-text ( -- outcome ) lf-goals-unsolved ok-then? if gp-all then ;
+: lf-goals-print ( -- outcome ) lf-goals-text dup ok? if s\" \n" gp-emit then ;
 base !   \ the BASE this file was loaded with
