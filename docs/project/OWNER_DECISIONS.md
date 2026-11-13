@@ -961,7 +961,10 @@ The owner answered the first four front-end questions:
 3. **Tactics with the `by-` prefix** (`n by-induction`, `by-rfl`, `by-exact`).
 4. **Natural LeanForth is the default**; the kernel ("assembly") form needs the marker word `kernel-form`.
 
-Questions 5-9 (milestone order, what "full Lean" means, how exact proof terms must be, the elaboration-data exporter,
+5. **LeanForth finding a proof by itself comes early** (owner: "Yes bring forward the leanforth finds a proof by
+   itself"): new plan row FE1i, `by-decide` and a first slice of `by-omega`, right after FE1.
+
+Questions 5-9 of the design (milestone order, what "full Lean" means, how exact proof terms must be, the elaboration-data exporter,
 Mathlib's code extensions) are open.
 
 ### No result labels (2026-11-12, evening)
