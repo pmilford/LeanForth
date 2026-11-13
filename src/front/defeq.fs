@@ -117,6 +117,8 @@ begin-structure /df
   field: df-fuel
   field: df-outcome  \ ok, or the failure that ended the call
   field: df-taint    \ a false level comparison may have left assignments
+  field: df-view0    \ the local context on entry
+  field: df-mark0    \ and the term mark (lf-lctx-drop's) on entry
 end-structure
 /df context-record: df
 :noname ( -- ) lf-tr-default df df-mode0 ! ; context-setup
@@ -279,8 +281,11 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
   dup de-pi? if de-eta-expand else drop lf-lb-undef de-return then ;
 
 \ ---- isDefEqBinding: pairs of binders of one kind opened with new free
-\ variables (two cells each from de-x: the variable and the second
-\ domain), then the domains compared, then the bodies.
+\ variables, each pushed on the current local context (Lean's withLCtx'
+\ over mkLocalDecl), then the domains compared, then the bodies; at the
+\ end the context comes back and the new entries go (lf-lctx-drop). Cells
+\ from de-x: the context and the term mark on entry, then per pair the
+\ variable and the second domain.
 : de-same-binder? ( -- flag )
   de-t lf-term-tag@ dup de-s lf-term-tag@ = swap lf-term-binder-tag? and ;
 : de-open-body ( body fvar -- body' flag ) lf-meta-instantiate1 de-must ;
@@ -289,20 +294,29 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 : de-bind-bodies ( fvar -- flag )
   de-t lf-term-second@ over de-open-body 0= if 2drop false exit then de-t!
   de-s lf-term-second@ swap de-open-body 0= if drop false exit then de-s! true ;
+: de-bind-local ( fvar -- fvar flag )
+  dup 0 0 lf-local-new de-must 0= if drop false exit then
+  lf-mctx-view swap lf-view-push de-must if lf-mctx-view! true else drop false then ;
 : de-bind-one ( -- flag )
   de-t lf-term-first@ lf-lctx-local de-must 0= if drop false exit then
-  de-bind-push if de-bind-bodies else drop false then ;
-: de-bind-n ( -- n ) de-cells slab-count de-x - 2/ ;
-: de-bind-done ( r -- ) de-x de-truncate de-return ;
+  de-bind-local 0= if drop false exit then de-bind-push if de-bind-bodies else drop false then ;
+: de-pair-at ( -- addr ) de-x de-y 2* + 2 + de-cell ;
+: de-bind-n ( -- n ) de-cells slab-count de-x - 2 - 2/ ;
+: de-restore ( view mark -- ) lf-lctx-drop lf-mctx-view! ;
+: de-bind-done ( r -- )
+  de-x de-cell 2@ de-restore de-x de-truncate de-return ;
 defer de-bind-dom ( -- )
 : de-bind-dom-k ( r -- )
   lf-lb-true = if de-y+ de-bind-dom else lf-lb-false de-bind-done then ;
 :noname ( -- )
   de-y de-bind-n < 0= if de-t de-s ['] de-bind-done de-solve exit then
-  de-x de-y 2* + dup de-cell @ lf-fvar-type swap 1+ de-cell @ ['] de-bind-dom-k de-solve ;
+  de-pair-at dup @ lf-fvar-type swap cell+ @ ['] de-bind-dom-k de-solve ;
 is de-bind-dom
+: de-term-mark ( -- mark ) lf-term-base lf-term-count @ + ;
+: de-bind-save ( -- flag )
+  de-cells slab-count df df-x ! de-term-mark de-push if lf-mctx-view de-push else false then ;
 : de-binding ( -- )
-  de-cells slab-count df df-x !
+  de-bind-save 0= if exit then
   begin de-same-binder? while de-bind-one 0= if exit then repeat de-bind-dom ;
 
 \ ---- isDefEqOnFailure: a stuck metavariable (getStuckMVar?, whnf.fs)
@@ -431,7 +445,7 @@ defer de-args-post ( -- )
 : de-pa-args ( -- addr n ) 0 de-pa-arg de-pa-n ;
 : de-mvar ( -- mvar ) de-t lf-meta-head ;
 : de-pa-ret ( r -- ) de-x de-truncate de-return ;
-: de-scope ( fvar -- flag ) de-mvar swap lf-meta-sees? ;
+: de-scope ( fvar -- flag ) de-mvar swap lf-mvar-sees? ;
 : de-let-fvar? ( t -- flag ) dup de-fvar? if lf-fvar-let? else drop false then ;
 : de-simp ( arg -- arg' flag )
   dup lf-meta-head lf-meta-mvar-free? 0= if de-inst de-aborted? if false exit then then
@@ -745,14 +759,17 @@ defer de-quick-x ( -- )
   de-frames slab-clear de-cells slab-clear 0 df df-m ! ['] de-top de-regs!
   df df-mode0 @ df df-mode ! outcome-ok df df-outcome ! false df df-taint !
   df df-limit @ ?dup 0= if lf-defeq-default-fuel then df df-fuel !
-  lf-defeq-ctx de-flag? lf-meta-ctx-approx! ;
+  lf-defeq-ctx de-flag? lf-meta-ctx-approx!
+  lf-mctx-view df df-view0 ! de-term-mark df df-mark0 ! ;
+\ The local context as on entry, the entries made since dropped.
+: de-leave ( -- ) df df-view0 @ df df-mark0 @ de-restore ;
 : de-answer ( -- flag outcome )
   df df-result @ dup lf-lb-undef =
   if drop false outcome-invalid exit then lf-lb-true = outcome-ok ;
 : de-finish ( -- flag outcome )
-  df df-outcome @ ok? if de-answer else de-unwind false df df-outcome @ then ;
+  df df-outcome @ ok? if de-answer else de-unwind false df df-outcome @ then de-leave ;
 : lf-meta-defeq ( t s -- flag outcome )
   2dup lf-term-pair-valid? 0= if 2drop false outcome-invalid exit then
-  de-start ['] de-loop catch ?dup if de-unwind throw then de-finish ;
+  de-start ['] de-loop catch ?dup if de-unwind de-leave throw then de-finish ;
 
 base !   \ the BASE this file was loaded with

@@ -29,6 +29,10 @@
 \   lf-print-limit! ( n -- flag )   at most n nested visits per print (no
 \     limit unless set)
 \   lf-print-reset ( -- )   recover after a THROW out of a print
+\   lf-print-same? ( a b fuel -- flag outcome )  Lean's == of two closed
+\     terms (the comparison that groups binders), for the goal printer
+\   lf-pp-open-leaf ( term -- outcome )  deferred: prints a free variable
+\     or metavariable (front/goal-print.fs installs it); unset, invalid
 \ ok: printed. invalid: malformed input (bad index, stale reference,
 \ unknown tag, a variable outside the term's binders, a corrupted name
 \ store), a busy printer, negative fuel, or a print during which the sink
@@ -109,9 +113,19 @@ defer lf-pp-uargs ( addr n i frames -- ... frames next )
 : lf-pp-const ( term frames cont -- ... frames next )
   2>r dup lf-pp-const-name 0= if drop-invalid 2r> exit then lf-pp-constant
   lf-pp-universes? if 2r> lf-pp-universe-args else drop outcome-ok 2r> then ;
+\ The front end's leaves (plan FE1g-1): a free variable, an atom like a
+\ constant, and a metavariable print by the word installed here, which
+\ the goal printer sets (front/goal-print.fs: a free variable by its
+\ name in the goal's local context); without it they are invalid.
+defer lf-pp-open-leaf ( term -- outcome )
+' drop-invalid is lf-pp-open-leaf
+: lf-pp-leaf-step ( term pos frames -- outcome frames 0 )
+  2drop lf-pp-open-leaf lf-pp-frames 0 ;
+: lf-pp-own-atom ( head -- outcome )
+  dup lf-tag-bvar lf-pp-is? if lf-term-first@ lf-pp-var else lf-pp-open-leaf then ;
 : lf-pp-atom ( head at? frames cont -- ... frames next )
   2>r if lf-pp-explicit then
-  dup lf-tag-bvar lf-pp-is? if lf-term-first@ lf-pp-var 2r> else 2r> lf-pp-const then ;
+  dup lf-tag-constant lf-pp-is? if 2r> lf-pp-const else lf-pp-own-atom 2r> then ;
 
 \ Applications: the head, then the shown arguments, each in argument
 \ position; an argument is followed unless it is the last shown one and
@@ -378,7 +392,8 @@ defer lf-pp-lam-groups ( node frames -- ... frames next )
 \ application printer, which decides on @ for them too; a table by tag
 \ (lf-pp-steps, below) gives the visit's first step for each other tag.
 : lf-pp-applied-tag? ( tag -- flag )
-  dup lf-pp-app-tag? over lf-tag-bvar = or swap lf-tag-constant = or ;
+  dup lf-pp-app-tag? over lf-tag-bvar = or over lf-tag-fvar = or
+  swap lf-tag-constant = or ;
 \ A projection leaf (core/projections.fs; plan task 5.2.2) prints as its
 \ structure's name and Lean's field number from 1, the head of an
 \ application to the projected term: Prod.1 p for Lean's p.1. Not Lean's
@@ -413,6 +428,7 @@ lf-pp-tags ' lf-pp-invalid-step xt-table: lf-pp-steps
 ' lf-pp-proj-step lf-tag-proj lf-pp-step!
 ' lf-pp-lit-step lf-tag-lit lf-pp-step!
 ' lf-pp-str-step lf-tag-str lf-pp-step!
+' lf-pp-leaf-step lf-tag-mvar lf-pp-step!
 lf-pp-steps-applied
 : lf-pp-tag-step ( tag -- xt ) lf-pp-steps xt-table@ ;
 : lf-pp-term ( term pos frames -- ... frames next )
@@ -439,6 +455,12 @@ lf-pp-steps-applied
   then ;
 : lf-print-term ( term fuel -- outcome ) 0 swap lf-print-run ;
 : lf-print-statement ( term fuel -- outcome ) 0 lf-prop-pos swap lf-print-run ;
+\ Lean's Expr == (binder names and kinds ignored) of two closed terms,
+\ for the goal printer's grouping of hypotheses (front/goal-print.fs):
+\ the printer's comparison, run as a print that writes nothing.
+: lf-print-same? ( a b fuel -- flag outcome )
+  lf-print-ready? 0= if 2drop false outcome-invalid exit then
+  lf-pp-same-domain? lf-pp-finish ;
 : lf-print-level ( level fuel -- outcome )
   lf-print-ready? if false lf-pp-level lf-pp-finish else drop-invalid then ;
 \ A name is one visit, with one unit of fuel.

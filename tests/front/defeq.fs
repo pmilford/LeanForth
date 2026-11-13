@@ -139,7 +139,7 @@ T{ ?n xs 0 succ ?n app lf-meta-check-assignment rot drop ?r xs 1 fj lf-meta-chec
    -> false outcome-ok fj true outcome-ok }T
 T{ xs 1 succ fj app lf-meta-mk-lambda xs 1 fk lf-meta-mk-lambda swap nat fk lam same
    -> succ outcome-ok outcome-ok true }T
-T{ ?n fk lf-meta-sees? ?n fj lf-meta-sees? -> true false }T
+T{ ?n fk lf-mvar-sees? ?n fj lf-mvar-sees? -> true false }T
 \ evalNat, isOffset?, mkOffset.
 T{ 3 nlit lf-meta-eval-nat zero succ swap app lf-meta-eval-nat -> 3 true outcome-ok 1 true outcome-ok }T
 T{ 2 ofnat 3 ofnat hadd lf-meta-eval-nat fk lf-meta-eval-nat -> 5 true outcome-ok 0 false outcome-ok }T
@@ -198,7 +198,7 @@ T{ input-nat nat lf-meta-eqv input-type lv1 sort lf-meta-eqv input-type l0 sort 
 T{ fp 0 proj fp 1 proj lf-meta-eqv -> false outcome-ok }T
 \ checkAssignment's refusals: an out-of-scope let variable, a variable
 \ out of scope inside a beta-redex or under ctxApprox, hasCtxLocals.
-nat fk lf-lctx-let made constant fl
+nat fk lf-lctx-let made in-view constant fl
 create xk 1 cells allot  fk xk !
 T{ ?n xs 0 fl lf-meta-check-assignment rot drop ?n xs 0 nat fj lam fk app
    lf-meta-check-assignment rot drop -> false outcome-unsupported false outcome-unsupported }T

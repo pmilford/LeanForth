@@ -302,6 +302,16 @@
    "never_run": 31,
    "reason": "new file (plan FE1c, branch fe1c-3, 2026-11-13; measured over make test-front): never run are the full and unsupported branches of a telescope (a local, a record, an instantiation or whnfCore refused; a type whnf would unfold), a parameter type that is a pi or might become one under a class head (no fixture has a higher-order out-parameter), and isProp's failures after isPropQuick (inferType or whnfCore refused)"
   },
+  "src/front/goal-print.fs": {
+   "blocks": 283,
+   "never_run": 4,
+   "reason": "new file (plan FE1g-1, branch fe1g1, 2026-11-13): never run are only the branches where the heap refuses a slab's growth inside an operation (a run's cells or record, a local, a view's copy, the goal list, a group's places, the names' codes, a let value's depth walk); tests/front/goals.fs reaches the refusal of a run's push, of the trail and of each allocation of a clear"
+  },
+  "src/front/goals.fs": {
+   "blocks": 172,
+   "never_run": 6,
+   "reason": "new file (plan FE1g-1, branch fe1g1, 2026-11-13): never run are only the branches where the heap refuses a slab's growth inside an operation (a run's cells or record, a local, a view's copy, the goal list, a group's places, the names' codes, a let value's depth walk); tests/front/goals.fs reaches the refusal of a run's push, of the trail and of each allocation of a clear"
+  },
   "src/front/infer.fs": {
    "blocks": 260,
    "never_run": 19,
@@ -312,10 +322,15 @@
    "never_run": 3,
    "reason": "measured 2026-11-12 on fe1c-lnorm after review L4 (meta-heap.fs refuses each allocation): never run are in-instantiate-leaf's non-variable leaf at a depth whose range test kept nothing (157), a failing loose-range walk inside instantiate1's value check (190: the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)), and head beta's application refused by the term store after the lambdas were taken (221)"
   },
+  "src/front/lctx-views.fs": {
+   "blocks": 174,
+   "never_run": 8,
+   "reason": "new file (plan FE1g-1, branch fe1g1, 2026-11-13): never run are only the branches where the heap refuses a slab's growth inside an operation (a run's cells or record, a local, a view's copy, the goal list, a group's places, the names' codes, a let value's depth walk); tests/front/goals.fs reaches the refusal of a run's push, of the trail and of each allocation of a clear"
+  },
   "src/front/level-defeq.fs": {
    "blocks": 130,
-   "never_run": 4,
-   "reason": "measured 2026-11-12 on fe1c-lnorm: never run are lf-meta-level='s full branch on the bases or on a normalized side (82, 94: its pair slab is grown by earlier deep tests, so no refusal reaches it) and the CATCH branch that rolls the mark back on a THROW (167: no input makes the rounds throw) Allowance 3 -> 4 (2026-11-13): the full suite measured 4 in the push run of f24c8015 (the 3 above came from a front-end-only run on the branch); the fourth block is not named yet: find it with scripts/coverage.py --uncovered and test it or give its reason (plan row FE1c)."
+   "never_run": 3,
+   "reason": "measured 2026-11-13 (COVFU, on main d01b02b8 plus its tests): never run are lf-meta-level='s full branch on the bases (82:57, ld-bases) and on a normalized side (94:36, ld-differs): its pair slab is grown by earlier deep tests, so no refusal reaches it; and ld-run's CATCH branch that rolls the mark back on a THROW (169:31): no input makes the rounds throw. The fourth block the full suite measured on 2026-11-13 was ld-closed's refused close (161:23, added by 98315f89 after the branch measurement of 3): unreachable through lf-meta-level-defeq, whose mark is always the latest open one, it is now run by a white-box test of ld-close in tests/front/meta.fs (fault fe-ldefeq-closed-refusal-ignored). Allowance 4 -> 3."
   },
   "src/front/level-normalize.fs": {
    "blocks": 242,
@@ -528,8 +543,8 @@
   },
   "src/kernel/iota.fs": {
    "blocks": 508,
-   "never_run": 63,
-   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed Allowance 62 -> 63 (2026-11-13): one block of iota.fs runs in some full runs and not in others (63 in the push run of f29a526d, 62 and 66/67 elsewhere): a cache hit or miss that depends on which worker checks which declaration first under --jobs, as the fe1c review's Q4 found; plan: find the block with coverage.py --uncovered over two runs and pin it with a deterministic test."
+   "never_run": 62,
+   "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed. The block that ran in some full runs and not in others (63 in the push run of f29a526d, 62 elsewhere) was 102:36, lf-iota-recursor's failed lookup: under --jobs a check that begins before a slot below it is final meets it (too early; env-schedule.fs runs the check again), a serial run never does. Since 2026-11-13 (COVFU) tests/core/iota.fs runs it every time, with Bool.rec's slot forged not final, undecided and unsupported (fault iota-lookup-failure-no-rule), so the count no longer depends on timing; 467:50 (a recursor short of its major premise) was pinned the same way by COV2. Allowance 63 -> 62."
   },
   "src/kernel/level-compare.fs": {
    "blocks": 99,

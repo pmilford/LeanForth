@@ -13,8 +13,14 @@ require ../core/symbolic-session.fs
 require ../core/generation-handles.fs
 require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
+require ../core/local-context.fs
+require ../core/mvar-leaves.fs
 
 lf-walk-room context-walk2: lf-pp-scan-walk
+\ The front end's leaves, free variables and metavariables (plan FE1g-1),
+\ which are themselves: equal only to their own node, holding no bound
+\ variable; term-printer.fs prints them through lf-pp-open-leaf.
+: lf-pp-identity-tag? ( tag -- flag ) dup lf-tag-fvar = swap lf-tag-mvar = or ;
 
 \ A structured name as text, components joined by dots, sent to xt
 \ ( c-addr u -- ), from the first component on without recursion: the
@@ -87,7 +93,7 @@ lf-walk-room context-walk2: lf-pp-scan-walk
   outcome-full then ;
 : lf-pp-leaf-tag? ( tag -- flag )
   dup lf-tag-sort = over lf-tag-symbolic-sort = or over lf-tag-constant = or
-  over lf-tag-proj = or swap lf-literal-tag? or ;
+  over lf-tag-proj = or over lf-pp-identity-tag? or swap lf-literal-tag? or ;
 : lf-pp-scan-other ( first second walk tag -- outcome )
   dup lf-term-binary-tag? if lf-pp-scan-binary exit then
   lf-pp-leaf-tag? if drop 2drop outcome-ok else drop 2drop outcome-invalid then ;

@@ -14,7 +14,9 @@
 \ 1, 7. whnf.fs's hook through lf-whnf-on: the reduct of a case's type is
 \    the minor premise Lean's rule picks, or a new node; K outside an
 \    inference job in environment mode is undecided, and the major
-\    premise, a constructor, still reduces.
+\    premise, a constructor, still reduces; a recursor whose lookup fails
+\    (its slot forged not final, undecided or unsupported) ends the whnf
+\    with the lookup's outcome.
 \ 5. Resources: in a check, every fuel below the least that suffices
 \    exhausts the whnf, the least gives the reduct, and every allocation
 \    refused in turn makes it full; whole checks through K (R2) and
@@ -27,10 +29,11 @@ require ../support/case-sweeps.fs
 \ Helpers. A case's target type is an application of a recursor; its head
 \ names the recursor's input declaration, its major premise a
 \ constructor application.
-: decl-named ( name -- decl|0 )
+: decl-index ( name -- d|-1 )
   lf-input-count 0 ?do
-    dup i lf-input-decl lf-idecl-name @ lf-name-same? if drop i lf-input-decl unloop exit then
-  loop drop 0 ;
+    dup i lf-input-decl lf-idecl-name @ lf-name-same? if drop i unloop exit then
+  loop drop -1 ;
+: decl-named ( name -- decl|0 ) decl-index dup 0< if drop 0 else lf-input-decl then ;
 : head-decl ( node -- decl ) lf-iota-head-name decl-named ;
 : rec ( -- decl ) cs-type head-decl ;
 : major ( -- node ) cs-type rec lf-iota-major ;
@@ -219,5 +222,39 @@ T{ s" iota.prod-eta" 89 19 whole -> true true outcome-full }T
   T{ cs-type lf-term-first@ whnf-of -> cs-type lf-term-first@ outcome-ok }T
   T{ cs-type lf-term-first@ lf-term-first@ dup whnf-of -rot = -> outcome-ok true }T ;
 s" iota.bool-true" ' no-redex outcome-ok cs-probe-gives
+
+\ ---------------------------------------------------------------------------
+\ 1, 7 (coverage COVFU). The recursor's lookup fails (lf-iota-recursor):
+\ the failure is the answer, (-1 outcome) with the lookup's diagnostic,
+\ never "no recursor" (ok), and whnf of the type ends with it. Bool.rec's
+\ slot is forged in the probe: not final, as a check of a parallel run
+\ sees a slot below it not yet published (env-schedule.fs runs it again;
+\ until this test, only such timing under --jobs ran this branch), and
+\ undecided or unsupported (K5). The forged slot stays for the target's
+\ check, which ends the same way; the run's environment is freed after.
+\ Notes: 0 the answer, 1 its outcome, 2 the diagnostic's code, 3 its
+\ slot, 4 whnf's outcome.
+: bool-true ( -- c-addr u ) s" iota.bool-true" ;
+: rec-index ( -- d ) cs-type lf-iota-head-name decl-index ;
+: rec-slot ( -- slot ) rec-index lf-env lf-env-slot ;
+: failed-lookup ( -- )
+  lf-diag-clear cs-type lf-iota-recursor swap cs-note cs-note
+  lf-diag@ nip nip cs-note cs-note cs-type whnf-of nip cs-note ;
+: as-early ( -- ) 0 rec-slot lf-slot-state ! failed-lookup ;
+: as-outcome ( outcome -- ) rec-slot lf-slot-outcome ! failed-lookup ;
+: as-undecided ( -- ) outcome-unknown as-outcome ;
+: as-unsupported ( -- ) outcome-unsupported as-outcome ;
+: noted ( -- answer outcome code ) 0 cs-noted 1 cs-noted 2 cs-noted ;
+: slot-whnf ( -- d outcome ) 3 cs-noted 4 cs-noted ;
+bool-true cs-load rec-index constant rec-d cs-unload
+T{ bool-true ' as-early cs-probed noted
+   -> outcome-invalid 0 -1 outcome-invalid lf-diag-too-early }T
+T{ slot-whnf -> rec-d outcome-invalid }T
+T{ bool-true ' as-undecided cs-probed noted
+   -> outcome-unknown 0 -1 outcome-unknown lf-diag-dependency-undecided }T
+T{ slot-whnf -> rec-d outcome-unknown }T
+T{ bool-true ' as-unsupported cs-probed noted
+   -> outcome-unsupported 0 -1 outcome-unsupported lf-diag-dependency-unsupported }T
+T{ slot-whnf -> rec-d outcome-unsupported }T
 
 bye

@@ -37,9 +37,9 @@
 \ major premise of a structure-like type (toCtorWhenStructure
 \ eta-expands it), and a recursor of a mutual or nested block.
 \ Let variables: Lean unfolds a let variable only when it is no "have"
-\ (nondep) declaration; core/local-context.fs has no such flag, and every
-\ let variable it holds is a let, so each is unfolded (the flag comes with
-\ the let telescopes of plan FE1c).
+\ (nondep) declaration; lf-fvar-let? is false for a have
+\ (core/local-context.fs, lf-lctx-have, plan FE1g-1), which therefore
+\ stays as it is, as Lean's whnfEasyCases leaves it.
 \ Fuel: each step spends one; lf-whnf-fuel! sets the steps a call may
 \ take (0: lf-whnf-default-fuel); none left is exhausted, never a term.
 \ Outcomes: ok; invalid for a term or leaf that is not live, a loose

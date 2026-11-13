@@ -156,6 +156,9 @@ require ./prop-quick.fs
   fi-params slab-count 0 ?do i fi-prop! dup ok? 0= if unloop exit then drop
     i fi-ho? ok-then? 0= if unloop exit then
     if unloop outcome-unsupported exit then loop outcome-ok ;
-: lf-meta-fun-info ( f n -- m outcome )
+: fi-run ( f n -- m outcome )
   fi-params slab-clear swap lf-infer ok-then? 0= if nip no-result exit then
   swap fi-telescope dup ok? if drop fi-props then fi-params slab-count swap ;
+\ The telescope's free variables (and inferType's) go again at the end.
+: fi-mark ( -- mark ) lf-term-base lf-term-count @ + ;
+: lf-meta-fun-info ( f n -- m outcome ) fi-mark >r fi-run r> lf-lctx-drop ;

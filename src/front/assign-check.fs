@@ -65,26 +65,17 @@ end-structure
 /ac context-record: ac
 : lf-meta-ctx-approx! ( flag -- ) ac ac-approx ! ;
 
-\ Scopes, the only two questions asked of a metavariable's local context,
-\ on FE1b's model (the context's length when it was made): a free
-\ variable is in scope when its number is below it. With FE1g-1's
-\ per-metavariable contexts (lctx-views.fs) lf-meta-sees? becomes
-\ lf-mvar-sees? and ac-prefix? isSubPrefixOf with the xi excepted.
-: ac-scope ( mvar -- n ) lf-mvar-lctx 0= if 0 then ;
-: lf-meta-sees? ( mvar fvar -- flag ) lf-fvar-number swap ac-scope < ;
+\ Scopes: each metavariable's own local context (mvars.fs, lctx-views.fs).
 : ac-x ( i -- x ) cells ac ac-xs @ + @ ;
 : ac-xs? ( fvar -- flag ) false ac ac-n @ 0 ?do over i ac-x = or loop nip ;
 : ac-m ( -- mvar ) ac ac-target @ ;
-\ How many xi are numbered from lo to hi - 1.
-: ac-between ( lo hi -- k )
-  0 ac ac-n @ 0 ?do >r 2dup i ac-x lf-fvar-number -rot within r> swap - loop nip nip ;
-\ ?n's scope less the xi is a prefix of ?m's (isSubPrefixOf with the xi
-\ excepted): every free variable from ?m's length to ?n's is an xi.
+: ac-view ( mvar -- view ) lf-mvar-view 0= if lf-view-empty then ;
+\ ?n's context less the xi is a sub-prefix of ?m's (isSubPrefixOf with
+\ exceptFVars).
 : ac-prefix? ( mvar -- flag )
-  ac-scope ac-m ac-scope 2dup > 0= if 2drop true exit then
-  2dup - >r swap ac-between r> = ;
+  ac-view ac-m ac-view ac ac-xs @ ac ac-n @ lf-view-sub-prefix-except? ;
 : ac-sees-x? ( mvar -- flag )
-  false ac ac-n @ 0 ?do over i ac-x lf-meta-sees? or loop nip ;
+  false ac ac-n @ 0 ?do over i ac-x lf-mvar-sees? or loop nip ;
 
 \ ---- Images: 0 fine, 1 out of scope, 2 failed (Lean's two exceptions).
 0 constant ac-fine  1 constant ac-scope-fail  2 constant ac-fail
@@ -93,7 +84,7 @@ end-structure
 : ac-refuse ( -- 0 ) outcome-unsupported ac-refuse-with ;
 : ac-fvar ( fvar -- image )
   dup lf-fvar-live? 0= if drop outcome-invalid ac-refuse-with exit then
-  ac-m over lf-meta-sees? if drop ac-fine exit then
+  ac-m over lf-mvar-sees? if drop ac-fine exit then
   dup lf-fvar-let? if drop ac-refuse exit then
   ac-xs? if ac-fine else ac-scope-fail then ;
 \ Whether ?m occurs in a term, its assignments followed (mvars.fs); a
@@ -179,10 +170,17 @@ end-structure
 
 \ ---- mkLambdaFVars xs v (etaReduce), from the last xi to the first.
 : ac-set ( addr n -- ) ac tuck ac-n ! ac-xs ! ;
-: ac-ranks ( -- lo hi ) 0 ac-x lf-fvar-number ac ac-n @ 1- ac-x lf-fvar-number ;
+\ hasLetDeclsInBetween: a let local of the current context (Lean's
+\ isLet: not a have) between the first xi and the last; an xi the
+\ context lacks counts as one (unsupported).
+: ac-place ( fvar -- i true | false ) lf-mctx-view swap lf-view-find ;
+: ac-let-at? ( i -- flag ) lf-mctx-view swap lf-view-local lf-local-fvar lf-fvar-let? ;
+: ac-ranks ( -- lo hi true | false )
+  0 ac-x ac-place 0= if false exit then
+  ac ac-n @ 1- ac-x ac-place if true else drop false then ;
 : ac-let-between? ( -- flag )
-  ac ac-n @ 2 < if false exit then
-  false ac-ranks swap 1+ ?do i lf-ldecl lf-ldecl-value @ 0< 0= or loop ;
+  ac ac-n @ 2 < if false exit then ac-ranks 0= if true exit then
+  false -rot swap 1+ ?do i ac-let-at? or loop ;
 \ elimMVarDeps would act: a metavariable whose scope holds an xi (a node
 \ whose data word is known holds no metavariable).
 : ac-dep-inner? ( node -- flag )
