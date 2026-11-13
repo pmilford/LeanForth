@@ -379,6 +379,30 @@ T{ 6 7 8 outcome-ok ' ok-keep2? rs-checked 7 8 outcome-unknown ' ok-keep? rs-che
   6 7 8 true 8 outcome-unknown false }T
 T{ outcome-exhausted no-result outcome-ok no-result ->
   -1 outcome-exhausted -1 outcome-ok }T
+\ ok-then3? keeps three values only on ok (review FRI B6).
+T{ 5 6 7 outcome-ok ok-then3? -> 5 6 7 true }T
+T{ 5 6 7 outcome-full ok-then3? -> outcome-full false }T
+T{ 5 6 7 outcome-ok ' ok-then3? rs-checked 5 6 7 outcome-rejected ' ok-then3? rs-checked ->
+  5 6 7 true outcome-rejected false }T
+\ outcome-and: two outcomes as one, the first that is not ok; ok only
+\ when both are; any value outside the vocabulary passes through as the
+\ first failure, never as ok.
+T{ outcome-ok outcome-ok outcome-and outcome-ok outcome-full outcome-and -> 0 6 }T
+T{ outcome-unknown outcome-ok outcome-and outcome-exhausted outcome-full outcome-and -> 3 2 }T
+T{ outcome-rejected outcome-invalid outcome-and 99 outcome-ok outcome-and -> 4 99 }T
+T{ outcome-ok outcome-unsupported ' outcome-and rs-checked -> 5 }T
+\ outcome-steps: the steps ( x -- outcome ) of a 0-ended list in order,
+\ to the first that is not ok; an empty list is ok and runs nothing.
+variable step-trail
+: step-a ( x -- outcome ) step-trail @ 10 * 1+ step-trail ! drop outcome-ok ;
+: step-b ( x -- outcome ) step-trail @ 10 * 2 + step-trail ! ;
+create steps-none 0 ,
+create steps-ab ' step-a , ' step-b , ' step-a , 0 ,
+: stepped ( x a -- outcome trail ) 0 step-trail ! outcome-steps step-trail @ ;
+T{ 7 steps-none stepped -> outcome-ok 0 }T
+T{ outcome-ok steps-ab stepped -> outcome-ok 121 }T
+T{ outcome-unknown steps-ab stepped -> outcome-unknown 12 }T
+T{ outcome-full steps-ab ' stepped rs-checked -> outcome-full 12 }T
 
 \ walk: refuses a capacity below 1.
 : bad-walk? ( addr u -- flag ) ['] evaluate catch dup if nip nip then 0<> ;

@@ -2587,7 +2587,7 @@ reason = "a manifest failure keeps the last line's number instead of line 0"
 [[fault]]
 id = "manifest-reentry"
 file = "src/import/manifest.fs"
-old = '''  dup manifest-export @ export-idle dup ok? 0= if nip nip nip exit then drop
+old = '''  dup manifest-export @ export-idle ok-then3? 0= if exit then
 '''
 new = ''
 test = "$GFORTH tests/core/manifest.fs"
@@ -10325,3 +10325,29 @@ old = ''': lf-nt-end ( row -- ) align here over - swap lf-nt-next ! ;'''
 new = ''': lf-nt-end ( row -- ) here over - swap lf-nt-next ! ;'''
 test = "$GFORTH tests/present/notation.fs"
 reason = "a notation row may start at an unaligned address (works on x86-64, faults elsewhere): rows-aligned? catches it (review refactor-present L1d)"
+
+# --- the FRI refactoring batches (review 2026-11-12-backlog-import-core-lib.md, B1-B8) ---
+
+[[fault]]
+id = "outcome-and-second-first"
+file = "src/lib/outcome.fs"
+old = ''': outcome-and ( outcome1 outcome2 -- outcome ) over ok? if nip else drop then ;'''
+new = ''': outcome-and ( outcome1 outcome2 -- outcome ) dup ok? if drop else nip then ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "FRI B6: of two failures the second is kept, so a full layer field hides an earlier invalid one"
+
+[[fault]]
+id = "outcome-steps-past-failure"
+file = "src/lib/outcome.fs"
+old = '''  2dup @ execute dup ok? 0= if nip nip exit then drop cell+ recurse ;'''
+new = '''  2dup @ execute drop cell+ recurse ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "FRI B6: a failing step is ignored and the steps after it run; a sections file read with a bad header loads"
+
+[[fault]]
+id = "ok-then3-keeps-one"
+file = "src/lib/outcome.fs"
+old = '''  dup ok? if drop true else nip nip nip false then ;'''
+new = '''  dup ok? if drop true else nip nip false then ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "FRI B6: a failure leaves a kept value under the outcome"
