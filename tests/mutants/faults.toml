@@ -13777,3 +13777,117 @@ old = ''': sort-unsigned ( u1 u2 -- n ) 2dup = if 2drop 0 else u< 2* 1+ then ;''
 new = ''': sort-unsigned ( u1 u2 -- n ) 2dup = if 2drop 0 else < 2* 1+ then ;'''
 test = "$GFORTH tests/lib/sort.fs"
 reason = "sort-unsigned compares signed: a value with the top bit set sorts first"
+
+# --- the front end's isDefEq (src/front/defeq.fs and its helpers; plan FE1c)
+
+[[fault]]
+id = "fe-defeq-checkpoint-kept"
+file = "src/front/defeq.fs"
+old = '''  de-m 0 df df-m ! over lf-lb-true = if lf-mctx-commit else lf-mctx-rollback then'''
+new = '''  de-m 0 df df-m ! lf-mctx-commit'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c: checkpointDefEq keeps the assignments of a false answer (Prod.mk ?n a =?= Prod.mk b b leaves ?n := b)"
+
+[[fault]]
+id = "fe-defeq-fuel-unspent"
+file = "src/front/defeq.fs"
+old = '''  df df-fuel @ dup 0> if 1- df df-fuel ! true exit then'''
+new = '''  true exit'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c: no comparison spends fuel, so a call never answers exhausted"
+
+[[fault]]
+id = "fe-defeq-unwind-skipped"
+file = "src/front/defeq.fs"
+old = ''': de-unwind ( -- ) de-roll begin de-frames slab-count 0> while de-unframe repeat ;'''
+new = ''': de-unwind ( -- ) de-frames slab-clear ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c: a failed call leaves its marks open and its assignments made (unsupported after ?n := a)"
+
+[[fault]]
+id = "fe-defeq-depth-kept"
+file = "src/front/defeq.fs"
+old = ''': de-resume ( -- ) de-pop if lf-mctx-shallower then df df-result @ swap execute ;'''
+new = ''': de-resume ( -- ) de-pop drop df df-result @ swap execute ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c: withNewMCtxDepth (isDefEqOffset's ifNatExpr) never leaves its depth"
+
+[[fault]]
+id = "fe-defeq-proof-irrelevance-off"
+file = "src/front/defeq.fs"
+old = '''  case lf-lb-false of lf-lb-undef de-return endof  lf-lb-true of de-pi-types endof'''
+new = '''  case lf-lb-false of lf-lb-undef de-return endof  lf-lb-true of lf-lb-undef de-return endof'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c: two proofs of one proposition (e c : a = b) are not equal"
+
+[[fault]]
+id = "fe-defeq-domains-skipped"
+file = "src/front/defeq.fs"
+old = '''  de-y de-bind-n < 0= if de-t de-s ['] de-bind-done de-solve exit then'''
+new = '''  true if de-t de-s ['] de-bind-done de-solve exit then'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c: isDefEqBinding compares the bodies only (fun y : Nat => y =?= fun y : Prop => y true)"
+
+[[fault]]
+id = "fe-defeq-levels-ignored"
+file = "src/front/defeq.fs"
+old = '''  over de-levels# over de-levels# <> if 2drop lf-lb-false exit then'''
+new = '''  2drop lf-lb-true exit'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c: two constants of one name are equal whatever their universe levels (PUnit.{1} =?= PUnit.{2})"
+
+[[fault]]
+id = "fe-defeq-offset-off"
+file = "src/front/defeq.fs"
+old = '''  de-off-code 0= if lf-lb-undef de-return exit then'''
+new = '''  lf-lb-undef de-return exit'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c: isDefEqOffset skipped: Nat.succ ?h =?= Nat.succ (Nat.succ k) assigns Nat.succ k, not Lean's k + 1"
+
+[[fault]]
+id = "fe-defeq-implicit-args-skipped"
+file = "src/front/defeq.fs"
+old = '''  de-y de-post# < 0= if lf-lb-true de-args-done exit then'''
+new = '''  true if lf-lb-true de-args-done exit then'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c: isDefEqArgs postpones the implicit arguments and never compares them"
+
+[[fault]]
+id = "fe-defeq-occurs-skipped"
+file = "src/front/assign-check.fs"
+old = '''  dup ac-m = if drop ac-fail exit then  dup lf-mvar-value if 2drop ac-refuse exit then'''
+new = '''  dup ac-m = if drop ac-fine exit then  dup lf-mvar-value if 2drop ac-refuse exit then'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c: checkAssignment's occurs check passes ?n := Nat.succ ?n (mvars.fs then refuses it: unsupported, not false)"
+
+[[fault]]
+id = "fe-defeq-scope-ignored"
+file = "src/front/assign-check.fs"
+old = '''  ac-m over lf-meta-sees? if drop ac-fine exit then'''
+new = '''  drop ac-fine exit'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c: a free variable out of the metavariable's scope is accepted (?n =?= j true)"
+
+[[fault]]
+id = "fe-defeq-eta-reduce-off"
+file = "src/front/assign-check.fs"
+old = '''  over lf-meta-app? 0= if drop false outcome-ok exit then'''
+new = '''  drop false outcome-ok exit'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c: mkLambdaFVars without etaReduce: ?t j =?= Nat.succ j assigns fun x => Nat.succ x, not Nat.succ"
+
+[[fault]]
+id = "fe-defeq-ofnat-instance-unchecked"
+file = "src/front/nat-offset.fs"
+old = ''': no-inst-ofnat? ( t -- flag ) 1 s" instOfNatNat" no-is? ;'''
+new = ''': no-inst-ofnat? ( t -- flag ) drop true ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c: evalNat takes OfNat.ofNat Nat 2 i for 2 whatever the instance i"
+
+[[fault]]
+id = "fe-defeq-names-unchecked"
+file = "src/front/term-eqv.fs"
+old = ''': eq-name= ( a b -- flag ) 2dup = if 2drop true else lf-name-same? then ;'''
+new = ''': eq-name= ( a b -- flag ) 2drop true ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "FE1c: Lean's == takes two constants of the same levels for equal whatever their names"

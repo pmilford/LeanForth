@@ -59,6 +59,9 @@ T{ own-mark nat ?t 0 bv app lam succ dq ?t inst succ = own-back -> true outcome-
 T{ fe fc dq fe lv1 1 s" Eq.refl" cn nat app fa app dq -> true outcome-ok false outcome-ok }T
 T{ nat fk fx let fx dq fg nat fs 0 bv app lam dq -> true outcome-ok true outcome-ok }T
 T{ fv fw dq fv lv1 1 s" PUnit.unit" cn dq -> true outcome-ok true outcome-ok }T
+\ Implicit arguments are compared after the explicit ones, but compared.
+: refl ( type -- t ) lv1 1 s" Eq.refl" cn swap app fa app ;
+T{ nat refl l0 l0 2 s" Prod" cn nat app nat app refl dq -> false outcome-ok }T
 
 \ ---- Assignment: scope, types, patterns, first-order approximation.
 T{ ?n fj dq ?r fj dq ?n nat dq -> false outcome-ok false outcome-ok false outcome-ok }T
@@ -95,6 +98,7 @@ T{ 0 s" Nat.add" cn 0 s" Nat.mul" cn dq -> false outcome-unsupported }T
 T{ 0 s" Nat" cn nat lf-meta-eqv punit lv2 1 s" PUnit" cn lf-meta-eqv
    -> true outcome-ok false outcome-ok }T
 T{ fk fx lf-meta-eqv -1 fk lf-meta-eqv -> false outcome-ok false outcome-invalid }T
+T{ 0 s" Nat.add" cn 0 s" Nat.mul" cn lf-meta-eqv -> false outcome-ok }T
 T{ nat fu 0 bv app lam lf-meta-eta-expanded -> fu true outcome-ok }T
 T{ nat 0 bv lam lf-meta-eta-expanded rot drop -> false outcome-ok }T
 T{ succ s" Nat.succ" lf-meta-const-named? succ s" Nat" lf-meta-const-named? -> true false }T
@@ -118,6 +122,7 @@ T{ ?n fk lf-meta-sees? ?n fj lf-meta-sees? -> true false }T
 \ evalNat, isOffset?, mkOffset.
 T{ 3 nlit lf-meta-eval-nat zero succ swap app lf-meta-eval-nat -> 3 true outcome-ok 1 true outcome-ok }T
 T{ 2 ofnat 3 ofnat hadd lf-meta-eval-nat fk lf-meta-eval-nat -> 5 true outcome-ok 0 false outcome-ok }T
+T{ l0 1 s" OfNat.ofNat" cn nat app 2 nlit app fk app lf-meta-eval-nat -> 0 false outcome-ok }T
 T{ 2 nlit 1 nlit >r >r 0 s" Nat.sub" cn r> app r> app lf-meta-eval-nat -> 0 false outcome-unsupported }T
 T{ succ fk app lf-meta-offset fk 2 ofnat hadd lf-meta-offset -> fk 1 true outcome-ok fk 2 true outcome-ok }T
 T{ fk lf-meta-offset 2swap 2drop -> false outcome-ok }T
