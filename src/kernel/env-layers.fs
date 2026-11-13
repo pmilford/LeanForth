@@ -330,22 +330,27 @@ end-structure
   -rot lay-dep-at swap u32s + u32-le! ;
 : lay-look! ( i lay -- )
   2dup dup lay-j swap lay-from nip + over lay-entry 2swap lay-look-at swap entry! ;
-: lay-deps ( lay -- )
+\ Each list sorted again in the base record, then passed (ok, or full:
+\ env-snapshot.fs).
+: lay-deps ( lay -- outcome )
   sl-deps over lay-count-of dup >r 0 ?do i over lay-dep! loop
-  dup lay-dep-at r@ dep-sort r> swap lay-base @ snap-dk +! ;
-: lay-looks ( lay -- )
+  dup lay-dep-at swap r@ swap lay-base @ snap-dk +! r> dep-sort ;
+: lay-looks ( lay -- outcome )
   sl-looks over lay-count-of dup >r 0 ?do i over lay-look! loop
-  dup lay-look-at r@ look-sort r> swap lay-base @ snap-lk +! ;
+  dup lay-look-at swap r@ swap lay-base @ snap-lk +! r> look-sort ;
 : lay-site ( s lay -- )
   tuck base-slot sl-site over fld@ ?dup
   if rot lay-site0 @ + sl-site rot fld! else 2drop then ;
-: lay-append ( j lay -- )
+: lay-append ( j lay -- outcome )
   tuck lay-cursor! dup lay-j over lay-slot over lay-s 2 pick base-slot
   sl-fields# u32s move
-  dup lay-s over lay-site dup lay-s over lay-base @ start! dup lay-deps lay-looks ;
+  dup lay-s over lay-site dup lay-s over lay-base @ start!
+  dup lay-deps swap lay-looks outcome-and ;
+: lay-append-new ( i lay -- outcome )
+  2dup lay-new @ ly@ if lay-append else 2drop outcome-ok then ;
 : lay-appends ( lay -- outcome )
   dup lay-room dup ok? 0= if nip exit then drop
-  dup lay-n @ 0 ?do i over lay-new @ ly@ if i over lay-append then loop
+  dup lay-n @ 0 ?do i over lay-append-new dup ok? 0= if nip unloop exit then drop loop
   dup lay-cur @ swap lay-base @ snap-n ! outcome-ok ;
 \ The site texts appended after the base's.
 : lay-sites ( lay -- )

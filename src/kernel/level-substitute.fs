@@ -14,14 +14,15 @@
 \ (level-scope) describes the caller's scope, not the formal scope.
 \ State: one walk record, lf-lsubst-walker (the source walk and the fuel
 \ left), one job record, lf-lsubst-job (the substitution in use, the
-\ walk's stamp and count of reached nodes, and a mark of the level store),
-\ the list of reached nodes (lf-lsubst-reached-cells) and two columns of
-\ the level store (each node's stamp and image), all members of the
-\ checker context (lib/context.fs); the facts of level-make.
+\ walk's stamp and count of reached nodes, a mark of the level store, and
+\ the reached nodes' sorter), the list of reached nodes
+\ (lf-lsubst-reached-cells) and two columns of the level store (each
+\ node's stamp and image), all members of the checker context
+\ (lib/context.fs); the facts of level-make.
 \ Single-threaded within one context: the store, the parameter context and
 \ the arrays must not change during a call. mixed-level-substitute sets
 \ the substitution with lf-lsubst-use and runs the checks below from its
-\ own passes, and sorts its own reached terms with lf-cells-sort.
+\ own passes, and sorts its own reached terms (lib/sort.fs).
 \ Cost (plan task 6.5.5; step S0 of the compact-store plan): a call's work
 \ is proportional to the nodes it reaches, not to the store's size: a new
 \ walk takes a new stamp instead of erasing a column, and the build visits
@@ -29,6 +30,7 @@
 
 require ../lib/lib.fs
 require ../lib/slab.fs
+require ../lib/sort.fs
 require ../lib/store-columns.fs
 require ../core/diagnostics.fs
 require ../core/level-scope.fs
@@ -42,6 +44,7 @@ begin-structure /lf-lsrec
   field: lf-lsrec-stamp        \ the source walk's stamp, 0 before the first
   field: lf-lsrec-reached      \ nodes it reached (lf-lsubst-reached-cells)
   /store-mark +field lf-lsrec-mark                  \ the level store before a build
+  /sorter +field lf-lsrec-sorter                    \ their sort (lib/sort.fs)
 end-structure
 lf-level-walk-room context-walk: lf-lsubst-walker
 /lf-lsrec context-record: lf-lsubst-job
@@ -55,34 +58,13 @@ lf-level-walk-room context-walk: lf-lsubst-walker
 \ with no fixed limit (plan task 6.2.0); one the heap cannot grow is full.
 1 cells context-slab: lf-lsubst-reached-cells
 
-\ Two general tools on cell arrays, also used by mixed-level-substitute.
+\ A general tool on cell arrays, also used by mixed-level-substitute.
 \ Appending x after the first n cells of a slab used from unit 0 (its
 \ count kept by the caller): n+1 and ok, or n and full when the heap
 \ refuses room.
 : lf-cells-add ( x n slab -- n' outcome )
   over 1+ over slab-hold ok-then? 0= if rot drop exit then
   over swap slab-at rot swap ! 1+ outcome-ok ;
-\ Sorting n cells at addr ascending, in place: heapsort, so about 2n log n
-\ comparisons whatever the order, no scratch and no recursion.
-: lf-cell-at ( i addr -- addr' ) swap cells + ;
-: lf-cells-less? ( i j addr -- flag ) tuck lf-cell-at @ >r lf-cell-at @ r> < ;
-: lf-cells-swap ( i j addr -- )
-  tuck lf-cell-at >r lf-cell-at r> 2dup @ swap @ rot ! swap ! ;
-\ The child of i that a sift follows in a heap of n cells: 2i+1, or 2i+2
-\ when that one is below n and larger; n or more when i has none.
-: lf-heap-child ( addr n i -- addr n c )
-  2* 1+ 2dup 1+ > if dup dup 1+ 4 pick lf-cells-less? - then ;
-\ One step of a sift: when i's child c is below n and larger, the two
-\ swap and the sift goes on from c (true); otherwise it ends (false).
-: lf-heap-down? ( addr n i -- addr n c true | addr n i false )
-  dup >r lf-heap-child 2dup > if r@ over 4 pick lf-cells-less? else false then
-  if r> over 4 pick lf-cells-swap true else drop r> false then ;
-: lf-heap-sift ( addr n i -- ) begin lf-heap-down? 0= until drop 2drop ;
-: lf-heapify ( addr n -- addr n )
-  dup 2/ begin ?dup while 1- >r 2dup r@ lf-heap-sift r> repeat ;
-: lf-cells-sort ( addr n -- )
-  lf-heapify begin dup 1 > while
-    1- 0 over 3 pick lf-cells-swap 2dup 0 lf-heap-sift repeat 2drop ;
 
 \ Fuel left after a call or check; mixed-level-substitute continues with it.
 : lf-lsubst-fuel ( -- addr ) lf-lsubst-walker walk-fuel ;
@@ -250,14 +232,23 @@ lf-level-walk-room context-walk: lf-lsubst-walker
 : lf-lsubst-build-node ( index -- outcome )
   dup lf-lsubst-target ok-then? if swap lf-lsubst-result ! outcome-ok else nip then ;
 \ The reached nodes, sorted: the order of every index up to the root,
-\ skipping the nodes not reached, at a cost of the nodes reached.
+\ skipping the nodes not reached, at a cost of the nodes reached. The
+\ walk listed each node once, so the indices are distinct and any sort
+\ gives the one ascending order; lib/sort.fs sorts up to 32 of them by
+\ insertion, more by a merge through n cells of scratch from the heap (a
+\ heap that refuses them is full, recorded as the list's).
 : lf-lsubst-node ( i -- index ) lf-lsubst-reached-cells slab-at @ ;
-: lf-lsubst-sorted ( -- )
-  0 lf-lsubst-reached-cells slab-at lf-lsubst-reached @ lf-cells-sort ;
+: lf-lsubst-sorter ( -- sorter ) lf-lsubst-job lf-lsrec-sorter ;
+: lf-lsubst-sorted ( -- outcome )
+  0 lf-lsubst-reached-cells slab-at lf-lsubst-reached @ lf-lsubst-sorter sort-records
+  dup outcome-full = if lf-lsubst-reached @ lf-lsubst-crowded drop then ;
 : lf-lsubst-build ( -- outcome )
-  lf-lsubst-sorted lf-lsubst-reached @ 0 ?do
+  lf-lsubst-sorted dup ok? 0= if exit then drop
+  lf-lsubst-reached @ 0 ?do
     i lf-lsubst-node lf-lsubst-build-node dup ok? 0= if unloop exit then drop
   loop outcome-ok ;
+: lf-lsubst-setup ( -- ) ['] sort-signed lf-lsubst-sorter sorter-cells drop ;
+' lf-lsubst-setup context-setup
 
 \ The level store is marked before the build and rolled back after a
 \ failure, so no node stays appended (identities already issued are not

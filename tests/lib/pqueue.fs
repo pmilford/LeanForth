@@ -140,7 +140,7 @@ variable mismatches   0 mismatches !
 lf-lib-private order+
 : same-heap? ( -- flag )
   q pq-cells slab-count old-heap slab-count <> if false exit then
-  true old-heap slab-count 0 ?do i q pq@ i old-heap lf-sch-cell@ = and loop ;
+  true old-heap slab-count 0 ?do i q pq-x i old-heap lf-sch-cell@ = and loop ;
 order-
 ' sort-signed q pq-init drop
 : op-push ( -- ) value-span rand-below dup model-push dup old-heap lf-sch-heap-push drop

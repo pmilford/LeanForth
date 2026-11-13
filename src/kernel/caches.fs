@@ -199,8 +199,8 @@ create lf-cache-values 2 , 2 , 2 , 2 , 2 , 0 , 0 , 1 ,
 \ table back (lib/memo.fs's memo-empty), so that an emptying costs little
 \ whatever an earlier check needed.
 : lf-cache-make ( cache -- )
-  dup >r lf-cache-vcells lf-cache-kcells swap r@ lf-cache-table memo-init drop
-  r> lf-cache-hooks! ;
+  lf-cache-kcells over lf-cache-vcells 2 pick lf-cache-table memo-init drop
+  lf-cache-hooks! ;
 : lf-cache-release ( cache -- ) lf-cache-table memo-free ;
 : lf-caches-some ( xt n -- )
   0 lf-cache-nth swap 0 ?do 2dup swap execute /lf-cache + loop 2drop ;
@@ -346,11 +346,9 @@ create lf-cache-values 2 , 2 , 2 , 2 , 2 , 0 , 0 , 1 ,
 \ one; nothing for a node without an identity, or when the table cannot
 \ grow or the check's memory limit refuses (a miss).
 : lf-cent! ( r id a-addr -- ) tuck cell+ ! ! ;
-: lf-cache-put ( r id k1 k2 cache -- )
-  lf-cache-table memo-claim ok-then? if lf-cent! else drop 2drop then ;
 : lf-cache-value! ( r k1 k2 cache -- )
-  2>r >r dup lf-term-identity 0= if r> 2r> 2drop 2drop exit then
-  r> 2r> lf-cache-put ;
+  3 pick lf-term-identity 0= if 2drop 2drop exit then
+  >r lf-cache-table memo-claim ok-then? if r> swap lf-cent! else r> 2drop drop then ;
 : lf-cache-node! ( node r cache -- )
   rot lf-node-key if rot lf-cache-value! else 2drop then ;
 

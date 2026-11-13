@@ -168,7 +168,7 @@ begin-structure /lf-sched
   /slab +field lf-sch-rfroms   \ per slot: its dependents' start in lf-sch-rdeps
   /slab +field lf-sch-rdeps    \ the declarations whose sets hold each slot
   /pqueue +field lf-sch-ready  \ declarations ready, lowest first
-  /pqueue +field lf-sch-laters \ declarations waiting for every slot below, lowest first
+  /pqueue +field lf-sch-laters \ waiting for every slot below them, lowest first
   /slab +field lf-sch-named    \ per name: stamp of the last set that took it
   /slab +field lf-sch-dseen    \ per slot: stamp of the last set that took it
   /slab +field lf-sch-stack    \ the walk's stack

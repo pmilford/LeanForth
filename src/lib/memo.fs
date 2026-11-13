@@ -111,6 +111,9 @@ lf-lib-private set-current
 \ (the table is the memo's first field, so htab is the memo).
 : memo-rehash ( n htab -- h ) tuck memo-entry swap memo-hash ;
 : memo-same ( n key htab -- flag ) >r swap r@ memo-entry r> memo-kcells @ memo-cells= ;
+\ One read-only record of the hooks for every memo: a table keeps its
+\ hooks' address, so they must not live in a memo record that may move
+\ (a member of a checker context moves while modules load).
 create memo-hooks /htab-hooks allot   ' memo-rehash ' memo-same memo-hooks htab-hooks!
 
 \ ---- Making and freeing. A shape: a key of at least one cell, a value of
