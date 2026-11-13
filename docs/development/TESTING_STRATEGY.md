@@ -393,18 +393,21 @@ The 99 targets and the 430 inductive cases are the same before and after.
   whole. No checker change was found to have slowed a test.
 
 **Testing while you work.** The inner loop is the focused test of what you
-change; `make test` before each commit; `make check` once, at the end of a
-task (and before pushing). Text for agent briefs:
+change; at the end of a branch, once, on the head you hand over, the
+suites of its change tier (`make tier`, below; owner, 2026-11-13). Text for
+agent briefs:
 
 > Testing: while you work, run only the focused tests of the files you
 > change: the test file itself (`.tools/gforth/bin/gforth tests/core/names.fs
 > </dev/null`), its module's target from the table in
-> docs/development/TESTING_STRATEGY.md ("Testing while you work"), or
+> docs/development/TESTING_STRATEGY.md ("Testing while you work"),
 > `make test-changed` (every target of `make test` that uses a file changed
-> since main). Run `make test` (about 8 s, 8 jobs) before each commit, and
-> `make check` (about 45 s with the shared Lean cache, 75 s without) once
-> at the end. `make check LEAN_CACHE=0` is what CI runs. Do not run
-> several make commands at once: make already runs 8 jobs.
+> since main) and the faults of the words you change
+> (`make mutants FAULTS=id,...`). At the end, once: rebase on main, commit,
+> and run `make tier JOBS=2` (`DRY_RUN=1` first shows the tier and its
+> suites); report the head, the tier and its exit status. It reuses any pass
+> already recorded for the same tree and records each new one. Do not run
+> several make commands at once.
 
 `make test-changed` and `make check-changed` (`scripts/changed-tests.py`;
 `BASE=REF` for another base than `main`, `--why` lists each target's
@@ -433,8 +436,157 @@ time, as `scripts/export.sh` builds `export_manifest.py`'s, is not seen).
 | `src/author/` | `test-author`; `reference-author` |
 | `src/front/`, `src/core/mvar-leaves.fs` | `test-front`; `test-author` (the export writer's refusal, the marker); `reference-front` (pinned Lean's macro expansion); `reference-constructions` (`casesOn`, `recOn` and `ctorIdx` built for every type of Init and compared with Lean's export, and their binder names and information with pinned Lean's environment; plan FE6) |
 | `tests/reference/*.lean` | the target that runs the file (`make check-changed` finds it) |
-| `scripts/lean-cache.py`, the Makefile | `test-lean-cache`, then `make check` |
+| `scripts/lean-cache.py`, the Makefile | `test-lean-cache`, then the full tier (`make tier`) |
 | `docs/` | `check-docs`, `check-doc-examples` |
+
+### Change tiers and tested-tree records (plan 9.4.6)
+
+Added 2026-11-13 for the owner's decisions "Less repeated testing"
+([OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md); the count behind them
+is [TEST_WORKFLOW_REVIEW.md](TEST_WORKFLOW_REVIEW.md)): a branch, and a
+push, run the suites of what the change reaches, once per tree.
+
+**Tiers.** `scripts/test-tier.py` classifies the files that differ from the
+merge base with `BASE` (default `main`; uncommitted and new files included)
+and gives the range its largest file tier (`python3 scripts/test-tier.py
+[--base REF] [--files FILE...] [--json]` prints it with each file's reason):
+
+| Tier | Files | Suites |
+| --- | --- | --- |
+| docs | Markdown anywhere, `docs/`, `.claude/`, `.codex/`, `prompts/`, `LICENSE`, `.gitignore` | `check-docs`, the targets that read the file (a page whose examples run, a catalogue a test compares), the progress check |
+| tests | any other file under `tests/` | the targets that use it, also on Gforth 0.7.3; its planted faults; the block coverage of the source files the changed tests drive (`make coverage-check` when `src/main.fs` loads one of them) |
+| library | a Forth file of `src/lib/` that `src/main.fs` does not load | the targets that use it on both Gforths, its faults, its coverage |
+| front | a Forth file of `src/front/` that `src/main.fs` does not load | the same, and `test-front`, `reference-front` |
+| full | any Forth file `src/main.fs` loads (at HEAD or at the base, so a library that becomes loaded is full), `src/main.fs`, `src/kernel`, `core`, `import`, `cli` and every other folder of `src/`, the Makefile, `scripts/`, `bin/`, `schemas/`, `lean-toolchain`, `.github/`, anything else | `make coverage-check`, `make check-rest`, `make test` on Gforth 0.7.3 |
+
+- "Loads" is the `require`/`include`/`needs` graph from `src/main.fs`,
+  comments included (more is loaded, never less). Since FE1g-1 it holds 180
+  of the 192 Forth files: every front-end file but `cases-several.fs`,
+  `constructions.fs`, `ctor-idx.fs` and `expr-remap.fs`, every library but
+  `bigint.fs` and `sort.fs`. So a change to a front-end file that
+  `src/main.fs` loads is full: `bin/leanforth` and most tests load it.
+- "The targets that use a file" are `make test-changed`'s
+  (`scripts/changed-tests.py`): the files a target's recipe names, followed
+  through Forth loads, Python imports and repository paths named in code.
+  Every changed Forth source also selects `smoke`, `check-portable-forth` and
+  `check-forth-quality`; a target of `make test` whose recipe runs Gforth also
+  runs on 0.7.3. A test file no target names selects the targets of its
+  folder; a folder no target uses makes the range full.
+- Faults: those whose `file` or `test` command names a changed file, and,
+  when `tests/mutants/faults.toml` changed, the entries new or changed since
+  the base (`make mutants FAULTS=id,...`). The full tier runs none: `make
+  check`'s `mutants-check` checks the list, and agents run the faults of the
+  words they change.
+- Coverage in a smaller tier: `make coverage-focus COVERAGE_FILES=...
+  COVERAGE_TARGETS=...` runs the targets of `make test` that load those files
+  under instrumentation and applies the ratchet to those files alone
+  (`scripts/coverage.py --only`); with every target that loads a file, its
+  counts are those of the whole `make test`. A changed
+  `tests/coverage-baseline.json` needs `make coverage-check`.
+- Left to the daily full run: the coverage of files a changed library or
+  test loads but does not drive (a library's own dependencies), and a
+  document or test file that a test reads through a path built at run time.
+
+**Tested-tree records.** `scripts/tested-tree.py` writes one JSON record per
+passing scripted run, in the main checkout's `.claude/work/ci/tested/`
+(shared by every worktree like the Lean cache; machine-local, never
+committed). Its key is the tree (`git rev-parse HEAD^{tree}`), the
+Gforth and Lean versions (`--version`) and the `LEAN_CACHE` mode; it keeps the
+commit, branch, date, command and seconds, and what the run stands for:
+every target make built for its goals, each fault it ran, and for `make
+coverage-check` the ratchet and `make test`'s targets but those of
+`COVERAGE_ENGINE_DIFFERS` (below).
+
+- Only a run that exited 0 writes a record. A worktree with uncommitted
+  changes to tracked files, or new files under `src/`, `tests/`, `scripts/`,
+  `bin/`, `schemas/` or `docs/`, is refused before anything runs, and a run
+  during which the tree changed records nothing.
+- A record stands for a later command on the same tree when the Gforth and
+  Lean versions are the same and its cache mode is at least as strong
+  (`LEAN_CACHE=0` or `verify` stands for the cache on; for `make test`'s own
+  targets, which run no Lean, any mode). Several records add up: `make
+  check` stands for `make test-lib`, `check-rest` and the rest of its targets.
+  Make options other than `-s` (`-n`, `-k`, `-i`) are refused, and a goal
+  given another variable (`EXPORT=...`) stands only for that exact command.
+- A record of an earlier commit of HEAD's history stands for what the
+  change since that commit cannot reach: the change gets its own tier, and
+  the record loses that tier's targets and faults (and all coverage when the
+  tier asks for coverage); a full-tier change leaves it nothing, a commit of
+  another branch is never used. So a review log or progress commit after a
+  tested merge needs only `check-docs` and the targets that read its pages,
+  and a review fix to a test needs only that test's targets, faults and
+  coverage. Without this, every push after a merge's documentation commit
+  would have re-run the whole suite.
+- `make once GOALS="check"` runs `make check` unless records stand for it
+  (or only the targets they do not stand for), and records the pass; `make tier` (`BASE=main`, `JOBS=2`, `DRY_RUN=1` to
+  only print) runs every suite of the branch's tier so, then the progress
+  check. `python3 scripts/tested-tree.py list [--all]` prints the
+  records; `lookup -- make GOALS` says whether they stand for a command.
+
+**Pushes.** `scripts/push.sh` keeps the progress check, the strict Forth
+review and style check and the refusal on any failure. Its suites are the
+tier of `origin/main..HEAD`, run as `make tier` runs them: what a record of
+HEAD's tree, or of an earlier commit for what the change since cannot
+reach, stands for is reused, the rest runs. When no full run (`make coverage-check`,
+`make check-rest` or `make check` with `LEAN_CACHE=0`, and `make test` on
+Gforth 0.7.3) is recorded today on any tree, the push runs the full tier with
+`LEAN_CACHE=0`: the owner's daily full run. `--full` forces the full tier
+(before a tag), `--no-cache` sets `LEAN_CACHE=0`, `--dry-run` prints the tier
+and what would run or be reused and stops. The line it appends to
+`docs/development/ci-results.log` names each suite that ran (exit status,
+seconds, command), each that was reused (the record's commit and date) and
+the full tier's suites the tier did not need. It refuses to run on a branch
+other than `main`, with uncommitted changes, and when there is nothing to push.
+
+**One instrumented run of `make test`.** `make check` is now `make test` plus
+`make check-rest`: every target of `make check` outside `make test`, and the
+targets of `make test` whose Gforth changes under coverage. That is
+`COVERAGE_ENGINE_DIFFERS`, today `test-cli`: its `--fast` runs use
+`gforth-fast`, which `make coverage` replaces with the counting Gforth 1.0, so
+its engine comparisons compare the checking engine with itself there. No
+other test of `make test` names `gforth-fast` or reads the coverage
+variables. The full tier runs `make coverage-check` (all of `make test`,
+instrumented, and the ratchet) and `make check-rest`, so `make test` runs
+once instead of twice. `tests/scripts/test_test_tier.py` checks that `make
+check`'s targets are exactly those of `make test` and `make check-rest`, and
+that `check-rest` repeats no target of `make test` but `test-cli`'s.
+
+Measured 2026-11-13 with `JOBS=2` and `nice -n 10` while other agents
+loaded the machine (load 4-6 on 10 cores); "target time" is the sum of
+each target's seconds (`LF_TIMING_LOG`):
+
+| Run | Wall | Target time |
+| --- | ---: | ---: |
+| `make coverage-check` (all of `make test` instrumented) | 408 s; 429 s | 1,115 s; 1,176 s |
+| `make check-rest` | 480 s | 846 s (the four parts of `test-cli` 271 s, `program-clamp-record` 153 s) |
+| `make check` (commit `3c5dbc0c`) | 632 s | 1,116 s |
+| that morning's pushes `39357876` and `2b265cb1` (log times): `make check`, `make coverage-check`, `make test` on 0.7.3 | 7.9-8.4, 4.7-5.4, 6.1-6.7 min | |
+
+Every target of `make test` passed instrumented as it does plain (the one
+exception found was this work's own `test-tiers`, whose throw-away
+repositories took the counting Gforth from the environment; fixed). At
+`JOBS=2` the wall time of the full tier barely changes: `make check`'s
+wall time was set by its slowest chain (`program-clamp-record`, then the
+program targets, and `test-cli`), and `make test`'s other targets only
+filled free job slots; what one instrumented run saves is the target time
+of `make test` outside `test-cli`, about 270 of `make check`'s 1,116 s. The
+large savings come from the tiers and the records: a documentation push,
+14.6 minutes of suites on 2026-11-13, now runs `check-docs` and the
+targets that read its pages after the day's full run, and a push whose
+tree, or whose earlier commit, passed on a branch reuses that pass.
+
+**Tests.** `make test-tiers` (in `make test`) runs
+`tests/scripts/test_test_tier.py` and `tests/scripts/test_tested_tree.py` on
+throw-away repositories with stub toolchains and a temporary records folder
+(`LF_TESTED_DIR`): every tier, mixed ranges, a library that becomes loaded,
+deleted and renamed files, the Makefile and scripts; a pass recorded and
+reused, a failed run, a dirty worktree and a tree changed mid-run recording
+nothing, another Gforth, Lean or weaker cache mode missing; a record of an
+earlier commit standing for what a documentation or library change cannot
+reach, and nothing after a full-tier change or on another branch; the tier
+runner reusing, narrowing and running; the daily full run; and `scripts/push.sh` on a
+copy with a bare repository as origin: its dry run, its refusals, a push, a
+failed suite not pushed, and the record of what ran and what was reused.
 
 ## Re-running one root: the export slicer (`scripts/export-slice.py`)
 

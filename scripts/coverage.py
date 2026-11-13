@@ -3,8 +3,8 @@
 
 Usage (from the repository root):
   python3 scripts/coverage.py [--gforth GFORTH] [--files] [--uncovered FILE]
-                              [--keep DIR] [--check | --update-baseline
-                              [--reason TEXT]] [-- COMMAND ...]
+                              [--keep DIR] [--check [--only FILE]... |
+                              --update-baseline [--reason TEXT]] [-- COMMAND ...]
 
 Runs COMMAND (default: make test) with GFORTH set to
 scripts/coverage-gforth.sh, so that every Gforth run of the command, the
@@ -36,6 +36,13 @@ counting silently, as it did unnoticed until 2026-11-12.
 baseline lacks has any never-run block. --update-baseline rewrites the baseline
 from this measurement; a new file with never-run blocks needs --reason TEXT, kept
 in the baseline, and the other files keep their reasons.
+
+--only FILE (repeatable; make coverage-focus) limits --check to those files,
+for the smaller change tiers (plan 9.4.6; scripts/test-tier.py): COMMAND is
+then a few targets, every target of make test that loads FILE, so FILE's
+counts are those of the whole make test. A FILE no run loaded fails, and the
+checks of the run counts against the baseline's, which assume all of make
+test, are left out.
 
 --files also prints every file; --uncovered writes each block that never
 ran, as file:line:column; --keep keeps the raw counts in DIR. The command
@@ -154,11 +161,14 @@ def per_file(blocks):
     return {name: [size, size - ran] for name, (size, ran) in totals(blocks, str).items()}
 
 
-def run_problems(counted, empty, baseline):
-    """Reasons why the measurement itself cannot be trusted (empty when it can)."""
+def run_problems(counted, empty, baseline, focused=False):
+    """Reasons why the measurement itself cannot be trusted (empty when it can); a focused
+    run (--only) is a few targets, so only "no counts at all" applies to it."""
     problems = []
     if counted == 0:
         problems.append("no Gforth run left counts")
+    if focused:
+        return problems
     if empty > 0.1 * (counted + empty):
         problems.append(f"{empty} of {counted + empty} Gforth runs left no counts")
     expected = baseline.get("runs", 0) if baseline else 0
@@ -185,6 +195,12 @@ def ratchet(files, baseline):
             messages.append(f"{name}: {never} blocks never run, the baseline allows "
                             f"{entry['never_run']}")
     return messages
+
+
+def focus(files, only):
+    """FILES limited to ONLY, and a message for each file of ONLY that no run loaded."""
+    kept = {name: files[name] for name in only if name in files}
+    return kept, [f"{name}: no run of the command loaded it" for name in only if name not in files]
 
 
 def new_baseline(files, counted, old, reason):
@@ -214,8 +230,11 @@ def main(argv=None):
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--update-baseline", action="store_true")
     parser.add_argument("--reason", default="")
+    parser.add_argument("--only", action="append", default=[], metavar="FILE")
     parser.add_argument("command", nargs="*")
     args = parser.parse_args(argv)
+    if args.only and (args.update_baseline or not args.check):
+        parser.error("--only needs --check and cannot update the baseline")
     BASELINE = Path(args.baseline)
     command = args.command or ["make", "test"]
     gforth = resolve(args.gforth)
@@ -234,7 +253,7 @@ def main(argv=None):
     print(f"\nBlock coverage of src/ over: {' '.join(command)} "
           f"({counted} Gforth runs with counts, {empty} without)")
     baseline = load_baseline()
-    problems = run_problems(counted, empty, None if args.update_baseline else baseline)
+    problems = run_problems(counted, empty, None if args.update_baseline else baseline, bool(args.only))
     if not blocks:
         print("FAILED: no counts were collected; " + "; ".join(problems))
         return 1
@@ -259,12 +278,16 @@ def main(argv=None):
         BASELINE.write_text(text + "\n", encoding="utf-8")
         print(f"wrote {BASELINE}")
     elif args.check:
-        messages = ratchet(files, baseline) if baseline else [f"no {BASELINE.name}"]
+        missing = []
+        if args.only:
+            files, missing = focus(files, [os.path.normpath(name) for name in args.only])
+        messages = missing + (ratchet(files, baseline) if baseline else [f"no {BASELINE.name}"])
         for message in messages:
             print("FAILED: " + message)
         if messages:
             return 1
-        print("coverage ratchet: no file has more never-run blocks than the baseline")
+        which = f"of {', '.join(sorted(files))} " if args.only else ""
+        print(f"coverage ratchet: no file {which}has more never-run blocks than the baseline")
     return 0
 
 

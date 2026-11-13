@@ -70,10 +70,15 @@ status changes when this date is older than them. Stages are those of the
   (no contract text reaches the generated Lean file); the S1 design ([S1_INTERFACE.md](../design/S1_INTERFACE.md))
   reviewed and approved by the owner, its first branch being written, and the tactic runner with `by-sorry`, `by-intro:`, `by-exact` and `by-rfl` (FE1g-3,
   FE1g-4) on main, tested alone on stand-in statements; the owner answered V1's questions.
-- Less repeated testing of small work (plan 9.4.6, owner 2026-11-13): designed
+- Less repeated testing of small work (plan 9.4.6, owner 2026-11-13): tested alone
   ([review](../development/TEST_WORKFLOW_REVIEW.md): `lib/sort.fs` took about 12 full-suite runs and 2-3 hours of
   machine time to reach GitHub; 3.6 hours of CI in six hours of pushes); decided by the owner 2026-11-13, rules in
-  AGENTS.md, the scripts not started.
+  AGENTS.md. On main since 2026-11-13; its review's four blocking findings (tests a change could reach but the tier
+  skipped) fixed by falling back to bigger tiers and spot-checked. The scripts are tested on throw-away repositories: `make tier` runs a branch's change tier
+  once and records each pass per tree, `make once GOALS=...` reuses a recorded pass, and `scripts/push.sh` runs by
+  tier, reuses recorded passes, runs the full set with `LEAN_CACHE=0` once a day and runs `make test` once per full
+  tier, instrumented ([TESTING_STRATEGY.md](../development/TESTING_STRATEGY.md), "Change tiers and tested-tree
+  records"). Not yet integrated: the first push with them follows the merge.
 - The Forth refactoring batches of the three backlog reviews ([log](../development/forth-reviews/LOG.md), plan
   9.4.5), tests first, every verdict and fuel count identical.
 - Program track: a user command `leanforth verify` (8.4.1): designed 2026-11-13 ([design](../design/VERIFY_COMMAND.md),

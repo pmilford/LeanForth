@@ -1,4 +1,6 @@
-.tools/
+# The machine-local toolchains (user data, never committed): no trailing slash, so a symlink
+# named .tools is ignored too (2026-11-13: a committed .tools symlink replaced the directory).
+.tools
 *:Zone.Identifier
 __pycache__/
 *.pyc
