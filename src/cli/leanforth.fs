@@ -174,6 +174,7 @@ begin-structure /cli-run
   field: opt-memory             \ megabytes each check's scratch may hold
                                 \ (--memory-per-check); 0: no limit
   2 cells +field opt-env        \ the library export of a LeanForth text (--env), or 0 0
+  2 cells +field opt-elab       \ the library's elaboration data (--elab-data), or 0 0
 end-structure
 /cli-run context-record: cli-state
 manifest: cli-manifest
@@ -889,10 +890,25 @@ variable cli-info#
 \ error is printed at its line and column, with its outcome's code (4 a
 \ mistake, 2 a form not supported yet, 3 no room). Neither a run record,
 \ a written snapshot nor JSON goes with a text yet; --env goes only with
-\ one, and not with --snapshot.
+\ one, and not with --snapshot. --elab-data FILE (plan row FE1d) goes only
+\ with a text and its library: the library's elaboration data, read and
+\ checked before the text runs (cli/check-lf.fs); refused, nothing runs.
 : cli-text-file? ( -- flag )
   0 cli-file dup 3 < if 2drop false exit then + 3 - 3 s" .lf" compare 0= ;
 : cli-library-file ( -- c-addr u ) cli-state opt-env 2@ ;
+: cli-elab-file ( -- c-addr u ) cli-state opt-elab 2@ ;
+: cli-elab-error ( -- )
+  ." error: " ck-read-outcome dup outcome-text type
+  ." : the elaboration data was refused at line " elab-error-line .decimal
+  ."  (error " elab-error-code .decimal ." ): " elab-error-why type
+  ." ; the LeanForth text was not checked" cr outcome>code cli-code! ;
+\ The elaboration data read, by kind, before the verdicts.
+: cli-elab-count. ( kind -- ) elab-count .decimal ;
+: cli-elab-note ( -- )
+  cli-elab-file nip 0= if exit then ." elaboration data: " elab-instance cli-elab-count.
+  ."  instances, " elab-default cli-elab-count. ."  default instances, "
+  elab-reducibility cli-elab-count. ."  reducibility statuses, "
+  elab-eliminator cli-elab-count. ."  eliminators" cr ;
 : cli-text-error ( -- )
   ." error: " lf-author-code lf-author-outcome dup outcome-text type
   ." : the LeanForth text was not checked: " lf-author-error. cr outcome>code cli-code! ;
@@ -904,18 +920,21 @@ variable cli-info#
   ." : the records written for the LeanForth text were refused; the text was not checked"
   cr outcome>code cli-code! ;
 : cli-text-report ( -- )
+  lfc-elab-failed? if cli-elab-error exit then
   lfc-failed? if cli-text-error exit then lfc-refused? if cli-records-error exit then
   cli-fed-tally cli-fed-report ;
 : cli-text-lines ( -- )
   cli-json? if exit then true cli-state run-noted ! ['] cli-stream ck-lines! ;
 : cli-text-load ( -- outcome )
-  cli-library-file lfc-env! 0 cli-file cli-checked? ck-lf-load ;
+  cli-library-file lfc-env! cli-elab-file lfc-elab-file!
+  0 cli-file cli-checked? ck-lf-load ;
 : cli-text-loaded ( -- outcome )
   cli-snapshot? 0= if cli-text-load exit then
   cli-layers cli-state opt-snapshot 2@ cli-asked-fuel ck-snapshot-import
   dup ok? if drop cli-text-load then ;
 : cli-text-run ( -- )
-  lfc-fresh cli-text-loaded ok? if cli-text-lines ck-check then cli-text-report ;
+  lfc-fresh cli-text-loaded ok? if cli-elab-note cli-text-lines ck-check then
+  cli-text-report ;
 : cli-text-misused? ( -- flag )
   cli-record? cli-save? or cli-json? or cli-snapshot? cli-library-file nip 0<> and or ;
 : cli-text-misuse ( -- code )
@@ -924,13 +943,32 @@ variable cli-info#
 : cli-env-opens? ( -- flag )
   cli-library-file dup 0= if 2drop true exit then
   r/o bin open-file if drop false else close-file drop true then ;
+\ --elab-data needs a library, and not a layered snapshot yet: the hash
+\ checked would be the base's, the names the layers' too (review fe1d L1).
+: cli-elab? ( -- flag ) cli-elab-file nip 0<> ;
+: cli-elab-alone? ( -- flag ) cli-elab? cli-library-file nip 0= cli-snapshot? 0= and and ;
+: cli-elab-alone ( -- code )
+  s" --elab-data needs --env or --snapshot, the library it describes" cli-misuse-snap ;
+: cli-elab-layered? ( -- flag ) cli-elab? cli-state opt-layers# @ 0<> and ;
+: cli-elab-layers ( -- code )
+  s" --elab-data does not go with a layered snapshot yet" cli-misuse-snap ;
+: cli-elab-misuse ( -- code | 0 )
+  cli-elab-alone? if cli-elab-alone exit then
+  cli-elab-layered? if cli-elab-layers exit then 0 ;
+: cli-elab-misplaced? ( -- code true | false )
+  cli-state opt-elab @ 0= if false exit then
+  s" --elab-data goes only with a LeanForth text (FILE.lf)" cli-misuse-snap true ;
+: cli-text-refused ( -- code | 0 )
+  cli-text-misused? if cli-text-misuse exit then
+  cli-elab-misuse ?dup if exit then cli-snap-misuse ;
 : cli-text-command ( -- code )
-  cli-text-misused? if cli-text-misuse exit then cli-snap-misuse ?dup if exit then
+  cli-text-refused ?dup if exit then
   cli-opens? 0= if ." error: cannot open the LeanForth text" cr exit-malformed exit then
   cli-env-opens? 0= if cli-unopened exit then
   cli-library-file nip if cli-unchecked-note then ['] cli-text-run cli-fed-run ;
 : cli-text? ( -- code true | false )
   cli-text-file? if cli-text-command true exit then
+  cli-elab-misplaced? if true exit then
   cli-state opt-env @ 0= if false exit then
   s" --env goes only with a LeanForth text (FILE.lf)" cli-misuse-snap true ;
 \ With an export (it must open), the export checked against the snapshot.
@@ -1187,9 +1225,11 @@ variable cli-info#
   ."         --record RECORD EXPORT" cr
   ."       the same for a small export, and write its run record to RECORD" cr
   ."   check [--env EXPORT | --snapshot FILE] [--fuel N] [--resources] [--jobs N]" cr
-  ."         [--strict-axioms] [--no-manifest] [--memory-per-check MB] FILE.lf" cr
+  ."         [--strict-axioms] [--no-manifest] [--memory-per-check MB]" cr
+  ."         [--elab-data DATA] FILE.lf" cr
   ."       check a LeanForth text, against Lean's library EXPORT or a snapshot" cr
-  ."       FILE of one: its declarations built by the words, checked as an export's" cr ;
+  ."       FILE of one: its declarations built by the words, checked as an export's;" cr
+  ."       DATA: the library's elaboration data (scripts/export-elab.sh)" cr ;
 : cli-engine-usage. ( -- )
   ."   check, replay and print run on gforth-fast, the default engine; --checked" cr
   ."       runs Gforth's checking engine instead, about 2.4 times slower, which" cr
@@ -1299,6 +1339,7 @@ end-structure
 524288 constant takes-memory
 1048576 constant takes-kernel
 2097152 constant takes-env
+4194304 constant takes-elab
 : cli-value ( c-addr u -- c-addr' u' true | false )
   cli-arg if 2swap 2drop true else c" an option without its value" cli-wrong false then ;
 \ A decimal number from 0 to max-n with nothing else: (n true) or false.
@@ -1317,6 +1358,7 @@ end-structure
 : cli-record-option ( c-addr u -- ) cli-value if cli-record! then ;
 : cli-save-option ( c-addr u -- ) cli-value if cli-save! then ;
 : cli-env-option ( c-addr u -- ) cli-value if cli-state opt-env 2! then ;
+: cli-elab-option ( c-addr u -- ) cli-value if cli-state opt-elab 2! then ;
 \ The first --snapshot names the base, each further one a layer on it, in
 \ order (plan step SN4); their names are kept in a heap block that grows.
 : cli-layers-room ( n -- addr ior )
@@ -1399,6 +1441,7 @@ create cli-option-table
   ' cli-stale-option takes-stale 0 cli-entry, --snapshot-stale-ok
   ' cli-per-check-option takes-memory 0 cli-entry, --memory-per-check
   ' cli-env-option takes-env 0 cli-entry, --env
+  ' cli-elab-option takes-elab 0 cli-entry, --elab-data
   0 ,
 : cli-takes? ( entry -- flag ) cli-entry-first @ cli-state arg-set @ and 0<> ;
 : cli-taken ( c-addr u entry -- )
@@ -1422,7 +1465,7 @@ create cli-option-table
 takes-no-manifest takes-fuel or takes-fast or takes-checked or constant checking-set
 checking-set takes-record or takes-resources or takes-json or takes-strict or
 takes-any-lean or takes-jobs or takes-save or takes-snapshot or takes-progress or takes-stale or
-takes-memory or takes-env or constant check-set
+takes-memory or takes-env or takes-elab or constant check-set
 checking-set constant replay-set
 checking-set takes-detail or takes-name or takes-latex or takes-statement or
 takes-lf or takes-any-lean or takes-kernel or constant print-set

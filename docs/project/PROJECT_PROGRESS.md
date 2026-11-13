@@ -41,18 +41,17 @@ status changes when this date is older than them. Stages are those of the
   [ADR 0021](../adr/0021-front-end.md) proposed; the owner's syntax answers in OWNER_DECISIONS.md). FE1, the first
   theorem proved from LeanForth text ($0 + n = n$ by induction, no hand-written proof term, no Lean tool), is being
   built: FE1a (natural reader: `0 n + n =` read as Lean's own tree, compared with pinned Lean) integrated, a natural
-  file stops at its first tactic with "not supported yet"; FE1b (metavariable context) tested alone; FE1c (unification)
-  and FE1d (elaboration-data exporter) on branches; FE1e-FE1h not started. Nothing is proved by LeanForth yet.
+  file stops at its first tactic with "not supported yet"; FE1b (metavariable context) tested alone; FE1d (elaboration-data
+  exporter, `scripts/export-elab.sh`, `check --elab-data`) integrated; FE1c (unification) on a branch; FE1e-FE1h not started. Nothing is proved by LeanForth yet.
   Natural statements (8.6.10) are FE2, `add_comm` natively (8.6.11) FE5.
 - Program track, restarted 2026-11-12 after being parked since 2026-11-04: LeanForth re-checks Lean's proofs of
-  the clamp word's obligations (plan 5.5.1): works end to end (done check docs/development/done-checks/2026-11-12-program-track.md); not done: owner gates [bypass] and [runtime] open, branch not merged.
+  the clamp word's obligations (plan 5.5.1): works end to end (done check docs/development/done-checks/2026-11-12-program-track.md); owner gates [bypass] and [runtime] approved 2026-11-12, merged.
   `python3 scripts/program_receipt.py export OUT.ndjson` has pinned Lean export the contract theorem and its two
   obligations with their closure (4,277 declarations); `bin/leanforth check` accepts them, and rejects an export whose
   program IR term, postcondition or proof term was changed after Lean proved it; the clamp receipt (schema 0.3, the result label removed by the
   owner's [format] decision of 2026-11-12) states LeanForth's verdict. Lean wrote the proofs: LeanForth has no
   tactics and wrote no proof. Nobody has proved SHA-256 as a whole; there is no `leanforth verify`. The SHA-256 helper words' proofs (sha-rotr, sha-ch, sha-maj, sha-big-sigma0) are re-checked the same
-  way (2,890 declarations); their receipts wait for schema 0.4. Owner questions: the [bypass] and [runtime]
-  gates of 5.5.1.
+  way (2,890 declarations); their receipts wait for schema 0.4.
 
 **Next**
 - The Forth refactoring batches of the three backlog reviews ([log](../development/forth-reviews/LOG.md), plan

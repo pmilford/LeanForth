@@ -28,6 +28,8 @@ findings neither fixed nor turned into plan tasks. A row that raises the style b
 | 2026-11-12 | `d54ec55..b5d6205` | lf-files-2 follow-up: N1-N6, SA, SB | forth-reviewer (Opus), re-check | [report](2026-11-12-lf-files-2.md), last section | 0 blocking | M3 (progress page) at the merge |
 | 2026-11-12 | `63c5760..16445ef` | fe1: FE1a natural reader, FE1b metavariable context | forth-reviewer (Opus), style and gates [parser][bypass] | [report](2026-11-12-fe1ab.md) | 0 blocking; M1, L1-L4, S1-S6 | fixed in 16445ef..b7cff58; M1 at the merge |
 | 2026-11-12 | `16445ef..b7cff58` | fe1 follow-up: L1-L4, S1-S6 | forth-reviewer (Opus), re-check | [report](2026-11-12-fe1ab.md), last section | 0 blocking | three coverage rows tightened at the merge |
+| 2026-11-12 | `62ae0e8..571e3b3` | fe1d: FE1d elaboration-data exporter and reader | forth-reviewer (Opus), style and gates [import][parser] | [report](2026-11-12-fe1d.md) | 0 blocking; M1 (for FE1e), L1-L4, I1-I4 | fixed in 571e3b3..0cf4d25; M1's class check in plan row FE1e |
+| 2026-11-12 | `571e3b3..0cf4d25` | fe1d follow-up: M1 docs, L1-L4, I1, I3 | forth-reviewer (Opus), re-check | [report](2026-11-12-fe1d.md), last section | 0 blocking | FE1e: instance-class check |
 
 ## Backlog
 

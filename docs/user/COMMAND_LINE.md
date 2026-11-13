@@ -182,6 +182,44 @@ wrong twins of the first two rejected, in 16 to 19 s and 0.6 GB each
 ("59350 declarations: 59350 accepted; 59349 from the snapshot, 1 checked
 in this run"). `--env` and `--snapshot` do not go together.
 
+**The library's elaboration data** (`--elab-data DATA`, plan row FE1d).
+Lean's instances, default instances, reducibility and the eliminators of
+`induction` and `cases` are not in an export; `scripts/export-elab.sh`
+writes them for the export's modules with pinned Lean, beside the export
+([ELABORATION_DATA.md](../programming/ELABORATION_DATA.md)). With
+`--elab-data DATA` and a library (`--env` or `--snapshot`), DATA is read
+after the library and before the text runs, and checked against the
+library: written for its export (the SHA-256 its manifest, its snapshot or,
+with `--no-manifest`, the file itself gives), every name one of its
+declarations of the right kind, nothing missing, added or changed. The
+values themselves (which class an instance serves, priorities,
+reducibility) are pinned Lean's, taken on trust
+([what is checked](../programming/ELABORATION_DATA.md#what-it-is-and-why)).
+The counts read are printed first; the verdicts are those of the same run
+without it, since nothing uses the data yet (the elaborator of plan rows
+FE1e and FE1g will):
+
+```console
+$ bin/leanforth check --env tests/author/init-slice.ndjson --elab-data tests/front/init-slice.elab.ndjson tests/author/19-add-zero.lf | head -1
+elaboration data: 3 instances, 2 default instances, 18 reducibility statuses, 0 eliminators
+```
+
+Refused data stops the run before the text runs, with the line, the
+[error code](../programming/ELABORATION_DATA.md#errors), the reason and
+the outcome's exit status (4 malformed, of another export, or not the
+library's; 2 another format or Lean version; 3 a line over 1 MB). The
+test file `tests/front/cut-off.elab.ndjson` lacks its last record:
+
+```console
+$ bin/leanforth check --env tests/author/init-slice.ndjson --elab-data tests/front/cut-off.elab.ndjson tests/author/19-add-zero.lf
+error: invalid: the elaboration data was refused at line 27 (error 20): records differ in number from the header; the LeanForth text was not checked
+```
+
+`--elab-data` without `--env` or `--snapshot`, with an export instead of
+a text, or with a layered snapshot (`--snapshot BASE --snapshot LAYER`:
+the data would be checked against the base's hash only) is refused
+before anything runs (exit 4).
+
 **A text that stops is not checked at all.** A mistake in the text is
 printed at its line and column, with its code from the
 [catalogue](../programming/LEANFORTH_WORDS.md#errors), and nothing is
@@ -247,7 +285,7 @@ wrong word builds a different term, which the checker checks as it is.
 
 | Command | What it does |
 | --- | --- |
-| `check [--env EXPORT \| --snapshot FILE] [--no-manifest] [--fuel N] [--resources] [--checked] [--strict-axioms] [--any-lean-version] [--jobs N] [--progress[=SECONDS]] [--memory-per-check MB] FILE.lf` | Check a [LeanForth text](#checking-leanforth-text): its declarations built by LeanForth's words and checked as an export's, against the library export EXPORT (its manifest checked unless `--no-manifest`) or a snapshot FILE when one is given; a text that stops with an error is not checked |
+| `check [--env EXPORT \| --snapshot FILE] [--no-manifest] [--fuel N] [--resources] [--checked] [--strict-axioms] [--any-lean-version] [--jobs N] [--progress[=SECONDS]] [--memory-per-check MB] [--elab-data DATA] FILE.lf` | Check a [LeanForth text](#checking-leanforth-text): its declarations built by LeanForth's words and checked as an export's, against the library export EXPORT (its manifest checked unless `--no-manifest`) or a snapshot FILE when one is given; a text that stops with an error is not checked; DATA, the library's [elaboration data](../programming/ELABORATION_DATA.md), is checked against the library first, and refused data stops the run |
 | `check [--no-manifest] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--jobs N] [--progress[=SECONDS]] [--memory-per-check MB] [--save-snapshot FILE] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text; with `--jobs N`, check with [N workers at once](#parallel-checking---jobs); with `--memory-per-check MB`, give each check [at most MB megabytes of scratch](#memory-per-check---memory-per-check); with `--progress`, write [a status line](#progress-and-partial-results---progress) to standard error every minute; with `--save-snapshot FILE`, also write the checked environment to FILE ([snapshots](#snapshots---save-snapshot-and---snapshot)) |
 | `check --snapshot FILE [--snapshot LAYER ...] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--no-manifest] [--jobs N] [--save-snapshot LAYER] [--snapshot-stale-ok] [EXPORT]` | Report the verdicts a [snapshot](#snapshots---save-snapshot-and---snapshot) and its layers hold, each labelled as taken from it and not re-checked; with EXPORT, check it against them, taking what they vouch for and checking the rest, and with `--save-snapshot`, write what was checked as a layer: for development and research only |
 | `check [--no-manifest] [--fuel N] [--checked] [--strict-axioms] --record RECORD EXPORT` | Check a small export (read straight into the checker's stores) and also write its [run record](#run-records-and-replay) |

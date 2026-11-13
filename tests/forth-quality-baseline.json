@@ -1326,5 +1326,13 @@
   "rstack": 5,
   "shuffles": 0,
   "words": 12
+ },
+ "src/front/elab-data.fs": {
+  "globals": 15,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 23,
+  "shuffles": 13,
+  "words": 144
  }
 }
