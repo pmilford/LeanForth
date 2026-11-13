@@ -76,8 +76,10 @@ T{ sized -> outcome-ok }T
 \ B4: level substitution of max p q, its reached list trimmed, refused.
 : level-run ( -- outcome )
   1 heap-refusals ! p-or-q formals levels 2 500 lf-lsubst dup ok? if nip then ;
-T{ lf-lsubst-reached-cells slab-trim drop depth >r ' level-run catch 0 heap-refusals !
-   depth r> - -> outcome-full 0 2 }T
+: level-refused ( -- outcome code cells )
+  lf-lsubst-reached-cells slab-trim drop
+  depth >r ['] level-run catch 0 heap-refusals ! depth r> - ;
+T{ level-refused -> outcome-full 0 2 }T
 T{ sized -> outcome-ok }T
 \ B1, last (it throws): the set freed, its making refused.
 T{ lf-mls-set htab-free 1 refused -> outcome-full 0 1 }T

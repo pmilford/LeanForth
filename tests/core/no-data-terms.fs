@@ -87,4 +87,24 @@ variable beta-arg
   T{ beta-run swap parts unjob -> outcome-ok beta-arg @ lf-tag-bvar lf-data-unknown }T
   true lf-caches-enable ;
 s" proj.data" ' beta outcome-ok cs-probe-gives
+
+\ ---------------------------------------------------------------------------
+\ Literal leaves under substitution: (fun x : Prop => x 5 "ab") P is
+\ P 5 "ab" (instantiate keeps a natural-number and a string literal as
+\ they are); let x : Sort 0 := #U "ab"; #0 is #U "ab" (the open value
+\ goes through instantiate's lift, which keeps the string literal).
+: five ( -- node ) 5 lf-hterm-cell cs-must drop ;
+: ab ( -- node ) s" ab" lf-str-new ok? cs-must drop ;
+: lit-beta ( P -- node ) prop 0 var five app ab app lam swap app ;
+: lit-zeta ( -- node ) var-u ab app let-of ;
+: tags ( node -- first-first first-second-tag second-tag )
+  dup lf-term-first@ dup lf-term-first@ swap lf-term-second@ lf-term-tag@
+  rot lf-term-second@ lf-term-tag@ ;
+: literals ( -- )
+  T{ job prop dup beta-arg ! lit-beta whnf swap tags unjob
+     -> outcome-ok beta-arg @ lf-tag-lit lf-tag-str }T
+  T{ job lit-zeta whnf over lf-term-tag@ rot dup lf-term-first@ lf-term-first@
+     swap lf-term-second@ lf-term-tag@ unjob
+     -> outcome-ok lf-tag-app lf-data-unknown lf-tag-str }T ;
+s" proj.data" ' literals outcome-ok cs-probe-gives
 bye
