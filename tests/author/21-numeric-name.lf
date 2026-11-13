@@ -1,4 +1,4 @@
-\ A name with a numeric part (Lean's Name.num): Lean names a private
+kernel-form \ A name with a numeric part (Lean's Name.num): Lean names a private
 \ declaration _private.MODULE.0.NAME, MODULE the file's module (here the
 \ Lean source's path as check_author.py compiles it, from the repository
 \ root), 0 a numeric part. The text declares it by its

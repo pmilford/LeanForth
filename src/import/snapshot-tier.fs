@@ -454,17 +454,16 @@ create kind-flags
 \ members of a block (its types, constructors and recursors) are on its
 \ block's line, as the reader keeps them.
 : member-kind? ( kind -- flag ) kind-type kind-recursor 1+ within ;
-: line-ok? ( prev line d stage -- flag )
-  >r >r dup staged-none = if 2drop r> r> 2drop false exit then
-  2dup = if 2drop r> r> staged-kind@ member-kind? exit then
-  u< r> r> 2drop ;
-: line-at ( addr i -- line ) u32s + u32@ ;
+\ Line i of the lines at addr, and line i - 1 before it.
+: tier-line-pair ( addr i -- prev line ) u32s + dup 1 u32s - u32@ swap u32@ ;
+\ Line i after line i - 1 (i > 0), declaration i of stage.
+: line-ok? ( addr i stage -- flag )
+  >r tuck tier-line-pair dup staged-none = if 2drop r> 2drop false exit then
+  2dup = if 2drop r> staged-kind@ member-kind? exit then u< nip r> drop ;
 : lines-ok? ( addr n stage -- flag )
-  -rot dup 0= if 2drop drop true exit then
-  over 0 line-at dup staged-none = if 2drop 2drop false exit then
-  swap 1 ?do
-    over i line-at tuck i 5 pick line-ok? 0= if 2drop drop false unloop exit then
-  loop 2drop drop true ;
+  swap dup 0= if 2drop drop true exit then
+  2 pick u32@ staged-none = if 2drop drop false exit then
+  1 ?do 2dup i swap line-ok? 0= if 2drop false unloop exit then loop 2drop true ;
 : lines-commit ( n slab stage -- outcome )
   >r 0 over slab-at 2 pick r> lines-ok?
   if slab-commit outcome-ok else 2drop outcome-invalid then ;

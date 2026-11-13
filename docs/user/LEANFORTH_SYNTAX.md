@@ -35,6 +35,34 @@ and *universe level* are explained in [terms for new readers](TERMS_FOR_NEW_READ
 every error code are in the
 [programming reference](../programming/LEANFORTH_WORDS.md).
 
+## Two forms: kernel form and natural LeanForth
+
+This page describes the **kernel form**, in which you write the full
+proof term with every hidden argument (the "assembly" form). Since
+2026-11-12 (owner decision 4, [ADR 0021](../adr/0021-front-end.md) D8)
+**natural LeanForth is the default**, so a file or text in the kernel form
+starts with the word `kernel-form` (outside any declaration; the printer,
+`leanforth print --lf`, writes it first), as every example file in
+`tests/author` does:
+
+```text
+kernel-form \ Lean: theorem identity {P : Prop} (proof : P) : P := proof
+theorem identity
+  ...
+```
+
+Natural LeanForth is being built (plan FE1). Today its words are read
+into a syntax tree and nothing more: in `0 n + n =` the numeral `0`, the
+variable `n` and the words `+` and `=` (Lean's `+` and `=`, which in
+theorem text are LeanForth words, never Forth's) build Lean's
+`binrel% Eq (binop% HAdd.hAdd 0 n) n`; a name takes as many arguments as
+its type has explicit binders (`n Eq.refl` is `Eq.refl n`), `' NAME` is
+the function itself, and `f a $` applies once more. Elaboration and
+tactics come next (plan FE1c-g): `end NAME` of a natural declaration
+stops with error 71, a tactic word (`by-induction`, `by-rfl`, ...) with
+error 72, and a kernel-form word used without the marker (such as `Prop`)
+with error 70, all "not supported yet", and nothing is checked.
+
 ## How to read it
 
 Every token is a Forth word, and Forth's own interpreter runs it; there is
@@ -71,8 +99,10 @@ Forth: the parts come first, then the word that combines them.
   either Lean keywords or contain a character no Lean name has (`-`, `:`,
   `$`, `^`), so they never clash with a name. The name of a theorem,
   universe or namespace may not look like a number (`1`, `N.1`, `-x`), so
-  a name never hides a number. Forth's own words, such as `+` or `dup`,
-  are not visible while a proof runs.
+  a name never hides a number. Forth's own words, such as `dup` or `+`,
+  are not visible while a proof runs; `+`, `=`, `*` and `≤` are words of
+  natural LeanForth (Lean's operators), refused in kernel-form text
+  (error 58).
 - Comments are Forth's: `\` to the end of the line, `( … )` within a line
   (a `(` must be closed on its line).
 
@@ -137,7 +167,7 @@ create text 8192 allot  variable text#
   dup lf-author-decl swap lf-author-notes swap ?do
     i lf-note-kind@ lf-note-label <> if dup i .note then loop drop ;
 : run-rest ( -- flag )
-  lf-author-begin rest lf-author-text ok? dup 0= if lf-author-error. cr then ;
+  lf-author-begin lf-author-kernel rest lf-author-text ok? dup 0= if lf-author-error. cr then ;
 : leanforth ( -- )
   run-rest 0= if exit then
   lf-author-count 0 ?do i lf-author-decl .decl loop

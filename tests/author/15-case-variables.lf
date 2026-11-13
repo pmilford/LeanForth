@@ -1,4 +1,4 @@
-\ Two variables whose names differ only in case, and nothing else: here a
+kernel-form \ Two variables whose names differ only in case, and nothing else: here a
 \ spelling check that ignored case would not stop the run (as declaring
 \ both id and Id does in 14-case.lf); it would silently make X mean x.
 \ The round trip cannot see that, since the printer and the words would

@@ -42,7 +42,7 @@ variable cur-decl
     names-len @ 0= or if dump-decl else drop then loop ;
 : words-text ( -- c-addr u ) words-path words-len @ slurp-file ;
 : second-dump ( -- outcome )
-  lf-author-begin words-text lf-author-text dup ok? 0= if exit then drop
+  lf-author-begin lf-author-kernel words-text lf-author-text dup ok? 0= if exit then drop
   dump2 dump2# capture-into dump-stated outcome-ok ;
 
 : report-trip ( outcome -- )

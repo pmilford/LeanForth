@@ -1,0 +1,196 @@
+\ The natural reader (ADR 0021 D8; plan task FE1a): the meanings of
+\ LeanForth's words in natural form (author/form.fs), which build syntax
+\ trees (syntax.fs) for the elaborator (plan FE1e) instead of kernel terms.
+\ Nothing here elaborates: what needs elaboration stops the run as not
+\ supported yet, at its token. The rules (design docs/design/FRONT_END.md
+\ section 4.2):
+\ - a name takes as many values from the stack as its type has explicit
+\   binders, and builds the application f a1 .. ak, arguments in Lean's
+\   order (x y f is f x y); a library constant's count is its type's
+\   telescope (lfn-library-arity, which the command line sets: the importer
+\   stage holds the type); a variable's comes from its binder's type as
+\   written: 0 for a variable, or a constant that cannot unfold, at its
+\   head. A count that depends on unfolding a definition stops the run
+\   (error 73) until the elaborator's whnf exists (plan FE1c);
+\ - a number is a numeral (Lean's OfNat), at its own position (form.fs);
+\ - ' NAME is the function NAME, applied to nothing; f a $ applies f to
+\   one more argument (an application made by a name gets it as its next
+\   argument, as Lean's id g x);
+\ - + * are Lean's binop% HAdd.hAdd and HMul.hMul, = and ≤ binrel% Eq and
+\   LE.le, each checked against the printer's notation table while
+\   loading (present/notation-table.fs), whose rows say how those
+\   constants print;
+\ - binder words take a type as written; := takes the statement; by right
+\   after := opens a tactic proof; end NAME of a declaration needs the
+\   elaborator (error 71), and tactic words the tactic engine (error 72).
+\ Values are LeanForth values (author/values.fs) of a kind of their own,
+\ each naming a syntax node. Untrusted: a tree is what was written; only
+\ the kernel's check of the elaborated term decides anything.
+\ Words: lf-front-statement ( -- node ) the statement of the declaration
+\ being read, or -1; lf-front-by ( -- pos ) the position of its by, or -1;
+\ lfn-library-arity ( name -- arity unfolds? true | false ), a deferred
+\ word the command line sets (cli/check-lf.fs).
+\ State: one context record, lfn-decl (the declaration being read), in
+\ the checker context (ADR 0009); the syntax store's (syntax.fs).
+
+require ../lib/lib.fs
+require ../present/notation-table.fs
+require ../present/print-job.fs
+require ../author/runner.fs
+require ./syntax.fs
+
+begin-structure /lfn-decl
+  field: lfn-decl-statement     \ the statement's node, or -1 before :=
+  field: lfn-decl-by            \ position of by, or -1
+end-structure
+/lfn-decl context-record: lfn-decl
+: lfn-fresh ( -- )
+  syn-reset -1 lfn-decl lfn-decl-statement ! -1 lfn-decl lfn-decl-by ! ;
+' lfn-fresh context-setup
+' lfn-fresh is lfa-declaration-fresh
+: lf-front-statement ( -- node ) lfn-decl lfn-decl-statement @ ;
+: lf-front-by ( -- pos ) lfn-decl lfn-decl-by @ ;
+
+\ Nodes; a store the heap cannot grow stops the run (full).
+: lfn-new ( kind pos -- node ) syn-new 0= if lfa-e-syntax-full lfa-fail then ;
+: lfn-arg-new ( app -- ) syn-arg-new lfa-e-syntax-full lfa-must ;
+
+\ Syntax values.
+: lfn-value ( node -- value ) lfa-kind-syntax swap 0 lfa-item-new ;
+: lfn-item ( item -- node )
+  dup lfa-item-kind @ lfa-kind-syntax = lfa-e-universe-term lfa-must lfa-item-first @ ;
+: lfn-numeral ( n -- node ) syn-k-num lfa-numeral-at lfn-new swap syn-a! ;
+\ A value or a number taken from the stack, as a node.
+: lfn>syntax ( cell -- node ) dup 0< if lfa-take lfn-item else lfn-numeral then ;
+: lfn-two ( x y -- nx ny ) lfn>syntax >r lfn>syntax r> ;
+
+\ How many explicit arguments a name takes (-1: it depends on unfolding).
+defer lfn-library-arity ( name -- arity unfolds? true | false )
+:noname ( name -- false ) drop false ; is lfn-library-arity
+: lfn-library ( decl -- arity unfolds? )
+  dup lfa-library? 0= if drop -1 true exit then
+  lfa-decl-name lfn-library-arity 0= if -1 true then ;
+: lfn-const-arity ( decl -- n ) lfn-library drop ;
+\ The head of a type as written: 0 when it is a variable or a constant
+\ that cannot unfold, else -1.
+: lfn-const-head ( decl -- n ) lfn-library nip if -1 else 0 then ;
+: lfn-head-arity ( node -- n )
+  dup syn-kind@ case
+    syn-k-var of drop 0 endof
+    syn-k-const of syn-a@ lfn-const-head endof
+    drop -1 swap endcase ;
+: lfn-type-arity ( node -- n )
+  dup syn-kind@ syn-k-app = if syn-a@ then lfn-head-arity ;
+: lfn-var-arity ( slot -- n ) lfa-binder lfa-binder-domain @ lfn-type-arity ;
+
+\ A name, run: its node, at the name's position, and how many arguments
+\ it takes.
+: lfn-ident-node ( item kind -- node )
+  over lfa-item-at @ lfn-new swap lfa-item-first @ syn-a! ;
+: lfn-ident ( item -- node n )
+  dup lfa-item-kind @ lfa-kind-const =
+  if syn-k-const lfn-ident-node dup syn-a@ lfn-const-arity exit then
+  syn-k-var lfn-ident-node dup syn-a@ lfn-var-arity ;
+\ The application of node to the n values below it: a node and n
+\ argument slots, filled from the last, which is on top.
+: lfn-app-new ( node -- app ) syn-k-app over syn-at@ lfn-new swap syn-a! ;
+: lfn-slots ( app n -- app ) 0 ?do dup lfn-arg-new loop ;
+: lfn-take-arg ( v app i -- app ) rot lfn>syntax >r over swap r> syn-arg! ;
+: lfn-fill ( v1 .. vn app n -- app ) ?dup if 0 swap 1- do i lfn-take-arg -1 +loop then ;
+: lfn-args ( v1 .. vn node n -- app ) >r lfn-app-new r@ lfn-slots r> lfn-fill ;
+\ n values must be above the frame (author/scopes.fs).
+: lfn-check ( node n -- node n ) 2>r 2r@ nip lfa-args 2r> ;
+\ After ' the name takes nothing; a count that depends on unfolding stops.
+: lfn-apply ( node n -- value )
+  lfa-untick if drop lfn-value exit then
+  dup 0< 0= lfa-e-arity-unknown lfa-must
+  ?dup if lfn-check lfn-args then lfn-value ;
+\ A name's value in natural form; a universe parameter alone stays one.
+: lfn-universe-only? ( value -- flag )
+  lfa-slot dup lfa-item-kind @ lfa-kind-name = swap lfa-item-first @ 0< and ;
+: lfn-name ( value -- value' )
+  dup lfn-universe-only? if lfa-tick-free exit then lfa-take lfn-ident lfn-apply ;
+' lfn-name is lfa-name-natural
+
+\ ' NAME: the next token, on this line, must be a name.
+: lfn-peek ( -- c-addr u ) >in @ parse-name rot >in ! ;
+: lfn-w-tick ( -- )
+  lfn-peek dup 0<> lfa-e-no-name lfa-must lfa-number-like? 0= lfa-e-tick lfa-must
+  lfa-here lfa-tick! ;
+\ f a $: one more argument; an application made by a name takes it as
+\ its next one, keeping its position.
+: lfn-copy-args ( old new -- new )
+  over syn-b@ 0 ?do dup lfn-arg-new over i syn-arg over i rot syn-arg! loop nip ;
+: lfn-extend ( app -- app' ) dup syn-a@ lfn-app-new lfn-copy-args ;
+: lfn-function ( node -- app )
+  dup syn-kind@ syn-k-app = if lfn-extend else lfn-app-new then ;
+: lfn-arg-add ( app arg -- app ) over lfn-arg-new over dup syn-b@ 1- rot syn-arg! ;
+: lfn-w-app ( f a -- t ) 2 lfa-args lfn-two >r lfn-function r> lfn-arg-add lfn-value ;
+
+\ Operator words: Lean's macro (binop% or binrel%) of a constant, over
+\ two values. An operator is a word op ( -- kind c-addr u ) that gives
+\ the macro's kind and the constant's name; the constant's row in the
+\ notation table must spell it as the word is spelt.
+: lfn-operands ( node lhs rhs -- node ) >r syn-b! r> syn-c! ;
+: lfn-operator ( a b op -- t )
+  >r lfn-two r> execute lfa-intern >r lfa-here lfn-new -rot lfn-operands
+  r> syn-a! lfn-value ;
+: lfn-op-add ( -- kind c-addr u ) syn-k-binop s" HAdd.hAdd" ;
+: lfn-op-mul ( -- kind c-addr u ) syn-k-binop s" HMul.hMul" ;
+: lfn-op-eq ( -- kind c-addr u ) syn-k-binrel s" Eq" ;
+: lfn-op-le ( -- kind c-addr u ) syn-k-binrel s" LE.le" ;
+: lfn-w-add ( a b -- t ) 2 lfa-args ['] lfn-op-add lfn-operator ;
+: lfn-w-mul ( a b -- t ) 2 lfa-args ['] lfn-op-mul lfn-operator ;
+: lfn-w-eq ( a b -- t ) 2 lfa-args ['] lfn-op-eq lfn-operator ;
+: lfn-w-le ( a b -- t ) 2 lfa-args ['] lfn-op-le lfn-operator ;
+\ An infix spelling is the operator with a blank on each side (" + ").
+: lfn-inner ( c-addr u -- c-addr' u' ) dup 2 < if exit then 1 /string 1- ;
+: lfn-spelt? ( c-addr u word-addr word-u -- flag )
+  2swap lf-nt-find dup 0= if drop 2drop false exit then
+  lf-print-unicode lf-nt-sym lfn-inner compare 0= ;
+: lfn-notation ( c-addr u "word" -- )
+  parse-name lfn-spelt? 0= abort" reader.fs: an operator word the notation table lacks" ;
+s" HAdd.hAdd" lfn-notation +
+s" HMul.hMul" lfn-notation *
+s" Eq" lfn-notation =
+s" LE.le" lfn-notation ≤
+
+\ Binders: the type as written.
+: lfn-binder ( t kind -- ) ['] lfn>syntax lfa-binder-of ;
+: lfn-w-explicit ( t -- ) 1 lfa-args lf-binder-default lfn-binder ;
+: lfn-w-implicit ( t -- ) 1 lfa-args lf-binder-implicit lfn-binder ;
+: lfn-w-strict ( t -- ) 1 lfa-args lf-binder-strict lfn-binder ;
+: lfn-w-instance ( t -- ) 1 lfa-args lf-binder-instance lfn-binder ;
+
+\ := takes the statement, as in the kernel form (author/declarations.fs).
+: lfn-w-define ( -- )
+  lfa-define-check lfn>syntax lfn-decl lfn-decl-statement ! lfa-define-done ;
+\ by: right after := (no value and no binder since), once.
+: lfn-by-here? ( -- flag )
+  lfa-above 0= lfa-inside? and lfa-params 0< 0= and lfa-depth lfa-params = and
+  lf-front-by 0< and ;
+: lfn-w-by ( -- ) lfn-by-here? lfa-e-by-here lfa-must lfa-here lfn-decl lfn-decl-by ! ;
+\ end NAME of a declaration: the proof (or an axiom's statement) is in
+\ place, and elaboration is what comes next (plan FE1e-f).
+: lfn-proof-shape ( above -- )
+  lfa-proof-ready lf-front-by 0< if 1 = else 0= then lfa-e-proof lfa-must ;
+: lfn-shape ( above -- )
+  lfa-this-kind lf-decl-def > if 1 = lfa-e-statement lfa-must else lfn-proof-shape then ;
+: lfn-end-declaration ( above c-addr u -- )
+  lfa-end-check lfn-shape lfa-e-elaborate lfa-fail ;
+: lfn-w-end ( -- ) lfa-end-head ['] lfn-end-declaration lfa-end-tail ;
+
+\ The natural meanings (author/groups.fs, lfa-natural!).
+' lfn-w-tick lfa-natural! '
+' lfn-w-app lfa-natural! $
+' lfn-w-add lfa-natural! +
+' lfn-w-mul lfa-natural! *
+' lfn-w-eq lfa-natural! =
+' lfn-w-le lfa-natural! ≤
+' lfn-w-explicit lfa-natural! explicit:
+' lfn-w-implicit lfa-natural! implicit:
+' lfn-w-strict lfa-natural! strict-implicit:
+' lfn-w-instance lfa-natural! instance:
+' lfn-w-define lfa-natural! :=
+' lfn-w-by lfa-natural! by
+' lfn-w-end lfa-natural! end

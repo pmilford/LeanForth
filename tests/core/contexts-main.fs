@@ -83,15 +83,23 @@ variable reads-ok  0 reads-ok !
   s" : sq ( n -- n*n ) dup * ;" lf-ir-feed s" 5 constant five : f five sq ;" lf-ir-feed
   lf-ir-finish read-tally irx-load-finish read-tally 1000 s" f" irx-run read-tally
   ['] sink s" bad.fs" lf-ir-start s" : g ( -- ) here ;" lf-ir-feed lf-ir-finish drop ;
+\ The front end's metavariable context (src/front/mvars.fs, plan FE1b): a
+\ metavariable made over the trial's first term, assigned and instantiated
+\ on the heap walk's stacks, in the trial's context.
+variable fronts-ok  0 fronts-ok !
+: fronted ( -- )
+  lf-mctx-reset 0 mv-natural lf-mvar-new ok? if 1 fronts-ok +! then
+  dup 0 lf-mvar-assign ok? if 1 fronts-ok +! then
+  lf-instantiate-mvars ok? if 1 fronts-ok +! then drop lf-mctx-reset ;
 : printed ( -- )
-  dict-trial @ context-use staged read-file read-fed
+  dict-trial @ context-use staged read-file read-fed fronted
   lf-print-unicode print-all lf-print-ascii print-all lf-print-latex print-all
   context-main context-use ;
 dict-prepare dict-snap
 T{ dict-work -> outcome-ok }T
 printed
 T{ dict-changes dict-first -> 0 0 }T
-T{ prints-ok @ 0> reads-ok @ -> true 4 }T
+T{ prints-ok @ 0> reads-ok @ fronts-ok @ -> true 4 3 }T
 ." dictionary unchanged with src/main.fs: " dict-bytes . ." bytes, after "
 prints-ok @ . ." prints that ended ok among others; a context is " loaded-bytes .
 ." bytes after src/main.fs loads" cr

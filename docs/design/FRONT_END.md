@@ -1,6 +1,14 @@
 # LeanForth's front end: what Lean's does, and how LeanForth will do it
 
-**Status (2026-11-12): designed. Nothing in this document is built.** It is
+**Status (2026-11-12): designed; the first two steps are written, on
+branch `fe1` (Forth review pending):** FE1a, the natural reader
+(`src/front/reader.fs`, `syntax.fs`, `src/author/form.fs`), is integrated
+(`leanforth check FILE.lf` reads natural text into syntax trees and stops
+as not supported yet where elaboration or a tactic would begin; the
+kernel form needs `kernel-form`), and FE1b, the metavariable context
+(`src/front/mvars.fs`, `core/mvar-leaves.fs`), is tested alone (no command
+makes metavariables yet; the export writer refuses any). Nothing else in
+this document is built. It is
 the design and plan for the half of Lean that LeanForth does not have: the
 part that turns what a person writes into the full proof term the kernel
 checks. The architecture and trust boundary are proposed in
@@ -89,13 +97,15 @@ smallest piece that proves something real: FE1, $0 + n = n$ by induction.
 | `leanforth check FILE.lf` | on `main`: refuses LeanForth text (exit 4). On branch `lf-files-2` (not merged): integrated, its gates pending (ADR 0017 Amendment 2); it checks hand-written kernel terms such as `20-zero-add.lf` against an export of `Init` |
 | Printing a checked statement in LeanForth words, Lean notation and mathematics | integrated (`leanforth print`, plan 8.6.2); the notation table maps `HAdd.hAdd` to `+` for printing only |
 | Holes `_` | refused: error 52, "holes are filled by the elaborator" |
-| Elaborator, metavariables, unification, implicit arguments, numerals as Lean reads them | not started |
+| Metavariable context (FE1b): metavariables, assignment, occurs check, instantiation | tested alone on branch `fe1` (`tests/front/front.fs`); the beta step and delayed assignments' values answer unsupported until FE1c |
+| Elaborator, unification, implicit arguments, numerals as Lean reads them | not started |
 | Type classes, coercions | not started |
 | Tactics and proof states | not started |
 | Pattern matching, recursion, generated definitions for new data types | not started (the kernel builds `T.rec` when it checks a data type, as Lean's kernel does; everything else comes from Lean's export) |
 | `simp`, decision procedures, Mathlib's tactics | not started |
 | Evaluation (`#eval`, `#reduce`) | not started (the kernel reduces terms internally, with no user command) |
-| Natural LeanForth (plan 8.6.10), first native proof (8.6.11) | not started |
+| Natural LeanForth (plan 8.6.10): the natural reader (FE1a) | integrated on branch `fe1`: natural text is the default and is read into Lean-shaped syntax trees (`binrel% Eq (binop% HAdd.hAdd 0 n) n`, compared with pinned Lean's macro expansion); nothing is elaborated yet |
+| First native proof (8.6.11) | not started |
 
 ## 2. What Lean's front end does
 

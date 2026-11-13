@@ -15,6 +15,8 @@ and supersedes none of them. The plan reserves ADR 0012 for the
 checked-environment implementation (task 2.1.3), so the first checker's scope
 is decided here rather than in a separate record.
 
+Approval status: accepted 2026-11-02, gate: first-checker rules (G1-G4), [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Legacy retirement and the first checker's rules (2026-11-02, evening)"; kernel gate 2026-11-03, section "Gate answers and working guidelines (2026-11-03)"; rules D1-D5 and K1 were later retired by plan task 4.2.2d (see the Status paragraph above)
+
 ## Summary in plain words
 
 LeanForth's first checker will answer *accepted*, *rejected* or
@@ -481,6 +483,8 @@ difference ([expected results](../reviews/FIRST_CHECKER_EXPECTED.md)).
 
 ## Amendment 1 (proposed, 2026-11-03): universe levels are built and compared as Lean builds and compares them
 
+Approval status: accepted 2026-11-03, gate: kernel and bypass, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Gate answers and working guidelines (2026-11-03)"; the entry names the declaration check with the universe-level fix (rules S4 and K6); the word proposed in the heading or Status line below was true when written
+
 Status: **proposed**; [kernel] change, for the gate in `AGENTS.md`.
 Written by agent LV after the independent review of the declaration check
 (`.claude/work/LV/REVIEW-CD.md`, finding 1, category 1: four wrong
@@ -635,6 +639,8 @@ in [the expected results](../reviews/FIRST_CHECKER_EXPECTED.md#universe-levels-a
   rebuild and a reversed name order also fail the pinned-Lean tables.
 
 ## Amendment 2 (proposed, 2026-11-03): a for-all whose body is not a type (rule S4)
+
+Approval status: accepted 2026-11-03, gate: kernel, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Gate answers and working guidelines (2026-11-03)"; the entry adds Lean's rejection of a for-all whose body is not a type through the same gate; the word proposed in the heading or Status line below was true when written
 
 Status: **proposed**; [kernel] change, for the gate in `AGENTS.md`. Plan
 task 2.1.5, which the owner asked for when approving the rejection rules

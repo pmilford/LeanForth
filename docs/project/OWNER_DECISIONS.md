@@ -1006,6 +1006,13 @@ The owner approved both gates, choosing each recommendation, after the done chec
 - Receipt schema 0.3 drops the label (the owner's no-label decision); SHA receipts take 0.4 at its [format] gate.
   Nobody has proved SHA-256 as a whole, and `leanforth verify` (8.4.1) does not exist.
 
+### Kernel refactor edit (2026-11-12, evening; [kernel] gate)
+
+The owner approved, on condition of the re-check, the one src/kernel edit of the FRI refactor: `src/kernel/env-schedule.fs`'s
+private `lf-sch-and` replaced by the identical library word `outcome-and` (lib/outcome.fs). The re-check confirmed it
+behaviour-identical (same body `over ok? if nip else drop then`, same stack effect, same argument order at every call
+site; faults frk-sched-add-pushes-first and frk-sched-outcomes-ored caught). Review: forth-reviews/2026-11-12-refactor-fri.md.
+
 ### No result labels (2026-11-12, evening)
 
 The owner: "I find the constant repetition of experimental and not independently audited, one NOT PROVED not useful.

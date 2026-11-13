@@ -206,25 +206,33 @@ here feed-settings - /feed-setting / constant feed-settings#
   feed-dirty @ over feed-cell-bits / cells + swap feed-cell-bits mod 1 swap lshift ;
 : feed-dirty? ( e feed -- flag ) feed-bit swap @ and 0<> ;
 : feed-dirty! ( e feed -- ) feed-bit over @ or swap ! ;
-3 cells constant /feed-copy   \ the expression, then its term handle
+begin-structure /feed-copy
+  field: feed-copied-e                  \ the expression
+  2 cells +field feed-copied-handle     \ its term handle: index, identity (2@)
+end-structure
 : feed-copy-at ( k feed -- addr ) feed-copy-buf @ swap /feed-copy * + ;
-: feed-copy-e ( k feed -- e ) feed-copy-at @ ;
+: feed-copy-e ( k feed -- e ) feed-copy-at feed-copied-e @ ;
+\ Room for one more copy; the next copy, counted.
+: feed-copy-room ( feed -- outcome )
+  dup feed-copies# @ 1+ /feed-copy rot feed-copy-buf feed-grow ;
+: feed-copy-next ( feed -- addr )
+  dup feed-copies# dup @ swap 1 swap +! swap feed-copy-at ;
 : feed-copy+ ( index identity e feed -- outcome )
-  dup feed-copies# @ 1+ /feed-copy 2 pick feed-copy-buf feed-grow ok? 0=
-  if 2drop 2drop outcome-full exit then
-  dup feed-copies# @ over feed-copy-at >r 1 swap feed-copies# +!
-  r@ ! r> cell+ 2! outcome-ok ;
+  dup feed-copy-room ok? 0= if 2drop 2drop outcome-full exit then
+  feed-copy-next tuck feed-copied-e ! feed-copied-handle 2! outcome-ok ;
 \ Binary search: the first copy whose expression is not below e.
 : feed-copy-below? ( e feed k -- flag ) swap feed-copy-e > ;
 : feed-narrow ( e feed lo hi -- e feed lo' hi' )
   2dup + 2/ >r 2over r@ feed-copy-below? if nip r> 1+ swap else drop r> then ;
 : feed-seek ( e feed -- e feed k )
   0 over feed-copies# @ begin 2dup < while feed-narrow repeat drop ;
+\ Copy k when it is expression e's, else 0.
+: feed-copy-of ( e feed k -- addr|0 )
+  2dup swap feed-copies# @ < 0= if 2drop drop 0 exit then
+  swap feed-copy-at tuck feed-copied-e @ = and ;
 \ A copied expression's handle; 0 0, no handle, for one not in the list.
 : feed-copy@ ( e feed -- index identity )
-  feed-seek 2dup swap feed-copies# @ < if
-    2dup swap feed-copy-at dup @ 4 pick = if nip nip nip cell+ 2@ exit then drop
-  then 2drop drop 0 0 ;
+  feed-seek feed-copy-of ?dup if feed-copied-handle 2@ else 0 0 then ;
 : feed-term@ ( e feed -- index identity )
   2dup feed-dirty? if feed-copy@ else drop lf-tin-child dup lf-term-input-identity then ;
 : feed-root ( e feed -- index ) feed-term@ drop ;
@@ -293,12 +301,14 @@ here feed-settings - /feed-setting / constant feed-settings#
 \ Pairs hold the index first, then the identity (lf-cref-pair@).
 : feed-pair! ( l k feed -- )
   >r swap r@ feed-handle swap rot r> feed-pairs swap lf-cref-pair 2! ;
+: feed-pairs-room ( n feed -- outcome ) 2 cells swap feed-pair-buf feed-grow ;
+\ Level k of tuple t as pair k.
+: feed-arg ( t k feed -- )
+  >r tuck swap r@ feed-tier tier-tuples tuple-item swap r> feed-pair! ;
 : feed-args ( t feed -- n outcome )
-  dup feed-tier tier-tuples rot swap 2dup tuple-length
-  dup 2 cells 5 pick feed-pair-buf feed-grow ok? 0=
-  if >r 2drop drop r> outcome-full exit then
-  dup >r 0 ?do i 2 pick 2 pick tuple-item i 4 pick feed-pair! loop
-  2drop drop r> outcome-ok ;
+  2dup feed-tier tier-tuples tuple-length dup 2 pick feed-pairs-room ok? 0=
+  if nip nip outcome-full exit then
+  dup >r 0 ?do over i 2 pick feed-arg loop 2drop r> outcome-ok ;
 : feed-cref ( e feed -- cref identity true | false )
   2dup feed-tier expr-b@ over feed-args ok? 0= if drop 2drop false exit then
   >r tuck feed-tier expr-a@ lf-name-generation @ rot feed-pairs r> lf-cref-new ;
@@ -357,21 +367,21 @@ lf-form-mdata tag-mdata feed-form!
 : feed-let-copied? ( e feed -- flag )
   2dup feed-child-copied? >r tuck feed-tier expr-body@ swap feed-dirty? r> or ;
 : feed-to-copy? ( e feed tag -- flag )
-  dup tag-mdata = if drop 2drop true exit then
-  dup let-tag? if drop feed-let-copied? exit then
-  dup tag-proj = if drop feed-a-copied? exit then
-  dup tag-app = swap binder-tag? or if feed-child-copied? else 2drop false then ;
+  case tag-mdata of 2drop true endof  tag-proj of feed-a-copied? endof
+    tag-let of feed-let-copied? endof  tag-let-nondep of feed-let-copied? endof
+    tag-app of feed-child-copied? endof
+    binder-tag? if feed-child-copied? else 2drop false then 0 endcase ;
 : feed-leaf! ( first second stamp e -- outcome ) lf-tin-child lf-term-input-leaf ;
+: feed-leaf0! ( first second e -- outcome ) 0 swap feed-leaf! ;
 : feed-sort-leaf ( e feed -- outcome )
   over >r tuck feed-tier expr-a@ swap feed-handle
   2dup lf-hlevel-valid? 0= if 2drop r> drop outcome-full exit then 0 swap r> feed-leaf! ;
 : feed-const-leaf ( e feed -- outcome )
   over >r feed-cref 0= if r> drop outcome-full exit then 0 swap r> feed-leaf! ;
 : feed-nat-leaf ( e feed -- outcome )
-  over >r feed-text lf-lit-decimal 0= if r> drop outcome-full exit then 0 r> feed-leaf! ;
+  over >r feed-text lf-lit-decimal 0= if r> drop outcome-full exit then r> feed-leaf0! ;
 : feed-str-leaf ( e feed -- outcome )
-  over >r feed-text lf-str-fields dup ok? 0= if nip nip r> drop exit then
-  drop 0 r> feed-leaf! ;
+  over >r feed-text lf-str-fields ok-then2? 0= if r> drop exit then r> feed-leaf0! ;
 \ A projection: its leaf the first input leaf of the same structure name
 \ and field index, else the record's own (term 2e), entered; then the
 \ projection of that leaf and its structure term (core/terms.fs).
@@ -382,9 +392,8 @@ lf-form-mdata tag-mdata feed-form!
   if nip nip r> drop outcome-ok exit then
   0 r@ 2* lf-term-input-leaf r> 2* swap ;
 : feed-projection ( e feed -- outcome )
-  2dup feed-proj-leaf dup ok? 0= if nip nip nip exit then drop
-  >r over swap feed-tier expr-a@ lf-tin-child r> swap 0 3 roll lf-tin-child
-  lf-term-input-leaf ;
+  2dup feed-proj-leaf ok-then? 0= if nip nip exit then
+  -rot over swap feed-tier expr-a@ lf-tin-child swap feed-leaf0! ;
 \ A let: the let of its value and its lambda, the first input binder of
 \ the lambda's type and body (an earlier lambda equal to it, or the
 \ let's own, term 2e, which feed-mark entered), so that the two are one
@@ -393,8 +402,7 @@ lf-form-mdata tag-mdata feed-form!
   feed-tier over >r 2dup expr-a@ lf-tin-child -rot expr-body@ lf-tin-child
   lf-tag-lam -rot lf-tin-binder-find if r> drop else r> 2* then ;
 : feed-let-leaf ( e feed -- outcome )
-  2dup feed-let-lam-node >r over swap feed-tier expr-b@ lf-tin-child r> 0
-  3 roll lf-tin-child lf-term-input-leaf ;
+  2dup feed-let-lam-node >r over swap feed-tier expr-b@ lf-tin-child r> rot feed-leaf0! ;
 \ A let's tag (its nonDep flag) and fields in the leaf table: its value
 \ and lambda.
 : feed-let-fields ( e feed -- tag first second )

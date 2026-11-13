@@ -139,6 +139,20 @@ T{ s" tests/reference/composition.ndjson" fed term-room feed-term-room < unstage
 T{ feed-term-room feed-most = feed-most 1 31 lshift u< -> true true }T
 T{ 5000 lf-input-room! s" tests/core/reexport/kinds.ndjson" fed term-room unstage
    0 lf-input-room! -> outcome-ok 5000 }T
+\ No room for a constant's universe arguments is full (review of
+\ refactor-fri L1): the feed's pair buffer emptied after the feed (which
+\ frees it), its growth refused; nothing is written.
+: levelled ( -- t )   \ the level tuple of the first constant with any
+  stg stage-tier tier-exprs cons-numbers 0 ?do
+    i stg stage-tier expr-tag@ tag-const =
+    if i stg stage-tier expr-b@ dup stg stage-tuples tuple-length if unloop exit then drop then
+  loop -1 ;
+: pairs-emptied ( -- ) fdd feed-pair-buf heap-release 0 fdd feed-pair-buf cell+ ! ;
+s" tests/reference/constant-fixture.ndjson" fed ok? must
+T{ levelled 0< -> false }T
+T{ pairs-emptied 1 heap-refusals ! levelled fdd feed-args heap-refusals @
+   -> 1 outcome-full 0 }T
+unstage
 : fed-case ( c-addr u -- outcome code step ) fed-checked ok? must last-outcome env-done unstage ;
 T{ s" tests/core/check-declaration-cases/composition-wrong-argument.ndjson" fed-case
   -> outcome-rejected lf-diag-argument-apart 7 }T
@@ -382,6 +396,10 @@ T{ let-lam-file fed-checked verdicts unstage -> outcome-ok 2 true }T
 \ the projection's leaf besides).
 T{ s" tests/core/stage-cases/marks.ndjson" fed lf-input-count 1- lf-input-decl lf-idecl-value @
    dup lf-term-base >= swap lf-term-tag@ lf-term-count @ -> outcome-ok true lf-tag-projection 7 }T
+unstage
+\ The same with the let non-dependent (review of refactor-fri L2): its
+\ body copied, it is copied too, as the dependent one is.
+T{ s" tests/core/stage-cases/marks-nondep.ndjson" fed lf-term-count @ -> outcome-ok 7 }T
 unstage
 \ A let and the nodes above it are read in place, nothing copied.
 T{ let-file fed 0 lf-input-decl lf-idecl-value @ lf-term-base < lf-term-count @

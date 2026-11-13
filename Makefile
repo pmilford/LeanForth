@@ -121,6 +121,10 @@ test: check-docs check-lean-sources check-portable-forth check-forth-quality smo
 # Fails on broken documentation links or missing docs/ paths.
 check-docs:
 	$(RUN) python3 scripts/check-doc-links.py
+	$(RUN) python3 tests/scripts/test_check_adr_status.py
+	$(RUN) python3 scripts/check-adr-status.py
+	$(RUN) python3 tests/scripts/test_check_agent_sync.py
+	$(RUN) python3 scripts/check-agent-sync.py
 
 # The Forth examples of the user pages print exactly the output shown.
 DOC_EXAMPLE_PAGES := docs/user/CONCEPTS.md docs/user/TERM_PRINTER.md \
@@ -821,6 +825,24 @@ reference-manifest:
 test: test-sha256 test-sections test-manifest
 test-differential: reference-manifest
 
+# The elaboration data (plan row FE1d; docs/programming/ELABORATION_DATA.md):
+# the reader's unit tests and the check step's, then its finisher and every
+# damaged file through leanforth check --elab-data. Gforth and Python 3 only.
+test-elab-data:
+	$(RUN) $(GFORTH) tests/front/elab-data.fs
+	$(RUN) $(GFORTH) tests/front/elab-check-lf.fs
+	GFORTH=$(GFORTH) $(RUN) python3 tests/front/test_elab_data.py
+# With pinned Lean: scripts/export-elab.sh reproduces the init slice's data
+# byte for byte, and for all of Init its records equal pinned Lean's own
+# counts and LeanForth reads them against Init's export (about 60 s).
+reference-elab-data: RUN := timeout 1500
+reference-elab-data:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/front/elab-init.sh
+.PHONY: test-elab-data reference-elab-data
+test: test-elab-data
+test-differential: reference-elab-data
+DOC_EXAMPLE_PAGES += docs/programming/ELABORATION_DATA.md
+
 # The LeanForth authoring words (plan task 8.1.2, ADR 0017; untrusted, not
 # loaded by src/main.fs, so they get their own silent-load check): unit
 # tests of every error code with its line and column, then the 22 example
@@ -847,6 +869,26 @@ reference-author:
 
 .PHONY: test-author reference-author
 test: test-author
+
+# The front end's first steps (plan FE1a-b, ADR 0021): the natural reader's
+# syntax trees and refusals, and the metavariable context. Its modules load
+# alone, printing nothing.
+test-front:
+	@for m in src/front/syntax.fs src/front/dag-walk.fs src/front/reader.fs src/front/mvars.fs \
+	  src/core/mvar-leaves.fs; do \
+	  out=$$($(RUN) $(GFORTH) $$m -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
+	  if [ -n "$$out" ]; then printf '%s printed while loading:\n%s\n' "$$m" "$$out" >&2; exit 1; fi; \
+	done
+	$(RUN) $(GFORTH) tests/front/front.fs
+
+# The natural reader's trees against pinned Lean's macro expansion of the
+# same statements (tests/front/operators.lean).
+reference-front:
+	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_front.py
+
+.PHONY: test-front reference-front
+test: test-front
+test-differential: reference-front
 test-differential: reference-author
 
 # Planted faults (plan task 1.4.2; docs/development/TESTING_STRATEGY.md,

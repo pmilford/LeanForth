@@ -1,4 +1,4 @@
-\ A wrong twin of tests/author/19-add-zero.lf: 0 + n = n is true, but not
+kernel-form \ A wrong twin of tests/author/19-add-zero.lf: 0 + n = n is true, but not
 \ by Eq.refl: Nat.add recurses on its second argument, so 0 + n does not
 \ reduce to n while n is a variable.
 \ Lean: theorem zero_add_refl (n : Nat) : 0 + n = n := Eq.refl n

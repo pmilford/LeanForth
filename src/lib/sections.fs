@@ -120,11 +120,8 @@ end-structure
 : sec-header ( sf -- c-addr u ) sec-hdr sections-align chars ;
 \ Call xt ( i sf -- ) for each entry number i in turn.
 : sec-each ( xt sf -- ) dup sec-n @ 0 ?do 2dup i swap rot execute loop 2drop ;
-\ Run the steps ( sf -- outcome ) listed at a (0 ends the list) until one
-\ is not ok; that outcome, or ok.
-: sec-run ( sf a -- outcome )
-  dup @ 0= if 2drop outcome-ok exit then
-  2dup @ execute dup ok? 0= if nip nip exit then drop cell+ recurse ;
+\ The steps ( sf -- outcome ) of writing and reading run in order through
+\ outcome-steps (lib/outcome.fs) until one is not ok.
 
 \ Little-endian 64-bit fields as two 32-bit ones. A value that does not fit
 \ a non-negative cell reads back as -1, which the layout rule never gives.
@@ -242,7 +239,7 @@ end-structure
 \ Everything between creating the partial and closing it, in order.
 create sec-writing
   ' sec-layout , ' sec-prepare , ' sec-write-hdr , ' sec-write-data , 0 ,
-: sec-fill ( sf -- outcome ) sec-writing sec-run ;
+: sec-fill ( sf -- outcome ) sec-writing outcome-steps ;
 \ Flush and close the partial, then rename it over the final name.
 : sec-flush ( sf -- ior ) sec-fid @ flush-file ;
 : sec-finish ( sf -- outcome )
@@ -308,7 +305,7 @@ create sec-reading
   ' sec-measure , ' sec-read-hdr , ' sec-check-magic , ' sec-check-hash ,
   ' sec-check-version , ' sec-check-order , ' sec-check-count , ' sec-parse ,
   ' sec-check-table , 0 ,
-: sec-load ( sf -- outcome ) sec-reading sec-run ;
+: sec-load ( sf -- outcome ) sec-reading outcome-steps ;
 : sec-open ( c-addr u sf -- outcome )
   >r r/o bin open-file if drop r> drop outcome-invalid exit then r> sec-fid ! outcome-ok ;
 \ Close the file unless the outcome is ok.

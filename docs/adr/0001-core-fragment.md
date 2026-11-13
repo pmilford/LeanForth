@@ -2,6 +2,8 @@
 
 Status: proposed; human review required before kernel implementation.
 
+Approval status: status unclear (no owner decision found); the ADR's own text says proposed
+
 ## Goal
 
 Check proof terms for dependent functions and use the same logical core to

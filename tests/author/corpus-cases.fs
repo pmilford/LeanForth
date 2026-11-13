@@ -63,7 +63,8 @@ variable the-term
 : case-dump ( -- ) the-term @ dump-term ;
 : last-type ( -- term ) lf-author-count 1- lf-author-decl lf-fdecl-type @ ;
 : case-second ( -- outcome )
-  lf-author-begin src-buf src-buf# @ lf-author-text dup ok? 0= if exit then drop
+  lf-author-begin lf-author-kernel src-buf src-buf# @ lf-author-text dup ok? 0= if exit then
+  drop
   last-type the-term ! words2 words2# capture-into case-words dup ok? 0= if exit then drop
   dump2 dump2# capture-into case-dump outcome-ok ;
 : case-trip ( t -- )

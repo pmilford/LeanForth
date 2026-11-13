@@ -7,6 +7,8 @@ complete definitional-equality algorithm. [Amendment 1](#amendment-1-proposed-co
 (proposed, 2026-11-02) answers the binder-domain question this record left
 open.
 
+Approval status: status unclear (no owner decision found); the ADR's own text says proposed (its Amendment 1 is accepted, below)
+
 ## Purpose and inputs
 
 The type checker needs to establish that two types agree. The candidate
@@ -102,6 +104,8 @@ candidate cannot make an ill-typed term or an unsupported Lean feature into an
 accepted theorem. An expert human review is required by the project gate.
 
 ## Amendment 1 (proposed): comparing under binders whose domains differ
+
+Approval status: accepted 2026-11-02, gate: first-checker rules (G6, G7); implementation needs its own gate, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Legacy retirement and the first checker's rules (2026-11-02, evening)"; the word proposed in the heading or Status line below was true when written
 
 Status: **rule accepted** by the owner on 2026-11-02 (G6, with G7 extending ADR 0011's D4; [gate](../reviews/FIRST_CHECKER_GATE.md#owners-answer-second-set)); the implementation still needs its own gate approval. Previously: proposed, 2026-11-02 (plan task 2.1.2). A checker rule: it
 passes the [kernel] gate in `AGENTS.md` only with the owner's approval of

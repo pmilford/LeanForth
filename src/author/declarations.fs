@@ -86,7 +86,7 @@ end-structure
   -1 over lf-fdecl-type ! -1 over lf-fdecl-value ! lf-note-count swap lfa-decl-notes ! ;
 : lfa-open-scope ( depth -- )
   lfa-scope lfa-scope-base ! -1 lfa-params! lfa-items-reset
-  lfa-entry# lfa-current lfa-current-entries ! ;
+  lfa-entry# lfa-current lfa-current-entries ! lfa-declaration-fresh ;
 : lfa-decl-name! ( c-addr u -- name )
   2dup lfa-root-name? 0= lfa-e-root-name lfa-must lfa-word-name
   2dup lfa-end-token! lfa-full! lfa-full lfa-library-free
@@ -127,10 +127,13 @@ end-structure
 : lfa-name-binder ( binder -- )
   >r lfa-name-token 2dup lfa-binder-name-of dup r> lfa-binder-name ! >r 2dup r> lfa-named?
   if lfa-depth 1- lfa-local! else 2drop then ;
-\ value kind: the binder word; its frame starts below the domain.
-: lfa-binder-word ( value kind -- )
-  depth 2 - >r >r lfa>term r> lfa-here lfa-open r> over lfa-binder-mark !
-    lfa-name-binder ;
+\ value kind: the binder word; its frame starts below the domain, which
+\ is a term in the kernel form and a syntax node in natural form
+\ (src/front/reader.fs gives the word that makes it).
+: lfa-binder-open ( domain kind -- )
+  depth 2 - >r lfa-here lfa-open r> over lfa-binder-mark ! lfa-name-binder ;
+: lfa-binder-of ( value kind xt -- ) swap >r execute r> lfa-binder-open ;
+: lfa-binder-word ( value kind -- ) ['] lfa>term lfa-binder-of ;
 \ The node of a binder around body, with its name, kind and position.
 : lfa-named-node ( binder body tag -- term )
   >r over lfa-binder-domain @ swap r> lfa-binder-node swap >r
@@ -157,9 +160,14 @@ end-structure
 : lfa-definable? ( -- flag ) lfa-inside? if lfa-this-kind lf-decl-def > 0= lfa-params 0<
   and
   else false then ;
-: lfa-define ( -- )
+\ lfa-define-check, first thing, with the statement on top; then the
+\ statement taken (a term here, a syntax node in src/front/reader.fs);
+\ then lfa-define-done.
+: lfa-define-check ( -- )
   lfa-definable? lfa-e-define-here lfa-must 1 lfa-e-statement lfa-exactly
-  lfa-params-tight lfa>term lfa-this lf-fdecl-type ! lfa-depth lfa-params! ;
+  lfa-params-tight ;
+: lfa-define-done ( -- ) lfa-depth lfa-params! ;
+: lfa-define ( -- ) lfa-define-check lfa>term lfa-this lf-fdecl-type ! lfa-define-done ;
 
 \ end NAME of a declaration: the proof (or, for an axiom or import stub,
 \ the statement) is the one value above the parameters; an import stub
@@ -168,9 +176,10 @@ end-structure
 : lfa-same-binders ( -- )
   lfa-depth lfa-params = if exit then lfa-innermost lfa-binder-at @ lfa-e-open-binder
   lfa-fail-see ;
-: lfa-proof-end ( above -- value )
-  lfa-params 0< 0= lfa-e-no-define lfa-must lfa-same-binders
-  1 = lfa-e-proof lfa-must lfa>term ;
+\ Before a declaration's proof is taken: := was there, and no binder of
+\ the proof is still open (shared with src/front/reader.fs).
+: lfa-proof-ready ( -- ) lfa-params 0< 0= lfa-e-no-define lfa-must lfa-same-binders ;
+: lfa-proof-end ( above -- value ) lfa-proof-ready 1 = lfa-e-proof lfa-must lfa>term ;
 : lfa-no-statement? ( above -- flag ) 0= lfa-depth 0= and lfa-this-kind lf-decl-stub =
   and ;
 : lfa-statement-end ( above -- )
@@ -215,5 +224,6 @@ end-structure
 : lfa-name-space ( -- c-addr u ) lfa-inside? if lfa-full lfa-cut else lfa-current-space
   then ;
 : lfa-resolved-run ( body -- )
-  drop lfa-name-space lfa-resolve 0= if lfa-e-unknown lfa-fail then lfa-const-value ;
+  drop lfa-name-space lfa-resolve 0= if lfa-e-unknown lfa-fail then lfa-const-value
+  lfa-named-natural ;
 ' lfa-resolved-run is lfa-const-run
