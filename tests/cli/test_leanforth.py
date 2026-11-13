@@ -2539,6 +2539,16 @@ class Progress(unittest.TestCase):
         got.pop("measured")
         self.assertEqual(got, want)
 
+    def test_huge_interval(self):
+        """The largest interval a cell holds never wraps (FRP review D4): only
+        the last line is written; one more is not a number of seconds."""
+        most = 2 ** 63 - 1   # max-n of the 64-bit hosts the tests run on
+        status, out, err = run("check", f"--progress={most}", INDUCTIVE)
+        self.assertEqual((status, len(self.lines(err))), (0, 1))
+        status, out, _ = run("check", f"--progress={most + 1}", INDUCTIVE)
+        self.assertEqual((status, out.splitlines()[0]),
+                         (4, f"error: not a number of seconds: {most + 1}"))
+
     def test_default_is_quiet_for_a_short_run(self):
         """The default interval is 60 s: a short run writes only the last line."""
         status, out, err = run("check", "--progress", INDUCTIVE)

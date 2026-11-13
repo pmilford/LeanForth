@@ -11540,3 +11540,40 @@ old = '''  ."   5, 4, 1, 3, 2, 6 wins" cr ;'''
 new = '''  ."   5, 4, 3, 1, 2, 6 wins" cr ;'''
 test = "python3 tests/cli/test_leanforth.py Behaviour.test_informational"
 reason = "FRP C2: help states an order of severity that is not tally.fs's"
+
+# --- check's progress line, worker lending and layer identities
+# (src/cli/check-run.fs; the FRP review's batch D, plan 9.4.5) ------------
+
+[[fault]]
+id = "ck-after-wraps"
+file = "src/cli/check-run.fs"
+old = '''  >r 1000000 m* ck-wall-now r> ck-since 2swap d< 0= ;'''
+new = '''  >r 1000000 * s>d ck-wall-now r> ck-since 2swap d< 0= ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "FRP D4: a huge --progress interval wraps to a negative time, so a line is written after every report"
+
+[[fault]]
+id = "ck-lending-count-only"
+file = "src/cli/check-run.fs"
+old = '''  >r lf-cref-lending r@ ck-lend-count ! r@ ck-lend-slots ! r@ ck-lend-pool !
+  r> ck-lend-records ! ;'''
+new = '''  >r lf-cref-lending r@ ck-lend-count ! drop 2drop
+  r> drop ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "FRP D1: only the references' count is kept, so workers are not made again when the blocks they read move"
+
+[[fault]]
+id = "ck-layer-export-over-header"
+file = "src/cli/check-run.fs"
+old = '''  ck-lay lay-snap snap-export-sha over ck-lid-export 32 move'''
+new = '''  ck-lay lay-snap snap-export-sha over ck-lid-sum 32 move'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers.test_reported"
+reason = "FRP D1: a layer's export digest is kept over its header's, so the report names the wrong layer identity"
+
+[[fault]]
+id = "ck-progress-labels-dropped"
+file = "src/cli/check-run.fs"
+old = ''': ck-part+ ( part -- part' ) dup @ execute cell+ count 2dup ck-pl+ + aligned ;'''
+new = ''': ck-part+ ( part -- part' ) dup @ execute cell+ count + aligned ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Progress.test_counts_rejections"
+reason = "FRP D2: the progress line's numbers are written without their labels"

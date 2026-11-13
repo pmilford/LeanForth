@@ -767,6 +767,12 @@ T{ fl-invalid s" a term the input does not hold (let, metadata) or malformed" re
    -> true }T
 T{ fl-fuel s" the printer ran out of fuel or room" reason -> true }T
 T{ fl-none s" ?" reason -1 s" ?" reason fl-reasons 1+ s" ?" reason -> true true true }T
+
+\ The progress interval never wraps (FRP review D4): its seconds become
+\ microseconds as a double, so max-n seconds after a mark have not
+\ passed, and 0 seconds have.
+ck-marks!
+T{ max-n ck-state ck-prog-mark ck-after? 0 ck-state ck-prog-mark ck-after? -> false true }T
 T{ depth -> 0 }T
 
 cases-done

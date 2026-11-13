@@ -242,7 +242,7 @@ create cj-hex 64 allot
 \ export and base (the snapshot's own identity).
 : cj-layer ( k -- )
   cj-object dup ck-layer@ nt-text cj-shown s" file" cj-text
-  dup ck-layer-id dup s" sha256" cj-sha 32 + s" exportSha256" cj-sha
+  dup ck-layer-id dup ck-lid-sum s" sha256" cj-sha ck-lid-export s" exportSha256" cj-sha
   ck-snap snap-sum s" base" cj-sha ck-layer-verdict s" verdictVersion" cj-number
   cj-end-object ;
 : cj-layers ( -- )
