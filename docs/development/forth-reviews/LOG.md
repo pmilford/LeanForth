@@ -23,6 +23,9 @@ findings neither fixed nor turned into plan tasks. A row that raises the style b
 | 2026-11-12 | `81847df..f99b6ef` | pf1-fix follow-up (tests, faults, comments only) | forth-reviewer (Opus), re-check | this row: M1, L1-L4, I2 fixed; L5 wording accepted (rule N7) | 0 blocking | 1 (I1 names, info), to the refactoring batches |
 | 2026-11-12 | `00d3584..e9ce9ce` | refactor-present: FRP batches A, B (not B6), T1, demos-printer low findings | forth-reviewer (Opus), style and behaviour | [report](2026-11-12-refactor-present.md) | 0 blocking; 4 low, 4 info | L2, L3, I1 to the FRP backlog (backlog-cli-present-author-program.md) |
 | 2026-11-12 | `e9ce9ce..957ecc5` | refactor-present follow-up (tests, faults, the minus-sign guard) | forth-reviewer (Opus), re-check | this row: L1 (a)-(d), L4, I4 fixed; fault notation-row-unaligned planted at the merge | 0 blocking | L2, L3 (as above) |
+| 2026-11-12 | `b4f354a..b89022f` | lf-files (LF1): LeanForth text checked by the kernel, plan 8.2.1a/c/d | forth-reviewer (Opus), style and gates [parser][bypass][import] | [report](2026-11-12-lf-files.md) | 0 blocking; H1, M1-M3, L1-L4, S1-S7 | all but M3 fixed in lf-files-2 |
+| 2026-11-12 | `b89022f..d54ec55` | lf-files-2 (LF2): fixes of the lf-files review | forth-reviewer (Opus), re-review and gates | [report](2026-11-12-lf-files-2.md) | 0 blocking; N1, N2 medium, N3-N6 low, SA, SB | fixed in d54ec55..b5d6205 |
+| 2026-11-12 | `d54ec55..b5d6205` | lf-files-2 follow-up: N1-N6, SA, SB | forth-reviewer (Opus), re-check | [report](2026-11-12-lf-files-2.md), last section | 0 blocking | M3 (progress page) at the merge |
 
 ## Backlog
 
