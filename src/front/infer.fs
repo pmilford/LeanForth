@@ -108,7 +108,6 @@ end-structure
 \ (instantiateBetaRevRange, front/beta-inst.fs). In if-args, last first,
 \ they are the m = i - j cells from n - i on, the last one first, as
 \ instantiateRev takes them.
-: if-arg ( i -- term ) if-args slab-count 1- swap - if-args slab-at @ ;
 : if-app? ( term -- flag ) if-tag lf-tag-app = ;
 : if-spine ( term -- head outcome )
   if-args slab-clear begin dup if-app? while
@@ -131,7 +130,6 @@ end-structure
 : if-no-pi ( type -- outcome )
   if-head if-firm? if outcome-invalid else outcome-unsupported then ;
 : if-to-pi ( type -- pi outcome )
-  dup if-pi? if outcome-ok exit then
   lf-whnf-core ok-then? 0= if no-result exit then
   dup if-pi? if outcome-ok else dup if-no-pi if-fail then ;
 : if-n ( -- n ) if-args slab-count ;

@@ -11952,9 +11952,9 @@ reason = "FE1c: an argument with a loose bound variable is put in without the li
 [[fault]]
 id = "fe-infer-no-whnf"
 file = "src/front/infer.fs"
-old = '''  dup if-pi? if outcome-ok exit then
+old = ''': if-to-pi ( type -- pi outcome )
   lf-whnf-core ok-then? 0= if no-result exit then'''
-new = '''  dup if-pi? if outcome-ok exit then
+new = ''': if-to-pi ( type -- pi outcome )
   outcome-ok ok-then? 0= if no-result exit then'''
 test = "$GFORTH tests/front/infer.fs"
 reason = "FE1c: a function type that is no pi (a let variable, a metavariable) is not reduced by whnfCore first"

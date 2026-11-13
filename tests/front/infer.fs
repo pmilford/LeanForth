@@ -70,6 +70,13 @@ T{ lv1 sort nat lf-term-pi must lv1 lf-level-succ drop sort infer= -> true outco
 \ itself a pi (its level needs a nested telescope: unsupported).
 T{ fk fk lf-term-pi must lf-infer -> -1 outcome-invalid }T
 T{ nat>nat nat lf-term-pi must lf-infer -> -1 outcome-unsupported }T
+\ A domain whose type of type is a metavariable (Lean would assign it
+\ Sort ?u), a definition alone or an application whnf would unfold.
+nat mv-natural lf-mvar-new made constant ?x
+?x lf-lctx-local made constant fdom
+lv1 1 s" outParam" cn lf-lctx-local made constant fo
+T{ fdom nat lf-term-pi must lf-infer fo nat lf-term-pi must lf-infer
+   -> -1 outcome-unsupported -1 outcome-unsupported }T
 T{ nat fk 0 bv let lf-infer -> -1 outcome-unsupported }T
 T{ fa fb pair 0 proj lf-infer -> -1 outcome-unsupported }T
 T{ nat 0 bv lam fk app lf-infer -> -1 outcome-unsupported }T
@@ -123,6 +130,13 @@ T{ 0 bv fa app sfun x1 fs fa app rb= -> true outcome-ok }T
 T{ 1 bv 0 bv app fa sfun x2 fs fa app rb= -> true outcome-ok }T
 T{ 1 bv 0 bv app sfun fa x2 fa sfun app rb= -> true outcome-ok }T
 T{ fk xs 0 fk rb= 1 bv fk x1 0 bv rb= -> true outcome-ok true outcome-ok }T
+\ A head bound inside the body stays; a node holding a metavariable is
+\ visited and kept when nothing in it changes; a body with many nodes to
+\ make grows the memo's table.
+T{ nat 0 bv 1 bv app lam sfun x1 nat 0 bv sfun app lam rb= -> true outcome-ok }T
+T{ ?n fk app fa x1 ?n fk app rb= -> true outcome-ok }T
+: chain ( x -- t ) fa 6 0 do over app loop nip ;
+T{ 0 bv chain fk x1 fk chain rb= -> true outcome-ok }T
 \ Unsupported: an argument with a loose bound variable; a beta step under
 \ a binder (its argument #0 is loose there).
 T{ 0 bv 0 bv x1 lf-meta-instantiate-rev-beta -> -1 outcome-unsupported }T
@@ -135,5 +149,12 @@ T{ 0 bv xs -1 lf-meta-instantiate-rev-beta -> -1 outcome-invalid }T
 T{ 1 heap-refusals ! 0 bv fk x1 lf-meta-instantiate-rev-beta heap-refusals @
    -> -1 outcome-full 0 }T
 T{ 0 bv fk x1 fk rb= -> true outcome-ok }T
+
+\ ---- Stale leaves: after the contexts are emptied, a metavariable and a
+\ free variable made before are invalid.
+lf-mctx-reset
+T{ ?n lf-infer -> -1 outcome-invalid }T
+lf-lctx-reset
+T{ fk lf-infer -> -1 outcome-invalid }T
 
 bye
