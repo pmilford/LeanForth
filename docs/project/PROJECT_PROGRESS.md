@@ -36,7 +36,7 @@ status changes when this date is older than them. Stages are those of the
   ratchet, the documentation the done-checker audit found overstated or stale, and real bugs from the Forth backlog
   reviews (the parallel scheduler's use after free when memory is full; a snapshot layer's full reported as invalid;
   Gforth-only words outside the portability layer).
-- 2026-11-13 02:00: all of Mathlib on the final build (verdict version 9), saving its snapshot.
+- All of Mathlib on the night's build (`d789e45f`, verdict version 9, 2026-11-13): 729,263 of 729,263 accepted, snapshot saved; see the Mathlib line below.
 - The front end, LeanForth's own elaborator and tactics (plan FE1-FE12, replacing 8.3.1-8.3.2; [design](../design/FRONT_END.md),
   [ADR 0021](../adr/0021-front-end.md) proposed, D1-D3, D5, D7 and Amendment 1 (`sorry` as in Lean) decided by the
   owner). FE1, the first theorem proved from LeanForth text ($0 + n = n$ by induction, no hand-written proof term, no
@@ -81,7 +81,7 @@ status changes when this date is older than them. Stages are those of the
 
 ## Where things stand, in plain words
 
-**Mathlib checked:** 729,263 of 729,263 declarations of the pinned Mathlib export (Mathlib `v4.35.0`, commit `56a0058`, export sha256 `18448e5d...59c6`; checked-declaration coverage, not estimated effort) accepted, run on build `b74a04d` (2026-11-12; run record `.claude/work/overnight/full-b74a04d.txt`, untracked, read by the audit [done-checks/2026-11-12-audit.md](../development/done-checks/2026-11-12-audit.md)); not re-run on the current build (verdict version 9 run scheduled for the night of 2026-11-12). [Details](#full-mathlib).
+**Mathlib checked:** 729,263 of 729,263 declarations of the pinned Mathlib export (Mathlib `v4.35.0`, commit `56a0058`, export sha256 `18448e5d...59c6`; checked-declaration coverage, not estimated effort) accepted, run on build `d789e45f` (verdict version 9) on 2026-11-13, 02:16-04:38, with `--jobs 8 --fuel 250000000 --memory-per-check 8192`: 8,504 s wall, 58,130 s user, 22.6 GB peak, exit 0, its snapshot saved (2.30 GB); the machine was shared with other work, so the time is not a clean measurement (run record `.claude/work/overnight/full-d789e45f.txt`, with `run-v9.log` and `full-d789e45f.err`, untracked). The gates before it passed: the arena (84 bad inputs rejected, 124 good accepted, 4 good declined as expected) and all of `Init` (59,349 accepted). Earlier: the same count on build `b74a04d` (2026-11-12, 12,134 s, read by the audit [done-checks/2026-11-12-audit.md](../development/done-checks/2026-11-12-audit.md)). [Details](#full-mathlib).
 
 **Plan row statuses (2026-11-12):** every status in [PLAN_DRAFT.md](PLAN_DRAFT.md) now uses the stage words of [DONE_CHECKER.md](../development/DONE_CHECKER.md) (`scripts/check-progress.py` checks all rows, dated or not). Earlier wording was mapped on each row's own evidence and kept in the row as `was "..."`; rows that said "done" without a done-checker report were lowered with "done check owed"; rows the [audit](../development/done-checks/2026-11-12-audit.md) ran are "works end to end".
 
