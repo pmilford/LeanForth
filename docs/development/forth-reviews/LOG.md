@@ -38,6 +38,7 @@ findings neither fixed nor turned into plan tasks. A row that raises the style b
 | 2026-11-12 | `16445ef..63df2c4` | fe1c: FE1c first Meta pieces (level unification, instantiate1/abstract/headBeta, mkLevelMax'/IMax', instantiateLevelParams) | forth-reviewer (Opus), style and fidelity to Lean | [report](2026-11-12-fe1c.md) | 0 blocking; L1-L5, I1-I4 | fixed in 63df2c4..ef346d5 (I3 not done, information only) |
 | 2026-11-12 | `63df2c4..ef346d5` | fe1c-lnorm: fe1c review fixes, Level.normalize, Name.cmp, marks/rollback, normalize in level unification | forth-reviewer (Opus), re-check and full review | [report](2026-11-12-fe1c-lnorm.md) | 0 blocking; L1-L3, I1-I2 | L1 marks API, L2 CATCH in ld-loop, L3 refusal tests, I2 unsigned compare: being fixed on fe1c-lnorm |
 | 2026-11-12 | `a4314ef..72766de` | fe6a: generated definitions casesOn and recOn compared with Lean's over Init (expr-remap.fs, constructions.fs) | forth-reviewer (Opus), style and fidelity to Lean | [report](2026-11-12-fe6a.md) | 0 blocking; M1, L1-L4, I1-I4 | M1 binder names/infos from the shared export, L1-L3: sent to the FE6a agent |
+| 2026-11-12 | `bfdfa7c..c201906` | refactor-rfc item 1: src/lib/context.fs, the context review's L1-L3 and I4 | forth-reviewer (Opus), style and behaviour | [report](2026-11-12-rfc-context.md) | 0 blocking; L1-L2, I1-I4 | L1 slab-freeing test, L2 /listed fields: sent to the RFC agent |
 
 ## Backlog
 
