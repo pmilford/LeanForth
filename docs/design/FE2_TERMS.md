@@ -106,7 +106,7 @@ what FE2 does.
   plan row's acceptance prints every statement in natural form, and Init's
   statements use `<`, `≠`, `∧`, `∨`, `¬`, `↔`, `∃`, `-`, `/`, `%`, `^`,
   `∈`, `∣`, `×` and more (question 2).
-- **Nested tactic blocks** in terms (`⟨2, by-decide⟩`), because Lean
+- **Nested tactic blocks** in terms (Lean's `⟨2, by decide⟩`), because Lean
   writes them constantly and FE1g and FE1i already provide the proof
   state and the first tactics; only the term-level entry is new.
 
@@ -123,7 +123,7 @@ what FE2 does.
 | `·` function notation `(· + 1)` | needs parentheses to delimit its scope, which postfix text does not have; `_ explicit: x  x 1 +  fun` says the same | not planned (it is sugar for `fun`) |
 | `(e :)`, `@` before anything but a name (`@(fun …)`, which only switches implicit lambdas off), `no_implicit_lambda%` | rare; each needs its own word | a later row if the round trip meets them |
 | `?x` synthetic holes | used by `refine` | FE5 (`by-refine`) |
-| `do` notation, `s!` interpolated strings, `|>.`, `<|>` | programs, macros | FE12 and later rows |
+| `do` notation, `s!` interpolated strings, `\|>.`, `<\|>` | programs, macros | FE12 and later rows |
 
 ### 1.4 What answers unsupported in FE2, and when it is lifted
 
@@ -131,8 +131,9 @@ Everything FE1e's table (FE1E_APPLICATIONS.md §2.7) lists for FE2 is
 lifted: postponement, implicit lambdas, named arguments, `@`, holes,
 `optParam`, printing terms with holes, the other operator macros. What
 remains *unsupported*, each at its token, with an error code that names
-the row: a coercion (FE4); a local instance's class with out-parameters
-or a Π-typed instance goal (FE3); an elaborator for a form of §1.3; an
+the row: a coercion (FE4); a Π-typed instance goal or an instance answer
+that keeps metavariables (FE3, as in FE1e); an elaborator for a form of
+§1.3; an
 `autoParam` whose tactic does not exist; a notation whose word is not in
 the notation table yet (§2.3). Never a guess, never a different term.
 
@@ -153,9 +154,12 @@ writes the LeanForth text back.
    kernel form): `A explicit: x`, `A implicit: x`, `A strict-implicit: x`,
    `A instance: x`. Where Lean omits the type, the type is the hole `_`
    (question 1): Lean itself turns `fun x` and `∀ x` into `(x : _)`
-   (`expandFunBinders`, Binders.lean:375-387). `_` as the name of an
-   instance binder is Lean's anonymous `[Add α]` (named `inst` with a
-   macro scope).
+   (`expandFunBinders`, Binders.lean:375-387). `_` as a binder's *name*
+   is Lean's `(_ : T)`, a fresh inaccessible name (`expandBinderIdent`,
+   Binders.lean:31), and for an instance binder Lean's unnamed `[Add α]`,
+   named `inst` with a macro scope (`expandOptIdent`, 37). A default value
+   `(b : T := d)` is written as the type Lean makes of it, `T d optParam`
+   (`expandBinderModifier`, 112; A31).
 2. **Closers close one binder**: `fun` (λ), `forall` (Π), `∃` (`Exists
    fun x => …`), each taking the body; `let` and `have` close `let:` and
    `have:`. Consecutive closers are Lean's nested binders: pinned Lean
@@ -185,9 +189,10 @@ writes the LeanForth text back.
    for *every* binder of its telescope, implicit and instance ones
    included, `optParam` too, since Lean's explicit mode fills nothing), and
    `@ '` (Lean's bare `@f`, applied later with `$`). `.{ … }` before a
-   name gives its universe arguments (`.{ 1 } Eq` is `Eq.{1}`; levels
-   built with the kernel form's level words between the braces); in
-   natural text `^` is Lean's power (question 2).
+   name gives its universe arguments (`.{ 1 } Eq` is `Eq.{1}`); levels
+   are built with the kernel form's level words, which natural text gains
+   too (`u 1 level+ Type` is `Type (u + 1)`, `u v level-max`, `_` for a
+   level hole); in natural text `^` is Lean's power (question 2).
 6. **Brackets mark the stack**: `⟨` marks the depth and `⟩` takes every
    value above it as the components, as FE1g's `by-rw[ … ]` does; nesting
    is allowed; an empty `⟨ ⟩` is Lean's `⟨⟩`.
@@ -212,7 +217,7 @@ for a type. The tree node is the new kind of §5.1.
 | `fun`, `forall`, `∃` | `( body -- t )`, closes the innermost binder | `fun x => body`, `∀ x, body`, `∃ x, body` |
 | `_` | `( -- t )` | `_` |
 | `let:` NAME … `let` | `( T v -- )` … `( body -- t )` | `let x : T := v; body` |
-| `have:` NAME … `have` | `( T v -- )` … `( body -- t )` | `have x : T := v; body` (`_` as NAME: Lean's `have : T := v`, named `this`) |
+| `have:` NAME … `have` | `( T v -- )` … `( body -- t )` | `have x : T := v; body` (Lean's unnamed `have : T := v` is the name `this`; `_` is Lean's `have _ : T := v`, a fresh inaccessible name) |
 | `show` | `( T e -- t )` | `show T from e` |
 | `:` | `( e T -- t )` | `(e : T)` |
 | `⟨` … `⟩` | `( -- )` … `( c1 … ck -- t )` | `⟨c1, …, ck⟩` |
@@ -221,7 +226,7 @@ for a type. The tree node is the new kind of §5.1.
 | `named:` NAME | `( v -- n )` | `(NAME := v)`, taken by the next name word |
 | `.{` … `}` | `( -- )` … `( l1 … lk -- )`, before a name | `NAME.{l1, …, lk}` |
 | `s"` text`"` | `( -- t )` | `"text"` (ADR 0017 §14) |
-| `'c'` | `( -- t )` | `'c'` (one UTF-8 character; Forth-2012 reads `'c'` as the character's code, the same meaning) |
+| `'c'` | `( -- t )` | `'c'` (one UTF-8 character, or one of Lean's escapes such as `'\n'`; Forth-2012 reads `'c'` as the character's code, so the token already means that character to a Forth reader) |
 | `1.5`, `15e-1` | `( -- t )` | Lean's scientific literal |
 | `nat_lit` | `( n -- t )` | `nat_lit n` |
 | `sorry` | `( -- t )` | `sorry` |
@@ -248,12 +253,15 @@ to extend that answer to these.
 FE1a checks each operator word against the printer's notation table
 (`src/present/notation-table.fs`), so one table says how a constant
 prints and what the word builds. FE2 extends the table (version 2) with a
-column for Lean's macro: `binop%` (`+ - * / %`), `binrel%` (`= ≠ < ≤ > ≥
-∣`), `binrel_no_prop%` where Lean uses it, `unop%` (`¬`, unary `-`),
-`rightact%` (`^`), `leftact%`, `binop_lazy%`, or a plain application
-(`∈` is `Membership.mem b a`, arguments swapped; `×` is `Prod`; `∧ ∨ ↔`
-are `And`, `Or`, `Iff` applications: probe p1, T38 prints `Iff (Not (And
-p q)) (p → Not q)`), and the binder notation `∃` (`Exists fun x => p`).
+column for Lean's macro: `binop%` (`+ - * / %`, Init/Notation.lean:30x),
+`binrel%` (`= < ≤ > ≥`, and `≠`, Init/Core.lean:882), `binrel_no_prop%`
+(`==`, `!=`), `unop%` (unary `-`, Notation.lean:313), `rightact%` (`^`,
+311), `leftact%`, `binop_lazy%`, or a plain notation (`∧`, `∨`, `↔`, `¬`
+are `And`, `Or`, `Iff`, `Not` applications, Notation.lean:404-406 and
+Core.lean:197: probe p1's A36 prints `Iff (Not (And p q)) (p → Not q)`;
+`×` is `Prod`; `∈` is `Membership.mem` with its arguments swapped), and
+the binder notation `∃` (`Exists fun x => p`). Each row records the macro
+that pinned Lean's own expansion shows.
 A row is added for each notation the Init round trip meets (§7.4), each
 with Lean's macro from `Init/Notation.lean`, `Init/Core.lean` or
 `Init/Prelude.lean`, checked against pinned Lean's macro expansion as
@@ -286,8 +294,9 @@ in $\mathbb{N} \times \mathbb{N}$, and the first component of a pair $p$.
 LeanForth: `⟨ 1 2 ⟩  Nat Nat ×  :` and `Nat Nat × explicit: p  p .1
 fun`. Lean: `(⟨1, 2⟩ : Nat × Nat)` and `fun (p : Nat × Nat) => p.1`.
 
-**Commutativity of addition** (the plan row's statement, in as many
-tokens as Lean's: 13 each):
+**Commutativity of addition** (the plan row's statement, in about as many
+tokens as Lean's: 13 words against Lean's 14 tokens for `(m n : Nat) : m +
+n = n + m`):
 
 ```text
 \ Lean: theorem add_comm' (m n : Nat) : m + n = n + m := Nat.add_comm m n
@@ -371,7 +380,7 @@ metavariables in creation order with `resumePostponed`
 postpones again), and when nothing else progresses, with it false (the
 error is reported). FE1e ported the rounds for type-class metavariables
 only; FE2 adds the `.postponed` kind, the saved context and both modes.
-A39 is the case: in `(fun f => f 1) Nat.succ`, `f 1` waits until
+A29's second case shows it: in `(fun f => f 1) Nat.succ`, `f 1` waits until
 `Nat.succ` has fixed `f`'s type, and the binder's type comes out as
 `(n : Nat) → Nat`, `Nat.succ`'s own binder name included (probe p2).
 
@@ -435,12 +444,14 @@ that has that field (`findField?`, through its parents) gives the
 projection, applied to the object after `mkBaseProjections` (1700) walks
 up to the parent that declares it; otherwise `findMethod?` (1453) looks
 for `S.NAME` along the structure's resolution order, and `addLValArg`
-(1735) puts the object at the first explicit binder whose type's head is
-`S` (A19: `l.map Nat.succ` is `@List.map Nat Nat Nat.succ l`); on a
+(1735) passes the object as the argument of the first binder whose type's
+head is `S`, positionally when that binder is explicit and the position
+fits, else as a named argument (A19: `l.map Nat.succ` is `@List.map Nat
+Nat Nat.succ l`); on a
 function type, `Function.NAME`. This needs data the kernel export lacks:
 which inductive types are structures, their fields, parents and
 projection functions, and the resolution order. They come from the
-elaboration data, format 3 (§5.3).
+elaboration data, format 3 (§6).
 
 ### 3.8 Holes, `sorry` and literals
 
@@ -482,15 +493,18 @@ In LeanForth the reader resolves names as it reads: today an unknown name
 stops the run (error 1). In a declaration header (binder types and the
 statement) and in a `variable` group, FE2's reader instead makes an
 *unknown-name* node (§5.1) when the name is atomic, so the elaborator can
-run Lean's restart loop on the tree; anywhere else, and when
+run Lean's restart loop on the tree; later uses of the same name in the
+header refer to the same candidate, and in the value it is the auto-bound
+variable. Anywhere else, and when
 `set_option autoImplicit false` is in force, the reader still stops with
 error 1, which is Lean's "Unknown identifier" (E8).
 
 `variable` binders are section variables until the section or namespace
-ends; a theorem includes those its header mentions, those `include`
-names, those they depend on and the instance binders over included ones
-(`withHeaderSecVars`, MutualDef.lean:455; probe p4: an unused `(j : Nat)`
-is left out); a definition also includes those its body uses
+ends; a theorem includes those its header mentions, those they depend on
+and the instance binders over included ones (`withHeaderSecVars`,
+MutualDef.lean:455; probe p4: an unused `(j : Nat)` is left out; Lean's
+`include` and `omit` commands are left for the row whose round trip meets
+them); a definition also includes those its body uses
 (`removeUnusedVars`, MutualDef.lean:603). `section S … end S` scopes
 variables, `open` and `universe`; `universe u` outside a declaration is
 Lean's command (inside one, after its name, it stays ADR 0017's list of
@@ -590,7 +604,7 @@ exit 2):
 | FE1a reader (`src/front/reader.fs`, `syntax.fs`), the name groups and scopes of `src/author/` | every word of §2; new node kinds (below); binder frames and `DEPTH` checks; positions on every node |
 | FE1b metavariables (`mvars.fs`) and FE1g-1's undo trail | holes, postponed and synthetic metavariables; the saved state of the arity count (§2.1) and of the auto-bound restarts |
 | FE1c `whnf`, `inferType`, `isDefEq`, `instantiate`, level unification | `whnfForall` for propagation and implicit lambdas; arity through unfolding; `let` values (`nondep`); `mkLambdaFVars`, `mkForallFVars`, `mkLetFVars` |
-| FE1d/FE1e elaboration data | instances, default instances, reducibility; format 3 adds structures (§5.3) |
+| FE1d/FE1e elaboration data | instances, default instances, reducibility, `elab_without_expected_type`; format 3 adds structures (§6) |
 | FE1e `elabAppArgs`, `elabTerm`, `ensureHasType`, `elabType`, pending list, instance search | every application; explicit mode, named arguments and eta arguments are new states of the same machine; local instances added to `getInstances` |
 | FE1f header and hand-over | declarations with natural binders; auto-bound loop and universe parameters wrap it |
 | FE1g context views, goals, tactic runner, `kabstract` | binders' local declarations; nested `by` blocks; `▸` |
@@ -641,14 +655,16 @@ block: its kept source span, as FE1g keeps blocks).
 | `elab-field.fs` | field notation | elab-app, elab-data format 3 |
 | `elab-notation.fs` | `⟨⟩`, `show`, `:`, `sorry`, `▸`, literals, the macro kinds of §2.3 | elab-app, FE1g `kabstract` |
 | `elab-header.fs` | auto-bound loop, universe parameters, section variables, commands | FE1f |
-| `elab-data.fs` (FE1d, format 3) and `scripts/export-elab.sh` | structures: fields, parents, projection functions, resolution order; `elab_without_expected_type` | lib/json.fs |
+| `elab-data.fs` (FE1d, format 3) and `scripts/export-elab.sh` | structures: fields, parents, projection functions, resolution order | lib/json.fs |
 | `src/present/print-natural.fs` | the printer's natural mode (§5.4) | present/, notation table v2 |
 | `src/present/notation-table.fs` (version 2) | the macro column and the new rows of §2.3 | — |
 
 ### 5.4 The printer's natural mode and the Init round trip
 
-`leanforth print --lf` writes natural LeanForth by default (the kernel
-form behind `kernel-form`, as today). The natural printer omits what the
+`leanforth print --lf` gains the natural form (today it writes the kernel
+form, starting with `kernel-form`); FE2i proposes the natural form as its
+default, as natural text is the default to read (owner's answer 4), with
+an option for the kernel form. The natural printer omits what the
 elaborator will find again: implicit and instance arguments, binder types
 where `fun` gets them from the expected type, universe arguments, the
 `OfNat` of numerals, and uses the operator words. Lean's delaborator does
@@ -680,7 +696,7 @@ as FE3 and FE4 land (instances, coercions).
 
 State (ADR 0009): members of the checker context: the postponed
 metavariables' saved contexts (a store), the section scopes (variables,
-`include`, options), the auto-bound list of the header being elaborated;
+options), the auto-bound list of the header being elaborated;
 everything grows in the heap; no host recursion (elaboration runs on
 `lib/frame.fs` steps, as FE1e's). Fuel: one unit per elaboration visit, a
 restart of the auto-bound loop counted like a visit; *exhausted* when out.
@@ -696,9 +712,9 @@ retired.
 FE1d's records (instances, default instances, reducibility, eliminators)
 and FE1e's format 2 (keys, ranks, classes, tags) gain: for each structure,
 its fields in order with their projection functions and binder kinds, its
-parents with their projections, its resolution order (Lean's
-`getStructureResolutionOrder`), and the tag `elab_without_expected_type`.
-LeanForth checks each record against the export (the structure is an
+parents with their projections, and its resolution order (Lean's
+`getStructureResolutionOrder`), which `findMethod?` walks. LeanForth
+checks each record against the export (the structure is an
 inductive with one constructor whose explicit fields are the listed ones;
 each projection function exists and has the projection's shape) and fails
 closed, as FE1d does. Probe needed in FE2f: the counts for Init.
@@ -787,7 +803,7 @@ review; sizes are the plan's S (under a day), M (days) and L.
 
 | Step | What | Size | Needs |
 | --- | --- | --- | --- |
-| FE2a | Reader words, part 1: `Prop`, `Type`, `Sort`, `->`, binder closers (`fun`, `forall`, `∃`), `_`, `.{ }`; the arity rule with `whnf` and the scratch count (error 73 retired); syntax kinds; the gap ledger file | S–M | FE1a, FE1c (`whnf`), FE1g-1 (trail) |
+| FE2a | Reader words, part 1: `Prop`, `Type`, `Sort`, the level words, `->`, binder closers (`fun`, `forall`, `∃`), `_`, `.{ }`; the arity rule with `whnf` and the scratch count (error 73 retired); syntax kinds; the gap ledger file | S–M | FE1a, FE1c (`whnf`), FE1g-1 (trail) |
 | FE2b | Binder elaboration: `∀`, `→`, `fun` with propagation, local declarations in context views, local instances in `getInstances`; A1, A5, A6, A25, A32, A37, A38 | M | FE1e, FE1g-1 |
 | FE2c | Postponement and implicit lambdas; `#check` with holes; A2, A4, A23, A29, A35, E1 | M | FE2b |
 | FE2d | Applications in full: `@`, `@ '`, `named:`, eta arguments, `optParam`; A7–A10, A31, A40, E5 | M | FE1e (`elab-app.fs`), FE2a |
@@ -857,13 +873,16 @@ Lean 4.35.0 sources read (pinned toolchain, `src/lean/Lean/`):
 (23-70, 540-580), `Elab/MutualDef.lean` (440-480, 595-610),
 `Elab/DeclUtil.lean` (79), `Meta/SynthInstance.lean` (203-239),
 `Meta/Basic.lean` (180-200), `Meta/WHNF.lean` (395-410, 590-635),
-`Init/Notation.lean` (293, 313).
+`Init/Notation.lean` (293-313, 390-410), `Init/Core.lean` (197, 777,
+882).
 
 Probes, run with the pinned binary
 (`.tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean`, never an
 elan proxy), `ulimit -u 500`, `timeout -k 5 120`, `nice -n 15`, kept in
 `.claude/work/D2/probes/` of the design worktree (`p1.lean` … `p4.lean`
-with their `.out` files):
+with their `.out` files; machine-local working files, so the Lean side of
+every case is also given in §4 and the probes can be rerun from this
+page, each file starting with `set_option pp.all true`):
 
 - p1: A1–A38's Lean side (`set_option pp.all true`, `#check` and
   `#print`), 0.3 s.
