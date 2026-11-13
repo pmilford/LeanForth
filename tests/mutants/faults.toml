@@ -12124,8 +12124,8 @@ quick = true
 [[fault]]
 id = "fe-unused-universe-accepted"
 file = "src/front/handover.fs"
-old = '''  lfh-unused-of if lfa-e-unused-universe lfh-refuse else outcome-ok then ;'''
-new = '''  drop outcome-ok ;'''
+old = '''  lfh-unused-of if lfa-e-unused-universe lfh-refuse exit then'''
+new = '''  drop'''
 test = "$GFORTH tests/front/handover.fs"
 reason = "FE1f: a universe parameter neither the type nor the value uses is kept, where Lean refuses it"
 quick = true
@@ -12288,3 +12288,12 @@ old = '''  tuck table-size 0 ?do -1 over i swap table-cell ! loop drop ;'''
 new = '''  2drop ;'''
 test = "$GFORTH tests/front/constructions.fs"
 reason = "review fe6a-2 N3: the table keeps an earlier renumbering's cells instead of refusing: FE6.Odd.casesOn differs"
+
+[[fault]]
+id = "fe-hole-before-unused"
+file = "src/front/handover.fs"
+old = '''  lfh-unused-of if lfa-e-unused-universe lfh-refuse exit then'''
+new = '''  lf-reach-holes? if drop lfa-e-incomplete lfh-refuse exit then lfh-unused-of if lfa-e-unused-universe lfh-refuse exit then'''
+test = "$GFORTH tests/front/handover.fs"
+reason = "review fe1f L-a: a hole is told before an unused universe parameter, where pinned Lean tells only the parameter (theorem t5.{v} : True := _)"
+quick = true
