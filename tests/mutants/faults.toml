@@ -11317,3 +11317,27 @@ old = '''  outcome-ok ['] snap-lists ok-with ['] put-slots ok-with ['] put-rest 
 new = '''  outcome-ok ['] snap-lists ok-with ['] put-slots ok-with'''
 test = "$GFORTH tests/core/env-snapshot.fs"
 reason = "FRK A (snap-build): the dependencies, lookups and sites are not written"
+
+[[fault]]
+id = "frk-lay-starts-room-full"
+file = "src/kernel/env-layers.fs"
+old = ''': lay-starts-room ( lay -- outcome ) dup lay-cur @ swap starts-grow ;'''
+new = ''': lay-starts-room ( lay -- outcome ) drop outcome-full ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "FRK A (lay-room): the last step's failure is the layer's outcome, so a layer whose starts cannot grow is never merged"
+
+[[fault]]
+id = "frk-imp-to-room-full"
+file = "src/kernel/env-import.fs"
+old = ''': imp-to-room ( imp -- outcome ) dup imp-sn @ swap imp-to ua-new ;'''
+new = ''': imp-to-room ( imp -- outcome ) drop outcome-full ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "FRK A (imp-input): the last step's failure is the import's outcome"
+
+[[fault]]
+id = "frk-imp-keep-no-names"
+file = "src/kernel/env-import.fs"
+old = '''  outcome-ok ['] keep-copy ok-with ['] keep-slots ok-with ['] keep-names ok-with nip ;'''
+new = '''  outcome-ok ['] keep-copy ok-with ['] keep-slots ok-with nip ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "FRK A (imp-keep): S's newest declaration of each name is not kept, so a name query of the import finds none"

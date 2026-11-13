@@ -109,10 +109,13 @@ end-structure
 : lay-zeros ( n addr -- outcome )
   >r u32s 1 max dup allocate if 2drop r> drop outcome-full exit then
   dup rot erase r> ! outcome-ok ;
-: lay-arrays ( lay -- outcome )
-  dup lay-n @ over lay-map lay-zeros dup ok? 0= if nip exit then drop
-  dup lay-n @ over lay-new lay-zeros dup ok? 0= if nip exit then drop
+: lay-map-room ( lay -- outcome ) dup lay-n @ swap lay-map lay-zeros ;
+: lay-new-room ( lay -- outcome ) dup lay-n @ swap lay-new lay-zeros ;
+: lay-old-room ( lay -- outcome )
   dup lay-stage @ stage-decls 2dup swap lay-old ! swap lay-slots lay-zeros ;
+: lay-arrays ( lay -- outcome )
+  outcome-ok ['] lay-map-room ok-with ['] lay-new-room ok-with ['] lay-old-room ok-with
+  nip ;
 : lay-slot-of ( sd lay -- s ) lay-slots @ ly@ 1- ;
 : lay-slots-fill ( lay -- )
   0 over lay-old @ 0 ?do
@@ -295,14 +298,20 @@ end-structure
   0 over lay-n @ 0 ?do
     i 2 pick lay-new @ ly@ if over i swap lay-slot 3 pick swap fld@ + then
   loop nip nip ;
-: lay-room ( lay -- outcome )
+: lay-slots-grow ( lay -- outcome )
   dup lay-cur @ sl-fields# u32s * over lay-base @ ss-slots swap snap-size - ss-slots
-  2 pick base-grow dup ok? 0= if nip exit then drop
-  sl-deps over lay-adds u32s ss-deps 2 pick base-grow dup ok? 0= if nip exit then drop
-  sl-looks over lay-adds 8 * ss-looks 2 pick base-grow dup ok? 0= if nip exit then drop
-  ss-sites over lay-snap snap-size ss-sites 2 pick base-grow
-  dup ok? 0= if nip exit then drop
-  dup lay-cur @ swap starts-grow ;
+  rot base-grow ;
+: lay-deps-grow ( lay -- outcome )
+  sl-deps over lay-adds /snap-dep * ss-deps rot base-grow ;
+: lay-looks-grow ( lay -- outcome )
+  sl-looks over lay-adds /snap-look * ss-looks rot base-grow ;
+: lay-sites-grow ( lay -- outcome )
+  ss-sites over lay-snap snap-size ss-sites rot base-grow ;
+: lay-starts-room ( lay -- outcome ) dup lay-cur @ swap starts-grow ;
+: lay-room ( lay -- outcome )
+  outcome-ok ['] lay-slots-grow ok-with ['] lay-deps-grow ok-with
+  ['] lay-looks-grow ok-with ['] lay-sites-grow ok-with ['] lay-starts-room ok-with
+  nip ;
 \ The slot being appended (review rvSN4 m4: a cursor in the record): the
 \ layer's slot j and its slot s as loaded; where the layer's lists of j
 \ start; how many field k (sl-deps, sl-looks) of s counts; where the base
@@ -314,7 +323,7 @@ end-structure
 : lay-dep-at ( lay -- addr )
   lay-base @ dup ss-deps swap snap-block swap snap-dk @ u32s + ;
 : lay-look-at ( lay -- addr )
-  lay-base @ dup ss-looks swap snap-block swap snap-lk @ 8 * + ;
+  lay-base @ dup ss-looks swap snap-block swap snap-lk @ /snap-look * + ;
 \ Dependency i and lookup i of j, numbered as loaded, into s's list.
 : lay-dep! ( i lay -- )
   2dup dup lay-j swap lay-from drop + over lay-snap dep@ over lay-slot#
@@ -345,12 +354,15 @@ end-structure
 
 \ Load the layer named c-addr u (fuel per declaration as the base's) on
 \ the base (lay-init): ok, or why not (lay-error).
-: lay-merge ( lay -- outcome )
-  dup lay-arrays dup ok? 0= if nip exit then drop
+\ The slots filled, the cursor and the sites' start at the base's ends,
+\ then the units entered.
+: lay-ends ( lay -- )
   dup lay-slots-fill dup lay-base @ snap-n @ over lay-cur !
-  dup lay-base @ ss-sites swap snap-size over lay-site0 !
-  dup lay-units dup ok? 0= if nip exit then drop
-  dup lay-appends dup ok? if over lay-sites then nip ;
+  dup lay-base @ ss-sites swap snap-size swap lay-site0 ! ;
+: lay-filled ( lay -- outcome ) dup lay-ends lay-units ;
+: lay-merge ( lay -- outcome )
+  outcome-ok ['] lay-arrays ok-with ['] lay-filled ok-with ['] lay-appends ok-with
+  dup ok? if over lay-sites then nip ;
 : lay-load ( c-addr u fuel lay -- outcome )
   dup >r lay-open dup ok? if drop r@ lay-merge then r> drop ;
 
