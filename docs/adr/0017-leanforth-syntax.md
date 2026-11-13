@@ -2446,9 +2446,11 @@ part (`N.0.f`). Untrusted authoring and presentation only; no checker change.
 
 ## Amendment 2: LeanForth text checked by the kernel (2026-11-12)
 
-**Status: proposed and built 2026-11-12 (plan tasks 8.2.1c and 8.2.1d,
-agent LF1, branch `lf-files`); integrated, not through its [parser],
-[bypass] and [import] gates.** It records how
+**Status: accepted [parser][bypass][import] by the owner on 2026-11-12
+(OWNER_DECISIONS.md, "LeanForth text checked by the kernel"), after the
+Forth reviews of lf-files and lf-files-2 and the done check
+(done-checks/2026-11-12-lf-files.md: works end to end); plan tasks
+8.2.1a, 8.2.1c and 8.2.1d.** It records how
 Amendment 1's A1, A3, A4 and A6 were built and where the build differs
 from them. It changes no typing or conversion rule, no axiom rule and no
 kernel module: the declarations reach the kernel through the importer

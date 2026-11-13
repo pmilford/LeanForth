@@ -5,7 +5,10 @@ Status: **proposed** 2026-11-12 (plan rows FE1–FE12 of the
 which replace rows 8.3.1 and 8.3.2). Nothing of it is built. Design
 gates: [bypass] for D1–D3, [parser] for D4, D8 and D10 (rules that decide
 what a statement means), [axiom] for D7, and [owner] for the spellings in
-D8 and D9 ([questions 1–4](../design/FRONT_END.md#9-questions-for-the-owner)).
+D8 and D9 ([questions 1–4](../design/FRONT_END.md#9-questions-for-the-owner)). The owner answered questions 1–4, 6, 7 and 8 on
+2026-11-12 (OWNER_DECISIONS.md, "Front-end syntax"; D10's elaboration-data
+exporter approved as a development tool); the ADR as a whole stays proposed
+until FE1 is built and reviewed.
 It builds on [ADR 0017](0017-leanforth-syntax.md) (LeanForth syntax, with
 Amendment 1, accepted, and Amendment 2 on branch `lf-files-2`, proposed),
 [ADR 0008](0008-outcome-vocabulary.md) (outcomes),

@@ -29,7 +29,7 @@ status changes when this date is older than them. Stages are those of the
 [done checker](../development/DONE_CHECKER.md).
 
 **Now**
-- LeanForth text checked by LeanForth's kernel, with Init imported for real (plan 8.2.1a, c, d): works end to end (done check docs/development/done-checks/2026-11-12-lf-files.md); owner gates [parser], [bypass], [import] pending.
+- LeanForth text checked by LeanForth's kernel, with Init imported for real (plan 8.2.1a, c, d): works end to end (done check docs/development/done-checks/2026-11-12-lf-files.md); owner gates [parser], [bypass], [import] approved by the owner 2026-11-12.
   `leanforth check [--env EXPORT] FILE.lf` checks hand-written kernel terms; no elaborator or tactics yet. 8.2.1b, e, f
   and g are not started.
 - Fixes before tonight's run: the performance review's findings (rvPF1), the broken coverage tool and a coverage
@@ -58,7 +58,7 @@ status changes when this date is older than them. Stages are those of the
 
 **Current state, 2026-11-12 afternoon (main `700c4a1`, verdict version 9).**
 Today LeanForth **re-checks proofs that Lean produced and exported** (NDJSON); it does
-check LeanForth text only as hand-written kernel terms with no elaborator or tactics (plan 8.2.1a, c, d: works end to end (done check docs/development/done-checks/2026-11-12-lf-files.md); owner gates [parser], [bypass], [import] pending; 8.2.1b, e, f and g not started). Re-checking Lean's export of all of
+check LeanForth text only as hand-written kernel terms with no elaborator or tactics (plan 8.2.1a, c, d: works end to end (done check docs/development/done-checks/2026-11-12-lf-files.md); owner gates [parser], [bypass], [import] approved by the owner 2026-11-12; 8.2.1b, e, f and g not started). Re-checking Lean's export of all of
 Mathlib gave Lean's verdict on every declaration: all **729,263 of
 729,263 accepted** on build `b74a04d` (before K1 and PERF1; exit 0; one NOT PROVED,
 `sorryAx` itself, as in Lean), on 8 workers with fuel 250,000,000,
@@ -201,7 +201,7 @@ is temporary and has its closing task):
     with `param:`); a library such as `Init` is one vocabulary looked up by
     hash index; the owner's concern about letter case is answered by an
     exact rule per layer, tested on `Init`'s 31 case pairs on both Gforths.
-    Plan 8.2.1 is split into steps 8.2.1a-g: 8.2.1a, c and d works end to end (done check docs/development/done-checks/2026-11-12-lf-files.md); owner gates [parser], [bypass], [import] pending; 8.2.1b, e, f and g are not started.
+    Plan 8.2.1 is split into steps 8.2.1a-g: 8.2.1a, c and d works end to end (done check docs/development/done-checks/2026-11-12-lf-files.md); owner gates [parser], [bypass], [import] approved by the owner 2026-11-12; 8.2.1b, e, f and g are not started.
 
 **The checker on the large store was held in the morning and approved in the
 evening of 2026-11-04.** The owner had asked whether the fixed limits of 64
@@ -511,7 +511,7 @@ tasks, not the plan's.
 | 5.2.1c indexed families, 5.2.2 structures and projections, 5.2.3 literals, 5.2.5 mutual and nested blocks, 5.2.6 per-declaration verdict for unclosed files | not started; they close the temporary gaps of 5.2.1a-b and are on the way to `n + 0 = n` |
 | 3.4.3 `--json` report (`check-report-0.1`) | **done**: [format] gate approved 2026-11-04; `--strict-axioms` and `--fast` implemented (`84725e6`) |
 | 6.5.5 work linear in a term's depth | not started (the quadratic cost is the temporary price of 6.2.0 part b) |
-| 8.2.1a-g native and inline LeanForth (design accepted) | 8.2.1a, c, d: works end to end (done check docs/development/done-checks/2026-11-12-lf-files.md); owner gates [parser], [bypass], [import] pending; 8.2.1b, e, f and g not started; 8.6.3 not started |
+| 8.2.1a-g native and inline LeanForth (design accepted) | 8.2.1a, c, d: works end to end (done check docs/development/done-checks/2026-11-12-lf-files.md); owner gates [parser], [bypass], [import] approved by the owner 2026-11-12; 8.2.1b, e, f and g not started; 8.6.3 not started |
 | SHA-2 helper words (program track) | **in progress**: 4 of 8 words proved (ROTR, Ch, Maj, Σ0); SHR, Σ1, σ0, σ1 remain |
 | 5.3.3 review of the axiom rule (owner, 2026-11-04) | planned; options to be brought in plain words |
 | 6.1.6 other Lean libraries (a few small ones and the largest) | planned (owner, 2026-11-03: "soon", not yet) |

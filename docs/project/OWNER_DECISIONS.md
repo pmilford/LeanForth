@@ -964,8 +964,28 @@ The owner answered the first four front-end questions:
 5. **LeanForth finding a proof by itself comes early** (owner: "Yes bring forward the leanforth finds a proof by
    itself"): new plan row FE1i, `by-decide` and a first slice of `by-omega`, right after FE1.
 
-Questions 5-9 of the design (milestone order, what "full Lean" means, how exact proof terms must be, the elaboration-data exporter,
-Mathlib's code extensions) are open.
+6. **What "full Lean" means (question 6): anything a Lean user can write can be written in LeanForth, with Lean's
+   results**; LeanForth does not read `.lean` files, and Lean libraries come in through Lean's export (FE-L stays not
+   planned).
+7. **How exact (question 7):** statements identical always; proof terms identical for elaboration and the core tactics
+   (FE1-FE8), compared with pinned Lean; for search tactics (`simp`, `omega`, `linarith`, ...) the same goals solved or
+   refused and a kernel-accepted proof, identical terms measured but not required.
+8. **The elaboration-data exporter (question 8): approved** as a development tool run with pinned Lean when a library
+   is exported (ADR 0021 D10); users who only check LeanForth text need no Lean.
+
+Questions 5 (milestone order) and 9 (Mathlib's code extensions) of the design are open.
+
+### LeanForth text checked by the kernel (2026-11-12, evening; [parser][bypass][import] gates)
+
+The owner approved plan tasks 8.2.1a, 8.2.1c and 8.2.1d (ADR 0017 Amendment 2), choosing the recommendation:
+`leanforth check [--env EXPORT | --snapshot FILE] FILE.lf` runs LeanForth text with only LeanForth's words visible,
+writes each declaration as the records Lean's exporter writes and sends them through the importer stage to the same
+kernel; no kernel rule changed. Evidence: the records equal pinned Lean's export for 56 declarations of 19 fixtures;
+broken texts refused at their line and column, never accepted; a refused or partial text never reaches the kernel;
+Forth reviews of lf-files and lf-files-2 with re-checks, not blocking (LOG.md); done check
+(done-checks/2026-11-12-lf-files.md): works end to end. Proofs in `.lf` files are still kernel terms written by hand
+(no elaborator or tactics yet).
+
 
 ### No result labels (2026-11-12, evening)
 
