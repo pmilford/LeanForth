@@ -44,8 +44,12 @@
 \ occurs-check failure or a cycle; full when a store or the heap has no
 \ room; unsupported as above. Untrusted: whatever the context says, only
 \ the kernel's check of the finished term decides anything.
+\ - Marks (Lean's checkpointDefEq): lf-mctx-mark opens one; lf-mctx-rollback
+\   undoes every assignment made since, plain, level or delayed;
+\   lf-mctx-commit keeps them. Marks nest.
 \ Words: lf-mctx-reset, lf-mctx-deeper, lf-mctx-shallower, lf-mctx-depth;
-\ lf-mvar-new ( type kind -- mvar outcome ), lf-mvar-live?, lf-mvar-type,
+\ lf-mctx-mark ( -- mark ), lf-mctx-rollback ( mark -- ), lf-mctx-commit
+\ ( mark -- ); lf-mvar-new ( type kind -- mvar outcome ), lf-mvar-live?, lf-mvar-type,
 \ lf-mvar-kind, lf-mvar-value, lf-mvar-lctx, lf-mvar-assignable?,
 \ lf-mvar-assign ( mvar value -- outcome ), lf-delay-fvar ( fvar --
 \ outcome ), lf-mvar-delay ( mvar pending n -- outcome ), lf-mvar-delayed
@@ -56,8 +60,9 @@
 \ lf-level-mvar-occurs?, lf-level-instantiate-mvars ( level -- level'
 \ outcome ), lf-instantiate-mvars ( term -- term' outcome ).
 \ State: the record mctx (with the two walk records of dag-walk.fs, whose
-\ heap blocks live only while a walk runs) and the stores mv-exprs,
-\ mv-levels and mv-fvars, in the checker context (ADR 0009).
+\ heap blocks live only while a walk runs), the stores mv-exprs,
+\ mv-levels and mv-fvars and the slab mv-trail, in the checker context
+\ (ADR 0009).
 
 require ../lib/lib.fs
 require ../core/terms.fs
@@ -96,6 +101,7 @@ begin-structure /mctx
   field: mctx-epoch       \ leaves of another epoch are stale
   field: mctx-depth
   field: mctx-target      \ the metavariable an occurs check seeks
+  field: mctx-marks       \ marks open (lf-mctx-mark)
   field: mctx-pairs       \ heap, while a constant is rebuilt: its new level pairs
   /dw +field mctx-walk    \ the term walks
   /dw +field mctx-lwalk   \ the level walks
@@ -104,6 +110,7 @@ end-structure
 store-header context-record: mv-exprs
 store-header context-record: mv-levels
 store-header context-record: mv-fvars
+1 cells context-slab: mv-trail    \ assignments under a mark: number * 4 + kind
 
 \ The stores: heap stores that grow up to the heap (plan task 6.2.0).
 16 constant mv-room
@@ -117,14 +124,15 @@ store-header context-record: mv-fvars
   mv-exprs store-heap-free mv-levels store-heap-free mv-fvars store-heap-free ;
   context-teardown
 
-\ The context: emptied, with a new epoch, at depth 0.
+\ The context: emptied, with a new epoch, at depth 0, no mark open.
 : mctx-epoch@ ( -- n ) mctx mctx-epoch @ ;
 : lf-mctx-depth ( -- n ) mctx mctx-depth @ ;
 : lf-mctx-deeper ( -- ) 1 mctx mctx-depth +! ;
 : lf-mctx-shallower ( -- ) lf-mctx-depth 1- 0 max mctx mctx-depth ! ;
+: mv-marks ( -- addr ) mctx mctx-marks ;
 : lf-mctx-reset ( -- )
-  mv-exprs store-clear mv-levels store-clear mv-fvars store-clear
-  mctx-epoch@ 1+ mv-epoch-mask and mctx mctx-epoch ! 0 mctx mctx-depth ! ;
+  mv-exprs store-clear mv-levels store-clear mv-fvars store-clear mv-trail slab-clear
+  mctx-epoch@ 1+ mv-epoch-mask and mctx mctx-epoch ! 0 mctx mctx-depth ! 0 mv-marks ! ;
 
 \ Live leaves: a term leaf is the one its record names (term leaves are
 \ never shared, so a leaf of an emptied context is never a new record's);
@@ -249,6 +257,35 @@ store-header context-record: mv-fvars
 : lf-level-mvar-occurs? ( mvar level -- flag outcome )
   swap mv-target ! ['] mvl-occurs-build mvl-walk dw-run swap 0<> swap ;
 
+\ ---- Marks, for Lean's checkpointDefEq (it saves the metavariable
+\ context and restores it when the comparison fails): while a mark is
+\ open each assignment, plain, level or delayed, is noted on the trail
+\ mv-trail (its record's number * 4 + its kind) before it is stored; a
+\ trail the heap cannot grow refuses the assignment (full). Rolling back
+\ to a mark undoes the assignments noted after it, latest first; a commit
+\ keeps them, for an outer mark to undo; when the last mark closes the
+\ trail is emptied. Metavariables made after a mark stay made, unassigned
+\ (Lean's restored context no longer has them; no term then refers to
+\ them).
+0 constant mv-was-value
+1 constant mv-was-level
+2 constant mv-was-delay
+: mv-note ( n kind -- outcome )
+  mv-marks @ 0= if 2drop outcome-ok exit then swap 2 lshift or
+  1 mv-trail slab-claim dup ok? if drop mv-trail slab-at ! outcome-ok else nip nip then ;
+: mv-store ( value addr n kind -- outcome )
+  mv-note dup ok? if drop ! outcome-ok else nip nip then ;
+: mv-undo-cell ( entry -- addr )
+  dup 2 rshift swap 3 and case mv-was-value of mv-decl mvd-value endof
+    mv-was-level of mvl-decl mvl-value endof  >r mv-decl mvd-pending r> endcase ;
+: mv-trail-top ( -- entry ) mv-trail dup slab-count 1- swap slab-at @ ;
+: mv-undo ( -- ) mv-trail-top mv-undo-cell -1 swap ! -1 mv-trail slab-commit ;
+: mv-unmark ( -- ) mv-marks @ 1- 0 max dup mv-marks ! 0= if mv-trail slab-clear then ;
+: lf-mctx-mark ( -- mark ) 1 mv-marks +! mv-trail slab-count ;
+: lf-mctx-rollback ( mark -- )
+  begin dup mv-trail slab-count < while mv-undo repeat drop mv-unmark ;
+: lf-mctx-commit ( mark -- ) drop mv-unmark ;
+
 \ ---- Assignment: once, to a live leaf, the occurs check passed; a walk
 \ that fails gives its own outcome and nothing is assigned.
 : mv-occurs-outcome ( flag outcome -- outcome )
@@ -260,7 +297,7 @@ store-header context-record: mv-fvars
   over mv-free? 0= if 2drop outcome-invalid exit then lf-mvar-occurs? mv-occurs-outcome ;
 : lf-mvar-assign ( mvar value -- outcome )
   2dup mv-sound dup ok? 0= if nip nip exit then drop
-  swap mv-number mv-decl mvd-value ! outcome-ok ;
+  swap mv-number dup mv-decl mvd-value swap mv-was-value mv-store ;
 : mvl-free? ( level -- flag )
   dup lf-level-mvar-live? if mvl-number mvl-decl mvl-value @ 0< else drop false then ;
 : mvl-sound ( mvar value -- outcome )
@@ -269,7 +306,7 @@ store-header context-record: mv-fvars
   lf-level-mvar-occurs? mv-occurs-outcome ;
 : lf-level-mvar-assign ( level value -- outcome )
   2dup mvl-sound dup ok? 0= if nip nip exit then drop
-  swap mvl-number mvl-decl mvl-value ! outcome-ok ;
+  swap mvl-number dup mvl-decl mvl-value swap mv-was-level mv-store ;
 
 \ Delayed assignments: lf-delay-fvar appends a live free variable;
 \ lf-mvar-delay gives the free metavariable mvar the last n appended and
@@ -284,7 +321,8 @@ store-header context-record: mv-fvars
   tuck mvd-fvars# ! mv-fvars# over mvd-fvars# @ - over mvd-fvars ! mvd-pending ! ;
 : lf-mvar-delay ( mvar pending n -- outcome )
   >r 2dup r@ mv-delayable? 0= if r> drop 2drop outcome-invalid exit then
-  r> rot mv-number mv-decl mv-delay! outcome-ok ;
+  swap mv-number dup mv-was-delay mv-note dup ok? 0= if nip nip r> drop exit then
+  drop r> swap mv-decl mv-delay! outcome-ok ;
 : lf-mvar-delayed ( mvar -- pending addr n true | false )
   mv-of 0= if false exit then dup mvd-pending @ dup 0< if 2drop false exit then
   swap dup mvd-fvars @ mv-fvars store-slot swap mvd-fvars# @ true ;

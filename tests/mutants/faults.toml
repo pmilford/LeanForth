@@ -10694,3 +10694,27 @@ old = '''  if drop ls-pairs slab-at 2! outcome-ok else nip nip nip then ;'''
 new = '''  if drop ls-pairs slab-at 2! outcome-ok else nip nip nip drop outcome-ok then ;'''
 test = "$GFORTH tests/front/meta-heap.fs"
 reason = "FE1c review L4: level equality whose pair stack the heap cannot grow answers as if the pair were equal, instead of full"
+
+[[fault]]
+id = "fe-mctx-rollback-keeps"
+file = "src/front/mvars.fs"
+old = ''': mv-undo ( -- ) mv-trail-top mv-undo-cell -1 swap ! -1 mv-trail slab-commit ;'''
+new = ''': mv-undo ( -- ) mv-trail-top mv-undo-cell drop -1 mv-trail slab-commit ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1c tidy-up c: a rollback leaves the assignments made since its mark, where Lean's checkpointDefEq restores the metavariable context"
+
+[[fault]]
+id = "fe-mctx-mark-unnoted"
+file = "src/front/mvars.fs"
+old = '''  mv-marks @ 0= if 2drop outcome-ok exit then swap 2 lshift or'''
+new = '''  2drop outcome-ok exit'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1c tidy-up c: assignments under a mark are not noted, so no rollback can undo them"
+
+[[fault]]
+id = "fe-mctx-commit-clears"
+file = "src/front/mvars.fs"
+old = ''': lf-mctx-commit ( mark -- ) drop mv-unmark ;'''
+new = ''': lf-mctx-commit ( mark -- ) drop mv-unmark mv-trail slab-clear ;'''
+test = "$GFORTH tests/front/front.fs"
+reason = "FE1c tidy-up c: an inner commit forgets its assignments, so the outer rollback cannot undo them"

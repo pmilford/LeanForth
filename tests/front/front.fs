@@ -373,6 +373,34 @@ T{ r1p lf-instantiate-mvars nip -> outcome-ok }T
 T{ 1 mv-fvars store-limit! x lf-delay-fvar x lf-delay-fvar -> outcome-ok outcome-ok outcome-full }T
 T{ 1 cells mv-limit mv-fvars store-limit! -> outcome-ok }T
 
+\ Marks (Lean's checkpointDefEq): a rollback undoes the assignments made
+\ since its mark, plain, level and delayed, and only those; a commit keeps
+\ them for an mark-out mark; marks nest; the trail empties with the last.
+lf-mctx-reset
+: lnew ( -- level ) lf-level-mvar-new ok? 0= abort" lnew" ;
+: lfree? ( level -- flag ) lf-level-mvar-value dup if nip then 0= ;
+: tfree? ( mvar -- flag ) lf-mvar-value dup if nip then 0= ;
+lnew constant lma  lnew constant lmb  mv-natural new constant ta  mv-natural new constant tb
+variable mark-out  variable mark-in
+T{ lf-mctx-mark dup mark-out ! lma one lf-level-mvar-assign -> 0 outcome-ok }T
+T{ lf-mctx-mark dup mark-in ! ta prop lf-mvar-assign lmb one lf-level-mvar-assign
+   -> 1 outcome-ok outcome-ok }T
+T{ mark-in @ lf-mctx-rollback lma lfree? lmb lfree? ta tfree? -> false true true }T
+T{ mv-trail slab-count mv-marks @ -> 1 1 }T
+T{ mark-out @ lf-mctx-commit lma lfree? mv-trail slab-count mv-marks @ -> false 0 0 }T
+\ An mark-in commit, then the mark-out rollback undoes both; a delayed
+\ assignment is undone too.
+T{ lf-mctx-mark mark-out ! lf-mctx-mark mark-in ! lmb one lf-level-mvar-assign -> outcome-ok }T
+T{ mark-in @ lf-mctx-commit tb ta 0 lf-mvar-delay mark-out @ lf-mctx-rollback -> outcome-ok }T
+T{ lmb lfree? tb lf-mvar-delayed lma lfree? -> true false false }T
+\ Without a mark nothing is noted; a rollback with no mark open undoes
+\ nothing and leaves the count at 0.
+T{ lmb one lf-level-mvar-assign mv-trail slab-count -> outcome-ok 0 }T
+T{ 0 lf-mctx-rollback lmb lfree? mv-marks @ -> false 0 }T
+\ A refused assignment notes nothing: ?a is assigned already.
+T{ lf-mctx-mark mark-out ! lma one lf-level-mvar-assign mv-trail slab-count -> outcome-invalid 0 }T
+T{ mark-out @ lf-mctx-rollback lma lfree? lf-mctx-reset mv-marks @ -> false 0 }T
+
 T{ lfc-library-close -> }T
 T{ depth -> 0 }T
 cr .( front.fs: all tests passed) cr
