@@ -925,7 +925,7 @@
   "long words": 0,
   "rstack": 21,
   "shuffles": 7,
-  "words": 75
+  "words": 77
  },
  "src/lib/frame.fs": {
   "globals": 0,

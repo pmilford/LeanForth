@@ -3286,6 +3286,14 @@ new = '''  over context-torn swap ior-earlier swap context-discard ior-earlier ;
 test = "$GFORTH tests/lib/context.fs"
 reason = "the context review's L1 (b): a failed context-new gives a teardown word's code instead of the setup word's, which came first"
 
+[[fault]]
+id = "context-slabs-not-freed"
+file = "src/lib/context.fs"
+old = ''': slab-listed ( member -- member ) context-slabs member-listed ;'''
+new = ''': slab-listed ( member -- member ) ;'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "the item-1 review's L1: a context's slab member is not listed, so its heap block is not freed with the context"
+
 # --- run records and replay (src/import/run-record.fs, run-replay.fs) -------
 
 [[fault]]
