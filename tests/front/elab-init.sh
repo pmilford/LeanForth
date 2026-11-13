@@ -54,9 +54,11 @@ if [ "$records" != b31ba2cf7f1490fab60d5e1bf650ed39282d73cb783e4dabc359b0d1b7d32
   exit 1
 fi
 echo "Init's elaboration data has the pinned records_sha256"
-PATH="$toolchain/bin:$PATH" "$lean" -DwarningAsError=true --run \
+# Two threads each: under a per-user process limit (ulimit -u, which counts
+# threads) a default Lean on a busy machine could not start its workers.
+PATH="$toolchain/bin:$PATH" "$lean" -j 2 -DwarningAsError=true --run \
   tests/reference/elab-data-counts.lean >"$work/lean.txt"
-PATH="$toolchain/bin:$PATH" "$lean" -DwarningAsError=true --run \
+PATH="$toolchain/bin:$PATH" "$lean" -j 2 -DwarningAsError=true --run \
   tests/reference/elab-instance-order.lean >"$work/order.txt"
 "$gforth" tests/front/elab-init.fs -e "s\" $work/init.ndjson\" s\" $work/init.elab.ndjson\" \
   elab-init-report bye" </dev/null >"$work/forth.txt"

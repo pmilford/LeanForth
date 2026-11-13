@@ -132,8 +132,9 @@ T{ 0 elab-left-out@ 0 elab-left-out-keys nip -> 100 0 elab-not-exported 2 }T
 T{ 0 0 left-key 0 elab-instance-keys drop elab-key= 0 1 left-key elab-key-tag
    -> true elab-key-star }T
 T{ 2 1 left-key dup elab-key-tag swap elab-key-arity -> elab-key-foreign 0 }T
-T{ 2 1 left-key elab-key-text nip 2 1 left-key elab-key-text drop c@ -> 11 char s }T
-T{ 2 1 left-key elab-key-text 5 /string s" Dyadic" compare -> 0 }T
+T{ 2 1 left-key elab-key-text nip 2 1 left-key elab-key-text drop u32-le@ -> 14 0 }T
+T{ 2 1 left-key elab-key-text drop 4 + u32-le@ 2 1 left-key elab-key-text 8 /string s" Dyadic" compare
+   -> 6 0 }T
 T{ 2 1 left-key 28 1 left-key elab-key= 2 1 left-key 4 1 left-key elab-key= -> true false }T
 T{ 26 2 left-key dup elab-key-tag swap elab-key-text s" 0" compare -> elab-key-lit 0 }T
 T{ 26 elab-left-out@ -> 300 1 elab-not-exported }T

@@ -560,22 +560,22 @@ create ed-reason-names  s" erased" counted, s" not_exported" counted, 0 0 counte
 
 \ ---- Keys (front/elab-keys.fs): "star", "other", "arrow", or an object
 \ of one of four forms. A constant no declaration has is, while
-\ elab-foreign is set, a foreign key whose text is its name's parts,
-\ each a byte s and a 32-bit length and the bytes, or n and the number.
+\ elab-foreign is set, a foreign key whose text is its name's parts, each
+\ as 32-bit fields (lib/u32.fs's u32-le!): 0, the length and the bytes of
+\ a string, or 1 and the number.
 create ed-word-names  s" star" counted, s" other" counted, s" arrow" counted, 0 0 counted,
 create ed-word-tags  elab-key-star , elab-key-other , elab-key-arrow ,
 : ed-key-word ( item -- outcome )
   ed-word-names ed-choice ok-then? if cells ed-word-tags + @ elab-key-new nip then ;
-: ed-text-byte ( c -- outcome ) 1 elab-text-room ok-then? if c! outcome-ok else nip then ;
 : ed-text-u32 ( u -- outcome )
   4 elab-text-room ok-then? if u32-le! outcome-ok else nip then ;
 : ed-text-bytes ( c-addr u -- outcome )
   dup elab-text-room ok-then? if swap move outcome-ok else nip nip then ;
 : ed-foreign-text ( item -- outcome )
-  ed-view json-text@ [char] s ed-text-byte ok-then2? 0= if exit then
+  ed-view json-text@ 0 ed-text-u32 ok-then2? 0= if exit then
   dup ed-text-u32 ok-then2? if ed-text-bytes then ;
 : ed-foreign-number ( item -- outcome )
-  ed-u32 ok-then? 0= if exit then [char] n ed-text-byte ok-then? if ed-text-u32 then ;
+  ed-u32 ok-then? 0= if exit then 1 ed-text-u32 ok-then? if ed-text-u32 then ;
 : ed-foreign-part ( item -- outcome )
   dup ed-view json-kind@ json-string = if ed-foreign-text exit then ed-foreign-number ;
 : ed-foreign-key ( index -- k outcome )

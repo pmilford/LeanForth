@@ -420,7 +420,7 @@ Example, in three forms, of what the words give for the slice's data:
 | `elab-key-tag` | `( k -- tag )` | `elab-key-star`, `-other`, `-lit`, `-str`, `-const`, `-arrow`, `-proj`, `-foreign` |
 | `elab-key-decl`, `elab-key-idx` | `( k -- d )`, `( k -- i )` | a constant's or projection's declaration; a projection's field |
 | `elab-key-arity` | `( k -- n )` | Lean's `Key.arity` (the table above; a foreign constant's arguments) |
-| `elab-key-text` | `( k -- c-addr u )` | a literal's digits, a string literal's bytes, a foreign constant's name (each part a byte `s`, a 32-bit length and the bytes, or `n` and the number) |
+| `elab-key-text` | `( k -- c-addr u )` | a literal's digits, a string literal's bytes, a foreign constant's name (each part as 32-bit fields: 0, the length and the bytes of a string, or 1 and the number) |
 | `elab-key=`, `elab-key-hash` | `( k1 k2 -- flag )`, `( k -- h )` | Lean's equality of keys, texts compared byte for byte; a 32-bit hash equal for equal keys |
 | `elab-one-term?` | `( k n -- flag )` | keys `k` .. `k+n-1` make one term in Lean's path order |
 | `elab-keys#` | `( -- n )` | the keys kept |
@@ -532,7 +532,7 @@ counts it, so the data needs no new format version):
     - no room while the eliminators' or the ranks' table grows;
     - a THROW inside a read.
 - `make reference-elab-data` (in `make check`, pinned Lean):
-  `tests/front/elab-init.sh`, about 90 s.
+  `tests/front/elab-init.sh`, about 4 minutes on a busy machine (2026-11-12).
   - `scripts/export-elab.sh` reproduces
     `tests/front/init-slice.elab.ndjson` byte for byte.
   - For all of `Init` (its export checked by SHA-256), the data's
