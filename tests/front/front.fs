@@ -180,7 +180,8 @@ T{ 0 lf-term-sort -> 0 true }T
 : new ( kind -- mvar ) prop swap lf-mvar-new ok? 0= abort" new" ;
 mv-natural new constant m1
 T{ m1 lf-mvar-live? m1 lf-mvar-type m1 lf-mvar-kind -> true prop true mv-natural true }T
-T{ m1 lf-mvar-value m1 lf-mvar-assignable? m1 lf-mvar-lctx -> false true 0 true }T
+T{ m1 lf-mvar-value m1 lf-mvar-assignable? m1 lf-mvar-view -> false true lf-view-empty true }T
+T{ m1 lf-mvar-tag -> 0 true }T
 T{ m1 lf-mvar? prop lf-mvar? prop lf-mvar-live? -> true false false }T
 \ New: a type that is no term, or a kind out of range, is invalid.
 T{ 999 mv-natural lf-mvar-new -> -1 outcome-invalid }T
@@ -390,8 +391,17 @@ T{ p5 prop 0 lf-term-bvar drop lam2 lf-mvar-assign dm5 p5 0 lf-mvar-delay
    -> outcome-ok outcome-ok }T
 T{ dm5 x app lf-instantiate-mvars dm5 lf-instantiate-mvars -> x outcome-ok dm5 outcome-ok }T
 T{ prop f app lf-instantiate-mvars nip -> outcome-ok }T
-\ A new metavariable sees the two free variables, x and y2.
-T{ mv-natural new lf-mvar-lctx -> 2 true }T
+\ A new metavariable gets the current local context (plan FE1g-1, Lean's
+\ mkFreshExprMVar): with x and y2 pushed on it, it sees both; one made
+\ before sees neither, and the context set back is the empty one again.
+mv-natural new constant blind
+: local ( fvar -- local ) 0 0 lf-local-new ok? 0= abort" local" ;
+: push ( view fvar -- view' ) local lf-view-push ok? 0= abort" push" ;
+lf-mctx-view x push y2 push lf-mctx-view!
+T{ mv-natural new dup x lf-mvar-sees? swap y2 lf-mvar-sees? -> true true }T
+T{ blind x lf-mvar-sees? blind y2 lf-mvar-sees? -> false false }T
+lf-view-empty lf-mctx-view!
+T{ mv-natural new x lf-mvar-sees? -> false }T
 
 \ Out of room: a context whose store may hold one more metavariable
 \ makes it, then refuses the next (full), changing nothing.
