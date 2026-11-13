@@ -226,11 +226,12 @@ lf-lib-private set-current
 \ unit. Whether the slab is live and its units hold u address units.
 : slab-wide? ( u slab -- flag ) dup slab-live? if slab-unit u<= else 2drop false then ;
 \ A unit claimed for a push: its address and ok; or -1 and full (as
-\ slab-claim), or invalid for a slab not live or too narrow.
+\ slab-claim), or invalid for a slab not live (slab-claim checks) or too
+\ narrow.
 : slab-claim-one ( slab -- addr outcome )
   1 over slab-claim ok-then? if swap slab-at outcome-ok else nip no-result then ;
 : slab-claim-wide ( u slab -- addr outcome )
-  tuck slab-wide? if slab-claim-one else drop outcome-invalid no-result then ;
+  tuck slab-unit u> if drop outcome-invalid no-result else slab-claim-one then ;
 \ The newest unit, of a live slab whose units hold u address units; else
 \ throw slab-underflow.
 : slab-newest-unit ( u slab -- addr )

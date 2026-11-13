@@ -74,7 +74,7 @@
 \ their number (a step that changes them makes a fold). n <= 0 runs
 \ nothing. The xt is the index of an outer loop run once and read with J,
 \ so each step finds i*x and k alone on the data stack. Example, a check
-\ of each cell of a table: `table 3 ['] cell-ok ok-each nip` with
+\ of each cell of a table: `table 3 ' cell-ok ok-each nip` with
 \ `: cell-ok ( table k -- table outcome ) cells over + @ checked ;`.
 : ok-each ( i*x n xt -- i*x outcome )
   dup 1+ swap ?do 0 max 0 ?do i j execute dup ok? 0= if unloop unloop exit then drop

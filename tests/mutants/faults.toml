@@ -14214,7 +14214,7 @@ reason = "sort-unsigned compares signed: a value with the top bit set sorts firs
 [[fault]]
 id = "lib-slab-push-narrow"
 file = "src/lib/slab.fs"
-old = '''  tuck slab-wide? if slab-claim-one else drop outcome-invalid no-result then ;'''
+old = '''  tuck slab-unit u> if drop outcome-invalid no-result else slab-claim-one then ;'''
 new = '''  nip slab-claim-one ;'''
 test = "$GFORTH tests/lib/slab.fs"
 reason = "a push into units narrower than a cell (two) writes past its unit instead of being invalid"
