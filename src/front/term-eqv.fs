@@ -105,7 +105,8 @@ require ./instantiate.fs
 
 \ A name against a dotted text of one or two string parts (Lean's
 \ match_expr and isConstOf compare names so); the anonymous name is 0.
-: eq-dot ( c-addr u -- i ) -1 swap 0 ?do over i + c@ [char] . = if drop i then loop nip ;
+\ The dot's index (the first; with two parts at most, the last), or -1.
+: eq-dot ( c-addr u -- i ) 2dup s" ." search if nip - nip else 2drop 2drop -1 then ;
 : eq-part ( c-addr u -- part u2 ) 2dup eq-dot 1+ /string ;
 : eq-rest ( c-addr u -- c-addr i ) 2dup eq-dot nip ;
 \ The name is one string part, the text.
