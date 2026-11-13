@@ -3333,8 +3333,6 @@ new = '''  over context-torn swap ior-earlier swap context-discard ior-earlier ;
 test = "$GFORTH tests/lib/context.fs"
 reason = "the context review's L1 (b): a failed context-new gives a teardown word's code instead of the setup word's, which came first"
 
-# --- run records and replay (src/import/run-record.fs, run-replay.fs) -------
-
 [[fault]]
 id = "rr-verdict-from-step"
 file = "src/import/run-record.fs"
@@ -4996,8 +4994,8 @@ quick = true
 [[fault]]
 id = "cli-statement-forms-wrong-bit"
 file = "src/cli/print.fs"
-old = '''  2dup s" lean" compare 0= if 2drop lf-form-lean exit then'''
-new = '''  2dup s" lean" compare 0= if 2drop lf-form-mathematics exit then'''
+old = '''  lf-form-lean , s" lean" counted,'''
+new = '''  lf-form-mathematics , s" lean" counted,'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Print"
 reason = "--statement lean selects the mathematics line"
 quick = true
@@ -5157,16 +5155,16 @@ reason = "¬ is not tight in mathematical text: ¬(1 = 2) prints as ¬1 = 2"
 [[fault]]
 id = "printer-string-leaf-invalid"
 file = "src/present/term-printer.fs"
-old = '''    lf-tag-str of ['] lf-pp-str-step endof ['] lf-pp-invalid-step swap endcase ;'''
-new = '''    ['] lf-pp-invalid-step swap endcase ;'''
+old = '''' lf-pp-str-step lf-tag-str lf-pp-step!'''
+new = '''' lf-pp-invalid-step lf-tag-str lf-pp-step!'''
 test = "$GFORTH tests/present/term-printer.fs"
 reason = "the printer's leaf dispatch loses the string literal arm: a string prints as invalid"
 
 [[fault]]
 id = "forth-mode-literal-invalid"
 file = "src/present/print-forth.fs"
-old = '''    lf-tag-lit of ['] lf-pf-lit-step endof lf-tag-str of ['] lf-pf-str-step endof'''
-new = '''    lf-tag-str of ['] lf-pf-str-step endof'''
+old = '''' lf-pf-lit-step lf-tag-lit lf-pf-step!'''
+new = '''' lf-pf-invalid-step lf-tag-lit lf-pf-step!'''
 test = "$GFORTH tests/author/author.fs"
 reason = "the Forth mode's leaf dispatch loses the number literal arm: 7 lit# prints as invalid"
 
@@ -5255,8 +5253,8 @@ reason = "a copied successor level does not mark its copied child, which is then
 [[fault]]
 id = "log-view-shift-listed-as-redex"
 file = "src/present/log-view.fs"
-old = '''lf-rule-shift of lf-lv-shifted endof'''
-new = '''lf-rule-shift of lf-lv-beta endof'''
+old = '''' lf-lv-shifted lf-rule-shift lf-lv-relater!'''
+new = '''' lf-lv-beta lf-rule-shift lf-lv-relater!'''
 test = "$GFORTH tests/core/derivation-log.fs"
 reason = "a shift step's line shows a redex instead of the shifted term and its amount"
 
@@ -11680,6 +11678,9 @@ new = '''    lf-tag-lit of lf-rebuild-bad endof'''
 test = "$GFORTH tests/core/mixed-instantiate.fs"
 reason = "instantiate refuses a natural-number literal as malformed"
 
+# --- print's and print --lf's words, help's exit codes (src/cli/print.fs,
+# print-lf.fs, leanforth.fs; the FRP review's batch C, plan 9.4.5) --------
+
 [[fault]]
 id = "fe-lparams-empty-walked"
 file = "src/front/level-params.fs"
@@ -12860,3 +12861,201 @@ old = ''': text? ( addr u arena -- flag ) >r 2dup int-text? -rot r> text-live? a
 new = ''': text? ( addr u arena -- flag ) drop int-text? ;'''
 test = "$GFORTH tests/lib/bigint.fs"
 reason = "review L1 (2026-11-13): text released into the arena's free part is read, though the build is claimed over it"
+
+[[fault]]
+id = "context-slabs-not-freed"
+file = "src/lib/context.fs"
+old = ''': slab-listed ( member -- member ) context-slabs member-listed ;'''
+new = ''': slab-listed ( member -- member ) ;'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "the item-1 review's L1: a context's slab member is not listed, so its heap block is not freed with the context"
+
+# --- run records and replay (src/import/run-record.fs, run-replay.fs) -------
+
+[[fault]]
+id = "pr-ends-unguarded"
+file = "src/cli/print.fs"
+old = '''  2 pick over u< if 2drop false exit then
+  2swap 2 pick pr-split 2rot compare 0= ;'''
+new = '''  2swap 2 pick pr-split 2rot compare 0= ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "FRP C4: a part longer than the text is compared with the bytes before it"
+
+[[fault]]
+id = "pr-named-any-separator"
+file = "src/cli/print.fs"
+old = '''    r> lf-name-prefix@ dup if >r pr-dot? 0= if r> drop 2drop false exit then r> then'''
+new = '''    r> lf-name-prefix@ dup if >r pr-dot? drop r> then'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "FRP C4: any character between two components passes for the dot (--name)"
+
+[[fault]]
+id = "pr-item-keeps-comma"
+file = "src/cli/print.fs"
+old = ''': pr-cut ( c u c2 u2 -- rest-addr rest-u c u' ) rot over - >r 1 /string rot r> ;'''
+new = ''': pr-cut ( c u c2 u2 -- rest-addr rest-u c u' ) rot over - >r rot r> ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "FRP C4: the rest of a --statement list keeps its comma"
+
+[[fault]]
+id = "pr-form-text-bit"
+file = "src/cli/print.fs"
+old = '''  lf-form-text , s" text" counted,'''
+new = '''  lf-form-lean , s" text" counted,'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "FRP C3: --statement text selects the Lean form"
+
+[[fault]]
+id = "fl-reason-past-table"
+file = "src/cli/print-lf.fs"
+old = '''  dup 0 fl-reasons within 0= if drop s" ?" exit then'''
+new = '''  dup 0 fl-reasons 1+ within 0= if drop s" ?" exit then'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "FRP C5: a number past the reasons reads a text after the table"
+
+[[fault]]
+id = "fl-universes-one-slot"
+file = "src/cli/print-lf.fs"
+old = '''  0 ?do dup i lf-param@ i fl-universe ! loop drop ;'''
+new = '''  0 ?do dup i lf-param@ 0 fl-universe ! loop drop ;'''
+test = "python3 tests/author/check_author.py"
+reason = "FRP C5: print --lf writes every universe parameter of a declaration into the first"
+
+[[fault]]
+id = "fl-whole-type-value-swapped"
+file = "src/cli/print-lf.fs"
+old = ''': fl-type-value ( idecl -- type value ) dup lf-idecl-type @ swap lf-idecl-value @ ;'''
+new = ''': fl-type-value ( idecl -- type value ) dup lf-idecl-value @ swap lf-idecl-type @ ;'''
+test = "python3 tests/author/check_author.py"
+reason = "FRP C5: print --lf writes a declaration's value as its statement"
+
+[[fault]]
+id = "cli-codes-order-stale"
+file = "src/cli/leanforth.fs"
+old = '''  ."   5, 4, 1, 3, 2, 6 wins" cr ;'''
+new = '''  ."   5, 4, 3, 1, 2, 6 wins" cr ;'''
+test = "python3 tests/cli/test_leanforth.py Behaviour.test_informational"
+reason = "FRP C2: help states an order of severity that is not tally.fs's"
+
+# --- check's progress line, worker lending and layer identities
+# (src/cli/check-run.fs; the FRP review's batch D, plan 9.4.5) ------------
+
+[[fault]]
+id = "ck-after-wraps"
+file = "src/cli/check-run.fs"
+old = '''  >r 1000000 m* ck-wall-now r> ck-since 2swap d< 0= ;'''
+new = '''  >r 1000000 * s>d ck-wall-now r> ck-since 2swap d< 0= ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "FRP D4: a huge --progress interval wraps to a negative time, so a line is written after every report"
+
+[[fault]]
+id = "ck-lending-count-only"
+file = "src/cli/check-run.fs"
+old = '''  >r lf-cref-lending r@ ck-lend-count ! r@ ck-lend-slots ! r@ ck-lend-pool !
+  r> ck-lend-records ! ;'''
+new = '''  >r lf-cref-lending r@ ck-lend-count ! drop 2drop
+  r> drop ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "FRP D1: only the references' count is kept, so workers are not made again when the blocks they read move"
+
+[[fault]]
+id = "ck-layer-export-over-header"
+file = "src/cli/check-run.fs"
+old = '''  ck-lay lay-snap snap-export-sha over ck-lid-export 32 move'''
+new = '''  ck-lay lay-snap snap-export-sha over ck-lid-sum 32 move'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers.test_reported"
+reason = "FRP D1: a layer's export digest is kept over its header's, so the report names the wrong layer identity"
+
+[[fault]]
+id = "ck-progress-labels-dropped"
+file = "src/cli/check-run.fs"
+old = ''': ck-part+ ( part -- part' ) dup @ execute cell+ count 2dup ck-pl+ + aligned ;'''
+new = ''': ck-part+ ( part -- part' ) dup @ execute cell+ count + aligned ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Progress.test_counts_rejections"
+reason = "FRP D2: the progress line's numbers are written without their labels"
+
+[[fault]]
+id = "irx-lit-unfit-unmarked"
+file = "src/program/ir-run.fs"
+old = ''': irx-lit-fits ( index fits? -- ) if drop else irx-unfit! then ;'''
+new = ''': irx-lit-fits ( index fits? -- ) 2drop ;'''
+test = "$GFORTH tests/program/ir-run.fs"
+reason = "FRP F: a literal beyond the cell is not marked unfit, so it runs as a wrapped number instead of the model's unmodeled"
+
+# --- the step list's rule table (src/present/log-view.fs; the
+# refactor-present review's L3, plan 9.4.5) ---------------------------------
+
+[[fault]]
+id = "log-view-relater-unguarded"
+file = "src/present/log-view.fs"
+old = '''  dup 0 lf-rule-limit within if cells lf-lv-relaters + @ else drop ['] lf-lv-decl then ;'''
+new = '''  cells lf-lv-relaters + @ ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "refactor-present L3: a rule code outside the table reads a cell past it"
+
+[[fault]]
+id = "log-view-form-not-typed"
+file = "src/present/log-view.fs"
+old = '''  lf-rule-form 1+ lf-rule-sort do ['] lf-lv-typed i lf-lv-relater! loop ;'''
+new = '''  lf-rule-form lf-rule-sort do ['] lf-lv-typed i lf-lv-relater! loop ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "refactor-present L3: a form step's line shows a declaration instead of its term and type"
+
+[[fault]]
+id = "log-view-kinds-kids-swapped"
+file = "src/present/log-view.fs"
+old = '''' lf-lv-lmark-kids ' lf-lv-tmark-kids ' lvk-kids lvk-both!'''
+new = '''' lf-lv-tmark-kids ' lf-lv-lmark-kids ' lvk-kids lvk-both!'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "refactor-present L2: each kind marks its copies' children as the other kind's"
+
+[[fault]]
+id = "log-view-kinds-share-made"
+file = "src/present/log-view.fs"
+old = '''0 lf-lv-lmade 0 lf-lv-made ' lvk-made lvk-both!'''
+new = '''0 lf-lv-made 0 lf-lv-made ' lvk-made lvk-both!'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "refactor-present L2: level copies are recorded as made in the term copies' cells"
+
+[[fault]]
+id = "log-view-node-fields-swapped"
+file = "src/present/log-view.fs"
+old = '''  dup lv-node-tag @ swap dup lv-node-first @ swap lv-node-second @ ;'''
+new = '''  dup lv-node-tag @ swap dup lv-node-second @ swap lv-node-first @ ;'''
+test = "$GFORTH tests/core/derivation-log.fs"
+reason = "refactor-present I1: a rebuilt node's first and second fields are read swapped"
+
+# --- the printers' tag tables (src/present/term-printer.fs, print-forth.fs;
+# the refactor-present review's L3, plan 9.4.5) ------------------------------
+
+[[fault]]
+id = "pp-tag-step-unguarded"
+file = "src/present/term-printer.fs"
+old = '''  dup 0 lf-pp-tags within if cells lf-pp-steps + @ else drop ['] lf-pp-invalid-step then ;'''
+new = '''  cells lf-pp-steps + @ ;'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "refactor-present L3: a corrupted tag past the table reads a cell after it as the step"
+
+[[fault]]
+id = "pp-literal-step-missing"
+file = "src/present/term-printer.fs"
+old = '''' lf-pp-lit-step lf-tag-lit lf-pp-step!'''
+new = '''' lf-pp-invalid-step lf-tag-lit lf-pp-step!'''
+test = "$GFORTH tests/present/term-printer.fs"
+reason = "refactor-present L3: a number literal no longer prints"
+
+[[fault]]
+id = "pf-projection-as-leaf"
+file = "src/present/print-forth.fs"
+old = '''' lf-pf-app lf-tag-projection lf-pf-step!'''
+new = '''' lf-pf-proj-step lf-tag-projection lf-pf-step!'''
+test = "$GFORTH tests/author/author.fs"
+reason = "refactor-present L3: an applied projection is written as a projection leaf"
+
+[[fault]]
+id = "pf-imax-level-missing"
+file = "src/present/print-forth.fs"
+old = '''' lf-pf-binary lf-level-tag-imax lf-pf-level-step!'''
+new = '''' lf-pf-invalid-step lf-level-tag-imax lf-pf-level-step!'''
+test = "python3 tests/author/check_author.py"
+reason = "refactor-present L3: print --lf refuses an imax level"

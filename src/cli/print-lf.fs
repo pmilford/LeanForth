@@ -34,6 +34,7 @@
 \ handed to the printer).
 
 require ../lib/lib.fs
+require ../lib/bytes.fs
 require ../core/input.fs
 require ../present/print-forth.fs
 require ./name-text.fs
@@ -62,19 +63,24 @@ begin-structure /lf-fl
 end-structure
 /lf-fl context-record: lf-fl
 
+\ Each reason's text, read-only: counted strings in the reasons' order.
+align here
+  s" an inductive type" counted,
+  s" an inductive type's constructor" counted,
+  s" a recursor" counted,
+  s" a quotient constant" counted,
+  s" an inductive block's header" counted,
+  s" an opaque constant" counted,
+  s" an unsafe or partial declaration" counted,
+  s" more than 8 universe parameters" counted,
+  s" a name, literal or term form the words cannot write" counted,
+  s" a term the input does not hold (let, metadata) or malformed" counted,
+  s" the printer ran out of fuel or room" counted,
+constant fl-reason-texts
+\ A reason's text, "?" for any other number.
 : fl-reason-text ( reason -- c-addr u )
-  case fl-inductive of s" an inductive type" endof
-    fl-constructor of s" an inductive type's constructor" endof
-    fl-recursor of s" a recursor" endof
-    fl-quotient of s" a quotient constant" endof
-    fl-block of s" an inductive block's header" endof
-    fl-opaque of s" an opaque constant" endof
-    fl-unsafe of s" an unsafe or partial declaration" endof
-    fl-arity of s" more than 8 universe parameters" endof
-    fl-unsupported of s" a name, literal or term form the words cannot write" endof
-    fl-invalid of s" a term the input does not hold (let, metadata) or malformed" endof
-    fl-fuel of s" the printer ran out of fuel or room" endof
-    s" ?" rot endcase ;
+  dup 0 fl-reasons within 0= if drop s" ?" exit then
+  fl-reason-texts swap 0 ?do count + aligned loop count ;
 
 \ The standard error, for the list of what was skipped.
 : fl-err ( c-addr u -- ) stderr write-file drop ;
@@ -100,9 +106,10 @@ end-structure
 \ The printer's record for idecl: kind, name, type and value (-1 for none) and
 \ the universe parameters.
 : fl-decl ( -- fdecl ) lf-fl lf-fl-decl ;
+: fl-universe ( i -- addr ) cells fl-decl lf-fdecl-universe + ;
 : fl-universes! ( idecl -- )
-  fl-decl lf-fdecl-universe swap lf-idecl-params@ lf-decl-universe-capacity min
-  dup fl-decl lf-fdecl-universes ! 0 ?do dup i lf-param@ 2 pick i cells + ! loop 2drop ;
+  lf-idecl-params@ lf-decl-universe-capacity min dup fl-decl lf-fdecl-universes !
+  0 ?do dup i lf-param@ i fl-universe ! loop drop ;
 : fl-kind ( idecl -- kind )
   lf-idecl-kind @ case lf-kind-theorem of lf-decl-theorem endof
     lf-kind-definition of lf-decl-def endof lf-decl-axiom swap endcase ;
@@ -110,7 +117,8 @@ end-structure
   fl-decl /lf-fdecl erase fl-decl lf-fdecl-value ! fl-decl lf-fdecl-type !
   fl-decl lf-fdecl-kind ! dup lf-idecl-name @ fl-decl lf-fdecl-name !
   fl-universes! fl-decl ;
-: fl-whole ( idecl -- fdecl ) dup fl-kind over lf-idecl-type @ 2 pick lf-idecl-value @ fl-fill ;
+: fl-type-value ( idecl -- type value ) dup lf-idecl-type @ swap lf-idecl-value @ ;
+: fl-whole ( idecl -- fdecl ) dup fl-kind over fl-type-value fl-fill ;
 : fl-typed-stub ( idecl -- fdecl ) lf-decl-stub over lf-idecl-type @ -1 fl-fill ;
 : fl-bare-stub ( idecl -- fdecl ) lf-decl-stub -1 -1 fl-fill ;
 

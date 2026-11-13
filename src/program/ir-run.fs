@@ -458,8 +458,10 @@ max-n 1+ irx-width constant irx-cell-digits
   irx-code store-new-slot if >r irx-op! r> true else 2drop irx-full false then ;
 : irx-append ( kind arg -- ) irx-add if drop then ;
 : irx-unfit! ( index -- ) irx-op irx-unfit swap irx-op-end ! ;
-: irx-lit-op ( n fits? -- )
-  irx-k-lit rot irx-add if swap if drop else irx-unfit! then else drop then ;
+\ A literal's instruction: one that does not fit a cell is kept, marked
+\ unfit (irx-unfit; running it is unmodeled).
+: irx-lit-fits ( index fits? -- ) if drop else irx-unfit! then ;
+: irx-lit-op ( n fits? -- ) irx-k-lit rot irx-add if swap irx-lit-fits else drop then ;
 
 \ IF and BEGIN open while loading.
 : irx-top ( -- addr ) irx-open# @ 1- cells irx-state irx-s-open + ;
@@ -778,6 +780,9 @@ max-n 1+ irx-width constant irx-cell-digits
 : irx-say-blanks ( n -- ) 0 max 0 ?do irx-say-blank loop ;
 : irx-say-depth ( n -- )
   s" <" irx-say ['] irx-unsigned-text irx-in-decimal s" > " irx-say ;
+\ .s: the number of the current word's items (those above its frame),
+\ then the top ones, at most nine, the deepest first: cells held - k up to
+\ held of the whole stack, k = min(items, 9).
 : irx-say-stack ( -- )
   irx-items dup irx-say-depth irx-data irx-held dup rot 9 min - ?do
     i irx-data irx-stack-cell @ irx-say-number loop ;
@@ -824,6 +829,8 @@ max-n 1+ irx-width constant irx-cell-digits
 : irx-finish ( result -- outcome ) dup irx-state irx-s-result ! irx-outcome ;
 : irx-fresh-run ( -- ) irx-rclear 0 irx-frames# ! -1 irx-state irx-s-last ! ;
 : irx-root ( fuel -- ) irx-fresh-run 0 0 rot irx-enter drop ;
+\ The fuel is brought up and checked first: negative, or no program
+\ loaded, is broken before the name is looked up.
 : irx-run ( fuel c-addr u -- outcome )
   rot dup irx-runnable? 0= if drop 2drop irx-broken irx-finish exit then
   irx-root irx-lookup irx-call irx-leave irx-finish ;

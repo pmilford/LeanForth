@@ -1015,6 +1015,30 @@ class Behaviour(unittest.TestCase):
         self.capabilities_match_facts(out)
         status, out, _ = run("help")
         self.assertEqual((status, run("--help")[1], run("-h")[1]), (0, out, out))
+        self.help_codes_match_tally(out)
+
+    def help_codes_match_tally(self, out):
+        """help's exit codes and their order of severity are tally.fs's, and the
+        command line's manual gives the same order (FRP review C2: user text that
+        restates the codes must not go stale)."""
+        tally = (ROOT / "src/cli/tally.fs").read_text()
+        codes = {name: int(code) for code, name
+                 in re.findall(r"^(\d+) constant (exit-[a-z-]+)", tally, re.M)}
+        self.assertEqual(codes, {"exit-accepted": 0, "exit-rejected": 1, "exit-undecided": 2,
+                                 "exit-limit": 3, "exit-malformed": 4, "exit-fault": 5,
+                                 "exit-not-proved": 6})
+        table = re.search(r"^create cli-severity((?:\s+\d+ ,)+)", tally, re.M).group(1)
+        ranks = [int(rank) for rank in table.replace(",", " ").split()]
+        order = sorted(range(len(ranks)), key=lambda code: -ranks[code])
+        text = " ".join(out.split())
+        worst = ", ".join(str(code) for code in order if code)
+        self.assertIn(f"the most severe of {worst} wins", text)
+        for meaning in ("0 all accepted", "1 something rejected", "2 unsupported or unknown",
+                        "3 a resource limit", "4 malformed input or command line",
+                        "5 an internal fault", "6 all accepted but some NOT PROVED"):
+            self.assertIn(meaning, text)
+        manual = " ".join((ROOT / "docs/user/COMMAND_LINE.md").read_text().split())
+        self.assertIn(f"the order {', '.join(str(code) for code in order)}:", manual)
 
 
 class Tampered(unittest.TestCase):
@@ -2514,6 +2538,16 @@ class Progress(unittest.TestCase):
         got = json.loads(out)
         got.pop("measured")
         self.assertEqual(got, want)
+
+    def test_huge_interval(self):
+        """The largest interval a cell holds never wraps (FRP review D4): only
+        the last line is written; one more is not a number of seconds."""
+        most = 2 ** 63 - 1   # max-n of the 64-bit hosts the tests run on
+        status, out, err = run("check", f"--progress={most}", INDUCTIVE)
+        self.assertEqual((status, len(self.lines(err))), (0, 1))
+        status, out, _ = run("check", f"--progress={most + 1}", INDUCTIVE)
+        self.assertEqual((status, out.splitlines()[0]),
+                         (4, f"error: not a number of seconds: {most + 1}"))
 
     def test_default_is_quiet_for_a_short_run(self):
         """The default interval is 60 s: a short run writes only the last line."""

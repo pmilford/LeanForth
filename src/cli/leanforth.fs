@@ -695,10 +695,12 @@ create cli-hex 64 allot
   ck-other# .decimal ."  with the name of a declaration of the snapshot, not its content"
   cr ;
 \ Each layer loaded on it (review rvSN4 M1): its file, identity, export.
+: cli-layer-sums. ( k -- )
+  ."  (sha256 " ck-layer-id dup ck-lid-sum cli-sha.
+  ." ), export sha256 " ck-lid-export cli-sha. ;
 : cli-layer. ( k -- )
   ." layer: " dup ck-layer@ nt-text if type else cli-unshown then
-  ."  (sha256 " dup ck-layer-id dup cli-sha. ." ), export sha256 " 32 + cli-sha.
-  ." , verdict version " dup ck-layer-verdict .decimal
+  dup cli-layer-sums. ." , verdict version " dup ck-layer-verdict .decimal
   ck-layer-stale? if ."  (stale)" then ." , on the snapshot above" cr ;
 : cli-layers. ( -- ) ck-layers# 0 ?do i cli-layer. loop ;
 : cli-stale. ( -- )

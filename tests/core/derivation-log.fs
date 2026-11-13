@@ -495,6 +495,13 @@ T{ 20 lv-line s"   s20    application         depth 0   (fun x ↦ x) Prop : Pro
    compare -> 0 }T
 T{ 21 lv-line s"   s21    publish             depth 0   d0, 3 dependencies" compare -> 0 }T
 T{ 22 lv-line nip -> 0 }T
+\ The rule table (log-view.fs's lf-lv-relater; the refactor-present
+\ review's L3): every inference rule, form among them, relates its term
+\ and type; a code with no rule, one outside the table and a negative one
+\ relate a declaration, as fresh-name does.
+T{ lf-rule-form lf-lv-relater lf-rule-sort lf-lv-relater -> ' lf-lv-typed ' lf-lv-typed }T
+T{ 8 lf-lv-relater -1 lf-lv-relater -> ' lf-lv-decl ' lf-lv-decl }T
+T{ lf-rule-limit lf-lv-relater lf-rule-fresh-name lf-lv-relater -> ' lf-lv-decl ' lf-lv-decl }T
 \ Premises, ascending, and the inference premises among them.
 T{ 20 lf-lv-premises 20 0 lf-lv-premise 20 1 lf-lv-premise -> 2 18 19 }T
 T{ 20 0 lf-lv-inference 20 1 lf-lv-inference 20 2 lf-lv-inference -> 18 true 19 true false }T
@@ -522,6 +529,16 @@ T{ lv-open lf-log-none lf-lv-term lf-log-none lf-lv-level lv-close -> false fals
 T{ lv-open lf-log-unkept lf-lv-level lv-close -> false }T
 T{ lv-open lf-log-term-copies lf-log-copy-index lf-lv-term lv-close -> false }T
 T{ lv-open lf-log-level-copies lf-log-copy-index lf-lv-level lv-close -> false }T
+\ Each kind keeps its own cells of made copies, node record and count of
+\ copies (log-view.fs's /lv-kind; the refactor-present review's L2).
+: lv-kind-cells ( -- flag flag flag flag )
+  lv-open 3 lf-lv-level-kind lf-lv-made-at lf-lv lf-lv-lmade 3 cells + =
+  3 lf-lv-term-kind lf-lv-made-at lf-lv lf-lv-made 3 cells + =
+  lf-lv-level-kind lf-lv-rec lf-lv lf-lv-lnode =
+  lf-lv-term-kind lf-lv-rec lf-lv lf-lv-tnode = lv-close ;
+T{ lv-kind-cells -> true true true true }T
+T{ lf-lv-level-kind lf-lv-copies lf-lv-term-kind lf-lv-copies
+   -> lf-log-level-copies lf-log-term-copies }T
 \ The parts of a term (1 first, 2 second): of an application, a lambda or
 \ a Pi only.
 : lv-part ( ref part -- ref' true | false ) lf-lv-child-ref ;
