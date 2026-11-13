@@ -9126,8 +9126,8 @@ reason = "SN5: a change that moves a stored field (every fuel used one more) wit
 [[fault]]
 id = "sn3-fuel-unchecked"
 file = "src/kernel/env-snapshot.fs"
-old = '''  dup snap-fuel? 0= if outcome-invalid c" fuel" rot snap-refuse exit then'''
-new = ''''''
+old = ''': head-fuel ( snap -- outcome ) dup snap-fuel? outcome-invalid c" fuel" snap-must ;'''
+new = ''': head-fuel ( snap -- outcome ) drop outcome-ok ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots"
 reason = "SN3: a snapshot written with other fuel is loaded for a run with --fuel N"
 
@@ -11261,3 +11261,59 @@ old = ''': lf-look-low ( x -- u ) lf-look-kinds 1- and ;'''
 new = ''': lf-look-low ( x -- u ) 7 and ;'''
 test = "$GFORTH tests/core/env-snapshot.fs"
 reason = "FRK B: an answer's holder bit (and the quotient's kind) is dropped from the low bits"
+
+[[fault]]
+id = "frk-put-field-shifted"
+file = "src/kernel/env-snapshot.fs"
+old = ''': put-field ( addr slot entry -- addr slot ) over swap field-of 3 pick fld! ;'''
+new = ''': put-field ( addr slot entry -- addr slot ) over swap field-of 1+ 3 pick fld! ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "FRK C1: each copied field written one field later, so the saved slots no longer match their checks"
+
+[[fault]]
+id = "frk-put-env-short"
+file = "src/kernel/env-snapshot.fs"
+old = '''  same-fields# 0 do i same-field put-field loop'''
+new = '''  same-fields# 1- 0 do i same-field put-field loop'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "FRK C1: the last copied field (the lookups' count) is not written"
+
+[[fault]]
+id = "frk-unit-table-looks"
+file = "src/kernel/env-snapshot.fs"
+old = '''  1 u32s , sl-fields# u32s , /snap-dep , /snap-look , 1 , 1 , 1 ,'''
+new = '''  1 u32s , sl-fields# u32s , /snap-dep , /snap-dep , 1 , 1 , 1 ,'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "FRK C5: the lookups' section declared with a dependency's unit size"
+
+[[fault]]
+id = "frk-snap-placed-outcome"
+file = "src/kernel/env-snapshot.fs"
+old = '''  2 pick snap-expect @ if drop placed-as outcome-invalid c" base snapshot of the layer"'''
+new = '''  2 pick snap-expect @ if drop placed-as outcome-unsupported c" base snapshot of the layer"'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "FRK C3: a layer on another base is reported unsupported instead of invalid"
+
+[[fault]]
+id = "frk-header-fuel-skipped"
+file = "src/kernel/env-snapshot.fs"
+old = '''  ['] head-fuel ok-with ['] head-allowed ok-with ['] head-placed ok-with nip ;'''
+new = '''  ['] head-allowed ok-with ['] head-placed ok-with nip ;'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "FRK C3: a snapshot of another fuel per declaration is opened"
+
+[[fault]]
+id = "frk-snap-noted-silent"
+file = "src/kernel/env-snapshot.fs"
+old = '''  over ok? if drop nip else rot snap-refuse then ;'''
+new = '''  drop nip ;'''
+test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_planted_faults"
+reason = "FRK C3: a damaged identity is refused without its reason"
+
+[[fault]]
+id = "frk-snap-written-no-rest"
+file = "src/kernel/env-snapshot.fs"
+old = '''  outcome-ok ['] snap-lists ok-with ['] put-slots ok-with ['] put-rest ok-with'''
+new = '''  outcome-ok ['] snap-lists ok-with ['] put-slots ok-with'''
+test = "$GFORTH tests/core/env-snapshot.fs"
+reason = "FRK A (snap-build): the dependencies, lookups and sites are not written"

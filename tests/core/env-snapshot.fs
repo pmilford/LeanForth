@@ -196,6 +196,68 @@ T{ snap-outers /outers erase ck-stage canon-tier -> outcome-ok }T
 T{ top-outer canon-key swap lf-look-kinds 1- and -> outcome-ok lf-look-fresh }T
 T{ lf-look-outside canon-key -> -1 outcome-invalid }T
 outers-free ck-release
+
+\ ---- The header's checks in order (review FRK C3), on a record in
+\ memory: each refusal with its outcome and reason, the first only; an
+\ older verdict version loads only when allowed, marked stale; a base with
+\ a layer field set is unsupported; a layer must name its base.
+create hs /snap allot
+create hs-sha 32 allot  hs-sha 32 erase  7 hs-sha c!
+: head-fresh ( -- ) hs snap-init 1000 hs snap-head! -1 hs snap-asked ! ;
+: layer-fresh ( -- )
+  hs snap-init true hs snap-layered ! hs-sha hs snap-base-sha 32 move
+  1000 hs snap-head! -1 hs snap-asked ! hs-sha hs snap-expect ! ;
+: why? ( c-addr u -- flag ) hs snap-why @ ?dup if count compare 0= else 2drop false then ;
+: hs-header ( -- outcome ) hs snap-header ;
+head-fresh
+T{ hs-header hs snap-why @ hs snap-stale @ -> outcome-ok 0 false }T
+head-fresh 0 sh-mark hs head!  2 sh-version hs head!
+T{ hs-header s" not a LeanForth snapshot" why? -> outcome-invalid true }T
+head-fresh 2 sh-version hs head!  0 sh-allow-bits hs head!
+T{ hs-header s" format version" why? -> outcome-unsupported true }T
+head-fresh lf-verdict-version 1+ sh-verdict hs head!
+T{ hs-header s" verdict version" why? -> outcome-unsupported true }T
+head-fresh 1 sh-verdict hs head!
+T{ hs-header s" verdict version" why? hs snap-stale @ -> outcome-unsupported true false }T
+true snap-stale-allowed !  head-fresh 1 sh-verdict hs head!
+T{ hs-header hs snap-stale @ -> outcome-ok true }T
+false snap-stale-allowed !
+head-fresh 5 hs snap-asked !
+T{ hs-header s" fuel" why? -> outcome-invalid true }T
+head-fresh 1000 hs snap-asked !
+T{ hs-header -> outcome-ok }T
+head-fresh lf-allowlist-version 1+ sh-allow-version hs head!
+T{ hs-header s" axiom allowlist" why? -> outcome-invalid true }T
+head-fresh lf-allowlist-bits 1+ sh-allow-bits hs head!
+T{ hs-header s" axiom allowlist" why? -> outcome-invalid true }T
+head-fresh 1 sh-layers hs head!
+T{ hs-header s" layer" why? -> outcome-unsupported true }T
+head-fresh 1 15 hs head!
+T{ hs-header s" layer" why? -> outcome-unsupported true }T
+layer-fresh
+T{ hs-header hs snap-why @ -> outcome-ok 0 }T
+layer-fresh 2 sh-layers hs head!
+T{ hs-header s" base snapshot of the layer" why? -> outcome-invalid true }T
+layer-fresh 3 sh-base 7 + hs head!
+T{ hs-header s" base snapshot of the layer" why? -> outcome-invalid true }T
+head-fresh hs-sha hs snap-expect !
+T{ hs-header s" base snapshot of the layer" why? -> outcome-invalid true }T
+head-fresh
+T{ hs ' snap-header rs-checked -> outcome-ok }T
+\ The same through snap-open on a saved file (snap-checks after the
+\ header): the run's fuel or the file's (-1) opens it, another is refused;
+\ a base opened as a layer is refused, as is a missing file.
+create hs-firsts 8 cells allot  hs-firsts 8 cells erase
+: hs-done ( -- ) hs snap-close hs snap-free ;
+s" tests/reference/constant-fixture.ndjson" true fresh
+T{ snap-file s" {}" ck-snapshot-save -> outcome-ok }T
+ck-release
+T{ snap-file -1 hs snap-open hs snap-why @ -> outcome-ok 0 }T  hs-done
+T{ snap-file 20000000 hs snap-open -> outcome-ok }T  hs-done
+T{ snap-file 5 hs snap-open s" fuel" why? -> outcome-invalid true }T  hs-done
+T{ snap-file -1 hs-sha hs-firsts hs snap-layer-open s" base snapshot of the layer" why?
+   -> outcome-invalid true }T  hs-done
+T{ s" /nonexistent/leanforth.lfsnap" -1 hs snap-open -> outcome-invalid }T  hs snap-free
 T{ depth -> 0 }T
 snap-file delete-file drop
 failures @ 0= [if] ." The lookup lists, I2 and the snapshot round trip hold." cr [then]
