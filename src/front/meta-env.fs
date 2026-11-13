@@ -46,7 +46,8 @@
 \ lf-menv-unfoldable ( name mode -- d flag outcome ) getUnfoldableConst?:
 \ flag true when the name is a definition that mode unfolds (a theorem
 \ or any other kind: false); lf-menv-matcher?, lf-menv-proj-fn?,
-\ lf-menv-aux-recursor?, lf-menv-smart? ( d -- flag outcome ) as above.
+\ lf-menv-aux-recursor?, lf-menv-smart? ( d -- flag outcome ) as above;
+\ lf-menv-nat-succ? ( name -- flag ) whether a name is Nat.succ.
 \ Outcomes: ok; invalid for a declaration number beyond the input, a
 \ mode beyond the six, a name that is not valid or that no declaration
 \ has, or a declaration the stage does not hold; unsupported as above.
@@ -131,12 +132,18 @@ end-structure
 : me-text? ( name -- flag ) lf-name-tag@ lf-name-tag-str = ;
 : me-str? ( name c-addr u -- flag )
   rot dup me-text? if lf-name-text compare 0= else drop 2drop false then ;
-: me-eq? ( prefix -- flag ) dup s" Eq" me-str? swap lf-name-prefix@ 0= and ;
+: me-top? ( name c-addr u -- flag )
+  rot dup lf-name-prefix@ 0= if -rot me-str? else drop 2drop false then ;
+: me-eq? ( prefix -- flag ) s" Eq" me-top? ;
 : me-ndrec-text? ( name -- flag )
   dup s" ndrec" me-str? over s" ndrec_symm" me-str? or swap s" ndrecOn" me-str? or ;
 : me-ndrec? ( d -- flag )
   lf-input-name dup me-ndrec-text? if lf-name-prefix@ me-eq? else drop false then ;
 : lf-menv-aux-recursor? ( d -- flag outcome )
   dup me-decl? if dup me-ndrec? if drop true outcome-ok exit then then me-defn-fact ;
+\ Whether a name is Nat.succ (whnf's reduceNat? and Nat offsets know it
+\ by name).
+: lf-menv-nat-succ? ( name -- flag )
+  dup s" succ" me-str? if lf-name-prefix@ s" Nat" me-top? else drop false then ;
 
 base !   \ the BASE this file was loaded with
