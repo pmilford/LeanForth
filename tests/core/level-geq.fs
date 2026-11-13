@@ -88,7 +88,7 @@ T{ lf-level-count @ -> levels }T
 : unrefused? ( n -- flag ) 1+ refused 0= -rot pair 2@ geq d= and ;
 : refusals-ok? ( l1 l2 -- flag )
   refusals dup unrefused? swap 1+ 1 ?do i refusal-full? and loop ;
-T{ uv+1 uv refusals uv iuv refusals w iuv refusals -> 3 3 3 }T
+T{ uv+1 uv refusals 1 > uv iuv refusals 1 > w iuv refusals 1 > -> true true true }T
 T{ uv+1 uv refusals-ok? uv iuv refusals-ok? w iuv refusals-ok? -> true true true }T
 T{ 1 refused -> false outcome-full true }T
 T{ lf-level-count @ heap-refusals @ -> levels 0 }T

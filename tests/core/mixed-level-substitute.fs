@@ -239,12 +239,10 @@ T{ var-u substituted -> var-u outcome-ok }T
 T{ app-u substituted nip swap halves lf-term-read
    -> outcome-ok app-u drop lf-term-second@ lf-tag-symbolic-sort 2 0 true }T
 T{ lf-mls-set htab-count lf-mls-reached @ -> 0 3 }T
-\ The heap refusing the first allocation: the replacements' array
-\ (trimmed first), full with no diagnostic; the set of reached terms
-\ (freed first, so made again at the audit's start), full with the
-\ work-stack diagnostic (no term reached, no slot). Every count is as
-\ before; the next call makes the set again. (Refusals of the reached
-\ list and the images, which leave the stack wrong, are in
+\ The heap refusing to grow the replacements' array (trimmed first): full
+\ with no diagnostic, every count as before; the next call grows it.
+\ (Refusals of the set of reached terms, the reached list and the images,
+\ which leave the stack wrong, are in
 \ tests/core/mixed-level-substitute-crowded.fs, out of make test.)
 : outcome-of ( index id 0 | status -- outcome ) dup ok? if nip nip then ;
 : refused ( -- outcome diag reached? )
@@ -256,10 +254,8 @@ create counted 3 cells allot
   counts@ counted 2 cells + @ = swap counted cell+ @ = and swap counted @ = and ;
 : actuals-refused ( -- outcome diag reached? )
   counts! lf-mls-actual-cells slab-trim drop refused ;
-: set-refused ( -- outcome diag reached? ) counts! lf-mls-set htab-free refused ;
 T{ actuals-refused kept? -> outcome-full 0 true true }T
-T{ set-refused kept? lf-diag@ 2drop -> outcome-full lf-diag-work-stack-full true true 0 0 }T
-T{ lf-mls-set htab-live? app-u substituted outcome-of lf-mls-set htab-live? -> false outcome-ok true }T
+T{ app-u substituted outcome-of -> outcome-ok }T
 \ A full reference store: the constant, whose levels change, needs a new
 \ reference, and there is no room for it. That is full, and every count
 \ is restored.

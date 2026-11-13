@@ -699,6 +699,7 @@ test-kernel-reduction:
 	$(RUN) $(GFORTH) tests/core/generated-recursor.fs
 	$(RUN) $(GFORTH) tests/core/mixed-head.fs
 	$(RUN) $(GFORTH) tests/core/mixed-rebuild.fs
+	$(RUN) $(GFORTH) tests/core/no-data-terms.fs
 test-kernel-blocks:
 	$(RUN) $(GFORTH) tests/core/inductive-block.fs
 	$(RUN) $(GFORTH) tests/core/inductive-recursor.fs

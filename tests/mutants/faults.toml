@@ -10347,3 +10347,76 @@ old = '''            changes = {**renaming, **(export.swaps(pairs) if field == "
 new = '''            changes = dict(renaming)'''
 test = "python3 tests/program/sha_export_check.py"
 reason = "5.5.1: a mutant copy keeps its original's body, so the checks of changed words and proofs test nothing (needs pinned Lean)"
+
+# --- Coverage tests of the kernel, second pass (COV2, 2026-11-12): is_geq's
+# max and imax cases (tests/core/level-geq.fs), terms without a data word
+# (tests/core/no-data-terms.fs, tests/core/mixed-level-substitute.fs).
+
+[[fault]]
+id = "cov2-geq-max-right-side-skipped"
+file = "src/kernel/level-geq.fs"
+old = '''  if lf-geq-rhs r> lf-geq-then else 2drop false r> 0 then ;'''
+new = '''  if 2drop true r> 0 else 2drop false r> 0 then ;'''
+test = "$GFORTH tests/core/level-geq.fs"
+reason = "is_geq(l1, max a b) true once l1 >= a, b never compared: u >= max u v holds"
+
+[[fault]]
+id = "cov2-geq-imax-left-side"
+file = "src/kernel/level-geq.fs"
+old = '''  2 pick lf-geq-imax? if >r swap lf-geq-rhs swap r> lf-geq-then exit then'''
+new = '''  2 pick lf-geq-imax? if >r swap lf-geq-lhs swap r> lf-geq-then exit then'''
+test = "$GFORTH tests/core/level-geq.fs"
+reason = "is_geq(imax a b, l2) asks a >= l2 instead of b >= l2 (level.cpp 532): imax u v >= u holds"
+quick = true
+
+[[fault]]
+id = "cov2-geq-max-rhs-case-dropped"
+file = "src/kernel/level-geq.fs"
+old = '''  dup lf-geq-max? if r> lf-geq-both exit then'''
+new = '''  false if r> lf-geq-both exit then'''
+test = "$GFORTH tests/core/level-geq.fs"
+reason = "is_geq's l2-a-max case (level.cpp 527) skipped: succ (max u v) >= max u v is no longer shown"
+
+[[fault]]
+id = "cov2-whnf-scan-bound-off-by-one"
+file = "src/kernel/whnf.fs"
+old = '''  nip walk-context @ < if outcome-ok else outcome-unknown then ;'''
+new = '''  nip walk-context @ 1+ < if outcome-ok else outcome-unknown then ;'''
+test = "$GFORTH tests/core/no-data-terms.fs"
+reason = "has_loose_bvars of a node without a data word misses a variable one past its binders: fun _ => #1 counts as closed"
+quick = true
+
+[[fault]]
+id = "cov2-whnf-scan-fvar-ignored"
+file = "src/kernel/whnf.fs"
+old = '''  dup lf-tag-fvar = if drop 2drop drop outcome-unknown exit then lf-whnf-scan-dispatch ;'''
+new = '''  dup lf-tag-fvar = if drop 2drop drop outcome-ok exit then lf-whnf-scan-dispatch ;'''
+test = "$GFORTH tests/core/no-data-terms.fs"
+reason = "has_fvar of a node without a data word ignores its free variables, so lazy delta and is_def_eq_core treat it as closed"
+
+[[fault]]
+id = "cov2-whnf-scan-answer-inverted"
+file = "src/kernel/whnf.fs"
+old = '''  dup outcome-unknown = if drop true outcome-ok exit then'''
+new = '''  dup outcome-unknown = if drop false outcome-ok exit then'''
+test = "$GFORTH tests/core/no-data-terms.fs"
+reason = "a scan that stops at a loose variable answers closed: zeta puts an open value for the variable without its lift"
+
+[[fault]]
+id = "cov2-mls-no-data-closed"
+file = "src/kernel/mixed-level-substitute.fs"
+old = ''': lf-mls-closed? ( node -- flag ) lf-term-data@ if lf-data-params? 0= else false then ;'''
+new = ''': lf-mls-closed? ( node -- flag ) lf-term-data@ if lf-data-params? 0= else true then ;'''
+test = "$GFORTH tests/core/mixed-level-substitute.fs"
+reason = "a term without a data word is taken as having no universe parameter: its levels are never substituted"
+quick = true
+
+[[fault]]
+id = "cov2-caches-known-without-data"
+file = "src/kernel/caches.fs"
+old = '''  swap lf-cs-facts 0= if drop false exit then
+  swap ['] lf-whnf-scan-visit ='''
+new = '''  swap lf-cs-facts 0= if drop false true exit then
+  swap ['] lf-whnf-scan-visit ='''
+test = "$GFORTH tests/core/no-data-terms.fs"
+reason = "the caches' hook answers 'closed' for a node without a data word instead of letting whnf.fs walk it"
