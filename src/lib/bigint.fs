@@ -49,16 +49,16 @@
 \ Outcomes (src/lib/outcome.fs): ok; invalid for a malformed integer (a sign
 \ other than -1, 0 or 1, a malformed magnitude, or a sign that is 0 for a
 \ magnitude that is not, or the reverse), a malformed natural number, an
-\ operand reaching into the arena's free part (released), a corrupted arena
-\ record, or text that is not an optional minus sign followed by one or more
-\ decimal digits (leading zeros allowed; "-0" is 0); full when the arena has
-\ no room or a magnitude would have more bits than the arena's limit
-\ (bignum.fs: Lean's 2^30 unless big-limit! sets another; no value on the
-\ way is longer than the result or an operand). A failure gives -1 in the
-\ result's place (bigint>decimal: 0 0) and leaves the arena's top where it
-\ was. The checks are O(1), as bignum.fs's; bigint-compare, bigint-sign,
-\ bigint>n and bigint-magnitude trust their argument (bigint-valid? first).
-\ Text read must not lie in the arena's free part.
+\ operand or text reaching into the arena's free part (released), a
+\ corrupted arena record, or text that is not an optional minus sign
+\ followed by one or more decimal digits (leading zeros allowed; "-0" is
+\ 0); full when the arena has no room or a magnitude would have more bits
+\ than the arena's limit (bignum.fs: Lean's 2^30 unless big-limit! sets
+\ another; no value on the way is longer than the result or an operand).
+\ A failure gives -1 in the result's place (bigint>decimal: 0 0) and
+\ leaves the arena's top where it was. The checks are O(1), as
+\ bignum.fs's; bigint-compare, bigint-sign, bigint>n and bigint-magnitude
+\ trust their argument (bigint-valid? first).
 \
 \ Example: (-12) / 7 and (-12) % 7, Lean's -2 and 2.
 \   create ar /big-arena allot   65536 allocate throw 65536 ar big-arena-init
@@ -74,9 +74,10 @@
 \ bigint>n decimal>bigint bigint>decimal, in lf-lib; bignum.fs's words for
 \ arenas and natural numbers. No host recursion (bignum.fs's own products
 \ and powers recurse to a depth logarithmic in the size). State: none of
-\ its own (the constant big-one is read only); separate arenas are
-\ independent, one arena is single-threaded. Loads in decimal whatever BASE
-\ is, and restores it. Requires bignum.fs, module.fs and what they require.
+\ its own (the number 1 its steps use is made in the arena); separate
+\ arenas are independent, one arena is single-threaded. Loads in decimal whatever BASE
+\ is, and restores it. Requires bignum.fs, bounds.fs, outcome.fs,
+\ portability.fs and module.fs.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./bignum.fs
@@ -248,14 +249,16 @@ end-structure
 
 \ ---- Operations ----
 
-\ Each signed operation sets the result's sign, chooses and runs its
-\ magnitude step, and ends the build.
-: add-of ( build -- c outcome ) dup add-sign dup dup add-step run-step settle ;
-: sub-of ( build -- c outcome ) dup sub-sign dup dup sub-step run-step settle ;
-: mul-of ( build -- c outcome ) dup mul-sign dup dup mul-step run-step settle ;
-: ediv-of ( build -- c outcome ) dup ediv-sign dup dup ediv-step run-step settle ;
-: emod-of ( build -- c outcome ) dup emod-sign dup dup emod-step run-step settle ;
-: negate-of ( build -- c outcome ) dup negate-sign dup dup copy-step run-step settle ;
+\ A signed operation: set the result's sign with sign-xt ( build -- ), run
+\ the magnitude step that step-xt ( build -- xt ) chooses, end the build.
+: signed-op ( build sign-xt step-xt -- c outcome )
+  >r over swap execute dup dup r> execute run-step settle ;
+: add-of ( build -- c outcome ) ['] add-sign ['] add-step signed-op ;
+: sub-of ( build -- c outcome ) ['] sub-sign ['] sub-step signed-op ;
+: mul-of ( build -- c outcome ) ['] mul-sign ['] mul-step signed-op ;
+: ediv-of ( build -- c outcome ) ['] ediv-sign ['] ediv-step signed-op ;
+: emod-of ( build -- c outcome ) ['] emod-sign ['] emod-step signed-op ;
+: negate-of ( build -- c outcome ) ['] negate-sign ['] copy-step signed-op ;
 
 \ x bmod m for m > 0: with r = x % m and d = m - r, r < (m + 1) / 2 holds
 \ exactly when r < d (both say 2r < m); then r, else r - m = -d.
@@ -289,6 +292,11 @@ end-structure
 : minus? ( addr u -- flag ) 1 min s" -" compare 0= ;
 : sign-split ( addr u -- addr' u' s ) 2dup minus? if 1 /string -1 else 1 then ;
 : int-text? ( addr u -- flag ) sign-split drop digits? ;
+\ Whether a text stays clear of the arena's free part, as int-live?: text
+\ there (released) would be overwritten by the build before it is read.
+: text-live? ( addr u arena -- flag )
+  >r chars over + r@ arena-top @ u> 0= swap r> arena-end @ u< 0= or ;
+: text? ( addr u arena -- flag ) >r 2dup int-text? -rot r> text-live? and ;
 : text-sign ( build -- ) dup build-a @ over build-b @ sign-split nip nip swap sign! ;
 : text-mag ( addr u arena -- m outcome ) >r sign-split drop r> decimal>big ;
 : text-of ( build -- i outcome ) dup text-sign dup build-args text-mag settle ;
@@ -345,9 +353,10 @@ lf-lib set-current
   dup int-mag big>u 0= if drop false exit then
   swap @ 2dup n-fits? if signed true else 2drop false then ;
 \ The integer whose decimal text is at addr u: an optional minus sign and
-\ one or more digits 0-9; invalid otherwise.
+\ one or more digits 0-9; invalid otherwise, or when the text reaches into
+\ the arena's free part.
 : decimal>bigint ( addr u arena -- i outcome )
-  >r 2dup int-text? r> swap if any-build ['] text-of build-run else refuse then ;
+  >r 2dup r@ text? r> swap if any-build ['] text-of build-run else refuse then ;
 \ The decimal text of an integer, a minus sign first when it is negative,
 \ at the arena's top; it stays until released. A failure gives 0 0.
 : bigint>decimal ( i arena -- addr u outcome )

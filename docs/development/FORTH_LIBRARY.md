@@ -31,7 +31,7 @@ variants were retired on 2026-11-02.
 | Hash-consed sets in two tiers | `src/lib/cons.fs`, `src/lib/pools.fs` | Each distinct record once, named by a number; a sealed input set shared read-only and scratch sets over it whose numbers continue; marks, resets, sealing; interned lists of 32-bit numbers (tuples, no fixed length) and texts ([below](#the-compact-store)) | New 2026-11-03; `tests/lib/cons.fs` |
 | Compact store | `src/core/compact.fs` and `compact-tier.fs`, `compact-names.fs`, `compact-levels.fs`, `compact-exprs.fs` | ADR 0016's Lean layer: names, levels, universe lists, literals and 16-byte expression records in input and scratch tiers ([below](#the-compact-store)) | New 2026-11-03; not yet used by the kernel; `tests/core/compact.fs`, round trips of the reference exports and of `Init` |
 | Big natural numbers | `src/lib/bignum.fs` | Arbitrary-precision naturals for Lean's `Nat` literals ([below](#big-natural-numbers)): numbers in an arena the caller provides (`/big-arena`, `big-arena-init`; `big-mark` and `big-release` give back what was made since a mark), one-cell limbs whose width is counted (`limb-bits`), decimal reading and printing (`decimal>big`, `big>decimal`), conversion to and from a cell (`u>big`, `big>u`), comparison (`big-compare`, `big=`, `big<=`), and the operations Lean 4.35.0's kernel computes on literals (`big+ big- big* big/ big-mod big-gcd big-and big-or big-xor big-lshift big-rshift big-pow`, each `( a b arena -- c outcome )`). Schoolbook multiplication with Karatsuba from 48 limbs, Knuth's algorithm D, Lehmer's gcd. Outcomes ok, invalid (a malformed or released number, text or arena) and full (no room, or more bits than the arena's limit, by default Lean's 2^30). No state; loads in decimal whatever `BASE` is | New 2026-11-02 (plan task 5.2.3, library part); not yet used by the kernel (task 5.1.4); `tests/lib/bignum.fs` reaches every outcome; `make test` compares 37,585 cases with Python's integers on the running Gforth and catches 22 planted faults; review fixes of 2026-11-03 (printing overwrote the number below its text, stale operands, two speed fixes) with guarded-arena sweeps; `make check` has 984 of them computed by pinned Lean's kernel |
-| Signed big integers | `src/lib/bigint.fs` | Lean 4.35.0's `Int` over `bignum.fs` ([below](#signed-big-integers)): an integer is a sign cell (-1, 0, 1) followed by a bignum magnitude, made at the top of a bignum arena; `bigint+ bigint- bigint* bigint-ediv bigint-emod` `( a b arena -- c outcome )` (Lean's `/` and `%` on `Int` are `Int.ediv` and `Int.emod`), `bigint-bmod` and `bigint-pow` `( x m arena -- c outcome )` with a natural number `m`, `bigint-negate`, `bigint-gcd`, `bigint-natAbs` and `bigint-toNat` (natural-number results), `bigint-compare`, `bigint-sign`, `bigint-magnitude` (in place), `nat>bigint`, `n>bigint`, `bigint>n`, `decimal>bigint`, `bigint>decimal`, `bigint-valid?`. Outcomes ok, invalid, full as `bignum.fs`'s. Standalone: requires `bignum.fs` and `module.fs` (and what they require); helpers private (ADR 0010); no state; no host recursion of its own; loads in decimal whatever `BASE` is | New 2026-11-13 (plan step FE1i-4, for `by-omega` and `by-decide`); tested alone, on branch `fe1i4-bigint`; no tactic uses it yet. `make test-bigint`: unit tests of every word and outcome, every room from 0 cells up, no heap use; 9,906 pairs against a model of Lean's definitions; the header's example and exact interface from outside the project. `make reference-bigint`: 17,906 pairs (10,000 random) equal pinned Lean's own `Int`, line for line, and 300 kernel-decided equations. 16 planted faults (`fe-bigint-…`) each caught |
+| Signed big integers | `src/lib/bigint.fs` | Lean 4.35.0's `Int` over `bignum.fs` ([below](#signed-big-integers)): an integer is a sign cell (-1, 0, 1) followed by a bignum magnitude, made at the top of a bignum arena; `bigint+ bigint- bigint* bigint-ediv bigint-emod` `( a b arena -- c outcome )` (Lean's `/` and `%` on `Int` are `Int.ediv` and `Int.emod`), `bigint-bmod` and `bigint-pow` `( x m arena -- c outcome )` with a natural number `m`, `bigint-negate`, `bigint-gcd`, `bigint-natAbs` and `bigint-toNat` (natural-number results), `bigint-compare`, `bigint-sign`, `bigint-magnitude` (in place), `nat>bigint`, `n>bigint`, `bigint>n`, `decimal>bigint`, `bigint>decimal`, `bigint-valid?`. Outcomes ok, invalid, full as `bignum.fs`'s. Standalone: requires `bignum.fs`, `bounds.fs`, `outcome.fs`, `portability.fs` and `module.fs`; helpers private (ADR 0010); no state; no host recursion of its own; loads in decimal whatever `BASE` is | New 2026-11-13 (plan step FE1i-4, for `by-omega` and `by-decide`); tested alone, on branch `fe1i4-bigint`; no tactic uses it yet. `make test-bigint`: unit tests of every word and outcome, every room from 0 cells up, no heap use; 9,906 pairs against a model of Lean's definitions; the header's example and exact interface from outside the project. `make reference-bigint`: 17,906 pairs (10,000 random) equal pinned Lean's own `Int`, line for line, and 300 kernel-decided equations. 17 planted faults (`fe-bigint-…`) each caught; Forth review 2026-11-13 not blocking, its M1, L1, L2, S1 fixed |
 | SHA-256 | `src/lib/sha256.fs` | FIPS 180-4 SHA-256, incremental ([below](#sha-256)): `sha256:` (or `/sha256` address units of the caller's memory), `sha256-init ( sha -- )`, `sha256-update ( c-addr u sha -- )` with pieces of any size, `sha256-final ( c-addr sha -- )` for the 32-byte digest, `sha256-hex ( c-addr1 c-addr2 -- )` for its 64 lowercase hexadecimal digits. One word per FIPS function (`sha-rotr`, `sha-shr`, `sha-ch`, `sha-maj`, `sha-big-sigma0`, `sha-big-sigma1`, `sha-small-sigma0`, `sha-small-sigma1`), the plain round and schedule built from them, and on cells of 64 bits or more a fast round and schedule with the functions written out in place. Standalone: requires only `portability.fs` and `module.fs`; helpers private in `lf-lib-private` (ADR 0010); no state of its own; nothing fails. Loads in decimal whatever `BASE` is | New 2026-11-03 (plan task 3.2.6, for the export manifests); the program track's flagship verification target; `make test-sha256`: NIST vectors, every split of messages up to 200 bytes, the functions against independent models, the fast round against the plain one, 306 random messages against Python's `hashlib` on both paths, the header's example and the exact public interface checked from a folder outside the project; 14 planted faults each caught |
 | Visible text | `src/lib/text-rule.fs` | `tr-rule? ( c-addr u -- flag )`: valid UTF-8 with no control, format, line or paragraph separator or surrogate character (Unicode Cc, Cf, Zl, Zp, Cs); `tr-banned? ( code -- flag )`: a code point no such text holds; `tr-shown? ( c-addr u -- flag )`: also a character that is seen, not a space, a blank-looking filler, a combining mark or a default-ignorable code point. The rule of program receipts 0.2 and of run records; tables generated from Unicode 15.1 by `scripts/text_rule_tables.py`. Requires `bounds.fs`, `bytes.fs` and `module.fs`; helpers private; no state | New 2026-11-03 (run records, plan task 2.2.5); `tests/lib/text-rule.fs` on its own; every code point compared with the run-record schema's patterns by `tests/core/test_run_records.py` |
 | Portability adapter | `src/lib/portability.fs` | Forth-2012 definitions of `>=`, `<=`, `0<=`, `0>=`, `-rot`, `max-n`, `cell` and the structure words, compiled only where the host lacks them. `scripts/check-portable-forth.py` refuses a module under `src/` that uses one of them without loading this file, directly or through the files it loads | New 2026-11-02; defines nothing under Gforth except `max-n`; `cell` and the load check added 2026-11-02 |
@@ -61,7 +61,7 @@ LeanForth, unless coupling gains a lot. Audit of `src/lib/` on 2026-11-03:
 | Library | General purpose? | What ties it to LeanForth today |
 | --- | --- | --- |
 | `bignum.fs` (natural numbers) | yes; no Lean code (Lean only in comments) | needs `outcome.fs`, `bounds.fs`, `portability.fs` (104 lines); naturals only (subtraction stops at 0, as Lean's `Nat`); all helper names public. Shown working from an unrelated folder on both Gforths |
-| `bigint.fs` (signed integers) | yes, written to this rule (2026-11-13); Lean only in comments: its semantics are Lean's `Int`, which is also ordinary Euclidean division | requires `bignum.fs`, `module.fs` and what they require; helpers in `lf-lib-private`, 20 public words (`bigint…`, `nat>bigint`, `n>bigint`, `decimal>bigint`); an example in its header, run with the exact interface checked from a folder outside the project by `make test-bigint` |
+| `bigint.fs` (signed integers) | yes, written to this rule (2026-11-13); Lean only in comments: its semantics are Lean's `Int`, which is also ordinary Euclidean division | requires `bignum.fs`, `bounds.fs`, `outcome.fs`, `portability.fs` and `module.fs`; helpers in `lf-lib-private`, 20 public words (`bigint…`, `nat>bigint`, `n>bigint`, `decimal>bigint`); an example in its header, run with the exact interface checked from a folder outside the project by `make test-bigint` |
 | `json.fs` (RFC 8259 reader), `json-write.fs` | yes | `json.fs` requires `bytes.fs`, which requires the whole `lib.fs` (contexts, walk records, frames) although it uses little of it; helper names public |
 | `bytes.fs` (bounded line reader, UTF-8) | yes, with strict framing rules chosen for Lean's exports (no carriage return, no byte-order mark, final line feed) | requires all of `lib.fs`; the framing rules should become options |
 | `u32.fs` (32-bit access) | yes | none beyond `portability.fs` |
@@ -545,31 +545,36 @@ otherwise gives −(m − r). The number 1 these steps use is made in the
 arena, so the library has no data of its own. Operands are checked as
 `bignum.fs`'s are (well formed, not reaching into the arena's free part,
 a sound arena record) before anything is claimed, so invalid input wins
-over no room.
+over no room; so is text read by `decimal>bigint` (review L1: text in the
+free part would be overwritten by the build before it is read).
 
 **Tests.** `tests/lib/bigint.fs` (loaded under `HEX`): the
 representation, every word on signs and zero, Lean's documented examples
 of `/`, `%` and `bmod`, `bmod`'s boundary 2r = m − 1, m, m + 1, carries
 across limbs at 2^64, 2^300-size values, the most negative cell, every
-kind of malformed text, malformed, released and straddling operands and a
-corrupted arena (invalid, nothing made), the bit limit, every room from 0
-to 240 cells between guard cells for every operation and for printing,
-no heap use (`tests/support/heap-watch.fs` refuses the next allocation and
-it stays pending), both stacks balanced, operands unchanged.
-`tests/lib/bigint_differential.py` prints 13 results per integer pair with
-`tests/lib/bigint-cases.fs` (7,906 edge pairs and seeded random ones up to
-3,600 bits, a quarter a = qb + r) and requires each line to equal a model
-that follows Lean's definitions case by case (`make test-bigint`: 2,000
-random pairs), then runs the header's example and checks the exact
-interface from a folder outside the project. `make reference-bigint` runs
+kind of malformed text, malformed, released and straddling operands and
+texts and a corrupted arena (invalid, nothing made), the bit limit, every
+room from 0 to 240 cells between guard cells for every operation (from 0
+to 80 for printing), no heap use (`tests/support/heap-watch.fs` refuses
+the next allocation and it stays pending), both stacks balanced, operands
+unchanged; every block of the module runs (289 of 289, Gforth 1.0's
+`coverage.fs`). `tests/lib/bigint_differential.py` prints 13 results per
+integer pair with `tests/lib/bigint-cases.fs` (7,906 edge pairs and seeded
+random ones up to 3,600 bits, a quarter a = qb + r) and requires each line
+to equal a model that follows Lean's definitions case by case
+(`make test-bigint`: 2,000 random pairs); a self-test shows that the
+comparison refuses the same lines with one value changed; then it runs the
+header's example and checks the exact interface from a folder outside the
+project. `make reference-bigint` runs
 pinned Lean on the same 17,906 pairs (10,000 random) as a program whose
 source holds them (so the Lean cache keys on them): Lean's own `Int`
 gives the same lines as the Forth library and the model; then 300 of the
 model's results as `example … := by decide +kernel` are all proved by
 Lean's kernel and all 300 with the value changed are rejected. On
-Gforth 1.0 and 0.7.3 (64-bit hosts only). Planted faults: 16 `fe-bigint-…`
+Gforth 1.0 and 0.7.3 (64-bit hosts only). Planted faults: 17 `fe-bigint-…`
 entries in `tests/mutants/faults.toml`, each caught (the design's
-`fe-bigint-ediv-sign` by the comparison with pinned Lean).
+`fe-bigint-ediv-sign` by the comparison with pinned Lean: 1,655 of 8,206
+pairs differ from Lean's own `Int`).
 
 ## The compact store
 

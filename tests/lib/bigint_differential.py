@@ -16,7 +16,8 @@ the one computed by the model below, which follows Lean's definitions
 case by case (Init/Data/Int/DivMod/Basic.lean: ediv 73-78, emod 103-105,
 bmod 318-323; Gcd.lean 43; Int.pow, natAbs, toNat, sign, compare).
 
-Then the header's example runs from a folder outside the project, with
+A self-test first shows that the comparison refuses the same lines with one
+value changed. Then the header's example runs from a folder outside the project, with
 only the files the library requires, and every name the library defines
 is checked: exactly the documented interface is visible, the helpers are
 not (ADR 0010).
@@ -221,6 +222,20 @@ def compare(name, lines, expected, pairs):
     return bad
 
 
+def self_test(lines, pairs):
+    """The comparison refuses a known-wrong table: one quotient changed in a
+    copy of the lines is reported, and only that line."""
+    wrong = list(lines)
+    k = len(wrong) // 2
+    fields = wrong[k].split()
+    fields[5] = str(int(fields[5]) + 1)
+    wrong[k] = " ".join(fields)
+    found = compare("self-test", wrong, lines, pairs)
+    if len(found) != 1 or f"a={str(pairs[k][0])[:40]} " not in found[0]:
+        raise SystemExit("the comparison did not refuse a table with one value changed")
+    print("Self-test: the comparison refuses the same lines with one quotient changed.")
+
+
 def source_words(text):
     """The words of Forth source, without \\ comments and ( ) comments."""
     words, skipping = [], False
@@ -398,7 +413,10 @@ def main():
         for item in bad[:10]:
             print("  " + item)
         if bad:
-            raise SystemExit(f"{len(bad)} differences in {len(pairs)} pairs")
+            names = [item.split(":")[0] for item in bad]
+            counts = ", ".join(f"{name}: {names.count(name)}" for name in dict.fromkeys(names))
+            raise SystemExit(f"differences in {len(pairs)} pairs ({counts})")
+        self_test(lines, pairs)
         negative = sum(1 for a, b in pairs if a < 0 or b < 0)
         biggest = max(max(abs(a), abs(b)).bit_length() for a, b in pairs)
         print(f"bigint: {len(pairs)} pairs ({edges} edge, {len(pairs) - edges} random, "

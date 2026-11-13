@@ -12082,3 +12082,11 @@ old = '''  over negative? if minus-text else swap int-mag swap big>decimal then 
 new = '''  swap int-mag swap big>decimal ;'''
 test = "$GFORTH tests/lib/bigint.fs"
 reason = "a negative integer prints without its minus sign"
+
+[[fault]]
+id = "fe-bigint-text-live-unchecked"
+file = "src/lib/bigint.fs"
+old = ''': text? ( addr u arena -- flag ) >r 2dup int-text? -rot r> text-live? and ;'''
+new = ''': text? ( addr u arena -- flag ) drop int-text? ;'''
+test = "$GFORTH tests/lib/bigint.fs"
+reason = "review L1 (2026-11-13): text released into the arena's free part is read, though the build is claimed over it"

@@ -262,6 +262,14 @@ T{ s" -x" refused-text? s" - 1" refused-text? s" -+1" refused-text? s" 1.0" refu
 T{ s" -007" int text s" -7" compare s" 000" int text s" 0" compare -> 0 0 }T
 T{ s" -18446744073709551616" int text s" -18446744073709551616" compare -> 0 }T
 T{ 2^300 int text 2^300 compare -> 0 }T
+\ Text in the arena itself: below the top it is read; released, wholly or
+\ in part (the top moved back into it), it is invalid with nothing made,
+\ as the build would overwrite it (review of 2026-11-13, L1).
+: long-text ( -- c-addr u ) s" -12345678901234567890" ;
+T{ long-text int text ar decimal>bigint long-text gives? -> true }T
+: freed-text ( -- c-addr u ) top long-text int text rot ar big-release drop ;
+: straddling-text ( -- c-addr u ) long-text int text over aligned cell+ ar big-release drop ;
+T{ freed-text refused-text? straddling-text refused-text? -> true true }T
 \ Printing twice gives the same text: printing leaves the integer as it was.
 : twice? ( c-addr u -- flag ) 2dup int dup text 2drop text compare 0= ;
 T{ s" -1" twice? s" -10000000000000000000" twice? s" -18446744073709551615" twice? -> true true true }T
@@ -368,6 +376,9 @@ T{ -2^128+1 2^64+3 ' bigint+ ' text swept? -2^128+1 2^64+3 ' bigint- ' text swep
 T{ -2^128+1 2^64+3 ' bigint* ' text swept? -> true }T
 T{ -2^128+1 2^64+3 ' bigint-ediv ' text swept? -2^128+1 2^64+3 ' bigint-emod ' text swept? -> true true }T
 T{ -2^128+1 2^64+3 ' bmod-by ' text swept? -2^128+1 s" 3" int ' pow-by ' text swept? -> true true }T
+\ One-limb operands: x % m needs no division scratch, so some room holds r
+\ but not d = m - r (review of 2026-11-13, M1: that failure was never run).
+T{ s" 5" int s" 7" int ' bmod-by ' text swept? s" -5" int s" 7" int ' bmod-by ' text swept? -> true true }T
 T{ -2^128+1 2^64+3 ' bigint-gcd ' nat-text swept? -2^128+1 0 ' negate-by ' text swept? -> true true }T
 T{ -2^128+1 0 ' natabs-by ' nat-text swept? 2^64+3 0 ' tonat-by ' nat-text swept? -> true true }T
 T{ min-n 0 ' cell-by ' text swept? s" 340282366920938463463374607431768211457" nat 0 ' nat-by ' text swept?
