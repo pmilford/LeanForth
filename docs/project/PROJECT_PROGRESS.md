@@ -49,7 +49,8 @@ status changes when this date is older than them. Stages are those of the
   list and `.goals` printed as Lean prints goals: 15 of 18 states equal) tested alone; the library `lib/runs.fs`; FE1i-4 (signed big integers, `lib/bigint.fs`)
   tested alone; FE1c's instantiateMVars beta and delayed steps and marks as serials tested alone (179 of 187 cases
   equal to pinned Lean). On main since 2026-11-13, approved by the owner: FE1e1 (elaboration data format 2,
-  [import]/[format]) and the job pool failing closed when threads are refused ([runtime]). Library: `lib/sort.fs` (a stable sort the kernel's sorts can adopt, FRK C2) tested alone. Designed:
+  [import]/[format]) and the job pool failing closed when threads are refused ([runtime]). FE1c's term unification (Lean's `isDefEq`: 87 of 107 cases equal to pinned Lean, 20 answer unsupported) tested alone.
+  Library: `lib/sort.fs` (a stable sort the kernel's sorts can adopt, FRK C2) tested alone. Designed:
   FE1e, FE1g, FE1i, FE2. Nothing is proved by
   LeanForth yet. Natural statements (8.6.10) are FE2, `add_comm` natively (8.6.11) FE5.
 - Program track, restarted 2026-11-12 after being parked since 2026-11-04: LeanForth re-checks Lean's proofs of
