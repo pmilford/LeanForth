@@ -9,6 +9,7 @@
 require ../../src/main.fs
 require ../../src/front/level-defeq.fs
 require ../../src/front/instantiate.fs
+require ../../src/front/level-params.fs
 
 lf-author-begin
 : must ( x flag -- x ) 0= abort" meta-cases: no room" ;
@@ -80,4 +81,29 @@ create xs-buf 8 cells allot
 : xs ( x0 .. xk-1 k -- addr k )
   dup 0 ?do dup 1- i - cells xs-buf + rot swap ! loop xs-buf swap ;
 : abst-run ( term addr n -- ) lf-meta-abstract .term cr ;
+
+\ Universe parameters: Sort l and C.{l1, l2}; the names and levels of a
+\ case in two buffers.
+: sort-of ( level -- term ) dup lf-level-identity drop lf-hterm-sort must drop ;
+create cpairs 4 cells allot
+: cpair! ( level i -- ) 2* cells cpairs + >r dup lf-level-identity drop swap r> 2! ;
+0 s" C" lf-name-str drop constant c-name
+: const2 ( l1 l2 -- term )
+  1 cpair! 0 cpair! c-name lf-name-generation @ cpairs 2 lf-cref-new must
+  lf-cterm-new must drop ;
+: .sort ( t -- ) lf-term-first@ dup 0= if drop ." Prop" else ." Sort " .lev then ;
+: .const ( t -- )
+  ." C.{" lf-term-first@ lf-cref-slot lf-cref-pairs 0 ?do
+    i if ." ," then dup i lf-cref-pair@ drop .lev loop drop ." }" ;
+:noname ( t -- )
+  dup lf-term-tag@ case lf-tag-symbolic-sort of .sort endof
+    lf-tag-constant of .const endof  >r (.t) r> endcase ; is .t
+create names-buf 4 cells allot  create levels-buf 4 cells allot
+: fill ( x0 .. xk-1 k buf -- ) over 0 ?do over i - 1- cells over + >r rot r> ! loop 2drop ;
+: params ( n0 .. nk-1 k -- ) names-buf fill ;
+: args ( l0 .. lk-1 k -- ) levels-buf fill ;
+: .level ( level outcome -- )
+  dup ok? if drop .lev else nip outcome-unsupported = if ." unsupported" else ." failed" then then ;
+: lps-run ( level k -- ) >r names-buf levels-buf r> lf-meta-level-params .level cr ;
+: ilp-run ( term k -- ) >r names-buf levels-buf r> lf-meta-instantiate-level-params .term cr ;
 : beta-run ( term -- ) lf-meta-head-beta .term cr ;

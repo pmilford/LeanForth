@@ -8,6 +8,7 @@ require ../support/tester.fs
 require ../../src/main.fs
 require ../../src/front/level-defeq.fs
 require ../../src/front/instantiate.fs
+require ../../src/front/level-params.fs
 
 lf-author-begin lf-mctx-reset
 : lnew ( -- level ) lf-level-mvar-new ok? 0= abort" level mvar" ;
@@ -85,8 +86,8 @@ lf-mctx-shallower
 T{ lout lsucc q lf-level-defeq q lval ld-pred lout lfree? -> true outcome-ok lout true }T
 \ Back at depth 0, ?o =?= ?d with ?d made at depth 1: Lean assigns the
 \ deeper one, ?d := ?o (isMVarWithGreaterDepth), not ?o := ?d.
-lnew constant o  lf-mctx-deeper lnew constant dp  lf-mctx-shallower
-T{ o dp lf-level-defeq dp lval o lfree? -> true outcome-ok o true }T
+lnew constant lo  lf-mctx-deeper lnew constant ldp  lf-mctx-shallower
+T{ lo ldp lf-level-defeq ldp lval lo lfree? -> true outcome-ok lo true }T
 
 \ ---- Not ported: max and imax (Lean normalizes them first).
 lf-mctx-reset lnew constant m
@@ -219,6 +220,57 @@ T{ lf-term-count @ lf-term-capacity! -> outcome-ok }T
 T{ dup0 y lf-meta-instantiate1 fxy lf-meta-head-beta -> -1 outcome-full -1 outcome-full }T
 T{ fxy0 x xs1 lf-meta-abstract -> -1 outcome-full }T
 T{ term-room lf-term-capacity! dup0 y lf-meta-instantiate1 nip -> outcome-ok outcome-ok }T
+
+\ ---- Universe parameters (src/front/level-params.fs, Lean's
+\ Level.instantiateParams and Expr.instantiateLevelParams).
+lf-mctx-reset
+create ps 2 cells allot  101 ps !  102 ps cell+ !
+create ls 2 cells allot
+: ls! ( a b -- ) ls cell+ ! ls ! ;
+: lps ( level n -- level' outcome ) >r ps ls r> lf-meta-level-params ;
+one two ls!
+\ u + 1 becomes 1 + 1; v with only u named stays; no parameter stays.
+T{ u lsucc 1 lps swap ld-pred -> outcome-ok one }T
+T{ v 1 lps two 2 lps -> v outcome-ok two outcome-ok }T
+T{ v 2 lps -> two outcome-ok }T
+\ The first equal name wins (getParamSubst): u u -> 1 2.
+T{ 101 ps cell+ ! u 2 lps 102 ps cell+ ! -> one outcome-ok }T
+\ max over parameters: unsupported (Lean simplifies with mkLevelMax');
+\ max without one is kept.
+T{ u v lmax 2 lps one zero lmax dup 2 lps >r = r> -> -1 outcome-unsupported true outcome-ok }T
+\ Malformed: a negative count, a level not in the store.
+T{ u ps ls -1 lf-meta-level-params 99999 1 lps -> -1 outcome-invalid -1 outcome-invalid }T
+\ Terms: Sort u and C.{u, v} take the levels; a binder keeps its name.
+: sort-of ( level -- term ) dup lf-level-identity drop lf-hterm-sort 0= abort" sort" drop ;
+create cpairs 4 cells allot
+: cpair! ( level i -- ) 2* cells cpairs + >r dup lf-level-identity drop swap r> 2! ;
+: const2 ( l1 l2 -- term )
+  1 cpair! 0 cpair! 0 s" C" lf-name-str drop lf-name-generation @ cpairs 2 lf-cref-new
+  0= abort" cref" lf-cterm-new 0= abort" cterm" drop ;
+: clevel ( term i -- level ) >r lf-term-first@ lf-cref-slot lf-cref-pairs drop r> lf-cref-pair@ drop ;
+: ilp ( term n -- term' outcome ) >r ps ls r> lf-meta-instantiate-level-params ;
+lnew constant la
+one la ls!
+T{ u sort-of 2 ilp swap lf-term-first@ -> outcome-ok one }T
+u v const2 constant cuv
+T{ cuv 2 ilp drop dup 0 clevel swap 1 clevel -> one la }T
+T{ cuv 1 ilp drop dup 0 clevel swap 1 clevel -> one v }T
+u sort-of dup lam constant su-lam
+T{ su-lam 0 s" w" lf-name-str drop lf-binder-implicit lf-pres-binder! -> outcome-ok }T
+T{ su-lam 2 ilp drop parts lf-term-first@ swap lf-term-first@ -> one one }T
+T{ su-lam 2 ilp drop lf-pres-binder@ drop nip -> lf-binder-implicit }T
+\ Nothing to change: the same node; a count of 0 changes nothing.
+T{ prop x app dup 2 ilp drop = cuv dup 0 ilp drop = -> true true }T
+\ max over a parameter inside a term: unsupported, never a term.
+T{ u v lmax sort-of 2 ilp -> -1 outcome-unsupported }T
+T{ cuv ps ls -1 lf-meta-instantiate-level-params 99999 2 ilp
+   -> -1 outcome-invalid -1 outcome-invalid }T
+\ Deep: 10,000 applications over Sort u; full: no room for a term.
+u sort-of 10000 apps constant su-deep
+T{ su-deep 2 ilp drop 10000 firsts lf-term-first@ -> one }T
+lf-term-capacity constant room2
+T{ lf-term-count @ lf-term-capacity! su-lam 2 ilp -> outcome-ok -1 outcome-full }T
+T{ room2 lf-term-capacity! -> outcome-ok }T
 
 T{ depth -> 0 }T
 cr .( meta.fs: all tests passed) cr

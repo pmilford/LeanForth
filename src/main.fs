@@ -65,6 +65,7 @@ require ./present/proof-outline.fs
 require ./front/mvars.fs
 require ./front/level-defeq.fs
 require ./front/instantiate.fs
+require ./front/level-params.fs
 
 \ The command line: check, replay, print, count, reexport, version,
 \ capabilities. It loads the staging of exports into the checker's input,

@@ -809,7 +809,8 @@ test: test-author
 # nothing.
 test-front:
 	@for m in src/front/syntax.fs src/front/dag-walk.fs src/front/reader.fs src/front/mvars.fs \
-	  src/core/mvar-leaves.fs src/front/level-defeq.fs src/front/instantiate.fs; do \
+	  src/core/mvar-leaves.fs src/front/level-defeq.fs src/front/instantiate.fs \
+	  src/front/level-params.fs; do \
 	  out=$$($(RUN) $(GFORTH) $$m -e bye 2>&1) || { printf '%s\n' "$$out" >&2; exit 1; }; \
 	  if [ -n "$$out" ]; then printf '%s printed while loading:\n%s\n' "$$m" "$$out" >&2; exit 1; fi; \
 	done
@@ -818,7 +819,8 @@ test-front:
 
 # The natural reader's trees against pinned Lean's macro expansion of the
 # same statements (tests/front/operators.lean); the Meta layer's answers
-# against pinned Lean's isLevelDefEqAux, instantiate1 and headBeta.
+# against pinned Lean's (tests/front/check_meta.py: isLevelDefEqAux,
+# instantiate1, abstract, headBeta, instantiateLevelParams).
 reference-front:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_front.py
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_meta.py

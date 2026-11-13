@@ -28,6 +28,7 @@ LEAN = os.environ.get("LEAN", ".tools/elan/toolchains/leanprover--lean4---v4.35.
 GFORTH = os.environ.get("GFORTH", "gforth")
 LIMIT = 300
 LEAN_FILE = ROOT / "tests/front/meta-cases.lean"
+LAM, PI, APP = "lam", "pi", "app"
 
 # Level cases: (lhs, rhs, read-only metavariables, gap?). Levels: numerals,
 # u and v (parameters), ?a .. ?d (metavariables made inside a new depth),
@@ -43,11 +44,29 @@ LEVELS = [
     ("(max u v)", "(max v u)", "", True), ("?a", "(max u v)", "", True),
 ]
 
+# Universe-parameter cases: (level, names, levels, gap?) for
+# Level.instantiateParams, and (term, names, levels, gap?) for
+# Expr.instantiateLevelParams, terms with ("sort", level) and
+# ("const", level, level) for C.{l1, l2}. A level with max over a parameter
+# is a gap (Lean simplifies with mkLevelMax').
+LPARAMS = [
+    ("u+1", ["u"], ["2"], False), ("v", ["u"], ["1"], False), ("u", ["u", "u"], ["1", "2"], False),
+    ("(max 1 0)", ["u"], ["1"], False), ("u+2", ["u", "v"], ["v+1", "0"], False),
+    ("(max u v)", ["u"], ["1"], True),
+]
+SORT, CONST = "sort", "const"
+TPARAMS = [
+    ((SORT, "u"), ["u"], ["1"], False), ((CONST, "u", "v"), ["u", "v"], ["1", "0"], False),
+    ((LAM, (SORT, "u"), (SORT, "u+1")), ["u"], ["v"], False),
+    ((PI, (SORT, "v"), (APP, (CONST, "u", "v"), "#0")), ["v"], ["u+1"], False),
+    ((APP, "x", "y"), ["u"], ["1"], False), ((CONST, "0", "1"), ["u"], ["v"], False),
+    ((SORT, "(max u v)"), ["u"], ["1"], True),
+]
+
 # Term cases: ("inst1", body, value), ("abst", term, [x0, ...]) or
 # ("beta", term). Terms: P (Prop),
 # x and y (free variables of type Prop), ?m (a metavariable of type
 # Prop), #i (a bound variable), ("app", f, a), ("lam", T, b), ("pi", T, b).
-LAM, PI, APP = "lam", "pi", "app"
 ID = (LAM, "P", "#0")
 FLIP = (LAM, "P", (LAM, "P", (APP, "#0", "#1")))
 TERMS = [
@@ -66,6 +85,9 @@ TERMS = [
     ("abst", (APP, "?m", "x"), ["?m"]), ("abst", (APP, "x", "y"), ["x", "x"]),
     ("abst", (APP, "x", "y"), []), ("abst", (LAM, "P", "#3"), ["x"]),
 ]
+
+
+CASES = len(LEVELS) + len(TERMS) + len(LPARAMS) + len(TPARAMS)
 
 
 class Failure(Exception):
@@ -153,6 +175,8 @@ def levelCase (ms : List (LMVarId × String)) (l r : Level) : MetaM Unit := do
 partial def sx : Expr → MetaM String
   | .bvar i => return s!"#{i}"
   | .sort .zero => return "Prop"
+  | .sort l => return s!"Sort {pl [] l}"
+  | .const _ us => return "C.{" ++ String.intercalate "," (us.map (pl [])) ++ "}"
   | .fvar id => return (← id.getUserName).toString
   | .mvar _ => return "?m"
   | .app f a => return s!"(app {← sx f} {← sx a})"
@@ -177,6 +201,10 @@ def lean_level_case(lhs, rhs, readonly):
 
 
 def term_lean(t):
+    if isinstance(t, tuple) and t[0] == SORT:
+        return f"(mkSort {level_lean(level_parse(t[1]))})"
+    if isinstance(t, tuple) and t[0] == CONST:
+        return f"(mkConst `C [{level_lean(level_parse(t[1]))}, {level_lean(level_parse(t[2]))}])"
     if isinstance(t, tuple):
         kind, a, b = t
         if kind == APP:
@@ -189,6 +217,10 @@ def term_lean(t):
 
 
 def term_forth(t):
+    if isinstance(t, tuple) and t[0] == SORT:
+        return f"{level_forth(level_parse(t[1]), {})} sort-of"
+    if isinstance(t, tuple) and t[0] == CONST:
+        return f"{level_forth(level_parse(t[1]), {})} {level_forth(level_parse(t[2]), {})} const2"
     if isinstance(t, tuple):
         kind, a, b = t
         word = {APP: "app", LAM: "lam", PI: "tpi"}[kind]
@@ -215,9 +247,30 @@ def lean_term_cases():
     return "\n".join(lines)
 
 
+def lean_names(names):
+    return "[" + ", ".join(f"`{n}" for n in names) + "]"
+
+
+def lean_levels(levels):
+    return "[" + ", ".join(level_lean(level_parse(l)) for l in levels) + "]"
+
+
+def lean_param_cases():
+    lines = ["run_meta do",
+             "  withLocalDeclD `x (mkSort Level.zero) fun x => do",
+             "  withLocalDeclD `y (mkSort Level.zero) fun y => do"]
+    for level, names, levels, _ in LPARAMS:
+        lines.append(f"    IO.println (pl [] (Level.instantiateParams "
+                     f"{level_lean(level_parse(level))} {lean_names(names)} {lean_levels(levels)}))")
+    for term, names, levels, _ in TPARAMS:
+        lines.append(f"    IO.println (← sx (Expr.instantiateLevelParams {term_lean(term)} "
+                     f"{lean_names(names)} {lean_levels(levels)}))")
+    return "\n".join(lines)
+
+
 def lean_source():
     text = LEAN_HEAD + "\n" + "\n\n".join(lean_level_case(l, r, ro) for l, r, ro, _ in LEVELS)
-    return text + "\n\n" + lean_term_cases() + "\n"
+    return text + "\n\n" + lean_term_cases() + "\n\n" + lean_param_cases() + "\n"
 
 
 def lean_lines():
@@ -228,7 +281,7 @@ def lean_lines():
                          cwd=ROOT, stdin=subprocess.DEVNULL, capture_output=True, text=True,
                          timeout=LIMIT)
     lines = [line for line in run.stdout.splitlines() if line.strip()]
-    if run.returncode != 0 or len(lines) != len(LEVELS) + len(TERMS):
+    if run.returncode != 0 or len(lines) != CASES:
         raise Failure(f"pinned Lean: exit {run.returncode}\n{run.stdout}{run.stderr}")
     return lines
 
@@ -254,11 +307,20 @@ def forth_lines():
             calls.append(f"{term_forth(case[1])} {xs} {len(case[2])} xs abst-run")
         else:
             calls.append(f"{term_forth(case[1])} beta-run")
+    ids = {"u": "101", "v": "102"}
+    for level, names, levels, _ in LPARAMS:
+        calls.append(f"{' '.join(ids[n] for n in names)} {len(names)} params "
+                     f"{' '.join(level_forth(level_parse(l), {}) for l in levels)} {len(levels)} args "
+                     f"{level_forth(level_parse(level), {})} {len(names)} lps-run")
+    for term, names, levels, _ in TPARAMS:
+        calls.append(f"{' '.join(ids[n] for n in names)} {len(names)} params "
+                     f"{' '.join(level_forth(level_parse(l), {}) for l in levels)} {len(levels)} args "
+                     f"{term_forth(term)} {len(names)} ilp-run")
     run = subprocess.run([GFORTH, "tests/front/meta-cases.fs", "-e", " ".join(calls) + " bye"],
                          cwd=ROOT, stdin=subprocess.DEVNULL, capture_output=True, text=True,
                          timeout=LIMIT)
     lines = [line.strip() for line in run.stdout.splitlines() if line.strip()]
-    if run.returncode != 0 or len(lines) != len(LEVELS) + len(TERMS):
+    if run.returncode != 0 or len(lines) != CASES:
         raise Failure(f"meta-cases.fs: exit {run.returncode}\n{run.stdout}{run.stderr}")
     return lines
 
@@ -285,8 +347,10 @@ def main():
         self_test()
         lean, forth = lean_lines(), forth_lines()
         gaps = []
-        names = [f"{l} =?= {r}" for l, r, _, _ in LEVELS] + [str(c) for c in TERMS]
-        gap_flags = [g for _, _, _, g in LEVELS] + [False] * len(TERMS)
+        names = ([f"{l} =?= {r}" for l, r, _, _ in LEVELS] + [str(c) for c in TERMS]
+                 + [f"{c[0]} {c[1]} := {c[2]}" for c in LPARAMS + TPARAMS])
+        gap_flags = ([g for _, _, _, g in LEVELS] + [False] * len(TERMS)
+                     + [c[3] for c in LPARAMS + TPARAMS])
         for name, gap, want, got in zip(names, gap_flags, lean, forth):
             if gap:
                 if not got.startswith("unsupported"):
@@ -298,8 +362,9 @@ def main():
     except Failure as error:
         print(f"check_meta: {error}")
         return 1
-    print(f"Meta layer: {len(LEVELS) - len(gaps)} level unifications and {len(TERMS)} "
-          "instantiations, abstractions and head-beta steps equal to pinned Lean's; "
+    print(f"Meta layer: {CASES - len(gaps)} cases equal to pinned Lean's "
+          f"({len(LEVELS)} level unifications, {len(TERMS)} instantiations, abstractions and "
+          f"head-beta steps, {len(LPARAMS) + len(TPARAMS)} universe-parameter instantiations); "
           f"{len(gaps)} gaps answer unsupported: {'; '.join(gaps)}; harness self-test passed")
     return 0
 

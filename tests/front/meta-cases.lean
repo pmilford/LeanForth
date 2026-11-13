@@ -23,6 +23,8 @@ def levelCase (ms : List (LMVarId × String)) (l r : Level) : MetaM Unit := do
 partial def sx : Expr → MetaM String
   | .bvar i => return s!"#{i}"
   | .sort .zero => return "Prop"
+  | .sort l => return s!"Sort {pl [] l}"
+  | .const _ us => return "C.{" ++ String.intercalate "," (us.map (pl [])) ++ "}"
   | .fvar id => return (← id.getUserName).toString
   | .mvar _ => return "?m"
   | .app f a => return s!"(app {← sx f} {← sx a})"
@@ -168,3 +170,20 @@ run_meta do
     IO.println (← sx (Expr.abstract (mkApp x y) #[x, x]))
     IO.println (← sx (Expr.abstract (mkApp x y) #[]))
     IO.println (← sx (Expr.abstract (mkLambda `a .default (mkSort Level.zero) (mkBVar 3)) #[x]))
+
+run_meta do
+  withLocalDeclD `x (mkSort Level.zero) fun x => do
+  withLocalDeclD `y (mkSort Level.zero) fun y => do
+    IO.println (pl [] (Level.instantiateParams (Nat.repeat mkLevelSucc 1 (mkLevelParam `u)) [`u] [(Nat.repeat mkLevelSucc 2 Level.zero)]))
+    IO.println (pl [] (Level.instantiateParams (mkLevelParam `v) [`u] [(Nat.repeat mkLevelSucc 1 Level.zero)]))
+    IO.println (pl [] (Level.instantiateParams (mkLevelParam `u) [`u, `u] [(Nat.repeat mkLevelSucc 1 Level.zero), (Nat.repeat mkLevelSucc 2 Level.zero)]))
+    IO.println (pl [] (Level.instantiateParams (mkLevelMax (Nat.repeat mkLevelSucc 1 Level.zero) (Nat.repeat mkLevelSucc 0 Level.zero)) [`u] [(Nat.repeat mkLevelSucc 1 Level.zero)]))
+    IO.println (pl [] (Level.instantiateParams (Nat.repeat mkLevelSucc 2 (mkLevelParam `u)) [`u, `v] [(Nat.repeat mkLevelSucc 1 (mkLevelParam `v)), (Nat.repeat mkLevelSucc 0 Level.zero)]))
+    IO.println (pl [] (Level.instantiateParams (mkLevelMax (mkLevelParam `u) (mkLevelParam `v)) [`u] [(Nat.repeat mkLevelSucc 1 Level.zero)]))
+    IO.println (← sx (Expr.instantiateLevelParams (mkSort (mkLevelParam `u)) [`u] [(Nat.repeat mkLevelSucc 1 Level.zero)]))
+    IO.println (← sx (Expr.instantiateLevelParams (mkConst `C [(mkLevelParam `u), (mkLevelParam `v)]) [`u, `v] [(Nat.repeat mkLevelSucc 1 Level.zero), (Nat.repeat mkLevelSucc 0 Level.zero)]))
+    IO.println (← sx (Expr.instantiateLevelParams (mkLambda `a .default (mkSort (mkLevelParam `u)) (mkSort (Nat.repeat mkLevelSucc 1 (mkLevelParam `u)))) [`u] [(mkLevelParam `v)]))
+    IO.println (← sx (Expr.instantiateLevelParams (mkForall `a .default (mkSort (mkLevelParam `v)) (mkApp (mkConst `C [(mkLevelParam `u), (mkLevelParam `v)]) (mkBVar 0))) [`v] [(Nat.repeat mkLevelSucc 1 (mkLevelParam `u))]))
+    IO.println (← sx (Expr.instantiateLevelParams (mkApp x y) [`u] [(Nat.repeat mkLevelSucc 1 Level.zero)]))
+    IO.println (← sx (Expr.instantiateLevelParams (mkConst `C [(Nat.repeat mkLevelSucc 0 Level.zero), (Nat.repeat mkLevelSucc 1 Level.zero)]) [`u] [(mkLevelParam `v)]))
+    IO.println (← sx (Expr.instantiateLevelParams (mkSort (mkLevelMax (mkLevelParam `u) (mkLevelParam `v))) [`u] [(Nat.repeat mkLevelSucc 1 Level.zero)]))

@@ -10376,6 +10376,38 @@ new = ''': in-hole? ( leaf -- flag ) lf-term-tag@ lf-tag-fvar = ;'''
 test = "$GFORTH tests/front/meta.fs"
 reason = "FE1c: abstract keeps a metavariable it was given, where Lean's abstract replaces it too"
 
+[[fault]]
+id = "fe-lparams-last-name"
+file = "src/front/level-params.fs"
+old = '''  lp-count 0 ?do dup i lp-name = if drop i true unloop exit then loop drop false ;'''
+new = '''  false lp-count 0 ?do over i lp-name = if drop i true then loop nip ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: a parameter named twice takes the last level, where Lean's getParamSubst takes the first"
+
+[[fault]]
+id = "fe-lparams-offset-lost"
+file = "src/front/level-params.fs"
+old = '''  lp-mapped if swap lp-shift else drop outcome-ok then ;'''
+new = '''  lp-mapped if nip nip outcome-ok else drop outcome-ok then ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: u + 1 with u := 1 becomes 1, the successors above the parameter dropped"
+
+[[fault]]
+id = "fe-lparams-max-guessed"
+file = "src/front/level-params.fs"
+old = '''  dup ld-offset swap dup lp-param? 0= if 2drop drop -1 outcome-unsupported exit then'''
+new = '''  dup ld-offset swap dup lp-param? 0= if 2drop outcome-ok exit then'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: a max over a parameter is kept unchanged, a guess where Lean substitutes and simplifies"
+
+[[fault]]
+id = "fe-lparams-const-kept"
+file = "src/front/level-params.fs"
+old = ''': lp-const-build ( node -- image ) dup lp-cref-moves? if lp-const-new then ;'''
+new = ''': lp-const-build ( node -- image ) ;'''
+test = "$GFORTH tests/front/meta.fs"
+reason = "FE1c: a constant keeps its universe parameters after instantiateLevelParams"
+
 # --- The front end's first steps (plan FE1a-b; ADR 0021) -----------------
 
 [[fault]]
