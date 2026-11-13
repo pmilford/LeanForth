@@ -15,7 +15,8 @@
 \   Nat Nat Nat (instHAdd.{0} Nat instAddNat) e k); a literal k is
 \   OfNat.ofNat.{0} Nat k (instOfNatNat k) (lf-meta-nat-lit, mkNatLit).
 \ - lf-meta-nat ( -- term outcome ): the constant Nat.
-\ Values are one cell. Never a guess: unsupported for a literal or a sum
+\ Values are unsigned cells (below 2^64 on a 64-bit host), added and
+\ compared unsigned. Never a guess: unsupported for a literal or a sum
 \ beyond a cell, an operation Lean's evalNat also evaluates that is not
 \ ported (subtraction, multiplication, division, modulo and power:
 \ Nat.sub, Sub.sub, HSub.hSub and the others, by name and number of

@@ -185,7 +185,9 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
   de-m 0 df df-m ! over lf-lb-true = if lf-mctx-commit else lf-mctx-rollback then
   dup ok? if drop else de-abort then ;
 : de-close-k ( r -- ) de-close de-return ;
-: de-roll ( -- ) de-m ?dup if lf-mctx-rollback drop 0 df df-m ! then ;
+\ A mark that cannot be rolled back leaves the context broken: invalid.
+: de-broken ( outcome -- ) ok? 0= if outcome-invalid df df-outcome ! then ;
+: de-roll ( -- ) de-m ?dup if lf-mctx-rollback de-broken 0 df df-m ! then ;
 : de-unframe ( -- ) de-pop nip if lf-mctx-shallower then de-roll ;
 : de-unwind ( -- ) de-roll begin de-frames slab-count 0> while de-unframe repeat ;
 
@@ -238,9 +240,9 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 \ ---- Level lists (isListLevelDefEqAux): pairwise, Lean's way with no
 \ checkpoint of its own; a false pair that held an assignable level
 \ metavariable may have left assignments in Lean (de-taint).
-: de-level-taint ( l r -- )
-  lf-level-assignable-mvar? drop swap lf-level-assignable-mvar? drop or
-  if true df df-taint ! then ;
+\ A side that holds, or might hold, an assignable level metavariable.
+: de-may-assign? ( level -- flag ) lf-level-assignable-mvar? ok? 0= or ;
+: de-level-taint ( l r -- ) de-may-assign? swap de-may-assign? or if true df df-taint ! then ;
 : de-level-defeq? ( l r -- flag )
   2dup lf-meta-level-defeq dup ok? 0= if de-abort drop 2drop false exit then drop
   dup if nip nip exit then drop de-level-taint false ;
@@ -248,10 +250,13 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
   lf-cref-pair@ drop ;
 : de-levels# ( const -- n ) lf-term-first@ lf-cref-slot lf-cref-pairs nip ;
 : de-level-pair ( c1 c2 i -- flag ) tuck de-level@ >r de-level@ r> de-level-defeq? ;
+\ isListLevelDefEqAux: pair by pair while both lists last; false when one
+\ ends first.
+: de-levels-min ( c1 c2 -- n ) de-levels# swap de-levels# min ;
+: de-levels= ( c1 c2 -- flag ) de-levels# swap de-levels# = ;
 : de-levels ( c1 c2 -- lbool )
-  over de-levels# over de-levels# <> if 2drop lf-lb-false exit then
-  over de-levels# 0 ?do 2dup i de-level-pair 0=
-  if 2drop unloop lf-lb-false exit then loop 2drop lf-lb-true ;
+  2dup de-levels-min 0 ?do 2dup i de-level-pair 0=
+  if 2drop unloop lf-lb-false exit then loop de-levels= lf-lb ;
 : de-same-const? ( h1 h2 -- flag )
   over de-const? over de-const? and if de-const-name swap de-const-name lf-name-same?
   else 2drop false then ;
@@ -483,8 +488,11 @@ defer de-args-post ( -- )
   de-t lf-term-first@ de-s lf-term-first@ ['] de-close-k de-solve ;
 : de-fo-aux ( -- )
   de-mark? if de-t lf-term-second@ de-s lf-term-second@ ['] de-fo-aux-1 de-solve then ;
-: de-fo-fail ( -- ) de-y de-head-defn? if outcome-unsupported de-abort else
-  de-const-approx then ;
+\ With no arguments first-order approximation never succeeds, so Lean's
+\ unfolding of v cannot change the answer: only with arguments is it
+\ needed (not ported).
+: de-fo-fail ( -- )
+  de-pa-n 0> de-y de-head-defn? and if outcome-unsupported de-abort else de-const-approx then ;
 : de-fo-k ( r -- ) lf-lb-true = if lf-lb-true de-pa-ret else de-fo-fail then ;
 : de-fo ( -- )
   lf-defeq-fo de-flag? 0= if de-const-approx exit then
@@ -542,13 +550,14 @@ defer de-args-post ( -- )
 : de-off-const ( lbool -- code ) df df-y ! -1 df df-x ! 2 ;
 : de-mk-off ( e k -- e' ) lf-meta-mk-offset de-must drop ;
 : de-lit ( n -- t ) lf-meta-nat-lit de-must drop ;
+\ Offsets and values are unsigned cells (nat-offset.fs): compared with u>.
 : de-off-both ( a k1 b k2 -- code )
   rot 2dup = if 2drop de-off-pair exit then
-  2dup > if - de-mk-off else swap - rot swap de-mk-off swap then de-off-pair ;
+  2dup u> if - de-mk-off else swap - rot swap de-mk-off swap then de-off-pair ;
 : de-off-value ( a k1 v2 -- code )
-  2dup > if 2drop drop lf-lb-false de-off-const else swap - de-lit de-off-pair then ;
+  2dup u> if 2drop drop lf-lb-false de-off-const else swap - de-lit de-off-pair then ;
 : de-value-off ( v1 b k2 -- code )
-  rot 2dup > if 2drop drop lf-lb-false de-off-const
+  rot 2dup u> if 2drop drop lf-lb-false de-off-const
   else swap - de-lit swap de-off-pair then ;
 : de-off-a ( a k1 -- code )
   de-s lf-meta-offset de-must 0= if 2drop 2drop drop 0 exit then
@@ -574,8 +583,13 @@ defer de-args-post ( -- )
   ['] de-off-k de-solve de-deeper ;
 
 \ ---- isDefEqLateSpecialCases: isDefEqProjInst (unsupported where it
-\ might unfold), no string literals in the store, isDefEqUnitLike.
+\ might unfold), isDefEqStringLit (a string literal against
+\ String.ofList cs: not ported), isDefEqUnitLike.
 : de-mode-inst? ( -- flag ) df df-mode @ dup lf-tr-instances = swap lf-tr-implicit = or ;
+: de-str? ( t -- flag ) lf-term-tag@ lf-tag-str = ;
+: de-of-list? ( t -- flag ) lf-meta-head s" String.ofList" lf-meta-const-named? ;
+: de-str-list? ( a b -- flag ) de-of-list? swap de-str? and ;
+: de-string-lit? ( -- flag ) de-t de-s de-str-list? de-s de-t de-str-list? or ;
 : de-nonrec? ( data -- flag )
   dup lf-ity-indices lf-more-field 0= over lf-ity-ctors@ nip 1 = and
   swap lf-ity-flags lf-more-field lf-ity-rec-bit and 0= and ;
@@ -593,7 +607,7 @@ defer de-args-post ( -- )
 : de-proj-inst? ( -- flag ) de-mode-inst? de-t de-head-defn? de-s de-head-defn? or and ;
 : de-late-unit ( type -- ) de-s de-infer 0= if 2drop exit then ['] de-late-u de-solve ;
 : de-late ( -- )
-  de-proj-inst? if outcome-unsupported de-abort exit then
+  de-proj-inst? de-string-lit? or if outcome-unsupported de-abort exit then
   de-late-type 0= if drop exit then
   dup de-unit-type? if de-late-unit else drop lf-lb-undef de-return then ;
 
@@ -635,6 +649,7 @@ defer de-quick-x ( -- )
 : de-consume ( e -- e' flag )
   begin de-let-step de-must 0= if drop false exit then 0= until true ;
 : de-quick-lit ( -- ) de-t de-s lf-lit-same? lf-lb de-return ;
+: de-quick-str ( -- ) de-t de-s lf-str-same? lf-lb de-return ;
 : de-quick-sort ( -- )
   de-t lf-term-first@ de-s lf-term-first@ de-level-defeq? lf-lb de-return ;
 : de-quick-binder ( -- )
@@ -685,7 +700,8 @@ defer de-quick-x ( -- )
   de-t lf-meta-head de-mvar? de-s lf-meta-head de-mvar? or
   if de-quick-heads else lf-lb-undef de-return then ;
 : de-quick-same ( tag -- )
-  case lf-tag-lit of de-quick-lit endof  lf-tag-symbolic-sort of de-quick-sort endof
+  case lf-tag-lit of de-quick-lit endof  lf-tag-str of de-quick-str endof
+    lf-tag-symbolic-sort of de-quick-sort endof
     lf-tag-lam of de-quick-binder endof  lf-tag-pi of de-quick-binder endof
     lf-tag-fvar of de-quick-fvar endof  >r de-quick-other r> endcase ;
 : de-quick ( -- )

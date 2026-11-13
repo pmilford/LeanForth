@@ -242,6 +242,7 @@ def forth(t):
         if tag == SORT:
             return f"{FORTH_LEVELS[t[1]]} sort"
         if tag == LIT:
+            assert 0 <= t[1] < 2**64, t   # one unsigned cell in nlit
             return f"{t[1]} nlit"
         return f"{forth(t[1])} {forth(t[2])} {forth(t[3])} let"
     if t.startswith("#"):

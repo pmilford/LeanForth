@@ -4,8 +4,9 @@
 \ information ignored), Expr.etaExpanded? and Lean's LBool.
 \ - lf-meta-eqv ( a b -- flag outcome ): two terms equal node for node: a
 \   bound variable by its index, a Sort by its level and a constant by
-\   its name and universe arguments (Level.beq, level-simp.fs), a literal
-\   by its value, a projection by its structure's name and index, a free
+\   its name and universe arguments (Level.beq, level-simp.fs), a natural
+\   or string literal by its value or text, a projection by its
+\   structure's name and index, a free
 \   variable or metavariable only as the same node; the store may hold
 \   equal terms twice when it does not share (core/terms.fs), so equal
 \   leaves of two nodes are compared by content.
@@ -32,6 +33,7 @@ require ../core/constant-references.fs
 require ../core/constant-term-boundary.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/literals.fs
+require ../core/string-literals.fs
 require ../core/projections.fs
 require ../core/local-context.fs
 require ../core/mvar-leaves.fs
@@ -79,6 +81,7 @@ require ./instantiate.fs
 \ A literal, a projection's leaf or any other leaf.
 : eq-plain ( a b -- flag outcome )
   over eq-tag lf-tag-lit = if lf-lit-same? outcome-ok exit then
+  over eq-tag lf-tag-str = if lf-str-same? outcome-ok exit then
   over eq-tag lf-tag-proj = if eq-proj else eq-fields then outcome-ok ;
 : eq-leaf ( a b -- flag outcome )
   over eq-unshared? if 2drop false outcome-ok exit then

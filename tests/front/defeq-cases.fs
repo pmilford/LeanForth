@@ -22,7 +22,7 @@ require ./whnf-cases.fs
 \ Literals print their value.
 action-of .t constant .t-plain
 :noname ( t -- )
-  dup lf-term-tag@ lf-tag-lit = if lf-lit-cell 0 .r exit then .t-plain execute ; is .t
+  dup lf-term-tag@ lf-tag-lit = if lf-lit-cell 0 u.r exit then .t-plain execute ; is .t
 : nlit ( u -- t ) lf-hterm-cell must drop ;
 
 nat nat tpi constant nat>nat
