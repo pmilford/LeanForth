@@ -11989,3 +11989,11 @@ old = '''  remap-x @ swap cells + @ dup 0< if drop false else true then ;'''
 new = '''  remap-x @ swap cells + @ true ;'''
 test = "$GFORTH tests/front/constructions.fs"
 reason = "a reference to a dropped motive becomes variable -1 instead of a refusal"
+
+[[fault]]
+id = "fe6-alike-types-only"
+file = "src/front/constructions.fs"
+old = '''  2dup value-alike? 0= if 2drop false exit then params-same? ;'''
+new = '''  params-same? ;'''
+test = "$GFORTH tests/front/constructions.fs"
+reason = "review fe6a L2: values are not compared up to binder names: Or's casesOn passes as Lean's Or.recOn"

@@ -42,6 +42,15 @@
 \ or up to binder names and information, which the kernel ignores and
 \ Lean's exporter shares terms by (so an export's names need not be the
 \ ones the generator chose); universe parameters must be equal.
+\ Limit (review fe6a M1): the binder names and information of what is
+\ built here are the ones the export gives T.rec, and an export may show
+\ another, shared term's (Equivalence.rec's symm field: explicit binders
+\ a b in Init's export, implicit x y in Lean's environment). Comparing
+\ with the same export cannot see that; tests/front/constructions-init.sh
+\ also compares them with pinned Lean's environment and counts the
+\ differences. The front end needs an exact source of binder names and
+\ information (the elaboration data, or an export without sharing)
+\ before it uses these definitions (plan row FE6).
 \
 \ Usage (stage s loaded and sealed, d a type declaration of it):
 \   create job /aux allot  s job aux-init drop
@@ -387,6 +396,12 @@ end-structure
   dup rec-total swap aux-reserve ;
 : aux-begin ( d job -- outcome )
   dup aux-clear tuck aux-recursor ok-then? if aux-shape then ;
+\ The structure case is chosen on the Sort that ends T's type, which
+\ Lean's isPropFormerType finds by reduction: a type that needs it is
+\ unsupported for both constructions.
+: no-sort ( job -- outcome ) c" a type whose Sort only reduction shows" swap aux-refuse ;
+: sort-ready ( job -- outcome )
+  dup type-end over aux-tier expr-tag@ tag-sort <> if no-sort exit then drop outcome-ok ;
 \ recOn (mkRecOn; mkRecOnViaCasesOn? for the structure case).
 : recon-binders ( job -- outcome )
   dup front-binders ['] index-binders aux-then ['] minor-binders aux-then nip ;
@@ -395,15 +410,14 @@ end-structure
   dup via-projs? 0= if ['] recon-body over aux-body ! built-value! exit then
   dup cases-const ok-keep? if swap aux-built-value ! outcome-ok else nip then ;
 : recon ( job -- outcome )
-  dup recon-binders ['] built-type! aux-then ['] recon-value aux-then nip ;
+  dup sort-ready ['] recon-binders aux-then ['] built-type! aux-then
+  ['] recon-value aux-then nip ;
 : aux-rec-on ( d job -- outcome ) tuck aux-begin ['] recon aux-then swap aux-because ;
 \ casesOn (mk_cases_on; mkCasesOnViaProjs? for the structure case).
 : several-motives ( job -- outcome )
   c" several motives (a mutual or nested type)" swap aux-refuse ;
-: no-sort ( job -- outcome ) c" a type whose Sort only reduction shows" swap aux-refuse ;
 : cases-ready ( job -- outcome )
-  dup aux-motives @ 1 <> if several-motives exit then
-  dup type-end over aux-tier expr-tag@ tag-sort <> if no-sort exit then drop outcome-ok ;
+  dup aux-motives @ 1 <> if several-motives exit then sort-ready ;
 : cases-binders ( job -- outcome )
   dup front-binders ['] index-binders aux-then ['] case-minors aux-then nip ;
 : cases-body ( job -- e outcome )

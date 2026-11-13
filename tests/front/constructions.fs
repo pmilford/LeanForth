@@ -80,6 +80,10 @@ T{ job aux-value@ job xs-count 1+ under-funs tier expr-tag@ -> tag-nat }T
 T{ s" Eq" idx-of why s" Lean makes no ctorIdx for a Prop" compare
    -> outcome-unsupported 0 }T
 T{ s" And" idx-of -> outcome-unsupported }T
+\ Alike types, different values (review L2): Or's casesOn applies
+\ fun h => inl h where Lean's Or.recOn applies inl.
+T{ s" Or" cases-of lean-recon-of dup job type-alike? swap job aux-alike?
+   -> outcome-ok true false }T
 \ A wrong definition is neither: Nat's recOn against Lean's casesOn.
 T{ s" Nat" recon-of lean-cases-of grade -> outcome-ok 0 }T
 \ Building again gives the same numbers.
@@ -166,6 +170,31 @@ T{ false rp remap-erase! -> }T
 T{ 0 1 rp remap-shift! 3 var tier expr-mdata drop 0 run -> -1 outcome-unsupported }T
 T{ 1 rp remap-fuel! 0 var 1 var app 0 run -> -1 outcome-exhausted }T
 rp remap-free
+
+\ ---- Running out (review L1). Every fuel from 1 to 40 ends ok or
+\ exhausted, with the stack as it was, whichever renumbering it stops in.
+: survives? ( d xt fuel -- flag )
+  job aux-remap remap-fuel! job swap execute
+  dup outcome-ok = swap outcome-exhausted = or ;
+variable swept
+: sweep ( d xt -- n )
+  0 swept ! 41 1 do 2dup i survives? if 1 swept +! then loop 2drop swept @ ;
+T{ s" Nat" ind ' aux-cases-on sweep -> 40 }T
+T{ s" Acc" ind ' aux-cases-on sweep -> 40 }T
+T{ s" Eq" ind ' aux-rec-on sweep -> 40 }T
+T{ s" List" ind ' aux-ctor-idx sweep -> 40 }T
+T{ s" And" ind ' aux-cases-on-any sweep -> 40 }T
+T{ remap-fuel job aux-remap remap-fuel! -> }T
+T{ s" Nat" cases-of lean-cases-of grade -> outcome-ok 2 }T
+\ A scratch tier that can hold nothing more: each construction refuses,
+\ never ok, with the stack as it was.
+create job3 /aux allot
+T{ lib job3 aux-init -> outcome-ok }T
+T{ job3 aux-tier tier-seal -> outcome-ok }T
+T{ s" Nat" ind job3 aux-cases-on-any ok? -> false }T
+T{ s" Nat" ind job3 aux-rec-on ok? -> false }T
+T{ s" Nat" ind job3 aux-ctor-idx ok? -> false }T
+job3 aux-free
 
 job aux-free  lib stage-free
 bye
