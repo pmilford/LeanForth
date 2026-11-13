@@ -2,8 +2,8 @@
 \ format the pinned exporter writes (see docs/development/NDJSON_READER.md).
 \ Untrusted and fail-closed: it decodes records, it checks nothing about
 \ types or proofs, and nothing it hands over is a checked declaration.
-\ Requires: lib/json.fs (and through it lib/bytes.fs and lib/lib.fs),
-\ lib/u32.fs, lib/hash32.fs, lib/slab.fs and lib/htab.fs (index maps).
+\ Requires: lib/json.fs (and through it lib/bytes.fs and lib/lib.fs) and
+\ lib/memo.fs (index maps).
 \ State: none of its own. Every word takes an export record made by
 \ export:, which holds the line reader, the JSON view, the decoded records,
 \ the handler table and the counters, so separate exports are independent;
@@ -99,10 +99,7 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
 require ../lib/lib.fs
 require ../lib/bytes.fs
 require ../lib/json.fs
-require ../lib/u32.fs
-require ../lib/hash32.fs
-require ../lib/slab.fs
-require ../lib/htab.fs
+require ../lib/memo.fs
 
 \ Record kinds, the index of each kind's handler.
 0 constant kind-meta
@@ -215,49 +212,26 @@ layout-fits
 \ While every index is the ordinal it gets, a map holds nothing: the
 \ indices below imap-dense are their own ordinals. From the first index
 \ that is not, it keeps that index and every later one, each with its
-\ latest ordinal, as a pair in a slab (lib/slab.fs) found by a hash table
-\ (lib/htab.fs) before the dense ones, so its memory grows with the
-\ records, never with the largest index. Made on the first pair, emptied
-\ by export-restart, freed by export-free.
+\ latest ordinal, in a memo (lib/memo.fs: keys and values of one cell)
+\ looked up before the dense ones, so its memory grows with the records,
+\ never with the largest index. Made on the first pair, emptied by
+\ export-restart, freed by export-free.
 begin-structure /imap
-  /htab +field imap-table          \ first: its hooks reach the map from it
-  /slab +field imap-pairs          \ the pairs: an index, then its ordinal
-  field: imap-dense                \ indices below it, if not paired, are ordinals
-  field: imap-made                 \ true once the table and slab are made
+  /memo +field imap-table          \ index -> its latest ordinal
+  field: imap-dense                \ indices below it, if not kept, are ordinals
 end-structure
-2 cells constant /index-pair
-: pair-at ( n map -- addr ) imap-pairs slab-at ;
-: pair-ordinal ( n map -- ordinal ) pair-at cell+ @ ;
-: ordinal! ( c n map -- ) pair-at cell+ ! ;
-: pair-set ( i c n map -- ) pair-at tuck cell+ ! ! ;
-\ A cell's hash, both halves on a 64-bit host (two shifts: one by the
-\ cell's width would be ambiguous on a 32-bit host).
-: index-hash ( i -- h ) dup u32-mask and hash-fmix swap 16 rshift 16 rshift hash-step ;
-: pair-rehash ( n map -- h ) pair-at @ index-hash ;
-: pair-same? ( n i map -- flag ) rot swap pair-at @ = ;
-create pair-hooks /htab-hooks allot  ' pair-rehash ' pair-same? pair-hooks htab-hooks!
-: imap-sparse? ( map -- flag ) imap-table htab-count 0<> ;
-\ The pair of index i: its number and true, or a slot and false.
-: imap-pair ( i map -- n true | slot false ) >r dup index-hash r> imap-table htab-find ;
+: imap-sparse? ( map -- flag ) imap-table memo-count 0<> ;
 : imap-dense? ( i map -- n true | false ) over swap imap-dense @ u< dup 0= if nip then ;
 \ The ordinal of index i; false when no record has it.
 : imap-ordinal ( i map -- n true | false )
-  dup imap-sparse? if 2dup imap-pair if swap pair-ordinal nip true exit then drop then
+  dup imap-sparse? if 2dup 0 swap imap-table memo@ if nip nip true exit then then
   imap-dense? ;
-\ Make the table and the slab on the first pair: ok, or full with none.
+\ Make the memo on the first pair: ok, or full with none.
 : imap-make ( map -- outcome )
-  dup imap-made @ if drop outcome-ok exit then
-  /index-pair dup slab-limit-max 2 pick imap-pairs slab-init drop
-  4 pair-hooks 2 pick imap-table htab-init dup ok? if true rot imap-made ! else nip then ;
-: imap-room ( map -- outcome ) dup imap-make ok-then? if imap-table htab-ready then ;
-\ A new pair for index i, with ordinal c, at the empty slot imap-pair gave.
-: pair-add ( i c slot map -- outcome )
-  >r 1 r@ imap-pairs slab-claim dup ok? 0= if nip nip nip nip r> drop exit then drop
-  tuck swap r@ imap-table htab-put r> pair-set outcome-ok ;
-: pair-keep ( i c map -- outcome )
-  >r over r@ imap-pair if rot drop r> ordinal! outcome-ok else r> pair-add then ;
+  imap-table dup memo-live? if drop outcome-ok else 1 1 rot memo-init then ;
+\ Index i takes ordinal c: ok, or full when the memo cannot grow.
 : imap-keep ( i c map -- outcome )
-  dup imap-room dup ok? if drop pair-keep else nip nip nip then ;
+  dup imap-make ok-then? if >r swap 0 r> imap-table memo! else nip nip then ;
 \ Index i takes ordinal c, the family's next: ok, or full when the map
 \ finds no heap. The dense shortcut needs i = c = imap-dense: after a full
 \ the count has moved on without the map, so later indices are paired and
@@ -267,14 +241,9 @@ create pair-hooks /htab-hooks allot  ' pair-rehash ' pair-same? pair-hooks htab-
   >r 2dup = over r@ imap-dense @ = and r@ imap-sparse? 0= and
   if 2drop 1 r> imap-dense +! outcome-ok exit then
   r> imap-keep ;
-: imap-restart ( dense map -- )
-  tuck imap-dense ! dup imap-made @ if dup imap-table htab-clear imap-pairs slab-clear
-  else drop then ;
-: imap-free ( map -- )
-  dup imap-table htab-free dup imap-pairs slab-free 0 swap imap-made ! ;
-: imap-bytes ( map -- u )
-  dup imap-made @ 0= if drop 0 exit then
-  dup imap-table htab-slots u32s swap imap-pairs slab-bytes + ;
+: imap-restart ( dense map -- ) tuck imap-dense ! imap-table memo-clear ;
+: imap-free ( map -- ) imap-table memo-free ;
+: imap-bytes ( map -- u ) imap-table memo-bytes ;
 
 \ The scratch of a number written with a fraction or an exponent (see
 \ natural-digits): its parts, and the digits of its value as a natural.
