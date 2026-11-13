@@ -32,13 +32,14 @@
 \                                 in Lean's path order: each key followed
 \                                 by as many terms as its arity
 \ Making them (elab-data.fs): elab-key-new ( tag -- k outcome ) a key of
-\ that tag, every field 0; elab-key-ref! ( x k -- ) its declaration (or
-\ text offset), elab-key-arity! ( n k -- ) its arity field (a projection's
-\ without the structure), elab-key-idx! ( i k -- ); elab-text-start
-\ ( -- offset ) where the next text begins, elab-text-room ( n -- addr
-\ outcome ) n more bytes of it, elab-key-text! ( offset k -- ) the text
-\ from offset to the end as k's; elab-keys-clear ( -- ) forgets every key
-\ and text. Outcomes (ADR 0008): ok, or full when the heap has no room.
+\ that tag, every field 0 (-1 when not ok); elab-key-ref! ( d k -- ) its
+\ declaration, elab-key-arity! ( n k -- ) its arity field (a projection's
+\ without the structure), elab-key-idx! ( i k -- ); a texted key's text
+\ is every byte added between elab-key-text-start ( k -- ) and
+\ elab-key-text-end ( k -- ), each run of bytes by elab-text-room
+\ ( n -- addr outcome ), whose addr is valid until the next room;
+\ elab-keys-clear ( -- ) forgets every key and text. Outcomes (ADR 0008):
+\ ok, or full when the heap has no room.
 \
 \ State: two context slabs: elab-keys (four cells a key: tag, arity
 \ field, declaration or text offset, field index or text length) and
@@ -102,11 +103,11 @@ end-structure
 : elab-key-ref! ( x k -- ) ek ek-ref ! ;
 : elab-key-arity! ( n k -- ) ek ek-arity ! ;
 : elab-key-idx! ( i k -- ) ek ek-extra ! ;
-: elab-text-start ( -- offset ) elab-texts slab-count ;
 : elab-text-room ( n -- addr outcome )
   elab-texts slab-claim dup ok? if swap elab-texts slab-at swap else nip no-result then ;
-: elab-key-text! ( offset k -- )
-  ek 2dup ek-ref ! elab-text-start rot - swap ek-extra ! ;
+: ek-texts# ( -- n ) elab-texts slab-count ;
+: elab-key-text-start ( k -- ) ek-texts# swap ek ek-ref ! ;
+: elab-key-text-end ( k -- ) ek dup ek-ref @ ek-texts# swap - swap ek-extra ! ;
 : elab-keys-clear ( -- ) elab-keys slab-clear elab-texts slab-clear ;
 
 base !   \ the BASE this file was loaded with
