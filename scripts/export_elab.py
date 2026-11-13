@@ -46,6 +46,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import sys
 
 FORMAT = "leanforth-elab-data"
@@ -54,32 +55,43 @@ LEAN_VERSION = "4.35.0"
 LEAN_GITHASH = "eb6cafb7290e8bd5f2937522d8d804f58f02bafc"
 # The kinds of records, in the order of the file.
 KINDS = ("class", "instance", "instance_left_out", "default_instance", "reducibility",
-         "eliminator", "tag")
-RAW_KINDS = ("class", "instance", "default_instance", "reducibility", "eliminator", "tag")
+         "eliminator", "tag", "matcher", "projection")
+RAW_KINDS = ("class", "instance", "default_instance", "reducibility", "eliminator", "tag",
+             "matcher", "projection")
 STATUSES = ("reducible", "irreducible", "implicit_reducible", "instance_reducible")
 ELIMINATOR_KINDS = ("induction", "cases")
-TAGS = ("elab_as_elim", "elab_without_expected_type", "cases_on", "rec_on", "brec_on")
+TAGS = ("elab_as_elim", "elab_without_expected_type", "aux_recursor", "no_confusion",
+        "cases_on", "rec_on", "brec_on")
 REASONS = ("erased", "not_exported")
 # The record's name members and which kind each name must be ("type": an
-# inductive type; "not-type": a declaration that is not one; None: any
-# declaration). An eliminator's target types are any constant (Lean keys
-# them by the head constant of each target's type, which may be a
-# definition: Std.PlausibleIterStep in Init). Key names are checked apart
-# (key_names); a left-out instance's own name is the one the export lacks.
+# inductive type; "not-type": a declaration that is not one; "def": a
+# definition; "ctor": a constructor; None: any declaration). An
+# eliminator's target types are any constant (Lean keys them by the head
+# constant of each target's type, which may be a definition:
+# Std.PlausibleIterStep in Init). A projection function is a definition,
+# or a theorem for a structure in Prop (Iff.mp). Key names are checked
+# apart (key_names); a left-out instance's own name is the one the export
+# lacks.
 NAMES = {"class": {"name": "type"},
          "instance": {"name": "not-type", "class": "type"},
          "instance_left_out": {},
          "default_instance": {"name": "not-type", "class": "type"},
          "reducibility": {"name": None},
          "eliminator": {"name": "not-type"},
-         "tag": {"name": "not-type"}}
+         "tag": {"name": "not-type"},
+         "matcher": {"name": "def"},
+         "projection": {"name": "not-type", "ctor": "ctor"}}
 MEMBERS = {"class": {"name", "out_params", "out_level_params"},
            "instance": {"name", "class", "priority", "synth_order", "keys", "rank"},
            "instance_left_out": {"name", "keys", "priority", "rank", "reason"},
            "default_instance": {"name", "class", "priority", "rank"},
            "reducibility": {"name", "status"},
            "eliminator": {"name", "kind", "types"},
-           "tag": {"name", "tag"}}
+           "tag": {"name", "tag"},
+           "matcher": {"name", "num_params", "num_discrs", "u_elim_pos", "alt_infos",
+                       "discr_names"},
+           "projection": {"name", "ctor", "num_params", "idx", "from_class"}}
+ALT_MEMBERS = {"num_fields", "num_overlaps", "has_unit_thunk"}
 RAW_MEMBERS = dict(MEMBERS, instance=MEMBERS["instance"] | {"erased"})
 DECLS = {b'{"axiom":': "axiom", b'{"def":': "def", b'{"thm":': "thm",
          b'{"opaque":': "opaque", b'{"quot":': "quot", b'{"inductive":': "inductive"}
@@ -113,6 +125,7 @@ def name_of(value):
 
 
 # ---- Keys: Lean's DiscrTree.Key, as export_elab.lean writes them.
+DIGITS = re.compile(r"0|[1-9][0-9]*")   # a natural number's canonical decimal digits
 KEY_FORMS = {"const": {"const", "arity"}, "proj": {"proj", "idx", "arity"},
              "lit": {"lit"}, "lit_str": {"lit_str"}}
 
@@ -129,7 +142,7 @@ def key_arity(key):
                  if isinstance(key, dict) and set(key) == members), None)
     if form is None or (form == "lit_str" and not isinstance(key["lit_str"], str)):
         raise ElabError(f"not a key: {text(key)}")
-    if form == "lit" and not natural(key["lit"]):
+    if form == "lit" and not (isinstance(key["lit"], str) and DIGITS.fullmatch(key["lit"])):
         raise ElabError(f"not a key: {text(key)}")
     if form in ("const", "proj"):
         name_of(key[form])
@@ -192,13 +205,32 @@ def manifest_sha(path):
         raise ElabError(f"{manifest}: missing or not an export manifest") from None
 
 
+def check_matcher(body):
+    """Fail unless a matcher's elimination position is a natural or null,
+    its alternatives' members are well typed and its discriminants' names
+    are names or null."""
+    if body["u_elim_pos"] is not None and not natural(body["u_elim_pos"]):
+        raise ElabError("matcher: u_elim_pos is not a natural number or null")
+    alts = body["alt_infos"]
+    if not isinstance(alts, list) or not all(
+            isinstance(a, dict) and set(a) == ALT_MEMBERS and natural(a["num_fields"])
+            and natural(a["num_overlaps"]) and isinstance(a["has_unit_thunk"], bool)
+            for a in alts):
+        raise ElabError(f"matcher: alt_infos is not a list of alternatives: {text(alts)}")
+    if not isinstance(body["discr_names"], list):
+        raise ElabError("matcher: discr_names is not a list")
+    for name in body["discr_names"]:
+        if name is not None:
+            name_of(name)
+
+
 def check_shape(kind, body, members=MEMBERS):
     """Fail unless the record's members are exactly its kind's, each well typed."""
     if not isinstance(body, dict) or set(body) != members[kind]:
         raise ElabError(f"{kind}: members are not {sorted(members[kind])}")
     for member in NAMES[kind]:
         name_of(body[member])
-    for member in ("priority", "rank"):
+    for member in ("priority", "rank", "num_params", "num_discrs", "idx"):
         if member in body and not natural(body[member]):
             raise ElabError(f"{kind}: {member} is not a natural number")
     for member in ("synth_order", "out_params", "out_level_params"):
@@ -209,10 +241,13 @@ def check_shape(kind, body, members=MEMBERS):
     for member, allowed in {"status": STATUSES, "tag": TAGS, "reason": REASONS}.items():
         if member in body and body[member] not in allowed:
             raise ElabError(f"{kind}: unknown {member} {text(body[member])}")
-    if "erased" in body and not isinstance(body["erased"], bool):
-        raise ElabError(f"{kind}: erased is not true or false")
+    for member in ("erased", "from_class"):
+        if member in body and not isinstance(body[member], bool):
+            raise ElabError(f"{kind}: {member} is not true or false")
     if kind == "instance_left_out":
         name_of(body["name"])
+    if kind == "matcher":
+        check_matcher(body)
     if kind == "eliminator":
         if body["kind"] not in ELIMINATOR_KINDS:
             raise ElabError(f"eliminator: unknown kind {text(body['kind'])}")
@@ -230,11 +265,18 @@ def wanted(kind, body):
     return pairs + key_names(body.get("keys", []))
 
 
+def fits(want, have):
+    """Whether a declaration of kind have is of the kind wanted."""
+    if want in ("def", "ctor", "type"):
+        return have == want
+    return want is None or have != "type"
+
+
 def kind_checked(kind, pairs, decls):
     """ElabError when a name the export has is of the wrong kind."""
     for name, want in pairs:
         have = decls.get(name)
-        if have is not None and want is not None and (want == "type") != (have == "type"):
+        if have is not None and not fits(want, have):
             raise ElabError(f"{kind} {text(list(name))}: a {have}, not of the kind expected")
 
 

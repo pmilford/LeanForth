@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/pmilford/LeanForth/schemas/elab-data-2.schema.json",
   "title": "LeanForth elaboration data, format version 2: one line",
-  "description": "Every line of an elaboration-data file (plan rows FE1d and FE1e1; ADR 0021 D10), written by scripts/export-elab.sh with pinned Lean 4.35.0 for a Lean export and read by `leanforth check --elab-data FILE` (src/front/elab-data.fs). Line 1 is the header ({\"elab_data\": ...}); every later line is one record: a class, an instance, an instance left out, a default instance, a reducibility status, an eliminator or a tag. A name is the array of its parts, root first (Nat.add is [\"Nat\",\"add\"]); a part is a string or a natural number. A key is one of Lean's discrimination-tree keys (DiscrTree.Key) as the instance tree stores it. Documented in docs/programming/ELABORATION_DATA.md. The Forth reader also refuses what a schema cannot say: a header anywhere but on line 1 or a record on line 1, a name that is not exactly one declaration of the export or of the wrong kind, a declaration named twice, an instance or default instance of a declaration with no class record before it, a key list that is not one term, two values of a root key's tree with one rank or ranks with a gap, two default instances of a class with one rank, a left-out instance that the export has, numbers of records or a SHA-256 of the records that differ from the header, another export's SHA-256, and repeated keys. Format version 1 (schemas/elab-data-1.schema.json) is refused as another format version.",
+  "description": "Every line of an elaboration-data file (plan rows FE1d and FE1e1; ADR 0021 D10), written by scripts/export-elab.sh with pinned Lean 4.35.0 for a Lean export and read by `leanforth check --elab-data FILE` (src/front/elab-data.fs). Line 1 is the header ({\"elab_data\": ...}); every later line is one record: a class, an instance, an instance left out, a default instance, a reducibility status, an eliminator, a tag, a matcher or a projection function. A name is the array of its parts, root first (Nat.add is [\"Nat\",\"add\"]); a part is a string or a natural number. A key is one of Lean's discrimination-tree keys (DiscrTree.Key) as the instance tree stores it. Documented in docs/programming/ELABORATION_DATA.md. The Forth reader also refuses what a schema cannot say: a header anywhere but on line 1 or a record on line 1, a name that is not exactly one declaration of the export or of the wrong kind, a declaration named twice, an instance or default instance of a declaration with no class record before it, a key list that is not one term, two values of a root key's tree with one rank or ranks with a gap, two default instances of a class with one rank, a left-out instance that the export has, numbers of records or a SHA-256 of the records that differ from the header, another export's SHA-256, and repeated keys. Format version 1 (schemas/elab-data-1.schema.json) is refused as another format version.",
   "$comment": "Uses only the keywords that tests/support/schema_subset.py implements.",
   "anyOf": [
     {"$ref": "#/$defs/header"},
@@ -12,7 +12,9 @@
     {"$ref": "#/$defs/default_instance"},
     {"$ref": "#/$defs/reducibility"},
     {"$ref": "#/$defs/eliminator"},
-    {"$ref": "#/$defs/tag"}
+    {"$ref": "#/$defs/tag"},
+    {"$ref": "#/$defs/matcher"},
+    {"$ref": "#/$defs/projection"}
   ],
   "$defs": {
     "name": {
@@ -25,13 +27,13 @@
     "count": {"type": "integer", "minimum": 0},
     "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "key": {
-      "description": "A discrimination-tree key (Lean's DiscrTree.Key): star, other, arrow (Key.arity 1), a constant applied to arity arguments, a natural-number or string literal, or a projection of field idx of a structure applied to arity arguments (Key.arity 1 + arity). An fvar key is not one: no global instance has it.",
+      "description": "A discrimination-tree key (Lean's DiscrTree.Key): star, other, arrow (Key.arity 1), a constant applied to arity arguments, a natural-number literal (its decimal digits as a text, as lean4export writes natVal) or a string literal, or a projection of field idx of a structure applied to arity arguments (Key.arity 1 + arity). An fvar key is not one: no global instance has it.",
       "anyOf": [
         {"enum": ["star", "other", "arrow"]},
         {"type": "object", "additionalProperties": false, "required": ["const", "arity"],
          "properties": {"const": {"$ref": "#/$defs/name"}, "arity": {"$ref": "#/$defs/u32"}}},
         {"type": "object", "additionalProperties": false, "required": ["lit"],
-         "properties": {"lit": {"$ref": "#/$defs/count"}}},
+         "properties": {"lit": {"type": "string", "pattern": "^(0|[1-9][0-9]*)$"}}},
         {"type": "object", "additionalProperties": false, "required": ["lit_str"],
          "properties": {"lit_str": {"type": "string"}}},
         {"type": "object", "additionalProperties": false, "required": ["proj", "idx", "arity"],
@@ -57,7 +59,7 @@
             "description": "The records of each kind on the lines that follow.",
             "type": "object", "additionalProperties": false,
             "required": ["class", "instance", "instance_left_out", "default_instance",
-              "reducibility", "eliminator", "tag"],
+              "reducibility", "eliminator", "tag", "matcher", "projection"],
             "properties": {
               "class": {"$ref": "#/$defs/count"},
               "instance": {"$ref": "#/$defs/count"},
@@ -65,7 +67,9 @@
               "default_instance": {"$ref": "#/$defs/count"},
               "reducibility": {"$ref": "#/$defs/count"},
               "eliminator": {"$ref": "#/$defs/count"},
-              "tag": {"$ref": "#/$defs/count"}
+              "tag": {"$ref": "#/$defs/count"},
+              "matcher": {"$ref": "#/$defs/count"},
+              "projection": {"$ref": "#/$defs/count"}
             }
           },
           "records_sha256": {"description": "The SHA-256 of every line after the header, each with its line feed.", "$ref": "#/$defs/sha256"}
@@ -156,11 +160,51 @@
     "tag": {
       "type": "object", "additionalProperties": false, "required": ["tag"],
       "properties": {"tag": {
-        "description": "A declaration with a tag the application elaborator reads: the tag attributes elab_as_elim and elab_without_expected_type, and the auxiliary recursors cases_on, rec_on and brec_on (Lean's isCasesOnRecursor, isRecOnRecursor, isBRecOnRecursor).",
+        "description": "A declaration with a tag the application elaborator or Meta's whnf reads: the tag attributes elab_as_elim and elab_without_expected_type; aux_recursor (Lean's isAuxRecursor: casesOn, recOn, brecOn, binductionOn, below, ... and Eq.ndrec, Eq.ndrecOn); no_confusion (isNoConfusion); and cases_on, rec_on and brec_on (isCasesOnRecursor, isRecOnRecursor, isBRecOnRecursor).",
         "type": "object", "additionalProperties": false, "required": ["name", "tag"],
         "properties": {
           "name": {"$ref": "#/$defs/name"},
-          "tag": {"enum": ["elab_as_elim", "elab_without_expected_type", "cases_on", "rec_on", "brec_on"]}
+          "tag": {"enum": ["elab_as_elim", "elab_without_expected_type", "aux_recursor",
+            "no_confusion", "cases_on", "rec_on", "brec_on"]}
+        }
+      }}
+    },
+    "matcher": {
+      "type": "object", "additionalProperties": false, "required": ["matcher"],
+      "properties": {"matcher": {
+        "description": "A matcher (Lean's Meta.getMatcherInfo?): the definition, its numbers of parameters and discriminants, the position of its elimination universe (null when it eliminates only into Prop), each alternative's fields, overlap assumptions and artificial Unit parameter, and each discriminant's `h :` name (null when none).",
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "num_params", "num_discrs", "u_elim_pos", "alt_infos", "discr_names"],
+        "properties": {
+          "name": {"$ref": "#/$defs/name"},
+          "num_params": {"$ref": "#/$defs/u32"},
+          "num_discrs": {"$ref": "#/$defs/u32"},
+          "u_elim_pos": {"anyOf": [{"$ref": "#/$defs/u32"}, {"type": "null"}]},
+          "alt_infos": {"type": "array", "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["num_fields", "num_overlaps", "has_unit_thunk"],
+            "properties": {
+              "num_fields": {"$ref": "#/$defs/u32"},
+              "num_overlaps": {"$ref": "#/$defs/u32"},
+              "has_unit_thunk": {"type": "boolean"}
+            }}},
+          "discr_names": {"type": "array",
+            "items": {"anyOf": [{"$ref": "#/$defs/name"}, {"type": "null"}]}}
+        }
+      }}
+    },
+    "projection": {
+      "type": "object", "additionalProperties": false, "required": ["projection"],
+      "properties": {"projection": {
+        "description": "A projection function (Lean's getProjectionFnInfo?): the function, the structure's constructor, the structure's number of parameters, the field's index and whether the structure is a class.",
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "ctor", "num_params", "idx", "from_class"],
+        "properties": {
+          "name": {"$ref": "#/$defs/name"},
+          "ctor": {"$ref": "#/$defs/name"},
+          "num_params": {"$ref": "#/$defs/u32"},
+          "idx": {"$ref": "#/$defs/u32"},
+          "from_class": {"type": "boolean"}
         }
       }}
     }

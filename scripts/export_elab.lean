@@ -37,13 +37,26 @@ holds them after the import (global entries; nothing scoped is active):
   class             a class (classExtension): its name and the positions
                     of its out-parameters and out-level parameters
   tag               a declaration with one of the tags the application
-                    elaborator reads: elab_as_elim, elab_without_expected_type
-                    (tag attributes), cases_on, rec_on, brec_on (Lean's
+                    elaborator or Meta's whnf reads: elab_as_elim,
+                    elab_without_expected_type (tag attributes),
+                    aux_recursor (isAuxRecursor), no_confusion
+                    (isNoConfusion), cases_on, rec_on, brec_on (Lean's
                     isCasesOnRecursor, isRecOnRecursor, isBRecOnRecursor)
+  matcher           a matcher (Meta.getMatcherInfoCore?): numbers of
+                    parameters and discriminants, the elimination
+                    universe's position or null, each alternative's
+                    numFields, numOverlaps and hasUnitThunk, and each
+                    discriminant's `h :` name or null (its overlaps map,
+                    which only the equation compiler's splitter reads, is
+                    not written)
+  projection        a projection function (getProjectionFnInfo?): the
+                    constructor, the structure's parameters, the field's
+                    index and whether the structure is a class
 
 A name is a JSON array of its parts, strings and natural numbers, root
 first (`Nat.add` is ["Nat","add"]). A key is "star", "other", "arrow",
-{"const": NAME, "arity": N}, {"lit": N}, {"lit_str": S} or
+{"const": NAME, "arity": N}, {"lit": DIGITS} (the decimal digits as a
+text, as lean4export writes natVal), {"lit_str": S} or
 {"proj": NAME, "idx": I, "arity": N}; an fvar key, which no global
 instance has, stops the program. It also stops (exit status 1) when the
 tree and Lean's table of instance names disagree: a value without a name,
@@ -83,7 +96,7 @@ def keyJson : DiscrTree.Key → MetaM Json
   | .arrow => pure "arrow"
   | .const n a => pure <| Json.mkObj [("const", nameJson n), ("arity", toJson a)]
   | .proj s i a => pure <| Json.mkObj [("proj", nameJson s), ("idx", toJson i), ("arity", toJson a)]
-  | .lit (.natVal n) => pure <| Json.mkObj [("lit", toJson n)]
+  | .lit (.natVal n) => pure <| Json.mkObj [("lit", Json.str (toString n))]
   | .lit (.strVal s) => pure <| Json.mkObj [("lit_str", Json.str s)]
   | .fvar f _ => throwError "an fvar key {f.name} in a global instance"
 
@@ -166,25 +179,50 @@ def classRecords (env : Environment) : Array Json := Id.run do
        ("out_level_params", toJson levels)]
   return out
 
-/-- The tags of a declaration that the application elaborator reads. -/
+/-- The tags of a declaration that the application elaborator and Meta's
+whnf read. -/
 def tagsOf (env : Environment) (name : Name) : List String :=
   [("elab_as_elim", Elab.Term.elabAsElim.hasTag env name),
    ("elab_without_expected_type", Elab.Term.elabWithoutExpectedTypeAttr.hasTag env name),
+   ("aux_recursor", isAuxRecursor env name), ("no_confusion", isNoConfusion env name),
    ("cases_on", isCasesOnRecursor env name), ("rec_on", isRecOnRecursor env name),
    ("brec_on", isBRecOnRecursor env name)].filterMap fun (t, b) => if b then some t else none
 
-def tagRecords (env : Environment) : Array Json := Id.run do
+def optJson : Option Nat → Json
+  | some n => toJson n
+  | none => Json.null
+
+def matcherJson (name : Name) (m : Meta.MatcherInfo) : Json :=
+  record "matcher"
+    [("name", nameJson name), ("num_params", toJson m.numParams),
+     ("num_discrs", toJson m.numDiscrs), ("u_elim_pos", optJson m.uElimPos?),
+     ("alt_infos", Json.arr (m.altInfos.map fun a => Json.mkObj
+        [("num_fields", toJson a.numFields), ("num_overlaps", toJson a.numOverlaps),
+         ("has_unit_thunk", toJson a.hasUnitThunk)])),
+     ("discr_names", Json.arr (m.discrInfos.map fun d => (d.hName?.map nameJson).getD Json.null))]
+
+def projectionJson (name : Name) (p : ProjectionFunctionInfo) : Json :=
+  record "projection"
+    [("name", nameJson name), ("ctor", nameJson p.ctorName), ("num_params", toJson p.numParams),
+     ("idx", toJson p.i), ("from_class", toJson p.fromClass)]
+
+/-- Every constant's tags, matcher information and projection information. -/
+def constantRecords (env : Environment) : Array Json := Id.run do
   let mut out := #[]
   for (name, _) in env.constants.toList do
     for tag in tagsOf env name do
       out := out.push <| record "tag" [("name", nameJson name), ("tag", Json.str tag)]
+    if let some m := Meta.getMatcherInfoCore? env name then
+      out := out.push (matcherJson name m)
+    if let some p := env.getProjectionFnInfo? name then
+      out := out.push (projectionJson name p)
   return out
 
 def allRecords : MetaM (Array Json) := do
   let env ← getEnv
   let insts ← instanceRecords
   return insts ++ defaultInstanceRecords env ++ reducibilityRecords env
-    ++ eliminatorRecords env ++ classRecords env ++ tagRecords env
+    ++ eliminatorRecords env ++ classRecords env ++ constantRecords env
 
 def main (args : List String) : IO UInt32 := do
   if args.isEmpty then
