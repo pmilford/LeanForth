@@ -34,6 +34,7 @@ findings neither fixed nor turned into plan tasks. A row that raises the style b
 | 2026-11-12 | `13e9a5c..c92bcfe` | refactor-fri follow-up: L1-L4, I2, I3 (incl. src/kernel/env-schedule.fs lf-sch-and → outcome-and, owner-approved) | forth-reviewer (Opus), re-check | [report](2026-11-12-refactor-fri.md), last section | 0 blocking | s6c-memo-no-identity listed as a gap; B2, B6, B7 remainders in the FRI backlog |
 | 2026-11-12 | `651da64..0eb2b59` | speed-lf: capabilities lists LeanForth text, --jobs note with a text, per-run test scratch folders, one recorded clamp check | forth-reviewer (Opus), style and test integrity | [report](2026-11-12-speed-lf.md) | 0 blocking; L1-L3, I1-I4 | fixed in 0eb2b59..9a40e7f |
 | 2026-11-12 | `0eb2b59..9a40e7f` | speed-lf follow-up: L1 signal traps, L2 taken_problems self-test, L3 fresh clamp record | forth-reviewer (Opus), re-check | [report](2026-11-12-speed-lf.md), last section | 0 blocking | none |
+| 2026-11-12 | `c834e0e` (whole file, no range) | src/lib/context.fs, for the owner's conditional approval of ADR 0009 Amendment 1 | forth-reviewer (Opus), style, library rules and memory safety | [report](2026-11-12-context.md) | 0 blocking; L1-L3, I1-I4 | plan work: tests of L1, library example and private helpers (L2), context-undo (L3) |
 
 ## Backlog
 

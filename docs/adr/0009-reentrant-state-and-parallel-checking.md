@@ -109,8 +109,7 @@ Nothing can run twice at once in one Forth image.
 
 ## Amendment 1 (2026-11-03): context members that own heap memory
 
-Approval status: proposed; approved by the owner 2026-11-12 on condition that the Forth review of src/lib/context.fs finds nothing blocking (review pending), gate: none (library rule; touches [runtime] memory safety), [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)"
-Approval status: proposed (note, 2026-11-12 night) conditional approval only: the status stays proposed until that Forth review is logged in docs/development/forth-reviews/LOG.md and finds nothing blocking
+Approval status: accepted 2026-11-12, gate: none (library rule; touches [runtime] memory safety), [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section "Approval round of 2026-11-12, night (approval pack)": the owner's approval was conditional on the Forth review of src/lib/context.fs, which found nothing blocking ([report](../development/forth-reviews/2026-11-12-context.md); its low findings are plan work)
 
 **The rule until now.** A context member held no `ALLOCATE`d memory
 ([the library notes](../development/FORTH_LIBRARY.md#design-per-task-contexts-and-how-modules-convert),

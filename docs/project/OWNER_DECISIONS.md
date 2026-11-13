@@ -1083,7 +1083,10 @@ date is 2026-11-12). Each ADR's "Approval status:" line now cites this section.
   rules (2026-11-02, evening)".
 - **Item 8, conditional:** ADR 0009 Amendment 1 (context members may own heap memory; no Lean rule, touches [runtime]
   memory safety) approved on condition that the Forth review of `src/lib/context.fs` finds nothing blocking. The review
-  was pending when this was recorded; the ADR line stays "proposed" with the conditional approval noted.
+  was pending when this was recorded; the ADR line stays "proposed" with the conditional approval noted. **Condition met
+  (2026-11-12, 22:50):** the Forth review ([2026-11-12-context.md](../development/forth-reviews/2026-11-12-context.md))
+  found nothing blocking (3 low, 4 info), so Amendment 1 is accepted; its findings (missing tests of the first-code
+  promise and of freeing grown walks, a usage example, private helpers, one named failure word) are plan work.
 - **Item 9:** ADR 0014 Amendment 2 (shared terms cost nodes, not paths), gate [kernel].
 - **Item 10:** ADR 0015 FX8 amendment (review rvUNNI), gates [kernel][format]; covered by the 2026-11-11 items A7, A8
   and C3 (gate recorded 2026-11-12 night: [kernel][format]). Its "not through its gate" and "decision pending" text is
