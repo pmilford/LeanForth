@@ -1169,6 +1169,14 @@
   ],
   "tokens": 9
  },
+ "b3ce5130f54c": {
+  "copies": 2,
+  "members": [
+   "src/front/lib-decode.fs:lbd-pop",
+   "src/front/meta-spine.fs:lf-meta-pop"
+  ],
+  "tokens": 9
+ },
  "b56b2bf7443f": {
   "copies": 3,
   "members": [
@@ -1339,6 +1347,15 @@
   ],
   "tokens": 15
  },
+ "c415ad239134": {
+  "copies": 3,
+  "members": [
+   "src/front/lib-decode.fs:lbd-push",
+   "src/front/meta-env.fs:me-push",
+   "src/kernel/env-schedule.fs:lf-sch-push"
+  ],
+  "tokens": 13
+ },
  "c4a25193753b": {
   "copies": 2,
   "members": [
@@ -1380,12 +1397,11 @@
   "tokens": 9
  },
  "c8ea52d268a9": {
-  "copies": 7,
+  "copies": 6,
   "members": [
    "src/front/assign-check.fs:ac-undone",
    "src/front/goal-print.fs:gp-undone",
    "src/front/instantiate.fs:in-undone",
-   "src/front/level-normalize.fs:ln-undone",
    "src/front/level-params.fs:lp-undone",
    "src/front/mvars.fs:mv-undone",
    "src/front/tactic-basic.fs:lfb-undone"
