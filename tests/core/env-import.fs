@@ -133,14 +133,14 @@ T{ allocations 50 > all-full? -> true true }T
   ck-lay lay-firsts @ ck-lay lay-snap snap-layer-open drop
   ck-lay lay-snap snap-tf tf-start drop ck-lay lay-ly-start ly ly-sections drop ;
 : ly-early ( -- )
-  lp-names ['] ly-name-step ly ly-family drop lp-levels ['] ly-level-step ly ly-family drop
-  lp-texts ['] ly-text-step ly ly-family drop ly ly-starts drop ;
+  lp-names ly ly-family drop lp-levels ly ly-family drop
+  lp-texts ly ly-family drop ly ly-starts drop ;
 : layer2-ready ( -- ) base2-read layer2-open ly-early ;
 : layer2-done ( -- ) ck-lay lay-free ck-release ;
 \ The tuples' slab at its count, its next growth refused.
 : tuples-refused ( -- ) ly ly-tier tier-tuples cons-records slab-trim drop 1 heap-refusals ! ;
-: own-list? ( t -- flag ) lp-lists ly ly-first u< 0= ;
-: expr@ ( j -- addr ) lp-exprs ly ly-rec ;
+: own-list? ( t -- flag ) ly ly-base-list? 0= ;
+: expr@ ( j -- addr ) lp-exprs ly ly-fam fam-rec ;
 : own-const? ( j -- flag )
   expr@ dup ly-head drop tag-const = if quad-b u32@ own-list? else drop false then ;
 : first-const ( -- j|-1 )
@@ -169,9 +169,9 @@ layer2-done
 \ and the record (ly-why, ly-where); freed and read again, the same layer
 \ enters (class 6).
 : layer2-raw ( -- ) base2-read layer2-open ;
-: rec ( j i -- addr ) ly ly-rec ;
-: first-of ( i -- u ) ly ly-first ;
-: lists ( -- addr ) lp-lists ly ly-block ;
+: rec ( j i -- addr ) ly ly-fam fam-rec ;
+: first-of ( i -- u ) ly ly-fam fam-first @ ;
+: lists ( -- addr ) ly ly-lists fam-block @ ;
 : why? ( c-addr u -- flag ) ly ly-why @ count compare 0= ;
 : refused-at ( -- j ) ly ly-where @ ;
 : forge! ( tag payload addr -- ) >r pack-head r> quad-head u32! ;
@@ -190,11 +190,25 @@ variable forged
 layer2-raw
 T{ str-name 0< an-app 0< first-const 0< recursor 0< -> false false false false }T
 layer2-done
+\ The translators themselves: a payload only a named record may have; a
+\ rule's items by position (a name, a number, an expression); a letE's
+\ body record must follow it (here a constant is followed by none).
+layer2-ready
+T{ tag-const 1 ly ly-payload tag-app 0 ly ly-payload
+  -> tag-const 1 outcome-invalid tag-app 0 outcome-ok }T
+T{ 99999999 0 ly ly-rule-item nip 99999999 1 ly ly-rule-item 99999999 2 ly ly-rule-item nip
+  -> outcome-invalid 99999999 outcome-ok outcome-invalid }T
+T{ first-const lp-exprs ly ly-fam fam-body nip -> outcome-invalid }T
+layer2-done
 \ A name's bytes past the pool's end, or in the base's bytes.
 layer2-raw  99999999 str-name lp-names rec quad-b u32!
 T{ records s" names" str-name refused? -> true }T
 layer2-done
 layer2-raw  0 str-name lp-names rec quad-b u32!
+T{ records s" names" str-name refused? -> true }T
+layer2-done
+layer2-raw  lp-name-bytes first-of 1- str-name lp-names rec quad-b u32!
+tag-name-str 1 str-name lp-names rec forge!
 T{ records s" names" str-name refused? -> true }T
 layer2-done
 \ A list whose length runs past the section.

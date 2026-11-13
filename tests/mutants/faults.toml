@@ -9421,8 +9421,8 @@ reason = "rvSN4 M2: only a block's first member's name is compared with the name
 [[fault]]
 id = "sn5-layer-record-twice"
 file = "src/import/snapshot-layer.fs"
-old = '''  dup r@ ly-top @ > if r> ly-top ! true else drop r> drop false then ;'''
-new = '''  r> ly-top ! true ;'''
+old = '''  2dup fam-top @ > if fam-top ! true else 2drop false then ;'''
+new = '''  fam-top ! true ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Layers"
 reason = "rvSN4 m1: a layer that holds one of its own records twice loads (the copy's users then read another record)"
 
@@ -9469,16 +9469,16 @@ reason = "FRK F5: an answer with the holder bit and an outcome other than ok loa
 [[fault]]
 id = "fri-layer-const-levels-flag"
 file = "src/import/snapshot-layer.fs"
-old = '''  tuck ly-levels >r -rot ly-name r> swap ly-and rot swap ;'''
-new = '''  tuck ly-levels ok? 0= outcome-invalid and >r -rot ly-name r> swap ly-and rot swap ;'''
+old = '''  tuck ly-levels 2swap ly-name 2swap rot outcome-and ;'''
+new = '''  tuck ly-levels ok? 0= outcome-invalid and 2swap ly-name 2swap rot outcome-and ;'''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "FRI F1: a constant's universe arguments that the heap cannot hold read as a malformed layer (invalid), not full"
 
 [[fault]]
 id = "fri-layer-rules-flag"
 file = "src/import/snapshot-layer.fs"
-old = '''  2 pick ly-tier tier-tuples tuple-start ok-then? 0= if ly-none2 exit then'''
-new = '''  2 pick ly-tier tier-tuples tuple-start ok-then? 0= if 2drop drop 0 outcome-invalid exit then'''
+old = '''  dup ly-tier tier-tuples tuple-start ok-then3? 0= if exit then ly-rule-adds ;'''
+new = '''  dup ly-tier tier-tuples tuple-start ok? 0= if 2drop drop outcome-invalid exit then ly-rule-adds ;'''
 test = "$GFORTH tests/core/env-import.fs"
 reason = "FRI F1: a recursor's rules that the heap cannot hold read as a malformed layer (invalid), not full"
 
@@ -10351,3 +10351,67 @@ old = '''  dup ok? if drop true else nip nip nip false then ;'''
 new = '''  dup ok? if drop true else nip nip false then ;'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "FRI B6: a failure leaves a kept value under the outcome"
+
+[[fault]]
+id = "fri-b1-bytes-from-base"
+file = "src/import/snapshot-layer.fs"
+old = '''  >r over r@ fam-first @ u< if r> drop 2drop 0 0 false exit then'''
+new = '''  >r'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "FRI B1: a name's bytes may start before the layer's own (the byte before the block is read as the name)"
+
+[[fault]]
+id = "fri-b1-bytes-past-pool"
+file = "src/import/snapshot-layer.fs"
+old = '''  swap r@ fam-first @ - swap 2dup + r@ fam-length u>'''
+new = '''  swap r@ fam-first @ - swap 2dup + r@ fam-length 2drop false'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "FRI B1: a name's bytes may run past the pool (read from outside the section)"
+
+[[fault]]
+id = "fri-b1-starts-end-unchecked"
+file = "src/import/snapshot-layer.fs"
+old = ''': ly-starts ( ly -- outcome ) ly-lists fam-starts swap fam-units = flag>outcome ;'''
+new = ''': ly-starts ( ly -- outcome ) ly-lists fam-starts 2drop outcome-ok ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "FRI B1: a list whose length runs past the lists section is accepted"
+
+[[fault]]
+id = "fri-b1-let-body-tag-unchecked"
+file = "src/import/snapshot-layer.fs"
+old = '''  over fam-rec dup ly-head drop tag-let-body <> if 2drop 0 outcome-invalid exit then'''
+new = '''  over fam-rec'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "FRI B1: a letE takes the next record as its body whatever that record is"
+
+[[fault]]
+id = "fri-b1-payload-ignored"
+file = "src/import/snapshot-layer.fs"
+old = '''  2 pick ly-named? if ly-name else drop dup 0= flag>outcome then ;'''
+new = '''  2 pick ly-named? if ly-name else drop outcome-ok then ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "FRI B1: a record that has no name keeps a nonzero payload"
+
+[[fault]]
+id = "fri-b1-list-start-unchecked"
+file = "src/import/snapshot-layer.fs"
+old = '''  2dup swap fam-map @ ly@ 0= if 2drop false exit then'''
+new = ''''''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "FRI B1: a constant may name an item of a list as its universe arguments' list"
+
+[[fault]]
+id = "fri-b1-blame-wrong-record"
+file = "src/import/snapshot-layer.fs"
+old = '''  rot over fam-ly ly-where ! dup fam-pos @ tier-title swap fam-ly ly-why ! ;'''
+new = '''  nip 0 over fam-ly ly-where ! dup fam-pos @ tier-title swap fam-ly ly-why ! ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "FRI B1: a refused layer names record 0 instead of the one refused"
+
+[[fault]]
+id = "fri-b1-rule-kinds-shifted"
+file = "src/import/snapshot-layer.fs"
+old = '''  swap 3 mod case 0 of ly-name endof 1 of drop outcome-ok endof drop ly-e 0 endcase ;'''
+new = '''  swap 3 mod case 1 of ly-name endof 0 of drop outcome-ok endof drop ly-e 0 endcase ;'''
+test = "$GFORTH tests/core/env-import.fs"
+reason = "FRI B1: a rule's constructor name kept as the base's number and its field count read as a name"
