@@ -1,7 +1,7 @@
 \ Range and memory predicates used to validate input before forming
 \ addresses. Signed comparisons only, so no bound can wrap around. No state.
-\ Interface: between? upto? in-ranges? cells-zero? cells= index? cells-index
-\ cells-has?.
+\ Interface: between? upto? range-at in-range-at? in-ranges? cells-zero?
+\ cells= index? cells-index cells-has?.
 \ Example:
 \   create primes 2 , 3 , 5 , 7 ,   create odds 3 , 5 , 7 ,
 \   3 4 index?  4 4 index?  0 -1 index?    \ true false false
