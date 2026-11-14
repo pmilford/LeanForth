@@ -259,10 +259,11 @@ lf-walk-room context-walk2: lf-ind-pair-walker
 : lf-ind-members-ok? ( -- flag ) true lf-ind-members 0 ?do i lf-ind-member-ok? and loop ;
 \ Whether name is in a list of names; two lists equal name by name.
 : lf-ind-item@ ( items i -- name ) cells + @ ;
-: lf-ind-in-at? ( name items i -- name items flag ) 2dup-under lf-ind-item@ lf-name-same? ;
+: lf-ind-in-at? ( name items i -- name items flag )
+  2dup-under lf-ind-item@ lf-name-same? ;
 : lf-ind-in? ( name items n -- flag ) ['] lf-ind-in-at? any? nip nip ;
 : lf-ind-same-at? ( items items' i -- items items' flag )
-  2dup-under tuck lf-ind-item@ -rot lf-ind-item@ swap lf-name-same? ;
+  2dup-under tuck lf-ind-item@ >r lf-ind-item@ r> lf-name-same? ;
 : lf-ind-names= ( items n items' n' -- flag )
   rot over <> if drop 2drop false exit then ['] lf-ind-same-at? all? nip nip ;
 \ The block's types' names, as the first type's all list holds them once

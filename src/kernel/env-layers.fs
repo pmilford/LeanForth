@@ -287,7 +287,8 @@ end-structure
   lay-base @ >r dup r@ snap-block over r@ snap-size 3 pick + dup >r 1 max resize
   if drop 2drop r> drop r> drop outcome-full exit then
   r> rot r> snap-block! drop outcome-ok ;
-: starts-grow ( n lay -- outcome ) swap 2* cells swap lay-base @ snap-starts block-resize ;
+: starts-grow ( n lay -- outcome )
+  swap 2* cells swap lay-base @ snap-starts block-resize ;
 \ The counts the new slots add, from their records in the layer.
 : lay-adds ( k lay -- n )
   0 over lay-n @ 0 ?do

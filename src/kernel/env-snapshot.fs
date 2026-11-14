@@ -547,7 +547,8 @@ create snap-outers /outers allot  snap-outers /outers erase
 : snap-add ( i snap -- outcome )
   2dup snap-shape 2>r >r over 1+ swap snap-sf r> -rot 2r> 2swap sections-add nip ;
 : snap-add-at ( snap k -- snap outcome ) tier-sections# + over snap-add ;
-: snap-adds ( snap -- outcome ) snap-sections# tier-sections# - ['] snap-add-at ok-each nip ;
+: snap-adds ( snap -- outcome )
+  snap-sections# tier-sections# - ['] snap-add-at ok-each nip ;
 \ A sealed stage, and the current environment valid over this context's
 \ input (which the caller fed from that stage: one slot per input
 \ declaration, in the feed's order), every slot final.

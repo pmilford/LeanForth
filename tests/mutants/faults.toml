@@ -17336,8 +17336,8 @@ reason = "review reuse-out B1: a declaration's last universe parameter is not fo
 [[fault]]
 id = "snap-adds-last"
 file = "src/kernel/env-snapshot.fs"
-old = ''': snap-adds ( snap -- outcome ) snap-sections# tier-sections# - ['] snap-add-at ok-each nip ;'''
-new = ''': snap-adds ( snap -- outcome ) snap-sections# tier-sections# - 1- ['] snap-add-at ok-each nip ;'''
+old = '''  snap-sections# tier-sections# - ['] snap-add-at ok-each nip ;'''
+new = '''  snap-sections# tier-sections# - 1- ['] snap-add-at ok-each nip ;'''
 test = "$GFORTH tests/core/env-snapshot.fs"
 reason = "review reuse-out B1: the snapshot's last environment section is never written"
 
