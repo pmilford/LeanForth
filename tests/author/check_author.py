@@ -122,8 +122,8 @@ FAULTS = [
        "drop outcome-ok r> 0 exit lf-pp-const-levels 0= if outcome-invalid r> 0 exit then"
        " 0 r> lf-pf-args ;")]),
     ("labels and notes not printed", "any",
-     [(PRINT, "  >r r@ frame-restore swap ok-then? if lf-pf-notes then r> 0 ;",
-       "  >r r@ frame-restore drop r> 0 ;")]),
+     [(PRINT, ": lf-pf-notes-after ( outcome term -- outcome ) swap ok-then? if lf-pf-notes then ;",
+       ": lf-pf-notes-after ( outcome term -- outcome ) drop ;")]),
     ("$ swaps function and argument", "any",
      [("src/author/words.fs", ": lfa-fn-arg ( f a -- tf ta ) swap lfa>function swap lfa>term ;",
        ": lfa-fn-arg ( f a -- tf ta ) lfa>term swap lfa>function ;")]),

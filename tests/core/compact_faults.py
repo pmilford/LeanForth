@@ -31,7 +31,8 @@ EXPORTS = sorted(str(p.relative_to(ROOT)) for p in (ROOT / "tests/reference").gl
 # (what, file, text, change): text must occur exactly once in file.
 FAULTS = [
     ("hash-consing ignores a record's second operand", "src/core/compact-tier.fs",
-     "= >r quad-b u32@ swap quad-b u32@ = r> and ;", "= >r 2drop true r> and ;"),
+     ": quad-ab= ( addr1 addr2 -- flag ) quad-ab@ rot quad-ab@ d= ;",
+     ": quad-ab= ( addr1 addr2 -- flag ) quad-ab@ drop rot quad-ab@ drop = ;"),
     ("names with the same hash are not compared by their text", "src/core/compact-names.fs",
      "if cons-key 2@ rot r> name-text-of compare 0=", "if 2drop r> drop true"),
     ("texts with the same hash are not compared", "src/lib/pools.fs",
