@@ -91,6 +91,9 @@ findings neither fixed nor turned into plan tasks. A row that raises the style b
 | 2026-11-13 | `f0c5a6f5..9b518570` | reuse-k1 (plan 9.4.8e): the kernel's sorts on lib/sort.fs, caches on new lib/memo.fs, the scheduler queue on new lib/pqueue.fs | forth-reviewer (Opus), Forth and kernel review, probes | [report](2026-11-13-reuse-out.md), first part | 1 B, 1 H, 4 M, 7 L (`cells=` three times; the sorts' new full outcome untested; global sorter) | fixed in reuse-out |
 | 2026-11-13 | `9b518570..63868c65` | reuse-out (plan 9.4.8d, e, k): decimal.fs, bits.fs, blocks.fs, the outcome words, about 45 kernel loops, the copies outside src/front | forth-reviewer (Opus), Forth and kernel review, probes | [report](2026-11-13-reuse-out.md), second part | 2 B, 0 H, 4 M, 5 L, 2 style; no kernel correctness bug | fixed in 63868c65..2f46894a |
 | 2026-11-13 | `63868c65..2f46894a` | reuse-out follow-up: 13 more kernel loops, in-base/u>hex, 29 faults, 2dup-under, the scheduler tests, a merge of main | forth-reviewer (Opus), short re-check, probes | [report](2026-11-13-reuse-out.md), re-check section | 1 B, 3 L, 1 style, planned in 9.4.8k; identity confirmed (byte-identical snapshots) | the owner approved [kernel] 2026-11-13 |
+| 2026-11-13 | `cbc7cc36..3f7315d1` | s2-unfold: S2 merge A, Lean's unfolding, elaboration data format 3 | forth-reviewer (Opus), style and gate [import] | [report](2026-11-13-s2-unfold-a.md) | B1, H1, M1-M2, L1-L5 | 0: fixed in 3f7315d1..ecf53e50 |
+| 2026-11-13 | `3f7315d1..ecf53e50` | s2-unfold review fixes | forth-reviewer (Opus), re-check | [report](2026-11-13-s2-unfold-a.md), section "Re-check of the review fixes" | M1-new to M3-new, L1 | 0: fixed in ecf53e50..fa11a180 |
+| 2026-11-14 | `ecf53e50..fa11a180` | s2-unfold FIXA fixes (`ok-store`, tests) | forth-reviewer (Opus), re-check | [report](2026-11-13-s2-unfold-a.md), section "Re-check of FIXA" | B1 (reuse), L1 | 0: both planned in 9.4.8k (front pass) |
 
 ## Backlog
 

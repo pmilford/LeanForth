@@ -79,8 +79,8 @@ status changes when this date is older than them. Stages are those of the
   `by-rw`) then S3 onwards; S2's acceptance includes the owner's proof set ($x + 0 = x$, $0 + n = n$, $n + m = m + n$,
   associativity, distributivity, list append length; S3 `2 + 2 = 4`, S4 `n < n + 1`; 2026-11-13). S2's design ([S2_INTERFACE.md](../design/S2_INTERFACE.md)) reviewed and approved by the
   owner 2026-11-13, both FE1 forms; its first branch (`s2-unfold` merge A, Lean's unfolding) merges before S1's last
-  branch, which needs it (S1's order amended). Merge A is tested alone on `s2-unfold` (2026-11-14: the Forth review's
-  and its re-check's findings fixed; not merged: the check of those fixes and the [import] gate pending):
+  branch, which needs it (S1's order amended). Merge A is integrated (`s2-unfold` merged to main 2026-11-14 after a Forth
+  review and two re-checks, [import] approved by the owner for data format 3):
   `unfoldDefinition?` and lazy delta, elaboration data format 3 with every smart-unfolding body and the
   `match_pattern` tag (formats 1 and 2 refused), and refused library decodes passed on; `check_defeq.py` 137 of 162
   cases equal to pinned Lean's, 25 listed gaps answering unsupported (main: 102 of 120). No automatic
