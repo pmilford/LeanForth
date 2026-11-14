@@ -6,7 +6,7 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/author/constants.fs": {
-   "blocks": 7,
+   "blocks": 16,
    "never_run": 0
   },
   "src/author/declarations.fs": {
@@ -15,21 +15,21 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/author/errors.fs": {
-   "blocks": 55,
-   "never_run": 6,
+   "blocks": 82,
+   "never_run": 3,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed; FE1g-3/4 (branch fe1g3, 016d1bd1, 2026-11-13): the detail a refused heap cuts (lfa-detail+, lfa-.cut) is not reached"
   },
   "src/author/export.fs": {
-   "blocks": 274,
-   "never_run": 1,
+   "blocks": 329,
+   "never_run": 0,
    "reason": "new file (plan 8.2.1c; agent LF2, 2026-11-12): lf-author-export when the heap refuses the numbering tables (outcome full); lfx-block's refusal itself is tested"
   },
   "src/author/form.fs": {
-   "blocks": 32,
+   "blocks": 36,
    "never_run": 0
   },
   "src/author/groups.fs": {
-   "blocks": 171,
+   "blocks": 175,
    "never_run": 2,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed; and (plan FE1a, branch fe1) lfa-natural!'s load-time abort for a syntax word that does not exist"
   },
@@ -38,7 +38,7 @@
    "never_run": 0
   },
   "src/author/namespaces.fs": {
-   "blocks": 174,
+   "blocks": 176,
    "never_run": 1,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
@@ -63,28 +63,28 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/author/words.fs": {
-   "blocks": 97,
+   "blocks": 99,
    "never_run": 2,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/cli/check-json.fs": {
-   "blocks": 302,
+   "blocks": 304,
    "never_run": 12,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/cli/check-lf.fs": {
-   "blocks": 179,
+   "blocks": 211,
    "never_run": 6,
    "reason": "four refusals no input reaches: a library declaration without levelParams (the stage refuses every named declaration without them: named-ok?, src/import/stage-records.fs:443-445), the stage refused at stage-init (no heap), stage-extend after a library read that succeeded, the stores' capacity settings refused; and (plan FE1a) two branches of lfc-arity no Init-slice constant reaches (measured 6 at the fe1 merge, review fe1ab re-check; fe1d's --elab-data code is fully run)"
   },
   "src/cli/check-run.fs": {
-   "blocks": 903,
+   "blocks": 1041,
    "never_run": 49,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/cli/leanforth.fs": {
-   "blocks": 1347,
-   "never_run": 114,
+   "blocks": 1661,
+   "never_run": 109,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/cli/name-text.fs": {
@@ -93,13 +93,13 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/cli/print-lf.fs": {
-   "blocks": 181,
-   "never_run": 27,
+   "blocks": 153,
+   "never_run": 14,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/cli/print.fs": {
-   "blocks": 109,
-   "never_run": 5,
+   "blocks": 104,
+   "never_run": 3,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/cli/tally.fs": {
@@ -122,7 +122,7 @@
   },
   "src/core/compact-names.fs": {
    "blocks": 140,
-   "never_run": 5,
+   "never_run": 4,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/core/compact-tier.fs": {
@@ -132,17 +132,17 @@
   },
   "src/core/compact.fs": {
    "blocks": 19,
-   "never_run": 3,
+   "never_run": 0,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/core/constant-references.fs": {
-   "blocks": 354,
+   "blocks": 357,
    "never_run": 18,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/core/constant-term-boundary.fs": {
-   "blocks": 512,
-   "never_run": 19,
+   "blocks": 513,
+   "never_run": 18,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/core/constant-term-scope.fs": {
@@ -151,8 +151,8 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/core/derivation-log.fs": {
-   "blocks": 686,
-   "never_run": 44,
+   "blocks": 689,
+   "never_run": 42,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/core/diagnostics.fs": {
@@ -175,22 +175,22 @@
    "never_run": 0
   },
   "src/core/level-scope.fs": {
-   "blocks": 182,
-   "never_run": 7,
+   "blocks": 187,
+   "never_run": 6,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/core/levels.fs": {
-   "blocks": 182,
-   "never_run": 10,
+   "blocks": 177,
+   "never_run": 8,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/core/literals.fs": {
    "blocks": 86,
-   "never_run": 7,
+   "never_run": 5,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/core/local-context.fs": {
-   "blocks": 89,
+   "blocks": 98,
    "never_run": 3,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
@@ -212,6 +212,10 @@
    "never_run": 3,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
+  "src/core/reach.fs": {
+   "blocks": 120,
+   "never_run": 0
+  },
   "src/core/scratch-marks.fs": {
    "blocks": 82,
    "never_run": 1,
@@ -223,8 +227,8 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/core/statement-match.fs": {
-   "blocks": 390,
-   "never_run": 50,
+   "blocks": 399,
+   "never_run": 16,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/core/string-literals.fs": {
@@ -242,8 +246,8 @@
    "never_run": 0
   },
   "src/core/terms.fs": {
-   "blocks": 694,
-   "never_run": 37,
+   "blocks": 692,
+   "never_run": 35,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/core/unsupported-forms.fs": {
@@ -252,13 +256,13 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/front/assign-check.fs": {
-   "blocks": 314,
-   "never_run": 24,
+   "blocks": 316,
+   "never_run": 15,
    "reason": "new file (plan FE1c, branch fe1c-3, 2026-11-13; measured over make test-front): never run are the walks' full and invalid branches (a dead free variable, an occurs check or instantiation refused for room), a delayed-assigned metavariable in the value (no fixture makes a delayed assignment), an assigned metavariable left after instantiation (unreachable: lf-instantiate-mvars replaces every one) and a let's parts when its binder holds no free variable"
   },
   "src/front/beta-inst.fs": {
    "blocks": 230,
-   "never_run": 11,
+   "never_run": 10,
    "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the context teardown, the memo table rehash (no test body makes enough pairs to grow it), the branches where the heap or a store refuses room (full) in the memo, the stack, the spine, a beta step or a rebuild, and a leaf that is no bound variable (always kept as closed)"
   },
   "src/front/cases-several.fs": {
@@ -277,13 +281,18 @@
    "reason": "new file (plan FE6, ctorIdx and casesOn with several motives): the blocks never run are failure branches after a scratch tier, tuple or heap block that cannot grow (expr-make, tuple-add, name-str, allocate), which no test can yet make refuse midway (a sealed tier refuses at the first lookup; fuel exhaustion is swept), and refusals no type of Init reaches (a type not among its recursor's, several motives into Prop only, a Sort only reduction shows) Measured 2026-11-13 over make test-front (review fe6a-2 N4)."
   },
   "src/front/dag-walk.fs": {
-   "blocks": 76,
-   "never_run": 4,
+   "blocks": 83,
+   "never_run": 0,
    "reason": "new file (plan FE1a-b, 2026-11-12; tightened at the merge, review fe1ab re-check): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded and the reader default finder before cli/check-lf.fs sets it are never run"
   },
+  "src/front/discr-keys.fs": {
+   "blocks": 468,
+   "never_run": 21,
+   "reason": "plan FE1e2, branch s1-synth (lowered at the review fix, 2026-11-13; measured over make test-instances): never run are getUnifyKeyArgs' stuck tests that reduceDT never lets a key reach today: a reducible constant (reduceDT unfolds it first, unsupported until plan S2's delta) and a matcher with a metavariable discriminant (whnfCore refuses a matcher head until plan S3), with their status and matcher lookups; and two refusals of Meta lookups of a constant the data's stage has (lf-meta-const-decl, dk-declared after whnf found it): the stage and the context are one library"
+  },
   "src/front/defeq.fs": {
-   "blocks": 1208,
-   "never_run": 158,
+   "blocks": 1285,
+   "never_run": 153,
    "reason": "new file (plan FE1c, branch fe1c-3, 2026-11-13; measured over make test-front, with tests/front/defeq.fs and check_defeq.py --golden's 90 cases): never run are failure branches inside the machine's steps that the two allocation-refusal scans do not reach (a frame, cell, mark or new term refused, an eqv, whnfCore, inferType or instantiation failing midway), the steps after an earlier abort (aborts are sticky, the step only returns), the stalled-step guard (a broken step), and Lean paths the slice's fixtures do not meet: instance-implicit arguments with a stuck metavariable (trySynthPending), eta-unassigned implicit arguments, a first-order approximation whose lhs cannot be built, quasi-pattern arguments (isTypeCorrect), processAssignment' retrying after a tainted level comparison"
   },
   "src/front/elab-data.fs": {
@@ -291,18 +300,22 @@
    "never_run": 9,
    "reason": "new file (plan FE1d, 2026-11-12): four refusals no test input reaches: a name lookup that fails in an open tier (ed-looked, error 23), a tier name beyond the stage's name-to-declaration array (ed-decls), no room while the eliminators' table grows (the allocation-refusal test reads 4 eliminators), and a THROW inside a read (ed-caught). Format 2 (plan FE1e1, 2026-11-13): five more: a let among a matcher's parameters (ed-binder; 13 of Init's matchers, read by make reference-elab-data, none in a slice), no room for a foreign key or a texted key or its text (ed-foreign-proj, ed-proj-text, ed-text-key: the allocation-refusal test refuses each allocation in turn but none falls on these claims), and a name lookup that fails after a left-out instance's name had a valid form (ed-left-name, as error 23)"
   },
+  "src/front/elab-keys.fs": {
+   "blocks": 56,
+   "never_run": 0
+  },
   "src/front/expr-remap.fs": {
    "blocks": 152,
    "never_run": 11,
    "reason": "new file (plan FE6, casesOn and recOn): the blocks never run are failure branches after a scratch tier, tuple or heap block that cannot grow (expr-make, tuple-add, allocate) and refusals Lean's recursors never reach (hypotheses before fields, a recursor type shorter than its numbers, a type whose Sort only reduction shows); tests for them need a tier that refuses on demand Measured 2026-11-13 over make test-front (review fe6a-2 N4)."
   },
   "src/front/fun-info.fs": {
-   "blocks": 195,
-   "never_run": 31,
+   "blocks": 232,
+   "never_run": 23,
    "reason": "new file (plan FE1c, branch fe1c-3, 2026-11-13; measured over make test-front): never run are the full and unsupported branches of a telescope (a local, a record, an instantiation or whnfCore refused; a type whnf would unfold), a parameter type that is a pi or might become one under a class head (no fixture has a higher-order out-parameter), and isProp's failures after isPropQuick (inferType or whnfCore refused)"
   },
   "src/front/goal-print.fs": {
-   "blocks": 283,
+   "blocks": 286,
    "never_run": 4,
    "reason": "new file (plan FE1g-1, branch fe1g1, 2026-11-13): never run are only the branches where the heap refuses a slab's growth inside an operation (a run's cells or record, a local, a view's copy, the goal list, a group's places, the names' codes, a let value's depth walk); tests/front/goals.fs reaches the refusal of a run's push, of the trail and of each allocation of a clear"
   },
@@ -311,13 +324,23 @@
    "never_run": 6,
    "reason": "new file (plan FE1g-1, branch fe1g1, 2026-11-13): never run are only the branches where the heap refuses a slab's growth inside an operation (a run's cells or record, a local, a view's copy, the goal list, a group's places, the names' codes, a let value's depth walk); tests/front/goals.fs reaches the refusal of a run's push, of the trail and of each allocation of a clear"
   },
+  "src/front/handover.fs": {
+   "blocks": 84,
+   "never_run": 1,
+   "reason": "S1 merge B: lf-menv-add refusing for want of room at a hand-over (error 60), which no heap-refusal scan of a text reaches"
+  },
   "src/front/infer.fs": {
-   "blocks": 260,
-   "never_run": 19,
+   "blocks": 346,
+   "never_run": 21,
    "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the branches where the heap or a store refuses room (full) in a level list, a Sort's level, a spine, a telescope, an abstraction, a pi or a normalized level"
   },
+  "src/front/instances.fs": {
+   "blocks": 665,
+   "never_run": 4,
+   "reason": "plan FE1e3, branch s1-synth (lowered at the review fix, 2026-11-13; measured over make test-instances): never run are only refusals inside Meta calls: lf-mvar-new (a telescope's metavariable) and lf-mctx-depth{ (a check's depth scope) finding no heap room, and lf-menv-find of an instance's or default instance's declaration, which the data names in the library itself (found in a fed context; S1 merge B's library route can refuse a declaration it cannot decode)"
+  },
   "src/front/instantiate.fs": {
-   "blocks": 288,
+   "blocks": 286,
    "never_run": 4,
    "reason": "measured 2026-11-12 on fe1c-lnorm after review L4 (meta-heap.fs refuses each allocation): never run are in-instantiate-leaf's non-variable leaf at a depth whose range test kept nothing (157), a failing loose-range walk inside instantiate1's value check (190: the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)), and head beta's application refused by the term store after the lambdas were taken (221); FE1g-3/4 (branch fe1g3, 016d1bd1, 2026-11-13): a loose value whose range walk the heap refuses (in-value-ok) is not reached"
   },
@@ -327,52 +350,65 @@
    "reason": "new file (plan FE1g-1, branch fe1g1, 2026-11-13): never run are only the branches where the heap refuses a slab's growth inside an operation (a run's cells or record, a local, a view's copy, the goal list, a group's places, the names' codes, a let value's depth walk); tests/front/goals.fs reaches the refusal of a run's push, of the trail and of each allocation of a clear"
   },
   "src/front/level-defeq.fs": {
-   "blocks": 130,
+   "blocks": 201,
    "never_run": 3,
    "reason": "measured 2026-11-13 (COVFU, on main d01b02b8 plus its tests): never run are lf-meta-level='s full branch on the bases (82:57, ld-bases) and on a normalized side (94:36, ld-differs): its pair slab is grown by earlier deep tests, so no refusal reaches it; and ld-run's CATCH branch that rolls the mark back on a THROW (169:31): no input makes the rounds throw. The fourth block the full suite measured on 2026-11-13 was ld-closed's refused close (161:23, added by 98315f89 after the branch measurement of 3): unreachable through lf-meta-level-defeq, whose mark is always the latest open one, it is now run by a white-box test of ld-close in tests/front/meta.fs (fault fe-ldefeq-closed-refusal-ignored). Allowance 4 -> 3."
   },
+  "src/front/level-map.fs": {
+   "blocks": 53,
+   "never_run": 0
+  },
   "src/front/level-normalize.fs": {
-   "blocks": 242,
+   "blocks": 247,
    "never_run": 3,
    "reason": "new file (plan FE1c, branch fe1c-lnorm, 2026-11-12): never run are the full branches of lf-meta-level= and lf-meta-never-zero? inside a normalize (67, 69) and of the argument slabs ln-args and ln-todo (125), each needing the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)"
   },
   "src/front/level-params.fs": {
-   "blocks": 217,
+   "blocks": 175,
    "never_run": 4,
    "reason": "measured 2026-11-12 on fe1c-lnorm: never run are imax rebuilt with mkLevelIMax' when a part changes (83), the case default of a level tag without parameters (94) and a binder rebuild the term store refuses (124, 125)"
   },
   "src/front/level-simp.fs": {
-   "blocks": 189,
+   "blocks": 202,
    "never_run": 10,
    "reason": "measured 2026-11-12 on fe1c-lnorm after review L4: never run are ld-same? on two different records of equal fields (37: the tests' unshared equal levels differ in a field first) and the full branches of level equality, isNeverZero, mkLevelMax''s rules and lm-take's ended code (56, 65, 73, 82, 85, 95, 113, 120, 121), each needing the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use)"
   },
+  "src/front/lib-decode.fs": {
+   "blocks": 569,
+   "never_run": 89,
+   "reason": "S1 merge B (lib-decode.fs, the library route): refusal paths the slice's decodes do not reach (full at some allocations, an mdata or string expression unsupported, a block's kind invalid), owed to s1-elab's Init runs"
+  },
+  "src/front/meta-config.fs": {
+   "blocks": 18,
+   "never_run": 0
+  },
   "src/front/meta-env.fs": {
-   "blocks": 136,
-   "never_run": 3,
+   "blocks": 335,
+   "never_run": 17,
    "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are an input declaration the named stage does not hold (unreachable: the feed makes the input from the stage's declarations, and only that stage is accepted) and the name tests of a numeric part and of a prefix that is not top-level, which no declaration of the slice named succ or ndrec has"
   },
   "src/front/meta-spine.fs": {
-   "blocks": 44,
+   "blocks": 61,
    "never_run": 1,
    "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-13): never run is the branch where a slab refuses a cell (full) while a universe-argument list is filled; the spine refusal is tested through whnf.fs"
   },
   "src/front/mvars.fs": {
-   "blocks": 429,
-   "never_run": 7,
+   "blocks": 882,
+   "never_run": 5,
    "reason": "measured 2026-11-12 on fe1c-lnorm: never run are the load-time aborts of a heap that cannot hold the stores (130, 131), store-new-slot failing after store-ready succeeded (178), a delayed assignment's trail note refused (359), and in instantiateMVars the term store refusing an application (407), the argument slab and the metavariable search refused (437, 467: the heap refusing a slab's growth that tests/front/meta-heap.fs's levels and terms never need (their slabs are large enough after the first use))"
   },
   "src/front/nat-offset.fs": {
    "blocks": 313,
-   "never_run": 36,
+   "never_run": 31,
    "reason": "new file (plan FE1c, branch fe1c-3, 2026-11-13; measured over make test-front): never run are the failures of making a constant (a name the context lacks, a level store without zero, a reference or term refused), a literal or sum beyond a cell, an evaluation stack refused, the offset layer codes for an Add.add or HAdd.hAdd whose instance comparison fails for room, and the forms of Lean's evalNat left unported (division, modulo, power, Sub and HSub through Add's path)"
   },
   "src/front/prop-quick.fs": {
-   "blocks": 263,
+   "blocks": 262,
    "never_run": 31,
    "reason": "new file (plan FE1c, branch fe1c-3, 2026-11-13; measured over make test-front): never run are the full branches of the level and binder stacks and of a head's type (inferType refused), a metavariable head without a declaration, and shapes no test term has: a let at an application's head, a let in a type passed by isArrowProposition, a legacy numeric Sort"
   },
   "src/front/reader.fs": {
-   "blocks": 147,
+   "blocks": 158,
    "never_run": 7,
    "reason": "new file (plan FE1a-b, branch fe1, 2026-11-12): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded, a child beyond the walk memo and the reader default finder before cli/check-lf.fs sets it are never run; since FE1g-2 (branch fe1g2, 2026-11-13) src/front/tactic-syntax.fs ends := by proofs itself, so lfn-w-end and the by branches of lfn-proof-shape and lfn-last (3 blocks) wait for FE1g-3's runner"
   },
@@ -382,28 +418,28 @@
    "reason": "new file (plan FE1a-b, branch fe1, 2026-11-12): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded, a child beyond the walk memo and the reader default finder before cli/check-lf.fs sets it are never run"
   },
   "src/front/tactic-basic.fs": {
-   "blocks": 266,
-   "never_run": 13,
+   "blocks": 271,
+   "never_run": 11,
    "reason": "new file (plan FE1g-4, branch fe1g3, 2026-11-13), not yet reviewed: refusals of the heap or stores inside a step (lfb-made, a walk refused, a local or view not made), the detail a refused heap cuts, and Meta steps that answer unsupported only where FE1c leaves gaps; scripts/coverage.py --uncovered lists them"
   },
   "src/front/tactic-run.fs": {
-   "blocks": 352,
-   "never_run": 22,
+   "blocks": 368,
+   "never_run": 20,
    "reason": "new file (plan FE1g-3, branch fe1g3, 2026-11-13), not yet reviewed: refusals of the heap in the runner's slabs (frames, saves, open parts, binders), the outcomes of the goal list a well-formed run never meets (lfr-own-code 92, lf-tac-main full), the closing's failures (lfr-close-code), and lf-tac-later for rows no kind reaches yet; scripts/coverage.py --uncovered lists them"
   },
   "src/front/tactic-syntax.fs": {
-   "blocks": 191,
+   "blocks": 194,
    "never_run": 3,
    "reason": "new file (plan FE1g-2, branch fe1g2, 2026-11-13): the two load-time aborts of tac-heap (no heap for the tactic stores) and the defensive branch of lft-bracketed? (a hypothesis read outside a tactic proof, which the hypotheses' scopes rule out) are never run"
   },
   "src/front/term-eqv.fs": {
-   "blocks": 190,
-   "never_run": 19,
+   "blocks": 193,
+   "never_run": 15,
    "reason": "new file (plan FE1c, branch fe1c-3, 2026-11-13; measured over make test-front): never run are the pair stack refused (full), level comparisons failing for room, two equal leaves of distinct nodes that only an unshared store makes (constants with levels, literals, projection leaves, other leaves), and etaExpanded?'s loose-range walk refused"
   },
   "src/front/whnf.fs": {
-   "blocks": 487,
-   "never_run": 17,
+   "blocks": 613,
+   "never_run": 18,
    "reason": "new file (plan FE1c, branch fe1c-2, 2026-11-12): never run are the branches where the heap or a store refuses room (full) inside a rebuild, a level list, a spine, a rule's application or a frame, defensive defaults no well-formed input reaches (a recursor whose block names no declaration), and the recursive-type test of a structure-like type, which no inductive type of Init has"
   },
   "src/import/checker-input.fs": {
@@ -412,8 +448,8 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/import/feed.fs": {
-   "blocks": 706,
-   "never_run": 44,
+   "blocks": 715,
+   "never_run": 38,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/import/load.fs": {
@@ -422,7 +458,7 @@
   },
   "src/import/manifest.fs": {
    "blocks": 325,
-   "never_run": 10,
+   "never_run": 9,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/import/ndjson-count.fs": {
@@ -441,7 +477,7 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/import/run-record.fs": {
-   "blocks": 503,
+   "blocks": 501,
    "never_run": 19,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
@@ -451,23 +487,23 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/import/snapshot-layer.fs": {
-   "blocks": 479,
-   "never_run": 96,
+   "blocks": 505,
+   "never_run": 40,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/import/snapshot-tier.fs": {
-   "blocks": 644,
-   "never_run": 39,
+   "blocks": 641,
+   "never_run": 37,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/import/stage-records.fs": {
-   "blocks": 461,
-   "never_run": 33,
+   "blocks": 460,
+   "never_run": 30,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/import/stage.fs": {
-   "blocks": 297,
-   "never_run": 9,
+   "blocks": 309,
+   "never_run": 6,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/caches.fs": {
@@ -476,28 +512,28 @@
    "reason": "COV2 2026-11-12, unreachable by design: the answers of lf-cs-known (343-344, with lf-bits-open? 275), lf-co-unchanged? (349) and lf-ci-range (354-356) need a data word, and their callers ask them only for a node without one (whnf.fs, mixed-open.fs and mixed-infer.fs read the word first; inference audits terms closed, so lf-ci-range is never asked). The table and memo refusals and the rest are not yet reviewed"
   },
   "src/kernel/check-block.fs": {
-   "blocks": 804,
+   "blocks": 800,
    "never_run": 26,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/check-declaration.fs": {
-   "blocks": 307,
+   "blocks": 303,
    "never_run": 4,
    "reason": "COV2 2026-11-12, unreachable by design: V1's root that is not live (168-171; U2's walk reads each root first and refuses one that is not live) and an accepted slot whose axioms cannot be read (428; lf-check-verdict. asks for them only when lf-env-outcome is ok, so the slot is readable and accepted, the only cases lf-env-axioms answers)"
   },
   "src/kernel/defeq.fs": {
    "blocks": 1104,
-   "never_run": 61,
+   "never_run": 60,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/env-import.fs": {
-   "blocks": 412,
-   "never_run": 37,
+   "blocks": 544,
+   "never_run": 26,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/env-layers.fs": {
-   "blocks": 371,
-   "never_run": 36,
+   "blocks": 366,
+   "never_run": 21,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/env-publish.fs": {
@@ -506,8 +542,8 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/env-schedule.fs": {
-   "blocks": 695,
-   "never_run": 75,
+   "blocks": 720,
+   "never_run": 73,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/env-signature.fs": {
@@ -516,17 +552,17 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/env-snapshot.fs": {
-   "blocks": 862,
-   "never_run": 50,
+   "blocks": 874,
+   "never_run": 45,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/environment.fs": {
-   "blocks": 1245,
+   "blocks": 1253,
    "never_run": 59,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/generated-recursor.fs": {
-   "blocks": 227,
+   "blocks": 223,
    "never_run": 25,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
@@ -536,7 +572,7 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/inductive-nested.fs": {
-   "blocks": 654,
+   "blocks": 650,
    "never_run": 57,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
@@ -546,7 +582,7 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/kernel/infer-proj.fs": {
-   "blocks": 195,
+   "blocks": 190,
    "never_run": 18,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
@@ -669,10 +705,18 @@
    "never_run": 11,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
+  "src/kernel/verdict-version.fs": {
+   "blocks": 30,
+   "never_run": 0
+  },
   "src/kernel/whnf.fs": {
    "blocks": 598,
-   "never_run": 52,
+   "never_run": 50,
    "reason": "COV2 2026-11-12, unreachable by design: the defaults main.fs replaces whenever the checker loads -- lf-whnf-known's (235) and its answer (243: caches.fs's hook answers only for a node with a data word, which lf-whnf-word answers first), and the default iota hook lf-whnf-recursor?, lf-whnf-iota-const and lf-whnf-iota-head's constant branch (442-453, iota.fs's lf-iota replaces it); lf-whnf-ended (469) is used nowhere. The other failure exits are not yet reviewed"
+  },
+  "src/lib/bigint.fs": {
+   "blocks": 289,
+   "never_run": 0
   },
   "src/lib/bignum.fs": {
    "blocks": 820,
@@ -684,17 +728,17 @@
    "never_run": 0
   },
   "src/lib/bytes.fs": {
-   "blocks": 209,
-   "never_run": 6,
+   "blocks": 210,
+   "never_run": 4,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/lib/cons.fs": {
    "blocks": 208,
-   "never_run": 11,
+   "never_run": 8,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/lib/context.fs": {
-   "blocks": 211,
+   "blocks": 205,
    "never_run": 5,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
@@ -719,7 +763,7 @@
   },
   "src/lib/json.fs": {
    "blocks": 513,
-   "never_run": 8,
+   "never_run": 6,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/lib/lib.fs": {
@@ -736,7 +780,7 @@
    "never_run": 0
   },
   "src/lib/outcome.fs": {
-   "blocks": 62,
+   "blocks": 86,
    "never_run": 1,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
@@ -750,8 +794,12 @@
    "never_run": 4,
    "reason": "measured 2026-11-12 at 86ad63b (new in review-bugs 36c59c6): host fallbacks, compiled only where the host lacks the word; which 4 blocks never run not yet reviewed"
   },
+  "src/lib/runs.fs": {
+   "blocks": 112,
+   "never_run": 0
+  },
   "src/lib/sections.fs": {
-   "blocks": 331,
+   "blocks": 324,
    "never_run": 23,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
@@ -761,22 +809,26 @@
   },
   "src/lib/slab.fs": {
    "blocks": 176,
-   "never_run": 6,
+   "never_run": 3,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
+  },
+  "src/lib/sort.fs": {
+   "blocks": 179,
+   "never_run": 0
   },
   "src/lib/store-columns.fs": {
    "blocks": 68,
-   "never_run": 4,
+   "never_run": 2,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/lib/store.fs": {
-   "blocks": 231,
-   "never_run": 11,
+   "blocks": 236,
+   "never_run": 9,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/lib/task.fs": {
-   "blocks": 241,
-   "never_run": 15,
+   "blocks": 253,
+   "never_run": 14,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/lib/text-rule.fs": {
@@ -796,9 +848,13 @@
    "never_run": 2,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
+  "src/lib/xt-table.fs": {
+   "blocks": 20,
+   "never_run": 0
+  },
   "src/present/binder-table.fs": {
-   "blocks": 188,
-   "never_run": 7,
+   "blocks": 194,
+   "never_run": 5,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/latex-text.fs": {
@@ -807,18 +863,18 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/log-check.fs": {
-   "blocks": 187,
-   "never_run": 10,
+   "blocks": 205,
+   "never_run": 8,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/log-view.fs": {
-   "blocks": 754,
-   "never_run": 99,
+   "blocks": 685,
+   "never_run": 44,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/notation-table.fs": {
-   "blocks": 50,
-   "never_run": 1,
+   "blocks": 57,
+   "never_run": 0,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/note-table.fs": {
@@ -827,17 +883,17 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/print-analysis.fs": {
-   "blocks": 343,
-   "never_run": 48,
+   "blocks": 391,
+   "never_run": 39,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/print-forth.fs": {
-   "blocks": 718,
-   "never_run": 51,
+   "blocks": 667,
+   "never_run": 45,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/print-job.fs": {
-   "blocks": 132,
+   "blocks": 134,
    "never_run": 2,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
@@ -847,13 +903,13 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/print-names.fs": {
-   "blocks": 163,
+   "blocks": 164,
    "never_run": 4,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/print-notation.fs": {
-   "blocks": 231,
-   "never_run": 30,
+   "blocks": 249,
+   "never_run": 6,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/print-strings.fs": {
@@ -867,7 +923,7 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/proof-outline.fs": {
-   "blocks": 912,
+   "blocks": 911,
    "never_run": 110,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
@@ -877,7 +933,7 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/present/term-printer.fs": {
-   "blocks": 494,
+   "blocks": 488,
    "never_run": 8,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
@@ -914,12 +970,12 @@
   },
   "src/program/verify-report.fs": {
    "blocks": 152,
-   "never_run": 2,
+   "never_run": 1,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/program/verify-runner.fs": {
    "blocks": 162,
-   "never_run": 5,
+   "never_run": 4,
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   },
   "src/program/verify-semantics.fs": {
@@ -933,5 +989,5 @@
    "reason": "measured 2026-11-12 at 3ac0558, not yet reviewed"
   }
  },
- "runs": 1770
+ "runs": 2523
 }

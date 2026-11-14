@@ -135,8 +135,7 @@ here nt-rest - 2 cells / constant nt-rest#
 \ full when the heap has no room for them.
 : nt-gather ( id -- outcome )
   nt-parts slab-clear begin dup while
-    1 nt-parts slab-claim ok? 0= if 2drop outcome-full exit then
-    over swap nt-parts slab-at ! lf-name-prefix@
+    dup nt-parts slab-push ok? 0= if drop outcome-full exit then lf-name-prefix@
   repeat drop outcome-ok ;
 : nt-count ( -- n ) nt-parts slab-count ;
 : nt-part ( k -- id ) nt-parts slab-at @ ;

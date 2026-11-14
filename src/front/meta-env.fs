@@ -66,12 +66,15 @@
 \ Words: lf-menv-stage! ( stage -- ) the fed mode: the stage the
 \ elaboration data was read against, sealed and fed to this context (0:
 \ none); lf-menv-library! ( stage -- ) the run mode over the library's
-\ stage (0: no library); lf-menv-reset ( -- ); lf-menv-add ( decl --
-\ outcome ) a text declaration (author's lf-fdecl record) made visible,
-\ full when there is no room; lf-menv-find ( name -- d outcome ) the
+\ stage (0: no library), its declarations those the stage holds now;
+\ lf-menv-reset ( -- ); lf-menv-add ( decl -- outcome ) a text
+\ declaration (author's lf-fdecl record) made visible, full when there is
+\ no room (nothing kept), invalid for a kind that is none of
+\ lf-decl-theorem .. lf-decl-stub; lf-menv-find ( name -- d outcome ) the
 \ declaration of a name, invalid when none has it (Lean: unknown
 \ constant), full or unsupported when a library declaration cannot be
-\ decoded; lf-menv-newest ( name -- d|-1 ) the same without the outcome;
+\ decoded (d -1 whenever the outcome is not ok); lf-menv-newest ( name --
+\ d|-1 ) the same without the outcome, -1 for every failure;
 \ lf-menv-name, lf-menv-kind, lf-menv-type, lf-menv-params ( d -- addr n ),
 \ lf-menv-value ( d -- term true | false ), lf-menv-hint ( d -- hint
 \ height ), lf-menv-data ( d -- addr|0 ) its inductive data (core/input.fs's
@@ -146,8 +149,8 @@ end-structure
 : me-texts-clear ( -- )
   me-texts slab-clear me-tparams slab-clear me-tkinds slab-clear me-gen menv menv-gen ! ;
 : me-texts-current ( -- ) me-gen menv menv-gen @ <> if me-texts-clear then ;
-: lf-menv-reset ( -- ) false menv menv-run ! 0 lf-menv-stage! me-texts-clear
-  lf-libdec-reset ;
+: lf-menv-reset ( -- )
+  false menv menv-run ! 0 lf-menv-stage! me-texts-clear lf-libdec-reset ;
 : lf-menv-library! ( stage -- ) lf-menv-reset lf-libdec-stage! true menv menv-run ! ;
 
 \ ---- Handles: the way a handle is read (0 fed, 1 library, 2 text) and a
@@ -168,13 +171,14 @@ end-structure
   me-texts slab-count begin dup while
     1- 2dup me-texts slab-at mtx-name @ = if nip me-lib# + true exit then
   repeat 2drop false ;
+: me-decoded ( d -- d outcome ) dup lf-libdec-decl nip dup ok? 0= if nip no-result then ;
 : me-run-find ( name -- d outcome )
   me-texts-current dup me-text-named if nip outcome-ok exit then
-  lf-libdec-find ok-then? if dup lf-libdec-decl nip else -1 swap then ;
+  lf-libdec-find ok-then? if me-decoded else no-result then ;
 : lf-menv-find ( name -- d outcome )
   dup lf-name-valid? 0= if drop -1 outcome-invalid exit then
   me-run? if me-run-find else lf-input-newest me-found then ;
-: lf-menv-newest ( name -- d|-1 ) lf-menv-find drop ;
+: lf-menv-newest ( name -- d|-1 ) lf-menv-find ok? 0= if drop -1 then ;
 : me-fed-kind ( d -- kind ) lf-input-decl lf-idecl-kind @ ;
 : me-fed-type ( d -- term ) lf-input-decl lf-idecl-type @ ;
 : me-fed-value ( d -- term ) lf-input-decl lf-idecl-value @ ;
@@ -325,7 +329,8 @@ defer lf-menv-sunfold-source ( d -- flag outcome )
 : me-kinds-copy ( first n -- )
   me-kinds slab-clear dup me-kinds slab-claim ok-then? 0= if drop 2drop exit then
   drop swap me-tkinds slab-at 0 me-kinds slab-at rot cells move ;
-: me-text-kinds ( d -- ) me-text dup mtx-kinds @ swap mtx-kinds# @ me-kinds-copy ;
+: me-kinds-span ( mtx -- first n ) dup mtx-kinds @ swap mtx-kinds# @ ;
+: me-text-kinds ( d -- ) me-text me-kinds-span me-kinds-copy ;
 ' me-fed-kinds ' me-lib-kinds ' me-text-kinds me-table me-binders
 : lf-menv-kinds ( d -- addr n ) me-binders me-ask me-kinds-out ;
 
@@ -336,7 +341,8 @@ defer lf-menv-sunfold-source ( d -- flag outcome )
 \ them). A record that cannot be completed is given back.
 create me-text-kinds-of   \ per lf-decl-* kind (present/print-forth.fs); 0: none
   lf-kind-theorem , lf-kind-definition , lf-kind-axiom , 0 ,
-: me-kind-of ( decl -- kind ) lf-fdecl-kind @ 0 max 3 min cells me-text-kinds-of + @ ;
+: me-kind-known? ( decl -- flag ) lf-fdecl-kind @ lf-decl-theorem lf-decl-stub between? ;
+: me-kind-of ( decl -- kind ) lf-fdecl-kind @ cells me-text-kinds-of + @ ;
 : me-fill ( mtx decl -- )
   2dup lf-fdecl-name @ swap mtx-name ! 2dup me-kind-of swap mtx-kind !
   2dup lf-fdecl-type @ swap mtx-type ! lf-fdecl-value @ swap mtx-value ! ;
@@ -359,10 +365,11 @@ create me-text-kinds-of   \ per lf-decl-* kind (present/print-forth.fs); 0: none
     ! r> ;
 : me-text-made ( decl mtx -- outcome )
   2dup swap me-fill tuck swap me-params! ok-then? if me-kinds! then ;
-: lf-menv-add ( decl -- outcome )
+: me-add ( decl -- outcome )
   me-texts-current 1 me-texts slab-claim ok-then? 0= if nip exit then
   me-texts slab-at dup /mtx erase me-text-made dup ok? 0= if -1 me-texts slab-commit then
     ;
+: lf-menv-add ( decl -- outcome ) dup me-kind-known? if me-add else drop-invalid then ;
 
 \ Whether a name is Nat.succ (whnf's reduceNat? and Nat offsets know it
 \ by name).

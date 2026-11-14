@@ -1251,6 +1251,11 @@ T{ s" Quot.lift" lift-swapped matches? -> false }T
 : mk-name ( -- id ) s" Quot.mk" decl-named lf-idecl-name @ ;
 T{ mk-name s" Quot.mk" lf-stmt-name? mk-name s" Quit.mk" lf-stmt-name? -> true false }T
 T{ mk-name s" mk" lf-stmt-name? mk-name s" A.Quot.mk" lf-stmt-name? -> false false }T
+\ lf-name-dotted?, the shared name (the front end's lf-meta-name? too):
+\ every part, a string, from the last; nothing left over on either side.
+T{ mk-name s" Quot.mk" lf-name-dotted? mk-name s" Quot" lf-name-dotted? -> true false }T
+T{ mk-name s" Quot.mk." lf-name-dotted? mk-name s" Quot..mk" lf-name-dotted? -> false false }T
+T{ 0 s" " lf-name-dotted? 0 s" Quot" lf-name-dotted? mk-name s" " lf-name-dotted? -> true false false }T
 finish
 
 \ 9. Fuel of axioms and quotient records (review rvAX L2): a quotient

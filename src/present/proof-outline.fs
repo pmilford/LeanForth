@@ -58,6 +58,7 @@
 \ line and whether it is a proof; and three walk records of the context.
 \ Printing state is log-view.fs's.
 
+require ../lib/bounds.fs
 require ./log-view.fs
 require ./log-check.fs
 require ./statement-forms.fs
@@ -148,17 +149,15 @@ end-structure
 
 \ Two small sets: the steps a line covers and the lines it uses. Zero and
 \ repeats are not added; a full set drops the rest (never past 32).
-: lf-ol-has? ( x addr n -- flag )
-  0 ?do 2dup i cells + @ = if 2drop true unloop exit then loop 2drop false ;
 : lf-ol-add ( x addr count -- )
   >r over 0> 0= if 2drop r> drop exit then
-  2dup r@ @ lf-ol-has? r@ @ lf-ol-set-capacity < 0= or if 2drop r> drop exit then
+  2dup r@ @ cells-has? r@ @ lf-ol-set-capacity < 0= or if 2drop r> drop exit then
   r@ @ cells + ! 1 r> +! ;
 : lf-ol-steps ( -- addr count ) 0 lf-olr-steps lf-ol-field 0 lf-olr-steps# lf-ol-field ;
 : lf-ol-refs ( -- addr count ) 0 lf-olr-refs lf-ol-field 0 lf-olr-refs# lf-ol-field ;
 : lf-ol-step+ ( s -- ) lf-ol-steps lf-ol-add ;
 : lf-ol-ref+ ( line -- ) lf-ol-refs lf-ol-add ;
-: lf-ol-in? ( x addr count -- flag ) @ lf-ol-has? ;
+: lf-ol-in? ( x addr count -- flag ) @ cells-has? ;
 : lf-ol-step? ( s -- flag ) lf-ol-steps lf-ol-in? ;
 : lf-ol-ref? ( line -- flag ) lf-ol-refs lf-ol-in? ;
 : lf-ol-sets-clear ( -- ) 0 0 lf-olr-steps# lf-ol-field ! 0 0 lf-olr-refs# lf-ol-field ! ;

@@ -106,11 +106,14 @@ something else). What LeanForth checks and what it takes on trust:
   output, bound to the export only by its SHA-256, which is not a key:
   anyone can write a file with the right hash and other values.
   - that an instance belongs to the class its record names and has those
-    keys (Lean computes both from the instance's type);
+    keys (Lean computes both from the instance's type), until the first
+    instance problem checks them (below; an instance whose check cannot
+    finish stays on trust, unverified);
   - the ranks themselves (the order of Lean's tree depends on 64-bit name
     hashes and on import order, which the export does not hold);
   - priorities and synthesis orders;
-  - which default instance a class has, and its rank;
+  - which default instance a class has, and its rank (its class is
+    checked at the first instance problem, below);
   - which of a class's parameters are out-parameters (within range, as
     above); the synthesis orders' positions (they count the binders
     after unfolding, which the reader does not do: FE1e3 does);
@@ -118,11 +121,18 @@ something else). What LeanForth checks and what it takes on trust:
   - the matchers' alternatives and discriminant names;
   - whether a projection's structure is a class;
   - which eliminator Lean's `induction` and `cases` use.
+- **Checked at the first instance problem** (FE1e3, branch `s1-synth`,
+  tested alone; [FE1e design](../design/FE1E_APPLICATIONS.md#4-the-instance-class-check-fe1d-review-m1) §4):
+  each instance's root key is its recorded class's constant (error
+  115) and its class is its type's conclusion's (error 112); each
+  default instance's type ends in its recorded class (error 116); each
+  instance's keys, recomputed by FE1e2's `mkPath`, equal the record's
+  when its root is first queried (error 113). A difference refuses the
+  data at that query and every later one. A record whose check cannot
+  finish is unverified: kept on trust, and a search that tries it
+  answers unsupported (S1 note §9).
 - **Still to come:**
-  - Plan row FE1e3 checks, at the first instance problem, each
-    instance's and default instance's class against its type's
-    conclusion, each instance's keys (recomputed by FE1e2's `mkPath`) and
-    each class's out-parameters ([FE1e design](../design/FE1E_APPLICATIONS.md#4-the-instance-class-check-fe1d-review-m1) §4).
+  - Plan row FE1e3b recomputes each class's out-parameters.
   - For the rest, the guard is that every statement is printed back in
     three forms and compared with Lean's ([parser] gate).
 
@@ -252,7 +262,7 @@ kind by text:
 | `class` | `name` (the class), `out_params` (the positions of its out-parameters), `out_level_params` (the positions of its universe parameters that occur only in out-parameters) |
 | `instance` | `name` (the instance), `class`, `priority` (natural, below 2^32), `synth_order` (naturals: the order in which its instance arguments are synthesized), `keys`, `rank` (its place under its root key, the first of its keys) |
 | `instance_left_out` | a value of Lean's instance tree that is no `instance` record: `name`, `keys`, `priority`, `rank`, and `reason`, either `erased` (in Lean's tree but never a candidate) or `not_exported` (the export lacks its declaration; Lean would try it, so FE1e answers *unsupported* when it is a candidate, design §2.7). Its keys may name a constant, or project a structure, that the export lacks: the reader keeps such a key as a *foreign* key, which no query of the library can equal |
-| `default_instance` | `class`, `name` (the instance), `priority`, `rank` (its place in Lean's `getDefaultInstances` of the class, the most recent first). Two of one class may not share a rank, but the ranks may have gaps: a default instance whose declaration the export lacks has no record of its own (format 2 has no `default_instance_left_out`), so its rank is missing, and refusing gaps would refuse every slice that lacks one. FE1e3 answers *unsupported* when a gap is reached |
+| `default_instance` | `class`, `name` (the instance), `priority`, `rank` (its place in Lean's `getDefaultInstances` of the class, the most recent first; at most 65,535, error 40). Two of one class may not share a rank, but the ranks may have gaps: a default instance whose declaration the export lacks has no record of its own (format 2 has no `default_instance_left_out`), so its rank is missing, and refusing gaps would refuse every slice that lacks one. FE1e3's `lf-default-instances` gives a gap there (`lf-default-gap?`), and a caller that reaches it answers *unsupported* |
 | `reducibility` | `name`, `status`: one of `reducible`, `irreducible`, `implicit_reducible`, `instance_reducible` |
 | `eliminator` | `kind` (`induction` or `cases`), `name` (the eliminator), `types` (the names of the explicit targets' types) |
 | `tag` | `name`, `tag`: one of `elab_as_elim`, `elab_without_expected_type`, `aux_recursor`, `no_confusion`, `cases_on`, `rec_on`, `brec_on` |
@@ -283,7 +293,12 @@ EXPORT` or `--snapshot FILE`). After the library is read and before the
 text runs, `src/front/elab-data.fs` reads DATA. It checks DATA against the
 library's names and against the SHA-256 of its export: the manifest
 check's, the snapshot's, or, with `--no-manifest`, the file's, hashed
-then. The verdicts are those of the same run without `--elab-data`:
+then. When the export's manifest names the data's records SHA-256
+(`elab_records_sha256`, which `scripts/export-elab.sh` adds after writing
+the data: S1 note M6), DATA's header must have that `records_sha256`
+(error 39), so an edited or other data file is refused even when its own
+header was rewritten to match its records. With `--no-manifest` or a
+snapshot the binding is the header's export SHA-256 alone. The verdicts are those of the same run without `--elab-data`:
 nothing uses the data yet. A refusal stops the run before the text runs.
 It prints the line and the reason, and exits with the outcome's status (4
 invalid, 2 unsupported, 3 full). Here the test file
@@ -311,6 +326,7 @@ What the reader checks, each failure refused with its reason:
 | every key one of Lean's forms (a literal's digits canonical), and an instance's or left-out instance's keys one term | `malformed line`, `keys that are not one term` | invalid |
 | no declaration named twice as one kind; no tag twice; one eliminator per kind and types | `an instance named twice`, `a default instance named twice`, `a reducibility named twice`, `a class named twice`, `a tag named twice`, `a matcher named twice`, `a projection named twice`, `two eliminators for the same types` | invalid |
 | no two values under one root key with one rank, no two default instances of one class with one rank | `two values of one root key with one rank`, `two default instances of one class with one rank` | invalid |
+| a default instance's rank is at most 65,535 (`elab-default-rank-most`): FE1e3's `lf-default-instances` answers one cell per rank, so a larger rank (no Lean library has a class with that many default instances) would ask for gigabytes | `a default instance's rank beyond 65535` | invalid |
 | a left-out instance whose reason is `not_exported` is no declaration of the library | `a left-out instance the library has` | invalid |
 | a matcher's type has exactly a leading Pi binder for each parameter, the motive, each discriminant and each alternative (lets among them not counted), and its elimination universe is one of its universe parameters; a projection function's type has one for each parameter and the structure, and its constructor's type one for each parameter and field up to `idx` (written out, without unfolding); a class's out-parameters are among its type's Pi binders and its out-levels among its universe parameters | `numbers that do not fit the declaration's type` | invalid |
 | as many discriminant names as discriminants | `malformed line` | invalid |
@@ -365,6 +381,8 @@ printed with its text (`at line 2 (error 12): unknown name`):
 | 36 | `a projection named twice` | invalid | two projection records of one declaration |
 | 37 | `numbers that do not fit the declaration's type` | invalid | a matcher's, projection's or class's numbers that its type, its constructor's or its universe parameters cannot have |
 | 38 | `a record kind this reader does not read yet` | unsupported | a `sunfold` record (plan row FE1d2) |
+| 39 | `other records than the export's manifest names` | invalid | the library's manifest has `elab_records_sha256` (M6) and the header's `records_sha256` differs |
+| 40 | `a default instance's rank beyond 65535` | invalid | a `default_instance` record's `rank` above 65,535 (`elab-default-rank-most`) |
 
 Misuse is refused before anything runs:
 
@@ -432,11 +450,31 @@ Example, in three forms, of what the words give for the slice's data:
 | `elab-key=`, `elab-key-hash` | `( k1 k2 -- flag )`, `( k -- h )` | Lean's equality of keys, texts compared byte for byte; a 32-bit hash equal for equal keys |
 | `elab-one-term?` | `( k n -- flag )` | keys `k` .. `k+n-1` make one term in Lean's path order |
 | `elab-keys#` | `( -- n )` | the keys kept |
+| `elab-decl-of`, `elab-decl-name` | `( name -- d true \| false )`, `( d -- name )` | a name's declaration in the stage the data was read against, and back |
+| `elab-bind!` | `( c-addr u -- )` | the records SHA-256 (64 hexadecimal digits) the next `elab-read` must find in the header, or `0 0`: the export manifest's `elab_records_sha256` (error 39) |
 
 `elab-keys.fs` also has the words `elab-data.fs` builds keys with
 (`elab-key-new`, `elab-key-ref!`, `elab-key-arity!`, `elab-key-idx!`,
 `elab-key-text-start`, `elab-key-text-end`, `elab-text-room`,
-`elab-keys-clear`); its header documents them.
+`elab-keys-clear`), and those `front/discr-keys.fs` makes a query's keys
+with (`elab-keys-mark`, `elab-keys-drop`, the tag `elab-key-fvar`, which
+no data key has); its header documents them.
+
+**Using the instance records (FE1e2, FE1e3; branch `s1-synth`, tested
+alone).** `src/front/discr-keys.fs` recomputes Lean's keys (`lf-dt-path`,
+mkPath; `lf-dt-key`, getUnifyKeyArgs) and `src/front/instances.fs`
+rebuilds Lean's instance tree from the ranks and answers getInstances
+(`lf-inst-candidates`) and getDefaultInstances (`lf-default-instances`).
+The first query checks every record's class and root key (the class's
+constant, with the type's number of arguments) and every default
+instance's class (`lf-inst-classes`); a root's first query checks its
+instances' keys. A difference refuses the data (errors 112, 113, 115,
+116) at that query and every later one, whatever its root, until the
+data is read again (`elab-generation` changes) or `lf-inst-reset`; a record whose star
+covers a term the type gives, as a `no_index` annotation the export
+drops leaves it, makes that instance unverified (error 114). `make
+reference-synth` recomputes every Init instance and compares getInstances
+with pinned Lean's `#synth` traces.
 
 ## Smart-unfolding bodies: designed, not built
 
@@ -600,13 +638,16 @@ counts it, so the data needs no new format version):
 - Nothing uses the data yet: FE1e3 and later (instances, default
   instances), FE1g (eliminators) and FE1d2 (matchers, projections,
   auxiliary recursors, smart unfolding) will.
-- The class of each instance and default instance, each instance's keys
-  and each class's out-parameters are checked against their types only by
-  plan row FE1e3; until then they rest on pinned Lean (above, "Trust").
+- The class of each instance and default instance and each instance's
+  keys are checked against their types at the first instance problem
+  (FE1e3, not yet run by `leanforth check`, which uses no data yet); each
+  class's out-parameters only by plan row FE1e3b; until then they rest
+  on pinned Lean (above, "Trust").
 - Smart-unfolding bodies are designed (above), not written or read.
-- Only `--elab-data FILE`. Naming the data in the export's manifest (the
-  plan row's alternative) is not done, and a snapshot does not keep the
-  data; both are later steps.
+- Only `--elab-data FILE`. The export's manifest names the data's records
+  SHA-256 (M6) but not its file, so the data is not found from the
+  manifest alone, and a snapshot does not keep the data or the binding;
+  both are later steps.
 - Simp lemmas, structure fields and parents, equations, `protected` and
   `export` aliases, `NoConfusionInfo` and the matchers' overlap maps come
   with later rows (design §4.9).

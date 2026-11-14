@@ -112,9 +112,6 @@ require ./stage-records.fs
 \ Set the state after a step: state when the outcome is ok, else broken.
 : stage-state! ( stage outcome state -- outcome )
   over ok? 0= if drop staging-broken then rot stage-state ! ;
-\ After an ok outcome, xt ( stage -- outcome ) on the stage.
-: and-then ( stage outcome xt -- stage outcome )
-  over ok? if nip over swap execute else drop then ;
 : stage-limit! ( bytes stage -- ) stage-limit ! ;
 : stage-manifest-use ( c-addr u stage -- ) stage-manifest manifest-use ;
 \ Read an export of any exporter and Lean version, only its format
@@ -164,8 +161,8 @@ create pinned-meta
 \ full (stage-free then frees what was made). The record must not hold
 \ memory: stage-free first.
 : stage-init ( log2 stage -- outcome )
-  dup /stage erase tuck tier-start ['] slabs-start and-then ['] tier-marked and-then
-  ['] export-start and-then staging-empty stage-state! ;
+  dup /stage erase tuck tier-start ['] slabs-start ok-with ['] tier-marked ok-with
+  ['] export-start ok-with staging-empty stage-state! ;
 \ The export-index maps: freed by stage-free in any state, and by
 \ stage-unmap only once the stage is sealed.
 : maps-free ( stage -- )
@@ -191,7 +188,7 @@ create pinned-meta
   dup stage-lines slab-clear dup stage-noted slab-clear
   0 over stage-mdata ! 0 over stage-marks ! 0 over stage-other ! maps-again ;
 : stage-rollback ( stage -- outcome )
-  dup stage-start over stage-tier tier-rollback ['] own-clear and-then
+  dup stage-start over stage-tier tier-rollback ['] own-clear ok-with
   staging-empty stage-state! ;
 \ After a read: filled, or rolled back (the read's outcome stays; a
 \ rollback that fails leaves the stage broken).
@@ -341,8 +338,8 @@ binder-reaches
   stage-tier tier-seal ;
 : stage-seal ( stage -- outcome )
   dup staging-filled stage-in? 0= if drop outcome-invalid exit then
-  dup names-covered ['] stage-marking and-then ['] consts-resolve and-then
-  ['] tier-sealing and-then staging-sealed stage-state! ;
+  dup names-covered ['] stage-marking ok-with ['] consts-resolve ok-with
+  ['] tier-sealing ok-with staging-sealed stage-state! ;
 : stage-load ( c-addr u stage -- outcome )
   dup >r stage-read dup ok? if drop r> stage-seal else r> drop then ;
 : stage-load-unchecked ( c-addr u stage -- outcome )
@@ -363,7 +360,7 @@ binder-reaches
   ['] put-const-noted kind-const rot stage-export export-handler ! ;
 : stage-reopen ( stage -- outcome )
   dup staging-filled stage-in? 0= if drop outcome-invalid exit then
-  dup own-clear ['] tier-marked and-then over continued! staging-empty stage-state! ;
+  dup own-clear ['] tier-marked ok-with over continued! staging-empty stage-state! ;
 : stage-continue ( c-addr u stage -- outcome )
   dup stage-reopen ok-then? if stage-read else nip nip then ;
 : stage-continue-unchecked ( c-addr u stage -- outcome )
@@ -396,7 +393,7 @@ binder-reaches
 : stage-produce ( xt stage -- outcome ) 0 swap ['] produced stage-reading ;
 : stage-extend ( stage -- outcome )
   dup staging-filled stage-in? 0= if drop outcome-invalid exit then
-  dup maps-again ['] tier-marked and-then staging-empty stage-state! ;
+  dup maps-again ['] tier-marked ok-with staging-empty stage-state! ;
 
 \ ---- Finding declarations (after sealing; unchecked numbers as above).
 \ The newest declaration of name n; the one staged before d of the same

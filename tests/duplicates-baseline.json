@@ -1,0 +1,1820 @@
+{
+ "00963b5ca49c": {
+  "copies": 2,
+  "members": [
+   "src/kernel/iota.fs:lf-iota-extra",
+   "src/kernel/quot.fs:lf-quot-extra"
+  ],
+  "tokens": 19
+ },
+ "03ddc42331a4": {
+  "copies": 2,
+  "members": [
+   "src/kernel/environment.fs:lf-env-fresh",
+   "src/kernel/environment.fs:lf-env-fresh-generated"
+  ],
+  "tokens": 9
+ },
+ "03ddd755d471": {
+  "copies": 4,
+  "members": [
+   "src/author/export.fs:lfx-digits",
+   "src/front/ctor-idx.fs:digits",
+   "src/front/discr-keys.fs:dk-digits",
+   "src/present/print-job.fs:lf-pp-digits"
+  ],
+  "tokens": 11
+ },
+ "06404e0e84e2": {
+  "copies": 3,
+  "members": [
+   "src/front/goal-print.fs:gp-images",
+   "src/front/mvars.fs:mv-pair-images",
+   "src/front/tactic-basic.fs:lfb-images"
+  ],
+  "tokens": 11
+ },
+ "06805741daed": {
+  "copies": 2,
+  "members": [
+   "src/author/declarations.fs:lfa-quoted?",
+   "src/present/print-forth.fs:lf-pf-guillemets?"
+  ],
+  "tokens": 24
+ },
+ "06c692a526f9": {
+  "copies": 3,
+  "members": [
+   "src/core/constant-references.fs:lf-cref-input-ok?",
+   "src/core/generation-handles.fs:lf-hsort-stamped?",
+   "src/core/reach.fs:lr-param-reached?"
+  ],
+  "tokens": 8
+ },
+ "08ae3aea8965": {
+  "copies": 6,
+  "members": [
+   "src/kernel/inductive-block.fs:lf-ind-members-ok?",
+   "src/kernel/inductive-block.fs:lf-ind-types-ok?",
+   "src/kernel/inductive-block.fs:lf-ind-recs-ok?",
+   "src/kernel/inductive-block.fs:lf-ind-distinct?",
+   "src/kernel/inductive-block.fs:lf-ind-safe?",
+   "src/kernel/verdict-version.fs:lf-vsteps-known?"
+  ],
+  "tokens": 8
+ },
+ "08e35888555b": {
+  "copies": 2,
+  "members": [
+   "src/kernel/env-snapshot.fs:snap-written",
+   "src/kernel/env-snapshot.fs:snap-checks"
+  ],
+  "tokens": 14
+ },
+ "0a82dea42bf1": {
+  "copies": 2,
+  "members": [
+   "src/kernel/env-import.fs:dep-taken",
+   "src/kernel/env-import.fs:s-of"
+  ],
+  "tokens": 13
+ },
+ "0d162d499a63": {
+  "copies": 2,
+  "members": [
+   "src/kernel/inductive-nested.fs:lf-nest-length",
+   "src/present/print-names.fs:lf-pp-name-depth"
+  ],
+  "tokens": 10
+ },
+ "0dadef8b961c": {
+  "copies": 3,
+  "members": [
+   "src/present/term-printer.fs:lf-pp-arrow-form",
+   "src/present/term-printer.fs:lf-pp-dep-form",
+   "src/present/term-printer.fs:lf-pp-forall-form"
+  ],
+  "tokens": 12
+ },
+ "0fd712be4a3a": {
+  "copies": 2,
+  "members": [
+   "src/core/derivation-log.fs:lf-log-keep-a",
+   "src/core/derivation-log.fs:lf-log-keep-b"
+  ],
+  "tokens": 11
+ },
+ "10ee8813780c": {
+  "copies": 2,
+  "members": [
+   "src/front/elab-data.fs:ed-match-params!",
+   "src/front/elab-data.fs:ed-proj-params!"
+  ],
+  "tokens": 8
+ },
+ "121ecb6d5576": {
+  "copies": 2,
+  "members": [
+   "src/kernel/mixed-instantiate.fs:lf-minst-kept",
+   "src/kernel/mixed-shift.fs:lf-mshift-kept"
+  ],
+  "tokens": 11
+ },
+ "1413279e6d60": {
+  "copies": 2,
+  "members": [
+   "src/import/snapshot-tier.fs:tf-le-out",
+   "src/import/snapshot-tier.fs:tf-copy-out"
+  ],
+  "tokens": 8
+ },
+ "14231cd416d3": {
+  "copies": 2,
+  "members": [
+   "src/present/binder-table.fs:lf-pres-name-live?",
+   "src/present/binder-table.fs:lf-pres-decl-name?"
+  ],
+  "tokens": 11
+ },
+ "14e7840b0363": {
+  "copies": 2,
+  "members": [
+   "src/core/constant-term-boundary.fs:lf-audit-held?",
+   "src/present/print-notation.fs:lf-pn-numeral?"
+  ],
+  "tokens": 9
+ },
+ "16a9ca33f57c": {
+  "copies": 2,
+  "members": [
+   "src/kernel/level-substitute.fs:lf-lsubst-position",
+   "src/kernel/level-value.fs:lf-lassign-position"
+  ],
+  "tokens": 16
+ },
+ "16c594fc2f0a": {
+  "copies": 2,
+  "members": [
+   "src/kernel/level-normalize.fs:lf-lnorm-swap",
+   "src/lib/bignum.fs:exchange"
+  ],
+  "tokens": 8
+ },
+ "16ef53f91e89": {
+  "copies": 2,
+  "members": [
+   "src/import/snapshot-tier.fs:metas-take",
+   "src/import/snapshot-tier.fs:metas-pinned?"
+  ],
+  "tokens": 11
+ },
+ "180d033cec0a": {
+  "copies": 2,
+  "members": [
+   "src/import/ndjson-emit.fs:line-members",
+   "src/import/ndjson.fs:real-natural"
+  ],
+  "tokens": 8
+ },
+ "19765dfb22c8": {
+  "copies": 2,
+  "members": [
+   "src/core/level-scope.fs:lf-lscope-pair-ok?",
+   "src/kernel/level-substitute.fs:lf-lsubst-new-formal?"
+  ],
+  "tokens": 12
+ },
+ "1af52573d58e": {
+  "copies": 2,
+  "members": [
+   "src/kernel/inductive-recursor.fs:lf-rcr-indices!",
+   "src/kernel/inductive-recursor.fs:lf-rcr-fields!"
+  ],
+  "tokens": 21
+ },
+ "1d664efb3c24": {
+  "copies": 2,
+  "members": [
+   "src/kernel/env-snapshot.fs:look-sort",
+   "src/kernel/env-snapshot.fs:o-sort"
+  ],
+  "tokens": 9
+ },
+ "1ed0c1a81df1": {
+  "copies": 2,
+  "members": [
+   "src/present/print-names.fs:lf-pp-loose-dispatch",
+   "src/present/print-names.fs:lf-pp-uses-dispatch"
+  ],
+  "tokens": 10
+ },
+ "1f51f21d782e": {
+  "copies": 2,
+  "members": [
+   "src/front/beta-inst.fs:ib-closed?",
+   "src/front/instantiate.fs:in-closed?"
+  ],
+  "tokens": 9
+ },
+ "1f5ee9ef8958": {
+  "copies": 2,
+  "members": [
+   "src/import/run-record.fs:rr-cell-bits",
+   "src/lib/sha256.fs:sha-count-bits"
+  ],
+  "tokens": 11
+ },
+ "20086de961a5": {
+  "copies": 2,
+  "members": [
+   "src/core/constant-references.fs:lf-cref-args-ok?",
+   "src/core/terms.fs:lf-tin-leaf-node?"
+  ],
+  "tokens": 9
+ },
+ "212bd60544e0": {
+  "copies": 2,
+  "members": [
+   "src/kernel/env-layers.fs:lay-answer",
+   "src/kernel/env-snapshot.fs:answer-renum"
+  ],
+  "tokens": 13
+ },
+ "21c8cdb3b321": {
+  "copies": 2,
+  "members": [
+   "src/kernel/env-publish.fs:lf-span-added!",
+   "src/kernel/env-publish.fs:lf-span-final!"
+  ],
+  "tokens": 9
+ },
+ "221a7068eb7c": {
+  "copies": 2,
+  "members": [
+   "src/core/diagnostics.fs:lf-diag-entry,",
+   "src/import/run-replay.fs:rp-entry,"
+  ],
+  "tokens": 10
+ },
+ "237ea465bcba": {
+  "copies": 2,
+  "members": [
+   "src/front/defeq.fs:de-abort",
+   "src/front/defeq.fs:de-return"
+  ],
+  "tokens": 10
+ },
+ "23ffdf1f73b5": {
+  "copies": 2,
+  "members": [
+   "src/present/print-analysis.fs:lf-pp-spine",
+   "src/present/print-levels.fs:lf-pp-succs"
+  ],
+  "tokens": 12
+ },
+ "266cd242febf": {
+  "copies": 2,
+  "members": [
+   "src/front/mvars.fs:mv-holes?",
+   "src/front/mvars.fs:mv-dep-walk"
+  ],
+  "tokens": 11
+ },
+ "27833095c87c": {
+  "copies": 2,
+  "members": [
+   "src/present/print-analysis.fs:lf-pp-lsame-second",
+   "src/present/print-analysis.fs:lf-pp-same-second"
+  ],
+  "tokens": 15
+ },
+ "28f41f13b2d8": {
+  "copies": 2,
+  "members": [
+   "src/author/namespaces.fs:lfa-known-of",
+   "src/kernel/mixed-open.fs:lf-open-skip?"
+  ],
+  "tokens": 8
+ },
+ "2ac63943a35a": {
+  "copies": 3,
+  "members": [
+   "src/cli/check-run.fs:ck-switched!",
+   "src/cli/check-run.fs:ck-switches!",
+   "src/kernel/env-schedule.fs:lf-sch-cursors"
+  ],
+  "tokens": 10
+ },
+ "2c2b1668bb60": {
+  "copies": 2,
+  "members": [
+   "src/present/latex-text.fs:lf-tex-primes",
+   "src/present/latex-text.fs:lf-tex-digits"
+  ],
+  "tokens": 17
+ },
+ "2ddc9e2bcd0c": {
+  "copies": 2,
+  "members": [
+   "src/core/names.fs:lf-name-bytes@",
+   "src/present/print-job.fs:lf-pp-text"
+  ],
+  "tokens": 8
+ },
+ "2e602299de10": {
+  "copies": 2,
+  "members": [
+   "src/program/ir-reader.fs:ir-token-text",
+   "src/program/verify-report.fs:pv-quote"
+  ],
+  "tokens": 8
+ },
+ "30d0f14ab8e9": {
+  "copies": 2,
+  "members": [
+   "src/lib/sha256.fs:sha-rotr",
+   "src/program/sha-words.fs:sha-rotr"
+  ],
+  "tokens": 9
+ },
+ "32919014025c": {
+  "copies": 2,
+  "members": [
+   "src/front/mvars.fs:lf-mctx-latest",
+   "src/import/run-record.fs:rr-made"
+  ],
+  "tokens": 8
+ },
+ "32cfafe45454": {
+  "copies": 2,
+  "members": [
+   "src/front/tactic-run.fs:lfr-must",
+   "src/front/tactic-run.fs:lfr-meta-must"
+  ],
+  "tokens": 8
+ },
+ "33be8e78b50f": {
+  "copies": 2,
+  "members": [
+   "src/program/ir-reader.fs:ir-replay-all",
+   "src/program/verify-semantics.fs:pv-replay-all"
+  ],
+  "tokens": 14
+ },
+ "344531dcbf86": {
+  "copies": 2,
+  "members": [
+   "src/front/mvars.fs:mv-app-pending",
+   "src/kernel/caches.fs:lf-cache-node@"
+  ],
+  "tokens": 8
+ },
+ "3555000a639a": {
+  "copies": 2,
+  "members": [
+   "src/import/ndjson.fs:slot-check:",
+   "src/import/ndjson.fs:text-check:"
+  ],
+  "tokens": 9
+ },
+ "3642d6a01a3a": {
+  "copies": 2,
+  "members": [
+   "src/core/reach.fs:lf-reached?",
+   "src/core/reach.fs:lf-level-reached?"
+  ],
+  "tokens": 9
+ },
+ "3654229402ff": {
+  "copies": 2,
+  "members": [
+   "src/core/derivation-log.fs:lf-log-live-term?",
+   "src/core/generation-handles.fs:lf-hterm-id?"
+  ],
+  "tokens": 8
+ },
+ "366757f26b8d": {
+  "copies": 2,
+  "members": [
+   "src/present/latex-text.fs:lf-tex-escaped",
+   "src/present/statement-forms.fs:lf-sf-tex"
+  ],
+  "tokens": 8
+ },
+ "369f68a6c1ff": {
+  "copies": 2,
+  "members": [
+   "src/program/ir-run.fs:irx-inputs",
+   "src/program/ir-run.fs:irx-outputs"
+  ],
+  "tokens": 11
+ },
+ "3a7e8de14c92": {
+  "copies": 3,
+  "members": [
+   "src/front/constructions.fs:recon",
+   "src/front/constructions.fs:cases",
+   "src/front/lib-decode.fs:lbd-ctor-data"
+  ],
+  "tokens": 12
+ },
+ "3b3436b29391": {
+  "copies": 2,
+  "members": [
+   "src/import/manifest.fs:all-keys?",
+   "src/import/manifest.fs:naturals?"
+  ],
+  "tokens": 23
+ },
+ "3c14cb454f57": {
+  "copies": 2,
+  "members": [
+   "src/import/stage-records.fs:put-const-noted",
+   "src/kernel/env-snapshot.fs:put-rest"
+  ],
+  "tokens": 10
+ },
+ "3e32d6911a9e": {
+  "copies": 2,
+  "members": [
+   "src/front/beta-inst.fs:ib-leaf-range",
+   "src/front/instantiate.fs:in-leaf-range"
+  ],
+  "tokens": 9
+ },
+ "416c92370979": {
+  "copies": 2,
+  "members": [
+   "src/kernel/env-import.fs:span-same?",
+   "src/kernel/env-layers.fs:verdicts-same?"
+  ],
+  "tokens": 22
+ },
+ "4330ad78e178": {
+  "copies": 2,
+  "members": [
+   "src/kernel/check-block.fs:lf-blk-aux-fresh",
+   "src/kernel/inductive-nested.fs:lf-nest-rec-names"
+  ],
+  "tokens": 15
+ },
+ "443723561ac6": {
+  "copies": 2,
+  "members": [
+   "src/kernel/mixed-infer.fs:lf-minfer-scan-binary",
+   "src/kernel/whnf.fs:lf-whnf-scan-binary"
+  ],
+  "tokens": 8
+ },
+ "44b3a7633b85": {
+  "copies": 2,
+  "members": [
+   "src/core/constant-term-scope.fs:lf-cts-inner",
+   "src/present/print-names.fs:lf-pp-inner"
+  ],
+  "tokens": 16
+ },
+ "463da21283da": {
+  "copies": 2,
+  "members": [
+   "src/kernel/env-import.fs:layer-room",
+   "src/kernel/env-layers.fs:lay-room"
+  ],
+  "tokens": 17
+ },
+ "47757cd38ad0": {
+  "copies": 2,
+  "members": [
+   "src/front/prop-quick.fs:pq-prop-leaf",
+   "src/front/prop-quick.fs:pq-proof-leaf"
+  ],
+  "tokens": 14
+ },
+ "493908ffe05d": {
+  "copies": 3,
+  "members": [
+   "src/cli/leanforth.fs:cli-field.",
+   "src/import/ndjson-count.fs:.field",
+   "src/import/ndjson-emit.fs:.key"
+  ],
+  "tokens": 8
+ },
+ "4ad0254eebab": {
+  "copies": 2,
+  "members": [
+   "src/kernel/defeq.fs:lf-dq-pick2",
+   "src/kernel/defeq.fs:lf-dq-sides"
+  ],
+  "tokens": 8
+ },
+ "4ae27bc16d45": {
+  "copies": 2,
+  "members": [
+   "src/lib/context.fs:allocate0",
+   "src/lib/store.fs:store-zeroed-block"
+  ],
+  "tokens": 12
+ },
+ "4bb7ecc96328": {
+  "copies": 2,
+  "members": [
+   "src/front/constructions.fs:index-binder",
+   "src/front/constructions.fs:minor-binder"
+  ],
+  "tokens": 9
+ },
+ "4c5832d9a918": {
+  "copies": 2,
+  "members": [
+   "src/program/verify-alias.fs:pv-gap-scan",
+   "src/program/verify-semantics.fs:pv-reserve-all"
+  ],
+  "tokens": 8
+ },
+ "4eb9e359a352": {
+  "copies": 2,
+  "members": [
+   "src/front/beta-inst.fs:ib-push-if",
+   "src/front/instantiate.fs:in-push-if"
+  ],
+  "tokens": 9
+ },
+ "50026c52a315": {
+  "copies": 2,
+  "members": [
+   "src/front/defeq.fs:de-exp-o",
+   "src/front/defeq.fs:de-exp-e2"
+  ],
+  "tokens": 9
+ },
+ "50aa5e7dcd17": {
+  "copies": 4,
+  "members": [
+   "src/front/elab-data.fs:ed-inst-fact",
+   "src/front/elab-data.fs:ed-class-fact",
+   "src/front/elab-data.fs:ed-match-fact",
+   "src/front/elab-data.fs:ed-proj-fact"
+  ],
+  "tokens": 13
+ },
+ "50ac08b3bcf0": {
+  "copies": 2,
+  "members": [
+   "src/program/ir-reader.fs:ir-decimal-text",
+   "src/program/verify-report.fs:pv-decimal"
+  ],
+  "tokens": 15
+ },
+ "50c4f8f07dd3": {
+  "copies": 2,
+  "members": [
+   "src/front/level-normalize.fs:ln-limb-ok?",
+   "src/kernel/level-normalize.fs:lf-lnorm-limb-ok?"
+  ],
+  "tokens": 8
+ },
+ "51c2be37e123": {
+  "copies": 2,
+  "members": [
+   "src/front/level-simp.fs:lm-simp-max",
+   "src/front/level-simp.fs:lm-simp-imax"
+  ],
+  "tokens": 12
+ },
+ "53ddb804ea99": {
+  "copies": 3,
+  "members": [
+   "src/kernel/check-declaration.fs:lf-check-findable",
+   "src/kernel/check-declaration.fs:lf-check-level-findable",
+   "src/kernel/check-declaration.fs:lf-check-cref-findable"
+  ],
+  "tokens": 8
+ },
+ "54521eb4e16e": {
+  "copies": 2,
+  "members": [
+   "src/kernel/defeq.fs:lf-dq-head-named",
+   "src/kernel/defeq.fs:lf-dq-head-structure"
+  ],
+  "tokens": 14
+ },
+ "55851178c722": {
+  "copies": 2,
+  "members": [
+   "src/front/infer.fs:if-app",
+   "src/front/infer.fs:if-lambda"
+  ],
+  "tokens": 14
+ },
+ "56076e76423f": {
+  "copies": 2,
+  "members": [
+   "src/lib/sha256.fs:sha-maj",
+   "src/program/sha-words.fs:sha-maj"
+  ],
+  "tokens": 8
+ },
+ "57913af9329b": {
+  "copies": 2,
+  "members": [
+   "src/kernel/env-signature.fs:lf-envsig-left",
+   "src/kernel/mixed-signature-probe.fs:lf-msp-left"
+  ],
+  "tokens": 8
+ },
+ "5a5a01221e51": {
+  "copies": 2,
+  "members": [
+   "src/kernel/mixed-instantiate.fs:lf-minst-visit",
+   "src/kernel/mixed-open.fs:lf-open-visit"
+  ],
+  "tokens": 15
+ },
+ "5c3220b21cd7": {
+  "copies": 3,
+  "members": [
+   "src/kernel/inductive-nested.fs:lf-nest-binary",
+   "src/kernel/mixed-instantiate.fs:lf-minst-rebuild",
+   "src/kernel/mixed-shift.fs:lf-mshift-rebuild"
+  ],
+  "tokens": 13
+ },
+ "5f85ed5c0f6a": {
+  "copies": 2,
+  "members": [
+   "src/front/tactic-basic.fs:lfb-assign.",
+   "src/front/tactic-basic.fs:lfb-rfl."
+  ],
+  "tokens": 11
+ },
+ "60df48070c93": {
+  "copies": 2,
+  "members": [
+   "src/present/term-printer.fs:lf-pp-uargs-back",
+   "src/present/term-printer.fs:lf-pp-args-back"
+  ],
+  "tokens": 11
+ },
+ "6148e1238e9e": {
+  "copies": 2,
+  "members": [
+   "src/core/levels.fs:lf-level-binary",
+   "src/core/terms.fs:lf-term-binary"
+  ],
+  "tokens": 16
+ },
+ "62a00c379855": {
+  "copies": 4,
+  "members": [
+   "src/core/compact-names.fs:name-str",
+   "src/core/compact-names.fs:name-num",
+   "src/core/compact-names.fs:name-seek-str",
+   "src/core/compact-names.fs:name-seek-num"
+  ],
+  "tokens": 14
+ },
+ "631a9f55bad7": {
+  "copies": 2,
+  "members": [
+   "src/core/names.fs:lf-name-find-num",
+   "src/core/names.fs:lf-name-find-str"
+  ],
+  "tokens": 18
+ },
+ "63b55fabdfc5": {
+  "copies": 2,
+  "members": [
+   "src/core/input.fs:lf-input-all?",
+   "src/core/input.fs:lf-input-slabs-all?"
+  ],
+  "tokens": 14
+ },
+ "6473f596421d": {
+  "copies": 2,
+  "members": [
+   "src/kernel/defeq.fs:lf-lz-t-back",
+   "src/kernel/defeq.fs:lf-lz-both-back"
+  ],
+  "tokens": 15
+ },
+ "66e8f8ed3148": {
+  "copies": 3,
+  "members": [
+   "src/front/constructions.fs:recon-binders",
+   "src/front/constructions.fs:cases-binders",
+   "src/front/ctor-idx.fs:idx-value!"
+  ],
+  "tokens": 9
+ },
+ "67974d5cd896": {
+  "copies": 2,
+  "members": [
+   "src/program/ir-run.fs:irx-run-word",
+   "src/program/ir-run.fs:irx-run-constant"
+  ],
+  "tokens": 10
+ },
+ "6876ce14b174": {
+  "copies": 2,
+  "members": [
+   "src/front/cases-several.fs:several-cases",
+   "src/front/lib-decode.fs:lbd-rec-data"
+  ],
+  "tokens": 21
+ },
+ "692feec774bc": {
+  "copies": 2,
+  "members": [
+   "src/front/mvars.fs:mv-delay-child",
+   "src/kernel/caches.fs:lf-ci-range"
+  ],
+  "tokens": 14
+ },
+ "69a789f3679a": {
+  "copies": 3,
+  "members": [
+   "src/kernel/check-block.fs:lf-blk-types",
+   "src/kernel/check-block.fs:lf-blk-rec-name",
+   "src/kernel/generated-recursor.fs:lf-genrec-types"
+  ],
+  "tokens": 15
+ },
+ "6a44becdbbb5": {
+  "copies": 2,
+  "members": [
+   "src/front/ctor-idx.fs:cases-app",
+   "src/front/lib-decode.fs:lbd-type-data"
+  ],
+  "tokens": 18
+ },
+ "6c4911b520ff": {
+  "copies": 2,
+  "members": [
+   "src/core/input.fs:lf-idecl-data",
+   "src/core/input.fs:lf-idecl-header"
+  ],
+  "tokens": 9
+ },
+ "6c4b80d99e56": {
+  "copies": 2,
+  "members": [
+   "src/core/constant-term-boundary.fs:lf-cterm-stamped?",
+   "src/core/generation-handles.fs:lf-hsort-term-ok?"
+  ],
+  "tokens": 11
+ },
+ "6c6885378440": {
+  "copies": 2,
+  "members": [
+   "src/front/level-normalize.fs:ln-name-ok?",
+   "src/kernel/level-normalize.fs:lf-lnorm-name-ok?"
+  ],
+  "tokens": 15
+ },
+ "6cc684092f8a": {
+  "copies": 2,
+  "members": [
+   "src/core/derivation-log.fs:lf-log-live-level?",
+   "src/core/generation-handles.fs:lf-hlevel-id?"
+  ],
+  "tokens": 8
+ },
+ "6daf5d742bf4": {
+  "copies": 2,
+  "members": [
+   "src/core/reach.fs:lf-reach-term",
+   "src/core/reach.fs:lr-level!"
+  ],
+  "tokens": 10
+ },
+ "75695dedbb1b": {
+  "copies": 4,
+  "members": [
+   "src/kernel/defeq.fs:lf-dq-struct-other",
+   "src/kernel/defeq.fs:lf-dq-eta-back",
+   "src/kernel/defeq.fs:lf-dq-app-back",
+   "src/kernel/defeq.fs:lf-dq-proj-back"
+  ],
+  "tokens": 16
+ },
+ "75755a795b69": {
+  "copies": 3,
+  "members": [
+   "src/front/elab-data.fs:ed-inst-priority!",
+   "src/front/elab-data.fs:ed-left-priority!",
+   "src/front/elab-data.fs:ed-dflt-priority!"
+  ],
+  "tokens": 8
+ },
+ "76b055871c86": {
+  "copies": 2,
+  "members": [
+   "src/kernel/defeq.fs:lf-dq-open",
+   "src/kernel/whnf.fs:lf-whnf-open"
+  ],
+  "tokens": 14
+ },
+ "795cc9910c62": {
+  "copies": 2,
+  "members": [
+   "src/front/elab-data.fs:ed-inst-class!",
+   "src/front/elab-data.fs:ed-dflt-class!"
+  ],
+  "tokens": 8
+ },
+ "799cc5e4dcba": {
+  "copies": 2,
+  "members": [
+   "src/front/elab-data.fs:ed-foreign-part",
+   "src/front/elab-data.fs:ed-key-item"
+  ],
+  "tokens": 10
+ },
+ "7c73ccf93620": {
+  "copies": 4,
+  "members": [
+   "src/front/defeq.fs:de-bind-dom-k",
+   "src/front/defeq.fs:de-args-first-k",
+   "src/front/defeq.fs:de-args-rest-k",
+   "src/front/defeq.fs:de-args-post-k"
+  ],
+  "tokens": 9
+ },
+ "7d8b2bee54c6": {
+  "copies": 3,
+  "members": [
+   "src/import/snapshot-tier.fs:tf-family",
+   "src/import/snapshot-tier.fs:tf-decls",
+   "src/kernel/environment.fs:lf-env-unheld-pass"
+  ],
+  "tokens": 12
+ },
+ "7e3f53f99edc": {
+  "copies": 2,
+  "members": [
+   "src/author/export.fs:lfx-level-of",
+   "src/author/export.fs:lfx-expr-of"
+  ],
+  "tokens": 8
+ },
+ "7f21cb86891b": {
+  "copies": 3,
+  "members": [
+   "src/cli/tally.fs:verdict>code",
+   "src/front/level-simp.fs:li-take",
+   "src/program/ir-reader.fs:ir-char"
+  ],
+  "tokens": 9
+ },
+ "8020183d145c": {
+  "copies": 2,
+  "members": [
+   "src/front/beta-inst.fs:ib-pair-image",
+   "src/front/instantiate.fs:in-pair-image"
+  ],
+  "tokens": 12
+ },
+ "8249b0825756": {
+  "copies": 2,
+  "members": [
+   "src/core/reach.fs:lr-term-holes?",
+   "src/core/reach.fs:lr-level-holes?"
+  ],
+  "tokens": 9
+ },
+ "8325cf7f4ee1": {
+  "copies": 2,
+  "members": [
+   "src/front/whnf.fs:wc-head-inert?",
+   "src/front/whnf.fs:wc-inert-major?"
+  ],
+  "tokens": 8
+ },
+ "8519a70e34db": {
+  "copies": 2,
+  "members": [
+   "src/kernel/mixed-compare.fs:lf-mcompare-continue?",
+   "src/lib/outcome.fs:ok-then2?"
+  ],
+  "tokens": 10
+ },
+ "877b2fdbbd4b": {
+  "copies": 2,
+  "members": [
+   "src/front/defeq.fs:de-assign2",
+   "src/front/defeq.fs:de-expensive"
+  ],
+  "tokens": 8
+ },
+ "87fc6aa43754": {
+  "copies": 2,
+  "members": [
+   "src/front/constructions.fs:aux-same?",
+   "src/front/constructions.fs:aux-alike?"
+  ],
+  "tokens": 17
+ },
+ "8a905bbc14b4": {
+  "copies": 2,
+  "members": [
+   "src/front/mvars.fs:mvl-leaf-build",
+   "src/front/mvars.fs:mv-leaf-build"
+  ],
+  "tokens": 9
+ },
+ "8c11141914b2": {
+  "copies": 2,
+  "members": [
+   "src/core/constant-term-boundary.fs:lf-cterm-push",
+   "src/kernel/mixed-level-substitute.fs:lf-mls-push"
+  ],
+  "tokens": 8
+ },
+ "8c62bb325216": {
+  "copies": 7,
+  "members": [
+   "src/core/constant-term-boundary.fs:lf-cterm-made?",
+   "src/core/levels.fs:lf-level-child-params?",
+   "src/core/terms.fs:lf-tin-may?",
+   "src/front/mvars.fs:mv-value-of",
+   "src/front/mvars.fs:mvl-value-of",
+   "src/front/mvars.fs:mvl-open?",
+   "src/kernel/environment.fs:lf-env-valid?"
+  ],
+  "tokens": 8
+ },
+ "8cf291e5b543": {
+  "copies": 2,
+  "members": [
+   "src/kernel/check-block.fs:lf-blk-occurs?",
+   "src/kernel/iota.fs:lf-iota-ctor?"
+  ],
+  "tokens": 9
+ },
+ "8d4cf00c8cb4": {
+  "copies": 3,
+  "members": [
+   "src/import/ndjson.fs:export-read",
+   "src/import/stage.fs:stage-continue",
+   "src/import/stage.fs:stage-continue-unchecked"
+  ],
+  "tokens": 9
+ },
+ "8dd4ae8bb8b0": {
+  "copies": 2,
+  "members": [
+   "src/import/ndjson.fs:nd-nested",
+   "src/import/ndjson.fs:nd-exact"
+  ],
+  "tokens": 8
+ },
+ "8e221229d09a": {
+  "copies": 2,
+  "members": [
+   "src/core/terms.fs:lf-term-leaf-stamp",
+   "src/kernel/environment.fs:lf-env-id"
+  ],
+  "tokens": 8
+ },
+ "8f75f78d8679": {
+  "copies": 2,
+  "members": [
+   "src/kernel/environment.fs:lf-env-axioms",
+   "src/kernel/environment.fs:lf-env-warnings"
+  ],
+  "tokens": 18
+ },
+ "9477caacbf7a": {
+  "copies": 2,
+  "members": [
+   "src/front/tactic-basic.fs:lfb-exact",
+   "src/import/run-record.fs:rr-body"
+  ],
+  "tokens": 10
+ },
+ "94c7572cce47": {
+  "copies": 2,
+  "members": [
+   "src/lib/json-write.fs:jw-hex-digit",
+   "src/lib/sha256.fs:sha-hex-digit"
+  ],
+  "tokens": 13
+ },
+ "9543c2f4d860": {
+  "copies": 2,
+  "members": [
+   "src/kernel/env-layers.fs:lay-own-count",
+   "src/kernel/env-layers.fs:lay-twin-count"
+  ],
+  "tokens": 8
+ },
+ "958c0a9e56b0": {
+  "copies": 2,
+  "members": [
+   "src/core/derivation-log.fs:lf-log-set-a",
+   "src/core/derivation-log.fs:lf-log-set-b"
+  ],
+  "tokens": 12
+ },
+ "95fde6cfeb20": {
+  "copies": 2,
+  "members": [
+   "src/front/level-params.fs:lp-image",
+   "src/front/mvars.fs:mv-level-image"
+  ],
+  "tokens": 8
+ },
+ "9674b7aaacb1": {
+  "copies": 2,
+  "members": [
+   "src/present/print-forth.fs:lf-pf-noted-end",
+   "src/present/print-forth.fs:lf-pf-decl-end"
+  ],
+  "tokens": 10
+ },
+ "98fed58da85a": {
+  "copies": 2,
+  "members": [
+   "src/front/beta-inst.fs:ib-find",
+   "src/front/instantiate.fs:in-find"
+  ],
+  "tokens": 8
+ },
+ "9a3f5742b584": {
+  "copies": 2,
+  "members": [
+   "src/core/terms.fs:lf-term-first@",
+   "src/core/terms.fs:lf-term-second@"
+  ],
+  "tokens": 10
+ },
+ "9daea91f04f2": {
+  "copies": 2,
+  "members": [
+   "src/kernel/env-schedule.fs:lf-sch-waiting?",
+   "src/kernel/mixed-open.fs:lf-open-rev?"
+  ],
+  "tokens": 8
+ },
+ "9fe570e50ece": {
+  "copies": 2,
+  "members": [
+   "src/front/defeq.fs:de-ckpt-assign",
+   "src/front/defeq.fs:de-solve-entry"
+  ],
+  "tokens": 11
+ },
+ "a1f608f0bfb2": {
+  "copies": 2,
+  "members": [
+   "src/core/derivation-log.fs:lf-log-listed",
+   "src/import/feed.fs:feed-form@"
+  ],
+  "tokens": 13
+ },
+ "a53c96283e2c": {
+  "copies": 5,
+  "members": [
+   "src/front/assign-check.fs:ac-pending-child",
+   "src/front/assign-check.fs:ac-dep-pending",
+   "src/front/mvars.fs:mv-hole-pending",
+   "src/front/whnf.fs:wc-project",
+   "src/program/program-depth.fs:lf-depth-storage?"
+  ],
+  "tokens": 8
+ },
+ "a6d52b217fa8": {
+  "copies": 2,
+  "members": [
+   "src/front/expr-remap.fs:remap-app-second",
+   "src/front/expr-remap.fs:remap-let-second"
+  ],
+  "tokens": 13
+ },
+ "a6fa234afe50": {
+  "copies": 2,
+  "members": [
+   "src/kernel/environment.fs:lf-slot-added?",
+   "src/kernel/environment.fs:lf-slot-skipped?"
+  ],
+  "tokens": 12
+ },
+ "a892faf2e1b5": {
+  "copies": 2,
+  "members": [
+   "src/lib/sha256.fs:sha-big-sigma0",
+   "src/program/sha-words.fs:sha-big-sigma0"
+  ],
+  "tokens": 11
+ },
+ "a8ba8e726c23": {
+  "copies": 2,
+  "members": [
+   "src/kernel/mixed-instantiate.fs:lf-minst-clean?",
+   "src/kernel/mixed-shift.fs:lf-mshift-clean?"
+  ],
+  "tokens": 13
+ },
+ "aa7d81a10b99": {
+  "copies": 2,
+  "members": [
+   "src/core/terms.fs:lf-sought@",
+   "src/kernel/env-import.fs:imp-layer-decls"
+  ],
+  "tokens": 9
+ },
+ "aaecd41a7e3e": {
+  "copies": 2,
+  "members": [
+   "src/kernel/inductive-nested.fs:lf-nest-is",
+   "src/kernel/inductive-nested.fs:lf-nest-rest"
+  ],
+  "tokens": 9
+ },
+ "ac587a0c8a82": {
+  "copies": 2,
+  "members": [
+   "src/kernel/environment.fs:lf-axd-cell-bits",
+   "src/lib/htab.fs:cell-bits"
+  ],
+  "tokens": 12
+ },
+ "ae4c5d1115c3": {
+  "copies": 2,
+  "members": [
+   "src/program/ir-reader.fs:ir-convert",
+   "src/program/ir-run.fs:irx-convert"
+  ],
+  "tokens": 11
+ },
+ "b3ce5130f54c": {
+  "copies": 2,
+  "members": [
+   "src/front/lib-decode.fs:lbd-pop",
+   "src/front/meta-spine.fs:lf-meta-pop"
+  ],
+  "tokens": 9
+ },
+ "b58e685515f5": {
+  "copies": 2,
+  "members": [
+   "src/core/constant-term-boundary.fs:lf-cterm-children",
+   "src/kernel/mixed-level-substitute.fs:lf-mls-children"
+  ],
+  "tokens": 17
+ },
+ "b5d18ba692bd": {
+  "copies": 2,
+  "members": [
+   "src/cli/leanforth.fs:cli-byte.",
+   "src/import/ndjson-count.fs:.json-offset"
+  ],
+  "tokens": 11
+ },
+ "b6f4f28ce792": {
+  "copies": 2,
+  "members": [
+   "src/front/defeq.fs:de-mm-st",
+   "src/front/defeq.fs:de-mm-ts"
+  ],
+  "tokens": 16
+ },
+ "b7d8c2a1635d": {
+  "copies": 2,
+  "members": [
+   "src/import/stage.fs:stage-load",
+   "src/import/stage.fs:stage-load-unchecked"
+  ],
+  "tokens": 13
+ },
+ "b87a95c49175": {
+  "copies": 2,
+  "members": [
+   "src/import/snapshot-tier.fs:tf-exprs-out",
+   "src/import/snapshot-tier.fs:tf-decls-out"
+  ],
+  "tokens": 9
+ },
+ "b9a88c975c59": {
+  "copies": 2,
+  "members": [
+   "src/core/compact-names.fs:name-intern",
+   "src/core/compact-names.fs:str-intern"
+  ],
+  "tokens": 9
+ },
+ "bd6c469680af": {
+  "copies": 2,
+  "members": [
+   "src/front/beta-inst.fs:ib-keep",
+   "src/front/instantiate.fs:in-keep"
+  ],
+  "tokens": 20
+ },
+ "bdff6f0de167": {
+  "copies": 4,
+  "members": [
+   "src/kernel/environment.fs:lf-slot-type-undecided?",
+   "src/kernel/environment.fs:lf-slot-type-unsupported?",
+   "src/kernel/environment.fs:lf-slot-quot-undecided?",
+   "src/kernel/environment.fs:lf-slot-quot-unsupported?"
+  ],
+  "tokens": 8
+ },
+ "be96929f9493": {
+  "copies": 2,
+  "members": [
+   "src/present/print-forth.fs:lf-pf-arrow",
+   "src/present/print-forth.fs:lf-pf-app"
+  ],
+  "tokens": 9
+ },
+ "bf71d37d38f0": {
+  "copies": 6,
+  "members": [
+   "src/core/derivation-log.fs:lf-log-publish-fields",
+   "src/core/terms.fs:lf-sought!",
+   "src/front/expr-remap.fs:remap-set",
+   "src/kernel/env-snapshot.fs:snap-layer-slots!",
+   "src/present/log-view.fs:lv-node!",
+   "src/present/notation-table.fs:lf-nt-places!"
+  ],
+  "tokens": 8
+ },
+ "bf88a9b691e8": {
+  "copies": 4,
+  "members": [
+   "src/author/build.fs:lfa-ref-match?",
+   "src/core/name-equal.fs:lf-name-equal?",
+   "src/kernel/env-snapshot.fs:slot-fine?",
+   "src/kernel/mixed-compare.fs:lf-mcompare-components?"
+  ],
+  "tokens": 8
+ },
+ "c12f49bd0630": {
+  "copies": 2,
+  "members": [
+   "src/cli/check-run.fs:ck-ours?",
+   "src/import/run-record.fs:rr-ours?"
+  ],
+  "tokens": 11
+ },
+ "c18b81240a5a": {
+  "copies": 2,
+  "members": [
+   "src/kernel/mixed-instantiate.fs:lf-minst-pair",
+   "src/kernel/mixed-shift.fs:lf-mshift-pair"
+  ],
+  "tokens": 13
+ },
+ "c232bbe480f3": {
+  "copies": 2,
+  "members": [
+   "src/author/constants.fs:lfa-decl-find",
+   "src/front/level-params.fs:lp-index"
+  ],
+  "tokens": 17
+ },
+ "c24c8ecb19c0": {
+  "copies": 2,
+  "members": [
+   "src/front/whnf.fs:wc-plain-mvar?",
+   "src/kernel/env-publish.fs:lf-env-usable?"
+  ],
+  "tokens": 9
+ },
+ "c2e75b9e45aa": {
+  "copies": 2,
+  "members": [
+   "src/front/constructions.fs:apply-var",
+   "src/front/constructions.fs:apply-proj"
+  ],
+  "tokens": 10
+ },
+ "c3a313663598": {
+  "copies": 2,
+  "members": [
+   "src/kernel/mixed-infer.fs:lf-minfer-scan-dispatch",
+   "src/kernel/whnf.fs:lf-whnf-scan-dispatch"
+  ],
+  "tokens": 15
+ },
+ "c415ad239134": {
+  "copies": 3,
+  "members": [
+   "src/front/lib-decode.fs:lbd-push",
+   "src/front/meta-env.fs:me-push",
+   "src/kernel/env-schedule.fs:lf-sch-push"
+  ],
+  "tokens": 13
+ },
+ "c4a25193753b": {
+  "copies": 2,
+  "members": [
+   "src/kernel/env-import.fs:imp-input",
+   "src/kernel/env-snapshot.fs:snap-header"
+  ],
+  "tokens": 20
+ },
+ "c64065e8ad36": {
+  "copies": 2,
+  "members": [
+   "src/front/infer.fs:if-telescope",
+   "src/front/infer.fs:if-pi-telescope"
+  ],
+  "tokens": 17
+ },
+ "c65dfd6ca1dc": {
+  "copies": 2,
+  "members": [
+   "src/core/terms.fs:lf-tin-other@",
+   "src/kernel/env-publish.fs:lf-env-hand-over-at"
+  ],
+  "tokens": 8
+ },
+ "c8a0473d081d": {
+  "copies": 2,
+  "members": [
+   "src/core/generation-handles.fs:lf-href-dispatch",
+   "src/core/symbolic-session.fs:lf-ssession-dispatch"
+  ],
+  "tokens": 20
+ },
+ "c8ab582adafb": {
+  "copies": 2,
+  "members": [
+   "src/core/constant-references.fs:lf-cref-borrow",
+   "src/core/input.fs:lf-input-borrow"
+  ],
+  "tokens": 9
+ },
+ "c8ea52d268a9": {
+  "copies": 6,
+  "members": [
+   "src/front/assign-check.fs:ac-undone",
+   "src/front/goal-print.fs:gp-undone",
+   "src/front/instantiate.fs:in-undone",
+   "src/front/level-params.fs:lp-undone",
+   "src/front/mvars.fs:mv-undone",
+   "src/front/tactic-basic.fs:lfb-undone"
+  ],
+  "tokens": 9
+ },
+ "c97a1dd8f3cc": {
+  "copies": 2,
+  "members": [
+   "src/import/snapshot-layer.fs:ly-names-kind?",
+   "src/import/stage-records.fs:valued?"
+  ],
+  "tokens": 11
+ },
+ "c9a5284c385c": {
+  "copies": 2,
+  "members": [
+   "src/core/terms.fs:lf-term-child-data",
+   "src/front/goal-print.fs:gp-code"
+  ],
+  "tokens": 8
+ },
+ "ca35fddcf680": {
+  "copies": 2,
+  "members": [
+   "src/kernel/mixed-infer.fs:lf-minfer-step?",
+   "src/lib/outcome.fs:ok-keep?"
+  ],
+  "tokens": 10
+ },
+ "cc681a2bd39b": {
+  "copies": 3,
+  "members": [
+   "src/core/derivation-log.fs:lf-log-cref-head!",
+   "src/front/instances.fs:it-frame!",
+   "src/program/ir-run.fs:irx-effect!"
+  ],
+  "tokens": 9
+ },
+ "cd00161ee80b": {
+  "copies": 3,
+  "members": [
+   "src/front/goal-print.fs:gp-child",
+   "src/front/instantiate.fs:in-loose-pending",
+   "src/front/tactic-basic.fs:lfb-pending"
+  ],
+  "tokens": 22
+ },
+ "d0295f55413b": {
+  "copies": 2,
+  "members": [
+   "src/import/ndjson-emit.fs:opaque-json",
+   "src/import/ndjson-emit.fs:recursor-json"
+  ],
+  "tokens": 8
+ },
+ "d106d85d0554": {
+  "copies": 2,
+  "members": [
+   "src/program/ir-reader.fs:ir-negative",
+   "src/program/verify-semantics.fs:pv-negative"
+  ],
+  "tokens": 15
+ },
+ "d13a4b1b39ec": {
+  "copies": 3,
+  "members": [
+   "src/kernel/env-signature.fs:lf-envsig-arguments",
+   "src/kernel/inductive-block.fs:lf-ind-ctors-scoped",
+   "src/kernel/inductive-block.fs:lf-ind-c1"
+  ],
+  "tokens": 15
+ },
+ "d29897903fa2": {
+  "copies": 2,
+  "members": [
+   "src/front/defeq.fs:de-exp-e1",
+   "src/front/defeq.fs:de-solve-q"
+  ],
+  "tokens": 16
+ },
+ "d3eb1ff6ac5e": {
+  "copies": 2,
+  "members": [
+   "src/lib/slab.fs:slab-epoch+",
+   "src/lib/store.fs:epoch+"
+  ],
+  "tokens": 14
+ },
+ "d3f40f96a6ee": {
+  "copies": 2,
+  "members": [
+   "src/front/prop-quick.fs:pq-head-arrow",
+   "src/front/prop-quick.fs:pq-proof-arrow"
+  ],
+  "tokens": 9
+ },
+ "d4b3aece1631": {
+  "copies": 3,
+  "members": [
+   "src/author/export.fs:lfx-block",
+   "src/core/reach.fs:lr-block",
+   "src/front/dag-walk.fs:dw-block"
+  ],
+  "tokens": 12
+ },
+ "d650e72345a6": {
+  "copies": 2,
+  "members": [
+   "src/import/run-record.fs:rr-sink",
+   "src/import/run-replay.fs:rp-report-sink"
+  ],
+  "tokens": 8
+ },
+ "d84791881406": {
+  "copies": 2,
+  "members": [
+   "src/cli/check-run.fs:ck-viewed?",
+   "src/import/run-record.fs:rr-viewed?"
+  ],
+  "tokens": 9
+ },
+ "d8989babf18e": {
+  "copies": 3,
+  "members": [
+   "src/core/statement-match.fs:lf-stmt-part?",
+   "src/kernel/whnf.fs:lf-whnf-part?",
+   "src/present/print-names.fs:lf-pp-str?"
+  ],
+  "tokens": 14
+ },
+ "d98b697163ef": {
+  "copies": 2,
+  "members": [
+   "src/kernel/environment.fs:lf-env-accepted",
+   "src/kernel/environment.fs:lf-env-usable"
+  ],
+  "tokens": 16
+ },
+ "da37593abace": {
+  "copies": 2,
+  "members": [
+   "src/core/literals.fs:lf-hterm-decimal",
+   "src/core/literals.fs:lf-lit-decimal"
+  ],
+  "tokens": 26
+ },
+ "db8d654acef2": {
+  "copies": 2,
+  "members": [
+   "src/front/instantiate.fs:in-hole?",
+   "src/front/term-eqv.fs:eq-unshared?"
+  ],
+  "tokens": 8
+ },
+ "dbcdef2236aa": {
+  "copies": 2,
+  "members": [
+   "src/core/compact-names.fs:name-up",
+   "src/front/constructions.fs:nth-pi"
+  ],
+  "tokens": 8
+ },
+ "dcb7a55d1145": {
+  "copies": 2,
+  "members": [
+   "src/front/mvars.fs:lf-mvar-assign",
+   "src/front/mvars.fs:lf-level-mvar-assign"
+  ],
+  "tokens": 15
+ },
+ "dd3adb4fa8c6": {
+  "copies": 2,
+  "members": [
+   "src/front/elab-data.fs:elab-eliminator-types",
+   "src/front/mvars.fs:mv-depths-back"
+  ],
+  "tokens": 8
+ },
+ "de205fa01c9c": {
+  "copies": 2,
+  "members": [
+   "src/program/ir-reader.fs:ir-copy",
+   "src/program/verify-report.fs:pv-copy"
+  ],
+  "tokens": 11
+ },
+ "de2e57f92beb": {
+  "copies": 3,
+  "members": [
+   "src/kernel/mixed-level-substitute.fs:lf-mls-actuals!",
+   "src/kernel/mixed-signature-audit.fs:lf-msa-formals?",
+   "src/present/log-view.fs:lf-lv-args"
+  ],
+  "tokens": 15
+ },
+ "e157cf97cdef": {
+  "copies": 2,
+  "members": [
+   "src/core/constant-term-boundary.fs:lf-cterm-pushed",
+   "src/kernel/mixed-level-substitute.fs:lf-mls-pushed"
+  ],
+  "tokens": 12
+ },
+ "e1621cd366bb": {
+  "copies": 2,
+  "members": [
+   "src/front/defeq.fs:de-nonrec?",
+   "src/front/whnf.fs:wc-structure-like?"
+  ],
+  "tokens": 17
+ },
+ "e16da60270e8": {
+  "copies": 2,
+  "members": [
+   "src/core/statement-match.fs:lf-stmt-lbinary",
+   "src/core/terms.fs:lf-term-given?"
+  ],
+  "tokens": 9
+ },
+ "e1c7062439e8": {
+  "copies": 2,
+  "members": [
+   "src/front/beta-inst.fs:ib-image?",
+   "src/front/instantiate.fs:in-image?"
+  ],
+  "tokens": 19
+ },
+ "e1d41cb4bd41": {
+  "copies": 3,
+  "members": [
+   "src/core/constant-term-boundary.fs:lf-walk-once",
+   "src/core/constant-term-boundary.fs:lf-walk-once-at",
+   "src/core/constant-term-boundary.fs:lf-walk-once-aside"
+  ],
+  "tokens": 9
+ },
+ "e41f7bc1c7c1": {
+  "copies": 3,
+  "members": [
+   "src/front/assign-check.fs:ac-parts",
+   "src/front/level-params.fs:lp-parts-pending",
+   "src/front/mvars.fs:mv-pair-pending"
+  ],
+  "tokens": 14
+ },
+ "e5099d7913fb": {
+  "copies": 2,
+  "members": [
+   "src/kernel/check-block.fs:lf-blk-binders",
+   "src/kernel/check-block.fs:lf-blk-e-walk"
+  ],
+  "tokens": 21
+ },
+ "e566efcef78f": {
+  "copies": 2,
+  "members": [
+   "src/kernel/env-import.fs:s-block",
+   "src/kernel/env-import.fs:e-block"
+  ],
+  "tokens": 17
+ },
+ "e56a6e4c0d27": {
+  "copies": 2,
+  "members": [
+   "src/core/terms.fs:lf-term-bvar-is?",
+   "src/present/proof-outline.fs:lf-ol-same?"
+  ],
+  "tokens": 10
+ },
+ "e5d964117b30": {
+  "copies": 2,
+  "members": [
+   "src/front/beta-inst.fs:ib-range",
+   "src/front/instantiate.fs:in-range"
+  ],
+  "tokens": 15
+ },
+ "e9365edb85b2": {
+  "copies": 2,
+  "members": [
+   "src/front/beta-inst.fs:ib-step-pair",
+   "src/front/instantiate.fs:in-step-pair"
+  ],
+  "tokens": 17
+ },
+ "eb7510a045b4": {
+  "copies": 5,
+  "members": [
+   "src/front/elab-data.fs:elab-instance@",
+   "src/front/elab-data.fs:elab-default@",
+   "src/front/elab-data.fs:elab-matcher@",
+   "src/front/elab-data.fs:elab-alt@",
+   "src/front/elab-data.fs:elab-projection@"
+  ],
+  "tokens": 10
+ },
+ "ebb55a6636f0": {
+  "copies": 3,
+  "members": [
+   "src/present/log-view.fs:lf-lv-tag?",
+   "src/present/print-analysis.fs:lf-pp-is?",
+   "src/present/print-levels.fs:lf-pp-same-tag?"
+  ],
+  "tokens": 8
+ },
+ "ec2078d2189f": {
+  "copies": 2,
+  "members": [
+   "src/author/errors.fs:lfa-.n",
+   "src/import/ndjson-emit.fs:.count"
+  ],
+  "tokens": 9
+ },
+ "ed50786bcc2e": {
+  "copies": 2,
+  "members": [
+   "src/core/constant-term-boundary.fs:lf-walk-depth",
+   "src/core/diagnostics.fs:lf-diag-walk-right"
+  ],
+  "tokens": 9
+ },
+ "ed5707a19a4f": {
+  "copies": 2,
+  "members": [
+   "src/author/library.fs:lfa-library-new?",
+   "src/core/terms.fs:lf-term-read"
+  ],
+  "tokens": 9
+ },
+ "eddf110e99ee": {
+  "copies": 2,
+  "members": [
+   "src/cli/check-run.fs:ck-all-final?",
+   "src/import/run-record.fs:rr-all-final?"
+  ],
+  "tokens": 8
+ },
+ "ee2ccb18d020": {
+  "copies": 2,
+  "members": [
+   "src/kernel/env-import.fs:same-from!",
+   "src/kernel/env-import.fs:same-to!"
+  ],
+  "tokens": 12
+ },
+ "ee843b2fbebf": {
+  "copies": 2,
+  "members": [
+   "src/import/snapshot-tier.fs:tf-fill",
+   "src/import/snapshot-tier.fs:tf-plain"
+  ],
+  "tokens": 16
+ },
+ "ef39288f04e1": {
+  "copies": 4,
+  "members": [
+   "src/front/elab-data.fs:ed-inst-decl!",
+   "src/front/elab-data.fs:ed-class-decl!",
+   "src/front/elab-data.fs:ed-match-decl!",
+   "src/front/elab-data.fs:ed-proj-decl!"
+  ],
+  "tokens": 16
+ },
+ "f18ec9eba35c": {
+  "copies": 2,
+  "members": [
+   "src/kernel/env-import.fs:ua-new",
+   "src/kernel/env-layers.fs:lay-zeros"
+  ],
+  "tokens": 19
+ },
+ "f2e0f3bc4eaa": {
+  "copies": 2,
+  "members": [
+   "src/front/level-normalize.fs:ln-keep",
+   "src/kernel/level-normalize.fs:lf-lnorm-kept"
+  ],
+  "tokens": 10
+ },
+ "f4a29a77cc49": {
+  "copies": 2,
+  "members": [
+   "src/front/instances.fs:it-pass-run",
+   "src/front/tactic-basic.fs:lfb-sorted."
+  ],
+  "tokens": 10
+ },
+ "f54006ecbaef": {
+  "copies": 2,
+  "members": [
+   "src/front/elab-data.fs:ed-roomed",
+   "src/front/elab-data.fs:ed-looked"
+  ],
+  "tokens": 8
+ },
+ "f70b0ac8c106": {
+  "copies": 2,
+  "members": [
+   "src/import/feed.fs:feed-valued?",
+   "src/kernel/environment.fs:lf-kind-valued?"
+  ],
+  "tokens": 11
+ },
+ "f7841b636bbb": {
+  "copies": 2,
+  "members": [
+   "src/front/discr-keys.fs:dk-sort?",
+   "src/front/whnf.fs:wc-sort?"
+  ],
+  "tokens": 8
+ },
+ "f820a56cdea5": {
+  "copies": 4,
+  "members": [
+   "src/front/beta-inst.fs:ib-same-pair?",
+   "src/front/instantiate.fs:in-same-pair?",
+   "src/front/level-params.fs:lp-same?",
+   "src/front/mvars.fs:mv-same-pair?"
+  ],
+  "tokens": 10
+ },
+ "f885ab2ccf3e": {
+  "copies": 2,
+  "members": [
+   "src/kernel/mixed-instantiate.fs:lf-minst-leaf",
+   "src/kernel/mixed-shift.fs:lf-mshift-leaf"
+  ],
+  "tokens": 33
+ },
+ "f99daf532c4b": {
+  "copies": 2,
+  "members": [
+   "src/cli/name-text.fs:nt-range",
+   "src/lib/text-rule.fs:tr-range"
+  ],
+  "tokens": 8
+ },
+ "f9de3c1d0146": {
+  "copies": 2,
+  "members": [
+   "src/front/beta-inst.fs:ib-images",
+   "src/front/instantiate.fs:in-images"
+  ],
+  "tokens": 8
+ },
+ "fd7de67d1368": {
+  "copies": 3,
+  "members": [
+   "src/front/defeq.fs:de-fo-k",
+   "src/front/defeq.fs:de-es-k2",
+   "src/front/defeq.fs:de-es-k1"
+  ],
+  "tokens": 8
+ },
+ "fe375abff6e4": {
+  "copies": 2,
+  "members": [
+   "src/kernel/iota.fs:lf-iota-eta-ready?",
+   "src/kernel/iota.fs:lf-iota-k-ready?"
+  ],
+  "tokens": 8
+ }
+}

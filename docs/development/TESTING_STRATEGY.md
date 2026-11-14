@@ -462,7 +462,7 @@ time, as `scripts/export.sh` builds `export_manifest.py`'s, is not seen).
 | `src/program/` | `test-program`, `test-program-ir`, `test-program-ir-run` |
 | `src/present/` | `test-present`; `test-printer-differential` |
 | `src/author/` | `test-author`; `reference-author` |
-| `src/front/`, `src/core/mvar-leaves.fs` | `test-front`; `test-author` (the export writer's refusal, the marker); `reference-front` (pinned Lean's macro expansion); `reference-constructions` (`casesOn`, `recOn` and `ctorIdx` built for every type of Init and compared with Lean's export, and their binder names and information with pinned Lean's environment; plan FE6) |
+| `src/front/`, `src/core/mvar-leaves.fs` | `test-front`; `test-author` (the export writer's refusal, the marker); `reference-front` (pinned Lean's macro expansion); `reference-constructions` (`casesOn`, `recOn` and `ctorIdx` built for every type of Init and compared with Lean's export, and their binder names and information with pinned Lean's environment; plan FE6); `test-instances` and `reference-synth` (the instance keys and table, plans FE1e2-FE1e3: every Init instance recomputed, getInstances against pinned Lean) |
 | `tests/reference/*.lean` | the target that runs the file (`make check-changed` finds it) |
 | `scripts/lean-cache.py`, the Makefile | `test-lean-cache`, then the full tier (`make tier`) |
 | `docs/` | `check-docs`, `check-doc-examples` |
@@ -615,6 +615,30 @@ reach, and nothing after a full-tier change or on another branch; the tier
 runner reusing, narrowing and running; the daily full run; and `scripts/push.sh` on a
 copy with a bare repository as origin: its dry run, its refusals, a push, a
 failed suite not pushed, and the record of what ran and what was reused.
+
+## Reuse checks (plan 9.4.8f, owner 2026-11-13)
+
+Four scripts keep the reuse rule of AGENTS.md ("Reuse first") from failing silently. `make test` runs them (the
+first three in `check-forth-quality`, the index in `check-docs`); each has unit tests on throw-away source trees in
+`tests/scripts/`.
+
+- `scripts/check-lib-callers.py`: builds the require/include/needs graph of `src/**/*.fs` (paths relative to the
+  requiring file) and fails for a `src/lib/` file that no file outside `lib/` reaches, unless
+  `tests/lib-callers-allowlist.json` lists it with a plan row id and a reason. An entry for a file that is used
+  now fails too (stale), so the list only shrinks: delete the entry in the branch that adds the first caller.
+  Files used by tests only are reported, not failed.
+- `scripts/check-duplicates.py`: finds colon definitions with identical bodies of at least 8 tokens, after
+  comments are dropped, words are lower-cased and every word defined in the same file (not in `lib/`) is
+  replaced by a placeholder numbered by first appearance, so `in-x` and `ib-x` copies match. It is a ratchet on
+  `tests/duplicates-baseline.json`: a new group or a group with more copies fails and prints each copy as
+  `file:line`. `python3 scripts/check-duplicates.py --report` prints every group. Update the baseline
+  (`--update-baseline`) only in a reviewed commit, as for `tests/forth-quality-baseline.json`; merging copies
+  shrinks it (run `--update-baseline` after a merge to drop the fixed groups). Limits: a copy that calls
+  another file's helpers (not renamed) is not matched, and equal normal forms of unrelated words are possible.
+- `scripts/check-forth-quality.py` also fails for a row of `forth-reviews/LOG.md` dated 2026-11-13 or later whose
+  Findings or Open text proposes a new `lib/` file or library word without a plan row id (`9.4.8a`, `FE1i-4`, `S2`).
+- `scripts/lib-index.py` writes [LIBRARY_WORDS.md](LIBRARY_WORDS.md), the index of the public words of `src/lib/`;
+  `make check-docs` fails when it is stale: run `python3 scripts/lib-index.py --write` and commit it.
 
 ## Re-running one root: the export slicer (`scripts/export-slice.py`)
 

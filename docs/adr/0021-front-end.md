@@ -336,8 +336,9 @@ failed tactic or elaboration still stops the text, and LeanForth never fills a f
 
 ## Amendment 2 (2026-11-13): the front end reads the library from the stage (D13)
 
-Approval status: proposed; designed in [S1_INTERFACE.md](../design/S1_INTERFACE.md) §1 (the owner approved the S1 design on
-2026-11-13); built in branch `s1-meta` (merge B); the [import] gate is owed when it merges.
+Approval status: accepted 2026-11-13, gate: import, [OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md) section
+"[import]: S1's library route (2026-11-13, afternoon)"; designed in [S1_INTERFACE.md](../design/S1_INTERFACE.md) §1; built in branch `s1-meta-b`
+(merge B, reviewed: [report](../development/forth-reviews/2026-11-13-s1-meta-b.md)), merged 2026-11-13.
 
 This replaces the last clause of D13's first bullet ("neither new folder uses `kernel/` or `import/` except through the
 record route of D1, which `cli/` drives"):

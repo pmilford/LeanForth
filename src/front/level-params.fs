@@ -106,13 +106,13 @@ end-structure
 \ The term walk: a node's children are its parts, unless its data word
 \ shows no parameter.
 : lp-refuse ( outcome -- ) lp-state lp-dw dw-refuse ;
-: lp-binary? ( node -- flag ) lf-term-tag@ lf-term-binary-tag? ;
 : lp-fixed? ( node -- flag ) lf-term-data@ if lf-data-params? 0= else false then ;
 : lp-parts-pending ( node walk -- child true | false )
   over lf-term-first@ over lp-undone if nip nip true exit then
   swap lf-term-second@ swap lp-undone ;
 : lp-pending ( node walk -- child true | false )
-  over dup lp-fixed? swap lp-binary? 0= or if 2drop false else lp-parts-pending then ;
+  over dup lp-fixed? swap lf-term-binary? 0= or
+  if 2drop false else lp-parts-pending then ;
 
 \ Images of a binary node: rebuilt, with its binder's name, when a part
 \ changes.
@@ -139,7 +139,7 @@ end-structure
     lf-tag-constant of lp-const-build endof endcase ;
 : lp-build ( node walk -- image )
   over lp-fixed? if drop exit then
-  over lp-binary? if lp-pair-build else drop lp-leaf-build then ;
+  over lf-term-binary? if lp-pair-build else drop lp-leaf-build then ;
 : lp-walk ( -- walk )
   lp-state lp-dw ['] lp-build over dw-build ! ['] lp-pending over dw-pending !
   lf-term-base lf-term-count @ + over dw-size ! ;

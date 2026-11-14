@@ -48,7 +48,9 @@
 \ assigned succ ?w for a fresh ?w, the answer (one of an outer depth,
 \ levelAssignDepth, is read-only); zero, a parameter or anything else is
 \ Lean's "invalid universe level" (invalid; error 100 where a user sees
-\ it). Full when a store has no room.
+\ it). Full when a store has no room (a fresh ?w may then stay, unassigned
+\ and named by no term: Lean's assignment cannot fail, so it has nothing
+\ to restore).
 \ Not re-entrant: one inference at a time per context uses the slabs
 \ below (whnfCore and the instantiations it calls keep their own). Each
 \ lambda or pi inferred adds its binders' free variables to the local
@@ -257,12 +259,9 @@ end-structure
 : idl-walk@ ( -- walk ) idl idl-walk ;
 : idl-max? ( l -- flag )
   lf-level-tag@ dup lf-level-tag-max = swap lf-level-tag-imax = or ;
-: idl-want ( child walk -- child true | false ) 2dup dw-done? if 2drop false else drop
-  true then ;
 : idl-pending ( l walk -- child true | false )
   over idl-max? 0= if 2drop false exit then
-  over lf-level-first@ over idl-want if nip nip true else swap lf-level-second@ swap
-    idl-want then ;
+  >r dup lf-level-first@ swap lf-level-second@ r> dw-want2 ;
 : idl-img ( l -- image ) idl-walk@ dw-image ;
 : idl-both ( l -- a b ) dup lf-level-first@ idl-img swap lf-level-second@ idl-img ;
 : idl-max ( l walk -- image )
@@ -276,19 +275,24 @@ end-structure
 : idl-answer ( image -- level outcome ) ?dup if 1- outcome-ok else -1 outcome-invalid then
   ;
 : idl-dec ( level -- level' outcome )
-  lf-level-count @ idl-walk@ dw-size ! idl-walk@ dw-run ok-then? if idl-answer else -1
-    swap then ;
+  lf-level-count @ idl-walk@ dw-size ! idl-walk@ dw-run ok-then? if idl-answer else
+    no-result then ;
+\ An assignable ?u at the root: ?u := succ ?w for a fresh ?w, the answer.
+\ Lean's assignment cannot fail; here the stores may have no room (full),
+\ and then ?w, made already, stays unassigned and named by no term.
+: idl-assign ( mvar w succ -- w outcome )
+  rot swap lf-level-mvar-assign dup ok? 0= if nip no-result then ;
 : idl-succ-of ( mvar w -- w outcome )
-  dup lf-level-succ 0= if 2drop -1 outcome-full exit then rot swap lf-level-mvar-assign ;
-: idl-fresh ( mvar -- w outcome ) lf-level-mvar-new ok-then? if idl-succ-of else nip -1
-  swap then ;
+  dup lf-level-succ if idl-assign else 2drop -1 outcome-full then ;
+: idl-fresh ( mvar -- w outcome )
+  lf-level-mvar-new ok-then? if idl-succ-of else nip no-result then ;
 : idl-open? ( level -- flag outcome )
   dup lf-level-mvar? if lf-level-assignable-mvar? else drop false outcome-ok then ;
 : idl-decrement ( level -- level' outcome )
-  dup idl-open? ok-then? 0= if nip -1 swap exit then if idl-fresh else idl-dec then ;
+  dup idl-open? ok-then? 0= if nip no-result exit then if idl-fresh else idl-dec then ;
 : lf-meta-dec-level ( type -- level outcome )
-  lf-get-level ok-then? 0= if -1 swap exit then
-  lf-level-instantiate-mvars ok-then? 0= if -1 swap exit then
-  lf-meta-level-normalize ok-then? if idl-decrement else -1 swap then ;
+  lf-get-level ok-then? 0= if no-result exit then
+  lf-level-instantiate-mvars ok-then? 0= if no-result exit then
+  lf-meta-level-normalize ok-then? if idl-decrement else no-result then ;
 
 base !   \ the BASE this file was loaded with

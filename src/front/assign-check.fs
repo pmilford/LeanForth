@@ -109,9 +109,8 @@ end-structure
 
 \ Nodes: one with no free variable and no metavariable is fine without a
 \ visit of its parts; a let's parts in Lean's order (type, value, body).
-: ac-binary? ( node -- flag ) lf-term-tag@ lf-term-binary-tag? ;
 : ac-inner? ( node -- flag )
-  dup ac-binary? if lf-meta-fvar-free? 0= else drop false then ;
+  dup lf-term-binary? if lf-meta-fvar-free? 0= else drop false then ;
 : ac-undone ( child walk -- child true | false )
   over swap dw-done? if drop false else true then ;
 : ac-parts ( node walk -- child true | false )
@@ -132,32 +131,35 @@ end-structure
 \ Applications: a failure under a lambda head Lean retries beta-reduced;
 \ ?f x1 .. xk with a variable out of scope, under ctxApprox, it solves
 \ with a constant function.
-: ac-beta? ( node -- flag ) lf-meta-head lf-term-tag@ lf-tag-lam = ;
+: ac-beta? ( node -- flag ) lf-meta-head lf-term-lam? ;
 : ac-fvar-args? ( node -- flag )
-  true swap begin dup lf-meta-app? while dup lf-term-second@ lf-meta-fvar? rot and swap
+  true swap begin dup lf-term-app? while dup lf-term-second@ lf-meta-fvar? rot and swap
   lf-term-first@ repeat drop ;
 : lf-meta-delayed? ( mvar -- flag ) lf-mvar-delayed dup if nip nip nip then ;
 : ac-mvar-spine? ( node -- flag )
   ac ac-approx @ 0= if drop false exit then
-  dup lf-meta-head dup lf-term-tag@ lf-tag-mvar =
+  dup lf-meta-head dup lf-mvar?
   if lf-meta-delayed? 0= swap ac-fvar-args? and else 2drop false then ;
 : ac-app ( node image -- image )
   dup 0= if nip exit then  over ac-beta? if 2drop ac-refuse exit then
   dup ac-scope-fail = if over ac-mvar-spine? if 2drop ac-refuse exit then then nip ;
 : ac-build ( node walk -- image )
-  drop dup ac-inner? 0= if dup ac-binary? if drop ac-fine else ac-leaf then exit then
-  dup ac-pair over lf-meta-app? if ac-app else nip then ;
+  drop dup ac-inner? 0= if dup lf-term-binary? if drop ac-fine else ac-leaf then exit then
+  dup ac-pair over lf-term-app? if ac-app else nip then ;
 : ac-walk-set ( pending build -- walk )
   ac-wk tuck dw-build ! tuck dw-pending ! lf-term-base lf-term-count @ + over dw-size ! ;
 
 \ ---- checkAssignment.
 : ac-xs! ( mvar addr n -- ) ac tuck ac-n ! tuck ac-xs ! ac-target ! ;
-: ac-x-occurs? ( -- flag outcome )
-  false ac ac-n @ 0 ?do ac-m i ac-x lf-fvar-type lf-mvar-occurs? ok-then? 0=
-    if nip unloop false swap exit then or loop outcome-ok ;
+\ A test's answer or-ed into the answer so far; false on a failure.
+: ac-or ( flag flag2 outcome -- flag' outcome )
+  ok-then? if or outcome-ok else nip false swap then ;
+: ac-occurs-at ( flag k -- flag' outcome )
+  ac-m swap ac-x lf-fvar-type lf-mvar-occurs? ac-or ;
+: ac-x-occurs? ( -- flag outcome ) false ac ac-n @ ['] ac-occurs-at ok-each ;
 : ac-locals? ( -- flag ) ac-m ac-sees-x? ;
 : ac-solid? ( v -- flag )
-  dup ac-binary? if lf-meta-fvar-free? exit then lf-term-tag@
+  dup lf-term-binary? if lf-meta-fvar-free? exit then lf-term-tag@
   dup lf-tag-fvar <> swap lf-tag-mvar <> and ;
 : ac-verdict ( v image outcome -- v' flag outcome )
   dup ok? 0= if nip false swap exit then drop 0= ac ac-hit @ 0= and outcome-ok ;
@@ -187,20 +189,19 @@ end-structure
 \ elimMVarDeps would act: a metavariable whose scope holds an xi (a node
 \ whose data word is known holds no metavariable).
 : ac-dep-inner? ( node -- flag )
-  dup ac-binary? if lf-term-data@ dup if nip then 0= else drop false then ;
+  dup lf-term-binary? if lf-term-data@ dup if nip then 0= else drop false then ;
 : ac-dep-pending ( node walk -- child true | false )
   over ac-dep-inner? if ac-parts else 2drop false then ;
 : ac-dep-leaf ( node -- 0|1 )
-  dup lf-term-tag@ lf-tag-mvar = if ac-sees-x? 1 and else drop 0 then ;
+  dup lf-mvar? if ac-sees-x? 1 and else drop 0 then ;
 : ac-dep-build ( node walk -- 0|1 )
   drop dup ac-dep-inner? if
   dup lf-term-first@ ac-img swap lf-term-second@ ac-img or exit then
-  dup ac-binary? if drop 0 else ac-dep-leaf then ;
+  dup lf-term-binary? if drop 0 else ac-dep-leaf then ;
 : ac-deps? ( term -- flag outcome )
   ['] ac-dep-pending ['] ac-dep-build ac-walk-set dw-run swap 0<> swap ;
-: ac-types-deps? ( -- flag outcome )
-  false ac ac-n @ 0 ?do i ac-x lf-fvar-type ac-deps? ok-then? 0=
-    if nip unloop false swap exit then or loop outcome-ok ;
+: ac-deps-at ( flag k -- flag' outcome ) ac-x lf-fvar-type ac-deps? ac-or ;
+: ac-types-deps? ( -- flag outcome ) false ac ac-n @ ['] ac-deps-at ok-each ;
 : ac-unported? ( v -- flag outcome )
   ac-let-between? if drop true outcome-ok exit then
   ac-deps? ok-then? 0= if false swap exit then if true outcome-ok
@@ -208,7 +209,7 @@ end-structure
 
 \ One binder: fun x => f x, x not in f, is f; else a lambda.
 : ac-eta ( e x -- e' flag outcome )
-  over lf-meta-app? 0= if drop false outcome-ok exit then
+  over lf-term-app? 0= if drop false outcome-ok exit then
   over lf-term-second@ over <> if drop false outcome-ok exit then
   over lf-term-first@ lf-mvar-occurs? ok-then? 0= if false swap exit then
   if false else lf-term-first@ true then outcome-ok ;

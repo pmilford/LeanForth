@@ -1259,3 +1259,60 @@ From the [S2 design note](../design/S2_INTERFACE.md) and its [design review](../
    [bypass] (nothing reaches "discharged" without LeanForth's kernel re-checking Lean's proof of the exact stated
    contract), [format] (report 0.1, whose exit 0 requires a discharged result; receipt 0.3 unchanged), [parser] (the
    contract translation). V1's done check follows when a slot is free; V2-V4 stay parked.
+
+### Library reuse (2026-11-13, afternoon)
+
+The owner, on learning that `lib/sort.fs` had no caller while new front-end code hand-wrote an insertion sort, and
+that the library candidates of the 2026-11-12 backlog reviews were never extracted: "improve the code design and
+development process so we reuse libraries and develop new ones as needed. this is really a bad problem and should
+never happen. you need to code like an experienced expert programmer. not a beginner. write reusable high quality
+code. add that to memory and agents.md", choosing a library audit of the front end now and a library stream beside
+the S slices, the libraries S2 would otherwise duplicate first.
+
+- **Rule** (AGENTS.md "Reuse first, and write code as an experienced expert would"): look before writing; a library
+  first when something general is missing, every existing copy replaced in the same branch; a "Reuse" part in every
+  design and brief; re-implementation and libraries without callers are blocking review findings
+  ([FORTH_REVIEWER.md](../development/FORTH_REVIEWER.md), the design checklist of
+  [DESIGN_STAGE_REVIEW.md](../development/DESIGN_STAGE_REVIEW.md)).
+- **Work** (plan 9.4.8): the audit's library plan, one library per branch; kernel copies under the [kernel] gate.
+
+### Library reuse: high priority, the whole code base (2026-11-13, afternoon)
+
+The owner: "I view this refactor/reuse as fairly high priority. so we will fix all the existing code including the
+kernel. do it carefully, but don't overtest each change, you should be able to do several at the same time. use unit
+testing a lot on individual changes. some might cause subtle problems in backward compatibility, so expect to debug
+that. report the number of lines of code before and after and the library use and also any new libraries found to
+develop." Plan 9.4.8 runs beside the S slices at high priority: every copy the audit found is replaced, the kernel's
+under the [kernel] gate (identical verdicts, fuel and snapshot bytes on Init); each branch batches several changes,
+unit-tests each one, and runs its tier once. Reports give lines of code and library use before and after
+(baseline at `14423237`: 202 Forth files, 61,177 lines, 37,800 code lines, 15,015 words; 30 libraries with 1,610 words,
+361 of them used outside `lib/`) and the new libraries found.
+
+**Fuel in the reuse work** (the owner, same afternoon: "a general sort with two algorithms split at n=32 might have
+different fuel than a single algorithm not split … be careful forcing fuel to be identical with a big refactor").
+Fuel is LeanForth's own work budget per declaration (`--fuel`, default 100,000,000), not Lean's; it only decides when
+a check stops as exhausted. Verdicts, diagnostics and snapshot bytes must stay identical; fuel is expected to stay
+identical where the work is the same, but no code is bent to reproduce an old count: a difference is measured per
+declaration on Init, explained, and shown at the [kernel] gate. Of the eight sorts, only the kernel's level
+normalization charges fuel (one unit per comparison), and it already uses the same insertion-then-merge split at 32
+that `lib/sort.fs` copied from it.
+
+### [import]: S1's library route (2026-11-13, afternoon)
+
+The owner approved the [import] gate for branch `s1-meta-b` (S1 merge B; ADR 0021 Amendment 2, D13): while a
+LeanForth file runs, the front end reads the library's declarations read-only from the importer's stage, decoding
+them into scratch thrown away before the stage is sealed; only the finished declaration reaches the kernel. Evidence
+shown: the stand-in `0 + 0 = 0` accepted and `0 + 0 = 1` refused with Lean's message; binder kinds equal Lean's on
+S1's 16 declarations; the Forth review's two memory-corruption bugs and its trust-test gap fixed (a test asserts the
+stage's tables are unchanged by decoding); 35 new planted faults caught; the tier passed; the coordinator's probe of
+the key faults. The merge follows the independent re-check of the fix commits (AGENTS.md: every Forth change).
+
+### [parser] and [import]: S1's instance tables (2026-11-13, evening)
+
+The owner approved the [parser] gate (LeanForth rebuilds Lean's instance keys and instance order from the
+elaboration data and checks every instance against its type: 2,321 of Init's 2,938 instances recomputed equal, 0
+differing, 617 not checkable until S2's unfolding and answering "not supported" only when a search tries one;
+candidate lists equal pinned Lean's on 13 of 13 problems) and the [import] gate for M6 (the elaboration data bound to
+the export's manifest; other data refused, error 39) for branch `s1-synth`, after two review rounds whose findings
+were fixed ([review](../development/forth-reviews/2026-11-13-s1-synth.md)). The second re-check's three minor items
+are the first step of FE1e5 (`synth.fs`).

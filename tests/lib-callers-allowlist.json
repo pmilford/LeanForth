@@ -1,0 +1,3 @@
+{
+ "src/lib/bigint.fs": {"plan": "FE1i-4", "reason": "first caller is slice S4, the by-omega tactic"}
+}

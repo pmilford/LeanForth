@@ -152,6 +152,16 @@ create wide-line 4096 allot  variable wide-length
   -1 wide-length +! s\" },\"expr\":0}}" wide+ wide-line wide-length @ ;
 T{ begun sorted-in data-most wide same -> outcome-ok outcome-ok outcome-ok true }T
 T{ begun sorted-in data-most 1+ wide refused -> outcome-ok outcome-ok outcome-full true }T
+\ Members in reverse order: by insertion up to sort.fs's cut-over of 32,
+\ merged through the module record's scratch above it; in key order.
+create rwide-line 4096 allot
+: rwide ( n -- c-addr u )
+  0 wide-length ! s\" {\"ie\":1,\"mdata\":{\"data\":{" wide+
+  dup 0 ?do dup i - 1- wide-member loop drop -1 wide-length +! s\" },\"expr\":0}}" wide+
+  wide-line rwide-line wide-length @ dup >r move rwide-line r> ;
+T{ begun sorted-in 32 rwide 32 wide becomes -> outcome-ok outcome-ok outcome-ok true }T
+T{ begun sorted-in 40 rwide 40 wide becomes -> outcome-ok outcome-ok outcome-ok true }T
+T{ begun sorted-in data-most rwide data-most wide becomes -> outcome-ok outcome-ok outcome-ok true }T
 \ A key longer than the writer's key pool is full.
 create long-line 5100 allot
 : long-start ( -- c-addr u ) s\" {\"ie\":1,\"mdata\":{\"data\":{\"" ;

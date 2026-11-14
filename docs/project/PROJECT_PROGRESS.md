@@ -51,7 +51,10 @@ status changes when this date is older than them. Stages are those of the
   equal to pinned Lean). On main since 2026-11-13, approved by the owner: FE1e1 (elaboration data format 2,
   [import]/[format]) and the job pool failing closed when threads are refused ([runtime]). FE1c's term unification (Lean's `isDefEq`: 87 of 107 cases equal to pinned Lean, 20 answer unsupported) tested alone.
   Library: `lib/sort.fs` (a stable sort the kernel's sorts can adopt, FRK C2) tested alone. Designed:
-  FE1e, FE1g, FE1i, FE2. Nothing is proved by
+  FE1e, FE1g, FE1i, FE2. On main since 2026-11-13, [parser] and [import] approved by the owner
+  (branch `s1-synth`): FE1e2 (discrimination-tree keys) and FE1e3 (the instance table, getInstances, every record's class and
+  root key checked at the first query) tested alone, `make reference-synth` 2,321 of 2,938 Init instances recomputed
+  equal, 0 refused, 617 unverified; FE1E §4 step 4 (out-parameters) is plan row FE1e3b, not started. Nothing is proved by
   LeanForth yet. Natural statements (8.6.10) are FE2, `add_comm` natively (8.6.11) FE5.
 - Program track, restarted 2026-11-12 after being parked since 2026-11-04: LeanForth re-checks Lean's proofs of
   the clamp word's obligations (plan 5.5.1): works end to end (done check docs/development/done-checks/2026-11-12-program-track.md); owner gates [bypass] and [runtime] approved 2026-11-12, merged.
@@ -63,6 +66,10 @@ status changes when this date is older than them. Stages are those of the
   way (2,890 declarations); their receipts wait for schema 0.4.
 
 **Next**
+- Library reuse (plan 9.4.8, owner 2026-11-13): designed; 9.4.8a part a tested alone on branch `reuse-1` (stacks on
+  slabs, loops over outcomes, index checks, core tag tests, sort.fs used; not merged); its checks (9.4.8f: libraries without callers, a duplicate-code ratchet, plan rows for proposed libraries, a generated word index) integrated 2026-11-13, run by `make test`; the rule is in AGENTS.md ("Reuse first"), the Forth
+  reviewer's procedure and the design checklist; an audit of `src/front` and of the 2026-11-12 library candidates is
+  running; then one library per branch beside the S slices, every copy replaced.
 - Priority (owner, 2026-11-13 midday): the front end's slices in order, S1 then S2 ($0 + n = n$ by `by-induction` and
   `by-rw`) then S3 onwards. S2's design ([S2_INTERFACE.md](../design/S2_INTERFACE.md)) reviewed and approved by the
   owner 2026-11-13, both FE1 forms; its first branch (`s2-unfold` merge A, Lean's unfolding) merges before S1's last
@@ -105,6 +112,8 @@ status changes when this date is older than them. Stages are those of the
   check is owed.
 
 **Later**
+- A faster sort for short lists (`lib/sort.fs` below its cut-over of 32; plan 9.4.8i, owner 2026-11-13): only if
+  benchmarks and traces of the callers' list sizes show it is worthwhile.
 - Proof development (owner, 2026-11-12; long term, after strict Lean compatibility): research note
   [PROOF_DEVELOPMENT.md](../design/PROOF_DEVELOPMENT.md), plan rows PD1–PD15, all not started; PD1, Lean's `sorry`
   reported NOT PROVED with the conditional report, is decided (ADR 0021 Amendment 1) and fits with FE1g and FE5.

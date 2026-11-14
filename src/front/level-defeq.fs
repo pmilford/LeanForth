@@ -70,10 +70,8 @@ require ./level-normalize.fs
 
 \ The pairs still to compare: a conjunction's second.
 2 cells context-slab: ld-pairs
-: ld-push ( l r -- outcome )
-  1 ld-pairs slab-claim dup ok? 0= if nip nip nip exit then
-  drop ld-pairs slab-at 2! outcome-ok ;
-: ld-pop ( -- l r ) ld-pairs dup slab-count 1- swap slab-at 2@ -1 ld-pairs slab-commit ;
+: ld-push ( l r -- outcome ) ld-pairs slab-2push ;
+: ld-pop ( -- l r ) ld-pairs slab-2pop ;
 
 \ Shapes (ld-offset, ld-base, ld-same? ...): level-simp.fs.
 : ld-offsets= ( l r -- flag ) ld-offset nip swap ld-offset nip = ;
