@@ -91,9 +91,10 @@ end-structure
   dup lf-fvar-let? if drop ac-refuse exit then
   ac-xs? if ac-fine else ac-scope-fail then ;
 \ Whether ?m occurs in a term, its assignments followed (mvars.fs); a
-\ check that fails ends the walk with its outcome.
+\ check that fails ends the walk with its outcome and answers false (its
+\ flag dropped: one cell either way).
 : ac-occurs-in ( term -- flag )
-  ac-m swap lf-mvar-occurs? dup ok? if drop else ac-refuse-with drop false then ;
+  ac-m swap lf-mvar-occurs? dup ok? if drop else nip ac-refuse-with then ;
 : ac-typed ( mvar -- ) lf-mvar-type if ac-occurs-in if true ac ac-hit ! then then ;
 : ac-other ( mvar -- image )
   lf-mvar-assignable? 0= if ac-fail exit then ac ac-approx @ if ac-refuse

@@ -27,7 +27,10 @@
 \ a mark gives back every unit claimed since, and refuses, with invalid
 \ and nothing changed, a mark of another slab, of another generation (a
 \ slab-clear since), of a poisoned slab, or one that is stale because an
-\ earlier rollback went below it. A slab has no per-unit identities;
+\ earlier rollback went below it. slab-cut ( n slab -- ) is a rollback
+\ to a count n the caller kept (a scope's start), with no mark: 0 <= n
+\ <= count, else it throws slab-bad-cut (-4133), a fault in the caller,
+\ as slab-underflow is. A slab has no per-unit identities;
 \ instead it keeps a stack of marked counts (ADR 0016 C3), strictly
 \ increasing, each with a serial that never repeats: a mark is valid
 \ exactly while its entry is on the stack. A rollback pops the entries
@@ -65,10 +68,10 @@
 \
 \ Interface: /slab slab-init slab-free slab-live? slab-valid? slab-count
 \ slab-capacity slab-limit slab-unit slab-at slab-top slab-room
-\ slab-reserve slab-claim slab-commit slab-trim slab-clear slab-bytes
-\ slab-used-bytes slab-limit-max slab-offset slab-push slab-pop
-\ slab-2push slab-2pop slab-last slab-drop slab-underflow slab-all?
-\ slab-2all?
+\ slab-reserve slab-claim slab-commit slab-cut slab-bad-cut slab-trim
+\ slab-clear slab-bytes slab-used-bytes slab-limit-max slab-offset
+\ slab-push slab-pop slab-2push slab-2pop slab-last slab-drop
+\ slab-underflow slab-all? slab-2all?
 \ slab-generation /slab-mark slab-mark slab-mark-valid? slab-rollback
 \ slab-mark-count. State: none of its own; every word takes a slab record
 \ made by the caller (in the dictionary or inside a larger record) and a
@@ -228,6 +231,7 @@ lf-lib set-current
   dup slab-count 1 max over slab-capacity = if drop outcome-ok exit then
   dup slab-count 1 max swap slab-resize ;
 -4132 constant slab-underflow   \ THROW code: no newest unit to pop, drop or read
+-4133 constant slab-bad-cut     \ THROW code: a cut outside 0 .. count, or of a dead slab
 lf-lib-private set-current
 
 \ A stack on a slab: the newest unit is the top, one value or pair to a
@@ -377,6 +381,24 @@ lf-lib set-current
   2dup slab-mark-valid? 0= if 2drop outcome-invalid exit then
   over slab-mark-count @ over slab-used ! swap slab-mark-entry @ 1+ swap slab-depth !
   outcome-ok ;
+lf-lib-private set-current
+
+\ Cutting back to a count n the caller kept (0 <= n <= count): a
+\ rollback without a mark. The mark entries above n go, so their marks
+\ are refused from then on, as after a rollback below them.
+: slab-cut? ( n slab -- flag ) dup slab-live? if slab-count upto? else 2drop false then ;
+: slab-marked-above? ( n slab -- flag )
+  dup slab-depth @ if slab-newest mark-entry-count @ < else 2drop false then ;
+: slab-unmark-above ( n slab -- )
+  begin 2dup slab-marked-above? while -1 over slab-depth +! repeat 2drop ;
+
+lf-lib set-current
+\ The count back to n: the units from n on given back (their contents
+\ stay until the next claim). A slab that is not live, or n outside 0 ..
+\ count, throws slab-bad-cut (-4133), nothing changed: n is a count the
+\ caller kept, so this is a fault in the caller, never an outcome.
+: slab-cut ( n slab -- )
+  2dup slab-cut? 0= if slab-bad-cut throw then 2dup slab-unmark-above slab-used ! ;
 
 module-close
 base !   \ the BASE this file was loaded with

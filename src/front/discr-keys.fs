@@ -102,9 +102,8 @@ end-structure
 : lf-dt-cons ( term list -- list' outcome )
   1 dk-cells slab-claim ok-then? 0= if nip nip no-result exit then
   tuck dk-at tuck tc-rest ! rot swap tc-term ! outcome-ok ;
-: dk-cells-back ( cells -- ) dk-cells slab-count - dk-cells slab-commit ;
 : lf-dt-mark ( -- keys texts cells ) elab-keys-mark dk-cells slab-count ;
-: lf-dt-release ( keys texts cells -- ) dk-cells-back elab-keys-drop ;
+: lf-dt-release ( keys texts cells -- ) dk-cells slab-cut elab-keys-drop ;
 : lf-dt-scoped ( i*x xt -- j*x ) lf-dt-mark 2>r >r execute r> 2r> lf-dt-release ;
 
 \ ---- Names and shapes (Lean's constant names, by text).
@@ -341,7 +340,7 @@ end-structure
   2drop outcome-ok ;
 : dk-path-count ( k0 outcome -- k n outcome ) elab-keys# rot tuck - rot ;
 : dk-path-run ( type -- k n outcome )   \ the list cells it made forgotten
-  elab-keys# swap dk-cells slab-count >r dk-path-loop r> dk-cells-back dk-path-count ;
+  elab-keys# swap dk-cells slab-count >r dk-path-loop r> dk-cells slab-cut dk-path-count ;
 : lf-dt-path ( type -- k n outcome ) ['] dk-path-run lf-tr-reducible lf-meta-at ;
 
 base !   \ the BASE this file was loaded with

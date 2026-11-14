@@ -486,11 +486,10 @@ end-structure
 : mv-open ( kind -- mark outcome )
   1 mv-marks slab-claim ok-then? 0= if nip 0 swap exit then
   mv-marks slab-at mv-scope-fill outcome-ok ;
-: mv-cut ( n slab -- ) tuck slab-count - swap slab-commit ;
 : mv-back-to ( i -- ) begin dup mv-at <> while mv-at mv-undo repeat drop ;
-: mv-undo-scope ( -- ) mv-latest dup mvs-entry @ mv-back-to mvs-length @ mv-trail mv-cut ;
+: mv-undo-scope ( -- ) mv-latest dup mvs-entry @ mv-back-to mvs-length @ mv-trail slab-cut ;
 : mv-close ( -- )
-  mv-latest mvs-snaps @ mv-snaps mv-cut -1 mv-marks slab-commit
+  mv-latest mvs-snaps @ mv-snaps slab-cut mv-marks slab-drop
   lf-mctx-marks 0= if mv-trail slab-clear -1 mv-at! then ;
 : lf-mctx-mark ( -- mark outcome ) mv-plain mv-open ;
 : lf-mctx-rollback ( mark -- outcome )

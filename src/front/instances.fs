@@ -433,7 +433,7 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
   it-node-new ok-then? 0= if no-result exit then it-insert-ranked ;
 : it-tree-mark ( -- nodes vals ) it-nodes slab-count it-vals slab-count ;
 : it-tree-back ( nodes vals -- )
-  it-vals slab-count - it-vals slab-commit it-nodes slab-count - it-nodes slab-commit ;
+  it-vals slab-cut it-nodes slab-cut ;
 : it-tree ( k -- node outcome )
   it-tree-mark 2>r it-filled dup ok? if 2r> 2drop else 2r> it-tree-back then ;
 : it-prepared ( k -- outcome )   \ its values by rank, step 2 for its instances
@@ -524,7 +524,7 @@ begin-structure /tframe  field: tf-todo  field: tf-node  field: tf-skip  end-str
 : it-kept ( w v -- w' ) dup it-erased? if drop else over it-out slab-at ! 1+ then ;
 : it-drop-erased ( -- )
   0 it-out slab-count 0 ?do i it-out slab-at @ it-kept loop
-  it-out slab-count - it-out slab-commit ;
+  it-out slab-cut ;
 : it-class-body ( type -- body class outcome )
   it-goal-body ok-then? 0= if -1 -1 rot exit then
   dup lf-class? ok-then? 0= if nip -1 -1 rot exit then

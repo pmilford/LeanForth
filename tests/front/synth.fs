@@ -355,4 +355,17 @@ T{ budgets-ok? 0 budget-run need 1- budget-run nip nip need budget-run -rot 2dro
   true 800 1 do i refusal-ok? -rot and swap 0= if leave then loop ;
 : fired? ( k -- flag ) refused >r 2drop drop r> ;
 T{ refusals-ok? 800 fired? -> true false }T
+\ A goal that keeps a metavariable (OfNat Nat ?k): unification's
+\ checkAssignment runs (assign-check.fs's occurs check), so each refusal
+\ answers full, or Lean's check of the result (121), and leaves nothing
+\ behind (review s1-synth-b H1: a refused occurs check left two cells).
+: hole-refused ( k -- inst flag outcome fired? )
+  ofnat-hole swap fresh heap-refusals ! synth heap-refusals @ 0= 0 heap-refusals ! ;
+: hole-ok? ( k -- flag fired? )
+  hole-refused >r nip nip dup outcome-full = if drop clean? r> exit then
+  outcome-unsupported = lf-synth-error 121 = and clean? and r> ;
+: hole-refusals-ok? ( -- flag )
+  true 1000 1 do i hole-ok? -rot and swap 0= if leave then loop ;
+: hole-fired? ( k -- flag ) hole-refused >r 2drop drop r> ;
+T{ hole-refusals-ok? 1000 hole-fired? -> true false }T
 bye

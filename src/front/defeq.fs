@@ -225,7 +225,7 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 : de-cell ( i -- addr ) de-cells slab-at ;
 : de-push ( x -- flag )
   de-cells lf-meta-push dup ok? if drop true else de-abort false then ;
-: de-truncate ( n -- ) de-cells slab-count - de-cells slab-commit ;
+: de-truncate ( n -- ) de-cells slab-cut ;
 \ An answer, with the activation's cells (from de-x on) given back.
 : de-cells-return ( r -- ) de-x de-truncate de-return ;
 : de-claim ( n -- i flag )
@@ -393,7 +393,7 @@ defer lf-meta-synth ( type -- inst flag outcome )
 : de-out-cells ( -- outcome ) de-cells de-out-slab ;
 : de-aside ( -- outcome )
   de-saved slab-count de-out-df ['] de-out-frames ok-and ['] de-out-cells ok-and
-  dup ok? if nip exit then swap de-saved slab-count - de-saved slab-commit ;
+  dup ok? if nip exit then swap de-saved slab-cut ;
 : de-back ( -- ) de-cells de-in-slab de-frames de-in-slab df /df cell / de-in ;
 : de-nested ( mvar xt -- flag outcome )
   de-aside dup ok? 0= if nip nip false swap exit then drop catch de-back throw ;

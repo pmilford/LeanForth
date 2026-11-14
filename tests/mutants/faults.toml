@@ -10825,6 +10825,14 @@ test = "$GFORTH tests/front/front.fs"
 reason = "FE1b: ?u := succ ?u is assigned"
 
 [[fault]]
+id = "fe-assign-occurs-two-cells"
+file = "src/front/assign-check.fs"
+old = '''  ac-m swap lf-mvar-occurs? dup ok? if drop else nip ac-refuse-with then ;'''
+new = '''  ac-m swap lf-mvar-occurs? dup ok? if drop else ac-refuse-with drop false then ;'''
+test = "$GFORTH tests/front/synth.fs"
+reason = "review s1-synth-b H1: a refused occurs check leaves two cells, and the walk then stores through a garbage address (the heap-refusal sweep over OfNat Nat ?k)"
+
+[[fault]]
 id = "fe-assign-twice"
 file = "src/front/mvars.fs"
 old = ''': mv-free? ( mvar -- flag ) mv-of if mv-unassigned? else false then ;'''
@@ -14530,6 +14538,31 @@ test = "$GFORTH tests/lib/slab.fs"
 reason = "slab-2all? pops one cell, not a pair: the test reads the slab beneath as its first value"
 
 [[fault]]
+id = "lib-slab-cut-unchecked"
+file = "src/lib/slab.fs"
+old = '''  2dup slab-cut? 0= if slab-bad-cut throw then 2dup slab-unmark-above slab-used ! ;'''
+new = '''  2dup slab-unmark-above slab-used ! ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review s1-synth-b B2: a cut above the count (or below 0) sets the count past the units claimed, as the hand-written negative slab-commit could, instead of throwing slab-bad-cut"
+quick = true
+
+[[fault]]
+id = "lib-slab-cut-marks-kept"
+file = "src/lib/slab.fs"
+old = '''  2dup slab-cut? 0= if slab-bad-cut throw then 2dup slab-unmark-above slab-used ! ;'''
+new = '''  2dup slab-cut? 0= if slab-bad-cut throw then slab-used ! ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review s1-synth-b B2: a cut keeps the mark entries above it, so a mark the cut went below is accepted again once the count passes it"
+
+[[fault]]
+id = "lib-slab-cut-edge"
+file = "src/lib/slab.fs"
+old = ''': slab-cut? ( n slab -- flag ) dup slab-live? if slab-count upto? else 2drop false then ;'''
+new = ''': slab-cut? ( n slab -- flag ) dup slab-live? if slab-count 1- upto? else 2drop false then ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review s1-synth-b B2: a cut to the count itself (a scope that claimed nothing) throws"
+
+[[fault]]
 id = "fe-pairs-all-outcome-lost"
 file = "src/lib/slab.fs"
 old = '''  >r begin slab-more? while r@ execute ok-true? 0= if r> drop slab-stop exit then'''
@@ -15712,7 +15745,7 @@ reason = "S1 §3: a switch keeps the current branch's changes and adds the targe
 [[fault]]
 id = "fe-trail-snaps-kept"
 file = "src/front/mvars.fs"
-old = '''  mv-latest mvs-snaps @ mv-snaps mv-cut -1 mv-marks slab-commit'''
+old = '''  mv-latest mvs-snaps @ mv-snaps slab-cut mv-marks slab-drop'''
 new = '''  -1 mv-marks slab-commit'''
 test = "$GFORTH tests/front/front.fs"
 reason = "S1 §3: a closed scope's snapshots stay valid targets (stale snapshots must be refused)"
