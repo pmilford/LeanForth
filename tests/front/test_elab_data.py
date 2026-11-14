@@ -106,8 +106,8 @@ SUN = '"name":["Nat","add"],"nodes":['
 SUN_END = '],"rec_arg":1,"value":23}}'
 # Nodes of every other form, after the root of Nat.add's body: a sort, an
 # anonymous instance-implicit pi, a have and a let, literals, a projection
-# of a structure the slice lacks (the record foreign) and of Nat, and a
-# borrowed mark.
+# of a structure the slice lacks (the record foreign) and of Nat, a
+# borrowed mark, and sorts of the levels max and imax (MORE_LEVELS).
 MORE_NODES = ('{"sort":1}',
               '{"forall":{"body":0,"info":"inst","name":[],"type":24}}',
               '{"let":{"body":5,"name":["y"],"non_dep":true,"type":0,"value":7}}',
@@ -115,7 +115,8 @@ MORE_NODES = ('{"sort":1}',
               '{"proj":{"expr":0,"idx":1,"struct":["Prod"]}}',
               '{"mdata":{"entries":[[["borrowed"],{"bool":true}]],"expr":27}}',
               '{"let":{"body":0,"name":["z"],"non_dep":false,"type":0,"value":0}}',
-              '{"proj":{"expr":26,"idx":0,"struct":["Nat"]}}')
+              '{"proj":{"expr":26,"idx":0,"struct":["Nat"]}}', '{"sort":2}', '{"sort":3}')
+MORE_LEVELS = ('"levels":["zero",{"succ":0}]', '"levels":["zero",{"succ":0},{"max":[0,1]},{"imax":[1,0]}]')
 
 
 def eliminators_text():
@@ -129,8 +130,9 @@ def eliminators_text():
         ("cases", ["Nat", "casesOn"], [["Nat"]]),
         ("induction", ["And", "rec"], [["And"]]),
         ("induction", ["Eq", "rec"], [["Eq"], ["Nat"]]))]
-    records = swap(SUN_END, "," + ",".join(MORE_NODES) + SUN_END,
-                   swap(BITVEC_CONST, BITVEC_PROJ))
+    records = swap(MORE_LEVELS[0] + ',"name":["Nat","add"]', MORE_LEVELS[1] + ',"name":["Nat","add"]',
+                   swap(SUN_END, "," + ",".join(MORE_NODES) + SUN_END,
+                        swap(BITVEC_CONST, BITVEC_PROJ)))
     return assemble(records + elims)
 
 
@@ -680,7 +682,8 @@ def format3_cases():
     smart-unfolding bodies."""
     c = changed
     sun = '"levels":["zero",{"succ":0}],' + SUN
-    more = swap(SUN_END, "," + ",".join(MORE_NODES) + SUN_END)
+    more = swap(MORE_LEVELS[0] + ',"name":["Nat","add"]', MORE_LEVELS[1] + ',"name":["Nat","add"]',
+                swap(SUN_END, "," + ",".join(MORE_NODES) + SUN_END))
     sun_line = line_of(SUN, GOOD_RECORDS)
     return [
         # 41: named twice.
@@ -691,8 +694,12 @@ def format3_cases():
              "an index to no earlier"),
         case("constant's level beyond the table", c('"levels":[1]}', '"levels":[2]}'), 4,
              "an index to no earlier"),
-        case("sort's level beyond the table", (assemble(swap('{"sort":1}', '{"sort":2}', more)),
+        case("sort's level beyond the table", (assemble(swap('{"sort":1}', '{"sort":4}', more)),
                                                sun_line), 4, "an index to no earlier"),
+        case("max naming a later level", (assemble(swap('{"max":[0,1]}', '{"max":[0,2]}', more)),
+                                          sun_line), 4, "an index to no earlier"),
+        case("imax of one level", (assemble(swap('{"imax":[1,0]}', '{"imax":[1]}', more)),
+                                   sun_line), 4, "malformed"),
         case("root beyond the nodes", c('"value":23}}', '"value":24}}'), 4,
              "an index to no earlier"),
         # 43: a loose bound variable at the root.
@@ -815,7 +822,9 @@ def command_line(work):
                                      '"star",{"lit_str":"0"}],"name":["Zero","toOfNat0"]'),
         "a body naming a constant the slice lacks": swap('{"const":["Nat","succ"]',
                                                          '{"const":["Nat","noSuch"]'),
-        "a body with a node of every form": swap(SUN_END, "," + ",".join(MORE_NODES) + SUN_END),
+        "a body with a node of every form": swap(
+            MORE_LEVELS[0] + ',"name":["Nat","add"]', MORE_LEVELS[1] + ',"name":["Nat","add"]',
+            swap(SUN_END, "," + ",".join(MORE_NODES) + SUN_END)),
         "a body with no recursion argument": swap('"rec_arg":1,', '"rec_arg":null,'),
         "a recursion argument beyond the type's binders": swap('"rec_arg":1,', '"rec_arg":7,'),
         "a body of a universe-polymorphic definition": list(GOOD_RECORDS) + [POLY],

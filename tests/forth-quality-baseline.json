@@ -125,7 +125,7 @@
   "long words": 0,
   "rstack": 2,
   "shuffles": 1,
-  "words": 62
+  "words": 63
  },
  "src/cli/check-run.fs": {
   "globals": 19,
@@ -141,7 +141,7 @@
   "long words": 17,
   "rstack": 25,
   "shuffles": 11,
-  "words": 419
+  "words": 420
  },
  "src/cli/name-text.fs": {
   "globals": 3,
@@ -471,21 +471,37 @@
   "shuffles": 5,
   "words": 32
  },
+ "src/front/defeq-delta.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 3,
+  "shuffles": 0,
+  "words": 54
+ },
  "src/front/defeq.fs": {
   "globals": 0,
   "long lines": 0,
   "long words": 0,
   "rstack": 9,
   "shuffles": 5,
-  "words": 260
+  "words": 274
  },
- "src/front/elab-data.fs": {
-  "globals": 37,
+ "src/front/discr-keys.fs": {
+  "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 23,
-  "shuffles": 27,
-  "words": 299
+  "rstack": 19,
+  "shuffles": 14,
+  "words": 106
+ },
+ "src/front/elab-data.fs": {
+  "globals": 62,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 25,
+  "shuffles": 28,
+  "words": 405
  },
  "src/front/elab-keys.fs": {
   "globals": 0,
@@ -493,7 +509,7 @@
   "long words": 0,
   "rstack": 0,
   "shuffles": 2,
-  "words": 27
+  "words": 31
  },
  "src/front/expr-remap.fs": {
   "globals": 0,
@@ -509,7 +525,7 @@
   "long words": 0,
   "rstack": 10,
   "shuffles": 1,
-  "words": 41
+  "words": 40
  },
  "src/front/goal-print.fs": {
   "globals": 0,
@@ -533,7 +549,7 @@
   "long words": 0,
   "rstack": 2,
   "shuffles": 2,
-  "words": 28
+  "words": 29
  },
  "src/front/infer.fs": {
   "globals": 0,
@@ -541,7 +557,15 @@
   "long words": 0,
   "rstack": 10,
   "shuffles": 2,
-  "words": 51
+  "words": 67
+ },
+ "src/front/instances.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 28,
+  "shuffles": 15,
+  "words": 162
  },
  "src/front/instantiate.fs": {
   "globals": 0,
@@ -580,8 +604,8 @@
   "long lines": 0,
   "long words": 0,
   "rstack": 28,
-  "shuffles": 7,
-  "words": 65
+  "shuffles": 6,
+  "words": 63
  },
  "src/front/level-params.fs": {
   "globals": 0,
@@ -613,7 +637,7 @@
   "long words": 0,
   "rstack": 2,
   "shuffles": 0,
-  "words": 11
+  "words": 12
  },
  "src/front/meta-env.fs": {
   "globals": 10,
@@ -621,7 +645,7 @@
   "long words": 0,
   "rstack": 7,
   "shuffles": 7,
-  "words": 109
+  "words": 115
  },
  "src/front/meta-spine.fs": {
   "globals": 0,
@@ -629,7 +653,7 @@
   "long words": 0,
   "rstack": 2,
   "shuffles": 2,
-  "words": 17
+  "words": 20
  },
  "src/front/mvars.fs": {
   "globals": 0,
@@ -637,7 +661,7 @@
   "long words": 0,
   "rstack": 31,
   "shuffles": 2,
-  "words": 230
+  "words": 232
  },
  "src/front/nat-offset.fs": {
   "globals": 0,
@@ -645,7 +669,7 @@
   "long words": 0,
   "rstack": 9,
   "shuffles": 2,
-  "words": 64
+  "words": 62
  },
  "src/front/prop-quick.fs": {
   "globals": 0,
@@ -653,7 +677,7 @@
   "long words": 0,
   "rstack": 8,
   "shuffles": 1,
-  "words": 36
+  "words": 35
  },
  "src/front/reader.fs": {
   "globals": 0,
@@ -701,15 +725,23 @@
   "long words": 0,
   "rstack": 6,
   "shuffles": 3,
-  "words": 29
+  "words": 31
+ },
+ "src/front/unfold.fs": {
+  "globals": 0,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 8,
+  "shuffles": 4,
+  "words": 27
  },
  "src/front/whnf.fs": {
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 12,
-  "shuffles": 4,
-  "words": 133
+  "rstack": 10,
+  "shuffles": 2,
+  "words": 155
  },
  "src/import/checker-input.fs": {
   "globals": 5,
@@ -741,7 +773,7 @@
   "long words": 0,
   "rstack": 100,
   "shuffles": 19,
-  "words": 77
+  "words": 91
  },
  "src/import/ndjson-count.fs": {
   "globals": 4,

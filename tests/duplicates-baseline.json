@@ -369,6 +369,14 @@
   ],
   "tokens": 8
  },
+ "344d6c558513": {
+  "copies": 2,
+  "members": [
+   "src/front/elab-data.fs:ed-proj-idx!",
+   "src/front/elab-data.fs:ed-nd-idx"
+  ],
+  "tokens": 8
+ },
  "3555000a639a": {
   "copies": 2,
   "members": [
@@ -539,24 +547,6 @@
   ],
   "tokens": 9
  },
- "50026c52a315": {
-  "copies": 2,
-  "members": [
-   "src/front/defeq.fs:de-exp-o",
-   "src/front/defeq.fs:de-exp-e2"
-  ],
-  "tokens": 9
- },
- "50aa5e7dcd17": {
-  "copies": 4,
-  "members": [
-   "src/front/elab-data.fs:ed-inst-fact",
-   "src/front/elab-data.fs:ed-class-fact",
-   "src/front/elab-data.fs:ed-match-fact",
-   "src/front/elab-data.fs:ed-proj-fact"
-  ],
-  "tokens": 13
- },
  "50ac08b3bcf0": {
   "copies": 2,
   "members": [
@@ -619,6 +609,14 @@
   "members": [
    "src/kernel/env-signature.fs:lf-envsig-left",
    "src/kernel/mixed-signature-probe.fs:lf-msp-left"
+  ],
+  "tokens": 8
+ },
+ "591a5096d9b3": {
+  "copies": 2,
+  "members": [
+   "src/front/elab-data.fs:ed-nd-body",
+   "src/front/elab-data.fs:ed-nd-let-body"
   ],
   "tokens": 8
  },
@@ -830,6 +828,14 @@
   ],
   "tokens": 10
  },
+ "7a3d0d08c70e": {
+  "copies": 2,
+  "members": [
+   "src/front/elab-data.fs:ed-nd-value",
+   "src/front/elab-data.fs:ed-sun-value!"
+  ],
+  "tokens": 8
+ },
  "7c73ccf93620": {
   "copies": 4,
   "members": [
@@ -897,14 +903,6 @@
    "src/lib/outcome.fs:ok-then2?"
   ],
   "tokens": 10
- },
- "877b2fdbbd4b": {
-  "copies": 2,
-  "members": [
-   "src/front/defeq.fs:de-assign2",
-   "src/front/defeq.fs:de-expensive"
-  ],
-  "tokens": 8
  },
  "87fc6aa43754": {
   "copies": 2,
@@ -1056,14 +1054,6 @@
   ],
   "tokens": 8
  },
- "9fe570e50ece": {
-  "copies": 2,
-  "members": [
-   "src/front/defeq.fs:de-ckpt-assign",
-   "src/front/defeq.fs:de-solve-entry"
-  ],
-  "tokens": 11
- },
  "a1f608f0bfb2": {
   "copies": 2,
   "members": [
@@ -1170,14 +1160,6 @@
    "src/import/ndjson-count.fs:.json-offset"
   ],
   "tokens": 11
- },
- "b6f4f28ce792": {
-  "copies": 2,
-  "members": [
-   "src/front/defeq.fs:de-mm-st",
-   "src/front/defeq.fs:de-mm-ts"
-  ],
-  "tokens": 16
  },
  "b7d8c2a1635d": {
   "copies": 2,
@@ -1427,14 +1409,6 @@
   ],
   "tokens": 15
  },
- "d29897903fa2": {
-  "copies": 2,
-  "members": [
-   "src/front/defeq.fs:de-exp-e1",
-   "src/front/defeq.fs:de-solve-q"
-  ],
-  "tokens": 16
- },
  "d3eb1ff6ac5e": {
   "copies": 2,
   "members": [
@@ -1514,6 +1488,14 @@
   "members": [
    "src/core/compact-names.fs:name-up",
    "src/front/constructions.fs:nth-pi"
+  ],
+  "tokens": 8
+ },
+ "dc8cff64fa89": {
+  "copies": 2,
+  "members": [
+   "src/front/elab-data.fs:ed-elim-decl!",
+   "src/front/elab-data.fs:ed-nd-name"
   ],
   "tokens": 8
  },
@@ -1632,6 +1614,14 @@
   ],
   "tokens": 15
  },
+ "e60a6daee8de": {
+  "copies": 2,
+  "members": [
+   "src/front/defeq.fs:de-ckpt-assign",
+   "src/front/defeq.fs:de-solve-entry"
+  ],
+  "tokens": 8
+ },
  "e9365edb85b2": {
   "copies": 2,
   "members": [
@@ -1705,16 +1695,6 @@
   "members": [
    "src/import/snapshot-tier.fs:tf-fill",
    "src/import/snapshot-tier.fs:tf-plain"
-  ],
-  "tokens": 16
- },
- "ef39288f04e1": {
-  "copies": 4,
-  "members": [
-   "src/front/elab-data.fs:ed-inst-decl!",
-   "src/front/elab-data.fs:ed-class-decl!",
-   "src/front/elab-data.fs:ed-match-decl!",
-   "src/front/elab-data.fs:ed-proj-decl!"
   ],
   "tokens": 16
  },

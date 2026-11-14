@@ -238,6 +238,11 @@ T{ 29 elab-node-kind 29 elab-node-a 29 elab-node-b 29 elab-node-c -> elab-node-p
 T{ 32 elab-node-a 32 elab-node-c 30 elab-node-a 30 elab-node-c
    -> s" Nat" top 26 elab-borrowed 27 }T
 T{ 24 ed-loose 25 ed-loose 26 ed-loose 32 ed-loose -> 0 0 1 1 }T
+\ Its levels max 0 1 and imax 1 0 (levels 2 and 3), the sorts of 33, 34.
+T{ 33 elab-node-a dup elab-level-kind over elab-level-a rot elab-level-b
+   -> elab-level-max 0 1 }T
+T{ 34 elab-node-a dup elab-level-kind over elab-level-a rot elab-level-b
+   -> elab-level-imax 1 0 }T
 
 \ A refused read keeps nothing; the next read works and replaces it.
 : forgotten? ( d -- flag )
