@@ -630,12 +630,13 @@ in the data, one `sunfold` record:
       argument and one beyond its type's binders, a body of a
       universe-polymorphic definition), the verdicts
       unchanged, and 4 misuses (a layered snapshot among them);
-    - 158 damaged files, each refused with its line, code, text and exit
+    - 174 damaged files, each refused with its line, code, text and exit
       status and never "accepted": format 1's checks, format 2's (codes
       27-37, the key forms, ranks, matchers, projections, every record
       kind with a member added), format 3's (codes 41-45, 12 and 14,
-      malformed nodes and levels of a body, max and imax levels, and a
-      polymorphic body with no or other universe parameters), and a format-1 and a
+      malformed nodes, levels, references and annotations of a body,
+      max and imax levels, and a polymorphic body with no or other
+      universe parameters), and a format-1 and a
       format-2 file.
   - Never run by `make test` (9 blocks, listed with their reasons in
     `tests/coverage-baseline.json`):
