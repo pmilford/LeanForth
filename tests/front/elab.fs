@@ -182,6 +182,22 @@ T{ lf-elab-error drop -> 132 }T
 T{ lf-elab-reset nat nat lf-term-pi drop fvar-of app-run nip lf-elab-error drop
    -> outcome-unsupported 136 }T
 
+\ ---- 7. Golden traces (FE1E 1.6) of C17, 0 + 0 = 0, and C1, 0 + n = n,
+\ as far as they run before lazy delta (S2 merge A: SWITCH, then to their
+\ ends, with synth.fs's own synthesis lines): pinned Lean's order of
+\ events (tests/front/s1-c17.lean's trace: the three numerals' instance
+\ problems stuck and resumed in each tree's round, then elabAppArgs of
+\ HAdd.hAdd with ?α ?β ?γ ?self and the two operands, finalize's HAdd
+\ problem stuck; C1: analyze's max type Nat, then hasHomogeneousInstance's
+\ mkAppM, where outParam must unfold), each event a line.
+: golden ( c-addr u -- c-addr' u' ) slurp-file ;
+true lf-elab-trace!
+T{ s" axiom c17 0 0 + 0 = end c17" nfails see-at -> 139 1 21 1 19 }T
+T{ lf-elab-trace s" tests/front/s1-c17.trace" golden compare -> 0 }T
+T{ s" axiom c1 Nat explicit: n 0 n + n = end c1" nfails see-at -> 139 1 36 1 34 }T
+T{ lf-elab-trace s" tests/front/s1-c1.trace" golden compare -> 0 }T
+false lf-elab-trace!
+
 \ ---- 6. After every failure above, a fresh declaration elaborates as in
 \ a fresh run; the stack is as it was.
 T{ s" theorem z7 0 0 = := by by-rfl end z7" nrun ty 0 num 0 num eq-nat same?

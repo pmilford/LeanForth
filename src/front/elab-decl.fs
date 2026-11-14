@@ -107,7 +107,10 @@ action-of lfa-run-fresh constant edc-run-before
 : edc-binder ( slot -- outcome )
   lfa-binder dup lfa-binder-domain @ lf-elab-type ok-then? 0= if nip exit then
   edc-fvar dup ok? if drop edc-local else nip nip then ;
-: edc-binders ( -- outcome ) lfa-params 0 max ['] edc-binder ok-each ;
+\ The parameters: the binders open at := (an axiom, which has no :=, all
+\ binders open at end).
+: edc-params ( -- n ) lfa-params dup 0< if drop lfa-depth then ;
+: edc-binders ( -- outcome ) edc-params ['] edc-binder ok-each ;
 : edc-holes ( type -- type outcome )
   dup lf-elab-holes? ok-then? 0= if exit then if lfa-e-elab-step lf-elab-fail else outcome-ok then ;
 : edc-statement ( -- type outcome )

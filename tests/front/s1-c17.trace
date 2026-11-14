@@ -1,0 +1,40 @@
+binrel Eq
+binop HAdd.hAdd
+num 0
+synth @OfNat ?m.1 0: stuck
+pending ?1
+leaf @OfNat.ofNat ?m.1 0 ?m.2
+num 0
+synth @OfNat ?m.3 0: stuck
+pending ?3
+leaf @OfNat.ofNat ?m.3 0 ?m.4
+synth @OfNat ?m.1 0: stuck
+resume ?1: not ready
+synth @OfNat ?m.3 0: stuck
+resume ?3: not ready
+num 0
+synth @OfNat ?m.5 0: stuck
+pending ?5
+leaf @OfNat.ofNat ?m.5 0 ?m.6
+synth @OfNat ?m.1 0: stuck
+resume ?1: not ready
+synth @OfNat ?m.3 0: stuck
+resume ?3: not ready
+synth @OfNat ?m.5 0: stuck
+resume ?5: not ready
+analyze max none
+app HAdd.hAdd
+ implicit ?6
+ arg 0: ?m.7
+ implicit ?7
+ arg 1: ?m.8
+ implicit ?8
+ arg 2: ?m.9
+ instance ?9
+ arg 3: ?m.10
+ arg 4: @OfNat.ofNat ?m.1 0 ?m.2
+ arg 5: @OfNat.ofNat ?m.3 0 ?m.4
+ finalize
+synth @HAdd ?m.7 ?m.8 ?m.9: stuck
+pending ?9
+error 139

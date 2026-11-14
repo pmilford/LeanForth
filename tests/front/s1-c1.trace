@@ -1,0 +1,21 @@
+app Nat
+ finalize
+ expect  =?= Type
+binrel Eq
+binop HAdd.hAdd
+num 0
+synth @OfNat ?m.1 0: stuck
+pending ?1
+leaf @OfNat.ofNat ?m.1 0 ?m.2
+app n
+ finalize
+leaf n
+synth @OfNat ?m.1 0: stuck
+resume ?1: not ready
+app n
+ finalize
+leaf n
+synth @OfNat ?m.1 0: stuck
+resume ?1: not ready
+analyze max Nat
+error 139
